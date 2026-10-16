@@ -35,7 +35,11 @@ const DEFAULT_MAX_NUMERIC_TEXT_LENGTH: int = 4096
 ## @param use_truncation: 为 true 时截断，否则四舍五入。
 ## [br]
 ## @return 调整后的值。
-static func apply_decimal_places(value: float, decimal_places: int, use_truncation: bool) -> float:
+static func apply_decimal_places(
+	value: float,
+	decimal_places: int,
+	use_truncation: bool
+) -> float:
 	if _is_non_finite(value):
 		push_error("[GFDecimalStringFormatter][decimal_string_formatter.value_non_finite] Only finite floating-point values can be formatted.")
 		return 0.0
@@ -97,7 +101,11 @@ static func format_decimal_value(
 		return "0"
 
 	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
-	var adjusted_value: float = apply_decimal_places(value, normalized_decimal_places, use_truncation)
+	var adjusted_value: float = apply_decimal_places(
+		value,
+		normalized_decimal_places,
+		use_truncation
+	)
 	if normalized_decimal_places <= 0:
 		return str(int(adjusted_value))
 
@@ -153,18 +161,18 @@ static func format_decimal_text(
 		combined_digits = _increment_decimal_digits(combined_digits)
 		if normalized_decimal_places > 0:
 			if combined_digits.length() <= normalized_decimal_places:
-				combined_digits = "0".repeat(
-					normalized_decimal_places + 1 - combined_digits.length()
-				) + combined_digits
-			integer_part = combined_digits.left(
-				combined_digits.length() - normalized_decimal_places
-			)
+				combined_digits = (("0".repeat(normalized_decimal_places + 1 - combined_digits.length())) + combined_digits)
+			integer_part = combined_digits.left(combined_digits.length() - normalized_decimal_places)
 			kept_fraction = combined_digits.right(normalized_decimal_places)
 		else:
 			integer_part = combined_digits
 
-	if _digits_are_zero(integer_part) and (
-		kept_fraction.is_empty() or _digits_are_zero(kept_fraction)
+	if (
+		_digits_are_zero(integer_part)
+		and (
+			kept_fraction.is_empty()
+			or _digits_are_zero(kept_fraction)
+		)
 	):
 		sign_text = ""
 
@@ -219,30 +227,62 @@ static func trim_trailing_zeroes(text: String) -> String:
 static func normalize_numeric_text(text: String, max_input_length: int = DEFAULT_MAX_NUMERIC_TEXT_LENGTH) -> Dictionary:
 	var limit: int = max_input_length if max_input_length > 0 else DEFAULT_MAX_NUMERIC_TEXT_LENGTH
 	if text.length() > limit:
-		return _make_numeric_text_result(false, "", "input_too_long")
+		return _make_numeric_text_result(
+			false,
+			"",
+			"input_too_long"
+		)
 	var normalized: String = text.strip_edges()
 	if normalized.is_empty():
-		return _make_numeric_text_result(false, "", "empty_input")
+		return _make_numeric_text_result(
+			false,
+			"",
+			"empty_input"
+		)
 
 	var exponent_index: int = normalized.find("e")
 	var uppercase_exponent_index: int = normalized.find("E")
-	if exponent_index < 0 or (uppercase_exponent_index >= 0 and uppercase_exponent_index < exponent_index):
+	if (
+		exponent_index < 0
+		or (
+			uppercase_exponent_index >= 0
+			and uppercase_exponent_index < exponent_index
+		)
+	):
 		exponent_index = uppercase_exponent_index
 	var exponent_suffix: String = ""
 	if exponent_index >= 0:
-		if normalized.find("e", exponent_index + 1) >= 0 or normalized.find("E", exponent_index + 1) >= 0:
-			return _make_numeric_text_result(false, "", "invalid_exponent")
+		if normalized.find(
+			"e",
+			exponent_index + 1
+		) >= 0 or normalized.find(
+			"E",
+			exponent_index + 1
+		) >= 0:
+			return _make_numeric_text_result(
+				false,
+				"",
+				"invalid_exponent"
+			)
 		var exponent_text: String = normalized.substr(exponent_index + 1)
 		normalized = normalized.substr(0, exponent_index)
 		if exponent_text.begins_with("+") or exponent_text.begins_with("-"):
 			if exponent_text.length() == 1:
-				return _make_numeric_text_result(false, "", "invalid_exponent")
+				return _make_numeric_text_result(
+					false,
+					"",
+					"invalid_exponent"
+				)
 			exponent_suffix = "e" + exponent_text.substr(0, 1)
 			exponent_text = exponent_text.substr(1)
 		else:
 			exponent_suffix = "e"
 		if not contains_only_digits(exponent_text):
-			return _make_numeric_text_result(false, "", "invalid_exponent")
+			return _make_numeric_text_result(
+				false,
+				"",
+				"invalid_exponent"
+			)
 		exponent_suffix += exponent_text
 
 	var sign_text: String = ""
@@ -250,22 +290,38 @@ static func normalize_numeric_text(text: String, max_input_length: int = DEFAULT
 		sign_text = normalized.substr(0, 1)
 		normalized = normalized.substr(1)
 	if normalized.is_empty() or normalized.count(".") > 1:
-		return _make_numeric_text_result(false, "", "invalid_mantissa")
+		return _make_numeric_text_result(
+			false,
+			"",
+			"invalid_mantissa"
+		)
 
 	var decimal_index: int = normalized.find(".")
 	var integer_part: String = normalized if decimal_index < 0 else normalized.substr(0, decimal_index)
 	var fractional_part: String = "" if decimal_index < 0 else normalized.substr(decimal_index + 1)
 	if integer_part.is_empty() and fractional_part.is_empty():
-		return _make_numeric_text_result(false, "", "invalid_mantissa")
+		return _make_numeric_text_result(
+			false,
+			"",
+			"invalid_mantissa"
+		)
 	var integer_result: Dictionary = _normalize_integer_digits(integer_part)
 	var fraction_result: Dictionary = _normalize_underscore_digits(fractional_part, true)
-	if not GFVariantData.get_option_bool(integer_result, "ok") or not GFVariantData.get_option_bool(fraction_result, "ok"):
-		return _make_numeric_text_result(false, "", "invalid_separator")
+	if (not GFVariantData.get_option_bool(integer_result, "ok") or not GFVariantData.get_option_bool(fraction_result, "ok")):
+		return _make_numeric_text_result(
+			false,
+			"",
+			"invalid_separator"
+		)
 
 	var result_text: String = sign_text + GFVariantData.get_option_string(integer_result, "text")
 	if decimal_index >= 0:
 		result_text += "." + GFVariantData.get_option_string(fraction_result, "text")
-	return _make_numeric_text_result(true, result_text + exponent_suffix, "")
+	return _make_numeric_text_result(
+		true,
+		result_text + exponent_suffix,
+		""
+	)
 
 
 ## 校验小数字符串拆分后的整数和小数部分。
@@ -317,17 +373,45 @@ static func contains_only_digits(text: String) -> bool:
 ## @api private
 static func _normalize_integer_digits(value: String) -> Dictionary:
 	if value.is_empty():
-		return _make_numeric_text_result(true, "", "")
+		return _make_numeric_text_result(
+			true,
+			"",
+			""
+		)
 	if value.contains(","):
 		if value.contains("_"):
-			return _make_numeric_text_result(false, "", "invalid_separator")
+			return _make_numeric_text_result(
+				false,
+				"",
+				"invalid_separator"
+			)
 		var groups: PackedStringArray = value.split(",", true)
-		if groups.is_empty() or groups[0].is_empty() or groups[0].length() > 3 or not contains_only_digits(groups[0]):
-			return _make_numeric_text_result(false, "", "invalid_separator")
-		for index: int in range(1, groups.size()):
+		if (
+			groups.is_empty()
+			or groups[0].is_empty()
+			or groups[0].length() > 3
+			or not contains_only_digits(groups[0])
+		):
+			return _make_numeric_text_result(
+				false,
+				"",
+				"invalid_separator"
+			)
+		for index: int in range(
+			1,
+			groups.size()
+		):
 			if groups[index].length() != 3 or not contains_only_digits(groups[index]):
-				return _make_numeric_text_result(false, "", "invalid_separator")
-		return _make_numeric_text_result(true, "".join(groups), "")
+				return _make_numeric_text_result(
+					false,
+					"",
+					"invalid_separator"
+				)
+		return _make_numeric_text_result(
+			true,
+			"".join(groups),
+			""
+		)
 	return _normalize_underscore_digits(value, false)
 
 
@@ -336,20 +420,40 @@ static func _normalize_integer_digits(value: String) -> Dictionary:
 ## @api private
 static func _normalize_underscore_digits(value: String, allow_empty: bool) -> Dictionary:
 	if value.is_empty():
-		return _make_numeric_text_result(allow_empty, "", "" if allow_empty else "invalid_digits")
+		return _make_numeric_text_result(
+			allow_empty,
+			"",
+			"" if allow_empty else "invalid_digits"
+		)
 	if value.begins_with("_") or value.ends_with("_"):
-		return _make_numeric_text_result(false, "", "invalid_separator")
+		return _make_numeric_text_result(
+			false,
+			"",
+			"invalid_separator"
+		)
 	var groups: PackedStringArray = value.split("_", true)
 	for group: String in groups:
 		if group.is_empty() or not contains_only_digits(group):
-			return _make_numeric_text_result(false, "", "invalid_separator")
-	return _make_numeric_text_result(true, "".join(groups), "")
+			return _make_numeric_text_result(
+				false,
+				"",
+				"invalid_separator"
+			)
+	return _make_numeric_text_result(
+		true,
+		"".join(groups),
+		""
+	)
 
 
 ## 创建包含 ok、text 和 error 字段的解析结果。
 ## [br]
 ## @api private
-static func _make_numeric_text_result(ok: bool, text: String, error: String) -> Dictionary:
+static func _make_numeric_text_result(
+	ok: bool,
+	text: String,
+	error: String
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"text": text,
@@ -363,7 +467,11 @@ static func _make_numeric_text_result(ok: bool, text: String, error: String) -> 
 static func _increment_decimal_digits(value: String) -> String:
 	var result: String = value
 	var carry: int = 1
-	for index: int in range(result.length() - 1, -1, -1):
+	for index: int in range(
+		result.length() - 1,
+		-1,
+		-1
+	):
 		var digit: int = result.substr(index, 1).to_int() + carry
 		result = result.left(index) + str(digit % 10) + result.substr(index + 1)
 		carry = 1 if digit >= 10 else 0

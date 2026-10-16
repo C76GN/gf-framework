@@ -21,8 +21,8 @@
 | 方法 | [`fit_control`](#member-gftextfitter-methods-fit_control) | `static func fit_control(control: Control, options: Dictionary = {}) -> int:` |
 | 方法 | [`fit_label`](#member-gftextfitter-methods-fit_label) | `static func fit_label(label: Label, options: Dictionary = {}) -> int:` |
 | 方法 | [`fit_rich_text_label`](#member-gftextfitter-methods-fit_rich_text_label) | `static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) -> int:` |
-| 方法 | [`measure_control_text`](#member-gftextfitter-methods-measure_control_text) | `static func measure_control_text(control: Control, font_size: int, options: Dictionary = {}) -> Vector2:` |
-| 方法 | [`measure_text`](#member-gftextfitter-methods-measure_text) | `static func measure_text(control: Control, text: String, font_size: int, options: Dictionary = {}) -> Vector2:` |
+| 方法 | [`measure_control_text`](#member-gftextfitter-methods-measure_control_text) | `static func measure_control_text( control: Control, font_size: int, options: Dictionary = {} ) -> Vector2:` |
+| 方法 | [`measure_text`](#member-gftextfitter-methods-measure_text) | `static func measure_text( control: Control, text: String, font_size: int, options: Dictionary = {} ) -> Vector2:` |
 
 ## 枚举
 
@@ -157,9 +157,10 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 ### `measure_control_text`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func measure_control_text(control: Control, font_size: int, options: Dictionary = {}) -> Vector2:
+static func measure_control_text( control: Control, font_size: int, options: Dictionary = {} ) -> Vector2:
 ```
 
 测量常见 Control 在指定字体尺寸下的文本占用。
@@ -186,7 +187,7 @@ static func measure_control_text(control: Control, font_size: int, options: Dict
 - 首次版本：`3.17.0`
 
 ```gdscript
-static func measure_text(control: Control, text: String, font_size: int, options: Dictionary = {}) -> Vector2:
+static func measure_text( control: Control, text: String, font_size: int, options: Dictionary = {} ) -> Vector2:
 ```
 
 测量 Control 在指定字体尺寸下的文本占用。

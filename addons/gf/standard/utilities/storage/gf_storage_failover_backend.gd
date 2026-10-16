@@ -189,14 +189,18 @@ func configure_backends(
 	var seen_ids: Dictionary = {}
 	for index: int in range(backends.size()):
 		var backend: GFStorageBackend = backends[index]
-		if backend == null or not is_instance_valid(backend) or backend == self:
+		if (
+			backend == null
+			or not is_instance_valid(backend)
+			or backend == self
+		):
 			return false
 		var instance_id: int = backend.get_instance_id()
 		if seen_instances.has(instance_id):
 			return false
 		seen_instances[instance_id] = true
 
-		var backend_id_text: String = backend_ids[index].strip_edges() if not backend_ids.is_empty() else "backend_%d" % index
+		var backend_id_text: String = (backend_ids[index].strip_edges() if not backend_ids.is_empty() else "backend_%d" % index)
 		if backend_id_text.is_empty():
 			return false
 		var backend_id: StringName = StringName(backend_id_text)
@@ -284,13 +288,15 @@ func get_health_snapshot() -> Dictionary:
 	for index: int in range(_backends.size()):
 		var backend_id: StringName = _get_backend_id(index)
 		var state: Dictionary = _get_health_state(backend_id)
-		backend_states.append({
-			"backend_id": backend_id,
-			"backend_index": index,
-			"consecutive_failures": GFVariantData.get_option_int(state, "consecutive_failures"),
-			"cooldown_until_msec": GFVariantData.get_option_int(state, "cooldown_until_msec"),
-			"cooling_down": _is_backend_cooling_down(backend_id),
-		})
+		backend_states.append(
+			{
+				"backend_id": backend_id,
+				"backend_index": index,
+				"consecutive_failures": GFVariantData.get_option_int(state, "consecutive_failures"),
+				"cooldown_until_msec": GFVariantData.get_option_int(state, "cooldown_until_msec"),
+				"cooling_down": _is_backend_cooling_down(backend_id),
+			}
+		)
 	return {
 		"mutation_policy": int(_mutation_policy),
 		"failure_threshold": _failure_threshold,
@@ -373,8 +379,17 @@ func _shutdown() -> void:
 ## @schema metadata: Dictionary，后端特定元数据。
 ## [br]
 ## @return 首次成功时返回 OK，否则返回最后一个可观察错误。
-func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error:
-	return _execute_mutation(&"save", file_name, data, metadata)
+func _save_data(
+	file_name: String,
+	data: Dictionary,
+	metadata: Dictionary
+) -> Error:
+	return _execute_mutation(
+		&"save",
+		file_name,
+		data,
+		metadata
+	)
 
 
 ## 按顺序读取首个成功结果。
@@ -396,7 +411,16 @@ func _load_data(file_name: String) -> Dictionary:
 		var backend_id: StringName = _get_backend_id(index)
 		var skip_reason: String = _get_skip_reason(index, &"read")
 		if not skip_reason.is_empty():
-			attempts.append(_make_attempt(index, &"read", _STATUS_SKIPPED, skip_reason, ERR_UNAVAILABLE, ""))
+			attempts.append(
+				_make_attempt(
+					index,
+					&"read",
+					_STATUS_SKIPPED,
+					skip_reason,
+					ERR_UNAVAILABLE,
+					""
+				)
+			)
 			continue
 
 		var result: Dictionary = _backends[index].load_data(file_name)
@@ -405,16 +429,50 @@ func _load_data(file_name: String) -> Dictionary:
 		var error_text: String = GFVariantData.get_option_string(result, "error")
 		if ok:
 			_mark_backend_success(backend_id)
-			attempts.append(_make_attempt(index, &"read", _STATUS_SUCCEEDED, "", OK, ""))
-			_set_last_report(&"load", file_name, true, backend_id, OK, "", attempts)
+			attempts.append(
+				_make_attempt(
+					index,
+					&"read",
+					_STATUS_SUCCEEDED,
+					"",
+					OK,
+					""
+				)
+			)
+			_set_last_report(
+				&"load",
+				file_name,
+				true,
+				backend_id,
+				OK,
+				"",
+				attempts
+			)
 			return result.duplicate(true)
 
 		last_error_code = error_code
 		last_error = error_text if not error_text.is_empty() else error_string(error_code)
 		_mark_backend_result(backend_id, error_code)
-		attempts.append(_make_attempt(index, &"read", _STATUS_FAILED, "", error_code, last_error))
+		attempts.append(
+			_make_attempt(
+				index,
+				&"read",
+				_STATUS_FAILED,
+				"",
+				error_code,
+				last_error
+			)
+		)
 
-	_set_last_report(&"load", file_name, false, &"", last_error_code, last_error, attempts)
+	_set_last_report(
+		&"load",
+		file_name,
+		false,
+		&"",
+		last_error_code,
+		last_error,
+		attempts
+	)
 	return {
 		"ok": false,
 		"data": {},
@@ -452,17 +510,60 @@ func _has_data(file_name: String) -> bool:
 		var backend_id: StringName = _get_backend_id(index)
 		var skip_reason: String = _get_skip_reason(index, &"read")
 		if not skip_reason.is_empty():
-			attempts.append(_make_attempt(index, &"read", _STATUS_SKIPPED, skip_reason, ERR_UNAVAILABLE, ""))
+			attempts.append(
+				_make_attempt(
+					index,
+					&"read",
+					_STATUS_SKIPPED,
+					skip_reason,
+					ERR_UNAVAILABLE,
+					""
+				)
+			)
 			continue
 		if _backends[index].has_data(file_name):
 			_mark_backend_success(backend_id)
-			attempts.append(_make_attempt(index, &"read", _STATUS_SUCCEEDED, "", OK, ""))
-			_set_last_report(&"has", file_name, true, backend_id, OK, "", attempts)
+			attempts.append(
+				_make_attempt(
+					index,
+					&"read",
+					_STATUS_SUCCEEDED,
+					"",
+					OK,
+					""
+				)
+			)
+			_set_last_report(
+				&"has",
+				file_name,
+				true,
+				backend_id,
+				OK,
+				"",
+				attempts
+			)
 			return true
 		_mark_backend_success(backend_id)
-		attempts.append(_make_attempt(index, &"read", _STATUS_MISS, "", ERR_DOES_NOT_EXIST, ""))
+		attempts.append(
+			_make_attempt(
+				index,
+				&"read",
+				_STATUS_MISS,
+				"",
+				ERR_DOES_NOT_EXIST,
+				""
+			)
+		)
 
-	_set_last_report(&"has", file_name, false, &"", ERR_DOES_NOT_EXIST, "Data was not found.", attempts)
+	_set_last_report(
+		&"has",
+		file_name,
+		false,
+		&"",
+		ERR_DOES_NOT_EXIST,
+		"Data was not found.",
+		attempts
+	)
 	return false
 
 
@@ -481,15 +582,49 @@ func _list_data() -> Array[Dictionary]:
 		var backend_id: StringName = _get_backend_id(index)
 		var skip_reason: String = _get_skip_reason(index, &"list")
 		if not skip_reason.is_empty():
-			attempts.append(_make_attempt(index, &"list", _STATUS_SKIPPED, skip_reason, ERR_UNAVAILABLE, ""))
+			attempts.append(
+				_make_attempt(
+					index,
+					&"list",
+					_STATUS_SKIPPED,
+					skip_reason,
+					ERR_UNAVAILABLE,
+					""
+				)
+			)
 			continue
 		var entries: Array[Dictionary] = _backends[index].list_data()
 		_mark_backend_success(backend_id)
-		attempts.append(_make_attempt(index, &"list", _STATUS_SUCCEEDED, "", OK, ""))
-		_set_last_report(&"list", "", true, backend_id, OK, "", attempts)
+		attempts.append(
+			_make_attempt(
+				index,
+				&"list",
+				_STATUS_SUCCEEDED,
+				"",
+				OK,
+				""
+			)
+		)
+		_set_last_report(
+			&"list",
+			"",
+			true,
+			backend_id,
+			OK,
+			"",
+			attempts
+		)
 		return entries
 
-	_set_last_report(&"list", "", false, &"", ERR_UNAVAILABLE, "No list-capable backend is available.", attempts)
+	_set_last_report(
+		&"list",
+		"",
+		false,
+		&"",
+		ERR_UNAVAILABLE,
+		"No list-capable backend is available.",
+		attempts
+	)
 	return []
 
 
@@ -538,20 +673,20 @@ func _parse_options(options: Dictionary, use_current_defaults: bool) -> Dictiona
 		default_cooldown_msec
 	)
 	if not (mutation_policy_value is int):
-		return {"ok": false}
+		return { "ok": false }
 	if not (failure_threshold_value is int):
-		return {"ok": false}
+		return { "ok": false }
 	if not (cooldown_msec_value is int):
-		return {"ok": false}
+		return { "ok": false }
 	var mutation_policy: int = mutation_policy_value
 	var failure_threshold: int = failure_threshold_value
 	var cooldown_msec: int = cooldown_msec_value
 	if mutation_policy != MutationPolicy.PRIMARY_ONLY and mutation_policy != MutationPolicy.FIRST_SUCCESS:
-		return {"ok": false}
+		return { "ok": false }
 	if failure_threshold < 0 or failure_threshold > _MAX_FAILURE_THRESHOLD:
-		return {"ok": false}
+		return { "ok": false }
 	if cooldown_msec < 0 or cooldown_msec > _MAX_COOLDOWN_MSEC:
-		return {"ok": false}
+		return { "ok": false }
 	return {
 		"ok": true,
 		"mutation_policy": mutation_policy,
@@ -566,7 +701,11 @@ func _parse_options(options: Dictionary, use_current_defaults: bool) -> Dictiona
 ## [br]
 func _apply_parsed_options(parsed_options: Dictionary) -> void:
 	_mutation_policy = _to_mutation_policy(
-		GFVariantData.get_option_int(parsed_options, "mutation_policy", int(MutationPolicy.FIRST_SUCCESS))
+		GFVariantData.get_option_int(
+			parsed_options,
+			"mutation_policy",
+			int(MutationPolicy.FIRST_SUCCESS)
+		)
 	)
 	_failure_threshold = GFVariantData.get_option_int(
 		parsed_options,
@@ -592,34 +731,81 @@ func _execute_mutation(
 ) -> Error:
 	var attempts: Array[Dictionary] = []
 	var last_error: Error = ERR_UNAVAILABLE
-	var limit: int = mini(_backends.size(), 1) if _mutation_policy == MutationPolicy.PRIMARY_ONLY else _backends.size()
+	var limit: int = mini(
+		_backends.size(),
+		1
+	) if _mutation_policy == MutationPolicy.PRIMARY_ONLY else _backends.size()
 	var capability: StringName = &"write" if operation == &"save" else &"delete"
 	for index: int in range(limit):
 		var backend_id: StringName = _get_backend_id(index)
 		var skip_reason: String = _get_skip_reason(index, capability)
 		if not skip_reason.is_empty():
-			attempts.append(_make_attempt(index, capability, _STATUS_SKIPPED, skip_reason, ERR_UNAVAILABLE, ""))
+			attempts.append(
+				_make_attempt(
+					index,
+					capability,
+					_STATUS_SKIPPED,
+					skip_reason,
+					ERR_UNAVAILABLE,
+					""
+				)
+			)
 			continue
 
-		var error_code: Error = _backends[index].save_data(file_name, data, metadata) if operation == &"save" else _backends[index].delete_data(file_name)
+		var error_code: Error = (
+			_backends[index].save_data(
+				file_name,
+				data,
+				metadata
+			)
+			if operation == &"save"
+			else _backends[index].delete_data(file_name)
+		)
 		if error_code == OK:
 			_mark_backend_success(backend_id)
-			attempts.append(_make_attempt(index, capability, _STATUS_SUCCEEDED, "", OK, ""))
-			_set_last_report(operation, file_name, true, backend_id, OK, "", attempts)
+			attempts.append(
+				_make_attempt(
+					index,
+					capability,
+					_STATUS_SUCCEEDED,
+					"",
+					OK,
+					""
+				)
+			)
+			_set_last_report(
+				operation,
+				file_name,
+				true,
+				backend_id,
+				OK,
+				"",
+				attempts
+			)
 			return OK
 
 		last_error = error_code
 		_mark_backend_result(backend_id, error_code)
-		attempts.append(_make_attempt(
-			index,
-			capability,
-			_STATUS_FAILED,
-			"",
-			error_code,
-			error_string(error_code)
-		))
+		attempts.append(
+			_make_attempt(
+				index,
+				capability,
+				_STATUS_FAILED,
+				"",
+				error_code,
+				error_string(error_code)
+			)
+		)
 
-	_set_last_report(operation, file_name, false, &"", last_error, error_string(last_error), attempts)
+	_set_last_report(
+		operation,
+		file_name,
+		false,
+		&"",
+		last_error,
+		error_string(last_error),
+		attempts
+	)
 	return last_error
 
 
@@ -630,7 +816,10 @@ func _execute_mutation(
 func _get_skip_reason(index: int, capability: StringName) -> String:
 	if index < 0 or index >= _backends.size():
 		return _REASON_UNSUPPORTED
-	if not GFVariantData.get_option_bool(_backends[index].get_capabilities(), capability):
+	if not GFVariantData.get_option_bool(
+		_backends[index].get_capabilities(),
+		capability
+	):
 		return _REASON_UNSUPPORTED
 	if _is_backend_cooling_down(_get_backend_id(index)):
 		return _REASON_COOLDOWN
@@ -643,7 +832,10 @@ func _get_skip_reason(index: int, capability: StringName) -> String:
 ## [br]
 func _has_any_capability(capability: StringName) -> bool:
 	for backend: GFStorageBackend in _backends:
-		if GFVariantData.get_option_bool(backend.get_capabilities(), capability):
+		if GFVariantData.get_option_bool(
+			backend.get_capabilities(),
+			capability
+		):
 			return true
 	return false
 
@@ -656,7 +848,10 @@ func _has_mutation_capability(capability: StringName) -> bool:
 	if _backends.is_empty():
 		return false
 	if _mutation_policy == MutationPolicy.PRIMARY_ONLY:
-		return GFVariantData.get_option_bool(_backends[0].get_capabilities(), capability)
+		return GFVariantData.get_option_bool(
+			_backends[0].get_capabilities(),
+			capability
+		)
 	return _has_any_capability(capability)
 
 
@@ -677,7 +872,11 @@ func _get_backend_id(index: int) -> StringName:
 func _get_load_error_code(result: Dictionary, ok: bool) -> Error:
 	if ok:
 		return OK
-	var error_code: int = GFVariantData.get_option_int(result, "error_code", ERR_CANT_OPEN)
+	var error_code: int = GFVariantData.get_option_int(
+		result,
+		"error_code",
+		ERR_CANT_OPEN
+	)
 	return error_code as Error
 
 
@@ -762,10 +961,7 @@ func _get_health_state(backend_id: StringName) -> Dictionary:
 ## @api private
 ## [br]
 func _make_healthy_state() -> Dictionary:
-	return {
-		"consecutive_failures": 0,
-		"cooldown_until_msec": 0,
-	}
+	return { "consecutive_failures": 0, "cooldown_until_msec": 0, }
 
 
 ## 组装单个尝试报告项，并附上该后端当前失败计数和冷却截止时间。

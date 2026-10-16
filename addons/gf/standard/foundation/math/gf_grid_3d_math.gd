@@ -18,22 +18,62 @@ extends RefCounted
 ## [br]
 ## @api private
 const _ORTHOGONAL_DIRECTIONS: Array[Vector3i] = [
-	Vector3i(1, 0, 0),
-	Vector3i(-1, 0, 0),
-	Vector3i(0, 1, 0),
-	Vector3i(0, -1, 0),
-	Vector3i(0, 0, 1),
-	Vector3i(0, 0, -1),
+	Vector3i(
+		1,
+		0,
+		0
+	),
+	Vector3i(
+		-1,
+		0,
+		0
+	),
+	Vector3i(
+		0,
+		1,
+		0
+	),
+	Vector3i(
+		0,
+		-1,
+		0
+	),
+	Vector3i(
+		0,
+		0,
+		1
+	),
+	Vector3i(
+		0,
+		0,
+		-1
+	),
 ]
 
 ## 表面移动默认使用的 X/Z 四个水平正交方向。
 ## [br]
 ## @api private
 const _SURFACE_DIRECTIONS: Array[Vector3i] = [
-	Vector3i(1, 0, 0),
-	Vector3i(-1, 0, 0),
-	Vector3i(0, 0, 1),
-	Vector3i(0, 0, -1),
+	Vector3i(
+		1,
+		0,
+		0
+	),
+	Vector3i(
+		-1,
+		0,
+		0
+	),
+	Vector3i(
+		0,
+		0,
+		1
+	),
+	Vector3i(
+		0,
+		0,
+		-1
+	),
 ]
 
 
@@ -121,7 +161,7 @@ static func get_surface_neighbors(
 	):
 		return result
 
-	var directions: Array[Vector3i] = horizontal_directions if not horizontal_directions.is_empty() else _SURFACE_DIRECTIONS
+	var directions: Array[Vector3i] = (horizontal_directions if not horizontal_directions.is_empty() else _SURFACE_DIRECTIONS)
 	var vertical_span: Array[int] = _get_vertical_scan_span(
 		cell.y,
 		maxi(max_step_up, 0),
@@ -140,8 +180,16 @@ static func get_surface_neighbors(
 			or candidate_z >= grid_size.z
 		):
 			continue
-		for candidate_y: int in range(vertical_span[1], vertical_span[0] - 1, -1):
-			var candidate: Vector3i = Vector3i(candidate_x, candidate_y, candidate_z)
+		for candidate_y: int in range(
+			vertical_span[1],
+			vertical_span[0] - 1,
+			-1
+		):
+			var candidate: Vector3i = Vector3i(
+				candidate_x,
+				candidate_y,
+				candidate_z
+			)
 			if _call_cell_bool(is_walkable, candidate):
 				result.append(candidate)
 				break
@@ -194,25 +242,55 @@ static func find_path_a_star(
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
-	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, allow_diagonal) }
+	var f_score: Dictionary = {
+		start: _heuristic_distance(
+			start,
+			goal,
+			heuristic,
+			allow_diagonal
+		),
+	}
 	open_orders[start] = next_open_order
-	_push_scored_cell(open_queue, start, _get_score(f_score, start), next_open_order)
+	_push_scored_cell(
+		open_queue,
+		start,
+		_get_score(f_score, start),
+		next_open_order
+	)
 	next_open_order += 1
 
 	while not open_queue.is_empty():
 		var current_entry: Dictionary = _pop_scored_cell(open_queue)
 		var current: Vector3i = _get_scored_cell(current_entry)
-		if closed.has(current) or not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(f_score, current)):
+		if (
+			closed.has(current)
+			or not is_equal_approx(
+				_get_scored_entry_score(current_entry),
+				_get_score(f_score, current)
+			)
+		):
 			continue
 		if current == goal:
-			return _reconstruct_path(start, goal, came_from)
+			return _reconstruct_path(
+				start,
+				goal,
+				came_from
+			)
 
 		closed[current] = true
-		for next_cell: Vector3i in get_neighbors(current, grid_size, allow_diagonal):
+		for next_cell: Vector3i in get_neighbors(
+			current,
+			grid_size,
+			allow_diagonal
+		):
 			if closed.has(next_cell) or not _call_cell_bool(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_cell, step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_cell,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
@@ -222,13 +300,23 @@ static func find_path_a_star(
 
 			came_from[next_cell] = current
 			g_score[next_cell] = tentative_score
-			f_score[next_cell] = tentative_score + _heuristic_distance(next_cell, goal, heuristic, allow_diagonal)
+			f_score[next_cell] = tentative_score + _heuristic_distance(
+				next_cell,
+				goal,
+				heuristic,
+				allow_diagonal
+			)
 			var order: int = _get_cell_order(open_orders, next_cell)
 			if order < 0:
 				order = next_open_order
 				open_orders[next_cell] = order
 				next_open_order += 1
-			_push_scored_cell(open_queue, next_cell, _get_score(f_score, next_cell), order)
+			_push_scored_cell(
+				open_queue,
+				next_cell,
+				_get_score(f_score, next_cell),
+				order
+			)
 
 	return []
 
@@ -261,24 +349,44 @@ static func find_reachable(
 	step_cost: Callable = Callable()
 ) -> Dictionary:
 	var costs: Dictionary = {}
-	if not is_in_bounds(start, grid_size) or not is_walkable.is_valid() or not _call_cell_bool(is_walkable, start):
+	if (
+		not is_in_bounds(start, grid_size)
+		or not is_walkable.is_valid()
+		or not _call_cell_bool(is_walkable, start)
+	):
 		return costs
 
 	costs[start] = 0.0
 	var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
 	var frontier_orders: Dictionary = { start: 0 }
 	var next_frontier_order: int = 1
-	_push_scored_cell(frontier, start, 0.0, 0)
+	_push_scored_cell(
+		frontier,
+		start,
+		0.0,
+		0
+	)
 	while not frontier.is_empty():
 		var current_entry: Dictionary = _pop_scored_cell(frontier)
 		var current: Vector3i = _get_scored_cell(current_entry)
-		if not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(costs, current)):
+		if not is_equal_approx(
+			_get_scored_entry_score(current_entry),
+			_get_score(costs, current)
+		):
 			continue
-		for next_cell: Vector3i in get_neighbors(current, grid_size, allow_diagonal):
+		for next_cell: Vector3i in get_neighbors(
+			current,
+			grid_size,
+			allow_diagonal
+		):
 			if not _call_cell_bool(is_walkable, next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_cell, step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_cell,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
@@ -292,7 +400,12 @@ static func find_reachable(
 				order = next_frontier_order
 				frontier_orders[next_cell] = order
 				next_frontier_order += 1
-			_push_scored_cell(frontier, next_cell, next_cost, order)
+			_push_scored_cell(
+				frontier,
+				next_cell,
+				next_cost,
+				order
+			)
 
 	return costs
 
@@ -345,18 +458,40 @@ static func find_surface_path_a_star(
 	var closed: Dictionary = {}
 	var came_from: Dictionary = {}
 	var g_score: Dictionary = { start: 0.0 }
-	var f_score: Dictionary = { start: _heuristic_distance(start, goal, heuristic, false) }
+	var f_score: Dictionary = {
+		start: _heuristic_distance(
+			start,
+			goal,
+			heuristic,
+			false
+		),
+	}
 	open_orders[start] = next_open_order
-	_push_scored_cell(open_queue, start, _get_score(f_score, start), next_open_order)
+	_push_scored_cell(
+		open_queue,
+		start,
+		_get_score(f_score, start),
+		next_open_order
+	)
 	next_open_order += 1
 
 	while not open_queue.is_empty():
 		var current_entry: Dictionary = _pop_scored_cell(open_queue)
 		var current: Vector3i = _get_scored_cell(current_entry)
-		if closed.has(current) or not is_equal_approx(_get_scored_entry_score(current_entry), _get_score(f_score, current)):
+		if (
+			closed.has(current)
+			or not is_equal_approx(
+				_get_scored_entry_score(current_entry),
+				_get_score(f_score, current)
+			)
+		):
 			continue
 		if current == goal:
-			return _reconstruct_path(start, goal, came_from)
+			return _reconstruct_path(
+				start,
+				goal,
+				came_from
+			)
 
 		closed[current] = true
 		for next_cell: Vector3i in get_surface_neighbors(
@@ -369,7 +504,11 @@ static func find_surface_path_a_star(
 			if closed.has(next_cell):
 				continue
 
-			var move_cost: float = _get_step_cost(current, next_cell, step_cost)
+			var move_cost: float = _get_step_cost(
+				current,
+				next_cell,
+				step_cost
+			)
 			if move_cost < 0.0:
 				continue
 
@@ -379,13 +518,23 @@ static func find_surface_path_a_star(
 
 			came_from[next_cell] = current
 			g_score[next_cell] = tentative_score
-			f_score[next_cell] = tentative_score + _heuristic_distance(next_cell, goal, heuristic, false)
+			f_score[next_cell] = tentative_score + _heuristic_distance(
+				next_cell,
+				goal,
+				heuristic,
+				false
+			)
 			var order: int = _get_cell_order(open_orders, next_cell)
 			if order < 0:
 				order = next_open_order
 				open_orders[next_cell] = order
 				next_open_order += 1
-			_push_scored_cell(open_queue, next_cell, _get_score(f_score, next_cell), order)
+			_push_scored_cell(
+				open_queue,
+				next_cell,
+				_get_score(f_score, next_cell),
+				order
+			)
 
 	return []
 
@@ -415,6 +564,7 @@ static func _get_vertical_scan_span(
 		maximum_candidate_y = center_y + max_step_up
 	return [minimum_candidate_y, maximum_candidate_y]
 
+
 ## 返回六向常量，或生成所有 26 个非零单位立方邻接方向。
 ## [br]
 ## @api private
@@ -426,10 +576,20 @@ static func _get_directions(allow_diagonal: bool) -> Array[Vector3i]:
 	for x: int in range(-1, 2):
 		for y: int in range(-1, 2):
 			for z: int in range(-1, 2):
-				if x == 0 and y == 0 and z == 0:
+				if (
+					x == 0
+					and y == 0
+					and z == 0
+				):
 					continue
 
-				directions.append(Vector3i(x, y, z))
+				directions.append(
+					Vector3i(
+						x,
+						y,
+						z
+					)
+				)
 
 	return directions
 
@@ -437,7 +597,11 @@ static func _get_directions(allow_diagonal: bool) -> Array[Vector3i]:
 ## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
 ## [br]
 ## @api private
-static func _reconstruct_path(start: Vector3i, goal: Vector3i, came_from: Dictionary) -> Array[Vector3i]:
+static func _reconstruct_path(
+	start: Vector3i,
+	goal: Vector3i,
+	came_from: Dictionary
+) -> Array[Vector3i]:
 	var path: Array[Vector3i] = [goal]
 	var current: Vector3i = goal
 
@@ -454,12 +618,21 @@ static func _reconstruct_path(start: Vector3i, goal: Vector3i, came_from: Dictio
 ## 将格子、分数和次序打包后传给带顺序参数的优先队列。
 ## [br]
 ## @api private
-static func _push_scored_cell(priority_queue: GFPriorityQueue, cell: Vector3i, score: float, order: int) -> void:
-	var _cell_queued: bool = priority_queue.push_with_order({
-		"cell": cell,
-		"score": score,
-		"order": order,
-	}, score, order)
+static func _push_scored_cell(
+	priority_queue: GFPriorityQueue,
+	cell: Vector3i,
+	score: float,
+	order: int
+) -> void:
+	var _cell_queued: bool = priority_queue.push_with_order(
+		{
+			"cell": cell,
+			"score": score,
+			"order": order,
+		},
+		score,
+		order
+	)
 
 
 ## 从搜索队列取出元素，并转换为 Dictionary。
@@ -473,7 +646,11 @@ static func _pop_scored_cell(priority_queue: GFPriorityQueue) -> Dictionary:
 ## [br]
 ## @api private
 static func _get_scored_cell(entry: Dictionary) -> Vector3i:
-	var value: Variant = GFVariantData.get_option_value(entry, "cell", Vector3i.ZERO)
+	var value: Variant = GFVariantData.get_option_value(
+		entry,
+		"cell",
+		Vector3i.ZERO
+	)
 	if value is Vector3i:
 		var cell: Vector3i = value
 		return cell
@@ -484,14 +661,22 @@ static func _get_scored_cell(entry: Dictionary) -> Vector3i:
 ## [br]
 ## @api private
 static func _get_scored_entry_score(entry: Dictionary) -> float:
-	return GFVariantData.get_option_float(entry, "score", INF)
+	return GFVariantData.get_option_float(
+		entry,
+		"score",
+		INF
+	)
 
 
 ## 读取格子的入队次序；字典没有对应整数时返回 -1。
 ## [br]
 ## @api private
 static func _get_cell_order(orders: Dictionary, cell: Vector3i) -> int:
-	return GFVariantData.get_option_int(orders, cell, -1)
+	return GFVariantData.get_option_int(
+		orders,
+		cell,
+		-1
+	)
 
 
 ## 按名称计算格子距离；未知名称默认 Manhattan，allow_diagonal 与 `auto` 同用时采用 Chebyshev。
@@ -508,33 +693,57 @@ static func _heuristic_distance(
 	var dz: int = absi(to_cell.z - from_cell.z)
 	match heuristic:
 		&"chebyshev":
-			return float(maxi(dx, maxi(dy, dz)))
+			return float(
+				maxi(
+					dx,
+					maxi(dy, dz)
+				)
+			)
 		&"euclidean":
 			return sqrt(float(dx * dx + dy * dy + dz * dz))
 		_:
-			return float(maxi(dx, maxi(dy, dz))) if allow_diagonal and heuristic == &"auto" else float(dx + dy + dz)
+			return float(
+				maxi(
+					dx,
+					maxi(dy, dz)
+				)
+			) if allow_diagonal and heuristic == &"auto" else float(dx + dy + dz)
 
 
 ## 调用格子谓词并将结果转换为 bool，转换失败时使用 false。
 ## [br]
 ## @api private
 static func _call_cell_bool(callback: Callable, cell: Vector3i) -> bool:
-	return GFVariantData.to_bool(callback.call(cell), false)
+	return GFVariantData.to_bool(
+		callback.call(cell),
+		false
+	)
 
 
 ## 从格子分数字典读取浮点值，缺失或无效时使用 INF。
 ## [br]
 ## @api private
 static func _get_score(scores: Dictionary, cell: Vector3i) -> float:
-	return GFVariantData.get_option_float(scores, cell, INF)
+	return GFVariantData.get_option_float(
+		scores,
+		cell,
+		INF
+	)
 
 
 ## 使用有效代价回调并以 1.0 作为转换失败值；无回调时返回两格的欧氏距离。
 ## [br]
 ## @api private
-static func _get_step_cost(from_cell: Vector3i, to_cell: Vector3i, step_cost: Callable) -> float:
+static func _get_step_cost(
+	from_cell: Vector3i,
+	to_cell: Vector3i,
+	step_cost: Callable
+) -> float:
 	if step_cost.is_valid():
-		return GFVariantData.to_float(step_cost.call(from_cell, to_cell), 1.0)
+		return GFVariantData.to_float(
+			step_cost.call(from_cell, to_cell),
+			1.0
+		)
 
 	var delta: Vector3i = to_cell - from_cell
 	return sqrt(float(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z))

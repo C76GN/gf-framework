@@ -220,7 +220,11 @@ func get_failed_source_row_index() -> int:
 ## [br]
 ## @schema return: Variant stable row identity copy, or null.
 func get_failed_row_id() -> Variant:
-	return GFVariantData.duplicate_variant(_failed_row_id, true, true)
+	return GFVariantData.duplicate_variant(
+		_failed_row_id,
+		true,
+		true
+	)
 
 
 ## 创建结果的隔离副本。
@@ -393,14 +397,19 @@ static func _normalize_diagnostic_id(diagnostic_id: StringName) -> StringName:
 static func _copy_bounded_diagnostic_row_id(row_id: Variant) -> Variant:
 	if not GFVariantKeyCodec.is_stable_key(row_id):
 		return null
-	if row_id is String or row_id is StringName or row_id is NodePath:
+	if (
+		row_id is String
+		or row_id is StringName
+		or row_id is NodePath
+	):
 		var row_id_text: String = GFVariantData.to_text(row_id)
-		if (
-			row_id_text.length() > _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES
-			or row_id_text.to_utf8_buffer().size() > _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES
-		):
+		if (row_id_text.length() > _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES or row_id_text.to_utf8_buffer().size() > _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES):
 			return null
-	return GFVariantData.duplicate_variant(row_id, true, true)
+	return GFVariantData.duplicate_variant(
+		row_id,
+		true,
+		true
+	)
 
 
 ## 按 UTF-8 字节上限截取文本，避免截断多字节字符。

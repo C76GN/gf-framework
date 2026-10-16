@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="8486bc6b12c9de2493bae525942ea4969cfe4b2c54d35b07f46086d5cda970b2">
+<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="ea03a7f1f0ef3e500fdd2f569f30e1c4231fd3af030b81170d4aaac6656b724b">
 	<description>GFSeedUtility: 全局随机数种子管理器。
 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生
 出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支只承诺
@@ -156,7 +156,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_stable_grid_seed">
-			<signature>static func make_stable_grid_seed(cell: Vector2i, seed_value: int = 0, namespace_id: String = "") -&gt; int:</signature>
+			<signature>static func make_stable_grid_seed( cell: Vector2i, seed_value: int = 0, namespace_id: String = "" ) -&gt; int:</signature>
 			<description>将 2D 网格坐标稳定映射为 32-bit seed。
 适合 tile 变体、程序化摆放、刷点或规则 tie-break。namespace_id 用于隔离不同系统，seed_value 用于接入项目主种子或配置种子。</description>
 			<tags>

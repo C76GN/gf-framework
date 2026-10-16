@@ -28,7 +28,7 @@
 | 方法 | [`is_zero`](#member-gffixeddecimal-methods-is_zero) | `func is_zero() -> bool:` |
 | 方法 | [`abs_value`](#member-gffixeddecimal-methods-abs_value) | `func abs_value() -> GFFixedDecimal:` |
 | 方法 | [`negated`](#member-gffixeddecimal-methods-negated) | `func negated() -> GFFixedDecimal:` |
-| 方法 | [`rescaled`](#member-gffixeddecimal-methods-rescaled) | `func rescaled( target_decimal_places: int, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
+| 方法 | [`rescaled`](#member-gffixeddecimal-methods-rescaled) | `func rescaled(target_decimal_places: int, rounding_mode: RoundingMode = RoundingMode.HALF_UP) -> GFFixedDecimal:` |
 | 方法 | [`compare_to`](#member-gffixeddecimal-methods-compare_to) | `func compare_to(other: GFFixedDecimal) -> int:` |
 | 方法 | [`add`](#member-gffixeddecimal-methods-add) | `func add(other: GFFixedDecimal) -> GFFixedDecimal:` |
 | 方法 | [`subtract`](#member-gffixeddecimal-methods-subtract) | `func subtract(other: GFFixedDecimal) -> GFFixedDecimal:` |
@@ -285,9 +285,10 @@ func negated() -> GFFixedDecimal:
 ### `rescaled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func rescaled( target_decimal_places: int, rounding_mode: RoundingMode = RoundingMode.HALF_UP ) -> GFFixedDecimal:
+func rescaled(target_decimal_places: int, rounding_mode: RoundingMode = RoundingMode.HALF_UP) -> GFFixedDecimal:
 ```
 
 重设小数位数。

@@ -36,7 +36,13 @@ extends Resource
 ## @schema new_value: Variant copied into the array after mutation.
 ## [br]
 ## @schema metadata: Dictionary copied from the mutation call.
-signal item_changed(operation: StringName, index: int, old_value: Variant, new_value: Variant, metadata: Dictionary)
+signal item_changed(
+	operation: StringName,
+	index: int,
+	old_value: Variant,
+	new_value: Variant,
+	metadata: Dictionary
+)
 
 ## 一批变更完成后发出；非 batch 单项变更也会作为单元素 changes 发出。
 ## [br]
@@ -162,10 +168,20 @@ var _is_emitting_changes: bool = false
 ## @return 变更报告。
 ## [br]
 ## @schema return: Dictionary with ok, operation, index, old_value, new_value, metadata, and count.
-func set_items(values: Array, emit_change: bool = true, change_metadata: Dictionary = {}) -> Dictionary:
+func set_items(
+	values: Array,
+	emit_change: bool = true,
+	change_metadata: Dictionary = {}
+) -> Dictionary:
 	var old_items: Array = items.duplicate(true)
 	items = values.duplicate(true)
-	var change: Dictionary = _make_change(OPERATION_REPLACE, -1, old_items, items, change_metadata)
+	var change: Dictionary = _make_change(
+		OPERATION_REPLACE,
+		-1,
+		old_items,
+		items,
+		change_metadata
+	)
 	change["count"] = items.size()
 	if emit_change:
 		_record_change(change)
@@ -203,9 +219,19 @@ func get_items() -> Array:
 ## [br]
 ## @schema return: Dictionary with ok, operation, index, old_value, new_value, and metadata.
 func append_item(value: Variant, change_metadata: Dictionary = {}) -> Dictionary:
-	var copied_value: Variant = GFVariantData.duplicate_variant(value, true, true)
+	var copied_value: Variant = GFVariantData.duplicate_variant(
+		value,
+		true,
+		true
+	)
 	items.append(copied_value)
-	var change: Dictionary = _make_change(OPERATION_APPEND, items.size() - 1, null, copied_value, change_metadata)
+	var change: Dictionary = _make_change(
+		OPERATION_APPEND,
+		items.size() - 1,
+		null,
+		copied_value,
+		change_metadata
+	)
 	_record_change(change)
 	return change
 
@@ -229,13 +255,35 @@ func append_item(value: Variant, change_metadata: Dictionary = {}) -> Dictionary
 ## @return 变更报告。
 ## [br]
 ## @schema return: Dictionary with ok, operation, index, old_value, new_value, metadata, and optional error.
-func set_item(index: int, value: Variant, change_metadata: Dictionary = {}) -> Dictionary:
+func set_item(
+	index: int,
+	value: Variant,
+	change_metadata: Dictionary = {}
+) -> Dictionary:
 	if index < 0 or index >= items.size():
-		return _make_failure(OPERATION_SET, index, "index is outside the array.")
-	var old_value: Variant = GFVariantData.duplicate_variant(items[index], true, true)
-	var copied_value: Variant = GFVariantData.duplicate_variant(value, true, true)
+		return _make_failure(
+			OPERATION_SET,
+			index,
+			"index is outside the array."
+		)
+	var old_value: Variant = GFVariantData.duplicate_variant(
+		items[index],
+		true,
+		true
+	)
+	var copied_value: Variant = GFVariantData.duplicate_variant(
+		value,
+		true,
+		true
+	)
 	items[index] = copied_value
-	var change: Dictionary = _make_change(OPERATION_SET, index, old_value, copied_value, change_metadata)
+	var change: Dictionary = _make_change(
+		OPERATION_SET,
+		index,
+		old_value,
+		copied_value,
+		change_metadata
+	)
 	_record_change(change)
 	return change
 
@@ -257,10 +305,24 @@ func set_item(index: int, value: Variant, change_metadata: Dictionary = {}) -> D
 ## @schema return: Dictionary with ok, operation, index, old_value, new_value, metadata, and optional error.
 func erase_item_at(index: int, change_metadata: Dictionary = {}) -> Dictionary:
 	if index < 0 or index >= items.size():
-		return _make_failure(OPERATION_ERASE, index, "index is outside the array.")
-	var old_value: Variant = GFVariantData.duplicate_variant(items[index], true, true)
+		return _make_failure(
+			OPERATION_ERASE,
+			index,
+			"index is outside the array."
+		)
+	var old_value: Variant = GFVariantData.duplicate_variant(
+		items[index],
+		true,
+		true
+	)
 	items.remove_at(index)
-	var change: Dictionary = _make_change(OPERATION_ERASE, index, old_value, null, change_metadata)
+	var change: Dictionary = _make_change(
+		OPERATION_ERASE,
+		index,
+		old_value,
+		null,
+		change_metadata
+	)
 	_record_change(change)
 	return change
 
@@ -281,7 +343,13 @@ func erase_item_at(index: int, change_metadata: Dictionary = {}) -> Dictionary:
 func clear_items(change_metadata: Dictionary = {}) -> Dictionary:
 	var old_items: Array = items.duplicate(true)
 	items.clear()
-	var change: Dictionary = _make_change(OPERATION_CLEAR, -1, old_items, [], change_metadata)
+	var change: Dictionary = _make_change(
+		OPERATION_CLEAR,
+		-1,
+		old_items,
+		[],
+		change_metadata
+	)
 	change["count"] = old_items.size()
 	_record_change(change)
 	return change
@@ -301,7 +369,11 @@ func begin_batch(change_metadata: Dictionary = {}) -> void:
 		_batch_metadata = change_metadata.duplicate(true)
 		_pending_changes.clear()
 	else:
-		_batch_metadata = GFVariantData.merge_dictionary(_batch_metadata, change_metadata, true)
+		_batch_metadata = GFVariantData.merge_dictionary(
+			_batch_metadata,
+			change_metadata,
+			true
+		)
 	_batch_depth += 1
 
 
@@ -329,7 +401,11 @@ func end_batch(change_metadata: Dictionary = {}) -> Dictionary:
 		}
 
 	_batch_depth -= 1
-	_batch_metadata = GFVariantData.merge_dictionary(_batch_metadata, change_metadata, true)
+	_batch_metadata = GFVariantData.merge_dictionary(
+		_batch_metadata,
+		change_metadata,
+		true
+	)
 	if _batch_depth > 0:
 		return {
 			"ok": true,
@@ -343,7 +419,11 @@ func end_batch(change_metadata: Dictionary = {}) -> Dictionary:
 	_pending_changes.clear()
 	_batch_metadata.clear()
 	if not changes.is_empty():
-		_enqueue_change_emission(changes, batch_metadata, false)
+		_enqueue_change_emission(
+			changes,
+			batch_metadata,
+			false
+		)
 	return {
 		"ok": true,
 		"change_count": changes.size(),
@@ -419,11 +499,13 @@ func _enqueue_change_emission(
 	change_metadata: Dictionary,
 	emit_item_detail: bool
 ) -> void:
-	_change_emission_queue.append({
-		"changes": _copy_changes(changes),
-		"metadata": change_metadata.duplicate(true),
-		"emit_item_detail": emit_item_detail,
-	})
+	_change_emission_queue.append(
+		{
+			"changes": _copy_changes(changes),
+			"metadata": change_metadata.duplicate(true),
+			"emit_item_detail": emit_item_detail,
+		}
+	)
 	_drain_change_emission_queue()
 
 
@@ -443,7 +525,11 @@ func _drain_change_emission_queue() -> void:
 			var change: Dictionary = changes[0]
 			item_changed.emit(
 				GFVariantData.get_option_string_name(change, "operation"),
-				GFVariantData.get_option_int(change, "index", -1),
+				GFVariantData.get_option_int(
+					change,
+					"index",
+					-1
+				),
 				GFVariantData.get_option_value(change, "old_value"),
 				GFVariantData.get_option_value(change, "new_value"),
 				GFVariantData.get_option_dictionary(change, "metadata")
@@ -479,8 +565,16 @@ func _make_change(
 		"ok": true,
 		"operation": operation,
 		"index": index,
-		"old_value": GFVariantData.duplicate_variant(old_value, true, true),
-		"new_value": GFVariantData.duplicate_variant(new_value, true, true),
+		"old_value": GFVariantData.duplicate_variant(
+			old_value,
+			true,
+			true
+		),
+		"new_value": GFVariantData.duplicate_variant(
+			new_value,
+			true,
+			true
+		),
 		"metadata": change_metadata.duplicate(true),
 		"error": "",
 	}
@@ -489,7 +583,11 @@ func _make_change(
 ## 创建索引操作失败报告；旧值、新值为空且元数据为空字典。
 ## [br]
 ## @api private
-func _make_failure(operation: StringName, index: int, error: String) -> Dictionary:
+func _make_failure(
+	operation: StringName,
+	index: int,
+	error: String
+) -> Dictionary:
 	return {
 		"ok": false,
 		"operation": operation,

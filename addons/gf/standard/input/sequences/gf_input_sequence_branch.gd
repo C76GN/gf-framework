@@ -57,6 +57,8 @@ func duplicate_branch() -> GFInputSequenceBranch:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param action_ids: 动作 ID 数组。
 ## [br]
 ## @param p_max_gap_seconds: 默认最大步骤间隔。
@@ -64,10 +66,7 @@ func duplicate_branch() -> GFInputSequenceBranch:
 ## @schema action_ids: Array[StringName]，会复制到 GFInputSequenceStep 资源中。
 ## [br]
 ## @return 新分支。
-static func from_action_ids(
-	action_ids: Array[StringName],
-	p_max_gap_seconds: float = -1.0
-) -> GFInputSequenceBranch:
+static func from_action_ids(action_ids: Array[StringName], p_max_gap_seconds: float = -1.0) -> GFInputSequenceBranch:
 	var branch: GFInputSequenceBranch = GFInputSequenceBranch.new()
 	branch.max_gap_seconds = p_max_gap_seconds
 	for action_id: StringName in action_ids:

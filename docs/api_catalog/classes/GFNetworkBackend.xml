@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="6325d6c7fb0dfd19ba0edfbac78b9536c98f2d91109f489ebd717d197af3fda1">
+<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="d6142f4e34544ed5a314f7ca3a2205a425c94b9d53c88c1a5f8918dbe207981e">
 	<description>GFNetworkBackend: 网络后端抽象基类。
 后端负责具体传输协议，框架层只依赖该统一接口与信号。</description>
 	<tags>
@@ -91,7 +91,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="send_bytes">
-			<signature>func send_bytes(_peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {}) -&gt; Error:</signature>
+			<signature>func send_bytes( _peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {} ) -&gt; Error:</signature>
 			<description>发送 bytes。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -100,6 +100,7 @@
 				<tag name="param">_options: 后端自定义发送选项。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">_options: Dictionary，后端自定义发送选项。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="poll">
@@ -155,7 +156,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_enrich_transport_metrics">
-			<signature>func _enrich_transport_metrics( _metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget ) -&gt; void:</signature>
+			<signature>func _enrich_transport_metrics(_metrics: GFNetworkTransportMetrics, _budget: GFExecutionBudget) -&gt; void:</signature>
 			<description>向基础指标快照写入后端特有指标。
 实现必须保持同步、无副作用、有限时间和有限工作量，只读取已经在内存中的
 传输状态；不得发起网络、磁盘、锁等待或项目业务调用。每次尝试写入一个可选

@@ -291,7 +291,10 @@ func configure_for_framework(
 		lease_id <= 0
 		or transaction_id <= 0
 		or profile_id == &""
-		or (source_profile_id != &"" and source_profile_id == profile_id)
+		or (
+			source_profile_id != &""
+			and source_profile_id == profile_id
+		)
 		or reason not in [REASON_MISSING, REASON_CORRUPT]
 		or domain_id <= 0
 		or domain_generation <= 0

@@ -105,7 +105,12 @@ func _init(
 	run_immediately: bool = true
 ) -> void:
 	if not sources.is_empty() or callback.is_valid():
-		configure(sources, callback, owner, run_immediately)
+		configure(
+			sources,
+			callback,
+			owner,
+			run_immediately
+		)
 
 
 # --- 公共方法 ---
@@ -244,10 +249,7 @@ func get_sources() -> Array[GFBindableProperty]:
 ## @api private
 func _bind_source(source: GFBindableProperty, owner: Node) -> void:
 	var callback: Callable = Callable(self, "_on_source_changed")
-	_connections.append({
-		"source": source,
-		"callable": callback,
-	})
+	_connections.append({ "source": source, "callable": callback, })
 	if owner != null:
 		source.bind_to(owner, callback)
 	elif not source.value_changed.is_connected(callback):
@@ -289,7 +291,11 @@ func _get_connection_source(connection: Dictionary) -> GFBindableProperty:
 ## [br]
 ## @api private
 func _get_connection_callable(connection: Dictionary) -> Callable:
-	var raw_callable: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(connection, "callable", Callable())
+	var raw_callable: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		connection,
+		"callable",
+		Callable()
+	)
 	if raw_callable is Callable:
 		var callback: Callable = raw_callable
 		return callback

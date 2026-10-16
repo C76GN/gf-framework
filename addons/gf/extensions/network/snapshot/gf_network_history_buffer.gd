@@ -84,7 +84,12 @@ func add_state(
 	peer_id: int = -1,
 	metadata: Dictionary = {}
 ) -> GFNetworkSnapshot:
-	var snapshot: GFNetworkSnapshot = GFNetworkSnapshot.new(tick, state, peer_id, metadata)
+	var snapshot: GFNetworkSnapshot = GFNetworkSnapshot.new(
+		tick,
+		state,
+		peer_id,
+		metadata
+	)
 	var _add_snapshot_result_79: Variant = add_snapshot(snapshot)
 	return snapshot
 
@@ -184,13 +189,7 @@ func get_snapshots_between(
 	var start_tick: int = mini(from_tick, to_tick)
 	var end_tick: int = maxi(from_tick, to_tick)
 	for stored_tick: int in _tick_order:
-		var in_range: bool = (
-			stored_tick >= start_tick
-			and stored_tick <= end_tick
-		) if include_bounds else (
-			stored_tick > start_tick
-			and stored_tick < end_tick
-		)
+		var in_range: bool = ((stored_tick >= start_tick and stored_tick <= end_tick) if include_bounds else (stored_tick > start_tick and stored_tick < end_tick))
 		if not in_range:
 			continue
 
@@ -249,7 +248,11 @@ func get_ticks() -> PackedInt64Array:
 ## @return 删除数量。
 func prune_before(tick: int) -> int:
 	var removed_count: int = 0
-	for index: int in range(_tick_order.size() - 1, -1, -1):
+	for index: int in range(
+		_tick_order.size() - 1,
+		-1,
+		-1
+	):
 		var stored_tick: int = _tick_order[index]
 		if stored_tick >= tick:
 			continue
@@ -310,7 +313,10 @@ func _prune_to_capacity() -> void:
 		var _erased: bool = _snapshots.erase(_tick_order[index])
 
 	var kept_order: Array[int] = []
-	for index: int in range(remove_count, _tick_order.size()):
+	for index: int in range(
+		remove_count,
+		_tick_order.size()
+	):
 		kept_order.append(_tick_order[index])
 	_tick_order = kept_order
 

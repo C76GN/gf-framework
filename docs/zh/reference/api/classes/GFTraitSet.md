@@ -19,7 +19,7 @@
 | 方法 | [`add_trait`](#member-gftraitset-methods-add_trait) | `func add_trait(p_trait: GFTrait) -> void:` |
 | 方法 | [`remove_traits_by_id`](#member-gftraitset-methods-remove_traits_by_id) | `func remove_traits_by_id(trait_id: StringName) -> void:` |
 | 方法 | [`get_traits`](#member-gftraitset-methods-get_traits) | `func get_traits(target_id: StringName, category: StringName = &"") -> Array[GFTrait]:` |
-| 方法 | [`calculate_number`](#member-gftraitset-methods-calculate_number) | `func calculate_number(target_id: StringName, base_value: float, category: StringName = &"") -> float:` |
+| 方法 | [`calculate_number`](#member-gftraitset-methods-calculate_number) | `func calculate_number( target_id: StringName, base_value: float, category: StringName = &"" ) -> float:` |
 | 方法 | [`clear`](#member-gftraitset-methods-clear) | `func clear() -> void:` |
 
 ## 属性
@@ -108,9 +108,10 @@ func get_traits(target_id: StringName, category: StringName = &"") -> Array[GFTr
 ### `calculate_number`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func calculate_number(target_id: StringName, base_value: float, category: StringName = &"") -> float:
+func calculate_number( target_id: StringName, base_value: float, category: StringName = &"" ) -> float:
 ```
 
 计算目标键的最终数值。

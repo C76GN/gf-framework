@@ -89,10 +89,7 @@ func has_record(_storage_key: String) -> bool:
 ## @return 读取结果；当前骨架返回不可用且不携带数据。
 ## [br]
 ## @schema return: Dictionary，精确包含 ok:bool、data:Dictionary、metadata:Dictionary、error_code:int；失败时两数据字典为空且错误非 OK，成功时错误为 OK，条件写 Provider 的 metadata 须有不透明 revision:String。
-func read_record(
-	_storage_key: String,
-	_read_limits: Dictionary
-) -> Dictionary:
+func read_record(_storage_key: String, _read_limits: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
 		"data": {},
@@ -153,10 +150,7 @@ func delete_record(_storage_key: String) -> Error:
 ## @return 列表结果；当前骨架返回不可用的空列表。
 ## [br]
 ## @schema return: Dictionary，精确包含 ok:bool、records:Array、error_code:int；records 元素为 {storage_key:String,metadata:Dictionary}，不携带完整业务 payload。
-func list_records(
-	_storage_prefix: String,
-	_list_limits: Dictionary
-) -> Dictionary:
+func list_records(_storage_prefix: String, _list_limits: Dictionary) -> Dictionary:
 	return {
 		"ok": false,
 		"records": [],

@@ -61,7 +61,10 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## @since 9.0.0
 @export var fluid_density: float = 1000.0:
 	set(value):
-		fluid_density = maxf(_finite_float_or(value, 0.0), 0.0)
+		fluid_density = maxf(
+			_finite_float_or(value, 0.0),
+			0.0
+		)
 
 ## 默认世界空间流体速度。
 ## [br]
@@ -79,7 +82,10 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## @since 9.0.0
 @export var linear_drag_coefficient: float = 0.0:
 	set(value):
-		linear_drag_coefficient = maxf(_finite_float_or(value, 0.0), 0.0)
+		linear_drag_coefficient = maxf(
+			_finite_float_or(value, 0.0),
+			0.0
+		)
 
 ## 点采样二次阻力有效系数。
 ## [br]
@@ -88,7 +94,10 @@ const _BUOYANCY_MATH_SCRIPT = preload("res://addons/gf/extensions/physics/core/g
 ## @since 9.0.0
 @export var quadratic_drag_coefficient: float = 0.0:
 	set(value):
-		quadratic_drag_coefficient = maxf(_finite_float_or(value, 0.0), 0.0)
+		quadratic_drag_coefficient = maxf(
+			_finite_float_or(value, 0.0),
+			0.0
+		)
 
 
 # --- Godot 生命周期方法 ---
@@ -111,7 +120,13 @@ func _exit_tree() -> void:
 ## [br]
 ## @return 默认流体表面原点。
 func get_surface_origin() -> Vector3:
-	return to_global(Vector3(0.0, surface_offset, 0.0))
+	return to_global(
+		Vector3(
+			0.0,
+			surface_offset,
+			0.0
+		)
+	)
 
 
 ## 获取世界坐标相对流体表面的有符号深度。
@@ -222,10 +237,7 @@ func sample_point(
 		return _make_inactive_sample(&"invalid_surface")
 	var surface_normal: Vector3 = get_surface_normal_at(world_position)
 	var sampled_fluid_velocity: Vector3 = get_fluid_velocity_at(world_position)
-	var submersion_ratio: float = _BUOYANCY_MATH_SCRIPT.calculate_submersion_ratio(
-		signed_depth,
-		immersion_radius
-	)
+	var submersion_ratio: float = _BUOYANCY_MATH_SCRIPT.calculate_submersion_ratio(signed_depth, immersion_radius)
 	var buoyancy_force: Vector3 = _BUOYANCY_MATH_SCRIPT.calculate_buoyancy_force(
 		gravity_acceleration,
 		fluid_density,
@@ -352,4 +364,8 @@ func _is_finite_float(value: float) -> bool:
 ## @api private
 ## [br]
 func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)

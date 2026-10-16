@@ -23,7 +23,7 @@
 | 属性 | [`max_samples`](#member-gfmetricseries-properties-max_samples) | `var max_samples: int = 120:` |
 | 属性 | [`metadata`](#member-gfmetricseries-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`configure`](#member-gfmetricseries-methods-configure) | `func configure(metric_id: StringName, options: Dictionary = {}) -> GFMetricSeries:` |
-| 方法 | [`add_sample`](#member-gfmetricseries-methods-add_sample) | `func add_sample(value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {}) -> void:` |
+| 方法 | [`add_sample`](#member-gfmetricseries-methods-add_sample) | `func add_sample( value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {} ) -> void:` |
 | 方法 | [`clear`](#member-gfmetricseries-methods-clear) | `func clear() -> void:` |
 | 方法 | [`get_sample_count`](#member-gfmetricseries-methods-get_sample_count) | `func get_sample_count() -> int:` |
 | 方法 | [`get_samples`](#member-gfmetricseries-methods-get_samples) | `func get_samples() -> Array[Dictionary]:` |
@@ -160,9 +160,10 @@ func configure(metric_id: StringName, options: Dictionary = {}) -> GFMetricSerie
 ### `add_sample`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
-func add_sample(value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {}) -> void:
+func add_sample( value: float, timestamp_seconds: float = -1.0, sample_metadata: Dictionary = {} ) -> void:
 ```
 
 追加一个数值采样。

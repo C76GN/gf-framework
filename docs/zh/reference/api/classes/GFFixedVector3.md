@@ -30,13 +30,13 @@
 | 方法 | [`get_y_decimal`](#member-gffixedvector3-methods-get_y_decimal) | `func get_y_decimal() -> GFFixedDecimal:` |
 | 方法 | [`get_z_decimal`](#member-gffixedvector3-methods-get_z_decimal) | `func get_z_decimal() -> GFFixedDecimal:` |
 | 方法 | [`to_vector3`](#member-gffixedvector3-methods-to_vector3) | `func to_vector3() -> Vector3:` |
-| 方法 | [`rescaled`](#member-gffixedvector3-methods-rescaled) | `func rescaled( target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector3:` |
+| 方法 | [`rescaled`](#member-gffixedvector3-methods-rescaled) | `func rescaled(target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedVector3:` |
 | 方法 | [`negated`](#member-gffixedvector3-methods-negated) | `func negated() -> GFFixedVector3:` |
 | 方法 | [`add`](#member-gffixedvector3-methods-add) | `func add(other: GFFixedVector3) -> GFFixedVector3:` |
 | 方法 | [`subtract`](#member-gffixedvector3-methods-subtract) | `func subtract(other: GFFixedVector3) -> GFFixedVector3:` |
 | 方法 | [`multiply_scalar`](#member-gffixedvector3-methods-multiply_scalar) | `func multiply_scalar( scalar: GFFixedDecimal, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector3:` |
 | 方法 | [`dot`](#member-gffixedvector3-methods-dot) | `func dot( other: GFFixedVector3, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
-| 方法 | [`length_squared`](#member-gffixedvector3-methods-length_squared) | `func length_squared( target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:` |
+| 方法 | [`length_squared`](#member-gffixedvector3-methods-length_squared) | `func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal:` |
 | 方法 | [`equals_exact`](#member-gffixedvector3-methods-equals_exact) | `func equals_exact(other: GFFixedVector3) -> bool:` |
 | 方法 | [`to_dict`](#member-gffixedvector3-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gffixedvector3-methods-apply_dict) | `func apply_dict(data: Dictionary) -> bool:` |
@@ -315,7 +315,7 @@ func to_vector3() -> Vector3:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func rescaled( target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedVector3:
+func rescaled(target_decimal_places: int, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedVector3:
 ```
 
 重设小数位数。
@@ -440,7 +440,7 @@ func dot( other: GFFixedVector3, target_decimal_places: int = -1, rounding_mode:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func length_squared( target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:
+func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal:
 ```
 
 计算长度平方。

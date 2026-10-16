@@ -157,7 +157,10 @@ func make_build_options(overrides: Dictionary = {}) -> Dictionary:
 		var _merge_profile_metadata_result: Dictionary = GFVariantData.merge_dictionary(merged_metadata, metadata)
 		result["metadata"] = merged_metadata
 
-	var _merge_build_options_result: Dictionary = GFVariantData.merge_dictionary(result, GFVariantData.get_option_dictionary(overrides, "build_options"))
+	var _merge_build_options_result: Dictionary = GFVariantData.merge_dictionary(
+		result,
+		GFVariantData.get_option_dictionary(overrides, "build_options")
+	)
 	for key: String in _BUILD_OPTION_KEYS:
 		if overrides.has(key):
 			result[key] = GFVariantData.duplicate_variant(overrides[key])
@@ -179,7 +182,10 @@ func make_build_options(overrides: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary，包含合成后的保存选项。
 func make_save_options(overrides: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = save_options.duplicate(true)
-	var _merge_save_options_result: Dictionary = GFVariantData.merge_dictionary(result, GFVariantData.get_option_dictionary(overrides, "save_options"))
+	var _merge_save_options_result: Dictionary = GFVariantData.merge_dictionary(
+		result,
+		GFVariantData.get_option_dictionary(overrides, "save_options")
+	)
 	return result
 
 
@@ -198,7 +204,10 @@ func make_save_options(overrides: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary，包含合成后的访问器生成选项。
 func make_access_options(overrides: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = access_options.duplicate(true)
-	var _merge_access_options_result: Dictionary = GFVariantData.merge_dictionary(result, GFVariantData.get_option_dictionary(overrides, "access_options"))
+	var _merge_access_options_result: Dictionary = GFVariantData.merge_dictionary(
+		result,
+		GFVariantData.get_option_dictionary(overrides, "access_options")
+	)
 	return result
 
 

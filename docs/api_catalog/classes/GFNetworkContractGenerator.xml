@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="6e10a88505db53ed72678fd328f141f7ea00c83e9792a590a33b0fa7d0109217">
+<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="058890145ad05bb992176f4c3d2f3bb0ba7965f9964c341dca511d95a0427248">
 	<description>GFNetworkContractGenerator: 根据 GFNetworkContract 生成强类型消息辅助脚本。
 生成结果保持为 GDScript 轻量封装，围绕 GFNetworkMessage / GFNetworkUtility
 提供构造、发送、匹配和 payload 读取函数，不绑定任何具体业务协议。</description>
@@ -78,7 +78,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_source">
-			<signature>func save_source(output_path: String, source: String, overwrite_existing: bool = true) -&gt; Error:</signature>
+			<signature>func save_source( output_path: String, source: String, overwrite_existing: bool = true ) -&gt; Error:</signature>
 			<description>保存生成源码到指定路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -90,7 +90,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_source_with_report">
-			<signature>func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func save_source_with_report( output_path: String, source: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>保存生成源码到指定路径并返回生成产物报告。</description>
 			<tags>
 				<tag name="api">public</tag>

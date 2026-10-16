@@ -160,6 +160,7 @@ var _service_domain: GFResourceServiceDomain = null
 func get_service_generation() -> int:
 	return _service_generation
 
+
 ## 取消当前消费者的请求。
 ##
 ## 取消不会影响复用同一底层请求的其他 Lease。若当前 Lease 是最后一个消费者，
@@ -184,7 +185,11 @@ func cancel(reason: StringName = &"cancelled") -> void:
 	if not broker.has_method(&"release_lease"):
 		broker_mark_cancelled(reason)
 		return
-	var _release_result: Variant = broker.call(&"release_lease", self, reason)
+	var _release_result: Variant = broker.call(
+		&"release_lease",
+		self,
+		reason
+	)
 
 
 ## 释放当前 Lease 持有的消费者引用和已交付资源。
@@ -355,6 +360,7 @@ func bind_service_generation(generation: int, domain: GFResourceServiceDomain) -
 		_service_generation = generation
 		_service_domain = domain
 
+
 ## 绑定 Lease 与 Broker 请求身份。
 ## [br]
 ## @api framework_internal
@@ -419,7 +425,11 @@ func broker_mark_loading() -> void:
 func broker_update_progress(progress: float) -> void:
 	if _released or is_terminal():
 		return
-	_progress = clampf(progress, 0.0, 1.0)
+	_progress = clampf(
+		progress,
+		0.0,
+		1.0
+	)
 
 
 ## 交付完成资源。

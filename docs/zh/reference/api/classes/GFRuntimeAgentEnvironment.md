@@ -24,7 +24,7 @@
 | 方法 | [`register_endpoint`](#member-gfruntimeagentenvironment-methods-register_endpoint) | `func register_endpoint( endpoint_id: String, request_schema: GFDictionarySchema, response_schema: GFDictionarySchema, handler: Callable ) -> Dictionary:` |
 | 方法 | [`unregister_endpoint`](#member-gfruntimeagentenvironment-methods-unregister_endpoint) | `func unregister_endpoint(endpoint_id: String) -> Dictionary:` |
 | 方法 | [`get_endpoint_catalog`](#member-gfruntimeagentenvironment-methods-get_endpoint_catalog) | `func get_endpoint_catalog() -> Dictionary:` |
-| 方法 | [`open_session`](#member-gfruntimeagentenvironment-methods-open_session) | `func open_session( endpoint_ids: PackedStringArray, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`open_session`](#member-gfruntimeagentenvironment-methods-open_session) | `func open_session(endpoint_ids: PackedStringArray, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`close_session`](#member-gfruntimeagentenvironment-methods-close_session) | `func close_session(session_id: String, bearer_token: String) -> Dictionary:` |
 | 方法 | [`revoke_session`](#member-gfruntimeagentenvironment-methods-revoke_session) | `func revoke_session(session_id: String) -> bool:` |
 | 方法 | [`invalidate_policy_context`](#member-gfruntimeagentenvironment-methods-invalidate_policy_context) | `func invalidate_policy_context() -> int:` |
@@ -211,7 +211,7 @@ func get_endpoint_catalog() -> Dictionary:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func open_session( endpoint_ids: PackedStringArray, options: Dictionary = {} ) -> Dictionary:
+func open_session(endpoint_ids: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 ```
 
 为一组精确 endpoint grant 创建短期 session。 此方法属于受信宿主控制面，不是无需认证的远程 endpoint。返回的 token 只出现一次； 环境仅保存与 session id 绑定后的 SHA-256。时间字段使用环境单调毫秒时钟，不是 Unix 时间。

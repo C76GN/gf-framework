@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCurve3DMath" path="addons/gf/standard/foundation/math/gf_curve_3d_math.gd" module="standard" extends="RefCounted" classDigest="56793ba903159d1346c691c71a739a84bfbb36f7886b30171fde86ff9eae42fb">
+<class name="GFCurve3DMath" path="addons/gf/standard/foundation/math/gf_curve_3d_math.gd" module="standard" extends="RefCounted" classDigest="0cab45add6d747838edbd74532652295c2c0685ec90d1cb0d72f4fdf110c9063">
 	<description>GFCurve3DMath: Curve3D 与 3D 折线的纯算法辅助。
 提供路径长度、归一化采样、姿态报告和最近点投影，
 不持有节点状态，也不解释车辆、导航、碰撞、渲染或编辑器交互语义。</description>
@@ -67,7 +67,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="sample_curve">
-			<signature>static func sample_curve(curve: Curve3D, ratio: float, cubic: bool = false) -&gt; Vector3:</signature>
+			<signature>static func sample_curve( curve: Curve3D, ratio: float, cubic: bool = false ) -&gt; Vector3:</signature>
 			<description>按 0 到 1 的比例采样 Curve3D 的 baked 路径。</description>
 			<tags>
 				<tag name="api">public</tag>

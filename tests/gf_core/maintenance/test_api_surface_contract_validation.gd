@@ -8,7 +8,7 @@ const VALID_FULL_EXAMPLE_PATH: String = "res://tests/gf_core/fixtures/api_surfac
 const SOURCE_ROOT: String = "res://addons/gf"
 const PROJECT_LAYOUT_STRICT_ROOT: String = "res://addons/gf/tools/project_layout/"
 const PROJECT_LAYOUT_ANALYZER_PATH: String = "res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
-const ASSET_METADATA_UTILITY_PATH: String = "res://addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd"
+const ASSET_METADATA_UTILITY_PATH: String = ("res://addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd")
 const GF_AUTOLOAD_OWNER_PATH: String = "res://addons/gf/kernel/core/gf.gd"
 const GF_AUTOLOAD_OWNER_KIND: String = "autoload"
 const GF_AUTOLOAD_OWNER_NAME: String = "Gf"
@@ -25,10 +25,7 @@ const API_TAGS: Array[String] = [
 	"layer_internal",
 	"private",
 ]
-const PUBLIC_API_TAGS: Array[String] = [
-	"public",
-	"protected",
-]
+const PUBLIC_API_TAGS: Array[String] = ["public", "protected",]
 const INTERNAL_API_TAGS: Array[String] = [
 	"framework_internal",
 	"layer_internal",
@@ -40,10 +37,7 @@ const INTERNAL_SECTION_ENFORCED_ROOTS: Array[String] = [
 	"res://addons/gf/extensions/dialogue/",
 	PROJECT_LAYOUT_STRICT_ROOT,
 ]
-const CLASS_KINDS: Array[String] = [
-	"class_name",
-	"class",
-]
+const CLASS_KINDS: Array[String] = ["class_name", "class",]
 const VALID_CATEGORIES: Array[String] = [
 	"runtime_service",
 	"runtime_handle",
@@ -136,10 +130,7 @@ const CANONICAL_SECTION_ORDER: Array[String] = [
 	"信号处理函数",
 	"内部类",
 ]
-const SECTION_NAME_ALIASES: Dictionary = {
-	"虚方法": "可重写钩子 / 虚方法",
-	"可重写钩子": "可重写钩子 / 虚方法",
-}
+const SECTION_NAME_ALIASES: Dictionary = { "虚方法": "可重写钩子 / 虚方法", "可重写钩子": "可重写钩子 / 虚方法", }
 const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_draw": true,
 	"_enter_tree": true,
@@ -168,14 +159,25 @@ const GUT_COLLECTOR_SCRIPT = preload("res://addons/gut/test_collector.gd")
 # --- 测试用例 ---
 
 func test_full_valid_example_satisfies_api_surface_contract() -> void:
-	var issues: Array[String] = _collect_api_surface_issues(_read_text(VALID_FULL_EXAMPLE_PATH), VALID_FULL_EXAMPLE_PATH)
+	var issues: Array[String] = _collect_api_surface_issues(
+		_read_text(VALID_FULL_EXAMPLE_PATH),
+		VALID_FULL_EXAMPLE_PATH
+	)
 
-	assert_eq(issues, [], "完整 API Surface 正例应满足严格契约：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"完整 API Surface 正例应满足严格契约：\n%s" % _join_lines(issues)
+	)
 
 
 func test_gf_source_and_template_files_satisfy_api_surface_contract() -> void:
 	var script_paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
-	assert_gt(script_paths.size(), 0, "API Surface 源码扫描必须能发现 addons/gf 下的脚本。")
+	assert_gt(
+		script_paths.size(),
+		0,
+		"API Surface 源码扫描必须能发现 addons/gf 下的脚本。"
+	)
 	assert_true(
 		script_paths.has(PROJECT_LAYOUT_ANALYZER_PATH),
 		"API Surface 全源扫描必须直接读取 live addons/gf 树，并覆盖尚未进入 Git index 的新增 GF 源码。"
@@ -188,7 +190,15 @@ func test_gf_source_and_template_files_satisfy_api_surface_contract() -> void:
 	var contract_owners: Dictionary = _collect_contract_owners(sources)
 	var issues: Array[String] = []
 	for path: String in script_paths:
-		issues.append_array(_collect_api_surface_issues_with_type_visibility(_read_text(path), path, type_visibility, type_inheritance, contract_owners))
+		issues.append_array(
+			_collect_api_surface_issues_with_type_visibility(
+				_read_text(path),
+				path,
+				type_visibility,
+				type_inheritance,
+				contract_owners
+			)
+		)
 
 	assert_eq(
 		issues,
@@ -201,15 +211,18 @@ func test_gf_source_does_not_use_placeholder_since_version() -> void:
 	var script_paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
 	var issues: Array[String] = []
 	for path: String in script_paths:
-		issues.append_array(_collect_placeholder_since_issues(_read_text(path), path))
+		issues.append_array(
+			_collect_placeholder_since_issues(
+				_read_text(path),
+				path
+			)
+		)
 
 	assert_eq(
 		issues,
 		[],
-		"GF 源码不应继续使用迁移占位 @since %s；历史迁移完成后的 API 以当前发布版本起算：\n%s" % [
-			PLACEHOLDER_SINCE_VERSION,
-			_join_lines(issues),
-		]
+		"GF 源码不应继续使用迁移占位 @since %s；历史迁移完成后的 API 以当前发布版本起算：\n%s"
+		% [PLACEHOLDER_SINCE_VERSION, _join_lines(issues),]
 	)
 
 
@@ -247,12 +260,8 @@ func test_released_asset_metadata_api_keeps_historical_since_baseline() -> void:
 
 func test_object_pool_lease_migration_preserves_released_api_since_versions() -> void:
 	var expected_since_by_path: Dictionary = {
-		"res://addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd": {
-			"object_pool_utility": "3.17.0",
-		},
-		"res://addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd": {
-			"object_pool_utility": "3.17.0",
-		},
+		"res://addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd": { "object_pool_utility": "3.17.0", },
+		"res://addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd": { "object_pool_utility": "3.17.0", },
 		"res://addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd": {
 			"max_available_per_scene": "3.17.0",
 			"dispose": "3.17.0",
@@ -260,16 +269,17 @@ func test_object_pool_lease_migration_preserves_released_api_since_versions() ->
 			"acquire": "8.0.0",
 			"prewarm": "8.0.0",
 		},
-		"res://addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd": {
-			"Status": "11.0.0",
-		},
+		"res://addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd": { "Status": "11.0.0", },
 	}
 	for path: String in expected_since_by_path:
 		var expected_since_by_symbol: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(expected_since_by_path, path)
 		var actual_since_by_symbol: Dictionary = {}
-		for declaration: Dictionary in _parse_declarations(_read_text(path), path):
+		for declaration: Dictionary in _parse_declarations(
+			_read_text(path),
+			path
+		):
 			var symbol_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name")
-			if GF_VARIANT_ACCESS.get_option_int(declaration, "indent") != 0 or not expected_since_by_symbol.has(symbol_name):
+			if (GF_VARIANT_ACCESS.get_option_int(declaration, "indent") != 0 or not expected_since_by_symbol.has(symbol_name)):
 				continue
 			actual_since_by_symbol[symbol_name] = _parse_tag_value(
 				GF_VARIANT_ACCESS.get_option_array(declaration, "docs"),
@@ -287,15 +297,18 @@ func test_gf_source_api_doc_tags_use_godot_render_separator() -> void:
 	var script_paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
 	var issues: Array[String] = []
 	for path: String in script_paths:
-		issues.append_array(_collect_doc_tag_render_separator_issues(_read_text(path), path))
+		issues.append_array(
+			_collect_doc_tag_render_separator_issues(
+				_read_text(path),
+				path
+			)
+		)
 
 	assert_eq(
 		issues,
 		[],
-		"GF API 文档的人读说明和机器标签之间应使用 %s 分隔，避免 Godot 悬停文档粘连：\n%s" % [
-			DOC_RENDER_SEPARATOR,
-			_join_lines(issues),
-		]
+		"GF API 文档的人读说明和机器标签之间应使用 %s 分隔，避免 Godot 悬停文档粘连：\n%s"
+		% [DOC_RENDER_SEPARATOR, _join_lines(issues),]
 	)
 
 
@@ -353,7 +366,11 @@ class _Cursor:
 	extends RefCounted
 """
 	var issues: Array[String] = _collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH)
-	assert_eq(issues, [], "私有文档允许只记录必要参数，不强制 since/category/return/schema：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"私有文档允许只记录必要参数，不强制 since/category/return/schema：\n%s" % _join_lines(issues)
+	)
 
 
 func test_private_doc_comments_require_explicit_single_visibility_and_prose() -> void:
@@ -366,9 +383,18 @@ func test_private_doc_comments_require_explicit_single_visibility_and_prose() ->
 		"## 维护约束。\n## @api private\n## @api: public",
 		"## 维护约束。\n## @api unknown",
 	]:
-		_assert_invalid(source % docs, "exactly one valid @api")
-	_assert_invalid(source % "## [br]\n## @api private", "private doc must contain explanatory prose")
-	_assert_invalid(source % "## 维护约束。\n## @api public", "private members must declare @api private")
+		_assert_invalid(
+			source % docs,
+			"exactly one valid @api"
+		)
+	_assert_invalid(
+		source % "## [br]\n## @api private",
+		"private doc must contain explanatory prose"
+	)
+	_assert_invalid(
+		source % "## 维护约束。\n## @api public",
+		"private members must declare @api private"
+	)
 
 
 func test_private_documentation_supports_member_kinds_and_callback_sections() -> void:
@@ -437,7 +463,11 @@ func _can_handle(object: Object) -> bool:
 func _on_changed(payload: Dictionary) -> void:
 	pass
 """
-	assert_eq(_collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH), [], "所有受支持的私有声明按各自语义保留 canonical 分区。")
+	assert_eq(
+		_collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH),
+		[],
+		"所有受支持的私有声明按各自语义保留 canonical 分区。"
+	)
 
 
 func test_public_constructor_and_other_api_contracts_keep_complete_validation() -> void:
@@ -457,9 +487,16 @@ extends RefCounted
 func _init(value: int) -> void:
 	pass
 """
-	assert_eq(_collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH), [], "公开构造函数仍使用既有生命周期规则。")
-	_assert_invalid(source.replace("## @param value: 初始值。\n", ""), "missing @param for 'value'")
-	var internal_source: String = "# --- 框架内部方法 ---\n## 协作入口。\n## @api framework_internal\nfunc run(value: Dictionary) -> Dictionary:\n\treturn value\n"
+	assert_eq(
+		_collect_api_surface_issues(source, VALID_FULL_EXAMPLE_PATH),
+		[],
+		"公开构造函数仍使用既有生命周期规则。"
+	)
+	_assert_invalid(
+		source.replace("## @param value: 初始值。\n", ""),
+		"missing @param for 'value'"
+	)
+	var internal_source: String = ("# --- 框架内部方法 ---\n## 协作入口。\n## @api framework_internal\nfunc run(value: Dictionary) -> Dictionary:\n\treturn value\n")
 	_assert_invalid(internal_source, "missing @param for 'value'")
 	_assert_invalid(internal_source, "missing @return")
 	_assert_invalid(internal_source, "missing @schema for 'value'")
@@ -471,7 +508,10 @@ func test_private_visibility_cannot_hide_public_names_or_global_owners() -> void
 		"var cache: Dictionary = {}",
 		"class Cursor:\n\textends RefCounted",
 	]:
-		_assert_invalid("## 内部约束。\n## @api private\n" + declaration, "private API must use an underscore name")
+		_assert_invalid(
+			"## 内部约束。\n## @api private\n" + declaration,
+			"private API must use an underscore name"
+		)
 	_assert_invalid("## 内部类型。\n## @api private\nclass_name _GlobalCache\nextends RefCounted", "class_name cannot declare @api private")
 	_assert_invalid("## 文件说明。\n## @api private\nextends Node", "documented API construct is not supported")
 	_assert_invalid("## 悬空说明。\n## @api private", "documented API construct is not supported")
@@ -480,7 +520,8 @@ func test_private_visibility_cannot_hide_public_names_or_global_owners() -> void
 func test_underscore_internal_collaboration_keeps_full_contract_validation() -> void:
 	for visibility: String in ["framework_internal", "layer_internal"]:
 		var section: String = "框架内部方法" if visibility == "framework_internal" else "层内方法"
-		var source: String = """extends RefCounted
+		var source: String = (
+			"""extends RefCounted
 
 # --- %s ---
 
@@ -493,16 +534,40 @@ func test_underscore_internal_collaboration_keeps_full_contract_validation() -> 
 ## @schema return: 与输入相同的批次字典。
 func _accept_state(state: Dictionary) -> Dictionary:
 	return state
-""" % [section, visibility]
+"""
+			% [section, visibility]
+		)
 		var path: String = PROJECT_LAYOUT_STRICT_ROOT + "gf_internal_doc_fixture.gd"
-		assert_eq(_collect_api_surface_issues(source, path), [], "内部协作可见性不应被下划线前缀覆盖。")
-		_assert_invalid(source.replace("## @param state: 当前批次字段。\n", ""), "missing @param for 'state'")
-		_assert_invalid(source.replace("## @return: 原样返回批次字段。\n", ""), "missing @return")
-		_assert_invalid(source.replace("## @schema state: 调用方持有的批次字典。\n", ""), "missing @schema for 'state'")
+		assert_eq(
+			_collect_api_surface_issues(source, path),
+			[],
+			"内部协作可见性不应被下划线前缀覆盖。"
+		)
+		_assert_invalid(
+			source.replace("## @param state: 当前批次字段。\n", ""),
+			"missing @param for 'state'"
+		)
+		_assert_invalid(
+			source.replace("## @return: 原样返回批次字段。\n", ""),
+			"missing @return"
+		)
+		_assert_invalid(
+			source.replace("## @schema state: 调用方持有的批次字典。\n", ""),
+			"missing @schema for 'state'"
+		)
 		if visibility == "layer_internal":
-			_assert_invalid(source.replace("## @layer tools/project_layout\n", ""), "layer_internal API must declare @layer")
-		var wrong_section_issues: Array[String] = _collect_api_surface_issues(source.replace(section, "私有/辅助方法"), path)
-		assert_false(wrong_section_issues.is_empty(), "内部协作入口仍必须位于相应内部方法分区。")
+			_assert_invalid(
+				source.replace("## @layer tools/project_layout\n", ""),
+				"layer_internal API must declare @layer"
+			)
+		var wrong_section_issues: Array[String] = _collect_api_surface_issues(
+			source.replace(section, "私有/辅助方法"),
+			path
+		)
+		assert_false(
+			wrong_section_issues.is_empty(),
+			"内部协作入口仍必须位于相应内部方法分区。"
+		)
 
 
 func test_private_documented_declarations_keep_their_canonical_sections() -> void:
@@ -518,12 +583,15 @@ func test_private_documented_declarations_keep_their_canonical_sections() -> voi
 		{ "section": "私有变量", "declaration": "class _Cache:\n\textends RefCounted" },
 	]
 	for test_case: Dictionary in cases:
-		var source: String = "# --- %s ---\n\n## 维护约束。\n## @api private\n%s" % [test_case["section"], test_case["declaration"]]
+		var source: String = (
+			"# --- %s ---\n\n## 维护约束。\n## @api private\n%s"
+			% [test_case["section"], test_case["declaration"]]
+		)
 		_assert_invalid(source, "private API uses an incompatible section")
 
 
 func test_private_optional_params_reject_invalid_partial_documentation() -> void:
-	var source: String = "# --- 私有/辅助方法 ---\n\n## 维护约束。\n## @api private\n%s\nfunc _normalize(first: int, second: int, third: int) -> void:\n\tpass\n"
+	var source: String = ("# --- 私有/辅助方法 ---\n\n## 维护约束。\n## @api private\n%s\nfunc _normalize(first: int, second: int, third: int) -> void:\n\tpass\n")
 	var cases: Dictionary = {
 		"## @param missing: 未知参数。": "unknown @param",
 		"## @param second:": "non-empty description",
@@ -533,13 +601,20 @@ func test_private_optional_params_reject_invalid_partial_documentation() -> void
 		"## @param third: 第三项。\n## @param first: 第一项。": "@param order",
 	}
 	for docs: String in cases:
-		_assert_invalid(source % docs, GF_VARIANT_ACCESS.get_option_string(cases, docs))
+		_assert_invalid(
+			source % docs,
+			GF_VARIANT_ACCESS.get_option_string(cases, docs)
+		)
 	var valid_source: String = source % "## @param first: 第一项。\n## @param third: 第三项。"
-	assert_eq(_collect_api_surface_issues(valid_source, VALID_FULL_EXAMPLE_PATH), [], "私有参数子集保持签名中的相对顺序即可。")
+	assert_eq(
+		_collect_api_surface_issues(valid_source, VALID_FULL_EXAMPLE_PATH),
+		[],
+		"私有参数子集保持签名中的相对顺序即可。"
+	)
 
 
 func test_private_optional_return_and_schema_tags_are_validated() -> void:
-	var source: String = "# --- 私有/辅助方法 ---\n\n## 维护约束。\n## @api private\n%s\nfunc _normalize(value: Dictionary) -> Dictionary:\n\treturn value\n"
+	var source: String = ("# --- 私有/辅助方法 ---\n\n## 维护约束。\n## @api private\n%s\nfunc _normalize(value: Dictionary) -> Dictionary:\n\treturn value\n")
 	var cases: Dictionary = {
 		"## @return:": "non-empty description",
 		"## @schema missing: 错误目标。": "unknown @schema target",
@@ -550,11 +625,24 @@ func test_private_optional_return_and_schema_tags_are_validated() -> void:
 		"## @schema value: 第一份。\n## @schema value: 第二份。": "duplicate @schema",
 	}
 	for docs: String in cases:
-		_assert_invalid(source % docs, GF_VARIANT_ACCESS.get_option_string(cases, docs))
-	var valid_source: String = source % "## @return: 隔离后的字段。\n## @schema value: {\"type\": \"Dictionary\"}\n## @schema return: 复制后的字段字典。"
-	assert_eq(_collect_api_surface_issues(valid_source, VALID_FULL_EXAMPLE_PATH), [], "私有文档支持按需返回值及非空 schema 说明。")
-	_assert_invalid((source % "## @return: 不存在的返回值。").replace("-> Dictionary", "-> void"), "@return requires a non-void function")
-	_assert_invalid((source % "## @schema return: 不存在的返回值。").replace("-> Dictionary", "-> void"), "unknown @schema target")
+		_assert_invalid(
+			source % docs,
+			GF_VARIANT_ACCESS.get_option_string(cases, docs)
+		)
+	var valid_source: String = (source % "## @return: 隔离后的字段。\n## @schema value: {\"type\": \"Dictionary\"}\n## @schema return: 复制后的字段字典。")
+	assert_eq(
+		_collect_api_surface_issues(valid_source, VALID_FULL_EXAMPLE_PATH),
+		[],
+		"私有文档支持按需返回值及非空 schema 说明。"
+	)
+	_assert_invalid(
+		(source % "## @return: 不存在的返回值。").replace("-> Dictionary", "-> void"),
+		"@return requires a non-void function"
+	)
+	_assert_invalid(
+		(source % "## @schema return: 不存在的返回值。").replace("-> Dictionary", "-> void"),
+		"unknown @schema target"
+	)
 	_assert_invalid("# --- 私有变量 ---\n## 维护约束。\n## @api private\n## @return: 不存在的返回值。\nvar _value: int = 0", "@return requires a non-void function")
 	_assert_invalid("# --- 私有变量 ---\n## 维护约束。\n## @api private\n## @param value: 不存在的参数。\nvar _value: int = 0", "unknown @param")
 
@@ -584,7 +672,6 @@ class _Cursor:
 	extends RefCounted
 """
 	_assert_invalid(source, "public API exposes internal type _Cursor")
-
 
 
 func test_public_function_requires_doc_comment() -> void:
@@ -1016,7 +1103,10 @@ func configure(value: int) -> bool:
 """
 
 	var issues: Array[String] = _collect_api_surface_issues(source, "<inline>")
-	assert_true(_issues_contain(issues, "missing API doc"), "迁移标记不得隐藏缺失文档。")
+	assert_true(
+		_issues_contain(issues, "missing API doc"),
+		"迁移标记不得隐藏缺失文档。"
+	)
 	assert_true(_issues_contain(issues, "migration markers are no longer allowed"))
 
 
@@ -1086,7 +1176,11 @@ func generated_without_docs() -> void:
 """
 
 	var issues: Array[String] = _collect_api_surface_issues(source, "<inline>")
-	assert_eq(issues, [], "多行字符串中的模板声明不应参与 API Surface 校验：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"多行字符串中的模板声明不应参与 API Surface 校验：\n%s" % _join_lines(issues)
+	)
 
 
 func test_property_accessor_locals_are_not_api_declarations() -> void:
@@ -1113,7 +1207,11 @@ var max_players: int = 1:
 """
 
 	var issues: Array[String] = _collect_api_surface_issues(source, "<inline>")
-	assert_eq(issues, [], "属性访问器中的局部变量不应参与 API Surface 校验：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"属性访问器中的局部变量不应参与 API Surface 校验：\n%s" % _join_lines(issues)
+	)
 
 
 func test_doc_comments_must_bind_to_declarations() -> void:
@@ -1202,7 +1300,11 @@ func is_ready() -> bool:
 """
 	var issues: Array[String] = _collect_api_surface_issues(source, GF_AUTOLOAD_OWNER_PATH)
 
-	assert_eq(issues, [], "精确受控 Gf AutoLoad owner 应允许 classless public surface：\n%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"精确受控 Gf AutoLoad owner 应允许 classless public surface：\n%s" % _join_lines(issues)
+	)
 
 
 func test_api_owner_requires_exact_controlled_identity_path_and_base() -> void:
@@ -1221,22 +1323,26 @@ func test_api_owner_requires_exact_controlled_identity_path_and_base() -> void:
 extends %s
 """
 	_assert_invalid_at_path(
-		template % ["service Gf", "Node"],
+		template
+		% ["service Gf", "Node"],
 		"unknown or uncontrolled @api_owner 'service Gf'",
 		GF_AUTOLOAD_OWNER_PATH
 	)
 	_assert_invalid_at_path(
-		template % ["autoload Other", "Node"],
+		template
+		% ["autoload Other", "Node"],
 		"unknown or uncontrolled @api_owner 'autoload Other'",
 		GF_AUTOLOAD_OWNER_PATH
 	)
 	_assert_invalid_at_path(
-		template % ["autoload Gf", "Node"],
+		template
+		% ["autoload Gf", "Node"],
 		"@api_owner autoload Gf is only allowed at",
 		"res://addons/gf/kernel/core/other.gd"
 	)
 	_assert_invalid_at_path(
-		template % ["autoload Gf", "Node2D"],
+		template
+		% ["autoload Gf", "Node2D"],
 		"@api_owner autoload Gf must bind to top-level extends Node",
 		GF_AUTOLOAD_OWNER_PATH
 	)
@@ -1258,7 +1364,11 @@ func test_controlled_gf_autoload_owner_requires_exactly_one_public_visibility() 
 extends Node
 """
 	var valid_source: String = template % "## @api public"
-	assert_eq(_collect_api_surface_issues(valid_source, GF_AUTOLOAD_OWNER_PATH), [], "单一精确 public 标签应保留受控 owner。")
+	assert_eq(
+		_collect_api_surface_issues(valid_source, GF_AUTOLOAD_OWNER_PATH),
+		[],
+		"单一精确 public 标签应保留受控 owner。"
+	)
 	assert_true(_has_controlled_gf_autoload_owner(valid_source, GF_AUTOLOAD_OWNER_PATH))
 	for api_docs: String in [
 		"## @api public\n## [br]\n## @api private",
@@ -1270,8 +1380,15 @@ extends Node
 		"## @api",
 	]:
 		var source: String = template % api_docs
-		_assert_invalid_at_path(source, "must declare exactly one @api public", GF_AUTOLOAD_OWNER_PATH)
-		assert_false(_has_controlled_gf_autoload_owner(source, GF_AUTOLOAD_OWNER_PATH), "含糊的可见性不得授予 classless public owner。")
+		_assert_invalid_at_path(
+			source,
+			"must declare exactly one @api public",
+			GF_AUTOLOAD_OWNER_PATH
+		)
+		assert_false(
+			_has_controlled_gf_autoload_owner(source, GF_AUTOLOAD_OWNER_PATH),
+			"含糊的可见性不得授予 classless public owner。"
+		)
 
 
 func test_api_owner_rejects_duplicate_or_orphan_declarations() -> void:
@@ -1443,169 +1560,474 @@ func test_every_private_declaration_requires_documentation() -> void:
 		"class _State:\n\tpass",
 	]
 	for declaration: String in declarations:
-		var issues: Array[String] = _collect_api_surface_issues("extends RefCounted\n\n" + declaration + "\n", "<private-coverage>")
-		assert_true(_issues_contain(issues, "missing API doc"), "所有私有声明都需要维护文档：%s\n%s" % [declaration, _join_lines(issues)])
-	var nested_source: String = "extends RefCounted\nclass _Outer:\n\tclass _Inner:\n\t\tstatic var _cache: int = 0\n\t\tfunc _read() -> int:\n\t\t\treturn _cache\n"
+		var issues: Array[String] = _collect_api_surface_issues(
+			"extends RefCounted\n\n" + declaration + "\n",
+			"<private-coverage>"
+		)
+		assert_true(
+			_issues_contain(issues, "missing API doc"),
+			"所有私有声明都需要维护文档：%s\n%s"
+			% [declaration, _join_lines(issues)]
+		)
+	var nested_source: String = ("extends RefCounted\nclass _Outer:\n\tclass _Inner:\n\t\tstatic var _cache: int = 0\n\t\tfunc _read() -> int:\n\t\t\treturn _cache\n")
 	var nested_issues: Array[String] = _collect_api_surface_issues(nested_source, "<classless-nested>")
-	for member_name: String in ["_Outer", "_Inner", "_cache", "_read"]:
-		assert_true(_issues_contain(nested_issues, member_name + " missing API doc"), "classless 多层内部声明不能漏检：%s" % member_name)
+	for member_name: String in [
+		"_Outer",
+		"_Inner",
+		"_cache",
+		"_read",
+	]:
+		assert_true(
+			_issues_contain(
+				nested_issues,
+				member_name + " missing API doc"
+			),
+			"classless 多层内部声明不能漏检：%s" % member_name
+		)
 
 
 func test_template_sources_participate_in_the_same_contract_scan() -> void:
 	var paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
-	assert_true(paths.has("res://addons/gf/tools/ai_developer/templates/adapters/storage/storage_backend.gd.txt"), "Adapter 模板必须进入源码契约扫描。")
-	assert_true(paths.has("res://addons/gf/tools/project_bootstrap/templates/empty_project/integration_snippet.gd.txt"), "函数体片段也必须进入受控模板渲染与扫描。")
+	assert_true(
+		paths.has("res://addons/gf/tools/ai_developer/templates/adapters/storage/storage_backend.gd.txt"),
+		"Adapter 模板必须进入源码契约扫描。"
+	)
+	assert_true(
+		paths.has("res://addons/gf/tools/project_bootstrap/templates/empty_project/integration_snippet.gd.txt"),
+		"函数体片段也必须进入受控模板渲染与扫描。"
+	)
 	var issues: Array[String] = []
 	var missing_paths: Array[String] = CONTRACT_SOURCES.collect_files("res://does-not-exist-comment-contract", issues)
 	assert_eq(missing_paths, [])
-	assert_false(issues.is_empty(), "枚举失败不能变成空目录成功。")
+	assert_false(
+		issues.is_empty(),
+		"枚举失败不能变成空目录成功。"
+	)
 
 
 func test_native_callbacks_require_the_actual_native_base() -> void:
 	for method_name: String in ["_ready", "_draw"]:
 		var source: String = "extends RefCounted\nfunc %s() -> void:\n\tpass\n" % method_name
-		_assert_invalid(source, method_name + " missing API doc")
+		_assert_invalid(
+			source,
+			method_name + " missing API doc"
+		)
 		var native_base: String = "Node" if method_name == "_ready" else "Node2D"
-		var native_issues: Array[String] = _collect_api_surface_issues(source.replace("RefCounted", native_base), "<native>")
-		assert_false(_issues_contain(native_issues, "missing API doc"), "原生虚方法按真实基类证明：%s" % _join_lines(native_issues))
+		var native_issues: Array[String] = _collect_api_surface_issues(
+			source.replace("RefCounted", native_base),
+			"<native>"
+		)
+		assert_false(
+			_issues_contain(native_issues, "missing API doc"),
+			"原生虚方法按真实基类证明：%s" % _join_lines(native_issues)
+		)
 	_assert_invalid("extends Node\nstatic func _ready() -> void:\n\tpass\n", "_ready missing API doc")
 	_assert_invalid("extends Node\n@warning_ignore(\"unused_parameter\")\nstatic func _ready() -> void:\n\tpass\n", "_ready missing API doc")
-	var literal_source: String = "# --- 常量 ---\n## 保留模板原文。\n## [br]\n## @api private\nconst _TEXT: String = \"\"\"\nextends Node\n\"\"\"\nfunc _ready() -> void:\n\tpass\n"
+	var literal_source: String = ("# --- 常量 ---\n## 保留模板原文。\n## [br]\n## @api private\nconst _TEXT: String = \"\"\"\nextends Node\n\"\"\"\nfunc _ready() -> void:\n\tpass\n")
 	_assert_invalid(literal_source, "_ready missing API doc")
-	var nested_source: String = "extends Node2D\n# --- 内部类 ---\n## 局部状态。\n## [br]\n## @api private\nclass _State:\n\textends RefCounted\n\tfunc _draw() -> void:\n\t\tpass\n"
+	var nested_source: String = ("extends Node2D\n# --- 内部类 ---\n## 局部状态。\n## [br]\n## @api private\nclass _State:\n\textends RefCounted\n\tfunc _draw() -> void:\n\t\tpass\n")
 	_assert_invalid(nested_source, "_draw missing API doc")
-	var comment_base: String = "## 局部测试类型。\n## [br]\n## @api framework_internal\nclass_name CommentOnly # example: extends Node\nfunc _ready() -> void:\n\tpass\n"
+	var comment_base: String = ("## 局部测试类型。\n## [br]\n## @api framework_internal\nclass_name CommentOnly # example: extends Node\nfunc _ready() -> void:\n\tpass\n")
 	_assert_invalid(comment_base, "_ready missing API doc")
-	assert_eq(_collect_api_surface_issues("extends RefCounted\nfunc _init() -> void:\n\tpass\n", "<constructor>"), [])
+	assert_eq(
+		_collect_api_surface_issues("extends RefCounted\nfunc _init() -> void:\n\tpass\n", "<constructor>"),
+		[]
+	)
 
 
 func test_inherited_protected_contract_requires_matching_owner_and_signature() -> void:
-	var base_source: String = "## 测试继承协议。\n## [br]\n## @api framework_internal\nclass_name ContractBase\nextends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 读取当前值。\n## [br]\n## @api protected\n## [br]\n## @param index: 读取的位置。\n## [br]\n## @return: 当前位置的值。\nfunc _read(index: int) -> int:\n\treturn index\n"
+	var base_source: String = ("## 测试继承协议。\n## [br]\n## @api framework_internal\nclass_name ContractBase\nextends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 读取当前值。\n## [br]\n## @api protected\n## [br]\n## @param index: 读取的位置。\n## [br]\n## @return: 当前位置的值。\nfunc _read(index: int) -> int:\n\treturn index\n")
 	var child_source: String = "extends \"res://contract/base.gd\"\nfunc _read(index: int) -> int:\n\treturn index\n"
-	var sources: Dictionary = {"res://contract/base.gd": base_source, "res://contract/child.gd": child_source}
+	var sources: Dictionary = { "res://contract/base.gd": base_source, "res://contract/child.gd": child_source }
 	var index: Dictionary = _collect_contract_owners(sources)
-	var issues: Array[String] = _collect_api_surface_issues_with_type_visibility(child_source, "res://contract/child.gd", {}, {}, index)
-	assert_false(_issues_contain(issues, "missing API doc"), "已文档 protected 基类契约可以复用：%s" % _join_lines(issues))
-	for invalid_child: String in [child_source.replace("int", "float"), child_source.replace('"res://contract/base.gd"', "RefCounted"), child_source.replace("index", "position"), child_source.replace("index: int", "index: int = 0")]:
+	var issues: Array[String] = _collect_api_surface_issues_with_type_visibility(
+		child_source,
+		"res://contract/child.gd",
+		{},
+		{},
+		index
+	)
+	assert_false(
+		_issues_contain(issues, "missing API doc"),
+		"已文档 protected 基类契约可以复用：%s" % _join_lines(issues)
+	)
+	for invalid_child: String in [
+		child_source.replace("int", "float"),
+		child_source.replace('"res://contract/base.gd"', "RefCounted"),
+		child_source.replace("index", "position"),
+		child_source.replace("index: int", "index: int = 0"),
+	]:
 		sources["res://contract/child.gd"] = invalid_child
-		issues = _collect_api_surface_issues_with_type_visibility(invalid_child, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-		assert_true(_issues_contain(issues, "_read missing API doc"), "同名或不匹配签名不能豁免。")
+		issues = _collect_api_surface_issues_with_type_visibility(
+			invalid_child,
+			"res://contract/child.gd",
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_true(
+			_issues_contain(issues, "_read missing API doc"),
+			"同名或不匹配签名不能豁免。"
+		)
 	sources["res://contract/child.gd"] = child_source
 	sources["res://contract/base.gd"] = base_source.replace("## @param index: 读取的位置。\n", "")
-	issues = _collect_api_surface_issues_with_type_visibility(child_source, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-	assert_true(_issues_contain(issues, "_read missing API doc"), "基类不完整的标签不能提供继承证明。")
+	issues = _collect_api_surface_issues_with_type_visibility(
+		child_source,
+		"res://contract/child.gd",
+		{},
+		{},
+		_collect_contract_owners(sources)
+	)
+	assert_true(
+		_issues_contain(issues, "_read missing API doc"),
+		"基类不完整的标签不能提供继承证明。"
+	)
 	sources["res://contract/base.gd"] = base_source.replace("## 读取当前值。\n## [br]\n## @api protected\n## [br]\n## @param index: 读取的位置。\n## [br]\n## @return: 当前位置的值。\n", "")
-	issues = _collect_api_surface_issues_with_type_visibility(child_source, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-	assert_true(_issues_contain(issues, "_read missing API doc"), "同名基类 helper 和 hook section 都不能代替已文档契约。")
+	issues = _collect_api_surface_issues_with_type_visibility(
+		child_source,
+		"res://contract/child.gd",
+		{},
+		{},
+		_collect_contract_owners(sources)
+	)
+	assert_true(
+		_issues_contain(issues, "_read missing API doc"),
+		"同名基类 helper 和 hook section 都不能代替已文档契约。"
+	)
 	sources["res://contract/base.gd"] = base_source.replace("index: int", "index: int = 1")
 	var different_default: String = child_source.replace("index: int", "index: int = 2")
 	sources["res://contract/child.gd"] = different_default
-	issues = _collect_api_surface_issues_with_type_visibility(different_default, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-	assert_true(_issues_contain(issues, "_read missing API doc"), "不同默认表达式不能沿用完整契约。")
+	issues = _collect_api_surface_issues_with_type_visibility(
+		different_default,
+		"res://contract/child.gd",
+		{},
+		{},
+		_collect_contract_owners(sources)
+	)
+	assert_true(
+		_issues_contain(issues, "_read missing API doc"),
+		"不同默认表达式不能沿用完整契约。"
+	)
 	sources["res://contract/base.gd"] = base_source
-	for visibility: String in ["private", "framework_internal", "layer_internal"]:
+	for visibility: String in [
+		"private",
+		"framework_internal",
+		"layer_internal",
+	]:
 		for parameter_name: String in ["index", "position"]:
-			var downgrade: String = child_source.replace("func _read", "## 覆写读取。\n## [br]\n## @api " + visibility + "\nfunc _read").replace("index", parameter_name)
+			var downgrade: String = (
+				child_source.replace(
+					"func _read",
+					"## 覆写读取。\n## [br]\n## @api " + visibility + "\nfunc _read"
+				).replace("index", parameter_name)
+			)
 			sources["res://contract/child.gd"] = downgrade
-			issues = _collect_api_surface_issues_with_type_visibility(downgrade, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-			assert_true(_issues_contain(issues, "inherited protected API cannot be downgraded"), "参数改名或轻量标签不能降级真实覆写契约。")
+			issues = _collect_api_surface_issues_with_type_visibility(
+				downgrade,
+				"res://contract/child.gd",
+				{},
+				{},
+				_collect_contract_owners(sources)
+			)
+			assert_true(
+				_issues_contain(issues, "inherited protected API cannot be downgraded"),
+				"参数改名或轻量标签不能降级真实覆写契约。"
+			)
 	var documented_override: String = child_source.replace("func _read", "# --- 可重写钩子 / 虚方法 ---\n## 在当前实现读取位置。\n## [br]\n## @api protected\n## [br]\n## @param index: 读取位置。\n## [br]\n## @return: 当前值。\nfunc _read")
 	sources["res://contract/child.gd"] = documented_override
-	issues = _collect_api_surface_issues_with_type_visibility(documented_override, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-	assert_eq(issues, [], "classless 只能复述已证明的 inherited protected 契约：%s" % _join_lines(issues))
-	for unowned_source: String in [documented_override.replace('"res://contract/base.gd"', "RefCounted"), documented_override.replace("@api protected", "@api public")]:
+	issues = _collect_api_surface_issues_with_type_visibility(
+		documented_override,
+		"res://contract/child.gd",
+		{},
+		{},
+		_collect_contract_owners(sources)
+	)
+	assert_eq(
+		issues,
+		[],
+		"classless 只能复述已证明的 inherited protected 契约：%s" % _join_lines(issues)
+	)
+	for unowned_source: String in [documented_override.replace('"res://contract/base.gd"', "RefCounted"), documented_override.replace("@api protected", "@api public"),]:
 		sources["res://contract/child.gd"] = unowned_source
-		issues = _collect_api_surface_issues_with_type_visibility(unowned_source, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-		assert_true(_issues_contain(issues, "requires class_name or controlled"), "既有 protected 关系不能创造新 public owner 或新 protected 入口。")
+		issues = _collect_api_surface_issues_with_type_visibility(
+			unowned_source,
+			"res://contract/child.gd",
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_true(
+			_issues_contain(issues, "requires class_name or controlled"),
+			"既有 protected 关系不能创造新 public owner 或新 protected 入口。"
+		)
 	sources["res://contract/middle.gd"] = documented_override
 	var leaf_source: String = child_source.replace("base.gd", "middle.gd")
 	sources["res://contract/child.gd"] = leaf_source
-	issues = _collect_api_surface_issues_with_type_visibility(leaf_source, "res://contract/child.gd", {}, {}, _collect_contract_owners(sources))
-	assert_eq(issues, [], "多级 classless 继承必须能追溯至原有受控 protected owner。")
+	issues = _collect_api_surface_issues_with_type_visibility(
+		leaf_source,
+		"res://contract/child.gd",
+		{},
+		{},
+		_collect_contract_owners(sources)
+	)
+	assert_eq(
+		issues,
+		[],
+		"多级 classless 继承必须能追溯至原有受控 protected owner。"
+	)
 
 
 func test_template_declarations_use_the_same_visibility_and_parameter_contract() -> void:
 	var path: String = "res://contract/template.gd.txt"
-	var source: String = "extends RefCounted\n# --- 私有/辅助方法 ---\n## 只读取输入。\n## [br]\n## @api private\nfunc _read(value: int) -> int:\n\treturn value\n"
-	assert_eq(_collect_api_surface_issues(source, path), [])
-	_assert_invalid_at_path(source.replace("@api private", "@api unknown"), "invalid @api", path)
-	_assert_invalid_at_path(source.replace("## @api private", "## @api private\n## [br]\n## @param absent: 未声明的参数。"), "unknown @param", path)
-	_assert_invalid_at_path(source.replace("## @api private", "## @api framework_internal"), "missing @param", path)
-	_assert_invalid_at_path(source.replace("## 只读取输入。\n## [br]\n## @api private\n", ""), "missing API doc", path)
+	var source: String = ("extends RefCounted\n# --- 私有/辅助方法 ---\n## 只读取输入。\n## [br]\n## @api private\nfunc _read(value: int) -> int:\n\treturn value\n")
+	assert_eq(
+		_collect_api_surface_issues(source, path),
+		[]
+	)
+	_assert_invalid_at_path(
+		source.replace("@api private", "@api unknown"),
+		"invalid @api",
+		path
+	)
+	_assert_invalid_at_path(
+		source.replace("## @api private", "## @api private\n## [br]\n## @param absent: 未声明的参数。"),
+		"unknown @param",
+		path
+	)
+	_assert_invalid_at_path(
+		source.replace("## @api private", "## @api framework_internal"),
+		"missing @param",
+		path
+	)
+	_assert_invalid_at_path(
+		source.replace("## 只读取输入。\n## [br]\n## @api private\n", ""),
+		"missing API doc",
+		path
+	)
 	var integration: String = CONTRACT_SOURCES.render_source("var initialized: bool = await Gf.init()\nif not initialized:\n\treturn\n", CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH)
 	var declarations: Array[Dictionary] = _parse_declarations(integration, CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH)
-	assert_eq(declarations.size(), 1, "函数体片段的局部变量不应成为成员；承载函数本身仍接受契约检查。")
-	_assert_invalid_at_path("func _hidden() -> void:\n\tpass\n", "function-body template cannot introduce", CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH)
-	_assert_invalid_at_path("static var _cache: int = 0\n", "function-body template cannot introduce", CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH)
-	_assert_invalid_at_path("var _cache: int:\n\tget:\n\t\treturn 0\n", "function-body template cannot introduce", CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH)
+	assert_eq(
+		declarations.size(),
+		1,
+		"函数体片段的局部变量不应成为成员；承载函数本身仍接受契约检查。"
+	)
+	_assert_invalid_at_path(
+		"func _hidden() -> void:\n\tpass\n",
+		"function-body template cannot introduce",
+		CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH
+	)
+	_assert_invalid_at_path(
+		"static var _cache: int = 0\n",
+		"function-body template cannot introduce",
+		CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH
+	)
+	_assert_invalid_at_path(
+		"var _cache: int:\n\tget:\n\t\treturn 0\n",
+		"function-body template cannot introduce",
+		CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH
+	)
 
 
 func test_static_methods_cannot_grant_override_contracts() -> void:
-	var base_source: String = "## 提供静态读取入口。\n## [br]\n## @api framework_internal\nclass_name ContractStaticBase\nextends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 返回指定位置。\n## [br]\n## @api protected\n## [br]\n## @param index: 指定位置。\n## [br]\n## @return: 传入的位置。\nstatic func _read(index: int) -> int:\n\treturn index\n"
+	var base_source: String = ("## 提供静态读取入口。\n## [br]\n## @api framework_internal\nclass_name ContractStaticBase\nextends RefCounted\n# --- 可重写钩子 / 虚方法 ---\n## 返回指定位置。\n## [br]\n## @api protected\n## [br]\n## @param index: 指定位置。\n## [br]\n## @return: 传入的位置。\nstatic func _read(index: int) -> int:\n\treturn index\n")
 	var child_source: String = "extends \"res://contract/base.gd\"\nfunc _read(index: int) -> int:\n\treturn index\n"
 	var protected_source: String = child_source.replace("func _read", "# --- 可重写钩子 / 虚方法 ---\n## 返回当前实现的位置。\n## [br]\n## @api protected\n## [br]\n## @param index: 指定位置。\n## [br]\n## @return: 传入的位置。\nfunc _read")
 	for suffix: String in [".gd", ".gd.txt"]:
 		var child_path: String = "res://contract/child" + suffix
-		var sources: Dictionary = {"res://contract/base.gd": base_source, child_path: child_source}
-		var issues: Array[String] = _collect_api_surface_issues_with_type_visibility(child_source, child_path, {}, {}, _collect_contract_owners(sources))
-		assert_true(_issues_contain(issues, "_read missing API doc"), "static 基类方法不能向 instance 同名方法授予免文档资格。")
+		var sources: Dictionary = { "res://contract/base.gd": base_source, child_path: child_source }
+		var issues: Array[String] = _collect_api_surface_issues_with_type_visibility(
+			child_source,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_true(
+			_issues_contain(issues, "_read missing API doc"),
+			"static 基类方法不能向 instance 同名方法授予免文档资格。"
+		)
 		sources[child_path] = protected_source
-		issues = _collect_api_surface_issues_with_type_visibility(protected_source, child_path, {}, {}, _collect_contract_owners(sources))
-		assert_true(_issues_contain(issues, "requires class_name or controlled"), "static 方法不能证明 classless 的 inherited protected owner。")
+		issues = _collect_api_surface_issues_with_type_visibility(
+			protected_source,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_true(
+			_issues_contain(issues, "requires class_name or controlled"),
+			"static 方法不能证明 classless 的 inherited protected owner。"
+		)
 		var private_source: String = child_source.replace("func _read", "# --- 私有/辅助方法 ---\n## 返回本实例读取的位置。\n## [br]\n## @api private\nfunc _read")
 		sources[child_path] = private_source
-		issues = _collect_api_surface_issues_with_type_visibility(private_source, child_path, {}, {}, _collect_contract_owners(sources))
-		assert_eq(issues, [], "静态同名方法不能制造 instance protected 可见性：%s" % _join_lines(issues))
+		issues = _collect_api_surface_issues_with_type_visibility(
+			private_source,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_eq(
+			issues,
+			[],
+			"静态同名方法不能制造 instance protected 可见性：%s" % _join_lines(issues)
+		)
 		sources["res://contract/middle.gd"] = protected_source
 		var leaf_source: String = child_source.replace("base.gd", "middle.gd")
 		sources[child_path] = leaf_source
-		issues = _collect_api_surface_issues_with_type_visibility(leaf_source, child_path, {}, {}, _collect_contract_owners(sources))
-		assert_true(_issues_contain(issues, "_read missing API doc"), "经 classless 中间层也不能把 static 方法转成 protected owner 来源。")
+		issues = _collect_api_surface_issues_with_type_visibility(
+			leaf_source,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_true(
+			_issues_contain(issues, "_read missing API doc"),
+			"经 classless 中间层也不能把 static 方法转成 protected owner 来源。"
+		)
 
 
 func test_extends_uses_lexical_whitespace() -> void:
 	for path: String in ["res://contract/whitespace.gd", "res://contract/whitespace.gd.txt"]:
-		for header: String in ["extends\tNode", "extends \tNode", "## 支持节点回调。\n## [br]\n## @api framework_internal\nclass_name WhitespaceNode extends\tNode"]:
+		for header: String in [
+			"extends\tNode",
+			"extends \tNode",
+			"## 支持节点回调。\n## [br]\n## @api framework_internal\nclass_name WhitespaceNode extends\tNode",
+		]:
 			var source: String = header + "\n# --- Godot 生命周期方法 ---\nfunc _ready() -> void:\n\tpass\n"
-			assert_eq(_collect_api_surface_issues(source, path), [], "真实 extends 的空格与 Tab 均可证明原生回调来源。")
-			_assert_invalid_at_path(source.replace("Node", "RefCounted"), "_ready missing API doc", path)
-		var fake_base: String = "## 保留类说明。\n## [br]\n## @api framework_internal\nclass_name CommentBase # example: extends\tNode\nfunc _ready() -> void:\n\tpass\n"
-		_assert_invalid_at_path(fake_base, "_ready missing API doc", path)
-		var nested_source: String = "extends RefCounted\n# --- 内部类 ---\n## 保存节点生命周期实现。\n## [br]\n## @api private\nclass _Lifecycle:\n\textends\tNode\n\t# --- Godot 生命周期方法 ---\n\tfunc _ready() -> void:\n\t\tpass\n"
-		assert_eq(_collect_api_surface_issues(nested_source, path), [], "内部类的独立 extends 使用相同词法空白规则。")
-		_assert_invalid_at_path(nested_source.replace("extends\tNode", "extends\tRefCounted"), "_ready missing API doc", path)
+			assert_eq(
+				_collect_api_surface_issues(source, path),
+				[],
+				"真实 extends 的空格与 Tab 均可证明原生回调来源。"
+			)
+			_assert_invalid_at_path(
+				source.replace("Node", "RefCounted"),
+				"_ready missing API doc",
+				path
+			)
+		var fake_base: String = ("## 保留类说明。\n## [br]\n## @api framework_internal\nclass_name CommentBase # example: extends\tNode\nfunc _ready() -> void:\n\tpass\n")
+		_assert_invalid_at_path(
+			fake_base,
+			"_ready missing API doc",
+			path
+		)
+		var nested_source: String = ("extends RefCounted\n# --- 内部类 ---\n## 保存节点生命周期实现。\n## [br]\n## @api private\nclass _Lifecycle:\n\textends\tNode\n\t# --- Godot 生命周期方法 ---\n\tfunc _ready() -> void:\n\t\tpass\n")
+		assert_eq(
+			_collect_api_surface_issues(nested_source, path),
+			[],
+			"内部类的独立 extends 使用相同词法空白规则。"
+		)
+		_assert_invalid_at_path(
+			nested_source.replace("extends\tNode", "extends\tRefCounted"),
+			"_ready missing API doc",
+			path
+		)
 		var inline_source: String = nested_source.replace("class _Lifecycle:\n\textends\tNode", "class _Lifecycle extends\tNode:")
-		assert_eq(_collect_api_surface_issues(inline_source, path), [], "内部类同行 extends 也必须识别 Tab 分隔。")
-		_assert_invalid_at_path(inline_source.replace("extends\tNode:", "extends\tRefCounted:"), "_ready missing API doc", path)
-		for quoted_base: String in ['"res://contract/base extends notes.gd".Inner', "'res://contract/base with spaces.gd'.Inner"]:
-			var quoted_source: String = inline_source.replace("extends\tNode:", "extends\t" + quoted_base + ":")
+		assert_eq(
+			_collect_api_surface_issues(inline_source, path),
+			[],
+			"内部类同行 extends 也必须识别 Tab 分隔。"
+		)
+		_assert_invalid_at_path(
+			inline_source.replace("extends\tNode:", "extends\tRefCounted:"),
+			"_ready missing API doc",
+			path
+		)
+		for quoted_base: String in ['"res://contract/base extends notes.gd".Inner', "'res://contract/base with spaces.gd'.Inner",]:
+			var quoted_source: String = inline_source.replace(
+				"extends\tNode:",
+				"extends\t" + quoted_base + ":"
+			)
 			var declarations: Array[Dictionary] = _parse_declarations(quoted_source, path)
-			assert_eq(GF_VARIANT_ACCESS.get_option_string(declarations[0], "base_type"), quoted_base, "内部类基类保留引号、路径中的 extends 文本和内部类型后缀。")
-	assert_eq(_collect_top_level_extends("extends\t\"res://contract/base with spaces.gd\".Inner # explanation\n"), '"res://contract/base with spaces.gd".Inner', "词法空白处理不能改写实际脚本路径。")
+			assert_eq(
+				GF_VARIANT_ACCESS.get_option_string(
+					declarations[0],
+					"base_type"
+				),
+				quoted_base,
+				"内部类基类保留引号、路径中的 extends 文本和内部类型后缀。"
+			)
+	assert_eq(
+		_collect_top_level_extends("extends\t\"res://contract/base with spaces.gd\".Inner # explanation\n"),
+		'"res://contract/base with spaces.gd".Inner',
+		"词法空白处理不能改写实际脚本路径。"
+	)
 
 
 func test_onready_uses_the_complete_annotation_block() -> void:
 	var source_prefix: String = "extends Node\n# --- 私有变量 ---\n## 保存节点就绪后读取的值。\n## [br]\n## @api private\n"
 	for path: String in ["res://contract/annotations.gd", "res://contract/annotations.gd.txt"]:
-		for annotations: String in ["@warning_ignore(\"unused_private_class_variable\") @onready ", "@warning_ignore(\"unused_private_class_variable\")\n@onready ", "@onready\n"]:
+		for annotations: String in [
+			"@warning_ignore(\"unused_private_class_variable\") @onready ",
+			"@warning_ignore(\"unused_private_class_variable\")\n@onready ",
+			"@onready\n",
+		]:
 			var source: String = source_prefix + annotations + "var _value: int = 0\n"
-			_assert_invalid_at_path(source, "private API uses an incompatible section", path)
-			assert_eq(_collect_api_surface_issues(source.replace("# --- 私有变量 ---", "# --- @onready 变量 ---"), path), [], "完整前导注解块中的 @onready 必须归入对应 section。")
-			_assert_invalid_at_path(source.replace("extends Node", "extends RefCounted"), "@onready requires a Node-compatible base type", path)
-		var string_source: String = source_prefix + "@warning_ignore(\"unused_private_class_variable\")\nvar _label: String = \"@onready\"\n"
-		assert_eq(_collect_api_surface_issues(string_source.replace("extends Node", "extends RefCounted"), path), [], "成员默认字符串中的 @onready 不是注解。")
-		var argument_source: String = source_prefix.replace("# --- 私有变量 ---", "# --- 导出变量 ---") + "@export_placeholder(\"literal @onready\") var _label: String = \"\"\n"
-		assert_eq(_collect_api_surface_issues(argument_source.replace("extends Node", "extends RefCounted"), path), [], "其他注解参数中的 @onready 不是生命周期注解。")
+			_assert_invalid_at_path(
+				source,
+				"private API uses an incompatible section",
+				path
+			)
+			assert_eq(
+				_collect_api_surface_issues(
+					source.replace("# --- 私有变量 ---", "# --- @onready 变量 ---"),
+					path
+				),
+				[],
+				"完整前导注解块中的 @onready 必须归入对应 section。"
+			)
+			_assert_invalid_at_path(
+				source.replace("extends Node", "extends RefCounted"),
+				"@onready requires a Node-compatible base type",
+				path
+			)
+		var string_source: String = (source_prefix + "@warning_ignore(\"unused_private_class_variable\")\nvar _label: String = \"@onready\"\n")
+		assert_eq(
+			_collect_api_surface_issues(
+				string_source.replace("extends Node", "extends RefCounted"),
+				path
+			),
+			[],
+			"成员默认字符串中的 @onready 不是注解。"
+		)
+		var argument_source: String = (source_prefix.replace("# --- 私有变量 ---", "# --- 导出变量 ---") + "@export_placeholder(\"literal @onready\") var _label: String = \"\"\n")
+		assert_eq(
+			_collect_api_surface_issues(
+				argument_source.replace("extends Node", "extends RefCounted"),
+				path
+			),
+			[],
+			"其他注解参数中的 @onready 不是生命周期注解。"
+		)
 		var prefixed_export: String = argument_source.replace("@export_placeholder", "@warning_ignore(\"unused_private_class_variable\")\n@export_placeholder")
-		assert_eq(_collect_api_surface_issues(prefixed_export, path), [], "前置无关注解也不能隐藏 export 分类。")
-		_assert_invalid_at_path(prefixed_export.replace("# --- 导出变量 ---", "# --- 私有变量 ---"), "private API uses an incompatible section", path)
+		assert_eq(
+			_collect_api_surface_issues(prefixed_export, path),
+			[],
+			"前置无关注解也不能隐藏 export 分类。"
+		)
+		_assert_invalid_at_path(
+			prefixed_export.replace("# --- 导出变量 ---", "# --- 私有变量 ---"),
+			"private API uses an incompatible section",
+			path
+		)
 
 
 func test_test_runner_names_require_the_actual_gut_base() -> void:
-	for method_name: String in ["test_example", "before_each", "after_each"]:
+	for method_name: String in [
+		"test_example",
+		"before_each",
+		"after_each",
+	]:
 		var source: String = "extends GutTest\nfunc %s() -> void:\n\tpass\n" % method_name
-		assert_eq(_collect_api_surface_issues(source, "<gut>"), [])
-		_assert_invalid(source.replace("GutTest", "RefCounted"), method_name + " missing API doc")
+		assert_eq(
+			_collect_api_surface_issues(source, "<gut>"),
+			[]
+		)
+		_assert_invalid(
+			source.replace("GutTest", "RefCounted"),
+			method_name + " missing API doc"
+		)
 
 
 func test_comments_and_string_literals_cannot_hide_following_declarations() -> void:
@@ -1618,49 +2040,118 @@ func test_comments_and_string_literals_cannot_hide_following_declarations() -> v
 	]
 	for path: String in ["<lexical>", "res://contract/lexical.gd.txt"]:
 		for prefix: String in prefixes:
-			_assert_invalid_at_path("extends RefCounted\n" + prefix + "# --- 私有变量 ---\nvar _hidden: int = 0\n", "_hidden missing API doc", path)
-	var source: String = "extends RefCounted\n# --- 私有/辅助方法 ---\n## 返回到调用者。\n## [br]\n## @api private\nfunc _documented() -> void: pass\n\nfunc _hidden() -> void:\n\tpass\n"
+			_assert_invalid_at_path(
+				"extends RefCounted\n" + prefix + "# --- 私有变量 ---\nvar _hidden: int = 0\n",
+				"_hidden missing API doc",
+				path
+			)
+	var source: String = ("extends RefCounted\n# --- 私有/辅助方法 ---\n## 返回到调用者。\n## [br]\n## @api private\nfunc _documented() -> void: pass\n\nfunc _hidden() -> void:\n\tpass\n")
 	_assert_invalid(source, "_hidden missing API doc")
 	var declarations: Array[Dictionary] = _parse_declarations(source, "<one-line-function>")
-	assert_eq(declarations.size(), 2, "单行函数体不能吞掉后续函数签名。")
-	var decorated_source: String = "extends RefCounted\n# --- 私有变量 ---\n## 保存待处理值。\n## [br]\n## @api private\n@warning_ignore(\"unused_private_class_variable\")\nstatic var _values: Array[String] = [\n\t\"func _fake():\",\n\t\"# literal \\\"\\\"\\\"\",\n]\n\n# --- 私有/辅助方法 ---\n## 读取参数而不保留引用。\n## [br]\n## @api private\nfunc _read(\n\tlabel: String = \"res://sample:),(\", # ) : 不参与签名\n\toptions: Dictionary = {\"colon\": \":\"}\n) -> void: pass\n\nfunc _missing() -> void:\n\tpass\n"
+	assert_eq(
+		declarations.size(),
+		2,
+		"单行函数体不能吞掉后续函数签名。"
+	)
+	var decorated_source: String = ("extends RefCounted\n# --- 私有变量 ---\n## 保存待处理值。\n## [br]\n## @api private\n@warning_ignore(\"unused_private_class_variable\")\nstatic var _values: Array[String] = [\n\t\"func _fake():\",\n\t\"# literal \\\"\\\"\\\"\",\n]\n\n# --- 私有/辅助方法 ---\n## 读取参数而不保留引用。\n## [br]\n## @api private\nfunc _read(\n\tlabel: String = \"res://sample:),(\", # ) : 不参与签名\n\toptions: Dictionary = {\"colon\": \":\"}\n) -> void: pass\n\nfunc _missing() -> void:\n\tpass\n")
 	declarations = _parse_declarations(decorated_source, "<decorated-multiline>")
-	assert_eq(declarations.size(), 3, "多行默认值、注释和字符串内伪声明不改变真实成员数量。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(declarations[0], "name"), "_values")
-	assert_true(GF_VARIANT_ACCESS.get_option_bool(declarations[0], "is_static"))
+	assert_eq(
+		declarations.size(),
+		3,
+		"多行默认值、注释和字符串内伪声明不改变真实成员数量。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(
+			declarations[0],
+			"name"
+		),
+		"_values"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(
+			declarations[0],
+			"is_static"
+		)
+	)
 	var parameters: Array = declarations[1]["params"]
-	assert_eq(parameters.size(), 2)
+	assert_eq(
+		parameters.size(),
+		2
+	)
 	_assert_invalid(decorated_source, "_missing missing API doc")
 
 
 func test_quoted_script_inner_classes_prove_the_actual_inherited_contract() -> void:
-	var base_source: String = "extends RefCounted\n# --- 内部类 ---\n## 协议容器。\n## [br]\n## @api framework_internal\nclass Outer:\n\t# --- 内部类 ---\n\t## 读取协议。\n\t## [br]\n\t## @api framework_internal\n\tclass Nested:\n\t\textends RefCounted\n\t\t# --- 可重写钩子 / 虚方法 ---\n\t\t## 读取当前值。\n\t\t## [br]\n\t\t## @api protected\n\t\t## [br]\n\t\t## @param index: 读取位置。\n\t\t## [br]\n\t\t## @return: 当前位置的值。\n\t\tfunc _read(index: int) -> int:\n\t\t\treturn index\n"
+	var base_source: String = ("extends RefCounted\n# --- 内部类 ---\n## 协议容器。\n## [br]\n## @api framework_internal\nclass Outer:\n\t# --- 内部类 ---\n\t## 读取协议。\n\t## [br]\n\t## @api framework_internal\n\tclass Nested:\n\t\textends RefCounted\n\t\t# --- 可重写钩子 / 虚方法 ---\n\t\t## 读取当前值。\n\t\t## [br]\n\t\t## @api protected\n\t\t## [br]\n\t\t## @param index: 读取位置。\n\t\t## [br]\n\t\t## @return: 当前位置的值。\n\t\tfunc _read(index: int) -> int:\n\t\t\treturn index\n")
 	var child_path: String = "res://contract/child.gd"
 	for base_expression: String in ['"res://contract/base.gd".Outer.Nested', '"base.gd".Outer.Nested']:
 		var child_source: String = "extends %s\nfunc _read(index: int) -> int:\n\treturn index\n" % base_expression
-		var sources: Dictionary = {"res://contract/base.gd": base_source, child_path: child_source}
-		var issues: Array[String] = _collect_api_surface_issues_with_type_visibility(child_source, child_path, {}, {}, _collect_contract_owners(sources))
-		assert_eq(issues, [], "quoted path 的内部类应由完整 owner 路径解析：%s" % _join_lines(issues))
+		var sources: Dictionary = { "res://contract/base.gd": base_source, child_path: child_source }
+		var issues: Array[String] = _collect_api_surface_issues_with_type_visibility(
+			child_source,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_eq(
+			issues,
+			[],
+			"quoted path 的内部类应由完整 owner 路径解析：%s" % _join_lines(issues)
+		)
 		var downgrade: String = child_source.replace("func _read", "## 本地读取。\n## [br]\n## @api private\nfunc _read")
 		sources[child_path] = downgrade
-		issues = _collect_api_surface_issues_with_type_visibility(downgrade, child_path, {}, {}, _collect_contract_owners(sources))
+		issues = _collect_api_surface_issues_with_type_visibility(
+			downgrade,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
 		assert_true(_issues_contain(issues, "inherited protected API cannot be downgraded"))
 		var unknown_owner: String = child_source.replace(".Outer.Nested", ".Outer.Missing")
 		sources[child_path] = unknown_owner
-		issues = _collect_api_surface_issues_with_type_visibility(unknown_owner, child_path, {}, {}, _collect_contract_owners(sources))
-		assert_true(_issues_contain(issues, "_read missing API doc"), "未知内部 owner 不能猜测继承契约。")
+		issues = _collect_api_surface_issues_with_type_visibility(
+			unknown_owner,
+			child_path,
+			{},
+			{},
+			_collect_contract_owners(sources)
+		)
+		assert_true(
+			_issues_contain(issues, "_read missing API doc"),
+			"未知内部 owner 不能猜测继承契约。"
+		)
 
 
 func test_default_strings_and_annotation_comments_do_not_change_contract_binding() -> void:
 	for path: String in ["<signature-lexical>", "res://contract/signature.gd.txt"]:
-		var source: String = "extends RefCounted\n# --- 框架内部方法 ---\n## 读取结构。\n## [br]\n## @api framework_internal\n## [br]\n## @param marker: 调用者标记。\n## [br]\n## @return: 当前结构。\nfunc describe(marker: String = \"->\") -> Dictionary:\n\treturn {}\n"
+		var source: String = ("extends RefCounted\n# --- 框架内部方法 ---\n## 读取结构。\n## [br]\n## @api framework_internal\n## [br]\n## @param marker: 调用者标记。\n## [br]\n## @return: 当前结构。\nfunc describe(marker: String = \"->\") -> Dictionary:\n\treturn {}\n")
 		var declarations: Array[Dictionary] = _parse_declarations(source, path)
-		assert_eq(GF_VARIANT_ACCESS.get_option_string(declarations[0], "return_type"), "Dictionary")
-		_assert_invalid_at_path(source, "missing @schema for return", path)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string(
+				declarations[0],
+				"return_type"
+			),
+			"Dictionary"
+		)
+		_assert_invalid_at_path(
+			source,
+			"missing @schema for return",
+			path
+		)
 		for annotation: String in ["@export # 注解说明", "@export_range(0, 10) # 注解说明"]:
-			var field_source: String = "extends RefCounted\n# --- 导出变量 ---\n## 保存配置值。\n## [br]\n## @api private\n%s\nvar _configured: int = 0\n" % annotation
-			assert_eq(_collect_api_surface_issues(field_source, path), [], "注解尾注释不得断开已有文档：%s" % path)
-			_assert_invalid_at_path(field_source.replace("## 保存配置值。\n## [br]\n## @api private\n", ""), "_configured missing API doc", path)
+			var field_source: String = ("extends RefCounted\n# --- 导出变量 ---\n## 保存配置值。\n## [br]\n## @api private\n%s\nvar _configured: int = 0\n" % annotation)
+			assert_eq(
+				_collect_api_surface_issues(field_source, path),
+				[],
+				"注解尾注释不得断开已有文档：%s" % path
+			)
+			_assert_invalid_at_path(
+				field_source.replace("## 保存配置值。\n## [br]\n## @api private\n", ""),
+				"_configured missing API doc",
+				path
+			)
 
 
 func test_export_metadata_does_not_consume_following_member_documentation() -> void:
@@ -1671,12 +2162,24 @@ func test_export_metadata_does_not_consume_following_member_documentation() -> v
 	]
 	for path: String in ["<export-metadata>", "res://contract/export_metadata.gd.txt"]:
 		for metadata: String in metadata_lines:
-			var source: String = "extends Node\n# --- 导出变量 ---\n%s\n\n## 保存配置值。\n## [br]\n## @api private\n@export var _configured: int = 0\n" % metadata
-			assert_eq(_collect_api_surface_issues(source, path), [], "分类元注解不能吞掉下一块成员文档：%s" % metadata)
-			_assert_invalid_at_path(source.replace("## 保存配置值。\n## [br]\n## @api private\n", ""), "_configured missing API doc", path)
+			var source: String = ("extends Node\n# --- 导出变量 ---\n%s\n\n## 保存配置值。\n## [br]\n## @api private\n@export var _configured: int = 0\n" % metadata)
+			assert_eq(
+				_collect_api_surface_issues(source, path),
+				[],
+				"分类元注解不能吞掉下一块成员文档：%s" % metadata
+			)
+			_assert_invalid_at_path(
+				source.replace("## 保存配置值。\n## [br]\n## @api private\n", ""),
+				"_configured missing API doc",
+				path
+			)
 		for file_metadata: String in ["@tool # 文件工具标记", '@icon("res://icon.svg") # 文件图标']:
-			var source: String = "%s\nextends RefCounted\n# --- 私有变量 ---\n## 保存值。\n## [br]\n## @api private\nvar _state: int = 0\n" % file_metadata
-			assert_eq(_collect_api_surface_issues(source, path), [], "文件元注解不绑定后续成员。")
+			var source: String = ("%s\nextends RefCounted\n# --- 私有变量 ---\n## 保存值。\n## [br]\n## @api private\nvar _state: int = 0\n" % file_metadata)
+			assert_eq(
+				_collect_api_surface_issues(source, path),
+				[],
+				"文件元注解不绑定后续成员。"
+			)
 
 
 # --- 私有/辅助方法 ---
@@ -1685,15 +2188,21 @@ func _assert_invalid(source: String, expected_fragment: String) -> void:
 	var issues: Array[String] = _collect_api_surface_issues(source, "<inline>")
 	assert_true(
 		_issues_contain(issues, expected_fragment),
-		"应包含违规片段 '%s'，实际问题：\n%s" % [expected_fragment, _join_lines(issues)]
+		"应包含违规片段 '%s'，实际问题：\n%s"
+		% [expected_fragment, _join_lines(issues)]
 	)
 
 
-func _assert_invalid_at_path(source: String, expected_fragment: String, path: String) -> void:
+func _assert_invalid_at_path(
+	source: String,
+	expected_fragment: String,
+	path: String
+) -> void:
 	var issues: Array[String] = _collect_api_surface_issues(source, path)
 	assert_true(
 		_issues_contain(issues, expected_fragment),
-		"应包含违规片段 '%s'，实际问题：\n%s" % [expected_fragment, _join_lines(issues)]
+		"应包含违规片段 '%s'，实际问题：\n%s"
+		% [expected_fragment, _join_lines(issues)]
 	)
 
 
@@ -1702,8 +2211,14 @@ func _collect_api_surface_issues(source: String, path: String) -> Array[String]:
 	var declarations: Array[Dictionary] = _parse_declarations(rendered, path)
 	var type_visibility: Dictionary = _collect_type_visibility(declarations)
 	var type_inheritance: Dictionary = _collect_file_type_inheritance(rendered)
-	var contract_owners: Dictionary = _collect_contract_owners({path: source})
-	return _collect_api_surface_issues_with_type_visibility(source, path, type_visibility, type_inheritance, contract_owners)
+	var contract_owners: Dictionary = _collect_contract_owners({ path: source })
+	return _collect_api_surface_issues_with_type_visibility(
+		source,
+		path,
+		type_visibility,
+		type_inheritance,
+		contract_owners
+	)
 
 
 func _collect_api_surface_issues_with_type_visibility(
@@ -1719,14 +2234,27 @@ func _collect_api_surface_issues_with_type_visibility(
 	var allows_top_level_public_api: bool = _has_top_level_class_name(declarations)
 	if not allows_top_level_public_api:
 		allows_top_level_public_api = _has_controlled_gf_autoload_owner(source, path)
-	strict_issues.append_array(_collect_file_structure_issues(source, path, type_inheritance, declarations))
+	strict_issues.append_array(
+		_collect_file_structure_issues(
+			source,
+			path,
+			type_inheritance,
+			declarations
+		)
+	)
 	strict_issues.append_array(_collect_api_owner_issues(source, path))
 	for declaration: Dictionary in declarations:
 		var inherited: Dictionary = _inherited_method_info(declaration, contract_owners)
 		declaration["inherited_contract"] = inherited.get("documentation", "")
 		declaration["inherited_visibility"] = inherited.get("visibility", "")
 		declaration["inherited_owner_proven"] = inherited.get("owner_proven", false)
-		strict_issues.append_array(_collect_declaration_issues(declaration, type_visibility, allows_top_level_public_api))
+		strict_issues.append_array(
+			_collect_declaration_issues(
+				declaration,
+				type_visibility,
+				allows_top_level_public_api
+			)
+		)
 	strict_issues.append_array(_collect_public_api_doc_internal_reference_issues(declarations, path))
 
 	if _source_has_migration_marker(source):
@@ -1754,22 +2282,36 @@ func _collect_placeholder_since_issues(source: String, path: String) -> Array[St
 			var source_line: int = line_index + 1
 			if (
 				not controlled_owner.is_empty()
-				and source_line >= GF_VARIANT_ACCESS.get_option_int(controlled_owner, "doc_line", -1)
-				and source_line < GF_VARIANT_ACCESS.get_option_int(controlled_owner, "target_line", -1)
+				and source_line >= GF_VARIANT_ACCESS.get_option_int(
+					controlled_owner,
+					"doc_line",
+					-1
+				)
+				and source_line < GF_VARIANT_ACCESS.get_option_int(
+					controlled_owner,
+					"target_line",
+					-1
+				)
 			):
 				continue
-			issues.append("%s:%d @since %s is a migration placeholder; use the current GF release version" % [
-				path,
-				line_index + 1,
-				PLACEHOLDER_SINCE_VERSION,
-			])
+			issues.append(
+				"%s:%d @since %s is a migration placeholder; use the current GF release version"
+				% [
+					path,
+					line_index + 1,
+					PLACEHOLDER_SINCE_VERSION,
+				]
+			)
 	return issues
 
 
 func _collect_doc_tag_render_separator_issues(source: String, path: String) -> Array[String]:
 	var issues: Array[String] = []
 	var lines: PackedStringArray = source.split("\n")
-	for line_index: int in range(1, lines.size()):
+	for line_index: int in range(
+		1,
+		lines.size()
+	):
 		var raw_line: String = _trim_cr(String(lines[line_index]))
 		var trimmed: String = raw_line.strip_edges()
 		if not trimmed.begins_with("## @"):
@@ -1788,18 +2330,25 @@ func _collect_doc_tag_render_separator_issues(source: String, path: String) -> A
 		if previous_body.ends_with(DOC_RENDER_SEPARATOR):
 			continue
 
-		issues.append("%s:%d API doc tag should be preceded by %s for Godot tooltip rendering" % [
-			path,
-			line_index + 1,
-			DOC_RENDER_SEPARATOR,
-		])
+		issues.append(
+			"%s:%d API doc tag should be preceded by %s for Godot tooltip rendering"
+			% [
+				path,
+				line_index + 1,
+				DOC_RENDER_SEPARATOR,
+			]
+		)
 	return issues
 
 
 func _collect_gdscript_files(root_path: String) -> Array[String]:
 	var issues: Array[String] = []
 	var paths: Array[String] = CONTRACT_SOURCES.collect_files(root_path, issues)
-	assert_eq(issues, [], "完整扫描必须能枚举每个目录：%s" % _join_lines(issues))
+	assert_eq(
+		issues,
+		[],
+		"完整扫描必须能枚举每个目录：%s" % _join_lines(issues)
+	)
 	return paths
 
 
@@ -1824,7 +2373,10 @@ func _collect_gdscript_files_recursive(root_path: String, result: Array[String])
 func _collect_all_type_visibility(script_paths: Array[String]) -> Dictionary:
 	var result: Dictionary = {}
 	for path: String in script_paths:
-		var declarations: Array[Dictionary] = _parse_declarations(_read_text(path), path)
+		var declarations: Array[Dictionary] = _parse_declarations(
+			_read_text(path),
+			path
+		)
 		var file_visibility: Dictionary = _collect_type_visibility(declarations)
 		for type_name: String in file_visibility.keys():
 			result[type_name] = file_visibility[type_name]
@@ -1845,32 +2397,43 @@ func _collect_file_type_inheritance(source: String) -> Dictionary:
 	var base_type: String = _collect_top_level_extends(source)
 	if type_name.is_empty() or base_type.is_empty():
 		return {}
-	return {
-		type_name: base_type,
-	}
+	return { type_name: base_type, }
 
 
 func _collect_contract_owners(sources: Dictionary) -> Dictionary:
 	var owners: Dictionary = {}
 	var names: Dictionary = {}
 	for path: String in sources:
-		var source: String = CONTRACT_SOURCES.render_source(GF_VARIANT_ACCESS.get_option_string(sources, path), path)
+		var source: String = CONTRACT_SOURCES.render_source(
+			GF_VARIANT_ACCESS.get_option_string(sources, path),
+			path
+		)
 		var root_name: String = _collect_top_level_class_name(source)
-		owners[path] = {"path": path, "base": _collect_top_level_extends(source), "methods": {}, "allows_public": not root_name.is_empty() or _has_controlled_gf_autoload_owner(source, path)}
+		owners[path] = {
+			"path": path,
+			"base": _collect_top_level_extends(source),
+			"methods": {},
+			"allows_public": not root_name.is_empty() or _has_controlled_gf_autoload_owner(source, path),
+		}
 		if not root_name.is_empty():
 			names[root_name] = path
 		for declaration: Dictionary in _parse_declarations(source, path):
 			var kind: String = declaration["kind"]
 			if kind == "class":
 				var owned_key: String = declaration["owned_key"]
-				owners[owned_key] = {"path": path, "base": declaration["base_type"], "methods": {}, "allows_public": true}
+				owners[owned_key] = {
+					"path": path,
+					"base": declaration["base_type"],
+					"methods": {},
+					"allows_public": true,
+				}
 				if not root_name.is_empty():
 					names[root_name + "." + owned_key.trim_prefix(path + "::").replace("::", ".")] = owned_key
 			elif kind == "func":
 				var contract_owner: Dictionary = owners[declaration["owner_key"]]
 				var methods: Dictionary = contract_owner["methods"]
 				methods[declaration["name"]] = declaration
-	return {"owners": owners, "names": names}
+	return { "owners": owners, "names": names }
 
 
 func _resolve_contract_base(owner_key: String, index: Dictionary) -> String:
@@ -1893,7 +2456,10 @@ func _resolve_contract_base(owner_key: String, index: Dictionary) -> String:
 			close_index += 1
 		if close_index >= base.length():
 			return ""
-		var script_path: String = base.substr(1, close_index - 1).c_unescape()
+		var script_path: String = base.substr(
+			1,
+			close_index - 1
+		).c_unescape()
 		if not script_path.begins_with("res://"):
 			script_path = path.get_base_dir().path_join(script_path)
 		var resolved: String = script_path.simplify_path()
@@ -1917,7 +2483,11 @@ func _resolve_contract_base(owner_key: String, index: Dictionary) -> String:
 		if separator == -1:
 			break
 		scope = scope.substr(0, separator)
-	return GF_VARIANT_ACCESS.get_option_string(names, base, base)
+	return GF_VARIANT_ACCESS.get_option_string(
+		names,
+		base,
+		base
+	)
 
 
 func _inherited_method_info(declaration: Dictionary, index: Dictionary) -> Dictionary:
@@ -1935,9 +2505,13 @@ func _inherited_method_info(declaration: Dictionary, index: Dictionary) -> Dicti
 		visited[owner_key] = true
 		var base: String = _resolve_contract_base(owner_key, index)
 		if needs_documentation and CONTRACT_SOURCES.is_native_virtual(base, method_name):
-			return {"documentation": "native:" + base + "." + method_name}
-		if needs_documentation and base in ["GutTest", "res://addons/gut/test.gd"] and _is_gut_runner_entry(declaration):
-			return {"documentation": "runner:res://addons/gut/test.gd:" + method_name}
+			return { "documentation": "native:" + base + "." + method_name }
+		if (
+			needs_documentation
+			and base in ["GutTest", "res://addons/gut/test.gd"]
+			and _is_gut_runner_entry(declaration)
+		):
+			return { "documentation": "runner:res://addons/gut/test.gd:" + method_name }
 		if not owners.has(base):
 			return {}
 		var base_owner: Dictionary = owners[base]
@@ -1949,9 +2523,25 @@ func _inherited_method_info(declaration: Dictionary, index: Dictionary) -> Dicti
 			var visibility: String = method.get("api", "")
 			if visibility == "protected":
 				# 可见性来自真实覆写关系；签名变化只取消复用文档资格，不能降级为 private。
-				var owner_proven: bool = _has_protected_owner_origin(base, method_name, index)
-				var result: Dictionary = {"visibility": "protected", "documentation": "", "owner_proven": owner_proven}
-				if owner_proven and _method_signatures_match(declaration, method) and _collect_declaration_issues(method, {}, true).is_empty():
+				var owner_proven: bool = _has_protected_owner_origin(
+					base,
+					method_name,
+					index
+				)
+				var result: Dictionary = {
+					"visibility": "protected",
+					"documentation": "",
+					"owner_proven": owner_proven,
+				}
+				if (
+					owner_proven
+					and _method_signatures_match(declaration, method)
+					and _collect_declaration_issues(
+						method,
+						{},
+						true
+					).is_empty()
+				):
 					result["documentation"] = "protected:" + _format_location(method)
 				return result
 			if not visibility.is_empty():
@@ -1960,7 +2550,11 @@ func _inherited_method_info(declaration: Dictionary, index: Dictionary) -> Dicti
 	return {}
 
 
-func _has_protected_owner_origin(owner_key: String, method_name: String, index: Dictionary) -> bool:
+func _has_protected_owner_origin(
+	owner_key: String,
+	method_name: String,
+	index: Dictionary
+) -> bool:
 	var owners: Dictionary = index.get("owners", {})
 	var visited: Dictionary = {}
 	while owners.has(owner_key) and not visited.has(owner_key):
@@ -1975,13 +2569,17 @@ func _has_protected_owner_origin(owner_key: String, method_name: String, index: 
 			if not visibility.is_empty() and visibility != "protected":
 				return false
 			if visibility == "protected" and GF_VARIANT_ACCESS.get_option_bool(contract_owner, "allows_public"):
-				return _collect_declaration_issues(method, {}, true).is_empty()
+				return _collect_declaration_issues(
+					method,
+					{},
+					true
+				).is_empty()
 		owner_key = _resolve_contract_base(owner_key, index)
 	return false
 
 
 func _method_signatures_match(override_method: Dictionary, base_method: Dictionary) -> bool:
-	if GF_VARIANT_ACCESS.get_option_bool(override_method, "is_static") or GF_VARIANT_ACCESS.get_option_bool(base_method, "is_static"):
+	if (GF_VARIANT_ACCESS.get_option_bool(override_method, "is_static") or GF_VARIANT_ACCESS.get_option_bool(base_method, "is_static")):
 		return false
 	if override_method.get("return_type", "") != base_method.get("return_type", ""):
 		return false
@@ -2012,7 +2610,12 @@ func _is_gut_runner_entry(declaration: Dictionary) -> bool:
 	# 读取真实收集器前缀，且调用者必须已证明此 owner 的继承链到达 GutTest。
 	if method_name.begins_with(GF_VARIANT_ACCESS.to_text(collector.get_test_prefix())):
 		return true
-	if method_name not in ["before_all", "before_each", "after_each", "after_all"]:
+	if method_name not in [
+		"before_all",
+		"before_each",
+		"after_each",
+		"after_all",
+	]:
 		return false
 	var gut_script: Script = GUT_TEST_SCRIPT
 	for method: Dictionary in gut_script.get_script_method_list():
@@ -2026,16 +2629,37 @@ func _collect_template_fragment_issues(source: String, path: String) -> Array[St
 	if path != CONTRACT_SOURCES.INTEGRATION_SNIPPET_PATH:
 		return issues
 	for declaration: Dictionary in _parse_declarations(source, path):
-		if declaration["kind"] not in ["var", "const"] or GF_VARIANT_ACCESS.get_option_bool(declaration, "is_export") or GF_VARIANT_ACCESS.get_option_bool(declaration, "is_onready") or GF_VARIANT_ACCESS.get_option_bool(declaration, "is_static") or GF_VARIANT_ACCESS.get_option_bool(declaration, "has_accessors"):
-			issues.append("%s function-body template cannot introduce a member declaration %s" % [_format_location(declaration), declaration["name"]])
+		if (
+			declaration["kind"] not in ["var", "const"]
+			or GF_VARIANT_ACCESS.get_option_bool(declaration, "is_export")
+			or GF_VARIANT_ACCESS.get_option_bool(declaration, "is_onready")
+			or GF_VARIANT_ACCESS.get_option_bool(declaration, "is_static")
+			or GF_VARIANT_ACCESS.get_option_bool(declaration, "has_accessors")
+		):
+			issues.append(
+				"%s function-body template cannot introduce a member declaration %s"
+				% [_format_location(declaration), declaration["name"]]
+			)
 	return issues
 
 
-func _collect_file_structure_issues(source: String, path: String, type_inheritance: Dictionary, declarations: Array[Dictionary]) -> Array[String]:
+func _collect_file_structure_issues(
+	source: String,
+	path: String,
+	type_inheritance: Dictionary,
+	declarations: Array[Dictionary]
+) -> Array[String]:
 	var issues: Array[String] = []
 	issues.append_array(_collect_orphan_doc_issues(source, path))
 	issues.append_array(_collect_section_issues(source, path))
-	issues.append_array(_collect_onready_issues(source, path, type_inheritance, declarations))
+	issues.append_array(
+		_collect_onready_issues(
+			source,
+			path,
+			type_inheritance,
+			declarations
+		)
+	)
 	return issues
 
 
@@ -2104,8 +2728,16 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 				_append_unbound_doc_issue(
 					issues,
 					path,
-					GF_VARIANT_ACCESS.get_option_int(doc_start_by_indent, indent, 0),
-					GF_VARIANT_ACCESS.get_option_bool(doc_has_api_by_indent, indent, false)
+					GF_VARIANT_ACCESS.get_option_int(
+						doc_start_by_indent,
+						indent,
+						0
+					),
+					GF_VARIANT_ACCESS.get_option_bool(
+						doc_has_api_by_indent,
+						indent,
+						false
+					)
 				)
 				var _erase_result_904: Variant = doc_start_by_indent.erase(indent)
 				var _erase_result_905: Variant = doc_has_api_by_indent.erase(indent)
@@ -2116,13 +2748,23 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 		if (
 			indent == 0
 			and trimmed.begins_with("extends ")
-			and GF_VARIANT_ACCESS.get_option_bool(doc_has_api_owner_by_indent, indent, false)
+			and GF_VARIANT_ACCESS.get_option_bool(
+				doc_has_api_owner_by_indent,
+				indent,
+				false
+			)
 		):
 			var _owner_doc_erase_result: Variant = doc_start_by_indent.erase(indent)
 			var _owner_api_erase_result: Variant = doc_has_api_by_indent.erase(indent)
 			var _owner_tag_erase_result: Variant = doc_has_api_owner_by_indent.erase(indent)
 			continue
-		var declaration: Dictionary = _parse_declaration(GF_VARIANT_ACCESS.get_option_string(signature, "text", ""))
+		var declaration: Dictionary = _parse_declaration(
+			GF_VARIANT_ACCESS.get_option_string(
+				signature,
+				"text",
+				""
+			)
+		)
 		if not declaration.is_empty():
 			var _erase_result_911: Variant = doc_start_by_indent.erase(indent)
 			var _erase_result_912: Variant = doc_has_api_by_indent.erase(indent)
@@ -2132,21 +2774,33 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 				function_body_indent = indent
 			elif declaration_kind == "enum":
 				enum_body_indent = indent
-			elif (
-				declaration_kind == "var"
-				and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":")
-			):
+			elif (declaration_kind == "var" and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":")):
 				property_body_indent = indent
-			skip_until_line = GF_VARIANT_ACCESS.get_option_int(signature, "end_line", line_index)
-			multiline_string_delimiter = _update_multiline_string_delimiter(GF_VARIANT_ACCESS.get_option_string(signature, "text"), "")
+			skip_until_line = GF_VARIANT_ACCESS.get_option_int(
+				signature,
+				"end_line",
+				line_index
+			)
+			multiline_string_delimiter = _update_multiline_string_delimiter(
+				GF_VARIANT_ACCESS.get_option_string(signature, "text"),
+				""
+			)
 			continue
 
 		if doc_start_by_indent.has(indent):
 			_append_unbound_doc_issue(
 				issues,
 				path,
-				GF_VARIANT_ACCESS.get_option_int(doc_start_by_indent, indent, 0),
-				GF_VARIANT_ACCESS.get_option_bool(doc_has_api_by_indent, indent, false)
+				GF_VARIANT_ACCESS.get_option_int(
+					doc_start_by_indent,
+					indent,
+					0
+				),
+				GF_VARIANT_ACCESS.get_option_bool(
+					doc_has_api_by_indent,
+					indent,
+					false
+				)
 			)
 			var _erase_result_927: Variant = doc_start_by_indent.erase(indent)
 			var _erase_result_928: Variant = doc_has_api_by_indent.erase(indent)
@@ -2156,8 +2810,16 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 		_append_unbound_doc_issue(
 			issues,
 			path,
-			GF_VARIANT_ACCESS.get_option_int(doc_start_by_indent, indent_variant, 0),
-			GF_VARIANT_ACCESS.get_option_bool(doc_has_api_by_indent, indent_variant, false)
+			GF_VARIANT_ACCESS.get_option_int(
+				doc_start_by_indent,
+				indent_variant,
+				0
+			),
+			GF_VARIANT_ACCESS.get_option_bool(
+				doc_has_api_by_indent,
+				indent_variant,
+				false
+			)
 		)
 	return issues
 
@@ -2168,7 +2830,13 @@ func _collect_api_owner_issues(source: String, path: String) -> Array[String]:
 	if owner_declarations.size() > 1:
 		issues.append("%s @api_owner must describe exactly one top-level owner" % path)
 	for owner_declaration: Dictionary in owner_declarations:
-		issues.append_array(_collect_gf_autoload_owner_declaration_issues(owner_declaration, path, source))
+		issues.append_array(
+			_collect_gf_autoload_owner_declaration_issues(
+				owner_declaration,
+				path,
+				source
+			)
+		)
 	return issues
 
 
@@ -2178,27 +2846,51 @@ func _collect_gf_autoload_owner_declaration_issues(
 	source: String
 ) -> Array[String]:
 	var issues: Array[String] = []
-	var docs: Array = GF_VARIANT_ACCESS.get_option_array(owner_declaration, "docs", [])
+	var docs: Array = GF_VARIANT_ACCESS.get_option_array(
+		owner_declaration,
+		"docs",
+		[]
+	)
 	var owner_values: PackedStringArray = _parse_tag_values(docs, "api_owner")
-	var location: String = "%s:%d" % [
-		path,
-		GF_VARIANT_ACCESS.get_option_int(owner_declaration, "doc_line", 0),
-	]
+	var location: String = (
+		"%s:%d"
+		% [
+			path,
+			GF_VARIANT_ACCESS.get_option_int(
+				owner_declaration,
+				"doc_line",
+				0
+			),
+		]
+	)
 	if owner_values.size() != 1:
 		issues.append("%s @api_owner must be declared exactly once" % location)
 		return issues
 
 	var owner_value: String = owner_values[0]
 	if owner_value != "%s %s" % [GF_AUTOLOAD_OWNER_KIND, GF_AUTOLOAD_OWNER_NAME]:
-		issues.append("%s unknown or uncontrolled @api_owner '%s'" % [location, owner_value])
+		issues.append(
+			"%s unknown or uncontrolled @api_owner '%s'"
+			% [location, owner_value]
+		)
 		return issues
 	if path != GF_AUTOLOAD_OWNER_PATH:
-		issues.append("%s @api_owner autoload Gf is only allowed at %s" % [location, GF_AUTOLOAD_OWNER_PATH])
-	if GF_VARIANT_ACCESS.get_option_string(owner_declaration, "target", "") != "extends %s" % GF_AUTOLOAD_OWNER_BASE_TYPE:
-		issues.append("%s @api_owner autoload Gf must bind to top-level extends %s" % [
-			location,
-			GF_AUTOLOAD_OWNER_BASE_TYPE,
-		])
+		issues.append(
+			"%s @api_owner autoload Gf is only allowed at %s"
+			% [location, GF_AUTOLOAD_OWNER_PATH]
+		)
+	if (
+		GF_VARIANT_ACCESS.get_option_string(
+			owner_declaration,
+			"target",
+			""
+		)
+		!= "extends %s" % GF_AUTOLOAD_OWNER_BASE_TYPE
+	):
+		issues.append(
+			"%s @api_owner autoload Gf must bind to top-level extends %s"
+			% [location, GF_AUTOLOAD_OWNER_BASE_TYPE,]
+		)
 	if not _collect_top_level_class_name(source).is_empty():
 		issues.append("%s @api_owner autoload Gf must not coexist with class_name" % location)
 	var api_values: PackedStringArray = _parse_tag_values(docs, "api")
@@ -2211,7 +2903,10 @@ func _collect_gf_autoload_owner_declaration_issues(
 	if _parse_tag_value(docs, "category") != "runtime_service":
 		issues.append("%s @api_owner autoload Gf must declare @category runtime_service" % location)
 	if _parse_tag_value(docs, "since") != PLACEHOLDER_SINCE_VERSION:
-		issues.append("%s @api_owner autoload Gf must preserve @since %s" % [location, PLACEHOLDER_SINCE_VERSION])
+		issues.append(
+			"%s @api_owner autoload Gf must preserve @since %s"
+			% [location, PLACEHOLDER_SINCE_VERSION]
+		)
 	if _parse_tag_value(docs, "layer") != "kernel/core":
 		issues.append("%s @api_owner autoload Gf must declare @layer kernel/core" % location)
 	return issues
@@ -2226,7 +2921,11 @@ func _get_controlled_gf_autoload_owner(source: String, path: String) -> Dictiona
 	if owner_declarations.size() != 1:
 		return {}
 	var owner_declaration: Dictionary = owner_declarations[0]
-	if not _collect_gf_autoload_owner_declaration_issues(owner_declaration, path, source).is_empty():
+	if not _collect_gf_autoload_owner_declaration_issues(
+		owner_declaration,
+		path,
+		source
+	).is_empty():
 		return {}
 	return owner_declaration
 
@@ -2252,33 +2951,53 @@ func _collect_top_level_api_owner_declarations(source: String) -> Array[Dictiona
 		if trimmed.is_empty():
 			continue
 		if not _parse_tag_values(pending_docs, "api_owner").is_empty():
-			result.append({
-				"docs": pending_docs.duplicate(),
-				"doc_line": pending_doc_line,
-				"target": trimmed,
-				"target_line": line_index + 1,
-			})
+			result.append(
+				{
+					"docs": pending_docs.duplicate(),
+					"doc_line": pending_doc_line,
+					"target": trimmed,
+					"target_line": line_index + 1,
+				}
+			)
 		pending_docs = []
 		pending_doc_line = 0
 
 	if not _parse_tag_values(pending_docs, "api_owner").is_empty():
-		result.append({
-			"docs": pending_docs.duplicate(),
-			"doc_line": pending_doc_line,
-			"target": "",
-			"target_line": lines.size() + 1,
-		})
+		result.append(
+			{
+				"docs": pending_docs.duplicate(),
+				"doc_line": pending_doc_line,
+				"target": "",
+				"target_line": lines.size() + 1,
+			}
+		)
 	return result
 
 
-func _append_unbound_doc_issue(issues: Array[String], path: String, line: int, has_api_tag: bool) -> void:
+func _append_unbound_doc_issue(
+	issues: Array[String],
+	path: String,
+	line: int,
+	has_api_tag: bool
+) -> void:
 	if has_api_tag:
-		issues.append("%s:%d documented API construct is not supported by API Surface Contract" % [path, line])
+		issues.append(
+			"%s:%d documented API construct is not supported by API Surface Contract"
+			% [path, line]
+		)
 	else:
-		issues.append("%s:%d orphan API doc comment must bind to a declaration" % [path, line])
+		issues.append(
+			"%s:%d orphan API doc comment must bind to a declaration"
+			% [path, line]
+		)
 
 
-func _collect_onready_issues(source: String, path: String, type_inheritance: Dictionary, declarations: Array[Dictionary]) -> Array[String]:
+func _collect_onready_issues(
+	source: String,
+	path: String,
+	type_inheritance: Dictionary,
+	declarations: Array[Dictionary]
+) -> Array[String]:
 	var issues: Array[String] = []
 	var base_type: String = _collect_top_level_extends(source)
 	for declaration: Dictionary in declarations:
@@ -2288,11 +3007,14 @@ func _collect_onready_issues(source: String, path: String, type_inheritance: Dic
 			continue
 		if _is_node_compatible_type(base_type, type_inheritance):
 			continue
-		issues.append("%s:%d @onready requires a Node-compatible base type, got '%s'" % [
-			path,
-			GF_VARIANT_ACCESS.get_option_int(declaration, "line"),
-			base_type if not base_type.is_empty() else "<none>",
-		])
+		issues.append(
+			"%s:%d @onready requires a Node-compatible base type, got '%s'"
+			% [
+				path,
+				GF_VARIANT_ACCESS.get_option_int(declaration, "line"),
+				base_type if not base_type.is_empty() else "<none>",
+			]
+		)
 	return issues
 
 
@@ -2312,29 +3034,60 @@ func _collect_section_issues(source: String, path: String) -> Array[String]:
 		if trimmed.begins_with(SECTION_PREFIX):
 			var section_name: String = _parse_section_name(trimmed)
 			if section_name.is_empty():
-				issues.append("%s:%d malformed API section header" % [path, line_index + 1])
+				issues.append(
+					"%s:%d malformed API section header"
+					% [path, line_index + 1]
+				)
 				continue
 
 			var canonical_name: String = _canonical_section_name(section_name)
 			var order: int = CANONICAL_SECTION_ORDER.find(canonical_name)
 			if order == -1:
-				issues.append("%s:%d unknown API section '%s'" % [path, line_index + 1, section_name])
+				issues.append(
+					"%s:%d unknown API section '%s'"
+					% [
+						path,
+						line_index + 1,
+						section_name,
+					]
+				)
 				continue
 
 			var indent: int = _get_indent_level(raw_line)
 			var last_order: int = -1
 			if last_order_by_indent.has(indent):
-				last_order = GF_VARIANT_ACCESS.get_option_int(last_order_by_indent, indent, -1)
+				last_order = GF_VARIANT_ACCESS.get_option_int(
+					last_order_by_indent,
+					indent,
+					-1
+				)
 			if order < last_order:
-				issues.append("%s:%d API section order places '%s' after a later section" % [path, line_index + 1, section_name])
+				issues.append(
+					"%s:%d API section order places '%s' after a later section"
+					% [
+						path,
+						line_index + 1,
+						section_name,
+					]
+				)
 			last_order_by_indent[indent] = order
 			continue
 
 		var signature: Dictionary = _collect_declaration_signature(lines, line_index)
-		var declaration: Dictionary = _parse_declaration(GF_VARIANT_ACCESS.get_option_string(signature, "text", ""))
+		var declaration: Dictionary = _parse_declaration(
+			GF_VARIANT_ACCESS.get_option_string(
+				signature,
+				"text",
+				""
+			)
+		)
 		if declaration.is_empty():
 			continue
-		var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
+		var kind: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"kind",
+			""
+		)
 		if kind == "class" or kind == "class_name":
 			var declaration_indent: int = _get_indent_level(raw_line)
 			for indent_variant: Variant in last_order_by_indent.keys():
@@ -2379,7 +3132,11 @@ func _collect_top_level_declaration_identifier(source: String, prefix: String) -
 	return ""
 
 
-func _is_node_compatible_type(type_name: String, type_inheritance: Dictionary, visited: Dictionary = {}) -> bool:
+func _is_node_compatible_type(
+	type_name: String,
+	type_inheritance: Dictionary,
+	visited: Dictionary = {}
+) -> bool:
 	if type_name.is_empty():
 		return false
 	if NODE_COMPATIBLE_BASE_TYPES.has(type_name):
@@ -2389,7 +3146,11 @@ func _is_node_compatible_type(type_name: String, type_inheritance: Dictionary, v
 	visited[type_name] = true
 	if not type_inheritance.has(type_name):
 		return false
-	return _is_node_compatible_type(GF_VARIANT_ACCESS.get_option_string(type_inheritance, type_name), type_inheritance, visited)
+	return _is_node_compatible_type(
+		GF_VARIANT_ACCESS.get_option_string(type_inheritance, type_name),
+		type_inheritance,
+		visited
+	)
 
 
 func _canonical_section_name(section_name: String) -> String:
@@ -2413,7 +3174,9 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 	var property_body_indent: int = -1
 	var multiline_string_delimiter: String = ""
 	var skip_until_line: int = -1
-	var owner_stack: Array[Dictionary] = [{"key": path, "indent": -1}]
+	var owner_stack: Array[Dictionary] = [
+		{ "key": path, "indent": -1 },
+	]
 
 	for line_index: int in range(lines.size()):
 		if line_index <= skip_until_line:
@@ -2449,7 +3212,10 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 			property_body_indent = -1
 
 		if not trimmed.is_empty():
-			while owner_stack.size() > 1 and indent <= GF_VARIANT_ACCESS.get_option_int(owner_stack[-1], "indent"):
+			while owner_stack.size() > 1 and indent <= GF_VARIANT_ACCESS.get_option_int(
+				owner_stack[-1],
+				"indent"
+			):
 				var _removed_owner: Dictionary = owner_stack.pop_back()
 		if trimmed.replace("\t", " ").begins_with("extends ") and owner_stack.size() > 1:
 			var owner_declaration: Dictionary = owner_stack[-1]["declaration"]
@@ -2459,7 +3225,11 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 		if trimmed.begins_with("##"):
 			var docs: Array = []
 			if doc_lines_by_indent.has(indent):
-				docs = GF_VARIANT_ACCESS.get_option_array(doc_lines_by_indent, indent, [])
+				docs = GF_VARIANT_ACCESS.get_option_array(
+					doc_lines_by_indent,
+					indent,
+					[]
+				)
 			docs.append(trimmed)
 			doc_lines_by_indent[indent] = docs
 			continue
@@ -2474,19 +3244,36 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 			continue
 
 		var signature: Dictionary = _collect_declaration_signature(lines, line_index)
-		var declaration: Dictionary = _parse_declaration(GF_VARIANT_ACCESS.get_option_string(signature, "text", ""))
+		var declaration: Dictionary = _parse_declaration(
+			GF_VARIANT_ACCESS.get_option_string(
+				signature,
+				"text",
+				""
+			)
+		)
 		if not declaration.is_empty():
 			var annotation_info: Dictionary = _parse_leading_annotations(GF_VARIANT_ACCESS.get_option_string(signature, "text"))
 			var annotations: Array = GF_VARIANT_ACCESS.get_option_array(annotation_info, "names")
 			var docs: Array = []
 			if doc_lines_by_indent.has(indent):
-				docs = GF_VARIANT_ACCESS.get_option_array(doc_lines_by_indent, indent, [])
+				docs = GF_VARIANT_ACCESS.get_option_array(
+					doc_lines_by_indent,
+					indent,
+					[]
+				)
 			declaration["path"] = path
 			declaration["owner_key"] = owner_stack[-1]["key"]
-			declaration["is_static"] = GF_VARIANT_ACCESS.get_option_string(annotation_info, "remainder").begins_with("static ")
+			declaration["is_static"] = (GF_VARIANT_ACCESS.get_option_string(annotation_info, "remainder").begins_with("static "))
 			declaration["has_accessors"] = false
 			if declaration["kind"] == "var" and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":"):
-				for following_line: int in range(GF_VARIANT_ACCESS.get_option_int(signature, "end_line", line_index) + 1, lines.size()):
+				for following_line: int in range(
+					GF_VARIANT_ACCESS.get_option_int(
+						signature,
+						"end_line",
+						line_index
+					) + 1,
+					lines.size()
+				):
 					var following_text: String = String(lines[following_line]).strip_edges()
 					if following_text.is_empty() or following_text.begins_with("#"):
 						continue
@@ -2509,16 +3296,33 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 			declaration["doc_params"] = _parse_named_tags(docs, "param")
 			declaration["schemas"] = _parse_named_tags(docs, "schema")
 			if GF_VARIANT_ACCESS.get_option_string(declaration, "kind") == "enum":
-				declaration["enum_values"] = _collect_enum_values(lines, line_index, indent)
+				declaration["enum_values"] = _collect_enum_values(
+					lines,
+					line_index,
+					indent
+				)
 			else:
 				declaration["enum_values"] = []
 			declarations.append(declaration)
 			var _erase_result_1146: Variant = doc_lines_by_indent.erase(indent)
 			var declaration_kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
 			if declaration_kind == "class":
-				var owned_key: String = GF_VARIANT_ACCESS.get_option_string(owner_stack[-1], "key") + "::" + GF_VARIANT_ACCESS.get_option_string(declaration, "name")
+				var owned_key: String = (
+					GF_VARIANT_ACCESS.get_option_string(
+						owner_stack[-1],
+						"key"
+					)
+					+ "::"
+					+ GF_VARIANT_ACCESS.get_option_string(declaration, "name")
+				)
 				declaration["owned_key"] = owned_key
-				owner_stack.append({"key": owned_key, "indent": indent, "declaration": declaration})
+				owner_stack.append(
+					{
+						"key": owned_key,
+						"indent": indent,
+						"declaration": declaration,
+					}
+				)
 			if declaration_kind == "class" or declaration_kind == "class_name":
 				for section_indent_variant: Variant in section_by_indent.keys():
 					if GF_VARIANT_ACCESS.to_int(section_indent_variant) > indent:
@@ -2528,13 +3332,17 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 				function_body_indent = indent
 			elif declaration_kind == "enum":
 				enum_body_indent = indent
-			elif (
-				declaration_kind == "var"
-				and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":")
-			):
+			elif (declaration_kind == "var" and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":")):
 				property_body_indent = indent
-			skip_until_line = GF_VARIANT_ACCESS.get_option_int(signature, "end_line", line_index)
-			multiline_string_delimiter = _update_multiline_string_delimiter(GF_VARIANT_ACCESS.get_option_string(signature, "text"), "")
+			skip_until_line = GF_VARIANT_ACCESS.get_option_int(
+				signature,
+				"end_line",
+				line_index
+			)
+			multiline_string_delimiter = _update_multiline_string_delimiter(
+				GF_VARIANT_ACCESS.get_option_string(signature, "text"),
+				""
+			)
 			continue
 
 		var _erase_result_1159: Variant = doc_lines_by_indent.erase(indent)
@@ -2542,10 +3350,17 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 	return declarations
 
 
-func _collect_enum_values(lines: PackedStringArray, enum_line: int, enum_indent: int) -> Array[Dictionary]:
+func _collect_enum_values(
+	lines: PackedStringArray,
+	enum_line: int,
+	enum_indent: int
+) -> Array[Dictionary]:
 	var values: Array[Dictionary] = []
 	var doc_line: int = -1
-	for line_index: int in range(enum_line + 1, lines.size()):
+	for line_index: int in range(
+		enum_line + 1,
+		lines.size()
+	):
 		var raw_line: String = _trim_cr(String(lines[line_index]))
 		var trimmed: String = raw_line.strip_edges()
 		if trimmed.is_empty():
@@ -2568,11 +3383,13 @@ func _collect_enum_values(lines: PackedStringArray, enum_line: int, enum_indent:
 			without_comma = without_comma.substr(0, assignment_index).strip_edges()
 		var value_name: String = _read_identifier(without_comma)
 		if not value_name.is_empty():
-			values.append({
-				"name": value_name,
-				"line": line_index + 1,
-				"has_doc": doc_line != -1,
-			})
+			values.append(
+				{
+					"name": value_name,
+					"line": line_index + 1,
+					"has_doc": doc_line != -1,
+				}
+			)
 		doc_line = -1
 	return values
 
@@ -2581,10 +3398,7 @@ func _collect_declaration_signature(lines: PackedStringArray, start_line: int) -
 	var text: String = _trim_cr(String(lines[start_line])).strip_edges()
 	var end_line: int = start_line
 	if not _can_have_multiline_signature(text):
-		return {
-			"text": text,
-			"end_line": end_line,
-		}
+		return { "text": text, "end_line": end_line, }
 
 	var lexical: Dictionary = CONTRACT_SOURCES.lex_line(text)
 	var delimiter: String = lexical["multiline_delimiter"]
@@ -2592,8 +3406,21 @@ func _collect_declaration_signature(lines: PackedStringArray, start_line: int) -
 	while end_line + 1 < lines.size():
 		if depth <= 0 and delimiter.is_empty():
 			var normalized: String = _strip_leading_annotations(_without_source_comments(text))
-			var needs_declaration: bool = text.begins_with("@") and normalized.is_empty() and not _annotation_is_file_or_group_metadata(text)
-			var needs_colon: bool = (normalized.begins_with("func ") or normalized.begins_with("static func ")) and _find_top_level_character(_without_source_comments(normalized), ":") == -1
+			var needs_declaration: bool = (
+				text.begins_with("@")
+				and normalized.is_empty()
+				and not _annotation_is_file_or_group_metadata(text)
+			)
+			var needs_colon: bool = (
+				(
+					normalized.begins_with("func ")
+					or normalized.begins_with("static func ")
+				)
+				and _find_top_level_character(
+					_without_source_comments(normalized),
+					":"
+				) == -1
+			)
 			if not needs_declaration and not needs_colon:
 				break
 		end_line += 1
@@ -2603,10 +3430,7 @@ func _collect_declaration_signature(lines: PackedStringArray, start_line: int) -
 		delimiter = lexical["multiline_delimiter"]
 		depth += _declaration_bracket_delta(GF_VARIANT_ACCESS.get_option_string(lexical, "code"))
 
-	return {
-		"text": _without_source_comments(text),
-		"end_line": end_line,
-	}
+	return { "text": _without_source_comments(text), "end_line": end_line, }
 
 
 func _can_have_multiline_signature(text: String) -> bool:
@@ -2624,16 +3448,30 @@ func _can_have_multiline_signature(text: String) -> bool:
 
 func _annotation_is_file_or_group_metadata(text: String) -> bool:
 	var annotation_name: String = _read_identifier(text.strip_edges().trim_prefix("@"))
-	return annotation_name in ["tool", "icon", "export_group", "export_category", "export_subgroup"]
+	return annotation_name in [
+		"tool",
+		"icon",
+		"export_group",
+		"export_category",
+		"export_subgroup",
+	]
 
 
 func _declaration_bracket_delta(code: String) -> int:
 	var depth: int = 0
 	for index: int in range(code.length()):
 		var character: String = code[index]
-		if character in ["(", "[", "{"]:
+		if character in [
+			"(",
+			"[",
+			"{",
+		]:
 			depth += 1
-		elif character in [")", "]", "}"]:
+		elif character in [
+			")",
+			"]",
+			"}",
+		]:
 			depth -= 1
 	return depth
 
@@ -2649,7 +3487,10 @@ func _without_source_comments(text: String) -> String:
 				result += text.substr(index, 2)
 				index += 2
 				continue
-			if text.substr(index, quote.length()) == quote:
+			if text.substr(
+				index,
+				quote.length()
+			) == quote:
 				result += quote
 				index += quote.length()
 				quote = ""
@@ -2680,7 +3521,10 @@ func _signature_balance(text: String) -> int:
 			if character == "\\":
 				index += 2
 				continue
-			if text.substr(index, quote.length()) == quote:
+			if text.substr(
+				index,
+				quote.length()
+			) == quote:
 				index += quote.length()
 				quote = ""
 				continue
@@ -2693,16 +3537,27 @@ func _signature_balance(text: String) -> int:
 			quote = character.repeat(3) if text.substr(index, 3) == character.repeat(3) else character
 			index += quote.length()
 			continue
-		elif character in ["(", "[", "{"]:
+		elif character in [
+			"(",
+			"[",
+			"{",
+		]:
 			depth += 1
-		elif character in [")", "]", "}"]:
+		elif character in [
+			")",
+			"]",
+			"}",
+		]:
 			depth -= 1
 		index += 1
 	return depth + (1 if not quote.is_empty() else 0)
 
 
 func _strip_leading_annotations(text: String) -> String:
-	return GF_VARIANT_ACCESS.get_option_string(_parse_leading_annotations(text), "remainder")
+	return GF_VARIANT_ACCESS.get_option_string(
+		_parse_leading_annotations(text),
+		"remainder"
+	)
 
 
 func _parse_leading_annotations(text: String) -> Dictionary:
@@ -2712,14 +3567,24 @@ func _parse_leading_annotations(text: String) -> Dictionary:
 		var index: int = 1
 		while index < remaining.length() and _is_identifier_character(remaining[index]):
 			index += 1
-		annotation_names.append(remaining.substr(1, index - 1))
+		annotation_names.append(
+			remaining.substr(
+				1,
+				index - 1
+			)
+		)
 		if index < remaining.length() and remaining[index] == "(":
 			var start: int = index
 			index += 1
-			while index < remaining.length() and _signature_balance(remaining.substr(start, index - start)) > 0:
+			while index < remaining.length() and _signature_balance(
+				remaining.substr(
+					start,
+					index - start
+				)
+			) > 0:
 				index += 1
 		remaining = remaining.substr(index).strip_edges()
-	return {"names": annotation_names, "remainder": remaining}
+	return { "names": annotation_names, "remainder": remaining }
 
 
 func _get_parenthesis_delta(text: String) -> int:
@@ -2778,11 +3643,17 @@ func _parse_declaration(trimmed: String) -> Dictionary:
 		}
 
 	if trimmed.begins_with("const "):
-		return _parse_value_declaration(trimmed.substr("const ".length()).strip_edges(), "const")
+		return _parse_value_declaration(
+			trimmed.substr("const ".length()).strip_edges(),
+			"const"
+		)
 
 	var var_index: int = trimmed.find("var ")
 	if trimmed.begins_with("var ") or trimmed.begins_with("static var "):
-		return _parse_value_declaration(trimmed.substr(var_index + "var ".length()).strip_edges(), "var")
+		return _parse_value_declaration(
+			trimmed.substr(var_index + "var ".length()).strip_edges(),
+			"var"
+		)
 
 	if trimmed.begins_with("func ") or trimmed.begins_with("static func "):
 		return _parse_function_declaration(trimmed)
@@ -2799,7 +3670,12 @@ func _parse_signal_declaration(trimmed: String) -> Dictionary:
 	if open_index != -1:
 		signal_name = signature.substr(0, open_index).strip_edges()
 		if close_index > open_index:
-			params = _parse_params(signature.substr(open_index + 1, close_index - open_index - 1))
+			params = _parse_params(
+				signature.substr(
+					open_index + 1,
+					close_index - open_index - 1
+				)
+			)
 	return {
 		"kind": "signal",
 		"name": signal_name,
@@ -2834,7 +3710,10 @@ func _parse_value_declaration(signature: String, kind: String) -> Dictionary:
 func _parse_function_declaration(trimmed: String) -> Dictionary:
 	var header_end: int = _find_top_level_character(trimmed, ":")
 	if header_end != -1:
-		trimmed = trimmed.substr(0, header_end + 1)
+		trimmed = trimmed.substr(
+			0,
+			header_end + 1
+		)
 	var signature: String = trimmed
 	if signature.begins_with("static func "):
 		signature = signature.substr("static func ".length()).strip_edges()
@@ -2848,7 +3727,12 @@ func _parse_function_declaration(trimmed: String) -> Dictionary:
 	if open_index != -1:
 		function_name = signature.substr(0, open_index).strip_edges()
 		if close_index > open_index:
-			params = _parse_params(signature.substr(open_index + 1, close_index - open_index - 1))
+			params = _parse_params(
+				signature.substr(
+					open_index + 1,
+					close_index - open_index - 1
+				)
+			)
 
 	var return_type: String = ""
 	var arrow_index: int = -1
@@ -2894,20 +3778,30 @@ func _parse_params(params_text: String) -> Array[Dictionary]:
 			param_name = without_default.substr(0, type_index).strip_edges()
 			type_name = without_default.substr(type_index + 1).strip_edges()
 
-		result.append({
-			"name": _read_identifier(param_name),
-			"type": type_name,
-			"has_default": default_index != -1,
-			"default_expression": part.substr(default_index + 1).strip_edges() if default_index != -1 else "",
-		})
+		result.append(
+			{
+				"name": _read_identifier(param_name),
+				"type": type_name,
+				"has_default": default_index != -1,
+				"default_expression": part.substr(default_index + 1).strip_edges() if default_index != -1 else "",
+			}
+		)
 	return result
 
 
 func _collect_type_visibility(declarations: Array[Dictionary]) -> Dictionary:
 	var result: Dictionary = {}
 	for declaration: Dictionary in declarations:
-		var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
-		var type_declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+		var kind: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"kind",
+			""
+		)
+		var type_declaration_name: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"name",
+			""
+		)
 		if (
 			kind == "const"
 			and type_declaration_name.begins_with("_")
@@ -2918,7 +3812,11 @@ func _collect_type_visibility(declarations: Array[Dictionary]) -> Dictionary:
 		if not CLASS_KINDS.has(kind) and kind != "enum":
 			continue
 
-		var api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
+		var api: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"api",
+			""
+		)
 		if not api.is_empty():
 			result[type_declaration_name] = api
 		elif type_declaration_name.begins_with("_"):
@@ -2926,49 +3824,154 @@ func _collect_type_visibility(declarations: Array[Dictionary]) -> Dictionary:
 	return result
 
 
-func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dictionary, allows_top_level_public_api: bool) -> Array[String]:
+func _collect_declaration_issues(
+	declaration: Dictionary,
+	type_visibility: Dictionary,
+	allows_top_level_public_api: bool
+) -> Array[String]:
 	var issues: Array[String] = []
-	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
-	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
-	var api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
-	var docs: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "docs", [])
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"name",
+		""
+	)
+	var kind: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"kind",
+		""
+	)
+	var api: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"api",
+		""
+	)
+	var docs: Array = GF_VARIANT_ACCESS.get_option_array(
+		declaration,
+		"docs",
+		[]
+	)
 	var location: String = _format_location(declaration)
 	var is_private: bool = _is_private_declaration(declaration)
-	if declaration.get("inherited_visibility", "") == "protected" and api in ["private", "framework_internal", "layer_internal"]:
-		issues.append("%s %s inherited protected API cannot be downgraded to @api %s" % [location, declaration_name, api])
+	if (
+		declaration.get("inherited_visibility", "") == "protected"
+		and api in [
+			"private",
+			"framework_internal",
+			"layer_internal",
+		]
+	):
+		issues.append(
+			"%s %s inherited protected API cannot be downgraded to @api %s"
+			% [
+				location,
+				declaration_name,
+				api,
+			]
+		)
 
 	if not api.is_empty() and not API_TAGS.has(api):
-		issues.append("%s %s has invalid @api '%s'" % [location, declaration_name, api])
+		issues.append(
+			"%s %s has invalid @api '%s'"
+			% [
+				location,
+				declaration_name,
+				api,
+			]
+		)
 
 	if not docs.is_empty():
 		var api_values: PackedStringArray = _parse_tag_values(docs, "api")
 		if api_values.size() != 1 or not API_TAGS.has(api_values[0]):
-			issues.append("%s %s doc comment must declare exactly one valid @api" % [location, declaration_name])
-	if is_private and not docs.is_empty() and api != "private":
-		issues.append("%s %s private members must declare @api private" % [location, declaration_name])
+			issues.append(
+				"%s %s doc comment must declare exactly one valid @api"
+				% [location, declaration_name]
+			)
+	if (
+		is_private
+		and not docs.is_empty()
+		and api != "private"
+	):
+		issues.append(
+			"%s %s private members must declare @api private"
+			% [location, declaration_name]
+		)
 
 	if not docs.is_empty() and api.is_empty():
-		issues.append("%s %s doc comment missing @api" % [location, declaration_name])
+		issues.append(
+			"%s %s doc comment missing @api"
+			% [location, declaration_name]
+		)
 
 	if docs.is_empty() and _declaration_requires_api_doc(declaration):
-		issues.append("%s %s missing API doc" % [location, declaration_name])
+		issues.append(
+			"%s %s missing API doc"
+			% [location, declaration_name]
+		)
 
-	if PUBLIC_API_TAGS.has(api) and GF_VARIANT_ACCESS.get_option_int(declaration, "indent", 0) == 0 and kind != "class_name" and not allows_top_level_public_api:
-		var inherited_protected: bool = api == "protected" and declaration.get("inherited_visibility", "") == "protected" and GF_VARIANT_ACCESS.get_option_bool(declaration, "inherited_owner_proven")
+	if (
+		PUBLIC_API_TAGS.has(api)
+		and GF_VARIANT_ACCESS.get_option_int(
+			declaration,
+			"indent",
+			0
+		) == 0
+		and kind != "class_name"
+		and not allows_top_level_public_api
+	):
+		var inherited_protected: bool = (
+			api == "protected"
+			and declaration.get("inherited_visibility", "") == "protected"
+			and GF_VARIANT_ACCESS.get_option_bool(declaration, "inherited_owner_proven")
+		)
 		if not inherited_protected:
-			issues.append("%s %s public top-level API requires class_name or controlled @api_owner autoload Gf" % [location, declaration_name])
+			issues.append(
+				"%s %s public top-level API requires class_name or controlled @api_owner autoload Gf"
+				% [location, declaration_name]
+			)
 
-	if api == "layer_internal" and GF_VARIANT_ACCESS.get_option_string(declaration, "layer", "").is_empty():
-		issues.append("%s %s layer_internal API must declare @layer" % [location, declaration_name])
+	if api == "layer_internal" and GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"layer",
+		""
+	).is_empty():
+		issues.append(
+			"%s %s layer_internal API must declare @layer"
+			% [location, declaration_name]
+		)
 
-	var layer: String = GF_VARIANT_ACCESS.get_option_string(declaration, "layer", "")
-	if not layer.is_empty() and not _layer_matches_source_path(layer, GF_VARIANT_ACCESS.get_option_string(declaration, "path", "")):
-		issues.append("%s %s @layer '%s' does not match source path" % [location, declaration_name, layer])
+	var layer: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"layer",
+		""
+	)
+	if (
+		not layer.is_empty()
+		and not _layer_matches_source_path(
+			layer,
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"path",
+				""
+			)
+		)
+	):
+		issues.append(
+			"%s %s @layer '%s' does not match source path"
+			% [
+				location,
+				declaration_name,
+				layer,
+			]
+		)
 
 	if (
 		kind == "func"
 		and _internal_section_rule_is_enforced(
-			GF_VARIANT_ACCESS.get_option_string(declaration, "path", "")
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"path",
+				""
+			)
 		)
 	):
 		var declaration_path: String = GF_VARIANT_ACCESS.get_option_string(
@@ -2976,17 +3979,25 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 			"path",
 			""
 		)
-		var exact_section_is_enforced: bool = _exact_internal_section_rule_is_enforced(
-			declaration_path
-		)
+		var exact_section_is_enforced: bool = _exact_internal_section_rule_is_enforced(declaration_path)
 		var section_name: String = _canonical_section_name(
-			GF_VARIANT_ACCESS.get_option_string(declaration, "section", "")
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"section",
+				""
+			)
 		)
 		if (
 			api == "framework_internal"
 			and (
-				(exact_section_is_enforced and section_name != "框架内部方法")
-				or (not exact_section_is_enforced and section_name == "公共方法")
+				(
+					exact_section_is_enforced
+					and section_name != "框架内部方法"
+				)
+				or (
+					not exact_section_is_enforced
+					and section_name == "公共方法"
+				)
 			)
 		):
 			issues.append(
@@ -2996,8 +4007,14 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 		if (
 			api == "layer_internal"
 			and (
-				(exact_section_is_enforced and section_name != "层内方法")
-				or (not exact_section_is_enforced and section_name == "公共方法")
+				(
+					exact_section_is_enforced
+					and section_name != "层内方法"
+				)
+				or (
+					not exact_section_is_enforced
+					and section_name == "公共方法"
+				)
 			)
 		):
 			issues.append(
@@ -3007,26 +4024,70 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 
 	if api == "protected":
 		if not kind == "func" or not declaration_name.begins_with("_"):
-			issues.append("%s %s protected API must use an underscore name" % [location, declaration_name])
-		if not _section_has_marker(GF_VARIANT_ACCESS.get_option_string(declaration, "section", ""), PROTECTED_SECTION_MARKERS):
-			issues.append("%s %s protected API must be placed in a hook or virtual section" % [location, declaration_name])
+			issues.append(
+				"%s %s protected API must use an underscore name"
+				% [location, declaration_name]
+			)
+		if not _section_has_marker(
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"section",
+				""
+			),
+			PROTECTED_SECTION_MARKERS
+		):
+			issues.append(
+				"%s %s protected API must be placed in a hook or virtual section"
+				% [location, declaration_name]
+			)
 
 	if CLASS_KINDS.has(kind) and api == "public":
-		var category: String = GF_VARIANT_ACCESS.get_option_string(declaration, "category", "")
+		var category: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"category",
+			""
+		)
 		if category.is_empty():
-			issues.append("%s %s public class must declare @category" % [location, declaration_name])
+			issues.append(
+				"%s %s public class must declare @category"
+				% [location, declaration_name]
+			)
 		elif not VALID_CATEGORIES.has(category):
-			issues.append("%s %s uses unknown @category '%s'" % [location, declaration_name, category])
-		if not GF_VARIANT_ACCESS.get_option_bool(declaration, "has_since", false):
-			issues.append("%s %s public class must declare @since" % [location, declaration_name])
+			issues.append(
+				"%s %s uses unknown @category '%s'"
+				% [
+					location,
+					declaration_name,
+					category,
+				]
+			)
+		if not GF_VARIANT_ACCESS.get_option_bool(
+			declaration,
+			"has_since",
+			false
+		):
+			issues.append(
+				"%s %s public class must declare @since"
+				% [location, declaration_name]
+			)
 
 	if api == "private":
 		issues.append_array(_collect_private_declaration_issues(declaration))
 		issues.append_array(_collect_private_optional_tag_issues(declaration))
-	elif not api.is_empty() and (kind == "func" or kind == "signal"):
+	elif (
+		not api.is_empty()
+		and (
+			kind == "func"
+			or kind == "signal"
+		)
+	):
 		issues.append_array(_collect_param_doc_issues(declaration))
 
-	if not api.is_empty() and api != "private" and kind == "func":
+	if (
+		not api.is_empty()
+		and api != "private"
+		and kind == "func"
+	):
 		issues.append_array(_collect_return_doc_issues(declaration))
 
 	if not api.is_empty() and api != "private":
@@ -3047,16 +4108,25 @@ func _collect_private_declaration_issues(declaration: Dictionary) -> Array[Strin
 	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
 	var location: String = _format_location(declaration)
 	if not declaration_name.begins_with("_"):
-		issues.append("%s %s private API must use an underscore name" % [location, declaration_name])
+		issues.append(
+			"%s %s private API must use an underscore name"
+			% [location, declaration_name]
+		)
 	if kind == "class_name":
-		issues.append("%s %s class_name cannot declare @api private" % [location, declaration_name])
+		issues.append(
+			"%s %s class_name cannot declare @api private"
+			% [location, declaration_name]
+		)
 	var has_prose: bool = false
 	for raw_doc: Variant in GF_VARIANT_ACCESS.get_option_array(declaration, "docs"):
 		var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_doc)).replace(DOC_RENDER_SEPARATOR, "").strip_edges()
 		if not body.is_empty() and not body.begins_with("@"):
 			has_prose = true
 	if not has_prose:
-		issues.append("%s %s private doc must contain explanatory prose" % [location, declaration_name])
+		issues.append(
+			"%s %s private doc must contain explanatory prose"
+			% [location, declaration_name]
+		)
 	var allowed_sections: Array[String] = []
 	match kind:
 		"func":
@@ -3085,7 +4155,14 @@ func _collect_private_declaration_issues(declaration: Dictionary) -> Array[Strin
 			allowed_sections = ["内部类"]
 	var section_name: String = _canonical_section_name(GF_VARIANT_ACCESS.get_option_string(declaration, "section"))
 	if kind != "class_name" and not allowed_sections.has(section_name):
-		issues.append("%s %s private API uses an incompatible section '%s'" % [location, declaration_name, section_name])
+		issues.append(
+			"%s %s private API uses an incompatible section '%s'"
+			% [
+				location,
+				declaration_name,
+				section_name,
+			]
+		)
 	return issues
 
 
@@ -3095,7 +4172,11 @@ func _collect_private_optional_tag_issues(declaration: Dictionary) -> Array[Stri
 	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name")
 	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
 	var return_type: String = GF_VARIANT_ACCESS.get_option_string(declaration, "return_type")
-	var has_return: bool = kind == "func" and not return_type.is_empty() and return_type != "void"
+	var has_return: bool = (
+		kind == "func"
+		and not return_type.is_empty()
+		and return_type != "void"
+	)
 	var actual_params: Array[String] = []
 	if kind == "func" or kind == "signal":
 		for param: Dictionary in GF_VARIANT_ACCESS.get_option_array(declaration, "params"):
@@ -3114,10 +4195,16 @@ func _collect_private_optional_tag_issues(declaration: Dictionary) -> Array[Stri
 		if _is_doc_tag_line(body, "return"):
 			return_count += 1
 			if not has_return:
-				issues.append("%s %s @return requires a non-void function" % [location, declaration_name])
+				issues.append(
+					"%s %s @return requires a non-void function"
+					% [location, declaration_name]
+				)
 			var return_description: String = body.trim_prefix("@return").strip_edges().trim_prefix(":").strip_edges()
 			if return_description.replace(DOC_RENDER_SEPARATOR, "").strip_edges().is_empty():
-				issues.append("%s %s @return requires a non-empty description" % [location, declaration_name])
+				issues.append(
+					"%s %s @return requires a non-empty description"
+					% [location, declaration_name]
+				)
 			continue
 		for tag_name: String in ["param", "schema"]:
 			if not _is_doc_tag_line(body, tag_name):
@@ -3131,32 +4218,78 @@ func _collect_private_optional_tag_issues(declaration: Dictionary) -> Array[Stri
 				or target_name != _read_identifier(target_name)
 				or description.replace(DOC_RENDER_SEPARATOR, "").strip_edges().is_empty()
 			):
-				issues.append("%s %s @%s requires a target and non-empty description after ':'" % [location, declaration_name, tag_name])
+				issues.append(
+					"%s %s @%s requires a target and non-empty description after ':'"
+					% [
+						location,
+						declaration_name,
+						tag_name,
+					]
+				)
 				continue
 			if tag_name == "schema":
 				if not schema_targets.has(target_name):
-					issues.append("%s %s unknown @schema target '%s'" % [location, declaration_name, target_name])
+					issues.append(
+						"%s %s unknown @schema target '%s'"
+						% [
+							location,
+							declaration_name,
+							target_name,
+						]
+					)
 				if seen_schemas.has(target_name):
-					issues.append("%s %s duplicate @schema '%s'" % [location, declaration_name, target_name])
+					issues.append(
+						"%s %s duplicate @schema '%s'"
+						% [
+							location,
+							declaration_name,
+							target_name,
+						]
+					)
 				seen_schemas[target_name] = true
 				continue
 			var param_index: int = actual_params.find(target_name)
 			if param_index == -1:
-				issues.append("%s %s documents unknown @param '%s'" % [location, declaration_name, target_name])
+				issues.append(
+					"%s %s documents unknown @param '%s'"
+					% [
+						location,
+						declaration_name,
+						target_name,
+					]
+				)
 			if seen_params.has(target_name):
-				issues.append("%s %s duplicate @param '%s'" % [location, declaration_name, target_name])
+				issues.append(
+					"%s %s duplicate @param '%s'"
+					% [
+						location,
+						declaration_name,
+						target_name,
+					]
+				)
 			if param_index >= 0 and param_index < previous_param_index:
-				issues.append("%s %s @param order must follow the signature" % [location, declaration_name])
+				issues.append(
+					"%s %s @param order must follow the signature"
+					% [location, declaration_name]
+				)
 			seen_params[target_name] = true
 			previous_param_index = maxi(previous_param_index, param_index)
 	if return_count > 1:
-		issues.append("%s %s duplicate @return" % [location, declaration_name])
+		issues.append(
+			"%s %s duplicate @return"
+			% [location, declaration_name]
+		)
 	return issues
 
 
 func _is_doc_tag_line(body: String, tag_name: String) -> bool:
 	var prefix: String = "@" + tag_name
-	return body == prefix or body.begins_with(prefix + " ") or body.begins_with(prefix + ":") or body.begins_with(prefix + "\t")
+	return (
+		body == prefix
+		or body.begins_with(prefix + " ")
+		or body.begins_with(prefix + ":")
+		or body.begins_with(prefix + "\t")
+	)
 
 
 func _internal_section_rule_is_enforced(path: String) -> bool:
@@ -3170,39 +4303,61 @@ func _exact_internal_section_rule_is_enforced(path: String) -> bool:
 	return path.begins_with(PROJECT_LAYOUT_STRICT_ROOT)
 
 
-func _collect_public_api_doc_internal_reference_issues(
-	declarations: Array[Dictionary],
-	path: String
-) -> Array[String]:
+func _collect_public_api_doc_internal_reference_issues(declarations: Array[Dictionary], path: String) -> Array[String]:
 	if not _public_doc_internal_reference_rule_is_enforced(path):
 		return []
 
 	var internal_function_names: PackedStringArray = PackedStringArray()
 	for declaration: Dictionary in declarations:
-		if GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "") != "func":
+		if GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"kind",
+			""
+		) != "func":
 			continue
-		var internal_api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
+		var internal_api: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"api",
+			""
+		)
 		if internal_api != "framework_internal" and internal_api != "layer_internal":
 			continue
 		var _append_internal_name_result: Variant = internal_function_names.append(
-			GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"name",
+				""
+			)
 		)
 
 	var issues: Array[String] = []
 	for declaration: Dictionary in declarations:
-		var public_api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
+		var public_api: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"api",
+			""
+		)
 		if not PUBLIC_API_TAGS.has(public_api):
 			continue
-		var docs: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "docs", [])
+		var docs: Array = GF_VARIANT_ACCESS.get_option_array(
+			declaration,
+			"docs",
+			[]
+		)
 		for raw_doc_line: Variant in docs:
 			var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_doc_line))
 			for internal_function_name: String in internal_function_names:
 				if not _text_references_identifier(body, internal_function_name):
 					continue
 				issues.append(
-					"%s %s public API docs reference internal function '%s'" % [
+					"%s %s public API docs reference internal function '%s'"
+					% [
 						_format_location(declaration),
-						GF_VARIANT_ACCESS.get_option_string(declaration, "name", ""),
+						GF_VARIANT_ACCESS.get_option_string(
+							declaration,
+							"name",
+							""
+						),
 						internal_function_name,
 					]
 				)
@@ -3221,15 +4376,9 @@ func _text_references_identifier(text: String, identifier: String) -> bool:
 		var match_index: int = text.find(identifier, search_offset)
 		if match_index == -1:
 			return false
-		var before_is_identifier: bool = (
-			match_index > 0
-			and _is_identifier_character(text[match_index - 1])
-		)
+		var before_is_identifier: bool = (match_index > 0 and _is_identifier_character(text[match_index - 1]))
 		var after_index: int = match_index + identifier.length()
-		var after_is_identifier: bool = (
-			after_index < text.length()
-			and _is_identifier_character(text[after_index])
-		)
+		var after_is_identifier: bool = (after_index < text.length() and _is_identifier_character(text[after_index]))
 		if not before_is_identifier and not after_is_identifier:
 			return true
 		search_offset = after_index
@@ -3239,105 +4388,312 @@ func _text_references_identifier(text: String, identifier: String) -> bool:
 func _collect_param_doc_issues(declaration: Dictionary) -> Array[String]:
 	var issues: Array[String] = []
 	var location: String = _format_location(declaration)
-	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"name",
+		""
+	)
 	var actual_params: PackedStringArray = PackedStringArray()
-	var params: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "params", [])
+	var params: Array = GF_VARIANT_ACCESS.get_option_array(
+		declaration,
+		"params",
+		[]
+	)
 	for param: Dictionary in params:
-		var _append_result_1508: Variant = actual_params.append(GF_VARIANT_ACCESS.get_option_string(param, "name", ""))
+		var _append_result_1508: Variant = actual_params.append(
+			GF_VARIANT_ACCESS.get_option_string(
+				param,
+				"name",
+				""
+			)
+		)
 
-	var documented_params: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(declaration, "doc_params", PackedStringArray())
+	var documented_params: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(
+		declaration,
+		"doc_params",
+		PackedStringArray()
+	)
 	for actual_param: String in actual_params:
 		if not documented_params.has(actual_param):
-			issues.append("%s %s missing @param for '%s'" % [location, declaration_name, actual_param])
+			issues.append(
+				"%s %s missing @param for '%s'"
+				% [
+					location,
+					declaration_name,
+					actual_param,
+				]
+			)
 
 	for documented_param: String in documented_params:
 		if not actual_params.has(documented_param):
-			issues.append("%s %s documents unknown @param '%s'" % [location, declaration_name, documented_param])
+			issues.append(
+				"%s %s documents unknown @param '%s'"
+				% [
+					location,
+					declaration_name,
+					documented_param,
+				]
+			)
 
 	if issues.is_empty() and not _packed_string_arrays_equal(actual_params, documented_params):
-		issues.append("%s %s @param order should be [%s] but was [%s]" % [
-			location,
-			declaration_name,
-			", ".join(actual_params),
-			", ".join(documented_params),
-		])
+		issues.append(
+			"%s %s @param order should be [%s] but was [%s]"
+			% [
+				location,
+				declaration_name,
+				", ".join(actual_params),
+				", ".join(documented_params),
+			]
+		)
 	return issues
 
 
 func _collect_return_doc_issues(declaration: Dictionary) -> Array[String]:
-	var return_type: String = GF_VARIANT_ACCESS.get_option_string(declaration, "return_type", "")
+	var return_type: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"return_type",
+		""
+	)
 	if return_type.is_empty():
-		return ["%s %s missing return type" % [_format_location(declaration), GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")]]
+		return [
+			(
+				"%s %s missing return type"
+				% [
+					_format_location(declaration),
+					GF_VARIANT_ACCESS.get_option_string(
+						declaration,
+						"name",
+						""
+					),
+				]
+			),
+		]
 	if return_type == "void":
 		return []
-	if GF_VARIANT_ACCESS.get_option_bool(declaration, "has_return_doc", false):
+	if GF_VARIANT_ACCESS.get_option_bool(
+		declaration,
+		"has_return_doc",
+		false
+	):
 		return []
-	return ["%s %s missing @return" % [_format_location(declaration), GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")]]
+	return [
+		(
+			"%s %s missing @return"
+			% [
+				_format_location(declaration),
+				GF_VARIANT_ACCESS.get_option_string(
+					declaration,
+					"name",
+					""
+				),
+			]
+		),
+	]
 
 
 func _collect_schema_issues(declaration: Dictionary) -> Array[String]:
 	var issues: Array[String] = []
-	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
-	var schemas: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(declaration, "schemas", PackedStringArray())
+	var kind: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"kind",
+		""
+	)
+	var schemas: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(
+		declaration,
+		"schemas",
+		PackedStringArray()
+	)
 	var location: String = _format_location(declaration)
-	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"name",
+		""
+	)
 
 	if kind == "func" or kind == "signal":
-		var params: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "params", [])
+		var params: Array = GF_VARIANT_ACCESS.get_option_array(
+			declaration,
+			"params",
+			[]
+		)
 		for param: Dictionary in params:
-			var param_name: String = GF_VARIANT_ACCESS.get_option_string(param, "name", "")
-			if _type_requires_schema(GF_VARIANT_ACCESS.get_option_string(param, "type", "")) and not schemas.has(param_name):
-				issues.append("%s %s missing @schema for '%s'" % [location, declaration_name, param_name])
+			var param_name: String = GF_VARIANT_ACCESS.get_option_string(
+				param,
+				"name",
+				""
+			)
+			if (
+				_type_requires_schema(
+					GF_VARIANT_ACCESS.get_option_string(
+						param,
+						"type",
+						""
+					)
+				)
+				and not schemas.has(param_name)
+			):
+				issues.append(
+					"%s %s missing @schema for '%s'"
+					% [
+						location,
+						declaration_name,
+						param_name,
+					]
+				)
 
-	if kind == "func" and _type_requires_schema(GF_VARIANT_ACCESS.get_option_string(declaration, "return_type", "")) and not schemas.has("return"):
-		issues.append("%s %s missing @schema for return" % [location, declaration_name])
+	if (
+		kind == "func"
+		and _type_requires_schema(
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"return_type",
+				""
+			)
+		)
+		and not schemas.has("return")
+	):
+		issues.append(
+			"%s %s missing @schema for return"
+			% [location, declaration_name]
+		)
 
-	if (kind == "var" or kind == "const") and _type_requires_schema(GF_VARIANT_ACCESS.get_option_string(declaration, "type", "")) and not schemas.has(declaration_name):
-		issues.append("%s %s missing @schema for '%s'" % [location, declaration_name, declaration_name])
+	if (
+		(
+			kind == "var"
+			or kind == "const"
+		)
+		and _type_requires_schema(
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"type",
+				""
+			)
+		)
+		and not schemas.has(declaration_name)
+	):
+		issues.append(
+			"%s %s missing @schema for '%s'"
+			% [
+				location,
+				declaration_name,
+				declaration_name,
+			]
+		)
 
 	return issues
 
 
 func _collect_enum_value_doc_issues(declaration: Dictionary) -> Array[String]:
 	var issues: Array[String] = []
-	var enum_values: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "enum_values", [])
+	var enum_values: Array = GF_VARIANT_ACCESS.get_option_array(
+		declaration,
+		"enum_values",
+		[]
+	)
 	for enum_value: Dictionary in enum_values:
-		if GF_VARIANT_ACCESS.get_option_bool(enum_value, "has_doc", false):
+		if GF_VARIANT_ACCESS.get_option_bool(
+			enum_value,
+			"has_doc",
+			false
+		):
 			continue
-		issues.append("%s:%d %s public enum value '%s' missing doc comment" % [
-			GF_VARIANT_ACCESS.get_option_string(declaration, "path", ""),
-			GF_VARIANT_ACCESS.get_option_int(enum_value, "line", 0),
-			GF_VARIANT_ACCESS.get_option_string(declaration, "name", ""),
-			GF_VARIANT_ACCESS.get_option_string(enum_value, "name", ""),
-		])
+		issues.append(
+			"%s:%d %s public enum value '%s' missing doc comment"
+			% [
+				GF_VARIANT_ACCESS.get_option_string(
+					declaration,
+					"path",
+					""
+				),
+				GF_VARIANT_ACCESS.get_option_int(
+					enum_value,
+					"line",
+					0
+				),
+				GF_VARIANT_ACCESS.get_option_string(
+					declaration,
+					"name",
+					""
+				),
+				GF_VARIANT_ACCESS.get_option_string(
+					enum_value,
+					"name",
+					""
+				),
+			]
+		)
 	return issues
 
 
 func _collect_internal_type_exposure_issues(declaration: Dictionary, type_visibility: Dictionary) -> Array[String]:
 	var issues: Array[String] = []
 	var location: String = _format_location(declaration)
-	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"name",
+		""
+	)
 
 	for type_name: String in _collect_referenced_types(declaration):
 		if not type_visibility.has(type_name):
 			continue
-		var visibility: String = GF_VARIANT_ACCESS.get_option_string(type_visibility, type_name, "")
+		var visibility: String = GF_VARIANT_ACCESS.get_option_string(
+			type_visibility,
+			type_name,
+			""
+		)
 		if INTERNAL_API_TAGS.has(visibility):
-			issues.append("%s %s public API exposes internal type %s" % [location, declaration_name, type_name])
+			issues.append(
+				"%s %s public API exposes internal type %s"
+				% [
+					location,
+					declaration_name,
+					type_name,
+				]
+			)
 	return issues
 
 
 func _collect_referenced_types(declaration: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
+	var kind: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"kind",
+		""
+	)
 	if kind == "func" or kind == "signal":
-		var params: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "params", [])
+		var params: Array = GF_VARIANT_ACCESS.get_option_array(
+			declaration,
+			"params",
+			[]
+		)
 		for param: Dictionary in params:
-			_append_type_names(result, GF_VARIANT_ACCESS.get_option_string(param, "type", ""))
+			_append_type_names(
+				result,
+				GF_VARIANT_ACCESS.get_option_string(
+					param,
+					"type",
+					""
+				)
+			)
 	if kind == "func":
-		_append_type_names(result, GF_VARIANT_ACCESS.get_option_string(declaration, "return_type", ""))
+		_append_type_names(
+			result,
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"return_type",
+				""
+			)
+		)
 	if kind == "var" or kind == "const":
-		_append_type_names(result, GF_VARIANT_ACCESS.get_option_string(declaration, "type", ""))
+		_append_type_names(
+			result,
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"type",
+				""
+			)
+		)
 	return result
 
 
@@ -3374,7 +4730,10 @@ func _type_requires_schema(type_text: String) -> bool:
 	if RAW_STRUCTURAL_TYPES.has(trimmed):
 		return true
 	if trimmed.begins_with("Array[") and trimmed.ends_with("]"):
-		var inner: String = trimmed.substr("Array[".length(), trimmed.length() - "Array[".length() - 1).strip_edges()
+		var inner: String = trimmed.substr(
+			"Array[".length(),
+			trimmed.length() - "Array[".length() - 1
+		).strip_edges()
 		return _type_requires_schema(inner)
 	if trimmed.begins_with("Dictionary["):
 		return true
@@ -3397,31 +4756,59 @@ func _layer_matches_source_path(layer: String, path: String) -> bool:
 
 func _has_top_level_class_name(declarations: Array[Dictionary]) -> bool:
 	for declaration: Dictionary in declarations:
-		if (
-			GF_VARIANT_ACCESS.get_option_string(declaration, "kind") == "class_name"
-			and GF_VARIANT_ACCESS.get_option_int(declaration, "indent") == 0
-		):
+		if (GF_VARIANT_ACCESS.get_option_string(declaration, "kind") == "class_name" and GF_VARIANT_ACCESS.get_option_int(declaration, "indent") == 0):
 			return true
 	return false
 
 
 func _declaration_requires_api_doc(declaration: Dictionary) -> bool:
-	var kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "")
-	if not ["class_name", "class", "signal", "enum", "const", "var", "func"].has(kind):
+	var kind: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"kind",
+		""
+	)
+	if not [
+		"class_name",
+		"class",
+		"signal",
+		"enum",
+		"const",
+		"var",
+		"func",
+	].has(kind):
 		return false
 	return GF_VARIANT_ACCESS.get_option_string(declaration, "inherited_contract").is_empty()
 
 
 func _is_private_declaration(declaration: Dictionary) -> bool:
-	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
-	var api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
-	if api in ["protected", "framework_internal", "layer_internal"]:
+	var declaration_name: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"name",
+		""
+	)
+	var api: String = GF_VARIANT_ACCESS.get_option_string(
+		declaration,
+		"api",
+		""
+	)
+	if api in [
+		"protected",
+		"framework_internal",
+		"layer_internal",
+	]:
 		return false
 	if declaration_name == "_init" and not api.is_empty():
 		return false
 	if declaration_name.begins_with("_"):
 		return true
-	if GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "") == "func" and GODOT_CALLBACK_NAMES.has(declaration_name):
+	if (
+		GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"kind",
+			""
+		) == "func"
+		and GODOT_CALLBACK_NAMES.has(declaration_name)
+	):
 		return true
 	return false
 
@@ -3456,7 +4843,11 @@ func _has_tag(docs: Array, tag_name: String) -> bool:
 	var prefix: String = "@%s" % tag_name
 	for raw_line: Variant in docs:
 		var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_line))
-		if body == prefix or body.begins_with(prefix + " ") or body.begins_with(prefix + ":"):
+		if (
+			body == prefix
+			or body.begins_with(prefix + " ")
+			or body.begins_with(prefix + ":")
+		):
 			return true
 	return false
 
@@ -3531,7 +4922,12 @@ func _read_identifier_or_token(text: String) -> String:
 	var result: String = ""
 	for index: int in range(text.length()):
 		var character: String = text[index]
-		if character == " " or character == "\t" or character == ":" or character == "{":
+		if (
+			character == " "
+			or character == "\t"
+			or character == ":"
+			or character == "{"
+		):
 			break
 		result += character
 	return result.strip_edges()
@@ -3539,9 +4935,18 @@ func _read_identifier_or_token(text: String) -> String:
 
 func _is_identifier_character(character: String) -> bool:
 	return (
-		(character >= "A" and character <= "Z")
-		or (character >= "a" and character <= "z")
-		or (character >= "0" and character <= "9")
+		(
+			character >= "A"
+			and character <= "Z"
+		)
+		or (
+			character >= "a"
+			and character <= "z"
+		)
+		or (
+			character >= "0"
+			and character <= "9"
+		)
 		or character == "_"
 	)
 
@@ -3550,7 +4955,12 @@ func _split_top_level_arguments(args_text: String) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var start_index: int = 0
 	for index: int in _top_level_character_positions(args_text, ","):
-		var _append_result_1800: Variant = result.append(args_text.substr(start_index, index - start_index))
+		var _append_result_1800: Variant = result.append(
+			args_text.substr(
+				start_index,
+				index - start_index
+			)
+		)
 		start_index = index + 1
 	var _append_result_1802: Variant = result.append(args_text.substr(start_index))
 	return result
@@ -3574,9 +4984,17 @@ func _top_level_character_positions(text: String, target: String) -> Array[int]:
 			var character: String = code[index]
 			if character == target and depth == 0:
 				positions.append(offset + index)
-			if character in ["(", "[", "{"]:
+			if character in [
+				"(",
+				"[",
+				"{",
+			]:
 				depth += 1
-			elif character in [")", "]", "}"]:
+			elif character in [
+				")",
+				"]",
+				"}",
+			]:
 				depth -= 1
 		offset += line.length() + 1
 	return positions
@@ -3607,15 +5025,29 @@ func _issues_contain(issues: Array[String], fragment: String) -> bool:
 
 
 func _format_location(declaration: Dictionary) -> String:
-	return "%s:%d" % [
-		GF_VARIANT_ACCESS.get_option_string(declaration, "path", ""),
-		GF_VARIANT_ACCESS.get_option_int(declaration, "line", 0),
-	]
+	return (
+		"%s:%d"
+		% [
+			GF_VARIANT_ACCESS.get_option_string(
+				declaration,
+				"path",
+				""
+			),
+			GF_VARIANT_ACCESS.get_option_int(
+				declaration,
+				"line",
+				0
+			),
+		]
+	)
 
 
 func _read_text(path: String) -> String:
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-	assert_not_null(file, "应能读取文件：%s" % path)
+	assert_not_null(
+		file,
+		"应能读取文件：%s" % path
+	)
 	if file == null:
 		return ""
 	var text: String = file.get_as_text()
@@ -3625,7 +5057,10 @@ func _read_text(path: String) -> String:
 
 func _trim_cr(text: String) -> String:
 	if text.ends_with("\r"):
-		return text.substr(0, text.length() - 1)
+		return text.substr(
+			0,
+			text.length() - 1
+		)
 	return text
 
 

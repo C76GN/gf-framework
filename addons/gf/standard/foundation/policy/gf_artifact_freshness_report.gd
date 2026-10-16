@@ -96,7 +96,11 @@ func clear() -> void:
 ## @return 添加后的条目副本。
 ## [br]
 ## @schema return: Dictionary artifact entry.
-func add_artifact(artifact_id: StringName, path: String, options: Dictionary = {}) -> Dictionary:
+func add_artifact(
+	artifact_id: StringName,
+	path: String,
+	options: Dictionary = {}
+) -> Dictionary:
 	var entry: Dictionary = options.duplicate(true)
 	entry["id"] = artifact_id
 	entry["artifact_id"] = artifact_id
@@ -151,14 +155,16 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 	var result_artifacts: Array = GFVariantData.get_option_array(report, "artifacts")
 	for index: int in range(artifacts.size()):
 		var entry: Dictionary = artifacts[index]
-		var artifact: Dictionary = _inspect_artifact(entry, index, options, report)
+		var artifact: Dictionary = _inspect_artifact(
+			entry,
+			index,
+			options,
+			report
+		)
 		result_artifacts.append(artifact)
 		if GFVariantData.get_option_bool(artifact, "exists"):
 			report["existing_count"] = GFVariantData.get_option_int(report, "existing_count") + 1
-			report["total_size_bytes"] = (
-				GFVariantData.get_option_int(report, "total_size_bytes")
-				+ GFVariantData.get_option_int(artifact, "size_bytes")
-			)
+			report["total_size_bytes"] = (GFVariantData.get_option_int(report, "total_size_bytes") + GFVariantData.get_option_int(artifact, "size_bytes"))
 		elif GFVariantData.get_option_bool(artifact, "unreadable"):
 			report["unreadable_count"] = GFVariantData.get_option_int(report, "unreadable_count") + 1
 		else:
@@ -166,11 +172,27 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 		if GFVariantData.get_option_bool(artifact, "stale"):
 			report["stale_count"] = GFVariantData.get_option_int(report, "stale_count") + 1
 	report["artifacts"] = result_artifacts
-	return GFValidationReportDictionary.finalize_report(report, subject, {
-		"fallback_action": GFVariantData.get_option_string(options, "fallback_action", "Review the first artifact freshness issue."),
-		"no_action": GFVariantData.get_option_string(options, "no_action", "Artifacts are fresh and match expected metadata."),
-		"warnings_as_errors": GFVariantData.get_option_bool(options, "warnings_as_errors", false),
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		subject,
+		{
+			"fallback_action": GFVariantData.get_option_string(
+				options,
+				"fallback_action",
+				"Review the first artifact freshness issue."
+			),
+			"no_action": GFVariantData.get_option_string(
+				options,
+				"no_action",
+				"Artifacts are fresh and match expected metadata."
+			),
+			"warnings_as_errors": GFVariantData.get_option_bool(
+				options,
+				"warnings_as_errors",
+				false
+			),
+		}
+	)
 
 
 ## 从 artifact 条目数组创建报告构建器。
@@ -191,7 +213,11 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 static func from_artifacts(entries: Array[Dictionary], options: Dictionary = {}) -> GFArtifactFreshnessReport:
 	var builder: GFArtifactFreshnessReport = GFArtifactFreshnessReport.new()
 	var _configured: GFArtifactFreshnessReport = builder.configure(
-		GFVariantData.get_option_string(options, "subject", _DEFAULT_SUBJECT),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			_DEFAULT_SUBJECT
+		),
 		GFVariantData.get_option_dictionary(options, "metadata")
 	)
 	var _added: GFArtifactFreshnessReport = builder.add_artifacts(entries)
@@ -215,7 +241,11 @@ func _inspect_artifact(
 	var artifact: Dictionary = {
 		"artifact_id": artifact_id,
 		"path": path,
-		"kind": GFVariantData.get_option_string_name(entry, "kind", GFVariantData.get_option_string_name(entry, "artifact_kind")),
+		"kind": GFVariantData.get_option_string_name(
+			entry,
+			"kind",
+			GFVariantData.get_option_string_name(entry, "artifact_kind")
+		),
 		"exists": false,
 		"unreadable": false,
 		"stale": false,
@@ -223,37 +253,68 @@ func _inspect_artifact(
 		"metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
 	}
 	if path.is_empty():
-		_append_issue(report, "error", &"artifact_path_empty", "artifact path is empty", artifact, {
-			"entry_index": entry_index,
-		})
+		_append_issue(
+			report,
+			"error",
+			&"artifact_path_empty",
+			"artifact path is empty",
+			artifact,
+			{ "entry_index": entry_index, }
+		)
 		return artifact
 
 	if not FileAccess.file_exists(path):
-		if GFVariantData.get_option_bool(entry, "required", true):
-			_append_issue(report, "error", &"artifact_missing", "artifact file is missing", artifact, {
-				"entry_index": entry_index,
-				"actual_value": path,
-			})
+		if GFVariantData.get_option_bool(
+			entry,
+			"required",
+			true
+		):
+			_append_issue(
+				report,
+				"error",
+				&"artifact_missing",
+				"artifact file is missing",
+				artifact,
+				{ "entry_index": entry_index, "actual_value": path, }
+			)
 		return artifact
 
 	var size_bytes: int = _get_file_size(path)
 	if size_bytes < 0:
 		artifact["unreadable"] = true
-		_append_issue(report, "error", &"artifact_unreadable", "artifact file cannot be read", artifact, {
-			"entry_index": entry_index,
-			"open_error": FileAccess.get_open_error(),
-		})
+		_append_issue(
+			report,
+			"error",
+			&"artifact_unreadable",
+			"artifact file cannot be read",
+			artifact,
+			{ "entry_index": entry_index, "open_error": FileAccess.get_open_error(), }
+		)
 		return artifact
 
 	artifact["exists"] = true
 	artifact["size_bytes"] = size_bytes
-	var include_modified_time: bool = GFVariantData.get_option_bool(options, "include_modified_time", true)
-	var include_sha256: bool = GFVariantData.get_option_bool(options, "include_sha256", true)
-	var minimum_modified_time: int = _first_int(entry, PackedStringArray([
-		"minimum_modified_time",
-		"source_modified_time",
-		"current_source_modified_time",
-	]), -1)
+	var include_modified_time: bool = GFVariantData.get_option_bool(
+		options,
+		"include_modified_time",
+		true
+	)
+	var include_sha256: bool = GFVariantData.get_option_bool(
+		options,
+		"include_sha256",
+		true
+	)
+	var minimum_modified_time: int = _first_int(
+		entry,
+		PackedStringArray(
+			[
+				"minimum_modified_time",
+				"source_modified_time",
+				"current_source_modified_time",
+			]
+		),
+		-1
+	)
 	var requires_sha256_validation: bool = (
 		entry.has("expected_sha256")
 		or entry.has(&"expected_sha256")
@@ -265,10 +326,32 @@ func _inspect_artifact(
 	if include_sha256 or requires_sha256_validation:
 		artifact["sha256"] = FileAccess.get_sha256(path).to_lower()
 
-	_validate_size(entry, entry_index, artifact, report)
-	_validate_sha256(entry, entry_index, artifact, report, include_sha256)
-	_validate_modified_time(entry, entry_index, artifact, report, include_modified_time)
-	_validate_source_digest(entry, entry_index, artifact, report)
+	_validate_size(
+		entry,
+		entry_index,
+		artifact,
+		report
+	)
+	_validate_sha256(
+		entry,
+		entry_index,
+		artifact,
+		report,
+		include_sha256
+	)
+	_validate_modified_time(
+		entry,
+		entry_index,
+		artifact,
+		report,
+		include_modified_time
+	)
+	_validate_source_digest(
+		entry,
+		entry_index,
+		artifact,
+		report
+	)
 	if not include_modified_time:
 		var _modified_time_erased: bool = artifact.erase("modified_time")
 	if not include_sha256:
@@ -279,19 +362,45 @@ func _inspect_artifact(
 ## 使用 expected_size_bytes、size_bytes 或 size 中首个存在且非负的值校验文件大小。
 ## [br]
 ## @api private
-func _validate_size(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
-	var expected_size: int = _first_int(entry, PackedStringArray(["expected_size_bytes", "size_bytes", "size"]), -1)
+func _validate_size(
+	entry: Dictionary,
+	entry_index: int,
+	artifact: Dictionary,
+	report: Dictionary
+) -> void:
+	var expected_size: int = _first_int(
+		entry,
+		PackedStringArray(
+			[
+				"expected_size_bytes",
+				"size_bytes",
+				"size",
+			]
+		),
+		-1
+	)
 	if expected_size < 0:
 		return
-	var actual_size: int = GFVariantData.get_option_int(artifact, "size_bytes", -1)
+	var actual_size: int = GFVariantData.get_option_int(
+		artifact,
+		"size_bytes",
+		-1
+	)
 	if expected_size == actual_size:
 		return
 	artifact["stale"] = true
-	_append_issue(report, "error", &"artifact_size_mismatch", "artifact size does not match expected metadata", artifact, {
-		"entry_index": entry_index,
-		"expected_size_bytes": expected_size,
-		"actual_size_bytes": actual_size,
-	})
+	_append_issue(
+		report,
+		"error",
+		&"artifact_size_mismatch",
+		"artifact size does not match expected metadata",
+		artifact,
+		{
+			"entry_index": entry_index,
+			"expected_size_bytes": expected_size,
+			"actual_size_bytes": actual_size,
+		}
+	)
 
 
 ## 校验预期 SHA-256；元数据格式无效或摘要不匹配时将 artifact 标记为 stale 并记录错误。
@@ -313,12 +422,22 @@ func _validate_sha256(
 	)
 	if not sha_was_provided:
 		return
-	var expected_sha: String = _normalize_sha256(_first_string(entry, PackedStringArray(["expected_sha256", "sha256"])))
+	var expected_sha: String = _normalize_sha256(
+		_first_string(
+			entry,
+			PackedStringArray(["expected_sha256", "sha256"])
+		)
+	)
 	if expected_sha.is_empty():
 		artifact["stale"] = true
-		_append_issue(report, "error", &"artifact_sha256_invalid", "artifact expected sha256 metadata is invalid", artifact, {
-			"entry_index": entry_index,
-		})
+		_append_issue(
+			report,
+			"error",
+			&"artifact_sha256_invalid",
+			"artifact expected sha256 metadata is invalid",
+			artifact,
+			{ "entry_index": entry_index, }
+		)
 		return
 	if not artifact.has("sha256"):
 		return
@@ -326,10 +445,7 @@ func _validate_sha256(
 	if actual_sha == expected_sha:
 		return
 	artifact["stale"] = true
-	var issue_fields: Dictionary = {
-		"entry_index": entry_index,
-		"expected_sha256": expected_sha,
-	}
+	var issue_fields: Dictionary = { "entry_index": entry_index, "expected_sha256": expected_sha, }
 	if include_actual_value:
 		issue_fields["actual_sha256"] = actual_sha
 	_append_issue(
@@ -353,21 +469,24 @@ func _validate_modified_time(
 	report: Dictionary,
 	include_actual_value: bool
 ) -> void:
-	var minimum_time: int = _first_int(entry, PackedStringArray([
-		"minimum_modified_time",
-		"source_modified_time",
-		"current_source_modified_time",
-	]), -1)
+	var minimum_time: int = _first_int(
+		entry,
+		PackedStringArray(
+			[
+				"minimum_modified_time",
+				"source_modified_time",
+				"current_source_modified_time",
+			]
+		),
+		-1
+	)
 	if minimum_time < 0 or not artifact.has("modified_time"):
 		return
 	var actual_time: int = GFVariantData.get_option_int(artifact, "modified_time")
 	if actual_time >= minimum_time:
 		return
 	artifact["stale"] = true
-	var issue_fields: Dictionary = {
-		"entry_index": entry_index,
-		"expected_modified_time": minimum_time,
-	}
+	var issue_fields: Dictionary = { "entry_index": entry_index, "expected_modified_time": minimum_time, }
 	if include_actual_value:
 		issue_fields["actual_modified_time"] = actual_time
 	_append_issue(
@@ -383,24 +502,45 @@ func _validate_modified_time(
 ## 比较条目提供的 recorded 与 current source digest；两者都非空且不同时报告过期错误。
 ## [br]
 ## @api private
-func _validate_source_digest(entry: Dictionary, entry_index: int, artifact: Dictionary, report: Dictionary) -> void:
-	var recorded_digest: String = _first_string(entry, PackedStringArray([
-		"recorded_source_digest",
-		"artifact_source_digest",
-		"built_source_digest",
-	]))
-	var current_digest: String = _first_string(entry, PackedStringArray([
-		"current_source_digest",
-		"source_digest",
-	]))
-	if recorded_digest.is_empty() or current_digest.is_empty() or recorded_digest == current_digest:
+func _validate_source_digest(
+	entry: Dictionary,
+	entry_index: int,
+	artifact: Dictionary,
+	report: Dictionary
+) -> void:
+	var recorded_digest: String = _first_string(
+		entry,
+		PackedStringArray(
+			[
+				"recorded_source_digest",
+				"artifact_source_digest",
+				"built_source_digest",
+			]
+		)
+	)
+	var current_digest: String = _first_string(
+		entry,
+		PackedStringArray(["current_source_digest", "source_digest",])
+	)
+	if (
+		recorded_digest.is_empty()
+		or current_digest.is_empty()
+		or recorded_digest == current_digest
+	):
 		return
 	artifact["stale"] = true
-	_append_issue(report, "error", &"artifact_source_digest_mismatch", "artifact source digest is stale", artifact, {
-		"entry_index": entry_index,
-		"expected_source_digest": current_digest,
-		"actual_source_digest": recorded_digest,
-	})
+	_append_issue(
+		report,
+		"error",
+		&"artifact_source_digest_mismatch",
+		"artifact source digest is stale",
+		artifact,
+		{
+			"entry_index": entry_index,
+			"expected_source_digest": current_digest,
+			"actual_source_digest": recorded_digest,
+		}
+	)
 
 
 ## 合并 artifact 身份字段与调用方 issue 字段，并追加标准化问题。
@@ -419,7 +559,11 @@ func _append_issue(
 		"path": GFVariantData.get_option_string(artifact, "path"),
 		"artifact_kind": GFVariantData.get_option_string_name(artifact, "kind"),
 	}
-	var merged_fields: Dictionary = GFVariantData.merge_dictionary(issue_fields, fields, true)
+	var merged_fields: Dictionary = GFVariantData.merge_dictionary(
+		issue_fields,
+		fields,
+		true
+	)
 	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 		report,
 		severity,
@@ -458,26 +602,46 @@ static func _get_artifact_id(entry: Dictionary, entry_index: int) -> StringName:
 ## 按键顺序读取第一个存在的 String 或 StringName 字段，转换并修剪文本；都不存在时返回默认值。
 ## [br]
 ## @api private
-static func _first_string(entry: Dictionary, keys: PackedStringArray, default_value: String = "") -> String:
+static func _first_string(
+	entry: Dictionary,
+	keys: PackedStringArray,
+	default_value: String = ""
+) -> String:
 	for key: String in keys:
 		if entry.has(key):
-			return GFVariantData.to_text(entry[key], default_value).strip_edges()
+			return GFVariantData.to_text(
+				entry[key],
+				default_value
+			).strip_edges()
 		var key_name: StringName = StringName(key)
 		if entry.has(key_name):
-			return GFVariantData.to_text(entry[key_name], default_value).strip_edges()
+			return GFVariantData.to_text(
+				entry[key_name],
+				default_value
+			).strip_edges()
 	return default_value
 
 
 ## 按键顺序读取第一个存在的 String 或 StringName 字段并转换为 int；都不存在时返回默认值。
 ## [br]
 ## @api private
-static func _first_int(entry: Dictionary, keys: PackedStringArray, default_value: int = 0) -> int:
+static func _first_int(
+	entry: Dictionary,
+	keys: PackedStringArray,
+	default_value: int = 0
+) -> int:
 	for key: String in keys:
 		if entry.has(key):
-			return GFVariantData.to_int(entry[key], default_value)
+			return GFVariantData.to_int(
+				entry[key],
+				default_value
+			)
 		var key_name: StringName = StringName(key)
 		if entry.has(key_name):
-			return GFVariantData.to_int(entry[key_name], default_value)
+			return GFVariantData.to_int(
+				entry[key_name],
+				default_value
+			)
 	return default_value
 
 

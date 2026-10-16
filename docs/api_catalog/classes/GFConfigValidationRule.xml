@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="a1cd3e227b2798b65de36d521aa517a3e0f48bb88dcde8782c093a2e90a88a22">
+<class name="GFConfigValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" module="standard" extends="Resource" classDigest="71036927e5d42c40ab5d4bffdb1fb6c259b9181f2b89ff75d7a2e5d450b3e4e6">
 	<description>GFConfigValidationRule: 导表校验规则基类。
 用于把字段、记录或整表校验拆成可组合 Resource，便于项目按需声明范围、
 正则、资源路径或本地化 key 等规则，而不把业务表结构写进框架。</description>
@@ -137,7 +137,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_value">
-			<signature>func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_value( _value: Variant, _context: Dictionary, _report: Dictionary ) -&gt; void:</signature>
 			<description>校验单个字段值。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -151,7 +151,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_record">
-			<signature>func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_record( _record: Dictionary, _context: Dictionary, _report: Dictionary ) -&gt; void:</signature>
 			<description>校验单条记录。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -161,10 +161,11 @@
 				<tag name="schema">_record: Dictionary，正在校验的配置记录。</tag>
 				<tag name="schema">_context: Dictionary，可包含 table_name、row_key、source 和 line 字段。</tag>
 				<tag name="schema">_report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_validate_table">
-			<signature>func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_table( _rows: Array[Dictionary], _context: Dictionary, _report: Dictionary ) -&gt; void:</signature>
 			<description>校验整张表。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -174,10 +175,11 @@
 				<tag name="schema">_rows: Array[Dictionary]，元素通常包含 row_key、record 和 row_index。</tag>
 				<tag name="schema">_context: Dictionary，可包含 table_name 和 source 字段。</tag>
 				<tag name="schema">_report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_add_issue">
-			<signature>func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -&gt; void:</signature>
+			<signature>func _add_issue( report: Dictionary, context: Dictionary, kind: String, message: String ) -&gt; void:</signature>
 			<description>向当前报告追加一个带规则上下文的问题。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -187,6 +189,7 @@
 				<tag name="param">message: 面向工具或开发者的说明文本。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前辅助方法修改。</tag>
 				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_make_variant_key">

@@ -40,7 +40,7 @@
 | 方法 | [`first`](#member-gfconfigtablequery-methods-first) | `func first(duplicate_record: bool = true) -> Variant:` |
 | 方法 | [`count`](#member-gfconfigtablequery-methods-count) | `func count() -> int:` |
 | 方法 | [`values`](#member-gfconfigtablequery-methods-values) | `func values(path: String = "", duplicate_values: bool = true) -> Array:` |
-| 方法 | [`read_path`](#member-gfconfigtablequery-methods-read_path) | `static func read_path(source: Variant, path: String, default_value: Variant = null) -> Variant:` |
+| 方法 | [`read_path`](#member-gfconfigtablequery-methods-read_path) | `static func read_path( source: Variant, path: String, default_value: Variant = null ) -> Variant:` |
 | 方法 | [`describe_query`](#member-gfconfigtablequery-methods-describe_query) | `func describe_query() -> Dictionary:` |
 
 ## 枚举
@@ -675,7 +675,7 @@ func values(path: String = "", duplicate_values: bool = true) -> Array:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func read_path(source: Variant, path: String, default_value: Variant = null) -> Variant:
+static func read_path( source: Variant, path: String, default_value: Variant = null ) -> Variant:
 ```
 
 读取任意源对象的路径值。

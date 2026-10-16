@@ -16,8 +16,16 @@ extends RefCounted
 ## [br]
 ## @return 有限评分。
 static func normalize_score(value: float, fallback: float = 0.0) -> float:
-	var safe_fallback: float = clampf(fallback, 0.0, 1.0) if is_finite(fallback) else 0.0
-	return clampf(value, 0.0, 1.0) if is_finite(value) else safe_fallback
+	var safe_fallback: float = clampf(
+		fallback,
+		0.0,
+		1.0
+	) if is_finite(fallback) else 0.0
+	return clampf(
+		value,
+		0.0,
+		1.0
+	) if is_finite(value) else safe_fallback
 
 
 ## 将权重收窄到有限非负域。
@@ -77,4 +85,8 @@ static func is_valid_weight(value: float) -> bool:
 ## [br]
 ## @return 合法时返回 true。
 static func is_valid_score(value: float) -> bool:
-	return is_finite(value) and value >= 0.0 and value <= 1.0
+	return (
+		is_finite(value)
+		and value >= 0.0
+		and value <= 1.0
+	)

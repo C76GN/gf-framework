@@ -133,7 +133,10 @@ func apply_dict(data: Dictionary) -> void:
 	if data.has("schema_id"):
 		schema_id = GFVariantData.to_string_name(data["schema_id"])
 	if data.has("schema_version"):
-		schema_version = maxi(GFVariantData.to_int(data["schema_version"]), 1)
+		schema_version = maxi(
+			GFVariantData.to_int(data["schema_version"]),
+			1
+		)
 	if data.has("app_version"):
 		app_version = GFVariantData.to_text(data["app_version"])
 	if data.has("created_at_unix"):
@@ -141,7 +144,10 @@ func apply_dict(data: Dictionary) -> void:
 	if data.has("updated_at_unix"):
 		updated_at_unix = GFVariantData.to_int(data["updated_at_unix"])
 	if data.has("elapsed_seconds"):
-		elapsed_seconds = maxf(GFVariantData.to_float(data["elapsed_seconds"]), 0.0)
+		elapsed_seconds = maxf(
+			GFVariantData.to_float(data["elapsed_seconds"]),
+			0.0
+		)
 	if data.has("tags"):
 		tags = PackedStringArray(GFVariantData.to_string_array(data["tags"]))
 	if data.has("custom_metadata"):
@@ -178,27 +184,41 @@ func get_display_name(fallback: String = "") -> String:
 ## [br]
 ## @schema return: Dictionary，包含 ok、healthy、issues、issue_count、warning_count、error_count、summary 与 next_actions 等校验报告字段。
 func validate_metadata() -> Dictionary:
-	var report: Dictionary = {
-		"issues": [],
-	}
+	var report: Dictionary = { "issues": [], }
 	if slot_id == &"":
-		var _append_issue_result_185: Variant = GFValidationReportDictionary.append_issue(report, "warning", &"empty_slot_id", "Slot id is empty.", {
-			"path": "slot_id",
-		})
+		var _append_issue_result_185: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"warning",
+			&"empty_slot_id",
+			"Slot id is empty.",
+			{ "path": "slot_id", }
+		)
 	if schema_version <= 0:
-		var _append_issue_result_189: Variant = GFValidationReportDictionary.append_issue(report, "error", &"invalid_schema_version", "Schema version must be positive.", {
-			"path": "schema_version",
-		})
+		var _append_issue_result_189: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_schema_version",
+			"Schema version must be positive.",
+			{ "path": "schema_version", }
+		)
 	if elapsed_seconds < 0.0:
-		var _append_issue_result_193: Variant = GFValidationReportDictionary.append_issue(report, "error", &"invalid_elapsed_seconds", "Elapsed seconds cannot be negative.", {
-			"path": "elapsed_seconds",
-		})
-	return GFValidationReportDictionary.finalize_report(report, "Save slot metadata", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "Review the first save slot metadata issue.",
-		"no_action": "Save slot metadata is healthy.",
-	})
+		var _append_issue_result_193: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_elapsed_seconds",
+			"Elapsed seconds cannot be negative.",
+			{ "path": "elapsed_seconds", }
+		)
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save slot metadata",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_validation_next_actions(),
+			"fallback_action": "Review the first save slot metadata issue.",
+			"no_action": "Save slot metadata is healthy.",
+		}
+	)
 
 
 ## 从 Dictionary 创建元数据。

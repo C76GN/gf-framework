@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="2fc0f2c28e3392bb56c8359c4a73e40a6b635ce43d89a19e16d5abceb5af733f">
+<class name="GFContentPackageUtility" path="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" module="extensions/content_package" extends="GFUtility" classDigest="5b835dbe7c004a63279c10d2b9f30492c36b8d13398508d2e2e0456fbd140f3d">
 	<description>GFContentPackageUtility: 内容包发现、目录构建和资源解析注册服务。
 维护显式 source root 列表，加载其中的 `gf_content_package.json`，构建 GFContentPackageCatalog，
 并把内容包资源键映射同步到 GFResourceResolverUtility。它不下载内容、不扫描全项目、不决定包启用策略。</description>
@@ -83,7 +83,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="replace_owner_source_roots">
-			<signature>func replace_owner_source_roots( owner_id: StringName, root_paths: PackedStringArray ) -&gt; GFValidationReport:</signature>
+			<signature>func replace_owner_source_roots(owner_id: StringName, root_paths: PackedStringArray) -&gt; GFValidationReport:</signature>
 			<description>原子替换一个 owner 的全部 source root。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -170,7 +170,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_manifests">
-			<signature>func set_manifests( manifests: Array[GFContentPackageManifest], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func set_manifests(manifests: Array[GFContentPackageManifest], options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>手动替换内容包目录。</description>
 			<tags>
 				<tag name="api">public</tag>

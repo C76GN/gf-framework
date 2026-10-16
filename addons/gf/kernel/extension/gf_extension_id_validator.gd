@@ -70,7 +70,10 @@ static func get_extension_id_validation_error(extension_id: String, field_name: 
 	if regex == null:
 		return "%s validator failed to compile" % field_name
 	if regex.search(normalized_id) == null:
-		return "%s must use lowercase dotted identifier segments: %s" % [field_name, normalized_id]
+		return (
+			"%s must use lowercase dotted identifier segments: %s"
+			% [field_name, normalized_id]
+		)
 	return ""
 
 

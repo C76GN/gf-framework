@@ -175,7 +175,11 @@ func get_state() -> State:
 ## [br]
 ## @return committed、failed 或 rolled_back 时返回 true。
 func is_completed() -> bool:
-	return _state in [State.COMMITTED, State.FAILED, State.ROLLED_BACK]
+	return _state in [
+		State.COMMITTED,
+		State.FAILED,
+		State.ROLLED_BACK,
+	]
 
 
 ## 获取终态结果副本。
@@ -216,9 +220,18 @@ func commit() -> bool:
 	if utility == null:
 		_finish_failure("Asset utility is no longer available.", &"utility_unavailable")
 		return false
-	utility.commit_preload_group_for_framework(_staging_group_id, _plan.group_id, _plan.pin_cache)
+	utility.commit_preload_group_for_framework(
+		_staging_group_id,
+		_plan.group_id,
+		_plan.pin_cache
+	)
 	_set_state(State.COMMITTED)
-	_finish_result(GFAssetLoadSessionResult.STATUS_COMMITTED, "", &"", false)
+	_finish_result(
+		GFAssetLoadSessionResult.STATUS_COMMITTED,
+		"",
+		&"",
+		false
+	)
 	return true
 
 
@@ -244,7 +257,12 @@ func rollback(reason: StringName = &"caller_requested") -> bool:
 	_rollback_reason = reason if reason != &"" else &"caller_requested"
 	_cleanup_staging_group()
 	_set_state(State.ROLLED_BACK)
-	_finish_result(GFAssetLoadSessionResult.STATUS_ROLLED_BACK, "", _rollback_reason, true)
+	_finish_result(
+		GFAssetLoadSessionResult.STATUS_ROLLED_BACK,
+		"",
+		_rollback_reason,
+		true
+	)
 	return true
 
 
@@ -272,13 +290,21 @@ func _gf_setup(
 	plan: GFAssetPreloadPlan,
 	options: Dictionary
 ) -> bool:
-	if _session_id != &"" or utility == null or session_id == &"":
+	if (
+		_session_id != &""
+		or utility == null
+		or session_id == &""
+	):
 		return false
 	_utility_ref = weakref(utility)
 	_session_id = session_id
 	_staging_group_id = StringName("_gf_staging_%s" % String(session_id))
 	_plan = plan.duplicate_plan() if plan != null else null
-	_auto_commit = GFVariantData.get_option_bool(options, "auto_commit", true)
+	_auto_commit = GFVariantData.get_option_bool(
+		options,
+		"auto_commit",
+		true
+	)
 	_metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	return true
 
@@ -295,7 +321,7 @@ func _gf_start() -> void:
 		return
 	var validation: Dictionary = _plan.validate()
 	if not GFVariantData.get_option_bool(validation, "ok"):
-		_load_report = {"validation": validation.duplicate(true)}
+		_load_report = { "validation": validation.duplicate(true) }
 		_finish_failure("Asset preload plan validation failed.", &"invalid_plan")
 		return
 	var utility: GFAssetUtility = _get_utility()
@@ -303,7 +329,7 @@ func _gf_start() -> void:
 		_finish_failure("Asset utility is no longer available.", &"utility_unavailable")
 		return
 	_set_state(State.LOADING)
-	var options: Dictionary = _plan.to_preload_options({"pin_cache": false})
+	var options: Dictionary = _plan.to_preload_options({ "pin_cache": false })
 	utility.preload_group_async(
 		_staging_group_id,
 		_plan.get_entries(),
@@ -326,7 +352,6 @@ func _gf_abort(reason: StringName) -> void:
 	_finish_failure("Asset load session was aborted.", _rollback_reason)
 
 
-
 # --- 私有/辅助方法 ---
 
 ## 清理临时组后发出 FAILED 状态变更，再尝试产生一次失败结果；状态回调可能同步重入。
@@ -335,7 +360,12 @@ func _gf_abort(reason: StringName) -> void:
 func _finish_failure(error: String, reason: StringName) -> void:
 	_cleanup_staging_group()
 	_set_state(State.FAILED)
-	_finish_result(GFAssetLoadSessionResult.STATUS_FAILED, error, reason, true)
+	_finish_result(
+		GFAssetLoadSessionResult.STATUS_FAILED,
+		error,
+		reason,
+		true
+	)
 
 
 ## 只在尚无结果时构造并存储终态结果，再发送结果副本；先保存结果使完成回调重入不能重复完成。
@@ -414,7 +444,12 @@ func _on_preload_completed(report: Dictionary) -> void:
 	if _state == State.ROLLBACK_PENDING:
 		_cleanup_staging_group()
 		_set_state(State.ROLLED_BACK)
-		_finish_result(GFAssetLoadSessionResult.STATUS_ROLLED_BACK, "", _rollback_reason, true)
+		_finish_result(
+			GFAssetLoadSessionResult.STATUS_ROLLED_BACK,
+			"",
+			_rollback_reason,
+			true
+		)
 		return
 	if not GFVariantData.get_option_bool(report, "ok"):
 		_cleanup_staging_group()

@@ -15,8 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`successful`](#member-gfprojectilebodyresult3d-methods-successful) | `static func successful( transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO ) -> GFProjectileBodyResult3D:` |
-| 方法 | [`failed`](#member-gfprojectilebodyresult3d-methods-failed) | `static func failed( reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY ) -> GFProjectileBodyResult3D:` |
+| 方法 | [`successful`](#member-gfprojectilebodyresult3d-methods-successful) | `static func successful(transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO) -> GFProjectileBodyResult3D:` |
+| 方法 | [`failed`](#member-gfprojectilebodyresult3d-methods-failed) | `static func failed(reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY) -> GFProjectileBodyResult3D:` |
 | 方法 | [`is_successful`](#member-gfprojectilebodyresult3d-methods-is_successful) | `func is_successful() -> bool:` |
 | 方法 | [`get_failure_reason`](#member-gfprojectilebodyresult3d-methods-get_failure_reason) | `func get_failure_reason() -> StringName:` |
 | 方法 | [`get_transform`](#member-gfprojectilebodyresult3d-methods-get_transform) | `func get_transform() -> Transform3D:` |
@@ -33,7 +33,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func successful( transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO ) -> GFProjectileBodyResult3D:
+static func successful(transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO) -> GFProjectileBodyResult3D:
 ```
 
 构造成功的 3D body 结果。
@@ -55,7 +55,7 @@ static func successful( transform_value: Transform3D, actual_displacement: Vecto
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func failed( reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY ) -> GFProjectileBodyResult3D:
+static func failed(reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY) -> GFProjectileBodyResult3D:
 ```
 
 构造失败的 3D body 结果。

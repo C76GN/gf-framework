@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPointerActivityUtility" path="addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd" module="standard" extends="GFUtility" classDigest="ded4baed930df77ca5e01e6d739e8f6544227af5fa103ae1ed3aae5d3dd0ee21">
+<class name="GFPointerActivityUtility" path="addons/gf/standard/input/runtime/gf_pointer_activity_utility.gd" module="standard" extends="GFUtility" classDigest="741a0e4e743786a05dcca2e217a9f39154aa6a26a109d4bf3813f12d6ab4ce81">
 	<description>GFPointerActivityUtility: 通用指针活动状态工具。
 由项目在 _input(event) 中显式转发事件，工具只维护按下、移动、拖拽和空闲状态，
 不消费输入，也不绑定任何具体交互或业务对象。</description>
@@ -10,27 +10,29 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="pointer_pressed">
-			<signature>signal pointer_pressed(pointer_id: int, position: Vector2, event: InputEvent)</signature>
+			<signature>signal pointer_pressed( pointer_id: int, position: Vector2, event: InputEvent )</signature>
 			<description>指针按下时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。</tag>
 				<tag name="param">position: 指针位置。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_released">
-			<signature>signal pointer_released(pointer_id: int, position: Vector2, event: InputEvent)</signature>
+			<signature>signal pointer_released( pointer_id: int, position: Vector2, event: InputEvent )</signature>
 			<description>指针释放时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。</tag>
 				<tag name="param">position: 指针位置。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_moved">
-			<signature>signal pointer_moved(pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent)</signature>
+			<signature>signal pointer_moved( pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent )</signature>
 			<description>指针移动时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -38,10 +40,11 @@
 				<tag name="param">position: 指针位置。</tag>
 				<tag name="param">previous_position: 上一次指针位置。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_drag_started">
-			<signature>signal pointer_drag_started(pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent)</signature>
+			<signature>signal pointer_drag_started( pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent )</signature>
 			<description>指针从按下状态进入拖拽时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -49,10 +52,11 @@
 				<tag name="param">start_position: 指针按下位置。</tag>
 				<tag name="param">position: 当前指针位置。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_dragged">
-			<signature>signal pointer_dragged(pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent)</signature>
+			<signature>signal pointer_dragged( pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent )</signature>
 			<description>指针拖拽中发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -60,16 +64,18 @@
 				<tag name="param">position: 当前指针位置。</tag>
 				<tag name="param">delta: 本次拖拽位移。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_drag_ended">
-			<signature>signal pointer_drag_ended(pointer_id: int, position: Vector2, event: InputEvent)</signature>
+			<signature>signal pointer_drag_ended( pointer_id: int, position: Vector2, event: InputEvent )</signature>
 			<description>指针拖拽结束时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">pointer_id: 指针 ID；鼠标为 0，触摸为触点 index。</tag>
 				<tag name="param">position: 指针释放位置。</tag>
 				<tag name="param">event: 原始输入事件。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="pointer_idle_started">

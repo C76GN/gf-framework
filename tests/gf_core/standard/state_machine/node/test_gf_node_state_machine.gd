@@ -24,20 +24,24 @@ class TrackingNodeState:
 	func _initialize() -> void:
 		initialized_count += 1
 
+
 	func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
 		enter_count += 1
 		last_previous = previous_state
 		last_args = args
+
 
 	func _exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
 		exit_count += 1
 		last_next = next_state
 		last_args = args
 
+
 	func _pause(next_state: StringName = &"", args: Dictionary = {}) -> void:
 		pause_count += 1
 		last_next = next_state
 		last_args = args
+
 
 	func _resume(previous_state: StringName = &"", args: Dictionary = {}) -> void:
 		resume_count += 1
@@ -52,6 +56,7 @@ class ExitRedirectNodeState:
 
 	func _init(p_target_state_name: StringName) -> void:
 		target_state_name = p_target_state_name
+
 
 	func _exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
 		super._exit(next_state, args)
@@ -119,6 +124,7 @@ class GuardedNodeState:
 	func _can_enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> bool:
 		return allow_enter
 
+
 	func _can_exit(_next_state: StringName = &"", _args: Dictionary = {}) -> bool:
 		return allow_exit
 
@@ -136,6 +142,7 @@ class GuardRedirectNodeState:
 			has_redirected = true
 			transition_to(target_state_name, args)
 		return true
+
 
 	func _can_exit(_next_state: StringName = &"", args: Dictionary = {}) -> bool:
 		if redirect_on_exit_guard and not has_redirected:
@@ -168,9 +175,15 @@ class EventHandlingNodeState:
 
 	func _handle_state_event(event_id: StringName, _payload: Variant = null) -> bool:
 		if handled_events.has(event_id):
-			events.append("handle:%s:%s" % [get_state_name(), event_id])
+			events.append(
+				"handle:%s:%s"
+				% [get_state_name(), event_id]
+			)
 			return true
-		events.append("miss:%s:%s" % [get_state_name(), event_id])
+		events.append(
+			"miss:%s:%s"
+			% [get_state_name(), event_id]
+		)
 		return false
 
 
@@ -180,7 +193,10 @@ class EventRedirectNodeState:
 	var target_state_name: StringName = &""
 
 	func _handle_state_event(event_id: StringName, _payload: Variant = null) -> bool:
-		events.append("redirect:%s:%s" % [get_state_name(), event_id])
+		events.append(
+			"redirect:%s:%s"
+			% [get_state_name(), event_id]
+		)
 		transition_to(target_state_name)
 		return false
 
@@ -249,19 +265,44 @@ class EventListeningNodeState:
 
 	func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
 		super._enter(previous_state, args)
-		register_event(StateEventPayload, GFEventListener.from_method(self, &"_on_typed_event", 1))
-		register_assignable_event(StateEventPayload, GFEventListener.from_method(self, &"_on_assignable_event", 1))
-		register_simple_event(&"node_state_simple_event", GFEventListener.from_method(self, &"_on_simple_event", 1))
+		register_event(
+			StateEventPayload,
+			GFEventListener.from_method(
+				self,
+				&"_on_typed_event",
+				1
+			)
+		)
+		register_assignable_event(
+			StateEventPayload,
+			GFEventListener.from_method(
+				self,
+				&"_on_assignable_event",
+				1
+			)
+		)
+		register_simple_event(
+			&"node_state_simple_event",
+			GFEventListener.from_method(
+				self,
+				&"_on_simple_event",
+				1
+			)
+		)
+
 
 	func _exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
 		super._exit(next_state, args)
 		unregister_owner_events()
 
+
 	func _on_typed_event(payload: StateEventPayload) -> void:
 		typed_values.append(payload.value)
 
+
 	func _on_assignable_event(payload: StateEventPayload) -> void:
 		assignable_values.append(payload.value)
+
 
 	func _on_simple_event(payload: Variant) -> void:
 		simple_values.append(payload)
@@ -282,9 +323,21 @@ func test_internal_group_loads_direct_child_states() -> void:
 
 	await get_tree().process_frame
 
-	assert_eq(machine.get_current_state(), idle, "直接子状态应进入内部状态组。")
-	assert_eq(idle.enter_count, 1, "初始状态应被进入。")
-	assert_eq(run.initialized_count, 1, "未激活状态也应完成初始化。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"直接子状态应进入内部状态组。"
+	)
+	assert_eq(
+		idle.enter_count,
+		1,
+		"初始状态应被进入。"
+	)
+	assert_eq(
+		run.initialized_count,
+		1,
+		"未激活状态也应完成初始化。"
+	)
 
 
 func test_editor_inspector_collects_state_names_from_exports() -> void:
@@ -299,9 +352,21 @@ func test_editor_inspector_collects_state_names_from_exports() -> void:
 
 	var states: Array[StringName] = GFNodeStateMachineInspectorPluginScript.collect_direct_states(machine)
 
-	assert_eq(states.size(), 2, "Inspector 应收集直接子状态。")
-	assert_has(states, &"idle", "Inspector 应优先使用导出的 state_name。")
-	assert_has(states, &"Run", "state_name 为空时应退回节点名称。")
+	assert_eq(
+		states.size(),
+		2,
+		"Inspector 应收集直接子状态。"
+	)
+	assert_has(
+		states,
+		&"idle",
+		"Inspector 应优先使用导出的 state_name。"
+	)
+	assert_has(
+		states,
+		&"Run",
+		"state_name 为空时应退回节点名称。"
+	)
 
 	machine.free()
 
@@ -320,14 +385,33 @@ func test_manual_start_mode_loads_without_entering_initial_state() -> void:
 
 	await get_tree().process_frame
 
-	assert_null(machine.get_current_state(), "手动启动模式只应加载状态，不应自动进入初始状态。")
-	assert_eq(idle.initialized_count, 1, "手动启动模式仍应初始化状态。")
-	assert_eq(idle.enter_count, 0, "手动启动前不应调用状态 enter。")
+	assert_null(
+		machine.get_current_state(),
+		"手动启动模式只应加载状态，不应自动进入初始状态。"
+	)
+	assert_eq(
+		idle.initialized_count,
+		1,
+		"手动启动模式仍应初始化状态。"
+	)
+	assert_eq(
+		idle.enter_count,
+		0,
+		"手动启动前不应调用状态 enter。"
+	)
 
 	machine.start()
 
-	assert_eq(machine.get_current_state(), idle, "start() 应进入内部初始状态。")
-	assert_eq(idle.enter_count, 1, "start() 应调用初始状态 enter。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"start() 应进入内部初始状态。"
+	)
+	assert_eq(
+		idle.enter_count,
+		1,
+		"start() 应调用初始状态 enter。"
+	)
 
 
 func test_start_can_reload_when_reload_on_ready_is_disabled() -> void:
@@ -342,12 +426,23 @@ func test_start_can_reload_when_reload_on_ready_is_disabled() -> void:
 
 	await get_tree().process_frame
 
-	assert_null(machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME), "关闭 reload_on_ready 时不应自动加载状态组。")
+	assert_null(
+		machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME),
+		"关闭 reload_on_ready 时不应自动加载状态组。"
+	)
 
 	machine.start()
 
-	assert_eq(machine.get_current_state(), idle, "start() 应在需要时先加载子状态再进入初始状态。")
-	assert_eq(idle.enter_count, 1, "延迟加载后应进入初始状态。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"start() 应在需要时先加载子状态再进入初始状态。"
+	)
+	assert_eq(
+		idle.enter_count,
+		1,
+		"延迟加载后应进入初始状态。"
+	)
 
 
 func test_runtime_helper_child_does_not_reload_internal_states() -> void:
@@ -368,9 +463,21 @@ func test_runtime_helper_child_does_not_reload_internal_states() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(idle.initialized_count, initialized_count, "运行时加入普通辅助子节点不应重载内部状态组。")
-	assert_eq(idle.enter_count, enter_count, "运行时加入普通辅助子节点不应重新进入当前状态。")
-	assert_eq(idle.exit_count, exit_count, "运行时加入普通辅助子节点不应退出当前状态。")
+	assert_eq(
+		idle.initialized_count,
+		initialized_count,
+		"运行时加入普通辅助子节点不应重载内部状态组。"
+	)
+	assert_eq(
+		idle.enter_count,
+		enter_count,
+		"运行时加入普通辅助子节点不应重新进入当前状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		exit_count,
+		"运行时加入普通辅助子节点不应退出当前状态。"
+	)
 
 
 func test_runtime_state_child_reloads_internal_states() -> void:
@@ -389,9 +496,21 @@ func test_runtime_state_child_reloads_internal_states() -> void:
 	await get_tree().process_frame
 
 	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
-	assert_eq(group.get_state(&"Run"), run, "运行时加入状态子节点应重新加载内部状态组。")
-	assert_eq(run.initialized_count, 1, "动态加入的状态应完成初始化。")
-	assert_eq(machine.get_current_state(), idle, "重载后应尽量保持当前状态。")
+	assert_eq(
+		group.get_state(&"Run"),
+		run,
+		"运行时加入状态子节点应重新加载内部状态组。"
+	)
+	assert_eq(
+		run.initialized_count,
+		1,
+		"动态加入的状态应完成初始化。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"重载后应尽量保持当前状态。"
+	)
 
 
 func test_default_start_mode_waits_for_host_ready() -> void:
@@ -407,8 +526,16 @@ func test_default_start_mode_waits_for_host_ready() -> void:
 	await get_tree().process_frame
 
 	assert_true(host.ready_called, "测试宿主应已进入 ready。")
-	assert_eq(machine.start_mode, GFNodeStateMachine.StartMode.AFTER_HOST_READY, "2.0 默认应等待宿主 ready 后启动。")
-	assert_eq(machine.get_current_state(), idle, "默认启动模式应在宿主 ready 后进入初始状态。")
+	assert_eq(
+		machine.start_mode,
+		GFNodeStateMachine.StartMode.AFTER_HOST_READY,
+		"2.0 默认应等待宿主 ready 后启动。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"默认启动模式应在宿主 ready 后进入初始状态。"
+	)
 	assert_true(idle.host_ready_at_enter, "状态 enter 发生时宿主应已经 ready。")
 
 
@@ -426,7 +553,11 @@ func test_on_ready_start_mode_can_be_selected_for_legacy_order() -> void:
 	await get_tree().process_frame
 
 	assert_true(host.ready_called, "测试宿主应已进入 ready。")
-	assert_eq(machine.get_current_state(), idle, "旧启动模式仍应自动进入初始状态。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"旧启动模式仍应自动进入初始状态。"
+	)
 	assert_false(idle.host_ready_at_enter, "显式 ON_READY 时状态 enter 可早于宿主 ready。")
 
 
@@ -445,12 +576,23 @@ func test_manual_start_mode_prevents_external_group_auto_start() -> void:
 
 	await get_tree().process_frame
 
-	assert_null(body_group.get_current_state(), "手动启动模式下外部状态组也不应自动启动。")
+	assert_null(
+		body_group.get_current_state(),
+		"手动启动模式下外部状态组也不应自动启动。"
+	)
 
 	machine.start()
 
-	assert_eq(body_group.get_current_state(), idle, "start() 应启动已加载的外部状态组。")
-	assert_eq(idle.enter_count, 1, "外部状态组初始状态应被进入一次。")
+	assert_eq(
+		body_group.get_current_state(),
+		idle,
+		"start() 应启动已加载的外部状态组。"
+	)
+	assert_eq(
+		idle.enter_count,
+		1,
+		"外部状态组初始状态应被进入一次。"
+	)
 
 
 func test_state_group_auto_start_can_be_disabled() -> void:
@@ -466,13 +608,28 @@ func test_state_group_auto_start_can_be_disabled() -> void:
 
 	await get_tree().process_frame
 
-	assert_null(group.get_current_state(), "auto_start 关闭后状态组 ready 时不应进入初始状态。")
-	assert_eq(idle.initialized_count, 1, "auto_start 关闭后仍应加载并初始化状态。")
+	assert_null(
+		group.get_current_state(),
+		"auto_start 关闭后状态组 ready 时不应进入初始状态。"
+	)
+	assert_eq(
+		idle.initialized_count,
+		1,
+		"auto_start 关闭后仍应加载并初始化状态。"
+	)
 
 	group.start()
 
-	assert_eq(group.get_current_state(), idle, "状态组 start() 应进入初始状态。")
-	assert_eq(idle.enter_count, 1, "状态组 start() 应调用初始状态 enter。")
+	assert_eq(
+		group.get_current_state(),
+		idle,
+		"状态组 start() 应进入初始状态。"
+	)
+	assert_eq(
+		idle.enter_count,
+		1,
+		"状态组 start() 应调用初始状态 enter。"
+	)
 
 
 func test_runtime_helper_child_does_not_reload_state_group() -> void:
@@ -495,9 +652,21 @@ func test_runtime_helper_child_does_not_reload_state_group() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(idle.initialized_count, initialized_count, "运行时加入普通辅助子节点不应重载状态组。")
-	assert_eq(idle.enter_count, enter_count, "运行时加入普通辅助子节点不应重新进入当前状态。")
-	assert_eq(idle.exit_count, exit_count, "运行时加入普通辅助子节点不应退出当前状态。")
+	assert_eq(
+		idle.initialized_count,
+		initialized_count,
+		"运行时加入普通辅助子节点不应重载状态组。"
+	)
+	assert_eq(
+		idle.enter_count,
+		enter_count,
+		"运行时加入普通辅助子节点不应重新进入当前状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		exit_count,
+		"运行时加入普通辅助子节点不应退出当前状态。"
+	)
 
 
 func test_runtime_state_child_reloads_state_group() -> void:
@@ -517,9 +686,21 @@ func test_runtime_state_child_reloads_state_group() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(group.get_state(&"Run"), run, "运行时加入状态子节点应重新加载状态组。")
-	assert_eq(run.initialized_count, 1, "动态加入的状态应完成初始化。")
-	assert_eq(group.get_current_state(), idle, "状态组重载后应回到初始状态。")
+	assert_eq(
+		group.get_state(&"Run"),
+		run,
+		"运行时加入状态子节点应重新加载状态组。"
+	)
+	assert_eq(
+		run.initialized_count,
+		1,
+		"动态加入的状态应完成初始化。"
+	)
+	assert_eq(
+		group.get_current_state(),
+		idle,
+		"状态组重载后应回到初始状态。"
+	)
 
 
 func test_transition_to_changes_internal_state() -> void:
@@ -535,20 +716,51 @@ func test_transition_to_changes_internal_state() -> void:
 	await get_tree().process_frame
 	watch_signals(machine)
 
-	machine.transition_to(&"Run", { "speed": 5 })
+	machine.transition_to(
+		&"Run",
+		{ "speed": 5 }
+	)
 
-	assert_eq(idle.exit_count, 1, "切换状态应退出旧状态。")
-	assert_eq(idle.last_next, &"Run", "旧状态应收到目标状态名。")
-	assert_eq(run.enter_count, 1, "切换状态应进入新状态。")
-	assert_eq(run.last_previous, &"Idle", "新状态应收到来源状态名。")
-	assert_eq(GFVariantData.get_option_int(run.last_args, "speed"), 5, "切换参数应传给新状态。")
+	assert_eq(
+		idle.exit_count,
+		1,
+		"切换状态应退出旧状态。"
+	)
+	assert_eq(
+		idle.last_next,
+		&"Run",
+		"旧状态应收到目标状态名。"
+	)
+	assert_eq(
+		run.enter_count,
+		1,
+		"切换状态应进入新状态。"
+	)
+	assert_eq(
+		run.last_previous,
+		&"Idle",
+		"新状态应收到来源状态名。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(run.last_args, "speed"),
+		5,
+		"切换参数应传给新状态。"
+	)
 	assert_signal_emitted_with_parameters(
 		machine,
 		"state_changed",
-		[machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME), idle, run]
+		[
+			machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME),
+			idle,
+			run,
+		]
 	)
 	var current_state: GFNodeState = machine.get_current_state()
-	assert_eq(current_state, run, "节点状态机当前状态 getter 应返回 GFNodeState。")
+	assert_eq(
+		current_state,
+		run,
+		"节点状态机当前状态 getter 应返回 GFNodeState。"
+	)
 
 
 func test_node_state_proxy_methods_without_architecture_are_safe() -> void:
@@ -558,11 +770,26 @@ func test_node_state_proxy_methods_without_architecture_are_safe() -> void:
 	state.send_event(StateEventPayload.new())
 	state.send_simple_event(&"node_state_simple_event")
 
-	assert_null(state.get_model(DummyModel), "未挂入架构上下文的 NodeState.get_model 应安全返回 null。")
-	assert_null(state.get_system(DummySystem), "未挂入架构上下文的 NodeState.get_system 应安全返回 null。")
-	assert_null(state.get_utility(DummyUtility), "未挂入架构上下文的 NodeState.get_utility 应安全返回 null。")
-	assert_true(_is_null(state.send_command(DummyCommand.new())), "未挂入架构上下文的 NodeState.send_command 应安全返回 null。")
-	assert_true(_is_null(state.send_query(DummyQuery.new())), "未挂入架构上下文的 NodeState.send_query 应安全返回 null。")
+	assert_null(
+		state.get_model(DummyModel),
+		"未挂入架构上下文的 NodeState.get_model 应安全返回 null。"
+	)
+	assert_null(
+		state.get_system(DummySystem),
+		"未挂入架构上下文的 NodeState.get_system 应安全返回 null。"
+	)
+	assert_null(
+		state.get_utility(DummyUtility),
+		"未挂入架构上下文的 NodeState.get_utility 应安全返回 null。"
+	)
+	assert_true(
+		_is_null(state.send_command(DummyCommand.new())),
+		"未挂入架构上下文的 NodeState.send_command 应安全返回 null。"
+	)
+	assert_true(
+		_is_null(state.send_query(DummyQuery.new())),
+		"未挂入架构上下文的 NodeState.send_query 应安全返回 null。"
+	)
 
 
 func test_node_state_uses_nearest_context_for_dependencies_commands_and_queries() -> void:
@@ -578,11 +805,31 @@ func test_node_state_uses_nearest_context_for_dependencies_commands_and_queries(
 	await context.wait_until_ready()
 	await get_tree().process_frame
 
-	assert_eq(idle.get_model(DummyModel), context.model, "NodeState.get_model 应解析最近 GFNodeContext。")
-	assert_eq(idle.get_system(DummySystem), context.system, "NodeState.get_system 应解析最近 GFNodeContext。")
-	assert_eq(idle.get_utility(DummyUtility), context.utility, "NodeState.get_utility 应解析最近 GFNodeContext。")
-	assert_eq(_dummy_utility(idle.send_command(DummyCommand.new())), context.utility, "NodeState.send_command 应使用状态机上下文架构。")
-	assert_eq(_dummy_utility(idle.send_query(DummyQuery.new())), context.utility, "NodeState.send_query 应使用状态机上下文架构。")
+	assert_eq(
+		idle.get_model(DummyModel),
+		context.model,
+		"NodeState.get_model 应解析最近 GFNodeContext。"
+	)
+	assert_eq(
+		idle.get_system(DummySystem),
+		context.system,
+		"NodeState.get_system 应解析最近 GFNodeContext。"
+	)
+	assert_eq(
+		idle.get_utility(DummyUtility),
+		context.utility,
+		"NodeState.get_utility 应解析最近 GFNodeContext。"
+	)
+	assert_eq(
+		_dummy_utility(idle.send_command(DummyCommand.new())),
+		context.utility,
+		"NodeState.send_command 应使用状态机上下文架构。"
+	)
+	assert_eq(
+		_dummy_utility(idle.send_query(DummyQuery.new())),
+		context.utility,
+		"NodeState.send_query 应使用状态机上下文架构。"
+	)
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -609,18 +856,42 @@ func test_node_state_can_register_events_through_context_architecture() -> void:
 	architecture.send_event(DerivedStateEventPayload.new(5))
 	architecture.send_simple_event(&"node_state_simple_event", "tick")
 
-	assert_eq(listen.typed_values, [3], "NodeState.register_event 应监听精确类型事件。")
-	assert_eq(listen.assignable_values, [3, 5], "NodeState.register_assignable_event 应监听基类与派生类型事件。")
-	assert_eq(listen.simple_values, ["tick"], "NodeState.register_simple_event 应监听轻量事件。")
+	assert_eq(
+		listen.typed_values,
+		[3],
+		"NodeState.register_event 应监听精确类型事件。"
+	)
+	assert_eq(
+		listen.assignable_values,
+		[3, 5],
+		"NodeState.register_assignable_event 应监听基类与派生类型事件。"
+	)
+	assert_eq(
+		listen.simple_values,
+		["tick"],
+		"NodeState.register_simple_event 应监听轻量事件。"
+	)
 
 	machine.transition_to(&"Idle")
 	architecture.send_event(StateEventPayload.new(7))
 	architecture.send_event(DerivedStateEventPayload.new(9))
 	architecture.send_simple_event(&"node_state_simple_event", "late")
 
-	assert_eq(listen.typed_values, [3], "状态退出后 unregister_owner_events 应移除类型事件监听。")
-	assert_eq(listen.assignable_values, [3, 5], "状态退出后 unregister_owner_events 应移除可赋值事件监听。")
-	assert_eq(listen.simple_values, ["tick"], "状态退出后 unregister_owner_events 应移除轻量事件监听。")
+	assert_eq(
+		listen.typed_values,
+		[3],
+		"状态退出后 unregister_owner_events 应移除类型事件监听。"
+	)
+	assert_eq(
+		listen.assignable_values,
+		[3, 5],
+		"状态退出后 unregister_owner_events 应移除可赋值事件监听。"
+	)
+	assert_eq(
+		listen.simple_values,
+		["tick"],
+		"状态退出后 unregister_owner_events 应移除轻量事件监听。"
+	)
 
 	context.queue_free()
 	await get_tree().process_frame
@@ -644,9 +915,21 @@ func test_state_can_request_cross_group_transition() -> void:
 
 	idle.transition_to(&"Body/Attack")
 
-	assert_eq(body_group.get_current_state(), attack, "状态应能通过 Group/State 请求跨组切换。")
-	assert_eq(idle.exit_count, 1, "跨组切换应退出旧状态。")
-	assert_eq(attack.enter_count, 1, "跨组切换应进入目标状态。")
+	assert_eq(
+		body_group.get_current_state(),
+		attack,
+		"状态应能通过 Group/State 请求跨组切换。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"跨组切换应退出旧状态。"
+	)
+	assert_eq(
+		attack.enter_count,
+		1,
+		"跨组切换应进入目标状态。"
+	)
 
 
 func test_transition_requested_during_exit_replaces_outer_target() -> void:
@@ -666,10 +949,26 @@ func test_transition_requested_during_exit_replaces_outer_target() -> void:
 
 	machine.transition_to(&"Run")
 
-	assert_eq(idle.exit_count, 1, "exit 内部请求切换时，旧状态不应重复 exit。")
-	assert_eq(run.enter_count, 0, "exit 内部请求的新状态应替代外层目标。")
-	assert_eq(attack.enter_count, 1, "exit 内部请求的状态应成为最终状态。")
-	assert_eq(machine.get_current_state(), attack, "最终当前状态应为 exit 内部请求的状态。")
+	assert_eq(
+		idle.exit_count,
+		1,
+		"exit 内部请求切换时，旧状态不应重复 exit。"
+	)
+	assert_eq(
+		run.enter_count,
+		0,
+		"exit 内部请求的新状态应替代外层目标。"
+	)
+	assert_eq(
+		attack.enter_count,
+		1,
+		"exit 内部请求的状态应成为最终状态。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		attack,
+		"最终当前状态应为 exit 内部请求的状态。"
+	)
 
 
 func test_transition_to_redirect_does_not_reexit_current_state_when_stacked_state_redirects() -> void:
@@ -700,14 +999,46 @@ func test_transition_to_redirect_does_not_reexit_current_state_when_stacked_stat
 	machine.push_state(&"Confirm")
 	machine.transition_to(&"Run")
 
-	assert_eq(confirm.exit_count, 1, "当前叠加状态的 exit 重定向不应导致当前状态重复 exit。")
-	assert_eq(menu.exit_count, 1, "被丢弃的暂停状态应只退出一次。")
-	assert_eq(idle.exit_count, 1, "更早的暂停状态应按最终重定向目标退出。")
-	assert_eq(run.enter_count, 0, "外层目标应被当前状态 exit 重定向替换。")
-	assert_eq(combat.enter_count, 0, "较早的重定向目标应被暂停栈退出重定向替换。")
-	assert_eq(inventory.enter_count, 1, "暂停栈退出期间的最后一次重定向应成为最终状态。")
-	assert_eq(machine.get_current_state(), inventory, "最终当前状态应为暂停栈退出期间请求的目标。")
-	assert_eq(machine.get_stack_depth(), 0, "重定向切换后暂停栈应清空。")
+	assert_eq(
+		confirm.exit_count,
+		1,
+		"当前叠加状态的 exit 重定向不应导致当前状态重复 exit。"
+	)
+	assert_eq(
+		menu.exit_count,
+		1,
+		"被丢弃的暂停状态应只退出一次。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"更早的暂停状态应按最终重定向目标退出。"
+	)
+	assert_eq(
+		run.enter_count,
+		0,
+		"外层目标应被当前状态 exit 重定向替换。"
+	)
+	assert_eq(
+		combat.enter_count,
+		0,
+		"较早的重定向目标应被暂停栈退出重定向替换。"
+	)
+	assert_eq(
+		inventory.enter_count,
+		1,
+		"暂停栈退出期间的最后一次重定向应成为最终状态。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		inventory,
+		"最终当前状态应为暂停栈退出期间请求的目标。"
+	)
+	assert_eq(
+		machine.get_stack_depth(),
+		0,
+		"重定向切换后暂停栈应清空。"
+	)
 
 
 func test_enter_redirect_does_not_append_stale_transition_history() -> void:
@@ -731,9 +1062,22 @@ func test_enter_redirect_does_not_append_stale_transition_history() -> void:
 
 	machine.transition_to(&"Redirect")
 
-	assert_eq(machine.get_current_state(), run, "enter 中的嵌套切换应成为最终状态。")
-	assert_eq(machine.get_state_history(), [&"Idle", &"Run"], "过时外层目标不得追加到历史。")
-	assert_signal_emit_count(group, "current_state_changed", 1, "只应派发嵌套切换的最终状态信号。")
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"enter 中的嵌套切换应成为最终状态。"
+	)
+	assert_eq(
+		machine.get_state_history(),
+		[&"Idle", &"Run"],
+		"过时外层目标不得追加到历史。"
+	)
+	assert_signal_emit_count(
+		group,
+		"current_state_changed",
+		1,
+		"只应派发嵌套切换的最终状态信号。"
+	)
 
 
 func test_push_enter_redirect_does_not_append_stale_history_or_signal() -> void:
@@ -757,9 +1101,22 @@ func test_push_enter_redirect_does_not_append_stale_history_or_signal() -> void:
 
 	machine.push_state(&"Menu")
 
-	assert_eq(machine.get_current_state(), run, "push enter 中的嵌套切换应成为最终状态。")
-	assert_eq(machine.get_state_history(), [&"Idle", &"Run"], "过时 push 目标不得追加到历史。")
-	assert_signal_emit_count(group, "current_state_changed", 1, "过时 push 不得额外派发状态信号。")
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"push enter 中的嵌套切换应成为最终状态。"
+	)
+	assert_eq(
+		machine.get_state_history(),
+		[&"Idle", &"Run"],
+		"过时 push 目标不得追加到历史。"
+	)
+	assert_signal_emit_count(
+		group,
+		"current_state_changed",
+		1,
+		"过时 push 不得额外派发状态信号。"
+	)
 
 
 func test_push_and_pop_state_uses_pause_and_resume() -> void:
@@ -774,23 +1131,71 @@ func test_push_and_pop_state_uses_pause_and_resume() -> void:
 	machine.add_child(menu)
 	await get_tree().process_frame
 
-	machine.push_state(&"Menu", { "modal": true })
+	machine.push_state(
+		&"Menu",
+		{ "modal": true }
+	)
 
-	assert_eq(machine.get_current_state(), menu, "push_state 后当前状态应为子状态。")
-	assert_eq(machine.get_stack_depth(), 1, "push_state 应压入上一层状态。")
-	assert_eq(idle.pause_count, 1, "push_state 应暂停旧状态而不是退出旧状态。")
-	assert_eq(idle.exit_count, 0, "push_state 不应触发旧状态 exit。")
-	assert_true(machine.is_in_state(&"Idle"), "暂停栈中的状态应被视为仍处于状态机内。")
-	assert_true(machine.is_in_state(&"Menu"), "当前子状态应被视为处于状态机内。")
+	assert_eq(
+		machine.get_current_state(),
+		menu,
+		"push_state 后当前状态应为子状态。"
+	)
+	assert_eq(
+		machine.get_stack_depth(),
+		1,
+		"push_state 应压入上一层状态。"
+	)
+	assert_eq(
+		idle.pause_count,
+		1,
+		"push_state 应暂停旧状态而不是退出旧状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		0,
+		"push_state 不应触发旧状态 exit。"
+	)
+	assert_true(
+		machine.is_in_state(&"Idle"),
+		"暂停栈中的状态应被视为仍处于状态机内。"
+	)
+	assert_true(
+		machine.is_in_state(&"Menu"),
+		"当前子状态应被视为处于状态机内。"
+	)
 
-	var popped: bool = machine.pop_state(GFNodeStateMachine.INTERNAL_GROUP_NAME, { "closed": true })
+	var popped: bool = machine.pop_state(
+		GFNodeStateMachine.INTERNAL_GROUP_NAME,
+		{ "closed": true }
+	)
 
 	assert_true(popped, "pop_state 有上一层状态时应返回 true。")
-	assert_eq(machine.get_current_state(), idle, "pop_state 后应恢复上一层状态。")
-	assert_eq(machine.get_stack_depth(), 0, "pop_state 后状态栈应为空。")
-	assert_eq(menu.exit_count, 1, "pop_state 应退出当前子状态。")
-	assert_eq(idle.resume_count, 1, "pop_state 应恢复上一层状态。")
-	assert_eq(idle.last_previous, &"Menu", "恢复状态应收到来源子状态名。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"pop_state 后应恢复上一层状态。"
+	)
+	assert_eq(
+		machine.get_stack_depth(),
+		0,
+		"pop_state 后状态栈应为空。"
+	)
+	assert_eq(
+		menu.exit_count,
+		1,
+		"pop_state 应退出当前子状态。"
+	)
+	assert_eq(
+		idle.resume_count,
+		1,
+		"pop_state 应恢复上一层状态。"
+	)
+	assert_eq(
+		idle.last_previous,
+		&"Menu",
+		"恢复状态应收到来源子状态名。"
+	)
 
 
 func test_push_state_does_not_use_exit_guard_for_paused_state() -> void:
@@ -808,9 +1213,21 @@ func test_push_state_does_not_use_exit_guard_for_paused_state() -> void:
 
 	machine.push_state(&"Menu")
 
-	assert_eq(machine.get_current_state(), menu, "push_state 是暂停叠加，不应被当前状态 exit guard 阻止。")
-	assert_eq(idle.pause_count, 1, "push_state 应暂停旧状态。")
-	assert_eq(idle.exit_count, 0, "push_state 不应退出旧状态。")
+	assert_eq(
+		machine.get_current_state(),
+		menu,
+		"push_state 是暂停叠加，不应被当前状态 exit guard 阻止。"
+	)
+	assert_eq(
+		idle.pause_count,
+		1,
+		"push_state 应暂停旧状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		0,
+		"push_state 不应退出旧状态。"
+	)
 
 
 func test_transition_requires_paused_state_exit_guards_unless_forced() -> void:
@@ -834,15 +1251,43 @@ func test_transition_requires_paused_state_exit_guards_unless_forced() -> void:
 
 	group.transition_to(&"Combat")
 
-	assert_eq(group.get_current_state(), menu, "普通切换必须尊重暂停状态的 exit guard。")
-	assert_eq(group.get_stack_depth(), 1, "守卫阻止时不得部分折叠暂停栈。")
-	assert_eq(menu.exit_count, 0, "预校验失败时当前状态不应先退出。")
+	assert_eq(
+		group.get_current_state(),
+		menu,
+		"普通切换必须尊重暂停状态的 exit guard。"
+	)
+	assert_eq(
+		group.get_stack_depth(),
+		1,
+		"守卫阻止时不得部分折叠暂停栈。"
+	)
+	assert_eq(
+		menu.exit_count,
+		0,
+		"预校验失败时当前状态不应先退出。"
+	)
 
-	group.transition_to(&"Combat", {}, GFNodeStateGroup.StackExitPolicy.FORCE)
+	group.transition_to(
+		&"Combat",
+		{},
+		GFNodeStateGroup.StackExitPolicy.FORCE
+	)
 
-	assert_eq(group.get_current_state(), combat, "显式 FORCE 应允许 teardown 类切换。")
-	assert_eq(group.get_stack_depth(), 0, "强制切换应完整折叠暂停栈。")
-	assert_eq(idle.exit_count, 1, "强制切换应对暂停状态执行 exit hook。")
+	assert_eq(
+		group.get_current_state(),
+		combat,
+		"显式 FORCE 应允许 teardown 类切换。"
+	)
+	assert_eq(
+		group.get_stack_depth(),
+		0,
+		"强制切换应完整折叠暂停栈。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"强制切换应对暂停状态执行 exit hook。"
+	)
 
 	group.clear_states(false)
 
@@ -859,10 +1304,21 @@ func test_push_rejects_an_already_paused_state() -> void:
 	group.push_state(&"Second")
 	group.push_state(&"First")
 	assert_push_warning("[GFNodeStateGroup][node_state_group.state_already_suspended] Cannot push_state: the target state is already in the suspended stack.")
-	assert_eq(group.get_current_state(), second)
-	assert_eq(group.get_stack_depth(), 1)
+	assert_eq(
+		group.get_current_state(),
+		second
+	)
+	assert_eq(
+		group.get_stack_depth(),
+		1
+	)
 	assert_eq(first.enter_count, 1)
-	assert_true(GFVariantData.get_option_bool(group.validate_state_snapshot(group.get_state_snapshot()), "valid"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			group.validate_state_snapshot(group.get_state_snapshot()),
+			"valid"
+		)
+	)
 	group.clear_states(false)
 
 
@@ -881,7 +1337,10 @@ func test_pop_redirect_respects_paused_exit_guard() -> void:
 	group.push_state(&"Second")
 	first.allow_exit = false
 	assert_true(group.pop_state())
-	assert_eq(group.get_current_state(), first)
+	assert_eq(
+		group.get_current_state(),
+		first
+	)
 	assert_eq(first.exit_count, 0)
 	assert_eq(first.resume_count, 1)
 	assert_eq(second.exit_count, 1)
@@ -891,7 +1350,12 @@ func test_pop_redirect_respects_paused_exit_guard() -> void:
 
 func test_pop_redirect_guard_and_blocked_callbacks_preserve_lifecycle_changes() -> void:
 	for use_blocked_signal: bool in [false, true]:
-		for operation: StringName in [&"clear", &"stop", &"transition", &"push"]:
+		for operation: StringName in [
+			&"clear",
+			&"stop",
+			&"transition",
+			&"push",
+		]:
 			var group: GFNodeStateGroup = autofree(GFNodeStateGroup.new())
 			var first: PopRedirectGuardState = autofree(PopRedirectGuardState.new())
 			var second: ExitRedirectNodeState = autofree(ExitRedirectNodeState.new(&"Third"))
@@ -914,12 +1378,18 @@ func test_pop_redirect_guard_and_blocked_callbacks_preserve_lifecycle_changes() 
 					&"stop":
 						group.stop()
 					&"transition":
-						group.transition_to(&"Fourth", {"fresh": true})
+						group.transition_to(
+							&"Fourth",
+							{ "fresh": true }
+						)
 					&"push":
 						group.transition_to(&"Fourth")
 						group.push_state(&"Third")
 			var on_blocked: Callable = func(
-				_from: GFNodeState, _to: StringName, _args: Dictionary, reason: String
+				_from: GFNodeState,
+				_to: StringName,
+				_args: Dictionary,
+				reason: String
 			) -> void:
 				if reason == "stack_exit_guard":
 					mutate.call()
@@ -930,19 +1400,39 @@ func test_pop_redirect_guard_and_blocked_callbacks_preserve_lifecycle_changes() 
 				first.redirect_guard_callback = mutate
 			assert_true(group.pop_state())
 			if operation == &"transition":
-				assert_eq(group.get_current_state(), fourth, "新 transition 必须完成且不能被旧 pop 恢复覆盖。")
+				assert_eq(
+					group.get_current_state(),
+					fourth,
+					"新 transition 必须完成且不能被旧 pop 恢复覆盖。"
+				)
 				assert_eq(fourth.enter_count, 1)
 				assert_true(GFVariantData.get_option_bool(fourth.last_args, "fresh"))
 			elif operation == &"push":
-				assert_eq(group.get_current_state(), third)
-				assert_eq(group.get_stack_depth(), 1, "旧预检不能弹出回调提交的新栈。")
+				assert_eq(
+					group.get_current_state(),
+					third
+				)
+				assert_eq(
+					group.get_stack_depth(),
+					1,
+					"旧预检不能弹出回调提交的新栈。"
+				)
 				assert_eq(fourth.pause_count, 1)
 			else:
-				assert_null(group.get_current_state(), "guard/blocked 中停止或清空必须保持已提交结果。")
+				assert_null(
+					group.get_current_state(),
+					"guard/blocked 中停止或清空必须保持已提交结果。"
+				)
 			if operation != &"push":
-				assert_eq(group.get_stack_depth(), 0)
+				assert_eq(
+					group.get_stack_depth(),
+					0
+				)
 			assert_eq(first.resume_count, 0)
-			assert_eq(third.enter_count, 1 if operation == &"push" else 0)
+			assert_eq(
+				third.enter_count,
+				1 if operation == &"push" else 0
+			)
 			if operation == &"clear":
 				assert_true(group.get_states().is_empty())
 			if use_blocked_signal:
@@ -963,10 +1453,19 @@ func test_remove_rejects_unregistered_instances_with_registered_names() -> void:
 	group.add_state(state)
 	machine.add_state_group(group)
 	assert_false(group.remove_state(fake_state))
-	assert_eq(group.get_state(&"State"), state)
+	assert_eq(
+		group.get_state(&"State"),
+		state
+	)
 	assert_false(machine.remove_state_group(fake_group))
-	assert_eq(machine.get_state_group(&"Group"), group)
-	assert_eq(state.get_group(), group)
+	assert_eq(
+		machine.get_state_group(&"Group"),
+		group
+	)
+	assert_eq(
+		state.get_group(),
+		group
+	)
 
 
 func test_remove_state_uses_registration_key_after_state_rename() -> void:
@@ -981,9 +1480,18 @@ func test_remove_state_uses_registration_key_after_state_rename() -> void:
 	var removed: bool = group.remove_state(state)
 
 	assert_true(removed, "移除状态应使用注册 key，不应受节点后续改名影响。")
-	assert_null(group.get_state(&"Idle"), "移除后注册 key 应清理。")
-	assert_null(state.get_group(), "移除后状态不应保留旧状态组上下文。")
-	assert_null(state.get_machine(), "移除后状态不应保留旧状态机上下文。")
+	assert_null(
+		group.get_state(&"Idle"),
+		"移除后注册 key 应清理。"
+	)
+	assert_null(
+		state.get_group(),
+		"移除后状态不应保留旧状态组上下文。"
+	)
+	assert_null(
+		state.get_machine(),
+		"移除后状态不应保留旧状态机上下文。"
+	)
 
 
 func test_remove_state_group_uses_registration_key_after_group_rename() -> void:
@@ -1002,9 +1510,19 @@ func test_remove_state_group_uses_registration_key_after_group_rename() -> void:
 	var removed: bool = machine.remove_state_group(group)
 
 	assert_true(removed, "移除状态组应使用注册 key，不应受节点后续改名影响。")
-	assert_null(machine.get_state_group(&"External"), "移除后注册 group key 应清理。")
-	assert_null(state.get_machine(), "移除外部状态组后组内状态不应保留旧状态机上下文。")
-	assert_eq(state.get_group(), group, "移除外部状态组不应破坏组内状态注册关系。")
+	assert_null(
+		machine.get_state_group(&"External"),
+		"移除后注册 group key 应清理。"
+	)
+	assert_null(
+		state.get_machine(),
+		"移除外部状态组后组内状态不应保留旧状态机上下文。"
+	)
+	assert_eq(
+		state.get_group(),
+		group,
+		"移除外部状态组不应破坏组内状态注册关系。"
+	)
 
 
 func test_pop_state_redirect_does_not_reexit_current_state_when_stacked_state_redirects() -> void:
@@ -1033,13 +1551,41 @@ func test_pop_state_redirect_does_not_reexit_current_state_when_stacked_state_re
 	var popped: bool = machine.pop_state(GFNodeStateMachine.INTERNAL_GROUP_NAME)
 
 	assert_true(popped, "pop_state 有暂停栈时应成功。")
-	assert_eq(confirm.exit_count, 1, "当前子状态的 exit 重定向不应导致当前状态重复 exit。")
-	assert_eq(menu.exit_count, 1, "被丢弃的暂停状态应只退出一次。")
-	assert_eq(idle.exit_count, 1, "更早的暂停状态应按最终重定向目标退出。")
-	assert_eq(combat.enter_count, 0, "较早的重定向目标应被后续退出重定向替换。")
-	assert_eq(inventory.enter_count, 1, "暂停栈退出期间的最后一次重定向应成为最终状态。")
-	assert_eq(machine.get_current_state(), inventory, "最终当前状态应为暂停栈退出期间请求的目标。")
-	assert_eq(machine.get_stack_depth(), 0, "重定向切换后暂停栈应清空。")
+	assert_eq(
+		confirm.exit_count,
+		1,
+		"当前子状态的 exit 重定向不应导致当前状态重复 exit。"
+	)
+	assert_eq(
+		menu.exit_count,
+		1,
+		"被丢弃的暂停状态应只退出一次。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"更早的暂停状态应按最终重定向目标退出。"
+	)
+	assert_eq(
+		combat.enter_count,
+		0,
+		"较早的重定向目标应被后续退出重定向替换。"
+	)
+	assert_eq(
+		inventory.enter_count,
+		1,
+		"暂停栈退出期间的最后一次重定向应成为最终状态。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		inventory,
+		"最终当前状态应为暂停栈退出期间请求的目标。"
+	)
+	assert_eq(
+		machine.get_stack_depth(),
+		0,
+		"重定向切换后暂停栈应清空。"
+	)
 
 
 func test_remove_current_pushed_state_restores_paused_state() -> void:
@@ -1060,14 +1606,44 @@ func test_remove_current_pushed_state_restores_paused_state() -> void:
 	var removed: bool = group.remove_state(menu)
 
 	assert_true(removed, "移除当前叠加状态应成功。")
-	assert_eq(machine.get_current_state(), idle, "移除当前叠加状态后应恢复上一层状态。")
-	assert_eq(machine.get_stack_depth(), 0, "恢复后状态栈应为空。")
-	assert_eq(menu.exit_count, 1, "被移除的当前叠加状态应执行 exit。")
-	assert_eq(idle.resume_count, 1, "暂停的上一层状态应执行 resume。")
-	assert_eq(idle.last_previous, &"Menu", "恢复状态应收到被移除状态名。")
-	assert_true(machine.is_in_state(&"Idle"), "恢复后的状态应被视为处于状态机内。")
-	assert_false(machine.is_in_state(&"Menu"), "被移除的状态不应继续被视为处于状态机内。")
-	assert_signal_emitted(group, "current_state_changed", "当前状态被恢复时应发出状态变化信号。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"移除当前叠加状态后应恢复上一层状态。"
+	)
+	assert_eq(
+		machine.get_stack_depth(),
+		0,
+		"恢复后状态栈应为空。"
+	)
+	assert_eq(
+		menu.exit_count,
+		1,
+		"被移除的当前叠加状态应执行 exit。"
+	)
+	assert_eq(
+		idle.resume_count,
+		1,
+		"暂停的上一层状态应执行 resume。"
+	)
+	assert_eq(
+		idle.last_previous,
+		&"Menu",
+		"恢复状态应收到被移除状态名。"
+	)
+	assert_true(
+		machine.is_in_state(&"Idle"),
+		"恢复后的状态应被视为处于状态机内。"
+	)
+	assert_false(
+		machine.is_in_state(&"Menu"),
+		"被移除的状态不应继续被视为处于状态机内。"
+	)
+	assert_signal_emitted(
+		group,
+		"current_state_changed",
+		"当前状态被恢复时应发出状态变化信号。"
+	)
 
 
 func test_remove_current_state_honors_exit_redirect() -> void:
@@ -1086,10 +1662,25 @@ func test_remove_current_state_honors_exit_redirect() -> void:
 	var removed: bool = group.remove_state(idle)
 
 	assert_true(removed, "移除当前状态应成功。")
-	assert_eq(idle.exit_count, 1, "remove_state 应让当前状态执行一次 exit。")
-	assert_eq(run.enter_count, 1, "当前状态 exit 中请求的目标应被安全进入。")
-	assert_eq(machine.get_current_state(), run, "remove_state 后当前状态应为 exit 重定向目标。")
-	assert_null(group.get_state(&"Idle"), "被移除状态应从状态组注册表删除。")
+	assert_eq(
+		idle.exit_count,
+		1,
+		"remove_state 应让当前状态执行一次 exit。"
+	)
+	assert_eq(
+		run.enter_count,
+		1,
+		"当前状态 exit 中请求的目标应被安全进入。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"remove_state 后当前状态应为 exit 重定向目标。"
+	)
+	assert_null(
+		group.get_state(&"Idle"),
+		"被移除状态应从状态组注册表删除。"
+	)
 
 
 func test_config_controls_initial_state_and_history_limit() -> void:
@@ -1111,16 +1702,36 @@ func test_config_controls_initial_state_and_history_limit() -> void:
 	machine.add_child(attack)
 	await get_tree().process_frame
 
-	assert_eq(machine.get_current_state(), run, "配置资源应驱动内部状态组初始状态。")
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"配置资源应驱动内部状态组初始状态。"
+	)
 
 	machine.transition_to(&"Idle")
 	machine.transition_to(&"Attack")
 
 	var history: Array[StringName] = machine.get_state_history()
-	assert_eq(machine.get_current_state(), attack, "状态机应完成后续切换。")
-	assert_eq(history.size(), 2, "状态历史应遵守配置资源容量。")
-	assert_eq(history[0], &"Idle", "历史应保留最近状态。")
-	assert_eq(history[1], &"Attack", "历史应保留最新状态。")
+	assert_eq(
+		machine.get_current_state(),
+		attack,
+		"状态机应完成后续切换。"
+	)
+	assert_eq(
+		history.size(),
+		2,
+		"状态历史应遵守配置资源容量。"
+	)
+	assert_eq(
+		history[0],
+		&"Idle",
+		"历史应保留最近状态。"
+	)
+	assert_eq(
+		history[1],
+		&"Attack",
+		"历史应保留最新状态。"
+	)
 
 
 func test_state_can_access_machine_host() -> void:
@@ -1134,7 +1745,11 @@ func test_state_can_access_machine_host() -> void:
 	machine.add_child(idle)
 	await get_tree().process_frame
 
-	assert_eq(idle.get_host(), host, "状态应能获取状态机所在宿主节点。")
+	assert_eq(
+		idle.get_host(),
+		host,
+		"状态应能获取状态机所在宿主节点。"
+	)
 
 
 func test_state_guard_can_block_transition() -> void:
@@ -1154,9 +1769,21 @@ func test_state_guard_can_block_transition() -> void:
 	watch_signals(group)
 	machine.transition_to(&"Run")
 
-	assert_eq(machine.get_current_state(), idle, "目标状态拒绝进入时应保持当前状态。")
-	assert_eq(idle.exit_count, 0, "进入守卫失败时旧状态不应退出。")
-	assert_signal_emitted(group, "transition_blocked", "守卫阻止切换时应发出 transition_blocked。")
+	assert_eq(
+		machine.get_current_state(),
+		idle,
+		"目标状态拒绝进入时应保持当前状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		0,
+		"进入守卫失败时旧状态不应退出。"
+	)
+	assert_signal_emitted(
+		group,
+		"transition_blocked",
+		"守卫阻止切换时应发出 transition_blocked。"
+	)
 
 
 func test_enter_guard_redirect_invalidates_outer_node_transition() -> void:
@@ -1178,10 +1805,26 @@ func test_enter_guard_redirect_invalidates_outer_node_transition() -> void:
 
 	machine.transition_to(&"Redirect")
 
-	assert_eq(machine.get_current_state(), run, "enter 守卫中的嵌套切换应成为最终状态。")
-	assert_eq(idle.exit_count, 1, "外层过时计划不得重复退出原状态。")
-	assert_eq(redirect.enter_count, 0, "外层过时计划不得进入原目标状态。")
-	assert_eq(run.enter_count, 1, "嵌套目标应只进入一次。")
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"enter 守卫中的嵌套切换应成为最终状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"外层过时计划不得重复退出原状态。"
+	)
+	assert_eq(
+		redirect.enter_count,
+		0,
+		"外层过时计划不得进入原目标状态。"
+	)
+	assert_eq(
+		run.enter_count,
+		1,
+		"嵌套目标应只进入一次。"
+	)
 
 
 func test_exit_guard_redirect_invalidates_outer_node_transition() -> void:
@@ -1203,10 +1846,26 @@ func test_exit_guard_redirect_invalidates_outer_node_transition() -> void:
 
 	machine.transition_to(&"Attack")
 
-	assert_eq(machine.get_current_state(), run, "exit 守卫中的嵌套切换应成为最终状态。")
-	assert_eq(idle.exit_count, 1, "外层过时计划不得重复退出原状态。")
-	assert_eq(attack.enter_count, 0, "外层过时计划不得进入原目标状态。")
-	assert_eq(run.enter_count, 1, "嵌套目标应只进入一次。")
+	assert_eq(
+		machine.get_current_state(),
+		run,
+		"exit 守卫中的嵌套切换应成为最终状态。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"外层过时计划不得重复退出原状态。"
+	)
+	assert_eq(
+		attack.enter_count,
+		0,
+		"外层过时计划不得进入原目标状态。"
+	)
+	assert_eq(
+		run.enter_count,
+		1,
+		"嵌套目标应只进入一次。"
+	)
 
 
 func test_state_group_blackboard_is_shared_with_states() -> void:
@@ -1224,7 +1883,11 @@ func test_state_group_blackboard_is_shared_with_states() -> void:
 	var blackboard: Dictionary = idle.get_blackboard()
 	blackboard["speed"] = 4
 
-	assert_eq(GFVariantData.get_option_int(group.blackboard, "speed"), 4, "状态应能访问并修改状态组共享黑板。")
+	assert_eq(
+		GFVariantData.get_option_int(group.blackboard, "speed"),
+		4,
+		"状态应能访问并修改状态组共享黑板。"
+	)
 
 
 func test_state_group_dispatches_event_from_current_to_stack() -> void:
@@ -1243,12 +1906,31 @@ func test_state_group_dispatches_event_from_current_to_stack() -> void:
 	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
 	watch_signals(group)
 
-	var handled: bool = group.dispatch_state_event(&"cancel", { "source": "input" })
+	var handled: bool = group.dispatch_state_event(
+		&"cancel",
+		{ "source": "input" }
+	)
 
 	assert_true(handled, "当前子状态未处理时，事件应继续交给暂停栈状态。")
-	assert_eq(menu.events, ["miss:Menu:cancel"], "事件应先交给当前状态。")
-	assert_eq(idle.events, ["handle:Idle:cancel"], "当前状态未处理后应交给暂停栈顶部。")
-	assert_signal_emitted_with_parameters(group, "state_event_handled", [&"cancel", idle, { "source": "input" }])
+	assert_eq(
+		menu.events,
+		["miss:Menu:cancel"],
+		"事件应先交给当前状态。"
+	)
+	assert_eq(
+		idle.events,
+		["handle:Idle:cancel"],
+		"当前状态未处理后应交给暂停栈顶部。"
+	)
+	assert_signal_emitted_with_parameters(
+		group,
+		"state_event_handled",
+		[
+			&"cancel",
+			idle,
+			{ "source": "input" },
+		]
+	)
 
 
 func test_state_group_event_stops_when_handler_changes_activation() -> void:
@@ -1274,9 +1956,20 @@ func test_state_group_event_stops_when_handler_changes_activation() -> void:
 	var handled: bool = group.dispatch_state_event(&"cancel")
 
 	assert_false(handled, "激活集合变化后原事件派发应终止并报告未处理。")
-	assert_eq(machine.get_current_state(), other, "事件处理器请求的切换应正常生效。")
-	assert_false(idle.events.has("handle:Idle:cancel"), "已退出的暂停状态不得继续接收原事件。")
-	assert_signal_not_emitted(group, "state_event_handled", "中止的派发不得报告事件已处理。")
+	assert_eq(
+		machine.get_current_state(),
+		other,
+		"事件处理器请求的切换应正常生效。"
+	)
+	assert_false(
+		idle.events.has("handle:Idle:cancel"),
+		"已退出的暂停状态不得继续接收原事件。"
+	)
+	assert_signal_not_emitted(
+		group,
+		"state_event_handled",
+		"中止的派发不得报告事件已处理。"
+	)
 
 
 func test_node_state_machine_dispatches_event_to_named_group_and_reemits() -> void:
@@ -1294,11 +1987,28 @@ func test_node_state_machine_dispatches_event_to_named_group_and_reemits() -> vo
 	await get_tree().process_frame
 	watch_signals(machine)
 
-	var handled: bool = machine.dispatch_state_event(&"hit", { "amount": 4 }, &"Body")
+	var handled: bool = machine.dispatch_state_event(
+		&"hit",
+		{ "amount": 4 },
+		&"Body"
+	)
 
 	assert_true(handled, "节点状态机应能向指定状态组派发状态事件。")
-	assert_eq(idle.events, ["handle:Idle:hit"], "目标状态组当前状态应处理事件。")
-	assert_signal_emitted_with_parameters(machine, "state_event_handled", [body_group, &"hit", idle, { "amount": 4 }])
+	assert_eq(
+		idle.events,
+		["handle:Idle:hit"],
+		"目标状态组当前状态应处理事件。"
+	)
+	assert_signal_emitted_with_parameters(
+		machine,
+		"state_event_handled",
+		[
+			body_group,
+			&"hit",
+			idle,
+			{ "amount": 4 },
+		]
+	)
 
 
 func test_node_state_machine_snapshot_reports_groups() -> void:
@@ -1321,9 +2031,21 @@ func test_node_state_machine_snapshot_reports_groups() -> void:
 	var body_blackboard: Dictionary = GFVariantData.get_option_dictionary(body_snapshot, "blackboard")
 	var body_states: Array = GFVariantData.get_option_array(body_snapshot, "states")
 
-	assert_eq(GFVariantData.get_option_string_name(body_snapshot, "current_state"), &"Idle", "状态机快照应报告状态组当前状态。")
-	assert_eq(GFVariantData.get_option_int(body_blackboard, "speed"), 5, "状态组快照应包含黑板副本。")
-	assert_has(body_states, &"Idle", "状态组快照应包含已注册状态。")
+	assert_eq(
+		GFVariantData.get_option_string_name(body_snapshot, "current_state"),
+		&"Idle",
+		"状态机快照应报告状态组当前状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(body_blackboard, "speed"),
+		5,
+		"状态组快照应包含黑板副本。"
+	)
+	assert_has(
+		body_states,
+		&"Idle",
+		"状态组快照应包含已注册状态。"
+	)
 
 
 func test_node_state_machine_restore_reports_unrestored_snapshot_groups_as_partial() -> void:
@@ -1351,9 +2073,19 @@ func test_node_state_machine_restore_reports_unrestored_snapshot_groups_as_parti
 
 	var report: Dictionary = machine.restore_state_snapshot(snapshot)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "宽松恢复应成功处理仍存在的状态组。")
-	assert_true(GFVariantData.get_option_bool(report, "partial"), "快照中已移除的状态组应明确标记 partial。")
-	assert_eq(GFVariantData.get_option_string(report, "status"), "partial", "机器恢复报告应提供稳定 partial 状态。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"宽松恢复应成功处理仍存在的状态组。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "partial"),
+		"快照中已移除的状态组应明确标记 partial。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "status"),
+		"partial",
+		"机器恢复报告应提供稳定 partial 状态。"
+	)
 	assert_has(
 		GFVariantData.get_option_array(report, "unrestored_group_snapshots"),
 		&"RemovedGroup",
@@ -1395,12 +2127,32 @@ func test_node_state_machine_snapshot_has_json_safe_export() -> void:
 	if raw_owner_value is Object:
 		raw_owner = raw_owner_value
 
-	assert_same(raw_owner, self, "raw 节点快照应保留运行时 Variant。")
-	assert_true(exported_groups.has("Body"), "groups 固定 schema 应保持可直接遍历的 JSON object。")
-	assert_false(exported_body.has("__gf_report_value__"), "状态组固定字段不应整体折叠为键保真 marker。")
-	assert_true(exported_blackboard.has("owner"), "StringName blackboard key 应规范化为 JSON object 字符串键。")
-	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "JSON-safe 节点快照应脱敏运行时对象。")
-	assert_eq(GFVariantData.get_option_string(exported_blackboard, "path"), "<redacted_path>", "JSON-safe 节点快照应默认脱敏路径。")
+	assert_same(
+		raw_owner,
+		self,
+		"raw 节点快照应保留运行时 Variant。"
+	)
+	assert_true(
+		exported_groups.has("Body"),
+		"groups 固定 schema 应保持可直接遍历的 JSON object。"
+	)
+	assert_false(
+		exported_body.has("__gf_report_value__"),
+		"状态组固定字段不应整体折叠为键保真 marker。"
+	)
+	assert_true(
+		exported_blackboard.has("owner"),
+		"StringName blackboard key 应规范化为 JSON object 字符串键。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(owner_marker, "redacted"),
+		"JSON-safe 节点快照应脱敏运行时对象。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(exported_blackboard, "path"),
+		"<redacted_path>",
+		"JSON-safe 节点快照应默认脱敏路径。"
+	)
 
 
 func test_state_group_json_snapshot_enforces_total_byte_budget() -> void:
@@ -1409,14 +2161,10 @@ func test_state_group_json_snapshot_enforces_total_byte_budget() -> void:
 	group.blackboard[&"payload"] = "x".repeat(160)
 	autofree(group)
 
-	var unbounded: Dictionary = group.get_json_compatible_state_snapshot({
-		"max_total_bytes": -1,
-	})
+	var unbounded: Dictionary = group.get_json_compatible_state_snapshot({ "max_total_bytes": -1, })
 	var largest_section_bytes: int = 0
 	for section_key: Variant in unbounded.keys():
-		var section_bytes: int = JSON.stringify(
-			unbounded[section_key]
-		).to_utf8_buffer().size()
+		var section_bytes: int = (JSON.stringify(unbounded[section_key]).to_utf8_buffer().size())
 		largest_section_bytes = maxi(largest_section_bytes, section_bytes)
 	var max_total_bytes: int = largest_section_bytes + 32
 	var unbounded_bytes: int = JSON.stringify(unbounded).to_utf8_buffer().size()
@@ -1426,14 +2174,9 @@ func test_state_group_json_snapshot_enforces_total_byte_budget() -> void:
 		"测试夹具必须让整体快照超过任一独立字段所需预算。"
 	)
 
-	var bounded: Dictionary = group.get_json_compatible_state_snapshot({
-		"max_total_bytes": max_total_bytes,
-	})
+	var bounded: Dictionary = group.get_json_compatible_state_snapshot({ "max_total_bytes": max_total_bytes, })
 	var bounded_bytes: int = JSON.stringify(bounded).to_utf8_buffer().size()
-	var budget_marker: Dictionary = GFVariantData.get_option_dictionary(
-		bounded,
-		"__gf_report_value__"
-	)
+	var budget_marker: Dictionary = GFVariantData.get_option_dictionary(bounded, "__gf_report_value__")
 
 	assert_true(
 		bounded_bytes <= max_total_bytes,
@@ -1460,20 +2203,14 @@ func test_node_state_machine_json_snapshot_enforces_total_byte_budget() -> void:
 	machine.add_state_group(first_group)
 	machine.add_state_group(second_group)
 
-	var unbounded_first: Dictionary = first_group.get_json_compatible_state_snapshot({
-		"max_total_bytes": -1,
-	})
-	var unbounded_second: Dictionary = second_group.get_json_compatible_state_snapshot({
-		"max_total_bytes": -1,
-	})
+	var unbounded_first: Dictionary = first_group.get_json_compatible_state_snapshot({ "max_total_bytes": -1, })
+	var unbounded_second: Dictionary = second_group.get_json_compatible_state_snapshot({ "max_total_bytes": -1, })
 	var largest_group_bytes: int = maxi(
 		JSON.stringify(unbounded_first).to_utf8_buffer().size(),
 		JSON.stringify(unbounded_second).to_utf8_buffer().size()
 	)
 	var max_total_bytes: int = largest_group_bytes + 32
-	var unbounded: Dictionary = machine.get_json_compatible_state_snapshot({
-		"max_total_bytes": -1,
-	})
+	var unbounded: Dictionary = machine.get_json_compatible_state_snapshot({ "max_total_bytes": -1, })
 	var unbounded_bytes: int = JSON.stringify(unbounded).to_utf8_buffer().size()
 
 	assert_true(
@@ -1481,14 +2218,9 @@ func test_node_state_machine_json_snapshot_enforces_total_byte_budget() -> void:
 		"测试夹具必须让机器整体快照超过任一独立状态组所需预算。"
 	)
 
-	var bounded: Dictionary = machine.get_json_compatible_state_snapshot({
-		"max_total_bytes": max_total_bytes,
-	})
+	var bounded: Dictionary = machine.get_json_compatible_state_snapshot({ "max_total_bytes": max_total_bytes, })
 	var bounded_bytes: int = JSON.stringify(bounded).to_utf8_buffer().size()
-	var budget_marker: Dictionary = GFVariantData.get_option_dictionary(
-		bounded,
-		"__gf_report_value__"
-	)
+	var budget_marker: Dictionary = GFVariantData.get_option_dictionary(bounded, "__gf_report_value__")
 
 	assert_true(
 		bounded_bytes <= max_total_bytes,
@@ -1519,8 +2251,14 @@ func test_node_state_event_architecture_cache_uses_weak_refs() -> void:
 		released_architecture = released_architecture_value
 
 	assert_null(released_architecture, "状态事件代理缓存不应强持有 GFArchitecture。")
-	assert_true(state._get_tracked_event_architectures().is_empty(), "失效 architecture 应在读取时被清理。")
-	assert_true(machine._get_tracked_event_architectures().is_empty(), "状态机失效 architecture 应在读取时被清理。")
+	assert_true(
+		state._get_tracked_event_architectures().is_empty(),
+		"失效 architecture 应在读取时被清理。"
+	)
+	assert_true(
+		machine._get_tracked_event_architectures().is_empty(),
+		"状态机失效 architecture 应在读取时被清理。"
+	)
 
 
 func test_state_group_restore_snapshot_reports_failure_without_mutating_state() -> void:
@@ -1537,18 +2275,39 @@ func test_state_group_restore_snapshot_reports_failure_without_mutating_state() 
 	group.transition_to(&"Idle")
 	group.blackboard["hp"] = 10
 
-	var report: Dictionary = group.restore_state_snapshot({
-		"schema_version": 1,
-		"current_state": &"Missing",
-		"stack": [&"Idle"],
-		"history": [&"Idle", &"Missing"],
-		"blackboard": { "hp": 1 },
-	})
+	var report: Dictionary = group.restore_state_snapshot(
+		{
+			"schema_version": 1,
+			"current_state": &"Missing",
+			"stack": [&"Idle"],
+			"history": [&"Idle", &"Missing"],
+			"blackboard": { "hp": 1 },
+		}
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok", true), "缺失关键状态时恢复应失败。")
-	assert_eq(group.get_current_state(), idle, "失败恢复不应清空或切换当前状态。")
-	assert_eq(GFVariantData.get_option_int(group.blackboard, "hp"), 10, "失败恢复不应覆盖黑板。")
-	assert_eq(idle.exit_count, 0, "失败恢复不应提前退出当前状态。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			report,
+			"ok",
+			true
+		),
+		"缺失关键状态时恢复应失败。"
+	)
+	assert_eq(
+		group.get_current_state(),
+		idle,
+		"失败恢复不应清空或切换当前状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(group.blackboard, "hp"),
+		10,
+		"失败恢复不应覆盖黑板。"
+	)
+	assert_eq(
+		idle.exit_count,
+		0,
+		"失败恢复不应提前退出当前状态。"
+	)
 
 	group.clear_states(false)
 
@@ -1565,22 +2324,52 @@ func test_state_group_restore_snapshot_reports_success_and_restores_stack() -> v
 	group.add_state(idle)
 	group.add_state(menu)
 
-	var report: Dictionary = group.restore_state_snapshot({
-		"schema_version": 1,
-		"current_state": &"Menu",
-		"stack": [&"Idle"],
-		"history": [&"Idle", &"Menu"],
-		"blackboard": { "hp": 5 },
-	})
+	var report: Dictionary = group.restore_state_snapshot(
+		{
+			"schema_version": 1,
+			"current_state": &"Menu",
+			"stack": [&"Idle"],
+			"history": [&"Idle", &"Menu"],
+			"blackboard": { "hp": 5 },
+		}
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "完整快照应恢复成功。")
-	assert_eq(group.get_current_state(), menu, "恢复后当前状态应来自快照。")
-	assert_eq(group.get_stack_depth(), 1, "恢复后暂停栈深度应来自快照。")
-	assert_true(group.is_in_state(&"Idle"), "恢复后暂停栈状态应被视为仍处于状态组内。")
-	assert_eq(group.get_state_history(), [&"Idle", &"Menu"], "恢复后历史应来自快照。")
-	assert_eq(GFVariantData.get_option_int(group.blackboard, "hp"), 5, "恢复后黑板应来自快照。")
-	assert_true(GFVariantData.get_option_bool(report, "stack_restored"), "恢复报告应标记 stack_restored。")
-	assert_true(GFVariantData.get_option_bool(report, "current_state_restored"), "恢复报告应标记 current_state_restored。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"完整快照应恢复成功。"
+	)
+	assert_eq(
+		group.get_current_state(),
+		menu,
+		"恢复后当前状态应来自快照。"
+	)
+	assert_eq(
+		group.get_stack_depth(),
+		1,
+		"恢复后暂停栈深度应来自快照。"
+	)
+	assert_true(
+		group.is_in_state(&"Idle"),
+		"恢复后暂停栈状态应被视为仍处于状态组内。"
+	)
+	assert_eq(
+		group.get_state_history(),
+		[&"Idle", &"Menu"],
+		"恢复后历史应来自快照。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(group.blackboard, "hp"),
+		5,
+		"恢复后黑板应来自快照。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "stack_restored"),
+		"恢复报告应标记 stack_restored。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "current_state_restored"),
+		"恢复报告应标记 current_state_restored。"
+	)
 
 	group.clear_states(false)
 
@@ -1604,22 +2393,38 @@ func test_state_group_restore_blocks_reentrant_transition_and_preserves_snapshot
 	group.add_state(combat)
 	group.transition_to(&"Idle")
 
-	var report: Dictionary = group.restore_state_snapshot({
-		"schema_version": 1,
-		"current_state": &"Menu",
-		"stack": [],
-		"history": [&"Idle", &"Menu"],
-		"blackboard": { "restored": true },
-	})
+	var report: Dictionary = group.restore_state_snapshot(
+		{
+			"schema_version": 1,
+			"current_state": &"Menu",
+			"stack": [],
+			"history": [&"Idle", &"Menu"],
+			"blackboard": { "restored": true },
+		}
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "被拒绝的 hook 重入不应破坏有效恢复。")
-	assert_eq(GFVariantData.get_option_string(report, "status"), "success", "完整恢复应返回稳定 success 状态。")
-	assert_eq(group.get_current_state(), menu, "恢复目标必须保持为快照中的状态。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"被拒绝的 hook 重入不应破坏有效恢复。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "status"),
+		"success",
+		"完整恢复应返回稳定 success 状态。"
+	)
+	assert_eq(
+		group.get_current_state(),
+		menu,
+		"恢复目标必须保持为快照中的状态。"
+	)
 	assert_true(
 		GFVariantData.get_option_array(report, "blocked_operations").has(&"transition_to"),
 		"恢复报告应记录被事务 guard 拒绝的重入操作。"
 	)
-	assert_false(GFVariantData.get_option_bool(report, "rolled_back"), "成功恢复不应触发回滚。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "rolled_back"),
+		"成功恢复不应触发回滚。"
+	)
 
 	group.clear_states(false)
 
@@ -1663,20 +2468,51 @@ func test_machine_restore_blocks_cross_group_mutation_and_rolls_back_all_groups(
 	var report: Dictionary = machine.restore_state_snapshot(snapshot)
 	var blocked_operations: Array = GFVariantData.get_option_array(report, "blocked_operations")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "跨组结构突变尝试应使整机恢复失败。")
-	assert_true(GFVariantData.get_option_bool(report, "rolled_back"), "失败恢复应回滚所有状态组。")
-	assert_true(GFVariantData.get_option_bool(report, "registry_stable"), "被 guard 拒绝的操作不应改变 group registry。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"跨组结构突变尝试应使整机恢复失败。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "rolled_back"),
+		"失败恢复应回滚所有状态组。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "registry_stable"),
+		"被 guard 拒绝的操作不应改变 group registry。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(report, "group_registry_revision_before"),
 		GFVariantData.get_option_int(report, "group_registry_revision_after"),
 		"恢复前后 group registry revision 应一致。"
 	)
-	assert_true(blocked_operations.has(&"remove_state_group"), "报告应记录被拒绝的 machine 结构操作。")
-	assert_true(blocked_operations.has(&"Target.clear_states"), "报告应记录被拒绝的跨 group 直接操作。")
-	assert_eq(source_group.get_current_state(), source_idle, "源状态组应回滚到恢复前状态。")
-	assert_eq(target_group.get_current_state(), target_idle, "目标状态组应保持恢复前状态。")
-	assert_eq(machine.get_state_group(&"Target"), target_group, "目标状态组不应被移除。")
-	assert_eq(target_group.get_states().size(), 1, "目标状态组注册表不应被清空。")
+	assert_true(
+		blocked_operations.has(&"remove_state_group"),
+		"报告应记录被拒绝的 machine 结构操作。"
+	)
+	assert_true(
+		blocked_operations.has(&"Target.clear_states"),
+		"报告应记录被拒绝的跨 group 直接操作。"
+	)
+	assert_eq(
+		source_group.get_current_state(),
+		source_idle,
+		"源状态组应回滚到恢复前状态。"
+	)
+	assert_eq(
+		target_group.get_current_state(),
+		target_idle,
+		"目标状态组应保持恢复前状态。"
+	)
+	assert_eq(
+		machine.get_state_group(&"Target"),
+		target_group,
+		"目标状态组不应被移除。"
+	)
+	assert_eq(
+		target_group.get_states().size(),
+		1,
+		"目标状态组注册表不应被清空。"
+	)
 
 	source_menu.mutate_on_enter = false
 	machine.clear_state_groups(false)
@@ -1697,7 +2533,11 @@ func test_clear_state_groups_disconnects_external_group_signals() -> void:
 	machine.clear_state_groups()
 	group.current_state_changed.emit(null, null)
 
-	assert_signal_not_emitted(machine, "state_changed", "清理状态组后旧 group 信号不应继续转发到状态机。")
+	assert_signal_not_emitted(
+		machine,
+		"state_changed",
+		"清理状态组后旧 group 信号不应继续转发到状态机。"
+	)
 
 
 func test_clear_state_groups_stops_external_group_without_removing_states() -> void:
@@ -1711,15 +2551,37 @@ func test_clear_state_groups_stops_external_group_without_removing_states() -> v
 	group.add_child(idle)
 	machine.add_state_group(group)
 
-	assert_eq(group.get_current_state(), idle, "测试准备应让外部状态组进入初始状态。")
+	assert_eq(
+		group.get_current_state(),
+		idle,
+		"测试准备应让外部状态组进入初始状态。"
+	)
 
 	machine.clear_state_groups()
 
-	assert_eq(idle.exit_count, 1, "清理状态组时外部组当前状态应执行 exit。")
-	assert_null(group.get_current_state(), "清理状态组后外部组不应继续保持当前状态。")
-	assert_eq(group.get_state(&"Idle"), idle, "默认清理状态组不应移除外部组已注册状态。")
-	assert_null(idle.get_machine(), "清理状态组后保留的状态不应继续引用旧状态机。")
-	assert_eq(idle.get_group(), group, "清理状态组后应保留状态与外部组的关系。")
+	assert_eq(
+		idle.exit_count,
+		1,
+		"清理状态组时外部组当前状态应执行 exit。"
+	)
+	assert_null(
+		group.get_current_state(),
+		"清理状态组后外部组不应继续保持当前状态。"
+	)
+	assert_eq(
+		group.get_state(&"Idle"),
+		idle,
+		"默认清理状态组不应移除外部组已注册状态。"
+	)
+	assert_null(
+		idle.get_machine(),
+		"清理状态组后保留的状态不应继续引用旧状态机。"
+	)
+	assert_eq(
+		idle.get_group(),
+		group,
+		"清理状态组后应保留状态与外部组的关系。"
+	)
 
 	group.free()
 	machine.free()
@@ -1736,11 +2598,20 @@ func test_clear_state_groups_with_free_detaches_group_immediately() -> void:
 
 	machine.clear_state_groups(true)
 
-	assert_null(group.get_parent(), "释放状态组时应立即从状态机节点下移除。")
-	assert_false(machine.get_children().has(group), "状态机子节点不应残留已释放状态组。")
+	assert_null(
+		group.get_parent(),
+		"释放状态组时应立即从状态机节点下移除。"
+	)
+	assert_false(
+		machine.get_children().has(group),
+		"状态机子节点不应残留已释放状态组。"
+	)
 
 	await get_tree().process_frame
-	assert_false(is_instance_valid(group), "下一帧状态组应完成释放。")
+	assert_false(
+		is_instance_valid(group),
+		"下一帧状态组应完成释放。"
+	)
 
 
 func test_clear_states_exits_current_and_stacked_states() -> void:
@@ -1759,12 +2630,34 @@ func test_clear_states_exits_current_and_stacked_states() -> void:
 	var group: GFNodeStateGroup = machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME)
 	group.clear_states(false)
 
-	assert_eq(menu.exit_count, 1, "清空状态时当前状态应执行 exit。")
-	assert_eq(idle.exit_count, 1, "清空状态时暂停栈状态也应执行 exit。")
-	assert_eq(menu.process_mode, Node.PROCESS_MODE_DISABLED, "当前状态清空后应停止处理。")
-	assert_eq(idle.process_mode, Node.PROCESS_MODE_DISABLED, "暂停栈状态清空后应保持停止处理。")
-	assert_null(menu.get_group(), "清空状态后当前状态应解除组上下文。")
-	assert_null(idle.get_group(), "清空状态后暂停状态应解除组上下文。")
+	assert_eq(
+		menu.exit_count,
+		1,
+		"清空状态时当前状态应执行 exit。"
+	)
+	assert_eq(
+		idle.exit_count,
+		1,
+		"清空状态时暂停栈状态也应执行 exit。"
+	)
+	assert_eq(
+		menu.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"当前状态清空后应停止处理。"
+	)
+	assert_eq(
+		idle.process_mode,
+		Node.PROCESS_MODE_DISABLED,
+		"暂停栈状态清空后应保持停止处理。"
+	)
+	assert_null(
+		menu.get_group(),
+		"清空状态后当前状态应解除组上下文。"
+	)
+	assert_null(
+		idle.get_group(),
+		"清空状态后暂停状态应解除组上下文。"
+	)
 
 
 func test_clear_states_with_free_detaches_state_nodes_immediately() -> void:
@@ -1779,11 +2672,20 @@ func test_clear_states_with_free_detaches_state_nodes_immediately() -> void:
 
 	group.clear_states(true)
 
-	assert_null(idle.get_parent(), "释放状态时应立即从状态组节点下移除。")
-	assert_false(group.get_children().has(idle), "状态组子节点不应残留已释放状态。")
+	assert_null(
+		idle.get_parent(),
+		"释放状态时应立即从状态组节点下移除。"
+	)
+	assert_false(
+		group.get_children().has(idle),
+		"状态组子节点不应残留已释放状态。"
+	)
 
 	await get_tree().process_frame
-	assert_false(is_instance_valid(idle), "下一帧状态节点应完成释放。")
+	assert_false(
+		is_instance_valid(idle),
+		"下一帧状态节点应完成释放。"
+	)
 
 
 func _dummy_utility(value: Variant) -> DummyUtility:

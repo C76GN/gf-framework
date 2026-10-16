@@ -73,6 +73,7 @@ enum ConflictStrategy {
 	CUSTOM,
 }
 
+
 ## 同步结果状态。
 ## [br]
 ## @api public
@@ -166,8 +167,16 @@ func sync_data(
 	if local_backend == null or remote_backend == null:
 		return _finish_failed(result, "Storage backend is null.")
 
-	var local_record: Dictionary = _load_record(&"local", local_backend, file_name)
-	var remote_record: Dictionary = _load_record(&"remote", remote_backend, file_name)
+	var local_record: Dictionary = _load_record(
+		&"local",
+		local_backend,
+		file_name
+	)
+	var remote_record: Dictionary = _load_record(
+		&"remote",
+		remote_backend,
+		file_name
+	)
 	result["local"] = _summarize_record(local_record)
 	result["remote"] = _summarize_record(remote_record)
 
@@ -201,7 +210,14 @@ func sync_data(
 		result["metadata"] = _get_record_metadata(local_record)
 		return _finish_completed(result)
 
-	return _resolve_and_write_conflict(result, local_record, remote_record, local_backend, remote_backend, options)
+	return _resolve_and_write_conflict(
+		result,
+		local_record,
+		remote_record,
+		local_backend,
+		remote_backend,
+		options
+	)
 
 
 ## 批量同步多个逻辑文件。
@@ -231,10 +247,19 @@ func sync_many(
 	var status_counts: Dictionary = {}
 	var all_ok: bool = true
 	for file_name: String in file_names:
-		var item_result: Dictionary = sync_data(file_name, local_backend, remote_backend, options)
+		var item_result: Dictionary = sync_data(
+			file_name,
+			local_backend,
+			remote_backend,
+			options
+		)
 		results.append(item_result)
 		all_ok = all_ok and GFVariantData.get_option_bool(item_result, GFResultDictionary.KEY_OK)
-		var status_name: String = GFVariantData.get_option_string(item_result, "status_name", "unknown")
+		var status_name: String = GFVariantData.get_option_string(
+			item_result,
+			"status_name",
+			"unknown"
+		)
 		status_counts[status_name] = GFVariantData.get_option_int(status_counts, status_name) + 1
 
 	return {
@@ -268,19 +293,33 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _load_record(source: StringName, backend: GFStorageBackend, file_name: String) -> Dictionary:
+func _load_record(
+	source: StringName,
+	backend: GFStorageBackend,
+	file_name: String
+) -> Dictionary:
 	var load_result: Dictionary = backend.load_data(file_name)
-	var data_value: Variant = GFVariantData.get_option_value(load_result, "data", {})
-	var metadata_value: Variant = GFVariantData.get_option_value(load_result, "metadata", {})
+	var data_value: Variant = GFVariantData.get_option_value(
+		load_result,
+		"data",
+		{}
+	)
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		load_result,
+		"metadata",
+		{}
+	)
 	var ok: bool = GFResultDictionary.is_ok(load_result)
-	var error: String = GFVariantData.get_option_string(load_result, GFResultDictionary.KEY_ERROR, "")
+	var error: String = GFVariantData.get_option_string(
+		load_result,
+		GFResultDictionary.KEY_ERROR,
+		""
+	)
 	if ok and not (data_value is Dictionary):
 		ok = false
 		error = "Backend returned non-Dictionary data."
 
-	var record: Dictionary = {
-		"source": source,
-	}
+	var record: Dictionary = { "source": source, }
 	record[GFResultDictionary.KEY_DATA] = GFVariantData.to_dictionary(data_value)
 	record[GFResultDictionary.KEY_METADATA] = GFVariantData.to_dictionary(metadata_value)
 	record[GFResultDictionary.KEY_ERROR] = error
@@ -292,12 +331,14 @@ func _load_record(source: StringName, backend: GFStorageBackend, file_name: Stri
 ## @api private
 ## [br]
 func _summarize_record(record: Dictionary) -> Dictionary:
-	var summary: Dictionary = {
-		"source": GFVariantData.get_option_string_name(record, "source"),
-	}
+	var summary: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), }
 	summary[GFResultDictionary.KEY_OK] = GFResultDictionary.is_ok(record)
 	summary[GFResultDictionary.KEY_METADATA] = _get_record_metadata(record)
-	summary[GFResultDictionary.KEY_ERROR] = GFVariantData.get_option_string(record, GFResultDictionary.KEY_ERROR, "")
+	summary[GFResultDictionary.KEY_ERROR] = GFVariantData.get_option_string(
+		record,
+		GFResultDictionary.KEY_ERROR,
+		""
+	)
 	return summary
 
 
@@ -321,42 +362,91 @@ func _resolve_and_write_conflict(
 	remote_backend: GFStorageBackend,
 	options: Dictionary
 ) -> Dictionary:
-	var report: GFStorageConflictReport = _make_conflict_report(_get_result_file_name(result), local_record, remote_record)
+	var report: GFStorageConflictReport = _make_conflict_report(
+		_get_result_file_name(result),
+		local_record,
+		remote_record
+	)
 	_conflict_count += 1
 	sync_conflict_detected.emit(report)
 
-	var resolution: Dictionary = _resolve_conflict(report, local_record, remote_record, options)
-	var resolved_report: GFStorageConflictReport = _get_conflict_report(resolution, "report", report)
+	var resolution: Dictionary = _resolve_conflict(
+		report,
+		local_record,
+		remote_record,
+		options
+	)
+	var resolved_report: GFStorageConflictReport = _get_conflict_report(
+		resolution,
+		"report",
+		report
+	)
 	if resolved_report != null:
 		_append_result_conflict(result, resolved_report)
 
 	if not GFResultDictionary.is_ok(resolution):
 		result["status"] = SyncStatus.CONFLICT
 		result["status_name"] = _get_status_name(SyncStatus.CONFLICT)
-		result["error"] = GFVariantData.get_option_string(resolution, GFResultDictionary.KEY_ERROR, "Storage conflict is unresolved.")
+		result["error"] = GFVariantData.get_option_string(
+			resolution,
+			GFResultDictionary.KEY_ERROR,
+			"Storage conflict is unresolved."
+		)
 		return _finish_conflict(result)
 
-	var selected_source: StringName = GFVariantData.get_option_string_name(resolution, "source", &"custom")
+	var selected_source: StringName = GFVariantData.get_option_string_name(
+		resolution,
+		"source",
+		&"custom"
+	)
 	var data: Dictionary = _get_record_data(resolution)
 	var metadata: Dictionary = _get_record_metadata(resolution)
 	result["selected_source"] = selected_source
 	result["data"] = data
 	result["metadata"] = metadata
 
-	var write_local: bool = _should_write_to_backend(options, "write_to_local", selected_source != &"local")
-	var write_remote: bool = _should_write_to_backend(options, "write_to_remote", selected_source != &"remote")
+	var write_local: bool = _should_write_to_backend(
+		options,
+		"write_to_local",
+		selected_source != &"local"
+	)
+	var write_remote: bool = _should_write_to_backend(
+		options,
+		"write_to_remote",
+		selected_source != &"remote"
+	)
 	if selected_source == &"custom":
-		write_local = _should_write_to_backend(options, "write_to_local", true)
-		write_remote = _should_write_to_backend(options, "write_to_remote", true)
+		write_local = _should_write_to_backend(
+			options,
+			"write_to_local",
+			true
+		)
+		write_remote = _should_write_to_backend(
+			options,
+			"write_to_remote",
+			true
+		)
 
 	if not _write_resolved_enabled(options):
 		write_local = false
 		write_remote = false
 
 	if write_local:
-		_write_backend(result, local_backend, &"local", data, metadata)
+		_write_backend(
+			result,
+			local_backend,
+			&"local",
+			data,
+			metadata
+		)
 	if write_remote:
-		_write_backend(result, remote_backend, &"remote", data, metadata)
+		_write_backend(
+			result,
+			remote_backend,
+			&"remote",
+			data,
+			metadata
+		)
 	if _has_result_errors(result):
 		return _finish_failed(result, "One or more backend writes failed.")
 
@@ -367,7 +457,13 @@ func _resolve_and_write_conflict(
 		result["status"] = SyncStatus.COPIED_REMOTE_TO_LOCAL
 	else:
 		result["status"] = SyncStatus.MERGED
-	result["status_name"] = _get_status_name(GFVariantData.get_option_int(result, "status", SyncStatus.FAILED))
+	result["status_name"] = _get_status_name(
+		GFVariantData.get_option_int(
+			result,
+			"status",
+			SyncStatus.FAILED
+		)
+	)
 	return _finish_completed(result)
 
 
@@ -384,23 +480,45 @@ func _resolve_conflict(
 	var strategy: ConflictStrategy = _get_strategy(options)
 	match strategy:
 		ConflictStrategy.USE_LOCAL:
-			return _make_record_resolution(report, local_record, GFStorageConflictReport.Resolution.USE_LOCAL)
+			return _make_record_resolution(
+				report,
+				local_record,
+				GFStorageConflictReport.Resolution.USE_LOCAL
+			)
 		ConflictStrategy.USE_REMOTE:
-			return _make_record_resolution(report, remote_record, GFStorageConflictReport.Resolution.USE_REMOTE)
+			return _make_record_resolution(
+				report,
+				remote_record,
+				GFStorageConflictReport.Resolution.USE_REMOTE
+			)
 		ConflictStrategy.USE_NEWEST:
-			var comparison: int = _compare_records(local_record, remote_record, options)
+			var comparison: int = _compare_records(
+				local_record,
+				remote_record,
+				options
+			)
 			if comparison == _COMPARISON_UNORDERED:
-				return _make_unresolved_resolution(
-					report,
-					"Cannot determine newest storage record because comparison metadata is non-finite."
-				)
+				return _make_unresolved_resolution(report, "Cannot determine newest storage record because comparison metadata is non-finite.")
 			if comparison > 0:
-				return _make_record_resolution(report, local_record, GFStorageConflictReport.Resolution.USE_LOCAL)
+				return _make_record_resolution(
+					report,
+					local_record,
+					GFStorageConflictReport.Resolution.USE_LOCAL
+				)
 			if comparison < 0:
-				return _make_record_resolution(report, remote_record, GFStorageConflictReport.Resolution.USE_REMOTE)
+				return _make_record_resolution(
+					report,
+					remote_record,
+					GFStorageConflictReport.Resolution.USE_REMOTE
+				)
 			return _make_unresolved_resolution(report, "Cannot determine newest storage record.")
 		ConflictStrategy.CUSTOM:
-			return _resolve_with_callback(report, local_record, remote_record, options)
+			return _resolve_with_callback(
+				report,
+				local_record,
+				remote_record,
+				options
+			)
 		_:
 			return _make_unresolved_resolution(report, "Manual storage conflict resolution required.")
 
@@ -418,10 +536,7 @@ func _make_record_resolution(
 	var metadata: Dictionary = _get_record_metadata(record)
 	report.resolution = resolution
 	report.resolved_value = data.duplicate(true)
-	var result: Dictionary = {
-		"source": GFVariantData.get_option_string_name(record, "source"),
-		"report": report,
-	}
+	var result: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), "report": report, }
 	result[GFResultDictionary.KEY_DATA] = data
 	result[GFResultDictionary.KEY_METADATA] = metadata
 	return GFResultDictionary.make_success(result)
@@ -440,7 +555,11 @@ func _resolve_with_callback(
 	var resolver_value: Variant = GFVariantData.get_option_value(
 		options,
 		"resolver",
-		GFVariantData.get_option_value(options, "resolution_callback", Callable())
+		GFVariantData.get_option_value(
+			options,
+			"resolution_callback",
+			Callable()
+		)
 	)
 	var resolver: Callable = _variant_to_callable(resolver_value)
 	if not resolver.is_valid():
@@ -456,24 +575,31 @@ func _resolve_with_callback(
 		return _make_unresolved_resolution(report, "Custom resolver must return a Dictionary.")
 
 	var dictionary: Dictionary = GFVariantData.to_dictionary(value)
-	var data_value: Variant = GFVariantData.get_option_value(dictionary, GFResultDictionary.KEY_DATA, {})
+	var data_value: Variant = GFVariantData.get_option_value(
+		dictionary,
+		GFResultDictionary.KEY_DATA,
+		{}
+	)
 	if not (data_value is Dictionary):
 		return _make_unresolved_resolution(report, "Custom resolver returned non-Dictionary data.")
 
-	var metadata_value: Variant = GFVariantData.get_option_value(dictionary, GFResultDictionary.KEY_METADATA, {})
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		dictionary,
+		GFResultDictionary.KEY_METADATA,
+		{}
+	)
 	var data: Dictionary = GFVariantData.to_dictionary(data_value)
 	var metadata: Dictionary = GFVariantData.to_dictionary(metadata_value)
-	report.resolution = _to_conflict_resolution(GFVariantData.get_option_int(
-		dictionary,
-		"resolution",
-		GFStorageConflictReport.Resolution.MERGED
-	))
+	report.resolution = _to_conflict_resolution(
+		GFVariantData.get_option_int(
+			dictionary,
+			"resolution",
+			GFStorageConflictReport.Resolution.MERGED
+		)
+	)
 	report.resolved_value = data.duplicate(true)
 	report.metadata = metadata.duplicate(true)
-	var result: Dictionary = {
-		"source": &"custom",
-		"report": report,
-	}
+	var result: Dictionary = { "source": &"custom", "report": report, }
 	result[GFResultDictionary.KEY_DATA] = data
 	result[GFResultDictionary.KEY_METADATA] = metadata
 	return GFResultDictionary.make_success(result)
@@ -485,9 +611,10 @@ func _resolve_with_callback(
 ## [br]
 func _make_unresolved_resolution(report: GFStorageConflictReport, error: String) -> Dictionary:
 	report.resolution = GFStorageConflictReport.Resolution.UNRESOLVED
-	return GFResultDictionary.make_failure(error, {
-		"report": report,
-	})
+	return GFResultDictionary.make_failure(
+		error,
+		{ "report": report, }
+	)
 
 
 ## 构造传给自定义解析器的来源、数据和元数据快照字典。
@@ -495,9 +622,7 @@ func _make_unresolved_resolution(report: GFStorageConflictReport, error: String)
 ## @api private
 ## [br]
 func _make_callback_record(record: Dictionary) -> Dictionary:
-	var callback_record: Dictionary = {
-		"source": GFVariantData.get_option_string_name(record, "source"),
-	}
+	var callback_record: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), }
 	callback_record[GFResultDictionary.KEY_DATA] = _get_record_data(record)
 	callback_record[GFResultDictionary.KEY_METADATA] = _get_record_metadata(record)
 	return callback_record
@@ -507,16 +632,17 @@ func _make_callback_record(record: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_conflict_report(file_name: String, local_record: Dictionary, remote_record: Dictionary) -> GFStorageConflictReport:
+func _make_conflict_report(
+	file_name: String,
+	local_record: Dictionary,
+	remote_record: Dictionary
+) -> GFStorageConflictReport:
 	var report: GFStorageConflictReport = GFStorageConflictReport.new()
 	report.file_name = file_name
 	report.key = ""
 	report.local_value = _get_record_data(local_record)
 	report.remote_value = _get_record_data(remote_record)
-	report.metadata = {
-		"local_metadata": _get_record_metadata(local_record),
-		"remote_metadata": _get_record_metadata(remote_record),
-	}
+	report.metadata = { "local_metadata": _get_record_metadata(local_record), "remote_metadata": _get_record_metadata(remote_record), }
 	return report
 
 
@@ -538,7 +664,13 @@ func _copy_record_to_backend(
 	result["data"] = data
 	result["metadata"] = metadata
 	if _write_resolved_enabled(options):
-		_write_backend(result, target_backend, target_name, data, metadata)
+		_write_backend(
+			result,
+			target_backend,
+			target_name,
+			data,
+			metadata
+		)
 	if _has_result_errors(result):
 		return _finish_failed(result, "One or more backend writes failed.")
 
@@ -559,23 +691,44 @@ func _write_backend(
 	data: Dictionary,
 	metadata: Dictionary
 ) -> void:
-	var error: Error = backend.save_data(_get_result_file_name(result), data, metadata)
+	var error: Error = backend.save_data(
+		_get_result_file_name(result),
+		data,
+		metadata
+	)
 	if error == OK:
 		_append_written_backend(result, backend_name)
 		return
 
-	_set_result_error(result, backend_name, error_string(error))
+	_set_result_error(
+		result,
+		backend_name,
+		error_string(error)
+	)
 
 
 ## 先按版本键比较记录，结果相同时再按时间戳键比较。
 ## [br]
 ## @api private
 ## [br]
-func _compare_records(local_record: Dictionary, remote_record: Dictionary, options: Dictionary) -> int:
+func _compare_records(
+	local_record: Dictionary,
+	remote_record: Dictionary,
+	options: Dictionary
+) -> int:
 	var revision_comparison: int = _compare_metadata_by_keys(
 		local_record,
 		remote_record,
-		_get_string_array_option(options, "revision_keys", ["revision", "updated_revision", "sync_revision", "modified_revision"])
+		_get_string_array_option(
+			options,
+			"revision_keys",
+			[
+				"revision",
+				"updated_revision",
+				"sync_revision",
+				"modified_revision",
+			]
+		)
 	)
 	if revision_comparison != 0:
 		return revision_comparison
@@ -583,7 +736,19 @@ func _compare_records(local_record: Dictionary, remote_record: Dictionary, optio
 	return _compare_metadata_by_keys(
 		local_record,
 		remote_record,
-		_get_string_array_option(options, "timestamp_keys", ["timestamp_unix", "modified_unix", "updated_unix", "saved_unix", "modified_time", "mtime", "timestamp"])
+		_get_string_array_option(
+			options,
+			"timestamp_keys",
+			[
+				"timestamp_unix",
+				"modified_unix",
+				"updated_unix",
+				"saved_unix",
+				"modified_time",
+				"mtime",
+				"timestamp",
+			]
+		)
 	)
 
 
@@ -591,14 +756,21 @@ func _compare_records(local_record: Dictionary, remote_record: Dictionary, optio
 ## [br]
 ## @api private
 ## [br]
-func _compare_metadata_by_keys(local_record: Dictionary, remote_record: Dictionary, keys: Array[String]) -> int:
+func _compare_metadata_by_keys(
+	local_record: Dictionary,
+	remote_record: Dictionary,
+	keys: Array[String]
+) -> int:
 	var local_metadata: Dictionary = _get_record_metadata(local_record)
 	var remote_metadata: Dictionary = _get_record_metadata(remote_record)
 
 	for key: String in keys:
 		if not local_metadata.has(key) or not remote_metadata.has(key):
 			continue
-		var comparison: int = _compare_metadata_values(local_metadata[key], remote_metadata[key])
+		var comparison: int = _compare_metadata_values(
+			local_metadata[key],
+			remote_metadata[key]
+		)
 		if comparison != 0:
 			return comparison
 	return 0
@@ -643,7 +815,13 @@ func _is_numeric_value(value: Variant) -> bool:
 ## @api private
 ## [br]
 static func _get_record_data(record: Dictionary) -> Dictionary:
-	return GFVariantData.to_dictionary(GFVariantData.get_option_value(record, GFResultDictionary.KEY_DATA, {}))
+	return GFVariantData.to_dictionary(
+		GFVariantData.get_option_value(
+			record,
+			GFResultDictionary.KEY_DATA,
+			{}
+		)
+	)
 
 
 ## 从记录中读取并规范化元数据字典。
@@ -651,7 +829,13 @@ static func _get_record_data(record: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 static func _get_record_metadata(record: Dictionary) -> Dictionary:
-	return GFVariantData.to_dictionary(GFVariantData.get_option_value(record, GFResultDictionary.KEY_METADATA, {}))
+	return GFVariantData.to_dictionary(
+		GFVariantData.get_option_value(
+			record,
+			GFResultDictionary.KEY_METADATA,
+			{}
+		)
+	)
 
 
 ## 从同步结果中读取逻辑文件名。
@@ -667,7 +851,15 @@ static func _get_result_file_name(result: Dictionary) -> String:
 ## @api private
 ## [br]
 static func _has_result_errors(result: Dictionary) -> bool:
-	return not GFVariantData.as_dictionary(GFVariantData.get_option_value(result, GFResultDictionary.KEY_ERRORS, {})).is_empty()
+	return not (
+		GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				result,
+				GFResultDictionary.KEY_ERRORS,
+				{}
+			)
+		).is_empty()
+	)
 
 
 ## 将冲突报告序列化后追加到结果的冲突列表。
@@ -675,7 +867,13 @@ static func _has_result_errors(result: Dictionary) -> bool:
 ## @api private
 ## [br]
 static func _append_result_conflict(result: Dictionary, report: GFStorageConflictReport) -> void:
-	var conflicts: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "conflicts", []))
+	var conflicts: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			result,
+			"conflicts",
+			[]
+		)
+	)
 	conflicts.append(report.to_dict())
 	result["conflicts"] = conflicts
 
@@ -685,7 +883,13 @@ static func _append_result_conflict(result: Dictionary, report: GFStorageConflic
 ## @api private
 ## [br]
 static func _append_written_backend(result: Dictionary, backend_name: StringName) -> void:
-	var written_backends: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "written_backends", []))
+	var written_backends: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			result,
+			"written_backends",
+			[]
+		)
+	)
 	written_backends.append(String(backend_name))
 	result["written_backends"] = written_backends
 
@@ -694,8 +898,18 @@ static func _append_written_backend(result: Dictionary, backend_name: StringName
 ## [br]
 ## @api private
 ## [br]
-static func _set_result_error(result: Dictionary, backend_name: StringName, error: String) -> void:
-	var errors: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(result, GFResultDictionary.KEY_ERRORS, {}))
+static func _set_result_error(
+	result: Dictionary,
+	backend_name: StringName,
+	error: String
+) -> void:
+	var errors: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			result,
+			GFResultDictionary.KEY_ERRORS,
+			{}
+		)
+	)
 	errors[backend_name] = error
 	result[GFResultDictionary.KEY_ERRORS] = errors
 
@@ -704,8 +918,16 @@ static func _set_result_error(result: Dictionary, backend_name: StringName, erro
 ## [br]
 ## @api private
 ## [br]
-static func _get_conflict_report(source: Dictionary, key: Variant, fallback: GFStorageConflictReport) -> GFStorageConflictReport:
-	var value: Variant = GFVariantData.get_option_value(source, key, fallback)
+static func _get_conflict_report(
+	source: Dictionary,
+	key: Variant,
+	fallback: GFStorageConflictReport
+) -> GFStorageConflictReport:
+	var value: Variant = GFVariantData.get_option_value(
+		source,
+		key,
+		fallback
+	)
 	if value is GFStorageConflictReport:
 		var report: GFStorageConflictReport = value
 		return report
@@ -728,7 +950,11 @@ static func _variant_to_callable(value: Variant) -> Callable:
 ## @api private
 ## [br]
 static func _to_conflict_resolution(value: int) -> GFStorageConflictReport.Resolution:
-	match clampi(value, GFStorageConflictReport.Resolution.UNRESOLVED, GFStorageConflictReport.Resolution.SKIPPED):
+	match clampi(
+		value,
+		GFStorageConflictReport.Resolution.UNRESOLVED,
+		GFStorageConflictReport.Resolution.SKIPPED
+	):
 		GFStorageConflictReport.Resolution.USE_LOCAL:
 			return GFStorageConflictReport.Resolution.USE_LOCAL
 		GFStorageConflictReport.Resolution.USE_REMOTE:
@@ -746,7 +972,11 @@ static func _to_conflict_resolution(value: int) -> GFStorageConflictReport.Resol
 ## @api private
 ## [br]
 static func _to_conflict_strategy(value: int) -> ConflictStrategy:
-	match clampi(value, ConflictStrategy.USE_NEWEST, ConflictStrategy.CUSTOM):
+	match clampi(
+		value,
+		ConflictStrategy.USE_NEWEST,
+		ConflictStrategy.CUSTOM
+	):
 		ConflictStrategy.USE_LOCAL:
 			return ConflictStrategy.USE_LOCAL
 		ConflictStrategy.USE_REMOTE:
@@ -764,7 +994,13 @@ static func _to_conflict_strategy(value: int) -> ConflictStrategy:
 ## @api private
 ## [br]
 func _get_strategy(options: Dictionary) -> ConflictStrategy:
-	return _to_conflict_strategy(GFVariantData.get_option_int(options, "strategy", default_conflict_strategy))
+	return _to_conflict_strategy(
+		GFVariantData.get_option_int(
+			options,
+			"strategy",
+			default_conflict_strategy
+		)
+	)
 
 
 ## 读取是否启用冲突解决结果的写回。
@@ -772,23 +1008,43 @@ func _get_strategy(options: Dictionary) -> ConflictStrategy:
 ## @api private
 ## [br]
 func _write_resolved_enabled(options: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(options, "write_resolved", write_resolved_by_default)
+	return GFVariantData.get_option_bool(
+		options,
+		"write_resolved",
+		write_resolved_by_default
+	)
 
 
 ## 读取指定后端写回选项，并使用调用方给定的默认值。
 ## [br]
 ## @api private
 ## [br]
-func _should_write_to_backend(options: Dictionary, key: String, fallback: bool) -> bool:
-	return GFVariantData.get_option_bool(options, key, fallback)
+func _should_write_to_backend(
+	options: Dictionary,
+	key: String,
+	fallback: bool
+) -> bool:
+	return GFVariantData.get_option_bool(
+		options,
+		key,
+		fallback
+	)
 
 
 ## 从选项读取字符串数组；缺少该项时使用给定默认数组。
 ## [br]
 ## @api private
 ## [br]
-func _get_string_array_option(options: Dictionary, key: String, fallback: Array[String]) -> Array[String]:
-	return GFVariantData.get_option_string_array(options, key, fallback)
+func _get_string_array_option(
+	options: Dictionary,
+	key: String,
+	fallback: Array[String]
+) -> Array[String]:
+	return GFVariantData.get_option_string_array(
+		options,
+		key,
+		fallback
+	)
 
 
 ## 构造带默认状态、两端摘要字段及空数据的同步结果。
@@ -819,7 +1075,10 @@ func _make_base_result(file_name: String) -> Dictionary:
 ## [br]
 func _finish_completed(result: Dictionary) -> Dictionary:
 	_sync_count += 1
-	sync_completed.emit(_get_result_file_name(result), result.duplicate(true))
+	sync_completed.emit(
+		_get_result_file_name(result),
+		result.duplicate(true)
+	)
 	return result
 
 
@@ -833,7 +1092,10 @@ func _finish_failed(result: Dictionary, error: String) -> Dictionary:
 	result["status_name"] = _get_status_name(SyncStatus.FAILED)
 	result["error"] = error
 	_failed_count += 1
-	sync_failed.emit(_get_result_file_name(result), result.duplicate(true))
+	sync_failed.emit(
+		_get_result_file_name(result),
+		result.duplicate(true)
+	)
 	return result
 
 
@@ -843,7 +1105,10 @@ func _finish_failed(result: Dictionary, error: String) -> Dictionary:
 ## [br]
 func _finish_conflict(result: Dictionary) -> Dictionary:
 	result["ok"] = false
-	sync_conflict_unresolved.emit(_get_result_file_name(result), result.duplicate(true))
+	sync_conflict_unresolved.emit(
+		_get_result_file_name(result),
+		result.duplicate(true)
+	)
 	return result
 
 

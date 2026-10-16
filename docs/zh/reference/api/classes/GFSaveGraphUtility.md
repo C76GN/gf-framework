@@ -39,8 +39,8 @@
 | 方法 | [`apply_document`](#member-gfsavegraphutility-methods-apply_document) | `func apply_document( scope: GFSaveScope, document: GFSaveDocument, context: Dictionary = {}, strict: bool = false ) -> Dictionary:` |
 | 方法 | [`inspect_scope`](#member-gfsavegraphutility-methods-inspect_scope) | `func inspect_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_scope_health_report`](#member-gfsavegraphutility-methods-build_scope_health_report) | `func build_scope_health_report(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`validate_payload_for_scope`](#member-gfsavegraphutility-methods-validate_payload_for_scope) | `func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:` |
-| 方法 | [`build_payload_health_report`](#member-gfsavegraphutility-methods-build_payload_health_report) | `func build_payload_health_report(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:` |
+| 方法 | [`validate_payload_for_scope`](#member-gfsavegraphutility-methods-validate_payload_for_scope) | `func validate_payload_for_scope( scope: GFSaveScope, payload: Dictionary, strict: bool = false ) -> Dictionary:` |
+| 方法 | [`build_payload_health_report`](#member-gfsavegraphutility-methods-build_payload_health_report) | `func build_payload_health_report( scope: GFSaveScope, payload: Dictionary, strict: bool = false ) -> Dictionary:` |
 | 方法 | [`gather_scope`](#member-gfsavegraphutility-methods-gather_scope) | `func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`apply_scope`](#member-gfsavegraphutility-methods-apply_scope) | `func apply_scope( scope: GFSaveScope, payload: Dictionary, context: Dictionary = {}, strict: bool = false ) -> Dictionary:` |
 | 方法 | [`save_scope`](#member-gfsavegraphutility-methods-save_scope) | `func save_scope( file_name: String, scope: GFSaveScope, metadata: Dictionary = {}, context: Dictionary = {} ) -> Error:` |
@@ -495,9 +495,10 @@ func build_scope_health_report(scope: GFSaveScope, context: Dictionary = {}) -> 
 ### `validate_payload_for_scope`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:
+func validate_payload_for_scope( scope: GFSaveScope, payload: Dictionary, strict: bool = false ) -> Dictionary:
 ```
 
 校验载荷是否能匹配当前 Scope 树。
@@ -522,9 +523,10 @@ func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict:
 ### `build_payload_health_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func build_payload_health_report(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:
+func build_payload_health_report( scope: GFSaveScope, payload: Dictionary, strict: bool = false ) -> Dictionary:
 ```
 
 构建载荷匹配健康报告。

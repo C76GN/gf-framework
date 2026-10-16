@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="ee458f095909a4f9f6630b22d01c82bf44071a56502c6871d37344a218bf30c0">
+<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="5328beec6861d5654c34a5a8bba0876f3d4f07f14df663926b51dfa1518edc32">
 	<description>GFPriorityQueue: 稳定优先队列。
 用二叉堆保存带数值优先级的值，支持高优先级优先或低优先级优先，
 并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、
@@ -46,7 +46,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push">
-			<signature>func push(value: Variant, priority: float = 0.0, front: bool = false) -&gt; bool:</signature>
+			<signature>func push( value: Variant, priority: float = 0.0, front: bool = false ) -&gt; bool:</signature>
 			<description>推入一个值。
 显式负 order 和 int 下界也遵守该规则；多次 front 操作以后执行者优先。</description>
 			<tags>
@@ -60,7 +60,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_with_order">
-			<signature>func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -&gt; bool:</signature>
+			<signature>func push_with_order( value: Variant, priority: float = 0.0, order: int = 0 ) -&gt; bool:</signature>
 			<description>按显式稳定顺序推入一个值。
 相同 priority 和 order 的显式条目按本次队列实例中的入队先后保持稳定；front 操作优先于既有条目。</description>
 			<tags>
@@ -141,7 +141,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_priority">
-			<signature>func set_priority(value: Variant, priority: float, front: bool = false) -&gt; bool:</signature>
+			<signature>func set_priority( value: Variant, priority: float, front: bool = false ) -&gt; bool:</signature>
 			<description>更新第一个等于 value 的队列值优先级。</description>
 			<tags>
 				<tag name="api">public</tag>

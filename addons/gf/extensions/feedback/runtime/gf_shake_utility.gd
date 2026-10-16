@@ -156,7 +156,11 @@ func tick(delta: float) -> void:
 		if state.is_empty():
 			var _invalid_state_id_appended: bool = finished_ids.append(shake_id)
 			continue
-		var previous_elapsed: float = _get_state_float(state, "elapsed_seconds", 0.0)
+		var previous_elapsed: float = _get_state_float(
+			state,
+			"elapsed_seconds",
+			0.0
+		)
 		var next_elapsed: float = previous_elapsed + safe_delta
 		if not is_finite(next_elapsed):
 			next_elapsed = previous_elapsed
@@ -338,11 +342,25 @@ func sample_channel(channel: StringName = &"") -> Dictionary:
 		var preset: GFShakePreset = _get_state_preset(state)
 		if preset == null:
 			continue
-		samples.append(preset.sample(
-			_get_state_float(state, "elapsed_seconds", 0.0),
-			_get_state_float(state, "strength", 1.0),
-			_get_state_float(state, "phase_offset", 0.0)
-		))
+		samples.append(
+			preset.sample(
+				_get_state_float(
+					state,
+					"elapsed_seconds",
+					0.0
+				),
+				_get_state_float(
+					state,
+					"strength",
+					1.0
+				),
+				_get_state_float(
+					state,
+					"phase_offset",
+					0.0
+				)
+			)
+		)
 	return GFShakePreset.combine_samples(samples)
 
 
@@ -380,14 +398,24 @@ func get_shake_info(shake_id: int) -> Dictionary:
 	if state.is_empty():
 		return {}
 	var preset: GFShakePreset = _get_state_preset(state)
-	return _to_report_dictionary({
-		"id": shake_id,
-		"channel": _get_state_channel(state),
-		"elapsed_seconds": _get_state_float(state, "elapsed_seconds", 0.0),
-		"duration_seconds": preset.get_duration_seconds() if preset != null else 0.0,
-		"strength": _get_state_float(state, "strength", 1.0),
-		"metadata": _get_state_metadata_copy(state),
-	})
+	return _to_report_dictionary(
+		{
+			"id": shake_id,
+			"channel": _get_state_channel(state),
+			"elapsed_seconds": _get_state_float(
+				state,
+				"elapsed_seconds",
+				0.0
+			),
+			"duration_seconds": preset.get_duration_seconds() if preset != null else 0.0,
+			"strength": _get_state_float(
+				state,
+				"strength",
+				1.0
+			),
+			"metadata": _get_state_metadata_copy(state),
+		}
+	)
 
 
 ## 获取反馈系统调试快照。
@@ -407,12 +435,14 @@ func get_debug_snapshot() -> Dictionary:
 			continue
 		var channel: String = String(_get_state_channel(state))
 		channels[channel] = _get_channel_count(channels, channel) + 1
-	return _to_report_dictionary({
-		"active_count": _active_shakes.size(),
-		"max_active_shakes": max_active_shakes,
-		"channels": channels,
-		"play_order": _play_order,
-	})
+	return _to_report_dictionary(
+		{
+			"active_count": _active_shakes.size(),
+			"max_active_shakes": max_active_shakes,
+			"channels": channels,
+			"play_order": _play_order,
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -484,7 +514,11 @@ func _get_state_preset(state: Dictionary) -> GFShakePreset:
 ## [br]
 ## @api private
 func _get_state_channel(state: Dictionary) -> StringName:
-	var value: Variant = GFVariantData.get_option_value(state, "channel", default_channel)
+	var value: Variant = GFVariantData.get_option_value(
+		state,
+		"channel",
+		default_channel
+	)
 	if value is StringName:
 		var channel: StringName = value
 		return channel
@@ -497,8 +531,16 @@ func _get_state_channel(state: Dictionary) -> StringName:
 ## 读取有限浮点状态值，非有限值时返回默认值。
 ## [br]
 ## @api private
-func _get_state_float(state: Dictionary, key: String, default_value: float) -> float:
-	var value: float = GFVariantData.get_option_float(state, key, default_value)
+func _get_state_float(
+	state: Dictionary,
+	key: String,
+	default_value: float
+) -> float:
+	var value: float = GFVariantData.get_option_float(
+		state,
+		key,
+		default_value
+	)
 	return value if is_finite(value) else default_value
 
 
@@ -513,9 +555,10 @@ func _get_state_metadata_copy(state: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 func _to_report_dictionary(value: Dictionary) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(value, {
-		"path_redaction": "basename",
-	})
+	return GFReportValueCodec.to_report_dictionary(
+		value,
+		{ "path_redaction": "basename", }
+	)
 
 
 ## 读取调试快照中指定 channel 的计数。

@@ -22,11 +22,17 @@ class CapturingActions extends GF_NETWORK_EDITOR_ACTIONS_SCRIPT:
 func test_network_audit_menu_preserves_resource_provenance() -> void:
 	var paths: PackedStringArray = PackedStringArray()
 	for index: int in 2:
-		var path: String = "user://gf_audit_origin_%d_%d.tres" % [Time.get_ticks_usec(), index]
+		var path: String = (
+			"user://gf_audit_origin_%d_%d.tres"
+			% [Time.get_ticks_usec(), index]
+		)
 		var contract: GFNetworkContract = _make_contract(StringName("origin_%d" % index))
 		contract.messages[0].fields[0].required = false
 		contract.messages[0].fields[0].default_value = "bad integer"
-		assert_eq(ResourceSaver.save(contract, path), OK)
+		assert_eq(
+			ResourceSaver.save(contract, path),
+			OK
+		)
 		var _appended: bool = paths.append(path)
 	var previous: Variant = ProjectSettings.get_setting(CONTRACT_PATHS_SETTING)
 	ProjectSettings.set_setting(CONTRACT_PATHS_SETTING, paths)
@@ -34,46 +40,82 @@ func test_network_audit_menu_preserves_resource_provenance() -> void:
 	actions.handle_menu_action(&"audit_network_contracts")
 	ProjectSettings.set_setting(CONTRACT_PATHS_SETTING, previous)
 	for path: String in paths:
-		assert_true(actions.diagnostic_text.contains(path), actions.diagnostic_text)
+		assert_true(
+			actions.diagnostic_text.contains(path),
+			actions.diagnostic_text
+		)
 		_remove_file_if_present(path)
 	actions.cleanup()
+
 
 func test_network_editor_actions_contribute_menu_entries_settings_and_sections() -> void:
 	var actions: RefCounted = GF_NETWORK_EDITOR_ACTIONS_SCRIPT.new()
 
 	var entries: Array = GFVariantData.as_array(actions.call("get_menu_entries"))
-	var setting_records: Array = GFVariantData.as_array(
-		actions.call("get_project_setting_records")
-	)
-	var section_records: Array = GFVariantData.as_array(
-		actions.call("get_project_setting_section_records")
-	)
+	var setting_records: Array = GFVariantData.as_array(actions.call("get_project_setting_records"))
+	var section_records: Array = GFVariantData.as_array(actions.call("get_project_setting_section_records"))
 	actions.call("cleanup")
 
-	assert_eq(entries.size(), 2, "Network editor tool 应贡献生成与审计两个菜单动作。")
+	assert_eq(
+		entries.size(),
+		2,
+		"Network editor tool 应贡献生成与审计两个菜单动作。"
+	)
 	var entry_ids: Array[StringName] = []
 	for entry_value: Variant in entries:
-		assert_true(entry_value is Dictionary, "菜单动作应返回 Dictionary。")
+		assert_true(
+			entry_value is Dictionary,
+			"菜单动作应返回 Dictionary。"
+		)
 		if not (entry_value is Dictionary):
 			continue
 		var entry: Dictionary = entry_value
 		entry_ids.append(GFVariantData.get_option_string_name(entry, "id"))
-	assert_eq(entry_ids, [&"generate_network_contracts", &"audit_network_contracts"])
-	assert_eq(setting_records.size(), 2, "Network editor tool 应显式贡献两个项目设置。")
 	assert_eq(
-		GFVariantData.get_option_string(_find_record(setting_records, "name", CONTRACT_PATHS_SETTING), "name"),
+		entry_ids,
+		[&"generate_network_contracts", &"audit_network_contracts"]
+	)
+	assert_eq(
+		setting_records.size(),
+		2,
+		"Network editor tool 应显式贡献两个项目设置。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			_find_record(
+				setting_records,
+				"name",
+				CONTRACT_PATHS_SETTING
+			),
+			"name"
+		),
 		CONTRACT_PATHS_SETTING
 	)
 	assert_eq(
 		GFVariantData.get_option_string(
-			_find_record(setting_records, "name", CONTRACT_OUTPUT_DIR_SETTING),
+			_find_record(
+				setting_records,
+				"name",
+				CONTRACT_OUTPUT_DIR_SETTING
+			),
 			"default_value"
 		),
 		"res://generated/network"
 	)
-	assert_eq(section_records.size(), 1, "Network editor tool 应贡献独立项目设置分区展示。")
 	assert_eq(
-		GFVariantData.get_option_string(_find_record(section_records, "path", "gf/network"), "path"),
+		section_records.size(),
+		1,
+		"Network editor tool 应贡献独立项目设置分区展示。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			_find_record(
+				section_records,
+				"path",
+				"gf/network"
+			),
+			"path"
+		),
 		"gf/network"
 	)
 
@@ -81,24 +123,52 @@ func test_network_editor_actions_contribute_menu_entries_settings_and_sections()
 func test_network_contract_generator_allocates_complete_symbol_scopes() -> void:
 	var contract: GFNetworkContract = GFNetworkContract.new()
 	contract.contract_id = &"symbols"
-	for entry: Array in [["update", "payload", "message", "channel_id"], ["a", "b_c"], ["a_b", "c"], ["contract", "version"]]:
+	for entry: Array in [
+		[
+			"update",
+			"payload",
+			"message",
+			"channel_id",
+		],
+		["a", "b_c"],
+		["a_b", "c"],
+		["contract", "version"],
+	]:
 		var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
 		message_contract.message_type = StringName(GFVariantData.to_text(entry[0]))
-		for index: int in range(1, entry.size()):
+		for index: int in range(
+			1,
+			entry.size()
+		):
 			var field: GFNetworkContractField = GFNetworkContractField.new()
 			field.field_name = StringName(GFVariantData.to_text(entry[index]))
 			field.value_type = GFNetworkContractField.ValueType.INT
 			message_contract.fields.append(field)
 		contract.messages.append(message_contract)
-	assert_true(GFVariantData.get_option_bool(contract.validate_contract(), "ok"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			contract.validate_contract(),
+			"ok"
+		)
+	)
 	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
-	var source: String = generator.build_source(contract, { "class_name": "ScopeCollisionFixture" }).replace("class_name ScopeCollisionFixture\n", "")
+	var source: String = (
+		generator.build_source(
+			contract,
+			{ "class_name": "ScopeCollisionFixture" }
+		).replace("class_name ScopeCollisionFixture\n", "")
+	)
 	var runtime_script: GDScript = GDScript.new()
 	runtime_script.source_code = source
 	var compile_error: Error = runtime_script.reload(false)
 	assert_eq(compile_error, OK)
 	if compile_error == OK:
-		var message_value: Variant = runtime_script.call("make_update", 7, 8, 9)
+		var message_value: Variant = runtime_script.call(
+			"make_update",
+			7,
+			8,
+			9
+		)
 		assert_true(message_value is GFNetworkMessage)
 		if message_value is GFNetworkMessage:
 			var message: GFNetworkMessage = message_value
@@ -115,8 +185,14 @@ func test_network_contract_generator_script_exposes_generation_api() -> void:
 	var generator: RefCounted = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
 
 	assert_eq(GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.DEFAULT_OUTPUT_DIR, "res://generated/network")
-	assert_true(generator.has_method("generate_with_report"), "Network tool module 应包含生成器报告入口。")
-	assert_true(generator.has_method("generate_many"), "Network tool module 应包含批量生成入口。")
+	assert_true(
+		generator.has_method("generate_with_report"),
+		"Network tool module 应包含生成器报告入口。"
+	)
+	assert_true(
+		generator.has_method("generate_many"),
+		"Network tool module 应包含批量生成入口。"
+	)
 
 
 func test_network_contract_generator_rejects_batch_output_collisions_before_writing() -> void:
@@ -127,8 +203,14 @@ func test_network_contract_generator_rejects_batch_output_collisions_before_writ
 	var output_path: String = output_dir.path_join("foo_bar_network_messages.gd")
 	var first_contract: GFNetworkContract = _make_contract(&"foo-bar")
 	var second_contract: GFNetworkContract = _make_contract(&"foo_bar")
-	assert_eq(ResourceSaver.save(first_contract, first_contract_path), OK)
-	assert_eq(ResourceSaver.save(second_contract, second_contract_path), OK)
+	assert_eq(
+		ResourceSaver.save(first_contract, first_contract_path),
+		OK
+	)
+	assert_eq(
+		ResourceSaver.save(second_contract, second_contract_path),
+		OK
+	)
 	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
 
 	var report: Dictionary = generator.generate_many(
@@ -138,13 +220,22 @@ func test_network_contract_generator_rejects_batch_output_collisions_before_writ
 		{ "scan_filesystem": false }
 	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "批次输出碰撞必须使整个预检失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"批次输出碰撞必须使整个预检失败。"
+	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "duplicate_output_path"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(report, "duplicate_output_path"),
+			"kind"
+		),
 		"duplicate_output_path",
 		"碰撞应提供稳定 issue kind。"
 	)
-	assert_false(FileAccess.file_exists(output_path), "碰撞批次必须保持零写入。")
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"碰撞批次必须保持零写入。"
+	)
 	_remove_file_if_present(first_contract_path)
 	_remove_file_if_present(second_contract_path)
 	_remove_file_if_present(output_path)
@@ -163,8 +254,14 @@ func test_network_contract_generator_preflights_all_definitions_before_writing()
 	var invalid_field: GFNetworkContractField = invalid_message.fields[0]
 	invalid_field.required = false
 	invalid_field.default_value = "wrong_type"
-	assert_eq(ResourceSaver.save(valid_contract, valid_path), OK)
-	assert_eq(ResourceSaver.save(invalid_contract, invalid_path), OK)
+	assert_eq(
+		ResourceSaver.save(valid_contract, valid_path),
+		OK
+	)
+	assert_eq(
+		ResourceSaver.save(invalid_contract, invalid_path),
+		OK
+	)
 	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
 
 	var report: Dictionary = generator.generate_many(
@@ -174,9 +271,15 @@ func test_network_contract_generator_preflights_all_definitions_before_writing()
 		{ "scan_filesystem": false }
 	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "任一无效定义都必须阻止批次进入写阶段。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"任一无效定义都必须阻止批次进入写阶段。"
+	)
 	assert_false(_find_issue(report, "invalid_contract_definition").is_empty())
-	assert_false(FileAccess.file_exists(valid_output_path), "批次预检失败时前面的合法契约也不得写入。")
+	assert_false(
+		FileAccess.file_exists(valid_output_path),
+		"批次预检失败时前面的合法契约也不得写入。"
+	)
 	_remove_file_if_present(valid_path)
 	_remove_file_if_present(invalid_path)
 	_remove_file_if_present(valid_output_path)
@@ -188,17 +291,20 @@ func test_network_contract_generator_dry_run_and_commit_share_plan_fingerprint()
 	var contract_path: String = "user://gf_network_plan_fingerprint_%d.tres" % stamp
 	var output_dir: String = "user://gf_network_plan_fingerprint_output_%d" % stamp
 	var output_path: String = output_dir.path_join("stable_network_messages.gd")
-	assert_eq(ResourceSaver.save(_make_contract(&"stable"), contract_path), OK)
+	assert_eq(
+		ResourceSaver.save(
+			_make_contract(&"stable"),
+			contract_path
+		),
+		OK
+	)
 	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
 
 	var dry_run_report: Dictionary = generator.generate_many(
 		PackedStringArray([contract_path]),
 		output_dir,
 		true,
-		{
-			"dry_run": true,
-			"scan_filesystem": false,
-		}
+		{ "dry_run": true, "scan_filesystem": false, }
 	)
 	var commit_report: Dictionary = generator.generate_many(
 		PackedStringArray([contract_path]),
@@ -214,7 +320,10 @@ func test_network_contract_generator_dry_run_and_commit_share_plan_fingerprint()
 		GFVariantData.get_option_string(commit_report, "plan_fingerprint"),
 		"相同输入的 preview 与 commit 必须由同一个确定性计划驱动。"
 	)
-	assert_true(FileAccess.file_exists(output_path), "真实提交应写出计划中的唯一目标。")
+	assert_true(
+		FileAccess.file_exists(output_path),
+		"真实提交应写出计划中的唯一目标。"
+	)
 	_remove_file_if_present(contract_path)
 	_remove_file_if_present(output_path)
 	_remove_directory_if_present(output_dir)
@@ -231,7 +340,10 @@ func test_network_contract_generator_enforces_configured_batch_budget_before_loa
 		{ "max_contracts": 1 }
 	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "超过调用方预算的批次必须在 load 前失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"超过调用方预算的批次必须在 load 前失败。"
+	)
 	assert_false(_find_issue(report, "generation_budget_exceeded").is_empty())
 	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(output_dir)))
 
@@ -269,7 +381,11 @@ func _remove_directory_if_present(path: String) -> void:
 		var _remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
-func _find_record(records: Array, identity_key: String, identity: String) -> Dictionary:
+func _find_record(
+	records: Array,
+	identity_key: String,
+	identity: String
+) -> Dictionary:
 	for record_value: Variant in records:
 		if not record_value is Dictionary:
 			continue

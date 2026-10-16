@@ -32,9 +32,7 @@ const _MAX_DISPLAY_ARGUMENT_LENGTH: int = 120
 ## [br]
 ## @api private
 ## [br]
-const _NOISY_UNCONNECTED_SIGNAL_NAMES: Array[StringName] = [
-	&"draw",
-]
+const _NOISY_UNCONNECTED_SIGNAL_NAMES: Array[StringName] = [&"draw",]
 
 ## 用于从弱引用解析仍有效节点的实例守卫脚本。
 ## [br]
@@ -217,21 +215,21 @@ func refresh(root: Node = null) -> void:
 	_build_ui()
 	var target_root: Node = root if root != null else _resolve_root()
 	if target_root == null:
-		_last_graph = {
-			"ok": false,
-			"message": "没有可用的场景根节点。",
-		}
+		_last_graph = { "ok": false, "message": "没有可用的场景根节点。", }
 		_render_graph()
 		_restart_live_probe_if_enabled()
 		return
 
 	_root_ref = weakref(target_root)
-	_last_graph = GFSceneSignalAudit.build_signal_graph(target_root, {
-		"persistent_only": _persistent_only_check.button_pressed,
-		"include_empty_signals": _include_empty_check.button_pressed,
-		"include_external_targets": false,
-		"participating_nodes_only": true,
-	})
+	_last_graph = GFSceneSignalAudit.build_signal_graph(
+		target_root,
+		{
+			"persistent_only": _persistent_only_check.button_pressed,
+			"include_empty_signals": _include_empty_check.button_pressed,
+			"include_external_targets": false,
+			"participating_nodes_only": true,
+		}
+	)
 	_render_graph()
 	_restart_live_probe_if_enabled()
 
@@ -296,10 +294,7 @@ func get_debug_snapshot() -> Dictionary:
 			"watch_count": _live_watch_count,
 			"signal_names": _live_signal_names.duplicate(),
 		},
-		"rendering": {
-			"graph_revision": _graph_render_revision,
-			"event_revision": _event_render_revision,
-		},
+		"rendering": { "graph_revision": _graph_render_revision, "event_revision": _event_render_revision, },
 		"ui": {
 			"custom_minimum_size": custom_minimum_size,
 			"root_anchor_right": root_box.anchor_right if root_box != null else 0.0,
@@ -363,7 +358,13 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = _EDITOR_WORKSPACE_UI.make_toolbar()
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("刷新", "重新读取当前场景信号连接。", refresh))
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"刷新",
+			"重新读取当前场景信号连接。",
+			refresh
+		)
+	)
 
 	_persistent_only_check = CheckBox.new()
 	_persistent_only_check.text = "保存连接"
@@ -384,10 +385,20 @@ func _build_ui() -> void:
 	_connect_signal(_live_check.toggled, _on_live_toggled)
 	toolbar.add_child(_live_check)
 
-	_clear_events_button = _EDITOR_WORKSPACE_UI.make_button("清空记录", "清空信号发射记录。", _on_clear_events_pressed)
+	_clear_events_button = _EDITOR_WORKSPACE_UI.make_button(
+		"清空记录",
+		"清空信号发射记录。",
+		_on_clear_events_pressed
+	)
 	_clear_events_button.disabled = true
 	toolbar.add_child(_clear_events_button)
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("定位来源", "在当前编辑场景中选中此连接或发射记录的来源节点。", _on_locate_source_pressed))
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"定位来源",
+			"在当前编辑场景中选中此连接或发射记录的来源节点。",
+			_on_locate_source_pressed
+		)
+	)
 
 	_filter_edit = LineEdit.new()
 	_filter_edit.placeholder_text = "筛选节点、信号或方法"
@@ -425,7 +436,14 @@ func _build_ui() -> void:
 	_empty_state_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	connection_page.add_child(_empty_state_label)
 
-	_tree = _make_tree(["来源", "信号", "目标", "方法"])
+	_tree = _make_tree(
+		[
+			"来源",
+			"信号",
+			"目标",
+			"方法",
+		]
+	)
 	_connect_signal(_tree.item_selected, _on_tree_item_selected)
 	connection_page.add_child(_tree)
 
@@ -439,7 +457,14 @@ func _build_ui() -> void:
 	_event_empty_state_label.text = _get_event_empty_text()
 	event_page.add_child(_event_empty_state_label)
 
-	_event_tree = _make_tree(["时间", "来源", "信号", "参数"])
+	_event_tree = _make_tree(
+		[
+			"时间",
+			"来源",
+			"信号",
+			"参数",
+		]
+	)
 	_connect_signal(_event_tree.item_selected, _on_event_tree_item_selected)
 	event_page.add_child(_event_tree)
 
@@ -458,8 +483,14 @@ func _make_tree(titles: Array[String]) -> Tree:
 	tree.hide_root = true
 	tree.column_titles_visible = true
 	for i: int in range(titles.size()):
-		tree.set_column_title(i, titles[i])
-		tree.set_column_expand(i, i != 1)
+		tree.set_column_title(
+			i,
+			titles[i]
+		)
+		tree.set_column_expand(
+			i,
+			i != 1
+		)
 	tree.set_column_custom_minimum_width(1, 130)
 	tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -498,10 +529,18 @@ func _render_graph() -> void:
 	_graph_render_revision += 1
 
 	_tree.clear()
-	if not GFVariantData.get_option_bool(_last_graph, "ok", false):
+	if not GFVariantData.get_option_bool(
+		_last_graph,
+		"ok",
+		false
+	):
 		_EDITOR_WORKSPACE_UI.set_status(
 			_summary_label,
-			GFVariantData.get_option_string(_last_graph, "message", "信号图不可用。"),
+			GFVariantData.get_option_string(
+				_last_graph,
+				"message",
+				"信号图不可用。"
+			),
 			_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR
 		)
 		_tree.visible = false
@@ -511,15 +550,34 @@ func _render_graph() -> void:
 		_render_events()
 		return
 
-	var connection_total: int = GFVariantData.get_option_int(_last_graph, "connection_count", 0)
-	var signal_total: int = GFVariantData.get_option_int(_last_graph, "signal_count", 0)
-	_summary_label.text = "节点：%d  信号：%d  连接：%d  发射记录：%d" % [
-		GFVariantData.get_option_int(_last_graph, "node_count", 0),
-		signal_total,
-		connection_total,
-		_last_events.size(),
-	]
-	_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
+	var connection_total: int = GFVariantData.get_option_int(
+		_last_graph,
+		"connection_count",
+		0
+	)
+	var signal_total: int = GFVariantData.get_option_int(
+		_last_graph,
+		"signal_count",
+		0
+	)
+	_summary_label.text = (
+		"节点：%d  信号：%d  连接：%d  发射记录：%d"
+		% [
+			GFVariantData.get_option_int(
+				_last_graph,
+				"node_count",
+				0
+			),
+			signal_total,
+			connection_total,
+			_last_events.size(),
+		]
+	)
+	_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		_summary_label.text,
+		_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	)
 	_details.text = "选中一条连接、信号或发射记录后查看详情。"
 
 	if connection_total == 0 and signal_total == 0:
@@ -536,11 +594,42 @@ func _render_graph() -> void:
 		if connection.is_empty() or not _matches_filter(connection):
 			continue
 		var item: TreeItem = _tree.create_item(root_item)
-		item.set_text(0, GFVariantData.get_option_string(connection, "source_node_path", ""))
-		item.set_text(1, GFVariantData.get_option_string(connection, "signal_name", ""))
-		item.set_text(2, GFVariantData.get_option_string(connection, "target_node_path", ""))
-		item.set_text(3, GFVariantData.get_option_string(connection, "method_name", ""))
-		item.set_metadata(0, connection.duplicate(true))
+		item.set_text(
+			0,
+			GFVariantData.get_option_string(
+				connection,
+				"source_node_path",
+				""
+			)
+		)
+		item.set_text(
+			1,
+			GFVariantData.get_option_string(
+				connection,
+				"signal_name",
+				""
+			)
+		)
+		item.set_text(
+			2,
+			GFVariantData.get_option_string(
+				connection,
+				"target_node_path",
+				""
+			)
+		)
+		item.set_text(
+			3,
+			GFVariantData.get_option_string(
+				connection,
+				"method_name",
+				""
+			)
+		)
+		item.set_metadata(
+			0,
+			connection.duplicate(true)
+		)
 		visible_count += 1
 
 	if connection_total == 0:
@@ -549,11 +638,28 @@ func _render_graph() -> void:
 			if signal_entry.is_empty() or not _matches_filter(signal_entry):
 				continue
 			var signal_item: TreeItem = _tree.create_item(root_item)
-			signal_item.set_text(0, GFVariantData.get_option_string(signal_entry, "node_path", ""))
-			signal_item.set_text(1, GFVariantData.get_option_string(signal_entry, "signal_name", ""))
+			signal_item.set_text(
+				0,
+				GFVariantData.get_option_string(
+					signal_entry,
+					"node_path",
+					""
+				)
+			)
+			signal_item.set_text(
+				1,
+				GFVariantData.get_option_string(
+					signal_entry,
+					"signal_name",
+					""
+				)
+			)
 			signal_item.set_text(2, "-")
 			signal_item.set_text(3, "-")
-			signal_item.set_metadata(0, signal_entry.duplicate(true))
+			signal_item.set_metadata(
+				0,
+				signal_entry.duplicate(true)
+			)
 			visible_count += 1
 
 	_tree.visible = visible_count > 0
@@ -576,16 +682,49 @@ func _render_events() -> void:
 	_clear_events_button.disabled = _last_events.is_empty()
 	var root_item: TreeItem = _event_tree.create_item()
 	var visible_count: int = 0
-	for i: int in range(_last_events.size() - 1, -1, -1):
+	for i: int in range(
+		_last_events.size() - 1,
+		-1,
+		-1
+	):
 		var event: Dictionary = _last_events[i]
 		if not _matches_filter(event):
 			continue
 		var item: TreeItem = _event_tree.create_item(root_item)
-		item.set_text(0, str(GFVariantData.get_option_int(event, "timestamp_msec", 0)))
-		item.set_text(1, GFVariantData.get_option_string(event, "source_node_path", ""))
-		item.set_text(2, GFVariantData.get_option_string(event, "signal_name", ""))
-		item.set_text(3, _format_arguments(GFVariantData.get_option_array(event, "arguments")))
-		item.set_metadata(0, event.duplicate(true))
+		item.set_text(
+			0,
+			str(
+				GFVariantData.get_option_int(
+					event,
+					"timestamp_msec",
+					0
+				)
+			)
+		)
+		item.set_text(
+			1,
+			GFVariantData.get_option_string(
+				event,
+				"source_node_path",
+				""
+			)
+		)
+		item.set_text(
+			2,
+			GFVariantData.get_option_string(
+				event,
+				"signal_name",
+				""
+			)
+		)
+		item.set_text(
+			3,
+			_format_arguments(GFVariantData.get_option_array(event, "arguments"))
+		)
+		item.set_metadata(
+			0,
+			event.duplicate(true)
+		)
 		visible_count += 1
 
 	_event_tree.visible = visible_count > 0
@@ -646,13 +785,20 @@ func _start_live_probe() -> void:
 	_probe = GFSignalRuntimeProbe.new()
 	_probe.max_events = _MAX_EVENT_COUNT
 	_connect_signal(_probe.signal_emitted, _on_probe_signal_emitted)
-	var report: Dictionary = _probe.watch_tree(target_root, {
-		"recursive": true,
-		"include_internal": false,
-		"include_signals": _live_signal_names,
-		"max_argument_count": 8,
-	})
-	_live_watch_count = GFVariantData.get_option_int(report, "watched_count", 0)
+	var report: Dictionary = _probe.watch_tree(
+		target_root,
+		{
+			"recursive": true,
+			"include_internal": false,
+			"include_signals": _live_signal_names,
+			"max_argument_count": 8,
+		}
+	)
+	_live_watch_count = GFVariantData.get_option_int(
+		report,
+		"watched_count",
+		0
+	)
 
 
 ## 清零监视状态，断开事件回调、释放探针并清空实例引用。
@@ -729,11 +875,19 @@ func _collect_live_signal_names() -> PackedStringArray:
 		_append_live_signal_name(
 			result,
 			seen,
-			GFVariantData.get_option_string_name(connection, "signal_name", &""),
+			GFVariantData.get_option_string_name(
+				connection,
+				"signal_name",
+				&""
+			),
 			false
 		)
 
-	if result.is_empty() and _include_empty_check != null and _include_empty_check.button_pressed:
+	if (
+		result.is_empty()
+		and _include_empty_check != null
+		and _include_empty_check.button_pressed
+	):
 		for signal_variant: Variant in GFVariantData.get_option_array(_last_graph, "signals"):
 			var signal_entry: Dictionary = GFVariantData.as_dictionary(signal_variant)
 			if signal_entry.is_empty() or not _matches_filter(signal_entry):
@@ -741,7 +895,11 @@ func _collect_live_signal_names() -> PackedStringArray:
 			_append_live_signal_name(
 				result,
 				seen,
-				GFVariantData.get_option_string_name(signal_entry, "signal_name", &""),
+				GFVariantData.get_option_string_name(
+					signal_entry,
+					"signal_name",
+					&""
+				),
 				true
 			)
 	return result
@@ -827,7 +985,7 @@ func _get_event_empty_text() -> String:
 	if _live_check != null and _live_check.button_pressed:
 		if _live_signal_names.is_empty() or _live_watch_count <= 0:
 			return "追踪已开启，但当前筛选没有可追踪信号。先在连接页确认有保存连接，或勾选“未连接信号”后刷新。独立运行的游戏进程不会被自动抓取。"
-		return "追踪已开启：%d 个信号正在监听。现在操作当前编辑场景，让按钮、Area、AnimationPlayer 或自定义脚本发出信号，新的发射记录会出现在这里。独立运行的游戏进程不会被自动抓取。" % _live_watch_count
+		return ("追踪已开启：%d 个信号正在监听。现在操作当前编辑场景，让按钮、Area、AnimationPlayer 或自定义脚本发出信号，新的发射记录会出现在这里。独立运行的游戏进程不会被自动抓取。" % _live_watch_count)
 	return "勾选“追踪发射”后，再操作当前编辑场景；之后发出的 pressed、area_entered、animation_finished 或自定义信号会记录在这里。"
 
 
@@ -900,12 +1058,33 @@ func _on_locate_source_pressed() -> void:
 		_EDITOR_WORKSPACE_UI.set_status(_summary_label, "先选择一条连接或发射记录。")
 		return
 	var metadata: Dictionary = GFVariantData.as_dictionary(item.get_metadata(0))
-	var path: String = GFVariantData.get_option_string(metadata, "source_node_path", GFVariantData.get_option_string(metadata, "node_path"))
+	var path: String = GFVariantData.get_option_string(
+		metadata,
+		"source_node_path",
+		GFVariantData.get_option_string(metadata, "node_path")
+	)
 	var root: Node = _get_live_node_from_ref(_root_ref) if _root_ref != null else null
 	var edited_root: Node = EditorInterface.get_edited_scene_root()
-	var source: Node = root.get_node_or_null(NodePath(path)) if root != null and root.is_inside_tree() and not path.is_empty() else null
-	if source == null or edited_root == null or not (source == edited_root or edited_root.is_ancestor_of(source)):
-		_EDITOR_WORKSPACE_UI.set_status(_summary_label, "来源已不在当前编辑场景中，请刷新后重新选择。", _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
+	var source: Node = (
+		root.get_node_or_null(NodePath(path))
+		if root != null
+		and root.is_inside_tree()
+		and not path.is_empty()
+		else null
+	)
+	if (
+		source == null
+		or edited_root == null
+		or not (
+			source == edited_root
+			or edited_root.is_ancestor_of(source)
+		)
+	):
+		_EDITOR_WORKSPACE_UI.set_status(
+			_summary_label,
+			"来源已不在当前编辑场景中，请刷新后重新选择。",
+			_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR
+		)
 		return
 	var selection: EditorSelection = EditorInterface.get_selection()
 	selection.clear()

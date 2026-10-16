@@ -39,25 +39,39 @@ static func resolve_output_path(
 ) -> Dictionary:
 	var raw_path: String = output_path.strip_edges().replace("\\", "/")
 	if raw_path.is_empty():
-		return _make_failure(output_path, "%s输出路径为空。" % artifact_label)
+		return _make_failure(
+			output_path,
+			"%s输出路径为空。" % artifact_label
+		)
 
 	var scheme: StringName = _resolve_supported_scheme(raw_path)
 	if scheme == &"":
 		return _make_failure(
 			output_path,
-			"%s输出路径必须使用 res:// 或 user://：%s。" % [artifact_label, output_path]
+			"%s输出路径必须使用 res:// 或 user://：%s。"
+			% [artifact_label, output_path]
 		)
 	var scheme_prefix: String = "%s://" % String(scheme)
 	var body: String = raw_path.substr(scheme_prefix.length())
-	if body.is_empty() or body.begins_with("/") or body.ends_with("/") or body.contains("://"):
+	if (
+		body.is_empty()
+		or body.begins_with("/")
+		or body.ends_with("/")
+		or body.contains("://")
+	):
 		return _make_failure(
 			output_path,
-			"%s输出路径必须是 res:// 或 user:// 下的文件 URI：%s。" % [artifact_label, output_path]
+			"%s输出路径必须是 res:// 或 user:// 下的文件 URI：%s。"
+			% [artifact_label, output_path]
 		)
 
 	var parent_error: String = _validate_parent_segments(
 		body,
-		GFVariantData.get_option_bool(options, "allow_parent_output_path", false),
+		GFVariantData.get_option_bool(
+			options,
+			"allow_parent_output_path",
+			false
+		),
 		artifact_label,
 		output_path
 	)
@@ -65,23 +79,25 @@ static func resolve_output_path(
 		return _make_failure(output_path, parent_error)
 
 	var canonical_path: String = _GF_PATH_TOOLS.normalize_resource_path(raw_path)
-	var canonical_body: String = (
-		canonical_path.substr(scheme_prefix.length())
-		if canonical_path.begins_with(scheme_prefix)
-		else ""
-	)
+	var canonical_body: String = (canonical_path.substr(scheme_prefix.length()) if canonical_path.begins_with(scheme_prefix) else "")
 	if canonical_body.is_empty():
 		return _make_failure(
 			output_path,
-			"%s输出路径规范化后必须仍指向 resource URI 根内的文件：%s。" % [artifact_label, output_path]
+			"%s输出路径规范化后必须仍指向 resource URI 根内的文件：%s。"
+			% [artifact_label, output_path]
 		)
 	if (
 		_is_gf_source_output_path(canonical_path)
-		and not GFVariantData.get_option_bool(options, "allow_gf_source_output", false)
+		and not GFVariantData.get_option_bool(
+			options,
+			"allow_gf_source_output",
+			false
+		)
 	):
 		return _make_failure(
 			output_path,
-			"%s输出路径不能写入 GF 框架源码目录：%s。" % [artifact_label, output_path]
+			"%s输出路径不能写入 GF 框架源码目录：%s。"
+			% [artifact_label, output_path]
 		)
 	return {
 		"success": true,
@@ -124,9 +140,15 @@ static func _validate_parent_segments(
 			depth += 1
 			continue
 		if not allow_parent_output_path:
-			return "%s输出路径不能包含父级片段：%s。" % [artifact_label, output_path]
+			return (
+				"%s输出路径不能包含父级片段：%s。"
+				% [artifact_label, output_path]
+			)
 		if depth <= 0:
-			return "%s输出路径不能越过 resource URI 根目录：%s。" % [artifact_label, output_path]
+			return (
+				"%s输出路径不能越过 resource URI 根目录：%s。"
+				% [artifact_label, output_path]
+			)
 		depth -= 1
 	return ""
 

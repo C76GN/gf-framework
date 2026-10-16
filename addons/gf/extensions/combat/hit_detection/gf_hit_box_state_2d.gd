@@ -147,7 +147,11 @@ func _set_active(value: bool) -> void:
 ## [br]
 ## @api private
 func _is_managed_node(node: Node) -> bool:
-	return node is GFHitBox2D or node is GFHurtBox2D or node is Area2D
+	return (
+		node is GFHitBox2D
+		or node is GFHurtBox2D
+		or node is Area2D
+	)
 
 
 ## 按管理开关同步 hit/hurt enabled、Area2D 监测状态和 CanvasItem 可见性。

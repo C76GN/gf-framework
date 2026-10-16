@@ -96,7 +96,10 @@ func describe_recipe() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on describe_recipe().
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(describe_recipe(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		describe_recipe(),
+		options
+	)
 
 
 ## 校验 Recipe 结构。
@@ -105,10 +108,10 @@ func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return: 校验报告对象。
 func validate_recipe_report() -> GFValidationReport:
-	var report: GFValidationReport = GFValidationReport.new("Capability recipe", {
-		"recipe_id": String(recipe_id),
-		"resource_path": resource_path,
-	})
+	var report: GFValidationReport = GFValidationReport.new(
+		"Capability recipe",
+		{ "recipe_id": String(recipe_id), "resource_path": resource_path, }
+	)
 
 	_validate_groups(report)
 	_validate_entries(report)
@@ -169,10 +172,7 @@ func _validate_groups(report: GFValidationReport) -> void:
 				"Recipe contains duplicate group names.",
 				group_name,
 				_make_group_path(index),
-				{
-					"group_index": index,
-					"group_name": String(group_name),
-				}
+				{ "group_index": index, "group_name": String(group_name), }
 			)
 		seen_groups[group_name] = true
 
@@ -216,10 +216,7 @@ func _validate_entries(report: GFValidationReport) -> void:
 				"Recipe contains duplicate capability entries.",
 				key,
 				_make_entry_path(index),
-				{
-					"entry_index": index,
-					"entry_key": key,
-				}
+				{ "entry_index": index, "entry_key": key, }
 			)
 		seen_keys[key] = true
 
@@ -269,14 +266,16 @@ func _add_recipe_issue(
 ) -> void:
 	var metadata_copy: Dictionary = issue_metadata.duplicate(true)
 	metadata_copy["recipe_id"] = String(recipe_id)
-	var issue: RefCounted = report.add_issue(GFValidationIssue.new(
-		severity,
-		kind,
-		message,
-		key,
-		path,
-		metadata_copy
-	))
+	var issue: RefCounted = report.add_issue(
+		GFValidationIssue.new(
+			severity,
+			kind,
+			message,
+			key,
+			path,
+			metadata_copy
+		)
+	)
 	if issue is GFValidationIssue:
 		var validation_issue: GFValidationIssue = issue
 		validation_issue.source_path = resource_path

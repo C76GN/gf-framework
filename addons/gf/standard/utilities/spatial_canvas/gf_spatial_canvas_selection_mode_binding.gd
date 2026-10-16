@@ -26,9 +26,7 @@ extends Resource
 ## @api public
 ## [br]
 ## @since 11.0.0
-@export var selection_mode: GFSpatialCanvas2D.SelectionMode = (
-	GFSpatialCanvas2D.SelectionMode.REPLACE
-)
+@export var selection_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE
 
 
 # --- 公共方法 ---

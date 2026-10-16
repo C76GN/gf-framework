@@ -57,9 +57,7 @@ const _MAX_TOTAL_TEXT_BYTES: int = 16 * 1024 * 1024
 ## [br]
 ## @api private
 ## [br]
-const _GF_ANALYTICS_EVENT_SCHEMA_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd"
-)
+const _GF_ANALYTICS_EVENT_SCHEMA_SCRIPT = preload("res://addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd")
 
 
 # --- 私有变量 ---
@@ -112,22 +110,18 @@ var _registered_text_bytes: int = 0
 ## @schema return: Dictionary with ok, reason, event_name, schema_version, registered_count, and validation.
 func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:
 	if schema == null:
-		var missing_report: GFValidationReport = GFValidationReport.new(
-			"GFAnalyticsSchemaRegistry.register_schema"
+		var missing_report: GFValidationReport = GFValidationReport.new("GFAnalyticsSchemaRegistry.register_schema")
+		var _missing_issue: RefCounted = missing_report.add_error(&"missing_schema", "Analytics event schema is required.")
+		return _make_registration_result(
+			false,
+			"invalid_schema",
+			&"",
+			0,
+			missing_report
 		)
-		var _missing_issue: RefCounted = missing_report.add_error(
-			&"missing_schema",
-			"Analytics event schema is required."
-		)
-		return _make_registration_result(false, "invalid_schema", &"", 0, missing_report)
 	if schema.get_script() != _GF_ANALYTICS_EVENT_SCHEMA_SCRIPT:
-		var unsupported_report: GFValidationReport = GFValidationReport.new(
-			"GFAnalyticsSchemaRegistry.register_schema"
-		)
-		var _unsupported_issue: RefCounted = unsupported_report.add_error(
-			&"unsupported_schema_definition_type",
-			"Analytics registry only accepts the built-in GFAnalyticsEventSchema script."
-		)
+		var unsupported_report: GFValidationReport = GFValidationReport.new("GFAnalyticsSchemaRegistry.register_schema")
+		var _unsupported_issue: RefCounted = unsupported_report.add_error(&"unsupported_schema_definition_type", "Analytics registry only accepts the built-in GFAnalyticsEventSchema script.")
 		return _make_registration_result(
 			false,
 			"invalid_schema",
@@ -158,18 +152,14 @@ func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:
 			&"registry_full",
 			"Analytics schema registry is full.",
 			schema,
-			{
-				"max_schema_count": _MAX_SCHEMA_COUNT,
-			}
+			{ "max_schema_count": _MAX_SCHEMA_COUNT, }
 		)
 	if bucket.size() >= _MAX_VERSIONS_PER_EVENT:
 		return _make_registration_failure(
 			&"version_limit_reached",
 			"Analytics event schema version limit is reached.",
 			schema,
-			{
-				"max_versions_per_event": _MAX_VERSIONS_PER_EVENT,
-			}
+			{ "max_versions_per_event": _MAX_VERSIONS_PER_EVENT, }
 		)
 
 	var footprint: Dictionary = schema.get_validated_definition_footprint_for_framework()
@@ -226,7 +216,11 @@ func register_schema(schema: GFAnalyticsEventSchema) -> Dictionary:
 ## [br]
 ## @return 已注册时返回 true。
 func has_schema(event_name: StringName, schema_version: int) -> bool:
-	if event_name == &"" or schema_version <= 0 or schema_version > _MAX_SCHEMA_VERSION:
+	if (
+		event_name == &""
+		or schema_version <= 0
+		or schema_version > _MAX_SCHEMA_VERSION
+	):
 		return false
 	return _get_event_bucket(event_name).has(schema_version)
 
@@ -242,10 +236,7 @@ func has_schema(event_name: StringName, schema_version: int) -> bool:
 ## @param schema_version: 1..2_147_483_647 范围内的精确版本。
 ## [br]
 ## @return 已注册 Schema 的副本；不存在时返回 null。
-func get_schema(
-	event_name: StringName,
-	schema_version: int
-) -> GFAnalyticsEventSchema:
+func get_schema(event_name: StringName, schema_version: int) -> GFAnalyticsEventSchema:
 	var stored_schema: GFAnalyticsEventSchema = _get_stored_schema(event_name, schema_version)
 	if stored_schema == null:
 		return null
@@ -302,21 +293,16 @@ func validate(
 	var stored_schema: GFAnalyticsEventSchema = _get_stored_schema(event_name, schema_version)
 	if stored_schema == null:
 		var missing_report: GFValidationReport = GFValidationReport.new(
-			"analytics:%s@%d" % [String(event_name), schema_version],
-			{
-				"event_name": String(event_name),
-				"schema_version": schema_version,
-			}
+			"analytics:%s@%d"
+			% [String(event_name), schema_version],
+			{ "event_name": String(event_name), "schema_version": schema_version, }
 		)
 		var _missing_issue: RefCounted = missing_report.add_error(
 			&"schema_not_registered",
 			"Exact analytics event schema version is not registered.",
 			String(event_name),
 			"properties",
-			{
-				"event_name": String(event_name),
-				"schema_version": schema_version,
-			}
+			{ "event_name": String(event_name), "schema_version": schema_version, }
 		)
 		return missing_report
 	return stored_schema.validate_registered_properties_for_framework(properties, options)
@@ -340,10 +326,7 @@ func get_debug_snapshot() -> Dictionary:
 
 	var event_summaries: Array[Dictionary] = []
 	for event_name_text: String in event_names:
-		event_summaries.append({
-			"event_name": event_name_text,
-			"versions": get_versions(StringName(event_name_text)),
-		})
+		event_summaries.append({ "event_name": event_name_text, "versions": get_versions(StringName(event_name_text)), })
 	return {
 		"event_count": _schemas_by_event.size(),
 		"schema_count": _schema_count,
@@ -377,11 +360,12 @@ func _get_event_bucket(event_name: StringName) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _get_stored_schema(
-	event_name: StringName,
-	schema_version: int
-) -> GFAnalyticsEventSchema:
-	if event_name == &"" or schema_version <= 0 or schema_version > _MAX_SCHEMA_VERSION:
+func _get_stored_schema(event_name: StringName, schema_version: int) -> GFAnalyticsEventSchema:
+	if (
+		event_name == &""
+		or schema_version <= 0
+		or schema_version > _MAX_SCHEMA_VERSION
+	):
 		return null
 	var bucket: Dictionary = _get_event_bucket(event_name)
 	var schema_value: Variant = bucket.get(schema_version)
@@ -402,11 +386,9 @@ func _make_registration_failure(
 	metadata: Dictionary = {}
 ) -> Dictionary:
 	var report: GFValidationReport = GFValidationReport.new(
-		"analytics:%s@%d" % [String(schema.event_name), schema.schema_version],
-		{
-			"event_name": String(schema.event_name),
-			"schema_version": schema.schema_version,
-		}
+		"analytics:%s@%d"
+		% [String(schema.event_name), schema.schema_version],
+		{ "event_name": String(schema.event_name), "schema_version": schema.schema_version, }
 	)
 	var issue_metadata: Dictionary = metadata.duplicate(true)
 	issue_metadata["event_name"] = String(schema.event_name)

@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`message_received`](#member-gfnetworkutility-signals-message_received) | `signal message_received(peer_id: int, message: GFNetworkMessage)` |
-| 信号 | [`message_rejected`](#member-gfnetworkutility-signals-message_rejected) | `signal message_rejected(peer_id: int, reason: String, details: Dictionary)` |
+| 信号 | [`message_rejected`](#member-gfnetworkutility-signals-message_rejected) | `signal message_rejected( peer_id: int, reason: String, details: Dictionary )` |
 | 信号 | [`connected`](#member-gfnetworkutility-signals-connected) | `signal connected` |
 | 信号 | [`disconnected`](#member-gfnetworkutility-signals-disconnected) | `signal disconnected(reason: String)` |
 | 信号 | [`peer_connected`](#member-gfnetworkutility-signals-peer_connected) | `signal peer_connected(peer_id: int)` |
@@ -41,7 +41,7 @@
 | 方法 | [`host`](#member-gfnetworkutility-methods-host) | `func host(options: Dictionary = {}) -> Error:` |
 | 方法 | [`connect_to_endpoint`](#member-gfnetworkutility-methods-connect_to_endpoint) | `func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:` |
 | 方法 | [`disconnect_network`](#member-gfnetworkutility-methods-disconnect_network) | `func disconnect_network() -> void:` |
-| 方法 | [`send_message`](#member-gfnetworkutility-methods-send_message) | `func send_message(peer_id: int, message: GFNetworkMessage, options: Dictionary = {}) -> Error:` |
+| 方法 | [`send_message`](#member-gfnetworkutility-methods-send_message) | `func send_message( peer_id: int, message: GFNetworkMessage, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`send_message_on_channel`](#member-gfnetworkutility-methods-send_message_on_channel) | `func send_message_on_channel( peer_id: int, message: GFNetworkMessage, channel_id: StringName, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`capture_transport_metrics`](#member-gfnetworkutility-methods-capture_transport_metrics) | `func capture_transport_metrics() -> GFNetworkTransportMetrics:` |
 | 方法 | [`get_transport_metric_samples`](#member-gfnetworkutility-methods-get_transport_metric_samples) | `func get_transport_metric_samples() -> Array[GFNetworkTransportMetrics]:` |
@@ -74,9 +74,10 @@ signal message_received(peer_id: int, message: GFNetworkMessage)
 ### `message_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal message_rejected(peer_id: int, reason: String, details: Dictionary)
+signal message_rejected( peer_id: int, reason: String, details: Dictionary )
 ```
 
 消息校验失败后发出。
@@ -478,9 +479,10 @@ func disconnect_network() -> void:
 ### `send_message`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func send_message(peer_id: int, message: GFNetworkMessage, options: Dictionary = {}) -> Error:
+func send_message( peer_id: int, message: GFNetworkMessage, options: Dictionary = {} ) -> Error:
 ```
 
 发送消息。

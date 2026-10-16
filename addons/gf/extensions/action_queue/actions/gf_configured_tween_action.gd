@@ -22,7 +22,11 @@ extends GFVisualAction
 ## @param step_index: 步骤索引。
 ## [br]
 ## @param target: 本次执行的缓动目标。
-signal marker_reached(marker_id: StringName, step_index: int, target: Object)
+signal marker_reached(
+	marker_id: StringName,
+	step_index: int,
+	target: Object
+)
 
 
 # --- 常量 ---
@@ -229,7 +233,11 @@ var _guard_callback: Callable = Callable()
 
 # --- Godot 生命周期方法 ---
 
-func _init(p_target: Object = null, p_config: GFTweenActionConfig = null, p_host_node: Node = null) -> void:
+func _init(
+	p_target: Object = null,
+	p_config: GFTweenActionConfig = null,
+	p_host_node: Node = null
+) -> void:
 	target = p_target
 	config = p_config
 	host_node = p_host_node
@@ -255,16 +263,28 @@ func execute() -> Variant:
 		_notify_completion(_generation)
 	if request != _execute_request:
 		return null
-	if config == null or config.is_empty() or not is_instance_valid(target):
+	if (
+		config == null
+		or config.is_empty()
+		or not is_instance_valid(target)
+	):
 		return null
 	var requested_target: Object = target
 	var requested_scope: GFTweenReplacementScope = replacement_scope
 	var tween_host: Node = _get_tween_host()
-	var controlled: bool = config.enable_playback_control or config.ping_pong or requested_scope != null
+	var controlled: bool = (
+		config.enable_playback_control
+		or config.ping_pong
+		or requested_scope != null
+	)
 	var captured_config: GFTweenActionConfig = config
 	var captured_plan: GFTweenPlaybackPlan = null
 	if controlled:
-		captured_plan = GFTweenPlaybackPlan.capture(captured_config, requested_target, captured_config.ping_pong)
+		captured_plan = GFTweenPlaybackPlan.capture(
+			captured_config,
+			requested_target,
+			captured_config.ping_pong
+		)
 		if not captured_plan.error.is_empty():
 			push_warning("[GFConfiguredTweenAction][configured_tween_action.invalid_timeline] Cannot play the timeline: %s." % captured_plan.error)
 			return null
@@ -275,7 +295,13 @@ func execute() -> Variant:
 				return null
 	if request != _execute_request:
 		return null
-	if (controlled or captured_config.has_timed_steps()) and tween_host == null:
+	if (
+		(
+			controlled
+			or captured_config.has_timed_steps()
+		)
+		and tween_host == null
+	):
 		push_warning("[GFConfiguredTweenAction][configured_tween_action.missing_host] Cannot start playback: a valid host node is required.")
 		return null
 	_generation += 1
@@ -305,7 +331,11 @@ func execute() -> Variant:
 	_connect_guards(generation)
 	if _run_scope != null:
 		_claiming = true
-		var lease: int = requested_scope.claim(self, _run_target, _plan.property_names)
+		var lease: int = requested_scope.claim(
+			self,
+			_run_target,
+			_plan.property_names
+		)
 		if generation != _generation:
 			requested_scope.release(self, lease)
 			return null
@@ -316,7 +346,11 @@ func execute() -> Variant:
 			_end_run(generation, false)
 			return null
 		# 接管回调可能改变姿态；仍使用冻结配置捕获接管后的初值。
-		captured_plan = GFTweenPlaybackPlan.capture(captured_config, _run_target, captured_config.ping_pong)
+		captured_plan = GFTweenPlaybackPlan.capture(
+			captured_config,
+			_run_target,
+			captured_config.ping_pong
+		)
 		if not _can_write(generation):
 			_end_run(generation, false)
 			return null
@@ -465,7 +499,11 @@ func play_backward() -> bool:
 ## [br]
 ## @return: 已捕获且尚未终结的可控会话返回 true。
 func can_control_playback() -> bool:
-	return _plan != null and not _finishing and _can_write(_generation)
+	return (
+		_plan != null
+		and not _finishing
+		and _can_write(_generation)
+	)
 
 
 ## 获取可控会话当前时间；未捕获时为 0。
@@ -511,7 +549,13 @@ func get_wait_guard_node() -> Node:
 ## [br]
 ## @return: 待完成通知的世代；没有对应执行时为 0。
 func detach_replacement(lease: int) -> int:
-	if not _run_active or (_lease != lease and not _claiming):
+	if (
+		not _run_active
+		or (
+			_lease != lease
+			and not _claiming
+		)
+	):
 		return 0
 	_run_active = false
 	_pending_completion = true
@@ -545,7 +589,11 @@ func notify_replaced(generation: int) -> void:
 ## @schema fallback: Variant，与原生属性兼容的值。
 ## [br]
 ## @schema return: Variant，与原生属性兼容的值。
-func read_bound_property(property_name: NodePath, generation: int, fallback: Variant) -> Variant:
+func read_bound_property(
+	property_name: NodePath,
+	generation: int,
+	fallback: Variant
+) -> Variant:
 	if not _can_write(generation):
 		return fallback
 	_native_call_depth += 1
@@ -565,7 +613,11 @@ func read_bound_property(property_name: NodePath, generation: int, fallback: Var
 ## @param generation: 代理捕获的世代。
 ## [br]
 ## @schema value: Variant，与原生属性兼容的值。
-func write_bound_property(property_name: NodePath, value: Variant, generation: int) -> void:
+func write_bound_property(
+	property_name: NodePath,
+	value: Variant,
+	generation: int
+) -> void:
 	if not _can_write(generation):
 		return
 	_native_call_depth += 1
@@ -579,7 +631,11 @@ func write_bound_property(property_name: NodePath, value: Variant, generation: i
 ## [br]
 ## @api private
 func _get_tween_host() -> Node:
-	if is_instance_valid(host_node) and host_node.is_inside_tree() and not host_node.is_queued_for_deletion():
+	if (
+		is_instance_valid(host_node)
+		and host_node.is_inside_tree()
+		and not host_node.is_queued_for_deletion()
+	):
 		return host_node
 	if is_instance_valid(target) and target is Node:
 		var node: Node = target
@@ -592,17 +648,32 @@ func _get_tween_host() -> Node:
 ## [br]
 ## @api private
 func _can_write(generation: int) -> bool:
-	if generation != _generation or not _run_active or not is_instance_valid(_run_target):
+	if (
+		generation != _generation
+		or not _run_active
+		or not is_instance_valid(_run_target)
+	):
 		return false
-	if _requires_host and (
-		not is_instance_valid(_run_host) or not _run_host.is_inside_tree() or _run_host.is_queued_for_deletion()
+	if (
+		_requires_host
+		and (
+			not is_instance_valid(_run_host)
+			or not _run_host.is_inside_tree()
+			or _run_host.is_queued_for_deletion()
+		)
 	):
 		return false
 	if _run_target is Node:
 		var node: Node = _run_target
 		if node.is_queued_for_deletion():
 			return false
-	return _run_scope == null or (_lease > 0 and _run_scope.owns(self, _lease))
+	return (
+		_run_scope == null
+		or (
+			_lease > 0
+			and _run_scope.owns(self, _lease)
+		)
+	)
 
 
 ## 从本次宿主创建 Tween，并应用捕获的时间缩放、处理和暂停策略。
@@ -639,19 +710,35 @@ func _start_native(captured_config: GFTweenActionConfig, generation: int) -> voi
 		var initial: Variant = _run_target.get_indexed(step.property_name)
 		if not _can_write(generation):
 			return
-		var binding: GFTweenPropertyBinding = GFTweenPropertyBinding.new(self, step.property_name, generation, initial)
-		if step.append_for_action(_active_tween, _run_target, captured_config.duration_scale, binding) != null:
+		var binding: GFTweenPropertyBinding = GFTweenPropertyBinding.new(
+			self,
+			step.property_name,
+			generation,
+			initial
+		)
+		if step.append_for_action(
+			_active_tween,
+			_run_target,
+			captured_config.duration_scale,
+			binding
+		) != null:
 			_bindings.append(binding)
 			var duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(step.duration * captured_config.duration_scale)
 			var delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(step.delay * captured_config.duration_scale)
 			_native_finish_budget += duration + delay
-			_append_marker_callback(step, step_index, duration + delay, generation)
+			_append_marker_callback(
+				step,
+				step_index,
+				duration + delay,
+				generation
+			)
 	if _bindings.is_empty():
 		_end_run(generation, false)
 		return
 	_native_finish_budget = (_native_finish_budget + 1.0) * float(maxi(_native_loop_count, 1))
 	_native_finish_bounded = (
-		is_finite(_native_finish_budget) and _native_loop_count > 0
+		is_finite(_native_finish_budget)
+		and _native_loop_count > 0
 		and _native_loop_count <= _MAX_FINISH_STEPS
 		and _bindings.size() * _native_loop_count <= _MAX_FINISH_STEPS
 	)
@@ -671,7 +758,10 @@ func _start_clock(generation: int) -> void:
 		return
 	_active_tween = _create_tween()
 	var clock: MethodTweener = _active_tween.tween_method(
-		_on_clock_sample.bind(generation, _clock_serial), _time_seconds, endpoint, absf(endpoint - _time_seconds)
+		_on_clock_sample.bind(generation, _clock_serial),
+		_time_seconds,
+		endpoint,
+		absf(endpoint - _time_seconds)
 	)
 	var _linear_result: MethodTweener = clock.set_trans(Tween.TRANS_LINEAR)
 	_connect_finished(generation)
@@ -704,7 +794,10 @@ func _commit_sample(time_seconds: float, generation: int) -> bool:
 	for property_name: String in values:
 		if not _can_write(generation) or serial != _clock_serial:
 			return false
-		_run_target.set_indexed(NodePath(property_name), values[property_name])
+		_run_target.set_indexed(
+			NodePath(property_name),
+			values[property_name]
+		)
 	return _can_write(generation) and serial == _clock_serial
 
 
@@ -713,7 +806,10 @@ func _commit_sample(time_seconds: float, generation: int) -> bool:
 ## @api private
 func _skip_markers_through(time_seconds: float) -> void:
 	for index: int in range(_plan.markers.size()):
-		if GFVariantData.get_option_float(_plan.markers[index], "time_seconds") <= time_seconds:
+		if GFVariantData.get_option_float(
+			_plan.markers[index],
+			"time_seconds"
+		) <= time_seconds:
 			_visited_markers[index] = true
 
 
@@ -722,14 +818,21 @@ func _skip_markers_through(time_seconds: float) -> void:
 ## @api private
 func _connect_finished(generation: int) -> void:
 	_finished_callback = _on_active_tween_finished.bind(generation, _clock_serial)
-	var _connected: Error = _active_tween.finished.connect(_finished_callback, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
+	var _connected: Error = _active_tween.finished.connect(
+		_finished_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
 
 
 ## 若当前 Tween 仍连接该回调则断开，并清空回调句柄。
 ## [br]
 ## @api private
 func _disconnect_finished() -> void:
-	if is_instance_valid(_active_tween) and _finished_callback.is_valid() and _active_tween.finished.is_connected(_finished_callback):
+	if (
+		is_instance_valid(_active_tween)
+		and _finished_callback.is_valid()
+		and _active_tween.finished.is_connected(_finished_callback)
+	):
 		_active_tween.finished.disconnect(_finished_callback)
 	_finished_callback = Callable()
 
@@ -768,7 +871,10 @@ func _end_run(generation: int, restore: bool) -> void:
 				break
 			if old_scope != null and not old_scope.owns(self, old_lease):
 				break
-			old_target.set_indexed(NodePath(property_name), initial_values[property_name])
+			old_target.set_indexed(
+				NodePath(property_name),
+				initial_values[property_name]
+			)
 	if old_scope != null:
 		old_scope.release(self, old_lease)
 	if generation != _generation:
@@ -818,12 +924,21 @@ func _disconnect_guards() -> void:
 ## 为带标记的原生步骤追加并行回调，并按步骤累计时长设置延迟。
 ## [br]
 ## @api private
-func _append_marker_callback(step: GFTweenActionStep, step_index: int, delay: float, generation: int) -> void:
+func _append_marker_callback(
+	step: GFTweenActionStep,
+	step_index: int,
+	delay: float,
+	generation: int
+) -> void:
 	if step.marker_id == &"":
 		return
 	var _parallel_result: Tween = _active_tween.parallel()
 	var marker: CallbackTweener = _active_tween.tween_callback(
-		_on_step_marker_reached.bind(step.marker_id, step_index, generation)
+		_on_step_marker_reached.bind(
+			step.marker_id,
+			step_index,
+			generation
+		)
 	)
 	var _delay_result: CallbackTweener = marker.set_delay(delay)
 
@@ -842,29 +957,49 @@ func _finish_deferred(generation: int) -> void:
 ## 提交受控时钟采样，并在正向跨越时按时间顺序发出尚未访问的标记。
 ## [br]
 ## @api private
-func _on_clock_sample(time_seconds: float, generation: int, serial: int) -> void:
+func _on_clock_sample(
+	time_seconds: float,
+	generation: int,
+	serial: int
+) -> void:
 	if not _can_write(generation) or serial != _clock_serial:
 		return
 	var previous: float = _time_seconds
 	if not _commit_sample(time_seconds, generation):
 		return
-	if _backwards or _finishing or time_seconds < previous:
+	if (
+		_backwards
+		or _finishing
+		or time_seconds < previous
+	):
 		return
 	for index: int in range(_plan.markers.size()):
 		if not _can_write(generation) or serial != _clock_serial:
 			return
 		var marker: Dictionary = _plan.markers[index]
 		var marker_time: float = GFVariantData.get_option_float(marker, "time_seconds")
-		if marker_time <= time_seconds and marker_time >= previous and not _visited_markers.has(index):
+		if (
+			marker_time <= time_seconds
+			and marker_time >= previous
+			and not _visited_markers.has(index)
+		):
 			_visited_markers[index] = true
-			marker_reached.emit(GFVariantData.get_option_string_name(marker, "marker_id"), GFVariantData.get_option_int(marker, "index"), _run_target)
+			marker_reached.emit(
+				GFVariantData.get_option_string_name(marker, "marker_id"),
+				GFVariantData.get_option_int(marker, "index"),
+				_run_target
+			)
 
 
 ## 当前 Tween 以同一代次和时钟序号完成时结束动作执行。
 ## [br]
 ## @api private
 func _on_active_tween_finished(generation: int, serial: int) -> void:
-	if generation == _generation and serial == _clock_serial and not _finishing:
+	if (
+		generation == _generation
+		and serial == _clock_serial
+		and not _finishing
+	):
 		_end_run(generation, _restore_on_finish)
 
 
@@ -878,9 +1013,21 @@ func _on_guard_exited(generation: int) -> void:
 ## 原生步骤标记回调在执行仍有效且未 finish 时发出标记信号。
 ## [br]
 ## @api private
-func _on_step_marker_reached(marker_id: StringName, step_index: int, generation: int) -> void:
-	if not _can_write(generation) or _finishing or _finish_requested:
+func _on_step_marker_reached(
+	marker_id: StringName,
+	step_index: int,
+	generation: int
+) -> void:
+	if (
+		not _can_write(generation)
+		or _finishing
+		or _finish_requested
+	):
 		return
 	_native_call_depth += 1
-	marker_reached.emit(marker_id, step_index, _run_target)
+	marker_reached.emit(
+		marker_id,
+		step_index,
+		_run_target
+	)
 	_native_call_depth -= 1

@@ -1,6 +1,5 @@
 extends Node
 
-
 static var last_instance: WeakRef = null
 
 

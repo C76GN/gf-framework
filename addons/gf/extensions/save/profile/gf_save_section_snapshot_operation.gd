@@ -126,10 +126,7 @@ var _configured: bool = false
 static func completed(snapshot: GFSaveSectionSnapshot) -> GFSaveSectionSnapshotOperation:
 	var operation: GFSaveSectionSnapshotOperation = GFSaveSectionSnapshotOperation.new()
 	if not operation._complete_snapshot(snapshot):
-		var _failed: bool = operation._fail_snapshot(
-			ERR_INVALID_DATA,
-			"Completed snapshot is invalid or unavailable."
-		)
+		var _failed: bool = operation._fail_snapshot(ERR_INVALID_DATA, "Completed snapshot is invalid or unavailable.")
 	return operation
 
 
@@ -244,13 +241,14 @@ func get_consumed_work_units() -> int:
 ## [br]
 ## @return 首次成功完成时返回 true。
 func _complete_snapshot(snapshot: GFSaveSectionSnapshot) -> bool:
-	if not is_pending() or snapshot == null or not snapshot.is_available():
+	if (
+		not is_pending()
+		or snapshot == null
+		or not snapshot.is_available()
+	):
 		return false
 	if _configured and not _snapshot_matches_definition(snapshot):
-		var _failed: bool = _fail_snapshot(
-			ERR_INVALID_DATA,
-			"Snapshot identity does not match its Provider."
-		)
+		var _failed: bool = _fail_snapshot(ERR_INVALID_DATA, "Snapshot identity does not match its Provider.")
 		return false
 	_snapshot = snapshot
 	_status = STATUS_SUCCEEDED
@@ -297,10 +295,7 @@ func _fail_snapshot(error_code: Error, error: String) -> bool:
 ## [br]
 ## @return 实际消费量；框架至少按 1 计费。
 func _advance_snapshot(_step_budget: int) -> int:
-	var _failed: bool = _fail_snapshot(
-		ERR_UNAVAILABLE,
-		"Snapshot operation must override _advance_snapshot()."
-	)
+	var _failed: bool = _fail_snapshot(ERR_UNAVAILABLE, "Snapshot operation must override _advance_snapshot().")
 	return 1
 
 
@@ -327,16 +322,17 @@ func _cancel_snapshot() -> void:
 ## [br]
 ## @return 首次合法配置时返回 true。
 func configure_for_framework(section_id: StringName, schema_version: int) -> bool:
-	if _configured or section_id == &"" or schema_version <= 0:
+	if (
+		_configured
+		or section_id == &""
+		or schema_version <= 0
+	):
 		return false
 	_configured = true
 	_section_id = section_id
 	_schema_version = schema_version
 	if _snapshot != null and not _snapshot_matches_definition(_snapshot):
-		var _failed: bool = _replace_success_with_failure(
-			ERR_INVALID_DATA,
-			"Snapshot identity does not match its Provider."
-		)
+		var _failed: bool = _replace_success_with_failure(ERR_INVALID_DATA, "Snapshot identity does not match its Provider.")
 		return false
 	return true
 
@@ -351,11 +347,19 @@ func configure_for_framework(section_id: StringName, schema_version: int) -> boo
 ## [br]
 ## @return 计入全局预算的 work units。
 func advance_for_framework(step_budget: int) -> int:
-	if not _configured or not is_pending() or step_budget <= 0:
+	if (
+		not _configured
+		or not is_pending()
+		or step_budget <= 0
+	):
 		return 0
 	_status = STATUS_RUNNING
 	var reported_units: int = _advance_snapshot(step_budget)
-	var charged_units: int = clampi(reported_units, 1, step_budget)
+	var charged_units: int = clampi(
+		reported_units,
+		1,
+		step_budget
+	)
 	_consumed_work_units += charged_units
 	return charged_units
 

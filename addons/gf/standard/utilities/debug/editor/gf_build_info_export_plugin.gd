@@ -149,9 +149,22 @@ static func _write_export_metadata_from_project_settings() -> Dictionary:
 ## [br]
 static func _restore_export_metadata(previous_settings: Dictionary) -> void:
 	for setting_path: String in _BUILD_SETTING_PATHS:
-		var entry: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(previous_settings, setting_path, {}))
-		if GFVariantData.get_option_bool(entry, "had_setting", false):
-			ProjectSettings.set_setting(setting_path, GFVariantData.get_option_value(entry, "value"))
+		var entry: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				previous_settings,
+				setting_path,
+				{}
+			)
+		)
+		if GFVariantData.get_option_bool(
+			entry,
+			"had_setting",
+			false
+		):
+			ProjectSettings.set_setting(
+				setting_path,
+				GFVariantData.get_option_value(entry, "value")
+			)
 		else:
 			_clear_project_setting_if_exists(setting_path)
 
@@ -163,9 +176,7 @@ static func _restore_export_metadata(previous_settings: Dictionary) -> void:
 static func _capture_build_settings() -> Dictionary:
 	var previous_settings: Dictionary = {}
 	for setting_path: String in _BUILD_SETTING_PATHS:
-		var entry: Dictionary = {
-			"had_setting": ProjectSettings.has_setting(setting_path),
-		}
+		var entry: Dictionary = { "had_setting": ProjectSettings.has_setting(setting_path), }
 		if ProjectSettings.has_setting(setting_path):
 			entry["value"] = ProjectSettings.get_setting(setting_path)
 		previous_settings[setting_path] = entry

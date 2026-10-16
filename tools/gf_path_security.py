@@ -548,7 +548,7 @@ def _windows_open_descriptor(path: Path, *, expect_directory: bool) -> int:
 	kernel32.CloseHandle.restype = wintypes.BOOL
 	handle = kernel32.CreateFileW(
 		str(absolute_lexical_path(path)),
-		0x00000080 if expect_directory else 0x80000000 | 0x00000080,
+		0x00000081 if expect_directory else 0x80000000 | 0x00000080,
 		0x00000001 | (0x00000002 if expect_directory else 0),
 		None,
 		3,

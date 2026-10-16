@@ -15,12 +15,12 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`pointer_pressed`](#member-gfpointeractivityutility-signals-pointer_pressed) | `signal pointer_pressed(pointer_id: int, position: Vector2, event: InputEvent)` |
-| 信号 | [`pointer_released`](#member-gfpointeractivityutility-signals-pointer_released) | `signal pointer_released(pointer_id: int, position: Vector2, event: InputEvent)` |
-| 信号 | [`pointer_moved`](#member-gfpointeractivityutility-signals-pointer_moved) | `signal pointer_moved(pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent)` |
-| 信号 | [`pointer_drag_started`](#member-gfpointeractivityutility-signals-pointer_drag_started) | `signal pointer_drag_started(pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent)` |
-| 信号 | [`pointer_dragged`](#member-gfpointeractivityutility-signals-pointer_dragged) | `signal pointer_dragged(pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent)` |
-| 信号 | [`pointer_drag_ended`](#member-gfpointeractivityutility-signals-pointer_drag_ended) | `signal pointer_drag_ended(pointer_id: int, position: Vector2, event: InputEvent)` |
+| 信号 | [`pointer_pressed`](#member-gfpointeractivityutility-signals-pointer_pressed) | `signal pointer_pressed( pointer_id: int, position: Vector2, event: InputEvent )` |
+| 信号 | [`pointer_released`](#member-gfpointeractivityutility-signals-pointer_released) | `signal pointer_released( pointer_id: int, position: Vector2, event: InputEvent )` |
+| 信号 | [`pointer_moved`](#member-gfpointeractivityutility-signals-pointer_moved) | `signal pointer_moved( pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent )` |
+| 信号 | [`pointer_drag_started`](#member-gfpointeractivityutility-signals-pointer_drag_started) | `signal pointer_drag_started( pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent )` |
+| 信号 | [`pointer_dragged`](#member-gfpointeractivityutility-signals-pointer_dragged) | `signal pointer_dragged( pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent )` |
+| 信号 | [`pointer_drag_ended`](#member-gfpointeractivityutility-signals-pointer_drag_ended) | `signal pointer_drag_ended( pointer_id: int, position: Vector2, event: InputEvent )` |
 | 信号 | [`pointer_idle_started`](#member-gfpointeractivityutility-signals-pointer_idle_started) | `signal pointer_idle_started(pointer_id: int, position: Vector2)` |
 | 信号 | [`pointer_idle_ended`](#member-gfpointeractivityutility-signals-pointer_idle_ended) | `signal pointer_idle_ended(pointer_id: int, position: Vector2)` |
 | 属性 | [`track_mouse`](#member-gfpointeractivityutility-properties-track_mouse) | `var track_mouse: bool = true` |
@@ -48,9 +48,10 @@
 ### `pointer_pressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_pressed(pointer_id: int, position: Vector2, event: InputEvent)
+signal pointer_pressed( pointer_id: int, position: Vector2, event: InputEvent )
 ```
 
 指针按下时发出。
@@ -68,9 +69,10 @@ signal pointer_pressed(pointer_id: int, position: Vector2, event: InputEvent)
 ### `pointer_released`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_released(pointer_id: int, position: Vector2, event: InputEvent)
+signal pointer_released( pointer_id: int, position: Vector2, event: InputEvent )
 ```
 
 指针释放时发出。
@@ -88,9 +90,10 @@ signal pointer_released(pointer_id: int, position: Vector2, event: InputEvent)
 ### `pointer_moved`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_moved(pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent)
+signal pointer_moved( pointer_id: int, position: Vector2, previous_position: Vector2, event: InputEvent )
 ```
 
 指针移动时发出。
@@ -109,9 +112,10 @@ signal pointer_moved(pointer_id: int, position: Vector2, previous_position: Vect
 ### `pointer_drag_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_drag_started(pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent)
+signal pointer_drag_started( pointer_id: int, start_position: Vector2, position: Vector2, event: InputEvent )
 ```
 
 指针从按下状态进入拖拽时发出。
@@ -130,9 +134,10 @@ signal pointer_drag_started(pointer_id: int, start_position: Vector2, position: 
 ### `pointer_dragged`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_dragged(pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent)
+signal pointer_dragged( pointer_id: int, position: Vector2, delta: Vector2, event: InputEvent )
 ```
 
 指针拖拽中发出。
@@ -151,9 +156,10 @@ signal pointer_dragged(pointer_id: int, position: Vector2, delta: Vector2, event
 ### `pointer_drag_ended`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal pointer_drag_ended(pointer_id: int, position: Vector2, event: InputEvent)
+signal pointer_drag_ended( pointer_id: int, position: Vector2, event: InputEvent )
 ```
 
 指针拖拽结束时发出。

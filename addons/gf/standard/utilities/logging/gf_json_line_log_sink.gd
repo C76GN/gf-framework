@@ -177,7 +177,11 @@ func init(owner: Object) -> void:
 	_file = _open_jsonl_file(_effective_file_path)
 	if _file == null:
 		if _last_error == OK:
-			_record_error(FileAccess.get_open_error(), "Cannot create log file: %s" % _effective_file_path, true)
+			_record_error(
+				FileAccess.get_open_error(),
+				"Cannot create log file: %s" % _effective_file_path,
+				true
+			)
 	else:
 		_active_files.append(weakref(_file))
 		_last_flush_msec = Time.get_ticks_msec()
@@ -207,7 +211,11 @@ func write(entry: Dictionary) -> void:
 	var stored: bool = _file.store_line(JSON.stringify(payload))
 	if not stored:
 		_write_error_count += 1
-		_record_error(_file.get_error(), "Cannot write JSONL log: %s" % _effective_file_path, true)
+		_record_error(
+			_file.get_error(),
+			"Cannot write JSONL log: %s" % _effective_file_path,
+			true
+		)
 		return
 	_has_unflushed_data = true
 	_flush_if_needed()
@@ -250,7 +258,11 @@ func flush() -> void:
 func shutdown() -> void:
 	if _file != null:
 		flush()
-		for index: int in range(_active_files.size() - 1, -1, -1):
+		for index: int in range(
+			_active_files.size() - 1,
+			-1,
+			-1
+		):
 			var active_file: Variant = _active_files[index].get_ref()
 			if active_file == null or active_file == _file:
 				_active_files.remove_at(index)
@@ -303,9 +315,15 @@ func _resolve_file_path(owner: Object) -> String:
 	if owner != null and owner.has_method("get_log_file_path"):
 		var owner_path: String = GFVariantData.to_text(owner.call("get_log_file_path"))
 		if not owner_path.is_empty():
-			return "%s_sink_%d.jsonl" % [owner_path.get_basename(), get_instance_id()]
+			return (
+				"%s_sink_%d.jsonl"
+				% [owner_path.get_basename(), get_instance_id()]
+			)
 
-	return "user://logs/gf_log_%d_sink_%d.jsonl" % [Time.get_ticks_msec(), get_instance_id()]
+	return (
+		"user://logs/gf_log_%d_sink_%d.jsonl"
+		% [Time.get_ticks_msec(), get_instance_id()]
+	)
 
 
 ## 将自定义路径限制在 user://；相对路径置于 user://logs 并拒绝绝对路径及 .. 段。
@@ -315,15 +333,31 @@ func _resolve_file_path(owner: Object) -> String:
 func _normalize_custom_file_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.is_empty():
-		_record_error(ERR_INVALID_PARAMETER, "JSONL log path is empty", true)
+		_record_error(
+			ERR_INVALID_PARAMETER,
+			"JSONL log path is empty",
+			true
+		)
 		return ""
 	if not normalized.contains("://"):
-		if normalized.is_absolute_path() or normalized.contains(":") or _has_parent_segment(normalized):
-			_record_error(ERR_INVALID_PARAMETER, "Relative JSONL log path must stay under user://logs: %s" % path, true)
+		if (
+			normalized.is_absolute_path()
+			or normalized.contains(":")
+			or _has_parent_segment(normalized)
+		):
+			_record_error(
+				ERR_INVALID_PARAMETER,
+				"Relative JSONL log path must stay under user://logs: %s" % path,
+				true
+			)
 			return ""
 		return "user://logs".path_join(normalized.simplify_path())
 	if not normalized.begins_with("user://") or _has_parent_segment(normalized):
-		_record_error(ERR_INVALID_PARAMETER, "JSONL log path must stay under user:// without parent traversal: %s" % path, true)
+		_record_error(
+			ERR_INVALID_PARAMETER,
+			"JSONL log path must stay under user:// without parent traversal: %s" % path,
+			true
+		)
 		return ""
 	return "user://%s" % normalized.trim_prefix("user://").simplify_path()
 
@@ -352,7 +386,11 @@ func _ensure_parent_dir(path: String) -> Error:
 	if not DirAccess.dir_exists_absolute(absolute_base_dir):
 		var make_dir_error: Error = DirAccess.make_dir_recursive_absolute(absolute_base_dir)
 		if make_dir_error != OK:
-			_record_error(make_dir_error, "Cannot create JSONL log directory: %s" % base_dir, true)
+			_record_error(
+				make_dir_error,
+				"Cannot create JSONL log directory: %s" % base_dir,
+				true
+			)
 			return make_dir_error
 	return OK
 
@@ -364,7 +402,11 @@ func _ensure_parent_dir(path: String) -> Error:
 ## [br]
 func _open_jsonl_file(path: String) -> FileAccess:
 	if file_open_mode == FileOpenMode.FAIL_IF_EXISTS and FileAccess.file_exists(path):
-		_record_error(ERR_ALREADY_EXISTS, "JSONL log file already exists: %s" % path, true)
+		_record_error(
+			ERR_ALREADY_EXISTS,
+			"JSONL log file already exists: %s" % path,
+			true
+		)
 		return null
 
 	if file_open_mode == FileOpenMode.APPEND:
@@ -409,11 +451,18 @@ func _cleanup_old_jsonl_files() -> void:
 	var list_error: Error = dir.list_dir_begin()
 	if list_error != OK:
 		_cleanup_error_count += 1
-		_record_error(list_error, "Cannot list JSONL log directory: %s" % base_dir)
+		_record_error(
+			list_error,
+			"Cannot list JSONL log directory: %s" % base_dir
+		)
 		return
 	var file_name: String = dir.get_next()
 	while file_name != "":
-		if not dir.current_is_dir() and file_name.begins_with("gf_log_") and file_name.ends_with(".jsonl"):
+		if (
+			not dir.current_is_dir()
+			and file_name.begins_with("gf_log_")
+			and file_name.ends_with(".jsonl")
+		):
 			var _append_result_173: Variant = files.append(file_name)
 		file_name = dir.get_next()
 	dir.list_dir_end()
@@ -424,7 +473,11 @@ func _cleanup_old_jsonl_files() -> void:
 	files.sort()
 	var to_remove: int = files.size() - max_jsonl_files
 	var active_paths: Dictionary = {}
-	for index: int in range(_active_files.size() - 1, -1, -1):
+	for index: int in range(
+		_active_files.size() - 1,
+		-1,
+		-1
+	):
 		var active_value: Variant = _active_files[index].get_ref()
 		if active_value is FileAccess:
 			var active_file: FileAccess = active_value
@@ -441,7 +494,10 @@ func _cleanup_old_jsonl_files() -> void:
 		var remove_error: Error = DirAccess.remove_absolute(candidate_path)
 		if remove_error != OK:
 			_cleanup_error_count += 1
-			_record_error(remove_error, "Cannot remove old JSONL log: %s" % candidate_path)
+			_record_error(
+				remove_error,
+				"Cannot remove old JSONL log: %s" % candidate_path
+			)
 		else:
 			to_remove -= 1
 
@@ -450,7 +506,14 @@ func _cleanup_old_jsonl_files() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _record_error(error: Error, message: String, _as_error: bool = false) -> void:
+func _record_error(
+	error: Error,
+	message: String,
+	_as_error: bool = false
+) -> void:
 	_last_error = error
-	_last_error_message = "%s, error code: %s" % [message, error]
+	_last_error_message = (
+		"%s, error code: %s"
+		% [message, error]
+	)
 	push_warning("[GFJsonLineLogSink][json_line_log_sink.sink_failed] Log sink failed: %s." % _last_error_message)

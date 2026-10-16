@@ -72,7 +72,10 @@ func execute(context: GFSequenceContext) -> Variant:
 	timer_refs.append(weakref(timer))
 	_active_timer_refs_by_context[context_id] = timer_refs
 	var _connect_result: Error = timer.timeout.connect(
-		_on_wait_timer_timeout.bind(context_id, timer.get_instance_id()),
+		_on_wait_timer_timeout.bind(
+			context_id,
+			timer.get_instance_id()
+		),
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	return timer.timeout

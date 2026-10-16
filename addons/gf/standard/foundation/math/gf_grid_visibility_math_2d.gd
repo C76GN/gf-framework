@@ -69,7 +69,12 @@ static func compute_fov(
 ) -> Dictionary:
 	if grid_size.x <= 0 or grid_size.y <= 0:
 		return _failure(&"invalid_grid_size")
-	if origin.x < 0 or origin.y < 0 or origin.x >= grid_size.x or origin.y >= grid_size.y:
+	if (
+		origin.x < 0
+		or origin.y < 0
+		or origin.x >= grid_size.x
+		or origin.y >= grid_size.y
+	):
 		return _failure(&"origin_out_of_bounds")
 	if radius < 0 or radius > MAX_RADIUS:
 		return _failure(&"invalid_radius")
@@ -77,10 +82,22 @@ static func compute_fov(
 		return _failure(&"invalid_budget")
 
 	# 用 int64 标量先裁剪；Vector2i 加减会在极端合法网格边缘产生 32 位溢出。
-	var min_x: int = maxi(int(origin.x) - radius, 0)
-	var min_y: int = maxi(int(origin.y) - radius, 0)
-	var max_x: int = mini(int(origin.x) + radius, int(grid_size.x) - 1)
-	var max_y: int = mini(int(origin.y) + radius, int(grid_size.y) - 1)
+	var min_x: int = maxi(
+		int(origin.x) - radius,
+		0
+	)
+	var min_y: int = maxi(
+		int(origin.y) - radius,
+		0
+	)
+	var max_x: int = mini(
+		int(origin.x) + radius,
+		int(grid_size.x) - 1
+	)
+	var max_y: int = mini(
+		int(origin.y) + radius,
+		int(grid_size.y) - 1
+	)
 	var width: int = max_x - min_x + 1
 	var height: int = max_y - min_y + 1
 	# 半径硬界使两个因子最多为 257，不对巨大 grid_size 做面积乘法。
@@ -89,7 +106,13 @@ static func compute_fov(
 	if not is_blocking.is_valid() or is_blocking.get_argument_count() != 1:
 		return _failure(&"invalid_predicate")
 
-	var scan: _ScanState = _ScanState.new(grid_size, origin, radius, is_blocking, include_walls)
+	var scan: _ScanState = _ScanState.new(
+		grid_size,
+		origin,
+		radius,
+		is_blocking,
+		include_walls
+	)
 	var origin_status: int = _query_blocking(scan, origin)
 	if origin_status < 0:
 		return _failure(scan._error, scan)
@@ -104,8 +127,14 @@ static func compute_fov(
 			return _failure(scan._error, scan)
 
 	var visible_cells: Array[Vector2i] = []
-	for row: int in range(min_y, max_y + 1):
-		for column: int in range(min_x, max_x + 1):
+	for row: int in range(
+		min_y,
+		max_y + 1
+	):
+		for column: int in range(
+			min_x,
+			max_x + 1
+		):
 			var cell: Vector2i = Vector2i(column, row)
 			if scan._visible.has(cell):
 				visible_cells.append(cell)
@@ -124,7 +153,13 @@ static func compute_fov(
 ## [br]
 ## @api private
 static func _scan_quadrant(scan: _ScanState, quadrant: int) -> void:
-	var rows: Array[_Row] = [_Row.new(1, Vector2i(-1, 1), Vector2i(1, 1))]
+	var rows: Array[_Row] = [
+		_Row.new(
+			1,
+			Vector2i(-1, 1),
+			Vector2i(1, 1)
+		),
+	]
 	while not rows.is_empty():
 		var row: _Row = rows[rows.size() - 1]
 		rows.remove_at(rows.size() - 1)
@@ -132,37 +167,70 @@ static func _scan_quadrant(scan: _ScanState, quadrant: int) -> void:
 			continue
 
 		# 以有理斜率保留角点边界；商只用于有硬界的行取整，不累计浮点斜率误差。
-		var first_column: int = floori(
-			float(2 * row._depth * row._low.x + row._low.y) / float(2 * row._low.y)
-		)
-		var last_column: int = ceili(
-			float(2 * row._depth * row._high.x - row._high.y) / float(2 * row._high.y)
-		)
+		var first_column: int = floori(float(2 * row._depth * row._low.x + row._low.y) / float(2 * row._low.y))
+		var last_column: int = ceili(float(2 * row._depth * row._high.x - row._high.y) / float(2 * row._high.y))
 		var previous_status: int = -1
-		for column: int in range(first_column, last_column + 1):
-			var offset: Vector2i = _quadrant_offset(quadrant, row._depth, column)
-			var column_status: int = _visit_cell(scan, row, column, offset)
+		for column: int in range(
+			first_column,
+			last_column + 1
+		):
+			var offset: Vector2i = _quadrant_offset(
+				quadrant,
+				row._depth,
+				column
+			)
+			var column_status: int = _visit_cell(
+				scan,
+				row,
+				column,
+				offset
+			)
 			if column_status < 0:
 				return
 
-			var boundary: Vector2i = Vector2i(2 * column - 1, 2 * row._depth)
+			var boundary: Vector2i = Vector2i(
+				2 * column - 1,
+				2 * row._depth
+			)
 			if previous_status == 1 and column_status == 0:
 				row._low = boundary
 			elif previous_status == 0 and column_status == 1:
-				rows.append(_Row.new(row._depth + 1, row._low, boundary))
+				rows.append(
+					_Row.new(
+						row._depth + 1,
+						row._low,
+						boundary
+					)
+				)
 			previous_status = column_status
 
 		if previous_status == 0:
-			rows.append(_Row.new(row._depth + 1, row._low, row._high))
+			rows.append(
+				_Row.new(
+					row._depth + 1,
+					row._low,
+					row._high
+				)
+			)
 
 
 ## 将象限偏移映射到网格格子，按圆半径和扫描对称条件更新可见集。
 ## [br]
 ## @api private
-static func _visit_cell(scan: _ScanState, row: _Row, column: int, offset: Vector2i) -> int:
+static func _visit_cell(
+	scan: _ScanState,
+	row: _Row,
+	column: int,
+	offset: Vector2i
+) -> int:
 	var cell_x: int = int(scan._origin.x) + int(offset.x)
 	var cell_y: int = int(scan._origin.y) + int(offset.y)
-	if cell_x < 0 or cell_y < 0 or cell_x >= scan._grid_size.x or cell_y >= scan._grid_size.y:
+	if (
+		cell_x < 0
+		or cell_y < 0
+		or cell_x >= scan._grid_size.x
+		or cell_y >= scan._grid_size.y
+	):
 		return 1
 	if offset.x * offset.x + offset.y * offset.y > scan._radius * scan._radius:
 		return 1
@@ -171,11 +239,17 @@ static func _visit_cell(scan: _ScanState, row: _Row, column: int, offset: Vector
 	var status: int = _query_blocking(scan, cell)
 	if status < 0:
 		return status
-	var symmetric: bool = (
-		column * row._low.y >= row._depth * row._low.x
-		and column * row._high.y <= row._depth * row._high.x
-	)
-	if (status == 1 and scan._include_walls) or (status == 0 and symmetric):
+	var symmetric: bool = (column * row._low.y >= row._depth * row._low.x and column * row._high.y <= row._depth * row._high.x)
+	if (
+		(
+			status == 1
+			and scan._include_walls
+		)
+		or (
+			status == 0
+			and symmetric
+		)
+	):
 		scan._visible[cell] = true
 	return status
 
@@ -206,7 +280,11 @@ static func _query_blocking(scan: _ScanState, cell: Vector2i) -> int:
 ## 按象限编号将行深度与列坐标转换为相对原点的偏移。
 ## [br]
 ## @api private
-static func _quadrant_offset(quadrant: int, depth: int, column: int) -> Vector2i:
+static func _quadrant_offset(
+	quadrant: int,
+	depth: int,
+	column: int
+) -> Vector2i:
 	match quadrant:
 		0:
 			return Vector2i(column, -depth)
@@ -238,6 +316,8 @@ static func _failure(error: StringName, scan: _ScanState = null) -> Dictionary:
 ## [br]
 ## @api private
 class _Row extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 当前象限内距离原点的扫描行深度。
@@ -255,9 +335,14 @@ class _Row extends RefCounted:
 	## @api private
 	var _high: Vector2i
 
+
 	# --- Godot 生命周期方法 ---
 
-	func _init(depth: int, low: Vector2i, high: Vector2i) -> void:
+	func _init(
+		depth: int,
+		low: Vector2i,
+		high: Vector2i
+	) -> void:
 		_depth = depth
 		_low = low
 		_high = high
@@ -267,6 +352,8 @@ class _Row extends RefCounted:
 ## [br]
 ## @api private
 class _ScanState extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 本轮合法格坐标的尺寸边界。
@@ -319,9 +406,16 @@ class _ScanState extends RefCounted:
 	## @api private
 	var _queried_cell_count: int = 0
 
+
 	# --- Godot 生命周期方法 ---
 
-	func _init(grid_size: Vector2i, origin: Vector2i, radius: int, predicate: Callable, include_walls: bool) -> void:
+	func _init(
+		grid_size: Vector2i,
+		origin: Vector2i,
+		radius: int,
+		predicate: Callable,
+		include_walls: bool
+	) -> void:
 		_grid_size = grid_size
 		_origin = origin
 		_radius = radius

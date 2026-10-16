@@ -18,9 +18,9 @@
 | 信号 | [`panel_opened`](#member-gfuiutility-signals-panel_opened) | `signal panel_opened(panel: Node, layer: int)` |
 | 信号 | [`panel_closed`](#member-gfuiutility-signals-panel_closed) | `signal panel_closed(panel: Node, layer: int)` |
 | 信号 | [`navigation_changed`](#member-gfuiutility-signals-navigation_changed) | `signal navigation_changed(layer: int, top_panel: Node)` |
-| 信号 | [`panel_dismiss_requested`](#member-gfuiutility-signals-panel_dismiss_requested) | `signal panel_dismiss_requested(panel: Node, layer: int, reason: String)` |
-| 信号 | [`panel_async_load_started`](#member-gfuiutility-signals-panel_async_load_started) | `signal panel_async_load_started(path: String, layer: int, operation: StringName)` |
-| 信号 | [`panel_async_load_finished`](#member-gfuiutility-signals-panel_async_load_finished) | `signal panel_async_load_finished(path: String, layer: int, operation: StringName, status: int, panel: Node)` |
+| 信号 | [`panel_dismiss_requested`](#member-gfuiutility-signals-panel_dismiss_requested) | `signal panel_dismiss_requested( panel: Node, layer: int, reason: String )` |
+| 信号 | [`panel_async_load_started`](#member-gfuiutility-signals-panel_async_load_started) | `signal panel_async_load_started( path: String, layer: int, operation: StringName )` |
+| 信号 | [`panel_async_load_finished`](#member-gfuiutility-signals-panel_async_load_finished) | `signal panel_async_load_finished( path: String, layer: int, operation: StringName, status: int, panel: Node )` |
 | 枚举 | [`Layer`](#member-gfuiutility-enums-layer) | `enum Layer` |
 | 枚举 | [`PanelMode`](#member-gfuiutility-enums-panelmode) | `enum PanelMode` |
 | 枚举 | [`AsyncPanelLoadStatus`](#member-gfuiutility-enums-asyncpanelloadstatus) | `enum AsyncPanelLoadStatus` |
@@ -35,9 +35,9 @@
 | 方法 | [`set_layer_auto_hide_under`](#member-gfuiutility-methods-set_layer_auto_hide_under) | `func set_layer_auto_hide_under(layer: int, auto_hide_under: bool) -> bool:` |
 | 方法 | [`push_panel_async`](#member-gfuiutility-methods-push_panel_async) | `func push_panel_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
 | 方法 | [`push_panel_async_with_options`](#member-gfuiutility-methods-push_panel_async_with_options) | `func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
-| 方法 | [`push_panel`](#member-gfuiutility-methods-push_panel) | `func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
+| 方法 | [`push_panel`](#member-gfuiutility-methods-push_panel) | `func push_panel( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`push_panel_with_options`](#member-gfuiutility-methods-push_panel_with_options) | `func push_panel_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
-| 方法 | [`replace_layer`](#member-gfuiutility-methods-replace_layer) | `func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:` |
+| 方法 | [`replace_layer`](#member-gfuiutility-methods-replace_layer) | `func replace_layer( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`replace_layer_with_options`](#member-gfuiutility-methods-replace_layer_with_options) | `func replace_layer_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> Node:` |
 | 方法 | [`replace_layer_async`](#member-gfuiutility-methods-replace_layer_async) | `func replace_layer_async( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
 | 方法 | [`replace_layer_async_with_options`](#member-gfuiutility-methods-replace_layer_async_with_options) | `func replace_layer_async_with_options( path: String, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable(), completion_callback: Callable = Callable() ) -> GFUIPanelAsyncOperation:` |
@@ -46,7 +46,7 @@
 | 方法 | [`replace_layer_instance`](#member-gfuiutility-methods-replace_layer_instance) | `func replace_layer_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
 | 方法 | [`replace_layer_instance_with_options`](#member-gfuiutility-methods-replace_layer_instance_with_options) | `func replace_layer_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
 | 方法 | [`pop_panel`](#member-gfuiutility-methods-pop_panel) | `func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:` |
-| 方法 | [`pop_to_panel`](#member-gfuiutility-methods-pop_to_panel) | `func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -> bool:` |
+| 方法 | [`pop_to_panel`](#member-gfuiutility-methods-pop_to_panel) | `func pop_to_panel( panel: Node, layer: int = Layer.POPUP, do_free: bool = true ) -> bool:` |
 | 方法 | [`clear_layer`](#member-gfuiutility-methods-clear_layer) | `func clear_layer(layer: int) -> void:` |
 | 方法 | [`clear_all`](#member-gfuiutility-methods-clear_all) | `func clear_all() -> void:` |
 | 方法 | [`get_top_panel`](#member-gfuiutility-methods-get_top_panel) | `func get_top_panel(layer: int = Layer.POPUP) -> Node:` |
@@ -129,9 +129,10 @@ signal navigation_changed(layer: int, top_panel: Node)
 ### `panel_dismiss_requested`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal panel_dismiss_requested(panel: Node, layer: int, reason: String)
+signal panel_dismiss_requested( panel: Node, layer: int, reason: String )
 ```
 
 面板请求被取消或关闭时发出。
@@ -149,9 +150,10 @@ signal panel_dismiss_requested(panel: Node, layer: int, reason: String)
 ### `panel_async_load_started`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal panel_async_load_started(path: String, layer: int, operation: StringName)
+signal panel_async_load_started( path: String, layer: int, operation: StringName )
 ```
 
 异步面板加载请求开始时发出。
@@ -169,9 +171,10 @@ signal panel_async_load_started(path: String, layer: int, operation: StringName)
 ### `panel_async_load_finished`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal panel_async_load_finished(path: String, layer: int, operation: StringName, status: int, panel: Node)
+signal panel_async_load_finished( path: String, layer: int, operation: StringName, status: int, panel: Node )
 ```
 
 异步面板加载请求结束时发出。
@@ -466,7 +469,7 @@ func push_panel_async_with_options( path: String, layer: int = Layer.POPUP, opti
 - 首次版本：`3.17.0`
 
 ```gdscript
-func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
+func push_panel( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> Node:
 ```
 
 同步压入一个面板场景。
@@ -517,7 +520,7 @@ func push_panel_with_options( path: String, layer: int = Layer.POPUP, options: D
 - 首次版本：`3.17.0`
 
 ```gdscript
-func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
+func replace_layer( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> Node:
 ```
 
 同步替换指定逻辑层的面板栈，不改变其他逻辑层。
@@ -735,7 +738,7 @@ func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -> bool:
+func pop_to_panel( panel: Node, layer: int = Layer.POPUP, do_free: bool = true ) -> bool:
 ```
 
 弹出面板直到指定面板成为栈顶。

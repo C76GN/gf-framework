@@ -77,7 +77,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 500, 1) var batch_size: int = 20:
 	set(value):
-		batch_size = clampi(value, 1, 500)
+		batch_size = clampi(
+			value,
+			1,
+			500
+		)
 
 ## 本地队列最大事件数；直接赋值会钳制到 1..100_000。
 ## [br]
@@ -86,7 +90,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 100000, 1) var max_queue_size: int = 1000:
 	set(value):
-		max_queue_size = clampi(value, 1, 100000)
+		max_queue_size = clampi(
+			value,
+			1,
+			100000
+		)
 
 ## 单个事件名允许的最大字符数。
 ## [br]
@@ -95,7 +103,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 4096, 1) var max_event_name_length: int = 128:
 	set(value):
-		max_event_name_length = clampi(value, 1, 4096)
+		max_event_name_length = clampi(
+			value,
+			1,
+			4096
+		)
 
 ## 单个事件允许的顶层属性数量。
 ## [br]
@@ -104,7 +116,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 4096, 1) var max_property_count: int = 128:
 	set(value):
-		max_property_count = clampi(value, 1, 4096)
+		max_property_count = clampi(
+			value,
+			1,
+			4096
+		)
 
 ## 单个报告字符串允许的最大字符数。
 ## [br]
@@ -113,7 +129,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 65536, 1) var max_string_length: int = 4096:
 	set(value):
-		max_string_length = clampi(value, 1, 65536)
+		max_string_length = clampi(
+			value,
+			1,
+			65536
+		)
 
 ## 单个报告集合允许编码的最大元素数。
 ## [br]
@@ -122,7 +142,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 4096, 1) var max_collection_items: int = 256:
 	set(value):
-		max_collection_items = clampi(value, 1, 4096)
+		max_collection_items = clampi(
+			value,
+			1,
+			4096
+		)
 
 ## 单次报告编码允许遍历的最大节点数。
 ## [br]
@@ -131,7 +155,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1, 1000000, 1) var max_total_nodes: int = 8192:
 	set(value):
-		max_total_nodes = clampi(value, 1, 1000000)
+		max_total_nodes = clampi(
+			value,
+			1,
+			1000000
+		)
 
 ## transport 接收的单批 JSON 最大字节数。
 ## [br]
@@ -140,7 +168,11 @@ const _HTTP_TOKEN_PUNCTUATION: String = "!#$%&'*+-.^_`|~"
 ## @since 8.0.0
 @export_range(1024, 16777216, 1024) var max_payload_bytes: int = 256 * 1024:
 	set(value):
-		max_payload_bytes = clampi(value, 1024, 16 * 1024 * 1024)
+		max_payload_bytes = clampi(
+			value,
+			1024,
+			16 * 1024 * 1024
+		)
 
 ## 是否自动附加运行环境上下文。
 ## [br]
@@ -225,7 +257,10 @@ func build_headers() -> PackedStringArray:
 		if seen_header_names.has(canonical_header_name):
 			push_warning("[GFAnalyticsConfig][analytics_config.header_duplicate] Ignored duplicate HTTP header: %s." % _escape_header_for_log(header_name))
 			continue
-		var header_line: String = "%s: %s" % [header_name, header_value]
+		var header_line: String = (
+			"%s: %s"
+			% [header_name, header_value]
+		)
 		var header_line_bytes: int = header_line.to_utf8_buffer().size() + 2
 		if total_header_bytes + header_line_bytes > _MAX_TOTAL_HEADER_BYTES:
 			push_warning("[GFAnalyticsConfig][analytics_config.header_bytes_limit] Custom HTTP headers exceed 65536 bytes; remaining fields ignored.")
@@ -254,10 +289,7 @@ func _is_valid_header(header_name: String, header_value: String) -> bool:
 ## @api private
 ## [br]
 func _is_valid_header_name(header_name: String) -> bool:
-	if (
-		header_name.is_empty()
-		or header_name.to_utf8_buffer().size() > _MAX_HEADER_NAME_BYTES
-	):
+	if (header_name.is_empty() or header_name.to_utf8_buffer().size() > _MAX_HEADER_NAME_BYTES):
 		return false
 	for index: int in range(header_name.length()):
 		if not _is_http_token_codepoint(header_name.unicode_at(index)):
@@ -281,7 +313,13 @@ func _is_valid_header_value(header_value: String) -> bool:
 			return false
 	for index: int in range(header_value.length()):
 		var codepoint: int = header_value.unicode_at(index)
-		if (codepoint < 0x20 and codepoint != 0x09) or codepoint == 0x7f:
+		if (
+			(
+				codepoint < 0x20
+				and codepoint != 0x09
+			)
+			or codepoint == 0x7f
+		):
 			return false
 	return true
 
@@ -292,9 +330,18 @@ func _is_valid_header_value(header_value: String) -> bool:
 ## [br]
 func _is_http_token_codepoint(codepoint: int) -> bool:
 	if (
-		(codepoint >= 0x30 and codepoint <= 0x39)
-		or (codepoint >= 0x41 and codepoint <= 0x5a)
-		or (codepoint >= 0x61 and codepoint <= 0x7a)
+		(
+			codepoint >= 0x30
+			and codepoint <= 0x39
+		)
+		or (
+			codepoint >= 0x41
+			and codepoint <= 0x5a
+		)
+		or (
+			codepoint >= 0x61
+			and codepoint <= 0x7a
+		)
 	):
 		return true
 	if codepoint < 0x21 or codepoint > 0x7e:

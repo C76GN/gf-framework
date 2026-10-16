@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneContractTools" path="addons/gf/standard/utilities/scene/gf_scene_contract_tools.gd" module="standard" extends="RefCounted" classDigest="2518b3df690e6a387962a849c5be679cb268622b6ab87f277cd168d458fc3ea8">
+<class name="GFSceneContractTools" path="addons/gf/standard/utilities/scene/gf_scene_contract_tools.gd" module="standard" extends="RefCounted" classDigest="573e9af592e71ae109e03e35ba6438b9483e30199e1f9c149484ebcc6d82714d">
 	<description>GFSceneContractTools: 通用场景根节点契约检查工具。
 用于编辑器工具、导入预检、CI 和测试在加载场景后检查根节点的通用形状。
 它只验证调用方显式声明的类型、脚本继承、分组、名称和路径约束，
@@ -109,7 +109,7 @@ exclude_patterns、pattern_base_path、include_hidden、max_scan_depth、max_res
 			</tags>
 		</member>
 		<member kind="method" name="check_node">
-			<signature>static func check_node(root: Node, contract: Dictionary = {}, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func check_node( root: Node, contract: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>检查一个已存在的场景根节点。
 name_prefix、name_suffix、path_prefix、path_suffix 和 script_structure。</description>
 			<tags>
@@ -140,7 +140,7 @@ name_prefix、name_suffix、path_prefix、path_suffix 和 script_structure。</d
 			</tags>
 		</member>
 		<member kind="method" name="check_scene_path">
-			<signature>static func check_scene_path(scene_path: String, contract: Dictionary = {}, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func check_scene_path( scene_path: String, contract: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>加载场景路径并检查根节点契约。</description>
 			<tags>
 				<tag name="api">public</tag>

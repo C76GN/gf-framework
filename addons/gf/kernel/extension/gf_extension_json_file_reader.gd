@@ -24,9 +24,7 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## 在字节和深度限制内读取 JSON object 的底层脚本。
 ## [br]
 ## @api private
-const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
-)
+const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload("res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd")
 
 ## 单个 JSON 文件的硬字节上限（1 MiB）。
 ## [br]
@@ -79,12 +77,21 @@ static func read_object_report(
 	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(path)
 	var errors: Array[String] = []
 	if normalized_path.is_empty():
-		errors.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			options,
-			"empty_path_error",
-			"JSON path is empty"
-		))
-		return _make_report(false, normalized_path, {}, errors, 0, budget_state)
+		errors.append(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				options,
+				"empty_path_error",
+				"JSON path is empty"
+			)
+		)
+		return _make_report(
+			false,
+			normalized_path,
+			{},
+			errors,
+			0,
+			budget_state
+		)
 
 	var max_file_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		budget_state,
@@ -96,18 +103,29 @@ static func read_object_report(
 		"max_json_total_bytes",
 		_HARD_MAX_TOTAL_BYTES
 	)
-	var consumed_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		budget_state,
-		"consumed_bytes"
+	var consumed_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(budget_state, "consumed_bytes")
+	var remaining_total_bytes: int = maxi(
+		max_total_bytes - consumed_bytes,
+		0
 	)
-	var remaining_total_bytes: int = maxi(max_total_bytes - consumed_bytes, 0)
 	if remaining_total_bytes <= 0:
 		budget_state["budget_exceeded"] = true
 		errors.append(
 			"JSON discovery exhausted max_json_total_bytes=%d before reading: %s (%d bytes consumed)"
-			% [max_total_bytes, normalized_path, consumed_bytes]
+			% [
+				max_total_bytes,
+				normalized_path,
+				consumed_bytes,
+			]
 		)
-		return _make_report(false, normalized_path, {}, errors, 0, budget_state)
+		return _make_report(
+			false,
+			normalized_path,
+			{},
+			errors,
+			0,
+			budget_state
+		)
 	var public_report: Dictionary = _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object(
 		normalized_path,
 		mini(max_file_bytes, remaining_total_bytes),
@@ -117,10 +135,7 @@ static func read_object_report(
 			_HARD_MAX_DEPTH
 		)
 	)
-	var public_size_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		public_report,
-		"size_bytes"
-	)
+	var public_size_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(public_report, "size_bytes")
 	var budget_error: String = _reserve_file_bytes(
 		normalized_path,
 		public_size_bytes,
@@ -136,10 +151,7 @@ static func read_object_report(
 			public_size_bytes,
 			budget_state
 		)
-	var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-		public_report,
-		"error_kind"
-	)
+	var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(public_report, "error_kind")
 	if error_kind == &"payload_too_large" or error_kind == &"nesting_too_deep":
 		budget_state["budget_exceeded"] = true
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(public_report, "ok"):
@@ -151,7 +163,13 @@ static func read_object_report(
 			public_size_bytes,
 			budget_state
 		)
-	errors.append(_legacy_error_message(public_report, options, normalized_path))
+	errors.append(
+		_legacy_error_message(
+			public_report,
+			options,
+			normalized_path
+		)
+	)
 	return _make_report(
 		false,
 		normalized_path,
@@ -273,14 +291,16 @@ static func make_file_signature(
 	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
 	if file == null:
 		result["ok"] = false
-		result["errors"] = [
-			"could not open JSON signature: %s" % error_string(FileAccess.get_open_error()),
-		]
+		result["errors"] = ["could not open JSON signature: %s" % error_string(FileAccess.get_open_error()),]
 		return result
 
 	var size_bytes: int = file.get_length()
 	result["size_bytes"] = size_bytes
-	var budget_error: String = _reserve_file_bytes(normalized_path, size_bytes, budget_state)
+	var budget_error: String = _reserve_file_bytes(
+		normalized_path,
+		size_bytes,
+		budget_state
+	)
 	if not budget_error.is_empty():
 		file.close()
 		result["ok"] = false
@@ -296,24 +316,22 @@ static func make_file_signature(
 		result["errors"] = ["could not initialize JSON signature hash: %s" % error_string(start_error)]
 		return result
 	while file.get_position() < size_bytes:
-		var chunk_size: int = mini(_HASH_CHUNK_BYTES, size_bytes - file.get_position())
+		var chunk_size: int = mini(
+			_HASH_CHUNK_BYTES,
+			size_bytes - file.get_position()
+		)
 		var chunk: PackedByteArray = file.get_buffer(chunk_size)
 		if file.get_error() != OK or chunk.size() != chunk_size:
 			var read_error: Error = file.get_error()
 			file.close()
 			result["ok"] = false
-			result["errors"] = [
-				"could not read JSON signature: %s"
-				% error_string(read_error if read_error != OK else ERR_FILE_CORRUPT),
-			]
+			result["errors"] = [("could not read JSON signature: %s" % error_string(read_error if read_error != OK else ERR_FILE_CORRUPT)),]
 			return result
 		var update_error: Error = context.update(chunk)
 		if update_error != OK:
 			file.close()
 			result["ok"] = false
-			result["errors"] = [
-				"could not update JSON signature hash: %s" % error_string(update_error),
-			]
+			result["errors"] = ["could not update JSON signature hash: %s" % error_string(update_error),]
 			return result
 	file.close()
 	result["content_sha256"] = context.finish().hex_encode()
@@ -371,10 +389,15 @@ static func _ensure_budget_state(budget_state: Dictionary, options: Dictionary) 
 	budget_state["consumed_bytes"] = consumed_bytes
 	budget_state["budget_exceeded"] = (
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(budget_state, "budget_exceeded")
-		or consumed_bytes > _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			budget_state,
-			"max_json_total_bytes",
-			_HARD_MAX_TOTAL_BYTES
+		or (
+			consumed_bytes
+			> (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					budget_state,
+					"max_json_total_bytes",
+					_HARD_MAX_TOTAL_BYTES
+				)
+			)
 		)
 	)
 
@@ -382,7 +405,11 @@ static func _ensure_budget_state(budget_state: Dictionary, options: Dictionary) 
 ## 返回正的请求限额与硬上限中的较小值；非正请求值采用硬上限。
 ## [br]
 ## @api private
-static func _get_bounded_limit(options: Dictionary, key: String, hard_limit: int) -> int:
+static func _get_bounded_limit(
+	options: Dictionary,
+	key: String,
+	hard_limit: int
+) -> int:
 	var requested_limit: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		options,
 		key,
@@ -396,7 +423,11 @@ static func _get_bounded_limit(options: Dictionary, key: String, hard_limit: int
 ## 检查单文件和累计字节预算；超限时标记预算状态并返回错误文本，否则递增 consumed_bytes。
 ## [br]
 ## @api private
-static func _reserve_file_bytes(path: String, size_bytes: int, budget_state: Dictionary) -> String:
+static func _reserve_file_bytes(
+	path: String,
+	size_bytes: int,
+	budget_state: Dictionary
+) -> String:
 	var max_file_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		budget_state,
 		"max_json_file_bytes",
@@ -404,15 +435,15 @@ static func _reserve_file_bytes(path: String, size_bytes: int, budget_state: Dic
 	)
 	if size_bytes > max_file_bytes:
 		budget_state["budget_exceeded"] = true
-		return "JSON file exceeds max_json_file_bytes=%d: %s (%d bytes)" % [
-			max_file_bytes,
-			path,
-			size_bytes,
-		]
-	var consumed_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		budget_state,
-		"consumed_bytes"
-	)
+		return (
+			"JSON file exceeds max_json_file_bytes=%d: %s (%d bytes)"
+			% [
+				max_file_bytes,
+				path,
+				size_bytes,
+			]
+		)
+	var consumed_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(budget_state, "consumed_bytes")
 	var max_total_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		budget_state,
 		"max_json_total_bytes",
@@ -420,12 +451,15 @@ static func _reserve_file_bytes(path: String, size_bytes: int, budget_state: Dic
 	)
 	if size_bytes > max_total_bytes - consumed_bytes:
 		budget_state["budget_exceeded"] = true
-		return "JSON discovery exceeds max_json_total_bytes=%d: %s (%d + %d bytes)" % [
-			max_total_bytes,
-			path,
-			consumed_bytes,
-			size_bytes,
-		]
+		return (
+			"JSON discovery exceeds max_json_total_bytes=%d: %s (%d + %d bytes)"
+			% [
+				max_total_bytes,
+				path,
+				consumed_bytes,
+				size_bytes,
+			]
+		)
 	budget_state["consumed_bytes"] = consumed_bytes + size_bytes
 	return ""
 
@@ -438,41 +472,44 @@ static func _legacy_error_message(
 	options: Dictionary,
 	source_path: String
 ) -> String:
-	var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-		public_report,
-		"error_kind"
-	)
-	var public_error: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		public_report,
-		"error"
-	)
+	var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(public_report, "error_kind")
+	var public_error: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(public_report, "error")
 	if error_kind == &"open_failed":
-		return "%s: %s" % [
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				options,
-				"open_error_prefix",
-				"could not open JSON"
-			),
-			public_error,
-		]
+		return (
+			"%s: %s"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					options,
+					"open_error_prefix",
+					"could not open JSON"
+				),
+				public_error,
+			]
+		)
 	if error_kind == &"read_failed":
-		return "%s: %s" % [
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				options,
-				"read_error_prefix",
-				"could not read JSON"
-			),
-			public_error,
-		]
+		return (
+			"%s: %s"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					options,
+					"read_error_prefix",
+					"could not read JSON"
+				),
+				public_error,
+			]
+		)
 	if error_kind == &"parse_failed":
-		return "%s: %s" % [
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				options,
-				"parse_error_prefix",
-				"could not parse JSON"
-			),
-			public_error,
-		]
+		return (
+			"%s: %s"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					options,
+					"parse_error_prefix",
+					"could not parse JSON"
+				),
+				public_error,
+			]
+		)
 	if error_kind == &"invalid_root_type":
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 			options,
@@ -480,24 +517,30 @@ static func _legacy_error_message(
 			"JSON root must be an object"
 		)
 	if error_kind == &"payload_too_large":
-		return "JSON file exceeds max_json_file_bytes=%d: %s (%d bytes)" % [
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				public_report,
-				"max_bytes",
-				_HARD_MAX_FILE_BYTES
-			),
-			source_path,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(public_report, "size_bytes"),
-		]
+		return (
+			"JSON file exceeds max_json_file_bytes=%d: %s (%d bytes)"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					public_report,
+					"max_bytes",
+					_HARD_MAX_FILE_BYTES
+				),
+				source_path,
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(public_report, "size_bytes"),
+			]
+		)
 	if error_kind == &"nesting_too_deep":
-		return "JSON nesting exceeds max_json_depth=%d: %s" % [
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				public_report,
-				"max_depth",
-				_HARD_MAX_DEPTH
-			),
-			source_path,
-		]
+		return (
+			"JSON nesting exceeds max_json_depth=%d: %s"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					public_report,
+					"max_depth",
+					_HARD_MAX_DEPTH
+				),
+				source_path,
+			]
+		)
 	return public_error
 
 
@@ -518,8 +561,5 @@ static func _make_report(
 		"data": data.duplicate(true),
 		"errors": errors.duplicate(),
 		"size_bytes": size_bytes,
-		"budget_exceeded": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			budget_state,
-			"budget_exceeded"
-		),
+		"budget_exceeded": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(budget_state, "budget_exceeded"),
 	}

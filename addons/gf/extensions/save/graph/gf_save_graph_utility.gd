@@ -231,7 +231,12 @@ func create_pipeline_context(
 	shared: Dictionary = {}
 ) -> GFSavePipelineContext:
 	var root_scope_key: StringName = _get_scope_key_for_inspection(scope) if scope != null else &""
-	return GFSavePipelineContext.new(operation, root_scope_key, shared, _clock)
+	return GFSavePipelineContext.new(
+		operation,
+		root_scope_key,
+		shared,
+		_clock
+	)
 
 
 ## 创建独立 SaveGraph 文档的当前 schema。
@@ -242,14 +247,16 @@ func create_pipeline_context(
 ## [br]
 ## @return 要求默认 SaveGraph 分区的 schema。
 func create_document_schema() -> GFSaveDocumentSchema:
-	return GFSaveDocumentSchema.new().configure(
-		DOCUMENT_SCHEMA_ID,
-		DOCUMENT_SCHEMA_VERSION,
-		{ DOCUMENT_SECTION_ID: FORMAT_VERSION },
-		{
-			"required_sections": PackedStringArray([String(DOCUMENT_SECTION_ID)]),
-			"allow_unknown_sections": false,
-		}
+	return (
+		GFSaveDocumentSchema.new().configure(
+			DOCUMENT_SCHEMA_ID,
+			DOCUMENT_SCHEMA_VERSION,
+			{ DOCUMENT_SECTION_ID: FORMAT_VERSION },
+			{
+				"required_sections": PackedStringArray([String(DOCUMENT_SECTION_ID)]),
+				"allow_unknown_sections": false,
+			}
+		)
 	)
 
 
@@ -278,13 +285,19 @@ func gather_section(
 	var payload: Dictionary = gather_scope(scope, context)
 	if payload.is_empty():
 		return null
-	var section: GFSaveSection = GFSaveSection.new().configure(
-		section_id,
-		FORMAT_VERSION,
-		payload
+	var section: GFSaveSection = (
+		GFSaveSection.new().configure(
+			section_id,
+			FORMAT_VERSION,
+			payload
+		)
 	)
 	var validation: Dictionary = section.validate_section()
-	return section if GFVariantData.get_option_bool(validation, "ok", false) else null
+	return section if GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	) else null
 
 
 ## 应用可组合 SaveGraph 分区。
@@ -313,9 +326,18 @@ func apply_section(
 	strict: bool = false
 ) -> Dictionary:
 	if section == null:
-		return _make_apply_result(false, 0, ["Save graph section is null."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Save graph section is null."],
+			[]
+		)
 	var section_validation: Dictionary = section.validate_section()
-	if not GFVariantData.get_option_bool(section_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		section_validation,
+		"ok",
+		false
+	):
 		return _make_apply_result(
 			false,
 			0,
@@ -331,11 +353,19 @@ func apply_section(
 		)
 	var payload_value: Variant = section.get_payload()
 	if not payload_value is Dictionary:
-		return _make_apply_result(false, 0, ["Save graph section payload must be a Dictionary."], [])
-	var payload: Dictionary = _normalize_persisted_graph_payload(
-		GFVariantData.as_dictionary(payload_value)
+		return _make_apply_result(
+			false,
+			0,
+			["Save graph section payload must be a Dictionary."],
+			[]
+		)
+	var payload: Dictionary = _normalize_persisted_graph_payload(GFVariantData.as_dictionary(payload_value))
+	return apply_scope(
+		scope,
+		payload,
+		context,
+		strict
 	)
-	return apply_scope(scope, payload, context, strict)
 
 
 ## 采集独立 SaveGraph 文档。
@@ -360,17 +390,27 @@ func gather_document(
 	metadata: Dictionary = {},
 	context: Dictionary = {}
 ) -> GFSaveDocument:
-	var section: GFSaveSection = gather_section(scope, DOCUMENT_SECTION_ID, context)
+	var section: GFSaveSection = gather_section(
+		scope,
+		DOCUMENT_SECTION_ID,
+		context
+	)
 	if section == null:
 		return null
-	var document: GFSaveDocument = GFSaveDocument.new().configure(
-		DOCUMENT_SCHEMA_ID,
-		DOCUMENT_SCHEMA_VERSION,
-		[section],
-		metadata
+	var document: GFSaveDocument = (
+		GFSaveDocument.new().configure(
+			DOCUMENT_SCHEMA_ID,
+			DOCUMENT_SCHEMA_VERSION,
+			[section],
+			metadata
+		)
 	)
 	var validation: Dictionary = create_document_schema().validate_document(document, true)
-	return document if GFVariantData.get_option_bool(validation, "ok", false) else null
+	return document if GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	) else null
 
 
 ## 应用独立 SaveGraph 文档。
@@ -399,7 +439,11 @@ func apply_document(
 	strict: bool = false
 ) -> Dictionary:
 	var validation: Dictionary = create_document_schema().validate_document(document, true)
-	if not GFVariantData.get_option_bool(validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		return _make_apply_result(
 			false,
 			0,
@@ -446,11 +490,23 @@ func inspect_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 		"issues": [],
 	}
 	if scope == null:
-		_append_diagnostic_issue(report, "error", "null_scope", "", "", "Scope is null.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"null_scope",
+			"",
+			"",
+			"Scope is null."
+		)
 		report["ok"] = false
 		return _finalize_diagnostic_report(report, "Save scope")
 
-	_inspect_scope_recursive(scope, context, report, String(_get_scope_key_for_inspection(scope)))
+	_inspect_scope_recursive(
+		scope,
+		context,
+		report,
+		String(_get_scope_key_for_inspection(scope))
+	)
 	report["ok"] = _report_has_no_error_issues(report)
 	return _finalize_diagnostic_report(report, "Save scope")
 
@@ -476,6 +532,8 @@ func build_scope_health_report(scope: GFSaveScope, context: Dictionary = {}) -> 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param scope: 根 Scope。
 ## [br]
 ## @param payload: 待校验载荷。
@@ -487,7 +545,11 @@ func build_scope_health_report(scope: GFSaveScope, context: Dictionary = {}) -> 
 ## @return 诊断报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、healthy、scope_key、checked_source_count、checked_scope_count、missing、issues、summary 与 next_action。
-func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:
+func validate_payload_for_scope(
+	scope: GFSaveScope,
+	payload: Dictionary,
+	strict: bool = false
+) -> Dictionary:
 	var report: Dictionary = {
 		"ok": true,
 		"healthy": true,
@@ -503,24 +565,41 @@ func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict:
 		"issues": [],
 	}
 	if scope == null:
-		_append_diagnostic_issue(report, "error", "null_scope", "", "", "Scope is null.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"null_scope",
+			"",
+			"",
+			"Scope is null."
+		)
 		report["ok"] = false
 		return _finalize_diagnostic_report(report, "Save payload")
 	if payload.is_empty():
-		_append_diagnostic_issue(report, "error", "empty_payload", String(_get_scope_key_for_inspection(scope)), _get_node_debug_path(scope), "Payload is empty.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"empty_payload",
+			String(_get_scope_key_for_inspection(scope)),
+			_get_node_debug_path(scope),
+			"Payload is empty."
+		)
 		report["ok"] = false
 		return _finalize_diagnostic_report(report, "Save payload")
 
 	if GFVariantData.get_option_string(payload, "format") != FORMAT_ID:
-		_append_diagnostic_issue(report, "error", "format_mismatch", String(_get_scope_key_for_inspection(scope)), _get_node_debug_path(scope), "Payload format does not match GF save graph.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"format_mismatch",
+			String(_get_scope_key_for_inspection(scope)),
+			_get_node_debug_path(scope),
+			"Payload format does not match GF save graph."
+		)
 	var format_version_value: Variant = GFVariantData.get_option_value(payload, "format_version")
 	var has_integer_format_version: bool = typeof(format_version_value) == TYPE_INT
 	if not has_integer_format_version or format_version_value != FORMAT_VERSION:
-		var version_kind: String = (
-			"future_format_version"
-			if has_integer_format_version and format_version_value > FORMAT_VERSION
-			else "unsupported_format_version"
-		)
+		var version_kind: String = ("future_format_version" if has_integer_format_version and format_version_value > FORMAT_VERSION else "unsupported_format_version")
 		_append_diagnostic_issue(
 			report,
 			"error",
@@ -530,7 +609,13 @@ func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict:
 			"Payload format version must be the exact current integer version."
 		)
 
-	_validate_payload_scope_recursive(scope, payload, strict, report, String(_get_scope_key_for_inspection(scope)))
+	_validate_payload_scope_recursive(
+		scope,
+		payload,
+		strict,
+		report,
+		String(_get_scope_key_for_inspection(scope))
+	)
 	report["ok"] = _report_has_no_error_issues(report)
 	return _finalize_diagnostic_report(report, "Save payload")
 
@@ -538,6 +623,8 @@ func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict:
 ## 构建载荷匹配健康报告。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param scope: 根 Scope。
 ## [br]
@@ -550,8 +637,16 @@ func validate_payload_for_scope(scope: GFSaveScope, payload: Dictionary, strict:
 ## @return 含 summary、next_action 与 issue 统计的诊断报告。
 ## [br]
 ## @schema return: Dictionary，结构与 validate_payload_for_scope 的返回诊断报告一致。
-func build_payload_health_report(scope: GFSaveScope, payload: Dictionary, strict: bool = false) -> Dictionary:
-	return validate_payload_for_scope(scope, payload, strict)
+func build_payload_health_report(
+	scope: GFSaveScope,
+	payload: Dictionary,
+	strict: bool = false
+) -> Dictionary:
+	return validate_payload_for_scope(
+		scope,
+		payload,
+		strict
+	)
 
 
 ## 采集 Scope 存档图。
@@ -572,16 +667,28 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 		return {}
 
 	var owns_pipeline_context: bool = not _has_pipeline_context(context)
-	context = _ensure_pipeline_context(context, &"gather", scope)
+	context = _ensure_pipeline_context(
+		context,
+		&"gather",
+		scope
+	)
 	var pipeline_context: GFSavePipelineContext = _get_pipeline_context(context)
 	if owns_pipeline_context:
-		_record_pipeline_event(pipeline_context, &"gather_started", scope)
+		_record_pipeline_event(
+			pipeline_context,
+			&"gather_started",
+			scope
+		)
 
 	var scope_error_count: int = pipeline_context.errors.size()
 	_run_before_gather_steps(scope, context)
 	if pipeline_context.errors.size() > scope_error_count:
 		return {}
-	_record_pipeline_event(pipeline_context, &"gather_scope_started", scope)
+	_record_pipeline_event(
+		pipeline_context,
+		&"gather_scope_started",
+		scope
+	)
 	scope._before_save(context)
 	if pipeline_context.errors.size() > scope_error_count:
 		return {}
@@ -607,68 +714,87 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 			return {}
 		var source_key: String = _make_scoped_source_key(scope, source)
 		if source_payloads.has(source_key):
-			var duplicate_source_error: String = "[GFSaveGraphUtility][save_graph_utility.duplicate_source_key] gather_scope failed: duplicate Source key within the same Scope: %s." % source_key
+			var duplicate_source_error: String = ("[GFSaveGraphUtility][save_graph_utility.duplicate_source_key] gather_scope failed: duplicate Source key within the same Scope: %s." % source_key)
 			push_error(duplicate_source_error)
-			pipeline_context.add_error(duplicate_source_error, {
-				"scope_key": String(scope.get_scope_key()),
-				"source_key": source_key,
-			})
+			pipeline_context.add_error(
+				duplicate_source_error,
+				{ "scope_key": String(scope.get_scope_key()), "source_key": source_key, }
+			)
 			_pop_reference_root_context(context, reference_root_state)
 			return {}
 		var descriptor: Dictionary = source.describe_source(scope)
 		_merge_identity_descriptor(source, descriptor)
-		_record_pipeline_event(pipeline_context, &"gather_source_started", scope, source, "", {
-			"source_key": source_key,
-		})
+		_record_pipeline_event(
+			pipeline_context,
+			&"gather_source_started",
+			scope,
+			source,
+			"",
+			{ "source_key": source_key, }
+		)
 		var source_data: Variant = source._gather_save_data(context, serializer_registry)
 		if pipeline_context.errors.size() > source_error_count:
 			_pop_reference_root_context(context, reference_root_state)
 			return {}
-		source_payloads[source_key] = {
-			"descriptor": descriptor,
-			"data": source_data,
-		}
+		source_payloads[source_key] = { "descriptor": descriptor, "data": source_data, }
 		_pop_reference_root_context(context, reference_root_state)
-		_record_pipeline_event(pipeline_context, &"gather_source_finished", scope, source, "", {
-			"source_key": source_key,
-		})
+		_record_pipeline_event(
+			pipeline_context,
+			&"gather_source_finished",
+			scope,
+			source,
+			"",
+			{ "source_key": source_key, }
+		)
 
 	for child_scope: GFSaveScope in _get_child_scopes(scope):
 		if not child_scope._can_save_scope(context):
 			continue
 		var child_payload: Dictionary = gather_scope(child_scope, context)
 		if child_payload.is_empty():
-			var child_gather_error: String = "[GFSaveGraphUtility][save_graph_utility.child_gather_failed] gather_scope failed: child Scope gathering failed: %s." % String(child_scope.get_scope_key())
+			var child_gather_error: String = ("[GFSaveGraphUtility][save_graph_utility.child_gather_failed] gather_scope failed: child Scope gathering failed: %s." % String(child_scope.get_scope_key()))
 			push_error(child_gather_error)
-			pipeline_context.add_error(child_gather_error, {
-				"scope_key": String(scope.get_scope_key()),
-				"child_scope_key": String(child_scope.get_scope_key()),
-			})
+			pipeline_context.add_error(
+				child_gather_error,
+				{ "scope_key": String(scope.get_scope_key()), "child_scope_key": String(child_scope.get_scope_key()), }
+			)
 			return {}
 		var child_key: String = String(child_scope.get_scope_key())
 		if child_payloads.has(child_key):
-			var duplicate_child_error: String = "[GFSaveGraphUtility][save_graph_utility.duplicate_child_scope_key] gather_scope failed: duplicate child Scope key within the same Scope: %s." % child_key
+			var duplicate_child_error: String = ("[GFSaveGraphUtility][save_graph_utility.duplicate_child_scope_key] gather_scope failed: duplicate child Scope key within the same Scope: %s." % child_key)
 			push_error(duplicate_child_error)
-			pipeline_context.add_error(duplicate_child_error, {
-				"scope_key": String(scope.get_scope_key()),
-				"child_scope_key": child_key,
-			})
+			pipeline_context.add_error(
+				duplicate_child_error,
+				{ "scope_key": String(scope.get_scope_key()), "child_scope_key": child_key, }
+			)
 			return {}
 		child_payloads[child_key] = child_payload
 
 	scope._after_save(payload, context)
 	if pipeline_context.errors.size() > scope_error_count:
 		return {}
-	var final_payload: Dictionary = _run_after_gather_steps(scope, payload, context)
+	var final_payload: Dictionary = _run_after_gather_steps(
+		scope,
+		payload,
+		context
+	)
 	if pipeline_context.errors.size() > scope_error_count:
 		return {}
-	_record_pipeline_event(pipeline_context, &"gather_scope_finished", scope, null, "", {
-		"source_count": _get_dictionary_field(final_payload, "sources").size(),
-		"scope_count": _get_dictionary_field(final_payload, "scopes").size(),
-	})
+	_record_pipeline_event(
+		pipeline_context,
+		&"gather_scope_finished",
+		scope,
+		null,
+		"",
+		{ "source_count": _get_dictionary_field(final_payload, "sources").size(), "scope_count": _get_dictionary_field(final_payload, "scopes").size(), }
+	)
 	if owns_pipeline_context:
 		pipeline_context.finish()
-		if GFVariantData.get_option_bool(context, "include_pipeline_trace", false):
+		if GFVariantData.get_option_bool(
+			context,
+			"include_pipeline_trace",
+			false
+		):
 			final_payload["pipeline_trace"] = pipeline_context.to_dict(true)
 	return final_payload
 
@@ -709,7 +835,14 @@ func apply_scope(
 		)
 	_apply_in_progress = true
 	var state: ApplyOperationState = ApplyOperationState.new()
-	var result: Dictionary = _apply_scope_recursive(scope, payload, context, strict, state, true)
+	var result: Dictionary = _apply_scope_recursive(
+		scope,
+		payload,
+		context,
+		strict,
+		state,
+		true
+	)
 	_apply_in_progress = false
 	return result
 
@@ -743,16 +876,28 @@ func save_scope(
 	if storage == null:
 		return ERR_UNCONFIGURED
 	var metadata_validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(metadata)
-	if not GFVariantData.get_option_bool(metadata_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		metadata_validation,
+		"ok",
+		false
+	):
 		_push_persisted_validation_error("payload.metadata", metadata_validation)
 		return ERR_INVALID_DATA
 
-	var document: GFSaveDocument = gather_document(scope, metadata, context)
+	var document: GFSaveDocument = gather_document(
+		scope,
+		metadata,
+		context
+	)
 	if document == null:
 		return ERR_INVALID_DATA
 	var payload: Dictionary = document.to_dict()
 	var payload_validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(payload)
-	if not GFVariantData.get_option_bool(payload_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		payload_validation,
+		"ok",
+		false
+	):
 		_push_persisted_validation_error("payload", payload_validation)
 		return ERR_INVALID_DATA
 	return storage.save_data(file_name, payload)
@@ -785,15 +930,34 @@ func load_scope(
 ) -> Dictionary:
 	var storage: GFStorageUtility = _get_storage_utility()
 	if storage == null:
-		return _make_apply_result(false, 0, ["GFStorageUtility is not registered."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["GFStorageUtility is not registered."],
+			[]
+		)
 
 	var read_result: GFStorageReadResult = storage.load_data(file_name)
 	if not read_result.ok or read_result.payload.is_empty():
-		return _make_apply_result(false, 0, ["Save payload is empty."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Save payload is empty."],
+			[]
+		)
 	if not read_result.is_integrity_accepted():
-		return _make_apply_result(false, 0, ["Save payload integrity was not accepted."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Save payload integrity was not accepted."],
+			[]
+		)
 	var document_inspection: Dictionary = GFSaveDocument.inspect_dict(read_result.payload)
-	if not GFVariantData.get_option_bool(document_inspection, "ok", false):
+	if not GFVariantData.get_option_bool(
+		document_inspection,
+		"ok",
+		false
+	):
 		return _make_apply_result(
 			false,
 			0,
@@ -802,9 +966,18 @@ func load_scope(
 		)
 	var document: GFSaveDocument = GFSaveDocument.from_dict(read_result.payload)
 	if document == null:
-		return _make_apply_result(false, 0, ["Save document could not be parsed."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Save document could not be parsed."],
+			[]
+		)
 	var document_validation: Dictionary = create_document_schema().validate_document(document, true)
-	if not GFVariantData.get_option_bool(document_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		document_validation,
+		"ok",
+		false
+	):
 		return _make_apply_result(
 			false,
 			0,
@@ -813,22 +986,49 @@ func load_scope(
 		)
 	var section: GFSaveSection = document.get_section(DOCUMENT_SECTION_ID)
 	if section == null:
-		return _make_apply_result(false, 0, ["Save graph document section is missing."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Save graph document section is missing."],
+			[]
+		)
 	var payload_value: Variant = section.get_payload()
 	if not payload_value is Dictionary:
-		return _make_apply_result(false, 0, ["Save graph document section payload must be a Dictionary."], [])
-	var payload: Dictionary = _normalize_persisted_graph_payload(
-		GFVariantData.as_dictionary(payload_value)
+		return _make_apply_result(
+			false,
+			0,
+			["Save graph document section payload must be a Dictionary."],
+			[]
+		)
+	var payload: Dictionary = _normalize_persisted_graph_payload(GFVariantData.as_dictionary(payload_value))
+	var validation_report: Dictionary = validate_payload_for_scope(
+		scope,
+		payload,
+		strict
 	)
-	var validation_report: Dictionary = validate_payload_for_scope(scope, payload, strict)
-	if not GFVariantData.get_option_bool(validation_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation_report,
+		"ok",
+		false
+	):
 		return _make_apply_result(
 			false,
 			0,
 			_get_validation_error_messages(validation_report),
-			GFVariantData.to_string_array(GFVariantData.get_option_value(validation_report, "missing", []))
+			GFVariantData.to_string_array(
+				GFVariantData.get_option_value(
+					validation_report,
+					"missing",
+					[]
+				)
+			)
 		)
-	return apply_document(scope, document, context, strict)
+	return apply_document(
+		scope,
+		document,
+		context,
+		strict
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -845,30 +1045,75 @@ func _apply_scope_recursive(
 	is_transaction_root: bool
 ) -> Dictionary:
 	if scope == null:
-		return _make_apply_result(false, 0, ["Scope is null."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Scope is null."],
+			[]
+		)
 	if payload.is_empty():
-		return _make_apply_result(false, 0, ["Save payload is empty."], [])
+		return _make_apply_result(
+			false,
+			0,
+			["Save payload is empty."],
+			[]
+		)
 	if not scope._can_load_scope(context):
-		return _make_apply_result(true, 0, [], [])
+		return _make_apply_result(
+			true,
+			0,
+			[],
+			[]
+		)
 
 	var owns_pipeline_context: bool = not _has_pipeline_context(context)
-	context = _ensure_pipeline_context(context, &"apply", scope)
+	context = _ensure_pipeline_context(
+		context,
+		&"apply",
+		scope
+	)
 	var pipeline_context: GFSavePipelineContext = _get_pipeline_context(context)
 	if owns_pipeline_context:
-		_record_pipeline_event(pipeline_context, &"apply_started", scope)
+		_record_pipeline_event(
+			pipeline_context,
+			&"apply_started",
+			scope
+		)
 
-	payload = _run_before_apply_steps(scope, payload, context)
-	_record_pipeline_event(pipeline_context, &"apply_scope_started", scope)
+	payload = _run_before_apply_steps(
+		scope,
+		payload,
+		context
+	)
+	_record_pipeline_event(
+		pipeline_context,
+		&"apply_scope_started",
+		scope
+	)
 	var applied: int = 0
 	var errors: Array[String] = []
 	var missing: Array[String] = []
-	_append_apply_format_errors(payload, errors, pipeline_context)
-	_append_apply_scope_descriptor_errors(scope, payload, errors, pipeline_context)
+	_append_apply_format_errors(
+		payload,
+		errors,
+		pipeline_context
+	)
+	_append_apply_scope_descriptor_errors(
+		scope,
+		payload,
+		errors,
+		pipeline_context
+	)
 	if not errors.is_empty():
 		return _finalize_apply_scope(
 			scope,
 			payload,
-			_make_apply_result(false, applied, errors, missing),
+			_make_apply_result(
+				false,
+				applied,
+				errors,
+				missing
+			),
 			context,
 			pipeline_context,
 			owns_pipeline_context,
@@ -893,7 +1138,12 @@ func _apply_scope_recursive(
 		return _finalize_apply_scope(
 			scope,
 			payload,
-			_make_apply_result(false, applied, errors, missing),
+			_make_apply_result(
+				false,
+				applied,
+				errors,
+				missing
+			),
 			context,
 			pipeline_context,
 			owns_pipeline_context,
@@ -915,7 +1165,12 @@ func _apply_scope_recursive(
 		return _finalize_apply_scope(
 			scope,
 			payload,
-			_make_apply_result(false, applied, errors, missing),
+			_make_apply_result(
+				false,
+				applied,
+				errors,
+				missing
+			),
 			context,
 			pipeline_context,
 			owns_pipeline_context,
@@ -926,8 +1181,13 @@ func _apply_scope_recursive(
 	scope._before_load(payload, context)
 	var source_index: Dictionary = _index_sources_by_key_for_inspection(scope)
 	var source_keys: Array = source_payloads.keys()
-	source_keys.sort_custom(func(left: Variant, right: Variant) -> bool:
-		return _compare_source_payload_keys(left, right, source_payloads)
+	source_keys.sort_custom(
+		func(left: Variant, right: Variant) -> bool:
+			return _compare_source_payload_keys(
+				left,
+				right,
+				source_payloads
+			)
 	)
 	var loaded_sources: Array[Dictionary] = []
 
@@ -936,7 +1196,10 @@ func _apply_scope_recursive(
 		if not (source_payloads[source_key_variant] is Dictionary):
 			var invalid_source_error: String = "Invalid source payload: %s" % source_key
 			errors.append(invalid_source_error)
-			pipeline_context.add_error(invalid_source_error, { "source_key": source_key })
+			pipeline_context.add_error(
+				invalid_source_error,
+				{ "source_key": source_key }
+			)
 			continue
 
 		var source_payload: Dictionary = GFVariantData.as_dictionary(source_payloads[source_key_variant])
@@ -957,46 +1220,99 @@ func _apply_scope_recursive(
 			if strict:
 				var missing_source_error: String = "Missing source: %s" % source_key
 				errors.append(missing_source_error)
-				pipeline_context.add_error(missing_source_error, { "source_key": source_key })
+				pipeline_context.add_error(
+					missing_source_error,
+					{ "source_key": source_key }
+				)
 			else:
-				_record_pipeline_event(pipeline_context, &"apply_source_missing", scope, null, "", {
-					"source_key": source_key,
-				}, &"warning")
+				_record_pipeline_event(
+					pipeline_context,
+					&"apply_source_missing",
+					scope,
+					null,
+					"",
+					{ "source_key": source_key, },
+					&"warning"
+				)
 			continue
 		var reference_root_state: Dictionary = _push_reference_root_context(context, scope)
 		if not source._can_load_source(context):
 			_pop_reference_root_context(context, reference_root_state)
 			continue
 
-		_track_source_snapshot(context, source, state)
-		_record_pipeline_event(pipeline_context, &"apply_source_started", scope, source, "", {
-			"source_key": source_key,
-		})
+		_track_source_snapshot(
+			context,
+			source,
+			state
+		)
+		_record_pipeline_event(
+			pipeline_context,
+			&"apply_source_started",
+			scope,
+			source,
+			"",
+			{ "source_key": source_key, }
+		)
 		var source_data: Variant = GFVariantData.get_option_value(source_payload, "data")
-		var result: Dictionary = GFVariantData.as_dictionary(source._apply_save_data(source_data, context, serializer_registry))
-		if GFVariantData.get_option_bool(result, "ok", false):
+		var result: Dictionary = GFVariantData.as_dictionary(
+			source._apply_save_data(
+				source_data,
+				context,
+				serializer_registry
+			)
+		)
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			applied += 1
-			loaded_sources.append({
-				"source": source,
-				"data": GFVariantData.duplicate_variant(source_data),
-			})
-			_record_pipeline_event(pipeline_context, &"apply_source_finished", scope, source, "", {
-				"source_key": source_key,
-			})
+			loaded_sources.append({ "source": source, "data": GFVariantData.duplicate_variant(source_data), })
+			_record_pipeline_event(
+				pipeline_context,
+				&"apply_source_finished",
+				scope,
+				source,
+				"",
+				{ "source_key": source_key, }
+			)
 		else:
-			var source_errors: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "errors", []))
+			var source_errors: Array = GFVariantData.as_array(
+				GFVariantData.get_option_value(
+					result,
+					"errors",
+					[]
+				)
+			)
 			if source_errors.is_empty():
-				source_errors = [GFVariantData.get_option_string(result, "error", "Apply failed")]
+				source_errors = [
+					GFVariantData.get_option_string(
+						result,
+						"error",
+						"Apply failed"
+					),
+				]
 			for source_error_variant: Variant in source_errors:
-				var source_error: String = "%s: %s" % [source_key, str(source_error_variant)]
+				var source_error: String = (
+					"%s: %s"
+					% [source_key, str(source_error_variant)]
+				)
 				errors.append(source_error)
-				pipeline_context.add_error(source_error, { "source_key": source_key })
+				pipeline_context.add_error(
+					source_error,
+					{ "source_key": source_key }
+				)
 		_pop_reference_root_context(context, reference_root_state)
 
 	var child_scope_index: Dictionary = _index_child_scopes_for_inspection(scope)
 	var child_keys: Array = child_payloads.keys()
-	child_keys.sort_custom(func(left: Variant, right: Variant) -> bool:
-		return _compare_scope_payload_keys(left, right, child_payloads)
+	child_keys.sort_custom(
+		func(left: Variant, right: Variant) -> bool:
+			return _compare_scope_payload_keys(
+				left,
+				right,
+				child_payloads
+			)
 	)
 	for child_key_variant: Variant in child_keys:
 		var child_key: String = str(child_key_variant)
@@ -1006,17 +1322,29 @@ func _apply_scope_recursive(
 			if strict:
 				var missing_scope_error: String = "Missing scope: %s" % child_key
 				errors.append(missing_scope_error)
-				pipeline_context.add_error(missing_scope_error, { "scope_key": child_key })
+				pipeline_context.add_error(
+					missing_scope_error,
+					{ "scope_key": child_key }
+				)
 			else:
-				_record_pipeline_event(pipeline_context, &"apply_scope_missing", scope, null, "", {
-					"scope_key": child_key,
-				}, &"warning")
+				_record_pipeline_event(
+					pipeline_context,
+					&"apply_scope_missing",
+					scope,
+					null,
+					"",
+					{ "scope_key": child_key, },
+					&"warning"
+				)
 			continue
 
 		if not (child_payloads[child_key_variant] is Dictionary):
 			var invalid_child_error: String = "Invalid child scope payload: %s" % child_key
 			errors.append(invalid_child_error)
-			pipeline_context.add_error(invalid_child_error, { "scope_key": child_key })
+			pipeline_context.add_error(
+				invalid_child_error,
+				{ "scope_key": child_key }
+			)
 			continue
 
 		var child_payload: Dictionary = GFVariantData.as_dictionary(child_payloads[child_key_variant])
@@ -1029,21 +1357,56 @@ func _apply_scope_recursive(
 			false
 		)
 		applied += GFVariantData.get_option_int(child_result, "applied")
-		for error: String in GFVariantData.to_string_array(GFVariantData.get_option_value(child_result, "errors", [])):
+		for error: String in GFVariantData.to_string_array(
+			GFVariantData.get_option_value(
+				child_result,
+				"errors",
+				[]
+			)
+		):
 			errors.append(error)
-		for missing_key: String in GFVariantData.to_string_array(GFVariantData.get_option_value(child_result, "missing", [])):
-			missing.append("%s/%s" % [child_key, missing_key])
+		for missing_key: String in GFVariantData.to_string_array(
+			GFVariantData.get_option_value(
+				child_result,
+				"missing",
+				[]
+			)
+		):
+			missing.append(
+				"%s/%s"
+				% [child_key, missing_key]
+			)
 
 	if errors.is_empty() and is_transaction_root:
-		_append_transaction_participant_errors(pipeline_context, context, &"prepare", errors)
+		_append_transaction_participant_errors(
+			pipeline_context,
+			context,
+			&"prepare",
+			errors
+		)
 	if errors.is_empty() and is_transaction_root:
-		_append_transaction_participant_errors(pipeline_context, context, &"commit", errors)
+		_append_transaction_participant_errors(
+			pipeline_context,
+			context,
+			&"commit",
+			errors
+		)
 	if errors.is_empty():
-		_queue_after_load_callbacks(state, loaded_sources, scope, payload)
+		_queue_after_load_callbacks(
+			state,
+			loaded_sources,
+			scope,
+			payload
+		)
 	return _finalize_apply_scope(
 		scope,
 		payload,
-		_make_apply_result(errors.is_empty(), applied, errors, missing),
+		_make_apply_result(
+			errors.is_empty(),
+			applied,
+			errors,
+			missing
+		),
 		context,
 		pipeline_context,
 		owns_pipeline_context,
@@ -1182,10 +1545,7 @@ func _push_reference_root_context(context: Dictionary, scope: GFSaveScope) -> Di
 	var had_key: bool = context.has(GFVariantReferenceCodec.OPTION_ROOT_NODE)
 	var previous_value: Variant = GFVariantData.get_option_value(context, GFVariantReferenceCodec.OPTION_ROOT_NODE)
 	context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = scope
-	return {
-		"had_key": had_key,
-		"value": previous_value,
-	}
+	return { "had_key": had_key, "value": previous_value, }
 
 
 ## 按暂存记录恢复 reference root 原值，或删除本次临时键。
@@ -1193,7 +1553,11 @@ func _push_reference_root_context(context: Dictionary, scope: GFSaveScope) -> Di
 ## @api private
 ## [br]
 func _pop_reference_root_context(context: Dictionary, state: Dictionary) -> void:
-	if GFVariantData.get_option_bool(state, "had_key", false):
+	if GFVariantData.get_option_bool(
+		state,
+		"had_key",
+		false
+	):
 		context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = GFVariantData.get_option_value(state, "value")
 	else:
 		var _erased_reference_root: bool = context.erase(GFVariantReferenceCodec.OPTION_ROOT_NODE)
@@ -1213,16 +1577,34 @@ func _get_storage_utility_value(value: Variant) -> GFStorageUtility:
 ## [br]
 ## @api private
 ## [br]
-func _get_dictionary_field(source: Dictionary, key: Variant, fallback: Dictionary = {}) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, fallback))
+func _get_dictionary_field(
+	source: Dictionary,
+	key: Variant,
+	fallback: Dictionary = {}
+) -> Dictionary:
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			source,
+			key,
+			fallback
+		)
+	)
 
 
 ## 通过 GFObjectPropertyTools 读取对象属性并提供回退值。
 ## [br]
 ## @api private
 ## [br]
-func _read_object_property(object: Object, property_name: StringName, fallback: Variant = null) -> Variant:
-	return GFObjectPropertyTools.read_property(object, NodePath(String(property_name)), fallback)
+func _read_object_property(
+	object: Object,
+	property_name: StringName,
+	fallback: Variant = null
+) -> Variant:
+	return GFObjectPropertyTools.read_property(
+		object,
+		NodePath(String(property_name)),
+		fallback
+	)
 
 
 ## 将字符串追加到 PackedStringArray；追加未发生时结束处理。
@@ -1239,8 +1621,18 @@ func _append_packed_string(target: PackedStringArray, value: String) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _append_dictionary_array_field(target: Dictionary, field_name: String, value: Variant) -> void:
-	var values: Array = GFVariantData.as_array(GFVariantData.get_option_value(target, field_name, []))
+func _append_dictionary_array_field(
+	target: Dictionary,
+	field_name: String,
+	value: Variant
+) -> void:
+	var values: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			target,
+			field_name,
+			[]
+		)
+	)
 	values.append(value)
 	target[field_name] = values
 
@@ -1278,7 +1670,14 @@ func _record_pipeline_event(
 ) -> void:
 	if pipeline_context == null:
 		return
-	var event: GFSavePipelineEvent = pipeline_context.record_event(stage, scope, source, message, payload, severity)
+	var event: GFSavePipelineEvent = pipeline_context.record_event(
+		stage,
+		scope,
+		source,
+		message,
+		payload,
+		severity
+	)
 	if event != null:
 		return
 
@@ -1288,10 +1687,11 @@ func _record_pipeline_event(
 ## @api private
 ## [br]
 func _finalize_diagnostic_report(report: Dictionary, subject: String) -> Dictionary:
-	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(report, subject, {
-		"next_actions": _get_diagnostic_next_actions(),
-		"fallback_action": "Review the first reported save graph issue before using this data.",
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(
+		report,
+		subject,
+		{ "next_actions": _get_diagnostic_next_actions(), "fallback_action": "Review the first reported save graph issue before using this data.", }
+	)
 
 
 ## 返回 SaveGraph 格式、标识和缺失成员问题的建议操作映射。
@@ -1333,11 +1733,28 @@ func _get_validation_error_messages(report: Dictionary) -> Array[String]:
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
 		if issue.is_empty() or GFVariantData.get_option_string(issue, "severity") != "error":
 			continue
-		var kind: String = GFVariantData.get_option_string(issue, "kind", "validation_error")
-		var message: String = GFVariantData.get_option_string(issue, "message", "Invalid save payload.")
-		result.append("%s: %s" % [kind, message])
+		var kind: String = GFVariantData.get_option_string(
+			issue,
+			"kind",
+			"validation_error"
+		)
+		var message: String = GFVariantData.get_option_string(
+			issue,
+			"message",
+			"Invalid save payload."
+		)
+		result.append(
+			"%s: %s"
+			% [kind, message]
+		)
 	if result.is_empty():
-		result.append(GFVariantData.get_option_string(report, "summary", "Invalid save payload."))
+		result.append(
+			GFVariantData.get_option_string(
+				report,
+				"summary",
+				"Invalid save payload."
+			)
+		)
 	return result
 
 
@@ -1348,10 +1765,11 @@ func _get_validation_error_messages(report: Dictionary) -> Array[String]:
 func _get_sources_for_scope(scope: GFSaveScope) -> Array[GFSaveSource]:
 	var result: Array[GFSaveSource] = []
 	_collect_sources(scope, result)
-	result.sort_custom(func(left: GFSaveSource, right: GFSaveSource) -> bool:
-		if left.phase != right.phase:
-			return left.phase < right.phase
-		return String(left.get_source_key()) < String(right.get_source_key())
+	result.sort_custom(
+		func(left: GFSaveSource, right: GFSaveSource) -> bool:
+			if left.phase != right.phase:
+				return left.phase < right.phase
+			return String(left.get_source_key()) < String(right.get_source_key())
 	)
 	return result
 
@@ -1363,12 +1781,21 @@ func _get_sources_for_scope(scope: GFSaveScope) -> Array[GFSaveSource]:
 func _get_sources_for_scope_for_inspection(scope: Node) -> Array[GFSaveSource]:
 	var result: Array[GFSaveSource] = []
 	_collect_sources_for_inspection(scope, result)
-	result.sort_custom(func(left: GFSaveSource, right: GFSaveSource) -> bool:
-		var left_phase: int = _get_int_property(left, &"phase", GFSaveScope.Phase.NORMAL)
-		var right_phase: int = _get_int_property(right, &"phase", GFSaveScope.Phase.NORMAL)
-		if left_phase != right_phase:
-			return left_phase < right_phase
-		return String(_get_source_key_for_inspection(left)) < String(_get_source_key_for_inspection(right))
+	result.sort_custom(
+		func(left: GFSaveSource, right: GFSaveSource) -> bool:
+			var left_phase: int = _get_int_property(
+				left,
+				&"phase",
+				GFSaveScope.Phase.NORMAL
+			)
+			var right_phase: int = _get_int_property(
+				right,
+				&"phase",
+				GFSaveScope.Phase.NORMAL
+			)
+			if left_phase != right_phase:
+				return left_phase < right_phase
+			return String(_get_source_key_for_inspection(left)) < String(_get_source_key_for_inspection(right))
 	)
 	return result
 
@@ -1390,13 +1817,21 @@ func _inspect_scope_recursive(
 		report["enabled_scope_count"] = GFVariantData.get_option_int(report, "enabled_scope_count") + 1
 
 	var scope_key: String = String(_get_scope_key_for_inspection(scope))
-	_append_dictionary_array_field(report, "scopes", {
-		"key": scope_key,
-		"path": _get_node_debug_path(scope),
-		"can_save": can_save_scope,
-		"can_load": can_load_scope,
-		"phase": _get_int_property(scope, &"phase", GFSaveScope.Phase.NORMAL),
-	})
+	_append_dictionary_array_field(
+		report,
+		"scopes",
+		{
+			"key": scope_key,
+			"path": _get_node_debug_path(scope),
+			"can_save": can_save_scope,
+			"can_load": can_load_scope,
+			"phase": _get_int_property(
+				scope,
+				&"phase",
+				GFSaveScope.Phase.NORMAL
+			),
+		}
+	)
 
 	var source_key_counts: Dictionary = {}
 	for source: GFSaveSource in _get_sources_for_scope_for_inspection(scope):
@@ -1410,39 +1845,79 @@ func _inspect_scope_recursive(
 		source_key_counts[source_key] = GFVariantData.get_option_int(source_key_counts, source_key) + 1
 		var target: Node = _get_source_target_node_for_inspection(source)
 		var serializer_ids: PackedStringArray = _get_source_serializer_ids_for_inspection(source, target)
-		_append_dictionary_array_field(report, "sources", {
-			"key": source_key,
-			"path": _get_node_debug_path(source),
-			"target_path": _get_node_debug_path(target),
-			"can_save": can_save_source,
-			"can_load": can_load_source,
-			"phase": _get_int_property(source, &"phase", GFSaveScope.Phase.NORMAL),
-			"serializer_ids": serializer_ids,
-		})
+		_append_dictionary_array_field(
+			report,
+			"sources",
+			{
+				"key": source_key,
+				"path": _get_node_debug_path(source),
+				"target_path": _get_node_debug_path(target),
+				"can_save": can_save_source,
+				"can_load": can_load_source,
+				"phase": _get_int_property(
+					source,
+					&"phase",
+					GFSaveScope.Phase.NORMAL
+				),
+				"serializer_ids": serializer_ids,
+			}
+		)
 
 		if source_key.is_empty():
-			_append_diagnostic_issue(report, "error", "empty_source_key", scope_path, _get_node_debug_path(source), "Save source key is empty.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"empty_source_key",
+				scope_path,
+				_get_node_debug_path(source),
+				"Save source key is empty."
+			)
 		if (
 			can_save_source
 			and not _get_node_path_property(source, &"target_node_path").is_empty()
 			and target == null
 		):
-			_append_diagnostic_issue(report, "warning", "missing_target", source_key, _get_node_debug_path(source), "Save source target node is missing.")
+			_append_diagnostic_issue(
+				report,
+				"warning",
+				"missing_target",
+				source_key,
+				_get_node_debug_path(source),
+				"Save source target node is missing."
+			)
 		if (
 			can_save_source
 			and target != null
 			and (
-				_get_bool_property(source, &"use_registry_serializers", false)
+				_get_bool_property(
+					source,
+					&"use_registry_serializers",
+					false
+				)
 				or not _get_resource_array_property(source, &"serializers").is_empty()
 			)
 			and serializer_ids.is_empty()
 		):
-			_append_diagnostic_issue(report, "warning", "no_matching_serializer", source_key, _get_node_debug_path(source), "No configured serializer supports the target node.")
+			_append_diagnostic_issue(
+				report,
+				"warning",
+				"no_matching_serializer",
+				source_key,
+				_get_node_debug_path(source),
+				"No configured serializer supports the target node."
+			)
 
 	for source_key_variant: Variant in source_key_counts.keys():
 		var count: int = GFVariantData.to_int(source_key_counts[source_key_variant])
 		if count > 1:
-			_append_diagnostic_issue(report, "error", "duplicate_source_key", str(source_key_variant), _get_node_debug_path(scope), "Duplicate save source key in the same scope.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"duplicate_source_key",
+				str(source_key_variant),
+				_get_node_debug_path(scope),
+				"Duplicate save source key in the same scope."
+			)
 
 	var child_scope_key_counts: Dictionary = {}
 	for child_scope: GFSaveScope in _get_child_scopes_for_inspection(scope):
@@ -1451,10 +1926,23 @@ func _inspect_scope_recursive(
 	for child_key_variant: Variant in child_scope_key_counts.keys():
 		var count: int = GFVariantData.to_int(child_scope_key_counts[child_key_variant])
 		if count > 1:
-			_append_diagnostic_issue(report, "error", "duplicate_scope_key", str(child_key_variant), _get_node_debug_path(scope), "Duplicate child scope key in the same scope.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"duplicate_scope_key",
+				str(child_key_variant),
+				_get_node_debug_path(scope),
+				"Duplicate child scope key in the same scope."
+			)
 
 	for child_scope: GFSaveScope in _get_child_scopes_for_inspection(scope):
-		_inspect_scope_recursive(child_scope, context, report, "%s/%s" % [scope_path, String(_get_scope_key_for_inspection(child_scope))])
+		_inspect_scope_recursive(
+			child_scope,
+			context,
+			report,
+			"%s/%s"
+			% [scope_path, String(_get_scope_key_for_inspection(child_scope))]
+		)
 
 
 ## 递归检查载荷中的 Source、子 Scope 结构及当前场景匹配情况。
@@ -1470,52 +1958,150 @@ func _validate_payload_scope_recursive(
 ) -> void:
 	report["checked_scope_count"] = GFVariantData.get_option_int(report, "checked_scope_count") + 1
 	var severity: String = "error" if strict else "warning"
-	_append_payload_scope_descriptor_diagnostics(scope, payload, report, scope_path)
-	_append_duplicate_key_diagnostics(scope, report, scope_path)
+	_append_payload_scope_descriptor_diagnostics(
+		scope,
+		payload,
+		report,
+		scope_path
+	)
+	_append_duplicate_key_diagnostics(
+		scope,
+		report,
+		scope_path
+	)
 	var source_index: Dictionary = _index_sources_by_key_for_inspection(scope)
-	var source_payload_value: Variant = GFVariantData.get_option_value(payload, "sources", {})
+	var source_payload_value: Variant = GFVariantData.get_option_value(
+		payload,
+		"sources",
+		{}
+	)
 	var source_payloads: Dictionary = GFVariantData.as_dictionary(source_payload_value)
 	if not (source_payload_value is Dictionary):
-		_append_diagnostic_issue(report, "error", "invalid_sources_payload", scope_path, _get_node_debug_path(scope), "Payload sources must be a Dictionary.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"invalid_sources_payload",
+			scope_path,
+			_get_node_debug_path(scope),
+			"Payload sources must be a Dictionary."
+		)
 		source_payloads = {}
 	for source_key_variant: Variant in source_payloads.keys():
 		report["checked_source_count"] = GFVariantData.get_option_int(report, "checked_source_count") + 1
 		var source_key: String = str(source_key_variant)
 		var source_payload_entry: Variant = source_payloads[source_key_variant]
 		if not (source_payload_entry is Dictionary):
-			_append_diagnostic_issue(report, "error", "invalid_source_payload", source_key, _get_node_debug_path(scope), "Payload source entry must be a Dictionary.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"invalid_source_payload",
+				source_key,
+				_get_node_debug_path(scope),
+				"Payload source entry must be a Dictionary."
+			)
 			continue
 		var source_payload: Dictionary = GFVariantData.as_dictionary(source_payload_entry)
-		var source_descriptor: Variant = GFVariantData.get_option_value(source_payload, "descriptor", {})
+		var source_descriptor: Variant = GFVariantData.get_option_value(
+			source_payload,
+			"descriptor",
+			{}
+		)
 		if not (source_descriptor is Dictionary):
-			_append_diagnostic_issue(report, "error", "invalid_source_descriptor", source_key, _get_node_debug_path(scope), "Payload source descriptor must be a Dictionary.")
-		var source_data: Variant = GFVariantData.get_option_value(source_payload, "data", null)
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"invalid_source_descriptor",
+				source_key,
+				_get_node_debug_path(scope),
+				"Payload source descriptor must be a Dictionary."
+			)
+		var source_data: Variant = GFVariantData.get_option_value(
+			source_payload,
+			"data",
+			null
+		)
 		if not (source_data is Dictionary):
-			_append_diagnostic_issue(report, "error", "invalid_source_data", source_key, _get_node_debug_path(scope), "Payload source data must be a Dictionary.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"invalid_source_data",
+				source_key,
+				_get_node_debug_path(scope),
+				"Payload source data must be a Dictionary."
+			)
 		if not source_index.has(source_key):
-			_append_dictionary_array_field(report, "missing", "%s:%s" % [scope_path, source_key])
-			_append_diagnostic_issue(report, severity, "missing_source", source_key, _get_node_debug_path(scope), "Payload source does not exist in the current scope.")
+			_append_dictionary_array_field(
+				report,
+				"missing",
+				"%s:%s"
+				% [scope_path, source_key]
+			)
+			_append_diagnostic_issue(
+				report,
+				severity,
+				"missing_source",
+				source_key,
+				_get_node_debug_path(scope),
+				"Payload source does not exist in the current scope."
+			)
 
 	var child_scope_index: Dictionary = _index_child_scopes_for_inspection(scope)
-	var child_payloads_value: Variant = GFVariantData.get_option_value(payload, "scopes", {})
+	var child_payloads_value: Variant = GFVariantData.get_option_value(
+		payload,
+		"scopes",
+		{}
+	)
 	var child_payloads: Dictionary = GFVariantData.as_dictionary(child_payloads_value)
 	if not (child_payloads_value is Dictionary):
-		_append_diagnostic_issue(report, "error", "invalid_scopes_payload", scope_path, _get_node_debug_path(scope), "Payload scopes must be a Dictionary.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"invalid_scopes_payload",
+			scope_path,
+			_get_node_debug_path(scope),
+			"Payload scopes must be a Dictionary."
+		)
 		child_payloads = {}
 	for child_key_variant: Variant in child_payloads.keys():
 		var child_key: String = str(child_key_variant)
 		var child_scope: GFSaveScope = _get_save_scope_value(GFVariantData.get_option_value(child_scope_index, child_key))
 		if child_scope == null:
-			_append_dictionary_array_field(report, "missing", "%s/%s" % [scope_path, child_key])
-			_append_diagnostic_issue(report, severity, "missing_scope", child_key, _get_node_debug_path(scope), "Payload child scope does not exist in the current scope.")
+			_append_dictionary_array_field(
+				report,
+				"missing",
+				"%s/%s"
+				% [scope_path, child_key]
+			)
+			_append_diagnostic_issue(
+				report,
+				severity,
+				"missing_scope",
+				child_key,
+				_get_node_debug_path(scope),
+				"Payload child scope does not exist in the current scope."
+			)
 			continue
 
 		var child_payload_value: Variant = child_payloads[child_key_variant]
 		var child_payload: Dictionary = GFVariantData.as_dictionary(child_payload_value)
 		if not (child_payload_value is Dictionary):
-			_append_diagnostic_issue(report, "error", "invalid_child_payload", child_key, _get_node_debug_path(child_scope), "Child scope payload must be a Dictionary.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"invalid_child_payload",
+				child_key,
+				_get_node_debug_path(child_scope),
+				"Child scope payload must be a Dictionary."
+			)
 			continue
-		_validate_payload_scope_recursive(child_scope, child_payload, strict, report, "%s/%s" % [scope_path, child_key])
+		_validate_payload_scope_recursive(
+			child_scope,
+			child_payload,
+			strict,
+			report,
+			"%s/%s"
+			% [scope_path, child_key]
+		)
 
 
 ## 收集当前节点下的 Source，遇到子 Scope 时停止向其内部递归。
@@ -1610,18 +2196,36 @@ func _index_child_scopes_for_inspection(scope: Node) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _append_duplicate_key_diagnostics(scope: Node, report: Dictionary, _scope_path: String) -> void:
+func _append_duplicate_key_diagnostics(
+	scope: Node,
+	report: Dictionary,
+	_scope_path: String
+) -> void:
 	var source_key_counts: Dictionary = _count_source_keys_for_inspection(scope)
 	for source_key_variant: Variant in source_key_counts.keys():
 		var source_key: String = str(source_key_variant)
 		if GFVariantData.get_option_int(source_key_counts, source_key) > 1:
-			_append_diagnostic_issue(report, "error", "duplicate_source_key", source_key, _get_node_debug_path(scope), "Duplicate save source key in the same scope.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"duplicate_source_key",
+				source_key,
+				_get_node_debug_path(scope),
+				"Duplicate save source key in the same scope."
+			)
 
 	var child_scope_key_counts: Dictionary = _count_child_scope_keys_for_inspection(scope)
 	for child_key_variant: Variant in child_scope_key_counts.keys():
 		var child_key: String = str(child_key_variant)
 		if GFVariantData.get_option_int(child_scope_key_counts, child_key) > 1:
-			_append_diagnostic_issue(report, "error", "duplicate_scope_key", child_key, _get_node_debug_path(scope), "Duplicate child scope key in the same scope.")
+			_append_diagnostic_issue(
+				report,
+				"error",
+				"duplicate_scope_key",
+				child_key,
+				_get_node_debug_path(scope),
+				"Duplicate child scope key in the same scope."
+			)
 
 
 ## 比较载荷中的 Scope key 与 namespace，并追加不匹配诊断。
@@ -1634,18 +2238,49 @@ func _append_payload_scope_descriptor_diagnostics(
 	report: Dictionary,
 	scope_path: String
 ) -> void:
-	var descriptor_value: Variant = GFVariantData.get_option_value(payload, "scope", {})
+	var descriptor_value: Variant = GFVariantData.get_option_value(
+		payload,
+		"scope",
+		{}
+	)
 	if not (descriptor_value is Dictionary):
-		_append_diagnostic_issue(report, "error", "invalid_scope_descriptor", scope_path, _get_node_debug_path(scope), "Payload scope descriptor must be a Dictionary.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"invalid_scope_descriptor",
+			scope_path,
+			_get_node_debug_path(scope),
+			"Payload scope descriptor must be a Dictionary."
+		)
 		return
 	var descriptor: Dictionary = GFVariantData.as_dictionary(descriptor_value)
 	var payload_scope_key: StringName = GFVariantData.get_option_string_name(descriptor, "scope_key")
 	if payload_scope_key != &"" and payload_scope_key != _get_scope_key_for_inspection(scope):
-		_append_diagnostic_issue(report, "error", "scope_key_mismatch", scope_path, _get_node_debug_path(scope), "Payload scope key does not match the target scope.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"scope_key_mismatch",
+			scope_path,
+			_get_node_debug_path(scope),
+			"Payload scope key does not match the target scope."
+		)
 	var payload_namespace: StringName = GFVariantData.get_option_string_name(descriptor, "key_namespace")
-	var target_namespace: String = String(_get_string_name_property(scope, &"key_namespace", &""))
+	var target_namespace: String = String(
+		_get_string_name_property(
+			scope,
+			&"key_namespace",
+			&""
+		)
+	)
 	if payload_namespace != &"" and String(payload_namespace) != target_namespace:
-		_append_diagnostic_issue(report, "error", "scope_namespace_mismatch", scope_path, _get_node_debug_path(scope), "Payload key namespace does not match the target scope.")
+		_append_diagnostic_issue(
+			report,
+			"error",
+			"scope_namespace_mismatch",
+			scope_path,
+			_get_node_debug_path(scope),
+			"Payload key namespace does not match the target scope."
+		)
 
 
 ## 统计当前 Scope 中各 scoped Source key 的出现次数。
@@ -1684,22 +2319,20 @@ func _append_apply_format_errors(
 	if GFVariantData.get_option_string(payload, "format") != FORMAT_ID:
 		var format_error: String = "Payload format does not match GF save graph."
 		errors.append(format_error)
-		pipeline_context.add_error(format_error, { "kind": "format_mismatch" })
+		pipeline_context.add_error(
+			format_error,
+			{ "kind": "format_mismatch" }
+		)
 	var format_version_value: Variant = GFVariantData.get_option_value(payload, "format_version")
 	var has_integer_format_version: bool = typeof(format_version_value) == TYPE_INT
 	if not has_integer_format_version or format_version_value != FORMAT_VERSION:
-		var version_error: String = (
-			"Payload uses a future format version newer than this utility."
-			if has_integer_format_version and format_version_value > FORMAT_VERSION
-			else "Payload format version must be the exact current integer version."
-		)
-		var version_kind: String = (
-			"future_format_version"
-			if has_integer_format_version and format_version_value > FORMAT_VERSION
-			else "unsupported_format_version"
-		)
+		var version_error: String = ("Payload uses a future format version newer than this utility." if has_integer_format_version and format_version_value > FORMAT_VERSION else "Payload format version must be the exact current integer version.")
+		var version_kind: String = ("future_format_version" if has_integer_format_version and format_version_value > FORMAT_VERSION else "unsupported_format_version")
 		errors.append(version_error)
-		pipeline_context.add_error(version_error, { "kind": version_kind })
+		pipeline_context.add_error(
+			version_error,
+			{ "kind": version_kind }
+		)
 
 
 ## 检查载荷 Scope descriptor 与目标 Scope 的 key 和 namespace。
@@ -1712,31 +2345,44 @@ func _append_apply_scope_descriptor_errors(
 	errors: Array[String],
 	pipeline_context: GFSavePipelineContext
 ) -> void:
-	var descriptor_value: Variant = GFVariantData.get_option_value(payload, "scope", {})
+	var descriptor_value: Variant = GFVariantData.get_option_value(
+		payload,
+		"scope",
+		{}
+	)
 	if not (descriptor_value is Dictionary):
 		var descriptor_error: String = "Invalid save payload: scope must be a Dictionary."
 		errors.append(descriptor_error)
-		pipeline_context.add_error(descriptor_error, { "kind": "invalid_scope_descriptor" })
+		pipeline_context.add_error(
+			descriptor_error,
+			{ "kind": "invalid_scope_descriptor" }
+		)
 		return
 	var descriptor: Dictionary = GFVariantData.as_dictionary(descriptor_value)
 	var payload_scope_key: StringName = GFVariantData.get_option_string_name(descriptor, "scope_key")
 	if payload_scope_key != &"" and payload_scope_key != scope.get_scope_key():
-		var scope_key_error: String = "Save payload scope key does not match target scope: %s" % String(payload_scope_key)
+		var scope_key_error: String = ("Save payload scope key does not match target scope: %s" % String(payload_scope_key))
 		errors.append(scope_key_error)
-		pipeline_context.add_error(scope_key_error, {
-			"kind": "scope_key_mismatch",
-			"payload_scope_key": String(payload_scope_key),
-			"target_scope_key": String(scope.get_scope_key()),
-		})
+		pipeline_context.add_error(
+			scope_key_error,
+			{
+				"kind": "scope_key_mismatch",
+				"payload_scope_key": String(payload_scope_key),
+				"target_scope_key": String(scope.get_scope_key()),
+			}
+		)
 	var payload_namespace: StringName = GFVariantData.get_option_string_name(descriptor, "key_namespace")
 	if payload_namespace != &"" and String(payload_namespace) != scope.get_key_prefix():
-		var namespace_error: String = "Save payload key namespace does not match target scope: %s" % String(payload_namespace)
+		var namespace_error: String = ("Save payload key namespace does not match target scope: %s" % String(payload_namespace))
 		errors.append(namespace_error)
-		pipeline_context.add_error(namespace_error, {
-			"kind": "scope_namespace_mismatch",
-			"payload_key_namespace": String(payload_namespace),
-			"target_key_namespace": scope.get_key_prefix(),
-		})
+		pipeline_context.add_error(
+			namespace_error,
+			{
+				"kind": "scope_namespace_mismatch",
+				"payload_key_namespace": String(payload_namespace),
+				"target_key_namespace": scope.get_key_prefix(),
+			}
+		)
 
 
 ## 递归预检 Source/子 Scope 载荷、重复键及缺失子 Scope。
@@ -1758,37 +2404,54 @@ func _append_apply_preflight_errors(
 		if not (source_payloads[source_key_variant] is Dictionary):
 			var invalid_source_error: String = "Invalid source payload: %s" % source_key
 			errors.append(invalid_source_error)
-			pipeline_context.add_error(invalid_source_error, { "source_key": source_key })
+			pipeline_context.add_error(
+				invalid_source_error,
+				{ "source_key": source_key }
+			)
 			continue
 		var source_payload: Dictionary = GFVariantData.as_dictionary(source_payloads[source_key_variant])
-		var descriptor_value: Variant = GFVariantData.get_option_value(source_payload, "descriptor", {})
+		var descriptor_value: Variant = GFVariantData.get_option_value(
+			source_payload,
+			"descriptor",
+			{}
+		)
 		if not (descriptor_value is Dictionary):
 			var invalid_descriptor_error: String = "Invalid source descriptor payload: %s" % source_key
 			errors.append(invalid_descriptor_error)
-			pipeline_context.add_error(invalid_descriptor_error, { "source_key": source_key })
-		var data_value: Variant = GFVariantData.get_option_value(source_payload, "data", null)
+			pipeline_context.add_error(
+				invalid_descriptor_error,
+				{ "source_key": source_key }
+			)
+		var data_value: Variant = GFVariantData.get_option_value(
+			source_payload,
+			"data",
+			null
+		)
 		if not (data_value is Dictionary):
 			var invalid_data_error: String = "Invalid source data payload: %s" % source_key
 			errors.append(invalid_data_error)
-			pipeline_context.add_error(invalid_data_error, { "source_key": source_key })
+			pipeline_context.add_error(
+				invalid_data_error,
+				{ "source_key": source_key }
+			)
 
 	for source_key_variant: Variant in _duplicate_keys_from_counts(_count_source_keys_for_inspection(scope)):
 		var duplicate_source_key: String = str(source_key_variant)
 		var duplicate_source_error: String = "Duplicate source key: %s" % duplicate_source_key
 		errors.append(duplicate_source_error)
-		pipeline_context.add_error(duplicate_source_error, {
-			"scope_key": scope_path,
-			"source_key": duplicate_source_key,
-		})
+		pipeline_context.add_error(
+			duplicate_source_error,
+			{ "scope_key": scope_path, "source_key": duplicate_source_key, }
+		)
 
 	for child_key_variant: Variant in _duplicate_keys_from_counts(_count_child_scope_keys_for_inspection(scope)):
 		var duplicate_child_key: String = str(child_key_variant)
 		var duplicate_child_error: String = "Duplicate child scope key: %s" % duplicate_child_key
 		errors.append(duplicate_child_error)
-		pipeline_context.add_error(duplicate_child_error, {
-			"scope_key": scope_path,
-			"child_scope_key": duplicate_child_key,
-		})
+		pipeline_context.add_error(
+			duplicate_child_error,
+			{ "scope_key": scope_path, "child_scope_key": duplicate_child_key, }
+		)
 
 	var child_scope_index: Dictionary = _index_child_scopes_for_inspection(scope)
 	for child_key_variant: Variant in _sorted_dictionary_keys(child_payloads):
@@ -1797,7 +2460,10 @@ func _append_apply_preflight_errors(
 		if not (child_payload_value is Dictionary):
 			var invalid_child_error: String = "Invalid child scope payload: %s" % child_key
 			errors.append(invalid_child_error)
-			pipeline_context.add_error(invalid_child_error, { "scope_key": child_key })
+			pipeline_context.add_error(
+				invalid_child_error,
+				{ "scope_key": child_key }
+			)
 			continue
 
 		var child_scope: GFSaveScope = _get_save_scope_value(GFVariantData.get_option_value(child_scope_index, child_key))
@@ -1806,25 +2472,38 @@ func _append_apply_preflight_errors(
 			if strict:
 				var missing_scope_error: String = "Missing scope: %s" % child_key
 				errors.append(missing_scope_error)
-				pipeline_context.add_error(missing_scope_error, { "scope_key": child_key })
+				pipeline_context.add_error(
+					missing_scope_error,
+					{ "scope_key": child_key }
+				)
 			continue
 
 		var child_payload: Dictionary = GFVariantData.as_dictionary(child_payload_value)
-		var nested_source_payloads_value: Variant = GFVariantData.get_option_value(child_payload, "sources", {})
-		var nested_child_payloads_value: Variant = GFVariantData.get_option_value(child_payload, "scopes", {})
+		var nested_source_payloads_value: Variant = GFVariantData.get_option_value(
+			child_payload,
+			"sources",
+			{}
+		)
+		var nested_child_payloads_value: Variant = GFVariantData.get_option_value(
+			child_payload,
+			"scopes",
+			{}
+		)
 		if not (nested_source_payloads_value is Dictionary):
 			var invalid_nested_sources_error: String = "Invalid save payload: sources must be a Dictionary."
 			errors.append(invalid_nested_sources_error)
-			pipeline_context.add_error(invalid_nested_sources_error, {
-				"scope_key": child_key,
-			})
+			pipeline_context.add_error(
+				invalid_nested_sources_error,
+				{ "scope_key": child_key, }
+			)
 			continue
 		if not (nested_child_payloads_value is Dictionary):
 			var invalid_nested_scopes_error: String = "Invalid save payload: scopes must be a Dictionary."
 			errors.append(invalid_nested_scopes_error)
-			pipeline_context.add_error(invalid_nested_scopes_error, {
-				"scope_key": child_key,
-			})
+			pipeline_context.add_error(
+				invalid_nested_scopes_error,
+				{ "scope_key": child_key, }
+			)
 			continue
 		_append_apply_preflight_errors(
 			child_scope,
@@ -1834,7 +2513,8 @@ func _append_apply_preflight_errors(
 			errors,
 			missing,
 			pipeline_context,
-			"%s/%s" % [scope_path, child_key]
+			"%s/%s"
+			% [scope_path, child_key]
 		)
 
 
@@ -1858,8 +2538,9 @@ func _duplicate_keys_from_counts(counts: Dictionary) -> PackedStringArray:
 ## [br]
 func _sorted_dictionary_keys(data: Dictionary) -> Array:
 	var result: Array = data.keys()
-	result.sort_custom(func(left: Variant, right: Variant) -> bool:
-		return str(left) < str(right)
+	result.sort_custom(
+		func(left: Variant, right: Variant) -> bool:
+			return str(left) < str(right)
 	)
 	return result
 
@@ -1873,7 +2554,10 @@ func _make_scoped_source_key(scope: GFSaveScope, source: GFSaveSource) -> String
 	var key: String = String(source.get_source_key())
 	if prefix.is_empty():
 		return key
-	return "%s/%s" % [prefix, key]
+	return (
+		"%s/%s"
+		% [prefix, key]
+	)
 
 
 ## 检查模式下读取 namespace 与 Source key 并组合来源键。
@@ -1881,11 +2565,20 @@ func _make_scoped_source_key(scope: GFSaveScope, source: GFSaveSource) -> String
 ## @api private
 ## [br]
 func _make_scoped_source_key_for_inspection(scope: Node, source: Node) -> String:
-	var prefix: String = String(_get_string_name_property(scope, &"key_namespace", &""))
+	var prefix: String = String(
+		_get_string_name_property(
+			scope,
+			&"key_namespace",
+			&""
+		)
+	)
 	var key: String = String(_get_source_key_for_inspection(source))
 	if prefix.is_empty():
 		return key
-	return "%s/%s" % [prefix, key]
+	return (
+		"%s/%s"
+		% [prefix, key]
+	)
 
 
 ## 检查模式下读取 Scope key；空值回退到节点名。
@@ -1895,7 +2588,11 @@ func _make_scoped_source_key_for_inspection(scope: Node, source: Node) -> String
 func _get_scope_key_for_inspection(scope: Node) -> StringName:
 	if scope == null:
 		return &""
-	return _get_string_name_property(scope, &"scope_key", StringName(scope.name))
+	return _get_string_name_property(
+		scope,
+		&"scope_key",
+		StringName(scope.name)
+	)
 
 
 ## 检查模式下读取 Source key；空值回退到节点名。
@@ -1905,7 +2602,11 @@ func _get_scope_key_for_inspection(scope: Node) -> StringName:
 func _get_source_key_for_inspection(source: Node) -> StringName:
 	if source == null:
 		return &""
-	return _get_string_name_property(source, &"source_key", StringName(source.name))
+	return _get_string_name_property(
+		source,
+		&"source_key",
+		StringName(source.name)
+	)
 
 
 ## 检查模式下按 enabled 与 save_enabled 判断 Scope 是否可保存。
@@ -1914,8 +2615,16 @@ func _get_source_key_for_inspection(source: Node) -> StringName:
 ## [br]
 func _can_save_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> bool:
 	return (
-		_get_bool_property(scope, &"enabled", true)
-		and _get_bool_property(scope, &"save_enabled", true)
+		_get_bool_property(
+			scope,
+			&"enabled",
+			true
+		)
+		and _get_bool_property(
+			scope,
+			&"save_enabled",
+			true
+		)
 	)
 
 
@@ -1925,8 +2634,16 @@ func _can_save_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> b
 ## [br]
 func _can_load_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> bool:
 	return (
-		_get_bool_property(scope, &"enabled", true)
-		and _get_bool_property(scope, &"load_enabled", true)
+		_get_bool_property(
+			scope,
+			&"enabled",
+			true
+		)
+		and _get_bool_property(
+			scope,
+			&"load_enabled",
+			true
+		)
 	)
 
 
@@ -1936,8 +2653,16 @@ func _can_load_scope_for_inspection(scope: Node, _context: Dictionary = {}) -> b
 ## [br]
 func _can_save_source_for_inspection(source: Node, _context: Dictionary = {}) -> bool:
 	return (
-		_get_bool_property(source, &"enabled", true)
-		and _get_bool_property(source, &"save_enabled", true)
+		_get_bool_property(
+			source,
+			&"enabled",
+			true
+		)
+		and _get_bool_property(
+			source,
+			&"save_enabled",
+			true
+		)
 	)
 
 
@@ -1947,8 +2672,16 @@ func _can_save_source_for_inspection(source: Node, _context: Dictionary = {}) ->
 ## [br]
 func _can_load_source_for_inspection(source: Node, _context: Dictionary = {}) -> bool:
 	return (
-		_get_bool_property(source, &"enabled", true)
-		and _get_bool_property(source, &"load_enabled", true)
+		_get_bool_property(
+			source,
+			&"enabled",
+			true
+		)
+		and _get_bool_property(
+			source,
+			&"load_enabled",
+			true
+		)
 	)
 
 
@@ -1980,13 +2713,23 @@ func _get_source_serializer_ids_for_inspection(source: Node, target: Node) -> Pa
 		for serializer: Resource in local_serializers:
 			var serializer_id: StringName = _get_serializer_id_for_inspection(serializer)
 			if serializer_id != &"":
-				_append_packed_string(result, String(serializer_id))
+				_append_packed_string(
+					result,
+					String(serializer_id)
+				)
 		return result
 
-	if _get_bool_property(source, &"use_registry_serializers", false) and serializer_registry != null:
+	if _get_bool_property(
+		source,
+		&"use_registry_serializers",
+		false
+	) and serializer_registry != null:
 		for serializer: GFNodeSerializer in serializer_registry.get_serializers_for_node(target):
 			if serializer != null:
-				_append_packed_string(result, String(serializer.get_serializer_id()))
+				_append_packed_string(
+					result,
+					String(serializer.get_serializer_id())
+				)
 	return result
 
 
@@ -1998,7 +2741,11 @@ func _get_serializer_id_for_inspection(serializer: Resource) -> StringName:
 	if serializer == null:
 		return &""
 
-	var serializer_id: StringName = _get_string_name_property(serializer, &"serializer_id", &"")
+	var serializer_id: StringName = _get_string_name_property(
+		serializer,
+		&"serializer_id",
+		&""
+	)
 	if serializer_id != &"":
 		return serializer_id
 	if not serializer.resource_path.is_empty():
@@ -2014,11 +2761,19 @@ func _get_serializer_id_for_inspection(serializer: Resource) -> StringName:
 ## [br]
 ## @api private
 ## [br]
-func _get_string_name_property(object: Object, property_name: StringName, fallback: StringName = &"") -> StringName:
+func _get_string_name_property(
+	object: Object,
+	property_name: StringName,
+	fallback: StringName = &""
+) -> StringName:
 	if object == null:
 		return fallback
 
-	var value: Variant = _read_object_property(object, property_name, fallback)
+	var value: Variant = _read_object_property(
+		object,
+		property_name,
+		fallback
+	)
 	return _get_non_empty_string_name(value, fallback)
 
 
@@ -2026,11 +2781,19 @@ func _get_string_name_property(object: Object, property_name: StringName, fallba
 ## [br]
 ## @api private
 ## [br]
-func _get_bool_property(object: Object, property_name: StringName, fallback: bool = false) -> bool:
+func _get_bool_property(
+	object: Object,
+	property_name: StringName,
+	fallback: bool = false
+) -> bool:
 	if object == null:
 		return fallback
 
-	var value: Variant = _read_object_property(object, property_name, fallback)
+	var value: Variant = _read_object_property(
+		object,
+		property_name,
+		fallback
+	)
 	return GFVariantData.to_bool(value, fallback)
 
 
@@ -2038,11 +2801,19 @@ func _get_bool_property(object: Object, property_name: StringName, fallback: boo
 ## [br]
 ## @api private
 ## [br]
-func _get_int_property(object: Object, property_name: StringName, fallback: int = 0) -> int:
+func _get_int_property(
+	object: Object,
+	property_name: StringName,
+	fallback: int = 0
+) -> int:
 	if object == null:
 		return fallback
 
-	var value: Variant = _read_object_property(object, property_name, fallback)
+	var value: Variant = _read_object_property(
+		object,
+		property_name,
+		fallback
+	)
 	return GFVariantData.to_int(value, fallback)
 
 
@@ -2054,7 +2825,11 @@ func _get_node_path_property(object: Object, property_name: StringName) -> NodeP
 	if object == null:
 		return NodePath("")
 
-	var value: Variant = _read_object_property(object, property_name, NodePath(""))
+	var value: Variant = _read_object_property(
+		object,
+		property_name,
+		NodePath("")
+	)
 	return _get_node_path_value(value)
 
 
@@ -2067,7 +2842,11 @@ func _get_resource_array_property(object: Object, property_name: StringName) -> 
 	if object == null:
 		return result
 
-	var value: Variant = _read_object_property(object, property_name, [])
+	var value: Variant = _read_object_property(
+		object,
+		property_name,
+		[]
+	)
 	if not value is Array:
 		return result
 
@@ -2136,11 +2915,19 @@ func _try_create_source_from_payload(
 	if entity is GFSaveSource:
 		scope.add_child(entity)
 		_track_created_entity(state, entity)
-		factory._after_entity_created(entity, descriptor, context)
+		factory._after_entity_created(
+			entity,
+			descriptor,
+			context
+		)
 		if not is_instance_valid(entity):
 			return null
 		var direct_source: GFSaveSource = _get_save_source_value(entity)
-		_align_factory_source_key(scope, direct_source, expected_source_key)
+		_align_factory_source_key(
+			scope,
+			direct_source,
+			expected_source_key
+		)
 		if _make_scoped_source_key(scope, direct_source) != expected_source_key:
 			_free_created_entity(entity)
 			return null
@@ -2152,10 +2939,18 @@ func _try_create_source_from_payload(
 
 	scope.add_child(entity)
 	_track_created_entity(state, entity)
-	factory._after_entity_created(entity, descriptor, context)
+	factory._after_entity_created(
+		entity,
+		descriptor,
+		context
+	)
 	if not is_instance_valid(entity) or not is_instance_valid(source):
 		return null
-	_align_factory_source_key(scope, source, expected_source_key)
+	_align_factory_source_key(
+		scope,
+		source,
+		expected_source_key
+	)
 	if _make_scoped_source_key(scope, source) != expected_source_key:
 		_free_created_entity(entity)
 		return null
@@ -2166,8 +2961,16 @@ func _try_create_source_from_payload(
 ## [br]
 ## @api private
 ## [br]
-func _align_factory_source_key(scope: GFSaveScope, source: GFSaveSource, expected_source_key: String) -> void:
-	if scope == null or source == null or expected_source_key.is_empty():
+func _align_factory_source_key(
+	scope: GFSaveScope,
+	source: GFSaveSource,
+	expected_source_key: String
+) -> void:
+	if (
+		scope == null
+		or source == null
+		or expected_source_key.is_empty()
+	):
 		return
 	var prefix: String = scope.get_key_prefix()
 	var local_key: String = expected_source_key
@@ -2204,7 +3007,11 @@ func _source_payload_phase(source_payload_variant: Variant) -> int:
 
 	var source_payload: Dictionary = GFVariantData.as_dictionary(source_payload_variant)
 	var descriptor: Dictionary = _get_dictionary_field(source_payload, "descriptor")
-	return GFVariantData.get_option_int(descriptor, "phase", GFSaveScope.Phase.NORMAL)
+	return GFVariantData.get_option_int(
+		descriptor,
+		"phase",
+		GFSaveScope.Phase.NORMAL
+	)
 
 
 ## 从 Scope payload descriptor 读取 phase；格式不符时回退到普通阶段。
@@ -2217,14 +3024,22 @@ func _scope_payload_phase(scope_payload_variant: Variant) -> int:
 
 	var scope_payload: Dictionary = GFVariantData.as_dictionary(scope_payload_variant)
 	var descriptor: Dictionary = _get_dictionary_field(scope_payload, "scope")
-	return GFVariantData.get_option_int(descriptor, "phase", GFSaveScope.Phase.NORMAL)
+	return GFVariantData.get_option_int(
+		descriptor,
+		"phase",
+		GFSaveScope.Phase.NORMAL
+	)
 
 
 ## 按 Source payload phase、再按键文本比较排序顺序。
 ## [br]
 ## @api private
 ## [br]
-func _compare_source_payload_keys(left: Variant, right: Variant, source_payloads: Dictionary) -> bool:
+func _compare_source_payload_keys(
+	left: Variant,
+	right: Variant,
+	source_payloads: Dictionary
+) -> bool:
 	var left_phase: int = _source_payload_phase(GFVariantData.get_option_value(source_payloads, left))
 	var right_phase: int = _source_payload_phase(GFVariantData.get_option_value(source_payloads, right))
 	if left_phase != right_phase:
@@ -2236,7 +3051,11 @@ func _compare_source_payload_keys(left: Variant, right: Variant, source_payloads
 ## [br]
 ## @api private
 ## [br]
-func _compare_scope_payload_keys(left: Variant, right: Variant, child_payloads: Dictionary) -> bool:
+func _compare_scope_payload_keys(
+	left: Variant,
+	right: Variant,
+	child_payloads: Dictionary
+) -> bool:
 	var left_phase: int = _scope_payload_phase(GFVariantData.get_option_value(child_payloads, left))
 	var right_phase: int = _scope_payload_phase(GFVariantData.get_option_value(child_payloads, right))
 	if left_phase != right_phase:
@@ -2249,8 +3068,16 @@ func _compare_scope_payload_keys(left: Variant, right: Variant, child_payloads: 
 ## @api private
 ## [br]
 func _compare_scopes_for_traversal(left: GFSaveScope, right: GFSaveScope) -> bool:
-	var left_phase: int = _get_int_property(left, &"phase", GFSaveScope.Phase.NORMAL)
-	var right_phase: int = _get_int_property(right, &"phase", GFSaveScope.Phase.NORMAL)
+	var left_phase: int = _get_int_property(
+		left,
+		&"phase",
+		GFSaveScope.Phase.NORMAL
+	)
+	var right_phase: int = _get_int_property(
+		right,
+		&"phase",
+		GFSaveScope.Phase.NORMAL
+	)
 	if left_phase != right_phase:
 		return left_phase < right_phase
 	return String(_get_scope_key_for_inspection(left)) < String(_get_scope_key_for_inspection(right))
@@ -2260,7 +3087,12 @@ func _compare_scopes_for_traversal(left: GFSaveScope, right: GFSaveScope) -> boo
 ## [br]
 ## @api private
 ## [br]
-func _make_apply_result(ok: bool, applied: int, errors: Array[String], missing: Array[String]) -> Dictionary:
+func _make_apply_result(
+	ok: bool,
+	applied: int,
+	errors: Array[String],
+	missing: Array[String]
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"applied": applied,
@@ -2282,13 +3114,20 @@ func _get_payload_dictionary_field(
 	pipeline_context: GFSavePipelineContext,
 	issue_kind: String
 ) -> Dictionary:
-	var value: Variant = GFVariantData.get_option_value(payload, field_name, {})
+	var value: Variant = GFVariantData.get_option_value(
+		payload,
+		field_name,
+		{}
+	)
 	if value is Dictionary:
 		return GFVariantData.as_dictionary(value)
 
 	var error: String = "Invalid save payload: %s must be a Dictionary." % field_name
 	errors.append(error)
-	pipeline_context.add_error(error, { "kind": issue_kind })
+	pipeline_context.add_error(
+		error,
+		{ "kind": issue_kind }
+	)
 	return {}
 
 
@@ -2304,15 +3143,31 @@ func _finish_apply_scope(
 	pipeline_context: GFSavePipelineContext,
 	owns_pipeline_context: bool
 ) -> Dictionary:
-	var final_result: Dictionary = _run_after_apply_steps(scope, payload, result, context)
-	_record_pipeline_event(pipeline_context, &"apply_scope_finished", scope, null, "", {
-		"applied": GFVariantData.get_option_int(final_result, "applied"),
-		"error_count": GFVariantData.get_option_array(final_result, "errors").size(),
-		"missing_count": GFVariantData.get_option_array(final_result, "missing").size(),
-	})
+	var final_result: Dictionary = _run_after_apply_steps(
+		scope,
+		payload,
+		result,
+		context
+	)
+	_record_pipeline_event(
+		pipeline_context,
+		&"apply_scope_finished",
+		scope,
+		null,
+		"",
+		{
+			"applied": GFVariantData.get_option_int(final_result, "applied"),
+			"error_count": GFVariantData.get_option_array(final_result, "errors").size(),
+			"missing_count": GFVariantData.get_option_array(final_result, "missing").size(),
+		}
+	)
 	if owns_pipeline_context:
 		pipeline_context.finish()
-		if GFVariantData.get_option_bool(context, "include_pipeline_trace", false):
+		if GFVariantData.get_option_bool(
+			context,
+			"include_pipeline_trace",
+			false
+		):
 			final_result["pipeline_trace"] = pipeline_context.to_dict(true)
 	return final_result
 
@@ -2331,15 +3186,35 @@ func _finalize_apply_scope(
 	is_transaction_root: bool
 ) -> Dictionary:
 	var should_rollback: bool = (
-		GFVariantData.get_option_bool(context, "transactional_apply", true)
-		and not GFVariantData.get_option_bool(result, "ok", false)
+		GFVariantData.get_option_bool(
+			context,
+			"transactional_apply",
+			true
+		)
+		and not GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		)
 	)
 	if should_rollback and is_transaction_root:
-		_rollback_transaction_participants(pipeline_context, context, state)
-		_rollback_source_snapshots(context, pipeline_context, state)
+		_rollback_transaction_participants(
+			pipeline_context,
+			context,
+			state
+		)
+		_rollback_source_snapshots(
+			context,
+			pipeline_context,
+			state
+		)
 		_rollback_created_entities(state)
 	if is_transaction_root:
-		if GFVariantData.get_option_bool(result, "ok", false):
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			_dispatch_after_load_callbacks(state, context)
 		else:
 			_clear_after_load_callbacks(state)
@@ -2370,24 +3245,24 @@ func _queue_after_load_callbacks(
 	payload: Dictionary
 ) -> void:
 	for loaded_source_entry: Dictionary in loaded_sources:
-		var loaded_source: GFSaveSource = _get_save_source_value(
-			GFVariantData.get_option_value(loaded_source_entry, "source")
-		)
+		var loaded_source: GFSaveSource = _get_save_source_value(GFVariantData.get_option_value(loaded_source_entry, "source"))
 		if loaded_source == null or not is_instance_valid(loaded_source):
 			continue
-		state.after_load_callbacks.append({
-			"kind": &"source",
-			"target": loaded_source,
-			"data": GFVariantData.duplicate_variant(
-				GFVariantData.get_option_value(loaded_source_entry, "data")
-			),
-		})
+		state.after_load_callbacks.append(
+			{
+				"kind": &"source",
+				"target": loaded_source,
+				"data": GFVariantData.duplicate_variant(GFVariantData.get_option_value(loaded_source_entry, "data")),
+			}
+		)
 	if scope != null and is_instance_valid(scope):
-		state.after_load_callbacks.append({
-			"kind": &"scope",
-			"target": scope,
-			"data": GFVariantData.duplicate_variant(payload),
-		})
+		state.after_load_callbacks.append(
+			{
+				"kind": &"scope",
+				"target": scope,
+				"data": GFVariantData.duplicate_variant(payload),
+			}
+		)
 
 
 ## 先复制并清空待通知队列，再按记录种类调用仍有效的 source/scope，避免同一队列在回调重入时重复消费。
@@ -2412,7 +3287,10 @@ func _dispatch_after_load_callbacks(state: ApplyOperationState, context: Diction
 			&"scope":
 				if target is GFSaveScope and data is Dictionary:
 					var callback_scope: GFSaveScope = target
-					callback_scope._after_load(GFVariantData.as_dictionary(data), context)
+					callback_scope._after_load(
+						GFVariantData.as_dictionary(data),
+						context
+					)
 
 
 ## 清空事务状态中的 after-load 回调队列。
@@ -2439,27 +3317,49 @@ func _append_transaction_participant_errors(
 	for participant: GFSaveTransactionParticipant in participants:
 		if participant == null:
 			continue
-		var result: Dictionary = _run_transaction_participant_stage(participant, context, stage)
-		if GFVariantData.get_option_bool(result, "ok", false):
-			_record_pipeline_event(pipeline_context, _transaction_stage_to_event(stage), null, null, "", {
-				"participant_id": String(participant.participant_id),
-			})
+		var result: Dictionary = _run_transaction_participant_stage(
+			participant,
+			context,
+			stage
+		)
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
+			_record_pipeline_event(
+				pipeline_context,
+				_transaction_stage_to_event(stage),
+				null,
+				null,
+				"",
+				{ "participant_id": String(participant.participant_id), }
+			)
 			continue
 
-		var participant_errors: Array[String] = GFVariantData.to_string_array(GFVariantData.get_option_value(result, "errors", []))
+		var participant_errors: Array[String] = GFVariantData.to_string_array(
+			GFVariantData.get_option_value(
+				result,
+				"errors",
+				[]
+			)
+		)
 		if participant_errors.is_empty():
 			participant_errors.append("Save transaction participant failed.")
 		for participant_error: String in participant_errors:
-			var message: String = "%s %s failed: %s" % [
-				_get_transaction_participant_label(participant),
-				String(stage),
-				participant_error,
-			]
+			var message: String = (
+				"%s %s failed: %s"
+				% [
+					_get_transaction_participant_label(participant),
+					String(stage),
+					participant_error,
+				]
+			)
 			errors.append(message)
-			pipeline_context.add_error(message, {
-				"participant_id": String(participant.participant_id),
-				"stage": String(stage),
-			})
+			pipeline_context.add_error(
+				message,
+				{ "participant_id": String(participant.participant_id), "stage": String(stage), }
+			)
 
 
 ## 按登记逆序调用参与者 rollback，继续收集所有失败到操作状态和 pipeline；成功与失败均不在此清除参与者列表。
@@ -2474,34 +3374,55 @@ func _rollback_transaction_participants(
 		return
 
 	var participants: Array[GFSaveTransactionParticipant] = pipeline_context.get_transaction_participants()
-	for index: int in range(participants.size() - 1, -1, -1):
+	for index: int in range(
+		participants.size() - 1,
+		-1,
+		-1
+	):
 		var participant: GFSaveTransactionParticipant = participants[index]
 		if participant == null:
 			continue
 		var result: Dictionary = participant.rollback(context)
-		if GFVariantData.get_option_bool(result, "ok", false):
-			_record_pipeline_event(pipeline_context, &"transaction_participant_rolled_back", null, null, "", {
-				"participant_id": String(participant.participant_id),
-			})
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
+			_record_pipeline_event(
+				pipeline_context,
+				&"transaction_participant_rolled_back",
+				null,
+				null,
+				"",
+				{ "participant_id": String(participant.participant_id), }
+			)
 			continue
 
-		var participant_errors: Array[String] = GFVariantData.to_string_array(GFVariantData.get_option_value(result, "errors", []))
+		var participant_errors: Array[String] = GFVariantData.to_string_array(
+			GFVariantData.get_option_value(
+				result,
+				"errors",
+				[]
+			)
+		)
 		if participant_errors.is_empty():
 			participant_errors.append("Save transaction participant rollback failed.")
 		for participant_error: String in participant_errors:
-			var rollback_message: String = "%s rollback failed: %s" % [
-				_get_transaction_participant_label(participant),
-				participant_error,
-			]
-			state.rollback_failures.append({
-				"kind": &"transaction_participant",
-				"participant_id": participant.participant_id,
-				"error": participant_error,
-			})
-			pipeline_context.add_error(rollback_message, {
-				"participant_id": String(participant.participant_id),
-				"stage": "rollback",
-			})
+			var rollback_message: String = (
+				"%s rollback failed: %s"
+				% [_get_transaction_participant_label(participant), participant_error,]
+			)
+			state.rollback_failures.append(
+				{
+					"kind": &"transaction_participant",
+					"participant_id": participant.participant_id,
+					"error": participant_error,
+				}
+			)
+			pipeline_context.add_error(
+				rollback_message,
+				{ "participant_id": String(participant.participant_id), "stage": "rollback", }
+			)
 
 
 ## 按阶段名称调用事务参与者的 prepare 或 commit 方法。
@@ -2519,7 +3440,10 @@ func _run_transaction_participant_stage(
 		&"commit":
 			return participant.commit(context)
 		_:
-			return participant.make_result(false, ["Unknown transaction participant stage: %s" % String(stage)])
+			return participant.make_result(
+				false,
+				["Unknown transaction participant stage: %s" % String(stage)]
+			)
 
 
 ## 将 prepare 或 commit 阶段映射为对应的 pipeline 事件名。
@@ -2557,7 +3481,11 @@ func _track_source_snapshot(
 	state: ApplyOperationState
 ) -> void:
 	if (
-		not GFVariantData.get_option_bool(context, "transactional_apply", true)
+		not GFVariantData.get_option_bool(
+			context,
+			"transactional_apply",
+			true
+		)
 		or source == null
 		or not is_instance_valid(source)
 		or _source_snapshot_exists(state, source)
@@ -2566,12 +3494,14 @@ func _track_source_snapshot(
 		return
 
 	var snapshot_data: Variant = source._gather_save_data(context, serializer_registry)
-	state.source_snapshots.append({
-		"source": source,
-		"source_key": source.get_source_key(),
-		"data": GFVariantData.duplicate_variant(snapshot_data),
-		"reference_root": context.get(GFVariantReferenceCodec.OPTION_ROOT_NODE),
-	})
+	state.source_snapshots.append(
+		{
+			"source": source,
+			"source_key": source.get_source_key(),
+			"data": GFVariantData.duplicate_variant(snapshot_data),
+			"reference_root": context.get(GFVariantReferenceCodec.OPTION_ROOT_NODE),
+		}
+	)
 
 
 ## 检查事务状态是否已包含指定 Source 对象的快照。
@@ -2594,34 +3524,57 @@ func _rollback_source_snapshots(
 	pipeline_context: GFSavePipelineContext,
 	state: ApplyOperationState
 ) -> void:
-	for index: int in range(state.source_snapshots.size() - 1, -1, -1):
+	for index: int in range(
+		state.source_snapshots.size() - 1,
+		-1,
+		-1
+	):
 		var snapshot: Dictionary = state.source_snapshots[index]
 		var source: GFSaveSource = _get_save_source_value(GFVariantData.get_option_value(snapshot, "source"))
 		var source_key: StringName = GFVariantData.get_option_string_name(snapshot, "source_key")
 		if source == null or not is_instance_valid(source):
-			state.rollback_failures.append({
-				"kind": &"source",
-				"source_key": source_key,
-				"error": "Source became invalid before rollback.",
-			})
+			state.rollback_failures.append(
+				{
+					"kind": &"source",
+					"source_key": source_key,
+					"error": "Source became invalid before rollback.",
+				}
+			)
 			continue
 		var snapshot_data: Variant = GFVariantData.get_option_value(snapshot, "data")
 		var rollback_context: Dictionary = context.duplicate()
 		rollback_context[GFVariantReferenceCodec.OPTION_ROOT_NODE] = snapshot.get("reference_root")
-		var result: Dictionary = GFVariantData.as_dictionary(source._apply_save_data(snapshot_data, rollback_context, serializer_registry))
-		if not GFVariantData.get_option_bool(result, "ok", false):
+		var result: Dictionary = GFVariantData.as_dictionary(
+			source._apply_save_data(
+				snapshot_data,
+				rollback_context,
+				serializer_registry
+			)
+		)
+		if not GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			var rollback_error: String = "Source rollback failed: %s" % String(source_key)
-			state.rollback_failures.append({
-				"kind": &"source",
-				"source_key": source_key,
-				"error": rollback_error,
-				"errors": GFVariantData.to_string_array(
-					GFVariantData.get_option_value(result, "errors", [])
-				),
-			})
-			pipeline_context.add_error(rollback_error, {
-				"source_key": String(source_key),
-			})
+			state.rollback_failures.append(
+				{
+					"kind": &"source",
+					"source_key": source_key,
+					"error": rollback_error,
+					"errors": GFVariantData.to_string_array(
+						GFVariantData.get_option_value(
+							result,
+							"errors",
+							[]
+						)
+					),
+				}
+			)
+			pipeline_context.add_error(
+				rollback_error,
+				{ "source_key": String(source_key), }
+			)
 	state.source_snapshots.clear()
 
 
@@ -2638,7 +3591,11 @@ func _track_created_entity(state: ApplyOperationState, entity: Node) -> void:
 ## [br]
 ## @api private
 func _rollback_created_entities(state: ApplyOperationState) -> void:
-	for index: int in range(state.created_entities.size() - 1, -1, -1):
+	for index: int in range(
+		state.created_entities.size() - 1,
+		-1,
+		-1
+	):
 		var entity: Node = state.created_entities[index]
 		if not is_instance_valid(entity):
 			continue
@@ -2688,7 +3645,11 @@ func _ensure_pipeline_context(
 
 	var result: Dictionary = context.duplicate()
 	var shared: Dictionary = _get_dictionary_field(result, "pipeline_shared")
-	result["pipeline_context"] = create_pipeline_context(operation, scope, shared)
+	result["pipeline_context"] = create_pipeline_context(
+		operation,
+		scope,
+		shared
+	)
 	return result
 
 
@@ -2715,7 +3676,12 @@ func _get_pipeline_context(context: Dictionary) -> GFSavePipelineContext:
 func _run_before_gather_steps(scope: GFSaveScope, context: Dictionary) -> void:
 	for step: GFSavePipelineStep in pipeline_steps:
 		if step != null and step.enabled:
-			_record_pipeline_step_event(context, &"before_gather_step", scope, step)
+			_record_pipeline_step_event(
+				context,
+				&"before_gather_step",
+				scope,
+				step
+			)
 			step._before_gather_scope(scope, context)
 
 
@@ -2732,8 +3698,17 @@ func _run_after_gather_steps(
 	for step: GFSavePipelineStep in pipeline_steps:
 		if step == null or not step.enabled:
 			continue
-		_record_pipeline_step_event(context, &"after_gather_step", scope, step)
-		var next_payload: Variant = step._after_gather_scope(scope, result, context)
+		_record_pipeline_step_event(
+			context,
+			&"after_gather_step",
+			scope,
+			step
+		)
+		var next_payload: Variant = step._after_gather_scope(
+			scope,
+			result,
+			context
+		)
 		if next_payload is Dictionary:
 			result = GFVariantData.as_dictionary(next_payload)
 	return result
@@ -2752,8 +3727,17 @@ func _run_before_apply_steps(
 	for step: GFSavePipelineStep in pipeline_steps:
 		if step == null or not step.enabled:
 			continue
-		_record_pipeline_step_event(context, &"before_apply_step", scope, step)
-		var next_payload: Variant = step._before_apply_scope(scope, result, context)
+		_record_pipeline_step_event(
+			context,
+			&"before_apply_step",
+			scope,
+			step
+		)
+		var next_payload: Variant = step._before_apply_scope(
+			scope,
+			result,
+			context
+		)
 		if next_payload is Dictionary:
 			result = GFVariantData.as_dictionary(next_payload)
 	return result
@@ -2773,8 +3757,18 @@ func _run_after_apply_steps(
 	for step: GFSavePipelineStep in pipeline_steps:
 		if step == null or not step.enabled:
 			continue
-		_record_pipeline_step_event(context, &"after_apply_step", scope, step)
-		var next_result: Variant = step._after_apply_scope(scope, payload, final_result, context)
+		_record_pipeline_step_event(
+			context,
+			&"after_apply_step",
+			scope,
+			step
+		)
+		var next_result: Variant = step._after_apply_scope(
+			scope,
+			payload,
+			final_result,
+			context
+		)
 		if next_result is Dictionary:
 			final_result = GFVariantData.as_dictionary(next_result)
 	return final_result
@@ -2794,10 +3788,14 @@ func _record_pipeline_step_event(
 	if pipeline_context == null:
 		return
 	var step_script: Script = _get_script_value(step.get_script())
-	_record_pipeline_event(pipeline_context, stage, scope, null, "", {
-		"step_id": step.step_id,
-		"step_script": step_script.resource_path if step_script != null else "",
-	})
+	_record_pipeline_event(
+		pipeline_context,
+		stage,
+		scope,
+		null,
+		"",
+		{ "step_id": step.step_id, "step_script": step_script.resource_path if step_script != null else "", }
+	)
 
 
 ## 获取本地架构中的 GFStorageUtility。
@@ -2814,10 +3812,19 @@ func _get_storage_utility() -> GFStorageUtility:
 ## [br]
 func _push_persisted_validation_error(label: String, report: Dictionary) -> void:
 	push_error(
-		"[GFSaveGraphUtility][save_graph_utility.unpersistable_value] save_scope failed: %s at %s cannot be persisted: %s." % [
+		"[GFSaveGraphUtility][save_graph_utility.unpersistable_value] save_scope failed: %s at %s cannot be persisted: %s."
+		% [
 			label,
-			GFVariantData.get_option_string(report, "path", "$"),
-			GFVariantData.get_option_string(report, "error", "invalid_value"),
+			GFVariantData.get_option_string(
+				report,
+				"path",
+				"$"
+			),
+			GFVariantData.get_option_string(
+				report,
+				"error",
+				"invalid_value"
+			),
 		]
 	)
 
@@ -2834,13 +3841,19 @@ func _get_source_serializer_ids(source: GFSaveSource, target: Node) -> PackedStr
 	if not source.serializers.is_empty():
 		for serializer: GFNodeSerializer in source.serializers:
 			if serializer != null and serializer.supports_node(target):
-				_append_packed_string(result, String(serializer.get_serializer_id()))
+				_append_packed_string(
+					result,
+					String(serializer.get_serializer_id())
+				)
 		return result
 
 	if source.use_registry_serializers and serializer_registry != null:
 		for serializer: GFNodeSerializer in serializer_registry.get_serializers_for_node(target):
 			if serializer != null:
-				_append_packed_string(result, String(serializer.get_serializer_id()))
+				_append_packed_string(
+					result,
+					String(serializer.get_serializer_id())
+				)
 	return result
 
 
@@ -2856,10 +3869,13 @@ func _append_diagnostic_issue(
 	path: String,
 	message: String
 ) -> void:
-	var issue: Dictionary = _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.append_issue(report, severity, StringName(kind), message, {
-		"key": key,
-		"path": path,
-	})
+	var issue: Dictionary = _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.append_issue(
+		report,
+		severity,
+		StringName(kind),
+		message,
+		{ "key": key, "path": path, }
+	)
 	if not issue.is_empty():
 		return
 

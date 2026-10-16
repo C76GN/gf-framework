@@ -179,18 +179,44 @@ func validate_values(values: Dictionary) -> Dictionary:
 		"issues": [],
 	}
 	var issues: Array = _GF_VARIANT_ACCESS_SCRIPT.as_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "issues", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			report,
+			"issues",
+			[]
+		)
 	)
 	for key: Variant in values.keys():
 		var option_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.to_string_name(key)
 		var option: GFEditorToolOption = get_option(option_id)
 		if option == null:
-			issues.append(_make_issue("warning", "unknown_option", option_id, "未知工具选项：%s。" % String(option_id)))
-			report["warning_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "warning_count", 0) + 1
+			issues.append(
+				_make_issue(
+					"warning",
+					"unknown_option",
+					option_id,
+					"未知工具选项：%s。" % String(option_id)
+				)
+			)
+			report["warning_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"warning_count",
+				0
+			) + 1
 			continue
 		if not option.is_value_valid(values[key]):
-			issues.append(_make_issue("error", "invalid_option_value", option_id, "工具选项值类型不匹配：%s。" % String(option_id)))
-			report["error_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "error_count", 0) + 1
+			issues.append(
+				_make_issue(
+					"error",
+					"invalid_option_value",
+					option_id,
+					"工具选项值类型不匹配：%s。" % String(option_id)
+				)
+			)
+			report["error_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				report,
+				"error_count",
+				0
+			) + 1
 			report["ok"] = false
 	return report
 
@@ -220,10 +246,7 @@ func describe() -> Dictionary:
 	for option: GFEditorToolOption in options:
 		if option != null:
 			option_descriptions.append(option.describe())
-	return {
-		"options": option_descriptions,
-		"metadata": metadata.duplicate(true),
-	}
+	return { "options": option_descriptions, "metadata": metadata.duplicate(true), }
 
 
 # --- 私有/辅助方法 ---
@@ -231,7 +254,12 @@ func describe() -> Dictionary:
 ## 组装选项值校验诊断，标明严重级别、种类、选项 ID 和说明文本。
 ## [br]
 ## @api private
-func _make_issue(severity: String, kind: String, option_id: StringName, message: String) -> Dictionary:
+func _make_issue(
+	severity: String,
+	kind: String,
+	option_id: StringName,
+	message: String
+) -> Dictionary:
 	return {
 		"severity": severity,
 		"kind": kind,

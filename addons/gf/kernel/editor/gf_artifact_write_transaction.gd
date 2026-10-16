@@ -231,7 +231,14 @@ static func make_text_entry(
 	text: String,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _make_entry(KIND_TEXT, target_path, text, PackedByteArray(), "", options)
+	return _make_entry(
+		KIND_TEXT,
+		target_path,
+		text,
+		PackedByteArray(),
+		"",
+		options
+	)
 
 
 ## 创建字节产物 entry。
@@ -256,7 +263,14 @@ static func make_bytes_entry(
 	bytes: PackedByteArray,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _make_entry(KIND_BYTES, target_path, "", bytes, "", options)
+	return _make_entry(
+		KIND_BYTES,
+		target_path,
+		"",
+		bytes,
+		"",
+		options
+	)
 
 
 ## 创建已有文件产物 entry。
@@ -283,7 +297,14 @@ static func make_file_entry(
 	source_path: String,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _make_entry(KIND_FILE, target_path, "", PackedByteArray(), source_path, options)
+	return _make_entry(
+		KIND_FILE,
+		target_path,
+		"",
+		PackedByteArray(),
+		source_path,
+		options
+	)
 
 
 ## 预检一组产物 entry，不创建目录或写入文件。
@@ -303,11 +324,12 @@ static func make_file_entry(
 ## @schema options: Dictionary，必须包含非空 allowed_roots；可包含 overwrite_existing、max_file_count、max_file_bytes、max_total_bytes、max_backup_bytes、dry_run、scan_filesystem 和 metadata。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、entry_count、changed_count、unchanged_count、total_bytes、backup_bytes、issues、entries 和 metadata。
-static func get_preflight_report(
-	entries: Array[Dictionary],
-	options: Dictionary = {}
-) -> Dictionary:
-	var normalized: Dictionary = _normalize_entries(entries, options, false)
+static func get_preflight_report(entries: Array[Dictionary], options: Dictionary = {}) -> Dictionary:
+	var normalized: Dictionary = _normalize_entries(
+		entries,
+		options,
+		false
+	)
 	return _make_preflight_boundary(normalized, options)
 
 
@@ -333,10 +355,7 @@ static func get_preflight_report(
 ## @schema options: Dictionary，必须包含非空 allowed_roots；可包含 overwrite_existing、max_file_count、max_file_bytes、max_total_bytes、max_backup_bytes、dry_run、scan_filesystem 和 metadata。
 ## [br]
 ## @schema return: closed Dictionary，始终且仅包含 ok、status、entry_count、written_count、unchanged_count、total_bytes、backup_bytes、rolled_back、rollback_complete、recovery_required、recovery_action、recovery_transaction、issues、reports 和 metadata；backup_bytes 是 changed target snapshots 与单个 rollback restore working copy 的最大并发占用；recovery_required 为 true 时，调用方必须按 recovery_action 将 recovery_transaction 原样交给 rollback() 或 complete()。
-static func commit(
-	entries: Array[Dictionary],
-	options: Dictionary = {}
-) -> Dictionary:
+static func commit(entries: Array[Dictionary], options: Dictionary = {}) -> Dictionary:
 	if not Thread.is_main_thread():
 		return _make_commit_boundary(
 			_make_empty_normalized_failure(
@@ -346,42 +365,60 @@ static func commit(
 			{},
 			&"wrong_thread"
 		)
-	var normalized: Dictionary = _normalize_entries(entries, options, true)
+	var normalized: Dictionary = _normalize_entries(
+		entries,
+		options,
+		true
+	)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "ok"):
-		return _make_commit_boundary(normalized, options, &"preflight_failed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"preflight_failed"
+		)
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "dry_run"):
-		return _make_commit_boundary(normalized, options, &"dry_run")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"dry_run"
+		)
 
 	var changed_entries: Array[Dictionary] = _get_changed_entries(normalized)
 	if changed_entries.is_empty():
-		return _make_commit_boundary(normalized, options, &"committed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"committed"
+		)
 	if _active_transactions.size() >= ABSOLUTE_MAX_ACTIVE_TRANSACTIONS:
 		_merge_issues(
 			normalized,
-			PackedStringArray([
-				"Artifact transaction active-session capacity is exhausted.",
-			])
+			PackedStringArray(["Artifact transaction active-session capacity is exhausted.",])
 		)
-		return _make_commit_boundary(normalized, options, &"snapshot_failed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"snapshot_failed"
+		)
 	var staging_cleanup_transaction_id: String = _make_unique_transaction_id()
 	if staging_cleanup_transaction_id.is_empty():
 		_merge_issues(
 			normalized,
-			PackedStringArray([
-				"Artifact transaction identity could not be allocated.",
-			])
+			PackedStringArray(["Artifact transaction identity could not be allocated.",])
 		)
-		return _make_commit_boundary(normalized, options, &"snapshot_failed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"snapshot_failed"
+		)
 	var staging_result: Dictionary = _stage_entries(changed_entries)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(staging_result, "ok"):
-		var stage_failure_cleanup_issues: PackedStringArray = (
-			_cleanup_entry_sidecars(changed_entries, "staging_path")
-		)
+		var stage_failure_cleanup_issues: PackedStringArray = _cleanup_entry_sidecars(changed_entries, "staging_path")
+		_merge_issues(normalized, stage_failure_cleanup_issues)
 		_merge_issues(
 			normalized,
-			stage_failure_cleanup_issues
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(staging_result, "issues")
 		)
-		_merge_issues(normalized, _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(staging_result, "issues"))
 		if not stage_failure_cleanup_issues.is_empty():
 			_apply_staging_sidecar_recovery(
 				normalized,
@@ -389,37 +426,27 @@ static func commit(
 				options,
 				staging_cleanup_transaction_id
 			)
-		return _make_commit_boundary(normalized, options, &"staging_failed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"staging_failed"
+		)
 
 	var target_paths: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in changed_entries:
-		var _target_appended: bool = target_paths.append(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
-		)
+		var _target_appended: bool = target_paths.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"))
 	var transaction: Dictionary = begin(target_paths, options)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "ok"):
-		var snapshot_failure_cleanup_issues: PackedStringArray = (
-			_cleanup_entry_sidecars(changed_entries, "staging_path")
-		)
+		var snapshot_failure_cleanup_issues: PackedStringArray = _cleanup_entry_sidecars(changed_entries, "staging_path")
 		_merge_issues(normalized, snapshot_failure_cleanup_issues)
-		_merge_issues(normalized, _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(transaction, "issues"))
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			transaction,
-			"recovery_required"
-		):
+		_merge_issues(
+			normalized,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(transaction, "issues")
+		)
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "recovery_required"):
 			normalized["recovery_required"] = true
-			normalized["recovery_action"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-					transaction,
-					"recovery_action"
-				)
-			)
-			normalized["recovery_transaction"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-					transaction,
-					"recovery_transaction"
-				).duplicate(true)
-			)
+			normalized["recovery_action"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(transaction, "recovery_action")
+			normalized["recovery_transaction"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(transaction, "recovery_transaction").duplicate(true))
 		if not snapshot_failure_cleanup_issues.is_empty():
 			_apply_staging_sidecar_recovery(
 				normalized,
@@ -427,44 +454,33 @@ static func commit(
 				options,
 				staging_cleanup_transaction_id
 			)
-		return _make_commit_boundary(normalized, options, &"snapshot_failed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"snapshot_failed"
+		)
 	_enable_selective_rollback(transaction)
 
-	var replace_result: Dictionary = _replace_staged_entries(
-		changed_entries,
-		transaction
-	)
+	var replace_result: Dictionary = _replace_staged_entries(changed_entries, transaction)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(replace_result, "ok"):
 		var rollback_result: Dictionary = rollback(transaction)
-		var replace_failure_cleanup_issues: PackedStringArray = (
-			_cleanup_entry_sidecars(changed_entries, "staging_path")
-		)
+		var replace_failure_cleanup_issues: PackedStringArray = _cleanup_entry_sidecars(changed_entries, "staging_path")
 		_merge_issues(normalized, replace_failure_cleanup_issues)
-		_merge_issues(normalized, _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(replace_result, "issues"))
-		_merge_issues(normalized, _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(rollback_result, "issues"))
-		var rollback_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			rollback_result,
-			"ok"
+		_merge_issues(
+			normalized,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(replace_result, "issues")
 		)
+		_merge_issues(
+			normalized,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(rollback_result, "issues")
+		)
+		var rollback_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rollback_result, "ok")
 		normalized["rolled_back"] = rollback_ok
 		normalized["rollback_complete"] = rollback_ok
-		if not rollback_ok and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			rollback_result,
-			"recovery_required"
-		):
+		if (not rollback_ok and (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rollback_result, "recovery_required"))):
 			normalized["recovery_required"] = true
-			normalized["recovery_action"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-					rollback_result,
-					"recovery_action"
-				)
-			)
-			normalized["recovery_transaction"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-					rollback_result,
-					"recovery_transaction"
-				).duplicate(true)
-			)
+			normalized["recovery_action"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(rollback_result, "recovery_action")
+			normalized["recovery_transaction"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(rollback_result, "recovery_transaction").duplicate(true))
 		if not replace_failure_cleanup_issues.is_empty():
 			_apply_staging_sidecar_recovery(
 				normalized,
@@ -472,36 +488,25 @@ static func commit(
 				options,
 				staging_cleanup_transaction_id
 			)
-		return _make_commit_boundary(normalized, options, &"commit_failed")
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"commit_failed"
+		)
 
 	var complete_result: Dictionary = complete(transaction)
-	var staging_cleanup_issues: PackedStringArray = (
-		_cleanup_entry_sidecars(changed_entries, "staging_path")
-	)
+	var staging_cleanup_issues: PackedStringArray = _cleanup_entry_sidecars(changed_entries, "staging_path")
 	_merge_issues(normalized, staging_cleanup_issues)
-	var complete_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		complete_result,
-		"ok"
-	)
+	var complete_ok: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(complete_result, "ok")
 	if not complete_ok:
-		_merge_issues(normalized, _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(complete_result, "issues"))
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			complete_result,
-			"recovery_required"
-		):
+		_merge_issues(
+			normalized,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(complete_result, "issues")
+		)
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(complete_result, "recovery_required"):
 			normalized["recovery_required"] = true
-			normalized["recovery_action"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-					complete_result,
-					"recovery_action"
-				)
-			)
-			normalized["recovery_transaction"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-					complete_result,
-					"recovery_transaction"
-				).duplicate(true)
-			)
+			normalized["recovery_action"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(complete_result, "recovery_action")
+			normalized["recovery_transaction"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(complete_result, "recovery_transaction").duplicate(true))
 	if not staging_cleanup_issues.is_empty():
 		_apply_staging_sidecar_recovery(
 			normalized,
@@ -510,10 +515,26 @@ static func commit(
 			staging_cleanup_transaction_id
 		)
 	if not complete_ok or not staging_cleanup_issues.is_empty():
-		return _make_commit_boundary(normalized, options, &"cleanup_failed", changed_entries.size())
+		return _make_commit_boundary(
+			normalized,
+			options,
+			&"cleanup_failed",
+			changed_entries.size()
+		)
 
-	_scan_filesystem_if_needed(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "scan_filesystem", true))
-	return _make_commit_boundary(normalized, options, &"committed", changed_entries.size())
+	_scan_filesystem_if_needed(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			options,
+			"scan_filesystem",
+			true
+		)
+	)
+	return _make_commit_boundary(
+		normalized,
+		options,
+		&"committed",
+		changed_entries.size()
+	)
 
 
 ## 捕获一组外部写入目标的事务前状态。
@@ -534,44 +555,23 @@ static func commit(
 ## @schema options: Dictionary，必须包含非空 allowed_roots；可包含 max_file_count、max_backup_bytes 和 metadata。
 ## [br]
 ## @schema return: closed Dictionary，始终且仅包含 ok、format、format_version、state、transaction_id、transaction_token、entry_count、backup_bytes、issues、recovery_required、recovery_action、recovery_transaction 和 metadata；backup_bytes 是 snapshots 与单个 rollback restore working copy 的最大并发占用。ok=true 时 state=open、issues 为空且 recovery 字段为空；ok=false 时 state=failed、公开事务身份为空，只有 cleanup 未完成时 recovery_required=true、recovery_action=complete 且 recovery_transaction 为待终结的 opaque handle；不暴露目标或 sidecar 路径。
-static func begin(
-	paths: PackedStringArray,
-	options: Dictionary = {}
-) -> Dictionary:
+static func begin(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 	if not Thread.is_main_thread():
-		return _make_begin_failure(
-			"Artifact transactions may only be opened on the main thread.",
-			{}
-		)
+		return _make_begin_failure("Artifact transactions may only be opened on the main thread.", {})
 	if _active_transactions.size() >= ABSOLUTE_MAX_ACTIVE_TRANSACTIONS:
-		return _make_begin_failure(
-			"Artifact transaction active-session capacity is exhausted.",
-			options
-		)
+		return _make_begin_failure("Artifact transaction active-session capacity is exhausted.", options)
 	var path_report: Dictionary = _normalize_transaction_paths(paths, options)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(path_report, "ok"):
 		return _make_begin_failure_report(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-				path_report,
-				"issues"
-			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(path_report, "issues"),
 			options,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-				path_report,
-				"entries"
-			).size(),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				path_report,
-				"backup_bytes"
-			)
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(path_report, "entries").size(),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(path_report, "backup_bytes")
 		)
 
 	var transaction_id: String = _make_unique_transaction_id()
 	if transaction_id.is_empty():
-		return _make_begin_failure(
-			"Artifact transaction identity could not be allocated.",
-			options
-		)
+		return _make_begin_failure("Artifact transaction identity could not be allocated.", options)
 	var handle: Dictionary = {
 		"ok": true,
 		"format": _TRANSACTION_FORMAT,
@@ -579,22 +579,13 @@ static func begin(
 		"state": "open",
 		"transaction_id": transaction_id,
 		"transaction_token": _make_transaction_id(),
-		"entry_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-			path_report,
-			"entries"
-		).size(),
-		"backup_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			path_report,
-			"backup_bytes"
-		),
+		"entry_count": (_GF_VARIANT_ACCESS_SCRIPT.get_option_array(path_report, "entries").size()),
+		"backup_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(path_report, "backup_bytes"),
 		"issues": PackedStringArray(),
 		"recovery_required": false,
 		"recovery_action": &"",
 		"recovery_transaction": {},
-		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			path_report,
-			"metadata"
-		).duplicate(true),
+		"metadata": (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(path_report, "metadata").duplicate(true)),
 	}
 	_active_transactions[transaction_id] = {
 		"handle": handle.duplicate(true),
@@ -608,21 +599,11 @@ static func begin(
 	for entry: Dictionary in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(path_report, "entries"):
 		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
 		var snapshot_index: int = snapshots.size()
-		var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			entry,
-			"existed"
-		)
+		var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "existed")
 		var snapshot_state_error: String = _get_snapshot_source_state_error(entry)
 		if not snapshot_state_error.is_empty():
-			var state_issues: PackedStringArray = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-					path_report,
-					"issues"
-				)
-			)
-			var _state_issue_appended: bool = state_issues.append(
-				snapshot_state_error
-			)
+			var state_issues: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(path_report, "issues")
+			var _state_issue_appended: bool = state_issues.append(snapshot_state_error)
 			return _finalize_failed_begin(handle, state_issues)
 		var backup_path: String = ""
 		var snapshot: Dictionary = {
@@ -631,14 +612,8 @@ static func begin(
 			"backup_path": "",
 			"backup_owner_id": transaction_id,
 			"backup_owner_index": snapshot_index,
-			"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				entry,
-				"size_bytes"
-			),
-			"sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entry,
-				"sha256"
-			),
+			"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "size_bytes"),
+			"sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256"),
 			"backup_write_state": _WRITE_STATE_PENDING,
 			"backup_partial_identity_known": false,
 			"backup_partial_size_bytes": 0,
@@ -680,17 +655,15 @@ static func begin(
 			var copy_error: Error = _copy_file(
 				target_path,
 				backup_path,
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-					entry,
-					"size_bytes"
-				),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					entry,
-					"sha256"
-				),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "size_bytes"),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256"),
 				write_report
 			)
-			_apply_owned_write_report(snapshot, "backup", write_report)
+			_apply_owned_write_report(
+				snapshot,
+				"backup",
+				write_report
+			)
 			snapshots[snapshots.size() - 1] = snapshot
 			_store_transaction_entries(
 				transaction_id,
@@ -700,10 +673,8 @@ static func begin(
 			if copy_error != OK:
 				var issues: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(path_report, "issues")
 				var _issue_appended: bool = issues.append(
-					"Could not snapshot artifact target %s: %s" % [
-						target_path,
-						error_string(copy_error),
-					]
+					"Could not snapshot artifact target %s: %s"
+					% [target_path, error_string(copy_error),]
 				)
 				_append_owned_write_report_issues(
 					issues,
@@ -740,34 +711,28 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 			&"wrong_thread",
 			PackedStringArray(),
 			PackedStringArray(),
-			PackedStringArray([
-				"Artifact transactions may only be rolled back on the main thread.",
-			])
+			PackedStringArray(["Artifact transactions may only be rolled back on the main thread.",])
 		)
 	var validation_error: String = _get_transaction_validation_error(transaction)
 	if not validation_error.is_empty():
-		return _make_transaction_action_report(false, &"invalid_transaction", PackedStringArray(), PackedStringArray(), PackedStringArray([validation_error]))
-
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
-	var active_state: Dictionary = _active_transactions[transaction_id]
-	var terminal_mode: StringName = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			active_state,
-			"terminal_mode"
+		return _make_transaction_action_report(
+			false,
+			&"invalid_transaction",
+			PackedStringArray(),
+			PackedStringArray(),
+			PackedStringArray([validation_error])
 		)
-	)
+
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
+	var active_state: Dictionary = _active_transactions[transaction_id]
+	var terminal_mode: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(active_state, "terminal_mode")
 	if terminal_mode == RECOVERY_ACTION_COMPLETE:
 		return _make_transaction_action_report(
 			false,
 			&"completion_required",
 			PackedStringArray(),
 			PackedStringArray(),
-			PackedStringArray([
-				"Artifact transaction cleanup already started and must be completed.",
-			]),
+			PackedStringArray(["Artifact transaction cleanup already started and must be completed.",]),
 			transaction,
 			RECOVERY_ACTION_COMPLETE
 		)
@@ -775,16 +740,8 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 	var failed_paths: PackedStringArray = PackedStringArray()
 	var issues: PackedStringArray = PackedStringArray()
 	var entries: Array[Dictionary] = _get_transaction_entries(active_state)
-	var rollback_only_paths: PackedStringArray = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			active_state,
-			"rollback_only_paths"
-		)
-	)
-	var has_rollback_filter: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		active_state,
-		"has_rollback_filter"
-	)
+	var rollback_only_paths: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(active_state, "rollback_only_paths")
+	var has_rollback_filter: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(active_state, "has_rollback_filter")
 	issues = _get_rollback_preflight_issues(
 		entries,
 		has_rollback_filter,
@@ -804,7 +761,11 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 	active_state["terminal_mode"] = RECOVERY_ACTION_ROLLBACK
 	active_state["entries"] = entries
 	_active_transactions[transaction_id] = active_state
-	for entry_index: int in range(entries.size() - 1, -1, -1):
+	for entry_index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: Dictionary = entries[entry_index]
 		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
 		var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "existed")
@@ -813,10 +774,8 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 			if discard_error != OK:
 				var _discard_failed_appended: bool = failed_paths.append(target_path)
 				var _discard_issue_appended: bool = issues.append(
-					"Could not discard an unused artifact snapshot for %s: %s" % [
-						target_path,
-						error_string(discard_error),
-					]
+					"Could not discard an unused artifact snapshot for %s: %s"
+					% [target_path, error_string(discard_error),]
 				)
 				_retain_transaction_entries(
 					transaction_id,
@@ -881,13 +840,8 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 					entry = entries[entry_index]
 					rollback_phase = _ROLLBACK_PHASE_TARGET_REMOVED
 			elif rollback_phase == _ROLLBACK_PHASE_RESTORE_FAILED:
-				if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-					entry,
-					"rollback_failed_state_known"
-				):
-					operation_error = _get_recorded_restore_failure_error(
-						entry
-					)
+				if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_failed_state_known"):
+					operation_error = _get_recorded_restore_failure_error(entry)
 					if operation_error == OK:
 						operation_error = _remove_file_path(target_path)
 					if operation_error == OK:
@@ -902,9 +856,7 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 				else:
 					operation_error = _get_restored_target_error(entry)
 					if operation_error == OK:
-						entry["rollback_phase"] = (
-							_ROLLBACK_PHASE_TARGET_RESTORED
-						)
+						entry["rollback_phase"] = (_ROLLBACK_PHASE_TARGET_RESTORED)
 						entries[entry_index] = entry
 						_store_transaction_entries(
 							transaction_id,
@@ -919,10 +871,7 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 			else:
 				operation_error = ERR_INVALID_DATA
 
-			if (
-				operation_error == OK
-				and rollback_phase == _ROLLBACK_PHASE_TARGET_REMOVED
-			):
+			if (operation_error == OK and rollback_phase == _ROLLBACK_PHASE_TARGET_REMOVED):
 				operation_error = _prepare_rollback_restore(
 					entry,
 					transaction_id,
@@ -937,21 +886,14 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 				if operation_error == OK:
 					operation_error = _get_target_removed_state_error(entry)
 				if operation_error == OK:
-					var restore_path: String = (
-						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-							entry,
-							"rollback_restore_path"
-						)
-					)
+					var restore_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_restore_path")
 					operation_error = DirAccess.rename_absolute(
 						ProjectSettings.globalize_path(restore_path),
 						ProjectSettings.globalize_path(target_path)
 					)
 				if operation_error == OK:
 					entry["rollback_restore_path"] = ""
-					entry["rollback_phase"] = (
-						_ROLLBACK_PHASE_TARGET_RESTORED
-					)
+					entry["rollback_phase"] = (_ROLLBACK_PHASE_TARGET_RESTORED)
 					entries[entry_index] = entry
 					_store_transaction_entries(
 						transaction_id,
@@ -960,13 +902,11 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 					)
 					operation_error = _get_restored_target_error(entry)
 					if operation_error != OK:
-						var _failure_state_recorded: bool = (
-							_record_rollback_restore_failure_state(
-								transaction_id,
-								active_state,
-								entries,
-								entry_index
-							)
+						var _failure_state_recorded: bool = _record_rollback_restore_failure_state(
+							transaction_id,
+							active_state,
+							entries,
+							entry_index
 						)
 						entry = entries[entry_index]
 					else:
@@ -976,8 +916,7 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 				operation_error == OK
 				and (
 					rollback_phase == _ROLLBACK_PHASE_TARGET_RESTORED
-					or _get_rollback_phase(entry)
-					== _ROLLBACK_PHASE_TARGET_RESTORED
+					or _get_rollback_phase(entry) == _ROLLBACK_PHASE_TARGET_RESTORED
 				)
 			):
 				operation_error = _remove_transaction_backup(entry, true)
@@ -993,10 +932,8 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 				"rollback_restore"
 			)
 			var _issue_appended: bool = issues.append(
-				"Could not restore artifact target %s: %s" % [
-					target_path,
-					error_string(operation_error),
-				]
+				"Could not restore artifact target %s: %s"
+				% [target_path, error_string(operation_error),]
 			)
 			_retain_transaction_entries(
 				transaction_id,
@@ -1017,28 +954,14 @@ static func rollback(transaction: Dictionary) -> Dictionary:
 	active_state = _active_transactions[transaction_id]
 	active_state["entries"] = []
 	_active_transactions[transaction_id] = active_state
-	var staging_cleanup_report: Dictionary = (
-		_complete_registered_staging_cleanup(
-			transaction_id,
-			active_state
-		)
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		staging_cleanup_report,
-		"ok"
-	):
+	var staging_cleanup_report: Dictionary = _complete_registered_staging_cleanup(transaction_id, active_state)
+	if not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(staging_cleanup_report, "ok")):
 		return _make_transaction_action_report(
 			false,
 			&"rollback_failed",
 			restored_paths,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-				staging_cleanup_report,
-				"failed_paths"
-			),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-				staging_cleanup_report,
-				"issues"
-			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(staging_cleanup_report, "failed_paths"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(staging_cleanup_report, "issues"),
 			transaction,
 			RECOVERY_ACTION_ROLLBACK
 		)
@@ -1072,33 +995,27 @@ static func complete(transaction: Dictionary) -> Dictionary:
 			&"wrong_thread",
 			PackedStringArray(),
 			PackedStringArray(),
-			PackedStringArray([
-				"Artifact transactions may only be completed on the main thread.",
-			])
+			PackedStringArray(["Artifact transactions may only be completed on the main thread.",])
 		)
 	var validation_error: String = _get_transaction_validation_error(transaction)
 	if not validation_error.is_empty():
-		return _make_transaction_action_report(false, &"invalid_transaction", PackedStringArray(), PackedStringArray(), PackedStringArray([validation_error]))
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
-	var active_state: Dictionary = _active_transactions[transaction_id]
-	var terminal_mode: StringName = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			active_state,
-			"terminal_mode"
+		return _make_transaction_action_report(
+			false,
+			&"invalid_transaction",
+			PackedStringArray(),
+			PackedStringArray(),
+			PackedStringArray([validation_error])
 		)
-	)
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
+	var active_state: Dictionary = _active_transactions[transaction_id]
+	var terminal_mode: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(active_state, "terminal_mode")
 	if terminal_mode == RECOVERY_ACTION_ROLLBACK:
 		return _make_transaction_action_report(
 			false,
 			&"rollback_required",
 			PackedStringArray(),
 			PackedStringArray(),
-			PackedStringArray([
-				"Artifact transaction rollback already started and must be completed.",
-			]),
+			PackedStringArray(["Artifact transaction rollback already started and must be completed.",]),
 			transaction,
 			RECOVERY_ACTION_ROLLBACK
 		)
@@ -1107,58 +1024,31 @@ static func complete(transaction: Dictionary) -> Dictionary:
 	var entries: Array[Dictionary] = _get_transaction_entries(active_state)
 	var failed_paths: PackedStringArray = PackedStringArray()
 	var issues: PackedStringArray = PackedStringArray()
-	var staging_cleanup_report: Dictionary = (
-		_complete_registered_staging_cleanup(
-			transaction_id,
-			active_state
-		)
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		staging_cleanup_report,
-		"ok"
-	):
+	var staging_cleanup_report: Dictionary = _complete_registered_staging_cleanup(transaction_id, active_state)
+	if not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(staging_cleanup_report, "ok")):
 		return _make_transaction_action_report(
 			false,
 			&"cleanup_failed",
 			PackedStringArray(),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-				staging_cleanup_report,
-				"failed_paths"
-			),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-				staging_cleanup_report,
-				"issues"
-			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(staging_cleanup_report, "failed_paths"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(staging_cleanup_report, "issues"),
 			transaction,
 			RECOVERY_ACTION_COMPLETE
 		)
 	active_state = _active_transactions[transaction_id]
 	for entry_index: int in range(entries.size()):
 		var entry: Dictionary = entries[entry_index]
-		var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"backup_path"
-		)
+		var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "backup_path")
 		if backup_path.is_empty():
 			continue
-		var remove_error: Error = (
-			_remove_owned_partial_sidecar(entry, "backup")
-			if _get_sidecar_write_state(entry, "backup")
-			== _WRITE_STATE_PARTIAL
-			else _remove_transaction_backup(entry, true)
-		)
+		var remove_error: Error = (_remove_owned_partial_sidecar(entry, "backup") if _get_sidecar_write_state(entry, "backup") == _WRITE_STATE_PARTIAL else _remove_transaction_backup(entry, true))
 		if remove_error == OK:
 			continue
-		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"path"
-		)
+		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
 		var _failed_path_appended: bool = failed_paths.append(target_path)
 		var _issue_appended: bool = issues.append(
-			"Could not remove the artifact snapshot for %s: %s." % [
-				target_path,
-				error_string(remove_error),
-			]
+			"Could not remove the artifact snapshot for %s: %s."
+			% [target_path, error_string(remove_error),]
 		)
 		_retain_transaction_entries(
 			transaction_id,
@@ -1200,18 +1090,13 @@ static func _make_entry(
 	options: Dictionary
 ) -> Dictionary:
 	var expected_sha256_value: Variant = options.get("expected_sha256", "")
-	var preflight_existing_sha256_value: Variant = options.get(
-		"preflight_existing_sha256",
-		""
-	)
+	var preflight_existing_sha256_value: Variant = options.get("preflight_existing_sha256", "")
 	if expected_sha256_value is String:
 		var expected_sha256_text: String = expected_sha256_value
 		expected_sha256_value = expected_sha256_text.strip_edges().to_lower()
 	if preflight_existing_sha256_value is String:
 		var preflight_existing_sha256_text: String = preflight_existing_sha256_value
-		preflight_existing_sha256_value = (
-			preflight_existing_sha256_text.strip_edges().to_lower()
-		)
+		preflight_existing_sha256_value = (preflight_existing_sha256_text.strip_edges().to_lower())
 	var entry: Dictionary = {
 		"kind": kind,
 		"target_path": target_path,
@@ -1271,35 +1156,23 @@ static func _normalize_entries(
 		true
 	)
 	if entries.is_empty():
-		var _empty_issue_appended: bool = issues.append(
-			"Artifact transaction requires at least one entry."
-		)
+		var _empty_issue_appended: bool = issues.append("Artifact transaction requires at least one entry.")
 	if max_file_count < 1:
-		var _file_count_budget_issue_appended: bool = issues.append(
-			"max_file_count must be an exact int within the framework limit."
-		)
+		var _file_count_budget_issue_appended: bool = issues.append("max_file_count must be an exact int within the framework limit.")
 	if max_file_bytes < 1:
-		var _file_budget_issue_appended: bool = issues.append(
-			"max_file_bytes must be an exact int within the framework limit."
-		)
+		var _file_budget_issue_appended: bool = issues.append("max_file_bytes must be an exact int within the framework limit.")
 	if max_total_bytes < 1:
-		var _total_budget_issue_appended: bool = issues.append(
-			"max_total_bytes must be an exact int within the framework limit."
-		)
+		var _total_budget_issue_appended: bool = issues.append("max_total_bytes must be an exact int within the framework limit.")
 	if max_backup_bytes < 0:
-		var _backup_budget_issue_appended: bool = issues.append(
-			"max_backup_bytes must be an exact int within the framework limit."
-		)
+		var _backup_budget_issue_appended: bool = issues.append("max_backup_bytes must be an exact int within the framework limit.")
 	max_file_count = maxi(max_file_count, 1)
 	max_file_bytes = maxi(max_file_bytes, 1)
 	max_total_bytes = maxi(max_total_bytes, 1)
 	max_backup_bytes = maxi(max_backup_bytes, 0)
 	if entries.size() > max_file_count:
 		var _count_issue_appended: bool = issues.append(
-			"Artifact entry count exceeds max_file_count: %d > %d." % [
-				entries.size(),
-				max_file_count,
-			]
+			"Artifact entry count exceeds max_file_count: %d > %d."
+			% [entries.size(), max_file_count,]
 		)
 	if not issues.is_empty():
 		var rejected_entries: Array[Dictionary] = []
@@ -1323,29 +1196,24 @@ static func _normalize_entries(
 	var unchanged_count: int = 0
 	for entry_index: int in range(entries.size()):
 		var entry: Dictionary = entries[entry_index].duplicate(false)
-		var target_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
-		)
+		var target_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"))
 		var path_error: String = _get_target_path_error(target_path, options)
 		if not path_error.is_empty():
 			var _path_issue_appended: bool = issues.append(
-				"Artifact entry %d: %s" % [entry_index, path_error]
+				"Artifact entry %d: %s"
+				% [entry_index, path_error]
 			)
 			continue
 		var portable_identity: String = target_path.to_lower()
 		if portable_targets.has(portable_identity):
-			var _duplicate_issue_appended: bool = issues.append(
-				"Artifact target is duplicated under portable identity: %s." % target_path
-			)
+			var _duplicate_issue_appended: bool = issues.append("Artifact target is duplicated under portable identity: %s." % target_path)
 			continue
 		portable_targets[portable_identity] = true
 
 		var kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "kind")
 		var remaining_total_bytes: int = max_total_bytes - total_bytes
 		if remaining_total_bytes <= 0:
-			var _total_exhausted_issue_appended: bool = issues.append(
-				"Artifact payload bytes exceed max_total_bytes."
-			)
+			var _total_exhausted_issue_appended: bool = issues.append("Artifact payload bytes exceed max_total_bytes.")
 			break
 		var bytes_result: Dictionary = _read_entry_bytes(
 			entry,
@@ -1355,110 +1223,87 @@ static func _normalize_entries(
 		)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(bytes_result, "ok"):
 			var _bytes_issue_appended: bool = issues.append(
-				"Artifact entry %d: %s" % [
-					entry_index,
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(bytes_result, "error"),
-				]
+				"Artifact entry %d: %s"
+				% [entry_index, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(bytes_result, "error"),]
 			)
 			continue
 		var size_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(bytes_result, "size_bytes")
 		total_bytes += size_bytes
 		if total_bytes > max_total_bytes:
 			var _total_issue_appended: bool = issues.append(
-				"Artifact payload bytes exceed max_total_bytes: %d > %d." % [
-					total_bytes,
-					max_total_bytes,
-				]
+				"Artifact payload bytes exceed max_total_bytes: %d > %d."
+				% [total_bytes, max_total_bytes,]
 			)
 			continue
 		var content_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(bytes_result, "sha256")
 		if entry.has("expected_sha256") and typeof(entry["expected_sha256"]) != TYPE_STRING:
-			var _hash_type_issue_appended: bool = issues.append(
-				"Artifact entry %d expected_sha256 must be an exact String." % entry_index
-			)
+			var _hash_type_issue_appended: bool = issues.append("Artifact entry %d expected_sha256 must be an exact String." % entry_index)
 			continue
-		var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"expected_sha256"
-		).strip_edges().to_lower()
-		if not expected_sha256.is_empty() and (
-			not _is_sha256(expected_sha256)
-			or expected_sha256 != content_sha256
-		):
-			var _hash_issue_appended: bool = issues.append(
-				"Artifact entry %d expected_sha256 does not match its content." % entry_index
+		var expected_sha256: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "expected_sha256").strip_edges().to_lower())
+		if (
+			not expected_sha256.is_empty()
+			and (
+				not _is_sha256(expected_sha256)
+				or expected_sha256 != content_sha256
 			)
+		):
+			var _hash_issue_appended: bool = issues.append("Artifact entry %d expected_sha256 does not match its content." % entry_index)
 			continue
 
 		var existed: bool = FileAccess.file_exists(target_path)
 		var existing_size: int = _file_size(target_path) if existed else 0
-		var previous_sha256: String = (
-			FileAccess.get_sha256(target_path).to_lower()
-			if existed
-			else ""
-		)
-		if existed and (existing_size < 0 or previous_sha256.is_empty()):
-			var _existing_read_issue_appended: bool = issues.append(
-				"Artifact target could not be read for preflight: %s." % target_path
+		var previous_sha256: String = (FileAccess.get_sha256(target_path).to_lower() if existed else "")
+		if (
+			existed
+			and (
+				existing_size < 0
+				or previous_sha256.is_empty()
 			)
+		):
+			var _existing_read_issue_appended: bool = issues.append("Artifact target could not be read for preflight: %s." % target_path)
 			continue
 		if entry.has("expected_existing_sha256"):
-			var _legacy_existing_hash_issue_appended: bool = issues.append(
-				"Artifact entry %d expected_existing_sha256 is unsupported; use preflight_existing_sha256 for a non-atomic observable freshness check." % entry_index
-			)
+			var _legacy_existing_hash_issue_appended: bool = issues.append("Artifact entry %d expected_existing_sha256 is unsupported; use preflight_existing_sha256 for a non-atomic observable freshness check." % entry_index)
 			continue
+		if (entry.has("preflight_existing_sha256") and typeof(entry["preflight_existing_sha256"]) != TYPE_STRING):
+			var _existing_hash_type_issue_appended: bool = issues.append("Artifact entry %d preflight_existing_sha256 must be an exact String." % entry_index)
+			continue
+		var preflight_existing_sha256: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "preflight_existing_sha256").strip_edges().to_lower())
 		if (
-			entry.has("preflight_existing_sha256")
-			and typeof(entry["preflight_existing_sha256"]) != TYPE_STRING
-		):
-			var _existing_hash_type_issue_appended: bool = issues.append(
-				"Artifact entry %d preflight_existing_sha256 must be an exact String." % entry_index
+			not preflight_existing_sha256.is_empty()
+			and (
+				not _is_sha256(preflight_existing_sha256)
+				or not existed
+				or previous_sha256 != preflight_existing_sha256
 			)
-			continue
-		var preflight_existing_sha256: String = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entry,
-				"preflight_existing_sha256"
-			).strip_edges().to_lower()
-		)
-		if not preflight_existing_sha256.is_empty() and (
-			not _is_sha256(preflight_existing_sha256)
-			or not existed
-			or previous_sha256 != preflight_existing_sha256
 		):
-			var _existing_hash_issue_appended: bool = issues.append(
-				"Artifact entry %d preflight_existing_sha256 does not match its existing target." % entry_index
-			)
+			var _existing_hash_issue_appended: bool = issues.append("Artifact entry %d preflight_existing_sha256 does not match its existing target." % entry_index)
 			continue
 		var changed: bool = not existed or previous_sha256 != content_sha256
 		var overwrite: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 			entry,
 			"overwrite",
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "overwrite_existing", true)
-		)
-		if existed and changed and not overwrite:
-			var _overwrite_issue_appended: bool = issues.append(
-				"Artifact target exists and overwrite is disabled: %s." % target_path
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				options,
+				"overwrite_existing",
+				true
 			)
+		)
+		if (
+			existed
+			and changed
+			and not overwrite
+		):
+			var _overwrite_issue_appended: bool = issues.append("Artifact target exists and overwrite is disabled: %s." % target_path)
 			continue
 		if existed and changed:
-			var candidate_snapshot_bytes: int = (
-				snapshot_bytes + existing_size
-			)
-			var candidate_largest_backup_bytes: int = maxi(
-				largest_backup_bytes,
-				existing_size
-			)
-			var candidate_backup_bytes: int = (
-				candidate_snapshot_bytes
-				+ candidate_largest_backup_bytes
-			)
+			var candidate_snapshot_bytes: int = snapshot_bytes + existing_size
+			var candidate_largest_backup_bytes: int = maxi(largest_backup_bytes, existing_size)
+			var candidate_backup_bytes: int = candidate_snapshot_bytes + candidate_largest_backup_bytes
 			if candidate_backup_bytes > max_backup_bytes:
 				var _changed_backup_issue_appended: bool = issues.append(
-					"Artifact rollback recovery bytes exceed max_backup_bytes: %d > %d." % [
-						candidate_backup_bytes,
-						max_backup_bytes,
-					]
+					"Artifact rollback recovery bytes exceed max_backup_bytes: %d > %d."
+					% [candidate_backup_bytes, max_backup_bytes,]
 				)
 				continue
 			snapshot_bytes = candidate_snapshot_bytes
@@ -1475,12 +1320,7 @@ static func _normalize_entries(
 		entry["previous_sha256"] = previous_sha256
 		entry["changed"] = changed
 		entry["existed"] = existed
-		var resolved_source_path: String = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				bytes_result,
-				"source_path"
-			)
-		)
+		var resolved_source_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(bytes_result, "source_path")
 		var _text_erased: bool = entry.erase("text")
 		var _bytes_erased: bool = entry.erase("bytes")
 		var _source_path_erased: bool = entry.erase("source_path")
@@ -1488,18 +1328,13 @@ static func _normalize_entries(
 			if kind == KIND_FILE:
 				entry["resolved_source_path"] = resolved_source_path
 			else:
-				entry["resolved_bytes"] = _get_packed_byte_array(
-					bytes_result,
-					"bytes"
-				)
+				entry["resolved_bytes"] = _get_packed_byte_array(bytes_result, "bytes")
 		normalized_entries.append(entry)
 
 	if backup_bytes > max_backup_bytes:
 		var _backup_issue_appended: bool = issues.append(
-			"Artifact rollback recovery bytes exceed max_backup_bytes: %d > %d." % [
-				backup_bytes,
-				max_backup_bytes,
-			]
+			"Artifact rollback recovery bytes exceed max_backup_bytes: %d > %d."
+			% [backup_bytes, max_backup_bytes,]
 		)
 	return _make_normalized_entries_result(
 		issues.is_empty() and normalized_entries.size() == entries.size(),
@@ -1548,13 +1383,19 @@ static func _read_entry_bytes(
 				"Artifact bytes exceed the entry byte budget."
 			)
 	elif kind == KIND_FILE:
-		var source_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "source_path")
-		)
+		var source_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "source_path"))
 		if source_path.is_empty() or not FileAccess.file_exists(source_path):
-			return _make_bytes_result(false, PackedByteArray(), "Artifact source file is missing.")
+			return _make_bytes_result(
+				false,
+				PackedByteArray(),
+				"Artifact source file is missing."
+			)
 		if _path_has_link_component(source_path):
-			return _make_bytes_result(false, PackedByteArray(), "Artifact source file crosses a filesystem link.")
+			return _make_bytes_result(
+				false,
+				PackedByteArray(),
+				"Artifact source file crosses a filesystem link."
+			)
 		var source_size: int = _file_size(source_path)
 		if source_size < 0 or source_size > max_file_bytes:
 			return _make_bytes_result(
@@ -1578,14 +1419,23 @@ static func _read_entry_bytes(
 			"error": "",
 		}
 	else:
-		return _make_bytes_result(false, PackedByteArray(), "Artifact kind is unsupported.")
+		return _make_bytes_result(
+			false,
+			PackedByteArray(),
+			"Artifact kind is unsupported."
+		)
 	if bytes.size() > max_file_bytes:
 		return _make_bytes_result(
 			false,
 			PackedByteArray(),
 			"Artifact payload exceeds the entry byte budget."
 		)
-	return _make_bytes_result(true, bytes, "", include_bytes)
+	return _make_bytes_result(
+		true,
+		bytes,
+		"",
+		include_bytes
+	)
 
 
 ## 构造字节读取结果字典；仅成功时计算 SHA-256，include_bytes 为 false 时不在结果中保留字节。
@@ -1640,10 +1490,7 @@ static func _make_normalized_entries_result(
 ## 构造无条目的失败结果；entry_count 限制为非负值，其余计数清零并记录单条问题。
 ## [br]
 ## @api private
-static func _make_empty_normalized_failure(
-	entry_count: int,
-	issue: String
-) -> Dictionary:
+static func _make_empty_normalized_failure(entry_count: int, issue: String) -> Dictionary:
 	return _make_normalized_entries_result(
 		false,
 		[],
@@ -1674,12 +1521,7 @@ static func _get_target_path_error(target_path: String, options: Dictionary) -> 
 	var allowed_roots_report: Dictionary = _read_allowed_roots(options)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(allowed_roots_report, "ok"):
 		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(allowed_roots_report, "error")
-	var allowed_roots: PackedStringArray = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			allowed_roots_report,
-			"roots"
-		)
-	)
+	var allowed_roots: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(allowed_roots_report, "roots")
 	if not allowed_roots.is_empty():
 		var inside_allowed_root: bool = false
 		for allowed_root: String in allowed_roots:
@@ -1698,20 +1540,14 @@ static func _get_target_path_error(target_path: String, options: Dictionary) -> 
 ## @api private
 static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 	var roots: PackedStringArray = PackedStringArray()
-	var has_allowed_roots: bool = (
-		options.has("allowed_roots")
-		or options.has(&"allowed_roots")
-	)
+	var has_allowed_roots: bool = (options.has("allowed_roots") or options.has(&"allowed_roots"))
 	if not has_allowed_roots:
 		return {
 			"ok": false,
 			"roots": roots,
 			"error": "allowed_roots is required for artifact transactions.",
 		}
-	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		options,
-		"allowed_roots"
-	)
+	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "allowed_roots")
 	if not (
 		raw_value is Array
 		or raw_value is PackedStringArray
@@ -1723,12 +1559,7 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 			"roots": roots,
 			"error": "allowed_roots must be a non-empty resource root collection.",
 		}
-	var raw_roots: PackedStringArray = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			options,
-			"allowed_roots"
-		)
-	)
+	var raw_roots: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(options, "allowed_roots")
 	if raw_roots.is_empty():
 		return {
 			"ok": false,
@@ -1765,7 +1596,12 @@ static func _read_allowed_roots(options: Dictionary) -> Dictionary:
 static func _path_is_under_allowed_root(path: String, root_path: String) -> bool:
 	if root_path.ends_with("://"):
 		return path.begins_with(root_path)
-	return _GF_PATH_TOOLS_SCRIPT.is_path_under_root(path, root_path, false, false)
+	return _GF_PATH_TOOLS_SCRIPT.is_path_under_root(
+		path,
+		root_path,
+		false,
+		false
+	)
 
 
 ## 从归一化结果中筛出 changed 为 true 的字典条目。
@@ -1792,13 +1628,9 @@ static func _stage_entries(entries: Array[Dictionary]) -> Dictionary:
 		var entry: Dictionary = entries[entry_index]
 		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
 		var directory_path: String = target_path.get_base_dir()
-		var make_error: Error = DirAccess.make_dir_recursive_absolute(
-			ProjectSettings.globalize_path(directory_path)
-		)
+		var make_error: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory_path))
 		if make_error != OK or _path_has_link_component(directory_path):
-			var _directory_issue_appended: bool = issues.append(
-				"Could not prepare artifact target directory: %s." % directory_path
-			)
+			var _directory_issue_appended: bool = issues.append("Could not prepare artifact target directory: %s." % directory_path)
 			break
 		var staging_path: String = _make_sidecar_path(
 			target_path,
@@ -1818,48 +1650,37 @@ static func _stage_entries(entries: Array[Dictionary]) -> Dictionary:
 			"size_bytes",
 			-1
 		)
-		var content_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"content_sha256"
-		)
+		var content_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256")
 		var write_error: Error = OK
 		var write_report: Dictionary = {}
-		if (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "kind")
-			== KIND_FILE
-		):
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "kind") == KIND_FILE:
 			write_error = _copy_file(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					entry,
-					"resolved_source_path"
-				),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "resolved_source_path"),
 				staging_path,
 				size_bytes,
 				content_sha256,
 				write_report
 			)
 		else:
-			var bytes: PackedByteArray = _get_packed_byte_array(
-				entry,
-				"resolved_bytes"
-			)
+			var bytes: PackedByteArray = _get_packed_byte_array(entry, "resolved_bytes")
 			write_error = _write_bytes(
 				staging_path,
 				bytes,
 				write_report
 			)
-		_apply_owned_write_report(entry, "staging", write_report)
+		_apply_owned_write_report(
+			entry,
+			"staging",
+			write_report
+		)
 		if (
 			write_error != OK
 			or _file_size(staging_path) != size_bytes
-			or FileAccess.get_sha256(staging_path).to_lower()
-			!= content_sha256
+			or FileAccess.get_sha256(staging_path).to_lower() != content_sha256
 		):
 			var _write_issue_appended: bool = issues.append(
-				"Could not stage artifact target %s: %s." % [
-					target_path,
-					error_string(write_error),
-				]
+				"Could not stage artifact target %s: %s."
+				% [target_path, error_string(write_error),]
 			)
 			_append_owned_write_report_issues(
 				issues,
@@ -1868,19 +1689,13 @@ static func _stage_entries(entries: Array[Dictionary]) -> Dictionary:
 				write_report
 			)
 			break
-	return {
-		"ok": issues.is_empty(),
-		"issues": issues,
-	}
+	return { "ok": issues.is_empty(), "issues": issues, }
 
 
 ## 逐项核对目标基线和暂存身份，移除旧目标后登记已修改状态，再改名提交并校验内容；首个失败即停止，由外层依据登记状态安排回滚。
 ## [br]
 ## @api private
-static func _replace_staged_entries(
-	entries: Array[Dictionary],
-	transaction: Dictionary
-) -> Dictionary:
+static func _replace_staged_entries(entries: Array[Dictionary], transaction: Dictionary) -> Dictionary:
 	var issues: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:
 		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
@@ -1891,17 +1706,13 @@ static func _replace_staged_entries(
 			break
 		var staging_state_error: String = _get_staging_state_error(entry)
 		if not staging_state_error.is_empty():
-			var _staging_issue_appended: bool = issues.append(
-				staging_state_error
-			)
+			var _staging_issue_appended: bool = issues.append(staging_state_error)
 			break
 		var remove_error: Error = _remove_file_path(target_path)
 		if remove_error != OK:
 			var _remove_issue_appended: bool = issues.append(
-				"Could not replace artifact target %s: %s." % [
-					target_path,
-					error_string(remove_error),
-				]
+				"Could not replace artifact target %s: %s."
+				% [target_path, error_string(remove_error),]
 			)
 			break
 		_mark_transaction_path_modified(
@@ -1913,9 +1724,7 @@ static func _replace_staged_entries(
 		)
 		staging_state_error = _get_staging_state_error(entry)
 		if not staging_state_error.is_empty():
-			var _rename_boundary_issue_appended: bool = issues.append(
-				staging_state_error
-			)
+			var _rename_boundary_issue_appended: bool = issues.append(staging_state_error)
 			break
 		var rename_error: Error = DirAccess.rename_absolute(
 			ProjectSettings.globalize_path(staging_path),
@@ -1923,52 +1732,31 @@ static func _replace_staged_entries(
 		)
 		if rename_error != OK:
 			var _rename_issue_appended: bool = issues.append(
-				"Could not commit artifact target %s: %s." % [
-					target_path,
-					error_string(rename_error),
-				]
+				"Could not commit artifact target %s: %s."
+				% [target_path, error_string(rename_error),]
 			)
 			break
 		entry["staging_path"] = ""
-		var committed_state_error: String = _get_committed_target_state_error(
-			entry
-		)
+		var committed_state_error: String = _get_committed_target_state_error(entry)
 		if not committed_state_error.is_empty():
-			var _committed_state_issue_appended: bool = issues.append(
-				committed_state_error
-			)
+			var _committed_state_issue_appended: bool = issues.append(committed_state_error)
 			break
 		_mark_transaction_path_modified(
 			transaction,
 			target_path,
 			true,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				entry,
-				"size_bytes"
-			),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entry,
-				"content_sha256"
-			)
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "size_bytes"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256")
 		)
-	return {
-		"ok": issues.is_empty(),
-		"issues": issues,
-	}
+	return { "ok": issues.is_empty(), "issues": issues, }
 
 
 ## 在提交前核对目标未变成目录、存在性未变且已有内容哈希仍匹配预检值；有效时返回空文本。
 ## [br]
 ## @api private
 static func _get_target_state_error(entry: Dictionary) -> String:
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"target_path"
-	)
-	var expected_existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		entry,
-		"existed"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
+	var expected_existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "existed")
 	var absolute_path: String = ProjectSettings.globalize_path(target_path)
 	if DirAccess.dir_exists_absolute(absolute_path):
 		return "Artifact target became a directory before commit: %s." % target_path
@@ -1977,10 +1765,7 @@ static func _get_target_state_error(entry: Dictionary) -> String:
 		return "Artifact target existence changed before commit: %s." % target_path
 	if not exists_now:
 		return ""
-	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"previous_sha256"
-	)
+	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "previous_sha256")
 	var current_sha256: String = FileAccess.get_sha256(target_path).to_lower()
 	if current_sha256.is_empty() or current_sha256 != expected_sha256:
 		return "Artifact target content changed before commit: %s." % target_path
@@ -1991,34 +1776,21 @@ static func _get_target_state_error(entry: Dictionary) -> String:
 ## [br]
 ## @api private
 static func _get_staging_state_error(entry: Dictionary) -> String:
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"target_path"
-	)
-	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"staging_path"
-	)
-	if (
-		_get_sidecar_path_schema_error(entry, "staging") != OK
-		or not FileAccess.file_exists(staging_path)
-	):
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
+	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_path")
+	if (_get_sidecar_path_schema_error(entry, "staging") != OK or not FileAccess.file_exists(staging_path)):
 		return "Artifact staging identity changed before commit: %s." % target_path
 	var expected_size: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		entry,
 		"size_bytes",
 		-1
 	)
-	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"content_sha256"
-	)
+	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256")
 	if (
 		expected_size < 0
 		or not _is_sha256(expected_sha256)
 		or _file_size(staging_path) != expected_size
-		or FileAccess.get_sha256(staging_path).to_lower()
-		!= expected_sha256
+		or FileAccess.get_sha256(staging_path).to_lower() != expected_sha256
 	):
 		return "Artifact staging content changed before commit: %s." % target_path
 	return ""
@@ -2028,15 +1800,10 @@ static func _get_staging_state_error(entry: Dictionary) -> String:
 ## [br]
 ## @api private
 static func _get_committed_target_state_error(entry: Dictionary) -> String:
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"target_path"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path")
 	if (
 		_path_has_link_component(target_path)
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(target_path)
-		)
+		or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(target_path)))
 		or not FileAccess.file_exists(target_path)
 	):
 		return "Artifact target identity changed during commit: %s." % target_path
@@ -2045,16 +1812,12 @@ static func _get_committed_target_state_error(entry: Dictionary) -> String:
 		"size_bytes",
 		-1
 	)
-	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"content_sha256"
-	)
+	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256")
 	if (
 		expected_size < 0
 		or not _is_sha256(expected_sha256)
 		or _file_size(target_path) != expected_size
-		or FileAccess.get_sha256(target_path).to_lower()
-		!= expected_sha256
+		or FileAccess.get_sha256(target_path).to_lower() != expected_sha256
 	):
 		return "Artifact target content changed during commit: %s." % target_path
 	return ""
@@ -2064,17 +1827,11 @@ static func _get_committed_target_state_error(entry: Dictionary) -> String:
 ## [br]
 ## @api private
 static func _get_snapshot_source_state_error(entry: Dictionary) -> String:
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"path"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
 	var absolute_path: String = ProjectSettings.globalize_path(target_path)
 	if DirAccess.dir_exists_absolute(absolute_path):
 		return "Artifact transaction target became a directory before snapshot: %s." % target_path
-	var expected_existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		entry,
-		"existed"
-	)
+	var expected_existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "existed")
 	var exists_now: bool = FileAccess.file_exists(target_path)
 	if exists_now != expected_existed:
 		return "Artifact transaction target existence changed before snapshot: %s." % target_path
@@ -2088,10 +1845,7 @@ static func _get_snapshot_source_state_error(entry: Dictionary) -> String:
 	var current_size: int = _file_size(target_path)
 	if current_size < 0 or current_size != expected_size:
 		return "Artifact transaction target size changed before snapshot: %s." % target_path
-	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"sha256"
-	)
+	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256")
 	var current_sha256: String = FileAccess.get_sha256(target_path).to_lower()
 	if current_sha256.is_empty() or current_sha256 != expected_sha256:
 		return "Artifact transaction target content changed before snapshot: %s." % target_path
@@ -2108,19 +1862,11 @@ static func _mark_transaction_path_modified(
 	expected_size: int,
 	expected_sha256: String
 ) -> void:
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
 	if not _active_transactions.has(transaction_id):
 		return
 	var active_state: Dictionary = _active_transactions[transaction_id]
-	var modified_paths: PackedStringArray = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			active_state,
-			"rollback_only_paths"
-		)
-	)
+	var modified_paths: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(active_state, "rollback_only_paths")
 	if not modified_paths.has(target_path):
 		var _path_appended: bool = modified_paths.append(target_path)
 	var stored_entries_value: Variant = active_state.get("entries")
@@ -2130,22 +1876,12 @@ static func _mark_transaction_path_modified(
 			if not stored_entries[entry_index] is Dictionary:
 				continue
 			var stored_entry: Dictionary = stored_entries[entry_index]
-			if (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					stored_entry,
-					"path"
-				)
-				!= target_path
-			):
+			if ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string(stored_entry, "path")) != target_path):
 				continue
 			stored_entry["rollback_expected_state_known"] = true
 			stored_entry["rollback_expected_existed"] = expected_existed
-			stored_entry["rollback_expected_size_bytes"] = (
-				expected_size if expected_existed else 0
-			)
-			stored_entry["rollback_expected_sha256"] = (
-				expected_sha256 if expected_existed else ""
-			)
+			stored_entry["rollback_expected_size_bytes"] = (expected_size if expected_existed else 0)
+			stored_entry["rollback_expected_sha256"] = (expected_sha256 if expected_existed else "")
 			stored_entries[entry_index] = stored_entry
 			break
 		active_state["entries"] = stored_entries
@@ -2157,10 +1893,7 @@ static func _mark_transaction_path_modified(
 ## [br]
 ## @api private
 static func _enable_selective_rollback(transaction: Dictionary) -> void:
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
 	if not _active_transactions.has(transaction_id):
 		return
 	var active_state: Dictionary = _active_transactions[transaction_id]
@@ -2172,10 +1905,7 @@ static func _enable_selective_rollback(transaction: Dictionary) -> void:
 ## 预检事务目标数量、允许根、可移植路径身份及现有文件摘要，并按快照总量加最大单份恢复空间计算备份预算；返回准备状态和问题列表。
 ## [br]
 ## @api private
-static func _normalize_transaction_paths(
-	paths: PackedStringArray,
-	options: Dictionary
-) -> Dictionary:
+static func _normalize_transaction_paths(paths: PackedStringArray, options: Dictionary) -> Dictionary:
 	var issues: PackedStringArray = PackedStringArray()
 	var entries: Array[Dictionary] = []
 	var identities: Dictionary = {}
@@ -2193,22 +1923,14 @@ static func _normalize_transaction_paths(
 		true
 	)
 	if paths.is_empty():
-		var _empty_issue_appended: bool = issues.append(
-			"Artifact transaction requires at least one target path."
-		)
+		var _empty_issue_appended: bool = issues.append("Artifact transaction requires at least one target path.")
 	if max_file_count < 1:
-		var _file_count_budget_issue_appended: bool = issues.append(
-			"max_file_count must be an exact int within the framework limit."
-		)
+		var _file_count_budget_issue_appended: bool = issues.append("max_file_count must be an exact int within the framework limit.")
 	max_file_count = maxi(max_file_count, 1)
 	if paths.size() > max_file_count:
-		var _count_issue_appended: bool = issues.append(
-			"Artifact transaction path count exceeds max_file_count."
-		)
+		var _count_issue_appended: bool = issues.append("Artifact transaction path count exceeds max_file_count.")
 	if max_backup_bytes < 0:
-		var _backup_budget_issue_appended: bool = issues.append(
-			"max_backup_bytes must be an exact int within the framework limit."
-		)
+		var _backup_budget_issue_appended: bool = issues.append("max_backup_bytes must be an exact int within the framework limit.")
 	max_backup_bytes = maxi(max_backup_bytes, 0)
 	if not issues.is_empty():
 		return {
@@ -2219,21 +1941,14 @@ static func _normalize_transaction_paths(
 			"entries": entries,
 			"backup_bytes": 0,
 			"issues": issues,
-			"metadata": _to_report_metadata(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-					options,
-					"metadata"
-				)
-			),
+			"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 		}
 	var snapshot_bytes: int = 0
 	var largest_backup_bytes: int = 0
 	var backup_bytes: int = 0
 	for path: String in paths:
 		if path.is_empty():
-			var _empty_path_issue_appended: bool = issues.append(
-				"Artifact transaction target path is empty."
-			)
+			var _empty_path_issue_appended: bool = issues.append("Artifact transaction target path is empty.")
 			continue
 		var target_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(path)
 		var path_error: String = _get_target_path_error(target_path, options)
@@ -2242,9 +1957,7 @@ static func _normalize_transaction_paths(
 			continue
 		var identity: String = target_path.to_lower()
 		if identities.has(identity):
-			var _duplicate_issue_appended: bool = issues.append(
-				"Artifact transaction target is duplicated: %s." % target_path
-			)
+			var _duplicate_issue_appended: bool = issues.append("Artifact transaction target is duplicated: %s." % target_path)
 			continue
 		identities[identity] = true
 		var existed: bool = FileAccess.file_exists(target_path)
@@ -2253,45 +1966,31 @@ static func _normalize_transaction_paths(
 		if existed:
 			target_size = _file_size(target_path)
 			if target_size < 0:
-				var _target_read_issue_appended: bool = issues.append(
-					"Artifact transaction target could not be read: %s." % target_path
-				)
+				var _target_read_issue_appended: bool = issues.append("Artifact transaction target could not be read: %s." % target_path)
 				continue
-			var candidate_snapshot_bytes: int = (
-				snapshot_bytes + target_size
-			)
-			var candidate_largest_backup_bytes: int = maxi(
-				largest_backup_bytes,
-				target_size
-			)
-			var candidate_backup_bytes: int = (
-				candidate_snapshot_bytes
-				+ candidate_largest_backup_bytes
-			)
+			var candidate_snapshot_bytes: int = snapshot_bytes + target_size
+			var candidate_largest_backup_bytes: int = maxi(largest_backup_bytes, target_size)
+			var candidate_backup_bytes: int = candidate_snapshot_bytes + candidate_largest_backup_bytes
 			if candidate_backup_bytes > max_backup_bytes:
-				var _backup_issue_appended: bool = issues.append(
-					"Artifact transaction rollback recovery bytes exceed max_backup_bytes."
-				)
+				var _backup_issue_appended: bool = issues.append("Artifact transaction rollback recovery bytes exceed max_backup_bytes.")
 				continue
 			target_sha256 = FileAccess.get_sha256(target_path).to_lower()
 			if target_sha256.is_empty():
-				var _target_hash_issue_appended: bool = issues.append(
-					"Artifact transaction target could not be hashed: %s." % target_path
-				)
+				var _target_hash_issue_appended: bool = issues.append("Artifact transaction target could not be hashed: %s." % target_path)
 				continue
 			snapshot_bytes = candidate_snapshot_bytes
 			largest_backup_bytes = candidate_largest_backup_bytes
 			backup_bytes = candidate_backup_bytes
-		entries.append({
-			"path": target_path,
-			"existed": existed,
-			"size_bytes": target_size,
-			"sha256": target_sha256,
-		})
-	if backup_bytes > max_backup_bytes:
-		var _total_backup_issue_appended: bool = issues.append(
-			"Artifact transaction rollback recovery bytes exceed max_backup_bytes."
+		entries.append(
+			{
+				"path": target_path,
+				"existed": existed,
+				"size_bytes": target_size,
+				"sha256": target_sha256,
+			}
 		)
+	if backup_bytes > max_backup_bytes:
+		var _total_backup_issue_appended: bool = issues.append("Artifact transaction rollback recovery bytes exceed max_backup_bytes.")
 	return {
 		"ok": issues.is_empty(),
 		"format": _TRANSACTION_FORMAT,
@@ -2300,19 +1999,14 @@ static func _normalize_transaction_paths(
 		"entries": entries,
 		"backup_bytes": backup_bytes,
 		"issues": issues,
-		"metadata": _to_report_metadata(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")
-		),
+		"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
 
 
 ## 将归一化结果投影为预检边界字典，包含 ready/rejected 状态、计数、条目报告和脱敏元数据。
 ## [br]
 ## @api private
-static func _make_preflight_boundary(
-	normalized: Dictionary,
-	options: Dictionary
-) -> Dictionary:
+static func _make_preflight_boundary(normalized: Dictionary, options: Dictionary) -> Dictionary:
 	return {
 		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "ok"),
 		"status": "ready" if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "ok") else "rejected",
@@ -2323,9 +2017,7 @@ static func _make_preflight_boundary(
 		"backup_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(normalized, "backup_bytes"),
 		"issues": _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(normalized, "issues"),
 		"entries": _make_entry_reports(normalized),
-		"metadata": _to_report_metadata(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")
-		),
+		"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
 
 
@@ -2347,35 +2039,21 @@ static func _make_commit_boundary(
 		"total_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(normalized, "total_bytes"),
 		"backup_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(normalized, "backup_bytes"),
 		"rolled_back": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "rolled_back"),
-		"rollback_complete": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "rollback_complete", true),
-		"recovery_required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		"rollback_complete": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 			normalized,
-			"recovery_required"
+			"rollback_complete",
+			true
 		),
+		"recovery_required": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "recovery_required"),
 		"recovery_action": &"",
 		"recovery_transaction": {},
 		"issues": _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(normalized, "issues"),
 		"reports": _make_entry_reports(normalized),
-		"metadata": _to_report_metadata(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")
-		),
+		"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		normalized,
-		"recovery_required"
-	):
-		result["recovery_action"] = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-				normalized,
-				"recovery_action"
-			)
-		)
-		result["recovery_transaction"] = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				normalized,
-				"recovery_transaction"
-			).duplicate(true)
-		)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "recovery_required"):
+		result["recovery_action"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(normalized, "recovery_action")
+		result["recovery_transaction"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(normalized, "recovery_transaction").duplicate(true))
 	return result
 
 
@@ -2388,18 +2066,18 @@ static func _make_entry_reports(normalized: Dictionary) -> Array[Dictionary]:
 		if not entry_value is Dictionary:
 			continue
 		var entry: Dictionary = entry_value
-		reports.append({
-			"artifact_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "artifact_id"),
-			"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "kind"),
-			"target_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"),
-			"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "size_bytes"),
-			"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256"),
-			"previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "previous_sha256"),
-			"changed": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "changed"),
-			"metadata": _to_report_metadata(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "metadata")
-			),
-		})
+		reports.append(
+			{
+				"artifact_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "artifact_id"),
+				"kind": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "kind"),
+				"target_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"),
+				"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "size_bytes"),
+				"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256"),
+				"previous_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "previous_sha256"),
+				"changed": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "changed"),
+				"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "metadata")),
+			}
+		)
 	return reports
 
 
@@ -2413,28 +2091,18 @@ static func _apply_staging_sidecar_recovery(
 	transaction_id: String
 ) -> void:
 	var existing_recovery: Dictionary = {}
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		normalized,
-		"recovery_required"
-	):
-		existing_recovery = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			normalized,
-			"recovery_transaction"
-		)
-	var recovery_transaction: Dictionary = (
-		_register_staging_sidecar_cleanup(
-			entries,
-			options,
-			transaction_id,
-			existing_recovery
-		)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(normalized, "recovery_required"):
+		existing_recovery = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(normalized, "recovery_transaction")
+	var recovery_transaction: Dictionary = _register_staging_sidecar_cleanup(
+		entries,
+		options,
+		transaction_id,
+		existing_recovery
 	)
 	if recovery_transaction.is_empty():
 		_merge_issues(
 			normalized,
-			PackedStringArray([
-				"Owned staging sidecar cleanup could not retain a recovery transaction.",
-			])
+			PackedStringArray(["Owned staging sidecar cleanup could not retain a recovery transaction.",])
 		)
 		return
 	normalized["recovery_required"] = true
@@ -2454,19 +2122,13 @@ static func _register_staging_sidecar_cleanup(
 ) -> Dictionary:
 	var recovery_entries: Array[Dictionary] = []
 	for entry: Dictionary in entries:
-		var write_state: StringName = _get_sidecar_write_state(
-			entry,
-			"staging"
-		)
+		var write_state: StringName = _get_sidecar_write_state(entry, "staging")
 		if (
 			(
 				write_state == _WRITE_STATE_COMPLETE
 				or write_state == _WRITE_STATE_PARTIAL
 			)
-			and not _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entry,
-				"staging_path"
-			).is_empty()
+			and not (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_path").is_empty())
 		):
 			recovery_entries.append(_make_staging_cleanup_entry(entry))
 	if recovery_entries.is_empty():
@@ -2474,29 +2136,14 @@ static func _register_staging_sidecar_cleanup(
 	if not existing_recovery.is_empty():
 		if not _get_transaction_validation_error(existing_recovery).is_empty():
 			return {}
-		var existing_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			existing_recovery,
-			"transaction_id"
-		)
+		var existing_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(existing_recovery, "transaction_id")
 		var existing_state: Dictionary = _active_transactions[existing_id]
-		var existing_entries: Array[Dictionary] = (
-			_get_staging_cleanup_entries(existing_state)
-		)
+		var existing_entries: Array[Dictionary] = _get_staging_cleanup_entries(existing_state)
 		var existing_paths: Dictionary[String, bool] = {}
 		for existing_entry: Dictionary in existing_entries:
-			existing_paths[
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					existing_entry,
-					"staging_path"
-				)
-			] = true
+			existing_paths[_GF_VARIANT_ACCESS_SCRIPT.get_option_string(existing_entry, "staging_path")] = true
 		for recovery_entry: Dictionary in recovery_entries:
-			var recovery_path: String = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					recovery_entry,
-					"staging_path"
-				)
-			)
+			var recovery_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(recovery_entry, "staging_path")
 			if not existing_paths.has(recovery_path):
 				existing_entries.append(recovery_entry)
 				existing_paths[recovery_path] = true
@@ -2522,12 +2169,7 @@ static func _register_staging_sidecar_cleanup(
 		"recovery_required": false,
 		"recovery_action": &"",
 		"recovery_transaction": {},
-		"metadata": _to_report_metadata(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				options,
-				"metadata"
-			)
-		),
+		"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
 	_active_transactions[transaction_id] = {
 		"handle": handle.duplicate(true),
@@ -2545,83 +2187,40 @@ static func _register_staging_sidecar_cleanup(
 ## @api private
 static func _make_staging_cleanup_entry(entry: Dictionary) -> Dictionary:
 	return {
-		"target_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"target_path"
-		),
+		"target_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"),
 		"size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			entry,
 			"size_bytes",
 			-1
 		),
-		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"content_sha256"
-		),
-		"staging_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"staging_path"
-		),
-		"staging_owner_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"staging_owner_id"
-		),
+		"content_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "content_sha256"),
+		"staging_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_path"),
+		"staging_owner_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_owner_id"),
 		"staging_owner_index": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			entry,
 			"staging_owner_index",
 			-1
 		),
-		"staging_write_state": _get_sidecar_write_state(
+		"staging_write_state": _get_sidecar_write_state(entry, "staging"),
+		"staging_partial_identity_known": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "staging_partial_identity_known"),
+		"staging_partial_size_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			entry,
-			"staging"
+			"staging_partial_size_bytes",
+			-1
 		),
-		"staging_partial_identity_known": (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				entry,
-				"staging_partial_identity_known"
-			)
-		),
-		"staging_partial_size_bytes": (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				entry,
-				"staging_partial_size_bytes",
-				-1
-			)
-		),
-		"staging_partial_sha256": (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entry,
-				"staging_partial_sha256"
-			)
-		),
+		"staging_partial_sha256": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_partial_sha256"),
 	}
 
 
 ## 尝试完成失败初始化的事务清理，并合并原始与清理诊断；清理仍需恢复时返回独立恢复句柄，失败主结果不保留可用事务身份。
 ## [br]
 ## @api private
-static func _finalize_failed_begin(
-	transaction: Dictionary,
-	issues: PackedStringArray
-) -> Dictionary:
+static func _finalize_failed_begin(transaction: Dictionary, issues: PackedStringArray) -> Dictionary:
 	var cleanup_report: Dictionary = complete(transaction)
 	var merged_issues: PackedStringArray = issues.duplicate()
-	for cleanup_issue: String in (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(
-			cleanup_report,
-			"issues"
-		)
-	):
-		var _cleanup_issue_appended: bool = merged_issues.append(
-			cleanup_issue
-		)
-	var recovery_required: bool = (
-		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(cleanup_report, "ok")
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			cleanup_report,
-			"recovery_required"
-		)
-	)
+	for cleanup_issue: String in _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(cleanup_report, "issues"):
+		var _cleanup_issue_appended: bool = merged_issues.append(cleanup_issue)
+	var recovery_required: bool = (not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(cleanup_report, "ok") and (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(cleanup_report, "recovery_required")))
 	return {
 		"ok": false,
 		"format": _TRANSACTION_FORMAT,
@@ -2629,31 +2228,13 @@ static func _finalize_failed_begin(
 		"state": "failed",
 		"transaction_id": "",
 		"transaction_token": "",
-		"entry_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			transaction,
-			"entry_count"
-		),
-		"backup_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			transaction,
-			"backup_bytes"
-		),
+		"entry_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(transaction, "entry_count"),
+		"backup_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(transaction, "backup_bytes"),
 		"issues": merged_issues,
-		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			transaction,
-			"metadata"
-		).duplicate(true),
+		"metadata": (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(transaction, "metadata").duplicate(true)),
 		"recovery_required": recovery_required,
-		"recovery_action": (
-			RECOVERY_ACTION_COMPLETE if recovery_required else &""
-		),
-		"recovery_transaction": (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				cleanup_report,
-				"recovery_transaction"
-			).duplicate(true)
-			if recovery_required
-			else {}
-		),
+		"recovery_action": RECOVERY_ACTION_COMPLETE if recovery_required else &"",
+		"recovery_transaction": ((_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(cleanup_report, "recovery_transaction").duplicate(true)) if recovery_required else {}),
 	}
 
 
@@ -2678,25 +2259,16 @@ static func _make_transaction_action_report(
 		"issues": issues,
 		"recovery_required": recovery_required,
 		"recovery_action": recovery_action if recovery_required else &"",
-		"recovery_transaction": (
-			recovery_transaction.duplicate(true)
-			if recovery_required
-			else {}
-		),
+		"recovery_transaction": (recovery_transaction.duplicate(true) if recovery_required else {}),
 	}
 
 
 ## 从活动状态的 entries 中保留 Dictionary 项，忽略其他类型。
 ## [br]
 ## @api private
-static func _get_transaction_entries(
-	active_state: Dictionary
-) -> Array[Dictionary]:
+static func _get_transaction_entries(active_state: Dictionary) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
-	for entry_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		active_state,
-		"entries"
-	):
+	for entry_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(active_state, "entries"):
 		if entry_value is Dictionary:
 			var entry: Dictionary = entry_value
 			entries.append(entry)
@@ -2706,14 +2278,9 @@ static func _get_transaction_entries(
 ## 从活动状态的 staging_cleanup_entries 中保留 Dictionary 项，忽略其他类型。
 ## [br]
 ## @api private
-static func _get_staging_cleanup_entries(
-	active_state: Dictionary
-) -> Array[Dictionary]:
+static func _get_staging_cleanup_entries(active_state: Dictionary) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
-	for entry_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		active_state,
-		"staging_cleanup_entries"
-	):
+	for entry_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(active_state, "staging_cleanup_entries"):
 		if entry_value is Dictionary:
 			var entry: Dictionary = entry_value
 			entries.append(entry)
@@ -2723,10 +2290,7 @@ static func _get_staging_cleanup_entries(
 ## 读取由 sidecar_kind 拼出的写入状态键；字段缺失时回退到 pending。
 ## [br]
 ## @api private
-static func _get_sidecar_write_state(
-	entry: Dictionary,
-	sidecar_kind: String
-) -> StringName:
+static func _get_sidecar_write_state(entry: Dictionary, sidecar_kind: String) -> StringName:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
 		entry,
 		"%s_write_state" % sidecar_kind,
@@ -2755,77 +2319,40 @@ static func _apply_owned_write_report(
 	sidecar_kind: String,
 	write_report: Dictionary
 ) -> void:
-	entry["%s_write_state" % sidecar_kind] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			write_report,
-			"state",
-			_WRITE_STATE_PENDING
-		)
+	entry["%s_write_state" % sidecar_kind] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		write_report,
+		"state",
+		_WRITE_STATE_PENDING
 	)
-	entry["%s_write_error" % sidecar_kind] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			write_report,
-			"write_error",
-			OK
-		)
+	entry["%s_write_error" % sidecar_kind] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		write_report,
+		"write_error",
+		OK
 	)
-	entry["%s_cleanup_error" % sidecar_kind] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			write_report,
-			"cleanup_error",
-			OK
-		)
+	entry["%s_cleanup_error" % sidecar_kind] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		write_report,
+		"cleanup_error",
+		OK
 	)
-	entry["%s_partial_identity_known" % sidecar_kind] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			write_report,
-			"partial_identity_known"
-		)
-	)
-	entry["%s_partial_size_bytes" % sidecar_kind] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			write_report,
-			"partial_size_bytes"
-		)
-	)
-	entry["%s_partial_sha256" % sidecar_kind] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			write_report,
-			"partial_sha256"
-		)
-	)
+	entry["%s_partial_identity_known" % sidecar_kind] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(write_report, "partial_identity_known")
+	entry["%s_partial_size_bytes" % sidecar_kind] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(write_report, "partial_size_bytes")
+	entry["%s_partial_sha256" % sidecar_kind] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(write_report, "partial_sha256")
 
 
 ## 在清理部分写入前捕获当前普通文件摘要；文件已消失时回到待写入状态，无法确认身份时保留部分状态并返回错误。
 ## [br]
 ## @api private
-static func _record_owned_partial_before_cleanup(
-	path: String,
-	write_report: Dictionary
-) -> Error:
+static func _record_owned_partial_before_cleanup(path: String, write_report: Dictionary) -> Error:
 	var partial_state: Dictionary = _capture_regular_file_state(path)
 	write_report["state"] = _WRITE_STATE_PARTIAL
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(partial_state, "ok"):
 		return ERR_FILE_CORRUPT
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		partial_state,
-		"existed"
-	):
+	if not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(partial_state, "existed")):
 		write_report["state"] = _WRITE_STATE_PENDING
 		return OK
 	write_report["partial_identity_known"] = true
-	write_report["partial_size_bytes"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			partial_state,
-			"size_bytes"
-		)
-	)
-	write_report["partial_sha256"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			partial_state,
-			"sha256"
-		)
-	)
+	write_report["partial_size_bytes"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(partial_state, "size_bytes")
+	write_report["partial_sha256"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(partial_state, "sha256")
 	return OK
 
 
@@ -2850,7 +2377,8 @@ static func _append_owned_write_report_issues(
 	) as Error
 	if write_error != OK:
 		var _write_issue_appended: bool = issues.append(
-			"Artifact %s write failed for %s: %s." % [
+			"Artifact %s write failed for %s: %s."
+			% [
 				sidecar_kind,
 				target_path,
 				error_string(write_error),
@@ -2858,7 +2386,8 @@ static func _append_owned_write_report_issues(
 		)
 	if cleanup_error != OK:
 		var _cleanup_issue_appended: bool = issues.append(
-			"Artifact %s partial cleanup failed for %s: %s." % [
+			"Artifact %s partial cleanup failed for %s: %s."
+			% [
 				sidecar_kind,
 				target_path,
 				error_string(cleanup_error),
@@ -2899,31 +2428,22 @@ static func _append_owned_write_entry_issues(
 ## 仅对部分写入且仍存在的受管文件核对路径结构与已记录的大小和哈希；身份未知或变化时拒绝后续清理。
 ## [br]
 ## @api private
-static func _get_owned_partial_sidecar_error(
-	entry: Dictionary,
-	sidecar_kind: String
-) -> Error:
+static func _get_owned_partial_sidecar_error(entry: Dictionary, sidecar_kind: String) -> Error:
 	if _get_sidecar_write_state(entry, sidecar_kind) != _WRITE_STATE_PARTIAL:
 		return OK
 	var path_field: String = "%s_path" % sidecar_kind
-	var sidecar_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		path_field
-	)
+	var sidecar_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, path_field)
 	if sidecar_path.is_empty():
 		return OK
-	if (
-		_get_sidecar_path_schema_error(entry, sidecar_kind) != OK
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(sidecar_path)
-		)
-	):
+	if (_get_sidecar_path_schema_error(entry, sidecar_kind) != OK or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(sidecar_path)))):
 		return ERR_UNAUTHORIZED
 	if not FileAccess.file_exists(sidecar_path):
 		return OK
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		entry,
-		"%s_partial_identity_known" % sidecar_kind
+	if not (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			entry,
+			"%s_partial_identity_known" % sidecar_kind
+		)
 	):
 		return ERR_FILE_CORRUPT
 	var state: Dictionary = _capture_regular_file_state(sidecar_path)
@@ -2947,23 +2467,14 @@ static func _get_owned_partial_sidecar_error(
 ## 验证部分写入文件身份后清理；已不存在或成功删除时清空路径并恢复待写入状态，失败时保留记录。
 ## [br]
 ## @api private
-static func _remove_owned_partial_sidecar(
-	entry: Dictionary,
-	sidecar_kind: String
-) -> Error:
+static func _remove_owned_partial_sidecar(entry: Dictionary, sidecar_kind: String) -> Error:
 	if _get_sidecar_write_state(entry, sidecar_kind) != _WRITE_STATE_PARTIAL:
 		return OK
 	var path_field: String = "%s_path" % sidecar_kind
-	var sidecar_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		path_field
-	)
+	var sidecar_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, path_field)
 	if sidecar_path.is_empty():
 		return OK
-	var identity_error: Error = _get_owned_partial_sidecar_error(
-		entry,
-		sidecar_kind
-	)
+	var identity_error: Error = _get_owned_partial_sidecar_error(entry, sidecar_kind)
 	if identity_error != OK:
 		return identity_error
 	if not FileAccess.file_exists(sidecar_path):
@@ -2982,22 +2493,12 @@ static func _remove_owned_partial_sidecar(
 ## [br]
 ## @api private
 static func _remove_owned_staging_sidecar(entry: Dictionary) -> Error:
-	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"staging_path"
-	)
+	var staging_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_path")
 	if staging_path.is_empty():
 		return OK
-	if (
-		_get_sidecar_path_schema_error(entry, "staging") != OK
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(staging_path)
-		)
-	):
+	if (_get_sidecar_path_schema_error(entry, "staging") != OK or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(staging_path)))):
 		return ERR_UNAUTHORIZED
-	if (
-		not FileAccess.file_exists(staging_path)
-	):
+	if not FileAccess.file_exists(staging_path):
 		entry["staging_path"] = ""
 		entry["staging_write_state"] = _WRITE_STATE_PENDING
 		return OK
@@ -3011,12 +2512,7 @@ static func _remove_owned_staging_sidecar(entry: Dictionary) -> Error:
 	var remove_error: Error = _remove_owned_sidecar_path(staging_path)
 	if remove_error != OK:
 		return remove_error
-	if (
-		FileAccess.file_exists(staging_path)
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(staging_path)
-		)
-	):
+	if (FileAccess.file_exists(staging_path) or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(staging_path)))):
 		return ERR_FILE_CORRUPT
 	entry["staging_path"] = ""
 	entry["staging_write_state"] = _WRITE_STATE_PENDING
@@ -3039,12 +2535,7 @@ static func _store_transaction_entries(
 ## [br]
 ## @api private
 static func _get_rollback_phase(entry: Dictionary) -> StringName:
-	var rollback_phase: StringName = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			entry,
-			"rollback_phase"
-		)
-	)
+	var rollback_phase: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "rollback_phase")
 	if rollback_phase.is_empty():
 		return _ROLLBACK_PHASE_PENDING
 	return rollback_phase
@@ -3053,25 +2544,14 @@ static func _get_rollback_phase(entry: Dictionary) -> StringName:
 ## 验证事务句柄并定位目标条目，记录目标已被移除的回滚阶段；句柄或目标无效时返回 false。
 ## [br]
 ## @api private
-static func _record_rollback_target_removed(
-	transaction: Dictionary,
-	target_path: String
-) -> bool:
-	var validation_error: String = _get_transaction_validation_error(
-		transaction
-	)
+static func _record_rollback_target_removed(transaction: Dictionary, target_path: String) -> bool:
+	var validation_error: String = _get_transaction_validation_error(transaction)
 	if not validation_error.is_empty():
 		return false
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
 	var active_state: Dictionary = _active_transactions[transaction_id]
 	var entries: Array[Dictionary] = _get_transaction_entries(active_state)
-	var entry_index: int = _find_transaction_entry_index(
-		entries,
-		target_path
-	)
+	var entry_index: int = _find_transaction_entry_index(entries, target_path)
 	if entry_index < 0:
 		return false
 	_record_rollback_target_removed_state(
@@ -3099,31 +2579,24 @@ static func _record_rollback_target_removed_state(
 	entry["rollback_failed_size_bytes"] = 0
 	entry["rollback_failed_sha256"] = ""
 	entries[entry_index] = entry
-	_store_transaction_entries(transaction_id, active_state, entries)
+	_store_transaction_entries(
+		transaction_id,
+		active_state,
+		entries
+	)
 
 
 ## 验证事务并定位目标，捕获恢复失败后的现场身份；返回是否成功确认该现场状态。
 ## [br]
 ## @api private
-static func _record_rollback_restore_failure(
-	transaction: Dictionary,
-	target_path: String
-) -> bool:
-	var validation_error: String = _get_transaction_validation_error(
-		transaction
-	)
+static func _record_rollback_restore_failure(transaction: Dictionary, target_path: String) -> bool:
+	var validation_error: String = _get_transaction_validation_error(transaction)
 	if not validation_error.is_empty():
 		return false
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
 	var active_state: Dictionary = _active_transactions[transaction_id]
 	var entries: Array[Dictionary] = _get_transaction_entries(active_state)
-	var entry_index: int = _find_transaction_entry_index(
-		entries,
-		target_path
-	)
+	var entry_index: int = _find_transaction_entry_index(entries, target_path)
 	if entry_index < 0:
 		return false
 	return _record_rollback_restore_failure_state(
@@ -3144,59 +2617,35 @@ static func _record_rollback_restore_failure_state(
 	entry_index: int
 ) -> bool:
 	var entry: Dictionary = entries[entry_index]
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"path"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
 	var failed_state: Dictionary = _capture_regular_file_state(target_path)
-	var state_known: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		failed_state,
-		"ok"
-	)
+	var state_known: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed_state, "ok")
 	entry["rollback_phase"] = _ROLLBACK_PHASE_RESTORE_FAILED
 	entry["rollback_restore_path"] = ""
 	entry["rollback_failed_state_known"] = state_known
-	entry["rollback_failed_existed"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			failed_state,
-			"existed"
-		)
-		if state_known
-		else false
-	)
-	entry["rollback_failed_size_bytes"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			failed_state,
-			"size_bytes"
-		)
-		if state_known
-		else 0
-	)
-	entry["rollback_failed_sha256"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			failed_state,
-			"sha256"
-		)
-		if state_known
-		else ""
-	)
+	entry["rollback_failed_existed"] = ((_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(failed_state, "existed")) if state_known else false)
+	entry["rollback_failed_size_bytes"] = ((_GF_VARIANT_ACCESS_SCRIPT.get_option_int(failed_state, "size_bytes")) if state_known else 0)
+	entry["rollback_failed_sha256"] = ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string(failed_state, "sha256")) if state_known else "")
 	entries[entry_index] = entry
-	_store_transaction_entries(transaction_id, active_state, entries)
+	_store_transaction_entries(
+		transaction_id,
+		active_state,
+		entries
+	)
 	return state_known
 
 
 ## 按 path 精确匹配目标路径，返回首个条目索引；没有匹配项时返回 -1。
 ## [br]
 ## @api private
-static func _find_transaction_entry_index(
-	entries: Array[Dictionary],
-	target_path: String
-) -> int:
+static func _find_transaction_entry_index(entries: Array[Dictionary], target_path: String) -> int:
 	for entry_index: int in range(entries.size()):
 		if (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entries[entry_index],
-				"path"
+			(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					entries[entry_index],
+					"path"
+				)
 			)
 			== target_path
 		):
@@ -3233,17 +2682,11 @@ static func _get_transaction_validation_error(transaction: Dictionary) -> String
 		return "Artifact transaction version is unsupported."
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "state") != "open":
 		return "Artifact transaction is not open."
-	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		transaction,
-		"transaction_id"
-	)
+	var transaction_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "transaction_id")
 	if transaction_id.is_empty() or not _active_transactions.has(transaction_id):
 		return "Artifact transaction is unknown or already terminated."
 	var active_state: Dictionary = _active_transactions[transaction_id]
-	var expected_handle: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		active_state,
-		"handle"
-	)
+	var expected_handle: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(active_state, "handle")
 	if transaction != expected_handle:
 		return "Artifact transaction integrity validation failed."
 	return ""
@@ -3263,44 +2706,21 @@ static func _get_rollback_preflight_issues(
 		rollback_set[rollback_path] = true
 	for entry_value: Variant in entries:
 		if not entry_value is Dictionary:
-			var _invalid_entry_appended: bool = issues.append(
-				"Artifact transaction contains an invalid snapshot entry."
-			)
+			var _invalid_entry_appended: bool = issues.append("Artifact transaction contains an invalid snapshot entry.")
 			continue
 		var entry: Dictionary = entry_value
-		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"path"
-		)
-		var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			entry,
-			"existed"
-		)
-		var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"backup_path"
-		)
-		if (
-			target_path.is_empty()
-			or _path_has_link_component(target_path)
-		):
-			var _target_issue_appended: bool = issues.append(
-				"Artifact rollback target identity is no longer safe: %s."
-				% target_path
-			)
+		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
+		var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "existed")
+		var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "backup_path")
+		if (target_path.is_empty() or _path_has_link_component(target_path)):
+			var _target_issue_appended: bool = issues.append("Artifact rollback target identity is no longer safe: %s." % target_path)
 			continue
-		var will_restore: bool = (
-			not has_rollback_filter
-			or rollback_set.has(target_path)
-		)
+		var will_restore: bool = (not has_rollback_filter or rollback_set.has(target_path))
 		if not will_restore and not existed:
 			continue
 		if not existed:
 			if not backup_path.is_empty():
-				var _unexpected_backup_appended: bool = issues.append(
-					"Artifact rollback snapshot metadata is invalid: %s."
-					% target_path
-				)
+				var _unexpected_backup_appended: bool = issues.append("Artifact rollback snapshot metadata is invalid: %s." % target_path)
 				continue
 		else:
 			var backup_phase: StringName = _get_rollback_phase(entry)
@@ -3309,152 +2729,69 @@ static func _get_rollback_preflight_issues(
 				backup_phase == _ROLLBACK_PHASE_TARGET_RESTORED
 			)
 			if backup_path.is_empty() or backup_error != OK:
-				var _backup_identity_appended: bool = issues.append(
-					"Artifact rollback snapshot is missing or unsafe: %s."
-					% target_path
-				)
+				var _backup_identity_appended: bool = issues.append("Artifact rollback snapshot is missing or unsafe: %s." % target_path)
 				continue
-			var restore_path: String = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					entry,
-					"rollback_restore_path"
-				)
-			)
+			var restore_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_restore_path")
 			if (
 				(
 					backup_phase == _ROLLBACK_PHASE_RESTORE_FAILED
-					or backup_phase
-					== _ROLLBACK_PHASE_TARGET_RESTORED
+					or backup_phase == _ROLLBACK_PHASE_TARGET_RESTORED
 				)
 				and not restore_path.is_empty()
 			):
-				var _restore_metadata_appended: bool = issues.append(
-					"Artifact rollback restore metadata is invalid: %s."
-					% target_path
-				)
+				var _restore_metadata_appended: bool = issues.append("Artifact rollback restore metadata is invalid: %s." % target_path)
 				continue
-			if (
-				not restore_path.is_empty()
-				and (
-					_get_owned_partial_sidecar_error(
-						entry,
-						"rollback_restore"
-					)
-					if _get_sidecar_write_state(
-						entry,
-						"rollback_restore"
-					)
-					== _WRITE_STATE_PARTIAL
-					else _get_rollback_restore_error(entry, true)
-				)
-				!= OK
-			):
-				var _restore_identity_appended: bool = issues.append(
-					"Artifact rollback restore sidecar is unsafe: %s."
-					% target_path
-				)
+			if (not restore_path.is_empty() and ((_get_owned_partial_sidecar_error(entry, "rollback_restore") if (_get_sidecar_write_state(entry, "rollback_restore") == _WRITE_STATE_PARTIAL) else _get_rollback_restore_error(entry, true)) != OK)):
+				var _restore_identity_appended: bool = issues.append("Artifact rollback restore sidecar is unsafe: %s." % target_path)
 				continue
 		if not will_restore:
 			continue
-		var target_state: Dictionary = _capture_regular_file_state(
-			target_path
-		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			target_state,
-			"ok"
-		):
-			var _target_state_issue_appended: bool = issues.append(
-				"Artifact rollback target identity is no longer safe: %s."
-				% target_path
-			)
+		var target_state: Dictionary = _capture_regular_file_state(target_path)
+		if not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(target_state, "ok")):
+			var _target_state_issue_appended: bool = issues.append("Artifact rollback target identity is no longer safe: %s." % target_path)
 			continue
 		var rollback_phase: StringName = _get_rollback_phase(entry)
 		if rollback_phase == _ROLLBACK_PHASE_PENDING:
 			if (
 				has_rollback_filter
-				and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-					entry,
-					"rollback_expected_state_known"
-				)
+				and (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_expected_state_known"))
 				and not _file_state_matches_expected(
 					target_state,
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-						entry,
-						"rollback_expected_existed"
-					),
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_expected_existed"),
 					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 						entry,
 						"rollback_expected_size_bytes",
 						-1
 					),
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-						entry,
-						"rollback_expected_sha256"
-					)
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_expected_sha256")
 				)
 			):
-				var _target_drift_issue_appended: bool = issues.append(
-					"Artifact rollback refused a target that changed after commit: %s."
-					% target_path
-				)
+				var _target_drift_issue_appended: bool = issues.append("Artifact rollback refused a target that changed after commit: %s." % target_path)
 				continue
-			entry["rollback_observed_existed"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-					target_state,
-					"existed"
-				)
-			)
-			entry["rollback_observed_size_bytes"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-					target_state,
-					"size_bytes"
-				)
-			)
-			entry["rollback_observed_sha256"] = (
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					target_state,
-					"sha256"
-				)
-			)
+			entry["rollback_observed_existed"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(target_state, "existed")
+			entry["rollback_observed_size_bytes"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(target_state, "size_bytes")
+			entry["rollback_observed_sha256"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(target_state, "sha256")
 			continue
-		if (
-			rollback_phase == _ROLLBACK_PHASE_TARGET_REMOVED
-			and not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				target_state,
-				"existed"
-			)
-		):
+		if (rollback_phase == _ROLLBACK_PHASE_TARGET_REMOVED and not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(target_state, "existed"))):
 			continue
 		if (
 			rollback_phase == _ROLLBACK_PHASE_RESTORE_FAILED
 			and (
 				(
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-						entry,
-						"rollback_failed_state_known"
-					)
+					(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_failed_state_known"))
 					and _file_state_matches_expected(
 						target_state,
-						_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-							entry,
-							"rollback_failed_existed"
-						),
+						_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_failed_existed"),
 						_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 							entry,
 							"rollback_failed_size_bytes",
 							-1
 						),
-						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-							entry,
-							"rollback_failed_sha256"
-						)
+						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_failed_sha256")
 					)
 				)
 				or (
-					not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-						entry,
-						"rollback_failed_state_known"
-					)
+					not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_failed_state_known"))
 					and _file_state_matches_expected(
 						target_state,
 						existed,
@@ -3463,10 +2800,7 @@ static func _get_rollback_preflight_issues(
 							"size_bytes",
 							-1
 						),
-						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-							entry,
-							"sha256"
-						)
+						_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256")
 					)
 				)
 			)
@@ -3482,17 +2816,11 @@ static func _get_rollback_preflight_issues(
 					"size_bytes",
 					-1
 				),
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					entry,
-					"sha256"
-				)
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256")
 			)
 		):
 			continue
-		var _phase_state_issue_appended: bool = issues.append(
-			"Artifact rollback intermediate state changed: %s."
-			% target_path
-		)
+		var _phase_state_issue_appended: bool = issues.append("Artifact rollback intermediate state changed: %s." % target_path)
 	return issues
 
 
@@ -3507,24 +2835,12 @@ static func _prepare_rollback_restore(
 	var backup_error: Error = _get_transaction_backup_error(entry, false)
 	if backup_error != OK:
 		return backup_error
-	if (
-		_get_sidecar_write_state(entry, "rollback_restore")
-		== _WRITE_STATE_PARTIAL
-	):
-		var partial_remove_error: Error = _remove_owned_partial_sidecar(
-			entry,
-			"rollback_restore"
-		)
+	if _get_sidecar_write_state(entry, "rollback_restore") == _WRITE_STATE_PARTIAL:
+		var partial_remove_error: Error = _remove_owned_partial_sidecar(entry, "rollback_restore")
 		if partial_remove_error != OK:
 			return partial_remove_error
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"path"
-	)
-	var restore_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"rollback_restore_path"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
+	var restore_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_restore_path")
 	if restore_path.is_empty():
 		restore_path = _make_sidecar_path(
 			target_path,
@@ -3542,7 +2858,11 @@ static func _prepare_rollback_restore(
 	var copy_error: Error = _copy_file(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "backup_path"),
 		restore_path,
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "size_bytes", -1),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			entry,
+			"size_bytes",
+			-1
+		),
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256"),
 		write_report
 	)
@@ -3559,22 +2879,11 @@ static func _prepare_rollback_restore(
 ## 验证恢复文件的受管路径、普通文件属性及原始内容摘要；缺失是否可接受由 allow_missing 决定。
 ## [br]
 ## @api private
-static func _get_rollback_restore_error(
-	entry: Dictionary,
-	allow_missing: bool
-) -> Error:
-	var restore_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"rollback_restore_path"
-	)
+static func _get_rollback_restore_error(entry: Dictionary, allow_missing: bool) -> Error:
+	var restore_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_restore_path")
 	if restore_path.is_empty():
 		return OK if allow_missing else ERR_FILE_NOT_FOUND
-	if (
-		_get_sidecar_path_schema_error(entry, "rollback_restore") != OK
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(restore_path)
-		)
-	):
+	if (_get_sidecar_path_schema_error(entry, "rollback_restore") != OK or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(restore_path)))):
 		return ERR_UNAUTHORIZED
 	if not FileAccess.file_exists(restore_path):
 		return OK if allow_missing else ERR_FILE_NOT_FOUND
@@ -3583,16 +2892,12 @@ static func _get_rollback_restore_error(
 		"size_bytes",
 		-1
 	)
-	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"sha256"
-	)
+	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256")
 	if (
 		expected_size < 0
 		or not _is_sha256(expected_sha256)
 		or _file_size(restore_path) != expected_size
-		or FileAccess.get_sha256(restore_path).to_lower()
-		!= expected_sha256
+		or FileAccess.get_sha256(restore_path).to_lower() != expected_sha256
 	):
 		return ERR_FILE_CORRUPT
 	return OK
@@ -3602,16 +2907,8 @@ static func _get_rollback_restore_error(
 ## [br]
 ## @api private
 static func _get_target_removed_state_error(entry: Dictionary) -> Error:
-	var target_state: Dictionary = _capture_regular_file_state(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
-	)
-	if (
-		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(target_state, "ok")
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			target_state,
-			"existed"
-		)
-	):
+	var target_state: Dictionary = _capture_regular_file_state(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path"))
+	if (not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(target_state, "ok") or (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(target_state, "existed"))):
 		return ERR_FILE_CORRUPT
 	return OK
 
@@ -3620,29 +2917,18 @@ static func _get_target_removed_state_error(entry: Dictionary) -> Error:
 ## [br]
 ## @api private
 static func _get_recorded_restore_failure_error(entry: Dictionary) -> Error:
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		entry,
-		"rollback_failed_state_known"
-	):
+	if not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_failed_state_known")):
 		return ERR_FILE_CORRUPT
-	var target_state: Dictionary = _capture_regular_file_state(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
-	)
+	var target_state: Dictionary = _capture_regular_file_state(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path"))
 	if not _file_state_matches_expected(
 		target_state,
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			entry,
-			"rollback_failed_existed"
-		),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_failed_existed"),
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			entry,
 			"rollback_failed_size_bytes",
 			-1
 		),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"rollback_failed_sha256"
-		)
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_failed_sha256")
 	):
 		return ERR_FILE_CORRUPT
 	return OK
@@ -3655,9 +2941,7 @@ static func _capture_regular_file_state(path: String) -> Dictionary:
 	if (
 		path.is_empty()
 		or _path_has_link_component(path)
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(path)
-		)
+		or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(path)))
 	):
 		return {
 			"ok": false,
@@ -3694,10 +2978,7 @@ static func _file_state_matches_expected(
 ) -> bool:
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "ok"):
 		return false
-	var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		state,
-		"existed"
-	)
+	var existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "existed")
 	if existed != expected_existed:
 		return false
 	if not existed:
@@ -3705,17 +2986,17 @@ static func _file_state_matches_expected(
 	return (
 		expected_size >= 0
 		and _is_sha256(expected_sha256)
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			state,
-			"size_bytes",
-			-1
+		and (
+			(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					state,
+					"size_bytes",
+					-1
+				)
+			)
+			== expected_size
 		)
-		== expected_size
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			state,
-			"sha256"
-		)
-		== expected_sha256
+		and ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string(state, "sha256")) == expected_sha256)
 	)
 
 
@@ -3723,26 +3004,17 @@ static func _file_state_matches_expected(
 ## [br]
 ## @api private
 static func _get_observed_target_state_error(entry: Dictionary) -> Error:
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"path"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
 	var state: Dictionary = _capture_regular_file_state(target_path)
 	if not _file_state_matches_expected(
 		state,
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			entry,
-			"rollback_observed_existed"
-		),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "rollback_observed_existed"),
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 			entry,
 			"rollback_observed_size_bytes",
 			-1
 		),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"rollback_observed_sha256"
-		)
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "rollback_observed_sha256")
 	):
 		return ERR_FILE_CORRUPT
 	return OK
@@ -3751,22 +3023,11 @@ static func _get_observed_target_state_error(entry: Dictionary) -> Error:
 ## 空备份路径视为无需备份，否则验证受管路径和原始内容摘要；有路径但文件缺失时依 allow_missing 决定是否报错。
 ## [br]
 ## @api private
-static func _get_transaction_backup_error(
-	entry: Dictionary,
-	allow_missing: bool
-) -> Error:
-	var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"backup_path"
-	)
+static func _get_transaction_backup_error(entry: Dictionary, allow_missing: bool) -> Error:
+	var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "backup_path")
 	if backup_path.is_empty():
 		return OK
-	if (
-		_get_sidecar_path_schema_error(entry, "backup") != OK
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(backup_path)
-		)
-	):
+	if (_get_sidecar_path_schema_error(entry, "backup") != OK or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(backup_path)))):
 		return ERR_UNAUTHORIZED
 	if not FileAccess.file_exists(backup_path):
 		return OK if allow_missing else ERR_FILE_NOT_FOUND
@@ -3775,16 +3036,12 @@ static func _get_transaction_backup_error(
 		"size_bytes",
 		-1
 	)
-	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"sha256"
-	)
+	var expected_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "sha256")
 	if (
 		expected_size < 0
 		or not _is_sha256(expected_sha256)
 		or _file_size(backup_path) != expected_size
-		or FileAccess.get_sha256(backup_path).to_lower()
-		!= expected_sha256
+		or FileAccess.get_sha256(backup_path).to_lower() != expected_sha256
 	):
 		return ERR_FILE_CORRUPT
 	return OK
@@ -3793,31 +3050,17 @@ static func _get_transaction_backup_error(
 ## 验证备份身份和内容后删除文件，并确认路径不再被文件或目录占用；空路径或被允许的缺失状态直接成功。
 ## [br]
 ## @api private
-static func _remove_transaction_backup(
-	entry: Dictionary,
-	allow_missing: bool
-) -> Error:
-	var validation_error: Error = _get_transaction_backup_error(
-		entry,
-		allow_missing
-	)
+static func _remove_transaction_backup(entry: Dictionary, allow_missing: bool) -> Error:
+	var validation_error: Error = _get_transaction_backup_error(entry, allow_missing)
 	if validation_error != OK:
 		return validation_error
-	var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"backup_path"
-	)
+	var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "backup_path")
 	if backup_path.is_empty() or not FileAccess.file_exists(backup_path):
 		return OK
 	var remove_error: Error = _remove_file_path(backup_path)
 	if remove_error != OK:
 		return remove_error
-	if (
-		FileAccess.file_exists(backup_path)
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(backup_path)
-		)
-	):
+	if (FileAccess.file_exists(backup_path) or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(backup_path)))):
 		return ERR_CANT_CREATE
 	return OK
 
@@ -3826,14 +3069,8 @@ static func _remove_transaction_backup(
 ## [br]
 ## @api private
 static func _get_restored_target_error(entry: Dictionary) -> Error:
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		"path"
-	)
-	var expected_existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		entry,
-		"existed"
-	)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "path")
+	var expected_existed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry, "existed")
 	var state: Dictionary = _capture_regular_file_state(target_path)
 	if not _file_state_matches_expected(
 		state,
@@ -3852,30 +3089,16 @@ static func _get_restored_target_error(entry: Dictionary) -> Error:
 ## 清理注册的暂存条目，把仍有暂存路径的失败项保留到活动事务，并返回对应目标路径与诊断以供重试。
 ## [br]
 ## @api private
-static func _complete_registered_staging_cleanup(
-	transaction_id: String,
-	active_state: Dictionary
-) -> Dictionary:
+static func _complete_registered_staging_cleanup(transaction_id: String, active_state: Dictionary) -> Dictionary:
 	var entries: Array[Dictionary] = _get_staging_cleanup_entries(active_state)
-	var issues: PackedStringArray = _cleanup_entry_sidecars(
-		entries,
-		"staging_path"
-	)
+	var issues: PackedStringArray = _cleanup_entry_sidecars(entries, "staging_path")
 	var remaining_entries: Array[Dictionary] = []
 	var failed_paths: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"staging_path"
-		).is_empty():
+		if (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "staging_path").is_empty()):
 			continue
 		remaining_entries.append(entry)
-		var _failed_path_appended: bool = failed_paths.append(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-				entry,
-				"target_path"
-			)
-		)
+		var _failed_path_appended: bool = failed_paths.append(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"))
 	active_state["staging_cleanup_entries"] = remaining_entries
 	_active_transactions[transaction_id] = active_state
 	return {
@@ -3888,30 +3111,19 @@ static func _complete_registered_staging_cleanup(
 ## 逐项清理指定路径字段，暂存文件走所有者与写入状态校验路径；成功后清空字段，失败则保留路径并收集问题。
 ## [br]
 ## @api private
-static func _cleanup_entry_sidecars(
-	entries: Array[Dictionary],
-	field_name: String
-) -> PackedStringArray:
+static func _cleanup_entry_sidecars(entries: Array[Dictionary], field_name: String) -> PackedStringArray:
 	var issues: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:
 		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, field_name)
 		if path.is_empty():
 			continue
 		if field_name == "staging_path":
-			var staging_remove_error: Error = (
-				_remove_owned_staging_sidecar(entry)
-			)
+			var staging_remove_error: Error = _remove_owned_staging_sidecar(entry)
 			if staging_remove_error == OK:
 				continue
 			var _staging_issue_appended: bool = issues.append(
 				"Could not remove an owned artifact staging sidecar for %s: %s."
-				% [
-					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-						entry,
-						"target_path"
-					),
-					error_string(staging_remove_error),
-				]
+				% [_GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "target_path"), error_string(staging_remove_error),]
 			)
 			continue
 		var remove_error: Error = _remove_file_path(path)
@@ -3919,10 +3131,8 @@ static func _cleanup_entry_sidecars(
 			entry[field_name] = ""
 			continue
 		var _issue_appended: bool = issues.append(
-			"Could not remove artifact sidecar %s: %s." % [
-				path,
-				error_string(remove_error),
-			]
+			"Could not remove artifact sidecar %s: %s."
+			% [path, error_string(remove_error),]
 		)
 	return issues
 
@@ -3930,10 +3140,7 @@ static func _cleanup_entry_sidecars(
 ## 将 additional 中的问题逐项追加到 target 的 issues 字段，再写回 target。
 ## [br]
 ## @api private
-static func _merge_issues(
-	target: Dictionary,
-	additional: PackedStringArray
-) -> void:
+static func _merge_issues(target: Dictionary, additional: PackedStringArray) -> void:
 	var issues: PackedStringArray = _GF_VARIANT_ACCESS_SCRIPT.get_option_packed_string_array(target, "issues")
 	for issue: String in additional:
 		var _issue_appended: bool = issues.append(issue)
@@ -3952,51 +3159,47 @@ static func _make_sidecar_path(
 	var target_hash: String = _sha256_bytes(target_path.to_utf8_buffer())
 	if (
 		target_path.is_empty()
-		or not ["backup", "restore", "staging"].has(kind)
+		or not [
+			"backup",
+			"restore",
+			"staging",
+		].has(kind)
 		or not _is_lower_hex(target_hash, 64)
 		or not _is_lower_hex(transaction_id, 32)
 		or index < 0
 		or index >= ABSOLUTE_MAX_FILE_COUNT
 	):
 		return ""
-	return target_path.get_base_dir().path_join(
-		".gf-artifact-%s-%s-%s-%d" % [
-			kind,
-			target_hash,
-			transaction_id,
-			index,
-		]
+	return (
+		target_path.get_base_dir().path_join(
+			".gf-artifact-%s-%s-%s-%d"
+			% [
+				kind,
+				target_hash,
+				transaction_id,
+				index,
+			]
+		)
 	)
 
 
 ## 根据目标与所有者身份重建期望路径，严格核对目录、文件名、字节长度及无链接条件；不在此步骤验证文件内容。
 ## [br]
 ## @api private
-static func _get_sidecar_path_schema_error(
-	entry: Dictionary,
-	sidecar_kind: String
-) -> Error:
-	if not [
-		"backup",
-		"rollback_restore",
-		"staging",
-	].has(sidecar_kind):
+static func _get_sidecar_path_schema_error(entry: Dictionary, sidecar_kind: String) -> Error:
+	if not (
+		[
+			"backup",
+			"rollback_restore",
+			"staging",
+		].has(sidecar_kind)
+	):
 		return ERR_INVALID_PARAMETER
 	var path_field: String = "%s_path" % sidecar_kind
-	var target_field: String = (
-		"target_path" if sidecar_kind == "staging" else "path"
-	)
-	var path_kind: String = (
-		"restore" if sidecar_kind == "rollback_restore" else sidecar_kind
-	)
-	var sidecar_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		path_field
-	)
-	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		entry,
-		target_field
-	)
+	var target_field: String = "target_path" if sidecar_kind == "staging" else "path"
+	var path_kind: String = "restore" if sidecar_kind == "rollback_restore" else sidecar_kind
+	var sidecar_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, path_field)
+	var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, target_field)
 	var owner_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		entry,
 		"%s_owner_id" % sidecar_kind
@@ -4044,10 +3247,7 @@ static func _write_bytes(
 ) -> Error:
 	_initialize_owned_write_report(write_report)
 	var absolute_path: String = ProjectSettings.globalize_path(path)
-	if (
-		FileAccess.file_exists(path)
-		or DirAccess.dir_exists_absolute(absolute_path)
-	):
+	if (FileAccess.file_exists(path) or DirAccess.dir_exists_absolute(absolute_path)):
 		return ERR_ALREADY_EXISTS
 	if _path_has_link_component(path):
 		return ERR_UNAUTHORIZED
@@ -4058,10 +3258,7 @@ static func _write_bytes(
 	var write_error: Error = file.get_error()
 	var written_bytes: int = file.get_position()
 	file.close()
-	if (
-		write_error == OK
-		and _test_bytes_failures_after_write > 0
-	):
+	if (write_error == OK and _test_bytes_failures_after_write > 0):
 		_test_bytes_failures_after_write -= 1
 		write_error = ERR_FILE_CANT_WRITE
 	var expected_sha256: String = _sha256_bytes(bytes)
@@ -4089,26 +3286,11 @@ static func _resolve_owned_write_failure(
 	write_error: Error,
 	write_report: Dictionary = {}
 ) -> Error:
-	var effective_write_error: Error = (
-		write_error if write_error != OK else ERR_FILE_CANT_WRITE
-	)
+	var effective_write_error: Error = write_error if write_error != OK else ERR_FILE_CANT_WRITE
 	write_report["write_error"] = effective_write_error
-	var cleanup_error: Error = _record_owned_partial_before_cleanup(
-		path,
-		write_report
-	)
-	if (
-		cleanup_error == OK
-		and _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			write_report,
-			"state"
-		)
-		== _WRITE_STATE_PARTIAL
-	):
-		cleanup_error = _get_owned_write_report_partial_error(
-			path,
-			write_report
-		)
+	var cleanup_error: Error = _record_owned_partial_before_cleanup(path, write_report)
+	if (cleanup_error == OK and ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(write_report, "state")) == _WRITE_STATE_PARTIAL)):
+		cleanup_error = _get_owned_write_report_partial_error(path, write_report)
 		if cleanup_error == OK:
 			cleanup_error = _remove_owned_sidecar_path(path)
 	if cleanup_error == OK:
@@ -4123,32 +3305,18 @@ static func _resolve_owned_write_failure(
 ## 清理前验证部分写入报告对应的路径与已捕获文件摘要；文件缺失视为已清理，身份未知或变化时拒绝删除。
 ## [br]
 ## @api private
-static func _get_owned_write_report_partial_error(
-	path: String,
-	write_report: Dictionary
-) -> Error:
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
-			write_report,
-			"state"
-		)
-		!= _WRITE_STATE_PARTIAL
-	):
+static func _get_owned_write_report_partial_error(path: String, write_report: Dictionary) -> Error:
+	if ((_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(write_report, "state")) != _WRITE_STATE_PARTIAL):
 		return OK
 	if (
 		path.is_empty()
 		or _path_has_link_component(path)
-		or DirAccess.dir_exists_absolute(
-			ProjectSettings.globalize_path(path)
-		)
+		or (DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(path)))
 	):
 		return ERR_UNAUTHORIZED
 	if not FileAccess.file_exists(path):
 		return OK
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		write_report,
-		"partial_identity_known"
-	):
+	if not (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(write_report, "partial_identity_known")):
 		return ERR_FILE_CORRUPT
 	var state: Dictionary = _capture_regular_file_state(path)
 	if not _file_state_matches_expected(
@@ -4159,10 +3327,7 @@ static func _get_owned_write_report_partial_error(
 			"partial_size_bytes",
 			-1
 		),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			write_report,
-			"partial_sha256"
-		)
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(write_report, "partial_sha256")
 	):
 		return ERR_FILE_CORRUPT
 	return OK
@@ -4183,13 +3348,8 @@ static func _copy_file(
 		return ERR_INVALID_PARAMETER
 	if _path_has_link_component(source_path) or _path_has_link_component(target_path):
 		return ERR_UNAUTHORIZED
-	var absolute_target_path: String = ProjectSettings.globalize_path(
-		target_path
-	)
-	if (
-		FileAccess.file_exists(target_path)
-		or DirAccess.dir_exists_absolute(absolute_target_path)
-	):
+	var absolute_target_path: String = ProjectSettings.globalize_path(target_path)
+	if (FileAccess.file_exists(target_path) or DirAccess.dir_exists_absolute(absolute_target_path)):
 		return ERR_ALREADY_EXISTS
 	var source_file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
 	if source_file == null:
@@ -4293,14 +3453,8 @@ static func _configure_test_owned_write_failures(
 	bytes_failures_after_write: int,
 	remove_failures: int
 ) -> void:
-	_test_copy_failures_after_write = maxi(
-		copy_failures_after_write,
-		0
-	)
-	_test_bytes_failures_after_write = maxi(
-		bytes_failures_after_write,
-		0
-	)
+	_test_copy_failures_after_write = maxi(copy_failures_after_write, 0)
+	_test_bytes_failures_after_write = maxi(bytes_failures_after_write, 0)
 	_test_owned_remove_failures = maxi(remove_failures, 0)
 
 
@@ -4317,15 +3471,11 @@ static func _reset_test_owned_write_failures() -> void:
 ## [br]
 ## @api private
 static func _path_has_link_component(path: String) -> bool:
-	var current: String = _trim_trailing_separators(
-		ProjectSettings.globalize_path(path).replace("\\", "/")
-	)
+	var current: String = _trim_trailing_separators(ProjectSettings.globalize_path(path).replace("\\", "/"))
 	while not current.is_empty():
 		if _path_component_is_link(current):
 			return true
-		var parent: String = _trim_trailing_separators(
-			current.get_base_dir().replace("\\", "/")
-		)
+		var parent: String = _trim_trailing_separators(current.get_base_dir().replace("\\", "/"))
 		if parent.is_empty() or parent == current:
 			break
 		current = parent
@@ -4360,18 +3510,39 @@ static func _portable_component_is_valid(component: String) -> bool:
 		or not _string_is_ascii(component)
 	):
 		return false
-	for invalid_character: String in ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]:
+	for invalid_character: String in [
+		"<",
+		">",
+		":",
+		"\"",
+		"/",
+		"\\",
+		"|",
+		"?",
+		"*",
+	]:
 		if component.contains(invalid_character):
 			return false
 	var device_stem: String = component.split(".", true)[0].to_upper()
-	if ["CON", "PRN", "AUX", "NUL"].has(device_stem):
+	if [
+		"CON",
+		"PRN",
+		"AUX",
+		"NUL",
+	].has(device_stem):
 		return false
 	if device_stem.length() == 4:
 		var device_prefix: String = device_stem.substr(0, 3)
 		var device_number: String = device_stem.substr(3, 1)
 		if (
-			(device_prefix == "COM" or device_prefix == "LPT")
-			and ("123456789".contains(device_number) or "¹²³".contains(device_number))
+			(
+				device_prefix == "COM"
+				or device_prefix == "LPT"
+			)
+			and (
+				"123456789".contains(device_number)
+				or "¹²³".contains(device_number)
+			)
 		):
 			return false
 	return true
@@ -4404,7 +3575,10 @@ static func _string_has_control_character(value: String) -> bool:
 static func _trim_trailing_separators(path: String) -> String:
 	var result: String = path
 	while result.length() > 1 and result.ends_with("/"):
-		result = result.substr(0, result.length() - 1)
+		result = result.substr(
+			0,
+			result.length() - 1
+		)
 	return result
 
 
@@ -4423,10 +3597,7 @@ static func _file_size(path: String) -> int:
 ## 从字典字段读取 PackedByteArray；字段类型不匹配时返回空字节数组。
 ## [br]
 ## @api private
-static func _get_packed_byte_array(
-	source: Dictionary,
-	key: String
-) -> PackedByteArray:
+static func _get_packed_byte_array(source: Dictionary, key: String) -> PackedByteArray:
 	var value: Variant = source.get(key)
 	if value is PackedByteArray:
 		var bytes: PackedByteArray = value
@@ -4450,10 +3621,7 @@ static func _to_report_metadata(metadata: Dictionary) -> Dictionary:
 ## 把单条问题包装成 PackedStringArray，再交给 begin 失败报告构造器。
 ## [br]
 ## @api private
-static func _make_begin_failure(
-	issue: String,
-	options: Dictionary
-) -> Dictionary:
+static func _make_begin_failure(issue: String, options: Dictionary) -> Dictionary:
 	return _make_begin_failure_report(
 		PackedStringArray([issue]),
 		options
@@ -4482,12 +3650,7 @@ static func _make_begin_failure_report(
 		"recovery_required": false,
 		"recovery_action": &"",
 		"recovery_transaction": {},
-		"metadata": _to_report_metadata(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				options,
-				"metadata"
-			)
-		),
+		"metadata": _to_report_metadata(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")),
 	}
 
 
@@ -4504,11 +3667,7 @@ static func _bounded_limit_option(
 	var has_value: bool = options.has(key) or options.has(StringName(key))
 	if not has_value:
 		return fallback
-	var value: Variant = (
-		options.get(key)
-		if options.has(key)
-		else options.get(StringName(key))
-	)
+	var value: Variant = (options.get(key) if options.has(key) else options.get(StringName(key)))
 	if not value is int:
 		return -1
 	var int_value: int = value
@@ -4537,7 +3696,8 @@ static func _make_transaction_id() -> String:
 	if random_bytes.size() == 16:
 		return random_bytes.hex_encode()
 	var fallback_bytes: PackedByteArray = (
-		"%d:%d" % [OS.get_process_id(), Time.get_ticks_usec()]
+		"%d:%d"
+		% [OS.get_process_id(), Time.get_ticks_usec()]
 	).to_utf8_buffer()
 	return _sha256_bytes(fallback_bytes).substr(0, 32)
 

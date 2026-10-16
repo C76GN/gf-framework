@@ -18,8 +18,8 @@
 | 属性 | [`step_id`](#member-gfsavepipelinestep-properties-step_id) | `var step_id: StringName = &""` |
 | 属性 | [`enabled`](#member-gfsavepipelinestep-properties-enabled) | `var enabled: bool = true` |
 | 方法 | [`_before_gather_scope`](#member-gfsavepipelinestep-methods-_before_gather_scope) | `func _before_gather_scope(_scope: GFSaveScope, _context: Dictionary = {}) -> void:` |
-| 方法 | [`_after_gather_scope`](#member-gfsavepipelinestep-methods-_after_gather_scope) | `func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -> Variant:` |
-| 方法 | [`_before_apply_scope`](#member-gfsavepipelinestep-methods-_before_apply_scope) | `func _before_apply_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -> Variant:` |
+| 方法 | [`_after_gather_scope`](#member-gfsavepipelinestep-methods-_after_gather_scope) | `func _after_gather_scope( _scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {} ) -> Variant:` |
+| 方法 | [`_before_apply_scope`](#member-gfsavepipelinestep-methods-_before_apply_scope) | `func _before_apply_scope( _scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {} ) -> Variant:` |
 | 方法 | [`_after_apply_scope`](#member-gfsavepipelinestep-methods-_after_apply_scope) | `func _after_apply_scope( _scope: GFSaveScope, _payload: Dictionary, result: Dictionary, _context: Dictionary = {} ) -> Variant:` |
 
 ## 属性
@@ -78,9 +78,10 @@ func _before_gather_scope(_scope: GFSaveScope, _context: Dictionary = {}) -> voi
 ### `_after_gather_scope`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -> Variant:
+func _after_gather_scope( _scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {} ) -> Variant:
 ```
 
 采集 Scope 后调用。返回 Dictionary 时会替换当前 payload。
@@ -106,9 +107,10 @@ func _after_gather_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dic
 ### `_before_apply_scope`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _before_apply_scope(_scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {}) -> Variant:
+func _before_apply_scope( _scope: GFSaveScope, payload: Dictionary, _context: Dictionary = {} ) -> Variant:
 ```
 
 应用 Scope 前调用。返回 Dictionary 时会替换当前 payload。

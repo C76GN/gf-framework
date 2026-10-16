@@ -107,7 +107,11 @@ func get_field(target_field_name: StringName) -> GFNetworkContractField:
 ## [br]
 ## @schema return: Dictionary[StringName, Variant]，按字段契约归一化后的 payload。
 func build_payload(values: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
-	var include_defaults: bool = GFVariantData.get_option_bool(options, "include_defaults", true)
+	var include_defaults: bool = GFVariantData.get_option_bool(
+		options,
+		"include_defaults",
+		true
+	)
 	var payload: Dictionary = {}
 	for field: GFNetworkContractField in fields:
 		if field == null or field.get_field_name() == &"":
@@ -115,7 +119,13 @@ func build_payload(values: Dictionary = {}, options: Dictionary = {}) -> Diction
 
 		var field_name: StringName = field.get_field_name()
 		if _has_payload_key(values, field_name):
-			payload[field_name] = field.normalize_value(_get_payload_value(values, field_name, null))
+			payload[field_name] = field.normalize_value(
+				_get_payload_value(
+					values,
+					field_name,
+					null
+				)
+			)
 		elif include_defaults and field.default_value != null:
 			payload[field_name] = field.get_default_value()
 	return payload
@@ -143,7 +153,11 @@ func make_message(values: Dictionary = {}, options: Dictionary = {}) -> GFNetwor
 		build_payload(values, options),
 		GFVariantData.get_option_int(options, "sequence"),
 		GFVariantData.get_option_int(options, "tick"),
-		GFVariantData.get_option_int(options, "sender_id", -1),
+		GFVariantData.get_option_int(
+			options,
+			"sender_id",
+			-1
+		),
 		resolved_channel_id
 	)
 
@@ -158,13 +172,26 @@ func make_message(values: Dictionary = {}, options: Dictionary = {}) -> GFNetwor
 func validate_definition() -> Dictionary:
 	var issues: Array[Dictionary] = []
 	if message_type == &"":
-		issues.append(_make_issue("error", "empty_message_type", "Network contract message_type is empty."))
+		issues.append(
+			_make_issue(
+				"error",
+				"empty_message_type",
+				"Network contract message_type is empty."
+			)
+		)
 
 	var seen_fields: Dictionary = {}
 	for index: int in range(fields.size()):
 		var field: GFNetworkContractField = fields[index]
 		if field == null:
-			issues.append(_make_issue("warning", "null_field", "Network contract message contains a null field.", str(index)))
+			issues.append(
+				_make_issue(
+					"warning",
+					"null_field",
+					"Network contract message contains a null field.",
+					str(index)
+				)
+			)
 			continue
 
 		var field_report: Dictionary = field.validate_definition()
@@ -173,7 +200,14 @@ func validate_definition() -> Dictionary:
 		if field_name == &"":
 			continue
 		if seen_fields.has(field_name):
-			issues.append(_make_issue("error", "duplicate_field_name", "Network contract field name is duplicated.", String(field_name)))
+			issues.append(
+				_make_issue(
+					"error",
+					"duplicate_field_name",
+					"Network contract field name is duplicated.",
+					String(field_name)
+				)
+			)
 		seen_fields[field_name] = true
 	return _finalize_report(issues)
 
@@ -198,10 +232,21 @@ func validate_payload(payload: Dictionary) -> Dictionary:
 		var field_name: StringName = field.get_field_name()
 		if not _has_payload_key(payload, field_name):
 			if field.required:
-				issues.append(_make_issue("error", "missing_required_field", "Network payload is missing a required field.", String(field_name)))
+				issues.append(
+					_make_issue(
+						"error",
+						"missing_required_field",
+						"Network payload is missing a required field.",
+						String(field_name)
+					)
+				)
 			continue
 
-		var value: Variant = _get_payload_value(payload, field_name, null)
+		var value: Variant = _get_payload_value(
+			payload,
+			field_name,
+			null
+		)
 		var field_report: Dictionary = field.validate_value(value)
 		issues.append_array(_with_message_context(GFVariantData.get_option_array(field_report, "issues")))
 	return _finalize_report(issues)
@@ -218,9 +263,25 @@ func validate_payload(payload: Dictionary) -> Dictionary:
 ## @schema return: Dictionary，GFValidationReportDictionary 格式，包含 ok、issues、issue_count 和 next_actions。
 func validate_message(message: GFNetworkMessage) -> Dictionary:
 	if message == null:
-		return _finalize_report([_make_issue("error", "missing_message", "Network message is null.")])
+		return _finalize_report(
+			[
+				_make_issue(
+					"error",
+					"missing_message",
+					"Network message is null."
+				),
+			]
+		)
 	if message.message_type != message_type:
-		return _finalize_report([_make_issue("error", "message_type_mismatch", "Network message_type does not match contract.")])
+		return _finalize_report(
+			[
+				_make_issue(
+					"error",
+					"message_type_mismatch",
+					"Network message_type does not match contract."
+				),
+			]
+		)
 	return validate_payload(message.payload)
 
 
@@ -260,10 +321,18 @@ func _has_payload_key(payload: Dictionary, field_name: StringName) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_payload_value(payload: Dictionary, field_name: StringName, default_value: Variant) -> Variant:
+func _get_payload_value(
+	payload: Dictionary,
+	field_name: StringName,
+	default_value: Variant
+) -> Variant:
 	if payload.has(field_name):
 		return payload[field_name]
-	return GFVariantData.get_option_value(payload, String(field_name), default_value)
+	return GFVariantData.get_option_value(
+		payload,
+		String(field_name),
+		default_value
+	)
 
 
 ## 复制有效的问题字典并为每项补入当前 message_type。
@@ -286,7 +355,12 @@ func _with_message_context(issues: Array) -> Array[Dictionary]:
 ## [br]
 ## @api private
 ## [br]
-func _make_issue(severity: String, kind: String, message: String, field_name: String = "") -> Dictionary:
+func _make_issue(
+	severity: String,
+	kind: String,
+	message: String,
+	field_name: String = ""
+) -> Dictionary:
 	var issue: Dictionary = {
 		"severity": severity,
 		"kind": kind,
@@ -311,10 +385,11 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 		"message_type": message_type,
 		"issues": issues,
 	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract message", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(
+		report,
+		"Network contract message",
+		{ "include_issue_count": true, "next_actions": _get_validation_next_actions(), }
+	)
 
 
 ## 按消息契约和字段错误类型提供修复建议文本。

@@ -96,10 +96,7 @@ static func excluded() -> GFTableRowPredicateResult:
 ## @param error_message: 面向维护者的失败说明；最多保留 1024 个 UTF-8 字节。
 ## [br]
 ## @return 新的失败结果。
-static func failed(
-	error_code: StringName,
-	error_message: String = ""
-) -> GFTableRowPredicateResult:
+static func failed(error_code: StringName, error_message: String = "") -> GFTableRowPredicateResult:
 	var result: GFTableRowPredicateResult = GFTableRowPredicateResult.new()
 	result._configured = true
 	result._successful = false
@@ -119,14 +116,13 @@ static func failed(
 ## @param source: 项目谓词返回的候选结果。
 ## [br]
 ## @return 由 included()、excluded() 或 failed() 创建的纯基类结果。
-static func snapshot_for_framework(
-	source: GFTableRowPredicateResult
-) -> GFTableRowPredicateResult:
-	if source == null or not is_instance_valid(source) or not source._configured:
-		return failed(
-			&"invalid_predicate_result",
-			"Row predicate returned an uninitialized typed result."
-		)
+static func snapshot_for_framework(source: GFTableRowPredicateResult) -> GFTableRowPredicateResult:
+	if (
+		source == null
+		or not is_instance_valid(source)
+		or not source._configured
+	):
+		return failed(&"invalid_predicate_result", "Row predicate returned an uninitialized typed result.")
 	if source._successful:
 		return included() if source._should_include else excluded()
 	return failed(source._error_code, source._error_message)

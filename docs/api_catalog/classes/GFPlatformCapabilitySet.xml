@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformCapabilitySet" path="addons/gf/standard/foundation/platform/gf_platform_capability_set.gd" module="standard" extends="Resource" classDigest="8fadd90e9ce7883671546639eb6beacd26191015b37363222e9e0b79bc81d36d">
+<class name="GFPlatformCapabilitySet" path="addons/gf/standard/foundation/platform/gf_platform_capability_set.gd" module="standard" extends="Resource" classDigest="9b94dd2e80ebe23b156494580810e6b31d13fba0639ad612933d150e88fa1567">
 	<description>GFPlatformCapabilitySet: 平台能力集合。
 用纯数据描述某个运行平台或外部 adapter 暴露的能力及其限制。GF 不内置
 具体平台表，调用方应使用稳定的业务无关能力 ID。</description>
@@ -131,7 +131,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_limit">
-			<signature>func set_limit(capability_id: StringName, key: StringName, value: Variant) -&gt; bool:</signature>
+			<signature>func set_limit( capability_id: StringName, key: StringName, value: Variant ) -&gt; bool:</signature>
 			<description>设置能力限制字段。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -144,7 +144,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_limit">
-			<signature>func get_limit(capability_id: StringName, key: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<signature>func get_limit( capability_id: StringName, key: StringName, default_value: Variant = null ) -&gt; Variant:</signature>
 			<description>读取能力限制字段。</description>
 			<tags>
 				<tag name="api">public</tag>

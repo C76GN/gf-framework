@@ -120,7 +120,7 @@ func deserialize_message_result(bytes: PackedByteArray) -> Dictionary:
 func serialize_dictionary(data: Dictionary) -> PackedByteArray:
 	match format:
 		Format.JSON:
-			var json_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(data, json_codec_options) if use_typed_json_codec else data
+			var json_value: Variant = (GFVariantJsonCodec.variant_to_json_compatible(data, json_codec_options) if use_typed_json_codec else data)
 			return JSON.stringify(json_value).to_utf8_buffer()
 		_:
 			return var_to_bytes(data)
@@ -193,7 +193,11 @@ func _get_message_schema_error(data: Dictionary) -> String:
 
 	if data.has("payload") and not (data["payload"] is Dictionary):
 		return "payload_not_dictionary"
-	for field_name: String in ["sequence", "tick", "sender_id"]:
+	for field_name: String in [
+		"sequence",
+		"tick",
+		"sender_id",
+	]:
 		if data.has(field_name) and not _is_integer_value(data[field_name]):
 			return "%s_not_integer" % field_name
 	if data.has("channel_id"):
@@ -201,7 +205,11 @@ func _get_message_schema_error(data: Dictionary) -> String:
 		if not (channel_value is String) and not (channel_value is StringName):
 			return "channel_id_not_string"
 
-	var payload_value: Variant = GFVariantData.get_option_value(data, "payload", {})
+	var payload_value: Variant = GFVariantData.get_option_value(
+		data,
+		"payload",
+		{}
+	)
 	var transport_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(payload_value)
 	if not GFVariantData.get_option_bool(transport_report, "ok"):
 		return "payload_not_transport_safe"
@@ -218,7 +226,11 @@ func _is_integer_value(value: Variant) -> bool:
 	if typeof(value) != TYPE_FLOAT:
 		return false
 	var number: float = GFVariantData.to_float(value)
-	return not is_nan(number) and not is_inf(number) and number == floor(number)
+	return (
+		not is_nan(number)
+		and not is_inf(number)
+		and number == floor(number)
+	)
 
 
 ## 仅当 Variant 是 GFNetworkMessage 时返回该消息。

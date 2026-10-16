@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="73d5a5f1b53aa77ccf217cb8b2436f20beca233d26ac3d0c59b6bbb33e03104d">
+<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="bd6c983d38c63bf79dd1d3739c0f603785d6fafbbfad4de1183650293c3aa86e">
 	<description>GFHomingProjectileMotion: 使用 LaunchInput target 的 typed 追踪 intent 策略。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -46,7 +46,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="_create_state_2d">
-			<signature>func _create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -&gt; GFProjectileMotionState:</signature>
+			<signature>func _create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -&gt; GFProjectileMotionState:</signature>
 			<description>捕获二维发射目标的位置与初始方向，为本次 session 建立追踪状态。
 节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。</description>
 			<tags>
@@ -58,7 +58,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_create_state_3d">
-			<signature>func _create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -&gt; GFProjectileMotionState:</signature>
+			<signature>func _create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -&gt; GFProjectileMotionState:</signature>
 			<description>捕获三维发射目标的位置与初始方向，为本次 session 建立追踪状态。
 节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。</description>
 			<tags>

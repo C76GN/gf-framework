@@ -39,6 +39,8 @@ func shutdown() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
 ## @param data: 要保存的数据。
@@ -50,10 +52,18 @@ func shutdown() -> void:
 ## @schema metadata: Dictionary，包含时间戳或修订号等后端特定元数据。
 ## [br]
 ## @return Godot Error 结果码。
-func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -> Error:
+func save_data(
+	file_name: String,
+	data: Dictionary,
+	metadata: Dictionary = {}
+) -> Error:
 	if file_name.is_empty():
 		return ERR_INVALID_PARAMETER
-	return _save_data(file_name, data.duplicate(true), metadata.duplicate(true))
+	return _save_data(
+		file_name,
+		data.duplicate(true),
+		metadata.duplicate(true)
+	)
 
 
 ## 读取纯字典数据。
@@ -69,7 +79,13 @@ func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -
 ## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。
 func load_data(file_name: String) -> Dictionary:
 	if file_name.is_empty():
-		return _make_result(false, {}, {}, "file_name is empty", ERR_INVALID_PARAMETER)
+		return _make_result(
+			false,
+			{},
+			{},
+			"file_name is empty",
+			ERR_INVALID_PARAMETER
+		)
 	var result: Dictionary = _load_data(file_name)
 	if not result.has("error_code"):
 		result["error_code"] = int(OK if GFVariantData.get_option_bool(result, "ok") else ERR_CANT_OPEN)
@@ -142,10 +158,18 @@ func get_capabilities() -> Dictionary:
 ## @schema return: Dictionary，包含 ok、backend_class、label、capabilities、data_count、data_names 和 metadata。
 func get_capability_report(options: Dictionary = {}) -> Dictionary:
 	var capabilities: Dictionary = get_capabilities()
-	var include_data_names: bool = GFVariantData.get_option_bool(options, "include_data_names", false)
-	var include_data_count: bool = GFVariantData.get_option_bool(options, "include_data_count", true)
+	var include_data_names: bool = GFVariantData.get_option_bool(
+		options,
+		"include_data_names",
+		false
+	)
+	var include_data_count: bool = GFVariantData.get_option_bool(
+		options,
+		"include_data_count",
+		true
+	)
 	var entries: Array[Dictionary] = list_data() if GFVariantData.get_option_bool(capabilities, "list") else []
-	var data_names: PackedStringArray = _get_data_names_from_list(entries) if include_data_names else PackedStringArray()
+	var data_names: PackedStringArray = (_get_data_names_from_list(entries) if include_data_names else PackedStringArray())
 	return {
 		"ok": true,
 		"backend_class": get_class(),
@@ -183,6 +207,8 @@ func _shutdown() -> void:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _file_name: 逻辑文件名。
 ## [br]
 ## @param _data: 要保存的数据副本。
@@ -194,7 +220,11 @@ func _shutdown() -> void:
 ## @schema _metadata: Dictionary，包含时间戳或修订号等后端特定元数据。
 ## [br]
 ## @return Godot Error 结果码。
-func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -> Error:
+func _save_data(
+	_file_name: String,
+	_data: Dictionary,
+	_metadata: Dictionary
+) -> Error:
 	return ERR_UNAVAILABLE
 
 
@@ -210,7 +240,13 @@ func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) ->
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool、data: Dictionary、metadata: Dictionary、error: String 和 error_code: Error。
 func _load_data(_file_name: String) -> Dictionary:
-	return _make_result(false, {}, {}, "backend unavailable", ERR_UNAVAILABLE)
+	return _make_result(
+		false,
+		{},
+		{},
+		"backend unavailable",
+		ERR_UNAVAILABLE
+	)
 
 
 ## 从具体后端删除纯字典数据。
@@ -276,12 +312,15 @@ func _make_result(
 	error: String,
 	error_code: Error = OK
 ) -> Dictionary:
-	return GFResultDictionary.make(ok, {
-		GFResultDictionary.KEY_DATA: data.duplicate(true),
-		GFResultDictionary.KEY_METADATA: metadata.duplicate(true),
-		GFResultDictionary.KEY_ERROR: error,
-		"error_code": int(error_code),
-	})
+	return GFResultDictionary.make(
+		ok,
+		{
+			GFResultDictionary.KEY_DATA: data.duplicate(true),
+			GFResultDictionary.KEY_METADATA: metadata.duplicate(true),
+			GFResultDictionary.KEY_ERROR: error,
+			"error_code": int(error_code),
+		}
+	)
 
 
 ## 提取非空 file_name 并排序，供能力报告列出数据名称。

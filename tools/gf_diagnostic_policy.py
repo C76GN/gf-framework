@@ -262,11 +262,41 @@ def _numeric_literal(tokens: list[Token]) -> bool:
 	return re.fullmatch(r"[-+]?(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]*)?(?:[eE][-+]?[0-9_]+)?)", "".join(token.value for token in tokens)) is not None
 
 
+def _static_prefix(parts: list[list[Token]], constants: dict[str, list[Token]]) -> str | None:
+	"""Resolve literal-only concatenation prefixes within the existing byte budget."""
+	values: list[str] = []
+	size = 0
+	for part in parts:
+		value = _literal(part, constants)
+		if value is None:
+			return None
+		size += len(value.encode("utf-8"))
+		if size > MAX_TEMPLATE_BYTES:
+			raise SourceError("Expanded diagnostic template exceeds its byte budget.")
+		values.append(value)
+	return "".join(values)
+
+
 def _template(tokens: list[Token], constants: dict[str, list[Token]]) -> str | None:
 	tokens = _unparen(tokens)
 	parts = _groups(tokens, "%")
 	if len(parts) == 2:
 		return _literal(parts[0], constants) if _operand_end(parts[1]) == len(parts[1]) or _numeric_literal(parts[1]) else None
+	# Redundant groups around the final formatted operand preserve precedence.
+	# Earlier operands must remain literal-only; output appended after formatting
+	# and dynamic prefixes are still outside this static template contract.
+	parts = _groups(tokens, "+")
+	if len(parts) > 1:
+		prefix = _static_prefix(parts[:-1], constants)
+		if prefix is None:
+			return None
+		tail = _template(parts[-1], constants)
+		if tail is None:
+			return None
+		value = prefix + tail
+		if len(value.encode("utf-8")) > MAX_TEMPLATE_BYTES:
+			raise SourceError("Expanded diagnostic template exceeds its byte budget.")
+		return value
 	# String.format parameters are runtime context, not template language.
 	for index in range(len(tokens) - 2):
 		if tokens[index].kind == "symbol" and tokens[index].value == "." and tokens[index + 1].kind == "identifier" and tokens[index + 1].value == "format" and tokens[index + 2].kind == "symbol" and tokens[index + 2].value == "(" and _closing(tokens, index + 2) == len(tokens) - 1:
@@ -279,8 +309,12 @@ def _expression(tokens: list[Token]) -> str:
 
 
 def _format_issues(path: str, line: int, tokens: list[Token], constants: dict[str, list[Token]]) -> list[dict[str, object]]:
-	parts = _groups(_unparen(tokens), "%")
+	tokens = _unparen(tokens)
+	parts = _groups(tokens, "%")
 	if len(parts) != 2:
+		concatenated = _groups(tokens, "+")
+		if len(concatenated) > 1 and _static_prefix(concatenated[:-1], constants) is not None:
+			return _format_issues(path, line, concatenated[-1], constants)
 		return []
 	template = _literal(parts[0], constants)
 	arguments = _unparen(parts[1])

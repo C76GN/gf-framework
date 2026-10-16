@@ -83,7 +83,10 @@ func make_key(record: Dictionary) -> String:
 		var value: Variant = record[key]
 		if value == null and not allow_null_values:
 			return ""
-		var _part_appended: bool = parts.append("%d:%s" % [typeof(value), var_to_str(value)])
+		var _part_appended: bool = parts.append(
+			"%d:%s"
+			% [typeof(value), var_to_str(value)]
+		)
 	return "|".join(parts)
 
 

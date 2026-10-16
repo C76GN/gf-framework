@@ -115,7 +115,7 @@ class PathRule:
 			raise ValidationInputContractError(
 				"validation_inputs.path_rule_kind_invalid"
 			)
-		_validate_portable_relative_path(self.path)
+		validate_portable_relative_path(self.path)
 		if type(self.suffixes) is not tuple:
 			raise ValidationInputContractError(
 				"validation_inputs.path_rule_suffixes_not_tuple"
@@ -127,7 +127,7 @@ class PathRule:
 		for suffix in self.suffixes:
 			_validate_suffix(suffix)
 		for prefix in self.excluded_prefixes:
-			_validate_portable_relative_path(prefix)
+			validate_portable_relative_path(prefix)
 			if not _is_strict_child_path(prefix, self.path):
 				raise ValidationInputContractError(
 					"validation_inputs.path_rule_exclusion_outside_tree"
@@ -188,7 +188,7 @@ class PathRule:
 		}
 
 	def matches(self, logical_path: str) -> bool:
-		_validate_portable_relative_path(logical_path)
+		validate_portable_relative_path(logical_path)
 		if self.kind == "exact":
 			return logical_path == self.path
 		if not _is_same_or_child_path(logical_path, self.path):
@@ -233,7 +233,7 @@ class CheckInputSpec:
 				"validation_inputs.consumed_artifacts_not_tuple"
 			)
 		for path in self.implementation_files:
-			_validate_portable_relative_path(path)
+			validate_portable_relative_path(path)
 		for artifact_name in self.consumed_artifacts:
 			_validate_artifact_name(artifact_name)
 		rule_keys = [
@@ -304,7 +304,7 @@ class CheckInputSpec:
 		return any(rule.matches(logical_path) for rule in self.source_rules)
 
 	def matches_implementation_path(self, logical_path: str) -> bool:
-		_validate_portable_relative_path(logical_path)
+		validate_portable_relative_path(logical_path)
 		return logical_path in self.implementation_files
 
 	def git_pathspecs(self) -> tuple[str, ...]:
@@ -555,7 +555,8 @@ def _validate_artifact_name(name: Any) -> None:
 		)
 
 
-def _validate_portable_relative_path(value: Any) -> None:
+def validate_portable_relative_path(value: Any) -> None:
+	"""Require canonical portable syntax for a slash-separated logical path."""
 	if (
 		type(value) is not str
 		or not value
@@ -569,10 +570,11 @@ def _validate_portable_relative_path(value: Any) -> None:
 			"validation_inputs.path_not_canonical"
 		)
 	for segment in value.split("/"):
-		_validate_path_segment(segment)
+		validate_path_segment(segment)
 
 
-def _validate_path_segment(segment: str) -> None:
+def validate_path_segment(segment: str) -> None:
+	"""Reject nonportable names before matching rules or reading directory entries."""
 	if not segment or segment in {".", ".."}:
 		raise ValidationInputContractError(
 			"validation_inputs.path_segment_invalid"

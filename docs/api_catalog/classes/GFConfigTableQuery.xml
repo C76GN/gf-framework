@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableQuery" path="addons/gf/standard/utilities/config/gf_config_table_query.gd" module="standard" extends="RefCounted" classDigest="153c15959ab69ead3c61d3bc11655645cee6e91afebd27cea9cf4b7180b36b6d">
+<class name="GFConfigTableQuery" path="addons/gf/standard/utilities/config/gf_config_table_query.gd" module="standard" extends="RefCounted" classDigest="de8d36ebd3be195b0f81a9d47a18fbbdb6fbbff0aabe5cbbb990e78bcc4fb042">
 	<description>GFConfigTableQuery: 配置表记录的通用查询器。
 面向 GFConfigTableResource、导表记录数组和编辑器工具提供纯数据筛选、排序与分页。
 它不改变配置表存储模型，也不绑定任何业务表语义。</description>
@@ -325,7 +325,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="read_path">
-			<signature>static func read_path(source: Variant, path: String, default_value: Variant = null) -&gt; Variant:</signature>
+			<signature>static func read_path( source: Variant, path: String, default_value: Variant = null ) -&gt; Variant:</signature>
 			<description>读取任意源对象的路径值。</description>
 			<tags>
 				<tag name="api">public</tag>

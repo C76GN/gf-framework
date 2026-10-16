@@ -18,10 +18,10 @@
 | 属性 | [`remapped_events`](#member-gfinputremapconfig-properties-remapped_events) | `var remapped_events: Dictionary = {}` |
 | 属性 | [`custom_data`](#member-gfinputremapconfig-properties-custom_data) | `var custom_data: Dictionary = {}` |
 | 方法 | [`set_binding`](#member-gfinputremapconfig-methods-set_binding) | `func set_binding( context_id: StringName, action_id: StringName, binding_index: int, input_event: InputEvent ) -> void:` |
-| 方法 | [`unbind`](#member-gfinputremapconfig-methods-unbind) | `func unbind(context_id: StringName, action_id: StringName, binding_index: int) -> void:` |
-| 方法 | [`clear_binding`](#member-gfinputremapconfig-methods-clear_binding) | `func clear_binding(context_id: StringName, action_id: StringName, binding_index: int) -> void:` |
-| 方法 | [`has_binding`](#member-gfinputremapconfig-methods-has_binding) | `func has_binding(context_id: StringName, action_id: StringName, binding_index: int) -> bool:` |
-| 方法 | [`get_bound_event_or_null`](#member-gfinputremapconfig-methods-get_bound_event_or_null) | `func get_bound_event_or_null(context_id: StringName, action_id: StringName, binding_index: int) -> InputEvent:` |
+| 方法 | [`unbind`](#member-gfinputremapconfig-methods-unbind) | `func unbind( context_id: StringName, action_id: StringName, binding_index: int ) -> void:` |
+| 方法 | [`clear_binding`](#member-gfinputremapconfig-methods-clear_binding) | `func clear_binding( context_id: StringName, action_id: StringName, binding_index: int ) -> void:` |
+| 方法 | [`has_binding`](#member-gfinputremapconfig-methods-has_binding) | `func has_binding( context_id: StringName, action_id: StringName, binding_index: int ) -> bool:` |
+| 方法 | [`get_bound_event_or_null`](#member-gfinputremapconfig-methods-get_bound_event_or_null) | `func get_bound_event_or_null( context_id: StringName, action_id: StringName, binding_index: int ) -> InputEvent:` |
 | 方法 | [`set_custom_data`](#member-gfinputremapconfig-methods-set_custom_data) | `func set_custom_data(key: Variant, value: Variant) -> void:` |
 | 方法 | [`get_custom_data`](#member-gfinputremapconfig-methods-get_custom_data) | `func get_custom_data(key: Variant, default_value: Variant = null) -> Variant:` |
 | 方法 | [`to_dict`](#member-gfinputremapconfig-methods-to_dict) | `func to_dict(json_compatible: bool = true) -> Dictionary:` |
@@ -91,9 +91,10 @@ func set_binding( context_id: StringName, action_id: StringName, binding_index: 
 ### `unbind`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func unbind(context_id: StringName, action_id: StringName, binding_index: int) -> void:
+func unbind( context_id: StringName, action_id: StringName, binding_index: int ) -> void:
 ```
 
 显式解绑某个绑定。
@@ -111,9 +112,10 @@ func unbind(context_id: StringName, action_id: StringName, binding_index: int) -
 ### `clear_binding`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func clear_binding(context_id: StringName, action_id: StringName, binding_index: int) -> void:
+func clear_binding( context_id: StringName, action_id: StringName, binding_index: int ) -> void:
 ```
 
 清除某个覆盖，使其回退到默认绑定。
@@ -131,9 +133,10 @@ func clear_binding(context_id: StringName, action_id: StringName, binding_index:
 ### `has_binding`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func has_binding(context_id: StringName, action_id: StringName, binding_index: int) -> bool:
+func has_binding( context_id: StringName, action_id: StringName, binding_index: int ) -> bool:
 ```
 
 检查是否存在覆盖记录。显式解绑也会返回 true。
@@ -153,9 +156,10 @@ func has_binding(context_id: StringName, action_id: StringName, binding_index: i
 ### `get_bound_event_or_null`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_bound_event_or_null(context_id: StringName, action_id: StringName, binding_index: int) -> InputEvent:
+func get_bound_event_or_null( context_id: StringName, action_id: StringName, binding_index: int ) -> InputEvent:
 ```
 
 获取覆盖输入事件。

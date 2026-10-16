@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsSchemaRegistry" path="addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd" module="standard" extends="Resource" classDigest="e7330fbfc70838011329934b12a436315ec0e2895019e6a601accd6795795300">
+<class name="GFAnalyticsSchemaRegistry" path="addons/gf/standard/utilities/analytics/gf_analytics_schema_registry.gd" module="standard" extends="Resource" classDigest="88d607ce2bf989ae4c61edbe83a384235239be62f7ee654617df824b08fe1dfa">
 	<description>GFAnalyticsSchemaRegistry: 精确版本 Analytics 事件 Schema 注册表。
 注册表以 event_name 与 schema_version 的组合保存隔离副本，
 禁止同版本覆盖，也不提供隐式 latest 回退。公开 getter 再返回副本，
@@ -40,7 +40,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_schema">
-			<signature>func get_schema( event_name: StringName, schema_version: int ) -&gt; GFAnalyticsEventSchema:</signature>
+			<signature>func get_schema(event_name: StringName, schema_version: int) -&gt; GFAnalyticsEventSchema:</signature>
 			<description>获取精确事件 Schema 版本的隔离副本。</description>
 			<tags>
 				<tag name="api">public</tag>

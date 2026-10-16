@@ -27,9 +27,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	if _project_setting_text(STAGE_SETTING) != STAGE_INSTALL:
 		return
 	ProjectSettings.set_setting(STARTED_SETTING, true)
-	var _registered_cleanup: bool = scope.register_cleanup(
-		Callable(self, &"_increment_cleanup_count")
-	)
+	var _registered_cleanup: bool = scope.register_cleanup(Callable(self, &"_increment_cleanup_count"))
 	if _project_setting_bool(REGISTER_BEFORE_CANCEL_SETTING):
 		await architecture.register_model_instance(InstallerModelFixture.new())
 	if _project_setting_bool(FAIL_ARCHITECTURE_SETTING):
@@ -51,9 +49,7 @@ func install_bindings(binder: Variant, scope: GFAsyncScope) -> void:
 	if _project_setting_text(STAGE_SETTING) != STAGE_BINDINGS:
 		return
 	ProjectSettings.set_setting(STARTED_SETTING, true)
-	var _registered_cleanup: bool = scope.register_cleanup(
-		Callable(self, &"_increment_cleanup_count")
-	)
+	var _registered_cleanup: bool = scope.register_cleanup(Callable(self, &"_increment_cleanup_count"))
 	if _project_setting_bool(REGISTER_BEFORE_CANCEL_SETTING) and binder is GFBinder:
 		var pre_cancel_binder: GFBinder = binder
 		await _bind_utility(pre_cancel_binder)
@@ -79,7 +75,10 @@ func _bind_utility(binder: GFBinder) -> void:
 
 func _increment_cleanup_count() -> void:
 	var current_count: int = _project_setting_int(CLEANUP_COUNT_SETTING)
-	ProjectSettings.set_setting(CLEANUP_COUNT_SETTING, current_count + 1)
+	ProjectSettings.set_setting(
+		CLEANUP_COUNT_SETTING,
+		current_count + 1
+	)
 
 
 func _wait_for_project_setting(setting_name: String) -> void:

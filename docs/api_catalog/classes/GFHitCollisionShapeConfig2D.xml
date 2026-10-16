@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitCollisionShapeConfig2D" path="addons/gf/extensions/combat/hit_detection/gf_hit_collision_shape_config_2d.gd" module="extensions/combat" extends="Resource" classDigest="1a90a3063584f5bd893bd7d57bb1c43fda4568ac05ced42aada1b5af81f03c7c">
+<class name="GFHitCollisionShapeConfig2D" path="addons/gf/extensions/combat/hit_detection/gf_hit_collision_shape_config_2d.gd" module="extensions/combat" extends="Resource" classDigest="582f84b14a59b1f31a6444f85c554dadb84da3706523024f5c118f79d5e4549f">
 	<description>GFHitCollisionShapeConfig2D: 2D 命中区域碰撞形状配置。
 用于把可复用的 Shape2D、偏移、旋转、缩放、调试颜色和禁用状态应用到 HitBox / HurtBox
 自动生成的 CollisionShape2D 上。不表达伤害、阵营或其他玩法规则。</description>
@@ -41,10 +41,16 @@
 			</tags>
 		</member>
 		<member kind="property" name="debug_color" decorators="@export">
-			<signature>var debug_color: Color = Color(0.0, 0.0, 0.0, 0.0)</signature>
+			<signature>var debug_color: Color = Color(
+	0.0,
+	0.0,
+	0.0,
+	0.0
+)</signature>
 			<description>调试绘制颜色。透明色会沿用 Godot 默认调试显示。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="disabled" decorators="@export">

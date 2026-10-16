@@ -18,10 +18,10 @@
 | 属性 | [`fallback_neighbor_value`](#member-gftileruleset-properties-fallback_neighbor_value) | `var fallback_neighbor_value: Variant = 0` |
 | 属性 | [`default_result`](#member-gftileruleset-properties-default_result) | `var default_result: Variant = null` |
 | 属性 | [`deterministic_seed`](#member-gftileruleset-properties-deterministic_seed) | `var deterministic_seed: int = 0` |
-| 方法 | [`register_rule`](#member-gftileruleset-methods-register_rule) | `func register_rule(neighbor_values: Array, result: Variant, weight: float = 1.0) -> void:` |
+| 方法 | [`register_rule`](#member-gftileruleset-methods-register_rule) | `func register_rule( neighbor_values: Array, result: Variant, weight: float = 1.0 ) -> void:` |
 | 方法 | [`clear`](#member-gftileruleset-methods-clear) | `func clear() -> void:` |
 | 方法 | [`get_rule_count`](#member-gftileruleset-methods-get_rule_count) | `func get_rule_count() -> int:` |
-| 方法 | [`resolve`](#member-gftileruleset-methods-resolve) | `func resolve(neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0) -> Variant:` |
+| 方法 | [`resolve`](#member-gftileruleset-methods-resolve) | `func resolve( neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0 ) -> Variant:` |
 | 方法 | [`has_rule`](#member-gftileruleset-methods-has_rule) | `func has_rule(neighbor_values: Array) -> bool:` |
 
 ## 属性
@@ -77,9 +77,10 @@ var deterministic_seed: int = 0
 ### `register_rule`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func register_rule(neighbor_values: Array, result: Variant, weight: float = 1.0) -> void:
+func register_rule( neighbor_values: Array, result: Variant, weight: float = 1.0 ) -> void:
 ```
 
 注册一条邻域规则。
@@ -128,9 +129,10 @@ func get_rule_count() -> int:
 ### `resolve`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func resolve(neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0) -> Variant:
+func resolve( neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0 ) -> Variant:
 ```
 
 根据邻域值解析结果。

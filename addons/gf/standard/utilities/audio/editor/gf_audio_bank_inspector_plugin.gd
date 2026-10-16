@@ -51,7 +51,11 @@ func _parse_begin(object: Object) -> void:
 
 	var header: Label = Label.new()
 	header.text = "GF Audio Bank"
-	header.modulate = Color(0.4, 0.8, 1.0)
+	header.modulate = Color(
+		0.4,
+		0.8,
+		1.0
+	)
 	root.add_child(header)
 
 	var validate_button: Button = Button.new()
@@ -96,7 +100,11 @@ func _parse_begin(object: Object) -> void:
 
 	var report_label: Label = Label.new()
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
-	report_label.modulate = Color(0.8, 0.8, 0.8)
+	report_label.modulate = Color(
+		0.8,
+		0.8,
+		0.8
+	)
 	root.add_child(report_label)
 	var _validate_connected: int = validate_button.pressed.connect(
 		_on_validate_pressed.bind(report_label, bank),
@@ -129,9 +137,17 @@ static func format_report_tooltip(report: RefCounted) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var diagnostics: Array = _GF_VALIDATION_DIAGNOSTIC_ADAPTER.report_to_diagnostics(report)
 	for diagnostic: Dictionary in diagnostics:
-		var kind: String = GFVariantData.get_option_string(diagnostic, "kind", "unknown")
+		var kind: String = GFVariantData.get_option_string(
+			diagnostic,
+			"kind",
+			"unknown"
+		)
 		var message: String = GFVariantData.get_option_string(diagnostic, "message")
-		_append_packed_string(lines, "%s: %s" % [kind, message])
+		_append_packed_string(
+			lines,
+			"%s: %s"
+			% [kind, message]
+		)
 		if lines.size() >= 8:
 			_append_packed_string(lines, "...")
 			break
@@ -148,18 +164,30 @@ func _update_validation_report(label: Label, bank: GFAudioBank) -> void:
 	if label == null or bank == null:
 		return
 
-	var report: GFValidationReport = _GF_AUDIO_BANK_TOOLS.validate_bank_playback(bank, {
-		"check_resource_exists": true,
-		"check_bus_exists": true,
-	})
+	var report: GFValidationReport = _GF_AUDIO_BANK_TOOLS.validate_bank_playback(
+		bank,
+		{ "check_resource_exists": true, "check_bus_exists": true, }
+	)
 	label.text = report.make_summary("GFAudioBank")
 	label.tooltip_text = format_report_tooltip(report)
 	if report.get_error_count() > 0:
-		label.modulate = Color(1.0, 0.45, 0.35)
+		label.modulate = Color(
+			1.0,
+			0.45,
+			0.35
+		)
 	elif report.get_warning_count() > 0:
-		label.modulate = Color(1.0, 0.78, 0.35)
+		label.modulate = Color(
+			1.0,
+			0.78,
+			0.35
+		)
 	else:
-		label.modulate = Color(0.45, 0.9, 0.55)
+		label.modulate = Color(
+			0.45,
+			0.9,
+			0.55
+		)
 
 
 ## 按扫描控件选项导入音频资源，并更新 Inspector 的结果摘要和状态颜色。
@@ -188,21 +216,52 @@ func _update_import_report(
 		"include_addons": include_addons_check.button_pressed if include_addons_check != null else false,
 		"bus_name": bus_input.text.strip_edges() if bus_input != null else "",
 	}
-	var report: GFValidationReport = _GF_AUDIO_BANK_TOOLS.sync_bank_from_scan(bank, root_path, options)
+	var report: GFValidationReport = _GF_AUDIO_BANK_TOOLS.sync_bank_from_scan(
+		bank,
+		root_path,
+		options
+	)
 	bank.emit_changed()
-	label.text = "%s\n扫描: %d, 新增/覆盖: %d, 跳过: %d" % [
-		report.make_summary("GFAudioBank Import"),
-		GFVariantData.get_option_int(report.metadata, "scanned_count", 0),
-		GFVariantData.get_option_int(report.metadata, "added_count", 0),
-		GFVariantData.get_option_int(report.metadata, "skipped_count", 0),
-	]
+	label.text = (
+		"%s\n扫描: %d, 新增/覆盖: %d, 跳过: %d"
+		% [
+			report.make_summary("GFAudioBank Import"),
+			GFVariantData.get_option_int(
+				report.metadata,
+				"scanned_count",
+				0
+			),
+			GFVariantData.get_option_int(
+				report.metadata,
+				"added_count",
+				0
+			),
+			GFVariantData.get_option_int(
+				report.metadata,
+				"skipped_count",
+				0
+			),
+		]
+	)
 	label.tooltip_text = format_report_tooltip(report)
 	if report.get_error_count() > 0:
-		label.modulate = Color(1.0, 0.45, 0.35)
+		label.modulate = Color(
+			1.0,
+			0.45,
+			0.35
+		)
 	elif report.get_warning_count() > 0:
-		label.modulate = Color(1.0, 0.78, 0.35)
+		label.modulate = Color(
+			1.0,
+			0.78,
+			0.35
+		)
 	else:
-		label.modulate = Color(0.45, 0.9, 0.55)
+		label.modulate = Color(
+			0.45,
+			0.9,
+			0.55
+		)
 
 
 ## 向 PackedStringArray 追加一个字符串。
@@ -238,4 +297,12 @@ func _on_import_pressed(
 	include_addons_check: CheckBox,
 	bus_input: LineEdit
 ) -> void:
-	_update_import_report(label, bank, root_input, id_mode_option, overwrite_check, include_addons_check, bus_input)
+	_update_import_report(
+		label,
+		bank,
+		root_input,
+		id_mode_option,
+		overwrite_check,
+		include_addons_check,
+		bus_input
+	)

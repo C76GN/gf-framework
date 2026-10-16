@@ -109,7 +109,11 @@ func _init(
 	p_type_filter: Variant = null
 ) -> void:
 	_diagnostics.cache_id = &"node_group_cache"
-	var _configure_result: GFNodeGroupCache = configure(p_tree, p_group_name, p_type_filter)
+	var _configure_result: GFNodeGroupCache = configure(
+		p_tree,
+		p_group_name,
+		p_type_filter
+	)
 
 
 # --- 公共方法 ---
@@ -134,7 +138,11 @@ static func from_tree(
 	p_group_name: StringName,
 	p_type_filter: Variant = null
 ) -> GFNodeGroupCache:
-	return GFNodeGroupCache.new(p_tree, p_group_name, p_type_filter)
+	return GFNodeGroupCache.new(
+		p_tree,
+		p_group_name,
+		p_type_filter
+	)
 
 
 ## 重新配置缓存。
@@ -359,8 +367,6 @@ func _disconnect_tree_signals() -> void:
 		_tree.node_removed.disconnect(removed)
 
 
-
-
 ## 清空并重查 Tree group；Tree 或 group 缺失时完成空缓存写入。
 ## [br]
 ## @api private
@@ -384,7 +390,11 @@ func _rebuild_cache() -> void:
 ## @api private
 ## [br]
 func _prune_stale_cached_nodes() -> void:
-	for index: int in range(_nodes.size() - 1, -1, -1):
+	for index: int in range(
+		_nodes.size() - 1,
+		-1,
+		-1
+	):
 		var node: Node = _nodes[index]
 		if not _is_node_match(node):
 			_nodes.remove_at(index)
@@ -450,7 +460,10 @@ static func _matches_type(node: Node, filter: Variant) -> bool:
 	if filter == null:
 		return true
 	if typeof(filter) == TYPE_STRING or typeof(filter) == TYPE_STRING_NAME:
-		return _matches_type_name(node, GFVariantData.to_text(filter))
+		return _matches_type_name(
+			node,
+			GFVariantData.to_text(filter)
+		)
 	return is_instance_of(node, filter)
 
 

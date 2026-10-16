@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageBackend" path="addons/gf/standard/utilities/storage/gf_storage_backend.gd" module="standard" extends="RefCounted" classDigest="decc3ed5389d0287c3f7c076855f07a5d9cfc951da2a7a67add080b82b672da2">
+<class name="GFStorageBackend" path="addons/gf/standard/utilities/storage/gf_storage_backend.gd" module="standard" extends="RefCounted" classDigest="8771f65337cf56ec2940415991c1de75b0b1c4d43cbfb64bc525d667342d3132">
 	<description>GFStorageBackend: 存储后端扩展接口。
 该类只定义通用后端协议，不绑定本地、云、平台 SDK 或同步策略。
 默认实现返回不可用结果；项目可继承它并由自定义 Utility 或派生的
@@ -32,7 +32,7 @@ GFStorageUtility 组合使用。</description>
 			</tags>
 		</member>
 		<member kind="method" name="save_data">
-			<signature>func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -&gt; Error:</signature>
+			<signature>func save_data( file_name: String, data: Dictionary, metadata: Dictionary = {} ) -&gt; Error:</signature>
 			<description>保存纯字典数据。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -42,6 +42,7 @@ GFStorageUtility 组合使用。</description>
 				<tag name="return">Godot Error 结果码。</tag>
 				<tag name="schema">data: Dictionary，存储后端持有的数据载荷。</tag>
 				<tag name="schema">metadata: Dictionary，包含时间戳或修订号等后端特定元数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_data">
@@ -121,7 +122,7 @@ GFStorageUtility 组合使用。</description>
 			</tags>
 		</member>
 		<member kind="method" name="_save_data">
-			<signature>func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -&gt; Error:</signature>
+			<signature>func _save_data( _file_name: String, _data: Dictionary, _metadata: Dictionary ) -&gt; Error:</signature>
 			<description>保存纯字典数据到具体后端。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -131,6 +132,7 @@ GFStorageUtility 组合使用。</description>
 				<tag name="return">Godot Error 结果码。</tag>
 				<tag name="schema">_data: Dictionary，存储后端持有的数据载荷。</tag>
 				<tag name="schema">_metadata: Dictionary，包含时间戳或修订号等后端特定元数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_load_data">

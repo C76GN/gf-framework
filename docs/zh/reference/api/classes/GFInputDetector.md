@@ -28,8 +28,8 @@
 | 属性 | [`wait_for_clear_before_detection`](#member-gfinputdetector-properties-wait_for_clear_before_detection) | `var wait_for_clear_before_detection: bool = true` |
 | 属性 | [`wait_for_clear_after_detection`](#member-gfinputdetector-properties-wait_for_clear_after_detection) | `var wait_for_clear_after_detection: bool = false` |
 | 方法 | [`begin_detection`](#member-gfinputdetector-methods-begin_detection) | `func begin_detection(allowed_device_types: Array[int] = []) -> void:` |
-| 方法 | [`begin_detection_for_value_type`](#member-gfinputdetector-methods-begin_detection_for_value_type) | `func begin_detection_for_value_type( value_type: GFInputAction.ValueType, allowed_device_types: Array[int] = [] ) -> void:` |
-| 方法 | [`begin_detection_for_action`](#member-gfinputdetector-methods-begin_detection_for_action) | `func begin_detection_for_action( action: GFInputAction, allowed_device_types: Array[int] = [] ) -> void:` |
+| 方法 | [`begin_detection_for_value_type`](#member-gfinputdetector-methods-begin_detection_for_value_type) | `func begin_detection_for_value_type(value_type: GFInputAction.ValueType, allowed_device_types: Array[int] = []) -> void:` |
+| 方法 | [`begin_detection_for_action`](#member-gfinputdetector-methods-begin_detection_for_action) | `func begin_detection_for_action(action: GFInputAction, allowed_device_types: Array[int] = []) -> void:` |
 | 方法 | [`detect_bool`](#member-gfinputdetector-methods-detect_bool) | `func detect_bool(allowed_device_types: Array[int] = []) -> void:` |
 | 方法 | [`detect_axis_1d`](#member-gfinputdetector-methods-detect_axis_1d) | `func detect_axis_1d(allowed_device_types: Array[int] = []) -> void:` |
 | 方法 | [`detect_axis_2d`](#member-gfinputdetector-methods-detect_axis_2d) | `func detect_axis_2d(allowed_device_types: Array[int] = []) -> void:` |
@@ -260,9 +260,10 @@ func begin_detection(allowed_device_types: Array[int] = []) -> void:
 ### `begin_detection_for_value_type`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func begin_detection_for_value_type( value_type: GFInputAction.ValueType, allowed_device_types: Array[int] = [] ) -> void:
+func begin_detection_for_value_type(value_type: GFInputAction.ValueType, allowed_device_types: Array[int] = []) -> void:
 ```
 
 按动作值类型开始检测下一次输入。
@@ -283,9 +284,10 @@ func begin_detection_for_value_type( value_type: GFInputAction.ValueType, allowe
 ### `begin_detection_for_action`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func begin_detection_for_action( action: GFInputAction, allowed_device_types: Array[int] = [] ) -> void:
+func begin_detection_for_action(action: GFInputAction, allowed_device_types: Array[int] = []) -> void:
 ```
 
 按动作资源开始检测下一次输入。

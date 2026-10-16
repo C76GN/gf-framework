@@ -19,7 +19,7 @@
 | 方法 | [`set_formula`](#member-gfformulaset-methods-set_formula) | `func set_formula(formula_id: StringName, formula: GFFormula) -> void:` |
 | 方法 | [`get_formula`](#member-gfformulaset-methods-get_formula) | `func get_formula(formula_id: StringName) -> GFFormula:` |
 | 方法 | [`has_formula`](#member-gfformulaset-methods-has_formula) | `func has_formula(formula_id: StringName) -> bool:` |
-| 方法 | [`calculate`](#member-gfformulaset-methods-calculate) | `func calculate(formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null) -> Variant:` |
+| 方法 | [`calculate`](#member-gfformulaset-methods-calculate) | `func calculate( formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null ) -> Variant:` |
 
 ## 属性
 
@@ -105,9 +105,10 @@ func has_formula(formula_id: StringName) -> bool:
 ### `calculate`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func calculate(formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null) -> Variant:
+func calculate( formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null ) -> Variant:
 ```
 
 计算指定公式。

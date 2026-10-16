@@ -175,9 +175,19 @@ func configure_for_framework(
 		return false
 	if (error_code == OK) != (failure_kind == FailureKind.NONE):
 		return false
-	if error_code != OK and (complete or not files.is_empty()):
+	if (
+		error_code != OK
+		and (
+			complete
+			or not files.is_empty()
+		)
+	):
 		return false
-	if error_code == OK and not complete and files.is_empty():
+	if (
+		error_code == OK
+		and not complete
+		and files.is_empty()
+	):
 		return false
 	if failure_kind == FailureKind.INVALID_REQUEST and error_code != ERR_INVALID_PARAMETER:
 		return false
@@ -189,7 +199,10 @@ func configure_for_framework(
 	for file_name: String in files:
 		if (
 			not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(file_name)
-			or (not previous_file.is_empty() and file_name <= previous_file)
+			or (
+				not previous_file.is_empty()
+				and file_name <= previous_file
+			)
 		):
 			return false
 		previous_file = file_name

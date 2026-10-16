@@ -66,11 +66,35 @@ static func _dispatch_to_receiver(
 	normalize_output: bool = true
 ) -> Dictionary:
 	if not enabled:
-		return _make_report(false, id_key, id_value, "disabled", disabled_message, metadata, normalize_output)
+		return _make_report(
+			false,
+			id_key,
+			id_value,
+			"disabled",
+			disabled_message,
+			metadata,
+			normalize_output
+		)
 	if receiver == null:
-		return _make_report(false, id_key, id_value, "missing_receiver", missing_receiver_message, metadata, normalize_output)
+		return _make_report(
+			false,
+			id_key,
+			id_value,
+			"missing_receiver",
+			missing_receiver_message,
+			metadata,
+			normalize_output
+		)
 	if not receiver.has_method(receiver_method):
-		return _make_report(false, id_key, id_value, "invalid_receiver", invalid_receiver_message, metadata, normalize_output)
+		return _make_report(
+			false,
+			id_key,
+			id_value,
+			"invalid_receiver",
+			invalid_receiver_message,
+			metadata,
+			normalize_output
+		)
 
 	var value: Variant = receiver.callv(receiver_method, call_args)
 	if value is Dictionary:
@@ -141,7 +165,12 @@ static func _send_to_collision_candidates(
 			continue
 		visited_receivers[receiver_id] = true
 
-		var report_value: Variant = dispatch_host.call("send_to", receiver, payload_override, id_override)
+		var report_value: Variant = dispatch_host.call(
+			"send_to",
+			receiver,
+			payload_override,
+			id_override
+		)
 		if report_value is Dictionary:
 			var report: Dictionary = GFVariantData.as_dictionary(report_value)
 			if normalize_reports:
@@ -151,7 +180,12 @@ static func _send_to_collision_candidates(
 				report = _prepare_raw_report(report, receiver)
 			reports.append(report)
 			if send_result_callback.is_valid():
-				send_result_callback.call(receiver, payload_override, id_override, report)
+				send_result_callback.call(
+					receiver,
+					payload_override,
+					id_override,
+					report
+				)
 	return reports
 
 
@@ -227,7 +261,11 @@ static func _variant_to_node(value: Variant) -> Node:
 ## @api private
 static func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
 	var result: Dictionary = _prepare_raw_report(report, default_receiver)
-	var receiver_value: Variant = GFVariantData.get_option_value(result, "receiver", default_receiver)
+	var receiver_value: Variant = GFVariantData.get_option_value(
+		result,
+		"receiver",
+		default_receiver
+	)
 	if receiver_value == null or receiver_value is Object:
 		result["receiver"] = _object_to_report_value(receiver_value)
 	if result.has("metadata") and result["metadata"] is Dictionary:
@@ -249,15 +287,17 @@ static func _prepare_raw_report(report: Dictionary, default_receiver: Object) ->
 ## [br]
 ## @api private
 static func _object_to_report_value(value: Variant) -> Variant:
-	return GFReportValueCodec.to_json_compatible(value, {
-		"path_redaction": "basename",
-	})
+	return GFReportValueCodec.to_json_compatible(
+		value,
+		{ "path_redaction": "basename", }
+	)
 
 
 ## 使用 basename 路径脱敏选项转换报告中的 metadata 字典。
 ## [br]
 ## @api private
 static func _dictionary_to_report_value(value: Dictionary) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(value, {
-		"path_redaction": "basename",
-	})
+	return GFReportValueCodec.to_report_dictionary(
+		value,
+		{ "path_redaction": "basename", }
+	)

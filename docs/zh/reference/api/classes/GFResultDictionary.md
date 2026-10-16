@@ -31,11 +31,11 @@
 | 方法 | [`make`](#member-gfresultdictionary-methods-make) | `static func make(ok: bool, fields: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_success`](#member-gfresultdictionary-methods-make_success) | `static func make_success(fields: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_failure`](#member-gfresultdictionary-methods-make_failure) | `static func make_failure(error: String = "", fields: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`make_rejected`](#member-gfresultdictionary-methods-make_rejected) | `static func make_rejected(reason: StringName, message: String = "", fields: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`make_with_issues`](#member-gfresultdictionary-methods-make_with_issues) | `static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`normalize`](#member-gfresultdictionary-methods-normalize) | `static func normalize(result: Dictionary, default_ok: bool = false, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`make_rejected`](#member-gfresultdictionary-methods-make_rejected) | `static func make_rejected( reason: StringName, message: String = "", fields: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`make_with_issues`](#member-gfresultdictionary-methods-make_with_issues) | `static func make_with_issues( ok: bool, issues: Array = [], fields: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`normalize`](#member-gfresultdictionary-methods-normalize) | `static func normalize( result: Dictionary, default_ok: bool = false, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`is_ok`](#member-gfresultdictionary-methods-is_ok) | `static func is_ok(result: Dictionary, default_value: bool = false) -> bool:` |
-| 方法 | [`merge_metadata`](#member-gfresultdictionary-methods-merge_metadata) | `static func merge_metadata(result: Dictionary, metadata: Dictionary, overwrite: bool = true) -> Dictionary:` |
+| 方法 | [`merge_metadata`](#member-gfresultdictionary-methods-merge_metadata) | `static func merge_metadata( result: Dictionary, metadata: Dictionary, overwrite: bool = true ) -> Dictionary:` |
 
 ## 常量
 
@@ -279,9 +279,10 @@ static func make_failure(error: String = "", fields: Dictionary = {}) -> Diction
 ### `make_rejected`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func make_rejected(reason: StringName, message: String = "", fields: Dictionary = {}) -> Dictionary:
+static func make_rejected( reason: StringName, message: String = "", fields: Dictionary = {} ) -> Dictionary:
 ```
 
 创建带机器可读原因和人类可读说明的失败结果。
@@ -306,9 +307,10 @@ static func make_rejected(reason: StringName, message: String = "", fields: Dict
 ### `make_with_issues`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = {}) -> Dictionary:
+static func make_with_issues( ok: bool, issues: Array = [], fields: Dictionary = {} ) -> Dictionary:
 ```
 
 创建带 issues 的结果字典。
@@ -334,9 +336,10 @@ static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = 
 ### `normalize`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func normalize(result: Dictionary, default_ok: bool = false, options: Dictionary = {}) -> Dictionary:
+static func normalize( result: Dictionary, default_ok: bool = false, options: Dictionary = {} ) -> Dictionary:
 ```
 
 归一化已有结果字典，补齐标准字段并返回副本。
@@ -387,9 +390,10 @@ static func is_ok(result: Dictionary, default_value: bool = false) -> bool:
 ### `merge_metadata`
 
 - API：`public`
+- 首次版本：`3.22.0`
 
 ```gdscript
-static func merge_metadata(result: Dictionary, metadata: Dictionary, overwrite: bool = true) -> Dictionary:
+static func merge_metadata( result: Dictionary, metadata: Dictionary, overwrite: bool = true ) -> Dictionary:
 ```
 
 合并元数据到结果字典并返回同一个字典。

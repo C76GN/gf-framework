@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTextSearchScorer" path="addons/gf/standard/foundation/collections/gf_text_search_scorer.gd" module="standard" extends="RefCounted" classDigest="63cdfebfacb20d5abdb97000bd6f922cbecb626f35a5cdf09f05e3baf585cea2">
+<class name="GFTextSearchScorer" path="addons/gf/standard/foundation/collections/gf_text_search_scorer.gd" module="standard" extends="RefCounted" classDigest="67287e33455f440d07d47ca573b6d803ca6219d5208f35f23500280d411203a0">
 	<description>GFTextSearchScorer: 通用文本检索评分器。
 对标题、关键字、路径、说明等候选字段进行轻量 token 匹配、相似度评分和排序。
 它不读取文件系统、不创建 UI，也不规定候选数据来自资源、命令、设置还是项目内容。</description>
@@ -42,7 +42,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="score_text">
-			<signature>static func score_text(query: String, text: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func score_text( query: String, text: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>计算查询文本与单段候选文本的匹配报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -56,7 +56,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="score_candidate">
-			<signature>static func score_candidate(query: String, candidate: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func score_candidate( query: String, candidate: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>计算查询文本与一个候选字典的匹配报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -71,7 +71,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="rank_candidates">
-			<signature>static func rank_candidates(query: String, candidates: Array[Dictionary], options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
+			<signature>static func rank_candidates( query: String, candidates: Array[Dictionary], options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
 			<description>按查询文本排序候选字典。</description>
 			<tags>
 				<tag name="api">public</tag>

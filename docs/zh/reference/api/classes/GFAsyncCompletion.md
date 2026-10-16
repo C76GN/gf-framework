@@ -22,7 +22,7 @@
 | 枚举 | [`Status`](#member-gfasynccompletion-enums-status) | `enum Status` |
 | 方法 | [`succeed`](#member-gfasynccompletion-methods-succeed) | `func succeed(result: Variant = null, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`fail`](#member-gfasynccompletion-methods-fail) | `func fail(error: String = "", metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`cancel`](#member-gfasynccompletion-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null) -> bool:` |
+| 方法 | [`cancel`](#member-gfasynccompletion-methods-cancel) | `func cancel( reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null ) -> bool:` |
 | 方法 | [`bind_cancel_token`](#member-gfasynccompletion-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancellationToken) -> bool:` |
 | 方法 | [`is_pending`](#member-gfasynccompletion-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfasynccompletion-methods-is_completed) | `func is_completed() -> bool:` |
@@ -219,7 +219,7 @@ func fail(error: String = "", metadata: Dictionary = {}) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null) -> bool:
+func cancel( reason: StringName = &"cancelled", metadata: Dictionary = {}, result: Variant = null ) -> bool:
 ```
 
 标记取消完成。

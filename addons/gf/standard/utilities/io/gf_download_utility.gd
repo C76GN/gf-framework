@@ -26,12 +26,18 @@ signal download_started(task_id: int, task: GFDownloadTask)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param task_id: 下载任务句柄。
 ## [br]
 ## @param received_bytes: 已接收字节数。
 ## [br]
 ## @param total_bytes: 总字节数；未知时为 -1。
-signal download_progressed(task_id: int, received_bytes: int, total_bytes: int)
+signal download_progressed(
+	task_id: int,
+	received_bytes: int,
+	total_bytes: int
+)
 
 ## 下载任务成功完成时发出。
 ## [br]
@@ -230,7 +236,11 @@ func tick(_delta: float = 0.0) -> void:
 	_last_progress_emit_msec = now_msec
 	_active_task.received_bytes = int(_http_request.get_downloaded_bytes())
 	_active_task.total_bytes = int(_http_request.get_body_size())
-	download_progressed.emit(_active_task.task_id, _active_task.received_bytes, _active_task.total_bytes)
+	download_progressed.emit(
+		_active_task.task_id,
+		_active_task.received_bytes,
+		_active_task.total_bytes
+	)
 
 
 # --- 公共方法 ---
@@ -259,7 +269,11 @@ static func parse_manifest_entries(data: Variant, options: Dictionary = {}) -> A
 	var result: Array[Dictionary] = []
 
 	for index: int in range(raw_entries.size()):
-		var normalized: Dictionary = _normalize_manifest_entry(raw_entries[index], defaults, index)
+		var normalized: Dictionary = _normalize_manifest_entry(
+			raw_entries[index],
+			defaults,
+			index
+		)
 		if normalized.is_empty():
 			continue
 		result.append(normalized)
@@ -315,12 +329,40 @@ func enqueue_download(
 	task.target_path = safe_target_path
 	task.temp_path = safe_temp_path
 	task.segment_path = safe_segment_path
-	task.headers = _normalize_headers(GFVariantData.get_option_value(options, "headers", PackedStringArray()))
+	task.headers = _normalize_headers(
+		GFVariantData.get_option_value(
+			options,
+			"headers",
+			PackedStringArray()
+		)
+	)
 	task.expected_sha256 = GFVariantData.get_option_string(options, "expected_sha256").to_lower()
-	task.resume = GFVariantData.get_option_bool(options, "resume", true)
-	task.overwrite = GFVariantData.get_option_bool(options, "overwrite", overwrite_existing)
-	task.max_retries = maxi(0, GFVariantData.get_option_int(options, "max_retries", default_max_retries))
-	task.retry_delay_seconds = maxf(0.0, GFVariantData.get_option_float(options, "retry_delay_seconds", default_retry_delay_seconds))
+	task.resume = GFVariantData.get_option_bool(
+		options,
+		"resume",
+		true
+	)
+	task.overwrite = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		overwrite_existing
+	)
+	task.max_retries = maxi(
+		0,
+		GFVariantData.get_option_int(
+			options,
+			"max_retries",
+			default_max_retries
+		)
+	)
+	task.retry_delay_seconds = maxf(
+		0.0,
+		GFVariantData.get_option_float(
+			options,
+			"retry_delay_seconds",
+			default_retry_delay_seconds
+		)
+	)
 	task.metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	if callback.is_valid():
 		_callbacks[task.task_id] = callback
@@ -363,8 +405,17 @@ func enqueue_manifest_entries(
 		if url.is_empty() or target_path.is_empty():
 			continue
 
-		var download_options: Dictionary = _build_manifest_download_options(entry, options, index)
-		var task_id: int = enqueue_download(url, target_path, callback, download_options)
+		var download_options: Dictionary = _build_manifest_download_options(
+			entry,
+			options,
+			index
+		)
+		var task_id: int = enqueue_download(
+			url,
+			target_path,
+			callback,
+			download_options
+		)
 		if task_id > 0:
 			_append_packed_int32(task_ids, task_id)
 
@@ -398,7 +449,12 @@ func enqueue_manifest(
 ) -> PackedInt32Array:
 	var entries: Array[Dictionary] = parse_manifest_entries(data, options)
 	var enqueue_options: Dictionary = _strip_manifest_parse_options(options)
-	return enqueue_manifest_entries(entries, target_root, callback, enqueue_options)
+	return enqueue_manifest_entries(
+		entries,
+		target_root,
+		callback,
+		enqueue_options
+	)
 
 
 ## 取消下载任务。
@@ -423,11 +479,19 @@ func cancel(task_id: int, delete_temp: bool = false) -> bool:
 		task.error = "cancelled"
 		if delete_temp:
 			_delete_task_temp_files(task)
-		_finish_task(task, false, true)
+		_finish_task(
+			task,
+			false,
+			true
+		)
 		_try_start_next_download()
 		return true
 
-	for index: int in range(_pending_tasks.size() - 1, -1, -1):
+	for index: int in range(
+		_pending_tasks.size() - 1,
+		-1,
+		-1
+	):
 		var task: GFDownloadTask = _pending_tasks[index]
 		if task.task_id == task_id:
 			_pending_tasks.remove_at(index)
@@ -435,7 +499,11 @@ func cancel(task_id: int, delete_temp: bool = false) -> bool:
 			task.error = "cancelled"
 			if delete_temp:
 				_delete_task_temp_files(task)
-			_finish_task(task, false, true)
+			_finish_task(
+				task,
+				false,
+				true
+			)
 			return true
 	return false
 
@@ -492,7 +560,11 @@ func clear_queue(cancel_active: bool = false, delete_temp: bool = false) -> void
 		task.error = "cancelled"
 		if delete_temp:
 			_delete_task_temp_files(task)
-		_finish_task(task, false, true)
+		_finish_task(
+			task,
+			false,
+			true
+		)
 	_pending_tasks.clear()
 
 	if cancel_active and _active_task != null:
@@ -530,7 +602,13 @@ func get_queued_task_ids() -> PackedInt32Array:
 ## [br]
 ## @schema return: Dictionary，包含最新任务结果；没有结果时为空字典。
 func get_result(task_id: int) -> Dictionary:
-	return GFVariantData.to_dictionary(GFVariantData.get_option_value(_results, task_id, {}))
+	return GFVariantData.to_dictionary(
+		GFVariantData.get_option_value(
+			_results,
+			task_id,
+			{}
+		)
+	)
 
 
 ## 获取指定任务的当前快照或最终结果。
@@ -585,7 +663,11 @@ func get_tasks_progress(task_ids: PackedInt32Array) -> Dictionary:
 			missing_count += 1
 			continue
 
-		var status: int = GFVariantData.get_option_int(snapshot, "status", GFDownloadTask.Status.QUEUED)
+		var status: int = GFVariantData.get_option_int(
+			snapshot,
+			"status",
+			GFDownloadTask.Status.QUEUED
+		)
 		match status:
 			GFDownloadTask.Status.COMPLETED:
 				completed_count += 1
@@ -598,7 +680,11 @@ func get_tasks_progress(task_ids: PackedInt32Array) -> Dictionary:
 			_:
 				queued_count += 1
 
-		var total_bytes: int = GFVariantData.get_option_int(snapshot, "total_bytes", -1)
+		var total_bytes: int = GFVariantData.get_option_int(
+			snapshot,
+			"total_bytes",
+			-1
+		)
 		var expected_size: int = _get_snapshot_expected_size(snapshot)
 		var effective_total_bytes: int = total_bytes if total_bytes >= 0 else expected_size
 		if effective_total_bytes >= 0:
@@ -606,19 +692,34 @@ func get_tasks_progress(task_ids: PackedInt32Array) -> Dictionary:
 		else:
 			unknown_total_count += 1
 
-		var task_received_bytes: int = maxi(0, GFVariantData.get_option_int(snapshot, "received_bytes"))
-		if status == GFDownloadTask.Status.COMPLETED and task_received_bytes == 0 and effective_total_bytes > 0:
+		var task_received_bytes: int = maxi(
+			0,
+			GFVariantData.get_option_int(snapshot, "received_bytes")
+		)
+		if (
+			status == GFDownloadTask.Status.COMPLETED
+			and task_received_bytes == 0
+			and effective_total_bytes > 0
+		):
 			task_received_bytes = effective_total_bytes
 		received_bytes += task_received_bytes
 
 	var terminal_count: int = completed_count + failed_count + cancelled_count
 	var task_count: int = task_ids.size()
-	var finished: bool = task_count > 0 and missing_count == 0 and terminal_count == task_count
+	var finished: bool = (
+		task_count > 0
+		and missing_count == 0
+		and terminal_count == task_count
+	)
 	var success: bool = finished and completed_count == task_count
 	var aggregate_total_bytes: int = known_total_bytes if unknown_total_count == 0 else -1
 	var progress_ratio: float = -1.0
 	if aggregate_total_bytes > 0:
-		progress_ratio = clampf(float(received_bytes) / float(aggregate_total_bytes), 0.0, 1.0)
+		progress_ratio = clampf(
+			float(received_bytes) / float(aggregate_total_bytes),
+			0.0,
+			1.0
+		)
 	elif aggregate_total_bytes == 0 and finished:
 		progress_ratio = 1.0
 
@@ -713,16 +814,28 @@ func _complete_active_download(
 	task.response_code = response_code
 
 	if success:
-		var commit_error: Error = _commit_download_file(task, request_data, response_code)
+		var commit_error: Error = _commit_download_file(
+			task,
+			request_data,
+			response_code
+		)
 		if commit_error == OK:
 			task.status = GFDownloadTask.Status.COMPLETED
 			task.error = ""
-			_finish_task(task, true, false)
+			_finish_task(
+				task,
+				true,
+				false
+			)
 		else:
 			var commit_message: String = task.error
 			if commit_message.is_empty():
 				commit_message = "Commit failed: %s" % error_string(commit_error)
-			_fail_or_retry_task(task, commit_message, false)
+			_fail_or_retry_task(
+				task,
+				commit_message,
+				false
+			)
 	else:
 		_fail_or_retry_task(
 			task,
@@ -781,7 +894,17 @@ static func _get_manifest_raw_entries(data: Variant) -> Array:
 static func _build_manifest_defaults(data: Variant, options: Dictionary) -> Dictionary:
 	var defaults: Dictionary = {
 		"base_url": GFVariantData.get_option_string(options, "base_url").strip_edges(),
-		"headers": _normalize_headers(GFVariantData.get_option_value(options, "headers", GFVariantData.get_option_value(options, "default_headers", PackedStringArray()))),
+		"headers": _normalize_headers(
+			GFVariantData.get_option_value(
+				options,
+				"headers",
+				GFVariantData.get_option_value(
+					options,
+					"default_headers",
+					PackedStringArray()
+				)
+			)
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
 	if data is Dictionary:
@@ -791,7 +914,17 @@ static func _build_manifest_defaults(data: Variant, options: Dictionary) -> Dict
 			defaults["base_url"] = base_url
 		defaults["headers"] = _merge_headers(
 			GFVariantData.get_option_packed_string_array(defaults, "headers"),
-			_normalize_headers(GFVariantData.get_option_value(manifest, "default_headers", GFVariantData.get_option_value(manifest, "headers", PackedStringArray())))
+			_normalize_headers(
+				GFVariantData.get_option_value(
+					manifest,
+					"default_headers",
+					GFVariantData.get_option_value(
+						manifest,
+						"headers",
+						PackedStringArray()
+					)
+				)
+			)
 		)
 		defaults["metadata"] = _merge_metadata(
 			GFVariantData.get_option_dictionary(defaults, "metadata"),
@@ -804,22 +937,41 @@ static func _build_manifest_defaults(data: Variant, options: Dictionary) -> Dict
 ## [br]
 ## @api private
 ## [br]
-static func _normalize_manifest_entry(value: Variant, defaults: Dictionary, index: int) -> Dictionary:
+static func _normalize_manifest_entry(
+	value: Variant,
+	defaults: Dictionary,
+	index: int
+) -> Dictionary:
 	var entry: Dictionary = {}
 	if value is Dictionary:
 		entry = value
 	elif value is String:
-		entry = {
-			"path": value,
-		}
+		entry = { "path": value, }
 	else:
 		return {}
 
-	var source_url: String = _first_entry_string(entry, ["url", "source", "href"])
-	var target_path: String = _first_entry_string(entry, ["target_path", "path", "file"])
+	var source_url: String = _first_entry_string(
+		entry,
+		[
+			"url",
+			"source",
+			"href",
+		]
+	)
+	var target_path: String = _first_entry_string(
+		entry,
+		[
+			"target_path",
+			"path",
+			"file",
+		]
+	)
 	if source_url.is_empty():
 		source_url = target_path
-	source_url = _resolve_manifest_url(source_url, GFVariantData.get_option_string(defaults, "base_url"))
+	source_url = _resolve_manifest_url(
+		source_url,
+		GFVariantData.get_option_string(defaults, "base_url")
+	)
 	if source_url.is_empty():
 		return {}
 	if target_path.is_empty():
@@ -827,7 +979,13 @@ static func _normalize_manifest_entry(value: Variant, defaults: Dictionary, inde
 
 	var headers: PackedStringArray = _merge_headers(
 		GFVariantData.get_option_packed_string_array(defaults, "headers"),
-		_normalize_headers(GFVariantData.get_option_value(entry, "headers", PackedStringArray()))
+		_normalize_headers(
+			GFVariantData.get_option_value(
+				entry,
+				"headers",
+				PackedStringArray()
+			)
+		)
 	)
 	var metadata: Dictionary = _merge_metadata(
 		GFVariantData.get_option_dictionary(defaults, "metadata"),
@@ -845,16 +1003,40 @@ static func _normalize_manifest_entry(value: Variant, defaults: Dictionary, inde
 	var expected_sha256: String = _get_entry_expected_sha256(entry)
 	if not expected_sha256.is_empty():
 		normalized["expected_sha256"] = expected_sha256
-	var expected_size: int = _first_entry_int(entry, ["expected_size", "size", "bytes"], -1)
+	var expected_size: int = _first_entry_int(
+		entry,
+		[
+			"expected_size",
+			"size",
+			"bytes",
+		],
+		-1
+	)
 	if expected_size >= 0:
 		normalized["expected_size"] = expected_size
 		metadata["expected_size"] = expected_size
 		normalized["metadata"] = metadata
 
-	_copy_manifest_entry_option(entry, normalized, "resume")
-	_copy_manifest_entry_option(entry, normalized, "overwrite")
-	_copy_manifest_entry_option(entry, normalized, "max_retries")
-	_copy_manifest_entry_option(entry, normalized, "retry_delay_seconds")
+	_copy_manifest_entry_option(
+		entry,
+		normalized,
+		"resume"
+	)
+	_copy_manifest_entry_option(
+		entry,
+		normalized,
+		"overwrite"
+	)
+	_copy_manifest_entry_option(
+		entry,
+		normalized,
+		"max_retries"
+	)
+	_copy_manifest_entry_option(
+		entry,
+		normalized,
+		"retry_delay_seconds"
+	)
 	return normalized
 
 
@@ -881,7 +1063,11 @@ static func _strip_manifest_parse_options(options: Dictionary) -> Dictionary:
 ## [br]
 static func _resolve_manifest_url(url: String, base_url: String) -> String:
 	var value: String = url.strip_edges()
-	if value.is_empty() or _has_uri_scheme(value) or base_url.strip_edges().is_empty():
+	if (
+		value.is_empty()
+		or _has_uri_scheme(value)
+		or base_url.strip_edges().is_empty()
+	):
 		return value
 	return base_url.strip_edges().trim_suffix("/") + "/" + value.trim_prefix("/")
 
@@ -913,10 +1099,20 @@ static func _get_url_file_name(url: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _first_entry_string(entry: Dictionary, keys: Array, default_value: String = "") -> String:
+static func _first_entry_string(
+	entry: Dictionary,
+	keys: Array,
+	default_value: String = ""
+) -> String:
 	for key: Variant in keys:
 		if _has_dictionary_key(entry, key):
-			return str(GFVariantData.get_option_value(entry, key, default_value)).strip_edges()
+			return str(
+				GFVariantData.get_option_value(
+					entry,
+					key,
+					default_value
+				)
+			).strip_edges()
 	return default_value
 
 
@@ -924,10 +1120,18 @@ static func _first_entry_string(entry: Dictionary, keys: Array, default_value: S
 ## [br]
 ## @api private
 ## [br]
-static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int = 0) -> int:
+static func _first_entry_int(
+	entry: Dictionary,
+	keys: Array,
+	default_value: int = 0
+) -> int:
 	for key: Variant in keys:
 		if _has_dictionary_key(entry, key):
-			return GFVariantData.get_option_int(entry, key, default_value)
+			return GFVariantData.get_option_int(
+				entry,
+				key,
+				default_value
+			)
 	return default_value
 
 
@@ -936,10 +1140,16 @@ static func _first_entry_int(entry: Dictionary, keys: Array, default_value: int 
 ## @api private
 ## [br]
 static func _get_entry_expected_sha256(entry: Dictionary) -> String:
-	var value: String = _first_entry_string(entry, ["expected_sha256", "sha256"]).to_lower()
+	var value: String = _first_entry_string(
+		entry,
+		["expected_sha256", "sha256"]
+	).to_lower()
 	if not value.is_empty():
 		return value
-	var generic_hash: String = _first_entry_string(entry, ["hash"]).to_lower()
+	var generic_hash: String = _first_entry_string(
+		entry,
+		["hash"]
+	).to_lower()
 	return generic_hash if generic_hash.length() == 64 else ""
 
 
@@ -947,7 +1157,11 @@ static func _get_entry_expected_sha256(entry: Dictionary) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _copy_manifest_entry_option(source: Dictionary, target: Dictionary, key: String) -> void:
+static func _copy_manifest_entry_option(
+	source: Dictionary,
+	target: Dictionary,
+	key: String
+) -> void:
 	if not _has_dictionary_key(source, key):
 		return
 	target[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(source, key))
@@ -999,12 +1213,17 @@ static func _erase_dictionary_key_static(target: Dictionary, key: Variant) -> vo
 	if erased:
 		return
 
+
 ## 仅在未暂停且无活动任务时取首个可重试任务并启动请求。
 ## [br]
 ## @api private
 ## [br]
 func _try_start_next_download() -> void:
-	if _paused or _active_task != null or _pending_tasks.is_empty():
+	if (
+		_paused
+		or _active_task != null
+		or _pending_tasks.is_empty()
+	):
 		return
 
 	var task: GFDownloadTask = _pop_next_ready_task()
@@ -1012,14 +1231,27 @@ func _try_start_next_download() -> void:
 		return
 
 	if FileAccess.file_exists(task.target_path) and not task.overwrite:
-		if not _verify_file_checksum(task, task.target_path, "target file"):
+		if not _verify_file_checksum(
+			task,
+			task.target_path,
+			"target file"
+		):
 			task.status = GFDownloadTask.Status.FAILED
-			_finish_task(task, false, false)
+			_finish_task(
+				task,
+				false,
+				false
+			)
 			_try_start_next_download()
 			return
 
 		task.status = GFDownloadTask.Status.COMPLETED
-		_finish_task(task, true, false, { "from_existing_file": true })
+		_finish_task(
+			task,
+			true,
+			false,
+			{ "from_existing_file": true }
+		)
 		_try_start_next_download()
 		return
 
@@ -1034,12 +1266,19 @@ func _try_start_next_download() -> void:
 		_active_request_data.clear()
 		task.status = GFDownloadTask.Status.FAILED
 		task.error = "Request failed: %s" % error_string(error)
-		_finish_task(task, false, false)
+		_finish_task(
+			task,
+			false,
+			false
+		)
 		_try_start_next_download()
 		return
 
 	_last_progress_emit_msec = 0
-	download_started.emit(task.task_id, task.duplicate_task())
+	download_started.emit(
+		task.task_id,
+		task.duplicate_task()
+	)
 
 
 ## 按任务状态构建请求；存在可续传临时文件时改用分段文件并添加 Range 头。
@@ -1054,7 +1293,10 @@ func _build_request_data(task: GFDownloadTask) -> Dictionary:
 	var request_headers: PackedStringArray = task.headers.duplicate()
 	var download_file: String = task.temp_path
 	if resume_offset > 0:
-		_append_packed_string(request_headers, "Range: bytes=%d-" % resume_offset)
+		_append_packed_string(
+			request_headers,
+			"Range: bytes=%d-" % resume_offset
+		)
 		download_file = task.segment_path
 
 	return {
@@ -1103,7 +1345,11 @@ func _cancel_and_discard_http_request() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _commit_download_file(task: GFDownloadTask, request_data: Dictionary, response_code: int) -> Error:
+func _commit_download_file(
+	task: GFDownloadTask,
+	request_data: Dictionary,
+	response_code: int
+) -> Error:
 	var resume_offset: int = GFVariantData.get_option_int(request_data, "resume_offset")
 	if resume_offset > 0:
 		if response_code == 206:
@@ -1214,7 +1460,11 @@ func _replace_download_target_atomically(task: GFDownloadTask) -> Error:
 	if rollback_error != OK:
 		task.error = (
 			"Commit failed: %s; rollback failed: %s; previous target remains at %s"
-			% [error_string(commit_error), error_string(rollback_error), backup_path]
+			% [
+				error_string(commit_error),
+				error_string(rollback_error),
+				backup_path,
+			]
 		)
 		return rollback_error
 	task.error = "Commit failed: %s; previous target restored." % error_string(commit_error)
@@ -1253,14 +1503,22 @@ func _store_append_chunk(target: FileAccess, chunk: PackedByteArray) -> Error:
 ## @api private
 ## [br]
 func _verify_checksum(task: GFDownloadTask) -> bool:
-	return _verify_file_checksum(task, task.temp_path, "temp file")
+	return _verify_file_checksum(
+		task,
+		task.temp_path,
+		"temp file"
+	)
 
 
 ## 未配置摘要时通过；否则检查文件存在及小写 SHA-256 是否匹配。
 ## [br]
 ## @api private
 ## [br]
-func _verify_file_checksum(task: GFDownloadTask, file_path: String, label: String) -> bool:
+func _verify_file_checksum(
+	task: GFDownloadTask,
+	file_path: String,
+	label: String
+) -> bool:
 	if task.expected_sha256.is_empty():
 		return true
 	if not FileAccess.file_exists(file_path):
@@ -1331,13 +1589,20 @@ static func _normalize_headers(value: Variant) -> PackedStringArray:
 	if value is Array:
 		var result: PackedStringArray = PackedStringArray()
 		for item: Variant in value:
-			_append_packed_string(result, str(item))
+			_append_packed_string(
+				result,
+				str(item)
+			)
 		return result
 	if value is Dictionary:
 		var result: PackedStringArray = PackedStringArray()
 		var data: Dictionary = value
 		for key: Variant in data.keys():
-			_append_packed_string(result, "%s: %s" % [str(key), str(data[key])])
+			_append_packed_string(
+				result,
+				"%s: %s"
+				% [str(key), str(data[key])]
+			)
 		return result
 	return PackedStringArray()
 
@@ -1347,7 +1612,14 @@ static func _normalize_headers(value: Variant) -> PackedStringArray:
 ## @api private
 ## [br]
 func _resolve_manifest_target_path(entry: Dictionary, target_root: String) -> String:
-	var target_path: String = _first_entry_string(entry, ["target_path", "path", "file"])
+	var target_path: String = _first_entry_string(
+		entry,
+		[
+			"target_path",
+			"path",
+			"file",
+		]
+	)
 	if target_path.is_empty():
 		target_path = _get_url_file_name(GFVariantData.get_option_string(entry, "url"))
 	target_path = target_path.replace("\\", "/").strip_edges()
@@ -1364,7 +1636,11 @@ func _resolve_manifest_target_path(entry: Dictionary, target_root: String) -> St
 		return ""
 	var root: String = GFPathTools.normalize_root_path(root_text)
 	var resolved_target: String = root.path_join(target_path).simplify_path()
-	if not GFPathTools.is_path_under_root(resolved_target, root, false):
+	if not GFPathTools.is_path_under_root(
+		resolved_target,
+		root,
+		false
+	):
 		return ""
 	return resolved_target
 
@@ -1382,9 +1658,18 @@ func _is_supported_absolute_target_path(path: String) -> bool:
 ## @api private
 ## [br]
 func _is_safe_relative_download_path(path: String) -> bool:
-	if path.is_empty() or path.begins_with("/") or path.contains("://") or path.contains(":"):
+	if (
+		path.is_empty()
+		or path.begins_with("/")
+		or path.contains("://")
+		or path.contains(":")
+	):
 		return false
-	if path == "." or path.get_file().is_empty() or _has_parent_path_segment(path):
+	if (
+		path == "."
+		or path.get_file().is_empty()
+		or _has_parent_path_segment(path)
+	):
 		return false
 	return true
 
@@ -1398,7 +1683,11 @@ func _normalize_direct_download_path(path: String) -> String:
 	if not _is_supported_absolute_target_path(normalized):
 		return ""
 	var relative_path: String = normalized.trim_prefix("res://").trim_prefix("user://")
-	if relative_path.is_empty() or relative_path.get_file().is_empty() or _has_parent_path_segment(relative_path):
+	if (
+		relative_path.is_empty()
+		or relative_path.get_file().is_empty()
+		or _has_parent_path_segment(relative_path)
+	):
 		return ""
 	return normalized.simplify_path()
 
@@ -1418,7 +1707,11 @@ func _has_parent_path_segment(path: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _build_manifest_download_options(entry: Dictionary, options: Dictionary, index: int) -> Dictionary:
+func _build_manifest_download_options(
+	entry: Dictionary,
+	options: Dictionary,
+	index: int
+) -> Dictionary:
 	var result: Dictionary = options.duplicate(true)
 	_erase_dictionary_key_static(result, "temp_path")
 	_erase_dictionary_key_static(result, &"temp_path")
@@ -1428,15 +1721,37 @@ func _build_manifest_download_options(entry: Dictionary, options: Dictionary, in
 		GFVariantData.get_option_dictionary(options, "metadata"),
 		GFVariantData.get_option_dictionary(entry, "metadata")
 	)
-	metadata["manifest_index"] = GFVariantData.get_option_int(metadata, "manifest_index", index)
+	metadata["manifest_index"] = GFVariantData.get_option_int(
+		metadata,
+		"manifest_index",
+		index
+	)
 	result["metadata"] = metadata
 
 	result["headers"] = _merge_headers(
-		_normalize_headers(GFVariantData.get_option_value(options, "headers", PackedStringArray())),
-		_normalize_headers(GFVariantData.get_option_value(entry, "headers", PackedStringArray()))
+		_normalize_headers(
+			GFVariantData.get_option_value(
+				options,
+				"headers",
+				PackedStringArray()
+			)
+		),
+		_normalize_headers(
+			GFVariantData.get_option_value(
+				entry,
+				"headers",
+				PackedStringArray()
+			)
+		)
 	)
 
-	for key: String in ["expected_sha256", "resume", "overwrite", "max_retries", "retry_delay_seconds"]:
+	for key: String in [
+		"expected_sha256",
+		"resume",
+		"overwrite",
+		"max_retries",
+		"retry_delay_seconds",
+	]:
 		if _has_dictionary_key(entry, key):
 			result[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(entry, key))
 	return result
@@ -1447,11 +1762,19 @@ func _build_manifest_download_options(entry: Dictionary, options: Dictionary, in
 ## @api private
 ## [br]
 func _get_snapshot_expected_size(snapshot: Dictionary) -> int:
-	var expected_size: int = GFVariantData.get_option_int(snapshot, "expected_size", -1)
+	var expected_size: int = GFVariantData.get_option_int(
+		snapshot,
+		"expected_size",
+		-1
+	)
 	if expected_size >= 0:
 		return expected_size
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(snapshot, "metadata")
-	return GFVariantData.get_option_int(metadata, "expected_size", -1)
+	return GFVariantData.get_option_int(
+		metadata,
+		"expected_size",
+		-1
+	)
 
 
 ## 为请求的正数 ID 汇集活动任务、排队任务及已保存终态结果快照。
@@ -1513,7 +1836,11 @@ func _fail_or_retry_task(
 		return
 
 	task.status = GFDownloadTask.Status.FAILED
-	_finish_task(task, false, false)
+	_finish_task(
+		task,
+		false,
+		false
+	)
 
 
 ## 未达到最大重试次数时更新计数和可重试时间，并将任务放回队首。
@@ -1539,7 +1866,13 @@ func _schedule_retry(task: GFDownloadTask) -> bool:
 ## @api private
 ## [br]
 func _is_retryable_http_failure(response_code: int) -> bool:
-	return response_code == 0 or response_code == 408 or response_code == 425 or response_code == 429 or response_code >= 500
+	return (
+		response_code == 0
+		or response_code == 408
+		or response_code == 425
+		or response_code == 429
+		or response_code >= 500
+	)
 
 
 ## 响应码为零时保留断点文件；非零时尝试删除本次响应写入的文件。
@@ -1596,7 +1929,13 @@ func _ensure_parent_dir(path: String) -> void:
 ## @api private
 ## [br]
 func _get_dictionary_packed_string_array(source: Dictionary, key: Variant) -> PackedStringArray:
-	return _normalize_headers(GFVariantData.get_option_value(source, key, PackedStringArray()))
+	return _normalize_headers(
+		GFVariantData.get_option_value(
+			source,
+			key,
+			PackedStringArray()
+		)
+	)
 
 
 ## 按任务 ID 读取完成回调；值不是 Callable 时返回空 Callable。
@@ -1604,7 +1943,11 @@ func _get_dictionary_packed_string_array(source: Dictionary, key: Variant) -> Pa
 ## @api private
 ## [br]
 func _get_callback(task_id: int) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(_callbacks, task_id, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		_callbacks,
+		task_id,
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback
@@ -1680,11 +2023,19 @@ func _on_request_completed(
 	_body: PackedByteArray
 ) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS:
-		_complete_active_download(false, response_code, "HTTP request result: %d" % result)
+		_complete_active_download(
+			false,
+			response_code,
+			"HTTP request result: %d" % result
+		)
 		return
 
 	if response_code < 200 or response_code >= 300:
-		_complete_active_download(false, response_code, "HTTP %d" % response_code)
+		_complete_active_download(
+			false,
+			response_code,
+			"HTTP %d" % response_code
+		)
 		return
 
 	_complete_active_download(true, response_code)

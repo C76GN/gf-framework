@@ -18,7 +18,7 @@
 | 信号 | [`session_started`](#member-gfsessiontraceutility-signals-session_started) | `signal session_started(session_id: StringName, context: Dictionary)` |
 | 信号 | [`session_stopped`](#member-gfsessiontraceutility-signals-session_stopped) | `signal session_stopped(summary: Dictionary)` |
 | 信号 | [`event_recorded`](#member-gfsessiontraceutility-signals-event_recorded) | `signal event_recorded(event: Dictionary)` |
-| 信号 | [`event_rejected`](#member-gfsessiontraceutility-signals-event_rejected) | `signal event_rejected(channel_id: StringName, event_id: StringName, reason: StringName)` |
+| 信号 | [`event_rejected`](#member-gfsessiontraceutility-signals-event_rejected) | `signal event_rejected( channel_id: StringName, event_id: StringName, reason: StringName )` |
 | 常量 | [`DEFAULT_MAX_EVENTS`](#member-gfsessiontraceutility-constants-default_max_events) | `const DEFAULT_MAX_EVENTS: int = 512` |
 | 常量 | [`DEFAULT_MAX_EVENT_BUFFER_BYTES`](#member-gfsessiontraceutility-constants-default_max_event_buffer_bytes) | `const DEFAULT_MAX_EVENT_BUFFER_BYTES: int = 1024 * 1024` |
 | 常量 | [`DEFAULT_MAX_EVENT_BYTES`](#member-gfsessiontraceutility-constants-default_max_event_bytes) | `const DEFAULT_MAX_EVENT_BYTES: int = 16 * 1024` |
@@ -43,9 +43,9 @@
 | 方法 | [`start_session`](#member-gfsessiontraceutility-methods-start_session) | `func start_session( requested_session_id: StringName = &"", context: Dictionary = {}, options: Dictionary = {} ) -> StringName:` |
 | 方法 | [`stop_session`](#member-gfsessiontraceutility-methods-stop_session) | `func stop_session(reason: StringName = &"completed") -> Dictionary:` |
 | 方法 | [`clear`](#member-gfsessiontraceutility-methods-clear) | `func clear() -> void:` |
-| 方法 | [`apply_recipe`](#member-gfsessiontraceutility-methods-apply_recipe) | `func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`apply_recipe`](#member-gfsessiontraceutility-methods-apply_recipe) | `func apply_recipe(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`capture_recipe_checkpoint`](#member-gfsessiontraceutility-methods-capture_recipe_checkpoint) | `func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: StringName, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`build_recipe_snapshot`](#member-gfsessiontraceutility-methods-build_recipe_snapshot) | `func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`build_recipe_snapshot`](#member-gfsessiontraceutility-methods-build_recipe_snapshot) | `func build_recipe_snapshot(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`register_channel`](#member-gfsessiontraceutility-methods-register_channel) | `func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:` |
 | 方法 | [`unregister_channel`](#member-gfsessiontraceutility-methods-unregister_channel) | `func unregister_channel(channel_id: StringName) -> bool:` |
 | 方法 | [`has_channel`](#member-gfsessiontraceutility-methods-has_channel) | `func has_channel(channel_id: StringName) -> bool:` |
@@ -143,7 +143,7 @@ signal event_recorded(event: Dictionary)
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal event_rejected(channel_id: StringName, event_id: StringName, reason: StringName)
+signal event_rejected( channel_id: StringName, event_id: StringName, reason: StringName )
 ```
 
 事件被明确拒绝后发出。
@@ -509,7 +509,7 @@ func clear() -> void:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func apply_recipe( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:
+func apply_recipe(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -> Dictionary:
 ```
 
 原子应用一份 Session Trace 配方。 默认拒绝覆盖既有同名通道，也拒绝配方未声明的既有通道或在活动会话中改写容量。 一个 Utility 生命周期内只接受一份稳定配方；首次应用必须发生在任何会话开始之前， 完全相同的配方可幂等重复应用，应用后的完整通道目录漂移会 fail closed。
@@ -564,7 +564,7 @@ func capture_recipe_checkpoint( recipe: GFSessionTraceRecipe, checkpoint_id: Str
 - 首次版本：`10.0.0`
 
 ```gdscript
-func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = {} ) -> Dictionary:
+func build_recipe_snapshot(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -> Dictionary:
 ```
 
 使用配方默认值构建轨迹快照。

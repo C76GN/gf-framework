@@ -151,7 +151,15 @@ func configure(
 	scheme = _get_scheme(canonical_path if not canonical_path.is_empty() else raw_path)
 	extension = _get_extension(canonical_path)
 	cache_key = _make_cache_key()
-	exists = _resource_exists(canonical_path, uid_path, GFVariantData.get_option_bool(options, "check_exists", true))
+	exists = _resource_exists(
+		canonical_path,
+		uid_path,
+		GFVariantData.get_option_bool(
+			options,
+			"check_exists",
+			true
+		)
+	)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
 	return self
 
@@ -226,7 +234,12 @@ static func from_path(
 	options: Dictionary = {}
 ) -> GFResourceIdentity:
 	var identity: GFResourceIdentity = GFResourceIdentity.new()
-	var _configured: GFResourceIdentity = identity.configure(p_resource_key, path, p_type_hint, options)
+	var _configured: GFResourceIdentity = identity.configure(
+		p_resource_key,
+		path,
+		p_type_hint,
+		options
+	)
 	return identity
 
 
@@ -251,7 +264,11 @@ static func from_dictionary(data: Dictionary) -> GFResourceIdentity:
 	identity.scheme = GFVariantData.get_option_string_name(data, "scheme")
 	identity.extension = GFVariantData.get_option_string(data, "extension")
 	identity.cache_key = GFVariantData.get_option_string(data, "cache_key")
-	identity.exists = GFVariantData.get_option_bool(data, "exists", false)
+	identity.exists = GFVariantData.get_option_bool(
+		data,
+		"exists",
+		false
+	)
 	identity.metadata = GFVariantData.get_option_dictionary(data, "metadata").duplicate(true)
 	return identity
 
@@ -342,7 +359,11 @@ func _make_cache_key() -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _resource_exists(canonical_resource_path: String, identity_uid_path: String, check_exists: bool) -> bool:
+static func _resource_exists(
+	canonical_resource_path: String,
+	identity_uid_path: String,
+	check_exists: bool
+) -> bool:
 	if not check_exists:
 		return false
 	if not canonical_resource_path.is_empty() and ResourceLoader.exists(canonical_resource_path):

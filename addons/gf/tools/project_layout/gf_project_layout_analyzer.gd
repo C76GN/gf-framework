@@ -20,39 +20,31 @@ extends RefCounted
 ## @api public
 ## [br]
 ## @since 11.0.0
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = ("res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json")
 
 ## 用于读取有界 JSON 对象的解析器脚本。
 ## [br]
 ## @api private
 ## [br]
-const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd"
-)
+const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd")
 
 ## Project Layout analysis 与库存契约实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## finding 解释器实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _EXPLAINER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_explainer.gd"
-)
+const _EXPLAINER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_explainer.gd")
 
 ## 影响分析器实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _IMPACT_ANALYZER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_impact_analyzer.gd"
-)
+const _IMPACT_ANALYZER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_impact_analyzer.gd")
 
 ## profile 编译器实现脚本。
 ## [br]
@@ -203,15 +195,13 @@ const _ADMISSION_RESOURCE_LIMIT: int = 2
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_MAX_SCANNED_FILES: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
+const _DEFAULT_MAX_SCANNED_FILES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
 
 ## 默认最大扫描目录数，沿用 analysis contract 的共享上限。
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_MAX_SCANNED_DIRECTORIES: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
+const _DEFAULT_MAX_SCANNED_DIRECTORIES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
 
 ## 默认扫描深度，沿用 analysis contract 的共享上限。
 ## [br]
@@ -259,10 +249,7 @@ const _VALIDATOR_OPTION_FIELDS: PackedStringArray = [
 ## [br]
 ## @api private
 ## [br]
-const _VALIDATOR_BOOL_OPTION_FIELDS: PackedStringArray = [
-	"include_hidden",
-	"allow_missing_root",
-]
+const _VALIDATOR_BOOL_OPTION_FIELDS: PackedStringArray = ["include_hidden", "allow_missing_root",]
 
 ## validate 入口中类型为整数的 options 字段名集合。
 ## [br]
@@ -363,9 +350,24 @@ const _COMPILED_RULE_COMMON_FIELDS: PackedStringArray = [
 ## [br]
 const _COMPILED_RULE_FIELDS_BY_KIND: Dictionary = {
 	"path_exists": ["paths", "any"],
-	"files_under_roots": ["roots", "include", "exclude", "extensions"],
-	"extension_allowlist": ["roots", "include", "exclude", "extensions"],
-	"extension_denylist": ["roots", "include", "exclude", "extensions"],
+	"files_under_roots": [
+		"roots",
+		"include",
+		"exclude",
+		"extensions",
+	],
+	"extension_allowlist": [
+		"roots",
+		"include",
+		"exclude",
+		"extensions",
+	],
+	"extension_denylist": [
+		"roots",
+		"include",
+		"exclude",
+		"extensions",
+	],
 	"bucket_size": ["roots", "max_files"],
 	"feature_module_contract": [
 		"roots",
@@ -520,13 +522,31 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("", root_path)
 	_configure_evaluation_runtime({}, report)
 	_validate_options(options, report)
-	_validate_root_path(root_path, options, report)
-	_prepare_capture_scope({}, root_path, options, report)
+	_validate_root_path(
+		root_path,
+		options,
+		report
+	)
+	_prepare_capture_scope(
+		{},
+		root_path,
+		options,
+		report
+	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
-	var scan: Dictionary = _scan_project(root_path, options, report)
-	_attach_scan_result(report, scan, true)
+	var scan: Dictionary = _scan_project(
+		root_path,
+		options,
+		report
+	)
+	_attach_scan_result(
+		report,
+		scan,
+		true
+	)
 	return _finalize_report(report)
+
 
 ## 按 Feature 内聚式示例 profile 分析项目结构。
 ## 未指定 root_path 时沿用 analyze_profile_path 的来源根与规范声明映射。
@@ -573,13 +593,14 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 	var report: Dictionary = _make_report("", root_path)
 	_configure_evaluation_runtime({}, report)
 	_validate_options(options, report)
-	_validate_root_path(root_path, options, report)
+	_validate_root_path(
+		root_path,
+		options,
+		report
+	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
-	if (
-		profile_path.strip_edges().is_empty()
-		or not _is_canonical_project_source_root(profile_path)
-	):
+	if (profile_path.strip_edges().is_empty() or not _is_canonical_project_source_root(profile_path)):
 		_add_issue(
 			report,
 			"error",
@@ -590,11 +611,19 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 		return _finalize_report(report)
 	var load_result: Dictionary = _load_profile(profile_path)
 	if not _get_bool(load_result, "success"):
-		var loaded_profile_path: String = _get_string(load_result, "source_path", profile_path)
+		var loaded_profile_path: String = _get_string(
+			load_result,
+			"source_path",
+			profile_path
+		)
 		_add_issue(
 			report,
 			"error",
-			_get_string(load_result, "kind", "profile_load_failed"),
+			_get_string(
+				load_result,
+				"kind",
+				"profile_load_failed"
+			),
 			loaded_profile_path,
 			_get_string(load_result, "error"),
 			{ "profile_path": loaded_profile_path }
@@ -608,7 +637,13 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 		source_options["profile_source_path"] = profile_path
 		return analyze_profile(profile, source_options)
 
-	_add_issue(report, "error", "invalid_profile", "", "项目结构 profile 必须是 Dictionary。")
+	_add_issue(
+		report,
+		"error",
+		"invalid_profile",
+		"",
+		"项目结构 profile 必须是 Dictionary。"
+	)
 	return _finalize_report(report)
 
 
@@ -631,7 +666,10 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。
 func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return analyze_compiled_profile(compile_profile(profile), options)
+	return analyze_compiled_profile(
+		compile_profile(profile),
+		options
+	)
 
 
 ## 分析已经冻结的 data-only 项目库存，不再访问文件系统。
@@ -673,14 +711,14 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ## @return: 带 policy findings 的只读分析报告。
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
-func analyze_profile_snapshot(
-	profile: Dictionary,
-	snapshot: Dictionary
-) -> Dictionary:
+func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -> Dictionary:
 	_reset_evaluation_runtime()
 	if not _snapshot_envelope_is_admissible(snapshot):
 		return _make_input_admission_report(_ADMISSION_RESOURCE_LIMIT)
-	return analyze_compiled_profile_snapshot(compile_profile(profile), snapshot)
+	return analyze_compiled_profile_snapshot(
+		compile_profile(profile),
+		snapshot
+	)
 
 
 ## 解释分析报告中的一条 finding。
@@ -747,22 +785,28 @@ func analyze_change_impact(analysis: Dictionary, change: Dictionary) -> Dictiona
 ## @return: observation-only 只读分析报告。
 ## [br]
 ## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
-func analyze_snapshot_for_framework(
-	snapshot: Dictionary,
-	runtime: Dictionary
-) -> Dictionary:
+func analyze_snapshot_for_framework(snapshot: Dictionary, runtime: Dictionary) -> Dictionary:
 	_reset_evaluation_runtime()
 	if not _snapshot_envelope_is_admissible(snapshot):
 		return _make_input_admission_report(_ADMISSION_RESOURCE_LIMIT)
 	var root_path: String = _get_string(snapshot, "root_path")
 	var report: Dictionary = _make_report("", root_path)
-	_prepare_capture_scope({}, root_path, _snapshot_binding_options(snapshot), report)
+	_prepare_capture_scope(
+		{},
+		root_path,
+		_snapshot_binding_options(snapshot),
+		report
+	)
 	_configure_evaluation_runtime(runtime, report)
 	if _runtime_is_aborted():
 		return _finalize_report(report)
 	var scan: Dictionary = _scan_from_snapshot(snapshot, report)
 	if _get_int(report, "error_count") == 0:
-		_attach_scan_result(report, scan, true)
+		_attach_scan_result(
+			report,
+			scan,
+			true
+		)
 	return _finalize_report(report)
 
 
@@ -791,9 +835,16 @@ func compile_profile(profile: Dictionary) -> Dictionary:
 			"operation": "analyze",
 			"rule_registry": rule_registry,
 			"unsupported_rule_policy": "error",
-			"zone_executed_fields": PackedStringArray([
-				"roots", "required", "allow_extensions", "deny_extensions", "exclude", "severity",
-			]),
+			"zone_executed_fields": PackedStringArray(
+				[
+					"roots",
+					"required",
+					"allow_extensions",
+					"deny_extensions",
+					"exclude",
+					"severity",
+				]
+			),
 		}
 	)
 
@@ -848,10 +899,19 @@ func analyze_compiled_profile_snapshot(
 	if _runtime_is_aborted():
 		return _finalize_report(report)
 	var rule_registry: Dictionary = _make_rule_registry()
-	if not _compilation_is_valid(compilation, rule_registry, report):
+	if not _compilation_is_valid(
+		compilation,
+		rule_registry,
+		report
+	):
 		return _finalize_report(report)
 	var compiled_profile: Dictionary = _get_dictionary(compilation, "profile")
-	_prepare_capture_scope(compiled_profile, root_path, _snapshot_binding_options(snapshot), report)
+	_prepare_capture_scope(
+		compiled_profile,
+		root_path,
+		_snapshot_binding_options(snapshot),
+		report
+	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
 	var compile_result: Dictionary = compilation
@@ -862,11 +922,24 @@ func analyze_compiled_profile_snapshot(
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
 	report["profile_id"] = _get_string(compiled_profile, "id")
-	_attach_scan_result(report, scan, true)
+	_attach_scan_result(
+		report,
+		scan,
+		true
+	)
 	if not _get_bool(report, "input_complete"):
 		return _finalize_report(report)
-	_validate_zones(compiled_profile, scan, report)
-	_validate_rules(compiled_profile, scan, report, rule_registry)
+	_validate_zones(
+		compiled_profile,
+		scan,
+		report
+	)
+	_validate_rules(
+		compiled_profile,
+		scan,
+		report,
+		rule_registry
+	)
 	return _finalize_report(report)
 
 
@@ -895,14 +968,22 @@ func analyze_compiled_profile(compilation: Dictionary, options: Dictionary = {})
 	var report: Dictionary = _make_report("", root_path)
 	_configure_evaluation_runtime({}, report)
 	_validate_options(options, report)
-	_validate_root_path(root_path, options, report)
+	_validate_root_path(
+		root_path,
+		options,
+		report
+	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
 	var rule_registry: Dictionary = _make_rule_registry()
 	var compile_result: Dictionary = compilation
 	if not _compilation_envelope_is_admissible(compilation):
 		return _make_input_admission_report(_ADMISSION_RESOURCE_LIMIT)
-	if _get_bool(compilation, "success") and not _compilation_is_valid(compilation, rule_registry, report):
+	if _get_bool(compilation, "success") and not _compilation_is_valid(
+		compilation,
+		rule_registry,
+		report
+	):
 		return _finalize_report(report)
 	_append_compiler_result(compile_result, report)
 	if _get_int(report, "error_count") > 0:
@@ -918,25 +999,55 @@ func analyze_compiled_profile(compilation: Dictionary, options: Dictionary = {})
 				if not compiled_profile.has("capture_scope") and options.has("capture_scope"):
 					# Option admission already used the same strict Scope normalizer.
 					declaration = _get_dictionary(options, "capture_scope")
-				var logical_root: String = _get_string(declaration, "root_path", "res://")
+				var logical_root: String = _get_string(
+					declaration,
+					"root_path",
+					"res://"
+				)
 				root_path = source_root if logical_root == "res://" else source_root.path_join(logical_root.substr(6))
 				report["root_path"] = root_path
-				_validate_root_path(root_path, options, report)
+				_validate_root_path(
+					root_path,
+					options,
+					report
+				)
 				if _get_int(report, "error_count") > 0:
 					return _finalize_report(report)
-	_prepare_capture_scope(compiled_profile, root_path, options, report)
+	_prepare_capture_scope(
+		compiled_profile,
+		root_path,
+		options,
+		report
+	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
 
-	var scan: Dictionary = _scan_project(root_path, options, report)
-	_attach_scan_result(report, scan, true)
+	var scan: Dictionary = _scan_project(
+		root_path,
+		options,
+		report
+	)
+	_attach_scan_result(
+		report,
+		scan,
+		true
+	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
 	if not _get_bool(report, "input_complete"):
 		return _finalize_report(report)
 
-	_validate_zones(compiled_profile, scan, report)
-	_validate_rules(compiled_profile, scan, report, rule_registry)
+	_validate_zones(
+		compiled_profile,
+		scan,
+		report
+	)
+	_validate_rules(
+		compiled_profile,
+		scan,
+		report,
+		rule_registry
+	)
 	return _finalize_report(report)
 
 
@@ -953,12 +1064,22 @@ func analyze_compiled_profile(compilation: Dictionary, options: Dictionary = {})
 ## @return 输入不完整的 analysis report。
 ## [br]
 ## @schema return: Dictionary，包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
-func reject_profile_input(error_kind: String, message: String, root_path: String) -> Dictionary:
+func reject_profile_input(
+	error_kind: String,
+	message: String,
+	root_path: String
+) -> Dictionary:
 	_reset_evaluation_runtime()
 	_capture_binding = {}
 	var report: Dictionary = _make_report("", root_path)
 	_configure_evaluation_runtime({}, report)
-	_add_issue(report, "error", error_kind, "", message.left(4_096))
+	_add_issue(
+		report,
+		"error",
+		error_kind,
+		"",
+		message.left(4_096)
+	)
 	return _finalize_report(report)
 
 
@@ -971,34 +1092,72 @@ func _make_rule_registry() -> Dictionary:
 	return {
 		"path_exists": {
 			"handler": Callable(self, "_validate_path_exists"),
-			"executed_fields": PackedStringArray(["paths", "any", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"paths",
+					"any",
+					"severity",
+				]
+			),
 		},
 		"files_under_roots": {
 			"handler": Callable(self, "_validate_files_under_roots"),
-			"executed_fields": PackedStringArray(["roots", "include", "exclude", "extensions", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"include",
+					"exclude",
+					"extensions",
+					"severity",
+				]
+			),
 		},
 		"extension_allowlist": {
 			"handler": Callable(self, "_validate_extension_allowlist"),
-			"executed_fields": PackedStringArray(["roots", "include", "exclude", "extensions", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"include",
+					"exclude",
+					"extensions",
+					"severity",
+				]
+			),
 		},
 		"extension_denylist": {
 			"handler": Callable(self, "_validate_extension_denylist"),
-			"executed_fields": PackedStringArray(["roots", "include", "exclude", "extensions", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"include",
+					"exclude",
+					"extensions",
+					"severity",
+				]
+			),
 		},
 		_RULE_BUCKET_SIZE: {
 			"handler": Callable(self, "_validate_bucket_size"),
-			"executed_fields": PackedStringArray(["roots", "max_files", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"max_files",
+					"severity",
+				]
+			),
 		},
 		_RULE_FEATURE_MODULE_CONTRACT: {
 			"handler": Callable(self, "_validate_feature_module_contract"),
-			"executed_fields": PackedStringArray([
-				"roots",
-				"feature_id_pattern",
-				"required_subdirs",
-				"allowed_subdirs",
-				"allow_root_files",
-				"severity",
-			]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"feature_id_pattern",
+					"required_subdirs",
+					"allowed_subdirs",
+					"allow_root_files",
+					"severity",
+				]
+			),
 		},
 		_RULE_FORBID_ROOT_FILES: {
 			"handler": Callable(self, "_validate_forbid_root_files"),
@@ -1006,11 +1165,25 @@ func _make_rule_registry() -> Dictionary:
 		},
 		_RULE_GENERATED_BOUNDARY: {
 			"handler": Callable(self, "_validate_generated_boundary"),
-			"executed_fields": PackedStringArray(["include", "roots", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"include",
+					"roots",
+					"severity",
+				]
+			),
 		},
 		_RULE_NAMING_CONVENTION: {
 			"handler": Callable(self, "_validate_naming_convention"),
-			"executed_fields": PackedStringArray(["roots", "exclude", "pattern", "target", "severity"]),
+			"executed_fields": PackedStringArray(
+				[
+					"roots",
+					"exclude",
+					"pattern",
+					"target",
+					"severity",
+				]
+			),
 		},
 	}
 
@@ -1141,7 +1314,11 @@ func _runtime_checkpoint_callback() -> bool:
 ## 只保留首个终止状态并最多追加一次终态 finding；runtime 无效记为错误，其他中止保留为警告。
 ## [br]
 ## @api private
-func _set_runtime_abort(report: Dictionary, status: String, message: String) -> void:
+func _set_runtime_abort(
+	report: Dictionary,
+	status: String,
+	message: String
+) -> void:
 	if _runtime_is_aborted():
 		return
 	_runtime_abort_status = status
@@ -1170,10 +1347,7 @@ func _compilation_is_valid(
 	rule_registry: Dictionary,
 	report: Dictionary
 ) -> bool:
-	if (
-		compilation.size() != _COMPILATION_FIELDS.size()
-		or not _dictionary_has_only_fields(compilation, _COMPILATION_FIELDS)
-	):
+	if (compilation.size() != _COMPILATION_FIELDS.size() or not _dictionary_has_only_fields(compilation, _COMPILATION_FIELDS)):
 		_add_invalid_compilation_issue(report, "compilation 顶层字段必须精确闭合。")
 		return false
 	if (
@@ -1218,8 +1392,16 @@ func _compilation_is_valid(
 			_add_invalid_compilation_issue(report, "compilation issue severity 无效。")
 			return false
 	if (
-		_get_int(compilation, "error_count", -1) != expected_error_count
-		or _get_int(compilation, "warning_count", -1) != expected_warning_count
+		_get_int(
+			compilation,
+			"error_count",
+			-1
+		) != expected_error_count
+		or _get_int(
+			compilation,
+			"warning_count",
+			-1
+		) != expected_warning_count
 		or _get_bool(compilation, "success") != (expected_error_count == 0)
 	):
 		_add_invalid_compilation_issue(report, "compilation success 与诊断计数不一致。")
@@ -1229,17 +1411,10 @@ func _compilation_is_valid(
 		_add_invalid_compilation_issue(report, "compilation contract identity 无效。")
 		return false
 	var contract_digest: String = _get_string(compilation, "contract_digest")
-	if (
-		not contract_digest.is_empty()
-		and not _PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(
-			contract_digest
-		)
-	):
+	if (not contract_digest.is_empty() and not _PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(contract_digest)):
 		_add_invalid_compilation_issue(report, "compilation contract digest 无效。")
 		return false
-	var expected_capabilities: Dictionary = _expected_compilation_capabilities(
-		rule_registry
-	)
+	var expected_capabilities: Dictionary = _expected_compilation_capabilities(rule_registry)
 	var capabilities: Dictionary = _get_dictionary(compilation, "capabilities")
 	if not capabilities.is_empty() and capabilities != expected_capabilities:
 		_add_invalid_compilation_issue(report, "compilation capabilities 未绑定 Analyzer registry。")
@@ -1248,9 +1423,7 @@ func _compilation_is_valid(
 		return true
 	if (
 		contract_id != _PROFILE_CONTRACT_ID
-		or not _PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(
-			contract_digest
-		)
+		or not _PROFILE_COMPILER_SCRIPT.contract_digest_is_canonical_for_framework(contract_digest)
 		or capabilities != expected_capabilities
 	):
 		_add_invalid_compilation_issue(report, "成功 compilation 必须绑定 canonical contract、内容摘要与 Analyzer registry。")
@@ -1283,7 +1456,14 @@ func _expected_compilation_capabilities(rule_registry: Dictionary) -> Dictionary
 		fields.sort()
 		rule_fields[kind] = fields
 	rule_kinds.sort()
-	var zone_fields: Array[String] = ["required", "roots", "allow_extensions", "deny_extensions", "exclude", "severity"]
+	var zone_fields: Array[String] = [
+		"required",
+		"roots",
+		"allow_extensions",
+		"deny_extensions",
+		"exclude",
+		"severity",
+	]
 	zone_fields.sort()
 	return {
 		"executor_id": "godot_project_layout_analyzer",
@@ -1340,9 +1520,19 @@ func _compiled_profile_is_valid(
 			return false
 		if zone.has("metadata") and not zone["metadata"] is Dictionary:
 			return false
-		for list_field: String in ["allow_extensions", "deny_extensions", "exclude"]:
-			if zone.has(list_field) and not _string_collection_value_is_valid(
-				zone[list_field], true, report, "glob" if list_field == "exclude" else "extension"
+		for list_field: String in [
+			"allow_extensions",
+			"deny_extensions",
+			"exclude",
+		]:
+			if (
+				zone.has(list_field)
+				and not _string_collection_value_is_valid(
+					zone[list_field],
+					true,
+					report,
+					"glob" if list_field == "exclude" else "extension"
+				)
 			):
 				return false
 	var rule_ids: Dictionary = {}
@@ -1356,10 +1546,7 @@ func _compiled_profile_is_valid(
 		if not rule_registry.has(kind) or not _COMPILED_RULE_FIELDS_BY_KIND.has(kind):
 			return false
 		var allowed_fields: PackedStringArray = _COMPILED_RULE_COMMON_FIELDS.duplicate()
-		var kind_fields: Array = _get_array(
-			_COMPILED_RULE_FIELDS_BY_KIND,
-			kind
-		)
+		var kind_fields: Array = _get_array(_COMPILED_RULE_FIELDS_BY_KIND, kind)
 		for field_value: Variant in kind_fields:
 			if not field_value is String:
 				return false
@@ -1369,7 +1556,11 @@ func _compiled_profile_is_valid(
 			not _dictionary_has_only_fields(rule, allowed_fields)
 			or not _compiled_record_identity_is_valid(rule, rule_ids)
 			or not _severity_value_is_valid(rule.get("severity"))
-			or not _compiled_rule_values_are_valid(rule, kind, report)
+			or not _compiled_rule_values_are_valid(
+				rule,
+				kind,
+				report
+			)
 		):
 			return false
 		if rule.has("description") and not rule["description"] is String:
@@ -1407,38 +1598,68 @@ func _compiled_rule_values_are_valid(
 		"required_subdirs",
 		"allowed_subdirs",
 	]:
-		if rule.has(list_field) and not _string_collection_value_is_valid(
-			rule[list_field],
-			true,
-			report,
-			"relative_path"
+		if (
+			rule.has(list_field)
+			and not _string_collection_value_is_valid(
+				rule[list_field],
+				true,
+				report,
+				"relative_path"
+			)
 		):
 			return false
-	if rule.has("extensions") and not _string_collection_value_is_valid(rule["extensions"], true, report, "extension"):
+	if rule.has("extensions") and not _string_collection_value_is_valid(
+		rule["extensions"],
+		true,
+		report,
+		"extension"
+	):
 		return false
 	for list_field: String in ["exclude", "include"]:
-		if rule.has(list_field) and not _string_collection_value_is_valid(
-			rule[list_field],
-			true,
-			report,
-			"glob"
+		if (
+			rule.has(list_field)
+			and not _string_collection_value_is_valid(
+				rule[list_field],
+				true,
+				report,
+				"glob"
+			)
 		):
 			return false
 	if kind == "path_exists":
-		return _string_collection_value_is_valid(rule.get("paths"), false, report, "relative_path") and rule.get("any") is bool
+		return (
+			_string_collection_value_is_valid(
+				rule.get("paths"),
+				false,
+				report,
+				"relative_path"
+			)
+			and rule.get("any") is bool
+		)
 	if kind == "files_under_roots":
-		return _string_collection_value_is_valid(rule.get("roots"), false, report, "relative_path")
+		return _string_collection_value_is_valid(
+			rule.get("roots"),
+			false,
+			report,
+			"relative_path"
+		)
 	if kind == _RULE_BUCKET_SIZE:
 		return (
 			_string_collection_value_is_valid(
-				rule.get("roots"), false, report, "relative_path"
+				rule.get("roots"),
+				false,
+				report,
+				"relative_path"
 			)
 			and _get_int(rule, "max_files") > 0
 		)
 	if kind == _RULE_FEATURE_MODULE_CONTRACT:
 		return (
 			_string_collection_value_is_valid(
-				rule.get("roots"), false, report, "relative_path"
+				rule.get("roots"),
+				false,
+				report,
+				"relative_path"
 			)
 			and rule.get("feature_id_pattern") is String
 			and _compile_regex(_get_string(rule, "feature_id_pattern")) != null
@@ -1447,17 +1668,27 @@ func _compiled_rule_values_are_valid(
 	if kind == _RULE_GENERATED_BOUNDARY:
 		return (
 			_string_collection_value_is_valid(
-				rule.get("include"), false, report, "glob"
+				rule.get("include"),
+				false,
+				report,
+				"glob"
 			)
 			and _string_collection_value_is_valid(
-				rule.get("roots"), false, report, "relative_path"
+				rule.get("roots"),
+				false,
+				report,
+				"relative_path"
 			)
 		)
 	if kind == _RULE_NAMING_CONVENTION:
 		return (
 			rule.get("pattern") is String
 			and _compile_regex(_get_string(rule, "pattern")) != null
-			and ["path", "name", "stem"].has(_get_string(rule, "target"))
+			and [
+				"path",
+				"name",
+				"stem",
+			].has(_get_string(rule, "target"))
 		)
 	return true
 
@@ -1491,17 +1722,17 @@ func _string_collection_value_is_valid(
 		var item_string: String = item
 		if item_string.strip_edges().is_empty() or seen.has(item_string):
 			return false
-		if (
-			value_kind == "relative_path"
-			and _PROFILE_COMPILER_SCRIPT._profile_relative_path_is_invalid(item_string)
-		):
+		if (value_kind == "relative_path" and _PROFILE_COMPILER_SCRIPT._profile_relative_path_is_invalid(item_string)):
+			return false
+		if (value_kind == "glob" and _PROFILE_COMPILER_SCRIPT._profile_pattern_is_invalid(item_string)):
 			return false
 		if (
-			value_kind == "glob"
-			and _PROFILE_COMPILER_SCRIPT._profile_pattern_is_invalid(item_string)
+			value_kind == "extension"
+			and (
+				not item_string.begins_with(".")
+				or item_string != item_string.to_lower()
+			)
 		):
-			return false
-		if value_kind == "extension" and (not item_string.begins_with(".") or item_string != item_string.to_lower()):
 			return false
 		seen[item_string] = true
 	return true
@@ -1512,7 +1743,11 @@ func _string_collection_value_is_valid(
 ## @api private
 ## [br]
 func _severity_value_is_valid(value: Variant) -> bool:
-	return value is String and ["error", "warning", "info"].has(value)
+	return value is String and [
+		"error",
+		"warning",
+		"info",
+	].has(value)
 
 
 ## 通过统一问题入口写入固定种类和原因码的编译信封失败。
@@ -1544,10 +1779,22 @@ func _append_compiler_result(compile_result: Dictionary, report: Dictionary) -> 
 		var issue: Dictionary = issue_value
 		_add_issue(
 			report,
-			_get_string(issue, "severity", "error"),
-			_get_string(issue, "kind", "profile_contract_invalid"),
+			_get_string(
+				issue,
+				"severity",
+				"error"
+			),
+			_get_string(
+				issue,
+				"kind",
+				"profile_contract_invalid"
+			),
 			_get_string(issue, "path"),
-			_get_string(issue, "message", "项目结构 profile 编译失败。"),
+			_get_string(
+				issue,
+				"message",
+				"项目结构 profile 编译失败。"
+			),
 			_get_dictionary(issue, "context"),
 			_get_string(issue, "reason_code")
 		)
@@ -1560,9 +1807,21 @@ func _load_profile(profile_path: String) -> Dictionary:
 	var reader: _BOUNDED_JSON_OBJECT_READER_SCRIPT = _BOUNDED_JSON_OBJECT_READER_SCRIPT.new()
 	var read_result: Dictionary = reader.read_path(profile_path)
 	if not _get_bool(read_result, "success"):
-		var kind: String = "profile_json_parse_failed" if FileAccess.file_exists(profile_path) else "profile_path_not_found"
-		return _make_load_result(false, {}, kind, _get_string(read_result, "error"), profile_path)
-	return _make_load_result(true, _get_dictionary(read_result, "profile"), "", "", profile_path)
+		var kind: String = ("profile_json_parse_failed" if FileAccess.file_exists(profile_path) else "profile_path_not_found")
+		return _make_load_result(
+			false,
+			{},
+			kind,
+			_get_string(read_result, "error"),
+			profile_path
+		)
+	return _make_load_result(
+		true,
+		_get_dictionary(read_result, "profile"),
+		"",
+		"",
+		profile_path
+	)
 
 
 ## 包装 profile 加载状态及来源路径，沿用传入 profile 引用。
@@ -1672,7 +1931,11 @@ func _options_admission_status(options: Dictionary) -> int:
 		if not _VALIDATOR_OPTION_FIELDS.has(key):
 			return _ADMISSION_INVALID
 		var option_value: Variant = options[key]
-		if key in ["root_path", "source_root", "profile_source_path"]:
+		if key in [
+			"root_path",
+			"source_root",
+			"profile_source_path",
+		]:
 			if not (option_value is String or option_value is StringName):
 				return _ADMISSION_INVALID
 			var root_path: String = _string_value(option_value)
@@ -1695,20 +1958,11 @@ func _options_admission_status(options: Dictionary) -> int:
 		var budget: int = option_value
 		if budget <= 0:
 			return _ADMISSION_INVALID
-		if (
-			key == "max_scanned_files"
-			and budget > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
-		):
+		if (key == "max_scanned_files" and budget > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES):
 			return _ADMISSION_RESOURCE_LIMIT
-		if (
-			key == "max_scanned_directories"
-			and budget > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
-		):
+		if (key == "max_scanned_directories" and budget > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES):
 			return _ADMISSION_RESOURCE_LIMIT
-		if (
-			key == "max_scan_depth"
-			and budget > _ANALYSIS_CONTRACT_SCRIPT.MAX_SCAN_DEPTH
-		):
+		if (key == "max_scan_depth" and budget > _ANALYSIS_CONTRACT_SCRIPT.MAX_SCAN_DEPTH):
 			return _ADMISSION_RESOURCE_LIMIT
 	return _ADMISSION_OK
 
@@ -1723,13 +1977,14 @@ func _snapshot_envelope_is_admissible(snapshot: Dictionary) -> bool:
 		if not key_value is String:
 			return false
 		var key: String = key_value
-		if (
-			key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
-			or not _SNAPSHOT_FIELDS.has(key)
-		):
+		if (key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH or not _SNAPSHOT_FIELDS.has(key)):
 			return false
 
-	for string_field: String in ["kind", "root_path", "capture_status"]:
+	for string_field: String in [
+		"kind",
+		"root_path",
+		"capture_status",
+	]:
 		if not snapshot.has(string_field):
 			continue
 		var string_value: Variant = snapshot[string_field]
@@ -1746,9 +2001,7 @@ func _snapshot_envelope_is_admissible(snapshot: Dictionary) -> bool:
 		return false
 
 	var file_count: int = _snapshot_collection_size(snapshot.get("files"))
-	var directory_count: int = _snapshot_collection_size(
-		snapshot.get("directories")
-	)
+	var directory_count: int = _snapshot_collection_size(snapshot.get("directories"))
 	if file_count < 0 or directory_count < 0:
 		return false
 	if (
@@ -1761,14 +2014,7 @@ func _snapshot_envelope_is_admissible(snapshot: Dictionary) -> bool:
 		)
 	):
 		return false
-	if (
-		not _snapshot_path_collection_lengths_are_admissible(
-			snapshot.get("files")
-		)
-		or not _snapshot_path_collection_lengths_are_admissible(
-			snapshot.get("directories")
-		)
-	):
+	if (not _snapshot_path_collection_lengths_are_admissible(snapshot.get("files")) or not _snapshot_path_collection_lengths_are_admissible(snapshot.get("directories"))):
 		return false
 
 	if snapshot.has("issues"):
@@ -1813,10 +2059,7 @@ func _snapshot_scope_envelope_is_admissible(
 		if not key_value is String:
 			return false
 		var key: String = key_value
-		if (
-			key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
-			or not _SNAPSHOT_SCOPE_FIELDS.has(key)
-		):
+		if (key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH or not _SNAPSHOT_SCOPE_FIELDS.has(key)):
 			return false
 	for string_field: String in ["kind", "root_path"]:
 		if not scope.has(string_field):
@@ -1835,9 +2078,7 @@ func _snapshot_scope_envelope_is_admissible(
 		if (
 			excluded_count < 0
 			or excluded_count > 64
-			or not _snapshot_path_collection_lengths_are_admissible(
-				excluded_value
-			)
+			or not _snapshot_path_collection_lengths_are_admissible(excluded_value)
 		):
 			return false
 	for budget_limit: Dictionary in [
@@ -1912,15 +2153,14 @@ func _snapshot_path_collection_lengths_are_admissible(value: Variant) -> bool:
 ## 用显式栈累计结构值及 UTF-8 文本总量，拒绝超深、超大、非有限或非文本键数据；活动容器身份栈拒绝真实循环。
 ## [br]
 ## @api private
-func _snapshot_tree_is_admissible(
-	snapshot: Dictionary,
-	max_depth: int = _MAX_SNAPSHOT_DEPTH
-) -> bool:
-	var stack: Array = [{
-		"value": snapshot,
-		"depth": 0,
-		"exit": false,
-	}]
+func _snapshot_tree_is_admissible(snapshot: Dictionary, max_depth: int = _MAX_SNAPSHOT_DEPTH) -> bool:
+	var stack: Array = [
+		{
+			"value": snapshot,
+			"depth": 0,
+			"exit": false,
+		},
+	]
 	var active_containers: Array = []
 	var structure_value_count: int = 0
 	var string_bytes: int = 0
@@ -1940,7 +2180,11 @@ func _snapshot_tree_is_admissible(
 		var depth: int = _get_int(frame, "depth")
 		if depth > max_depth:
 			return false
-		if value == null or value is bool or value is int:
+		if (
+			value == null
+			or value is bool
+			or value is int
+		):
 			continue
 		if value is float:
 			var float_value: float = value
@@ -1961,10 +2205,7 @@ func _snapshot_tree_is_admissible(
 				return false
 			for item: String in packed_value:
 				structure_value_count += 1
-				if (
-					structure_value_count > _MAX_SNAPSHOT_STRUCTURE_VALUES
-					or item.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
-				):
+				if (structure_value_count > _MAX_SNAPSHOT_STRUCTURE_VALUES or item.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH):
 					return false
 				string_bytes += item.to_utf8_buffer().size()
 				if string_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES:
@@ -1972,57 +2213,65 @@ func _snapshot_tree_is_admissible(
 			continue
 		if value is Array:
 			var array_value: Array = value
-			if (
-				array_value.size() > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES
-				or _active_snapshot_container_exists(active_containers, array_value)
-			):
+			if (array_value.size() > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES or _active_snapshot_container_exists(active_containers, array_value)):
 				return false
 			active_containers.append(array_value)
-			stack.append({ "value": array_value, "depth": depth, "exit": true })
-			for item_index: int in range(array_value.size() - 1, -1, -1):
-				stack.append({
-					"value": array_value[item_index],
-					"depth": depth + 1,
-					"exit": false,
-				})
+			stack.append(
+				{
+					"value": array_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
+			for item_index: int in range(
+				array_value.size() - 1,
+				-1,
+				-1
+			):
+				stack.append(
+					{
+						"value": array_value[item_index],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		if value is Dictionary:
 			var dictionary_value: Dictionary = value
-			if (
-				dictionary_value.size() > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES
-				or _active_snapshot_container_exists(
-					active_containers,
-					dictionary_value
-				)
-			):
+			if (dictionary_value.size() > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_NODES or _active_snapshot_container_exists(active_containers, dictionary_value)):
 				return false
 			active_containers.append(dictionary_value)
-			stack.append({
-				"value": dictionary_value,
-				"depth": depth,
-				"exit": true,
-			})
+			stack.append(
+				{
+					"value": dictionary_value,
+					"depth": depth,
+					"exit": true,
+				}
+			)
 			var keys: Array = dictionary_value.keys()
 			for key_value: Variant in keys:
 				if not key_value is String:
 					return false
 				var key: String = key_value
 				structure_value_count += 1
-				if (
-					structure_value_count > _MAX_SNAPSHOT_STRUCTURE_VALUES
-					or key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
-				):
+				if (structure_value_count > _MAX_SNAPSHOT_STRUCTURE_VALUES or key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH):
 					return false
 				string_bytes += key.to_utf8_buffer().size()
 				if string_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES:
 					return false
-			for key_index: int in range(keys.size() - 1, -1, -1):
+			for key_index: int in range(
+				keys.size() - 1,
+				-1,
+				-1
+			):
 				var dictionary_key: Variant = keys[key_index]
-				stack.append({
-					"value": dictionary_value[dictionary_key],
-					"depth": depth + 1,
-					"exit": false,
-				})
+				stack.append(
+					{
+						"value": dictionary_value[dictionary_key],
+						"depth": depth + 1,
+						"exit": false,
+					}
+				)
 			continue
 		return false
 	return true
@@ -2032,10 +2281,7 @@ func _snapshot_tree_is_admissible(
 ## [br]
 ## @api private
 ## [br]
-func _active_snapshot_container_exists(
-	active_containers: Array,
-	value: Variant
-) -> bool:
+func _active_snapshot_container_exists(active_containers: Array, value: Variant) -> bool:
 	for active_value: Variant in active_containers:
 		if is_same(active_value, value):
 			return true
@@ -2076,12 +2322,32 @@ func _validate_options(options: Dictionary, report: Dictionary) -> void:
 	if options.has("root_path"):
 		var root_value: Variant = options["root_path"]
 		if not (root_value is String or root_value is StringName):
-			_add_issue(report, "error", "invalid_option_type", "root_path", "root_path 必须是字符串。", { "actual": _describe_value(root_value) })
+			_add_issue(
+				report,
+				"error",
+				"invalid_option_type",
+				"root_path",
+				"root_path 必须是字符串。",
+				{ "actual": _describe_value(root_value) }
+			)
 		elif _string_value(root_value).strip_edges().is_empty():
-			_add_issue(report, "error", "invalid_option_value", "root_path", "root_path 不能为空。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_option_value",
+				"root_path",
+				"root_path 不能为空。"
+			)
 	for field_name: String in _VALIDATOR_BOOL_OPTION_FIELDS:
 		if options.has(field_name) and not options[field_name] is bool:
-			_add_issue(report, "error", "invalid_option_type", field_name, "%s 必须是 bool。" % field_name, { "actual": _describe_value(options[field_name]) })
+			_add_issue(
+				report,
+				"error",
+				"invalid_option_type",
+				field_name,
+				"%s 必须是 bool。" % field_name,
+				{ "actual": _describe_value(options[field_name]) }
+			)
 	for field_name: String in _VALIDATOR_INTEGER_OPTION_FIELDS:
 		if not options.has(field_name):
 			continue
@@ -2101,19 +2367,43 @@ func _validate_options(options: Dictionary, report: Dictionary) -> void:
 ## 要求规范项目源码根，并检查访问链不穿过符号链接或目录联接；失败写入报告。
 ## [br]
 ## @api private
-func _validate_root_path(root_path: String, _options: Dictionary, report: Dictionary) -> void:
+func _validate_root_path(
+	root_path: String,
+	_options: Dictionary,
+	report: Dictionary
+) -> void:
 	if not _is_canonical_project_source_root(root_path):
-		_add_issue(report, "error", "unsupported_root_path", root_path, "项目源码根必须是规范 res:// 或绝对本地根，不能使用 user://、网络路径或路径 alias。")
+		_add_issue(
+			report,
+			"error",
+			"unsupported_root_path",
+			root_path,
+			"项目源码根必须是规范 res:// 或绝对本地根，不能使用 user://、网络路径或路径 alias。"
+		)
 		return
 	if _path_crosses_link(root_path):
-		_add_issue(report, "error", "linked_path_not_allowed", root_path, "项目根路径不能穿过符号链接或目录联接。")
+		_add_issue(
+			report,
+			"error",
+			"linked_path_not_allowed",
+			root_path,
+			"项目根路径不能穿过符号链接或目录联接。"
+		)
 
 
 ## 按捕获预算扫描项目并整理排序清单；缺失根、隐藏项省略或扫描中止都保持不完整，导出前移除扫描临时计数。
 ## [br]
 ## @api private
-func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -> Dictionary:
-	var include_hidden: bool = _get_bool(options, "include_hidden", true)
+func _scan_project(
+	root_path: String,
+	options: Dictionary,
+	report: Dictionary
+) -> Dictionary:
+	var include_hidden: bool = _get_bool(
+		options,
+		"include_hidden",
+		true
+	)
 	var max_scanned_files: int = _get_positive_integer_option(
 		options,
 		"max_scanned_files",
@@ -2156,24 +2446,26 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 	var absolute_root: String = ProjectSettings.globalize_path(root_path)
 	var initial_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
 	if not initial_root_states["success"]:
-		_add_issue(report, "error", "capture_scope_identity_invalid", root_path, _get_string(initial_root_states, "error"))
+		_add_issue(
+			report,
+			"error",
+			"capture_scope_identity_invalid",
+			root_path,
+			_get_string(initial_root_states, "error")
+		)
 		var _invalid_identity_state_removed: bool = result.erase("_scan_aborted")
 		return result
 	if not DirAccess.dir_exists_absolute(absolute_root):
-		var missing_severity: String = (
-			"warning" if _get_bool(options, "allow_missing_root") else "error"
+		var missing_severity: String = "warning" if _get_bool(options, "allow_missing_root") else "error"
+		var missing_kind: String = ("root_path_not_observed" if _get_bool(options, "allow_missing_root") else "root_path_not_found")
+		var missing_message: String = ("项目根目录不存在；库存保持不完整，profile 规则不会执行。" if _get_bool(options, "allow_missing_root") else "项目根目录不存在。")
+		_add_issue(
+			report,
+			missing_severity,
+			missing_kind,
+			root_path,
+			missing_message
 		)
-		var missing_kind: String = (
-			"root_path_not_observed"
-			if _get_bool(options, "allow_missing_root")
-			else "root_path_not_found"
-		)
-		var missing_message: String = (
-			"项目根目录不存在；库存保持不完整，profile 规则不会执行。"
-			if _get_bool(options, "allow_missing_root")
-			else "项目根目录不存在。"
-		)
-		_add_issue(report, missing_severity, missing_kind, root_path, missing_message)
 		_append_capture_issue(
 			result,
 			missing_severity,
@@ -2185,18 +2477,10 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 		return result
 
 	result["root_observed"] = true
-	result["_inventory_string_bytes"] = _initial_scan_inventory_string_bytes(
-		root_path
-	)
-	if (
-		_get_int(result, "_inventory_string_bytes")
-		> _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
-	):
+	result["_inventory_string_bytes"] = _initial_scan_inventory_string_bytes(root_path)
+	if _get_int(result, "_inventory_string_bytes") > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES:
 		_abort_scan_resource_limit(result, report)
-	if (
-		not include_hidden
-		and not _get_bool(result, "_input_resource_limit_exceeded")
-	):
+	if (not include_hidden and not _get_bool(result, "_input_resource_limit_exceeded")):
 		_add_issue(
 			report,
 			"warning",
@@ -2216,14 +2500,16 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 			result,
 			report
 		)
-	var capture_status: String = (
-		"partial"
-		if _get_bool(result, "_scan_aborted") or not include_hidden
-		else "complete"
-	)
+	var capture_status: String = ("partial" if _get_bool(result, "_scan_aborted") or not include_hidden else "complete")
 	var final_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
 	if not _get_bool(result, "_input_resource_limit_exceeded") and final_root_states != initial_root_states:
-		_add_issue(report, "error", "capture_scope_identity_changed", root_path, "排除根或父链在捕获期间发生变化。")
+		_add_issue(
+			report,
+			"error",
+			"capture_scope_identity_changed",
+			root_path,
+			"排除根或父链在捕获期间发生变化。"
+		)
 		capture_status = "partial"
 	result["capture_status"] = capture_status
 	result["complete"] = capture_status == "complete"
@@ -2240,10 +2526,7 @@ func _scan_project(root_path: String, options: Dictionary, report: Dictionary) -
 		var files: PackedStringArray = _get_packed_string_array(result, "files")
 		files.sort()
 		result["files"] = files
-		var directories: PackedStringArray = _get_packed_string_array(
-			result,
-			"directories"
-		)
+		var directories: PackedStringArray = _get_packed_string_array(result, "directories")
 		directories.sort()
 		result["directories"] = directories
 	var _string_budget_removed: bool = result.erase("_inventory_string_bytes")
@@ -2272,24 +2555,56 @@ func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary
 	if _runtime_is_aborted():
 		return result
 	if _get_int(snapshot, "schema_version") != 2:
-		_add_issue(report, "error", "invalid_snapshot_schema", "schema_version", "项目结构 snapshot schema_version 必须为 2。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_schema",
+			"schema_version",
+			"项目结构 snapshot schema_version 必须为 2。"
+		)
 	if _get_string(snapshot, "kind") != "project_layout_snapshot":
-		_add_issue(report, "error", "invalid_snapshot_kind", "kind", "项目结构 snapshot kind 无效。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_kind",
+			"kind",
+			"项目结构 snapshot kind 无效。"
+		)
 	var root_path: String = _get_string(snapshot, "root_path")
 	if not _is_canonical_snapshot_root(root_path):
-		_add_issue(report, "error", "invalid_snapshot_root", "root_path", "项目结构 snapshot root_path 必须是规范 res:// 或绝对本地根。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_root",
+			"root_path",
+			"项目结构 snapshot root_path 必须是规范 res:// 或绝对本地根。"
+		)
 	if not snapshot.has("complete") or not snapshot["complete"] is bool:
-		_add_issue(report, "error", "invalid_snapshot_complete", "complete", "项目结构 snapshot complete 必须是 bool。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_complete",
+			"complete",
+			"项目结构 snapshot complete 必须是 bool。"
+		)
 	_validate_snapshot_capture_status(snapshot, report)
 	var scope_result: Dictionary = _validate_snapshot_scope(
 		snapshot,
 		root_path,
 		report
 	)
-	var directories: PackedStringArray = _snapshot_path_list(snapshot, "directories", report)
+	var directories: PackedStringArray = _snapshot_path_list(
+		snapshot,
+		"directories",
+		report
+	)
 	if _runtime_is_aborted():
 		return result
-	var files: PackedStringArray = _snapshot_path_list(snapshot, "files", report)
+	var files: PackedStringArray = _snapshot_path_list(
+		snapshot,
+		"files",
+		report
+	)
 	if _runtime_is_aborted():
 		return result
 	var directory_set: Dictionary = _make_string_set(directories, report)
@@ -2306,7 +2621,12 @@ func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary
 				file_path,
 				"同一路径不能同时声明为文件和目录。"
 			)
-	_validate_snapshot_parent_closure(directories, files, directory_set, report)
+	_validate_snapshot_parent_closure(
+		directories,
+		files,
+		directory_set,
+		report
+	)
 	if _runtime_is_aborted():
 		return result
 	_validate_snapshot_scope_inventory(
@@ -2317,28 +2637,28 @@ func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary
 	)
 	if _runtime_is_aborted():
 		return result
-	_append_snapshot_capture_issues(snapshot, result, report)
+	_append_snapshot_capture_issues(
+		snapshot,
+		result,
+		report
+	)
 	if _runtime_is_aborted():
 		return result
 	var capture_status: String = _get_string(snapshot, "capture_status")
-	if (
-		capture_status != "complete"
-		and _get_array(result, "capture_issues").is_empty()
-	):
+	if (capture_status != "complete" and _get_array(result, "capture_issues").is_empty()):
 		_add_issue(
 			report,
 			"error",
-			(
-				"snapshot_partial_without_capture_issue"
-				if capture_status == "partial"
-				else "snapshot_not_started_without_capture_issue"
-			),
+			("snapshot_partial_without_capture_issue" if capture_status == "partial" else "snapshot_not_started_without_capture_issue"),
 			"",
 			"partial 或 not_started snapshot 必须保留至少一条合法捕获原因。"
 		)
 	if (
 		capture_status == "not_started"
-		and (not directories.is_empty() or not files.is_empty())
+		and (
+			not directories.is_empty()
+			or not files.is_empty()
+		)
 	):
 		_add_issue(
 			report,
@@ -2352,11 +2672,7 @@ func _scan_from_snapshot(snapshot: Dictionary, report: Dictionary) -> Dictionary
 	result["directory_count"] = directories.size()
 	result["file_count"] = files.size()
 	var authoritative_scope: bool = _get_bool(scope_result, "authoritative")
-	result["capture_status"] = (
-		"partial"
-		if capture_status == "complete" and not authoritative_scope
-		else capture_status
-	)
+	result["capture_status"] = ("partial" if capture_status == "complete" and not authoritative_scope else capture_status)
 	result["root_observed"] = capture_status != "not_started"
 	result["scope"] = _get_dictionary(scope_result, "scope").duplicate(true)
 	result["complete"] = (
@@ -2394,21 +2710,15 @@ func _snapshot_path_list(
 	else:
 		var packed_value: PackedStringArray = raw_value
 		values = Array(packed_value)
-	var maximum_count: int = (
-		_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
-		if field_name == "files"
-		else _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
-	)
+	var maximum_count: int = (_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES if field_name == "files" else _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES)
 	if values.size() > maximum_count:
 		_add_issue(
 			report,
 			"error",
 			"snapshot_path_limit_reached",
 			field_name,
-			"项目结构 snapshot %s 超过 %d 条路径上限。" % [
-				field_name,
-				maximum_count,
-			]
+			"项目结构 snapshot %s 超过 %d 条路径上限。"
+			% [field_name, maximum_count,]
 		)
 		return result
 	for index: int in values.size():
@@ -2420,7 +2730,8 @@ func _snapshot_path_list(
 				report,
 				"error",
 				"invalid_snapshot_path",
-				"%s[%d]" % [field_name, index],
+				"%s[%d]"
+				% [field_name, index],
 				"项目结构 snapshot 路径必须是字符串。"
 			)
 			continue
@@ -2430,7 +2741,8 @@ func _snapshot_path_list(
 				report,
 				"error",
 				"invalid_snapshot_path",
-				"%s[%d]" % [field_name, index],
+				"%s[%d]"
+				% [field_name, index],
 				"项目结构 snapshot 路径必须是规范项目相对路径。"
 			)
 			continue
@@ -2457,11 +2769,23 @@ func _validate_snapshot_fields(snapshot: Dictionary, report: Dictionary) -> void
 		if not _evaluation_checkpoint(report):
 			return
 		if not key_value is String:
-			_add_issue(report, "error", "unsupported_snapshot_field", "", "项目结构 snapshot 字段名必须是字符串。")
+			_add_issue(
+				report,
+				"error",
+				"unsupported_snapshot_field",
+				"",
+				"项目结构 snapshot 字段名必须是字符串。"
+			)
 			continue
 		var key: String = key_value
 		if not _SNAPSHOT_FIELDS.has(key):
-			_add_issue(report, "error", "unsupported_snapshot_field", key, "项目结构 snapshot 包含不受支持的字段。")
+			_add_issue(
+				report,
+				"error",
+				"unsupported_snapshot_field",
+				key,
+				"项目结构 snapshot 包含不受支持的字段。"
+			)
 
 
 ## 要求支持的终态 capture_status，并在 complete 类型正确时校验二者一致。
@@ -2479,16 +2803,34 @@ func _validate_snapshot_capture_status(snapshot: Dictionary, report: Dictionary)
 		return
 	var status_value: Variant = snapshot["capture_status"]
 	if not status_value is String:
-		_add_issue(report, "error", "invalid_snapshot_capture_status", "capture_status", "capture_status 必须是字符串。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_capture_status",
+			"capture_status",
+			"capture_status 必须是字符串。"
+		)
 		return
 	var capture_status: String = status_value
 	if not _SNAPSHOT_CAPTURE_STATUSES.has(capture_status):
-		_add_issue(report, "error", "invalid_snapshot_capture_status", "capture_status", "capture_status 不属于支持的状态闭集。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_capture_status",
+			"capture_status",
+			"capture_status 不属于支持的状态闭集。"
+		)
 		return
 	if snapshot.get("complete") is bool:
 		var complete: bool = snapshot["complete"]
 		if complete != (capture_status == "complete"):
-			_add_issue(report, "error", "snapshot_capture_status_mismatch", "capture_status", "capture_status 与 complete 不一致。")
+			_add_issue(
+				report,
+				"error",
+				"snapshot_capture_status_mismatch",
+				"capture_status",
+				"capture_status 与 complete 不一致。"
+			)
 
 
 ## 验证闭合 project_source 范围和原始策略摘要；有效声明缺少隐藏项时降为 partial，篡改声明直接拒绝。
@@ -2499,10 +2841,7 @@ func _validate_snapshot_scope(
 	root_path: String,
 	report: Dictionary
 ) -> Dictionary:
-	var result: Dictionary = {
-		"scope": {},
-		"authoritative": false,
-	}
+	var result: Dictionary = { "scope": {}, "authoritative": false, }
 	if not snapshot.has("scope"):
 		_add_issue(
 			report,
@@ -2514,31 +2853,55 @@ func _validate_snapshot_scope(
 		return result
 	var scope_value: Variant = snapshot["scope"]
 	if not scope_value is Dictionary:
-		_add_issue(report, "error", "invalid_snapshot_scope", "scope", "snapshot scope 必须是 Dictionary。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope",
+			"scope",
+			"snapshot scope 必须是 Dictionary。"
+		)
 		return result
 	var scope: Dictionary = scope_value
-	if (
-		scope.size() != _SNAPSHOT_SCOPE_FIELDS.size()
-		or not _dictionary_has_only_fields(scope, _SNAPSHOT_SCOPE_FIELDS)
-	):
-		_add_issue(report, "error", "invalid_snapshot_scope", "scope", "snapshot scope 字段必须精确闭合。")
+	if (scope.size() != _SNAPSHOT_SCOPE_FIELDS.size() or not _dictionary_has_only_fields(scope, _SNAPSHOT_SCOPE_FIELDS)):
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope",
+			"scope",
+			"snapshot scope 字段必须精确闭合。"
+		)
 		return result
 
 	var valid: bool = true
 	if _get_string(scope, "kind") != "project_source":
-		_add_issue(report, "error", "invalid_snapshot_scope", "scope.kind", "snapshot scope kind 必须为 project_source。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope",
+			"scope.kind",
+			"snapshot scope kind 必须为 project_source。"
+		)
 		valid = false
 	if _get_string(scope, "root_path") != root_path:
-		_add_issue(report, "error", "snapshot_scope_root_mismatch", "scope.root_path", "snapshot scope root_path 必须与顶层 root_path 一致。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_scope_root_mismatch",
+			"scope.root_path",
+			"snapshot scope root_path 必须与顶层 root_path 一致。"
+		)
 		valid = false
 	var include_hidden_value: Variant = scope.get("include_hidden")
 	if not include_hidden_value is bool:
-		_add_issue(report, "error", "invalid_snapshot_scope", "scope.include_hidden", "scope.include_hidden 必须是 bool。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope",
+			"scope.include_hidden",
+			"scope.include_hidden 必须是 bool。"
+		)
 		valid = false
-	var excluded_prefixes: PackedStringArray = _snapshot_scope_excluded_prefixes(
-		scope,
-		report
-	)
+	var excluded_prefixes: PackedStringArray = _snapshot_scope_excluded_prefixes(scope, report)
 	for budget_field: String in [
 		"max_scanned_files",
 		"max_scanned_directories",
@@ -2551,12 +2914,24 @@ func _validate_snapshot_scope(
 			var budget: int = budget_value
 			if budget > 0:
 				continue
-		_add_issue(report, "error", "invalid_snapshot_scope", "scope.%s" % budget_field, "scope 捕获预算必须是正整数。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope",
+			"scope.%s" % budget_field,
+			"scope 捕获预算必须是正整数。"
+		)
 		valid = false
 	if not valid:
 		return result
 	if not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(_binding_from_scope(scope)):
-		_add_issue(report, "error", "invalid_snapshot_scope_binding", "scope", "snapshot 范围声明、来源映射、保护根或策略摘要不一致。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope_binding",
+			"scope",
+			"snapshot 范围声明、来源映射、保护根或策略摘要不一致。"
+		)
 		return result
 
 	var include_hidden: bool = false
@@ -2570,13 +2945,16 @@ func _validate_snapshot_scope(
 		_get_int(scope, "max_scan_depth")
 	)
 	normalized_scope["excluded_prefixes"] = Array(excluded_prefixes)
-	for field: String in ["capture_scope", "source_root", "protected_roots", "profile_source_path", "policy_digest"]:
+	for field: String in [
+		"capture_scope",
+		"source_root",
+		"protected_roots",
+		"profile_source_path",
+		"policy_digest",
+	]:
 		normalized_scope[field] = scope[field]
 	result["scope"] = normalized_scope
-	var authoritative: bool = (
-		include_hidden
-		and _capture_policy_matches(scope)
-	)
+	var authoritative: bool = (include_hidden and _capture_policy_matches(scope))
 	result["authoritative"] = authoritative
 	if not authoritative:
 		_add_issue(
@@ -2592,15 +2970,18 @@ func _validate_snapshot_scope(
 ## 保序读取唯一规范排除前缀，格式错误返回空列表；取消或预算中止可返回部分值，由外层状态判定。
 ## [br]
 ## @api private
-func _snapshot_scope_excluded_prefixes(
-	scope: Dictionary,
-	report: Dictionary
-) -> PackedStringArray:
+func _snapshot_scope_excluded_prefixes(scope: Dictionary, report: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var seen_prefixes: Dictionary = {}
 	var prefixes_value: Variant = scope.get("excluded_prefixes")
 	if not (prefixes_value is Array or prefixes_value is PackedStringArray):
-		_add_issue(report, "error", "invalid_snapshot_scope", "scope.excluded_prefixes", "scope.excluded_prefixes 必须是字符串数组。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_scope",
+			"scope.excluded_prefixes",
+			"scope.excluded_prefixes 必须是字符串数组。"
+		)
 		return result
 	var prefixes: Array = []
 	if prefixes_value is Array:
@@ -2614,14 +2995,23 @@ func _snapshot_scope_excluded_prefixes(
 			return result
 		var prefix_value: Variant = prefixes[index]
 		if not prefix_value is String:
-			_add_issue(report, "error", "invalid_snapshot_scope", "scope.excluded_prefixes[%d]" % index, "scope 排除前缀必须是字符串。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_snapshot_scope",
+				"scope.excluded_prefixes[%d]" % index,
+				"scope 排除前缀必须是字符串。"
+			)
 			return PackedStringArray()
 		var excluded_prefix: String = prefix_value
-		if (
-			not _is_canonical_snapshot_path(excluded_prefix)
-			or seen_prefixes.has(excluded_prefix)
-		):
-			_add_issue(report, "error", "invalid_snapshot_scope", "scope.excluded_prefixes[%d]" % index, "scope 排除前缀必须是唯一的规范相对路径。")
+		if (not _is_canonical_snapshot_path(excluded_prefix) or seen_prefixes.has(excluded_prefix)):
+			_add_issue(
+				report,
+				"error",
+				"invalid_snapshot_scope",
+				"scope.excluded_prefixes[%d]" % index,
+				"scope 排除前缀必须是唯一的规范相对路径。"
+			)
 			return PackedStringArray()
 		seen_prefixes[excluded_prefix] = true
 		var _append_prefix: bool = result.append(excluded_prefix)
@@ -2640,14 +3030,23 @@ func _validate_snapshot_scope_inventory(
 	if scope.is_empty():
 		return
 	if files.size() > _get_int(scope, "max_scanned_files"):
-		_add_issue(report, "error", "snapshot_scope_budget_mismatch", "files", "snapshot 文件数超过 scope 声明的捕获预算。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_scope_budget_mismatch",
+			"files",
+			"snapshot 文件数超过 scope 声明的捕获预算。"
+		)
 	if directories.size() > _get_int(scope, "max_scanned_directories"):
-		_add_issue(report, "error", "snapshot_scope_budget_mismatch", "directories", "snapshot 目录数超过 scope 声明的捕获预算。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_scope_budget_mismatch",
+			"directories",
+			"snapshot 目录数超过 scope 声明的捕获预算。"
+		)
 	var max_scan_depth: int = _get_int(scope, "max_scan_depth")
-	var excluded_prefixes: PackedStringArray = _get_string_list(
-		scope,
-		"excluded_prefixes"
-	)
+	var excluded_prefixes: PackedStringArray = _get_string_list(scope, "excluded_prefixes")
 	var include_hidden: bool = _get_bool(scope, "include_hidden")
 	for directory_path: String in directories:
 		if not _evaluation_checkpoint(report):
@@ -2685,11 +3084,29 @@ func _validate_snapshot_path_against_scope(
 	report: Dictionary
 ) -> void:
 	if is_directory and relative_path.split("/", false).size() > max_scan_depth:
-		_add_issue(report, "error", "snapshot_scope_budget_mismatch", relative_path, "snapshot 目录深度超过 scope 声明的捕获预算。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_scope_budget_mismatch",
+			relative_path,
+			"snapshot 目录深度超过 scope 声明的捕获预算。"
+		)
 	if _is_under_excluded_prefix(relative_path, excluded_prefixes):
-		_add_issue(report, "error", "snapshot_scope_exclusion_mismatch", relative_path, "snapshot 包含 scope 声明已排除的路径。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_scope_exclusion_mismatch",
+			relative_path,
+			"snapshot 包含 scope 声明已排除的路径。"
+		)
 	if not include_hidden and _path_contains_hidden_segment(relative_path):
-		_add_issue(report, "error", "snapshot_scope_hidden_mismatch", relative_path, "snapshot 包含 scope 声明未捕获的隐藏路径。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_scope_hidden_mismatch",
+			relative_path,
+			"snapshot 包含 scope 声明未捕获的隐藏路径。"
+		)
 
 
 ## 逐项要求文件和目录的直接父目录显式存在于目录集合，通过全部项共同保证父链闭合。
@@ -2704,11 +3121,19 @@ func _validate_snapshot_parent_closure(
 	for relative_path: String in directories:
 		if not _evaluation_checkpoint(report):
 			return
-		_validate_snapshot_parent(relative_path, directory_set, report)
+		_validate_snapshot_parent(
+			relative_path,
+			directory_set,
+			report
+		)
 	for relative_path: String in files:
 		if not _evaluation_checkpoint(report):
 			return
-		_validate_snapshot_parent(relative_path, directory_set, report)
+		_validate_snapshot_parent(
+			relative_path,
+			directory_set,
+			report
+		)
 
 
 ## 根级条目无需额外父项；其他条目缺少直接父目录时记录来源路径及缺失父路径。
@@ -2744,11 +3169,23 @@ func _append_snapshot_capture_issues(
 		return
 	var issues_value: Variant = snapshot["issues"]
 	if not issues_value is Array:
-		_add_issue(report, "error", "invalid_snapshot_issues", "issues", "项目结构 snapshot issues 必须是数组。")
+		_add_issue(
+			report,
+			"error",
+			"invalid_snapshot_issues",
+			"issues",
+			"项目结构 snapshot issues 必须是数组。"
+		)
 		return
 	var issues: Array = issues_value
 	if issues.size() > _MAX_SNAPSHOT_ISSUE_COUNT:
-		_add_issue(report, "error", "snapshot_issue_limit_reached", "issues", "项目结构 snapshot issues 超过数量上限。")
+		_add_issue(
+			report,
+			"error",
+			"snapshot_issue_limit_reached",
+			"issues",
+			"项目结构 snapshot issues 超过数量上限。"
+		)
 		return
 	var capture_issues: Array = _get_array(result, "capture_issues")
 	for issue_index: int in issues.size():
@@ -2756,21 +3193,53 @@ func _append_snapshot_capture_issues(
 			return
 		var issue_value: Variant = issues[issue_index]
 		if not issue_value is Dictionary:
-			_add_issue(report, "error", "invalid_snapshot_issue", "issues[%d]" % issue_index, "snapshot issue 必须是 Dictionary。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_snapshot_issue",
+				"issues[%d]" % issue_index,
+				"snapshot issue 必须是 Dictionary。"
+			)
 			continue
 		var issue: Dictionary = issue_value
 		if not _dictionary_has_only_fields(issue, _SNAPSHOT_ISSUE_FIELDS):
-			_add_issue(report, "error", "invalid_snapshot_issue", "issues[%d]" % issue_index, "snapshot issue 包含未知字段。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_snapshot_issue",
+				"issues[%d]" % issue_index,
+				"snapshot issue 包含未知字段。"
+			)
 			continue
 		var issue_kind: String = _get_string(issue, "kind")
 		var issue_path: String = _get_string(issue, "path")
 		var issue_message: String = _get_string(issue, "message")
 		var issue_severity: String = _get_string(issue, "severity")
-		if issue_kind.is_empty() or issue_message.is_empty() or not ["error", "warning", "info"].has(issue_severity):
-			_add_issue(report, "error", "invalid_snapshot_issue", "issues[%d]" % issue_index, "snapshot issue 缺少合法 severity、kind 或 message。")
+		if (
+			issue_kind.is_empty()
+			or issue_message.is_empty()
+			or not [
+				"error",
+				"warning",
+				"info",
+			].has(issue_severity)
+		):
+			_add_issue(
+				report,
+				"error",
+				"invalid_snapshot_issue",
+				"issues[%d]" % issue_index,
+				"snapshot issue 缺少合法 severity、kind 或 message。"
+			)
 			continue
 		if not issue_path.is_empty() and not _is_canonical_snapshot_path(issue_path):
-			_add_issue(report, "error", "invalid_snapshot_issue", "issues[%d].path" % issue_index, "snapshot issue path 必须为空或规范项目相对路径。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_snapshot_issue",
+				"issues[%d].path" % issue_index,
+				"snapshot issue path 必须为空或规范项目相对路径。"
+			)
 			continue
 		var normalized_issue: Dictionary = {
 			"severity": issue_severity,
@@ -2780,11 +3249,7 @@ func _append_snapshot_capture_issues(
 		}
 		capture_issues.append(normalized_issue)
 		if _get_bool(snapshot, "complete"):
-			var complete_issue_kind: String = (
-				"snapshot_complete_with_capture_error"
-				if issue_severity == "error"
-				else "snapshot_complete_with_capture_issue"
-			)
+			var complete_issue_kind: String = ("snapshot_complete_with_capture_error" if issue_severity == "error" else "snapshot_complete_with_capture_issue")
 			_add_issue(
 				report,
 				"error",
@@ -2808,10 +3273,7 @@ func _append_snapshot_capture_issues(
 ## [br]
 ## @api private
 ## [br]
-func _dictionary_has_only_fields(
-	value: Dictionary,
-	allowed_fields: PackedStringArray
-) -> bool:
+func _dictionary_has_only_fields(value: Dictionary, allowed_fields: PackedStringArray) -> bool:
 	for key_value: Variant in value.keys():
 		if not key_value is String:
 			return false
@@ -2833,18 +3295,25 @@ func _make_project_source_scope(
 ) -> Dictionary:
 	var binding: Dictionary = _capture_binding
 	if binding.is_empty():
-		var default_options: Dictionary = {"source_root": root_path if root_path.is_absolute_path() else "res://"}
-		var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare({}, root_path, default_options)
+		var default_options: Dictionary = { "source_root": root_path if root_path.is_absolute_path() else "res://" }
+		var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(
+			{},
+			root_path,
+			default_options
+		)
 		binding = _get_dictionary(prepared, "binding")
 	var scope: Dictionary = binding.duplicate(true)
-	scope.merge({
-		"kind": "project_source",
-		"root_path": root_path,
-		"include_hidden": include_hidden,
-		"max_scanned_files": max_scanned_files,
-		"max_scanned_directories": max_scanned_directories,
-		"max_scan_depth": max_scan_depth,
-	}, true)
+	scope.merge(
+		{
+			"kind": "project_source",
+			"root_path": root_path,
+			"include_hidden": include_hidden,
+			"max_scanned_files": max_scanned_files,
+			"max_scanned_directories": max_scanned_directories,
+			"max_scan_depth": max_scan_depth,
+		},
+		true
+	)
 	return scope
 
 
@@ -2853,7 +3322,15 @@ func _make_project_source_scope(
 ## @api private
 func _binding_from_scope(scope: Dictionary) -> Dictionary:
 	var binding: Dictionary = {}
-	for field: String in ["capture_scope", "source_root", "root_path", "protected_roots", "profile_source_path", "excluded_prefixes", "policy_digest"]:
+	for field: String in [
+		"capture_scope",
+		"source_root",
+		"root_path",
+		"protected_roots",
+		"profile_source_path",
+		"excluded_prefixes",
+		"policy_digest",
+	]:
 		if not scope.has(field):
 			return {}
 		binding[field] = scope[field]
@@ -2866,7 +3343,13 @@ func _binding_from_scope(scope: Dictionary) -> Dictionary:
 func _capture_policy_matches(scope: Dictionary) -> bool:
 	if _capture_binding.is_empty():
 		return false
-	for field: String in ["capture_scope", "source_root", "root_path", "profile_source_path", "excluded_prefixes"]:
+	for field: String in [
+		"capture_scope",
+		"source_root",
+		"root_path",
+		"profile_source_path",
+		"excluded_prefixes",
+	]:
 		if scope.get(field) != _capture_binding.get(field):
 			return false
 	return true
@@ -2875,11 +3358,26 @@ func _capture_policy_matches(scope: Dictionary) -> bool:
 ## 按唯一准入策略产生本次 binding，失败保持报告不完整。
 ## [br]
 ## @api private
-func _prepare_capture_scope(profile: Dictionary, root_path: String, options: Dictionary, report: Dictionary) -> void:
-	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(profile, root_path, options)
+func _prepare_capture_scope(
+	profile: Dictionary,
+	root_path: String,
+	options: Dictionary,
+	report: Dictionary
+) -> void:
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(
+		profile,
+		root_path,
+		options
+	)
 	if not _get_bool(prepared, "success"):
 		_capture_binding = {}
-		_add_issue(report, "error", "capture_scope_invalid", "capture_scope", _get_string(prepared, "error"))
+		_add_issue(
+			report,
+			"error",
+			"capture_scope_invalid",
+			"capture_scope",
+			_get_string(prepared, "error")
+		)
 		return
 	_capture_binding = _get_dictionary(prepared, "binding")
 
@@ -2890,7 +3388,11 @@ func _prepare_capture_scope(profile: Dictionary, root_path: String, options: Dic
 func _snapshot_binding_options(snapshot: Dictionary) -> Dictionary:
 	var scope: Dictionary = _get_dictionary(snapshot, "scope")
 	var options: Dictionary = {}
-	for field: String in ["source_root", "capture_scope", "profile_source_path"]:
+	for field: String in [
+		"source_root",
+		"capture_scope",
+		"profile_source_path",
+	]:
 		if scope.has(field):
 			options[field] = scope[field]
 	return options
@@ -2900,10 +3402,7 @@ func _snapshot_binding_options(snapshot: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _make_string_set(
-	values: PackedStringArray,
-	report: Dictionary = {}
-) -> Dictionary:
+func _make_string_set(values: PackedStringArray, report: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {}
 	for value: String in values:
 		if not report.is_empty() and not _evaluation_checkpoint(report):
@@ -2915,15 +3414,9 @@ func _make_string_set(
 ## 以完整路径段匹配排除前缀本身或后代，避免匹配仅名称开头相同的路径。
 ## [br]
 ## @api private
-func _is_under_excluded_prefix(
-	relative_path: String,
-	excluded_prefixes: PackedStringArray
-) -> bool:
+func _is_under_excluded_prefix(relative_path: String, excluded_prefixes: PackedStringArray) -> bool:
 	for excluded_prefix: String in excluded_prefixes:
-		if (
-			relative_path == excluded_prefix
-			or relative_path.begins_with("%s/" % excluded_prefix)
-		):
+		if (relative_path == excluded_prefix or relative_path.begins_with("%s/" % excluded_prefix)):
 			return true
 	return false
 
@@ -2964,9 +3457,14 @@ func _is_canonical_snapshot_path(relative_path: String) -> bool:
 	if relative_path.ends_with("/") or relative_path.contains(":"):
 		return false
 	for part: String in relative_path.split("/", true):
-		if part.is_empty() or part == "." or part == "..":
+		if (
+			part.is_empty()
+			or part == "."
+			or part == ".."
+		):
 			return false
 	return true
+
 
 ## 在打开目录前后检查链接边界，递归枚举时累计数量和文本预算；中止保留已捕获部分，已开始的枚举最后关闭。
 ## [br]
@@ -2985,7 +3483,13 @@ func _scan_directory(
 	if _get_bool(result, "_scan_aborted"):
 		return
 	if depth > max_scan_depth:
-		_abort_scan(result, report, "scan_depth_limit_reached", root_path, "项目结构扫描超过目录深度上限，无法证明项目结构有效。")
+		_abort_scan(
+			result,
+			report,
+			"scan_depth_limit_reached",
+			root_path,
+			"项目结构扫描超过目录深度上限，无法证明项目结构有效。"
+		)
 		return
 
 	var current_path: String = root_path if relative_path.is_empty() else root_path.path_join(relative_path)
@@ -3000,7 +3504,13 @@ func _scan_directory(
 		return
 	var directory: DirAccess = DirAccess.open(ProjectSettings.globalize_path(current_path))
 	if directory == null:
-		_abort_scan(result, report, "directory_scan_failed", current_path, "目录无法扫描，无法证明项目结构有效。")
+		_abort_scan(
+			result,
+			report,
+			"directory_scan_failed",
+			current_path,
+			"目录无法扫描，无法证明项目结构有效。"
+		)
 		return
 	if _path_crosses_link(current_path):
 		_abort_scan(
@@ -3014,7 +3524,13 @@ func _scan_directory(
 	directory.include_hidden = include_hidden
 	var list_begin_result: Error = directory.list_dir_begin()
 	if list_begin_result != OK:
-		_abort_scan(result, report, "directory_scan_failed", current_path, "目录无法枚举，无法证明项目结构有效。")
+		_abort_scan(
+			result,
+			report,
+			"directory_scan_failed",
+			current_path,
+			"目录无法枚举，无法证明项目结构有效。"
+		)
 		return
 
 	var entry_name: String = directory.get_next()
@@ -3022,17 +3538,21 @@ func _scan_directory(
 		if not _evaluation_checkpoint(report):
 			result["_scan_aborted"] = true
 			break
-		if entry_name == "." or entry_name == ".." or (not include_hidden and entry_name.begins_with(".")):
+		if (
+			entry_name == "."
+			or entry_name == ".."
+			or (
+				not include_hidden
+				and entry_name.begins_with(".")
+			)
+		):
 			entry_name = directory.get_next()
 			continue
 		if not _scan_joined_path_length_is_admissible(relative_path, entry_name):
 			_abort_scan_resource_limit(result, report)
 			break
 		var entry_path: String = _join_relative_path(relative_path, entry_name)
-		if (
-			entry_path.length()
-			> _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH
-		):
+		if entry_path.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 			_abort_scan_resource_limit(result, report)
 			break
 		if _is_under_excluded_prefix(
@@ -3052,7 +3572,13 @@ func _scan_directory(
 			break
 		if directory.current_is_dir():
 			if _get_int(result, "directory_count") >= max_scanned_directories:
-				_abort_scan(result, report, "scan_directory_limit_reached", root_path, "项目结构扫描超过目录数量上限，无法证明项目结构有效。")
+				_abort_scan(
+					result,
+					report,
+					"scan_directory_limit_reached",
+					root_path,
+					"项目结构扫描超过目录数量上限，无法证明项目结构有效。"
+				)
 				break
 			if not _reserve_scan_inventory_path(result, entry_path):
 				_abort_scan_resource_limit(result, report)
@@ -3074,7 +3600,13 @@ func _scan_directory(
 			)
 		else:
 			if _get_int(result, "file_count") >= max_scanned_files:
-				_abort_scan(result, report, "scan_file_limit_reached", root_path, "项目结构扫描超过文件数量上限，无法证明项目结构有效。")
+				_abort_scan(
+					result,
+					report,
+					"scan_file_limit_reached",
+					root_path,
+					"项目结构扫描超过文件数量上限，无法证明项目结构有效。"
+				)
 				break
 			if not _reserve_scan_inventory_path(result, entry_path):
 				_abort_scan_resource_limit(result, report)
@@ -3119,19 +3651,11 @@ func _initial_scan_inventory_string_bytes(root_path: String) -> int:
 ## 在创建拼接字符串前按字符数检查父路径、必要分隔符和条目名的总长度。
 ## [br]
 ## @api private
-func _scan_joined_path_length_is_admissible(
-	relative_path: String,
-	entry_name: String
-) -> bool:
+func _scan_joined_path_length_is_admissible(relative_path: String, entry_name: String) -> bool:
 	if entry_name.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 		return false
 	var separator_length: int = 0 if relative_path.is_empty() else 1
-	return (
-		relative_path.length()
-		<= _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH
-		- separator_length
-		- entry_name.length()
-	)
+	return (relative_path.length() <= _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH - separator_length - entry_name.length())
 
 
 ## 检查相对路径字符上限，再向库存文本总预算预留该路径。
@@ -3159,13 +3683,7 @@ func _reserve_scan_inventory_text(
 		return false
 	var consumed_bytes: int = _get_int(result, "_inventory_string_bytes")
 	var text_bytes: int = text.to_utf8_buffer().size()
-	if (
-		consumed_bytes < 0
-		or text_bytes > (
-			_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES
-			- consumed_bytes
-		)
-	):
+	if (consumed_bytes < 0 or (text_bytes > (_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - consumed_bytes))):
 		return false
 	result["_inventory_string_bytes"] = consumed_bytes + text_bytes
 	return true
@@ -3200,9 +3718,7 @@ func _abort_scan_resource_limit(result: Dictionary, report: Dictionary) -> void:
 ## [br]
 ## @api private
 func _replace_report_with_input_resource_terminal(report: Dictionary) -> void:
-	var terminal_report: Dictionary = _make_input_admission_report(
-		_ADMISSION_RESOURCE_LIMIT
-	)
+	var terminal_report: Dictionary = _make_input_admission_report(_ADMISSION_RESOURCE_LIMIT)
 	report.clear()
 	for key_value: Variant in terminal_report.keys():
 		report[key_value] = terminal_report[key_value]
@@ -3221,8 +3737,20 @@ func _abort_scan(
 	if _get_bool(result, "_scan_aborted"):
 		return
 	result["_scan_aborted"] = true
-	_append_capture_issue(result, "error", kind, path, message)
-	_add_issue(report, "error", kind, path, message)
+	_append_capture_issue(
+		result,
+		"error",
+		kind,
+		path,
+		message
+	)
+	_add_issue(
+		report,
+		"error",
+		kind,
+		path,
+		message
+	)
 
 
 ## 向扫描结果已有的捕获问题数组追加 severity、kind、path、message；不在此重新校验字段。
@@ -3236,24 +3764,36 @@ func _append_capture_issue(
 	message: String
 ) -> void:
 	var capture_issues: Array = _get_array(result, "capture_issues")
-	capture_issues.append({
-		"severity": severity,
-		"kind": kind,
-		"path": path,
-		"message": message,
-	})
+	capture_issues.append(
+		{
+			"severity": severity,
+			"kind": kind,
+			"path": path,
+			"message": message,
+		}
+	)
 
 
 ## 检查必需 zone 根及范围内未排除文件的扩展名，所有规则使用同一冻结库存。
 ## [br]
 ## @api private
-func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) -> void:
+func _validate_zones(
+	profile: Dictionary,
+	scan: Dictionary,
+	report: Dictionary
+) -> void:
 	var zones: Array = _get_array(profile, "zones")
 	for zone_value: Variant in zones:
 		if not _evaluation_checkpoint(report):
 			return
 		if not (zone_value is Dictionary):
-			_add_issue(report, "error", "invalid_zone", "", "项目结构 profile zones 条目必须是 Dictionary。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_zone",
+				"",
+				"项目结构 profile zones 条目必须是 Dictionary。"
+			)
 			continue
 
 		var zone: Dictionary = zone_value
@@ -3264,7 +3804,11 @@ func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) 
 				return
 			if relative_root.is_empty():
 				continue
-			if not _path_exists_in_scan(relative_root, scan, report):
+			if not _path_exists_in_scan(
+				relative_root,
+				scan,
+				report
+			):
 				_add_issue(
 					report,
 					severity,
@@ -3279,23 +3823,48 @@ func _validate_zones(profile: Dictionary, scan: Dictionary, report: Dictionary) 
 		for file_path: String in _get_packed_string_array(scan, "files"):
 			if not _evaluation_checkpoint(report):
 				return
-			if not _is_under_any_root(file_path, roots, report) or _matches_any_pattern(file_path, exclude, report):
+			if not _is_under_any_root(
+				file_path,
+				roots,
+				report
+			) or _matches_any_pattern(
+				file_path,
+				exclude,
+				report
+			):
 				continue
 			var extension: String = _file_extension(file_path)
 			if not allow_extensions.is_empty() and not allow_extensions.has(extension):
-				_add_issue(report, severity, "zone_extension_not_allowed", file_path, "文件扩展名不在 zone 允许集合中。", {"zone_id": _get_string(zone, "id"), "extension": extension})
+				_add_issue(
+					report,
+					severity,
+					"zone_extension_not_allowed",
+					file_path,
+					"文件扩展名不在 zone 允许集合中。",
+					{ "zone_id": _get_string(zone, "id"), "extension": extension }
+				)
 			if deny_extensions.has(extension):
-				_add_issue(report, severity, "zone_extension_denied", file_path, "文件扩展名被 zone 禁止。", {"zone_id": _get_string(zone, "id"), "extension": extension})
+				_add_issue(
+					report,
+					severity,
+					"zone_extension_denied",
+					file_path,
+					"文件扩展名被 zone 禁止。",
+					{ "zone_id": _get_string(zone, "id"), "extension": extension }
+				)
 
 
 ## 浅复制扫描结构并附共享根契约索引，按注册表逐规则执行；中止的规则不追加完成摘要。
 ## [br]
 ## @api private
-func _validate_rules(profile: Dictionary, scan: Dictionary, report: Dictionary, rule_registry: Dictionary) -> void:
+func _validate_rules(
+	profile: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_registry: Dictionary
+) -> void:
 	var execution_scan: Dictionary = scan.duplicate()
-	execution_scan["_feature_contract_rules_by_root"] = (
-		_index_feature_contract_rules_by_root(profile, report)
-	)
+	execution_scan["_feature_contract_rules_by_root"] = _index_feature_contract_rules_by_root(profile, report)
 	if _runtime_is_aborted():
 		return
 	var rules: Array = _get_array(profile, "rules")
@@ -3303,7 +3872,13 @@ func _validate_rules(profile: Dictionary, scan: Dictionary, report: Dictionary, 
 		if not _evaluation_checkpoint(report):
 			return
 		if not (rule_value is Dictionary):
-			_add_issue(report, "error", "invalid_rule", "", "项目结构 profile rules 条目必须是 Dictionary。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_rule",
+				"",
+				"项目结构 profile rules 条目必须是 Dictionary。"
+			)
 			continue
 
 		var rule: Dictionary = rule_value
@@ -3336,10 +3911,7 @@ func _validate_rules(profile: Dictionary, scan: Dictionary, report: Dictionary, 
 ## 按精确根路径收集功能模块契约引用，保留规则顺序，供共享根允许子目录取并集。
 ## [br]
 ## @api private
-func _index_feature_contract_rules_by_root(
-	profile: Dictionary,
-	report: Dictionary
-) -> Dictionary:
+func _index_feature_contract_rules_by_root(profile: Dictionary, report: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for rule_value: Variant in _get_array(profile, "rules"):
 		if not _evaluation_checkpoint(report):
@@ -3362,7 +3934,12 @@ func _index_feature_contract_rules_by_root(
 ## 对路径存在规则使用库存文件与目录，any 仅要求其中一个路径存在。
 ## [br]
 ## @api private
-func _validate_path_exists(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_path_exists(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var paths: PackedStringArray = _get_string_list(rule, "paths")
 	var any_path: bool = _get_bool(rule, "any")
 	var found: bool = false
@@ -3370,71 +3947,174 @@ func _validate_path_exists(rule: Dictionary, scan: Dictionary, report: Dictionar
 		if not _evaluation_checkpoint(report):
 			return
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
-		var exists: bool = _path_exists_in_scan(path, scan, report)
+		var exists: bool = _path_exists_in_scan(
+			path,
+			scan,
+			report
+		)
 		found = found or exists
 		if not exists and not any_path:
-			_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "path_missing", path, "声明的路径不存在。")
+			_add_rule_issue(
+				report,
+				rule_result,
+				_get_string(rule, "severity"),
+				"path_missing",
+				path,
+				"声明的路径不存在。"
+			)
 	if any_path and not found:
-		_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "any_path_missing", "", "声明的路径均不存在。", {"paths": Array(paths)})
+		_add_rule_issue(
+			report,
+			rule_result,
+			_get_string(rule, "severity"),
+			"any_path_missing",
+			"",
+			"声明的路径均不存在。",
+			{ "paths": Array(paths) }
+		)
 
 
 ## 对过滤选中的文件检查它们位于至少一个声明根内；roots 不参与选择过滤。
 ## [br]
 ## @api private
-func _validate_files_under_roots(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_files_under_roots(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var roots: PackedStringArray = _get_string_list(rule, "roots")
 	for file_path: String in _get_packed_string_array(scan, "files"):
 		if not _evaluation_checkpoint(report):
 			return
-		if not _file_is_selected(file_path, rule, report, true):
+		if not _file_is_selected(
+			file_path,
+			rule,
+			report,
+			true
+		):
 			continue
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
-		if not _is_under_any_root(file_path, roots, report):
-			_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "file_outside_roots", file_path, "选中的文件必须位于声明根内。", {"roots": Array(roots)})
+		if not _is_under_any_root(
+			file_path,
+			roots,
+			report
+		):
+			_add_rule_issue(
+				report,
+				rule_result,
+				_get_string(rule, "severity"),
+				"file_outside_roots",
+				file_path,
+				"选中的文件必须位于声明根内。",
+				{ "roots": Array(roots) }
+			)
 
 
 ## 对根内选中文件执行允许扩展名集合。
 ## [br]
 ## @api private
-func _validate_extension_allowlist(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
-	_validate_extension_set(rule, scan, report, rule_result, true)
+func _validate_extension_allowlist(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
+	_validate_extension_set(
+		rule,
+		scan,
+		report,
+		rule_result,
+		true
+	)
 
 
 ## 对根内选中文件执行禁止扩展名集合。
 ## [br]
 ## @api private
-func _validate_extension_denylist(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
-	_validate_extension_set(rule, scan, report, rule_result, false)
+func _validate_extension_denylist(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
+	_validate_extension_set(
+		rule,
+		scan,
+		report,
+		rule_result,
+		false
+	)
 
 
 ## 扩展名规则只用 include/exclude 过滤，extensions 是判断集合，不能提前过滤掉违规文件。
 ## [br]
 ## @api private
-func _validate_extension_set(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary, allowlist: bool) -> void:
+func _validate_extension_set(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary,
+	allowlist: bool
+) -> void:
 	var roots: PackedStringArray = _get_string_list(rule, "roots")
 	var extensions: PackedStringArray = _get_string_list(rule, "extensions")
 	for file_path: String in _get_packed_string_array(scan, "files"):
 		if not _evaluation_checkpoint(report):
 			return
-		if not _is_under_any_root(file_path, roots, report) or not _file_is_selected(file_path, rule, report, false):
+		if not _is_under_any_root(
+			file_path,
+			roots,
+			report
+		) or not _file_is_selected(
+			file_path,
+			rule,
+			report,
+			false
+		):
 			continue
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
 		var extension: String = _file_extension(file_path)
 		if extensions.has(extension) != allowlist:
-			_add_rule_issue(report, rule_result, _get_string(rule, "severity"), "extension_not_allowed" if allowlist else "extension_denied", file_path, "文件扩展名违反规则。", {"extension": extension})
+			_add_rule_issue(
+				report,
+				rule_result,
+				_get_string(rule, "severity"),
+				"extension_not_allowed" if allowlist else "extension_denied",
+				file_path,
+				"文件扩展名违反规则。",
+				{ "extension": extension }
+			)
 
 
 ## 按严格 include/exclude 及可选扩展名选择文件，共用同一 glob 实现与工作预算。
 ## [br]
 ## @api private
-func _file_is_selected(file_path: String, rule: Dictionary, report: Dictionary, filter_extensions: bool) -> bool:
+func _file_is_selected(
+	file_path: String,
+	rule: Dictionary,
+	report: Dictionary,
+	filter_extensions: bool
+) -> bool:
 	var include: PackedStringArray = _get_string_list(rule, "include")
-	if not include.is_empty() and not _matches_any_pattern(file_path, include, report):
+	if not include.is_empty() and not _matches_any_pattern(
+		file_path,
+		include,
+		report
+	):
 		return false
-	if _matches_any_pattern(file_path, _get_string_list(rule, "exclude"), report):
+	if _matches_any_pattern(
+		file_path,
+		_get_string_list(rule, "exclude"),
+		report
+	):
 		return false
 	var extensions: PackedStringArray = _get_string_list(rule, "extensions")
-	return not filter_extensions or extensions.is_empty() or extensions.has(_file_extension(file_path))
+	return (
+		not filter_extensions
+		or extensions.is_empty()
+		or extensions.has(_file_extension(file_path))
+	)
 
 
 ## 返回最后一个非首位点后的规范小写扩展名；无扩展名和单独 dotfile 返回空串。
@@ -3449,7 +4129,12 @@ func _file_extension(file_path: String) -> String:
 ## 只检查项目根直接文件，未列入允许文件集合的条目按规则严重性记录问题。
 ## [br]
 ## @api private
-func _validate_forbid_root_files(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_forbid_root_files(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var allowed_files: PackedStringArray = _get_string_list(rule, "allowed_files")
 	var allowed_file_set: Dictionary = _make_string_set(allowed_files, report)
 	if _runtime_is_aborted():
@@ -3476,12 +4161,24 @@ func _validate_forbid_root_files(rule: Dictionary, scan: Dictionary, report: Dic
 ## 编译规则正则，对范围内且未排除的文件及目录按 path、name 或 stem 检查，并累计实际检查数量。
 ## [br]
 ## @api private
-func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_naming_convention(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var pattern: String = _get_string(rule, "pattern")
 	var target: String = _get_string(rule, "target")
 	var expression: RegEx = _compile_regex(pattern)
 	if expression == null:
-		_add_rule_issue(report, rule_result, "error", "invalid_naming_pattern", "", "路径命名规则正则无法编译。")
+		_add_rule_issue(
+			report,
+			rule_result,
+			"error",
+			"invalid_naming_pattern",
+			"",
+			"路径命名规则正则无法编译。"
+		)
 		return
 
 	var severity: String = _get_string(rule, "severity")
@@ -3493,9 +4190,17 @@ func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dic
 	for relative_path: String in all_paths:
 		if not _evaluation_checkpoint(report):
 			return
-		if not _is_under_any_root(relative_path, roots, report):
+		if not _is_under_any_root(
+			relative_path,
+			roots,
+			report
+		):
 			continue
-		if _matches_any_pattern(relative_path, exclude, report):
+		if _matches_any_pattern(
+			relative_path,
+			exclude,
+			report
+		):
 			continue
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
 		var target_value: String = _naming_target_value(relative_path, target)
@@ -3507,7 +4212,11 @@ func _validate_naming_convention(rule: Dictionary, scan: Dictionary, report: Dic
 				"path_naming_mismatch",
 				relative_path,
 				"项目路径不符合命名约定：%s。" % relative_path,
-				{ "pattern": pattern, "target": target, "target_value": target_value }
+				{
+					"pattern": pattern,
+					"target": target,
+					"target_value": target_value,
+				}
 			)
 
 
@@ -3525,12 +4234,24 @@ func _naming_target_value(relative_path: String, target: String) -> String:
 ## 对各根的直接功能目录检查 ID、必需子目录及根文件；共享根允许子目录取契约并集，其余问题仍归属来源规则。
 ## [br]
 ## @api private
-func _validate_feature_module_contract(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_feature_module_contract(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var severity: String = _get_string(rule, "severity")
 	var feature_id_pattern: String = _get_string(rule, "feature_id_pattern")
 	var expression: RegEx = _compile_regex(feature_id_pattern)
 	if expression == null:
-		_add_rule_issue(report, rule_result, "error", "invalid_feature_id_pattern", "", "Feature ID 正则无法编译。")
+		_add_rule_issue(
+			report,
+			rule_result,
+			"error",
+			"invalid_feature_id_pattern",
+			"",
+			"Feature ID 正则无法编译。"
+		)
 		return
 
 	var roots: PackedStringArray = _get_string_list(rule, "roots")
@@ -3549,7 +4270,11 @@ func _validate_feature_module_contract(rule: Dictionary, scan: Dictionary, repor
 		)
 		if _runtime_is_aborted():
 			return
-		var feature_ids: PackedStringArray = _get_direct_child_directories(scan, root, report)
+		var feature_ids: PackedStringArray = _get_direct_child_directories(
+			scan,
+			root,
+			report
+		)
 		for feature_id: String in feature_ids:
 			if not _evaluation_checkpoint(report):
 				return
@@ -3565,9 +4290,24 @@ func _validate_feature_module_contract(rule: Dictionary, scan: Dictionary, repor
 					"Feature 目录名不符合 profile 约定：%s。" % feature_id,
 					{ "pattern": feature_id_pattern }
 				)
-			_validate_feature_subdirs(rule, scan, report, rule_result, feature_root, required_subdirs, allowed_subdirs, severity)
+			_validate_feature_subdirs(
+				rule,
+				scan,
+				report,
+				rule_result,
+				feature_root,
+				required_subdirs,
+				allowed_subdirs,
+				severity
+			)
 			if not _get_bool(rule, "allow_root_files"):
-				_validate_feature_root_files(scan, report, rule_result, feature_root, severity)
+				_validate_feature_root_files(
+					scan,
+					report,
+					rule_result,
+					feature_root,
+					severity
+				)
 
 
 ## 合并同根所有契约的允许子目录并保序去重；没有有效索引时复制回退集合，中止时可能返回部分并集。
@@ -3618,16 +4358,20 @@ func _validate_feature_subdirs(
 	allowed_subdirs: PackedStringArray,
 	severity: String
 ) -> void:
-	var child_dirs: PackedStringArray = _get_direct_child_directories(scan, feature_root, report)
-	if _runtime_is_aborted():
-		return
-	var directory_set: Dictionary = _make_string_set(_get_packed_string_array(scan, "directories"), report)
-	if _runtime_is_aborted():
-		return
-	var allowed_subdir_set: Dictionary = _make_string_set(
-		allowed_subdirs,
+	var child_dirs: PackedStringArray = _get_direct_child_directories(
+		scan,
+		feature_root,
 		report
 	)
+	if _runtime_is_aborted():
+		return
+	var directory_set: Dictionary = _make_string_set(
+		_get_packed_string_array(scan, "directories"),
+		report
+	)
+	if _runtime_is_aborted():
+		return
+	var allowed_subdir_set: Dictionary = _make_string_set(allowed_subdirs, report)
 	if _runtime_is_aborted():
 		return
 	for required_subdir: String in required_subdirs:
@@ -3689,7 +4433,12 @@ func _validate_feature_root_files(
 ## 只检查命中 include 模式的文件及目录，要求它们位于声明根内并累计命中数量。
 ## [br]
 ## @api private
-func _validate_generated_boundary(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_generated_boundary(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var include: PackedStringArray = _get_string_list(rule, "include")
 	var roots: PackedStringArray = _get_string_list(rule, "roots")
 	var severity: String = _get_string(rule, "severity")
@@ -3699,10 +4448,18 @@ func _validate_generated_boundary(rule: Dictionary, scan: Dictionary, report: Di
 	for relative_path: String in all_paths:
 		if not _evaluation_checkpoint(report):
 			return
-		if not _matches_any_pattern(relative_path, include, report):
+		if not _matches_any_pattern(
+			relative_path,
+			include,
+			report
+		):
 			continue
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
-		if not _is_under_any_root(relative_path, roots, report):
+		if not _is_under_any_root(
+			relative_path,
+			roots,
+			report
+		):
 			_add_rule_issue(
 				report,
 				rule_result,
@@ -3716,14 +4473,23 @@ func _validate_generated_boundary(rule: Dictionary, scan: Dictionary, report: Di
 ## 按根统计含后代的文件数量，超出规则上限时记录数量证据；中止统计不发布该根结论。
 ## [br]
 ## @api private
-func _validate_bucket_size(rule: Dictionary, scan: Dictionary, report: Dictionary, rule_result: Dictionary) -> void:
+func _validate_bucket_size(
+	rule: Dictionary,
+	scan: Dictionary,
+	report: Dictionary,
+	rule_result: Dictionary
+) -> void:
 	var max_files: int = _get_int(rule, "max_files")
 	var severity: String = _get_string(rule, "severity")
 	var roots: PackedStringArray = _get_string_list(rule, "roots")
 	for root: String in roots:
 		if not _evaluation_checkpoint(report):
 			return
-		var count: int = _count_files_under_root(scan, root, report)
+		var count: int = _count_files_under_root(
+			scan,
+			root,
+			report
+		)
 		if _runtime_is_aborted():
 			return
 		rule_result["checked_count"] = _get_int(rule_result, "checked_count") + 1
@@ -3734,7 +4500,8 @@ func _validate_bucket_size(rule: Dictionary, scan: Dictionary, report: Dictionar
 				severity,
 				"bucket_size_exceeded",
 				root,
-				"大桶目录文件数量超过上限：%d > %d。" % [count, max_files],
+				"大桶目录文件数量超过上限：%d > %d。"
+				% [count, max_files],
 				{ "file_count": count, "max_files": max_files }
 			)
 
@@ -3756,7 +4523,7 @@ func _make_rule_result(rule: Dictionary) -> Dictionary:
 		"issue_count": 0,
 		"success": true,
 		"evaluation_status": "complete",
-		"coverage": {"scope": "declared_included", "excluded_roots": excluded},
+		"coverage": { "scope": "declared_included", "excluded_roots": excluded },
 	}
 
 
@@ -3766,7 +4533,15 @@ func _make_rule_result(rule: Dictionary) -> Dictionary:
 func _finalize_rule_result(rule_result: Dictionary, report: Dictionary) -> void:
 	var coverage: Dictionary = _get_dictionary(rule_result, "coverage")
 	var checked: bool = _get_int(rule_result, "checked_count") > 0
-	rule_result["evaluation_status"] = "skipped" if not checked else ("scope_limited" if not _get_array(coverage, "excluded_roots").is_empty() else "complete")
+	rule_result["evaluation_status"] = (
+		"skipped"
+		if not checked
+		else (
+			"scope_limited"
+			if not _get_array(coverage, "excluded_roots").is_empty()
+			else "complete"
+		)
+	)
 	rule_result["success"] = checked and _get_int(rule_result, "issue_count") == 0
 	var rule_results: Array = _get_array(report, "rule_results")
 	rule_results.append(rule_result.duplicate(true))
@@ -3786,7 +4561,14 @@ func _add_rule_issue(
 ) -> void:
 	var semantic_context: Dictionary = context.duplicate(true)
 	semantic_context["rule_id"] = _get_string(rule_result, "id")
-	if _try_add_issue(report, severity, kind, path, message, semantic_context):
+	if _try_add_issue(
+		report,
+		severity,
+		kind,
+		path,
+		message,
+		semantic_context
+	):
 		rule_result["issue_count"] = _get_int(rule_result, "issue_count") + 1
 
 
@@ -3829,7 +4611,10 @@ func _try_add_issue(
 		if _runtime_is_aborted():
 			return false
 		var issues: Array = _get_array(report, "issues")
-		if issues.size() >= maxi(_runtime_max_findings - 1, 0):
+		if issues.size() >= maxi(
+			_runtime_max_findings - 1,
+			0
+		):
 			if _runtime_cancel_requested():
 				_set_runtime_abort(
 					report,
@@ -3882,10 +4667,7 @@ func _append_issue_unchecked(
 		issue["reason_code"] = reason_code
 	var contract: _ANALYSIS_CONTRACT_SCRIPT = _ANALYSIS_CONTRACT_SCRIPT.new()
 	var finding_ids: Dictionary = _get_dictionary(report, "_finding_ids")
-	var finding_occurrences: Dictionary = _get_dictionary(
-		report,
-		"_finding_occurrences"
-	)
+	var finding_occurrences: Dictionary = _get_dictionary(report, "_finding_occurrences")
 	var identity_key: String = contract.stable_finding_id(issue, 0)
 	var occurrence: int = _get_int(finding_occurrences, identity_key)
 	var finding_id: String = contract.stable_finding_id(issue, occurrence)
@@ -3911,7 +4693,10 @@ func _sanitize_issue_context(context: Dictionary) -> Dictionary:
 		var key: String = _string_value(key_value)
 		if key.is_empty():
 			key = "entry_%d" % entry_index
-		result[key] = _sanitize_report_value(context[key_value], 0)
+		result[key] = _sanitize_report_value(
+			context[key_value],
+			0
+		)
 		entry_index += 1
 	return result
 
@@ -3922,7 +4707,12 @@ func _sanitize_issue_context(context: Dictionary) -> Dictionary:
 func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 	if depth >= 8:
 		return _describe_value(value)
-	if value == null or value is bool or value is int or value is String:
+	if (
+		value == null
+		or value is bool
+		or value is int
+		or value is String
+	):
 		return value
 	if value is StringName:
 		var string_name_value: StringName = value
@@ -3931,15 +4721,31 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 		var float_value: float = value
 		if is_finite(float_value):
 			return float_value
-		return "NaN" if is_nan(float_value) else ("+Inf" if float_value > 0.0 else "-Inf")
+		return (
+			"NaN"
+			if is_nan(float_value)
+			else (
+				"+Inf"
+				if float_value > 0.0
+				else "-Inf"
+			)
+		)
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
 		return packed_value.duplicate()
 	if value is Array:
 		var array_result: Array = []
 		var array_value: Array = value
-		for index: int in mini(array_value.size(), 128):
-			array_result.append(_sanitize_report_value(array_value[index], depth + 1))
+		for index: int in mini(
+			array_value.size(),
+			128
+		):
+			array_result.append(
+				_sanitize_report_value(
+					array_value[index],
+					depth + 1
+				)
+			)
 		return array_result
 	if value is Dictionary:
 		var dictionary_result: Dictionary = {}
@@ -3951,7 +4757,10 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 			var key: String = _string_value(key_value)
 			if key.is_empty():
 				key = "entry_%d" % entry_index
-			dictionary_result[key] = _sanitize_report_value(dictionary_value[key_value], depth + 1)
+			dictionary_result[key] = _sanitize_report_value(
+				dictionary_value[key_value],
+				depth + 1
+			)
 			entry_index += 1
 		return dictionary_result
 	return _describe_value(value)
@@ -3962,11 +4771,13 @@ func _sanitize_report_value(value: Variant, depth: int) -> Variant:
 ## @api private
 func _describe_value(value: Variant) -> Dictionary:
 	var value_type: int = typeof(value)
-	var result: Dictionary = {
-		"type": value_type,
-		"type_name": type_string(value_type),
-	}
-	if value == null or value is bool or value is int or value is String:
+	var result: Dictionary = { "type": value_type, "type_name": type_string(value_type), }
+	if (
+		value == null
+		or value is bool
+		or value is int
+		or value is String
+	):
 		result["value"] = value
 	elif value is StringName:
 		var string_name_value: StringName = value
@@ -3999,11 +4810,14 @@ func _finalize_report(report: Dictionary) -> Dictionary:
 		_attach_absence_evidence(report)
 	report["success"] = _get_int(report, "error_count") == 0
 	var graph: Dictionary = _get_dictionary(report, "graph")
-	var capture_status: String = _get_string(graph, "capture_status", "not_started")
+	var capture_status: String = _get_string(
+		graph,
+		"capture_status",
+		"not_started"
+	)
 	var evaluation_complete: bool = (
 		not _runtime_is_aborted()
-		and
-		_get_bool(report, "input_complete")
+		and _get_bool(report, "input_complete")
 		and capture_status == "complete"
 	)
 	report["evaluation_complete"] = evaluation_complete
@@ -4061,10 +4875,7 @@ func _attach_scan_result(
 ## 判断当前报告是否已有相同 scope 的未开始空图和摘要，避免将等价的无观察结果误判为附件构建失败。
 ## [br]
 ## @api private
-func _report_has_equivalent_unobserved_attachment(
-	report: Dictionary,
-	scan: Dictionary
-) -> bool:
+func _report_has_equivalent_unobserved_attachment(report: Dictionary, scan: Dictionary) -> bool:
 	if (
 		_get_bool(scan, "root_observed")
 		or _get_bool(scan, "complete")
@@ -4288,8 +5099,14 @@ func _compile_glob(pattern: String) -> RegEx:
 	while index < pattern.length():
 		var character: String = pattern.substr(index, 1)
 		if character == "*":
-			if index + 1 < pattern.length() and pattern.substr(index + 1, 1) == "*":
-				if index + 2 < pattern.length() and pattern.substr(index + 2, 1) == "/":
+			if index + 1 < pattern.length() and pattern.substr(
+				index + 1,
+				1
+			) == "*":
+				if index + 2 < pattern.length() and pattern.substr(
+					index + 2,
+					1
+				) == "/":
 					escaped += "(?:.*/)?"
 					index += 3
 				else:
@@ -4369,10 +5186,7 @@ func _path_crosses_link(path: String) -> bool:
 		var parent_path: String = probe_path.get_base_dir()
 		if parent_path == probe_path or parent_path.is_empty():
 			return false
-		var parent_exists: bool = (
-			DirAccess.dir_exists_absolute(parent_path)
-			or FileAccess.file_exists(parent_path)
-		)
+		var parent_exists: bool = (DirAccess.dir_exists_absolute(parent_path) or FileAccess.file_exists(parent_path))
 		if not parent_exists:
 			probe_path = parent_path
 			continue
@@ -4411,7 +5225,11 @@ func _is_non_empty_string_value(value: Variant) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	if not source.has(key):
 		return default_value
 	var value: Variant = source[key]
@@ -4428,7 +5246,11 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	if not source.has(key):
 		return default_value
 	var value: Variant = source[key]
@@ -4442,7 +5264,11 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	if not source.has(key):
 		return default_value
 	var value: Variant = source[key]
@@ -4484,7 +5310,12 @@ func _exact_integer_value(value: Variant, default_value: int = 0) -> int:
 ## 缺失时使用默认预算，已提供值必须为正整数；非法值记录错误并返回默认值供外层终止判断。
 ## [br]
 ## @api private
-func _get_positive_integer_option(options: Dictionary, key: String, default_value: int, report: Dictionary) -> int:
+func _get_positive_integer_option(
+	options: Dictionary,
+	key: String,
+	default_value: int,
+	report: Dictionary
+) -> int:
 	if not options.has(key):
 		return default_value
 	var value: Variant = options[key]

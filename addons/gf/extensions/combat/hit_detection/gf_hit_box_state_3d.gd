@@ -147,7 +147,11 @@ func _set_active(value: bool) -> void:
 ## [br]
 ## @api private
 func _is_managed_node(node: Node) -> bool:
-	return node is GFHitBox3D or node is GFHurtBox3D or node is Area3D
+	return (
+		node is GFHitBox3D
+		or node is GFHurtBox3D
+		or node is Area3D
+	)
 
 
 ## 按管理开关同步 hit/hurt enabled、Area3D 监测状态和 Node3D 可见性。

@@ -144,7 +144,11 @@ func set_entry(entry: GFAssetCatalogEntry) -> bool:
 		return false
 
 	var stored_entry: GFAssetCatalogEntry = entry.duplicate_entry()
-	for index: int in range(entries.size() - 1, -1, -1):
+	for index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var existing: GFAssetCatalogEntry = entries[index]
 		if _is_valid_entry(existing) and existing.asset_id == stored_entry.asset_id:
 			entries.remove_at(index)
@@ -164,7 +168,11 @@ func set_entry(entry: GFAssetCatalogEntry) -> bool:
 ## [br]
 ## @return 移除成功返回 true。
 func remove_entry(asset_id: StringName) -> bool:
-	for index: int in range(entries.size() - 1, -1, -1):
+	for index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: GFAssetCatalogEntry = entries[index]
 		if _is_valid_entry(entry) and entry.asset_id == asset_id:
 			entries.remove_at(index)
@@ -278,30 +286,35 @@ func make_preload_plan(
 	for asset_id_text: String in normalized_ids:
 		var asset_id: StringName = StringName(asset_id_text)
 		var entry: GFAssetCatalogEntry = get_entry(asset_id)
-		var entry_metadata: Dictionary = {
-			"asset_id": asset_id,
-			"catalog_resolution": &"missing",
-		}
+		var entry_metadata: Dictionary = { "asset_id": asset_id, "catalog_resolution": &"missing", }
 		if entry == null:
-			plan_entries.append({
-				"path": "",
-				"type_hint": "",
-				"enabled": true,
-				"metadata": entry_metadata,
-			})
+			plan_entries.append(
+				{
+					"path": "",
+					"type_hint": "",
+					"enabled": true,
+					"metadata": entry_metadata,
+				}
+			)
 			continue
 		entry_metadata = entry.metadata.duplicate(true)
 		entry_metadata["asset_id"] = entry.asset_id
 		entry_metadata["source_id"] = entry.source_id
 		entry_metadata["catalog_resolution"] = &"resolved"
-		plan_entries.append({
-			"path": entry.primary_path,
-			"type_hint": entry.type_hint,
-			"enabled": true,
-			"metadata": entry_metadata,
-		})
+		plan_entries.append(
+			{
+				"path": entry.primary_path,
+				"type_hint": entry.type_hint,
+				"enabled": true,
+				"metadata": entry_metadata,
+			}
+		)
 	var plan: GFAssetPreloadPlan = GFAssetPreloadPlan.new()
-	var _configured: GFAssetPreloadPlan = plan.configure(group_id, plan_entries, options)
+	var _configured: GFAssetPreloadPlan = plan.configure(
+		group_id,
+		plan_entries,
+		options
+	)
 	return plan
 
 
@@ -366,7 +379,11 @@ func merge_catalog(catalog: GFAssetCatalog, options: Dictionary = {}) -> Diction
 	if catalog == null:
 		return report
 
-	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", true)
+	var overwrite: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		true
+	)
 	for asset_id_text: String in catalog.get_all_ids():
 		var entry: GFAssetCatalogEntry = catalog.get_entry(StringName(asset_id_text))
 		if entry == null:
@@ -384,10 +401,15 @@ func merge_catalog(catalog: GFAssetCatalog, options: Dictionary = {}) -> Diction
 			report["duplicate_ids"] = duplicate_ids
 			continue
 		if set_entry(entry):
-			report["replaced_count" if exists else "added_count"] = GFVariantData.get_option_int(
-				report,
-				"replaced_count" if exists else "added_count"
-			) + 1
+			report["replaced_count" if exists else "added_count"] = (
+				(
+					GFVariantData.get_option_int(
+						report,
+						"replaced_count" if exists else "added_count"
+					)
+				)
+				+ 1
+			)
 	return report
 
 
@@ -412,7 +434,10 @@ func make_search_candidates(asset_ids: PackedStringArray = PackedStringArray()) 
 		if not include_all and not asset_ids.has(asset_id_text):
 			continue
 		var entry: GFAssetCatalogEntry = _get_entry_value(
-			GFVariantData.get_option_value(_entry_lookup, StringName(asset_id_text))
+			GFVariantData.get_option_value(
+				_entry_lookup,
+				StringName(asset_id_text)
+			)
 		)
 		if entry == null:
 			continue
@@ -445,7 +470,11 @@ func search(query_text: String, options: Dictionary = {}) -> Array[Dictionary]:
 	var scorer_options: Dictionary = options.duplicate(true)
 	if not scorer_options.has("fields"):
 		scorer_options["fields"] = _DEFAULT_SEARCH_FIELDS.duplicate(true)
-	return GFTextSearchScorer.rank_candidates(query_text, candidates, scorer_options)
+	return GFTextSearchScorer.rank_candidates(
+		query_text,
+		candidates,
+		scorer_options
+	)
 
 
 ## 构建资产摘要。
@@ -493,7 +522,11 @@ func make_asset_summary(asset_id: StringName, options: Dictionary = {}) -> Dicti
 		"primary_identity": primary_identity.to_dictionary(),
 		"preview_identity": preview_identity.to_dictionary() if preview_identity != null else {},
 	}
-	if GFVariantData.get_option_bool(options, "include_metadata", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_metadata",
+		true
+	):
 		summary["metadata"] = entry.metadata.duplicate(true)
 	return summary
 
@@ -526,7 +559,10 @@ func make_asset_summaries(asset_ids: PackedStringArray = PackedStringArray(), op
 		if lookup.has(asset_id_text):
 			continue
 		lookup[asset_id_text] = true
-		var summary: Dictionary = make_asset_summary(StringName(asset_id_text), options)
+		var summary: Dictionary = make_asset_summary(
+			StringName(asset_id_text),
+			options
+		)
 		if not summary.is_empty():
 			result.append(summary)
 	return result
@@ -559,7 +595,11 @@ func search_page(
 ) -> Dictionary:
 	var is_listing: bool = (
 		query_text.strip_edges().is_empty()
-		and GFVariantData.get_option_bool(options, "empty_query_returns_all", true)
+		and GFVariantData.get_option_bool(
+			options,
+			"empty_query_returns_all",
+			true
+		)
 	)
 	var listing_asset_ids: PackedStringArray = PackedStringArray()
 	var reports: Array[Dictionary] = []
@@ -583,20 +623,31 @@ func search_page(
 	var end_index: int = 0
 	if total_count > 0:
 		start_index = (normalized_page - 1) * normalized_page_size
-		end_index = mini(start_index + normalized_page_size, total_count)
+		end_index = mini(
+			start_index + normalized_page_size,
+			total_count
+		)
 
 	var page_results: Array[Dictionary] = []
 	var page_asset_ids: PackedStringArray = PackedStringArray()
 	for index: int in range(start_index, end_index):
 		var report: Dictionary = (
-			_make_listing_search_report(listing_asset_ids[index], index, options)
-			if is_listing else reports[index]
+			_make_listing_search_report(
+				listing_asset_ids[index],
+				index,
+				options
+			)
+			if is_listing
+			else reports[index]
 		)
 		if defer_identity:
 			var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate")
-			var entry: GFAssetCatalogEntry = _get_entry_value(GFVariantData.get_option_value(
-				_entry_lookup, StringName(_get_search_report_asset_id(report))
-			))
+			var entry: GFAssetCatalogEntry = _get_entry_value(
+				GFVariantData.get_option_value(
+					_entry_lookup,
+					StringName(_get_search_report_asset_id(report))
+				)
+			)
 			_append_candidate_identities(candidate, entry)
 			report["candidate"] = candidate
 		page_results.append(report)
@@ -605,7 +656,11 @@ func search_page(
 			var _asset_id_appended: bool = page_asset_ids.append(report_asset_id)
 
 	var summaries: Array[Dictionary] = []
-	if not page_asset_ids.is_empty() and GFVariantData.get_option_bool(options, "include_summaries", true):
+	if not page_asset_ids.is_empty() and GFVariantData.get_option_bool(
+		options,
+		"include_summaries",
+		true
+	):
 		summaries = make_asset_summaries(
 			page_asset_ids,
 			GFVariantData.get_option_dictionary(options, "summary_options")
@@ -650,7 +705,11 @@ func group_asset_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictio
 		PackedStringArray()
 	)
 	var include_all: bool = selected_asset_ids.is_empty()
-	var include_empty: bool = GFVariantData.get_option_bool(options, "include_empty", false)
+	var include_empty: bool = GFVariantData.get_option_bool(
+		options,
+		"include_empty",
+		false
+	)
 	var empty_key: String = GFVariantData.get_option_string(options, "empty_key")
 	var groups: Dictionary = {}
 
@@ -658,11 +717,19 @@ func group_asset_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictio
 		if not include_all and not selected_asset_ids.has(asset_id_text):
 			continue
 		var entry: GFAssetCatalogEntry = _get_entry_value(
-			GFVariantData.get_option_value(_entry_lookup, StringName(asset_id_text))
+			GFVariantData.get_option_value(
+				_entry_lookup,
+				StringName(asset_id_text)
+			)
 		)
 		if entry == null:
 			continue
-		for group_key: String in _get_entry_group_keys(entry, group_source, include_empty, empty_key):
+		for group_key: String in _get_entry_group_keys(
+			entry,
+			group_source,
+			include_empty,
+			empty_key
+		):
 			var group_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
 				groups,
 				group_key,
@@ -706,9 +773,7 @@ func to_dict() -> Dictionary:
 	for entry: GFAssetCatalogEntry in entries:
 		if _is_valid_entry(entry):
 			entry_data.append(entry.to_dict())
-	return {
-		"entries": entry_data,
-	}
+	return { "entries": entry_data, }
 
 
 ## 应用字典数据。
@@ -762,9 +827,10 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 ## [br]
 ## @schema return: Dictionary from GFTextSearchScorer.create_ranking_context with default asset fields and duplicate_candidate: false.
 static func make_default_search_context(query_text: String) -> Dictionary:
-	return GFTextSearchScorer.create_ranking_context(query_text, {
-		"fields": _DEFAULT_SEARCH_FIELDS.duplicate(true), "duplicate_candidate": false,
-	})
+	return GFTextSearchScorer.create_ranking_context(
+		query_text,
+		{ "fields": _DEFAULT_SEARCH_FIELDS.duplicate(true), "duplicate_candidate": false, }
+	)
 
 
 ## 按单个稳定 ID 构建独立默认评分数据，不提前解析资源身份。
@@ -933,14 +999,21 @@ func _search_default_fields_without_identity(query_text: String, options: Dictio
 		if not filter_lookup.is_empty() and not filter_lookup.has(asset_id):
 			continue
 		var entry: GFAssetCatalogEntry = _get_entry_value(
-			GFVariantData.get_option_value(_entry_lookup, StringName(asset_id))
+			GFVariantData.get_option_value(
+				_entry_lookup,
+				StringName(asset_id)
+			)
 		)
 		candidates.append(_make_search_candidate(entry, false))
 	var scorer_options: Dictionary = options.duplicate(true)
 	scorer_options["fields"] = _DEFAULT_SEARCH_FIELDS.duplicate(true)
 	# 候选仅属于本次调用；当前页取出候选副本后才发布，无需复制未发布的全目录候选图。
 	scorer_options["duplicate_candidate"] = false
-	return GFTextSearchScorer.rank_candidates(query_text, candidates, scorer_options)
+	return GFTextSearchScorer.rank_candidates(
+		query_text,
+		candidates,
+		scorer_options
+	)
 
 
 ## 递归提取元数据中的文本关键词并去重排序。
@@ -950,7 +1023,11 @@ func _search_default_fields_without_identity(query_text: String, options: Dictio
 func _make_metadata_keywords(value: Variant) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var lookup: Dictionary = {}
-	_append_metadata_keywords(result, lookup, value)
+	_append_metadata_keywords(
+		result,
+		lookup,
+		value
+	)
 	result.sort()
 	return result
 
@@ -959,22 +1036,42 @@ func _make_metadata_keywords(value: Variant) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-func _append_metadata_keywords(result: PackedStringArray, lookup: Dictionary, value: Variant) -> void:
+func _append_metadata_keywords(
+	result: PackedStringArray,
+	lookup: Dictionary,
+	value: Variant
+) -> void:
 	if value == null:
 		return
 	if value is Dictionary:
 		var dictionary: Dictionary = value
 		for key: Variant in dictionary.keys():
-			_append_metadata_keyword(result, lookup, GFVariantData.to_text(key))
-			_append_metadata_keywords(result, lookup, dictionary[key])
+			_append_metadata_keyword(
+				result,
+				lookup,
+				GFVariantData.to_text(key)
+			)
+			_append_metadata_keywords(
+				result,
+				lookup,
+				dictionary[key]
+			)
 	elif value is Array:
 		var values: Array = value
 		for item: Variant in values:
-			_append_metadata_keywords(result, lookup, item)
+			_append_metadata_keywords(
+				result,
+				lookup,
+				item
+			)
 	elif value is PackedStringArray:
 		var packed_values: PackedStringArray = value
 		for item_text: String in packed_values:
-			_append_metadata_keyword(result, lookup, item_text)
+			_append_metadata_keyword(
+				result,
+				lookup,
+				item_text
+			)
 	elif (
 		value is String
 		or value is StringName
@@ -983,14 +1080,22 @@ func _append_metadata_keywords(result: PackedStringArray, lookup: Dictionary, va
 		or value is int
 		or value is float
 	):
-		_append_metadata_keyword(result, lookup, GFVariantData.to_text(value))
+		_append_metadata_keyword(
+			result,
+			lookup,
+			GFVariantData.to_text(value)
+		)
 
 
 ## 去除关键词首尾空白，并仅将非空新值加入结果。
 ## [br]
 ## @api private
 ## [br]
-func _append_metadata_keyword(result: PackedStringArray, lookup: Dictionary, value: String) -> void:
+func _append_metadata_keyword(
+	result: PackedStringArray,
+	lookup: Dictionary,
+	value: String
+) -> void:
 	var keyword: String = value.strip_edges()
 	if keyword.is_empty() or lookup.has(keyword):
 		return
@@ -1004,12 +1109,18 @@ func _append_metadata_keyword(result: PackedStringArray, lookup: Dictionary, val
 ## [br]
 func _get_listing_asset_ids(options: Dictionary) -> PackedStringArray:
 	var asset_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		options, "asset_ids", PackedStringArray()
+		options,
+		"asset_ids",
+		PackedStringArray()
 	)
 	var filter_lookup: Dictionary = {}
 	for asset_id: String in asset_ids:
 		filter_lookup[asset_id] = true
-	var limit: int = GFVariantData.get_option_int(options, "limit", 0)
+	var limit: int = GFVariantData.get_option_int(
+		options,
+		"limit",
+		0
+	)
 	var result: PackedStringArray = PackedStringArray()
 	for asset_id: String in get_all_ids():
 		if not filter_lookup.is_empty() and not filter_lookup.has(asset_id):
@@ -1024,12 +1135,23 @@ func _get_listing_asset_ids(options: Dictionary) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-func _make_listing_search_report(asset_id: String, index: int, options: Dictionary) -> Dictionary:
+func _make_listing_search_report(
+	asset_id: String,
+	index: int,
+	options: Dictionary
+) -> Dictionary:
 	var entry: GFAssetCatalogEntry = _get_entry_value(
-		GFVariantData.get_option_value(_entry_lookup, StringName(asset_id))
+		GFVariantData.get_option_value(
+			_entry_lookup,
+			StringName(asset_id)
+		)
 	)
 	var candidate: Dictionary = _make_search_candidate(entry)
-	var duplicate_candidate: bool = GFVariantData.get_option_bool(options, "duplicate_candidate", true)
+	var duplicate_candidate: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_candidate",
+		true
+	)
 	return {
 		"matched": false,
 		"score": 0.0,
@@ -1045,7 +1167,11 @@ func _make_listing_search_report(asset_id: String, index: int, options: Dictiona
 ## @api private
 ## [br]
 func _get_search_report_asset_id(report: Dictionary) -> String:
-	var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate", {})
+	var candidate: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"candidate",
+		{}
+	)
 	var asset_id_text: String = GFVariantData.get_option_string(candidate, "asset_id")
 	if asset_id_text.is_empty():
 		asset_id_text = GFVariantData.get_option_string(candidate, "id")
@@ -1066,21 +1192,69 @@ func _get_entry_group_keys(
 	var lookup: Dictionary = {}
 	match group_source:
 		GROUP_SOURCE_ID:
-			_append_group_key(result, lookup, String(entry.asset_id), include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				String(entry.asset_id),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_SOURCE_ID:
-			_append_group_key(result, lookup, String(entry.source_id), include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				String(entry.source_id),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_CATEGORY:
-			_append_group_key(result, lookup, String(entry.category), include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				String(entry.category),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_TAGS:
-			_append_group_value(result, lookup, entry.tags, include_empty, empty_key)
+			_append_group_value(
+				result,
+				lookup,
+				entry.tags,
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_TYPE_HINT:
-			_append_group_key(result, lookup, entry.type_hint, include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				entry.type_hint,
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_PRIMARY_PATH:
-			_append_group_key(result, lookup, entry.primary_path, include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				entry.primary_path,
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_CACHE_KEY:
-			_append_group_key(result, lookup, entry.get_cache_key(), include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				entry.get_cache_key(),
+				include_empty,
+				empty_key
+			)
 		GROUP_SOURCE_RESOURCE_ENTRY_ID:
-			_append_group_value(result, lookup, entry.resource_entry_ids, include_empty, empty_key)
+			_append_group_value(
+				result,
+				lookup,
+				entry.resource_entry_ids,
+				include_empty,
+				empty_key
+			)
 	result.sort()
 	return result
 
@@ -1097,17 +1271,41 @@ func _append_group_value(
 	empty_key: String
 ) -> void:
 	if value == null:
-		_append_group_key(result, lookup, "", include_empty, empty_key)
+		_append_group_key(
+			result,
+			lookup,
+			"",
+			include_empty,
+			empty_key
+		)
 	elif value is PackedStringArray:
 		var packed_values: PackedStringArray = value
 		for item_text: String in packed_values:
-			_append_group_key(result, lookup, item_text, include_empty, empty_key)
+			_append_group_key(
+				result,
+				lookup,
+				item_text,
+				include_empty,
+				empty_key
+			)
 	elif value is Array:
 		var values: Array = value
 		for item: Variant in values:
-			_append_group_value(result, lookup, item, include_empty, empty_key)
+			_append_group_value(
+				result,
+				lookup,
+				item,
+				include_empty,
+				empty_key
+			)
 	else:
-		_append_group_key(result, lookup, GFVariantData.to_text(value), include_empty, empty_key)
+		_append_group_key(
+			result,
+			lookup,
+			GFVariantData.to_text(value),
+			include_empty,
+			empty_key
+		)
 
 
 ## 处理单个分组键的空值策略与去重。
@@ -1144,7 +1342,11 @@ func _sort_id_groups(groups: Dictionary) -> Dictionary:
 
 	var result: Dictionary = {}
 	for key: String in keys:
-		var ids: PackedStringArray = GFVariantData.get_option_packed_string_array(groups, key, PackedStringArray())
+		var ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+			groups,
+			key,
+			PackedStringArray()
+		)
 		ids.sort()
 		result[key] = ids
 	return result

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalBridgeBinding" path="addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd" module="standard" extends="RefCounted" classDigest="6cb18059b7fe2b27610f8f648a49f29ea38f9f86fb995d61d840bbc655127517">
+<class name="GFSignalBridgeBinding" path="addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd" module="standard" extends="RefCounted" classDigest="bd55b0178ca9ca1516e5641001e26612596df435a90dd40f030b3c65099ea3ed">
 	<description>GFSignalBridgeBinding: 运行中的信号桥接连接。
 Binding 持有桥接资源、根节点和底层 GFSignalConnection，用于在运行时断开、
 检查状态，并把原生信号参数转交给桥接规则。</description>
@@ -29,13 +29,14 @@ Binding 持有桥接资源、根节点和底层 GFSignalConnection，用于在�
 	</properties>
 	<methods>
 		<member kind="method" name="setup">
-			<signature>func setup(new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection) -&gt; void:</signature>
+			<signature>func setup( new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection ) -&gt; void:</signature>
 			<description>初始化绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">new_bridge: 桥接资源。</tag>
 				<tag name="param">root: 路径解析根节点。</tag>
 				<tag name="param">new_connection: 底层连接。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="disconnect_bridge">

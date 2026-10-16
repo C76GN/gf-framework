@@ -107,7 +107,11 @@ func sync_slot(
 		local_backend,
 		remote_backend
 	)
-	if not GFVariantData.get_option_bool(file_plan, "ok", false):
+	if not GFVariantData.get_option_bool(
+		file_plan,
+		"ok",
+		false
+	):
 		var failed_result: Dictionary = _make_slot_result(
 			false,
 			slot_index,
@@ -120,13 +124,30 @@ func sync_slot(
 
 	var file_names: PackedStringArray = _get_slot_file_names(file_plan, options)
 	if file_names.is_empty():
-		var empty_result: Dictionary = _make_slot_result(false, slot_index, file_names, {}, "no slot files selected")
+		var empty_result: Dictionary = _make_slot_result(
+			false,
+			slot_index,
+			file_names,
+			{},
+			"no slot files selected"
+		)
 		slot_sync_failed.emit(slot_index, empty_result)
 		return empty_result
 
-	var sync_result: Dictionary = _get_sync_utility().sync_many(file_names, local_backend, remote_backend, options)
+	var sync_result: Dictionary = _get_sync_utility().sync_many(
+		file_names,
+		local_backend,
+		remote_backend,
+		options
+	)
 	var ok: bool = GFVariantData.get_option_bool(sync_result, "ok")
-	var result: Dictionary = _make_slot_result(ok, slot_index, file_names, sync_result, "")
+	var result: Dictionary = _make_slot_result(
+		ok,
+		slot_index,
+		file_names,
+		sync_result,
+		""
+	)
 	if ok:
 		slot_sync_completed.emit(slot_index, result)
 	else:
@@ -165,7 +186,13 @@ func sync_slots(
 	var results: Array[Dictionary] = []
 	var failed_count: int = 0
 	for slot_index: int in slot_indices:
-		var result: Dictionary = sync_slot(slot_index, adapter, local_backend, remote_backend, options)
+		var result: Dictionary = sync_slot(
+			slot_index,
+			adapter,
+			local_backend,
+			remote_backend,
+			options
+		)
 		results.append(result)
 		if not GFVariantData.get_option_bool(result, "ok"):
 			failed_count += 1
@@ -212,19 +239,20 @@ func _validate_sync_inputs(
 ## [br]
 ## @api private
 ## [br]
-func _get_slot_file_names(
-	file_plan: Dictionary,
-	options: Dictionary
-) -> PackedStringArray:
+func _get_slot_file_names(file_plan: Dictionary, options: Dictionary) -> PackedStringArray:
 	var file_names: PackedStringArray = PackedStringArray()
-	if GFVariantData.get_option_bool(options, "sync_data_file", true):
-		var _data_append: bool = file_names.append(
-			GFVariantData.get_option_string(file_plan, "data_file_name")
-		)
-	if GFVariantData.get_option_bool(options, "sync_metadata_file", true):
-		var _metadata_append: bool = file_names.append(
-			GFVariantData.get_option_string(file_plan, "metadata_file_name")
-		)
+	if GFVariantData.get_option_bool(
+		options,
+		"sync_data_file",
+		true
+	):
+		var _data_append: bool = file_names.append(GFVariantData.get_option_string(file_plan, "data_file_name"))
+	if GFVariantData.get_option_bool(
+		options,
+		"sync_metadata_file",
+		true
+	):
+		var _metadata_append: bool = file_names.append(GFVariantData.get_option_string(file_plan, "metadata_file_name"))
 	return file_names
 
 

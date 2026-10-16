@@ -99,6 +99,10 @@ func from_dict(data: Dictionary) -> void:
 	message_type = GFVariantData.get_option_string_name(data, "type")
 	sequence = GFVariantData.get_option_int(data, "sequence")
 	tick = GFVariantData.get_option_int(data, "tick")
-	sender_id = GFVariantData.get_option_int(data, "sender_id", -1)
+	sender_id = GFVariantData.get_option_int(
+		data,
+		"sender_id",
+		-1
+	)
 	channel_id = GFVariantData.get_option_string_name(data, "channel_id")
 	payload = GFVariantData.get_option_dictionary(data, "payload")

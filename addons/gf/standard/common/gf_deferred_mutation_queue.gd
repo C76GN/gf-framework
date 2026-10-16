@@ -307,7 +307,11 @@ func record_method(
 		return 0
 
 	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(owner, method_name)
-	return _enqueue_method(invocation, owner.get_instance_id(), options)
+	return _enqueue_method(
+		invocation,
+		owner.get_instance_id(),
+		options
+	)
 
 
 ## 按 phase、sort_key、order 和记录句柄的稳定顺序应用延迟变更。
@@ -324,7 +328,11 @@ func record_method(
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、reason、applied_count、failed_count、skipped_owner_count、pending_count、budget_exhausted、phase 和可选 records。
 func playback(options: Dictionary = {}) -> Dictionary:
-	var phase_filter: StringName = GFVariantData.get_option_string_name(options, "phase", &"")
+	var phase_filter: StringName = GFVariantData.get_option_string_name(
+		options,
+		"phase",
+		&""
+	)
 	if not Thread.is_main_thread():
 		return {
 			"ok": false,
@@ -356,7 +364,11 @@ func playback(options: Dictionary = {}) -> Dictionary:
 		"max_count",
 		max_mutations_per_playback
 	)
-	var max_seconds: float = GFVariantData.get_option_float(options, "max_seconds", max_seconds_per_playback)
+	var max_seconds: float = GFVariantData.get_option_float(
+		options,
+		"max_seconds",
+		max_seconds_per_playback
+	)
 	var limit: int = clampi(
 		max_count if max_count > 0 else max_mutations_per_playback,
 		1,
@@ -377,7 +389,11 @@ func playback(options: Dictionary = {}) -> Dictionary:
 	_begin_playback_snapshot(phase_filter)
 
 	while applied_now + failed_now + skipped_owner_now < limit:
-		if _is_playback_budget_exhausted(started_usec, seconds_budget, applied_now + failed_now + skipped_owner_now):
+		if _is_playback_budget_exhausted(
+			started_usec,
+			seconds_budget,
+			applied_now + failed_now + skipped_owner_now
+		):
 			budget_exhausted = _has_playback_snapshot_records()
 			break
 
@@ -391,34 +407,25 @@ func playback(options: Dictionary = {}) -> Dictionary:
 				failed_now += 1
 				_failed_count += 1
 				if include_records:
-					processed_records.append(
-						_record_to_snapshot(mutation_record)
-					)
+					processed_records.append(_record_to_snapshot(mutation_record))
 				continue
 
 			var invocation_result: Dictionary = invocation.invoke()
-			var invocation_status: StringName = GFVariantData.get_option_string_name(
-				invocation_result,
-				"status"
-			)
+			var invocation_status: StringName = GFVariantData.get_option_string_name(invocation_result, "status")
 			if invocation_status == GFWeakMethodInvocation.STATUS_OWNER_RELEASED:
 				skipped_owner_now += 1
 				_skipped_owner_count += 1
 			elif invocation_status != GFWeakMethodInvocation.STATUS_INVOKED:
 				failed_now += 1
 				_failed_count += 1
-			elif _mutation_result_is_failure(
-				GFVariantData.get_option_value(invocation_result, "value")
-			):
+			elif _mutation_result_is_failure(GFVariantData.get_option_value(invocation_result, "value")):
 				failed_now += 1
 				_failed_count += 1
 			else:
 				applied_now += 1
 				_applied_count += 1
 			if include_records:
-				processed_records.append(
-					_record_to_snapshot(mutation_record)
-				)
+				processed_records.append(_record_to_snapshot(mutation_record))
 			continue
 
 		var mutation: Callable = _get_record_mutation(mutation_record)
@@ -426,9 +433,7 @@ func playback(options: Dictionary = {}) -> Dictionary:
 			failed_now += 1
 			_failed_count += 1
 			if include_records:
-				processed_records.append(
-					_record_to_snapshot(mutation_record)
-				)
+				processed_records.append(_record_to_snapshot(mutation_record))
 			continue
 
 		var result: Variant = mutation.call()
@@ -441,15 +446,8 @@ func playback(options: Dictionary = {}) -> Dictionary:
 		if include_records:
 			processed_records.append(_record_to_snapshot(mutation_record))
 
-	var processed_count: int = (
-		applied_now
-		+ failed_now
-		+ skipped_owner_now
-	)
-	if (
-		processed_count >= limit
-		and _has_playback_snapshot_records()
-	):
+	var processed_count: int = applied_now + failed_now + skipped_owner_now
+	if (processed_count >= limit and _has_playback_snapshot_records()):
 		budget_exhausted = true
 
 	_finish_playback_snapshot()
@@ -484,7 +482,11 @@ func playback(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Array[Dictionary]，每个元素包含 handle、phase、sort_key、order、owner_id、label、metadata 和 recorded_msec。
 func preview(options: Dictionary = {}) -> Array[Dictionary]:
-	var phase_filter: StringName = GFVariantData.get_option_string_name(options, "phase", &"")
+	var phase_filter: StringName = GFVariantData.get_option_string_name(
+		options,
+		"phase",
+		&""
+	)
 	var requested_limit: int = GFVariantData.get_option_int(
 		options,
 		"limit",
@@ -633,7 +635,11 @@ func get_debug_snapshot() -> Dictionary:
 	var handles: PackedInt64Array = PackedInt64Array()
 	for mutation_record: Dictionary in pending_records:
 		var phase_key: String = String(_get_record_phase(mutation_record))
-		phase_counts[phase_key] = GFVariantData.get_option_int(phase_counts, phase_key, 0) + 1
+		phase_counts[phase_key] = GFVariantData.get_option_int(
+			phase_counts,
+			phase_key,
+			0
+		) + 1
 		var _handle_appended: bool = handles.append(_get_record_handle(mutation_record))
 
 	return {
@@ -659,10 +665,12 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api private
 func _enqueue(mutation: Callable, options: Dictionary) -> int:
-	return _enqueue_record({
-		"record_kind": _RECORD_KIND_CALLABLE,
-		"mutation": mutation,
-	}, 0, options, true)
+	return _enqueue_record(
+		{ "record_kind": _RECORD_KIND_CALLABLE, "mutation": mutation, },
+		0,
+		options,
+		true
+	)
 
 
 ## 将弱方法调用对象包装为 weak_method 类型记录并交给统一入队逻辑。
@@ -673,10 +681,12 @@ func _enqueue_method(
 	owner_id: int,
 	options: Dictionary
 ) -> int:
-	return _enqueue_record({
-		"record_kind": _RECORD_KIND_WEAK_METHOD,
-		"weak_method_invocation": invocation,
-	}, owner_id, options, false)
+	return _enqueue_record(
+		{ "record_kind": _RECORD_KIND_WEAK_METHOD, "weak_method_invocation": invocation, },
+		owner_id,
+		options,
+		false
+	)
 
 
 ## 在锁内检查容量、分配 handle/order、组装记录并插入当前记录分区。
@@ -695,7 +705,11 @@ func _enqueue_record(
 		return 0
 	var handle: int = _next_handle
 	_next_handle += 1
-	var order: int = GFVariantData.get_option_int(options, "order", _next_order)
+	var order: int = GFVariantData.get_option_int(
+		options,
+		"order",
+		_next_order
+	)
 	if not options.has("order"):
 		_next_order += 1
 	var metadata: Dictionary = {}
@@ -704,7 +718,11 @@ func _enqueue_record(
 	var mutation_record: Dictionary = {
 		"handle": handle,
 		"owner_id": owner_id,
-		"phase": GFVariantData.get_option_string_name(options, "phase", DEFAULT_PHASE),
+		"phase": GFVariantData.get_option_string_name(
+			options,
+			"phase",
+			DEFAULT_PHASE
+		),
 		"sort_key": GFVariantData.get_option_int(options, "sort_key"),
 		"order": order,
 		"label": GFVariantData.get_option_string(options, "label"),
@@ -714,10 +732,7 @@ func _enqueue_record(
 	for execution_key: Variant in execution_record:
 		mutation_record[execution_key] = execution_record[execution_key]
 	if _playback_snapshot_active:
-		_insert_record_sorted_into(
-			_playback_new_records,
-			mutation_record
-		)
+		_insert_record_sorted_into(_playback_new_records, mutation_record)
 	else:
 		_insert_record_sorted_into(_queue, mutation_record)
 	_pending_count += 1
@@ -756,17 +771,10 @@ func _begin_playback_snapshot(phase_filter: StringName) -> void:
 ## @api private
 func _pop_next_playback_record() -> Dictionary:
 	_mutex.lock()
-	while (
-		_playback_matching_cursor
-		< _playback_matching_indexes.size()
-	):
-		var snapshot_index: int = _playback_matching_indexes[
-			_playback_matching_cursor
-		]
+	while _playback_matching_cursor < _playback_matching_indexes.size():
+		var snapshot_index: int = _playback_matching_indexes[_playback_matching_cursor]
 		_playback_matching_cursor += 1
-		var mutation_record: Dictionary = _playback_snapshot[
-			snapshot_index
-		]
+		var mutation_record: Dictionary = _playback_snapshot[snapshot_index]
 		if mutation_record.is_empty():
 			continue
 		_playback_snapshot[snapshot_index] = {}
@@ -798,10 +806,7 @@ func _finish_playback_snapshot() -> void:
 		if mutation_record.is_empty():
 			continue
 		remaining_snapshot.append(mutation_record)
-	_queue = _merge_sorted_records(
-		remaining_snapshot,
-		_playback_new_records
-	)
+	_queue = _merge_sorted_records(remaining_snapshot, _playback_new_records)
 	_playback_snapshot.clear()
 	_playback_new_records.clear()
 	_playback_matching_indexes.clear()
@@ -828,16 +833,10 @@ func _cancel_handle_locked(handle: int) -> bool:
 
 	for index: int in range(_playback_snapshot.size()):
 		var snapshot_record: Dictionary = _playback_snapshot[index]
-		if (
-			snapshot_record.is_empty()
-			or _get_record_handle(snapshot_record) != handle
-		):
+		if (snapshot_record.is_empty() or _get_record_handle(snapshot_record) != handle):
 			continue
 		_playback_snapshot[index] = {}
-		if _matches_phase(
-			snapshot_record,
-			_playback_phase_filter
-		):
+		if _matches_phase(snapshot_record, _playback_phase_filter):
 			_playback_snapshot_matching_count -= 1
 		_pending_count -= 1
 		return true
@@ -856,7 +855,11 @@ func _cancel_handle_locked(handle: int) -> bool:
 func _cancel_owner_locked(owner_id: int) -> int:
 	var removed_count: int = 0
 	if not _playback_snapshot_active:
-		for index: int in range(_queue.size() - 1, -1, -1):
+		for index: int in range(
+			_queue.size() - 1,
+			-1,
+			-1
+		):
 			if _get_record_owner_id(_queue[index]) != owner_id:
 				continue
 			_queue.remove_at(index)
@@ -866,16 +869,10 @@ func _cancel_owner_locked(owner_id: int) -> int:
 
 	for index: int in range(_playback_snapshot.size()):
 		var snapshot_record: Dictionary = _playback_snapshot[index]
-		if (
-			snapshot_record.is_empty()
-			or _get_record_owner_id(snapshot_record) != owner_id
-		):
+		if (snapshot_record.is_empty() or _get_record_owner_id(snapshot_record) != owner_id):
 			continue
 		_playback_snapshot[index] = {}
-		if _matches_phase(
-			snapshot_record,
-			_playback_phase_filter
-		):
+		if _matches_phase(snapshot_record, _playback_phase_filter):
 			_playback_snapshot_matching_count -= 1
 		removed_count += 1
 		_pending_count -= 1
@@ -909,26 +906,17 @@ func _collect_pending_records_locked() -> Array[Dictionary]:
 		if mutation_record.is_empty():
 			continue
 		remaining_snapshot.append(mutation_record)
-	return _merge_sorted_records(
-		remaining_snapshot,
-		_playback_new_records
-	)
+	return _merge_sorted_records(remaining_snapshot, _playback_new_records)
 
 
 ## 将两组已排序记录按 _sort_records_ascending() 的比较结果合并。
 ## [br]
 ## @api private
-func _merge_sorted_records(
-	left_records: Array[Dictionary],
-	right_records: Array[Dictionary]
-) -> Array[Dictionary]:
+func _merge_sorted_records(left_records: Array[Dictionary], right_records: Array[Dictionary]) -> Array[Dictionary]:
 	var merged_records: Array[Dictionary] = []
 	var left_index: int = 0
 	var right_index: int = 0
-	while (
-		left_index < left_records.size()
-		and right_index < right_records.size()
-	):
+	while (left_index < left_records.size() and right_index < right_records.size()):
 		if _sort_records_ascending(
 			left_records[left_index],
 			right_records[right_index]
@@ -950,10 +938,7 @@ func _merge_sorted_records(
 ## 使用二分查找定位插入点，并将记录插入已排序数组。
 ## [br]
 ## @api private
-func _insert_record_sorted_into(
-	target_records: Array[Dictionary],
-	mutation_record: Dictionary
-) -> void:
+func _insert_record_sorted_into(target_records: Array[Dictionary], mutation_record: Dictionary) -> void:
 	var low: int = 0
 	var high: int = target_records.size()
 	while low < high:
@@ -965,10 +950,7 @@ func _insert_record_sorted_into(
 			high = middle
 		else:
 			low = middle + 1
-	var _insert_result: Variant = target_records.insert(
-		low,
-		mutation_record
-	)
+	var _insert_result: Variant = target_records.insert(low, mutation_record)
 
 
 ## phase_filter 为空时匹配所有记录，否则只匹配同 phase 的记录。
@@ -981,7 +963,11 @@ func _matches_phase(mutation_record: Dictionary, phase_filter: StringName) -> bo
 ## 时间预算启用且至少处理一条记录后，检查已耗秒数是否达到上限。
 ## [br]
 ## @api private
-func _is_playback_budget_exhausted(started_usec: int, max_seconds: float, processed_count: int) -> bool:
+func _is_playback_budget_exhausted(
+	started_usec: int,
+	max_seconds: float,
+	processed_count: int
+) -> bool:
 	if max_seconds <= 0.0 or processed_count <= 0:
 		return false
 	var elapsed_seconds: float = float(Time.get_ticks_usec() - started_usec) / 1000000.0
@@ -997,7 +983,11 @@ func _mutation_result_is_failure(result: Variant) -> bool:
 		return not bool_result
 	if result is Dictionary:
 		var dictionary_result: Dictionary = result
-		return not GFVariantData.get_option_bool(dictionary_result, "ok", true)
+		return not GFVariantData.get_option_bool(
+			dictionary_result,
+			"ok",
+			true
+		)
 	return false
 
 
@@ -1005,10 +995,7 @@ func _mutation_result_is_failure(result: Variant) -> bool:
 ## [br]
 ## @api private
 func _record_uses_weak_method(mutation_record: Dictionary) -> bool:
-	return (
-		GFVariantData.get_option_string_name(mutation_record, "record_kind")
-		== _RECORD_KIND_WEAK_METHOD
-	)
+	return GFVariantData.get_option_string_name(mutation_record, "record_kind") == _RECORD_KIND_WEAK_METHOD
 
 
 ## 提取记录的 handle、phase、排序字段、owner、label、metadata 和时间戳。
@@ -1061,7 +1048,10 @@ func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	keys.sort()
 	var result: Dictionary = {}
 	for key: String in keys:
-		result[key] = GFVariantData.duplicate_variant(data.get(key), true)
+		result[key] = GFVariantData.duplicate_variant(
+			data.get(key),
+			true
+		)
 	return result
 
 
@@ -1083,14 +1073,22 @@ func _get_record_owner_id(mutation_record: Dictionary) -> int:
 ## [br]
 ## @api private
 func _get_record_phase(mutation_record: Dictionary) -> StringName:
-	return GFVariantData.get_option_string_name(mutation_record, "phase", DEFAULT_PHASE)
+	return GFVariantData.get_option_string_name(
+		mutation_record,
+		"phase",
+		DEFAULT_PHASE
+	)
 
 
 ## 从记录中读取 mutation Callable；类型不匹配时返回空 Callable。
 ## [br]
 ## @api private
 func _get_record_mutation(mutation_record: Dictionary) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(mutation_record, "mutation", Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		mutation_record,
+		"mutation",
+		Callable()
+	)
 	if value is Callable:
 		var mutation: Callable = value
 		return mutation
@@ -1100,13 +1098,8 @@ func _get_record_mutation(mutation_record: Dictionary) -> Callable:
 ## 从记录中读取 GFWeakMethodInvocation；类型不匹配时返回 null。
 ## [br]
 ## @api private
-func _get_record_weak_method_invocation(
-	mutation_record: Dictionary
-) -> GFWeakMethodInvocation:
-	var value: Variant = GFVariantData.get_option_value(
-		mutation_record,
-		"weak_method_invocation"
-	)
+func _get_record_weak_method_invocation(mutation_record: Dictionary) -> GFWeakMethodInvocation:
+	var value: Variant = GFVariantData.get_option_value(mutation_record, "weak_method_invocation")
 	if value is GFWeakMethodInvocation:
 		var invocation: GFWeakMethodInvocation = value
 		return invocation

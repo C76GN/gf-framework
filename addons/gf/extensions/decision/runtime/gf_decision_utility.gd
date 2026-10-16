@@ -73,7 +73,12 @@ func make_context(
 	target: Object = null,
 	metadata: Dictionary = {}
 ) -> GFDecisionContext:
-	return GFDecisionContext.new(GFDecisionBlackboard.new(values), subject, target, metadata)
+	return GFDecisionContext.new(
+		GFDecisionBlackboard.new(values),
+		subject,
+		target,
+		metadata
+	)
 
 
 ## 注册决策集合。
@@ -229,7 +234,12 @@ func evaluate(decision_set_id: StringName, context: GFDecisionContext) -> GFDeci
 		return missing_evaluation.configure(
 			decision_set_id,
 			[],
-			GFDecisionScore.new(null, 0.0, [], false),
+			GFDecisionScore.new(
+				null,
+				0.0,
+				[],
+				false
+			),
 			{
 				"decision_set_id": decision_set_id,
 				"missing_decision_set": true,
@@ -255,7 +265,12 @@ func evaluate(decision_set_id: StringName, context: GFDecisionContext) -> GFDeci
 func select_best(decision_set_id: StringName, context: GFDecisionContext) -> GFDecisionScore:
 	var evaluation: GFDecisionEvaluation = evaluate(decision_set_id, context)
 	if evaluation.best_score == null:
-		return GFDecisionScore.new(null, 0.0, [], false)
+		return GFDecisionScore.new(
+			null,
+			0.0,
+			[],
+			false
+		)
 	return evaluation.best_score
 
 
@@ -267,10 +282,7 @@ func select_best(decision_set_id: StringName, context: GFDecisionContext) -> GFD
 ## [br]
 ## @schema return: 包含 decision_set_count 和 decision_set_ids 字段的 Dictionary。
 func get_debug_snapshot() -> Dictionary:
-	return {
-		"decision_set_count": _decision_sets.size(),
-		"decision_set_ids": get_decision_set_ids(),
-	}
+	return { "decision_set_count": _decision_sets.size(), "decision_set_ids": get_decision_set_ids(), }
 
 
 # --- 私有/辅助方法 ---
@@ -289,9 +301,6 @@ func _find_registered_id_for_instance(candidate: GFDecisionSet) -> StringName:
 ## 在访问边界将集合资源的 decision_set_id 恢复为其注册键。
 ## [br]
 ## @api private
-func _restore_registered_identity(
-	decision_set_id: StringName,
-	decision_set: GFDecisionSet
-) -> void:
+func _restore_registered_identity(decision_set_id: StringName, decision_set: GFDecisionSet) -> void:
 	if decision_set != null and decision_set.decision_set_id != decision_set_id:
 		decision_set.decision_set_id = decision_set_id

@@ -49,7 +49,15 @@ const _PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset
 ## 类型选项下标对应的 Godot 类型名；空字符串表示全部类型，顺序必须与界面标题一致。
 ## [br]
 ## @api private
-const _TYPE_FILTERS: PackedStringArray = ["", "PackedScene", "Texture2D", "AudioStream", "Material", "Mesh", "Resource"]
+const _TYPE_FILTERS: PackedStringArray = [
+	"",
+	"PackedScene",
+	"Texture2D",
+	"AudioStream",
+	"Material",
+	"Mesh",
+	"Resource",
+]
 
 
 # --- 私有变量 ---
@@ -364,7 +372,11 @@ func _ready() -> void:
 	if _owner_window != null:
 		var _window_connection: int = _owner_window.visibility_changed.connect(_on_visibility_changed)
 	_state = _PREFERENCES_SCRIPT.load_state()
-	_scope.text = GFVariantData.get_option_string(_state, "scope", "res://")
+	_scope.text = GFVariantData.get_option_string(
+		_state,
+		"scope",
+		"res://"
+	)
 	_addons.set_pressed_no_signal(GFVariantData.get_option_bool(_state, "include_addons"))
 	var stored_type: String = GFVariantData.get_option_string(_state, "type_filter")
 	var type_index: int = _TYPE_FILTERS.find(stored_type)
@@ -385,7 +397,10 @@ func _process(delta: float) -> void:
 	if not _can_update_view() or _query_context_generation != _context_generation:
 		_cancel_page_query()
 		return
-	_query_delay = maxf(_query_delay - delta, 0.0)
+	_query_delay = maxf(
+		_query_delay - delta,
+		0.0
+	)
 	if _query_delay > 0.0:
 		return
 	if not _card_report.is_empty():
@@ -396,11 +411,18 @@ func _process(delta: float) -> void:
 	if _page_query == null:
 		return
 	var serial: int = _query_serial
-	var finished: bool = _page_query.step(128, 2000, _retired_queries.is_empty())
+	var finished: bool = _page_query.step(
+		128,
+		2000,
+		_retired_queries.is_empty()
+	)
 	if serial != _query_serial or _page_query == null:
 		return
 	_query_progress = _page_query.get_progress()
-	_status.text = "正在查询资源：%d / %d" % [GFVariantData.get_option_int(_query_progress, "scanned"), GFVariantData.get_option_int(_query_progress, "input_count")]
+	_status.text = (
+		"正在查询资源：%d / %d"
+		% [GFVariantData.get_option_int(_query_progress, "scanned"), GFVariantData.get_option_int(_query_progress, "input_count"),]
+	)
 	if not finished:
 		return
 	var report: Dictionary = _page_query.take_result()
@@ -446,7 +468,13 @@ func _exit_tree() -> void:
 ## [br]
 ## @return 源资源表或显式共享目录是否仍有未保存修改。
 func has_unsaved_workspace_changes() -> bool:
-	return _tables.has_unsaved_changes() or (_shared_catalog != null and _catalog_fingerprint() != _shared_saved_fingerprint)
+	return (
+		_tables.has_unsaved_changes()
+		or (
+			_shared_catalog != null
+			and _catalog_fingerprint() != _shared_saved_fingerprint
+		)
+	)
 
 
 ## 接收宿主上下文；撤销上下文时停止索引与预览提交。
@@ -475,7 +503,16 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ## [br]
 ## @return 当前卡片对应的项目资源路径。
 func get_selected_resource_paths() -> PackedStringArray:
-	return PackedStringArray() if _stale or _query_pending or not _page_ready or not _can_update_view() else _grid.get_selected_resource_paths()
+	return (
+		PackedStringArray()
+		if (
+			_stale
+			or _query_pending
+			or not _page_ready
+			or not _can_update_view()
+		)
+		else _grid.get_selected_resource_paths()
+	)
 
 
 ## 返回可观察页面状态，供编辑器验收和宿主状态显示使用。
@@ -486,7 +523,19 @@ func get_selected_resource_paths() -> PackedStringArray:
 ## [br]
 ## @schema return: Dictionary with stale, query_pending, page_ready, query_progress, worker_count, peak_card_step_usec, entry_count, visible_count, page, shared_path and selected_paths.
 func get_snapshot() -> Dictionary:
-	return {"stale": _stale, "query_pending": _query_pending, "page_ready": _page_ready, "query_progress": _query_progress.duplicate(true), "worker_count": _retired_queries.size() + (1 if _page_query != null and _page_query.has_worker() else 0), "peak_card_step_usec": _peak_card_step_usec, "entry_count": _catalog.entries.size(), "visible_count": _grid.item_count, "page": _page, "shared_path": _shared_path, "selected_paths": get_selected_resource_paths()}
+	return {
+		"stale": _stale,
+		"query_pending": _query_pending,
+		"page_ready": _page_ready,
+		"query_progress": _query_progress.duplicate(true),
+		"worker_count": _retired_queries.size() + (1 if _page_query != null and _page_query.has_worker() else 0),
+		"peak_card_step_usec": _peak_card_step_usec,
+		"entry_count": _catalog.entries.size(),
+		"visible_count": _grid.item_count,
+		"page": _page,
+		"shared_path": _shared_path,
+		"selected_paths": get_selected_resource_paths(),
+	}
 
 
 # --- 私有/辅助方法 ---
@@ -512,7 +561,13 @@ func _build_ui() -> void:
 	_addons.text = "包含插件"
 	source_row.add_child(_addons)
 	var _addons_connection: int = _addons.toggled.connect(_on_addons_toggled)
-	source_row.add_child(_UI_SCRIPT.make_button("刷新", "读取 Godot 已有资源索引", _refresh))
+	source_row.add_child(
+		_UI_SCRIPT.make_button(
+			"刷新",
+			"读取 Godot 已有资源索引",
+			_refresh
+		)
+	)
 	var query_row: HBoxContainer = _UI_SCRIPT.make_toolbar()
 	add_child(query_row)
 	_search = LineEdit.new()
@@ -523,12 +578,24 @@ func _build_ui() -> void:
 	query_row.add_child(_search)
 	var _search_connection: int = _search.text_changed.connect(_on_search_changed)
 	_types = OptionButton.new()
-	for caption: String in ["全部类型", "场景", "图片", "音频", "材质", "网格", "资源"]:
+	for caption: String in [
+		"全部类型",
+		"场景",
+		"图片",
+		"音频",
+		"材质",
+		"网格",
+		"资源",
+	]:
 		_types.add_item(caption)
 	query_row.add_child(_types)
 	var _types_connection: int = _types.item_selected.connect(_on_filter_selected)
 	_collection = OptionButton.new()
-	for caption: String in ["全部", "个人收藏", "最近使用"]:
+	for caption: String in [
+		"全部",
+		"个人收藏",
+		"最近使用",
+	]:
 		_collection.add_item(caption)
 	query_row.add_child(_collection)
 	var _collection_connection: int = _collection.item_selected.connect(_on_collection_selected)
@@ -553,20 +620,58 @@ func _build_ui() -> void:
 	var _activated_connection: int = _grid.item_activated.connect(_on_grid_activated)
 	var page_row: HBoxContainer = _UI_SCRIPT.make_toolbar()
 	browser.add_child(page_row)
-	_previous_button = _UI_SCRIPT.make_button("上一页", "每页最多 100 项", _previous_page)
+	_previous_button = _UI_SCRIPT.make_button(
+		"上一页",
+		"每页最多 100 项",
+		_previous_page
+	)
 	page_row.add_child(_previous_button)
 	_page_label = _UI_SCRIPT.make_summary_label()
 	_page_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page_row.add_child(_page_label)
-	_next_button = _UI_SCRIPT.make_button("下一页", "每页最多 100 项", _next_page)
+	_next_button = _UI_SCRIPT.make_button(
+		"下一页",
+		"每页最多 100 项",
+		_next_page
+	)
 	page_row.add_child(_next_button)
 	var action_row: HFlowContainer = HFlowContainer.new()
 	browser.add_child(action_row)
-	action_row.add_child(_UI_SCRIPT.make_button("打开", "场景在原生编辑器打开，其他资源交给 Inspector", _open_selected))
-	action_row.add_child(_UI_SCRIPT.make_button("定位文件", "在 Godot FileSystem 中定位", _locate_selected))
-	action_row.add_child(_UI_SCRIPT.make_button("收藏 / 取消", "仅保存个人编辑器偏好", _toggle_favorites))
-	action_row.add_child(_UI_SCRIPT.make_button("表格编辑", "只编辑显式选择的独立源 tres/res", _open_tables))
-	action_row.add_child(_UI_SCRIPT.make_button("依赖 / 引用", "按需有界扫描，不作为安全删除证明", _inspect_references))
+	action_row.add_child(
+		_UI_SCRIPT.make_button(
+			"打开",
+			"场景在原生编辑器打开，其他资源交给 Inspector",
+			_open_selected
+		)
+	)
+	action_row.add_child(
+		_UI_SCRIPT.make_button(
+			"定位文件",
+			"在 Godot FileSystem 中定位",
+			_locate_selected
+		)
+	)
+	action_row.add_child(
+		_UI_SCRIPT.make_button(
+			"收藏 / 取消",
+			"仅保存个人编辑器偏好",
+			_toggle_favorites
+		)
+	)
+	action_row.add_child(
+		_UI_SCRIPT.make_button(
+			"表格编辑",
+			"只编辑显式选择的独立源 tres/res",
+			_open_tables
+		)
+	)
+	action_row.add_child(
+		_UI_SCRIPT.make_button(
+			"依赖 / 引用",
+			"按需有界扫描，不作为安全删除证明",
+			_inspect_references
+		)
+	)
 	_resource_actions = MenuButton.new()
 	_resource_actions.name = "ResourceActions"
 	_resource_actions.text = "发送到工具"
@@ -582,9 +687,25 @@ func _build_ui() -> void:
 	_tabs.add_child(_tables)
 	var catalog_row: HBoxContainer = _UI_SCRIPT.make_toolbar()
 	add_child(catalog_row)
-	catalog_row.add_child(_UI_SCRIPT.make_button("新建共享目录", "显式选择保存位置", _create_catalog))
-	catalog_row.add_child(_UI_SCRIPT.make_button("打开共享目录", "读取已有 GFAssetCatalog", _open_catalog))
-	_catalog_save_button = _UI_SCRIPT.make_button("保存共享目录", "只保存目录，不修改源素材或导入结果", _save_catalog)
+	catalog_row.add_child(
+		_UI_SCRIPT.make_button(
+			"新建共享目录",
+			"显式选择保存位置",
+			_create_catalog
+		)
+	)
+	catalog_row.add_child(
+		_UI_SCRIPT.make_button(
+			"打开共享目录",
+			"读取已有 GFAssetCatalog",
+			_open_catalog
+		)
+	)
+	_catalog_save_button = _UI_SCRIPT.make_button(
+		"保存共享目录",
+		"只保存目录，不修改源素材或导入结果",
+		_save_catalog
+	)
 	_catalog_save_button.disabled = true
 	catalog_row.add_child(_catalog_save_button)
 	_catalog_label = _UI_SCRIPT.make_summary_label("未选择共享目录；收藏属于个人。")
@@ -603,7 +724,13 @@ func _build_ui() -> void:
 	_notes.max_length = 4096
 	_notes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tag_row.add_child(_notes)
-	tag_row.add_child(_UI_SCRIPT.make_button("应用到所选", "修改所选条目；原生 Undo，另行保存目录", _apply_shared_fields))
+	tag_row.add_child(
+		_UI_SCRIPT.make_button(
+			"应用到所选",
+			"修改所选条目；原生 Undo，另行保存目录",
+			_apply_shared_fields
+		)
+	)
 
 
 ## 递增授权代次并停止查询、扫描和预览，关闭带旧上下文的菜单与对话框；保留共享目录和源资源的内存草稿。
@@ -638,14 +765,23 @@ func _close_catalog_dialog() -> void:
 ## [br]
 ## @api private
 func _can_update_view() -> bool:
-	return Engine.is_editor_hint() and _context != null and _is_view_visible()
+	return (
+		Engine.is_editor_hint()
+		and _context != null
+		and _is_view_visible()
+	)
 
 
 ## 同时检查页面入树、祖先可见性和所在窗口可见性，隐藏的 Workspace 窗口也视为不可见。
 ## [br]
 ## @api private
 func _is_view_visible() -> bool:
-	return is_inside_tree() and is_visible_in_tree() and get_window() != null and get_window().visible
+	return (
+		is_inside_tree()
+		and is_visible_in_tree()
+		and get_window() != null
+		and get_window().visible
+	)
 
 
 ## 更新目录失效标记；置为失效时取消分页，同时刷新拖放和资源交接菜单的可用性。
@@ -655,7 +791,11 @@ func _set_stale(value: bool) -> void:
 	_stale = value
 	if value:
 		_cancel_page_query()
-	_grid.set_resource_actions_enabled(not value and not _query_pending and _can_update_view())
+	_grid.set_resource_actions_enabled(
+		not value
+		and not _query_pending
+		and _can_update_view()
+	)
 	_clear_resource_actions()
 	_refresh_resource_actions()
 
@@ -675,7 +815,11 @@ func _schedule_refresh() -> void:
 ## @api private
 func _run_queued_refresh() -> void:
 	_refresh_queued = false
-	if is_inside_tree() and is_visible_in_tree() and _context != null:
+	if (
+		is_inside_tree()
+		and is_visible_in_tree()
+		and _context != null
+	):
 		_refresh()
 
 
@@ -703,7 +847,11 @@ func _refresh() -> void:
 		_publish_catalog()
 		return
 	_status.text = "正在读取 Godot 索引：%s；上次结果暂不可用于编辑。" % _scope.text
-	_source.start_scan(_scope.text, _TYPE_FILTERS[_types.selected], _addons.button_pressed)
+	_source.start_scan(
+		_scope.text,
+		_TYPE_FILTERS[_types.selected],
+		_addons.button_pressed
+	)
 
 
 ## 从有效来源复制条目建立视图目录，按 UID 更新路径；项目视图仅叠加共享标签与备注，共享视图另按范围和类型过滤。
@@ -711,7 +859,13 @@ func _refresh() -> void:
 ## [br]
 ## @api private
 func _publish_catalog() -> void:
-	if not _can_update_view() or (_sources.selected == 0 and not _project_snapshot_valid):
+	if (
+		not _can_update_view()
+		or (
+			_sources.selected == 0
+			and not _project_snapshot_valid
+		)
+	):
 		_set_stale(true)
 		return
 	var next_catalog: GFAssetCatalog = GFAssetCatalog.new()
@@ -738,9 +892,18 @@ func _publish_catalog() -> void:
 			if not _addons.button_pressed and entry.primary_path.begins_with("res://addons/"):
 				continue
 			var scope_path: String = _scope.text.simplify_path().trim_suffix("/")
-			if scope_path != "res:" and not (entry.primary_path == scope_path or entry.primary_path.begins_with(scope_path + "/")):
+			if (
+				scope_path != "res:"
+				and not (
+					entry.primary_path == scope_path
+					or entry.primary_path.begins_with(scope_path + "/")
+				)
+			):
 				continue
-			if not _SOURCE_SCRIPT.matches_type(entry.type_hint, _TYPE_FILTERS[_types.selected]):
+			if not _SOURCE_SCRIPT.matches_type(
+				entry.type_hint,
+				_TYPE_FILTERS[_types.selected]
+			):
 				continue
 		elif shared_by_id.has(entry.asset_id):
 			var shared_value: Variant = shared_by_id[entry.asset_id]
@@ -786,7 +949,12 @@ func _start_page_query() -> void:
 	var serial: int = _query_serial
 	var filter_ids: PackedStringArray = PackedStringArray()
 	if _collection.selected > 0:
-		filter_ids = GFVariantData.get_option_packed_string_array(_state, "favorites" if _collection.selected == 1 else "recent")
+		filter_ids = (
+			GFVariantData.get_option_packed_string_array(
+				_state,
+				"favorites" if _collection.selected == 1 else "recent"
+			)
+		)
 		if filter_ids.is_empty():
 			filter_ids = PackedStringArray(["__gf_asset_browser_empty_collection__"])
 	var query_report: Dictionary = _model.set_query(_search.text, filter_ids)
@@ -833,7 +1001,11 @@ func _cancel_page_query() -> void:
 ## [br]
 ## @api private
 func _reap_queries() -> void:
-	for index: int in range(_retired_queries.size() - 1, -1, -1):
+	for index: int in range(
+		_retired_queries.size() - 1,
+		-1,
+		-1
+	):
 		if _retired_queries[index].reap_worker():
 			_retired_queries.remove_at(index)
 
@@ -842,8 +1014,15 @@ func _reap_queries() -> void:
 ## [br]
 ## @api private
 func _is_page_report_current(report: Dictionary) -> bool:
-	return _can_update_view() and _query_context_generation == _context_generation and _model.is_page_query_current(
-		GFVariantData.get_option_int(report, "catalog_revision"), GFVariantData.get_option_int(report, "query_generation")
+	return (
+		_can_update_view()
+		and _query_context_generation == _context_generation
+		and (
+			_model.is_page_query_current(
+				GFVariantData.get_option_int(report, "catalog_revision"),
+				GFVariantData.get_option_int(report, "query_generation")
+			)
+		)
 	)
 
 
@@ -864,13 +1043,31 @@ func _build_card_batch() -> void:
 		count += 1
 		var path: String = GFVariantData.get_option_string(item, "primary_path")
 		var type_hint: String = GFVariantData.get_option_string(item, "type_hint")
-		var title: String = GFVariantData.get_option_string(item, "title", path.get_file())
-		var icon: Texture2D = _grid.get_theme_icon(type_hint if _grid.has_theme_icon(type_hint, "EditorIcons") else "Object", "EditorIcons")
+		var title: String = GFVariantData.get_option_string(
+			item,
+			"title",
+			path.get_file()
+		)
+		var icon: Texture2D = _grid.get_theme_icon(
+			type_hint if _grid.has_theme_icon(type_hint, "EditorIcons") else "Object",
+			"EditorIcons"
+		)
 		var item_index: int = _grid.add_item(title, icon)
 		_grid.set_item_metadata(item_index, path)
-		_grid.set_item_tooltip(item_index, "%s\n%s\n%s" % [path, type_hint, ", ".join(GFVariantData.get_option_packed_string_array(item, "tags"))])
+		_grid.set_item_tooltip(
+			item_index,
+			"%s\n%s\n%s"
+			% [
+				path,
+				type_hint,
+				", ".join(GFVariantData.get_option_packed_string_array(item, "tags")),
+			]
+		)
 		var _appended: bool = _card_paths.append(path)
-	_peak_card_step_usec = maxi(_peak_card_step_usec, Time.get_ticks_usec() - started)
+	_peak_card_step_usec = maxi(
+		_peak_card_step_usec,
+		Time.get_ticks_usec() - started
+	)
 	if _card_cursor < _card_ids.size():
 		return
 	_finish_page_render()
@@ -886,7 +1083,11 @@ func _finish_page_render() -> void:
 	var page_report: Dictionary = _card_report
 	var serial: int = _query_serial
 	_card_report = {}
-	_page = GFVariantData.get_option_int(page_report, "page", 1)
+	_page = GFVariantData.get_option_int(
+		page_report,
+		"page",
+		1
+	)
 	_page_count = GFVariantData.get_option_int(page_report, "page_count")
 	_query_pending = false
 	_page_ready = true
@@ -899,8 +1100,22 @@ func _finish_page_render() -> void:
 		return
 	_previous_button.disabled = _page <= 1
 	_next_button.disabled = _page >= _page_count
-	_page_label.text = "第 %d / %d 页 · %d 项" % [_page, maxi(_page_count, 1), GFVariantData.get_option_int(page_report, "total_count")]
-	_status.text = "%s · %d 项完整快照%s" % [_scope.text, _catalog.entries.size(), "（旧结果已过期）" if _stale else ""]
+	_page_label.text = (
+		"第 %d / %d 页 · %d 项"
+		% [
+			_page,
+			maxi(_page_count, 1),
+			GFVariantData.get_option_int(page_report, "total_count"),
+		]
+	)
+	_status.text = (
+		"%s · %d 项完整快照%s"
+		% [
+			_scope.text,
+			_catalog.entries.size(),
+			"（旧结果已过期）" if _stale else "",
+		]
+	)
 	if _grid.item_count == 0:
 		_status.text += "；没有匹配资源。调整范围、筛选，或打开共享目录。"
 	_selected_id = &""
@@ -936,14 +1151,31 @@ func _refresh_resource_actions() -> void:
 	if _context != null:
 		actions = _context.get_resource_actions(_resource_menu_paths)
 	_resource_actions.visible = not actions.is_empty()
-	_resource_actions.disabled = _stale or _query_pending or not _can_update_view() or _resource_menu_paths.is_empty()
+	_resource_actions.disabled = (
+		_stale
+		or _query_pending
+		or not _can_update_view()
+		or _resource_menu_paths.is_empty()
+	)
 	for action: Dictionary in actions:
 		var index: int = popup.item_count
-		popup.add_item(GFVariantData.get_option_string(action, "title"), _resource_menu_next_id)
+		popup.add_item(
+			GFVariantData.get_option_string(action, "title"),
+			_resource_menu_next_id
+		)
 		_resource_menu_next_id += 1
-		popup.set_item_metadata(index, GFVariantData.get_option_string(action, "action_id"))
-		popup.set_item_disabled(index, not GFVariantData.get_option_bool(action, "available"))
-		popup.set_item_tooltip(index, GFVariantData.get_option_string(action, "reason"))
+		popup.set_item_metadata(
+			index,
+			GFVariantData.get_option_string(action, "action_id")
+		)
+		popup.set_item_disabled(
+			index,
+			not GFVariantData.get_option_bool(action, "available")
+		)
+		popup.set_item_tooltip(
+			index,
+			GFVariantData.get_option_string(action, "reason")
+		)
 
 
 ## 从完整有效页面的卡片资产 ID 解析当前多选条目；返回视图目录条目引用，不按路径去重或复制条目。
@@ -951,7 +1183,12 @@ func _refresh_resource_actions() -> void:
 ## @api private
 func _selected_entries() -> Array[GFAssetCatalogEntry]:
 	var entries: Array[GFAssetCatalogEntry] = []
-	if _stale or _query_pending or not _page_ready or not _can_update_view():
+	if (
+		_stale
+		or _query_pending
+		or not _page_ready
+		or not _can_update_view()
+	):
 		return entries
 	# 多个资产可以引用同一路径；选择身份来自本页卡片，路径去重仅用于原生资源动作。
 	for index: int in _grid.get_selected_items():
@@ -1069,13 +1306,34 @@ func _inspect_references() -> void:
 		_status.text = "请在有效快照中选择一个资源。"
 		return
 	var path: String = paths[0]
-	var dependencies: Dictionary = GFResourceRegistryTools.build_dependency_report(path, {"max_scan_depth": 16, "max_dependency_paths": 1000})
-	var references: Dictionary = GFProjectReferenceScanner.scan_references([{"id": path, "root_path": path}], {
-		"scan_roots": [_scope.text], "max_scanned_files": 2000, "max_file_bytes": 1_048_576,
-		"max_total_bytes": 8_388_608, "max_references_per_target": 100, "max_weak_references_per_target": 100,
-	})
-	_details.text = "扫描范围：%s\n包含已验证、静态及弱引用证据。动态路径可能无法确定；未发现引用不表示可安全删除。\n\n%s" % [_scope.text, JSON.stringify({"dependencies": dependencies, "references": references}, "  ")]
-	_status.text = "引用检查完成%s；刷新或源文件变化后结果过期。" % ("（覆盖不完整）" if GFVariantData.get_option_bool(references, "partial_scan") else "")
+	var dependencies: Dictionary = GFResourceRegistryTools.build_dependency_report(
+		path,
+		{ "max_scan_depth": 16, "max_dependency_paths": 1000 }
+	)
+	var references: Dictionary = GFProjectReferenceScanner.scan_references(
+		[
+			{ "id": path, "root_path": path },
+		],
+		{
+			"scan_roots": [_scope.text],
+			"max_scanned_files": 2000,
+			"max_file_bytes": 1_048_576,
+			"max_total_bytes": 8_388_608,
+			"max_references_per_target": 100,
+			"max_weak_references_per_target": 100,
+		}
+	)
+	_details.text = (
+		"扫描范围：%s\n包含已验证、静态及弱引用证据。动态路径可能无法确定；未发现引用不表示可安全删除。\n\n%s"
+		% [
+			_scope.text,
+			JSON.stringify(
+				{ "dependencies": dependencies, "references": references },
+				"  "
+			),
+		]
+	)
+	_status.text = ("引用检查完成%s；刷新或源文件变化后结果过期。" % ("（覆盖不完整）" if GFVariantData.get_option_bool(references, "partial_scan") else ""))
 
 
 ## 以创建模式打开共享目录路径选择，后续仅允许写入不存在的独立项目 .tres 文件。
@@ -1136,7 +1394,11 @@ func _save_catalog() -> void:
 ## [br]
 ## @api private
 func _apply_shared_fields() -> void:
-	if _shared_catalog == null or _context == null or _stale:
+	if (
+		_shared_catalog == null
+		or _context == null
+		or _stale
+	):
 		_status.text = "请先选择共享目录和有效资源。"
 		return
 	var selected: Array[GFAssetCatalogEntry] = _selected_entries()
@@ -1206,14 +1468,20 @@ func _catalog_fingerprint() -> int:
 ## [br]
 ## @api private
 func _update_catalog_label() -> void:
-	_catalog_label.text = "%s · %s" % [_shared_path, "未保存修改" if _catalog_fingerprint() != _shared_saved_fingerprint else "已保存"]
+	_catalog_label.text = (
+		"%s · %s"
+		% [_shared_path, "未保存修改" if _catalog_fingerprint() != _shared_saved_fingerprint else "已保存"]
+	)
 
 
 ## 将请求页号减一但不低于第一页，并取消旧页后安排新分页。
 ## [br]
 ## @api private
 func _previous_page() -> void:
-	_page = maxi(_page - 1, 1)
+	_page = maxi(
+		_page - 1,
+		1
+	)
 	_render_page()
 
 
@@ -1221,7 +1489,10 @@ func _previous_page() -> void:
 ## [br]
 ## @api private
 func _next_page() -> void:
-	_page = mini(_page + 1, maxi(_page_count, 1))
+	_page = mini(
+		_page + 1,
+		maxi(_page_count, 1)
+	)
 	_render_page()
 
 
@@ -1232,11 +1503,20 @@ func _next_page() -> void:
 ## [br]
 ## @api private
 func _on_resource_action_pressed(item_id: int) -> void:
-	if _stale or _query_pending or not _can_update_view() or _resource_menu_context_generation != _context_generation:
+	if (
+		_stale
+		or _query_pending
+		or not _can_update_view()
+		or _resource_menu_context_generation != _context_generation
+	):
 		return
 	var popup: PopupMenu = _resource_actions.get_popup()
 	var index: int = popup.get_item_index(item_id)
-	if index < 0 or popup.is_item_disabled(index) or _resource_menu_paths != get_selected_resource_paths():
+	if (
+		index < 0
+		or popup.is_item_disabled(index)
+		or _resource_menu_paths != get_selected_resource_paths()
+	):
 		return
 	var action_id: String = GFVariantData.to_text(popup.get_item_metadata(index))
 	var paths: PackedStringArray = _resource_menu_paths.duplicate()
@@ -1248,7 +1528,13 @@ func _on_resource_action_pressed(item_id: int) -> void:
 		return
 	if GFVariantData.get_option_bool(report, "ok"):
 		_record_recent_entries(entries)
-	_status.text = GFVariantData.get_option_string(report, "message", "已交接所选资源。" if GFVariantData.get_option_bool(report, "ok") else "接收工具未完成交接；请刷新后重试。")
+	_status.text = (
+		GFVariantData.get_option_string(
+			report,
+			"message",
+			"已交接所选资源。" if GFVariantData.get_option_bool(report, "ok") else "接收工具未完成交接；请刷新后重试。"
+		)
+	)
 
 
 ## 仅在仍显示项目来源且页面可更新时接受扫描；失败保持旧目录失效，完整成功目录才获得发布资格。
@@ -1261,7 +1547,7 @@ func _on_source_completed(catalog: GFAssetCatalog, report: Dictionary) -> void:
 		_project_snapshot_valid = false
 		_set_stale(true)
 		var status: String = GFVariantData.get_option_string(report, "status")
-		_status.text = "资源范围超过 10,000 项，请缩小目录或类型；旧结果已过期。" if status == "capacity_exceeded" else "资源索引失败，旧结果已过期：" + status
+		_status.text = ("资源范围超过 10,000 项，请缩小目录或类型；旧结果已过期。" if status == "capacity_exceeded" else "资源索引失败，旧结果已过期：" + status)
 		return
 	_project_catalog = catalog
 	_project_snapshot_valid = true
@@ -1284,15 +1570,27 @@ func _on_source_invalidated() -> void:
 ## 只接收当前有效整页的预览代次，更新所有引用该路径的卡片；原生预览为空时保留类型图标并补充提示。
 ## [br]
 ## @api private
-func _on_preview_ready(path: String, texture: Texture2D, generation: int) -> void:
-	if generation != _preview_generation or _query_pending or _stale or not _can_update_view():
+func _on_preview_ready(
+	path: String,
+	texture: Texture2D,
+	generation: int
+) -> void:
+	if (
+		generation != _preview_generation
+		or _query_pending
+		or _stale
+		or not _can_update_view()
+	):
 		return
 	for index: int in range(_grid.item_count):
 		if _grid.get_item_metadata(index) == path:
 			if texture != null:
 				_grid.set_item_icon(index, texture)
 			else:
-				_grid.set_item_tooltip(index, _grid.get_item_tooltip(index) + "\nGodot 暂无原生预览，显示资源类型图标。")
+				_grid.set_item_tooltip(
+					index,
+					_grid.get_item_tooltip(index) + "\nGodot 暂无原生预览，显示资源类型图标。"
+				)
 
 
 ## 页面或宿主窗口隐藏时取消索引、分页和预览订阅并撤销快照资格；重新显示时安排完整刷新。
@@ -1358,7 +1656,10 @@ func _on_grid_selected(_index: int, _selected: bool) -> void:
 	var entry: GFAssetCatalogEntry = entries[0]
 	_selected_id = entry.asset_id
 	var _model_selected: bool = _model.select_asset(entry.asset_id)
-	_details.text = JSON.stringify(entry.to_dict(), "  ")
+	_details.text = JSON.stringify(
+		entry.to_dict(),
+		"  "
+	)
 	_tags.text = ", ".join(entry.tags)
 	_notes.text = entry.description
 
@@ -1377,7 +1678,12 @@ func _on_grid_activated(_index: int) -> void:
 func _on_catalog_path_selected(path: String, generation: int) -> void:
 	if generation != _context_generation or not _can_update_view():
 		return
-	if not path.begins_with("res://") or path.contains("..") or path.contains("::") or path.get_extension().to_lower() != "tres":
+	if (
+		not path.begins_with("res://")
+		or path.contains("..")
+		or path.contains("::")
+		or path.get_extension().to_lower() != "tres"
+	):
 		_status.text = "共享目录必须是项目内独立 .tres 文件。"
 		return
 	var catalog: GFAssetCatalog = null
@@ -1386,7 +1692,11 @@ func _on_catalog_path_selected(path: String, generation: int) -> void:
 			_status.text = "该文件已存在，请使用打开目录或选择新路径。"
 			return
 		catalog = GFAssetCatalog.new()
-		var error: Error = ResourceSaver.save(catalog, path, ResourceSaver.FLAG_CHANGE_PATH)
+		var error: Error = ResourceSaver.save(
+			catalog,
+			path,
+			ResourceSaver.FLAG_CHANGE_PATH
+		)
 		if error != OK:
 			_status.text = "创建目录失败：" + error_string(error)
 			return

@@ -63,6 +63,8 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标节点。
 ## [br]
 ## @param payload: AnimationPlayer 播放状态载荷。
@@ -76,21 +78,31 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(
+	node: Node,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Dictionary:
 	var player: AnimationPlayer = _get_animation_player(node)
 	if player == null:
 		return make_result(false, "Node is not AnimationPlayer.")
 
-	var errors: Array[String] = _validate_property_specs_payload(payload, [
-		{ "key": "current_animation", "kind": &"string_name" },
-		{ "key": "assigned_animation", "kind": &"string_name" },
-		{ "key": "current_animation_position", "kind": &"float" },
-		{ "key": "speed_scale", "kind": &"float" },
-		{ "key": "playing", "kind": &"bool" },
-		{ "key": "active", "kind": &"bool" },
-	])
+	var errors: Array[String] = _validate_property_specs_payload(
+		payload,
+		[
+			{ "key": "current_animation", "kind": &"string_name" },
+			{ "key": "assigned_animation", "kind": &"string_name" },
+			{ "key": "current_animation_position", "kind": &"float" },
+			{ "key": "speed_scale", "kind": &"float" },
+			{ "key": "playing", "kind": &"bool" },
+			{ "key": "active", "kind": &"bool" },
+		]
+	)
 	if not errors.is_empty():
-		return make_result(false, "; ".join(errors))
+		return make_result(
+			false,
+			"; ".join(errors)
+		)
 
 	if payload.has("speed_scale"):
 		player.speed_scale = GFVariantData.to_float(payload["speed_scale"])
@@ -106,7 +118,10 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 	var should_play: bool = GFVariantData.get_option_bool(payload, "playing")
 	if animation_name != &"" and player.has_animation(animation_name):
 		player.play(animation_name)
-		player.seek(maxf(position, 0.0), true)
+		player.seek(
+			maxf(position, 0.0),
+			true
+		)
 		if not should_play:
 			player.stop(false)
 	elif not should_play:

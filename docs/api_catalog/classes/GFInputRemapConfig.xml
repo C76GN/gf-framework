@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputRemapConfig" path="addons/gf/standard/input/rebinding/gf_input_remap_config.gd" module="standard" extends="Resource" classDigest="b3cbaec7d2b87cbbb1a80248de118d355269cb542cb57156286c49b272bcf5d7">
+<class name="GFInputRemapConfig" path="addons/gf/standard/input/rebinding/gf_input_remap_config.gd" module="standard" extends="Resource" classDigest="33e9416eec2c69e5f630e4d55ccc5e8b1c823a7f74f5daa905506f138a26cbd1">
 	<description>GFInputRemapConfig: 输入重映射配置。
 只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。
 通过公开 mutation 方法成功修改配置时会发出 Resource.changed。</description>
@@ -42,27 +42,29 @@
 			</tags>
 		</member>
 		<member kind="method" name="unbind">
-			<signature>func unbind(context_id: StringName, action_id: StringName, binding_index: int) -&gt; void:</signature>
+			<signature>func unbind( context_id: StringName, action_id: StringName, binding_index: int ) -&gt; void:</signature>
 			<description>显式解绑某个绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context_id: 上下文标识。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">binding_index: 绑定索引。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_binding">
-			<signature>func clear_binding(context_id: StringName, action_id: StringName, binding_index: int) -&gt; void:</signature>
+			<signature>func clear_binding( context_id: StringName, action_id: StringName, binding_index: int ) -&gt; void:</signature>
 			<description>清除某个覆盖，使其回退到默认绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context_id: 上下文标识。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">binding_index: 绑定索引。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_binding">
-			<signature>func has_binding(context_id: StringName, action_id: StringName, binding_index: int) -&gt; bool:</signature>
+			<signature>func has_binding( context_id: StringName, action_id: StringName, binding_index: int ) -&gt; bool:</signature>
 			<description>检查是否存在覆盖记录。显式解绑也会返回 true。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -70,10 +72,11 @@
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">binding_index: 绑定索引。</tag>
 				<tag name="return">是否存在覆盖。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_bound_event_or_null">
-			<signature>func get_bound_event_or_null(context_id: StringName, action_id: StringName, binding_index: int) -&gt; InputEvent:</signature>
+			<signature>func get_bound_event_or_null( context_id: StringName, action_id: StringName, binding_index: int ) -&gt; InputEvent:</signature>
 			<description>获取覆盖输入事件。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -81,6 +84,7 @@
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">binding_index: 绑定索引。</tag>
 				<tag name="return">覆盖事件；显式解绑或未覆盖时均可能返回 null，应先调用 has_binding() 区分。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_custom_data">

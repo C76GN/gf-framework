@@ -139,7 +139,13 @@ const _FLOAT32_MAX: float = 3.4028234663852886e38
 ## @schema return: Variant made only from JSON-compatible values and typed marker dictionaries; traversal exhaustion returns a top-level TraversalLimit marker.
 static func variant_to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:
 	var traversal_state: Dictionary = _make_traversal_state(options)
-	var encoded: Variant = _variant_to_json_compatible(value, options, [], 0, traversal_state)
+	var encoded: Variant = _variant_to_json_compatible(
+		value,
+		options,
+		[],
+		0,
+		traversal_state
+	)
 	if _is_traversal_exhausted(traversal_state):
 		return _make_traversal_limit_marker(traversal_state)
 	return encoded
@@ -164,7 +170,13 @@ static func variant_to_json_compatible(value: Variant, options: Dictionary = {})
 ## @schema return: Variant restored from JSON-compatible data, or the traversal_limit fallback when traversal is incomplete.
 static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:
 	var traversal_state: Dictionary = _make_traversal_state(options)
-	var decoded: Variant = _json_compatible_to_variant(value, options, [], 0, traversal_state)
+	var decoded: Variant = _json_compatible_to_variant(
+		value,
+		options,
+		[],
+		0,
+		traversal_state
+	)
 	if _is_traversal_exhausted(traversal_state):
 		return _make_traversal_limit_fallback(options)
 	return decoded
@@ -190,7 +202,13 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -> Dictionary:
 	var traversal_state: Dictionary = _make_traversal_state(options)
 	traversal_state["require_complete"] = true
-	var encoded: Variant = _variant_to_json_compatible(value, options, [], 0, traversal_state)
+	var encoded: Variant = _variant_to_json_compatible(
+		value,
+		options,
+		[],
+		0,
+		traversal_state
+	)
 	return _make_complete_result(encoded, traversal_state)
 
 
@@ -216,7 +234,13 @@ static func variant_to_json_compatible_result(value: Variant, options: Dictionar
 static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -> Dictionary:
 	var traversal_state: Dictionary = _make_traversal_state(options)
 	traversal_state["require_complete"] = true
-	var decoded: Variant = _json_compatible_to_variant(value, options, [], 0, traversal_state)
+	var decoded: Variant = _json_compatible_to_variant(
+		value,
+		options,
+		[],
+		0,
+		traversal_state
+	)
 	return _make_complete_result(decoded, traversal_state)
 
 
@@ -246,7 +270,11 @@ static func stringify_json_compatible(
 	options: Dictionary = {}
 ) -> String:
 	var encoded: Variant = variant_to_json_compatible(value, options)
-	return JSON.stringify(encoded, indent, sort_keys)
+	return JSON.stringify(
+		encoded,
+		indent,
+		sort_keys
+	)
 
 
 ## 解析 JSON 文本并把 GF Variant 类型标记恢复为 Godot Variant。
@@ -324,12 +352,18 @@ static func format_json_text(
 	var error: Error = json.parse(text)
 	if error != OK:
 		return fallback
-	return JSON.stringify(json.data, indent, sort_keys)
+	return JSON.stringify(
+		json.data,
+		indent,
+		sort_keys
+	)
 
 
 ## 压缩 JSON 文本，失败时返回 fallback。
 ## [br]
 ## @api public
+## [br]
+## @since 3.24.0
 ## [br]
 ## @param text: JSON 文本。
 ## [br]
@@ -338,12 +372,20 @@ static func format_json_text(
 ## @param fallback: 解析失败时返回的文本。
 ## [br]
 ## @return 去除非必要空白后的 JSON 文本，或 fallback。
-static func compact_json_text(text: String, sort_keys: bool = false, fallback: String = "") -> String:
+static func compact_json_text(
+	text: String,
+	sort_keys: bool = false,
+	fallback: String = ""
+) -> String:
 	var json: JSON = JSON.new()
 	var error: Error = json.parse(text)
 	if error != OK:
 		return fallback
-	return JSON.stringify(json.data, "", sort_keys)
+	return JSON.stringify(
+		json.data,
+		"",
+		sort_keys
+	)
 
 
 ## 将 Vector2 转成 JSON 友好的数组，非有限分量使用 Float typed marker。
@@ -379,7 +421,10 @@ static func array_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -
 	var array: Array = value
 	if array.size() < 2:
 		return fallback
-	return Vector2(_float_at(array, 0), _float_at(array, 1))
+	return Vector2(
+		_float_at(array, 0),
+		_float_at(array, 1)
+	)
 
 
 ## 将 Vector3 转成 JSON 友好的数组，非有限分量使用 Float typed marker。
@@ -394,7 +439,13 @@ static func array_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -
 ## [br]
 ## @schema return: Array with three JSON-compatible float values; non-finite components use Float typed markers.
 static func vector3_to_array(value: Vector3) -> Array:
-	return _float_array_to_json_compatible([value.x, value.y, value.z])
+	return _float_array_to_json_compatible(
+		[
+			value.x,
+			value.y,
+			value.z,
+		]
+	)
 
 
 ## 从数组读取 Vector3，失败时返回 fallback。
@@ -415,7 +466,11 @@ static func array_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -
 	var array: Array = value
 	if array.size() < 3:
 		return fallback
-	return Vector3(_float_at(array, 0), _float_at(array, 1), _float_at(array, 2))
+	return Vector3(
+		_float_at(array, 0),
+		_float_at(array, 1),
+		_float_at(array, 2)
+	)
 
 
 ## 将 Color 转成 JSON 友好的数组，非有限通道使用 Float typed marker。
@@ -430,7 +485,14 @@ static func array_to_vector3(value: Variant, fallback: Vector3 = Vector3.ZERO) -
 ## [br]
 ## @schema return: Array with four JSON-compatible float values; non-finite components use Float typed markers.
 static func color_to_array(value: Color) -> Array:
-	return _float_array_to_json_compatible([value.r, value.g, value.b, value.a])
+	return _float_array_to_json_compatible(
+		[
+			value.r,
+			value.g,
+			value.b,
+			value.a,
+		]
+	)
 
 
 ## 从数组读取 Color，失败时返回 fallback。
@@ -451,7 +513,12 @@ static func array_to_color(value: Variant, fallback: Color = Color.WHITE) -> Col
 	var array: Array = value
 	if array.size() < 4:
 		return fallback
-	return Color(_float_at(array, 0), _float_at(array, 1), _float_at(array, 2), _float_at(array, 3))
+	return Color(
+		_float_at(array, 0),
+		_float_at(array, 1),
+		_float_at(array, 2),
+		_float_at(array, 3)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -472,15 +539,30 @@ static func _json_compatible_to_variant(
 	if value is Array:
 		if _visited_contains_reference(visited, value):
 			_reject_incomplete_value(traversal_state, "circular_reference")
-			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
+			return GFVariantData.get_option_value(
+				options,
+				"circular_reference",
+				"<circular_reference>"
+			)
 		visited.append(value)
 		var array: Array = value
-		if not _consume_collection_items(array.size(), traversal_state):
+		if not _consume_collection_items(
+			array.size(),
+			traversal_state
+		):
 			var _removed_limited_array_reference: Variant = visited.pop_back()
 			return _make_traversal_limit_fallback(options)
 		var result_array: Array = []
 		for item: Variant in array:
-			result_array.append(_json_compatible_to_variant(item, options, visited, depth + 1, traversal_state))
+			result_array.append(
+				_json_compatible_to_variant(
+					item,
+					options,
+					visited,
+					depth + 1,
+					traversal_state
+				)
+			)
 			if _is_traversal_exhausted(traversal_state):
 				break
 		var _removed_array_reference: Variant = visited.pop_back()
@@ -489,19 +571,36 @@ static func _json_compatible_to_variant(
 	if value is Dictionary:
 		if _visited_contains_reference(visited, value):
 			_reject_incomplete_value(traversal_state, "circular_reference")
-			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
+			return GFVariantData.get_option_value(
+				options,
+				"circular_reference",
+				"<circular_reference>"
+			)
 		visited.append(value)
 		var dictionary: Dictionary = value
 		var require_complete: bool = GFVariantData.get_option_bool(traversal_state, "require_complete")
-		var complete_marker: bool = (
-			require_complete
-			and _has_codec_marker_identity(dictionary)
-		)
+		var complete_marker: bool = (require_complete and _has_codec_marker_identity(dictionary))
 		var decode_marker: bool = (
-			GFVariantData.get_option_bool(options, "decode_typed_markers", true)
-			and (_is_json_typed_value(dictionary) or complete_marker)
+			GFVariantData.get_option_bool(
+				options,
+				"decode_typed_markers",
+				true
+			)
+			and (
+				_is_json_typed_value(dictionary)
+				or complete_marker
+			)
 		)
-		if not (require_complete and decode_marker) and not _consume_collection_items(dictionary.size(), traversal_state):
+		if (
+			not (
+				require_complete
+				and decode_marker
+			)
+			and not _consume_collection_items(
+				dictionary.size(),
+				traversal_state
+			)
+		):
 			var _removed_limited_dictionary_reference: Variant = visited.pop_back()
 			return _make_traversal_limit_fallback(options)
 		if decode_marker:
@@ -533,7 +632,13 @@ static func _json_compatible_to_variant(
 		var _removed_dictionary_reference: Variant = visited.pop_back()
 		return result_dictionary
 
-	if typeof(value) not in [TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING]:
+	if typeof(value) not in [
+		TYPE_NIL,
+		TYPE_BOOL,
+		TYPE_INT,
+		TYPE_FLOAT,
+		TYPE_STRING,
+	]:
 		_reject_incomplete_value(traversal_state, "unsupported_json_variant")
 	return value
 
@@ -876,59 +981,168 @@ static func _variant_to_json_compatible(
 			return _float_to_json_compatible(float_value)
 		TYPE_INT:
 			var int_value: int = _number_to_int(value)
-			if GFVariantData.get_option_bool(options, "encode_unsafe_ints", true) and _is_unsafe_json_integer(int_value):
-				return _make_json_typed_value("Int64", str(int_value))
+			if (
+				GFVariantData.get_option_bool(
+					options,
+					"encode_unsafe_ints",
+					true
+				)
+				and _is_unsafe_json_integer(int_value)
+			):
+				return _make_json_typed_value(
+					"Int64",
+					str(int_value)
+				)
 			return int_value
 		TYPE_STRING_NAME:
-			return _make_json_typed_value("StringName", str(value))
+			return _make_json_typed_value(
+				"StringName",
+				str(value)
+			)
 		TYPE_NODE_PATH:
-			return _make_json_typed_value("NodePath", str(value))
+			return _make_json_typed_value(
+				"NodePath",
+				str(value)
+			)
 		TYPE_VECTOR2:
 			var vector_2: Vector2 = _variant_to_vector2(value)
-			return _make_json_typed_value("Vector2", vector2_to_array(vector_2))
+			return _make_json_typed_value(
+				"Vector2",
+				vector2_to_array(vector_2)
+			)
 		TYPE_VECTOR2I:
 			var vector_2i: Vector2i = _variant_to_vector2i(value)
-			return _make_json_typed_value("Vector2i", [vector_2i.x, vector_2i.y])
+			return _make_json_typed_value(
+				"Vector2i",
+				[vector_2i.x, vector_2i.y]
+			)
 		TYPE_VECTOR3:
 			var vector_3: Vector3 = _variant_to_vector3(value)
-			return _make_json_typed_value("Vector3", vector3_to_array(vector_3))
+			return _make_json_typed_value(
+				"Vector3",
+				vector3_to_array(vector_3)
+			)
 		TYPE_VECTOR3I:
 			var vector_3i: Vector3i = _variant_to_vector3i(value)
-			return _make_json_typed_value("Vector3i", [vector_3i.x, vector_3i.y, vector_3i.z])
+			return _make_json_typed_value(
+				"Vector3i",
+				[
+					vector_3i.x,
+					vector_3i.y,
+					vector_3i.z,
+				]
+			)
 		TYPE_VECTOR4:
 			var vector_4: Vector4 = _variant_to_vector4(value)
-			return _make_json_typed_value("Vector4", _float_array_to_json_compatible([vector_4.x, vector_4.y, vector_4.z, vector_4.w]))
+			return _make_json_typed_value(
+				"Vector4",
+				_float_array_to_json_compatible(
+					[
+						vector_4.x,
+						vector_4.y,
+						vector_4.z,
+						vector_4.w,
+					]
+				)
+			)
 		TYPE_VECTOR4I:
 			var vector_4i: Vector4i = _variant_to_vector4i(value)
-			return _make_json_typed_value("Vector4i", [vector_4i.x, vector_4i.y, vector_4i.z, vector_4i.w])
+			return _make_json_typed_value(
+				"Vector4i",
+				[
+					vector_4i.x,
+					vector_4i.y,
+					vector_4i.z,
+					vector_4i.w,
+				]
+			)
 		TYPE_RECT2:
 			var rect_2: Rect2 = _variant_to_rect2(value)
-			return _make_json_typed_value("Rect2", _float_array_to_json_compatible([rect_2.position.x, rect_2.position.y, rect_2.size.x, rect_2.size.y]))
+			return _make_json_typed_value(
+				"Rect2",
+				_float_array_to_json_compatible(
+					[
+						rect_2.position.x,
+						rect_2.position.y,
+						rect_2.size.x,
+						rect_2.size.y,
+					]
+				)
+			)
 		TYPE_RECT2I:
 			var rect_2i: Rect2i = _variant_to_rect2i(value)
-			return _make_json_typed_value("Rect2i", [rect_2i.position.x, rect_2i.position.y, rect_2i.size.x, rect_2i.size.y])
+			return _make_json_typed_value(
+				"Rect2i",
+				[
+					rect_2i.position.x,
+					rect_2i.position.y,
+					rect_2i.size.x,
+					rect_2i.size.y,
+				]
+			)
 		TYPE_COLOR:
 			var color: Color = _variant_to_color(value)
-			return _make_json_typed_value("Color", color_to_array(color))
+			return _make_json_typed_value(
+				"Color",
+				color_to_array(color)
+			)
 		TYPE_PLANE:
 			var plane: Plane = _variant_to_plane(value)
-			return _make_json_typed_value("Plane", _float_array_to_json_compatible([plane.normal.x, plane.normal.y, plane.normal.z, plane.d]))
+			return _make_json_typed_value(
+				"Plane",
+				_float_array_to_json_compatible(
+					[
+						plane.normal.x,
+						plane.normal.y,
+						plane.normal.z,
+						plane.d,
+					]
+				)
+			)
 		TYPE_QUATERNION:
 			var quaternion: Quaternion = _variant_to_quaternion(value)
-			return _make_json_typed_value("Quaternion", _float_array_to_json_compatible([quaternion.x, quaternion.y, quaternion.z, quaternion.w]))
+			return _make_json_typed_value(
+				"Quaternion",
+				_float_array_to_json_compatible(
+					[
+						quaternion.x,
+						quaternion.y,
+						quaternion.z,
+						quaternion.w,
+					]
+				)
+			)
 		TYPE_AABB:
 			var aabb: AABB = _variant_to_aabb(value)
-			return _make_json_typed_value("AABB", _float_array_to_json_compatible([aabb.position.x, aabb.position.y, aabb.position.z, aabb.size.x, aabb.size.y, aabb.size.z]))
+			return _make_json_typed_value(
+				"AABB",
+				_float_array_to_json_compatible(
+					[
+						aabb.position.x,
+						aabb.position.y,
+						aabb.position.z,
+						aabb.size.x,
+						aabb.size.y,
+						aabb.size.z,
+					]
+				)
+			)
 		TYPE_BASIS:
-			return _make_json_typed_value("Basis", _basis_to_array(_variant_to_basis(value)))
+			return _make_json_typed_value(
+				"Basis",
+				_basis_to_array(_variant_to_basis(value))
+			)
 		TYPE_TRANSFORM2D:
-			return _make_json_typed_value("Transform2D", _transform_2d_to_array(_variant_to_transform_2d(value)))
+			return _make_json_typed_value(
+				"Transform2D",
+				_transform_2d_to_array(_variant_to_transform_2d(value))
+			)
 		TYPE_TRANSFORM3D:
 			var transform_3d: Transform3D = _variant_to_transform_3d(value)
-			return _make_json_typed_value("Transform3D", {
-				"basis": _basis_to_array(transform_3d.basis),
-				"origin": vector3_to_array(transform_3d.origin),
-			})
+			return _make_json_typed_value(
+				"Transform3D",
+				{ "basis": _basis_to_array(transform_3d.basis), "origin": vector3_to_array(transform_3d.origin), }
+			)
 		TYPE_ARRAY:
 			if _visited_contains_reference(visited, value):
 				_reject_incomplete_value(traversal_state, "circular_reference")
@@ -937,13 +1151,15 @@ static func _variant_to_json_compatible(
 			var array_value: Array = value
 			var result_array: Array = []
 			for item: Variant in array_value:
-				result_array.append(_variant_to_json_compatible(
-					item,
-					options,
-					visited,
-					depth + 1,
-					traversal_state
-				))
+				result_array.append(
+					_variant_to_json_compatible(
+						item,
+						options,
+						visited,
+						depth + 1,
+						traversal_state
+					)
+				)
 				if _is_traversal_exhausted(traversal_state):
 					break
 			var _removed_array_reference: Variant = visited.pop_back()
@@ -964,28 +1180,62 @@ static func _variant_to_json_compatible(
 			var _removed_dictionary_reference: Variant = visited.pop_back()
 			return result_dictionary
 		TYPE_PACKED_BYTE_ARRAY:
-			return _make_json_typed_value("PackedByteArray", _packed_byte_array_to_array(_variant_to_packed_byte_array(value)))
+			return _make_json_typed_value(
+				"PackedByteArray",
+				_packed_byte_array_to_array(_variant_to_packed_byte_array(value))
+			)
 		TYPE_PACKED_INT32_ARRAY:
-			return _make_json_typed_value("PackedInt32Array", _packed_int32_array_to_array(_variant_to_packed_int32_array(value)))
+			return _make_json_typed_value(
+				"PackedInt32Array",
+				_packed_int32_array_to_array(_variant_to_packed_int32_array(value))
+			)
 		TYPE_PACKED_INT64_ARRAY:
-			return _make_json_typed_value("PackedInt64Array", _packed_int64_array_to_array(_variant_to_packed_int64_array(value)))
+			return _make_json_typed_value(
+				"PackedInt64Array",
+				_packed_int64_array_to_array(_variant_to_packed_int64_array(value))
+			)
 		TYPE_PACKED_FLOAT32_ARRAY:
-			return _make_json_typed_value("PackedFloat32Array", _packed_float32_array_to_array(_variant_to_packed_float32_array(value)))
+			return _make_json_typed_value(
+				"PackedFloat32Array",
+				_packed_float32_array_to_array(_variant_to_packed_float32_array(value))
+			)
 		TYPE_PACKED_FLOAT64_ARRAY:
-			return _make_json_typed_value("PackedFloat64Array", _packed_float64_array_to_array(_variant_to_packed_float64_array(value)))
+			return _make_json_typed_value(
+				"PackedFloat64Array",
+				_packed_float64_array_to_array(_variant_to_packed_float64_array(value))
+			)
 		TYPE_PACKED_STRING_ARRAY:
-			return _make_json_typed_value("PackedStringArray", _packed_string_array_to_array(_variant_to_packed_string_array(value)))
+			return _make_json_typed_value(
+				"PackedStringArray",
+				_packed_string_array_to_array(_variant_to_packed_string_array(value))
+			)
 		TYPE_PACKED_VECTOR2_ARRAY:
-			return _make_json_typed_value("PackedVector2Array", _packed_vector2_array_to_array(_variant_to_packed_vector2_array(value)))
+			return _make_json_typed_value(
+				"PackedVector2Array",
+				_packed_vector2_array_to_array(_variant_to_packed_vector2_array(value))
+			)
 		TYPE_PACKED_VECTOR3_ARRAY:
-			return _make_json_typed_value("PackedVector3Array", _packed_vector3_array_to_array(_variant_to_packed_vector3_array(value)))
+			return _make_json_typed_value(
+				"PackedVector3Array",
+				_packed_vector3_array_to_array(_variant_to_packed_vector3_array(value))
+			)
 		TYPE_PACKED_COLOR_ARRAY:
-			return _make_json_typed_value("PackedColorArray", _packed_color_array_to_array(_variant_to_packed_color_array(value)))
+			return _make_json_typed_value(
+				"PackedColorArray",
+				_packed_color_array_to_array(_variant_to_packed_color_array(value))
+			)
 		TYPE_PACKED_VECTOR4_ARRAY:
-			return _make_json_typed_value("PackedVector4Array", _packed_vector4_array_to_array(_variant_to_packed_vector4_array(value)))
+			return _make_json_typed_value(
+				"PackedVector4Array",
+				_packed_vector4_array_to_array(_variant_to_packed_vector4_array(value))
+			)
 		_:
 			_reject_incomplete_value(traversal_state, "unsupported_variant")
-			if GFVariantData.get_option_string(options, "unsupported", "null") == "string":
+			if GFVariantData.get_option_string(
+				options,
+				"unsupported",
+				"null"
+			) == "string":
 				return str(value)
 	return null
 
@@ -1014,7 +1264,11 @@ static func _is_json_typed_value(value: Dictionary) -> bool:
 		return false
 	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(value, JSON_MARKER_KEY))
 	return (
-		GFVariantData.get_option_int(marker, JSON_VERSION_KEY, 0) == JSON_SCHEMA_VERSION
+		GFVariantData.get_option_int(
+			marker,
+			JSON_VERSION_KEY,
+			0
+		) == JSON_SCHEMA_VERSION
 		and GFVariantData.get_option_string(marker, JSON_CODEC_KEY) == JSON_CODEC_ID
 		and marker.has(JSON_TYPE_KEY)
 		and marker.has(JSON_VALUE_KEY)
@@ -1032,10 +1286,20 @@ static func _dictionary_to_json_compatible(
 	depth: int,
 	traversal_state: Dictionary
 ) -> Variant:
-	if GFVariantData.get_option_bool(options, "encode_dictionary_keys", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"encode_dictionary_keys",
+		false
+	):
 		return _make_json_typed_value(
 			"Dictionary",
-			_dictionary_entries_to_json_compatible(value, options, visited, depth, traversal_state)
+			_dictionary_entries_to_json_compatible(
+				value,
+				options,
+				visited,
+				depth,
+				traversal_state
+			)
 		)
 
 	var result: Dictionary = {}
@@ -1045,7 +1309,13 @@ static func _dictionary_to_json_compatible(
 		if seen_json_keys.has(json_key):
 			return _make_json_typed_value(
 				"Dictionary",
-				_dictionary_entries_to_json_compatible(value, options, visited, depth, traversal_state)
+				_dictionary_entries_to_json_compatible(
+					value,
+					options,
+					visited,
+					depth,
+					traversal_state
+				)
 			)
 		seen_json_keys[json_key] = true
 		result[json_key] = _variant_to_json_compatible(
@@ -1062,7 +1332,13 @@ static func _dictionary_to_json_compatible(
 	if _has_reserved_marker_shape(result):
 		return _make_json_typed_value(
 			"Dictionary",
-			_dictionary_entries_to_json_compatible(value, options, visited, depth, traversal_state)
+			_dictionary_entries_to_json_compatible(
+				value,
+				options,
+				visited,
+				depth,
+				traversal_state
+			)
 		)
 	return result
 
@@ -1080,22 +1356,24 @@ static func _dictionary_entries_to_json_compatible(
 ) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	for key: Variant in value.keys():
-		entries.append({
-			"key": _dictionary_key_to_json_compatible(
-				key,
-				options,
-				visited,
-				depth + 1,
-				traversal_state
-			),
-			"value": _variant_to_json_compatible(
-				value[key],
-				options,
-				visited,
-				depth + 1,
-				traversal_state
-			),
-		})
+		entries.append(
+			{
+				"key": _dictionary_key_to_json_compatible(
+					key,
+					options,
+					visited,
+					depth + 1,
+					traversal_state
+				),
+				"value": _variant_to_json_compatible(
+					value[key],
+					options,
+					visited,
+					depth + 1,
+					traversal_state
+				),
+			}
+		)
 		if _is_traversal_exhausted(traversal_state):
 			break
 	return entries
@@ -1113,10 +1391,19 @@ static func _dictionary_key_to_json_compatible(
 	traversal_state: Dictionary
 ) -> Variant:
 	if typeof(key) == TYPE_INT:
-		if GFVariantData.get_option_bool(traversal_state, "require_complete") and not _consume_traversal_node(depth, traversal_state):
+		if (GFVariantData.get_option_bool(traversal_state, "require_complete") and not _consume_traversal_node(depth, traversal_state)):
 			return null
-		return _make_json_typed_value("Int64", str(_number_to_int(key)))
-	return _variant_to_json_compatible(key, options, visited, depth, traversal_state)
+		return _make_json_typed_value(
+			"Int64",
+			str(_number_to_int(key))
+		)
+	return _variant_to_json_compatible(
+		key,
+		options,
+		visited,
+		depth,
+		traversal_state
+	)
 
 
 ## 按选项为循环引用生成 CircularReference 标记或配置的回退值。
@@ -1126,7 +1413,11 @@ static func _dictionary_key_to_json_compatible(
 static func _make_circular_reference_value(options: Dictionary) -> Variant:
 	return _make_json_typed_value(
 		"CircularReference",
-		GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
+		GFVariantData.get_option_value(
+			options,
+			"circular_reference",
+			"<circular_reference>"
+		)
 	)
 
 
@@ -1158,8 +1449,22 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 ## [br]
 static func _make_traversal_state(options: Dictionary) -> Dictionary:
 	return {
-		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", _DEFAULT_MAX_DEPTH), 0),
-		"max_nodes": maxi(GFVariantData.get_option_int(options, "max_nodes", _DEFAULT_MAX_NODES), 0),
+		"max_depth": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_depth",
+				_DEFAULT_MAX_DEPTH
+			),
+			0
+		),
+		"max_nodes": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_nodes",
+				_DEFAULT_MAX_NODES
+			),
+			0
+		),
 		"max_collection_items": maxi(
 			GFVariantData.get_option_int(
 				options,
@@ -1202,14 +1507,8 @@ static func _consume_traversal_node(depth: int, traversal_state: Dictionary) -> 
 static func _consume_collection_items(item_count: int, traversal_state: Dictionary) -> bool:
 	if _is_traversal_exhausted(traversal_state):
 		return false
-	var collection_item_count: int = (
-		GFVariantData.get_option_int(traversal_state, "collection_item_count")
-		+ maxi(item_count, 0)
-	)
-	var max_collection_items: int = GFVariantData.get_option_int(
-		traversal_state,
-		"max_collection_items"
-	)
+	var collection_item_count: int = (GFVariantData.get_option_int(traversal_state, "collection_item_count") + maxi(item_count, 0))
+	var max_collection_items: int = GFVariantData.get_option_int(traversal_state, "max_collection_items")
 	if max_collection_items > 0 and collection_item_count > max_collection_items:
 		_exhaust_traversal(traversal_state, "max_collection_items")
 		return false
@@ -1263,20 +1562,21 @@ static func _make_complete_result(value: Variant, traversal_state: Dictionary) -
 ## @api private
 ## [br]
 static func _make_traversal_limit_marker(traversal_state: Dictionary) -> Dictionary:
-	return _make_json_typed_value(_TRAVERSAL_LIMIT_TYPE_NAME, {
-		"reason": GFVariantData.get_option_string(traversal_state, "reason", "traversal_limit"),
-		"node_count": GFVariantData.get_option_int(traversal_state, "node_count"),
-		"collection_item_count": GFVariantData.get_option_int(
-			traversal_state,
-			"collection_item_count"
-		),
-		"max_depth": GFVariantData.get_option_int(traversal_state, "max_depth"),
-		"max_nodes": GFVariantData.get_option_int(traversal_state, "max_nodes"),
-		"max_collection_items": GFVariantData.get_option_int(
-			traversal_state,
-			"max_collection_items"
-		),
-	})
+	return _make_json_typed_value(
+		_TRAVERSAL_LIMIT_TYPE_NAME,
+		{
+			"reason": GFVariantData.get_option_string(
+				traversal_state,
+				"reason",
+				"traversal_limit"
+			),
+			"node_count": GFVariantData.get_option_int(traversal_state, "node_count"),
+			"collection_item_count": GFVariantData.get_option_int(traversal_state, "collection_item_count"),
+			"max_depth": GFVariantData.get_option_int(traversal_state, "max_depth"),
+			"max_nodes": GFVariantData.get_option_int(traversal_state, "max_nodes"),
+			"max_collection_items": GFVariantData.get_option_int(traversal_state, "max_collection_items"),
+		}
+	)
 
 
 ## 返回选项中的 traversal_limit 回退值副本，未配置时返回说明文本。
@@ -1285,7 +1585,11 @@ static func _make_traversal_limit_marker(traversal_state: Dictionary) -> Diction
 ## [br]
 static func _make_traversal_limit_fallback(options: Dictionary) -> Variant:
 	return GFVariantData.duplicate_variant(
-		GFVariantData.get_option_value(options, "traversal_limit", "<traversal_limit>")
+		GFVariantData.get_option_value(
+			options,
+			"traversal_limit",
+			"<traversal_limit>"
+		)
 	)
 
 
@@ -1357,7 +1661,11 @@ static func _json_typed_value_to_variant(
 	var raw_value: Variant = GFVariantData.get_option_value(marker, JSON_VALUE_KEY)
 	# Fixed component shapes belong to one Variant node. Only original collection
 	# entries contribute to the collection budget; their closed shapes are validated below.
-	if not require_complete or type_name == "Dictionary" or type_name.begins_with("Packed"):
+	if (
+		not require_complete
+		or type_name == "Dictionary"
+		or type_name.begins_with("Packed")
+	):
 		var raw_collection_size: int = _get_collection_size(raw_value)
 		if raw_collection_size >= 0 and not _consume_collection_items(raw_collection_size, traversal_state):
 			return _make_traversal_limit_fallback(options)
@@ -1378,42 +1686,109 @@ static func _json_typed_value_to_variant(
 			return NodePath(str(raw_value))
 		"Vector2":
 			var vector_2: Array = GFVariantData.as_array(raw_value)
-			return Vector2(_float_at(vector_2, 0), _float_at(vector_2, 1))
+			return Vector2(
+				_float_at(vector_2, 0),
+				_float_at(vector_2, 1)
+			)
 		"Vector2i":
 			var vector_2i: Array = GFVariantData.as_array(raw_value)
-			return Vector2i(_int_at(vector_2i, 0), _int_at(vector_2i, 1))
+			return Vector2i(
+				_int_at(vector_2i, 0),
+				_int_at(vector_2i, 1)
+			)
 		"Vector3":
 			var vector_3: Array = GFVariantData.as_array(raw_value)
-			return Vector3(_float_at(vector_3, 0), _float_at(vector_3, 1), _float_at(vector_3, 2))
+			return Vector3(
+				_float_at(vector_3, 0),
+				_float_at(vector_3, 1),
+				_float_at(vector_3, 2)
+			)
 		"Vector3i":
 			var vector_3i: Array = GFVariantData.as_array(raw_value)
-			return Vector3i(_int_at(vector_3i, 0), _int_at(vector_3i, 1), _int_at(vector_3i, 2))
+			return Vector3i(
+				_int_at(vector_3i, 0),
+				_int_at(vector_3i, 1),
+				_int_at(vector_3i, 2)
+			)
 		"Vector4":
 			var vector_4: Array = GFVariantData.as_array(raw_value)
-			return Vector4(_float_at(vector_4, 0), _float_at(vector_4, 1), _float_at(vector_4, 2), _float_at(vector_4, 3))
+			return Vector4(
+				_float_at(vector_4, 0),
+				_float_at(vector_4, 1),
+				_float_at(vector_4, 2),
+				_float_at(vector_4, 3)
+			)
 		"Vector4i":
 			var vector_4i: Array = GFVariantData.as_array(raw_value)
-			return Vector4i(_int_at(vector_4i, 0), _int_at(vector_4i, 1), _int_at(vector_4i, 2), _int_at(vector_4i, 3))
+			return Vector4i(
+				_int_at(vector_4i, 0),
+				_int_at(vector_4i, 1),
+				_int_at(vector_4i, 2),
+				_int_at(vector_4i, 3)
+			)
 		"Rect2":
 			var rect_2: Array = GFVariantData.as_array(raw_value)
-			return Rect2(_float_at(rect_2, 0), _float_at(rect_2, 1), _float_at(rect_2, 2), _float_at(rect_2, 3))
+			return Rect2(
+				_float_at(rect_2, 0),
+				_float_at(rect_2, 1),
+				_float_at(rect_2, 2),
+				_float_at(rect_2, 3)
+			)
 		"Rect2i":
 			var rect_2i: Array = GFVariantData.as_array(raw_value)
-			return Rect2i(_int_at(rect_2i, 0), _int_at(rect_2i, 1), _int_at(rect_2i, 2), _int_at(rect_2i, 3))
+			return Rect2i(
+				_int_at(rect_2i, 0),
+				_int_at(rect_2i, 1),
+				_int_at(rect_2i, 2),
+				_int_at(rect_2i, 3)
+			)
 		"Color":
 			var color: Array = GFVariantData.as_array(raw_value)
-			return Color(_float_at(color, 0), _float_at(color, 1), _float_at(color, 2), _float_at(color, 3, 1.0))
+			return Color(
+				_float_at(color, 0),
+				_float_at(color, 1),
+				_float_at(color, 2),
+				_float_at(
+					color,
+					3,
+					1.0
+				)
+			)
 		"Plane":
 			var plane: Array = GFVariantData.as_array(raw_value)
-			return Plane(Vector3(_float_at(plane, 0), _float_at(plane, 1), _float_at(plane, 2)), _float_at(plane, 3))
+			return Plane(
+				Vector3(
+					_float_at(plane, 0),
+					_float_at(plane, 1),
+					_float_at(plane, 2)
+				),
+				_float_at(plane, 3)
+			)
 		"Quaternion":
 			var quaternion: Array = GFVariantData.as_array(raw_value)
-			return Quaternion(_float_at(quaternion, 0), _float_at(quaternion, 1), _float_at(quaternion, 2), _float_at(quaternion, 3, 1.0))
+			return Quaternion(
+				_float_at(quaternion, 0),
+				_float_at(quaternion, 1),
+				_float_at(quaternion, 2),
+				_float_at(
+					quaternion,
+					3,
+					1.0
+				)
+			)
 		"AABB":
 			var aabb: Array = GFVariantData.as_array(raw_value)
 			return AABB(
-				Vector3(_float_at(aabb, 0), _float_at(aabb, 1), _float_at(aabb, 2)),
-				Vector3(_float_at(aabb, 3), _float_at(aabb, 4), _float_at(aabb, 5))
+				Vector3(
+					_float_at(aabb, 0),
+					_float_at(aabb, 1),
+					_float_at(aabb, 2)
+				),
+				Vector3(
+					_float_at(aabb, 3),
+					_float_at(aabb, 4),
+					_float_at(aabb, 5)
+				)
 			)
 		"Basis":
 			return _array_to_basis(GFVariantData.as_array(raw_value))
@@ -1472,7 +1847,11 @@ static func _has_codec_marker_identity(value: Dictionary) -> bool:
 static func _is_complete_marker_envelope(marker: Dictionary) -> bool:
 	return (
 		marker.size() == 4
-		and _is_integer_component(marker.get(JSON_VERSION_KEY), JSON_SCHEMA_VERSION, JSON_SCHEMA_VERSION)
+		and _is_integer_component(
+			marker.get(JSON_VERSION_KEY),
+			JSON_SCHEMA_VERSION,
+			JSON_SCHEMA_VERSION
+		)
 		and marker.get(JSON_CODEC_KEY) is String
 		and marker.get(JSON_CODEC_KEY) == JSON_CODEC_ID
 		and marker.get(JSON_TYPE_KEY) is String
@@ -1489,7 +1868,11 @@ static func _is_complete_typed_payload(type_name: String, value: Variant) -> boo
 		"Int64":
 			return _is_int64_text(value)
 		_FLOAT_TYPE_NAME:
-			return value is String and value in [_FLOAT_NAN_TEXT, _FLOAT_POSITIVE_INF_TEXT, _FLOAT_NEGATIVE_INF_TEXT]
+			return value is String and value in [
+				_FLOAT_NAN_TEXT,
+				_FLOAT_POSITIVE_INF_TEXT,
+				_FLOAT_NEGATIVE_INF_TEXT,
+			]
 		"StringName", "NodePath":
 			return value is String
 		"Vector2":
@@ -1499,7 +1882,12 @@ static func _is_complete_typed_payload(type_name: String, value: Variant) -> boo
 		"Vector4", "Rect2", "Plane", "Quaternion":
 			return _is_numeric_components(value, 4)
 		"Color":
-			return _is_numeric_components(value, 4, false, _FLOAT32_MAX)
+			return _is_numeric_components(
+				value,
+				4,
+				false,
+				_FLOAT32_MAX
+			)
 		"AABB", "Transform2D":
 			return _is_numeric_components(value, 6)
 		"Basis":
@@ -1514,18 +1902,47 @@ static func _is_complete_typed_payload(type_name: String, value: Variant) -> boo
 			if not value is Dictionary:
 				return false
 			var transform: Dictionary = value
-			return transform.size() == 2 and _is_numeric_components(transform.get("basis"), 9) and _is_numeric_components(transform.get("origin"), 3)
+			return (
+				transform.size() == 2
+				and _is_numeric_components(
+					transform.get("basis"),
+					9
+				)
+				and _is_numeric_components(
+					transform.get("origin"),
+					3
+				)
+			)
 		"Dictionary":
 			return value is Array
 		"PackedByteArray":
-			return _is_integer_components(value, -1, 0, 255)
+			return _is_integer_components(
+				value,
+				-1,
+				0,
+				255
+			)
 		"PackedInt32Array":
 			return _is_integer_components(value)
 		"PackedFloat32Array":
-			return _is_numeric_components(value, -1, false, _FLOAT32_MAX)
+			return _is_numeric_components(
+				value,
+				-1,
+				false,
+				_FLOAT32_MAX
+			)
 		"PackedFloat64Array":
-			return _is_numeric_components(value, -1, false)
-		"PackedInt64Array", "PackedStringArray", "PackedVector2Array", "PackedVector3Array", "PackedVector4Array", "PackedColorArray":
+			return _is_numeric_components(
+				value,
+				-1,
+				false
+			)
+		"PackedInt64Array", \
+		"PackedStringArray", \
+		"PackedVector2Array", \
+		"PackedVector3Array", \
+		"PackedVector4Array", \
+		"PackedColorArray":
 			return _is_complete_packed_payload(type_name, value)
 		_TRAVERSAL_LIMIT_TYPE_NAME:
 			return true
@@ -1558,7 +1975,12 @@ static func _is_complete_packed_payload(type_name: String, value: Variant) -> bo
 				if not _is_numeric_components(item, 4):
 					return false
 			"PackedColorArray":
-				if not _is_numeric_components(item, 4, false, _FLOAT32_MAX):
+				if not _is_numeric_components(
+					item,
+					4,
+					false,
+					_FLOAT32_MAX
+				):
 					return false
 	return true
 
@@ -1609,7 +2031,10 @@ static func _is_complete_numeric_component(value: Variant) -> bool:
 	return (
 		_is_complete_marker_envelope(marker)
 		and marker.get(JSON_TYPE_KEY) == _FLOAT_TYPE_NAME
-		and _is_complete_typed_payload(_FLOAT_TYPE_NAME, marker.get(JSON_VALUE_KEY))
+		and _is_complete_typed_payload(
+			_FLOAT_TYPE_NAME,
+			marker.get(JSON_VALUE_KEY)
+		)
 	)
 
 
@@ -1629,7 +2054,11 @@ static func _is_integer_components(
 	if size >= 0 and components.size() != size:
 		return false
 	for component: Variant in components:
-		if not _is_integer_component(component, minimum, maximum):
+		if not _is_integer_component(
+			component,
+			minimum,
+			maximum
+		):
 			return false
 	return true
 
@@ -1638,13 +2067,22 @@ static func _is_integer_components(
 ## [br]
 ## @api private
 ## [br]
-static func _is_integer_component(value: Variant, minimum: int, maximum: int) -> bool:
+static func _is_integer_component(
+	value: Variant,
+	minimum: int,
+	maximum: int
+) -> bool:
 	if value is int:
 		var integer: int = value
 		return integer >= minimum and integer <= maximum
 	if value is float:
 		var number: float = value
-		return is_finite(number) and number == floor(number) and number >= minimum and number <= maximum
+		return (
+			is_finite(number)
+			and number == floor(number)
+			and number >= minimum
+			and number <= maximum
+		)
 	return false
 
 
@@ -1696,7 +2134,10 @@ static func _float_to_json_compatible(value: float) -> Variant:
 	if is_nan(value):
 		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_NAN_TEXT)
 	if is_inf(value):
-		return _make_json_typed_value(_FLOAT_TYPE_NAME, _FLOAT_POSITIVE_INF_TEXT if value > 0.0 else _FLOAT_NEGATIVE_INF_TEXT)
+		return _make_json_typed_value(
+			_FLOAT_TYPE_NAME,
+			_FLOAT_POSITIVE_INF_TEXT if value > 0.0 else _FLOAT_NEGATIVE_INF_TEXT
+		)
 	return value
 
 
@@ -1721,7 +2162,10 @@ static func _json_float_marker_to_float(value: Dictionary, fallback: float = 0.0
 	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(value, JSON_MARKER_KEY))
 	if GFVariantData.get_option_string(marker, JSON_TYPE_KEY) != _FLOAT_TYPE_NAME:
 		return fallback
-	return _json_float_value_to_float(GFVariantData.get_option_value(marker, JSON_VALUE_KEY), fallback)
+	return _json_float_value_to_float(
+		GFVariantData.get_option_value(marker, JSON_VALUE_KEY),
+		fallback
+	)
 
 
 ## 把数字或 NaN/INF 文本转换为浮点数；无效文本返回备用值。
@@ -1751,20 +2195,34 @@ static func _json_float_value_to_float(value: Variant, fallback: float = 0.0) ->
 ## [br]
 ## @api private
 ## [br]
-static func _float_at(array: Array, index: int, fallback: float = 0.0) -> float:
+static func _float_at(
+	array: Array,
+	index: int,
+	fallback: float = 0.0
+) -> float:
 	if index < 0 or index >= array.size():
 		return fallback
-	return _number_to_float(array[index], fallback)
+	return _number_to_float(
+		array[index],
+		fallback
+	)
 
 
 ## 读取数组指定位置并转换为整数；索引无效时返回备用值。
 ## [br]
 ## @api private
 ## [br]
-static func _int_at(array: Array, index: int, fallback: int = 0) -> int:
+static func _int_at(
+	array: Array,
+	index: int,
+	fallback: int = 0
+) -> int:
 	if index < 0 or index >= array.size():
 		return fallback
-	return _number_to_int(array[index], fallback)
+	return _number_to_int(
+		array[index],
+		fallback
+	)
 
 
 ## 按 Basis 的三个轴展开为九个浮点分量。
@@ -1772,17 +2230,19 @@ static func _int_at(array: Array, index: int, fallback: int = 0) -> int:
 ## @api private
 ## [br]
 static func _basis_to_array(value: Basis) -> Array:
-	return _float_array_to_json_compatible([
-		value.x.x,
-		value.x.y,
-		value.x.z,
-		value.y.x,
-		value.y.y,
-		value.y.z,
-		value.z.x,
-		value.z.y,
-		value.z.z,
-	])
+	return _float_array_to_json_compatible(
+		[
+			value.x.x,
+			value.x.y,
+			value.x.z,
+			value.y.x,
+			value.y.y,
+			value.y.z,
+			value.z.x,
+			value.z.y,
+			value.z.z,
+		]
+	)
 
 
 ## 用数组分量重建 Basis，缺少的分量使用默认轴值。
@@ -1791,9 +2251,33 @@ static func _basis_to_array(value: Basis) -> Array:
 ## [br]
 static func _array_to_basis(value: Array) -> Basis:
 	return Basis(
-		Vector3(_float_at(value, 0, 1.0), _float_at(value, 1), _float_at(value, 2)),
-		Vector3(_float_at(value, 3), _float_at(value, 4, 1.0), _float_at(value, 5)),
-		Vector3(_float_at(value, 6), _float_at(value, 7), _float_at(value, 8, 1.0))
+		Vector3(
+			_float_at(
+				value,
+				0,
+				1.0
+			),
+			_float_at(value, 1),
+			_float_at(value, 2)
+		),
+		Vector3(
+			_float_at(value, 3),
+			_float_at(
+				value,
+				4,
+				1.0
+			),
+			_float_at(value, 5)
+		),
+		Vector3(
+			_float_at(value, 6),
+			_float_at(value, 7),
+			_float_at(
+				value,
+				8,
+				1.0
+			)
+		)
 	)
 
 
@@ -1802,14 +2286,16 @@ static func _array_to_basis(value: Array) -> Basis:
 ## @api private
 ## [br]
 static func _transform_2d_to_array(value: Transform2D) -> Array:
-	return _float_array_to_json_compatible([
-		value.x.x,
-		value.x.y,
-		value.y.x,
-		value.y.y,
-		value.origin.x,
-		value.origin.y,
-	])
+	return _float_array_to_json_compatible(
+		[
+			value.x.x,
+			value.x.y,
+			value.y.x,
+			value.y.y,
+			value.origin.x,
+			value.origin.y,
+		]
+	)
 
 
 ## 用数组分量重建 Transform2D，缺少分量采用单位变换默认值。
@@ -1818,9 +2304,26 @@ static func _transform_2d_to_array(value: Transform2D) -> Array:
 ## [br]
 static func _array_to_transform_2d(value: Array) -> Transform2D:
 	return Transform2D(
-		Vector2(_float_at(value, 0, 1.0), _float_at(value, 1)),
-		Vector2(_float_at(value, 2), _float_at(value, 3, 1.0)),
-		Vector2(_float_at(value, 4), _float_at(value, 5))
+		Vector2(
+			_float_at(
+				value,
+				0,
+				1.0
+			),
+			_float_at(value, 1)
+		),
+		Vector2(
+			_float_at(value, 2),
+			_float_at(
+				value,
+				3,
+				1.0
+			)
+		),
+		Vector2(
+			_float_at(value, 4),
+			_float_at(value, 5)
+		)
 	)
 
 
@@ -1832,10 +2335,28 @@ static func _dictionary_to_transform_3d(value: Variant) -> Transform3D:
 	if not (value is Dictionary):
 		return Transform3D()
 	var data: Dictionary = value
-	var origin: Array = GFVariantData.as_array(GFVariantData.get_option_value(data, "origin", []))
+	var origin: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			data,
+			"origin",
+			[]
+		)
+	)
 	return Transform3D(
-		_array_to_basis(GFVariantData.as_array(GFVariantData.get_option_value(data, "basis", []))),
-		Vector3(_float_at(origin, 0), _float_at(origin, 1), _float_at(origin, 2))
+		_array_to_basis(
+			GFVariantData.as_array(
+				GFVariantData.get_option_value(
+					data,
+					"basis",
+					[]
+				)
+			)
+		),
+		Vector3(
+			_float_at(origin, 0),
+			_float_at(origin, 1),
+			_float_at(origin, 2)
+		)
 	)
 
 
@@ -2038,7 +2559,12 @@ static func _array_to_packed_vector2_array(value: Array) -> PackedVector2Array:
 	var result: PackedVector2Array = PackedVector2Array()
 	for item: Variant in value:
 		var data: Array = GFVariantData.as_array(item)
-		var _item_appended: bool = result.append(Vector2(_float_at(data, 0), _float_at(data, 1)))
+		var _item_appended: bool = result.append(
+			Vector2(
+				_float_at(data, 0),
+				_float_at(data, 1)
+			)
+		)
 	return result
 
 
@@ -2061,7 +2587,13 @@ static func _array_to_packed_vector3_array(value: Array) -> PackedVector3Array:
 	var result: PackedVector3Array = PackedVector3Array()
 	for item: Variant in value:
 		var data: Array = GFVariantData.as_array(item)
-		var _item_appended: bool = result.append(Vector3(_float_at(data, 0), _float_at(data, 1), _float_at(data, 2)))
+		var _item_appended: bool = result.append(
+			Vector3(
+				_float_at(data, 0),
+				_float_at(data, 1),
+				_float_at(data, 2)
+			)
+		)
 	return result
 
 
@@ -2084,7 +2616,18 @@ static func _array_to_packed_color_array(value: Array) -> PackedColorArray:
 	var result: PackedColorArray = PackedColorArray()
 	for item: Variant in value:
 		var data: Array = GFVariantData.as_array(item)
-		var _item_appended: bool = result.append(Color(_float_at(data, 0), _float_at(data, 1), _float_at(data, 2), _float_at(data, 3, 1.0)))
+		var _item_appended: bool = result.append(
+			Color(
+				_float_at(data, 0),
+				_float_at(data, 1),
+				_float_at(data, 2),
+				_float_at(
+					data,
+					3,
+					1.0
+				)
+			)
+		)
 	return result
 
 
@@ -2095,7 +2638,16 @@ static func _array_to_packed_color_array(value: Array) -> PackedColorArray:
 static func _packed_vector4_array_to_array(value: PackedVector4Array) -> Array:
 	var result: Array = []
 	for item: Vector4 in value:
-		result.append(_float_array_to_json_compatible([item.x, item.y, item.z, item.w]))
+		result.append(
+			_float_array_to_json_compatible(
+				[
+					item.x,
+					item.y,
+					item.z,
+					item.w,
+				]
+			)
+		)
 	return result
 
 
@@ -2107,5 +2659,12 @@ static func _array_to_packed_vector4_array(value: Array) -> PackedVector4Array:
 	var result: PackedVector4Array = PackedVector4Array()
 	for item: Variant in value:
 		var data: Array = GFVariantData.as_array(item)
-		var _item_appended: bool = result.append(Vector4(_float_at(data, 0), _float_at(data, 1), _float_at(data, 2), _float_at(data, 3)))
+		var _item_appended: bool = result.append(
+			Vector4(
+				_float_at(data, 0),
+				_float_at(data, 1),
+				_float_at(data, 2),
+				_float_at(data, 3)
+			)
+		)
 	return result

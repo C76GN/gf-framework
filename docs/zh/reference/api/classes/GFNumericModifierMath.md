@@ -18,8 +18,8 @@
 | 枚举 | [`Operation`](#member-gfnumericmodifiermath-enums-operation) | `enum Operation` |
 | 方法 | [`make_modifier`](#member-gfnumericmodifiermath-methods-make_modifier) | `static func make_modifier( value: float, operation: Operation = Operation.ADD, priority: int = 0, enabled: bool = true, modifier_id: StringName = &"", metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`normalize_modifier`](#member-gfnumericmodifiermath-methods-normalize_modifier) | `static func normalize_modifier(raw_modifier: Dictionary) -> Dictionary:` |
-| 方法 | [`calculate`](#member-gfnumericmodifiermath-methods-calculate) | `static func calculate(base_value: float, modifiers: Array, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`calculate_value`](#member-gfnumericmodifiermath-methods-calculate_value) | `static func calculate_value(base_value: float, modifiers: Array, options: Dictionary = {}) -> float:` |
+| 方法 | [`calculate`](#member-gfnumericmodifiermath-methods-calculate) | `static func calculate( base_value: float, modifiers: Array, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`calculate_value`](#member-gfnumericmodifiermath-methods-calculate_value) | `static func calculate_value( base_value: float, modifiers: Array, options: Dictionary = {} ) -> float:` |
 
 ## 枚举
 
@@ -110,7 +110,7 @@ static func normalize_modifier(raw_modifier: Dictionary) -> Dictionary:
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func calculate(base_value: float, modifiers: Array, options: Dictionary = {}) -> Dictionary:
+static func calculate( base_value: float, modifiers: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 计算基础值叠加修饰后的结构化报告。
@@ -139,7 +139,7 @@ static func calculate(base_value: float, modifiers: Array, options: Dictionary =
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func calculate_value(base_value: float, modifiers: Array, options: Dictionary = {}) -> float:
+static func calculate_value( base_value: float, modifiers: Array, options: Dictionary = {} ) -> float:
 ```
 
 计算基础值叠加修饰后的数值。

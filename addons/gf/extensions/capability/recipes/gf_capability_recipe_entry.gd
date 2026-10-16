@@ -77,7 +77,10 @@ func describe_entry() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on describe_entry().
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(describe_entry(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		describe_entry(),
+		options
+	)
 
 
 # --- 私有/辅助方法 ---

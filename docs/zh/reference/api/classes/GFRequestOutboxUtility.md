@@ -20,13 +20,13 @@
 | 信号 | [`request_completed`](#member-gfrequestoutboxutility-signals-request_completed) | `signal request_completed(envelope: GFRequestEnvelope, result: Dictionary)` |
 | 信号 | [`request_failed`](#member-gfrequestoutboxutility-signals-request_failed) | `signal request_failed(envelope: GFRequestEnvelope, result: Dictionary)` |
 | 信号 | [`queue_changed`](#member-gfrequestoutboxutility-signals-queue_changed) | `signal queue_changed(snapshot: Dictionary)` |
-| 信号 | [`persistence_failed`](#member-gfrequestoutboxutility-signals-persistence_failed) | `signal persistence_failed(operation: StringName, error: Error, path: String)` |
+| 信号 | [`persistence_failed`](#member-gfrequestoutboxutility-signals-persistence_failed) | `signal persistence_failed( operation: StringName, error: Error, path: String )` |
 | 属性 | [`storage_path`](#member-gfrequestoutboxutility-properties-storage_path) | `var storage_path: String = "user://gf_request_outbox.json"` |
 | 属性 | [`auto_load_on_init`](#member-gfrequestoutboxutility-properties-auto_load_on_init) | `var auto_load_on_init: bool = true` |
 | 属性 | [`auto_persist`](#member-gfrequestoutboxutility-properties-auto_persist) | `var auto_persist: bool = true` |
 | 属性 | [`max_queue_size`](#member-gfrequestoutboxutility-properties-max_queue_size) | `var max_queue_size: int = 128` |
 | 属性 | [`default_max_attempts`](#member-gfrequestoutboxutility-properties-default_max_attempts) | `var default_max_attempts: int = 3` |
-| 属性 | [`retry_delays_msec`](#member-gfrequestoutboxutility-properties-retry_delays_msec) | `var retry_delays_msec: Array[int] = [500, 1000, 2000, 5000]` |
+| 属性 | [`retry_delays_msec`](#member-gfrequestoutboxutility-properties-retry_delays_msec) | `var retry_delays_msec: Array[int] = [ 	500, 	1000, 	2000, 	5000, ]` |
 | 属性 | [`keep_failed_requests`](#member-gfrequestoutboxutility-properties-keep_failed_requests) | `var keep_failed_requests: bool = true` |
 | 属性 | [`max_failed_requests`](#member-gfrequestoutboxutility-properties-max_failed_requests) | `var max_failed_requests: int = 32` |
 | 属性 | [`max_storage_bytes`](#member-gfrequestoutboxutility-properties-max_storage_bytes) | `var max_storage_bytes: int = _DEFAULT_MAX_STORAGE_BYTES` |
@@ -36,7 +36,7 @@
 | 方法 | [`dispose`](#member-gfrequestoutboxutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`enqueue_request`](#member-gfrequestoutboxutility-methods-enqueue_request) | `func enqueue_request( method: int, url: String, body: Dictionary = {}, headers: PackedStringArray = PackedStringArray(), metadata: Dictionary = {} ) -> GFRequestEnvelope:` |
 | 方法 | [`enqueue`](#member-gfrequestoutboxutility-methods-enqueue) | `func enqueue(envelope: GFRequestEnvelope) -> bool:` |
-| 方法 | [`enqueue_with_report`](#member-gfrequestoutboxutility-methods-enqueue_with_report) | `func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -> Dictionary:` |
+| 方法 | [`enqueue_with_report`](#member-gfrequestoutboxutility-methods-enqueue_with_report) | `func enqueue_with_report(envelope: GFRequestEnvelope, require_persistence: bool = false) -> Dictionary:` |
 | 方法 | [`replay`](#member-gfrequestoutboxutility-methods-replay) | `func replay(max_count: int = 0) -> Dictionary:` |
 | 方法 | [`remove_request`](#member-gfrequestoutboxutility-methods-remove_request) | `func remove_request(request_id: StringName) -> bool:` |
 | 方法 | [`clear_queue`](#member-gfrequestoutboxutility-methods-clear_queue) | `func clear_queue() -> void:` |
@@ -168,7 +168,7 @@ signal queue_changed(snapshot: Dictionary)
 - 首次版本：`9.0.0`
 
 ```gdscript
-signal persistence_failed(operation: StringName, error: Error, path: String)
+signal persistence_failed( operation: StringName, error: Error, path: String )
 ```
 
 队列持久化操作失败。
@@ -248,9 +248,15 @@ var default_max_attempts: int = 3
 ### `retry_delays_msec`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var retry_delays_msec: Array[int] = [500, 1000, 2000, 5000]
+var retry_delays_msec: Array[int] = [
+	500,
+	1000,
+	2000,
+	5000,
+]
 ```
 
 重试延迟序列，单位毫秒；超过长度后复用最后一个值。
@@ -405,7 +411,7 @@ func enqueue(envelope: GFRequestEnvelope) -> bool:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func enqueue_with_report( envelope: GFRequestEnvelope, require_persistence: bool = false ) -> Dictionary:
+func enqueue_with_report(envelope: GFRequestEnvelope, require_persistence: bool = false) -> Dictionary:
 ```
 
 以隔离快照入队请求，并返回内存与持久化结果。 该入口不会把调用方持有的 envelope 直接放入内部队列。require_persistence=true 时， 会先验证 body 与 metadata 可由 GFVariantJsonCodec 无损往返；Object、Callable、 Signal、RID、循环集合、超过固定结构安全预算和其他不支持值会在修改队列前被 拒绝。保存失败会回滚本次入队；false 时保持普通 enqueue() 的内存接受语义。 通知监听器返回后会复核精确请求仍由队列持有且可靠状态有效。本次事务固定使用 调用开始时的 storage_path，同步通知中的路径改写不会改变事务目标；同步清空、 移除、释放或重新加载导致交接失效时返回 ok=false、reason=enqueue_invalidated， 并补偿保存当前队列状态。

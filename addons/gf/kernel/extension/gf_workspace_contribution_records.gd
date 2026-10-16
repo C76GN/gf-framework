@@ -8,14 +8,28 @@ extends RefCounted
 ## [br]
 ## @api private
 const _COMMON_KEYS: Array[String] = [
-	"owner_package_id", "source_id", "title", "description", "keywords", "group", "page_path", "action_id",
+	"owner_package_id",
+	"source_id",
+	"title",
+	"description",
+	"keywords",
+	"group",
+	"page_path",
+	"action_id",
 ]
 
 ## 资源动作只接受这些原生资源类别，避免发现阶段加载自定义脚本。
 ## [br]
 ## @api private
 const _RESOURCE_TYPES: Array[String] = [
-	"Resource", "PackedScene", "Texture2D", "AudioStream", "Font", "Material", "Mesh", "Script",
+	"Resource",
+	"PackedScene",
+	"Texture2D",
+	"AudioStream",
+	"Font",
+	"Material",
+	"Mesh",
+	"Script",
 ]
 
 
@@ -44,27 +58,44 @@ const _RESOURCE_TYPES: Array[String] = [
 ## [br]
 ## @schema return: Dictionary；records: Array[Dictionary] 包含规范化记录，source_id 加所属模块前缀，默认字段补齐；errors: Array[String] 包含失败原因。
 static func parse_records(
-	value: Variant, owner_id: String, page_owners: Dictionary, resource_actions: bool = false
+	value: Variant,
+	owner_id: String,
+	page_owners: Dictionary,
+	resource_actions: bool = false
 ) -> Dictionary:
 	var records: Array[Dictionary] = []
 	var errors: Array[String] = []
 	if not value is Array:
-		return {"records": records, "errors": ["Workspace records must be an array."]}
+		return {
+			"records": records,
+			"errors": ["Workspace records must be an array."],
+		}
 	var values: Array = value
 	if values.size() > 1024:
-		return {"records": records, "errors": ["Workspace record budget exceeded."]}
+		return {
+			"records": records,
+			"errors": ["Workspace record budget exceeded."],
+		}
 	var identities: Dictionary = {}
 	for raw: Variant in values:
 		if not raw is Dictionary:
 			errors.append("Workspace record must be an object.")
 			continue
 		var record: Dictionary = raw
-		var error: String = _validate_record(record, owner_id, page_owners, resource_actions)
+		var error: String = _validate_record(
+			record,
+			owner_id,
+			page_owners,
+			resource_actions
+		)
 		if not error.is_empty():
 			errors.append(error)
 			continue
 		var owner: String = str(record.get("owner_package_id", owner_id))
-		var identity: String = "%s:%s" % [owner, record["source_id"]]
+		var identity: String = (
+			"%s:%s"
+			% [owner, record["source_id"]]
+		)
 		if identities.has(identity):
 			errors.append("Duplicate workspace source_id: %s" % identity)
 			continue
@@ -82,7 +113,7 @@ static func parse_records(
 			var selection_count: float = record.get("max_selection", 1)
 			normalized["max_selection"] = int(selection_count)
 		records.append(normalized)
-	return {"records": records, "errors": errors}
+	return { "records": records, "errors": errors }
 
 
 # --- 私有/辅助方法 ---
@@ -91,19 +122,48 @@ static func parse_records(
 ## [br]
 ## @api private
 static func _validate_record(
-	record: Dictionary, owner_id: String, page_owners: Dictionary, resource_actions: bool
+	record: Dictionary,
+	owner_id: String,
+	page_owners: Dictionary,
+	resource_actions: bool
 ) -> String:
 	for key: Variant in record:
 		if not key is String:
 			return "Workspace field names must be strings."
-		if not _COMMON_KEYS.has(key) and not (resource_actions and key in ["resource_types", "max_selection"]):
+		if (
+			not _COMMON_KEYS.has(key)
+			and not (
+				resource_actions
+				and key in ["resource_types", "max_selection"]
+			)
+		):
 			return "Unknown workspace field: %s" % key
-	for field: String in ["owner_package_id", "source_id", "title", "description", "group", "page_path", "action_id"]:
-		if record.has(field) and (not record[field] is String or str(record[field]).length() > 4096):
+	for field: String in [
+		"owner_package_id",
+		"source_id",
+		"title",
+		"description",
+		"group",
+		"page_path",
+		"action_id",
+	]:
+		if (
+			record.has(field)
+			and (
+				not record[field] is String
+				or str(record[field]).length() > 4096
+			)
+		):
 			return "Invalid workspace text field: %s" % field
 	var owner: String = str(record.get("owner_package_id", owner_id))
 	var identity: String = str(record.get("source_id", ""))
-	if owner.is_empty() or identity.strip_edges().is_empty() or identity != identity.strip_edges() or identity.length() > 128 or identity.contains(":"):
+	if (
+		owner.is_empty()
+		or identity.strip_edges().is_empty()
+		or identity != identity.strip_edges()
+		or identity.length() > 128
+		or identity.contains(":")
+	):
 		return "Workspace record requires an owner and a local source_id."
 	if str(record.get("title", "")).strip_edges().is_empty():
 		return "Workspace record requires a title."
@@ -129,7 +189,12 @@ static func _validate_record(
 		if not (count is int or count is float):
 			return "max_selection must be an integer from 1 to 100."
 		var numeric_count: float = count
-		if not is_finite(numeric_count) or numeric_count != floor(numeric_count) or numeric_count < 1 or numeric_count > 100:
+		if (
+			not is_finite(numeric_count)
+			or numeric_count != floor(numeric_count)
+			or numeric_count < 1
+			or numeric_count > 100
+		):
 			return "max_selection must be an integer from 1 to 100."
 	return ""
 
@@ -144,6 +209,10 @@ static func _is_text_array(value: Variant, maximum: int) -> bool:
 	if values.size() > maximum:
 		return false
 	for item: Variant in values:
-		if not item is String or str(item).strip_edges().is_empty() or str(item).length() > 128:
+		if (
+			not item is String
+			or str(item).strip_edges().is_empty()
+			or str(item).length() > 128
+		):
 			return false
 	return true

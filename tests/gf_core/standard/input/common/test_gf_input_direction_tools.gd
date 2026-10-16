@@ -3,16 +3,36 @@ extends GutTest
 
 
 func test_apply_radial_deadzone_rescales_remaining_range() -> void:
-	var result: Vector2 = GFInputDirectionTools.apply_radial_deadzone(Vector2(0.6, 0.0), 0.2)
+	var result: Vector2 = GFInputDirectionTools.apply_radial_deadzone(
+		Vector2(0.6, 0.0),
+		0.2
+	)
 
-	assert_almost_eq(result.x, 0.5, 0.001, "死区外剩余行程应重映射到 0..1。")
-	assert_almost_eq(result.y, 0.0, 0.001)
+	assert_almost_eq(
+		result.x,
+		0.5,
+		0.001,
+		"死区外剩余行程应重映射到 0..1。"
+	)
+	assert_almost_eq(
+		result.y,
+		0.0,
+		0.001
+	)
 
 
 func test_apply_radial_deadzone_can_preserve_strength_without_rescale() -> void:
-	var result: Vector2 = GFInputDirectionTools.apply_radial_deadzone(Vector2(2.0, 0.0), 0.2, false)
+	var result: Vector2 = GFInputDirectionTools.apply_radial_deadzone(
+		Vector2(2.0, 0.0),
+		0.2,
+		false
+	)
 
-	assert_eq(result, Vector2.RIGHT, "不重映射时仍应钳制到单位长度，避免输出超过输入轴范围。")
+	assert_eq(
+		result,
+		Vector2.RIGHT,
+		"不重映射时仍应钳制到单位长度，避免输出超过输入轴范围。"
+	)
 
 
 func test_snap_vector_supports_axis_cardinal_and_eight_way_modes() -> void:
@@ -59,7 +79,11 @@ func test_snap_vector_applies_deadzone_before_discrete_output() -> void:
 		0.2
 	)
 
-	assert_eq(result, Vector2.ZERO, "死区内输入不应产生离散方向。")
+	assert_eq(
+		result,
+		Vector2.ZERO,
+		"死区内输入不应产生离散方向。"
+	)
 
 
 func test_direction_name_vector_and_opposite_mapping() -> void:
@@ -87,10 +111,16 @@ func test_direction_name_vector_and_opposite_mapping() -> void:
 
 func test_closest_direction_uses_requested_diagonal_policy() -> void:
 	assert_eq(
-		GFInputDirectionTools.get_closest_direction(Vector2(0.7, -0.7), true),
+		GFInputDirectionTools.get_closest_direction(
+			Vector2(0.7, -0.7),
+			true
+		),
 		GFInputDirectionTools.Direction2D.UP_RIGHT
 	)
 	assert_eq(
-		GFInputDirectionTools.get_closest_direction(Vector2(0.7, -0.7), false),
+		GFInputDirectionTools.get_closest_direction(
+			Vector2(0.7, -0.7),
+			false
+		),
 		GFInputDirectionTools.Direction2D.RIGHT
 	)

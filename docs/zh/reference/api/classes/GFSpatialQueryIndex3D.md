@@ -22,7 +22,7 @@
 | 属性 | [`cell_size`](#member-gfspatialqueryindex3d-properties-cell_size) | `var cell_size: float = 4.0:` |
 | 属性 | [`auto_spatial_hash_threshold`](#member-gfspatialqueryindex3d-properties-auto_spatial_hash_threshold) | `var auto_spatial_hash_threshold: int = 64:` |
 | 方法 | [`configure`](#member-gfspatialqueryindex3d-methods-configure) | `func configure(p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {}) -> GFSpatialQueryIndex3D:` |
-| 方法 | [`upsert`](#member-gfspatialqueryindex3d-methods-upsert) | `func upsert(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`upsert`](#member-gfspatialqueryindex3d-methods-upsert) | `func upsert( entity: Variant, entity_bounds: AABB, p_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`remove`](#member-gfspatialqueryindex3d-methods-remove) | `func remove(entity: Variant) -> bool:` |
 | 方法 | [`clear`](#member-gfspatialqueryindex3d-methods-clear) | `func clear() -> void:` |
 | 方法 | [`has_entity`](#member-gfspatialqueryindex3d-methods-has_entity) | `func has_entity(entity: Variant) -> bool:` |
@@ -30,9 +30,9 @@
 | 方法 | [`prune_invalid_entities`](#member-gfspatialqueryindex3d-methods-prune_invalid_entities) | `func prune_invalid_entities() -> void:` |
 | 方法 | [`get_entity_record`](#member-gfspatialqueryindex3d-methods-get_entity_record) | `func get_entity_record(entity: Variant) -> Dictionary:` |
 | 方法 | [`query_aabb`](#member-gfspatialqueryindex3d-methods-query_aabb) | `func query_aabb(area: AABB) -> Array[Variant]:` |
-| 方法 | [`query_aabb_into`](#member-gfspatialqueryindex3d-methods-query_aabb_into) | `func query_aabb_into(area: AABB, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_aabb_into`](#member-gfspatialqueryindex3d-methods-query_aabb_into) | `func query_aabb_into( area: AABB, out_entities: Array, clear_output: bool = true ) -> Array:` |
 | 方法 | [`query_radius`](#member-gfspatialqueryindex3d-methods-query_radius) | `func query_radius(center: Vector3, radius: float) -> Array[Variant]:` |
-| 方法 | [`query_radius_into`](#member-gfspatialqueryindex3d-methods-query_radius_into) | `func query_radius_into(center: Vector3, radius: float, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_radius_into`](#member-gfspatialqueryindex3d-methods-query_radius_into) | `func query_radius_into( center: Vector3, radius: float, out_entities: Array, clear_output: bool = true ) -> Array:` |
 | 方法 | [`query_records_aabb`](#member-gfspatialqueryindex3d-methods-query_records_aabb) | `func query_records_aabb(area: AABB) -> Array[Dictionary]:` |
 | 方法 | [`query_records_aabb_into`](#member-gfspatialqueryindex3d-methods-query_records_aabb_into) | `func query_records_aabb_into( area: AABB, out_records: Array[Dictionary], clear_output: bool = true ) -> Array[Dictionary]:` |
 | 方法 | [`query_records_radius`](#member-gfspatialqueryindex3d-methods-query_records_radius) | `func query_records_radius(center: Vector3, radius: float) -> Array[Dictionary]:` |
@@ -158,7 +158,7 @@ func configure(p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {})
 - 首次版本：`7.0.0`
 
 ```gdscript
-func upsert(entity: Variant, entity_bounds: AABB, p_metadata: Dictionary = {}) -> bool:
+func upsert( entity: Variant, entity_bounds: AABB, p_metadata: Dictionary = {} ) -> bool:
 ```
 
 插入或更新实体 AABB。
@@ -328,7 +328,7 @@ func query_aabb(area: AABB) -> Array[Variant]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_aabb_into(area: AABB, out_entities: Array, clear_output: bool = true) -> Array:
+func query_aabb_into( area: AABB, out_entities: Array, clear_output: bool = true ) -> Array:
 ```
 
 查询与 AABB 相交的实体，并写入调用方提供的数组。
@@ -382,7 +382,7 @@ func query_radius(center: Vector3, radius: float) -> Array[Variant]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_radius_into(center: Vector3, radius: float, out_entities: Array, clear_output: bool = true) -> Array:
+func query_radius_into( center: Vector3, radius: float, out_entities: Array, clear_output: bool = true ) -> Array:
 ```
 
 查询与球体相交的实体，并写入调用方提供的数组。

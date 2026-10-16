@@ -27,7 +27,11 @@ extends Area2D
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
-signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_sent(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 命中被接收对象接受。
 ## [br]
@@ -42,7 +46,11 @@ signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionar
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
-signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_accepted(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 命中被接收对象拒绝或发送失败。
 ## [br]
@@ -57,7 +65,11 @@ signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dicti
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: Dictionary，统一命中发送结果，包含 ok、hit_id、receiver(JSON-safe 摘要)、reason、message 和 metadata。
-signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_rejected(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 启用状态变化时发出。
 ## [br]
@@ -253,7 +265,7 @@ func get_generated_collision_shapes() -> Array[CollisionShape2D]:
 	var result: Array[CollisionShape2D] = []
 	for child: Node in get_children():
 		var collision_shape: CollisionShape2D = _get_collision_shape_2d_value(child)
-		if collision_shape != null and String(collision_shape.name).begins_with(String(_GENERATED_COLLISION_SHAPE_NODE_NAME)):
+		if (collision_shape != null and String(collision_shape.name).begins_with(String(_GENERATED_COLLISION_SHAPE_NODE_NAME))):
 			result.append(collision_shape)
 	return result
 
@@ -298,9 +310,14 @@ func build_hit_context(
 	payload_override: Variant = null,
 	hit_id_override: StringName = &""
 ) -> GFCombatHitContext:
-	var context_payload: Variant = payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override)
+	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override))
 	var effective_hit_id: StringName = hit_id_override if hit_id_override != &"" else hit_id
-	var context: GFCombatHitContext = GFCombatHitContext.new(_resolve_sender(), target, context_payload, effective_hit_id)
+	var context: GFCombatHitContext = GFCombatHitContext.new(
+		_resolve_sender(),
+		target,
+		context_payload,
+		effective_hit_id
+	)
 	context.magnitude = magnitude
 	context.tags = tags.duplicate()
 	context.position_2d = global_position if is_inside_tree() else position
@@ -330,7 +347,11 @@ func send_to(
 	payload_override: Variant = null,
 	hit_id_override: StringName = &""
 ) -> Dictionary:
-	var context: GFCombatHitContext = build_hit_context(receiver, payload_override, hit_id_override)
+	var context: GFCombatHitContext = build_hit_context(
+		receiver,
+		payload_override,
+		hit_id_override
+	)
 	var report_value: Variant = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
 		enabled,
 		metadata,
@@ -345,7 +366,11 @@ func send_to(
 		"Receiver returned an invalid hit report."
 	)
 	var report: Dictionary = GFVariantData.as_dictionary(report_value)
-	_emit_send_result(context, receiver, report)
+	_emit_send_result(
+		context,
+		receiver,
+		report
+	)
 	return report
 
 
@@ -372,7 +397,11 @@ func send_to_path(
 	hit_id_override: StringName = &""
 ) -> Dictionary:
 	var receiver: Node = get_node_or_null(receiver_path)
-	return send_to(receiver, payload_override, hit_id_override)
+	return send_to(
+		receiver,
+		payload_override,
+		hit_id_override
+	)
 
 
 ## 向当前重叠对象中的命中接收器批量发送命中。
@@ -402,15 +431,17 @@ func broadcast_overlaps(
 	candidates.append_array(get_overlapping_bodies())
 	var dispatch_host: Object = _resolve_collision_dispatch_host()
 	var reports: Array[Dictionary] = []
-	var report_values: Array = GFVariantData.to_array(_MESSAGE_DISPATCH_SUPPORT._send_to_collision_candidates(
-		dispatch_host,
-		candidates,
-		max_count,
-		payload_override,
-		hit_id_override,
-		&"receive_hit",
-		Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable()
-	))
+	var report_values: Array = GFVariantData.to_array(
+		_MESSAGE_DISPATCH_SUPPORT._send_to_collision_candidates(
+			dispatch_host,
+			candidates,
+			max_count,
+			payload_override,
+			hit_id_override,
+			&"receive_hit",
+			Callable(self, "_emit_collision_dispatch_result") if dispatch_host != self else Callable()
+		)
+	)
 	reports.assign(report_values)
 	return reports
 
@@ -420,13 +451,33 @@ func broadcast_overlaps(
 ## 总是发出 hit_sent，再按 report.ok 发出 accepted 或 rejected；每个信号收到独立的报告深副本。
 ## [br]
 ## @api private
-func _emit_send_result(context: GFCombatHitContext, receiver: Object, report: Dictionary) -> void:
-	var accepted: bool = GFVariantData.get_option_bool(report, "ok", false)
-	hit_sent.emit(context, receiver, report.duplicate(true))
+func _emit_send_result(
+	context: GFCombatHitContext,
+	receiver: Object,
+	report: Dictionary
+) -> void:
+	var accepted: bool = GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	)
+	hit_sent.emit(
+		context,
+		receiver,
+		report.duplicate(true)
+	)
 	if accepted:
-		hit_accepted.emit(context, receiver, report.duplicate(true))
+		hit_accepted.emit(
+			context,
+			receiver,
+			report.duplicate(true)
+		)
 	else:
-		hit_rejected.emit(context, receiver, report.duplicate(true))
+		hit_rejected.emit(
+			context,
+			receiver,
+			report.duplicate(true)
+		)
 
 
 ## 将批量派发结果转成命中上下文，并交给统一结果信号发送流程。
@@ -438,7 +489,15 @@ func _emit_collision_dispatch_result(
 	hit_id_override: StringName,
 	report: Dictionary
 ) -> void:
-	_emit_send_result(build_hit_context(receiver, payload_override, hit_id_override), receiver, report)
+	_emit_send_result(
+		build_hit_context(
+			receiver,
+			payload_override,
+			hit_id_override
+		),
+		receiver,
+		report
+	)
 
 
 ## sender_path 能解析到节点时返回该节点，否则回退到当前 HitBox。
@@ -528,7 +587,10 @@ func _clear_generated_collision_shapes_from_index(start_index: int) -> void:
 func _get_generated_collision_shape_name(index: int) -> String:
 	if index <= 0:
 		return String(_GENERATED_COLLISION_SHAPE_NODE_NAME)
-	return "%s%d" % [String(_GENERATED_COLLISION_SHAPE_NODE_NAME), index + 1]
+	return (
+		"%s%d"
+		% [String(_GENERATED_COLLISION_SHAPE_NODE_NAME), index + 1]
+	)
 
 
 ## 将节点值收窄为 CollisionShape2D，类型不符时返回 null。

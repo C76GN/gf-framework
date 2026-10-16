@@ -26,7 +26,7 @@
 | 方法 | [`release_pointer_on_surface`](#member-gfviewportsurfaceinputbridge-methods-release_pointer_on_surface) | `func release_pointer_on_surface( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> bool:` |
 | 方法 | [`cancel_pointer`](#member-gfviewportsurfaceinputbridge-methods-cancel_pointer) | `func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int) -> bool:` |
 | 方法 | [`cancel_source`](#member-gfviewportsurfaceinputbridge-methods-cancel_source) | `func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int = -1 ) -> int:` |
-| 方法 | [`cancel_target`](#member-gfviewportsurfaceinputbridge-methods-cancel_target) | `func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int) -> int:` |
+| 方法 | [`cancel_target`](#member-gfviewportsurfaceinputbridge-methods-cancel_target) | `func cancel_target( target: Viewport, target_generation: int, timestamp_msec: int ) -> int:` |
 | 方法 | [`prune_released_captures`](#member-gfviewportsurfaceinputbridge-methods-prune_released_captures) | `func prune_released_captures(timestamp_msec: int = 0) -> int:` |
 | 方法 | [`has_capture`](#member-gfviewportsurfaceinputbridge-methods-has_capture) | `func has_capture(capture: GFViewportSurfaceInputCapture) -> bool:` |
 | 方法 | [`get_active_pointer_count`](#member-gfviewportsurfaceinputbridge-methods-get_active_pointer_count) | `func get_active_pointer_count() -> int:` |
@@ -318,7 +318,7 @@ func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int =
 - 首次版本：`11.0.0`
 
 ```gdscript
-func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int) -> int:
+func cancel_target( target: Viewport, target_generation: int, timestamp_msec: int ) -> int:
 ```
 
 取消指定 Viewport 外部代际的全部捕获。

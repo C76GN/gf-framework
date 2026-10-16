@@ -175,7 +175,11 @@ static func from_event(input_event: InputEvent, options: Dictionary = {}) -> GFI
 
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(input_event)
 	if key_event != null:
-		_apply_key_event(identity, key_event, options)
+		_apply_key_event(
+			identity,
+			key_event,
+			options
+		)
 		return identity
 
 	var mouse_button_event: InputEventMouseButton = _INPUT_EVENT_TOOLS.get_mouse_button_event(input_event)
@@ -190,17 +194,29 @@ static func from_event(input_event: InputEvent, options: Dictionary = {}) -> GFI
 
 	var joypad_motion_event: InputEventJoypadMotion = _INPUT_EVENT_TOOLS.get_joypad_motion_event(input_event)
 	if joypad_motion_event != null:
-		_apply_joy_axis_event(identity, joypad_motion_event, options)
+		_apply_joy_axis_event(
+			identity,
+			joypad_motion_event,
+			options
+		)
 		return identity
 
 	var touch_event: InputEventScreenTouch = _INPUT_EVENT_TOOLS.get_screen_touch_event(input_event)
 	if touch_event != null:
-		_apply_touch_event(identity, touch_event, options)
+		_apply_touch_event(
+			identity,
+			touch_event,
+			options
+		)
 		return identity
 
 	var drag_event: InputEventScreenDrag = _INPUT_EVENT_TOOLS.get_screen_drag_event(input_event)
 	if drag_event != null:
-		_apply_screen_drag_event(identity, drag_event, options)
+		_apply_screen_drag_event(
+			identity,
+			drag_event,
+			options
+		)
 		return identity
 
 	_apply_unknown_event(identity, input_event)
@@ -227,12 +243,19 @@ static func get_icon_candidates(input_event: InputEvent, options: Dictionary = {
 
 	var action_event: InputEventAction = _INPUT_EVENT_TOOLS.get_action_event(input_event)
 	if action_event != null:
-		_append_unique_candidate(candidates, "action:%s" % _sanitize_icon_name(String(action_event.action)))
+		_append_unique_candidate(
+			candidates,
+			"action:%s" % _sanitize_icon_name(String(action_event.action))
+		)
 		return candidates
 
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(input_event)
 	if key_event != null:
-		_append_key_icon_candidates(candidates, key_event, options)
+		_append_key_icon_candidates(
+			candidates,
+			key_event,
+			options
+		)
 		return candidates
 
 	var mouse_button_event: InputEventMouseButton = _INPUT_EVENT_TOOLS.get_mouse_button_event(input_event)
@@ -247,7 +270,11 @@ static func get_icon_candidates(input_event: InputEvent, options: Dictionary = {
 
 	var joypad_motion_event: InputEventJoypadMotion = _INPUT_EVENT_TOOLS.get_joypad_motion_event(input_event)
 	if joypad_motion_event != null:
-		_append_joy_axis_icon_candidates(candidates, joypad_motion_event, options)
+		_append_joy_axis_icon_candidates(
+			candidates,
+			joypad_motion_event,
+			options
+		)
 		return candidates
 
 	if input_event is InputEventScreenTouch:
@@ -278,7 +305,10 @@ func is_empty() -> bool:
 func get_signature(include_device: bool = false) -> String:
 	if is_empty():
 		return ""
-	return "%s@%s" % [conflict_key, str(device_id) if include_device else "*"]
+	return (
+		"%s@%s"
+		% [conflict_key, str(device_id) if include_device else "*"]
+	)
 
 
 ## 转换为字典。
@@ -293,7 +323,7 @@ func get_signature(include_device: bool = false) -> String:
 ## [br]
 ## @schema return: Dictionary with kind, primary_key, display_key, conflict_key, icon_key, device_id, axis_sign, and metadata fields.
 func to_dictionary(json_compatible: bool = true) -> Dictionary:
-	var metadata_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(metadata) if json_compatible else metadata.duplicate(true)
+	var metadata_value: Variant = (GFVariantJsonCodec.variant_to_json_compatible(metadata) if json_compatible else metadata.duplicate(true))
 	return {
 		&"kind": String(kind),
 		&"primary_key": primary_key,
@@ -319,14 +349,30 @@ func to_dictionary(json_compatible: bool = true) -> Dictionary:
 ## @return 输入事件身份。
 static func from_dictionary(data: Dictionary) -> GFInputEventIdentity:
 	var identity: GFInputEventIdentity = GFInputEventIdentity.new()
-	identity.kind = GFVariantData.get_option_string_name(data, &"kind", KIND_NONE)
+	identity.kind = GFVariantData.get_option_string_name(
+		data,
+		&"kind",
+		KIND_NONE
+	)
 	identity.primary_key = GFVariantData.get_option_string(data, &"primary_key")
 	identity.display_key = GFVariantData.get_option_string(data, &"display_key")
 	identity.conflict_key = GFVariantData.get_option_string(data, &"conflict_key")
 	identity.icon_key = GFVariantData.get_option_string_name(data, &"icon_key")
-	identity.device_id = GFVariantData.get_option_int(data, &"device_id", -1)
-	identity.axis_sign = clampi(GFVariantData.get_option_int(data, &"axis_sign"), -1, 1)
-	var metadata_value: Variant = GFVariantData.get_option_value(data, &"metadata", {})
+	identity.device_id = GFVariantData.get_option_int(
+		data,
+		&"device_id",
+		-1
+	)
+	identity.axis_sign = clampi(
+		GFVariantData.get_option_int(data, &"axis_sign"),
+		-1,
+		1
+	)
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		data,
+		&"metadata",
+		{}
+	)
 	identity.metadata = GFVariantData.as_dictionary(GFVariantJsonCodec.json_compatible_to_variant(metadata_value))
 	return identity
 
@@ -345,37 +391,50 @@ static func _apply_action_event(identity: GFInputEventIdentity, event: InputEven
 	identity.conflict_key = identity.primary_key
 	identity.icon_key = StringName("action:%s" % _sanitize_icon_name(action_text))
 	identity.axis_sign = 0
-	identity.metadata = {
-		&"action": action_text,
-	}
+	identity.metadata = { &"action": action_text, }
 
 
 ## 从物理或逻辑按键及修饰键选项生成键盘事件身份和图标候选。
 ## [br]
 ## @api private
 ## [br]
-static func _apply_key_event(identity: GFInputEventIdentity, event: InputEventKey, options: Dictionary) -> void:
+static func _apply_key_event(
+	identity: GFInputEventIdentity,
+	event: InputEventKey,
+	options: Dictionary
+) -> void:
 	var keycode: int = int(event.physical_keycode)
 	if keycode == int(KEY_NONE):
 		keycode = int(event.keycode)
 
-	var include_modifiers: bool = GFVariantData.get_option_bool(options, &"include_key_modifiers", true)
+	var include_modifiers: bool = GFVariantData.get_option_bool(
+		options,
+		&"include_key_modifiers",
+		true
+	)
 	identity.kind = KIND_KEY
 	identity.primary_key = "key:%d" % keycode
 	identity.display_key = _get_key_display_text(keycode)
 	if include_modifiers:
-		identity.conflict_key = "key:%d:%d:%d:%d:%d" % [
-			keycode,
-			1 if event.ctrl_pressed else 0,
-			1 if event.alt_pressed else 0,
-			1 if event.shift_pressed else 0,
-			1 if event.meta_pressed else 0,
-		]
+		identity.conflict_key = (
+			"key:%d:%d:%d:%d:%d"
+			% [
+				keycode,
+				1 if event.ctrl_pressed else 0,
+				1 if event.alt_pressed else 0,
+				1 if event.shift_pressed else 0,
+				1 if event.meta_pressed else 0,
+			]
+		)
 	else:
 		identity.conflict_key = identity.primary_key
 
 	var candidates: PackedStringArray = PackedStringArray()
-	_append_key_icon_candidates(candidates, event, options)
+	_append_key_icon_candidates(
+		candidates,
+		event,
+		options
+	)
 	identity.icon_key = StringName(candidates[0]) if not candidates.is_empty() else &""
 	identity.axis_sign = 0
 	identity.metadata = {
@@ -402,9 +461,7 @@ static func _apply_mouse_button_event(identity: GFInputEventIdentity, event: Inp
 	_append_mouse_button_icon_candidates(candidates, event.button_index)
 	identity.icon_key = StringName(candidates[0]) if not candidates.is_empty() else &""
 	identity.axis_sign = 0
-	identity.metadata = {
-		&"button_index": int(event.button_index),
-	}
+	identity.metadata = { &"button_index": int(event.button_index), }
 
 
 ## 从手柄按钮枚举生成事件身份，并添加标准按钮名及数字图标候选。
@@ -420,65 +477,87 @@ static func _apply_joy_button_event(identity: GFInputEventIdentity, event: Input
 	_append_joy_button_icon_candidates(candidates, event.button_index)
 	identity.icon_key = StringName(candidates[0]) if not candidates.is_empty() else &""
 	identity.axis_sign = 0
-	identity.metadata = {
-		&"button_index": int(event.button_index),
-	}
+	identity.metadata = { &"button_index": int(event.button_index), }
 
 
 ## 按轴和显式覆盖或事件值符号生成手柄轴身份、冲突键与元数据。
 ## [br]
 ## @api private
 ## [br]
-static func _apply_joy_axis_event(identity: GFInputEventIdentity, event: InputEventJoypadMotion, options: Dictionary) -> void:
-	var sign_override: int = clampi(GFVariantData.get_option_int(options, &"joy_axis_sign"), -1, 1)
+static func _apply_joy_axis_event(
+	identity: GFInputEventIdentity,
+	event: InputEventJoypadMotion,
+	options: Dictionary
+) -> void:
+	var sign_override: int = clampi(
+		GFVariantData.get_option_int(options, &"joy_axis_sign"),
+		-1,
+		1
+	)
 	var sign_value: int = sign_override if sign_override != 0 else _get_axis_sign(event.axis_value)
 	var direction: String = _axis_sign_to_conflict_direction(sign_value)
 	identity.kind = KIND_JOY_AXIS
-	identity.primary_key = "joy_axis:%d:%s" % [int(event.axis), direction]
+	identity.primary_key = (
+		"joy_axis:%d:%s"
+		% [int(event.axis), direction]
+	)
 	identity.display_key = identity.primary_key
 	identity.conflict_key = identity.primary_key
 	var candidates: PackedStringArray = PackedStringArray()
-	_append_joy_axis_icon_candidates(candidates, event, options)
+	_append_joy_axis_icon_candidates(
+		candidates,
+		event,
+		options
+	)
 	identity.icon_key = StringName(candidates[0]) if not candidates.is_empty() else &""
 	identity.axis_sign = sign_value
-	identity.metadata = {
-		&"axis": int(event.axis),
-		&"axis_sign": sign_value,
-	}
+	identity.metadata = { &"axis": int(event.axis), &"axis_sign": sign_value, }
 
 
 ## 根据是否匹配触点索引生成屏幕触摸身份，图标键固定为 touch。
 ## [br]
 ## @api private
 ## [br]
-static func _apply_touch_event(identity: GFInputEventIdentity, event: InputEventScreenTouch, options: Dictionary) -> void:
-	var match_touch_index: bool = GFVariantData.get_option_bool(options, &"match_touch_index", false)
+static func _apply_touch_event(
+	identity: GFInputEventIdentity,
+	event: InputEventScreenTouch,
+	options: Dictionary
+) -> void:
+	var match_touch_index: bool = GFVariantData.get_option_bool(
+		options,
+		&"match_touch_index",
+		false
+	)
 	identity.kind = KIND_TOUCH
 	identity.primary_key = "screen_touch:%d" % event.index if match_touch_index else "screen_touch"
 	identity.display_key = identity.primary_key
 	identity.conflict_key = identity.primary_key
 	identity.icon_key = &"touch"
 	identity.axis_sign = 0
-	identity.metadata = {
-		&"index": event.index,
-	}
+	identity.metadata = { &"index": event.index, }
 
 
 ## 根据是否匹配触点索引生成屏幕拖动身份，并清空图标键。
 ## [br]
 ## @api private
 ## [br]
-static func _apply_screen_drag_event(identity: GFInputEventIdentity, event: InputEventScreenDrag, options: Dictionary) -> void:
-	var match_touch_index: bool = GFVariantData.get_option_bool(options, &"match_touch_index", false)
+static func _apply_screen_drag_event(
+	identity: GFInputEventIdentity,
+	event: InputEventScreenDrag,
+	options: Dictionary
+) -> void:
+	var match_touch_index: bool = GFVariantData.get_option_bool(
+		options,
+		&"match_touch_index",
+		false
+	)
 	identity.kind = KIND_SCREEN_DRAG
 	identity.primary_key = "screen_drag:%d" % event.index if match_touch_index else "screen_drag"
 	identity.display_key = identity.primary_key
 	identity.conflict_key = identity.primary_key
 	identity.icon_key = &""
 	identity.axis_sign = 0
-	identity.metadata = {
-		&"index": event.index,
-	}
+	identity.metadata = { &"index": event.index, }
 
 
 ## 用事件文本生成未知事件的身份键，并记录事件类名。
@@ -493,29 +572,44 @@ static func _apply_unknown_event(identity: GFInputEventIdentity, event: InputEve
 	identity.conflict_key = identity.primary_key
 	identity.icon_key = &""
 	identity.axis_sign = 0
-	identity.metadata = {
-		&"event_class": event.get_class(),
-	}
+	identity.metadata = { &"event_class": event.get_class(), }
 
 
 ## 按修饰键组合、按键名称和数字键码顺序追加键盘图标候选。
 ## [br]
 ## @api private
 ## [br]
-static func _append_key_icon_candidates(candidates: PackedStringArray, event: InputEventKey, options: Dictionary) -> void:
+static func _append_key_icon_candidates(
+	candidates: PackedStringArray,
+	event: InputEventKey,
+	options: Dictionary
+) -> void:
 	var keycode: int = int(event.physical_keycode)
 	if keycode == int(KEY_NONE):
 		keycode = int(event.keycode)
 
 	var key_name: String = _sanitize_icon_name(OS.get_keycode_string(keycode))
 	var modifiers: PackedStringArray = _get_key_modifier_names(event)
-	if GFVariantData.get_option_bool(options, &"include_key_modifier_combo", true) and not modifiers.is_empty():
+	if GFVariantData.get_option_bool(
+		options,
+		&"include_key_modifier_combo",
+		true
+	) and not modifiers.is_empty():
 		var combo_parts: PackedStringArray = modifiers.duplicate()
 		_append_unique_candidate(combo_parts, key_name)
-		_append_unique_candidate(candidates, "key:%s" % "+".join(combo_parts))
+		_append_unique_candidate(
+			candidates,
+			"key:%s" % "+".join(combo_parts)
+		)
 	if not key_name.is_empty():
-		_append_unique_candidate(candidates, "key:%s" % key_name)
-	_append_unique_candidate(candidates, "key:%d" % keycode)
+		_append_unique_candidate(
+			candidates,
+			"key:%s" % key_name
+		)
+	_append_unique_candidate(
+		candidates,
+		"key:%d" % keycode
+	)
 
 
 ## 追加鼠标按钮的常见语义图标名，并始终追加数字回退名。
@@ -534,7 +628,10 @@ static func _append_mouse_button_icon_candidates(candidates: PackedStringArray, 
 			_append_unique_candidate(candidates, "mouse:wheel_up")
 		MOUSE_BUTTON_WHEEL_DOWN:
 			_append_unique_candidate(candidates, "mouse:wheel_down")
-	_append_unique_candidate(candidates, "mouse:%d" % int(button))
+	_append_unique_candidate(
+		candidates,
+		"mouse:%d" % int(button)
+	)
 
 
 ## 追加常见手柄按钮的标准图标名，并始终追加数字回退名。
@@ -571,31 +668,58 @@ static func _append_joy_button_icon_candidates(candidates: PackedStringArray, bu
 			_append_unique_candidate(candidates, "joy_button:dpad_left")
 		JOY_BUTTON_DPAD_RIGHT:
 			_append_unique_candidate(candidates, "joy_button:dpad_right")
-	_append_unique_candidate(candidates, "joy_button:%d" % int(button))
+	_append_unique_candidate(
+		candidates,
+		"joy_button:%d" % int(button)
+	)
 
 
 ## 按轴类别和轴向追加手柄轴图标候选，触发器使用专用名称并保留数字回退。
 ## [br]
 ## @api private
 ## [br]
-static func _append_joy_axis_icon_candidates(candidates: PackedStringArray, event: InputEventJoypadMotion, options: Dictionary) -> void:
-	var sign_override: int = clampi(GFVariantData.get_option_int(options, &"joy_axis_sign"), -1, 1)
+static func _append_joy_axis_icon_candidates(
+	candidates: PackedStringArray,
+	event: InputEventJoypadMotion,
+	options: Dictionary
+) -> void:
+	var sign_override: int = clampi(
+		GFVariantData.get_option_int(options, &"joy_axis_sign"),
+		-1,
+		1
+	)
 	var sign_value: int = sign_override if sign_override != 0 else _get_axis_sign(event.axis_value)
 	var suffix: String = "negative" if sign_value < 0 else "positive"
 	match event.axis:
 		JOY_AXIS_LEFT_X:
-			_append_unique_candidate(candidates, "joy_axis:left_x_%s" % suffix)
+			_append_unique_candidate(
+				candidates,
+				"joy_axis:left_x_%s" % suffix
+			)
 		JOY_AXIS_LEFT_Y:
-			_append_unique_candidate(candidates, "joy_axis:left_y_%s" % suffix)
+			_append_unique_candidate(
+				candidates,
+				"joy_axis:left_y_%s" % suffix
+			)
 		JOY_AXIS_RIGHT_X:
-			_append_unique_candidate(candidates, "joy_axis:right_x_%s" % suffix)
+			_append_unique_candidate(
+				candidates,
+				"joy_axis:right_x_%s" % suffix
+			)
 		JOY_AXIS_RIGHT_Y:
-			_append_unique_candidate(candidates, "joy_axis:right_y_%s" % suffix)
+			_append_unique_candidate(
+				candidates,
+				"joy_axis:right_y_%s" % suffix
+			)
 		JOY_AXIS_TRIGGER_LEFT:
 			_append_unique_candidate(candidates, "joy_axis:left_trigger")
 		JOY_AXIS_TRIGGER_RIGHT:
 			_append_unique_candidate(candidates, "joy_axis:right_trigger")
-	_append_unique_candidate(candidates, "joy_axis:%d:%s" % [int(event.axis), suffix])
+	_append_unique_candidate(
+		candidates,
+		"joy_axis:%d:%s"
+		% [int(event.axis), suffix]
+	)
 
 
 ## 仅在候选非空且尚未出现时追加图标名称。

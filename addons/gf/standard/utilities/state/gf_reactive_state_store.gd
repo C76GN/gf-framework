@@ -231,18 +231,51 @@ func get_state(copy_value: bool = true) -> Dictionary:
 func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:
 	var next_state: Dictionary = GFVariantData.to_dictionary(new_state)
 	var diff_options: Dictionary = {
-		"copy_values": GFVariantData.get_option_bool(options, "copy_values", true),
-		"max_changes": GFVariantData.get_option_int(options, "max_changes", 1024),
+		"copy_values": GFVariantData.get_option_bool(
+			options,
+			"copy_values",
+			true
+		),
+		"max_changes": GFVariantData.get_option_int(
+			options,
+			"max_changes",
+			1024
+		),
 	}
-	var diff_report: Dictionary = GFVariantData.diff_variant(_state, next_state, diff_options)
-	var diff_complete: bool = GFVariantData.get_option_bool(diff_report, "complete", true)
-	if diff_complete and not GFVariantData.get_option_bool(diff_report, "changed", false):
+	var diff_report: Dictionary = GFVariantData.diff_variant(
+		_state,
+		next_state,
+		diff_options
+	)
+	var diff_complete: bool = GFVariantData.get_option_bool(
+		diff_report,
+		"complete",
+		true
+	)
+	if diff_complete and not GFVariantData.get_option_bool(
+		diff_report,
+		"changed",
+		false
+	):
 		return false
 
 	var previous_state: Dictionary = _state
 	_state = next_state
-	if not diff_complete or GFVariantData.get_option_bool(diff_report, "truncated", false):
-		_enqueue_change(_make_change("state_replaced", [], previous_state, next_state, true, true))
+	if not diff_complete or GFVariantData.get_option_bool(
+		diff_report,
+		"truncated",
+		false
+	):
+		_enqueue_change(
+			_make_change(
+				"state_replaced",
+				[],
+				previous_state,
+				next_state,
+				true,
+				true
+			)
+		)
 	else:
 		_enqueue_report_changes(diff_report, [])
 	_flush_if_ready()
@@ -268,9 +301,17 @@ func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:
 ## @schema fallback: Variant，路径不存在时的回退值。
 ## [br]
 ## @schema return: Variant，路径值。
-func get_value(path: Variant, fallback: Variant = null, copy_value: bool = true) -> Variant:
+func get_value(
+	path: Variant,
+	fallback: Variant = null,
+	copy_value: bool = true
+) -> Variant:
 	var read_result: Dictionary = _read_path(normalize_path(path))
-	if not GFVariantData.get_option_bool(read_result, "found", false):
+	if not GFVariantData.get_option_bool(
+		read_result,
+		"found",
+		false
+	):
 		return GFVariantData.duplicate_variant(fallback) if copy_value else fallback
 
 	var value: Variant = GFVariantData.get_option_value(read_result, "value")
@@ -289,7 +330,11 @@ func get_value(path: Variant, fallback: Variant = null, copy_value: bool = true)
 ## [br]
 ## @schema path: Variant，路径表达。
 func has_value(path: Variant) -> bool:
-	return GFVariantData.get_option_bool(_read_path(normalize_path(path)), "found", false)
+	return GFVariantData.get_option_bool(
+		_read_path(normalize_path(path)),
+		"found",
+		false
+	)
 
 
 ## 写入路径值。
@@ -316,22 +361,31 @@ func set_value(path: Variant, value: Variant) -> bool:
 		return false
 
 	var old_result: Dictionary = _read_path(segments)
-	var old_exists: bool = GFVariantData.get_option_bool(old_result, "found", false)
+	var old_exists: bool = GFVariantData.get_option_bool(
+		old_result,
+		"found",
+		false
+	)
 	var old_value: Variant = GFVariantData.get_option_value(old_result, "value")
 	if old_exists and _variant_values_equal(old_value, value):
 		return false
 
-	if not _write_path(segments, GFVariantData.duplicate_variant(value)):
+	if not _write_path(
+		segments,
+		GFVariantData.duplicate_variant(value)
+	):
 		return false
 
-	_enqueue_change(_make_change(
-		"changed" if old_exists else "added",
-		segments,
-		old_value,
-		value,
-		old_exists,
-		true
-	))
+	_enqueue_change(
+		_make_change(
+			"changed" if old_exists else "added",
+			segments,
+			old_value,
+			value,
+			old_exists,
+			true
+		)
+	)
 	_flush_if_ready()
 	return true
 
@@ -351,7 +405,10 @@ func set_values(values_by_path: Dictionary) -> int:
 	begin_batch()
 	var changed_count: int = 0
 	for path_variant: Variant in values_by_path.keys():
-		if set_value(path_variant, values_by_path[path_variant]):
+		if set_value(
+			path_variant,
+			values_by_path[path_variant]
+		):
 			changed_count += 1
 	var _flushed_changes: Array[Dictionary] = end_batch()
 	return changed_count
@@ -374,14 +431,27 @@ func erase_value(path: Variant) -> bool:
 		return false
 
 	var old_result: Dictionary = _read_path(segments)
-	if not GFVariantData.get_option_bool(old_result, "found", false):
+	if not GFVariantData.get_option_bool(
+		old_result,
+		"found",
+		false
+	):
 		return false
 
 	var old_value: Variant = GFVariantData.get_option_value(old_result, "value")
 	if not _erase_path(segments):
 		return false
 
-	_enqueue_change(_make_change("removed", segments, old_value, null, true, false))
+	_enqueue_change(
+		_make_change(
+			"removed",
+			segments,
+			old_value,
+			null,
+			true,
+			false
+		)
+	)
 	_flush_if_ready()
 	return true
 
@@ -451,9 +521,15 @@ func flush() -> Array[Dictionary]:
 		_dirty_change_indices.clear()
 		dispatched_changes.append_array(changes)
 
-		state_changed.emit(_copy_changes(changes), get_state())
+		state_changed.emit(
+			_copy_changes(changes),
+			get_state()
+		)
 		for change: Dictionary in changes:
-			path_changed.emit(GFVariantData.get_option_string(change, "path"), GFVariantData.to_dictionary(change))
+			path_changed.emit(
+				GFVariantData.get_option_string(change, "path"),
+				GFVariantData.to_dictionary(change)
+			)
 		_notify_subscribers(changes)
 
 		if _batch_depth > 0:
@@ -493,7 +569,11 @@ func get_dirty_changes() -> Array[Dictionary]:
 ## @schema path: Variant，路径表达。
 ## [br]
 ## @schema options: Dictionary，可选字段：mode 为 SUBSCRIBE_EXACT/SUBSCRIBE_PREFIX/SUBSCRIBE_ANY，owner 为 Object，emit_current 默认为 false。
-func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -> Callable:
+func subscribe(
+	path: Variant,
+	callback: Callable,
+	options: Dictionary = {}
+) -> Callable:
 	if not callback.is_valid():
 		push_error("[GFReactiveStateStore][reactive_state_store.callback_invalid] Cannot subscribe: callback is invalid.")
 		return Callable()
@@ -502,7 +582,13 @@ func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -> C
 	var subscription_id: int = _next_subscription_id
 	_next_subscription_id += 1
 	var segments: Array = normalize_path(path)
-	var mode: int = _normalize_subscribe_mode(GFVariantData.get_option_int(options, "mode", SUBSCRIBE_EXACT))
+	var mode: int = _normalize_subscribe_mode(
+		GFVariantData.get_option_int(
+			options,
+			"mode",
+			SUBSCRIBE_EXACT
+		)
+	)
 	var exit_callable: Callable = Callable()
 	if subscription_owner is Node:
 		var owner_node: Node = subscription_owner
@@ -513,17 +599,23 @@ func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -> C
 				CONNECT_ONE_SHOT as Object.ConnectFlags
 			)
 
-	_subscriptions.append({
-		"subscription_id": subscription_id,
-		"path": _format_path_segments(segments),
-		"path_segments": segments,
-		"mode": mode,
-		"callback": callback,
-		"owner_ref": weakref(subscription_owner) if subscription_owner != null else null,
-		"exit_callable": exit_callable,
-	})
+	_subscriptions.append(
+		{
+			"subscription_id": subscription_id,
+			"path": _format_path_segments(segments),
+			"path_segments": segments,
+			"mode": mode,
+			"callback": callback,
+			"owner_ref": weakref(subscription_owner) if subscription_owner != null else null,
+			"exit_callable": exit_callable,
+		}
+	)
 
-	if GFVariantData.get_option_bool(options, "emit_current", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"emit_current",
+		false
+	):
 		var current_change: Dictionary = _make_current_change(segments)
 		callback.call(current_change, self)
 
@@ -563,7 +655,11 @@ func clear_subscriptions(owner: Object = null) -> void:
 		_subscriptions.clear()
 		return
 
-	for index: int in range(_subscriptions.size() - 1, -1, -1):
+	for index: int in range(
+		_subscriptions.size() - 1,
+		-1,
+		-1
+	):
 		if _get_subscription_owner(_subscriptions[index]) == owner:
 			_disconnect_subscription_owner_signal(_subscriptions[index])
 			_subscriptions.remove_at(index)
@@ -637,12 +733,18 @@ static func _append_text_path_part(segments: Array, part: String) -> void:
 			segments.append(StringName(key_text))
 			key_text = ""
 
-		var close_index: int = part.find("]", index + 1)
+		var close_index: int = part.find(
+			"]",
+			index + 1
+		)
 		if close_index < 0:
 			key_text = part.substr(index)
 			break
 
-		var index_text: String = part.substr(index + 1, close_index - index - 1).strip_edges()
+		var index_text: String = part.substr(
+			index + 1,
+			close_index - index - 1
+		).strip_edges()
 		if index_text.is_valid_int():
 			segments.append(index_text.to_int())
 		elif not index_text.is_empty():
@@ -667,17 +769,18 @@ static func _variant_values_equal(left: Variant, right: Variant) -> bool:
 ## [br]
 func _read_path(segments: Array) -> Dictionary:
 	if segments.is_empty():
-		return {
-			"found": true,
-			"value": _state,
-		}
+		return { "found": true, "value": _state, }
 
 	var current: Variant = _state
 	for segment: Variant in segments:
 		if current is Dictionary:
 			var dictionary: Dictionary = current
 			var key_result: Dictionary = _find_dictionary_key(dictionary, segment)
-			if not GFVariantData.get_option_bool(key_result, "found", false):
+			if not GFVariantData.get_option_bool(
+				key_result,
+				"found",
+				false
+			):
 				return { "found": false }
 			current = dictionary[GFVariantData.get_option_value(key_result, "key")]
 			continue
@@ -692,10 +795,7 @@ func _read_path(segments: Array) -> Dictionary:
 
 		return { "found": false }
 
-	return {
-		"found": true,
-		"value": current,
-	}
+	return { "found": true, "value": current, }
 
 
 ## 写入非空状态路径；先验证并规划中间字典，再提交赋值，越界数组索引或不兼容路径返回 false。
@@ -711,26 +811,38 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 		if current is Dictionary:
 			var dictionary: Dictionary = current
 			var key_result: Dictionary = _find_dictionary_key(dictionary, segment)
-			var key: Variant = GFVariantData.get_option_value(key_result, "key", segment)
-			if not GFVariantData.get_option_bool(key_result, "found", false):
+			var key: Variant = GFVariantData.get_option_value(
+				key_result,
+				"key",
+				segment
+			)
+			if not GFVariantData.get_option_bool(
+				key_result,
+				"found",
+				false
+			):
 				if next_segment is int:
 					return false
 				var missing_dictionary: Dictionary = {}
-				planned_assignments.append({
-					"container": dictionary,
-					"key": key,
-					"value": missing_dictionary,
-				})
+				planned_assignments.append(
+					{
+						"container": dictionary,
+						"key": key,
+						"value": missing_dictionary,
+					}
+				)
 				current = missing_dictionary
 			elif not _is_path_container(dictionary[key]):
 				if next_segment is int:
 					return false
 				var replacement_dictionary: Dictionary = {}
-				planned_assignments.append({
-					"container": dictionary,
-					"key": key,
-					"value": replacement_dictionary,
-				})
+				planned_assignments.append(
+					{
+						"container": dictionary,
+						"key": key,
+						"value": replacement_dictionary,
+					}
+				)
 				current = replacement_dictionary
 			else:
 				current = dictionary[key]
@@ -745,11 +857,13 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 				if next_segment is int:
 					return false
 				var replacement_dictionary: Dictionary = {}
-				planned_assignments.append({
-					"container": array,
-					"key": segment_index,
-					"value": replacement_dictionary,
-				})
+				planned_assignments.append(
+					{
+						"container": array,
+						"key": segment_index,
+						"value": replacement_dictionary,
+					}
+				)
 				current = replacement_dictionary
 			else:
 				current = array[segment_index]
@@ -761,22 +875,30 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 	if current is Dictionary:
 		var leaf_dictionary: Dictionary = current
 		var leaf_result: Dictionary = _find_dictionary_key(leaf_dictionary, leaf)
-		var leaf_key: Variant = GFVariantData.get_option_value(leaf_result, "key", leaf)
-		planned_assignments.append({
-			"container": leaf_dictionary,
-			"key": leaf_key,
-			"value": new_value,
-		})
+		var leaf_key: Variant = GFVariantData.get_option_value(
+			leaf_result,
+			"key",
+			leaf
+		)
+		planned_assignments.append(
+			{
+				"container": leaf_dictionary,
+				"key": leaf_key,
+				"value": new_value,
+			}
+		)
 	elif current is Array and leaf is int:
 		var leaf_array: Array = current
 		var leaf_index: int = leaf
 		if leaf_index < 0 or leaf_index >= leaf_array.size():
 			return false
-		planned_assignments.append({
-			"container": leaf_array,
-			"key": leaf_index,
-			"value": new_value,
-		})
+		planned_assignments.append(
+			{
+				"container": leaf_array,
+				"key": leaf_index,
+				"value": new_value,
+			}
+		)
 	else:
 		return false
 
@@ -798,9 +920,16 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 ## @api private
 ## [br]
 func _erase_path(segments: Array) -> bool:
-	var parent_segments: Array = segments.slice(0, segments.size() - 1)
+	var parent_segments: Array = segments.slice(
+		0,
+		segments.size() - 1
+	)
 	var parent_result: Dictionary = _read_path(parent_segments)
-	if not GFVariantData.get_option_bool(parent_result, "found", false):
+	if not GFVariantData.get_option_bool(
+		parent_result,
+		"found",
+		false
+	):
 		return false
 
 	var parent: Variant = GFVariantData.get_option_value(parent_result, "value")
@@ -808,7 +937,11 @@ func _erase_path(segments: Array) -> bool:
 	if parent is Dictionary:
 		var dictionary: Dictionary = parent
 		var key_result: Dictionary = _find_dictionary_key(dictionary, leaf)
-		if not GFVariantData.get_option_bool(key_result, "found", false):
+		if not GFVariantData.get_option_bool(
+			key_result,
+			"found",
+			false
+		):
 			return false
 		return dictionary.erase(GFVariantData.get_option_value(key_result, "key"))
 	if parent is Array and leaf is int:
@@ -827,31 +960,19 @@ func _erase_path(segments: Array) -> bool:
 ## [br]
 func _find_dictionary_key(dictionary: Dictionary, key: Variant) -> Dictionary:
 	if dictionary.has(key):
-		return {
-			"found": true,
-			"key": key,
-		}
+		return { "found": true, "key": key, }
 
 	if not (key is String or key is StringName):
-		return {
-			"found": false,
-			"key": key,
-		}
+		return { "found": false, "key": key, }
 
 	var key_text: String = GFVariantData.to_text(key)
 	for candidate_key: Variant in dictionary.keys():
 		if not (candidate_key is String or candidate_key is StringName):
 			continue
 		if GFVariantData.to_text(candidate_key) == key_text:
-			return {
-				"found": true,
-				"key": candidate_key,
-			}
+			return { "found": true, "key": candidate_key, }
 
-	return {
-		"found": false,
-		"key": key,
-	}
+	return { "found": false, "key": key, }
 
 
 ## 判断值是否可继续承载状态路径，即 Dictionary 或 Array。
@@ -893,9 +1014,20 @@ func _make_change(
 ## [br]
 func _make_current_change(segments: Array) -> Dictionary:
 	var read_result: Dictionary = _read_path(segments)
-	var exists: bool = GFVariantData.get_option_bool(read_result, "found", false)
+	var exists: bool = GFVariantData.get_option_bool(
+		read_result,
+		"found",
+		false
+	)
 	var current_value: Variant = GFVariantData.get_option_value(read_result, "value")
-	return _make_change("current", segments, current_value, current_value, exists, exists)
+	return _make_change(
+		"current",
+		segments,
+		current_value,
+		current_value,
+		exists,
+		exists
+	)
 
 
 ## 将 diff 报告中的相对路径变更加上前缀，转换为 store 记录并逐条入队。
@@ -908,14 +1040,20 @@ func _enqueue_report_changes(diff_report: Dictionary, prefix_segments: Array) ->
 		var change: Dictionary = GFVariantData.as_dictionary(change_variant)
 		var segments: Array = prefix_segments.duplicate()
 		segments.append_array(GFVariantData.get_option_array(change, "path_segments"))
-		_enqueue_change(_make_change(
-			GFVariantData.get_option_string(change, "kind", "changed"),
-			segments,
-			GFVariantData.get_option_value(change, "old_value"),
-			GFVariantData.get_option_value(change, "new_value"),
-			GFVariantData.get_option_string(change, "kind") != "added",
-			GFVariantData.get_option_string(change, "kind") != "removed"
-		))
+		_enqueue_change(
+			_make_change(
+				GFVariantData.get_option_string(
+					change,
+					"kind",
+					"changed"
+				),
+				segments,
+				GFVariantData.get_option_value(change, "old_value"),
+				GFVariantData.get_option_value(change, "new_value"),
+				GFVariantData.get_option_string(change, "kind") != "added",
+				GFVariantData.get_option_string(change, "kind") != "removed"
+			)
+		)
 
 
 ## 按路径身份合并 dirty 记录，更新最终值；若首尾状态无净变化则移除记录。
@@ -977,7 +1115,10 @@ func _remove_dirty_change_at(change_index: int) -> void:
 	_dirty_changes.remove_at(change_index)
 	_dirty_change_indices.clear()
 	for index: int in range(_dirty_changes.size()):
-		var path_segments: Array = GFVariantData.get_option_array(_dirty_changes[index], "path_segments")
+		var path_segments: Array = GFVariantData.get_option_array(
+			_dirty_changes[index],
+			"path_segments"
+		)
 		_dirty_change_indices[_make_path_identity(path_segments)] = index
 
 
@@ -1024,7 +1165,11 @@ func _notify_subscribers(changes: Array[Dictionary]) -> void:
 	var subscriptions_snapshot: Array = _subscriptions.duplicate()
 	for subscription_variant: Variant in subscriptions_snapshot:
 		var subscription: Dictionary = GFVariantData.as_dictionary(subscription_variant)
-		var subscription_id: int = GFVariantData.get_option_int(subscription, "subscription_id", -1)
+		var subscription_id: int = GFVariantData.get_option_int(
+			subscription,
+			"subscription_id",
+			-1
+		)
 		if _find_subscription_index(subscription_id) == -1:
 			continue
 		var callback: Callable = _get_subscription_callback(subscription)
@@ -1035,7 +1180,10 @@ func _notify_subscribers(changes: Array[Dictionary]) -> void:
 			if _find_subscription_index(subscription_id) == -1:
 				break
 			if _subscription_matches_change(subscription, change):
-				callback.call(GFVariantData.to_dictionary(change), self)
+				callback.call(
+					GFVariantData.to_dictionary(change),
+					self
+				)
 
 
 ## 按订阅模式判断记录是否匹配；根级 state_replaced 记录会匹配任意订阅路径。
@@ -1043,13 +1191,14 @@ func _notify_subscribers(changes: Array[Dictionary]) -> void:
 ## @api private
 ## [br]
 func _subscription_matches_change(subscription: Dictionary, change: Dictionary) -> bool:
-	if (
-		GFVariantData.get_option_string(change, "kind") == "state_replaced"
-		and GFVariantData.get_option_array(change, "path_segments").is_empty()
-	):
+	if (GFVariantData.get_option_string(change, "kind") == "state_replaced" and GFVariantData.get_option_array(change, "path_segments").is_empty()):
 		return true
 
-	var mode: int = GFVariantData.get_option_int(subscription, "mode", SUBSCRIBE_EXACT)
+	var mode: int = GFVariantData.get_option_int(
+		subscription,
+		"mode",
+		SUBSCRIBE_EXACT
+	)
 	if mode == SUBSCRIBE_ANY:
 		return true
 
@@ -1068,7 +1217,10 @@ func _segments_are_prefix(prefix_segments: Array, segments: Array) -> bool:
 	if prefix_segments.size() > segments.size():
 		return false
 	for index: int in range(prefix_segments.size()):
-		if not _path_segments_equal(prefix_segments[index], segments[index]):
+		if not _path_segments_equal(
+			prefix_segments[index],
+			segments[index]
+		):
 			return false
 	return true
 
@@ -1135,7 +1287,11 @@ func _make_unsubscribe_callable(subscription_id: int) -> Callable:
 ## [br]
 func _find_subscription_index(subscription_id: int) -> int:
 	for index: int in range(_subscriptions.size()):
-		if GFVariantData.get_option_int(_subscriptions[index], "subscription_id", -1) == subscription_id:
+		if GFVariantData.get_option_int(
+			_subscriptions[index],
+			"subscription_id",
+			-1
+		) == subscription_id:
 			return index
 	return -1
 
@@ -1145,7 +1301,11 @@ func _find_subscription_index(subscription_id: int) -> int:
 ## @api private
 ## [br]
 func _get_subscription_callback(subscription: Dictionary) -> Callable:
-	var callback_value: Variant = GFVariantData.get_option_value(subscription, "callback", Callable())
+	var callback_value: Variant = GFVariantData.get_option_value(
+		subscription,
+		"callback",
+		Callable()
+	)
 	if callback_value is Callable:
 		var callback: Callable = callback_value
 		return callback
@@ -1183,7 +1343,11 @@ func _disconnect_subscription_owner_signal(subscription: Dictionary) -> void:
 ## @api private
 ## [br]
 func _get_subscription_exit_callable(subscription: Dictionary) -> Callable:
-	var callable_value: Variant = GFVariantData.get_option_value(subscription, "exit_callable", Callable())
+	var callable_value: Variant = GFVariantData.get_option_value(
+		subscription,
+		"exit_callable",
+		Callable()
+	)
 	if callable_value is Callable:
 		var callback: Callable = callable_value
 		return callback
@@ -1195,15 +1359,23 @@ func _get_subscription_exit_callable(subscription: Dictionary) -> Callable:
 ## @api private
 ## [br]
 func _prune_invalid_subscriptions() -> void:
-	for index: int in range(_subscriptions.size() - 1, -1, -1):
+	for index: int in range(
+		_subscriptions.size() - 1,
+		-1,
+		-1
+	):
 		var subscription: Dictionary = _subscriptions[index]
 		var callback: Callable = _get_subscription_callback(subscription)
 		var has_owner: bool = GFVariantData.get_option_value(subscription, "owner_ref") is WeakRef
-		if not callback.is_valid() or (has_owner and _get_subscription_owner(subscription) == null):
+		if (
+			not callback.is_valid()
+			or (
+				has_owner
+				and _get_subscription_owner(subscription) == null
+			)
+		):
 			_disconnect_subscription_owner_signal(subscription)
 			_subscriptions.remove_at(index)
-
-
 
 
 # --- 信号处理函数 ---

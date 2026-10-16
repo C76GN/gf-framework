@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProtocolAckLedger" path="addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd" module="standard" extends="RefCounted" classDigest="a75f20d4ca88d7d93bc0423258cb158ecd0e0c834cf7df23e5b61d1d6d09cc4d">
+<class name="GFProtocolAckLedger" path="addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd" module="standard" extends="RefCounted" classDigest="408bba556d90b844b6f308a139297f5e9a179cf90baf09446fd5c0ec4c11afb9">
 	<description>GFProtocolAckLedger: 通用协议确认账本。
 记录任意协议的待确认 packet/request ID、确认结果、失败和过期状态。
 它不实现具体网络协议，也不规定 ID 生成、重传策略或连接生命周期。</description>
@@ -105,7 +105,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_packet">
-			<signature>func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1) -&gt; bool:</signature>
+			<signature>func register_packet( packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1 ) -&gt; bool:</signature>
 			<description>注册一个待确认条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -119,7 +119,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="acknowledge_packet">
-			<signature>func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: int = -1) -&gt; bool:</signature>
+			<signature>func acknowledge_packet( packet_id: Variant, result: Variant = null, now_msec: int = -1 ) -&gt; bool:</signature>
 			<description>标记条目确认成功。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -133,7 +133,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="fail_packet">
-			<signature>func fail_packet(packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1) -&gt; bool:</signature>
+			<signature>func fail_packet( packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1 ) -&gt; bool:</signature>
 			<description>标记条目失败。</description>
 			<tags>
 				<tag name="api">public</tag>

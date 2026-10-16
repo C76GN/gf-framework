@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModifiedAttributeSet" path="addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd" module="extensions/combat" extends="RefCounted" classDigest="1fc7bf626534480bf920188809c3f61d68af501ffa843543bcce93b53ca2d2b2">
+<class name="GFModifiedAttributeSet" path="addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd" module="extensions/combat" extends="RefCounted" classDigest="09a2d0c3df0462a4333f4f04c904054afe556697caad811144fdf4631908b22d">
 	<description>GFModifiedAttributeSet: 一组可修饰运行时属性。
 用 StringName 管理多个 GFModifiedAttribute，便于角色、装备或能力对象集中维护
 移动速度、攻击、防御等项目自定义数值。它不规定属性含义，也不直接处理 Buff 生命周期。</description>
@@ -27,13 +27,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="attribute_changed">
-			<signature>signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)</signature>
+			<signature>signal attribute_changed( attribute_id: StringName, current_value: float, previous_value: float )</signature>
 			<description>属性当前值变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">attribute_id: 属性标识。</tag>
 				<tag name="param">current_value: 当前值。</tag>
 				<tag name="param">previous_value: 变化前的值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>

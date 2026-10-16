@@ -144,7 +144,11 @@ func _register_children(warn_if_missing_utility: bool = true) -> void:
 		if child_script == null:
 			continue
 
-		var capability: Object = capability_utility.add_capability_instance(receiver, child, child_script)
+		var capability: Object = capability_utility.add_capability_instance(
+			receiver,
+			child,
+			child_script
+		)
 		if capability == child:
 			var child_id: int = child.get_instance_id()
 			var exiting_callback: Callable = _on_registered_child_tree_exiting.bind(child_id)
@@ -175,7 +179,11 @@ func _unregister_registered_children() -> void:
 
 	var child_ids: Array = _registered_children.keys()
 	for child_id_variant: Variant in child_ids:
-		_unregister_child_record(GFVariantData.to_int(child_id_variant), receiver, capability_utility)
+		_unregister_child_record(
+			GFVariantData.to_int(child_id_variant),
+			receiver,
+			capability_utility
+		)
 
 
 ## 从当前架构获取并收窄 Capability Utility。
@@ -212,11 +220,21 @@ func _get_architecture_or_null() -> GFArchitecture:
 ## 移除子节点登记、断开退出信号，并注销仍对应的能力实例。
 ## [br]
 ## @api private
-func _unregister_child_record(child_id: int, receiver: Node, capability_utility: GFCapabilityUtility) -> void:
+func _unregister_child_record(
+	child_id: int,
+	receiver: Node,
+	capability_utility: GFCapabilityUtility
+) -> void:
 	if not _registered_children.has(child_id):
 		return
 
-	var record: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_registered_children, child_id, {}))
+	var record: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_registered_children,
+			child_id,
+			{}
+		)
+	)
 	_erase_dictionary_key(_registered_children, child_id)
 	if record.is_empty():
 		return
@@ -224,7 +242,11 @@ func _unregister_child_record(child_id: int, receiver: Node, capability_utility:
 	var child_ref: WeakRef = _get_weak_ref_value(GFVariantData.get_option_value(record, "ref"))
 	var child: Node = _get_live_node_from_ref(child_ref)
 	var exiting_callback: Callable = _get_callable_value(GFVariantData.get_option_value(record, "tree_exiting"))
-	if child != null and exiting_callback.is_valid() and child.tree_exiting.is_connected(exiting_callback):
+	if (
+		child != null
+		and exiting_callback.is_valid()
+		and child.tree_exiting.is_connected(exiting_callback)
+	):
 		child.tree_exiting.disconnect(exiting_callback)
 
 	var child_script: Script = _get_script_value(GFVariantData.get_option_value(record, "script"))
@@ -326,4 +348,8 @@ func _on_registered_child_tree_exiting(child_id: int) -> void:
 	if capability_utility == null:
 		_erase_dictionary_key(_registered_children, child_id)
 		return
-	_unregister_child_record(child_id, receiver, capability_utility)
+	_unregister_child_record(
+		child_id,
+		receiver,
+		capability_utility
+	)

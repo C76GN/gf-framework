@@ -273,8 +273,6 @@ func duplicate_result() -> GFAssetLoadSessionResult:
 	return copy
 
 
-
-
 # --- 框架内部方法 ---
 
 ## 由会话写入终态快照；路径归一化、错误文本去空白，元数据深复制。

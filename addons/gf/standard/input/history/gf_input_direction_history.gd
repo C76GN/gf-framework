@@ -60,7 +60,10 @@ func release_action(action_id: StringName) -> void:
 ## [br]
 ## @param direction: 方向。
 func press_direction(direction: Vector2i) -> void:
-	press_action(_direction_to_id(direction), direction)
+	press_action(
+		_direction_to_id(direction),
+		direction
+	)
 
 
 ## 按方向值生成内部动作标识并标记释放。
@@ -76,12 +79,18 @@ func release_direction(direction: Vector2i) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param direction: 方向。
 ## [br]
 ## @param pressed: 是否按下。
-func update_action(action_id: StringName, direction: Vector2i, pressed: bool) -> void:
+func update_action(
+	action_id: StringName,
+	direction: Vector2i,
+	pressed: bool
+) -> void:
 	if pressed:
 		press_action(action_id, direction)
 	else:
@@ -97,7 +106,11 @@ func get_current_direction() -> Vector2i:
 	if _history.is_empty():
 		return Vector2i.ZERO
 	var action_id: StringName = _history[_history.size() - 1]
-	var direction: Variant = GFVariantData.get_option_value(_pressed_actions, action_id, Vector2i.ZERO)
+	var direction: Variant = GFVariantData.get_option_value(
+		_pressed_actions,
+		action_id,
+		Vector2i.ZERO
+	)
 	return direction if direction is Vector2i else Vector2i.ZERO
 
 
@@ -136,4 +149,7 @@ func clear() -> void:
 ## @api private
 ## [br]
 func _direction_to_id(direction: Vector2i) -> StringName:
-	return StringName("%d,%d" % [direction.x, direction.y])
+	return StringName(
+		"%d,%d"
+		% [direction.x, direction.y]
+	)

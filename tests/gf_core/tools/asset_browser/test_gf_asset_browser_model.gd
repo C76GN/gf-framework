@@ -1,7 +1,6 @@
 @tool
 extends GutTest
 
-
 const GF_ASSET_BROWSER_MODEL_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_model.gd")
 
 
@@ -26,7 +25,10 @@ class PendingRenderer extends GFThumbnailRenderer:
 	var submitted_tasks: Array[GFThumbnailRenderTask] = []
 
 	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
-		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, submitted_tasks.size() + 1)
+		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(
+			request,
+			submitted_tasks.size() + 1
+		)
 		submitted_tasks.append(task)
 		return task
 
@@ -34,20 +36,27 @@ class PendingRenderer extends GFThumbnailRenderer:
 class ImmediateSuccessRenderer extends GFThumbnailRenderer:
 	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
 		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
-		var image: Image = Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		var image: Image = Image.create(
+			1,
+			1,
+			false,
+			Image.FORMAT_RGBA8
+		)
 		var texture: ImageTexture = ImageTexture.create_from_image(image)
-		var _succeeded: bool = task.succeed({
-			"ok": true,
-			"generated_count": 1,
-			"cancelled": false,
-			"changes": [
-				{
-					"item_id": 7,
-					"old_preview": null,
-					"new_preview": texture,
-				},
-			],
-		})
+		var _succeeded: bool = task.succeed(
+			{
+				"ok": true,
+				"generated_count": 1,
+				"cancelled": false,
+				"changes": [
+					{
+						"item_id": 7,
+						"old_preview": null,
+						"new_preview": texture,
+					},
+				],
+			}
+		)
 		return task
 
 
@@ -64,15 +73,15 @@ class OversizedPlanRenderer extends GFThumbnailRenderer:
 	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
 		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
 		var changes: Array = []
-		var _resized: Error = changes.resize(
-			GF_ASSET_BROWSER_MODEL_SCRIPT.MAX_RESULT_COUNT + 1
-		) as Error
-		var _succeeded: bool = task.succeed({
-			"ok": true,
-			"generated_count": changes.size(),
-			"cancelled": false,
-			"changes": changes,
-		})
+		var _resized: Error = changes.resize(GF_ASSET_BROWSER_MODEL_SCRIPT.MAX_RESULT_COUNT + 1) as Error
+		var _succeeded: bool = task.succeed(
+			{
+				"ok": true,
+				"generated_count": changes.size(),
+				"cancelled": false,
+				"changes": changes,
+			}
+		)
 		return task
 
 
@@ -82,25 +91,45 @@ func test_preview_submission_rechecks_owner_after_renderer_callback() -> void:
 		var _catalog_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"alpha", "Alpha")]))
 		var renderer: ReentrantSubmitRenderer = ReentrantSubmitRenderer.new()
 		add_child_autofree(renderer)
-		renderer.during_submit = model.dispose if mutation == "dispose" else func() -> void:
-			var _query_report: Dictionary = model.set_query("changed")
+		renderer.during_submit = (
+			model.dispose
+			if mutation == "dispose"
+			else func() -> void:
+				var _query_report: Dictionary = model.set_query("changed")
+		)
 		var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
-		var result: GFThumbnailRenderTask = model.request_preview(&"alpha", renderer, request)
+		var result: GFThumbnailRenderTask = model.request_preview(
+			&"alpha",
+			renderer,
+			request
+		)
 		assert_null(result, "失效的提交不得返回当前代际任务。")
 		assert_null(model.get_active_preview_task())
-		assert_true(renderer.returned_task.is_cancelled(), "尚未认领的过期任务必须取消。")
+		assert_true(
+			renderer.returned_task.is_cancelled(),
+			"尚未认领的过期任务必须取消。"
+		)
 		model.dispose()
 
 
 func test_catalog_replacement_is_isolated_and_invalidates_missing_selection() -> void:
-	var source_catalog: GFAssetCatalog = _make_catalog([
-		_make_entry(&"alpha", "Alpha", { "license": "CC0" }),
-	])
+	var source_catalog: GFAssetCatalog = _make_catalog(
+		[
+			_make_entry(
+				&"alpha",
+				"Alpha",
+				{ "license": "CC0" }
+			),
+		]
+	)
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 
 	var first_report: Dictionary = model.replace_catalog(source_catalog)
 	assert_true(GFVariantData.get_option_bool(first_report, "ok"))
-	assert_eq(GFVariantData.get_option_int(first_report, "catalog_revision"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(first_report, "catalog_revision"),
+		1
+	)
 	assert_true(model.select_asset(&"alpha"))
 
 	var source_entry: GFAssetCatalogEntry = source_catalog.get_entry(&"alpha")
@@ -109,62 +138,59 @@ func test_catalog_replacement_is_isolated_and_invalidates_missing_selection() ->
 	var first_page: Dictionary = model.get_page()
 	var first_items: Array = GFVariantData.get_option_array(first_page, "items")
 	assert_eq(
-		GFVariantData.get_option_string(GFVariantData.as_dictionary(first_items[0]), "title"),
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(first_items[0]),
+			"title"
+		),
 		"Alpha",
 		"模型必须持有隔离目录快照，不能观察到 provider 后续修改。"
 	)
 
-	var replacement_catalog: GFAssetCatalog = _make_catalog([
-		_make_entry(&"beta", "Beta"),
-	])
+	var replacement_catalog: GFAssetCatalog = _make_catalog([_make_entry(&"beta", "Beta"),])
 	var second_report: Dictionary = model.replace_catalog(replacement_catalog)
 
 	assert_true(GFVariantData.get_option_bool(second_report, "ok"))
-	assert_eq(GFVariantData.get_option_int(second_report, "catalog_revision"), 2)
-	assert_eq(model.get_selected_asset_id(), &"", "目录替换后必须清除已经不存在的稳定选择。")
+	assert_eq(
+		GFVariantData.get_option_int(second_report, "catalog_revision"),
+		2
+	)
+	assert_eq(
+		model.get_selected_asset_id(),
+		&"",
+		"目录替换后必须清除已经不存在的稳定选择。"
+	)
 
 
 func test_nested_catalog_and_selection_notifications_are_fifo() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"alpha", "Alpha"),
-	]))
+	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"alpha", "Alpha"),]))
 	assert_true(model.select_asset(&"alpha"))
 	var first_catalog_revisions: Array[int] = []
 	var second_catalog_revisions: Array[int] = []
 	var second_selection_ids: Array[StringName] = []
 	var nested_once: Array[bool] = [false]
-	var first_catalog_callback: Callable = func(
-		catalog_revision: int,
-		_query_generation: int
-	) -> void:
+	var first_catalog_callback: Callable = func(catalog_revision: int, _query_generation: int) -> void:
 		first_catalog_revisions.append(catalog_revision)
 		if catalog_revision != 2 or nested_once[0]:
 			return
 		nested_once[0] = true
-		var _nested_report: Dictionary = model.replace_catalog(_make_catalog([
-			_make_entry(&"gamma", "Gamma"),
-		]))
+		var _nested_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"gamma", "Gamma"),]))
 		var _selected: bool = model.select_asset(&"gamma")
-	var second_catalog_callback: Callable = func(
-		catalog_revision: int,
-		_query_generation: int
-	) -> void:
+	var second_catalog_callback: Callable = func(catalog_revision: int, _query_generation: int) -> void:
 		second_catalog_revisions.append(catalog_revision)
-	var selection_callback: Callable = func(
-		asset_id: StringName
-	) -> void:
+	var selection_callback: Callable = func(asset_id: StringName) -> void:
 		second_selection_ids.append(asset_id)
 	var _first_catalog_connected: Error = model.catalog_changed.connect(first_catalog_callback) as Error
 	var _second_catalog_connected: Error = model.catalog_changed.connect(second_catalog_callback) as Error
 	var _selection_connected: Error = model.selection_changed.connect(selection_callback) as Error
 
-	var outer_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"beta", "Beta"),
-	]))
+	var outer_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"beta", "Beta"),]))
 
 	assert_true(GFVariantData.get_option_bool(outer_report, "ok"))
-	assert_eq(first_catalog_revisions, [2, 3])
+	assert_eq(
+		first_catalog_revisions,
+		[2, 3]
+	)
 	assert_eq(
 		second_catalog_revisions,
 		[2, 3],
@@ -175,7 +201,10 @@ func test_nested_catalog_and_selection_notifications_are_fifo() -> void:
 		[&"", &"gamma"],
 		"目录清空选择与嵌套新选择必须按提交顺序各发布一次。"
 	)
-	assert_eq(model.get_selected_asset_id(), &"gamma")
+	assert_eq(
+		model.get_selected_asset_id(),
+		&"gamma"
+	)
 	model.catalog_changed.disconnect(first_catalog_callback)
 	model.catalog_changed.disconnect(second_catalog_callback)
 	model.selection_changed.disconnect(selection_callback)
@@ -187,16 +216,12 @@ func test_nested_query_notifications_are_fifo() -> void:
 	var first_generations: Array[int] = []
 	var second_generations: Array[int] = []
 	var nested_once: Array[bool] = [false]
-	var first_callback: Callable = func(
-		query_generation: int
-	) -> void:
+	var first_callback: Callable = func(query_generation: int) -> void:
 		first_generations.append(query_generation)
 		if not nested_once[0]:
 			nested_once[0] = true
 			var _nested_report: Dictionary = model.set_query("nested")
-	var second_callback: Callable = func(
-		query_generation: int
-	) -> void:
+	var second_callback: Callable = func(query_generation: int) -> void:
 		second_generations.append(query_generation)
 	var _first_connected: Error = model.query_changed.connect(first_callback) as Error
 	var _second_connected: Error = model.query_changed.connect(second_callback) as Error
@@ -204,7 +229,10 @@ func test_nested_query_notifications_are_fifo() -> void:
 	var outer_report: Dictionary = model.set_query("outer")
 
 	assert_true(GFVariantData.get_option_bool(outer_report, "ok"))
-	assert_eq(first_generations, [1, 2])
+	assert_eq(
+		first_generations,
+		[1, 2]
+	)
 	assert_eq(
 		second_generations,
 		[1, 2],
@@ -217,24 +245,17 @@ func test_nested_query_notifications_are_fifo() -> void:
 
 func test_nested_selection_aba_notifications_preserve_commit_order() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"alpha", "Alpha"),
-		_make_entry(&"beta", "Beta"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"alpha", "Alpha"), _make_entry(&"beta", "Beta"),]))
 	assert_true(model.select_asset(&"alpha"))
 	var second_selection_ids: Array[StringName] = []
 	var nested_once: Array[bool] = [false]
-	var first_callback: Callable = func(
-		asset_id: StringName
-	) -> void:
+	var first_callback: Callable = func(asset_id: StringName) -> void:
 		if asset_id != &"beta" or nested_once[0]:
 			return
 		nested_once[0] = true
 		var _selected_alpha: bool = model.select_asset(&"alpha")
 		var _selected_beta: bool = model.select_asset(&"beta")
-	var second_callback: Callable = func(
-		asset_id: StringName
-	) -> void:
+	var second_callback: Callable = func(asset_id: StringName) -> void:
 		second_selection_ids.append(asset_id)
 	var _first_connected: Error = model.selection_changed.connect(first_callback) as Error
 	var _second_connected: Error = model.selection_changed.connect(second_callback) as Error
@@ -243,10 +264,17 @@ func test_nested_selection_aba_notifications_preserve_commit_order() -> void:
 
 	assert_eq(
 		second_selection_ids,
-		[&"beta", &"alpha", &"beta"],
+		[
+			&"beta",
+			&"alpha",
+			&"beta",
+		],
 		"ABA 重入必须逐次发布提交时的稳定选择，不能从 live state 重读或倒序。"
 	)
-	assert_eq(model.get_selected_asset_id(), &"beta")
+	assert_eq(
+		model.get_selected_asset_id(),
+		&"beta"
+	)
 	model.selection_changed.disconnect(first_callback)
 	model.selection_changed.disconnect(second_callback)
 	model.dispose()
@@ -254,39 +282,34 @@ func test_nested_selection_aba_notifications_preserve_commit_order() -> void:
 
 func test_dispose_discards_notifications_committed_but_not_yet_dispatched() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"alpha", "Alpha"),
-	]))
+	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"alpha", "Alpha"),]))
 	assert_true(model.select_asset(&"alpha"))
 	var selection_ids: Array[StringName] = []
-	var catalog_callback: Callable = func(
-		_catalog_revision: int,
-		_query_generation: int
-	) -> void:
+	var catalog_callback: Callable = func(_catalog_revision: int, _query_generation: int) -> void:
 		model.dispose()
-	var selection_callback: Callable = func(
-		asset_id: StringName
-	) -> void:
+	var selection_callback: Callable = func(asset_id: StringName) -> void:
 		selection_ids.append(asset_id)
 	var _catalog_connected: Error = model.catalog_changed.connect(catalog_callback) as Error
 	var _selection_connected: Error = model.selection_changed.connect(selection_callback) as Error
 
-	var replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"beta", "Beta"),
-	]))
+	var replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"beta", "Beta"),]))
 
 	assert_true(GFVariantData.get_option_bool(replace_report, "ok"))
-	assert_true(selection_ids.is_empty(), "dispose 后不能继续发布同一提交批次的尾随选择通知。")
-	assert_false(model.select_asset(&"beta"), "dispose 必须保持写入口终态关闭。")
+	assert_true(
+		selection_ids.is_empty(),
+		"dispose 后不能继续发布同一提交批次的尾随选择通知。"
+	)
+	assert_false(
+		model.select_asset(&"beta"),
+		"dispose 必须保持写入口终态关闭。"
+	)
 	model.catalog_changed.disconnect(catalog_callback)
 	model.selection_changed.disconnect(selection_callback)
 
 
 func test_nested_preview_resolution_notifications_are_fifo() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: ImmediateFailRenderer = ImmediateFailRenderer.new()
 	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
 	var second_generations: Array[int] = []
@@ -295,14 +318,25 @@ func test_nested_preview_resolution_notifications_are_fifo() -> void:
 		if nested_once[0]:
 			return
 		nested_once[0] = true
-		var _nested_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+		var _nested_task: GFThumbnailRenderTask = model.request_preview(
+			&"mesh",
+			renderer,
+			request
+		)
 	var second_callback: Callable = func(report: Dictionary) -> void:
-		assert_true(report.is_read_only(), "预览通知必须发布提交时冻结的报告 payload。")
+		assert_true(
+			report.is_read_only(),
+			"预览通知必须发布提交时冻结的报告 payload。"
+		)
 		second_generations.append(GFVariantData.get_option_int(report, "preview_generation"))
 	var _first_connected: Error = model.preview_resolved.connect(first_callback) as Error
 	var _second_connected: Error = model.preview_resolved.connect(second_callback) as Error
 
-	var first_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	var first_task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		request
+	)
 
 	assert_not_null(first_task)
 	assert_true(first_task.is_finished())
@@ -319,23 +353,13 @@ func test_nested_preview_resolution_notifications_are_fifo() -> void:
 
 func test_preview_resolution_recursively_freezes_nested_result() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: ImmediateSuccessRenderer = ImmediateSuccessRenderer.new()
-	var request: GFThumbnailRenderRequest = (
-		GFThumbnailRenderRequest.for_mesh_library_preview_plan(
-			MeshLibrary.new()
-		)
-	)
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_library_preview_plan(MeshLibrary.new())
 	var second_listener_label: Array[String] = []
 	var first_callback: Callable = func(report: Dictionary) -> void:
-		var result: Dictionary = GFVariantData.as_dictionary(
-			GFVariantData.get_option_value(report, "result")
-		)
-		var changes: Array = GFVariantData.as_array(
-			GFVariantData.get_option_value(result, "changes")
-		)
+		var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(report, "result"))
+		var changes: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "changes"))
 		var first_change: Dictionary = GFVariantData.as_dictionary(changes[0])
 		if not result.is_read_only():
 			result["generated_count"] = 99
@@ -344,21 +368,30 @@ func test_preview_resolution_recursively_freezes_nested_result() -> void:
 		if not first_change.is_read_only():
 			first_change["item_id"] = 99
 	var second_callback: Callable = func(report: Dictionary) -> void:
-		var result: Dictionary = GFVariantData.as_dictionary(
-			GFVariantData.get_option_value(report, "result")
-		)
-		var changes: Array = GFVariantData.as_array(
-			GFVariantData.get_option_value(result, "changes")
-		)
+		var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(report, "result"))
+		var changes: Array = GFVariantData.as_array(GFVariantData.get_option_value(result, "changes"))
 		var first_change: Dictionary = GFVariantData.as_dictionary(changes[0])
-		assert_true(result.is_read_only(), "预览 result Dictionary 必须冻结。")
-		assert_true(changes.is_read_only(), "预览 result 的嵌套 Array 必须冻结。")
-		assert_true(first_change.is_read_only(), "预览 result 的叶级 Dictionary 必须冻结。")
+		assert_true(
+			result.is_read_only(),
+			"预览 result Dictionary 必须冻结。"
+		)
+		assert_true(
+			changes.is_read_only(),
+			"预览 result 的嵌套 Array 必须冻结。"
+		)
+		assert_true(
+			first_change.is_read_only(),
+			"预览 result 的叶级 Dictionary 必须冻结。"
+		)
 		second_listener_label.append(str(GFVariantData.get_option_int(first_change, "item_id")))
 	var _first_connected: Error = model.preview_resolved.connect(first_callback) as Error
 	var _second_connected: Error = model.preview_resolved.connect(second_callback) as Error
 
-	var task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	var task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		request
+	)
 
 	assert_not_null(task)
 	assert_true(task.is_succeeded())
@@ -375,9 +408,7 @@ func test_preview_resolution_recursively_freezes_nested_result() -> void:
 
 func test_preview_resolution_rejects_cyclic_custom_result() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: CyclicResultRenderer = CyclicResultRenderer.new()
 	var reports: Array[Dictionary] = []
 	var callback: Callable = func(report: Dictionary) -> void:
@@ -391,10 +422,30 @@ func test_preview_resolution_rejects_cyclic_custom_result() -> void:
 	)
 
 	assert_true(task.is_succeeded())
-	assert_eq(reports.size(), 1)
-	assert_eq(GFVariantData.get_option_string_name(reports[0], "state"), &"failed")
-	assert_eq(GFVariantData.get_option_string(reports[0], "error"), "invalid_preview_plan")
-	assert_true(GFVariantData.get_option_value(reports[0], "result") == null)
+	assert_eq(
+		reports.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			reports[0],
+			"state"
+		),
+		&"failed"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			reports[0],
+			"error"
+		),
+		"invalid_preview_plan"
+	)
+	assert_true(
+		GFVariantData.get_option_value(
+			reports[0],
+			"result"
+		) == null
+	)
 	model.preview_resolved.disconnect(callback)
 	model.dispose()
 	renderer.free()
@@ -402,9 +453,7 @@ func test_preview_resolution_rejects_cyclic_custom_result() -> void:
 
 func test_preview_resolution_rejects_oversized_preview_plan() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: OversizedPlanRenderer = OversizedPlanRenderer.new()
 	var reports: Array[Dictionary] = []
 	var callback: Callable = func(report: Dictionary) -> void:
@@ -418,13 +467,30 @@ func test_preview_resolution_rejects_oversized_preview_plan() -> void:
 	)
 
 	assert_true(task.is_succeeded())
-	assert_eq(reports.size(), 1)
-	assert_eq(GFVariantData.get_option_string_name(reports[0], "state"), &"failed")
 	assert_eq(
-		GFVariantData.get_option_string(reports[0], "error"),
+		reports.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			reports[0],
+			"state"
+		),
+		&"failed"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			reports[0],
+			"error"
+		),
 		"preview_plan_change_limit_exceeded"
 	)
-	assert_true(GFVariantData.get_option_value(reports[0], "result") == null)
+	assert_true(
+		GFVariantData.get_option_value(
+			reports[0],
+			"result"
+		) == null
+	)
 	model.preview_resolved.disconnect(callback)
 	model.dispose()
 	renderer.free()
@@ -432,15 +498,15 @@ func test_preview_resolution_rejects_oversized_preview_plan() -> void:
 
 func test_terminal_preview_task_does_not_keep_a_completion_connection() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: ImmediateFailRenderer = ImmediateFailRenderer.new()
-	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(
-		BoxMesh.new()
-	)
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
 
-	var task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	var task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		request
+	)
 
 	assert_not_null(task)
 	assert_true(task.is_finished())
@@ -454,11 +520,17 @@ func test_terminal_preview_task_does_not_keep_a_completion_connection() -> void:
 
 func test_query_generation_and_page_size_are_bounded() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var catalog: GFAssetCatalog = _make_catalog([
-		_make_entry(&"alpha", "Alpha"),
-		_make_entry(&"beta", "Beta", { "license": "CC-BY" }),
-		_make_entry(&"gamma", "Gamma"),
-	])
+	var catalog: GFAssetCatalog = _make_catalog(
+		[
+			_make_entry(&"alpha", "Alpha"),
+			_make_entry(
+				&"beta",
+				"Beta",
+				{ "license": "CC-BY" }
+			),
+			_make_entry(&"gamma", "Gamma"),
+		]
+	)
 	var _replace_report: Dictionary = model.replace_catalog(catalog)
 
 	var query_report: Dictionary = model.set_query("Beta")
@@ -469,20 +541,37 @@ func test_query_generation_and_page_size_are_bounded() -> void:
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(item, "metadata")
 
 	assert_true(GFVariantData.get_option_bool(query_report, "ok"))
-	assert_eq(query_generation, 2, "目录替换和查询变化必须分别推进查询 generation。")
+	assert_eq(
+		query_generation,
+		2,
+		"目录替换和查询变化必须分别推进查询 generation。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(page, "page_size"),
 		GF_ASSET_BROWSER_MODEL_SCRIPT.MAX_PAGE_SIZE,
 		"调用方不能绕过模型的分页上限。"
 	)
-	assert_eq(GFVariantData.get_option_int(page, "total_count"), 1)
-	assert_eq(GFVariantData.get_option_string(item, "asset_id"), "beta")
-	assert_eq(GFVariantData.get_option_string(metadata, "license"), "CC-BY", "通用来源元数据必须原样保留。")
+	assert_eq(
+		GFVariantData.get_option_int(page, "total_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(item, "asset_id"),
+		"beta"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(metadata, "license"),
+		"CC-BY",
+		"通用来源元数据必须原样保留。"
+	)
 
 	var oversized_query: String = "x".repeat(GF_ASSET_BROWSER_MODEL_SCRIPT.MAX_QUERY_LENGTH + 1)
 	var rejected_report: Dictionary = model.set_query(oversized_query)
 	assert_false(GFVariantData.get_option_bool(rejected_report, "ok"))
-	assert_eq(GFVariantData.get_option_string(rejected_report, "error"), "query_too_long")
+	assert_eq(
+		GFVariantData.get_option_string(rejected_report, "error"),
+		"query_too_long"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(rejected_report, "query_generation"),
 		query_generation,
@@ -492,25 +581,40 @@ func test_query_generation_and_page_size_are_bounded() -> void:
 
 func test_preview_requests_cancel_superseded_thumbnail_tasks() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
 	var first_request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
 	var second_request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(SphereMesh.new())
 
-	var first_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, first_request)
+	var first_task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		first_request
+	)
 	var first_generation: int = model.get_preview_generation()
-	var second_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, second_request)
+	var second_task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		second_request
+	)
 
 	assert_not_null(first_task)
 	assert_not_null(second_task)
-	assert_true(first_task.is_cancelled(), "新代际预览必须取消旧的等待任务。")
-	assert_eq(model.get_preview_generation(), first_generation + 1)
+	assert_true(
+		first_task.is_cancelled(),
+		"新代际预览必须取消旧的等待任务。"
+	)
+	assert_eq(
+		model.get_preview_generation(),
+		first_generation + 1
+	)
 	assert_true(model.get_active_preview_task() == second_task)
 	assert_true(model.cancel_preview(&"test_cancel"))
 	assert_true(second_task.is_cancelled())
-	assert_null(model.get_active_preview_task(), "终态任务不能继续被模型持有。")
+	assert_null(
+		model.get_active_preview_task(),
+		"终态任务不能继续被模型持有。"
+	)
 	assert_true(
 		second_task.completed.get_connections().is_empty(),
 		"一次性 completion 连接必须随异步任务终态自动释放。"
@@ -520,12 +624,14 @@ func test_preview_requests_cancel_superseded_thumbnail_tasks() -> void:
 
 func test_preview_cancel_reentry_preserves_the_newest_request_and_only_publishes_it() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _catalog_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"mesh", "Mesh"),
-	]))
+	var _catalog_report: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"mesh", "Mesh"),]))
 	var renderer: PendingRenderer = PendingRenderer.new()
 	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
-	var first_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	var first_task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		request
+	)
 	assert_not_null(first_task)
 	if first_task == null:
 		model.dispose()
@@ -538,26 +644,58 @@ func test_preview_cancel_reentry_preserves_the_newest_request_and_only_publishes
 	var publish_error: Error = model.preview_resolved.connect(publish_callback) as Error
 	assert_eq(publish_error, OK)
 	var nested_callback: Callable = func(_completed_task: GFThumbnailRenderTask) -> void:
-		nested_tasks.append(model.request_preview(&"mesh", renderer, request))
+		nested_tasks.append(
+			model.request_preview(
+				&"mesh",
+				renderer,
+				request
+			)
+		)
 	var nested_error: Error = first_task.completed.connect(
-		nested_callback, CONNECT_ONE_SHOT as Object.ConnectFlags
+		nested_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	assert_eq(nested_error, OK)
 
-	var superseded_outer_task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+	var superseded_outer_task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		request
+	)
 	assert_null(superseded_outer_task, "取消 A 的回调提交 C 后，外层 B 已过期，不得提交或取代 C。")
 	assert_true(first_task.is_cancelled())
-	assert_eq(renderer.submitted_tasks.size(), 2, "仅 A、C 应到达 renderer。")
-	assert_eq(nested_tasks.size(), 1)
-	assert_true(published_generations.is_empty(), "A 的取消通知没有当前代际的发布资格。")
+	assert_eq(
+		renderer.submitted_tasks.size(),
+		2,
+		"仅 A、C 应到达 renderer。"
+	)
+	assert_eq(
+		nested_tasks.size(),
+		1
+	)
+	assert_true(
+		published_generations.is_empty(),
+		"A 的取消通知没有当前代际的发布资格。"
+	)
 	if nested_tasks.size() == 1 and nested_tasks[0] != null:
 		var current_task: GFThumbnailRenderTask = nested_tasks[0]
 		assert_true(model.get_active_preview_task() == current_task)
 		var current_generation: int = model.get_preview_generation()
-		var preview: Image = Image.create(1, 1, false, Image.FORMAT_RGBA8)
-		assert_false(first_task.succeed(preview), "真实终态任务不能被晚到成功重新开启。")
+		var preview: Image = Image.create(
+			1,
+			1,
+			false,
+			Image.FORMAT_RGBA8
+		)
+		assert_false(
+			first_task.succeed(preview),
+			"真实终态任务不能被晚到成功重新开启。"
+		)
 		assert_true(current_task.succeed(preview))
-		assert_eq(published_generations, [current_generation])
+		assert_eq(
+			published_generations,
+			[current_generation]
+		)
 		assert_null(model.get_active_preview_task())
 		assert_true(current_task.completed.get_connections().is_empty())
 	model.preview_resolved.disconnect(publish_callback)
@@ -572,9 +710,17 @@ func test_catalog_replacement_rejects_cyclic_metadata_without_mutating_state() -
 		"license": "CC-BY-4.0",
 		"hash": "sha256:stable",
 	}
-	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"stable", "Stable", initial_metadata),
-	]))
+	var _initial_report: Dictionary = model.replace_catalog(
+		_make_catalog(
+			[
+				_make_entry(
+					&"stable",
+					"Stable",
+					initial_metadata
+				),
+			]
+		)
+	)
 	assert_true(model.select_asset(&"stable"))
 	var initial_revision: int = model.get_catalog_revision()
 	var initial_generation: int = model.get_query_generation()
@@ -596,12 +742,27 @@ func test_catalog_replacement_rejects_cyclic_metadata_without_mutating_state() -
 	var report: Dictionary = model.replace_catalog(hostile_catalog)
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(GFVariantData.get_option_string(report, "error"), "catalog_metadata_cycle")
-	assert_eq(model.get_catalog_revision(), initial_revision)
-	assert_eq(model.get_query_generation(), initial_generation)
-	assert_eq(model.get_selected_asset_id(), &"stable")
+	assert_eq(
+		GFVariantData.get_option_string(report, "error"),
+		"catalog_metadata_cycle"
+	)
+	assert_eq(
+		model.get_catalog_revision(),
+		initial_revision
+	)
+	assert_eq(
+		model.get_query_generation(),
+		initial_generation
+	)
+	assert_eq(
+		model.get_selected_asset_id(),
+		&"stable"
+	)
 	assert_true(model.get_active_preview_task() == active_task)
-	assert_false(active_task.is_cancelled(), "拒绝的目录不能取消仍属于旧快照的预览任务。")
+	assert_false(
+		active_task.is_cancelled(),
+		"拒绝的目录不能取消仍属于旧快照的预览任务。"
+	)
 	_assert_first_page_metadata_equals(model, initial_metadata)
 	var _cancelled: bool = model.cancel_preview(&"test_cleanup")
 	renderer.free()
@@ -609,9 +770,17 @@ func test_catalog_replacement_rejects_cyclic_metadata_without_mutating_state() -
 
 func test_catalog_replacement_rejects_invalid_last_entry_atomically() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
-	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"stable", "Stable", { "license": "MIT" }),
-	]))
+	var _initial_report: Dictionary = model.replace_catalog(
+		_make_catalog(
+			[
+				_make_entry(
+					&"stable",
+					"Stable",
+					{ "license": "MIT" }
+				),
+			]
+		)
+	)
 	assert_true(model.select_asset(&"stable"))
 	var initial_revision: int = model.get_catalog_revision()
 	var initial_generation: int = model.get_query_generation()
@@ -624,25 +793,48 @@ func test_catalog_replacement_rejects_invalid_last_entry_atomically() -> void:
 	var invalid_catalog: GFAssetCatalog = GFAssetCatalog.new()
 	for index: int in range(256):
 		var asset_id: StringName = StringName("candidate_%03d" % index)
-		invalid_catalog.entries.append(_make_entry(asset_id, "Candidate %03d" % index))
+		invalid_catalog.entries.append(
+			_make_entry(
+				asset_id,
+				"Candidate %03d" % index
+			)
+		)
 	invalid_catalog.entries.append(_make_entry(&"candidate_000", "Duplicate Last"))
 
 	var report: Dictionary = model.replace_catalog(invalid_catalog)
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(GFVariantData.get_option_string(report, "error"), "duplicate_catalog_asset_id")
-	assert_eq(model.get_catalog_revision(), initial_revision)
-	assert_eq(model.get_query_generation(), initial_generation)
-	assert_eq(model.get_selected_asset_id(), &"stable")
+	assert_eq(
+		GFVariantData.get_option_string(report, "error"),
+		"duplicate_catalog_asset_id"
+	)
+	assert_eq(
+		model.get_catalog_revision(),
+		initial_revision
+	)
+	assert_eq(
+		model.get_query_generation(),
+		initial_generation
+	)
+	assert_eq(
+		model.get_selected_asset_id(),
+		&"stable"
+	)
 	assert_true(model.get_active_preview_task() == active_task)
 	assert_false(active_task.is_cancelled())
 	var page: Dictionary = model.get_page()
-	assert_eq(GFVariantData.get_option_int(page, "total_count"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(page, "total_count"),
+		1
+	)
 	var items: Array = GFVariantData.get_option_array(page, "items")
-	assert_eq(GFVariantData.get_option_string(
-		GFVariantData.as_dictionary(items[0]),
-		"asset_id"
-	), "stable")
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(items[0]),
+			"asset_id"
+		),
+		"stable"
+	)
 	var _cancelled: bool = model.cancel_preview(&"test_cleanup")
 	renderer.free()
 
@@ -652,7 +844,12 @@ func test_large_catalog_replacement_builds_one_complete_index() -> void:
 	const ENTRY_COUNT: int = 2048
 	for index: int in range(ENTRY_COUNT):
 		var asset_id: StringName = StringName("asset_%04d" % index)
-		catalog.entries.append(_make_entry(asset_id, "Asset %04d" % index))
+		catalog.entries.append(
+			_make_entry(
+				asset_id,
+				"Asset %04d" % index
+			)
+		)
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 
 	var report: Dictionary = model.replace_catalog(catalog)
@@ -660,14 +857,29 @@ func test_large_catalog_replacement_builds_one_complete_index() -> void:
 	var items: Array = GFVariantData.get_option_array(last_page, "items")
 
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(GFVariantData.get_option_int(report, "asset_count"), ENTRY_COUNT)
-	assert_eq(GFVariantData.get_option_int(last_page, "total_count"), ENTRY_COUNT)
-	assert_eq(GFVariantData.get_option_int(last_page, "page_count"), 21)
-	assert_eq(items.size(), 48)
-	assert_eq(GFVariantData.get_option_string(
-		GFVariantData.as_dictionary(items[0]),
-		"asset_id"
-	), "asset_2000")
+	assert_eq(
+		GFVariantData.get_option_int(report, "asset_count"),
+		ENTRY_COUNT
+	)
+	assert_eq(
+		GFVariantData.get_option_int(last_page, "total_count"),
+		ENTRY_COUNT
+	)
+	assert_eq(
+		GFVariantData.get_option_int(last_page, "page_count"),
+		21
+	)
+	assert_eq(
+		items.size(),
+		48
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(items[0]),
+			"asset_id"
+		),
+		"asset_2000"
+	)
 
 
 func test_catalog_replacement_rejects_oversized_metadata_without_truncating_attribution() -> void:
@@ -677,9 +889,17 @@ func test_catalog_replacement_rejects_oversized_metadata_without_truncating_attr
 		"license": "MIT",
 		"hash": "sha256:unchanged",
 	}
-	var _initial_report: Dictionary = model.replace_catalog(_make_catalog([
-		_make_entry(&"stable", "Stable", initial_metadata),
-	]))
+	var _initial_report: Dictionary = model.replace_catalog(
+		_make_catalog(
+			[
+				_make_entry(
+					&"stable",
+					"Stable",
+					initial_metadata
+				),
+			]
+		)
+	)
 	var initial_revision: int = model.get_catalog_revision()
 	var initial_generation: int = model.get_query_generation()
 	var oversized_entry: GFAssetCatalogEntry = GFAssetCatalogEntry.new()
@@ -699,8 +919,14 @@ func test_catalog_replacement_rejects_oversized_metadata_without_truncating_attr
 		GFVariantData.get_option_string(report, "error"),
 		"catalog_metadata_text_limit_exceeded"
 	)
-	assert_eq(model.get_catalog_revision(), initial_revision)
-	assert_eq(model.get_query_generation(), initial_generation)
+	assert_eq(
+		model.get_catalog_revision(),
+		initial_revision
+	)
+	assert_eq(
+		model.get_query_generation(),
+		initial_generation
+	)
 	_assert_first_page_metadata_equals(model, initial_metadata)
 
 
@@ -710,11 +936,20 @@ func test_query_filters_fail_closed_and_dispose_is_terminal_for_writes() -> void
 	var _replace_report: Dictionary = model.replace_catalog(catalog)
 	var initial_generation: int = model.get_query_generation()
 
-	var whitespace_report: Dictionary = model.set_query("", PackedStringArray([" "]))
-	var padded_report: Dictionary = model.set_query("", PackedStringArray([" stable "]))
+	var whitespace_report: Dictionary = model.set_query(
+		"",
+		PackedStringArray([" "])
+	)
+	var padded_report: Dictionary = model.set_query(
+		"",
+		PackedStringArray([" stable "])
+	)
 	assert_false(GFVariantData.get_option_bool(whitespace_report, "ok"))
 	assert_false(GFVariantData.get_option_bool(padded_report, "ok"))
-	assert_eq(model.get_query_generation(), initial_generation)
+	assert_eq(
+		model.get_query_generation(),
+		initial_generation
+	)
 
 	model.dispose()
 	var disposed_catalog_report: Dictionary = model.replace_catalog(catalog)
@@ -723,13 +958,20 @@ func test_query_filters_fail_closed_and_dispose_is_terminal_for_writes() -> void
 		GFVariantData.get_option_string(disposed_catalog_report, "error"),
 		"disposed"
 	)
-	assert_eq(GFVariantData.get_option_string(disposed_query_report, "error"), "disposed")
+	assert_eq(
+		GFVariantData.get_option_string(disposed_query_report, "error"),
+		"disposed"
+	)
 	assert_false(model.select_asset(&"stable"))
 	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
-	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(
-		BoxMesh.new()
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
+	assert_null(
+		model.request_preview(
+			&"stable",
+			renderer,
+			request
+		)
 	)
-	assert_null(model.request_preview(&"stable", renderer, request))
 	renderer.free()
 
 
@@ -737,11 +979,34 @@ func test_incremental_pages_match_sync_results_and_respect_item_budget() -> void
 	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
 	for index: int in range(120):
-		catalog.entries.append(_make_entry(StringName("asset_%03d" % index), "Hero %02d" % [index % 7], { "nested": { "group": index % 3 } }))
+		catalog.entries.append(
+			_make_entry(
+				StringName("asset_%03d" % index),
+				"Hero %02d"
+				% [index % 7],
+				{
+					"nested": { "group": index % 3 },
+				}
+			)
+		)
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 	var _replace: Dictionary = model.replace_catalog(catalog)
-	for query: String in ["", "hero", "hero 03", "unmatchablequartz"]:
-		for filter_ids: PackedStringArray in [PackedStringArray(), PackedStringArray(["asset_002", "missing", "asset_101"])]:
+	for query: String in [
+		"",
+		"hero",
+		"hero 03",
+		"unmatchablequartz",
+	]:
+		for filter_ids: PackedStringArray in [
+			PackedStringArray(),
+			PackedStringArray(
+				[
+					"asset_002",
+					"missing",
+					"asset_101",
+				]
+			),
+		]:
 			var _query: Dictionary = model.set_query(query, filter_ids)
 			var task_value: RefCounted = model.create_page_query(2, 13)
 			assert_true(task_value is PAGE_QUERY_SCRIPT)
@@ -750,19 +1015,38 @@ func test_incremental_pages_match_sync_results_and_respect_item_budget() -> void
 			var task: PAGE_QUERY_SCRIPT = task_value
 			var steps: int = 0
 			while not task.step(7, 1000) and steps < 10000:
-				assert_lte(GFVariantData.get_option_int(task.get_progress(), "last_step_items"), 7)
+				assert_lte(
+					GFVariantData.get_option_int(
+						task.get_progress(),
+						"last_step_items"
+					),
+					7
+				)
 				steps += 1
 				await get_tree().process_frame
 			assert_lt(steps, 10000)
-			assert_eq(task.take_result(), model.get_page(2, 13))
-			assert_eq(task.take_result(), {}, "结果所有权只能交还一次。")
+			assert_eq(
+				task.take_result(),
+				model.get_page(2, 13)
+			)
+			assert_eq(
+				task.take_result(),
+				{},
+				"结果所有权只能交还一次。"
+			)
 			task.join_worker()
 	model.dispose()
 
 
 func test_incremental_queries_cancel_on_generation_disposal_and_explicit_cancel() -> void:
 	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
-	for mutation: String in ["query", "catalog", "dispose", "cancel", "finished_query"]:
+	for mutation: String in [
+		"query",
+		"catalog",
+		"dispose",
+		"cancel",
+		"finished_query",
+	]:
 		var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 		var catalog: GFAssetCatalog = _make_catalog([_make_entry(&"hero", "Hero")])
 		var _replace: Dictionary = model.replace_catalog(catalog)
@@ -785,7 +1069,10 @@ func test_incremental_queries_cancel_on_generation_disposal_and_explicit_cancel(
 			"cancel":
 				task.cancel()
 		assert_true(task.step())
-		assert_eq(task.take_result(), {})
+		assert_eq(
+			task.take_result(),
+			{}
+		)
 		model.dispose()
 
 
@@ -793,8 +1080,19 @@ func test_active_query_workers_cancel_during_scoring_sorting_and_owner_revocatio
 	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
 	var catalog: GFAssetCatalog = GFAssetCatalog.new()
 	for index: int in range(2048):
-		catalog.entries.append(_make_entry(StringName("asset_%04d" % index), "Hero %02d" % [index % 7]))
-	for mutation: String in ["cancel", "query", "dispose", "join_sort"]:
+		catalog.entries.append(
+			_make_entry(
+				StringName("asset_%04d" % index),
+				"Hero %02d"
+				% [index % 7]
+			)
+		)
+	for mutation: String in [
+		"cancel",
+		"query",
+		"dispose",
+		"join_sort",
+	]:
 		var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 		var _replace: Dictionary = model.replace_catalog(catalog)
 		var _query: Dictionary = model.set_query("hero")
@@ -805,10 +1103,22 @@ func test_active_query_workers_cancel_during_scoring_sorting_and_owner_revocatio
 		var task: PAGE_QUERY_SCRIPT = task_value
 		var deadline: int = Time.get_ticks_msec() + 15000
 		var expected_phase: StringName = &"sort" if mutation == "join_sort" else &"score"
-		while GFVariantData.get_option_string_name(task.get_progress(), "worker_phase") != expected_phase and Time.get_ticks_msec() < deadline:
+		while (
+			GFVariantData.get_option_string_name(
+				task.get_progress(),
+				"worker_phase"
+			) != expected_phase
+			and Time.get_ticks_msec() < deadline
+		):
 			var _done: bool = task.step(256, 2000)
 			await get_tree().process_frame
-		assert_eq(GFVariantData.get_option_string_name(task.get_progress(), "worker_phase"), expected_phase)
+		assert_eq(
+			GFVariantData.get_option_string_name(
+				task.get_progress(),
+				"worker_phase"
+			),
+			expected_phase
+		)
 		assert_true(task.has_worker())
 		match mutation:
 			"query":
@@ -821,27 +1131,58 @@ func test_active_query_workers_cancel_during_scoring_sorting_and_owner_revocatio
 				task.join_worker()
 			_:
 				task.cancel()
-		assert_eq(task.take_result(), {}, "取消必须立即撤销发布，即使线程尚在退出。")
+		assert_eq(
+			task.take_result(),
+			{},
+			"取消必须立即撤销发布，即使线程尚在退出。"
+		)
 		while not task.reap_worker() and Time.get_ticks_msec() < deadline:
 			await get_tree().process_frame
-		assert_false(task.has_worker(), "每个任务必须完成线程回收。")
-		assert_eq(task.take_result(), {})
+		assert_false(
+			task.has_worker(),
+			"每个任务必须完成线程回收。"
+		)
+		assert_eq(
+			task.take_result(),
+			{}
+		)
 		task.join_worker()
 		model.dispose()
 
 
 func test_replacement_reads_current_entries_even_when_source_lookup_is_clean() -> void:
 	var source_catalog: GFAssetCatalog = _make_catalog([_make_entry(&"hero", "Old")])
-	assert_eq(source_catalog.get_entry(&"hero").title, "Old")
+	assert_eq(
+		source_catalog.get_entry(&"hero").title,
+		"Old"
+	)
 	source_catalog.entries[0].title = "Current"
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 	var report: Dictionary = model.replace_catalog(source_catalog)
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
-	var items: Array = GFVariantData.get_option_array(model.get_page(), "items")
-	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(items[0]), "title"), "Current")
+	var items: Array = GFVariantData.get_option_array(
+		model.get_page(),
+		"items"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(items[0]),
+			"title"
+		),
+		"Current"
+	)
 	source_catalog.entries[0].title = "Later"
-	items = GFVariantData.get_option_array(model.get_page(), "items")
-	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(items[0]), "title"), "Current")
+	items = GFVariantData.get_option_array(
+		model.get_page(),
+		"items"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(items[0]),
+			"title"
+		),
+		"Current"
+	)
 	model.dispose()
 
 
@@ -849,11 +1190,38 @@ func test_empty_search_pages_keep_items_empty() -> void:
 	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
 	var _replacement: Dictionary = model.replace_catalog(_make_catalog([_make_entry(&"hero", "Hero")]))
 	var _text_query: Dictionary = model.set_query("unmatchablequartz")
-	assert_eq(GFVariantData.get_option_int(model.get_page(), "total_count"), 0)
-	assert_eq(GFVariantData.get_option_array(model.get_page(), "items").size(), 0)
-	var _id_query: Dictionary = model.set_query("", PackedStringArray(["missing"]))
-	assert_eq(GFVariantData.get_option_int(model.get_page(), "total_count"), 0)
-	assert_eq(GFVariantData.get_option_array(model.get_page(), "items").size(), 0)
+	assert_eq(
+		GFVariantData.get_option_int(
+			model.get_page(),
+			"total_count"
+		),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_array(
+			model.get_page(),
+			"items"
+		).size(),
+		0
+	)
+	var _id_query: Dictionary = model.set_query(
+		"",
+		PackedStringArray(["missing"])
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			model.get_page(),
+			"total_count"
+		),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_array(
+			model.get_page(),
+			"items"
+		).size(),
+		0
+	)
 	model.dispose()
 
 
@@ -869,17 +1237,26 @@ func _make_entry(
 	title: String,
 	metadata: Dictionary = {}
 ) -> GFAssetCatalogEntry:
-	return GFAssetCatalogEntry.new().configure(asset_id, "", {
-		"title": title,
-		"metadata": metadata,
-	})
+	return (
+		GFAssetCatalogEntry.new().configure(
+			asset_id,
+			"",
+			{ "title": title, "metadata": metadata, }
+		)
+	)
 
 
-func _assert_first_page_metadata_equals(
-	model: GF_ASSET_BROWSER_MODEL_SCRIPT,
-	expected: Dictionary
-) -> void:
-	var items: Array = GFVariantData.get_option_array(model.get_page(), "items")
-	assert_eq(items.size(), 1)
+func _assert_first_page_metadata_equals(model: GF_ASSET_BROWSER_MODEL_SCRIPT, expected: Dictionary) -> void:
+	var items: Array = GFVariantData.get_option_array(
+		model.get_page(),
+		"items"
+	)
+	assert_eq(
+		items.size(),
+		1
+	)
 	var item: Dictionary = GFVariantData.as_dictionary(items[0])
-	assert_eq(GFVariantData.get_option_dictionary(item, "metadata"), expected)
+	assert_eq(
+		GFVariantData.get_option_dictionary(item, "metadata"),
+		expected
+	)

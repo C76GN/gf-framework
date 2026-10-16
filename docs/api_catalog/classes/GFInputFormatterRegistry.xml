@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputFormatterRegistry" path="addons/gf/standard/input/formatting/gf_input_formatter_registry.gd" module="standard" extends="RefCounted" classDigest="22fac4ff4d2d4366ee40cedfc93578ea986a4f708fb8bb252256e832500267a6">
+<class name="GFInputFormatterRegistry" path="addons/gf/standard/input/formatting/gf_input_formatter_registry.gd" module="standard" extends="RefCounted" classDigest="996527fd4ca559d4305085a46bf13567414c91b3d6616f44f6b56a6abd74059e">
 	<description>GFInputFormatterRegistry: 输入格式化 provider 注册表。
 为文本和图标 provider 提供可排序、可 owner 绑定、可显式释放的注册生命周期。
 GFInputFormatter 的静态入口会使用默认 registry；测试、编辑器工具或局部 UI 可创建独立 registry 避免全局污染。</description>
@@ -15,7 +15,7 @@ GFInputFormatter 的静态入口会使用默认 registry；测试、编辑器工
 	<properties />
 	<methods>
 		<member kind="method" name="register_text_provider">
-			<signature>func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<signature>func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -&gt; GFInputProviderRegistration:</signature>
 			<description>注册文本 provider 并返回释放句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -26,7 +26,7 @@ GFInputFormatter 的静态入口会使用默认 registry；测试、编辑器工
 			</tags>
 		</member>
 		<member kind="method" name="register_icon_provider">
-			<signature>func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<signature>func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -&gt; GFInputProviderRegistration:</signature>
 			<description>注册图标 provider 并返回释放句柄。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTileMetadataPaintTool" path="addons/gf/standard/foundation/math/editor/gf_tile_metadata_paint_tool.gd" module="standard" extends="RefCounted" classDigest="de8d4fdb6ab1896122f484ad1a8d3b64c05a7ebe07a74e2467ca954ed3f3ad9a">
+<class name="GFTileMetadataPaintTool" path="addons/gf/standard/foundation/math/editor/gf_tile_metadata_paint_tool.gd" module="standard" extends="RefCounted" classDigest="3d17f3f99361c0caa66985d16cf102db8a008abd8beffd513c1b5affdb0e8deb">
 	<description>GFTileMetadataPaintTool: Tile 元数据绘制工具辅助。
 为 `GFTileMetadataLayer` 提供编辑器友好的 patch、UndoRedo 和 overlay 数据。
 它只处理通用格子元数据差异，不绑定 TileSet、TileMapLayer、寻路、地形或项目业务语义。</description>
@@ -12,7 +12,12 @@
 	<enums />
 	<constants>
 		<member kind="const" name="DEFAULT_OVERLAY_COLOR">
-			<signature>const DEFAULT_OVERLAY_COLOR: Color = Color(0.2, 0.65, 1.0, 0.45)</signature>
+			<signature>const DEFAULT_OVERLAY_COLOR: Color = Color(
+	0.2,
+	0.65,
+	1.0,
+	0.45
+)</signature>
 			<description>默认 overlay 颜色。</description>
 			<tags>
 				<tag name="api">public</tag>

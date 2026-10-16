@@ -202,7 +202,12 @@ func set_tasks(next_tasks: Array[GFRuntimeTask]) -> bool:
 		return false
 	var candidate: Array[GFRuntimeTask] = []
 	for task: GFRuntimeTask in next_tasks:
-		if task == null or task.is_scheduled() or task.has_initialized() or candidate.has(task):
+		if (
+			task == null
+			or task.is_scheduled()
+			or task.has_initialized()
+			or candidate.has(task)
+		):
 			return false
 		candidate.append(task)
 	var graph: Dictionary = _inspect_task_graph(candidate)
@@ -256,6 +261,7 @@ func set_mode(next_mode: Mode) -> bool:
 ## @return 当前推进模式。
 func get_mode() -> Mode:
 	return _mode
+
 
 ## 添加子任务，并把子任务 requirement 合并到任务组。
 ##
@@ -526,10 +532,7 @@ func get_schedule_rejection_reason() -> StringName:
 		var group: GFRuntimeTaskGroup = group_value
 		if not _is_valid_mode(group._mode):
 			return REJECTION_INVALID_MODE
-		if (
-			group._mode != Mode.SEQUENCE
-			and group._tasks_have_parallel_requirement_conflict(group._tasks)
-		):
+		if (group._mode != Mode.SEQUENCE and group._tasks_have_parallel_requirement_conflict(group._tasks)):
 			return REJECTION_PARALLEL_REQUIREMENT_CONFLICT
 	return &""
 
@@ -647,10 +650,7 @@ func _tick_parallel(delta: float, use_physics: bool) -> void:
 ## @api private
 ## [br]
 func _initialize_sequence_child(group_generation: int) -> void:
-	if (
-		not is_schedule_generation_current(group_generation)
-		or _current_index >= _tasks.size()
-	):
+	if (not is_schedule_generation_current(group_generation) or _current_index >= _tasks.size()):
 		return
 	var task: GFRuntimeTask = _tasks[_current_index]
 	if task != null:
@@ -719,7 +719,10 @@ func _cancel_open_children(interrupted: bool) -> void:
 ## @api private
 ## [br]
 func _is_child_completed(task: GFRuntimeTask) -> bool:
-	return task != null and _completed_task_ids.get(task.get_instance_id(), -1) == get_schedule_generation()
+	return task != null and _completed_task_ids.get(
+		task.get_instance_id(),
+		-1
+	) == get_schedule_generation()
 
 
 ## 检查子任务实例当前是否正在执行 initialize()。
@@ -738,7 +741,11 @@ func _release_uninitialized_task_tree(task: GFRuntimeTask) -> void:
 	if task == null:
 		return
 	for member: GFRuntimeTask in task.get_schedule_members():
-		if member != null and member.is_scheduled() and not member.has_initialized():
+		if (
+			member != null
+			and member.is_scheduled()
+			and not member.has_initialized()
+		):
 			member.mark_unscheduled()
 
 
@@ -844,17 +851,12 @@ func _refresh_descendant_requirements(graph: Dictionary) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _refresh_graph_requirements(
-	graph: Dictionary,
-	root_tasks: Array[GFRuntimeTask]
-) -> void:
+func _refresh_graph_requirements(graph: Dictionary, root_tasks: Array[GFRuntimeTask]) -> void:
 	for group_value: Variant in GFVariantData.get_option_array(graph, "groups_postorder"):
 		if not (group_value is GFRuntimeTaskGroup):
 			continue
 		var group: GFRuntimeTaskGroup = group_value
-		group._rebuild_direct_requirements_unchecked(
-			root_tasks if group == self else group._tasks
-		)
+		group._rebuild_direct_requirements_unchecked(root_tasks if group == self else group._tasks)
 
 
 ## 迭代遍历子任务图，检测无效/重复实例、环、深度和节点上限，并返回成员与组后序列表。
@@ -862,17 +864,17 @@ func _refresh_graph_requirements(
 ## @api private
 ## [br]
 func _inspect_task_graph(root_tasks: Array[GFRuntimeTask]) -> Dictionary:
-	var visit_states: Dictionary = {
-		get_instance_id(): 1,
-	}
+	var visit_states: Dictionary = { get_instance_id(): 1, }
 	var members: Array[GFRuntimeTask] = [self]
 	var groups_postorder: Array[GFRuntimeTaskGroup] = []
-	var frames: Array[Dictionary] = [{
-		"group": self,
-		"children": root_tasks,
-		"next_index": 0,
-		"depth": 0,
-	}]
+	var frames: Array[Dictionary] = [
+		{
+			"group": self,
+			"children": root_tasks,
+			"next_index": 0,
+			"depth": 0,
+		},
+	]
 
 	while not frames.is_empty():
 		var frame_index: int = frames.size() - 1
@@ -900,28 +902,23 @@ func _inspect_task_graph(root_tasks: Array[GFRuntimeTask]) -> Dictionary:
 		var child_id: int = child.get_instance_id()
 		if visit_states.has(child_id):
 			var visit_state: int = GFVariantData.to_int(visit_states[child_id])
-			return _make_graph_inspection_failure(
-				REJECTION_TASK_GRAPH_CYCLE
-				if visit_state == 1
-				else REJECTION_TASK_GRAPH_REUSED
-			)
+			return _make_graph_inspection_failure((REJECTION_TASK_GRAPH_CYCLE if visit_state == 1 else REJECTION_TASK_GRAPH_REUSED))
 
 		var child_depth: int = GFVariantData.get_option_int(frame, "depth") + 1
-		if (
-			child_depth > MAX_TASK_GRAPH_DEPTH
-			or members.size() >= MAX_TASK_GRAPH_NODES
-		):
+		if (child_depth > MAX_TASK_GRAPH_DEPTH or members.size() >= MAX_TASK_GRAPH_NODES):
 			return _make_graph_inspection_failure(REJECTION_TASK_GRAPH_LIMIT)
 		visit_states[child_id] = 1
 		members.append(child)
 		if child is GFRuntimeTaskGroup:
 			var child_group: GFRuntimeTaskGroup = child
-			frames.append({
-				"group": child_group,
-				"children": child_group._tasks,
-				"next_index": 0,
-				"depth": child_depth,
-			})
+			frames.append(
+				{
+					"group": child_group,
+					"children": child_group._tasks,
+					"next_index": 0,
+					"depth": child_depth,
+				}
+			)
 		else:
 			visit_states[child_id] = 2
 

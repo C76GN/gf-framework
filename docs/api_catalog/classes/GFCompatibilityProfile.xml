@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCompatibilityProfile" path="addons/gf/standard/foundation/policy/gf_compatibility_profile.gd" module="standard" extends="Resource" classDigest="ebfd3669febf0b89d17340d720ad67b0b33172a1fae814d09d3754f28fef6e22">
+<class name="GFCompatibilityProfile" path="addons/gf/standard/foundation/policy/gf_compatibility_profile.gd" module="standard" extends="Resource" classDigest="c74a33ecd68809459d53006b66bf4f773dd2e95e997e5d1f9aa5171c1d792106">
 	<description>GFCompatibilityProfile: 通用兼容性与能力 Profile。
 用纯数据描述当前运行环境、目标构建、包集合、平台和功能能力。它只承载
 预检所需的声明式信息，不执行安装、下载、动态代码启用或项目业务策略。</description>
@@ -146,7 +146,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_package">
-			<signature>func add_package(package_id: StringName, version: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_package( package_id: StringName, version: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加包条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -181,7 +181,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_artifact">
-			<signature>func add_artifact(artifact_id: StringName, path: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_artifact( artifact_id: StringName, path: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加 artifact 条目。</description>
 			<tags>
 				<tag name="api">public</tag>

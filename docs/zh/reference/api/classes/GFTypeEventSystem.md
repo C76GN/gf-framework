@@ -19,22 +19,22 @@
 | 属性 | [`max_dispatch_depth`](#member-gftypeeventsystem-properties-max_dispatch_depth) | `var max_dispatch_depth: int = DEFAULT_MAX_DISPATCH_DEPTH:` |
 | 属性 | [`trace_enabled`](#member-gftypeeventsystem-properties-trace_enabled) | `var trace_enabled: bool = false` |
 | 属性 | [`max_trace_entries`](#member-gftypeeventsystem-properties-max_trace_entries) | `var max_trace_entries: int = 64:` |
-| 方法 | [`register`](#member-gftypeeventsystem-methods-register) | `func register(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
-| 方法 | [`register_owned`](#member-gftypeeventsystem-methods-register_owned) | `func register_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`register`](#member-gftypeeventsystem-methods-register) | `func register( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`register_owned`](#member-gftypeeventsystem-methods-register_owned) | `func register_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`subscribe`](#member-gftypeeventsystem-methods-subscribe) | `func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister`](#member-gftypeeventsystem-methods-unregister) | `func unregister(event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_owned`](#member-gftypeeventsystem-methods-unregister_owned) | `func unregister_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`register_assignable`](#member-gftypeeventsystem-methods-register_assignable) | `func register_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
+| 方法 | [`unregister_owned`](#member-gftypeeventsystem-methods-unregister_owned) | `func unregister_owned( owner: Object, event_type: Script, listener: GFEventListener ) -> void:` |
+| 方法 | [`register_assignable`](#member-gftypeeventsystem-methods-register_assignable) | `func register_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`register_assignable_owned`](#member-gftypeeventsystem-methods-register_assignable_owned) | `func register_assignable_owned( owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
 | 方法 | [`subscribe_assignable`](#member-gftypeeventsystem-methods-subscribe_assignable) | `func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_assignable`](#member-gftypeeventsystem-methods-unregister_assignable) | `func unregister_assignable(base_event_type: Script, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_assignable_owned`](#member-gftypeeventsystem-methods-unregister_assignable_owned) | `func unregister_assignable_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_assignable_owned`](#member-gftypeeventsystem-methods-unregister_assignable_owned) | `func unregister_assignable_owned( owner: Object, base_event_type: Script, listener: GFEventListener ) -> void:` |
 | 方法 | [`send`](#member-gftypeeventsystem-methods-send) | `func send(event_instance: Object) -> void:` |
 | 方法 | [`register_simple`](#member-gftypeeventsystem-methods-register_simple) | `func register_simple(event_id: StringName, listener: GFEventListener) -> void:` |
-| 方法 | [`register_simple_owned`](#member-gftypeeventsystem-methods-register_simple_owned) | `func register_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`register_simple_owned`](#member-gftypeeventsystem-methods-register_simple_owned) | `func register_simple_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:` |
 | 方法 | [`subscribe_simple`](#member-gftypeeventsystem-methods-subscribe_simple) | `func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken:` |
 | 方法 | [`unregister_simple`](#member-gftypeeventsystem-methods-unregister_simple) | `func unregister_simple(event_id: StringName, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_simple_owned`](#member-gftypeeventsystem-methods-unregister_simple_owned) | `func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
+| 方法 | [`unregister_simple_owned`](#member-gftypeeventsystem-methods-unregister_simple_owned) | `func unregister_simple_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:` |
 | 方法 | [`send_simple`](#member-gftypeeventsystem-methods-send_simple) | `func send_simple(event_id: StringName, payload: Variant = null) -> void:` |
 | 方法 | [`unregister_owner`](#member-gftypeeventsystem-methods-unregister_owner) | `func unregister_owner(owner: Object) -> void:` |
 | 方法 | [`get_debug_stats`](#member-gftypeeventsystem-methods-get_debug_stats) | `func get_debug_stats() -> Dictionary:` |
@@ -106,7 +106,7 @@ var max_trace_entries: int = 64:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register( event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册特定脚本类型的事件监听器。
@@ -127,7 +127,7 @@ func register(event_type: Script, listener: GFEventListener, priority: int = 0) 
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册带 owner 的特定脚本类型事件监听器。
@@ -193,7 +193,7 @@ func unregister(event_type: Script, listener: GFEventListener) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_owned(owner: Object, event_type: Script, listener: GFEventListener) -> void:
+func unregister_owned( owner: Object, event_type: Script, listener: GFEventListener ) -> void:
 ```
 
 注销带拥有者的特定脚本类型事件监听器。
@@ -214,7 +214,7 @@ func unregister_owned(owner: Object, event_type: Script, listener: GFEventListen
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册可赋值类型事件监听器。 监听 base_event_type 时，也会收到继承自该脚本类型的事件实例。
@@ -301,7 +301,7 @@ func unregister_assignable(base_event_type: Script, listener: GFEventListener) -
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_assignable_owned(owner: Object, base_event_type: Script, listener: GFEventListener) -> void:
+func unregister_assignable_owned( owner: Object, base_event_type: Script, listener: GFEventListener ) -> void:
 ```
 
 注销带拥有者的可赋值类型事件监听器。
@@ -360,7 +360,7 @@ func register_simple(event_id: StringName, listener: GFEventListener) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func register_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:
 ```
 
 注册带 owner 的轻量级 StringName 事件监听器。
@@ -424,7 +424,7 @@ func unregister_simple(event_id: StringName, listener: GFEventListener) -> void:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_simple_owned(owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func unregister_simple_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -> void:
 ```
 
 注销带拥有者的轻量级 StringName 事件监听器。

@@ -183,7 +183,10 @@ func configure_failure(
 func get_duration_msec() -> int:
 	if started_at_msec < 0 or completed_at_msec < 0:
 		return 0
-	return max(completed_at_msec - started_at_msec, 0)
+	return max(
+		completed_at_msec - started_at_msec,
+		0
+	)
 
 
 ## 转换为字典。
@@ -227,8 +230,22 @@ func apply_dict(data: Dictionary) -> void:
 	status = GFVariantData.get_option_string_name(data, "status")
 	value = GFVariantData.duplicate_variant(GFVariantData.get_option_value(data, "value"))
 	error = GFVariantData.get_option_string(data, "error").strip_edges()
-	started_at_msec = maxi(GFVariantData.get_option_int(data, "started_at_msec", -1), -1)
-	completed_at_msec = maxi(GFVariantData.get_option_int(data, "completed_at_msec", -1), -1)
+	started_at_msec = maxi(
+		GFVariantData.get_option_int(
+			data,
+			"started_at_msec",
+			-1
+		),
+		-1
+	)
+	completed_at_msec = maxi(
+		GFVariantData.get_option_int(
+			data,
+			"completed_at_msec",
+			-1
+		),
+		-1
+	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 

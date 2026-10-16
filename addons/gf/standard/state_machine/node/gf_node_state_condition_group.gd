@@ -103,9 +103,17 @@ func evaluate(
 		_make_evaluation_context(),
 		0
 	)
-	if not GFVariantData.get_option_bool(result, "valid", false):
+	if not GFVariantData.get_option_bool(
+		result,
+		"valid",
+		false
+	):
 		return false
-	var accepted: bool = GFVariantData.get_option_bool(result, "accepted", false)
+	var accepted: bool = GFVariantData.get_option_bool(
+		result,
+		"accepted",
+		false
+	)
 	return not accepted if invert else accepted
 
 
@@ -143,8 +151,16 @@ func _evaluate(
 		0
 	)
 	return (
-		GFVariantData.get_option_bool(result, "valid", false)
-		and GFVariantData.get_option_bool(result, "accepted", false)
+		GFVariantData.get_option_bool(
+			result,
+			"valid",
+			false
+		)
+		and GFVariantData.get_option_bool(
+			result,
+			"accepted",
+			false
+		)
 	)
 
 
@@ -211,9 +227,17 @@ func _evaluate_conditions(
 					context,
 					depth + 1
 				)
-				if not GFVariantData.get_option_bool(child_result, "valid", false):
+				if not GFVariantData.get_option_bool(
+					child_result,
+					"valid",
+					false
+				):
 					return child_result
-				if GFVariantData.get_option_bool(child_result, "accepted", false):
+				if GFVariantData.get_option_bool(
+					child_result,
+					"accepted",
+					false
+				):
 					return { "valid": true, "accepted": true }
 			return { "valid": true, "accepted": empty_result if evaluated_count == 0 else false }
 		MatchMode.NONE:
@@ -230,9 +254,17 @@ func _evaluate_conditions(
 					context,
 					depth + 1
 				)
-				if not GFVariantData.get_option_bool(child_result, "valid", false):
+				if not GFVariantData.get_option_bool(
+					child_result,
+					"valid",
+					false
+				):
 					return child_result
-				if GFVariantData.get_option_bool(child_result, "accepted", false):
+				if GFVariantData.get_option_bool(
+					child_result,
+					"accepted",
+					false
+				):
 					return { "valid": true, "accepted": false }
 			return { "valid": true, "accepted": empty_result if evaluated_count == 0 else true }
 		_:
@@ -249,11 +281,20 @@ func _evaluate_conditions(
 					context,
 					depth + 1
 				)
-				if not GFVariantData.get_option_bool(child_result, "valid", false):
+				if not GFVariantData.get_option_bool(
+					child_result,
+					"valid",
+					false
+				):
 					return child_result
-				if not GFVariantData.get_option_bool(child_result, "accepted", false):
+				if not GFVariantData.get_option_bool(
+					child_result,
+					"accepted",
+					false
+				):
 					return { "valid": true, "accepted": false }
 			return { "valid": true, "accepted": empty_result if evaluated_count == 0 else true }
+
 
 ## 条件资源非空且实现 evaluate() 时可参加组合评估。
 ## [br]
@@ -286,21 +327,29 @@ func _evaluate_child_with_context(
 			context,
 			depth
 		)
-		if not GFVariantData.get_option_bool(group_result, "valid", false):
+		if not GFVariantData.get_option_bool(
+			group_result,
+			"valid",
+			false
+		):
 			return group_result
-		var group_accepted: bool = GFVariantData.get_option_bool(group_result, "accepted", false)
-		return {
-			"valid": true,
-			"accepted": not group_accepted if condition_group.invert else group_accepted,
-		}
+		var group_accepted: bool = GFVariantData.get_option_bool(
+			group_result,
+			"accepted",
+			false
+		)
+		return { "valid": true, "accepted": not group_accepted if condition_group.invert else group_accepted, }
 
 	if not _consume_evaluation_budget(context):
 		return { "valid": false, "accepted": false }
-	var result: Variant = condition.call("evaluate", state, phase, peer_state, args)
-	return {
-		"valid": true,
-		"accepted": GFVariantData.to_bool(result, false),
-	}
+	var result: Variant = condition.call(
+		"evaluate",
+		state,
+		phase,
+		peer_state,
+		args
+	)
+	return { "valid": true, "accepted": GFVariantData.to_bool(result, false), }
 
 
 ## 创建一次组合评估共用的活动组 ID 集合和已评估节点计数。
@@ -308,10 +357,7 @@ func _evaluate_child_with_context(
 ## @api private
 ## [br]
 func _make_evaluation_context() -> Dictionary:
-	return {
-		"active_group_ids": {},
-		"evaluated_count": 0,
-	}
+	return { "active_group_ids": {}, "evaluated_count": 0, }
 
 
 ## 将共享已评估节点数加一，并检查是否未超过单次评估上限。

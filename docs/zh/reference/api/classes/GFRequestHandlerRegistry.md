@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`handler_registered`](#member-gfrequesthandlerregistry-signals-handler_registered) | `signal handler_registered(request_type: StringName, replaced: bool, metadata: Dictionary)` |
+| 信号 | [`handler_registered`](#member-gfrequesthandlerregistry-signals-handler_registered) | `signal handler_registered( request_type: StringName, replaced: bool, metadata: Dictionary )` |
 | 信号 | [`handler_unregistered`](#member-gfrequesthandlerregistry-signals-handler_unregistered) | `signal handler_unregistered(request_type: StringName, metadata: Dictionary)` |
-| 信号 | [`request_invoked`](#member-gfrequesthandlerregistry-signals-request_invoked) | `signal request_invoked(request_type: StringName, result: Variant, metadata: Dictionary)` |
+| 信号 | [`request_invoked`](#member-gfrequesthandlerregistry-signals-request_invoked) | `signal request_invoked( request_type: StringName, result: Variant, metadata: Dictionary )` |
 | 常量 | [`STATUS_REGISTERED`](#member-gfrequesthandlerregistry-constants-status_registered) | `const STATUS_REGISTERED: StringName = &"registered"` |
 | 常量 | [`STATUS_REPLACED`](#member-gfrequesthandlerregistry-constants-status_replaced) | `const STATUS_REPLACED: StringName = &"replaced"` |
 | 常量 | [`STATUS_UNREGISTERED`](#member-gfrequesthandlerregistry-constants-status_unregistered) | `const STATUS_UNREGISTERED: StringName = &"unregistered"` |
@@ -29,10 +29,10 @@
 | 常量 | [`DEFAULT_MAX_RECENT_EVENTS`](#member-gfrequesthandlerregistry-constants-default_max_recent_events) | `const DEFAULT_MAX_RECENT_EVENTS: int = 64` |
 | 属性 | [`max_recent_events`](#member-gfrequesthandlerregistry-properties-max_recent_events) | `var max_recent_events: int = DEFAULT_MAX_RECENT_EVENTS:` |
 | 方法 | [`make_bridge_contract_entries`](#member-gfrequesthandlerregistry-methods-make_bridge_contract_entries) | `static func make_bridge_contract_entries( required_request_types: PackedStringArray, registry: GFRequestHandlerRegistry, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`register_handler`](#member-gfrequesthandlerregistry-methods-register_handler) | `func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`register_handler`](#member-gfrequesthandlerregistry-methods-register_handler) | `func register_handler( request_type: StringName, handler: Callable, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`unregister_handler`](#member-gfrequesthandlerregistry-methods-unregister_handler) | `func unregister_handler( request_type: StringName, handler: Callable = Callable(), metadata: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`invoke`](#member-gfrequesthandlerregistry-methods-invoke) | `func invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`try_invoke`](#member-gfrequesthandlerregistry-methods-try_invoke) | `func try_invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`invoke`](#member-gfrequesthandlerregistry-methods-invoke) | `func invoke( request_type: StringName, payload: Variant = null, context: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`try_invoke`](#member-gfrequesthandlerregistry-methods-try_invoke) | `func try_invoke( request_type: StringName, payload: Variant = null, context: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`to_json_compatible_result`](#member-gfrequesthandlerregistry-methods-to_json_compatible_result) | `static func to_json_compatible_result(result: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`has_handler`](#member-gfrequesthandlerregistry-methods-has_handler) | `func has_handler(request_type: StringName) -> bool:` |
 | 方法 | [`get_handler_ids`](#member-gfrequesthandlerregistry-methods-get_handler_ids) | `func get_handler_ids() -> Array[StringName]:` |
@@ -53,7 +53,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal handler_registered(request_type: StringName, replaced: bool, metadata: Dictionary)
+signal handler_registered( request_type: StringName, replaced: bool, metadata: Dictionary )
 ```
 
 handler 注册或替换时发出。
@@ -102,7 +102,7 @@ handler 注销时发出。
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal request_invoked(request_type: StringName, result: Variant, metadata: Dictionary)
+signal request_invoked( request_type: StringName, result: Variant, metadata: Dictionary )
 ```
 
 请求成功调用时发出。
@@ -292,7 +292,7 @@ static func make_bridge_contract_entries( required_request_types: PackedStringAr
 - 首次版本：`7.0.0`
 
 ```gdscript
-func register_handler(request_type: StringName, handler: Callable, options: Dictionary = {}) -> Dictionary:
+func register_handler( request_type: StringName, handler: Callable, options: Dictionary = {} ) -> Dictionary:
 ```
 
 注册单处理器请求 handler。 handler 会收到一个 Dictionary 参数，包含 request_type、payload、context、sequence 和 handler_metadata。
@@ -348,7 +348,7 @@ func unregister_handler( request_type: StringName, handler: Callable = Callable(
 - 首次版本：`7.0.0`
 
 ```gdscript
-func invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:
+func invoke( request_type: StringName, payload: Variant = null, context: Dictionary = {} ) -> Dictionary:
 ```
 
 调用请求 handler。 缺少 handler 会返回 missing 状态；handler 运行时错误由 Godot 按普通 Callable 调用规则报告。
@@ -377,7 +377,7 @@ func invoke(request_type: StringName, payload: Variant = null, context: Dictiona
 - 首次版本：`7.0.0`
 
 ```gdscript
-func try_invoke(request_type: StringName, payload: Variant = null, context: Dictionary = {}) -> Dictionary:
+func try_invoke( request_type: StringName, payload: Variant = null, context: Dictionary = {} ) -> Dictionary:
 ```
 
 尝试调用请求 handler。 与 invoke() 相同，但缺少 handler 被视为可预期结果，并在返回值中标记 missing_allowed。

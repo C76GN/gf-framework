@@ -15,26 +15,18 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	if _should_stop_installation(architecture, scope):
 		return
 	if architecture.get_local_utility(GFLevelUtility) == null:
-		var registered_level: bool = await architecture.register_utility_instance(
-			GFLevelUtility.new()
-		)
+		var registered_level: bool = await (architecture.register_utility_instance(GFLevelUtility.new()))
 		if _should_stop_installation(architecture, scope):
 			return
 		if not registered_level:
-			architecture.fail_initialization(
-				"[GFDomainExtension][domain_extension.level_registration_failed] GFLevelUtility registration failed."
-			)
+			architecture.fail_initialization("[GFDomainExtension][domain_extension.level_registration_failed] GFLevelUtility registration failed.")
 			return
 	if architecture.get_local_utility(GFQuestUtility) == null:
-		var registered_quest: bool = await architecture.register_utility_instance(
-			GFQuestUtility.new()
-		)
+		var registered_quest: bool = await (architecture.register_utility_instance(GFQuestUtility.new()))
 		if _should_stop_installation(architecture, scope):
 			return
 		if not registered_quest:
-			architecture.fail_initialization(
-				"[GFDomainExtension][domain_extension.quest_registration_failed] GFQuestUtility registration failed."
-			)
+			architecture.fail_initialization("[GFDomainExtension][domain_extension.quest_registration_failed] GFQuestUtility registration failed.")
 
 
 # --- 私有/辅助方法 ---
@@ -42,10 +34,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 ## 检查架构与安装作用域仍可用；作用域失活、初始化失败或架构已释放时停止继续安装。
 ## [br]
 ## @api private
-func _should_stop_installation(
-	architecture: GFArchitecture,
-	scope: GFAsyncScope
-) -> bool:
+func _should_stop_installation(architecture: GFArchitecture, scope: GFAsyncScope) -> bool:
 	return (
 		architecture == null
 		or scope == null

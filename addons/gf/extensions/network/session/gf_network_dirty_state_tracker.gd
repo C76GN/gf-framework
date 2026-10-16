@@ -96,7 +96,11 @@ func set_field_priority(field_id: StringName, priority: Priority) -> void:
 ## [br]
 ## @return 字段优先级。
 func get_field_priority(field_id: StringName) -> Priority:
-	return GFVariantData.get_option_int(_priorities, field_id, default_priority) as Priority
+	return GFVariantData.get_option_int(
+		_priorities,
+		field_id,
+		default_priority
+	) as Priority
 
 
 ## 设置基线状态。
@@ -134,7 +138,10 @@ func update_baseline(state: Dictionary, field_ids: PackedStringArray = PackedStr
 		return updated_count
 
 	for field_id_text: String in field_ids:
-		var field_key: Variant = _resolve_state_key(state, StringName(field_id_text))
+		var field_key: Variant = _resolve_state_key(
+			state,
+			StringName(field_id_text)
+		)
 		if field_key == null:
 			continue
 		_baseline[field_key] = GFVariantData.duplicate_variant(state[field_key])
@@ -160,9 +167,23 @@ func update_baseline(state: Dictionary, field_ids: PackedStringArray = PackedStr
 ## [br]
 ## @schema return: Dictionary with dirty_count, dirty_fields, by_priority, and values.
 func get_dirty_report(state: Dictionary, options: Dictionary = {}) -> Dictionary:
-	var include_spawn_only: bool = GFVariantData.get_option_bool(options, "include_spawn_only", false)
-	var include_local_only: bool = GFVariantData.get_option_bool(options, "include_local_only", false)
-	var allowed_priorities: Dictionary = _make_allowed_priority_lookup(GFVariantData.get_option_value(options, "priorities", []))
+	var include_spawn_only: bool = GFVariantData.get_option_bool(
+		options,
+		"include_spawn_only",
+		false
+	)
+	var include_local_only: bool = GFVariantData.get_option_bool(
+		options,
+		"include_local_only",
+		false
+	)
+	var allowed_priorities: Dictionary = _make_allowed_priority_lookup(
+		GFVariantData.get_option_value(
+			options,
+			"priorities",
+			[]
+		)
+	)
 	var dirty_fields: PackedStringArray = PackedStringArray()
 	var values: Dictionary = {}
 	var by_priority: Dictionary = {}
@@ -178,7 +199,14 @@ func get_dirty_report(state: Dictionary, options: Dictionary = {}) -> Dictionary
 			continue
 		if not allowed_priorities.is_empty() and not allowed_priorities.has(int(priority)):
 			continue
-		if _values_equal(GFVariantData.get_option_value(_baseline, key, null), state[key]):
+		if _values_equal(
+			GFVariantData.get_option_value(
+				_baseline,
+				key,
+				null
+			),
+			state[key]
+		):
 			continue
 
 		var field_text: String = String(field_id)
@@ -222,7 +250,14 @@ func is_field_dirty(state: Dictionary, field_id: StringName) -> bool:
 	var key: Variant = _resolve_state_key(state, field_id)
 	if key == null:
 		return false
-	return not _values_equal(GFVariantData.get_option_value(_baseline, key, null), state[key])
+	return not _values_equal(
+		GFVariantData.get_option_value(
+			_baseline,
+			key,
+			null
+		),
+		state[key]
+	)
 
 
 ## 清空基线和优先级。

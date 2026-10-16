@@ -10,8 +10,13 @@ class EventController extends GFController:
 	func listen(event_id: StringName) -> void:
 		register_simple_event(
 			event_id,
-			GFEventListener.from_method(self, &"_on_event", 1)
+			GFEventListener.from_method(
+				self,
+				&"_on_event",
+				1
+			)
 		)
+
 
 	func _on_event(payload: Variant) -> void:
 		payloads.append(payload)
@@ -89,10 +94,7 @@ func test_global_observer_tracks_resolved_autoload_instance() -> void:
 	var controller: EventController = EventController.new()
 	var global_singleton: Node = GFAutoload.get_singleton_or_null()
 	add_child(controller)
-	var callback: Callable = Callable(
-		controller,
-		&"_on_global_architecture_identity_changed"
-	)
+	var callback: Callable = Callable(controller, &"_on_global_architecture_identity_changed")
 
 	assert_same(
 		controller._observed_global_singleton,
@@ -100,19 +102,12 @@ func test_global_observer_tracks_resolved_autoload_instance() -> void:
 		"Controller 应缓存 GFAutoload 实际解析出的单例，而不是直接绑定全局标识符。"
 	)
 	assert_true(
-		global_singleton != null
-		and global_singleton.is_connected(
-			&"architecture_identity_changed",
-			callback
-		),
+		global_singleton != null and (global_singleton.is_connected(&"architecture_identity_changed", callback)),
 		"进入树时应在解析出的 AutoLoad 实例上建立架构身份观察。"
 	)
 
 	remove_child(controller)
-	assert_null(
-		controller._observed_global_singleton,
-		"退出树时应断开并清除同一个 AutoLoad 实例观察。"
-	)
+	assert_null(controller._observed_global_singleton, "退出树时应断开并清除同一个 AutoLoad 实例观察。")
 	controller.free()
 
 
@@ -210,7 +205,10 @@ func test_same_global_architecture_retry_restores_cleared_event_bindings() -> vo
 
 func test_failed_context_stays_closed_when_shared_architecture_retries() -> void:
 	var architecture: GFArchitecture = Gf.create_architecture()
-	assert_true(await Gf.init(), "全局 Architecture 首次初始化应成功。")
+	assert_true(
+		await Gf.init(),
+		"全局 Architecture 首次初始化应成功。"
+	)
 	var context: InheritedContext = InheritedContext.new()
 	var controller: EventController = EventController.new()
 	add_child(context)
@@ -218,26 +216,26 @@ func test_failed_context_stays_closed_when_shared_architecture_retries() -> void
 	controller.listen(&"failed_context_retry")
 	await get_tree().process_frame
 
-	assert_true(context.is_context_ready(), "Inherited Context 应先进入 READY。")
+	assert_true(
+		context.is_context_ready(),
+		"Inherited Context 应先进入 READY。"
+	)
 	architecture.send_simple_event(&"failed_context_retry", "before_failure")
 
 	var failure_reason: String = "[test] inherited context architecture failure"
 	architecture.fail_initialization(failure_reason)
-	assert_true(context.is_context_failed(), "共享 Architecture 失败后 Context 应进入 FAILED 终态。")
+	assert_true(
+		context.is_context_failed(),
+		"共享 Architecture 失败后 Context 应进入 FAILED 终态。"
+	)
 
 	var retry_succeeded: bool = await Gf.init()
 	var recovered_model: RetryModel = RetryModel.new()
-	var model_registered: bool = await architecture.register_model_instance(
-		recovered_model
-	)
-	var dispatch_state: Dictionary = {
-		"count": 0,
-	}
+	var model_registered: bool = await (architecture.register_model_instance(recovered_model))
+	var dispatch_state: Dictionary = { "count": 0, }
 	var direct_listener: GFEventListener = GFEventListener.from_callable(
 		func(_event: ExactControllerEvent) -> void:
-			dispatch_state["count"] = (
-				GFVariantData.get_option_int(dispatch_state, "count") + 1
-			),
+			dispatch_state["count"] = (GFVariantData.get_option_int(dispatch_state, "count") + 1),
 		1
 	)
 	architecture.register_event(ExactControllerEvent, direct_listener)
@@ -247,8 +245,14 @@ func test_failed_context_stays_closed_when_shared_architecture_retries() -> void
 
 	assert_true(retry_succeeded, "无 Context 的全局 Architecture 同 identity 重试应继续成功。")
 	assert_true(model_registered, "重试后的全局 Architecture 应恢复正常模块注册。")
-	assert_true(architecture.is_inited(), "共享 Architecture 重试后应重新 READY。")
-	assert_true(context.is_context_failed(), "Context FAILED 不得随共享 Architecture 重试复活。")
+	assert_true(
+		architecture.is_inited(),
+		"共享 Architecture 重试后应重新 READY。"
+	)
+	assert_true(
+		context.is_context_failed(),
+		"Context FAILED 不得随共享 Architecture 重试复活。"
+	)
 	assert_null(
 		controller.get_architecture_or_null(),
 		"最近 Context 已 FAILED 时 Controller 必须继续拒绝同 identity Architecture。"
@@ -285,32 +289,21 @@ func test_stale_failure_signal_cannot_clear_replacement_bindings() -> void:
 		"失败重入测试必须先完成初始 Architecture activation。"
 	)
 	var replacement_architecture: GFArchitecture = GFArchitecture.new()
-	var replacement_state: Dictionary = {
-		"result": false,
-	}
-	var _failure_connect_error: Error = failed_architecture.initialization_failed.connect(
-		func(_reason: String) -> void:
-			var raw_replacement_result: Variant = Gf.call(
-				&"set_architecture",
-				replacement_architecture
-			)
-			replacement_state["result"] = GFVariantData.to_bool(
-				raw_replacement_result
-			)
-	) as Error
+	var replacement_state: Dictionary = { "result": false, }
+	var _failure_connect_error: Error = (
+		failed_architecture.initialization_failed.connect(
+			func(_reason: String) -> void:
+				var raw_replacement_result: Variant = Gf.call(&"set_architecture", replacement_architecture)
+				replacement_state["result"] = GFVariantData.to_bool(raw_replacement_result),
+		) as Error
+	)
 	var controller: EventController = EventController.new()
 	add_child(controller)
 	controller.listen(&"failure_reentry_replacement")
-	failed_architecture.send_simple_event(
-		&"failure_reentry_replacement",
-		"before_failure"
-	)
+	failed_architecture.send_simple_event(&"failure_reentry_replacement", "before_failure")
 
 	failed_architecture.fail_initialization("[test] failure listener replacement")
-	replacement_architecture.send_simple_event(
-		&"failure_reentry_replacement",
-		"replacement"
-	)
+	replacement_architecture.send_simple_event(&"failure_reentry_replacement", "replacement")
 
 	assert_true(
 		GFVariantData.get_option_bool(replacement_state, "result"),
@@ -371,7 +364,11 @@ func test_binding_revision_rebuilds_type_assignable_and_simple_desired_set() -> 
 
 	assert_eq(
 		counts,
-		{"simple": 1, "exact": 1, "assignable": 1},
+		{
+			"simple": 1,
+			"exact": 1,
+			"assignable": 1,
+		},
 		"同一架构内追加 type/assignable 绑定时必须立即重建完整 desired set。"
 	)
 
@@ -386,7 +383,11 @@ func test_binding_revision_rebuilds_type_assignable_and_simple_desired_set() -> 
 
 	assert_eq(
 		counts,
-		{"simple": 2, "exact": 1, "assignable": 2},
+		{
+			"simple": 2,
+			"exact": 1,
+			"assignable": 2,
+		},
 		"删除其中一个绑定时旧监听必须立即消失，剩余 type/assignable/simple 绑定不得丢失。"
 	)
 

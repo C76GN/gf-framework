@@ -27,7 +27,7 @@
 | 方法 | [`separation`](#member-gfsteeringmath-methods-separation) | `static func separation( agent: GFSteeringAgent, neighbors: Array[GFSteeringAgent], decay_coefficient: float = 1.0, max_distance: float = -1.0 ) -> GFSteeringAcceleration:` |
 | 方法 | [`cohesion`](#member-gfsteeringmath-methods-cohesion) | `static func cohesion(agent: GFSteeringAgent, neighbors: Array[GFSteeringAgent]) -> GFSteeringAcceleration:` |
 | 方法 | [`blend`](#member-gfsteeringmath-methods-blend) | `static func blend( accelerations: Array[GFSteeringAcceleration], weights: Array[float] = [], max_linear: float = -1.0, max_angular: float = -1.0 ) -> GFSteeringAcceleration:` |
-| 方法 | [`priority`](#member-gfsteeringmath-methods-priority) | `static func priority( accelerations: Array[GFSteeringAcceleration], threshold: float = 0.001 ) -> GFSteeringAcceleration:` |
+| 方法 | [`priority`](#member-gfsteeringmath-methods-priority) | `static func priority(accelerations: Array[GFSteeringAcceleration], threshold: float = 0.001) -> GFSteeringAcceleration:` |
 | 方法 | [`radius_neighbors`](#member-gfsteeringmath-methods-radius_neighbors) | `static func radius_neighbors( agent: GFSteeringAgent, candidates: Array[GFSteeringAgent], radius: float = -1.0 ) -> Array[GFSteeringAgent]:` |
 | 方法 | [`avoid_collisions`](#member-gfsteeringmath-methods-avoid_collisions) | `static func avoid_collisions( agent: GFSteeringAgent, targets: Array[GFSteeringAgent], max_prediction_seconds: float = 1.0, collision_radius: float = -1.0, minimum_separation: float = -1.0 ) -> GFSteeringAcceleration:` |
 | 方法 | [`path_follow_target`](#member-gfsteeringmath-methods-path_follow_target) | `static func path_follow_target( agent: GFSteeringAgent, path: Array[Vector3], path_offset: float = 0.0 ) -> Vector3:` |
@@ -310,9 +310,10 @@ static func blend( accelerations: Array[GFSteeringAcceleration], weights: Array[
 ### `priority`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func priority( accelerations: Array[GFSteeringAcceleration], threshold: float = 0.001 ) -> GFSteeringAcceleration:
+static func priority(accelerations: Array[GFSteeringAcceleration], threshold: float = 0.001) -> GFSteeringAcceleration:
 ```
 
 从多个 steering 加速度中选择第一个超过阈值的结果。

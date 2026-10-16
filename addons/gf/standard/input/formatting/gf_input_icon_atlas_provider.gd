@@ -143,8 +143,16 @@ func set_icon_path(icon_key: StringName, icon_resource_path: String) -> void:
 		_erase_dictionary_key(icon_paths, icon_key)
 	else:
 		icon_paths[icon_key] = icon_resource_path
-	_erase_cache_entry(_texture_cache, _texture_cache_order, icon_resource_path)
-	_erase_cache_entry(_missing_path_cache, _missing_path_cache_order, icon_resource_path)
+	_erase_cache_entry(
+		_texture_cache,
+		_texture_cache_order,
+		icon_resource_path
+	)
+	_erase_cache_entry(
+		_missing_path_cache,
+		_missing_path_cache_order,
+		icon_resource_path
+	)
 
 
 ## 设置图标纹理映射。
@@ -252,10 +260,21 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 		return ""
 
 	var parts: PackedStringArray = PackedStringArray()
-	var size: int = GFVariantData.get_option_int(options, "icon_size", icon_size)
+	var size: int = GFVariantData.get_option_int(
+		options,
+		"icon_size",
+		icon_size
+	)
 	for icon_path: String in paths:
-		_append_packed_string(parts, _make_image_tag(icon_path, size))
-	return GFVariantData.get_option_string(options, "rich_text_separator", rich_text_separator).join(parts)
+		_append_packed_string(
+			parts,
+			_make_image_tag(icon_path, size)
+		)
+	return GFVariantData.get_option_string(
+		options,
+		"rich_text_separator",
+		rich_text_separator
+	).join(parts)
 
 
 ## 获取输入事件的首选图标路径。
@@ -272,7 +291,10 @@ func get_event_rich_text(input_event: InputEvent, options: Dictionary = {}) -> S
 func get_event_icon_path(input_event: InputEvent, options: Dictionary = {}) -> String:
 	if input_event == null:
 		return ""
-	return _resolve_path_for_candidates(get_event_icon_candidates(input_event, options), options)
+	return _resolve_path_for_candidates(
+		get_event_icon_candidates(input_event, options),
+		options
+	)
 
 
 ## 获取输入事件的首选图标键。
@@ -334,10 +356,17 @@ func _append_packed_string(target: PackedStringArray, value: String) -> void:
 ## [br]
 func _get_rich_text_icon_paths(input_event: InputEvent, options: Dictionary) -> PackedStringArray:
 	var key_event: InputEventKey = _INPUT_EVENT_TOOLS.get_key_event(input_event)
-	if key_event != null and GFVariantData.get_option_bool(options, "split_key_modifiers", split_key_modifiers):
+	if key_event != null and GFVariantData.get_option_bool(
+		options,
+		"split_key_modifiers",
+		split_key_modifiers
+	):
 		var paths: PackedStringArray = PackedStringArray()
 		for modifier: String in _get_key_modifier_names(key_event):
-			var modifier_path: String = _resolve_path_for_candidates(PackedStringArray(["key:%s" % modifier]), options)
+			var modifier_path: String = _resolve_path_for_candidates(
+				PackedStringArray(["key:%s" % modifier]),
+				options
+			)
 			if modifier_path.is_empty():
 				return PackedStringArray()
 			_append_packed_string(paths, modifier_path)
@@ -395,14 +424,33 @@ func _resolve_path_for_candidates(candidates: PackedStringArray, options: Dictio
 ## @api private
 ## [br]
 func _build_icon_path(icon_key: String, options: Dictionary) -> String:
-	var root: String = GFVariantData.get_option_string(options, "root_path", root_path)
-	var selected_style: String = GFVariantData.get_option_string(options, "style", str(style))
-	var selected_platform: String = GFVariantData.get_option_string(options, "platform", str(platform))
+	var root: String = GFVariantData.get_option_string(
+		options,
+		"root_path",
+		root_path
+	)
+	var selected_style: String = GFVariantData.get_option_string(
+		options,
+		"style",
+		str(style)
+	)
+	var selected_platform: String = GFVariantData.get_option_string(
+		options,
+		"platform",
+		str(platform)
+	)
 	if selected_platform.is_empty():
 		selected_platform = str(fallback_platform)
 	var icon_name: String = _sanitize_icon_name(icon_key.replace(":", "_").replace("+", "_"))
-	var resolved_path: String = GFVariantData.get_option_string(options, "path_pattern", path_pattern)
-	resolved_path = resolved_path.replace("{root}", root.trim_suffix("/"))
+	var resolved_path: String = GFVariantData.get_option_string(
+		options,
+		"path_pattern",
+		path_pattern
+	)
+	resolved_path = resolved_path.replace(
+		"{root}",
+		root.trim_suffix("/")
+	)
 	resolved_path = resolved_path.replace("{style}", selected_style)
 	resolved_path = resolved_path.replace("{platform}", selected_platform)
 	resolved_path = resolved_path.replace("{icon}", icon_name)
@@ -418,7 +466,11 @@ func _path_is_allowed(icon_resource_path: String, options: Dictionary) -> bool:
 		return false
 	if not _path_has_allowed_scheme(icon_resource_path):
 		return false
-	if GFVariantData.get_option_bool(options, "allow_missing_paths", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"allow_missing_paths",
+		false
+	):
 		return true
 	if _path_is_known_missing(icon_resource_path, options):
 		return false
@@ -433,7 +485,11 @@ func _path_is_allowed(icon_resource_path: String, options: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _path_is_known_missing(icon_resource_path: String, options: Dictionary) -> bool:
-	if not GFVariantData.get_option_bool(options, "cache_missing_paths", cache_missing_paths):
+	if not GFVariantData.get_option_bool(
+		options,
+		"cache_missing_paths",
+		cache_missing_paths
+	):
 		return false
 	return _missing_path_cache.has(icon_resource_path)
 
@@ -443,12 +499,24 @@ func _path_is_known_missing(icon_resource_path: String, options: Dictionary) -> 
 ## @api private
 ## [br]
 func _remember_texture(icon_resource_path: String, texture: Texture2D) -> void:
-	if icon_resource_path.is_empty() or texture == null or max_cached_textures <= 0:
+	if (
+		icon_resource_path.is_empty()
+		or texture == null
+		or max_cached_textures <= 0
+	):
 		return
 	_texture_cache[icon_resource_path] = texture
 	_append_cache_key(_texture_cache_order, icon_resource_path)
-	_prune_cache_to_capacity(_texture_cache, _texture_cache_order, max_cached_textures)
-	_erase_cache_entry(_missing_path_cache, _missing_path_cache_order, icon_resource_path)
+	_prune_cache_to_capacity(
+		_texture_cache,
+		_texture_cache_order,
+		max_cached_textures
+	)
+	_erase_cache_entry(
+		_missing_path_cache,
+		_missing_path_cache_order,
+		icon_resource_path
+	)
 
 
 ## 在缺失缓存启用且容量为正时记录路径并按容量裁剪。
@@ -458,11 +526,19 @@ func _remember_texture(icon_resource_path: String, texture: Texture2D) -> void:
 func _remember_missing_path(icon_resource_path: String, options: Dictionary) -> void:
 	if icon_resource_path.is_empty() or max_cached_missing_paths <= 0:
 		return
-	if not GFVariantData.get_option_bool(options, "cache_missing_paths", cache_missing_paths):
+	if not GFVariantData.get_option_bool(
+		options,
+		"cache_missing_paths",
+		cache_missing_paths
+	):
 		return
 	_missing_path_cache[icon_resource_path] = true
 	_append_cache_key(_missing_path_cache_order, icon_resource_path)
-	_prune_cache_to_capacity(_missing_path_cache, _missing_path_cache_order, max_cached_missing_paths)
+	_prune_cache_to_capacity(
+		_missing_path_cache,
+		_missing_path_cache_order,
+		max_cached_missing_paths
+	)
 
 
 ## 仅在顺序数组尚无该路径时追加缓存键。
@@ -479,7 +555,11 @@ func _append_cache_key(order: PackedStringArray, icon_resource_path: String) -> 
 ## [br]
 ## @api private
 ## [br]
-func _erase_cache_entry(cache: Dictionary, order: PackedStringArray, icon_resource_path: String) -> void:
+func _erase_cache_entry(
+	cache: Dictionary,
+	order: PackedStringArray,
+	icon_resource_path: String
+) -> void:
 	_erase_dictionary_key(cache, icon_resource_path)
 	var index: int = order.find(icon_resource_path)
 	if index >= 0:
@@ -490,7 +570,11 @@ func _erase_cache_entry(cache: Dictionary, order: PackedStringArray, icon_resour
 ## [br]
 ## @api private
 ## [br]
-func _prune_cache_to_capacity(cache: Dictionary, order: PackedStringArray, capacity: int) -> void:
+func _prune_cache_to_capacity(
+	cache: Dictionary,
+	order: PackedStringArray,
+	capacity: int
+) -> void:
 	while order.size() > capacity:
 		var oldest_key: String = order[0]
 		order.remove_at(0)
@@ -516,7 +600,10 @@ func _path_has_allowed_scheme(icon_resource_path: String) -> bool:
 func _make_image_tag(icon_resource_path: String, size: int) -> String:
 	var escaped_path: String = _escape_bbcode(icon_resource_path)
 	if size > 0:
-		return "[img=%d]%s[/img]" % [size, escaped_path]
+		return (
+			"[img=%d]%s[/img]"
+			% [size, escaped_path]
+		)
 	return "[img]%s[/img]" % escaped_path
 
 
@@ -566,7 +653,11 @@ func _get_texture(value: Variant) -> Texture2D:
 ## @api private
 ## [br]
 func _load_texture(icon_path: String) -> Texture2D:
-	var resource: Resource = ResourceLoader.load(icon_path, "Texture2D", ResourceLoader.CACHE_MODE_REUSE)
+	var resource: Resource = ResourceLoader.load(
+		icon_path,
+		"Texture2D",
+		ResourceLoader.CACHE_MODE_REUSE
+	)
 	return _get_texture(resource)
 
 

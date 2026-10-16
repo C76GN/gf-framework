@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDualMeshTopology2D" path="addons/gf/standard/foundation/math/gf_dual_mesh_topology_2d.gd" module="standard" extends="RefCounted" classDigest="63a81b599926af395aa29bc5cc996f787974e1df18cfe55ea568d57da1a408a4">
+<class name="GFDualMeshTopology2D" path="addons/gf/standard/foundation/math/gf_dual_mesh_topology_2d.gd" module="standard" extends="RefCounted" classDigest="ab439d6104a68654fabaa2b415540d24bae90f4781adb71b81a6829589ffae01">
 	<description>GFDualMeshTopology2D: 二维 Delaunay / Voronoi 双图拓扑工具。
 从 GFVoronoi2D 的纯数据结果派生点邻接、边到三角形、点到三角形和边界信息。
 它不生成地图、Mesh、Tile、河流、生态群系或渲染数据，项目层可在这些拓扑之上解释领域语义。</description>
@@ -78,7 +78,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_edge_triangles">
-			<signature>static func get_edge_triangles(topology: Dictionary, a: int, b: int) -&gt; PackedInt32Array:</signature>
+			<signature>static func get_edge_triangles( topology: Dictionary, a: int, b: int ) -&gt; PackedInt32Array:</signature>
 			<description>获取指定边关联的三角形索引。</description>
 			<tags>
 				<tag name="api">public</tag>

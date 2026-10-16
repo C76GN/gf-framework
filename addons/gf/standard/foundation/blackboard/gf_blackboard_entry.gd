@@ -157,7 +157,11 @@ func is_value_valid(value: Variant) -> bool:
 ## @schema return: Variant coerced value.
 func coerce_value(value: Variant) -> Variant:
 	var result: Dictionary = try_coerce_value(value)
-	if GFVariantData.get_option_bool(result, "ok", false):
+	if GFVariantData.get_option_bool(
+		result,
+		"ok",
+		false
+	):
 		return GFVariantData.get_option_value(result, "value")
 	return GFVariantData.duplicate_variant(value)
 
@@ -185,9 +189,15 @@ func try_coerce_value(value: Variant) -> Dictionary:
 		ValueType.FLOAT:
 			return _try_coerce_float(value)
 		ValueType.STRING:
-			return _make_coerce_result(true, str(value))
+			return _make_coerce_result(
+				true,
+				str(value)
+			)
 		ValueType.STRING_NAME:
-			return _make_coerce_result(true, StringName(str(value)))
+			return _make_coerce_result(
+				true,
+				StringName(str(value))
+			)
 		ValueType.VECTOR2:
 			return _try_coerce_vector2(value)
 		ValueType.VECTOR2I:
@@ -200,16 +210,34 @@ func try_coerce_value(value: Variant) -> Dictionary:
 			return _try_coerce_color(value)
 		ValueType.DICTIONARY:
 			if value is Dictionary:
-				return _make_coerce_result(true, GFVariantData.to_dictionary(value))
-			return _make_coerce_result(false, {}, "值无法转换为 Dictionary。")
+				return _make_coerce_result(
+					true,
+					GFVariantData.to_dictionary(value)
+				)
+			return _make_coerce_result(
+				false,
+				{},
+				"值无法转换为 Dictionary。"
+			)
 		ValueType.ARRAY:
 			if value is Array:
-				return _make_coerce_result(true, GFVariantData.to_array(value))
-			return _make_coerce_result(false, [], "值无法转换为 Array。")
+				return _make_coerce_result(
+					true,
+					GFVariantData.to_array(value)
+				)
+			return _make_coerce_result(
+				false,
+				[],
+				"值无法转换为 Array。"
+			)
 		ValueType.OBJECT:
 			if value is Object:
 				return _make_coerce_result(true, value)
-			return _make_coerce_result(false, null, "值无法转换为 Object。")
+			return _make_coerce_result(
+				false,
+				null,
+				"值无法转换为 Object。"
+			)
 		_:
 			return _make_coerce_result(true, value)
 
@@ -293,7 +321,11 @@ static func value_type_to_name(type_id: ValueType) -> String:
 ## 创建包含转换状态、结果值和说明文本的标准报告。
 ## [br]
 ## @api private
-func _make_coerce_result(ok: bool, coerced_value: Variant, message: String = "") -> Dictionary:
+func _make_coerce_result(
+	ok: bool,
+	coerced_value: Variant,
+	message: String = ""
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"value": coerced_value,
@@ -311,15 +343,36 @@ func _try_coerce_bool(value: Variant) -> Dictionary:
 	if value is int or value is float:
 		var numeric_value: float = GFVariantData.to_float(value, 0.0)
 		if not is_finite(numeric_value):
-			return _make_coerce_result(false, false, "Value cannot be coerced to bool from a non-finite number.")
-		return _make_coerce_result(true, numeric_value != 0.0)
+			return _make_coerce_result(
+				false,
+				false,
+				"Value cannot be coerced to bool from a non-finite number."
+			)
+		return _make_coerce_result(
+			true,
+			numeric_value != 0.0
+		)
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value, "").strip_edges().to_lower()
-		if text in ["true", "1", "yes", "on"]:
+		if text in [
+			"true",
+			"1",
+			"yes",
+			"on",
+		]:
 			return _make_coerce_result(true, true)
-		if text in ["false", "0", "no", "off"]:
+		if text in [
+			"false",
+			"0",
+			"no",
+			"off",
+		]:
 			return _make_coerce_result(true, false)
-	return _make_coerce_result(false, false, "值无法转换为 bool。")
+	return _make_coerce_result(
+		false,
+		false,
+		"值无法转换为 bool。"
+	)
 
 
 ## 将整数、有限浮点数或有效整数字符串转换为 int。
@@ -327,33 +380,65 @@ func _try_coerce_bool(value: Variant) -> Dictionary:
 ## @api private
 func _try_coerce_int(value: Variant) -> Dictionary:
 	if value is int or value is bool:
-		return _make_coerce_result(true, GFVariantData.to_int(value, 0))
+		return _make_coerce_result(
+			true,
+			GFVariantData.to_int(value, 0)
+		)
 	if value is float:
 		var float_value: float = GFVariantData.to_float(value, 0.0)
 		if is_nan(float_value) or is_inf(float_value):
-			return _make_coerce_result(false, 0, "值无法转换为 int。")
-		return _make_coerce_result(true, int(float_value))
+			return _make_coerce_result(
+				false,
+				0,
+				"值无法转换为 int。"
+			)
+		return _make_coerce_result(
+			true,
+			int(float_value)
+		)
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value, "").strip_edges()
 		if text.is_valid_int():
-			return _make_coerce_result(true, text.to_int())
-	return _make_coerce_result(false, 0, "值无法转换为 int。")
+			return _make_coerce_result(
+				true,
+				text.to_int()
+			)
+	return _make_coerce_result(
+		false,
+		0,
+		"值无法转换为 int。"
+	)
 
 
 ## 将有限数值或有效浮点数字符串转换为 float。
 ## [br]
 ## @api private
 func _try_coerce_float(value: Variant) -> Dictionary:
-	if value is float or value is int or value is bool:
+	if (
+		value is float
+		or value is int
+		or value is bool
+	):
 		var float_value: float = GFVariantData.to_float(value, 0.0)
 		if is_nan(float_value) or is_inf(float_value):
-			return _make_coerce_result(false, 0.0, "值无法转换为 float。")
+			return _make_coerce_result(
+				false,
+				0.0,
+				"值无法转换为 float。"
+			)
 		return _make_coerce_result(true, float_value)
 	if value is String or value is StringName:
 		var text: String = GFVariantData.to_text(value, "").strip_edges()
 		if text.is_valid_float():
-			return _make_coerce_result(true, text.to_float())
-	return _make_coerce_result(false, 0.0, "值无法转换为 float。")
+			return _make_coerce_result(
+				true,
+				text.to_float()
+			)
+	return _make_coerce_result(
+		false,
+		0.0,
+		"值无法转换为 float。"
+	)
 
 
 ## 保留 Vector2，或把 Vector2i、数组和字典内容转换为 Vector2。
@@ -364,8 +449,15 @@ func _try_coerce_vector2(value: Variant) -> Dictionary:
 		return _make_coerce_result(true, value)
 	if value is Vector2i:
 		var vector2i: Vector2i = value
-		return _make_coerce_result(true, Vector2(vector2i.x, vector2i.y))
-	return _coerce_vector_from_collection(value, 2, false)
+		return _make_coerce_result(
+			true,
+			Vector2(vector2i.x, vector2i.y)
+		)
+	return _coerce_vector_from_collection(
+		value,
+		2,
+		false
+	)
 
 
 ## 将 Vector2、Vector2i、数组或字典转换为 Vector2i；浮点分量四舍五入。
@@ -376,12 +468,33 @@ func _try_coerce_vector2i(value: Variant) -> Dictionary:
 		return _make_coerce_result(true, value)
 	if value is Vector2:
 		var vector2: Vector2 = value
-		return _make_coerce_result(true, Vector2i(roundi(vector2.x), roundi(vector2.y)))
+		return _make_coerce_result(
+			true,
+			Vector2i(
+				roundi(vector2.x),
+				roundi(vector2.y)
+			)
+		)
 
-	var result: Dictionary = _coerce_vector_from_collection(value, 2, true)
-	if GFVariantData.get_option_bool(result, "ok", false):
-		var vector: Vector2 = _get_dictionary_vector2(result, "value", Vector2.ZERO)
-		result["value"] = Vector2i(roundi(vector.x), roundi(vector.y))
+	var result: Dictionary = _coerce_vector_from_collection(
+		value,
+		2,
+		true
+	)
+	if GFVariantData.get_option_bool(
+		result,
+		"ok",
+		false
+	):
+		var vector: Vector2 = _get_dictionary_vector2(
+			result,
+			"value",
+			Vector2.ZERO
+		)
+		result["value"] = Vector2i(
+			roundi(vector.x),
+			roundi(vector.y)
+		)
 	return result
 
 
@@ -393,8 +506,19 @@ func _try_coerce_vector3(value: Variant) -> Dictionary:
 		return _make_coerce_result(true, value)
 	if value is Vector3i:
 		var vector3i: Vector3i = value
-		return _make_coerce_result(true, Vector3(vector3i.x, vector3i.y, vector3i.z))
-	return _coerce_vector_from_collection(value, 3, false)
+		return _make_coerce_result(
+			true,
+			Vector3(
+				vector3i.x,
+				vector3i.y,
+				vector3i.z
+			)
+		)
+	return _coerce_vector_from_collection(
+		value,
+		3,
+		false
+	)
 
 
 ## 将 Vector3、Vector3i、数组或字典转换为 Vector3i；浮点分量四舍五入。
@@ -405,12 +529,35 @@ func _try_coerce_vector3i(value: Variant) -> Dictionary:
 		return _make_coerce_result(true, value)
 	if value is Vector3:
 		var vector3: Vector3 = value
-		return _make_coerce_result(true, Vector3i(roundi(vector3.x), roundi(vector3.y), roundi(vector3.z)))
+		return _make_coerce_result(
+			true,
+			Vector3i(
+				roundi(vector3.x),
+				roundi(vector3.y),
+				roundi(vector3.z)
+			)
+		)
 
-	var result: Dictionary = _coerce_vector_from_collection(value, 3, true)
-	if GFVariantData.get_option_bool(result, "ok", false):
-		var vector: Vector3 = _get_dictionary_vector3(result, "value", Vector3.ZERO)
-		result["value"] = Vector3i(roundi(vector.x), roundi(vector.y), roundi(vector.z))
+	var result: Dictionary = _coerce_vector_from_collection(
+		value,
+		3,
+		true
+	)
+	if GFVariantData.get_option_bool(
+		result,
+		"ok",
+		false
+	):
+		var vector: Vector3 = _get_dictionary_vector3(
+			result,
+			"value",
+			Vector3.ZERO
+		)
+		result["value"] = Vector3i(
+			roundi(vector.x),
+			roundi(vector.y),
+			roundi(vector.z)
+		)
 	return result
 
 
@@ -424,21 +571,58 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 		var text: String = GFVariantData.to_text(value, "").strip_edges()
 		if not text.is_empty():
 			if text.begins_with("#") and Color.html_is_valid(text):
-				return _make_coerce_result(true, Color.html(text))
-			return _make_coerce_result(false, Color.WHITE, "无效颜色字符串：%s" % text)
+				return _make_coerce_result(
+					true,
+					Color.html(text)
+				)
+			return _make_coerce_result(
+				false,
+				Color.WHITE,
+				"无效颜色字符串：%s" % text
+			)
 
-	var channels: Dictionary = _read_numeric_fields(value, ["r", "g", "b", "a"], 3, 1.0)
-	if not GFVariantData.get_option_bool(channels, "ok", false):
-		return _make_coerce_result(false, Color.WHITE, "值无法转换为 Color。")
+	var channels: Dictionary = _read_numeric_fields(
+		value,
+		[
+			"r",
+			"g",
+			"b",
+			"a",
+		],
+		3,
+		1.0
+	)
+	if not GFVariantData.get_option_bool(
+		channels,
+		"ok",
+		false
+	):
+		return _make_coerce_result(
+			false,
+			Color.WHITE,
+			"值无法转换为 Color。"
+		)
 
 	var values: Array = GFVariantData.get_option_array(channels, "values")
 	return _make_coerce_result(
 		true,
 		Color(
-			GFVariantData.to_float(values[0], 0.0),
-			GFVariantData.to_float(values[1], 0.0),
-			GFVariantData.to_float(values[2], 0.0),
-			GFVariantData.to_float(values[3], 1.0)
+			GFVariantData.to_float(
+				values[0],
+				0.0
+			),
+			GFVariantData.to_float(
+				values[1],
+				0.0
+			),
+			GFVariantData.to_float(
+				values[2],
+				0.0
+			),
+			GFVariantData.to_float(
+				values[3],
+				1.0
+			)
 		)
 	)
 
@@ -447,31 +631,67 @@ func _try_coerce_color(value: Variant) -> Dictionary:
 ## 整数向量调用方会在成功后单独执行分量取整。
 ## [br]
 ## @api private
-func _coerce_vector_from_collection(value: Variant, size: int, _integer: bool) -> Dictionary:
-	var names: Array[String] = ["x", "y", "z"]
+func _coerce_vector_from_collection(
+	value: Variant,
+	size: int,
+	_integer: bool
+) -> Dictionary:
+	var names: Array[String] = [
+		"x",
+		"y",
+		"z",
+	]
 	var fields: Array[String] = names.slice(0, size)
-	var channels: Dictionary = _read_numeric_fields(value, fields, size, 0.0)
-	if not GFVariantData.get_option_bool(channels, "ok", false):
+	var channels: Dictionary = _read_numeric_fields(
+		value,
+		fields,
+		size,
+		0.0
+	)
+	if not GFVariantData.get_option_bool(
+		channels,
+		"ok",
+		false
+	):
 		var fallback_value: Variant = Vector2.ZERO
 		if size == 3:
 			fallback_value = Vector3.ZERO
-		return _make_coerce_result(false, fallback_value, "值无法转换为 Vector。")
+		return _make_coerce_result(
+			false,
+			fallback_value,
+			"值无法转换为 Vector。"
+		)
 
 	var values: Array = GFVariantData.get_option_array(channels, "values")
 	if size == 3:
 		return _make_coerce_result(
 			true,
 			Vector3(
-				GFVariantData.to_float(values[0], 0.0),
-				GFVariantData.to_float(values[1], 0.0),
-				GFVariantData.to_float(values[2], 0.0)
+				GFVariantData.to_float(
+					values[0],
+					0.0
+				),
+				GFVariantData.to_float(
+					values[1],
+					0.0
+				),
+				GFVariantData.to_float(
+					values[2],
+					0.0
+				)
 			)
 		)
 	return _make_coerce_result(
 		true,
 		Vector2(
-			GFVariantData.to_float(values[0], 0.0),
-			GFVariantData.to_float(values[1], 0.0)
+			GFVariantData.to_float(
+				values[0],
+				0.0
+			),
+			GFVariantData.to_float(
+				values[1],
+				0.0
+			)
 		)
 	)
 
@@ -479,20 +699,42 @@ func _coerce_vector_from_collection(value: Variant, size: int, _integer: bool) -
 ## 从字典字段或数组位置读取并逐项转换数值，返回 ok 与 values。
 ## [br]
 ## @api private
-func _read_numeric_fields(value: Variant, field_names: Array, required_size: int, default_last: float) -> Dictionary:
+func _read_numeric_fields(
+	value: Variant,
+	field_names: Array,
+	required_size: int,
+	default_last: float
+) -> Dictionary:
 	var values: Array[float] = []
 	if value is Dictionary:
 		var data: Dictionary = value
 		for index: int in range(field_names.size()):
-			var field_name: String = GFVariantData.to_text(field_names[index], "")
+			var field_name: String = GFVariantData.to_text(
+				field_names[index],
+				""
+			)
 			var fallback_value: Variant = null
 			if index >= required_size:
 				fallback_value = default_last
-			var raw_value: Variant = GFVariantData.get_option_value(data, field_name, fallback_value)
+			var raw_value: Variant = GFVariantData.get_option_value(
+				data,
+				field_name,
+				fallback_value
+			)
 			var coerced: Dictionary = _try_coerce_float(raw_value)
-			if not GFVariantData.get_option_bool(coerced, "ok", false):
+			if not GFVariantData.get_option_bool(
+				coerced,
+				"ok",
+				false
+			):
 				return { "ok": false, "values": [] }
-			values.append(GFVariantData.get_option_float(coerced, "value", 0.0))
+			values.append(
+				GFVariantData.get_option_float(
+					coerced,
+					"value",
+					0.0
+				)
+			)
 		return { "ok": true, "values": values }
 	if value is Array:
 		var array: Array = value
@@ -505,9 +747,19 @@ func _read_numeric_fields(value: Variant, field_names: Array, required_size: int
 			else:
 				raw_value = default_last
 			var coerced: Dictionary = _try_coerce_float(raw_value)
-			if not GFVariantData.get_option_bool(coerced, "ok", false):
+			if not GFVariantData.get_option_bool(
+				coerced,
+				"ok",
+				false
+			):
 				return { "ok": false, "values": [] }
-			values.append(GFVariantData.get_option_float(coerced, "value", 0.0))
+			values.append(
+				GFVariantData.get_option_float(
+					coerced,
+					"value",
+					0.0
+				)
+			)
 		return { "ok": true, "values": values }
 	return { "ok": false, "values": [] }
 
@@ -515,15 +767,37 @@ func _read_numeric_fields(value: Variant, field_names: Array, required_size: int
 ## 从字典读取指定值，并在结果不是 Vector2 时返回 fallback。
 ## [br]
 ## @api private
-func _get_dictionary_vector2(source: Dictionary, dictionary_key: Variant, fallback: Vector2) -> Vector2:
-	return _variant_to_vector2(GFVariantData.get_option_value(source, dictionary_key, fallback), fallback)
+func _get_dictionary_vector2(
+	source: Dictionary,
+	dictionary_key: Variant,
+	fallback: Vector2
+) -> Vector2:
+	return _variant_to_vector2(
+		GFVariantData.get_option_value(
+			source,
+			dictionary_key,
+			fallback
+		),
+		fallback
+	)
 
 
 ## 从字典读取指定值，并在结果不是 Vector3 时返回 fallback。
 ## [br]
 ## @api private
-func _get_dictionary_vector3(source: Dictionary, dictionary_key: Variant, fallback: Vector3) -> Vector3:
-	return _variant_to_vector3(GFVariantData.get_option_value(source, dictionary_key, fallback), fallback)
+func _get_dictionary_vector3(
+	source: Dictionary,
+	dictionary_key: Variant,
+	fallback: Vector3
+) -> Vector3:
+	return _variant_to_vector3(
+		GFVariantData.get_option_value(
+			source,
+			dictionary_key,
+			fallback
+		),
+		fallback
+	)
 
 
 ## 返回 Vector2 类型的输入值；其他类型返回给定 fallback。

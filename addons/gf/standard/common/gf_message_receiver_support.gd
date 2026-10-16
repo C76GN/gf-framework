@@ -9,9 +9,7 @@ extends RefCounted
 ## 将接收报告投影为共享 schema 并处理路径脱敏的辅助脚本。
 ## [br]
 ## @api private
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
+const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
 
 
 # --- 框架内部方法 ---
@@ -204,7 +202,15 @@ static func _receive_with_delegate(
 		)
 
 	if delegate_enabled and delegate_receiver == null:
-		var missing_delegate_report: Dictionary = _make_report(null, false, id_key, id_value, "missing_receiver", missing_delegate_message, metadata)
+		var missing_delegate_report: Dictionary = _make_report(
+			null,
+			false,
+			id_key,
+			id_value,
+			"missing_receiver",
+			missing_delegate_message,
+			metadata
+		)
 		return _emit_and_return_report(
 			context,
 			missing_delegate_report,
@@ -235,16 +241,26 @@ static func _receive_with_delegate(
 	if validation_callback.is_valid():
 		report = _apply_validation_result(
 			report,
-			validation_callback.call(context, _duplicate_dictionary_structure(report))
+			validation_callback.call(
+				context,
+				_duplicate_dictionary_structure(report)
+			)
 		)
 	elif not validation_callback.is_null():
-		report = _apply_validation_result(report, {
-			"ok": false,
-			"reason": "invalid_validator",
-			"message": "Configured validator became invalid before validation.",
-		})
+		report = _apply_validation_result(
+			report,
+			{
+				"ok": false,
+				"reason": "invalid_validator",
+				"message": "Configured validator became invalid before validation.",
+			}
+		)
 
-	if _report_is_ok(report) and delegate_enabled and delegate_receiver.has_method(delegate_method):
+	if (
+		_report_is_ok(report)
+		and delegate_enabled
+		and delegate_receiver.has_method(delegate_method)
+	):
 		var delegated_value: Variant = delegate_receiver.callv(delegate_method, delegate_args)
 		if delegated_value is Dictionary:
 			report = GFVariantData.as_dictionary(delegated_value).duplicate(false)
@@ -350,21 +366,23 @@ static func _make_report(
 static func _apply_validation_result(report: Dictionary, validation_result: Variant) -> Dictionary:
 	if validation_result is bool:
 		report["ok"] = GFVariantData.to_bool(validation_result)
-		if not GFVariantData.to_bool(validation_result) and GFVariantData.get_option_string(report, "reason").is_empty():
+		if (not GFVariantData.to_bool(validation_result) and GFVariantData.get_option_string(report, "reason").is_empty()):
 			report["reason"] = "validation_failed"
 		return report
 
 	if not validation_result is Dictionary:
 		return report
 
-	var result: Dictionary = _duplicate_dictionary_structure(
-		GFVariantData.as_dictionary(validation_result)
-	)
+	var result: Dictionary = _duplicate_dictionary_structure(GFVariantData.as_dictionary(validation_result))
 	for key: Variant in result.keys():
 		if key == "metadata" and result[key] is Dictionary:
 			var merged_metadata: Dictionary = _duplicate_dictionary_structure(
 				GFVariantData.as_dictionary(
-					GFVariantData.get_option_value(report, "metadata", {})
+					GFVariantData.get_option_value(
+						report,
+						"metadata",
+						{}
+					)
 				)
 			)
 			var result_metadata: Dictionary = GFVariantData.as_dictionary(result[key])
@@ -380,7 +398,11 @@ static func _apply_validation_result(report: Dictionary, validation_result: Vari
 ## [br]
 ## @api private
 static func _report_is_ok(report: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(report, "ok", false)
+	return GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	)
 
 
 ## 使用 GFVariantData.duplicate_variant() 处理字典结构并返回 Dictionary。
@@ -388,7 +410,11 @@ static func _report_is_ok(report: Dictionary) -> bool:
 ## @api private
 static func _duplicate_dictionary_structure(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(
-		GFVariantData.duplicate_variant(value, true, false)
+		GFVariantData.duplicate_variant(
+			value,
+			true,
+			false
+		)
 	)
 
 
@@ -407,9 +433,7 @@ static func _get_object_property(target: Object, property_name: String) -> Varia
 static func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
 	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
 		_prepare_raw_report(report, default_receiver),
-		{
-			"path_redaction": "basename",
-		}
+		{ "path_redaction": "basename", }
 	)
 
 
@@ -434,5 +458,8 @@ static func _emit_and_return_report(
 ) -> Dictionary:
 	var prepared_report: Dictionary = _prepare_raw_report(raw_report, default_receiver)
 	var normalized_report: Dictionary = _normalize_report(prepared_report, default_receiver)
-	emitter.call(context, normalized_report.duplicate(true))
+	emitter.call(
+		context,
+		normalized_report.duplicate(true)
+	)
 	return normalized_report if normalize_output else prepared_report

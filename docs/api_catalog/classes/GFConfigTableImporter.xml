@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="d5860cf08e3c4c0e26222d5c9b57ddc30a81e8f715b6cd811a71e00dd8489322">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="85478652d70de52ed829f125e1b23285d0f607201a98d7b62c1b59ddd9f83906">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。</description>
@@ -68,7 +68,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_json_table">
-			<signature>static func validate_json_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func validate_json_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>解析并校验 JSON 表文本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -78,6 +78,7 @@
 				<tag name="return">校验报告；解析失败时返回失败报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 source。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_json_record">
@@ -97,7 +98,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_csv_table">
-			<signature>static func validate_csv_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func validate_csv_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>解析并校验 CSV 表文本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -111,7 +112,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="validate_config_file_table">
-			<signature>static func validate_config_file_table(text: String, schema: GFConfigTableSchema, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func validate_config_file_table( text: String, schema: GFConfigTableSchema, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>解析并校验 Godot ConfigFile 表文本。</description>
 			<tags>
 				<tag name="api">public</tag>

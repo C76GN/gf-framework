@@ -25,10 +25,7 @@ func before_each() -> void:
 		_EXTENSION_SETTINGS_SCRIPT.EXPORT_EXCLUDE_DISABLED_SETTING,
 		_EXTENSION_SETTINGS_SCRIPT.EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING,
 	]:
-		_settings_restore[setting_path] = {
-			"exists": ProjectSettings.has_setting(setting_path),
-			"value": ProjectSettings.get_setting(setting_path),
-		}
+		_settings_restore[setting_path] = { "exists": ProjectSettings.has_setting(setting_path), "value": ProjectSettings.get_setting(setting_path), }
 
 
 func after_each() -> void:
@@ -44,7 +41,10 @@ func after_each() -> void:
 		var snapshot: Dictionary = raw_snapshot
 		var existed: Variant = snapshot.get("exists", false)
 		if existed is bool and existed:
-			ProjectSettings.set_setting(setting_path, snapshot["value"])
+			ProjectSettings.set_setting(
+				setting_path,
+				snapshot["value"]
+			)
 		else:
 			ProjectSettings.set_setting(setting_path, null)
 	_settings_restore.clear()
@@ -56,8 +56,15 @@ func after_each() -> void:
 func test_open_refresh_selection_and_save_do_not_scan() -> void:
 	var dock: AuditProbe = _new_dock()
 	await get_tree().process_frame
-	assert_eq(dock.audit_count, 0, "首次打开扩展列表不能同步扫描项目引用。")
-	assert_true(dock._status_label.text.contains("未扫描"), "初次列表不能暗示禁用扩展已经通过审计。")
+	assert_eq(
+		dock.audit_count,
+		0,
+		"首次打开扩展列表不能同步扫描项目引用。"
+	)
+	assert_true(
+		dock._status_label.text.contains("未扫描"),
+		"初次列表不能暗示禁用扩展已经通过审计。"
+	)
 	dock._refresh_extensions()
 	dock._set_all_enabled(true)
 	dock._restore_default_selection()
@@ -65,9 +72,20 @@ func test_open_refresh_selection_and_save_do_not_scan() -> void:
 	assert_true(preset_applied)
 	dock._on_extension_toggled(true, "gf.save")
 	dock._apply_selection()
-	assert_eq(dock.save_count, 1, "保存仍应写入设置。")
-	assert_eq(dock.audit_count, 0, "刷新、组合、选择与保存必须保持按需审计。")
-	assert_true(dock._status_label.text.contains("未扫描"), "保存成功不等同于引用审计成功。")
+	assert_eq(
+		dock.save_count,
+		1,
+		"保存仍应写入设置。"
+	)
+	assert_eq(
+		dock.audit_count,
+		0,
+		"刷新、组合、选择与保存必须保持按需审计。"
+	)
+	assert_true(
+		dock._status_label.text.contains("未扫描"),
+		"保存成功不等同于引用审计成功。"
+	)
 
 
 func test_scan_button_runs_once_and_search_preserves_report() -> void:
@@ -78,13 +96,24 @@ func test_scan_button_runs_once_and_search_preserves_report() -> void:
 	if scan_button == null:
 		return
 	scan_button.pressed.emit()
-	assert_eq(dock.audit_count, 1, "一次扫描按钮操作只生成一份报告。")
+	assert_eq(
+		dock.audit_count,
+		1,
+		"一次扫描按钮操作只生成一份报告。"
+	)
 	assert_string_contains(dock._status_label.text, "扫描完成")
 	assert_string_contains(dock._status_label.text, "未发现")
 	dock._search_field.text = "save"
 	dock._search_field.text_changed.emit("save")
-	assert_eq(dock.audit_count, 1, "筛选扩展列表不能重新扫描项目。")
-	assert_true(dock._status_label.text.contains("扫描完成"), "筛选列表不改变报告所依据的输入。")
+	assert_eq(
+		dock.audit_count,
+		1,
+		"筛选扩展列表不能重新扫描项目。"
+	)
+	assert_true(
+		dock._status_label.text.contains("扫描完成"),
+		"筛选列表不改变报告所依据的输入。"
+	)
 
 
 func test_selection_marks_prior_report_stale_until_next_scan() -> void:
@@ -94,7 +123,10 @@ func test_selection_marks_prior_report_stale_until_next_scan() -> void:
 	dock._on_extension_toggled(true, "gf.save")
 	assert_eq(dock.audit_count, 1)
 	assert_string_contains(dock._status_label.text, "已失效")
-	assert_false(dock._status_label.text.contains("未发现"), "旧报告的零引用不能作为新选择的结论。")
+	assert_false(
+		dock._status_label.text.contains("未发现"),
+		"旧报告的零引用不能作为新选择的结论。"
+	)
 	dock._scan_disabled_extension_references()
 	assert_eq(dock.audit_count, 2)
 	assert_string_contains(dock._status_label.text, "扫描完成")
@@ -110,7 +142,10 @@ func test_partial_zero_reference_report_does_not_claim_complete() -> void:
 	assert_string_contains(dock._status_label.text, "扫描不完整")
 	assert_false(dock._status_label.text.contains("未发现"))
 	assert_false(dock._status_label.text.contains("扫描完成"))
-	assert_true(dock._details_output.text.contains("扫描不完整"), "详情也必须说明扫描范围不完整。")
+	assert_true(
+		dock._details_output.text.contains("扫描不完整"),
+		"详情也必须说明扫描范围不完整。"
+	)
 
 
 func test_reference_report_shows_findings_and_discards_stale_details() -> void:
@@ -123,16 +158,25 @@ func test_reference_report_shows_findings_and_discards_stale_details() -> void:
 	dock.next_report["extensions"] = {
 		manifest.id: {
 			"reference_count": 1,
-			"references": [{ "path": "res://game/example.gd", "line": 7 }],
+			"references": [
+				{ "path": "res://game/example.gd", "line": 7 },
+			],
 		},
 	}
 	dock._scan_disabled_extension_references()
 	assert_string_contains(dock._status_label.text, "发现 1 处")
 	assert_string_contains(dock._details_output.text, "res://game/example.gd:7")
 	dock._refresh_extensions()
-	assert_eq(dock.audit_count, 1, "重新加载只使报告失效。")
+	assert_eq(
+		dock.audit_count,
+		1,
+		"重新加载只使报告失效。"
+	)
 	assert_string_contains(dock._status_label.text, "已失效")
-	assert_false(dock._details_output.text.contains("res://game/example.gd:7"), "旧扫描明细不得伪装成当前引用。")
+	assert_false(
+		dock._details_output.text.contains("res://game/example.gd:7"),
+		"旧扫描明细不得伪装成当前引用。"
+	)
 
 
 func test_project_settings_signal_invalidates_without_scanning_and_disconnects() -> void:
@@ -149,7 +193,11 @@ func test_project_settings_signal_invalidates_without_scanning_and_disconnects()
 	)
 	add_child(dock)
 	assert_true(ProjectSettings.settings_changed.is_connected(Callable(dock, "_on_audit_inputs_changed")))
-	assert_eq(dock.audit_count, 1, "重新挂载不能自动补扫。")
+	assert_eq(
+		dock.audit_count,
+		1,
+		"重新挂载不能自动补扫。"
+	)
 
 
 func test_file_change_invalidates_report_without_repeating_scan() -> void:
@@ -161,7 +209,11 @@ func test_file_change_invalidates_report_without_repeating_scan() -> void:
 	assert_string_contains(dock._status_label.text, "已失效")
 	assert_false(dock._status_label.text.contains("未发现"))
 	dock._on_audit_resources_changed(PackedStringArray(["res://game/changed.gd"]))
-	assert_eq(dock.audit_count, 1, "连续文件通知只使缓存失效，不启动新扫描。")
+	assert_eq(
+		dock.audit_count,
+		1,
+		"连续文件通知只使缓存失效，不启动新扫描。"
+	)
 
 
 func test_input_changes_during_initial_scan_and_rescan_keep_report_stale() -> void:
@@ -171,11 +223,17 @@ func test_input_changes_during_initial_scan_and_rescan_keep_report_stale() -> vo
 		ProjectSettings.settings_changed.emit()
 	dock._scan_disabled_extension_references()
 	assert_eq(dock.audit_count, 1)
-	assert_true(dock._status_label.text.contains("已失效"), "首次扫描途中改变输入也不能产生有效报告。")
+	assert_true(
+		dock._status_label.text.contains("已失效"),
+		"首次扫描途中改变输入也不能产生有效报告。"
+	)
 	assert_false(dock._status_label.text.contains("未发现"))
 	dock._scan_disabled_extension_references()
 	assert_eq(dock.audit_count, 2)
-	assert_true(dock._status_label.text.contains("已失效"), "旧报告已经失效时，也必须记录本轮扫描期间的输入变化。")
+	assert_true(
+		dock._status_label.text.contains("已失效"),
+		"旧报告已经失效时，也必须记录本轮扫描期间的输入变化。"
+	)
 	dock.during_scan = Callable()
 	dock._scan_disabled_extension_references()
 	assert_eq(dock.audit_count, 3)
@@ -219,7 +277,6 @@ class AuditProbe:
 		"issue_count": 0,
 		"extensions": {},
 	}
-
 
 	func _refresh_usage_report() -> void:
 		audit_count += 1

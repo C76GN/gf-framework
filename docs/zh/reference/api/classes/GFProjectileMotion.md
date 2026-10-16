@@ -15,12 +15,12 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`create_state_2d`](#member-gfprojectilemotion-methods-create_state_2d) | `func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:` |
-| 方法 | [`create_state_3d`](#member-gfprojectilemotion-methods-create_state_3d) | `func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:` |
+| 方法 | [`create_state_2d`](#member-gfprojectilemotion-methods-create_state_2d) | `func create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:` |
+| 方法 | [`create_state_3d`](#member-gfprojectilemotion-methods-create_state_3d) | `func create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:` |
 | 方法 | [`compute_intent_2d`](#member-gfprojectilemotion-methods-compute_intent_2d) | `func compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D:` |
 | 方法 | [`compute_intent_3d`](#member-gfprojectilemotion-methods-compute_intent_3d) | `func compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D:` |
-| 方法 | [`_create_state_2d`](#member-gfprojectilemotion-methods-_create_state_2d) | `func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D ) -> Variant:` |
-| 方法 | [`_create_state_3d`](#member-gfprojectilemotion-methods-_create_state_3d) | `func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D ) -> Variant:` |
+| 方法 | [`_create_state_2d`](#member-gfprojectilemotion-methods-_create_state_2d) | `func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D) -> Variant:` |
+| 方法 | [`_create_state_3d`](#member-gfprojectilemotion-methods-_create_state_3d) | `func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D) -> Variant:` |
 | 方法 | [`_compute_intent_2d`](#member-gfprojectilemotion-methods-_compute_intent_2d) | `func _compute_intent_2d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, _delta: float ) -> Variant:` |
 | 方法 | [`_compute_intent_3d`](#member-gfprojectilemotion-methods-_compute_intent_3d) | `func _compute_intent_3d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, _delta: float ) -> Variant:` |
 
@@ -34,7 +34,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
-func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:
+func create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:
 ```
 
 为一次 2D session 创建私有 motion state。
@@ -56,7 +56,7 @@ func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFP
 - 首次版本：`11.0.0`
 
 ```gdscript
-func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:
+func create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:
 ```
 
 为一次 3D session 创建私有 motion state。
@@ -124,7 +124,7 @@ func compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjecti
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D ) -> Variant:
+func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D) -> Variant:
 ```
 
 实现 2D state 创建策略。
@@ -150,7 +150,7 @@ func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: 
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D ) -> Variant:
+func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D) -> Variant:
 ```
 
 实现 3D state 创建策略。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchButton" path="addons/gf/standard/input/touch/gf_touch_button.gd" module="standard" extends="GFTouchControl2D" classDigest="32d5cd06d45f4d84584dbebc3d9c868b4974ae0be4757100cfbb1b8023c42572">
+<class name="GFTouchButton" path="addons/gf/standard/input/touch/gf_touch_button.gd" module="standard" extends="GFTouchControl2D" classDigest="cc382b448822669241cc15eccdfbfb3e188a2f090a3e132fd8f403437588cc34">
 	<description>GFTouchButton: 通用触屏虚拟按钮节点。
 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。
 每次 press 会冻结当时的 action 与虚拟 joypad lane；运行时配置修改从下一次 press 生效。</description>
@@ -35,17 +35,29 @@
 			</tags>
 		</member>
 		<member kind="property" name="color" decorators="@export">
-			<signature>var color: Color = Color(1.0, 1.0, 1.0, 0.3):</signature>
+			<signature>var color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.3
+):</signature>
 			<description>按钮常态颜色。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">1.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="pressed_color" decorators="@export">
-			<signature>var pressed_color: Color = Color(1.0, 1.0, 1.0, 0.65):</signature>
+			<signature>var pressed_color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.65
+):</signature>
 			<description>按钮按下颜色。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">1.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="accept_mouse_input" decorators="@export_group(&quot;Input&quot;) @export">

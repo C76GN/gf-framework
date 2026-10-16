@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`hit_sent`](#member-gfhitbox3d-signals-hit_sent) | `signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionary)` |
-| 信号 | [`hit_accepted`](#member-gfhitbox3d-signals-hit_accepted) | `signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)` |
-| 信号 | [`hit_rejected`](#member-gfhitbox3d-signals-hit_rejected) | `signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)` |
+| 信号 | [`hit_sent`](#member-gfhitbox3d-signals-hit_sent) | `signal hit_sent( context: GFCombatHitContext, receiver: Object, report: Dictionary )` |
+| 信号 | [`hit_accepted`](#member-gfhitbox3d-signals-hit_accepted) | `signal hit_accepted( context: GFCombatHitContext, receiver: Object, report: Dictionary )` |
+| 信号 | [`hit_rejected`](#member-gfhitbox3d-signals-hit_rejected) | `signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dictionary )` |
 | 信号 | [`enabled_changed`](#member-gfhitbox3d-signals-enabled_changed) | `signal enabled_changed(enabled: bool)` |
 | 属性 | [`enabled`](#member-gfhitbox3d-properties-enabled) | `var enabled: bool = true:` |
 | 属性 | [`hit_id`](#member-gfhitbox3d-properties-hit_id) | `var hit_id: StringName = &""` |
@@ -50,7 +50,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_sent( context: GFCombatHitContext, receiver: Object, report: Dictionary )
 ```
 
 命中已发送。
@@ -75,7 +75,7 @@ signal hit_sent(context: GFCombatHitContext, receiver: Object, report: Dictionar
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_accepted( context: GFCombatHitContext, receiver: Object, report: Dictionary )
 ```
 
 命中被接收对象接受。
@@ -100,7 +100,7 @@ signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dicti
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dictionary )
 ```
 
 命中被接收对象拒绝或发送失败。

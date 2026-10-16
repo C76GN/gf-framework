@@ -102,16 +102,11 @@ extends Resource
 ## @schema options: Dictionary platform contract method options.
 ## [br]
 ## @return 当前描述符。
-func configure(
-	p_method_id: StringName,
-	options: Dictionary = {}
-) -> GFPlatformContractMethodDescriptor:
+func configure(p_method_id: StringName, options: Dictionary = {}) -> GFPlatformContractMethodDescriptor:
 	method_id = StringName(String(p_method_id).strip_edges())
 	request_schema = _get_dictionary_schema(options, "request_schema")
 	result_schema = _get_dictionary_schema(options, "result_schema")
-	required_capability_ids = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(options, "required_capability_ids")
-	)
+	required_capability_ids = _normalize_string_set(GFVariantData.get_option_packed_string_array(options, "required_capability_ids"))
 	max_request_bytes = GFVariantData.get_option_int(options, "max_request_bytes")
 	max_result_bytes = GFVariantData.get_option_int(options, "max_result_bytes")
 	max_concurrent_requests = GFVariantData.get_option_int(options, "max_concurrent_requests")
@@ -120,9 +115,7 @@ func configure(
 		"supports_cancellation",
 		true
 	)
-	sensitive_fields = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(options, "sensitive_fields")
-	)
+	sensitive_fields = _normalize_string_set(GFVariantData.get_option_packed_string_array(options, "sensitive_fields"))
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	return self
 
@@ -135,35 +128,18 @@ func configure(
 ## [br]
 ## @return 标准校验报告。
 func validate_definition() -> GFValidationReport:
-	var report: GFValidationReport = GFValidationReport.new(
-		"Platform contract method %s" % String(method_id)
-	)
+	var report: GFValidationReport = GFValidationReport.new("Platform contract method %s" % String(method_id))
 	var normalized_method_id: StringName = StringName(String(method_id).strip_edges())
 	if normalized_method_id == &"":
-		var _method_issue: RefCounted = report.add_error(
-			&"missing_method_id",
-			"Platform contract method ID is required."
-		)
+		var _method_issue: RefCounted = report.add_error(&"missing_method_id", "Platform contract method ID is required.")
 	elif method_id != normalized_method_id:
-		var _method_format_issue: RefCounted = report.add_error(
-			&"non_canonical_method_id",
-			"Platform contract method ID must not have surrounding whitespace."
-		)
+		var _method_format_issue: RefCounted = report.add_error(&"non_canonical_method_id", "Platform contract method ID must not have surrounding whitespace.")
 	if max_request_bytes < 0:
-		var _request_limit_issue: RefCounted = report.add_error(
-			&"negative_max_request_bytes",
-			"Platform contract max_request_bytes must be zero or positive."
-		)
+		var _request_limit_issue: RefCounted = report.add_error(&"negative_max_request_bytes", "Platform contract max_request_bytes must be zero or positive.")
 	if max_result_bytes < 0:
-		var _result_limit_issue: RefCounted = report.add_error(
-			&"negative_max_result_bytes",
-			"Platform contract max_result_bytes must be zero or positive."
-		)
+		var _result_limit_issue: RefCounted = report.add_error(&"negative_max_result_bytes", "Platform contract max_result_bytes must be zero or positive.")
 	if max_concurrent_requests < 0:
-		var _concurrency_limit_issue: RefCounted = report.add_error(
-			&"negative_max_concurrent_requests",
-			"Platform contract max_concurrent_requests must be zero or positive."
-		)
+		var _concurrency_limit_issue: RefCounted = report.add_error(&"negative_max_concurrent_requests", "Platform contract max_concurrent_requests must be zero or positive.")
 	for schema: GFDictionarySchema in [request_schema, result_schema]:
 		if schema == null:
 			continue
@@ -185,16 +161,10 @@ func validate_definition() -> GFValidationReport:
 ## @schema payload: Dictionary platform method request payload.
 ## [br]
 ## @return 标准校验报告。
-func validate_request(
-	payload: Dictionary,
-	capabilities: GFPlatformCapabilitySet = null
-) -> GFValidationReport:
+func validate_request(payload: Dictionary, capabilities: GFPlatformCapabilitySet = null) -> GFValidationReport:
 	var report: GFValidationReport = validate_definition()
 	if capabilities == null and not required_capability_ids.is_empty():
-		var _capability_set_issue: RefCounted = report.add_error(
-			&"missing_capability_set",
-			"Platform adapter did not expose a capability set."
-		)
+		var _capability_set_issue: RefCounted = report.add_error(&"missing_capability_set", "Platform adapter did not expose a capability set.")
 	elif capabilities != null:
 		for capability_id: String in required_capability_ids:
 			if not capabilities.has_capability(StringName(capability_id)):
@@ -207,10 +177,7 @@ func validate_request(
 		var request_report: GFValidationReport = request_schema.validate_dictionary(payload)
 		var _merged_request: RefCounted = report.merge(request_report)
 	if max_request_bytes > 0 and _estimate_size_bytes(payload) > max_request_bytes:
-		var _request_budget_issue: RefCounted = report.add_error(
-			&"request_budget_exceeded",
-			"Platform request payload exceeds the declared byte budget."
-		)
+		var _request_budget_issue: RefCounted = report.add_error(&"request_budget_exceeded", "Platform request payload exceeds the declared byte budget.")
 	return report
 
 
@@ -233,15 +200,9 @@ func validate_result(value: Variant) -> GFValidationReport:
 			var result_report: GFValidationReport = result_schema.validate_dictionary(result_dictionary)
 			var _merged_result: RefCounted = report.merge(result_report)
 		else:
-			var _result_type_issue: RefCounted = report.add_error(
-				&"invalid_result_type",
-				"Platform method result must be a Dictionary when result_schema is declared."
-			)
+			var _result_type_issue: RefCounted = report.add_error(&"invalid_result_type", "Platform method result must be a Dictionary when result_schema is declared.")
 	if max_result_bytes > 0 and _estimate_size_bytes(value) > max_result_bytes:
-		var _result_budget_issue: RefCounted = report.add_error(
-			&"result_budget_exceeded",
-			"Platform method result exceeds the declared byte budget."
-		)
+		var _result_budget_issue: RefCounted = report.add_error(&"result_budget_exceeded", "Platform method result exceeds the declared byte budget.")
 	return report
 
 
@@ -253,17 +214,22 @@ func validate_result(value: Variant) -> GFValidationReport:
 ## [br]
 ## @return 新描述符。
 func duplicate_descriptor() -> GFPlatformContractMethodDescriptor:
-	return GFPlatformContractMethodDescriptor.new().configure(method_id, {
-		"request_schema": request_schema.duplicate_schema() if request_schema != null else null,
-		"result_schema": result_schema.duplicate_schema() if result_schema != null else null,
-		"required_capability_ids": required_capability_ids,
-		"max_request_bytes": max_request_bytes,
-		"max_result_bytes": max_result_bytes,
-		"max_concurrent_requests": max_concurrent_requests,
-		"supports_cancellation": supports_cancellation,
-		"sensitive_fields": sensitive_fields,
-		"metadata": metadata,
-	})
+	return (
+		GFPlatformContractMethodDescriptor.new().configure(
+			method_id,
+			{
+				"request_schema": request_schema.duplicate_schema() if request_schema != null else null,
+				"result_schema": result_schema.duplicate_schema() if result_schema != null else null,
+				"required_capability_ids": required_capability_ids,
+				"max_request_bytes": max_request_bytes,
+				"max_result_bytes": max_result_bytes,
+				"max_concurrent_requests": max_concurrent_requests,
+				"supports_cancellation": supports_cancellation,
+				"sensitive_fields": sensitive_fields,
+				"metadata": metadata,
+			}
+		)
+	)
 
 
 ## 转换为不包含敏感载荷的描述字典。
@@ -307,7 +273,11 @@ func _get_dictionary_schema(options: Dictionary, key: String) -> GFDictionarySch
 ## [br]
 ## @api private
 func _estimate_size_bytes(value: Variant) -> int:
-	return GFVariantJsonCodec.stringify_json_compatible(value, "", true).to_utf8_buffer().size()
+	return GFVariantJsonCodec.stringify_json_compatible(
+		value,
+		"",
+		true
+	).to_utf8_buffer().size()
 
 
 ## 去除字符串首尾空白、空项和重复项，并按字符串顺序排序。

@@ -9,9 +9,7 @@ extends RefCounted
 ## 引用 core 有界 JSON 对象读取器，供编辑器兼容层委托实际读取与解析。
 ## [br]
 ## @api private
-const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd"
-)
+const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload("res://addons/gf/kernel/core/gf_bounded_json_object_reader.gd")
 
 
 # --- 框架内部方法 ---
@@ -31,7 +29,11 @@ const _GF_BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
 ## @return: 包含 ok、data、error_kind、error 的结果。
 ## [br]
 ## @schema return: Dictionary，包含 ok、data、error_kind 和 error。
-static func read_object(path: String, max_bytes: int, max_depth: int) -> Dictionary:
+static func read_object(
+	path: String,
+	max_bytes: int,
+	max_depth: int
+) -> Dictionary:
 	return _to_legacy_report(
 		_GF_BOUNDED_JSON_OBJECT_READER_SCRIPT.read_object(
 			path,
@@ -56,7 +58,11 @@ static func read_object(path: String, max_bytes: int, max_depth: int) -> Diction
 ## @return: 包含 ok、data、error_kind、error 的结果。
 ## [br]
 ## @schema return: Dictionary，包含 ok、data、error_kind 和 error。
-static func parse_object(text: String, max_bytes: int, max_depth: int) -> Dictionary:
+static func parse_object(
+	text: String,
+	max_bytes: int,
+	max_depth: int
+) -> Dictionary:
 	return _to_legacy_report(
 		_GF_BOUNDED_JSON_OBJECT_READER_SCRIPT.parse_object(
 			text,

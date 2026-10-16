@@ -32,12 +32,18 @@ signal job_started(job: GFJob)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param job: 任务记录。
 ## [br]
 ## @param progress: 当前进度。
 ## [br]
 ## @param message: 进度说明。
-signal job_progressed(job: GFJob, progress: float, message: String)
+signal job_progressed(
+	job: GFJob,
+	progress: float,
+	message: String
+)
 
 ## 任务完成时发出。
 ## [br]
@@ -170,7 +176,10 @@ func enqueue(
 	var effective_queue: StringName = _normalize_queue_name(queue_name)
 	_job_serial += 1
 	var job: GFJob = GFJob.new()
-	job.job_id = StringName("%s:%d" % [String(effective_queue), _job_serial])
+	job.job_id = StringName(
+		"%s:%d"
+		% [String(effective_queue), _job_serial]
+	)
 	job.queue_name = effective_queue
 	job.data = data
 	job.metadata = metadata.duplicate(true)
@@ -231,12 +240,24 @@ func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:
 	var value: Variant = processor.call(job)
 	if value is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(value)
-		if not GFVariantData.get_option_bool(data, "ok", true):
-			var _fail_job_result_191: Variant = fail_job(job.job_id, GFVariantData.get_option_string(data, "error"), value)
+		if not GFVariantData.get_option_bool(
+			data,
+			"ok",
+			true
+		):
+			var _fail_job_result_191: Variant = fail_job(
+				job.job_id,
+				GFVariantData.get_option_string(data, "error"),
+				value
+			)
 		else:
 			var _complete_job_result_193: Variant = complete_job(job.job_id, value)
 	elif value is bool and not GFVariantData.to_bool(value):
-		var _fail_job_result_195: Variant = fail_job(job.job_id, "", value)
+		var _fail_job_result_195: Variant = fail_job(
+			job.job_id,
+			"",
+			value
+		)
 	else:
 		var _complete_job_result_197: Variant = complete_job(job.job_id, value)
 	return job
@@ -246,6 +267,8 @@ func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param job_id: 任务 ID。
 ## [br]
 ## @param progress: 当前进度。
@@ -253,12 +276,24 @@ func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:
 ## @param message: 进度说明。
 ## [br]
 ## @return 更新成功返回 true。
-func update_job_progress(job_id: StringName, progress: float, message: String = "") -> bool:
+func update_job_progress(
+	job_id: StringName,
+	progress: float,
+	message: String = ""
+) -> bool:
 	var job: GFJob = get_job(job_id)
 	if job == null or job.is_finished():
 		return false
-	job.progress = clampf(progress, 0.0, 1.0)
-	job_progressed.emit(job, job.progress, message)
+	job.progress = clampf(
+		progress,
+		0.0,
+		1.0
+	)
+	job_progressed.emit(
+		job,
+		job.progress,
+		message
+	)
 	return true
 
 
@@ -283,7 +318,10 @@ func complete_job(job_id: StringName, result: Variant = null) -> bool:
 	job.result = result
 	job.finished_msec = Time.get_ticks_msec()
 	_completed_jobs.append(job)
-	_trim_finished_jobs(_completed_jobs, maxi(max_completed_jobs, 0))
+	_trim_finished_jobs(
+		_completed_jobs,
+		maxi(max_completed_jobs, 0)
+	)
 	job_completed.emit(job)
 	return true
 
@@ -291,6 +329,8 @@ func complete_job(job_id: StringName, result: Variant = null) -> bool:
 ## 标记任务失败。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param job_id: 任务 ID。
 ## [br]
@@ -301,7 +341,11 @@ func complete_job(job_id: StringName, result: Variant = null) -> bool:
 ## @return 标记成功返回 true。
 ## [br]
 ## @schema result: Variant，项目侧失败结果载荷。
-func fail_job(job_id: StringName, error_message: String = "", result: Variant = null) -> bool:
+func fail_job(
+	job_id: StringName,
+	error_message: String = "",
+	result: Variant = null
+) -> bool:
 	var job: GFJob = get_job(job_id)
 	if job == null or job.is_finished():
 		return false
@@ -311,7 +355,10 @@ func fail_job(job_id: StringName, error_message: String = "", result: Variant = 
 	job.result = result
 	job.finished_msec = Time.get_ticks_msec()
 	_failed_jobs.append(job)
-	_trim_finished_jobs(_failed_jobs, maxi(max_failed_jobs, 0))
+	_trim_finished_jobs(
+		_failed_jobs,
+		maxi(max_failed_jobs, 0)
+	)
 	job_failed.emit(job)
 	return true
 
@@ -331,7 +378,10 @@ func cancel_job(job_id: StringName) -> bool:
 	job.status = GFJob.Status.CANCELLED
 	job.finished_msec = Time.get_ticks_msec()
 	_cancelled_jobs.append(job)
-	_trim_finished_jobs(_cancelled_jobs, maxi(max_cancelled_jobs, 0))
+	_trim_finished_jobs(
+		_cancelled_jobs,
+		maxi(max_cancelled_jobs, 0)
+	)
 	job_cancelled.emit(job)
 	return true
 
@@ -362,7 +412,11 @@ func resume_queue(queue_name: StringName = &"default") -> void:
 ## [br]
 ## @return 暂停时返回 true。
 func is_queue_paused(queue_name: StringName = &"default") -> bool:
-	return GFVariantData.get_option_bool(_paused_queues, _normalize_queue_name(queue_name), false)
+	return GFVariantData.get_option_bool(
+		_paused_queues,
+		_normalize_queue_name(queue_name),
+		false
+	)
 
 
 ## 获取任务。
@@ -479,7 +533,13 @@ func _ensure_queue(queue_name: StringName) -> Array:
 ## @api private
 ## [br]
 func _get_queue(queue_name: StringName) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(_queues, queue_name, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			_queues,
+			queue_name,
+			[]
+		)
+	)
 
 
 ## 从所有等待队列中删除与给定任务相等的条目。

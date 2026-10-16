@@ -128,14 +128,22 @@ func mount() -> bool:
 		return false
 
 	if not _mounted:
-		_mount_token = utility.mount_audio_bank(bank_id, bank, restore_previous_bank)
+		_mount_token = utility.mount_audio_bank(
+			bank_id,
+			bank,
+			restore_previous_bank
+		)
 		if _mount_token <= 0:
 			return false
 	else:
 		var mounted_utility: GFAudioUtility = _get_mounted_audio_utility()
 		if mounted_utility != null:
 			var _unmount_result: bool = mounted_utility.unmount_audio_bank(_mounted_bank_id, _mount_token)
-		_mount_token = utility.mount_audio_bank(bank_id, bank, restore_previous_bank)
+		_mount_token = utility.mount_audio_bank(
+			bank_id,
+			bank,
+			restore_previous_bank
+		)
 		if _mount_token <= 0:
 			_mounted = false
 			_mounted_bank_id = &""

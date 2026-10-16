@@ -171,7 +171,10 @@ var _cancel_token_callback: Callable = Callable()
 ## [br]
 ## @return: 本次调用是否首次使操作进入终态。
 func cancel(reason: StringName = &"cancelled") -> bool:
-	return _request_terminal(Status.CANCELLED, reason if reason != &"" else &"cancelled")
+	return _request_terminal(
+		Status.CANCELLED,
+		reason if reason != &"" else &"cancelled"
+	)
 
 
 ## 获取 Source 分配的单调 generation。
@@ -362,12 +365,13 @@ func configure_for_framework(
 	_duration_seconds = duration_seconds
 	_started_at_msec = Time.get_ticks_msec()
 	_mapping_ref = weakref(input_mapping) if input_mapping != null else null
-	_source_completion_invocation = GFWeakMethodInvocation.new(
-		source,
-		&"notify_pulse_operation_completed_for_framework"
-	)
+	_source_completion_invocation = GFWeakMethodInvocation.new(source, &"notify_pulse_operation_completed_for_framework")
 	if not _bind_owner(owner):
-		var _failed_owner: bool = _finish(Status.FAILED, &"invalid_owner_lifecycle", false)
+		var _failed_owner: bool = _finish(
+			Status.FAILED,
+			&"invalid_owner_lifecycle",
+			false
+		)
 		return true
 	if (
 		cancellation_token != null
@@ -383,7 +387,11 @@ func configure_for_framework(
 			)
 			return true
 	if not _bind_cancellation_token(cancellation_token):
-		var _failed_token: bool = _finish(Status.FAILED, &"cancellation_token_bind_failed", false)
+		var _failed_token: bool = _finish(
+			Status.FAILED,
+			&"cancellation_token_bind_failed",
+			false
+		)
 	return true
 
 
@@ -402,14 +410,21 @@ func arm_timer_for_framework(timer_utility: GFTimerUtility) -> bool:
 	if not is_pending() or timer_utility == null:
 		return not is_pending()
 	_timer_ref = weakref(timer_utility)
-	var timer_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		self,
-		&"_on_pulse_timer_elapsed"
-	)
+	var timer_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_pulse_timer_elapsed")
 	var timer_callback: Callable = func() -> void:
 		var _invoke_result: Dictionary = timer_invocation.invoke()
-	_timer_handle = timer_utility.execute_after_owned(self, _duration_seconds, timer_callback)
-	return not is_pending() or _duration_seconds > 0.0 and _timer_handle > 0
+	_timer_handle = timer_utility.execute_after_owned(
+		self,
+		_duration_seconds,
+		timer_callback
+	)
+	return (
+		not is_pending()
+		or (
+			_duration_seconds > 0.0
+			and _timer_handle > 0
+		)
+	)
 
 
 ## 由 Mapping 在发布 lease 后冻结已取得状态。
@@ -448,7 +463,11 @@ func finish_from_mapping_for_framework(
 	reason: StringName,
 	release_performed: bool
 ) -> bool:
-	return _finish(status, reason, release_performed)
+	return _finish(
+		status,
+		reason,
+		release_performed
+	)
 
 
 ## 由 Mapping tick 检查普通 Object owner 的弱生命周期。
@@ -476,20 +495,11 @@ func poll_lifecycle_for_framework() -> bool:
 			reason if reason != &"" else &"cancellation_requested"
 		)
 	elif cancellation_scope_completed:
-		var _cancelled_for_scope: bool = _request_terminal(
-			Status.CANCELLED,
-			&"cancellation_scope_completed"
-		)
+		var _cancelled_for_scope: bool = _request_terminal(Status.CANCELLED, &"cancellation_scope_completed")
 	elif _lease_acquired and _duration_seconds > 0.0:
 		var timer_utility: GFTimerUtility = _get_timer_utility()
-		if (
-			timer_utility == null
-			or not timer_utility.has_owned_timer_for_framework(_timer_handle, self)
-		):
-			var _failed_for_timer: bool = _request_terminal(
-				Status.FAILED,
-				&"timer_schedule_lost"
-			)
+		if (timer_utility == null or not timer_utility.has_owned_timer_for_framework(_timer_handle, self)):
+			var _failed_for_timer: bool = _request_terminal(Status.FAILED, &"timer_schedule_lost")
 	return is_pending()
 
 
@@ -522,9 +532,17 @@ func matches_mapping_for_framework(input_mapping: GFInputMappingUtility) -> bool
 ## [br]
 ## @return: 首次进入终态返回 true。
 func finish_without_lease_for_framework(status: Status, reason: StringName) -> bool:
-	if status not in [Status.REJECTED, Status.FAILED, Status.CANCELLED]:
+	if status not in [
+		Status.REJECTED,
+		Status.FAILED,
+		Status.CANCELLED,
+	]:
 		return false
-	return _finish(status, reason, false)
+	return _finish(
+		status,
+		reason,
+		false
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -548,14 +566,22 @@ func _request_terminal(status: Status, reason: StringName) -> bool:
 			return true
 		if _lease_acquired:
 			return false
-	return _finish(status, reason, false)
+	return _finish(
+		status,
+		reason,
+		false
+	)
 
 
 ## 只允许从 PENDING 进入非 PENDING 终态，记录原因、时间和释放计数，断开锚点后通知 Source 并发出 completed。
 ## [br]
 ## @api private
 ## [br]
-func _finish(status: Status, reason: StringName, release_performed: bool) -> bool:
+func _finish(
+	status: Status,
+	reason: StringName,
+	release_performed: bool
+) -> bool:
 	if not is_pending() or status == Status.PENDING:
 		return false
 	_status = status
@@ -582,16 +608,14 @@ func _bind_owner(owner: Object) -> bool:
 		var owner_node: Node = owner
 		if not owner_node.is_inside_tree():
 			return false
-	var owner_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		self,
-		&"_on_pulse_owner_released"
-	)
+	var owner_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_pulse_owner_released")
 	var cancel_callback: Callable = func() -> void:
 		var _invoke_result: Dictionary = owner_invocation.invoke()
 	_owner_lifetime = GFLifetimeSubscription.new(
 		owner,
 		cancel_callback,
-		"virtual_input_pulse:%s:%s" % [_source_id, _action_id]
+		"virtual_input_pulse:%s:%s"
+		% [_source_id, _action_id]
 	)
 	return _owner_lifetime.is_active()
 
@@ -617,10 +641,7 @@ func _bind_cancellation_token(cancellation_token: GFCancellationToken) -> bool:
 		if async_scope.is_completed():
 			_cancel_token = null
 			return false
-	var token_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		self,
-		&"_on_pulse_token_cancelled"
-	)
+	var token_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_pulse_token_cancelled")
 	_cancel_token_callback = func(reason: StringName) -> void:
 		var _invoke_result: Dictionary = token_invocation.invoke([reason])
 	var connect_error: Error = cancellation_token.cancel_requested.connect(

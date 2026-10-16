@@ -8,18 +8,22 @@ class RejectingShaderMaterialTarget extends RefCounted:
 	var material_value: ShaderMaterial = null
 
 	func _get_property_list() -> Array[Dictionary]:
-		return [{
-			"name": "material",
-			"type": TYPE_OBJECT,
-			"hint": PROPERTY_HINT_RESOURCE_TYPE,
-			"hint_string": "ShaderMaterial",
-			"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
-		}]
+		return [
+			{
+				"name": "material",
+				"type": TYPE_OBJECT,
+				"hint": PROPERTY_HINT_RESOURCE_TYPE,
+				"hint_string": "ShaderMaterial",
+				"usage": PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORAGE,
+			},
+		]
+
 
 	func _get(property: StringName) -> Variant:
 		if property == &"material":
 			return material_value
 		return null
+
 
 	func _set(_property: StringName, _value: Variant) -> bool:
 		return false
@@ -27,7 +31,13 @@ class RejectingShaderMaterialTarget extends RefCounted:
 
 func test_profile_normalizes_keys_and_deep_copies_values() -> void:
 	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
-	var nested_value: Dictionary = { "curve": [1, 2, 3] }
+	var nested_value: Dictionary = {
+		"curve": [
+			1,
+			2,
+			3,
+		],
+	}
 
 	var _set_parameter_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", nested_value)
 	var source_curve_value: Variant = nested_value["curve"]
@@ -39,8 +49,15 @@ func test_profile_normalizes_keys_and_deep_copies_values() -> void:
 	var stored_curve: Array = GFVariantData.as_array(stored_value["curve"])
 
 	assert_true(profile.has_parameter(&"storm_pressure"))
-	assert_eq(stored_curve.size(), 3, "Profile 应复制集合值，避免外部修改污染参数。")
-	assert_eq(profile.get_parameter_names(), [&"storm_pressure"])
+	assert_eq(
+		stored_curve.size(),
+		3,
+		"Profile 应复制集合值，避免外部修改污染参数。"
+	)
+	assert_eq(
+		profile.get_parameter_names(),
+		[&"storm_pressure"]
+	)
 
 
 func test_profile_merge_respects_overwrite_flag() -> void:
@@ -52,31 +69,83 @@ func test_profile_merge_respects_overwrite_flag() -> void:
 
 	var _merge_result: GFShaderParameterProfile = base.merge_from(source, false)
 
-	assert_almost_eq(GFVariantData.to_float(base.get_parameter(&"storm_pressure")), 0.2, 0.001)
-	assert_almost_eq(GFVariantData.to_float(base.get_parameter(&"rain_amount")), 0.4, 0.001)
+	assert_almost_eq(
+		GFVariantData.to_float(base.get_parameter(&"storm_pressure")),
+		0.2,
+		0.001
+	)
+	assert_almost_eq(
+		GFVariantData.to_float(base.get_parameter(&"rain_amount")),
+		0.4,
+		0.001
+	)
 
 
 func test_profile_blend_interpolates_supported_values() -> void:
 	var calm: GFShaderParameterProfile = GFShaderParameterProfile.new()
 	var storm: GFShaderParameterProfile = GFShaderParameterProfile.new()
 	var _calm_pressure_result: GFShaderParameterProfile = calm.set_parameter(&"storm_pressure", 0.0)
-	var _calm_tint_result: GFShaderParameterProfile = calm.set_parameter(&"atmosphere_tint", Color(0.0, 0.0, 0.0, 0.0))
+	var _calm_tint_result: GFShaderParameterProfile = calm.set_parameter(
+		&"atmosphere_tint",
+		Color(
+			0.0,
+			0.0,
+			0.0,
+			0.0
+		)
+	)
 	var _calm_wind_result: GFShaderParameterProfile = calm.set_parameter(&"wind_direction", Vector2.RIGHT)
 	var _storm_pressure_result: GFShaderParameterProfile = storm.set_parameter(&"storm_pressure", 1.0)
-	var _storm_tint_result: GFShaderParameterProfile = storm.set_parameter(&"atmosphere_tint", Color(0.2, 0.4, 0.6, 0.8))
+	var _storm_tint_result: GFShaderParameterProfile = storm.set_parameter(
+		&"atmosphere_tint",
+		Color(
+			0.2,
+			0.4,
+			0.6,
+			0.8
+		)
+	)
 	var _storm_wind_result: GFShaderParameterProfile = storm.set_parameter(&"wind_direction", Vector2.DOWN)
 
 	var blended: GFShaderParameterProfile = calm.blend_with(storm, 0.5)
 	var tint: Color = _variant_to_color(blended.get_parameter(&"atmosphere_tint"))
 	var wind: Vector2 = _variant_to_vector2(blended.get_parameter(&"wind_direction"))
 
-	assert_almost_eq(GFVariantData.to_float(blended.get_parameter(&"storm_pressure")), 0.5, 0.001)
-	assert_almost_eq(tint.r, 0.1, 0.001)
-	assert_almost_eq(tint.g, 0.2, 0.001)
-	assert_almost_eq(tint.b, 0.3, 0.001)
-	assert_almost_eq(tint.a, 0.4, 0.001)
-	assert_almost_eq(wind.x, 0.5, 0.001)
-	assert_almost_eq(wind.y, 0.5, 0.001)
+	assert_almost_eq(
+		GFVariantData.to_float(blended.get_parameter(&"storm_pressure")),
+		0.5,
+		0.001
+	)
+	assert_almost_eq(
+		tint.r,
+		0.1,
+		0.001
+	)
+	assert_almost_eq(
+		tint.g,
+		0.2,
+		0.001
+	)
+	assert_almost_eq(
+		tint.b,
+		0.3,
+		0.001
+	)
+	assert_almost_eq(
+		tint.a,
+		0.4,
+		0.001
+	)
+	assert_almost_eq(
+		wind.x,
+		0.5,
+		0.001
+	)
+	assert_almost_eq(
+		wind.y,
+		0.5,
+		0.001
+	)
 
 
 func test_profile_roundtrips_dictionary() -> void:
@@ -87,41 +156,51 @@ func test_profile_roundtrips_dictionary() -> void:
 	var restored: GFShaderParameterProfile = GFShaderParameterProfile.from_dict(profile.to_dict())
 
 	assert_true(restored.has_parameter(&"fog_amount"))
-	assert_almost_eq(GFVariantData.to_float(restored.get_parameter(&"fog_amount")), 0.25, 0.001)
-	assert_eq(GFVariantData.get_option_string(restored.metadata, "source"), "test")
+	assert_almost_eq(
+		GFVariantData.to_float(restored.get_parameter(&"fog_amount")),
+		0.25,
+		0.001
+	)
+	assert_eq(
+		GFVariantData.get_option_string(restored.metadata, "source"),
+		"test"
+	)
 
 
 func test_profile_emits_changed_when_public_methods_mutate_parameters() -> void:
 	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
 	var counter: Dictionary = { "count": 0 }
-	var _changed_connected: Error = profile.changed.connect(func() -> void:
-		counter["count"] = GFVariantData.get_option_int(counter, "count") + 1
-	) as Error
+	var _changed_connected: Error = (
+		profile.changed.connect(
+			func() -> void:
+				counter["count"] = GFVariantData.get_option_int(counter, "count") + 1,
+		) as Error
+	)
 
 	var _set_parameter_result: GFShaderParameterProfile = profile.set_parameter(&"fog_amount", 0.25)
 	var _erase_result: bool = profile.erase_parameter(&"fog_amount")
 
-	assert_eq(GFVariantData.get_option_int(counter, "count"), 2)
+	assert_eq(
+		GFVariantData.get_option_int(counter, "count"),
+		2
+	)
 
 
 func test_profile_validates_against_shader_interface_snapshot() -> void:
 	var material: ShaderMaterial = _make_test_shader_material()
 	var snapshot: GFShaderInterfaceSnapshot = GFShaderInterfaceSnapshot.capture(material.shader)
 	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
-	var _set_valid_result: GFShaderParameterProfile = profile.set_parameter(
-		&"storm_pressure",
-		0.5
-	)
+	var _set_valid_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", 0.5)
 
 	assert_true(profile.validate_against(snapshot).is_ok())
 
-	var _set_invalid_result: GFShaderParameterProfile = profile.set_parameter(
-		&"storm_pressure",
-		Vector2.ONE
-	)
+	var _set_invalid_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", Vector2.ONE)
 	var report: GFValidationReport = profile.validate_against(snapshot)
 
-	assert_false(report.is_ok(), "Profile 必须能在写入材质前验证 shader 参数类型。")
+	assert_false(
+		report.is_ok(),
+		"Profile 必须能在写入材质前验证 shader 参数类型。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(
 			report.get_issue_counts_by_kind(),
@@ -136,13 +215,33 @@ func test_utility_applies_profile_to_shader_material() -> void:
 	var material: ShaderMaterial = _make_test_shader_material()
 	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
 	var _set_storm_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", 0.75)
-	var _set_tint_result: GFShaderParameterProfile = profile.set_parameter(&"atmosphere_tint", Color(0.1, 0.2, 0.3, 0.4))
+	var _set_tint_result: GFShaderParameterProfile = profile.set_parameter(
+		&"atmosphere_tint",
+		Color(
+			0.1,
+			0.2,
+			0.3,
+			0.4
+		)
+	)
 
 	var applied_count: int = utility.apply_profile(material, profile)
 
 	assert_eq(applied_count, 2)
-	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.75, 0.001)
-	assert_eq(_variant_to_color(material.get_shader_parameter(&"atmosphere_tint")), Color(0.1, 0.2, 0.3, 0.4))
+	assert_almost_eq(
+		GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
+		0.75,
+		0.001
+	)
+	assert_eq(
+		_variant_to_color(material.get_shader_parameter(&"atmosphere_tint")),
+		Color(
+			0.1,
+			0.2,
+			0.3,
+			0.4
+		)
+	)
 
 
 func test_utility_skips_missing_declared_parameters_by_default() -> void:
@@ -152,28 +251,39 @@ func test_utility_skips_missing_declared_parameters_by_default() -> void:
 	var _set_storm_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", 0.5)
 	var _set_missing_result: GFShaderParameterProfile = profile.set_parameter(&"missing_parameter", 1.0)
 
-	var applied_count: int = utility.apply_profile(material, profile, {
-		"warn_on_missing_parameters": false,
-	})
+	var applied_count: int = utility.apply_profile(
+		material,
+		profile,
+		{ "warn_on_missing_parameters": false, }
+	)
 
 	assert_eq(applied_count, 1)
-	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.5, 0.001)
+	assert_almost_eq(
+		GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
+		0.5,
+		0.001
+	)
 
 
 func test_utility_skips_shader_parameter_type_mismatches_by_default() -> void:
 	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
 	var material: ShaderMaterial = _make_test_shader_material()
 
-	var applied_count: int = utility.apply_parameters(material, {
-		&"storm_pressure": Vector2.ONE,
-	}, {
-		"warn_on_type_mismatch": false,
-	})
-	var report: GFValidationReport = utility.validate_parameters(material, {
-		&"storm_pressure": Vector2.ONE,
-	})
+	var applied_count: int = utility.apply_parameters(
+		material,
+		{ &"storm_pressure": Vector2.ONE, },
+		{ "warn_on_type_mismatch": false, }
+	)
+	var report: GFValidationReport = utility.validate_parameters(
+		material,
+		{ &"storm_pressure": Vector2.ONE, }
+	)
 
-	assert_eq(applied_count, 0, "默认应用流程不得把错型值交给 ShaderMaterial。")
+	assert_eq(
+		applied_count,
+		0,
+		"默认应用流程不得把错型值交给 ShaderMaterial。"
+	)
 	assert_almost_eq(
 		GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
 		0.0,
@@ -198,15 +308,29 @@ func test_utility_duplicates_target_material_when_requested() -> void:
 	var profile: GFShaderParameterProfile = GFShaderParameterProfile.new()
 	var _set_storm_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", 0.9)
 
-	var applied_count: int = utility.apply_profile(rect, profile, {
-		"duplicate_material": true,
-	})
+	var applied_count: int = utility.apply_profile(
+		rect,
+		profile,
+		{ "duplicate_material": true, }
+	)
 
 	assert_eq(applied_count, 1)
-	assert_ne(rect.material, original_material, "复制模式应避免修改共享材质资源。")
+	assert_ne(
+		rect.material,
+		original_material,
+		"复制模式应避免修改共享材质资源。"
+	)
 	var duplicated_material: ShaderMaterial = _variant_to_shader_material(rect.material)
-	assert_almost_eq(GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")), 0.0, 0.001)
-	assert_almost_eq(GFVariantData.to_float(duplicated_material.get_shader_parameter(&"storm_pressure")), 0.9, 0.001)
+	assert_almost_eq(
+		GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")),
+		0.0,
+		0.001
+	)
+	assert_almost_eq(
+		GFVariantData.to_float(duplicated_material.get_shader_parameter(&"storm_pressure")),
+		0.9,
+		0.001
+	)
 
 
 func test_utility_duplicate_mode_fails_closed_when_material_writeback_is_rejected() -> void:
@@ -215,31 +339,51 @@ func test_utility_duplicate_mode_fails_closed_when_material_writeback_is_rejecte
 	var target: RejectingShaderMaterialTarget = RejectingShaderMaterialTarget.new()
 	target.material_value = original_material
 
-	var applied_count: int = utility.apply_parameters(target, {
-		&"storm_pressure": 0.9,
-	}, {
-		"duplicate_material": true,
-		"warn_on_invalid_target": false,
-	})
+	var applied_count: int = utility.apply_parameters(
+		target,
+		{ &"storm_pressure": 0.9, },
+		{ "duplicate_material": true, "warn_on_invalid_target": false, }
+	)
 
-	assert_eq(applied_count, 0, "复制材质无法写回时必须停止参数写入。")
-	assert_eq(target.material_value, original_material, "拒绝 setter 后目标仍应指向原共享材质。")
-	assert_almost_eq(GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")), 0.0, 0.001, "copy-on-write 建立失败不得修改原共享材质。")
+	assert_eq(
+		applied_count,
+		0,
+		"复制材质无法写回时必须停止参数写入。"
+	)
+	assert_eq(
+		target.material_value,
+		original_material,
+		"拒绝 setter 后目标仍应指向原共享材质。"
+	)
+	assert_almost_eq(
+		GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")),
+		0.0,
+		0.001,
+		"copy-on-write 建立失败不得修改原共享材质。"
+	)
 
 
 func test_utility_duplicate_mode_fails_closed_for_direct_material_target() -> void:
 	var utility: GFShaderParameterUtility = GFShaderParameterUtility.new()
 	var original_material: ShaderMaterial = _make_test_shader_material()
 
-	var applied_count: int = utility.apply_parameters(original_material, {
-		&"storm_pressure": 0.9,
-	}, {
-		"duplicate_material": true,
-		"warn_on_invalid_target": false,
-	})
+	var applied_count: int = utility.apply_parameters(
+		original_material,
+		{ &"storm_pressure": 0.9, },
+		{ "duplicate_material": true, "warn_on_invalid_target": false, }
+	)
 
-	assert_eq(applied_count, 0, "直接材质没有可写回 owner，复制模式必须失败关闭。")
-	assert_almost_eq(GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")), 0.0, 0.001, "无法发布副本时不得修改直接传入的原材质。")
+	assert_eq(
+		applied_count,
+		0,
+		"直接材质没有可写回 owner，复制模式必须失败关闭。"
+	)
+	assert_almost_eq(
+		GFVariantData.to_float(original_material.get_shader_parameter(&"storm_pressure")),
+		0.0,
+		0.001,
+		"无法发布副本时不得修改直接传入的原材质。"
+	)
 
 
 func test_utility_reports_shader_uniform_names() -> void:
@@ -257,22 +401,39 @@ func test_utility_applies_global_shader_parameters() -> void:
 	var parameter_name: StringName = _make_unique_global_parameter_name("apply")
 	_cleanup_global_shader_parameter(parameter_name)
 
-	var report: Dictionary = utility.apply_global_parameters({
-		parameter_name: 0.42,
-	}, {
-		"warn_on_invalid_parameter": false,
-	})
+	var report: Dictionary = utility.apply_global_parameters(
+		{ parameter_name: 0.42, },
+		{ "warn_on_invalid_parameter": false, }
+	)
 	var global_names: Array[StringName] = utility.get_global_parameter_names()
 	var live_names: Array[StringName] = utility.get_global_parameter_live_names()
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "全局参数应用报告应成功。")
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1)
-	assert_eq(GFVariantData.get_option_int(report, "registered_count"), 1)
-	assert_eq(GFVariantData.get_option_int(report, "updated_count"), 1)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"全局参数应用报告应成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "applied_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "registered_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "updated_count"),
+		1
+	)
 	assert_true(utility.has_global_parameter(parameter_name))
 	assert_true(utility.has_global_parameter_live(parameter_name))
-	assert_true(global_names.has(parameter_name), "全局参数索引应包含本次注册的参数。")
-	assert_true(live_names.has(parameter_name), "live 参数索引应包含本次注册的参数。")
+	assert_true(
+		global_names.has(parameter_name),
+		"全局参数索引应包含本次注册的参数。"
+	)
+	assert_true(
+		live_names.has(parameter_name),
+		"live 参数索引应包含本次注册的参数。"
+	)
 
 	_cleanup_global_shader_parameter(parameter_name)
 
@@ -297,18 +458,46 @@ func test_utility_persists_global_shader_parameter_definition_without_saving_by_
 	var definition: Dictionary = GFVariantData.as_dictionary(raw_definition)
 	var declaration_names: Array[StringName] = utility.get_global_parameter_declaration_names()
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "持久化声明报告应成功。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"持久化声明报告应成功。"
+	)
 	assert_true(GFVariantData.get_option_bool(report, "project_setting_written"))
 	assert_true(GFVariantData.get_option_bool(report, "declaration_written"))
 	assert_true(GFVariantData.get_option_bool(report, "declaration_available"))
-	assert_false(GFVariantData.get_option_bool(report, "live_available"), "只声明时不应伪装成 live 参数。")
-	assert_false(GFVariantData.get_option_bool(report, "project_settings_saved"), "默认不应保存 project.godot。")
-	assert_false(utility.has_global_parameter(parameter_name), "has_global_parameter 只表示当前 live 参数。")
-	assert_false(utility.has_global_parameter_live(parameter_name), "只声明时 live 参数索引不应包含该参数。")
-	assert_true(utility.has_global_parameter_declaration(parameter_name), "ProjectSettings declaration 应可独立查询。")
-	assert_true(declaration_names.has(parameter_name), "declaration 索引应包含本次声明的参数。")
-	assert_eq(GFVariantData.get_option_string(definition, "type"), "float")
-	assert_almost_eq(GFVariantData.get_option_float(definition, "value"), 0.25, 0.001)
+	assert_false(
+		GFVariantData.get_option_bool(report, "live_available"),
+		"只声明时不应伪装成 live 参数。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(report, "project_settings_saved"),
+		"默认不应保存 project.godot。"
+	)
+	assert_false(
+		utility.has_global_parameter(parameter_name),
+		"has_global_parameter 只表示当前 live 参数。"
+	)
+	assert_false(
+		utility.has_global_parameter_live(parameter_name),
+		"只声明时 live 参数索引不应包含该参数。"
+	)
+	assert_true(
+		utility.has_global_parameter_declaration(parameter_name),
+		"ProjectSettings declaration 应可独立查询。"
+	)
+	assert_true(
+		declaration_names.has(parameter_name),
+		"declaration 索引应包含本次声明的参数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(definition, "type"),
+		"float"
+	)
+	assert_almost_eq(
+		GFVariantData.get_option_float(definition, "value"),
+		0.25,
+		0.001
+	)
 
 	_cleanup_global_shader_parameter(parameter_name)
 
@@ -331,10 +520,22 @@ func test_utility_rejects_project_setting_path_override_before_mutation() -> voi
 		}
 	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "shader helper 不应接受任意 ProjectSettings 路径。")
-	assert_eq(GFVariantData.get_option_string(report, "project_setting_path"), safe_setting_path)
-	assert_false(ProjectSettings.has_setting(safe_setting_path), "拒绝路径覆盖后不应发生任何声明写入。")
-	assert_false(utility.has_global_parameter_live(parameter_name), "参数校验失败时不应产生 live 副作用。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"shader helper 不应接受任意 ProjectSettings 路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "project_setting_path"),
+		safe_setting_path
+	)
+	assert_false(
+		ProjectSettings.has_setting(safe_setting_path),
+		"拒绝路径覆盖后不应发生任何声明写入。"
+	)
+	assert_false(
+		utility.has_global_parameter_live(parameter_name),
+		"参数校验失败时不应产生 live 副作用。"
+	)
 
 
 func test_binder_applies_profile_to_parent_on_ready() -> void:
@@ -349,7 +550,11 @@ func test_binder_applies_profile_to_parent_on_ready() -> void:
 	add_child_autofree(rect)
 
 	var material: ShaderMaterial = _variant_to_shader_material(rect.material)
-	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.65, 0.001)
+	assert_almost_eq(
+		GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
+		0.65,
+		0.001
+	)
 
 
 func test_binder_reconnects_profile_when_same_node_reenters_tree() -> void:
@@ -365,7 +570,11 @@ func test_binder_reconnects_profile_when_same_node_reenters_tree() -> void:
 		add_child(rect)
 		var _changed: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", value)
 		var material: ShaderMaterial = _variant_to_shader_material(rect.material)
-		assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), value, 0.001)
+		assert_almost_eq(
+			GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
+			value,
+			0.001
+		)
 
 
 func test_binder_reapplies_when_profile_changes() -> void:
@@ -381,7 +590,11 @@ func test_binder_reapplies_when_profile_changes() -> void:
 	var _set_storm_result: GFShaderParameterProfile = profile.set_parameter(&"storm_pressure", 0.55)
 
 	var material: ShaderMaterial = _variant_to_shader_material(rect.material)
-	assert_almost_eq(GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")), 0.55, 0.001)
+	assert_almost_eq(
+		GFVariantData.to_float(material.get_shader_parameter(&"storm_pressure")),
+		0.55,
+		0.001
+	)
 
 
 func test_binder_duplicate_mode_reuses_owned_material_until_target_changes() -> void:
@@ -398,31 +611,62 @@ func test_binder_duplicate_mode_reuses_owned_material_until_target_changes() -> 
 	rect.add_child(binder)
 	add_child_autofree(rect)
 
-	assert_eq(binder.apply(), 1)
+	assert_eq(
+		binder.apply(),
+		1
+	)
 	var first_owned_material: Material = rect.material
-	assert_ne(first_owned_material, original_material, "首次应用应建立材质隔离。")
-	assert_eq(binder.apply(), 1)
-	assert_eq(rect.material, first_owned_material, "后续应用不应每次重新复制已经隔离的材质。")
+	assert_ne(
+		first_owned_material,
+		original_material,
+		"首次应用应建立材质隔离。"
+	)
+	assert_eq(
+		binder.apply(),
+		1
+	)
+	assert_eq(
+		rect.material,
+		first_owned_material,
+		"后续应用不应每次重新复制已经隔离的材质。"
+	)
 
 	var external_material: ShaderMaterial = _make_test_shader_material()
 	rect.material = external_material
-	assert_eq(binder.apply(), 1)
-	assert_ne(rect.material, external_material, "目标材质被外部替换后应重新建立隔离。")
-	assert_ne(rect.material, first_owned_material, "外部替换必须使旧隔离缓存失效。")
+	assert_eq(
+		binder.apply(),
+		1
+	)
+	assert_ne(
+		rect.material,
+		external_material,
+		"目标材质被外部替换后应重新建立隔离。"
+	)
+	assert_ne(
+		rect.material,
+		first_owned_material,
+		"外部替换必须使旧隔离缓存失效。"
+	)
 
 
 func _make_test_shader_material() -> ShaderMaterial:
 	var shader: Shader = Shader.new()
-	shader.code = "\n".join(PackedStringArray([
-		"shader_type canvas_item;",
-		"uniform float storm_pressure = 0.0;",
-		"uniform float rain_amount = 0.0;",
-		"uniform vec2 wind_direction = vec2(1.0, 0.0);",
-		"uniform vec4 atmosphere_tint : source_color = vec4(0.0, 0.0, 0.0, 0.0);",
-		"void fragment() {",
-		"	COLOR = atmosphere_tint;",
-		"}",
-	]))
+	shader.code = (
+		"\n".join(
+			PackedStringArray(
+				[
+					"shader_type canvas_item;",
+					"uniform float storm_pressure = 0.0;",
+					"uniform float rain_amount = 0.0;",
+					"uniform vec2 wind_direction = vec2(1.0, 0.0);",
+					"uniform vec4 atmosphere_tint : source_color = vec4(0.0, 0.0, 0.0, 0.0);",
+					"void fragment() {",
+					"	COLOR = atmosphere_tint;",
+					"}",
+				]
+			)
+		)
+	)
 	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = shader
 	return material
@@ -450,7 +694,10 @@ func _variant_to_shader_material(value: Variant) -> ShaderMaterial:
 
 
 func _make_unique_global_parameter_name(suffix: String) -> StringName:
-	return StringName("gf_test_global_%s_%d" % [suffix, Time.get_ticks_usec()])
+	return StringName(
+		"gf_test_global_%s_%d"
+		% [suffix, Time.get_ticks_usec()]
+	)
 
 
 func _cleanup_global_shader_parameter(parameter_name: StringName) -> void:

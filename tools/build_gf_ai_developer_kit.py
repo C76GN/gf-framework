@@ -26,7 +26,7 @@ from typing import Any
 from typing import BinaryIO
 
 import build_gf_package
-from gdscript_api_parser import ApiDocs, ApiMember, visibility_of
+from gdscript_api_parser import ApiDocs, ApiMember, scan_gdscript_structure, visibility_of
 from gf_api_owners import OWNER_KIND_CLASS, ApiOwner, collect_api_owners
 from gf_executable_resolution import frozen_environment_value
 from gf_executable_resolution import remove_owned_environment_value
@@ -762,6 +762,12 @@ def validate_platform_adapter_templates(
 ) -> list[str]:
 	root = PLATFORM_ADAPTER_TEMPLATE_ROOT if template_root is None else template_root
 	issues: list[str] = []
+	required_call_patterns = {
+		"_release_request(handle)": r"\b_release_request\s*\(\s*handle\s*\)",
+		"_succeed_request(handle": r"\b_succeed_request\s*\(\s*handle\s*(?=[,)])",
+		"_release_operation(handle)": r"\b_release_operation\s*\(\s*handle\s*\)",
+		"_succeed_operation(handle": r"\b_succeed_operation\s*\(\s*handle\s*(?=[,)])",
+	}
 	required_text = {
 		"README.md": (
 			"GFPlatformAdapterConformance.inspect()",
@@ -838,8 +844,14 @@ def validate_platform_adapter_templates(
 		if not text.strip():
 			issues.append(f"Platform adapter template is empty: {relative_path}.")
 			continue
+		structural = ""
+		if any(fragment in required_call_patterns for fragment in required_fragments):
+			structural_lines, _starts_in_multiline = scan_gdscript_structure(text.splitlines())
+			structural = "\n".join(structural_lines)
 		for fragment in required_fragments:
-			if fragment not in text:
+			call_pattern = required_call_patterns.get(fragment)
+			found = fragment in text if call_pattern is None else re.search(call_pattern, structural) is not None
+			if not found:
 				issues.append(
 					f"Platform adapter template {relative_path} is missing required contract text: {fragment}"
 				)

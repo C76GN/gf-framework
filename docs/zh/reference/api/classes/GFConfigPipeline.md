@@ -19,7 +19,7 @@
 | 方法 | [`get_stage_descriptors`](#member-gfconfigpipeline-methods-get_stage_descriptors) | `func get_stage_descriptors() -> Array[Dictionary]:` |
 | 方法 | [`build_table`](#member-gfconfigpipeline-methods-build_table) | `func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_table_from_text`](#member-gfconfigpipeline-methods-build_table_from_text) | `func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`build_database`](#member-gfconfigpipeline-methods-build_database) | `func build_database( sources: Array, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`build_database`](#member-gfconfigpipeline-methods-build_database) | `func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_profile`](#member-gfconfigpipeline-methods-build_profile) | `func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`export_profile`](#member-gfconfigpipeline-methods-export_profile) | `func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_database_export`](#member-gfconfigpipeline-methods-make_database_export) | `func make_database_export(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:` |
@@ -135,7 +135,7 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 - 首次版本：`5.2.0`
 
 ```gdscript
-func build_database( sources: Array, options: Dictionary = {} ) -> Dictionary:
+func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ```
 
 从一组来源文件构建配置数据库资源。

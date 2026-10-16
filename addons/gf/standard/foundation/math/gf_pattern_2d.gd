@@ -21,7 +21,10 @@ extends Resource
 ## @api public
 @export var pattern_dimensions: Vector2i = Vector2i(7, 7):
 	set(value):
-		pattern_dimensions = Vector2i(maxi(value.x, 1), maxi(value.y, 1))
+		pattern_dimensions = Vector2i(
+			maxi(value.x, 1),
+			maxi(value.y, 1)
+		)
 		normalize_cells()
 
 ## 启用的格子坐标列表。

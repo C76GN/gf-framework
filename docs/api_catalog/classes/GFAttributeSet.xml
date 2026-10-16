@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAttributeSet" path="addons/gf/extensions/domain/attributes/gf_attribute_set.gd" module="extensions/domain" extends="Resource" classDigest="5d8e1cead35b5025bd39ae03192dfc6ded6c83a3136b4856ed6663425ea483d8">
+<class name="GFAttributeSet" path="addons/gf/extensions/domain/attributes/gf_attribute_set.gd" module="extensions/domain" extends="Resource" classDigest="cada70845f9f593dd50460d1a6710be3c01477cfef39a32bdceabdd5d7b489f7">
 	<description>GFAttributeSet: 通用数值属性集合。
 用 StringName 管理一组可保存、可恢复、可限制范围的数值属性。它不规定
 属性含义，生命值、耐久、温度、声望或任意项目数值都由项目层命名和解释。</description>
@@ -18,13 +18,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="attribute_changed">
-			<signature>signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)</signature>
+			<signature>signal attribute_changed( attribute_id: StringName, current_value: float, previous_value: float )</signature>
 			<description>当前值变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">attribute_id: 发生变化的属性 ID。</tag>
 				<tag name="param">current_value: 新当前值。</tag>
 				<tag name="param">previous_value: 旧当前值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -124,7 +125,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_base_value">
-			<signature>func set_base_value(attribute_id: StringName, value: float, sync_current: bool = false) -&gt; bool:</signature>
+			<signature>func set_base_value( attribute_id: StringName, value: float, sync_current: bool = false ) -&gt; bool:</signature>
 			<description>设置基础值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -132,10 +133,11 @@
 				<tag name="param">value: 新基础值。</tag>
 				<tag name="param">sync_current: 是否同步当前值。</tag>
 				<tag name="return">成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_limits">
-			<signature>func set_limits(attribute_id: StringName, min_value: float, max_value: float) -&gt; bool:</signature>
+			<signature>func set_limits( attribute_id: StringName, min_value: float, max_value: float ) -&gt; bool:</signature>
 			<description>设置属性范围。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -143,6 +145,7 @@
 				<tag name="param">min_value: 最小值。</tag>
 				<tag name="param">max_value: 最大值。</tag>
 				<tag name="return">成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_value">

@@ -313,7 +313,11 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @param lifecycle_serial: 非负值限定架构代次；-1 沿用共享作用域的默认绑定规则。
 func _gf_set_dependency_scope(architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
-	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture, lifecycle_serial)
+	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(
+		_dependency_scope,
+		architecture,
+		lifecycle_serial
+	)
 
 
 ## 清除架构引用并保留已释放标记，阻止曾绑定对象重新回退全局架构。

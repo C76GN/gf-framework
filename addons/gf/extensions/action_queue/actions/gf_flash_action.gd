@@ -111,8 +111,18 @@ func execute() -> Variant:
 
 	_active_tween = target.create_tween()
 	var half_duration: float = duration * 0.5
-	var _tween_property_result_83: Variant = _active_tween.tween_property(target, property_name, flash_color, half_duration)
-	var _tween_property_result_84: Variant = _active_tween.tween_property(target, property_name, _original_color, half_duration)
+	var _tween_property_result_83: Variant = _active_tween.tween_property(
+		target,
+		property_name,
+		flash_color,
+		half_duration
+	)
+	var _tween_property_result_84: Variant = _active_tween.tween_property(
+		target,
+		property_name,
+		_original_color,
+		half_duration
+	)
 	var _finished_connected: Error = _active_tween.finished.connect(
 		_on_active_tween_finished,
 		CONNECT_ONE_SHOT as Object.ConnectFlags

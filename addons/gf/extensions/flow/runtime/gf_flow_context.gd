@@ -16,9 +16,7 @@ extends RefCounted
 ## 将上下文快照投影为安全报告数据的 schema 工具脚本。
 ## [br]
 ## @api private
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
+const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
 
 
 # --- 公共变量 ---
@@ -140,7 +138,11 @@ func set_value(key: StringName, value: Variant) -> GFFlowContext:
 ## [br]
 ## @schema return: values 中的项目值，或传入的 default_value。
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(values, key, default_value)
+	return GFVariantData.get_option_value(
+		values,
+		key,
+		default_value
+	)
 
 
 ## 覆盖当前节点执行后的下一个节点列表。
@@ -252,16 +254,45 @@ func query_condition(
 	default_value: Variant = false
 ) -> Dictionary:
 	if condition_id == &"":
-		return _make_condition_result(false, condition_id, default_value, "condition_id_is_empty")
+		return _make_condition_result(
+			false,
+			condition_id,
+			default_value,
+			"condition_id_is_empty"
+		)
 	if not _condition_handlers.has(condition_id):
-		return _make_condition_result(false, condition_id, default_value, "missing_condition_handler")
+		return _make_condition_result(
+			false,
+			condition_id,
+			default_value,
+			"missing_condition_handler"
+		)
 
-	var handler: Callable = _get_callable_value(GFVariantData.get_option_value(_condition_handlers, condition_id, Callable()))
+	var handler: Callable = _get_callable_value(
+		GFVariantData.get_option_value(
+			_condition_handlers,
+			condition_id,
+			Callable()
+		)
+	)
 	if not handler.is_valid():
-		return _make_condition_result(false, condition_id, default_value, "invalid_condition_handler")
+		return _make_condition_result(
+			false,
+			condition_id,
+			default_value,
+			"invalid_condition_handler"
+		)
 
-	var raw_result: Variant = handler.call(condition_id, payload, self)
-	return _normalize_condition_result(condition_id, raw_result, default_value)
+	var raw_result: Variant = handler.call(
+		condition_id,
+		payload,
+		self
+	)
+	return _normalize_condition_result(
+		condition_id,
+		raw_result,
+		default_value
+	)
 
 
 ## 写入指定流程节点的运行态值。
@@ -277,7 +308,11 @@ func query_condition(
 ## @param value: 运行态值。
 ## [br]
 ## @schema value: 要写入指定节点运行态的任意项目值。
-func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant) -> void:
+func set_node_runtime_value(
+	node_id: StringName,
+	key: StringName,
+	value: Variant
+) -> void:
 	if node_id == &"" or key == &"":
 		return
 	if _executing_runtime_nodes.has(node_id):
@@ -285,7 +320,13 @@ func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant
 		return
 	if not _node_runtime_states.has(node_id):
 		_node_runtime_states[node_id] = {}
-	var state: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_node_runtime_states, node_id, {}))
+	var state: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_node_runtime_states,
+			node_id,
+			{}
+		)
+	)
 	state[key] = value
 
 
@@ -306,13 +347,27 @@ func set_node_runtime_value(node_id: StringName, key: StringName, value: Variant
 ## @return: 运行态值或默认值。
 ## [br]
 ## @schema return: 节点运行态中的项目值，或传入的 default_value。
-func get_node_runtime_value(node_id: StringName, key: StringName, default_value: Variant = null) -> Variant:
+func get_node_runtime_value(
+	node_id: StringName,
+	key: StringName,
+	default_value: Variant = null
+) -> Variant:
 	if _executing_runtime_nodes.has(node_id):
 		return _executing_runtime_nodes[node_id].get_runtime_value(key, default_value)
-	var state: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_node_runtime_states, node_id, {}))
+	var state: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_node_runtime_states,
+			node_id,
+			{}
+		)
+	)
 	if state.is_empty():
 		return default_value
-	return GFVariantData.get_option_value(state, key, default_value)
+	return GFVariantData.get_option_value(
+		state,
+		key,
+		default_value
+	)
 
 
 ## 清空节点运行态。node_id 为空时清空全部节点运行态。
@@ -350,7 +405,11 @@ func clear_node_runtime_state(node_id: StringName = &"") -> void:
 ## [br]
 ## @schema return: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。
 func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
-	var json_compatible: bool = GFVariantData.get_option_bool(options, "json_compatible", false)
+	var json_compatible: bool = GFVariantData.get_option_bool(
+		options,
+		"json_compatible",
+		false
+	)
 	var snapshot: Dictionary = {
 		"values": _to_snapshot_dictionary(values, json_compatible),
 		"next_node_ids": _to_snapshot_value(next_node_ids, json_compatible),
@@ -361,7 +420,11 @@ func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
 			json_compatible
 		),
 	}
-	if GFVariantData.get_option_bool(options, "include_condition_handler_ids", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_condition_handler_ids",
+		true
+	):
 		snapshot["condition_handler_ids"] = _to_snapshot_value(
 			_get_condition_handler_ids(),
 			json_compatible
@@ -384,7 +447,11 @@ func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
 ## @return: 快照有效并完成恢复时返回 true。
 func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
 	var parsed: Dictionary = _parse_runtime_snapshot(snapshot)
-	if not GFVariantData.get_option_bool(parsed, "valid", false):
+	if not GFVariantData.get_option_bool(
+		parsed,
+		"valid",
+		false
+	):
 		return false
 
 	values = GFVariantData.get_option_dictionary(parsed, "values").duplicate(true)
@@ -419,9 +486,7 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 		if json_compatible:
 			state_key = GFVariantData.to_text(node_id)
 		node_states[state_key] = _to_snapshot_dictionary(runtime_state, json_compatible)
-	var state: Dictionary = {
-		"nodes": node_states,
-	}
+	var state: Dictionary = { "nodes": node_states, }
 	return state
 
 
@@ -436,7 +501,11 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ## @schema data: serialize_runtime_state() 返回的运行态 Dictionary。
 func deserialize_runtime_state(data: Dictionary) -> void:
 	var parsed: Dictionary = _parse_node_runtime_states(data)
-	if not GFVariantData.get_option_bool(parsed, "valid", false):
+	if not GFVariantData.get_option_bool(
+		parsed,
+		"valid",
+		false
+	):
 		push_error("[GFFlowContext][flow_context.invalid_runtime_nodes] deserialize_runtime_state failed: nodes must map node IDs to Dictionary values.")
 		return
 	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
@@ -459,7 +528,11 @@ func deserialize_runtime_state(data: Dictionary) -> void:
 func get_node_runtime_state_snapshot(node_id: StringName) -> Dictionary:
 	if _executing_runtime_nodes.has(node_id):
 		return _executing_runtime_nodes[node_id].serialize_runtime_state()
-	var state_value: Variant = GFVariantData.get_option_value(_node_runtime_states, node_id, {})
+	var state_value: Variant = GFVariantData.get_option_value(
+		_node_runtime_states,
+		node_id,
+		{}
+	)
 	if not (state_value is Dictionary):
 		return {}
 	var state: Dictionary = state_value
@@ -502,7 +575,11 @@ func replace_node_runtime_state(node_id: StringName, state: Dictionary) -> void:
 ## [br]
 ## @return: 同一 Context 中该标识未被执行占用时返回 true。
 func begin_node_runtime_execution(node_id: StringName, node: GFFlowNode) -> bool:
-	if node_id == &"" or node == null or _executing_runtime_nodes.has(node_id):
+	if (
+		node_id == &""
+		or node == null
+		or _executing_runtime_nodes.has(node_id)
+	):
 		return false
 	_executing_runtime_nodes[node_id] = node
 	return true
@@ -566,12 +643,16 @@ func _parse_runtime_snapshot(snapshot: Dictionary) -> Dictionary:
 		var legacy_nodes_value: Variant = snapshot["nodes"]
 		if not (legacy_nodes_value is Dictionary):
 			return {}
-		runtime_state = {"nodes": legacy_nodes_value}
+		runtime_state = { "nodes": legacy_nodes_value }
 	else:
 		return {}
 
 	var parsed_runtime_state: Dictionary = _parse_node_runtime_states(runtime_state)
-	if not GFVariantData.get_option_bool(parsed_runtime_state, "valid", false):
+	if not GFVariantData.get_option_bool(
+		parsed_runtime_state,
+		"valid",
+		false
+	):
 		return {}
 	var parsed_values: Dictionary = values_value
 	var parsed_next_node_ids: PackedStringArray = next_node_ids_value
@@ -603,33 +684,66 @@ func _parse_node_runtime_states(data: Dictionary) -> Dictionary:
 		var state: Dictionary = state_value
 		if not state.is_empty():
 			normalized[node_id] = state.duplicate(true)
-	return {
-		"valid": true,
-		"node_states": normalized,
-	}
+	return { "valid": true, "node_states": normalized, }
+
 
 ## 将条件处理器的多种返回值转换为统一结果字典。
 ## [br]
 ## @api private
-func _normalize_condition_result(condition_id: StringName, raw_result: Variant, default_value: Variant) -> Dictionary:
+func _normalize_condition_result(
+	condition_id: StringName,
+	raw_result: Variant,
+	default_value: Variant
+) -> Dictionary:
 	if raw_result is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(raw_result)
 		return {
-			"ok": GFVariantData.get_option_bool(data, "ok", true),
+			"ok": GFVariantData.get_option_bool(
+				data,
+				"ok",
+				true
+			),
 			"condition_id": condition_id,
-			"value": GFVariantData.get_option_value(data, "value", default_value),
-			"reason": GFVariantData.get_option_string(data, "reason", GFVariantData.get_option_string(data, "error", "")),
+			"value": GFVariantData.get_option_value(
+				data,
+				"value",
+				default_value
+			),
+			"reason": GFVariantData.get_option_string(
+				data,
+				"reason",
+				GFVariantData.get_option_string(
+					data,
+					"error",
+					""
+				)
+			),
 			"metadata": GFVariantData.get_option_dictionary(data, "metadata"),
 		}
 	if raw_result == null:
-		return _make_condition_result(true, condition_id, default_value, "")
-	return _make_condition_result(true, condition_id, raw_result, "")
+		return _make_condition_result(
+			true,
+			condition_id,
+			default_value,
+			""
+		)
+	return _make_condition_result(
+		true,
+		condition_id,
+		raw_result,
+		""
+	)
 
 
 ## 构造包含状态、条件 ID、值、原因和元数据的条件结果。
 ## [br]
 ## @api private
-func _make_condition_result(ok: bool, condition_id: StringName, value: Variant, reason: String) -> Dictionary:
+func _make_condition_result(
+	ok: bool,
+	condition_id: StringName,
+	value: Variant,
+	reason: String
+) -> Dictionary:
 	return {
 		"ok": ok,
 		"condition_id": condition_id,
@@ -654,9 +768,10 @@ func _get_callable_value(value: Variant) -> Callable:
 func _to_snapshot_dictionary(value: Dictionary, json_compatible: bool) -> Dictionary:
 	if not json_compatible:
 		return value.duplicate(true)
-	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(value, {
-		"path_redaction": "basename",
-	})
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+		value,
+		{ "path_redaction": "basename", }
+	)
 
 
 ## 复制快照值，或将值转换为 JSON 兼容形式。
@@ -665,9 +780,10 @@ func _to_snapshot_dictionary(value: Dictionary, json_compatible: bool) -> Dictio
 func _to_snapshot_value(value: Variant, json_compatible: bool) -> Variant:
 	if not json_compatible:
 		return GFVariantData.duplicate_variant(value)
-	return GFReportValueCodec.to_json_compatible(value, {
-		"path_redaction": "basename",
-	})
+	return GFReportValueCodec.to_json_compatible(
+		value,
+		{ "path_redaction": "basename", }
+	)
 
 
 ## 读取并排序已注册条件处理器 ID。

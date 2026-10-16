@@ -53,7 +53,11 @@ static func try_call_for_framework(
 		return false
 
 	var effective_arguments_output: Array = []
-	if not _build_effective_arguments(callback, arguments, effective_arguments_output):
+	if not _build_effective_arguments(
+		callback,
+		arguments,
+		effective_arguments_output
+	):
 		return false
 	var effective_arguments: Array = effective_arguments_output[0]
 	var target: Object = callback.get_object()
@@ -65,7 +69,11 @@ static func try_call_for_framework(
 		or not target.has_method(method_name)
 	):
 		return false
-	if not _target_method_accepts(target, method_name, effective_arguments):
+	if not _target_method_accepts(
+		target,
+		method_name,
+		effective_arguments
+	):
 		return false
 
 	result_output.append(callback.callv(arguments))
@@ -96,7 +104,10 @@ static func _build_effective_arguments(
 	var bound_arguments: Array = callback.get_bound_arguments()
 	if bound_arguments.size() != bound_count:
 		return false
-	var effective_arguments: Array = arguments.slice(0, arguments.size() - unbound_count)
+	var effective_arguments: Array = arguments.slice(
+		0,
+		arguments.size() - unbound_count
+	)
 	effective_arguments.append_array(bound_arguments)
 	effective_arguments_output.append(effective_arguments)
 	return true
@@ -115,7 +126,11 @@ static func _target_method_accepts(
 		inspected_count += 1
 		if inspected_count > _MAX_METHOD_RECORDS:
 			return false
-		if _method_record_accepts(method_info, method_name, arguments):
+		if _method_record_accepts(
+			method_info,
+			method_name,
+			arguments
+		):
 			return true
 
 	if target is Script:
@@ -124,7 +139,11 @@ static func _target_method_accepts(
 			inspected_count += 1
 			if inspected_count > _MAX_METHOD_RECORDS:
 				return false
-			if _method_record_accepts(method_info, method_name, arguments):
+			if _method_record_accepts(
+				method_info,
+				method_name,
+				arguments
+			):
 				return true
 	return false
 
@@ -148,21 +167,33 @@ static func _method_record_accepts(
 	if default_arguments.size() > method_arguments.size():
 		return false
 	var required_count: int = method_arguments.size() - default_arguments.size()
-	var method_flags: int = GFVariantData.to_int(method_info.get("flags", 0), 0)
+	var method_flags: int = GFVariantData.to_int(
+		method_info.get("flags", 0),
+		0
+	)
 	var accepts_varargs: bool = (method_flags & METHOD_FLAG_VARARG) != 0
 	if (
 		arguments.size() < required_count
-		or (arguments.size() > method_arguments.size() and not accepts_varargs)
+		or (
+			arguments.size() > method_arguments.size()
+			and not accepts_varargs
+		)
 	):
 		return false
 
-	var fixed_argument_count: int = mini(arguments.size(), method_arguments.size())
+	var fixed_argument_count: int = mini(
+		arguments.size(),
+		method_arguments.size()
+	)
 	for index: int in range(fixed_argument_count):
 		var raw_argument_info: Variant = method_arguments[index]
 		if not (raw_argument_info is Dictionary):
 			return false
 		var argument_info: Dictionary = raw_argument_info
-		if not _argument_accepts_value(argument_info, arguments[index]):
+		if not _argument_accepts_value(
+			argument_info,
+			arguments[index]
+		):
 			return false
 	return true
 
@@ -171,7 +202,10 @@ static func _method_record_accepts(
 ## [br]
 ## @api private
 static func _argument_accepts_value(argument_info: Dictionary, value: Variant) -> bool:
-	var expected_type: int = GFVariantData.to_int(argument_info.get("type", TYPE_NIL), TYPE_NIL)
+	var expected_type: int = GFVariantData.to_int(
+		argument_info.get("type", TYPE_NIL),
+		TYPE_NIL
+	)
 	if expected_type == TYPE_NIL:
 		return true
 	if value == null:
@@ -181,8 +215,14 @@ static func _argument_accepts_value(argument_info: Dictionary, value: Variant) -
 	if expected_type == TYPE_FLOAT and actual_type == TYPE_INT:
 		return true
 	if (
-		(expected_type == TYPE_STRING and actual_type == TYPE_STRING_NAME)
-		or (expected_type == TYPE_STRING_NAME and actual_type == TYPE_STRING)
+		(
+			expected_type == TYPE_STRING
+			and actual_type == TYPE_STRING_NAME
+		)
+		or (
+			expected_type == TYPE_STRING_NAME
+			and actual_type == TYPE_STRING
+		)
 	):
 		return true
 	if actual_type != expected_type:
@@ -190,10 +230,7 @@ static func _argument_accepts_value(argument_info: Dictionary, value: Variant) -
 	if expected_type != TYPE_OBJECT:
 		return true
 
-	var expected_class_name: StringName = GFVariantData.get_option_string_name(
-		argument_info,
-		"class_name"
-	)
+	var expected_class_name: StringName = GFVariantData.get_option_string_name(argument_info, "class_name")
 	if expected_class_name == &"":
 		return true
 	var object_value: Object = value
@@ -203,10 +240,7 @@ static func _argument_accepts_value(argument_info: Dictionary, value: Variant) -
 ## 检查对象是否匹配原生类名或其脚本继承链中的全局名和资源路径。
 ## [br]
 ## @api private
-static func _object_matches_class_name(
-	value: Object,
-	expected_class_name: StringName
-) -> bool:
+static func _object_matches_class_name(value: Object, expected_class_name: StringName) -> bool:
 	if value == null or not is_instance_valid(value):
 		return false
 	if value.is_class(String(expected_class_name)):
@@ -215,10 +249,7 @@ static func _object_matches_class_name(
 	var script_value: Variant = value.get_script()
 	while script_value is Script:
 		var script: Script = script_value
-		if (
-			StringName(script.get_global_name()) == expected_class_name
-			or StringName(script.resource_path) == expected_class_name
-		):
+		if (StringName(script.get_global_name()) == expected_class_name or StringName(script.resource_path) == expected_class_name):
 			return true
 		script_value = script.get_base_script()
 	return false

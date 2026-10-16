@@ -92,8 +92,16 @@ static func generate_v4() -> String:
 ## @return 小写 canonical UUID 字符串。
 static func generate_v7(unix_time_msec: int = -1) -> String:
 	var v7_state: Dictionary = _reserve_v7_monotonic_state(_resolve_unix_time_msec(unix_time_msec))
-	var timestamp_msec: int = GFVariantData.get_option_int(v7_state, "timestamp_msec", 0)
-	var sequence: int = GFVariantData.get_option_int(v7_state, "sequence", 0)
+	var timestamp_msec: int = GFVariantData.get_option_int(
+		v7_state,
+		"timestamp_msec",
+		0
+	)
+	var sequence: int = GFVariantData.get_option_int(
+		v7_state,
+		"sequence",
+		0
+	)
 	var bytes: PackedByteArray = _generate_random_bytes()
 	bytes[0] = (timestamp_msec >> 40) & 0xff
 	bytes[1] = (timestamp_msec >> 32) & 0xff
@@ -104,7 +112,11 @@ static func generate_v7(unix_time_msec: int = -1) -> String:
 	bytes[6] = ((sequence >> 8) & 0x0f) | 0x70
 	bytes[7] = sequence & 0xff
 	bytes[8] = (bytes[8] & 0x3f) | 0x80
-	var tail_sequence: int = GFVariantData.get_option_int(v7_state, "tail_sequence", -1)
+	var tail_sequence: int = GFVariantData.get_option_int(
+		v7_state,
+		"tail_sequence",
+		-1
+	)
 	if tail_sequence >= 0:
 		_write_v7_tail_sequence(bytes, tail_sequence)
 	return _format_uuid_bytes(bytes)
@@ -134,7 +146,12 @@ static func is_valid(value: String, version: int = 0) -> bool:
 		return false
 
 	for index: int in range(CANONICAL_LENGTH):
-		if [8, 13, 18, 23].has(index):
+		if [
+			8,
+			13,
+			18,
+			23,
+		].has(index):
 			continue
 		if not _is_hex_char(value.substr(index, 1)):
 			return false
@@ -143,7 +160,12 @@ static func is_valid(value: String, version: int = 0) -> bool:
 		return false
 
 	var variant: String = value.substr(19, 1)
-	return ["8", "9", "a", "b"].has(variant)
+	return [
+		"8",
+		"9",
+		"a",
+		"b",
+	].has(variant)
 
 
 # --- 私有/辅助方法 ---
@@ -186,7 +208,10 @@ static func _reserve_v7_monotonic_state(timestamp_msec: int) -> Dictionary:
 				tail_sequence = -1
 			else:
 				sequence = _MAX_V7_SEQUENCE
-				tail_sequence = mini(_last_v7_tail_sequence + 1, _MAX_V7_TAIL_SEQUENCE)
+				tail_sequence = mini(
+					_last_v7_tail_sequence + 1,
+					_MAX_V7_TAIL_SEQUENCE
+				)
 		elif effective_timestamp == _MAX_UNIX_TIME_MSEC and sequence == _MAX_V7_SEQUENCE:
 			tail_sequence = 0
 
@@ -206,7 +231,10 @@ static func _reserve_v7_monotonic_state(timestamp_msec: int) -> Dictionary:
 ## [br]
 ## @api private
 static func _write_v7_tail_sequence(bytes: PackedByteArray, tail_sequence: int) -> void:
-	var clamped_sequence: int = mini(maxi(tail_sequence, 0), _MAX_V7_TAIL_SEQUENCE)
+	var clamped_sequence: int = mini(
+		maxi(tail_sequence, 0),
+		_MAX_V7_TAIL_SEQUENCE
+	)
 	bytes[8] = 0x80 | ((clamped_sequence >> 56) & 0x3f)
 	for index: int in range(7):
 		bytes[9 + index] = (clamped_sequence >> ((6 - index) * 8)) & 0xff
@@ -217,13 +245,16 @@ static func _write_v7_tail_sequence(bytes: PackedByteArray, tail_sequence: int) 
 ## @api private
 static func _format_uuid_bytes(bytes: PackedByteArray) -> String:
 	var hex: String = bytes.hex_encode()
-	return "%s-%s-%s-%s-%s" % [
-		hex.substr(0, 8),
-		hex.substr(8, 4),
-		hex.substr(12, 4),
-		hex.substr(16, 4),
-		hex.substr(20, 12),
-	]
+	return (
+		"%s-%s-%s-%s-%s"
+		% [
+			hex.substr(0, 8),
+			hex.substr(8, 4),
+			hex.substr(12, 4),
+			hex.substr(16, 4),
+			hex.substr(20, 12),
+		]
+	)
 
 
 ## 判断单字符字符串是否属于小写十六进制字符表。
@@ -237,4 +268,7 @@ static func _is_hex_char(character: String) -> bool:
 ## [br]
 ## @api private
 static func _hex_nibble(value: int) -> String:
-	return _HEX_CHARS.substr(value & 0x0f, 1)
+	return _HEX_CHARS.substr(
+		value & 0x0f,
+		1
+	)

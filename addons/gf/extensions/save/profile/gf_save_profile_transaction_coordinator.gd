@@ -24,10 +24,7 @@ extends GFUtility
 ## @param previous_profile_id: 提交前活动 Profile；首次激活时为空。
 ## [br]
 ## @param current_profile_id: 提交后活动 Profile。
-signal active_profile_changed(
-	previous_profile_id: StringName,
-	current_profile_id: StringName
-)
+signal active_profile_changed(previous_profile_id: StringName, current_profile_id: StringName)
 
 ## 任一事务进入稳定终态时发出。
 ## [br]
@@ -308,14 +305,10 @@ func ready() -> void:
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	if _disposed or _profile_utility == null:
-		var _failed: bool = completion.fail(
-			"GFSaveProfileUtility must be configured before transaction activation."
-		)
+		var _failed: bool = completion.fail("GFSaveProfileUtility must be configured before transaction activation.")
 		return completion
 	if _quiesce_completion != null:
-		var _failed_quiesced: bool = completion.fail(
-			"Save Profile transaction coordinator cannot reactivate after quiesce."
-		)
+		var _failed_quiesced: bool = completion.fail("Save Profile transaction coordinator cannot reactivate after quiesce.")
 		return completion
 	_admission_open = true
 	var _succeeded: bool = completion.succeed()
@@ -402,10 +395,12 @@ func release_dependencies() -> void:
 ## @param profile_utility: 已配置的底层 Profile Utility。
 ## [br]
 ## @return 当前 Coordinator；输入无效或已有受管 Profile 时返回 null。
-func setup(
-	profile_utility: GFSaveProfileUtility
-) -> GFSaveProfileTransactionCoordinator:
-	if _disposed or profile_utility == null or not _profiles.is_empty():
+func setup(profile_utility: GFSaveProfileUtility) -> GFSaveProfileTransactionCoordinator:
+	if (
+		_disposed
+		or profile_utility == null
+		or not _profiles.is_empty()
+	):
 		return null
 	_profile_utility_explicit = true
 	_set_profile_utility(profile_utility)
@@ -428,17 +423,18 @@ func setup(
 ## @return 底层注册报告，附加 managed 与 provider_domain_id 字段。
 ## [br]
 ## @schema return: GFValidationReportDictionary-compatible report with managed and provider_domain_id fields.
-func register_profile(
-	profile: GFSaveProfile,
-	migrations: GFSaveMigrationRegistry = null
-) -> Dictionary:
+func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null) -> Dictionary:
 	if _profile_utility == null:
 		return _make_registration_failure(
 			profile,
 			&"profile_utility_unconfigured",
 			"GFSaveProfileUtility must be configured before managed registration."
 		)
-	if not _admission_open or _disposed or _notification_depth > 0:
+	if (
+		not _admission_open
+		or _disposed
+		or _notification_depth > 0
+	):
 		return _make_registration_failure(
 			profile,
 			&"coordinator_busy",
@@ -447,36 +443,30 @@ func register_profile(
 	if profile == null:
 		return _profile_utility.register_profile(profile, migrations)
 	var topology_check: Dictionary = _inspect_registration_topology(profile.providers)
-	if not GFVariantData.get_option_bool(topology_check, "ok", false):
+	if not GFVariantData.get_option_bool(
+		topology_check,
+		"ok",
+		false
+	):
 		return _make_registration_failure(
 			profile,
 			GFVariantData.get_option_string_name(topology_check, "kind"),
 			GFVariantData.get_option_string(topology_check, "error")
 		)
 	var report: Dictionary = _profile_utility.register_profile(profile, migrations)
-	if not GFVariantData.get_option_bool(report, "registered", false):
+	if not GFVariantData.get_option_bool(
+		report,
+		"registered",
+		false
+	):
 		return report
-	var descriptor: Dictionary = (
-		_profile_utility.get_profile_descriptor_for_manager_for_framework(
-			profile.profile_id
-		)
-	)
-	var permit: RefCounted = _profile_utility.claim_profile_management_for_framework(
-		profile.profile_id,
-		self
-	)
+	var descriptor: Dictionary = _profile_utility.get_profile_descriptor_for_manager_for_framework(profile.profile_id)
+	var permit: RefCounted = _profile_utility.claim_profile_management_for_framework(profile.profile_id, self)
 	if descriptor.is_empty() or permit == null:
 		if permit != null:
-			var _rolled_back_managed: bool = (
-				_profile_utility.unregister_profile_for_manager_for_framework(
-					profile.profile_id,
-					permit
-				)
-			)
+			var _rolled_back_managed: bool = _profile_utility.unregister_profile_for_manager_for_framework(profile.profile_id, permit)
 		else:
-			var _rolled_back_registration: bool = _profile_utility.unregister_profile(
-				profile.profile_id
-			)
+			var _rolled_back_registration: bool = _profile_utility.unregister_profile(profile.profile_id)
 		return _make_registration_failure(
 			profile,
 			&"management_claim_failed",
@@ -489,10 +479,7 @@ func register_profile(
 		GFVariantData.get_option_int(topology_check, "matching_domain_id")
 	)
 	if domain == null:
-		var _released: bool = _profile_utility.release_profile_management_for_framework(
-			profile.profile_id,
-			permit
-		)
+		var _released: bool = _profile_utility.release_profile_management_for_framework(profile.profile_id, permit)
 		var _unregistered: bool = _profile_utility.unregister_profile(profile.profile_id)
 		return _make_registration_failure(
 			profile,
@@ -527,10 +514,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 		or domain.reconcile_lease != null
 	):
 		return false
-	if not _profile_utility.unregister_profile_for_manager_for_framework(
-		profile_id,
-		profile.permit
-	):
+	if not (_profile_utility.unregister_profile_for_manager_for_framework(profile_id, profile.permit)):
 		return false
 	_invalidate_recovery_leases(domain)
 	var _profile_erased: bool = _profiles.erase(profile_id)
@@ -577,16 +561,8 @@ func get_domain_state_snapshot(profile_id: StringName) -> Dictionary:
 		"profile_ids": _string_name_array_to_packed(domain.profile_ids),
 		"domain_generation": domain.domain_generation,
 		"transaction_epoch": domain.transaction_epoch,
-		"transaction_id": (
-			domain.current_transaction.operation.get_transaction_id()
-			if domain.current_transaction != null
-			else 0
-		),
-		"reconcile_lease_id": (
-			domain.reconcile_lease.get_lease_id()
-			if domain.reconcile_lease != null
-			else 0
-		),
+		"transaction_id": (domain.current_transaction.operation.get_transaction_id() if domain.current_transaction != null else 0),
+		"reconcile_lease_id": (domain.reconcile_lease.get_lease_id() if domain.reconcile_lease != null else 0),
 		"quiescing": not _admission_open,
 		"disposed": _disposed,
 	}
@@ -671,7 +647,11 @@ func activate_profile(
 	)
 	transaction.context = context.duplicate(true)
 	transaction.stage = _STAGE_ACTIVATE_LOAD
-	_start_strict_load(domain, transaction, profile_id)
+	_start_strict_load(
+		domain,
+		transaction,
+		profile_id
+	)
 	return transaction.operation
 
 
@@ -744,7 +724,11 @@ func switch_profile(
 			metadata
 		)
 	var source: ManagedProfile = _get_profile(source_id)
-	if source == null or not source.save_enabled or not target.load_enabled:
+	if (
+		source == null
+		or not source.save_enabled
+		or not target.load_enabled
+	):
 		return _reject_transaction(
 			GFSaveProfileTransactionOperation.OPERATION_SWITCH,
 			source_id,
@@ -764,7 +748,11 @@ func switch_profile(
 	)
 	transaction.context = context.duplicate(true)
 	transaction.stage = _STAGE_SOURCE_FLUSH
-	_start_flush(domain, transaction, source_id)
+	_start_flush(
+		domain,
+		transaction,
+		source_id
+	)
 	return transaction.operation
 
 
@@ -779,10 +767,7 @@ func switch_profile(
 ## @param request: 当前 Provider 状态的保存请求；null 表示空元数据。
 ## [br]
 ## @return 类型化 bootstrap 操作；拒绝不会 claim lease 或 request。
-func bootstrap_profile(
-	lease: GFSaveProfileRecoveryLease,
-	request: GFSaveProfileRequest = null
-) -> GFSaveProfileTransactionOperation:
+func bootstrap_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 	return _start_recovery_save(
 		GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP,
 		GFSaveProfileRecoveryLease.REASON_MISSING,
@@ -802,10 +787,7 @@ func bootstrap_profile(
 ## @param request: 当前 Provider 状态的保存请求；null 表示空元数据。
 ## [br]
 ## @return 类型化 adopt 操作；拒绝不会 claim lease 或 request。
-func adopt_profile(
-	lease: GFSaveProfileRecoveryLease,
-	request: GFSaveProfileRequest = null
-) -> GFSaveProfileTransactionOperation:
+func adopt_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 	return _start_recovery_save(
 		GFSaveProfileTransactionOperation.OPERATION_ADOPT,
 		GFSaveProfileRecoveryLease.REASON_CORRUPT,
@@ -828,10 +810,7 @@ func adopt_profile(
 ## @param request: 目标保存的一次性请求；null 表示空元数据。
 ## [br]
 ## @return 类型化 bootstrap-and-switch 操作；边界拒绝不会 claim lease 或 request。
-func bootstrap_and_switch_profile(
-	lease: GFSaveProfileRecoveryLease,
-	request: GFSaveProfileRequest = null
-) -> GFSaveProfileTransactionOperation:
+func bootstrap_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 	return _start_switch_recovery(
 		GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP_AND_SWITCH,
 		GFSaveProfileRecoveryLease.REASON_MISSING,
@@ -856,10 +835,7 @@ func bootstrap_and_switch_profile(
 ## @param request: 目标保存的一次性请求；null 表示空元数据。
 ## [br]
 ## @return 类型化 adopt-and-switch 操作；边界拒绝不会 claim lease 或 request。
-func adopt_and_switch_profile(
-	lease: GFSaveProfileRecoveryLease,
-	request: GFSaveProfileRequest = null
-) -> GFSaveProfileTransactionOperation:
+func adopt_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -> GFSaveProfileTransactionOperation:
 	return _start_switch_recovery(
 		GFSaveProfileTransactionOperation.OPERATION_ADOPT_AND_SWITCH,
 		GFSaveProfileRecoveryLease.REASON_CORRUPT,
@@ -879,10 +855,7 @@ func adopt_and_switch_profile(
 ## @param request: 一次性候选与元数据请求。
 ## [br]
 ## @return 类型化 mutate-and-persist 操作；边界拒绝不会 claim request。
-func mutate_and_persist(
-	profile_id: StringName,
-	request: GFSaveProfileMutationRequest
-) -> GFSaveProfileTransactionOperation:
+func mutate_and_persist(profile_id: StringName, request: GFSaveProfileMutationRequest) -> GFSaveProfileTransactionOperation:
 	var profile: ManagedProfile = _get_profile(profile_id)
 	var domain: DomainState = _get_domain_for_profile(profile_id)
 	var admission: Dictionary = _get_domain_admission_failure(domain)
@@ -925,7 +898,11 @@ func mutate_and_persist(
 			_STAGE_MUTATION_FLUSH
 		)
 	var request_check: Dictionary = _validate_mutation_request(profile, request)
-	if not GFVariantData.get_option_bool(request_check, "ok", false):
+	if not GFVariantData.get_option_bool(
+		request_check,
+		"ok",
+		false
+	):
 		return _reject_transaction(
 			GFSaveProfileTransactionOperation.OPERATION_MUTATE_AND_PERSIST,
 			profile_id,
@@ -961,7 +938,11 @@ func mutate_and_persist(
 	transaction.document_metadata = _get_dictionary_claim(claim, "document_metadata")
 	transaction.mutation_records = _get_dictionary_array_claim(claim, "mutations")
 	transaction.stage = _STAGE_MUTATION_FLUSH
-	_start_flush(domain, transaction, profile_id)
+	_start_flush(
+		domain,
+		transaction,
+		profile_id
+	)
 	return transaction.operation
 
 
@@ -979,22 +960,15 @@ func mutate_and_persist(
 ## @param request: 一次性 reconcile context 与结果元数据。
 ## [br]
 ## @return 类型化 reconcile 操作。
-func reconcile_profile(
-	lease: GFSaveProfileReconcileLease,
-	request: GFSaveProfileReconcileRequest = null
-) -> GFSaveProfileTransactionOperation:
+func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null) -> GFSaveProfileTransactionOperation:
 	var record: Dictionary = _get_reconcile_record(lease)
-	var profile_id: StringName = (
-		lease.get_reconcile_profile_id()
-		if lease != null
-		else &""
-	)
-	var domain: DomainState = (
-		_get_domain(lease.get_domain_id())
-		if lease != null
-		else null
-	)
-	if record.is_empty() or domain == null or domain.reconcile_lease != lease:
+	var profile_id: StringName = (lease.get_reconcile_profile_id() if lease != null else &"")
+	var domain: DomainState = (_get_domain(lease.get_domain_id()) if lease != null else null)
+	if (
+		record.is_empty()
+		or domain == null
+		or domain.reconcile_lease != lease
+	):
 		return _reject_transaction(
 			GFSaveProfileTransactionOperation.OPERATION_RECONCILE,
 			profile_id,
@@ -1026,8 +1000,14 @@ func reconcile_profile(
 		and _quiesce_completion.is_pending()
 	)
 	if (
-		(_disposed or _dispose_requested or not _admission_open)
+		(
+			(
+				_disposed
+				or _dispose_requested
+				or not _admission_open
+			)
 			and not quiesce_continuation
+		)
 		or _notification_depth > 0
 		or domain.current_transaction != null
 	):
@@ -1092,7 +1072,11 @@ func reconcile_profile(
 	)
 	transaction.context = _get_dictionary_claim(request_claim, "context")
 	transaction.stage = _STAGE_RECONCILE_LOAD
-	_start_strict_load(domain, transaction, profile_id)
+	_start_strict_load(
+		domain,
+		transaction,
+		profile_id
+	)
 	return transaction.operation
 
 
@@ -1117,15 +1101,17 @@ func _start_strict_load(
 			transaction.stage
 		)
 		return
-	var operation: GFSaveProfileOperation = (
-		_profile_utility.load_profile_strict_for_manager_for_framework(
-			profile_id,
-			transaction.context,
-			{},
-			profile.permit
-		)
+	var operation: GFSaveProfileOperation = _profile_utility.load_profile_strict_for_manager_for_framework(
+		profile_id,
+		transaction.context,
+		{},
+		profile.permit
 	)
-	_observe_profile_operation(domain, transaction, operation)
+	_observe_profile_operation(
+		domain,
+		transaction,
+		operation
+	)
 
 
 ## 使用源档案 permit 发起 flush，并记录是否已准入等待中的正 generation 写入屏障，再统一观察结果。
@@ -1147,19 +1133,21 @@ func _start_flush(
 			transaction.stage
 		)
 		return
-	var operation: GFSaveProfileOperation = (
-		_profile_utility.flush_profile_for_manager_for_framework(
-			profile_id,
-			{},
-			profile.permit
-		)
+	var operation: GFSaveProfileOperation = _profile_utility.flush_profile_for_manager_for_framework(
+		profile_id,
+		{},
+		profile.permit
 	)
 	transaction.write_admitted = (
 		operation != null
 		and not operation.is_completed()
 		and operation.get_requested_generation() > 0
 	)
-	_observe_profile_operation(domain, transaction, operation)
+	_observe_profile_operation(
+		domain,
+		transaction,
+		operation
+	)
 
 
 ## 使用目标 permit 和 mutation 候选发起保存；以请求是否已被领取记录写入准入，随后清空本事务的候选数组并观察操作。
@@ -1182,17 +1170,19 @@ func _start_save(
 			transaction.stage
 		)
 		return
-	var operation: GFSaveProfileOperation = (
-		_profile_utility.save_profile_for_manager_for_framework(
-			profile_id,
-			request,
-			profile.permit,
-			transaction.mutation_candidates
-		)
+	var operation: GFSaveProfileOperation = _profile_utility.save_profile_for_manager_for_framework(
+		profile_id,
+		request,
+		profile.permit,
+		transaction.mutation_candidates
 	)
 	transaction.write_admitted = request != null and request.is_claimed()
 	transaction.mutation_candidates.clear()
-	_observe_profile_operation(domain, transaction, operation)
+	_observe_profile_operation(
+		domain,
+		transaction,
+		operation
+	)
 
 
 ## 持有事务当前 Profile 操作，以 domain 和 transaction id 绑定完成回调；已完成操作走同一路径，空操作直接拒绝事务。
@@ -1221,9 +1211,11 @@ func _observe_profile_operation(
 			transaction.operation.get_transaction_id()
 		)
 		return
-	var callback: Callable = Callable(self, "_on_profile_operation_completed").bind(
-		domain.domain_id,
-		transaction.operation.get_transaction_id()
+	var callback: Callable = (
+		Callable(self, "_on_profile_operation_completed").bind(
+			domain.domain_id,
+			transaction.operation.get_transaction_id()
+		)
 	)
 	transaction.profile_callback = callback
 	var _connected: Error = operation.completed.connect(
@@ -1253,15 +1245,8 @@ func _handle_activate_load_result(
 			evidence
 		)
 		return
-	if result.get_status() in [
-		GFSaveProfileResult.STATUS_MISSING,
-		GFSaveProfileResult.STATUS_CORRUPT,
-	]:
-		var reason: StringName = (
-			GFSaveProfileRecoveryLease.REASON_MISSING
-			if result.get_status() == GFSaveProfileResult.STATUS_MISSING
-			else GFSaveProfileRecoveryLease.REASON_CORRUPT
-		)
+	if (result.get_status() in [GFSaveProfileResult.STATUS_MISSING, GFSaveProfileResult.STATUS_CORRUPT,]):
+		var reason: StringName = (GFSaveProfileRecoveryLease.REASON_MISSING if result.get_status() == GFSaveProfileResult.STATUS_MISSING else GFSaveProfileRecoveryLease.REASON_CORRUPT)
 		var lease: GFSaveProfileRecoveryLease = _create_recovery_lease(
 			domain,
 			transaction,
@@ -1325,7 +1310,11 @@ func _handle_switch_flush_result(
 	if result.is_successful():
 		transaction.stage_evidence["source_flush"] = evidence
 		transaction.stage = _STAGE_TARGET_LOAD
-		_start_strict_load(domain, transaction, transaction.target_profile_id)
+		_start_strict_load(
+			domain,
+			transaction,
+			transaction.target_profile_id
+		)
 		return
 	if result.get_status() == GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN:
 		var lease: GFSaveProfileReconcileLease = _create_reconcile_fence(
@@ -1366,13 +1355,7 @@ func _handle_switch_target_result(
 	transaction: TransactionState,
 	result: GFSaveProfileResult
 ) -> void:
-	var evidence: Dictionary = {
-		"source_flush": GFVariantData.get_option_dictionary(
-			transaction.stage_evidence,
-			"source_flush"
-		),
-		"target_load": _make_profile_result_evidence(result),
-	}
+	var evidence: Dictionary = { "source_flush": GFVariantData.get_option_dictionary(transaction.stage_evidence, "source_flush"), "target_load": _make_profile_result_evidence(result), }
 	if result.is_successful() and result.get_status() == GFSaveProfileResult.STATUS_LOADED:
 		_commit_active_profile(domain, transaction.target_profile_id)
 		_finish_domain_transaction(
@@ -1385,15 +1368,8 @@ func _handle_switch_target_result(
 			evidence
 		)
 		return
-	if result.get_status() in [
-		GFSaveProfileResult.STATUS_MISSING,
-		GFSaveProfileResult.STATUS_CORRUPT,
-	]:
-		var reason: StringName = (
-			GFSaveProfileRecoveryLease.REASON_MISSING
-			if result.get_status() == GFSaveProfileResult.STATUS_MISSING
-			else GFSaveProfileRecoveryLease.REASON_CORRUPT
-		)
+	if (result.get_status() in [GFSaveProfileResult.STATUS_MISSING, GFSaveProfileResult.STATUS_CORRUPT,]):
+		var reason: StringName = (GFSaveProfileRecoveryLease.REASON_MISSING if result.get_status() == GFSaveProfileResult.STATUS_MISSING else GFSaveProfileRecoveryLease.REASON_CORRUPT)
 		var recovery_lease: GFSaveProfileRecoveryLease = _create_recovery_lease(
 			domain,
 			transaction,
@@ -1469,12 +1445,7 @@ func _handle_recovery_save_result(
 	var evidence: Dictionary = _make_profile_result_evidence(result)
 	if result.is_successful():
 		_commit_active_profile(domain, transaction.target_profile_id)
-		var status: StringName = (
-			GFSaveProfileTransactionResult.STATUS_BOOTSTRAPPED
-			if transaction.operation.get_operation()
-				== GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP
-			else GFSaveProfileTransactionResult.STATUS_ADOPTED
-		)
+		var status: StringName = (GFSaveProfileTransactionResult.STATUS_BOOTSTRAPPED if transaction.operation.get_operation() == GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP else GFSaveProfileTransactionResult.STATUS_ADOPTED)
 		_finish_domain_transaction(
 			domain,
 			transaction,
@@ -1527,11 +1498,7 @@ func _handle_switch_recovery_flush_result(
 	var evidence: Dictionary = _make_profile_result_evidence(result)
 	if result.is_successful():
 		transaction.stage_evidence["source_flush"] = evidence
-		if (
-			transaction.operation.get_operation()
-				== GFSaveProfileTransactionOperation.OPERATION_ADOPT_AND_SWITCH
-			and transaction.requires_family_reset
-		):
+		if (transaction.operation.get_operation() == GFSaveProfileTransactionOperation.OPERATION_ADOPT_AND_SWITCH and transaction.requires_family_reset):
 			if transaction.reset_authorization != null:
 				_start_switch_recovery_reset(domain, transaction)
 			else:
@@ -1581,10 +1548,7 @@ func _handle_switch_recovery_flush_result(
 ## 重新验证目标与 family reset 授权，提交 reset 后立即清除事务持有的授权；是否准入以授权已被领取为依据。
 ## [br]
 ## @api private
-func _start_switch_recovery_reset(
-	domain: DomainState,
-	transaction: TransactionState
-) -> void:
+func _start_switch_recovery_reset(domain: DomainState, transaction: TransactionState) -> void:
 	var target: ManagedProfile = _get_profile(transaction.target_profile_id)
 	if target == null or _profile_utility == null:
 		_finish_domain_transaction(
@@ -1597,10 +1561,12 @@ func _start_switch_recovery_reset(
 			transaction.stage_evidence
 		)
 		return
-	if not _profile_utility.validate_profile_family_reset_authorization_for_manager_for_framework(
-		transaction.target_profile_id,
-		transaction.reset_authorization,
-		target.permit
+	if not (
+		_profile_utility.validate_profile_family_reset_authorization_for_manager_for_framework(
+			transaction.target_profile_id,
+			transaction.reset_authorization,
+			target.permit
+		)
 	):
 		transaction.reset_authorization = null
 		_finish_domain_transaction(
@@ -1614,12 +1580,10 @@ func _start_switch_recovery_reset(
 		)
 		return
 	transaction.stage = _STAGE_RECOVERY_RESET
-	var operation: GFStorageAsyncOperation = (
-		_profile_utility.reset_profile_family_for_manager_for_framework(
-			transaction.target_profile_id,
-			transaction.reset_authorization,
-			target.permit
-		)
+	var operation: GFStorageAsyncOperation = _profile_utility.reset_profile_family_for_manager_for_framework(
+		transaction.target_profile_id,
+		transaction.reset_authorization,
+		target.permit
 	)
 	transaction.write_admitted = (
 		operation != null
@@ -1627,7 +1591,11 @@ func _start_switch_recovery_reset(
 		and transaction.reset_authorization.is_claimed()
 	)
 	transaction.reset_authorization = null
-	_observe_storage_reset_operation(domain, transaction, operation)
+	_observe_storage_reset_operation(
+		domain,
+		transaction,
+		operation
+	)
 
 
 ## 记录事务 reset 操作，并按 domain 与 transaction id 观察完成；空操作报告 reset 阶段未准入。
@@ -1657,12 +1625,11 @@ func _observe_storage_reset_operation(
 			transaction.operation.get_transaction_id()
 		)
 		return
-	var callback: Callable = Callable(
-		self,
-		"_on_storage_reset_operation_completed"
-	).bind(
-		domain.domain_id,
-		transaction.operation.get_transaction_id()
+	var callback: Callable = (
+		Callable(self, "_on_storage_reset_operation_completed").bind(
+			domain.domain_id,
+			transaction.operation.get_transaction_id()
+		)
 	)
 	transaction.storage_callback = callback
 	var _connected: Error = operation.completed.connect(
@@ -1679,12 +1646,8 @@ func _handle_switch_recovery_reset_result(
 	transaction: TransactionState,
 	result: GFStorageAsyncResult
 ) -> void:
-	var reset_result: GFStorageFamilyResetResult = (
-		result.get_reset_result() if result != null else null
-	)
-	var reset_evidence: Dictionary = (
-		reset_result.to_dict() if reset_result != null else {}
-	)
+	var reset_result: GFStorageFamilyResetResult = result.get_reset_result() if result != null else null
+	var reset_evidence: Dictionary = reset_result.to_dict() if reset_result != null else {}
 	if result != null:
 		reset_evidence["request_id"] = result.get_request_id()
 	transaction.stage_evidence["reset"] = reset_evidence
@@ -1696,11 +1659,7 @@ func _handle_switch_recovery_reset_result(
 	):
 		_start_switch_recovery_target_save(domain, transaction)
 		return
-	var error_code: Error = (
-		reset_result.get_error_code()
-		if reset_result != null
-		else ERR_INVALID_DATA
-	)
+	var error_code: Error = (reset_result.get_error_code() if reset_result != null else ERR_INVALID_DATA)
 	_finish_domain_transaction(
 		domain,
 		transaction,
@@ -1715,10 +1674,7 @@ func _handle_switch_recovery_reset_result(
 ## 将事务元数据和上下文交给保存请求后清空原槽，切换到目标保存阶段并启动保存。
 ## [br]
 ## @api private
-func _start_switch_recovery_target_save(
-	domain: DomainState,
-	transaction: TransactionState
-) -> void:
+func _start_switch_recovery_target_save(domain: DomainState, transaction: TransactionState) -> void:
 	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
 		transaction.document_metadata,
 		transaction.context,
@@ -1728,7 +1684,12 @@ func _start_switch_recovery_target_save(
 	transaction.context = {}
 	transaction.result_metadata = {}
 	transaction.stage = _STAGE_RECOVERY_TARGET_SAVE
-	_start_save(domain, transaction, transaction.target_profile_id, request)
+	_start_save(
+		domain,
+		transaction,
+		transaction.target_profile_id,
+		request
+	)
 
 
 ## 目标保存成功才提交活动档案并报告恢复切换成功；结果未知建立目标对账阻断，证据合并之前的 flush/reset 阶段。
@@ -1744,12 +1705,7 @@ func _handle_switch_recovery_target_save_result(
 	evidence["target_save"] = _make_profile_result_evidence(result)
 	if result.is_successful():
 		_commit_active_profile(domain, transaction.target_profile_id)
-		var status: StringName = (
-			GFSaveProfileTransactionResult.STATUS_BOOTSTRAPPED_AND_SWITCHED
-			if transaction.operation.get_operation()
-				== GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP_AND_SWITCH
-			else GFSaveProfileTransactionResult.STATUS_ADOPTED_AND_SWITCHED
-		)
+		var status: StringName = (GFSaveProfileTransactionResult.STATUS_BOOTSTRAPPED_AND_SWITCHED if transaction.operation.get_operation() == GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP_AND_SWITCH else GFSaveProfileTransactionResult.STATUS_ADOPTED_AND_SWITCHED)
 		_finish_domain_transaction(
 			domain,
 			transaction,
@@ -1839,59 +1795,55 @@ func _handle_mutation_flush_result(
 ## 仅为当前排队事务消费候选记录并事务应用；失败保留回滚诊断，释放请求出现时回滚已应用候选，成功则保留回滚快照并发起固定候选的保存。
 ## [br]
 ## @api private
-func _apply_mutation_candidates(
-	domain: DomainState,
-	transaction: TransactionState
-) -> void:
-	if (
-		domain.current_transaction != transaction
-		or transaction.stage != _STAGE_MUTATION_QUEUED
-	):
+func _apply_mutation_candidates(domain: DomainState, transaction: TransactionState) -> void:
+	if (domain.current_transaction != transaction or transaction.stage != _STAGE_MUTATION_QUEUED):
 		return
 	transaction.stage = _STAGE_MUTATION_APPLY
 	_begin_processing()
 	var candidates: Array[GFSaveSection] = []
 	for record: Dictionary in transaction.mutation_records:
-		var section_id: StringName = GFVariantData.get_option_string_name(
-			record,
-			"section_id"
-		)
+		var section_id: StringName = GFVariantData.get_option_string_name(record, "section_id")
 		var schema_version: int = GFVariantData.get_option_int(record, "schema_version")
 		var metadata: Dictionary = GFVariantData.get_option_dictionary(record, "metadata")
-		var candidate: GFSaveSection = GFSaveSection.new().configure(
-			section_id,
-			schema_version,
-			GFVariantData.get_option_value(record, "payload"),
-			metadata
+		var candidate: GFSaveSection = (
+			GFSaveSection.new().configure(
+				section_id,
+				schema_version,
+				GFVariantData.get_option_value(record, "payload"),
+				metadata
+			)
 		)
 		candidates.append(candidate)
 		record.clear()
 	transaction.mutation_records.clear()
 	var profile: ManagedProfile = _get_profile(transaction.target_profile_id)
 	var apply_result: Dictionary = (
-		_profile_utility.apply_profile_candidates_for_manager_for_framework(
-			transaction.target_profile_id,
-			candidates,
-			transaction.context,
-			profile.permit if profile != null else null
+		(
+			_profile_utility.apply_profile_candidates_for_manager_for_framework(
+				transaction.target_profile_id,
+				candidates,
+				transaction.context,
+				(profile.permit if profile != null else null)
+			)
 		)
 		if _profile_utility != null
 		else {}
 	)
-	if not GFVariantData.get_option_bool(apply_result, "ok", false):
+	if not GFVariantData.get_option_bool(
+		apply_result,
+		"ok",
+		false
+	):
 		candidates.clear()
 		var rollback_errors: Array[GFSaveRollbackFailure] = _read_rollback_errors(
-			GFVariantData.get_option_value(apply_result, "rollback_errors", [])
+			GFVariantData.get_option_value(
+				apply_result,
+				"rollback_errors",
+				[]
+			)
 		)
-		var failure_stage: StringName = GFVariantData.get_option_string_name(
-			apply_result,
-			"failure_stage"
-		)
-		var status: StringName = (
-			GFSaveProfileTransactionResult.STATUS_SNAPSHOT_FAILED
-			if failure_stage == &"snapshot"
-			else GFSaveProfileTransactionResult.STATUS_APPLY_FAILED
-		)
+		var failure_stage: StringName = GFVariantData.get_option_string_name(apply_result, "failure_stage")
+		var status: StringName = (GFSaveProfileTransactionResult.STATUS_SNAPSHOT_FAILED if failure_stage == &"snapshot" else GFSaveProfileTransactionResult.STATUS_APPLY_FAILED)
 		var lease: GFSaveProfileReconcileLease = null
 		if not rollback_errors.is_empty():
 			status = GFSaveProfileTransactionResult.STATUS_ROLLBACK_FAILED
@@ -1907,20 +1859,18 @@ func _apply_mutation_candidates(
 			domain,
 			transaction,
 			status,
-			_get_error_code(apply_result, "error_code", ERR_INVALID_DATA),
+			_get_error_code(
+				apply_result,
+				"error_code",
+				ERR_INVALID_DATA
+			),
 			GFVariantData.get_option_string(
 				apply_result,
 				"error",
 				"Mutation candidate apply failed."
 			),
 			_STAGE_MUTATION_APPLY,
-			{
-				"failure_stage": failure_stage,
-				"failed_section_id": GFVariantData.get_option_string_name(
-					apply_result,
-					"failed_section_id"
-				),
-			},
+			{ "failure_stage": failure_stage, "failed_section_id": GFVariantData.get_option_string_name(apply_result, "failed_section_id"), },
 			rollback_errors,
 			null,
 			lease,
@@ -1928,21 +1878,18 @@ func _apply_mutation_candidates(
 		)
 		_end_processing()
 		return
-	var provider_ids: PackedStringArray = _get_packed_string_array(
-		GFVariantData.get_option_value(apply_result, "provider_ids")
-	)
-	var snapshots: Dictionary = GFVariantData.get_option_dictionary(
-		apply_result,
-		"snapshots"
-	)
+	var provider_ids: PackedStringArray = _get_packed_string_array(GFVariantData.get_option_value(apply_result, "provider_ids"))
+	var snapshots: Dictionary = GFVariantData.get_option_dictionary(apply_result, "snapshots")
 	if _dispose_requested:
 		transaction.forced_rollback_errors = (
-			_profile_utility.rollback_profile_candidates_for_manager_for_framework(
-				transaction.target_profile_id,
-				provider_ids,
-				snapshots,
-				transaction.context,
-				profile.permit if profile != null else null
+			(
+				_profile_utility.rollback_profile_candidates_for_manager_for_framework(
+					transaction.target_profile_id,
+					provider_ids,
+					snapshots,
+					transaction.context,
+					(profile.permit if profile != null else null)
+				)
 			)
 			if _profile_utility != null
 			else _make_management_rollback_failures(provider_ids)
@@ -1964,7 +1911,12 @@ func _apply_mutation_candidates(
 	if transaction.operation.is_completed():
 		return
 	transaction.stage = _STAGE_MUTATION_SAVE
-	_start_save(domain, transaction, transaction.target_profile_id, save_request)
+	_start_save(
+		domain,
+		transaction,
+		transaction.target_profile_id,
+		save_request
+	)
 
 
 ## 保存成功提交 domain generation；确定保存失败逆序恢复内存候选，回滚失败建立强制对账阻断；结果未知时保留当前内存状态等待对账而不贸然回滚。
@@ -1975,13 +1927,7 @@ func _handle_mutation_save_result(
 	transaction: TransactionState,
 	result: GFSaveProfileResult
 ) -> void:
-	var evidence: Dictionary = {
-		"flush": GFVariantData.get_option_dictionary(
-			transaction.stage_evidence,
-			"flush"
-		),
-		"save": _make_profile_result_evidence(result),
-	}
+	var evidence: Dictionary = { "flush": GFVariantData.get_option_dictionary(transaction.stage_evidence, "flush"), "save": _make_profile_result_evidence(result), }
 	if result.is_successful():
 		transaction.mutation_snapshots.clear()
 		transaction.mutation_provider_ids = PackedStringArray()
@@ -2021,17 +1967,17 @@ func _handle_mutation_save_result(
 	_begin_processing()
 	var profile: ManagedProfile = _get_profile(transaction.target_profile_id)
 	var rollback_errors: Array[GFSaveRollbackFailure] = (
-		_profile_utility.rollback_profile_candidates_for_manager_for_framework(
-			transaction.target_profile_id,
-			transaction.mutation_provider_ids,
-			transaction.mutation_snapshots,
-			transaction.context,
-			profile.permit if profile != null else null
+		(
+			_profile_utility.rollback_profile_candidates_for_manager_for_framework(
+				transaction.target_profile_id,
+				transaction.mutation_provider_ids,
+				transaction.mutation_snapshots,
+				transaction.context,
+				(profile.permit if profile != null else null)
+			)
 		)
 		if _profile_utility != null
-		else _make_management_rollback_failures(
-			transaction.mutation_provider_ids
-		)
+		else _make_management_rollback_failures(transaction.mutation_provider_ids)
 	)
 	transaction.mutation_snapshots.clear()
 	transaction.mutation_provider_ids = PackedStringArray()
@@ -2083,11 +2029,13 @@ func _handle_reconcile_load_result(
 		var previous: StringName = domain.active_profile_id
 		domain.active_profile_id = transaction.target_profile_id
 		domain.domain_generation += 1
-		var _resolved: bool = lease.mark_resolved_for_framework({
-			"state": &"reloaded",
-			"profile_id": transaction.target_profile_id,
-			"profile_result": evidence,
-		})
+		var _resolved: bool = lease.mark_resolved_for_framework(
+			{
+				"state": &"reloaded",
+				"profile_id": transaction.target_profile_id,
+				"profile_result": evidence,
+			}
+		)
 		var _record_erased: bool = _reconcile_records.erase(lease.get_lease_id())
 		domain.reconcile_lease = null
 		if previous != domain.active_profile_id:
@@ -2192,13 +2140,19 @@ func _start_recovery_save(
 		)
 	var owned_request: GFSaveProfileRequest = request
 	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
+		owned_request = GFSaveProfileRequest.take_ownership(
+			{},
+			{},
+			{}
+		)
 	_begin_processing()
 	var profile_operation: GFSaveProfileOperation = (
-		_profile_utility.save_profile_for_manager_for_framework(
-			profile_id,
-			owned_request,
-			profile.permit
+		(
+			_profile_utility.save_profile_for_manager_for_framework(
+				profile_id,
+				owned_request,
+				profile.permit
+			)
 		)
 		if _profile_utility != null
 		else null
@@ -2209,12 +2163,10 @@ func _start_recovery_save(
 		and profile_operation.get_requested_generation() > 0
 	)
 	if not save_admitted:
-		var rejected_operation: GFSaveProfileTransactionOperation = (
-			_reject_recovery_save_admission(
-				operation_kind,
-				profile_id,
-				profile_operation
-			)
+		var rejected_operation: GFSaveProfileTransactionOperation = _reject_recovery_save_admission(
+			operation_kind,
+			profile_id,
+			profile_operation
 		)
 		_end_processing()
 		return rejected_operation
@@ -2228,9 +2180,7 @@ func _start_recovery_save(
 	# 底层成功准入只会同步 claim request 与入队，不会执行 Provider 或开放回调；
 	# 因此同一调用栈内、同一 recovery record 的 Lease claim 失败属于内部不变量破坏。
 	if lease_claim.is_empty():
-		push_error(
-			"[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.recovery_lease_commit_failed] Admitted recovery lease could not commit."
-		)
+		push_error("[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.recovery_lease_commit_failed] Admitted recovery lease could not commit.")
 	var _record_erased: bool = _recovery_records.erase(lease.get_lease_id())
 	var transaction: TransactionState = _begin_domain_transaction(
 		domain,
@@ -2241,7 +2191,11 @@ func _start_recovery_save(
 	)
 	transaction.stage = _STAGE_RECOVERY_SAVE
 	transaction.write_admitted = true
-	_observe_profile_operation(domain, transaction, profile_operation)
+	_observe_profile_operation(
+		domain,
+		transaction,
+		profile_operation
+	)
 	_end_processing()
 	return transaction.operation
 
@@ -2256,9 +2210,7 @@ func _start_switch_recovery(
 	request: GFSaveProfileRequest
 ) -> GFSaveProfileTransactionOperation:
 	var target_profile_id: StringName = lease.get_profile_id() if lease != null else &""
-	var source_profile_id: StringName = (
-		lease.get_source_profile_id() if lease != null else &""
-	)
+	var source_profile_id: StringName = lease.get_source_profile_id() if lease != null else &""
 	var target: ManagedProfile = _get_profile(target_profile_id)
 	var source: ManagedProfile = _get_profile(source_profile_id)
 	var domain: DomainState = _get_domain_for_profile(target_profile_id)
@@ -2273,8 +2225,7 @@ func _start_switch_recovery(
 		or source.domain_id != domain.domain_id
 		or lease.get_reason() != expected_reason
 		or not lease.is_available()
-		or GFVariantData.get_option_string_name(record, "source_profile_id")
-			!= source_profile_id
+		or GFVariantData.get_option_string_name(record, "source_profile_id") != source_profile_id
 	):
 		return _reject_transaction(
 			operation_kind,
@@ -2326,15 +2277,21 @@ func _start_switch_recovery(
 		)
 	var owned_request: GFSaveProfileRequest = request
 	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership({}, {}, {})
+		owned_request = GFSaveProfileRequest.take_ownership(
+			{},
+			{},
+			{}
+		)
 	domain.admission_reserved = true
 	_update_domain_managed_access(domain)
 	_begin_processing()
 	var flush_operation: GFSaveProfileOperation = (
-		_profile_utility.flush_profile_for_manager_for_framework(
-			source_profile_id,
-			{},
-			source.permit
+		(
+			_profile_utility.flush_profile_for_manager_for_framework(
+				source_profile_id,
+				{},
+				source.permit
+			)
 		)
 		if _profile_utility != null
 		else null
@@ -2352,13 +2309,11 @@ func _start_switch_recovery(
 		)
 	)
 	if not flush_admitted:
-		var rejected_operation: GFSaveProfileTransactionOperation = (
-			_reject_switch_recovery_flush_admission(
-				operation_kind,
-				source_profile_id,
-				target_profile_id,
-				flush_operation
-			)
+		var rejected_operation: GFSaveProfileTransactionOperation = _reject_switch_recovery_flush_admission(
+			operation_kind,
+			source_profile_id,
+			target_profile_id,
+			flush_operation
 		)
 		_update_domain_managed_access(domain)
 		_end_processing()
@@ -2379,8 +2334,7 @@ func _start_switch_recovery(
 		or lease.get_domain_generation() != domain.domain_generation
 		or lease.get_epoch() != domain.transaction_epoch
 		or not lease.is_available()
-		or GFVariantData.get_option_string_name(record, "source_profile_id")
-			!= source_profile_id
+		or GFVariantData.get_option_string_name(record, "source_profile_id") != source_profile_id
 	):
 		var stale_operation: GFSaveProfileTransactionOperation = _reject_transaction(
 			operation_kind,
@@ -2396,29 +2350,25 @@ func _start_switch_recovery(
 		return stale_operation
 	admission = _get_domain_admission_failure(domain)
 	if not admission.is_empty():
-		var unavailable_operation: GFSaveProfileTransactionOperation = (
-			_reject_from_admission(
-				operation_kind,
-				source_profile_id,
-				target_profile_id,
-				admission,
-				_STAGE_RECOVERY_SOURCE_FLUSH
-			)
+		var unavailable_operation: GFSaveProfileTransactionOperation = _reject_from_admission(
+			operation_kind,
+			source_profile_id,
+			target_profile_id,
+			admission,
+			_STAGE_RECOVERY_SOURCE_FLUSH
 		)
 		_update_domain_managed_access(domain)
 		_end_processing()
 		return unavailable_operation
 	if not owned_request.is_available_for_framework():
-		var invalid_request_operation: GFSaveProfileTransactionOperation = (
-			_reject_transaction(
-				operation_kind,
-				source_profile_id,
-				target_profile_id,
-				GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
-				ERR_INVALID_PARAMETER,
-				"Switch recovery save request changed during source flush admission.",
-				_STAGE_RECOVERY_SOURCE_FLUSH
-			)
+		var invalid_request_operation: GFSaveProfileTransactionOperation = _reject_transaction(
+			operation_kind,
+			source_profile_id,
+			target_profile_id,
+			GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Switch recovery save request changed during source flush admission.",
+			_STAGE_RECOVERY_SOURCE_FLUSH
 		)
 		_update_domain_managed_access(domain)
 		_end_processing()
@@ -2432,20 +2382,12 @@ func _start_switch_recovery(
 		domain.transaction_epoch
 	)
 	if request_claim.is_empty() or lease_claim.is_empty():
-		push_error(
-			"[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.switch_recovery_claim_failed] Admitted switch recovery could not claim ownership."
-		)
+		push_error("[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.switch_recovery_claim_failed] Admitted switch recovery could not claim ownership.")
 	var reset_authorization: GFStorageFamilyResetAuthorization = null
-	var reset_authorization_value: Variant = GFVariantData.get_option_value(
-		record,
-		"reset_authorization"
-	)
+	var reset_authorization_value: Variant = GFVariantData.get_option_value(record, "reset_authorization")
 	if reset_authorization_value is GFStorageFamilyResetAuthorization:
 		reset_authorization = reset_authorization_value
-	var requires_family_reset: bool = GFVariantData.get_option_bool(
-		record,
-		"requires_family_reset"
-	)
+	var requires_family_reset: bool = GFVariantData.get_option_bool(record, "requires_family_reset")
 	var _record_erased: bool = _recovery_records.erase(lease.get_lease_id())
 	var transaction: TransactionState = _begin_domain_transaction(
 		domain,
@@ -2454,20 +2396,18 @@ func _start_switch_recovery(
 		target_profile_id,
 		{}
 	)
-	transaction.document_metadata = _get_dictionary_claim(
-		request_claim,
-		"document_metadata"
-	)
+	transaction.document_metadata = _get_dictionary_claim(request_claim, "document_metadata")
 	transaction.context = _get_dictionary_claim(request_claim, "context")
-	transaction.result_metadata = _get_dictionary_claim(
-		request_claim,
-		"result_metadata"
-	)
+	transaction.result_metadata = _get_dictionary_claim(request_claim, "result_metadata")
 	transaction.reset_authorization = reset_authorization
 	transaction.requires_family_reset = requires_family_reset
 	transaction.stage = _STAGE_RECOVERY_SOURCE_FLUSH
 	transaction.write_admitted = true
-	_observe_profile_operation(domain, transaction, flush_operation)
+	_observe_profile_operation(
+		domain,
+		transaction,
+		flush_operation
+	)
 	_end_processing()
 	return transaction.operation
 
@@ -2483,11 +2423,7 @@ func _reject_recovery_save_admission(
 	var status: StringName = GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST
 	var error_code: Error = ERR_CANT_CREATE
 	var error: String = "GFSaveProfileUtility did not admit the recovery save."
-	var result: GFSaveProfileResult = (
-		profile_operation.get_result()
-		if profile_operation != null and profile_operation.is_completed()
-		else null
-	)
+	var result: GFSaveProfileResult = (profile_operation.get_result() if profile_operation != null and profile_operation.is_completed() else null)
 	if result != null:
 		error_code = result.get_error_code()
 		error = result.get_error()
@@ -2525,11 +2461,7 @@ func _reject_switch_recovery_flush_admission(
 	var status: StringName = GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST
 	var error_code: Error = ERR_CANT_CREATE
 	var error: String = "GFSaveProfileUtility did not admit the source reflush."
-	var result: GFSaveProfileResult = (
-		profile_operation.get_result()
-		if profile_operation != null and profile_operation.is_completed()
-		else null
-	)
+	var result: GFSaveProfileResult = (profile_operation.get_result() if profile_operation != null and profile_operation.is_completed() else null)
 	if result != null:
 		error_code = result.get_error_code()
 		error = result.get_error()
@@ -2615,9 +2547,7 @@ func _make_transaction_state(
 	metadata: Dictionary
 ) -> TransactionState:
 	var transaction: TransactionState = TransactionState.new()
-	var operation: GFSaveProfileTransactionOperation = (
-		GFSaveProfileTransactionOperation.new()
-	)
+	var operation: GFSaveProfileTransactionOperation = GFSaveProfileTransactionOperation.new()
 	var transaction_id: int = _next_transaction_id
 	_next_transaction_id += 1
 	var started_at_msec: int = Time.get_ticks_msec()
@@ -2657,61 +2587,57 @@ func _finish_domain_transaction(
 		return
 	if transaction.operation.is_completed():
 		return
-	var active_after: StringName = (
-		domain.active_profile_id
-		if domain != null
-		else transaction.active_profile_before
-	)
+	var active_after: StringName = (domain.active_profile_id if domain != null else transaction.active_profile_before)
 	var result: GFSaveProfileTransactionResult = GFSaveProfileTransactionResult.new()
-	var configured: bool = result.configure_for_framework({
-		"status": status,
-		"operation": transaction.operation.get_operation(),
-		"transaction_id": transaction.operation.get_transaction_id(),
-		"source_profile_id": transaction.source_profile_id,
-		"target_profile_id": transaction.target_profile_id,
-		"active_profile_before": transaction.active_profile_before,
-		"active_profile_after": active_after,
-		"phase": phase,
-		"error_code": int(error_code),
-		"error": error,
-		"failed_section_id": failed_section_id,
-		"rollback_errors": rollback_errors,
-		"stage_evidence": stage_evidence,
-		"recovery_lease": recovery_lease,
-		"reconcile_lease": reconcile_lease,
-		"metadata": transaction.result_metadata,
-		"started_at_msec": transaction.operation.get_started_at_msec_for_framework(),
-		"completed_at_msec": Time.get_ticks_msec(),
-	})
-	if not configured:
-		push_error("[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.invalid_terminal_contract] Invalid terminal result contract.")
-		result = GFSaveProfileTransactionResult.new()
-		configured = result.configure_for_framework({
-			"status": GFSaveProfileTransactionResult.STATUS_DISPOSED,
+	var configured: bool = result.configure_for_framework(
+		{
+			"status": status,
 			"operation": transaction.operation.get_operation(),
 			"transaction_id": transaction.operation.get_transaction_id(),
 			"source_profile_id": transaction.source_profile_id,
 			"target_profile_id": transaction.target_profile_id,
 			"active_profile_before": transaction.active_profile_before,
 			"active_profile_after": active_after,
-			"phase": &"terminal_contract",
-			"error_code": int(ERR_BUG),
-			"error": "Transaction terminal contract validation failed.",
-			"failed_section_id": &"",
-			"rollback_errors": [],
-			"stage_evidence": {},
-			"recovery_lease": null,
+			"phase": phase,
+			"error_code": int(error_code),
+			"error": error,
+			"failed_section_id": failed_section_id,
+			"rollback_errors": rollback_errors,
+			"stage_evidence": stage_evidence,
+			"recovery_lease": recovery_lease,
 			"reconcile_lease": reconcile_lease,
-			"metadata": {},
-			"started_at_msec": (
-				transaction.operation.get_started_at_msec_for_framework()
-			),
+			"metadata": transaction.result_metadata,
+			"started_at_msec": transaction.operation.get_started_at_msec_for_framework(),
 			"completed_at_msec": Time.get_ticks_msec(),
-		})
+		}
+	)
 	if not configured:
-		push_error(
-			"[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.fallback_terminal_contract_failed] Fallback terminal contract failed."
+		push_error("[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.invalid_terminal_contract] Invalid terminal result contract.")
+		result = GFSaveProfileTransactionResult.new()
+		configured = result.configure_for_framework(
+			{
+				"status": GFSaveProfileTransactionResult.STATUS_DISPOSED,
+				"operation": transaction.operation.get_operation(),
+				"transaction_id": transaction.operation.get_transaction_id(),
+				"source_profile_id": transaction.source_profile_id,
+				"target_profile_id": transaction.target_profile_id,
+				"active_profile_before": transaction.active_profile_before,
+				"active_profile_after": active_after,
+				"phase": &"terminal_contract",
+				"error_code": int(ERR_BUG),
+				"error": "Transaction terminal contract validation failed.",
+				"failed_section_id": &"",
+				"rollback_errors": [],
+				"stage_evidence": {},
+				"recovery_lease": null,
+				"reconcile_lease": reconcile_lease,
+				"metadata": {},
+				"started_at_msec": transaction.operation.get_started_at_msec_for_framework(),
+				"completed_at_msec": Time.get_ticks_msec(),
+			}
 		)
+	if not configured:
+		push_error("[GFSaveProfileTransactionCoordinator][save_profile_transaction_coordinator.fallback_terminal_contract_failed] Fallback terminal contract failed.")
 		return
 	if domain != null and domain.current_transaction == transaction:
 		domain.current_transaction = null
@@ -2735,7 +2661,11 @@ func _finish_domain_transaction(
 		transaction_completed.emit(result.duplicate_result())
 		var _emitted: bool = transaction.operation.emit_completed_for_framework()
 		_notification_depth -= 1
-	if _dispose_requested and _processing_depth == 0 and _notification_depth == 0:
+	if (
+		_dispose_requested
+		and _processing_depth == 0
+		and _notification_depth == 0
+	):
 		_dispose_now()
 		return
 	_try_complete_quiesce()
@@ -2802,7 +2732,11 @@ func _reject_from_admission(
 			"status",
 			GFSaveProfileTransactionResult.STATUS_BUSY
 		),
-		_get_error_code(admission, "error_code", ERR_BUSY),
+		_get_error_code(
+			admission,
+			"error_code",
+			ERR_BUSY
+		),
 		GFVariantData.get_option_string(
 			admission,
 			"error",
@@ -2829,10 +2763,7 @@ func _commit_active_profile(domain: DomainState, profile_id: StringName) -> void
 ## 在 notification depth 保护内发出活动档案变化，供外层延迟处理释放与其他重入工作。
 ## [br]
 ## @api private
-func _emit_active_profile_changed(
-	previous_profile_id: StringName,
-	current_profile_id: StringName
-) -> void:
+func _emit_active_profile_changed(previous_profile_id: StringName, current_profile_id: StringName) -> void:
 	_notification_depth += 1
 	active_profile_changed.emit(previous_profile_id, current_profile_id)
 	_notification_depth -= 1
@@ -2856,14 +2787,15 @@ func _create_recovery_lease(
 	)
 	var reset_authorization: GFStorageFamilyResetAuthorization = null
 	var target_profile: ManagedProfile = _get_profile(transaction.target_profile_id)
-	if requires_family_reset and target_profile != null and _profile_utility != null:
-		reset_authorization = (
-			_profile_utility
-			.create_profile_family_reset_authorization_for_manager_for_framework(
-				transaction.target_profile_id,
-				storage_result,
-				target_profile.permit
-			)
+	if (
+		requires_family_reset
+		and target_profile != null
+		and _profile_utility != null
+	):
+		reset_authorization = _profile_utility.create_profile_family_reset_authorization_for_manager_for_framework(
+			transaction.target_profile_id,
+			storage_result,
+			target_profile.permit
 		)
 	if requires_family_reset and reset_authorization == null:
 		return null
@@ -2902,7 +2834,11 @@ func _create_reconcile_fence(
 	profile_result: GFSaveProfileResult = null,
 	force_ready: bool = false
 ) -> GFSaveProfileReconcileLease:
-	if domain == null or transaction == null or profile_id == &"":
+	if (
+		domain == null
+		or transaction == null
+		or profile_id == &""
+	):
 		return null
 	var request_ids: PackedInt64Array = PackedInt64Array()
 	var generation: int = 0
@@ -2914,22 +2850,12 @@ func _create_reconcile_fence(
 	if transaction.storage_operation != null:
 		var storage_request_id: int = transaction.storage_operation.get_request_id()
 		if storage_request_id > 0 and not request_ids.has(storage_request_id):
-			var _appended_storage_request_id: bool = request_ids.append(
-				storage_request_id
-			)
+			var _appended_storage_request_id: bool = request_ids.append(storage_request_id)
 	var initial_evidence: Dictionary = {}
 	if _profile_utility != null and generation > 0:
-		initial_evidence = _profile_utility.get_generation_evidence_for_framework(
-			profile_id,
-			generation
-		)
+		initial_evidence = _profile_utility.get_generation_evidence_for_framework(profile_id, generation)
 		if request_ids.is_empty():
-			request_ids = _get_int64_array(
-				GFVariantData.get_option_value(
-					initial_evidence,
-					"storage_request_ids"
-				)
-			)
+			request_ids = _get_int64_array(GFVariantData.get_option_value(initial_evidence, "storage_request_ids"))
 	var lease: GFSaveProfileReconcileLease = GFSaveProfileReconcileLease.new()
 	var configured: bool = lease.configure_for_framework(
 		_next_lease_id,
@@ -2956,11 +2882,14 @@ func _create_reconcile_fence(
 	}
 	_update_domain_managed_access(domain)
 	if force_ready:
-		var _marked_memory_ready: bool = _mark_reconcile_ready(lease, {
-			"state": &"memory_state_uncertain",
-			"profile_id": profile_id,
-			"generation": generation,
-		})
+		var _marked_memory_ready: bool = _mark_reconcile_ready(
+			lease,
+			{
+				"state": &"memory_state_uncertain",
+				"profile_id": profile_id,
+				"generation": generation,
+			}
+		)
 	else:
 		_refresh_reconcile_lease(domain, lease)
 	return lease
@@ -2969,10 +2898,7 @@ func _create_reconcile_fence(
 ## 仅刷新 domain 当前仍等待中的租约；generation 证据进入 persisted、failed 或 unresolved 后标记可对账，其他状态继续等待。
 ## [br]
 ## @api private
-func _refresh_reconcile_lease(
-	domain: DomainState,
-	lease: GFSaveProfileReconcileLease
-) -> void:
+func _refresh_reconcile_lease(domain: DomainState, lease: GFSaveProfileReconcileLease) -> void:
 	if (
 		domain == null
 		or lease == null
@@ -2983,22 +2909,17 @@ func _refresh_reconcile_lease(
 	var record: Dictionary = _get_reconcile_record(lease)
 	if record.is_empty():
 		return
-	var profile_id: StringName = GFVariantData.get_option_string_name(
-		record,
-		"profile_id"
-	)
+	var profile_id: StringName = GFVariantData.get_option_string_name(record, "profile_id")
 	var generation: int = GFVariantData.get_option_int(record, "generation")
 	if generation <= 0 or _profile_utility == null:
 		return
-	var evidence: Dictionary = _profile_utility.get_generation_evidence_for_framework(
-		profile_id,
-		generation
-	)
-	var evidence_state: StringName = GFVariantData.get_option_string_name(
-		evidence,
-		"state"
-	)
-	if evidence_state not in [&"persisted", &"failed", &"unresolved"]:
+	var evidence: Dictionary = _profile_utility.get_generation_evidence_for_framework(profile_id, generation)
+	var evidence_state: StringName = GFVariantData.get_option_string_name(evidence, "state")
+	if evidence_state not in [
+		&"persisted",
+		&"failed",
+		&"unresolved",
+	]:
 		return
 	var _marked_ready: bool = _mark_reconcile_ready(lease, evidence)
 
@@ -3006,10 +2927,7 @@ func _refresh_reconcile_lease(
 ## 在通知深度保护内提交租约的准备状态与证据，返回租约是否接受该转换。
 ## [br]
 ## @api private
-func _mark_reconcile_ready(
-	lease: GFSaveProfileReconcileLease,
-	evidence: Dictionary
-) -> bool:
+func _mark_reconcile_ready(lease: GFSaveProfileReconcileLease, evidence: Dictionary) -> bool:
 	if lease == null:
 		return false
 	_notification_depth += 1
@@ -3021,9 +2939,7 @@ func _mark_reconcile_ready(
 ## 在通知深度保护内把租约标为释放后未解决，空租约返回 false。
 ## [br]
 ## @api private
-func _mark_reconcile_disposed(
-	lease: GFSaveProfileReconcileLease
-) -> bool:
+func _mark_reconcile_disposed(lease: GFSaveProfileReconcileLease) -> bool:
 	if lease == null:
 		return false
 	_notification_depth += 1
@@ -3043,9 +2959,7 @@ func _invalidate_recovery_leases(domain: DomainState) -> void:
 		if typeof(lease_id_value) != TYPE_INT:
 			continue
 		var lease_id: int = lease_id_value
-		var record: Dictionary = GFVariantData.as_dictionary(
-			GFVariantData.get_option_value(_recovery_records, lease_id)
-		)
+		var record: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(_recovery_records, lease_id))
 		if GFVariantData.get_option_int(record, "domain_id") != domain.domain_id:
 			continue
 		var lease_value: Variant = GFVariantData.get_option_value(record, "lease")
@@ -3065,7 +2979,10 @@ func _get_recovery_record(lease: GFSaveProfileRecoveryLease) -> Dictionary:
 	if lease == null:
 		return {}
 	var record: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(_recovery_records, lease.get_lease_id())
+		GFVariantData.get_option_value(
+			_recovery_records,
+			lease.get_lease_id()
+		)
 	)
 	return record if GFVariantData.get_option_value(record, "lease") == lease else {}
 
@@ -3078,7 +2995,10 @@ func _get_reconcile_record(lease: GFSaveProfileReconcileLease) -> Dictionary:
 	if lease == null:
 		return {}
 	var record: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(_reconcile_records, lease.get_lease_id())
+		GFVariantData.get_option_value(
+			_reconcile_records,
+			lease.get_lease_id()
+		)
 	)
 	return record if GFVariantData.get_option_value(record, "lease") == lease else {}
 
@@ -3137,9 +3057,7 @@ func _get_domain_admission_failure(domain: DomainState) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _inspect_registration_topology(
-	providers: Array[GFSaveSectionProvider]
-) -> Dictionary:
+func _inspect_registration_topology(providers: Array[GFSaveSectionProvider]) -> Dictionary:
 	var provider_instance_ids: PackedInt64Array = PackedInt64Array()
 	for provider: GFSaveSectionProvider in providers:
 		if provider == null:
@@ -3161,23 +3079,14 @@ func _inspect_registration_topology(
 		var domain: DomainState = _get_domain_value(domain_value)
 		if domain == null:
 			continue
-		if _int64_arrays_equal(
-			domain.provider_instance_ids,
-			provider_instance_ids
-		):
+		if _int64_arrays_equal(domain.provider_instance_ids, provider_instance_ids):
 			matching_domain_id = domain.domain_id
 			continue
-		if _int64_arrays_overlap(
-			domain.provider_instance_ids,
-			provider_instance_ids
-		):
+		if _int64_arrays_overlap(domain.provider_instance_ids, provider_instance_ids):
 			return {
 				"ok": false,
 				"kind": &"overlapping_provider_domain",
-				"error": (
-					"Provider instances overlap an existing domain without an exact "
-					+ "ordered topology match."
-				),
+				"error": "Provider instances overlap an existing domain without an exact " + "ordered topology match.",
 			}
 	return {
 		"ok": true,
@@ -3196,11 +3105,13 @@ func _attach_profile_to_domain(
 	permit: RefCounted,
 	matching_domain_id: int
 ) -> DomainState:
-	if profile_id == &"" or permit == null or _profiles.has(profile_id):
+	if (
+		profile_id == &""
+		or permit == null
+		or _profiles.has(profile_id)
+	):
 		return null
-	var providers: Array[GFSaveSectionProvider] = _read_providers(
-		GFVariantData.get_option_value(descriptor, "providers")
-	)
+	var providers: Array[GFSaveSectionProvider] = _read_providers(GFVariantData.get_option_value(descriptor, "providers"))
 	if providers.is_empty():
 		return null
 	var domain: DomainState = _get_domain(matching_domain_id)
@@ -3231,18 +3142,19 @@ func _attach_profile_to_domain(
 ## 检查请求仍可用且包含唯一非空 section，要求每项属于目标档案并匹配可读可写 Provider 的 schema；返回首项失败或 ok。
 ## [br]
 ## @api private
-func _validate_mutation_request(
-	profile: ManagedProfile,
-	request: GFSaveProfileMutationRequest
-) -> Dictionary:
+func _validate_mutation_request(profile: ManagedProfile, request: GFSaveProfileMutationRequest) -> Dictionary:
 	if profile == null or request == null:
-		return {"ok": false, "error": "Mutation request is required."}
+		return { "ok": false, "error": "Mutation request is required." }
 	var inspection: Dictionary = request.inspect_for_framework()
-	if not GFVariantData.get_option_bool(inspection, "available", false):
-		return {"ok": false, "error": "Mutation request is not available."}
+	if not GFVariantData.get_option_bool(
+		inspection,
+		"available",
+		false
+	):
+		return { "ok": false, "error": "Mutation request is not available." }
 	var descriptors: Array = GFVariantData.get_option_array(inspection, "mutations")
 	if descriptors.is_empty():
-		return {"ok": false, "error": "Mutation request must contain a section."}
+		return { "ok": false, "error": "Mutation request must contain a section." }
 	var provider_by_id: Dictionary = {}
 	for provider: GFSaveSectionProvider in profile.providers:
 		if provider != null:
@@ -3250,39 +3162,21 @@ func _validate_mutation_request(
 	var seen_ids: Dictionary = {}
 	for descriptor_value: Variant in descriptors:
 		var descriptor: Dictionary = GFVariantData.as_dictionary(descriptor_value)
-		var section_id: StringName = GFVariantData.get_option_string_name(
-			descriptor,
-			"section_id"
-		)
+		var section_id: StringName = GFVariantData.get_option_string_name(descriptor, "section_id")
 		if section_id == &"" or seen_ids.has(section_id):
-			return {
-				"ok": false,
-				"error": "Mutation section IDs must be non-empty and unique.",
-			}
+			return { "ok": false, "error": "Mutation section IDs must be non-empty and unique.", }
 		seen_ids[section_id] = true
-		var provider_value: Variant = GFVariantData.get_option_value(
-			provider_by_id,
-			section_id
-		)
+		var provider_value: Variant = GFVariantData.get_option_value(provider_by_id, section_id)
 		if not provider_value is GFSaveSectionProvider:
-			return {
-				"ok": false,
-				"error": "Mutation section is not owned by the target Profile.",
-			}
+			return { "ok": false, "error": "Mutation section is not owned by the target Profile.", }
 		var provider: GFSaveSectionProvider = provider_value
 		if (
 			not provider.save_enabled
 			or not provider.load_enabled
-			or provider.schema_version
-				!= GFVariantData.get_option_int(descriptor, "schema_version")
+			or provider.schema_version != GFVariantData.get_option_int(descriptor, "schema_version")
 		):
-			return {
-				"ok": false,
-				"error": (
-					"Mutation section must match a readable and writable Provider schema."
-				),
-			}
-	return {"ok": true}
+			return { "ok": false, "error": "Mutation section must match a readable and writable Provider schema.", }
+	return { "ok": true }
 
 
 ## 根据 Coordinator/domain 状态更新各受管 Profile 的直接访问级别。
@@ -3324,23 +3218,19 @@ func _make_registration_failure(
 	kind: StringName,
 	error: String
 ) -> Dictionary:
-	var report: Dictionary = {"issues": []}
+	var report: Dictionary = { "issues": [] }
 	var _issue: Variant = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
 		kind,
 		error,
-		{"path": "coordinator"}
+		{ "path": "coordinator" }
 	)
 	report["registered"] = false
 	report["managed"] = false
 	report["provider_domain_id"] = 0
 	report["profile_id"] = profile.profile_id if profile != null else &""
-	report["schema_id"] = (
-		profile.get_effective_schema_id()
-		if profile != null
-		else &""
-	)
+	report["schema_id"] = (profile.get_effective_schema_id() if profile != null else &"")
 	report["canonical_file_name"] = ""
 	return GFValidationReportDictionary.finalize_report(
 		report,
@@ -3372,9 +3262,7 @@ func _make_profile_result_evidence(result: GFSaveProfileResult) -> Dictionary:
 		"recovery_action": result.get_recovery_action(),
 		"failed_section_id": result.get_failed_section_id(),
 		"error_code": int(result.get_error_code()),
-		"error": result.get_error().left(
-			_MAX_PROFILE_RESULT_EVIDENCE_ERROR_LENGTH
-		),
+		"error": (result.get_error().left(_MAX_PROFILE_RESULT_EVIDENCE_ERROR_LENGTH)),
 		"duration_msec": result.get_duration_msec(),
 		"preparation_duration_msec": result.get_preparation_duration_msec(),
 		"storage_duration_msec": result.get_storage_duration_msec(),
@@ -3392,10 +3280,7 @@ func _make_dispose_stage_evidence(transaction: TransactionState) -> Dictionary:
 		return {}
 	var evidence: Dictionary = transaction.stage_evidence.duplicate(true)
 	if transaction.storage_operation != null:
-		evidence["reset_in_flight"] = {
-			"request_id": transaction.storage_operation.get_request_id(),
-			"operation": transaction.storage_operation.get_operation(),
-		}
+		evidence["reset_in_flight"] = { "request_id": transaction.storage_operation.get_request_id(), "operation": transaction.storage_operation.get_operation(), }
 	return evidence
 
 
@@ -3443,15 +3328,9 @@ func _set_profile_utility(profile_utility: GFSaveProfileUtility) -> void:
 	_profile_utility = profile_utility
 	if _profile_utility == null:
 		return
-	var callback: Callable = Callable(
-		self,
-		"_on_profile_generation_evidence_changed"
-	)
+	var callback: Callable = Callable(self, "_on_profile_generation_evidence_changed")
 	if not _profile_utility.profile_generation_evidence_changed.is_connected(callback):
-		var _connected: Error = (
-			_profile_utility.profile_generation_evidence_changed.connect(callback)
-			as Error
-		)
+		var _connected: Error = _profile_utility.profile_generation_evidence_changed.connect(callback) as Error
 
 
 ## 断开证据变化通知并释放本协调器持有的工具引用，不释放外部工具对象。
@@ -3460,10 +3339,7 @@ func _set_profile_utility(profile_utility: GFSaveProfileUtility) -> void:
 func _disconnect_profile_utility() -> void:
 	if _profile_utility == null:
 		return
-	var callback: Callable = Callable(
-		self,
-		"_on_profile_generation_evidence_changed"
-	)
+	var callback: Callable = Callable(self, "_on_profile_generation_evidence_changed")
 	if _profile_utility.profile_generation_evidence_changed.is_connected(callback):
 		_profile_utility.profile_generation_evidence_changed.disconnect(callback)
 	_profile_utility = null
@@ -3472,21 +3348,15 @@ func _disconnect_profile_utility() -> void:
 ## 断开事务当前 Profile 操作的完成观察并清空引用，不取消底层操作。
 ## [br]
 ## @api private
-func _disconnect_transaction_profile_operation(
-	transaction: TransactionState
-) -> void:
+func _disconnect_transaction_profile_operation(transaction: TransactionState) -> void:
 	if transaction == null:
 		return
 	if (
 		transaction.profile_operation != null
 		and transaction.profile_callback.is_valid()
-		and transaction.profile_operation.completed.is_connected(
-			transaction.profile_callback
-		)
+		and (transaction.profile_operation.completed.is_connected(transaction.profile_callback))
 	):
-		transaction.profile_operation.completed.disconnect(
-			transaction.profile_callback
-		)
+		transaction.profile_operation.completed.disconnect(transaction.profile_callback)
 	transaction.profile_callback = Callable()
 	transaction.profile_operation = null
 
@@ -3494,21 +3364,15 @@ func _disconnect_transaction_profile_operation(
 ## 断开事务当前 Storage 操作的完成观察并清空引用，不取消底层 reset。
 ## [br]
 ## @api private
-func _disconnect_transaction_storage_operation(
-	transaction: TransactionState
-) -> void:
+func _disconnect_transaction_storage_operation(transaction: TransactionState) -> void:
 	if transaction == null:
 		return
 	if (
 		transaction.storage_operation != null
 		and transaction.storage_callback.is_valid()
-		and transaction.storage_operation.completed.is_connected(
-			transaction.storage_callback
-		)
+		and (transaction.storage_operation.completed.is_connected(transaction.storage_callback))
 	):
-		transaction.storage_operation.completed.disconnect(
-			transaction.storage_callback
-		)
+		transaction.storage_operation.completed.disconnect(transaction.storage_callback)
 	transaction.storage_callback = Callable()
 	transaction.storage_operation = null
 
@@ -3525,28 +3389,24 @@ func _dispose_domain(domain: DomainState) -> void:
 		var lease: GFSaveProfileReconcileLease = transaction.reconcile_lease
 		if write_outcome_uncertain and lease == null:
 			var reconcile_profile_id: StringName = transaction.source_profile_id
-			if transaction.stage in [
-				_STAGE_RECOVERY_SAVE,
-				_STAGE_RECOVERY_RESET,
-				_STAGE_RECOVERY_TARGET_SAVE,
-				_STAGE_MUTATION_SAVE,
-			]:
+			if (
+				transaction.stage
+				in [
+					_STAGE_RECOVERY_SAVE,
+					_STAGE_RECOVERY_RESET,
+					_STAGE_RECOVERY_TARGET_SAVE,
+					_STAGE_MUTATION_SAVE,
+				]
+			):
 				reconcile_profile_id = transaction.target_profile_id
 			lease = _create_reconcile_fence(
 				domain,
 				transaction,
 				reconcile_profile_id
 			)
-		var load_apply_uncertain: bool = transaction.stage in [
-			_STAGE_ACTIVATE_LOAD,
-			_STAGE_TARGET_LOAD,
-		]
+		var load_apply_uncertain: bool = (transaction.stage in [_STAGE_ACTIVATE_LOAD, _STAGE_TARGET_LOAD,])
 		if load_apply_uncertain and lease == null:
-			var load_reconcile_profile_id: StringName = (
-				transaction.source_profile_id
-				if transaction.stage == _STAGE_TARGET_LOAD
-				else transaction.target_profile_id
-			)
+			var load_reconcile_profile_id: StringName = (transaction.source_profile_id if transaction.stage == _STAGE_TARGET_LOAD else transaction.target_profile_id)
 			lease = _create_reconcile_fence(
 				domain,
 				transaction,
@@ -3567,11 +3427,7 @@ func _dispose_domain(domain: DomainState) -> void:
 		_finish_domain_transaction(
 			domain,
 			transaction,
-			(
-				GFSaveProfileTransactionResult.STATUS_OUTCOME_UNKNOWN
-				if write_outcome_uncertain
-				else GFSaveProfileTransactionResult.STATUS_DISPOSED
-			),
+			(GFSaveProfileTransactionResult.STATUS_OUTCOME_UNKNOWN if write_outcome_uncertain else GFSaveProfileTransactionResult.STATUS_DISPOSED),
 			ERR_UNAVAILABLE,
 			"Save Profile transaction coordinator was disposed.",
 			transaction.stage,
@@ -3583,25 +3439,24 @@ func _dispose_domain(domain: DomainState) -> void:
 	if domain.reconcile_lease != null:
 		var reconcile_lease: GFSaveProfileReconcileLease = domain.reconcile_lease
 		var _disposed_lease: bool = _mark_reconcile_disposed(reconcile_lease)
-		var _record_erased: bool = _reconcile_records.erase(
-			reconcile_lease.get_lease_id()
-		)
+		var _record_erased: bool = _reconcile_records.erase(reconcile_lease.get_lease_id())
 		domain.reconcile_lease = null
 	_invalidate_recovery_leases(domain)
 	domain.state = DOMAIN_STATE_DISPOSED
 	for profile_id: StringName in domain.profile_ids:
 		var profile: ManagedProfile = _get_profile(profile_id)
-		if profile == null or profile.permit == null or _profile_utility == null:
+		if (
+			profile == null
+			or profile.permit == null
+			or _profile_utility == null
+		):
 			continue
 		var _blocked: bool = _profile_utility.set_profile_managed_access_for_framework(
 			profile_id,
 			profile.permit,
 			GFSaveProfileUtility.MANAGED_ACCESS_BLOCKED
 		)
-		var _abandoned: bool = _profile_utility.abandon_profile_management_for_framework(
-			profile_id,
-			profile.permit
-		)
+		var _abandoned: bool = _profile_utility.abandon_profile_management_for_framework(profile_id, profile.permit)
 		profile.permit = null
 
 
@@ -3641,14 +3496,11 @@ func _domain_has_unsettled_profile_work(domain: DomainState) -> bool:
 	if _profile_utility == null:
 		return true
 	for profile_id: StringName in domain.profile_ids:
-		var snapshot: Dictionary = _profile_utility.get_profile_state_snapshot(
-			profile_id
-		)
+		var snapshot: Dictionary = _profile_utility.get_profile_state_snapshot(profile_id)
 		if snapshot.is_empty():
 			continue
 		if (
-			GFVariantData.get_option_string_name(snapshot, "state")
-				!= GFSaveProfileUtility.STATE_IDLE
+			GFVariantData.get_option_string_name(snapshot, "state") != GFSaveProfileUtility.STATE_IDLE
 			or GFVariantData.get_option_int(snapshot, "save_queue_size") > 0
 			or GFVariantData.get_option_int(snapshot, "load_queue_size") > 0
 			or GFVariantData.get_option_int(snapshot, "flush_queue_size") > 0
@@ -3674,7 +3526,10 @@ func _begin_processing() -> void:
 ## @api private
 ## [br]
 func _end_processing() -> void:
-	_processing_depth = maxi(_processing_depth - 1, 0)
+	_processing_depth = maxi(
+		_processing_depth - 1,
+		0
+	)
 	if _processing_depth == 0 and _dispose_requested:
 		_dispose_now()
 
@@ -3722,9 +3577,7 @@ func _get_domain_value(value: Variant) -> DomainState:
 ## @api private
 ## [br]
 func _get_domain_for_profile(profile_id: StringName) -> DomainState:
-	return _get_domain(
-		GFVariantData.get_option_int(_domain_id_by_profile, profile_id)
-	)
+	return _get_domain(GFVariantData.get_option_int(_domain_id_by_profile, profile_id))
 
 
 ## 从 Variant Array 中筛出 GFSaveSectionProvider 项。
@@ -3756,10 +3609,7 @@ func _get_dictionary_claim(source: Dictionary, key: String) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _get_dictionary_array_claim(
-	source: Dictionary,
-	key: String
-) -> Array[Dictionary]:
+func _get_dictionary_array_claim(source: Dictionary, key: String) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var value: Variant = GFVariantData.get_option_value(source, key)
 	if not value is Array:
@@ -3792,11 +3642,13 @@ func _read_rollback_errors(value: Variant) -> Array[GFSaveRollbackFailure]:
 ## [br]
 ## @api private
 ## [br]
-func _make_management_rollback_failures(
-	provider_ids: PackedStringArray
-) -> Array[GFSaveRollbackFailure]:
+func _make_management_rollback_failures(provider_ids: PackedStringArray) -> Array[GFSaveRollbackFailure]:
 	var failures: Array[GFSaveRollbackFailure] = []
-	for index: int in range(provider_ids.size() - 1, -1, -1):
+	for index: int in range(
+		provider_ids.size() - 1,
+		-1,
+		-1
+	):
 		var failure: GFSaveRollbackFailure = GFSaveRollbackFailure.new()
 		var _configured: bool = failure.configure_for_framework(
 			StringName(provider_ids[index]),
@@ -3860,10 +3712,7 @@ func _string_name_array_to_packed(values: Array[StringName]) -> PackedStringArra
 ## [br]
 ## @api private
 ## [br]
-func _int64_arrays_equal(
-	left: PackedInt64Array,
-	right: PackedInt64Array
-) -> bool:
+func _int64_arrays_equal(left: PackedInt64Array, right: PackedInt64Array) -> bool:
 	if left.size() != right.size():
 		return false
 	for index: int in range(left.size()):
@@ -3876,10 +3725,7 @@ func _int64_arrays_equal(
 ## [br]
 ## @api private
 ## [br]
-func _int64_arrays_overlap(
-	left: PackedInt64Array,
-	right: PackedInt64Array
-) -> bool:
+func _int64_arrays_overlap(left: PackedInt64Array, right: PackedInt64Array) -> bool:
 	for value: int in left:
 		if right.has(value):
 			return true
@@ -3895,7 +3741,11 @@ func _get_error_code(
 	key: String,
 	fallback: Error
 ) -> Error:
-	return GFVariantData.get_option_int(source, key, int(fallback)) as Error
+	return GFVariantData.get_option_int(
+		source,
+		key,
+		int(fallback)
+	) as Error
 
 
 # --- 信号处理函数 ---
@@ -3911,11 +3761,7 @@ func _on_profile_operation_completed(
 	if _disposed:
 		return
 	var domain: DomainState = _get_domain(domain_id)
-	var transaction: TransactionState = (
-		domain.current_transaction
-		if domain != null
-		else null
-	)
+	var transaction: TransactionState = (domain.current_transaction if domain != null else null)
 	if (
 		domain == null
 		or transaction == null
@@ -3924,28 +3770,62 @@ func _on_profile_operation_completed(
 	):
 		return
 	_disconnect_transaction_profile_operation(transaction)
-	transaction.write_admitted = (
-		result.get_status() == GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN
-	)
+	transaction.write_admitted = (result.get_status() == GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
 	match transaction.stage:
 		_STAGE_ACTIVATE_LOAD:
-			_handle_activate_load_result(domain, transaction, result)
+			_handle_activate_load_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_SOURCE_FLUSH:
-			_handle_switch_flush_result(domain, transaction, result)
+			_handle_switch_flush_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_TARGET_LOAD:
-			_handle_switch_target_result(domain, transaction, result)
+			_handle_switch_target_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_RECOVERY_SAVE:
-			_handle_recovery_save_result(domain, transaction, result)
+			_handle_recovery_save_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_RECOVERY_SOURCE_FLUSH:
-			_handle_switch_recovery_flush_result(domain, transaction, result)
+			_handle_switch_recovery_flush_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_RECOVERY_TARGET_SAVE:
-			_handle_switch_recovery_target_save_result(domain, transaction, result)
+			_handle_switch_recovery_target_save_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_MUTATION_FLUSH:
-			_handle_mutation_flush_result(domain, transaction, result)
+			_handle_mutation_flush_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_MUTATION_SAVE:
-			_handle_mutation_save_result(domain, transaction, result)
+			_handle_mutation_save_result(
+				domain,
+				transaction,
+				result
+			)
 		_STAGE_RECONCILE_LOAD:
-			_handle_reconcile_load_result(domain, transaction, result)
+			_handle_reconcile_load_result(
+				domain,
+				transaction,
+				result
+			)
 		_:
 			_finish_domain_transaction(
 				domain,
@@ -3968,11 +3848,7 @@ func _on_storage_reset_operation_completed(
 	if _disposed:
 		return
 	var domain: DomainState = _get_domain(domain_id)
-	var transaction: TransactionState = (
-		domain.current_transaction
-		if domain != null
-		else null
-	)
+	var transaction: TransactionState = (domain.current_transaction if domain != null else null)
 	if (
 		domain == null
 		or transaction == null
@@ -3983,32 +3859,37 @@ func _on_storage_reset_operation_completed(
 		return
 	_disconnect_transaction_storage_operation(transaction)
 	transaction.write_admitted = false
-	_handle_switch_recovery_reset_result(domain, transaction, result)
+	_handle_switch_recovery_reset_result(
+		domain,
+		transaction,
+		result
+	)
 
 
 ## 从登记值快照中刷新档案与 generation 匹配的对账租约，再处理延期释放或静默完成。
 ## [br]
 ## @api private
-func _on_profile_generation_evidence_changed(
-	profile_id: StringName,
-	generation: int
-) -> void:
+func _on_profile_generation_evidence_changed(profile_id: StringName, generation: int) -> void:
 	if _disposed:
 		return
 	var records: Array = _reconcile_records.values()
 	for record_value: Variant in records:
 		var record: Dictionary = GFVariantData.as_dictionary(record_value)
-		if (
-			GFVariantData.get_option_string_name(record, "profile_id") != profile_id
-			or GFVariantData.get_option_int(record, "generation") != generation
-		):
+		if (GFVariantData.get_option_string_name(record, "profile_id") != profile_id or GFVariantData.get_option_int(record, "generation") != generation):
 			continue
 		var lease_value: Variant = GFVariantData.get_option_value(record, "lease")
 		if not lease_value is GFSaveProfileReconcileLease:
 			continue
 		var lease: GFSaveProfileReconcileLease = lease_value
-		_refresh_reconcile_lease(_get_domain(lease.get_domain_id()), lease)
-	if _dispose_requested and _processing_depth == 0 and _notification_depth == 0:
+		_refresh_reconcile_lease(
+			_get_domain(lease.get_domain_id()),
+			lease
+		)
+	if (
+		_dispose_requested
+		and _processing_depth == 0
+		and _notification_depth == 0
+	):
 		_dispose_now()
 	else:
 		_try_complete_quiesce()

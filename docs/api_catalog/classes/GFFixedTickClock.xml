@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedTickClock" path="addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd" module="extensions/network" extends="RefCounted" classDigest="26ef2a88068c54d1bc9b4a1c800327a03b1f94009fba1727cdd27e673c5f4824">
+<class name="GFFixedTickClock" path="addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd" module="extensions/network" extends="RefCounted" classDigest="90219590c506e9f48c099b0bbbaef059b79564f49ccaa8b89a1bd9b03b87593d">
 	<description>GFFixedTickClock: 固定步长 tick 时钟。
 用于网络同步、重放、确定性逻辑或任意固定频率调度；它只计算 tick 推进，不执行项目规则。</description>
 	<tags>
@@ -9,23 +9,25 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="ticks_advanced">
-			<signature>signal ticks_advanced(previous_tick: int, current_tick: int, step_count: int)</signature>
+			<signature>signal ticks_advanced( previous_tick: int, current_tick: int, step_count: int )</signature>
 			<description>tick 推进后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">previous_tick: 推进前 tick。</tag>
 				<tag name="param">current_tick: 推进后 tick。</tag>
 				<tag name="param">step_count: 本轮推进 tick 数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="tick_loop_started">
-			<signature>signal tick_loop_started(previous_tick: int, target_tick: int, step_count: int)</signature>
+			<signature>signal tick_loop_started( previous_tick: int, target_tick: int, step_count: int )</signature>
 			<description>固定 tick 循环开始时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">previous_tick: 循环前 tick。</tag>
 				<tag name="param">target_tick: 本轮预算内预计推进到的 tick。</tag>
 				<tag name="param">step_count: 本轮要处理的 tick 数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="tick_started">
@@ -47,23 +49,25 @@
 			</tags>
 		</member>
 		<member kind="signal" name="tick_loop_finished">
-			<signature>signal tick_loop_finished(previous_tick: int, current_tick: int, step_count: int)</signature>
+			<signature>signal tick_loop_finished( previous_tick: int, current_tick: int, step_count: int )</signature>
 			<description>固定 tick 循环结束时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">previous_tick: 循环前 tick。</tag>
 				<tag name="param">current_tick: 循环后 tick。</tag>
 				<tag name="param">step_count: 本轮实际处理的 tick 数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="tick_budget_exhausted">
-			<signature>signal tick_budget_exhausted(available_steps: int, processed_steps: int, remaining_seconds: float)</signature>
+			<signature>signal tick_budget_exhausted( available_steps: int, processed_steps: int, remaining_seconds: float )</signature>
 			<description>由于单次预算限制而未处理所有可用 tick 时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">available_steps: 本轮可用 tick 数。</tag>
 				<tag name="param">processed_steps: 本轮实际处理 tick 数。</tag>
 				<tag name="param">remaining_seconds: 预算处理后的累积剩余秒数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>

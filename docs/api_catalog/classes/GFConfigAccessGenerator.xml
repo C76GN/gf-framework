@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="a19c014acd4e8728c810ea512a0deacfc086c4f8c7e7595f8833bd2947cf2216">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="9565ea6e4ab5d616ea6d5601145ee6c50a755d6d0616510f37f7c44106354d6d">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
@@ -106,7 +106,7 @@ SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利�
 			</tags>
 		</member>
 		<member kind="method" name="save_source">
-			<signature>func save_source(output_path: String, source: String, overwrite_existing: bool = true) -&gt; Error:</signature>
+			<signature>func save_source( output_path: String, source: String, overwrite_existing: bool = true ) -&gt; Error:</signature>
 			<description>保存生成源码到指定路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -118,7 +118,7 @@ SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利�
 			</tags>
 		</member>
 		<member kind="method" name="save_source_with_report">
-			<signature>func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func save_source_with_report( output_path: String, source: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>保存生成源码到指定路径并返回生成产物报告。</description>
 			<tags>
 				<tag name="api">public</tag>

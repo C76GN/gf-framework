@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`orbit_changed`](#member-gfcameraorbitrig3d-signals-orbit_changed) | `signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, distance_value: float)` |
+| 信号 | [`orbit_changed`](#member-gfcameraorbitrig3d-signals-orbit_changed) | `signal orbit_changed( yaw_degrees_value: float, pitch_degrees_value: float, distance_value: float )` |
 | 属性 | [`yaw_degrees`](#member-gfcameraorbitrig3d-properties-yaw_degrees) | `var yaw_degrees: float = 0.0:` |
 | 属性 | [`pitch_degrees`](#member-gfcameraorbitrig3d-properties-pitch_degrees) | `var pitch_degrees: float = -20.0:` |
 | 属性 | [`distance`](#member-gfcameraorbitrig3d-properties-distance) | `var distance: float = 8.0:` |
@@ -28,7 +28,7 @@
 | 方法 | [`get_focus_position`](#member-gfcameraorbitrig3d-methods-get_focus_position) | `func get_focus_position() -> Vector3:` |
 | 方法 | [`get_orbit_direction`](#member-gfcameraorbitrig3d-methods-get_orbit_direction) | `func get_orbit_direction() -> Vector3:` |
 | 方法 | [`get_camera_transform`](#member-gfcameraorbitrig3d-methods-get_camera_transform) | `func get_camera_transform() -> Transform3D:` |
-| 方法 | [`set_orbit`](#member-gfcameraorbitrig3d-methods-set_orbit) | `func set_orbit(new_yaw_degrees: float, new_pitch_degrees: float, new_distance: float) -> void:` |
+| 方法 | [`set_orbit`](#member-gfcameraorbitrig3d-methods-set_orbit) | `func set_orbit( new_yaw_degrees: float, new_pitch_degrees: float, new_distance: float ) -> void:` |
 | 方法 | [`apply_orbit_delta`](#member-gfcameraorbitrig3d-methods-apply_orbit_delta) | `func apply_orbit_delta(delta_degrees: Vector2) -> void:` |
 | 方法 | [`apply_zoom_delta`](#member-gfcameraorbitrig3d-methods-apply_zoom_delta) | `func apply_zoom_delta(delta_distance: float) -> void:` |
 | 方法 | [`clamp_orbit`](#member-gfcameraorbitrig3d-methods-clamp_orbit) | `func clamp_orbit() -> void:` |
@@ -41,9 +41,10 @@
 ### `orbit_changed`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
-signal orbit_changed(yaw_degrees_value: float, pitch_degrees_value: float, distance_value: float)
+signal orbit_changed( yaw_degrees_value: float, pitch_degrees_value: float, distance_value: float )
 ```
 
 环绕参数变化后发出。
@@ -215,9 +216,10 @@ func get_camera_transform() -> Transform3D:
 ### `set_orbit`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
-func set_orbit(new_yaw_degrees: float, new_pitch_degrees: float, new_distance: float) -> void:
+func set_orbit( new_yaw_degrees: float, new_pitch_degrees: float, new_distance: float ) -> void:
 ```
 
 设置环绕参数。

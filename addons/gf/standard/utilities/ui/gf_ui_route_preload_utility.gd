@@ -75,15 +75,27 @@ static func build_plan(
 	options: Dictionary = {}
 ) -> Dictionary:
 	var max_depth: int = maxi(
-		GFVariantData.get_option_int(options, "max_depth", DEFAULT_MAX_DEPTH),
+		GFVariantData.get_option_int(
+			options,
+			"max_depth",
+			DEFAULT_MAX_DEPTH
+		),
 		0
 	)
 	var max_routes: int = maxi(
-		GFVariantData.get_option_int(options, "max_routes", DEFAULT_MAX_ROUTES),
+		GFVariantData.get_option_int(
+			options,
+			"max_routes",
+			DEFAULT_MAX_ROUTES
+		),
 		0
 	)
 	var max_edges: int = maxi(
-		GFVariantData.get_option_int(options, "max_edges", DEFAULT_MAX_EDGES),
+		GFVariantData.get_option_int(
+			options,
+			"max_edges",
+			DEFAULT_MAX_EDGES
+		),
 		0
 	)
 	var max_catalog_routes: int = maxi(
@@ -96,19 +108,13 @@ static func build_plan(
 	)
 	var catalog_result: Dictionary = _build_catalog(routes, max_catalog_routes)
 	var route_catalog: Dictionary = GFVariantData.get_option_dictionary(catalog_result, "routes")
-	var duplicate_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		catalog_result,
-		"duplicate_route_ids"
-	)
+	var duplicate_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(catalog_result, "duplicate_route_ids")
 	var catalog_route_count: int = GFVariantData.get_option_int(
 		catalog_result,
 		"catalog_route_count",
 		0
 	)
-	var catalog_budget_exhausted: bool = GFVariantData.get_option_bool(
-		catalog_result,
-		"catalog_budget_exhausted"
-	)
+	var catalog_budget_exhausted: bool = GFVariantData.get_option_bool(catalog_result, "catalog_budget_exhausted")
 	var normalized_source_id: StringName = _normalize_route_id(source_route_id)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata").duplicate(true)
 	if normalized_source_id == &"" or not route_catalog.has(normalized_source_id):
@@ -128,80 +134,63 @@ static func build_plan(
 		GFVariantData.get_option_packed_string_array(options, "fixed_route_ids"),
 		max_routes
 	)
-	var fixed_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		fixed_selection,
-		"route_ids"
-	)
+	var fixed_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(fixed_selection, "route_ids")
 	var reachable_result: Dictionary = _collect_reachable_routes(
 		route_catalog,
 		normalized_source_id,
 		max_depth,
 		max_routes,
 		max_edges,
-		GFVariantData.get_option_bool(options, "include_source", false),
+		GFVariantData.get_option_bool(
+			options,
+			"include_source",
+			false
+		),
 		fixed_route_ids
 	)
-	var route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		reachable_result,
-		"route_ids"
-	)
+	var route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(reachable_result, "route_ids")
 	var depths: Dictionary = GFVariantData.get_option_dictionary(reachable_result, "depths")
-	var missing_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		reachable_result,
-		"missing_route_ids"
-	)
+	var missing_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(reachable_result, "missing_route_ids")
 	for fixed_route_text: String in fixed_route_ids:
 		var fixed_route_id: StringName = StringName(fixed_route_text)
 		if not route_catalog.has(fixed_route_id):
 			_append_unique_string(missing_route_ids, fixed_route_text)
 
-	var plan: GFAssetPreloadPlan = _make_asset_plan(options, normalized_source_id, metadata)
+	var plan: GFAssetPreloadPlan = _make_asset_plan(
+		options,
+		normalized_source_id,
+		metadata
+	)
 	var route_path_result: Dictionary = _append_route_paths(
 		plan,
 		route_catalog,
 		route_ids,
 		fixed_route_ids,
 		depths,
-		GFVariantData.get_option_bool(options, "check_exists", false)
+		GFVariantData.get_option_bool(
+			options,
+			"check_exists",
+			false
+		)
 	)
-	var temporary_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		route_path_result,
-		"temporary_route_ids"
-	)
-	var included_fixed_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		route_path_result,
-		"fixed_route_ids"
-	)
-	var routes_without_scene: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		route_path_result,
-		"routes_without_scene"
-	)
-	var missing_scene_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		route_path_result,
-		"missing_scene_paths"
-	)
-	var invalid_scene_type_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		route_path_result,
-		"invalid_scene_type_paths"
-	)
-	var scene_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		route_path_result,
-		"scene_paths"
-	)
-	var route_budget_exhausted: bool = (
-		GFVariantData.get_option_bool(fixed_selection, "truncated")
-		or GFVariantData.get_option_bool(reachable_result, "route_budget_exhausted")
-	)
-	var edge_budget_exhausted: bool = GFVariantData.get_option_bool(
-		reachable_result,
-		"edge_budget_exhausted"
-	)
+	var temporary_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(route_path_result, "temporary_route_ids")
+	var included_fixed_route_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(route_path_result, "fixed_route_ids")
+	var routes_without_scene: PackedStringArray = GFVariantData.get_option_packed_string_array(route_path_result, "routes_without_scene")
+	var missing_scene_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(route_path_result, "missing_scene_paths")
+	var invalid_scene_type_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(route_path_result, "invalid_scene_type_paths")
+	var scene_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(route_path_result, "scene_paths")
+	var route_budget_exhausted: bool = (GFVariantData.get_option_bool(fixed_selection, "truncated") or GFVariantData.get_option_bool(reachable_result, "route_budget_exhausted"))
+	var edge_budget_exhausted: bool = GFVariantData.get_option_bool(reachable_result, "edge_budget_exhausted")
 	var truncated: bool = (
 		catalog_budget_exhausted
 		or route_budget_exhausted
 		or edge_budget_exhausted
 	)
-	var edge_count: int = GFVariantData.get_option_int(reachable_result, "edge_count", 0)
+	var edge_count: int = GFVariantData.get_option_int(
+		reachable_result,
+		"edge_count",
+		0
+	)
 	var healthy: bool = (
 		missing_route_ids.is_empty()
 		and routes_without_scene.is_empty()
@@ -276,7 +265,10 @@ static func _build_catalog(routes: Array[GFUIRoute], max_catalog_routes: int) ->
 		if route_id == &"":
 			continue
 		if route_catalog.has(route_id):
-			_append_unique_string(duplicate_route_ids, String(route_id))
+			_append_unique_string(
+				duplicate_route_ids,
+				String(route_id)
+			)
 			continue
 		route_catalog[route_id] = route
 	return {
@@ -304,17 +296,10 @@ static func _collect_reachable_routes(
 	var selected_route_ids: Dictionary = {}
 	for selected_text: String in preselected_route_ids:
 		selected_route_ids[StringName(selected_text)] = true
-	var depths: Dictionary = {
-		source_route_id: 0,
-	}
-	var visited: Dictionary = {
-		source_route_id: true,
-	}
+	var depths: Dictionary = { source_route_id: 0, }
+	var visited: Dictionary = { source_route_id: true, }
 	var queue: Array[Dictionary] = [
-		{
-			"route_id": source_route_id,
-			"depth": 0,
-		},
+		{ "route_id": source_route_id, "depth": 0, },
 	]
 	var edge_count: int = 0
 	var route_budget_exhausted: bool = false
@@ -335,7 +320,11 @@ static func _collect_reachable_routes(
 	):
 		var current: Dictionary = queue.pop_front()
 		var current_route_id: StringName = GFVariantData.get_option_string_name(current, "route_id")
-		var current_depth: int = GFVariantData.get_option_int(current, "depth", 0)
+		var current_depth: int = GFVariantData.get_option_int(
+			current,
+			"depth",
+			0
+		)
 		if current_depth >= max_depth:
 			continue
 		var route: GFUIRoute = _get_route(route_catalog, current_route_id)
@@ -356,15 +345,18 @@ static func _collect_reachable_routes(
 					break
 				selected_route_ids[adjacent_route_id] = true
 			if not route_catalog.has(adjacent_route_id):
-				_append_unique_string(missing_route_ids, String(adjacent_route_id))
+				_append_unique_string(
+					missing_route_ids,
+					String(adjacent_route_id)
+				)
 				continue
 			var next_depth: int = current_depth + 1
-			_append_unique_string(route_ids, String(adjacent_route_id))
+			_append_unique_string(
+				route_ids,
+				String(adjacent_route_id)
+			)
 			depths[adjacent_route_id] = next_depth
-			queue.append({
-				"route_id": adjacent_route_id,
-				"depth": next_depth,
-			})
+			queue.append({ "route_id": adjacent_route_id, "depth": next_depth, })
 	return {
 		"route_ids": route_ids,
 		"missing_route_ids": missing_route_ids,
@@ -399,10 +391,18 @@ static func _make_asset_plan(
 		[],
 		{
 			"plan_id": plan_id,
-			"pin_cache": GFVariantData.get_option_bool(options, "pin_cache", false),
+			"pin_cache": GFVariantData.get_option_bool(
+				options,
+				"pin_cache",
+				false
+			),
 			"lane_id": GFVariantData.get_option_string_name(options, "lane_id"),
 			"max_concurrent_loads": maxi(
-				GFVariantData.get_option_int(options, "max_concurrent_loads", 0),
+				GFVariantData.get_option_int(
+					options,
+					"max_concurrent_loads",
+					0
+				),
 				0
 			),
 			"metadata": metadata,
@@ -497,7 +497,10 @@ static func _append_route_path(
 		return
 	var scene_path: String = route.scene_path.strip_edges()
 	if scene_path.is_empty():
-		_append_unique_string(routes_without_scene, String(route_id))
+		_append_unique_string(
+			routes_without_scene,
+			String(route_id)
+		)
 		return
 	var identity: GFResourceIdentity = GFResourceIdentity.from_path(
 		scene_path,
@@ -505,19 +508,17 @@ static func _append_route_path(
 		"PackedScene",
 		{ "check_exists": false }
 	)
-	var normalized_path: String = identity.canonical_path if not identity.canonical_path.is_empty() else identity.raw_path
+	var normalized_path: String = (identity.canonical_path if not identity.canonical_path.is_empty() else identity.raw_path)
 	if normalized_path.is_empty():
-		_append_unique_string(routes_without_scene, String(route_id))
+		_append_unique_string(
+			routes_without_scene,
+			String(route_id)
+		)
 		return
 	if check_exists:
 		if not ResourceLoader.exists(normalized_path):
 			_append_unique_string(missing_scene_paths, normalized_path)
-		elif (
-			not ResourceLoader.exists(normalized_path, "PackedScene")
-			or not ResourceLoader.get_recognized_extensions_for_type("PackedScene").has(
-				identity.extension
-			)
-		):
+		elif (not ResourceLoader.exists(normalized_path, "PackedScene") or not (ResourceLoader.get_recognized_extensions_for_type("PackedScene").has(identity.extension))):
 			_append_unique_string(invalid_scene_type_paths, normalized_path)
 	if seen_cache_keys.has(identity.cache_key):
 		return
@@ -527,15 +528,25 @@ static func _append_route_path(
 		"PackedScene",
 		{
 			"route_id": route_id,
-			"depth": GFVariantData.get_option_int(depths, route_id, -1),
+			"depth": GFVariantData.get_option_int(
+				depths,
+				route_id,
+				-1
+			),
 			"fixed": fixed,
 		}
 	)
 	_append_unique_string(scene_paths, normalized_path)
 	if fixed:
-		_append_unique_string(included_fixed_route_ids, String(route_id))
+		_append_unique_string(
+			included_fixed_route_ids,
+			String(route_id)
+		)
 	else:
-		_append_unique_string(temporary_route_ids, String(route_id))
+		_append_unique_string(
+			temporary_route_ids,
+			String(route_id)
+		)
 
 
 ## 构造源路由缺失或目录预算耗尽的失败报告。
@@ -557,7 +568,10 @@ static func _make_missing_source_result(
 	if source_route_id != &"" and catalog_budget_exhausted:
 		reason = &"catalog_budget_exhausted"
 	else:
-		_append_unique_string(missing_route_ids, String(source_route_id))
+		_append_unique_string(
+			missing_route_ids,
+			String(source_route_id)
+		)
 	return {
 		"ok": false,
 		"healthy": false,
@@ -590,10 +604,7 @@ static func _make_missing_source_result(
 ## 规范化固定路由 ID、去重，并在达到路由上限时截断。
 ## [br]
 ## @api private
-static func _select_fixed_route_ids(
-	route_ids: PackedStringArray,
-	max_routes: int
-) -> Dictionary:
+static func _select_fixed_route_ids(route_ids: PackedStringArray, max_routes: int) -> Dictionary:
 	var result: PackedStringArray = PackedStringArray()
 	var truncated: bool = false
 	for route_text: String in route_ids:
@@ -603,11 +614,11 @@ static func _select_fixed_route_ids(
 		if result.size() >= max_routes:
 			truncated = true
 			break
-		_append_unique_string(result, String(route_id))
-	return {
-		"route_ids": result,
-		"truncated": truncated,
-	}
+		_append_unique_string(
+			result,
+			String(route_id)
+		)
+	return { "route_ids": result, "truncated": truncated, }
 
 
 ## 移除路由 ID 首尾空白并转换为 StringName。

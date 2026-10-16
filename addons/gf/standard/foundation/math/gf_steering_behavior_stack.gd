@@ -171,9 +171,15 @@ func _calculate_priority(agent: GFSteeringAgent, context: Dictionary) -> GFSteer
 			continue
 		var acceleration: GFSteeringAcceleration = behavior.calculate(agent, context)
 		if behavior.weight != 1.0:
-			var _add_scaled_result_162: Variant = acceleration.add_scaled(acceleration.duplicate_acceleration(), behavior.weight - 1.0)
+			var _add_scaled_result_162: Variant = acceleration.add_scaled(
+				acceleration.duplicate_acceleration(),
+				behavior.weight - 1.0
+			)
 		if not acceleration.is_zero(priority_threshold):
-			return acceleration.clamp_to(_resolve_max_linear(agent), _resolve_max_angular(agent))
+			return acceleration.clamp_to(
+				_resolve_max_linear(agent),
+				_resolve_max_angular(agent)
+			)
 	return GFSteeringAcceleration.new()
 
 

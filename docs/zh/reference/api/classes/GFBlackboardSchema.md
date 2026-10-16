@@ -26,7 +26,7 @@
 | 方法 | [`has_entry`](#member-gfblackboardschema-methods-has_entry) | `func has_entry(entry_key: StringName) -> bool:` |
 | 方法 | [`get_entry_keys`](#member-gfblackboardschema-methods-get_entry_keys) | `func get_entry_keys() -> PackedStringArray:` |
 | 方法 | [`build_defaults`](#member-gfblackboardschema-methods-build_defaults) | `func build_defaults(include_optional: bool = true) -> Dictionary:` |
-| 方法 | [`apply_defaults`](#member-gfblackboardschema-methods-apply_defaults) | `func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -> Dictionary:` |
+| 方法 | [`apply_defaults`](#member-gfblackboardschema-methods-apply_defaults) | `func apply_defaults( values: Dictionary, include_optional: bool = true, should_coerce: bool = true ) -> Dictionary:` |
 | 方法 | [`coerce_dictionary`](#member-gfblackboardschema-methods-coerce_dictionary) | `func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -> Dictionary:` |
 | 方法 | [`validate_values`](#member-gfblackboardschema-methods-validate_values) | `func validate_values(values: Dictionary) -> Dictionary:` |
 | 方法 | [`duplicate_schema`](#member-gfblackboardschema-methods-duplicate_schema) | `func duplicate_schema() -> GFBlackboardSchema:` |
@@ -209,9 +209,10 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 ### `apply_defaults`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -> Dictionary:
+func apply_defaults( values: Dictionary, include_optional: bool = true, should_coerce: bool = true ) -> Dictionary:
 ```
 
 为输入数据补齐默认值。

@@ -91,7 +91,11 @@ func _do_it() -> Error:
 	if not _instance.top_level:
 		destination_transform = parent.global_transform.affine_inverse() * _world_transform
 	_instance.transform = destination_transform
-	if not is_instance_valid(_instance) or _instance.is_queued_for_deletion() or not _is_valid_destination(parent, scene_root):
+	if (
+		not is_instance_valid(_instance)
+		or _instance.is_queued_for_deletion()
+		or not _is_valid_destination(parent, scene_root)
+	):
 		_detach_failed_instance()
 		return ERR_UNAVAILABLE
 	parent.add_child(_instance, true)
@@ -113,10 +117,7 @@ func _do_it() -> Error:
 	if not _instance.top_level:
 		destination_transform = parent.global_transform.affine_inverse() * _world_transform
 	_instance.transform = destination_transform
-	if (
-		not _is_attached_destination_valid(parent, scene_root)
-		or not _instance.global_transform.is_equal_approx(_world_transform)
-	):
+	if (not _is_attached_destination_valid(parent, scene_root) or not _instance.global_transform.is_equal_approx(_world_transform)):
 		_detach_failed_instance()
 		return ERR_CANT_CREATE
 	return OK
@@ -228,7 +229,10 @@ func _belongs_to_original_root(parent: Node3D, scene_root: Node) -> bool:
 		and is_instance_valid(scene_root)
 		and not parent.is_queued_for_deletion()
 		and not scene_root.is_queued_for_deletion()
-		and (parent == scene_root or scene_root.is_ancestor_of(parent))
+		and (
+			parent == scene_root
+			or scene_root.is_ancestor_of(parent)
+		)
 	)
 
 

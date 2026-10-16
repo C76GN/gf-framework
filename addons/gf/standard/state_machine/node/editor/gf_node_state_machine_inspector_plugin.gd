@@ -49,7 +49,11 @@ func _parse_begin(object: Object) -> void:
 
 	var header: Label = Label.new()
 	header.text = "GF Node State Machine"
-	header.modulate = Color(0.4, 0.8, 1.0)
+	header.modulate = Color(
+		0.4,
+		0.8,
+		1.0
+	)
 	root.add_child(header)
 
 	var row: HBoxContainer = HBoxContainer.new()
@@ -81,7 +85,11 @@ func _parse_begin(object: Object) -> void:
 
 	var report_label: Label = Label.new()
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART as TextServer.AutowrapMode
-	report_label.modulate = Color(0.8, 0.8, 0.8)
+	report_label.modulate = Color(
+		0.8,
+		0.8,
+		0.8
+	)
 	root.add_child(report_label)
 	var _validate_connected: int = validate_button.pressed.connect(
 		_on_validate_pressed.bind(report_label, target),
@@ -120,9 +128,17 @@ static func format_report_tooltip(report: RefCounted) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var diagnostics: Array = _GF_VALIDATION_DIAGNOSTIC_ADAPTER.report_to_diagnostics(report)
 	for diagnostic: Dictionary in diagnostics:
-		var kind: String = GFVariantData.get_option_string(diagnostic, "kind", "unknown")
+		var kind: String = GFVariantData.get_option_string(
+			diagnostic,
+			"kind",
+			"unknown"
+		)
 		var message: String = GFVariantData.get_option_string(diagnostic, "message")
-		_append_packed_string(lines, "%s: %s" % [kind, message])
+		_append_packed_string(
+			lines,
+			"%s: %s"
+			% [kind, message]
+		)
 		if lines.size() >= 8:
 			_append_packed_string(lines, "...")
 			break
@@ -146,14 +162,23 @@ func _populate_initial_state_options(option: OptionButton, target: Node) -> void
 	var states: Array[StringName] = collect_direct_states(target)
 	for i: int in range(states.size()):
 		var state_name: StringName = states[i]
-		option.add_item(String(state_name), i + 1)
-		option.set_item_metadata(i + 1, state_name)
+		option.add_item(
+			String(state_name),
+			i + 1
+		)
+		option.set_item_metadata(
+			i + 1,
+			state_name
+		)
 		if state_name == current_initial_state:
 			option.select(i + 1)
 
 	if current_initial_state != &"" and not states.has(current_initial_state):
 		var index: int = option.get_item_count()
-		option.add_item("%s（未找到）" % current_initial_state, index)
+		option.add_item(
+			"%s（未找到）" % current_initial_state,
+			index
+		)
 		option.set_item_metadata(index, current_initial_state)
 		option.select(index)
 
@@ -199,8 +224,16 @@ func _set_initial_state(target: Node, state_name: StringName) -> void:
 
 	var undo_redo: EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
 	undo_redo.create_action("设置 GF 初始状态")
-	undo_redo.add_do_property(property_owner, property_name, state_name)
-	undo_redo.add_undo_property(property_owner, property_name, old_value)
+	undo_redo.add_do_property(
+		property_owner,
+		property_name,
+		state_name
+	)
+	undo_redo.add_undo_property(
+		property_owner,
+		property_name,
+		old_value
+	)
 	undo_redo.commit_action()
 
 
@@ -219,11 +252,23 @@ func _update_validation_report(label: Label, target: Node) -> void:
 	label.text = report.make_summary("GFNodeStateMachine")
 	label.tooltip_text = format_report_tooltip(report)
 	if report.get_error_count() > 0:
-		label.modulate = Color(1.0, 0.45, 0.35)
+		label.modulate = Color(
+			1.0,
+			0.45,
+			0.35
+		)
 	elif report.get_warning_count() > 0:
-		label.modulate = Color(1.0, 0.78, 0.35)
+		label.modulate = Color(
+			1.0,
+			0.78,
+			0.35
+		)
 	else:
-		label.modulate = Color(0.45, 0.9, 0.55)
+		label.modulate = Color(
+			0.45,
+			0.9,
+			0.55
+		)
 
 
 ## 仅当 Variant 持有 Resource 时返回该资源引用，否则返回 null。
@@ -251,17 +296,28 @@ static func _append_packed_string(target: PackedStringArray, value: String) -> v
 ## [br]
 ## @api private
 ## [br]
-static func _read_property(object: Object, property_name: StringName, fallback: Variant = null) -> Variant:
-	return GFObjectPropertyTools.read_property(object, NodePath(property_name), fallback)
+static func _read_property(
+	object: Object,
+	property_name: StringName,
+	fallback: Variant = null
+) -> Variant:
+	return GFObjectPropertyTools.read_property(
+		object,
+		NodePath(property_name),
+		fallback
+	)
 
 
 # --- 信号处理函数 ---
 
-
 ## 确认目标仍有效后，从选项元数据读取稳定状态名并交给初始状态写入流程。
 ## [br]
 ## @api private
-func _on_initial_state_selected(index: int, option: OptionButton, target: Node) -> void:
+func _on_initial_state_selected(
+	index: int,
+	option: OptionButton,
+	target: Node
+) -> void:
 	if not is_instance_valid(target):
 		return
 

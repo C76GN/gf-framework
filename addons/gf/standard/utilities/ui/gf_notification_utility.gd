@@ -70,6 +70,7 @@ enum Level {
 	ERROR,
 }
 
+
 ## 通知优先级。数值越大越靠前。
 ## [br]
 ## @api public
@@ -149,6 +150,7 @@ func tick(delta: float) -> void:
 	if _active_remaining_seconds <= 0.0:
 		dismiss_active("timeout")
 
+
 ## 释放通知队列状态。
 ## [br]
 ## @api public
@@ -186,7 +188,12 @@ func push_notification(
 	if suppress_duplicates and duplicate_id > 0:
 		return duplicate_id
 
-	var notification_record: Dictionary = _make_notification(message, title, level, options)
+	var notification_record: Dictionary = _make_notification(
+		message,
+		title,
+		level,
+		options
+	)
 	_queue.append(notification_record)
 	notification_queued.emit(notification_record.duplicate(true))
 	if _active_notification.is_empty():
@@ -277,7 +284,10 @@ func invoke_active_action(action_id: StringName) -> bool:
 	for action_value: Variant in actions:
 		var action: Dictionary = GFVariantData.as_dictionary(action_value)
 		if GFVariantData.get_option_string_name(action, "id") == action_id:
-			notification_action_invoked.emit(_active_notification.duplicate(true), action_id)
+			notification_action_invoked.emit(
+				_active_notification.duplicate(true),
+				action_id
+			)
 			if GFVariantData.get_option_bool(action, "dismiss"):
 				dismiss_active("action:%s" % action_id)
 			return true
@@ -329,16 +339,45 @@ func _make_notification(
 ) -> Dictionary:
 	var notification_record: Dictionary = {
 		"id": _next_notification_id,
-		"key": GFVariantData.get_option_string(options, "key", message),
+		"key": GFVariantData.get_option_string(
+			options,
+			"key",
+			message
+		),
 		"dedupe_key": GFVariantData.get_option_string(options, "key"),
 		"title": title,
 		"message": message,
 		"level": level,
-		"priority": clampi(GFVariantData.get_option_int(options, "priority", Priority.NORMAL), Priority.LOW, Priority.CRITICAL),
-		"sticky": GFVariantData.get_option_bool(options, "sticky", false),
-		"duration_seconds": maxf(GFVariantData.get_option_float(options, "duration_seconds", default_duration_seconds), 0.0),
+		"priority": clampi(
+			GFVariantData.get_option_int(
+				options,
+				"priority",
+				Priority.NORMAL
+			),
+			Priority.LOW,
+			Priority.CRITICAL
+		),
+		"sticky": GFVariantData.get_option_bool(
+			options,
+			"sticky",
+			false
+		),
+		"duration_seconds": maxf(
+			GFVariantData.get_option_float(
+				options,
+				"duration_seconds",
+				default_duration_seconds
+			),
+			0.0
+		),
 		"created_at_unix": Time.get_unix_time_from_system(),
-		"actions": _normalize_actions(GFVariantData.get_option_value(options, "actions", [])),
+		"actions": _normalize_actions(
+			GFVariantData.get_option_value(
+				options,
+				"actions",
+				[]
+			)
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
 	_next_notification_id += 1
@@ -372,7 +411,10 @@ func _trim_queue() -> void:
 	var max_size: int = maxi(max_queue_size, 0)
 	while _queue.size() > max_size:
 		var dropped: Dictionary = GFVariantData.as_dictionary(_queue.pop_back())
-		notification_finished.emit(dropped.duplicate(true), "dropped")
+		notification_finished.emit(
+			dropped.duplicate(true),
+			"dropped"
+		)
 
 
 ## 在活动通知和等待队列中查找首个去重匹配项；没有匹配时返回 0。
@@ -380,11 +422,19 @@ func _trim_queue() -> void:
 ## @api private
 func _find_duplicate_notification_id(message: String, options: Dictionary) -> int:
 	var key: String = GFVariantData.get_option_string(options, "key")
-	if _matches_notification(_active_notification, key, message):
+	if _matches_notification(
+		_active_notification,
+		key,
+		message
+	):
 		return GFVariantData.get_option_int(_active_notification, "id")
 
 	for notification_record: Dictionary in _queue:
-		if _matches_notification(notification_record, key, message):
+		if _matches_notification(
+			notification_record,
+			key,
+			message
+		):
 			return GFVariantData.get_option_int(notification_record, "id")
 	return 0
 
@@ -392,7 +442,11 @@ func _find_duplicate_notification_id(message: String, options: Dictionary) -> in
 ## 显式 key 只匹配相同去重 key；未提供 key 时仅匹配同样没有显式 key 且消息相同的记录。
 ## [br]
 ## @api private
-func _matches_notification(notification_record: Dictionary, key: String, message: String) -> bool:
+func _matches_notification(
+	notification_record: Dictionary,
+	key: String,
+	message: String
+) -> bool:
 	if notification_record.is_empty():
 		return false
 
@@ -408,12 +462,21 @@ func _matches_notification(notification_record: Dictionary, key: String, message
 ## [br]
 ## @api private
 func _sort_queue_by_priority() -> void:
-	_queue.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_priority: int = GFVariantData.get_option_int(left, "priority", Priority.NORMAL)
-		var right_priority: int = GFVariantData.get_option_int(right, "priority", Priority.NORMAL)
-		if left_priority == right_priority:
-			return GFVariantData.get_option_int(left, "id") < GFVariantData.get_option_int(right, "id")
-		return left_priority > right_priority
+	_queue.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_priority: int = GFVariantData.get_option_int(
+				left,
+				"priority",
+				Priority.NORMAL
+			)
+			var right_priority: int = GFVariantData.get_option_int(
+				right,
+				"priority",
+				Priority.NORMAL
+			)
+			if left_priority == right_priority:
+				return GFVariantData.get_option_int(left, "id") < GFVariantData.get_option_int(right, "id")
+			return left_priority > right_priority
 	)
 
 
@@ -429,12 +492,14 @@ func _normalize_actions(actions_variant: Variant) -> Array[Dictionary]:
 		if action_variant is StringName or action_variant is String:
 			var simple_action_id: StringName = GFVariantData.to_string_name(action_variant)
 			if simple_action_id != &"":
-				result.append({
-					"id": simple_action_id,
-					"label": "",
-					"dismiss": false,
-					"metadata": {},
-				})
+				result.append(
+					{
+						"id": simple_action_id,
+						"label": "",
+						"dismiss": false,
+						"metadata": {},
+					}
+				)
 			continue
 		if not (action_variant is Dictionary):
 			continue
@@ -443,10 +508,12 @@ func _normalize_actions(actions_variant: Variant) -> Array[Dictionary]:
 		var dictionary_action_id: StringName = GFVariantData.get_option_string_name(source, "id")
 		if dictionary_action_id == &"":
 			continue
-		result.append({
-			"id": dictionary_action_id,
-			"label": GFVariantData.get_option_string(source, "label"),
-			"dismiss": GFVariantData.get_option_bool(source, "dismiss"),
-			"metadata": GFVariantData.get_option_dictionary(source, "metadata"),
-		})
+		result.append(
+			{
+				"id": dictionary_action_id,
+				"label": GFVariantData.get_option_string(source, "label"),
+				"dismiss": GFVariantData.get_option_bool(source, "dismiss"),
+				"metadata": GFVariantData.get_option_dictionary(source, "metadata"),
+			}
+		)
 	return result

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputModifier" path="addons/gf/standard/input/modifiers/gf_input_modifier.gd" module="standard" extends="Resource" classDigest="af35c59a0858fd0861216bc503fe9d1f21e247059f3d745534f4ae96b2d4759b">
+<class name="GFInputModifier" path="addons/gf/standard/input/modifiers/gf_input_modifier.gd" module="standard" extends="Resource" classDigest="8e8526f138262b52b729cbbc146f97b952992fa1cd135787da650a839425e126">
 	<description>GFInputModifier: 输入值修饰器基类。
 修饰器只处理输入值转换，不决定动作是否触发。可挂在 GFInputBinding 或
 GFInputMapping 上，用于死区、缩放、归一化、范围映射等通用处理。</description>
@@ -14,7 +14,7 @@ GFInputMapping 上，用于死区、缩放、归一化、范围映射等通用�
 	<properties />
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修饰输入贡献值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -22,10 +22,11 @@ GFInputMapping 上，用于死区、缩放、归一化、范围映射等通用�
 				<tag name="param">_event: 产生该贡献的原生输入事件，可能为 null。</tag>
 				<tag name="param">_action: 当前输入动作。</tag>
 				<tag name="return">修饰后的贡献值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, event: InputEvent = null, action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修饰三维输入贡献值。
 默认复用二维修饰逻辑处理 X/Y，并保留 Z 分量。</description>
 			<tags>
@@ -34,6 +35,7 @@ GFInputMapping 上，用于死区、缩放、归一化、范围映射等通用�
 				<tag name="param">event: 产生该贡献的原生输入事件，可能为 null。</tag>
 				<tag name="param">action: 当前输入动作。</tag>
 				<tag name="return">修饰后的三维贡献值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_modifier">

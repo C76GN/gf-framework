@@ -127,20 +127,18 @@ var _payload_valid: bool = true
 ## @schema options: Dictionary successful lobby result fields.
 ## [br]
 ## @return 当前结果。
-func configure_success(
-	request: GFNetworkLobbyOperationRequest,
-	options: Dictionary = {}
-) -> GFNetworkLobbyOperationResult:
+func configure_success(request: GFNetworkLobbyOperationRequest, options: Dictionary = {}) -> GFNetworkLobbyOperationResult:
 	_apply_request(request)
 	_payload_valid = true
 	ok = true
-	status = GFVariantData.get_option_string_name(options, "status", &"ok")
+	status = GFVariantData.get_option_string_name(
+		options,
+		"status",
+		&"ok"
+	)
 	lobby = _get_lobby(options, "lobby")
 	lobbies = _get_lobbies(options)
-	var option_lobby_id: String = GFVariantData.get_option_string(
-		options,
-		"lobby_id"
-	).strip_edges()
+	var option_lobby_id: String = (GFVariantData.get_option_string(options, "lobby_id").strip_edges())
 	if not option_lobby_id.is_empty():
 		lobby_id = option_lobby_id
 	elif lobby != null:
@@ -148,11 +146,19 @@ func configure_success(
 	error = &""
 	message = ""
 	started_at_msec = maxi(
-		GFVariantData.get_option_int(options, "started_at_msec", -1),
+		GFVariantData.get_option_int(
+			options,
+			"started_at_msec",
+			-1
+		),
 		-1
 	)
 	completed_at_msec = maxi(
-		GFVariantData.get_option_int(options, "completed_at_msec", -1),
+		GFVariantData.get_option_int(
+			options,
+			"completed_at_msec",
+			-1
+		),
 		-1
 	)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
@@ -185,17 +191,29 @@ func configure_failure(
 	_apply_request(request)
 	_payload_valid = true
 	ok = false
-	status = GFVariantData.get_option_string_name(options, "status", p_error)
+	status = GFVariantData.get_option_string_name(
+		options,
+		"status",
+		p_error
+	)
 	lobby = null
 	lobbies.clear()
 	error = p_error if p_error != &"" else &"failed"
 	message = p_message.strip_edges()
 	started_at_msec = maxi(
-		GFVariantData.get_option_int(options, "started_at_msec", -1),
+		GFVariantData.get_option_int(
+			options,
+			"started_at_msec",
+			-1
+		),
 		-1
 	)
 	completed_at_msec = maxi(
-		GFVariantData.get_option_int(options, "completed_at_msec", -1),
+		GFVariantData.get_option_int(
+			options,
+			"completed_at_msec",
+			-1
+		),
 		-1
 	)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
@@ -212,7 +230,10 @@ func configure_failure(
 func get_duration_msec() -> int:
 	if started_at_msec < 0 or completed_at_msec < 0:
 		return 0
-	return maxi(completed_at_msec - started_at_msec, 0)
+	return maxi(
+		completed_at_msec - started_at_msec,
+		0
+	)
 
 
 ## 校验终态结构是否满足操作契约。
@@ -343,11 +364,19 @@ func apply_dict(data: Dictionary) -> void:
 	error = GFVariantData.get_option_string_name(data, "error")
 	message = GFVariantData.get_option_string(data, "message").strip_edges()
 	started_at_msec = maxi(
-		GFVariantData.get_option_int(data, "started_at_msec", -1),
+		GFVariantData.get_option_int(
+			data,
+			"started_at_msec",
+			-1
+		),
 		-1
 	)
 	completed_at_msec = maxi(
-		GFVariantData.get_option_int(data, "completed_at_msec", -1),
+		GFVariantData.get_option_int(
+			data,
+			"completed_at_msec",
+			-1
+		),
 		-1
 	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")

@@ -199,7 +199,10 @@ func _run_repeat_async(current_serial: int) -> void:
 		if not action_valid:
 			break
 
-		_ACTION_PROTOCOL.inject_dependencies(action, _get_architecture_or_null())
+		_ACTION_PROTOCOL.inject_dependencies(
+			action,
+			_get_architecture_or_null()
+		)
 		if current_serial != _execution_serial:
 			return
 		var action_can_execute: bool = _ACTION_PROTOCOL.can_execute(action)
@@ -219,12 +222,14 @@ func _run_repeat_async(current_serial: int) -> void:
 		if should_wait:
 			waited = true
 			immediate_count = 0
-			await _ACTION_PROTOCOL.await_result_safely(
-				action,
-				result,
-				_is_execution_serial_current.bind(current_serial),
-				_is_timeout_paused.bind(current_serial),
-				_get_architecture_or_null()
+			await (
+				_ACTION_PROTOCOL.await_result_safely(
+					action,
+					result,
+					_is_execution_serial_current.bind(current_serial),
+					_is_timeout_paused.bind(current_serial),
+					_get_architecture_or_null()
+				)
 			)
 
 		if current_serial != _execution_serial:

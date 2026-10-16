@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSignClampModifier" path="addons/gf/standard/input/modifiers/gf_input_sign_clamp_modifier.gd" module="standard" extends="GFInputModifier" classDigest="897439886e471c5ce88f5fd6b14f2bd8994a5816773d2c1621b6d54a94c197f8">
+<class name="GFInputSignClampModifier" path="addons/gf/standard/input/modifiers/gf_input_sign_clamp_modifier.gd" module="standard" extends="GFInputModifier" classDigest="744b62580f0e0a3d1b636cc079ca204b61328893c6e8ea2201489b26f6c0874f">
 	<description>GFInputSignClampModifier: 输入符号方向限制修饰器。
 用于只保留正向或负向输入分量，也可以把保留的负向分量重新映射为正值。</description>
 	<tags>
@@ -62,7 +62,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -70,10 +70,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">符号过滤后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -81,6 +82,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">符号过滤后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

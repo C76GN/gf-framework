@@ -38,11 +38,13 @@ func expect_released(target: Object, label: String = "") -> int:
 		return 0
 
 	var instance_id: int = target.get_instance_id()
-	_release_expectations.append({
-		"instance_id": instance_id,
-		"label": label,
-		"weak_ref": weakref(target),
-	})
+	_release_expectations.append(
+		{
+			"instance_id": instance_id,
+			"label": label,
+			"weak_ref": weakref(target),
+		}
+	)
 	return instance_id
 
 
@@ -52,26 +54,32 @@ func defer_queue_free(target: Node, label: String = "") -> int:
 
 	var target_ref: WeakRef = weakref(target)
 	var instance_id: int = expect_released(target, label)
-	var registered: bool = defer_cleanup(func() -> void:
-		var raw_target: Variant = target_ref.get_ref()
-		if raw_target is Node:
-			var live_target: Node = raw_target
-			live_target.queue_free()
+	var registered: bool = defer_cleanup(
+		func() -> void:
+			var raw_target: Variant = target_ref.get_ref()
+			if raw_target is Node:
+				var live_target: Node = raw_target
+				live_target.queue_free()
 	)
 	return instance_id if registered else 0
 
 
 func defer_free(target: Object, label: String = "") -> int:
-	if _cleanup_started or target == null or target is RefCounted:
+	if (
+		_cleanup_started
+		or target == null
+		or target is RefCounted
+	):
 		return 0
 
 	var target_ref: WeakRef = weakref(target)
 	var instance_id: int = expect_released(target, label)
-	var registered: bool = defer_cleanup(func() -> void:
-		var raw_target: Variant = target_ref.get_ref()
-		if raw_target is Object:
-			var live_target: Object = raw_target
-			live_target.free()
+	var registered: bool = defer_cleanup(
+		func() -> void:
+			var raw_target: Variant = target_ref.get_ref()
+			if raw_target is Object:
+				var live_target: Object = raw_target
+				live_target.free()
 	)
 	return instance_id if registered else 0
 
@@ -97,7 +105,9 @@ func cleanup(settle_frame_count: int = DEFAULT_SETTLE_FRAME_COUNT) -> Dictionary
 	_release_expectations.clear()
 
 	_cleanup_report = {
-		"ok": cleanup_failures.is_empty() and unreleased.is_empty() and new_orphans.is_empty(),
+		"ok": cleanup_failures.is_empty()
+		and unreleased.is_empty()
+		and new_orphans.is_empty(),
 		"cleanup_count": cleanup_count,
 		"frames_waited": frames_waited,
 		"cleanup_failures": cleanup_failures,
@@ -113,9 +123,21 @@ func assert_clean(test_case: GutTest, settle_frame_count: int = DEFAULT_SETTLE_F
 	var unreleased: Array[Dictionary] = _dictionary_array(report, "unreleased")
 	var new_orphans: Array[Dictionary] = _dictionary_array(report, "new_orphans")
 
-	test_case.assert_eq(cleanup_failures, [], "生命周期清理回调必须全部可执行。")
-	test_case.assert_eq(unreleased, [], "生命周期 scope 登记的对象必须完成释放。")
-	test_case.assert_eq(new_orphans, [], "生命周期 scope 内不得新增孤儿节点。")
+	test_case.assert_eq(
+		cleanup_failures,
+		[],
+		"生命周期清理回调必须全部可执行。"
+	)
+	test_case.assert_eq(
+		unreleased,
+		[],
+		"生命周期 scope 登记的对象必须完成释放。"
+	)
+	test_case.assert_eq(
+		new_orphans,
+		[],
+		"生命周期 scope 内不得新增孤儿节点。"
+	)
 	test_case.assert_no_new_orphans("生命周期 scope 清理后仍存在 GUT 记录的孤儿节点。")
 	return report
 
@@ -149,10 +171,7 @@ func _collect_unreleased() -> Array[Dictionary]:
 
 
 func _release_detail(expectation: Dictionary) -> Dictionary:
-	return {
-		"instance_id": _dictionary_int(expectation, "instance_id"),
-		"label": _dictionary_string(expectation, "label"),
-	}
+	return { "instance_id": _dictionary_int(expectation, "instance_id"), "label": _dictionary_string(expectation, "label"), }
 
 
 func _capture_orphan_ids() -> Dictionary:

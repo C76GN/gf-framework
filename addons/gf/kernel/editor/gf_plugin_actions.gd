@@ -36,9 +36,7 @@ const _GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT = preload("res://addons/gf/kernel/ed
 ## 调用统一文本产物保存器并检查生成报告的脚本。
 ## [br]
 ## @api private
-const _GF_GENERATED_ARTIFACT_REPORT_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_generated_artifact_report.gd"
-)
+const _GF_GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
 
 ## 菜单 ID：生成 System。
 ## [br]
@@ -144,6 +142,7 @@ const SECTION_CODE_GENERATION: String = "代码生成"
 ## [br]
 ## @layer kernel/editor
 const SECTION_EXTENSION_TOOLS: String = "扩展工具"
+
 
 # --- 私有变量 ---
 
@@ -324,9 +323,19 @@ func handle_menu_id(id: int) -> void:
 	if handler.is_empty():
 		return
 
-	match _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(handler, "kind", &""):
+	match _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		handler,
+		"kind",
+		&""
+	):
 		&"template":
-			_show_dialog(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(handler, "template_id", ""))
+			_show_dialog(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+					handler,
+					"template_id",
+					""
+				)
+			)
 		&"generate_accessors":
 			_generate_accessors()
 		&"generate_project_accessors":
@@ -442,16 +451,22 @@ func _register_template_records(records: Array) -> void:
 ## [br]
 ## @api private
 func _register_template_record(source_record: Dictionary) -> void:
-	var template_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		source_record,
-		"source_id",
-		""
-	).strip_edges()
+	var template_id: String = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			source_record,
+			"source_id",
+			""
+		).strip_edges()
+	)
 	if template_id.is_empty():
 		push_error("[GFPluginActions][plugin_actions.template_source_id_empty] Skipped a template with an empty source_id.")
 		_setup_issues.append("template:source_id_empty")
 		return
-	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "type", "").strip_edges()
+	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		source_record,
+		"type",
+		""
+	).strip_edges()
 	if template_type.is_empty():
 		_setup_issues.append("template:type_empty:%s" % template_id)
 		return
@@ -465,7 +480,11 @@ func _register_template_record(source_record: Dictionary) -> void:
 		_setup_issues.append("template:source_id_duplicate:%s" % template_id)
 		return
 
-	var menu_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "menu_id", -1)
+	var menu_id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		record,
+		"menu_id",
+		-1
+	)
 	if menu_id < 0:
 		menu_id = _allocate_template_menu_id()
 	if _menu_action_handlers.has(menu_id):
@@ -473,20 +492,33 @@ func _register_template_record(source_record: Dictionary) -> void:
 		_setup_issues.append("template:menu_id_duplicate:%s" % menu_id)
 		return
 
-	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", "生成 " + template_type).strip_edges()
+	var label: String = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"label",
+			"生成 " + template_type
+		).strip_edges()
+	)
 	if label.is_empty():
 		label = "生成 " + template_type
-	var section: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "section", SECTION_EXTENSION_TEMPLATES).strip_edges()
+	var section: String = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"section",
+			SECTION_EXTENSION_TEMPLATES
+		).strip_edges()
+	)
 	if section.is_empty():
 		section = SECTION_EXTENSION_TEMPLATES
 
 	record["source_id"] = template_id
 	_template_records[template_id] = record
-	_menu_action_handlers[menu_id] = {
-		"kind": &"template",
-		"template_id": template_id,
-	}
-	_append_menu_entry(menu_id, label, section)
+	_menu_action_handlers[menu_id] = { "kind": &"template", "template_id": template_id, }
+	_append_menu_entry(
+		menu_id,
+		label,
+		section
+	)
 
 
 ## 从模板菜单 ID 计数器开始跳过已占用值，并把下一候选值推进到返回值之后。
@@ -514,21 +546,29 @@ func _register_fixed_menu_action(
 		_setup_issues.append("menu:fixed_id_duplicate:%s" % menu_id)
 		return
 
-	_menu_action_handlers[menu_id] = {
-		"kind": handler_kind,
-	}
-	_append_menu_entry(menu_id, label, section)
+	_menu_action_handlers[menu_id] = { "kind": handler_kind, }
+	_append_menu_entry(
+		menu_id,
+		label,
+		section
+	)
 
 
 ## 将菜单 ID、显示文字和分组追加到菜单展示数组。
 ## [br]
 ## @api private
-func _append_menu_entry(menu_id: int, label: String, section: String) -> void:
-	_menu_entries.append({
-		"id": menu_id,
-		"label": label,
-		"section": section,
-	})
+func _append_menu_entry(
+	menu_id: int,
+	label: String,
+	section: String
+) -> void:
+	_menu_entries.append(
+		{
+			"id": menu_id,
+			"label": label,
+			"section": section,
+		}
+	)
 
 
 ## 查找模板记录并更新 FileDialog 标题、默认文件名和当前模板 ID 后弹出。
@@ -537,10 +577,7 @@ func _append_menu_entry(menu_id: int, label: String, section: String) -> void:
 func _show_dialog(template_id: String) -> void:
 	if template_id.is_empty():
 		return
-	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		_template_records,
-		template_id
-	)
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(_template_records, template_id)
 	if record.is_empty():
 		return
 	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "type")
@@ -555,7 +592,10 @@ func _show_dialog(template_id: String) -> void:
 ## @api private
 func _generate_accessors() -> void:
 	var output_path: String = _call_dependency_string(&"get_access_output_path")
-	var error: Error = _call_dependency_error(&"generate_accessors", [output_path])
+	var error: Error = _call_dependency_error(
+		&"generate_accessors",
+		[output_path]
+	)
 	if error == OK:
 		print("[GF Framework] 成功生成强类型访问器: ", output_path)
 	else:
@@ -567,7 +607,10 @@ func _generate_accessors() -> void:
 ## @api private
 func _generate_project_accessors() -> void:
 	var output_path: String = _call_dependency_string(&"get_project_access_output_path")
-	var error: Error = _call_dependency_error(&"generate_project_accessors", [output_path])
+	var error: Error = _call_dependency_error(
+		&"generate_project_accessors",
+		[output_path]
+	)
 	if error == OK:
 		print("[GF Framework] 成功生成项目常量访问器: ", output_path)
 	else:
@@ -595,10 +638,12 @@ func _show_diagnostic_dialog(title: String, text: String) -> void:
 	_diagnostic_dialog.title = title
 	if is_instance_valid(_diagnostic_output):
 		_diagnostic_output.text = text
-	_diagnostic_dialog.popup_centered(Vector2i(
-		int(DIAGNOSTIC_DIALOG_MIN_SIZE.x),
-		int(DIAGNOSTIC_DIALOG_MIN_SIZE.y)
-	))
+	_diagnostic_dialog.popup_centered(
+		Vector2i(
+			int(DIAGNOSTIC_DIALOG_MIN_SIZE.x),
+			int(DIAGNOSTIC_DIALOG_MIN_SIZE.y)
+		)
+	)
 
 
 ## 先清理旧扩展动作，再实例化已启用动作、按需 setup，并登记其模板与项目设置展示信息。
@@ -610,10 +655,7 @@ func _load_extension_editor_actions() -> void:
 		var action: RefCounted = _create_extension_editor_action(script_path)
 		if action == null:
 			continue
-		_extension_action_records.append({
-			"instance": action,
-			"script_path": script_path,
-		})
+		_extension_action_records.append({ "instance": action, "script_path": script_path, })
 		if action.has_method("setup"):
 			var _setup_result: Variant = action.call("setup")
 		_register_extension_template_records(action, script_path)
@@ -681,10 +723,7 @@ func _register_extension_project_setting_records(action: RefCounted, script_path
 			_setup_issues.append("settings:entry_invalid:%s" % script_path)
 			continue
 		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant)
-		var setting_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"name"
-		).strip_edges()
+		var setting_name: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "name").strip_edges())
 		if setting_name.is_empty():
 			_setup_issues.append("settings:name_empty:%s" % script_path)
 			continue
@@ -697,10 +736,7 @@ func _register_extension_project_setting_records(action: RefCounted, script_path
 ## 接受项写回规范化 path 并深复制保存。
 ## [br]
 ## @api private
-func _register_extension_project_setting_section_records(
-	action: RefCounted,
-	script_path: String
-) -> void:
+func _register_extension_project_setting_section_records(action: RefCounted, script_path: String) -> void:
 	if not action.has_method("get_project_setting_section_records"):
 		return
 
@@ -715,10 +751,7 @@ func _register_extension_project_setting_section_records(
 			_setup_issues.append("settings:section_entry_invalid:%s" % script_path)
 			continue
 		var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(record_variant)
-		var section_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"path"
-		).strip_edges().trim_suffix("/")
+		var section_path: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path").strip_edges().trim_suffix("/"))
 		if section_path.is_empty():
 			_setup_issues.append("settings:section_path_empty:%s" % script_path)
 			continue
@@ -754,7 +787,11 @@ func _has_project_setting_section_record(section_path: String) -> bool:
 func _register_loaded_extension_action_entries() -> void:
 	for action_record: Dictionary in _extension_action_records:
 		var action: RefCounted = _get_dictionary_ref_counted(action_record, "instance")
-		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(action_record, "script_path", "")
+		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			action_record,
+			"script_path",
+			""
+		)
 		if action == null:
 			continue
 		_register_extension_action_entries(action, script_path)
@@ -779,15 +816,29 @@ func _register_extension_action_entries(action: RefCounted, script_path: String)
 			_setup_issues.append("menu:entry_invalid:%s" % script_path)
 			continue
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(entry_variant)
-		var action_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(entry, "id", &"")
-		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "label", "").strip_edges()
+		var action_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			entry,
+			"id",
+			&""
+		)
+		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			entry,
+			"label",
+			""
+		).strip_edges()
 		if action_id == &"" or label.is_empty():
 			_setup_issues.append("menu:entry_invalid:%s" % script_path)
 			continue
 
 		var menu_id: int = _next_extension_menu_id
 		_next_extension_menu_id += 1
-		var section: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "section", SECTION_EXTENSION_TOOLS).strip_edges()
+		var section: String = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				entry,
+				"section",
+				SECTION_EXTENSION_TOOLS
+			).strip_edges()
+		)
 		if section.is_empty():
 			section = SECTION_EXTENSION_TOOLS
 
@@ -796,7 +847,11 @@ func _register_extension_action_entries(action: RefCounted, script_path: String)
 			"instance": action,
 			"action_id": action_id,
 		}
-		_append_menu_entry(menu_id, label, section)
+		_append_menu_entry(
+			menu_id,
+			label,
+			section
+		)
 
 
 ## handler 中的扩展实例仍有效且实现 handle_menu_action 时转发 action_id。
@@ -807,7 +862,14 @@ func _handle_extension_action(handler: Dictionary) -> void:
 	if action == null or not action.has_method("handle_menu_action"):
 		return
 
-	var _handled: Variant = action.call("handle_menu_action", _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(handler, "action_id", &""))
+	var _handled: Variant = action.call(
+		"handle_menu_action",
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			handler,
+			"action_id",
+			&""
+		)
+	)
 
 
 ## 对已记录且提供 cleanup 的动作调用清理，再清空动作和项目设置展示记录。
@@ -964,12 +1026,13 @@ func _get_dictionary_ref_counted(source: Dictionary, key: Variant) -> RefCounted
 ## [br]
 ## @api private
 func _get_template(template_id: String) -> String:
-	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		_template_records,
-		template_id
-	)
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(_template_records, template_id)
 	if not record.is_empty() and record.has("template"):
-		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "template", "")
+		return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"template",
+			""
+		)
 	var template_type: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "type")
 
 	var base_template: String = """## {ClassName}: TODO。
@@ -1038,7 +1101,9 @@ func dispose() -> void:
 """
 
 	if template_type == "Command":
-		return base_template + """# --- 公共变量 ---
+		return (
+			base_template
+			+ """# --- 公共变量 ---
 
 
 # --- 私有变量 ---
@@ -1053,6 +1118,7 @@ func execute() -> Variant:
 # --- 私有/辅助方法 ---
 
 """
+		)
 	elif template_type == "System":
 		return base_template + methods_template + lifecycle_template + tick_template
 	else:
@@ -1063,12 +1129,13 @@ func execute() -> Variant:
 ## [br]
 ## @api private
 func _get_base_class(template_id: String) -> String:
-	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		_template_records,
-		template_id
-	)
+	var record: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(_template_records, template_id)
 	if not record.is_empty():
-		var base_class: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "base_class", "").strip_edges()
+		var base_class: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"base_class",
+			""
+		).strip_edges()
 		if not base_class.is_empty():
 			return base_class
 	return ""
@@ -1081,7 +1148,42 @@ static func _is_valid_gdscript_identifier(value: String) -> bool:
 	if not value.is_valid_identifier():
 		return false
 	match value:
-		"and", "as", "assert", "await", "break", "breakpoint", "class", "class_name", "const", "continue", "elif", "else", "enum", "extends", "false", "for", "func", "if", "in", "is", "match", "not", "null", "or", "pass", "preload", "return", "self", "signal", "static", "super", "true", "var", "void", "while", "yield":
+		"and", \
+		"as", \
+		"assert", \
+		"await", \
+		"break", \
+		"breakpoint", \
+		"class", \
+		"class_name", \
+		"const", \
+		"continue", \
+		"elif", \
+		"else", \
+		"enum", \
+		"extends", \
+		"false", \
+		"for", \
+		"func", \
+		"if", \
+		"in", \
+		"is", \
+		"match", \
+		"not", \
+		"null", \
+		"or", \
+		"pass", \
+		"preload", \
+		"return", \
+		"self", \
+		"signal", \
+		"static", \
+		"super", \
+		"true", \
+		"var", \
+		"void", \
+		"while", \
+		"yield":
 			return false
 		_:
 			return true
@@ -1100,21 +1202,18 @@ func _on_file_selected(path: String) -> void:
 	var file_name: String = path.get_file().get_basename()
 	var class_name_str: String = file_name.to_pascal_case()
 	if not _is_valid_gdscript_identifier(class_name_str):
-		push_error(
-			"[GFPluginActions][plugin_actions.class_name_invalid] Generation cancelled because the filename cannot produce a valid GDScript class_name: %s."
-			% path
-		)
+		push_error("[GFPluginActions][plugin_actions.class_name_invalid] Generation cancelled because the filename cannot produce a valid GDScript class_name: %s." % path)
 		return
 	var base_class: String = _get_base_class(_current_template_id)
 	if not _is_valid_gdscript_identifier(base_class):
-		push_error(
-			"[GFPluginActions][plugin_actions.base_class_invalid] Generation cancelled because template base_class is not a valid GDScript identifier: %s."
-			% _current_template_id
-		)
+		push_error("[GFPluginActions][plugin_actions.base_class_invalid] Generation cancelled because template base_class is not a valid GDScript identifier: %s." % _current_template_id)
 		return
 	var template: String = _get_template(_current_template_id)
 	template = template.replace("{ClassName}", class_name_str)
-	template = template.replace("{FileName}", file_name + ".gd")
+	template = template.replace(
+		"{FileName}",
+		file_name + ".gd"
+	)
 	template = template.replace("{BaseClass}", base_class)
 
 	var report: Dictionary = _GF_GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(
@@ -1131,20 +1230,25 @@ func _on_file_selected(path: String) -> void:
 		}
 	)
 	if (
-		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "success", false)
-		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false)
+		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"success",
+			false
+		)
+		or not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"written",
+			false
+		)
 	):
 		push_error(
-			"[GFPluginActions][plugin_actions.file_generation_failed] File generation failed: %s (%s)." % [
+			"[GFPluginActions][plugin_actions.file_generation_failed] File generation failed: %s (%s)."
+			% [
 				path,
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					report,
 					"error",
-					error_string(
-						_GF_GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(
-							report
-						)
-					)
+					error_string(_GF_GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report))
 				),
 			]
 		)

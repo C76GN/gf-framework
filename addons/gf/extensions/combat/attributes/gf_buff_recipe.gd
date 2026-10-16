@@ -150,10 +150,18 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 func create_buff(owner: Object = null, context: Dictionary = {}) -> GFBuff:
 	var buff: GFBuff = _instantiate_buff()
 	var safe_duration: float = duration if _is_duration_valid() else 0.0
-	var safe_tick_interval: float = tick_interval_seconds if _GF_COMBAT_FINITE_MATH.is_finite_float(tick_interval_seconds) else 0.0
-	buff.setup(id, safe_duration, owner)
+	var safe_tick_interval: float = (tick_interval_seconds if _GF_COMBAT_FINITE_MATH.is_finite_float(tick_interval_seconds) else 0.0)
+	buff.setup(
+		id,
+		safe_duration,
+		owner
+	)
 	buff.max_stacks = maxi(max_stacks, 1)
-	buff.stacks = clampi(stacks, 1, buff.max_stacks)
+	buff.stacks = clampi(
+		stacks,
+		1,
+		buff.max_stacks
+	)
 	buff.stack_mode = stack_mode
 	buff.duration_refresh_policy = duration_refresh_policy
 	buff.tick_interval_seconds = safe_tick_interval
@@ -165,7 +173,12 @@ func create_buff(owner: Object = null, context: Dictionary = {}) -> GFBuff:
 	buff.effects = _duplicate_effects()
 	buff.metadata = metadata.duplicate(true)
 	var context_metadata: Dictionary = GFVariantData.get_option_dictionary(context, "metadata")
-	var _metadata_merged: Dictionary = GFVariantData.merge_dictionary(buff.metadata, context_metadata, true, true)
+	var _metadata_merged: Dictionary = GFVariantData.merge_dictionary(
+		buff.metadata,
+		context_metadata,
+		true,
+		true
+	)
 	return buff
 
 
@@ -216,13 +229,23 @@ func get_validation_report() -> Dictionary:
 			"tick_interval_seconds must be finite",
 			{ "field": &"tick_interval_seconds", "actual_value": tick_interval_seconds }
 		)
-	if stacks < 1 or (max_stacks >= 1 and stacks > max_stacks):
+	if (
+		stacks < 1
+		or (
+			max_stacks >= 1
+			and stacks > max_stacks
+		)
+	):
 		var _initial_stacks_issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
 			&"invalid_initial_stacks",
 			"stacks must be between 1 and max_stacks",
-			{ "field": &"stacks", "actual_value": stacks, "max_stacks": max_stacks }
+			{
+				"field": &"stacks",
+				"actual_value": stacks,
+				"max_stacks": max_stacks,
+			}
 		)
 	if buff_script != null and _instantiate_script_buff(buff_script) == null:
 		var _script_issue: Dictionary = GFValidationReportDictionary.append_issue(
@@ -232,10 +255,11 @@ func get_validation_report() -> Dictionary:
 			"buff_script must create a GFBuff instance",
 			{ "field": &"buff_script" }
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Buff recipe", {
-		"fallback_action": "Review the first buff recipe issue.",
-		"no_action": "Buff recipe is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Buff recipe",
+		{ "fallback_action": "Review the first buff recipe issue.", "no_action": "Buff recipe is valid.", }
+	)
 
 
 ## 转换为可序列化字典。
@@ -272,8 +296,12 @@ func to_dictionary() -> Dictionary:
 func _is_duration_valid() -> bool:
 	return (
 		_GF_COMBAT_FINITE_MATH.is_finite_float(duration)
-		and (duration == -1.0 or duration >= 0.0)
+		and (
+			duration == -1.0
+			or duration >= 0.0
+		)
 	)
+
 
 ## 优先创建配方脚本定义的 Buff，实例不合型时退回基础 GFBuff。
 ## [br]

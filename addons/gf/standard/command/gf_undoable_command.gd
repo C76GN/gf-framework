@@ -146,14 +146,19 @@ func is_redo_successful(_execute_result: Variant) -> bool:
 ## [br]
 ## @schema data: Pure Variant snapshot value without Object, Callable, Signal, or RID references, bounded to 128 levels, 100000 visited values, and MAX_SNAPSHOT_BYTES estimated bytes.
 func set_snapshot(data: Variant) -> bool:
-	var validation_state: Dictionary = {
-		"bytes": 0,
-		"items": 0,
-	}
-	if not _is_snapshot_value_supported(data, 0, validation_state):
+	var validation_state: Dictionary = { "bytes": 0, "items": 0, }
+	if not _is_snapshot_value_supported(
+		data,
+		0,
+		validation_state
+	):
 		push_error("[GFUndoableCommand][undoable_command.snapshot_invalid] Snapshots must contain bounded plain Variant data without runtime references or recursive structures.")
 		return false
-	_snapshot = GFVariantData.duplicate_variant(data, true, false)
+	_snapshot = GFVariantData.duplicate_variant(
+		data,
+		true,
+		false
+	)
 	return true
 
 
@@ -165,7 +170,11 @@ func set_snapshot(data: Variant) -> bool:
 ## [br]
 ## @schema return: Variant snapshot value or null.
 func get_snapshot() -> Variant:
-	return GFVariantData.duplicate_variant(_snapshot, true, false)
+	return GFVariantData.duplicate_variant(
+		_snapshot,
+		true,
+		false
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -173,7 +182,11 @@ func get_snapshot() -> Variant:
 ## 递归检查快照值的类型、深度、访问项数和估算成本是否都在限制内。
 ## [br]
 ## @api private
-func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary) -> bool:
+func _is_snapshot_value_supported(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> bool:
 	if depth > _MAX_SNAPSHOT_DEPTH:
 		return false
 	var item_count: int = GFVariantData.get_option_int(state, "items") + 1
@@ -187,22 +200,45 @@ func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary)
 		TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID:
 			return false
 		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
-			return _consume_snapshot_text(state, str(value))
+			return _consume_snapshot_text(
+				state,
+				str(value)
+			)
 		TYPE_PACKED_BYTE_ARRAY:
 			var packed_bytes: PackedByteArray = value
-			return _consume_snapshot_units(state, packed_bytes.size(), 1)
+			return _consume_snapshot_units(
+				state,
+				packed_bytes.size(),
+				1
+			)
 		TYPE_PACKED_INT32_ARRAY:
 			var packed_int32: PackedInt32Array = value
-			return _consume_snapshot_units(state, packed_int32.size(), 4)
+			return _consume_snapshot_units(
+				state,
+				packed_int32.size(),
+				4
+			)
 		TYPE_PACKED_INT64_ARRAY:
 			var packed_int64: PackedInt64Array = value
-			return _consume_snapshot_units(state, packed_int64.size(), 8)
+			return _consume_snapshot_units(
+				state,
+				packed_int64.size(),
+				8
+			)
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var packed_float32: PackedFloat32Array = value
-			return _consume_snapshot_units(state, packed_float32.size(), 4)
+			return _consume_snapshot_units(
+				state,
+				packed_float32.size(),
+				4
+			)
 		TYPE_PACKED_FLOAT64_ARRAY:
 			var packed_float64: PackedFloat64Array = value
-			return _consume_snapshot_units(state, packed_float64.size(), 8)
+			return _consume_snapshot_units(
+				state,
+				packed_float64.size(),
+				8
+			)
 		TYPE_PACKED_STRING_ARRAY:
 			var packed_strings: PackedStringArray = value
 			if not _consume_snapshot_units(
@@ -216,27 +252,55 @@ func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary)
 					return false
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var packed_vector2: PackedVector2Array = value
-			return _consume_snapshot_units(state, packed_vector2.size(), 8)
+			return _consume_snapshot_units(
+				state,
+				packed_vector2.size(),
+				8
+			)
 		TYPE_PACKED_VECTOR3_ARRAY:
 			var packed_vector3: PackedVector3Array = value
-			return _consume_snapshot_units(state, packed_vector3.size(), 12)
+			return _consume_snapshot_units(
+				state,
+				packed_vector3.size(),
+				12
+			)
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var packed_vector4: PackedVector4Array = value
-			return _consume_snapshot_units(state, packed_vector4.size(), 16)
+			return _consume_snapshot_units(
+				state,
+				packed_vector4.size(),
+				16
+			)
 		TYPE_PACKED_COLOR_ARRAY:
 			var packed_colors: PackedColorArray = value
-			return _consume_snapshot_units(state, packed_colors.size(), 16)
+			return _consume_snapshot_units(
+				state,
+				packed_colors.size(),
+				16
+			)
 		TYPE_ARRAY:
 			var array_values: Array = value
 			for entry: Variant in array_values:
-				if not _is_snapshot_value_supported(entry, depth + 1, state):
+				if not _is_snapshot_value_supported(
+					entry,
+					depth + 1,
+					state
+				):
 					return false
 		TYPE_DICTIONARY:
 			var dictionary_values: Dictionary = value
 			for key: Variant in dictionary_values.keys():
-				if not _is_snapshot_value_supported(key, depth + 1, state):
+				if not _is_snapshot_value_supported(
+					key,
+					depth + 1,
+					state
+				):
 					return false
-				if not _is_snapshot_value_supported(dictionary_values[key], depth + 1, state):
+				if not _is_snapshot_value_supported(
+					dictionary_values[key],
+					depth + 1,
+					state
+				):
 					return false
 	return true
 
@@ -245,7 +309,11 @@ func _is_snapshot_value_supported(value: Variant, depth: int, state: Dictionary)
 ## [br]
 ## @api private
 func _consume_snapshot_text(state: Dictionary, value: String) -> bool:
-	return _consume_snapshot_units(state, value.length(), 4)
+	return _consume_snapshot_units(
+		state,
+		value.length(),
+		4
+	)
 
 
 ## 检查指定数量的单位能否在剩余字节预算内计费；成功时更新 state 中的累计值。
@@ -271,4 +339,8 @@ func _consume_snapshot_units(
 ## [br]
 ## @api private
 func _consume_snapshot_bytes(state: Dictionary, byte_count: int) -> bool:
-	return _consume_snapshot_units(state, byte_count, 1)
+	return _consume_snapshot_units(
+		state,
+		byte_count,
+		1
+	)

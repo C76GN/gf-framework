@@ -155,12 +155,18 @@ func validate_record(
 	var schema: GFConfigTableSchema = get_schema(table_name)
 	if schema == null:
 		return _make_missing_schema_report(table_name)
-	return schema.validate_record(record, row_key, options)
+	return schema.validate_record(
+		record,
+		row_key,
+		options
+	)
 
 
 ## 使用已注册 schema 校验整张表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -175,7 +181,11 @@ func validate_record(
 ## @return 校验报告字典。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
-func validate_table(table_name: StringName, table_data: Variant = null, options: Dictionary = {}) -> Dictionary:
+func validate_table(
+	table_name: StringName,
+	table_data: Variant = null,
+	options: Dictionary = {}
+) -> Dictionary:
 	var schema: GFConfigTableSchema = get_schema(table_name)
 	if schema == null:
 		return _make_missing_schema_report(table_name)
@@ -213,7 +223,13 @@ func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _make_missing_schema_report(table_name: StringName) -> Dictionary:
-	return _CONFIG_VALIDATION_REPORT.new().make_error_report(table_name, "missing_schema", "未注册导表结构声明：%s。" % String(table_name))
+	return (
+		_CONFIG_VALIDATION_REPORT.new().make_error_report(
+			table_name,
+			"missing_schema",
+			"未注册导表结构声明：%s。" % String(table_name)
+		)
+	)
 
 
 ## 按表名读取并类型校验已登记的 schema。

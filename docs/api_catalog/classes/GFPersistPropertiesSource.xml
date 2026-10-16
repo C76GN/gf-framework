@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPersistPropertiesSource" path="addons/gf/extensions/save/core/gf_persist_properties_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="700e121e7d949375a77cfaabfa752e1eacf5585ff8c401f3c6e8c761ebbcf6b4">
+<class name="GFPersistPropertiesSource" path="addons/gf/extensions/save/core/gf_persist_properties_source.gd" module="extensions/save" extends="GFSaveSource" classDigest="553fe4889c80c36c0e373a225997cce1586c43cd6c7057761f8eb4afe4e34069">
 	<description>GFPersistPropertiesSource: 属性白名单存档 Source。
 以节点形式包装 `GFNodePropertySerializer`，让项目可以直接在场景树中声明
 需要保存的目标属性。它仍然使用 SaveGraph 的 Source/Serializer 协议，
@@ -46,7 +46,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="_gather_save_data">
-			<signature>func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Variant:</signature>
+			<signature>func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -&gt; Variant:</signature>
 			<description>采集属性白名单保存数据。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -55,6 +55,7 @@
 				<tag name="return">可写入存档的数据。</tag>
 				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
 				<tag name="schema">return: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_save_data">

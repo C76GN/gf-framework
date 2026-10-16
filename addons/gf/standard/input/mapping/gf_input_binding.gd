@@ -165,10 +165,7 @@ func matches_event(event: InputEvent) -> bool:
 	if input_event is InputEventScreenTouch and event is InputEventScreenTouch:
 		var template_touch: InputEventScreenTouch = input_event
 		var runtime_touch: InputEventScreenTouch = event
-		return (
-			not match_touch_index
-			or template_touch.index == runtime_touch.index
-		)
+		return (not match_touch_index or template_touch.index == runtime_touch.index)
 
 	return input_event.is_match(event, true)
 
@@ -189,42 +186,158 @@ func get_contribution(
 	action_value_type: GFInputAction.ValueType,
 	deadzone_override: float = -1.0
 ) -> Vector3:
-	var effective_deadzone: float = deadzone if deadzone_override < 0.0 else clampf(deadzone_override, 0.0, 1.0)
+	var effective_deadzone: float = deadzone if deadzone_override < 0.0 else clampf(
+		deadzone_override,
+		0.0,
+		1.0
+	)
 	var raw_value: float = _read_event_value(event, effective_deadzone)
 	if value_target == ValueTarget.AUTO:
-		return _get_auto_contribution(raw_value, event, action_value_type)
+		return _get_auto_contribution(
+			raw_value,
+			event,
+			action_value_type
+		)
 
-	var strength: float = _get_target_strength(event, raw_value, value_target)
+	var strength: float = _get_target_strength(
+		event,
+		raw_value,
+		value_target
+	)
 	if strength < effective_deadzone:
 		strength = 0.0
 
 	match value_target:
 		ValueTarget.BOOL:
-			return _apply_modifiers(Vector3(strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_1D_POSITIVE:
-			return _apply_modifiers(Vector3(strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_1D_NEGATIVE:
-			return _apply_modifiers(Vector3(-strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					-strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_2D_X_POSITIVE:
-			return _apply_modifiers(Vector3(strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_2D_X_NEGATIVE:
-			return _apply_modifiers(Vector3(-strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					-strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_2D_Y_POSITIVE:
-			return _apply_modifiers(Vector3(0.0, strength * scale, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					0.0,
+					strength * scale,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_2D_Y_NEGATIVE:
-			return _apply_modifiers(Vector3(0.0, -strength * scale, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					0.0,
+					-strength * scale,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_3D_X_POSITIVE:
-			return _apply_modifiers(Vector3(strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_3D_X_NEGATIVE:
-			return _apply_modifiers(Vector3(-strength * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					-strength * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_3D_Y_POSITIVE:
-			return _apply_modifiers(Vector3(0.0, strength * scale, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					0.0,
+					strength * scale,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_3D_Y_NEGATIVE:
-			return _apply_modifiers(Vector3(0.0, -strength * scale, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					0.0,
+					-strength * scale,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_3D_Z_POSITIVE:
-			return _apply_modifiers(Vector3(0.0, 0.0, strength * scale), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					0.0,
+					0.0,
+					strength * scale
+				),
+				event,
+				action_value_type
+			)
 		ValueTarget.AXIS_3D_Z_NEGATIVE:
-			return _apply_modifiers(Vector3(0.0, 0.0, -strength * scale), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					0.0,
+					0.0,
+					-strength * scale
+				),
+				event,
+				action_value_type
+			)
 		_:
 			return Vector3.ZERO
 
@@ -325,12 +438,26 @@ func _read_event_value(event: InputEvent, effective_deadzone: float) -> float:
 ## [br]
 ## @api private
 ## [br]
-func _get_target_strength(event: InputEvent, raw_value: float, target: ValueTarget) -> float:
+func _get_target_strength(
+	event: InputEvent,
+	raw_value: float,
+	target: ValueTarget
+) -> float:
 	if event is InputEventJoypadMotion:
 		match target:
-			ValueTarget.AXIS_1D_POSITIVE, ValueTarget.AXIS_2D_X_POSITIVE, ValueTarget.AXIS_2D_Y_POSITIVE, ValueTarget.AXIS_3D_X_POSITIVE, ValueTarget.AXIS_3D_Y_POSITIVE, ValueTarget.AXIS_3D_Z_POSITIVE:
+			ValueTarget.AXIS_1D_POSITIVE, \
+			ValueTarget.AXIS_2D_X_POSITIVE, \
+			ValueTarget.AXIS_2D_Y_POSITIVE, \
+			ValueTarget.AXIS_3D_X_POSITIVE, \
+			ValueTarget.AXIS_3D_Y_POSITIVE, \
+			ValueTarget.AXIS_3D_Z_POSITIVE:
 				return maxf(raw_value, 0.0)
-			ValueTarget.AXIS_1D_NEGATIVE, ValueTarget.AXIS_2D_X_NEGATIVE, ValueTarget.AXIS_2D_Y_NEGATIVE, ValueTarget.AXIS_3D_X_NEGATIVE, ValueTarget.AXIS_3D_Y_NEGATIVE, ValueTarget.AXIS_3D_Z_NEGATIVE:
+			ValueTarget.AXIS_1D_NEGATIVE, \
+			ValueTarget.AXIS_2D_X_NEGATIVE, \
+			ValueTarget.AXIS_2D_Y_NEGATIVE, \
+			ValueTarget.AXIS_3D_X_NEGATIVE, \
+			ValueTarget.AXIS_3D_Y_NEGATIVE, \
+			ValueTarget.AXIS_3D_Z_NEGATIVE:
 				return maxf(-raw_value, 0.0)
 			_:
 				return absf(raw_value)
@@ -348,13 +475,45 @@ func _get_auto_contribution(
 ) -> Vector3:
 	match action_value_type:
 		GFInputAction.ValueType.BOOL:
-			return _apply_modifiers(Vector3(absf(raw_value) * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					absf(raw_value) * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		GFInputAction.ValueType.AXIS_1D:
-			return _apply_modifiers(Vector3(raw_value * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					raw_value * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		GFInputAction.ValueType.AXIS_2D:
-			return _apply_modifiers(Vector3(raw_value * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					raw_value * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		GFInputAction.ValueType.AXIS_3D:
-			return _apply_modifiers(Vector3(raw_value * scale, 0.0, 0.0), event, action_value_type)
+			return _apply_modifiers(
+				Vector3(
+					raw_value * scale,
+					0.0,
+					0.0
+				),
+				event,
+				action_value_type
+			)
 		_:
 			return Vector3.ZERO
 
@@ -372,10 +531,22 @@ func _apply_modifiers(
 	for modifier: GFInputModifier in modifiers:
 		if modifier != null:
 			if action_value_type == GFInputAction.ValueType.AXIS_3D:
-				result = modifier.modify_3d(result, event, null)
+				result = modifier.modify_3d(
+					result,
+					event,
+					null
+				)
 			else:
-				var modified: Vector2 = modifier.modify(Vector2(result.x, result.y), event, null)
-				result = Vector3(modified.x, modified.y, result.z)
+				var modified: Vector2 = modifier.modify(
+					Vector2(result.x, result.y),
+					event,
+					null
+				)
+				result = Vector3(
+					modified.x,
+					modified.y,
+					result.z
+				)
 	return result
 
 

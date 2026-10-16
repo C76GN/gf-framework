@@ -23,7 +23,7 @@
 | 方法 | [`get_timer_utility`](#member-gfvirtualinputsource-methods-get_timer_utility) | `func get_timer_utility() -> GFTimerUtility:` |
 | 方法 | [`pulse_action`](#member-gfvirtualinputsource-methods-pulse_action) | `func pulse_action( action_id: StringName, value: Variant = true, duration_seconds: float = 0.1, owner: Variant = null, cancellation_token: GFCancellationToken = null, replacement_policy: PulseReplacementPolicy = PulseReplacementPolicy.REPLACE ) -> GFVirtualInputPulseOperation:` |
 | 方法 | [`set_action_value`](#member-gfvirtualinputsource-methods-set_action_value) | `func set_action_value(action_id: StringName, value: Variant) -> bool:` |
-| 方法 | [`set_action_value_for_player`](#member-gfvirtualinputsource-methods-set_action_value_for_player) | `func set_action_value_for_player(action_id: StringName, value: Variant, next_player_index: int) -> bool:` |
+| 方法 | [`set_action_value_for_player`](#member-gfvirtualinputsource-methods-set_action_value_for_player) | `func set_action_value_for_player( action_id: StringName, value: Variant, next_player_index: int ) -> bool:` |
 | 方法 | [`press`](#member-gfvirtualinputsource-methods-press) | `func press(action_id: StringName, strength: float = 1.0) -> bool:` |
 | 方法 | [`release`](#member-gfvirtualinputsource-methods-release) | `func release(action_id: StringName) -> bool:` |
 | 方法 | [`set_axis_1d`](#member-gfvirtualinputsource-methods-set_axis_1d) | `func set_axis_1d(action_id: StringName, value: float) -> bool:` |
@@ -209,9 +209,10 @@ func set_action_value(action_id: StringName, value: Variant) -> bool:
 ### `set_action_value_for_player`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_action_value_for_player(action_id: StringName, value: Variant, next_player_index: int) -> bool:
+func set_action_value_for_player( action_id: StringName, value: Variant, next_player_index: int ) -> bool:
 ```
 
 为指定玩家写入动作值。

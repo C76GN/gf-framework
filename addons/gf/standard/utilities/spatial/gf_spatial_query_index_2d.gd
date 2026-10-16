@@ -161,9 +161,21 @@ func configure(
 ) -> GFSpatialQueryIndex2D:
 	bounds = world_bounds
 	strategy = p_strategy
-	auto_quadtree_threshold = GFVariantData.get_option_int(options, "auto_quadtree_threshold", auto_quadtree_threshold)
-	quadtree_max_depth = GFVariantData.get_option_int(options, "quadtree_max_depth", quadtree_max_depth)
-	quadtree_max_entities = GFVariantData.get_option_int(options, "quadtree_max_entities", quadtree_max_entities)
+	auto_quadtree_threshold = GFVariantData.get_option_int(
+		options,
+		"auto_quadtree_threshold",
+		auto_quadtree_threshold
+	)
+	quadtree_max_depth = GFVariantData.get_option_int(
+		options,
+		"quadtree_max_depth",
+		quadtree_max_depth
+	)
+	quadtree_max_entities = GFVariantData.get_option_int(
+		options,
+		"quadtree_max_entities",
+		quadtree_max_entities
+	)
 	_mark_index_dirty()
 	return self
 
@@ -185,14 +197,22 @@ func configure(
 ## @schema p_metadata: Dictionary copied into entity record metadata.
 ## [br]
 ## @return 成功时返回 true。
-func upsert(entity: Variant, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
+func upsert(
+	entity: Variant,
+	rect: Rect2,
+	p_metadata: Dictionary = {}
+) -> bool:
 	if not _SPATIAL_BOUNDS_MATH.is_finite_rect2(rect):
 		return false
 	var entity_key: String = _make_entity_key(entity)
 	if entity_key.is_empty():
 		return false
 
-	var entity_record: Dictionary = _make_record(entity, _normalize_rect(rect), p_metadata)
+	var entity_record: Dictionary = _make_record(
+		entity,
+		_normalize_rect(rect),
+		p_metadata
+	)
 	if entity_record.is_empty():
 		return false
 	_records[entity_key] = entity_record
@@ -230,7 +250,13 @@ func upsert_point(
 	var safe_radius: float = maxf(radius, 0.0)
 	return upsert(
 		entity,
-		Rect2(position - Vector2(safe_radius, safe_radius), Vector2(safe_radius * 2.0, safe_radius * 2.0)),
+		Rect2(
+			position - Vector2(safe_radius, safe_radius),
+			Vector2(
+				safe_radius * 2.0,
+				safe_radius * 2.0
+			)
+		),
 		p_metadata
 	)
 
@@ -368,7 +394,11 @@ func query_rect(area: Rect2) -> Array[Variant]:
 ## @return 同一个 out_entities 数组。
 ## [br]
 ## @schema return: Array[Variant]，同一个 out_entities 数组。
-func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true) -> Array:
+func query_rect_into(
+	area: Rect2,
+	out_entities: Array,
+	clear_output: bool = true
+) -> Array:
 	if clear_output:
 		out_entities.clear()
 	var records: Array[Dictionary] = []
@@ -393,7 +423,11 @@ func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true
 ## @schema return: Array[Variant]，实体值来自调用方传入的 entity。
 func query_radius(center: Vector2, radius: float) -> Array[Variant]:
 	var result: Array[Variant] = []
-	return query_radius_into(center, radius, result)
+	return query_radius_into(
+		center,
+		radius,
+		result
+	)
 
 
 ## 查询与圆相交的实体，并写入调用方提供的数组。
@@ -415,11 +449,20 @@ func query_radius(center: Vector2, radius: float) -> Array[Variant]:
 ## @return 同一个 out_entities 数组。
 ## [br]
 ## @schema return: Array[Variant]，同一个 out_entities 数组。
-func query_radius_into(center: Vector2, radius: float, out_entities: Array, clear_output: bool = true) -> Array:
+func query_radius_into(
+	center: Vector2,
+	radius: float,
+	out_entities: Array,
+	clear_output: bool = true
+) -> Array:
 	if clear_output:
 		out_entities.clear()
 	var records: Array[Dictionary] = []
-	var _query_records_radius_result: Array[Dictionary] = query_records_radius_into(center, radius, records)
+	var _query_records_radius_result: Array[Dictionary] = query_records_radius_into(
+		center,
+		radius,
+		records
+	)
 	for entity_record: Dictionary in records:
 		out_entities.append(GFVariantData.get_option_value(entity_record, "entity"))
 	return out_entities
@@ -458,11 +501,18 @@ func query_point(point: Vector2) -> Array[Variant]:
 ## @return 同一个 out_entities 数组。
 ## [br]
 ## @schema return: Array[Variant]，同一个 out_entities 数组。
-func query_point_into(point: Vector2, out_entities: Array, clear_output: bool = true) -> Array:
+func query_point_into(
+	point: Vector2,
+	out_entities: Array,
+	clear_output: bool = true
+) -> Array:
 	if clear_output:
 		out_entities.clear()
 	var records: Array[Dictionary] = []
-	_append_records_for_keys(_query_point_candidate_keys(point), records)
+	_append_records_for_keys(
+		_query_point_candidate_keys(point),
+		records
+	)
 	for entity_record: Dictionary in records:
 		out_entities.append(GFVariantData.get_option_value(entity_record, "entity"))
 	return out_entities
@@ -501,13 +551,20 @@ func query_records_rect(area: Rect2) -> Array[Dictionary]:
 ## @schema return: Array[Dictionary]，同一个 out_records 数组；每个元素包含 identity、entity、bounds 和 metadata。
 ## [br]
 ## @schema out_records: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata。
-func query_records_rect_into(area: Rect2, out_records: Array[Dictionary], clear_output: bool = true) -> Array[Dictionary]:
+func query_records_rect_into(
+	area: Rect2,
+	out_records: Array[Dictionary],
+	clear_output: bool = true
+) -> Array[Dictionary]:
 	if clear_output:
 		out_records.clear()
 	if not _SPATIAL_BOUNDS_MATH.is_finite_rect2(area):
 		return out_records
 	var normalized_area: Rect2 = _normalize_rect(area)
-	_append_records_for_keys(_query_rect_candidate_keys(normalized_area), out_records)
+	_append_records_for_keys(
+		_query_rect_candidate_keys(normalized_area),
+		out_records
+	)
 	return out_records
 
 
@@ -526,7 +583,11 @@ func query_records_rect_into(area: Rect2, out_records: Array[Dictionary], clear_
 ## @schema return: Array[Dictionary]，每个元素包含 identity、entity、bounds 和 metadata；int 身份会额外包含 entity_id。
 func query_records_radius(center: Vector2, radius: float) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	return query_records_radius_into(center, radius, result)
+	return query_records_radius_into(
+		center,
+		radius,
+		result
+	)
 
 
 ## 查询与圆相交的实体记录，并写入调用方提供的数组。
@@ -560,9 +621,15 @@ func query_records_radius_into(
 		return out_records
 	var safe_radius: float = maxf(radius, 0.0)
 	if safe_radius == 0.0:
-		_append_records_for_keys(_query_point_candidate_keys(center), out_records)
+		_append_records_for_keys(
+			_query_point_candidate_keys(center),
+			out_records
+		)
 		return out_records
-	_append_records_for_keys(_query_radius_candidate_keys(center, safe_radius), out_records)
+	_append_records_for_keys(
+		_query_radius_candidate_keys(center, safe_radius),
+		out_records
+	)
 	return out_records
 
 
@@ -604,7 +671,12 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary safe for JSON.stringify().
 func get_json_compatible_debug_snapshot(options: Dictionary = {}) -> Dictionary:
-	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(get_debug_snapshot(), options))
+	return GFVariantData.as_dictionary(
+		_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(
+			get_debug_snapshot(),
+			options
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -663,7 +735,13 @@ func _query_rect_linear_keys(area: Rect2) -> Array[String]:
 ## @api private
 ## [br]
 func _query_radius_linear_keys(center: Vector2, radius: float) -> Array[String]:
-	var area: Rect2 = Rect2(center - Vector2(radius, radius), Vector2(radius * 2.0, radius * 2.0))
+	var area: Rect2 = Rect2(
+		center - Vector2(radius, radius),
+		Vector2(
+			radius * 2.0,
+			radius * 2.0
+		)
+	)
 	var candidates: Array[String] = _query_rect_linear_keys(area)
 	var result: Array[String] = []
 	var radius_sq: float = radius * radius
@@ -671,8 +749,16 @@ func _query_radius_linear_keys(center: Vector2, radius: float) -> Array[String]:
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
 		var entity_bounds: Rect2 = _get_record_bounds(entity_record)
 		var closest: Vector2 = Vector2(
-			clampf(center.x, entity_bounds.position.x, entity_bounds.position.x + entity_bounds.size.x),
-			clampf(center.y, entity_bounds.position.y, entity_bounds.position.y + entity_bounds.size.y)
+			clampf(
+				center.x,
+				entity_bounds.position.x,
+				entity_bounds.position.x + entity_bounds.size.x
+			),
+			clampf(
+				center.y,
+				entity_bounds.position.y,
+				entity_bounds.position.y + entity_bounds.size.y
+			)
 		)
 		if center.distance_squared_to(closest) <= radius_sq:
 			result.append(entity_key)
@@ -687,7 +773,10 @@ func _query_point_linear_keys(point: Vector2) -> Array[String]:
 	var result: Array[String] = []
 	for entity_key: String in _records.keys():
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
-		if _rect_contains_point(_get_record_bounds(entity_record), point):
+		if _rect_contains_point(
+			_get_record_bounds(entity_record),
+			point
+		):
 			result.append(entity_key)
 	return result
 
@@ -720,13 +809,20 @@ func _ensure_quad_tree() -> bool:
 
 	var candidate_tree: GFQuadTreeUtility = GFQuadTreeUtility.new()
 	candidate_tree.init()
-	candidate_tree.setup(world_bounds, quadtree_max_depth, quadtree_max_entities)
+	candidate_tree.setup(
+		world_bounds,
+		quadtree_max_depth,
+		quadtree_max_entities
+	)
 	var candidate_keys: Dictionary = {}
 	var surrogate_id: int = 0
 	for entity_key: String in _records.keys():
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
 		candidate_keys[surrogate_id] = entity_key
-		if not candidate_tree.insert(surrogate_id, _get_record_bounds(entity_record)):
+		if not candidate_tree.insert(
+			surrogate_id,
+			_get_record_bounds(entity_record)
+		):
 			_quad_tree = null
 			_quad_tree_key_by_id.clear()
 			_index_dirty = false
@@ -813,7 +909,11 @@ func _get_preferred_strategy() -> StringName:
 ## [br]
 ## @api private
 ## [br]
-func _make_record(entity: Variant, rect: Rect2, p_metadata: Dictionary) -> Dictionary:
+func _make_record(
+	entity: Variant,
+	rect: Rect2,
+	p_metadata: Dictionary
+) -> Dictionary:
 	var identity: GFSpatialQueryIdentity = GFSpatialQueryIdentity.from_value(entity)
 	if identity.key.is_empty():
 		return {}
@@ -885,7 +985,11 @@ func _record_is_valid(entity_record: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _get_record_bounds(entity_record: Dictionary) -> Rect2:
-	var value: Variant = GFVariantData.get_option_value(entity_record, "bounds", Rect2())
+	var value: Variant = GFVariantData.get_option_value(
+		entity_record,
+		"bounds",
+		Rect2()
+	)
 	if value is Rect2:
 		var rect: Rect2 = value
 		return rect

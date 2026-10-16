@@ -98,9 +98,17 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 	var configuration_error: StringName = _get_configuration_error()
 	if configuration_error != &"":
 		return _fail_report(report, configuration_error)
-	if not is_inside_tree() or is_queued_for_deletion() or not active:
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or not active
+	):
 		return _fail_report(report, &"inactive_rig")
-	if not is_instance_valid(camera) or not camera.is_inside_tree() or camera.is_queued_for_deletion():
+	if (
+		not is_instance_valid(camera)
+		or not camera.is_inside_tree()
+		or camera.is_queued_for_deletion()
+	):
 		return _fail_report(report, &"missing_camera")
 	if camera.anchor_mode != Camera2D.ANCHOR_MODE_DRAG_CENTER:
 		return _fail_report(report, &"unsupported_camera_anchor")
@@ -113,12 +121,20 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 	var custom_viewport: Node = camera.custom_viewport
 	if is_instance_valid(custom_viewport) and custom_viewport is Viewport:
 		viewport = custom_viewport
-	if not is_instance_valid(viewport) or not viewport.is_inside_tree() or viewport.is_queued_for_deletion():
+	if (
+		not is_instance_valid(viewport)
+		or not viewport.is_inside_tree()
+		or viewport.is_queued_for_deletion()
+	):
 		return _fail_report(report, &"missing_viewport")
 	var viewport_size: Vector2 = viewport.get_visible_rect().size
 	report["viewport_size"] = viewport_size
 	var available_size: Vector2 = viewport_size - viewport_margin * 2.0
-	if not _is_finite_vector(available_size) or available_size.x <= 0.0 or available_size.y <= 0.0:
+	if (
+		not _is_finite_vector(available_size)
+		or available_size.x <= 0.0
+		or available_size.y <= 0.0
+	):
 		return _fail_report(report, &"invalid_viewport_size")
 
 	var targets: Array[Node2D] = _collect_targets()
@@ -126,7 +142,7 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 	report["ignored_target_count"] = target_paths.size() - targets.size()
 	if targets.is_empty():
 		return _fail_report(report, &"empty_targets")
-	var framing_rotation: float = 0.0 if camera.ignore_rotation else global_rotation + deg_to_rad(rotation_degrees_offset)
+	var framing_rotation: float = (0.0 if camera.ignore_rotation else global_rotation + deg_to_rad(rotation_degrees_offset))
 	if not is_finite(framing_rotation):
 		return _fail_report(report, &"invalid_rotation")
 	var viewport_canvas: RID = viewport.find_world_2d().canvas
@@ -149,8 +165,15 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 	var world_offset: Vector2 = offset.rotated(framing_rotation) if offset_follows_rotation else offset
 	var axis_offset: Vector2 = world_offset.rotated(-framing_rotation)
 	var half_extent: Vector2 = (bounds.size * 0.5).max(min_extent * 0.5) + axis_offset.abs()
-	var required_zoom: float = minf(available_size.x / (half_extent.x * 2.0), available_size.y / (half_extent.y * 2.0))
-	var framing_zoom: float = clampf(required_zoom, min_zoom, max_zoom)
+	var required_zoom: float = minf(
+		available_size.x / (half_extent.x * 2.0),
+		available_size.y / (half_extent.y * 2.0)
+	)
+	var framing_zoom: float = clampf(
+		required_zoom,
+		min_zoom,
+		max_zoom
+	)
 	var framing_position: Vector2 = bounds.get_center().rotated(framing_rotation) + world_offset - camera.offset
 	if (
 		not is_finite(required_zoom)
@@ -159,10 +182,7 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 	):
 		return _fail_report(report, &"invalid_derived_pose")
 	var actual_pixel_extent: Vector2 = (bounds.size * 0.5 + axis_offset.abs()) * framing_zoom
-	var fits: bool = (
-		actual_pixel_extent.x <= available_size.x * 0.5 + 0.001
-		and actual_pixel_extent.y <= available_size.y * 0.5 + 0.001
-	)
+	var fits: bool = (actual_pixel_extent.x <= available_size.x * 0.5 + 0.001 and actual_pixel_extent.y <= available_size.y * 0.5 + 0.001)
 	report["ok"] = true
 	report["reason"] = &"" if fits else &"min_zoom_limited"
 	report["bounds"] = bounds
@@ -226,19 +246,26 @@ func _get_configuration_error() -> StringName:
 		return &"target_limit"
 	if (
 		not _is_finite_vector(viewport_margin)
-		or viewport_margin.x < 0.0 or viewport_margin.y < 0.0
-		or viewport_margin.x > _MAX_OPTION_VALUE or viewport_margin.y > _MAX_OPTION_VALUE
+		or viewport_margin.x < 0.0
+		or viewport_margin.y < 0.0
+		or viewport_margin.x > _MAX_OPTION_VALUE
+		or viewport_margin.y > _MAX_OPTION_VALUE
 	):
 		return &"invalid_margin"
 	if (
 		not _is_finite_vector(min_extent)
-		or min_extent.x <= 0.0 or min_extent.y <= 0.0
-		or min_extent.x > _MAX_OPTION_VALUE or min_extent.y > _MAX_OPTION_VALUE
+		or min_extent.x <= 0.0
+		or min_extent.y <= 0.0
+		or min_extent.x > _MAX_OPTION_VALUE
+		or min_extent.y > _MAX_OPTION_VALUE
 	):
 		return &"invalid_min_extent"
 	if (
-		not is_finite(min_zoom) or not is_finite(max_zoom)
-		or min_zoom < _MIN_ZOOM or max_zoom < min_zoom or max_zoom > _MAX_OPTION_VALUE
+		not is_finite(min_zoom)
+		or not is_finite(max_zoom)
+		or min_zoom < _MIN_ZOOM
+		or max_zoom < min_zoom
+		or max_zoom > _MAX_OPTION_VALUE
 	):
 		return &"invalid_zoom_limits"
 	if not _is_finite_vector(offset) or not is_finite(rotation_degrees_offset):
@@ -258,7 +285,11 @@ func _collect_targets() -> Array[Node2D]:
 		if path.is_empty():
 			continue
 		var node: Node = get_node_or_null(path)
-		if not (node is Node2D) or not node.is_inside_tree() or node.is_queued_for_deletion():
+		if (
+			not (node is Node2D)
+			or not node.is_inside_tree()
+			or node.is_queued_for_deletion()
+		):
 			continue
 		var instance_id: int = node.get_instance_id()
 		if seen.has(instance_id):

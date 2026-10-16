@@ -40,9 +40,7 @@ const STATE_DISCARDED: StringName = &"discarded"
 ## [br]
 ## @api private
 ## [br]
-const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload(
-	"res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd"
-)
+const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
 
 
 # --- 私有变量 ---
@@ -116,10 +114,18 @@ static func take_ownership(
 	):
 		return null
 	var payload_report: Dictionary = _PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(payload)
-	if not GFVariantData.get_option_bool(payload_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		payload_report,
+		"ok",
+		false
+	):
 		return null
 	var metadata_report: Dictionary = _PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(metadata)
-	if not GFVariantData.get_option_bool(metadata_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		metadata_report,
+		"ok",
+		false
+	):
 		return null
 
 	var mutation: GFSaveSectionMutation = GFSaveSectionMutation.new()

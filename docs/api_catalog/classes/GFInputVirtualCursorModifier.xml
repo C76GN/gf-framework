@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputVirtualCursorModifier" path="addons/gf/standard/input/modifiers/gf_input_virtual_cursor_modifier.gd" module="standard" extends="GFInputModifier" classDigest="95caa29420bdc62adb125e68c2ab3af54e4e4418a0a5f59f20b0f0529ac9efa3">
+<class name="GFInputVirtualCursorModifier" path="addons/gf/standard/input/modifiers/gf_input_virtual_cursor_modifier.gd" module="standard" extends="GFInputModifier" classDigest="17e4ba03aebd430cac92c71a9e7ad8622bf477eb94bd45b4d6286fc0748bff83">
 	<description>GFInputVirtualCursorModifier: 虚拟光标输入修饰器。
 将二维输入视为速度并积分为一个位置值。它只维护抽象坐标，不访问 Viewport、
 Control 或具体 UI 节点。</description>
@@ -87,7 +87,7 @@ Control 或具体 UI 节点。</description>
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -95,10 +95,11 @@ Control 或具体 UI 节点。</description>
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">更新后的虚拟光标位置。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, event: InputEvent = null, action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -106,6 +107,7 @@ Control 或具体 UI 节点。</description>
 				<tag name="param">event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">包含虚拟光标 X/Y 和原 Z 分量的三维值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_position">

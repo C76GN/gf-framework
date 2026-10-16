@@ -152,42 +152,86 @@ func calculate(agent: GFSteeringAgent, context: Dictionary = {}) -> GFSteeringAc
 
 	match behavior_type:
 		BehaviorType.FLEE:
-			return GFSteeringMath.flee(agent, _get_vector3(context, &"target_position", target_position))
+			return GFSteeringMath.flee(
+				agent,
+				_get_vector3(
+					context,
+					&"target_position",
+					target_position
+				)
+			)
 		BehaviorType.ARRIVE:
 			return GFSteeringMath.arrive(
 				agent,
-				_get_vector3(context, &"target_position", target_position),
+				_get_vector3(
+					context,
+					&"target_position",
+					target_position
+				),
 				arrival_radius,
 				slow_radius,
 				time_to_target
 			)
 		BehaviorType.PURSUE:
-			return GFSteeringMath.pursue(agent, _get_agent(context, &"target_agent"), max_prediction_seconds)
+			return GFSteeringMath.pursue(
+				agent,
+				_get_agent(context, &"target_agent"),
+				max_prediction_seconds
+			)
 		BehaviorType.EVADE:
-			return GFSteeringMath.evade(agent, _get_agent(context, &"target_agent"), max_prediction_seconds)
+			return GFSteeringMath.evade(
+				agent,
+				_get_agent(context, &"target_agent"),
+				max_prediction_seconds
+			)
 		BehaviorType.FACE:
 			return GFSteeringMath.face(
 				agent,
-				_get_vector3(context, &"target_position", target_position),
+				_get_vector3(
+					context,
+					&"target_position",
+					target_position
+				),
 				use_z_axis,
 				align_tolerance,
 				slow_angle,
 				time_to_target
 			)
 		BehaviorType.LOOK_WHERE_YOU_GO:
-			return GFSteeringMath.look_where_you_go(agent, use_z_axis, align_tolerance, slow_angle, time_to_target)
+			return GFSteeringMath.look_where_you_go(
+				agent,
+				use_z_axis,
+				align_tolerance,
+				slow_angle,
+				time_to_target
+			)
 		BehaviorType.ALIGN:
 			return GFSteeringMath.align(
 				agent,
-				GFVariantData.to_float(_get_context_value(context, &"target_orientation", target_orientation), target_orientation),
+				GFVariantData.to_float(
+					_get_context_value(
+						context,
+						&"target_orientation",
+						target_orientation
+					),
+					target_orientation
+				),
 				align_tolerance,
 				slow_angle,
 				time_to_target
 			)
 		BehaviorType.SEPARATION:
-			return GFSteeringMath.separation(agent, _get_agents(context, &"neighbors"), decay_coefficient, max_distance)
+			return GFSteeringMath.separation(
+				agent,
+				_get_agents(context, &"neighbors"),
+				decay_coefficient,
+				max_distance
+			)
 		BehaviorType.COHESION:
-			return GFSteeringMath.cohesion(agent, _get_agents(context, &"neighbors"))
+			return GFSteeringMath.cohesion(
+				agent,
+				_get_agents(context, &"neighbors")
+			)
 		BehaviorType.AVOID_COLLISIONS:
 			return GFSteeringMath.avoid_collisions(
 				agent,
@@ -197,10 +241,21 @@ func calculate(agent: GFSteeringAgent, context: Dictionary = {}) -> GFSteeringAc
 				minimum_separation
 			)
 		BehaviorType.PATH_FOLLOW_SEEK:
-			var target: Vector3 = GFSteeringMath.path_follow_target(agent, _get_path(context), path_offset)
+			var target: Vector3 = GFSteeringMath.path_follow_target(
+				agent,
+				_get_path(context),
+				path_offset
+			)
 			return GFSteeringMath.seek(agent, target)
 		_:
-			return GFSteeringMath.seek(agent, _get_vector3(context, &"target_position", target_position))
+			return GFSteeringMath.seek(
+				agent,
+				_get_vector3(
+					context,
+					&"target_position",
+					target_position
+				)
+			)
 
 
 ## 创建配置副本。
@@ -255,24 +310,48 @@ func _get_script_value(value: Variant) -> Script:
 ## [br]
 ## @api private
 ## [br]
-func _get_context_value(context: Dictionary, key: StringName, fallback: Variant = null) -> Variant:
+func _get_context_value(
+	context: Dictionary,
+	key: StringName,
+	fallback: Variant = null
+) -> Variant:
 	var string_key: String = String(key)
 	if context.has(string_key):
-		return GFVariantData.get_option_value(context, string_key, fallback)
-	return GFVariantData.get_option_value(context, key, fallback)
+		return GFVariantData.get_option_value(
+			context,
+			string_key,
+			fallback
+		)
+	return GFVariantData.get_option_value(
+		context,
+		key,
+		fallback
+	)
 
 
 ## 读取上下文向量，接受 Vector3 或提升为 z 为零的 Vector2。
 ## [br]
 ## @api private
 ## [br]
-func _get_vector3(context: Dictionary, key: StringName, fallback: Vector3) -> Vector3:
-	var value: Variant = _get_context_value(context, key, fallback)
+func _get_vector3(
+	context: Dictionary,
+	key: StringName,
+	fallback: Vector3
+) -> Vector3:
+	var value: Variant = _get_context_value(
+		context,
+		key,
+		fallback
+	)
 	if value is Vector3:
 		return value
 	if value is Vector2:
 		var vector_2: Vector2 = value
-		return Vector3(vector_2.x, vector_2.y, 0.0)
+		return Vector3(
+			vector_2.x,
+			vector_2.y,
+			0.0
+		)
 	return fallback
 
 
@@ -294,7 +373,11 @@ func _get_agent(context: Dictionary, key: StringName) -> GFSteeringAgent:
 ## [br]
 func _get_agents(context: Dictionary, key: StringName) -> Array[GFSteeringAgent]:
 	var result: Array[GFSteeringAgent] = []
-	var value: Variant = _get_context_value(context, key, [])
+	var value: Variant = _get_context_value(
+		context,
+		key,
+		[]
+	)
 	if not (value is Array):
 		return result
 	var agents: Array = GFVariantData.as_array(value)
@@ -311,7 +394,11 @@ func _get_agents(context: Dictionary, key: StringName) -> Array[GFSteeringAgent]
 ## [br]
 func _get_path(context: Dictionary) -> Array[Vector3]:
 	var result: Array[Vector3] = []
-	var value: Variant = GFVariantData.get_option_value(context, "path", [])
+	var value: Variant = GFVariantData.get_option_value(
+		context,
+		"path",
+		[]
+	)
 	if not (value is Array):
 		return result
 	var path: Array = GFVariantData.as_array(value)
@@ -320,5 +407,11 @@ func _get_path(context: Dictionary) -> Array[Vector3]:
 			result.append(item)
 		elif item is Vector2:
 			var vector_2: Vector2 = item
-			result.append(Vector3(vector_2.x, vector_2.y, 0.0))
+			result.append(
+				Vector3(
+					vector_2.x,
+					vector_2.y,
+					0.0
+				)
+			)
 	return result

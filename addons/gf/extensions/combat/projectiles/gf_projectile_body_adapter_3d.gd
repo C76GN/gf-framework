@@ -39,7 +39,11 @@ func validate_root(root: Node) -> Error:
 ## @return: 当前 transform 与零实际位移的 typed 结果。
 func capture_body(root: Node) -> GFProjectileBodyResult3D:
 	var result: Variant = _capture_body(root)
-	if typeof(result) == TYPE_OBJECT and is_instance_valid(result) and result is GFProjectileBodyResult3D:
+	if (
+		typeof(result) == TYPE_OBJECT
+		and is_instance_valid(result)
+		and result is GFProjectileBodyResult3D
+	):
 		var typed_result: GFProjectileBodyResult3D = result
 		return typed_result
 	return GFProjectileBodyResult3D.failed(&"invalid_adapter_result")
@@ -56,12 +60,13 @@ func capture_body(root: Node) -> GFProjectileBodyResult3D:
 ## @param intent: 本帧 motion intent。
 ## [br]
 ## @return: 应用后的 transform 与实际 world displacement。
-func apply_intent(
-	root: Node,
-	intent: GFProjectileMotionIntent3D
-) -> GFProjectileBodyResult3D:
+func apply_intent(root: Node, intent: GFProjectileMotionIntent3D) -> GFProjectileBodyResult3D:
 	var result: Variant = _apply_intent(root, intent)
-	if typeof(result) == TYPE_OBJECT and is_instance_valid(result) and result is GFProjectileBodyResult3D:
+	if (
+		typeof(result) == TYPE_OBJECT
+		and is_instance_valid(result)
+		and result is GFProjectileBodyResult3D
+	):
 		var typed_result: GFProjectileBodyResult3D = result
 		return typed_result
 	return GFProjectileBodyResult3D.failed(&"invalid_adapter_result")
@@ -78,7 +83,11 @@ func apply_intent(
 ## @return: 停止后的 body 快照。
 func stop(root: Node) -> GFProjectileBodyResult3D:
 	var result: Variant = _stop(root)
-	if typeof(result) == TYPE_OBJECT and is_instance_valid(result) and result is GFProjectileBodyResult3D:
+	if (
+		typeof(result) == TYPE_OBJECT
+		and is_instance_valid(result)
+		and result is GFProjectileBodyResult3D
+	):
 		var typed_result: GFProjectileBodyResult3D = result
 		return typed_result
 	return GFProjectileBodyResult3D.failed(&"invalid_adapter_result")
@@ -129,10 +138,7 @@ func _capture_body(_root: Node) -> Variant:
 ## @return: typed body 结果。
 ## [br]
 ## @schema return: Variant，必须为 live `GFProjectileBodyResult3D`。
-func _apply_intent(
-	_root: Node,
-	_intent: GFProjectileMotionIntent3D
-) -> Variant:
+func _apply_intent(_root: Node, _intent: GFProjectileMotionIntent3D) -> Variant:
 	return GFProjectileBodyResult3D.failed(&"unsupported_body")
 
 

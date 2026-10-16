@@ -48,18 +48,37 @@ const DEFAULT_MAX_POINTS: int = 512
 ## @schema return: Dictionary with ok: bool, error: String, input_point_count: int, point_count: int, duplicate_count: int, points: PackedVector2Array, triangles: Array[PackedInt32Array], and edges: Array[PackedInt32Array].
 static func build_delaunay(points: PackedVector2Array, options: Dictionary = {}) -> Dictionary:
 	var settings: Dictionary = _get_settings(options)
-	var epsilon: float = GFVariantData.get_option_float(settings, "epsilon", DEFAULT_EPSILON)
+	var epsilon: float = GFVariantData.get_option_float(
+		settings,
+		"epsilon",
+		DEFAULT_EPSILON
+	)
 	var normalized_result: Dictionary = _normalize_points(points, epsilon)
-	if not GFVariantData.get_option_bool(normalized_result, "ok", false):
+	if not GFVariantData.get_option_bool(
+		normalized_result,
+		"ok",
+		false
+	):
 		return _make_failure_result(
 			points.size(),
-			GFVariantData.get_option_string(normalized_result, "error", "")
+			GFVariantData.get_option_string(
+				normalized_result,
+				"error",
+				""
+			)
 		)
 
 	var normalized_points: PackedVector2Array = _get_packed_vector2_array(normalized_result, "points")
-	var max_points: int = GFVariantData.get_option_int(settings, "max_points", DEFAULT_MAX_POINTS)
+	var max_points: int = GFVariantData.get_option_int(
+		settings,
+		"max_points",
+		DEFAULT_MAX_POINTS
+	)
 	if normalized_points.size() > max_points:
-		return _make_failure_result(points.size(), "point_count exceeds max_points.")
+		return _make_failure_result(
+			points.size(),
+			"point_count exceeds max_points."
+		)
 
 	var triangles: Array[PackedInt32Array] = _build_delaunay_triangles(normalized_points, epsilon)
 	var edges: Array[PackedInt32Array] = _collect_edges(triangles)
@@ -68,7 +87,11 @@ static func build_delaunay(points: PackedVector2Array, options: Dictionary = {})
 		"error": "",
 		"input_point_count": points.size(),
 		"point_count": normalized_points.size(),
-		"duplicate_count": GFVariantData.get_option_int(normalized_result, "duplicate_count", 0),
+		"duplicate_count": GFVariantData.get_option_int(
+			normalized_result,
+			"duplicate_count",
+			0
+		),
 		"points": normalized_points,
 		"triangles": triangles,
 		"edges": edges,
@@ -92,7 +115,11 @@ static func build_delaunay(points: PackedVector2Array, options: Dictionary = {})
 ## @schema return: Dictionary with Delaunay fields plus vertices: PackedVector2Array and cells: Array[Dictionary]. Each cell contains point_index: int, point: Vector2, vertex_indices: PackedInt32Array, polygon: PackedVector2Array, and is_open: bool.
 static func build_voronoi(points: PackedVector2Array, options: Dictionary = {}) -> Dictionary:
 	var delaunay: Dictionary = build_delaunay(points, options)
-	if not GFVariantData.get_option_bool(delaunay, "ok", false):
+	if not GFVariantData.get_option_bool(
+		delaunay,
+		"ok",
+		false
+	):
 		delaunay["vertices"] = PackedVector2Array()
 		delaunay["cells"] = []
 		return delaunay
@@ -100,9 +127,18 @@ static func build_voronoi(points: PackedVector2Array, options: Dictionary = {}) 
 	var epsilon: float = _get_epsilon(options)
 	var normalized_points: PackedVector2Array = _get_packed_vector2_array(delaunay, "points")
 	var triangles: Array[PackedInt32Array] = _get_triangle_array(delaunay)
-	var vertices: PackedVector2Array = _make_voronoi_vertices(normalized_points, triangles, epsilon)
+	var vertices: PackedVector2Array = _make_voronoi_vertices(
+		normalized_points,
+		triangles,
+		epsilon
+	)
 	var hull_points: Dictionary = _collect_hull_point_flags(triangles)
-	var cells: Array[Dictionary] = _make_voronoi_cells(normalized_points, triangles, vertices, hull_points)
+	var cells: Array[Dictionary] = _make_voronoi_cells(
+		normalized_points,
+		triangles,
+		vertices,
+		hull_points
+	)
 
 	delaunay["vertices"] = vertices
 	delaunay["cells"] = cells
@@ -118,7 +154,14 @@ static func build_voronoi(points: PackedVector2Array, options: Dictionary = {}) 
 static func _get_settings(options: Dictionary) -> Dictionary:
 	return {
 		"epsilon": _get_epsilon(options),
-		"max_points": maxi(GFVariantData.get_option_int(options, "max_points", DEFAULT_MAX_POINTS), 0),
+		"max_points": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_points",
+				DEFAULT_MAX_POINTS
+			),
+			0
+		),
 	}
 
 
@@ -127,7 +170,13 @@ static func _get_settings(options: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 static func _get_epsilon(options: Dictionary) -> float:
-	var epsilon: float = absf(GFVariantData.get_option_float(options, "epsilon", DEFAULT_EPSILON))
+	var epsilon: float = absf(
+		GFVariantData.get_option_float(
+			options,
+			"epsilon",
+			DEFAULT_EPSILON
+		)
+	)
 	if is_nan(epsilon) or is_inf(epsilon):
 		return DEFAULT_EPSILON
 	return maxf(epsilon, DEFAULT_EPSILON)
@@ -151,7 +200,10 @@ static func _normalize_points(points: PackedVector2Array, epsilon: float) -> Dic
 				"duplicate_count": duplicate_count,
 			}
 
-		var quantized_key: Vector2i = Vector2i(roundi(point.x * scale), roundi(point.y * scale))
+		var quantized_key: Vector2i = Vector2i(
+			roundi(point.x * scale),
+			roundi(point.y * scale)
+		)
 		if seen.has(quantized_key):
 			duplicate_count += 1
 			continue
@@ -188,20 +240,35 @@ static func _build_delaunay_triangles(points: PackedVector2Array, epsilon: float
 	var super_a: int = points.size()
 	var super_b: int = points.size() + 1
 	var super_c: int = points.size() + 2
-	var first_triangle: Dictionary = _make_triangle(super_a, super_b, super_c, working_points, epsilon)
+	var first_triangle: Dictionary = _make_triangle(
+		super_a,
+		super_b,
+		super_c,
+		working_points,
+		epsilon
+	)
 	if first_triangle.is_empty():
 		return []
 
 	var working_triangles: Array[Dictionary] = [first_triangle]
 	for point_index: int in range(points.size()):
-		_insert_point(working_triangles, working_points, point_index, epsilon)
+		_insert_point(
+			working_triangles,
+			working_points,
+			point_index,
+			epsilon
+		)
 
 	var result: Array[PackedInt32Array] = []
 	for triangle: Dictionary in working_triangles:
 		var indices: PackedInt32Array = _get_triangle_indices(triangle)
 		if indices.size() != 3:
 			continue
-		if indices[0] >= points.size() or indices[1] >= points.size() or indices[2] >= points.size():
+		if (
+			indices[0] >= points.size()
+			or indices[1] >= points.size()
+			or indices[2] >= points.size()
+		):
 			continue
 
 		indices.sort()
@@ -225,7 +292,11 @@ static func _insert_point(
 	var point: Vector2 = working_points[point_index]
 	var bad_triangle_indices: Array[int] = []
 	for triangle_index: int in range(working_triangles.size()):
-		if _is_point_in_circumcircle(point, working_triangles[triangle_index], epsilon):
+		if _is_point_in_circumcircle(
+			point,
+			working_triangles[triangle_index],
+			epsilon
+		):
 			bad_triangle_indices.append(triangle_index)
 
 	if bad_triangle_indices.is_empty():
@@ -233,10 +304,17 @@ static func _insert_point(
 
 	var edge_counts: Dictionary = {}
 	for triangle_index: int in bad_triangle_indices:
-		_add_triangle_edges(edge_counts, _get_triangle_indices(working_triangles[triangle_index]))
+		_add_triangle_edges(
+			edge_counts,
+			_get_triangle_indices(working_triangles[triangle_index])
+		)
 
 	bad_triangle_indices.sort()
-	for remove_index: int in range(bad_triangle_indices.size() - 1, -1, -1):
+	for remove_index: int in range(
+		bad_triangle_indices.size() - 1,
+		-1,
+		-1
+	):
 		working_triangles.remove_at(bad_triangle_indices[remove_index])
 
 	var boundary_edges: Array[PackedInt32Array] = _get_boundary_edges(edge_counts)
@@ -244,7 +322,13 @@ static func _insert_point(
 		if edge.size() != 2:
 			continue
 
-		var triangle: Dictionary = _make_triangle(edge[0], edge[1], point_index, working_points, epsilon)
+		var triangle: Dictionary = _make_triangle(
+			edge[0],
+			edge[1],
+			point_index,
+			working_points,
+			epsilon
+		)
 		if not triangle.is_empty():
 			working_triangles.append(triangle)
 
@@ -263,13 +347,27 @@ static func _make_super_triangle(points: PackedVector2Array) -> PackedVector2Arr
 		max_point.y = maxf(max_point.y, point.y)
 
 	var center: Vector2 = (min_point + max_point) * 0.5
-	var span: float = maxf(max_point.x - min_point.x, max_point.y - min_point.y)
+	var span: float = maxf(
+		max_point.x - min_point.x,
+		max_point.y - min_point.y
+	)
 	var radius: float = maxf(span, 1.0) * 16.0
-	return PackedVector2Array([
-		center + Vector2(0.0, -radius * 2.0),
-		center + Vector2(-radius * 2.0, radius),
-		center + Vector2(radius * 2.0, radius),
-	])
+	return PackedVector2Array(
+		[
+			center + Vector2(
+				0.0,
+				-radius * 2.0
+			),
+			center + Vector2(
+				-radius * 2.0,
+				radius
+			),
+			center + Vector2(
+				radius * 2.0,
+				radius
+			),
+		]
+	)
 
 
 ## 计算三点的外心和外接圆平方半径，近共线或外心非有限时返回空字典。
@@ -286,11 +384,7 @@ static func _make_triangle(
 	var point_a: Vector2 = points[a]
 	var point_b: Vector2 = points[b]
 	var point_c: Vector2 = points[c]
-	var denominator: float = 2.0 * (
-		point_a.x * (point_b.y - point_c.y)
-		+ point_b.x * (point_c.y - point_a.y)
-		+ point_c.x * (point_a.y - point_b.y)
-	)
+	var denominator: float = (2.0 * (point_a.x * (point_b.y - point_c.y) + point_b.x * (point_c.y - point_a.y) + point_c.x * (point_a.y - point_b.y)))
 	if absf(denominator) <= epsilon:
 		return {}
 
@@ -298,22 +392,20 @@ static func _make_triangle(
 	var b_length: float = point_b.length_squared()
 	var c_length: float = point_c.length_squared()
 	var center: Vector2 = Vector2(
-		(
-			a_length * (point_b.y - point_c.y)
-			+ b_length * (point_c.y - point_a.y)
-			+ c_length * (point_a.y - point_b.y)
-		) / denominator,
-		(
-			a_length * (point_c.x - point_b.x)
-			+ b_length * (point_a.x - point_c.x)
-			+ c_length * (point_b.x - point_a.x)
-		) / denominator
+		(a_length * (point_b.y - point_c.y) + b_length * (point_c.y - point_a.y) + c_length * (point_a.y - point_b.y)) / denominator,
+		(a_length * (point_c.x - point_b.x) + b_length * (point_a.x - point_c.x) + c_length * (point_b.x - point_a.x)) / denominator
 	)
 	if not _is_finite_point(center):
 		return {}
 
 	return {
-		"indices": PackedInt32Array([a, b, c]),
+		"indices": PackedInt32Array(
+			[
+				a,
+				b,
+				c,
+			]
+		),
 		"circumcenter": center,
 		"circumradius_squared": center.distance_squared_to(point_a),
 	}
@@ -323,13 +415,21 @@ static func _make_triangle(
 ## [br]
 ## @api private
 ## [br]
-static func _is_point_in_circumcircle(point: Vector2, triangle: Dictionary, epsilon: float) -> bool:
+static func _is_point_in_circumcircle(
+	point: Vector2,
+	triangle: Dictionary,
+	epsilon: float
+) -> bool:
 	var center_variant: Variant = triangle.get("circumcenter", Vector2.ZERO)
 	if not center_variant is Vector2:
 		return false
 
 	var center: Vector2 = center_variant
-	var radius_squared: float = GFVariantData.get_option_float(triangle, "circumradius_squared", -1.0)
+	var radius_squared: float = GFVariantData.get_option_float(
+		triangle,
+		"circumradius_squared",
+		-1.0
+	)
 	if radius_squared < 0.0:
 		return false
 
@@ -344,22 +444,45 @@ static func _add_triangle_edges(edge_counts: Dictionary, indices: PackedInt32Arr
 	if indices.size() != 3:
 		return
 
-	_add_edge(edge_counts, indices[0], indices[1])
-	_add_edge(edge_counts, indices[1], indices[2])
-	_add_edge(edge_counts, indices[2], indices[0])
+	_add_edge(
+		edge_counts,
+		indices[0],
+		indices[1]
+	)
+	_add_edge(
+		edge_counts,
+		indices[1],
+		indices[2]
+	)
+	_add_edge(
+		edge_counts,
+		indices[2],
+		indices[0]
+	)
 
 
 ## 以端点排序后的键累计无向边出现次数。
 ## [br]
 ## @api private
 ## [br]
-static func _add_edge(edge_counts: Dictionary, a: int, b: int) -> void:
+static func _add_edge(
+	edge_counts: Dictionary,
+	a: int,
+	b: int
+) -> void:
 	var edge: PackedInt32Array = PackedInt32Array([mini(a, b), maxi(a, b)])
-	var key: String = _make_edge_key(edge[0], edge[1])
+	var key: String = _make_edge_key(
+		edge[0],
+		edge[1]
+	)
 	var previous_entry: Dictionary = GFVariantData.as_dictionary(edge_counts.get(key, {}))
 	edge_counts[key] = {
 		"edge": edge,
-		"count": GFVariantData.get_option_int(previous_entry, "count", 0) + 1,
+		"count": GFVariantData.get_option_int(
+			previous_entry,
+			"count",
+			0
+		) + 1,
 	}
 
 
@@ -371,10 +494,17 @@ static func _get_boundary_edges(edge_counts: Dictionary) -> Array[PackedInt32Arr
 	var result: Array[PackedInt32Array] = []
 	for key: Variant in edge_counts.keys():
 		var entry: Dictionary = GFVariantData.as_dictionary(edge_counts[key])
-		if GFVariantData.get_option_int(entry, "count", 0) != 1:
+		if GFVariantData.get_option_int(
+			entry,
+			"count",
+			0
+		) != 1:
 			continue
 
-		var edge_variant: Variant = entry.get("edge", PackedInt32Array())
+		var edge_variant: Variant = entry.get(
+			"edge",
+			PackedInt32Array()
+		)
 		if edge_variant is PackedInt32Array:
 			var edge: PackedInt32Array = edge_variant
 			result.append(edge)
@@ -402,7 +532,10 @@ static func _get_all_edges(edge_counts: Dictionary) -> Array[PackedInt32Array]:
 	var result: Array[PackedInt32Array] = []
 	for key: Variant in edge_counts.keys():
 		var entry: Dictionary = GFVariantData.as_dictionary(edge_counts[key])
-		var edge_variant: Variant = entry.get("edge", PackedInt32Array())
+		var edge_variant: Variant = entry.get(
+			"edge",
+			PackedInt32Array()
+		)
 		if edge_variant is PackedInt32Array:
 			var edge: PackedInt32Array = edge_variant
 			result.append(edge)
@@ -422,7 +555,13 @@ static func _make_voronoi_vertices(
 ) -> PackedVector2Array:
 	var vertices: PackedVector2Array = PackedVector2Array()
 	for triangle: PackedInt32Array in triangles:
-		var triangle_data: Dictionary = _make_triangle(triangle[0], triangle[1], triangle[2], points, epsilon)
+		var triangle_data: Dictionary = _make_triangle(
+			triangle[0],
+			triangle[1],
+			triangle[2],
+			points,
+			epsilon
+		)
 		if triangle_data.is_empty():
 			continue
 
@@ -470,29 +609,32 @@ static func _make_voronoi_cells(
 				continue
 
 			var vertex: Vector2 = vertices[triangle_index]
-			vertex_entries.append({
-				"index": triangle_index,
-				"angle": points[point_index].angle_to_point(vertex),
-			})
+			vertex_entries.append({ "index": triangle_index, "angle": points[point_index].angle_to_point(vertex), })
 
 		vertex_entries.sort_custom(_compare_vertex_entries)
 		var vertex_indices: PackedInt32Array = PackedInt32Array()
 		var polygon: PackedVector2Array = PackedVector2Array()
 		for entry: Dictionary in vertex_entries:
-			var vertex_index: int = GFVariantData.get_option_int(entry, "index", -1)
+			var vertex_index: int = GFVariantData.get_option_int(
+				entry,
+				"index",
+				-1
+			)
 			if vertex_index < 0 or vertex_index >= vertices.size():
 				continue
 
 			var _index_appended: bool = vertex_indices.append(vertex_index)
 			var _point_appended: bool = polygon.append(vertices[vertex_index])
 
-		cells.append({
-			"point_index": point_index,
-			"point": points[point_index],
-			"vertex_indices": vertex_indices,
-			"polygon": polygon,
-			"is_open": hull_points.has(point_index),
-		})
+		cells.append(
+			{
+				"point_index": point_index,
+				"point": points[point_index],
+				"vertex_indices": vertex_indices,
+				"polygon": polygon,
+				"is_open": hull_points.has(point_index),
+			}
+		)
 	return cells
 
 
@@ -501,7 +643,10 @@ static func _make_voronoi_cells(
 ## @api private
 ## [br]
 static func _get_triangle_indices(triangle: Dictionary) -> PackedInt32Array:
-	var indices_variant: Variant = triangle.get("indices", PackedInt32Array())
+	var indices_variant: Variant = triangle.get(
+		"indices",
+		PackedInt32Array()
+	)
 	if indices_variant is PackedInt32Array:
 		return indices_variant
 	return PackedInt32Array()
@@ -512,7 +657,10 @@ static func _get_triangle_indices(triangle: Dictionary) -> PackedInt32Array:
 ## @api private
 ## [br]
 static func _get_packed_vector2_array(data: Dictionary, key: String) -> PackedVector2Array:
-	var value: Variant = data.get(key, PackedVector2Array())
+	var value: Variant = data.get(
+		key,
+		PackedVector2Array()
+	)
 	if value is PackedVector2Array:
 		return value
 	return PackedVector2Array()
@@ -563,7 +711,12 @@ static func _has_triangle(triangles: Array[PackedInt32Array], target: PackedInt3
 ## @api private
 ## [br]
 static func _is_finite_point(point: Vector2) -> bool:
-	return not is_nan(point.x) and not is_nan(point.y) and not is_inf(point.x) and not is_inf(point.y)
+	return (
+		not is_nan(point.x)
+		and not is_nan(point.y)
+		and not is_inf(point.x)
+		and not is_inf(point.y)
+	)
 
 
 ## 按端点升序生成无向边的字符串键。
@@ -571,7 +724,10 @@ static func _is_finite_point(point: Vector2) -> bool:
 ## @api private
 ## [br]
 static func _make_edge_key(a: int, b: int) -> String:
-	return "%s:%s" % [mini(a, b), maxi(a, b)]
+	return (
+		"%s:%s"
+		% [mini(a, b), maxi(a, b)]
+	)
 
 
 ## 报告生成错误并返回字段完整的空三角剖分结果。
@@ -607,7 +763,10 @@ static func _compare_points(left: Vector2, right: Vector2) -> bool:
 ## @api private
 ## [br]
 static func _compare_int_arrays(left: PackedInt32Array, right: PackedInt32Array) -> bool:
-	var count: int = mini(left.size(), right.size())
+	var count: int = mini(
+		left.size(),
+		right.size()
+	)
 	for index: int in range(count):
 		if left[index] != right[index]:
 			return left[index] < right[index]
@@ -619,8 +778,24 @@ static func _compare_int_arrays(left: PackedInt32Array, right: PackedInt32Array)
 ## @api private
 ## [br]
 static func _compare_vertex_entries(left: Dictionary, right: Dictionary) -> bool:
-	var left_angle: float = GFVariantData.get_option_float(left, "angle", 0.0)
-	var right_angle: float = GFVariantData.get_option_float(right, "angle", 0.0)
+	var left_angle: float = GFVariantData.get_option_float(
+		left,
+		"angle",
+		0.0
+	)
+	var right_angle: float = GFVariantData.get_option_float(
+		right,
+		"angle",
+		0.0
+	)
 	if not is_equal_approx(left_angle, right_angle):
 		return left_angle < right_angle
-	return GFVariantData.get_option_int(left, "index", 0) < GFVariantData.get_option_int(right, "index", 0)
+	return GFVariantData.get_option_int(
+		left,
+		"index",
+		0
+	) < GFVariantData.get_option_int(
+		right,
+		"index",
+		0
+	)

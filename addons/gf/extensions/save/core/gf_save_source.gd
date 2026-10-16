@@ -99,7 +99,11 @@ func describe_source(scope: Node = null) -> Dictionary:
 	var descriptor: Dictionary = descriptor_extra.duplicate(true)
 	descriptor["source_key"] = get_source_key()
 	descriptor["phase"] = phase
-	if scope != null and is_inside_tree() and scope.is_inside_tree():
+	if (
+		scope != null
+		and is_inside_tree()
+		and scope.is_inside_tree()
+	):
 		descriptor["node_path"] = String(scope.get_path_to(self))
 	return descriptor
 
@@ -116,10 +120,7 @@ func describe_source(scope: Node = null) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
 func make_result(ok: bool, error: String = "") -> Dictionary:
-	return {
-		"ok": ok,
-		"error": error,
-	}
+	return { "ok": ok, "error": error, }
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -165,6 +166,8 @@ func _before_save(_context: Dictionary = {}) -> void:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context: 调用上下文字典。
 ## [br]
 ## @param serializer_registry: 可选节点序列化器注册表。
@@ -174,21 +177,20 @@ func _before_save(_context: Dictionary = {}) -> void:
 ## @schema context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
 ## [br]
 ## @schema return: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。
-func _gather_save_data(
-	context: Dictionary = {},
-	serializer_registry: GFNodeSerializerRegistry = null
-) -> Variant:
+func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -> Variant:
 	var target: Node = get_target_node()
 	if target == null:
 		return {}
 
-	var serializer_payloads: Array[Dictionary] = _gather_serializer_payloads(target, context, serializer_registry)
+	var serializer_payloads: Array[Dictionary] = _gather_serializer_payloads(
+		target,
+		context,
+		serializer_registry
+	)
 	if serializer_payloads.is_empty():
 		return {}
 
-	return {
-		"serializers": serializer_payloads,
-	}
+	return { "serializers": serializer_payloads, }
 
 
 ## 应用保存数据。
@@ -226,7 +228,11 @@ func _apply_save_data(
 	if not dictionary.has("serializers"):
 		return make_result(false, "Serializer payloads are missing.")
 
-	var serializer_payloads_variant: Variant = GFVariantData.get_option_value(dictionary, "serializers", [])
+	var serializer_payloads_variant: Variant = GFVariantData.get_option_value(
+		dictionary,
+		"serializers",
+		[]
+	)
 	if not (serializer_payloads_variant is Array):
 		return make_result(false, "Serializer payloads must be an Array.")
 
@@ -235,9 +241,17 @@ func _apply_save_data(
 		return make_result(true)
 
 	if not serializers.is_empty():
-		return _apply_local_serializers(target, serializer_payloads, context)
+		return _apply_local_serializers(
+			target,
+			serializer_payloads,
+			context
+		)
 	if serializer_registry != null:
-		return serializer_registry.apply_node(target, serializer_payloads, context)
+		return serializer_registry.apply_node(
+			target,
+			serializer_payloads,
+			context
+		)
 	return make_result(false, "Serializer registry is null.")
 
 
@@ -275,10 +289,7 @@ func _gather_serializer_payloads(
 			var data: Dictionary = serializer.gather(target, context)
 			if data.is_empty():
 				continue
-			result.append({
-				"id": serializer.get_serializer_id(),
-				"data": data,
-			})
+			result.append({ "id": serializer.get_serializer_id(), "data": data, })
 		return result
 
 	if use_registry_serializers and serializer_registry != null:
@@ -290,7 +301,11 @@ func _gather_serializer_payloads(
 ## [br]
 ## @api private
 ## [br]
-func _apply_local_serializers(target: Node, serializer_payloads: Array, context: Dictionary) -> Dictionary:
+func _apply_local_serializers(
+	target: Node,
+	serializer_payloads: Array,
+	context: Dictionary
+) -> Dictionary:
 	var by_id: Dictionary = {}
 	for serializer: GFNodeSerializer in serializers:
 		if serializer != null:
@@ -314,17 +329,35 @@ func _apply_local_serializers(target: Node, serializer_payloads: Array, context:
 			errors.append("Serializer does not support target: %s" % String(serializer_id))
 			continue
 
-		var payload_data: Variant = GFVariantData.get_option_value(payload, "data", {})
+		var payload_data: Variant = GFVariantData.get_option_value(
+			payload,
+			"data",
+			{}
+		)
 		if not (payload_data is Dictionary):
 			errors.append("Serializer data must be a Dictionary: %s" % String(serializer_id))
 			continue
 
 		var data: Dictionary = GFVariantData.as_dictionary(payload_data)
-		var result: Dictionary = serializer.apply(target, data, context)
-		if GFVariantData.get_option_bool(result, "ok", false):
+		var result: Dictionary = serializer.apply(
+			target,
+			data,
+			context
+		)
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			applied += 1
 		else:
-			errors.append(GFVariantData.get_option_string(result, "error", "Apply failed: %s" % String(serializer_id)))
+			errors.append(
+				GFVariantData.get_option_string(
+					result,
+					"error",
+					"Apply failed: %s" % String(serializer_id)
+				)
+			)
 
 	return {
 		"ok": errors.is_empty(),

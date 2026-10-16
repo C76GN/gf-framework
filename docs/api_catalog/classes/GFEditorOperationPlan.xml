@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorOperationPlan" path="addons/gf/kernel/editor/gf_editor_operation_plan.gd" module="kernel" extends="RefCounted" classDigest="da97d5ffe3e5dbc750e07155ac792dba3496bd61c9d61fa431b184a8ddcb3af5">
+<class name="GFEditorOperationPlan" path="addons/gf/kernel/editor/gf_editor_operation_plan.gd" module="kernel" extends="RefCounted" classDigest="3760b96d8d42eb815ce6dda2f7c859c5fc28bc3165ac2da7d6c4861b5843a455">
 	<description>GFEditorOperationPlan: 编辑器工具操作计划报告。
 用于把预览、dry-run、执行步骤和产物报告统一成可展示、可测试的结构化结果。
 它只描述编辑器操作计划和结果，不直接修改节点、资源或文件。</description>
@@ -104,7 +104,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_step">
-			<signature>func add_step(step_id: StringName, step_label: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_step( step_id: StringName, step_label: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加一个操作步骤。</description>
 			<tags>
 				<tag name="api">public</tag>

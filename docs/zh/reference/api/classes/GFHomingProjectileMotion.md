@@ -19,8 +19,8 @@
 | 属性 | [`arrival_distance`](#member-gfhomingprojectilemotion-properties-arrival_distance) | `var arrival_distance: float = 0.0` |
 | 属性 | [`track_target`](#member-gfhomingprojectilemotion-properties-track_target) | `var track_target: bool = true` |
 | 属性 | [`stop_when_reached`](#member-gfhomingprojectilemotion-properties-stop_when_reached) | `var stop_when_reached: bool = true` |
-| 方法 | [`_create_state_2d`](#member-gfhomingprojectilemotion-methods-_create_state_2d) | `func _create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:` |
-| 方法 | [`_create_state_3d`](#member-gfhomingprojectilemotion-methods-_create_state_3d) | `func _create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:` |
+| 方法 | [`_create_state_2d`](#member-gfhomingprojectilemotion-methods-_create_state_2d) | `func _create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:` |
+| 方法 | [`_create_state_3d`](#member-gfhomingprojectilemotion-methods-_create_state_3d) | `func _create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:` |
 | 方法 | [`_compute_intent_2d`](#member-gfhomingprojectilemotion-methods-_compute_intent_2d) | `func _compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D:` |
 | 方法 | [`_compute_intent_3d`](#member-gfhomingprojectilemotion-methods-_compute_intent_3d) | `func _compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D:` |
 
@@ -88,7 +88,7 @@ var stop_when_reached: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:
+func _create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:
 ```
 
 捕获二维发射目标的位置与初始方向，为本次 session 建立追踪状态。 节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。
@@ -110,7 +110,7 @@ func _create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GF
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:
+func _create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:
 ```
 
 捕获三维发射目标的位置与初始方向，为本次 session 建立追踪状态。 节点目标只保留弱引用；此处记录目标种类，不将无目标直接判为创建失败。

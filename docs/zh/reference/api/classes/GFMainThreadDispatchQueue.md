@@ -29,7 +29,7 @@
 | 方法 | [`tick`](#member-gfmainthreaddispatchqueue-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`dispose`](#member-gfmainthreaddispatchqueue-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`post`](#member-gfmainthreaddispatchqueue-methods-post) | `func post(callback: Callable, options: Dictionary = {}) -> int:` |
-| 方法 | [`post_method`](#member-gfmainthreaddispatchqueue-methods-post_method) | `func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:` |
+| 方法 | [`post_method`](#member-gfmainthreaddispatchqueue-methods-post_method) | `func post_method( owner: Object, method_name: StringName, options: Dictionary = {} ) -> int:` |
 | 方法 | [`dispatch`](#member-gfmainthreaddispatchqueue-methods-dispatch) | `func dispatch(max_count: int = 0, max_seconds: float = 0.0) -> Dictionary:` |
 | 方法 | [`cancel`](#member-gfmainthreaddispatchqueue-methods-cancel) | `func cancel(handle: int) -> bool:` |
 | 方法 | [`cancel_owner`](#member-gfmainthreaddispatchqueue-methods-cancel_owner) | `func cancel_owner(owner: Object) -> int:` |
@@ -255,7 +255,7 @@ func post(callback: Callable, options: Dictionary = {}) -> int:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func post_method(owner: Object, method_name: StringName, options: Dictionary = {}) -> int:
+func post_method( owner: Object, method_name: StringName, options: Dictionary = {} ) -> int:
 ```
 
 把弱 owner 方法调用加入主线程派发队列。 队列只保存 owner 的弱引用与方法名，不保存绑定 Callable、调用参数或 owner 强引用。

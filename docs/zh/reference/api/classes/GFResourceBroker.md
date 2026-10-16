@@ -28,7 +28,7 @@ framework-level threaded ResourceLoader admission broker。 一个显式共享�
 | 方法 | [`tick`](#member-gfresourcebroker-methods-tick) | `func tick(_delta: float = 0.0) -> void:` |
 | 方法 | [`begin_quiesce`](#member-gfresourcebroker-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`dispose`](#member-gfresourcebroker-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`request`](#member-gfresourcebroker-methods-request) | `func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:` |
+| 方法 | [`request`](#member-gfresourcebroker-methods-request) | `func request( path: String, type_hint: String = "", options: Dictionary = {} ) -> GFResourceLease:` |
 | 方法 | [`bind_fixed_consumer`](#member-gfresourcebroker-methods-bind_fixed_consumer) | `func bind_fixed_consumer(consumer: Object) -> Error:` |
 | 方法 | [`can_remove_from_active_lifecycle`](#member-gfresourcebroker-methods-can_remove_from_active_lifecycle) | `func can_remove_from_active_lifecycle() -> bool:` |
 | 方法 | [`pump`](#member-gfresourcebroker-methods-pump) | `func pump() -> void:` |
@@ -238,7 +238,7 @@ func dispose() -> void:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
+func request( path: String, type_hint: String = "", options: Dictionary = {} ) -> GFResourceLease:
 ```
 
 请求一个资源消费者 Lease。 admission 使用严格 FIFO：队首独占请求会等待全部活动请求 drain， 后续共享请求不能绕过它。同资源身份且类型提示兼容的请求复用底层加载。

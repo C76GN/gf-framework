@@ -45,9 +45,7 @@ var _inspector_tools: RefCounted = null
 # --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
-	var records: Dictionary = _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_records(
-		_STANDARD_CONTRIBUTIONS_PATH
-	)
+	var records: Dictionary = _GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_records(_STANDARD_CONTRIBUTIONS_PATH)
 	var network_actions_value: Variant = _GF_NETWORK_EDITOR_ACTIONS_SCRIPT.new()
 	if not network_actions_value is RefCounted:
 		_fail("network editor action provider could not be instantiated")
@@ -64,7 +62,13 @@ func _enter_tree() -> void:
 		network_actions.call(&"get_project_setting_section_records")
 	)
 	_GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ensure_all(
-		_to_record_array(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(records, "project_setting_records", []))
+		_to_record_array(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+				records,
+				"project_setting_records",
+				[]
+			)
+		)
 	)
 
 	var inspector_tools_value: Variant = _GF_PLUGIN_INSPECTOR_TOOLS_SCRIPT.new()
@@ -72,7 +76,12 @@ func _enter_tree() -> void:
 		_fail("project settings inspector tools could not be instantiated")
 		return
 	_inspector_tools = inspector_tools_value
-	var _setup_result: Variant = _inspector_tools.call(&"setup", self, records, "zh_CN")
+	var _setup_result: Variant = _inspector_tools.call(
+		&"setup",
+		self,
+		records,
+		"zh_CN"
+	)
 
 	var connect_error: int = get_tree().process_frame.connect(_on_process_frame)
 	if connect_error != OK:
@@ -116,10 +125,7 @@ func _on_process_frame() -> void:
 			if project_settings_dialog == null:
 				_wait_or_fail("project settings dialog disappeared")
 				return
-			var editor_property: EditorProperty = _find_editor_property(
-				project_settings_dialog,
-				"selection_mode"
-			)
+			var editor_property: EditorProperty = _find_editor_property(project_settings_dialog, "selection_mode")
 			if editor_property == null:
 				_wait_or_fail("selection mode editor property was not rendered")
 				return
@@ -129,10 +135,7 @@ func _on_process_frame() -> void:
 			if project_settings_dialog == null:
 				_wait_or_fail("project settings dialog disappeared before codegen check")
 				return
-			var editor_property: EditorProperty = _find_editor_property(
-				project_settings_dialog,
-				"access_output_path"
-			)
+			var editor_property: EditorProperty = _find_editor_property(project_settings_dialog, "access_output_path")
 			if editor_property == null:
 				_wait_or_fail("codegen access output editor property was not rendered")
 				return
@@ -142,10 +145,7 @@ func _on_process_frame() -> void:
 			if project_settings_dialog == null:
 				_wait_or_fail("project settings dialog disappeared before network check")
 				return
-			var editor_property: EditorProperty = _find_editor_property(
-				project_settings_dialog,
-				"contract_paths"
-			)
+			var editor_property: EditorProperty = _find_editor_property(project_settings_dialog, "contract_paths")
 			if editor_property == null:
 				_wait_or_fail("network contract paths editor property was not rendered")
 				return
@@ -155,10 +155,7 @@ func _on_process_frame() -> void:
 			if project_settings_dialog == null:
 				_wait_or_fail("project settings dialog disappeared before resource picker check")
 				return
-			var editor_property: EditorProperty = _find_editor_property(
-				project_settings_dialog,
-				"contract_paths"
-			)
+			var editor_property: EditorProperty = _find_editor_property(project_settings_dialog, "contract_paths")
 			if editor_property == null:
 				_wait_or_fail("network contract paths editor disappeared")
 				return
@@ -169,14 +166,9 @@ func _on_process_frame() -> void:
 
 # --- 私有/辅助方法 ---
 
-func _run_extension_smoke(
-	project_settings_dialog: Window,
-	editor_property: EditorProperty
-) -> void:
+func _run_extension_smoke(project_settings_dialog: Window, editor_property: EditorProperty) -> void:
 	if editor_property.get_label() != "扩展选择模式":
-		_fail(
-			"extension row label was not localized: %s" % editor_property.get_label()
-		)
+		_fail("extension row label was not localized: %s" % editor_property.get_label())
 		return
 	var option_button: OptionButton = _find_option_button(editor_property)
 	if option_button == null:
@@ -217,10 +209,7 @@ func _run_extension_smoke(
 	_phase = SmokePhase.WAIT_CODEGEN_PROPERTY
 
 
-func _run_codegen_smoke(
-	project_settings_dialog: Window,
-	editor_property: EditorProperty
-) -> void:
+func _run_codegen_smoke(project_settings_dialog: Window, editor_property: EditorProperty) -> void:
 	if editor_property.get_label() != "框架访问器输出路径":
 		_fail("codegen row label was not localized: %s" % editor_property.get_label())
 		return
@@ -230,10 +219,7 @@ func _run_codegen_smoke(
 		if editor_script.resource_path.ends_with("gf_resource_path_editor_property.gd"):
 			_fail("codegen save target was incorrectly treated as an existing resource")
 			return
-	var path_edit: LineEdit = _find_line_edit_containing(
-		editor_property,
-		_GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_OUTPUT_DEFAULT
-	)
+	var path_edit: LineEdit = _find_line_edit_containing(editor_property, _GF_PLUGIN_PROJECT_SETTINGS_SCRIPT.ACCESS_OUTPUT_DEFAULT)
 	if path_edit == null:
 		_fail("codegen save target did not retain its native path text")
 		return
@@ -253,19 +239,13 @@ func _run_codegen_smoke(
 	_phase = SmokePhase.WAIT_NETWORK_PROPERTY
 
 
-func _run_network_smoke(
-	project_settings_dialog: Window,
-	editor_property: EditorProperty
-) -> void:
+func _run_network_smoke(project_settings_dialog: Window, editor_property: EditorProperty) -> void:
 	if editor_property.get_label() != "网络契约路径":
 		_fail("network row label was not localized: %s" % editor_property.get_label())
 		return
 	var script_value: Variant = editor_property.get_script()
 	if not script_value is Script:
-		_fail(
-			"network contract paths did not use the resource path array editor: %s"
-			% _describe_editor_property(editor_property)
-		)
+		_fail("network contract paths did not use the resource path array editor: %s" % _describe_editor_property(editor_property))
 		return
 	var editor_script: Script = script_value
 	if not editor_script.resource_path.ends_with("gf_resource_path_array_editor_property.gd"):
@@ -281,11 +261,11 @@ func _run_network_smoke(
 		_fail("network resource path editor has no localized tooltip")
 		return
 	for section_expectation: Dictionary in [
-		{"path": "gf", "label": "GF"},
-		{"path": _CODEGEN_SECTION, "label": "代码生成"},
-		{"path": _EXTENSIONS_SECTION, "label": "扩展"},
-		{"path": _NETWORK_SECTION, "label": "网络"},
-		{"path": "gf/build", "label": "构建"},
+		{ "path": "gf", "label": "GF" },
+		{ "path": _CODEGEN_SECTION, "label": "代码生成" },
+		{ "path": _EXTENSIONS_SECTION, "label": "扩展" },
+		{ "path": _NETWORK_SECTION, "label": "网络" },
+		{ "path": "gf/build", "label": "构建" },
 	]:
 		if not _check_section_presentation(project_settings_dialog, section_expectation):
 			return
@@ -298,14 +278,8 @@ func _run_network_smoke(
 	_phase = SmokePhase.WAIT_NETWORK_PATH_ROW
 
 
-func _run_resource_picker_parent_smoke(
-	project_settings_dialog: Window,
-	editor_property: EditorProperty
-) -> void:
-	var browse_button: Button = _find_button_by_name(
-		editor_property,
-		_RESOURCE_PATH_BROWSE_BUTTON_NAME
-	)
+func _run_resource_picker_parent_smoke(project_settings_dialog: Window, editor_property: EditorProperty) -> void:
+	var browse_button: Button = _find_button_by_name(editor_property, _RESOURCE_PATH_BROWSE_BUTTON_NAME)
 	if browse_button == null:
 		_wait_or_fail("resource path row did not create a browse button")
 		return
@@ -349,10 +323,7 @@ func _run_resource_dialog_smoke() -> void:
 
 
 func _get_custom_tooltip_text(editor_property: EditorProperty) -> String:
-	var custom_tooltip_value: Variant = editor_property.call(
-		&"_make_custom_tooltip",
-		editor_property.tooltip_text
-	)
+	var custom_tooltip_value: Variant = editor_property.call(&"_make_custom_tooltip", editor_property.tooltip_text)
 	if not custom_tooltip_value is Label:
 		_fail("project settings row did not create a plain-text tooltip")
 		return ""
@@ -370,23 +341,28 @@ func _describe_editor_property(editor_property: EditorProperty) -> String:
 	for property_info: Dictionary in edited_object.get_property_list():
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(property_info, "name") != edited_property:
 			continue
-		return "type=%d hint=%d hint_string=%s" % [
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(property_info, "type", TYPE_NIL),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(property_info, "hint", PROPERTY_HINT_NONE),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(property_info, "hint_string"),
-		]
+		return (
+			"type=%d hint=%d hint_string=%s"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					property_info,
+					"type",
+					TYPE_NIL
+				),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					property_info,
+					"hint",
+					PROPERTY_HINT_NONE
+				),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(property_info, "hint_string"),
+			]
+		)
 	return "property_info=<missing>"
 
 
 func _check_section_presentation(root: Node, expectation: Dictionary) -> bool:
-	var section_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		expectation,
-		"path"
-	)
-	var expected_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		expectation,
-		"label"
-	)
+	var section_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(expectation, "path")
+	var expected_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(expectation, "label")
 	var section_item: TreeItem = _find_section_item(root, section_path)
 	if section_item == null:
 		_fail("project settings section was not found: %s" % section_path)
@@ -403,9 +379,17 @@ func _check_section_presentation(root: Node, expectation: Dictionary) -> bool:
 	return true
 
 
-func _append_records(records: Dictionary, record_key: String, additional_value: Variant) -> void:
+func _append_records(
+	records: Dictionary,
+	record_key: String,
+	additional_value: Variant
+) -> void:
 	var merged_records: Array[Dictionary] = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(records, record_key, [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			records,
+			record_key,
+			[]
+		)
 	)
 	for additional_record: Dictionary in _to_record_array(additional_value):
 		merged_records.append(additional_record)
@@ -454,7 +438,10 @@ func _activate_project_settings_menu(root: Node) -> bool:
 
 
 func _find_project_settings_dialog() -> Window:
-	return _find_window_by_class(EditorInterface.get_base_control(), _DIALOG_CLASS)
+	return _find_window_by_class(
+		EditorInterface.get_base_control(),
+		_DIALOG_CLASS
+	)
 
 
 func _find_window_by_class(root: Node, target_class: String) -> Window:

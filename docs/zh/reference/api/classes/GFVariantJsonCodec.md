@@ -23,7 +23,7 @@ Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码�
 | 方法 | [`parse_json_compatible_text`](#member-gfvariantjsoncodec-methods-parse_json_compatible_text) | `static func parse_json_compatible_text( text: String, fallback: Variant = null, options: Dictionary = {} ) -> Variant:` |
 | 方法 | [`parse_json_text`](#member-gfvariantjsoncodec-methods-parse_json_text) | `static func parse_json_text(text: String, fallback: Variant = null) -> Variant:` |
 | 方法 | [`format_json_text`](#member-gfvariantjsoncodec-methods-format_json_text) | `static func format_json_text( text: String, indent: String = "\t", sort_keys: bool = false, fallback: String = "" ) -> String:` |
-| 方法 | [`compact_json_text`](#member-gfvariantjsoncodec-methods-compact_json_text) | `static func compact_json_text(text: String, sort_keys: bool = false, fallback: String = "") -> String:` |
+| 方法 | [`compact_json_text`](#member-gfvariantjsoncodec-methods-compact_json_text) | `static func compact_json_text( text: String, sort_keys: bool = false, fallback: String = "" ) -> String:` |
 | 方法 | [`vector2_to_array`](#member-gfvariantjsoncodec-methods-vector2_to_array) | `static func vector2_to_array(value: Vector2) -> Array:` |
 | 方法 | [`array_to_vector2`](#member-gfvariantjsoncodec-methods-array_to_vector2) | `static func array_to_vector2(value: Variant, fallback: Vector2 = Vector2.ZERO) -> Vector2:` |
 | 方法 | [`vector3_to_array`](#member-gfvariantjsoncodec-methods-vector3_to_array) | `static func vector3_to_array(value: Vector3) -> Array:` |
@@ -257,9 +257,10 @@ static func format_json_text( text: String, indent: String = "\t", sort_keys: bo
 ### `compact_json_text`
 
 - API：`public`
+- 首次版本：`3.24.0`
 
 ```gdscript
-static func compact_json_text(text: String, sort_keys: bool = false, fallback: String = "") -> String:
+static func compact_json_text( text: String, sort_keys: bool = false, fallback: String = "" ) -> String:
 ```
 
 压缩 JSON 文本，失败时返回 fallback。

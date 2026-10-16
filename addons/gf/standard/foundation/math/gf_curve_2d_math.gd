@@ -51,7 +51,10 @@ const _MAX_INT64: int = 9223372036854775807
 ## @return 折线长度；少于两个点时返回 0。
 static func get_polyline_length(points: PackedVector2Array) -> float:
 	var length: float = 0.0
-	for index: int in range(1, points.size()):
+	for index: int in range(
+		1,
+		points.size()
+	):
 		length += points[index - 1].distance_to(points[index])
 	return length
 
@@ -77,7 +80,11 @@ static func sample_polyline(
 	if points.size() == 1:
 		return points[0]
 
-	var clamped_ratio: float = clampf(ratio, 0.0, 1.0)
+	var clamped_ratio: float = clampf(
+		ratio,
+		0.0,
+		1.0
+	)
 	if clamped_ratio <= 0.0:
 		return points[0]
 	if clamped_ratio >= 1.0:
@@ -89,7 +96,10 @@ static func sample_polyline(
 
 	var target_distance: float = length * clamped_ratio
 	var travelled: float = 0.0
-	for index: int in range(1, points.size()):
+	for index: int in range(
+		1,
+		points.size()
+	):
 		var from_point: Vector2 = points[index - 1]
 		var to_point: Vector2 = points[index]
 		var segment_length: float = from_point.distance_to(to_point)
@@ -131,8 +141,16 @@ static func sample_polyline_pose(
 	total_length: float = -1.0
 ) -> Dictionary:
 	var path_points: PackedVector2Array = _get_polyline_points(points, closed)
-	var clamped_ratio: float = clampf(ratio, 0.0, 1.0)
-	var report: Dictionary = _make_polyline_pose_report(clamped_ratio, 0.0, closed)
+	var clamped_ratio: float = clampf(
+		ratio,
+		0.0,
+		1.0
+	)
+	var report: Dictionary = _make_polyline_pose_report(
+		clamped_ratio,
+		0.0,
+		closed
+	)
 	if path_points.is_empty():
 		return report
 
@@ -196,7 +214,10 @@ static func project_point_to_polyline(
 	var best_report: Dictionary = report
 	var best_distance_squared: float = INF
 	var travelled: float = 0.0
-	for index: int in range(1, path_points.size()):
+	for index: int in range(
+		1,
+		path_points.size()
+	):
 		var from_point: Vector2 = path_points[index - 1]
 		var to_point: Vector2 = path_points[index]
 		var segment_vector: Vector2 = to_point - from_point
@@ -235,6 +256,8 @@ static func project_point_to_polyline(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.19.0
+## [br]
 ## @param curve: 目标曲线。
 ## [br]
 ## @param ratio: 归一化采样位置；会被限制在 0 到 1。
@@ -242,7 +265,11 @@ static func project_point_to_polyline(
 ## @param cubic: 是否使用 Curve2D.sample_baked() 的三次插值。
 ## [br]
 ## @return 采样点；曲线为空或无点时返回 Vector2.ZERO。
-static func sample_curve(curve: Curve2D, ratio: float, cubic: bool = false) -> Vector2:
+static func sample_curve(
+	curve: Curve2D,
+	ratio: float,
+	cubic: bool = false
+) -> Vector2:
 	if curve == null or curve.point_count <= 0:
 		return Vector2.ZERO
 	if curve.point_count == 1:
@@ -252,7 +279,14 @@ static func sample_curve(curve: Curve2D, ratio: float, cubic: bool = false) -> V
 	if length <= 0.0:
 		return curve.get_point_position(curve.point_count - 1)
 
-	return curve.sample_baked(length * clampf(ratio, 0.0, 1.0), cubic)
+	return curve.sample_baked(
+		length * clampf(
+			ratio,
+			0.0,
+			1.0
+		),
+		cubic
+	)
 
 
 ## 创建平滑穿过折线点的 Curve2D。
@@ -276,7 +310,12 @@ static func create_smooth_polyline_curve(
 	tension: float = 1.0,
 	closed: bool = false
 ) -> Curve2D:
-	return set_smooth_polyline_curve(Curve2D.new(), points, tension, closed)
+	return set_smooth_polyline_curve(
+		Curve2D.new(),
+		points,
+		tension,
+		closed
+	)
 
 
 ## 将已有 Curve2D 改写为平滑穿过折线点的曲线。
@@ -311,14 +350,32 @@ static func set_smooth_polyline_curve(
 		target_curve.add_point(source_points[0])
 	elif source_points.size() > 1:
 		for index: int in range(source_points.size()):
-			var tangent: Vector2 = _get_smooth_curve_tangent(source_points, index, closed_curve, handle_strength)
+			var tangent: Vector2 = _get_smooth_curve_tangent(
+				source_points,
+				index,
+				closed_curve,
+				handle_strength
+			)
 			var in_handle: Vector2 = -tangent if index > 0 else Vector2.ZERO
 			var out_handle: Vector2 = tangent if index < source_points.size() - 1 or closed_curve else Vector2.ZERO
-			target_curve.add_point(source_points[index], in_handle, out_handle)
+			target_curve.add_point(
+				source_points[index],
+				in_handle,
+				out_handle
+			)
 
 		if closed_curve:
-			var first_tangent: Vector2 = _get_smooth_curve_tangent(source_points, 0, true, handle_strength)
-			target_curve.add_point(source_points[0], -first_tangent, Vector2.ZERO)
+			var first_tangent: Vector2 = _get_smooth_curve_tangent(
+				source_points,
+				0,
+				true,
+				handle_strength
+			)
+			target_curve.add_point(
+				source_points[0],
+				-first_tangent,
+				Vector2.ZERO
+			)
 
 	target_curve.set_block_signals(false)
 	target_curve.changed.emit()
@@ -346,14 +403,47 @@ static func set_smooth_polyline_curve(
 ## @schema return: Dictionary，包含 ok、error、points、anchor_indices、source_count、point_count、interior_count、amplitude、points_per_segment、start_step、side、alternate、clamp_to_segment 和 max_points。
 static func create_meandered_polyline(points: PackedVector2Array, options: Dictionary = {}) -> Dictionary:
 	var source_count: int = points.size()
-	var amplitude: float = GFVariantData.get_option_float(options, "amplitude", 1.0)
-	var points_per_segment: int = maxi(GFVariantData.get_option_int(options, "points_per_segment", 1), 0)
-	var start_step: int = GFVariantData.get_option_int(options, "start_step", 0)
-	var side: int = _normalize_meander_side(GFVariantData.get_option_int(options, "side", 1))
-	var alternate: bool = GFVariantData.get_option_bool(options, "alternate", true)
-	var clamp_to_segment: bool = GFVariantData.get_option_bool(options, "clamp_to_segment", true)
+	var amplitude: float = GFVariantData.get_option_float(
+		options,
+		"amplitude",
+		1.0
+	)
+	var points_per_segment: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"points_per_segment",
+			1
+		),
+		0
+	)
+	var start_step: int = GFVariantData.get_option_int(
+		options,
+		"start_step",
+		0
+	)
+	var side: int = _normalize_meander_side(
+		GFVariantData.get_option_int(
+			options,
+			"side",
+			1
+		)
+	)
+	var alternate: bool = GFVariantData.get_option_bool(
+		options,
+		"alternate",
+		true
+	)
+	var clamp_to_segment: bool = GFVariantData.get_option_bool(
+		options,
+		"clamp_to_segment",
+		true
+	)
 	var max_points: int = maxi(
-		GFVariantData.get_option_int(options, "max_points", _DEFAULT_MAX_MEANDERED_POLYLINE_POINTS),
+		GFVariantData.get_option_int(
+			options,
+			"max_points",
+			_DEFAULT_MAX_MEANDERED_POLYLINE_POINTS
+		),
 		1
 	)
 	var base_report: Dictionary = _make_meandered_polyline_report(
@@ -375,7 +465,11 @@ static func create_meandered_polyline(points: PackedVector2Array, options: Dicti
 	if source_count < 2:
 		base_report["error"] = "points must contain at least two anchors."
 		return base_report
-	if is_nan(amplitude) or is_inf(amplitude) or amplitude < 0.0:
+	if (
+		is_nan(amplitude)
+		or is_inf(amplitude)
+		or amplitude < 0.0
+	):
 		base_report["error"] = "amplitude must be a finite value greater than or equal to zero."
 		return base_report
 
@@ -385,7 +479,10 @@ static func create_meandered_polyline(points: PackedVector2Array, options: Dicti
 			return base_report
 
 	var segment_count: int = source_count - 1
-	if points_per_segment > _divide_truncated(_MAX_INT64 - source_count, segment_count):
+	if points_per_segment > _divide_truncated(
+		_MAX_INT64 - source_count,
+		segment_count
+	):
 		base_report["error"] = "generated point count would exceed max_points."
 		base_report["point_count"] = _MAX_INT64
 		return base_report
@@ -424,7 +521,10 @@ static func create_meandered_polyline(points: PackedVector2Array, options: Dicti
 		anchor_indices,
 		source_count,
 		output_points.size(),
-		maxi(output_points.size() - source_count, 0),
+		maxi(
+			output_points.size() - source_count,
+			0
+		),
 		amplitude,
 		points_per_segment,
 		start_step,
@@ -460,9 +560,17 @@ static func subdivide_polyline_by_max_segment_length(
 	max_segment_length: float,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var closed_option: bool = GFVariantData.get_option_bool(options, "closed", false)
+	var closed_option: bool = GFVariantData.get_option_bool(
+		options,
+		"closed",
+		false
+	)
 	var max_points: int = maxi(
-		GFVariantData.get_option_int(options, "max_points", _DEFAULT_MAX_SUBDIVIDED_POLYLINE_POINTS),
+		GFVariantData.get_option_int(
+			options,
+			"max_points",
+			_DEFAULT_MAX_SUBDIVIDED_POLYLINE_POINTS
+		),
 		1
 	)
 	var source_points: PackedVector2Array = _get_subdivision_source_points(points, closed_option)
@@ -482,7 +590,11 @@ static func subdivide_polyline_by_max_segment_length(
 	if source_points.size() < 2:
 		base_report["error"] = "points must contain at least two anchors."
 		return base_report
-	if max_segment_length <= _DASH_EPSILON or is_nan(max_segment_length) or is_inf(max_segment_length):
+	if (
+		max_segment_length <= _DASH_EPSILON
+		or is_nan(max_segment_length)
+		or is_inf(max_segment_length)
+	):
 		base_report["error"] = "max_segment_length must be a finite positive value."
 		return base_report
 
@@ -505,7 +617,10 @@ static func subdivide_polyline_by_max_segment_length(
 	var anchor_indices: PackedInt32Array = PackedInt32Array()
 	var _first_anchor_appended: bool = output_points.append(source_points[0])
 	var _first_anchor_index_appended: bool = anchor_indices.append(0)
-	for segment_index: int in range(1, source_points.size()):
+	for segment_index: int in range(
+		1,
+		source_points.size()
+	):
 		_append_subdivided_segment_points(
 			output_points,
 			source_points[segment_index - 1],
@@ -559,7 +674,10 @@ static func simplify_polyline_by_distance(
 	var simplified: PackedVector2Array = PackedVector2Array()
 	var _first_point_appended: bool = simplified.append(points[0])
 	var min_distance_squared: float = min_distance * min_distance
-	for index: int in range(1, points.size()):
+	for index: int in range(
+		1,
+		points.size()
+	):
 		if points[index].distance_squared_to(simplified[simplified.size() - 1]) >= min_distance_squared:
 			var _point_appended: bool = simplified.append(points[index])
 
@@ -599,7 +717,11 @@ static func make_dashed_polyline_segments(
 
 	var normalized_gap_length: float = maxf(gap_length, 0.0)
 	if normalized_gap_length <= _DASH_EPSILON:
-		_append_source_polyline_segments(visible_segments, points, closed)
+		_append_source_polyline_segments(
+			visible_segments,
+			points,
+			closed
+		)
 		return visible_segments
 
 	var path_points: PackedVector2Array = _get_polyline_points(points, closed)
@@ -608,7 +730,10 @@ static func make_dashed_polyline_segments(
 	var in_dash: bool = phase < dash_length
 	var phase_remaining: float = dash_length - phase if in_dash else pattern_length - phase
 
-	for index: int in range(1, path_points.size()):
+	for index: int in range(
+		1,
+		path_points.size()
+	):
 		var from_point: Vector2 = path_points[index - 1]
 		var to_point: Vector2 = path_points[index]
 		var segment_vector: Vector2 = to_point - from_point
@@ -624,7 +749,10 @@ static func make_dashed_polyline_segments(
 				phase_remaining = dash_length if in_dash else normalized_gap_length
 				continue
 
-			var step_length: float = minf(phase_remaining, segment_length - travelled)
+			var step_length: float = minf(
+				phase_remaining,
+				segment_length - travelled
+			)
 			if step_length <= _DASH_EPSILON:
 				break
 
@@ -660,14 +788,23 @@ static func round_polygon_points(
 	uniform_corners: bool = true
 ) -> PackedVector2Array:
 	var source_points: PackedVector2Array = _get_unclosed_polygon_points(points)
-	if source_points.size() < 3 or radius <= 0.0 or corner_detail <= 0:
+	if (
+		source_points.size() < 3
+		or radius <= 0.0
+		or corner_detail <= 0
+	):
 		return source_points
 
 	var result: PackedVector2Array = PackedVector2Array()
 	var point_count: int = source_points.size()
 	for index: int in range(point_count):
 		var point: Vector2 = source_points[index]
-		var previous_point: Vector2 = source_points[posmod(index - 1, point_count)]
+		var previous_point: Vector2 = source_points[
+			posmod(
+				index - 1,
+				point_count
+			)
+		]
 		var next_point: Vector2 = source_points[(index + 1) % point_count]
 		_append_rounded_polygon_corner(
 			result,
@@ -700,7 +837,13 @@ static func create_rect_curve(
 	offset: Vector2 = Vector2.ZERO,
 	rotation: float = 0.0
 ) -> Curve2D:
-	return set_rect_curve(Curve2D.new(), size, radius, offset, rotation)
+	return set_rect_curve(
+		Curve2D.new(),
+		size,
+		radius,
+		offset,
+		rotation
+	)
 
 
 ## 将已有 Curve2D 改写为闭合矩形。
@@ -726,10 +869,21 @@ static func set_rect_curve(
 	rotation: float = 0.0
 ) -> Curve2D:
 	var target_curve: Curve2D = curve if curve != null else Curve2D.new()
-	var half_size: Vector2 = Vector2(absf(size.x), absf(size.y)) * 0.5
+	var half_size: Vector2 = Vector2(
+		absf(size.x),
+		absf(size.y)
+	) * 0.5
 	var clamped_radius: Vector2 = Vector2(
-		clampf(absf(radius.x), 0.0, half_size.x),
-		clampf(absf(radius.y), 0.0, half_size.y)
+		clampf(
+			absf(radius.x),
+			0.0,
+			half_size.x
+		),
+		clampf(
+			absf(radius.y),
+			0.0,
+			half_size.y
+		)
 	)
 
 	target_curve.set_block_signals(true)
@@ -737,9 +891,20 @@ static func set_rect_curve(
 	if half_size.x <= 0.0 or half_size.y <= 0.0:
 		target_curve.add_point(offset)
 	elif clamped_radius == Vector2.ZERO:
-		_add_corner_points(target_curve, half_size, offset, rotation)
+		_add_corner_points(
+			target_curve,
+			half_size,
+			offset,
+			rotation
+		)
 	else:
-		_add_rounded_rect_points(target_curve, half_size, clamped_radius, offset, rotation)
+		_add_rounded_rect_points(
+			target_curve,
+			half_size,
+			clamped_radius,
+			offset,
+			rotation
+		)
 	target_curve.set_block_signals(false)
 	target_curve.changed.emit()
 	return target_curve
@@ -761,7 +926,12 @@ static func create_ellipse_curve(
 	offset: Vector2 = Vector2.ZERO,
 	rotation: float = 0.0
 ) -> Curve2D:
-	return set_ellipse_curve(Curve2D.new(), size, offset, rotation)
+	return set_ellipse_curve(
+		Curve2D.new(),
+		size,
+		offset,
+		rotation
+	)
 
 
 ## 将已有 Curve2D 改写为闭合椭圆。
@@ -784,14 +954,22 @@ static func set_ellipse_curve(
 	rotation: float = 0.0
 ) -> Curve2D:
 	var target_curve: Curve2D = curve if curve != null else Curve2D.new()
-	var radius: Vector2 = Vector2(absf(size.x), absf(size.y)) * 0.5
+	var radius: Vector2 = Vector2(
+		absf(size.x),
+		absf(size.y)
+	) * 0.5
 
 	target_curve.set_block_signals(true)
 	target_curve.clear_points()
 	if radius.x <= 0.0 or radius.y <= 0.0:
 		target_curve.add_point(offset)
 	else:
-		_add_ellipse_points(target_curve, radius, offset, rotation)
+		_add_ellipse_points(
+			target_curve,
+			radius,
+			offset,
+			rotation
+		)
 	target_curve.set_block_signals(false)
 	target_curve.changed.emit()
 	return target_curve
@@ -802,16 +980,51 @@ static func set_ellipse_curve(
 ## 按旋转与偏移写入矩形四角，并重复首点闭合曲线。
 ## [br]
 ## @api private
-static func _add_corner_points(curve: Curve2D, half_size: Vector2, offset: Vector2, rotation: float) -> void:
+static func _add_corner_points(
+	curve: Curve2D,
+	half_size: Vector2,
+	offset: Vector2,
+	rotation: float
+) -> void:
 	var top_left: Vector2 = Vector2(-half_size.x, -half_size.y)
 	var top_right: Vector2 = Vector2(half_size.x, -half_size.y)
 	var bottom_right: Vector2 = Vector2(half_size.x, half_size.y)
 	var bottom_left: Vector2 = Vector2(-half_size.x, half_size.y)
-	curve.add_point(_transform_point(top_left, offset, rotation))
-	curve.add_point(_transform_point(top_right, offset, rotation))
-	curve.add_point(_transform_point(bottom_right, offset, rotation))
-	curve.add_point(_transform_point(bottom_left, offset, rotation))
-	curve.add_point(_transform_point(top_left, offset, rotation))
+	curve.add_point(
+		_transform_point(
+			top_left,
+			offset,
+			rotation
+		)
+	)
+	curve.add_point(
+		_transform_point(
+			top_right,
+			offset,
+			rotation
+		)
+	)
+	curve.add_point(
+		_transform_point(
+			bottom_right,
+			offset,
+			rotation
+		)
+	)
+	curve.add_point(
+		_transform_point(
+			bottom_left,
+			offset,
+			rotation
+		)
+	)
+	curve.add_point(
+		_transform_point(
+			top_left,
+			offset,
+			rotation
+		)
+	)
 
 
 ## 用圆弧近似控制柄写入圆角矩形各段，最后重复首点闭合曲线。
@@ -833,15 +1046,105 @@ static func _add_rounded_rect_points(
 	var ox: float = rx * CIRCLE_BEZIER_KAPPA
 	var oy: float = ry * CIRCLE_BEZIER_KAPPA
 
-	_add_transformed_point(curve, Vector2(right - rx, top), Vector2.ZERO, Vector2(ox, 0.0), offset, rotation)
-	_add_transformed_point(curve, Vector2(right, top + ry), Vector2(0.0, -oy), Vector2.ZERO, offset, rotation)
-	_add_transformed_point(curve, Vector2(right, bottom - ry), Vector2.ZERO, Vector2(0.0, oy), offset, rotation)
-	_add_transformed_point(curve, Vector2(right - rx, bottom), Vector2(ox, 0.0), Vector2.ZERO, offset, rotation)
-	_add_transformed_point(curve, Vector2(left + rx, bottom), Vector2.ZERO, Vector2(-ox, 0.0), offset, rotation)
-	_add_transformed_point(curve, Vector2(left, bottom - ry), Vector2(0.0, oy), Vector2.ZERO, offset, rotation)
-	_add_transformed_point(curve, Vector2(left, top + ry), Vector2.ZERO, Vector2(0.0, -oy), offset, rotation)
-	_add_transformed_point(curve, Vector2(left + rx, top), Vector2(-ox, 0.0), Vector2.ZERO, offset, rotation)
-	_add_transformed_point(curve, Vector2(right - rx, top), Vector2.ZERO, Vector2(ox, 0.0), offset, rotation)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			right - rx,
+			top
+		),
+		Vector2.ZERO,
+		Vector2(ox, 0.0),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			right,
+			top + ry
+		),
+		Vector2(0.0, -oy),
+		Vector2.ZERO,
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			right,
+			bottom - ry
+		),
+		Vector2.ZERO,
+		Vector2(0.0, oy),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			right - rx,
+			bottom
+		),
+		Vector2(ox, 0.0),
+		Vector2.ZERO,
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			left + rx,
+			bottom
+		),
+		Vector2.ZERO,
+		Vector2(-ox, 0.0),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			left,
+			bottom - ry
+		),
+		Vector2(0.0, oy),
+		Vector2.ZERO,
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			left,
+			top + ry
+		),
+		Vector2.ZERO,
+		Vector2(0.0, -oy),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			left + rx,
+			top
+		),
+		Vector2(-ox, 0.0),
+		Vector2.ZERO,
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(
+			right - rx,
+			top
+		),
+		Vector2.ZERO,
+		Vector2(ox, 0.0),
+		offset,
+		rotation
+	)
 
 
 ## 以四段三次贝塞尔圆弧近似椭圆，并重复首点闭合曲线。
@@ -855,11 +1158,46 @@ static func _add_ellipse_points(
 ) -> void:
 	var ox: float = radius.x * CIRCLE_BEZIER_KAPPA
 	var oy: float = radius.y * CIRCLE_BEZIER_KAPPA
-	_add_transformed_point(curve, Vector2(radius.x, 0.0), Vector2.ZERO, Vector2(0.0, oy), offset, rotation)
-	_add_transformed_point(curve, Vector2.ZERO + Vector2(0.0, radius.y), Vector2(ox, 0.0), Vector2(-ox, 0.0), offset, rotation)
-	_add_transformed_point(curve, Vector2(-radius.x, 0.0), Vector2(0.0, oy), Vector2(0.0, -oy), offset, rotation)
-	_add_transformed_point(curve, Vector2(0.0, -radius.y), Vector2(-ox, 0.0), Vector2(ox, 0.0), offset, rotation)
-	_add_transformed_point(curve, Vector2(radius.x, 0.0), Vector2(0.0, -oy), Vector2.ZERO, offset, rotation)
+	_add_transformed_point(
+		curve,
+		Vector2(radius.x, 0.0),
+		Vector2.ZERO,
+		Vector2(0.0, oy),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2.ZERO + Vector2(0.0, radius.y),
+		Vector2(ox, 0.0),
+		Vector2(-ox, 0.0),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(-radius.x, 0.0),
+		Vector2(0.0, oy),
+		Vector2(0.0, -oy),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(0.0, -radius.y),
+		Vector2(-ox, 0.0),
+		Vector2(ox, 0.0),
+		offset,
+		rotation
+	)
+	_add_transformed_point(
+		curve,
+		Vector2(radius.x, 0.0),
+		Vector2(0.0, -oy),
+		Vector2.ZERO,
+		offset,
+		rotation
+	)
 
 
 ## 将点位置与相对控制柄按旋转、偏移变换后追加到 Curve2D。
@@ -874,7 +1212,11 @@ static func _add_transformed_point(
 	rotation: float
 ) -> void:
 	curve.add_point(
-		_transform_point(position, offset, rotation),
+		_transform_point(
+			position,
+			offset,
+			rotation
+		),
 		in_handle.rotated(rotation),
 		out_handle.rotated(rotation)
 	)
@@ -883,7 +1225,11 @@ static func _add_transformed_point(
 ## 先旋转点，再加上位置偏移。
 ## [br]
 ## @api private
-static func _transform_point(point: Vector2, offset: Vector2, rotation: float) -> Vector2:
+static func _transform_point(
+	point: Vector2,
+	offset: Vector2,
+	rotation: float
+) -> Vector2:
 	return point.rotated(rotation) + offset
 
 
@@ -902,7 +1248,11 @@ static func _get_unclosed_polygon_points(points: PackedVector2Array) -> PackedVe
 ## @api private
 static func _get_polyline_points(points: PackedVector2Array, closed: bool) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
-	if closed and result.size() > 2 and result[0] != result[result.size() - 1]:
+	if (
+		closed
+		and result.size() > 2
+		and result[0] != result[result.size() - 1]
+	):
 		var _first_point_appended: bool = result.append(result[0])
 	return result
 
@@ -912,7 +1262,11 @@ static func _get_polyline_points(points: PackedVector2Array, closed: bool) -> Pa
 ## @api private
 static func _get_smooth_curve_source_points(points: PackedVector2Array, closed: bool) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
-	if closed and result.size() > 1 and result[0] == result[result.size() - 1]:
+	if (
+		closed
+		and result.size() > 1
+		and result[0] == result[result.size() - 1]
+	):
 		result.remove_at(result.size() - 1)
 	return result
 
@@ -922,7 +1276,11 @@ static func _get_smooth_curve_source_points(points: PackedVector2Array, closed: 
 ## @api private
 static func _get_subdivision_source_points(points: PackedVector2Array, closed: bool) -> PackedVector2Array:
 	var result: PackedVector2Array = points.duplicate()
-	if closed and result.size() > 1 and result[0] == result[result.size() - 1]:
+	if (
+		closed
+		and result.size() > 1
+		and result[0] == result[result.size() - 1]
+	):
 		result.remove_at(result.size() - 1)
 	return result
 
@@ -940,7 +1298,12 @@ static func _get_smooth_curve_tangent(
 	var previous_point: Vector2 = points[index]
 	var next_point: Vector2 = points[index]
 	if closed:
-		previous_point = points[posmod(index - 1, point_count)]
+		previous_point = points[
+			posmod(
+				index - 1,
+				point_count
+			)
+		]
 		next_point = points[(index + 1) % point_count]
 	else:
 		if index > 0:
@@ -958,10 +1321,21 @@ static func _append_source_polyline_segments(
 	points: PackedVector2Array,
 	closed: bool
 ) -> void:
-	for index: int in range(1, points.size()):
-		_append_visible_polyline_segment(target, points[index - 1], points[index])
+	for index: int in range(
+		1,
+		points.size()
+	):
+		_append_visible_polyline_segment(
+			target,
+			points[index - 1],
+			points[index]
+		)
 	if closed and points.size() > 2:
-		_append_visible_polyline_segment(target, points[points.size() - 1], points[0])
+		_append_visible_polyline_segment(
+			target,
+			points[points.size() - 1],
+			points[0]
+		)
 
 
 ## 跳过近零线段，否则追加仅含起点和终点的折线段。
@@ -993,19 +1367,30 @@ static func _append_meandered_segment_points(
 ) -> void:
 	var segment_vector: Vector2 = to_point - from_point
 	var segment_length: float = segment_vector.length()
-	if points_per_segment <= 0 or amplitude <= 0.0 or segment_length <= _DASH_EPSILON:
+	if (
+		points_per_segment <= 0
+		or amplitude <= 0.0
+		or segment_length <= _DASH_EPSILON
+	):
 		return
 
 	var tangent: Vector2 = segment_vector / segment_length
 	var normal: Vector2 = tangent.orthogonal()
 	var offset_amount: float = amplitude
 	if clamp_to_segment:
-		offset_amount = minf(offset_amount, segment_length * 0.5)
+		offset_amount = minf(
+			offset_amount,
+			segment_length * 0.5
+		)
 
 	for point_index: int in range(points_per_segment):
 		var local_index: int = point_index + 1
 		var ratio: float = float(local_index) / float(points_per_segment + 1)
-		var meander_sign: int = _get_meander_sign(start_step + point_index, side, alternate)
+		var meander_sign: int = _get_meander_sign(
+			start_step + point_index,
+			side,
+			alternate
+		)
 		var envelope: float = sin(PI * ratio)
 		var point: Vector2 = from_point.lerp(to_point, ratio) + normal * offset_amount * float(meander_sign) * envelope
 		var _point_appended: bool = target.append(point)
@@ -1020,11 +1405,18 @@ static func _append_subdivided_segment_points(
 	to_point: Vector2,
 	max_segment_length: float
 ) -> void:
-	var insert_count: int = _get_subdivision_insert_count(from_point, to_point, max_segment_length)
+	var insert_count: int = _get_subdivision_insert_count(
+		from_point,
+		to_point,
+		max_segment_length
+	)
 	if insert_count <= 0:
 		return
 
-	for step: int in range(1, insert_count + 1):
+	for step: int in range(
+		1,
+		insert_count + 1
+	):
 		var ratio: float = float(step) / float(insert_count + 1)
 		var _point_appended: bool = target.append(from_point.lerp(to_point, ratio))
 
@@ -1038,10 +1430,21 @@ static func _estimate_subdivided_polyline_point_count(
 	closed: bool
 ) -> int:
 	var count: int = points.size()
-	for index: int in range(1, points.size()):
-		count += _get_subdivision_insert_count(points[index - 1], points[index], max_segment_length)
+	for index: int in range(
+		1,
+		points.size()
+	):
+		count += _get_subdivision_insert_count(
+			points[index - 1],
+			points[index],
+			max_segment_length
+		)
 	if closed and points.size() > 2:
-		count += _get_subdivision_insert_count(points[points.size() - 1], points[0], max_segment_length)
+		count += _get_subdivision_insert_count(
+			points[points.size() - 1],
+			points[0],
+			max_segment_length
+		)
 	return count
 
 
@@ -1058,7 +1461,10 @@ static func _get_subdivision_insert_count(
 		return 0
 
 	var piece_count: int = ceili(segment_length / max_segment_length)
-	return maxi(piece_count - 1, 0)
+	return maxi(
+		piece_count - 1,
+		0
+	)
 
 
 ## 按相邻边长限制圆角锚点，并在两锚点之间追加三次贝塞尔采样点。
@@ -1082,12 +1488,27 @@ static func _append_rounded_polygon_corner(
 	var previous_distance: float = radius
 	var next_distance: float = radius
 	if uniform_corners:
-		var shared_limit: float = maxf(minf(previous_length, next_length) * 0.5, 0.0)
+		var shared_limit: float = maxf(
+			minf(previous_length, next_length) * 0.5,
+			0.0
+		)
 		previous_distance = minf(radius, shared_limit)
 		next_distance = previous_distance
 	else:
-		previous_distance = minf(radius, maxf(previous_length * 0.5, 0.0))
-		next_distance = minf(radius, maxf(next_length * 0.5, 0.0))
+		previous_distance = minf(
+			radius,
+			maxf(
+				previous_length * 0.5,
+				0.0
+			)
+		)
+		next_distance = minf(
+			radius,
+			maxf(
+				next_length * 0.5,
+				0.0
+			)
+		)
 
 	if previous_distance <= 0.0 or next_distance <= 0.0:
 		var _point_appended: bool = target.append(point)
@@ -1111,7 +1532,11 @@ static func _append_rounded_polygon_corner(
 ## 创建失败态姿态报告，并初始化点、段、切线及法线字段。
 ## [br]
 ## @api private
-static func _make_polyline_pose_report(ratio: float, total_length: float, closed: bool) -> Dictionary:
+static func _make_polyline_pose_report(
+	ratio: float,
+	total_length: float,
+	closed: bool
+) -> Dictionary:
 	return {
 		"ok": false,
 		"point": Vector2.ZERO,
@@ -1139,7 +1564,10 @@ static func _sample_polyline_pose_at_distance(
 	closed: bool
 ) -> Dictionary:
 	var travelled: float = 0.0
-	for index: int in range(1, path_points.size()):
+	for index: int in range(
+		1,
+		path_points.size()
+	):
 		var from_point: Vector2 = path_points[index - 1]
 		var to_point: Vector2 = path_points[index]
 		var segment_vector: Vector2 = to_point - from_point
@@ -1148,7 +1576,11 @@ static func _sample_polyline_pose_at_distance(
 			continue
 
 		if travelled + segment_length >= target_distance or index == path_points.size() - 1:
-			var local_distance: float = clampf(target_distance - travelled, 0.0, segment_length)
+			var local_distance: float = clampf(
+				target_distance - travelled,
+				0.0,
+				segment_length
+			)
 			var segment_ratio: float = local_distance / segment_length
 			var point: Vector2 = from_point + segment_vector.normalized() * local_distance
 			return _make_polyline_pose_success_report(
@@ -1169,9 +1601,17 @@ static func _sample_polyline_pose_at_distance(
 		total_length,
 		total_length,
 		ratio,
-		maxi(path_points.size() - 2, 0),
+		maxi(
+			path_points.size() - 2,
+			0
+		),
 		1.0,
-		path_points[maxi(path_points.size() - 2, 0)],
+		path_points[
+			maxi(
+				path_points.size() - 2,
+				0
+			)
+		],
 		path_points[path_points.size() - 1],
 		closed
 	)
@@ -1212,7 +1652,11 @@ static func _make_polyline_pose_success_report(
 ## [br]
 ## @api private
 static func _make_polyline_projection_report(target: Vector2, closed: bool) -> Dictionary:
-	var report: Dictionary = _make_polyline_pose_report(0.0, 0.0, closed)
+	var report: Dictionary = _make_polyline_pose_report(
+		0.0,
+		0.0,
+		closed
+	)
 	report["target"] = target
 	report["distance"] = INF
 	report["distance_squared"] = INF
@@ -1261,7 +1705,11 @@ static func _normalize_meander_side(side: int) -> int:
 ## 在交替模式下按步数奇偶翻转侧向符号。
 ## [br]
 ## @api private
-static func _get_meander_sign(step_index: int, side: int, alternate: bool) -> int:
+static func _get_meander_sign(
+	step_index: int,
+	side: int,
+	alternate: bool
+) -> int:
 	if alternate and posmod(step_index, 2) == 1:
 		return -side
 	return side

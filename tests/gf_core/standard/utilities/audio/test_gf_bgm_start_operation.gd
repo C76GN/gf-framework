@@ -1,16 +1,9 @@
 # 测试 BGM 类型化启动 Operation、Result 与独立 Session Handle 契约。
 extends GutTest
 
-
-const _OPERATION_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd"
-)
-const _RESULT_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/audio/gf_bgm_start_result.gd"
-)
-const _SESSION_HANDLE_SCRIPT_PATH: String = (
-	"res://addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd"
-)
+const _OPERATION_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd"
+const _RESULT_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/audio/gf_bgm_start_result.gd"
+const _SESSION_HANDLE_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd"
 
 
 class DeferredAssetUtility:
@@ -25,6 +18,7 @@ class DeferredAssetUtility:
 		_options: Dictionary = {}
 	) -> void:
 		pending[path] = on_loaded
+
 
 	func finish(path: String, resource: Resource) -> void:
 		if not pending.has(path):
@@ -44,6 +38,7 @@ class ImmediateAssetUtility:
 	func _init(value: Resource) -> void:
 		resource = value
 
+
 	func load_async(
 		_path: String,
 		on_loaded: Callable,
@@ -61,6 +56,7 @@ class AssetBackedAudioUtility:
 	func _init(value: GFAssetUtility) -> void:
 		asset_utility = value
 
+
 	func _get_asset_util() -> GFAssetUtility:
 		return asset_utility
 
@@ -74,7 +70,11 @@ class ReentrantSourceClip:
 	var reentered: bool = false
 
 	func has_source() -> bool:
-		if not reentered and host != null and newer_clip != null:
+		if (
+			not reentered
+			and host != null
+			and newer_clip != null
+		):
 			reentered = true
 			newer_operation = host.start_bgm_clip(newer_clip, 0.0)
 		return super.has_source()
@@ -88,10 +88,13 @@ class ReentrantSnapshotResource:
 	var newer_operation: Object = null
 	var reentered: bool = false
 	var _payload: int = 7
-
 	@export var payload: int:
 		get:
-			if not reentered and host != null and newer_clip != null:
+			if (
+				not reentered
+				and host != null
+				and newer_clip != null
+			):
 				reentered = true
 				newer_operation = host.start_bgm_clip(newer_clip, 0.0)
 			return _payload
@@ -148,10 +151,12 @@ class ReentrantPlaybackStream:
 						host.init()
 		return playback_source.instantiate_playback()
 
+
 	func clear_reentry_context() -> void:
 		host = null
 		root = null
 		holder = null
+
 
 	func _reparent_candidate(target_replacement: bool) -> void:
 		if root == null or holder == null:
@@ -172,6 +177,7 @@ class ReentrantPlaybackStream:
 			player.reparent(holder)
 			return
 
+
 	func _queue_free_candidate_player() -> void:
 		if root == null:
 			return
@@ -183,6 +189,7 @@ class ReentrantPlaybackStream:
 				continue
 			player.queue_free()
 			return
+
 
 	func _activate_replacement_player() -> void:
 		if root == null or host == null:
@@ -213,8 +220,13 @@ class RecordingBgmBackend:
 	var bgm_playing: bool = false
 	var stop_count: int = 0
 
-	func can_handle_path(_path: String, channel: StringName, _context: Dictionary = {}) -> bool:
+	func can_handle_path(
+		_path: String,
+		channel: StringName,
+		_context: Dictionary = {}
+	) -> bool:
 		return claims_bgm_paths and channel == &"bgm"
+
 
 	func play_bgm_path(path: String, options: Dictionary = {}) -> bool:
 		play_count += 1
@@ -223,10 +235,12 @@ class RecordingBgmBackend:
 		bgm_playing = accepts_bgm_start
 		return accepts_bgm_start
 
+
 	func stop_bgm(_fade_seconds: float = 0.0) -> bool:
 		stop_count += 1
 		bgm_playing = false
 		return true
+
 
 	func is_bgm_playing() -> bool:
 		return bgm_playing
@@ -258,9 +272,7 @@ class ReentrantStartBackend:
 			return accepted
 		last_pending_operation = _get_pending_operation(host_value)
 		if before_action_callback.is_valid():
-			var _callback_result: Variant = before_action_callback.call(
-				last_pending_operation
-			)
+			var _callback_result: Variant = before_action_callback.call(last_pending_operation)
 		action_called = true
 		match action:
 			Action.CANCEL_OPERATION:
@@ -289,6 +301,7 @@ class ReentrantStartBackend:
 					var natural_player: AudioStreamPlayer = natural_player_value
 					var _emit_result: Error = natural_player.emit_signal(&"finished")
 		return accepted
+
 
 	func _get_pending_operation(host_value: Object) -> Object:
 		var pending_value: Variant = host_value.get("_bgm_pending_start_request")
@@ -324,17 +337,21 @@ class PendingRequestLivenessBackend:
 		_run_callback_action()
 		return playing
 
+
 	func pause_bgm(_fade_seconds: float = 0.0) -> bool:
 		_run_callback_action()
 		return true
+
 
 	func set_parameter(_parameter: GFAudioParameter) -> bool:
 		_run_callback_action()
 		return true
 
+
 	func get_bgm_playback_position() -> float:
 		_run_callback_action()
 		return playback_position
+
 
 	func _run_callback_action() -> void:
 		if callback_count > 0:
@@ -358,9 +375,7 @@ class PendingRequestLivenessBackend:
 			CallbackAction.RECORD_ACTIVE_STOP_INTENT:
 				var host_value: Object = get_host()
 				if host_value != null:
-					var session_id: int = GFVariantData.to_int(
-						host_value.get("_bgm_committed_session_id")
-					)
+					var session_id: int = GFVariantData.to_int(host_value.get("_bgm_committed_session_id"))
 					var _recorded: Variant = host_value.call(
 						&"_record_deferred_bgm_session_terminal",
 						session_id,
@@ -424,14 +439,9 @@ class PublicationEmptyAfterBackendAcceptBackend:
 		if not pending_value is Dictionary:
 			return accepted
 		var pending: Dictionary = pending_value
-		var operation_value: Variant = GFVariantData.get_option_value(
-			pending,
-			"operation"
-		)
+		var operation_value: Variant = GFVariantData.get_option_value(pending, "operation")
 		if before_invalidate_callback.is_valid():
-			var _callback_result: Variant = before_invalidate_callback.call(
-				operation_value
-			)
+			var _callback_result: Variant = before_invalidate_callback.call(operation_value)
 		pending["reserved_session_id"] = 0
 		host_value.set("_bgm_pending_start_request", pending)
 		invalidated_publication_count += 1
@@ -531,7 +541,11 @@ func _ensure_test_audio_bus(bus_name: String) -> void:
 
 
 func _remove_created_audio_buses() -> void:
-	for index: int in range(_created_audio_buses.size() - 1, -1, -1):
+	for index: int in range(
+		_created_audio_buses.size() - 1,
+		-1,
+		-1
+	):
 		var bus_index: int = AudioServer.get_bus_index(_created_audio_buses[index])
 		if bus_index >= 0:
 			AudioServer.remove_bus(bus_index)
@@ -539,8 +553,20 @@ func _remove_created_audio_buses() -> void:
 
 
 func test_public_bgm_start_contract_is_frozen() -> void:
-	_assert_method_signature(_audio, &"start_bgm", 3, 2, &"GFBgmStartOperation")
-	_assert_method_signature(_audio, &"start_bgm_clip", 3, 2, &"GFBgmStartOperation")
+	_assert_method_signature(
+		_audio,
+		&"start_bgm",
+		3,
+		2,
+		&"GFBgmStartOperation"
+	)
+	_assert_method_signature(
+		_audio,
+		&"start_bgm_clip",
+		3,
+		2,
+		&"GFBgmStartOperation"
+	)
 	assert_true(
 		ResourceLoader.exists(_OPERATION_SCRIPT_PATH, "Script"),
 		"#88 必须提供 GFBgmStartOperation 公开句柄。"
@@ -578,40 +604,69 @@ func test_public_bgm_start_contract_is_frozen() -> void:
 	assert_not_null(operation_script)
 	assert_not_null(result_script)
 	assert_not_null(session_script)
-	if operation_script == null or result_script == null or session_script == null:
+	if (
+		operation_script == null
+		or result_script == null
+		or session_script == null
+	):
 		return
 
-	assert_eq(String(operation_script.get_global_name()), "GFBgmStartOperation")
-	assert_eq(String(result_script.get_global_name()), "GFBgmStartResult")
-	assert_eq(String(session_script.get_global_name()), "GFBgmSessionHandle")
-	_assert_script_enum(result_script, "Status", {
-		"STARTED": 0,
-		"REJECTED": 1,
-		"FAILED": 2,
-		"SUPERSEDED": 3,
-		"CANCELLED": 4,
-	})
-	_assert_script_enum(result_script, "BackendDisposition", {
-		"NOT_ATTEMPTED": 0,
-		"NOT_CLAIMED": 1,
-		"REJECTED": 2,
-		"STARTED": 3,
-		"INVALIDATED": 4,
-	})
-	_assert_script_enum(session_script, "OwnerKind", {
-		"NONE": 0,
-		"LOCAL": 1,
-		"BACKEND": 2,
-	})
-	_assert_script_enum(session_script, "EndKind", {
-		"NONE": 0,
-		"NATURAL_FINISH": 1,
-		"STOPPED": 2,
-		"REPLACED": 3,
-		"OWNER_RELEASED": 4,
-		"UTILITY_DISPOSED": 5,
-		"PLAYBACK_FAILED": 6,
-	})
+	assert_eq(
+		String(operation_script.get_global_name()),
+		"GFBgmStartOperation"
+	)
+	assert_eq(
+		String(result_script.get_global_name()),
+		"GFBgmStartResult"
+	)
+	assert_eq(
+		String(session_script.get_global_name()),
+		"GFBgmSessionHandle"
+	)
+	_assert_script_enum(
+		result_script,
+		"Status",
+		{
+			"STARTED": 0,
+			"REJECTED": 1,
+			"FAILED": 2,
+			"SUPERSEDED": 3,
+			"CANCELLED": 4,
+		}
+	)
+	_assert_script_enum(
+		result_script,
+		"BackendDisposition",
+		{
+			"NOT_ATTEMPTED": 0,
+			"NOT_CLAIMED": 1,
+			"REJECTED": 2,
+			"STARTED": 3,
+			"INVALIDATED": 4,
+		}
+	)
+	_assert_script_enum(
+		session_script,
+		"OwnerKind",
+		{
+			"NONE": 0,
+			"LOCAL": 1,
+			"BACKEND": 2,
+		}
+	)
+	_assert_script_enum(
+		session_script,
+		"EndKind",
+		{
+			"NONE": 0,
+			"NATURAL_FINISH": 1,
+			"STOPPED": 2,
+			"REPLACED": 3,
+			"OWNER_RELEASED": 4,
+			"UTILITY_DISPOSED": 5,
+			"PLAYBACK_FAILED": 6,
+		}
+	)
 
 	var operation_value: Variant = operation_script.new()
 	var result_value: Variant = result_script.new()
@@ -619,46 +674,65 @@ func test_public_bgm_start_contract_is_frozen() -> void:
 	assert_true(operation_value is RefCounted)
 	assert_true(result_value is RefCounted)
 	assert_true(session_value is RefCounted)
-	if not operation_value is Object or not result_value is Object or not session_value is Object:
+	if (
+		not operation_value is Object
+		or not result_value is Object
+		or not session_value is Object
+	):
 		return
 
 	var operation: Object = operation_value
 	var result: Object = result_value
 	var session: Object = session_value
-	_assert_object_surface(operation, [
-		&"get_request_id",
-		&"is_pending",
-		&"is_completed",
-		&"get_result",
-		&"cancel",
-	])
-	assert_true(operation.has_signal(&"completed"), "Operation 必须提供 exactly-once completed(result)。")
-	_assert_object_surface(result, [
-		&"get_status",
-		&"is_successful",
-		&"get_request_id",
-		&"get_reason",
-		&"get_error_code",
-		&"get_history_key",
-		&"get_owner_kind",
-		&"get_backend_disposition",
-		&"used_backend_fallback",
-		&"get_session_id",
-		&"get_session_handle",
-		&"duplicate_result",
-		&"to_dict",
-	])
-	_assert_object_surface(session, [
-		&"get_session_id",
-		&"get_request_id",
-		&"get_history_key",
-		&"get_owner_kind",
-		&"is_active",
-		&"is_terminal",
-		&"get_end_kind",
-		&"stop",
-	])
-	assert_true(session.has_signal(&"ended"), "Session Handle 必须提供 exactly-once ended(handle, end_kind)。")
+	_assert_object_surface(
+		operation,
+		[
+			&"get_request_id",
+			&"is_pending",
+			&"is_completed",
+			&"get_result",
+			&"cancel",
+		]
+	)
+	assert_true(
+		operation.has_signal(&"completed"),
+		"Operation 必须提供 exactly-once completed(result)。"
+	)
+	_assert_object_surface(
+		result,
+		[
+			&"get_status",
+			&"is_successful",
+			&"get_request_id",
+			&"get_reason",
+			&"get_error_code",
+			&"get_history_key",
+			&"get_owner_kind",
+			&"get_backend_disposition",
+			&"used_backend_fallback",
+			&"get_session_id",
+			&"get_session_handle",
+			&"duplicate_result",
+			&"to_dict",
+		]
+	)
+	_assert_object_surface(
+		session,
+		[
+			&"get_session_id",
+			&"get_request_id",
+			&"get_history_key",
+			&"get_owner_kind",
+			&"is_active",
+			&"is_terminal",
+			&"get_end_kind",
+			&"stop",
+		]
+	)
+	assert_true(
+		session.has_signal(&"ended"),
+		"Session Handle 必须提供 exactly-once ended(handle, end_kind)。"
+	)
 
 
 func test_start_result_closed_union_rejects_invalid_combinations_and_configures_once() -> void:
@@ -666,12 +740,36 @@ func test_start_result_closed_union_rejects_invalid_combinations_and_configures_
 		return
 	var request_id: int = 701
 	var history_key: String = "issue88-result-union"
-	var local_owner: int = _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "LOCAL")
-	var no_owner: int = _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "NONE")
-	var backend_owner: int = _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "BACKEND")
-	var started_status: int = _enum_value(_RESULT_SCRIPT_PATH, "Status", "STARTED")
-	var failed_status: int = _enum_value(_RESULT_SCRIPT_PATH, "Status", "FAILED")
-	var cancelled_status: int = _enum_value(_RESULT_SCRIPT_PATH, "Status", "CANCELLED")
+	var local_owner: int = _enum_value(
+		_SESSION_HANDLE_SCRIPT_PATH,
+		"OwnerKind",
+		"LOCAL"
+	)
+	var no_owner: int = _enum_value(
+		_SESSION_HANDLE_SCRIPT_PATH,
+		"OwnerKind",
+		"NONE"
+	)
+	var backend_owner: int = _enum_value(
+		_SESSION_HANDLE_SCRIPT_PATH,
+		"OwnerKind",
+		"BACKEND"
+	)
+	var started_status: int = _enum_value(
+		_RESULT_SCRIPT_PATH,
+		"Status",
+		"STARTED"
+	)
+	var failed_status: int = _enum_value(
+		_RESULT_SCRIPT_PATH,
+		"Status",
+		"FAILED"
+	)
+	var cancelled_status: int = _enum_value(
+		_RESULT_SCRIPT_PATH,
+		"Status",
+		"CANCELLED"
+	)
 	var not_attempted: int = _enum_value(
 		_RESULT_SCRIPT_PATH,
 		"BackendDisposition",
@@ -687,26 +785,11 @@ func test_start_result_closed_union_rejects_invalid_combinations_and_configures_
 		"BackendDisposition",
 		"INVALIDATED"
 	)
-	var local_started_reason: StringName = _script_string_name_constant(
-		_RESULT_SCRIPT_PATH,
-		"REASON_LOCAL_STARTED"
-	)
-	var asset_failed_reason: StringName = _script_string_name_constant(
-		_RESULT_SCRIPT_PATH,
-		"REASON_ASSET_LOAD_FAILED"
-	)
-	var backend_changed_reason: StringName = _script_string_name_constant(
-		_RESULT_SCRIPT_PATH,
-		"REASON_BACKEND_CHANGED"
-	)
-	var local_player_rejected_reason: StringName = _script_string_name_constant(
-		_RESULT_SCRIPT_PATH,
-		"REASON_LOCAL_PLAYER_REJECTED"
-	)
-	var publication_failed_reason: StringName = _script_string_name_constant(
-		_RESULT_SCRIPT_PATH,
-		"REASON_SESSION_PUBLICATION_FAILED"
-	)
+	var local_started_reason: StringName = _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_STARTED")
+	var asset_failed_reason: StringName = _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_ASSET_LOAD_FAILED")
+	var backend_changed_reason: StringName = _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_BACKEND_CHANGED")
+	var local_player_rejected_reason: StringName = _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_PLAYER_REJECTED")
+	var publication_failed_reason: StringName = _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_SESSION_PUBLICATION_FAILED")
 	var session: Object = _make_configured_session(
 		1701,
 		request_id,
@@ -716,165 +799,211 @@ func test_start_result_closed_union_rejects_invalid_combinations_and_configures_
 	if session == null:
 		return
 
-	_assert_result_configuration_rejected([
-		99,
-		request_id,
-		local_started_reason,
-		OK,
-		history_key,
-		local_owner,
-		not_attempted,
-		session,
-	], "未知 status 必须拒绝。")
-	_assert_result_configuration_rejected([
-		started_status,
-		request_id,
-		&"invalid_path",
-		OK,
-		history_key,
-		local_owner,
-		not_attempted,
-		session,
-	], "STARTED 不得携带失败 reason。")
-	_assert_result_configuration_rejected([
-		started_status,
-		request_id,
-		local_started_reason,
-		ERR_CANT_OPEN,
-		history_key,
-		local_owner,
-		not_attempted,
-		session,
-	], "STARTED 必须携带 OK。")
-	_assert_result_configuration_rejected([
-		started_status,
-		request_id,
-		local_started_reason,
-		OK,
-		history_key,
-		local_owner,
-		backend_started,
-		session,
-	], "local-started reason 与 backend disposition 不得矛盾。")
+	_assert_result_configuration_rejected(
+		[
+			99,
+			request_id,
+			local_started_reason,
+			OK,
+			history_key,
+			local_owner,
+			not_attempted,
+			session,
+		],
+		"未知 status 必须拒绝。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			started_status,
+			request_id,
+			&"invalid_path",
+			OK,
+			history_key,
+			local_owner,
+			not_attempted,
+			session,
+		],
+		"STARTED 不得携带失败 reason。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			started_status,
+			request_id,
+			local_started_reason,
+			ERR_CANT_OPEN,
+			history_key,
+			local_owner,
+			not_attempted,
+			session,
+		],
+		"STARTED 必须携带 OK。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			started_status,
+			request_id,
+			local_started_reason,
+			OK,
+			history_key,
+			local_owner,
+			backend_started,
+			session,
+		],
+		"local-started reason 与 backend disposition 不得矛盾。"
+	)
 	var mismatched_request_session: Object = _make_configured_session(
 		1702,
 		request_id + 1,
 		history_key,
 		"LOCAL"
 	)
-	_assert_result_configuration_rejected([
-		started_status,
-		request_id,
-		local_started_reason,
-		OK,
-		history_key,
-		local_owner,
-		not_attempted,
-		mismatched_request_session,
-	], "Result 与 Session Handle 的 request identity 必须精确匹配。")
+	_assert_result_configuration_rejected(
+		[
+			started_status,
+			request_id,
+			local_started_reason,
+			OK,
+			history_key,
+			local_owner,
+			not_attempted,
+			mismatched_request_session,
+		],
+		"Result 与 Session Handle 的 request identity 必须精确匹配。"
+	)
 	var mismatched_history_session: Object = _make_configured_session(
 		1703,
 		request_id,
 		"different-history",
 		"LOCAL"
 	)
-	_assert_result_configuration_rejected([
-		started_status,
-		request_id,
-		local_started_reason,
-		OK,
-		history_key,
-		local_owner,
-		not_attempted,
-		mismatched_history_session,
-	], "Result 与 Session Handle 的 history identity 必须精确匹配。")
+	_assert_result_configuration_rejected(
+		[
+			started_status,
+			request_id,
+			local_started_reason,
+			OK,
+			history_key,
+			local_owner,
+			not_attempted,
+			mismatched_history_session,
+		],
+		"Result 与 Session Handle 的 history identity 必须精确匹配。"
+	)
 	var mismatched_owner_session: Object = _make_configured_session(
 		1704,
 		request_id,
 		history_key,
 		"BACKEND"
 	)
-	_assert_result_configuration_rejected([
-		started_status,
-		request_id,
-		local_started_reason,
-		OK,
-		history_key,
-		local_owner,
-		not_attempted,
-		mismatched_owner_session,
-	], "Result 与 Session Handle 的 owner identity 必须精确匹配。")
-	_assert_result_configuration_rejected([
-		failed_status,
-		request_id,
-		asset_failed_reason,
-		ERR_CANT_OPEN,
-		history_key,
-		local_owner,
-		not_attempted,
-		session,
-	], "非 STARTED 终态不得携带 owner 或 Session Handle。")
-	_assert_result_configuration_rejected([
-		failed_status,
-		request_id,
-		asset_failed_reason,
-		ERR_CANT_OPEN,
-		history_key,
+	_assert_result_configuration_rejected(
+		[
+			started_status,
+			request_id,
+			local_started_reason,
+			OK,
+			history_key,
+			local_owner,
+			not_attempted,
+			mismatched_owner_session,
+		],
+		"Result 与 Session Handle 的 owner identity 必须精确匹配。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			failed_status,
+			request_id,
+			asset_failed_reason,
+			ERR_CANT_OPEN,
+			history_key,
+			local_owner,
+			not_attempted,
+			session,
+		],
+		"非 STARTED 终态不得携带 owner 或 Session Handle。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			failed_status,
+			request_id,
+			asset_failed_reason,
+			ERR_CANT_OPEN,
+			history_key,
+			no_owner,
+			backend_started,
+			null,
+		],
+		"非 STARTED 终态不得声称 backend STARTED。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			failed_status,
+			request_id,
+			asset_failed_reason,
+			ERR_CANT_OPEN,
+			history_key,
+			no_owner,
+			invalidated,
+			null,
+		],
+		"FAILED 不得伪装为 topology-invalidated 终态。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			failed_status,
+			request_id,
+			local_player_rejected_reason,
+			ERR_CANT_CREATE,
+			history_key,
+			no_owner,
+			invalidated,
+			null,
+		],
+		"FAILED/ERR_CANT_CREATE/INVALIDATED 只允许 publication failure reason。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			failed_status,
+			request_id,
+			publication_failed_reason,
+			ERR_CANT_OPEN,
+			history_key,
+			no_owner,
+			invalidated,
+			null,
+		],
+		"session publication failure 必须携带 ERR_CANT_CREATE。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			failed_status,
+			request_id,
+			publication_failed_reason,
+			ERR_CANT_CREATE,
+			history_key,
+			no_owner,
+			not_attempted,
+			null,
+		],
+		"session publication failure 必须携带 INVALIDATED disposition。"
+	)
+	_assert_result_configuration_rejected(
+		[
+			cancelled_status,
+			request_id,
+			backend_changed_reason,
+			ERR_SKIP,
+			history_key,
+			no_owner,
+			not_attempted,
+			null,
+		],
+		"backend_changed 必须携带 INVALIDATED disposition。"
+	)
+	assert_ne(
+		backend_owner,
 		no_owner,
-		backend_started,
-		null,
-	], "非 STARTED 终态不得声称 backend STARTED。")
-	_assert_result_configuration_rejected([
-		failed_status,
-		request_id,
-		asset_failed_reason,
-		ERR_CANT_OPEN,
-		history_key,
-		no_owner,
-		invalidated,
-		null,
-	], "FAILED 不得伪装为 topology-invalidated 终态。")
-	_assert_result_configuration_rejected([
-		failed_status,
-		request_id,
-		local_player_rejected_reason,
-		ERR_CANT_CREATE,
-		history_key,
-		no_owner,
-		invalidated,
-		null,
-	], "FAILED/ERR_CANT_CREATE/INVALIDATED 只允许 publication failure reason。")
-	_assert_result_configuration_rejected([
-		failed_status,
-		request_id,
-		publication_failed_reason,
-		ERR_CANT_OPEN,
-		history_key,
-		no_owner,
-		invalidated,
-		null,
-	], "session publication failure 必须携带 ERR_CANT_CREATE。")
-	_assert_result_configuration_rejected([
-		failed_status,
-		request_id,
-		publication_failed_reason,
-		ERR_CANT_CREATE,
-		history_key,
-		no_owner,
-		not_attempted,
-		null,
-	], "session publication failure 必须携带 INVALIDATED disposition。")
-	_assert_result_configuration_rejected([
-		cancelled_status,
-		request_id,
-		backend_changed_reason,
-		ERR_SKIP,
-		history_key,
-		no_owner,
-		not_attempted,
-		null,
-	], "backend_changed 必须携带 INVALIDATED disposition。")
-	assert_ne(backend_owner, no_owner, "OwnerKind 枚举必须保持闭合可区分。")
+		"OwnerKind 枚举必须保持闭合可区分。"
+	)
 
 	var accepted_cancelled: Object = _new_script_object(_RESULT_SCRIPT_PATH)
 	assert_not_null(accepted_cancelled)
@@ -906,12 +1035,24 @@ func test_start_result_closed_union_rejects_invalid_combinations_and_configures_
 		),
 		"Result 只能 configure 一次。"
 	)
-	assert_eq(_call_int(accepted_cancelled, &"get_request_id", 0), request_id)
-	assert_eq(_call_int(accepted_cancelled, &"get_status", -1), cancelled_status)
-
-	var accepted_publication_failure: Object = _new_script_object(
-		_RESULT_SCRIPT_PATH
+	assert_eq(
+		_call_int(
+			accepted_cancelled,
+			&"get_request_id",
+			0
+		),
+		request_id
 	)
+	assert_eq(
+		_call_int(
+			accepted_cancelled,
+			&"get_status",
+			-1
+		),
+		cancelled_status
+	)
+
+	var accepted_publication_failure: Object = _new_script_object(_RESULT_SCRIPT_PATH)
 	assert_not_null(accepted_publication_failure)
 	if accepted_publication_failure == null:
 		return
@@ -937,11 +1078,19 @@ func test_start_result_closed_union_rejects_invalid_combinations_and_configures_
 		publication_failed_reason
 	)
 	assert_eq(
-		_call_int(accepted_publication_failure, &"get_error_code", OK),
+		_call_int(
+			accepted_publication_failure,
+			&"get_error_code",
+			OK
+		),
 		ERR_CANT_CREATE
 	)
 	assert_eq(
-		_call_int(accepted_publication_failure, &"get_backend_disposition", -1),
+		_call_int(
+			accepted_publication_failure,
+			&"get_backend_disposition",
+			-1
+		),
 		invalidated
 	)
 	assert_null(_call_object(accepted_publication_failure, &"get_session_handle"))
@@ -963,21 +1112,43 @@ func test_start_result_duplicate_shares_canonical_session_handle() -> void:
 	assert_not_null(result)
 	if session == null or result == null:
 		return
-	assert_true(_call_bool_with_args(result, &"configure_for_framework", [
-		_enum_value(_RESULT_SCRIPT_PATH, "Status", "STARTED"),
-		request_id,
-		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_STARTED"),
-		OK,
-		history_key,
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "LOCAL"),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED"),
-		session,
-	]))
+	assert_true(
+		_call_bool_with_args(
+			result,
+			&"configure_for_framework",
+			[
+				_enum_value(
+					_RESULT_SCRIPT_PATH,
+					"Status",
+					"STARTED"
+				),
+				request_id,
+				_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_STARTED"),
+				OK,
+				history_key,
+				_enum_value(
+					_SESSION_HANDLE_SCRIPT_PATH,
+					"OwnerKind",
+					"LOCAL"
+				),
+				_enum_value(
+					_RESULT_SCRIPT_PATH,
+					"BackendDisposition",
+					"NOT_ATTEMPTED"
+				),
+				session,
+			]
+		)
+	)
 	var duplicated_result: Object = _call_object(result, &"duplicate_result")
 	assert_not_null(duplicated_result)
 	if duplicated_result == null:
 		return
-	assert_not_same(duplicated_result, result, "Result 标量副本必须是隔离对象。")
+	assert_not_same(
+		duplicated_result,
+		result,
+		"Result 标量副本必须是隔离对象。"
+	)
 	assert_same(
 		_call_object(duplicated_result, &"get_session_handle"),
 		_call_object(result, &"get_session_handle"),
@@ -987,19 +1158,25 @@ func test_start_result_duplicate_shares_canonical_session_handle() -> void:
 	assert_true(dictionary_value is Dictionary)
 	if dictionary_value is Dictionary:
 		var dictionary: Dictionary = dictionary_value
-		assert_eq(dictionary.keys(), [
-			"status",
-			"request_id",
-			"reason",
-			"error_code",
-			"history_key",
-			"owner_kind",
-			"backend_disposition",
-			"used_backend_fallback",
-			"session_id",
-		])
+		assert_eq(
+			dictionary.keys(),
+			[
+				"status",
+				"request_id",
+				"reason",
+				"error_code",
+				"history_key",
+				"owner_kind",
+				"backend_disposition",
+				"used_backend_fallback",
+				"session_id",
+			]
+		)
 		for value: Variant in dictionary.values():
-			assert_false(value is Object, "Result serialization 不得泄露 capability 对象。")
+			assert_false(
+				value is Object,
+				"Result serialization 不得泄露 capability 对象。"
+			)
 
 
 func test_invalid_clip_completes_as_rejected_without_session() -> void:
@@ -1012,17 +1189,50 @@ func test_invalid_clip_completes_as_rejected_without_session() -> void:
 	if result == null:
 		return
 	assert_false(_call_bool(result, &"is_successful"))
-	assert_ne(_call_int(result, &"get_error_code", OK), OK)
-	assert_ne(_call_string_name(result, &"get_reason"), &"")
-	assert_eq(_call_int(result, &"get_session_id", -1), 0)
-	assert_null(_call_object(result, &"get_session_handle"))
-	assert_eq(
-		_call_int(result, &"get_owner_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "NONE")
+	assert_ne(
+		_call_int(
+			result,
+			&"get_error_code",
+			OK
+		),
+		OK
+	)
+	assert_ne(
+		_call_string_name(result, &"get_reason"),
+		&""
 	)
 	assert_eq(
-		_call_int(result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED")
+		_call_int(
+			result,
+			&"get_session_id",
+			-1
+		),
+		0
+	)
+	assert_null(_call_object(result, &"get_session_handle"))
+	assert_eq(
+		_call_int(
+			result,
+			&"get_owner_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"OwnerKind",
+			"NONE"
+		)
+	)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"BackendDisposition",
+			"NOT_ATTEMPTED"
+		)
 	)
 
 
@@ -1045,24 +1255,49 @@ func test_empty_typed_path_is_rejected_without_stopping_active_session() -> void
 	watch_signals(active_session)
 
 	var rejected_operation: Object = _start_bgm("", {})
-	var rejected_result: Object = _assert_completed_with_status(
-		rejected_operation,
-		"REJECTED"
-	)
+	var rejected_result: Object = _assert_completed_with_status(rejected_operation, "REJECTED")
 	if rejected_result == null:
 		return
 	assert_eq(
 		_call_string_name(rejected_result, &"get_reason"),
 		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_INVALID_PATH")
 	)
-	assert_eq(_call_int(rejected_result, &"get_error_code", OK), ERR_INVALID_PARAMETER)
-	assert_eq(_call_int(rejected_result, &"get_session_id", -1), 0)
+	assert_eq(
+		_call_int(
+			rejected_result,
+			&"get_error_code",
+			OK
+		),
+		ERR_INVALID_PARAMETER
+	)
+	assert_eq(
+		_call_int(
+			rejected_result,
+			&"get_session_id",
+			-1
+		),
+		0
+	)
 	assert_null(_call_object(rejected_result, &"get_session_handle"))
-	assert_true(_call_bool(active_session, &"is_active"), "typed 空路径不得复用 legacy stop 语义。")
-	assert_signal_emit_count(active_session, "ended", 0)
-	assert_eq(_audio.get_current_bgm_key(), "issue88-invalid-path-active")
+	assert_true(
+		_call_bool(active_session, &"is_active"),
+		"typed 空路径不得复用 legacy stop 语义。"
+	)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		0
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-invalid-path-active"
+	)
 	assert_true(_audio.is_bgm_playing())
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
 
 
 func test_immediate_local_clip_returns_started_result_and_active_session() -> void:
@@ -1075,14 +1310,34 @@ func test_immediate_local_clip_returns_started_result_and_active_session() -> vo
 	var result: Object = _assert_completed_with_status(operation, "STARTED")
 	if result == null:
 		return
-	_assert_started_result_matches_operation(operation, result, "issue88-immediate-local")
-	assert_eq(
-		_call_int(result, &"get_owner_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "LOCAL")
+	_assert_started_result_matches_operation(
+		operation,
+		result,
+		"issue88-immediate-local"
 	)
 	assert_eq(
-		_call_int(result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED")
+		_call_int(
+			result,
+			&"get_owner_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"OwnerKind",
+			"LOCAL"
+		)
+	)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"BackendDisposition",
+			"NOT_ATTEMPTED"
+		)
 	)
 	assert_false(_call_bool(result, &"used_backend_fallback"))
 
@@ -1115,15 +1370,38 @@ func test_started_local_session_owner_release_completes_owner_released_once() ->
 	assert_false(is_instance_valid(request_owner))
 	assert_true(_call_bool(session, &"is_terminal"))
 	assert_eq(
-		_call_int(session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "OWNER_RELEASED")
+		_call_int(
+			session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"OWNER_RELEASED"
+		)
 	)
-	assert_signal_emit_count(session, "ended", 1)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(session, "ended", 1)
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
 
 
 func test_started_session_utility_dispose_completes_utility_disposed_once() -> void:
@@ -1148,14 +1426,37 @@ func test_started_session_utility_dispose_completes_utility_disposed_once() -> v
 
 	assert_true(_call_bool(session, &"is_terminal"))
 	assert_eq(
-		_call_int(session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "UTILITY_DISPOSED")
+		_call_int(
+			session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"UTILITY_DISPOSED"
+		)
 	)
-	assert_signal_emit_count(session, "ended", 1)
-	assert_eq(_audio.get_current_bgm_key(), "")
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(session, "ended", 1)
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
 
 
 func test_backend_accept_reports_started_backend_session_without_fallback() -> void:
@@ -1167,21 +1468,41 @@ func test_backend_accept_reports_started_backend_session_without_fallback() -> v
 
 	var operation: Object = _start_bgm(
 		"event://music/issue88-backend",
-		{"history_key": "issue88-backend"}
+		{ "history_key": "issue88-backend" }
 	)
 	var result: Object = _assert_completed_with_status(operation, "STARTED")
 	if result == null:
 		return
-	_assert_started_result_matches_operation(operation, result, "issue88-backend")
+	_assert_started_result_matches_operation(
+		operation,
+		result,
+		"issue88-backend"
+	)
 	assert_eq(backend.play_count, 1)
 	assert_eq(backend.last_path, "event://music/issue88-backend")
 	assert_eq(
-		_call_int(result, &"get_owner_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "BACKEND")
+		_call_int(
+			result,
+			&"get_owner_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"OwnerKind",
+			"BACKEND"
+		)
 	)
 	assert_eq(
-		_call_int(result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "STARTED")
+		_call_int(
+			result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"BackendDisposition",
+			"STARTED"
+		)
 	)
 	assert_false(_call_bool(result, &"used_backend_fallback"))
 
@@ -1195,7 +1516,7 @@ func test_backend_owned_typed_session_natural_finish_completes_once() -> void:
 	watch_signals(_audio)
 	var operation: Object = _start_bgm(
 		"event://music/issue88-backend-natural",
-		{"history_key": "issue88-backend-natural"}
+		{ "history_key": "issue88-backend-natural" }
 	)
 	var result: Object = _assert_completed_with_status(operation, "STARTED")
 	if result == null:
@@ -1211,20 +1532,47 @@ func test_backend_owned_typed_session_natural_finish_completes_once() -> void:
 
 	assert_true(_call_bool(session, &"is_terminal"))
 	assert_eq(
-		_call_int(session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "NATURAL_FINISH")
+		_call_int(
+			session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"NATURAL_FINISH"
+		)
 	)
-	assert_signal_emit_count(session, "ended", 1)
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
 	assert_signal_emitted_with_parameters(
 		_audio,
 		"bgm_finished",
 		["issue88-backend-natural"]
 	)
-	assert_signal_emit_count(_audio, "bgm_finished", 1)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		1
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
-	assert_signal_emit_count(session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 1)
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		1
+	)
 
 
 func test_backend_rejection_can_fall_back_to_local_and_remains_a_started_result() -> void:
@@ -1232,28 +1580,46 @@ func test_backend_rejection_can_fall_back_to_local_and_remains_a_started_result(
 		return
 	var backend: RecordingBgmBackend = RecordingBgmBackend.new()
 	backend.accepts_bgm_start = false
-	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(
-		AudioStreamGenerator.new()
-	)
+	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(AudioStreamGenerator.new())
 	await _activate_audio(AssetBackedAudioUtility.new(immediate_asset))
 	assert_true(_audio.set_audio_backend(backend))
 
 	var operation: Object = _start_bgm(
 		"event://music/issue88-fallback",
-		{"history_key": "issue88-fallback"}
+		{ "history_key": "issue88-fallback" }
 	)
 	var result: Object = _assert_completed_with_status(operation, "STARTED")
 	if result == null:
 		return
-	_assert_started_result_matches_operation(operation, result, "issue88-fallback")
+	_assert_started_result_matches_operation(
+		operation,
+		result,
+		"issue88-fallback"
+	)
 	assert_eq(backend.play_count, 1)
 	assert_eq(
-		_call_int(result, &"get_owner_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "LOCAL")
+		_call_int(
+			result,
+			&"get_owner_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"OwnerKind",
+			"LOCAL"
+		)
 	)
 	assert_eq(
-		_call_int(result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "REJECTED")
+		_call_int(
+			result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"BackendDisposition",
+			"REJECTED"
+		)
 	)
 	assert_true(_call_bool(result, &"used_backend_fallback"))
 
@@ -1261,17 +1627,13 @@ func test_backend_rejection_can_fall_back_to_local_and_remains_a_started_result(
 func test_backend_to_local_handoff_candidate_is_silent_before_rejected_stop() -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
-	var backend: RejectingHandoffInspectionBackend = (
-		RejectingHandoffInspectionBackend.new()
-	)
-	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(
-		AudioStreamGenerator.new()
-	)
+	var backend: RejectingHandoffInspectionBackend = RejectingHandoffInspectionBackend.new()
+	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(AudioStreamGenerator.new())
 	await _activate_audio(AssetBackedAudioUtility.new(immediate_asset))
 	assert_true(_audio.set_audio_backend(backend))
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-handoff-active",
-		{"history_key": "issue88-handoff-active"}
+		{ "history_key": "issue88-handoff-active" }
 	)
 	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
@@ -1285,37 +1647,42 @@ func test_backend_to_local_handoff_candidate_is_silent_before_rejected_stop() ->
 	backend.claims_bgm_paths = false
 	var replacement_operation: Object = _start_bgm(
 		"res://audio/issue88-handoff-local.ogg",
-		{"history_key": "issue88-handoff-local"}
+		{ "history_key": "issue88-handoff-local" }
 	)
-	var replacement_result: Object = _assert_completed_with_status(
-		replacement_operation,
-		"FAILED"
-	)
+	var replacement_result: Object = _assert_completed_with_status(replacement_operation, "FAILED")
 	if replacement_result == null:
 		return
 	assert_eq(
 		_call_string_name(replacement_result, &"get_reason"),
-		_script_string_name_constant(
-			_RESULT_SCRIPT_PATH,
-			"REASON_BACKEND_OWNER_RELEASE_FAILED"
-		)
+		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_BACKEND_OWNER_RELEASE_FAILED")
 	)
-	assert_eq(backend.stop_count, 1, "handoff 必须且只应尝试一次 backend stop。")
-	assert_false(
-		backend.observed_audible_candidate,
-		"backend stop 回调可观察的本地候选必须保持静音。"
+	assert_eq(
+		backend.stop_count,
+		1,
+		"handoff 必须且只应尝试一次 backend stop。"
 	)
+	assert_false(backend.observed_audible_candidate, "backend stop 回调可观察的本地候选必须保持静音。")
 	if backend.observed_candidate_count > 0:
 		assert_lte(
 			backend.observed_candidate_volume_db,
 			GFAudioUtility.SILENCE_VOLUME_DB,
 			"候选只有在 backend owner 成功释放后才可恢复目标音量。"
 		)
-	assert_false(_has_audible_standby_player(), "stop 拒绝后不得遗留可听候选。")
+	assert_false(
+		_has_audible_standby_player(),
+		"stop 拒绝后不得遗留可听候选。"
+	)
 	assert_true(backend.bgm_playing, "拒绝 stop 的 backend-owned A 必须继续物理播放。")
 	assert_true(_call_bool(active_session, &"is_active"))
-	assert_signal_emit_count(active_session, "ended", 0)
-	assert_eq(_audio.get_current_bgm_key(), "issue88-handoff-active")
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		0
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-handoff-active"
+	)
 	backend.reject_stop = false
 
 
@@ -1323,14 +1690,12 @@ func test_session_id_exhaustion_fails_before_backend_handoff_stop() -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
 	var backend: RecordingBgmBackend = RecordingBgmBackend.new()
-	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(
-		AudioStreamGenerator.new()
-	)
+	var immediate_asset: ImmediateAssetUtility = ImmediateAssetUtility.new(AudioStreamGenerator.new())
 	await _activate_audio(AssetBackedAudioUtility.new(immediate_asset))
 	assert_true(_audio.set_audio_backend(backend))
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-id-exhaustion-active",
-		{"history_key": "issue88-id-exhaustion-active"}
+		{ "history_key": "issue88-id-exhaustion-active" }
 	)
 	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
@@ -1345,7 +1710,7 @@ func test_session_id_exhaustion_fails_before_backend_handoff_stop() -> void:
 
 	var failed_operation: Object = _start_bgm(
 		"res://audio/issue88-id-exhaustion-local.ogg",
-		{"history_key": "issue88-id-exhaustion-local"}
+		{ "history_key": "issue88-id-exhaustion-local" }
 	)
 	assert_push_error("[GFAudioUtility][audio_utility.bgm_session_id_exhausted] BGM session ID space is exhausted.")
 	var failed_result: Object = _assert_completed_with_status(failed_operation, "FAILED")
@@ -1355,32 +1720,41 @@ func test_session_id_exhaustion_fails_before_backend_handoff_stop() -> void:
 		_call_string_name(failed_result, &"get_reason"),
 		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_PLAYER_REJECTED")
 	)
-	assert_eq(backend.stop_count, 0, "确定无法分配 session 时不得先停止 backend-owned A。")
+	assert_eq(
+		backend.stop_count,
+		0,
+		"确定无法分配 session 时不得先停止 backend-owned A。"
+	)
 	assert_true(backend.bgm_playing, "ID 耗尽不得产生 backend 物理停止副作用。")
 	assert_true(_call_bool(active_session, &"is_active"))
-	assert_signal_emit_count(active_session, "ended", 0)
-	assert_eq(_audio.get_current_bgm_key(), "issue88-id-exhaustion-active")
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		0
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-id-exhaustion-active"
+	)
 	assert_eq(_audio._bgm_owner, &"backend")
-	assert_false(_has_audible_standby_player(), "失败候选必须完成物理清理。")
+	assert_false(
+		_has_audible_standby_player(),
+		"失败候选必须完成物理清理。"
+	)
 
 
 func test_backend_accepted_publication_failure_compensates_and_closes_both_axes() -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
-	var backend: PublicationEmptyAfterBackendAcceptBackend = (
-		PublicationEmptyAfterBackendAcceptBackend.new()
-	)
+	var backend: PublicationEmptyAfterBackendAcceptBackend = PublicationEmptyAfterBackendAcceptBackend.new()
 	await _activate_audio(GFAudioUtility.new())
 	assert_true(_audio.set_audio_backend(backend))
 	watch_signals(_audio)
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-publication-active",
-		{"history_key": "issue88-publication-active"}
+		{ "history_key": "issue88-publication-active" }
 	)
-	var active_result: Object = _assert_completed_with_status(
-		active_operation,
-		"STARTED"
-	)
+	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
 		return
 	var active_session: Object = _call_object(active_result, &"get_session_handle")
@@ -1397,52 +1771,89 @@ func test_backend_accepted_publication_failure_compensates_and_closes_both_axes(
 		OK
 	)
 	backend.invalidate_next_publication = true
-	backend.before_invalidate_callback = Callable(
-		self,
-		"_bind_publication_failed_operation"
-	)
+	backend.before_invalidate_callback = Callable(self, "_bind_publication_failed_operation")
 
 	var failed_operation: Object = _start_bgm(
 		"event://music/issue88-publication-failed",
-		{"history_key": "issue88-publication-failed"}
+		{ "history_key": "issue88-publication-failed" }
 	)
 	assert_not_null(failed_operation)
 	if failed_operation == null:
 		return
 	assert_same(failed_operation, _publication_failed_operation)
 	assert_eq(_publication_pending_connect_error, OK)
-	var failed_result: Object = _assert_completed_with_status(
-		failed_operation,
-		"FAILED"
-	)
+	var failed_result: Object = _assert_completed_with_status(failed_operation, "FAILED")
 	if failed_result == null:
 		return
 	assert_eq(
 		_call_string_name(failed_result, &"get_reason"),
-		_script_string_name_constant(
+		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_SESSION_PUBLICATION_FAILED")
+	)
+	assert_eq(
+		_call_int(
+			failed_result,
+			&"get_error_code",
+			OK
+		),
+		ERR_CANT_CREATE
+	)
+	assert_eq(
+		_call_int(
+			failed_result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
 			_RESULT_SCRIPT_PATH,
-			"REASON_SESSION_PUBLICATION_FAILED"
+			"BackendDisposition",
+			"INVALIDATED"
 		)
 	)
-	assert_eq(_call_int(failed_result, &"get_error_code", OK), ERR_CANT_CREATE)
 	assert_eq(
-		_call_int(failed_result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "INVALIDATED")
+		_call_int(
+			failed_result,
+			&"get_owner_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"OwnerKind",
+			"NONE"
+		)
 	)
 	assert_eq(
-		_call_int(failed_result, &"get_owner_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "NONE")
+		_call_int(
+			failed_result,
+			&"get_session_id",
+			-1
+		),
+		0
 	)
-	assert_eq(_call_int(failed_result, &"get_session_id", -1), 0)
 	assert_null(_call_object(failed_result, &"get_session_handle"))
-	assert_eq(backend.play_count, 2, "A 与已接纳 B 必须各调用一次 backend start。")
+	assert_eq(
+		backend.play_count,
+		2,
+		"A 与已接纳 B 必须各调用一次 backend start。"
+	)
 	assert_eq(backend.invalidated_publication_count, 1)
-	assert_eq(backend.stop_count, 1, "已接纳但无法发布的 B 必须补偿停止一次。")
+	assert_eq(
+		backend.stop_count,
+		1,
+		"已接纳但无法发布的 B 必须补偿停止一次。"
+	)
 	assert_false(backend.bgm_playing)
 	assert_true(_call_bool(active_session, &"is_terminal"))
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "PLAYBACK_FAILED")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"PLAYBACK_FAILED"
+		)
 	)
 	assert_true(_publication_b_listener_saw_a_frozen)
 	assert_true(_publication_a_listener_saw_b_frozen)
@@ -1453,10 +1864,25 @@ func test_backend_accepted_publication_failure_compensates_and_closes_both_axes(
 	)
 	assert_eq(_publication_b_completed_count, 1)
 	assert_eq(_publication_a_ended_count, 1)
-	assert_signal_emit_count(failed_operation, "completed", 1)
-	assert_signal_emit_count(active_session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_signal_emit_count(
+		failed_operation,
+		"completed",
+		1
+	)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	await get_tree().process_frame
 	assert_eq(_publication_b_completed_count, 1)
 	assert_eq(_publication_a_ended_count, 1)
@@ -1472,7 +1898,7 @@ func test_backend_dispatch_cancel_is_first_terminal_and_compensates_backend_star
 
 	var operation: Object = _start_bgm(
 		"event://music/issue88-reentrant-cancel",
-		{"history_key": "issue88-reentrant-cancel"}
+		{ "history_key": "issue88-reentrant-cancel" }
 	)
 	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
 	if result == null:
@@ -1481,9 +1907,16 @@ func test_backend_dispatch_cancel_is_first_terminal_and_compensates_backend_star
 	assert_true(backend.action_called)
 	assert_true(backend.cancel_accepted)
 	assert_eq(backend.play_count, 1)
-	assert_eq(backend.stop_count, 1, "backend 已接受但 request 失效时必须补偿停止。")
+	assert_eq(
+		backend.stop_count,
+		1,
+		"backend 已接受但 request 失效时必须补偿停止。"
+	)
 	assert_false(backend.bgm_playing)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_backend_dispatch_owner_release_is_terminal_and_compensates_backend_start() -> void:
@@ -1500,7 +1933,7 @@ func test_backend_dispatch_owner_release_is_terminal_and_compensates_backend_sta
 
 	var operation: Object = _start_bgm(
 		"event://music/issue88-reentrant-owner",
-		{"history_key": "issue88-reentrant-owner"},
+		{ "history_key": "issue88-reentrant-owner" },
 		request_owner
 	)
 	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
@@ -1509,9 +1942,16 @@ func test_backend_dispatch_owner_release_is_terminal_and_compensates_backend_sta
 	_assert_cancelled_topology_result(result, "REASON_OWNER_RELEASED")
 	assert_true(backend.action_called)
 	assert_false(is_instance_valid(request_owner))
-	assert_eq(backend.stop_count, 1, "owner 释放后迟到 backend start 必须补偿停止。")
+	assert_eq(
+		backend.stop_count,
+		1,
+		"owner 释放后迟到 backend start 必须补偿停止。"
+	)
 	assert_false(backend.bgm_playing)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_backend_dispatch_dispose_is_terminal_and_compensates_before_teardown() -> void:
@@ -1524,17 +1964,24 @@ func test_backend_dispatch_dispose_is_terminal_and_compensates_before_teardown()
 
 	var operation: Object = _start_bgm(
 		"event://music/issue88-reentrant-dispose",
-		{"history_key": "issue88-reentrant-dispose"}
+		{ "history_key": "issue88-reentrant-dispose" }
 	)
 	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
 	if result == null:
 		return
 	_assert_cancelled_topology_result(result, "REASON_UTILITY_DISPOSED")
 	assert_true(backend.action_called)
-	assert_eq(backend.stop_count, 1, "dispose intent 不能遗留 backend 已接受的幽灵播放。")
+	assert_eq(
+		backend.stop_count,
+		1,
+		"dispose intent 不能遗留 backend 已接受的幽灵播放。"
+	)
 	assert_false(backend.bgm_playing)
 	assert_null(_audio.get_audio_backend())
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_set_backend_terminates_pending_request_and_quarantines_late_asset() -> void:
@@ -1548,7 +1995,10 @@ func test_set_backend_terminates_pending_request_and_quarantines_late_asset() ->
 	await _activate_audio(AssetBackedAudioUtility.new(asset_utility))
 	assert_true(_audio.set_audio_backend(first_backend))
 	var path: String = "res://audio/issue88-pending-set-backend.ogg"
-	var operation: Object = _start_bgm(path, {"history_key": "issue88-pending-set"})
+	var operation: Object = _start_bgm(
+		path,
+		{ "history_key": "issue88-pending-set" }
+	)
 	assert_not_null(operation)
 	if operation == null:
 		return
@@ -1560,12 +2010,29 @@ func test_set_backend_terminates_pending_request_and_quarantines_late_asset() ->
 	if result == null:
 		return
 	_assert_cancelled_topology_result(result, "REASON_BACKEND_CHANGED")
-	assert_signal_emit_count(operation, "completed", 1)
-	asset_utility.finish(path, AudioStreamGenerator.new())
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	asset_utility.finish(
+		path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(operation, "completed", 1)
-	assert_eq(_audio.get_audio_backend(), replacement_backend)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	assert_eq(
+		_audio.get_audio_backend(),
+		replacement_backend
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_clear_backend_terminates_pending_request_and_quarantines_late_asset() -> void:
@@ -1577,7 +2044,10 @@ func test_clear_backend_terminates_pending_request_and_quarantines_late_asset() 
 	await _activate_audio(AssetBackedAudioUtility.new(asset_utility))
 	assert_true(_audio.set_audio_backend(backend))
 	var path: String = "res://audio/issue88-pending-clear-backend.ogg"
-	var operation: Object = _start_bgm(path, {"history_key": "issue88-pending-clear"})
+	var operation: Object = _start_bgm(
+		path,
+		{ "history_key": "issue88-pending-clear" }
+	)
 	assert_not_null(operation)
 	if operation == null:
 		return
@@ -1589,12 +2059,26 @@ func test_clear_backend_terminates_pending_request_and_quarantines_late_asset() 
 	if result == null:
 		return
 	_assert_cancelled_topology_result(result, "REASON_BACKEND_CHANGED")
-	assert_signal_emit_count(operation, "completed", 1)
-	asset_utility.finish(path, AudioStreamGenerator.new())
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	asset_utility.finish(
+		path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(operation, "completed", 1)
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
 	assert_null(_audio.get_audio_backend())
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_async_load_failure_completes_failed_exactly_once() -> void:
@@ -1603,7 +2087,10 @@ func test_async_load_failure_completes_failed_exactly_once() -> void:
 	var asset_utility: DeferredAssetUtility = DeferredAssetUtility.new()
 	await _activate_audio(AssetBackedAudioUtility.new(asset_utility))
 	var path: String = "res://audio/issue88-missing.ogg"
-	var operation: Object = _start_bgm(path, {"history_key": "issue88-missing"})
+	var operation: Object = _start_bgm(
+		path,
+		{ "history_key": "issue88-missing" }
+	)
 	assert_not_null(operation)
 	if operation == null:
 		return
@@ -1615,10 +2102,31 @@ func test_async_load_failure_completes_failed_exactly_once() -> void:
 	var result: Object = _assert_completed_with_status(operation, "FAILED")
 	if result == null:
 		return
-	assert_signal_emit_count(operation, "completed", 1)
-	assert_ne(_call_string_name(result, &"get_reason"), &"")
-	assert_ne(_call_int(result, &"get_error_code", OK), OK)
-	assert_eq(_call_int(result, &"get_session_id", -1), 0)
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	assert_ne(
+		_call_string_name(result, &"get_reason"),
+		&""
+	)
+	assert_ne(
+		_call_int(
+			result,
+			&"get_error_code",
+			OK
+		),
+		OK
+	)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_session_id",
+			-1
+		),
+		0
+	)
 	assert_null(_call_object(result, &"get_session_handle"))
 
 
@@ -1628,21 +2136,51 @@ func test_cancel_pending_operation_is_terminal_and_quarantines_late_load() -> vo
 	var asset_utility: DeferredAssetUtility = DeferredAssetUtility.new()
 	await _activate_audio(AssetBackedAudioUtility.new(asset_utility))
 	var path: String = "res://audio/issue88-cancelled.ogg"
-	var operation: Object = _start_bgm(path, {"history_key": "issue88-cancelled"})
+	var operation: Object = _start_bgm(
+		path,
+		{ "history_key": "issue88-cancelled" }
+	)
 	assert_not_null(operation)
 	if operation == null:
 		return
 	watch_signals(operation)
 
-	assert_true(_call_bool_with_args(operation, &"cancel", []))
-	assert_false(_call_bool_with_args(operation, &"cancel", []), "重复 cancel 必须幂等返回 false。")
+	assert_true(
+		_call_bool_with_args(
+			operation,
+			&"cancel",
+			[]
+		)
+	)
+	assert_false(
+		_call_bool_with_args(
+			operation,
+			&"cancel",
+			[]
+		),
+		"重复 cancel 必须幂等返回 false。"
+	)
 	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
 	assert_not_null(result)
-	assert_signal_emit_count(operation, "completed", 1)
-	asset_utility.finish(path, AudioStreamGenerator.new())
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	asset_utility.finish(
+		path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(operation, "completed", 1)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
 
 
@@ -1657,7 +2195,7 @@ func test_owner_release_cancels_pending_operation_and_suppresses_late_load() -> 
 	var path: String = "res://audio/issue88-owner.ogg"
 	var operation: Object = _start_bgm(
 		path,
-		{"history_key": "issue88-owner"},
+		{ "history_key": "issue88-owner" },
 		request_owner
 	)
 	assert_not_null(operation)
@@ -1669,11 +2207,25 @@ func test_owner_release_cancels_pending_operation_and_suppresses_late_load() -> 
 	await get_tree().process_frame
 	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
 	assert_not_null(result)
-	assert_signal_emit_count(operation, "completed", 1)
-	asset_utility.finish(path, AudioStreamGenerator.new())
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	asset_utility.finish(
+		path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(operation, "completed", 1)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_backend_query_cancel_drains_pending_request_without_asset_callback() -> void:
@@ -1685,7 +2237,7 @@ func test_backend_query_cancel_drains_pending_request_without_asset_callback() -
 	assert_true(_audio.set_audio_backend(backend))
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-query-active",
-		{"history_key": "issue88-query-active"}
+		{ "history_key": "issue88-query-active" }
 	)
 	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
@@ -1699,7 +2251,7 @@ func test_backend_query_cancel_drains_pending_request_without_asset_callback() -
 	var pending_path: String = "res://audio/issue88-query-pending.ogg"
 	var pending_operation: Object = _start_bgm(
 		pending_path,
-		{"history_key": "issue88-query-pending"}
+		{ "history_key": "issue88-query-pending" }
 	)
 	assert_not_null(pending_operation)
 	if pending_operation == null:
@@ -1714,10 +2266,7 @@ func test_backend_query_cancel_drains_pending_request_without_asset_callback() -
 	assert_eq(backend.callback_count, 1)
 	assert_true(backend.cancel_accepted, "backend query 回调中的 cancel intent 必须被接纳。")
 	await get_tree().process_frame
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(
@@ -1725,12 +2274,26 @@ func test_backend_query_cancel_drains_pending_request_without_asset_callback() -
 		"REASON_CALLER_CANCELLED",
 		"NOT_CLAIMED"
 	)
-	assert_signal_emit_count(pending_operation, "completed", 1)
-	assert_true(asset_utility.pending.has(pending_path), "终结不得依赖 asset callback。")
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
+	assert_true(
+		asset_utility.pending.has(pending_path),
+		"终结不得依赖 asset callback。"
+	)
 	assert_true(_call_bool(active_session, &"is_active"))
-	assert_eq(_audio.get_current_bgm_key(), "issue88-query-active")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-query-active"
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(pending_operation, "completed", 1)
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
 
 
 func test_backend_pause_owner_release_drains_pending_request_without_asset_callback() -> void:
@@ -1742,7 +2305,7 @@ func test_backend_pause_owner_release_drains_pending_request_without_asset_callb
 	assert_true(_audio.set_audio_backend(backend))
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-pause-active",
-		{"history_key": "issue88-pause-active"}
+		{ "history_key": "issue88-pause-active" }
 	)
 	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
@@ -1759,7 +2322,7 @@ func test_backend_pause_owner_release_drains_pending_request_without_asset_callb
 	var pending_path: String = "res://audio/issue88-pause-pending.ogg"
 	var pending_operation: Object = _start_bgm(
 		pending_path,
-		{"history_key": "issue88-pause-pending"},
+		{ "history_key": "issue88-pause-pending" },
 		request_owner
 	)
 	assert_not_null(pending_operation)
@@ -1775,10 +2338,7 @@ func test_backend_pause_owner_release_drains_pending_request_without_asset_callb
 	assert_eq(backend.callback_count, 1)
 	assert_false(is_instance_valid(request_owner))
 	await get_tree().process_frame
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(
@@ -1786,12 +2346,26 @@ func test_backend_pause_owner_release_drains_pending_request_without_asset_callb
 		"REASON_OWNER_RELEASED",
 		"NOT_CLAIMED"
 	)
-	assert_signal_emit_count(pending_operation, "completed", 1)
-	assert_true(asset_utility.pending.has(pending_path), "终结不得依赖 asset callback。")
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
+	assert_true(
+		asset_utility.pending.has(pending_path),
+		"终结不得依赖 asset callback。"
+	)
 	assert_true(_call_bool(active_session, &"is_active"))
-	assert_eq(_audio.get_current_bgm_key(), "issue88-pause-active")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-pause-active"
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(pending_operation, "completed", 1)
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
 
 
 func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_start() -> void:
@@ -1803,7 +2377,7 @@ func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_sta
 	assert_true(_audio.set_audio_backend(backend))
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-generic-active",
-		{"history_key": "issue88-generic-active"}
+		{ "history_key": "issue88-generic-active" }
 	)
 	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
@@ -1815,7 +2389,10 @@ func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_sta
 	watch_signals(active_session)
 	_generic_active_session = active_session
 	assert_eq(
-		active_session.connect(&"ended", Callable(self, "_on_generic_a_ended")),
+		active_session.connect(
+			&"ended",
+			Callable(self, "_on_generic_a_ended")
+		),
 		OK
 	)
 
@@ -1823,7 +2400,7 @@ func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_sta
 	var pending_path: String = "res://audio/issue88-generic-pending.ogg"
 	var pending_operation: Object = _start_bgm(
 		pending_path,
-		{"history_key": "issue88-generic-pending"}
+		{ "history_key": "issue88-generic-pending" }
 	)
 	assert_not_null(pending_operation)
 	if pending_operation == null:
@@ -1840,9 +2417,7 @@ func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_sta
 		OK
 	)
 	backend.pending_operation = pending_operation
-	backend.callback_action = (
-		PendingRequestLivenessBackend.CallbackAction.CANCEL_OPERATION_AND_STOP_BGM
-	)
+	backend.callback_action = (PendingRequestLivenessBackend.CallbackAction.CANCEL_OPERATION_AND_STOP_BGM)
 
 	var parameter: GFAudioParameter = GFAudioParameter.new()
 	parameter.parameter_id = &"issue88-generic-dispatch"
@@ -1853,14 +2428,11 @@ func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_sta
 	backend.claims_bgm_paths = true
 	var replacement_operation: Object = _start_bgm(
 		"event://music/issue88-generic-replacement",
-		{"history_key": "issue88-generic-replacement"}
+		{ "history_key": "issue88-generic-replacement" }
 	)
 	await get_tree().process_frame
 
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(
@@ -1870,35 +2442,42 @@ func test_generic_backend_callback_freezes_cancel_and_stop_before_same_frame_sta
 	)
 	assert_true(_call_bool(active_session, &"is_terminal"))
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 	)
-	var replacement_result: Object = _assert_completed_with_status(
-		replacement_operation,
-		"STARTED"
-	)
+	var replacement_result: Object = _assert_completed_with_status(replacement_operation, "STARTED")
 	if replacement_result == null:
 		return
-	var replacement_session: Object = _call_object(
-		replacement_result,
-		&"get_session_handle"
-	)
+	var replacement_session: Object = _call_object(replacement_result, &"get_session_handle")
 	assert_not_null(replacement_session)
 	if replacement_session != null:
 		assert_true(_call_bool(replacement_session, &"is_active"))
-	assert_true(
-		_generic_b_listener_saw_a_frozen,
-		"B.completed 首个用户回调必须观察到 A 已冻结为 STOPPED。"
-	)
-	assert_true(
-		_generic_a_listener_saw_b_frozen,
-		"A.ended 首个用户回调必须观察到 B 已冻结为 caller CANCELLED。"
-	)
+	assert_true(_generic_b_listener_saw_a_frozen, "B.completed 首个用户回调必须观察到 A 已冻结为 STOPPED。")
+	assert_true(_generic_a_listener_saw_b_frozen, "A.ended 首个用户回调必须观察到 B 已冻结为 caller CANCELLED。")
 	assert_eq(_generic_b_completed_count, 1)
 	assert_eq(_generic_a_ended_count, 1)
-	assert_signal_emit_count(pending_operation, "completed", 1)
-	assert_signal_emit_count(active_session, "ended", 1)
-	assert_eq(_audio.get_current_bgm_key(), "issue88-generic-replacement")
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-generic-replacement"
+	)
 	await get_tree().process_frame
 	assert_eq(_generic_b_completed_count, 1)
 	assert_eq(_generic_a_ended_count, 1)
@@ -1913,12 +2492,9 @@ func test_backend_query_false_drains_cancel_and_natural_before_user_signals() ->
 	assert_true(_audio.set_audio_backend(backend))
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-query-natural-active",
-		{"history_key": "issue88-query-natural-active"}
+		{ "history_key": "issue88-query-natural-active" }
 	)
-	var active_result: Object = _assert_completed_with_status(
-		active_operation,
-		"STARTED"
-	)
+	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
 		return
 	var active_session: Object = _call_object(active_result, &"get_session_handle")
@@ -1929,13 +2505,14 @@ func test_backend_query_false_drains_cancel_and_natural_before_user_signals() ->
 	watch_signals(_audio)
 	_cross_axis_active_session = active_session
 	assert_eq(
-		active_session.connect(&"ended", Callable(self, "_on_cross_axis_a_ended")),
+		active_session.connect(
+			&"ended",
+			Callable(self, "_on_cross_axis_a_ended")
+		),
 		OK
 	)
 	assert_eq(
-		_audio.bgm_finished.connect(
-			Callable(self, "_on_cross_axis_legacy_finished")
-		),
+		_audio.bgm_finished.connect(Callable(self, "_on_cross_axis_legacy_finished")),
 		OK
 	)
 
@@ -1943,7 +2520,7 @@ func test_backend_query_false_drains_cancel_and_natural_before_user_signals() ->
 	var pending_path: String = "res://audio/issue88-query-natural-pending.ogg"
 	var pending_operation: Object = _start_bgm(
 		pending_path,
-		{"history_key": "issue88-query-natural-pending"}
+		{ "history_key": "issue88-query-natural-pending" }
 	)
 	assert_not_null(pending_operation)
 	if pending_operation == null:
@@ -1960,44 +2537,70 @@ func test_backend_query_false_drains_cancel_and_natural_before_user_signals() ->
 	assert_false(_audio.is_bgm_playing())
 	assert_true(backend.cancel_accepted)
 	var pending_result: Object = _call_object(pending_operation, &"get_result")
-	assert_not_null(
-		pending_result,
-		"query 返回前 central barrier 必须已经冻结 pending B。"
-	)
+	assert_not_null(pending_result, "query 返回前 central barrier 必须已经冻结 pending B。")
 	if pending_result != null:
 		assert_eq(
-			_call_int(pending_result, &"get_status", -1),
-			_enum_value(_RESULT_SCRIPT_PATH, "Status", "CANCELLED")
+			_call_int(
+				pending_result,
+				&"get_status",
+				-1
+			),
+			_enum_value(
+				_RESULT_SCRIPT_PATH,
+				"Status",
+				"CANCELLED"
+			)
 		)
 		assert_eq(
 			_call_string_name(pending_result, &"get_reason"),
-			_script_string_name_constant(
-				_RESULT_SCRIPT_PATH,
-				"REASON_CALLER_CANCELLED"
-			)
+			_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_CALLER_CANCELLED")
 		)
 	assert_true(
 		_call_bool(active_session, &"is_terminal"),
 		"backend query=false 返回前必须冻结 A natural terminal。"
 	)
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "NATURAL_FINISH")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"NATURAL_FINISH"
+		)
 	)
 	assert_true(_cross_axis_b_listener_saw_a_frozen)
 	assert_true(_cross_axis_a_listener_saw_b_frozen)
 	assert_eq(
 		_cross_axis_signal_order,
-		[&"b_completed", &"a_ended", &"legacy_natural"],
+		[
+			&"b_completed",
+			&"a_ended",
+			&"legacy_natural",
+		],
 		"central barrier 信号顺序必须为 B Operation、A Handle、legacy natural。"
 	)
 	assert_eq(_cross_axis_b_completed_count, 1)
 	assert_eq(_cross_axis_a_ended_count, 1)
 	assert_eq(_cross_axis_legacy_finished_count, 1)
 	assert_eq(_cross_axis_legacy_history_key, "issue88-query-natural-active")
-	assert_signal_emit_count(pending_operation, "completed", 1)
-	assert_signal_emit_count(active_session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 1)
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		1
+	)
 	await get_tree().process_frame
 	assert_eq(_cross_axis_b_completed_count, 1)
 	assert_eq(_cross_axis_a_ended_count, 1)
@@ -2013,12 +2616,9 @@ func test_backend_position_revalidates_identity_after_terminal_callback() -> voi
 	watch_signals(_audio)
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-position-identity",
-		{"history_key": "issue88-position-identity"}
+		{ "history_key": "issue88-position-identity" }
 	)
-	var active_result: Object = _assert_completed_with_status(
-		active_operation,
-		"STARTED"
-	)
+	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
 		return
 	var active_session: Object = _call_object(active_result, &"get_session_handle")
@@ -2026,9 +2626,7 @@ func test_backend_position_revalidates_identity_after_terminal_callback() -> voi
 	if active_session == null:
 		return
 	watch_signals(active_session)
-	backend.callback_action = (
-		PendingRequestLivenessBackend.CallbackAction.RECORD_ACTIVE_STOP_INTENT
-	)
+	backend.callback_action = (PendingRequestLivenessBackend.CallbackAction.RECORD_ACTIVE_STOP_INTENT)
 
 	var returned_position: float = _audio.get_bgm_playback_position()
 	assert_eq(backend.callback_count, 1)
@@ -2040,15 +2638,38 @@ func test_backend_position_revalidates_identity_after_terminal_callback() -> voi
 	)
 	assert_true(_call_bool(active_session, &"is_terminal"))
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 	)
-	assert_signal_emit_count(active_session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
 	assert_eq(backend.stop_count, 1)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(active_session, "ended", 1)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
 
 
 func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
@@ -2061,12 +2682,9 @@ func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
 	watch_signals(_audio)
 	var active_operation: Object = _start_bgm(
 		"event://music/issue88-direct-cancel-active",
-		{"history_key": "issue88-direct-cancel-active"}
+		{ "history_key": "issue88-direct-cancel-active" }
 	)
-	var active_result: Object = _assert_completed_with_status(
-		active_operation,
-		"STARTED"
-	)
+	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
 	if active_result == null:
 		return
 	var active_session: Object = _call_object(active_result, &"get_session_handle")
@@ -2076,7 +2694,10 @@ func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
 	watch_signals(active_session)
 	_generic_active_session = active_session
 	assert_eq(
-		active_session.connect(&"ended", Callable(self, "_on_generic_a_ended")),
+		active_session.connect(
+			&"ended",
+			Callable(self, "_on_generic_a_ended")
+		),
 		OK
 	)
 
@@ -2084,7 +2705,7 @@ func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
 	var pending_path: String = "res://audio/issue88-direct-cancel-pending.ogg"
 	var pending_operation: Object = _start_bgm(
 		pending_path,
-		{"history_key": "issue88-direct-cancel-pending"}
+		{ "history_key": "issue88-direct-cancel-pending" }
 	)
 	assert_not_null(pending_operation)
 	if pending_operation == null:
@@ -2101,9 +2722,7 @@ func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
 		OK
 	)
 	backend.pending_operation = pending_operation
-	backend.callback_action = (
-		PendingRequestLivenessBackend.CallbackAction.RECORD_ACTIVE_STOP_INTENT
-	)
+	backend.callback_action = (PendingRequestLivenessBackend.CallbackAction.RECORD_ACTIVE_STOP_INTENT)
 	var parameter: GFAudioParameter = GFAudioParameter.new()
 	parameter.parameter_id = &"issue88-direct-cancel-barrier"
 	parameter.value = 1.0
@@ -2112,22 +2731,35 @@ func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
 
 	assert_true(_call_bool(pending_operation, &"cancel"))
 	var pending_result: Object = _call_object(pending_operation, &"get_result")
-	assert_not_null(
-		pending_result,
-		"direct cancel 返回前必须通过 central barrier 冻结 B。"
-	)
+	assert_not_null(pending_result, "direct cancel 返回前必须通过 central barrier 冻结 B。")
 	if pending_result != null:
 		assert_eq(
-			_call_int(pending_result, &"get_status", -1),
-			_enum_value(_RESULT_SCRIPT_PATH, "Status", "CANCELLED")
+			_call_int(
+				pending_result,
+				&"get_status",
+				-1
+			),
+			_enum_value(
+				_RESULT_SCRIPT_PATH,
+				"Status",
+				"CANCELLED"
+			)
 		)
 	assert_true(
 		_call_bool(active_session, &"is_terminal"),
 		"B.completed 前必须提交 dispatch 内已记录的 A STOPPED。"
 	)
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 	)
 	assert_true(_generic_b_listener_saw_a_frozen)
 	assert_true(_generic_a_listener_saw_b_frozen)
@@ -2138,9 +2770,21 @@ func test_direct_cancel_drains_prior_stop_intent_before_b_completed() -> void:
 	)
 	assert_eq(_generic_b_completed_count, 1)
 	assert_eq(_generic_a_ended_count, 1)
-	assert_signal_emit_count(pending_operation, "completed", 1)
-	assert_signal_emit_count(active_session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_signal_emit_count(
+		pending_operation,
+		"completed",
+		1
+	)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
 	await get_tree().process_frame
 	assert_eq(_generic_b_completed_count, 1)
 	assert_eq(_generic_a_ended_count, 1)
@@ -2167,7 +2811,7 @@ func test_active_session_survives_failed_and_cancelled_prepare_requests() -> voi
 	var failed_path: String = "res://audio/issue88-prepare-failed.ogg"
 	var failed_operation: Object = _start_bgm(
 		failed_path,
-		{"history_key": "issue88-prepare-failed"}
+		{ "history_key": "issue88-prepare-failed" }
 	)
 	assert_true(_call_bool(failed_operation, &"is_pending"))
 	asset_utility.finish(failed_path, null)
@@ -2175,27 +2819,47 @@ func test_active_session_survives_failed_and_cancelled_prepare_requests() -> voi
 	var failed_result: Object = _assert_completed_with_status(failed_operation, "FAILED")
 	assert_not_null(failed_result)
 	assert_true(_call_bool(active_session, &"is_active"))
-	assert_eq(_audio.get_current_bgm_key(), "issue88-active-preserved")
-	assert_signal_emit_count(active_session, "ended", 0)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-active-preserved"
+	)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		0
+	)
 
 	var cancelled_path: String = "res://audio/issue88-prepare-cancelled.ogg"
 	var cancelled_operation: Object = _start_bgm(
 		cancelled_path,
-		{"history_key": "issue88-prepare-cancelled"}
+		{ "history_key": "issue88-prepare-cancelled" }
 	)
 	assert_true(_call_bool(cancelled_operation, &"is_pending"))
-	assert_true(_call_bool_with_args(cancelled_operation, &"cancel", []))
-	var cancelled_result: Object = _assert_completed_with_status(
-		cancelled_operation,
-		"CANCELLED"
+	assert_true(
+		_call_bool_with_args(
+			cancelled_operation,
+			&"cancel",
+			[]
+		)
 	)
+	var cancelled_result: Object = _assert_completed_with_status(cancelled_operation, "CANCELLED")
 	assert_not_null(cancelled_result)
-	asset_utility.finish(cancelled_path, AudioStreamGenerator.new())
+	asset_utility.finish(
+		cancelled_path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
 	assert_true(_call_bool(active_session, &"is_active"))
-	assert_eq(_audio.get_current_bgm_key(), "issue88-active-preserved")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-active-preserved"
+	)
 	assert_true(_audio.is_bgm_playing())
-	assert_signal_emit_count(active_session, "ended", 0)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		0
+	)
 
 
 func test_stop_ended_callback_can_start_replacement_without_old_continuation_clobber() -> void:
@@ -2216,16 +2880,37 @@ func test_stop_ended_callback_can_start_replacement_without_old_continuation_clo
 	watch_signals(first_session)
 	_reentrant_clip = _make_clip("issue88-reentrant-stop-second")
 	assert_eq(
-		first_session.connect(&"ended", Callable(self, "_on_reentrant_session_ended")),
+		first_session.connect(
+			&"ended",
+			Callable(self, "_on_reentrant_session_ended")
+		),
 		OK
 	)
 
-	assert_true(_call_bool_with_args(first_session, &"stop", [0.0]))
-	assert_signal_emit_count(first_session, "ended", 1)
+	assert_true(
+		_call_bool_with_args(
+			first_session,
+			&"stop",
+			[0.0]
+		)
+	)
+	assert_signal_emit_count(
+		first_session,
+		"ended",
+		1
+	)
 	assert_true(_call_bool(first_session, &"is_terminal"))
 	assert_eq(
-		_call_int(first_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		_call_int(
+			first_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 	)
 	assert_not_null(_reentrant_operation)
 	var second_result: Object = _assert_completed_with_status(_reentrant_operation, "STARTED")
@@ -2235,7 +2920,10 @@ func test_stop_ended_callback_can_start_replacement_without_old_continuation_clo
 	assert_not_null(second_session)
 	if second_session != null:
 		assert_true(_call_bool(second_session, &"is_active"))
-	assert_eq(_audio.get_current_bgm_key(), "issue88-reentrant-stop-second")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-reentrant-stop-second"
+	)
 	assert_true(_audio.is_bgm_playing())
 
 
@@ -2247,16 +2935,12 @@ func test_path_start_terminal_drain_preserves_newer_reentrant_request() -> void:
 	await _assert_terminal_drain_preserves_newer_reentrant_request(false)
 
 
-func _assert_terminal_drain_preserves_newer_reentrant_request(
-	outer_is_clip: bool
-) -> void:
+func _assert_terminal_drain_preserves_newer_reentrant_request(outer_is_clip: bool) -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
 	var replacement: GFAudioUtility = GFAudioUtility.new()
 	if not outer_is_clip:
-		replacement = AssetBackedAudioUtility.new(
-			ImmediateAssetUtility.new(AudioStreamGenerator.new())
-		)
+		replacement = AssetBackedAudioUtility.new(ImmediateAssetUtility.new(AudioStreamGenerator.new()))
 	await _activate_audio(replacement)
 	var first_operation: Object = _start_bgm_clip(
 		_make_clip("issue88-drain-first"),
@@ -2272,12 +2956,19 @@ func _assert_terminal_drain_preserves_newer_reentrant_request(
 	watch_signals(first_session)
 	_reentrant_clip = _make_clip("issue88-drain-newer")
 	assert_eq(
-		first_session.connect(&"ended", Callable(self, "_on_reentrant_session_ended")),
+		first_session.connect(
+			&"ended",
+			Callable(self, "_on_reentrant_session_ended")
+		),
 		OK
 	)
 	assert_true(
 		_audio._record_deferred_bgm_session_terminal(
-			_call_int(first_session, &"get_session_id", 0),
+			_call_int(
+				first_session,
+				&"get_session_id",
+				0
+			),
 			GFBgmSessionHandle.EndKind.STOPPED,
 			0.0
 		)
@@ -2292,32 +2983,48 @@ func _assert_terminal_drain_preserves_newer_reentrant_request(
 	else:
 		outer_operation = _start_bgm(
 			"res://audio/issue88-drain-outer.ogg",
-			{"history_key": "issue88-drain-outer"}
+			{ "history_key": "issue88-drain-outer" }
 		)
-	var outer_result: Object = _assert_completed_with_status(
-		outer_operation,
-		"SUPERSEDED"
-	)
+	var outer_result: Object = _assert_completed_with_status(outer_operation, "SUPERSEDED")
 	if outer_result == null:
 		return
 	assert_eq(
 		_call_string_name(outer_result, &"get_reason"),
 		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_NEWER_REQUEST")
 	)
-	assert_eq(_call_int(outer_result, &"get_error_code", OK), ERR_BUSY)
 	assert_eq(
-		_call_int(outer_result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED")
+		_call_int(
+			outer_result,
+			&"get_error_code",
+			OK
+		),
+		ERR_BUSY
+	)
+	assert_eq(
+		_call_int(
+			outer_result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"BackendDisposition",
+			"NOT_ATTEMPTED"
+		)
 	)
 	assert_not_null(_reentrant_operation)
-	var newer_result: Object = _assert_completed_with_status(
-		_reentrant_operation,
-		"STARTED"
-	)
+	var newer_result: Object = _assert_completed_with_status(_reentrant_operation, "STARTED")
 	assert_not_null(newer_result)
-	assert_eq(_audio.get_current_bgm_key(), "issue88-drain-newer")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-drain-newer"
+	)
 	assert_true(_audio.is_bgm_playing())
-	assert_signal_emit_count(first_session, "ended", 1)
+	assert_signal_emit_count(
+		first_session,
+		"ended",
+		1
+	)
 
 
 func test_clip_source_hook_cannot_admit_older_request_after_newer_start() -> void:
@@ -2342,21 +3049,14 @@ func test_clip_source_hook_cannot_admit_older_request_after_newer_start() -> voi
 func test_option_snapshot_hook_cannot_admit_older_request_after_newer_start() -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
-	await _activate_audio(
-		AssetBackedAudioUtility.new(
-			ImmediateAssetUtility.new(AudioStreamGenerator.new())
-		)
-	)
+	await _activate_audio(AssetBackedAudioUtility.new(ImmediateAssetUtility.new(AudioStreamGenerator.new())))
 	var hostile_resource: ReentrantSnapshotResource = ReentrantSnapshotResource.new()
 	hostile_resource.host = _audio
 	hostile_resource.newer_clip = _make_clip("issue88-hostile-snapshot-newer")
 
 	var outer_operation: Object = _start_bgm(
 		"res://audio/issue88-hostile-snapshot-outer.ogg",
-		{
-			"history_key": "issue88-hostile-snapshot-outer",
-			"hostile_resource": hostile_resource,
-		}
+		{ "history_key": "issue88-hostile-snapshot-outer", "hostile_resource": hostile_resource, }
 	)
 
 	_assert_newer_reentrant_start_wins(
@@ -2376,15 +3076,10 @@ func test_replacement_player_insertion_dispose_reentry_cancels_before_commit() -
 	var dispose_callback: Callable = func(child: Node) -> void:
 		if not child is AudioStreamPlayer:
 			return
-		insertion_state["count"] = GFVariantData.get_option_int(
-			insertion_state,
-			"count"
-		) + 1
+		insertion_state["count"] = ((GFVariantData.get_option_int(insertion_state, "count")) + 1)
 		if GFVariantData.get_option_int(insertion_state, "count") == 2:
 			_audio.dispose()
-	var connect_error: Error = (
-		root.child_entered_tree.connect(dispose_callback) as Error
-	)
+	var connect_error: Error = root.child_entered_tree.connect(dispose_callback) as Error
 	assert_eq(connect_error, OK)
 
 	var operation: Object = _start_bgm_clip(
@@ -2403,11 +3098,20 @@ func test_replacement_player_insertion_dispose_reentry_cancels_before_commit() -
 	)
 	await get_tree().process_frame
 
-	assert_eq(GFVariantData.get_option_int(insertion_state, "count"), 2)
+	assert_eq(
+		GFVariantData.get_option_int(insertion_state, "count"),
+		2
+	)
 	assert_false(_audio._is_initialized)
 	assert_null(_audio._root)
-	assert_eq(_audio.get_current_bgm_key(), "")
-	assert_eq(_count_root_audio_stream_players(), player_count_before - 2)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
+	assert_eq(
+		_count_root_audio_stream_players(),
+		player_count_before - 2
+	)
 
 
 func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> void:
@@ -2431,15 +3135,10 @@ func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> v
 	var stop_callback: Callable = func(child: Node) -> void:
 		if not child is AudioStreamPlayer:
 			return
-		insertion_state["count"] = GFVariantData.get_option_int(
-			insertion_state,
-			"count"
-		) + 1
+		insertion_state["count"] = ((GFVariantData.get_option_int(insertion_state, "count")) + 1)
 		if GFVariantData.get_option_int(insertion_state, "count") == 2:
 			_audio.stop_bgm(0.0)
-	var connect_error: Error = (
-		root.child_entered_tree.connect(stop_callback) as Error
-	)
+	var connect_error: Error = root.child_entered_tree.connect(stop_callback) as Error
 	assert_eq(connect_error, OK)
 
 	var pending_operation: Object = _start_bgm_clip(
@@ -2448,10 +3147,7 @@ func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> v
 	)
 	if root.child_entered_tree.is_connected(stop_callback):
 		root.child_entered_tree.disconnect(stop_callback)
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(
@@ -2461,15 +3157,33 @@ func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> v
 	)
 	await get_tree().process_frame
 
-	assert_eq(GFVariantData.get_option_int(insertion_state, "count"), 2)
+	assert_eq(
+		GFVariantData.get_option_int(insertion_state, "count"),
+		2
+	)
 	assert_true(_call_bool(active_session, &"is_terminal"))
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 	)
-	assert_signal_emit_count(active_session, "ended", 1)
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
 	assert_true(_audio._is_initialized)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
 
 
@@ -2479,18 +3193,10 @@ func test_local_candidate_requires_exact_root_parent_for_both_players() -> void:
 
 
 func test_custom_playback_hook_cannot_invalidate_candidate_topology() -> void:
-	await _assert_custom_playback_action_fails_before_commit(
-		ReentrantPlaybackStream.Action.REPARENT_CANDIDATE_PLAYER
-	)
-	await _assert_custom_playback_action_fails_before_commit(
-		ReentrantPlaybackStream.Action.REPARENT_REPLACEMENT_PLAYER
-	)
-	await _assert_custom_playback_action_fails_before_commit(
-		ReentrantPlaybackStream.Action.QUEUE_FREE_CANDIDATE_PLAYER
-	)
-	await _assert_custom_playback_action_fails_before_commit(
-		ReentrantPlaybackStream.Action.ACTIVATE_REPLACEMENT_PLAYER
-	)
+	await _assert_custom_playback_action_fails_before_commit(ReentrantPlaybackStream.Action.REPARENT_CANDIDATE_PLAYER)
+	await _assert_custom_playback_action_fails_before_commit(ReentrantPlaybackStream.Action.REPARENT_REPLACEMENT_PLAYER)
+	await _assert_custom_playback_action_fails_before_commit(ReentrantPlaybackStream.Action.QUEUE_FREE_CANDIDATE_PLAYER)
+	await _assert_custom_playback_action_fails_before_commit(ReentrantPlaybackStream.Action.ACTIVATE_REPLACEMENT_PLAYER)
 
 
 func _assert_custom_playback_action_fails_before_commit(action: int) -> void:
@@ -2506,9 +3212,7 @@ func _assert_custom_playback_action_fails_before_commit(action: int) -> void:
 	stream.host = _audio
 	stream.root = root
 	stream.holder = holder
-	var clip: GFAudioClip = _make_clip(
-		"issue88-playback-hook-invalid-%d" % action
-	)
+	var clip: GFAudioClip = _make_clip("issue88-playback-hook-invalid-%d" % action)
 	clip.stream = stream
 
 	var operation: Object = _start_bgm_clip(clip, 1.0)
@@ -2516,18 +3220,28 @@ func _assert_custom_playback_action_fails_before_commit(action: int) -> void:
 	if result != null:
 		assert_eq(
 			_call_string_name(result, &"get_reason"),
-			_script_string_name_constant(
-				_RESULT_SCRIPT_PATH,
-				"REASON_LOCAL_PLAYER_REJECTED"
-			)
+			_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_PLAYER_REJECTED")
 		)
-		assert_eq(_call_int(result, &"get_error_code", OK), ERR_CANT_CREATE)
+		assert_eq(
+			_call_int(
+				result,
+				&"get_error_code",
+				OK
+			),
+			ERR_CANT_CREATE
+		)
 	await get_tree().process_frame
 
 	assert_true(stream.invoked)
-	assert_eq(holder.get_child_count(), 0)
+	assert_eq(
+		holder.get_child_count(),
+		0
+	)
 	assert_true(_audio._is_initialized)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
 	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_player))
 	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_fade_player))
@@ -2538,20 +3252,14 @@ func _assert_custom_playback_action_fails_before_commit(action: int) -> void:
 
 
 func test_playback_hook_crossfade_loss_preserves_spare_player() -> void:
-	await _assert_playback_hook_crossfade_loss_preserves_spare_player(
-		ReentrantPlaybackStream.Action.STOP_ACTIVE_PLAYER
-	)
+	await _assert_playback_hook_crossfade_loss_preserves_spare_player(ReentrantPlaybackStream.Action.STOP_ACTIVE_PLAYER)
 
 
 func test_playback_hook_reparented_crossfade_source_degrades_to_spare() -> void:
-	await _assert_playback_hook_crossfade_loss_preserves_spare_player(
-		ReentrantPlaybackStream.Action.REPARENT_ACTIVE_PLAYER
-	)
+	await _assert_playback_hook_crossfade_loss_preserves_spare_player(ReentrantPlaybackStream.Action.REPARENT_ACTIVE_PLAYER)
 
 
-func _assert_playback_hook_crossfade_loss_preserves_spare_player(
-	action: int
-) -> void:
+func _assert_playback_hook_crossfade_loss_preserves_spare_player(action: int) -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
 	await _activate_audio(GFAudioUtility.new())
@@ -2569,9 +3277,7 @@ func _assert_playback_hook_crossfade_loss_preserves_spare_player(
 	stream.host = _audio
 	stream.root = root
 	stream.holder = holder
-	var clip: GFAudioClip = _make_clip(
-		"issue88-playback-hook-fallback-%d" % action
-	)
+	var clip: GFAudioClip = _make_clip("issue88-playback-hook-fallback-%d" % action)
 	clip.stream = stream
 
 	var operation: Object = _start_bgm_clip(clip, 1.0)
@@ -2586,15 +3292,13 @@ func _assert_playback_hook_crossfade_loss_preserves_spare_player(
 	assert_true(_audio.is_bgm_playing())
 	assert_not_null(_audio._bgm_fade_player)
 	if _audio._bgm_fade_player != null:
-		assert_true(
-			_audio._is_exact_audio_root_child(
-				root,
-				_audio._bgm_fade_player
-			)
-		)
+		assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_fade_player))
 		assert_not_same(_audio._bgm_fade_player, _audio._bgm_player)
 	await get_tree().process_frame
-	assert_eq(holder.get_child_count(), 0)
+	assert_eq(
+		holder.get_child_count(),
+		0
+	)
 
 	stream.clear_reentry_context()
 	holder.queue_free()
@@ -2611,22 +3315,14 @@ func test_playback_hook_old_request_does_not_insert_into_reinitialized_generatio
 	)
 	assert_not_null(_assert_completed_with_status(active_operation, "STARTED"))
 	var root: Window = get_tree().root
-	var insertion_state: Dictionary = {
-		"player_count": 0,
-		"player_names": PackedStringArray(),
-	}
+	var insertion_state: Dictionary = { "player_count": 0, "player_names": PackedStringArray(), }
 	var count_inserted_players: Callable = func(child: Node) -> void:
 		if child is AudioStreamPlayer:
-			insertion_state["player_count"] = GFVariantData.get_option_int(
-				insertion_state,
-				"player_count"
-			) + 1
+			insertion_state["player_count"] = ((GFVariantData.get_option_int(insertion_state, "player_count")) + 1)
 			var player_names: PackedStringArray = insertion_state["player_names"]
 			var _name_appended: bool = player_names.append(String(child.name))
 			insertion_state["player_names"] = player_names
-	var connect_error: Error = (
-		root.child_entered_tree.connect(count_inserted_players) as Error
-	)
+	var connect_error: Error = root.child_entered_tree.connect(count_inserted_players) as Error
 	assert_eq(connect_error, OK)
 	var stream: ReentrantPlaybackStream = ReentrantPlaybackStream.new()
 	stream.action = ReentrantPlaybackStream.Action.DISPOSE_AND_REINITIALIZE
@@ -2657,15 +3353,16 @@ func test_playback_hook_old_request_does_not_insert_into_reinitialized_generatio
 	assert_same(_audio._root, root)
 	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_player))
 	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_fade_player))
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
 
 	stream.clear_reentry_context()
 
 
-func _assert_reparented_local_candidate_fails_before_commit(
-	target_insertion: int
-) -> void:
+func _assert_reparented_local_candidate_fails_before_commit(target_insertion: int) -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
 	await _activate_audio(GFAudioUtility.new())
@@ -2673,25 +3370,16 @@ func _assert_reparented_local_candidate_fails_before_commit(
 	var holder: Node = Node.new()
 	holder.name = "GFInvalidBgmCandidateParent"
 	root.add_child(holder)
-	var insertion_state: Dictionary = {"count": 0, "reparented": false}
+	var insertion_state: Dictionary = { "count": 0, "reparented": false }
 	var reparent_callback: Callable = func(child: Node) -> void:
 		if not child is AudioStreamPlayer:
 			return
-		insertion_state["count"] = GFVariantData.get_option_int(
-			insertion_state,
-			"count"
-		) + 1
-		if (
-			GFVariantData.get_option_bool(insertion_state, "reparented")
-			or GFVariantData.get_option_int(insertion_state, "count")
-			!= target_insertion
-		):
+		insertion_state["count"] = ((GFVariantData.get_option_int(insertion_state, "count")) + 1)
+		if (GFVariantData.get_option_bool(insertion_state, "reparented") or GFVariantData.get_option_int(insertion_state, "count") != target_insertion):
 			return
 		insertion_state["reparented"] = true
 		child.reparent(holder)
-	var connect_error: Error = (
-		root.child_entered_tree.connect(reparent_callback) as Error
-	)
+	var connect_error: Error = root.child_entered_tree.connect(reparent_callback) as Error
 	assert_eq(connect_error, OK)
 
 	var operation: Object = _start_bgm_clip(
@@ -2704,23 +3392,39 @@ func _assert_reparented_local_candidate_fails_before_commit(
 	if result != null:
 		assert_eq(
 			_call_string_name(result, &"get_reason"),
-			_script_string_name_constant(
-				_RESULT_SCRIPT_PATH,
-				"REASON_LOCAL_PLAYER_REJECTED"
-			)
+			_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_LOCAL_PLAYER_REJECTED")
 		)
-		assert_eq(_call_int(result, &"get_error_code", OK), ERR_CANT_CREATE)
+		assert_eq(
+			_call_int(
+				result,
+				&"get_error_code",
+				OK
+			),
+			ERR_CANT_CREATE
+		)
 	await get_tree().process_frame
 
 	assert_true(GFVariantData.get_option_bool(insertion_state, "reparented"))
 	assert_true(_audio._is_initialized)
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 	assert_false(_audio.is_bgm_playing())
 	assert_true(_audio._bgm_player.is_inside_tree())
-	assert_same(_audio._bgm_player.get_parent(), root)
+	assert_same(
+		_audio._bgm_player.get_parent(),
+		root
+	)
 	assert_true(_audio._bgm_fade_player.is_inside_tree())
-	assert_same(_audio._bgm_fade_player.get_parent(), root)
-	assert_eq(holder.get_child_count(), 0)
+	assert_same(
+		_audio._bgm_fade_player.get_parent(),
+		root
+	)
+	assert_eq(
+		holder.get_child_count(),
+		0
+	)
 
 	_audio.dispose()
 	holder.queue_free()
@@ -2745,18 +3449,40 @@ func test_local_eof_during_stop_converges_physical_and_logical_session() -> void
 		return
 	watch_signals(session)
 	var player: AudioStreamPlayer = _audio._bgm_player
-	var session_id: int = _call_int(session, &"get_session_id", 0)
+	var session_id: int = _call_int(
+		session,
+		&"get_session_id",
+		0
+	)
 
-	assert_true(_call_bool_with_args(session, &"stop", [3600.0]))
+	assert_true(
+		_call_bool_with_args(
+			session,
+			&"stop",
+			[3600.0]
+		)
+	)
 	assert_eq(_audio._bgm_state, &"stopping")
 	assert_eq(_audio._bgm_owner, &"local")
 	assert_eq(_audio._bgm_current_session_id, session_id)
 	assert_eq(_audio._bgm_committed_session_id, 0)
 	assert_eq(
-		_call_int(session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		_call_int(
+			session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 	)
-	assert_signal_emit_count(session, "ended", 1)
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
 
 	player.finished.emit()
 
@@ -2764,14 +3490,22 @@ func test_local_eof_during_stop_converges_physical_and_logical_session() -> void
 	assert_eq(_audio._bgm_owner, &"none")
 	assert_eq(_audio._bgm_current_session_id, 0)
 	assert_eq(_audio._bgm_committed_session_id, 0)
-	assert_eq(_audio.get_current_bgm_key(), "")
-	assert_false(_audio.is_bgm_playing())
-	assert_signal_emit_count(session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
-	assert_true(
-		_audio._bgm_stop_fallback_timer == null
-		or _audio._bgm_stop_fallback_timer.is_stopped()
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
 	)
+	assert_false(_audio.is_bgm_playing())
+	assert_signal_emit_count(
+		session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
+	assert_true(_audio._bgm_stop_fallback_timer == null or _audio._bgm_stop_fallback_timer.is_stopped())
 
 
 func test_active_dispatch_stop_natural_and_dispose_preserve_first_terminals() -> void:
@@ -2804,31 +3538,48 @@ func test_active_dispatch_stop_natural_and_dispose_preserve_first_terminals() ->
 
 	var pending_operation: Object = _start_bgm(
 		"event://music/issue88-first-wins-pending",
-		{"history_key": "issue88-first-wins-pending"}
+		{ "history_key": "issue88-first-wins-pending" }
 	)
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(pending_result, "REASON_STOP_REQUESTED")
 	assert_true(_freeze_before_emit_listener_called)
-	assert_true(
-		_freeze_before_emit_pending_frozen,
-		"A.ended 首个用户回调前，pending B Operation 必须已冻结为 CANCELLED。"
-	)
+	assert_true(_freeze_before_emit_pending_frozen, "A.ended 首个用户回调前，pending B Operation 必须已冻结为 CANCELLED。")
 	assert_true(_call_bool(active_session, &"is_terminal"))
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED"),
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		),
 		"active session 的首个 stop terminal 不得被迟到 finished/dispose 改写。"
 	)
-	assert_signal_emit_count(active_session, "ended", 1)
-	assert_signal_emit_count(_audio, "bgm_finished", 0)
-	assert_eq(backend.stop_count, 1, "pending backend start 必须且只须一次补偿停止。")
+	assert_signal_emit_count(
+		active_session,
+		"ended",
+		1
+	)
+	assert_signal_emit_count(
+		_audio,
+		"bgm_finished",
+		0
+	)
+	assert_eq(
+		backend.stop_count,
+		1,
+		"pending backend start 必须且只须一次补偿停止。"
+	)
 	assert_null(_audio.get_audio_backend())
-	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		""
+	)
 
 
 func test_backend_cancel_and_local_natural_freeze_both_axes_before_signals() -> void:
@@ -2848,7 +3599,10 @@ func test_backend_cancel_and_local_natural_freeze_both_axes_before_signals() -> 
 		return
 	_cross_axis_active_session = active_session
 	assert_eq(
-		active_session.connect(&"ended", Callable(self, "_on_cross_axis_a_ended")),
+		active_session.connect(
+			&"ended",
+			Callable(self, "_on_cross_axis_a_ended")
+		),
 		OK
 	)
 	assert_eq(
@@ -2862,7 +3616,7 @@ func test_backend_cancel_and_local_natural_freeze_both_axes_before_signals() -> 
 	assert_true(_audio.set_audio_backend(backend))
 	var pending_operation: Object = _start_bgm(
 		"event://music/issue88-cross-axis-pending",
-		{"history_key": "issue88-cross-axis-pending"}
+		{ "history_key": "issue88-cross-axis-pending" }
 	)
 	assert_not_null(pending_operation)
 	if pending_operation == null:
@@ -2875,29 +3629,35 @@ func test_backend_cancel_and_local_natural_freeze_both_axes_before_signals() -> 
 		&"stop",
 		[0.0]
 	)
-	assert_false(
-		immediate_stop_accepted,
-		"dispatch 中已冻结 NATURAL 后，同帧 exact stop 不得覆盖首个终态。"
-	)
+	assert_false(immediate_stop_accepted, "dispatch 中已冻结 NATURAL 后，同帧 exact stop 不得覆盖首个终态。")
 	await get_tree().process_frame
 
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(pending_result, "REASON_CALLER_CANCELLED")
 	assert_true(_call_bool(active_session, &"is_terminal"))
 	assert_eq(
-		_call_int(active_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "NATURAL_FINISH")
+		_call_int(
+			active_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"NATURAL_FINISH"
+		)
 	)
 	assert_true(_cross_axis_b_listener_saw_a_frozen)
 	assert_true(_cross_axis_a_listener_saw_b_frozen)
 	assert_eq(
 		_cross_axis_signal_order,
-		[&"b_completed", &"a_ended", &"legacy_natural"],
+		[
+			&"b_completed",
+			&"a_ended",
+			&"legacy_natural",
+		],
 		"用户可见信号顺序必须为 B Operation、A Handle、legacy natural。"
 	)
 	assert_eq(_cross_axis_b_completed_count, 1)
@@ -2941,12 +3701,9 @@ func test_stop_intent_suppresses_late_finished_after_session_handle_release() ->
 	assert_true(_audio.set_audio_backend(backend))
 	var pending_operation: Object = _start_bgm(
 		"event://music/issue88-released-handle-pending",
-		{"history_key": "issue88-released-handle-pending"}
+		{ "history_key": "issue88-released-handle-pending" }
 	)
-	var pending_result: Object = _assert_completed_with_status(
-		pending_operation,
-		"CANCELLED"
-	)
+	var pending_result: Object = _assert_completed_with_status(pending_operation, "CANCELLED")
 	if pending_result == null:
 		return
 	_assert_cancelled_topology_result(pending_result, "REASON_STOP_REQUESTED")
@@ -2963,7 +3720,10 @@ func test_replaced_session_handle_is_exact_and_cannot_stop_replacement() -> void
 	if _skip_runtime_scenario_until_contract_exists():
 		return
 	await _activate_audio(GFAudioUtility.new())
-	var first: Object = _start_bgm_clip(_make_clip("issue88-session-first"), 0.0)
+	var first: Object = _start_bgm_clip(
+		_make_clip("issue88-session-first"),
+		0.0
+	)
 	var first_result: Object = _assert_completed_with_status(first, "STARTED")
 	if first_result == null:
 		return
@@ -2973,7 +3733,10 @@ func test_replaced_session_handle_is_exact_and_cannot_stop_replacement() -> void
 		return
 	watch_signals(first_session)
 
-	var second: Object = _start_bgm_clip(_make_clip("issue88-session-second"), 0.0)
+	var second: Object = _start_bgm_clip(
+		_make_clip("issue88-session-second"),
+		0.0
+	)
 	var second_result: Object = _assert_completed_with_status(second, "STARTED")
 	if second_result == null:
 		return
@@ -2984,17 +3747,40 @@ func test_replaced_session_handle_is_exact_and_cannot_stop_replacement() -> void
 	assert_true(_call_bool(first_session, &"is_terminal"))
 	assert_false(_call_bool(first_session, &"is_active"))
 	assert_eq(
-		_call_int(first_session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "REPLACED")
+		_call_int(
+			first_session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"REPLACED"
+		)
 	)
-	assert_signal_emit_count(first_session, "ended", 1)
+	assert_signal_emit_count(
+		first_session,
+		"ended",
+		1
+	)
 	assert_false(
-		_call_bool_with_args(first_session, &"stop", [0.0]),
+		_call_bool_with_args(
+			first_session,
+			&"stop",
+			[0.0]
+		),
 		"已替换的 stale handle 不得停止当前会话。"
 	)
-	assert_signal_emit_count(first_session, "ended", 1)
+	assert_signal_emit_count(
+		first_session,
+		"ended",
+		1
+	)
 	assert_true(_call_bool(second_session, &"is_active"))
-	assert_eq(_audio.get_current_bgm_key(), "issue88-session-second")
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-session-second"
+	)
 
 
 func test_rapid_replacement_supersedes_old_operation_and_quarantines_stale_load() -> void:
@@ -3008,58 +3794,132 @@ func test_rapid_replacement_supersedes_old_operation_and_quarantines_stale_load(
 	await get_tree().process_frame
 	var first_path: String = "res://audio/issue88-first.ogg"
 	var second_path: String = "res://audio/issue88-second.ogg"
-	var first: Object = _start_bgm(first_path, {"history_key": "issue88-first"})
+	var first: Object = _start_bgm(
+		first_path,
+		{ "history_key": "issue88-first" }
+	)
 	assert_not_null(first)
 	if first == null:
 		return
 	watch_signals(first)
-	assert_true(_call_bool(first, &"is_pending"), "首个异步加载必须先保持 pending。")
+	assert_true(
+		_call_bool(first, &"is_pending"),
+		"首个异步加载必须先保持 pending。"
+	)
 
-	var second: Object = _start_bgm(second_path, {"history_key": "issue88-second"})
+	var second: Object = _start_bgm(
+		second_path,
+		{ "history_key": "issue88-second" }
+	)
 	assert_not_null(second)
 	if second == null:
 		return
 	watch_signals(second)
-	assert_true(_call_bool(first, &"is_completed"), "后续 BGM 请求必须终结旧 pending 请求。")
+	assert_true(
+		_call_bool(first, &"is_completed"),
+		"后续 BGM 请求必须终结旧 pending 请求。"
+	)
 	var first_result: Object = _get_result(first)
 	assert_not_null(first_result)
 	if first_result == null:
 		return
 	assert_eq(
-		_call_int(first_result, &"get_status", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "Status", "SUPERSEDED"),
+		_call_int(
+			first_result,
+			&"get_status",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"Status",
+			"SUPERSEDED"
+		),
 		"被后续请求替代的 pending operation 必须显式终结为 SUPERSEDED。"
 	)
-	assert_signal_emit_count(first, "completed", 1)
+	assert_signal_emit_count(
+		first,
+		"completed",
+		1
+	)
 
-	asset_utility.finish(first_path, AudioStreamGenerator.new())
+	asset_utility.finish(
+		first_path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
-	assert_signal_emit_count(first, "completed", 1, "迟到旧 load 不得重复终结旧 Operation。")
-	assert_true(_call_bool(second, &"is_pending"), "迟到旧 load 不得终结或提交新请求。")
-	assert_ne(_audio.get_current_bgm_key(), "issue88-first")
+	assert_signal_emit_count(
+		first,
+		"completed",
+		1,
+		"迟到旧 load 不得重复终结旧 Operation。"
+	)
+	assert_true(
+		_call_bool(second, &"is_pending"),
+		"迟到旧 load 不得终结或提交新请求。"
+	)
+	assert_ne(
+		_audio.get_current_bgm_key(),
+		"issue88-first"
+	)
 
-	asset_utility.finish(second_path, AudioStreamGenerator.new())
+	asset_utility.finish(
+		second_path,
+		AudioStreamGenerator.new()
+	)
 	await get_tree().process_frame
 	assert_true(_call_bool(second, &"is_completed"))
-	assert_signal_emit_count(second, "completed", 1)
+	assert_signal_emit_count(
+		second,
+		"completed",
+		1
+	)
 	var second_result: Object = _get_result(second)
 	assert_not_null(second_result)
 	if second_result == null:
 		return
 	assert_eq(
-		_call_int(second_result, &"get_status", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "Status", "STARTED")
+		_call_int(
+			second_result,
+			&"get_status",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"Status",
+			"STARTED"
+		)
 	)
-	assert_eq(_audio.get_current_bgm_key(), "issue88-second")
-	assert_gt(_call_int(second_result, &"get_session_id", 0), 0)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-second"
+	)
+	assert_gt(
+		_call_int(
+			second_result,
+			&"get_session_id",
+			0
+		),
+		0
+	)
 	var session_value: Variant = second_result.call(&"get_session_handle")
-	assert_true(session_value is Object, "STARTED 结果必须携带独立 Session Handle。")
+	assert_true(
+		session_value is Object,
+		"STARTED 结果必须携带独立 Session Handle。"
+	)
 	if session_value is Object:
 		var session: Object = session_value
 		assert_true(_call_bool(session, &"is_active"))
 		assert_eq(
-			_call_int(session, &"get_request_id", 0),
-			_call_int(second, &"get_request_id", -1)
+			_call_int(
+				session,
+				&"get_request_id",
+				0
+			),
+			_call_int(
+				second,
+				&"get_request_id",
+				-1
+			)
 		)
 
 
@@ -3179,13 +4039,23 @@ func _make_configured_session(
 	var session: Object = _new_script_object(_SESSION_HANDLE_SCRIPT_PATH)
 	if session == null:
 		return null
-	assert_true(_call_bool_with_args(session, &"configure_for_framework", [
-		session_id,
-		request_id,
-		history_key,
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", owner_kind_name),
-		Callable(self, "_accept_test_session_stop"),
-	]))
+	assert_true(
+		_call_bool_with_args(
+			session,
+			&"configure_for_framework",
+			[
+				session_id,
+				request_id,
+				history_key,
+				_enum_value(
+					_SESSION_HANDLE_SCRIPT_PATH,
+					"OwnerKind",
+					owner_kind_name
+				),
+				Callable(self, "_accept_test_session_stop"),
+			]
+		)
+	)
 	return session
 
 
@@ -3195,11 +4065,22 @@ func _assert_result_configuration_rejected(arguments: Array, message: String) ->
 	if result == null:
 		return
 	assert_false(
-		_call_bool_with_args(result, &"configure_for_framework", arguments),
+		_call_bool_with_args(
+			result,
+			&"configure_for_framework",
+			arguments
+		),
 		message
 	)
 	assert_false(_call_bool(result, &"is_configured_for_framework"))
-	assert_eq(_call_int(result, &"get_request_id", -1), 0)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_request_id",
+			-1
+		),
+		0
+	)
 
 
 func _assert_cancelled_topology_result(
@@ -3211,9 +4092,20 @@ func _assert_cancelled_topology_result(
 		_call_string_name(result, &"get_reason"),
 		_script_string_name_constant(_RESULT_SCRIPT_PATH, reason_constant_name)
 	)
-	assert_eq(_call_int(result, &"get_error_code", OK), ERR_SKIP)
 	assert_eq(
-		_call_int(result, &"get_backend_disposition", -1),
+		_call_int(
+			result,
+			&"get_error_code",
+			OK
+		),
+		ERR_SKIP
+	)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_backend_disposition",
+			-1
+		),
 		_enum_value(
 			_RESULT_SCRIPT_PATH,
 			"BackendDisposition",
@@ -3221,10 +4113,25 @@ func _assert_cancelled_topology_result(
 		)
 	)
 	assert_eq(
-		_call_int(result, &"get_owner_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "OwnerKind", "NONE")
+		_call_int(
+			result,
+			&"get_owner_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"OwnerKind",
+			"NONE"
+		)
 	)
-	assert_eq(_call_int(result, &"get_session_id", -1), 0)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_session_id",
+			-1
+		),
+		0
+	)
 	assert_null(_call_object(result, &"get_session_handle"))
 
 
@@ -3233,27 +4140,39 @@ func _assert_newer_reentrant_start_wins(
 	newer_operation: Object,
 	expected_history_key: String
 ) -> void:
-	var outer_result: Object = _assert_completed_with_status(
-		outer_operation,
-		"SUPERSEDED"
-	)
+	var outer_result: Object = _assert_completed_with_status(outer_operation, "SUPERSEDED")
 	if outer_result == null:
 		return
 	assert_eq(
 		_call_string_name(outer_result, &"get_reason"),
 		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_NEWER_REQUEST")
 	)
-	assert_eq(_call_int(outer_result, &"get_error_code", OK), ERR_BUSY)
 	assert_eq(
-		_call_int(outer_result, &"get_backend_disposition", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED")
+		_call_int(
+			outer_result,
+			&"get_error_code",
+			OK
+		),
+		ERR_BUSY
 	)
-	var newer_result: Object = _assert_completed_with_status(
-		newer_operation,
-		"STARTED"
+	assert_eq(
+		_call_int(
+			outer_result,
+			&"get_backend_disposition",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"BackendDisposition",
+			"NOT_ATTEMPTED"
+		)
 	)
+	var newer_result: Object = _assert_completed_with_status(newer_operation, "STARTED")
 	assert_not_null(newer_result)
-	assert_eq(_audio.get_current_bgm_key(), expected_history_key)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		expected_history_key
+	)
 	assert_true(_audio.is_bgm_playing())
 
 
@@ -3288,8 +4207,15 @@ func _on_first_wins_session_ended(
 		not _call_bool(pending_operation, &"is_pending")
 		and _call_bool(pending_operation, &"is_completed")
 		and pending_result != null
-		and _call_int(pending_result, &"get_status", -1)
-		== _enum_value(_RESULT_SCRIPT_PATH, "Status", "CANCELLED")
+		and _call_int(
+			pending_result,
+			&"get_status",
+			-1
+		) == _enum_value(
+			_RESULT_SCRIPT_PATH,
+			"Status",
+			"CANCELLED"
+		)
 	)
 
 
@@ -3310,26 +4236,44 @@ func _on_cross_axis_b_completed(_result: Object) -> void:
 	_cross_axis_b_listener_saw_a_frozen = (
 		_cross_axis_active_session != null
 		and _call_bool(_cross_axis_active_session, &"is_terminal")
-		and _call_int(_cross_axis_active_session, &"get_end_kind", -1)
-		== _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "NATURAL_FINISH")
+		and (
+			_call_int(
+				_cross_axis_active_session,
+				&"get_end_kind",
+				-1
+			)
+			== _enum_value(
+				_SESSION_HANDLE_SCRIPT_PATH,
+				"EndKind",
+				"NATURAL_FINISH"
+			)
+		)
 	)
 
 
 func _on_cross_axis_a_ended(_handle: Object, end_kind: int) -> void:
 	_cross_axis_a_ended_count += 1
 	_cross_axis_signal_order.append(&"a_ended")
-	var pending_result: Object = _call_object(
-		_cross_axis_pending_operation,
-		&"get_result"
-	)
+	var pending_result: Object = _call_object(_cross_axis_pending_operation, &"get_result")
 	_cross_axis_a_listener_saw_b_frozen = (
-		end_kind == _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "NATURAL_FINISH")
+		end_kind == _enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"NATURAL_FINISH"
+		)
 		and _cross_axis_pending_operation != null
 		and not _call_bool(_cross_axis_pending_operation, &"is_pending")
 		and _call_bool(_cross_axis_pending_operation, &"is_completed")
 		and pending_result != null
-		and _call_int(pending_result, &"get_status", -1)
-		== _enum_value(_RESULT_SCRIPT_PATH, "Status", "CANCELLED")
+		and _call_int(
+			pending_result,
+			&"get_status",
+			-1
+		) == _enum_value(
+			_RESULT_SCRIPT_PATH,
+			"Status",
+			"CANCELLED"
+		)
 	)
 
 
@@ -3345,28 +4289,45 @@ func _on_generic_b_completed(_result: Object) -> void:
 	_generic_b_listener_saw_a_frozen = (
 		_generic_active_session != null
 		and _call_bool(_generic_active_session, &"is_terminal")
-		and _call_int(_generic_active_session, &"get_end_kind", -1)
-		== _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		and (
+			_call_int(
+				_generic_active_session,
+				&"get_end_kind",
+				-1
+			)
+			== _enum_value(
+				_SESSION_HANDLE_SCRIPT_PATH,
+				"EndKind",
+				"STOPPED"
+			)
+		)
 	)
 
 
 func _on_generic_a_ended(_handle: Object, end_kind: int) -> void:
 	_generic_a_ended_count += 1
 	_generic_signal_order.append(&"a_ended")
-	var pending_result: Object = _call_object(
-		_generic_pending_operation,
-		&"get_result"
-	)
+	var pending_result: Object = _call_object(_generic_pending_operation, &"get_result")
 	_generic_a_listener_saw_b_frozen = (
-		end_kind == _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+		end_kind == _enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"STOPPED"
+		)
 		and _generic_pending_operation != null
 		and not _call_bool(_generic_pending_operation, &"is_pending")
 		and _call_bool(_generic_pending_operation, &"is_completed")
 		and pending_result != null
-		and _call_int(pending_result, &"get_status", -1)
-		== _enum_value(_RESULT_SCRIPT_PATH, "Status", "CANCELLED")
-		and _call_string_name(pending_result, &"get_reason")
-		== _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_CALLER_CANCELLED")
+		and _call_int(
+			pending_result,
+			&"get_status",
+			-1
+		) == _enum_value(
+			_RESULT_SCRIPT_PATH,
+			"Status",
+			"CANCELLED"
+		)
+		and (_call_string_name(pending_result, &"get_reason") == _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_CALLER_CANCELLED"))
 	)
 
 
@@ -3388,35 +4349,48 @@ func _on_publication_b_completed(_result: Object) -> void:
 	_publication_b_listener_saw_a_frozen = (
 		_publication_active_session != null
 		and _call_bool(_publication_active_session, &"is_terminal")
-		and _call_int(_publication_active_session, &"get_end_kind", -1)
-		== _enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "PLAYBACK_FAILED")
+		and (
+			_call_int(
+				_publication_active_session,
+				&"get_end_kind",
+				-1
+			)
+			== _enum_value(
+				_SESSION_HANDLE_SCRIPT_PATH,
+				"EndKind",
+				"PLAYBACK_FAILED"
+			)
+		)
 	)
 
 
 func _on_publication_a_ended(_handle: Object, end_kind: int) -> void:
 	_publication_a_ended_count += 1
 	_publication_signal_order.append(&"a_ended")
-	var failed_result: Object = _call_object(
-		_publication_failed_operation,
-		&"get_result"
-	)
+	var failed_result: Object = _call_object(_publication_failed_operation, &"get_result")
 	_publication_a_listener_saw_b_frozen = (
-		end_kind == _enum_value(
-			_SESSION_HANDLE_SCRIPT_PATH,
-			"EndKind",
-			"PLAYBACK_FAILED"
+		(
+			end_kind
+			== _enum_value(
+				_SESSION_HANDLE_SCRIPT_PATH,
+				"EndKind",
+				"PLAYBACK_FAILED"
+			)
 		)
 		and _publication_failed_operation != null
 		and not _call_bool(_publication_failed_operation, &"is_pending")
 		and _call_bool(_publication_failed_operation, &"is_completed")
 		and failed_result != null
-		and _call_int(failed_result, &"get_status", -1)
-		== _enum_value(_RESULT_SCRIPT_PATH, "Status", "FAILED")
-		and _call_string_name(failed_result, &"get_reason")
-		== _script_string_name_constant(
+		and _call_int(
+			failed_result,
+			&"get_status",
+			-1
+		) == _enum_value(
 			_RESULT_SCRIPT_PATH,
-			"REASON_SESSION_PUBLICATION_FAILED"
+			"Status",
+			"FAILED"
 		)
+		and (_call_string_name(failed_result, &"get_reason") == _script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_SESSION_PUBLICATION_FAILED"))
 	)
 
 
@@ -3435,7 +4409,10 @@ func _assert_method_signature(
 	expected_return_class: StringName
 ) -> void:
 	var method_info: Dictionary = _find_method_info(target, method_name)
-	assert_false(method_info.is_empty(), "缺少冻结入口：%s" % method_name)
+	assert_false(
+		method_info.is_empty(),
+		"缺少冻结入口：%s" % method_name
+	)
 	if method_info.is_empty():
 		return
 	var arguments_value: Variant = GFVariantData.get_option_value(method_info, "args")
@@ -3446,10 +4423,16 @@ func _assert_method_signature(
 	assert_true(return_value is Dictionary)
 	if arguments_value is Array:
 		var arguments: Array = arguments_value
-		assert_eq(arguments.size(), expected_argument_count)
+		assert_eq(
+			arguments.size(),
+			expected_argument_count
+		)
 	if defaults_value is Array:
 		var defaults: Array = defaults_value
-		assert_eq(defaults.size(), expected_default_count)
+		assert_eq(
+			defaults.size(),
+			expected_default_count
+		)
 	if return_value is Dictionary:
 		var return_info: Dictionary = return_value
 		assert_eq(
@@ -3470,10 +4453,17 @@ func _find_method_info(target: Object, method_name: StringName) -> Dictionary:
 	return {}
 
 
-func _assert_script_enum(script: GDScript, enum_name: String, expected: Dictionary) -> void:
+func _assert_script_enum(
+	script: GDScript,
+	enum_name: String,
+	expected: Dictionary
+) -> void:
 	var constants: Dictionary = script.get_script_constant_map()
 	var enum_value: Variant = GFVariantData.get_option_value(constants, enum_name)
-	assert_true(enum_value is Dictionary, "缺少冻结枚举：%s" % enum_name)
+	assert_true(
+		enum_value is Dictionary,
+		"缺少冻结枚举：%s" % enum_name
+	)
 	if enum_value is Dictionary:
 		var actual: Dictionary = enum_value
 		assert_eq(actual, expected)
@@ -3481,12 +4471,27 @@ func _assert_script_enum(script: GDScript, enum_name: String, expected: Dictiona
 
 func _assert_object_surface(target: Object, method_names: Array[StringName]) -> void:
 	for method_name: StringName in method_names:
-		assert_true(target.has_method(method_name), "缺少冻结方法：%s" % method_name)
+		assert_true(
+			target.has_method(method_name),
+			"缺少冻结方法：%s" % method_name
+		)
 
 
-func _start_bgm(path: String, options: Dictionary, request_owner: Node = null) -> Object:
-	var operation_value: Variant = _audio.call(&"start_bgm", path, options, request_owner)
-	assert_true(operation_value is Object, "start_bgm 必须返回 GFBgmStartOperation。")
+func _start_bgm(
+	path: String,
+	options: Dictionary,
+	request_owner: Node = null
+) -> Object:
+	var operation_value: Variant = _audio.call(
+		&"start_bgm",
+		path,
+		options,
+		request_owner
+	)
+	assert_true(
+		operation_value is Object,
+		"start_bgm 必须返回 GFBgmStartOperation。"
+	)
 	if operation_value is Object:
 		return operation_value
 	return null
@@ -3503,7 +4508,10 @@ func _start_bgm_clip(
 		crossfade_seconds,
 		request_owner
 	)
-	assert_true(operation_value is Object, "start_bgm_clip 必须返回 GFBgmStartOperation。")
+	assert_true(
+		operation_value is Object,
+		"start_bgm_clip 必须返回 GFBgmStartOperation。"
+	)
 	if operation_value is Object:
 		return operation_value
 	return null
@@ -3529,12 +4537,28 @@ func _assert_completed_with_status(operation: Object, status_name: String) -> Ob
 	if result == null:
 		return null
 	assert_eq(
-		_call_int(result, &"get_status", -1),
-		_enum_value(_RESULT_SCRIPT_PATH, "Status", status_name)
+		_call_int(
+			result,
+			&"get_status",
+			-1
+		),
+		_enum_value(
+			_RESULT_SCRIPT_PATH,
+			"Status",
+			status_name
+		)
 	)
 	assert_eq(
-		_call_int(result, &"get_request_id", 0),
-		_call_int(operation, &"get_request_id", -1)
+		_call_int(
+			result,
+			&"get_request_id",
+			0
+		),
+		_call_int(
+			operation,
+			&"get_request_id",
+			-1
+		)
 	)
 	return result
 
@@ -3545,27 +4569,71 @@ func _assert_started_result_matches_operation(
 	expected_history_key: String
 ) -> void:
 	assert_true(_call_bool(result, &"is_successful"))
-	assert_eq(_call_int(result, &"get_error_code", -1), OK)
-	assert_eq(_call_string(result, &"get_history_key"), expected_history_key)
-	assert_gt(_call_int(result, &"get_session_id", 0), 0)
+	assert_eq(
+		_call_int(
+			result,
+			&"get_error_code",
+			-1
+		),
+		OK
+	)
+	assert_eq(
+		_call_string(result, &"get_history_key"),
+		expected_history_key
+	)
+	assert_gt(
+		_call_int(
+			result,
+			&"get_session_id",
+			0
+		),
+		0
+	)
 	var session: Object = _call_object(result, &"get_session_handle")
 	assert_not_null(session)
 	if session == null:
 		return
 	assert_eq(
-		_call_int(session, &"get_session_id", 0),
-		_call_int(result, &"get_session_id", -1)
+		_call_int(
+			session,
+			&"get_session_id",
+			0
+		),
+		_call_int(
+			result,
+			&"get_session_id",
+			-1
+		)
 	)
 	assert_eq(
-		_call_int(session, &"get_request_id", 0),
-		_call_int(operation, &"get_request_id", -1)
+		_call_int(
+			session,
+			&"get_request_id",
+			0
+		),
+		_call_int(
+			operation,
+			&"get_request_id",
+			-1
+		)
 	)
-	assert_eq(_call_string(session, &"get_history_key"), expected_history_key)
+	assert_eq(
+		_call_string(session, &"get_history_key"),
+		expected_history_key
+	)
 	assert_true(_call_bool(session, &"is_active"))
 	assert_false(_call_bool(session, &"is_terminal"))
 	assert_eq(
-		_call_int(session, &"get_end_kind", -1),
-		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "NONE")
+		_call_int(
+			session,
+			&"get_end_kind",
+			-1
+		),
+		_enum_value(
+			_SESSION_HANDLE_SCRIPT_PATH,
+			"EndKind",
+			"NONE"
+		)
 	)
 
 
@@ -3576,14 +4644,22 @@ func _call_bool(target: Object, method_name: StringName) -> bool:
 	return value if value is bool else false
 
 
-func _call_bool_with_args(target: Object, method_name: StringName, arguments: Array) -> bool:
+func _call_bool_with_args(
+	target: Object,
+	method_name: StringName,
+	arguments: Array
+) -> bool:
 	if target == null or not target.has_method(method_name):
 		return false
 	var value: Variant = target.callv(method_name, arguments)
 	return value if value is bool else false
 
 
-func _call_int(target: Object, method_name: StringName, fallback: int) -> int:
+func _call_int(
+	target: Object,
+	method_name: StringName,
+	fallback: int
+) -> int:
 	if target == null or not target.has_method(method_name):
 		return fallback
 	var value: Variant = target.call(method_name)
@@ -3619,7 +4695,11 @@ func _call_string_name(target: Object, method_name: StringName) -> StringName:
 	return StringName(_call_string(target, method_name))
 
 
-func _enum_value(path: String, enum_name: String, member_name: String) -> int:
+func _enum_value(
+	path: String,
+	enum_name: String,
+	member_name: String
+) -> int:
 	var script: GDScript = _load_gdscript(path)
 	if script == null:
 		return -1
@@ -3630,7 +4710,11 @@ func _enum_value(path: String, enum_name: String, member_name: String) -> int:
 	if not enum_value is Dictionary:
 		return -1
 	var values: Dictionary = enum_value
-	return GFVariantData.get_option_int(values, member_name, -1)
+	return GFVariantData.get_option_int(
+		values,
+		member_name,
+		-1
+	)
 
 
 func _script_string_name_constant(path: String, constant_name: String) -> StringName:

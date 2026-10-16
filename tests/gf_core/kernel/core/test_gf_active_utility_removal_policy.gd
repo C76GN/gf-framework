@@ -9,14 +9,25 @@ func test_active_fixed_utility_rejects_replacement_before_candidate_initializati
 	assert_true(await architecture.init())
 	assert_false(await architecture.replace_utility(FixedUtility, candidate))
 	assert_push_error("[GFArchitecture][architecture.active_module_removal_refused]")
-	assert_same(architecture.get_local_utility(FixedUtility), previous)
+	assert_same(
+		architecture.get_local_utility(FixedUtility),
+		previous
+	)
 	assert_eq(previous.quiesce_count, 0)
 	assert_eq(previous.dispose_count, 0)
 	assert_eq(candidate.init_count, 0)
-	assert_eq(candidate.dispose_count, 0, "拒绝发生在候选所有权接管前。")
+	assert_eq(
+		candidate.dispose_count,
+		0,
+		"拒绝发生在候选所有权接管前。"
+	)
 	assert_true(architecture.is_inited())
 	architecture.dispose()
-	assert_eq(previous.dispose_count, 1, "整体关闭不受单实例移除策略阻碍。")
+	assert_eq(
+		previous.dispose_count,
+		1,
+		"整体关闭不受单实例移除策略阻碍。"
+	)
 
 
 func test_unregister_cannot_bypass_stable_utility_policy() -> void:
@@ -26,7 +37,10 @@ func test_unregister_cannot_bypass_stable_utility_policy() -> void:
 	assert_true(await architecture.init())
 	assert_false(await architecture.unregister_utility(FixedUtility))
 	assert_push_error("[GFArchitecture][architecture.active_module_removal_refused]")
-	assert_same(architecture.get_local_utility(FixedUtility), previous)
+	assert_same(
+		architecture.get_local_utility(FixedUtility),
+		previous
+	)
 	assert_eq(previous.quiesce_count, 0)
 	architecture.dispose()
 
@@ -49,13 +63,19 @@ func test_bound_utility_same_instance_replacement_is_idempotent_before_and_after
 	assert_true(await architecture.register_utility_instance(utility))
 	assert_true(utility.is_bound_to_architecture_for_framework())
 	assert_true(await architecture.replace_utility(UnboundOnlyUtility, utility))
-	assert_same(architecture.get_local_utility(UnboundOnlyUtility), utility)
+	assert_same(
+		architecture.get_local_utility(UnboundOnlyUtility),
+		utility
+	)
 	assert_eq(utility.init_count, 0)
 	assert_eq(utility.dispose_count, 0)
 
 	assert_true(await architecture.init())
 	assert_true(await architecture.replace_utility(UnboundOnlyUtility, utility))
-	assert_same(architecture.get_local_utility(UnboundOnlyUtility), utility)
+	assert_same(
+		architecture.get_local_utility(UnboundOnlyUtility),
+		utility
+	)
 	assert_eq(utility.init_count, 1)
 	assert_eq(utility.policy_count, 0)
 	assert_eq(utility.quiesce_count, 0)
@@ -78,7 +98,10 @@ func test_bound_utility_registration_and_replacement_in_another_architecture_rem
 	assert_false(await other_architecture.replace_utility(UnboundOnlyUtility, utility))
 	assert_push_error("[GFArchitecture][architecture.utility_registration_ownership_refused]")
 	assert_null(other_architecture.get_local_utility(UnboundOnlyUtility))
-	assert_same(owner_architecture.get_local_utility(UnboundOnlyUtility), utility)
+	assert_same(
+		owner_architecture.get_local_utility(UnboundOnlyUtility),
+		utility
+	)
 	assert_true(utility.is_bound_to_architecture_for_framework())
 	assert_eq(utility.init_count, 1)
 	assert_eq(utility.quiesce_count, 0)
@@ -110,7 +133,11 @@ func test_registration_policy_shutdown_cannot_publish_candidate_into_disposed_re
 	assert_false(await architecture.register_utility_instance(candidate))
 	assert_null(architecture.get_local_utility(RegistrationPolicyUtility))
 	assert_eq(candidate.init_count, 0)
-	assert_eq(candidate.dispose_count, 0, "准入回调中止时架构尚未取得候选所有权。")
+	assert_eq(
+		candidate.dispose_count,
+		0,
+		"准入回调中止时架构尚未取得候选所有权。"
+	)
 	assert_false(candidate.is_bound_to_architecture_for_framework())
 
 
@@ -123,7 +150,10 @@ func test_registration_policy_cannot_publish_nested_alias() -> void:
 	assert_true(await architecture.register_utility_instance(candidate))
 	assert_push_error("[GFArchitecture][architecture.registry_write_lifecycle_reentry]")
 	assert_null(architecture.get_local_utility(NestedAliasUtility))
-	assert_same(architecture.get_local_utility(RegistrationPolicyUtility), candidate)
+	assert_same(
+		architecture.get_local_utility(RegistrationPolicyUtility),
+		candidate
+	)
 	architecture.dispose()
 
 
@@ -136,15 +166,18 @@ class FixedUtility extends GFUtility:
 	func init() -> void:
 		init_count += 1
 
+
 	func can_remove_from_active_lifecycle() -> bool:
 		policy_count += 1
 		return false
+
 
 	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 		quiesce_count += 1
 		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 		var _succeeded: bool = completion.succeed()
 		return completion
+
 
 	func dispose() -> void:
 		dispose_count += 1
@@ -173,7 +206,6 @@ class NestedAliasUtility extends GFUtility:
 class RegistrationPolicyUtility extends FixedUtility:
 	var architecture_ref: WeakRef = null
 	var dispose_from_policy: bool = false
-
 
 	func can_register_in_architecture() -> bool:
 		var value: Variant = architecture_ref.get_ref()

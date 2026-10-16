@@ -91,21 +91,32 @@ func bind_items(
 		"tree_exited_callable": Callable(),
 	}
 
-	if GFVariantData.get_option_bool(options, "sync_initial", true):
-		var items: Array = _value_to_items(state_store.get_value(
-			path_segments,
-			GFVariantData.get_option_value(options, "default_items", [])
-		))
-		var _initial_count: int = write_items(target, items, options)
+	if GFVariantData.get_option_bool(
+		options,
+		"sync_initial",
+		true
+	):
+		var items: Array = _value_to_items(
+			state_store.get_value(
+				path_segments,
+				GFVariantData.get_option_value(
+					options,
+					"default_items",
+					[]
+				)
+			)
+		)
+		var _initial_count: int = write_items(
+			target,
+			items,
+			options
+		)
 
 	var unsubscribe: Callable = state_store.subscribe(
 		path_segments,
 		func(change: Dictionary, _store: RefCounted) -> void:
 			_apply_store_change_to_target(binding, change),
-		{
-			"mode": _GF_REACTIVE_STATE_STORE_SCRIPT.SUBSCRIBE_EXACT,
-			"owner": target,
-		}
+		{ "mode": _GF_REACTIVE_STATE_STORE_SCRIPT.SUBSCRIBE_EXACT, "owner": target, }
 	)
 	if not unsubscribe.is_valid():
 		return false
@@ -142,8 +153,16 @@ func bind_items(
 ## @schema items: Array，元素为 Dictionary 或标量值。
 ## [br]
 ## @schema options: Dictionary，键名映射与 clear 选项。
-func write_target_items(target: Object, items: Array, options: Dictionary = {}) -> int:
-	return write_items(target, items, options)
+func write_target_items(
+	target: Object,
+	items: Array,
+	options: Dictionary = {}
+) -> int:
+	return write_items(
+		target,
+		items,
+		options
+	)
 
 
 ## 解绑指定目标控件。
@@ -160,7 +179,11 @@ func unbind_target(target: Object) -> bool:
 		return false
 
 	var removed: bool = false
-	for index: int in range(_bindings.size() - 1, -1, -1):
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _bindings[index]
 		if _get_binding_target(binding) == target:
 			_disconnect_binding(binding)
@@ -188,7 +211,11 @@ func unbind_path(store: RefCounted, path: Variant) -> int:
 	var state_store: _GF_REACTIVE_STATE_STORE_SCRIPT = _as_state_store(store)
 	var path_text: String = _GF_REACTIVE_STATE_STORE_SCRIPT.format_path(path)
 	var removed_count: int = 0
-	for index: int in range(_bindings.size() - 1, -1, -1):
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _bindings[index]
 		if _get_binding_store(binding) == state_store and GFVariantData.get_option_string(binding, "path") == path_text:
 			_disconnect_binding(binding)
@@ -246,20 +273,36 @@ func dispose() -> void:
 ## @schema items: Array，元素为 Dictionary 或标量值。
 ## [br]
 ## @schema options: Dictionary，键名映射与 clear 选项。
-static func write_items(target: Object, items: Array, options: Dictionary = {}) -> int:
+static func write_items(
+	target: Object,
+	items: Array,
+	options: Dictionary = {}
+) -> int:
 	if not _is_supported_target(target):
 		return 0
 
 	var normalized_items: Array[Dictionary] = _normalize_items(items, options)
 	if target is ItemList:
 		var item_list: ItemList = target
-		return _write_item_list(item_list, normalized_items, options)
+		return _write_item_list(
+			item_list,
+			normalized_items,
+			options
+		)
 	if target is OptionButton:
 		var option_button: OptionButton = target
-		return _write_option_button(option_button, normalized_items, options)
+		return _write_option_button(
+			option_button,
+			normalized_items,
+			options
+		)
 	if target is PopupMenu:
 		var popup_menu: PopupMenu = target
-		return _write_popup_menu(popup_menu, normalized_items, options)
+		return _write_popup_menu(
+			popup_menu,
+			normalized_items,
+			options
+		)
 	return 0
 
 
@@ -280,7 +323,11 @@ static func write_items(target: Object, items: Array, options: Dictionary = {}) 
 ## @schema fallback: Variant fallback value.
 ## [br]
 ## @schema return: Variant item metadata or fallback.
-static func get_item_metadata(target: Object, index: int, fallback: Variant = null) -> Variant:
+static func get_item_metadata(
+	target: Object,
+	index: int,
+	fallback: Variant = null
+) -> Variant:
 	if index < 0:
 		return fallback
 	if target is ItemList:
@@ -341,23 +388,51 @@ func _apply_store_change_to_target(binding: Dictionary, change: Dictionary) -> v
 	var value: Variant = GFVariantData.get_option_value(
 		change,
 		"new_value",
-		GFVariantData.get_option_value(GFVariantData.get_option_dictionary(binding, "options"), "default_items", [])
+		GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(binding, "options"),
+			"default_items",
+			[]
+		)
 	)
-	if not GFVariantData.get_option_bool(change, "new_exists", true):
-		value = GFVariantData.get_option_value(GFVariantData.get_option_dictionary(binding, "options"), "default_items", [])
-	var _written_count: int = write_items(target, _value_to_items(value), GFVariantData.get_option_dictionary(binding, "options"))
+	if not GFVariantData.get_option_bool(
+		change,
+		"new_exists",
+		true
+	):
+		value = GFVariantData.get_option_value(
+			GFVariantData.get_option_dictionary(binding, "options"),
+			"default_items",
+			[]
+		)
+	var _written_count: int = write_items(
+		target,
+		_value_to_items(value),
+		GFVariantData.get_option_dictionary(binding, "options")
+	)
 
 
 ## 按 binding_id 查找并断开绑定；记录缺少有效 ID 时返回 false。
 ## [br]
 ## @api private
 func _remove_binding(binding: Dictionary) -> bool:
-	var binding_id: int = GFVariantData.get_option_int(binding, "binding_id", -1)
+	var binding_id: int = GFVariantData.get_option_int(
+		binding,
+		"binding_id",
+		-1
+	)
 	if binding_id == -1:
 		return false
 
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_bindings[index],
+			"binding_id",
+			-1
+		) == binding_id:
 			_disconnect_binding(_bindings[index])
 			_bindings.remove_at(index)
 			return true
@@ -425,7 +500,11 @@ func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 ## [br]
 ## @api private
 func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(binding, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		binding,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback
@@ -436,13 +515,15 @@ func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
 ## [br]
 ## @api private
 func _prune_invalid_bindings() -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _bindings[index]
 		if _get_binding_store(binding) == null or _get_binding_target(binding) == null:
 			_disconnect_binding(binding)
 			_bindings.remove_at(index)
-
-
 
 
 ## 限定目标为有效的 ItemList、OptionButton 或 PopupMenu 实例。
@@ -451,7 +532,11 @@ func _prune_invalid_bindings() -> void:
 static func _is_supported_target(target: Object) -> bool:
 	if target == null or not is_instance_valid(target):
 		return false
-	return target is ItemList or target is OptionButton or target is PopupMenu
+	return (
+		target is ItemList
+		or target is OptionButton
+		or target is PopupMenu
+	)
 
 
 ## 保留 Array 状态值；其他类型统一视为空条目列表。
@@ -470,26 +555,86 @@ static func _value_to_items(value: Variant) -> Array:
 static func _normalize_items(items: Array, options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for index: int in range(items.size()):
-		result.append(_normalize_item(items[index], index, options))
+		result.append(
+			_normalize_item(
+				items[index],
+				index,
+				options
+			)
+		)
 	return result
 
 
 ## 将字典或标量条目转换为文本、metadata、图标、状态标志和整数 ID 记录。
 ## [br]
 ## @api private
-static func _normalize_item(item: Variant, index: int, options: Dictionary) -> Dictionary:
+static func _normalize_item(
+	item: Variant,
+	index: int,
+	options: Dictionary
+) -> Dictionary:
 	if item is Dictionary:
 		var source: Dictionary = GFVariantData.as_dictionary(item)
-		var metadata: Variant = _get_metadata_value(source, item, options)
+		var metadata: Variant = _get_metadata_value(
+			source,
+			item,
+			options
+		)
 		return {
-			"text": _get_item_text(source, item, options),
+			"text": _get_item_text(
+				source,
+				item,
+				options
+			),
 			"metadata": GFVariantData.duplicate_variant(metadata),
-			"icon": _variant_to_texture(GFVariantData.get_option_value(source, _get_option_key(options, "icon_key", &"icon"))),
-			"disabled": GFVariantData.get_option_bool(source, _get_option_key(options, "disabled_key", &"disabled")),
-			"selectable": GFVariantData.get_option_bool(source, _get_option_key(options, "selectable_key", &"selectable"), true),
-			"tooltip": GFVariantData.get_option_string(source, _get_option_key(options, "tooltip_key", &"tooltip")),
-			"selected": GFVariantData.get_option_bool(source, _get_option_key(options, "selected_key", &"selected")),
-			"integer_id": _get_integer_item_id(source, index, options),
+			"icon": _variant_to_texture(
+				GFVariantData.get_option_value(
+					source,
+					_get_option_key(
+						options,
+						"icon_key",
+						&"icon"
+					)
+				)
+			),
+			"disabled": GFVariantData.get_option_bool(
+				source,
+				_get_option_key(
+					options,
+					"disabled_key",
+					&"disabled"
+				)
+			),
+			"selectable": GFVariantData.get_option_bool(
+				source,
+				_get_option_key(
+					options,
+					"selectable_key",
+					&"selectable"
+				),
+				true
+			),
+			"tooltip": GFVariantData.get_option_string(
+				source,
+				_get_option_key(
+					options,
+					"tooltip_key",
+					&"tooltip"
+				)
+			),
+			"selected": GFVariantData.get_option_bool(
+				source,
+				_get_option_key(
+					options,
+					"selected_key",
+					&"selected"
+				)
+			),
+			"integer_id": _get_integer_item_id(
+				source,
+				index,
+				options
+			),
 		}
 
 	return {
@@ -507,8 +652,16 @@ static func _normalize_item(item: Variant, index: int, options: Dictionary) -> D
 ## 按标准记录更新 ItemList 的条目属性与选中项，clear 默认会先清空列表。
 ## [br]
 ## @api private
-static func _write_item_list(item_list: ItemList, items: Array[Dictionary], options: Dictionary) -> int:
-	if GFVariantData.get_option_bool(options, "clear", true):
+static func _write_item_list(
+	item_list: ItemList,
+	items: Array[Dictionary],
+	options: Dictionary
+) -> int:
+	if GFVariantData.get_option_bool(
+		options,
+		"clear",
+		true
+	):
 		item_list.clear()
 
 	var selected_indices: Array[int] = []
@@ -517,10 +670,20 @@ static func _write_item_list(item_list: ItemList, items: Array[Dictionary], opti
 		var _add_item_result: Variant = item_list.add_item(
 			GFVariantData.get_option_string(item, "text"),
 			_variant_to_texture(GFVariantData.get_option_value(item, "icon")),
-			GFVariantData.get_option_bool(item, "selectable", true)
+			GFVariantData.get_option_bool(
+				item,
+				"selectable",
+				true
+			)
 		)
-		item_list.set_item_metadata(index, GFVariantData.get_option_value(item, "metadata"))
-		item_list.set_item_disabled(index, GFVariantData.get_option_bool(item, "disabled"))
+		item_list.set_item_metadata(
+			index,
+			GFVariantData.get_option_value(item, "metadata")
+		)
+		item_list.set_item_disabled(
+			index,
+			GFVariantData.get_option_bool(item, "disabled")
+		)
 		var tooltip: String = GFVariantData.get_option_string(item, "tooltip")
 		if not tooltip.is_empty():
 			item_list.set_item_tooltip(index, tooltip)
@@ -535,8 +698,16 @@ static func _write_item_list(item_list: ItemList, items: Array[Dictionary], opti
 ## 按标准记录更新 OptionButton；仅应用首个标记为 selected 的项目。
 ## [br]
 ## @api private
-static func _write_option_button(option_button: OptionButton, items: Array[Dictionary], options: Dictionary) -> int:
-	if GFVariantData.get_option_bool(options, "clear", true):
+static func _write_option_button(
+	option_button: OptionButton,
+	items: Array[Dictionary],
+	options: Dictionary
+) -> int:
+	if GFVariantData.get_option_bool(
+		options,
+		"clear",
+		true
+	):
 		option_button.clear()
 
 	var selected_index: int = -1
@@ -544,13 +715,27 @@ static func _write_option_button(option_button: OptionButton, items: Array[Dicti
 		var index: int = option_button.item_count
 		var icon: Texture2D = _variant_to_texture(GFVariantData.get_option_value(item, "icon"))
 		var text: String = GFVariantData.get_option_string(item, "text")
-		var integer_id: int = GFVariantData.get_option_int(item, "integer_id", index)
+		var integer_id: int = GFVariantData.get_option_int(
+			item,
+			"integer_id",
+			index
+		)
 		if icon != null:
-			option_button.add_icon_item(icon, text, integer_id)
+			option_button.add_icon_item(
+				icon,
+				text,
+				integer_id
+			)
 		else:
 			option_button.add_item(text, integer_id)
-		option_button.set_item_metadata(index, GFVariantData.get_option_value(item, "metadata"))
-		option_button.set_item_disabled(index, GFVariantData.get_option_bool(item, "disabled"))
+		option_button.set_item_metadata(
+			index,
+			GFVariantData.get_option_value(item, "metadata")
+		)
+		option_button.set_item_disabled(
+			index,
+			GFVariantData.get_option_bool(item, "disabled")
+		)
 		var tooltip: String = GFVariantData.get_option_string(item, "tooltip")
 		if not tooltip.is_empty():
 			option_button.set_item_tooltip(index, tooltip)
@@ -565,21 +750,43 @@ static func _write_option_button(option_button: OptionButton, items: Array[Dicti
 ## 按标准记录更新 PopupMenu 的条目、metadata、禁用状态和提示文本。
 ## [br]
 ## @api private
-static func _write_popup_menu(popup_menu: PopupMenu, items: Array[Dictionary], options: Dictionary) -> int:
-	if GFVariantData.get_option_bool(options, "clear", true):
+static func _write_popup_menu(
+	popup_menu: PopupMenu,
+	items: Array[Dictionary],
+	options: Dictionary
+) -> int:
+	if GFVariantData.get_option_bool(
+		options,
+		"clear",
+		true
+	):
 		popup_menu.clear()
 
 	for item: Dictionary in items:
 		var index: int = popup_menu.get_item_count()
 		var icon: Texture2D = _variant_to_texture(GFVariantData.get_option_value(item, "icon"))
 		var text: String = GFVariantData.get_option_string(item, "text")
-		var integer_id: int = GFVariantData.get_option_int(item, "integer_id", index)
+		var integer_id: int = GFVariantData.get_option_int(
+			item,
+			"integer_id",
+			index
+		)
 		if icon != null:
-			popup_menu.add_icon_item(icon, text, integer_id)
+			popup_menu.add_icon_item(
+				icon,
+				text,
+				integer_id
+			)
 		else:
 			popup_menu.add_item(text, integer_id)
-		popup_menu.set_item_metadata(index, GFVariantData.get_option_value(item, "metadata"))
-		popup_menu.set_item_disabled(index, GFVariantData.get_option_bool(item, "disabled"))
+		popup_menu.set_item_metadata(
+			index,
+			GFVariantData.get_option_value(item, "metadata")
+		)
+		popup_menu.set_item_disabled(
+			index,
+			GFVariantData.get_option_bool(item, "disabled")
+		)
 		var tooltip: String = GFVariantData.get_option_string(item, "tooltip")
 		if not tooltip.is_empty():
 			popup_menu.set_item_tooltip(index, tooltip)
@@ -589,12 +796,24 @@ static func _write_popup_menu(popup_menu: PopupMenu, items: Array[Dictionary], o
 ## 优先使用映射文本键，再依次回退到 label、name、id，最后转换原条目。
 ## [br]
 ## @api private
-static func _get_item_text(source: Dictionary, item: Variant, options: Dictionary) -> String:
-	var text_key: StringName = _get_option_key(options, "text_key", &"text")
+static func _get_item_text(
+	source: Dictionary,
+	item: Variant,
+	options: Dictionary
+) -> String:
+	var text_key: StringName = _get_option_key(
+		options,
+		"text_key",
+		&"text"
+	)
 	var text: String = GFVariantData.get_option_string(source, text_key)
 	if not text.is_empty():
 		return text
-	for fallback_key: StringName in [&"label", &"name", &"id"]:
+	for fallback_key: StringName in [
+		&"label",
+		&"name",
+		&"id",
+	]:
 		text = GFVariantData.get_option_string(source, fallback_key)
 		if not text.is_empty():
 			return text
@@ -604,11 +823,23 @@ static func _get_item_text(source: Dictionary, item: Variant, options: Dictionar
 ## 优先取显式 metadata 键，其次取 id 键；都不可用时以原条目作为 metadata。
 ## [br]
 ## @api private
-static func _get_metadata_value(source: Dictionary, item: Variant, options: Dictionary) -> Variant:
-	var metadata_key: StringName = _get_option_key(options, "metadata_key", &"")
+static func _get_metadata_value(
+	source: Dictionary,
+	item: Variant,
+	options: Dictionary
+) -> Variant:
+	var metadata_key: StringName = _get_option_key(
+		options,
+		"metadata_key",
+		&""
+	)
 	if metadata_key != &"" and source.has(metadata_key):
 		return GFVariantData.get_option_value(source, metadata_key)
-	var id_key: StringName = _get_option_key(options, "id_key", &"id")
+	var id_key: StringName = _get_option_key(
+		options,
+		"id_key",
+		&"id"
+	)
 	if id_key != &"" and source.has(id_key):
 		return GFVariantData.get_option_value(source, id_key)
 	return item
@@ -617,11 +848,23 @@ static func _get_metadata_value(source: Dictionary, item: Variant, options: Dict
 ## 仅接受 id 字段中的整数作为控件 ID；其他情况回退到数组索引。
 ## [br]
 ## @api private
-static func _get_integer_item_id(source: Dictionary, index: int, options: Dictionary) -> int:
-	var id_key: StringName = _get_option_key(options, "id_key", &"id")
+static func _get_integer_item_id(
+	source: Dictionary,
+	index: int,
+	options: Dictionary
+) -> int:
+	var id_key: StringName = _get_option_key(
+		options,
+		"id_key",
+		&"id"
+	)
 	if id_key == &"":
 		return index
-	var value: Variant = GFVariantData.get_option_value(source, id_key, index)
+	var value: Variant = GFVariantData.get_option_value(
+		source,
+		id_key,
+		index
+	)
 	if value is int:
 		var item_id: int = value
 		return item_id
@@ -631,8 +874,16 @@ static func _get_integer_item_id(source: Dictionary, index: int, options: Dictio
 ## 读取选项中的字段名并转换为 StringName，无效值使用给定回退键。
 ## [br]
 ## @api private
-static func _get_option_key(options: Dictionary, key: String, fallback: StringName) -> StringName:
-	var value: Variant = GFVariantData.get_option_value(options, key, fallback)
+static func _get_option_key(
+	options: Dictionary,
+	key: String,
+	fallback: StringName
+) -> StringName:
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		fallback
+	)
 	return GFVariantData.to_string_name(value, fallback)
 
 
@@ -652,7 +903,15 @@ static func _variant_to_texture(value: Variant) -> Texture2D:
 ## [br]
 ## @api private
 func _on_target_tree_exited(binding_id: int) -> void:
-	for index: int in range(_bindings.size() - 1, -1, -1):
-		if GFVariantData.get_option_int(_bindings[index], "binding_id", -1) == binding_id:
+	for index: int in range(
+		_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if GFVariantData.get_option_int(
+			_bindings[index],
+			"binding_id",
+			-1
+		) == binding_id:
 			var _removed_exited_binding: bool = _remove_binding(_bindings[index])
 			return

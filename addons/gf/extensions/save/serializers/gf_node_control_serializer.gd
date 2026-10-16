@@ -79,6 +79,8 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标节点。
 ## [br]
 ## @param payload: Control 布局状态载荷。
@@ -92,14 +94,25 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(
+	node: Node,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Dictionary:
 	var control: Control = _get_control(node)
 	if control == null:
 		return make_result(false, "Node is not Control.")
 
-	var errors: Array[String] = _apply_property_specs(control, payload, _PROPERTY_SPECS)
+	var errors: Array[String] = _apply_property_specs(
+		control,
+		payload,
+		_PROPERTY_SPECS
+	)
 	if not errors.is_empty():
-		return make_result(false, "; ".join(errors))
+		return make_result(
+			false,
+			"; ".join(errors)
+		)
 	return make_result(true)
 
 

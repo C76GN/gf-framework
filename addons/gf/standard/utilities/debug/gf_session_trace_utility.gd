@@ -62,7 +62,11 @@ signal event_recorded(event: Dictionary)
 ## @param event_id: 请求记录的事件标识。
 ## [br]
 ## @param reason: 稳定拒绝原因。
-signal event_rejected(channel_id: StringName, event_id: StringName, reason: StringName)
+signal event_rejected(
+	channel_id: StringName,
+	event_id: StringName,
+	reason: StringName
+)
 
 
 # --- 常量 ---
@@ -513,17 +517,30 @@ func start_session(
 	_session_id = _normalize_id(requested_session_id)
 	if _session_id == &"":
 		_session_id = _make_session_id()
-	_session_context = _sanitize_persistent_dictionary(context, mini(max_event_bytes, 32 * 1024))
+	_session_context = _sanitize_persistent_dictionary(
+		context,
+		mini(
+			max_event_bytes,
+			32 * 1024
+		)
+	)
 	_stop_reason = &""
 	_started_ticks_usec = maxi(
-		GFVariantData.get_option_int(options, "started_ticks_usec", Time.get_ticks_usec()),
+		GFVariantData.get_option_int(
+			options,
+			"started_ticks_usec",
+			Time.get_ticks_usec()
+		),
 		0
 	)
 	_next_sequence = 1
 	_active = true
 	_journal_event_count = 0
 	_journal_dropped_event_count = 0
-	session_started.emit(_session_id, _session_context.duplicate(true))
+	session_started.emit(
+		_session_id,
+		_session_context.duplicate(true)
+	)
 	return _session_id
 
 
@@ -584,14 +601,21 @@ func clear() -> void:
 ## @return 原子应用报告。
 ## [br]
 ## @schema return: Dictionary with ok, recipe_id, fingerprint, applied_channels, reused, error_code, and error_message.
-func apply_recipe(
-	recipe: GFSessionTraceRecipe,
-	options: Dictionary = {}
-) -> Dictionary:
+func apply_recipe(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -> Dictionary:
 	if recipe == null:
-		return _make_recipe_result(false, &"", "", &"invalid_recipe", "Session trace recipe is null.")
+		return _make_recipe_result(
+			false,
+			&"",
+			"",
+			&"invalid_recipe",
+			"Session trace recipe is null."
+		)
 	var validation: Dictionary = recipe.validate_recipe()
-	if not GFVariantData.get_option_bool(validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		return _make_recipe_result(
 			false,
 			recipe.recipe_id,
@@ -612,10 +636,7 @@ func apply_recipe(
 				&"recipe_changed",
 				"Session trace recipe changed after it was applied."
 			)
-		if (
-			_trace_configuration_revision != _configured_recipe_runtime_revision
-			or _make_recipe_runtime_fingerprint() != _configured_recipe_runtime_fingerprint
-		):
+		if (_trace_configuration_revision != _configured_recipe_runtime_revision or _make_recipe_runtime_fingerprint() != _configured_recipe_runtime_fingerprint):
 			return _make_recipe_result(
 				false,
 				recipe.recipe_id,
@@ -672,8 +693,7 @@ func apply_recipe(
 				recipe.recipe_id,
 				fingerprint,
 				&"unmanaged_channel_conflict",
-				"Session trace utility contains a channel not declared by the recipe: %s."
-				% existing_channel_text
+				"Session trace utility contains a channel not declared by the recipe: %s." % existing_channel_text
 			)
 	var new_channel_count: int = 0
 	for channel: GFSessionTraceChannelDefinition in recipe.channels:
@@ -708,7 +728,10 @@ func apply_recipe(
 	redaction_profile = recipe.redaction_profile
 	var applied_channels: PackedStringArray = PackedStringArray()
 	for channel: GFSessionTraceChannelDefinition in recipe.channels:
-		if not register_channel(channel.channel_id, channel.to_channel_options_for_framework()):
+		if not register_channel(
+			channel.channel_id,
+			channel.to_channel_options_for_framework()
+		):
 			_channels = previous_channels
 			max_events = previous_max_events
 			max_event_buffer_bytes = previous_max_event_buffer_bytes
@@ -793,13 +816,14 @@ func capture_recipe_checkpoint(
 		var event_metadata: Dictionary = _duplicate_dictionary(checkpoint.metadata)
 		var option_metadata: Dictionary = _duplicate_dictionary(
 			GFVariantData.as_dictionary(
-				GFVariantData.get_option_value(options, "metadata", {})
+				GFVariantData.get_option_value(
+					options,
+					"metadata",
+					{}
+				)
 			)
 		)
-		var _metadata_merge_result: Variant = GFVariantData.merge_metadata(
-			event_metadata,
-			option_metadata
-		)
+		var _metadata_merge_result: Variant = GFVariantData.merge_metadata(event_metadata, option_metadata)
 		event_metadata["recipe_id"] = String(recipe.recipe_id)
 		event_metadata["checkpoint_id"] = String(checkpoint_id)
 		capture_options["metadata"] = event_metadata
@@ -840,18 +864,12 @@ func capture_recipe_checkpoint(
 ## @return 带配方身份的有界轨迹快照；配方不匹配时返回结构化失败。
 ## [br]
 ## @schema return: 成功时为 build_snapshot() 字典并附加 recipe_id 和 recipe_fingerprint；失败时包含 ok=false、error_code 和 error_message。
-func build_recipe_snapshot(
-	recipe: GFSessionTraceRecipe,
-	options: Dictionary = {}
-) -> Dictionary:
+func build_recipe_snapshot(recipe: GFSessionTraceRecipe, options: Dictionary = {}) -> Dictionary:
 	var recipe_issue: Dictionary = _get_configured_recipe_issue(recipe)
 	if not recipe_issue.is_empty():
 		return recipe_issue
 	var snapshot_options: Dictionary = recipe.get_snapshot_options_for_framework()
-	var _options_merge_result: Variant = GFVariantData.merge_metadata(
-		snapshot_options,
-		options
-	)
+	var _options_merge_result: Variant = GFVariantData.merge_metadata(snapshot_options, options)
 	var result: Dictionary = build_snapshot(snapshot_options)
 	result["ok"] = true
 	result["recipe_id"] = recipe.recipe_id
@@ -880,19 +898,38 @@ func register_channel(channel_id: StringName, options: Dictionary = {}) -> bool:
 		return false
 
 	var next_options: Dictionary = {
-		"enabled": GFVariantData.get_option_bool(options, "enabled", true),
-		"include_in_snapshot": GFVariantData.get_option_bool(options, "include_in_snapshot", true),
-		"max_events": maxi(GFVariantData.get_option_int(options, "max_events", 0), 0),
-		"max_event_bytes": maxi(GFVariantData.get_option_int(options, "max_event_bytes", 0), 0),
+		"enabled": GFVariantData.get_option_bool(
+			options,
+			"enabled",
+			true
+		),
+		"include_in_snapshot": GFVariantData.get_option_bool(
+			options,
+			"include_in_snapshot",
+			true
+		),
+		"max_events": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_events",
+				0
+			),
+			0
+		),
+		"max_event_bytes": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_event_bytes",
+				0
+			),
+			0
+		),
 		"metadata": _sanitize_persistent_dictionary(
 			_get_dictionary(options, "metadata"),
 			mini(max_event_bytes, 4096)
 		),
 	}
-	if (
-		not _channels.has(normalized_id)
-		or _get_dictionary(_channels, normalized_id) != next_options
-	):
+	if (not _channels.has(normalized_id) or _get_dictionary(_channels, normalized_id) != next_options):
 		_mark_trace_configuration_changed()
 	_channels[normalized_id] = next_options
 	_trim_channel_to_limit(normalized_id)
@@ -951,7 +988,11 @@ func set_channel_enabled(channel_id: StringName, enabled: bool) -> bool:
 	if not _channels.has(normalized_id):
 		return false
 	var channel_options: Dictionary = _get_dictionary(_channels, normalized_id)
-	if GFVariantData.get_option_bool(channel_options, "enabled", true) == enabled:
+	if GFVariantData.get_option_bool(
+		channel_options,
+		"enabled",
+		true
+	) == enabled:
 		return true
 	channel_options["enabled"] = enabled
 	_channels[normalized_id] = channel_options
@@ -974,10 +1015,26 @@ func get_channel_catalog() -> Dictionary:
 		var channel_id: StringName = StringName(channel_text)
 		var options: Dictionary = _get_dictionary(_channels, channel_id)
 		result[channel_id] = {
-			"enabled": GFVariantData.get_option_bool(options, "enabled", true),
-			"include_in_snapshot": GFVariantData.get_option_bool(options, "include_in_snapshot", true),
-			"max_events": GFVariantData.get_option_int(options, "max_events", 0),
-			"max_event_bytes": GFVariantData.get_option_int(options, "max_event_bytes", 0),
+			"enabled": GFVariantData.get_option_bool(
+				options,
+				"enabled",
+				true
+			),
+			"include_in_snapshot": GFVariantData.get_option_bool(
+				options,
+				"include_in_snapshot",
+				true
+			),
+			"max_events": GFVariantData.get_option_int(
+				options,
+				"max_events",
+				0
+			),
+			"max_event_bytes": GFVariantData.get_option_int(
+				options,
+				"max_event_bytes",
+				0
+			),
 			"event_count": _count_channel_events(channel_id),
 			"metadata": GFVariantData.get_option_dictionary(options, "metadata").duplicate(true),
 		}
@@ -1011,7 +1068,12 @@ func record_event(
 	payload: Variant = null,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _record_event_internal(channel_id, event_id, payload, options)
+	return _record_event_internal(
+		channel_id,
+		event_id,
+		payload,
+		options
+	)
 
 
 ## 注册一个由项目显式触发的同步快照 provider。
@@ -1040,12 +1102,20 @@ func register_snapshot_provider(
 ) -> bool:
 	var normalized_provider_id: StringName = _normalize_id(provider_id)
 	var normalized_channel_id: StringName = _normalize_id(channel_id)
-	if normalized_provider_id == &"" or not provider.is_valid() or not has_channel(normalized_channel_id):
+	if (
+		normalized_provider_id == &""
+		or not provider.is_valid()
+		or not has_channel(normalized_channel_id)
+	):
 		return false
 	if not _snapshot_providers.has(normalized_provider_id) and _snapshot_providers.size() >= max_snapshot_providers:
 		return false
 	var event_id: StringName = _normalize_id(
-		GFVariantData.get_option_string_name(options, "event_id", normalized_provider_id)
+		GFVariantData.get_option_string_name(
+			options,
+			"event_id",
+			normalized_provider_id
+		)
 	)
 	if event_id == &"":
 		return false
@@ -1053,7 +1123,11 @@ func register_snapshot_provider(
 		"channel_id": normalized_channel_id,
 		"event_id": event_id,
 		"provider": provider,
-		"enabled": GFVariantData.get_option_bool(options, "enabled", true),
+		"enabled": GFVariantData.get_option_bool(
+			options,
+			"enabled",
+			true
+		),
 		"metadata": _sanitize_persistent_dictionary(
 			_get_dictionary(options, "metadata"),
 			mini(max_event_bytes, 4096)
@@ -1093,8 +1167,16 @@ func unregister_snapshot_provider(provider_id: StringName) -> bool:
 func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}) -> Dictionary:
 	var normalized_provider_id: StringName = _normalize_id(provider_id)
 	var provider_entry: Dictionary = _get_dictionary(_snapshot_providers, normalized_provider_id)
-	if provider_entry.is_empty() or not GFVariantData.get_option_bool(provider_entry, "enabled", true):
-		return _reject_event(&"", normalized_provider_id, REJECT_INVALID_PROVIDER)
+	if provider_entry.is_empty() or not GFVariantData.get_option_bool(
+		provider_entry,
+		"enabled",
+		true
+	):
+		return _reject_event(
+			&"",
+			normalized_provider_id,
+			REJECT_INVALID_PROVIDER
+		)
 	if _provider_capture_active:
 		return _reject_event(
 			GFVariantData.get_option_string_name(provider_entry, "channel_id"),
@@ -1103,12 +1185,20 @@ func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}
 		)
 	var provider: Callable = _get_callable(provider_entry, "provider")
 	if not provider.is_valid():
-		return _reject_event(&"", normalized_provider_id, REJECT_INVALID_PROVIDER)
+		return _reject_event(
+			&"",
+			normalized_provider_id,
+			REJECT_INVALID_PROVIDER
+		)
 	var channel_id: StringName = GFVariantData.get_option_string_name(provider_entry, "channel_id")
 	var event_id: StringName = GFVariantData.get_option_string_name(provider_entry, "event_id")
 	var rejection_reason: StringName = _get_record_rejection_reason(channel_id, event_id)
 	if rejection_reason != &"":
-		return _reject_event(channel_id, event_id, rejection_reason)
+		return _reject_event(
+			channel_id,
+			event_id,
+			rejection_reason
+		)
 
 	_provider_capture_active = true
 	var payload: Variant = provider.call()
@@ -1121,10 +1211,7 @@ func capture_snapshot_provider(provider_id: StringName, options: Dictionary = {}
 		_get_dictionary(options, "metadata"),
 		mini(max_event_bytes, 4096)
 	)
-	var _metadata_merge_result: Variant = GFVariantData.merge_metadata(
-		metadata,
-		capture_metadata
-	)
+	var _metadata_merge_result: Variant = GFVariantData.merge_metadata(metadata, capture_metadata)
 	metadata["provider_id"] = String(normalized_provider_id)
 	return _record_event_internal(
 		channel_id,
@@ -1152,7 +1239,11 @@ func get_snapshot_provider_catalog() -> Dictionary:
 		result[provider_id] = {
 			"channel_id": GFVariantData.get_option_string_name(provider_entry, "channel_id"),
 			"event_id": GFVariantData.get_option_string_name(provider_entry, "event_id"),
-			"enabled": GFVariantData.get_option_bool(provider_entry, "enabled", true),
+			"enabled": GFVariantData.get_option_bool(
+				provider_entry,
+				"enabled",
+				true
+			),
 			"metadata": GFVariantData.get_option_dictionary(provider_entry, "metadata").duplicate(true),
 		}
 	return result
@@ -1194,11 +1285,23 @@ func configure_journal_sink(sink: GFLogSink, options: Dictionary = {}) -> bool:
 		if _journal_configuration_revision != revision_before_clear + 1:
 			return false
 	_journal_sink = sink
-	_journal_shutdown_on_dispose = GFVariantData.get_option_bool(options, "shutdown_on_dispose", false)
-	_journal_flush_after_write = GFVariantData.get_option_bool(options, "flush_after_write", false)
+	_journal_shutdown_on_dispose = GFVariantData.get_option_bool(
+		options,
+		"shutdown_on_dispose",
+		false
+	)
+	_journal_flush_after_write = GFVariantData.get_option_bool(
+		options,
+		"flush_after_write",
+		false
+	)
 	_journal_configuration_revision += 1
 	var configured_revision: int = _journal_configuration_revision
-	if GFVariantData.get_option_bool(options, "initialize", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"initialize",
+		false
+	):
 		_journal_callback_active = true
 		_journal_sink.init(self)
 		_finish_journal_callback()
@@ -1265,7 +1368,10 @@ func get_events(limit: int = 0, filters: Dictionary = {}) -> Array[Dictionary]:
 	if effective_limit <= 0 or matched.size() <= effective_limit:
 		return matched
 	var result: Array[Dictionary] = []
-	for index: int in range(matched.size() - effective_limit, matched.size()):
+	for index: int in range(
+		matched.size() - effective_limit,
+		matched.size()
+	):
 		result.append(matched[index])
 	return result
 
@@ -1288,13 +1394,32 @@ func build_snapshot(options: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {
 		"schema_version": _EVENT_SCHEMA_VERSION,
 		"summary": _make_summary(),
-		"events": get_events(GFVariantData.get_option_int(options, "limit", 0), filters),
+		"events": get_events(
+			GFVariantData.get_option_int(
+				options,
+				"limit",
+				0
+			),
+			filters
+		),
 	}
-	if GFVariantData.get_option_bool(options, "include_context", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_context",
+		true
+	):
 		result["context"] = _session_context.duplicate(true)
-	if GFVariantData.get_option_bool(options, "include_channel_catalog", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_channel_catalog",
+		false
+	):
 		result["channel_catalog"] = get_channel_catalog()
-	if GFVariantData.get_option_bool(options, "include_provider_catalog", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_provider_catalog",
+		false
+	):
 		result["provider_catalog"] = get_snapshot_provider_catalog()
 	return result
 
@@ -1364,7 +1489,11 @@ func _get_configured_recipe_issue(recipe: GFSessionTraceRecipe) -> Dictionary:
 			"error_message": "Session trace recipe is null.",
 		}
 	var validation: Dictionary = recipe.validate_recipe()
-	if not GFVariantData.get_option_bool(validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		return {
 			"ok": false,
 			"recipe_id": recipe.recipe_id,
@@ -1387,10 +1516,7 @@ func _get_configured_recipe_issue(recipe: GFSessionTraceRecipe) -> Dictionary:
 			"error_code": &"recipe_changed",
 			"error_message": "Session trace recipe changed after it was applied.",
 		}
-	if (
-		_trace_configuration_revision != _configured_recipe_runtime_revision
-		or _make_recipe_runtime_fingerprint() != _configured_recipe_runtime_fingerprint
-	):
+	if (_trace_configuration_revision != _configured_recipe_runtime_revision or _make_recipe_runtime_fingerprint() != _configured_recipe_runtime_fingerprint):
 		return {
 			"ok": false,
 			"recipe_id": recipe.recipe_id,
@@ -1435,10 +1561,7 @@ func _make_recipe_runtime_fingerprint() -> String:
 	for channel_text: String in _get_sorted_channel_ids():
 		var channel_id: StringName = StringName(channel_text)
 		var channel_options: Dictionary = _get_dictionary(_channels, channel_id)
-		channel_records.append({
-			"channel_id": channel_text,
-			"options": channel_options.duplicate(true),
-		})
+		channel_records.append({ "channel_id": channel_text, "options": channel_options.duplicate(true), })
 	var runtime_record: Dictionary = {
 		"max_events": max_events,
 		"max_event_buffer_bytes": max_event_buffer_bytes,
@@ -1446,7 +1569,11 @@ func _make_recipe_runtime_fingerprint() -> String:
 		"redaction_profile": redaction_profile,
 		"channels": channel_records,
 	}
-	return JSON.stringify(runtime_record, "", true).sha256_text()
+	return JSON.stringify(
+		runtime_record,
+		"",
+		true
+	).sha256_text()
 
 
 ## 递增运行时采集配置修订号，使已应用配方可检测后续变化。
@@ -1470,36 +1597,48 @@ func _record_event_internal(
 ) -> Dictionary:
 	var normalized_channel_id: StringName = _normalize_id(channel_id)
 	var normalized_event_id: StringName = _normalize_id(event_id)
-	var rejection_reason: StringName = _get_record_rejection_reason(
-		normalized_channel_id,
-		normalized_event_id
-	)
+	var rejection_reason: StringName = _get_record_rejection_reason(normalized_channel_id, normalized_event_id)
 	if rejection_reason != &"":
-		return _reject_event(normalized_channel_id, normalized_event_id, rejection_reason)
+		return _reject_event(
+			normalized_channel_id,
+			normalized_event_id,
+			rejection_reason
+		)
 
 	var channel_options: Dictionary = _get_dictionary(_channels, normalized_channel_id)
 	var event_budget: int = _get_event_budget(channel_options)
 	var ticks_usec: int = maxi(
-		GFVariantData.get_option_int(options, "ticks_usec", Time.get_ticks_usec()),
+		GFVariantData.get_option_int(
+			options,
+			"ticks_usec",
+			Time.get_ticks_usec()
+		),
 		0
 	)
-	var payload_budget: int = maxi(event_budget - _PAYLOAD_ENVELOPE_RESERVE_BYTES, 0)
+	var payload_budget: int = maxi(
+		event_budget - _PAYLOAD_ENVELOPE_RESERVE_BYTES,
+		0
+	)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(channel_options, "metadata").duplicate(true)
 	var option_metadata: Dictionary = _sanitize_dictionary(
 		_get_dictionary(options, "metadata"),
 		mini(payload_budget, 4096)
 	)
 	var _metadata_merge_result: Variant = GFVariantData.merge_metadata(metadata, option_metadata)
-	var _presanitized_merge_result: Variant = GFVariantData.merge_metadata(
-		metadata,
-		presanitized_metadata
-	)
+	var _presanitized_merge_result: Variant = GFVariantData.merge_metadata(metadata, presanitized_metadata)
 	var event: Dictionary = {
 		"schema_version": _EVENT_SCHEMA_VERSION,
 		"session_id": _session_id,
 		"sequence": _next_sequence,
-		"elapsed_usec": maxi(ticks_usec - _started_ticks_usec, 0),
-		"simulation_tick": GFVariantData.get_option_int(options, "simulation_tick", -1),
+		"elapsed_usec": maxi(
+			ticks_usec - _started_ticks_usec,
+			0
+		),
+		"simulation_tick": GFVariantData.get_option_int(
+			options,
+			"simulation_tick",
+			-1
+		),
 		"channel_id": normalized_channel_id,
 		"event_id": normalized_event_id,
 		"include_in_snapshot": GFVariantData.get_option_bool(
@@ -1512,11 +1651,19 @@ func _record_event_internal(
 	}
 	var event_size: int = JSON.stringify(event).to_utf8_buffer().size()
 	if event_size > event_budget or event_size > max_event_buffer_bytes:
-		return _reject_event(normalized_channel_id, normalized_event_id, REJECT_EVENT_TOO_LARGE)
+		return _reject_event(
+			normalized_channel_id,
+			normalized_event_id,
+			REJECT_EVENT_TOO_LARGE
+		)
 
 	_trim_channel_before_append(
 		normalized_channel_id,
-		GFVariantData.get_option_int(channel_options, "max_events", 0)
+		GFVariantData.get_option_int(
+			channel_options,
+			"max_events",
+			0
+		)
 	)
 	_trim_before_append(event_size)
 	_events.append(event)
@@ -1536,10 +1683,7 @@ func _record_event_internal(
 ## [br]
 ## @api private
 ## [br]
-func _get_record_rejection_reason(
-	channel_id: StringName,
-	event_id: StringName
-) -> StringName:
+func _get_record_rejection_reason(channel_id: StringName, event_id: StringName) -> StringName:
 	if not _active:
 		return REJECT_SESSION_INACTIVE
 	if event_id == &"":
@@ -1547,7 +1691,11 @@ func _get_record_rejection_reason(
 	if not _channels.has(channel_id):
 		return REJECT_UNKNOWN_CHANNEL
 	var channel_options: Dictionary = _get_dictionary(_channels, channel_id)
-	if not GFVariantData.get_option_bool(channel_options, "enabled", true):
+	if not GFVariantData.get_option_bool(
+		channel_options,
+		"enabled",
+		true
+	):
 		return REJECT_CHANNEL_DISABLED
 	var event_budget: int = _get_event_budget(channel_options)
 	if (
@@ -1569,12 +1717,17 @@ func _reject_event(
 	reason: StringName
 ) -> Dictionary:
 	_rejected_event_count += 1
-	_rejections_by_reason[reason] = GFVariantData.get_option_int(_rejections_by_reason, reason, 0) + 1
-	event_rejected.emit(channel_id, event_id, reason)
-	return {
-		"ok": false,
-		"reason": reason,
-	}
+	_rejections_by_reason[reason] = GFVariantData.get_option_int(
+		_rejections_by_reason,
+		reason,
+		0
+	) + 1
+	event_rejected.emit(
+		channel_id,
+		event_id,
+		reason
+	)
+	return { "ok": false, "reason": reason, }
 
 
 ## 按指定字节预算清理字典，并仅在结果仍为字典时返回该值。
@@ -1610,7 +1763,11 @@ func _sanitize_persistent_dictionary(value: Dictionary, byte_budget: int) -> Dic
 ## @api private
 ## [br]
 func _sanitize_value(value: Variant, byte_budget: int) -> Variant:
-	return _sanitize_value_with_profile(value, byte_budget, _resolve_redaction_profile())
+	return _sanitize_value_with_profile(
+		value,
+		byte_budget,
+		_resolve_redaction_profile()
+	)
 
 
 ## 使用 ReportValueCodec 的深度、集合、节点和字节上限清理值。
@@ -1656,10 +1813,17 @@ func _resolve_redaction_profile() -> String:
 ## @api private
 ## [br]
 func _get_event_budget(channel_options: Dictionary) -> int:
-	var channel_budget: int = GFVariantData.get_option_int(channel_options, "max_event_bytes", 0)
+	var channel_budget: int = GFVariantData.get_option_int(
+		channel_options,
+		"max_event_bytes",
+		0
+	)
 	if channel_budget <= 0:
 		return max_event_bytes
-	return mini(max_event_bytes, maxi(channel_budget, _MIN_EVENT_BYTES))
+	return mini(
+		max_event_bytes,
+		maxi(channel_budget, _MIN_EVENT_BYTES)
+	)
 
 
 ## 添加事件前移除该通道最旧记录，确保不超过通道事件上限。
@@ -1682,7 +1846,11 @@ func _trim_channel_before_append(channel_id: StringName, channel_limit: int) -> 
 ## [br]
 func _trim_channel_to_limit(channel_id: StringName) -> void:
 	var options: Dictionary = _get_dictionary(_channels, channel_id)
-	var channel_limit: int = GFVariantData.get_option_int(options, "max_events", 0)
+	var channel_limit: int = GFVariantData.get_option_int(
+		options,
+		"max_events",
+		0
+	)
 	if channel_limit <= 0:
 		return
 	while _count_channel_events(channel_id) > channel_limit:
@@ -1697,9 +1865,12 @@ func _trim_channel_to_limit(channel_id: StringName) -> void:
 ## @api private
 ## [br]
 func _trim_before_append(event_size: int) -> void:
-	while not _events.is_empty() and (
-		_events.size() >= max_events
-		or _total_event_bytes + event_size > max_event_buffer_bytes
+	while (
+		not _events.is_empty()
+		and (
+			_events.size() >= max_events
+			or _total_event_bytes + event_size > max_event_buffer_bytes
+		)
 	):
 		_remove_event_at(0, true)
 
@@ -1709,9 +1880,12 @@ func _trim_before_append(event_size: int) -> void:
 ## @api private
 ## [br]
 func _trim_to_global_limits() -> void:
-	while not _events.is_empty() and (
-		_events.size() > max_events
-		or _total_event_bytes > max_event_buffer_bytes
+	while (
+		not _events.is_empty()
+		and (
+			_events.size() > max_events
+			or _total_event_bytes > max_event_buffer_bytes
+		)
 	):
 		_remove_event_at(0, true)
 
@@ -1721,9 +1895,16 @@ func _trim_to_global_limits() -> void:
 ## @api private
 ## [br]
 func _remove_event_at(index: int, count_as_dropped: bool) -> void:
-	if index < 0 or index >= _events.size() or index >= _event_sizes.size():
+	if (
+		index < 0
+		or index >= _events.size()
+		or index >= _event_sizes.size()
+	):
 		return
-	_total_event_bytes = maxi(_total_event_bytes - _event_sizes[index], 0)
+	_total_event_bytes = maxi(
+		_total_event_bytes - _event_sizes[index],
+		0
+	)
 	_events.remove_at(index)
 	_event_sizes.remove_at(index)
 	if count_as_dropped:
@@ -1748,7 +1929,10 @@ func _count_channel_events(channel_id: StringName) -> int:
 ## [br]
 func _find_first_channel_event(channel_id: StringName) -> int:
 	for index: int in range(_events.size()):
-		if GFVariantData.get_option_string_name(_events[index], "channel_id") == channel_id:
+		if GFVariantData.get_option_string_name(
+			_events[index],
+			"channel_id"
+		) == channel_id:
 			return index
 	return -1
 
@@ -1778,11 +1962,13 @@ func _write_journal_event(event: Dictionary) -> void:
 		_finish_journal_callback()
 		return
 	_journal_event_count += 1
-	sink.write({
-		"schema_version": _EVENT_SCHEMA_VERSION,
-		"kind": &"session_trace_event",
-		"event": event.duplicate(true),
-	})
+	sink.write(
+		{
+			"schema_version": _EVENT_SCHEMA_VERSION,
+			"kind": &"session_trace_event",
+			"event": event.duplicate(true),
+		}
+	)
 	if _journal_sink == sink and _journal_flush_after_write:
 		sink.flush()
 	_finish_journal_callback()
@@ -1832,7 +2018,11 @@ func _normalize_redaction_profile(profile: String) -> String:
 ## @api private
 ## [br]
 func _get_redaction_profile_rank(profile: String) -> int:
-	return GFVariantData.get_option_int(_REDACTION_PROFILE_RANKS, profile, -1)
+	return GFVariantData.get_option_int(
+		_REDACTION_PROFILE_RANKS,
+		profile,
+		-1
+	)
 
 
 ## 确认当前采集隐私级别不低于日志接收器要求的级别。
@@ -1842,7 +2032,11 @@ func _get_redaction_profile_rank(profile: String) -> int:
 func _is_journal_profile_compatible(sink_profile: String) -> bool:
 	var trace_rank: int = _get_redaction_profile_rank(_resolve_redaction_profile())
 	var sink_rank: int = _get_redaction_profile_rank(sink_profile)
-	return trace_rank >= 0 and sink_rank >= 0 and trace_rank >= sink_rank
+	return (
+		trace_rank >= 0
+		and sink_rank >= 0
+		and trace_rank >= sink_rank
+	)
 
 
 ## 按通道、事件、序列范围及快照可见性过滤事件。
@@ -1856,16 +2050,36 @@ func _matches_filters(event: Dictionary, filters: Dictionary) -> bool:
 	var event_filter: StringName = GFVariantData.get_option_string_name(filters, "event_id")
 	if event_filter != &"" and GFVariantData.get_option_string_name(event, "event_id") != event_filter:
 		return false
-	var sequence: int = GFVariantData.get_option_int(event, "sequence", 0)
-	var min_sequence: int = GFVariantData.get_option_int(filters, "min_sequence", 0)
+	var sequence: int = GFVariantData.get_option_int(
+		event,
+		"sequence",
+		0
+	)
+	var min_sequence: int = GFVariantData.get_option_int(
+		filters,
+		"min_sequence",
+		0
+	)
 	if min_sequence > 0 and sequence < min_sequence:
 		return false
-	var max_sequence: int = GFVariantData.get_option_int(filters, "max_sequence", 0)
+	var max_sequence: int = GFVariantData.get_option_int(
+		filters,
+		"max_sequence",
+		0
+	)
 	if max_sequence > 0 and sequence > max_sequence:
 		return false
 	if (
-		not GFVariantData.get_option_bool(filters, "include_hidden_channels", false)
-		and not GFVariantData.get_option_bool(event, "include_in_snapshot", true)
+		not GFVariantData.get_option_bool(
+			filters,
+			"include_hidden_channels",
+			false
+		)
+		and not GFVariantData.get_option_bool(
+			event,
+			"include_in_snapshot",
+			true
+		)
 	):
 		return false
 	return true
@@ -1965,4 +2179,7 @@ func _normalize_id(value: StringName) -> StringName:
 ## @api private
 ## [br]
 func _make_session_id() -> StringName:
-	return StringName("session_%d_%d" % [Time.get_ticks_usec(), get_instance_id()])
+	return StringName(
+		"session_%d_%d"
+		% [Time.get_ticks_usec(), get_instance_id()]
+	)

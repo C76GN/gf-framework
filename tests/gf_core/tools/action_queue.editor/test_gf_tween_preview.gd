@@ -15,20 +15,38 @@ func test_preview_starts_idle_and_uses_only_its_own_target() -> void:
 	var scene_target: Node2D = Node2D.new()
 	add_child_autofree(scene_target)
 	scene_target.position = Vector2(77.0, -19.0)
-	var config: GFTweenActionConfig = _config(^"position", Vector2(10.0, 20.0))
+	var config: GFTweenActionConfig = _config(
+		^"position",
+		Vector2(10.0, 20.0)
+	)
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_eq(preview.get_state(), &"idle")
-	assert_eq(preview.get_error(), "")
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
+	assert_eq(
+		preview.get_error(),
+		""
+	)
 	assert_true(preview.set_initial_value(&"position", Vector2.ZERO))
 	assert_true(preview.play())
 	preview.advance(0.5)
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 10.0))
-	assert_eq(scene_target.position, Vector2(77.0, -19.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 10.0)
+	)
+	assert_eq(
+		scene_target.position,
+		Vector2(77.0, -19.0)
+	)
 	var target_value: Variant = config.steps[0].target_value
 	assert_true(target_value is Vector2)
 	if target_value is Vector2:
 		var vector: Vector2 = target_value
-		assert_eq(vector, Vector2(10.0, 20.0))
+		assert_eq(
+			vector,
+			Vector2(10.0, 20.0)
+		)
 	preview.dispose_preview()
 
 
@@ -43,21 +61,47 @@ func test_controlled_and_ping_pong_configs_use_safe_runtime_samples() -> void:
 		assert_true(preview.play())
 		assert_true(preview.is_controlled_session())
 		assert_true(preview.seek(0.5))
-		assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+		assert_almost_eq(
+			_vector2(preview, "position").x,
+			5.0,
+			0.001
+		)
 		assert_true(preview.play_direction(true))
 		preview.advance(0.25)
-		assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+		assert_almost_eq(
+			_vector2(preview, "position").x,
+			2.5,
+			0.001
+		)
 		if flag == &"ping_pong":
-			assert_eq(preview.get_duration_seconds(), 2.0)
+			assert_eq(
+				preview.get_duration_seconds(),
+				2.0
+			)
 			assert_true(preview.seek(1.5))
-			assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+			assert_almost_eq(
+				_vector2(preview, "position").x,
+				5.0,
+				0.001
+			)
 			assert_true(preview.seek(2.0))
-			assert_almost_eq(_vector2(preview, "position").x, 0.0, 0.001)
+			assert_almost_eq(
+				_vector2(preview, "position").x,
+				0.0,
+				0.001
+			)
 		config.set(flag, false)
 		preview.stop()
-		assert_true(preview.play(), "Returning to native playback must recover without rebuilding the panel.")
+		assert_true(
+			preview.play(),
+			"Returning to native playback must recover without rebuilding the panel."
+		)
 		preview.advance(0.5)
-		assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+		assert_almost_eq(
+			_vector2(preview, "position").x,
+			5.0,
+			0.001
+		)
 		preview.dispose_preview()
 
 
@@ -68,14 +112,33 @@ func test_ping_pong_flag_edit_does_not_change_a_captured_native_preview_session(
 	preview.advance(0.25)
 	config.ping_pong = true
 	assert_true(preview.seek(0.75))
-	assert_eq(preview.get_duration_seconds(), 1.0)
-	assert_almost_eq(_vector2(preview, "position").x, 7.5, 0.001)
-	assert_true(preview.play(), "Resume consumes the old frozen snapshot.")
+	assert_eq(
+		preview.get_duration_seconds(),
+		1.0
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		7.5,
+		0.001
+	)
+	assert_true(
+		preview.play(),
+		"Resume consumes the old frozen snapshot."
+	)
 	preview.advance(0.5)
-	assert_eq(preview.get_state(), &"finished")
-	assert_true(preview.play(), "Starting a new session captures the changed configuration.")
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_true(
+		preview.play(),
+		"Starting a new session captures the changed configuration."
+	)
 	assert_true(preview.is_controlled_session())
-	assert_eq(preview.get_duration_seconds(), 2.0)
+	assert_eq(
+		preview.get_duration_seconds(),
+		2.0
+	)
 	assert_true(config.ping_pong)
 	preview.dispose_preview()
 
@@ -88,7 +151,11 @@ func test_panel_supports_ping_pong_and_explicit_direction_controls() -> void:
 	add_child_autofree(panel)
 	panel.set_process(false)
 	_button(panel, "Play").pressed.emit()
-	var status_node: Node = panel.find_child("PreviewStatus", true, false)
+	var status_node: Node = panel.find_child(
+		"PreviewStatus",
+		true,
+		false
+	)
 	assert_true(status_node is Label)
 	if status_node is Label:
 		var status: Label = status_node
@@ -116,15 +183,31 @@ func test_controlled_samples_match_runtime_with_scale_curve_loops_and_each_kind(
 			target.free()
 			target = Node3D.new()
 		add_child_autofree(target)
-		var runtime_plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture(config, target, true)
+		var runtime_plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture(
+			config,
+			target,
+			true
+		)
 		assert_eq(runtime_plan.error, "")
 		var preview: GFTweenPreviewViewport = _preview(config, kind)
 		assert_true(preview.play())
-		assert_almost_eq(preview.get_duration_seconds(), runtime_plan.duration_seconds, 0.0001)
-		for ratio: float in [0.0, 0.12, 0.25, 0.49, 0.5, 0.76, 1.0]:
+		assert_almost_eq(
+			preview.get_duration_seconds(),
+			runtime_plan.duration_seconds,
+			0.0001
+		)
+		for ratio: float in [
+			0.0,
+			0.12,
+			0.25,
+			0.49,
+			0.5,
+			0.76,
+			1.0,
+		]:
 			var seconds: float = runtime_plan.duration_seconds * ratio
 			assert_true(preview.seek(seconds))
-			var matches_runtime: bool = preview.get_current_values()["position"] == runtime_plan.sample(seconds)["position"]
+			var matches_runtime: bool = (preview.get_current_values()["position"] == runtime_plan.sample(seconds)["position"])
 			assert_true(matches_runtime)
 		preview.dispose_preview()
 
@@ -134,7 +217,10 @@ func test_presets_copy_restore_and_roundtrip_preserve_pure_provenance() -> void:
 		var config: GFTweenActionConfig = GFTweenActionConfig.new()
 		config.steps = _PRESETS_SCRIPT.create_steps("move_by", kind)
 		assert_eq(config.loop_count, 1)
-		assert_eq(GFTweenPreviewPlan.capture(config, kind).error, "")
+		assert_eq(
+			GFTweenPreviewPlan.capture(config, kind).error,
+			""
+		)
 		var source: GFTweenActionStep = config.steps[0]
 		source.resource_local_to_scene = true
 		var copied: GFTweenActionStep = _PRESETS_SCRIPT.copy_step(source)
@@ -142,7 +228,10 @@ func test_presets_copy_restore_and_roundtrip_preserve_pure_provenance() -> void:
 		assert_true(copied.resource_local_to_scene)
 		copied.duration = 0.75
 		assert_eq(source.duration, 0.2)
-		assert_eq(_PRESETS_SCRIPT.get_overrides(copied), [&"duration"])
+		assert_eq(
+			_PRESETS_SCRIPT.get_overrides(copied),
+			[&"duration"]
+		)
 		copied.easing_curve = _easing_curve(0.25)
 		var restored: GFTweenActionStep = _PRESETS_SCRIPT.restore_step(copied)
 		assert_eq(restored.duration, 0.2)
@@ -150,55 +239,109 @@ func test_presets_copy_restore_and_roundtrip_preserve_pure_provenance() -> void:
 		assert_ne(restored.easing_curve, copied.easing_curve)
 		config.steps[0] = copied
 		var path: String = "user://gf_tween_authoring_%d.tres" % kind
-		assert_eq(ResourceSaver.save(config, path), OK)
-		var loaded: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+		assert_eq(
+			ResourceSaver.save(config, path),
+			OK
+		)
+		var loaded: Resource = ResourceLoader.load(
+			path,
+			"",
+			ResourceLoader.CACHE_MODE_IGNORE_DEEP
+		)
 		assert_true(loaded is GFTweenActionConfig)
 		if loaded is GFTweenActionConfig:
 			var reloaded: GFTweenActionConfig = loaded
-			assert_eq(_PRESETS_SCRIPT.get_overrides(reloaded.steps[0]), [&"duration"])
-			assert_eq(_PRESETS_SCRIPT.restore_step(reloaded.steps[0], &"duration").duration, 0.2)
-		assert_eq(DirAccess.remove_absolute(path), OK)
+			assert_eq(
+				_PRESETS_SCRIPT.get_overrides(reloaded.steps[0]),
+				[&"duration"]
+			)
+			assert_eq(
+				_PRESETS_SCRIPT.restore_step(
+					reloaded.steps[0],
+					&"duration"
+				).duration,
+				0.2
+			)
+		assert_eq(
+			DirAccess.remove_absolute(path),
+			OK
+		)
 
 
 func test_unknown_preset_metadata_disables_restore_without_changing_step() -> void:
 	var steps: Array[GFTweenActionStep] = _PRESETS_SCRIPT.create_steps("move_by", 0)
 	var step: GFTweenActionStep = steps[0]
-	step.set_meta(&"_gf_tween_preset", {"schema_version": 99, "baseline": NodePath("position")})
-	assert_eq(_PRESETS_SCRIPT.get_provenance(step), {})
+	step.set_meta(
+		&"_gf_tween_preset",
+		{ "schema_version": 99, "baseline": NodePath("position") }
+	)
+	assert_eq(
+		_PRESETS_SCRIPT.get_provenance(step),
+		{}
+	)
 	assert_null(_PRESETS_SCRIPT.restore_step(step))
 	assert_not_null(_PRESETS_SCRIPT.copy_step(step))
 	var target: Vector2 = step.target_value
-	assert_eq(target, Vector2(80.0, 0.0))
+	assert_eq(
+		target,
+		Vector2(80.0, 0.0)
+	)
 
 
 func test_timeline_contains_parallel_groups_loops_and_reverse_spans() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
-	var parallel: GFTweenActionStep = config.add_property_step(^"scale", Vector2(2.0, 2.0), 0.5)
+	var parallel: GFTweenActionStep = config.add_property_step(
+		^"scale",
+		Vector2(2.0, 2.0),
+		0.5
+	)
 	parallel.parallel = true
 	parallel.delay = 0.25
-	var _last: GFTweenActionStep = config.add_property_step(^"position:y", 20.0, 0.5)
+	var _last: GFTweenActionStep = config.add_property_step(
+		^"position:y",
+		20.0,
+		0.5
+	)
 	config.loop_count = 2
 	config.ping_pong = true
 	var plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(config, 0)
 	assert_eq(plan.error, "")
 	assert_eq(plan.duration_seconds, 6.0)
 	var spans: Array[Dictionary] = _TIMELINE_SCRIPT.build_spans(plan)
-	assert_eq(spans.size(), 12)
-	var expected_starts: Dictionary[int, float] = {0: 0.0, 1: 2.0, 2: 0.25, 4: 1.0, 6: 3.0}
+	assert_eq(
+		spans.size(),
+		12
+	)
+	var expected_starts: Dictionary[int, float] = {
+		0: 0.0,
+		1: 2.0,
+		2: 0.25,
+		4: 1.0,
+		6: 3.0,
+	}
 	for index: int in expected_starts:
 		var start: float = spans[index]["start"]
-		assert_eq(start, expected_starts[index])
+		assert_eq(
+			start,
+			expected_starts[index]
+		)
 
 
 func test_snapshot_detects_direct_field_and_curve_edits() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
 	var initial: Array = _SNAPSHOT_SCRIPT.capture(config)
 	config.steps[0].duration = 2.0
-	assert_ne(_SNAPSHOT_SCRIPT.capture(config), initial)
+	assert_ne(
+		_SNAPSHOT_SCRIPT.capture(config),
+		initial
+	)
 	config.steps[0].easing_curve = _easing_curve(0.25)
 	var before_curve: Array = _SNAPSHOT_SCRIPT.capture(config)
 	config.steps[0].easing_curve.set_point_value(1, 0.75)
-	assert_ne(_SNAPSHOT_SCRIPT.capture(config), before_curve)
+	assert_ne(
+		_SNAPSHOT_SCRIPT.capture(config),
+		before_curve
+	)
 
 
 func test_easing_curve_overrides_presets_with_native_curve_value() -> void:
@@ -235,10 +378,22 @@ func test_easing_curve_preserves_native_tangents_after_point_removal() -> void:
 	if copied == null:
 		return
 	for index: int in range(curve.get_point_count()):
-		assert_eq(copied.easing_curve.get_point_left_mode(index), curve.get_point_left_mode(index))
-		assert_eq(copied.easing_curve.get_point_right_mode(index), curve.get_point_right_mode(index))
-		assert_eq(copied.easing_curve.get_point_left_tangent(index), curve.get_point_left_tangent(index))
-		assert_eq(copied.easing_curve.get_point_right_tangent(index), curve.get_point_right_tangent(index))
+		assert_eq(
+			copied.easing_curve.get_point_left_mode(index),
+			curve.get_point_left_mode(index)
+		)
+		assert_eq(
+			copied.easing_curve.get_point_right_mode(index),
+			curve.get_point_right_mode(index)
+		)
+		assert_eq(
+			copied.easing_curve.get_point_left_tangent(index),
+			curve.get_point_left_tangent(index)
+		)
+		assert_eq(
+			copied.easing_curve.get_point_right_tangent(index),
+			curve.get_point_right_tangent(index)
+		)
 	var preview: GFTweenPreviewViewport = _preview(config)
 	assert_true(preview.play())
 	var target: Node2D = Node2D.new()
@@ -247,13 +402,30 @@ func test_easing_curve_preserves_native_tangents_after_point_removal() -> void:
 	tween.pause()
 	var tweener: Variant = config.steps[0].append_to_tween(tween, target)
 	assert_true(tweener is PropertyTweener)
-	for progress: float in [0.25, 0.5, 0.75, 1.0]:
+	for progress: float in [
+		0.25,
+		0.5,
+		0.75,
+		1.0,
+	]:
 		var _running: bool = tween.custom_step(0.25)
 		assert_true(preview.seek(progress))
 		var expected: float = 8.0 * curve.sample_baked(progress)
-		assert_almost_eq(target.position.x, expected, 0.001)
-		assert_almost_eq(_vector2(preview, "position").x, expected, 0.001)
-		assert_almost_eq(copied.easing_curve.sample_baked(progress) * 8.0, expected, 0.001)
+		assert_almost_eq(
+			target.position.x,
+			expected,
+			0.001
+		)
+		assert_almost_eq(
+			_vector2(preview, "position").x,
+			expected,
+			0.001
+		)
+		assert_almost_eq(
+			copied.easing_curve.sample_baked(progress) * 8.0,
+			expected,
+			0.001
+		)
 	tween.kill()
 	preview.dispose_preview()
 
@@ -265,19 +437,35 @@ func test_easing_curve_null_preserves_preset_and_curve_can_overshoot() -> void:
 	var preview: GFTweenPreviewViewport = _preview(config)
 	assert_true(preview.play())
 	preview.advance(0.5)
-	assert_almost_eq(_vector2(preview, "position").x, 1.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		1.0,
+		0.001
+	)
 	config.steps[0].easing_curve = _easing_curve(1.5)
 	preview.configure(config)
 	assert_true(preview.play())
 	assert_true(preview.seek(0.5))
-	assert_gt(_vector2(preview, "position").x, 8.0, "A bounded overshoot must remain observable.")
+	assert_gt(
+		_vector2(preview, "position").x,
+		8.0,
+		"A bounded overshoot must remain observable."
+	)
 	assert_true(preview.seek(1.0))
-	assert_almost_eq(_vector2(preview, "position").x, 8.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		8.0,
+		0.001
+	)
 	config.steps[0].easing_curve = null
 	preview.configure(config)
 	assert_true(preview.play())
 	assert_true(preview.seek(0.5))
-	assert_almost_eq(_vector2(preview, "position").x, 1.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		1.0,
+		0.001
+	)
 	preview.dispose_preview()
 
 
@@ -292,34 +480,68 @@ func test_easing_curve_seek_uses_captured_values_until_new_playback() -> void:
 	curve.set_point_value(1, 0.75)
 	assert_true(preview.seek(0.8))
 	assert_true(preview.seek(0.5))
-	assert_eq(preview.get_current_values(), captured_values)
+	assert_eq(
+		preview.get_current_values(),
+		captured_values
+	)
 	config.steps[0].easing_curve = Curve.new()
-	assert_true(preview.seek(0.5), "Replacing the source with an invalid curve cannot poison a session.")
-	assert_eq(preview.get_current_values(), captured_values)
+	assert_true(
+		preview.seek(0.5),
+		"Replacing the source with an invalid curve cannot poison a session."
+	)
+	assert_eq(
+		preview.get_current_values(),
+		captured_values
+	)
 	assert_true(preview.play())
 	preview.advance(0.25)
-	assert_eq(preview.get_state(), &"playing")
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
 	preview.reset_preview()
-	assert_false(preview.play(), "A new playback must validate the replacement curve.")
+	assert_false(
+		preview.play(),
+		"A new playback must validate the replacement curve."
+	)
 	config.steps[0].easing_curve = curve
 	preview.configure(config)
 	assert_true(preview.play())
 	assert_true(preview.seek(0.5))
-	assert_almost_eq(_vector2(preview, "position").x, 8.0 * curve.sample_baked(0.5), 0.001)
-	assert_ne(preview.get_current_values(), captured_values)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		8.0 * curve.sample_baked(0.5),
+		0.001
+	)
+	assert_ne(
+		preview.get_current_values(),
+		captured_values
+	)
 	preview.dispose_preview()
 
 
 func test_easing_curve_seek_matches_independent_native_parallel_relative_playback() -> void:
 	var curve: Curve = _easing_curve(0.25)
-	var config: GFTweenActionConfig = _config(^"position:x", 8.0, 0.5)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		8.0,
+		0.5
+	)
 	config.steps[0].delay = 0.25
 	config.steps[0].easing_curve = curve
-	var parallel_step: GFTweenActionStep = _step(^"position:y", 4.0, 1.0)
+	var parallel_step: GFTweenActionStep = _step(
+		^"position:y",
+		4.0,
+		1.0
+	)
 	parallel_step.parallel = true
 	parallel_step.easing_curve = curve
 	config.steps.append(parallel_step)
-	var relative_step: GFTweenActionStep = _step(^"position:x", 2.0, 0.5)
+	var relative_step: GFTweenActionStep = _step(
+		^"position:x",
+		2.0,
+		0.5
+	)
 	relative_step.as_relative = true
 	relative_step.easing_curve = curve
 	config.steps.append(relative_step)
@@ -329,50 +551,104 @@ func test_easing_curve_seek_matches_independent_native_parallel_relative_playbac
 	add_child_autofree(native_target)
 	var native_tween: Tween = _native_easing_tween(native_target, curve)
 	assert_true(preview.play())
-	assert_eq(preview.get_duration_seconds(), 3.0)
+	assert_eq(
+		preview.get_duration_seconds(),
+		3.0
+	)
 	var native_time: float = 0.0
-	for checkpoint: float in [0.375, 1.25, 2.75, 3.0]:
+	for checkpoint: float in [
+		0.375,
+		1.25,
+		2.75,
+		3.0,
+	]:
 		var step_count: int = ceili((checkpoint - native_time) / 0.125)
 		for _index: int in range(step_count):
-			var delta: float = minf(0.125, checkpoint - native_time)
+			var delta: float = minf(
+				0.125,
+				checkpoint - native_time
+			)
 			var _still_running: bool = native_tween.custom_step(delta)
 			native_time += delta
 		assert_true(preview.seek(checkpoint))
-		assert_almost_eq(_vector2(preview, "position").x, native_target.position.x, 0.001)
-		assert_almost_eq(_vector2(preview, "position").y, native_target.position.y, 0.001)
+		assert_almost_eq(
+			_vector2(preview, "position").x,
+			native_target.position.x,
+			0.001
+		)
+		assert_almost_eq(
+			_vector2(preview, "position").y,
+			native_target.position.y,
+			0.001
+		)
 	assert_true(preview.seek(0.375))
 	assert_true(preview.seek(2.75))
 	assert_true(preview.play())
 	preview.advance(0.25)
-	assert_eq(preview.get_state(), &"finished")
-	assert_almost_eq(_vector2(preview, "position").x, native_target.position.x, 0.001)
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		native_target.position.x,
+		0.001
+	)
 	native_tween.kill()
 	preview.dispose_preview()
 
 
 func test_easing_curve_zero_duration_and_finish_restore_keep_existing_contracts() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		3.0,
+		0.0
+	)
 	config.steps[0].easing_curve = _easing_curve(0.25)
 	config.steps[0].as_relative = true
 	config.loop_count = 32
 	config.restore_initial_values_on_finish = true
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 4.0)
+		)
+	)
 	assert_true(preview.play())
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 4.0)
+	)
 	assert_true(preview.seek(0.0))
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 4.0)
+	)
 	assert_true(preview.play())
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 4.0)
+	)
 	config.steps[0].duration = 1.0
 	config.loop_count = 1
 	preview.configure(config)
 	assert_true(preview.play())
 	assert_true(preview.seek(1.0))
-	assert_almost_eq(_vector2(preview, "position").x, 3.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		3.0,
+		0.001
+	)
 	assert_true(preview.play())
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	preview.dispose_preview()
 
 
@@ -391,21 +667,42 @@ func test_easing_curve_invalid_second_step_rejects_whole_preview_before_writes()
 	assert_false(is_finite(invalid_tangent.get_point_right_tangent(0)))
 	invalid_curves.append(invalid_tangent)
 	var excessive_overshoot: Curve = Curve.new()
-	var _overshoot_first: int = excessive_overshoot.add_point(Vector2.ZERO, 0.0, 128.0)
-	var _overshoot_last: int = excessive_overshoot.add_point(Vector2.ONE, -128.0, 0.0)
-	assert_gt(excessive_overshoot.sample_baked(0.5), 16.0)
+	var _overshoot_first: int = excessive_overshoot.add_point(
+		Vector2.ZERO,
+		0.0,
+		128.0
+	)
+	var _overshoot_last: int = excessive_overshoot.add_point(
+		Vector2.ONE,
+		-128.0,
+		0.0
+	)
+	assert_gt(
+		excessive_overshoot.sample_baked(0.5),
+		16.0
+	)
 	invalid_curves.append(excessive_overshoot)
 	var preview: GFTweenPreviewViewport = _preview(null)
 	for curve: Curve in invalid_curves:
-		var config: GFTweenActionConfig = _config(^"position:x", 10.0, 0.0)
+		var config: GFTweenActionConfig = _config(
+			^"position:x",
+			10.0,
+			0.0
+		)
 		var invalid_step: GFTweenActionStep = _step(^"position:y", 20.0)
 		invalid_step.easing_curve = curve
 		config.steps.append(invalid_step)
 		preview.configure(config)
 		assert_false(preview.play())
-		assert_eq(preview.get_state(), &"error")
+		assert_eq(
+			preview.get_state(),
+			&"error"
+		)
 		assert_false(preview.get_error().is_empty())
-		assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+		assert_eq(
+			_vector2(preview, "position"),
+			Vector2.ZERO
+		)
 		assert_false(preview.has_session())
 	preview.dispose_preview()
 
@@ -422,19 +719,34 @@ func test_easing_curve_script_is_rejected_without_copying_or_executing_it() -> v
 	assert_false(preview.play())
 	assert_eq(RejectedEasingCurve.constructions, constructions_before)
 	assert_eq(scripted_curve.property_reads, property_reads_before)
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	preview.dispose_preview()
 
 
 func test_easing_curve_preview_bounds_aggregate_point_and_sample_work() -> void:
 	var point_config: GFTweenActionConfig = GFTweenActionConfig.new()
 	for _index: int in range(16):
-		var step: GFTweenActionStep = _step(^"position:x", 1.0, 0.01)
+		var step: GFTweenActionStep = _step(
+			^"position:x",
+			1.0,
+			0.01
+		)
 		step.easing_curve = _many_point_easing_curve(256, 2)
 		point_config.steps.append(step)
 	var point_plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(point_config, 0)
-	assert_eq(point_plan.error, "", "Exactly 4096 points must remain admissible.")
-	var extra_step: GFTweenActionStep = _step(^"position:x", 2.0, 0.01)
+	assert_eq(
+		point_plan.error,
+		"",
+		"Exactly 4096 points must remain admissible."
+	)
+	var extra_step: GFTweenActionStep = _step(
+		^"position:x",
+		2.0,
+		0.01
+	)
 	extra_step.easing_curve = _easing_curve(0.25)
 	point_config.steps.append(extra_step)
 	point_plan = GFTweenPreviewPlan.capture(point_config, 0)
@@ -442,13 +754,21 @@ func test_easing_curve_preview_bounds_aggregate_point_and_sample_work() -> void:
 	assert_true(point_plan.steps.is_empty())
 	var sample_config: GFTweenActionConfig = GFTweenActionConfig.new()
 	for _index: int in range(64):
-		var step: GFTweenActionStep = _step(^"position:x", 1.0, 0.01)
+		var step: GFTweenActionStep = _step(
+			^"position:x",
+			1.0,
+			0.01
+		)
 		step.easing_curve = _many_point_easing_curve(2, 1000)
 		sample_config.steps.append(step)
 	var sample_plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(sample_config, 0)
 	assert_eq(sample_plan.error, "")
 	for _index: int in range(2):
-		var step: GFTweenActionStep = _step(^"position:x", 2.0, 0.01)
+		var step: GFTweenActionStep = _step(
+			^"position:x",
+			2.0,
+			0.01
+		)
 		step.easing_curve = _many_point_easing_curve(2, 1000)
 		sample_config.steps.append(step)
 	sample_plan = GFTweenPreviewPlan.capture(sample_config, 0)
@@ -462,95 +782,243 @@ func test_pause_stop_reset_and_replay_have_distinct_observable_effects() -> void
 	assert_true(preview.play())
 	preview.advance(0.25)
 	preview.pause()
-	assert_eq(preview.get_state(), &"paused")
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
 	preview.advance(0.5)
-	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		2.5,
+		0.001
+	)
 	assert_true(preview.play())
 	preview.advance(0.25)
-	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		5.0,
+		0.001
+	)
 	preview.stop()
-	assert_eq(preview.get_state(), &"idle")
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
 	preview.advance(1.0)
-	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		5.0,
+		0.001
+	)
 	assert_true(preview.play())
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	preview.advance(1.1)
-	assert_eq(preview.get_state(), &"finished")
-	assert_almost_eq(_vector2(preview, "position").x, 10.0, 0.001)
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		10.0,
+		0.001
+	)
 	preview.reset_preview()
-	assert_eq(preview.get_state(), &"idle")
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	preview.dispose_preview()
 
 
 func test_serial_parallel_relative_steps_keep_native_tween_topology() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
-	var parallel_step: GFTweenActionStep = _step(^"position:y", 20.0, 2.0)
+	var parallel_step: GFTweenActionStep = _step(
+		^"position:y",
+		20.0,
+		2.0
+	)
 	parallel_step.parallel = true
 	config.steps.append(parallel_step)
-	var relative_step: GFTweenActionStep = _step(^"position:x", 5.0, 1.0)
+	var relative_step: GFTweenActionStep = _step(
+		^"position:x",
+		5.0,
+		1.0
+	)
 	relative_step.as_relative = true
 	config.steps.append(relative_step)
 	var preview: GFTweenPreviewViewport = _preview(config)
 	assert_true(preview.set_initial_value(&"position", Vector2.ZERO))
 	assert_true(preview.play())
 	preview.advance(1.5)
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 15.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 15.0)
+	)
 	preview.advance(1.0)
-	assert_eq(_vector2(preview, "position"), Vector2(12.5, 20.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(12.5, 20.0)
+	)
 	preview.advance(1.0)
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(15.0, 20.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(15.0, 20.0)
+	)
 	preview.dispose_preview()
 
 
 func test_ui_and_3d_component_paths_preserve_other_components() -> void:
-	var ui_preview: GFTweenPreviewViewport = _preview(_config(^"modulate:a", 0.25), 1)
-	assert_true(ui_preview.set_initial_value(&"modulate", Color(0.25, 0.5, 0.75, 1.0)))
+	var ui_preview: GFTweenPreviewViewport = _preview(
+		_config(^"modulate:a", 0.25),
+		1
+	)
+	assert_true(
+		ui_preview.set_initial_value(
+			&"modulate",
+			Color(
+				0.25,
+				0.5,
+				0.75,
+				1.0
+			)
+		)
+	)
 	assert_true(ui_preview.play())
 	ui_preview.advance(1.1)
-	assert_eq(_color(ui_preview, "modulate"), Color(0.25, 0.5, 0.75, 0.25))
+	assert_eq(
+		_color(ui_preview, "modulate"),
+		Color(
+			0.25,
+			0.5,
+			0.75,
+			0.25
+		)
+	)
 	ui_preview.dispose_preview()
-	var spatial_preview: GFTweenPreviewViewport = _preview(_config(^"position:z", -4.0), 2)
-	assert_true(spatial_preview.set_initial_value(&"position", Vector3(1.0, 2.0, 3.0)))
+	var spatial_preview: GFTweenPreviewViewport = _preview(
+		_config(^"position:z", -4.0),
+		2
+	)
+	assert_true(
+		spatial_preview.set_initial_value(
+			&"position",
+			Vector3(
+				1.0,
+				2.0,
+				3.0
+			)
+		)
+	)
 	assert_true(spatial_preview.play())
 	spatial_preview.advance(1.1)
-	assert_eq(_vector3(spatial_preview, "position"), Vector3(1.0, 2.0, -4.0))
+	assert_eq(
+		_vector3(spatial_preview, "position"),
+		Vector3(
+			1.0,
+			2.0,
+			-4.0
+		)
+	)
 	spatial_preview.dispose_preview()
 
 
 func test_delay_and_duration_scale_control_actual_manual_progress() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 10.0, 0.5)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		10.0,
+		0.5
+	)
 	config.steps[0].delay = 0.25
 	config.duration_scale = 2.0
 	var preview: GFTweenPreviewViewport = _preview(config)
 	assert_true(preview.play())
 	preview.advance(0.25)
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	preview.advance(0.75)
-	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		5.0,
+		0.001
+	)
 	preview.advance(0.6)
-	assert_eq(preview.get_state(), &"finished")
-	assert_almost_eq(_vector2(preview, "position").x, 10.0, 0.001)
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		10.0,
+		0.001
+	)
 	preview.dispose_preview()
 
 
 func test_rotation_degrees_replays_and_resets_through_canonical_rotation() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"rotation_degrees", 90.0))
-	assert_true(preview.set_initial_value(&"rotation", PI / 4.0))
+	assert_true(
+		preview.set_initial_value(
+			&"rotation",
+			PI / 4.0
+		)
+	)
 	assert_true(preview.play())
 	preview.advance(1.1)
-	assert_almost_eq(_number(preview, "rotation"), PI / 2.0, 0.001)
+	assert_almost_eq(
+		_number(preview, "rotation"),
+		PI / 2.0,
+		0.001
+	)
 	preview.reset_preview()
-	assert_almost_eq(_number(preview, "rotation"), PI / 4.0, 0.001)
+	assert_almost_eq(
+		_number(preview, "rotation"),
+		PI / 4.0,
+		0.001
+	)
 	assert_false(preview.get_initial_values().has("rotation_degrees"))
-	preview.configure(_config(^"rotation_degrees:y", 90.0), 2)
-	assert_true(preview.set_initial_value(&"rotation", Vector3(0.25, 0.5, 0.75)))
+	preview.configure(
+		_config(^"rotation_degrees:y", 90.0),
+		2
+	)
+	assert_true(
+		preview.set_initial_value(
+			&"rotation",
+			Vector3(
+				0.25,
+				0.5,
+				0.75
+			)
+		)
+	)
 	assert_true(preview.play())
 	preview.advance(1.1)
-	assert_almost_eq(_vector3(preview, "rotation").y, PI / 2.0, 0.001)
+	assert_almost_eq(
+		_vector3(preview, "rotation").y,
+		PI / 2.0,
+		0.001
+	)
 	preview.reset_preview()
-	assert_eq(_vector3(preview, "rotation"), Vector3(0.25, 0.5, 0.75))
+	assert_eq(
+		_vector3(preview, "rotation"),
+		Vector3(
+			0.25,
+			0.5,
+			0.75
+		)
+	)
 	preview.dispose_preview()
 
 
@@ -563,21 +1031,38 @@ func test_active_snapshot_is_read_only_and_replay_reads_later_source_edits() -> 
 	preview.advance(0.25)
 	config.steps[0].target_value = 20.0
 	preview.advance(1.0)
-	assert_almost_eq(_vector2(preview, "position").x, 10.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		10.0,
+		0.001
+	)
 	assert_true(preview.play())
 	preview.advance(1.1)
-	assert_almost_eq(_vector2(preview, "position").x, 20.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		20.0,
+		0.001
+	)
 	preview.stop()
 	preview.reset_preview()
 	preview.dispose_preview()
-	assert_eq(config.steps.size(), 1)
+	assert_eq(
+		config.steps.size(),
+		1
+	)
 	var target_value: Variant = config.steps[0].target_value
 	assert_true(target_value is float)
 	if target_value is float:
 		var number: float = target_value
 		assert_eq(number, 20.0)
-	assert_eq(config.steps[0].duration, 1.0)
-	assert_eq(config.steps[0].marker_id, &"project_marker")
+	assert_eq(
+		config.steps[0].duration,
+		1.0
+	)
+	assert_eq(
+		config.steps[0].marker_id,
+		&"project_marker"
+	)
 	assert_eq(config.loop_count, 1)
 	assert_eq(config.duration_scale, 1.0)
 
@@ -586,11 +1071,22 @@ func test_finish_restore_policy_is_honored_without_changing_source() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
 	config.restore_initial_values_on_finish = true
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 3.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 3.0)
+		)
+	)
 	assert_true(preview.play())
 	preview.advance(1.1)
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 3.0)
+	)
 	assert_true(config.restore_initial_values_on_finish)
 	preview.dispose_preview()
 
@@ -598,18 +1094,44 @@ func test_finish_restore_policy_is_honored_without_changing_source() -> void:
 func test_step_and_loop_caps_accept_boundaries_and_reject_excess() -> void:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	for index: int in range(128):
-		config.steps.append(_step(^"position:x", float(index), 0.0))
+		config.steps.append(
+			_step(
+				^"position:x",
+				float(index),
+				0.0
+			)
+		)
 	var preview: GFTweenPreviewViewport = _preview(config)
 	assert_true(preview.play())
 	preview.advance(0.1)
-	assert_eq(preview.get_state(), &"finished")
-	assert_almost_eq(_vector2(preview, "position").x, 127.0, 0.001)
-	config.steps.append(_step(^"position:x", 128.0, 0.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		127.0,
+		0.001
+	)
+	config.steps.append(
+		_step(
+			^"position:x",
+			128.0,
+			0.0
+		)
+	)
 	preview.configure(config)
 	assert_false(preview.play())
-	assert_eq(preview.get_state(), &"error")
+	assert_eq(
+		preview.get_state(),
+		&"error"
+	)
 	assert_false(preview.get_error().is_empty())
-	config = _config(^"position:x", 1.0, 0.25)
+	config = _config(
+		^"position:x",
+		1.0,
+		0.25
+	)
 	config.loop_count = 32
 	preview.configure(config)
 	assert_true(preview.play())
@@ -618,7 +1140,10 @@ func test_step_and_loop_caps_accept_boundaries_and_reject_excess() -> void:
 		config.loop_count = loops
 		preview.configure(config)
 		assert_false(preview.play())
-		assert_eq(preview.get_state(), &"error")
+		assert_eq(
+			preview.get_state(),
+			&"error"
+		)
 	preview.dispose_preview()
 
 
@@ -627,31 +1152,73 @@ func test_finite_relative_loops_progress_to_completion_and_reset() -> void:
 	config.steps[0].as_relative = true
 	config.loop_count = 2
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 4.0)
+		)
+	)
 	assert_true(preview.play())
 	preview.advance(1.5)
-	assert_eq(preview.get_state(), &"playing")
-	assert_almost_eq(_vector2(preview, "position").x, 17.0, 0.001)
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		17.0,
+		0.001
+	)
 	preview.advance(0.6)
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(22.0, 4.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(22.0, 4.0)
+	)
 	preview.reset_preview()
-	assert_eq(preview.get_state(), &"idle")
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 4.0)
+	)
 	preview.dispose_preview()
 
 
 func test_zero_time_relative_steps_apply_one_round_without_unbounded_looping() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		3.0,
+		0.0
+	)
 	config.steps[0].as_relative = true
 	config.loop_count = 32
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 4.0)
+		)
+	)
 	assert_true(preview.play())
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 4.0)
+	)
 	preview.advance(100.0)
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 4.0)
+	)
 	preview.dispose_preview()
 
 
@@ -664,41 +1231,81 @@ func test_missing_steps_and_invalid_target_kind_fail_before_any_playback() -> vo
 	config.steps.append(null)
 	preview.configure(config)
 	assert_false(preview.play())
-	preview.configure(_config(^"position:x", 1.0), 3)
+	preview.configure(
+		_config(^"position:x", 1.0),
+		3
+	)
 	assert_false(preview.play())
 	assert_true(preview.get_current_values().is_empty())
 	preview.dispose_preview()
 
 
 func test_duration_budget_counts_delays_scale_parallel_groups_and_loops() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 1.0, 0.5)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		1.0,
+		0.5
+	)
 	config.steps[0].delay = 0.875
 	config.duration_scale = 2.0
 	config.loop_count = 32
-	var parallel_step: GFTweenActionStep = _step(^"position:y", 2.0, 0.5)
+	var parallel_step: GFTweenActionStep = _step(
+		^"position:y",
+		2.0,
+		0.5
+	)
 	parallel_step.parallel = true
 	config.steps.append(parallel_step)
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.play(), "120 seconds, including loop and delay, is accepted")
+	assert_true(
+		preview.play(),
+		"120 seconds, including loop and delay, is accepted"
+	)
 	preview.stop()
 	config.steps[0].delay = 1.0
 	preview.configure(config)
-	assert_false(preview.play(), "128 seconds is rejected before playback")
-	assert_eq(preview.get_state(), &"error")
+	assert_false(
+		preview.play(),
+		"128 seconds is rejected before playback"
+	)
+	assert_eq(
+		preview.get_state(),
+		&"error"
+	)
 	preview.dispose_preview()
 
 
 func test_preview_rejects_non_finite_non_value_and_unknown_paths_atomically() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 1.0))
-	var invalid_values: Array[Variant] = [NAN, INF, 1000001.0, Vector2(INF, 0.0), Resource.new(), [1.0], { "x": 1.0 }]
+	var invalid_values: Array[Variant] = [
+		NAN,
+		INF,
+		1000001.0,
+		Vector2(INF, 0.0),
+		Resource.new(),
+		[1.0],
+		{ "x": 1.0 },
+	]
 	for value: Variant in invalid_values:
 		var config: GFTweenActionConfig = _config(^"position:x", value)
 		preview.configure(config)
 		var baseline: Dictionary = preview.get_initial_values()
 		assert_false(preview.play())
-		assert_eq(preview.get_state(), &"error")
-		assert_eq(preview.get_current_values(), baseline)
-	for property_path: NodePath in [^"script", ^"owner", ^"position:x:y", ^"../position", ^"global_position"]:
+		assert_eq(
+			preview.get_state(),
+			&"error"
+		)
+		assert_eq(
+			preview.get_current_values(),
+			baseline
+		)
+	for property_path: NodePath in [
+		^"script",
+		^"owner",
+		^"position:x:y",
+		^"../position",
+		^"global_position",
+	]:
 		preview.configure(_config(property_path, 1.0))
 		assert_false(preview.play())
 		assert_false(preview.get_error().is_empty())
@@ -722,11 +1329,37 @@ func test_exact_scripts_reject_business_subclasses_without_calling_overrides() -
 
 
 func test_vector_color_components_and_invalid_enums_are_checked_before_start() -> void:
-	var preview: GFTweenPreviewViewport = _preview(_config(^"position", Vector2(1.0, INF)))
+	var preview: GFTweenPreviewViewport = _preview(
+		_config(
+			^"position",
+			Vector2(1.0, INF)
+		)
+	)
 	assert_false(preview.play())
-	preview.configure(_config(^"position", Vector3(1.0, 2.0, NAN)), 2)
+	preview.configure(
+		_config(
+			^"position",
+			Vector3(
+				1.0,
+				2.0,
+				NAN
+			)
+		),
+		2
+	)
 	assert_false(preview.play())
-	preview.configure(_config(^"modulate", Color(0.25, 0.5, 0.75, INF)), 1)
+	preview.configure(
+		_config(
+			^"modulate",
+			Color(
+				0.25,
+				0.5,
+				0.75,
+				INF
+			)
+		),
+		1
+	)
 	assert_false(preview.play())
 	var config: GFTweenActionConfig = _config(^"position:x", 2.0)
 	config.steps[0].set(&"transition_type", 999)
@@ -744,25 +1377,56 @@ func test_vector_color_components_and_invalid_enums_are_checked_before_start() -
 
 func test_invalid_manual_delta_aborts_and_restores_initial_values() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
-	for invalid_delta: float in [-1.0, INF, NAN]:
+	for invalid_delta: float in [
+		-1.0,
+		INF,
+		NAN,
+	]:
 		assert_true(preview.play())
 		preview.advance(0.25)
 		preview.advance(invalid_delta)
-		assert_eq(preview.get_state(), &"error")
-		assert_eq(preview.get_current_values(), preview.get_initial_values())
+		assert_eq(
+			preview.get_state(),
+			&"error"
+		)
+		assert_eq(
+			preview.get_current_values(),
+			preview.get_initial_values()
+		)
 	preview.dispose_preview()
 
 
 func test_initial_values_are_detached_and_reject_unsafe_writes() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 3.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 3.0)
+		)
+	)
 	var values: Dictionary = preview.get_initial_values()
 	values["position"] = Vector2(99.0, 99.0)
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
-	assert_false(preview.set_initial_value(&"script", Resource.new()))
-	assert_false(preview.set_initial_value(&"position", Vector2(INF, 0.0)))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 3.0)
+	)
+	assert_false(
+		preview.set_initial_value(
+			&"script",
+			Resource.new()
+		)
+	)
+	assert_false(
+		preview.set_initial_value(
+			&"position",
+			Vector2(INF, 0.0)
+		)
+	)
 	assert_false(preview.set_initial_value(&"position", Vector3.ZERO))
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 3.0)
+	)
 	preview.dispose_preview()
 
 
@@ -772,22 +1436,37 @@ func test_reconfigure_and_exit_tree_cancel_old_playback_and_release_targets() ->
 	assert_true(preview.play())
 	preview.advance(0.25)
 	preview.configure(_config(^"position:x", 20.0))
-	assert_eq(preview.get_state(), &"idle")
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
 	var baseline: Dictionary = preview.get_current_values()
 	preview.advance(2.0)
-	assert_eq(preview.get_current_values(), baseline)
+	assert_eq(
+		preview.get_current_values(),
+		baseline
+	)
 	assert_true(preview.play())
 	preview.advance(0.25)
 	remove_child(preview)
-	assert_eq(preview.get_state(), &"idle")
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
 	preview.advance(2.0)
-	assert_eq(preview.get_current_values(), preview.get_initial_values())
+	assert_eq(
+		preview.get_current_values(),
+		preview.get_initial_values()
+	)
 	add_child(preview)
 	preview.configure(_config(^"position:x", 20.0))
 	assert_true(preview.play())
 	preview.dispose_preview()
 	preview.dispose_preview()
-	assert_eq(preview.get_state(), &"idle")
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
 	assert_false(preview.play())
 	var weak_preview: WeakRef = weakref(preview)
 	preview.queue_free()
@@ -798,7 +1477,10 @@ func test_reconfigure_and_exit_tree_cancel_old_playback_and_release_targets() ->
 
 func test_panel_buttons_hide_and_rebind_control_only_the_preview() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	_configure_panel(panel, _config(^"position:x", 10.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 10.0)
+	)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
@@ -811,23 +1493,46 @@ func test_panel_buttons_hide_and_rebind_control_only_the_preview() -> void:
 	assert_false(pause_button.disabled)
 	preview.advance(0.25)
 	pause_button.pressed.emit()
-	assert_eq(preview.get_state(), &"paused")
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
 	_button(panel, "Stop").pressed.emit()
-	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		2.5,
+		0.001
+	)
 	_button(panel, "Reset").pressed.emit()
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	play_button.pressed.emit()
 	preview.advance(0.25)
 	panel.hide()
-	assert_eq(preview.get_state(), &"idle")
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	panel.show()
-	_configure_panel(panel, _config(^"position:x", 20.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 20.0)
+	)
 	panel.set_process(false)
 	assert_false(play_button.disabled)
 	play_button.pressed.emit()
 	preview.advance(1.1)
-	assert_almost_eq(_vector2(preview, "position").x, 20.0, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		20.0,
+		0.001
+	)
 	panel.dispose_preview()
 	assert_true(preview.get_current_values().is_empty())
 	assert_false(panel.is_processing())
@@ -835,7 +1540,14 @@ func test_panel_buttons_hide_and_rebind_control_only_the_preview() -> void:
 
 func test_panel_playback_uses_wall_clock_when_engine_time_scale_is_zero() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	_configure_panel(panel, _config(^"position:x", 10.0, 10.0))
+	_configure_panel(
+		panel,
+		_config(
+			^"position:x",
+			10.0,
+			10.0
+		)
+	)
 	add_child_autofree(panel)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var play_button: Button = _button(panel, "Play")
@@ -852,65 +1564,133 @@ func test_panel_playback_uses_wall_clock_when_engine_time_scale_is_zero() -> voi
 	assert_true(raw_position is Vector2)
 	if raw_position is Vector2:
 		var position: Vector2 = raw_position
-		assert_gt(position.x, 0.0, "Panel playback uses elapsed wall time even when engine time scale is zero")
+		assert_gt(
+			position.x,
+			0.0,
+			"Panel playback uses elapsed wall time even when engine time scale is zero"
+		)
 
 
 func test_retired_initial_fields_cannot_write_after_rebind_or_kind_change() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	_configure_panel(panel, _config(^"position:x", 10.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 10.0)
+	)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var original_field: GFEditorValueField = _initial_field(panel, "Initial_position")
-	_configure_panel(panel, _config(^"position:x", 20.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 20.0)
+	)
 	panel.set_process(false)
 	original_field.value_changed.emit(Vector2(99.0, 99.0))
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	var replacement_field: GFEditorValueField = _initial_field(panel, "Initial_position")
 	var target_kind: OptionButton = _target_kind(panel)
 	_select_panel_target(target_kind, &"gf.preview.ui")
 	replacement_field.value_changed.emit(Vector2(88.0, 88.0))
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	var current_field: GFEditorValueField = _initial_field(panel, "Initial_position")
 	current_field.value_changed.emit(Vector2(2.0, 3.0))
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 3.0)
+	)
 	panel.dispose_preview()
 
 
 func test_seek_repeats_and_moves_backwards_then_continues_from_the_selected_time() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
 	assert_false(preview.has_session())
-	assert_false(preview.seek(0.5), "Seeking requires a captured playback session")
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_false(
+		preview.seek(0.5),
+		"Seeking requires a captured playback session"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	assert_true(preview.play())
 	assert_true(preview.has_session())
-	assert_eq(preview.get_duration_seconds(), 1.0)
+	assert_eq(
+		preview.get_duration_seconds(),
+		1.0
+	)
 	assert_true(preview.seek(0.75))
-	assert_eq(preview.get_state(), &"paused")
-	assert_almost_eq(_vector2(preview, "position").x, 7.5, 0.001)
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		7.5,
+		0.001
+	)
 	assert_true(preview.seek(0.25))
 	var earlier_values: Dictionary = preview.get_current_values()
-	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
-	assert_eq(preview.get_time_seconds(), 0.25)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		2.5,
+		0.001
+	)
+	assert_eq(
+		preview.get_time_seconds(),
+		0.25
+	)
 	assert_true(preview.seek(0.75))
 	assert_true(preview.seek(0.25))
-	assert_eq(preview.get_current_values(), earlier_values)
+	assert_eq(
+		preview.get_current_values(),
+		earlier_values
+	)
 	preview.advance(0.5)
-	assert_eq(preview.get_current_values(), earlier_values, "A time inspection is paused")
+	assert_eq(
+		preview.get_current_values(),
+		earlier_values,
+		"A time inspection is paused"
+	)
 	assert_true(preview.play())
 	preview.advance(0.25)
-	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
-	assert_eq(preview.get_time_seconds(), 0.5)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		5.0,
+		0.001
+	)
+	assert_eq(
+		preview.get_time_seconds(),
+		0.5
+	)
 	preview.dispose_preview()
 
 
 func test_seek_uses_parallel_group_duration_with_delays_and_relative_loops() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 10.0, 0.5)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		10.0,
+		0.5
+	)
 	config.steps[0].delay = 0.25
-	var parallel_step: GFTweenActionStep = _step(^"position:y", 20.0, 1.0)
+	var parallel_step: GFTweenActionStep = _step(
+		^"position:y",
+		20.0,
+		1.0
+	)
 	parallel_step.parallel = true
 	config.steps.append(parallel_step)
-	var relative_step: GFTweenActionStep = _step(^"position:x", 4.0, 0.5)
+	var relative_step: GFTweenActionStep = _step(
+		^"position:x",
+		4.0,
+		0.5
+	)
 	relative_step.delay = 0.25
 	relative_step.as_relative = true
 	config.steps.append(relative_step)
@@ -921,45 +1701,96 @@ func test_seek_uses_parallel_group_duration_with_delays_and_relative_loops() -> 
 	add_child_autofree(native_target)
 	var native_reference: Tween = _native_parallel_relative_tween(native_target)
 	assert_true(preview.play())
-	assert_eq(preview.get_duration_seconds(), 7.0, "Two loops of max(1.5, 2.0) + 1.5")
+	assert_eq(
+		preview.get_duration_seconds(),
+		7.0,
+		"Two loops of max(1.5, 2.0) + 1.5"
+	)
 	assert_true(preview.seek(2.5))
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 20.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 20.0)
+	)
 	assert_true(preview.seek(3.0))
 	# 首轮与次轮的初值语义可能不同，使用独立原生分步推进作基线，而非推算 relative 起点。
 	for _index: int in range(6):
 		var _reference_running: bool = native_reference.custom_step(0.5)
-	assert_eq(_vector2(preview, "position"), native_target.position)
+	assert_eq(
+		_vector2(preview, "position"),
+		native_target.position
+	)
 	assert_true(preview.seek(6.5))
 	for _index: int in range(7):
 		var _reference_running: bool = native_reference.custom_step(0.5)
-	assert_eq(_vector2(preview, "position"), native_target.position)
+	assert_eq(
+		_vector2(preview, "position"),
+		native_target.position
+	)
 	assert_true(preview.seek(0.25))
-	assert_almost_eq(_vector2(preview, "position").x, 0.0, 0.001)
-	assert_almost_eq(_vector2(preview, "position").y, 2.5, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		0.0,
+		0.001
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").y,
+		2.5,
+		0.001
+	)
 	assert_true(preview.seek(7.0))
-	assert_eq(_vector2(preview, "position"), Vector2(14.0, 20.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(14.0, 20.0)
+	)
 	native_reference.kill()
 	preview.dispose_preview()
 
 
 func test_seek_relative_loop_values_match_forward_native_playback() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.25)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		3.0,
+		0.25
+	)
 	config.steps[0].as_relative = true
 	config.loop_count = 32
 	var preview: GFTweenPreviewViewport = _preview(config)
 	var forward_preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
-	assert_true(forward_preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 4.0)
+		)
+	)
+	assert_true(
+		forward_preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 4.0)
+		)
+	)
 	assert_true(preview.play())
 	assert_true(forward_preview.play())
 	forward_preview.advance(7.875)
 	assert_true(preview.seek(7.875))
-	assert_eq(preview.get_current_values(), forward_preview.get_current_values())
-	assert_almost_eq(_vector2(preview, "position").x, 96.5, 0.001)
+	assert_eq(
+		preview.get_current_values(),
+		forward_preview.get_current_values()
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		96.5,
+		0.001
+	)
 	assert_true(preview.seek(0.0))
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 4.0)
+	)
 	assert_true(preview.seek(8.0))
-	assert_eq(_vector2(preview, "position"), Vector2(98.0, 4.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(98.0, 4.0)
+	)
 	preview.dispose_preview()
 	forward_preview.dispose_preview()
 
@@ -968,17 +1799,43 @@ func test_seek_end_keeps_final_pose_until_continue_applies_finish_restore() -> v
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
 	config.restore_initial_values_on_finish = true
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 3.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 3.0)
+		)
+	)
 	assert_true(preview.play())
 	assert_true(preview.seek(1.0))
-	assert_eq(preview.get_state(), &"paused")
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 3.0))
-	assert_true(preview.play(), "Continuing an inspected endpoint completes the existing session")
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 3.0)
+	)
+	assert_true(
+		preview.play(),
+		"Continuing an inspected endpoint completes the existing session"
+	)
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 3.0)
+	)
 	assert_true(preview.has_session())
-	assert_true(preview.seek(1.0), "Finished sessions retain their captured inspection data")
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 3.0))
+	assert_true(
+		preview.seek(1.0),
+		"Finished sessions retain their captured inspection data"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 3.0)
+	)
 	preview.dispose_preview()
 
 
@@ -991,73 +1848,177 @@ func test_seek_does_not_read_changed_source_and_invalid_times_preserve_the_sessi
 	config.steps[0].duration = 10.0
 	config.loop_count = 2
 	assert_true(preview.seek(0.5))
-	assert_eq(preview.get_duration_seconds(), 1.0)
-	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	assert_eq(
+		preview.get_duration_seconds(),
+		1.0
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		5.0,
+		0.001
+	)
 	var inspected_values: Dictionary = preview.get_current_values()
-	for invalid_time: float in [-1.0, 1.0001, INF, NAN]:
+	for invalid_time: float in [
+		-1.0,
+		1.0001,
+		INF,
+		NAN,
+	]:
 		assert_false(preview.seek(invalid_time))
-		assert_eq(preview.get_state(), &"paused")
-		assert_eq(preview.get_time_seconds(), 0.5)
-		assert_eq(preview.get_current_values(), inspected_values)
+		assert_eq(
+			preview.get_state(),
+			&"paused"
+		)
+		assert_eq(
+			preview.get_time_seconds(),
+			0.5
+		)
+		assert_eq(
+			preview.get_current_values(),
+			inspected_values
+		)
 		assert_false(preview.get_error().is_empty())
 	preview.stop()
-	assert_true(preview.seek(0.25), "Stop keeps the snapshot available for inspection")
-	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	assert_true(
+		preview.seek(0.25),
+		"Stop keeps the snapshot available for inspection"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		2.5,
+		0.001
+	)
 	preview.reset_preview()
 	assert_false(preview.has_session())
 	assert_false(preview.seek(0.25))
 	assert_true(preview.play())
-	assert_eq(preview.get_duration_seconds(), 20.0)
+	assert_eq(
+		preview.get_duration_seconds(),
+		20.0
+	)
 	assert_true(preview.seek(0.5))
-	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
-	assert_eq(config.steps[0].marker_id, &"project_marker")
-	assert_eq(config.steps[0].duration, 10.0)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		5.0,
+		0.001
+	)
+	assert_eq(
+		config.steps[0].marker_id,
+		&"project_marker"
+	)
+	assert_eq(
+		config.steps[0].duration,
+		10.0
+	)
 	preview.dispose_preview()
 
 
 func test_seek_zero_duration_inspects_one_round_without_applying_finish_restore() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		3.0,
+		0.0
+	)
 	config.steps[0].as_relative = true
 	config.loop_count = 32
 	config.restore_initial_values_on_finish = true
 	var preview: GFTweenPreviewViewport = _preview(config)
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 4.0)
+		)
+	)
 	assert_true(preview.play())
-	assert_eq(preview.get_duration_seconds(), 0.0)
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_eq(
+		preview.get_duration_seconds(),
+		0.0
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 4.0)
+	)
 	assert_true(preview.seek(0.0))
-	assert_eq(preview.get_state(), &"paused")
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 4.0)
+	)
 	assert_true(preview.seek(0.0))
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 4.0)
+	)
 	assert_true(preview.play())
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 4.0)
+	)
 	preview.dispose_preview()
 
 
 func test_seek_exact_end_includes_trailing_instant_steps_and_fractional_group_boundaries() -> void:
 	for first_duration: float in [0.5, 0.1]:
 		var second_duration: float = 0.5 if first_duration == 0.5 else 0.2
-		var config: GFTweenActionConfig = _config(^"position:x", 10.0, first_duration)
-		config.steps.append(_step(^"position:x", 20.0, second_duration))
-		config.steps.append(_step(^"position:y", 9.0, 0.0))
+		var config: GFTweenActionConfig = _config(
+			^"position:x",
+			10.0,
+			first_duration
+		)
+		config.steps.append(
+			_step(
+				^"position:x",
+				20.0,
+				second_duration
+			)
+		)
+		config.steps.append(
+			_step(
+				^"position:y",
+				9.0,
+				0.0
+			)
+		)
 		config.loop_count = 2
 		var preview: GFTweenPreviewViewport = _preview(config)
 		assert_true(preview.play())
 		assert_true(preview.seek(preview.get_duration_seconds()))
-		assert_eq(_vector2(preview, "position"), Vector2(20.0, 9.0))
-		assert_eq(preview.get_state(), &"paused")
+		assert_eq(
+			_vector2(preview, "position"),
+			Vector2(20.0, 9.0)
+		)
+		assert_eq(
+			preview.get_state(),
+			&"paused"
+		)
 		assert_true(preview.seek(0.0))
-		assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+		assert_eq(
+			_vector2(preview, "position"),
+			Vector2.ZERO
+		)
 		preview.dispose_preview()
 
 
 func test_seek_preserves_native_easing_and_overlapping_property_component_order() -> void:
-	var config: GFTweenActionConfig = _config(^"position", Vector2(12.0, 8.0), 0.8)
+	var config: GFTweenActionConfig = _config(
+		^"position",
+		Vector2(12.0, 8.0),
+		0.8
+	)
 	config.steps[0].transition_type = Tween.TRANS_CUBIC
 	config.steps[0].ease_type = Tween.EASE_IN
-	var overlapping: GFTweenActionStep = _step(^"position:x", 5.0, 0.5)
+	var overlapping: GFTweenActionStep = _step(
+		^"position:x",
+		5.0,
+		0.5
+	)
 	overlapping.parallel = true
 	overlapping.as_relative = true
 	overlapping.delay = 0.1
@@ -1069,11 +2030,17 @@ func test_seek_preserves_native_easing_and_overlapping_property_component_order(
 	forward_preview.advance(0.375)
 	assert_true(preview.seek(0.75))
 	assert_true(preview.seek(0.375))
-	assert_eq(preview.get_current_values(), forward_preview.get_current_values())
+	assert_eq(
+		preview.get_current_values(),
+		forward_preview.get_current_values()
+	)
 	assert_true(preview.play())
 	preview.advance(0.1)
 	forward_preview.advance(0.1)
-	assert_eq(preview.get_current_values(), forward_preview.get_current_values())
+	assert_eq(
+		preview.get_current_values(),
+		forward_preview.get_current_values()
+	)
 	preview.dispose_preview()
 	forward_preview.dispose_preview()
 
@@ -1081,15 +2048,29 @@ func test_seek_preserves_native_easing_and_overlapping_property_component_order(
 func test_seek_session_is_invalidated_by_initial_values_configuration_and_disposal() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
 	assert_true(preview.play())
-	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 3.0)))
+	assert_true(
+		preview.set_initial_value(
+			&"position",
+			Vector2(2.0, 3.0)
+		)
+	)
 	assert_false(preview.has_session())
 	assert_false(preview.seek(0.5))
-	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.0, 3.0)
+	)
 	assert_true(preview.play())
-	preview.configure(_config(^"position:z", 5.0), 2)
+	preview.configure(
+		_config(^"position:z", 5.0),
+		2
+	)
 	assert_false(preview.has_session())
 	assert_false(preview.seek(0.5))
-	assert_eq(_vector3(preview, "position"), Vector3.ZERO)
+	assert_eq(
+		_vector3(preview, "position"),
+		Vector3.ZERO
+	)
 	assert_true(preview.play())
 	preview.dispose_preview()
 	assert_false(preview.has_session())
@@ -1101,13 +2082,20 @@ func test_seek_endpoint_cannot_complete_successfully_after_the_sample_is_freed()
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
 	assert_true(preview.play())
 	assert_true(preview.seek(1.0))
-	var target: Node = preview.find_child("PreviewTarget", true, false)
+	var target: Node = preview.find_child(
+		"PreviewTarget",
+		true,
+		false
+	)
 	assert_not_null(target)
 	if target == null:
 		return
 	target.free()
 	assert_false(preview.play())
-	assert_eq(preview.get_state(), &"error")
+	assert_eq(
+		preview.get_state(),
+		&"error"
+	)
 	assert_false(preview.has_session())
 	assert_false(preview.seek(0.5))
 	preview.dispose_preview()
@@ -1115,39 +2103,73 @@ func test_seek_endpoint_cannot_complete_successfully_after_the_sample_is_freed()
 
 func test_panel_time_controls_seek_without_feedback_and_retired_inputs_are_ignored() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	_configure_panel(panel, _config(^"position:x", 10.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 10.0)
+	)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var initial_slider: HSlider = _time_slider(panel)
 	assert_true(initial_slider.editable, "Inspector preparation enables seeking before Play")
-	assert_eq(preview.get_state(), &"ready")
+	assert_eq(
+		preview.get_state(),
+		&"ready"
+	)
 	_button(panel, "Play").pressed.emit()
 	var slider: HSlider = _time_slider(panel)
 	assert_true(slider.editable)
 	assert_eq(slider.max_value, 1.0)
 	slider.value = 0.25
-	assert_eq(preview.get_state(), &"paused")
-	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		2.5,
+		0.001
+	)
 	_time_input(panel).value = 0.75
-	assert_almost_eq(_vector2(preview, "position").x, 7.5, 0.001)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		7.5,
+		0.001
+	)
 	assert_eq(slider.value, 0.75)
 	_button(panel, "Play").pressed.emit()
 	preview.advance(0.1)
-	assert_eq(preview.get_state(), &"playing", "Programmatic time refresh must not trigger another seek")
-	_configure_panel(panel, _config(^"position:x", 20.0))
+	assert_eq(
+		preview.get_state(),
+		&"playing",
+		"Programmatic time refresh must not trigger another seek"
+	)
+	_configure_panel(
+		panel,
+		_config(^"position:x", 20.0)
+	)
 	panel.set_process(false)
 	slider.value_changed.emit(0.5)
 	initial_slider.value_changed.emit(0.5)
 	assert_true(preview.has_session())
-	assert_eq(preview.get_state(), &"ready", "Retired controls cannot seek the new prepared session")
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		preview.get_state(),
+		&"ready",
+		"Retired controls cannot seek the new prepared session"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	_button(panel, "Play").pressed.emit()
 	var hidden_slider: HSlider = _time_slider(panel)
 	panel.hide()
 	hidden_slider.value_changed.emit(0.5)
 	assert_false(preview.has_session())
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	panel.show()
 	_button(panel, "Play").pressed.emit()
 	var disposed_input: SpinBox = _time_input(panel)
@@ -1158,7 +2180,11 @@ func test_panel_time_controls_seek_without_feedback_and_retired_inputs_are_ignor
 
 
 func test_panel_locate_button_can_inspect_the_only_time_of_an_instant_configuration() -> void:
-	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	var config: GFTweenActionConfig = _config(
+		^"position:x",
+		3.0,
+		0.0
+	)
 	config.restore_initial_values_on_finish = true
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
 	_configure_panel(panel, config)
@@ -1166,38 +2192,66 @@ func test_panel_locate_button_can_inspect_the_only_time_of_an_instant_configurat
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	_button(panel, "Play").pressed.emit()
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	assert_false(_button(panel, "InspectTime").disabled)
 	_button(panel, "InspectTime").pressed.emit()
-	assert_eq(preview.get_state(), &"paused")
-	assert_eq(_vector2(preview, "position"), Vector2(3.0, 0.0))
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(3.0, 0.0)
+	)
 	_button(panel, "InspectTime").pressed.emit()
-	assert_eq(_vector2(preview, "position"), Vector2(3.0, 0.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(3.0, 0.0)
+	)
 	panel.dispose_preview()
 
 
 func test_panel_retiring_time_controls_cannot_seek_a_new_session_during_visibility_change() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	_configure_panel(panel, _config(^"position:x", 10.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 10.0)
+	)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	_button(panel, "Play").pressed.emit()
 	var old_slider: HSlider = _time_slider(panel)
-	var _visibility_connected: int = old_slider.visibility_changed.connect(func() -> void:
-		old_slider.value_changed.emit(0.5)
+	var _visibility_connected: int = old_slider.visibility_changed.connect(
+		func() -> void:
+			old_slider.value_changed.emit(0.5)
 	)
 	_button(panel, "Stop").pressed.emit()
 	_button(panel, "Play").pressed.emit()
-	assert_eq(preview.get_state(), &"playing")
-	assert_eq(preview.get_time_seconds(), 0.0)
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
+	assert_eq(
+		preview.get_time_seconds(),
+		0.0
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	panel.dispose_preview()
 
 
 func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
-	_configure_panel(panel, _config(^"position:x", 10.0))
+	_configure_panel(
+		panel,
+		_config(^"position:x", 10.0)
+	)
 	add_child_autofree(panel)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	var field: GFEditorValueField = _initial_field(panel, "Initial_position")
@@ -1205,18 +2259,29 @@ func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample(
 	panel.dispose_preview()
 	target_kind.item_selected.emit(1)
 	field.value_changed.emit(Vector2(99.0, 99.0))
-	for button_name: String in ["Play", "Pause", "Stop", "Reset"]:
+	for button_name: String in [
+		"Play",
+		"Pause",
+		"Stop",
+		"Reset",
+	]:
 		_button(panel, button_name).pressed.emit()
 	assert_true(preview.get_current_values().is_empty())
 	assert_true(preview.get_initial_values().is_empty())
-	assert_eq(preview.get_state(), &"idle")
+	assert_eq(
+		preview.get_state(),
+		&"idle"
+	)
 	assert_false(panel.is_processing())
 
 
 func test_panel_requires_an_explicit_choice_for_ambiguous_native_properties() -> void:
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
-	context.configure(config, GFTweenPreviewRegistry.new())
+	context.configure(
+		config,
+		GFTweenPreviewRegistry.new()
+	)
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
 	panel.configure(config, context)
 	add_child_autofree(panel)
@@ -1234,11 +2299,20 @@ func test_panel_requires_an_explicit_choice_for_ambiguous_native_properties() ->
 	if reason_value is String:
 		var reason: String = reason_value
 		assert_true(reason.contains("多个兼容"))
-	_select_panel_target(_target_kind(panel), &"gf.preview.2d")
-	assert_eq(preview.get_state(), &"ready")
+	_select_panel_target(
+		_target_kind(panel),
+		&"gf.preview.2d"
+	)
+	assert_eq(
+		preview.get_state(),
+		&"ready"
+	)
 	assert_true(preview.has_session())
 	assert_true(_time_slider(panel).editable)
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	panel.dispose_preview()
 
 
@@ -1246,16 +2320,31 @@ func test_panel_target_and_initial_fields_update_the_same_property_context() -> 
 	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
 	var original: Array = _SNAPSHOT_SCRIPT.capture(config)
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
-	context.configure(config, GFTweenPreviewRegistry.new())
+	context.configure(
+		config,
+		GFTweenPreviewRegistry.new()
+	)
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
 	panel.configure(config, context)
 	add_child_autofree(panel)
 	panel.set_process(false)
-	_select_panel_target(_target_kind(panel), &"gf.preview.2d")
-	assert_eq(context.get_property_records("size"), [])
-	_select_panel_target(_target_kind(panel), &"gf.preview.ui")
+	_select_panel_target(
+		_target_kind(panel),
+		&"gf.preview.2d"
+	)
+	assert_eq(
+		context.get_property_records("size"),
+		[]
+	)
+	_select_panel_target(
+		_target_kind(panel),
+		&"gf.preview.ui"
+	)
 	var size_records: Array[Dictionary] = context.get_property_records("size")
-	assert_eq(size_records.size(), 3)
+	assert_eq(
+		size_records.size(),
+		3
+	)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	_initial_field(panel, "Initial_position").value_changed.emit(Vector2(4.0, 6.0))
 	var records: Array[Dictionary] = context.get_property_records("position")
@@ -1263,10 +2352,23 @@ func test_panel_target_and_initial_fields_update_the_same_property_context() -> 
 	assert_true(root_initial is Vector2)
 	if root_initial is Vector2:
 		var position_initial: Vector2 = root_initial
-		assert_eq(position_initial, Vector2(4.0, 6.0))
-	assert_eq(preview.get_state(), &"ready")
-	assert_eq(_vector2(preview, "position"), Vector2(4.0, 6.0))
-	assert_eq(_SNAPSHOT_SCRIPT.capture(config), original, "Preview choices and initial values never edit the resource")
+		assert_eq(
+			position_initial,
+			Vector2(4.0, 6.0)
+		)
+	assert_eq(
+		preview.get_state(),
+		&"ready"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(4.0, 6.0)
+	)
+	assert_eq(
+		_SNAPSHOT_SCRIPT.capture(config),
+		original,
+		"Preview choices and initial values never edit the resource"
+	)
 	panel.dispose_preview()
 
 
@@ -1280,23 +2382,51 @@ func test_panel_edits_and_undo_keep_the_frozen_plan_until_explicit_prepare() -> 
 	assert_true(preview.seek(0.25))
 	var history: UndoRedo = UndoRedo.new()
 	history.create_action("Edit source target")
-	history.add_do_property(config.steps[0], &"target_value", 20.0)
-	history.add_undo_property(config.steps[0], &"target_value", 10.0)
+	history.add_do_property(
+		config.steps[0],
+		&"target_value",
+		20.0
+	)
+	history.add_undo_property(
+		config.steps[0],
+		&"target_value",
+		10.0
+	)
 	history.commit_action()
 	config.emit_changed()
 	panel.set_process(true)
 	await wait_seconds(0.6)
 	panel.set_process(false)
-	assert_eq(preview.get_state(), &"paused", "Source edits do not replace an inspected frozen session")
+	assert_eq(
+		preview.get_state(),
+		&"paused",
+		"Source edits do not replace an inspected frozen session"
+	)
 	assert_true(_stale_label(panel).text.contains("预览已过期"))
 	assert_true(preview.seek(0.5))
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 0.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 0.0)
+	)
 	_button(panel, "Recapture").pressed.emit()
-	assert_eq(preview.get_state(), &"ready", "Preparing captures current source without Play")
-	assert_eq(preview.get_time_seconds(), 0.0)
-	assert_eq(_stale_label(panel).text, "")
+	assert_eq(
+		preview.get_state(),
+		&"ready",
+		"Preparing captures current source without Play"
+	)
+	assert_eq(
+		preview.get_time_seconds(),
+		0.0
+	)
+	assert_eq(
+		_stale_label(panel).text,
+		""
+	)
 	assert_true(preview.seek(0.5))
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 0.0)
+	)
 	assert_true(history.undo())
 	config.emit_changed()
 	panel.set_process(true)
@@ -1304,11 +2434,21 @@ func test_panel_edits_and_undo_keep_the_frozen_plan_until_explicit_prepare() -> 
 	panel.set_process(false)
 	assert_true(_stale_label(panel).text.contains("预览已过期"))
 	assert_true(preview.seek(0.75))
-	assert_eq(_vector2(preview, "position"), Vector2(15.0, 0.0), "Undo leaves the accepted frozen plan intact")
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(15.0, 0.0),
+		"Undo leaves the accepted frozen plan intact"
+	)
 	_button(panel, "Recapture").pressed.emit()
-	assert_eq(preview.get_state(), &"ready")
+	assert_eq(
+		preview.get_state(),
+		&"ready"
+	)
 	assert_true(preview.seek(0.5))
-	assert_eq(_vector2(preview, "position"), Vector2(5.0, 0.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(5.0, 0.0)
+	)
 	panel.dispose_preview()
 	history.clear_history()
 	history.free()
@@ -1324,21 +2464,46 @@ func test_panel_ready_edits_reprepare_statically_and_invalid_source_keeps_the_ol
 	config.emit_changed()
 	await wait_seconds(0.6)
 	panel.set_process(false)
-	assert_eq(preview.get_state(), &"ready")
-	assert_eq(preview.get_time_seconds(), 0.0)
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
-	assert_eq(_stale_label(panel).text, "")
+	assert_eq(
+		preview.get_state(),
+		&"ready"
+	)
+	assert_eq(
+		preview.get_time_seconds(),
+		0.0
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
+	assert_eq(
+		_stale_label(panel).text,
+		""
+	)
 	config.steps[0].target_value = INF
 	config.emit_changed()
 	panel.set_process(true)
 	await wait_seconds(0.6)
 	panel.set_process(false)
 	assert_true(_button(panel, "Play").disabled)
-	assert_true(preview.has_session(), "An invalid edit does not destroy the last accepted static view")
-	assert_eq(preview.get_time_seconds(), 0.0)
-	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_true(
+		preview.has_session(),
+		"An invalid edit does not destroy the last accepted static view"
+	)
+	assert_eq(
+		preview.get_time_seconds(),
+		0.0
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2.ZERO
+	)
 	assert_true(preview.seek(0.5))
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0), "The retained plan is the last valid edited version")
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 0.0),
+		"The retained plan is the last valid edited version"
+	)
 	panel.dispose_preview()
 
 
@@ -1353,14 +2518,29 @@ func test_panel_manual_paused_session_can_resume_after_source_becomes_invalid() 
 	config.steps[0].target_value = INF
 	config.emit_changed()
 	assert_true(preview.has_session())
-	assert_eq(preview.get_state(), &"paused")
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
 	assert_true(_stale_label(panel).text.contains("预览已过期"))
-	assert_false(_button(panel, "Play").disabled, "Continue accepts the valid frozen plan, not the invalid edited source")
+	assert_false(
+		_button(panel, "Play").disabled,
+		"Continue accepts the valid frozen plan, not the invalid edited source"
+	)
 	_button(panel, "Play").pressed.emit()
-	assert_eq(preview.get_state(), &"playing")
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
 	preview.advance(0.75)
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 0.0)
+	)
 	panel.dispose_preview()
 
 
@@ -1369,7 +2549,11 @@ func test_panel_bound_paused_session_can_resume_after_source_becomes_invalid() -
 	config.resource_path = "res://preview_bound_resume.tres"
 	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
 	var registration_owner: RefCounted = RefCounted.new()
-	var binding: GFTweenPreviewRegistration = registry.register_binding(registration_owner, config.resource_path, &"gf.preview.2d")
+	var binding: GFTweenPreviewRegistration = registry.register_binding(
+		registration_owner,
+		config.resource_path,
+		&"gf.preview.2d"
+	)
 	assert_not_null(binding)
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
 	context.configure(config, registry)
@@ -1383,12 +2567,21 @@ func test_panel_bound_paused_session_can_resume_after_source_becomes_invalid() -
 	config.emit_changed()
 	assert_true(binding.is_active())
 	assert_true(preview.has_session())
-	assert_eq(preview.get_state(), &"paused")
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
 	assert_false(_button(panel, "Play").disabled)
 	_button(panel, "Play").pressed.emit()
-	assert_eq(preview.get_state(), &"playing")
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
 	preview.advance(0.75)
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 0.0)
+	)
 	panel.dispose_preview()
 	binding.release()
 
@@ -1407,15 +2600,30 @@ func test_panel_paused_controlled_directions_use_the_valid_frozen_plan() -> void
 	assert_false(_button(panel, "Backward").disabled)
 	assert_false(_button(panel, "Forward").disabled)
 	_button(panel, "Backward").pressed.emit()
-	assert_eq(preview.get_state(), &"playing")
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
 	preview.advance(0.25)
-	assert_eq(_vector2(preview, "position"), Vector2(2.5, 0.0))
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(2.5, 0.0)
+	)
 	preview.pause()
 	_button(panel, "Forward").pressed.emit()
-	assert_eq(preview.get_state(), &"playing")
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
 	preview.advance(0.75)
-	assert_eq(preview.get_state(), &"finished")
-	assert_eq(_vector2(preview, "position"), Vector2(10.0, 0.0))
+	assert_eq(
+		preview.get_state(),
+		&"finished"
+	)
+	assert_eq(
+		_vector2(preview, "position"),
+		Vector2(10.0, 0.0)
+	)
 	panel.dispose_preview()
 
 
@@ -1427,42 +2635,84 @@ func test_panel_ready_invalid_source_rejects_play_and_direction_even_from_emitte
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
-	assert_eq(preview.get_state(), &"ready")
+	assert_eq(
+		preview.get_state(),
+		&"ready"
+	)
 	config.steps[0].target_value = INF
 	config.emit_changed()
 	var accepted_values: Dictionary = preview.get_current_values()
-	for button_name: String in ["Play", "Forward", "Backward"]:
+	for button_name: String in [
+		"Play",
+		"Forward",
+		"Backward",
+	]:
 		var button: Button = _button(panel, button_name)
 		assert_true(button.disabled)
 		button.pressed.emit()
-		assert_eq(preview.get_state(), &"ready", "Invalid current source cannot start an unplayed prepared session")
-		assert_eq(preview.get_time_seconds(), 0.0)
-		assert_eq(preview.get_current_values(), accepted_values)
+		assert_eq(
+			preview.get_state(),
+			&"ready",
+			"Invalid current source cannot start an unplayed prepared session"
+		)
+		assert_eq(
+			preview.get_time_seconds(),
+			0.0
+		)
+		assert_eq(
+			preview.get_current_values(),
+			accepted_values
+		)
 	panel.dispose_preview()
 
 
 func test_panel_automatic_ui_target_keeps_an_inspected_session_after_invalid_edit() -> void:
-	var config: GFTweenActionConfig = _config(^"size", Vector2(128.0, 96.0))
+	var config: GFTweenActionConfig = _config(
+		^"size",
+		Vector2(128.0, 96.0)
+	)
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
-	context.configure(config, GFTweenPreviewRegistry.new())
+	context.configure(
+		config,
+		GFTweenPreviewRegistry.new()
+	)
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
 	panel.configure(config, context)
 	add_child_autofree(panel)
 	panel.set_process(false)
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
-	assert_eq(_selected_panel_target_id(_target_kind(panel)), &"gf.preview.ui")
+	assert_eq(
+		_selected_panel_target_id(_target_kind(panel)),
+		&"gf.preview.ui"
+	)
 	assert_true(preview.seek(0.25))
 	config.steps[0].target_value = Vector2(INF, 96.0)
 	config.emit_changed()
-	assert_eq(_selected_panel_target_id(_target_kind(panel)), &"gf.preview.ui", "Source compatibility changes do not select a different purpose")
+	assert_eq(
+		_selected_panel_target_id(_target_kind(panel)),
+		&"gf.preview.ui",
+		"Source compatibility changes do not select a different purpose"
+	)
 	assert_true(preview.has_session())
-	assert_eq(preview.get_state(), &"paused")
-	assert_eq(_vector2(preview, "size"), Vector2(80.0, 72.0))
+	assert_eq(
+		preview.get_state(),
+		&"paused"
+	)
+	assert_eq(
+		_vector2(preview, "size"),
+		Vector2(80.0, 72.0)
+	)
 	assert_false(_button(panel, "Play").disabled)
 	_button(panel, "Play").pressed.emit()
-	assert_eq(preview.get_state(), &"playing")
+	assert_eq(
+		preview.get_state(),
+		&"playing"
+	)
 	preview.advance(0.75)
-	assert_eq(_vector2(preview, "size"), Vector2(128.0, 96.0))
+	assert_eq(
+		_vector2(preview, "size"),
+		Vector2(128.0, 96.0)
+	)
 	panel.dispose_preview()
 
 
@@ -1472,7 +2722,11 @@ func test_panel_withdrawn_binding_rejects_resume_and_directions_before_deferred_
 	config.resource_path = "res://preview_withdrawn_resume.tres"
 	var registry: GFTweenPreviewRegistry = GFTweenPreviewRegistry.new()
 	var registration_owner: RefCounted = RefCounted.new()
-	var binding: GFTweenPreviewRegistration = registry.register_binding(registration_owner, config.resource_path, &"gf.preview.2d")
+	var binding: GFTweenPreviewRegistration = registry.register_binding(
+		registration_owner,
+		config.resource_path,
+		&"gf.preview.2d"
+	)
 	assert_not_null(binding)
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
 	context.configure(config, registry)
@@ -1483,9 +2737,17 @@ func test_panel_withdrawn_binding_rejects_resume_and_directions_before_deferred_
 	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
 	assert_true(preview.seek(0.25))
 	binding.release()
-	for button_name: String in ["Play", "Forward", "Backward"]:
+	for button_name: String in [
+		"Play",
+		"Forward",
+		"Backward",
+	]:
 		_button(panel, button_name).pressed.emit()
-		assert_ne(preview.get_state(), &"playing", "A cached context does not retain a withdrawn binding lease")
+		assert_ne(
+			preview.get_state(),
+			&"playing",
+			"A cached context does not retain a withdrawn binding lease"
+		)
 		assert_false(preview.has_session())
 		assert_true(preview.get_current_values().is_empty())
 	panel.dispose_preview()
@@ -1516,14 +2778,29 @@ func _native_easing_tween(target: Node2D, curve: Curve) -> Tween:
 	var native_tween: Tween = target.create_tween()
 	native_tween.pause()
 	var _loops: Tween = native_tween.set_loops(2)
-	var first: PropertyTweener = native_tween.tween_property(target, ^"position:x", 8.0, 0.5)
+	var first: PropertyTweener = native_tween.tween_property(
+		target,
+		^"position:x",
+		8.0,
+		0.5
+	)
 	var _first_options: PropertyTweener = first.set_delay(0.25).set_trans(Tween.TRANS_LINEAR)
 	var _first_curve: PropertyTweener = first.set_custom_interpolator(curve.sample_baked)
 	var _parallel: Tween = native_tween.parallel()
-	var second: PropertyTweener = native_tween.tween_property(target, ^"position:y", 4.0, 1.0)
+	var second: PropertyTweener = native_tween.tween_property(
+		target,
+		^"position:y",
+		4.0,
+		1.0
+	)
 	var _second_options: PropertyTweener = second.set_trans(Tween.TRANS_LINEAR)
 	var _second_curve: PropertyTweener = second.set_custom_interpolator(curve.sample_baked)
-	var relative: PropertyTweener = native_tween.tween_property(target, ^"position:x", 2.0, 0.5)
+	var relative: PropertyTweener = native_tween.tween_property(
+		target,
+		^"position:x",
+		2.0,
+		0.5
+	)
 	var _relative_options: PropertyTweener = relative.set_trans(Tween.TRANS_LINEAR).as_relative()
 	var _relative_curve: PropertyTweener = relative.set_custom_interpolator(curve.sample_baked)
 	return native_tween
@@ -1533,12 +2810,27 @@ func _native_parallel_relative_tween(target: Node2D) -> Tween:
 	var native_tween: Tween = target.create_tween()
 	native_tween.pause()
 	var _loops: Tween = native_tween.set_loops(2)
-	var first: PropertyTweener = native_tween.tween_property(target, ^"position:x", 10.0, 1.0)
+	var first: PropertyTweener = native_tween.tween_property(
+		target,
+		^"position:x",
+		10.0,
+		1.0
+	)
 	var _first_options: PropertyTweener = first.set_delay(0.5).set_trans(Tween.TRANS_LINEAR)
 	var _parallel: Tween = native_tween.parallel()
-	var second: PropertyTweener = native_tween.tween_property(target, ^"position:y", 20.0, 2.0)
+	var second: PropertyTweener = native_tween.tween_property(
+		target,
+		^"position:y",
+		20.0,
+		2.0
+	)
 	var _second_options: PropertyTweener = second.set_trans(Tween.TRANS_LINEAR)
-	var relative: PropertyTweener = native_tween.tween_property(target, ^"position:x", 4.0, 1.0)
+	var relative: PropertyTweener = native_tween.tween_property(
+		target,
+		^"position:x",
+		4.0,
+		1.0
+	)
 	var _relative_options: PropertyTweener = relative.set_delay(0.5).set_trans(Tween.TRANS_LINEAR).as_relative()
 	return native_tween
 
@@ -1552,7 +2844,10 @@ func _preview(config: Resource, kind: int = 0) -> GFTweenPreviewViewport:
 
 func _configure_panel(panel: GFTweenPreviewPanel, config: GFTweenActionConfig) -> void:
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
-	context.configure(config, GFTweenPreviewRegistry.new())
+	context.configure(
+		config,
+		GFTweenPreviewRegistry.new()
+	)
 	assert_true(context.select_target(&"gf.preview.2d"))
 	panel.configure(config, context)
 
@@ -1574,13 +2869,27 @@ func _select_panel_target(selector: OptionButton, target_id: StringName) -> void
 	fail_test("Preview target was absent: %s" % String(target_id))
 
 
-func _config(property_path: NodePath, value: Variant, duration: float = 1.0) -> GFTweenActionConfig:
+func _config(
+	property_path: NodePath,
+	value: Variant,
+	duration: float = 1.0
+) -> GFTweenActionConfig:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	config.steps.append(_step(property_path, value, duration))
+	config.steps.append(
+		_step(
+			property_path,
+			value,
+			duration
+		)
+	)
 	return config
 
 
-func _step(property_path: NodePath, value: Variant, duration: float = 1.0) -> GFTweenActionStep:
+func _step(
+	property_path: NodePath,
+	value: Variant,
+	duration: float = 1.0
+) -> GFTweenActionStep:
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	step.property_name = property_path
 	step.target_value = value
@@ -1626,7 +2935,11 @@ func _number(preview: GFTweenPreviewViewport, key: String) -> float:
 
 
 func _panel_viewport(panel: GFTweenPreviewPanel) -> GFTweenPreviewViewport:
-	var child: Node = panel.find_child("PreviewViewport", true, false)
+	var child: Node = panel.find_child(
+		"PreviewViewport",
+		true,
+		false
+	)
 	assert_true(child is GFTweenPreviewViewport)
 	if child is GFTweenPreviewViewport:
 		var viewport: GFTweenPreviewViewport = child
@@ -1635,7 +2948,11 @@ func _panel_viewport(panel: GFTweenPreviewPanel) -> GFTweenPreviewViewport:
 
 
 func _button(panel: GFTweenPreviewPanel, control_name: String) -> Button:
-	var child: Node = panel.find_child(control_name, true, false)
+	var child: Node = panel.find_child(
+		control_name,
+		true,
+		false
+	)
 	assert_true(child is Button)
 	if child is Button:
 		var button: Button = child
@@ -1644,7 +2961,11 @@ func _button(panel: GFTweenPreviewPanel, control_name: String) -> Button:
 
 
 func _initial_field(panel: GFTweenPreviewPanel, control_name: String) -> GFEditorValueField:
-	var child: Node = panel.find_child(control_name, true, false)
+	var child: Node = panel.find_child(
+		control_name,
+		true,
+		false
+	)
 	assert_true(child is GFEditorValueField)
 	if child is GFEditorValueField:
 		var field: GFEditorValueField = child
@@ -1653,7 +2974,11 @@ func _initial_field(panel: GFTweenPreviewPanel, control_name: String) -> GFEdito
 
 
 func _target_kind(panel: GFTweenPreviewPanel) -> OptionButton:
-	var child: Node = panel.find_child("TargetKind", true, false)
+	var child: Node = panel.find_child(
+		"TargetKind",
+		true,
+		false
+	)
 	assert_true(child is OptionButton)
 	if child is OptionButton:
 		var option: OptionButton = child
@@ -1662,7 +2987,11 @@ func _target_kind(panel: GFTweenPreviewPanel) -> OptionButton:
 
 
 func _stale_label(panel: GFTweenPreviewPanel) -> Label:
-	var child: Node = panel.find_child("PreviewFreshness", true, false)
+	var child: Node = panel.find_child(
+		"PreviewFreshness",
+		true,
+		false
+	)
 	assert_true(child is Label)
 	if child is Label:
 		var label: Label = child
@@ -1671,7 +3000,11 @@ func _stale_label(panel: GFTweenPreviewPanel) -> Label:
 
 
 func _time_slider(panel: GFTweenPreviewPanel) -> HSlider:
-	var child: Node = panel.find_child("PreviewTimeSlider", true, false)
+	var child: Node = panel.find_child(
+		"PreviewTimeSlider",
+		true,
+		false
+	)
 	assert_true(child is HSlider)
 	if child is HSlider:
 		var slider: HSlider = child
@@ -1680,7 +3013,11 @@ func _time_slider(panel: GFTweenPreviewPanel) -> HSlider:
 
 
 func _time_input(panel: GFTweenPreviewPanel) -> SpinBox:
-	var child: Node = panel.find_child("PreviewTimeInput", true, false)
+	var child: Node = panel.find_child(
+		"PreviewTimeInput",
+		true,
+		false
+	)
 	assert_true(child is SpinBox)
 	if child is SpinBox:
 		var spin_box: SpinBox = child
@@ -1698,6 +3035,7 @@ class RejectedEasingCurve:
 
 	func _init() -> void:
 		constructions += 1
+
 
 	func _get(_property: StringName) -> Variant:
 		property_reads += 1
@@ -1719,6 +3057,10 @@ class RejectedStep:
 
 	var invocations: int = 0
 
-	func append_to_tween(_tween: Tween, _target: Object, _duration_scale: float = 1.0) -> Variant:
+	func append_to_tween(
+		_tween: Tween,
+		_target: Object,
+		_duration_scale: float = 1.0
+	) -> Variant:
 		invocations += 1
 		return null

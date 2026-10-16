@@ -59,7 +59,11 @@ func register_provider(provider: GFPolicyProvider) -> bool:
 ## [br]
 ## @return 注销成功返回 true。
 func unregister_provider(provider_id: StringName) -> bool:
-	for index: int in range(providers.size() - 1, -1, -1):
+	for index: int in range(
+		providers.size() - 1,
+		-1,
+		-1
+	):
 		var provider: GFPolicyProvider = providers[index]
 		if provider != null and provider.provider_id == provider_id:
 			providers.remove_at(index)
@@ -136,7 +140,11 @@ func evaluate_artifact(artifact: Dictionary, context: Dictionary = {}) -> Dictio
 	for provider: GFPolicyProvider in matching_providers:
 		var result: Dictionary = provider.evaluate(artifact, context)
 		results.append(result)
-		if not GFVariantData.get_option_bool(result, "ok", true):
+		if not GFVariantData.get_option_bool(
+			result,
+			"ok",
+			true
+		):
 			ok = false
 		issues.append_array(GFVariantData.get_option_array(result, "issues"))
 	return {
@@ -164,10 +172,7 @@ func get_debug_snapshot() -> Dictionary:
 		if provider == null:
 			continue
 		var _append_provider_id: bool = provider_ids.append(String(provider.provider_id))
-	return {
-		"provider_count": providers.size(),
-		"provider_ids": provider_ids,
-	}
+	return { "provider_count": providers.size(), "provider_ids": provider_ids, }
 
 
 # --- 私有/辅助方法 ---
@@ -176,8 +181,9 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api private
 func _sort_providers() -> void:
-	providers.sort_custom(func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
-		return _compare_providers(left, right)
+	providers.sort_custom(
+		func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
+			return _compare_providers(left, right)
 	)
 
 
@@ -189,8 +195,9 @@ func _get_sorted_provider_snapshot() -> Array[GFPolicyProvider]:
 	for provider: GFPolicyProvider in providers:
 		if provider != null:
 			snapshot.append(provider)
-	snapshot.sort_custom(func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
-		return _compare_providers(left, right)
+	snapshot.sort_custom(
+		func(left: GFPolicyProvider, right: GFPolicyProvider) -> bool:
+			return _compare_providers(left, right)
 	)
 	return snapshot
 

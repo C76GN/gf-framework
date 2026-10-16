@@ -119,11 +119,12 @@ func can_accept(session: GFDragSession) -> bool:
 ## @schema return: Variant，由 drop 回调返回；Dictionary 会由 GFDragDropUtility 规范化。
 func drop(session: GFDragSession, position: Variant) -> Variant:
 	if drop_callable.is_valid():
-		return drop_callable.call(session, self, position)
-	return {
-		"ok": true,
-		"zone_id": zone_id,
-	}
+		return drop_callable.call(
+			session,
+			self,
+			position
+		)
+	return { "ok": true, "zone_id": zone_id, }
 
 
 ## 转换为调试字典。
@@ -204,8 +205,16 @@ static func from_rect(
 	var zone: GFDropZone = GFDropZone.new()
 	zone.zone_id = new_zone_id
 	zone.accepted_types = new_accepted_types
-	zone.priority = GFVariantData.get_option_int(options, "priority", 0)
-	zone.enabled = GFVariantData.get_option_bool(options, "enabled", true)
+	zone.priority = GFVariantData.get_option_int(
+		options,
+		"priority",
+		0
+	)
+	zone.enabled = GFVariantData.get_option_bool(
+		options,
+		"enabled",
+		true
+	)
 	zone.metadata = _duplicate_option_metadata(options)
 	zone.can_accept_callable = _get_option_callable(options, "can_accept")
 	zone.drop_callable = _get_option_callable(options, "drop")
@@ -241,8 +250,16 @@ static func from_control(
 	var zone: GFDropZone = GFDropZone.new()
 	zone.zone_id = new_zone_id
 	zone.accepted_types = new_accepted_types
-	zone.priority = GFVariantData.get_option_int(options, "priority", 0)
-	zone.enabled = GFVariantData.get_option_bool(options, "enabled", true)
+	zone.priority = GFVariantData.get_option_int(
+		options,
+		"priority",
+		0
+	)
+	zone.enabled = GFVariantData.get_option_bool(
+		options,
+		"enabled",
+		true
+	)
 	zone.metadata = _duplicate_option_metadata(options)
 	zone.can_accept_callable = _get_option_callable(options, "can_accept")
 	zone.drop_callable = _get_option_callable(options, "drop")
@@ -280,7 +297,11 @@ func _accepts_type(drag_type: StringName) -> bool:
 ## @api private
 ## [br]
 static func _get_option_callable(options: Dictionary, key: Variant) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		var callable: Callable = value
 		return callable
@@ -292,7 +313,11 @@ static func _get_option_callable(options: Dictionary, key: Variant) -> Callable:
 ## @api private
 ## [br]
 static func _duplicate_option_metadata(options: Dictionary) -> Dictionary:
-	var raw_metadata: Variant = GFVariantData.get_option_value(options, "metadata", {})
+	var raw_metadata: Variant = GFVariantData.get_option_value(
+		options,
+		"metadata",
+		{}
+	)
 	if not raw_metadata is Dictionary:
 		return {}
 	var copied_metadata: Variant = GFVariantData.duplicate_variant(raw_metadata)

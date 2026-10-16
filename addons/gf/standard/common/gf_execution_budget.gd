@@ -134,13 +134,49 @@ func _init(options: Dictionary = {}, clock: GFClock = null) -> void:
 ## [br]
 ## @schema options: Dictionary，包含执行预算配置。
 func configure(options: Dictionary = {}) -> GFExecutionBudget:
-	max_steps = maxi(GFVariantData.get_option_int(options, "max_steps", max_steps), 0)
-	max_depth = maxi(GFVariantData.get_option_int(options, "max_depth", max_depth), 0)
-	max_output_length = maxi(GFVariantData.get_option_int(options, "max_output_length", max_output_length), 0)
-	max_elapsed_msec = maxi(GFVariantData.get_option_int(options, "max_elapsed_msec", max_elapsed_msec), 0)
-	metadata = GFVariantData.get_option_dictionary(options, "metadata", metadata)
+	max_steps = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_steps",
+			max_steps
+		),
+		0
+	)
+	max_depth = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_depth",
+			max_depth
+		),
+		0
+	)
+	max_output_length = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_output_length",
+			max_output_length
+		),
+		0
+	)
+	max_elapsed_msec = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_elapsed_msec",
+			max_elapsed_msec
+		),
+		0
+	)
+	metadata = GFVariantData.get_option_dictionary(
+		options,
+		"metadata",
+		metadata
+	)
 
-	var token_value: Variant = GFVariantData.get_option_value(options, "cancel_token", cancel_token)
+	var token_value: Variant = GFVariantData.get_option_value(
+		options,
+		"cancel_token",
+		cancel_token
+	)
 	cancel_token = _variant_to_cancel_token(token_value)
 	reset()
 	return self
@@ -221,7 +257,11 @@ func consume_steps(amount: int = 1, source_span: Variant = null) -> bool:
 		return false
 	_steps += maxi(amount, 0)
 	if max_steps > 0 and _steps > max_steps:
-		_mark_violation(&"step_limit_exceeded", "Execution step limit exceeded.", source_span)
+		_mark_violation(
+			&"step_limit_exceeded",
+			"Execution step limit exceeded.",
+			source_span
+		)
 		return false
 	return check(source_span)
 
@@ -242,7 +282,11 @@ func enter_depth(source_span: Variant = null) -> bool:
 		return false
 	_depth += 1
 	if max_depth > 0 and _depth > max_depth:
-		_mark_violation(&"depth_limit_exceeded", "Execution depth limit exceeded.", source_span)
+		_mark_violation(
+			&"depth_limit_exceeded",
+			"Execution depth limit exceeded.",
+			source_span
+		)
 		return false
 	return true
 
@@ -253,7 +297,10 @@ func enter_depth(source_span: Variant = null) -> bool:
 ## [br]
 ## @since 7.0.0
 func exit_depth() -> void:
-	_depth = maxi(_depth - 1, 0)
+	_depth = maxi(
+		_depth - 1,
+		0
+	)
 
 
 ## 检查输出长度预算。
@@ -273,7 +320,11 @@ func check_output_length(output_length: int, source_span: Variant = null) -> boo
 	if not check(source_span):
 		return false
 	if max_output_length > 0 and output_length > max_output_length:
-		_mark_violation(&"output_limit_exceeded", "Output length limit exceeded.", source_span)
+		_mark_violation(
+			&"output_limit_exceeded",
+			"Output length limit exceeded.",
+			source_span
+		)
 		return false
 	return true
 
@@ -293,10 +344,18 @@ func check(source_span: Variant = null) -> bool:
 	if _violated:
 		return false
 	if cancel_token != null and cancel_token.is_cancel_requested():
-		_mark_violation(&"cancelled", "Execution was cancelled.", source_span)
+		_mark_violation(
+			&"cancelled",
+			"Execution was cancelled.",
+			source_span
+		)
 		return false
 	if max_elapsed_msec > 0 and get_elapsed_msec() > max_elapsed_msec:
-		_mark_violation(&"time_limit_exceeded", "Execution time limit exceeded.", source_span)
+		_mark_violation(
+			&"time_limit_exceeded",
+			"Execution time limit exceeded.",
+			source_span
+		)
 		return false
 	return true
 
@@ -342,7 +401,10 @@ func get_depth() -> int:
 ## [br]
 ## @return 从最近一次 reset 起经过的毫秒数。
 func get_elapsed_msec() -> int:
-	return maxi(_clock.get_monotonic_msec() - _started_msec, 0)
+	return maxi(
+		_clock.get_monotonic_msec() - _started_msec,
+		0
+	)
 
 
 ## 获取违规原因。
@@ -377,9 +439,10 @@ func get_violation_message() -> String:
 ## [br]
 ## @return 校验报告。
 func make_report(subject: String = "Execution budget") -> GFValidationReport:
-	var report: GFValidationReport = GFValidationReport.new(subject, {
-		"budget": get_debug_snapshot(),
-	})
+	var report: GFValidationReport = GFValidationReport.new(
+		subject,
+		{ "budget": get_debug_snapshot(), }
+	)
 	if not _violated:
 		return report
 	if _is_source_span_like(_violation_span):
@@ -392,7 +455,13 @@ func make_report(subject: String = "Execution budget") -> GFValidationReport:
 			metadata
 		)
 	else:
-		var _issue: RefCounted = report.add_error(_violation_reason, _violation_message, null, "", metadata)
+		var _issue: RefCounted = report.add_error(
+			_violation_reason,
+			_violation_message,
+			null,
+			"",
+			metadata
+		)
 	return report
 
 
@@ -428,7 +497,11 @@ func get_debug_snapshot() -> Dictionary:
 ## 首次违规时记录原因、说明和源码位置；已有违规状态不被覆盖。
 ## [br]
 ## @api private
-func _mark_violation(reason: StringName, message: String, source_span: Variant) -> void:
+func _mark_violation(
+	reason: StringName,
+	message: String,
+	source_span: Variant
+) -> void:
 	if _violated:
 		return
 	_violated = true

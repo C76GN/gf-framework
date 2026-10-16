@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`service_found`](#member-gfnetworkservicediscovery-signals-service_found) | `signal service_found(service_key: String, record: Dictionary)` |
 | 信号 | [`service_updated`](#member-gfnetworkservicediscovery-signals-service_updated) | `signal service_updated(service_key: String, record: Dictionary)` |
-| 信号 | [`service_lost`](#member-gfnetworkservicediscovery-signals-service_lost) | `signal service_lost(service_key: String, record: Dictionary, reason: String)` |
+| 信号 | [`service_lost`](#member-gfnetworkservicediscovery-signals-service_lost) | `signal service_lost( service_key: String, record: Dictionary, reason: String )` |
 | 常量 | [`MESSAGE_KIND`](#member-gfnetworkservicediscovery-constants-message_kind) | `const MESSAGE_KIND: String = "gf.service.discovery"` |
 | 常量 | [`SCHEMA_VERSION`](#member-gfnetworkservicediscovery-constants-schema_version) | `const SCHEMA_VERSION: int = 1` |
 | 属性 | [`default_ttl_seconds`](#member-gfnetworkservicediscovery-properties-default_ttl_seconds) | `var default_ttl_seconds: float = 5.0:` |
@@ -94,7 +94,7 @@ signal service_updated(service_key: String, record: Dictionary)
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal service_lost(service_key: String, record: Dictionary, reason: String)
+signal service_lost( service_key: String, record: Dictionary, reason: String )
 ```
 
 服务过期、被清空或被手动移除时发出。

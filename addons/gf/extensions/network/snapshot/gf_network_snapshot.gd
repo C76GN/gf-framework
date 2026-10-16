@@ -112,7 +112,11 @@ func to_dict() -> Dictionary:
 ## @schema data: Dictionary，包含 tick、peer_id、state、metadata。
 func from_dict(data: Dictionary) -> void:
 	tick = GFVariantData.get_option_int(data, "tick")
-	peer_id = GFVariantData.get_option_int(data, "peer_id", -1)
+	peer_id = GFVariantData.get_option_int(
+		data,
+		"peer_id",
+		-1
+	)
 	state = GFVariantData.get_option_dictionary(data, "state")
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
@@ -123,7 +127,12 @@ func from_dict(data: Dictionary) -> void:
 ## [br]
 ## @return 新快照。
 func duplicate_snapshot() -> GFNetworkSnapshot:
-	return GFNetworkSnapshot.new(tick, state, peer_id, metadata)
+	return GFNetworkSnapshot.new(
+		tick,
+		state,
+		peer_id,
+		metadata
+	)
 
 
 ## 检查状态字段是否存在。
@@ -151,7 +160,11 @@ func has_value(key: StringName) -> bool:
 ## [br]
 ## @schema return: Variant，字段值或 default_value。
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(state, key, default_value)
+	return GFVariantData.get_option_value(
+		state,
+		key,
+		default_value
+	)
 
 
 ## 设置状态字段。
@@ -188,10 +201,7 @@ func erase_value(key: StringName) -> void:
 ## @schema return: Dictionary，成功时包含 ok、from_tick、to_tick、peer_id、set、erase、metadata；失败时包含 ok、error。
 func make_delta_to(target: GFNetworkSnapshot) -> Dictionary:
 	if target == null:
-		return {
-			"ok": false,
-			"error": "Target snapshot is null.",
-		}
+		return { "ok": false, "error": "Target snapshot is null.", }
 
 	var set_values: Dictionary = {}
 	var erase_keys: Array = []
@@ -227,7 +237,11 @@ func apply_delta(delta: Dictionary) -> GFNetworkSnapshot:
 	for key: Variant in set_values.keys():
 		next_snapshot.state[key] = GFVariantData.duplicate_variant(set_values[key])
 
-	var erase_values: Variant = GFVariantData.get_option_value(delta, "erase", PackedStringArray())
+	var erase_values: Variant = GFVariantData.get_option_value(
+		delta,
+		"erase",
+		PackedStringArray()
+	)
 	if erase_values is PackedStringArray:
 		for key: String in erase_values:
 			var _erased_text: bool = next_snapshot.state.erase(key)
@@ -237,8 +251,16 @@ func apply_delta(delta: Dictionary) -> GFNetworkSnapshot:
 			var _erased_variant: bool = next_snapshot.state.erase(key_variant)
 			var _erased_variant_name: bool = next_snapshot.state.erase(StringName(str(key_variant)))
 
-	next_snapshot.tick = GFVariantData.get_option_int(delta, "to_tick", next_snapshot.tick)
-	next_snapshot.peer_id = GFVariantData.get_option_int(delta, "peer_id", next_snapshot.peer_id)
+	next_snapshot.tick = GFVariantData.get_option_int(
+		delta,
+		"to_tick",
+		next_snapshot.tick
+	)
+	next_snapshot.peer_id = GFVariantData.get_option_int(
+		delta,
+		"peer_id",
+		next_snapshot.peer_id
+	)
 	next_snapshot.metadata = GFVariantData.get_option_dictionary(
 		delta,
 		"metadata",
@@ -264,17 +286,22 @@ func apply_delta(delta: Dictionary) -> GFNetworkSnapshot:
 ## @schema return: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；超过 4096 个操作或生成内容不可应用时返回 ok=false、error。
 func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dictionary:
 	if target == null:
-		return {
-			"ok": false,
-			"error": "Target snapshot is null.",
-		}
+		return { "ok": false, "error": "Target snapshot is null.", }
 
 	var set_ops: Array[Dictionary] = []
 	var erase_ops: Array[Array] = []
 	var operation_budget_exceeded: Array[bool] = [false]
-	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
+	var recursive: bool = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		true
+	)
 	var max_depth: int = clampi(
-		GFVariantData.get_option_int(options, "max_depth", _DEFAULT_PATCH_MAX_DEPTH),
+		GFVariantData.get_option_int(
+			options,
+			"max_depth",
+			_DEFAULT_PATCH_MAX_DEPTH
+		),
 		0,
 		_DEFAULT_PATCH_MAX_DEPTH
 	)
@@ -300,10 +327,7 @@ func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dicti
 		)
 
 	if operation_budget_exceeded[0]:
-		return {
-			"ok": false,
-			"error": "patch_operation_budget_exceeded",
-		}
+		return { "ok": false, "error": "patch_operation_budget_exceeded", }
 
 	var patch: Dictionary = {
 		"ok": true,
@@ -319,10 +343,7 @@ func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dicti
 		"erase_count": erase_ops.size(),
 	}
 	if not _is_valid_patch(patch):
-		return {
-			"ok": false,
-			"error": "generated_patch_not_applicable",
-		}
+		return { "ok": false, "error": "generated_patch_not_applicable", }
 	return patch
 
 
@@ -339,12 +360,23 @@ func apply_patch(patch: Dictionary) -> GFNetworkSnapshot:
 	var next_snapshot: GFNetworkSnapshot = duplicate_snapshot()
 	if not _is_valid_patch(patch):
 		return next_snapshot
-	var erase_values: Variant = GFVariantData.get_option_value(patch, "erase", [])
+	var erase_values: Variant = GFVariantData.get_option_value(
+		patch,
+		"erase",
+		[]
+	)
 	if erase_values is Array:
 		for erase_op: Variant in erase_values:
-			_apply_erase_path(next_snapshot.state, _extract_patch_path(erase_op))
+			_apply_erase_path(
+				next_snapshot.state,
+				_extract_patch_path(erase_op)
+			)
 
-	var set_values: Variant = GFVariantData.get_option_value(patch, "set", [])
+	var set_values: Variant = GFVariantData.get_option_value(
+		patch,
+		"set",
+		[]
+	)
 	if set_values is Array:
 		for set_op: Variant in set_values:
 			if not (set_op is Dictionary):
@@ -352,12 +384,26 @@ func apply_patch(patch: Dictionary) -> GFNetworkSnapshot:
 			var op: Dictionary = GFVariantData.as_dictionary(set_op)
 			_apply_set_path(
 				next_snapshot.state,
-				_extract_patch_path(GFVariantData.get_option_value(op, "path", [])),
+				_extract_patch_path(
+					GFVariantData.get_option_value(
+						op,
+						"path",
+						[]
+					)
+				),
 				GFVariantData.duplicate_variant(GFVariantData.get_option_value(op, "value"))
 			)
 
-	next_snapshot.tick = GFVariantData.get_option_int(patch, "to_tick", next_snapshot.tick)
-	next_snapshot.peer_id = GFVariantData.get_option_int(patch, "peer_id", next_snapshot.peer_id)
+	next_snapshot.tick = GFVariantData.get_option_int(
+		patch,
+		"to_tick",
+		next_snapshot.tick
+	)
+	next_snapshot.peer_id = GFVariantData.get_option_int(
+		patch,
+		"peer_id",
+		next_snapshot.peer_id
+	)
 	next_snapshot.metadata = GFVariantData.get_option_dictionary(
 		patch,
 		"metadata",
@@ -376,7 +422,14 @@ func apply_patch(patch: Dictionary) -> GFNetworkSnapshot:
 ## [br]
 ## @return 网络消息。
 func make_message(message_type: StringName = &"snapshot", channel_id: StringName = &"") -> GFNetworkMessage:
-	return GFNetworkMessage.new(message_type, to_dict(), 0, tick, peer_id, channel_id)
+	return GFNetworkMessage.new(
+		message_type,
+		to_dict(),
+		0,
+		tick,
+		peer_id,
+		channel_id
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -407,8 +460,16 @@ func _is_valid_patch(patch: Dictionary) -> bool:
 	if patch.has("metadata") and not (patch["metadata"] is Dictionary):
 		return false
 
-	var set_values: Variant = GFVariantData.get_option_value(patch, "set", [])
-	var erase_values: Variant = GFVariantData.get_option_value(patch, "erase", [])
+	var set_values: Variant = GFVariantData.get_option_value(
+		patch,
+		"set",
+		[]
+	)
+	var erase_values: Variant = GFVariantData.get_option_value(
+		patch,
+		"erase",
+		[]
+	)
 	if not (set_values is Array) or not (erase_values is Array):
 		return false
 	var set_operations: Array = set_values
@@ -434,7 +495,11 @@ func _is_valid_patch(patch: Dictionary) -> bool:
 		if not _is_valid_patch_path(erase_path):
 			return false
 
-	var metadata_value: Variant = GFVariantData.get_option_value(patch, "metadata", {})
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		patch,
+		"metadata",
+		{}
+	)
 	var metadata_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(metadata_value)
 	return GFVariantData.get_option_bool(metadata_report, "ok")
 
@@ -447,7 +512,11 @@ func _is_valid_patch_path(path: Array) -> bool:
 	if path.is_empty() or path.size() > _DEFAULT_PATCH_MAX_DEPTH:
 		return false
 	for key: Variant in path:
-		if not (key is String) and not (key is StringName) and typeof(key) != TYPE_INT:
+		if (
+			not (key is String)
+			and not (key is StringName)
+			and typeof(key) != TYPE_INT
+		):
 			return false
 	return true
 
@@ -462,7 +531,11 @@ func _is_integer_value(value: Variant) -> bool:
 	if typeof(value) != TYPE_FLOAT:
 		return false
 	var number: float = GFVariantData.to_float(value)
-	return not is_nan(number) and not is_inf(number) and number == floor(number)
+	return (
+		not is_nan(number)
+		and not is_inf(number)
+		and number == floor(number)
+	)
 
 
 ## 遍历两个状态字典，将新增或变化的值收集为 set，将缺失键收集为 erase。
@@ -528,7 +601,8 @@ func _diff_values(
 	max_depth: int,
 	operation_budget_exceeded: Array[bool]
 ) -> void:
-	if (source_value is Dictionary
+	if (
+		source_value is Dictionary
 		and target_value is Dictionary
 		and path.size() < max_depth
 	):
@@ -567,10 +641,7 @@ func _append_set_op(
 	if set_ops.size() + erase_ops.size() >= _MAX_PATCH_OPERATIONS:
 		operation_budget_exceeded[0] = true
 		return
-	set_ops.append({
-		"path": _duplicate_path(path),
-		"value": GFVariantData.duplicate_variant(value),
-	})
+	set_ops.append({ "path": _duplicate_path(path), "value": GFVariantData.duplicate_variant(value), })
 
 
 ## 在操作总数预算内附加 erase 路径；预算耗尽时标记超限。
@@ -631,7 +702,11 @@ func _extract_patch_path(path_value: Variant) -> Array:
 ## [br]
 ## @api private
 ## [br]
-func _apply_set_path(root: Dictionary, path: Array, value: Variant) -> void:
+func _apply_set_path(
+	root: Dictionary,
+	path: Array,
+	value: Variant
+) -> void:
 	if path.is_empty():
 		if value is Dictionary:
 			root.clear()
@@ -648,7 +723,10 @@ func _apply_set_path(root: Dictionary, path: Array, value: Variant) -> void:
 			cursor[existing_key] = {}
 		cursor = GFVariantData.as_dictionary(cursor[existing_key])
 
-	var leaf_key: Variant = _dictionary_existing_key(cursor, path[path.size() - 1])
+	var leaf_key: Variant = _dictionary_existing_key(
+		cursor,
+		path[path.size() - 1]
+	)
 	cursor[leaf_key] = GFVariantData.duplicate_variant(value)
 
 
@@ -662,12 +740,18 @@ func _apply_erase_path(root: Dictionary, path: Array) -> void:
 
 	var cursor: Dictionary = root
 	for index: int in range(path.size() - 1):
-		var key: Variant = _dictionary_existing_key(cursor, path[index])
+		var key: Variant = _dictionary_existing_key(
+			cursor,
+			path[index]
+		)
 		if not cursor.has(key) or not (cursor[key] is Dictionary):
 			return
 		cursor = GFVariantData.as_dictionary(cursor[key])
 
-	var leaf_key: Variant = _dictionary_existing_key(cursor, path[path.size() - 1])
+	var leaf_key: Variant = _dictionary_existing_key(
+		cursor,
+		path[path.size() - 1]
+	)
 	var _erased: bool = cursor.erase(leaf_key)
 
 

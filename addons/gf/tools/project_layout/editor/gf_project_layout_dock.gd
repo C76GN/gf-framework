@@ -69,9 +69,7 @@ const STATE_FAILED: String = "failed"
 ## [br]
 ## @api private
 ## [br]
-const _ANALYZER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
-)
+const _ANALYZER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd")
 
 ## 同代际策略/报告/索引，后台分析与后续 serial 查询共享。
 ## [br]
@@ -82,25 +80,19 @@ const _SESSION_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## Editor 后台请求任务实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _BACKGROUND_TASK_SCRIPT = preload(
-	"res://addons/gf/kernel/editor/gf_editor_background_request_task.gd"
-)
+const _BACKGROUND_TASK_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_background_request_task.gd")
 
 ## 有界 JSON 对象读取器脚本。
 ## [br]
 ## @api private
 ## [br]
-const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd"
-)
+const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_profile_reader.gd")
 
 ## 捕获声明与编译 Profile 共用严格 scope 准入。
 ## [br]
@@ -111,32 +103,25 @@ const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_p
 ## [br]
 ## @api private
 ## [br]
-const _SNAPSHOT_BUILDER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/editor/gf_project_layout_editor_snapshot_builder.gd"
-)
+const _SNAPSHOT_BUILDER_SCRIPT = preload("res://addons/gf/tools/project_layout/editor/gf_project_layout_editor_snapshot_builder.gd")
 
 ## Project Layout 后台扫描 worker 实现脚本。
 ## [br]
 ## @api private
 ## [br]
-const _WORKER_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/editor/gf_project_layout_scan_worker.gd"
-)
+const _WORKER_SCRIPT = preload("res://addons/gf/tools/project_layout/editor/gf_project_layout_scan_worker.gd")
 
 ## Editor workspace UI 辅助脚本。
 ## [br]
 ## @api private
 ## [br]
-const _WORKSPACE_UI = preload(
-	"res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd"
-)
+const _WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 
 ## Dock profile selector 提供的示例 profile 路径。
 ## [br]
 ## @api private
 ## [br]
-const _EXAMPLE_PROFILE_PATH: String = \
-	"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
+const _EXAMPLE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
 
 ## 每帧 snapshot 捕获处理的库存条目数。
 ## [br]
@@ -178,10 +163,7 @@ const _FINDING_LABEL_CHARACTER_LIMIT: int = 256
 ## [br]
 ## @api private
 ## [br]
-const _QUERY_KINDS: PackedStringArray = [
-	"explain_finding",
-	"analyze_change_impact",
-]
+const _QUERY_KINDS: PackedStringArray = ["explain_finding", "analyze_change_impact",]
 
 ## 后台查询结果字典的闭合字段名集合。
 ## [br]
@@ -246,19 +228,31 @@ const _EFFECT_FIELDS: PackedStringArray = ["writes_project"]
 ## [br]
 ## @api private
 ## [br]
-const _ISSUE_FIELDS: PackedStringArray = ["severity", "kind", "message"]
+const _ISSUE_FIELDS: PackedStringArray = [
+	"severity",
+	"kind",
+	"message",
+]
 
 ## blocker 字典的闭合字段名集合。
 ## [br]
 ## @api private
 ## [br]
-const _BLOCKER_FIELDS: PackedStringArray = ["kind", "path", "message"]
+const _BLOCKER_FIELDS: PackedStringArray = [
+	"kind",
+	"path",
+	"message",
+]
 
 ## change 字典的闭合字段名集合。
 ## [br]
 ## @api private
 ## [br]
-const _CHANGE_FIELDS: PackedStringArray = ["kind", "source_path", "target_path"]
+const _CHANGE_FIELDS: PackedStringArray = [
+	"kind",
+	"source_path",
+	"target_path",
+]
 
 ## inventory evidence 字典的闭合字段名集合。
 ## [br]
@@ -604,14 +598,22 @@ func scan_project() -> void:
 		return
 	_snapshot_builder = _SNAPSHOT_BUILDER_SCRIPT.new()
 	var compiled_profile: Dictionary = _get_dictionary(_active_profile_compilation, "profile")
-	var capture_options: Dictionary = {"profile_source_path": _EXAMPLE_PROFILE_PATH} if _active_profile_present else {}
-	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(compiled_profile, "res://", capture_options)
+	var capture_options: Dictionary = ({ "profile_source_path": _EXAMPLE_PROFILE_PATH } if _active_profile_present else {})
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(
+		compiled_profile,
+		"res://",
+		capture_options
+	)
 	if not prepared["success"]:
 		_set_state(STATE_FAILED, "Profile 捕获范围无法通过准入。")
 		_overview_output.text = _format_json(prepared, _DETAIL_TEXT_LIMIT)
 		return
 	var binding: Dictionary = prepared["binding"]
-	var begin_error: Error = _snapshot_builder.begin_prepared("res://", binding, capture_options)
+	var begin_error: Error = _snapshot_builder.begin_prepared(
+		"res://",
+		binding,
+		capture_options
+	)
 	if begin_error != OK:
 		_set_state(STATE_FAILED, "无法开始项目库存捕获。")
 		_render_capture_failure(_snapshot_builder.make_snapshot())
@@ -716,9 +718,7 @@ func _build_overview_tab(tabs: TabContainer) -> void:
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.add_child(page)
-	var note: Label = _WORKSPACE_UI.make_summary_label(
-		"Project Layout 只解释当前项目；没有 Apply，也不会自动创建或整理目录。"
-	)
+	var note: Label = _WORKSPACE_UI.make_summary_label("Project Layout 只解释当前项目；没有 Apply，也不会自动创建或整理目录。")
 	page.add_child(note)
 	_overview_output = _WORKSPACE_UI.make_details_output(220.0)
 	_overview_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -737,9 +737,7 @@ func _build_findings_tab(tabs: TabContainer) -> void:
 	_finding_list = ItemList.new()
 	_finding_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_finding_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var _selection_connection: Variant = _finding_list.item_selected.connect(
-		_on_finding_selected
-	)
+	var _selection_connection: Variant = _finding_list.item_selected.connect(_on_finding_selected)
 	page.add_child(_finding_list)
 	_finding_details = _WORKSPACE_UI.make_details_output(150.0)
 	page.add_child(_finding_details)
@@ -754,9 +752,7 @@ func _build_impact_tab(tabs: TabContainer) -> void:
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.add_child(page)
-	var note: Label = _WORKSPACE_UI.make_summary_label(
-		"这里只模拟 move / rename / delete。依赖证据不足时会显示 UNKNOWN，不会执行变更。"
-	)
+	var note: Label = _WORKSPACE_UI.make_summary_label("这里只模拟 move / rename / delete。依赖证据不足时会显示 UNKNOWN，不会执行变更。")
 	page.add_child(note)
 	var toolbar: HBoxContainer = _WORKSPACE_UI.make_toolbar()
 	page.add_child(toolbar)
@@ -796,9 +792,7 @@ func _build_plan_tab(tabs: TabContainer) -> void:
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.add_child(page)
-	var note: Label = _WORKSPACE_UI.make_summary_label(
-		"计划只描述候选相对路径、前置条件和 blocker；不包含命令或 Apply。"
-	)
+	var note: Label = _WORKSPACE_UI.make_summary_label("计划只描述候选相对路径、前置条件和 blocker；不包含命令或 Apply。")
 	page.add_child(note)
 	_plan_output = _WORKSPACE_UI.make_details_output(250.0)
 	_plan_output.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -815,10 +809,8 @@ func _process_capture() -> void:
 		return
 	var progress: Dictionary = _snapshot_builder.step(_CAPTURE_ENTRIES_PER_FRAME)
 	_set_status_text(
-		"正在读取库存：%d 个文件，%d 个目录。" % [
-			_get_int(progress, "file_count"),
-			_get_int(progress, "directory_count"),
-		]
+		"正在读取库存：%d 个文件，%d 个目录。"
+		% [_get_int(progress, "file_count"), _get_int(progress, "directory_count"),]
 	)
 	var capture_status: String = _get_string(progress, "status")
 	if capture_status == "capturing":
@@ -845,20 +837,25 @@ func _start_background_analysis(snapshot: Dictionary) -> void:
 	var _configured_session: GFProjectLayoutScanWorker = worker.configure_layout_session(_layout_session)
 	var profile_compilation: Dictionary = _active_profile_compilation
 	_active_profile_compilation = {}
-	_background_task = _BACKGROUND_TASK_SCRIPT.new().configure(
-		worker,
-		{
-			"generation": _active_generation,
-			"snapshot": snapshot,
-			"profile_compilation_present": _active_profile_present,
-			"profile_compilation": profile_compilation,
-			"plan_options": {},
-		}
+	_background_task = (
+		_BACKGROUND_TASK_SCRIPT.new().configure(
+			worker,
+			{
+				"generation": _active_generation,
+				"snapshot": snapshot,
+				"profile_compilation_present": _active_profile_present,
+				"profile_compilation": profile_compilation,
+				"plan_options": {},
+			}
+		)
 	)
 	var start_error: Error = _background_task.start()
 	if start_error != OK:
 		_background_task = null
-		_set_state(STATE_FAILED, "后台分析无法启动：%s。" % error_string(start_error))
+		_set_state(
+			STATE_FAILED,
+			"后台分析无法启动：%s。" % error_string(start_error)
+		)
 		_refresh_process_state()
 		return
 	_set_state(STATE_ANALYZING, "库存已冻结，正在后台分析……")
@@ -886,10 +883,7 @@ func _freeze_active_profile_request() -> bool:
 	if not _get_bool(_active_profile_compilation, "success"):
 		_active_profile_present = false
 		_set_state(STATE_FAILED, "示例 profile 无法通过闭合契约编译。")
-		_overview_output.text = _format_json(
-			_active_profile_compilation,
-			_DETAIL_TEXT_LIMIT
-		)
+		_overview_output.text = _format_json(_active_profile_compilation, _DETAIL_TEXT_LIMIT)
 		_refresh_process_state()
 		return false
 	return true
@@ -909,7 +903,11 @@ func _process_background_result() -> void:
 		_refresh_process_state()
 		return
 	var result: Dictionary = result_value
-	if _get_int(result, "generation", -1) != _active_generation:
+	if _get_int(
+		result,
+		"generation",
+		-1
+	) != _active_generation:
 		_clear_results()
 		_set_state(STATE_CANCELLED, "已安全丢弃过期后台结果；可以开始新的扫描。")
 		_refresh_process_state()
@@ -922,12 +920,19 @@ func _process_background_result() -> void:
 	if _get_string(result, "status") == "failed":
 		_clear_results()
 		_set_state(STATE_FAILED, "后台分析失败；请查看结构化诊断。")
-		_overview_output.text = _format_json({
-			"schema_version": 2,
-			"kind": "project_layout_worker_failure",
-			"generation": _get_int(result, "generation", -1),
-			"issues": _get_array(result, "issues"),
-		}, _DETAIL_TEXT_LIMIT)
+		_overview_output.text = _format_json(
+			{
+				"schema_version": 2,
+				"kind": "project_layout_worker_failure",
+				"generation": _get_int(
+					result,
+					"generation",
+					-1
+				),
+				"issues": _get_array(result, "issues"),
+			},
+			_DETAIL_TEXT_LIMIT
+		)
 		_refresh_process_state()
 		return
 	# worker 已结束且不再持有可变 owner；直接接管结果，避免在主线程再次深复制大型图。
@@ -935,9 +940,15 @@ func _process_background_result() -> void:
 	_last_plan = _get_dictionary(result, "plan")
 	var result_status: String = _get_string(result, "status")
 	if result_status == "complete":
-		_set_state(STATE_COMPLETE, _make_completion_summary())
+		_set_state(
+			STATE_COMPLETE,
+			_make_completion_summary()
+		)
 	elif result_status == "partial":
-		_set_state(STATE_PARTIAL, _make_partial_summary())
+		_set_state(
+			STATE_PARTIAL,
+			_make_partial_summary()
+		)
 	else:
 		_clear_results()
 		_set_state(STATE_FAILED, "后台分析失败。")
@@ -965,7 +976,10 @@ func _process_cancelled_background_task() -> void:
 ## [br]
 ## @api private
 func _render_results() -> void:
-	_overview_output.text = _format_json(_make_overview(), _DETAIL_TEXT_LIMIT)
+	_overview_output.text = _format_json(
+		_make_overview(),
+		_DETAIL_TEXT_LIMIT
+	)
 	_plan_output.text = (
 		(
 			"分析不完整；为避免把 UNKNOWN 当事实，本次没有生成计划。"
@@ -988,7 +1002,10 @@ func _render_results() -> void:
 ## [br]
 ## @api private
 func _render_finding_batch() -> void:
-	var render_limit: int = mini(_finding_render_source.size(), _FINDING_LIST_ITEM_LIMIT)
+	var render_limit: int = mini(
+		_finding_render_source.size(),
+		_FINDING_LIST_ITEM_LIMIT
+	)
 	var batch_end: int = mini(
 		_finding_render_cursor + _FINDING_RENDER_BATCH_SIZE,
 		render_limit
@@ -999,23 +1016,35 @@ func _render_finding_batch() -> void:
 		if not finding_value is Dictionary:
 			continue
 		var finding: Dictionary = finding_value
-		var label: String = "[%s] %s" % [
-			_get_string(finding, "severity", "info").to_upper(),
-			_get_string(finding, "message", _get_string(finding, "kind")),
-		]
+		var label: String = (
+			"[%s] %s"
+			% [
+				_get_string(
+					finding,
+					"severity",
+					"info"
+				).to_upper(),
+				_get_string(
+					finding,
+					"message",
+					_get_string(finding, "kind")
+				),
+			]
+		)
 		if label.length() > _FINDING_LABEL_CHARACTER_LIMIT:
 			label = label.left(_FINDING_LABEL_CHARACTER_LIMIT - 1) + "…"
 		var index: int = _finding_list.add_item(label)
-		_finding_list.set_item_metadata(index, _get_string(finding, "finding_id"))
+		_finding_list.set_item_metadata(
+			index,
+			_get_string(finding, "finding_id")
+		)
 	if (
 		_finding_render_cursor >= render_limit
 		and _finding_render_source.size() > render_limit
 		and not _finding_summary_added
 	):
 		var omitted_count: int = _finding_render_source.size() - render_limit
-		var summary_index: int = _finding_list.add_item(
-			"… 另有 %d 条 finding 未在列表中展开" % omitted_count
-		)
+		var summary_index: int = _finding_list.add_item("… 另有 %d 条 finding 未在列表中展开" % omitted_count)
 		_finding_list.set_item_disabled(summary_index, true)
 		_finding_summary_added = true
 	if not _has_pending_finding_render():
@@ -1027,7 +1056,10 @@ func _render_finding_batch() -> void:
 ## @api private
 ## [br]
 func _has_pending_finding_render() -> bool:
-	var render_limit: int = mini(_finding_render_source.size(), _FINDING_LIST_ITEM_LIMIT)
+	var render_limit: int = mini(
+		_finding_render_source.size(),
+		_FINDING_LIST_ITEM_LIMIT
+	)
 	if _finding_render_cursor < render_limit:
 		return true
 	return _finding_render_source.size() > render_limit and not _finding_summary_added
@@ -1064,12 +1096,15 @@ func _make_overview() -> Dictionary:
 ## [br]
 ## @api private
 func _make_completion_summary() -> String:
-	return "分析完成：%d 个文件，%d 个目录，%d 个错误，%d 个警告。" % [
-		_get_int(_last_analysis, "file_count"),
-		_get_int(_last_analysis, "directory_count"),
-		_get_int(_last_analysis, "error_count"),
-		_get_int(_last_analysis, "warning_count"),
-	]
+	return (
+		"分析完成：%d 个文件，%d 个目录，%d 个错误，%d 个警告。"
+		% [
+			_get_int(_last_analysis, "file_count"),
+			_get_int(_last_analysis, "directory_count"),
+			_get_int(_last_analysis, "error_count"),
+			_get_int(_last_analysis, "warning_count"),
+		]
+	)
 
 
 ## 按分析终止原因说明输入、取消或预算边界，未覆盖的原因提示查看结构化状态。
@@ -1126,7 +1161,11 @@ func _start_pending_query() -> void:
 		return
 	var request: Dictionary = _pending_query_request
 	_pending_query_request = {}
-	var generation: int = _get_int(request, "generation", -1)
+	var generation: int = _get_int(
+		request,
+		"generation",
+		-1
+	)
 	var analysis_digest: String = _get_string(request, "analysis_digest")
 	var query_kind: String = _get_string(request, "query_kind")
 	if (
@@ -1144,10 +1183,12 @@ func _start_pending_query() -> void:
 		analysis_digest,
 		_layout_session
 	)
-	_query_task = _BACKGROUND_TASK_SCRIPT.new().configure(
-		worker,
-		request,
-		{ "worker_method": &"run_query_request" }
+	_query_task = (
+		_BACKGROUND_TASK_SCRIPT.new().configure(
+			worker,
+			request,
+			{ "worker_method": &"run_query_request" }
+		)
 	)
 	var start_error: Error = _query_task.start()
 	if start_error != OK:
@@ -1160,9 +1201,7 @@ func _start_pending_query() -> void:
 		return
 	_render_query_message(
 		query_kind,
-		"正在后台生成 finding 解释……"
-		if query_kind == "explain_finding"
-		else "正在后台模拟影响……"
+		("正在后台生成 finding 解释……" if query_kind == "explain_finding" else "正在后台模拟影响……")
 	)
 
 
@@ -1189,7 +1228,11 @@ func _process_query_result() -> void:
 		_refresh_process_state()
 		return
 	var query_kind: String = _get_string(result, "query_kind")
-	var result_generation: int = _get_int(result, "generation", -1)
+	var result_generation: int = _get_int(
+		result,
+		"generation",
+		-1
+	)
 	var result_digest: String = _get_string(result, "analysis_digest")
 	var stale_result: bool = (
 		result_generation != _active_query_generation
@@ -1204,13 +1247,16 @@ func _process_query_result() -> void:
 		elif result_status == "failed":
 			_render_query_message(
 				query_kind,
-				_format_json({
-					"schema_version": 2,
-					"kind": "project_layout_query_failure",
-					"generation": result_generation,
-					"analysis_digest": result_digest,
-					"issues": _get_array(result, "issues"),
-				}, _DETAIL_TEXT_LIMIT)
+				_format_json(
+					{
+						"schema_version": 2,
+						"kind": "project_layout_query_failure",
+						"generation": result_generation,
+						"analysis_digest": result_digest,
+						"issues": _get_array(result, "issues"),
+					},
+					_DETAIL_TEXT_LIMIT
+				)
 			)
 	_start_pending_query()
 	_refresh_process_state()
@@ -1233,11 +1279,7 @@ func _adopt_query_result(result: Dictionary, query_kind: String) -> void:
 			return
 		_last_impact = impact
 		_impact_output.text = _format_json(_last_impact, _DETAIL_TEXT_LIMIT)
-	_set_status_text(
-		_make_completion_summary()
-		if _state == STATE_COMPLETE
-		else _make_partial_summary()
-	)
+	_set_status_text((_make_completion_summary() if _state == STATE_COMPLETE else _make_partial_summary()))
 
 
 ## 把影响查询消息写入模拟区域，其余查询消息写入 finding 解释区域。
@@ -1256,7 +1298,12 @@ func _render_query_message(query_kind: String, message: String) -> void:
 func _query_result_is_well_formed(result: Dictionary) -> bool:
 	var data_state: Dictionary = { "nodes": 0, "string_bytes": 0 }
 	if (
-		not _query_value_is_strict_data_only(result, 0, [], data_state)
+		not _query_value_is_strict_data_only(
+			result,
+			0,
+			[],
+			data_state
+		)
 		or not _has_exact_fields(result, _QUERY_RESULT_FIELDS)
 	):
 		return false
@@ -1278,21 +1325,18 @@ func _query_result_is_well_formed(result: Dictionary) -> bool:
 	if (
 		not _is_lower_sha256(analysis_digest)
 		or not _QUERY_KINDS.has(query_kind)
-		or not ["complete", "cancelled", "failed"].has(result_status)
+		or not [
+			"complete",
+			"cancelled",
+			"failed",
+		].has(result_status)
 		or not _issue_array_is_closed(_get_array(result, "issues"))
 	):
 		return false
 	var explanation: Dictionary = _get_dictionary(result, "explanation")
 	var impact: Dictionary = _get_dictionary(result, "impact")
 	if result_status == "complete":
-		return (
-			(_explanation_is_closed(explanation) and impact.is_empty())
-			if query_kind == "explain_finding"
-			else (
-				explanation.is_empty()
-				and _impact_is_closed(impact, analysis_digest)
-			)
-		)
+		return ((_explanation_is_closed(explanation) and impact.is_empty()) if query_kind == "explain_finding" else (explanation.is_empty() and _impact_is_closed(impact, analysis_digest)))
 	if not explanation.is_empty() or not impact.is_empty():
 		return false
 	var top_level_issues: Array = _get_array(result, "issues")
@@ -1337,7 +1381,11 @@ func _impact_is_closed(impact: Dictionary, analysis_digest: String) -> bool:
 		and impact.get("kind") == "project_layout_impact"
 		and impact.get("complete") is bool
 		and impact.get("status") is String
-		and ["safe", "unsafe", "unknown"].has(_get_string(impact, "status"))
+		and [
+			"safe",
+			"unsafe",
+			"unknown",
+		].has(_get_string(impact, "status"))
 		and impact.get("source_analysis_digest") == analysis_digest
 		and impact.get("change") is Dictionary
 		and _change_is_closed(_get_dictionary(impact, "change"))
@@ -1372,7 +1420,11 @@ func _effects_are_read_only(effects: Dictionary) -> bool:
 	return (
 		_has_exact_fields(effects, _EFFECT_FIELDS)
 		and effects.get("writes_project") is bool
-		and not _get_bool(effects, "writes_project", true)
+		and not _get_bool(
+			effects,
+			"writes_project",
+			true
+		)
 	)
 
 
@@ -1500,12 +1552,17 @@ func _scope_is_closed(scope: Dictionary) -> bool:
 		and _string_array_is_closed(_get_array(scope, "protected_roots"))
 		and scope.get("profile_source_path") is String
 		and scope.get("policy_digest") is String
-		and GFProjectLayoutCaptureScope.binding_is_valid({
-			"capture_scope": scope["capture_scope"], "source_root": scope["source_root"],
-			"root_path": scope["root_path"], "protected_roots": scope["protected_roots"],
-			"profile_source_path": scope["profile_source_path"], "excluded_prefixes": scope["excluded_prefixes"],
-			"policy_digest": scope["policy_digest"],
-		})
+		and GFProjectLayoutCaptureScope.binding_is_valid(
+			{
+				"capture_scope": scope["capture_scope"],
+				"source_root": scope["source_root"],
+				"root_path": scope["root_path"],
+				"protected_roots": scope["protected_roots"],
+				"profile_source_path": scope["profile_source_path"],
+				"excluded_prefixes": scope["excluded_prefixes"],
+				"policy_digest": scope["policy_digest"],
+			}
+		)
 	)
 
 
@@ -1522,7 +1579,11 @@ func _query_value_is_strict_data_only(
 	state["nodes"] = node_count
 	if node_count > _MAX_QUERY_DATA_NODES or depth > _MAX_QUERY_DATA_DEPTH:
 		return false
-	if value == null or value is bool or value is int:
+	if (
+		value == null
+		or value is bool
+		or value is int
+	):
 		return true
 	if value is float:
 		var float_value: float = value
@@ -1552,10 +1613,7 @@ func _query_value_is_strict_data_only(
 		return true
 	if value is Array:
 		var array_value: Array = value
-		if (
-			array_value.size() > _MAX_QUERY_COLLECTION_ITEMS
-			or _active_container_exists(active_containers, array_value)
-		):
+		if (array_value.size() > _MAX_QUERY_COLLECTION_ITEMS or _active_container_exists(active_containers, array_value)):
 			return false
 		active_containers.append(array_value)
 		for item: Variant in array_value:
@@ -1571,10 +1629,7 @@ func _query_value_is_strict_data_only(
 		return true
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
-		if (
-			dictionary_value.size() > _MAX_QUERY_COLLECTION_ITEMS
-			or _active_container_exists(active_containers, dictionary_value)
-		):
+		if (dictionary_value.size() > _MAX_QUERY_COLLECTION_ITEMS or _active_container_exists(active_containers, dictionary_value)):
 			return false
 		active_containers.append(dictionary_value)
 		for key_value: Variant in dictionary_value.keys():
@@ -1623,8 +1678,14 @@ func _is_lower_sha256(value: String) -> bool:
 	for character_index: int in value.length():
 		var codepoint: int = value.unicode_at(character_index)
 		if (
-			(codepoint < 48 or codepoint > 57)
-			and (codepoint < 97 or codepoint > 102)
+			(
+				codepoint < 48
+				or codepoint > 57
+			)
+			and (
+				codepoint < 97
+				or codepoint > 102
+			)
 		):
 			return false
 	return true
@@ -1655,29 +1716,33 @@ func _simulate_impact() -> void:
 func _copy_report() -> void:
 	# JSON.stringify() 只读消费当前结果；这里不调用公开 getter 的深复制，避免在用户
 	# 主动复制大型报告时先在主线程制造第二份完整分析图。
-	var report_text: String = JSON.stringify({
-		"analysis": _last_analysis,
-		"plan": _last_plan,
-		"impact": _last_impact,
-	}, "  ", false)
+	var report_text: String = JSON.stringify(
+		{
+			"analysis": _last_analysis,
+			"plan": _last_plan,
+			"impact": _last_impact,
+		},
+		"  ",
+		false
+	)
 	var report_size_bytes: int = report_text.to_utf8_buffer().size()
 	var copied_summary: bool = report_size_bytes > _CLIPBOARD_TEXT_LIMIT
 	if copied_summary:
-		report_text = JSON.stringify({
-			"schema_version": 2,
-			"kind": "project_layout_report_summary",
-			"truncated": true,
-			"reason": "clipboard_size_limit",
-			"full_report_size_bytes": report_size_bytes,
-			"analysis_input_digest": _get_string(_last_analysis, "input_digest"),
-			"overview": _make_overview(),
-		}, "  ", false)
+		report_text = JSON.stringify(
+			{
+				"schema_version": 2,
+				"kind": "project_layout_report_summary",
+				"truncated": true,
+				"reason": "clipboard_size_limit",
+				"full_report_size_bytes": report_size_bytes,
+				"analysis_input_digest": _get_string(_last_analysis, "input_digest"),
+				"overview": _make_overview(),
+			},
+			"  ",
+			false
+		)
 	DisplayServer.clipboard_set(report_text)
-	_set_status_text(
-		"报告超过 1 MiB，已复制合法 JSON 摘要；完整结果仍只保留在当前页面内。"
-		if copied_summary
-		else "报告已复制到剪贴板；没有写入项目文件。"
-	)
+	_set_status_text(("报告超过 1 MiB，已复制合法 JSON 摘要；完整结果仍只保留在当前页面内。" if copied_summary else "报告已复制到剪贴板；没有写入项目文件。"))
 
 
 ## 推进分析代次并取消查询和捕获，后台任务保留到异步回收；按选项清空显示并标记取消。
@@ -1696,9 +1761,7 @@ func _cancel_active_request(update_state: bool) -> void:
 		_clear_results()
 		_set_state(
 			STATE_CANCELLED,
-			"已请求取消后台分析，正在安全停止……"
-			if _background_task != null
-			else "当前请求已取消。"
+			("已请求取消后台分析，正在安全停止……" if _background_task != null else "当前请求已取消。")
 		)
 	if _background_task == null:
 		_refresh_process_state()
@@ -1759,8 +1822,12 @@ func _set_state(state: String, message: String) -> void:
 	var request_active: bool = state == STATE_CAPTURING or state == STATE_ANALYZING
 	_scan_button.disabled = request_active or background_cleanup_pending
 	_profile_selector.disabled = request_active or background_cleanup_pending
-	_cancel_button.disabled = not request_active or (
-		background_cleanup_pending and _background_task.is_cancel_requested()
+	_cancel_button.disabled = (
+		not request_active
+		or (
+			background_cleanup_pending
+			and _background_task.is_cancel_requested()
+		)
 	)
 	_copy_button.disabled = _last_analysis.is_empty()
 	_set_status_text(message)
@@ -1777,27 +1844,39 @@ func _set_status_text(message: String) -> void:
 		color = _WORKSPACE_UI.WARNING_TEXT_COLOR
 	elif _state == STATE_FAILED:
 		color = _WORKSPACE_UI.ERROR_TEXT_COLOR
-	_WORKSPACE_UI.set_status(_status_label, message, color)
+	_WORKSPACE_UI.set_status(
+		_status_label,
+		message,
+		color
+	)
 
 
 ## 先序列化完整值，再按字符上限截取显示文本并附总字符数；截断结果仅用于界面，不保证仍为 JSON。
 ## [br]
 ## @api private
 func _format_json(value: Variant, max_characters: int) -> String:
-	var text: String = JSON.stringify(value, "  ", false)
+	var text: String = JSON.stringify(
+		value,
+		"  ",
+		false
+	)
 	if text.length() <= max_characters:
 		return text
-	return "%s\n…（报告显示已截断，共 %d 字符）" % [
-		text.substr(0, max_characters),
-		text.length(),
-	]
+	return (
+		"%s\n…（报告显示已截断，共 %d 字符）"
+		% [text.substr(0, max_characters), text.length(),]
+	)
 
 
 ## 读取字典中的 String 字段；类型不匹配时返回默认值。
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
@@ -1806,7 +1885,11 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 
@@ -1815,7 +1898,11 @@ func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> 
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value
 

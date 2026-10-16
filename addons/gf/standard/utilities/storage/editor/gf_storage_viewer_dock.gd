@@ -106,7 +106,13 @@ func _build_ui() -> void:
 	_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	path_row.add_child(_path_edit)
 
-	path_row.add_child(_GFEditorWorkspaceUI.make_button("选择文件…", "选择存档文件。", _on_browse_pressed))
+	path_row.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"选择文件…",
+			"选择存档文件。",
+			_on_browse_pressed
+		)
+	)
 
 	_format_option = OptionButton.new()
 	_format_option.add_item("JSON", _SAVE_VIEWER_FORMAT_JSON)
@@ -143,8 +149,20 @@ func _build_ui() -> void:
 	var button_row: HBoxContainer = _GFEditorWorkspaceUI.make_toolbar()
 	add_child(button_row)
 
-	button_row.add_child(_GFEditorWorkspaceUI.make_button("加载", "读取并解码当前存档文件。", _on_load_pressed))
-	button_row.add_child(_GFEditorWorkspaceUI.make_button("复制", "复制解码后的 JSON。", _on_copy_pressed))
+	button_row.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"加载",
+			"读取并解码当前存档文件。",
+			_on_load_pressed
+		)
+	)
+	button_row.add_child(
+		_GFEditorWorkspaceUI.make_button(
+			"复制",
+			"复制解码后的 JSON。",
+			_on_copy_pressed
+		)
+	)
 
 	_status_label = _GFEditorWorkspaceUI.make_summary_label("选择存档文件和匹配的 codec 选项。")
 	add_child(_status_label)
@@ -195,9 +213,17 @@ func _get_selected_format() -> int:
 ## 更新有效状态标签的文本与颜色；错误状态还会通过 push_warning 输出诊断消息。
 ## [br]
 ## @api private
-func _set_status(message: String, is_error: bool, diagnostic_message: String = "") -> void:
+func _set_status(
+	message: String,
+	is_error: bool,
+	diagnostic_message: String = ""
+) -> void:
 	if is_instance_valid(_status_label):
-		_GFEditorWorkspaceUI.set_status(_status_label, message, _GFEditorWorkspaceUI.ERROR_TEXT_COLOR if is_error else _GFEditorWorkspaceUI.OK_TEXT_COLOR)
+		_GFEditorWorkspaceUI.set_status(
+			_status_label,
+			message,
+			_GFEditorWorkspaceUI.ERROR_TEXT_COLOR if is_error else _GFEditorWorkspaceUI.OK_TEXT_COLOR
+		)
 	if is_error:
 		push_warning(diagnostic_message)
 
@@ -206,9 +232,12 @@ func _set_status(message: String, is_error: bool, diagnostic_message: String = "
 ## [br]
 ## @api private
 func _format_decoded_data_for_display(data: Dictionary) -> String:
-	return GFVariantJsonCodec.stringify_json_compatible(data, "\t", true, {
-		"unsupported": "string",
-	})
+	return GFVariantJsonCodec.stringify_json_compatible(
+		data,
+		"\t",
+		true,
+		{ "unsupported": "string", }
+	)
 
 
 # --- 信号处理函数 ---
@@ -235,10 +264,18 @@ func _on_file_selected(path: String) -> void:
 func _on_load_pressed() -> void:
 	var path: String = _path_edit.text.strip_edges()
 	if path.is_empty():
-		_set_status("路径为空。", true, "[GFStorageViewerDock][storage_viewer_dock.path_empty] File path is empty.")
+		_set_status(
+			"路径为空。",
+			true,
+			"[GFStorageViewerDock][storage_viewer_dock.path_empty] File path is empty."
+		)
 		return
 	if not FileAccess.file_exists(path):
-		_set_status("文件不存在：%s" % path, true, "[GFStorageViewerDock][storage_viewer_dock.file_missing] File does not exist: %s." % path)
+		_set_status(
+			"文件不存在：%s" % path,
+			true,
+			"[GFStorageViewerDock][storage_viewer_dock.file_missing] File does not exist: %s." % path
+		)
 		return
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -256,16 +293,23 @@ func _on_load_pressed() -> void:
 	var codec: GFStorageCodec = _create_codec()
 	if codec == null:
 		_output.text = ""
-		_set_status("Storage codec 不可用。", true, "[GFStorageViewerDock][storage_viewer_dock.codec_unavailable] Storage codec is unavailable.")
+		_set_status(
+			"Storage codec 不可用。",
+			true,
+			"[GFStorageViewerDock][storage_viewer_dock.codec_unavailable] Storage codec is unavailable."
+		)
 		return
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"format": _get_selected_format(),
-		"obfuscation_key": int(_obfuscation_key_spin.value),
-		"use_compression": _compression_check.button_pressed,
-		"use_integrity_checksum": _checksum_check.button_pressed,
-		"strict_integrity": _strict_check.button_pressed,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"format": _get_selected_format(),
+			"obfuscation_key": int(_obfuscation_key_spin.value),
+			"use_compression": _compression_check.button_pressed,
+			"use_integrity_checksum": _checksum_check.button_pressed,
+			"strict_integrity": _strict_check.button_pressed,
+		}
+	)
 
 	if not result.ok:
 		_output.text = ""
@@ -279,7 +323,8 @@ func _on_load_pressed() -> void:
 	var data: Dictionary = result.payload.duplicate(true)
 	_output.text = _format_decoded_data_for_display(data)
 	_set_status(
-		"已加载：%d bytes，%d 个顶层键，完整性=%s" % [
+		"已加载：%d bytes，%d 个顶层键，完整性=%s"
+		% [
 			bytes.size(),
 			data.size(),
 			str(result.is_integrity_accepted()),

@@ -102,7 +102,11 @@ var finished_msec: int = 0
 ## [br]
 ## @return 已完成、失败或取消时返回 true。
 func is_finished() -> bool:
-	return status == Status.COMPLETED or status == Status.FAILED or status == Status.CANCELLED
+	return (
+		status == Status.COMPLETED
+		or status == Status.FAILED
+		or status == Status.CANCELLED
+	)
 
 
 ## 转换为 Dictionary。

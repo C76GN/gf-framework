@@ -22,17 +22,25 @@ func test_attribute_sort_ignores_candidate_freed_by_previous_getter() -> void:
 	rule.radius = 1000.0
 	rule.sort_rule = GFSkillTargetingRule2D.SortRule.ATTRIBUTE_HIGHEST
 	rule.sort_attribute_name = &"power"
-	var targets: Array[Object] = _targeting_utility().find_targets(Vector2.ZERO, rule, [first, second])
-	assert_eq(targets.size(), 1)
-	assert_same(targets[0], first)
+	var targets: Array[Object] = _targeting_utility().find_targets(
+		Vector2.ZERO,
+		rule,
+		[first, second]
+	)
+	assert_eq(
+		targets.size(),
+		1
+	)
+	assert_same(
+		targets[0],
+		first
+	)
 
 
 # --- 常量 ---
 
 const _GF_SKILL_TARGETING_RULE_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_rule_2d.gd")
 const _GF_SKILL_TARGETING_UTILITY_2D_SCRIPT = preload("res://addons/gf/extensions/combat/skills/gf_skill_targeting_utility_2d.gd")
-
-
 
 
 class DummyEntity:
@@ -43,11 +51,13 @@ class DummyEntity:
 	func get_tag_component() -> GFTagComponent:
 		return _tags
 
+
 	func get_attribute(p_name: StringName) -> GFModifiedAttribute:
 		var attribute: Variant = GFVariantData.get_option_value(_attributes, p_name)
 		if attribute is GFModifiedAttribute:
 			return attribute
 		return null
+
 
 	func add_attr(p_name: StringName, p_val: float) -> void:
 		_attributes[p_name] = GFModifiedAttribute.new(p_val)
@@ -71,6 +81,7 @@ class SampleSkill extends GFSkill:
 
 	func get_targeting_candidates() -> Array:
 		return candidates
+
 
 	func _on_execute(p_targets: Array[Object]) -> void:
 		execute_count += 1
@@ -113,19 +124,49 @@ func test_targeting_distance_sorting() -> void:
 	var e3: DummyEntity = DummyEntity.new()
 	e3.global_position = Vector2(150, 0)
 
-	var candidates: Array[Object] = [e1, e2, e3]
+	var candidates: Array[Object] = [
+		e1,
+		e2,
+		e3,
+	]
 
 	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.DISTANCE_CLOSEST
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
-	assert_eq(targets.size(), 3)
-	assert_eq(targets[0], e2)
-	assert_eq(targets[1], e1)
-	assert_eq(targets[2], e3)
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
+	assert_eq(
+		targets.size(),
+		3
+	)
+	assert_eq(
+		targets[0],
+		e2
+	)
+	assert_eq(
+		targets[1],
+		e1
+	)
+	assert_eq(
+		targets[2],
+		e3
+	)
 
 	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.DISTANCE_FURTHEST
-	targets = utility.find_targets(Vector2.ZERO, rule, candidates)
-	assert_eq(targets[0], e3)
-	assert_eq(targets[2], e2)
+	targets = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
+	assert_eq(
+		targets[0],
+		e3
+	)
+	assert_eq(
+		targets[2],
+		e2
+	)
 
 
 func test_targeting_decorates_candidate_position_once_before_sorting() -> void:
@@ -138,15 +179,29 @@ func test_targeting_decorates_candidate_position_once_before_sorting() -> void:
 	var candidates: Array[Object] = []
 	for index: int in range(8):
 		var entity: CountingPositionEntity = CountingPositionEntity.new()
-		entity.global_position = Vector2(float(8 - index), 0.0)
+		entity.global_position = Vector2(
+			float(8 - index),
+			0.0
+		)
 		candidates.append(entity)
 
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
 
-	assert_eq(targets.size(), 8)
+	assert_eq(
+		targets.size(),
+		8
+	)
 	for candidate: Object in candidates:
 		var counting_entity: CountingPositionEntity = candidate
-		assert_eq(counting_entity.position_reads, 1, "筛选和排序应复用同一份位置快照。")
+		assert_eq(
+			counting_entity.position_reads,
+			1,
+			"筛选和排序应复用同一份位置快照。"
+		)
 
 
 func test_targeting_attribute_sorting() -> void:
@@ -166,17 +221,41 @@ func test_targeting_attribute_sorting() -> void:
 	var e3: DummyEntity = DummyEntity.new()
 	e3.add_attr(&"CustomVal", 5.0)
 
-	var candidates: Array[Object] = [e1, e2, e3]
+	var candidates: Array[Object] = [
+		e1,
+		e2,
+		e3,
+	]
 
 	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.ATTRIBUTE_HIGHEST
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
-	assert_eq(targets[0], e2)
-	assert_eq(targets[2], e3)
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
+	assert_eq(
+		targets[0],
+		e2
+	)
+	assert_eq(
+		targets[2],
+		e3
+	)
 
 	rule.sort_rule = _GF_SKILL_TARGETING_RULE_2D_SCRIPT.SortRule.ATTRIBUTE_LOWEST
-	targets = utility.find_targets(Vector2.ZERO, rule, candidates)
-	assert_eq(targets[0], e3)
-	assert_eq(targets[2], e2)
+	targets = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
+	assert_eq(
+		targets[0],
+		e3
+	)
+	assert_eq(
+		targets[2],
+		e2
+	)
 
 
 func test_targeting_tag_filtering() -> void:
@@ -196,10 +275,24 @@ func test_targeting_tag_filtering() -> void:
 	e3.get_tag_component().add_tag(&"Ally")
 	e3.get_tag_component().add_tag(&"Dead")
 
-	var candidates: Array[Object] = [e1, e2, e3]
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
-	assert_eq(targets.size(), 1)
-	assert_eq(targets[0], e1)
+	var candidates: Array[Object] = [
+		e1,
+		e2,
+		e3,
+	]
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
+	assert_eq(
+		targets.size(),
+		1
+	)
+	assert_eq(
+		targets[0],
+		e1
+	)
 
 
 func test_targeting_max_count() -> void:
@@ -212,9 +305,20 @@ func test_targeting_max_count() -> void:
 	var e2: DummyEntity = DummyEntity.new()
 	var e3: DummyEntity = DummyEntity.new()
 
-	var candidates: Array[Object] = [e1, e2, e3]
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, candidates)
-	assert_eq(targets.size(), 2)
+	var candidates: Array[Object] = [
+		e1,
+		e2,
+		e3,
+	]
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		candidates
+	)
+	assert_eq(
+		targets.size(),
+		2
+	)
 
 
 func test_targeting_skips_entities_without_2d_position() -> void:
@@ -225,14 +329,26 @@ func test_targeting_skips_entities_without_2d_position() -> void:
 	rule.max_count = 10
 
 	var node_3d: Node3D = Node3D.new()
-	node_3d.position = Vector3(100.0, 0.0, 0.0)
+	node_3d.position = Vector3(
+		100.0,
+		0.0,
+		0.0
+	)
 	add_child_autofree(node_3d)
 	var valid_2d: DummyEntity = DummyEntity.new()
 	valid_2d.global_position = Vector2(5.0, 0.0)
 
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [node_3d, valid_2d])
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		[node_3d, valid_2d]
+	)
 
-	assert_eq(targets, [valid_2d], "2D targeting 不应把 Node3D 或未知位置实体回退到 Vector2.ZERO。")
+	assert_eq(
+		targets,
+		[valid_2d],
+		"2D targeting 不应把 Node3D 或未知位置实体回退到 Vector2.ZERO。"
+	)
 
 
 func test_targeting_rejects_non_finite_2d_inputs() -> void:
@@ -241,13 +357,34 @@ func test_targeting_rejects_non_finite_2d_inputs() -> void:
 	var entity: DummyEntity = DummyEntity.new()
 
 	rule.radius = NAN
-	assert_eq(utility.find_targets(Vector2.ZERO, rule, [entity]), [])
+	assert_eq(
+		utility.find_targets(
+			Vector2.ZERO,
+			rule,
+			[entity]
+		),
+		[]
+	)
 
 	rule.radius = 100.0
-	assert_eq(utility.find_targets(Vector2(INF, 0.0), rule, [entity]), [])
+	assert_eq(
+		utility.find_targets(
+			Vector2(INF, 0.0),
+			rule,
+			[entity]
+		),
+		[]
+	)
 
 	entity.global_position = Vector2(NAN, 0.0)
-	assert_eq(utility.find_targets(Vector2.ZERO, rule, [entity]), [])
+	assert_eq(
+		utility.find_targets(
+			Vector2.ZERO,
+			rule,
+			[entity]
+		),
+		[]
+	)
 
 
 func test_targeting_random_sort_is_deterministic_for_same_seed() -> void:
@@ -262,10 +399,30 @@ func test_targeting_random_sort_is_deterministic_for_same_seed() -> void:
 	var e2: DummyEntity = DummyEntity.new()
 	var e3: DummyEntity = DummyEntity.new()
 
-	var first_targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [e1, e2, e3])
-	var second_targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [e3, e2, e1])
+	var first_targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		[
+			e1,
+			e2,
+			e3,
+		]
+	)
+	var second_targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		[
+			e3,
+			e2,
+			e1,
+		]
+	)
 
-	assert_eq(second_targets, first_targets, "相同 seed 和候选集合应得到稳定 RANDOM 顺序。")
+	assert_eq(
+		second_targets,
+		first_targets,
+		"相同 seed 和候选集合应得到稳定 RANDOM 顺序。"
+	)
 
 
 func test_rectangle_shape_filters_axis_aligned_bounds() -> void:
@@ -284,9 +441,23 @@ func test_rectangle_shape_filters_axis_aligned_bounds() -> void:
 	var outside_y: DummyEntity = DummyEntity.new()
 	outside_y.global_position = Vector2(0, 50)
 
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [inside, outside_x, outside_y])
-	assert_eq(targets.size(), 1)
-	assert_eq(targets[0], inside)
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		[
+			inside,
+			outside_x,
+			outside_y,
+		]
+	)
+	assert_eq(
+		targets.size(),
+		1
+	)
+	assert_eq(
+		targets[0],
+		inside
+	)
 
 
 func test_sector_shape_filters_by_direction() -> void:
@@ -307,9 +478,23 @@ func test_sector_shape_filters_by_direction() -> void:
 	var back_target: DummyEntity = DummyEntity.new()
 	back_target.global_position = Vector2(-50, 0)
 
-	var targets: Array[Object] = utility.find_targets(Vector2.ZERO, rule, [forward_target, side_target, back_target])
-	assert_eq(targets.size(), 1)
-	assert_eq(targets[0], forward_target)
+	var targets: Array[Object] = utility.find_targets(
+		Vector2.ZERO,
+		rule,
+		[
+			forward_target,
+			side_target,
+			back_target,
+		]
+	)
+	assert_eq(
+		targets.size(),
+		1
+	)
+	assert_eq(
+		targets[0],
+		forward_target
+	)
 
 
 func test_skill_auto_targeting() -> void:
@@ -328,8 +513,14 @@ func test_skill_auto_targeting() -> void:
 	test_skill.candidates = [target]
 
 	var _execute_result_216: Variant = test_skill.execute()
-	assert_eq(test_skill.last_targets.size(), 1)
-	assert_eq(test_skill.last_targets[0], target)
+	assert_eq(
+		test_skill.last_targets.size(),
+		1
+	)
+	assert_eq(
+		test_skill.last_targets[0],
+		target
+	)
 
 
 func test_skill_manual_target_defaults_center_to_owner_position() -> void:
@@ -347,8 +538,14 @@ func test_skill_manual_target_defaults_center_to_owner_position() -> void:
 	test_skill.targeting_rule = rule
 
 	var _execute_result_235: Variant = test_skill.execute(target)
-	assert_eq(test_skill.last_targets.size(), 1)
-	assert_eq(test_skill.last_targets[0], target)
+	assert_eq(
+		test_skill.last_targets.size(),
+		1
+	)
+	assert_eq(
+		test_skill.last_targets[0],
+		target
+	)
 
 
 func test_skill_manual_target_rejects_invalid_target_when_max_count_is_unlimited() -> void:
@@ -366,7 +563,11 @@ func test_skill_manual_target_rejects_invalid_target_when_max_count_is_unlimited
 
 	var _execute_result_253: Variant = test_skill.execute(target)
 
-	assert_eq(test_skill.execute_count, 0, "手动目标未通过 targeting_rule 校验时不应以空目标执行。")
+	assert_eq(
+		test_skill.execute_count,
+		0,
+		"手动目标未通过 targeting_rule 校验时不应以空目标执行。"
+	)
 
 
 func test_skill_activation_report_rejects_missing_required_target() -> void:
@@ -380,8 +581,14 @@ func test_skill_activation_report_rejects_missing_required_target() -> void:
 
 	var report: Dictionary = test_skill.get_activation_report()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "激活报告必须覆盖目标解析失败。")
-	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"no_targets")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"激活报告必须覆盖目标解析失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"no_targets"
+	)
 
 
 func test_skill_activation_report_rejects_invalid_manual_target() -> void:
@@ -398,8 +605,14 @@ func test_skill_activation_report_rejects_invalid_manual_target() -> void:
 
 	var report: Dictionary = test_skill.get_activation_report(context)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "手动目标校验必须属于激活预检。")
-	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"invalid_manual_target")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"手动目标校验必须属于激活预检。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"invalid_manual_target"
+	)
 
 
 func test_skill_explicit_origin_cast_center_is_respected() -> void:
@@ -418,5 +631,11 @@ func test_skill_explicit_origin_cast_center_is_respected() -> void:
 	test_skill.candidates = [origin_target]
 
 	var _execute_result_273: Variant = test_skill.execute(null, Vector2.ZERO)
-	assert_eq(test_skill.last_targets.size(), 1)
-	assert_eq(test_skill.last_targets[0], origin_target)
+	assert_eq(
+		test_skill.last_targets.size(),
+		1
+	)
+	assert_eq(
+		test_skill.last_targets[0],
+		origin_target
+	)

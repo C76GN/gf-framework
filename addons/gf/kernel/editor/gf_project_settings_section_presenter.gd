@@ -212,20 +212,18 @@ func _apply_section_presentations(item: TreeItem) -> void:
 		return
 	var presentation: Dictionary = _get_section_presentation(_get_item_section_path(item))
 	if not presentation.is_empty():
-		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			presentation,
-			"label"
-		)
-		var tooltip: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			presentation,
-			"tooltip"
-		)
+		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "label")
+		var tooltip: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(presentation, "tooltip")
 		_capture_original_presentation(item)
 		if item.get_text(0) != label:
 			item.set_text(0, label)
 		if item.get_tooltip_text(0) != tooltip:
 			item.set_tooltip_text(0, tooltip)
-		_update_applied_presentation(item, label, tooltip)
+		_update_applied_presentation(
+			item,
+			label,
+			tooltip
+		)
 	var child: TreeItem = item.get_first_child()
 	while child != null:
 		_apply_section_presentations(child)
@@ -282,14 +280,8 @@ func _restore_original_presentations() -> void:
 		if not item_value is TreeItem or not is_instance_valid(item_value):
 			continue
 		var item: TreeItem = item_value
-		var applied_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"applied_text"
-		)
-		var applied_tooltip: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"applied_tooltip"
-		)
+		var applied_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "applied_text")
+		var applied_tooltip: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "applied_tooltip")
 		if item.get_text(0) == applied_text:
 			item.set_text(
 				0,

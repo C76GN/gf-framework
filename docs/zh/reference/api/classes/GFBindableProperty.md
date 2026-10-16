@@ -22,8 +22,8 @@
 | 方法 | [`set_value`](#member-gfbindableproperty-methods-set_value) | `func set_value(new_value: Variant) -> void:` |
 | 方法 | [`subscribe`](#member-gfbindableproperty-methods-subscribe) | `func subscribe(callback: Callable, emit_current: bool = false) -> Callable:` |
 | 方法 | [`subscribe_token`](#member-gfbindableproperty-methods-subscribe_token) | `func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscriptionToken:` |
-| 方法 | [`subscribe_owned`](#member-gfbindableproperty-methods-subscribe_owned) | `func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:` |
-| 方法 | [`subscribe_method`](#member-gfbindableproperty-methods-subscribe_method) | `func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:` |
+| 方法 | [`subscribe_owned`](#member-gfbindableproperty-methods-subscribe_owned) | `func subscribe_owned( owner: Object, callback: Callable, emit_current: bool = false ) -> GFLifetimeSubscription:` |
+| 方法 | [`subscribe_method`](#member-gfbindableproperty-methods-subscribe_method) | `func subscribe_method( owner: Object, method_name: StringName, emit_current: bool = false ) -> GFLifetimeSubscription:` |
 | 方法 | [`force_emit`](#member-gfbindableproperty-methods-force_emit) | `func force_emit() -> void:` |
 | 方法 | [`mutate`](#member-gfbindableproperty-methods-mutate) | `func mutate(mutator: Callable) -> bool:` |
 | 方法 | [`append_to_array`](#member-gfbindableproperty-methods-append_to_array) | `func append_to_array(item: Variant) -> bool:` |
@@ -203,7 +203,7 @@ func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscr
 - 首次版本：`8.0.0`
 
 ```gdscript
-func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:
+func subscribe_owned( owner: Object, callback: Callable, emit_current: bool = false ) -> GFLifetimeSubscription:
 ```
 
 订阅属性变化，并把订阅绑定到 owner 生命周期。 owner 为 Node 时，节点退出场景树会自动取消订阅。
@@ -226,7 +226,7 @@ func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = fal
 - 首次版本：`8.0.0`
 
 ```gdscript
-func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:
+func subscribe_method( owner: Object, method_name: StringName, emit_current: bool = false ) -> GFLifetimeSubscription:
 ```
 
 通过 owner 与方法名订阅属性变化。 该入口只弱引用 owner，不会因为 Callable 捕获而延长 owner 生命周期。

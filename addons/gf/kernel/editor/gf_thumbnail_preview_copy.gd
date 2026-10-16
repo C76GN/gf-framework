@@ -12,18 +12,50 @@ extends RefCounted
 ## [br]
 ## @api private
 const _VISUAL_CLASSES: Array[StringName] = [
-	&"Node", &"Node2D", &"Node3D", &"CanvasGroup",
-	&"Sprite2D", &"AnimatedSprite2D", &"Polygon2D", &"Line2D",
+	&"Node",
+	&"Node2D",
+	&"Node3D",
+	&"CanvasGroup",
+	&"Sprite2D",
+	&"AnimatedSprite2D",
+	&"Polygon2D",
+	&"Line2D",
 	&"MeshInstance2D",
-	&"Sprite3D", &"AnimatedSprite3D", &"MeshInstance3D",
-	&"Label3D", &"DirectionalLight3D", &"OmniLight3D", &"SpotLight3D",
-	&"Control", &"ColorRect", &"TextureRect", &"NinePatchRect", &"Panel",
-	&"Label", &"Button", &"CheckBox", &"CheckButton", &"TextureButton",
-	&"ProgressBar", &"TextureProgressBar",
-	&"Container", &"BoxContainer", &"HBoxContainer", &"VBoxContainer",
-	&"FlowContainer", &"HFlowContainer", &"VFlowContainer", &"GridContainer",
-	&"MarginContainer", &"CenterContainer", &"PanelContainer", &"AspectRatioContainer",
-	&"ScrollContainer", &"SplitContainer", &"HSplitContainer", &"VSplitContainer",
+	&"Sprite3D",
+	&"AnimatedSprite3D",
+	&"MeshInstance3D",
+	&"Label3D",
+	&"DirectionalLight3D",
+	&"OmniLight3D",
+	&"SpotLight3D",
+	&"Control",
+	&"ColorRect",
+	&"TextureRect",
+	&"NinePatchRect",
+	&"Panel",
+	&"Label",
+	&"Button",
+	&"CheckBox",
+	&"CheckButton",
+	&"TextureButton",
+	&"ProgressBar",
+	&"TextureProgressBar",
+	&"Container",
+	&"BoxContainer",
+	&"HBoxContainer",
+	&"VBoxContainer",
+	&"FlowContainer",
+	&"HFlowContainer",
+	&"VFlowContainer",
+	&"GridContainer",
+	&"MarginContainer",
+	&"CenterContainer",
+	&"PanelContainer",
+	&"AspectRatioContainer",
+	&"ScrollContainer",
+	&"SplitContainer",
+	&"HSplitContainer",
+	&"VSplitContainer",
 	&"FoldableContainer",
 ]
 
@@ -31,24 +63,56 @@ const _VISUAL_CLASSES: Array[StringName] = [
 ## [br]
 ## @api private
 const _BEHAVIOR_CLASSES: Array[StringName] = [
-	&"Timer", &"AnimationPlayer", &"AnimationTree", &"AudioStreamPlayer",
-	&"AudioStreamPlayer2D", &"AudioStreamPlayer3D",
-	&"RemoteTransform2D", &"RemoteTransform3D",
-	&"Area2D", &"Area3D", &"StaticBody2D", &"StaticBody3D",
-	&"AnimatableBody2D", &"AnimatableBody3D", &"CharacterBody2D", &"CharacterBody3D",
-	&"RigidBody2D", &"RigidBody3D", &"CollisionShape2D", &"CollisionShape3D",
-	&"CollisionPolygon2D", &"CollisionPolygon3D", &"Marker2D", &"Marker3D",
-	&"RayCast2D", &"RayCast3D", &"ShapeCast2D", &"ShapeCast3D",
-	&"Camera2D", &"Camera3D", &"NavigationAgent2D", &"NavigationAgent3D",
-	&"NavigationRegion2D", &"NavigationRegion3D",
+	&"Timer",
+	&"AnimationPlayer",
+	&"AnimationTree",
+	&"AudioStreamPlayer",
+	&"AudioStreamPlayer2D",
+	&"AudioStreamPlayer3D",
+	&"RemoteTransform2D",
+	&"RemoteTransform3D",
+	&"Area2D",
+	&"Area3D",
+	&"StaticBody2D",
+	&"StaticBody3D",
+	&"AnimatableBody2D",
+	&"AnimatableBody3D",
+	&"CharacterBody2D",
+	&"CharacterBody3D",
+	&"RigidBody2D",
+	&"RigidBody3D",
+	&"CollisionShape2D",
+	&"CollisionShape3D",
+	&"CollisionPolygon2D",
+	&"CollisionPolygon3D",
+	&"Marker2D",
+	&"Marker3D",
+	&"RayCast2D",
+	&"RayCast3D",
+	&"ShapeCast2D",
+	&"ShapeCast3D",
+	&"Camera2D",
+	&"Camera3D",
+	&"NavigationAgent2D",
+	&"NavigationAgent3D",
+	&"NavigationRegion2D",
+	&"NavigationRegion3D",
 ]
 
 ## 原生属性复制时跳过的行为或脚本归属属性名。
 ## [br]
 ## @api private
 const _SKIPPED_PROPERTIES: Array[StringName] = [
-	&"script", &"owner", &"unique_name_in_owner", &"process_mode", &"process_thread_group",
-	&"autoplay", &"playing", &"editor_description", &"button_group", &"foldable_group",
+	&"script",
+	&"owner",
+	&"unique_name_in_owner",
+	&"process_mode",
+	&"process_thread_group",
+	&"autoplay",
+	&"playing",
+	&"editor_description",
+	&"button_group",
+	&"foldable_group",
 ]
 
 ## 单次副本构建允许的节点数量上限。
@@ -131,7 +195,10 @@ func _copy_node(source: Node, depth: int = 0) -> Node:
 	var native_class: StringName = source.get_class()
 	var copy_class: StringName = _get_copy_class(source, native_class)
 	if copy_class.is_empty():
-		_error = "Static thumbnail does not support native node '%s' (%s)." % [source.get_name(), native_class]
+		_error = (
+			"Static thumbnail does not support native node '%s' (%s)."
+			% [source.get_name(), native_class]
+		)
 		return null
 	var created: Variant = ClassDB.instantiate(copy_class)
 	if not created is Node:
@@ -145,14 +212,21 @@ func _copy_node(source: Node, depth: int = 0) -> Node:
 	if not source_name.is_empty():
 		copy.name = source_name
 	copy.set_block_signals(true)
-	if not _copy_native_properties(source, copy, copy_class):
+	if not _copy_native_properties(
+		source,
+		copy,
+		copy_class
+	):
 		copy.free()
 		return null
 	copy.process_mode = Node.PROCESS_MODE_DISABLED
 	copy.set_process_internal(false)
 	copy.set_physics_process_internal(false)
 	for child: Node in source.get_children():
-		var child_copy: Node = _copy_node(child, depth + 1)
+		var child_copy: Node = _copy_node(
+			child,
+			depth + 1
+		)
 		if child_copy == null:
 			copy.free()
 			return null
@@ -182,7 +256,11 @@ func _get_copy_class(source: Node, native_class: StringName) -> StringName:
 ## 资源值需通过原生资源检查；随后补拷贝索引视觉属性及 Mesh 表面材质。
 ## [br]
 ## @api private
-func _copy_native_properties(source: Node, copy: Node, copy_class: StringName) -> bool:
+func _copy_native_properties(
+	source: Node,
+	copy: Node,
+	copy_class: StringName
+) -> bool:
 	# 不能使用 source.get_property_list/get/duplicate：源脚本的导出 getter 和
 	# _get_property_list 会执行；ClassDB 的索引 getter 也会经过脚本分派。
 	# 常规属性只访问无参原生 getter，索引视觉属性另用固定原生方法。
@@ -194,7 +272,12 @@ func _copy_native_properties(source: Node, copy: Node, copy_class: StringName) -
 		if property_name in _SKIPPED_PROPERTIES:
 			continue
 		var property_type: int = property.get("type", TYPE_NIL)
-		if property_type in [TYPE_NODE_PATH, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID]:
+		if property_type in [
+			TYPE_NODE_PATH,
+			TYPE_CALLABLE,
+			TYPE_SIGNAL,
+			TYPE_RID,
+		]:
 			continue
 		var getter: StringName = ClassDB.class_get_property_getter(copy_class, property_name)
 		var setter: StringName = ClassDB.class_get_property_setter(copy_class, property_name)
@@ -207,11 +290,22 @@ func _copy_native_properties(source: Node, copy: Node, copy_class: StringName) -
 			continue
 		if value is Resource:
 			var resource: Resource = value
-			if not _validate_native_resource(resource, source, property_name):
+			if not _validate_native_resource(
+				resource,
+				source,
+				property_name
+			):
 				return false
-		var set_error: Error = ClassDB.class_set_property(copy, property_name, value)
+		var set_error: Error = ClassDB.class_set_property(
+			copy,
+			property_name,
+			value
+		)
 		if set_error != OK:
-			_error = "Static thumbnail could not copy '%s.%s'." % [source.get_name(), property_name]
+			_error = (
+				"Static thumbnail could not copy '%s.%s'."
+				% [source.get_name(), property_name]
+			)
 			return false
 	_copy_indexed_visual_properties(source, copy)
 	if source is MeshInstance3D and copy is MeshInstance3D:
@@ -222,9 +316,19 @@ func _copy_native_properties(source: Node, copy: Node, copy_class: StringName) -
 	if source is Control and copy is Control:
 		# 布局 anchor/offset 使用带索引 getter；快照保存已解析的矩形，
 		# 不读取源脚本或重建外部父布局。
-		for property_name: StringName in [&"position", &"size", &"rotation", &"scale", &"pivot_offset"]:
+		for property_name: StringName in [
+			&"position",
+			&"size",
+			&"rotation",
+			&"scale",
+			&"pivot_offset",
+		]:
 			var value: Variant = ClassDB.class_get_property(source, property_name)
-			var _set_layout: Error = ClassDB.class_set_property(copy, property_name, value)
+			var _set_layout: Error = ClassDB.class_set_property(
+				copy,
+				property_name,
+				value
+			)
 	return true
 
 
@@ -236,31 +340,56 @@ func _copy_indexed_visual_properties(source: Node, copy: Node) -> void:
 	if source is NinePatchRect and copy is NinePatchRect:
 		var patch_source: NinePatchRect = source
 		var patch_copy: NinePatchRect = copy
-		for side: Side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
-			patch_copy.set_patch_margin(side, patch_source.get_patch_margin(side))
+		for side: Side in [
+			SIDE_LEFT,
+			SIDE_TOP,
+			SIDE_RIGHT,
+			SIDE_BOTTOM,
+		]:
+			patch_copy.set_patch_margin(
+				side,
+				patch_source.get_patch_margin(side)
+			)
 	if source is TextureProgressBar and copy is TextureProgressBar:
 		var progress_source: TextureProgressBar = source
 		var progress_copy: TextureProgressBar = copy
-		for side: Side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
-			progress_copy.set_stretch_margin(side, progress_source.get_stretch_margin(side))
+		for side: Side in [
+			SIDE_LEFT,
+			SIDE_TOP,
+			SIDE_RIGHT,
+			SIDE_BOTTOM,
+		]:
+			progress_copy.set_stretch_margin(
+				side,
+				progress_source.get_stretch_margin(side)
+			)
 	if source is SpriteBase3D and copy is SpriteBase3D:
 		var sprite_source: SpriteBase3D = source
 		var sprite_copy: SpriteBase3D = copy
 		for flag_index: int in SpriteBase3D.FLAG_MAX:
 			var flag: SpriteBase3D.DrawFlags = flag_index as SpriteBase3D.DrawFlags
-			sprite_copy.set_draw_flag(flag, sprite_source.get_draw_flag(flag))
+			sprite_copy.set_draw_flag(
+				flag,
+				sprite_source.get_draw_flag(flag)
+			)
 	if source is Label3D and copy is Label3D:
 		var label_source: Label3D = source
 		var label_copy: Label3D = copy
 		for flag_index: int in Label3D.FLAG_MAX:
 			var flag: Label3D.DrawFlags = flag_index as Label3D.DrawFlags
-			label_copy.set_draw_flag(flag, label_source.get_draw_flag(flag))
+			label_copy.set_draw_flag(
+				flag,
+				label_source.get_draw_flag(flag)
+			)
 	if source is Light3D and copy is Light3D:
 		var light_source: Light3D = source
 		var light_copy: Light3D = copy
 		for param_index: int in Light3D.PARAM_MAX:
 			var param: Light3D.Param = param_index as Light3D.Param
-			light_copy.set_param(param, light_source.get_param(param))
+			light_copy.set_param(
+				param,
+				light_source.get_param(param)
+			)
 
 
 ## 在材质槽总量不超限时，把非 null 的原生表面材质写入副本对应槽位。
@@ -279,7 +408,11 @@ func _copy_surface_materials(source: MeshInstance3D, copy: MeshInstance3D) -> bo
 		if material == null:
 			continue
 		var property_name: StringName = StringName("surface_material_override/%d" % surface_index)
-		if not _validate_native_resource(material, source, property_name):
+		if not _validate_native_resource(
+			material,
+			source,
+			property_name
+		):
 			return false
 		copy.set_surface_override_material(surface_index, material)
 	return true
@@ -289,8 +422,15 @@ func _copy_surface_materials(source: MeshInstance3D, copy: MeshInstance3D) -> bo
 ## 不满足条件时设置包含来源节点与属性名的错误并返回 false。
 ## [br]
 ## @api private
-func _validate_native_resource(resource: Resource, source: Node, property_name: StringName) -> bool:
+func _validate_native_resource(
+	resource: Resource,
+	source: Node,
+	property_name: StringName
+) -> bool:
 	if resource.get_script() != null or ClassDB.class_get_api_type(resource.get_class()) != ClassDB.API_CORE:
-		_error = "Static thumbnail requires a native resource at '%s.%s'." % [source.get_name(), property_name]
+		_error = (
+			"Static thumbnail requires a native resource at '%s.%s'."
+			% [source.get_name(), property_name]
+		)
 		return false
 	return true

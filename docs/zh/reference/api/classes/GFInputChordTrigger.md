@@ -18,7 +18,7 @@
 | 属性 | [`required_action_id`](#member-gfinputchordtrigger-properties-required_action_id) | `var required_action_id: StringName = &""` |
 | 属性 | [`player_scoped`](#member-gfinputchordtrigger-properties-player_scoped) | `var player_scoped: bool = true` |
 | 方法 | [`prepare_runtime`](#member-gfinputchordtrigger-methods-prepare_runtime) | `func prepare_runtime( _action_id: StringName, input_runtime: Object, player_index: int, state: Dictionary ) -> void:` |
-| 方法 | [`update`](#member-gfinputchordtrigger-methods-update) | `func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -> TriggerState:` |
+| 方法 | [`update`](#member-gfinputchordtrigger-methods-update) | `func update( raw_active: bool, _value: Variant, _delta: float, state: Dictionary ) -> TriggerState:` |
 
 ## 属性
 
@@ -79,9 +79,10 @@ func prepare_runtime( _action_id: StringName, input_runtime: Object, player_inde
 ### `update`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -> TriggerState:
+func update( raw_active: bool, _value: Variant, _delta: float, state: Dictionary ) -> TriggerState:
 ```
 
 更新运行时状态。

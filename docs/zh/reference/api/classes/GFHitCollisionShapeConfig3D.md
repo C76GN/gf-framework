@@ -19,7 +19,7 @@
 | 属性 | [`position`](#member-gfhitcollisionshapeconfig3d-properties-position) | `var position: Vector3 = Vector3.ZERO` |
 | 属性 | [`rotation_degrees`](#member-gfhitcollisionshapeconfig3d-properties-rotation_degrees) | `var rotation_degrees: Vector3 = Vector3.ZERO` |
 | 属性 | [`scale`](#member-gfhitcollisionshapeconfig3d-properties-scale) | `var scale: Vector3 = Vector3.ONE` |
-| 属性 | [`debug_color`](#member-gfhitcollisionshapeconfig3d-properties-debug_color) | `var debug_color: Color = Color(0.0, 0.0, 0.0, 0.0)` |
+| 属性 | [`debug_color`](#member-gfhitcollisionshapeconfig3d-properties-debug_color) | `var debug_color: Color = Color( 	0.0, 	0.0, 	0.0, 	0.0 )` |
 | 属性 | [`disabled`](#member-gfhitcollisionshapeconfig3d-properties-disabled) | `var disabled: bool = false` |
 | 方法 | [`apply_to`](#member-gfhitcollisionshapeconfig3d-methods-apply_to) | `func apply_to(collision_shape: CollisionShape3D) -> bool:` |
 | 方法 | [`instantiate_collision_shape`](#member-gfhitcollisionshapeconfig3d-methods-instantiate_collision_shape) | `func instantiate_collision_shape() -> CollisionShape3D:` |
@@ -79,9 +79,15 @@ var scale: Vector3 = Vector3.ONE
 ### `debug_color`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
-var debug_color: Color = Color(0.0, 0.0, 0.0, 0.0)
+var debug_color: Color = Color(
+	0.0,
+	0.0,
+	0.0,
+	0.0
+)
 ```
 
 调试绘制颜色。透明色会沿用 Godot 默认调试显示。

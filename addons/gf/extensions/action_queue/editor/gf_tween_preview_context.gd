@@ -49,19 +49,37 @@ const _SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/action_queue/editor
 ## 三个内置样机的稳定编辑器标识；点号不能与项目标识符冲突。
 ## [br]
 ## @api private
-const _NATIVE_IDS: Array[StringName] = [&"gf.preview.2d", &"gf.preview.ui", &"gf.preview.3d"]
+const _NATIVE_IDS: Array[StringName] = [
+	&"gf.preview.2d",
+	&"gf.preview.ui",
+	&"gf.preview.3d",
+]
 
 ## 内置样机显示用途，不代表真实项目场景。
 ## [br]
 ## @api private
-const _NATIVE_LABELS: Array[String] = ["2D 属性演示", "UI 属性演示", "3D 属性演示"]
+const _NATIVE_LABELS: Array[String] = [
+	"2D 属性演示",
+	"UI 属性演示",
+	"3D 属性演示",
+]
 
 ## 作者表单可定位的字段；空字段只选择步骤，不推断本地化错误文本。
 ## [br]
 ## @api private
 const _NAVIGATION_FIELDS: Array[StringName] = [
-	&"", &"resource_name", &"property_name", &"target_value", &"duration", &"delay",
-	&"as_relative", &"parallel", &"transition_type", &"ease_type", &"easing_curve", &"marker_id",
+	&"",
+	&"resource_name",
+	&"property_name",
+	&"target_value",
+	&"duration",
+	&"delay",
+	&"as_relative",
+	&"parallel",
+	&"transition_type",
+	&"ease_type",
+	&"easing_curve",
+	&"marker_id",
 ]
 
 
@@ -175,8 +193,20 @@ func refresh() -> void:
 	var binding: Dictionary = _registry._get_binding_entry(config.resource_path) if config != null else {}
 	var binding_signature: Array = []
 	if not binding.is_empty():
-		binding_signature = [binding["lease"], binding["target_id"], binding["initial_values"], binding["label"]]
-	var signature: Array = [_SNAPSHOT_SCRIPT.capture(config), descriptors, adapter_leases, binding_signature, _manual_id, _overrides]
+		binding_signature = [
+			binding["lease"],
+			binding["target_id"],
+			binding["initial_values"],
+			binding["label"],
+		]
+	var signature: Array = [
+		_SNAPSHOT_SCRIPT.capture(config),
+		descriptors,
+		adapter_leases,
+		binding_signature,
+		_manual_id,
+		_overrides,
+	]
 	if signature == _last_signature:
 		_refreshing = false
 		return
@@ -280,7 +310,12 @@ func get_diagnostic() -> Dictionary:
 	var reason: String = ""
 	if reason_value is String:
 		reason = reason_value
-	return {"step_index": -1, "field": &"", "error_kind": &"target_unavailable" if not reason.is_empty() else &"", "message": reason}
+	return {
+		"step_index": -1,
+		"field": &"",
+		"error_kind": &"target_unavailable" if not reason.is_empty() else &"",
+		"message": reason,
+	}
 
 
 ## 读取当前来源的作者定位签名；不改变预览快照或来源资源。
@@ -304,7 +339,11 @@ func get_navigation_snapshot() -> Dictionary:
 ## [br]
 ## @return: 同一有效来源和目录仍拥有定位资格时为 true。
 func is_navigation_current(snapshot: Dictionary) -> bool:
-	return not snapshot.is_empty() and is_target_current() and snapshot == get_navigation_snapshot()
+	return (
+		not snapshot.is_empty()
+		and is_target_current()
+		and snapshot == get_navigation_snapshot()
+	)
 
 
 ## 点击时先冻结作者身份，再刷新同一上下文取得诊断；通知改写来源或用途后拒绝旧请求。
@@ -326,7 +365,10 @@ func request_error_selection() -> bool:
 	refresh()
 	var current: bool = is_navigation_current(snapshot)
 	if (
-		not current or _get_source() != config or _registry != registry or serial != _navigation_serial
+		not current
+		or _get_source() != config
+		or _registry != registry
+		or serial != _navigation_serial
 		or target_identity != _navigation_target_identity(_target)
 	):
 		return false
@@ -339,7 +381,11 @@ func request_error_selection() -> bool:
 	var field_name: StringName = field_value
 	if index < 0 or field_name == &"":
 		return false
-	return request_step_selection(index, field_name, snapshot)
+	return request_step_selection(
+		index,
+		field_name,
+		snapshot
+	)
 
 
 ## 把当前合法的步骤及字段交给共享表单；每次通知后再确认来源，重入不会冒充定位成功。
@@ -355,8 +401,17 @@ func request_error_selection() -> bool:
 ## @schema snapshot: Dictionary，同 get_navigation_snapshot。
 ## [br]
 ## @return: 通知后请求仍有效时为 true，不表示有监听表单或执行任何写入。
-func request_step_selection(step_index: int, field: StringName, snapshot: Dictionary) -> bool:
-	if step_index < 0 or step_index >= 128 or not _NAVIGATION_FIELDS.has(field) or not is_navigation_current(snapshot):
+func request_step_selection(
+	step_index: int,
+	field: StringName,
+	snapshot: Dictionary
+) -> bool:
+	if (
+		step_index < 0
+		or step_index >= 128
+		or not _NAVIGATION_FIELDS.has(field)
+		or not is_navigation_current(snapshot)
+	):
 		return false
 	var ids_value: Variant = snapshot.get("step_ids")
 	if not ids_value is PackedInt64Array:
@@ -365,7 +420,12 @@ func request_step_selection(step_index: int, field: StringName, snapshot: Dictio
 	if step_index >= step_ids.size():
 		return false
 	_navigation_serial += 1
-	_navigation_request = {"serial": _navigation_serial, "step_index": step_index, "field": field, "snapshot": snapshot.duplicate(true)}
+	_navigation_request = {
+		"serial": _navigation_serial,
+		"step_index": step_index,
+		"field": field,
+		"snapshot": snapshot.duplicate(true),
+	}
 	var request: Dictionary = _navigation_request.duplicate(true)
 	step_selection_requested.emit(request)
 	return is_navigation_request_current(request)
@@ -433,7 +493,11 @@ func select_target(target_id: StringName) -> bool:
 	_navigation_request.clear()
 	_manual_id = target_id
 	_overrides.clear()
-	_registry._remember_selection(_get_source(), target_id, _overrides)
+	_registry._remember_selection(
+		_get_source(),
+		target_id,
+		_overrides
+	)
 	refresh()
 	return true
 
@@ -450,7 +514,11 @@ func select_target(target_id: StringName) -> bool:
 ## [br]
 ## @return: 覆盖被接纳时为 true。
 func set_initial_value(property_name: StringName, value: Variant) -> bool:
-	if _target.is_empty() or _target["id"] == &"" or not is_target_current():
+	if (
+		_target.is_empty()
+		or _target["id"] == &""
+		or not is_target_current()
+	):
 		return false
 	var current_values: Dictionary = _target["initial_values"]
 	var values: Dictionary = current_values.duplicate(true)
@@ -470,7 +538,11 @@ func set_initial_value(property_name: StringName, value: Variant) -> bool:
 		return false
 	_manual_id = _target["id"]
 	_overrides = edited_overrides
-	_registry._remember_selection(_get_source(), _manual_id, _overrides)
+	_registry._remember_selection(
+		_get_source(),
+		_manual_id,
+		_overrides
+	)
 	refresh()
 	return true
 
@@ -516,7 +588,15 @@ func get_property_records(query: String = "") -> Array[Dictionary]:
 				record["initial"] = vector.x if component == "x" else vector.y
 			elif root_value is Vector3:
 				var vector: Vector3 = root_value
-				record["initial"] = vector.x if component == "x" else (vector.y if component == "y" else vector.z)
+				record["initial"] = (
+					vector.x
+					if component == "x"
+					else (
+						vector.y
+						if component == "y"
+						else vector.z
+					)
+				)
 			elif root_value is Color:
 				var color: Color = root_value
 				record["initial"] = color["rgba".find(component)]
@@ -529,7 +609,15 @@ func get_property_records(query: String = "") -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _navigation_target_identity(target: Dictionary) -> Array:
-	return [target.get("id"), target.get("kind"), target.get("adapter_id"), target.get("initial_values"), target.get("lease"), target.get("binding_lease"), target.get("revision")]
+	return [
+		target.get("id"),
+		target.get("kind"),
+		target.get("adapter_id"),
+		target.get("initial_values"),
+		target.get("lease"),
+		target.get("binding_lease"),
+		target.get("revision"),
+	]
 
 
 ## 收窄弱来源；资源被释放时返回 null。
@@ -595,9 +683,16 @@ func _find_target(target_id: StringName) -> Dictionary:
 ## @api private
 func _unavailable(reason: String) -> Dictionary:
 	return {
-		"id": &"", "adapter_id": &"", "kind": -1, "label": "",
-		"supported": false, "reason": reason, "initial_values": {},
-		"lease": 0, "binding_lease": 0, "revision": 0,
+		"id": &"",
+		"adapter_id": &"",
+		"kind": -1,
+		"label": "",
+		"supported": false,
+		"reason": reason,
+		"initial_values": {},
+		"lease": 0,
+		"binding_lease": 0,
+		"revision": 0,
 	}
 
 
@@ -614,7 +709,10 @@ func _apply_overrides(target: Dictionary, overrides: Dictionary) -> void:
 			return
 		values[key] = overrides[key]
 	target["initial_values"] = values
-	_check_target(target, _get_source())
+	_check_target(
+		target,
+		_get_source()
+	)
 
 
 ## 同时验证属性、初值和完整有限计划，不复制另一套缓动或分组规则。
@@ -628,14 +726,24 @@ func _check_target(target: Dictionary, config: Resource) -> void:
 	if kind >= 0:
 		for key: Variant in values:
 			var property_name: String = key
-			if not GFTweenPreviewPlan.validate_initial_value(StringName(property_name), values[key], kind).is_empty():
+			if not GFTweenPreviewPlan.validate_initial_value(
+				StringName(property_name),
+				values[key],
+				kind
+			).is_empty():
 				error = "预览初值的类型或数值范围无效：%s。" % property_name
 				break
 		if error.is_empty():
 			plan = GFTweenPreviewPlan.capture(config, kind)
 			if plan.error.is_empty() and plan.controlled:
 				var baseline: Dictionary = GFTweenPreviewPlan.build_controlled_baseline(plan.steps, values)
-				var controlled: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture_data(plan.steps, baseline, plan.loop_count, 1.0, plan.ping_pong)
+				var controlled: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture_data(
+					plan.steps,
+					baseline,
+					plan.loop_count,
+					1.0,
+					plan.ping_pong
+				)
 				error = controlled.error
 	else:
 		var adapter_id: StringName = target["adapter_id"]
@@ -655,13 +763,21 @@ func _check_target(target: Dictionary, config: Resource) -> void:
 			if error.is_empty():
 				plan = GFTweenPreviewPlan.capture_numeric(config, records)
 				if plan.error.is_empty():
-					var timeline: GFTweenNumericTimeline = GFTweenNumericTimeline.capture(plan.get_numeric_definition(), records)
+					var timeline: GFTweenNumericTimeline = GFTweenNumericTimeline.capture(
+						plan.get_numeric_definition(),
+						records
+					)
 					error = timeline.get_error()
 	if error.is_empty() and plan != null:
 		error = plan.error
 	target["supported"] = error.is_empty() and plan != null
 	target["reason"] = "" if target["supported"] else error
-	var diagnostic: Dictionary = {"step_index": -1, "field": &"", "error_kind": &"preview_unavailable" if not error.is_empty() else &"", "message": error}
+	var diagnostic: Dictionary = {
+		"step_index": -1,
+		"field": &"",
+		"error_kind": &"preview_unavailable" if not error.is_empty() else &"",
+		"message": error,
+	}
 	if plan != null and not plan.error.is_empty():
 		diagnostic = plan.diagnostic.duplicate(true)
 	_diagnostics[target["id"]] = diagnostic

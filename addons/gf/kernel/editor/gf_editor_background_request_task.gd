@@ -181,7 +181,11 @@ func is_started() -> bool:
 ## [br]
 ## @return 线程仍在运行时返回 true。
 func is_running() -> bool:
-	if not _started or _finished or _thread == null:
+	if (
+		not _started
+		or _finished
+		or _thread == null
+	):
 		return false
 	if not _thread.has_method("is_alive"):
 		return false

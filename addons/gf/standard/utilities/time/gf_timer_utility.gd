@@ -92,13 +92,22 @@ func dispose() -> void:
 ## [br]
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
-	if _pending_timers.is_empty() or delta <= 0.0 or is_nan(delta) or is_inf(delta):
+	if (
+		_pending_timers.is_empty()
+		or delta <= 0.0
+		or is_nan(delta)
+		or is_inf(delta)
+	):
 		return
 
 	var lifecycle_generation: int = _lifecycle_generation
 	var ready_handles: Array[int] = []
 
-	for index: int in range(_pending_timers.size() - 1, -1, -1):
+	for index: int in range(
+		_pending_timers.size() - 1,
+		-1,
+		-1
+	):
 		var timer_data: Dictionary = _pending_timers[index]
 		if _timer_owner_is_released(timer_data):
 			_pending_timers.remove_at(index)
@@ -154,7 +163,13 @@ func execute_after(delay: float, callback: Callable) -> int:
 		var _result: Variant = callback.call()
 		return 0
 
-	return _queue_timer(delay, callback, 0.0, 1, null)
+	return _queue_timer(
+		delay,
+		callback,
+		0.0,
+		1,
+		null
+	)
 
 
 ## 在指定延迟后执行一次 owner 绑定回调。owner 释放后任务会自动丢弃。
@@ -170,7 +185,11 @@ func execute_after(delay: float, callback: Callable) -> int:
 ## @param callback: 延迟结束后执行的无参回调函数。
 ## [br]
 ## @return 已排队定时器的句柄；无效输入或立即执行时返回 `0`。
-func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int:
+func execute_after_owned(
+	owner: Object,
+	delay: float,
+	callback: Callable
+) -> int:
 	if owner == null:
 		push_error("[GFTimerUtility][timer_utility.after_owner_null] Cannot execute_after_owned: owner is null.")
 		return 0
@@ -185,7 +204,13 @@ func execute_after_owned(owner: Object, delay: float, callback: Callable) -> int
 		var _result: Variant = callback.call()
 		return 0
 
-	return _queue_timer(delay, callback, 0.0, 1, owner)
+	return _queue_timer(
+		delay,
+		callback,
+		0.0,
+		1,
+		owner
+	)
 
 
 ## 按固定间隔重复执行回调。
@@ -225,7 +250,13 @@ func execute_repeating(
 		return 0
 
 	var delay: float = initial_delay if initial_delay >= 0.0 else interval
-	return _queue_timer(delay, callback, interval, repeat_count, null)
+	return _queue_timer(
+		delay,
+		callback,
+		interval,
+		repeat_count,
+		null
+	)
 
 
 ## 按固定间隔重复执行 owner 绑定回调。owner 释放后任务会自动丢弃。
@@ -271,7 +302,13 @@ func execute_repeating_owned(
 		return 0
 
 	var delay: float = initial_delay if initial_delay >= 0.0 else interval
-	return _queue_timer(delay, callback, interval, repeat_count, owner)
+	return _queue_timer(
+		delay,
+		callback,
+		interval,
+		repeat_count,
+		owner
+	)
 
 
 ## 取消一个尚未触发的延时任务。
@@ -285,7 +322,11 @@ func cancel(handle: int) -> bool:
 	if handle <= 0:
 		return false
 
-	for index: int in range(_pending_timers.size() - 1, -1, -1):
+	for index: int in range(
+		_pending_timers.size() - 1,
+		-1,
+		-1
+	):
 		if _get_timer_id(_pending_timers[index]) == handle:
 			_pending_timers.remove_at(index)
 			return true
@@ -311,7 +352,11 @@ func cancel_owner(owner: Object) -> int:
 
 	var owner_id: int = owner.get_instance_id()
 	var removed: int = 0
-	for index: int in range(_pending_timers.size() - 1, -1, -1):
+	for index: int in range(
+		_pending_timers.size() - 1,
+		-1,
+		-1
+	):
 		var timer_data: Dictionary = _pending_timers[index]
 		if _get_timer_owner_id(timer_data) == owner_id:
 			_pending_timers.remove_at(index)
@@ -345,15 +390,25 @@ func cancel_owner(owner: Object) -> int:
 ## [br]
 ## @return: handle 与 owner 身份均匹配时返回 true。
 func has_owned_timer_for_framework(handle: int, owner: Object) -> bool:
-	if handle <= 0 or owner == null or not is_instance_valid(owner):
+	if (
+		handle <= 0
+		or owner == null
+		or not is_instance_valid(owner)
+	):
 		return false
 	for timer_data: Dictionary in _pending_timers:
 		if _get_timer_id(timer_data) == handle and _timer_is_owned_by(timer_data, owner):
 			return true
 	if _ready_timers.has(handle):
-		return _timer_is_owned_by(_get_ready_timer(handle), owner)
+		return _timer_is_owned_by(
+			_get_ready_timer(handle),
+			owner
+		)
 	if _executing_handles.has(handle):
-		return _timer_is_owned_by(_get_executing_timer(handle), owner)
+		return _timer_is_owned_by(
+			_get_executing_timer(handle),
+			owner
+		)
 	return false
 
 
@@ -408,15 +463,17 @@ func _queue_timer(
 ) -> int:
 	var handle: int = _next_timer_id
 	_next_timer_id += 1
-	_pending_timers.append({
-		"id": handle,
-		"remaining": maxf(delay, 0.0),
-		"interval": maxf(interval, 0.0),
-		"repeat_count": repeat_count,
-		"callback": callback,
-		"owner_ref": weakref(owner) if owner != null else null,
-		"owner_id": owner.get_instance_id() if owner != null else 0,
-	})
+	_pending_timers.append(
+		{
+			"id": handle,
+			"remaining": maxf(delay, 0.0),
+			"interval": maxf(interval, 0.0),
+			"repeat_count": repeat_count,
+			"callback": callback,
+			"owner_ref": weakref(owner) if owner != null else null,
+			"owner_id": owner.get_instance_id() if owner != null else 0,
+		}
+	)
 	return handle
 
 
@@ -426,7 +483,14 @@ func _queue_timer(
 ## @api private
 func _execute_ready_timer(timer_data: Dictionary, lifecycle_generation: int) -> void:
 	var handle: int = _get_timer_id(timer_data)
-	var overshoot: float = maxf(GFVariantData.get_option_float(timer_data, "overshoot", 0.0), 0.0)
+	var overshoot: float = maxf(
+		GFVariantData.get_option_float(
+			timer_data,
+			"overshoot",
+			0.0
+		),
+		0.0
+	)
 	var catch_up_count: int = 0
 	while true:
 		if lifecycle_generation != _lifecycle_generation:
@@ -487,14 +551,22 @@ func _timer_owner_is_released(timer_data: Dictionary) -> bool:
 ## [br]
 ## @api private
 func _get_timer_id(timer_data: Dictionary) -> int:
-	return GFVariantData.get_option_int(timer_data, "id", 0)
+	return GFVariantData.get_option_int(
+		timer_data,
+		"id",
+		0
+	)
 
 
 ## 读取正在执行的任务记录；缺失或类型不符时返回空字典。
 ## [br]
 ## @api private
 func _get_executing_timer(handle: int) -> Dictionary:
-	var timer_value: Variant = GFVariantData.get_option_value(_executing_timers, handle, {})
+	var timer_value: Variant = GFVariantData.get_option_value(
+		_executing_timers,
+		handle,
+		{}
+	)
 	if timer_value is Dictionary:
 		var timer_data: Dictionary = timer_value
 		return timer_data
@@ -505,7 +577,11 @@ func _get_executing_timer(handle: int) -> Dictionary:
 ## [br]
 ## @api private
 func _get_ready_timer(handle: int) -> Dictionary:
-	var timer_value: Variant = GFVariantData.get_option_value(_ready_timers, handle, {})
+	var timer_value: Variant = GFVariantData.get_option_value(
+		_ready_timers,
+		handle,
+		{}
+	)
 	if timer_value is Dictionary:
 		var timer_data: Dictionary = timer_value
 		return timer_data
@@ -516,35 +592,57 @@ func _get_ready_timer(handle: int) -> Dictionary:
 ## [br]
 ## @api private
 func _get_timer_remaining(timer_data: Dictionary) -> float:
-	return GFVariantData.get_option_float(timer_data, "remaining", 0.0)
+	return GFVariantData.get_option_float(
+		timer_data,
+		"remaining",
+		0.0
+	)
 
 
 ## 从任务记录读取重复间隔秒数，缺失时返回 0.0。
 ## [br]
 ## @api private
 func _get_timer_interval(timer_data: Dictionary) -> float:
-	return GFVariantData.get_option_float(timer_data, "interval", 0.0)
+	return GFVariantData.get_option_float(
+		timer_data,
+		"interval",
+		0.0
+	)
 
 
 ## 从任务记录读取剩余触发次数，缺失时返回 0。
 ## [br]
 ## @api private
 func _get_timer_repeat_count(timer_data: Dictionary) -> int:
-	return GFVariantData.get_option_int(timer_data, "repeat_count", 0)
+	return GFVariantData.get_option_int(
+		timer_data,
+		"repeat_count",
+		0
+	)
 
 
 ## 从任务记录读取 owner 实例编号，缺失时返回 0。
 ## [br]
 ## @api private
 func _get_timer_owner_id(timer_data: Dictionary) -> int:
-	return GFVariantData.get_option_int(timer_data, "owner_id", 0)
+	return GFVariantData.get_option_int(
+		timer_data,
+		"owner_id",
+		0
+	)
 
 
 ## 从任务记录读取并验证回调；字段无效时返回无效 Callable。
 ## [br]
 ## @api private
 func _get_timer_callback(timer_data: Dictionary) -> Callable:
-	return _variant_to_callable(GFVariantData.get_option_value(timer_data, "callback", Callable()))
+	return _variant_to_callable(
+		GFVariantData.get_option_value(
+			timer_data,
+			"callback",
+			Callable()
+		)
+	)
 
 
 ## 从任务记录读取 owner 弱引用；字段类型不符时返回 null。
@@ -565,7 +663,11 @@ func _timer_has_owner_ref(timer_data: Dictionary) -> bool:
 ## [br]
 ## @api private
 func _timer_is_owned_by(timer_data: Dictionary, owner: Object) -> bool:
-	if timer_data.is_empty() or owner == null or not is_instance_valid(owner):
+	if (
+		timer_data.is_empty()
+		or owner == null
+		or not is_instance_valid(owner)
+	):
 		return false
 	if _get_timer_owner_id(timer_data) != owner.get_instance_id():
 		return false

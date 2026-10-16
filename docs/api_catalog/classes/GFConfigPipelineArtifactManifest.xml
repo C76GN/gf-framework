@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="990d2b9f5cb3bf2b3afcf907f1ef40021c207d32822b47c4621a0bc8306065bc">
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="ce1a5549a6bdff1c3830b9391b1ea01326a6fa7ca7c86d839933966eabcccba6">
 	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
@@ -60,7 +60,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_manifest">
-			<signature>func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func save_manifest( manifest_path: String, manifest: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>保存 manifest JSON 文件。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -94,7 +94,11 @@ static func available(revision: String) -> GFStorageRevisionResult:
 ## @return 失败结果；无效 status 或 OK 归一为 INVALID_REQUEST 与 ERR_INVALID_PARAMETER。
 static func failure(status: Status, error: Error) -> GFStorageRevisionResult:
 	var result: GFStorageRevisionResult = GFStorageRevisionResult.new()
-	if status == Status.AVAILABLE or not Status.values().has(status) or error == OK:
+	if (
+		status == Status.AVAILABLE
+		or not Status.values().has(status)
+		or error == OK
+	):
 		return result
 	result._status = status
 	result._error_code = error
@@ -109,7 +113,11 @@ static func failure(status: Status, error: Error) -> GFStorageRevisionResult:
 ## [br]
 ## @return 仅 AVAILABLE、OK 与非空 revision 同时成立时返回 true。
 func is_successful() -> bool:
-	return _status == Status.AVAILABLE and _error_code == OK and not _revision.is_empty()
+	return (
+		_status == Status.AVAILABLE
+		and _error_code == OK
+		and not _revision.is_empty()
+	)
 
 
 ## 获取查询的 Godot Error 码。

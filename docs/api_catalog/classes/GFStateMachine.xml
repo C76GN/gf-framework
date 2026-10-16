@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="b7a3aadbdafdce48055e57a634e41d766020e405d0cb55da38f6d539c67cfda3">
+<class name="GFStateMachine" path="addons/gf/standard/state_machine/pure/gf_state_machine.gd" module="standard" extends="RefCounted" classDigest="ea10a90d855794e4c2d78ffc75e98e5fd96ad059c0bf99e8e9f45ab808eab0b4">
 	<description>GFStateMachine: 纯代码分层有限状态机。
 继承自 RefCounted，不依赖 Node 树，可在 GFSystem 或 GFUtility 中直接持有。
 支持平铺 FSM，也支持通过 parent_state_name 组成父子状态层级；切换时会
@@ -28,7 +28,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="signal" name="transition_blocked">
-			<signature>signal transition_blocked(from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName)</signature>
+			<signature>signal transition_blocked( from_state: StringName, to_state: StringName, msg: Dictionary, reason: StringName )</signature>
 			<description>当状态守卫阻止切换时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -37,10 +37,11 @@ _fsm.start(&amp;"Idle")</description>
 				<tag name="param">msg: 状态切换参数。</tag>
 				<tag name="param">reason: 阻止原因，常见为 exit_guard 或 enter_guard。</tag>
 				<tag name="schema">msg: Dictionary state transition payload.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="state_event_handled">
-			<signature>signal state_event_handled(event_id: StringName, handler_state: StringName, payload: Variant)</signature>
+			<signature>signal state_event_handled( event_id: StringName, handler_state: StringName, payload: Variant )</signature>
 			<description>当状态事件被某个激活状态处理后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -48,6 +49,7 @@ _fsm.start(&amp;"Idle")</description>
 				<tag name="param">handler_state: 处理该事件的状态名。</tag>
 				<tag name="param">payload: 状态事件载荷。</tag>
 				<tag name="schema">payload: Variant state event payload.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -80,13 +82,14 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="add_state">
-			<signature>func add_state(state_name: StringName, state: GFState, parent_state_name: StringName = &amp;"") -&gt; void:</signature>
+			<signature>func add_state( state_name: StringName, state: GFState, parent_state_name: StringName = &amp;"" ) -&gt; void:</signature>
 			<description>注册一个状态。注册后，状态机会自动注入自身引用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">state_name: 用于标识和切换该状态的唯一名称。</tag>
 				<tag name="param">state: GFState 实例。</tag>
 				<tag name="param">parent_state_name: 可选父状态名；为空表示根状态。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_state_parent">
@@ -100,7 +103,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="start">
-			<signature>func start(initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true) -&gt; void:</signature>
+			<signature>func start( initial_state_name: StringName, msg: Dictionary = {}, emit_changed: bool = true ) -&gt; void:</signature>
 			<description>启动状态机并进入初始状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -108,6 +111,7 @@ _fsm.start(&amp;"Idle")</description>
 				<tag name="param">msg: 传递给初始状态 enter() 的可选参数字典。</tag>
 				<tag name="param">emit_changed: 是否发出 state_changed 信号；默认为 true，from_state 为空字符串。</tag>
 				<tag name="schema">msg: Dictionary state transition payload.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="change_state">
@@ -312,7 +316,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="register_event_owned">
-			<signature>func register_event_owned(owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event_owned( owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册带拥有者的类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -324,7 +328,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, listener: GFEventListener, owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_event( event_type: Script, listener: GFEventListener, owner: Object = null ) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -347,7 +351,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_assignable_event( base_event_type: Script, listener: GFEventListener, owner: Object = null ) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -358,7 +362,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
-			<signature>func register_simple_event_owned(owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func register_simple_event_owned( owner: Object, event_id: StringName, listener: GFEventListener ) -&gt; void:</signature>
 			<description>注册带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -369,7 +373,7 @@ _fsm.start(&amp;"Idle")</description>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, listener: GFEventListener, owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_simple_event( event_id: StringName, listener: GFEventListener, owner: Object = null ) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>

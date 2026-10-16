@@ -105,7 +105,11 @@ func _exit_tree() -> void:
 ## @schema return: Dictionary with ok: bool, status: String, message: String and optional path: String.
 func receive_workspace_resources(action_id: String, paths: PackedStringArray) -> Dictionary:
 	if action_id != "select_scene":
-		return {"ok": false, "status": "unsupported_action", "message": "此页面不支持该资源动作；请刷新后重新选择接收工具。"}
+		return {
+			"ok": false,
+			"status": "unsupported_action",
+			"message": "此页面不支持该资源动作；请刷新后重新选择接收工具。",
+		}
 	return receive_resource_paths(paths)
 
 
@@ -120,11 +124,31 @@ func receive_workspace_resources(action_id: String, paths: PackedStringArray) ->
 ## @schema return: Dictionary with ok: bool, status: String, message: String and optional path: String.
 func receive_resource_paths(paths: PackedStringArray) -> Dictionary:
 	if not Engine.is_editor_hint() or not _has_context:
-		return {"ok": false, "status": "editor_context_unavailable", "message": "编辑上下文已撤销；请重新打开 3D 摆放页面。"}
-	if paths.size() != 1 or not paths[0].begins_with("res://") or paths[0].contains("..") or not ResourceLoader.exists(paths[0], "PackedScene"):
-		return {"ok": false, "status": "select_one_project_scene", "message": "请选中项目中的一个 PackedScene 场景后再发送。"}
+		return {
+			"ok": false,
+			"status": "editor_context_unavailable",
+			"message": "编辑上下文已撤销；请重新打开 3D 摆放页面。",
+		}
+	if (
+		paths.size() != 1
+		or not paths[0].begins_with("res://")
+		or paths[0].contains("..")
+		or not ResourceLoader.exists(
+			paths[0],
+			"PackedScene"
+		)
+	):
+		return {
+			"ok": false,
+			"status": "select_one_project_scene",
+			"message": "请选中项目中的一个 PackedScene 场景后再发送。",
+		}
 	if EditorInterface.get_edited_scene_root() == null:
-		return {"ok": false, "status": "edited_scene_required", "message": "请先在 Godot 中打开要摆放物体的目标场景。"}
+		return {
+			"ok": false,
+			"status": "edited_scene_required",
+			"message": "请先在 Godot 中打开要摆放物体的目标场景。",
+		}
 	_on_open_pressed()
 	var plugin: EditorPlugin = _resolve_plugin(_native_plugin_ref)
 	if plugin is GFScenePlacementPlugin:
@@ -133,7 +157,11 @@ func receive_resource_paths(paths: PackedStringArray) -> Dictionary:
 		if panel != null:
 			panel.show()
 			return panel.receive_resource_paths(paths)
-	return {"ok": false, "status": "placement_plugin_unavailable", "message": "3D 摆放面板未能打开；请检查插件状态并重新打开摆放页面。"}
+	return {
+		"ok": false,
+		"status": "placement_plugin_unavailable",
+		"message": "3D 摆放面板未能打开；请检查插件状态并重新打开摆放页面。",
+	}
 
 
 ## 根工作区释放上下文时延迟关闭本启动页拥有的原生子插件。
@@ -196,14 +224,22 @@ static func notify_plugin_lifecycle(plugin: EditorPlugin, entered: bool) -> void
 ## [br]
 ## @param editor_base: 在插件启用期间取得的原生编辑器基座；退树后不再排队关闭。
 static func request_plugin_close(editor_base: Control) -> void:
-	if not is_instance_valid(editor_base) or not editor_base.is_inside_tree() or editor_base.is_queued_for_deletion():
+	if (
+		not is_instance_valid(editor_base)
+		or not editor_base.is_inside_tree()
+		or editor_base.is_queued_for_deletion()
+	):
 		return
 	var plugin: EditorPlugin = _resolve_plugin(_native_plugin_ref)
 	if plugin == null:
 		return
 	_ownership_generation += 1
 	var editor_base_ref: WeakRef = weakref(editor_base)
-	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(_ownership_generation, editor_base_ref, weakref(plugin))
+	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(
+		_ownership_generation,
+		editor_base_ref,
+		weakref(plugin)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -234,13 +270,21 @@ func _request_owned_close() -> void:
 		return
 	# EditorNode 退出时正在遍历并卸载插件；不能在该调用栈中再次删除插件。
 	# 静态 Callable 不捕获即将销毁的启动页，且只关闭仍属于该次使用方的插件。
-	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(closing_generation, _editor_base_ref, weakref(plugin))
+	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(
+		closing_generation,
+		_editor_base_ref,
+		weakref(plugin)
+	)
 
 
 ## 延迟执行时重新核对所有权代次、基座和原生插件身份；任一已替换或失效就放弃关闭。
 ## [br]
 ## @api private
-static func _disable_owned_plugin(closing_generation: int, editor_base_ref: WeakRef, plugin_ref: WeakRef) -> void:
+static func _disable_owned_plugin(
+	closing_generation: int,
+	editor_base_ref: WeakRef,
+	plugin_ref: WeakRef
+) -> void:
 	if closing_generation != _ownership_generation:
 		return
 	if _resolve_editor_base(editor_base_ref) == null:
@@ -289,7 +333,11 @@ static func _resolve_editor_base(editor_base_ref: WeakRef) -> Control:
 	var value: Variant = editor_base_ref.get_ref()
 	if value is Control:
 		var editor_base: Control = value
-		if is_instance_valid(editor_base) and editor_base.is_inside_tree() and not editor_base.is_queued_for_deletion():
+		if (
+			is_instance_valid(editor_base)
+			and editor_base.is_inside_tree()
+			and not editor_base.is_queued_for_deletion()
+		):
 			return editor_base
 	return null
 
@@ -300,7 +348,11 @@ static func _resolve_editor_base(editor_base_ref: WeakRef) -> Control:
 ## [br]
 ## @api private
 func _on_open_pressed() -> void:
-	if Engine.is_editor_hint() and _has_context and _resolve_editor_base(_editor_base_ref) != null:
+	if (
+		Engine.is_editor_hint()
+		and _has_context
+		and _resolve_editor_base(_editor_base_ref) != null
+	):
 		if EditorInterface.is_plugin_enabled(_PLUGIN_NAME):
 			var managed_plugin: EditorPlugin = _get_managed_plugin()
 			if managed_plugin != null:

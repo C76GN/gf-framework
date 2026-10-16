@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="7e222e5479f92fc1b3a0d7e7bc7831bbd4068976e047b228fd24d833072f62a7">
+<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="15a8c5bb86d3f422545863f76d27bb7bb0139d3b8e92aae06bbc084c01177bf9">
 	<description>GFUIUtility: 栈式 UI 管理器。
 负责可扩展逻辑层中的入栈、出栈、层内可见性策略与异步加载，
 适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。
@@ -38,27 +38,29 @@
 			</tags>
 		</member>
 		<member kind="signal" name="panel_dismiss_requested">
-			<signature>signal panel_dismiss_requested(panel: Node, layer: int, reason: String)</signature>
+			<signature>signal panel_dismiss_requested( panel: Node, layer: int, reason: String )</signature>
 			<description>面板请求被取消或关闭时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">panel: 请求关闭的面板。</tag>
 				<tag name="param">layer: 所在层级。</tag>
 				<tag name="param">reason: 关闭原因。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="panel_async_load_started">
-			<signature>signal panel_async_load_started(path: String, layer: int, operation: StringName)</signature>
+			<signature>signal panel_async_load_started( path: String, layer: int, operation: StringName )</signature>
 			<description>异步面板加载请求开始时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 面板场景路径。</tag>
 				<tag name="param">layer: 目标层级。</tag>
 				<tag name="param">operation: 打开操作，可能为 push 或 replace。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="panel_async_load_finished">
-			<signature>signal panel_async_load_finished(path: String, layer: int, operation: StringName, status: int, panel: Node)</signature>
+			<signature>signal panel_async_load_finished( path: String, layer: int, operation: StringName, status: int, panel: Node )</signature>
 			<description>异步面板加载请求结束时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -67,6 +69,7 @@
 				<tag name="param">operation: 打开操作，可能为 push 或 replace。</tag>
 				<tag name="param">status: 结束状态，使用 AsyncPanelLoadStatus。</tag>
 				<tag name="param">panel: 成功打开的面板；失败或取消时为 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -229,7 +232,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_panel">
-			<signature>func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; Node:</signature>
+			<signature>func push_panel( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -&gt; Node:</signature>
 			<description>同步压入一个面板场景。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -255,7 +258,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="replace_layer">
-			<signature>func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -&gt; Node:</signature>
+			<signature>func replace_layer( path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -&gt; Node:</signature>
 			<description>同步替换指定逻辑层的面板栈，不改变其他逻辑层。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -367,7 +370,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="pop_to_panel">
-			<signature>func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -&gt; bool:</signature>
+			<signature>func pop_to_panel( panel: Node, layer: int = Layer.POPUP, do_free: bool = true ) -&gt; bool:</signature>
 			<description>弹出面板直到指定面板成为栈顶。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -49,6 +49,8 @@ func get_slot(slot_id: StringName) -> GFEquipmentSlot:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param slot_id: 槽位 ID。
 ## [br]
 ## @param item_id: 物品 ID。
@@ -58,7 +60,11 @@ func get_slot(slot_id: StringName) -> GFEquipmentSlot:
 ## @return 成功时返回 true。
 ## [br]
 ## @schema item_tags: Array[StringName]，当前物品拥有的标签列表。
-func equip(slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = []) -> bool:
+func equip(
+	slot_id: StringName,
+	item_id: StringName,
+	item_tags: Array[StringName] = []
+) -> bool:
 	var slot: GFEquipmentSlot = get_slot(slot_id)
 	if slot == null:
 		return false

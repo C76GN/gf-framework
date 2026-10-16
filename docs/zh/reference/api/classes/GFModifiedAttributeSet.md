@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`attribute_defined`](#member-gfmodifiedattributeset-signals-attribute_defined) | `signal attribute_defined(attribute_id: StringName, attribute: GFModifiedAttribute)` |
 | 信号 | [`attribute_removed`](#member-gfmodifiedattributeset-signals-attribute_removed) | `signal attribute_removed(attribute_id: StringName)` |
-| 信号 | [`attribute_changed`](#member-gfmodifiedattributeset-signals-attribute_changed) | `signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)` |
+| 信号 | [`attribute_changed`](#member-gfmodifiedattributeset-signals-attribute_changed) | `signal attribute_changed( attribute_id: StringName, current_value: float, previous_value: float )` |
 | 方法 | [`define_attribute`](#member-gfmodifiedattributeset-methods-define_attribute) | `func define_attribute(attribute_id: StringName, base_value: float = 0.0) -> GFModifiedAttribute:` |
 | 方法 | [`set_attribute`](#member-gfmodifiedattributeset-methods-set_attribute) | `func set_attribute(attribute_id: StringName, attribute: GFModifiedAttribute) -> bool:` |
 | 方法 | [`define_defaults`](#member-gfmodifiedattributeset-methods-define_defaults) | `func define_defaults(defaults: Dictionary) -> void:` |
@@ -82,9 +82,10 @@ signal attribute_removed(attribute_id: StringName)
 ### `attribute_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)
+signal attribute_changed( attribute_id: StringName, current_value: float, previous_value: float )
 ```
 
 属性当前值变化时发出。

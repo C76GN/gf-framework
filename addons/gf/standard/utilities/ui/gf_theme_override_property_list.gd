@@ -95,11 +95,12 @@ const _HINT_STRING_BY_DATA_TYPE: Dictionary = {
 ## @schema options: Dictionary with optional hint and hint_string.
 ## [br]
 ## @schema return: Dictionary theme override definition.
-static func make_definition(override_name: StringName, data_type: int, options: Dictionary = {}) -> Dictionary:
-	var definition: Dictionary = {
-		KEY_NAME: override_name,
-		KEY_DATA_TYPE: data_type,
-	}
+static func make_definition(
+	override_name: StringName,
+	data_type: int,
+	options: Dictionary = {}
+) -> Dictionary:
+	var definition: Dictionary = { KEY_NAME: override_name, KEY_DATA_TYPE: data_type, }
 	if options.has(KEY_HINT):
 		definition[KEY_HINT] = GFVariantData.get_option_int(options, KEY_HINT)
 	if options.has(KEY_HINT_STRING):
@@ -133,16 +134,23 @@ static func make_property_list(
 ) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	var grouped: Dictionary = _group_definitions(definitions)
-	var group_prefix: String = GFVariantData.get_option_string(options, "group_prefix", "Theme Overrides")
+	var group_prefix: String = GFVariantData.get_option_string(
+		options,
+		"group_prefix",
+		"Theme Overrides"
+	)
 	for data_type: int in _get_sorted_data_types(grouped):
 		var group_name: String = _get_group_name(data_type)
 		if group_name.is_empty():
 			continue
-		entries.append({
-			"name": "%s/%s" % [group_prefix, group_name],
-			"type": TYPE_NIL,
-			"usage": PROPERTY_USAGE_GROUP,
-		})
+		entries.append(
+			{
+				"name": "%s/%s"
+				% [group_prefix, group_name],
+				"type": TYPE_NIL,
+				"usage": PROPERTY_USAGE_GROUP,
+			}
+		)
 
 		var group_definitions: Array = GFVariantData.as_array(grouped[data_type])
 		for definition_variant: Variant in group_definitions:
@@ -150,7 +158,13 @@ static func make_property_list(
 			var property_path: String = get_property_path(definition)
 			if property_path.is_empty():
 				continue
-			entries.append(_make_property_entry(control, property_path, definition))
+			entries.append(
+				_make_property_entry(
+					control,
+					property_path,
+					definition
+				)
+			)
 	return entries
 
 
@@ -169,11 +183,18 @@ static func get_property_path(definition: Dictionary) -> String:
 	var override_name: String = GFVariantData.get_option_string(definition, KEY_NAME).strip_edges()
 	if override_name.is_empty():
 		return ""
-	var data_type: int = GFVariantData.get_option_int(definition, KEY_DATA_TYPE, -1)
+	var data_type: int = GFVariantData.get_option_int(
+		definition,
+		KEY_DATA_TYPE,
+		-1
+	)
 	var group_name: String = _get_group_name(data_type)
 	if group_name.is_empty():
 		return ""
-	return "%s/%s" % [group_name, override_name]
+	return (
+		"%s/%s"
+		% [group_name, override_name]
+	)
 
 
 ## 检查属性是否由定义列表声明。
@@ -258,9 +279,21 @@ static func collect_override_values(
 	if control == null:
 		return result
 
-	var include_null: bool = GFVariantData.get_option_bool(options, "include_null", false)
-	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
-	var duplicate_resources: bool = GFVariantData.get_option_bool(options, "duplicate_resources", false)
+	var include_null: bool = GFVariantData.get_option_bool(
+		options,
+		"include_null",
+		false
+	)
+	var copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
+	var duplicate_resources: bool = GFVariantData.get_option_bool(
+		options,
+		"duplicate_resources",
+		false
+	)
 	for definition_variant: Variant in definitions:
 		var definition: Dictionary = GFVariantData.as_dictionary(definition_variant)
 		var property_path: String = get_property_path(definition)
@@ -270,7 +303,11 @@ static func collect_override_values(
 		if value == null and not include_null:
 			continue
 		if copy_values:
-			value = GFVariantData.duplicate_variant(value, true, duplicate_resources)
+			value = GFVariantData.duplicate_variant(
+				value,
+				true,
+				duplicate_resources
+			)
 		result[property_path] = value
 	return result
 
@@ -301,7 +338,12 @@ static func clear_overrides(control: Control, definitions: Array) -> Dictionary:
 	var cleared_count: int = 0
 	var skipped_count: int = 0
 	if control == null:
-		_append_report_issue(issues, "", "invalid_control", "Control is null.")
+		_append_report_issue(
+			issues,
+			"",
+			"invalid_control",
+			"Control is null."
+		)
 		report["ok"] = false
 		report["skipped_count"] = definitions.size()
 		return report
@@ -355,8 +397,16 @@ static func make_theme_from_control(
 	var resolved_theme_type: StringName = theme_type
 	if resolved_theme_type == &"":
 		resolved_theme_type = StringName(control.get_class())
-	var values: Dictionary = collect_override_values(control, definitions, options)
-	return make_theme_from_values(definitions, values, resolved_theme_type)
+	var values: Dictionary = collect_override_values(
+		control,
+		definitions,
+		options
+	)
+	return make_theme_from_values(
+		definitions,
+		values,
+		resolved_theme_type
+	)
 
 
 ## 从已收集的主题覆盖值创建 Theme。
@@ -393,7 +443,12 @@ static func make_theme_from_values(
 		var value: Variant = values[property_path]
 		if value == null:
 			continue
-		_apply_theme_value(theme, theme_type, definition, value)
+		_apply_theme_value(
+			theme,
+			theme_type,
+			definition,
+			value
+		)
 	return theme
 
 
@@ -406,7 +461,11 @@ static func _group_definitions(definitions: Array) -> Dictionary:
 	var grouped: Dictionary = {}
 	for definition_variant: Variant in definitions:
 		var definition: Dictionary = GFVariantData.as_dictionary(definition_variant)
-		var data_type: int = GFVariantData.get_option_int(definition, KEY_DATA_TYPE, -1)
+		var data_type: int = GFVariantData.get_option_int(
+			definition,
+			KEY_DATA_TYPE,
+			-1
+		)
 		if _get_group_name(data_type).is_empty():
 			continue
 		if not grouped.has(data_type):
@@ -432,15 +491,27 @@ static func _get_sorted_data_types(grouped: Dictionary) -> Array[int]:
 ## 生成 Inspector 属性项，并在控件已有非空 override 时加入 storage usage。
 ## [br]
 ## @api private
-static func _make_property_entry(control: Control, property_path: String, definition: Dictionary) -> Dictionary:
-	var data_type: int = GFVariantData.get_option_int(definition, KEY_DATA_TYPE, -1)
+static func _make_property_entry(
+	control: Control,
+	property_path: String,
+	definition: Dictionary
+) -> Dictionary:
+	var data_type: int = GFVariantData.get_option_int(
+		definition,
+		KEY_DATA_TYPE,
+		-1
+	)
 	var usage: int = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_CHECKABLE
 	if control != null and control.get(property_path) != null:
 		usage = usage | PROPERTY_USAGE_STORAGE
 
 	return {
 		"name": property_path,
-		"type": GFVariantData.get_option_int(_TYPE_BY_DATA_TYPE, data_type, TYPE_NIL),
+		"type": GFVariantData.get_option_int(
+			_TYPE_BY_DATA_TYPE,
+			data_type,
+			TYPE_NIL
+		),
 		"hint": _get_property_hint(definition, data_type),
 		"hint_string": _get_property_hint_string(definition, data_type),
 		"usage": usage,
@@ -453,7 +524,11 @@ static func _make_property_entry(control: Control, property_path: String, defini
 static func _get_property_hint(definition: Dictionary, data_type: int) -> int:
 	if definition.has(KEY_HINT):
 		return GFVariantData.get_option_int(definition, KEY_HINT)
-	if data_type == Theme.DATA_TYPE_FONT or data_type == Theme.DATA_TYPE_ICON or data_type == Theme.DATA_TYPE_STYLEBOX:
+	if (
+		data_type == Theme.DATA_TYPE_FONT
+		or data_type == Theme.DATA_TYPE_ICON
+		or data_type == Theme.DATA_TYPE_STYLEBOX
+	):
 		return PROPERTY_HINT_RESOURCE_TYPE
 	return PROPERTY_HINT_NONE
 
@@ -487,32 +562,60 @@ static func _apply_theme_value(
 	if override_name == &"":
 		return
 
-	var data_type: int = GFVariantData.get_option_int(definition, KEY_DATA_TYPE, -1)
+	var data_type: int = GFVariantData.get_option_int(
+		definition,
+		KEY_DATA_TYPE,
+		-1
+	)
 	match data_type:
 		Theme.DATA_TYPE_COLOR:
 			if value is Color:
 				var color_value: Color = value
-				theme.set_color(override_name, theme_type, color_value)
+				theme.set_color(
+					override_name,
+					theme_type,
+					color_value
+				)
 		Theme.DATA_TYPE_CONSTANT:
 			if value is int:
 				var constant_value: int = value
-				theme.set_constant(override_name, theme_type, constant_value)
+				theme.set_constant(
+					override_name,
+					theme_type,
+					constant_value
+				)
 		Theme.DATA_TYPE_FONT:
 			if value is Font:
 				var font_value: Font = value
-				theme.set_font(override_name, theme_type, font_value)
+				theme.set_font(
+					override_name,
+					theme_type,
+					font_value
+				)
 		Theme.DATA_TYPE_FONT_SIZE:
 			if value is int:
 				var font_size_value: int = value
-				theme.set_font_size(override_name, theme_type, font_size_value)
+				theme.set_font_size(
+					override_name,
+					theme_type,
+					font_size_value
+				)
 		Theme.DATA_TYPE_ICON:
 			if value is Texture2D:
 				var icon_value: Texture2D = value
-				theme.set_icon(override_name, theme_type, icon_value)
+				theme.set_icon(
+					override_name,
+					theme_type,
+					icon_value
+				)
 		Theme.DATA_TYPE_STYLEBOX:
 			if value is StyleBox:
 				var stylebox_value: StyleBox = value
-				theme.set_stylebox(override_name, theme_type, stylebox_value)
+				theme.set_stylebox(
+					override_name,
+					theme_type,
+					stylebox_value
+				)
 
 
 ## 向 issues 数组追加 property_path、kind 和 message 字段。
@@ -524,8 +627,10 @@ static func _append_report_issue(
 	kind: String,
 	message: String
 ) -> void:
-	issues.append({
-		"property_path": property_path,
-		"kind": kind,
-		"message": message,
-	})
+	issues.append(
+		{
+			"property_path": property_path,
+			"kind": kind,
+			"message": message,
+		}
+	)

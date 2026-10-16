@@ -27,7 +27,11 @@ extends Node
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
-signal interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal interaction_sent(
+	context: GFInteractionContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 交互被接收对象接受。
 ## [br]
@@ -42,7 +46,11 @@ signal interaction_sent(context: GFInteractionContext, receiver: Object, report:
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
-signal interaction_accepted(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal interaction_accepted(
+	context: GFInteractionContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 ## 交互被接收对象拒绝或发送失败。
 ## [br]
@@ -57,7 +65,11 @@ signal interaction_accepted(context: GFInteractionContext, receiver: Object, rep
 ## @param report: 结果报告。
 ## [br]
 ## @schema report: 交互结果报告 Dictionary，包含 ok、interaction_id、receiver(JSON-safe 摘要)、reason、message 和 metadata 等字段。
-signal interaction_rejected(context: GFInteractionContext, receiver: Object, report: Dictionary)
+signal interaction_rejected(
+	context: GFInteractionContext,
+	receiver: Object,
+	report: Dictionary
+)
 
 
 # --- 常量 ---
@@ -70,9 +82,7 @@ const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_me
 ## 将交互报告投影为安全诊断字典的工具脚本。
 ## [br]
 ## @api private
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
+const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
 
 
 # --- 导出变量 ---
@@ -146,9 +156,14 @@ func build_context(
 	payload_override: Variant = null,
 	group_override: StringName = &""
 ) -> GFInteractionContext:
-	var context_payload: Variant = payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override)
+	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override))
 	var context_group: StringName = group_override if group_override != &"" else group_name
-	var context: GFInteractionContext = GFInteractionContext.new(_resolve_sender(), target, context_payload, context_group)
+	var context: GFInteractionContext = GFInteractionContext.new(
+		_resolve_sender(),
+		target,
+		context_payload,
+		context_group
+	)
 	return context
 
 
@@ -174,23 +189,22 @@ func send_to(
 	payload_override: Variant = null,
 	interaction_id_override: StringName = &""
 ) -> Dictionary:
-	var effective_interaction_id: StringName = interaction_id_override if interaction_id_override != &"" else interaction_id
+	var effective_interaction_id: StringName = (interaction_id_override if interaction_id_override != &"" else interaction_id)
 	var context: GFInteractionContext = build_context(receiver, payload_override)
 	var report: Dictionary = {}
 	if enabled and receiver is GFInteractionReceiver:
 		var interaction_receiver: GFInteractionReceiver = receiver
-		report = interaction_receiver.receive_interaction_raw_for_framework(
-			context,
-			effective_interaction_id
-		)
+		report = interaction_receiver.receive_interaction_raw_for_framework(context, effective_interaction_id)
 	elif (
 		enabled
 		and receiver != null
 		and receiver.has_method(&"receive_interaction")
-		and not GFInteractions.is_method_call_compatible_for_framework(
-			receiver,
-			&"receive_interaction",
-			[context, effective_interaction_id]
+		and not (
+			GFInteractions.is_method_call_compatible_for_framework(
+				receiver,
+				&"receive_interaction",
+				[context, effective_interaction_id]
+			)
 		)
 	):
 		report = _make_raw_report(
@@ -216,7 +230,11 @@ func send_to(
 			false
 		)
 	report = _normalize_report(report, receiver)
-	_emit_send_result(context, receiver, report)
+	_emit_send_result(
+		context,
+		receiver,
+		report
+	)
 	return report
 
 
@@ -243,7 +261,11 @@ func send_to_path(
 	interaction_id_override: StringName = &""
 ) -> Dictionary:
 	var receiver: Node = get_node_or_null(receiver_path)
-	return send_to(receiver, payload_override, interaction_id_override)
+	return send_to(
+		receiver,
+		payload_override,
+		interaction_id_override
+	)
 
 
 ## 向场景树分组中的接收对象广播交互。
@@ -271,7 +293,14 @@ func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0)
 	for receiver: Node in receivers:
 		if max_count > 0 and accepted_count >= max_count:
 			break
-		var report: Dictionary = _get_report_value(_send_to_with_dispatch_host(dispatch_host, receiver, null, &""))
+		var report: Dictionary = _get_report_value(
+			_send_to_with_dispatch_host(
+				dispatch_host,
+				receiver,
+				null,
+				&""
+			)
+		)
 		if not report.is_empty():
 			reports.append(report)
 			if GFVariantData.get_option_bool(report, "ok"):
@@ -308,16 +337,35 @@ func send_to_best_candidate(
 ) -> Dictionary:
 	var candidates: Array = _get_candidate_provider_receiver_refs(candidate_provider, options)
 	if candidates.is_empty():
-		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "Candidate provider returned no receiver.")
+		return _make_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"missing_receiver",
+			"Candidate provider returned no receiver."
+		)
 	var receiver_ref_value: Variant = candidates[0]
 	if not (receiver_ref_value is WeakRef):
-		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "Candidate provider returned no receiver.")
+		return _make_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"missing_receiver",
+			"Candidate provider returned no receiver."
+		)
 	var receiver_ref: WeakRef = receiver_ref_value
 	var receiver_value: Variant = receiver_ref.get_ref()
 	if receiver_value == null:
-		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "Candidate provider returned no receiver.")
+		return _make_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"missing_receiver",
+			"Candidate provider returned no receiver."
+		)
 	var receiver: Object = receiver_value
-	return send_to(receiver, payload_override, interaction_id_override)
+	return send_to(
+		receiver,
+		payload_override,
+		interaction_id_override
+	)
 
 
 ## 向候选 provider 返回的接收对象广播交互。
@@ -364,12 +412,14 @@ func broadcast_to_candidates(
 		if receiver_value == null:
 			continue
 		var receiver: Object = receiver_value
-		var report: Dictionary = _get_report_value(_send_to_with_dispatch_host(
-			dispatch_host,
-			receiver,
-			payload_override,
-			interaction_id_override
-		))
+		var report: Dictionary = _get_report_value(
+			_send_to_with_dispatch_host(
+				dispatch_host,
+				receiver,
+				payload_override,
+				interaction_id_override
+			)
+		)
 		if not report.is_empty():
 			reports.append(report)
 			if GFVariantData.get_option_bool(report, "ok"):
@@ -400,9 +450,17 @@ func send_to_raycast_2d(
 	interaction_id_override: StringName = &""
 ) -> Dictionary:
 	if raycast == null or not raycast.is_colliding():
-		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "RayCast2D is not colliding.")
+		return _make_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"missing_receiver",
+			"RayCast2D is not colliding."
+		)
 	return send_to(
-		_MESSAGE_DISPATCH_SUPPORT._resolve_receiver(raycast.get_collider(), &"receive_interaction"),
+		_MESSAGE_DISPATCH_SUPPORT._resolve_receiver(
+			raycast.get_collider(),
+			&"receive_interaction"
+		),
 		payload_override,
 		interaction_id_override
 	)
@@ -431,9 +489,17 @@ func send_to_raycast_3d(
 	interaction_id_override: StringName = &""
 ) -> Dictionary:
 	if raycast == null or not raycast.is_colliding():
-		return _make_report(false, interaction_id_override if interaction_id_override != &"" else interaction_id, "missing_receiver", "RayCast3D is not colliding.")
+		return _make_report(
+			false,
+			interaction_id_override if interaction_id_override != &"" else interaction_id,
+			"missing_receiver",
+			"RayCast3D is not colliding."
+		)
 	return send_to(
-		_MESSAGE_DISPATCH_SUPPORT._resolve_receiver(raycast.get_collider(), &"receive_interaction"),
+		_MESSAGE_DISPATCH_SUPPORT._resolve_receiver(
+			raycast.get_collider(),
+			&"receive_interaction"
+		),
 		payload_override,
 		interaction_id_override
 	)
@@ -533,10 +599,7 @@ func _broadcast_to_collision_candidates(
 		if typeof(candidate_value) != TYPE_OBJECT or not is_instance_valid(candidate_value):
 			continue
 		var candidate: Object = candidate_value
-		var resolved_receiver: Object = _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(
-			candidate,
-			&"receive_interaction"
-		)
+		var resolved_receiver: Object = _MESSAGE_DISPATCH_SUPPORT._resolve_receiver(candidate, &"receive_interaction")
 		if resolved_receiver == null or not is_instance_valid(resolved_receiver):
 			continue
 		var receiver_id: int = resolved_receiver.get_instance_id()
@@ -567,12 +630,28 @@ func _broadcast_to_collision_candidates(
 ## 发出交互发送信号，并依据报告结果发出接受或拒绝信号。
 ## [br]
 ## @api private
-func _emit_send_result(context: GFInteractionContext, receiver: Object, report: Dictionary) -> void:
-	interaction_sent.emit(context, receiver, report)
+func _emit_send_result(
+	context: GFInteractionContext,
+	receiver: Object,
+	report: Dictionary
+) -> void:
+	interaction_sent.emit(
+		context,
+		receiver,
+		report
+	)
 	if GFVariantData.get_option_bool(report, "ok"):
-		interaction_accepted.emit(context, receiver, report)
+		interaction_accepted.emit(
+			context,
+			receiver,
+			report
+		)
 	else:
-		interaction_rejected.emit(context, receiver, report)
+		interaction_rejected.emit(
+			context,
+			receiver,
+			report
+		)
 
 
 ## 规范化碰撞派发报告、构建上下文并发布结果信号。
@@ -585,7 +664,11 @@ func _emit_collision_dispatch_result(
 	report: Dictionary
 ) -> void:
 	var normalized_report: Dictionary = _normalize_report(report, receiver)
-	_emit_send_result(build_context(receiver, payload_override), receiver, normalized_report)
+	_emit_send_result(
+		build_context(receiver, payload_override),
+		receiver,
+		normalized_report
+	)
 
 
 ## 调用候选提供器并返回去重接收器的弱引用列表。
@@ -596,10 +679,12 @@ func _get_candidate_provider_receiver_refs(candidate_provider: Object, options: 
 	var query_options: Dictionary = options.duplicate(true)
 	if not query_options.has("method_name"):
 		query_options["method_name"] = &"receive_interaction"
-	if not GFInteractions.is_method_call_compatible_for_framework(
-		candidate_provider,
-		&"get_candidate_objects",
-		[query_options]
+	if not (
+		GFInteractions.is_method_call_compatible_for_framework(
+			candidate_provider,
+			&"get_candidate_objects",
+			[query_options]
+		)
 	):
 		return objects
 
@@ -626,13 +711,21 @@ func _get_candidate_provider_receiver_refs(candidate_provider: Object, options: 
 ## 构造并规范化一次交互结果报告。
 ## [br]
 ## @api private
-func _make_report(ok: bool, effective_interaction_id: StringName, reason: String, message: String) -> Dictionary:
-	return _normalize_report(_make_raw_report(
-		ok,
-		effective_interaction_id,
-		reason,
-		message
-	), null)
+func _make_report(
+	ok: bool,
+	effective_interaction_id: StringName,
+	reason: String,
+	message: String
+) -> Dictionary:
+	return _normalize_report(
+		_make_raw_report(
+			ok,
+			effective_interaction_id,
+			reason,
+			message
+		),
+		null
+	)
 
 
 ## 构造包含结果状态、交互标识、接收器及元数据的原始报告。
@@ -686,16 +779,34 @@ func _send_to_with_dispatch_host(
 	interaction_id_override: StringName
 ) -> Dictionary:
 	if not enabled:
-		return send_to(receiver, payload_override, interaction_id_override)
+		return send_to(
+			receiver,
+			payload_override,
+			interaction_id_override
+		)
 	if typeof(dispatch_host) != TYPE_OBJECT or not is_instance_valid(dispatch_host):
-		return send_to(receiver, payload_override, interaction_id_override)
+		return send_to(
+			receiver,
+			payload_override,
+			interaction_id_override
+		)
 	var effective_dispatch_host: Object = dispatch_host
-	if not GFInteractions.is_method_call_compatible_for_framework(
-		effective_dispatch_host,
-		&"send_to",
-		[receiver, payload_override, interaction_id_override]
+	if not (
+		GFInteractions.is_method_call_compatible_for_framework(
+			effective_dispatch_host,
+			&"send_to",
+			[
+				receiver,
+				payload_override,
+				interaction_id_override,
+			]
+		)
 	):
-		return send_to(receiver, payload_override, interaction_id_override)
+		return send_to(
+			receiver,
+			payload_override,
+			interaction_id_override
+		)
 
 	var report_value: Variant = effective_dispatch_host.call(
 		"send_to",
@@ -712,7 +823,12 @@ func _send_to_with_dispatch_host(
 			receiver
 		)
 		if effective_dispatch_host != self:
-			_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, invalid_report)
+			_emit_collision_dispatch_result(
+				receiver,
+				payload_override,
+				interaction_id_override,
+				invalid_report
+			)
 		return _normalize_report(invalid_report, receiver)
 	var report: Dictionary = GFVariantData.as_dictionary(report_value)
 	if report.is_empty():
@@ -724,7 +840,12 @@ func _send_to_with_dispatch_host(
 			receiver
 		)
 	if effective_dispatch_host != self:
-		_emit_collision_dispatch_result(receiver, payload_override, interaction_id_override, report)
+		_emit_collision_dispatch_result(
+			receiver,
+			payload_override,
+			interaction_id_override,
+			report
+		)
 		report = _normalize_report(report, receiver)
 	return report
 
@@ -743,7 +864,11 @@ func _can_use_send_to_override(candidate: Object) -> bool:
 	return GFInteractions.is_method_call_compatible_for_framework(
 		candidate,
 		&"send_to",
-		[self, null, &""]
+		[
+			self,
+			null,
+			&"",
+		]
 	)
 
 
@@ -757,6 +882,7 @@ func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictiona
 	var receiver_value: Variant = GFVariantData.get_option_value(raw_report, "receiver")
 	if default_receiver != null and not receiver_value is Object:
 		raw_report["receiver"] = default_receiver
-	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(raw_report, {
-		"path_redaction": "basename",
-	})
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
+		raw_report,
+		{ "path_redaction": "basename", }
+	)

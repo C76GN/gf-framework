@@ -17,7 +17,7 @@
 |---|---|---|
 | 方法 | [`initialize`](#member-gfstoragebackend-methods-initialize) | `func initialize(config: Dictionary = {}) -> Error:` |
 | 方法 | [`shutdown`](#member-gfstoragebackend-methods-shutdown) | `func shutdown() -> void:` |
-| 方法 | [`save_data`](#member-gfstoragebackend-methods-save_data) | `func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -> Error:` |
+| 方法 | [`save_data`](#member-gfstoragebackend-methods-save_data) | `func save_data( file_name: String, data: Dictionary, metadata: Dictionary = {} ) -> Error:` |
 | 方法 | [`load_data`](#member-gfstoragebackend-methods-load_data) | `func load_data(file_name: String) -> Dictionary:` |
 | 方法 | [`delete_data`](#member-gfstoragebackend-methods-delete_data) | `func delete_data(file_name: String) -> Error:` |
 | 方法 | [`has_data`](#member-gfstoragebackend-methods-has_data) | `func has_data(file_name: String) -> bool:` |
@@ -26,7 +26,7 @@
 | 方法 | [`get_capability_report`](#member-gfstoragebackend-methods-get_capability_report) | `func get_capability_report(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`_initialize`](#member-gfstoragebackend-methods-_initialize) | `func _initialize(_config: Dictionary) -> Error:` |
 | 方法 | [`_shutdown`](#member-gfstoragebackend-methods-_shutdown) | `func _shutdown() -> void:` |
-| 方法 | [`_save_data`](#member-gfstoragebackend-methods-_save_data) | `func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -> Error:` |
+| 方法 | [`_save_data`](#member-gfstoragebackend-methods-_save_data) | `func _save_data( _file_name: String, _data: Dictionary, _metadata: Dictionary ) -> Error:` |
 | 方法 | [`_load_data`](#member-gfstoragebackend-methods-_load_data) | `func _load_data(_file_name: String) -> Dictionary:` |
 | 方法 | [`_delete_data`](#member-gfstoragebackend-methods-_delete_data) | `func _delete_data(_file_name: String) -> Error:` |
 | 方法 | [`_has_data`](#member-gfstoragebackend-methods-_has_data) | `func _has_data(_file_name: String) -> bool:` |
@@ -76,9 +76,10 @@ func shutdown() -> void:
 ### `save_data`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func save_data(file_name: String, data: Dictionary, metadata: Dictionary = {}) -> Error:
+func save_data( file_name: String, data: Dictionary, metadata: Dictionary = {} ) -> Error:
 ```
 
 保存纯字典数据。
@@ -266,9 +267,10 @@ func _shutdown() -> void:
 ### `_save_data`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _save_data(_file_name: String, _data: Dictionary, _metadata: Dictionary) -> Error:
+func _save_data( _file_name: String, _data: Dictionary, _metadata: Dictionary ) -> Error:
 ```
 
 保存纯字典数据到具体后端。

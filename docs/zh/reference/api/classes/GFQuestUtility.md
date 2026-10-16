@@ -18,7 +18,7 @@
 | 信号 | [`quest_started`](#member-gfquestutility-signals-quest_started) | `signal quest_started(quest_id: StringName)` |
 | 信号 | [`quest_available`](#member-gfquestutility-signals-quest_available) | `signal quest_available(quest_id: StringName)` |
 | 信号 | [`quest_acceptance_blocked`](#member-gfquestutility-signals-quest_acceptance_blocked) | `signal quest_acceptance_blocked(quest_id: StringName, reason: String)` |
-| 信号 | [`quest_progressed`](#member-gfquestutility-signals-quest_progressed) | `signal quest_progressed(quest_id: StringName, current: int, target: int)` |
+| 信号 | [`quest_progressed`](#member-gfquestutility-signals-quest_progressed) | `signal quest_progressed( quest_id: StringName, current: int, target: int )` |
 | 信号 | [`quest_completed`](#member-gfquestutility-signals-quest_completed) | `signal quest_completed(quest_id: StringName)` |
 | 信号 | [`quest_completion_blocked`](#member-gfquestutility-signals-quest_completion_blocked) | `signal quest_completion_blocked(quest_id: StringName, reason: String)` |
 | 信号 | [`quest_cancelled`](#member-gfquestutility-signals-quest_cancelled) | `signal quest_cancelled(quest_id: StringName)` |
@@ -29,7 +29,7 @@
 | 常量 | [`STATUS_CANCELLED`](#member-gfquestutility-constants-status_cancelled) | `const STATUS_CANCELLED: StringName = &"cancelled"` |
 | 常量 | [`STATUS_FAILED`](#member-gfquestutility-constants-status_failed) | `const STATUS_FAILED: StringName = &"failed"` |
 | 属性 | [`allow_negative_progress`](#member-gfquestutility-properties-allow_negative_progress) | `var allow_negative_progress: bool = false` |
-| 方法 | [`start_quest`](#member-gfquestutility-methods-start_quest) | `func start_quest(quest_id: StringName, target_event: StringName, target_count: int = 1) -> void:` |
+| 方法 | [`start_quest`](#member-gfquestutility-methods-start_quest) | `func start_quest( quest_id: StringName, target_event: StringName, target_count: int = 1 ) -> void:` |
 | 方法 | [`define_quest`](#member-gfquestutility-methods-define_quest) | `func define_quest( quest_id: StringName, target_event: StringName, target_count: int = 1, metadata: Dictionary = {} ) -> void:` |
 | 方法 | [`accept_quest`](#member-gfquestutility-methods-accept_quest) | `func accept_quest(quest_id: StringName) -> bool:` |
 | 方法 | [`complete_quest`](#member-gfquestutility-methods-complete_quest) | `func complete_quest(quest_id: StringName) -> bool:` |
@@ -113,9 +113,10 @@ signal quest_acceptance_blocked(quest_id: StringName, reason: String)
 ### `quest_progressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal quest_progressed(quest_id: StringName, current: int, target: int)
+signal quest_progressed( quest_id: StringName, current: int, target: int )
 ```
 
 当任务进度变化时发出。
@@ -284,9 +285,10 @@ var allow_negative_progress: bool = false
 ### `start_quest`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func start_quest(quest_id: StringName, target_event: StringName, target_count: int = 1) -> void:
+func start_quest( quest_id: StringName, target_event: StringName, target_count: int = 1 ) -> void:
 ```
 
 开始监听一个任务。

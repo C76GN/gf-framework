@@ -264,19 +264,59 @@ func can_invoke(context: Dictionary = {}) -> bool:
 ## @schema return: JSON-safe Dictionary containing ok, status, action_id, error_code, message, available, enabled, has_command_factory, command_created, command_can_execute, command_name, and metadata.
 func get_invocation_report(context: Dictionary = {}) -> Dictionary:
 	if not enabled:
-		return _make_invocation_report(false, INVOCATION_STATUS_DISABLED, ERR_UNAVAILABLE, "动作已禁用。", false)
+		return _make_invocation_report(
+			false,
+			INVOCATION_STATUS_DISABLED,
+			ERR_UNAVAILABLE,
+			"动作已禁用。",
+			false
+		)
 	if not command_factory.is_valid():
-		return _make_invocation_report(false, INVOCATION_STATUS_FACTORY_MISSING, ERR_CANT_CREATE, "动作缺少有效命令工厂。", false)
+		return _make_invocation_report(
+			false,
+			INVOCATION_STATUS_FACTORY_MISSING,
+			ERR_CANT_CREATE,
+			"动作缺少有效命令工厂。",
+			false
+		)
 	if availability_callback.is_valid() and not _call_availability_callback(context):
-		return _make_invocation_report(false, INVOCATION_STATUS_UNAVAILABLE, ERR_UNAVAILABLE, "动作当前不可用。", false)
+		return _make_invocation_report(
+			false,
+			INVOCATION_STATUS_UNAVAILABLE,
+			ERR_UNAVAILABLE,
+			"动作当前不可用。",
+			false
+		)
 
 	var command: GFEditorCommandBase = _create_command_from_factory(context)
 	if command == null:
-		return _make_invocation_report(false, INVOCATION_STATUS_COMMAND_INVALID, ERR_CANT_CREATE, "命令工厂没有返回有效 GFEditorCommand。", true)
+		return _make_invocation_report(
+			false,
+			INVOCATION_STATUS_COMMAND_INVALID,
+			ERR_CANT_CREATE,
+			"命令工厂没有返回有效 GFEditorCommand。",
+			true
+		)
 	var command_can_execute: bool = command.can_execute()
 	if not command_can_execute:
-		return _make_invocation_report(false, INVOCATION_STATUS_COMMAND_UNAVAILABLE, ERR_UNAVAILABLE, "命令当前不可执行。", true, command, false)
-	return _make_invocation_report(true, INVOCATION_STATUS_READY, OK, "", true, command, true)
+		return _make_invocation_report(
+			false,
+			INVOCATION_STATUS_COMMAND_UNAVAILABLE,
+			ERR_UNAVAILABLE,
+			"命令当前不可执行。",
+			true,
+			command,
+			false
+		)
+	return _make_invocation_report(
+		true,
+		INVOCATION_STATUS_READY,
+		OK,
+		"",
+		true,
+		command,
+		true
+	)
 
 
 ## 获取动作快照。
@@ -349,9 +389,10 @@ func _make_invocation_report(
 ## [br]
 ## @api private
 func _to_report_dictionary(value: Dictionary) -> Dictionary:
-	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(value, {
-		"path_redaction": "basename",
-	})
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(
+		value,
+		{ "path_redaction": "basename", }
+	)
 
 
 ## 调用可用性回调，仅把 bool 结果作为有效值；其他类型返回 false。

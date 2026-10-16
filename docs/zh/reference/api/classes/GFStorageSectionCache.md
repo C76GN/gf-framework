@@ -15,16 +15,16 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`write_section`](#member-gfstoragesectioncache-methods-write_section) | `func write_section(scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true) -> bool:` |
+| 方法 | [`write_section`](#member-gfstoragesectioncache-methods-write_section) | `func write_section( scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true ) -> bool:` |
 | 方法 | [`merge_section`](#member-gfstoragesectioncache-methods-merge_section) | `func merge_section( scope_id: Variant, section_id: StringName, patch: Dictionary, deep: bool = true, mark_dirty: bool = true ) -> Dictionary:` |
-| 方法 | [`read_section`](#member-gfstoragesectioncache-methods-read_section) | `func read_section(scope_id: Variant, section_id: StringName, duplicate_value: bool = true) -> Dictionary:` |
+| 方法 | [`read_section`](#member-gfstoragesectioncache-methods-read_section) | `func read_section( scope_id: Variant, section_id: StringName, duplicate_value: bool = true ) -> Dictionary:` |
 | 方法 | [`has_section`](#member-gfstoragesectioncache-methods-has_section) | `func has_section(scope_id: Variant, section_id: StringName) -> bool:` |
 | 方法 | [`get_sections`](#member-gfstoragesectioncache-methods-get_sections) | `func get_sections(scope_id: Variant, only_dirty: bool = false) -> Dictionary:` |
 | 方法 | [`get_section_ids`](#member-gfstoragesectioncache-methods-get_section_ids) | `func get_section_ids(scope_id: Variant) -> PackedStringArray:` |
 | 方法 | [`get_dirty_sections`](#member-gfstoragesectioncache-methods-get_dirty_sections) | `func get_dirty_sections(scope_id: Variant) -> PackedStringArray:` |
 | 方法 | [`is_dirty`](#member-gfstoragesectioncache-methods-is_dirty) | `func is_dirty(scope_id: Variant, section_id: StringName = &"") -> bool:` |
 | 方法 | [`mark_clean`](#member-gfstoragesectioncache-methods-mark_clean) | `func mark_clean(scope_id: Variant, section_ids: PackedStringArray = PackedStringArray()) -> int:` |
-| 方法 | [`apply_payload`](#member-gfstoragesectioncache-methods-apply_payload) | `func apply_payload(scope_id: Variant, payload: Dictionary, mark_dirty: bool = false) -> int:` |
+| 方法 | [`apply_payload`](#member-gfstoragesectioncache-methods-apply_payload) | `func apply_payload( scope_id: Variant, payload: Dictionary, mark_dirty: bool = false ) -> int:` |
 | 方法 | [`build_payload`](#member-gfstoragesectioncache-methods-build_payload) | `func build_payload( scope_id: Variant, include_clean: bool = false, mark_clean_after_build: bool = false ) -> Dictionary:` |
 | 方法 | [`evict_scope`](#member-gfstoragesectioncache-methods-evict_scope) | `func evict_scope(scope_id: Variant) -> bool:` |
 | 方法 | [`clear`](#member-gfstoragesectioncache-methods-clear) | `func clear() -> void:` |
@@ -40,7 +40,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-func write_section(scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true) -> bool:
+func write_section( scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true ) -> bool:
 ```
 
 写入一个分区。
@@ -100,7 +100,7 @@ func merge_section( scope_id: Variant, section_id: StringName, patch: Dictionary
 - 首次版本：`8.0.0`
 
 ```gdscript
-func read_section(scope_id: Variant, section_id: StringName, duplicate_value: bool = true) -> Dictionary:
+func read_section( scope_id: Variant, section_id: StringName, duplicate_value: bool = true ) -> Dictionary:
 ```
 
 读取一个分区。
@@ -283,7 +283,7 @@ func mark_clean(scope_id: Variant, section_ids: PackedStringArray = PackedString
 - 首次版本：`8.0.0`
 
 ```gdscript
-func apply_payload(scope_id: Variant, payload: Dictionary, mark_dirty: bool = false) -> int:
+func apply_payload( scope_id: Variant, payload: Dictionary, mark_dirty: bool = false ) -> int:
 ```
 
 从 payload 填充作用域。

@@ -137,33 +137,43 @@ static func audit_scene_paths(scene_paths: PackedStringArray, options: Dictionar
 static func audit_scene(scene_path: String, options: Dictionary = {}) -> Array[Dictionary]:
 	var packed_scene: PackedScene = _variant_to_packed_scene(load(scene_path))
 	if packed_scene == null:
-		return [_make_scene_issue(
-			IssueType.SCENE_LOAD_FAILED,
-			scene_path,
-			"无法加载场景资源。"
-		)]
+		return [
+			_make_scene_issue(
+				IssueType.SCENE_LOAD_FAILED,
+				scene_path,
+				"无法加载场景资源。"
+			),
+		]
 
 	var state: SceneState = packed_scene.get_state()
 	if state == null:
-		return [_make_scene_issue(
-			IssueType.SCENE_STATE_UNAVAILABLE,
-			scene_path,
-			"无法读取场景状态。"
-		)]
+		return [
+			_make_scene_issue(
+				IssueType.SCENE_STATE_UNAVAILABLE,
+				scene_path,
+				"无法读取场景状态。"
+			),
+		]
 
 	if state.get_connection_count() == 0:
 		return []
 
 	var root: Node = _variant_to_node(packed_scene.instantiate(PackedScene.GEN_EDIT_STATE_DISABLED))
 	if root == null:
-		return [_make_scene_issue(
-			IssueType.SCENE_INSTANTIATION_FAILED,
-			scene_path,
-			"无法实例化场景用于检查连接目标。"
-		)]
+		return [
+			_make_scene_issue(
+				IssueType.SCENE_INSTANTIATION_FAILED,
+				scene_path,
+				"无法实例化场景用于检查连接目标。"
+			),
+		]
 
 	var issues: Array[Dictionary] = []
-	var check_parameter_count: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_parameter_count", true)
+	var check_parameter_count: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"check_parameter_count",
+		true
+	)
 	for connection_index: int in range(state.get_connection_count()):
 		var source_path: NodePath = state.get_connection_source(connection_index)
 		var target_path: NodePath = state.get_connection_target(connection_index)
@@ -173,55 +183,63 @@ static func audit_scene(scene_path: String, options: Dictionary = {}) -> Array[D
 		var target_node: Node = _get_node_or_root(root, target_path)
 
 		if source_node == null:
-			issues.append(_make_connection_issue(
-				IssueType.MISSING_SOURCE,
-				scene_path,
-				connection_index,
-				source_path,
-				target_path,
-				signal_name,
-				method_name,
-				"连接源节点不存在。"
-			))
+			issues.append(
+				_make_connection_issue(
+					IssueType.MISSING_SOURCE,
+					scene_path,
+					connection_index,
+					source_path,
+					target_path,
+					signal_name,
+					method_name,
+					"连接源节点不存在。"
+				)
+			)
 			continue
 
 		if target_node == null:
-			issues.append(_make_connection_issue(
-				IssueType.MISSING_TARGET,
-				scene_path,
-				connection_index,
-				source_path,
-				target_path,
-				signal_name,
-				method_name,
-				"连接目标节点不存在。"
-			))
+			issues.append(
+				_make_connection_issue(
+					IssueType.MISSING_TARGET,
+					scene_path,
+					connection_index,
+					source_path,
+					target_path,
+					signal_name,
+					method_name,
+					"连接目标节点不存在。"
+				)
+			)
 			continue
 
 		if not source_node.has_signal(signal_name):
-			issues.append(_make_connection_issue(
-				IssueType.MISSING_SIGNAL,
-				scene_path,
-				connection_index,
-				source_path,
-				target_path,
-				signal_name,
-				method_name,
-				"连接源节点没有该信号。"
-			))
+			issues.append(
+				_make_connection_issue(
+					IssueType.MISSING_SIGNAL,
+					scene_path,
+					connection_index,
+					source_path,
+					target_path,
+					signal_name,
+					method_name,
+					"连接源节点没有该信号。"
+				)
+			)
 			continue
 
 		if not target_node.has_method(method_name):
-			issues.append(_make_connection_issue(
-				IssueType.MISSING_METHOD,
-				scene_path,
-				connection_index,
-				source_path,
-				target_path,
-				signal_name,
-				method_name,
-				"连接目标节点没有该方法。"
-			))
+			issues.append(
+				_make_connection_issue(
+					IssueType.MISSING_METHOD,
+					scene_path,
+					connection_index,
+					source_path,
+					target_path,
+					signal_name,
+					method_name,
+					"连接目标节点没有该方法。"
+				)
+			)
 			continue
 
 		if check_parameter_count:
@@ -252,10 +270,32 @@ static func audit_scene(scene_path: String, options: Dictionary = {}) -> Array[D
 ## @return 场景路径列表。
 static func collect_scene_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	var include_hidden: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_hidden", false)
-	var respect_gdignore: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "respect_gdignore", true)
-	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_scene_paths: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scene_paths", DEFAULT_MAX_SCENE_PATHS), 0)
+	var include_hidden: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_hidden",
+		false
+	)
+	var respect_gdignore: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"respect_gdignore",
+		true
+	)
+	var max_scan_depth: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_scene_paths: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scene_paths",
+			DEFAULT_MAX_SCENE_PATHS
+		),
+		0
+	)
 	var scan_state: Dictionary = _make_scan_state()
 	_collect_scene_paths_recursive(
 		root_path,
@@ -301,16 +341,58 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 			"message": "root 为空。",
 		}
 
-	var include_internal: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_internal", false)
-	var persistent_only: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "persistent_only", false)
-	var include_empty_signals: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_empty_signals", false)
-	var include_external_targets: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_external_targets", true)
-	var participating_nodes_only: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "participating_nodes_only", false)
-	var max_node_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_node_depth", DEFAULT_MAX_SIGNAL_GRAPH_DEPTH), 0)
-	var max_nodes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_nodes", DEFAULT_MAX_SIGNAL_GRAPH_NODES), 0)
+	var include_internal: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_internal",
+		false
+	)
+	var persistent_only: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"persistent_only",
+		false
+	)
+	var include_empty_signals: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_empty_signals",
+		false
+	)
+	var include_external_targets: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_external_targets",
+		true
+	)
+	var participating_nodes_only: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"participating_nodes_only",
+		false
+	)
+	var max_node_depth: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_node_depth",
+			DEFAULT_MAX_SIGNAL_GRAPH_DEPTH
+		),
+		0
+	)
+	var max_nodes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_nodes",
+			DEFAULT_MAX_SIGNAL_GRAPH_NODES
+		),
+		0
+	)
 	var nodes: Array[Node] = []
 	var scan_state: Dictionary = _make_signal_graph_scan_state()
-	_collect_signal_graph_nodes(root, nodes, include_internal, 0, max_node_depth, max_nodes, scan_state)
+	_collect_signal_graph_nodes(
+		root,
+		nodes,
+		include_internal,
+		0,
+		max_node_depth,
+		max_nodes,
+		scan_state
+	)
 
 	var node_entries: Array[Dictionary] = []
 	var candidate_node_entries: Array[Dictionary] = []
@@ -328,24 +410,31 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 			var raw_connections: Array = node.get_signal_connection_list(signal_name)
 			var connections: Array[Dictionary] = []
 			for connection_info: Dictionary in raw_connections:
-				if persistent_only and (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(connection_info, "flags") & CONNECT_PERSIST) == 0:
+				if (persistent_only and (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(connection_info, "flags") & CONNECT_PERSIST) == 0):
 					continue
 				if not include_external_targets and _is_external_connection(root, connection_info):
 					continue
 				connections.append(connection_info)
 
 			if include_empty_signals or not connections.is_empty():
-				signal_entries.append({
-					"node_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(node_entry, "node_path"),
-					"signal_name": String(signal_name),
-					"argument_count": _get_signal_argument_count(node, signal_name),
-					"connection_count": connections.size(),
-				})
+				signal_entries.append(
+					{
+						"node_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(node_entry, "node_path"),
+						"signal_name": String(signal_name),
+						"argument_count": _get_signal_argument_count(node, signal_name),
+						"connection_count": connections.size(),
+					}
+				)
 				if participating_nodes_only:
 					participating_node_paths[_GF_VARIANT_ACCESS_SCRIPT.get_option_string(node_entry, "node_path")] = true
 
 			for connection_info: Dictionary in connections:
-				var connection_entry: Dictionary = _make_runtime_connection_entry(root, node, signal_name, connection_info)
+				var connection_entry: Dictionary = _make_runtime_connection_entry(
+					root,
+					node,
+					signal_name,
+					connection_info
+				)
 				connection_entries.append(connection_entry)
 				if participating_nodes_only:
 					participating_node_paths[_GF_VARIANT_ACCESS_SCRIPT.get_option_string(connection_entry, "source_node_path")] = true
@@ -369,7 +458,11 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 		"nodes": node_entries,
 		"signals": signal_entries,
 		"connections": connection_entries,
-		"truncated": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "truncated", false),
+		"truncated": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			scan_state,
+			"truncated",
+			false
+		),
 	}
 
 
@@ -416,8 +509,16 @@ static func index_signal_graph(graph: Dictionary) -> Dictionary:
 			continue
 		var source_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(connection, "source_node_path")
 		var target_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(connection, "target_node_path")
-		_append_signal_graph_index_entry(outgoing, source_path, connection)
-		_append_signal_graph_index_entry(incoming, target_path, connection)
+		_append_signal_graph_index_entry(
+			outgoing,
+			source_path,
+			connection
+		)
+		_append_signal_graph_index_entry(
+			incoming,
+			target_path,
+			connection
+		)
 
 	return {
 		"node_count": nodes_by_path.size(),
@@ -451,14 +552,26 @@ static func _collect_signal_graph_nodes(
 	var child_count: int = root.get_child_count(include_internal)
 	if max_node_depth > 0 and depth >= max_node_depth:
 		if child_count > 0:
-			_warn_signal_graph_depth_limit(root, max_node_depth, scan_state)
+			_warn_signal_graph_depth_limit(
+				root,
+				max_node_depth,
+				scan_state
+			)
 		return
 
 	for child: Node in root.get_children(include_internal):
 		if not _can_collect_more_signal_graph_nodes(result, max_nodes):
 			_warn_signal_graph_node_limit(max_nodes, scan_state)
 			break
-		_collect_signal_graph_nodes(child, result, include_internal, depth + 1, max_node_depth, max_nodes, scan_state)
+		_collect_signal_graph_nodes(
+			child,
+			result,
+			include_internal,
+			depth + 1,
+			max_node_depth,
+			max_nodes,
+			scan_state
+		)
 
 
 ## 递归扫描目录中的 .tscn 文件，并在路径数量上限处停止后续收集。
@@ -539,7 +652,11 @@ static func _should_scan_directory(
 	if respect_gdignore and FileAccess.file_exists(path.path_join(".gdignore")):
 		return false
 	if max_scan_depth > 0 and current_depth >= max_scan_depth:
-		_warn_scene_depth_limit(path, max_scan_depth, scan_state)
+		_warn_scene_depth_limit(
+			path,
+			max_scan_depth,
+			scan_state
+		)
 		return false
 	return true
 
@@ -562,10 +679,7 @@ static func _can_collect_more_signal_graph_nodes(result: Array[Node], max_nodes:
 ## [br]
 ## @api private
 static func _make_scan_state() -> Dictionary:
-	return {
-		"count_warning_emitted": false,
-		"depth_warning_emitted": false,
-	}
+	return { "count_warning_emitted": false, "depth_warning_emitted": false, }
 
 
 ## 创建信号图扫描的截断状态及数量、深度警告标记。
@@ -583,7 +697,11 @@ static func _make_signal_graph_scan_state() -> Dictionary:
 ## [br]
 ## @api private
 static func _warn_scene_path_limit(max_scene_paths: int, scan_state: Dictionary) -> void:
-	if max_scene_paths <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
+	if max_scene_paths <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		scan_state,
+		"count_warning_emitted",
+		false
+	):
 		return
 	scan_state["count_warning_emitted"] = true
 	push_warning("[GFSceneSignalAudit][scene_signal_audit.scene_limit_reached] collect_scene_paths reached max_scene_paths=%d; subsequent scenes were skipped." % max_scene_paths)
@@ -592,18 +710,33 @@ static func _warn_scene_path_limit(max_scene_paths: int, scan_state: Dictionary)
 ## 深度上限为正且本次尚未告警时置位标记并报告被跳过的目录。
 ## [br]
 ## @api private
-static func _warn_scene_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
-	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
+static func _warn_scene_depth_limit(
+	path: String,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> void:
+	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		scan_state,
+		"depth_warning_emitted",
+		false
+	):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFSceneSignalAudit][scene_signal_audit.scan_depth_limit_reached] collect_scene_paths reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
+	push_warning(
+		"[GFSceneSignalAudit][scene_signal_audit.scan_depth_limit_reached] collect_scene_paths reached max_scan_depth=%d; deeper directories were skipped: %s."
+		% [max_scan_depth, path]
+	)
 
 
 ## 节点上限为正且未告警时置位警告和 truncated 标记，并报告后续节点被跳过。
 ## [br]
 ## @api private
 static func _warn_signal_graph_node_limit(max_nodes: int, scan_state: Dictionary) -> void:
-	if max_nodes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
+	if max_nodes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		scan_state,
+		"count_warning_emitted",
+		false
+	):
 		return
 	scan_state["count_warning_emitted"] = true
 	scan_state["truncated"] = true
@@ -613,15 +746,23 @@ static func _warn_signal_graph_node_limit(max_nodes: int, scan_state: Dictionary
 ## 节点深度上限为正且未告警时置位警告和 truncated 标记，并报告当前节点路径。
 ## [br]
 ## @api private
-static func _warn_signal_graph_depth_limit(node: Node, max_node_depth: int, scan_state: Dictionary) -> void:
-	if max_node_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
+static func _warn_signal_graph_depth_limit(
+	node: Node,
+	max_node_depth: int,
+	scan_state: Dictionary
+) -> void:
+	if max_node_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		scan_state,
+		"depth_warning_emitted",
+		false
+	):
 		return
 	scan_state["depth_warning_emitted"] = true
 	scan_state["truncated"] = true
-	push_warning("[GFSceneSignalAudit][scene_signal_audit.node_depth_limit_reached] build_signal_graph reached max_node_depth=%d; deeper nodes were skipped: %s." % [
-		max_node_depth,
-		_relative_node_path(node, node),
-	])
+	push_warning(
+		"[GFSceneSignalAudit][scene_signal_audit.node_depth_limit_reached] build_signal_graph reached max_node_depth=%d; deeper nodes were skipped: %s."
+		% [max_node_depth, _relative_node_path(node, node),]
+	)
 
 
 ## 空路径或“.”指向 root，其余路径通过 root.get_node_or_null 查找。
@@ -727,13 +868,25 @@ static func _build_parameter_count_issue(
 
 	var binds: Array = state.get_connection_binds(connection_index)
 	var unbind_count: int = int(state.get_connection_unbinds(connection_index))
-	var delivered_arg_count: int = maxi(signal_arg_count - unbind_count, 0) + binds.size()
+	var delivered_arg_count: int = maxi(
+		signal_arg_count - unbind_count,
+		0
+	) + binds.size()
 	var method_args: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(method_info, "args")
 	var method_defaults: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(method_info, "default_args")
-	var required_arg_count: int = maxi(method_args.size() - method_defaults.size(), 0)
+	var required_arg_count: int = maxi(
+		method_args.size() - method_defaults.size(),
+		0
+	)
 	var maximum_arg_count: int = method_args.size()
-	var accepts_extra_args: bool = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(method_info, "flags") & METHOD_FLAG_VARARG) != 0
-	if delivered_arg_count >= required_arg_count and (accepts_extra_args or delivered_arg_count <= maximum_arg_count):
+	var accepts_extra_args: bool = ((_GF_VARIANT_ACCESS_SCRIPT.get_option_int(method_info, "flags") & METHOD_FLAG_VARARG) != 0)
+	if (
+		delivered_arg_count >= required_arg_count
+		and (
+			accepts_extra_args
+			or delivered_arg_count <= maximum_arg_count
+		)
+	):
 		return {}
 
 	var issue: Dictionary = _make_connection_issue(
@@ -779,7 +932,11 @@ static func _get_method_info(target_node: Node, method_name: StringName) -> Dict
 ## 确保分组字典中存在 Array，并向该数组追加连接记录的深复制。
 ## [br]
 ## @api private
-static func _append_signal_graph_index_entry(index: Dictionary, node_path: String, connection: Dictionary) -> void:
+static func _append_signal_graph_index_entry(
+	index: Dictionary,
+	node_path: String,
+	connection: Dictionary
+) -> void:
 	var entries: Array = _ensure_dictionary_array(index, node_path)
 	entries.append(connection.duplicate(true))
 
@@ -788,7 +945,11 @@ static func _append_signal_graph_index_entry(index: Dictionary, node_path: Strin
 ## [br]
 ## @api private
 static func _ensure_dictionary_array(source: Dictionary, key: Variant) -> Array:
-	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, key, [])
+	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		source,
+		key,
+		[]
+	)
 	if value is Array:
 		return value
 
@@ -801,7 +962,13 @@ static func _ensure_dictionary_array(source: Dictionary, key: Variant) -> Array:
 ## [br]
 ## @api private
 static func _get_dictionary_callable(source: Dictionary, key: Variant) -> Callable:
-	return _variant_to_callable(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(source, key, Callable()))
+	return _variant_to_callable(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			source,
+			key,
+			Callable()
+		)
+	)
 
 
 ## 向 PackedStringArray 追加字符串并丢弃 append 返回值。
@@ -850,7 +1017,11 @@ static func _variant_to_script(value: Variant) -> Script:
 ## 组装场景级问题记录，并把 connection_index 设为 -1。
 ## [br]
 ## @api private
-static func _make_scene_issue(issue_type: IssueType, scene_path: String, message: String) -> Dictionary:
+static func _make_scene_issue(
+	issue_type: IssueType,
+	scene_path: String,
+	message: String
+) -> Dictionary:
 	return {
 		"type": issue_type,
 		"type_name": _issue_type_name(issue_type),

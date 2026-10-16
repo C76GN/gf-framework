@@ -238,7 +238,11 @@ static func calculate_gesture(
 	if pointer_ids.is_empty():
 		return _make_empty_snapshot(source)
 
-	var aligned_previous_points: Dictionary = _align_previous_points(previous_points, current_points, pointer_ids)
+	var aligned_previous_points: Dictionary = _align_previous_points(
+		previous_points,
+		current_points,
+		pointer_ids
+	)
 	var center: Vector2 = _average_points(current_points, pointer_ids)
 	var previous_center: Vector2 = _average_points(aligned_previous_points, pointer_ids)
 	var distance: float = 0.0
@@ -259,7 +263,11 @@ static func calculate_gesture(
 		var safe_minimum_distance: float = maxf(minimum_distance, _DEFAULT_MINIMUM_PINCH_DISTANCE)
 		if previous_distance >= safe_minimum_distance and distance >= safe_minimum_distance:
 			scale = distance / previous_distance
-			rotation_delta = wrapf(current_vector.angle() - previous_vector.angle(), -PI, PI)
+			rotation_delta = wrapf(
+				current_vector.angle() - previous_vector.angle(),
+				-PI,
+				PI
+			)
 
 	return {
 		"active": true,
@@ -289,9 +297,19 @@ func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 	if event.button_index != mouse_button_index:
 		return false
 	if event.pressed:
-		_start_pointer(_MOUSE_POINTER_ID, event.position, event, &"mouse_press")
+		_start_pointer(
+			_MOUSE_POINTER_ID,
+			event.position,
+			event,
+			&"mouse_press"
+		)
 	else:
-		_release_pointer(_MOUSE_POINTER_ID, event.position, event, &"mouse_release")
+		_release_pointer(
+			_MOUSE_POINTER_ID,
+			event.position,
+			event,
+			&"mouse_release"
+		)
 	return true
 
 
@@ -302,7 +320,12 @@ func _handle_mouse_button(event: InputEventMouseButton) -> bool:
 func _handle_mouse_motion(event: InputEventMouseMotion) -> bool:
 	if not _active_pointers.has(_MOUSE_POINTER_ID):
 		return false
-	_move_pointer(_MOUSE_POINTER_ID, event.position, event, &"mouse_motion")
+	_move_pointer(
+		_MOUSE_POINTER_ID,
+		event.position,
+		event,
+		&"mouse_motion"
+	)
 	return true
 
 
@@ -312,9 +335,19 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> bool:
 ## [br]
 func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 	if event.pressed:
-		_start_pointer(event.index, event.position, event, &"touch_press")
+		_start_pointer(
+			event.index,
+			event.position,
+			event,
+			&"touch_press"
+		)
 	else:
-		_release_pointer(event.index, event.position, event, &"touch_release")
+		_release_pointer(
+			event.index,
+			event.position,
+			event,
+			&"touch_release"
+		)
 	return true
 
 
@@ -325,7 +358,12 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 func _handle_screen_drag(event: InputEventScreenDrag) -> bool:
 	if not _active_pointers.has(event.index):
 		return false
-	_move_pointer(event.index, event.position, event, &"touch_drag")
+	_move_pointer(
+		event.index,
+		event.position,
+		event,
+		&"touch_drag"
+	)
 	return true
 
 
@@ -340,7 +378,12 @@ func _handle_mouse_wheel(event: InputEventMouseButton) -> bool:
 	var scale: float = safe_factor
 	if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 		scale = 1.0 / safe_factor
-	var snapshot: Dictionary = _make_external_gesture_snapshot(&"mouse_wheel", event.position, Vector2.ZERO, scale)
+	var snapshot: Dictionary = _make_external_gesture_snapshot(
+		&"mouse_wheel",
+		event.position,
+		Vector2.ZERO,
+		scale
+	)
 	_store_and_emit_snapshot(snapshot, event)
 	return true
 
@@ -351,7 +394,12 @@ func _handle_mouse_wheel(event: InputEventMouseButton) -> bool:
 ## [br]
 func _handle_magnify_gesture(event: InputEventMagnifyGesture) -> bool:
 	var safe_factor: float = maxf(event.factor, _DEFAULT_MINIMUM_PINCH_DISTANCE)
-	var snapshot: Dictionary = _make_external_gesture_snapshot(&"magnify_gesture", event.position, Vector2.ZERO, safe_factor)
+	var snapshot: Dictionary = _make_external_gesture_snapshot(
+		&"magnify_gesture",
+		event.position,
+		Vector2.ZERO,
+		safe_factor
+	)
 	_store_and_emit_snapshot(snapshot, event)
 	return true
 
@@ -361,7 +409,12 @@ func _handle_magnify_gesture(event: InputEventMagnifyGesture) -> bool:
 ## @api private
 ## [br]
 func _handle_pan_gesture(event: InputEventPanGesture) -> bool:
-	var snapshot: Dictionary = _make_external_gesture_snapshot(&"pan_gesture", event.position, event.delta, 1.0)
+	var snapshot: Dictionary = _make_external_gesture_snapshot(
+		&"pan_gesture",
+		event.position,
+		event.delta,
+		1.0
+	)
 	_store_and_emit_snapshot(snapshot, event)
 	return true
 
@@ -370,27 +423,50 @@ func _handle_pan_gesture(event: InputEventPanGesture) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _start_pointer(pointer_id: int, position: Vector2, event: InputEvent, source: StringName) -> void:
+func _start_pointer(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent,
+	source: StringName
+) -> void:
 	var previous_points: Dictionary = _copy_points(_active_pointers)
 	_active_pointers[pointer_id] = position
-	_update_pointer_snapshot(previous_points, event, source)
+	_update_pointer_snapshot(
+		previous_points,
+		event,
+		source
+	)
 
 
 ## 复制更新前的指针位置，写入新位置并计算、发布摘要。
 ## [br]
 ## @api private
 ## [br]
-func _move_pointer(pointer_id: int, position: Vector2, event: InputEvent, source: StringName) -> void:
+func _move_pointer(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent,
+	source: StringName
+) -> void:
 	var previous_points: Dictionary = _copy_points(_active_pointers)
 	_active_pointers[pointer_id] = position
-	_update_pointer_snapshot(previous_points, event, source)
+	_update_pointer_snapshot(
+		previous_points,
+		event,
+		source
+	)
 
 
 ## 只处理已登记指针；记录释放位置后删除它，最后一个指针释放时发 inactive 摘要，否则重算剩余手势。
 ## [br]
 ## @api private
 ## [br]
-func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent, source: StringName) -> void:
+func _release_pointer(
+	pointer_id: int,
+	position: Vector2,
+	event: InputEvent,
+	source: StringName
+) -> void:
 	if not _active_pointers.has(pointer_id):
 		return
 	var previous_points: Dictionary = _copy_points(_active_pointers)
@@ -400,15 +476,28 @@ func _release_pointer(pointer_id: int, position: Vector2, event: InputEvent, sou
 		_last_snapshot = _make_inactive_snapshot(source, position)
 		gesture_ended.emit(_last_snapshot.duplicate(true))
 		return
-	_update_pointer_snapshot(previous_points, event, source)
+	_update_pointer_snapshot(
+		previous_points,
+		event,
+		source
+	)
 
 
 ## 用当前活动指针和上一位置集合计算手势摘要，再保存并发出。
 ## [br]
 ## @api private
 ## [br]
-func _update_pointer_snapshot(previous_points: Dictionary, event: InputEvent, source: StringName) -> void:
-	var snapshot: Dictionary = calculate_gesture(previous_points, _active_pointers, source, minimum_pinch_distance)
+func _update_pointer_snapshot(
+	previous_points: Dictionary,
+	event: InputEvent,
+	source: StringName
+) -> void:
+	var snapshot: Dictionary = calculate_gesture(
+		previous_points,
+		_active_pointers,
+		source,
+		minimum_pinch_distance
+	)
 	_store_and_emit_snapshot(snapshot, event)
 
 
@@ -418,7 +507,10 @@ func _update_pointer_snapshot(previous_points: Dictionary, event: InputEvent, so
 ## [br]
 func _store_and_emit_snapshot(snapshot: Dictionary, event: InputEvent) -> void:
 	_last_snapshot = snapshot.duplicate(true)
-	gesture_updated.emit(_last_snapshot.duplicate(true), event)
+	gesture_updated.emit(
+		_last_snapshot.duplicate(true),
+		event
+	)
 
 
 ## 为鼠标滚轮、magnify 或 pan 等非指针集合手势构造摘要字典。
@@ -501,7 +593,11 @@ static func _align_previous_points(
 ) -> Dictionary:
 	var result: Dictionary = {}
 	for pointer_id: int in pointer_ids:
-		result[pointer_id] = _read_point(previous_points, pointer_id, _read_point(current_points, pointer_id))
+		result[pointer_id] = _read_point(
+			previous_points,
+			pointer_id,
+			_read_point(current_points, pointer_id)
+		)
 	return result
 
 
@@ -536,7 +632,11 @@ static func _average_points(points: Dictionary, pointer_ids: Array[int]) -> Vect
 ## [br]
 ## @api private
 ## [br]
-static func _read_point(points: Dictionary, pointer_id: int, default_value: Vector2 = Vector2.ZERO) -> Vector2:
+static func _read_point(
+	points: Dictionary,
+	pointer_id: int,
+	default_value: Vector2 = Vector2.ZERO
+) -> Vector2:
 	if not points.has(pointer_id):
 		return default_value
 	var value: Variant = points[pointer_id]

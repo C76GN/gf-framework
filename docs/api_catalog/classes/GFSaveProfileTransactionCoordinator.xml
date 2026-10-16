@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="d7ec6ce89a8c9d4db9228092345400ffb71b66b0e8dfb2d50a02bb610ced807e">
+<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="8a44a82119587d37a4ebe459733c7e6ae63dc140d09748636ad05e49367fba84">
 	<description>GFSaveProfileTransactionCoordinator: 活动 Profile 身份与跨 Profile 事务协调器。
 Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托
 `GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。
@@ -11,7 +11,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 	</tags>
 	<signals>
 		<member kind="signal" name="active_profile_changed">
-			<signature>signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )</signature>
+			<signature>signal active_profile_changed(previous_profile_id: StringName, current_profile_id: StringName)</signature>
 			<description>活动 Profile 身份完成原子提交后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -138,7 +138,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			</tags>
 		</member>
 		<member kind="method" name="setup">
-			<signature>func setup( profile_utility: GFSaveProfileUtility ) -&gt; GFSaveProfileTransactionCoordinator:</signature>
+			<signature>func setup(profile_utility: GFSaveProfileUtility) -&gt; GFSaveProfileTransactionCoordinator:</signature>
 			<description>显式注入底层 Profile Utility，供 standalone 场景与测试使用。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -148,7 +148,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			</tags>
 		</member>
 		<member kind="method" name="register_profile">
-			<signature>func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -&gt; Dictionary:</signature>
+			<signature>func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null) -&gt; Dictionary:</signature>
 			<description>注册并声明一个受管 Profile。
 完全相同且同序的 Provider 实例序列共享 domain；任意部分重叠或同实例异序
 会在触碰底层注册前失败。</description>
@@ -223,7 +223,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 			</tags>
 		</member>
 		<member kind="method" name="bootstrap_profile">
-			<signature>func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<signature>func bootstrap_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -&gt; GFSaveProfileTransactionOperation:</signature>
 			<description>使用 activate 返回的 missing lease 创建存档并首次激活。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -234,7 +234,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 			</tags>
 		</member>
 		<member kind="method" name="adopt_profile">
-			<signature>func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<signature>func adopt_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -&gt; GFSaveProfileTransactionOperation:</signature>
 			<description>使用 activate 返回的 corrupt lease 明确覆盖损坏存档并首次激活。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -245,7 +245,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 			</tags>
 		</member>
 		<member kind="method" name="bootstrap_and_switch_profile">
-			<signature>func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<signature>func bootstrap_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -&gt; GFSaveProfileTransactionOperation:</signature>
 			<description>使用 switch 返回的 missing lease 创建目标并原子切换活动身份。
 接纳后会重新 flush Lease 绑定的当前来源，再把最新 Provider 状态保存到目标；
 目标持久化确认前来源始终保持权威。</description>
@@ -258,7 +258,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 			</tags>
 		</member>
 		<member kind="method" name="adopt_and_switch_profile">
-			<signature>func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<signature>func adopt_and_switch_profile(lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null) -&gt; GFSaveProfileTransactionOperation:</signature>
 			<description>使用 switch 返回的 corrupt lease 恢复目标并原子切换活动身份。
 接纳后会重新 flush Lease 绑定的当前来源。Storage family 结构损坏必须先凭
 同一读取来源的授权完成 reset；高层 Save 文档损坏则直接保存最新 Provider 状态。
@@ -273,7 +273,7 @@ reset 或目标保存确定失败时来源身份保持不变，无法签发结�
 			</tags>
 		</member>
 		<member kind="method" name="mutate_and_persist">
-			<signature>func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<signature>func mutate_and_persist(profile_id: StringName, request: GFSaveProfileMutationRequest) -&gt; GFSaveProfileTransactionOperation:</signature>
 			<description>事务化应用一个或多个完整 section replacement 并持久化活动 Profile。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -284,7 +284,7 @@ reset 或目标保存确定失败时来源身份保持不变，无法签发结�
 			</tags>
 		</member>
 		<member kind="method" name="reconcile_profile">
-			<signature>func reconcile_profile( lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<signature>func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null) -&gt; GFSaveProfileTransactionOperation:</signature>
 			<description>在 late generation 证据收敛后严格重载 lease 指定 Profile 并解除 fence。
 waiting lease 返回 `reconcile_pending`，且不 claim lease/request；调用方可在
 `GFSaveProfileReconcileLease.settled` 后用同一 lease 与新请求重试。</description>

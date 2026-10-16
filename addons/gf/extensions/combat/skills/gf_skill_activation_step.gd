@@ -42,10 +42,7 @@ var rollback_required: bool = true
 ## @param p_rollback_required: 应用成功后是否必须支持回滚。
 ## [br]
 ## @return 当前步骤。
-func configure(
-	p_step_id: StringName,
-	p_rollback_required: bool = true
-) -> GFSkillActivationStep:
+func configure(p_step_id: StringName, p_rollback_required: bool = true) -> GFSkillActivationStep:
 	step_id = p_step_id
 	rollback_required = p_rollback_required
 	return self
@@ -80,10 +77,7 @@ func _validate_activation(_context: GFSkillActivationContext) -> Variant:
 ## [br]
 ## @schema return: Variant，可为 bool、Error 或 Dictionary；回调必须同步返回。
 func _apply_activation(_context: GFSkillActivationContext) -> Variant:
-	return {
-		"ok": false,
-		"reason": &"activation_step_apply_not_implemented",
-	}
+	return { "ok": false, "reason": &"activation_step_apply_not_implemented", }
 
 
 ## 回滚已经成功应用的步骤。
@@ -98,7 +92,4 @@ func _apply_activation(_context: GFSkillActivationContext) -> Variant:
 ## [br]
 ## @schema return: Variant，可为 bool、Error 或 Dictionary；回调必须同步返回。
 func _rollback_activation(_context: GFSkillActivationContext) -> Variant:
-	return {
-		"ok": false,
-		"reason": &"activation_step_rollback_not_implemented",
-	}
+	return { "ok": false, "reason": &"activation_step_rollback_not_implemented", }

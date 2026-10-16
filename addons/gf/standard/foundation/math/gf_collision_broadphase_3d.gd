@@ -136,7 +136,10 @@ static func find_pairs_bruteforce(bodies: Array, options: Dictionary = {}) -> Ar
 	var seen: Dictionary = {}
 	var max_pairs: int = _get_max_pairs(options)
 	for left_index: int in range(normalized_bodies.size()):
-		for right_index: int in range(left_index + 1, normalized_bodies.size()):
+		for right_index: int in range(
+			left_index + 1,
+			normalized_bodies.size()
+		):
 			if _append_pair_if_overlapping(
 				normalized_bodies[left_index],
 				normalized_bodies[right_index],
@@ -173,16 +176,34 @@ static func find_pairs_sap(bodies: Array, options: Dictionary = {}) -> Array[Dic
 	var pairs: Array[Dictionary] = []
 	var seen: Dictionary = {}
 	var max_pairs: int = _get_max_pairs(options)
-	var include_touching: bool = GFVariantData.get_option_bool(options, "include_touching", false)
+	var include_touching: bool = GFVariantData.get_option_bool(
+		options,
+		"include_touching",
+		false
+	)
 	for left_index: int in range(normalized_bodies.size()):
 		var left_body: Dictionary = normalized_bodies[left_index]
 		var left_max_x: float = _aabb_max_x(_get_body_bounds(left_body))
-		for right_index: int in range(left_index + 1, normalized_bodies.size()):
+		for right_index: int in range(
+			left_index + 1,
+			normalized_bodies.size()
+		):
 			var right_body: Dictionary = normalized_bodies[right_index]
 			var right_min_x: float = _get_body_bounds(right_body).position.x
-			if _sap_can_break(left_max_x, right_min_x, include_touching):
+			if _sap_can_break(
+				left_max_x,
+				right_min_x,
+				include_touching
+			):
 				break
-			if _append_pair_if_overlapping(left_body, right_body, options, seen, pairs, max_pairs):
+			if _append_pair_if_overlapping(
+				left_body,
+				right_body,
+				options,
+				seen,
+				pairs,
+				max_pairs
+			):
 				return pairs
 	return pairs
 
@@ -271,12 +292,23 @@ static func to_json_compatible_report(report: Dictionary, options: Dictionary = 
 ## @api private
 static func _normalize_bodies(bodies: Array, options: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var enabled_only: bool = GFVariantData.get_option_bool(options, "enabled_only", true)
+	var enabled_only: bool = GFVariantData.get_option_bool(
+		options,
+		"enabled_only",
+		true
+	)
 	for index: int in range(bodies.size()):
-		var body: Dictionary = _normalize_body(bodies[index], index)
+		var body: Dictionary = _normalize_body(
+			bodies[index],
+			index
+		)
 		if body.is_empty():
 			continue
-		if enabled_only and not GFVariantData.get_option_bool(body, "enabled", true):
+		if enabled_only and not GFVariantData.get_option_bool(
+			body,
+			"enabled",
+			true
+		):
 			continue
 		result.append(body)
 	return result
@@ -294,18 +326,38 @@ static func _normalize_body(value: Variant, index: int) -> Dictionary:
 	if not (bounds_value is AABB):
 		return {}
 
-	var metadata_value: Variant = GFVariantData.get_option_value(source, "metadata", {})
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		source,
+		"metadata",
+		{}
+	)
 	var metadata: Dictionary = GFVariantData.as_dictionary(metadata_value, {})
-	var entity: Variant = GFVariantData.get_option_value(source, "entity", index)
+	var entity: Variant = GFVariantData.get_option_value(
+		source,
+		"entity",
+		index
+	)
 	var bounds: AABB = bounds_value
 	if not _SPATIAL_BOUNDS_MATH.is_finite_aabb(bounds):
 		return {}
 	return {
 		"entity": entity,
 		"bounds": _normalize_aabb(bounds),
-		"collision_layer": GFVariantData.get_option_int(source, "collision_layer", DEFAULT_COLLISION_LAYER),
-		"collision_mask": GFVariantData.get_option_int(source, "collision_mask", DEFAULT_COLLISION_MASK),
-		"enabled": GFVariantData.get_option_bool(source, "enabled", true),
+		"collision_layer": GFVariantData.get_option_int(
+			source,
+			"collision_layer",
+			DEFAULT_COLLISION_LAYER
+		),
+		"collision_mask": GFVariantData.get_option_int(
+			source,
+			"collision_mask",
+			DEFAULT_COLLISION_MASK
+		),
+		"enabled": GFVariantData.get_option_bool(
+			source,
+			"enabled",
+			true
+		),
 		"metadata": metadata.duplicate(true),
 		"index": index,
 	}
@@ -322,11 +374,23 @@ static func _append_pair_if_overlapping(
 	pairs: Array[Dictionary],
 	max_pairs: int
 ) -> bool:
-	if not _bodies_can_pair(left_body, right_body, options):
+	if not _bodies_can_pair(
+		left_body,
+		right_body,
+		options
+	):
 		return false
 
-	var include_touching: bool = GFVariantData.get_option_bool(options, "include_touching", false)
-	if not _aabbs_overlap(_get_body_bounds(left_body), _get_body_bounds(right_body), include_touching):
+	var include_touching: bool = GFVariantData.get_option_bool(
+		options,
+		"include_touching",
+		false
+	)
+	if not _aabbs_overlap(
+		_get_body_bounds(left_body),
+		_get_body_bounds(right_body),
+		include_touching
+	):
 		return false
 
 	var pair_key: String = _make_pair_key(left_body, right_body)
@@ -341,14 +405,38 @@ static func _append_pair_if_overlapping(
 ## 按双向 layer-mask 位交集判断 body 是否可配对；关闭掩码选项时一律允许。
 ## [br]
 ## @api private
-static func _bodies_can_pair(left_body: Dictionary, right_body: Dictionary, options: Dictionary) -> bool:
-	if not GFVariantData.get_option_bool(options, "use_collision_masks", true):
+static func _bodies_can_pair(
+	left_body: Dictionary,
+	right_body: Dictionary,
+	options: Dictionary
+) -> bool:
+	if not GFVariantData.get_option_bool(
+		options,
+		"use_collision_masks",
+		true
+	):
 		return true
 
-	var left_layer: int = GFVariantData.get_option_int(left_body, "collision_layer", DEFAULT_COLLISION_LAYER)
-	var left_mask: int = GFVariantData.get_option_int(left_body, "collision_mask", DEFAULT_COLLISION_MASK)
-	var right_layer: int = GFVariantData.get_option_int(right_body, "collision_layer", DEFAULT_COLLISION_LAYER)
-	var right_mask: int = GFVariantData.get_option_int(right_body, "collision_mask", DEFAULT_COLLISION_MASK)
+	var left_layer: int = GFVariantData.get_option_int(
+		left_body,
+		"collision_layer",
+		DEFAULT_COLLISION_LAYER
+	)
+	var left_mask: int = GFVariantData.get_option_int(
+		left_body,
+		"collision_mask",
+		DEFAULT_COLLISION_MASK
+	)
+	var right_layer: int = GFVariantData.get_option_int(
+		right_body,
+		"collision_layer",
+		DEFAULT_COLLISION_LAYER
+	)
+	var right_mask: int = GFVariantData.get_option_int(
+		right_body,
+		"collision_mask",
+		DEFAULT_COLLISION_MASK
+	)
 	return (left_layer & right_mask) != 0 and (right_layer & left_mask) != 0
 
 
@@ -379,7 +467,10 @@ static func _make_pair_key(left_body: Dictionary, right_body: Dictionary) -> Str
 		var swap: int = first_index
 		first_index = second_index
 		second_index = swap
-	return "%d:%d" % [first_index, second_index]
+	return (
+		"%d:%d"
+		% [first_index, second_index]
+	)
 
 
 ## 按 body 的输入索引升序返回两条记录。
@@ -395,12 +486,20 @@ static func _ordered_pair(left_body: Dictionary, right_body: Dictionary) -> Arra
 ## [br]
 ## @api private
 static func _choose_algorithm(bodies: Array, options: Dictionary) -> StringName:
-	var requested: StringName = GFVariantData.get_option_string_name(options, "algorithm", ALGORITHM_AUTO)
+	var requested: StringName = GFVariantData.get_option_string_name(
+		options,
+		"algorithm",
+		ALGORITHM_AUTO
+	)
 	if requested == ALGORITHM_BRUTE_FORCE or requested == ALGORITHM_SAP:
 		return requested
 
 	var body_count: int = _normalize_bodies(bodies, options).size()
-	if body_count <= GFVariantData.get_option_int(options, "bruteforce_threshold", _DEFAULT_BRUTE_FORCE_THRESHOLD):
+	if body_count <= GFVariantData.get_option_int(
+		options,
+		"bruteforce_threshold",
+		_DEFAULT_BRUTE_FORCE_THRESHOLD
+	):
 		return ALGORITHM_BRUTE_FORCE
 	return ALGORITHM_SAP
 
@@ -409,14 +508,15 @@ static func _choose_algorithm(bodies: Array, options: Dictionary) -> StringName:
 ## [br]
 ## @api private
 static func _sort_bodies_by_x(bodies: Array[Dictionary]) -> void:
-	bodies.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_bounds: AABB = _get_body_bounds(left)
-		var right_bounds: AABB = _get_body_bounds(right)
-		if left_bounds.position.x != right_bounds.position.x:
-			return left_bounds.position.x < right_bounds.position.x
-		if _aabb_max_x(left_bounds) != _aabb_max_x(right_bounds):
-			return _aabb_max_x(left_bounds) < _aabb_max_x(right_bounds)
-		return GFVariantData.get_option_int(left, "index") < GFVariantData.get_option_int(right, "index")
+	bodies.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_bounds: AABB = _get_body_bounds(left)
+			var right_bounds: AABB = _get_body_bounds(right)
+			if left_bounds.position.x != right_bounds.position.x:
+				return left_bounds.position.x < right_bounds.position.x
+			if _aabb_max_x(left_bounds) != _aabb_max_x(right_bounds):
+				return _aabb_max_x(left_bounds) < _aabb_max_x(right_bounds)
+			return GFVariantData.get_option_int(left, "index") < GFVariantData.get_option_int(right, "index")
 	)
 
 
@@ -430,7 +530,11 @@ static func _normalize_aabb(bounds: AABB) -> AABB:
 ## 判断两个归一化包围盒是否相交；include_touching 决定边缘接触是否算重叠。
 ## [br]
 ## @api private
-static func _aabbs_overlap(left: AABB, right: AABB, include_touching: bool) -> bool:
+static func _aabbs_overlap(
+	left: AABB,
+	right: AABB,
+	include_touching: bool
+) -> bool:
 	if include_touching:
 		return (
 			left.position.x <= _aabb_max_x(right)
@@ -454,7 +558,11 @@ static func _aabbs_overlap(left: AABB, right: AABB, include_touching: bool) -> b
 ## 按边缘接触选项判断 SAP 扫描能否在当前右侧 body 处提前结束。
 ## [br]
 ## @api private
-static func _sap_can_break(left_max_x: float, right_min_x: float, include_touching: bool) -> bool:
+static func _sap_can_break(
+	left_max_x: float,
+	right_min_x: float,
+	include_touching: bool
+) -> bool:
 	return right_min_x > left_max_x if include_touching else right_min_x >= left_max_x
 
 
@@ -462,7 +570,11 @@ static func _sap_can_break(left_max_x: float, right_min_x: float, include_touchi
 ## [br]
 ## @api private
 static func _get_body_bounds(body: Dictionary) -> AABB:
-	var bounds_value: Variant = GFVariantData.get_option_value(body, "bounds", AABB())
+	var bounds_value: Variant = GFVariantData.get_option_value(
+		body,
+		"bounds",
+		AABB()
+	)
 	if bounds_value is AABB:
 		var bounds: AABB = bounds_value
 		return bounds
@@ -494,4 +606,11 @@ static func _aabb_max_z(bounds: AABB) -> float:
 ## [br]
 ## @api private
 static func _get_max_pairs(options: Dictionary) -> int:
-	return maxi(GFVariantData.get_option_int(options, "max_pairs", 0), 0)
+	return maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_pairs",
+			0
+		),
+		0
+	)

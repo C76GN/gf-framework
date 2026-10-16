@@ -242,10 +242,7 @@ func is_current() -> bool:
 ## [br]
 ## @return: root、runtime 与全部 source identity 仍存活并保持同根时返回 true。
 func is_topology_current_for_framework() -> bool:
-	if (
-		_failure_reason != FailureReason.NONE
-		and _failure_reason != FailureReason.STALE_BINDING
-	):
+	if (_failure_reason != FailureReason.NONE and _failure_reason != FailureReason.STALE_BINDING):
 		return false
 	var root: Node = get_instance_root()
 	var runtime: Node = get_runtime()
@@ -283,6 +280,7 @@ func fail_for_framework(failure_reason: FailureReason) -> bool:
 		return false
 	_failure_reason = failure_reason
 	return true
+
 
 ## 构造框架内部 binding 快照。
 ## [br]
@@ -380,7 +378,10 @@ func _declaration_is_current() -> bool:
 		or not is_instance_valid(_motion_snapshot)
 		or _definition.motion != _motion_snapshot
 		or _definition.lifetime_policy != _lifetime_snapshot
-		or (_lifetime_snapshot != null and not is_instance_valid(_lifetime_snapshot))
+		or (
+			_lifetime_snapshot != null
+			and not is_instance_valid(_lifetime_snapshot)
+		)
 		or _body_adapter == null
 		or not is_instance_valid(_body_adapter)
 	):

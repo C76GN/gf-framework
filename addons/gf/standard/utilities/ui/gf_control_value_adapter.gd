@@ -62,7 +62,11 @@ static func get_value(control: Control, fallback: Variant = null) -> Variant:
 	if control.has_method("get_value"):
 		return control.call("get_value")
 	if "value" in control:
-		return GFObjectPropertyTools.read_property(control, NodePath("value"), fallback)
+		return GFObjectPropertyTools.read_property(
+			control,
+			NodePath("value"),
+			fallback
+		)
 
 	return fallback
 
@@ -155,45 +159,90 @@ static func connect_value_changed_with_handles(control: Control, callback: Calla
 	if control is LineEdit:
 		var line_edit_callback: Callable = func(_text: String) -> void:
 			callback.call()
-		_connect_control_signal(control, &"text_changed", line_edit_callback, connections)
+		_connect_control_signal(
+			control,
+			&"text_changed",
+			line_edit_callback,
+			connections
+		)
 		return connections
 	if control is TextEdit:
 		var text_edit_callback: Callable = func() -> void:
 			callback.call()
-		_connect_control_signal(control, &"text_changed", text_edit_callback, connections)
+		_connect_control_signal(
+			control,
+			&"text_changed",
+			text_edit_callback,
+			connections
+		)
 		return connections
 	if control is OptionButton:
 		var option_callback: Callable = func(_index: int) -> void:
 			callback.call()
-		_connect_control_signal(control, &"item_selected", option_callback, connections)
+		_connect_control_signal(
+			control,
+			&"item_selected",
+			option_callback,
+			connections
+		)
 		return connections
 	if control is ColorPickerButton:
 		var color_callback: Callable = func(_color: Color) -> void:
 			callback.call()
-		_connect_control_signal(control, &"color_changed", color_callback, connections)
+		_connect_control_signal(
+			control,
+			&"color_changed",
+			color_callback,
+			connections
+		)
 		return connections
 	if control is BaseButton:
 		var button_callback: Callable = func(_pressed: bool) -> void:
 			callback.call()
-		_connect_control_signal(control, &"toggled", button_callback, connections)
+		_connect_control_signal(
+			control,
+			&"toggled",
+			button_callback,
+			connections
+		)
 		return connections
 	if control is Range:
 		var range_callback: Callable = func(_value: float) -> void:
 			callback.call()
-		_connect_control_signal(control, &"value_changed", range_callback, connections)
+		_connect_control_signal(
+			control,
+			&"value_changed",
+			range_callback,
+			connections
+		)
 		return connections
 	if control is ItemList:
 		var item_selected_callback: Callable = func(_index: int) -> void:
 			callback.call()
-		_connect_control_signal(control, &"item_selected", item_selected_callback, connections)
+		_connect_control_signal(
+			control,
+			&"item_selected",
+			item_selected_callback,
+			connections
+		)
 		var multi_selected_callback: Callable = func(_index: int, _selected: bool) -> void:
 			callback.call()
-		_connect_control_signal(control, &"multi_selected", multi_selected_callback, connections)
+		_connect_control_signal(
+			control,
+			&"multi_selected",
+			multi_selected_callback,
+			connections
+		)
 		return connections
 	if control.has_signal("value_changed"):
 		var value_callback: Callable = func(_value: Variant = null) -> void:
 			callback.call()
-		_connect_control_signal(control, &"value_changed", value_callback, connections)
+		_connect_control_signal(
+			control,
+			&"value_changed",
+			value_callback,
+			connections
+		)
 		return connections
 
 	return connections
@@ -217,7 +266,11 @@ static func disconnect_value_changed_handles(connections: Array) -> void:
 			continue
 		var signal_name: StringName = GFVariantData.get_option_string_name(connection, "signal_name")
 		var callable: Callable = _variant_to_callable(GFVariantData.get_option_value(connection, "callable"))
-		if signal_name != &"" and callable.is_valid() and control.is_connected(signal_name, callable):
+		if (
+			signal_name != &""
+			and callable.is_valid()
+			and control.is_connected(signal_name, callable)
+		):
 			control.disconnect(signal_name, callable)
 
 
@@ -232,18 +285,24 @@ static func _connect_control_signal(
 	callable: Callable,
 	connections: Array[Dictionary]
 ) -> void:
-	if control == null or signal_name == &"" or not callable.is_valid():
+	if (
+		control == null
+		or signal_name == &""
+		or not callable.is_valid()
+	):
 		return
 	if not control.has_signal(signal_name):
 		return
 	var connection_result: int = control.connect(signal_name, callable)
 	if connection_result != OK:
 		return
-	connections.append({
-		"control_ref": weakref(control),
-		"signal_name": signal_name,
-		"callable": callable,
-	})
+	connections.append(
+		{
+			"control_ref": weakref(control),
+			"signal_name": signal_name,
+			"callable": callable,
+		}
+	)
 
 
 ## 先清空 ItemList 旧选择，再按整数、数组或 PackedInt32Array 输入选择项目。
@@ -257,9 +316,15 @@ static func _set_item_list_selection(item_list: ItemList, value: Variant) -> voi
 		return
 	if value is Array:
 		for index_variant: Variant in value:
-			item_list.select(GFVariantData.to_int(index_variant), false)
+			item_list.select(
+				GFVariantData.to_int(index_variant),
+				false
+			)
 		return
-	item_list.select(GFVariantData.to_int(value), false)
+	item_list.select(
+		GFVariantData.to_int(value),
+		false
+	)
 
 
 ## 将 WeakRef Variant 收窄为 WeakRef；其他类型返回 null。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSimulationAdapter" path="addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd" module="extensions/network" extends="RefCounted" classDigest="0e4d26715318219aaa6f2f0e0f21b5956eb321daf6a108fe28dacee76c757f69">
+<class name="GFNetworkSimulationAdapter" path="addons/gf/extensions/network/simulation/gf_network_simulation_adapter.gd" module="extensions/network" extends="RefCounted" classDigest="ad15f4f1e40328e30396f3200617d9c0f88a77cf6bd46ce7935ca8c205aa3bda">
 	<description>GFNetworkSimulationAdapter: 网络协调器的项目模拟协议。
 项目继承该类型并实现同步状态捕获、校验、恢复、输入授权和单 tick 模拟。
 所有钩子必须同步完成，不应执行 await、网络发送或协调器重入。
@@ -29,7 +29,7 @@ _validate_state() 与 _validate_input() 还必须是无副作用的纯校验；�
 			</tags>
 		</member>
 		<member kind="method" name="_validate_state">
-			<signature>func _validate_state(_state: Dictionary, _tick: int, _context: Dictionary) -&gt; Dictionary:</signature>
+			<signature>func _validate_state( _state: Dictionary, _tick: int, _context: Dictionary ) -&gt; Dictionary:</signature>
 			<description>校验来自权威端的完整同步状态。
 项目应在此执行字段 schema、范围和不变量校验；GF 的通用结构预算不能替代项目 schema。
 该钩子必须无副作用，不得修改项目模拟状态。</description>
@@ -46,7 +46,7 @@ _validate_state() 与 _validate_input() 还必须是无副作用的纯校验；�
 			</tags>
 		</member>
 		<member kind="method" name="_restore_state">
-			<signature>func _restore_state(_state: Dictionary, _tick: int, _context: Dictionary) -&gt; Dictionary:</signature>
+			<signature>func _restore_state( _state: Dictionary, _tick: int, _context: Dictionary ) -&gt; Dictionary:</signature>
 			<description>恢复指定 tick 的完整同步状态。</description>
 			<tags>
 				<tag name="api">protected</tag>

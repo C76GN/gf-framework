@@ -52,7 +52,10 @@ func set_tags(source_tags: Variant) -> GFTagSet:
 	if source_tags is Dictionary:
 		var source_data: Dictionary = GFVariantData.as_dictionary(source_tags)
 		for tag_variant: Variant in source_data.keys():
-			var _add_tag_result_40: Variant = add_tag(GFVariantData.to_string_name(tag_variant), GFVariantData.to_int(source_data[tag_variant]))
+			var _add_tag_result_40: Variant = add_tag(
+				GFVariantData.to_string_name(tag_variant),
+				GFVariantData.to_int(source_data[tag_variant])
+			)
 	elif source_tags is PackedStringArray:
 		for tag_text: String in source_tags:
 			var _add_tag_result_43: Variant = add_tag(StringName(tag_text))
@@ -75,7 +78,11 @@ func add_tag(tag: StringName, count: int = 1) -> GFTagSet:
 	if tag == &"" or count <= 0:
 		return self
 
-	tag_counts[tag] = GFVariantData.get_option_int(tag_counts, tag, 0) + count
+	tag_counts[tag] = GFVariantData.get_option_int(
+		tag_counts,
+		tag,
+		0
+	) + count
 	_invalidate_count_cache()
 	return self
 
@@ -99,7 +106,11 @@ func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:
 	if count <= 0:
 		return self
 
-	var updated_count: int = GFVariantData.get_option_int(tag_counts, tag, 0) - count
+	var updated_count: int = GFVariantData.get_option_int(
+		tag_counts,
+		tag,
+		0
+	) - count
 	if updated_count <= 0:
 		var _erase_result_87: Variant = tag_counts.erase(tag)
 	else:
@@ -112,6 +123,8 @@ func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tag: 标签名。
 ## [br]
 ## @param minimum_count: 要求的最小层数。
@@ -119,7 +132,11 @@ func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:
 ## @param include_child_tags: 为 true 时，`state` 可匹配 `state.burning`。
 ## [br]
 ## @return 满足要求返回 true。
-func has_tag(tag: StringName, minimum_count: int = 1, include_child_tags: bool = false) -> bool:
+func has_tag(
+	tag: StringName,
+	minimum_count: int = 1,
+	include_child_tags: bool = false
+) -> bool:
 	return get_tag_count(tag, include_child_tags) >= max(1, minimum_count)
 
 
@@ -136,10 +153,18 @@ func get_tag_count(tag: StringName, include_child_tags: bool = false) -> int:
 	if tag == &"":
 		return 0
 	if not include_child_tags:
-		return GFVariantData.get_option_int(tag_counts, tag, 0)
+		return GFVariantData.get_option_int(
+			tag_counts,
+			tag,
+			0
+		)
 
 	_ensure_hierarchical_count_cache()
-	return GFVariantData.get_option_int(_hierarchical_count_cache, tag, 0)
+	return GFVariantData.get_option_int(
+		_hierarchical_count_cache,
+		tag,
+		0
+	)
 
 
 ## 获取所有标签名。
@@ -150,7 +175,11 @@ func get_tag_count(tag: StringName, include_child_tags: bool = false) -> int:
 func get_tags() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for tag_variant: Variant in tag_counts.keys():
-		if GFVariantData.get_option_int(tag_counts, tag_variant, 0) > 0:
+		if GFVariantData.get_option_int(
+			tag_counts,
+			tag_variant,
+			0
+		) > 0:
 			var _appended: bool = result.append(GFVariantData.to_text(tag_variant))
 	result.sort()
 	return result
@@ -194,9 +223,7 @@ func duplicate_set() -> GFTagSet:
 ## [br]
 ## @schema return: Dictionary serialized tag set.
 func to_dictionary() -> Dictionary:
-	return {
-		"tag_counts": tag_counts.duplicate(true),
-	}
+	return { "tag_counts": tag_counts.duplicate(true), }
 
 
 ## 从字典创建标签集合。
@@ -210,7 +237,13 @@ func to_dictionary() -> Dictionary:
 ## @return 新标签集合。
 static func from_dictionary(data: Dictionary) -> GFTagSet:
 	var next_set: GFTagSet = GFTagSet.new()
-	var _set_tags_result_199: Variant = next_set.set_tags(GFVariantData.get_option_value(data, "tag_counts", data))
+	var _set_tags_result_199: Variant = next_set.set_tags(
+		GFVariantData.get_option_value(
+			data,
+			"tag_counts",
+			data
+		)
+	)
 	return next_set
 
 
@@ -227,19 +260,34 @@ func _ensure_hierarchical_count_cache() -> void:
 
 	var next_cache: Dictionary = {}
 	for tag_variant: Variant in tag_counts.keys():
-		var count: int = GFVariantData.get_option_int(tag_counts, tag_variant, 0)
+		var count: int = GFVariantData.get_option_int(
+			tag_counts,
+			tag_variant,
+			0
+		)
 		if count <= 0:
 			continue
 		var tag_text: String = GFVariantData.to_text(tag_variant)
 		if tag_text.is_empty():
 			continue
 		var tag_key: StringName = StringName(tag_text)
-		next_cache[tag_key] = GFVariantData.get_option_int(next_cache, tag_key, 0) + count
+		next_cache[tag_key] = GFVariantData.get_option_int(
+			next_cache,
+			tag_key,
+			0
+		) + count
 		var separator_index: int = tag_text.find(".")
 		while separator_index >= 0:
 			var prefix_key: StringName = StringName(tag_text.substr(0, separator_index))
-			next_cache[prefix_key] = GFVariantData.get_option_int(next_cache, prefix_key, 0) + count
-			separator_index = tag_text.find(".", separator_index + 1)
+			next_cache[prefix_key] = GFVariantData.get_option_int(
+				next_cache,
+				prefix_key,
+				0
+			) + count
+			separator_index = tag_text.find(
+				".",
+				separator_index + 1
+			)
 	_hierarchical_count_cache = next_cache
 	_tag_count_cache_signature = signature
 
@@ -252,8 +300,19 @@ func _make_tag_counts_signature() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for tag_variant: Variant in tag_counts.keys():
 		var tag_text: String = GFVariantData.to_text(tag_variant)
-		var count: int = GFVariantData.get_option_int(tag_counts, tag_variant, 0)
-		var _append_part: bool = parts.append("%d:%s=%d" % [tag_text.length(), tag_text, count])
+		var count: int = GFVariantData.get_option_int(
+			tag_counts,
+			tag_variant,
+			0
+		)
+		var _append_part: bool = parts.append(
+			"%d:%s=%d"
+			% [
+				tag_text.length(),
+				tag_text,
+				count,
+			]
+		)
 	parts.sort()
 	return "|".join(parts)
 

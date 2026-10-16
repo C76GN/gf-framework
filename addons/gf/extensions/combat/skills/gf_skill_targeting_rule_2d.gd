@@ -30,6 +30,7 @@ enum Shape {
 	SINGLE,
 }
 
+
 ## 排序规则。
 ## [br]
 ## @api public

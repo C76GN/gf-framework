@@ -30,8 +30,8 @@
 | 方法 | [`get_record`](#member-gfconfigtableresource-methods-get_record) | `func get_record(record_id: Variant, duplicate_record: bool = true) -> Variant:` |
 | 方法 | [`make_index_key`](#member-gfconfigtableresource-methods-make_index_key) | `func make_index_key(index_id: StringName, record: Dictionary) -> String:` |
 | 方法 | [`has_index_key`](#member-gfconfigtableresource-methods-has_index_key) | `func has_index_key(index_id: StringName, index_key: String) -> bool:` |
-| 方法 | [`get_index_records`](#member-gfconfigtableresource-methods-get_index_records) | `func get_index_records(index_id: StringName, index_key: String, duplicate_records: bool = true) -> Array[Dictionary]:` |
-| 方法 | [`get_index_record`](#member-gfconfigtableresource-methods-get_index_record) | `func get_index_record(index_id: StringName, index_key: String, duplicate_record: bool = true) -> Variant:` |
+| 方法 | [`get_index_records`](#member-gfconfigtableresource-methods-get_index_records) | `func get_index_records( index_id: StringName, index_key: String, duplicate_records: bool = true ) -> Array[Dictionary]:` |
+| 方法 | [`get_index_record`](#member-gfconfigtableresource-methods-get_index_record) | `func get_index_record( index_id: StringName, index_key: String, duplicate_record: bool = true ) -> Variant:` |
 | 方法 | [`rebuild_index`](#member-gfconfigtableresource-methods-rebuild_index) | `func rebuild_index() -> int:` |
 | 方法 | [`rebuild_indexes`](#member-gfconfigtableresource-methods-rebuild_indexes) | `func rebuild_indexes() -> int:` |
 | 方法 | [`validate_records`](#member-gfconfigtableresource-methods-validate_records) | `func validate_records(options: Dictionary = {}) -> Dictionary:` |
@@ -338,7 +338,7 @@ func has_index_key(index_id: StringName, index_key: String) -> bool:
 - 首次版本：`5.2.0`
 
 ```gdscript
-func get_index_records(index_id: StringName, index_key: String, duplicate_records: bool = true) -> Array[Dictionary]:
+func get_index_records( index_id: StringName, index_key: String, duplicate_records: bool = true ) -> Array[Dictionary]:
 ```
 
 根据命名索引获取记录列表。
@@ -365,7 +365,7 @@ func get_index_records(index_id: StringName, index_key: String, duplicate_record
 - 首次版本：`5.2.0`
 
 ```gdscript
-func get_index_record(index_id: StringName, index_key: String, duplicate_record: bool = true) -> Variant:
+func get_index_record( index_id: StringName, index_key: String, duplicate_record: bool = true ) -> Variant:
 ```
 
 根据命名索引获取第一条记录。

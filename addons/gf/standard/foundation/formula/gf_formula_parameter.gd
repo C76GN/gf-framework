@@ -83,7 +83,13 @@ func set_value(key: StringName, value: Variant) -> GFFormulaParameter:
 ## [br]
 ## @schema return: Variant formula value or fallback.
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.duplicate_variant(GFVariantData.get_option_value(values, key, default_value))
+	return GFVariantData.duplicate_variant(
+		GFVariantData.get_option_value(
+			values,
+			key,
+			default_value
+		)
+	)
 
 
 ## 检查是否存在指定参数。
@@ -103,4 +109,9 @@ func has_value(key: StringName) -> bool:
 ## [br]
 ## @return 新的参数容器实例。
 func duplicate_parameter() -> GFFormulaParameter:
-	return GFFormulaParameter.new(source, target, values, context)
+	return GFFormulaParameter.new(
+		source,
+		target,
+		values,
+		context
+	)

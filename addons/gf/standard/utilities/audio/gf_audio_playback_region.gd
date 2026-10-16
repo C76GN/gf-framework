@@ -117,11 +117,7 @@ func validate(stream_length_seconds: float = -1.0) -> GFAudioPlaybackRegionResul
 
 	var effective_loop_start_seconds: float = -1.0
 	if loop_mode != LoopMode.DISABLED:
-		effective_loop_start_seconds = (
-			start_seconds
-			if loop_start_seconds == -1.0
-			else loop_start_seconds
-		)
+		effective_loop_start_seconds = (start_seconds if loop_start_seconds == -1.0 else loop_start_seconds)
 		if effective_loop_start_seconds < start_seconds:
 			return _invalid(&"loop_start_before_region", "Loop start must not precede playback start.")
 		if effective_end_seconds >= 0.0 and effective_loop_start_seconds >= effective_end_seconds:
@@ -283,12 +279,8 @@ func _check_stream_support(
 					validation
 				)
 		if wav_stream.mix_rate > 0 and validation.end_seconds >= 0.0:
-			var sample_count: int = roundi(
-				known_length_seconds * float(wav_stream.mix_rate)
-			)
-			var start_frame: int = roundi(
-				validation.start_seconds * float(wav_stream.mix_rate)
-			)
+			var sample_count: int = roundi(known_length_seconds * float(wav_stream.mix_rate))
+			var start_frame: int = roundi(validation.start_seconds * float(wav_stream.mix_rate))
 			var end_boundary_frame: int = mini(
 				roundi(validation.end_seconds * float(wav_stream.mix_rate)),
 				sample_count
@@ -300,9 +292,7 @@ func _check_stream_support(
 					validation
 				)
 			if loop_mode != LoopMode.DISABLED:
-				var loop_start_frame: int = roundi(
-					validation.loop_start_seconds * float(wav_stream.mix_rate)
-				)
+				var loop_start_frame: int = roundi(validation.loop_start_seconds * float(wav_stream.mix_rate))
 				var loop_end_frame: int = end_boundary_frame - 1
 				if (
 					loop_start_frame < 0
@@ -463,7 +453,11 @@ func _is_valid_loop_mode(value: int) -> bool:
 ## @api private
 ## [br]
 func _invalid(reason_id: StringName, result_message: String) -> GFAudioPlaybackRegionResult:
-	return _make_result(GFAudioPlaybackRegionResult.Status.INVALID, reason_id, result_message)
+	return _make_result(
+		GFAudioPlaybackRegionResult.Status.INVALID,
+		reason_id,
+		result_message
+	)
 
 
 ## 创建 UNSUPPORTED 结果，并复制来源结果中已生效的区间字段。
@@ -508,10 +502,7 @@ func _make_result(
 ## [br]
 ## @api private
 ## [br]
-func _copy_effective_fields(
-	source: GFAudioPlaybackRegionResult,
-	target: GFAudioPlaybackRegionResult
-) -> void:
+func _copy_effective_fields(source: GFAudioPlaybackRegionResult, target: GFAudioPlaybackRegionResult) -> void:
 	target.start_seconds = source.start_seconds
 	target.end_seconds = source.end_seconds
 	target.loop_start_seconds = source.loop_start_seconds

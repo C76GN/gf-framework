@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputCurveModifier" path="addons/gf/standard/input/modifiers/gf_input_curve_modifier.gd" module="standard" extends="GFInputModifier" classDigest="8999d83f1e2565679653ff79022595cbe7047028f4562d7025bcba5fb982c49c">
+<class name="GFInputCurveModifier" path="addons/gf/standard/input/modifiers/gf_input_curve_modifier.gd" module="standard" extends="GFInputModifier" classDigest="c44a9c557cc8091eb93d19760758e8d0c2263e33b2ac0c7dae65ef912ceac911">
 	<description>GFInputCurveModifier: 输入曲线修饰器。
 对输入分量按 Curve 重新采样，适合摇杆灵敏度、扳机响应和虚拟指针速度曲线。</description>
 	<tags>
@@ -49,7 +49,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -57,10 +57,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">按曲线采样后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -68,6 +69,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">按曲线采样后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

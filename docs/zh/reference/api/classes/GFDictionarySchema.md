@@ -27,7 +27,7 @@
 | 方法 | [`has_field`](#member-gfdictionaryschema-methods-has_field) | `func has_field(field_name: StringName) -> bool:` |
 | 方法 | [`get_field_names`](#member-gfdictionaryschema-methods-get_field_names) | `func get_field_names() -> PackedStringArray:` |
 | 方法 | [`build_defaults`](#member-gfdictionaryschema-methods-build_defaults) | `func build_defaults(include_optional: bool = true) -> Dictionary:` |
-| 方法 | [`apply_defaults`](#member-gfdictionaryschema-methods-apply_defaults) | `func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -> Dictionary:` |
+| 方法 | [`apply_defaults`](#member-gfdictionaryschema-methods-apply_defaults) | `func apply_defaults( values: Dictionary, include_optional: bool = true, should_coerce: bool = true ) -> Dictionary:` |
 | 方法 | [`coerce_dictionary`](#member-gfdictionaryschema-methods-coerce_dictionary) | `func coerce_dictionary(values: Dictionary, include_defaults: bool = true) -> Dictionary:` |
 | 方法 | [`validate_definition`](#member-gfdictionaryschema-methods-validate_definition) | `func validate_definition(options: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`validate_dictionary`](#member-gfdictionaryschema-methods-validate_dictionary) | `func validate_dictionary(values: Dictionary, options: Dictionary = {}) -> GFValidationReport:` |
@@ -253,7 +253,7 @@ func build_defaults(include_optional: bool = true) -> Dictionary:
 - 首次版本：`4.4.0`
 
 ```gdscript
-func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -> Dictionary:
+func apply_defaults( values: Dictionary, include_optional: bool = true, should_coerce: bool = true ) -> Dictionary:
 ```
 
 为输入 Dictionary 补齐默认值。 只为缺失字段写入可表达的默认值；没有可用默认值的 non-nullable 字段保持缺失。

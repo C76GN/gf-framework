@@ -20,7 +20,7 @@
 | 方法 | [`host`](#member-gfenetnetworkbackend-methods-host) | `func host(options: Dictionary = {}) -> Error:` |
 | 方法 | [`connect_to_endpoint`](#member-gfenetnetworkbackend-methods-connect_to_endpoint) | `func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:` |
 | 方法 | [`disconnect_backend`](#member-gfenetnetworkbackend-methods-disconnect_backend) | `func disconnect_backend() -> void:` |
-| 方法 | [`send_bytes`](#member-gfenetnetworkbackend-methods-send_bytes) | `func send_bytes(peer_id: int, bytes: PackedByteArray, options: Dictionary = {}) -> Error:` |
+| 方法 | [`send_bytes`](#member-gfenetnetworkbackend-methods-send_bytes) | `func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`poll`](#member-gfenetnetworkbackend-methods-poll) | `func poll(_delta: float) -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfenetnetworkbackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -120,9 +120,10 @@ func disconnect_backend() -> void:
 ### `send_bytes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func send_bytes(peer_id: int, bytes: PackedByteArray, options: Dictionary = {}) -> Error:
+func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -> Error:
 ```
 
 发送 bytes。 options 支持 reliable, transfer_mode, channel。

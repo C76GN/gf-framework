@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileTransformBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="0b9b1e3b1f63381971e0600c5f46e139ab288c63aaf04eccd96ad8a33f252a4e">
+<class name="GFProjectileTransformBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="6e402b656fde2b4370e4c4ac39f0f1f6bfd74512120428d09058bf63d12155ba">
 	<description>GFProjectileTransformBodyAdapter2D: 直接应用 Node2D 变换的 body adapter。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -32,7 +32,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_apply_intent">
-			<signature>func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -&gt; GFProjectileBodyResult2D:</signature>
+			<signature>func _apply_intent(root: Node, intent: GFProjectileMotionIntent2D) -&gt; GFProjectileBodyResult2D:</signature>
 			<description>按 MOVE 的速度乘以时长直接写入 Node2D.global_position，不执行碰撞移动。
 写入前检查位移与目标位置是否有限；其他有效 intent 种类保持位置不变。
 结果工厂若因最终变换或实际位置差非有限而失败，不撤销已经写入的位置。</description>

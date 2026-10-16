@@ -11,11 +11,14 @@ class AudioUtilityProbe:
 	func init() -> void:
 		pass
 
+
 	func dispose() -> void:
 		pass
 
+
 	func play_sfx(path: String) -> void:
 		played_paths.append(path)
+
 
 	func play_sfx_from_bank(_bank: GFAudioBank, clip_id: StringName) -> void:
 		played_clip_ids.append(clip_id)
@@ -25,7 +28,6 @@ class ManualSignalAction:
 	extends GFVisualAction
 
 	signal completed
-
 	var executed: bool = false
 	var cancelled: bool = false
 	var paused: bool = false
@@ -35,14 +37,18 @@ class ManualSignalAction:
 		executed = true
 		return completed
 
+
 	func cancel() -> void:
 		cancelled = true
+
 
 	func pause() -> void:
 		paused = true
 
+
 	func resume() -> void:
 		resumed = true
+
 
 	func complete() -> void:
 		completed.emit()
@@ -61,14 +67,18 @@ class ProbeAction:
 		executed = true
 		return null
 
+
 	func cancel() -> void:
 		cancel_count += 1
+
 
 	func pause() -> void:
 		pause_count += 1
 
+
 	func resume() -> void:
 		resume_count += 1
+
 
 	func finish() -> void:
 		finish_count += 1
@@ -83,6 +93,7 @@ class CallbackProbeAction:
 	func _init(p_execute_callback: Callable = Callable()) -> void:
 		execute_callback = p_execute_callback
 
+
 	func execute() -> Variant:
 		execute_count += 1
 		if execute_callback.is_valid():
@@ -95,7 +106,6 @@ class ReentrantCompositeControlAction:
 	extends GFVisualAction
 
 	signal completed
-
 	var control_owner: Object
 	var cancel_count: int = 0
 	var pause_count: int = 0
@@ -109,24 +119,44 @@ class ReentrantCompositeControlAction:
 	func execute() -> Variant:
 		return completed
 
+
 	func cancel() -> void:
 		cancel_count += 1
-		if reenter_cancel and cancel_count == 1 and is_instance_valid(control_owner):
+		if (
+			reenter_cancel
+			and cancel_count == 1
+			and is_instance_valid(control_owner)
+		):
 			control_owner.call(&"cancel")
+
 
 	func pause() -> void:
 		pause_count += 1
-		if reenter_pause and pause_count == 1 and is_instance_valid(control_owner):
+		if (
+			reenter_pause
+			and pause_count == 1
+			and is_instance_valid(control_owner)
+		):
 			control_owner.call(&"pause")
+
 
 	func resume() -> void:
 		resume_count += 1
-		if reenter_resume and resume_count == 1 and is_instance_valid(control_owner):
+		if (
+			reenter_resume
+			and resume_count == 1
+			and is_instance_valid(control_owner)
+		):
 			control_owner.call(&"resume")
+
 
 	func finish() -> void:
 		finish_count += 1
-		if reenter_finish and finish_count == 1 and is_instance_valid(control_owner):
+		if (
+			reenter_finish
+			and finish_count == 1
+			and is_instance_valid(control_owner)
+		):
 			control_owner.call(&"finish")
 
 
@@ -157,7 +187,11 @@ func _get_created_tween(previous_tweens: Array[Tween]) -> Tween:
 	for tween: Tween in get_tree().get_processed_tweens():
 		if not previous_tweens.has(tween):
 			created_tweens.append(tween)
-	assert_eq(created_tweens.size(), 1, "同步执行动作应创建唯一可推进的 Tween。")
+	assert_eq(
+		created_tweens.size(),
+		1,
+		"同步执行动作应创建唯一可推进的 Tween。"
+	)
 	return created_tweens[0] if created_tweens.size() == 1 else null
 
 
@@ -182,15 +216,7 @@ func _make_many_point_easing_curve(point_count: int, resolution: int) -> Curve:
 
 func _make_shader_material(initial_strength: float = 0.0) -> ShaderMaterial:
 	var shader: Shader = Shader.new()
-	shader.code = (
-		"shader_type canvas_item;\n"
-		+ "uniform float strength = 0.0;\n"
-		+ "uniform float alternate_strength = 0.0;\n"
-		+ "uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);\n"
-		+ "void fragment() {\n"
-		+ "\tCOLOR = tint;\n"
-		+ "}\n"
-	)
+	shader.code = ("shader_type canvas_item;\n" + "uniform float strength = 0.0;\n" + "uniform float alternate_strength = 0.0;\n" + "uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);\n" + "void fragment() {\n" + "\tCOLOR = tint;\n" + "}\n")
 	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = shader
 	material.set_shader_parameter(&"strength", initial_strength)
@@ -201,15 +227,10 @@ func _get_shader_strength(material: Material) -> float:
 	return _get_shader_float_parameter(material, &"strength")
 
 
-func _get_shader_float_parameter(
-	material: Material,
-	parameter_name: StringName
-) -> float:
+func _get_shader_float_parameter(material: Material, parameter_name: StringName) -> float:
 	if material is ShaderMaterial:
 		var shader_material: ShaderMaterial = material
-		return GFVariantData.to_float(
-			shader_material.get_shader_parameter(parameter_name)
-		)
+		return GFVariantData.to_float(shader_material.get_shader_parameter(parameter_name))
 	return 0.0
 
 
@@ -217,34 +238,70 @@ func test_move_tween_action_sets_position_immediately_when_duration_zero() -> vo
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 
-	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(24.0, 32.0), 0.0)
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		Vector2(24.0, 32.0),
+		0.0
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "零时长移动动作应立即完成。")
-	assert_eq(node.position, Vector2(24.0, 32.0), "零时长移动动作应立即写入目标位置。")
+	assert_true(
+		result == null,
+		"零时长移动动作应立即完成。"
+	)
+	assert_eq(
+		node.position,
+		Vector2(24.0, 32.0),
+		"零时长移动动作应立即写入目标位置。"
+	)
 
 
 func test_move_tween_action_waits_for_tween() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 
-	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(10.0, 0.0), 0.01)
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		Vector2(10.0, 0.0),
+		0.01
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result is Signal, "非零时长移动动作应返回 Tween 完成信号。")
+	assert_true(
+		result is Signal,
+		"非零时长移动动作应返回 Tween 完成信号。"
+	)
 	var completion: Signal = _signal_from_result(result)
-	assert_eq(String(completion.get_name()), "_action_completed", "Tween 动作应返回自身完成信号，而不是手动发射引擎 Tween.finished。")
+	assert_eq(
+		String(completion.get_name()),
+		"_action_completed",
+		"Tween 动作应返回自身完成信号，而不是手动发射引擎 Tween.finished。"
+	)
 	await action.await_result_safely(result)
 
-	assert_almost_eq(node.position.x, 10.0, 0.01, "移动 Tween 完成后应到达目标 x。")
-	assert_almost_eq(node.position.y, 0.0, 0.01, "移动 Tween 完成后应到达目标 y。")
+	assert_almost_eq(
+		node.position.x,
+		10.0,
+		0.01,
+		"移动 Tween 完成后应到达目标 x。"
+	)
+	assert_almost_eq(
+		node.position.y,
+		0.0,
+		0.01,
+		"移动 Tween 完成后应到达目标 y。"
+	)
 
 
 func test_move_tween_action_finish_sets_final_position_and_releases_waiters() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 
-	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(20.0, 0.0), 1.0)
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		Vector2(20.0, 0.0),
+		1.0
+	)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
 	var wait_for_action: Callable = func() -> void:
@@ -256,18 +313,36 @@ func test_move_tween_action_finish_sets_final_position_and_releases_waiters() ->
 	action.finish()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "finish 应释放移动 Tween 等待者。")
-	assert_eq(node.position, Vector2(20.0, 0.0), "finish 应直接写入最终位置。")
+	assert_true(
+		completed[0],
+		"finish 应释放移动 Tween 等待者。"
+	)
+	assert_eq(
+		node.position,
+		Vector2(20.0, 0.0),
+		"finish 应直接写入最终位置。"
+	)
 
 
 func test_move_tween_action_rejects_detached_target_for_timed_tween() -> void:
 	var node: Node2D = Node2D.new()
-	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(20.0, 0.0), 1.0)
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		Vector2(20.0, 0.0),
+		1.0
+	)
 
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "离树目标不应创建移动 Tween。")
-	assert_eq(node.position, Vector2.ZERO, "离树目标不应被定时移动动作改写。")
+	assert_true(
+		result == null,
+		"离树目标不应创建移动 Tween。"
+	)
+	assert_eq(
+		node.position,
+		Vector2.ZERO,
+		"离树目标不应被定时移动动作改写。"
+	)
 	assert_push_warning("[GFMoveTweenAction][move_tween_action.target_outside_tree] Cannot create a Tween: the target node is outside the scene tree.")
 	node.free()
 
@@ -276,7 +351,11 @@ func test_move_tween_action_wait_ends_when_target_exits_tree() -> void:
 	var node: Node2D = Node2D.new()
 	add_child(node)
 
-	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2(100.0, 0.0), 1.0)
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		Vector2(100.0, 0.0),
+		1.0
+	)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
 	var wait_for_action: Callable = func() -> void:
@@ -289,30 +368,52 @@ func test_move_tween_action_wait_ends_when_target_exits_tree() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_true(completed[0], "Tween 目标节点退出树时，等待应立即结束。")
+	assert_true(
+		completed[0],
+		"Tween 目标节点退出树时，等待应立即结束。"
+	)
 
 
 func test_move_tween_action_rejects_incompatible_target_value() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 
-	var action: GFVisualAction = GFMoveTweenAction.new(node, "bad_target", 0.0)
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		"bad_target",
+		0.0
+	)
 	var result: Variant = action.execute()
 	assert_push_warning("[GFMoveTweenAction][move_tween_action.incompatible_property_value] Target property and value types are incompatible: position.")
 
-	assert_true(result == null, "类型不兼容的移动动作不应创建 Tween。")
-	assert_eq(node.position, Vector2.ZERO, "类型不兼容时不应写入目标属性。")
+	assert_true(
+		result == null,
+		"类型不兼容的移动动作不应创建 Tween。"
+	)
+	assert_eq(
+		node.position,
+		Vector2.ZERO,
+		"类型不兼容时不应写入目标属性。"
+	)
 
 
 func test_move_tween_action_rejects_missing_property() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 
-	var action: GFVisualAction = GFMoveTweenAction.new(node, Vector2.ONE, 0.0, ^"missing_position")
+	var action: GFVisualAction = GFMoveTweenAction.new(
+		node,
+		Vector2.ONE,
+		0.0,
+		^"missing_position"
+	)
 	var result: Variant = action.execute()
 	assert_push_warning("[GFMoveTweenAction][move_tween_action.missing_property] Target property does not exist: missing_position.")
 
-	assert_true(result == null, "缺失属性不应创建移动 Tween。")
+	assert_true(
+		result == null,
+		"缺失属性不应创建移动 Tween。"
+	)
 
 
 func test_configured_tween_action_applies_zero_duration_steps_immediately() -> void:
@@ -320,12 +421,23 @@ func test_configured_tween_action_applies_zero_duration_steps_immediately() -> v
 	add_child_autofree(node)
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _add_property_step_result_138: Variant = config.add_property_step(^"position", Vector2(8.0, 12.0), 0.0)
+	var _add_property_step_result_138: Variant = config.add_property_step(
+		^"position",
+		Vector2(8.0, 12.0),
+		0.0
+	)
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "零时长配置化 Tween 应立即完成。")
-	assert_eq(node.position, Vector2(8.0, 12.0), "零时长配置化 Tween 应写入目标属性。")
+	assert_true(
+		result == null,
+		"零时长配置化 Tween 应立即完成。"
+	)
+	assert_eq(
+		node.position,
+		Vector2(8.0, 12.0),
+		"零时长配置化 Tween 应写入目标属性。"
+	)
 
 
 func test_tween_easing_curve_is_frozen_for_each_created_property_tweener() -> void:
@@ -353,8 +465,16 @@ func test_tween_easing_curve_is_frozen_for_each_created_property_tweener() -> vo
 	assert_true(second_result is PropertyTweener)
 	var _first_running: bool = first_tween.custom_step(0.5)
 	var _second_running: bool = second_tween.custom_step(0.5)
-	assert_almost_eq(first_target.position.x, 8.0 * original_midpoint, 0.001)
-	assert_almost_eq(second_target.position.x, 8.0 * curve.sample_baked(0.5), 0.001)
+	assert_almost_eq(
+		first_target.position.x,
+		8.0 * original_midpoint,
+		0.001
+	)
+	assert_almost_eq(
+		second_target.position.x,
+		8.0 * curve.sample_baked(0.5),
+		0.001
+	)
 	assert_gt(second_target.position.x, first_target.position.x)
 	first_tween.kill()
 	second_tween.kill()
@@ -374,7 +494,11 @@ func test_tween_easing_curve_null_keeps_existing_transition_and_ease() -> void:
 	var result: Variant = step.append_to_tween(tween, target)
 	assert_true(result is PropertyTweener)
 	var _running: bool = tween.custom_step(0.5)
-	assert_almost_eq(target.position.x, 1.0, 0.001)
+	assert_almost_eq(
+		target.position.x,
+		1.0,
+		0.001
+	)
 	tween.kill()
 
 
@@ -382,9 +506,17 @@ func test_tween_easing_curve_invalid_timed_step_is_reported_and_skipped() -> voi
 	var target: Node2D = Node2D.new()
 	add_child_autofree(target)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var bad_step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 1.0)
+	var bad_step: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		8.0,
+		1.0
+	)
 	bad_step.easing_curve = Curve.new()
-	var good_step: GFTweenActionStep = config.add_property_step(^"position:y", 6.0, 1.0)
+	var good_step: GFTweenActionStep = config.add_property_step(
+		^"position:y",
+		6.0,
+		1.0
+	)
 	good_step.transition_type = Tween.TRANS_LINEAR
 	var error_text: String = bad_step.get_validation_error(target)
 	assert_true(error_text.begins_with("Invalid easing_curve: "))
@@ -400,7 +532,10 @@ func test_tween_easing_curve_invalid_timed_step_is_reported_and_skipped() -> voi
 	var good_result: Variant = good_step.append_to_tween(tween, target)
 	assert_true(good_result is PropertyTweener)
 	var _running: bool = tween.custom_step(1.0)
-	assert_eq(target.position, Vector2(0.0, 6.0))
+	assert_eq(
+		target.position,
+		Vector2(0.0, 6.0)
+	)
 	tween.kill()
 
 
@@ -412,11 +547,11 @@ func test_tween_easing_curve_point_resolution_and_domain_limits_are_validated() 
 	for point_count: int in [2, 256]:
 		for resolution: int in [2, 1000]:
 			step.easing_curve = _make_many_point_easing_curve(point_count, resolution)
-			assert_eq(step.get_validation_error(target), "")
-	var invalid_curves: Array[Curve] = [
-		_make_many_point_easing_curve(257, 2),
-		_make_many_point_easing_curve(2, 1),
-	]
+			assert_eq(
+				step.get_validation_error(target),
+				""
+			)
+	var invalid_curves: Array[Curve] = [_make_many_point_easing_curve(257, 2), _make_many_point_easing_curve(2, 1),]
 	var non_unit_domain: Curve = _make_easing_curve(0.25)
 	non_unit_domain.min_domain = -1.0
 	invalid_curves.append(non_unit_domain)
@@ -425,7 +560,10 @@ func test_tween_easing_curve_point_resolution_and_domain_limits_are_validated() 
 	invalid_curves.append(wrong_endpoint)
 	var repeated_x: Curve = _make_easing_curve(0.25)
 	var _duplicate_point: int = repeated_x.add_point(Vector2(0.5, 0.75))
-	assert_eq(repeated_x.get_point_count(), 4)
+	assert_eq(
+		repeated_x.get_point_count(),
+		4
+	)
 	invalid_curves.append(repeated_x)
 	for curve: Curve in invalid_curves:
 		step.easing_curve = curve
@@ -437,14 +575,25 @@ func test_tween_easing_curve_invalid_data_does_not_change_instant_or_finish_endp
 	add_child_autofree(target)
 	target.position = Vector2(2.0, 4.0)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 0.0)
+	var step: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		8.0,
+		0.0
+	)
 	step.easing_curve = Curve.new()
 	step.apply_instant(target)
-	assert_eq(target.position, Vector2(8.0, 4.0), "Instant application only needs the endpoint.")
+	assert_eq(
+		target.position,
+		Vector2(8.0, 4.0),
+		"Instant application only needs the endpoint."
+	)
 	target.position.x = 2.0
 	step.as_relative = true
 	config.apply_instant(target)
-	assert_eq(target.position, Vector2(10.0, 4.0))
+	assert_eq(
+		target.position,
+		Vector2(10.0, 4.0)
+	)
 	target.position.x = 2.0
 	step.as_relative = false
 	step.duration = 1.0
@@ -460,9 +609,16 @@ func test_tween_easing_curve_invalid_data_does_not_change_instant_or_finish_endp
 	action.pause()
 	step.easing_curve = Curve.new()
 	action.finish()
-	assert_eq(target.position, Vector2(8.0, 4.0), "Finish must not read a replacement easing curve.")
+	assert_eq(
+		target.position,
+		Vector2(8.0, 4.0),
+		"Finish must not read a replacement easing curve."
+	)
 	await get_tree().process_frame
-	assert_true(completed[0], "Finish must release a waiter registered before completion.")
+	assert_true(
+		completed[0],
+		"Finish must release a waiter registered before completion."
+	)
 
 
 func test_invalid_curve_instant_action_still_captures_finish_restore_baseline() -> void:
@@ -471,19 +627,31 @@ func test_invalid_curve_instant_action_still_captures_finish_restore_baseline() 
 	target.position = Vector2(2.0, 4.0)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	config.restore_initial_values_on_finish = true
-	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 0.0)
+	var step: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		8.0,
+		0.0
+	)
 	step.easing_curve = Curve.new()
 	var action: GFVisualAction = config.create_action(target)
 	var result: Variant = action.execute()
 	var is_instant: bool = result == null
 	assert_true(is_instant)
-	assert_eq(target.position, Vector2(2.0, 4.0), "Invalid easing must not prevent endpoint baseline capture.")
+	assert_eq(
+		target.position,
+		Vector2(2.0, 4.0),
+		"Invalid easing must not prevent endpoint baseline capture."
+	)
 
 
 func test_tween_easing_curve_duplicate_step_and_config_have_independent_curves() -> void:
 	var curve: Curve = _make_easing_curve(0.25)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 1.0)
+	var step: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		8.0,
+		1.0
+	)
 	step.easing_curve = curve
 	var copied_step: GFTweenActionStep = step.duplicate_step()
 	var copied_config: GFTweenActionConfig = config.duplicate_config()
@@ -492,7 +660,10 @@ func test_tween_easing_curve_duplicate_step_and_config_have_independent_curves()
 	if copied_step == null or copied_config == null:
 		return
 	assert_not_null(copied_step.easing_curve)
-	assert_eq(copied_config.steps.size(), 1)
+	assert_eq(
+		copied_config.steps.size(),
+		1
+	)
 	if copied_step.easing_curve == null or copied_config.steps.size() != 1:
 		return
 	var config_curve: Curve = copied_config.steps[0].easing_curve
@@ -506,17 +677,37 @@ func test_tween_easing_curve_duplicate_step_and_config_have_independent_curves()
 	assert_true(copied_step_is_native)
 	var original_midpoint: float = curve.sample_baked(0.5)
 	curve.set_point_value(1, 0.75)
-	assert_almost_eq(copied_step.easing_curve.sample_baked(0.5), original_midpoint, 0.00001)
-	assert_almost_eq(config_curve.sample_baked(0.5), original_midpoint, 0.00001)
+	assert_almost_eq(
+		copied_step.easing_curve.sample_baked(0.5),
+		original_midpoint,
+		0.00001
+	)
+	assert_almost_eq(
+		config_curve.sample_baked(0.5),
+		original_midpoint,
+		0.00001
+	)
 	copied_step.easing_curve.set_point_value(1, 0.5)
-	assert_almost_eq(config_curve.sample_baked(0.5), original_midpoint, 0.00001)
+	assert_almost_eq(
+		config_curve.sample_baked(0.5),
+		original_midpoint,
+		0.00001
+	)
 
 
 func test_tween_easing_curve_invalid_copy_fails_without_partial_config() -> void:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var good_step: GFTweenActionStep = config.add_property_step(^"position:x", 4.0, 1.0)
+	var good_step: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		4.0,
+		1.0
+	)
 	good_step.easing_curve = _make_easing_curve(0.25)
-	var bad_step: GFTweenActionStep = config.add_property_step(^"position:y", 8.0, 1.0)
+	var bad_step: GFTweenActionStep = config.add_property_step(
+		^"position:y",
+		8.0,
+		1.0
+	)
 	bad_step.easing_curve = Curve.new()
 	var copied_step: GFTweenActionStep = bad_step.duplicate_step()
 	var step_copy_failed: bool = copied_step == null
@@ -526,28 +717,48 @@ func test_tween_easing_curve_invalid_copy_fails_without_partial_config() -> void
 	var config_copy_failed: bool = copied_config == null
 	assert_true(config_copy_failed)
 	assert_push_warning("[GFTweenActionStep][tween_action_step.invalid_easing_curve_copy] Cannot duplicate an invalid easing_curve; validate the step first.")
-	assert_eq(config.steps.size(), 2)
-	assert_eq(good_step.easing_curve.get_point_count(), 3)
-	assert_eq(bad_step.easing_curve.get_point_count(), 0)
+	assert_eq(
+		config.steps.size(),
+		2
+	)
+	assert_eq(
+		good_step.easing_curve.get_point_count(),
+		3
+	)
+	assert_eq(
+		bad_step.easing_curve.get_point_count(),
+		0
+	)
 
 
 func test_tween_easing_curve_resource_roundtrip_preserves_shape() -> void:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 1.0)
+	var step: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		8.0,
+		1.0
+	)
 	step.easing_curve = _make_easing_curve(0.25)
 	var saved_path: String = "user://gf_tween_easing_roundtrip.tres"
 	var save_error: Error = ResourceSaver.save(config, saved_path)
 	assert_eq(save_error, OK)
 	if save_error != OK:
 		return
-	var reloaded: Resource = ResourceLoader.load(saved_path, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	var reloaded: Resource = ResourceLoader.load(
+		saved_path,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE_DEEP
+	)
 	var remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(saved_path))
 	assert_eq(remove_error, OK)
 	assert_true(reloaded is GFTweenActionConfig)
 	if not (reloaded is GFTweenActionConfig):
 		return
 	var loaded_config: GFTweenActionConfig = reloaded
-	assert_eq(loaded_config.steps.size(), 1)
+	assert_eq(
+		loaded_config.steps.size(),
+		1
+	)
 	if loaded_config.steps.size() != 1:
 		return
 	var loaded_curve: Curve = loaded_config.steps[0].easing_curve
@@ -555,10 +766,23 @@ func test_tween_easing_curve_resource_roundtrip_preserves_shape() -> void:
 	if loaded_curve == null:
 		return
 	assert_ne(loaded_curve, step.easing_curve)
-	assert_eq(loaded_curve.get_point_count(), 3)
+	assert_eq(
+		loaded_curve.get_point_count(),
+		3
+	)
 	assert_eq(loaded_curve.bake_resolution, step.easing_curve.bake_resolution)
-	for progress: float in [0.0, 0.25, 0.5, 0.75, 1.0]:
-		assert_almost_eq(loaded_curve.sample_baked(progress), step.easing_curve.sample_baked(progress), 0.00001)
+	for progress: float in [
+		0.0,
+		0.25,
+		0.5,
+		0.75,
+		1.0,
+	]:
+		assert_almost_eq(
+			loaded_curve.sample_baked(progress),
+			step.easing_curve.sample_baked(progress),
+			0.00001
+		)
 	var target: Node2D = Node2D.new()
 	add_child_autofree(target)
 	var tween: Tween = target.create_tween()
@@ -566,7 +790,11 @@ func test_tween_easing_curve_resource_roundtrip_preserves_shape() -> void:
 	var result: Variant = loaded_config.steps[0].append_to_tween(tween, target)
 	assert_true(result is PropertyTweener)
 	var _running: bool = tween.custom_step(0.5)
-	assert_almost_eq(target.position.x, 8.0 * loaded_curve.sample_baked(0.5), 0.001)
+	assert_almost_eq(
+		target.position.x,
+		8.0 * loaded_curve.sample_baked(0.5),
+		0.001
+	)
 	tween.kill()
 
 
@@ -574,18 +802,32 @@ func test_configured_curve_action_keeps_marker_parallel_topology() -> void:
 	var target: Node2D = Node2D.new()
 	add_child_autofree(target)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var first: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 0.15)
+	var first: GFTweenActionStep = config.add_property_step(
+		^"position:x",
+		8.0,
+		0.15
+	)
 	first.easing_curve = _make_easing_curve(0.25)
 	first.marker_id = &"curve_done"
-	var parallel_step: GFTweenActionStep = config.add_property_step(^"rotation", 1.0, 0.15)
+	var parallel_step: GFTweenActionStep = config.add_property_step(
+		^"rotation",
+		1.0,
+		0.15
+	)
 	parallel_step.parallel = true
 	parallel_step.easing_curve = _make_easing_curve(0.75)
 	var action: GFConfiguredTweenAction = _configured_tween_action(config.create_action(target))
 	var markers: Array[StringName] = []
-	var _connected: Error = action.marker_reached.connect(
-		func(marker_id: StringName, _index: int, _target: Object) -> void:
-			markers.append(marker_id)
-	) as Error
+	var _connected: Error = (
+		action.marker_reached.connect(
+			func(
+				marker_id: StringName,
+				_index: int,
+				_target: Object
+			) -> void:
+				markers.append(marker_id),
+		) as Error
+	)
 	var previous_tweens: Array[Tween] = get_tree().get_processed_tweens()
 	var result: Variant = action.execute()
 	var tween: Tween = _get_created_tween(previous_tweens)
@@ -604,18 +846,35 @@ func test_configured_curve_action_keeps_marker_parallel_topology() -> void:
 	assert_lt(target.position.x, 8.0)
 	assert_gt(target.rotation, 0.0)
 	assert_lt(target.rotation, 1.0)
-	assert_true(markers.is_empty(), "中间进度不得提前发出完成标记。")
+	assert_true(
+		markers.is_empty(),
+		"中间进度不得提前发出完成标记。"
+	)
 	assert_false(completed[0])
 	var _second_step: bool = tween.custom_step(0.2)
 	await get_tree().process_frame
-	assert_true(completed[0], "Natural completion must release the already registered waiter.")
+	assert_true(
+		completed[0],
+		"Natural completion must release the already registered waiter."
+	)
 	if not completed[0]:
 		action.cancel()
 		await get_tree().process_frame
 		return
-	assert_eq(markers, [&"curve_done"])
-	assert_almost_eq(target.position.x, 8.0, 0.001)
-	assert_almost_eq(target.rotation, 1.0, 0.001)
+	assert_eq(
+		markers,
+		[&"curve_done"]
+	)
+	assert_almost_eq(
+		target.position.x,
+		8.0,
+		0.001
+	)
+	assert_almost_eq(
+		target.rotation,
+		1.0,
+		0.001
+	)
 	config.restore_initial_values_on_cancel = true
 	var cancel_result: Variant = action.execute()
 	var cancelled: Array[bool] = [false]
@@ -625,9 +884,20 @@ func test_configured_curve_action_keeps_marker_parallel_topology() -> void:
 	wait_for_cancel.call()
 	action.cancel()
 	await get_tree().process_frame
-	assert_true(cancelled[0], "Cancel must release a waiter registered before cancellation.")
-	assert_almost_eq(target.position.x, 8.0, 0.001)
-	assert_eq(markers, [&"curve_done"], "Cancelling the new playback must not synthesize a marker.")
+	assert_true(
+		cancelled[0],
+		"Cancel must release a waiter registered before cancellation."
+	)
+	assert_almost_eq(
+		target.position.x,
+		8.0,
+		0.001
+	)
+	assert_eq(
+		markers,
+		[&"curve_done"],
+		"Cancelling the new playback must not synthesize a marker."
+	)
 
 
 func test_configured_tween_action_waits_for_timed_steps() -> void:
@@ -635,16 +905,37 @@ func test_configured_tween_action_waits_for_timed_steps() -> void:
 	add_child_autofree(node)
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _add_property_step_result_151: Variant = config.add_property_step(^"position", Vector2(16.0, 4.0), 0.01)
+	var _add_property_step_result_151: Variant = config.add_property_step(
+		^"position",
+		Vector2(16.0, 4.0),
+		0.01
+	)
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
 
-	assert_true(result is Signal, "带时长的配置化 Tween 应返回完成 Signal。")
+	assert_true(
+		result is Signal,
+		"带时长的配置化 Tween 应返回完成 Signal。"
+	)
 	var completion: Signal = _signal_from_result(result)
-	assert_eq(String(completion.get_name()), "_action_completed", "配置化 Tween 应通过动作自身完成信号释放等待者。")
+	assert_eq(
+		String(completion.get_name()),
+		"_action_completed",
+		"配置化 Tween 应通过动作自身完成信号释放等待者。"
+	)
 	await action.await_result_safely(result)
-	assert_almost_eq(node.position.x, 16.0, 0.01, "配置化 Tween 完成后应写入 x。")
-	assert_almost_eq(node.position.y, 4.0, 0.01, "配置化 Tween 完成后应写入 y。")
+	assert_almost_eq(
+		node.position.x,
+		16.0,
+		0.01,
+		"配置化 Tween 完成后应写入 x。"
+	)
+	assert_almost_eq(
+		node.position.y,
+		4.0,
+		0.01,
+		"配置化 Tween 完成后应写入 y。"
+	)
 
 
 func test_configured_tween_action_finish_applies_final_values_and_releases_waiters() -> void:
@@ -652,7 +943,11 @@ func test_configured_tween_action_finish_applies_final_values_and_releases_waite
 	add_child_autofree(node)
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _add_property_step_result: Variant = config.add_property_step(^"position", Vector2(18.0, 6.0), 1.0)
+	var _add_property_step_result: Variant = config.add_property_step(
+		^"position",
+		Vector2(18.0, 6.0),
+		1.0
+	)
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
@@ -665,20 +960,38 @@ func test_configured_tween_action_finish_applies_final_values_and_releases_waite
 	action.finish()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "finish 应释放配置化 Tween 等待者。")
-	assert_eq(node.position, Vector2(18.0, 6.0), "finish 应直接应用配置化 Tween 最终值。")
+	assert_true(
+		completed[0],
+		"finish 应释放配置化 Tween 等待者。"
+	)
+	assert_eq(
+		node.position,
+		Vector2(18.0, 6.0),
+		"finish 应直接应用配置化 Tween 最终值。"
+	)
 
 
 func test_configured_tween_action_rejects_detached_target_for_timed_steps() -> void:
 	var node: Node2D = Node2D.new()
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _add_property_step_result: Variant = config.add_property_step(^"position", Vector2(18.0, 6.0), 1.0)
+	var _add_property_step_result: Variant = config.add_property_step(
+		^"position",
+		Vector2(18.0, 6.0),
+		1.0
+	)
 	var action: GFVisualAction = config.create_action(node)
 
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "离树目标不应创建配置化 Tween。")
-	assert_eq(node.position, Vector2.ZERO, "离树目标不应被定时配置化 Tween 改写。")
+	assert_true(
+		result == null,
+		"离树目标不应创建配置化 Tween。"
+	)
+	assert_eq(
+		node.position,
+		Vector2.ZERO,
+		"离树目标不应被定时配置化 Tween 改写。"
+	)
 	assert_push_warning("[GFConfiguredTweenAction][configured_tween_action.missing_host] Cannot start playback: a valid host node is required.")
 	node.free()
 
@@ -689,7 +1002,11 @@ func test_configured_tween_action_finish_handles_infinite_loop() -> void:
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	config.loop_count = 0
-	var _add_property_step_result_169: Variant = config.add_property_step(^"position", Vector2(16.0, 4.0), 0.1)
+	var _add_property_step_result_169: Variant = config.add_property_step(
+		^"position",
+		Vector2(16.0, 4.0),
+		0.1
+	)
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
@@ -702,7 +1019,10 @@ func test_configured_tween_action_finish_handles_infinite_loop() -> void:
 	action.finish()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "无限循环 Tween 的 finish 不应卡住等待。")
+	assert_true(
+		completed[0],
+		"无限循环 Tween 的 finish 不应卡住等待。"
+	)
 
 
 func test_configured_tween_action_cancel_releases_waiters() -> void:
@@ -710,7 +1030,11 @@ func test_configured_tween_action_cancel_releases_waiters() -> void:
 	add_child_autofree(node)
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _add_property_step_result_190: Variant = config.add_property_step(^"position", Vector2(32.0, 0.0), 1.0)
+	var _add_property_step_result_190: Variant = config.add_property_step(
+		^"position",
+		Vector2(32.0, 0.0),
+		1.0
+	)
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
@@ -723,7 +1047,10 @@ func test_configured_tween_action_cancel_releases_waiters() -> void:
 	action.cancel()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "取消配置化 Tween 时等待者应被释放。")
+	assert_true(
+		completed[0],
+		"取消配置化 Tween 时等待者应被释放。"
+	)
 
 
 func test_configured_tween_action_emits_step_markers() -> void:
@@ -731,17 +1058,30 @@ func test_configured_tween_action_emits_step_markers() -> void:
 	add_child_autofree(node)
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var step: GFTweenActionStep = config.add_property_step(^"position", Vector2(4.0, 0.0), 0.01)
+	var step: GFTweenActionStep = config.add_property_step(
+		^"position",
+		Vector2(4.0, 0.0),
+		0.01
+	)
 	step.marker_id = &"arrived"
 	var action: GFConfiguredTweenAction = _configured_tween_action(config.create_action(node))
 	var markers: Array[StringName] = []
-	var _connect_result_215: Variant = action.marker_reached.connect(func(marker_id: StringName, _step_index: int, _target: Object) -> void:
-		markers.append(marker_id)
+	var _connect_result_215: Variant = action.marker_reached.connect(
+		func(
+			marker_id: StringName,
+			_step_index: int,
+			_target: Object
+		) -> void:
+			markers.append(marker_id)
 	)
 	var result: Variant = action.execute()
 	await action.await_result_safely(result)
 
-	assert_eq(markers, [&"arrived"], "带 marker_id 的步骤完成后应发出 marker_reached。")
+	assert_eq(
+		markers,
+		[&"arrived"],
+		"带 marker_id 的步骤完成后应发出 marker_reached。"
+	)
 
 
 func test_configured_tween_marker_does_not_serialize_following_parallel_step() -> void:
@@ -759,17 +1099,27 @@ func test_configured_tween_marker_does_not_serialize_following_parallel_step() -
 	position_step.transition_type = Tween.TRANS_LINEAR
 	position_step.ease_type = Tween.EASE_IN_OUT
 	position_step.marker_id = &"position_done"
-	var rotation_step: GFTweenActionStep = config.add_property_step(^"rotation", 1.0, 0.15)
+	var rotation_step: GFTweenActionStep = config.add_property_step(
+		^"rotation",
+		1.0,
+		0.15
+	)
 	rotation_step.transition_type = Tween.TRANS_LINEAR
 	rotation_step.ease_type = Tween.EASE_IN_OUT
 	rotation_step.parallel = true
 
 	var action: GFConfiguredTweenAction = _configured_tween_action(config.create_action(node))
 	var markers: Array[StringName] = []
-	var _connect_result: Error = action.marker_reached.connect(
-		func(marker_id: StringName, _step_index: int, _target: Object) -> void:
-			markers.append(marker_id)
-	) as Error
+	var _connect_result: Error = (
+		action.marker_reached.connect(
+			func(
+				marker_id: StringName,
+				_step_index: int,
+				_target: Object
+			) -> void:
+				markers.append(marker_id),
+		) as Error
+	)
 	var previous_tweens: Array[Tween] = get_tree().get_processed_tweens()
 	var result: Variant = action.execute()
 	var tween: Tween = _get_created_tween(previous_tweens)
@@ -785,21 +1135,39 @@ func test_configured_tween_marker_does_not_serialize_following_parallel_step() -
 	var first_running: bool = tween.custom_step(0.05)
 
 	assert_true(first_running)
-	assert_gt(node.position.x, 0.0, "第一步应已开始推进。")
+	assert_gt(
+		node.position.x,
+		0.0,
+		"第一步应已开始推进。"
+	)
 	assert_lt(node.position.x, 10.0)
-	assert_gt(node.rotation, 0.0, "marker callback 不得把声明 parallel 的第二步推迟到第一步之后。")
+	assert_gt(
+		node.rotation,
+		0.0,
+		"marker callback 不得把声明 parallel 的第二步推迟到第一步之后。"
+	)
 	assert_lt(node.rotation, 1.0)
-	assert_true(markers.is_empty(), "中间进度不得提前发出完成标记。")
+	assert_true(
+		markers.is_empty(),
+		"中间进度不得提前发出完成标记。"
+	)
 	assert_false(completed[0])
 
 	var _second_step: bool = tween.custom_step(0.2)
 	await get_tree().process_frame
-	assert_true(completed[0], "自然完成必须释放提前注册的等待者。")
+	assert_true(
+		completed[0],
+		"自然完成必须释放提前注册的等待者。"
+	)
 	if not completed[0]:
 		action.cancel()
 		await get_tree().process_frame
 		return
-	assert_eq(markers, [&"position_done"], "并行拓扑修复后 marker 仍应恰好发出一次。")
+	assert_eq(
+		markers,
+		[&"position_done"],
+		"并行拓扑修复后 marker 仍应恰好发出一次。"
+	)
 
 
 func test_configured_tween_action_can_restore_initial_values_on_cancel() -> void:
@@ -809,44 +1177,80 @@ func test_configured_tween_action_can_restore_initial_values_on_cancel() -> void
 
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	config.restore_initial_values_on_cancel = true
-	var _add_property_step_result_231: Variant = config.add_property_step(^"position", Vector2(40.0, 0.0), 1.0)
+	var _add_property_step_result_231: Variant = config.add_property_step(
+		^"position",
+		Vector2(40.0, 0.0),
+		1.0
+	)
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
 	await get_tree().process_frame
 	action.cancel()
 	await get_tree().process_frame
 
-	assert_true(result is Signal, "带时长步骤应创建可等待动作。")
-	assert_eq(node.position, Vector2(2.0, 3.0), "取消时应恢复播放前捕获的属性值。")
+	assert_true(
+		result is Signal,
+		"带时长步骤应创建可等待动作。"
+	)
+	assert_eq(
+		node.position,
+		Vector2(2.0, 3.0),
+		"取消时应恢复播放前捕获的属性值。"
+	)
 
 
 func test_tween_action_config_reports_invalid_steps() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _add_property_step_result_246: Variant = config.add_property_step(^"missing_property", Vector2.ONE, 0.0)
+	var _add_property_step_result_246: Variant = config.add_property_step(
+		^"missing_property",
+		Vector2.ONE,
+		0.0
+	)
 
 	var report: GFValidationReport = config.get_validation_report(node)
 
-	assert_false(report.is_ok(), "配置校验应复用 GFValidationReport 表达无效步骤。")
-	assert_eq(report.get_error_count(), 1, "缺失属性应产生一个错误。")
+	assert_false(
+		report.is_ok(),
+		"配置校验应复用 GFValidationReport 表达无效步骤。"
+	)
+	assert_eq(
+		report.get_error_count(),
+		1,
+		"缺失属性应产生一个错误。"
+	)
 
 
 func test_tween_action_config_rejects_absolute_type_mismatch_before_property_tweener_append() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
-	var _step: GFTweenActionStep = config.add_property_step(^"position", "not-a-vector", 0.1)
+	var _step: GFTweenActionStep = config.add_property_step(
+		^"position",
+		"not-a-vector",
+		0.1
+	)
 
 	var report: GFValidationReport = config.get_validation_report(node)
-	assert_false(report.is_ok(), "absolute Tween 的目标类型不兼容时必须在追加 PropertyTweener 前失败。")
+	assert_false(
+		report.is_ok(),
+		"absolute Tween 的目标类型不兼容时必须在追加 PropertyTweener 前失败。"
+	)
 	if report.is_ok():
 		return
 
 	var action: GFVisualAction = config.create_action(node)
 	var result: Variant = action.execute()
-	assert_true(result == null, "无效 absolute step 不应创建可等待 Tween。")
-	assert_eq(node.position, Vector2.ZERO, "无效 absolute step 不得修改目标。")
+	assert_true(
+		result == null,
+		"无效 absolute step 不应创建可等待 Tween。"
+	)
+	assert_eq(
+		node.position,
+		Vector2.ZERO,
+		"无效 absolute step 不得修改目标。"
+	)
 	assert_push_warning("[GFTweenActionStep][tween_action_step.invalid_tween_step] Skipped an invalid Tween step: Tween value type mismatch for property: position.")
 
 
@@ -854,17 +1258,42 @@ func test_gf_action_factories_create_common_actions() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
 	node.position = Vector2(3.0, 4.0)
-	node.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	node.modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		0.5
+	)
 	node.material = _make_shader_material()
 
-	var move_action: GFVisualAction = GFAction.move_by(node, Vector2(2.0, 5.0), 0.0)
-	assert_true(move_action is GFConfiguredTweenAction, "move_by 应创建配置化相对 Tween。")
+	var move_action: GFVisualAction = GFAction.move_by(
+		node,
+		Vector2(2.0, 5.0),
+		0.0
+	)
+	assert_true(
+		move_action is GFConfiguredTweenAction,
+		"move_by 应创建配置化相对 Tween。"
+	)
 	assert_true(move_action.execute() == null)
-	assert_eq(node.position, Vector2(5.0, 9.0), "零时长 move_by 应立即应用相对偏移。")
+	assert_eq(
+		node.position,
+		Vector2(5.0, 9.0),
+		"零时长 move_by 应立即应用相对偏移。"
+	)
 
-	var fade_action: GFVisualAction = GFAction.fade_by(node, 0.25, 0.0)
+	var fade_action: GFVisualAction = GFAction.fade_by(
+		node,
+		0.25,
+		0.0
+	)
 	fade_action.execute()
-	assert_almost_eq(node.modulate.a, 0.75, 0.001, "fade_by 应创建相对透明度 Tween。")
+	assert_almost_eq(
+		node.modulate.a,
+		0.75,
+		0.001,
+		"fade_by 应创建相对透明度 Tween。"
+	)
 
 	var hide_action: GFVisualAction = GFAction.hide(node)
 	hide_action.execute()
@@ -874,21 +1303,43 @@ func test_gf_action_factories_create_common_actions() -> void:
 	show_action.execute()
 	assert_true(node.visible, "show 工厂应创建可见性动作。")
 
-	var shader_action: GFVisualAction = GFAction.shader_parameter(node, &"strength", 0.6, 0.0)
+	var shader_action: GFVisualAction = GFAction.shader_parameter(
+		node,
+		&"strength",
+		0.6,
+		0.0
+	)
 	shader_action.execute()
-	assert_almost_eq(_get_shader_strength(node.material), 0.6, 0.001, "shader_parameter 工厂应创建 Shader 参数动作。")
+	assert_almost_eq(
+		_get_shader_strength(node.material),
+		0.6,
+		0.001,
+		"shader_parameter 工厂应创建 Shader 参数动作。"
+	)
 
 	var call_state: Dictionary = { "count": 0 }
-	var call_action: GFVisualAction = GFAction.callback(func(amount: int) -> void:
-		call_state["count"] = GFVariantData.get_option_int(call_state, "count") + amount
-	, [3])
+	var call_action: GFVisualAction = GFAction.callback(
+		func(amount: int) -> void:
+			call_state["count"] = GFVariantData.get_option_int(call_state, "count") + amount,
+		[3]
+	)
 	call_action.execute()
-	assert_eq(GFVariantData.get_option_int(call_state, "count"), 3, "callback 动作应执行回调并传递参数。")
+	assert_eq(
+		GFVariantData.get_option_int(call_state, "count"),
+		3,
+		"callback 动作应执行回调并传递参数。"
+	)
 
 	var group: GFVisualActionGroup = GFAction.sequence([call_action])
 	assert_false(group.is_parallel, "sequence 工厂应创建顺序动作组。")
-	assert_true(GFAction.parallel([call_action]).is_parallel, "parallel 工厂应创建并行动作组。")
-	var race_group: GFVisualActionGroup = GFAction.race([call_action], false)
+	assert_true(
+		GFAction.parallel([call_action]).is_parallel,
+		"parallel 工厂应创建并行动作组。"
+	)
+	var race_group: GFVisualActionGroup = GFAction.race(
+		[call_action],
+		false
+	)
 	assert_eq(
 		race_group.parallel_completion_policy,
 		GFVisualActionGroup.ParallelCompletionPolicy.FIRST_COMPLETED,
@@ -904,7 +1355,10 @@ func test_gf_action_remove_node_queues_target_for_free() -> void:
 	var action: GFVisualAction = GFAction.remove_node(node)
 	action.execute()
 
-	assert_true(node.is_queued_for_deletion(), "remove_node 应把目标节点加入释放队列。")
+	assert_true(
+		node.is_queued_for_deletion(),
+		"remove_node 应把目标节点加入释放队列。"
+	)
 
 
 func test_wait_action_can_finish_early() -> void:
@@ -920,7 +1374,10 @@ func test_wait_action_can_finish_early() -> void:
 	action.finish()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "finish 应提前完成等待动作。")
+	assert_true(
+		completed[0],
+		"finish 应提前完成等待动作。"
+	)
 
 
 func test_wait_action_cancel_suppresses_wait_completed() -> void:
@@ -928,15 +1385,19 @@ func test_wait_action_cancel_suppresses_wait_completed() -> void:
 	var result: Variant = action.execute()
 	var completed: Array[bool] = []
 	var completion: Signal = _signal_from_result(result)
-	var _connect_result_327: Variant = completion.connect(func() -> void:
-		completed.append(true)
+	var _connect_result_327: Variant = completion.connect(
+		func() -> void:
+			completed.append(true)
 	)
 
 	await get_tree().process_frame
 	action.cancel()
 	await get_tree().create_timer(0.03).timeout
 
-	assert_true(completed.is_empty(), "取消等待动作不应发出等待完成信号。")
+	assert_true(
+		completed.is_empty(),
+		"取消等待动作不应发出等待完成信号。"
+	)
 
 
 func test_action_group_cancel_releases_sequence_waiters() -> void:
@@ -952,7 +1413,10 @@ func test_action_group_cancel_releases_sequence_waiters() -> void:
 	group.cancel()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "取消顺序动作组时等待者应被释放。")
+	assert_true(
+		completed[0],
+		"取消顺序动作组时等待者应被释放。"
+	)
 
 
 func test_action_group_pause_resume_hooks_are_non_reentrant() -> void:
@@ -964,11 +1428,19 @@ func test_action_group_pause_resume_hooks_are_non_reentrant() -> void:
 
 	action.reenter_pause = true
 	group.pause()
-	assert_eq(action.pause_count, 1, "group pause hook 反调 pause 时不得递归委托。")
+	assert_eq(
+		action.pause_count,
+		1,
+		"group pause hook 反调 pause 时不得递归委托。"
+	)
 
 	action.reenter_resume = true
 	group.resume()
-	assert_eq(action.resume_count, 1, "group resume hook 反调 resume 时不得递归委托。")
+	assert_eq(
+		action.resume_count,
+		1,
+		"group resume hook 反调 resume 时不得递归委托。"
+	)
 
 	group.cancel()
 	await get_tree().process_frame
@@ -977,8 +1449,9 @@ func test_action_group_pause_resume_hooks_are_non_reentrant() -> void:
 
 func test_parallel_group_stops_launching_after_child_cancels_generation() -> void:
 	var group_holder: Array[GFVisualActionGroup] = []
-	var first: CallbackProbeAction = CallbackProbeAction.new(func() -> void:
-		group_holder[0].cancel()
+	var first: CallbackProbeAction = CallbackProbeAction.new(
+		func() -> void:
+			group_holder[0].cancel()
 	)
 	var second: CallbackProbeAction = CallbackProbeAction.new()
 	var group: GFVisualActionGroup = GFAction.parallel([first, second])
@@ -988,8 +1461,16 @@ func test_parallel_group_stops_launching_after_child_cancels_generation() -> voi
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(first.execute_count, 1, "首个子动作应执行一次。")
-	assert_eq(second.execute_count, 0, "execution serial 失效后不得启动剩余并行兄弟。")
+	assert_eq(
+		first.execute_count,
+		1,
+		"首个子动作应执行一次。"
+	)
+	assert_eq(
+		second.execute_count,
+		0,
+		"execution serial 失效后不得启动剩余并行兄弟。"
+	)
 	group_holder.clear()
 
 
@@ -998,8 +1479,15 @@ func test_parallel_group_rejects_duplicate_action_instance_before_side_effects()
 	var group: GFVisualActionGroup = GFAction.parallel([action, action])
 
 	var result: Variant = group.execute()
-	assert_true(result == null, "同一动作实例无法隔离两次并行运行，应原子拒绝。")
-	assert_eq(action.execute_count, 0, "重复实例拒绝必须发生在任何 execute 副作用前。")
+	assert_true(
+		result == null,
+		"同一动作实例无法隔离两次并行运行，应原子拒绝。"
+	)
+	assert_eq(
+		action.execute_count,
+		0,
+		"重复实例拒绝必须发生在任何 execute 副作用前。"
+	)
 	assert_push_error("[GFVisualActionGroup][visual_action_group.duplicate_parallel_action] The parallel execution plan contains a duplicate action instance.")
 
 
@@ -1038,8 +1526,15 @@ func test_sequence_group_cancel_does_not_touch_unstarted_children() -> void:
 
 	assert_true(waiting_action.cancelled, "取消顺序组应只取消当前运行子动作。")
 	assert_false(pending_action.executed, "未启动子动作不应被执行。")
-	assert_eq(pending_action.cancel_count, 0, "未启动子动作不应收到 cancel。")
-	assert_true(completed[0], "取消顺序组时等待者应释放。")
+	assert_eq(
+		pending_action.cancel_count,
+		0,
+		"未启动子动作不应收到 cancel。"
+	)
+	assert_true(
+		completed[0],
+		"取消顺序组时等待者应释放。"
+	)
 
 
 func test_sequence_group_pause_blocks_next_child_until_resume() -> void:
@@ -1066,10 +1561,7 @@ func test_sequence_group_pause_blocks_next_child_until_resume() -> void:
 
 
 func test_action_group_cancel_releases_parallel_waiters() -> void:
-	var group: GFVisualAction = GFAction.parallel([
-		GFAction.wait(1.0, self),
-		GFAction.wait(1.0, self),
-	])
+	var group: GFVisualAction = GFAction.parallel([GFAction.wait(1.0, self), GFAction.wait(1.0, self),])
 	var result: Variant = group.execute()
 	var completed: Array[bool] = [false]
 	var wait_for_group: Callable = func() -> void:
@@ -1081,7 +1573,10 @@ func test_action_group_cancel_releases_parallel_waiters() -> void:
 	group.cancel()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "取消并行动作组时等待者应被释放。")
+	assert_true(
+		completed[0],
+		"取消并行动作组时等待者应被释放。"
+	)
 
 
 func test_parallel_action_group_waits_for_all_children_by_default() -> void:
@@ -1099,12 +1594,18 @@ func test_parallel_action_group_waits_for_all_children_by_default() -> void:
 	first.complete()
 	await get_tree().process_frame
 
-	assert_false(completed[0], "默认并行动作组应等待全部子动作。")
+	assert_false(
+		completed[0],
+		"默认并行动作组应等待全部子动作。"
+	)
 
 	second.complete()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "全部子动作完成后，并行动作组才应释放等待者。")
+	assert_true(
+		completed[0],
+		"全部子动作完成后，并行动作组才应释放等待者。"
+	)
 
 
 func test_action_race_completes_on_first_child_and_cancels_remaining() -> void:
@@ -1122,7 +1623,10 @@ func test_action_race_completes_on_first_child_and_cancels_remaining() -> void:
 	fast.complete()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "race 动作组应在首个子动作完成后释放等待者。")
+	assert_true(
+		completed[0],
+		"race 动作组应在首个子动作完成后释放等待者。"
+	)
 	assert_true(slow.cancelled, "默认 race 应取消仍在等待的子动作。")
 	assert_false(fast.cancelled, "已完成的子动作不应被重复取消。")
 
@@ -1130,7 +1634,10 @@ func test_action_race_completes_on_first_child_and_cancels_remaining() -> void:
 func test_action_race_can_keep_remaining_children_running() -> void:
 	var slow: ManualSignalAction = ManualSignalAction.new()
 	var fast: ManualSignalAction = ManualSignalAction.new()
-	var group: GFVisualAction = GFAction.race([slow, fast], false)
+	var group: GFVisualAction = GFAction.race(
+		[slow, fast],
+		false
+	)
 	var result: Variant = group.execute()
 	var completed: Array[bool] = [false]
 	var wait_for_group: Callable = func() -> void:
@@ -1142,7 +1649,10 @@ func test_action_race_can_keep_remaining_children_running() -> void:
 	fast.complete()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "race 动作组应仍在首个子动作完成后结束。")
+	assert_true(
+		completed[0],
+		"race 动作组应仍在首个子动作完成后结束。"
+	)
 	assert_false(slow.cancelled, "关闭取消策略时，race 不应替调用方取消剩余动作。")
 
 	slow.cancel()
@@ -1165,8 +1675,14 @@ func test_sequence_group_reexecute_cancels_previous_run_and_releases_waiter() ->
 	await get_tree().process_frame
 
 	assert_true(first.cancelled, "运行中重复 execute 应取消上一轮正在等待的子动作。")
-	assert_true(first_completed[0], "运行中重复 execute 应释放上一轮等待者。")
-	assert_true(second_result is Signal, "新一轮 execute 仍应返回可等待信号。")
+	assert_true(
+		first_completed[0],
+		"运行中重复 execute 应释放上一轮等待者。"
+	)
+	assert_true(
+		second_result is Signal,
+		"新一轮 execute 仍应返回可等待信号。"
+	)
 
 	group.cancel()
 	await get_tree().process_frame
@@ -1174,24 +1690,37 @@ func test_sequence_group_reexecute_cancels_previous_run_and_releases_waiter() ->
 
 func test_repeat_action_creates_fresh_action_each_iteration() -> void:
 	var order: Array[int] = []
-	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
-		return GFAction.callback(func() -> void:
-			order.append(order.size())
-		)
-	, 3)
+	var repeat: GFRepeatAction = GFAction.repeat(
+		func() -> GFVisualAction:
+			return GFAction.callback(
+				func() -> void:
+					order.append(order.size())
+			),
+		3
+	)
 	var result: Variant = repeat.execute()
 	await repeat.await_result_safely(result)
 
-	assert_eq(order, [0, 1, 2], "repeat 应按次数执行工厂创建的动作。")
+	assert_eq(
+		order,
+		[
+			0,
+			1,
+			2,
+		],
+		"repeat 应按次数执行工厂创建的动作。"
+	)
 
 
 func test_repeat_action_reexecute_cancels_previous_active_action() -> void:
 	var actions: Array[ManualSignalAction] = []
-	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
-		var action: ManualSignalAction = ManualSignalAction.new()
-		actions.append(action)
-		return action
-	, 2)
+	var repeat: GFRepeatAction = GFAction.repeat(
+		func() -> GFVisualAction:
+			var action: ManualSignalAction = ManualSignalAction.new()
+			actions.append(action)
+			return action,
+		2
+	)
 	var first_result: Variant = repeat.execute()
 	var first_completed: Array[bool] = [false]
 	var wait_for_first: Callable = func() -> void:
@@ -1203,10 +1732,23 @@ func test_repeat_action_reexecute_cancels_previous_active_action() -> void:
 	var second_result: Variant = repeat.execute()
 	await get_tree().process_frame
 
-	assert_eq(actions.size(), 2, "第二轮 repeat 应创建新的当前动作。")
-	assert_true(actions[0].cancelled, "运行中重复 execute 应取消上一轮当前动作。")
-	assert_true(first_completed[0], "运行中重复 execute 应释放上一轮等待者。")
-	assert_true(second_result is Signal, "第二轮 repeat 仍应返回完成信号。")
+	assert_eq(
+		actions.size(),
+		2,
+		"第二轮 repeat 应创建新的当前动作。"
+	)
+	assert_true(
+		actions[0].cancelled,
+		"运行中重复 execute 应取消上一轮当前动作。"
+	)
+	assert_true(
+		first_completed[0],
+		"运行中重复 execute 应释放上一轮等待者。"
+	)
+	assert_true(
+		second_result is Signal,
+		"第二轮 repeat 仍应返回完成信号。"
+	)
 
 	repeat.cancel()
 	await get_tree().process_frame
@@ -1215,42 +1757,62 @@ func test_repeat_action_reexecute_cancels_previous_active_action() -> void:
 func test_repeat_factory_cancel_prevents_old_generation_action_start() -> void:
 	var returned_action: CallbackProbeAction = CallbackProbeAction.new()
 	var repeat_holder: Array[GFRepeatAction] = []
-	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
-		repeat_holder[0].cancel()
-		return returned_action
-	, 1)
+	var repeat: GFRepeatAction = GFAction.repeat(
+		func() -> GFVisualAction:
+			repeat_holder[0].cancel()
+			return returned_action,
+		1
+	)
 	repeat_holder.append(repeat)
 
 	var _result: Variant = repeat.execute()
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(returned_action.execute_count, 0, "factory 使 serial 失效后，返回动作不得再启动。")
+	assert_eq(
+		returned_action.execute_count,
+		0,
+		"factory 使 serial 失效后，返回动作不得再启动。"
+	)
 	repeat_holder.clear()
 
 
 func test_repeat_control_hooks_are_non_reentrant() -> void:
 	var action: ReentrantCompositeControlAction = ReentrantCompositeControlAction.new()
 	var repeat_holder: Array[GFRepeatAction] = []
-	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
-		action.control_owner = repeat_holder[0]
-		return action
-	, 1)
+	var repeat: GFRepeatAction = GFAction.repeat(
+		func() -> GFVisualAction:
+			action.control_owner = repeat_holder[0]
+			return action,
+		1
+	)
 	repeat_holder.append(repeat)
 	var _result: Variant = repeat.execute()
 	await get_tree().process_frame
 
 	action.reenter_pause = true
 	repeat.pause()
-	assert_eq(action.pause_count, 1, "repeat pause hook 反调 pause 时不得递归委托。")
+	assert_eq(
+		action.pause_count,
+		1,
+		"repeat pause hook 反调 pause 时不得递归委托。"
+	)
 
 	action.reenter_resume = true
 	repeat.resume()
-	assert_eq(action.resume_count, 1, "repeat resume hook 反调 resume 时不得递归委托。")
+	assert_eq(
+		action.resume_count,
+		1,
+		"repeat resume hook 反调 resume 时不得递归委托。"
+	)
 
 	action.reenter_cancel = true
 	repeat.cancel()
-	assert_eq(action.cancel_count, 1, "repeat cancel hook 反调 cancel 时不得重复控制同一动作。")
+	assert_eq(
+		action.cancel_count,
+		1,
+		"repeat cancel hook 反调 cancel 时不得重复控制同一动作。"
+	)
 	action.control_owner = null
 	repeat_holder.clear()
 
@@ -1258,17 +1820,23 @@ func test_repeat_control_hooks_are_non_reentrant() -> void:
 func test_repeat_finish_detaches_before_reentrant_finish_hook() -> void:
 	var action: ReentrantCompositeControlAction = ReentrantCompositeControlAction.new()
 	var repeat_holder: Array[GFRepeatAction] = []
-	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
-		action.control_owner = repeat_holder[0]
-		return action
-	, 1)
+	var repeat: GFRepeatAction = GFAction.repeat(
+		func() -> GFVisualAction:
+			action.control_owner = repeat_holder[0]
+			return action,
+		1
+	)
 	repeat_holder.append(repeat)
 	var _result: Variant = repeat.execute()
 	await get_tree().process_frame
 
 	action.reenter_finish = true
 	repeat.finish()
-	assert_eq(action.finish_count, 1, "repeat finish hook 反调 finish 时不得重复控制同一动作。")
+	assert_eq(
+		action.finish_count,
+		1,
+		"repeat finish hook 反调 finish 时不得重复控制同一动作。"
+	)
 	action.control_owner = null
 	repeat_holder.clear()
 
@@ -1282,7 +1850,11 @@ func test_tween_action_step_apply_instant_relative_vector2() -> void:
 	step.target_value = Vector2(1.0, 2.0)
 	step.as_relative = true
 	step.apply_instant(node)
-	assert_eq(node.position, Vector2(11.0, 22.0), "相对 Vector2 应与当前位置相加。")
+	assert_eq(
+		node.position,
+		Vector2(11.0, 22.0),
+		"相对 Vector2 应与当前位置相加。"
+	)
 
 
 func test_tween_action_step_apply_instant_relative_rotation_scalar() -> void:
@@ -1294,7 +1866,12 @@ func test_tween_action_step_apply_instant_relative_rotation_scalar() -> void:
 	step.target_value = 0.5
 	step.as_relative = true
 	step.apply_instant(node)
-	assert_almost_eq(node.rotation, 1.5, 0.0001, "相对浮点属性应与当前值相加。")
+	assert_almost_eq(
+		node.rotation,
+		1.5,
+		0.0001,
+		"相对浮点属性应与当前值相加。"
+	)
 
 
 func test_tween_action_step_duplicate_step_preserves_exported_fields() -> void:
@@ -1309,12 +1886,23 @@ func test_tween_action_step_duplicate_step_preserves_exported_fields() -> void:
 	step.ease_type = Tween.EASE_IN_OUT
 	var dup: GFTweenActionStep = step.duplicate_step()
 	var duplicated_target: Variant = dup.target_value
-	assert_ne(dup, step, "duplicate_step 应创建新 Resource。")
+	assert_ne(
+		dup,
+		step,
+		"duplicate_step 应创建新 Resource。"
+	)
 	assert_eq(dup.property_name, step.property_name)
-	assert_true(duplicated_target is Color, "duplicate_step 应保留目标值类型。")
+	assert_true(
+		duplicated_target is Color,
+		"duplicate_step 应保留目标值类型。"
+	)
 	if duplicated_target is Color:
 		var target_color: Color = duplicated_target
-		assert_eq(target_color, Color.RED, "duplicate_step 应保留目标值。")
+		assert_eq(
+			target_color,
+			Color.RED,
+			"duplicate_step 应保留目标值。"
+		)
 	assert_eq(dup.duration, 0.5)
 	assert_eq(dup.delay, 0.1)
 	assert_true(dup.as_relative)
@@ -1336,7 +1924,11 @@ func test_tween_action_step_duplicate_step_deep_copies_collection_target_value()
 	var original_points: Array = GFVariantData.as_array(GFVariantData.get_option_value(target_payload, "points"))
 	original_points.append(Vector2.ZERO)
 
-	assert_eq(duplicate_points.size(), 1, "duplicate_step 应深拷贝 Array/Dictionary target_value，避免配置污染。")
+	assert_eq(
+		duplicate_points.size(),
+		1,
+		"duplicate_step 应深拷贝 Array/Dictionary target_value，避免配置污染。"
+	)
 
 
 func test_tween_action_step_rejects_relative_type_mismatch() -> void:
@@ -1346,7 +1938,10 @@ func test_tween_action_step_rejects_relative_type_mismatch() -> void:
 	step.property_name = ^"position"
 	step.target_value = 5
 	step.as_relative = true
-	assert_false(step.can_apply_to(node), "position 为 Vector2 时不应与标量 target 做相对相加。")
+	assert_false(
+		step.can_apply_to(node),
+		"position 为 Vector2 时不应与标量 target 做相对相加。"
+	)
 	assert_true(
 		step.get_validation_error(node).contains("Relative"),
 		"校验错误应提示相对值类型不兼容。"
@@ -1359,46 +1954,106 @@ func test_tween_action_step_append_to_tween_returns_null_for_null_tween() -> voi
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	step.property_name = ^"position"
 	step.target_value = Vector2.ZERO
-	assert_true(step.append_to_tween(null, node) == null, "Tween 为 null 时应安全返回 null。")
+	assert_true(
+		step.append_to_tween(null, node) == null,
+		"Tween 为 null 时应安全返回 null。"
+	)
 
 
 func test_flash_action_restores_modulate() -> void:
 	var item: ColorRect = ColorRect.new()
-	item.modulate = Color(0.2, 0.4, 0.6)
+	item.modulate = Color(
+		0.2,
+		0.4,
+		0.6
+	)
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01)
+	var action: GFVisualAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		0.01
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result is Signal, "闪色动作应返回 Tween 完成信号。")
+	assert_true(
+		result is Signal,
+		"闪色动作应返回 Tween 完成信号。"
+	)
 	var completion: Signal = _signal_from_result(result)
-	assert_eq(String(completion.get_name()), "_action_completed", "闪色动作应通过动作自身完成信号释放等待者。")
+	assert_eq(
+		String(completion.get_name()),
+		"_action_completed",
+		"闪色动作应通过动作自身完成信号释放等待者。"
+	)
 	await action.await_result_safely(result)
 
-	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "闪色动作完成后应恢复原始颜色。")
+	assert_eq(
+		item.modulate,
+		Color(
+			0.2,
+			0.4,
+			0.6
+		),
+		"闪色动作完成后应恢复原始颜色。"
+	)
 
 
 func test_flash_action_zero_duration_applies_flash_color_immediately() -> void:
 	var item: ColorRect = ColorRect.new()
-	item.modulate = Color(0.2, 0.4, 0.6)
+	item.modulate = Color(
+		0.2,
+		0.4,
+		0.6
+	)
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.0)
+	var action: GFVisualAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		0.0
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "零时长闪色动作应立即完成。")
-	assert_eq(item.modulate, Color.RED, "零时长闪色动作应立即写入闪色目标值。")
+	assert_true(
+		result == null,
+		"零时长闪色动作应立即完成。"
+	)
+	assert_eq(
+		item.modulate,
+		Color.RED,
+		"零时长闪色动作应立即写入闪色目标值。"
+	)
 
 
 func test_flash_action_rejects_detached_target_for_timed_tween() -> void:
 	var item: ColorRect = ColorRect.new()
-	item.modulate = Color(0.2, 0.4, 0.6)
-	var action: GFFlashAction = GFFlashAction.new(item, Color.RED, 1.0)
+	item.modulate = Color(
+		0.2,
+		0.4,
+		0.6
+	)
+	var action: GFFlashAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		1.0
+	)
 
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "离树目标不应创建 Flash Tween。")
-	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "拒绝离树 Tween 时不应修改目标颜色。")
+	assert_true(
+		result == null,
+		"离树目标不应创建 Flash Tween。"
+	)
+	assert_eq(
+		item.modulate,
+		Color(
+			0.2,
+			0.4,
+			0.6
+		),
+		"拒绝离树 Tween 时不应修改目标颜色。"
+	)
 	assert_push_warning("[GFFlashAction][flash_action.target_outside_tree] A timed action requires a target inside the scene tree.")
 	item.free()
 
@@ -1406,7 +2061,11 @@ func test_flash_action_rejects_detached_target_for_timed_tween() -> void:
 func test_action_time_fields_reject_non_finite_values() -> void:
 	var item: ColorRect = ColorRect.new()
 	add_child_autofree(item)
-	var flash: GFFlashAction = GFFlashAction.new(item, Color.RED, INF)
+	var flash: GFFlashAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		INF
+	)
 	var wait_action: GFWaitAction = GFWaitAction.new(INF, self)
 	var visual: GFVisualAction = GFVisualAction.new()
 	var step: GFTweenActionStep = GFTweenActionStep.new()
@@ -1414,42 +2073,90 @@ func test_action_time_fields_reject_non_finite_values() -> void:
 	step.delay = NAN
 	var _configured_visual: GFVisualAction = visual.with_signal_timeout(INF)
 
-	assert_eq(flash.duration, 0.0, "非有限 Flash 时长应收敛为安全的瞬时动作。")
-	assert_eq(wait_action.seconds, 0.0, "非有限等待时长不应创建永久等待。")
-	assert_eq(step.duration, 0.0, "Tween step 不应保留无限 duration。")
-	assert_eq(step.delay, 0.0, "Tween step 不应保留 NaN delay。")
-	assert_eq(visual.signal_timeout_seconds, 30.0, "非法 timeout 不应覆盖现有有效超时。")
+	assert_eq(
+		flash.duration,
+		0.0,
+		"非有限 Flash 时长应收敛为安全的瞬时动作。"
+	)
+	assert_eq(
+		wait_action.seconds,
+		0.0,
+		"非有限等待时长不应创建永久等待。"
+	)
+	assert_eq(
+		step.duration,
+		0.0,
+		"Tween step 不应保留无限 duration。"
+	)
+	assert_eq(
+		step.delay,
+		0.0,
+		"Tween step 不应保留 NaN delay。"
+	)
+	assert_eq(
+		visual.signal_timeout_seconds,
+		30.0,
+		"非法 timeout 不应覆盖现有有效超时。"
+	)
 
 
 func test_visual_action_finite_non_positive_timeout_disables_and_non_finite_preserves() -> void:
 	var action: GFVisualAction = GFVisualAction.new()
 	action.signal_timeout_seconds = -1.0
-	assert_eq(action.signal_timeout_seconds, 0.0, "有限负数应按公开约定禁用 Signal 超时。")
+	assert_eq(
+		action.signal_timeout_seconds,
+		0.0,
+		"有限负数应按公开约定禁用 Signal 超时。"
+	)
 	action.signal_timeout_seconds = 5.0
 	var configured_action: GFVisualAction = action.with_signal_timeout(-0.25)
 	assert_same(configured_action, action)
-	assert_eq(action.signal_timeout_seconds, 0.0, "链式配置必须遵守同一负数禁用约定。")
+	assert_eq(
+		action.signal_timeout_seconds,
+		0.0,
+		"链式配置必须遵守同一负数禁用约定。"
+	)
 	action.signal_timeout_seconds = 5.0
 	action.signal_timeout_seconds = 0.0
 	assert_eq(action.signal_timeout_seconds, 0.0)
-	for invalid_timeout: float in [INF, -INF, NAN]:
+	for invalid_timeout: float in [
+		INF,
+		-INF,
+		NAN,
+	]:
 		action.signal_timeout_seconds = 7.0
 		action.signal_timeout_seconds = invalid_timeout
-		assert_eq(action.signal_timeout_seconds, 7.0, "非有限值不得覆盖已有有效超时。")
+		assert_eq(
+			action.signal_timeout_seconds,
+			7.0,
+			"非有限值不得覆盖已有有效超时。"
+		)
 		action.signal_timeout_seconds = 0.0
 		action.signal_timeout_seconds = invalid_timeout
-		assert_eq(action.signal_timeout_seconds, 0.0, "非有限值不得重新启用已禁用的超时。")
+		assert_eq(
+			action.signal_timeout_seconds,
+			0.0,
+			"非有限值不得重新启用已禁用的超时。"
+		)
 
 
 func test_flash_action_rejects_non_color_property() -> void:
 	var item: ColorRect = ColorRect.new()
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01, ^"visible")
+	var action: GFVisualAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		0.01,
+		^"visible"
+	)
 	var result: Variant = action.execute()
 	assert_push_warning("[GFFlashAction][flash_action.invalid_color_property] Target property is not a Color: visible.")
 
-	assert_true(result == null, "非 Color 属性不应创建闪色 Tween。")
+	assert_true(
+		result == null,
+		"非 Color 属性不应创建闪色 Tween。"
+	)
 	assert_true(item.visible, "非 Color 属性不应被闪色动作改写。")
 
 
@@ -1457,19 +2164,35 @@ func test_flash_action_rejects_missing_property() -> void:
 	var item: ColorRect = ColorRect.new()
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 0.01, ^"missing_color")
+	var action: GFVisualAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		0.01,
+		^"missing_color"
+	)
 	var result: Variant = action.execute()
 	assert_push_warning("[GFFlashAction][flash_action.missing_property] Target property does not exist: missing_color.")
 
-	assert_true(result == null, "缺失属性不应创建闪色 Tween。")
+	assert_true(
+		result == null,
+		"缺失属性不应创建闪色 Tween。"
+	)
 
 
 func test_flash_action_cancel_releases_waiters() -> void:
 	var item: ColorRect = ColorRect.new()
-	item.modulate = Color(0.2, 0.4, 0.6)
+	item.modulate = Color(
+		0.2,
+		0.4,
+		0.6
+	)
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFFlashAction.new(item, Color.RED, 1.0)
+	var action: GFVisualAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		1.0
+	)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
 	var wait_for_action: Callable = func() -> void:
@@ -1481,16 +2204,35 @@ func test_flash_action_cancel_releases_waiters() -> void:
 	action.cancel()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "取消闪色动作时等待者应被释放。")
-	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "取消闪色动作时应恢复原始颜色。")
+	assert_true(
+		completed[0],
+		"取消闪色动作时等待者应被释放。"
+	)
+	assert_eq(
+		item.modulate,
+		Color(
+			0.2,
+			0.4,
+			0.6
+		),
+		"取消闪色动作时应恢复原始颜色。"
+	)
 
 
 func test_flash_action_pause_freezes_tween_until_resume() -> void:
 	var item: ColorRect = ColorRect.new()
-	item.modulate = Color(0.2, 0.4, 0.6)
+	item.modulate = Color(
+		0.2,
+		0.4,
+		0.6
+	)
 	add_child_autofree(item)
 
-	var action: GFFlashAction = GFFlashAction.new(item, Color.RED, 0.2)
+	var action: GFFlashAction = GFFlashAction.new(
+		item,
+		Color.RED,
+		0.2
+	)
 	var result: Variant = action.execute()
 	await get_tree().process_frame
 
@@ -1498,12 +2240,24 @@ func test_flash_action_pause_freezes_tween_until_resume() -> void:
 	var paused_color: Color = item.modulate
 	await get_tree().create_timer(0.05).timeout
 
-	assert_eq(item.modulate, paused_color, "暂停期间闪色 Tween 不应继续推进。")
+	assert_eq(
+		item.modulate,
+		paused_color,
+		"暂停期间闪色 Tween 不应继续推进。"
+	)
 
 	action.resume()
 	await action.await_result_safely(result)
 
-	assert_eq(item.modulate, Color(0.2, 0.4, 0.6), "恢复并完成后应恢复原始颜色。")
+	assert_eq(
+		item.modulate,
+		Color(
+			0.2,
+			0.4,
+			0.6
+		),
+		"恢复并完成后应恢复原始颜色。"
+	)
 
 
 func test_wait_action_host_node_exit_suppresses_completion() -> void:
@@ -1513,15 +2267,19 @@ func test_wait_action_host_node_exit_suppresses_completion() -> void:
 	var result: Variant = action.execute()
 	var completed: Array[bool] = []
 	var completion: Signal = _signal_from_result(result)
-	var _connect_result: Variant = completion.connect(func() -> void:
-		completed.append(true)
+	var _connect_result: Variant = completion.connect(
+		func() -> void:
+			completed.append(true)
 	)
 
 	host.queue_free()
 	await get_tree().process_frame
 	await get_tree().create_timer(0.05).timeout
 
-	assert_true(completed.is_empty(), "host_node 离树后等待动作不应继续发出完成信号。")
+	assert_true(
+		completed.is_empty(),
+		"host_node 离树后等待动作不应继续发出完成信号。"
+	)
 
 
 func test_shader_parameter_action_sets_value_immediately() -> void:
@@ -1529,11 +2287,24 @@ func test_shader_parameter_action_sets_value_immediately() -> void:
 	item.material = _make_shader_material()
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 0.75, 0.0)
+	var action: GFVisualAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		0.75,
+		0.0
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "零时长 Shader 参数动作应立即完成。")
-	assert_almost_eq(_get_shader_strength(item.material), 0.75, 0.001, "零时长 Shader 参数动作应写入参数。")
+	assert_true(
+		result == null,
+		"零时长 Shader 参数动作应立即完成。"
+	)
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		0.75,
+		0.001,
+		"零时长 Shader 参数动作应写入参数。"
+	)
 
 
 func test_shader_parameter_action_waits_for_tween() -> void:
@@ -1541,13 +2312,26 @@ func test_shader_parameter_action_waits_for_tween() -> void:
 	item.material = _make_shader_material()
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 1.0, 0.01)
+	var action: GFVisualAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		1.0,
+		0.01
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result is Signal, "带时长 Shader 参数动作应返回完成 Signal。")
+	assert_true(
+		result is Signal,
+		"带时长 Shader 参数动作应返回完成 Signal。"
+	)
 	await action.await_result_safely(result)
 
-	assert_almost_eq(_get_shader_strength(item.material), 1.0, 0.01, "Shader 参数 Tween 完成后应到达目标值。")
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		1.0,
+		0.01,
+		"Shader 参数 Tween 完成后应到达目标值。"
+	)
 
 
 func test_shader_parameter_action_finish_sets_final_value_and_releases_waiters() -> void:
@@ -1555,7 +2339,12 @@ func test_shader_parameter_action_finish_sets_final_value_and_releases_waiters()
 	item.material = _make_shader_material()
 	add_child_autofree(item)
 
-	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 1.0, 1.0)
+	var action: GFVisualAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		1.0,
+		1.0
+	)
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
 	var wait_for_action: Callable = func() -> void:
@@ -1567,8 +2356,16 @@ func test_shader_parameter_action_finish_sets_final_value_and_releases_waiters()
 	action.finish()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "finish 应释放 Shader 参数 Tween 等待者。")
-	assert_almost_eq(_get_shader_strength(item.material), 1.0, 0.001, "finish 应直接写入 Shader 参数最终值。")
+	assert_true(
+		completed[0],
+		"finish 应释放 Shader 参数 Tween 等待者。"
+	)
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		1.0,
+		0.001,
+		"finish 应直接写入 Shader 参数最终值。"
+	)
 
 
 func test_shader_parameter_action_seals_parameter_and_value_for_active_tween() -> void:
@@ -1587,7 +2384,10 @@ func test_shader_parameter_action_seals_parameter_and_value_for_active_tween() -
 	action.target_value = 0.25
 	action.finish()
 
-	assert_true(result is Signal, "封存测试应先创建有效 Tween。")
+	assert_true(
+		result is Signal,
+		"封存测试应先创建有效 Tween。"
+	)
 	assert_almost_eq(
 		_get_shader_strength(item.material),
 		1.0,
@@ -1605,25 +2405,52 @@ func test_shader_parameter_action_seals_parameter_and_value_for_active_tween() -
 func test_shader_parameter_action_rejects_detached_target_for_timed_tween() -> void:
 	var item: ColorRect = ColorRect.new()
 	item.material = _make_shader_material()
-	var action: GFVisualAction = GFShaderParameterAction.new(item, &"strength", 1.0, 1.0)
+	var action: GFVisualAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		1.0,
+		1.0
+	)
 
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "离树目标不应创建 Shader 参数 Tween。")
-	assert_almost_eq(_get_shader_strength(item.material), 0.0, 0.001, "离树目标不应被定时 Shader 参数动作改写。")
+	assert_true(
+		result == null,
+		"离树目标不应创建 Shader 参数 Tween。"
+	)
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		0.0,
+		0.001,
+		"离树目标不应被定时 Shader 参数动作改写。"
+	)
 	assert_push_warning("[GFShaderParameterAction][shader_parameter_action.missing_host] Cannot start playback: a valid host node is required.")
 	item.free()
 
 
 func test_shader_parameter_action_can_tween_direct_material_with_host() -> void:
 	var material: ShaderMaterial = _make_shader_material()
-	var action: GFVisualAction = GFShaderParameterAction.new(material, &"strength", 0.5, 0.01, self)
+	var action: GFVisualAction = GFShaderParameterAction.new(
+		material,
+		&"strength",
+		0.5,
+		0.01,
+		self
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result is Signal, "直接操作 ShaderMaterial 时可通过 host_node 创建 Tween。")
+	assert_true(
+		result is Signal,
+		"直接操作 ShaderMaterial 时可通过 host_node 创建 Tween。"
+	)
 	await action.await_result_safely(result)
 
-	assert_almost_eq(_get_shader_strength(material), 0.5, 0.01, "直接材质 Tween 应写入目标参数。")
+	assert_almost_eq(
+		_get_shader_strength(material),
+		0.5,
+		0.01,
+		"直接材质 Tween 应写入目标参数。"
+	)
 
 
 func test_shader_parameter_action_duplicates_owner_material_when_requested() -> void:
@@ -1635,15 +2462,36 @@ func test_shader_parameter_action_duplicates_owner_material_when_requested() -> 
 	add_child_autofree(item_a)
 	add_child_autofree(item_b)
 
-	var action: GFVisualAction = GFAction.shader_parameter(item_a, &"strength", 0.9, 0.0, {
-		"duplicate_material_on_execute": true,
-	})
+	var action: GFVisualAction = GFAction.shader_parameter(
+		item_a,
+		&"strength",
+		0.9,
+		0.0,
+		{ "duplicate_material_on_execute": true, }
+	)
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "零时长 Shader 参数动作应立即完成。")
-	assert_ne(item_a.material, item_b.material, "复制材质后不应继续修改共享材质资源。")
-	assert_almost_eq(_get_shader_strength(item_a.material), 0.9, 0.001, "目标节点应使用复制后的材质参数。")
-	assert_almost_eq(_get_shader_strength(item_b.material), 0.0, 0.001, "共享材质的其他使用者不应被改写。")
+	assert_true(
+		result == null,
+		"零时长 Shader 参数动作应立即完成。"
+	)
+	assert_ne(
+		item_a.material,
+		item_b.material,
+		"复制材质后不应继续修改共享材质资源。"
+	)
+	assert_almost_eq(
+		_get_shader_strength(item_a.material),
+		0.9,
+		0.001,
+		"目标节点应使用复制后的材质参数。"
+	)
+	assert_almost_eq(
+		_get_shader_strength(item_b.material),
+		0.0,
+		0.001,
+		"共享材质的其他使用者不应被改写。"
+	)
 
 
 func test_shader_parameter_action_validates_before_duplicating_material() -> void:
@@ -1651,13 +2499,25 @@ func test_shader_parameter_action_validates_before_duplicating_material() -> voi
 	var item: ColorRect = ColorRect.new()
 	item.material = shared_material
 	add_child_autofree(item)
-	var action: GFShaderParameterAction = GFShaderParameterAction.new(item, &"missing", 1.0, 0.0)
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(
+		item,
+		&"missing",
+		1.0,
+		0.0
+	)
 	action.duplicate_material_on_execute = true
 
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "无效参数动作应同步拒绝。")
-	assert_same(item.material, shared_material, "校验失败前不得复制并写回材质。")
+	assert_true(
+		result == null,
+		"无效参数动作应同步拒绝。"
+	)
+	assert_same(
+		item.material,
+		shared_material,
+		"校验失败前不得复制并写回材质。"
+	)
 	assert_push_warning("[GFShaderParameterAction][shader_parameter_action.missing_parameter] Shader parameter does not exist: missing.")
 
 
@@ -1676,8 +2536,15 @@ func test_shader_parameter_action_rejects_declared_type_mismatch_before_duplicat
 
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "错型 Shader 参数动作应同步拒绝。")
-	assert_same(item.material, shared_material, "类型校验失败前不得复制并写回材质。")
+	assert_true(
+		result == null,
+		"错型 Shader 参数动作应同步拒绝。"
+	)
+	assert_same(
+		item.material,
+		shared_material,
+		"类型校验失败前不得复制并写回材质。"
+	)
 	assert_almost_eq(
 		_get_shader_strength(item.material),
 		0.0,
@@ -1692,7 +2559,12 @@ func test_shader_parameter_action_cancel_releases_waiters_and_restores() -> void
 	item.material = _make_shader_material(0.25)
 	add_child_autofree(item)
 
-	var action: GFShaderParameterAction = GFShaderParameterAction.new(item, &"strength", 1.0, 1.0)
+	var action: GFShaderParameterAction = GFShaderParameterAction.new(
+		item,
+		&"strength",
+		1.0,
+		1.0
+	)
 	action.restore_initial_value_on_cancel = true
 	var result: Variant = action.execute()
 	var completed: Array[bool] = [false]
@@ -1705,8 +2577,16 @@ func test_shader_parameter_action_cancel_releases_waiters_and_restores() -> void
 	action.cancel()
 	await get_tree().process_frame
 
-	assert_true(completed[0], "取消 Shader 参数动作时等待者应被释放。")
-	assert_almost_eq(_get_shader_strength(item.material), 0.25, 0.001, "取消时应按配置恢复初始参数值。")
+	assert_true(
+		completed[0],
+		"取消 Shader 参数动作时等待者应被释放。"
+	)
+	assert_almost_eq(
+		_get_shader_strength(item.material),
+		0.25,
+		0.001,
+		"取消时应按配置恢复初始参数值。"
+	)
 
 
 func test_audio_action_is_fire_and_forget() -> void:
@@ -1721,9 +2601,20 @@ func test_audio_action_is_fire_and_forget() -> void:
 	var action: GFVisualAction = GFAudioAction.new("res://audio/hit.wav")
 	var result: Variant = action.execute()
 
-	assert_eq(action.completion_mode, GFVisualAction.CompletionMode.FIRE_AND_FORGET, "音效动作默认不阻塞队列。")
-	assert_true(result == null, "音效动作应立即完成。")
-	assert_eq(audio.played_paths, ["res://audio/hit.wav"], "音效动作应委托给 GFAudioUtility。")
+	assert_eq(
+		action.completion_mode,
+		GFVisualAction.CompletionMode.FIRE_AND_FORGET,
+		"音效动作默认不阻塞队列。"
+	)
+	assert_true(
+		result == null,
+		"音效动作应立即完成。"
+	)
+	assert_eq(
+		audio.played_paths,
+		["res://audio/hit.wav"],
+		"音效动作应委托给 GFAudioUtility。"
+	)
 
 
 func test_audio_action_can_play_bank_clip() -> void:
@@ -1740,5 +2631,12 @@ func test_audio_action_can_play_bank_clip() -> void:
 	action.clip_id = &"ui_accept"
 	var result: Variant = action.execute()
 
-	assert_true(result == null, "音频集合动作也应立即完成。")
-	assert_eq(audio.played_clip_ids, [&"ui_accept"], "音效动作应按 clip_id 委托给 GFAudioUtility。")
+	assert_true(
+		result == null,
+		"音频集合动作也应立即完成。"
+	)
+	assert_eq(
+		audio.played_clip_ids,
+		[&"ui_accept"],
+		"音效动作应按 clip_id 委托给 GFAudioUtility。"
+	)

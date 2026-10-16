@@ -11,21 +11,21 @@ extends RefCounted
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/extension/gf_extension_export_plugin.gd"
+const EXTENSION_EXPORT_PLUGIN_SCRIPT_PATH: String = ("res://addons/gf/kernel/editor/extension/gf_extension_export_plugin.gd")
 
 ## GF 通用资源路径 Inspector 脚本路径。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd"
+const RESOURCE_PATH_INSPECTOR_PLUGIN_SCRIPT_PATH: String = ("res://addons/gf/kernel/editor/gf_resource_path_inspector_plugin.gd")
 
 ## GF ProjectSettings 本地化 Inspector 脚本路径。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/gf_project_settings_inspector_plugin.gd"
+const PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH: String = ("res://addons/gf/kernel/editor/gf_project_settings_inspector_plugin.gd")
 
 ## 扩展启用设置脚本。
 ## [br]
@@ -115,6 +115,7 @@ var _presentation_locale: String = ""
 func get_setup_issues() -> Array[String]:
 	return _setup_issues.duplicate()
 
+
 ## 安装 GF Inspector 与导出插件。
 ## [br]
 ## @api framework_internal
@@ -139,13 +140,25 @@ func setup(
 		return
 	cleanup(plugin)
 	_standard_inspector_records = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(editor_records, "inspector_plugin_records", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			editor_records,
+			"inspector_plugin_records",
+			[]
+		)
 	)
 	_standard_export_records = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(editor_records, "export_plugin_records", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			editor_records,
+			"export_plugin_records",
+			[]
+		)
 	)
 	_project_setting_records = _to_record_array(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(editor_records, "project_setting_records", [])
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			editor_records,
+			"project_setting_records",
+			[]
+		)
 	)
 	_project_setting_section_records = _to_record_array(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
@@ -210,10 +223,7 @@ func _setup_inspector_tools(plugin: EditorPlugin) -> void:
 ## [br]
 ## @api private
 func _add_project_settings_inspector_plugin(plugin: EditorPlugin) -> void:
-	var inspector_plugin: EditorInspectorPlugin = _load_inspector_plugin(
-		PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH,
-		"GF ProjectSettings Inspector"
-	)
+	var inspector_plugin: EditorInspectorPlugin = _load_inspector_plugin(PROJECT_SETTINGS_INSPECTOR_PLUGIN_SCRIPT_PATH, "GF ProjectSettings Inspector")
 	if inspector_plugin == null:
 		return
 	if not inspector_plugin.has_method(&"configure"):
@@ -345,7 +355,11 @@ func _load_export_plugin(script_path: String, label: String) -> EditorExportPlug
 ## 创建 Inspector 插件后注册到 EditorPlugin，并保存实例供后续移除。
 ## [br]
 ## @api private
-func _add_inspector_plugin(plugin: EditorPlugin, script_path: String, label: String) -> void:
+func _add_inspector_plugin(
+	plugin: EditorPlugin,
+	script_path: String,
+	label: String
+) -> void:
 	var inspector_plugin: EditorInspectorPlugin = _load_inspector_plugin(script_path, label)
 	if inspector_plugin == null:
 		return
@@ -360,44 +374,28 @@ func _add_inspector_plugin(plugin: EditorPlugin, script_path: String, label: Str
 func _collect_enabled_extension_inspector_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
-	for contribution_record: Dictionary in (
-		GFExtensionSettingsBase.get_enabled_editor_contribution_records(
-			"editor_inspector_paths"
-		)
-	):
-		var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"path"
-		).strip_edges()
+	for contribution_record: Dictionary in GFExtensionSettingsBase.get_enabled_editor_contribution_records("editor_inspector_paths"):
+		var normalized_path: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "path").strip_edges())
 		if normalized_path.is_empty() or used_paths.has(normalized_path):
 			continue
 
 		used_paths[normalized_path] = true
-		records.append({
-			"path": normalized_path,
-			"label": _get_extension_inspector_label(contribution_record, normalized_path),
-		})
+		records.append({ "path": normalized_path, "label": _get_extension_inspector_label(contribution_record, normalized_path), })
 	return records
 
 
 ## 以 display_name 为扩展名，缺失时回退到 extension_id，并追加脚本文件名标签。
 ## [br]
 ## @api private
-func _get_extension_inspector_label(
-	contribution_record: Dictionary,
-	inspector_path: String
-) -> String:
-	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		contribution_record,
-		"display_name"
-	)
+func _get_extension_inspector_label(contribution_record: Dictionary, inspector_path: String) -> String:
+	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "display_name")
 	if extension_name.is_empty():
-		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"extension_id"
-		)
+		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "extension_id")
 	var script_name: String = inspector_path.get_file().get_basename().to_pascal_case()
-	return "%s %s" % [extension_name, script_name]
+	return (
+		"%s %s"
+		% [extension_name, script_name]
+	)
 
 
 ## 仅接受 Array 中的 Dictionary 项，并对每项执行深复制；其他输入返回空数组。
@@ -418,7 +416,11 @@ func _to_record_array(value: Variant) -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _get_record_string(record: Dictionary, key: String) -> String:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, key, "")
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		record,
+		key,
+		""
+	)
 
 
 ## 加载路径对应的资源，仅在结果是 Script 时返回脚本。

@@ -222,7 +222,11 @@ func untrack_handle(handle: Object) -> int:
 	var removed_count: int = 0
 	for tracking_id: int in _records.keys():
 		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
-		if GFVariantData.get_option_int(record, "handle_instance_id", -1) != handle.get_instance_id():
+		if GFVariantData.get_option_int(
+			record,
+			"handle_instance_id",
+			-1
+		) != handle.get_instance_id():
 			continue
 		if untrack_id(tracking_id):
 			removed_count += 1
@@ -338,18 +342,15 @@ func refresh_snapshot(tracking_id: int) -> Dictionary:
 	var truncated: bool = entry_count > bounded_snapshot.size()
 	record["snapshot"] = GFReportValueCodec.to_report_dictionary(
 		bounded_snapshot,
-		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG, {
-			"max_depth": 8,
-			"max_string_length": 2048,
-		})
+		GFReportValueCodec.make_redaction_options(
+			GFReportValueCodec.REDACTION_PROFILE_DEBUG,
+			{ "max_depth": 8, "max_string_length": 2048, }
+		)
 	)
 	record["snapshot_entry_count"] = entry_count
 	record["snapshot_truncated"] = truncated
 	record["snapshot_stale"] = false
-	record["snapshot_attempted_msec"] = GFVariantData.get_option_int(
-		report,
-		"attempted_msec"
-	)
+	record["snapshot_attempted_msec"] = GFVariantData.get_option_int(report, "attempted_msec")
 	record["snapshot_refreshed_msec"] = Time.get_ticks_msec()
 	record["snapshot_error"] = ""
 	_records[tracking_id] = record
@@ -385,10 +386,7 @@ func refresh_snapshots(max_provider_calls: int = DEFAULT_MAX_PROVIDER_CALLS) -> 
 		if not _records.has(tracking_id):
 			continue
 		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
-		var provider_ref: Dictionary = GFVariantData.get_option_dictionary(
-			record,
-			"snapshot_provider_ref"
-		)
+		var provider_ref: Dictionary = GFVariantData.get_option_dictionary(record, "snapshot_provider_ref")
 		if provider_ref.is_empty():
 			continue
 		if not _resolve_snapshot_provider(record).is_valid():
@@ -471,12 +469,19 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 ## [br]
 func _record_to_snapshot(record: Dictionary, is_valid_record: bool) -> Dictionary:
-	var created_msec: int = GFVariantData.get_option_int(record, "created_msec", Time.get_ticks_msec())
+	var created_msec: int = GFVariantData.get_option_int(
+		record,
+		"created_msec",
+		Time.get_ticks_msec()
+	)
 	var result: Dictionary = {
 		"tracking_id": GFVariantData.get_option_int(record, "tracking_id"),
 		"label": GFVariantData.get_option_string_name(record, "label"),
 		"valid": is_valid_record,
-		"age_msec": maxi(Time.get_ticks_msec() - created_msec, 0),
+		"age_msec": maxi(
+			Time.get_ticks_msec() - created_msec,
+			0
+		),
 		"handle_instance_id": GFVariantData.get_option_int(record, "handle_instance_id"),
 		"metadata": GFVariantData.get_option_dictionary(record, "metadata"),
 	}
@@ -491,10 +496,7 @@ func _record_to_snapshot(record: Dictionary, is_valid_record: bool) -> Dictionar
 	result["snapshot_entry_count"] = GFVariantData.get_option_int(record, "snapshot_entry_count")
 	result["snapshot_truncated"] = GFVariantData.get_option_bool(record, "snapshot_truncated")
 	result["snapshot_stale"] = GFVariantData.get_option_bool(record, "snapshot_stale")
-	result["snapshot_attempted_msec"] = GFVariantData.get_option_int(
-		record,
-		"snapshot_attempted_msec"
-	)
+	result["snapshot_attempted_msec"] = GFVariantData.get_option_int(record, "snapshot_attempted_msec")
 	result["snapshot_refreshed_msec"] = GFVariantData.get_option_int(record, "snapshot_refreshed_msec")
 	var snapshot_error: String = GFVariantData.get_option_string(record, "snapshot_error")
 	if not snapshot_error.is_empty():
@@ -517,10 +519,7 @@ func _record_snapshot_refresh_failure(
 		"attempted_msec",
 		Time.get_ticks_msec()
 	)
-	var stale: bool = (
-		GFVariantData.get_option_int(record, "snapshot_refreshed_msec") > 0
-		or not GFVariantData.get_option_dictionary(record, "snapshot").is_empty()
-	)
+	var stale: bool = (GFVariantData.get_option_int(record, "snapshot_refreshed_msec") > 0 or not GFVariantData.get_option_dictionary(record, "snapshot").is_empty())
 	record["snapshot_stale"] = stale
 	record["snapshot_attempted_msec"] = attempted_msec
 	record["snapshot_error"] = error
@@ -570,9 +569,7 @@ func _make_snapshot_provider_ref(snapshot_provider: Callable) -> Dictionary:
 		return {}
 	var target: Object = snapshot_provider.get_object()
 	if target == null:
-		return {
-			"callable": snapshot_provider,
-		}
+		return { "callable": snapshot_provider, }
 	return {
 		"target_ref": weakref(target),
 		"target_instance_id": target.get_instance_id(),
@@ -590,7 +587,13 @@ func _resolve_snapshot_provider(record: Dictionary) -> Callable:
 	var provider_ref: Dictionary = GFVariantData.get_option_dictionary(record, "snapshot_provider_ref")
 	if provider_ref.is_empty():
 		return Callable()
-	var static_callable: Callable = _variant_to_callable(GFVariantData.get_option_value(provider_ref, "callable", Callable()))
+	var static_callable: Callable = _variant_to_callable(
+		GFVariantData.get_option_value(
+			provider_ref,
+			"callable",
+			Callable()
+		)
+	)
 	if static_callable.is_valid():
 		return static_callable
 	var target: Object = _weak_ref_to_object(_variant_to_weak_ref(GFVariantData.get_option_value(provider_ref, "target_ref")))
@@ -644,8 +647,18 @@ func _capture_stack_trace() -> String:
 		var source: String = GFVariantData.get_option_string(entry, "source")
 		var function_name: String = GFVariantData.get_option_string(entry, "function")
 		var line_number: int = GFVariantData.get_option_int(entry, "line")
-		var line_text: String = "%s:%d %s" % [source, line_number, function_name]
-		text = line_text if text.is_empty() else "%s\n%s" % [text, line_text]
+		var line_text: String = (
+			"%s:%d %s"
+			% [
+				source,
+				line_number,
+				function_name,
+			]
+		)
+		text = line_text if text.is_empty() else (
+			"%s\n%s"
+			% [text, line_text]
+		)
 		if text.length() >= max_stack_trace_chars:
 			return text.substr(0, max_stack_trace_chars)
 	return text

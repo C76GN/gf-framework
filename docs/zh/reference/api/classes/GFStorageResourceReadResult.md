@@ -15,7 +15,7 @@ Resource 及其实际读取来源 revision 的不可变配对结果。 结果保
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`success`](#member-gfstorageresourcereadresult-methods-success) | `static func success( resource: Resource, revision: GFStorageRevisionResult ) -> GFStorageResourceReadResult:` |
+| 方法 | [`success`](#member-gfstorageresourcereadresult-methods-success) | `static func success(resource: Resource, revision: GFStorageRevisionResult) -> GFStorageResourceReadResult:` |
 | 方法 | [`failure`](#member-gfstorageresourcereadresult-methods-failure) | `static func failure(error: Error) -> GFStorageResourceReadResult:` |
 | 方法 | [`is_successful`](#member-gfstorageresourcereadresult-methods-is_successful) | `func is_successful() -> bool:` |
 | 方法 | [`get_error_code`](#member-gfstorageresourcereadresult-methods-get_error_code) | `func get_error_code() -> Error:` |
@@ -32,7 +32,7 @@ Resource 及其实际读取来源 revision 的不可变配对结果。 结果保
 - 首次版本：`unreleased`
 
 ```gdscript
-static func success( resource: Resource, revision: GFStorageRevisionResult ) -> GFStorageResourceReadResult:
+static func success(resource: Resource, revision: GFStorageRevisionResult) -> GFStorageResourceReadResult:
 ```
 
 创建 Resource 与成功 committed revision 的配对结果。

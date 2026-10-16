@@ -40,11 +40,11 @@
 | 方法 | [`get_patch_values`](#member-gfresourcepropertypatch-methods-get_patch_values) | `func get_patch_values() -> Dictionary:` |
 | 方法 | [`make_definition`](#member-gfresourcepropertypatch-methods-make_definition) | `static func make_definition( property_path: StringName, property_type: int = TYPE_NIL, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_property_list`](#member-gfresourcepropertypatch-methods-make_property_list) | `static func make_property_list( patch_definitions: Array, patch_values: Dictionary = {}, options: Dictionary = {} ) -> Array[Dictionary]:` |
-| 方法 | [`collect_values`](#member-gfresourcepropertypatch-methods-collect_values) | `static func collect_values(target: Object, patch_definitions: Array, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`collect_values`](#member-gfresourcepropertypatch-methods-collect_values) | `static func collect_values( target: Object, patch_definitions: Array, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`apply_values`](#member-gfresourcepropertypatch-methods-apply_values) | `static func apply_values( target: Object, patch_definitions: Array, patch_values: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_resource`](#member-gfresourcepropertypatch-methods-build_resource) | `static func build_resource( base_resource: Resource, patch_definitions: Array, patch_values: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`apply_patch_chain`](#member-gfresourcepropertypatch-methods-apply_patch_chain) | `static func apply_patch_chain(target: Object, patch_chain: Array, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`build_resource_chain`](#member-gfresourcepropertypatch-methods-build_resource_chain) | `static func build_resource_chain(base_resource: Resource, patch_chain: Array, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply_patch_chain`](#member-gfresourcepropertypatch-methods-apply_patch_chain) | `static func apply_patch_chain( target: Object, patch_chain: Array, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`build_resource_chain`](#member-gfresourcepropertypatch-methods-build_resource_chain) | `static func build_resource_chain( base_resource: Resource, patch_chain: Array, options: Dictionary = {} ) -> Dictionary:` |
 
 ## 常量
 
@@ -528,7 +528,7 @@ static func make_property_list( patch_definitions: Array, patch_values: Dictiona
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func collect_values(target: Object, patch_definitions: Array, options: Dictionary = {}) -> Dictionary:
+static func collect_values( target: Object, patch_definitions: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 收集目标对象上的属性值。
@@ -619,7 +619,7 @@ static func build_resource( base_resource: Resource, patch_definitions: Array, p
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func apply_patch_chain(target: Object, patch_chain: Array, options: Dictionary = {}) -> Dictionary:
+static func apply_patch_chain( target: Object, patch_chain: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 按顺序把一组补丁应用到目标对象。
@@ -648,7 +648,7 @@ static func apply_patch_chain(target: Object, patch_chain: Array, options: Dicti
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func build_resource_chain(base_resource: Resource, patch_chain: Array, options: Dictionary = {}) -> Dictionary:
+static func build_resource_chain( base_resource: Resource, patch_chain: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 复制或修改 base Resource，并按顺序应用一组补丁。

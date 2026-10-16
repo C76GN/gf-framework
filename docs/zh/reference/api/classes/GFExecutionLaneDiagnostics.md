@@ -32,7 +32,7 @@
 | 属性 | [`max_lanes`](#member-gfexecutionlanediagnostics-properties-max_lanes) | `var max_lanes: int = 1024:` |
 | 属性 | [`max_inactive_lane_age_msec`](#member-gfexecutionlanediagnostics-properties-max_inactive_lane_age_msec) | `var max_inactive_lane_age_msec: int = 0:` |
 | 方法 | [`record_lane_snapshot`](#member-gfexecutionlanediagnostics-methods-record_lane_snapshot) | `func record_lane_snapshot(lane_id: StringName, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`record_lane_event`](#member-gfexecutionlanediagnostics-methods-record_lane_event) | `func record_lane_event(lane_id: StringName, event_type: StringName, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`record_lane_event`](#member-gfexecutionlanediagnostics-methods-record_lane_event) | `func record_lane_event( lane_id: StringName, event_type: StringName, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`remove_lane`](#member-gfexecutionlanediagnostics-methods-remove_lane) | `func remove_lane(lane_id: StringName) -> bool:` |
 | 方法 | [`compact_lanes`](#member-gfexecutionlanediagnostics-methods-compact_lanes) | `func compact_lanes(max_age_msec: int = -1) -> int:` |
 | 方法 | [`clear`](#member-gfexecutionlanediagnostics-methods-clear) | `func clear() -> void:` |
@@ -315,7 +315,7 @@ func record_lane_snapshot(lane_id: StringName, options: Dictionary = {}) -> Dict
 - 首次版本：`7.0.0`
 
 ```gdscript
-func record_lane_event(lane_id: StringName, event_type: StringName, options: Dictionary = {}) -> Dictionary:
+func record_lane_event( lane_id: StringName, event_type: StringName, options: Dictionary = {} ) -> Dictionary:
 ```
 
 记录一个 lane 事件并更新计数。

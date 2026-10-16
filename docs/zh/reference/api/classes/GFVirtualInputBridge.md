@@ -20,8 +20,8 @@ InputMap 与虚拟手柄事件桥接工具。 将触屏按钮、虚拟摇杆或�
 | 方法 | [`release_owner`](#member-gfvirtualinputbridge-methods-release_owner) | `static func release_owner(owner: Object) -> bool:` |
 | 方法 | [`clear_all_actions`](#member-gfvirtualinputbridge-methods-clear_all_actions) | `static func clear_all_actions() -> void:` |
 | 方法 | [`prune_released_owners`](#member-gfvirtualinputbridge-methods-prune_released_owners) | `static func prune_released_owners() -> int:` |
-| 方法 | [`emit_joypad_button`](#member-gfvirtualinputbridge-methods-emit_joypad_button) | `static func emit_joypad_button(device_id: int, button: JoyButton, pressed: bool) -> void:` |
-| 方法 | [`emit_joypad_axis`](#member-gfvirtualinputbridge-methods-emit_joypad_axis) | `static func emit_joypad_axis(device_id: int, axis: JoyAxis, value: float) -> void:` |
+| 方法 | [`emit_joypad_button`](#member-gfvirtualinputbridge-methods-emit_joypad_button) | `static func emit_joypad_button( device_id: int, button: JoyButton, pressed: bool ) -> void:` |
+| 方法 | [`emit_joypad_axis`](#member-gfvirtualinputbridge-methods-emit_joypad_axis) | `static func emit_joypad_axis( device_id: int, axis: JoyAxis, value: float ) -> void:` |
 
 ## 方法
 
@@ -129,7 +129,7 @@ static func prune_released_owners() -> int:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func emit_joypad_button(device_id: int, button: JoyButton, pressed: bool) -> void:
+static func emit_joypad_button( device_id: int, button: JoyButton, pressed: bool ) -> void:
 ```
 
 发送虚拟手柄按钮事件。
@@ -150,7 +150,7 @@ static func emit_joypad_button(device_id: int, button: JoyButton, pressed: bool)
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func emit_joypad_axis(device_id: int, axis: JoyAxis, value: float) -> void:
+static func emit_joypad_axis( device_id: int, axis: JoyAxis, value: float ) -> void:
 ```
 
 发送虚拟手柄轴事件。

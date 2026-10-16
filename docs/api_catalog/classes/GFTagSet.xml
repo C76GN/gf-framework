@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTagSet" path="addons/gf/standard/foundation/tags/gf_tag_set.gd" module="standard" extends="Resource" classDigest="ab579c0b04ea94fd86187fa7155aa76b9425645c92f400b96f9572db9ebd29a6">
+<class name="GFTagSet" path="addons/gf/standard/foundation/tags/gf_tag_set.gd" module="standard" extends="Resource" classDigest="79a350ab1e4861a089c7f987915d726f5f7825796cbacce6814ac66ae52140aa">
 	<description>GFTagSet: 通用标签集合资源。
 只维护标签到层数的映射，不规定标签命名、业务含义或全局注册表。</description>
 	<tags>
@@ -52,7 +52,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="has_tag">
-			<signature>func has_tag(tag: StringName, minimum_count: int = 1, include_child_tags: bool = false) -&gt; bool:</signature>
+			<signature>func has_tag( tag: StringName, minimum_count: int = 1, include_child_tags: bool = false ) -&gt; bool:</signature>
 			<description>检查是否拥有指定标签且层数达到要求。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -60,6 +60,7 @@
 				<tag name="param">minimum_count: 要求的最小层数。</tag>
 				<tag name="param">include_child_tags: 为 true 时，`state` 可匹配 `state.burning`。</tag>
 				<tag name="return">满足要求返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_tag_count">

@@ -108,8 +108,16 @@ func configure(
 	new_color: Color = Color.BLACK
 ) -> GFScreenTransitionEffect:
 	duration_seconds = maxf(new_duration_seconds, 0.0)
-	from_alpha = clampf(new_from_alpha, 0.0, 1.0)
-	to_alpha = clampf(new_to_alpha, 0.0, 1.0)
+	from_alpha = clampf(
+		new_from_alpha,
+		0.0,
+		1.0
+	)
+	to_alpha = clampf(
+		new_to_alpha,
+		0.0,
+		1.0
+	)
 	color = new_color
 	return self
 
@@ -125,7 +133,11 @@ func sample_weight(elapsed_seconds: float) -> float:
 	if duration_seconds <= 0.0:
 		return 1.0
 
-	var t: float = clampf(elapsed_seconds / duration_seconds, 0.0, 1.0)
+	var t: float = clampf(
+		elapsed_seconds / duration_seconds,
+		0.0,
+		1.0
+	)
 	match easing_mode:
 		EasingMode.SMOOTH_STEP:
 			return t * t * (3.0 - 2.0 * t)
@@ -136,7 +148,10 @@ func sample_weight(elapsed_seconds: float) -> float:
 		EasingMode.EASE_IN_OUT:
 			if t < 0.5:
 				return 2.0 * t * t
-			return 1.0 - pow(-2.0 * t + 2.0, 2.0) * 0.5
+			return 1.0 - pow(
+				-2.0 * t + 2.0,
+				2.0
+			) * 0.5
 		_:
 			return t
 
@@ -149,7 +164,15 @@ func sample_weight(elapsed_seconds: float) -> float:
 ## [br]
 ## @return 插值后的透明度。
 func sample_alpha(weight: float) -> float:
-	return lerpf(from_alpha, to_alpha, clampf(weight, 0.0, 1.0))
+	return lerpf(
+		from_alpha,
+		to_alpha,
+		clampf(
+			weight,
+			0.0,
+			1.0
+		)
+	)
 
 
 ## 复制转场效果配置。
@@ -166,7 +189,7 @@ func duplicate_effect() -> GFScreenTransitionEffect:
 	copy.layer = layer
 	copy.block_input = block_input
 	copy.easing_mode = easing_mode
-	copy.shader_material = _variant_to_shader_material(shader_material.duplicate(true)) if shader_material != null else null
+	copy.shader_material = (_variant_to_shader_material(shader_material.duplicate(true)) if shader_material != null else null)
 	copy.progress_parameter = progress_parameter
 	copy.metadata = metadata.duplicate(true)
 	return copy

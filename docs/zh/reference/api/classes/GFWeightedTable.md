@@ -18,7 +18,7 @@
 | 属性 | [`entries`](#member-gfweightedtable-properties-entries) | `var entries: Array[GFWeightedEntry] = []` |
 | 属性 | [`default_value`](#member-gfweightedtable-properties-default_value) | `var default_value: Variant = null` |
 | 属性 | [`deterministic_seed`](#member-gfweightedtable-properties-deterministic_seed) | `var deterministic_seed: int = 0` |
-| 方法 | [`add_entry`](#member-gfweightedtable-methods-add_entry) | `func add_entry(value: Variant, weight: float = 1.0, metadata: Dictionary = {}) -> GFWeightedEntry:` |
+| 方法 | [`add_entry`](#member-gfweightedtable-methods-add_entry) | `func add_entry( value: Variant, weight: float = 1.0, metadata: Dictionary = {} ) -> GFWeightedEntry:` |
 | 方法 | [`add_weighted_entry`](#member-gfweightedtable-methods-add_weighted_entry) | `func add_weighted_entry(entry: GFWeightedEntry) -> bool:` |
 | 方法 | [`remove_entry`](#member-gfweightedtable-methods-remove_entry) | `func remove_entry(entry: GFWeightedEntry) -> bool:` |
 | 方法 | [`clear`](#member-gfweightedtable-methods-clear) | `func clear() -> void:` |
@@ -83,9 +83,10 @@ var deterministic_seed: int = 0
 ### `add_entry`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_entry(value: Variant, weight: float = 1.0, metadata: Dictionary = {}) -> GFWeightedEntry:
+func add_entry( value: Variant, weight: float = 1.0, metadata: Dictionary = {} ) -> GFWeightedEntry:
 ```
 
 追加一个候选条目。

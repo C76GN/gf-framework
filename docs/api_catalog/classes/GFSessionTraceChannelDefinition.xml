@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSessionTraceChannelDefinition" path="addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd" module="standard" extends="Resource" classDigest="20ff363a6ffb283f7061bc61085362b98930b6fb833347e9869b7133238485fa">
+<class name="GFSessionTraceChannelDefinition" path="addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd" module="standard" extends="Resource" classDigest="930663ac0e5216d0d590b718bd6957c47c9a79ddf509ba829b4f005dad422547">
 	<description>GFSessionTraceChannelDefinition: Session Trace 配方中的通道定义。
 该资源只描述稳定通道 ID、可见性和容量，不持有运行时回调或业务状态。</description>
 	<tags>
@@ -63,7 +63,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( p_channel_id: StringName, options: Dictionary = {} ) -&gt; GFSessionTraceChannelDefinition:</signature>
+			<signature>func configure(p_channel_id: StringName, options: Dictionary = {}) -&gt; GFSessionTraceChannelDefinition:</signature>
 			<description>配置通道定义并返回自身。</description>
 			<tags>
 				<tag name="api">public</tag>

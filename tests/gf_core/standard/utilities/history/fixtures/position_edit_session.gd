@@ -47,7 +47,9 @@ func confirm_edit() -> bool:
 	if _preview_position == _initial_position:
 		return false
 	var command: MovePositionCommand = MovePositionCommand.new(
-		_model, _initial_position, _preview_position
+		_model,
+		_initial_position,
+		_preview_position
 	)
 	var result: Variant = await _history.execute_command(command)
 	return GFVariantData.to_bool(result, false)
@@ -66,7 +68,6 @@ class PositionModel:
 	extends RefCounted
 
 	signal position_changed(position: Vector2)
-
 	var position: Vector2 = Vector2.ZERO:
 		set(value):
 			position = value
@@ -80,15 +81,21 @@ class MovePositionCommand:
 	var _initial_position: Vector2
 	var _final_position: Vector2
 
-	func _init(model: PositionModel, initial_position: Vector2, final_position: Vector2) -> void:
+	func _init(
+		model: PositionModel,
+		initial_position: Vector2,
+		final_position: Vector2
+	) -> void:
 		_model = model
 		_initial_position = initial_position
 		_final_position = final_position
 		action_name = "move_item"
 
+
 	func execute() -> Variant:
 		_model.position = _final_position
 		return true
+
 
 	func undo() -> Variant:
 		_model.position = _initial_position

@@ -101,7 +101,11 @@ func set_value(key: StringName, value: Variant) -> GFSequenceContext:
 ## [br]
 ## @schema return: Variant stored value or fallback value.
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(values, key, default_value)
+	return GFVariantData.get_option_value(
+		values,
+		key,
+		default_value
+	)
 
 
 # --- 私有/辅助方法 ---

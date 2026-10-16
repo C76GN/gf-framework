@@ -18,7 +18,7 @@
 | 常量 | [`DEFAULT_CANDIDATE_ATTEMPTS`](#member-gfpoissondisc2d-constants-default_candidate_attempts) | `const DEFAULT_CANDIDATE_ATTEMPTS: int = 30` |
 | 常量 | [`DEFAULT_MAX_POINTS`](#member-gfpoissondisc2d-constants-default_max_points) | `const DEFAULT_MAX_POINTS: int = 4096` |
 | 常量 | [`DEFAULT_MAX_GRID_CELLS`](#member-gfpoissondisc2d-constants-default_max_grid_cells) | `const DEFAULT_MAX_GRID_CELLS: int = 262144` |
-| 方法 | [`generate_points`](#member-gfpoissondisc2d-methods-generate_points) | `static func generate_points(area: Rect2, minimum_distance: float, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`generate_points`](#member-gfpoissondisc2d-methods-generate_points) | `static func generate_points( area: Rect2, minimum_distance: float, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`to_json_compatible_report`](#member-gfpoissondisc2d-methods-to_json_compatible_report) | `static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
@@ -72,7 +72,7 @@ const DEFAULT_MAX_GRID_CELLS: int = 262144
 - 首次版本：`5.0.0`
 
 ```gdscript
-static func generate_points(area: Rect2, minimum_distance: float, options: Dictionary = {}) -> Dictionary:
+static func generate_points( area: Rect2, minimum_distance: float, options: Dictionary = {} ) -> Dictionary:
 ```
 
 在矩形区域中生成 Poisson-disc 采样点。

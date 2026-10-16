@@ -26,7 +26,7 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	var label: Label = Label.new()
 	label.text = paths[0].get_file() if paths.size() == 1 else "%d 个资源" % paths.size()
 	set_drag_preview(label)
-	return {"type": "files", "files": paths}
+	return { "type": "files", "files": paths }
 
 
 # --- 框架内部方法 ---

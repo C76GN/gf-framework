@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputSequenceBranch" path="addons/gf/standard/input/sequences/gf_input_sequence_branch.gd" module="standard" extends="Resource" classDigest="cb9d47b19a0f39fcfea0343ff6154744451be9432980268b9f0ffc257b1cd050">
+<class name="GFInputSequenceBranch" path="addons/gf/standard/input/sequences/gf_input_sequence_branch.gd" module="standard" extends="Resource" classDigest="7341d40ccd95e4ec596995f5dee9c33df50a962bab507d44078e1d532d1d7095">
 	<description>GFInputSequenceBranch: 输入序列触发器的一条可选分支。
 多分支允许同一动作由不同抽象动作序列触发，适合格斗、快捷指令或可替代输入路径。</description>
 	<tags>
@@ -44,7 +44,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_action_ids">
-			<signature>static func from_action_ids( action_ids: Array[StringName], p_max_gap_seconds: float = -1.0 ) -&gt; GFInputSequenceBranch:</signature>
+			<signature>static func from_action_ids(action_ids: Array[StringName], p_max_gap_seconds: float = -1.0) -&gt; GFInputSequenceBranch:</signature>
 			<description>从动作 ID 数组创建分支。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -52,6 +52,7 @@
 				<tag name="param">p_max_gap_seconds: 默认最大步骤间隔。</tag>
 				<tag name="return">新分支。</tag>
 				<tag name="schema">action_ids: Array[StringName]，会复制到 GFInputSequenceStep 资源中。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

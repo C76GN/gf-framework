@@ -111,6 +111,8 @@ func is_level_unlocked(level_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param level_id: 关卡 ID。
 ## [br]
 ## @param result: 项目层结果数据。
@@ -118,14 +120,25 @@ func is_level_unlocked(level_id: StringName) -> bool:
 ## @param merge_result: 是否合并已有结果。
 ## [br]
 ## @schema result: Dictionary，项目自定义关卡完成结果；merge_result 为 true 时会覆盖同名字段。
-func complete_level(level_id: StringName, result: Dictionary = {}, merge_result: bool = true) -> void:
+func complete_level(
+	level_id: StringName,
+	result: Dictionary = {},
+	merge_result: bool = true
+) -> void:
 	if level_id == &"":
 		return
 
 	unlock_level(level_id)
 	_completed_levels[level_id] = true
-	set_level_result(level_id, result, merge_result)
-	level_completed.emit(level_id, get_level_result(level_id))
+	set_level_result(
+		level_id,
+		result,
+		merge_result
+	)
+	level_completed.emit(
+		level_id,
+		get_level_result(level_id)
+	)
 
 
 ## 检查关卡是否完成。
@@ -143,6 +156,8 @@ func is_level_completed(level_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param level_id: 关卡 ID。
 ## [br]
 ## @param result: 结果字典。
@@ -150,7 +165,11 @@ func is_level_completed(level_id: StringName) -> bool:
 ## @param merge_result: 是否合并已有结果。
 ## [br]
 ## @schema result: Dictionary，项目自定义关卡结果；merge_result 为 true 时会覆盖同名字段。
-func set_level_result(level_id: StringName, result: Dictionary, merge_result: bool = true) -> void:
+func set_level_result(
+	level_id: StringName,
+	result: Dictionary,
+	merge_result: bool = true
+) -> void:
 	if level_id == &"":
 		return
 
@@ -161,7 +180,10 @@ func set_level_result(level_id: StringName, result: Dictionary, merge_result: bo
 			next_result[key] = result[key]
 
 	_level_results[level_id] = next_result
-	level_result_updated.emit(level_id, next_result.duplicate(true))
+	level_result_updated.emit(
+		level_id,
+		next_result.duplicate(true)
+	)
 
 
 ## 获取关卡结果。
@@ -209,9 +231,27 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，包含 unlocked_levels、completed_levels 与 level_results 三个可选字典字段。
 func from_dict(data: Dictionary) -> void:
-	_unlocked_levels = _string_name_key_dictionary(GFVariantData.get_option_value(data, "unlocked_levels", {}))
-	_completed_levels = _string_name_key_dictionary(GFVariantData.get_option_value(data, "completed_levels", {}))
-	_level_results = _string_name_key_dictionary(GFVariantData.get_option_value(data, "level_results", {}))
+	_unlocked_levels = _string_name_key_dictionary(
+		GFVariantData.get_option_value(
+			data,
+			"unlocked_levels",
+			{}
+		)
+	)
+	_completed_levels = _string_name_key_dictionary(
+		GFVariantData.get_option_value(
+			data,
+			"completed_levels",
+			{}
+		)
+	)
+	_level_results = _string_name_key_dictionary(
+		GFVariantData.get_option_value(
+			data,
+			"level_results",
+			{}
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -222,7 +262,10 @@ func from_dict(data: Dictionary) -> void:
 func _stringify_key_dictionary(data: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in data.keys():
-		result[GFVariantData.to_text(key)] = GFVariantData.duplicate_collection(data[key], true)
+		result[GFVariantData.to_text(key)] = GFVariantData.duplicate_collection(
+			data[key],
+			true
+		)
 	return result
 
 

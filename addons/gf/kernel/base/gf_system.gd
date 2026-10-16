@@ -366,10 +366,19 @@ func get_system(system_type: Script, require_ready: bool = false) -> Object:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(self, event_type, listener, priority)
+		architecture.register_event_owned(
+			self,
+			event_type,
+			listener,
+			priority
+		)
 
 
 ## 注销类型事件监听器。
@@ -384,7 +393,11 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_event_owned(self, event_type, listener)
+		architecture.unregister_event_owned(
+			self,
+			event_type,
+			listener
+		)
 
 
 ## 注册可赋值类型事件监听器。
@@ -398,10 +411,19 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
+		architecture.register_assignable_event_owned(
+			self,
+			base_event_type,
+			listener,
+			priority
+		)
 
 
 ## 注销可赋值类型事件监听器。
@@ -416,7 +438,11 @@ func register_assignable_event(base_event_type: Script, listener: GFEventListene
 func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_assignable_event_owned(self, base_event_type, listener)
+		architecture.unregister_assignable_event_owned(
+			self,
+			base_event_type,
+			listener
+		)
 
 
 ## 向架构发送类型事件。
@@ -442,7 +468,11 @@ func send_event(event_instance: Object) -> void:
 func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, listener)
+		architecture.register_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 
 
 ## 注销轻量级 StringName 事件监听器。
@@ -457,7 +487,11 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.unregister_simple_event_owned(self, event_id, listener)
+		architecture.unregister_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 
 
 ## 发送轻量级 StringName 事件，避免高频 new() 带来的 GC 压力。
@@ -496,7 +530,11 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @param lifecycle_serial: 非负值限定架构代次；-1 沿用共享作用域的默认绑定规则。
 func _gf_set_dependency_scope(architecture: GFArchitecture, lifecycle_serial: int = -1) -> void:
-	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(_dependency_scope, architecture, lifecycle_serial)
+	_DEPENDENCY_SCOPE_SUPPORT._bind_scope(
+		_dependency_scope,
+		architecture,
+		lifecycle_serial
+	)
 
 
 ## 清除架构引用并保留已释放标记，阻止曾绑定对象重新回退全局架构。

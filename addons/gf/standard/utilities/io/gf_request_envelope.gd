@@ -92,7 +92,13 @@ func _init(
 	p_headers: PackedStringArray = PackedStringArray(),
 	p_metadata: Dictionary = {}
 ) -> void:
-	var _configure_result_91: Variant = configure(p_method, p_url, p_body, p_headers, p_metadata)
+	var _configure_result_91: Variant = configure(
+		p_method,
+		p_url,
+		p_body,
+		p_headers,
+		p_metadata
+	)
 
 
 # --- 公共方法 ---
@@ -259,28 +265,42 @@ func to_dict(json_compatible: bool = false) -> Dictionary:
 ## @schema data: Dictionary，包含 request_id、method、url、body、headers、idempotency_key、created_at_unix、attempt_count、max_attempts、next_attempt_at_unix_msec、last_error 和 metadata。
 func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 	request_id = GFVariantData.get_option_string_name(data, "request_id")
-	method = GFVariantData.get_option_int(data, "method", HTTPClient.METHOD_GET)
-	url = GFVariantData.get_option_string(data, "url")
-	var raw_body: Variant = GFVariantData.get_option_value(data, "body", {})
-	var body_value: Variant = (
-		GFVariantJsonCodec.json_compatible_to_variant(raw_body)
-		if json_compatible
-		else GFVariantData.duplicate_variant(raw_body)
+	method = GFVariantData.get_option_int(
+		data,
+		"method",
+		HTTPClient.METHOD_GET
 	)
+	url = GFVariantData.get_option_string(data, "url")
+	var raw_body: Variant = GFVariantData.get_option_value(
+		data,
+		"body",
+		{}
+	)
+	var body_value: Variant = (GFVariantJsonCodec.json_compatible_to_variant(raw_body) if json_compatible else GFVariantData.duplicate_variant(raw_body))
 	body = GFVariantData.as_dictionary(body_value)
-	headers = _headers_from_variant(GFVariantData.get_option_value(data, "headers", []))
+	headers = _headers_from_variant(
+		GFVariantData.get_option_value(
+			data,
+			"headers",
+			[]
+		)
+	)
 	idempotency_key = GFVariantData.get_option_string(data, "idempotency_key")
 	created_at_unix = GFVariantData.get_option_int(data, "created_at_unix")
 	attempt_count = GFVariantData.get_option_int(data, "attempt_count")
-	max_attempts = GFVariantData.get_option_int(data, "max_attempts", 3)
+	max_attempts = GFVariantData.get_option_int(
+		data,
+		"max_attempts",
+		3
+	)
 	next_attempt_at_unix_msec = GFVariantData.get_option_int(data, "next_attempt_at_unix_msec")
 	last_error = GFVariantData.get_option_string(data, "last_error")
-	var raw_metadata: Variant = GFVariantData.get_option_value(data, "metadata", {})
-	var metadata_value: Variant = (
-		GFVariantJsonCodec.json_compatible_to_variant(raw_metadata)
-		if json_compatible
-		else GFVariantData.duplicate_variant(raw_metadata)
+	var raw_metadata: Variant = GFVariantData.get_option_value(
+		data,
+		"metadata",
+		{}
 	)
+	var metadata_value: Variant = (GFVariantJsonCodec.json_compatible_to_variant(raw_metadata) if json_compatible else GFVariantData.duplicate_variant(raw_metadata))
 	metadata = GFVariantData.as_dictionary(metadata_value)
 
 

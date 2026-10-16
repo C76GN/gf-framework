@@ -1,7 +1,6 @@
 ## 测试 GFViewportUtility 的分屏布局和相机挂载。
 extends GutTest
 
-
 var _utility: GFViewportUtility
 var _root: Control
 
@@ -21,37 +20,76 @@ func after_each() -> void:
 
 
 func test_setup_split_screen_creates_viewports() -> void:
-	var viewports: Array[SubViewport] = _utility.setup_split_screen(_root, 3, {
-		"viewport_size": Vector2i(320, 180),
-	})
+	var viewports: Array[SubViewport] = _utility.setup_split_screen(
+		_root,
+		3,
+		{ "viewport_size": Vector2i(320, 180), }
+	)
 
-	assert_eq(viewports.size(), 3)
-	assert_eq(_utility.get_viewport_count(), 3)
-	assert_eq(_utility.get_container(0).get_child(0), viewports[0])
-	assert_eq(viewports[0].size, Vector2i(320, 180))
-	assert_eq(GFVariantData.get_option_int(_utility.get_debug_snapshot(), "viewport_count"), 3)
+	assert_eq(
+		viewports.size(),
+		3
+	)
+	assert_eq(
+		_utility.get_viewport_count(),
+		3
+	)
+	assert_eq(
+		_utility.get_container(0).get_child(0),
+		viewports[0]
+	)
+	assert_eq(
+		viewports[0].size,
+		Vector2i(320, 180)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_utility.get_debug_snapshot(),
+			"viewport_count"
+		),
+		3
+	)
 
 
 func test_viewport_resolution_scale_reduces_render_size() -> void:
 	_utility.viewport_resolution_scale = 0.5
-	var viewports: Array[SubViewport] = _utility.setup_split_screen(_root, 1, {
-		"viewport_size": Vector2i(640, 360),
-	})
+	var viewports: Array[SubViewport] = _utility.setup_split_screen(
+		_root,
+		1,
+		{ "viewport_size": Vector2i(640, 360), }
+	)
 
-	assert_eq(viewports[0].size, Vector2i(320, 180))
+	assert_eq(
+		viewports[0].size,
+		Vector2i(320, 180)
+	)
 
 
 func test_viewport_resolution_scale_rejects_non_finite_values() -> void:
 	_utility.viewport_resolution_scale = 0.5
 	_utility.viewport_resolution_scale = NAN
-	assert_eq(_utility.viewport_resolution_scale, 0.5, "NaN 缩放不得污染已确认值。")
+	assert_eq(
+		_utility.viewport_resolution_scale,
+		0.5,
+		"NaN 缩放不得污染已确认值。"
+	)
 	_utility.viewport_resolution_scale = INF
-	assert_eq(_utility.viewport_resolution_scale, 0.5, "Infinity 缩放不得污染已确认值。")
+	assert_eq(
+		_utility.viewport_resolution_scale,
+		0.5,
+		"Infinity 缩放不得污染已确认值。"
+	)
 
-	var viewports: Array[SubViewport] = _utility.setup_split_screen(_root, 1, {
-		"viewport_size": Vector2i(640, 360),
-	})
-	assert_eq(viewports[0].size, Vector2i(320, 180), "非法缩放后布局仍应使用最后一个有限值。")
+	var viewports: Array[SubViewport] = _utility.setup_split_screen(
+		_root,
+		1,
+		{ "viewport_size": Vector2i(640, 360), }
+	)
+	assert_eq(
+		viewports[0].size,
+		Vector2i(320, 180),
+		"非法缩放后布局仍应使用最后一个有限值。"
+	)
 
 
 func test_set_viewport_camera_adds_camera_to_subviewport() -> void:
@@ -59,11 +97,17 @@ func test_set_viewport_camera_adds_camera_to_subviewport() -> void:
 	var camera: Camera2D = Camera2D.new()
 
 	assert_true(_utility.set_viewport_camera(0, camera))
-	assert_eq(camera.get_parent(), _utility.get_viewport(0))
+	assert_eq(
+		camera.get_parent(),
+		_utility.get_viewport(0)
+	)
 	assert_true(camera.enabled)
 
 	_utility.clear_split_screen(false)
-	assert_null(camera.get_parent(), "清理布局但不释放相机时，应先从 SubViewport 移除。")
+	assert_null(
+		camera.get_parent(),
+		"清理布局但不释放相机时，应先从 SubViewport 移除。"
+	)
 	camera.free()
 
 
@@ -73,11 +117,21 @@ func test_clear_split_screen_detaches_grid_immediately() -> void:
 
 	_utility.clear_split_screen(false)
 
-	assert_null(grid.get_parent(), "清理分屏布局时 GridContainer 应立即脱离 root。")
-	assert_eq(_root.get_child_count(), 0, "清理分屏布局后 root 不应继续持有旧布局节点。")
+	assert_null(
+		grid.get_parent(),
+		"清理分屏布局时 GridContainer 应立即脱离 root。"
+	)
+	assert_eq(
+		_root.get_child_count(),
+		0,
+		"清理分屏布局后 root 不应继续持有旧布局节点。"
+	)
 
 	await get_tree().process_frame
-	assert_false(is_instance_valid(grid), "下一帧旧布局节点应完成释放。")
+	assert_false(
+		is_instance_valid(grid),
+		"下一帧旧布局节点应完成释放。"
+	)
 
 
 func test_clear_split_screen_with_free_cameras_detaches_camera_immediately() -> void:
@@ -87,10 +141,16 @@ func test_clear_split_screen_with_free_cameras_detaches_camera_immediately() -> 
 
 	_utility.clear_split_screen(true)
 
-	assert_null(camera.get_parent(), "释放相机时应立即从 SubViewport 移除。")
+	assert_null(
+		camera.get_parent(),
+		"释放相机时应立即从 SubViewport 移除。"
+	)
 
 	await get_tree().process_frame
-	assert_false(is_instance_valid(camera), "下一帧相机应完成释放。")
+	assert_false(
+		is_instance_valid(camera),
+		"下一帧相机应完成释放。"
+	)
 
 
 func test_set_postprocess_material_updates_container() -> void:
@@ -98,7 +158,10 @@ func test_set_postprocess_material_updates_container() -> void:
 	var material: ShaderMaterial = ShaderMaterial.new()
 
 	assert_true(_utility.set_postprocess_material(0, material))
-	assert_eq(_utility.get_container(0).material, material)
+	assert_eq(
+		_utility.get_container(0).material,
+		material
+	)
 
 
 func test_screen_to_world_ray_3d_uses_camera_projection() -> void:
@@ -110,13 +173,34 @@ func test_screen_to_world_ray_3d_uses_camera_projection() -> void:
 	camera.current = true
 	await get_tree().process_frame
 
-	var ray: Dictionary = _utility.screen_to_world_ray_3d(camera, Vector2(100.0, 100.0), 10.0)
+	var ray: Dictionary = _utility.screen_to_world_ray_3d(
+		camera,
+		Vector2(100.0, 100.0),
+		10.0
+	)
 	var direction: Vector3 = GFVariantData.get_option_vector3(ray, "direction")
 
-	assert_true(GFVariantData.get_option_bool(ray, "ok"), "有效 Camera3D 应生成射线。")
-	assert_almost_eq(direction.x, 0.0, 0.01, "屏幕中心射线 X 分量应接近 0。")
-	assert_almost_eq(direction.y, 0.0, 0.01, "屏幕中心射线 Y 分量应接近 0。")
-	assert_lt(direction.z, -0.9, "默认 Camera3D 应朝 -Z 方向投射。")
+	assert_true(
+		GFVariantData.get_option_bool(ray, "ok"),
+		"有效 Camera3D 应生成射线。"
+	)
+	assert_almost_eq(
+		direction.x,
+		0.0,
+		0.01,
+		"屏幕中心射线 X 分量应接近 0。"
+	)
+	assert_almost_eq(
+		direction.y,
+		0.0,
+		0.01,
+		"屏幕中心射线 Y 分量应接近 0。"
+	)
+	assert_lt(
+		direction.z,
+		-0.9,
+		"默认 Camera3D 应朝 -Z 方向投射。"
+	)
 
 
 func test_world_screen_2d_roundtrip() -> void:
@@ -129,101 +213,219 @@ func test_world_screen_2d_roundtrip() -> void:
 	var screen_position: Vector2 = _utility.world_to_screen_2d(node, world_position)
 	var restored_position: Vector2 = _utility.screen_to_world_2d(node, screen_position)
 
-	assert_almost_eq(restored_position.x, world_position.x, 0.001)
-	assert_almost_eq(restored_position.y, world_position.y, 0.001)
+	assert_almost_eq(
+		restored_position.x,
+		world_position.x,
+		0.001
+	)
+	assert_almost_eq(
+		restored_position.y,
+		world_position.y,
+		0.001
+	)
 
 
 func test_world_to_screen_3d_reports_invalid_camera_without_infinite_coordinates() -> void:
 	var screen_position: Vector2 = _utility.world_to_screen_3d(null, Vector3.ONE)
 	var report: Dictionary = _utility.world_to_screen_3d_report(null, Vector3.ONE)
 
-	assert_eq(screen_position, Vector2.ZERO, "无效 Camera3D 不应返回 INF 坐标。")
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效 Camera3D 报告应失败。")
-	assert_eq(GFVariantData.get_option_string(report, "reason"), "invalid_camera")
-	assert_eq(GFVariantData.get_option_vector2(report, "screen_position"), Vector2.ZERO)
+	assert_eq(
+		screen_position,
+		Vector2.ZERO,
+		"无效 Camera3D 不应返回 INF 坐标。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"无效 Camera3D 报告应失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "reason"),
+		"invalid_camera"
+	)
+	assert_eq(
+		GFVariantData.get_option_vector2(report, "screen_position"),
+		Vector2.ZERO
+	)
 
 
 func test_calculate_control_window_rect_scales_to_physical_window_pixels() -> void:
 	var report: Dictionary = _utility.calculate_control_window_rect(
-		Rect2(Vector2(10.0, 20.0), Vector2(100.0, 50.0)),
+		Rect2(
+			Vector2(10.0, 20.0),
+			Vector2(100.0, 50.0)
+		),
 		Vector2(200.0, 100.0),
 		Vector2i(400, 300)
 	)
 	var rect: Rect2i = _get_report_rect2i(report)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效尺寸应生成窗口矩形报告。")
-	assert_eq(rect.position, Vector2i(20, 60), "位置应按窗口与 viewport 比例换算。")
-	assert_eq(rect.size, Vector2i(200, 150), "尺寸应按窗口与 viewport 比例换算。")
-	assert_eq(GFVariantData.get_option_float(report, "scale_x"), 2.0)
-	assert_eq(GFVariantData.get_option_float(report, "scale_y"), 3.0)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"有效尺寸应生成窗口矩形报告。"
+	)
+	assert_eq(
+		rect.position,
+		Vector2i(20, 60),
+		"位置应按窗口与 viewport 比例换算。"
+	)
+	assert_eq(
+		rect.size,
+		Vector2i(200, 150),
+		"尺寸应按窗口与 viewport 比例换算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "scale_x"),
+		2.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "scale_y"),
+		3.0
+	)
 
 
 func test_calculate_control_window_rect_supports_content_rect_offset() -> void:
 	var report: Dictionary = _utility.calculate_control_window_rect(
-		Rect2(Vector2(10.0, 20.0), Vector2(100.0, 50.0)),
+		Rect2(
+			Vector2(10.0, 20.0),
+			Vector2(100.0, 50.0)
+		),
 		Vector2(200.0, 100.0),
 		Vector2i(800, 600),
 		{
-			"content_rect": Rect2i(Vector2i(100, 50), Vector2i(400, 300)),
+			"content_rect": Rect2i(
+				Vector2i(100, 50),
+				Vector2i(400, 300)
+			),
 		}
 	)
 	var rect: Rect2i = _get_report_rect2i(report)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效 content_rect 应生成窗口矩形报告。")
-	assert_eq(GFVariantData.get_option_string(report, "mapping_mode"), "content_rect")
-	assert_eq(rect.position, Vector2i(120, 110), "位置应叠加 letterbox/content 偏移。")
-	assert_eq(rect.size, Vector2i(200, 150), "尺寸应按 content_rect 与 viewport 比例换算。")
-	assert_eq(GFVariantData.get_option_float(report, "scale_x"), 2.0)
-	assert_eq(GFVariantData.get_option_float(report, "scale_y"), 3.0)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"有效 content_rect 应生成窗口矩形报告。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "mapping_mode"),
+		"content_rect"
+	)
+	assert_eq(
+		rect.position,
+		Vector2i(120, 110),
+		"位置应叠加 letterbox/content 偏移。"
+	)
+	assert_eq(
+		rect.size,
+		Vector2i(200, 150),
+		"尺寸应按 content_rect 与 viewport 比例换算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "scale_x"),
+		2.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "scale_y"),
+		3.0
+	)
 
 
 func test_calculate_control_window_rect_rejects_invalid_dimensions() -> void:
 	var report: Dictionary = _utility.calculate_control_window_rect(
-		Rect2(Vector2.ZERO, Vector2(10.0, 10.0)),
+		Rect2(
+			Vector2.ZERO,
+			Vector2(10.0, 10.0)
+		),
 		Vector2.ZERO,
 		Vector2i(400, 300)
 	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效 viewport 尺寸不应生成可用窗口矩形。")
-	assert_eq(_get_report_rect2i(report), Rect2i())
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"无效 viewport 尺寸不应生成可用窗口矩形。"
+	)
+	assert_eq(
+		_get_report_rect2i(report),
+		Rect2i()
+	)
 
 
 func test_control_window_rect_rejects_non_finite_inputs_before_rounding() -> void:
 	var invalid_control: Dictionary = _utility.calculate_control_window_rect(
-		Rect2(Vector2(NAN, 0.0), Vector2(10.0, 10.0)),
+		Rect2(
+			Vector2(NAN, 0.0),
+			Vector2(10.0, 10.0)
+		),
 		Vector2(200.0, 100.0),
 		Vector2i(400, 300)
 	)
 	var invalid_viewport: Dictionary = _utility.calculate_control_window_rect(
-		Rect2(Vector2.ZERO, Vector2(10.0, 10.0)),
+		Rect2(
+			Vector2.ZERO,
+			Vector2(10.0, 10.0)
+		),
 		Vector2(INF, 100.0),
 		Vector2i(400, 300)
 	)
 	var invalid_offset: Dictionary = _utility.calculate_control_window_rect(
-		Rect2(Vector2.ZERO, Vector2(10.0, 10.0)),
+		Rect2(
+			Vector2.ZERO,
+			Vector2(10.0, 10.0)
+		),
 		Vector2(200.0, 100.0),
 		Vector2i(400, 300),
 		{ "viewport_offset": Vector2(NAN, 0.0) }
 	)
 
-	for report: Dictionary in [invalid_control, invalid_viewport, invalid_offset]:
-		assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限矩形输入必须失败闭合。")
-		assert_eq(_get_report_rect2i(report), Rect2i(), "非有限值不得进入 roundi 或物理矩形。")
+	for report: Dictionary in [
+		invalid_control,
+		invalid_viewport,
+		invalid_offset,
+	]:
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"非有限矩形输入必须失败闭合。"
+		)
+		assert_eq(
+			_get_report_rect2i(report),
+			Rect2i(),
+			"非有限值不得进入 roundi 或物理矩形。"
+		)
 
 
 func test_calculate_safe_area_margins_converts_physical_pixels_to_viewport_units() -> void:
 	var report: Dictionary = _utility.calculate_safe_area_margins(
-		Rect2i(Vector2i(10, 20), Vector2i(980, 1880)),
+		Rect2i(
+			Vector2i(10, 20),
+			Vector2i(980, 1880)
+		),
 		Vector2i(1000, 2000),
 		Vector2(500.0, 1000.0),
 		{ "bottom": 12.0 }
 	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效尺寸应返回安全区报告。")
-	assert_eq(GFVariantData.get_option_float(report, "left"), 5.0, "左边距应按 viewport 宽度比例换算。")
-	assert_eq(GFVariantData.get_option_float(report, "top"), 10.0, "顶部边距应按 viewport 高度比例换算。")
-	assert_eq(GFVariantData.get_option_float(report, "right"), 5.0, "右边距应按 viewport 宽度比例换算。")
-	assert_eq(GFVariantData.get_option_float(report, "bottom"), 62.0, "底部边距应包含额外逻辑遮挡。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"有效尺寸应返回安全区报告。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "left"),
+		5.0,
+		"左边距应按 viewport 宽度比例换算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "top"),
+		10.0,
+		"顶部边距应按 viewport 高度比例换算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "right"),
+		5.0,
+		"右边距应按 viewport 宽度比例换算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "bottom"),
+		62.0,
+		"底部边距应包含额外逻辑遮挡。"
+	)
 
 
 func test_empty_safe_area_is_treated_as_full_window() -> void:
@@ -233,11 +435,26 @@ func test_empty_safe_area_is_treated_as_full_window() -> void:
 		Vector2(500.0, 1000.0)
 	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "空安全区应归一为完整窗口。")
-	assert_eq(GFVariantData.get_option_float(report, "left"), 0.0)
-	assert_eq(GFVariantData.get_option_float(report, "top"), 0.0)
-	assert_eq(GFVariantData.get_option_float(report, "right"), 0.0)
-	assert_eq(GFVariantData.get_option_float(report, "bottom"), 0.0)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"空安全区应归一为完整窗口。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "left"),
+		0.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "top"),
+		0.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "right"),
+		0.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(report, "bottom"),
+		0.0
+	)
 
 
 func test_apply_safe_area_margins_updates_margin_container_theme_constants() -> void:
@@ -250,33 +467,61 @@ func test_apply_safe_area_margins_updates_margin_container_theme_constants() -> 
 		"right": 2.0,
 	}
 
-	assert_true(_utility.apply_safe_area_margins(container, margins), "有效 MarginContainer 应接收安全区边距。")
-	assert_eq(container.get_theme_constant("margin_top"), 12)
-	assert_eq(container.get_theme_constant("margin_left"), 4)
-	assert_eq(container.get_theme_constant("margin_bottom"), 9)
-	assert_eq(container.get_theme_constant("margin_right"), 2)
+	assert_true(
+		_utility.apply_safe_area_margins(container, margins),
+		"有效 MarginContainer 应接收安全区边距。"
+	)
+	assert_eq(
+		container.get_theme_constant("margin_top"),
+		12
+	)
+	assert_eq(
+		container.get_theme_constant("margin_left"),
+		4
+	)
+	assert_eq(
+		container.get_theme_constant("margin_bottom"),
+		9
+	)
+	assert_eq(
+		container.get_theme_constant("margin_right"),
+		2
+	)
 
 
 func test_safe_area_margins_reject_non_finite_values_without_partial_apply() -> void:
 	var report: Dictionary = _utility.calculate_safe_area_margins(
-		Rect2i(Vector2i.ZERO, Vector2i(1000, 2000)),
+		Rect2i(
+			Vector2i.ZERO,
+			Vector2i(1000, 2000)
+		),
 		Vector2i(1000, 2000),
 		Vector2(500.0, 1000.0),
 		{ "top": NAN }
 	)
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限额外边距必须使计算失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"非有限额外边距必须使计算失败。"
+	)
 
 	var container: MarginContainer = MarginContainer.new()
 	add_child_autofree(container)
 	container.add_theme_constant_override("margin_top", 7)
-	var applied: bool = _utility.apply_safe_area_margins(container, {
-		"top": INF,
-		"left": 1.0,
-		"bottom": 2.0,
-		"right": 3.0,
-	})
+	var applied: bool = _utility.apply_safe_area_margins(
+		container,
+		{
+			"top": INF,
+			"left": 1.0,
+			"bottom": 2.0,
+			"right": 3.0,
+		}
+	)
 	assert_false(applied, "非有限边距不得应用到 MarginContainer。")
-	assert_eq(container.get_theme_constant("margin_top"), 7, "失败前必须完成全部数值预检，不能部分覆盖。")
+	assert_eq(
+		container.get_theme_constant("margin_top"),
+		7,
+		"失败前必须完成全部数值预检，不能部分覆盖。"
+	)
 
 
 func test_setup_with_zero_count_clears_layout() -> void:
@@ -284,8 +529,15 @@ func test_setup_with_zero_count_clears_layout() -> void:
 	var viewports: Array[SubViewport] = _utility.setup_split_screen(_root, 0)
 
 	assert_eq(viewports, [])
-	assert_eq(_utility.get_viewport_count(), 0)
-	assert_eq(_root.get_child_count(), 0, "viewport_count 为 0 时应立即清空旧布局节点。")
+	assert_eq(
+		_utility.get_viewport_count(),
+		0
+	)
+	assert_eq(
+		_root.get_child_count(),
+		0,
+		"viewport_count 为 0 时应立即清空旧布局节点。"
+	)
 
 
 func _viewport_grid() -> GridContainer:
@@ -297,7 +549,11 @@ func _viewport_grid() -> GridContainer:
 
 
 func _get_report_rect2i(report: Dictionary) -> Rect2i:
-	var rect_value: Variant = GFVariantData.get_option_value(report, "rect", Rect2i())
+	var rect_value: Variant = GFVariantData.get_option_value(
+		report,
+		"rect",
+		Rect2i()
+	)
 	if rect_value is Rect2i:
 		var rect: Rect2i = rect_value
 		return rect

@@ -202,7 +202,11 @@ func get_camera() -> Camera2D:
 func get_active_rig() -> GFCameraRig2D:
 	if _selection_mode == _SELECTION_MANUAL_EMPTY:
 		return null
-	if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.is_available():
+	if (
+		_active_rig != null
+		and is_instance_valid(_active_rig)
+		and _active_rig.is_available()
+	):
 		return _active_rig
 	return refresh_active_rig(false)
 
@@ -219,13 +223,25 @@ func collect_candidate_rigs() -> Array[GFCameraRig2D]:
 	var seen: Dictionary = {}
 	for rig_path: NodePath in rig_paths:
 		var rig: GFCameraRig2D = _get_rig_value(get_node_or_null(rig_path))
-		_append_unique_rig(result, seen, rig)
+		_append_unique_rig(
+			result,
+			seen,
+			rig
+		)
 
-	if collect_group_rigs and is_inside_tree() and rig_group_name != &"":
+	if (
+		collect_group_rigs
+		and is_inside_tree()
+		and rig_group_name != &""
+	):
 		for node: Node in get_tree().get_nodes_in_group(rig_group_name):
 			var group_rig: GFCameraRig2D = _get_rig_value(node)
 			if _is_group_rig_in_scope(group_rig):
-				_append_unique_rig(result, seen, group_rig)
+				_append_unique_rig(
+					result,
+					seen,
+					group_rig
+				)
 	result.sort_custom(_sort_rigs)
 	return result
 
@@ -241,7 +257,11 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig2D:
 	if _selection_mode == _SELECTION_MANUAL_EMPTY:
 		return null
 	if _selection_mode == _SELECTION_MANUAL_RIG:
-		if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.is_available():
+		if (
+			_active_rig != null
+			and is_instance_valid(_active_rig)
+			and _active_rig.is_available()
+		):
 			return _active_rig
 		_selection_mode = _SELECTION_AUTO
 
@@ -250,7 +270,11 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig2D:
 		if rig != null and rig.is_available():
 			best_rig = rig
 			break
-	var _set_active_rig_result_166: Variant = _set_active_rig_internal(best_rig, force_snap, false)
+	var _set_active_rig_result_166: Variant = _set_active_rig_internal(
+		best_rig,
+		force_snap,
+		false
+	)
 	return _active_rig
 
 
@@ -268,7 +292,11 @@ func refresh_active_rig(force_snap: bool = false) -> GFCameraRig2D:
 ## [br]
 ## @return 设置成功返回 true。
 func set_active_rig(rig: GFCameraRig2D, force_snap: bool = false) -> bool:
-	return _set_active_rig_internal(rig, force_snap, true)
+	return _set_active_rig_internal(
+		rig,
+		force_snap,
+		true
+	)
 
 
 ## 清除手动 Rig 覆盖，并立即恢复自动选择。
@@ -296,19 +324,22 @@ func clear_active_rig_override(force_snap: bool = false) -> GFCameraRig2D:
 ## @schema return: Dictionary，包含 has_camera、has_active_rig、active_rig_path、active_rig_is_manual_override、is_blending 和 last_process。
 func get_debug_snapshot() -> Dictionary:
 	var active_rig: GFCameraRig2D = get_active_rig()
-	return GFReportValueCodec.to_report_dictionary({
-		"has_camera": get_camera() != null,
-		"has_active_rig": active_rig != null,
-		"active_rig_path": _get_node_debug_path(active_rig),
-		"active_rig_name": _get_node_debug_name(active_rig),
-		"selection_mode": _get_selection_mode_name(),
-		"active_rig_is_manual_override": _selection_mode != _SELECTION_AUTO,
-		"is_blending": _is_blending,
-		"last_process": _last_process_report.duplicate(true),
-	}, GFReportValueCodec.make_redaction_options(
-		GFReportValueCodec.REDACTION_PROFILE_DEBUG,
-		{ "path_redaction": "none" }
-	))
+	return GFReportValueCodec.to_report_dictionary(
+		{
+			"has_camera": get_camera() != null,
+			"has_active_rig": active_rig != null,
+			"active_rig_path": _get_node_debug_path(active_rig),
+			"active_rig_name": _get_node_debug_name(active_rig),
+			"selection_mode": _get_selection_mode_name(),
+			"active_rig_is_manual_override": _selection_mode != _SELECTION_AUTO,
+			"is_blending": _is_blending,
+			"last_process": _last_process_report.duplicate(true),
+		},
+		GFReportValueCodec.make_redaction_options(
+			GFReportValueCodec.REDACTION_PROFILE_DEBUG,
+			{ "path_redaction": "none" }
+		)
+	)
 
 
 ## 推进并应用相机姿态。
@@ -325,23 +356,49 @@ func process_camera(delta: float) -> bool:
 	var camera: Camera2D = get_camera()
 	if camera == null:
 		_cancel_blend()
-		_last_process_report = _make_process_report(false, "missing_camera", camera, _active_rig)
+		_last_process_report = _make_process_report(
+			false,
+			"missing_camera",
+			camera,
+			_active_rig
+		)
 		return false
-	if _active_rig == null or not is_instance_valid(_active_rig) or not _active_rig.is_available():
+	if (
+		_active_rig == null
+		or not is_instance_valid(_active_rig)
+		or not _active_rig.is_available()
+	):
 		_cancel_blend()
-		_last_process_report = _make_process_report(false, "missing_rig", camera, _active_rig)
+		_last_process_report = _make_process_report(
+			false,
+			"missing_rig",
+			camera,
+			_active_rig
+		)
 		return false
 
 	var target_pose: Dictionary = _active_rig.get_camera_pose(camera)
 	if not _is_valid_camera_pose(target_pose):
 		_cancel_blend()
-		_last_process_report = _make_process_report(false, "invalid_target_pose", camera, _active_rig)
+		_last_process_report = _make_process_report(
+			false,
+			"invalid_target_pose",
+			camera,
+			_active_rig
+		)
 		return false
 	var pose: Dictionary = target_pose
 	if _is_blending:
-		_blend_elapsed_seconds += maxf(_GF_CAMERA_FINITE_MATH.sanitize_float(delta, 0.0), 0.0)
+		_blend_elapsed_seconds += maxf(
+			_GF_CAMERA_FINITE_MATH.sanitize_float(delta, 0.0),
+			0.0
+		)
 		var weight: float = _blend.sample_weight(_blend_elapsed_seconds) if _blend != null else 1.0
-		pose = _interpolate_pose(_blend_from_pose, target_pose, weight)
+		pose = _interpolate_pose(
+			_blend_from_pose,
+			target_pose,
+			weight
+		)
 		if weight >= 1.0:
 			_is_blending = false
 	if not _is_valid_camera_pose(pose):
@@ -350,7 +407,12 @@ func process_camera(delta: float) -> bool:
 
 	var applied_rig: GFCameraRig2D = _active_rig
 	_apply_pose(camera, pose)
-	_last_process_report = _make_process_report(true, "", camera, applied_rig)
+	_last_process_report = _make_process_report(
+		true,
+		"",
+		camera,
+		applied_rig
+	)
 	camera_pose_applied.emit(applied_rig)
 	return true
 
@@ -362,7 +424,13 @@ func process_camera(delta: float) -> bool:
 ## @api private
 func _prepare_blend(force_snap: bool) -> void:
 	var camera: Camera2D = get_camera()
-	_blend = _active_rig.blend if _active_rig != null and is_instance_valid(_active_rig) and _active_rig.blend != null else default_blend
+	_blend = (
+		_active_rig.blend
+		if _active_rig != null
+		and is_instance_valid(_active_rig)
+		and _active_rig.blend != null
+		else default_blend
+	)
 	_blend_elapsed_seconds = 0.0
 	_blend_from_pose = _get_camera_pose(camera)
 	_is_blending = (
@@ -379,8 +447,18 @@ func _prepare_blend(force_snap: bool) -> void:
 ## 更新当前 Rig 及选择模式，并发出 Rig 变化信号。
 ## [br]
 ## @api private
-func _set_active_rig_internal(rig: GFCameraRig2D, force_snap: bool, manual_override: bool) -> bool:
-	if rig != null and (not is_instance_valid(rig) or not rig.is_available()):
+func _set_active_rig_internal(
+	rig: GFCameraRig2D,
+	force_snap: bool,
+	manual_override: bool
+) -> bool:
+	if (
+		rig != null
+		and (
+			not is_instance_valid(rig)
+			or not rig.is_available()
+		)
+	):
 		return false
 	if manual_override:
 		_selection_mode = _SELECTION_MANUAL_EMPTY if rig == null else _SELECTION_MANUAL_RIG
@@ -417,14 +495,30 @@ func _get_camera_pose(camera: Camera2D) -> Dictionary:
 ## 在两个有效姿态间插值位置、旋转和缩放。
 ## [br]
 ## @api private
-func _interpolate_pose(from_pose: Dictionary, to_pose: Dictionary, weight: float) -> Dictionary:
+func _interpolate_pose(
+	from_pose: Dictionary,
+	to_pose: Dictionary,
+	weight: float
+) -> Dictionary:
 	if not _is_valid_camera_pose(from_pose):
 		return to_pose.duplicate(true)
-	var safe_weight: float = clampf(_GF_CAMERA_FINITE_MATH.sanitize_float(weight, 1.0), 0.0, 1.0)
+	var safe_weight: float = clampf(
+		_GF_CAMERA_FINITE_MATH.sanitize_float(weight, 1.0),
+		0.0,
+		1.0
+	)
 	var from_position: Vector2 = GFVariantData.get_option_vector2(from_pose, "position")
 	var to_position: Vector2 = GFVariantData.get_option_vector2(to_pose, "position")
-	var from_zoom: Vector2 = GFVariantData.get_option_vector2(from_pose, "zoom", Vector2.ONE)
-	var to_zoom: Vector2 = GFVariantData.get_option_vector2(to_pose, "zoom", Vector2.ONE)
+	var from_zoom: Vector2 = GFVariantData.get_option_vector2(
+		from_pose,
+		"zoom",
+		Vector2.ONE
+	)
+	var to_zoom: Vector2 = GFVariantData.get_option_vector2(
+		to_pose,
+		"zoom",
+		Vector2.ONE
+	)
 	return {
 		"position": from_position.lerp(to_position, safe_weight),
 		"rotation": lerp_angle(
@@ -441,9 +535,21 @@ func _interpolate_pose(from_pose: Dictionary, to_pose: Dictionary, weight: float
 ## [br]
 ## @api private
 func _apply_pose(camera: Camera2D, pose: Dictionary) -> void:
-	camera.global_position = GFVariantData.get_option_vector2(pose, "position", camera.global_position)
-	camera.global_rotation = GFVariantData.get_option_float(pose, "rotation", camera.global_rotation)
-	camera.zoom = GFVariantData.get_option_vector2(pose, "zoom", camera.zoom)
+	camera.global_position = GFVariantData.get_option_vector2(
+		pose,
+		"position",
+		camera.global_position
+	)
+	camera.global_rotation = GFVariantData.get_option_float(
+		pose,
+		"rotation",
+		camera.global_rotation
+	)
+	camera.zoom = GFVariantData.get_option_vector2(
+		pose,
+		"zoom",
+		camera.zoom
+	)
 	if make_current_on_apply:
 		_make_camera_current(camera)
 
@@ -452,9 +558,21 @@ func _apply_pose(camera: Camera2D, pose: Dictionary) -> void:
 ## [br]
 ## @api private
 func _is_valid_camera_pose(pose: Dictionary) -> bool:
-	var position: Vector2 = GFVariantData.get_option_vector2(pose, "position", Vector2(INF, INF))
-	var rotation: float = GFVariantData.get_option_float(pose, "rotation", INF)
-	var zoom_value: Vector2 = GFVariantData.get_option_vector2(pose, "zoom", Vector2(INF, INF))
+	var position: Vector2 = GFVariantData.get_option_vector2(
+		pose,
+		"position",
+		Vector2(INF, INF)
+	)
+	var rotation: float = GFVariantData.get_option_float(
+		pose,
+		"rotation",
+		INF
+	)
+	var zoom_value: Vector2 = GFVariantData.get_option_vector2(
+		pose,
+		"zoom",
+		Vector2(INF, INF)
+	)
 	return (
 		_GF_CAMERA_FINITE_MATH.is_finite_vector2(position)
 		and _GF_CAMERA_FINITE_MATH.is_finite_float(rotation)
@@ -498,7 +616,11 @@ func _get_camera_scope_node() -> Node:
 ## 将尚未收录的 Rig 追加到候选列表。
 ## [br]
 ## @api private
-func _append_unique_rig(result: Array[GFCameraRig2D], seen: Dictionary, rig: GFCameraRig2D) -> void:
+func _append_unique_rig(
+	result: Array[GFCameraRig2D],
+	seen: Dictionary,
+	rig: GFCameraRig2D
+) -> void:
 	if rig == null:
 		return
 	var instance_id: int = rig.get_instance_id()
@@ -553,7 +675,12 @@ func _get_rig_value(value: Variant) -> GFCameraRig2D:
 ## 汇总本次相机处理结果及当前选择状态。
 ## [br]
 ## @api private
-func _make_process_report(applied: bool, reason: String, camera: Camera2D, rig: GFCameraRig2D) -> Dictionary:
+func _make_process_report(
+	applied: bool,
+	reason: String,
+	camera: Camera2D,
+	rig: GFCameraRig2D
+) -> Dictionary:
 	return {
 		"applied": applied,
 		"reason": reason,
@@ -584,7 +711,11 @@ func _get_selection_mode_name() -> String:
 ## [br]
 ## @api private
 func _get_node_debug_path(node: Node) -> String:
-	if node != null and is_instance_valid(node) and node.is_inside_tree():
+	if (
+		node != null
+		and is_instance_valid(node)
+		and node.is_inside_tree()
+	):
 		return String(node.get_path())
 	return ""
 

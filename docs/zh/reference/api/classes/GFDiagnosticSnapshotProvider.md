@@ -19,7 +19,7 @@
 | 属性 | [`provider_id`](#member-gfdiagnosticsnapshotprovider-properties-provider_id) | `var provider_id: StringName = &"":` |
 | 属性 | [`max_duration_usec`](#member-gfdiagnosticsnapshotprovider-properties-max_duration_usec) | `var max_duration_usec: int = DEFAULT_MAX_DURATION_USEC:` |
 | 属性 | [`metadata`](#member-gfdiagnosticsnapshotprovider-properties-metadata) | `var metadata: Dictionary:` |
-| 方法 | [`configure`](#member-gfdiagnosticsnapshotprovider-methods-configure) | `func configure( p_provider_id: StringName, options: Dictionary = {} ) -> GFDiagnosticSnapshotProvider:` |
+| 方法 | [`configure`](#member-gfdiagnosticsnapshotprovider-methods-configure) | `func configure(p_provider_id: StringName, options: Dictionary = {}) -> GFDiagnosticSnapshotProvider:` |
 | 方法 | [`validate_provider`](#member-gfdiagnosticsnapshotprovider-methods-validate_provider) | `func validate_provider() -> Dictionary:` |
 | 方法 | [`collect_snapshot`](#member-gfdiagnosticsnapshotprovider-methods-collect_snapshot) | `func collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult:` |
 | 方法 | [`_collect_snapshot`](#member-gfdiagnosticsnapshotprovider-methods-_collect_snapshot) | `func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:` |
@@ -94,7 +94,7 @@ Provider 目录元数据。注册后不可修改，读取时返回副本，输�
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure( p_provider_id: StringName, options: Dictionary = {} ) -> GFDiagnosticSnapshotProvider:
+func configure(p_provider_id: StringName, options: Dictionary = {}) -> GFDiagnosticSnapshotProvider:
 ```
 
 配置 Provider 定义并返回自身。

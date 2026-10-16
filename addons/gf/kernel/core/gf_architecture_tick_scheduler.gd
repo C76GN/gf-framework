@@ -167,7 +167,12 @@ func drive_tick(delta: float, time_provider: Object) -> void:
 		return
 	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
 	var time_paused: bool = _is_time_paused(time_provider)
-	_drive_records(_tick_records, delta, scaled_delta, time_paused)
+	_drive_records(
+		_tick_records,
+		delta,
+		scaled_delta,
+		time_paused
+	)
 	_end_drive()
 
 
@@ -190,7 +195,11 @@ func drive_lifecycle_tick(delta: float, allowed_instances: Dictionary) -> void:
 		_end_drive()
 		return
 	var lifecycle_delta: float = _normalize_lifecycle_delta(delta)
-	_drive_lifecycle_records(_tick_records, lifecycle_delta, allowed_instances)
+	_drive_lifecycle_records(
+		_tick_records,
+		lifecycle_delta,
+		allowed_instances
+	)
 	_drive_lifecycle_candidate_records(lifecycle_delta, allowed_instances)
 	_end_drive()
 
@@ -286,8 +295,16 @@ func get_debug_state() -> Dictionary:
 ## @schema return: Dictionary containing has_tick, has_physics_tick, ignore_pause, ignore_time_scale, tick_enabled, physics_tick_enabled, tick_priority, and physics_tick_priority.
 func get_module_debug_fields(instance: Object) -> Dictionary:
 	return {
-		"has_tick": _module_participates_in_tick(instance, &"tick", &"tick_enabled"),
-		"has_physics_tick": _module_participates_in_tick(instance, &"physics_tick", &"physics_tick_enabled"),
+		"has_tick": _module_participates_in_tick(
+			instance,
+			&"tick",
+			&"tick_enabled"
+		),
+		"has_physics_tick": _module_participates_in_tick(
+			instance,
+			&"physics_tick",
+			&"physics_tick_enabled"
+		),
 		"ignore_pause": _module_ignores_pause(instance),
 		"ignore_time_scale": _module_ignores_time_scale(instance),
 		"tick_enabled": _get_module_bool(instance, &"tick_enabled"),
@@ -312,19 +329,36 @@ func _drive_physics_tick(delta: float, time_provider: Object) -> void:
 			return
 		var raw_step: float = delta / float(scaled_steps.size())
 		for scaled_step_variant: Variant in scaled_steps:
-			_drive_physics_tick_step(raw_step, _GF_VARIANT_ACCESS_SCRIPT.to_float(scaled_step_variant), time_provider)
+			_drive_physics_tick_step(
+				raw_step,
+				_GF_VARIANT_ACCESS_SCRIPT.to_float(scaled_step_variant),
+				time_provider
+			)
 		return
 
 	var scaled_delta: float = _get_scaled_delta(delta, time_provider)
-	_drive_physics_tick_step(delta, scaled_delta, time_provider)
+	_drive_physics_tick_step(
+		delta,
+		scaled_delta,
+		time_provider
+	)
 
 
 ## 读取暂停状态，并用当前 raw/scaled delta 驱动物理记录。
 ## [br]
 ## @api private
-func _drive_physics_tick_step(raw_delta: float, scaled_delta: float, time_provider: Object) -> void:
+func _drive_physics_tick_step(
+	raw_delta: float,
+	scaled_delta: float,
+	time_provider: Object
+) -> void:
 	var time_paused: bool = _is_time_paused(time_provider)
-	_drive_records(_physics_records, raw_delta, scaled_delta, time_paused)
+	_drive_records(
+		_physics_records,
+		raw_delta,
+		scaled_delta,
+		time_paused
+	)
 
 
 ## 仅驱动当前已进入 ACTIVE 阶段且记录有效的普通或物理 tick 项。
@@ -338,7 +372,11 @@ func _drive_records(
 ) -> void:
 	for record: GFArchitectureTickRecord in records:
 		if _is_tick_record_ready_for_tick(record):
-			record.invoke(raw_delta, scaled_delta, time_paused)
+			record.invoke(
+				raw_delta,
+				scaled_delta,
+				time_paused
+			)
 
 
 ## 按事务允许实例集合推进有效且至少 READY 的缓存记录，raw 与 scaled delta 均使用传入值。
@@ -351,22 +389,27 @@ func _drive_lifecycle_records(
 ) -> void:
 	for record: GFArchitectureTickRecord in records:
 		if _is_tick_record_ready_for_lifecycle_tick(record, allowed_instances):
-			record.invoke(delta, delta, false)
+			record.invoke(
+				delta,
+				delta,
+				false
+			)
 
 
 ## 推进已登记的临时候选记录，并要求候选实例属于 allowed_instances 且已 READY。
 ## [br]
 ## @api private
-func _drive_lifecycle_candidate_records(
-	delta: float,
-	allowed_instances: Dictionary
-) -> void:
+func _drive_lifecycle_candidate_records(delta: float, allowed_instances: Dictionary) -> void:
 	for record_value: Variant in _lifecycle_candidate_records.values():
 		if not record_value is GFArchitectureTickRecord:
 			continue
 		var record: GFArchitectureTickRecord = record_value
 		if _is_tick_record_ready_for_lifecycle_tick(record, allowed_instances):
-			record.invoke(delta, delta, false)
+			record.invoke(
+				delta,
+				delta,
+				false
+			)
 
 
 ## 拒绝嵌套驱动并警告；非重入时增加 drive depth 并返回 true。
@@ -374,10 +417,7 @@ func _drive_lifecycle_candidate_records(
 ## @api private
 func _begin_drive() -> bool:
 	if _drive_depth > 0:
-		push_warning(
-			"[GFArchitectureTickScheduler][architecture_tick_scheduler.drive_reentry] Nested tick/physics_tick scheduling was rejected; "
-			+ "drive calls on the same architecture cannot be reentrant."
-		)
+		push_warning("[GFArchitectureTickScheduler][architecture_tick_scheduler.drive_reentry] Nested tick/physics_tick scheduling was rejected; " + "drive calls on the same architecture cannot be reentrant.")
 		return false
 
 	_drive_depth += 1
@@ -399,7 +439,10 @@ func _end_drive() -> void:
 func _get_scaled_delta(delta: float, time_provider: Object) -> float:
 	if time_provider == null:
 		return delta
-	return _GF_VARIANT_ACCESS_SCRIPT.to_float(time_provider.call("get_scaled_delta", delta), delta)
+	return _GF_VARIANT_ACCESS_SCRIPT.to_float(
+		time_provider.call("get_scaled_delta", delta),
+		delta
+	)
 
 
 ## 没有 time provider 时返回 false，否则读取并收窄其 is_time_paused() 结果。
@@ -493,10 +536,11 @@ func _flush_tick_cache_refresh() -> void:
 ## [br]
 ## @api private
 func _sort_tick_records_for_tick(records: Array[GFArchitectureTickRecord]) -> void:
-	records.sort_custom(func(left: GFArchitectureTickRecord, right: GFArchitectureTickRecord) -> bool:
-		if left.priority == right.priority:
-			return left.order < right.order
-		return left.priority > right.priority
+	records.sort_custom(
+		func(left: GFArchitectureTickRecord, right: GFArchitectureTickRecord) -> bool:
+			if left.priority == right.priority:
+				return left.order < right.order
+			return left.priority > right.priority
 	)
 
 
@@ -512,10 +556,7 @@ func _is_tick_record_ready_for_tick(record: GFArchitectureTickRecord) -> bool:
 ## 记录有效、实例列入允许集合且模块已到 READY 阶段时返回 true。
 ## [br]
 ## @api private
-func _is_tick_record_ready_for_lifecycle_tick(
-	record: GFArchitectureTickRecord,
-	allowed_instances: Dictionary
-) -> bool:
+func _is_tick_record_ready_for_lifecycle_tick(record: GFArchitectureTickRecord, allowed_instances: Dictionary) -> bool:
 	if record == null or not record.is_valid_record():
 		return false
 	if not allowed_instances.has(record.module):
@@ -527,20 +568,22 @@ func _is_tick_record_ready_for_lifecycle_tick(
 ## [br]
 ## @api private
 func _is_module_active_for_tick(instance: Object) -> bool:
-	return (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
-		>= _LIFECYCLE_STAGE_ACTIVE
-	)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		_module_lifecycle_stages,
+		instance,
+		0
+	) >= _LIFECYCLE_STAGE_ACTIVE
 
 
 ## 实例记录的生命周期阶段不低于 READY 阶段时返回 true。
 ## [br]
 ## @api private
 func _is_module_ready_for_lifecycle_tick(instance: Object) -> bool:
-	return (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(_module_lifecycle_stages, instance, 0)
-		>= _LIFECYCLE_STAGE_READY
-	)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		_module_lifecycle_stages,
+		instance,
+		0
+	) >= _LIFECYCLE_STAGE_READY
 
 
 ## 非有限 delta 归零，其余值限制在 0.0 至 lifecycle 上限之间。
@@ -549,7 +592,11 @@ func _is_module_ready_for_lifecycle_tick(instance: Object) -> bool:
 func _normalize_lifecycle_delta(delta: float) -> float:
 	if not is_finite(delta):
 		return 0.0
-	return clampf(delta, 0.0, _MAX_LIFECYCLE_TICK_DELTA_SECONDS)
+	return clampf(
+		delta,
+		0.0,
+		_MAX_LIFECYCLE_TICK_DELTA_SECONDS
+	)
 
 
 ## 模块符合参与条件且 Callable 有效时创建并配置缓存记录，否则返回 null。
@@ -562,7 +609,11 @@ func _make_tick_record(
 	priority_property: StringName,
 	order: int
 ) -> GFArchitectureTickRecord:
-	if not _module_participates_in_tick(instance, method_name, explicit_property):
+	if not _module_participates_in_tick(
+		instance,
+		method_name,
+		explicit_property
+	):
 		return null
 	var callback: Callable = Callable(instance, method_name)
 	if not callback.is_valid():
@@ -581,7 +632,11 @@ func _make_tick_record(
 ## 检查实例类型、方法存在性和显式启用字段；未显式启用时还检查派生脚本声明。
 ## [br]
 ## @api private
-func _module_participates_in_tick(instance: Object, method_name: StringName, explicit_property: StringName) -> bool:
+func _module_participates_in_tick(
+	instance: Object,
+	method_name: StringName,
+	explicit_property: StringName
+) -> bool:
 	if instance == null:
 		return false
 	if not (instance is GFSystem or instance is GFUtility):
@@ -704,7 +759,11 @@ func _get_framework_module_method_count(instance: Object, method_name: StringNam
 func _count_script_methods(script: Script, method_name: StringName) -> int:
 	var count: int = 0
 	for method: Dictionary in script.get_script_method_list():
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(method, "name", "") == String(method_name):
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			method,
+			"name",
+			""
+		) == String(method_name):
 			count += 1
 	return count
 

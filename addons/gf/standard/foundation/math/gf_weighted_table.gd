@@ -40,6 +40,8 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 被选择后返回的值。
 ## [br]
 ## @schema value: Variant selected value owned by project code.
@@ -51,8 +53,16 @@ extends Resource
 ## @schema metadata: Dictionary extension metadata for the new weighted entry.
 ## [br]
 ## @return 新增的条目实例。
-func add_entry(value: Variant, weight: float = 1.0, metadata: Dictionary = {}) -> GFWeightedEntry:
-	var entry: GFWeightedEntry = GFWeightedEntry.new().configure(value, weight, metadata)
+func add_entry(
+	value: Variant,
+	weight: float = 1.0,
+	metadata: Dictionary = {}
+) -> GFWeightedEntry:
+	var entry: GFWeightedEntry = GFWeightedEntry.new().configure(
+		value,
+		weight,
+		metadata
+	)
 	entries.append(entry)
 	return entry
 
@@ -144,7 +154,10 @@ func is_empty() -> bool:
 ## [br]
 ## @return 选中的条目；没有可选条目时返回 null。
 func pick_entry(rng: Variant = null) -> GFWeightedEntry:
-	return _pick_entry_from(get_selectable_entries(), _resolve_rng(rng))
+	return _pick_entry_from(
+		get_selectable_entries(),
+		_resolve_rng(rng)
+	)
 
 
 ## 按权重选择一个值。
@@ -222,7 +235,11 @@ func pick_many(
 ## @return 新权重表实例。
 func duplicate_table(deep: bool = true) -> GFWeightedTable:
 	var table: GFWeightedTable = GFWeightedTable.new()
-	table.default_value = GFVariantData.duplicate_variant(default_value, deep, true)
+	table.default_value = GFVariantData.duplicate_variant(
+		default_value,
+		deep,
+		true
+	)
 	table.deterministic_seed = deterministic_seed
 	for entry: GFWeightedEntry in entries:
 		table.entries.append(entry.duplicate_entry(deep) if entry != null and deep else entry)
@@ -312,7 +329,11 @@ func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: Variant) -> G
 		if total <= 0.0 or not is_finite(total):
 			return null
 
-	var threshold: float = _random_float_range(rng, 0.0, total)
+	var threshold: float = _random_float_range(
+		rng,
+		0.0,
+		total
+	)
 	var accumulated: float = 0.0
 	var fallback: GFWeightedEntry = null
 	for entry: GFWeightedEntry in source_entries:
@@ -350,7 +371,11 @@ func _resolve_rng(rng: Variant) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-func _random_float_range(rng: Variant, min_value: float, max_value: float) -> float:
+func _random_float_range(
+	rng: Variant,
+	min_value: float,
+	max_value: float
+) -> float:
 	if rng is GFDeterministicRandom:
 		var deterministic_rng: GFDeterministicRandom = rng
 		return deterministic_rng.next_float_range(min_value, max_value)

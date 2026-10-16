@@ -80,10 +80,18 @@ extends Resource
 ## @schema source_metadata: Dictionary，包含可选 groups_key / tags_key 条目，值可为字符串或字符串数组。
 func allows_metadata(source_metadata: Dictionary) -> bool:
 	var groups: PackedStringArray = _to_packed_string_array(
-		GFVariantData.get_option_value(source_metadata, groups_key, PackedStringArray())
+		GFVariantData.get_option_value(
+			source_metadata,
+			groups_key,
+			PackedStringArray()
+		)
 	)
 	var tags: PackedStringArray = _to_packed_string_array(
-		GFVariantData.get_option_value(source_metadata, tags_key, PackedStringArray())
+		GFVariantData.get_option_value(
+			source_metadata,
+			tags_key,
+			PackedStringArray()
+		)
 	)
 	if groups.is_empty() and tags.is_empty():
 		return default_include
@@ -109,8 +117,14 @@ func filter_schema(schema: GFConfigTableSchema) -> GFConfigTableSchema:
 
 	var result: GFConfigTableSchema = schema.duplicate_schema()
 	result.columns = _filter_columns(result.columns)
-	result.indexes = _filter_indexes(result.indexes, result.get_column_names())
-	result.references = _filter_references(result.references, result.get_column_names())
+	result.indexes = _filter_indexes(
+		result.indexes,
+		result.get_column_names()
+	)
+	result.references = _filter_references(
+		result.references,
+		result.get_column_names()
+	)
 	result.record_validation_rules = _filter_validation_rules(result.record_validation_rules)
 	result.table_validation_rules = _filter_validation_rules(result.table_validation_rules)
 	return result
@@ -203,10 +217,7 @@ func _filter_columns(columns: Array[GFConfigTableColumn]) -> Array[GFConfigTable
 ## [br]
 ## @api private
 ## [br]
-func _filter_indexes(
-	indexes: Array[GFConfigTableIndexDefinition],
-	column_names: PackedStringArray
-) -> Array[GFConfigTableIndexDefinition]:
+func _filter_indexes(indexes: Array[GFConfigTableIndexDefinition], column_names: PackedStringArray) -> Array[GFConfigTableIndexDefinition]:
 	var result: Array[GFConfigTableIndexDefinition] = []
 	for index: GFConfigTableIndexDefinition in indexes:
 		if index == null:
@@ -222,10 +233,7 @@ func _filter_indexes(
 ## [br]
 ## @api private
 ## [br]
-func _filter_references(
-	references: Array[GFConfigTableReference],
-	column_names: PackedStringArray
-) -> Array[GFConfigTableReference]:
+func _filter_references(references: Array[GFConfigTableReference], column_names: PackedStringArray) -> Array[GFConfigTableReference]:
 	var result: Array[GFConfigTableReference] = []
 	for reference_definition: GFConfigTableReference in references:
 		if reference_definition == null:
@@ -268,7 +276,11 @@ func _all_fields_exist(fields: PackedStringArray, column_names: PackedStringArra
 ## @api private
 ## [br]
 func _get_record_metadata(record: Dictionary) -> Dictionary:
-	var value: Variant = GFVariantData.get_option_value(record, record_metadata_field, {})
+	var value: Variant = GFVariantData.get_option_value(
+		record,
+		record_metadata_field,
+		{}
+	)
 	return GFVariantData.as_dictionary(value)
 
 

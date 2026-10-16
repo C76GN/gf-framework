@@ -57,6 +57,13 @@ func _undo_it() -> Error:
 ## @param entries: 完整的新条目数组。
 func configure_catalog(catalog: GFAssetCatalog, entries: Array[GFAssetCatalogEntry]) -> void:
 	_catalog = catalog
-	var _configured: GFEditorPropertyBatchCommand = configure([
-		{"target": catalog, "property_name": &"entries", "new_value": entries},
-	], {"command_name": "Edit Shared Asset Catalog"})
+	var _configured: GFEditorPropertyBatchCommand = configure(
+		[
+			{
+				"target": catalog,
+				"property_name": &"entries",
+				"new_value": entries,
+			},
+		],
+		{ "command_name": "Edit Shared Asset Catalog" }
+	)

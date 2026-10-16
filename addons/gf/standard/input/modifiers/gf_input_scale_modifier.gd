@@ -35,6 +35,8 @@ extends GFInputModifier
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -42,13 +44,22 @@ extends GFInputModifier
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 缩放后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
-	return Vector2(value.x * scale_x, value.y * scale_y)
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
+	return Vector2(
+		value.x * scale_x,
+		value.y * scale_y
+	)
 
 
 ## 修改三维输入值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
@@ -57,5 +68,13 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 缩放后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
-	return Vector3(value.x * scale_x, value.y * scale_y, value.z * scale_z)
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
+	return Vector3(
+		value.x * scale_x,
+		value.y * scale_y,
+		value.z * scale_z
+	)

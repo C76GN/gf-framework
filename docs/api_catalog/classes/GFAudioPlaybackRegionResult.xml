@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioPlaybackRegionResult" path="addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd" module="standard" extends="RefCounted" classDigest="0ba4fd5c06d2ae1942c6b0123f65e484cc466ea6ac5ed81eda6d661ae1513151">
+<class name="GFAudioPlaybackRegionResult" path="addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd" module="standard" extends="RefCounted" classDigest="6467302962b2ab1aac6559331f8afc4020fd633b42b2470c1ef7b472947a5ce7">
 	<description>GFAudioPlaybackRegionResult: 音频播放区间验证与流准备结果。
 以稳定状态和原因说明区间是否有效、是否被执行者精确接受，以及本地准备路径
 成功生成的 session 私有音频流。后端评估返回 APPLIED 时可以不携带本地流；
@@ -131,7 +131,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="unsupported">
-			<signature>static func unsupported( reason_id: StringName, result_message: String ) -&gt; GFAudioPlaybackRegionResult:</signature>
+			<signature>static func unsupported(reason_id: StringName, result_message: String) -&gt; GFAudioPlaybackRegionResult:</signature>
 			<description>创建显式不支持结果。</description>
 			<tags>
 				<tag name="api">public</tag>

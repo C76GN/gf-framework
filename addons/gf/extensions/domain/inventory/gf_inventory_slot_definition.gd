@@ -115,10 +115,12 @@ func can_accept(
 			inventory,
 		]
 		var result_output: Array = []
-		if not GFInventoryRuleCallableSupport.try_call_for_framework(
-			acceptance_checker,
-			arguments,
-			result_output
+		if not (
+			GFInventoryRuleCallableSupport.try_call_for_framework(
+				acceptance_checker,
+				arguments,
+				result_output
+			)
 		):
 			return false
 		return GFVariantData.to_bool(result_output[0])
@@ -153,12 +155,36 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，可包含 display_name、accepted_item_ids、rejected_item_ids、accepted_categories、require_all_categories 与 metadata。
 func apply_dict(data: Dictionary) -> void:
-	display_name = GFVariantData.get_option_string(data, "display_name", display_name)
-	accepted_item_ids = GFVariantData.get_option_string_name_array(data, "accepted_item_ids", accepted_item_ids)
-	rejected_item_ids = GFVariantData.get_option_string_name_array(data, "rejected_item_ids", rejected_item_ids)
-	accepted_categories = GFVariantData.get_option_string_name_array(data, "accepted_categories", accepted_categories)
-	require_all_categories = GFVariantData.get_option_bool(data, "require_all_categories", require_all_categories)
-	metadata = GFVariantData.get_option_dictionary(data, "metadata", metadata)
+	display_name = GFVariantData.get_option_string(
+		data,
+		"display_name",
+		display_name
+	)
+	accepted_item_ids = GFVariantData.get_option_string_name_array(
+		data,
+		"accepted_item_ids",
+		accepted_item_ids
+	)
+	rejected_item_ids = GFVariantData.get_option_string_name_array(
+		data,
+		"rejected_item_ids",
+		rejected_item_ids
+	)
+	accepted_categories = GFVariantData.get_option_string_name_array(
+		data,
+		"accepted_categories",
+		accepted_categories
+	)
+	require_all_categories = GFVariantData.get_option_bool(
+		data,
+		"require_all_categories",
+		require_all_categories
+	)
+	metadata = GFVariantData.get_option_dictionary(
+		data,
+		"metadata",
+		metadata
+	)
 
 
 ## 从字典创建槽位定义。

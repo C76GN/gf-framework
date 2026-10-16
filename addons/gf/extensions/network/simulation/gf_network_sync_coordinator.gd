@@ -39,7 +39,12 @@ signal phase_changed(previous_phase: Phase, current_phase: Phase)
 ## @param accepted: 输入是否进入模拟。
 ## [br]
 ## @param reason: 稳定裁决原因；不包含输入载荷。
-signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)
+signal input_finalized(
+	peer_id: int,
+	sequence: int,
+	accepted: bool,
+	reason: StringName
+)
 
 ## 权威端完成一个 tick 并生成全量快照后发出。
 ## [br]
@@ -82,7 +87,11 @@ signal authoritative_snapshot_applied(
 ## @param details: 无业务载荷的拒绝详情。
 ## [br]
 ## @schema details: Dictionary，包含 role、phase，并最多包含 tick、sequence、expected_sequence、replayed_tick_count、message_type 和 message_type_known；未知远端类型不会原样回显。
-signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)
+signal synchronization_rejected(
+	peer_id: int,
+	reason: StringName,
+	details: Dictionary
+)
 
 ## Replica 需要由项目显式重建同步流时发出。
 ##
@@ -115,6 +124,7 @@ enum Role {
 	## 接收权威快照，可选执行本地输入预测。
 	REPLICA,
 }
+
 
 ## 同步流状态。
 ## [br]
@@ -646,15 +656,39 @@ func configure(
 	options: Dictionary
 ) -> Dictionary:
 	if _is_busy():
-		return _make_report(false, &"rejected", &"operation_in_progress")
+		return _make_report(
+			false,
+			&"rejected",
+			&"operation_in_progress"
+		)
 	if _phase != Phase.IDLE or _role != Role.NONE:
-		return _make_report(false, &"rejected", &"already_configured")
+		return _make_report(
+			false,
+			&"rejected",
+			&"already_configured"
+		)
 	if role not in [Role.AUTHORITY, Role.REPLICA]:
-		return _make_report(false, &"rejected", &"invalid_role")
-	if local_peer_id < 0 or authority_peer_id < 0 or adapter == null:
-		return _make_report(false, &"rejected", &"invalid_configuration")
+		return _make_report(
+			false,
+			&"rejected",
+			&"invalid_role"
+		)
+	if (
+		local_peer_id < 0
+		or authority_peer_id < 0
+		or adapter == null
+	):
+		return _make_report(
+			false,
+			&"rejected",
+			&"invalid_configuration"
+		)
 	if role == Role.AUTHORITY and local_peer_id != authority_peer_id:
-		return _make_report(false, &"rejected", &"authority_identity_mismatch")
+		return _make_report(
+			false,
+			&"rejected",
+			&"authority_identity_mismatch"
+		)
 	var epoch_id: String = GFVariantData.get_option_string(options, "epoch_id").strip_edges()
 	var channel_id: StringName = GFVariantData.get_option_string_name(
 		options,
@@ -662,11 +696,19 @@ func configure(
 		DEFAULT_CHANNEL_ID
 	)
 	if not _is_valid_identifier(epoch_id) or not _is_valid_identifier(String(channel_id)):
-		return _make_report(false, &"rejected", &"invalid_stream_identity")
+		return _make_report(
+			false,
+			&"rejected",
+			&"invalid_stream_identity"
+		)
 
 	var limits: Dictionary = _read_limits(options)
 	if not GFVariantData.get_option_bool(limits, "ok"):
-		return _make_report(false, &"rejected", &"invalid_resource_budget")
+		return _make_report(
+			false,
+			&"rejected",
+			&"invalid_resource_budget"
+		)
 
 	_role = role
 	_adapter = adapter
@@ -675,15 +717,21 @@ func configure(
 	_epoch_id = epoch_id
 	_used_epoch_ids[_epoch_id] = true
 	_channel_id = channel_id
-	_prediction_enabled = GFVariantData.get_option_bool(options, "prediction_enabled", true)
+	_prediction_enabled = GFVariantData.get_option_bool(
+		options,
+		"prediction_enabled",
+		true
+	)
 	_apply_limits(limits)
 	_authoritative_history = GFNetworkHistoryBuffer.new(_history_capacity)
 	_prediction_history = GFNetworkHistoryBuffer.new(_history_capacity)
 	_set_phase(Phase.ACTIVE if _role == Role.AUTHORITY else Phase.AWAITING_BASELINE)
-	return _make_report(true, &"configured", &"", {
-		"role": _role,
-		"phase": _phase,
-	})
+	return _make_report(
+		true,
+		&"configured",
+		&"",
+		{ "role": _role, "phase": _phase, }
+	)
 
 
 ## 使用新 epoch 重置所有序号、历史和待处理输入。
@@ -706,22 +754,46 @@ func configure(
 ## @schema return: Dictionary { ok: bool, status: StringName, reason: StringName, phase?: int }.
 func reset_stream(new_epoch_id: String, start_tick: int = 0) -> Dictionary:
 	if _is_busy():
-		return _make_report(false, &"rejected", &"operation_in_progress")
+		return _make_report(
+			false,
+			&"rejected",
+			&"operation_in_progress"
+		)
 	if _role == Role.NONE or _adapter == null:
-		return _make_report(false, &"rejected", &"not_configured")
+		return _make_report(
+			false,
+			&"rejected",
+			&"not_configured"
+		)
 	if _phase == Phase.FAULTED:
-		return _make_report(false, &"rejected", &"faulted_instance_terminal")
+		return _make_report(
+			false,
+			&"rejected",
+			&"faulted_instance_terminal"
+		)
 	var normalized_epoch: String = new_epoch_id.strip_edges()
 	if (
 		not _is_valid_identifier(normalized_epoch)
 		or start_tick < 0
 		or start_tick >= _MAX_SAFE_SEQUENCE
 	):
-		return _make_report(false, &"rejected", &"invalid_stream_identity")
+		return _make_report(
+			false,
+			&"rejected",
+			&"invalid_stream_identity"
+		)
 	if _used_epoch_ids.has(normalized_epoch):
-		return _make_report(false, &"rejected", &"epoch_reused")
+		return _make_report(
+			false,
+			&"rejected",
+			&"epoch_reused"
+		)
 	if _used_epoch_ids.size() >= _MAX_EPOCH_HISTORY:
-		return _make_report(false, &"rejected", &"epoch_history_exhausted")
+		return _make_report(
+			false,
+			&"rejected",
+			&"epoch_history_exhausted"
+		)
 	_epoch_id = normalized_epoch
 	_used_epoch_ids[_epoch_id] = true
 	_current_tick = start_tick
@@ -729,9 +801,12 @@ func reset_stream(new_epoch_id: String, start_tick: int = 0) -> Dictionary:
 	_retired_replica_peers.clear()
 	_clear_stream_state()
 	_set_phase(Phase.ACTIVE if _role == Role.AUTHORITY else Phase.AWAITING_BASELINE)
-	return _make_report(true, &"reset", &"", {
-		"phase": _phase,
-	})
+	return _make_report(
+		true,
+		&"reset",
+		&"",
+		{ "phase": _phase, }
+	)
 
 
 ## Authority 显式注册可提交输入的 replica peer。
@@ -783,7 +858,11 @@ func register_replica_peer(peer_id: int) -> bool:
 ## [br]
 ## @return peer 曾存在时返回 true。
 func unregister_replica_peer(peer_id: int) -> bool:
-	if _is_busy() or _role != Role.AUTHORITY or _phase != Phase.ACTIVE:
+	if (
+		_is_busy()
+		or _role != Role.AUTHORITY
+		or _phase != Phase.ACTIVE
+	):
 		return false
 	if not _allowed_replica_peers.erase(peer_id):
 		return false
@@ -827,24 +906,52 @@ func unregister_replica_peer(peer_id: int) -> bool:
 ## @schema return: Dictionary { ok: bool, status: StringName, reason: StringName, frame?: GFNetworkInputFrame, message?: GFNetworkMessage }.
 func submit_local_input(payload: Dictionary, target_tick: int = -1) -> Dictionary:
 	if _is_busy():
-		return _make_report(false, &"rejected", &"operation_in_progress")
+		return _make_report(
+			false,
+			&"rejected",
+			&"operation_in_progress"
+		)
 	if _role != Role.REPLICA or _phase != Phase.ACTIVE:
-		return _make_report(false, &"rejected", &"replica_not_active")
+		return _make_report(
+			false,
+			&"rejected",
+			&"replica_not_active"
+		)
 	if _next_local_input_sequence > _MAX_SAFE_SEQUENCE:
-		return _make_report(false, &"rejected", &"sequence_exhausted")
+		return _make_report(
+			false,
+			&"rejected",
+			&"sequence_exhausted"
+		)
 	var effective_tick: int = _current_tick + 1 if target_tick < 0 else target_tick
 	if (
 		effective_tick <= _current_tick
 		or effective_tick > _MAX_SAFE_SEQUENCE
 		or effective_tick > _current_tick + _max_future_ticks
 	):
-		return _make_report(false, &"rejected", &"input_tick_out_of_window")
+		return _make_report(
+			false,
+			&"rejected",
+			&"input_tick_out_of_window"
+		)
 	if not _local_inputs.is_empty() and effective_tick < _local_inputs[_local_inputs.size() - 1].tick:
-		return _make_report(false, &"rejected", &"input_tick_regressed")
+		return _make_report(
+			false,
+			&"rejected",
+			&"input_tick_regressed"
+		)
 	if _local_inputs.size() >= _max_pending_inputs:
-		return _make_report(false, &"rejected", &"pending_input_budget_exceeded")
+		return _make_report(
+			false,
+			&"rejected",
+			&"pending_input_budget_exceeded"
+		)
 	if _get_local_inputs_for_tick(effective_tick, 0).size() >= _max_inputs_per_tick:
-		return _make_report(false, &"rejected", &"tick_input_budget_exceeded")
+		return _make_report(
+			false,
+			&"rejected",
+			&"tick_input_budget_exceeded"
+		)
 
 	var frame: GFNetworkInputFrame = GFNetworkInputFrame.new(
 		effective_tick,
@@ -854,10 +961,18 @@ func submit_local_input(payload: Dictionary, target_tick: int = -1) -> Dictionar
 	)
 	var frame_report: Dictionary = frame.validate_frame(_value_budget_options())
 	if not GFVariantData.get_option_bool(frame_report, "ok"):
-		return _make_report(false, &"rejected", &"invalid_input_payload")
+		return _make_report(
+			false,
+			&"rejected",
+			&"invalid_input_payload"
+		)
 	var frame_bytes: int = GFVariantData.get_option_int(frame_report, "payload_bytes")
 	if _local_input_bytes + frame_bytes > _max_pending_input_bytes:
-		return _make_report(false, &"rejected", &"pending_input_byte_budget_exceeded")
+		return _make_report(
+			false,
+			&"rejected",
+			&"pending_input_byte_budget_exceeded"
+		)
 
 	_operation_active = true
 	var adapter_report: Dictionary = _adapter._validate_input(
@@ -867,18 +982,28 @@ func submit_local_input(payload: Dictionary, target_tick: int = -1) -> Dictionar
 	)
 	_operation_active = false
 	if not GFVariantData.get_option_bool(adapter_report, "ok"):
-		return _make_report(false, &"rejected", &"adapter_rejected_input")
+		return _make_report(
+			false,
+			&"rejected",
+			&"adapter_rejected_input"
+		)
 
 	var message: GFNetworkMessage = _build_input_message(frame)
 	if message == null:
-		return _make_report(false, &"rejected", &"message_envelope_budget_exceeded")
+		return _make_report(
+			false,
+			&"rejected",
+			&"message_envelope_budget_exceeded"
+		)
 	_local_inputs.append(frame.duplicate_frame())
 	_local_input_bytes += frame_bytes
 	_next_local_input_sequence += 1
-	return _make_report(true, &"accepted", &"", {
-		"frame": frame.duplicate_frame(),
-		"message": message,
-	})
+	return _make_report(
+		true,
+		&"accepted",
+		&"",
+		{ "frame": frame.duplicate_frame(), "message": message, }
+	)
 
 
 ## 将本地输入帧打包为专用同步消息。
@@ -930,11 +1055,23 @@ func make_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
 ## @schema return: Dictionary { ok: bool, status: StringName, reason: StringName, tick?: int, input_count?: int, rejected_input_count?: int, snapshot?: GFNetworkSnapshot }.
 func advance_authority_tick() -> Dictionary:
 	if _is_busy():
-		return _make_report(false, &"rejected", &"operation_in_progress")
+		return _make_report(
+			false,
+			&"rejected",
+			&"operation_in_progress"
+		)
 	if _role != Role.AUTHORITY or _phase != Phase.ACTIVE:
-		return _make_report(false, &"rejected", &"authority_not_active")
+		return _make_report(
+			false,
+			&"rejected",
+			&"authority_not_active"
+		)
 	if _next_snapshot_sequence > _MAX_SAFE_SEQUENCE or _current_tick >= _MAX_SAFE_SEQUENCE:
-		return _make_report(false, &"rejected", &"sequence_exhausted")
+		return _make_report(
+			false,
+			&"rejected",
+			&"sequence_exhausted"
+		)
 
 	var next_tick: int = _current_tick + 1
 	var queued_frames: Array[GFNetworkInputFrame] = _get_pending_inputs_for_tick(next_tick)
@@ -955,7 +1092,11 @@ func advance_authority_tick() -> Dictionary:
 	var before_report: Dictionary = _capture_adapter_state(_current_tick, &"capture_rollback")
 	if not GFVariantData.get_option_bool(before_report, "ok"):
 		_operation_active = false
-		return _make_report(false, &"failed", &"rollback_capture_failed")
+		return _make_report(
+			false,
+			&"failed",
+			&"rollback_capture_failed"
+		)
 	var before_state: Dictionary = GFVariantData.get_option_dictionary(before_report, "state")
 	var simulate_report: Dictionary = _adapter._simulate_tick(
 		next_tick,
@@ -963,20 +1104,44 @@ func advance_authority_tick() -> Dictionary:
 		_make_adapter_context(&"authority_tick")
 	)
 	if not GFVariantData.get_option_bool(simulate_report, "ok"):
-		var rollback_ok: bool = _restore_adapter_state(before_state, _current_tick, &"authority_rollback")
+		var rollback_ok: bool = _restore_adapter_state(
+			before_state,
+			_current_tick,
+			&"authority_rollback"
+		)
 		_operation_active = false
 		if not rollback_ok:
 			_set_phase(Phase.FAULTED)
-			return _make_report(false, &"faulted", &"rollback_failed")
-		return _make_report(false, &"failed", &"simulation_failed")
+			return _make_report(
+				false,
+				&"faulted",
+				&"rollback_failed"
+			)
+		return _make_report(
+			false,
+			&"failed",
+			&"simulation_failed"
+		)
 	var after_report: Dictionary = _capture_adapter_state(next_tick, &"capture_authority")
 	if not GFVariantData.get_option_bool(after_report, "ok"):
-		var rollback_ok: bool = _restore_adapter_state(before_state, _current_tick, &"authority_rollback")
+		var rollback_ok: bool = _restore_adapter_state(
+			before_state,
+			_current_tick,
+			&"authority_rollback"
+		)
 		_operation_active = false
 		if not rollback_ok:
 			_set_phase(Phase.FAULTED)
-			return _make_report(false, &"faulted", &"rollback_failed")
-		return _make_report(false, &"failed", &"state_capture_failed")
+			return _make_report(
+				false,
+				&"faulted",
+				&"rollback_failed"
+			)
+		return _make_report(
+			false,
+			&"failed",
+			&"state_capture_failed"
+		)
 	var state: Dictionary = GFVariantData.get_option_dictionary(after_report, "state")
 	var state_validation: Dictionary = _adapter._validate_state(
 		state.duplicate(true),
@@ -984,12 +1149,24 @@ func advance_authority_tick() -> Dictionary:
 		_make_adapter_context(&"validate_authority_state")
 	)
 	if not GFVariantData.get_option_bool(state_validation, "ok"):
-		var rollback_ok: bool = _restore_adapter_state(before_state, _current_tick, &"authority_rollback")
+		var rollback_ok: bool = _restore_adapter_state(
+			before_state,
+			_current_tick,
+			&"authority_rollback"
+		)
 		_operation_active = false
 		if not rollback_ok:
 			_set_phase(Phase.FAULTED)
-			return _make_report(false, &"faulted", &"rollback_failed")
-		return _make_report(false, &"failed", &"adapter_rejected_state")
+			return _make_report(
+				false,
+				&"faulted",
+				&"rollback_failed"
+			)
+		return _make_report(
+			false,
+			&"failed",
+			&"adapter_rejected_state"
+		)
 
 	var snapshot: GFNetworkSnapshot = GFNetworkSnapshot.new(
 		next_tick,
@@ -1008,14 +1185,16 @@ func advance_authority_tick() -> Dictionary:
 	_latest_snapshot_ack_by_peer.clear()
 	for peer_value: Variant in _allowed_replica_peers.keys():
 		var replica_peer_id: int = GFVariantData.to_int(peer_value)
-		_latest_snapshot_ack_by_peer[replica_peer_id] = GFVariantData.get_option_int(
-			_last_finalized_input_sequence,
-			replica_peer_id
-		)
+		_latest_snapshot_ack_by_peer[replica_peer_id] = GFVariantData.get_option_int(_last_finalized_input_sequence, replica_peer_id)
 	_operation_active = false
 	_notification_active = true
 	for frame: GFNetworkInputFrame in frames:
-		input_finalized.emit(frame.peer_id, frame.sequence, true, &"simulated")
+		input_finalized.emit(
+			frame.peer_id,
+			frame.sequence,
+			true,
+			&"simulated"
+		)
 	for frame: GFNetworkInputFrame in rejected_frames:
 		input_finalized.emit(
 			frame.peer_id,
@@ -1025,12 +1204,17 @@ func advance_authority_tick() -> Dictionary:
 		)
 	authority_snapshot_created.emit(snapshot.duplicate_snapshot())
 	_notification_active = false
-	return _make_report(true, &"advanced", &"", {
-		"tick": next_tick,
-		"input_count": frames.size(),
-		"rejected_input_count": rejected_frames.size(),
-		"snapshot": snapshot.duplicate_snapshot(),
-	})
+	return _make_report(
+		true,
+		&"advanced",
+		&"",
+		{
+			"tick": next_tick,
+			"input_count": frames.size(),
+			"rejected_input_count": rejected_frames.size(),
+			"snapshot": snapshot.duplicate_snapshot(),
+		}
+	)
 
 
 ## Replica 在当前权威基线上推进一个本地预测 tick。
@@ -1046,11 +1230,27 @@ func advance_authority_tick() -> Dictionary:
 ## @schema return: Dictionary { ok: bool, status: StringName, reason: StringName, tick?: int, input_count?: int }.
 func advance_prediction_tick() -> Dictionary:
 	if _is_busy():
-		return _make_report(false, &"rejected", &"operation_in_progress")
-	if _role != Role.REPLICA or _phase != Phase.ACTIVE or not _prediction_enabled:
-		return _make_report(false, &"rejected", &"prediction_not_active")
+		return _make_report(
+			false,
+			&"rejected",
+			&"operation_in_progress"
+		)
+	if (
+		_role != Role.REPLICA
+		or _phase != Phase.ACTIVE
+		or not _prediction_enabled
+	):
+		return _make_report(
+			false,
+			&"rejected",
+			&"prediction_not_active"
+		)
 	if _current_tick >= _MAX_SAFE_SEQUENCE:
-		return _make_report(false, &"rejected", &"sequence_exhausted")
+		return _make_report(
+			false,
+			&"rejected",
+			&"sequence_exhausted"
+		)
 	var next_tick: int = _current_tick + 1
 	var frames: Array[GFNetworkInputFrame] = _get_local_inputs_for_tick(next_tick, 0)
 	frames.sort_custom(_input_frame_less_than)
@@ -1058,7 +1258,11 @@ func advance_prediction_tick() -> Dictionary:
 	var before_report: Dictionary = _capture_adapter_state(_current_tick, &"capture_rollback")
 	if not GFVariantData.get_option_bool(before_report, "ok"):
 		_operation_active = false
-		return _make_report(false, &"failed", &"rollback_capture_failed")
+		return _make_report(
+			false,
+			&"failed",
+			&"rollback_capture_failed"
+		)
 	var before_state: Dictionary = GFVariantData.get_option_dictionary(before_report, "state")
 	var simulate_report: Dictionary = _adapter._simulate_tick(
 		next_tick,
@@ -1066,33 +1270,64 @@ func advance_prediction_tick() -> Dictionary:
 		_make_adapter_context(&"prediction_tick")
 	)
 	if not GFVariantData.get_option_bool(simulate_report, "ok"):
-		var rollback_ok: bool = _restore_adapter_state(before_state, _current_tick, &"prediction_rollback")
+		var rollback_ok: bool = _restore_adapter_state(
+			before_state,
+			_current_tick,
+			&"prediction_rollback"
+		)
 		_operation_active = false
 		if not rollback_ok:
 			_set_phase(Phase.FAULTED)
-			return _make_report(false, &"faulted", &"rollback_failed")
-		return _make_report(false, &"failed", &"simulation_failed")
+			return _make_report(
+				false,
+				&"faulted",
+				&"rollback_failed"
+			)
+		return _make_report(
+			false,
+			&"failed",
+			&"simulation_failed"
+		)
 	var state_report: Dictionary = _capture_adapter_state(next_tick, &"capture_prediction")
 	if not GFVariantData.get_option_bool(state_report, "ok"):
-		var rollback_ok: bool = _restore_adapter_state(before_state, _current_tick, &"prediction_rollback")
+		var rollback_ok: bool = _restore_adapter_state(
+			before_state,
+			_current_tick,
+			&"prediction_rollback"
+		)
 		_operation_active = false
 		if not rollback_ok:
 			_set_phase(Phase.FAULTED)
-			return _make_report(false, &"faulted", &"rollback_failed")
-		return _make_report(false, &"failed", &"state_capture_failed")
+			return _make_report(
+				false,
+				&"faulted",
+				&"rollback_failed"
+			)
+		return _make_report(
+			false,
+			&"failed",
+			&"state_capture_failed"
+		)
 	var state: Dictionary = GFVariantData.get_option_dictionary(state_report, "state")
 	_current_tick = next_tick
-	var _history_added: bool = _prediction_history.add_state(
-		next_tick,
-		state,
-		_local_peer_id,
-		{"predicted": true}
-	) != null
+	var _history_added: bool = (
+		(
+			_prediction_history.add_state(
+				next_tick,
+				state,
+				_local_peer_id,
+				{ "predicted": true }
+			)
+		)
+		!= null
+	)
 	_operation_active = false
-	return _make_report(true, &"predicted", &"", {
-		"tick": next_tick,
-		"input_count": frames.size(),
-	})
+	return _make_report(
+		true,
+		&"predicted",
+		&"",
+		{ "tick": next_tick, "input_count": frames.size(), }
+	)
 
 
 ## Authority 为指定 replica 构建最新的全量快照消息。
@@ -1109,10 +1344,7 @@ func advance_prediction_tick() -> Dictionary:
 ## @param replica_peer_id: 已注册 replica peer。
 ## [br]
 ## @return 可交给 GFNetworkUtility 的消息；无效时返回 null。
-func make_snapshot_message(
-	snapshot: GFNetworkSnapshot,
-	replica_peer_id: int
-) -> GFNetworkMessage:
+func make_snapshot_message(snapshot: GFNetworkSnapshot, replica_peer_id: int) -> GFNetworkMessage:
 	if (
 		_operation_active
 		or _role != Role.AUTHORITY
@@ -1125,10 +1357,7 @@ func make_snapshot_message(
 	var stored_snapshot: GFNetworkSnapshot = _authoritative_history.get_latest_snapshot()
 	if stored_snapshot == null or snapshot.to_dict() != stored_snapshot.to_dict():
 		return null
-	var sequence: int = GFVariantData.get_option_int(
-		stored_snapshot.metadata,
-		"snapshot_sequence"
-	)
+	var sequence: int = GFVariantData.get_option_int(stored_snapshot.metadata, "snapshot_sequence")
 	if (
 		sequence <= 0
 		or sequence != _next_snapshot_sequence - 1
@@ -1142,10 +1371,7 @@ func make_snapshot_message(
 		return null
 	if not _latest_snapshot_ack_by_peer.has(replica_peer_id):
 		return null
-	var ack_sequence: int = GFVariantData.get_option_int(
-		_latest_snapshot_ack_by_peer,
-		replica_peer_id
-	)
+	var ack_sequence: int = GFVariantData.get_option_int(_latest_snapshot_ack_by_peer, replica_peer_id)
 	var payload: Dictionary = {
 		"protocol_version": PROTOCOL_VERSION,
 		"epoch_id": _epoch_id,
@@ -1153,7 +1379,10 @@ func make_snapshot_message(
 		"state": stored_snapshot.state.duplicate(true),
 		"ack_input_sequence": ack_sequence,
 	}
-	if not GFVariantData.get_option_bool(_validate_message_payload(payload), "ok"):
+	if not GFVariantData.get_option_bool(
+		_validate_message_payload(payload),
+		"ok"
+	):
 		return null
 	return GFNetworkMessage.new(
 		SNAPSHOT_MESSAGE_TYPE,
@@ -1185,16 +1414,36 @@ func make_snapshot_message(
 ## @schema return: Dictionary { ok: bool, status: StringName, reason: StringName, role?: int, phase?: int, tick?: int, sequence?: int, expected_sequence?: int, message_type?: StringName, message_type_known?: bool, duplicate?: bool, corrected?: bool, replayed_tick_count?: int }.
 func handle_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:
 	if _is_busy():
-		return _make_report(false, &"rejected", &"operation_in_progress")
-	if _role == Role.NONE or _phase in [Phase.IDLE, Phase.RESYNC_REQUIRED, Phase.FAULTED]:
-		return _reject(actual_peer_id, &"stream_not_active", message)
+		return _make_report(
+			false,
+			&"rejected",
+			&"operation_in_progress"
+		)
+	if _role == Role.NONE or _phase in [
+		Phase.IDLE,
+		Phase.RESYNC_REQUIRED,
+		Phase.FAULTED,
+	]:
+		return _reject(
+			actual_peer_id,
+			&"stream_not_active",
+			message
+		)
 	if message == null:
-		return _reject(actual_peer_id, &"message_is_null", null)
+		return _reject(
+			actual_peer_id,
+			&"message_is_null",
+			null
+		)
 	if message.message_type == INPUT_MESSAGE_TYPE:
 		return _handle_input_message(actual_peer_id, message)
 	if message.message_type == SNAPSHOT_MESSAGE_TYPE:
 		return _handle_snapshot_message(actual_peer_id, message)
-	return _reject(actual_peer_id, &"unexpected_message_type", message)
+	return _reject(
+		actual_peer_id,
+		&"unexpected_message_type",
+		message
+	)
 
 
 ## 获取当前角色。
@@ -1322,72 +1571,137 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 func _handle_input_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:
 	if _role != Role.AUTHORITY or _phase != Phase.ACTIVE:
-		return _reject(actual_peer_id, &"authority_not_active", message)
+		return _reject(
+			actual_peer_id,
+			&"authority_not_active",
+			message
+		)
 	if not _allowed_replica_peers.has(actual_peer_id):
-		return _reject(actual_peer_id, &"replica_peer_not_registered", message)
-	var envelope_reason: StringName = _validate_envelope(actual_peer_id, message, INPUT_MESSAGE_TYPE)
+		return _reject(
+			actual_peer_id,
+			&"replica_peer_not_registered",
+			message
+		)
+	var envelope_reason: StringName = _validate_envelope(
+		actual_peer_id,
+		message,
+		INPUT_MESSAGE_TYPE
+	)
 	if envelope_reason != &"":
-		return _reject(actual_peer_id, envelope_reason, message)
+		return _reject(
+			actual_peer_id,
+			envelope_reason,
+			message
+		)
 	if not _has_exact_keys(
 		message.payload,
-		["protocol_version", "epoch_id", "recipient_peer_id", "input"]
+		[
+			"protocol_version",
+			"epoch_id",
+			"recipient_peer_id",
+			"input",
+		]
 	):
-		return _reject(actual_peer_id, &"invalid_input_envelope", message)
+		return _reject(
+			actual_peer_id,
+			&"invalid_input_envelope",
+			message
+		)
 	if not _protocol_matches(message.payload):
-		return _reject(actual_peer_id, &"protocol_version_mismatch", message)
+		return _reject(
+			actual_peer_id,
+			&"protocol_version_mismatch",
+			message
+		)
 	if GFVariantData.get_option_string(message.payload, "epoch_id") != _epoch_id:
-		return _reject(actual_peer_id, &"epoch_mismatch", message)
-	var recipient_value: Variant = GFVariantData.get_option_value(
-		message.payload,
-		"recipient_peer_id"
-	)
+		return _reject(
+			actual_peer_id,
+			&"epoch_mismatch",
+			message
+		)
+	var recipient_value: Variant = GFVariantData.get_option_value(message.payload, "recipient_peer_id")
 	if not _is_integer_value(recipient_value):
-		return _reject(actual_peer_id, &"invalid_input_recipient", message)
+		return _reject(
+			actual_peer_id,
+			&"invalid_input_recipient",
+			message
+		)
 	if GFVariantData.to_int(recipient_value) != _local_peer_id:
-		return _reject(actual_peer_id, &"unexpected_input_recipient", message)
+		return _reject(
+			actual_peer_id,
+			&"unexpected_input_recipient",
+			message
+		)
 	var input_value: Variant = GFVariantData.get_option_value(message.payload, "input")
 	if not (input_value is Dictionary):
-		return _reject(actual_peer_id, &"input_not_dictionary", message)
+		return _reject(
+			actual_peer_id,
+			&"input_not_dictionary",
+			message
+		)
 
-	var expected_sequence: int = GFVariantData.get_option_int(
-		_last_received_input_sequence,
-		actual_peer_id
-	) + 1
+	var expected_sequence: int = ((GFVariantData.get_option_int(_last_received_input_sequence, actual_peer_id)) + 1)
 	var fingerprint: String = _message_fingerprint(message)
 	if fingerprint.is_empty():
-		return _reject(actual_peer_id, &"message_fingerprint_failed", message)
+		return _reject(
+			actual_peer_id,
+			&"message_fingerprint_failed",
+			message
+		)
 	if message.sequence < expected_sequence:
-		if (
-			message.sequence == expected_sequence - 1
-			and fingerprint == GFVariantData.get_option_string(
-				_last_received_input_fingerprint,
-				actual_peer_id
+		if (message.sequence == expected_sequence - 1 and (fingerprint == (GFVariantData.get_option_string(_last_received_input_fingerprint, actual_peer_id)))):
+			return _make_report(
+				true,
+				&"duplicate",
+				&"",
+				{
+					"tick": message.tick,
+					"sequence": message.sequence,
+					"duplicate": true,
+				}
 			)
-		):
-			return _make_report(true, &"duplicate", &"", {
-				"tick": message.tick,
-				"sequence": message.sequence,
-				"duplicate": true,
-			})
-		return _reject(actual_peer_id, &"input_sequence_stale", message)
+		return _reject(
+			actual_peer_id,
+			&"input_sequence_stale",
+			message
+		)
 	if message.sequence > expected_sequence:
-		return _reject(actual_peer_id, &"input_sequence_gap", message, {
-			"expected_sequence": expected_sequence,
-		})
+		return _reject(
+			actual_peer_id,
+			&"input_sequence_gap",
+			message,
+			{ "expected_sequence": expected_sequence, }
+		)
 	var last_tick: int = GFVariantData.get_option_int(
 		_last_received_input_tick,
 		actual_peer_id,
 		_current_tick
 	)
 	if message.tick < last_tick:
-		return _reject(actual_peer_id, &"input_tick_regressed", message)
+		return _reject(
+			actual_peer_id,
+			&"input_tick_regressed",
+			message
+		)
 	if message.tick <= _current_tick or message.tick > _current_tick + _max_future_ticks:
-		return _reject(actual_peer_id, &"input_tick_out_of_window", message)
+		return _reject(
+			actual_peer_id,
+			&"input_tick_out_of_window",
+			message
+		)
 	if _pending_input_count + _pending_finalization_count >= _max_pending_inputs:
-		return _reject(actual_peer_id, &"pending_input_budget_exceeded", message)
+		return _reject(
+			actual_peer_id,
+			&"pending_input_budget_exceeded",
+			message
+		)
 	var frames_at_tick: Array[GFNetworkInputFrame] = _get_pending_inputs_for_tick(message.tick)
 	if frames_at_tick.size() >= _max_inputs_per_tick:
-		return _reject(actual_peer_id, &"tick_input_budget_exceeded", message)
+		return _reject(
+			actual_peer_id,
+			&"tick_input_budget_exceeded",
+			message
+		)
 
 	var frame: GFNetworkInputFrame = GFNetworkInputFrame.new(
 		message.tick,
@@ -1397,10 +1711,18 @@ func _handle_input_message(actual_peer_id: int, message: GFNetworkMessage) -> Di
 	)
 	var frame_report: Dictionary = frame.validate_frame(_value_budget_options())
 	if not GFVariantData.get_option_bool(frame_report, "ok"):
-		return _reject(actual_peer_id, &"invalid_input_payload", message)
+		return _reject(
+			actual_peer_id,
+			&"invalid_input_payload",
+			message
+		)
 	var frame_bytes: int = GFVariantData.get_option_int(frame_report, "payload_bytes")
 	if _pending_input_bytes + frame_bytes > _max_pending_input_bytes:
-		return _reject(actual_peer_id, &"pending_input_byte_budget_exceeded", message)
+		return _reject(
+			actual_peer_id,
+			&"pending_input_byte_budget_exceeded",
+			message
+		)
 
 	_operation_active = true
 	var adapter_report: Dictionary = _adapter._validate_input(
@@ -1415,21 +1737,30 @@ func _handle_input_message(actual_peer_id: int, message: GFNetworkMessage) -> Di
 	if not GFVariantData.get_option_bool(adapter_report, "ok"):
 		_mark_input_finalized(actual_peer_id, message.sequence)
 		_notification_active = true
-		input_finalized.emit(actual_peer_id, message.sequence, false, &"adapter_rejected")
+		input_finalized.emit(
+			actual_peer_id,
+			message.sequence,
+			false,
+			&"adapter_rejected"
+		)
 		_notification_active = false
-		return _make_report(false, &"finalized_rejected", &"adapter_rejected_input", {
-			"tick": message.tick,
-			"sequence": message.sequence,
-		})
+		return _make_report(
+			false,
+			&"finalized_rejected",
+			&"adapter_rejected_input",
+			{ "tick": message.tick, "sequence": message.sequence, }
+		)
 
 	frames_at_tick.append(frame.duplicate_frame())
 	_pending_inputs_by_tick[message.tick] = frames_at_tick
 	_pending_input_count += 1
 	_pending_input_bytes += frame_bytes
-	return _make_report(true, &"queued", &"", {
-		"tick": message.tick,
-		"sequence": message.sequence,
-	})
+	return _make_report(
+		true,
+		&"queued",
+		&"",
+		{ "tick": message.tick, "sequence": message.sequence, }
+	)
 
 
 ## 副本端校验权威快照和确认序号，捕获回滚状态后应用快照并按预算重放预测；应用或重放失败时尝试恢复，恢复失败进入 FAULTED，全部成功才提交账本并通知。
@@ -1437,16 +1768,28 @@ func _handle_input_message(actual_peer_id: int, message: GFNetworkMessage) -> Di
 ## @api private
 func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:
 	if _role != Role.REPLICA or _phase not in [Phase.AWAITING_BASELINE, Phase.ACTIVE]:
-		return _reject(actual_peer_id, &"replica_not_receiving", message)
+		return _reject(
+			actual_peer_id,
+			&"replica_not_receiving",
+			message
+		)
 	if actual_peer_id != _authority_peer_id:
-		return _reject(actual_peer_id, &"unexpected_authority_peer", message)
+		return _reject(
+			actual_peer_id,
+			&"unexpected_authority_peer",
+			message
+		)
 	var envelope_reason: StringName = _validate_envelope(
 		actual_peer_id,
 		message,
 		SNAPSHOT_MESSAGE_TYPE
 	)
 	if envelope_reason != &"":
-		return _reject(actual_peer_id, envelope_reason, message)
+		return _reject(
+			actual_peer_id,
+			envelope_reason,
+			message
+		)
 	if not _has_exact_keys(
 		message.payload,
 		[
@@ -1457,61 +1800,118 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 			"ack_input_sequence",
 		]
 	):
-		return _reject(actual_peer_id, &"invalid_snapshot_envelope", message)
+		return _reject(
+			actual_peer_id,
+			&"invalid_snapshot_envelope",
+			message
+		)
 	if not _protocol_matches(message.payload):
-		return _reject(actual_peer_id, &"protocol_version_mismatch", message)
+		return _reject(
+			actual_peer_id,
+			&"protocol_version_mismatch",
+			message
+		)
 	if GFVariantData.get_option_string(message.payload, "epoch_id") != _epoch_id:
-		return _reject(actual_peer_id, &"epoch_mismatch", message)
-	var recipient_value: Variant = GFVariantData.get_option_value(
-		message.payload,
-		"recipient_peer_id"
-	)
+		return _reject(
+			actual_peer_id,
+			&"epoch_mismatch",
+			message
+		)
+	var recipient_value: Variant = GFVariantData.get_option_value(message.payload, "recipient_peer_id")
 	if not _is_integer_value(recipient_value):
-		return _reject(actual_peer_id, &"invalid_snapshot_recipient", message)
+		return _reject(
+			actual_peer_id,
+			&"invalid_snapshot_recipient",
+			message
+		)
 	if GFVariantData.to_int(recipient_value) != _local_peer_id:
-		return _reject(actual_peer_id, &"unexpected_snapshot_recipient", message)
+		return _reject(
+			actual_peer_id,
+			&"unexpected_snapshot_recipient",
+			message
+		)
 	var state_value: Variant = GFVariantData.get_option_value(message.payload, "state")
 	var ack_value: Variant = GFVariantData.get_option_value(message.payload, "ack_input_sequence")
 	if not (state_value is Dictionary) or not _is_integer_value(ack_value):
-		return _reject(actual_peer_id, &"invalid_snapshot_payload", message)
+		return _reject(
+			actual_peer_id,
+			&"invalid_snapshot_payload",
+			message
+		)
 	var ack_sequence: int = GFVariantData.to_int(ack_value)
 	var fingerprint: String = _message_fingerprint(message)
 	if fingerprint.is_empty():
-		return _reject(actual_peer_id, &"message_fingerprint_failed", message)
+		return _reject(
+			actual_peer_id,
+			&"message_fingerprint_failed",
+			message
+		)
 	if message.sequence == _last_snapshot_sequence:
 		if fingerprint == _last_snapshot_fingerprint:
-			return _make_report(true, &"duplicate", &"", {
-				"tick": message.tick,
-				"sequence": message.sequence,
-				"duplicate": true,
-			})
-		return _require_resync(actual_peer_id, &"snapshot_sequence_conflict", message)
+			return _make_report(
+				true,
+				&"duplicate",
+				&"",
+				{
+					"tick": message.tick,
+					"sequence": message.sequence,
+					"duplicate": true,
+				}
+			)
+		return _require_resync(
+			actual_peer_id,
+			&"snapshot_sequence_conflict",
+			message
+		)
 	if message.sequence < _last_snapshot_sequence:
-		return _reject(actual_peer_id, &"snapshot_sequence_stale", message)
-	if (
-		_last_snapshot_sequence > 0
-		and message.sequence - _last_snapshot_sequence > _max_sequence_jump
-	):
-		return _require_resync(actual_peer_id, &"snapshot_sequence_jump_exceeded", message)
+		return _reject(
+			actual_peer_id,
+			&"snapshot_sequence_stale",
+			message
+		)
+	if (_last_snapshot_sequence > 0 and message.sequence - _last_snapshot_sequence > _max_sequence_jump):
+		return _require_resync(
+			actual_peer_id,
+			&"snapshot_sequence_jump_exceeded",
+			message
+		)
 	if _last_snapshot_tick >= 0 and message.tick <= _last_snapshot_tick:
-		return _require_resync(actual_peer_id, &"snapshot_tick_conflict", message)
+		return _require_resync(
+			actual_peer_id,
+			&"snapshot_tick_conflict",
+			message
+		)
 	if (
 		ack_sequence < 0
 		or ack_sequence < _last_ack_input_sequence
 		or ack_sequence >= _next_local_input_sequence
 	):
-		return _require_resync(actual_peer_id, &"invalid_input_ack", message)
+		return _require_resync(
+			actual_peer_id,
+			&"invalid_input_ack",
+			message
+		)
 
 	var state: Dictionary = GFVariantData.as_dictionary(state_value).duplicate(true)
 	var transport_report: Dictionary = _validate_transport_value(state)
 	if not GFVariantData.get_option_bool(transport_report, "ok"):
-		return _reject(actual_peer_id, &"unsafe_snapshot_state", message)
+		return _reject(
+			actual_peer_id,
+			&"unsafe_snapshot_state",
+			message
+		)
 	var previous_tick: int = _current_tick
-	var replayed_tick_count: int = maxi(previous_tick - message.tick, 0)
+	var replayed_tick_count: int = maxi(
+		previous_tick - message.tick,
+		0
+	)
 	if _prediction_enabled and replayed_tick_count > _max_replay_ticks:
-		return _require_resync(actual_peer_id, &"replay_budget_exceeded", message, {
-			"replayed_tick_count": replayed_tick_count,
-		})
+		return _require_resync(
+			actual_peer_id,
+			&"replay_budget_exceeded",
+			message,
+			{ "replayed_tick_count": replayed_tick_count, }
+		)
 	var remaining_inputs: Array[GFNetworkInputFrame] = _get_unacknowledged_local_inputs(ack_sequence)
 	for frame: GFNetworkInputFrame in remaining_inputs:
 		if frame.tick <= message.tick:
@@ -1529,25 +1929,36 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 	)
 	if not GFVariantData.get_option_bool(state_validation, "ok"):
 		_operation_active = false
-		return _reject(actual_peer_id, &"adapter_rejected_state", message)
-	var rollback_report: Dictionary = _capture_adapter_state(
-		_current_tick,
-		&"capture_reconciliation_rollback"
-	)
+		return _reject(
+			actual_peer_id,
+			&"adapter_rejected_state",
+			message
+		)
+	var rollback_report: Dictionary = _capture_adapter_state(_current_tick, &"capture_reconciliation_rollback")
 	if not GFVariantData.get_option_bool(rollback_report, "ok"):
 		_operation_active = false
-		return _make_report(false, &"failed", &"rollback_capture_failed")
+		return _make_report(
+			false,
+			&"failed",
+			&"rollback_capture_failed"
+		)
 	var rollback_state: Dictionary = GFVariantData.get_option_dictionary(rollback_report, "state")
 	var predicted_snapshot: GFNetworkSnapshot = _prediction_history.get_snapshot(message.tick)
 	var corrected: bool = false
 	if predicted_snapshot != null:
-		corrected = not _adapter._states_equal(
-			predicted_snapshot.state.duplicate(true),
-			state.duplicate(true),
-			message.tick,
-			_make_adapter_context(&"compare_prediction")
+		corrected = not (
+			_adapter._states_equal(
+				predicted_snapshot.state.duplicate(true),
+				state.duplicate(true),
+				message.tick,
+				_make_adapter_context(&"compare_prediction")
+			)
 		)
-	if not _restore_adapter_state(state, message.tick, &"apply_authoritative_snapshot"):
+	if not _restore_adapter_state(
+		state,
+		message.tick,
+		&"apply_authoritative_snapshot"
+	):
 		var rollback_ok: bool = _restore_adapter_state(
 			rollback_state,
 			previous_tick,
@@ -1556,16 +1967,24 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 		_operation_active = false
 		if not rollback_ok:
 			_set_phase(Phase.FAULTED)
-			return _make_report(false, &"faulted", &"rollback_failed")
-		return _make_report(false, &"failed", &"snapshot_apply_failed")
+			return _make_report(
+				false,
+				&"faulted",
+				&"rollback_failed"
+			)
+		return _make_report(
+			false,
+			&"failed",
+			&"snapshot_apply_failed"
+		)
 
 	var replay_snapshots: Array[GFNetworkSnapshot] = []
 	if _prediction_enabled:
-		for replay_tick: int in range(message.tick + 1, previous_tick + 1):
-			var replay_inputs: Array[GFNetworkInputFrame] = _get_frames_for_tick(
-				remaining_inputs,
-				replay_tick
-			)
+		for replay_tick: int in range(
+			message.tick + 1,
+			previous_tick + 1
+		):
+			var replay_inputs: Array[GFNetworkInputFrame] = _get_frames_for_tick(remaining_inputs, replay_tick)
 			replay_inputs.sort_custom(_input_frame_less_than)
 			var replay_report: Dictionary = _adapter._simulate_tick(
 				replay_tick,
@@ -1581,12 +2000,17 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 				_operation_active = false
 				if not rollback_ok:
 					_set_phase(Phase.FAULTED)
-					return _make_report(false, &"faulted", &"rollback_failed")
-				return _make_report(false, &"failed", &"prediction_replay_failed")
-			var replay_state_report: Dictionary = _capture_adapter_state(
-				replay_tick,
-				&"capture_replayed_state"
-			)
+					return _make_report(
+						false,
+						&"faulted",
+						&"rollback_failed"
+					)
+				return _make_report(
+					false,
+					&"failed",
+					&"prediction_replay_failed"
+				)
+			var replay_state_report: Dictionary = _capture_adapter_state(replay_tick, &"capture_replayed_state")
 			if not GFVariantData.get_option_bool(replay_state_report, "ok"):
 				var rollback_ok: bool = _restore_adapter_state(
 					rollback_state,
@@ -1596,14 +2020,24 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 				_operation_active = false
 				if not rollback_ok:
 					_set_phase(Phase.FAULTED)
-					return _make_report(false, &"faulted", &"rollback_failed")
-				return _make_report(false, &"failed", &"replay_capture_failed")
-			replay_snapshots.append(GFNetworkSnapshot.new(
-				replay_tick,
-				GFVariantData.get_option_dictionary(replay_state_report, "state"),
-				_local_peer_id,
-				{"predicted": true}
-			))
+					return _make_report(
+						false,
+						&"faulted",
+						&"rollback_failed"
+					)
+				return _make_report(
+					false,
+					&"failed",
+					&"replay_capture_failed"
+				)
+			replay_snapshots.append(
+				GFNetworkSnapshot.new(
+					replay_tick,
+					GFVariantData.get_option_dictionary(replay_state_report, "state"),
+					_local_peer_id,
+					{ "predicted": true }
+				)
+			)
 
 	var snapshot: GFNetworkSnapshot = GFNetworkSnapshot.new(
 		message.tick,
@@ -1634,12 +2068,17 @@ func _handle_snapshot_message(actual_peer_id: int, message: GFNetworkMessage) ->
 		replayed_tick_count if _prediction_enabled else 0
 	)
 	_notification_active = false
-	return _make_report(true, &"applied", &"", {
-		"tick": message.tick,
-		"sequence": message.sequence,
-		"corrected": corrected,
-		"replayed_tick_count": replayed_tick_count if _prediction_enabled else 0,
-	})
+	return _make_report(
+		true,
+		&"applied",
+		&"",
+		{
+			"tick": message.tick,
+			"sequence": message.sequence,
+			"corrected": corrected,
+			"replayed_tick_count": replayed_tick_count if _prediction_enabled else 0,
+		}
+	)
 
 
 ## 提交已应用权威快照的游标、输入确认状态和历史缓冲区。
@@ -1718,7 +2157,10 @@ func _build_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:
 		"recipient_peer_id": _authority_peer_id,
 		"input": frame.payload.duplicate(true),
 	}
-	if not GFVariantData.get_option_bool(_validate_message_payload(payload), "ok"):
+	if not GFVariantData.get_option_bool(
+		_validate_message_payload(payload),
+		"ok"
+	):
 		return null
 	return GFNetworkMessage.new(
 		INPUT_MESSAGE_TYPE,
@@ -1740,18 +2182,15 @@ func _capture_adapter_state(tick: int, operation: StringName) -> Dictionary:
 		_make_adapter_context(operation)
 	)
 	if not GFVariantData.get_option_bool(report, "ok"):
-		return {"ok": false}
+		return { "ok": false }
 	var state_value: Variant = GFVariantData.get_option_value(report, "state")
 	if not (state_value is Dictionary):
-		return {"ok": false}
+		return { "ok": false }
 	var state: Dictionary = GFVariantData.as_dictionary(state_value).duplicate(true)
 	var validation: Dictionary = _validate_transport_value(state)
 	if not GFVariantData.get_option_bool(validation, "ok"):
-		return {"ok": false}
-	return {
-		"ok": true,
-		"state": state,
-	}
+		return { "ok": false }
+	return { "ok": true, "state": state, }
 
 
 ## 将深拷贝状态交给 Adapter 恢复，并返回其报告中的成功标志。
@@ -1816,10 +2255,7 @@ func _validate_transport_value(value: Variant) -> Dictionary:
 func _validate_message_payload(value: Variant) -> Dictionary:
 	var report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(
 		value,
-		{
-			"max_depth": _max_value_depth + 1,
-			"max_nodes": _max_value_nodes + _MESSAGE_ENVELOPE_NODE_OVERHEAD,
-		}
+		{ "max_depth": _max_value_depth + 1, "max_nodes": _max_value_nodes + _MESSAGE_ENVELOPE_NODE_OVERHEAD, }
 	)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return report
@@ -1973,7 +2409,7 @@ func _read_limits(options: Dictionary) -> Dictionary:
 	for key: String in values:
 		var value: int = GFVariantData.get_option_int(values, key)
 		if value <= 0 or value > GFVariantData.get_option_int(maxima, key):
-			return {"ok": false}
+			return { "ok": false }
 	values["ok"] = true
 	return values
 
@@ -1986,10 +2422,7 @@ func _apply_limits(limits: Dictionary) -> void:
 	_history_capacity = GFVariantData.get_option_int(limits, "history_capacity")
 	_max_replica_peers = GFVariantData.get_option_int(limits, "max_replica_peers")
 	_max_pending_inputs = GFVariantData.get_option_int(limits, "max_pending_inputs")
-	_max_pending_input_bytes = GFVariantData.get_option_int(
-		limits,
-		"max_pending_input_bytes"
-	)
+	_max_pending_input_bytes = GFVariantData.get_option_int(limits, "max_pending_input_bytes")
 	_max_inputs_per_tick = GFVariantData.get_option_int(limits, "max_inputs_per_tick")
 	_max_future_ticks = GFVariantData.get_option_int(limits, "max_future_ticks")
 	_max_replay_ticks = GFVariantData.get_option_int(limits, "max_replay_ticks")
@@ -2039,7 +2472,11 @@ func _clear_stream_state() -> void:
 ## [br]
 func _get_pending_inputs_for_tick(tick: int) -> Array[GFNetworkInputFrame]:
 	var result: Array[GFNetworkInputFrame] = []
-	var value: Variant = GFVariantData.get_option_value(_pending_inputs_by_tick, tick, [])
+	var value: Variant = GFVariantData.get_option_value(
+		_pending_inputs_by_tick,
+		tick,
+		[]
+	)
 	if value is Array:
 		for item: Variant in value:
 			if item is GFNetworkInputFrame:
@@ -2052,10 +2489,7 @@ func _get_pending_inputs_for_tick(tick: int) -> Array[GFNetworkInputFrame]:
 ## [br]
 ## @api private
 ## [br]
-func _get_local_inputs_for_tick(
-	tick: int,
-	minimum_sequence_exclusive: int
-) -> Array[GFNetworkInputFrame]:
+func _get_local_inputs_for_tick(tick: int, minimum_sequence_exclusive: int) -> Array[GFNetworkInputFrame]:
 	return _get_frames_for_tick(
 		_get_unacknowledged_local_inputs(minimum_sequence_exclusive),
 		tick
@@ -2066,9 +2500,7 @@ func _get_local_inputs_for_tick(
 ## [br]
 ## @api private
 ## [br]
-func _get_unacknowledged_local_inputs(
-	ack_sequence: int
-) -> Array[GFNetworkInputFrame]:
+func _get_unacknowledged_local_inputs(ack_sequence: int) -> Array[GFNetworkInputFrame]:
 	var result: Array[GFNetworkInputFrame] = []
 	for frame: GFNetworkInputFrame in _local_inputs:
 		if frame.sequence > ack_sequence:
@@ -2091,10 +2523,7 @@ func _get_local_input_by_sequence(sequence: int) -> GFNetworkInputFrame:
 ## [br]
 ## @api private
 ## [br]
-func _get_frames_for_tick(
-	source: Array[GFNetworkInputFrame],
-	tick: int
-) -> Array[GFNetworkInputFrame]:
+func _get_frames_for_tick(source: Array[GFNetworkInputFrame], tick: int) -> Array[GFNetworkInputFrame]:
 	var result: Array[GFNetworkInputFrame] = []
 	for frame: GFNetworkInputFrame in source:
 		if frame.tick == tick:
@@ -2106,9 +2535,7 @@ func _get_frames_for_tick(
 ## [br]
 ## @api private
 ## [br]
-func _duplicate_frames(
-	source: Array[GFNetworkInputFrame]
-) -> Array[GFNetworkInputFrame]:
+func _duplicate_frames(source: Array[GFNetworkInputFrame]) -> Array[GFNetworkInputFrame]:
 	var result: Array[GFNetworkInputFrame] = []
 	for frame: GFNetworkInputFrame in source:
 		if frame != null:
@@ -2130,13 +2557,13 @@ func _input_frame_less_than(a: GFNetworkInputFrame, b: GFNetworkInputFrame) -> b
 ## [br]
 ## @api private
 ## [br]
-func _commit_consumed_inputs(
-	tick: int,
-	frames: Array[GFNetworkInputFrame]
-) -> void:
+func _commit_consumed_inputs(tick: int, frames: Array[GFNetworkInputFrame]) -> void:
 	var _tick_erased: bool = _pending_inputs_by_tick.erase(tick)
 	for frame: GFNetworkInputFrame in frames:
-		_pending_input_count = maxi(_pending_input_count - 1, 0)
+		_pending_input_count = maxi(
+			_pending_input_count - 1,
+			0
+		)
 		_pending_input_bytes = maxi(
 			_pending_input_bytes - var_to_bytes(frame.payload).size(),
 			0
@@ -2154,21 +2581,17 @@ func _mark_input_finalized(peer_id: int, sequence: int) -> void:
 		peer_id,
 		{}
 	)
-	var finalized_set: Dictionary = (
-		GFVariantData.as_dictionary(set_value)
-		if set_value is Dictionary
-		else {}
-	)
+	var finalized_set: Dictionary = (GFVariantData.as_dictionary(set_value) if set_value is Dictionary else {})
 	if not finalized_set.has(sequence):
 		finalized_set[sequence] = true
 		_pending_finalization_count += 1
-	var cursor: int = GFVariantData.get_option_int(
-		_last_finalized_input_sequence,
-		peer_id
-	)
+	var cursor: int = GFVariantData.get_option_int(_last_finalized_input_sequence, peer_id)
 	while finalized_set.has(cursor + 1):
 		var _erased: bool = finalized_set.erase(cursor + 1)
-		_pending_finalization_count = maxi(_pending_finalization_count - 1, 0)
+		_pending_finalization_count = maxi(
+			_pending_finalization_count - 1,
+			0
+		)
 		cursor += 1
 	_last_finalized_input_sequence[peer_id] = cursor
 	_finalized_input_sequences[peer_id] = finalized_set
@@ -2184,7 +2607,10 @@ func _remove_pending_inputs_for_peer(peer_id: int) -> void:
 		var kept: Array[GFNetworkInputFrame] = []
 		for frame: GFNetworkInputFrame in _get_pending_inputs_for_tick(tick):
 			if frame.peer_id == peer_id:
-				_pending_input_count = maxi(_pending_input_count - 1, 0)
+				_pending_input_count = maxi(
+					_pending_input_count - 1,
+					0
+				)
 				_pending_input_bytes = maxi(
 					_pending_input_bytes - var_to_bytes(frame.payload).size(),
 					0
@@ -2226,20 +2652,23 @@ func _duplicate_history(source: GFNetworkHistoryBuffer) -> GFNetworkHistoryBuffe
 ## @api private
 ## [br]
 func _message_fingerprint(message: GFNetworkMessage) -> String:
-	return GFDeterministicVariantSerializer.sha256({
-		"type": message.message_type,
-		"sequence": message.sequence,
-		"tick": message.tick,
-		"sender_id": message.sender_id,
-		"channel_id": message.channel_id,
-		"payload": message.payload,
-	}, {
-		"allow_floats": true,
-		"max_depth": _max_value_depth + 4,
-		"max_items": (_max_value_nodes * 2) + _MESSAGE_ENVELOPE_NODE_OVERHEAD + 16,
-		"max_string_length": _max_payload_bytes,
-		"max_output_bytes": _MAX_FINGERPRINT_OUTPUT_BYTES,
-	})
+	return GFDeterministicVariantSerializer.sha256(
+		{
+			"type": message.message_type,
+			"sequence": message.sequence,
+			"tick": message.tick,
+			"sender_id": message.sender_id,
+			"channel_id": message.channel_id,
+			"payload": message.payload,
+		},
+		{
+			"allow_floats": true,
+			"max_depth": _max_value_depth + 4,
+			"max_items": (_max_value_nodes * 2) + _MESSAGE_ENVELOPE_NODE_OVERHEAD + 16,
+			"max_string_length": _max_payload_bytes,
+			"max_output_bytes": _MAX_FINGERPRINT_OUTPUT_BYTES,
+		}
+	)
 
 
 ## 构造包含 ok、status、reason 和附加字段的报告字典。
@@ -2279,9 +2708,18 @@ func _reject(
 ) -> Dictionary:
 	var details: Dictionary = _make_protocol_details(message, extra)
 	_notification_active = true
-	synchronization_rejected.emit(peer_id, reason, details.duplicate(true))
+	synchronization_rejected.emit(
+		peer_id,
+		reason,
+		details.duplicate(true)
+	)
 	_notification_active = false
-	return _make_report(false, &"rejected", reason, details)
+	return _make_report(
+		false,
+		&"rejected",
+		reason,
+		details
+	)
 
 
 ## 切换至等待重同步阶段，发出拒绝及重同步信号并返回报告。
@@ -2297,24 +2735,30 @@ func _require_resync(
 	var details: Dictionary = _make_protocol_details(message, extra)
 	_set_phase(Phase.RESYNC_REQUIRED)
 	_notification_active = true
-	synchronization_rejected.emit(peer_id, reason, details.duplicate(true))
-	resync_required.emit(reason, details.duplicate(true))
+	synchronization_rejected.emit(
+		peer_id,
+		reason,
+		details.duplicate(true)
+	)
+	resync_required.emit(
+		reason,
+		details.duplicate(true)
+	)
 	_notification_active = false
-	return _make_report(false, &"resync_required", reason, details)
+	return _make_report(
+		false,
+		&"resync_required",
+		reason,
+		details
+	)
 
 
 ## 生成仅含协议游标和稳定字段的消息详情。
 ## [br]
 ## @api private
 ## [br]
-func _make_protocol_details(
-	message: GFNetworkMessage,
-	extra: Dictionary = {}
-) -> Dictionary:
-	var details: Dictionary = {
-		"role": _role,
-		"phase": _phase,
-	}
+func _make_protocol_details(message: GFNetworkMessage, extra: Dictionary = {}) -> Dictionary:
+	var details: Dictionary = { "role": _role, "phase": _phase, }
 	if message != null:
 		details["tick"] = message.tick
 		details["sequence"] = message.sequence
@@ -2322,10 +2766,7 @@ func _make_protocol_details(
 			details["message_type"] = message.message_type
 		else:
 			details["message_type_known"] = false
-	for key: String in [
-		"expected_sequence",
-		"replayed_tick_count",
-	]:
+	for key: String in ["expected_sequence", "replayed_tick_count",]:
 		if extra.has(key):
 			details[key] = extra[key]
 	return details

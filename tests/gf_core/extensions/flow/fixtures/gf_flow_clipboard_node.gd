@@ -4,7 +4,10 @@ extends GFFlowNode
 
 # --- 导出变量 ---
 
-@export var payload: Dictionary = {"label": "Template", "weights": [1, 2]}
+@export var payload: Dictionary = {
+	"label": "Template",
+	"weights": [1, 2],
+}
 
 
 # --- 私有变量 ---

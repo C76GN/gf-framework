@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalConnection" path="addons/gf/standard/utilities/signals/gf_signal_connection.gd" module="standard" extends="RefCounted" classDigest="d2f2a8f12835c33609cb70cccc50584bd91550cbb2c42816109af797ca9d90c6">
+<class name="GFSignalConnection" path="addons/gf/standard/utilities/signals/gf_signal_connection.gd" module="standard" extends="RefCounted" classDigest="07e18fbe6a318f99b34907b605f1595b86695658ccb0beedf039a622f9943ff6">
 	<description>GFSignalConnection: 可管理的 Godot Signal 链式连接。
 连接支持默认参数、过滤、映射、延迟、防抖、节流、次数限制、
 累积转换、一次性触发和 owner 归属清理。</description>
@@ -171,7 +171,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="matches">
-			<signature>func matches(source_signal: Signal, callback: Callable, owner: Object = null) -&gt; bool:</signature>
+			<signature>func matches( source_signal: Signal, callback: Callable, owner: Object = null ) -&gt; bool:</signature>
 			<description>检查连接是否匹配指定 Signal、回调和可选 owner。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -179,6 +179,7 @@
 				<tag name="param">callback: 操作完成或事件触发时执行的回调。</tag>
 				<tag name="param">owner: 监听或连接的拥有者。</tag>
 				<tag name="return">Signal、回调和 owner 匹配时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prune_if_invalid">

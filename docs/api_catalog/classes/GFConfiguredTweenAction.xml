@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfiguredTweenAction" path="addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="d17652a97b0b418917a24237a3be8081dcf42e71b653fd6a21b6756fd191b4b5">
+<class name="GFConfiguredTweenAction" path="addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="98ae1b1b4a14d8c4a2eadf73fd674f3f4bc5a79d312254ea5b95753a94619491">
 	<description>GFConfiguredTweenAction: 配置驱动的 Tween 动作，支持可选冻结时间轴与属性替换。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -8,7 +8,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="marker_reached">
-			<signature>signal marker_reached(marker_id: StringName, step_index: int, target: Object)</signature>
+			<signature>signal marker_reached( marker_id: StringName, step_index: int, target: Object )</signature>
 			<description>正向到达标记时发出；定位、倒放和立即完成不补发标记。</description>
 			<tags>
 				<tag name="api">public</tag>

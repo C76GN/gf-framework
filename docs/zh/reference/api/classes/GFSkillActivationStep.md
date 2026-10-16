@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`step_id`](#member-gfskillactivationstep-properties-step_id) | `var step_id: StringName = &""` |
 | 属性 | [`rollback_required`](#member-gfskillactivationstep-properties-rollback_required) | `var rollback_required: bool = true` |
-| 方法 | [`configure`](#member-gfskillactivationstep-methods-configure) | `func configure( p_step_id: StringName, p_rollback_required: bool = true ) -> GFSkillActivationStep:` |
+| 方法 | [`configure`](#member-gfskillactivationstep-methods-configure) | `func configure(p_step_id: StringName, p_rollback_required: bool = true) -> GFSkillActivationStep:` |
 | 方法 | [`_validate_activation`](#member-gfskillactivationstep-methods-_validate_activation) | `func _validate_activation(_context: GFSkillActivationContext) -> Variant:` |
 | 方法 | [`_apply_activation`](#member-gfskillactivationstep-methods-_apply_activation) | `func _apply_activation(_context: GFSkillActivationContext) -> Variant:` |
 | 方法 | [`_rollback_activation`](#member-gfskillactivationstep-methods-_rollback_activation) | `func _rollback_activation(_context: GFSkillActivationContext) -> Variant:` |
@@ -60,7 +60,7 @@ var rollback_required: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
-func configure( p_step_id: StringName, p_rollback_required: bool = true ) -> GFSkillActivationStep:
+func configure(p_step_id: StringName, p_rollback_required: bool = true) -> GFSkillActivationStep:
 ```
 
 配置步骤并返回自身。

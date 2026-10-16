@@ -24,11 +24,13 @@ class CustomFormatterTextProvider extends GFInputTextProvider:
 		text = p_text
 		priority = 100
 
+
 	func supports_event(input_event: InputEvent, _options: Dictionary = {}) -> bool:
 		if not (input_event is InputEventKey):
 			return false
 		var key_event: InputEventKey = input_event
 		return key_event.keycode == KEY_K
+
 
 	func get_event_text(_input_event: InputEvent, _options: Dictionary = {}) -> String:
 		return text
@@ -40,11 +42,13 @@ class CustomFormatterIconProvider extends GFInputIconProvider:
 	func _init(p_rich_text: String = "[color=lime]K[/color]") -> void:
 		rich_text = p_rich_text
 
+
 	func supports_event(input_event: InputEvent, _options: Dictionary = {}) -> bool:
 		if not (input_event is InputEventKey):
 			return false
 		var key_event: InputEventKey = input_event
 		return key_event.keycode == KEY_K
+
 
 	func get_event_rich_text(_input_event: InputEvent, _options: Dictionary = {}) -> String:
 		return rich_text
@@ -74,10 +78,17 @@ func after_each() -> void:
 func test_base_icon_provider_escapes_brackets_once() -> void:
 	var provider: TextureOnlyIconProvider = TextureOnlyIconProvider.new()
 	provider.icon.resource_path = "res://icons/a[b].png"
-	assert_eq(provider.get_event_rich_text(_make_key_event(KEY_K)),
-		"[img=24]res://icons/a[lb]b[rb].png[/img]")
-	assert_eq(provider.get_event_rich_text(_make_key_event(KEY_K), {"icon_size": 0}),
-		"[img]res://icons/a[lb]b[rb].png[/img]")
+	assert_eq(
+		provider.get_event_rich_text(_make_key_event(KEY_K)),
+		"[img=24]res://icons/a[lb]b[rb].png[/img]"
+	)
+	assert_eq(
+		provider.get_event_rich_text(
+			_make_key_event(KEY_K),
+			{ "icon_size": 0 }
+		),
+		"[img]res://icons/a[lb]b[rb].png[/img]"
+	)
 
 
 func test_action_rich_text_uses_preferred_device_event() -> void:
@@ -85,10 +96,10 @@ func test_action_rich_text_uses_preferred_device_event() -> void:
 	provider.set_icon_path(&"key:k", "res://icons/key_k.png")
 	provider.set_icon_path(&"joy_button:south", "res://icons/joy_south.png")
 	GFInputFormatter.add_icon_provider(provider)
-	_set_input_map_action(_INPUT_MAP_ACTION, [
-		_make_key_event(KEY_K),
-		_make_joy_button_event(JOY_BUTTON_A),
-	])
+	_set_input_map_action(
+		_INPUT_MAP_ACTION,
+		[_make_key_event(KEY_K), _make_joy_button_event(JOY_BUTTON_A),]
+	)
 
 	var keyboard_text: String = GFInputFormatter.action_as_rich_text(
 		_INPUT_MAP_ACTION,
@@ -107,10 +118,19 @@ func test_action_rich_text_uses_preferred_device_event() -> void:
 		}
 	)
 
-	assert_true(keyboard_text.contains("key_k.png"), "键鼠偏好应选择键盘事件图标。")
-	assert_true(joypad_text.contains("joy_south.png"), "手柄偏好应选择手柄事件图标。")
+	assert_true(
+		keyboard_text.contains("key_k.png"),
+		"键鼠偏好应选择键盘事件图标。"
+	)
+	assert_true(
+		joypad_text.contains("joy_south.png"),
+		"手柄偏好应选择手柄事件图标。"
+	)
 	assert_eq(
-		GFInputFormatter.action_as_text(_INPUT_MAP_ACTION, { "preferred_device_type": &"joypad" }),
+		GFInputFormatter.action_as_text(
+			_INPUT_MAP_ACTION,
+			{ "preferred_device_type": &"joypad" }
+		),
 		"Button South",
 		"动作文本也应复用同一套事件选择规则。"
 	)
@@ -122,17 +142,20 @@ func test_action_rich_text_can_prefer_action_icon() -> void:
 	provider.set_icon_path(&"action:gf_test_formatter_jump", "res://icons/action_jump.png")
 	provider.set_icon_path(&"key:k", "res://icons/key_k.png")
 	GFInputFormatter.add_icon_provider(provider)
-	_set_input_map_action(_INPUT_MAP_ACTION, [_make_key_event(KEY_K)])
+	_set_input_map_action(
+		_INPUT_MAP_ACTION,
+		[_make_key_event(KEY_K)]
+	)
 
 	var rich_text: String = GFInputFormatter.action_as_rich_text(
 		_INPUT_MAP_ACTION,
-		{
-			"allow_missing_paths": true,
-			"prefer_action_icon": true,
-		}
+		{ "allow_missing_paths": true, "prefer_action_icon": true, }
 	)
 
-	assert_true(rich_text.contains("action_jump.png"), "显式 action 图标应可覆盖物理绑定图标。")
+	assert_true(
+		rich_text.contains("action_jump.png"),
+		"显式 action 图标应可覆盖物理绑定图标。"
+	)
 
 
 ## 验证动作格式化可回退读取 ProjectSettings 中的编辑器态 Input Map 数据。
@@ -153,7 +176,10 @@ func test_action_rich_text_reads_project_settings_action_events() -> void:
 		{ "allow_missing_paths": true }
 	)
 
-	assert_true(rich_text.contains("mouse_right.png"), "未注册到 runtime InputMap 时应读取 ProjectSettings 事件。")
+	assert_true(
+		rich_text.contains("mouse_right.png"),
+		"未注册到 runtime InputMap 时应读取 ProjectSettings 事件。"
+	)
 
 
 ## 验证富文本格式化会稳定转义显示名和回退文本中的 BBCode 括号。
@@ -161,9 +187,16 @@ func test_rich_text_escapes_bbcode_brackets_without_reescaping_replacements() ->
 	var binding: GFInputBinding = GFInputBinding.new()
 	binding.display_name = "[A]"
 
-	assert_eq(GFInputFormatter.binding_as_rich_text(binding), "[lb]A[rb]", "显示名中的 BBCode 括号应被转义一次。")
 	assert_eq(
-		GFInputFormatter.input_event_as_rich_text(null, { "unbound_text": "[none]" }),
+		GFInputFormatter.binding_as_rich_text(binding),
+		"[lb]A[rb]",
+		"显示名中的 BBCode 括号应被转义一次。"
+	)
+	assert_eq(
+		GFInputFormatter.input_event_as_rich_text(
+			null,
+			{ "unbound_text": "[none]" }
+		),
 		"[lb]none[rb]",
 		"解绑文本中的 BBCode 括号也应被转义一次。"
 	)
@@ -175,10 +208,20 @@ func test_scoped_formatter_registry_does_not_pollute_default_registry() -> void:
 	var registration: GFInputProviderRegistration = registry.register_text_provider(provider)
 	var event: InputEventKey = _make_key_event(KEY_K)
 
-	assert_true(registration.is_active(), "局部 registry 注册应返回活动句柄。")
-	assert_eq(GFInputFormatter.input_event_as_text(event), "K", "默认 registry 不应被局部 registry 污染。")
+	assert_true(
+		registration.is_active(),
+		"局部 registry 注册应返回活动句柄。"
+	)
 	assert_eq(
-		GFInputFormatter.input_event_as_text(event, { "formatter_registry": registry }),
+		GFInputFormatter.input_event_as_text(event),
+		"K",
+		"默认 registry 不应被局部 registry 污染。"
+	)
+	assert_eq(
+		GFInputFormatter.input_event_as_text(
+			event,
+			{ "formatter_registry": registry }
+		),
 		"Scoped K",
 		"调用 options 可指定局部 registry。"
 	)
@@ -187,7 +230,10 @@ func test_scoped_formatter_registry_does_not_pollute_default_registry() -> void:
 
 	assert_true(released, "注册句柄应可显式释放。")
 	assert_eq(
-		GFInputFormatter.input_event_as_text(event, { "formatter_registry": registry }),
+		GFInputFormatter.input_event_as_text(
+			event,
+			{ "formatter_registry": registry }
+		),
 		"K",
 		"释放后局部 registry 应回退默认格式化。"
 	)
@@ -199,13 +245,23 @@ func test_formatter_registry_prunes_provider_when_owner_is_freed() -> void:
 	var provider: CustomFormatterTextProvider = CustomFormatterTextProvider.new("Owned K")
 	var registration: GFInputProviderRegistration = registry.register_text_provider(provider, registration_owner)
 
-	assert_true(registration.is_active(), "owner 存活时注册应有效。")
+	assert_true(
+		registration.is_active(),
+		"owner 存活时注册应有效。"
+	)
 
 	registration_owner.free()
 	var pruned_count: int = registry.prune_invalid_provider_owners()
 
-	assert_eq(pruned_count, 1, "owner 释放后 registry 应裁剪对应 provider。")
-	assert_false(registration.is_active(), "被裁剪的注册句柄应失效。")
+	assert_eq(
+		pruned_count,
+		1,
+		"owner 释放后 registry 应裁剪对应 provider。"
+	)
+	assert_false(
+		registration.is_active(),
+		"被裁剪的注册句柄应失效。"
+	)
 
 
 func test_formatter_registry_reorders_text_providers_after_priority_changes() -> void:
@@ -224,8 +280,16 @@ func test_formatter_registry_reorders_text_providers_after_priority_changes() ->
 		{ "formatter_registry": registry }
 	)
 
-	assert_eq(providers[0], second, "getter 顺序必须反映 provider 当前优先级。")
-	assert_eq(text, "Second", "实际格式化选择必须同步采用当前最高优先级 provider。")
+	assert_eq(
+		providers[0],
+		second,
+		"getter 顺序必须反映 provider 当前优先级。"
+	)
+	assert_eq(
+		text,
+		"Second",
+		"实际格式化选择必须同步采用当前最高优先级 provider。"
+	)
 
 
 func test_formatter_registry_reorders_icon_providers_after_priority_changes() -> void:
@@ -244,8 +308,16 @@ func test_formatter_registry_reorders_icon_providers_after_priority_changes() ->
 		{ "formatter_registry": registry }
 	)
 
-	assert_eq(providers[0], second, "图标 getter 顺序必须反映 provider 当前优先级。")
-	assert_eq(text, "[color=blue]K[/color]", "富文本选择必须同步采用当前最高优先级 provider。")
+	assert_eq(
+		providers[0],
+		second,
+		"图标 getter 顺序必须反映 provider 当前优先级。"
+	)
+	assert_eq(
+		text,
+		"[color=blue]K[/color]",
+		"富文本选择必须同步采用当前最高优先级 provider。"
+	)
 
 
 func test_default_icon_provider_registration_token_releases_provider() -> void:
@@ -261,7 +333,11 @@ func test_default_icon_provider_registration_token_releases_provider() -> void:
 	var released: bool = registration.release()
 
 	assert_true(released, "默认 registry 注册句柄应可释放。")
-	assert_eq(GFInputFormatter.input_event_as_rich_text(event), "K", "释放后应回退文本格式化。")
+	assert_eq(
+		GFInputFormatter.input_event_as_rich_text(event),
+		"K",
+		"释放后应回退文本格式化。"
+	)
 
 
 # --- 私有/辅助方法 ---

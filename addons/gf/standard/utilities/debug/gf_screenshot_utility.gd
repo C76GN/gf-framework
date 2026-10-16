@@ -132,7 +132,11 @@ var default_unique_paths: bool = true
 ## @since 5.0.0
 var default_quality: float = 0.9:
 	set(value):
-		default_quality = clampf(value, 0.0, 1.0)
+		default_quality = clampf(
+			value,
+			0.0,
+			1.0
+		)
 
 
 # --- 私有变量 ---
@@ -180,6 +184,7 @@ func cancel_burst(reason: String = "cancelled") -> bool:
 	if cancelled and _burst_scope == scope:
 		_burst_capture_active = false
 	return cancelled
+
 
 ## 捕获 Viewport 图像。
 ## [br]
@@ -235,7 +240,11 @@ func capture_viewport_png_buffer(viewport: Viewport = null) -> PackedByteArray:
 func save_viewport_screenshot(file_path: String = "", options: Dictionary = {}) -> Dictionary:
 	var target_viewport: Viewport = _get_viewport_option(options)
 	var image: Image = capture_viewport_image(target_viewport)
-	return save_image(image, file_path, options)
+	return save_image(
+		image,
+		file_path,
+		options
+	)
 
 
 ## 保存已有 Image 为截图文件。
@@ -255,12 +264,36 @@ func save_viewport_screenshot(file_path: String = "", options: Dictionary = {}) 
 ## @schema options: Dictionary，支持 directory、prefix、format、quality、unique、timestamp、locale、resolution 与 use_subdirectories。
 ## [br]
 ## @schema return: Dictionary，包含 ok、path、format、size、locale、resolution、error 与 reason 字段。
-func save_image(image: Image, file_path: String = "", options: Dictionary = {}) -> Dictionary:
+func save_image(
+	image: Image,
+	file_path: String = "",
+	options: Dictionary = {}
+) -> Dictionary:
 	var format: String = _resolve_format(file_path, options)
-	var path: String = _resolve_file_path(file_path, options, format)
-	var resolution: Vector2i = _get_vector2i_option(options, "resolution", Vector2i.ZERO)
-	var locale: String = GFVariantData.get_option_string(options, "locale", TranslationServer.get_locale())
-	var record: Dictionary = _make_save_record(false, path, format, Vector2i.ZERO, locale, resolution, ERR_INVALID_PARAMETER)
+	var path: String = _resolve_file_path(
+		file_path,
+		options,
+		format
+	)
+	var resolution: Vector2i = _get_vector2i_option(
+		options,
+		"resolution",
+		Vector2i.ZERO
+	)
+	var locale: String = GFVariantData.get_option_string(
+		options,
+		"locale",
+		TranslationServer.get_locale()
+	)
+	var record: Dictionary = _make_save_record(
+		false,
+		path,
+		format,
+		Vector2i.ZERO,
+		locale,
+		resolution,
+		ERR_INVALID_PARAMETER
+	)
 	if image == null:
 		record["reason"] = "image_is_null"
 		return record
@@ -278,7 +311,12 @@ func save_image(image: Image, file_path: String = "", options: Dictionary = {}) 
 		record["reason"] = "directory_unavailable"
 		return record
 
-	var save_error: Error = _save_image_with_format(image, path, format, options)
+	var save_error: Error = _save_image_with_format(
+		image,
+		path,
+		format,
+		options
+	)
 	record["ok"] = save_error == OK
 	record["error"] = int(save_error)
 	record["reason"] = _get_error_reason(save_error)
@@ -299,21 +337,60 @@ func save_image(image: Image, file_path: String = "", options: Dictionary = {}) 
 ## [br]
 ## @schema options: Dictionary，支持 directory、prefix、format、timestamp、locale、resolution 与 use_subdirectories。
 func build_screenshot_path(options: Dictionary = {}) -> String:
-	var directory: String = GFVariantData.get_option_string(options, "directory", default_save_dir)
+	var directory: String = GFVariantData.get_option_string(
+		options,
+		"directory",
+		default_save_dir
+	)
 	if directory.is_empty():
 		directory = DEFAULT_SAVE_DIR
 
-	var prefix: String = _sanitize_path_segment(GFVariantData.get_option_string(options, "prefix", default_prefix))
+	var prefix: String = _sanitize_path_segment(
+		GFVariantData.get_option_string(
+			options,
+			"prefix",
+			default_prefix
+		)
+	)
 	if prefix.is_empty():
 		prefix = DEFAULT_PREFIX
 
-	var format: String = _normalize_format(GFVariantData.get_option_string(options, "format", default_format))
-	var timestamp: String = _sanitize_path_segment(GFVariantData.get_option_string(options, "timestamp", _make_timestamp()))
-	var base_name: String = "%s_%s" % [prefix, timestamp]
-	var locale: String = _sanitize_path_segment(GFVariantData.get_option_string(options, "locale", ""))
-	var resolution: Vector2i = _get_vector2i_option(options, "resolution", Vector2i.ZERO)
+	var format: String = _normalize_format(
+		GFVariantData.get_option_string(
+			options,
+			"format",
+			default_format
+		)
+	)
+	var timestamp: String = _sanitize_path_segment(
+		GFVariantData.get_option_string(
+			options,
+			"timestamp",
+			_make_timestamp()
+		)
+	)
+	var base_name: String = (
+		"%s_%s"
+		% [prefix, timestamp]
+	)
+	var locale: String = _sanitize_path_segment(
+		GFVariantData.get_option_string(
+			options,
+			"locale",
+			""
+		)
+	)
+	var resolution: Vector2i = _get_vector2i_option(
+		options,
+		"resolution",
+		Vector2i.ZERO
+	)
 	var resolution_label: String = _get_resolution_label(resolution)
-	var use_subdirectories: bool = GFVariantData.get_option_bool(options, "use_subdirectories", false)
+	var use_subdirectories: bool = GFVariantData.get_option_bool(
+		options,
+		"use_subdirectories",
+		false
+	)
 
 	if use_subdirectories:
 		var target_directory: String = directory.path_join(base_name)
@@ -321,14 +398,20 @@ func build_screenshot_path(options: Dictionary = {}) -> String:
 			target_directory = target_directory.path_join(locale)
 		if not resolution_label.is_empty():
 			target_directory = target_directory.path_join(resolution_label)
-		return target_directory.path_join("%s.%s" % [base_name, format])
+		return target_directory.path_join(
+			"%s.%s"
+			% [base_name, format]
+		)
 
 	var file_name: String = base_name
 	if not locale.is_empty():
 		file_name += "_%s" % locale
 	if not resolution_label.is_empty():
 		file_name += "_%s" % resolution_label
-	return directory.path_join("%s.%s" % [file_name, format])
+	return directory.path_join(
+		"%s.%s"
+		% [file_name, format]
+	)
 
 
 ## 按尺寸、语言和格式批量保存 Viewport 截图。
@@ -355,8 +438,19 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 	var resolutions: Array[Vector2i] = _get_resolution_values(options)
 	var formats: PackedStringArray = _get_format_values(options)
 	var records: Array[Dictionary] = []
-	var planned_count: int = _get_burst_capture_count(locales, resolutions, formats)
-	var max_captures: int = maxi(GFVariantData.get_option_int(options, "max_captures", DEFAULT_MAX_BURST_CAPTURES), 0)
+	var planned_count: int = _get_burst_capture_count(
+		locales,
+		resolutions,
+		formats
+	)
+	var max_captures: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_captures",
+			DEFAULT_MAX_BURST_CAPTURES
+		),
+		0
+	)
 	var frame_delay_seconds: float = GFVariantData.get_option_float(
 		options,
 		"frame_delay_seconds",
@@ -396,9 +490,7 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 
 	var environment_transaction: Dictionary = _begin_burst_environment_transaction(options)
 	var scope: GFAsyncScope = GFAsyncScope.new()
-	var _cleanup_registered: bool = scope.register_cleanup(
-		Callable(self, "_restore_burst_environment").bind(environment_transaction)
-	)
+	var _cleanup_registered: bool = scope.register_cleanup(Callable(self, "_restore_burst_environment").bind(environment_transaction))
 	_burst_scope = scope
 	_burst_capture_active = true
 	burst_started.emit(options.duplicate(true))
@@ -425,7 +517,7 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 				capture_options["viewport"] = target_viewport
 				capture_options["format"] = format
 				capture_options["locale"] = TranslationServer.get_locale()
-				capture_options["resolution"] = DisplayServer.window_get_size() if resolution == Vector2i.ZERO else resolution
+				capture_options["resolution"] = (DisplayServer.window_get_size() if resolution == Vector2i.ZERO else resolution)
 				records.append(save_viewport_screenshot("", capture_options))
 
 	_restore_burst_environment(environment_transaction)
@@ -502,7 +594,11 @@ func _burst_should_cancel(scope: GFAsyncScope, cancellation_token: GFCancellatio
 ## [br]
 func _begin_burst_environment_transaction(options: Dictionary) -> Dictionary:
 	var tree: SceneTree = _get_scene_tree()
-	var should_pause_tree: bool = GFVariantData.get_option_bool(options, "pause_tree", false)
+	var should_pause_tree: bool = GFVariantData.get_option_bool(
+		options,
+		"pause_tree",
+		false
+	)
 	var transaction: Dictionary = {
 		"tree": tree,
 		"previous_paused": tree.paused if tree != null else false,
@@ -534,16 +630,21 @@ func _restore_burst_environment(transaction: Dictionary) -> void:
 		return
 	TranslationServer.set_locale(GFVariantData.get_option_string(transaction, "previous_locale"))
 	if GFVariantData.get_option_bool(transaction, "resized_window"):
-		var previous_size_value: Variant = GFVariantData.get_option_value(transaction, "previous_size", Vector2i.ZERO)
+		var previous_size_value: Variant = GFVariantData.get_option_value(
+			transaction,
+			"previous_size",
+			Vector2i.ZERO
+		)
 		if previous_size_value is Vector2i:
 			var previous_size: Vector2i = previous_size_value
 			if _is_valid_resolution(previous_size):
 				DisplayServer.window_set_size(previous_size)
-	var tree_value: Variant = GFVariantData.get_option_value(transaction, "tree", null)
-	if (
-		tree_value is SceneTree
-		and GFVariantData.get_option_bool(transaction, "should_pause_tree")
-	):
+	var tree_value: Variant = GFVariantData.get_option_value(
+		transaction,
+		"tree",
+		null
+	)
+	if (tree_value is SceneTree and GFVariantData.get_option_bool(transaction, "should_pause_tree")):
 		var tree: SceneTree = tree_value
 		tree.paused = GFVariantData.get_option_bool(transaction, "previous_paused")
 	transaction["restored"] = true
@@ -566,7 +667,11 @@ func _get_viewport_option(options: Dictionary) -> Viewport:
 ## @api private
 ## [br]
 func _resolve_format(file_path: String, options: Dictionary) -> String:
-	var option_format: String = GFVariantData.get_option_string(options, "format", "")
+	var option_format: String = GFVariantData.get_option_string(
+		options,
+		"format",
+		""
+	)
 	if not option_format.is_empty():
 		return _normalize_format(option_format)
 
@@ -580,7 +685,11 @@ func _resolve_format(file_path: String, options: Dictionary) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _resolve_file_path(file_path: String, options: Dictionary, format: String) -> String:
+func _resolve_file_path(
+	file_path: String,
+	options: Dictionary,
+	format: String
+) -> String:
 	var path: String = file_path
 	if path.is_empty():
 		var path_options: Dictionary = options.duplicate(true)
@@ -589,7 +698,11 @@ func _resolve_file_path(file_path: String, options: Dictionary, format: String) 
 	else:
 		path = _ensure_extension(path, format)
 
-	if GFVariantData.get_option_bool(options, "unique", default_unique_paths):
+	if GFVariantData.get_option_bool(
+		options,
+		"unique",
+		default_unique_paths
+	):
 		return _make_unique_path(path)
 	return path
 
@@ -601,7 +714,10 @@ func _resolve_file_path(file_path: String, options: Dictionary, format: String) 
 func _ensure_extension(path: String, format: String) -> String:
 	var extension: String = path.get_extension().to_lower()
 	if extension.is_empty():
-		return "%s.%s" % [path, format]
+		return (
+			"%s.%s"
+			% [path, format]
+		)
 	return path
 
 
@@ -625,14 +741,35 @@ func _normalize_format(value: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _save_image_with_format(image: Image, path: String, format: String, options: Dictionary) -> Error:
-	var quality: float = clampf(GFVariantData.get_option_float(options, "quality", default_quality), 0.0, 1.0)
+func _save_image_with_format(
+	image: Image,
+	path: String,
+	format: String,
+	options: Dictionary
+) -> Error:
+	var quality: float = clampf(
+		GFVariantData.get_option_float(
+			options,
+			"quality",
+			default_quality
+		),
+		0.0,
+		1.0
+	)
 	match format:
 		FORMAT_JPG:
 			return image.save_jpg(path, quality)
 		FORMAT_WEBP:
-			var lossy: bool = GFVariantData.get_option_bool(options, "lossy", false)
-			return image.save_webp(path, lossy, quality)
+			var lossy: bool = GFVariantData.get_option_bool(
+				options,
+				"lossy",
+				false
+			)
+			return image.save_webp(
+				path,
+				lossy,
+				quality
+			)
 	return image.save_png(path)
 
 
@@ -660,7 +797,14 @@ func _make_unique_path(path: String) -> String:
 	var base_path: String = path.get_basename()
 	var extension: String = path.get_extension()
 	for index: int in range(1, 10000):
-		var candidate: String = "%s_%d.%s" % [base_path, index, extension]
+		var candidate: String = (
+			"%s_%d.%s"
+			% [
+				base_path,
+				index,
+				extension,
+			]
+		)
 		if not FileAccess.file_exists(candidate):
 			return candidate
 	return path
@@ -707,15 +851,18 @@ func _get_error_reason(error: Error) -> String:
 ## [br]
 func _make_timestamp() -> String:
 	var datetime: Dictionary = Time.get_datetime_dict_from_system()
-	return "%04d%02d%02d_%02d%02d%02d_%03d" % [
-		GFVariantData.get_option_int(datetime, "year"),
-		GFVariantData.get_option_int(datetime, "month"),
-		GFVariantData.get_option_int(datetime, "day"),
-		GFVariantData.get_option_int(datetime, "hour"),
-		GFVariantData.get_option_int(datetime, "minute"),
-		GFVariantData.get_option_int(datetime, "second"),
-		Time.get_ticks_msec() % 1000,
-	]
+	return (
+		"%04d%02d%02d_%02d%02d%02d_%03d"
+		% [
+			GFVariantData.get_option_int(datetime, "year"),
+			GFVariantData.get_option_int(datetime, "month"),
+			GFVariantData.get_option_int(datetime, "day"),
+			GFVariantData.get_option_int(datetime, "hour"),
+			GFVariantData.get_option_int(datetime, "minute"),
+			GFVariantData.get_option_int(datetime, "second"),
+			Time.get_ticks_msec() % 1000,
+		]
+	)
 
 
 ## 去除首尾空白，将路径分隔符和常见非法字符替换为下划线，并替换内部空格。
@@ -724,7 +871,17 @@ func _make_timestamp() -> String:
 ## [br]
 func _sanitize_path_segment(value: String) -> String:
 	var result: String = value.strip_edges()
-	for invalid_character: String in ["\\", "/", ":", "*", "?", "\"", "<", ">", "|"]:
+	for invalid_character: String in [
+		"\\",
+		"/",
+		":",
+		"*",
+		"?",
+		"\"",
+		"<",
+		">",
+		"|",
+	]:
 		result = result.replace(invalid_character, "_")
 	return result.replace(" ", "_")
 
@@ -733,8 +890,15 @@ func _sanitize_path_segment(value: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _get_vector2i_option(options: Dictionary, key: Variant, default_value: Vector2i) -> Vector2i:
-	return _to_vector2i(GFVariantData.get_option_value(options, key), default_value)
+func _get_vector2i_option(
+	options: Dictionary,
+	key: Variant,
+	default_value: Vector2i
+) -> Vector2i:
+	return _to_vector2i(
+		GFVariantData.get_option_value(options, key),
+		default_value
+	)
 
 
 ## 将 Vector2i、Vector2、含 x/y 的字典或至少两项的数组转换为整数尺寸。
@@ -748,17 +912,37 @@ func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 		return vector2i
 	if value is Vector2:
 		var vector2: Vector2 = value
-		return Vector2i(roundi(vector2.x), roundi(vector2.y))
+		return Vector2i(
+			roundi(vector2.x),
+			roundi(vector2.y)
+		)
 	if value is Dictionary:
 		var dictionary: Dictionary = GFVariantData.as_dictionary(value)
 		return Vector2i(
-			GFVariantData.get_option_int(dictionary, "x", default_value.x),
-			GFVariantData.get_option_int(dictionary, "y", default_value.y)
+			GFVariantData.get_option_int(
+				dictionary,
+				"x",
+				default_value.x
+			),
+			GFVariantData.get_option_int(
+				dictionary,
+				"y",
+				default_value.y
+			)
 		)
 	if value is Array:
 		var array: Array = GFVariantData.as_array(value)
 		if array.size() >= 2:
-			return Vector2i(GFVariantData.to_int(array[0], default_value.x), GFVariantData.to_int(array[1], default_value.y))
+			return Vector2i(
+				GFVariantData.to_int(
+					array[0],
+					default_value.x
+				),
+				GFVariantData.to_int(
+					array[1],
+					default_value.y
+				)
+			)
 	return default_value
 
 
@@ -769,7 +953,10 @@ func _to_vector2i(value: Variant, default_value: Vector2i) -> Vector2i:
 func _get_resolution_label(resolution: Vector2i) -> String:
 	if not _is_valid_resolution(resolution):
 		return ""
-	return "%dx%d" % [resolution.x, resolution.y]
+	return (
+		"%dx%d"
+		% [resolution.x, resolution.y]
+	)
 
 
 ## 检查宽和高是否都大于零。
@@ -792,9 +979,16 @@ func _get_locale_values(options: Dictionary) -> PackedStringArray:
 	elif raw_locales is Array:
 		var locale_array: Array = GFVariantData.as_array(raw_locales)
 		for locale_value: Variant in locale_array:
-			_append_packed_string(locales, GFVariantData.to_text(locale_value))
+			_append_packed_string(
+				locales,
+				GFVariantData.to_text(locale_value)
+			)
 	else:
-		var locale: String = GFVariantData.get_option_string(options, "locale", "")
+		var locale: String = GFVariantData.get_option_string(
+			options,
+			"locale",
+			""
+		)
 		if not locale.is_empty():
 			_append_packed_string(locales, locale)
 
@@ -817,15 +1011,28 @@ func _get_resolution_values(options: Dictionary) -> Array[Vector2i]:
 	if raw_resolutions is PackedVector2Array:
 		var packed_resolutions: PackedVector2Array = raw_resolutions
 		for resolution_vector: Vector2 in packed_resolutions:
-			resolutions.append(Vector2i(roundi(resolution_vector.x), roundi(resolution_vector.y)))
+			resolutions.append(
+				Vector2i(
+					roundi(resolution_vector.x),
+					roundi(resolution_vector.y)
+				)
+			)
 	elif raw_resolutions is Array:
 		var resolution_array: Array = GFVariantData.as_array(raw_resolutions)
 		for resolution_value: Variant in resolution_array:
 			resolutions.append(_to_vector2i(resolution_value, Vector2i.ZERO))
 	else:
-		var single_resolution: Vector2i = _get_vector2i_option(options, "resolution", Vector2i.ZERO)
+		var single_resolution: Vector2i = _get_vector2i_option(
+			options,
+			"resolution",
+			Vector2i.ZERO
+		)
 		if single_resolution == Vector2i.ZERO:
-			single_resolution = _get_vector2i_option(options, "window_size", Vector2i.ZERO)
+			single_resolution = _get_vector2i_option(
+				options,
+				"window_size",
+				Vector2i.ZERO
+			)
 		if single_resolution != Vector2i.ZERO:
 			resolutions.append(single_resolution)
 
@@ -844,16 +1051,34 @@ func _get_format_values(options: Dictionary) -> PackedStringArray:
 	if raw_formats is PackedStringArray:
 		var packed_formats: PackedStringArray = raw_formats
 		for format: String in packed_formats:
-			_append_packed_string(formats, _normalize_format(format))
+			_append_packed_string(
+				formats,
+				_normalize_format(format)
+			)
 	elif raw_formats is Array:
 		var format_array: Array = GFVariantData.as_array(raw_formats)
 		for format_value: Variant in format_array:
-			_append_packed_string(formats, _normalize_format(GFVariantData.to_text(format_value)))
+			_append_packed_string(
+				formats,
+				_normalize_format(GFVariantData.to_text(format_value))
+			)
 	else:
-		_append_packed_string(formats, _normalize_format(GFVariantData.get_option_string(options, "format", default_format)))
+		_append_packed_string(
+			formats,
+			_normalize_format(
+				GFVariantData.get_option_string(
+					options,
+					"format",
+					default_format
+				)
+			)
+		)
 
 	if formats.is_empty():
-		_append_packed_string(formats, _normalize_format(default_format))
+		_append_packed_string(
+			formats,
+			_normalize_format(default_format)
+		)
 	return formats
 
 
@@ -897,7 +1122,11 @@ func _make_burst_report(
 ## [br]
 ## @api private
 ## [br]
-func _get_burst_capture_count(locales: PackedStringArray, resolutions: Array[Vector2i], formats: PackedStringArray) -> int:
+func _get_burst_capture_count(
+	locales: PackedStringArray,
+	resolutions: Array[Vector2i],
+	formats: PackedStringArray
+) -> int:
 	return locales.size() * resolutions.size() * formats.size()
 
 
@@ -931,4 +1160,9 @@ func _wait_for_capture_frame(delay_seconds: float) -> void:
 	await tree.process_frame
 	await tree.process_frame
 	if delay_seconds > 0.0:
-		await tree.create_timer(delay_seconds, true, false, true).timeout
+		await tree.create_timer(
+			delay_seconds,
+			true,
+			false,
+			true
+		).timeout

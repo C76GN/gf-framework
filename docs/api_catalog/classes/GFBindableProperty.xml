@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBindableProperty" path="addons/gf/kernel/core/gf_bindable_property.gd" module="kernel" extends="RefCounted" classDigest="380f63a444783c67102fedc4a89aa5c760ca6ca1acda17c3753a480033e40fcc">
+<class name="GFBindableProperty" path="addons/gf/kernel/core/gf_bindable_property.gd" module="kernel" extends="RefCounted" classDigest="6c937ccc8b20c9dc50f5f5e6340028d63d58bd6487ab0d1b6358acd29e7a83c0">
 	<description>GFBindableProperty: 响应式数据绑定属性容器。
 封装一个 Variant 值，当值发生变化时自动发出 value_changed 信号。
 可用于 Controller 直接监听 Model 数据变化，无需通过事件总线中转。</description>
@@ -89,7 +89,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="subscribe_owned">
-			<signature>func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -&gt; GFLifetimeSubscription:</signature>
+			<signature>func subscribe_owned( owner: Object, callback: Callable, emit_current: bool = false ) -&gt; GFLifetimeSubscription:</signature>
 			<description>订阅属性变化，并把订阅绑定到 owner 生命周期。
 owner 为 Node 时，节点退出场景树会自动取消订阅。</description>
 			<tags>
@@ -102,7 +102,7 @@ owner 为 Node 时，节点退出场景树会自动取消订阅。</description>
 			</tags>
 		</member>
 		<member kind="method" name="subscribe_method">
-			<signature>func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -&gt; GFLifetimeSubscription:</signature>
+			<signature>func subscribe_method( owner: Object, method_name: StringName, emit_current: bool = false ) -&gt; GFLifetimeSubscription:</signature>
 			<description>通过 owner 与方法名订阅属性变化。
 该入口只弱引用 owner，不会因为 Callable 捕获而延长 owner 生命周期。</description>
 			<tags>

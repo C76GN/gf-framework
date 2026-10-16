@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="c12114a29d2105c232fd403260237696b4729b9c297f5a07d3bf24718981fb2c">
+<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="ce9cc064aa538b8fb9d99da27f024883acd3c96ca9200772b928e10b81c5f22f">
 	<description>GFExtensionUsageAudit: 检查禁用扩展是否仍被项目文件直接引用。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -152,7 +152,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="audit_disabled_extensions">
-			<signature>static func audit_disabled_extensions( manifests: Array[GFExtensionManifest], options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>static func audit_disabled_extensions(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>检查一组禁用扩展是否仍被项目文件直接引用。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -178,7 +178,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="find_references_to_root_report">
-			<signature>static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>static func find_references_to_root_report(root_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>查找项目文件中对指定扩展根目录的直接引用，并返回扫描完整性报告。</description>
 			<tags>
 				<tag name="api">public</tag>

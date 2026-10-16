@@ -221,21 +221,33 @@ static func predict_next_position_3d(
 ## @return 预测报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、mode、cell、step、source_count、valid_count、ignored_invalid_count 和 error。
-static func predict_next_cell_2d(
-	cells: Array[Vector2i],
-	fallback_cell: Vector2i = Vector2i.ZERO
-) -> Dictionary:
+static func predict_next_cell_2d(cells: Array[Vector2i], fallback_cell: Vector2i = Vector2i.ZERO) -> Dictionary:
 	var source_count: int = cells.size()
 	if source_count <= 0:
-		return _make_cell_2d_report(MODE_FALLBACK, fallback_cell, Vector2i.ZERO, source_count)
+		return _make_cell_2d_report(
+			MODE_FALLBACK,
+			fallback_cell,
+			Vector2i.ZERO,
+			source_count
+		)
 
 	var last_cell: Vector2i = cells[source_count - 1]
 	if source_count == 1:
-		return _make_cell_2d_report(MODE_REPEAT_LAST, last_cell, Vector2i.ZERO, source_count)
+		return _make_cell_2d_report(
+			MODE_REPEAT_LAST,
+			last_cell,
+			Vector2i.ZERO,
+			source_count
+		)
 
 	var previous_cell: Vector2i = cells[source_count - 2]
 	var step: Vector2i = last_cell - previous_cell
-	return _make_cell_2d_report(MODE_EXTRAPOLATED, last_cell + step, step, source_count)
+	return _make_cell_2d_report(
+		MODE_EXTRAPOLATED,
+		last_cell + step,
+		step,
+		source_count
+	)
 
 
 ## 预测下一次 3D 离散格子。
@@ -251,21 +263,33 @@ static func predict_next_cell_2d(
 ## @return 预测报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、mode、cell、step、source_count、valid_count、ignored_invalid_count 和 error。
-static func predict_next_cell_3d(
-	cells: Array[Vector3i],
-	fallback_cell: Vector3i = Vector3i.ZERO
-) -> Dictionary:
+static func predict_next_cell_3d(cells: Array[Vector3i], fallback_cell: Vector3i = Vector3i.ZERO) -> Dictionary:
 	var source_count: int = cells.size()
 	if source_count <= 0:
-		return _make_cell_3d_report(MODE_FALLBACK, fallback_cell, Vector3i.ZERO, source_count)
+		return _make_cell_3d_report(
+			MODE_FALLBACK,
+			fallback_cell,
+			Vector3i.ZERO,
+			source_count
+		)
 
 	var last_cell: Vector3i = cells[source_count - 1]
 	if source_count == 1:
-		return _make_cell_3d_report(MODE_REPEAT_LAST, last_cell, Vector3i.ZERO, source_count)
+		return _make_cell_3d_report(
+			MODE_REPEAT_LAST,
+			last_cell,
+			Vector3i.ZERO,
+			source_count
+		)
 
 	var previous_cell: Vector3i = cells[source_count - 2]
 	var step: Vector3i = last_cell - previous_cell
-	return _make_cell_3d_report(MODE_EXTRAPOLATED, last_cell + step, step, source_count)
+	return _make_cell_3d_report(
+		MODE_EXTRAPOLATED,
+		last_cell + step,
+		step,
+		source_count
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -302,12 +326,13 @@ static func _clamp_step_2d(step: Vector2, max_step_length: float) -> Dictionary:
 	if max_step_length <= 0.0:
 		return { "step": step, "clamped": false }
 	var length: float = step.length()
-	if not _is_finite_float(length) or length <= max_step_length or length <= 0.0:
+	if (
+		not _is_finite_float(length)
+		or length <= max_step_length
+		or length <= 0.0
+	):
 		return { "step": step, "clamped": false }
-	return {
-		"step": step.normalized() * max_step_length,
-		"clamped": true,
-	}
+	return { "step": step.normalized() * max_step_length, "clamped": true, }
 
 
 ## 将超过正长度上限的三维步长按方向缩短，并报告是否发生夹取。
@@ -318,12 +343,13 @@ static func _clamp_step_3d(step: Vector3, max_step_length: float) -> Dictionary:
 	if max_step_length <= 0.0:
 		return { "step": step, "clamped": false }
 	var length: float = step.length()
-	if not _is_finite_float(length) or length <= max_step_length or length <= 0.0:
+	if (
+		not _is_finite_float(length)
+		or length <= max_step_length
+		or length <= 0.0
+	):
 		return { "step": step, "clamped": false }
-	return {
-		"step": step.normalized() * max_step_length,
-		"clamped": true,
-	}
+	return { "step": step.normalized() * max_step_length, "clamped": true, }
 
 
 ## 从报告读取 Vector2 步长；字段缺失或类型不符时返回零向量。
@@ -331,7 +357,11 @@ static func _clamp_step_3d(step: Vector3, max_step_length: float) -> Dictionary:
 ## @api private
 ## [br]
 static func _get_step_2d(report: Dictionary) -> Vector2:
-	var value: Variant = GFVariantData.get_option_value(report, "step", Vector2.ZERO)
+	var value: Variant = GFVariantData.get_option_value(
+		report,
+		"step",
+		Vector2.ZERO
+	)
 	if value is Vector2:
 		var step: Vector2 = value
 		return step
@@ -343,7 +373,11 @@ static func _get_step_2d(report: Dictionary) -> Vector2:
 ## @api private
 ## [br]
 static func _get_step_3d(report: Dictionary) -> Vector3:
-	var value: Variant = GFVariantData.get_option_value(report, "step", Vector3.ZERO)
+	var value: Variant = GFVariantData.get_option_value(
+		report,
+		"step",
+		Vector3.ZERO
+	)
 	if value is Vector3:
 		var step: Vector3 = value
 		return step
@@ -355,7 +389,11 @@ static func _get_step_3d(report: Dictionary) -> Vector3:
 ## @api private
 ## [br]
 static func _get_max_step_length(options: Dictionary) -> float:
-	var value: float = GFVariantData.get_option_float(options, "max_step_length", 0.0)
+	var value: float = GFVariantData.get_option_float(
+		options,
+		"max_step_length",
+		0.0
+	)
 	if not _is_finite_float(value) or value <= 0.0:
 		return 0.0
 	return value
@@ -383,7 +421,10 @@ static func _make_position_2d_report(
 		"step": step,
 		"source_count": source_count,
 		"valid_count": valid_count,
-		"ignored_invalid_count": maxi(source_count - valid_count, 0),
+		"ignored_invalid_count": maxi(
+			source_count - valid_count,
+			0
+		),
 		"clamped": clamped,
 		"max_step_length": max_step_length,
 		"error": error,
@@ -412,7 +453,10 @@ static func _make_position_3d_report(
 		"step": step,
 		"source_count": source_count,
 		"valid_count": valid_count,
-		"ignored_invalid_count": maxi(source_count - valid_count, 0),
+		"ignored_invalid_count": maxi(
+			source_count - valid_count,
+			0
+		),
 		"clamped": clamped,
 		"max_step_length": max_step_length,
 		"error": error,
@@ -476,7 +520,11 @@ static func _is_finite_vector2(value: Vector2) -> bool:
 ## @api private
 ## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)
 
 
 ## 判断浮点值既不是 NaN 也不是正负无穷。

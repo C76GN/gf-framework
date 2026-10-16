@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBgmStartResult" path="addons/gf/standard/utilities/audio/gf_bgm_start_result.gd" module="standard" extends="RefCounted" classDigest="189e0d6e4438a0a5ce27baccdb481b9d00492e2f2cbd9d559d86a02dd5e1880f">
+<class name="GFBgmStartResult" path="addons/gf/standard/utilities/audio/gf_bgm_start_result.gd" module="standard" extends="RefCounted" classDigest="9929715c38c1e40220d84ff0ab72904d5ade894a245d91a9637e6886b9987c84">
 	<description>GFBgmStartResult: 单次 BGM start request 的不可变类型化终态。
 结果使用闭合 status/reason/error/disposition 联合。只有 `STARTED` 携带已提交的规范
 会话句柄；其他终态不伪造会话身份或播放 owner。</description>
@@ -149,9 +149,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="REASON_BACKEND_REJECTED_AND_LOCAL_FAILED">
-			<signature>const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
-	&amp;"backend_rejected_and_local_failed"
-)</signature>
+			<signature>const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = &amp;"backend_rejected_and_local_failed"</signature>
 			<description>后端拒绝后，本地 fallback 也无法开始。</description>
 			<tags>
 				<tag name="api">public</tag>

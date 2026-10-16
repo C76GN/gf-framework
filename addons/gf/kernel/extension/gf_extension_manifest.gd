@@ -240,27 +240,33 @@ static func from_dictionary(
 	manifest._source_field_names = _normalize_field_name_list(data.keys())
 	manifest._source_schema_errors = _get_source_schema_errors(data)
 	manifest.id = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id"))
-	manifest.display_name = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		data,
-		"display_name"
-	))
+	manifest.display_name = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "display_name"))
 	manifest.version = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "version"))
-	manifest.extension_version = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		data,
-		"extension_version",
-		manifest.version
-	))
-	manifest.kind = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "kind", KIND_EXTENSION))
+	manifest.extension_version = _normalize_manifest_text(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			data,
+			"extension_version",
+			manifest.version
+		)
+	)
+	manifest.kind = _normalize_manifest_text(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			data,
+			"kind",
+			KIND_EXTENSION
+		)
+	)
 	if manifest.kind.is_empty():
 		manifest.kind = KIND_EXTENSION
 	manifest.root_path = _GF_PATH_TOOLS.normalize_root_path(extension_root_path)
-	manifest.description = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		data,
-		"description"
-	))
+	manifest.description = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "description"))
 	manifest.dependencies = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "dependencies"))
 	manifest.installer_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "installer_paths"))
-	manifest.editor_dock_order = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "editor_dock_order", manifest.editor_dock_order)
+	manifest.editor_dock_order = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		data,
+		"editor_dock_order",
+		manifest.editor_dock_order
+	)
 	manifest.editor_dock_short_label = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "editor_dock_short_label"))
 	manifest.tags = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "tags"))
 	manifest.enabled_by_default = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
@@ -281,7 +287,11 @@ static func from_dictionary(
 ## @return 读取成功时返回 manifest；失败时返回 null。
 static func from_json_file(path: String) -> GFExtensionManifest:
 	var report: Dictionary = _from_json_file_object_report(path)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		return null
 	var manifest_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "manifest")
 	if manifest_value is GFExtensionManifest:
@@ -309,7 +319,11 @@ static func from_json_file_report(path: String) -> Dictionary:
 		var manifest: GFExtensionManifest = manifest_value
 		manifest_data = manifest.to_dictionary()
 	return {
-		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false),
+		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"ok",
+			false
+		),
 		"source_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "source_path"),
 		"manifest_data": manifest_data,
 		"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "errors").duplicate(true),
@@ -427,8 +441,16 @@ func get_validation_errors() -> Array[String]:
 		errors.append("kind must be standard or extension")
 	if root_path.strip_edges().is_empty():
 		errors.append("root_path is required")
-	_append_identifier_errors(errors, "dependencies", dependencies)
-	_append_script_resource_path_errors(errors, "installer_paths", installer_paths)
+	_append_identifier_errors(
+		errors,
+		"dependencies",
+		dependencies
+	)
+	_append_script_resource_path_errors(
+		errors,
+		"installer_paths",
+		installer_paths
+	)
 	return errors
 
 
@@ -438,22 +460,43 @@ func get_validation_errors() -> Array[String]:
 ## [br]
 ## @api private
 static func _from_json_file_object_report(path: String) -> Dictionary:
-	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(path, {
-		"empty_path_error": "manifest path is empty",
-		"open_error_prefix": "could not open manifest",
-		"read_error_prefix": "could not read manifest",
-		"parse_error_prefix": "could not parse JSON manifest",
-		"root_type_error": "manifest JSON root must be an object",
-	})
+	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		path,
+		{
+			"empty_path_error": "manifest path is empty",
+			"open_error_prefix": "could not open manifest",
+			"read_error_prefix": "could not read manifest",
+			"parse_error_prefix": "could not parse JSON manifest",
+			"root_type_error": "manifest JSON root must be an object",
+		}
+	)
 	var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(json_report, "source_path")
 	var errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
-		return _make_json_file_report(false, normalized_path, null, errors)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		json_report,
+		"ok",
+		false
+	):
+		return _make_json_file_report(
+			false,
+			normalized_path,
+			null,
+			errors
+		)
 
 	var parsed_dictionary: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
-	var manifest: GFExtensionManifest = from_dictionary(parsed_dictionary, normalized_path.get_base_dir(), normalized_path)
+	var manifest: GFExtensionManifest = from_dictionary(
+		parsed_dictionary,
+		normalized_path.get_base_dir(),
+		normalized_path
+	)
 	errors.append_array(manifest.get_validation_errors())
-	return _make_json_file_report(errors.is_empty(), normalized_path, manifest, errors)
+	return _make_json_file_report(
+		errors.is_empty(),
+		normalized_path,
+		manifest,
+		errors
+	)
 
 
 ## 去除 manifest 文本首尾空白。
@@ -483,8 +526,9 @@ static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
 			continue
 		if raw_value is Array:
 			var raw_values: Array = raw_value
-			if raw_values.any(func(item: Variant) -> bool:
-				return not (item is String or item is StringName)
+			if raw_values.any(
+				func(item: Variant) -> bool:
+					return not (item is String or item is StringName)
 			):
 				errors.append("manifest %s must contain only strings" % field_name)
 	if _has_dictionary_key(data, "editor_dock_order"):
@@ -559,9 +603,7 @@ static func _normalize_resource_path_list(values: Array[String]) -> Array[String
 func _append_unsupported_field_errors(errors: Array[String]) -> void:
 	for field_name: String in _source_field_names:
 		if _MOVED_TO_TOOL_CONTRIBUTION_FIELDS.has(field_name):
-			errors.append(
-				"manifest field moved to editor/gf_tool_contribution.json: %s" % field_name
-			)
+			errors.append("manifest field moved to editor/gf_tool_contribution.json: %s" % field_name)
 		elif _FORBIDDEN_RELATION_FIELDS.has(field_name):
 			errors.append("unsupported manifest relation field: %s" % field_name)
 		elif not _SUPPORTED_FIELDS.has(field_name):
@@ -599,16 +641,28 @@ func _append_script_resource_path_errors(
 			errors.append("%s contains empty path" % property_name)
 			continue
 		if not normalized_path.begins_with("res://"):
-			errors.append("%s path must be res://: %s" % [property_name, normalized_path])
+			errors.append(
+				"%s path must be res://: %s"
+				% [property_name, normalized_path]
+			)
 			continue
 		if not _path_is_under_root(normalized_path):
-			errors.append("%s path must stay under root_path: %s" % [property_name, normalized_path])
+			errors.append(
+				"%s path must stay under root_path: %s"
+				% [property_name, normalized_path]
+			)
 			continue
 		if normalized_path.get_extension().to_lower() != "gd":
-			errors.append("%s path must point to a GDScript resource: %s" % [property_name, normalized_path])
+			errors.append(
+				"%s path must point to a GDScript resource: %s"
+				% [property_name, normalized_path]
+			)
 			continue
 		if not source_path.is_empty() and not ResourceLoader.exists(normalized_path, "Script"):
-			errors.append("%s path must point to an existing script resource: %s" % [property_name, normalized_path])
+			errors.append(
+				"%s path must point to an existing script resource: %s"
+				% [property_name, normalized_path]
+			)
 
 
 ## 校验每个标识符并将非空错误消息追加到 errors。
@@ -629,4 +683,9 @@ func _append_identifier_errors(
 ## [br]
 ## @api private
 func _path_is_under_root(path: String) -> bool:
-	return _GF_PATH_TOOLS.is_path_under_root(path, root_path, true, true)
+	return _GF_PATH_TOOLS.is_path_under_root(
+		path,
+		root_path,
+		true,
+		true
+	)

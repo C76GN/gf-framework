@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputFormatter" path="addons/gf/standard/input/formatting/gf_input_formatter.gd" module="standard" extends="RefCounted" classDigest="08ee837d488e28fb351697a28cb148220c82d123aee4ff1fa34fc74e3d436474">
+<class name="GFInputFormatter" path="addons/gf/standard/input/formatting/gf_input_formatter.gd" module="standard" extends="RefCounted" classDigest="daa608cc418c0742aa966262377c644748cb007c80a6d60509dcd9e371902f9a">
 	<description>GFInputFormatter: 输入事件与绑定的轻量文本格式化工具。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -154,7 +154,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_text_provider">
-			<signature>static func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<signature>static func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -&gt; GFInputProviderRegistration:</signature>
 			<description>注册文本 provider 并返回释放句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -198,7 +198,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_icon_provider">
-			<signature>static func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -&gt; GFInputProviderRegistration:</signature>
+			<signature>static func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -&gt; GFInputProviderRegistration:</signature>
 			<description>注册图标 provider 并返回释放句柄。</description>
 			<tags>
 				<tag name="api">public</tag>

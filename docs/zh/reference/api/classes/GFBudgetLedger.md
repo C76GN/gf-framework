@@ -15,16 +15,16 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`budget_changed`](#member-gfbudgetledger-signals-budget_changed) | `signal budget_changed(budget_id: StringName, available: float, capacity: float)` |
+| 信号 | [`budget_changed`](#member-gfbudgetledger-signals-budget_changed) | `signal budget_changed( budget_id: StringName, available: float, capacity: float )` |
 | 信号 | [`budget_consumed`](#member-gfbudgetledger-signals-budget_consumed) | `signal budget_consumed(budget_id: StringName, amount: float)` |
-| 信号 | [`budget_rejected`](#member-gfbudgetledger-signals-budget_rejected) | `signal budget_rejected(budget_id: StringName, amount: float, reason: String)` |
+| 信号 | [`budget_rejected`](#member-gfbudgetledger-signals-budget_rejected) | `signal budget_rejected( budget_id: StringName, amount: float, reason: String )` |
 | 信号 | [`budgets_cleared`](#member-gfbudgetledger-signals-budgets_cleared) | `signal budgets_cleared(budget_ids: PackedStringArray)` |
-| 方法 | [`set_capacity`](#member-gfbudgetledger-methods-set_capacity) | `func set_capacity(budget_id: StringName, capacity: float, reset_available: bool = true) -> void:` |
+| 方法 | [`set_capacity`](#member-gfbudgetledger-methods-set_capacity) | `func set_capacity( budget_id: StringName, capacity: float, reset_available: bool = true ) -> void:` |
 | 方法 | [`set_available`](#member-gfbudgetledger-methods-set_available) | `func set_available(budget_id: StringName, available: float) -> void:` |
 | 方法 | [`get_capacity`](#member-gfbudgetledger-methods-get_capacity) | `func get_capacity(budget_id: StringName) -> float:` |
 | 方法 | [`get_available`](#member-gfbudgetledger-methods-get_available) | `func get_available(budget_id: StringName) -> float:` |
 | 方法 | [`can_consume`](#member-gfbudgetledger-methods-can_consume) | `func can_consume(budget_id: StringName, amount: float) -> bool:` |
-| 方法 | [`consume`](#member-gfbudgetledger-methods-consume) | `func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`consume`](#member-gfbudgetledger-methods-consume) | `func consume( budget_id: StringName, amount: float, metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`release`](#member-gfbudgetledger-methods-release) | `func release(budget_id: StringName, amount: float) -> void:` |
 | 方法 | [`reset`](#member-gfbudgetledger-methods-reset) | `func reset(budget_id: StringName = &"") -> void:` |
 | 方法 | [`clear`](#member-gfbudgetledger-methods-clear) | `func clear() -> void:` |
@@ -37,9 +37,10 @@
 ### `budget_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal budget_changed(budget_id: StringName, available: float, capacity: float)
+signal budget_changed( budget_id: StringName, available: float, capacity: float )
 ```
 
 资源预算变化后发出。
@@ -76,9 +77,10 @@ signal budget_consumed(budget_id: StringName, amount: float)
 ### `budget_rejected`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal budget_rejected(budget_id: StringName, amount: float, reason: String)
+signal budget_rejected( budget_id: StringName, amount: float, reason: String )
 ```
 
 资源消费被拒绝后发出。
@@ -117,9 +119,10 @@ signal budgets_cleared(budget_ids: PackedStringArray)
 ### `set_capacity`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_capacity(budget_id: StringName, capacity: float, reset_available: bool = true) -> void:
+func set_capacity( budget_id: StringName, capacity: float, reset_available: bool = true ) -> void:
 ```
 
 设置预算容量，并可选重置可用量。
@@ -217,9 +220,10 @@ func can_consume(budget_id: StringName, amount: float) -> bool:
 ### `consume`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) -> Dictionary:
+func consume( budget_id: StringName, amount: float, metadata: Dictionary = {} ) -> Dictionary:
 ```
 
 尝试消费预算。

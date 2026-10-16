@@ -106,21 +106,30 @@ func _validate_current_scene_save_graph() -> void:
 	var _append_result_79: Variant = lines.append("")
 	for scope: GFSaveScope in scopes:
 		var report: Dictionary = utility.inspect_scope(scope)
-		var _append_result_82: Variant = lines.append("[%s] %s" % [String(scope.get_path()), GFVariantData.get_option_string(report, "summary")])
+		var _append_result_82: Variant = lines.append(
+			"[%s] %s"
+			% [String(scope.get_path()), GFVariantData.get_option_string(report, "summary")]
+		)
 		var _append_result_83: Variant = lines.append("Next: %s" % GFVariantData.get_option_string(report, "next_action"))
 		for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):
 			var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
 			if issue.is_empty():
 				continue
-			var _append_result_88: Variant = lines.append("- %s %s %s: %s" % [
-				GFVariantData.get_option_string(issue, "severity"),
-				GFVariantData.get_option_string(issue, "kind"),
-				GFVariantData.get_option_string(issue, "path"),
-				GFVariantData.get_option_string(issue, "message"),
-			])
+			var _append_result_88: Variant = lines.append(
+				"- %s %s %s: %s"
+				% [
+					GFVariantData.get_option_string(issue, "severity"),
+					GFVariantData.get_option_string(issue, "kind"),
+					GFVariantData.get_option_string(issue, "path"),
+					GFVariantData.get_option_string(issue, "message"),
+				]
+			)
 		var _append_result_94: Variant = lines.append("")
 
-	_show_diagnostic_dialog("GF SaveGraph Health", "\n".join(lines))
+	_show_diagnostic_dialog(
+		"GF SaveGraph Health",
+		"\n".join(lines)
+	)
 
 
 ## 递归收集节点子树中的 GFSaveScope。
@@ -158,10 +167,12 @@ func _show_diagnostic_dialog(title: String, text: String) -> void:
 	_diagnostic_dialog.title = title
 	if is_instance_valid(_diagnostic_output):
 		_diagnostic_output.text = text
-	_diagnostic_dialog.popup_centered(Vector2i(
-		int(_DIAGNOSTIC_DIALOG_MIN_SIZE.x),
-		int(_DIAGNOSTIC_DIALOG_MIN_SIZE.y)
-	))
+	_diagnostic_dialog.popup_centered(
+		Vector2i(
+			int(_DIAGNOSTIC_DIALOG_MIN_SIZE.x),
+			int(_DIAGNOSTIC_DIALOG_MIN_SIZE.y)
+		)
+	)
 
 
 ## 实例化诊断工具脚本并检查返回对象类型。

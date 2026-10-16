@@ -45,7 +45,11 @@ signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)
 ## @param peer_id: 成员 peer ID。
 ## [br]
 ## @param reason: 离开原因。
-signal member_left(lobby_id: String, peer_id: int, reason: String)
+signal member_left(
+	lobby_id: String,
+	peer_id: int,
+	reason: String
+)
 
 ## 收到 Lobby 邀请后发出。
 ## [br]
@@ -69,7 +73,11 @@ signal invite_received(invite: GFNetworkLobbyInvite)
 ## @param details: 已脱敏错误详情。
 ## [br]
 ## @schema details: Dictionary backend-defined error metadata.
-signal backend_error(operation: StringName, error: StringName, details: Dictionary)
+signal backend_error(
+	operation: StringName,
+	error: StringName,
+	details: Dictionary
+)
 
 
 # --- 公共变量 ---
@@ -123,9 +131,7 @@ var _ignored_terminal_count: int = 0
 ## @param request: 完整操作请求。
 ## [br]
 ## @return 一次性操作句柄；输入和派发失败也返回终态句柄。
-func invoke_operation(
-	request: GFNetworkLobbyOperationRequest
-) -> GFNetworkLobbyOperationHandle:
+func invoke_operation(request: GFNetworkLobbyOperationRequest) -> GFNetworkLobbyOperationHandle:
 	return invoke_from_service(request, -1)
 
 
@@ -151,9 +157,7 @@ func close() -> void:
 		return
 	_closed = true
 	for request_key: Variant in _active_handles.keys().duplicate():
-		var handle: GFNetworkLobbyOperationHandle = _get_active_handle(
-			StringName(str(request_key))
-		)
+		var handle: GFNetworkLobbyOperationHandle = _get_active_handle(StringName(str(request_key)))
 		if handle != null:
 			var _cancelled: bool = handle.cancel(&"backend_closed")
 	_close()
@@ -195,10 +199,7 @@ func get_debug_snapshot() -> Dictionary:
 ## @param _handle: 由基类拥有的操作句柄。
 ## [br]
 ## @return 请求被 provider 接受时返回 true。
-func _dispatch_operation(
-	_request: GFNetworkLobbyOperationRequest,
-	_handle: GFNetworkLobbyOperationHandle
-) -> bool:
+func _dispatch_operation(_request: GFNetworkLobbyOperationRequest, _handle: GFNetworkLobbyOperationHandle) -> bool:
 	return false
 
 
@@ -211,10 +212,7 @@ func _dispatch_operation(
 ## @param _handle: 已进入取消或超时终态的句柄。
 ## [br]
 ## @param _reason: 取消原因。
-func _cancel_operation(
-	_handle: GFNetworkLobbyOperationHandle,
-	_reason: StringName
-) -> void:
+func _cancel_operation(_handle: GFNetworkLobbyOperationHandle, _reason: StringName) -> void:
 	pass
 
 
@@ -233,9 +231,7 @@ func _cancel_operation(
 func _release_operation(handle: GFNetworkLobbyOperationHandle) -> bool:
 	if handle == null:
 		return false
-	var active_handle: GFNetworkLobbyOperationHandle = _get_active_handle(
-		handle.get_request_id()
-	)
+	var active_handle: GFNetworkLobbyOperationHandle = _get_active_handle(handle.get_request_id())
 	if active_handle != handle:
 		return false
 	return _active_handles.erase(String(handle.get_request_id()))
@@ -274,14 +270,8 @@ func _close() -> void:
 ## @schema options: Dictionary successful lobby operation fields.
 ## [br]
 ## @return 首次完成成功返回 true；迟到或重复回调返回 false。
-func _succeed_operation(
-	handle: GFNetworkLobbyOperationHandle,
-	options: Dictionary = {}
-) -> bool:
-	var completed: bool = (
-		handle != null
-		and handle.succeed_from_network_layer(options)
-	)
+func _succeed_operation(handle: GFNetworkLobbyOperationHandle, options: Dictionary = {}) -> bool:
+	var completed: bool = (handle != null and handle.succeed_from_network_layer(options))
 	var _released: bool = _release_operation(handle)
 	if completed:
 		return true
@@ -314,7 +304,11 @@ func _fail_operation(
 ) -> bool:
 	var completed: bool = (
 		handle != null
-		and handle.fail_from_network_layer(error, message, metadata)
+		and handle.fail_from_network_layer(
+			error,
+			message,
+			metadata
+		)
 	)
 	var _released: bool = _release_operation(handle)
 	if completed:
@@ -343,10 +337,7 @@ func _emit_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void:
 ## @param lobby_id: Lobby ID。
 ## [br]
 ## @param member: 成员快照。
-func _emit_member_joined(
-	lobby_id: String,
-	member: GFNetworkLobbyMember
-) -> void:
+func _emit_member_joined(lobby_id: String, member: GFNetworkLobbyMember) -> void:
 	member_joined.emit(
 		lobby_id.strip_edges(),
 		member.duplicate_member() if member != null else null
@@ -369,7 +360,11 @@ func _emit_member_left(
 	peer_id: int,
 	reason: String = "left"
 ) -> void:
-	member_left.emit(lobby_id.strip_edges(), peer_id, reason.strip_edges())
+	member_left.emit(
+		lobby_id.strip_edges(),
+		peer_id,
+		reason.strip_edges()
+	)
 
 
 ## 发出邀请事件。
@@ -401,7 +396,11 @@ func _emit_backend_error(
 	error: StringName,
 	details: Dictionary = {}
 ) -> void:
-	backend_error.emit(operation, error, details.duplicate(true))
+	backend_error.emit(
+		operation,
+		error,
+		details.duplicate(true)
+	)
 
 
 # --- 层内方法 ---
@@ -419,10 +418,7 @@ func _emit_backend_error(
 ## @param started_at_msec: Service 在开始信号前捕获的同时钟域起始时间。
 ## [br]
 ## @return 一次性操作句柄。
-func invoke_from_service(
-	request: GFNetworkLobbyOperationRequest,
-	started_at_msec: int
-) -> GFNetworkLobbyOperationHandle:
+func invoke_from_service(request: GFNetworkLobbyOperationRequest, started_at_msec: int) -> GFNetworkLobbyOperationHandle:
 	var handle: GFNetworkLobbyOperationHandle = GFNetworkLobbyOperationHandle.new()
 	if request == null or not request.is_valid():
 		var _invalid: bool = handle.reject_from_network_layer(
@@ -448,7 +444,11 @@ func invoke_from_service(
 			_clock
 		)
 		return handle
-	if not handle.configure_from_network_layer(request, _clock, started_at_msec):
+	if not handle.configure_from_network_layer(
+		request,
+		_clock,
+		started_at_msec
+	):
 		var _configuration_failed: bool = handle.reject_from_network_layer(
 			request,
 			&"invalid_request",
@@ -462,7 +462,10 @@ func invoke_from_service(
 		cancel_callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
-	var accepted: bool = _dispatch_operation(request.duplicate_request(), handle)
+	var accepted: bool = _dispatch_operation(
+		request.duplicate_request(),
+		handle
+	)
 	if not accepted and handle.is_pending():
 		var _dispatch_rejected: bool = _fail_operation(
 			handle,
@@ -496,9 +499,7 @@ func set_service_clock(clock: GFClock) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_active_handle(
-	request_id: StringName
-) -> GFNetworkLobbyOperationHandle:
+func _get_active_handle(request_id: StringName) -> GFNetworkLobbyOperationHandle:
 	var value: Variant = GFVariantData.get_option_value(
 		_active_handles,
 		String(request_id)
@@ -509,15 +510,11 @@ func _get_active_handle(
 	return null
 
 
-
 # --- 信号处理函数 ---
 
 ## 将句柄发出的取消请求转交给可重写的取消操作钩子。
 ## [br]
 ## @api private
 ## [br]
-func _on_handle_cancel_requested(
-	reason: StringName,
-	handle: GFNetworkLobbyOperationHandle
-) -> void:
+func _on_handle_cancel_requested(reason: StringName, handle: GFNetworkLobbyOperationHandle) -> void:
 	_cancel_operation(handle, reason)

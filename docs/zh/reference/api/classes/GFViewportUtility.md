@@ -20,7 +20,7 @@
 | 属性 | [`viewport_resolution_scale`](#member-gfviewportutility-properties-viewport_resolution_scale) | `var viewport_resolution_scale: float = 1.0:` |
 | 属性 | [`default_disable_3d`](#member-gfviewportutility-properties-default_disable_3d) | `var default_disable_3d: bool = false` |
 | 属性 | [`default_transparent_bg`](#member-gfviewportutility-properties-default_transparent_bg) | `var default_transparent_bg: bool = false` |
-| 方法 | [`setup_split_screen`](#member-gfviewportutility-methods-setup_split_screen) | `func setup_split_screen(root: Control, viewport_count: int, options: Dictionary = {}) -> Array[SubViewport]:` |
+| 方法 | [`setup_split_screen`](#member-gfviewportutility-methods-setup_split_screen) | `func setup_split_screen( root: Control, viewport_count: int, options: Dictionary = {} ) -> Array[SubViewport]:` |
 | 方法 | [`clear_split_screen`](#member-gfviewportutility-methods-clear_split_screen) | `func clear_split_screen(free_cameras: bool = false) -> void:` |
 | 方法 | [`get_viewport_count`](#member-gfviewportutility-methods-get_viewport_count) | `func get_viewport_count() -> int:` |
 | 方法 | [`get_viewports`](#member-gfviewportutility-methods-get_viewports) | `func get_viewports() -> Array[SubViewport]:` |
@@ -124,9 +124,10 @@ var default_transparent_bg: bool = false
 ### `setup_split_screen`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func setup_split_screen(root: Control, viewport_count: int, options: Dictionary = {}) -> Array[SubViewport]:
+func setup_split_screen( root: Control, viewport_count: int, options: Dictionary = {} ) -> Array[SubViewport]:
 ```
 
 创建 1 到 4 个 SubViewport 的分屏布局。

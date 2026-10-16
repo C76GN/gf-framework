@@ -37,5 +37,8 @@ func _parse_property(
 	if name != "cells":
 		return false
 
-	add_property_editor("cells", _GF_PATTERN_2D_EDITOR_PROPERTY.new())
+	add_property_editor(
+		"cells",
+		_GF_PATTERN_2D_EDITOR_PROPERTY.new()
+	)
 	return true

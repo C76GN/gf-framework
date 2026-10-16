@@ -233,10 +233,7 @@ func dispose() -> void:
 func inject_dependencies(architecture: GFArchitecture) -> void:
 	super.inject_dependencies(architecture)
 	if architecture != null:
-		var _registered_history_service: bool = architecture.register_service(
-			GFArchitecture.SERVICE_COMMAND_HISTORY_STORE,
-			self
-		)
+		var _registered_history_service: bool = architecture.register_service(GFArchitecture.SERVICE_COMMAND_HISTORY_STORE, self)
 
 
 ## 记录一条已经执行完成的命令。
@@ -250,10 +247,7 @@ func record(cmd: GFUndoableCommand) -> void:
 	if _reject_history_notification_mutation():
 		return
 	if _is_processing_history_operation:
-		_push_history_operation_rejection(
-			"[GFCommandHistoryUtility][command_history_utility.record_during_async_command] An asynchronous command is active; new history record ignored.",
-			"[GFCommandHistoryUtility][command_history_utility.record_during_operation] A history operation is active; new history record ignored."
-		)
+		_push_history_operation_rejection("[GFCommandHistoryUtility][command_history_utility.record_during_async_command] An asynchronous command is active; new history record ignored.", "[GFCommandHistoryUtility][command_history_utility.record_during_operation] A history operation is active; new history record ignored.")
 		return
 
 	var lifecycle_serial: int = _lifecycle_serial
@@ -279,10 +273,7 @@ func execute_command(cmd: GFUndoableCommand) -> Variant:
 	if _reject_history_notification_mutation():
 		return null
 	if _is_processing_history_operation:
-		_push_history_operation_rejection(
-			"[GFCommandHistoryUtility][command_history_utility.execute_during_async_command] An asynchronous command is active; new execution request ignored.",
-			"[GFCommandHistoryUtility][command_history_utility.execute_during_operation] A history operation is active; new execution request ignored."
-		)
+		_push_history_operation_rejection("[GFCommandHistoryUtility][command_history_utility.execute_during_async_command] An asynchronous command is active; new execution request ignored.", "[GFCommandHistoryUtility][command_history_utility.execute_during_operation] A history operation is active; new execution request ignored.")
 		return null
 
 	var lifecycle_serial: int = _lifecycle_serial
@@ -357,7 +348,12 @@ func undo_last() -> bool:
 		push_warning("[GFCommandHistoryUtility][command_history_utility.synchronous_undo_async_command] undo_last() does not support asynchronous commands; use await undo_last_async().")
 		_finish_history_operation(operation_serial)
 		return false
-	return _complete_undo_operation(cmd, result, operation_serial, lifecycle_serial)
+	return _complete_undo_operation(
+		cmd,
+		result,
+		operation_serial,
+		lifecycle_serial
+	)
 
 
 ## 异步撤销最后一条命令，并仅在结果 hook 成功时提交历史栈移动。
@@ -406,7 +402,12 @@ func undo_last_async() -> bool:
 			_finish_history_operation(operation_serial)
 			return false
 		result = _normalize_signal_payload(GFVariantData.get_option_array(wait_state, "args"))
-	return _complete_undo_operation(cmd, result, operation_serial, lifecycle_serial)
+	return _complete_undo_operation(
+		cmd,
+		result,
+		operation_serial,
+		lifecycle_serial
+	)
 
 
 ## 重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。
@@ -442,7 +443,12 @@ func redo() -> bool:
 		push_warning("[GFCommandHistoryUtility][command_history_utility.synchronous_redo_async_command] redo() does not support asynchronous commands; use await redo_async().")
 		_finish_history_operation(operation_serial)
 		return false
-	return _complete_redo_operation(cmd, result, operation_serial, lifecycle_serial)
+	return _complete_redo_operation(
+		cmd,
+		result,
+		operation_serial,
+		lifecycle_serial
+	)
 
 
 ## 异步重做最近被撤销的命令，并仅在结果 hook 成功时提交历史栈移动。
@@ -491,7 +497,12 @@ func redo_async() -> bool:
 			_finish_history_operation(operation_serial)
 			return false
 		result = _normalize_signal_payload(GFVariantData.get_option_array(wait_state, "args"))
-	return _complete_redo_operation(cmd, result, operation_serial, lifecycle_serial)
+	return _complete_redo_operation(
+		cmd,
+		result,
+		operation_serial,
+		lifecycle_serial
+	)
 
 
 ## 清空所有历史记录。
@@ -501,10 +512,7 @@ func clear() -> void:
 	if _reject_history_notification_mutation():
 		return
 	if _is_processing_history_operation:
-		_push_history_operation_rejection(
-			"[GFCommandHistoryUtility][command_history_utility.clear_during_async_command] An asynchronous command is active; clear request ignored.",
-			"[GFCommandHistoryUtility][command_history_utility.clear_during_operation] A history operation is active; clear request ignored."
-		)
+		_push_history_operation_rejection("[GFCommandHistoryUtility][command_history_utility.clear_during_async_command] An asynchronous command is active; clear request ignored.", "[GFCommandHistoryUtility][command_history_utility.clear_during_operation] A history operation is active; clear request ignored.")
 		return
 
 	if _undo_stack.is_empty() and _redo_stack.is_empty():
@@ -593,10 +601,7 @@ func serialize_history() -> Array[Dictionary]:
 ## [br]
 ## @schema return: Dictionary with undo and redo Array[Dictionary] stacks.
 func serialize_full_history() -> Dictionary:
-	return {
-		"undo": _serialize_stack(_undo_stack),
-		"redo": _serialize_stack(_redo_stack),
-	}
+	return { "undo": _serialize_stack(_undo_stack), "redo": _serialize_stack(_redo_stack), }
 
 
 ## 通过构造器从纯数据恢复撤销栈。
@@ -616,10 +621,7 @@ func deserialize_history(data_array: Array, command_builder: Callable) -> void:
 	if _reject_history_notification_mutation():
 		return
 	if _is_processing_history_operation:
-		_push_history_operation_rejection(
-			"[GFCommandHistoryUtility][command_history_utility.restore_during_async_command] An asynchronous command is active; history restore request ignored.",
-			"[GFCommandHistoryUtility][command_history_utility.restore_during_operation] A history operation is active; history restore request ignored."
-		)
+		_push_history_operation_rejection("[GFCommandHistoryUtility][command_history_utility.restore_during_async_command] An asynchronous command is active; history restore request ignored.", "[GFCommandHistoryUtility][command_history_utility.restore_during_operation] A history operation is active; history restore request ignored.")
 		return
 
 	if not command_builder.is_valid():
@@ -669,10 +671,7 @@ func deserialize_full_history(data: Dictionary, command_builder: Callable) -> vo
 	if _reject_history_notification_mutation():
 		return
 	if _is_processing_history_operation:
-		_push_history_operation_rejection(
-			"[GFCommandHistoryUtility][command_history_utility.full_restore_during_async_command] An asynchronous command is active; full history restore request ignored.",
-			"[GFCommandHistoryUtility][command_history_utility.full_restore_during_operation] A history operation is active; full history restore request ignored."
-		)
+		_push_history_operation_rejection("[GFCommandHistoryUtility][command_history_utility.full_restore_during_async_command] An asynchronous command is active; full history restore request ignored.", "[GFCommandHistoryUtility][command_history_utility.full_restore_during_operation] A history operation is active; full history restore request ignored.")
 		return
 
 	if not command_builder.is_valid():
@@ -918,7 +917,11 @@ func _complete_undo_operation(
 	if not successful:
 		_finish_history_operation(operation_serial)
 		return false
-	var committed_cmd: GFUndoableCommand = _pop_expected_history_top(_undo_stack, cmd, "undo")
+	var committed_cmd: GFUndoableCommand = _pop_expected_history_top(
+		_undo_stack,
+		cmd,
+		"undo"
+	)
 	if committed_cmd == null:
 		_finish_history_operation(operation_serial)
 		return false
@@ -945,7 +948,11 @@ func _complete_redo_operation(
 	if not successful:
 		_finish_history_operation(operation_serial)
 		return false
-	var committed_cmd: GFUndoableCommand = _pop_expected_history_top(_redo_stack, cmd, "redo")
+	var committed_cmd: GFUndoableCommand = _pop_expected_history_top(
+		_redo_stack,
+		cmd,
+		"redo"
+	)
 	if committed_cmd == null:
 		_finish_history_operation(operation_serial)
 		return false
@@ -964,10 +971,11 @@ func _pop_expected_history_top(
 	expected_cmd: GFUndoableCommand,
 	operation_name: String
 ) -> GFUndoableCommand:
-	if source_stack.is_empty() or not is_same(source_stack.back(), expected_cmd):
-		push_error(
-			"[GFCommandHistoryUtility][command_history_utility.source_stack_changed] Cannot commit %s: the source stack top identity has changed." % operation_name
-		)
+	if source_stack.is_empty() or not is_same(
+		source_stack.back(),
+		expected_cmd
+	):
+		push_error("[GFCommandHistoryUtility][command_history_utility.source_stack_changed] Cannot commit %s: the source stack top identity has changed." % operation_name)
 		return null
 	return source_stack.pop_back()
 
@@ -984,10 +992,7 @@ func _await_command_signal(
 ) -> Dictionary:
 	if result_signal.is_null():
 		_publish_history_changed()
-		return {
-			"completed": true,
-			"args": [],
-		}
+		return { "completed": true, "args": [], }
 
 	_start_async_stall_warning_observer(operation_serial, lifecycle_serial)
 	var notification_state: Dictionary = { "published": false }
@@ -998,11 +1003,16 @@ func _await_command_signal(
 			notification_state["published"] = true
 			_publish_history_changed()
 		return _is_history_operation_current(operation_serial, lifecycle_serial)
-	return await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, {
-		"capture_payload": true,
-		"should_continue": should_continue,
-		"timeout_seconds": 0.0,
-	})
+	return await (
+		_GF_ASYNC_WAIT_SUPPORT.await_signal_state(
+			result_signal,
+			{
+				"capture_payload": true,
+				"should_continue": should_continue,
+				"timeout_seconds": 0.0,
+			}
+		)
+	)
 
 
 ## 通过 SceneTree.process_frame 观察等待时长，超阈值只告警并断开观察器。
@@ -1018,7 +1028,10 @@ func _start_async_stall_warning_observer(operation_serial: int, lifecycle_serial
 	if not (main_loop is SceneTree):
 		return
 	var scene_tree: SceneTree = main_loop
-	var warning_msec: int = maxi(ceili(warning_seconds * 1000.0), 1)
+	var warning_msec: int = maxi(
+		ceili(warning_seconds * 1000.0),
+		1
+	)
 	var start_msec: int = Time.get_ticks_msec()
 	var on_process_frame: Callable = func() -> void:
 		if not _is_history_operation_current(operation_serial, lifecycle_serial):

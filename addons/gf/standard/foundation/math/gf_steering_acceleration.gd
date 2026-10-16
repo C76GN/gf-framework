@@ -48,15 +48,14 @@ func clear() -> GFSteeringAcceleration:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param linear_acceleration: 线性加速度。
 ## [br]
 ## @param angular_acceleration: 角加速度。
 ## [br]
 ## @return 当前实例。
-func set_values(
-	linear_acceleration: Vector3,
-	angular_acceleration: float = 0.0
-) -> GFSteeringAcceleration:
+func set_values(linear_acceleration: Vector3, angular_acceleration: float = 0.0) -> GFSteeringAcceleration:
 	linear = linear_acceleration
 	angular = angular_acceleration
 	return self
@@ -92,7 +91,11 @@ func clamp_to(max_linear: float = -1.0, max_angular: float = -1.0) -> GFSteering
 	if max_linear >= 0.0 and linear.length() > max_linear:
 		linear = linear.normalized() * max_linear
 	if max_angular >= 0.0:
-		angular = clampf(angular, -max_angular, max_angular)
+		angular = clampf(
+			angular,
+			-max_angular,
+			max_angular
+		)
 	return self
 
 

@@ -17,6 +17,8 @@ extends Node
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param group_name: 目标状态组名。
 ## [br]
 ## @param state_name: 目标状态名。
@@ -24,7 +26,11 @@ extends Node
 ## @param args: 状态切换参数。
 ## [br]
 ## @schema args: 状态切换参数 Dictionary；键和值由调用方约定。
-signal requested_transition(group_name: StringName, state_name: StringName, args: Dictionary)
+signal requested_transition(
+	group_name: StringName,
+	state_name: StringName,
+	args: Dictionary
+)
 
 
 # --- 常量 ---
@@ -279,9 +285,17 @@ func transition_to(path: StringName, args: Dictionary = {}) -> void:
 		var group_name: StringName = &""
 		if group != null and group.has_method("get_group_name"):
 			group_name = GFVariantData.to_string_name(group.call("get_group_name"))
-		requested_transition.emit(group_name, StringName(parts[0]), args)
+		requested_transition.emit(
+			group_name,
+			StringName(parts[0]),
+			args
+		)
 	elif parts.size() == 2:
-		requested_transition.emit(StringName(parts[0]), StringName(parts[1]), args)
+		requested_transition.emit(
+			StringName(parts[0]),
+			StringName(parts[1]),
+			args
+		)
 	else:
 		push_error("[GFNodeState][node_state.transition_path_invalid] Cannot transition_to: path format is invalid.")
 
@@ -308,7 +322,12 @@ func initialize() -> void:
 func can_enter(previous_state: StringName = &"", args: Dictionary = {}) -> bool:
 	if not _can_enter(previous_state, args):
 		return false
-	return _evaluate_conditions(enter_conditions, _PHASE_ENTER, previous_state, args)
+	return _evaluate_conditions(
+		enter_conditions,
+		_PHASE_ENTER,
+		previous_state,
+		args
+	)
 
 
 ## 判断是否允许离开状态。
@@ -325,7 +344,12 @@ func can_enter(previous_state: StringName = &"", args: Dictionary = {}) -> bool:
 func can_exit(next_state: StringName = &"", args: Dictionary = {}) -> bool:
 	if not _can_exit(next_state, args):
 		return false
-	return _evaluate_conditions(exit_conditions, _PHASE_EXIT, next_state, args)
+	return _evaluate_conditions(
+		exit_conditions,
+		_PHASE_EXIT,
+		next_state,
+		args
+	)
 
 
 ## 获取状态组共享黑板。
@@ -536,10 +560,19 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_event_owned(self, event_type, listener, priority)
+		architecture.register_event_owned(
+			self,
+			event_type,
+			listener,
+			priority
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -554,7 +587,11 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 ## @param listener: 要移除的事件监听器契约。
 func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_event_owned(self, event_type, listener)
+		architecture.unregister_event_owned(
+			self,
+			event_type,
+			listener
+		)
 
 
 ## 注册可赋值类型事件监听器，默认以当前状态作为 owner。
@@ -568,10 +605,19 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
+		architecture.register_assignable_event_owned(
+			self,
+			base_event_type,
+			listener,
+			priority
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -586,7 +632,11 @@ func register_assignable_event(base_event_type: Script, listener: GFEventListene
 ## @param listener: 要移除的事件监听器契约。
 func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_assignable_event_owned(self, base_event_type, listener)
+		architecture.unregister_assignable_event_owned(
+			self,
+			base_event_type,
+			listener
+		)
 
 
 ## 注册轻量级 StringName 事件监听器，默认以当前状态作为 owner。
@@ -601,7 +651,11 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
-		architecture.register_simple_event_owned(self, event_id, listener)
+		architecture.register_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 		_remember_event_architecture(architecture)
 
 
@@ -616,7 +670,11 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 ## @param listener: 要移除的简单事件监听器契约。
 func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
 	for architecture: GFArchitecture in _get_tracked_event_architectures():
-		architecture.unregister_simple_event_owned(self, event_id, listener)
+		architecture.unregister_simple_event_owned(
+			self,
+			event_id,
+			listener
+		)
 
 
 ## 注销当前状态通过事件代理注册过的全部监听器。
@@ -764,7 +822,13 @@ func _evaluate_conditions(
 	for condition: Resource in conditions:
 		if condition == null or not condition.has_method("evaluate"):
 			continue
-		var result: Variant = condition.call("evaluate", self, phase, peer_state, args)
+		var result: Variant = condition.call(
+			"evaluate",
+			self,
+			phase,
+			peer_state,
+			args
+		)
 		if not GFVariantData.to_bool(result):
 			return false
 	return true
@@ -788,7 +852,12 @@ func _run_behaviors_enter(previous_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("enter"):
-			var _result: Variant = behavior.call("enter", self, previous_state, args)
+			var _result: Variant = behavior.call(
+				"enter",
+				self,
+				previous_state,
+				args
+			)
 			if epoch != _lifecycle_epoch:
 				return
 
@@ -801,7 +870,12 @@ func _run_behaviors_exit(next_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("exit"):
-			var _result: Variant = behavior.call("exit", self, next_state, args)
+			var _result: Variant = behavior.call(
+				"exit",
+				self,
+				next_state,
+				args
+			)
 			if epoch != _lifecycle_epoch:
 				return
 
@@ -814,7 +888,12 @@ func _run_behaviors_pause(next_state: StringName, args: Dictionary) -> void:
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("pause"):
-			var _result: Variant = behavior.call("pause", self, next_state, args)
+			var _result: Variant = behavior.call(
+				"pause",
+				self,
+				next_state,
+				args
+			)
 			if epoch != _lifecycle_epoch:
 				return
 
@@ -827,7 +906,12 @@ func _run_behaviors_resume(previous_state: StringName, args: Dictionary) -> void
 	var epoch: int = _lifecycle_epoch
 	for behavior: Resource in behaviors:
 		if behavior != null and behavior.has_method("resume"):
-			var _result: Variant = behavior.call("resume", self, previous_state, args)
+			var _result: Variant = behavior.call(
+				"resume",
+				self,
+				previous_state,
+				args
+			)
 			if epoch != _lifecycle_epoch:
 				return
 
@@ -841,7 +925,12 @@ func _run_behaviors_handle_state_event(event_id: StringName, payload: Variant) -
 	for behavior: Resource in behaviors:
 		if behavior == null or not behavior.has_method("handle_state_event"):
 			continue
-		var result: Variant = behavior.call("handle_state_event", self, event_id, payload)
+		var result: Variant = behavior.call(
+			"handle_state_event",
+			self,
+			event_id,
+			payload
+		)
 		if GFVariantData.to_bool(result):
 			return true
 		if epoch != _lifecycle_epoch:

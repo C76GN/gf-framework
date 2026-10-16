@@ -39,7 +39,7 @@
 | 属性 | [`effects`](#member-gfbuff-properties-effects) | `var effects: Array[GFBuffEffect] = []` |
 | 属性 | [`metadata`](#member-gfbuff-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`removal_reason`](#member-gfbuff-properties-removal_reason) | `var removal_reason: StringName = &""` |
-| 方法 | [`setup`](#member-gfbuff-methods-setup) | `func setup(p_id: StringName, p_duration: float, p_owner: Object) -> void:` |
+| 方法 | [`setup`](#member-gfbuff-methods-setup) | `func setup( p_id: StringName, p_duration: float, p_owner: Object ) -> void:` |
 | 方法 | [`get_apply_report`](#member-gfbuff-methods-get_apply_report) | `func get_apply_report(context: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`on_apply`](#member-gfbuff-methods-on_apply) | `func on_apply() -> Dictionary:` |
 | 方法 | [`on_remove`](#member-gfbuff-methods-on_remove) | `func on_remove() -> Dictionary:` |
@@ -381,9 +381,10 @@ var removal_reason: StringName = &""
 ### `setup`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func setup(p_id: StringName, p_duration: float, p_owner: Object) -> void:
+func setup( p_id: StringName, p_duration: float, p_owner: Object ) -> void:
 ```
 
 初始化 Buff，由系统或工厂调用。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncBatch" path="addons/gf/standard/utilities/io/gf_async_batch.gd" module="standard" extends="RefCounted" classDigest="aade60d1a9bd833107f82188d5f4f47dabc89c8975a8856f7e374fb984e5027f">
+<class name="GFAsyncBatch" path="addons/gf/standard/utilities/io/gf_async_batch.gd" module="standard" extends="RefCounted" classDigest="68ff112db1a0b97ad2e3840a93543f1e97b51ef94e99091049ddc35daa8fa87a">
 	<description>GFAsyncBatch: 通用异步结果批处理器。
 用于等待一组 [GFHttpResponse] 或手动标记的异步条目，并统一汇总成功、失败、
 取消、超时和首个完成项。它不负责调度具体任务，只观察任务何时进入终态。</description>
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="item_settled">
-			<signature>signal item_settled(key: Variant, result: Variant, state: StringName)</signature>
+			<signature>signal item_settled( key: Variant, result: Variant, state: StringName )</signature>
 			<description>单个条目进入任意终态后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -165,7 +165,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="watch_completion">
-			<signature>func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func watch_completion( completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>监听 GFAsyncCompletion。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -192,7 +192,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="mark_failed">
-			<signature>func mark_failed(key: Variant, error: String = "", result: Variant = null) -&gt; bool:</signature>
+			<signature>func mark_failed( key: Variant, error: String = "", result: Variant = null ) -&gt; bool:</signature>
 			<description>手动标记条目失败。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -206,7 +206,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="mark_cancelled">
-			<signature>func mark_cancelled(key: Variant, reason: StringName = &amp;"cancelled", result: Variant = null) -&gt; bool:</signature>
+			<signature>func mark_cancelled( key: Variant, reason: StringName = &amp;"cancelled", result: Variant = null ) -&gt; bool:</signature>
 			<description>手动标记条目取消。</description>
 			<tags>
 				<tag name="api">public</tag>

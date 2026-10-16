@@ -126,10 +126,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api private
 func _notification(what: int) -> void:
-	if (
-		what != NOTIFICATION_PARENTED
-		and what != NOTIFICATION_UNPARENTED
-	):
+	if (what != NOTIFICATION_PARENTED and what != NOTIFICATION_UNPARENTED):
 		return
 	if not is_inside_tree():
 		return
@@ -377,8 +374,17 @@ func send_query(query: Object) -> Variant:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
-	_remember_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, listener, priority)
+func register_event(
+	event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
+	_remember_event_binding(
+		_EVENT_BINDING_KIND_TYPE,
+		event_type,
+		listener,
+		priority
+	)
 	_request_event_binding_sync()
 
 
@@ -392,7 +398,11 @@ func register_event(event_type: Script, listener: GFEventListener, priority: int
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
 func unregister_event(event_type: Script, listener: GFEventListener) -> void:
-	_forget_event_binding(_EVENT_BINDING_KIND_TYPE, event_type, listener)
+	_forget_event_binding(
+		_EVENT_BINDING_KIND_TYPE,
+		event_type,
+		listener
+	)
 	_request_event_binding_sync()
 
 
@@ -407,8 +417,17 @@ func unregister_event(event_type: Script, listener: GFEventListener) -> void:
 ## @param listener: 事件监听器契约。
 ## [br]
 ## @param priority: 回调优先级，数值越大越先执行，默认为 0。
-func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
-	_remember_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, listener, priority)
+func register_assignable_event(
+	base_event_type: Script,
+	listener: GFEventListener,
+	priority: int = 0
+) -> void:
+	_remember_event_binding(
+		_EVENT_BINDING_KIND_ASSIGNABLE,
+		base_event_type,
+		listener,
+		priority
+	)
 	_request_event_binding_sync()
 
 
@@ -422,7 +441,11 @@ func register_assignable_event(base_event_type: Script, listener: GFEventListene
 ## [br]
 ## @param listener: 要移除的事件监听器契约。
 func unregister_assignable_event(base_event_type: Script, listener: GFEventListener) -> void:
-	_forget_event_binding(_EVENT_BINDING_KIND_ASSIGNABLE, base_event_type, listener)
+	_forget_event_binding(
+		_EVENT_BINDING_KIND_ASSIGNABLE,
+		base_event_type,
+		listener
+	)
 	_request_event_binding_sync()
 
 
@@ -447,7 +470,12 @@ func send_event(event_instance: Object) -> void:
 ## [br]
 ## @param listener: 简单事件监听器契约。
 func register_simple_event(event_id: StringName, listener: GFEventListener) -> void:
-	_remember_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, listener, 0)
+	_remember_event_binding(
+		_EVENT_BINDING_KIND_SIMPLE,
+		event_id,
+		listener,
+		0
+	)
 	_request_event_binding_sync()
 
 
@@ -461,7 +489,11 @@ func register_simple_event(event_id: StringName, listener: GFEventListener) -> v
 ## [br]
 ## @param listener: 要移除的简单事件监听器契约。
 func unregister_simple_event(event_id: StringName, listener: GFEventListener) -> void:
-	_forget_event_binding(_EVENT_BINDING_KIND_SIMPLE, event_id, listener)
+	_forget_event_binding(
+		_EVENT_BINDING_KIND_SIMPLE,
+		event_id,
+		listener
+	)
 	_request_event_binding_sync()
 
 
@@ -537,10 +569,7 @@ func _request_event_binding_sync() -> void:
 	):
 		_unregister_all_tracked_owner_events()
 		return
-	if (
-		architecture != _active_event_architecture
-		or _applied_event_binding_revision != _event_binding_revision
-	):
+	if (architecture != _active_event_architecture or _applied_event_binding_revision != _event_binding_revision):
 		_replace_active_event_architecture(architecture)
 
 
@@ -559,35 +588,56 @@ func _replace_active_event_architecture(architecture: GFArchitecture) -> void:
 ## 按 kind、event_key 和监听器回调去重；新增记录时递增本地绑定版本。
 ## [br]
 ## @api private
-func _remember_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener, priority: int) -> void:
+func _remember_event_binding(
+	kind: StringName,
+	event_key: Variant,
+	listener: GFEventListener,
+	priority: int
+) -> void:
 	for binding: Dictionary in _event_bindings:
 		if (
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(binding, "kind") == kind
 			and _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, "event_key") == event_key
-			and _listeners_match(_read_binding_listener(binding, "listener"), listener)
+			and _listeners_match(
+				_read_binding_listener(binding, "listener"),
+				listener
+			)
 		):
 			return
 
-	_event_bindings.append({
-		"kind": kind,
-		"event_key": event_key,
-		"listener": listener,
-		"priority": priority,
-	})
+	_event_bindings.append(
+		{
+			"kind": kind,
+			"event_key": event_key,
+			"listener": listener,
+			"priority": priority,
+		}
+	)
 	_event_binding_revision += 1
 
 
 ## 移除匹配 kind、event_key 和监听器回调的记录；有删除时只递增一次版本。
 ## [br]
 ## @api private
-func _forget_event_binding(kind: StringName, event_key: Variant, listener: GFEventListener) -> void:
+func _forget_event_binding(
+	kind: StringName,
+	event_key: Variant,
+	listener: GFEventListener
+) -> void:
 	var removed_binding: bool = false
-	for i: int in range(_event_bindings.size() - 1, -1, -1):
+	for i: int in range(
+		_event_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _event_bindings[i]
 		if (
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(binding, "kind") == kind
 			and _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, "event_key") == event_key
-			and _listeners_match(_read_binding_listener(binding, "listener"), listener)
+			and _listeners_match(
+				_read_binding_listener(binding, "listener"),
+				listener
+			)
 		):
 			_event_bindings.remove_at(i)
 			removed_binding = true
@@ -610,15 +660,29 @@ func _register_event_binding(architecture: GFArchitecture, binding: Dictionary) 
 	if kind == _EVENT_BINDING_KIND_TYPE:
 		if event_key is Script:
 			var event_type: Script = event_key
-			architecture.register_event_owned(self, event_type, listener, priority)
+			architecture.register_event_owned(
+				self,
+				event_type,
+				listener,
+				priority
+			)
 	elif kind == _EVENT_BINDING_KIND_ASSIGNABLE:
 		if event_key is Script:
 			var base_event_type: Script = event_key
-			architecture.register_assignable_event_owned(self, base_event_type, listener, priority)
+			architecture.register_assignable_event_owned(
+				self,
+				base_event_type,
+				listener,
+				priority
+			)
 	elif kind == _EVENT_BINDING_KIND_SIMPLE:
 		if event_key is StringName:
 			var event_id: StringName = event_key
-			architecture.register_simple_event_owned(self, event_id, listener)
+			architecture.register_simple_event_owned(
+				self,
+				event_id,
+				listener
+			)
 
 
 ## 跳过失效架构并撤销仍存活架构中的 owner 监听，随后清空跟踪并使已应用版本失效。
@@ -646,15 +710,9 @@ func _connect_event_architecture_observers() -> void:
 		_observed_global_singleton != null
 		and is_instance_valid(_observed_global_singleton)
 		and _observed_global_singleton.has_signal(&"architecture_identity_changed")
-		and not _observed_global_singleton.is_connected(
-			&"architecture_identity_changed",
-			global_callback
-		)
+		and not (_observed_global_singleton.is_connected(&"architecture_identity_changed", global_callback))
 	):
-		var _global_connect_error: Error = _observed_global_singleton.connect(
-			&"architecture_identity_changed",
-			global_callback
-		)
+		var _global_connect_error: Error = _observed_global_singleton.connect(&"architecture_identity_changed", global_callback)
 
 	var nearest_context: GFNodeContextBase = _find_nearest_context()
 	if _observed_event_context == nearest_context:
@@ -666,13 +724,9 @@ func _connect_event_architecture_observers() -> void:
 	var ready_callback: Callable = Callable(self, &"_on_observed_context_ready")
 	var failed_callback: Callable = Callable(self, &"_on_observed_context_failed")
 	if not _observed_event_context.context_ready.is_connected(ready_callback):
-		var _ready_connect_error: Error = (
-			_observed_event_context.context_ready.connect(ready_callback)
-		) as Error
+		var _ready_connect_error: Error = _observed_event_context.context_ready.connect(ready_callback) as Error
 	if not _observed_event_context.context_failed.is_connected(failed_callback):
-		var _failed_connect_error: Error = (
-			_observed_event_context.context_failed.connect(failed_callback)
-		) as Error
+		var _failed_connect_error: Error = _observed_event_context.context_failed.connect(failed_callback) as Error
 
 
 ## 断开全局单例、上下文与候选架构上的全部观察信号。
@@ -693,15 +747,9 @@ func _disconnect_observed_global_singleton() -> void:
 		_observed_global_singleton != null
 		and is_instance_valid(_observed_global_singleton)
 		and _observed_global_singleton.has_signal(&"architecture_identity_changed")
-		and _observed_global_singleton.is_connected(
-			&"architecture_identity_changed",
-			global_callback
-		)
+		and (_observed_global_singleton.is_connected(&"architecture_identity_changed", global_callback))
 	):
-		_observed_global_singleton.disconnect(
-			&"architecture_identity_changed",
-			global_callback
-		)
+		_observed_global_singleton.disconnect(&"architecture_identity_changed", global_callback)
 	_observed_global_singleton = null
 
 
@@ -729,67 +777,29 @@ func _observe_event_architecture(architecture: GFArchitecture) -> void:
 		return
 	_disconnect_observed_event_architecture()
 	_observed_event_architecture = architecture
-	if (
-		_observed_event_architecture == null
-		or not is_instance_valid(_observed_event_architecture)
-	):
+	if (_observed_event_architecture == null or not is_instance_valid(_observed_event_architecture)):
 		return
-	var finished_callback: Callable = Callable(
-		self,
-		&"_on_observed_architecture_initialization_finished"
-	)
-	var failed_callback: Callable = Callable(
-		self,
-		&"_on_observed_architecture_initialization_failed"
-	)
-	if not _observed_event_architecture.initialization_finished.is_connected(
-		finished_callback
-	):
-		var _finished_connect_error: Error = (
-			_observed_event_architecture.initialization_finished.connect(
-				finished_callback
-			)
-		) as Error
-	if not _observed_event_architecture.initialization_failed.is_connected(
-		failed_callback
-	):
-		var _failed_connect_error: Error = (
-			_observed_event_architecture.initialization_failed.connect(
-				failed_callback
-			)
-		) as Error
+	var finished_callback: Callable = Callable(self, &"_on_observed_architecture_initialization_finished")
+	var failed_callback: Callable = Callable(self, &"_on_observed_architecture_initialization_failed")
+	if not (_observed_event_architecture.initialization_finished.is_connected(finished_callback)):
+		var _finished_connect_error: Error = _observed_event_architecture.initialization_finished.connect(finished_callback) as Error
+	if not (_observed_event_architecture.initialization_failed.is_connected(failed_callback)):
+		var _failed_connect_error: Error = _observed_event_architecture.initialization_failed.connect(failed_callback) as Error
 
 
 ## 断开所跟踪架构的初始化结束/失败信号并清空引用。
 ## [br]
 ## @api private
 func _disconnect_observed_event_architecture() -> void:
-	if (
-		_observed_event_architecture == null
-		or not is_instance_valid(_observed_event_architecture)
-	):
+	if (_observed_event_architecture == null or not is_instance_valid(_observed_event_architecture)):
 		_observed_event_architecture = null
 		return
-	var finished_callback: Callable = Callable(
-		self,
-		&"_on_observed_architecture_initialization_finished"
-	)
-	var failed_callback: Callable = Callable(
-		self,
-		&"_on_observed_architecture_initialization_failed"
-	)
-	if _observed_event_architecture.initialization_finished.is_connected(
-		finished_callback
-	):
-		_observed_event_architecture.initialization_finished.disconnect(
-			finished_callback
-		)
-	if _observed_event_architecture.initialization_failed.is_connected(
-		failed_callback
-	):
-		_observed_event_architecture.initialization_failed.disconnect(
-			failed_callback
-		)
+	var finished_callback: Callable = Callable(self, &"_on_observed_architecture_initialization_finished")
+	var failed_callback: Callable = Callable(self, &"_on_observed_architecture_initialization_failed")
+	if _observed_event_architecture.initialization_finished.is_connected(finished_callback):
+		_observed_event_architecture.initialization_finished.disconnect(finished_callback)
+	if _observed_event_architecture.initialization_failed.is_connected(failed_callback):
+		_observed_event_architecture.initialization_failed.disconnect(failed_callback)
 	_observed_event_architecture = null
 
 
@@ -846,10 +856,7 @@ func _find_nearest_context() -> GFNodeContextBase:
 ## 全局架构身份变化后重新解析当前上下文，事件绑定不直接采用信号参数中的架构。
 ## [br]
 ## @api private
-func _on_global_architecture_identity_changed(
-	_previous_architecture: GFArchitecture,
-	_current_architecture: GFArchitecture
-) -> void:
+func _on_global_architecture_identity_changed(_previous_architecture: GFArchitecture, _current_architecture: GFArchitecture) -> void:
 	_request_event_binding_sync()
 
 

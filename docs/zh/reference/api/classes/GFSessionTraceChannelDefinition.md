@@ -21,7 +21,7 @@ Session Trace 配方中的通道定义。 该资源只描述稳定通道 ID、�
 | 属性 | [`max_events`](#member-gfsessiontracechanneldefinition-properties-max_events) | `var max_events: int = 0` |
 | 属性 | [`max_event_bytes`](#member-gfsessiontracechanneldefinition-properties-max_event_bytes) | `var max_event_bytes: int = 0` |
 | 属性 | [`metadata`](#member-gfsessiontracechanneldefinition-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`configure`](#member-gfsessiontracechanneldefinition-methods-configure) | `func configure( p_channel_id: StringName, options: Dictionary = {} ) -> GFSessionTraceChannelDefinition:` |
+| 方法 | [`configure`](#member-gfsessiontracechanneldefinition-methods-configure) | `func configure(p_channel_id: StringName, options: Dictionary = {}) -> GFSessionTraceChannelDefinition:` |
 | 方法 | [`validate_definition`](#member-gfsessiontracechanneldefinition-methods-validate_definition) | `func validate_definition() -> Dictionary:` |
 
 ## 属性
@@ -118,7 +118,7 @@ var metadata: Dictionary = {}
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure( p_channel_id: StringName, options: Dictionary = {} ) -> GFSessionTraceChannelDefinition:
+func configure(p_channel_id: StringName, options: Dictionary = {}) -> GFSessionTraceChannelDefinition:
 ```
 
 配置通道定义并返回自身。

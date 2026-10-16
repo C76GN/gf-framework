@@ -73,6 +73,8 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标节点。
 ## [br]
 ## @param payload: CanvasItem 显示状态载荷。
@@ -86,14 +88,25 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(
+	node: Node,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Dictionary:
 	var canvas_item: CanvasItem = _get_canvas_item(node)
 	if canvas_item == null:
 		return make_result(false, "Node is not CanvasItem.")
 
-	var errors: Array[String] = _apply_property_specs(canvas_item, payload, _PROPERTY_SPECS)
+	var errors: Array[String] = _apply_property_specs(
+		canvas_item,
+		payload,
+		_PROPERTY_SPECS
+	)
 	if not errors.is_empty():
-		return make_result(false, "; ".join(errors))
+		return make_result(
+			false,
+			"; ".join(errors)
+		)
 	return make_result(true)
 
 

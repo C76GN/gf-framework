@@ -123,10 +123,10 @@ func remove_modifiers_by_source(p_source_id: StringName) -> void:
 	for modifier: GFModifier in _modifiers:
 		if modifier.source_id == p_source_id:
 			to_remove.append(modifier)
-	
+
 	if to_remove.is_empty():
 		return
-		
+
 	for modifier: GFModifier in to_remove:
 		_modifiers.erase(modifier)
 	_recalculate()
@@ -152,7 +152,7 @@ func _recalculate() -> void:
 	var base_add: float = 0.0
 	var percent_add: float = 0.0
 	var final_add: float = 0.0
-	
+
 	for mod: GFModifier in _modifiers:
 		if mod == null or not mod.is_numeric_state_valid():
 			return
@@ -176,16 +176,10 @@ func _recalculate() -> void:
 
 	var base_total: float = _base_value + base_add
 	var multiplier: float = 1.0 + percent_add
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_float(base_total)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_float(multiplier)
-	):
+	if (not _GF_COMBAT_FINITE_MATH.is_finite_float(base_total) or not _GF_COMBAT_FINITE_MATH.is_finite_float(multiplier)):
 		return
 	var multiplied_value: float = base_total * multiplier
 	var final_value: float = multiplied_value + final_add
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_float(multiplied_value)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_float(final_value)
-	):
+	if (not _GF_COMBAT_FINITE_MATH.is_finite_float(multiplied_value) or not _GF_COMBAT_FINITE_MATH.is_finite_float(final_value)):
 		return
 	_current_value_view.call("_set_value_from_owner", final_value)

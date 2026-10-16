@@ -98,7 +98,11 @@ func _init(
 	clock: GFClock = null
 ) -> void:
 	_clock = clock if clock != null else GFClock.new()
-	var _begin_operation_result_67: Variant = begin_operation(p_operation, p_root_scope_key, p_shared)
+	var _begin_operation_result_67: Variant = begin_operation(
+		p_operation,
+		p_root_scope_key,
+		p_shared
+	)
 
 
 # --- 公共方法 ---
@@ -164,14 +168,16 @@ func record_event(
 	payload: Dictionary = {},
 	severity: StringName = &"info"
 ) -> GFSavePipelineEvent:
-	var event: GFSavePipelineEvent = GFSavePipelineEvent.new().configure(
-		stage,
-		scope,
-		source,
-		message,
-		payload,
-		severity,
-		_clock.get_monotonic_msec()
+	var event: GFSavePipelineEvent = (
+		GFSavePipelineEvent.new().configure(
+			stage,
+			scope,
+			source,
+			message,
+			payload,
+			severity,
+			_clock.get_monotonic_msec()
+		)
 	)
 	events.append(event)
 	return event
@@ -190,7 +196,14 @@ func record_event(
 ## @schema payload: Dictionary，项目或流程步骤附加的诊断字段。
 func add_warning(message: String, payload: Dictionary = {}) -> void:
 	var _append_result_143: Variant = warnings.append(message)
-	var _record_event_result_144: Variant = record_event(&"pipeline_warning", null, null, message, payload, &"warning")
+	var _record_event_result_144: Variant = record_event(
+		&"pipeline_warning",
+		null,
+		null,
+		message,
+		payload,
+		&"warning"
+	)
 
 
 ## 记录错误并同步生成 error 事件。
@@ -206,7 +219,14 @@ func add_warning(message: String, payload: Dictionary = {}) -> void:
 ## @schema payload: Dictionary，项目或流程步骤附加的诊断字段。
 func add_error(message: String, payload: Dictionary = {}) -> void:
 	var _append_result_157: Variant = errors.append(message)
-	var _record_event_result_158: Variant = record_event(&"pipeline_error", null, null, message, payload, &"error")
+	var _record_event_result_158: Variant = record_event(
+		&"pipeline_error",
+		null,
+		null,
+		message,
+		payload,
+		&"error"
+	)
 
 
 ## 登记本次 apply 事务参与者。
@@ -288,7 +308,10 @@ func is_finished() -> bool:
 ## @return 耗时。
 func get_elapsed_msec() -> int:
 	var end_msec: int = finished_at_msec if finished_at_msec > 0 else _clock.get_monotonic_msec()
-	return maxi(end_msec - started_at_msec, 0)
+	return maxi(
+		end_msec - started_at_msec,
+		0
+	)
 
 
 ## 转换为 Dictionary。
@@ -306,9 +329,10 @@ func to_dict(include_events: bool = true) -> Dictionary:
 	var result: Dictionary = {
 		"operation": operation,
 		"root_scope_key": root_scope_key,
-		"shared": GFReportValueCodec.to_report_dictionary(shared, {
-			"path_redaction": "basename",
-		}),
+		"shared": GFReportValueCodec.to_report_dictionary(
+			shared,
+			{ "path_redaction": "basename", }
+		),
 		"warnings": warnings,
 		"errors": errors,
 		"transaction_participant_count": transaction_participants.size(),

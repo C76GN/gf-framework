@@ -39,8 +39,14 @@ static func parse_srt(text: String, track_id: StringName = &"") -> Dictionary:
 		if time_range.is_empty():
 			continue
 		var text_lines: PackedStringArray = PackedStringArray()
-		for index: int in range(time_line_index + 1, lines.size()):
-			_append_packed_string(text_lines, String(lines[index]))
+		for index: int in range(
+			time_line_index + 1,
+			lines.size()
+		):
+			_append_packed_string(
+				text_lines,
+				String(lines[index])
+			)
 		var _add_entry_result_44: Variant = track.add_entry(
 			GFVariantData.get_option_float(time_range, "start"),
 			GFVariantData.get_option_float(time_range, "end"),
@@ -48,8 +54,16 @@ static func parse_srt(text: String, track_id: StringName = &"") -> Dictionary:
 		)
 	track.sort_entries()
 	if not text.strip_edges().is_empty() and track.entries.is_empty():
-		return _make_result(false, track, "no_valid_entries")
-	return _make_result(true, track, "")
+		return _make_result(
+			false,
+			track,
+			"no_valid_entries"
+		)
+	return _make_result(
+		true,
+		track,
+		""
+	)
 
 
 ## 解析 WebVTT 文本。
@@ -97,12 +111,13 @@ static func parse_lrc(
 			parsed["sequence"] = entry_sequence
 			entry_sequence += 1
 			raw_entries.append(parsed)
-	raw_entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_start: float = GFVariantData.get_option_float(left, "start")
-		var right_start: float = GFVariantData.get_option_float(right, "start")
-		if left_start == right_start:
-			return GFVariantData.get_option_int(left, "sequence") < GFVariantData.get_option_int(right, "sequence")
-		return left_start < right_start
+	raw_entries.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_start: float = GFVariantData.get_option_float(left, "start")
+			var right_start: float = GFVariantData.get_option_float(right, "start")
+			if left_start == right_start:
+				return GFVariantData.get_option_int(left, "sequence") < GFVariantData.get_option_int(right, "sequence")
+			return left_start < right_start
 	)
 
 	var track: GFTimedTextTrack = GFTimedTextTrack.new()
@@ -111,14 +126,29 @@ static func parse_lrc(
 		var current: Dictionary = raw_entries[index]
 		var current_start: float = GFVariantData.get_option_float(current, "start")
 		var next_start: float = (
-			GFVariantData.get_option_float(raw_entries[index + 1], "start")
+			GFVariantData.get_option_float(
+				raw_entries[index + 1],
+				"start"
+			)
 			if index + 1 < raw_entries.size()
 			else current_start + default_duration
 		)
-		var _add_entry_result_109: Variant = track.add_entry(current_start, next_start, GFVariantData.get_option_string(current, "text"))
+		var _add_entry_result_109: Variant = track.add_entry(
+			current_start,
+			next_start,
+			GFVariantData.get_option_string(current, "text")
+		)
 	if not text.strip_edges().is_empty() and track.entries.is_empty():
-		return _make_result(false, track, "no_valid_entries")
-	return _make_result(true, track, "")
+		return _make_result(
+			false,
+			track,
+			"no_valid_entries"
+		)
+	return _make_result(
+		true,
+		track,
+		""
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -138,10 +168,7 @@ static func _parse_time_range(line: String) -> Dictionary:
 	var end: float = _parse_timestamp(end_tokens[0])
 	if start < 0.0 or end < start:
 		return {}
-	return {
-		"start": start,
-		"end": end,
-	}
+	return { "start": start, "end": end, }
 
 
 ## 解析分和秒或时、分、秒格式，并接受逗号作为小数点。
@@ -152,16 +179,35 @@ static func _parse_timestamp(text: String) -> float:
 	var normalized: String = text.replace(",", ".").strip_edges()
 	var parts: PackedStringArray = normalized.split(":", false)
 	if parts.size() == 2:
-		var minute_value: float = _parse_timestamp_component(parts[0], false)
-		var second_value: float = _parse_timestamp_component(parts[1], true)
+		var minute_value: float = _parse_timestamp_component(
+			parts[0],
+			false
+		)
+		var second_value: float = _parse_timestamp_component(
+			parts[1],
+			true
+		)
 		if minute_value < 0.0 or second_value < 0.0:
 			return -1.0
 		return minute_value * 60.0 + second_value
 	if parts.size() == 3:
-		var hour_value: float = _parse_timestamp_component(parts[0], false)
-		var hour_minute_value: float = _parse_timestamp_component(parts[1], false)
-		var hour_second_value: float = _parse_timestamp_component(parts[2], true)
-		if hour_value < 0.0 or hour_minute_value < 0.0 or hour_second_value < 0.0:
+		var hour_value: float = _parse_timestamp_component(
+			parts[0],
+			false
+		)
+		var hour_minute_value: float = _parse_timestamp_component(
+			parts[1],
+			false
+		)
+		var hour_second_value: float = _parse_timestamp_component(
+			parts[2],
+			true
+		)
+		if (
+			hour_value < 0.0
+			or hour_minute_value < 0.0
+			or hour_second_value < 0.0
+		):
 			return -1.0
 		return hour_value * 3600.0 + hour_minute_value * 60.0 + hour_second_value
 	return -1.0
@@ -204,7 +250,10 @@ static func _parse_lrc_line(line: String) -> Array[Dictionary]:
 		if end_index <= cursor + 1:
 			return []
 
-		var time_text: String = line.substr(cursor + 1, end_index - cursor - 1)
+		var time_text: String = line.substr(
+			cursor + 1,
+			end_index - cursor - 1
+		)
 		var start: float = _parse_timestamp(time_text)
 		if start < 0.0:
 			return []
@@ -218,10 +267,7 @@ static func _parse_lrc_line(line: String) -> Array[Dictionary]:
 	var lyric_text: String = line.substr(cursor)
 	var result: Array[Dictionary] = []
 	for start_time: float in starts:
-		result.append({
-			"start": start_time,
-			"text": lyric_text,
-		})
+		result.append({ "start": start_time, "text": lyric_text, })
 	return result
 
 
@@ -239,7 +285,11 @@ static func _append_packed_string(target: PackedStringArray, value: String) -> v
 ## [br]
 ## @api private
 ## [br]
-static func _make_result(success: bool, track: GFTimedTextTrack, error: String) -> Dictionary:
+static func _make_result(
+	success: bool,
+	track: GFTimedTextTrack,
+	error: String
+) -> Dictionary:
 	return {
 		"success": success,
 		"track": track,

@@ -358,11 +358,7 @@ func to_dict() -> Dictionary:
 		"successful": is_successful(),
 		"request_id": _request_id,
 		"kind": _kind,
-		"scene_identity": (
-			_scene_identity.to_dictionary()
-			if _scene_identity != null
-			else {}
-		),
+		"scene_identity": (_scene_identity.to_dictionary() if _scene_identity != null else {}),
 		"scene": _scene,
 		"has_scene": _scene != null,
 		"reason": _reason,
@@ -410,7 +406,13 @@ func configure_for_framework(
 		or not Status.values().has(int(status))
 		or kind not in [_KIND_LOAD, _KIND_PRELOAD]
 		or scene_identity == null
-		or not _terminal_union_is_valid(status, kind, scene, reason, error_code)
+		or not _terminal_union_is_valid(
+			status,
+			kind,
+			scene,
+			reason,
+			error_code
+		)
 	):
 		return false
 	_status = status
@@ -456,7 +458,10 @@ static func _terminal_union_is_valid(
 				scene != null
 				and error_code == OK
 				and (
-					(kind == _KIND_LOAD and reason == REASON_SCENE_LOADED)
+					(
+						kind == _KIND_LOAD
+						and reason == REASON_SCENE_LOADED
+					)
 					or (
 						kind == _KIND_PRELOAD
 						and reason in [REASON_SCENE_PRELOADED, REASON_CACHE_HIT]
@@ -489,15 +494,18 @@ static func _terminal_union_is_valid(
 			return (
 				scene == null
 				and error_code == ERR_SKIP
-				and reason in [
-					REASON_CALLER_CANCELLED,
-					REASON_TOKEN_CANCELLED,
-					REASON_OWNER_RELEASED,
-					REASON_PATH_CANCELLED,
-					REASON_EXTERNAL_CANCELLED,
-					REASON_BROKER_DISPOSED,
-					REASON_BROKER_CANCELLED,
-				]
+				and (
+					reason
+					in [
+						REASON_CALLER_CANCELLED,
+						REASON_TOKEN_CANCELLED,
+						REASON_OWNER_RELEASED,
+						REASON_PATH_CANCELLED,
+						REASON_EXTERNAL_CANCELLED,
+						REASON_BROKER_DISPOSED,
+						REASON_BROKER_CANCELLED,
+					]
+				)
 			)
 		Status.DISPOSED:
 			return (

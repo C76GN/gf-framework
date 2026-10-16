@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectile2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd" module="extensions/combat" extends="Node" classDigest="e959eed07fe237609ff7899568d17d4b43b5d3e26f1f9fe4938ba5e83d10c453">
+<class name="GFProjectile2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd" module="extensions/combat" extends="Node" classDigest="e14779e08240a65dd1844c3c1ffc34635022ae7bf8c6bede9337ef11ea28629a">
 	<description>GFProjectile2D: 2D projectile scene 内的 dimension-neutral runtime 节点。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -32,7 +32,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="launch">
-			<signature>func launch( binding: GFProjectileBinding2D, launch_input: GFProjectileLaunchInput2D = null ) -&gt; GFProjectileSession:</signature>
+			<signature>func launch(binding: GFProjectileBinding2D, launch_input: GFProjectileLaunchInput2D = null) -&gt; GFProjectileSession:</signature>
 			<description>直接激活一个已验证 binding。</description>
 			<tags>
 				<tag name="api">public</tag>

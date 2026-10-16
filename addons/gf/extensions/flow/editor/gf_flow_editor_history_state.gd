@@ -103,7 +103,11 @@ static func acquire(manager: EditorUndoRedoManager, graph: GFFlowGraph) -> GFFlo
 		var value: Variant = history.get_meta(_META_KEY)
 		if value is GFFlowEditorHistoryState:
 			var existing: GFFlowEditorHistoryState = value
-			if existing._matches_owner(manager, history, history_id):
+			if existing._matches_owner(
+				manager,
+				history,
+				history_id
+			):
 				return existing
 		return null
 	if manager.is_committing_action():
@@ -129,7 +133,11 @@ static func acquire(manager: EditorUndoRedoManager, graph: GFFlowGraph) -> GFFlo
 ## [br]
 ## @return: 失配、真实补偿任务或正在清除时为 true。
 func is_blocked() -> bool:
-	return _desynchronized or not _recovery_commands.is_empty() or _resetting
+	return (
+		_desynchronized
+		or not _recovery_commands.is_empty()
+		or _resetting
+	)
 
 
 ## 返回持续的页面资格与清除范围；读取本身不清除历史。
@@ -142,11 +150,24 @@ func is_blocked() -> bool:
 func get_status() -> Dictionary:
 	var supported: bool = _has_live_owner()
 	return {
-		"supported": supported, "blocked": is_blocked(),
+		"supported": supported,
+		"blocked": is_blocked(),
 		"desynchronized": _desynchronized,
 		"compensation_required": not _recovery_commands.is_empty(),
-		"can_reset": _can_reset(), "busy": _resetting or _settling or (supported and (_get_manager().is_committing_action() or _get_history().is_committing_action())),
-		"history_id": _history_id, "scope": _scope() if supported else &"unavailable",
+		"can_reset": _can_reset(),
+		"busy": (
+			_resetting
+			or _settling
+			or (
+				supported
+				and (
+					_get_manager().is_committing_action()
+					or _get_history().is_committing_action()
+				)
+			)
+		),
+		"history_id": _history_id,
+		"scope": _scope() if supported else &"unavailable",
 		"summary": _summary(supported),
 	}
 
@@ -169,14 +190,23 @@ func get_recovery_command() -> GFFlowGraphEditCommand:
 ## @schema return: 成功 Dictionary 固定 ok: true，guard_id、manager_id、history_object_id、history_id、epoch、version、cursor、count: int；失败固定 ok: false、error: int（Error）、reason: StringName。
 func capture_reset_token() -> Dictionary:
 	if not _can_reset():
-		return {"ok": false, "error": ERR_UNAVAILABLE, "reason": &"reset_unavailable"}
+		return {
+			"ok": false,
+			"error": ERR_UNAVAILABLE,
+			"reason": &"reset_unavailable",
+		}
 	var manager: EditorUndoRedoManager = _get_manager()
 	var history: UndoRedo = _get_history()
 	return {
-		"ok": true, "guard_id": get_instance_id(), "manager_id": manager.get_instance_id(),
-		"history_object_id": history.get_instance_id(), "history_id": _history_id,
-		"epoch": _epoch, "version": history.get_version(),
-		"cursor": history.get_current_action(), "count": history.get_history_count(),
+		"ok": true,
+		"guard_id": get_instance_id(),
+		"manager_id": manager.get_instance_id(),
+		"history_object_id": history.get_instance_id(),
+		"history_id": _history_id,
+		"epoch": _epoch,
+		"version": history.get_version(),
+		"cursor": history.get_current_action(),
+		"count": history.get_history_count(),
 	}
 
 
@@ -194,7 +224,12 @@ func capture_reset_token() -> Dictionary:
 ## @schema return: Dictionary，固定 ok: bool、error: int（Error）、reason: StringName、history_id: int、scope: StringName、history_cleared: bool、blocked: bool。
 func confirm_reset(token: Dictionary) -> Dictionary:
 	if not _can_reset() or not _token_matches(token):
-		return _reset_result(false, ERR_BUSY, &"confirmation_stale", false)
+		return _reset_result(
+			false,
+			ERR_BUSY,
+			&"confirmation_stale",
+			false
+		)
 	var manager: EditorUndoRedoManager = _get_manager()
 	var history: UndoRedo = _get_history()
 	var admitted_version: int = history.get_version()
@@ -203,20 +238,58 @@ func confirm_reset(token: Dictionary) -> Dictionary:
 	var admitted_epoch: int = _epoch + 1
 	_resetting = true
 	_epoch += 1
-	if not _matches_owner(manager, history, _history_id) or _epoch != admitted_epoch or not _recovery_commands.is_empty() or manager.is_committing_action() or history.is_committing_action() or history.get_version() != admitted_version or history.get_current_action() != admitted_cursor or history.get_history_count() != admitted_count:
+	if (
+		not _matches_owner(
+			manager,
+			history,
+			_history_id
+		)
+		or _epoch != admitted_epoch
+		or not _recovery_commands.is_empty()
+		or manager.is_committing_action()
+		or history.is_committing_action()
+		or history.get_version() != admitted_version
+		or history.get_current_action() != admitted_cursor
+		or history.get_history_count() != admitted_count
+	):
 		_resetting = false
 		_queue_completion_notification()
-		return _reset_result(false, ERR_BUSY, &"confirmation_stale", false)
+		return _reset_result(
+			false,
+			ERR_BUSY,
+			&"confirmation_stale",
+			false
+		)
 	# true 不把仍未写磁盘的内存版本冒充“已保存”。不使用清除全部历史的默认 ID。
 	manager.clear_history(_history_id, true)
-	var cleared: bool = _matches_owner(manager, history, _history_id) and history.get_history_count() == 0 and history.get_current_action() == -1 and not history.has_undo() and not history.has_redo()
+	var cleared: bool = (
+		_matches_owner(
+			manager,
+			history,
+			_history_id
+		)
+		and history.get_history_count() == 0
+		and history.get_current_action() == -1
+		and not history.has_undo()
+		and not history.has_redo()
+	)
 	_resetting = false
 	if cleared and _recovery_commands.is_empty():
 		_desynchronized = false
 	_queue_completion_notification()
 	if cleared and not is_blocked():
-		return _reset_result(true, OK, &"rebuilt", true)
-	return _reset_result(false, ERR_BUSY, &"postcondition_failed", cleared)
+		return _reset_result(
+			true,
+			OK,
+			&"rebuilt",
+			true
+		)
+	return _reset_result(
+		false,
+		ERR_BUSY,
+		&"postcondition_failed",
+		cleared
+	)
 
 
 ## 命令基类已更新错误缓存后记录实际结果；失败即暂停同历史 Flow 写入。
@@ -272,31 +345,67 @@ func _get_history() -> UndoRedo:
 ## 核对拥有关系，不以相同数值 ID 替代原生历史对象身份。
 ## [br]
 ## @api private
-func _matches_owner(manager: EditorUndoRedoManager, history: UndoRedo, history_id: int) -> bool:
-	return is_instance_valid(manager) and is_instance_valid(history) and manager == _get_manager() and history == _get_history() and history_id == _history_id and manager.get_history_undo_redo(history_id) == history
+func _matches_owner(
+	manager: EditorUndoRedoManager,
+	history: UndoRedo,
+	history_id: int
+) -> bool:
+	return (
+		is_instance_valid(manager)
+		and is_instance_valid(history)
+		and manager == _get_manager()
+		and history == _get_history()
+		and history_id == _history_id
+		and manager.get_history_undo_redo(history_id) == history
+	)
 
 
 ## 检查确认是否拥有仍有效的原生历史。
 ## [br]
 ## @api private
 func _has_live_owner() -> bool:
-	return _matches_owner(_get_manager(), _get_history(), _history_id)
+	return _matches_owner(
+		_get_manager(),
+		_get_history(),
+		_history_id
+	)
 
 
 ## 确认前拒绝真实补偿、失败回调尚未返回或原生提交过程。
 ## [br]
 ## @api private
 func _can_reset() -> bool:
-	return _desynchronized and _recovery_commands.is_empty() and not _resetting and not _settling and _has_live_owner() and not _get_manager().is_committing_action() and not _get_history().is_committing_action()
+	return (
+		_desynchronized
+		and _recovery_commands.is_empty()
+		and not _resetting
+		and not _settling
+		and _has_live_owner()
+		and not _get_manager().is_committing_action()
+		and not _get_history().is_committing_action()
+	)
 
 
 ## 只消费完整的原始快照；不把字符串、浮点或未知字段转换成授权。
 ## [br]
 ## @api private
 func _token_matches(token: Dictionary) -> bool:
-	if token.size() != 9 or not token.get("ok") is bool or token.get("ok") != true:
+	if (
+		token.size() != 9
+		or not token.get("ok") is bool
+		or token.get("ok") != true
+	):
 		return false
-	for key: String in ["guard_id", "manager_id", "history_object_id", "history_id", "epoch", "version", "cursor", "count"]:
+	for key: String in [
+		"guard_id",
+		"manager_id",
+		"history_object_id",
+		"history_id",
+		"epoch",
+		"version",
+		"cursor",
+		"count",
+	]:
 		if not token.get(key) is int:
 			return false
 	var current: Dictionary = capture_reset_token()
@@ -332,8 +441,21 @@ func _summary(supported: bool) -> String:
 ## 保留清除的实际结果，不把原生同步回调失败冒充可回滚事务。
 ## [br]
 ## @api private
-func _reset_result(ok: bool, error: Error, reason: StringName, cleared: bool) -> Dictionary:
-	return {"ok": ok, "error": error, "reason": reason, "history_id": _history_id, "scope": _scope(), "history_cleared": cleared, "blocked": is_blocked()}
+func _reset_result(
+	ok: bool,
+	error: Error,
+	reason: StringName,
+	cleared: bool
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"error": error,
+		"reason": reason,
+		"history_id": _history_id,
+		"scope": _scope(),
+		"history_cleared": cleared,
+		"blocked": is_blocked(),
+	}
 
 
 ## 原生失败回调栈退出后只开放确认一次，不自动清除空历史或重试失败。

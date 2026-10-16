@@ -26,6 +26,7 @@ enum Direction {
 	OUTPUT,
 }
 
+
 ## 端口值类型提示。
 ## [br]
 ## @api public
@@ -183,7 +184,11 @@ func has_semantic_tag(tag: StringName) -> bool:
 ## [br]
 ## @return: 兼容返回 true。
 func is_compatible_with(target_port: GFFlowPort) -> bool:
-	return GFVariantData.get_option_bool(_get_compatibility_report(target_port), "ok", false)
+	return GFVariantData.get_option_bool(
+		_get_compatibility_report(target_port),
+		"ok",
+		false
+	)
 
 
 ## 获取当前端口连接到目标端口的兼容性报告。
@@ -233,7 +238,13 @@ func describe() -> Dictionary:
 ## @api private
 func _get_compatibility_report(target_port: GFFlowPort) -> Dictionary:
 	if target_port == null:
-		return _make_compatibility_report(self, null, false, "missing_target_port", "Target port is null.")
+		return _make_compatibility_report(
+			self,
+			null,
+			false,
+			"missing_target_port",
+			"Target port is null."
+		)
 
 	var source_port: GFFlowPort = self
 	var input_port: GFFlowPort = target_port
@@ -242,13 +253,38 @@ func _get_compatibility_report(target_port: GFFlowPort) -> Dictionary:
 		input_port = self
 
 	if source_port.direction != Direction.OUTPUT or input_port.direction != Direction.INPUT:
-		return _make_compatibility_report(source_port, input_port, false, "invalid_direction", "Connections require an output port and an input port.")
+		return _make_compatibility_report(
+			source_port,
+			input_port,
+			false,
+			"invalid_direction",
+			"Connections require an output port and an input port."
+		)
 	if not _value_types_are_compatible(source_port.value_type, input_port.value_type):
-		return _make_compatibility_report(source_port, input_port, false, "value_type_mismatch", "Port value types are not compatible.")
+		return _make_compatibility_report(
+			source_port,
+			input_port,
+			false,
+			"value_type_mismatch",
+			"Port value types are not compatible."
+		)
 	if not _class_hints_are_compatible(source_port, input_port):
-		return _make_compatibility_report(source_port, input_port, false, "class_hint_mismatch", "Port class hints are not compatible.")
+		return _make_compatibility_report(
+			source_port,
+			input_port,
+			false,
+			"class_hint_mismatch",
+			"Port class hints are not compatible."
+		)
 
-	return _make_compatibility_report(source_port, input_port, true, "", "")
+	return _make_compatibility_report(
+		source_port,
+		input_port,
+		true,
+		"",
+		""
+	)
+
 
 ## 值类型相同或至少一方为 ANY 时视为兼容。
 ## [br]

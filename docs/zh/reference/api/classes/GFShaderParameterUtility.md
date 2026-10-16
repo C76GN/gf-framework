@@ -18,10 +18,10 @@
 | 常量 | [`DEFAULT_MATERIAL_PROPERTY`](#member-gfshaderparameterutility-constants-default_material_property) | `const DEFAULT_MATERIAL_PROPERTY: NodePath = ^"material"` |
 | 方法 | [`apply_profile`](#member-gfshaderparameterutility-methods-apply_profile) | `func apply_profile( target: Object, profile: GFShaderParameterProfile, options: Dictionary = {} ) -> int:` |
 | 方法 | [`apply_global_profile`](#member-gfshaderparameterutility-methods-apply_global_profile) | `func apply_global_profile(profile: GFShaderParameterProfile, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply_parameters`](#member-gfshaderparameterutility-methods-apply_parameters) | `func apply_parameters(target: Object, parameters: Dictionary, options: Dictionary = {}) -> int:` |
+| 方法 | [`apply_parameters`](#member-gfshaderparameterutility-methods-apply_parameters) | `func apply_parameters( target: Object, parameters: Dictionary, options: Dictionary = {} ) -> int:` |
 | 方法 | [`apply_global_parameters`](#member-gfshaderparameterutility-methods-apply_global_parameters) | `func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`resolve_shader_material`](#member-gfshaderparameterutility-methods-resolve_shader_material) | `func resolve_shader_material( target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY ) -> ShaderMaterial:` |
-| 方法 | [`capture_shader_interface`](#member-gfshaderparameterutility-methods-capture_shader_interface) | `func capture_shader_interface( material: ShaderMaterial ) -> GFShaderInterfaceSnapshot:` |
+| 方法 | [`resolve_shader_material`](#member-gfshaderparameterutility-methods-resolve_shader_material) | `func resolve_shader_material(target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY) -> ShaderMaterial:` |
+| 方法 | [`capture_shader_interface`](#member-gfshaderparameterutility-methods-capture_shader_interface) | `func capture_shader_interface(material: ShaderMaterial) -> GFShaderInterfaceSnapshot:` |
 | 方法 | [`validate_profile`](#member-gfshaderparameterutility-methods-validate_profile) | `func validate_profile( material: ShaderMaterial, profile: GFShaderParameterProfile, options: Dictionary = {} ) -> GFValidationReport:` |
 | 方法 | [`validate_parameters`](#member-gfshaderparameterutility-methods-validate_parameters) | `func validate_parameters( material: ShaderMaterial, parameters: Dictionary, options: Dictionary = {} ) -> GFValidationReport:` |
 | 方法 | [`get_shader_parameter_names`](#member-gfshaderparameterutility-methods-get_shader_parameter_names) | `func get_shader_parameter_names(material: ShaderMaterial) -> Array[StringName]:` |
@@ -112,7 +112,7 @@ func apply_global_profile(profile: GFShaderParameterProfile, options: Dictionary
 - 首次版本：`4.3.0`
 
 ```gdscript
-func apply_parameters(target: Object, parameters: Dictionary, options: Dictionary = {}) -> int:
+func apply_parameters( target: Object, parameters: Dictionary, options: Dictionary = {} ) -> int:
 ```
 
 将 shader 参数字典应用到目标对象。
@@ -168,7 +168,7 @@ func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -
 - 首次版本：`4.3.0`
 
 ```gdscript
-func resolve_shader_material( target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY ) -> ShaderMaterial:
+func resolve_shader_material(target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY) -> ShaderMaterial:
 ```
 
 从目标对象解析 ShaderMaterial。
@@ -190,7 +190,7 @@ func resolve_shader_material( target: Object, material_property: NodePath = DEFA
 - 首次版本：`10.0.0`
 
 ```gdscript
-func capture_shader_interface( material: ShaderMaterial ) -> GFShaderInterfaceSnapshot:
+func capture_shader_interface(material: ShaderMaterial) -> GFShaderInterfaceSnapshot:
 ```
 
 捕获 ShaderMaterial 当前 uniform 接口。

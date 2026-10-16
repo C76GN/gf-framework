@@ -25,17 +25,30 @@ const _STEP_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_t
 ## [br]
 ## @api private
 const _CONFIG_FIELDS: Array[StringName] = [
-	&"duration_scale", &"loop_count", &"enable_playback_control", &"ping_pong",
-	&"ignore_time_scale", &"process_mode", &"pause_mode",
-	&"restore_initial_values_on_cancel", &"restore_initial_values_on_finish",
+	&"duration_scale",
+	&"loop_count",
+	&"enable_playback_control",
+	&"ping_pong",
+	&"ignore_time_scale",
+	&"process_mode",
+	&"pause_mode",
+	&"restore_initial_values_on_cancel",
+	&"restore_initial_values_on_finish",
 ]
 
 ## 步骤纯值签名的字段顺序；曲线数据另行受点数预算约束地读取。
 ## [br]
 ## @api private
 const _STEP_FIELDS: Array[StringName] = [
-	&"property_name", &"target_value", &"duration", &"delay", &"as_relative",
-	&"parallel", &"transition_type", &"ease_type", &"marker_id",
+	&"property_name",
+	&"target_value",
+	&"duration",
+	&"delay",
+	&"as_relative",
+	&"parallel",
+	&"transition_type",
+	&"ease_type",
+	&"marker_id",
 ]
 
 
@@ -74,7 +87,20 @@ static func capture(config: Resource) -> Array:
 		var fields: Array = []
 		for field: StringName in _STEP_FIELDS:
 			var field_value: Variant = step.get(field)
-			if typeof(field_value) in [TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_VECTOR2, TYPE_VECTOR3, TYPE_COLOR, TYPE_NODE_PATH, TYPE_STRING_NAME]:
+			if (
+				typeof(field_value)
+				in [
+					TYPE_NIL,
+					TYPE_BOOL,
+					TYPE_INT,
+					TYPE_FLOAT,
+					TYPE_VECTOR2,
+					TYPE_VECTOR3,
+					TYPE_COLOR,
+					TYPE_NODE_PATH,
+					TYPE_STRING_NAME,
+				]
+			):
 				fields.append(field_value)
 			else:
 				fields.append("unsupported_value")
@@ -85,9 +111,25 @@ static func capture(config: Resource) -> Array:
 				fields.append("unsupported_curve")
 			else:
 				point_budget -= curve.get_point_count()
-				fields.append([curve.min_domain, curve.max_domain, curve.min_value, curve.max_value, curve.bake_resolution])
+				fields.append(
+					[
+						curve.min_domain,
+						curve.max_domain,
+						curve.min_value,
+						curve.max_value,
+						curve.bake_resolution,
+					]
+				)
 				for index: int in range(curve.get_point_count()):
-					fields.append([curve.get_point_position(index), curve.get_point_left_tangent(index), curve.get_point_right_tangent(index), curve.get_point_left_mode(index), curve.get_point_right_mode(index)])
+					fields.append(
+						[
+							curve.get_point_position(index),
+							curve.get_point_left_tangent(index),
+							curve.get_point_right_tangent(index),
+							curve.get_point_left_mode(index),
+							curve.get_point_right_mode(index),
+						]
+					)
 		else:
 			fields.append(null)
 		result.append(fields)
@@ -127,4 +169,9 @@ static func capture_editing(config: Resource) -> Dictionary:
 				step_name = StringName(step.resource_name)
 		var _appended: bool = step_ids.append(instance_id)
 		names.append(step_name)
-	return {"source_id": config.get_instance_id(), "step_ids": step_ids, "names": names, "values": capture(config)}
+	return {
+		"source_id": config.get_instance_id(),
+		"step_ids": step_ids,
+		"names": names,
+		"values": capture(config),
+	}

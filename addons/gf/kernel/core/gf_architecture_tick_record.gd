@@ -93,7 +93,11 @@ func configure(
 ## [br]
 ## @return: 记录是否可用于本帧 tick 调用。
 func is_valid_record() -> bool:
-	return module != null and is_instance_valid(module) and callback.is_valid()
+	return (
+		module != null
+		and is_instance_valid(module)
+		and callback.is_valid()
+	)
 
 
 ## 根据暂停和时间缩放策略计算本次 tick 应传入的 delta。
@@ -109,7 +113,11 @@ func is_valid_record() -> bool:
 ## @param time_paused: 当前全局时间是否暂停。
 ## [br]
 ## @return: 传给模块回调的最终 delta。
-func get_tick_delta(raw_delta: float, scaled_delta: float, time_paused: bool) -> float:
+func get_tick_delta(
+	raw_delta: float,
+	scaled_delta: float,
+	time_paused: bool
+) -> float:
 	if time_paused:
 		return raw_delta if ignore_pause else 0.0
 	if ignore_time_scale:
@@ -128,7 +136,17 @@ func get_tick_delta(raw_delta: float, scaled_delta: float, time_paused: bool) ->
 ## @param scaled_delta: 已由时间提供者缩放后的 delta。
 ## [br]
 ## @param time_paused: 当前全局时间是否暂停。
-func invoke(raw_delta: float, scaled_delta: float, time_paused: bool) -> void:
+func invoke(
+	raw_delta: float,
+	scaled_delta: float,
+	time_paused: bool
+) -> void:
 	if not is_valid_record():
 		return
-	callback.call(get_tick_delta(raw_delta, scaled_delta, time_paused))
+	callback.call(
+		get_tick_delta(
+			raw_delta,
+			scaled_delta,
+			time_paused
+		)
+	)

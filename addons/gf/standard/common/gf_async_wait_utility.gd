@@ -76,7 +76,11 @@ const STATUS_INVALID: StringName = &"invalid"
 ## [br]
 ## @schema return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。
 static func await_signal(result_signal: Signal, options: Dictionary = {}) -> Dictionary:
-	return await _await_signal_state(result_signal, options, false)
+	return await _await_signal_state(
+		result_signal,
+		options,
+		false
+	)
 
 
 ## 等待 Signal 发出，并捕获最多 16 个参数。
@@ -95,7 +99,11 @@ static func await_signal(result_signal: Signal, options: Dictionary = {}) -> Dic
 ## [br]
 ## @schema return: Dictionary，包含 status、completed、cancelled、timed_out、invalid、reason、metadata 和 args。
 static func await_signal_payload(result_signal: Signal, options: Dictionary = {}) -> Dictionary:
-	return await _await_signal_state(result_signal, options, true)
+	return await _await_signal_state(
+		result_signal,
+		options,
+		true
+	)
 
 
 ## 等待完成源进入终态。
@@ -207,18 +215,27 @@ static func delay_seconds(seconds: float, options: Dictionary = {}) -> Dictionar
 			return _make_status_result(status, state)
 
 		var current_delay_msec: int = Time.get_ticks_msec()
-		elapsed_delay_msec += _GF_ASYNC_WAIT_SUPPORT.get_timeout_elapsed_msec(
-			last_delay_msec,
-			current_delay_msec,
-			_state_to_time_utility(state),
-			GFVariantData.get_option_bool(state, "respect_time_scale", true)
+		elapsed_delay_msec += (
+			_GF_ASYNC_WAIT_SUPPORT.get_timeout_elapsed_msec(
+				last_delay_msec,
+				current_delay_msec,
+				_state_to_time_utility(state),
+				GFVariantData.get_option_bool(
+					state,
+					"respect_time_scale",
+					true
+				)
+			)
 		)
 		last_delay_msec = current_delay_msec
 		if elapsed_delay_msec >= delay_msec:
 			break
 
 		var tree: SceneTree = _state_to_scene_tree(state)
-		await _await_frame(tree, GFVariantData.get_option_bool(state, "process_in_physics"))
+		await _await_frame(
+			tree,
+			GFVariantData.get_option_bool(state, "process_in_physics")
+		)
 
 	return _make_result(STATUS_COMPLETED)
 
@@ -241,7 +258,11 @@ static func delay_seconds(seconds: float, options: Dictionary = {}) -> Dictionar
 static func wait_until(predicate: Callable, options: Dictionary = {}) -> Dictionary:
 	if not predicate.is_valid():
 		return _make_result(STATUS_INVALID)
-	return await _wait_predicate(predicate, true, options)
+	return await _wait_predicate(
+		predicate,
+		true,
+		options
+	)
 
 
 ## 等待 predicate 返回 false。
@@ -262,7 +283,11 @@ static func wait_until(predicate: Callable, options: Dictionary = {}) -> Diction
 static func wait_while(predicate: Callable, options: Dictionary = {}) -> Dictionary:
 	if not predicate.is_valid():
 		return _make_result(STATUS_INVALID)
-	return await _wait_predicate(predicate, false, options)
+	return await _wait_predicate(
+		predicate,
+		false,
+		options
+	)
 
 
 ## 等待 getter 返回值发生变化。
@@ -303,14 +328,14 @@ static func wait_until_value_changed(getter: Callable, options: Dictionary = {})
 				[],
 				&"",
 				{},
-				{
-					"previous_value": GFVariantData.duplicate_variant(previous_value),
-					"value": GFVariantData.duplicate_variant(current_value),
-				}
+				{ "previous_value": GFVariantData.duplicate_variant(previous_value), "value": GFVariantData.duplicate_variant(current_value), }
 			)
 
 		var tree: SceneTree = _state_to_scene_tree(state)
-		await _await_frame(tree, GFVariantData.get_option_bool(state, "process_in_physics"))
+		await _await_frame(
+			tree,
+			GFVariantData.get_option_bool(state, "process_in_physics")
+		)
 	return _make_result(STATUS_INVALID)
 
 
@@ -339,7 +364,11 @@ static func _wait_single_frame(use_physics_frame: bool, options: Dictionary) -> 
 ## 每帧重查 predicate，直到其布尔结果等于目标值或等待状态结束。
 ## [br]
 ## @api private
-static func _wait_predicate(predicate: Callable, desired_value: bool, options: Dictionary) -> Dictionary:
+static func _wait_predicate(
+	predicate: Callable,
+	desired_value: bool,
+	options: Dictionary
+) -> Dictionary:
 	var state: Dictionary = _make_wait_state(options)
 	while true:
 		var status: StringName = _get_common_wait_status(state)
@@ -350,7 +379,10 @@ static func _wait_predicate(predicate: Callable, desired_value: bool, options: D
 			return _make_result(STATUS_COMPLETED)
 
 		var tree: SceneTree = _state_to_scene_tree(state)
-		await _await_frame(tree, GFVariantData.get_option_bool(state, "process_in_physics"))
+		await _await_frame(
+			tree,
+			GFVariantData.get_option_bool(state, "process_in_physics")
+		)
 	return _make_result(STATUS_INVALID)
 
 
@@ -358,7 +390,11 @@ static func _wait_predicate(predicate: Callable, desired_value: bool, options: D
 ## [br]
 ## @api private
 static func _make_wait_state(options: Dictionary) -> Dictionary:
-	var timeout_seconds: float = GFVariantData.get_option_float(options, "timeout_seconds", 0.0)
+	var timeout_seconds: float = GFVariantData.get_option_float(
+		options,
+		"timeout_seconds",
+		0.0
+	)
 	var guard_value: Variant = GFVariantData.get_option_value(options, "guard_node")
 	var guard_configured: bool = typeof(guard_value) != TYPE_NIL
 	var guard_node: Node = _GF_INSTANCE_GUARD._get_live_node(guard_value)
@@ -370,8 +406,16 @@ static func _make_wait_state(options: Dictionary) -> Dictionary:
 		"guard_instance_id": guard_instance_id,
 		"reason": &"",
 		"time_utility": _get_time_utility(options),
-		"respect_time_scale": GFVariantData.get_option_bool(options, "respect_time_scale", true),
-		"process_in_physics": GFVariantData.get_option_bool(options, "process_in_physics", false),
+		"respect_time_scale": GFVariantData.get_option_bool(
+			options,
+			"respect_time_scale",
+			true
+		),
+		"process_in_physics": GFVariantData.get_option_bool(
+			options,
+			"process_in_physics",
+			false
+		),
 		"timeout_msec": maxf(timeout_seconds, 0.0) * 1000.0,
 		"elapsed_timeout_msec": 0.0,
 		"last_timeout_msec": Time.get_ticks_msec(),
@@ -396,18 +440,36 @@ static func _get_common_wait_status(state: Dictionary) -> StringName:
 			state["reason"] = &"guard_exited"
 			return STATUS_INVALID
 
-	var timeout_msec: float = GFVariantData.get_option_float(state, "timeout_msec", 0.0)
+	var timeout_msec: float = GFVariantData.get_option_float(
+		state,
+		"timeout_msec",
+		0.0
+	)
 	if timeout_msec <= 0.0:
 		return &""
 
-	var last_timeout_msec: int = GFVariantData.get_option_int(state, "last_timeout_msec", Time.get_ticks_msec())
+	var last_timeout_msec: int = GFVariantData.get_option_int(
+		state,
+		"last_timeout_msec",
+		Time.get_ticks_msec()
+	)
 	var current_timeout_msec: int = Time.get_ticks_msec()
-	var elapsed_timeout_msec: float = GFVariantData.get_option_float(state, "elapsed_timeout_msec", 0.0)
-	elapsed_timeout_msec += _GF_ASYNC_WAIT_SUPPORT.get_timeout_elapsed_msec(
-		last_timeout_msec,
-		current_timeout_msec,
-		_state_to_time_utility(state),
-		GFVariantData.get_option_bool(state, "respect_time_scale", true)
+	var elapsed_timeout_msec: float = GFVariantData.get_option_float(
+		state,
+		"elapsed_timeout_msec",
+		0.0
+	)
+	elapsed_timeout_msec += (
+		_GF_ASYNC_WAIT_SUPPORT.get_timeout_elapsed_msec(
+			last_timeout_msec,
+			current_timeout_msec,
+			_state_to_time_utility(state),
+			GFVariantData.get_option_bool(
+				state,
+				"respect_time_scale",
+				true
+			)
+		)
 	)
 	state["elapsed_timeout_msec"] = elapsed_timeout_msec
 	state["last_timeout_msec"] = current_timeout_msec
@@ -419,21 +481,45 @@ static func _get_common_wait_status(state: Dictionary) -> StringName:
 ## 生成状态结果；取消状态优先读取令牌原因和元数据。
 ## [br]
 ## @api private
-static func _make_status_result(status: StringName, state: Dictionary, extra: Dictionary = {}) -> Dictionary:
+static func _make_status_result(
+	status: StringName,
+	state: Dictionary,
+	extra: Dictionary = {}
+) -> Dictionary:
 	var cancel_token: GFCancellationToken = _state_to_cancel_token(state)
 	if status == STATUS_CANCELLED and cancel_token != null:
-		return _make_result(status, [], cancel_token.get_cancel_reason(), cancel_token.get_cancel_metadata(), extra)
-	return _make_result(status, [], GFVariantData.get_option_string_name(state, "reason"), {}, extra)
+		return _make_result(
+			status,
+			[],
+			cancel_token.get_cancel_reason(),
+			cancel_token.get_cancel_metadata(),
+			extra
+		)
+	return _make_result(
+		status,
+		[],
+		GFVariantData.get_option_string_name(state, "reason"),
+		{},
+		extra
+	)
 
 
 ## 设置 payload 捕获选项并委托给共享等待脚本，再映射为标准等待结果。
 ## [br]
 ## @api private
-static func _await_signal_state(result_signal: Signal, options: Dictionary, capture_payload: bool) -> Dictionary:
+static func _await_signal_state(
+	result_signal: Signal,
+	options: Dictionary,
+	capture_payload: bool
+) -> Dictionary:
 	var signal_options: Dictionary = options.duplicate(true)
 	signal_options["capture_payload"] = capture_payload
 	var wait_state: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, signal_options)
-	var status: StringName = GFVariantData.get_option_string_name(wait_state, "status", STATUS_INVALID)
+	var status: StringName = GFVariantData.get_option_string_name(
+		wait_state,
+		"status",
+		STATUS_INVALID
+	)
 	return _make_result(
 		status,
 		GFVariantData.get_option_array(wait_state, "args"),

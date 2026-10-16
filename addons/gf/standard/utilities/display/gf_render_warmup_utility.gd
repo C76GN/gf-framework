@@ -18,16 +18,24 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param queue_id: 预热队列标识。
 ## [br]
 ## @param manifest_id: 清单标识。
 ## [br]
 ## @param entry_count: 清单条目数量。
-signal warmup_queued(queue_id: int, manifest_id: StringName, entry_count: int)
+signal warmup_queued(
+	queue_id: int,
+	manifest_id: StringName,
+	entry_count: int
+)
 
 ## 单个条目预热完成后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param queue_id: 预热队列标识。
 ## [br]
@@ -36,7 +44,11 @@ signal warmup_queued(queue_id: int, manifest_id: StringName, entry_count: int)
 ## @param result: 单个条目的预热结果。
 ## [br]
 ## @schema result: Dictionary，包含 ok、resource_path、kind、resource_class、touched_count、error、metadata 和 entry_index。
-signal warmup_entry_processed(queue_id: int, entry_index: int, result: Dictionary)
+signal warmup_entry_processed(
+	queue_id: int,
+	entry_index: int,
+	result: Dictionary
+)
 
 ## 单个清单预热完成后发出。
 ## [br]
@@ -225,18 +237,24 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 			),
 			1
 		)
-	_queue.append({
-		"queue_id": queue_id,
-		"manifest_id": manifest.manifest_id,
-		"entries": entry_list,
-		"index": 0,
-		"processed": 0,
-		"failed": 0,
-		"options": normalized_options,
-		"started_at_unix": Time.get_unix_time_from_system(),
-		"started_at_msec": Time.get_ticks_msec(),
-	})
-	warmup_queued.emit(queue_id, manifest.manifest_id, entry_list.size())
+	_queue.append(
+		{
+			"queue_id": queue_id,
+			"manifest_id": manifest.manifest_id,
+			"entries": entry_list,
+			"index": 0,
+			"processed": 0,
+			"failed": 0,
+			"options": normalized_options,
+			"started_at_unix": Time.get_unix_time_from_system(),
+			"started_at_msec": Time.get_ticks_msec(),
+		}
+	)
+	warmup_queued.emit(
+		queue_id,
+		manifest.manifest_id,
+		entry_list.size()
+	)
 	return queue_id
 
 
@@ -257,7 +275,16 @@ func queue_manifest(manifest: GFRenderWarmupManifest, options: Dictionary = {}) 
 ## @schema return: Dictionary，包含 queue_id、manifest_id、total_count、processed_count、failed_count、ok、elapsed_seconds、stopped_by_budget、completed_at_unix 和 results。
 func warmup_manifest_now(manifest: GFRenderWarmupManifest, options: Dictionary = {}) -> Dictionary:
 	if manifest == null:
-		return _make_summary(-1, &"", 0, 0, 0, [], 0.0, false)
+		return _make_summary(
+			-1,
+			&"",
+			0,
+			0,
+			0,
+			[],
+			0.0,
+			false
+		)
 
 	var queue_id: int = _next_queue_id
 	_next_queue_id += 1
@@ -271,12 +298,19 @@ func warmup_manifest_now(manifest: GFRenderWarmupManifest, options: Dictionary =
 			stopped_by_budget = true
 			break
 
-		var result: Dictionary = _process_entry(entries[index], options)
+		var result: Dictionary = _process_entry(
+			entries[index],
+			options
+		)
 		result["entry_index"] = index
 		results.append(result)
 		if not GFVariantData.get_option_bool(result, "ok"):
 			failed_count += 1
-		warmup_entry_processed.emit(queue_id, index, result)
+		warmup_entry_processed.emit(
+			queue_id,
+			index,
+			result
+		)
 
 	var summary: Dictionary = _make_summary(
 		queue_id,
@@ -321,7 +355,12 @@ func build_manifest_from_tree(root: Node, options: Dictionary = {}) -> GFRenderW
 		return manifest
 
 	var seen: Dictionary = {}
-	_collect_node_resources(root, manifest, seen, options)
+	_collect_node_resources(
+		root,
+		manifest,
+		seen,
+		options
+	)
 	return manifest
 
 
@@ -343,7 +382,11 @@ func build_manifest_from_scene(scene: PackedScene, options: Dictionary = {}) -> 
 	manifest.manifest_id = GFVariantData.get_option_string_name(options, "manifest_id")
 	if scene == null:
 		return manifest
-	if not GFVariantData.get_option_bool(options, "allow_scene_instantiation", false):
+	if not GFVariantData.get_option_bool(
+		options,
+		"allow_scene_instantiation",
+		false
+	):
 		return manifest
 
 	var root: Node = scene.instantiate()
@@ -374,7 +417,11 @@ func build_manifest_from_scene_path(scene_path: String, options: Dictionary = {}
 	if scene_path.is_empty() or not ResourceLoader.exists(scene_path, "PackedScene"):
 		return manifest
 
-	var scene: PackedScene = ResourceLoader.load(scene_path, "PackedScene", ResourceLoader.CACHE_MODE_REUSE)
+	var scene: PackedScene = ResourceLoader.load(
+		scene_path,
+		"PackedScene",
+		ResourceLoader.CACHE_MODE_REUSE
+	)
 	return build_manifest_from_scene(scene, options)
 
 
@@ -487,12 +534,20 @@ func _process_queue_budget(max_entries: int, head_only: bool) -> int:
 	var selected_queue_id: int = -1
 	if head_only and not _queue.is_empty():
 		var selected_item: Dictionary = GFVariantData.as_dictionary(_queue[0])
-		selected_queue_id = GFVariantData.get_option_int(selected_item, "queue_id", -1)
+		selected_queue_id = GFVariantData.get_option_int(
+			selected_item,
+			"queue_id",
+			-1
+		)
 
 	var processed_now: int = 0
 	while processed_now < max_entries and not _queue.is_empty():
 		var item: Dictionary = GFVariantData.as_dictionary(_queue[0])
-		if head_only and GFVariantData.get_option_int(item, "queue_id", -1) != selected_queue_id:
+		if head_only and GFVariantData.get_option_int(
+			item,
+			"queue_id",
+			-1
+		) != selected_queue_id:
 			break
 		if _is_queue_item_budget_exhausted(item):
 			_finish_queue_item(item, true)
@@ -507,14 +562,25 @@ func _process_queue_budget(max_entries: int, head_only: bool) -> int:
 			continue
 
 		var options: Dictionary = GFVariantData.get_option_dictionary(item, "options")
-		var result: Dictionary = _process_entry(GFVariantData.as_dictionary(entries[index]), options)
+		var result: Dictionary = _process_entry(
+			GFVariantData.as_dictionary(entries[index]),
+			options
+		)
 		result["entry_index"] = index
 		item["index"] = index + 1
 		item["processed"] = GFVariantData.get_option_int(item, "processed") + 1
 		if not GFVariantData.get_option_bool(result, "ok"):
 			item["failed"] = GFVariantData.get_option_int(item, "failed") + 1
 		processed_now += 1
-		warmup_entry_processed.emit(GFVariantData.get_option_int(item, "queue_id", -1), index, result)
+		warmup_entry_processed.emit(
+			GFVariantData.get_option_int(
+				item,
+				"queue_id",
+				-1
+			),
+			index,
+			result
+		)
 
 		if GFVariantData.get_option_int(item, "index") >= entries.size():
 			_finish_queue_item(item, false)
@@ -532,11 +598,22 @@ func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 	var resource: Resource = _variant_to_resource(GFVariantData.get_option_value(normalized, "resource"))
 	var resource_path: String = GFVariantData.get_option_string(normalized, "resource_path")
 	if resource == null and not resource_path.is_empty():
-		resource = _load_resource(resource_path, GFVariantData.get_option_string(normalized, "type_hint"))
+		resource = _load_resource(
+			resource_path,
+			GFVariantData.get_option_string(normalized, "type_hint")
+		)
 
 	var result: Dictionary = {
 		"ok": resource != null,
-		"resource_path": resource_path if not resource_path.is_empty() else (resource.resource_path if resource != null else ""),
+		"resource_path": (
+			resource_path
+			if not resource_path.is_empty()
+			else (
+				resource.resource_path
+				if resource != null
+				else ""
+			)
+		),
 		"kind": GFVariantData.get_option_string_name(normalized, "kind"),
 		"resource_class": resource.get_class() if resource != null else "",
 		"touched_count": 0,
@@ -550,9 +627,21 @@ func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 		_failed_entry_count += 1
 		return result
 
-	result["touched_count"] = _touch_resource(resource, normalized, options)
-	if GFVariantData.get_option_bool(options, "keep_cached", keep_resources_cached):
-		_cache_resource(resource, GFVariantData.get_option_string(result, "resource_path"), options)
+	result["touched_count"] = _touch_resource(
+		resource,
+		normalized,
+		options
+	)
+	if GFVariantData.get_option_bool(
+		options,
+		"keep_cached",
+		keep_resources_cached
+	):
+		_cache_resource(
+			resource,
+			GFVariantData.get_option_string(result, "resource_path"),
+			options
+		)
 		result["cache_retained"] = true
 	_processed_entry_count += 1
 	return result
@@ -565,14 +654,22 @@ func _process_entry(entry: Dictionary, options: Dictionary) -> Dictionary:
 func _load_resource(resource_path: String, type_hint: String) -> Resource:
 	if not ResourceLoader.exists(resource_path, type_hint):
 		return null
-	return ResourceLoader.load(resource_path, type_hint, ResourceLoader.CACHE_MODE_REUSE)
+	return ResourceLoader.load(
+		resource_path,
+		type_hint,
+		ResourceLoader.CACHE_MODE_REUSE
+	)
 
 
 ## 按资源类型触碰 RID 或表面材质，并按配置渲染材质、Mesh 或实例化 PackedScene。
 ## [br]
 ## @api private
 ## [br]
-func _touch_resource(resource: Resource, entry: Dictionary, options: Dictionary) -> int:
+func _touch_resource(
+	resource: Resource,
+	entry: Dictionary,
+	options: Dictionary
+) -> int:
 	if resource == null:
 		return 0
 
@@ -586,7 +683,11 @@ func _touch_resource(resource: Resource, entry: Dictionary, options: Dictionary)
 		var _material_rid: RID = material.get_rid()
 		touched_count += 1
 		if _uses_temporary_render_nodes(options):
-			touched_count += _touch_material_with_temporary_node(material, GFVariantData.get_option_string_name(entry, "kind"), options)
+			touched_count += _touch_material_with_temporary_node(
+				material,
+				GFVariantData.get_option_string_name(entry, "kind"),
+				options
+			)
 	elif resource is Shader:
 		var shader: Shader = resource
 		var _shader_rid: RID = shader.get_rid()
@@ -632,7 +733,10 @@ func _touch_packed_scene(scene: PackedScene, options: Dictionary) -> int:
 	var manifest: GFRenderWarmupManifest = build_manifest_from_tree(root, options)
 	var touched_count: int = 0
 	for entry: Dictionary in manifest.get_entries():
-		touched_count += GFVariantData.get_option_int(_process_entry(entry, options), "touched_count")
+		touched_count += GFVariantData.get_option_int(
+			_process_entry(entry, options),
+			"touched_count"
+		)
 	root.free()
 	return touched_count
 
@@ -641,7 +745,11 @@ func _touch_packed_scene(scene: PackedScene, options: Dictionary) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _touch_material_with_temporary_node(material: Material, kind: StringName, options: Dictionary) -> int:
+func _touch_material_with_temporary_node(
+	material: Material,
+	kind: StringName,
+	options: Dictionary
+) -> int:
 	var parent: Node = _resolve_temporary_parent(options)
 	if parent == null:
 		return 0
@@ -651,7 +759,11 @@ func _touch_material_with_temporary_node(material: Material, kind: StringName, o
 	if kind == &"particle_material":
 		_add_particle_warmup_node(viewport, material)
 	else:
-		_add_mesh_warmup_node(viewport, _make_dummy_mesh(), material)
+		_add_mesh_warmup_node(
+			viewport,
+			_make_dummy_mesh(),
+			material
+		)
 	_temporary_render_nodes.append(viewport)
 	return 1
 
@@ -667,7 +779,11 @@ func _touch_mesh_with_temporary_node(mesh: Mesh, options: Dictionary) -> int:
 
 	var viewport: SubViewport = _make_temporary_viewport(options)
 	parent.add_child(viewport)
-	_add_mesh_warmup_node(viewport, mesh, null)
+	_add_mesh_warmup_node(
+		viewport,
+		mesh,
+		null
+	)
 	_temporary_render_nodes.append(viewport)
 	return 1
 
@@ -678,13 +794,28 @@ func _touch_mesh_with_temporary_node(mesh: Mesh, options: Dictionary) -> int:
 ## [br]
 func _make_temporary_viewport(options: Dictionary) -> SubViewport:
 	var viewport: SubViewport = SubViewport.new()
-	var viewport_size: int = maxi(GFVariantData.get_option_int(options, "temporary_viewport_size", 16), 1)
+	var viewport_size: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"temporary_viewport_size",
+			16
+		),
+		1
+	)
 	viewport.size = Vector2i(viewport_size, viewport_size)
 	viewport.transparent_bg = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	var camera: Camera3D = Camera3D.new()
 	camera.current = true
-	camera.look_at_from_position(Vector3(0.0, 0.0, 2.0), Vector3.ZERO, Vector3.UP)
+	camera.look_at_from_position(
+		Vector3(
+			0.0,
+			0.0,
+			2.0
+		),
+		Vector3.ZERO,
+		Vector3.UP
+	)
 	viewport.add_child(camera)
 	return viewport
 
@@ -693,7 +824,11 @@ func _make_temporary_viewport(options: Dictionary) -> SubViewport:
 ## [br]
 ## @api private
 ## [br]
-func _add_mesh_warmup_node(viewport: SubViewport, mesh: Mesh, material: Material) -> void:
+func _add_mesh_warmup_node(
+	viewport: SubViewport,
+	mesh: Mesh,
+	material: Material
+) -> void:
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	mesh_instance.mesh = mesh
 	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -725,11 +860,25 @@ func _make_dummy_mesh() -> ArrayMesh:
 	var mesh: ArrayMesh = ArrayMesh.new()
 	var arrays: Array = []
 	var _array_size: int = arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([
-		Vector3(-0.5, -0.5, 0.0),
-		Vector3(0.5, -0.5, 0.0),
-		Vector3(0.0, 0.5, 0.0),
-	])
+	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array(
+		[
+			Vector3(
+				-0.5,
+				-0.5,
+				0.0
+			),
+			Vector3(
+				0.5,
+				-0.5,
+				0.0
+			),
+			Vector3(
+				0.0,
+				0.5,
+				0.0
+			),
+		]
+	)
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
 
@@ -755,7 +904,11 @@ func _resolve_temporary_parent(options: Dictionary) -> Node:
 ## [br]
 ## @api private
 ## [br]
-func _cache_resource(resource: Resource, resource_path: String, options: Dictionary) -> void:
+func _cache_resource(
+	resource: Resource,
+	resource_path: String,
+	options: Dictionary
+) -> void:
 	var key: String = resource_path
 	if key.is_empty():
 		key = "instance:%d" % resource.get_instance_id()
@@ -768,7 +921,13 @@ func _cache_resource(resource: Resource, resource_path: String, options: Diction
 	}
 	_cached_resource_order.erase(key)
 	_cached_resource_order.append(key)
-	_trim_cached_resources(GFVariantData.get_option_int(options, "max_cached_resources", max_cached_resources))
+	_trim_cached_resources(
+		GFVariantData.get_option_int(
+			options,
+			"max_cached_resources",
+			max_cached_resources
+		)
+	)
 
 
 ## 根据队列累计结果构造完成摘要并发出 warmup_completed 信号。
@@ -778,16 +937,33 @@ func _cache_resource(resource: Resource, resource_path: String, options: Diction
 func _finish_queue_item(item: Dictionary, stopped_by_budget: bool) -> void:
 	var entries: Array = GFVariantData.get_option_array(item, "entries")
 	var summary: Dictionary = _make_summary(
-		GFVariantData.get_option_int(item, "queue_id", -1),
+		GFVariantData.get_option_int(
+			item,
+			"queue_id",
+			-1
+		),
 		GFVariantData.get_option_string_name(item, "manifest_id"),
 		entries.size(),
 		GFVariantData.get_option_int(item, "processed"),
 		GFVariantData.get_option_int(item, "failed"),
 		[],
-		_get_elapsed_seconds(GFVariantData.get_option_int(item, "started_at_msec", Time.get_ticks_msec())),
+		_get_elapsed_seconds(
+			GFVariantData.get_option_int(
+				item,
+				"started_at_msec",
+				Time.get_ticks_msec()
+			)
+		),
 		stopped_by_budget
 	)
-	warmup_completed.emit(GFVariantData.get_option_int(item, "queue_id", -1), summary)
+	warmup_completed.emit(
+		GFVariantData.get_option_int(
+			item,
+			"queue_id",
+			-1
+		),
+		summary
+	)
 
 
 ## 构造清单预热摘要，并深复制同步预热结果数组。
@@ -831,31 +1007,79 @@ func _collect_node_resources(
 	if node == null:
 		return
 
-	if GFVariantData.get_option_bool(options, "include_materials", true) and node is CanvasItem:
+	if GFVariantData.get_option_bool(
+		options,
+		"include_materials",
+		true
+	) and node is CanvasItem:
 		var canvas_item: CanvasItem = node
-		_add_resource_once(manifest, canvas_item.material, &"material", seen)
+		_add_resource_once(
+			manifest,
+			canvas_item.material,
+			&"material",
+			seen
+		)
 	if node is MeshInstance3D:
 		var mesh_instance: MeshInstance3D = node
-		_collect_mesh_instance_resources(mesh_instance, manifest, seen, options)
+		_collect_mesh_instance_resources(
+			mesh_instance,
+			manifest,
+			seen,
+			options
+		)
 	elif node is MultiMeshInstance3D:
 		var multimesh_instance: MultiMeshInstance3D = node
-		_collect_multimesh_instance_resources(multimesh_instance, manifest, seen, options)
+		_collect_multimesh_instance_resources(
+			multimesh_instance,
+			manifest,
+			seen,
+			options
+		)
 	elif node is GPUParticles3D:
 		var particles: GPUParticles3D = node
-		_collect_gpu_particles_resources(particles, manifest, seen, options)
-	if GFVariantData.get_option_bool(options, "include_textures", true):
+		_collect_gpu_particles_resources(
+			particles,
+			manifest,
+			seen,
+			options
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_textures",
+		true
+	):
 		if node is Sprite2D:
 			var sprite: Sprite2D = node
-			_add_resource_once(manifest, sprite.texture, &"texture", seen)
+			_add_resource_once(
+				manifest,
+				sprite.texture,
+				&"texture",
+				seen
+			)
 		elif node is TextureRect:
 			var texture_rect: TextureRect = node
-			_add_resource_once(manifest, texture_rect.texture, &"texture", seen)
+			_add_resource_once(
+				manifest,
+				texture_rect.texture,
+				&"texture",
+				seen
+			)
 		elif node is NinePatchRect:
 			var nine_patch_rect: NinePatchRect = node
-			_add_resource_once(manifest, nine_patch_rect.texture, &"texture", seen)
+			_add_resource_once(
+				manifest,
+				nine_patch_rect.texture,
+				&"texture",
+				seen
+			)
 
 	for child: Node in node.get_children():
-		_collect_node_resources(child, manifest, seen, options)
+		_collect_node_resources(
+			child,
+			manifest,
+			seen,
+			options
+		)
 
 
 ## 按选项收集 Mesh、实例材质覆盖及各表面的默认和覆盖材质。
@@ -871,15 +1095,43 @@ func _collect_mesh_instance_resources(
 	if mesh_instance == null:
 		return
 
-	if GFVariantData.get_option_bool(options, "include_meshes", true):
-		_add_resource_once(manifest, mesh_instance.mesh, &"mesh", seen)
-	if GFVariantData.get_option_bool(options, "include_materials", true):
-		_add_resource_once(manifest, mesh_instance.material_override, &"material", seen)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_meshes",
+		true
+	):
+		_add_resource_once(
+			manifest,
+			mesh_instance.mesh,
+			&"mesh",
+			seen
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_materials",
+		true
+	):
+		_add_resource_once(
+			manifest,
+			mesh_instance.material_override,
+			&"material",
+			seen
+		)
 		var mesh: Mesh = mesh_instance.mesh
 		if mesh != null:
 			for surface_index: int in range(mesh.get_surface_count()):
-				_add_resource_once(manifest, mesh.surface_get_material(surface_index), &"material", seen)
-				_add_resource_once(manifest, mesh_instance.get_surface_override_material(surface_index), &"material", seen)
+				_add_resource_once(
+					manifest,
+					mesh.surface_get_material(surface_index),
+					&"material",
+					seen
+				)
+				_add_resource_once(
+					manifest,
+					mesh_instance.get_surface_override_material(surface_index),
+					&"material",
+					seen
+				)
 
 
 ## 收集 MultiMesh 的 Mesh（若启用）及实例材质覆盖。
@@ -896,10 +1148,28 @@ func _collect_multimesh_instance_resources(
 		return
 
 	var multimesh: MultiMesh = multimesh_instance.multimesh
-	if multimesh != null and GFVariantData.get_option_bool(options, "include_meshes", true):
-		_add_resource_once(manifest, multimesh.mesh, &"mesh", seen)
-	if GFVariantData.get_option_bool(options, "include_materials", true):
-		_add_resource_once(manifest, multimesh_instance.material_override, &"material", seen)
+	if multimesh != null and GFVariantData.get_option_bool(
+		options,
+		"include_meshes",
+		true
+	):
+		_add_resource_once(
+			manifest,
+			multimesh.mesh,
+			&"mesh",
+			seen
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_materials",
+		true
+	):
+		_add_resource_once(
+			manifest,
+			multimesh_instance.material_override,
+			&"material",
+			seen
+		)
 
 
 ## 按选项收集粒子处理材质和每个绘制通道的 Mesh。
@@ -915,11 +1185,29 @@ func _collect_gpu_particles_resources(
 	if particles == null:
 		return
 
-	if GFVariantData.get_option_bool(options, "include_materials", true):
-		_add_resource_once(manifest, particles.process_material, &"particle_material", seen)
-	if GFVariantData.get_option_bool(options, "include_meshes", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_materials",
+		true
+	):
+		_add_resource_once(
+			manifest,
+			particles.process_material,
+			&"particle_material",
+			seen
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_meshes",
+		true
+	):
 		for pass_index: int in range(particles.draw_passes):
-			_add_resource_once(manifest, particles.get_draw_pass_mesh(pass_index), &"mesh", seen)
+			_add_resource_once(
+				manifest,
+				particles.get_draw_pass_mesh(pass_index),
+				&"mesh",
+				seen
+			)
 
 
 ## 以资源路径或实例 ID 去重后，将非空资源添加到预热清单。
@@ -950,7 +1238,11 @@ func _add_resource_once(
 ## @api private
 ## [br]
 func _uses_temporary_render_nodes(options: Dictionary) -> bool:
-	return GFVariantData.get_option_int(options, "touch_mode", default_touch_mode) == TouchMode.TEMPORARY_RENDER_NODES
+	return GFVariantData.get_option_int(
+		options,
+		"touch_mode",
+		default_touch_mode
+	) == TouchMode.TEMPORARY_RENDER_NODES
 
 
 ## 仅当场景实例化许可和 PackedScene 实例化开关都开启时返回 true。
@@ -959,8 +1251,16 @@ func _uses_temporary_render_nodes(options: Dictionary) -> bool:
 ## [br]
 func _can_instantiate_packed_scene(options: Dictionary) -> bool:
 	return (
-		GFVariantData.get_option_bool(options, "allow_scene_instantiation", false)
-		and GFVariantData.get_option_bool(options, "instantiate_packed_scenes", instantiate_packed_scenes)
+		GFVariantData.get_option_bool(
+			options,
+			"allow_scene_instantiation",
+			false
+		)
+		and GFVariantData.get_option_bool(
+			options,
+			"instantiate_packed_scenes",
+			instantiate_packed_scenes
+		)
 	)
 
 
@@ -969,7 +1269,11 @@ func _can_instantiate_packed_scene(options: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _get_cache_group(options: Dictionary) -> StringName:
-	var cache_group: StringName = GFVariantData.get_option_string_name(options, "cache_group", default_cache_group)
+	var cache_group: StringName = GFVariantData.get_option_string_name(
+		options,
+		"cache_group",
+		default_cache_group
+	)
 	return default_cache_group if cache_group == &"" else cache_group
 
 
@@ -978,7 +1282,10 @@ func _get_cache_group(options: Dictionary) -> StringName:
 ## @api private
 ## [br]
 func _trim_cached_resources(limit: int = -1) -> void:
-	var safe_limit: int = maxi(max_cached_resources if limit < 0 else limit, 1)
+	var safe_limit: int = maxi(
+		max_cached_resources if limit < 0 else limit,
+		1
+	)
 	while _cached_resource_order.size() > safe_limit:
 		var oldest_key: String = GFVariantData.to_text(_cached_resource_order.pop_front())
 		var _erased: bool = _cached_resources.erase(oldest_key)
@@ -990,7 +1297,14 @@ func _trim_cached_resources(limit: int = -1) -> void:
 ## [br]
 func _is_queue_item_budget_exhausted(item: Dictionary) -> bool:
 	var options: Dictionary = GFVariantData.get_option_dictionary(item, "options")
-	return _is_budget_exhausted(GFVariantData.get_option_int(item, "started_at_msec", Time.get_ticks_msec()), options)
+	return _is_budget_exhausted(
+		GFVariantData.get_option_int(
+			item,
+			"started_at_msec",
+			Time.get_ticks_msec()
+		),
+		options
+	)
 
 
 ## 仅在 max_seconds 为正数时比较已用秒数与时间上限。
@@ -998,7 +1312,11 @@ func _is_queue_item_budget_exhausted(item: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _is_budget_exhausted(started_at_msec: int, options: Dictionary) -> bool:
-	var max_seconds: float = GFVariantData.get_option_float(options, "max_seconds", default_max_seconds)
+	var max_seconds: float = GFVariantData.get_option_float(
+		options,
+		"max_seconds",
+		default_max_seconds
+	)
 	return max_seconds > 0.0 and _get_elapsed_seconds(started_at_msec) >= max_seconds
 
 
@@ -1007,7 +1325,10 @@ func _is_budget_exhausted(started_at_msec: int, options: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _get_elapsed_seconds(started_at_msec: int) -> float:
-	return maxf(float(Time.get_ticks_msec() - started_at_msec) / 1000.0, 0.0)
+	return maxf(
+		float(Time.get_ticks_msec() - started_at_msec) / 1000.0,
+		0.0
+	)
 
 
 ## 将 Variant 窄化为 Resource；其他类型返回 null。

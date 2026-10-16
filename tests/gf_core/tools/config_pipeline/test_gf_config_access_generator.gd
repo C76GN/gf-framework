@@ -3,9 +3,8 @@ extends GutTest
 
 # --- 常量 ---
 
-const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
-	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
-)
+const _GENERATOR_OUTPUT_TEST_SUPPORT = preload("res://tests/gf_core/support/gf_generator_output_test_support.gd")
+const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload("res://tests/gf_core/support/gf_transient_gdscript_test_support.gd")
 
 
 # --- 测试用例 ---
@@ -16,13 +15,34 @@ func test_build_source_generates_config_accessors() -> void:
 
 	var source: String = generator.build_source([schema])
 
-	assert_true(source.contains("class_name GFConfigAccess"), "应生成默认访问器类。")
-	assert_true(source.contains("const ITEM_DATA: StringName = &\"item_data\""), "应生成表名常量。")
-	assert_true(source.contains("static func get_item_data_record(id: Variant, provider: Variant = null) -> Variant:"), "应生成记录读取方法。")
-	assert_true(source.contains("return _get_provider_record(provider, ITEM_DATA, id)"), "记录读取方法应委托给 provider helper。")
-	assert_true(source.contains("return provider_object.call(\"get_record\", table_name, id)"), "provider helper 应使用安全反射调用。")
-	assert_false(source.contains("return resolved_provider.get_record(ITEM_DATA, id)"), "生成访问器不应对 Variant provider 直接调方法。")
-	assert_true(source.contains("static func get_item_data_table(provider: Variant = null) -> Variant:"), "应生成整表读取方法。")
+	assert_true(
+		source.contains("class_name GFConfigAccess"),
+		"应生成默认访问器类。"
+	)
+	assert_true(
+		source.contains("const ITEM_DATA: StringName = &\"item_data\""),
+		"应生成表名常量。"
+	)
+	assert_true(
+		source.contains("static func get_item_data_record(id: Variant, provider: Variant = null) -> Variant:"),
+		"应生成记录读取方法。"
+	)
+	assert_true(
+		source.contains("return _get_provider_record(provider, ITEM_DATA, id)"),
+		"记录读取方法应委托给 provider helper。"
+	)
+	assert_true(
+		source.contains("return provider_object.call(\"get_record\", table_name, id)"),
+		"provider helper 应使用安全反射调用。"
+	)
+	assert_false(
+		source.contains("return resolved_provider.get_record(ITEM_DATA, id)"),
+		"生成访问器不应对 Variant provider 直接调方法。"
+	)
+	assert_true(
+		source.contains("static func get_item_data_table(provider: Variant = null) -> Variant:"),
+		"应生成整表读取方法。"
+	)
 
 
 func test_generate_with_report_supports_dry_run_without_writing() -> void:
@@ -30,15 +50,35 @@ func test_generate_with_report_supports_dry_run_without_writing() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 	var output_path: String = "user://gf_config_access_generator_dry_run_%d.gd" % Time.get_ticks_usec()
 
-	var report: Dictionary = generator.generate_with_report([schema], output_path, "DryRunConfigAccess", "null", {
-		"dry_run": true,
-	})
+	var report: Dictionary = generator.generate_with_report(
+		[schema],
+		output_path,
+		"DryRunConfigAccess",
+		"null",
+		{ "dry_run": true, }
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "success"), "dry-run 生成报告应成功。")
-	assert_eq(GFVariantData.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_NEW, "不存在的目标应报告 new。")
-	assert_false(GFVariantData.get_option_bool(report, "written"), "dry-run 不应写入访问器文件。")
-	assert_true(GFVariantData.get_option_bool(report, "dry_run"), "报告应保留 dry_run 标记。")
-	assert_false(FileAccess.file_exists(output_path), "dry-run 不应创建访问器文件。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "success"),
+		"dry-run 生成报告应成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GFGeneratedArtifactReport.STATUS_NEW,
+		"不存在的目标应报告 new。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(report, "written"),
+		"dry-run 不应写入访问器文件。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "dry_run"),
+		"报告应保留 dry_run 标记。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"dry-run 不应创建访问器文件。"
+	)
 
 
 func test_public_writer_rejects_bare_relative_output_uri() -> void:
@@ -54,9 +94,19 @@ func test_public_writer_rejects_bare_relative_output_uri() -> void:
 	)
 
 	assert_push_error("[GFGeneratedArtifactReport][generated_artifact_report.output_path_invalid] Artifact operation for GFConfigAccessGenerator reported the following.\nThe output path must use res:// or user://")
-	assert_false(GFVariantData.get_option_bool(report, "success"), "直接 generator writer 也必须拒绝裸相对输出路径。")
-	assert_eq(GFVariantData.get_option_int(report, "error_code"), ERR_INVALID_PARAMETER, "URI 域错误应报告参数错误。")
-	assert_false(GFVariantData.get_option_bool(report, "written"), "非法 URI 不得写入产物。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "success"),
+		"直接 generator writer 也必须拒绝裸相对输出路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"URI 域错误应报告参数错误。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(report, "written"),
+		"非法 URI 不得写入产物。"
+	)
 
 
 func test_legacy_save_source_projects_committed_failure_to_ok() -> void:
@@ -67,44 +117,145 @@ func test_legacy_save_source_projects_committed_failure_to_ok() -> void:
 	GFGeneratedArtifactReport._reset_test_state()
 	_configure_committed_generator_failure()
 
-	var report: Dictionary = generator.save_source_with_report(report_path, "expected", {
-		"scan_filesystem": false,
-	})
+	var report: Dictionary = generator.save_source_with_report(
+		report_path,
+		"expected",
+		{ "scan_filesystem": false, }
+	)
 	_configure_committed_generator_failure()
 	var save_error: Error = generator.save_source(save_path, "expected")
 	GFGeneratedArtifactReport._reset_test_state()
+	var report_content: String = FileAccess.get_file_as_string(report_path)
+	var save_content: String = FileAccess.get_file_as_string(save_path)
 	_remove_generated_test_file(report_path)
 	_remove_generated_test_file(save_path)
 
-	assert_false(GFVariantData.get_option_bool(report, "success"), "报告入口必须保留 post-commit 失败。")
-	assert_eq(GFVariantData.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_FAILED)
-	assert_true(GFVariantData.get_option_bool(report, "written"), "最终替换已发生时报告必须保留 written。")
-	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_CORRUPT, "报告必须保留原始后置复核错误。")
-	assert_eq(save_error, OK, "Error-only save_source 不得把已提交结果伪装成可重试失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "success"),
+		"报告入口必须保留 post-commit 失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GFGeneratedArtifactReport.STATUS_FAILED
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "written"),
+		"最终替换已发生时报告必须保留 written。"
+	)
+	assert_eq(
+		GFGeneratedArtifactReport.get_error_code(report),
+		ERR_FILE_CORRUPT,
+		"报告必须保留原始后置复核错误。"
+	)
+	assert_eq(
+		save_error,
+		OK,
+		"Error-only save_source 不得把已提交结果伪装成可重试失败。"
+	)
+	assert_eq(report_content, "external-post-commit-change")
+	assert_eq(save_content, "external-post-commit-change")
 	assert_push_error_count(2, "每次注入的 post-commit 复核失败都应保留诊断。")
 
 
-func test_legacy_error_entries_share_committed_projection() -> void:
-	var source: String = FileAccess.get_file_as_string(
-		"res://addons/gf/tools/config_pipeline/gf_config_access_generator.gd"
+func test_legacy_error_entries_preserve_write_outcomes() -> void:
+	var schema: ConfigSchemaStub = ConfigSchemaStub.new(&"item_data")
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+	var stamp: int = Time.get_ticks_usec()
+	var generate_path: String = "user://gf_config_access_legacy_generate_%d.gd" % stamp
+	var save_path: String = "user://gf_config_access_legacy_save_%d.gd" % stamp
+	var generate_error: Error = generator.generate(
+		[schema],
+		generate_path,
+		true,
+		"LegacyConfigAccess",
+		"null",
+		{ "scan_filesystem": false }
 	)
+	var generated_content: String = FileAccess.get_file_as_string(generate_path)
+	var save_error: Error = generator.save_source(save_path, "manual")
+	var skipped_save_error: Error = generator.save_source(
+		save_path,
+		"replacement",
+		false
+	)
+	var skipped_generate_error: Error = generator.generate(
+		[schema],
+		save_path,
+		false,
+		"LegacyConfigAccess",
+		"null",
+		{ "scan_filesystem": false }
+	)
+	var skipped_content: String = FileAccess.get_file_as_string(save_path)
+	GFGeneratedArtifactReport._reset_test_state()
+	_configure_committed_generator_failure()
+	var committed_error: Error = generator.generate(
+		[schema],
+		generate_path,
+		true,
+		"ChangedLegacyConfigAccess",
+		"null",
+		{ "scan_filesystem": false }
+	)
+	GFGeneratedArtifactReport._reset_test_state()
+	var committed_content: String = FileAccess.get_file_as_string(generate_path)
+	_remove_generated_test_file(generate_path)
+	_remove_generated_test_file(save_path)
 
-	assert_eq(source.count("return _get_legacy_error_code(report)"), 2, "两个 Error-only 入口必须委托唯一投影。")
-	assert_true(source.contains("func _get_legacy_error_code(report: Dictionary) -> Error:"))
-	assert_true(source.contains("if GFVariantData.get_option_bool(report, \"written\", false):"))
-	assert_true(source.contains("return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)"))
+	assert_eq(generate_error, OK)
+	assert_eq(save_error, OK)
+	assert_eq(
+		generated_content,
+		generator.build_source(
+			[schema],
+			"LegacyConfigAccess",
+			"null"
+		)
+	)
+	assert_eq(skipped_save_error, ERR_ALREADY_EXISTS)
+	assert_eq(skipped_generate_error, ERR_ALREADY_EXISTS)
+	assert_eq(
+		skipped_content,
+		"manual",
+		"未提交的失败必须保留原目标。"
+	)
+	assert_eq(
+		committed_error,
+		OK,
+		"generate 已提交后不能返回可重试失败。"
+	)
+	assert_eq(committed_content, "external-post-commit-change")
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFConfigAccessGenerator reported the following.\nThe target file already exists and was skipped: %s." % save_path)
+	assert_push_warning("[GFGeneratedArtifactReport][generated_artifact_report.output_exists] Artifact operation for GFConfigAccessGenerator reported the following.\nThe target file already exists and was skipped: %s." % save_path)
+	assert_push_error_count(1, "提交后的复核失败仍须保留诊断。")
 
 
 func test_build_source_sanitizes_invalid_table_names() -> void:
 	var schema: ConfigSchemaStub = ConfigSchemaStub.new(&"123 item-data")
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([schema], "MyConfigAccess", "null")
+	var source: String = generator.build_source(
+		[schema],
+		"MyConfigAccess",
+		"null"
+	)
 
-	assert_true(source.contains("class_name MyConfigAccess"), "应允许自定义访问器类名。")
-	assert_true(source.contains("const TABLE_123_ITEM_DATA: StringName = &\"123 item-data\""), "非法标识符字符应转为有效常量名。")
-	assert_true(source.contains("static func get_table_123_item_data_record"), "数字开头表名应生成安全方法前缀。")
-	assert_true(source.contains("\treturn null"), "应允许自定义 provider_accessor。")
+	assert_true(
+		source.contains("class_name MyConfigAccess"),
+		"应允许自定义访问器类名。"
+	)
+	assert_true(
+		source.contains("const TABLE_123_ITEM_DATA: StringName = &\"123 item-data\""),
+		"非法标识符字符应转为有效常量名。"
+	)
+	assert_true(
+		source.contains("static func get_table_123_item_data_record"),
+		"数字开头表名应生成安全方法前缀。"
+	)
+	assert_true(
+		source.contains("\treturn null"),
+		"应允许自定义 provider_accessor。"
+	)
 
 
 func test_generated_accessors_preserve_control_characters_in_table_and_field_names() -> void:
@@ -113,23 +264,44 @@ func test_generated_accessors_preserve_control_characters_in_table_and_field_nam
 	var schema: ConfigSchemaStub = ConfigSchemaStub.new(table_name)
 	schema.columns = [ConfigColumnStub.new(field_name, GFConfigTableColumn.ValueType.INT)]
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
-	var source: String = generator.build_source([schema], "EscapedConfigAccess", "null", {
-		"include_typed_records": true,
-	}).replace("class_name EscapedConfigAccess\n", "")
+	var source: String = (
+		generator.build_source(
+			[schema],
+			"EscapedConfigAccess",
+			"null",
+			{ "include_typed_records": true, }
+		).replace("class_name EscapedConfigAccess\n", "")
+	)
 	var runtime_script: GDScript = GDScript.new()
 	runtime_script.source_code = source
 	var compile_error: Error = runtime_script.reload(false)
-	assert_eq(compile_error, OK, "LF、CR、Tab、引号和反斜杠必须作为名称值保留，不能破坏生成源码。")
+	assert_eq(
+		compile_error,
+		OK,
+		"LF、CR、Tab、引号和反斜杠必须作为名称值保留，不能破坏生成源码。"
+	)
 	if compile_error == OK:
 		var provider: RecordingConfigProvider = RecordingConfigProvider.new()
 		provider.record = { field_name: 42 }
-		var record_value: Variant = runtime_script.call(&"get_item_data_typed_record", 1, provider)
-		assert_eq(provider.last_table_name, table_name, "访问器应向 provider 传递未经名称合法化改变的原表名。")
+		var record_value: Variant = runtime_script.call(
+			&"get_item_data_typed_record",
+			1,
+			provider
+		)
+		assert_eq(
+			provider.last_table_name,
+			table_name,
+			"访问器应向 provider 传递未经名称合法化改变的原表名。"
+		)
 		assert_true(record_value is Object)
 		if record_value is Object:
 			var record: Object = record_value
 			var field_value: int = record.call(&"get_value_name")
-			assert_eq(field_value, 42, "typed getter 应以原字段名查询记录。")
+			assert_eq(
+				field_value,
+				42,
+				"typed getter 应以原字段名查询记录。"
+			)
 			record = null
 		record_value = null
 	var cleanup_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
@@ -143,48 +315,102 @@ func test_build_source_emits_unicode_only_and_mixed_table_names_completely() -> 
 		ConfigSchemaStub.new(&"enemy_data"),
 		ConfigSchemaStub.new(&"😀"),
 	]
-	var result: Dictionary = generator.build_source_with_report(
-		schemas,
-		"UnicodeConfigAccess"
-	)
+	var result: Dictionary = generator.build_source_with_report(schemas, "UnicodeConfigAccess")
 	var source: String = GFVariantData.get_option_string(result, "source")
 	var item_identifier: String = "TABLE_%s" % "物品".sha256_text().substr(0, 12).to_upper()
 	var emoji_identifier: String = "TABLE_%s" % "😀".sha256_text().substr(0, 12).to_upper()
 
-	assert_true(GFVariantData.get_option_bool(result, "success"), "Unicode-only 表名必须生成稳定 fallback，而不是被静默跳过。")
-	assert_eq(GFVariantData.get_option_int(result, "input_schema_count"), 3, "生成报告应记录全部输入 schema。")
-	assert_eq(GFVariantData.get_option_int(result, "emitted_schema_count"), 3, "每个合法表名都必须发射访问器。")
-	assert_eq(GFVariantData.get_option_int(result, "skipped_schema_count"), 0, "成功生成不得存在 skipped schema。")
-	assert_true(source.contains("const %s: StringName = &\"物品\"" % item_identifier), "中文表名应保留原始 StringName 并使用稳定 hash 标识符。")
-	assert_true(source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""), "混合输入中的 ASCII 表名应保持现有命名。")
-	assert_true(source.contains("const %s: StringName = &\"😀\"" % emoji_identifier), "emoji-only 表名也必须生成稳定访问器。")
-	_assert_generated_source_compiles(source, "UnicodeConfigAccess", "Unicode fallback 生成源码必须可编译。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "success"),
+		"Unicode-only 表名必须生成稳定 fallback，而不是被静默跳过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "input_schema_count"),
+		3,
+		"生成报告应记录全部输入 schema。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "emitted_schema_count"),
+		3,
+		"每个合法表名都必须发射访问器。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "skipped_schema_count"),
+		0,
+		"成功生成不得存在 skipped schema。"
+	)
+	assert_true(
+		source.contains("const %s: StringName = &\"物品\"" % item_identifier),
+		"中文表名应保留原始 StringName 并使用稳定 hash 标识符。"
+	)
+	assert_true(
+		source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""),
+		"混合输入中的 ASCII 表名应保持现有命名。"
+	)
+	assert_true(
+		source.contains("const %s: StringName = &\"😀\"" % emoji_identifier),
+		"emoji-only 表名也必须生成稳定访问器。"
+	)
+	_assert_generated_source_compiles(
+		source,
+		"UnicodeConfigAccess",
+		"Unicode fallback 生成源码必须可编译。"
+	)
 
 
 func test_generate_with_report_fails_closed_when_schema_has_no_table_name() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 	var output_path: String = "user://gf_config_access_generator_invalid_%d.gd" % Time.get_ticks_usec()
 	var report: Dictionary = generator.generate_with_report(
-		[{ "metadata": { "comment": "missing name" } }],
+		[
+			{
+				"metadata": { "comment": "missing name" },
+			},
+		],
 		output_path,
 		"InvalidConfigAccess",
 		"null",
 		{ "dry_run": true }
 	)
 
-	assert_false(GFVariantData.get_option_bool(report, "success"), "缺少表名的 schema 必须在写文件前 fail-closed。")
-	assert_eq(GFVariantData.get_option_int(report, "input_schema_count"), 1, "失败报告应保留输入计数。")
-	assert_eq(GFVariantData.get_option_int(report, "emitted_schema_count"), 0, "失败报告不得谎报已发射 schema。")
-	assert_eq(GFVariantData.get_option_int(report, "skipped_schema_count"), 1, "失败报告应明确 skipped 数量。")
-	assert_false(FileAccess.file_exists(output_path), "不完整 schema 不得产生访问器文件。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "success"),
+		"缺少表名的 schema 必须在写文件前 fail-closed。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "input_schema_count"),
+		1,
+		"失败报告应保留输入计数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "emitted_schema_count"),
+		0,
+		"失败报告不得谎报已发射 schema。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "skipped_schema_count"),
+		1,
+		"失败报告应明确 skipped 数量。"
+	)
+	assert_false(
+		FileAccess.file_exists(output_path),
+		"不完整 schema 不得产生访问器文件。"
+	)
 
 
 func test_build_source_accepts_dictionary_schemas() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([{ "table_name": "enemy_data" }])
+	var source: String = generator.build_source(
+		[
+			{ "table_name": "enemy_data" },
+		]
+	)
 
-	assert_true(source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""), "字典 schema 应可提供表名。")
+	assert_true(
+		source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""),
+		"字典 schema 应可提供表名。"
+	)
 
 
 func test_build_source_reads_schema_properties_without_calling_methods() -> void:
@@ -193,7 +419,10 @@ func test_build_source_reads_schema_properties_without_calling_methods() -> void
 
 	var source: String = generator.build_source([schema])
 
-	assert_true(source.contains("const ITEM_DATA: StringName = &\"item_data\""), "对象 schema 应通过导出属性提供表名。")
+	assert_true(
+		source.contains("const ITEM_DATA: StringName = &\"item_data\""),
+		"对象 schema 应通过导出属性提供表名。"
+	)
 	assert_false(schema.get_table_key_called, "编辑器生成器不应调用 schema 方法，避免 placeholder 报错。")
 
 
@@ -203,7 +432,10 @@ func test_build_source_accepts_object_table_key_property() -> void:
 
 	var source: String = generator.build_source([schema])
 
-	assert_true(source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""), "对象 schema 应支持 table_key 属性。")
+	assert_true(
+		source.contains("const ENEMY_DATA: StringName = &\"enemy_data\""),
+		"对象 schema 应支持 table_key 属性。"
+	)
 
 
 func test_build_source_supports_gdscript_generation_options() -> void:
@@ -211,17 +443,34 @@ func test_build_source_supports_gdscript_generation_options() -> void:
 	schema.metadata = { "comment": "道具配置表。" }
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([schema], "MyConfigAccess", "null", {
-		"method_name_style": "camel",
-		"constant_prefix": "cfg",
-		"record_method_pattern": "fetch_{table}",
-		"table_method_pattern": "all_{table}",
-	})
+	var source: String = generator.build_source(
+		[schema],
+		"MyConfigAccess",
+		"null",
+		{
+			"method_name_style": "camel",
+			"constant_prefix": "cfg",
+			"record_method_pattern": "fetch_{table}",
+			"table_method_pattern": "all_{table}",
+		}
+	)
 
-	assert_true(source.contains("const CFG_ITEM_DATA: StringName = &\"item_data\""), "常量前缀应按选项生成。")
-	assert_true(source.contains("## 道具配置表。"), "schema metadata 注释应写入生成源码。")
-	assert_true(source.contains("static func fetch_itemData(id: Variant, provider: Variant = null) -> Variant:"), "记录方法应按 GDScript 命名选项生成。")
-	assert_true(source.contains("static func all_itemData(provider: Variant = null) -> Variant:"), "整表方法应按自定义模板生成。")
+	assert_true(
+		source.contains("const CFG_ITEM_DATA: StringName = &\"item_data\""),
+		"常量前缀应按选项生成。"
+	)
+	assert_true(
+		source.contains("## 道具配置表。"),
+		"schema metadata 注释应写入生成源码。"
+	)
+	assert_true(
+		source.contains("static func fetch_itemData(id: Variant, provider: Variant = null) -> Variant:"),
+		"记录方法应按 GDScript 命名选项生成。"
+	)
+	assert_true(
+		source.contains("static func all_itemData(provider: Variant = null) -> Variant:"),
+		"整表方法应按自定义模板生成。"
+	)
 
 
 func test_build_source_can_generate_typed_record_wrappers() -> void:
@@ -233,134 +482,288 @@ func test_build_source_can_generate_typed_record_wrappers() -> void:
 	]
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([schema], "GFConfigAccess", "null", {
-		"include_typed_records": true,
-	})
+	var source: String = generator.build_source(
+		[schema],
+		"GFConfigAccess",
+		"null",
+		{ "include_typed_records": true, }
+	)
 
-	assert_true(source.contains("class GFConfigRecordAccessBase:"), "启用 typed records 时应生成记录访问基类。")
-	assert_true(source.contains("class ItemDataRecord:"), "应按表名生成记录包装类。")
-	assert_true(source.contains("static func get_item_data_typed_record(id: Variant, provider: Variant = null) -> ItemDataRecord:"), "应生成 typed record 读取方法。")
-	assert_true(source.contains("return ItemDataRecord.from_variant(_get_provider_record(provider, ITEM_DATA, id))"), "typed record 方法应复用 provider 读取结果。")
-	assert_true(source.contains("func get_id() -> int:"), "INT 字段应生成 int getter。")
-	assert_true(source.contains("return get_int(&\"id\", 0)"), "INT getter 应使用类型收窄 helper。")
-	assert_true(source.contains("func get_name() -> String:"), "STRING 字段应生成 String getter。")
-	assert_true(source.contains("return get_string(&\"name\", \"\")"), "STRING getter 应使用文本 helper。")
-	assert_true(source.contains("func get_power() -> float:"), "FLOAT 字段应生成 float getter。")
+	assert_true(
+		source.contains("class GFConfigRecordAccessBase:"),
+		"启用 typed records 时应生成记录访问基类。"
+	)
+	assert_true(
+		source.contains("class ItemDataRecord:"),
+		"应按表名生成记录包装类。"
+	)
+	assert_true(
+		source.contains("static func get_item_data_typed_record(id: Variant, provider: Variant = null) -> ItemDataRecord:"),
+		"应生成 typed record 读取方法。"
+	)
+	assert_true(
+		source.contains("return ItemDataRecord.from_variant(_get_provider_record(provider, ITEM_DATA, id))"),
+		"typed record 方法应复用 provider 读取结果。"
+	)
+	assert_true(
+		source.contains("func get_id() -> int:"),
+		"INT 字段应生成 int getter。"
+	)
+	assert_true(
+		source.contains("return get_int(&\"id\", 0)"),
+		"INT getter 应使用类型收窄 helper。"
+	)
+	assert_true(
+		source.contains("func get_name() -> String:"),
+		"STRING 字段应生成 String getter。"
+	)
+	assert_true(
+		source.contains("return get_string(&\"name\", \"\")"),
+		"STRING getter 应使用文本 helper。"
+	)
+	assert_true(
+		source.contains("func get_power() -> float:"),
+		"FLOAT 字段应生成 float getter。"
+	)
 
-	_assert_generated_source_compiles(source, "GFConfigAccess", "typed record 生成源码去掉全局类注册行后应能编译。")
+	_assert_generated_source_compiles(
+		source,
+		"GFConfigAccess",
+		"typed record 生成源码去掉全局类注册行后应能编译。"
+	)
 
 
 func test_build_source_accepts_dictionary_columns_for_typed_record_wrappers() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([{
-		"table_name": "enemy_data",
-		"columns": [
-			{ "field_name": "spawn_point", "value_type": "Vector2" },
-			{ "name": "tags", "type": "array" },
+	var source: String = generator.build_source(
+		[
+			{
+				"table_name": "enemy_data",
+				"columns": [
+					{ "field_name": "spawn_point", "value_type": "Vector2" },
+					{ "name": "tags", "type": "array" },
+				],
+			},
 		],
-	}], "EnemyConfigAccess", "null", {
-		"include_typed_records": true,
-		"typed_record_class_suffix": "Row",
-		"typed_record_method_pattern": "typed_{table}",
-	})
+		"EnemyConfigAccess",
+		"null",
+		{
+			"include_typed_records": true,
+			"typed_record_class_suffix": "Row",
+			"typed_record_method_pattern": "typed_{table}",
+		}
+	)
 
-	assert_true(source.contains("class EnemyDataRow:"), "字典 schema 应支持自定义记录包装类后缀。")
-	assert_true(source.contains("static func typed_enemy_data(id: Variant, provider: Variant = null) -> EnemyDataRow:"), "typed record 方法应支持自定义模板。")
-	assert_true(source.contains("func get_spawn_point() -> Vector2:"), "字符串类型声明应映射 Vector2 getter。")
-	assert_true(source.contains("return get_vector2(&\"spawn_point\", Vector2.ZERO)"), "Vector2 getter 应使用向量 helper。")
-	assert_true(source.contains("func get_tags() -> Array:"), "字典列名别名 name/type 应被识别。")
+	assert_true(
+		source.contains("class EnemyDataRow:"),
+		"字典 schema 应支持自定义记录包装类后缀。"
+	)
+	assert_true(
+		source.contains("static func typed_enemy_data(id: Variant, provider: Variant = null) -> EnemyDataRow:"),
+		"typed record 方法应支持自定义模板。"
+	)
+	assert_true(
+		source.contains("func get_spawn_point() -> Vector2:"),
+		"字符串类型声明应映射 Vector2 getter。"
+	)
+	assert_true(
+		source.contains("return get_vector2(&\"spawn_point\", Vector2.ZERO)"),
+		"Vector2 getter 应使用向量 helper。"
+	)
+	assert_true(
+		source.contains("func get_tags() -> Array:"),
+		"字典列名别名 name/type 应被识别。"
+	)
 
-	_assert_generated_source_compiles(source, "EnemyConfigAccess", "字典 schema typed record 生成源码应能编译。")
+	_assert_generated_source_compiles(
+		source,
+		"EnemyConfigAccess",
+		"字典 schema typed record 生成源码应能编译。"
+	)
 
 
 func test_build_source_maps_column_value_types_to_typed_getters() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([{
-		"table_name": "typed_values",
-		"columns": [
-			{ "field_name": "any_value", "value_type": "any" },
-			{ "field_name": "enabled", "value_type": "bool" },
-			{ "field_name": "count", "value_type": "int" },
-			{ "field_name": "ratio", "value_type": "float" },
-			{ "field_name": "title", "value_type": "string" },
-			{ "field_name": "key", "value_type": "string_name" },
-			{ "field_name": "position", "value_type": "vector2" },
-			{ "field_name": "cell", "value_type": "vector2i" },
-			{ "field_name": "tint", "value_type": "color" },
-			{ "field_name": "payload", "value_type": "dictionary" },
-			{ "field_name": "tags", "value_type": "array" },
+	var source: String = generator.build_source(
+		[
+			{
+				"table_name": "typed_values",
+				"columns": [
+					{ "field_name": "any_value", "value_type": "any" },
+					{ "field_name": "enabled", "value_type": "bool" },
+					{ "field_name": "count", "value_type": "int" },
+					{ "field_name": "ratio", "value_type": "float" },
+					{ "field_name": "title", "value_type": "string" },
+					{ "field_name": "key", "value_type": "string_name" },
+					{ "field_name": "position", "value_type": "vector2" },
+					{ "field_name": "cell", "value_type": "vector2i" },
+					{ "field_name": "tint", "value_type": "color" },
+					{ "field_name": "payload", "value_type": "dictionary" },
+					{ "field_name": "tags", "value_type": "array" },
+				],
+			},
 		],
-	}], "TypedValuesConfigAccess", "null", {
-		"include_typed_records": true,
-	})
+		"TypedValuesConfigAccess",
+		"null",
+		{ "include_typed_records": true, }
+	)
 
-	assert_true(source.contains("func get_any_value() -> Variant:"), "ANY 字段应保留 Variant getter。")
-	assert_true(source.contains("return get_value(&\"any_value\", null)"), "ANY getter 应直接读取原始值。")
-	assert_true(source.contains("func get_enabled() -> bool:"), "BOOL 字段应生成 bool getter。")
-	assert_true(source.contains("return get_bool(&\"enabled\", false)"), "BOOL getter 应使用 bool helper。")
-	assert_true(source.contains("func get_count() -> int:"), "INT 字段应生成 int getter。")
-	assert_true(source.contains("func get_ratio() -> float:"), "FLOAT 字段应生成 float getter。")
-	assert_true(source.contains("func get_title() -> String:"), "STRING 字段应生成 String getter。")
-	assert_true(source.contains("func get_key() -> StringName:"), "STRING_NAME 字段应生成 StringName getter。")
-	assert_true(source.contains("func get_position() -> Vector2:"), "VECTOR2 字段应生成 Vector2 getter。")
-	assert_true(source.contains("func get_cell() -> Vector2i:"), "VECTOR2I 字段应生成 Vector2i getter。")
-	assert_true(source.contains("func get_tint() -> Color:"), "COLOR 字段应生成 Color getter。")
-	assert_true(source.contains("func get_payload() -> Dictionary:"), "DICTIONARY 字段应生成 Dictionary getter。")
-	assert_true(source.contains("return get_dictionary(&\"payload\", {})"), "DICTIONARY getter 应返回字典副本 helper。")
-	assert_true(source.contains("func get_tags() -> Array:"), "ARRAY 字段应生成 Array getter。")
-	assert_true(source.contains("return get_array(&\"tags\", [])"), "ARRAY getter 应返回数组副本 helper。")
+	assert_true(
+		source.contains("func get_any_value() -> Variant:"),
+		"ANY 字段应保留 Variant getter。"
+	)
+	assert_true(
+		source.contains("return get_value(&\"any_value\", null)"),
+		"ANY getter 应直接读取原始值。"
+	)
+	assert_true(
+		source.contains("func get_enabled() -> bool:"),
+		"BOOL 字段应生成 bool getter。"
+	)
+	assert_true(
+		source.contains("return get_bool(&\"enabled\", false)"),
+		"BOOL getter 应使用 bool helper。"
+	)
+	assert_true(
+		source.contains("func get_count() -> int:"),
+		"INT 字段应生成 int getter。"
+	)
+	assert_true(
+		source.contains("func get_ratio() -> float:"),
+		"FLOAT 字段应生成 float getter。"
+	)
+	assert_true(
+		source.contains("func get_title() -> String:"),
+		"STRING 字段应生成 String getter。"
+	)
+	assert_true(
+		source.contains("func get_key() -> StringName:"),
+		"STRING_NAME 字段应生成 StringName getter。"
+	)
+	assert_true(
+		source.contains("func get_position() -> Vector2:"),
+		"VECTOR2 字段应生成 Vector2 getter。"
+	)
+	assert_true(
+		source.contains("func get_cell() -> Vector2i:"),
+		"VECTOR2I 字段应生成 Vector2i getter。"
+	)
+	assert_true(
+		source.contains("func get_tint() -> Color:"),
+		"COLOR 字段应生成 Color getter。"
+	)
+	assert_true(
+		source.contains("func get_payload() -> Dictionary:"),
+		"DICTIONARY 字段应生成 Dictionary getter。"
+	)
+	assert_true(
+		source.contains("return get_dictionary(&\"payload\", {})"),
+		"DICTIONARY getter 应返回字典副本 helper。"
+	)
+	assert_true(
+		source.contains("func get_tags() -> Array:"),
+		"ARRAY 字段应生成 Array getter。"
+	)
+	assert_true(
+		source.contains("return get_array(&\"tags\", [])"),
+		"ARRAY getter 应返回数组副本 helper。"
+	)
 
-	_assert_generated_source_compiles(source, "TypedValuesConfigAccess", "基础列类型映射生成源码应能编译。")
+	_assert_generated_source_compiles(
+		source,
+		"TypedValuesConfigAccess",
+		"基础列类型映射生成源码应能编译。"
+	)
 
 
 func test_build_source_deduplicates_dirty_generated_identifiers() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 
-	var source: String = generator.build_source([
+	var source: String = generator.build_source(
+		[
+			{
+				"table_name": "class",
+				"columns": [
+					{ "field_name": "class", "value_type": "string" },
+					{ "field_name": "value", "value_type": "int" },
+					{ "field_name": "1st value", "value_type": "float" },
+				],
+			},
+			{
+				"table_name": "class!",
+				"columns": [
+					{ "field_name": "class", "value_type": "bool" },
+				],
+			},
+		],
+		"123 config access",
+		"null",
 		{
-			"table_name": "class",
-			"columns": [
-				{ "field_name": "class", "value_type": "string" },
-				{ "field_name": "value", "value_type": "int" },
-				{ "field_name": "1st value", "value_type": "float" },
-			],
-		},
-		{
-			"table_name": "class!",
-			"columns": [
-				{ "field_name": "class", "value_type": "bool" },
-			],
-		},
-	], "123 config access", "null", {
-		"include_typed_records": true,
-		"record_method_pattern": "{table}",
-		"table_method_pattern": "{table}",
-		"typed_record_method_pattern": "{table}",
-	})
+			"include_typed_records": true,
+			"record_method_pattern": "{table}",
+			"table_method_pattern": "{table}",
+			"typed_record_method_pattern": "{table}",
+		}
+	)
 
-	assert_true(source.contains("class_name Table123ConfigAccess"), "非法访问器 class_name 应规范化为有效类名。")
-	assert_true(source.contains("const CLASS: StringName = &\"class\""), "重复基础常量名应保留首个稳定名称。")
-	assert_true(source.contains("const CLASS_2: StringName = &\"class!\""), "重复基础常量名应自动追加后缀。")
-	assert_true(source.contains("class ClassRecord:"), "首个重复记录类名应保留稳定名称。")
-	assert_true(source.contains("class ClassRecord_2:"), "重复记录类名应自动追加后缀。")
-	assert_true(source.contains("static func method_class(id: Variant, provider: Variant = null) -> Variant:"), "保留字方法名应自动增加安全前缀。")
-	assert_true(source.contains("static func method_class_2(provider: Variant = null) -> Variant:"), "同表 record/table 方法冲突应自动去重。")
-	assert_true(source.contains("static func method_class_3(id: Variant, provider: Variant = null) -> ClassRecord:"), "typed record 方法冲突应继续自动去重。")
-	assert_true(source.contains("func get_class_2() -> String:"), "字段 getter 不应覆盖 Object.get_class。")
-	assert_true(source.contains("func get_value_2() -> int:"), "字段 getter 不应覆盖 typed record 基类 get_value。")
-	assert_true(source.contains("func get_table_1st_value() -> float:"), "数字开头字段名应生成安全 getter。")
+	assert_true(
+		source.contains("class_name Table123ConfigAccess"),
+		"非法访问器 class_name 应规范化为有效类名。"
+	)
+	assert_true(
+		source.contains("const CLASS: StringName = &\"class\""),
+		"重复基础常量名应保留首个稳定名称。"
+	)
+	assert_true(
+		source.contains("const CLASS_2: StringName = &\"class!\""),
+		"重复基础常量名应自动追加后缀。"
+	)
+	assert_true(
+		source.contains("class ClassRecord:"),
+		"首个重复记录类名应保留稳定名称。"
+	)
+	assert_true(
+		source.contains("class ClassRecord_2:"),
+		"重复记录类名应自动追加后缀。"
+	)
+	assert_true(
+		source.contains("static func method_class(id: Variant, provider: Variant = null) -> Variant:"),
+		"保留字方法名应自动增加安全前缀。"
+	)
+	assert_true(
+		source.contains("static func method_class_2(provider: Variant = null) -> Variant:"),
+		"同表 record/table 方法冲突应自动去重。"
+	)
+	assert_true(
+		source.contains("static func method_class_3(id: Variant, provider: Variant = null) -> ClassRecord:"),
+		"typed record 方法冲突应继续自动去重。"
+	)
+	assert_true(
+		source.contains("func get_class_2() -> String:"),
+		"字段 getter 不应覆盖 Object.get_class。"
+	)
+	assert_true(
+		source.contains("func get_value_2() -> int:"),
+		"字段 getter 不应覆盖 typed record 基类 get_value。"
+	)
+	assert_true(
+		source.contains("func get_table_1st_value() -> float:"),
+		"数字开头字段名应生成安全 getter。"
+	)
 
-	_assert_generated_source_compiles(source, "Table123ConfigAccess", "脏表名和字段名生成源码应能编译。")
+	_assert_generated_source_compiles(
+		source,
+		"Table123ConfigAccess",
+		"脏表名和字段名生成源码应能编译。"
+	)
 
 
 # --- 私有/辅助方法 ---
 
 func _configure_committed_generator_failure() -> void:
-	GFGeneratedArtifactReport._configure_test_after_final_replace(
-		Callable(self, "_corrupt_committed_generator_output")
-	)
+	GFGeneratedArtifactReport._configure_test_after_final_replace(Callable(self, "_corrupt_committed_generator_output"))
 
 
 func _corrupt_committed_generator_output(
@@ -368,31 +771,39 @@ func _corrupt_committed_generator_output(
 	_temp_path: String,
 	_backup_path: String
 ) -> void:
-	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
-	assert_not_null(file, "post-commit fixture 必须能改写已提交目标。")
-	if file == null:
-		return
-	var _store_string_result: Variant = file.store_string("external-post-commit-change")
-	file.close()
+	_GENERATOR_OUTPUT_TEST_SUPPORT.overwrite_committed_output(self, output_path)
 
 
 func _remove_generated_test_file(path: String) -> void:
-	if not FileAccess.file_exists(path):
-		return
-	assert_eq(
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path)),
-		OK,
-		"测试必须清理生成器输出。"
-	)
+	_GENERATOR_OUTPUT_TEST_SUPPORT.remove_generated_file(self, path)
 
 
-func _assert_generated_source_compiles(source: String, access_class_name: String, message: String) -> void:
+func _assert_generated_source_compiles(
+	source: String,
+	access_class_name: String,
+	message: String
+) -> void:
 	var report: Dictionary = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.compile_and_release(
-		source.replace("class_name %s\n" % access_class_name, "")
+		source.replace(
+			"class_name %s\n" % access_class_name,
+			""
+		)
 	)
-	assert_eq(GFVariantData.get_option_int(report, "compile_error"), OK, message)
-	assert_eq(GFVariantData.get_option_array(report, "cleanup_errors"), [], "动态编译测试必须释放生成脚本的内部类图。")
-	assert_eq(GFVariantData.get_option_string(report, "configuration_error"), "", "动态编译测试必须使用匿名内建 GDScript 根。")
+	assert_eq(
+		GFVariantData.get_option_int(report, "compile_error"),
+		OK,
+		message
+	)
+	assert_eq(
+		GFVariantData.get_option_array(report, "cleanup_errors"),
+		[],
+		"动态编译测试必须释放生成脚本的内部类图。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "configuration_error"),
+		"",
+		"动态编译测试必须使用匿名内建 GDScript 根。"
+	)
 
 
 # --- 内部类 ---
@@ -416,6 +827,7 @@ class ConfigSchemaStub:
 	func _init(p_table_name: StringName) -> void:
 		table_name = p_table_name
 
+
 	func get_table_key() -> StringName:
 		return table_name
 
@@ -427,6 +839,7 @@ class MethodTrapConfigSchemaStub:
 
 	func _init(p_table_name: StringName) -> void:
 		table_name = p_table_name
+
 
 	func get_table_key() -> StringName:
 		get_table_key_called = true

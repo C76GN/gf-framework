@@ -27,7 +27,7 @@ Lobby 操作终态结果。 通过 request_id 和 operation 将 SDK 回调关联
 | 属性 | [`started_at_msec`](#member-gfnetworklobbyoperationresult-properties-started_at_msec) | `var started_at_msec: int = -1` |
 | 属性 | [`completed_at_msec`](#member-gfnetworklobbyoperationresult-properties-completed_at_msec) | `var completed_at_msec: int = -1` |
 | 属性 | [`metadata`](#member-gfnetworklobbyoperationresult-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`configure_success`](#member-gfnetworklobbyoperationresult-methods-configure_success) | `func configure_success( request: GFNetworkLobbyOperationRequest, options: Dictionary = {} ) -> GFNetworkLobbyOperationResult:` |
+| 方法 | [`configure_success`](#member-gfnetworklobbyoperationresult-methods-configure_success) | `func configure_success(request: GFNetworkLobbyOperationRequest, options: Dictionary = {}) -> GFNetworkLobbyOperationResult:` |
 | 方法 | [`configure_failure`](#member-gfnetworklobbyoperationresult-methods-configure_failure) | `func configure_failure( request: GFNetworkLobbyOperationRequest, p_error: StringName, p_message: String = "", options: Dictionary = {} ) -> GFNetworkLobbyOperationResult:` |
 | 方法 | [`get_duration_msec`](#member-gfnetworklobbyoperationresult-methods-get_duration_msec) | `func get_duration_msec() -> int:` |
 | 方法 | [`is_valid`](#member-gfnetworklobbyoperationresult-methods-is_valid) | `func is_valid() -> bool:` |
@@ -213,7 +213,7 @@ var metadata: Dictionary = {}
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure_success( request: GFNetworkLobbyOperationRequest, options: Dictionary = {} ) -> GFNetworkLobbyOperationResult:
+func configure_success(request: GFNetworkLobbyOperationRequest, options: Dictionary = {}) -> GFNetworkLobbyOperationResult:
 ```
 
 配置成功结果。

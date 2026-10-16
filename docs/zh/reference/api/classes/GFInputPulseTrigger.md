@@ -19,7 +19,7 @@
 | 属性 | [`initial_delay_seconds`](#member-gfinputpulsetrigger-properties-initial_delay_seconds) | `var initial_delay_seconds: float = -1.0:` |
 | 属性 | [`trigger_immediately`](#member-gfinputpulsetrigger-properties-trigger_immediately) | `var trigger_immediately: bool = true` |
 | 方法 | [`reset_trigger_state`](#member-gfinputpulsetrigger-methods-reset_trigger_state) | `func reset_trigger_state(state: Dictionary) -> void:` |
-| 方法 | [`update`](#member-gfinputpulsetrigger-methods-update) | `func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:` |
+| 方法 | [`update`](#member-gfinputpulsetrigger-methods-update) | `func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -> TriggerState:` |
 
 ## 属性
 
@@ -95,7 +95,7 @@ func reset_trigger_state(state: Dictionary) -> void:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
+func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -> TriggerState:
 ```
 
 更新运行时状态；每次最多返回一个脉冲，跨期只保留周期余数，不补发历史脉冲。 激活时产生即时脉冲会忽略当次 delta；否则首次等待消费当次 delta。 持续活跃期间只有有限正 delta 才能触发新的脉冲，事件刷新不会重复触发。 首次等待仅在等待阶段读取，周期每次读取；修改共享配置会影响引用它的动作，但不会共享计时进度。

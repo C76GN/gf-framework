@@ -165,7 +165,12 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 	if _has_expired():
 		return timeout_from_platform_layer()
 	var normalized_reason: StringName = reason if reason != &"" else &"cancelled"
-	return _finish_failure(normalized_reason, "Platform request cancelled.", {}, true)
+	return _finish_failure(
+		normalized_reason,
+		"Platform request cancelled.",
+		{},
+		true
+	)
 
 
 ## 获取稳定调试快照。
@@ -209,7 +214,12 @@ func configure_from_platform_layer(
 	clock: GFClock,
 	started_at_msec: int = -1
 ) -> bool:
-	if _initialized or request == null or request.is_empty() or clock == null:
+	if (
+		_initialized
+		or request == null
+		or request.is_empty()
+		or clock == null
+	):
 		return false
 	_request = request.duplicate_request()
 	_clock = clock
@@ -262,7 +272,12 @@ func reject_from_platform_layer(
 	_started_at_msec = _clock.get_monotonic_msec()
 	_deadline_msec = -1
 	_initialized = true
-	return _finish_failure(status, error, {}, false)
+	return _finish_failure(
+		status,
+		error,
+		{},
+		false
+	)
 
 
 ## 由 Platform 层提交已构造结果。
@@ -312,13 +327,15 @@ func succeed_from_platform_layer(
 		return false
 	if _has_expired():
 		return timeout_from_platform_layer()
-	var result: GFPlatformBridgeResult = GFPlatformBridgeResult.new().configure_success(
-		_request,
-		value,
-		status,
-		_started_at_msec,
-		_clock.get_monotonic_msec(),
-		metadata
+	var result: GFPlatformBridgeResult = (
+		GFPlatformBridgeResult.new().configure_success(
+			_request,
+			value,
+			status,
+			_started_at_msec,
+			_clock.get_monotonic_msec(),
+			metadata
+		)
 	)
 	return resolve_from_platform_layer(result)
 
@@ -347,7 +364,12 @@ func fail_from_platform_layer(
 ) -> bool:
 	if status != &"timed_out" and _has_expired():
 		return timeout_from_platform_layer()
-	return _finish_failure(status, error, metadata, false)
+	return _finish_failure(
+		status,
+		error,
+		metadata,
+		false
+	)
 
 
 ## 由 Platform 层提交超时终态。
@@ -360,7 +382,12 @@ func fail_from_platform_layer(
 ## [br]
 ## @return 首次超时完成返回 true。
 func timeout_from_platform_layer() -> bool:
-	return _finish_failure(&"timed_out", "Platform request timed out.", {}, true)
+	return _finish_failure(
+		&"timed_out",
+		"Platform request timed out.",
+		{},
+		true
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -378,13 +405,15 @@ func _finish_failure(
 	if not is_pending():
 		return false
 	var normalized_status: StringName = status if status != &"" else &"failed"
-	_result = GFPlatformBridgeResult.new().configure_failure(
-		_request,
-		error,
-		normalized_status,
-		_started_at_msec,
-		_clock.get_monotonic_msec(),
-		metadata
+	_result = (
+		GFPlatformBridgeResult.new().configure_failure(
+			_request,
+			error,
+			normalized_status,
+			_started_at_msec,
+			_clock.get_monotonic_msec(),
+			metadata
+		)
 	)
 	if emit_cancellation:
 		cancel_requested.emit(normalized_status)
@@ -467,7 +496,11 @@ func _matches_request(result: GFPlatformBridgeResult) -> bool:
 ## @api private
 ## [br]
 func _is_valid_terminal_result(result: GFPlatformBridgeResult) -> bool:
-	if result == null or not _matches_request(result) or result.status == &"":
+	if (
+		result == null
+		or not _matches_request(result)
+		or result.status == &""
+	):
 		return false
 	if result.started_at_msec != _started_at_msec:
 		return false

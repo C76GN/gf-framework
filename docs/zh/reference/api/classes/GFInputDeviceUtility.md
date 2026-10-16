@@ -17,8 +17,8 @@
 |---|---|---|
 | 信号 | [`assignments_changed`](#member-gfinputdeviceutility-signals-assignments_changed) | `signal assignments_changed(assignments: Array[GFInputDeviceAssignment])` |
 | 信号 | [`active_player_changed`](#member-gfinputdeviceutility-signals-active_player_changed) | `signal active_player_changed(player_index: int)` |
-| 信号 | [`active_device_changed`](#member-gfinputdeviceutility-signals-active_device_changed) | `signal active_device_changed(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)` |
-| 信号 | [`player_join_requested`](#member-gfinputdeviceutility-signals-player_join_requested) | `signal player_join_requested(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)` |
+| 信号 | [`active_device_changed`](#member-gfinputdeviceutility-signals-active_device_changed) | `signal active_device_changed( player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent )` |
+| 信号 | [`player_join_requested`](#member-gfinputdeviceutility-signals-player_join_requested) | `signal player_join_requested( player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent )` |
 | 信号 | [`assignment_event_recorded`](#member-gfinputdeviceutility-signals-assignment_event_recorded) | `signal assignment_event_recorded(event_record: Dictionary)` |
 | 常量 | [`DEFAULT_MAX_ASSIGNMENT_EVENTS`](#member-gfinputdeviceutility-constants-default_max_assignment_events) | `const DEFAULT_MAX_ASSIGNMENT_EVENTS: int = 64` |
 | 属性 | [`max_assignment_events`](#member-gfinputdeviceutility-properties-max_assignment_events) | `var max_assignment_events: int = DEFAULT_MAX_ASSIGNMENT_EVENTS:` |
@@ -38,7 +38,7 @@
 | 方法 | [`set_assignment`](#member-gfinputdeviceutility-methods-set_assignment) | `func set_assignment( assignment: GFInputDeviceAssignment, reason: StringName = &"manual", event_metadata: Dictionary = {}, source_event: InputEvent = null ) -> void:` |
 | 方法 | [`remove_assignment`](#member-gfinputdeviceutility-methods-remove_assignment) | `func remove_assignment(player_index: int, reason: StringName = &"manual") -> void:` |
 | 方法 | [`get_assignment`](#member-gfinputdeviceutility-methods-get_assignment) | `func get_assignment(player_index: int) -> GFInputDeviceAssignment:` |
-| 方法 | [`get_player_for_device`](#member-gfinputdeviceutility-methods-get_player_for_device) | `func get_player_for_device( device_type: GFInputDeviceAssignment.DeviceType, device_id: int ) -> int:` |
+| 方法 | [`get_player_for_device`](#member-gfinputdeviceutility-methods-get_player_for_device) | `func get_player_for_device(device_type: GFInputDeviceAssignment.DeviceType, device_id: int) -> int:` |
 | 方法 | [`get_player_for_event`](#member-gfinputdeviceutility-methods-get_player_for_event) | `func get_player_for_event(event: InputEvent) -> int:` |
 | 方法 | [`handle_input_event`](#member-gfinputdeviceutility-methods-handle_input_event) | `func handle_input_event(event: InputEvent) -> int:` |
 | 方法 | [`handle_join_input_event`](#member-gfinputdeviceutility-methods-handle_join_input_event) | `func handle_join_input_event(event: InputEvent) -> int:` |
@@ -102,9 +102,10 @@ signal active_player_changed(player_index: int)
 ### `active_device_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal active_device_changed(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)
+signal active_device_changed( player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent )
 ```
 
 最近产生输入的设备变化时发出。
@@ -122,9 +123,10 @@ signal active_device_changed(player_index: int, assignment: GFInputDeviceAssignm
 ### `player_join_requested`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal player_join_requested(player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent)
+signal player_join_requested( player_index: int, assignment: GFInputDeviceAssignment, event: InputEvent )
 ```
 
 收到项目配置的加入输入时发出。
@@ -431,9 +433,10 @@ func get_assignment(player_index: int) -> GFInputDeviceAssignment:
 ### `get_player_for_device`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_player_for_device( device_type: GFInputDeviceAssignment.DeviceType, device_id: int ) -> int:
+func get_player_for_device(device_type: GFInputDeviceAssignment.DeviceType, device_id: int) -> int:
 ```
 
 根据设备类型和设备 ID 获取玩家索引。

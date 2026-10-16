@@ -208,17 +208,37 @@ func configure_range(
 	options: Dictionary = {}
 ) -> GFValidationConstraintRule:
 	var _configured_rule: GFValidationRule = configure(
-		GFVariantData.get_option_string_name(options, "rule_id", &"range"),
+		GFVariantData.get_option_string_name(
+			options,
+			"rule_id",
+			&"range"
+		),
 		Callable(),
 		options
 	)
 	constraint_kind = ConstraintKind.RANGE
-	has_minimum = GFVariantData.get_option_bool(options, "has_minimum", true)
+	has_minimum = GFVariantData.get_option_bool(
+		options,
+		"has_minimum",
+		true
+	)
 	minimum = p_minimum
-	inclusive_minimum = GFVariantData.get_option_bool(options, "inclusive_minimum", true)
-	has_maximum = GFVariantData.get_option_bool(options, "has_maximum", true)
+	inclusive_minimum = GFVariantData.get_option_bool(
+		options,
+		"inclusive_minimum",
+		true
+	)
+	has_maximum = GFVariantData.get_option_bool(
+		options,
+		"has_maximum",
+		true
+	)
 	maximum = p_maximum
-	inclusive_maximum = GFVariantData.get_option_bool(options, "inclusive_maximum", true)
+	inclusive_maximum = GFVariantData.get_option_bool(
+		options,
+		"inclusive_maximum",
+		true
+	)
 	return self
 
 
@@ -239,13 +259,21 @@ func configure_range(
 ## @return 当前规则。
 func configure_set(p_allowed_values: Array, options: Dictionary = {}) -> GFValidationConstraintRule:
 	var _configured_rule: GFValidationRule = configure(
-		GFVariantData.get_option_string_name(options, "rule_id", &"allowed_value"),
+		GFVariantData.get_option_string_name(
+			options,
+			"rule_id",
+			&"allowed_value"
+		),
 		Callable(),
 		options
 	)
 	constraint_kind = ConstraintKind.SET
 	allowed_values = p_allowed_values.duplicate(true)
-	case_sensitive = GFVariantData.get_option_bool(options, "case_sensitive", true)
+	case_sensitive = GFVariantData.get_option_bool(
+		options,
+		"case_sensitive",
+		true
+	)
 	return self
 
 
@@ -264,14 +292,26 @@ func configure_set(p_allowed_values: Array, options: Dictionary = {}) -> GFValid
 ## @return 当前规则。
 func configure_regex(p_pattern: String, options: Dictionary = {}) -> GFValidationConstraintRule:
 	var _configured_rule: GFValidationRule = configure(
-		GFVariantData.get_option_string_name(options, "rule_id", &"pattern"),
+		GFVariantData.get_option_string_name(
+			options,
+			"rule_id",
+			&"pattern"
+		),
 		Callable(),
 		options
 	)
 	constraint_kind = ConstraintKind.REGEX
 	pattern = p_pattern
-	require_full_match = GFVariantData.get_option_bool(options, "require_full_match", false)
-	allow_empty = GFVariantData.get_option_bool(options, "allow_empty", true)
+	require_full_match = GFVariantData.get_option_bool(
+		options,
+		"require_full_match",
+		false
+	)
+	allow_empty = GFVariantData.get_option_bool(
+		options,
+		"allow_empty",
+		true
+	)
 	_clear_regex_cache()
 	return self
 
@@ -297,14 +337,26 @@ func configure_size(
 	options: Dictionary = {}
 ) -> GFValidationConstraintRule:
 	var _configured_rule: GFValidationRule = configure(
-		GFVariantData.get_option_string_name(options, "rule_id", &"size"),
+		GFVariantData.get_option_string_name(
+			options,
+			"rule_id",
+			&"size"
+		),
 		Callable(),
 		options
 	)
 	constraint_kind = ConstraintKind.SIZE
-	has_minimum_size = GFVariantData.get_option_bool(options, "has_minimum_size", true)
+	has_minimum_size = GFVariantData.get_option_bool(
+		options,
+		"has_minimum_size",
+		true
+	)
 	minimum_size = maxi(p_minimum_size, 0)
-	has_maximum_size = GFVariantData.get_option_bool(options, "has_maximum_size", true)
+	has_maximum_size = GFVariantData.get_option_bool(
+		options,
+		"has_maximum_size",
+		true
+	)
 	maximum_size = maxi(p_maximum_size, 0)
 	return self
 
@@ -417,16 +469,36 @@ static func constraint_kind_to_name(value: ConstraintKind) -> String:
 ## @return 约束校验结果。
 ## [br]
 ## @schema return: Variant validation hook result.
-func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:
+func _validate(
+	_target: Variant,
+	_report: GFValidationReport,
+	_context: Dictionary
+) -> Variant:
 	match constraint_kind:
 		ConstraintKind.SET:
-			_validate_set(_target, _report, _context)
+			_validate_set(
+				_target,
+				_report,
+				_context
+			)
 		ConstraintKind.REGEX:
-			_validate_regex(_target, _report, _context)
+			_validate_regex(
+				_target,
+				_report,
+				_context
+			)
 		ConstraintKind.SIZE:
-			_validate_size(_target, _report, _context)
+			_validate_size(
+				_target,
+				_report,
+				_context
+			)
 		_:
-			_validate_range(_target, _report, _context)
+			_validate_range(
+				_target,
+				_report,
+				_context
+			)
 	return null
 
 
@@ -436,7 +508,11 @@ func _validate(_target: Variant, _report: GFValidationReport, _context: Dictiona
 ## [br]
 ## @api private
 ## [br]
-func _validate_range(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
+func _validate_range(
+	target: Variant,
+	report: GFValidationReport,
+	context: Dictionary
+) -> void:
 	if _has_invalid_range_configuration():
 		_add_constraint_issue(
 			report,
@@ -502,7 +578,11 @@ func _validate_range(target: Variant, report: GFValidationReport, context: Dicti
 ## [br]
 ## @api private
 ## [br]
-func _validate_set(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
+func _validate_set(
+	target: Variant,
+	report: GFValidationReport,
+	context: Dictionary
+) -> void:
 	if allowed_values.is_empty():
 		_add_constraint_issue(
 			report,
@@ -532,7 +612,11 @@ func _validate_set(target: Variant, report: GFValidationReport, context: Diction
 ## [br]
 ## @api private
 ## [br]
-func _validate_regex(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
+func _validate_regex(
+	target: Variant,
+	report: GFValidationReport,
+	context: Dictionary
+) -> void:
 	if not _is_text_like(target):
 		_add_constraint_issue(
 			report,
@@ -571,7 +655,13 @@ func _validate_regex(target: Variant, report: GFValidationReport, context: Dicti
 			text
 		)
 		return
-	if require_full_match and (match_result.get_start() != 0 or match_result.get_end() != text.length()):
+	if (
+		require_full_match
+		and (
+			match_result.get_start() != 0
+			or match_result.get_end() != text.length()
+		)
+	):
 		_add_constraint_issue(
 			report,
 			&"regex_mismatch",
@@ -587,7 +677,11 @@ func _validate_regex(target: Variant, report: GFValidationReport, context: Dicti
 ## [br]
 ## @api private
 ## [br]
-func _validate_size(target: Variant, report: GFValidationReport, context: Dictionary) -> void:
+func _validate_size(
+	target: Variant,
+	report: GFValidationReport,
+	context: Dictionary
+) -> void:
 	if _has_invalid_size_configuration():
 		_add_constraint_issue(
 			report,
@@ -652,12 +746,32 @@ func _add_constraint_issue(
 		issue_path,
 		issue_metadata
 	)
-	issue.subject = GFVariantData.get_option_string(context, "subject", String(rule_id))
-	issue.source_path = GFVariantData.get_option_string(context, "source_path", issue.source_path)
+	issue.subject = GFVariantData.get_option_string(
+		context,
+		"subject",
+		String(rule_id)
+	)
+	issue.source_path = GFVariantData.get_option_string(
+		context,
+		"source_path",
+		issue.source_path
+	)
 	if issue.source_path.is_empty():
-		issue.source_path = GFVariantData.get_option_string(context, "source", issue.source_path)
-	issue.line = GFVariantData.get_option_int(context, "line", issue.line)
-	issue.column = GFVariantData.get_option_int(context, "column", issue.column)
+		issue.source_path = GFVariantData.get_option_string(
+			context,
+			"source",
+			issue.source_path
+		)
+	issue.line = GFVariantData.get_option_int(
+		context,
+		"line",
+		issue.line
+	)
+	issue.column = GFVariantData.get_option_int(
+		context,
+		"column",
+		issue.column
+	)
 	var _added_issue: RefCounted = report.add_issue(issue)
 
 
@@ -783,7 +897,13 @@ func _has_invalid_range_configuration() -> bool:
 	if has_minimum and has_maximum:
 		if minimum > maximum:
 			return true
-		if minimum == maximum and (not inclusive_minimum or not inclusive_maximum):
+		if (
+			minimum == maximum
+			and (
+				not inclusive_minimum
+				or not inclusive_maximum
+			)
+		):
 			return true
 	return false
 
@@ -896,7 +1016,11 @@ func _is_size_in_range(size: int) -> bool:
 ## @api private
 ## [br]
 func _has_invalid_size_configuration() -> bool:
-	return has_minimum_size and has_maximum_size and minimum_size > maximum_size
+	return (
+		has_minimum_size
+		and has_maximum_size
+		and minimum_size > maximum_size
+	)
 
 
 ## 返回当前大小范围配置的字段字典。

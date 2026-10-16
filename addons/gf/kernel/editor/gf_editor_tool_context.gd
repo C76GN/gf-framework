@@ -147,7 +147,12 @@ func get_workspace_tasks() -> Array[Dictionary]:
 ## [br]
 ## @schema return: Dictionary with ok: bool and message: String, plus optional error_code, status, action_id, replaced and metadata from routing. A same-generation receiver response adds receiver_report: Dictionary (deep copy retaining receiver status, reason, data and other fields) and registry_status; a nonempty receiver text status becomes status, and message falls back through receiver message, reason and status. Registry ok, error_code, action_id, replaced and metadata remain authoritative; unavailable, invalid or revoked routes retain their registry failure without a receiver report.
 func request_workspace_task(source_id: String) -> Dictionary:
-	return _route_report(_call_workspace("request_workspace_task", [source_id]))
+	return _route_report(
+		_call_workspace(
+			"request_workspace_task",
+			[source_id]
+		)
+	)
 
 
 ## 查询当前资源选择可交给哪些工具；不会加载资源或创建页面。
@@ -162,7 +167,12 @@ func request_workspace_task(source_id: String) -> Dictionary:
 ## [br]
 ## @schema return: Array of Dictionary with action_id, title, available, and reason.
 func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
-	return _record_array(_call_workspace("get_resource_actions", [paths.duplicate()]))
+	return _record_array(
+		_call_workspace(
+			"get_resource_actions",
+			[paths.duplicate()]
+		)
+	)
 
 
 ## 将资源交给声明的接收工具；实际修改仍由接收工具显式提交。
@@ -179,7 +189,12 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 ## [br]
 ## @schema return: Dictionary with ok: bool and message: String, plus optional error_code, status, action_id, replaced and metadata from routing. A same-generation receiver response adds receiver_report: Dictionary (deep copy retaining receiver status, reason, data and other fields) and registry_status; a nonempty receiver text status becomes status, and message falls back through receiver message, reason and status. Registry ok, error_code, action_id, replaced and metadata remain authoritative; unavailable, invalid or revoked routes retain their registry failure without a receiver report.
 func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary:
-	return _route_report(_call_workspace("request_resource_action", [action_id, paths.duplicate()]))
+	return _route_report(
+		_call_workspace(
+			"request_resource_action",
+			[action_id, paths.duplicate()]
+		)
+	)
 
 
 ## 获取上下文字典。
@@ -263,7 +278,12 @@ func _call_contribution_refresh(method: StringName) -> Dictionary:
 			if value is Dictionary:
 				var report: Dictionary = value
 				return report.duplicate(true)
-	return {"status": "failed", "generation": 0, "issues": ["refresh_host_unavailable"]}
+	return {
+		"status": "failed",
+		"generation": 0,
+		"issues": ["refresh_host_unavailable"],
+	}
+
 
 ## 仅向仍有效的宿主转发固定接口调用。
 ## [br]
@@ -299,4 +319,8 @@ func _route_report(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		var report: Dictionary = value
 		return report.duplicate(true)
-	return {"ok": false, "message": "工作区上下文已撤销或尚未连接。", "error_code": ERR_UNAVAILABLE}
+	return {
+		"ok": false,
+		"message": "工作区上下文已撤销或尚未连接。",
+		"error_code": ERR_UNAVAILABLE,
+	}

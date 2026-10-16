@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="9436a334a153bc9f92cb54f190d71ec1a59ba7b57acdea347ab073aee3efeaea">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="26e32485001fe57ecd1ea454ce874753d6d008d220e2e79b0dc7fce0d80ad997">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -24,13 +24,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="data_migrated">
-			<signature>signal data_migrated(file_name: String, from_version: int, to_version: int)</signature>
+			<signature>signal data_migrated( file_name: String, from_version: int, to_version: int )</signature>
 			<description>数据版本迁移后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 文件名。</tag>
 				<tag name="param">from_version: 原版本。</tag>
 				<tag name="param">to_version: 目标版本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="save_completed">
@@ -413,7 +414,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 			</tags>
 		</member>
 		<member kind="method" name="delete_file_request_async">
-			<signature>func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
+			<signature>func delete_file_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -&gt; GFStorageAsyncOperation:</signature>
 			<description>通过当前 Storage executor 删除一个精确 logical family，并返回请求专属句柄。
 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。
 删除不会隐式恢复事务，也不会扫描或收养 sibling family。</description>
@@ -426,7 +427,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 			</tags>
 		</member>
 		<member kind="method" name="create_family_reset_authorization">
-			<signature>func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -&gt; GFStorageFamilyResetAuthorization:</signature>
+			<signature>func create_family_reset_authorization(file_name: String, observed_result: GFStorageReadResult) -&gt; GFStorageFamilyResetAuthorization:</signature>
 			<description>为一次显式的破坏性 family reset 创建绑定授权。
 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可
 创建授权。授权冻结 Utility、Storage root、canonical logical identity 与当前 family 观察，
@@ -440,7 +441,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 			</tags>
 		</member>
 		<member kind="method" name="reset_file_family">
-			<signature>func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -&gt; GFStorageFamilyResetResult:</signature>
+			<signature>func reset_file_family(file_name: String, authorization: GFStorageFamilyResetAuthorization) -&gt; GFStorageFamilyResetResult:</signature>
 			<description>同步 retire 并重新 claim 一个显式授权的 logical family。
 该入口与同 family 的异步 save/load/delete/reset 串行。missing target 与 future layout
 都在零写入前失败；同执行栈仍有该 family 工作时以 ERR_BUSY / UNAVAILABLE 拒绝。
@@ -562,7 +563,7 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 			</tags>
 		</member>
 		<member kind="method" name="load_data_request_async">
-			<signature>func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
+			<signature>func load_data_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -&gt; GFStorageAsyncOperation:</signature>
 			<description>通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。
 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。</description>
 			<tags>
@@ -574,7 +575,7 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 			</tags>
 		</member>
 		<member kind="method" name="load_data_owned_request_async">
-			<signature>func load_data_owned_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageOwnedRead:</signature>
+			<signature>func load_data_owned_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -&gt; GFStorageOwnedRead:</signature>
 			<description>异步读取纯数据，并通过专用句柄领取一次完整结果。
 迁移完成后保留一次隔离复制，通知与领取不再复制载荷。此入口不更新
 last_load_result，也不发出 load_completed；使用句柄 completed 与 get_result。
@@ -611,7 +612,7 @@ Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前
 			</tags>
 		</member>
 		<member kind="method" name="migrate_data">
-			<signature>func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -&gt; Dictionary:</signature>
+			<signature>func migrate_data( data: Dictionary, _from_version: int, _to_version: int ) -&gt; Dictionary:</signature>
 			<description>使用已注册步骤迁移存档数据。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -625,7 +626,7 @@ Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前
 			</tags>
 		</member>
 		<member kind="method" name="register_migration">
-			<signature>func register_migration(from_version: int, to_version: int, callback: Callable) -&gt; bool:</signature>
+			<signature>func register_migration( from_version: int, to_version: int, callback: Callable ) -&gt; bool:</signature>
 			<description>注册一个版本迁移步骤。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -633,6 +634,7 @@ Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前
 				<tag name="param">to_version: 目标版本，必须大于来源版本。</tag>
 				<tag name="param">callback: 迁移回调，签名为 `func(data: Dictionary, from_version: int, to_version: int) -&gt; Dictionary`。</tag>
 				<tag name="return">注册成功时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_migration">

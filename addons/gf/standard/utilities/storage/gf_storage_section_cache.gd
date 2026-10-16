@@ -44,7 +44,12 @@ var _scopes: Dictionary = {}
 ## @schema scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。
 ## [br]
 ## @schema data: Dictionary，调用方定义的分区载荷。
-func write_section(scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true) -> bool:
+func write_section(
+	scope_id: Variant,
+	section_id: StringName,
+	data: Dictionary,
+	mark_dirty: bool = true
+) -> bool:
 	if section_id == &"":
 		return false
 
@@ -87,10 +92,21 @@ func merge_section(
 	mark_dirty: bool = true
 ) -> Dictionary:
 	var current: Dictionary = read_section(scope_id, section_id)
-	current.merge(patch.duplicate(true), true)
+	current.merge(
+		patch.duplicate(true),
+		true
+	)
 	if deep:
-		current = _deep_merge_dictionaries(read_section(scope_id, section_id), patch)
-	var _write_ok: bool = write_section(scope_id, section_id, current, mark_dirty)
+		current = _deep_merge_dictionaries(
+			read_section(scope_id, section_id),
+			patch
+		)
+	var _write_ok: bool = write_section(
+		scope_id,
+		section_id,
+		current,
+		mark_dirty
+	)
 	return current.duplicate(true)
 
 
@@ -111,7 +127,11 @@ func merge_section(
 ## @schema scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。
 ## [br]
 ## @schema return: Dictionary，调用方定义的分区载荷。
-func read_section(scope_id: Variant, section_id: StringName, duplicate_value: bool = true) -> Dictionary:
+func read_section(
+	scope_id: Variant,
+	section_id: StringName,
+	duplicate_value: bool = true
+) -> Dictionary:
 	var record: Dictionary = _get_scope_record(scope_id)
 	if record.is_empty():
 		return {}
@@ -277,13 +297,26 @@ func mark_clean(scope_id: Variant, section_ids: PackedStringArray = PackedString
 ## @schema scope_id: Variant，建议使用 String、StringName 或 int 等稳定值。
 ## [br]
 ## @schema payload: Dictionary，包含 sections 字段或直接为 Dictionary[StringName, Dictionary]。
-func apply_payload(scope_id: Variant, payload: Dictionary, mark_dirty: bool = false) -> int:
-	var sections_value: Variant = GFVariantData.get_option_value(payload, "sections", payload)
+func apply_payload(
+	scope_id: Variant,
+	payload: Dictionary,
+	mark_dirty: bool = false
+) -> int:
+	var sections_value: Variant = GFVariantData.get_option_value(
+		payload,
+		"sections",
+		payload
+	)
 	var sections: Dictionary = GFVariantData.to_dictionary(sections_value)
 	var count: int = 0
 	for section_key: Variant in sections.keys():
 		var section_id: StringName = GFVariantData.to_string_name(section_key)
-		if write_section(scope_id, section_id, GFVariantData.get_option_dictionary(sections, section_key), mark_dirty):
+		if write_section(
+			scope_id,
+			section_id,
+			GFVariantData.get_option_dictionary(sections, section_key),
+			mark_dirty
+		):
 			count += 1
 	return count
 
@@ -395,7 +428,12 @@ func _get_or_create_scope_record(scope_id: Variant) -> Dictionary:
 ## @api private
 ## [br]
 func _get_scope_record(scope_id: Variant) -> Dictionary:
-	return GFVariantData.as_dictionary(_scopes.get(_make_scope_key(scope_id), {}))
+	return GFVariantData.as_dictionary(
+		_scopes.get(
+			_make_scope_key(scope_id),
+			{}
+		)
+	)
 
 
 ## 确保记录含有 Dictionary sections 字段并返回该分区映射。
@@ -446,7 +484,11 @@ func _deep_merge_dictionaries(base: Dictionary, patch: Dictionary) -> Dictionary
 	var result: Dictionary = base.duplicate(true)
 	for key: Variant in patch.keys():
 		var patch_value: Variant = patch[key]
-		if result.has(key) and result[key] is Dictionary and patch_value is Dictionary:
+		if (
+			result.has(key)
+			and result[key] is Dictionary
+			and patch_value is Dictionary
+		):
 			result[key] = _deep_merge_dictionaries(
 				GFVariantData.to_dictionary(result[key]),
 				GFVariantData.to_dictionary(patch_value)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="dfd94b2d41c7732e3c14d29cb860fd6dfd83940419fffe0331786af726b8d1a8">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="1084576e55daddcdf6707337daa8d0c8a922c598dedf2bb6dc797c45e452bccb">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -133,13 +133,11 @@
 			</tags>
 		</member>
 		<member kind="const" name="BUILT_IN_EXTENSION_IDS">
-			<signature>const BUILT_IN_EXTENSION_IDS: Array[String] = [
-	"gf.kernel",
-	"gf.standard",
-]</signature>
+			<signature>const BUILT_IN_EXTENSION_IDS: Array[String] = ["gf.kernel", "gf.standard",]</signature>
 			<description>内置依赖 ID。这些不是可启停扩展 manifest，但允许被扩展声明为基础依赖。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -363,7 +361,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply_extension_preset">
-			<signature>static func apply_extension_preset( preset_id: StringName, include_dependencies: bool = true ) -&gt; bool:</signature>
+			<signature>static func apply_extension_preset(preset_id: StringName, include_dependencies: bool = true) -&gt; bool:</signature>
 			<description>应用扩展 preset 到显式启用列表。
 该方法会切换到 `explicit` 选择模式；保存 project.godot 由调用方决定。</description>
 			<tags>
@@ -400,23 +398,25 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_extension_resource_path">
-			<signature>static func get_extension_resource_path( extension_id: String, relative_path: String = "" ) -&gt; String:</signature>
+			<signature>static func get_extension_resource_path(extension_id: String, relative_path: String = "") -&gt; String:</signature>
 			<description>获取扩展内资源路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">extension_id: 扩展 ID。</tag>
 				<tag name="param">relative_path: 相对扩展根目录的资源路径；传入 `res://` 时必须仍位于扩展根目录下。</tag>
 				<tag name="return">扩展根目录下的资源路径；扩展不存在或路径越界时返回空字符串。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_extension_enabled">
-			<signature>static func is_extension_enabled( extension_id: String, include_dependencies: bool = true ) -&gt; bool:</signature>
+			<signature>static func is_extension_enabled(extension_id: String, include_dependencies: bool = true) -&gt; bool:</signature>
 			<description>判断扩展当前是否启用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">extension_id: 扩展 ID。</tag>
 				<tag name="param">include_dependencies: 是否把依赖补齐后的启用结果纳入判断。</tag>
 				<tag name="return">扩展存在且启用时返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_enabled_extension_script">
@@ -527,17 +527,18 @@
 			</tags>
 		</member>
 		<member kind="method" name="resolve_extension_dependencies">
-			<signature>static func resolve_extension_dependencies( extension_ids: Array[String], manifests: Array[GFExtensionManifest] = [] ) -&gt; Array[String]:</signature>
+			<signature>static func resolve_extension_dependencies(extension_ids: Array[String], manifests: Array[GFExtensionManifest] = []) -&gt; Array[String]:</signature>
 			<description>根据 manifest 依赖关系补齐启用扩展。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">extension_ids: 原始启用扩展 ID。</tag>
 				<tag name="param">manifests: 可选 manifest 列表。</tag>
 				<tag name="return">补齐依赖后的扩展 ID。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_manifest_graph_report">
-			<signature>static func get_manifest_graph_report( manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false ) -&gt; Dictionary:</signature>
+			<signature>static func get_manifest_graph_report(manifests: Array[GFExtensionManifest] = [], include_cached_load_errors: bool = false) -&gt; Dictionary:</signature>
 			<description>获取 manifest 依赖图诊断。</description>
 			<tags>
 				<tag name="api">public</tag>

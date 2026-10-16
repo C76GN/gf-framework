@@ -16,11 +16,11 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`slot_changed`](#member-gfslotinventorymodel-signals-slot_changed) | `signal slot_changed(slot_index: int)` |
-| 信号 | [`slot_state_changed`](#member-gfslotinventorymodel-signals-slot_state_changed) | `signal slot_state_changed(slot_index: int, before_stack_data: Dictionary, after_stack_data: Dictionary)` |
+| 信号 | [`slot_state_changed`](#member-gfslotinventorymodel-signals-slot_state_changed) | `signal slot_state_changed( slot_index: int, before_stack_data: Dictionary, after_stack_data: Dictionary )` |
 | 信号 | [`slot_filled`](#member-gfslotinventorymodel-signals-slot_filled) | `signal slot_filled(slot_index: int, stack_data: Dictionary)` |
 | 信号 | [`slot_emptied`](#member-gfslotinventorymodel-signals-slot_emptied) | `signal slot_emptied(slot_index: int, previous_stack_data: Dictionary)` |
-| 信号 | [`item_added`](#member-gfslotinventorymodel-signals-item_added) | `signal item_added(slot_index: int, item_id: StringName, amount: int)` |
-| 信号 | [`item_removed`](#member-gfslotinventorymodel-signals-item_removed) | `signal item_removed(slot_index: int, item_id: StringName, amount: int)` |
+| 信号 | [`item_added`](#member-gfslotinventorymodel-signals-item_added) | `signal item_added( slot_index: int, item_id: StringName, amount: int )` |
+| 信号 | [`item_removed`](#member-gfslotinventorymodel-signals-item_removed) | `signal item_removed( slot_index: int, item_id: StringName, amount: int )` |
 | 信号 | [`inventory_changed`](#member-gfslotinventorymodel-signals-inventory_changed) | `signal inventory_changed` |
 | 属性 | [`registry`](#member-gfslotinventorymodel-properties-registry) | `var registry: GFInventoryItemRegistry:` |
 | 属性 | [`slot_definitions`](#member-gfslotinventorymodel-properties-slot_definitions) | `var slot_definitions: Array[GFInventorySlotDefinition]:` |
@@ -47,9 +47,9 @@
 | 方法 | [`remove_item_from_slot`](#member-gfslotinventorymodel-methods-remove_item_from_slot) | `func remove_item_from_slot(slot_index: int, amount: int = 1) -> GFInventoryOperationResult:` |
 | 方法 | [`swap_slots`](#member-gfslotinventorymodel-methods-swap_slots) | `func swap_slots(first_slot: int, second_slot: int) -> bool:` |
 | 方法 | [`sort_slots`](#member-gfslotinventorymodel-methods-sort_slots) | `func sort_slots(order_resolver: Callable = Callable()) -> bool:` |
-| 方法 | [`move_between_slots`](#member-gfslotinventorymodel-methods-move_between_slots) | `func move_between_slots(source_slot: int, target_slot: int, amount: int = 0) -> GFInventoryOperationResult:` |
+| 方法 | [`move_between_slots`](#member-gfslotinventorymodel-methods-move_between_slots) | `func move_between_slots( source_slot: int, target_slot: int, amount: int = 0 ) -> GFInventoryOperationResult:` |
 | 方法 | [`get_item_total`](#member-gfslotinventorymodel-methods-get_item_total) | `func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int:` |
-| 方法 | [`has_item`](#member-gfslotinventorymodel-methods-has_item) | `func has_item(item_id: StringName, amount: int = 1, instance_data: Dictionary = {}) -> bool:` |
+| 方法 | [`has_item`](#member-gfslotinventorymodel-methods-has_item) | `func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -> bool:` |
 | 方法 | [`get_remaining_capacity_for_item`](#member-gfslotinventorymodel-methods-get_remaining_capacity_for_item) | `func get_remaining_capacity_for_item(item_id: StringName, instance_data: Dictionary = {}) -> int:` |
 | 方法 | [`get_empty_slot_indices`](#member-gfslotinventorymodel-methods-get_empty_slot_indices) | `func get_empty_slot_indices() -> PackedInt32Array:` |
 | 方法 | [`get_occupied_slot_indices`](#member-gfslotinventorymodel-methods-get_occupied_slot_indices) | `func get_occupied_slot_indices() -> PackedInt32Array:` |
@@ -88,9 +88,10 @@ signal slot_changed(slot_index: int)
 ### `slot_state_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal slot_state_changed(slot_index: int, before_stack_data: Dictionary, after_stack_data: Dictionary)
+signal slot_state_changed( slot_index: int, before_stack_data: Dictionary, after_stack_data: Dictionary )
 ```
 
 槽位内容变化时发出，并携带变化前后的稳定快照。
@@ -159,9 +160,10 @@ signal slot_emptied(slot_index: int, previous_stack_data: Dictionary)
 ### `item_added`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal item_added(slot_index: int, item_id: StringName, amount: int)
+signal item_added( slot_index: int, item_id: StringName, amount: int )
 ```
 
 物品加入槽位后发出。
@@ -179,9 +181,10 @@ signal item_added(slot_index: int, item_id: StringName, amount: int)
 ### `item_removed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal item_removed(slot_index: int, item_id: StringName, amount: int)
+signal item_removed( slot_index: int, item_id: StringName, amount: int )
 ```
 
 物品从槽位移除后发出。
@@ -706,9 +709,10 @@ func sort_slots(order_resolver: Callable = Callable()) -> bool:
 ### `move_between_slots`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func move_between_slots(source_slot: int, target_slot: int, amount: int = 0) -> GFInventoryOperationResult:
+func move_between_slots( source_slot: int, target_slot: int, amount: int = 0 ) -> GFInventoryOperationResult:
 ```
 
 移动一个槽位的内容到另一个槽位，目标为空时移动，兼容时合并。
@@ -753,9 +757,10 @@ func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int:
 ### `has_item`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func has_item(item_id: StringName, amount: int = 1, instance_data: Dictionary = {}) -> bool:
+func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -> bool:
 ```
 
 检查是否拥有足够数量。

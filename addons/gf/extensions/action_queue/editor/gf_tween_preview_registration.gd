@@ -50,7 +50,10 @@ func _notification(what: int) -> void:
 		_lease = 0
 		if registry != null:
 			if _binding:
-				registry._release_binding(String(adapter_id), lease)
+				registry._release_binding(
+					String(adapter_id),
+					lease
+				)
 			else:
 				registry._release(adapter_id, lease)
 
@@ -70,7 +73,10 @@ func release() -> void:
 	_lease = 0
 	if registry != null:
 		if _binding:
-			registry._release_binding(String(adapter_id), lease)
+			registry._release_binding(
+				String(adapter_id),
+				lease
+			)
 		else:
 			registry._release(adapter_id, lease)
 
@@ -85,7 +91,10 @@ func release() -> void:
 func is_active() -> bool:
 	if _registry == null:
 		return false
-	return _registry._has_binding_lease(String(_id), _lease) if _binding else _registry._has_lease(_id, _lease)
+	return _registry._has_binding_lease(
+		String(_id),
+		_lease
+	) if _binding else _registry._has_lease(_id, _lease)
 
 
 # --- 框架内部方法 ---
@@ -101,7 +110,12 @@ func is_active() -> bool:
 ## @param lease: 已接纳的正租约号。
 ## [br]
 ## @param binding: true 表示资源关联，false 表示适配器。
-func _bind(registry: GFTweenPreviewRegistry, adapter_id: StringName, lease: int, binding: bool = false) -> void:
+func _bind(
+	registry: GFTweenPreviewRegistry,
+	adapter_id: StringName,
+	lease: int,
+	binding: bool = false
+) -> void:
 	_registry = registry
 	_id = adapter_id
 	_lease = lease

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSkillActivationStep" path="addons/gf/extensions/combat/skills/gf_skill_activation_step.gd" module="extensions/combat" extends="RefCounted" classDigest="19147df49d5190a59eed42a3e99e860f352d71d00d868e8f947057b30c771c86">
+<class name="GFSkillActivationStep" path="addons/gf/extensions/combat/skills/gf_skill_activation_step.gd" module="extensions/combat" extends="RefCounted" classDigest="496859125d83e1e71dacf12abe5d3c1ec9bfde8cf62ae47e9de9189b6c67d7ed">
 	<description>GFSkillActivationStep: 技能激活事务步骤协议。
 项目侧通过继承实现验证、应用与回滚；步骤不保存单次施放状态，所有运行时数据
 应写入 GFSkillActivationContext 或项目自己的事务对象。</description>
@@ -31,7 +31,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( p_step_id: StringName, p_rollback_required: bool = true ) -&gt; GFSkillActivationStep:</signature>
+			<signature>func configure(p_step_id: StringName, p_rollback_required: bool = true) -&gt; GFSkillActivationStep:</signature>
 			<description>配置步骤并返回自身。</description>
 			<tags>
 				<tag name="api">public</tag>

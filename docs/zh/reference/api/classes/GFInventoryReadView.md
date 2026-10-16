@@ -25,7 +25,7 @@
 | 方法 | [`has_item`](#member-gfinventoryreadview-methods-has_item) | `func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -> bool:` |
 | 方法 | [`get_empty_slot_indices`](#member-gfinventoryreadview-methods-get_empty_slot_indices) | `func get_empty_slot_indices() -> PackedInt32Array:` |
 | 方法 | [`get_occupied_slot_indices`](#member-gfinventoryreadview-methods-get_occupied_slot_indices) | `func get_occupied_slot_indices() -> PackedInt32Array:` |
-| 方法 | [`get_slots_for_item`](#member-gfinventoryreadview-methods-get_slots_for_item) | `func get_slots_for_item( item_id: StringName, instance_data: Dictionary = {} ) -> PackedInt32Array:` |
+| 方法 | [`get_slots_for_item`](#member-gfinventoryreadview-methods-get_slots_for_item) | `func get_slots_for_item(item_id: StringName, instance_data: Dictionary = {}) -> PackedInt32Array:` |
 
 ## 方法
 
@@ -238,7 +238,7 @@ func get_occupied_slot_indices() -> PackedInt32Array:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func get_slots_for_item( item_id: StringName, instance_data: Dictionary = {} ) -> PackedInt32Array:
+func get_slots_for_item(item_id: StringName, instance_data: Dictionary = {}) -> PackedInt32Array:
 ```
 
 获取候选中指定物品所在槽位。

@@ -182,12 +182,13 @@ func apply(action: GFCombatAction) -> GFCombatAction:
 		result.action_kind = action_kind
 
 	var modifier_metadata: Array = []
-	var modifier_metadata_value: Variant = GFVariantData.get_option_value(result.metadata, "modifiers", [])
+	var modifier_metadata_value: Variant = GFVariantData.get_option_value(
+		result.metadata,
+		"modifiers",
+		[]
+	)
 	modifier_metadata = GFVariantData.to_array(modifier_metadata_value)
-	modifier_metadata.append({
-		"modifier_id": modifier_id,
-		"metadata": metadata.duplicate(true),
-	})
+	modifier_metadata.append({ "modifier_id": modifier_id, "metadata": metadata.duplicate(true), })
 	result.metadata["modifiers"] = modifier_metadata
 	return result
 

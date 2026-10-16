@@ -130,7 +130,10 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @schema return: JSON-safe Dictionary based on to_dictionary().
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(to_dictionary(), options)
+	return GFReportValueCodec.to_report_dictionary(
+		to_dictionary(),
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -152,7 +155,12 @@ func _copy_scores(source_scores: Array[GFDecisionScore]) -> Array[GFDecisionScor
 ## @api private
 func _copy_best_score(source_score: GFDecisionScore, copied_scores: Array[GFDecisionScore]) -> GFDecisionScore:
 	if source_score == null:
-		return GFDecisionScore.new(null, 0.0, [], false)
+		return GFDecisionScore.new(
+			null,
+			0.0,
+			[],
+			false
+		)
 	for copied_score: GFDecisionScore in copied_scores:
 		if (
 			copied_score != null

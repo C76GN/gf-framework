@@ -1,10 +1,7 @@
 ## 测试 GFArchitectureLifecyclePlan 的确定性 DAG 与关闭快照。
 extends GutTest
 
-
-const GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = preload(
-	"res://addons/gf/kernel/core/gf_architecture_lifecycle_plan.gd"
-)
+const GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_lifecycle_plan.gd")
 
 
 func test_independent_modules_use_kind_priority_and_registration_ordinal() -> void:
@@ -16,18 +13,26 @@ func test_independent_modules_use_kind_priority_and_registration_ordinal() -> vo
 	second_model.lifecycle_priority = 2
 	utility.lifecycle_priority = 100
 	system.lifecycle_priority = 200
-	var models: Dictionary = {
-		PlanModel: first_model,
-		SecondPlanModel: second_model,
-	}
-	var utilities: Dictionary = {PlanUtility: utility}
-	var systems: Dictionary = {PlanSystem: system}
+	var models: Dictionary = { PlanModel: first_model, SecondPlanModel: second_model, }
+	var utilities: Dictionary = { PlanUtility: utility }
+	var systems: Dictionary = { PlanSystem: system }
 	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 
-	assert_true(plan.compile(models, utilities, systems))
+	assert_true(
+		plan.compile(
+			models,
+			utilities,
+			systems
+		)
+	)
 	assert_eq(
 		plan.get_activation_order(),
-		[first_model, second_model, utility, system],
+		[
+			first_model,
+			second_model,
+			utility,
+			system,
+		],
 		"无依赖节点应按 kind、priority、注册 ordinal 稳定排序。"
 	)
 
@@ -42,12 +47,16 @@ func test_dependencies_override_ready_queue_tie_breakers() -> void:
 
 	assert_true(
 		plan.compile(
-			{ModelDependingOnSystem: model},
+			{ ModelDependingOnSystem: model },
 			{},
-			{PlanSystem: system}
+			{ PlanSystem: system }
 		)
 	)
-	assert_eq(plan.get_activation_order(), [system, model], "依赖必须先于声明者激活。")
+	assert_eq(
+		plan.get_activation_order(),
+		[system, model],
+		"依赖必须先于声明者激活。"
+	)
 
 
 func test_unique_assignable_local_dependency_is_a_dag_edge() -> void:
@@ -57,13 +66,19 @@ func test_unique_assignable_local_dependency_is_a_dag_edge() -> void:
 
 	assert_true(
 		plan.compile(
-			{DerivedPlanModel: model},
+			{ DerivedPlanModel: model },
 			{},
-			{SystemDependingOnBaseModel: system}
+			{ SystemDependingOnBaseModel: system }
 		)
 	)
-	assert_eq(plan.get_activation_order(), [model, system])
-	assert_eq(plan.get_external_dependency_count(), 0)
+	assert_eq(
+		plan.get_activation_order(),
+		[model, system]
+	)
+	assert_eq(
+		plan.get_external_dependency_count(),
+		0
+	)
 
 
 func test_authoritative_resolver_can_satisfy_parent_dependency_as_external() -> void:
@@ -79,12 +94,25 @@ func test_authoritative_resolver_can_satisfy_parent_dependency_as_external() -> 
 				"scope": &"parent",
 				"architecture_depth": 1,
 				"instance": parent_model,
-			}
+			},
 	}
 
-	assert_true(plan.compile({}, {}, {SystemDependingOnPlanModel: system}, resolvers))
-	assert_eq(plan.get_activation_order(), [system])
-	assert_eq(plan.get_external_dependency_count(), 1)
+	assert_true(
+		plan.compile(
+			{},
+			{},
+			{ SystemDependingOnPlanModel: system },
+			resolvers
+		)
+	)
+	assert_eq(
+		plan.get_activation_order(),
+		[system]
+	)
+	assert_eq(
+		plan.get_external_dependency_count(),
+		1
+	)
 	assert_true(plan.get_dependency_closure(system).has(system))
 	assert_false(plan.get_dependency_closure(system).has(parent_model))
 
@@ -93,11 +121,20 @@ func test_missing_dependency_fails_closed_with_typed_diagnostic() -> void:
 	var system: SystemDependingOnPlanModel = SystemDependingOnPlanModel.new()
 	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 
-	assert_false(plan.compile({}, {}, {SystemDependingOnPlanModel: system}))
+	assert_false(
+		plan.compile(
+			{},
+			{},
+			{ SystemDependingOnPlanModel: system }
+		)
+	)
 	assert_false(plan.is_valid())
 	assert_true(plan.get_activation_order().is_empty())
 	assert_true(plan.get_shutdown_order().is_empty())
-	assert_eq(_diagnostic_codes(plan), [&"missing_dependency"])
+	assert_eq(
+		_diagnostic_codes(plan),
+		[&"missing_dependency"]
+	)
 
 
 func test_defensive_capture_rejects_invalid_return_and_entry() -> void:
@@ -135,26 +172,35 @@ func test_cycle_fails_closed_with_stable_cycle_members() -> void:
 		plan.compile(
 			{},
 			{},
-			{
-				FirstCycleSystem: first,
-				SecondCycleSystem: second,
-			}
+			{ FirstCycleSystem: first, SecondCycleSystem: second, }
 		)
 	)
 	var diagnostics: Array[Dictionary] = plan.get_diagnostics()
-	assert_eq(diagnostics.size(), 1)
 	assert_eq(
-		_get_dictionary_string_name(diagnostics[0], "code"),
+		diagnostics.size(),
+		1
+	)
+	assert_eq(
+		_get_dictionary_string_name(
+			diagnostics[0],
+			"code"
+		),
 		&"dependency_cycle"
 	)
 	assert_eq(
-		_get_dictionary_int(diagnostics[0], "cycle_member_count"),
+		_get_dictionary_int(
+			diagnostics[0],
+			"cycle_member_count"
+		),
 		2
 	)
 	var cycle_members_variant: Variant = diagnostics[0].get("cycle_members")
 	assert_true(cycle_members_variant is Array)
 	var cycle_members: Array = cycle_members_variant
-	assert_eq(cycle_members.size(), 2)
+	assert_eq(
+		cycle_members.size(),
+		2
+	)
 
 
 func test_shutdown_order_is_exact_reverse_compile_snapshot_and_defensive() -> void:
@@ -165,19 +211,47 @@ func test_shutdown_order_is_exact_reverse_compile_snapshot_and_defensive() -> vo
 
 	assert_true(
 		plan.compile(
-			{PlanModel: model},
-			{UtilityDependingOnPlanModel: utility},
-			{SystemDependingOnUtility: system}
+			{ PlanModel: model },
+			{ UtilityDependingOnPlanModel: utility },
+			{ SystemDependingOnUtility: system }
 		)
 	)
 	var activation: Array[Object] = plan.get_activation_order()
 	var shutdown: Array[Object] = plan.get_shutdown_order()
-	assert_eq(activation, [model, utility, system])
-	assert_eq(shutdown, [system, utility, model])
+	assert_eq(
+		activation,
+		[
+			model,
+			utility,
+			system,
+		]
+	)
+	assert_eq(
+		shutdown,
+		[
+			system,
+			utility,
+			model,
+		]
+	)
 	activation.clear()
 	shutdown.clear()
-	assert_eq(plan.get_activation_order(), [model, utility, system])
-	assert_eq(plan.get_shutdown_order(), [system, utility, model])
+	assert_eq(
+		plan.get_activation_order(),
+		[
+			model,
+			utility,
+			system,
+		]
+	)
+	assert_eq(
+		plan.get_shutdown_order(),
+		[
+			system,
+			utility,
+			model,
+		]
+	)
 
 
 func test_dependency_closure_is_transitive_local_new_and_can_exclude_self() -> void:
@@ -187,19 +261,26 @@ func test_dependency_closure_is_transitive_local_new_and_can_exclude_self() -> v
 	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 	assert_true(
 		plan.compile(
-			{PlanModel: model},
-			{UtilityDependingOnPlanModel: utility},
-			{SystemDependingOnUtility: system}
+			{ PlanModel: model },
+			{ UtilityDependingOnPlanModel: utility },
+			{ SystemDependingOnUtility: system }
 		)
 	)
 
 	var closure: Dictionary = plan.get_dependency_closure(system, false)
-	assert_eq(closure.size(), 2)
+	assert_eq(
+		closure.size(),
+		2
+	)
 	assert_true(closure.has(model))
 	assert_true(closure.has(utility))
 	assert_false(closure.has(system))
 	closure.clear()
-	assert_eq(plan.get_dependency_closure(system, false).size(), 2, "每次必须返回新 Dictionary。")
+	assert_eq(
+		plan.get_dependency_closure(system, false).size(),
+		2,
+		"每次必须返回新 Dictionary。"
+	)
 	assert_true(plan.get_dependency_closure(PlanSystem.new()).is_empty())
 
 
@@ -212,27 +293,15 @@ func test_compile_captures_each_typed_hook_once_and_returns_defensive_snapshot()
 	var resolvers: Dictionary = {
 		&"factories": func(required_script: Script) -> Dictionary:
 			factory_resolver_calls.value += 1
-			return {
-				"status": (
-					&"local"
-					if required_script == PlanFactoryProduct
-					else &"missing"
-				),
-				"resolution_kind": &"exact",
-			}
+			return { "status": (&"local" if required_script == PlanFactoryProduct else &"missing"), "resolution_kind": &"exact", },
 	}
-	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = (
-		GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
-	)
+	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 
 	assert_true(
 		plan.compile(
-			{PlanModel: model},
-			{PlanUtility: utility},
-			{
-				PlanSystem: provider_system,
-				CountingDependenciesSystem: dependent,
-			},
+			{ PlanModel: model },
+			{ PlanUtility: utility },
+			{ PlanSystem: provider_system, CountingDependenciesSystem: dependent, },
 			resolvers
 		)
 	)
@@ -249,22 +318,28 @@ func test_compile_captures_each_typed_hook_once_and_returns_defensive_snapshot()
 	assert_eq(factory_resolver_calls.value, 1)
 	assert_eq(
 		plan.get_activation_order(),
-		[model, utility, provider_system, dependent]
+		[
+			model,
+			utility,
+			provider_system,
+			dependent,
+		]
 	)
 	var closure: Dictionary = plan.get_dependency_closure(dependent)
-	assert_eq(closure.size(), 4, "Factory availability 不能成为本地 DAG 节点。")
+	assert_eq(
+		closure.size(),
+		4,
+		"Factory availability 不能成为本地 DAG 节点。"
+	)
 
 	var snapshot: Array[Dictionary] = plan.get_dependency_snapshot()
-	var dependent_snapshot: Dictionary = _find_module_snapshot(
-		snapshot,
-		dependent
-	)
-	var declarations: Dictionary = dependent_snapshot.get(
-		"dependencies",
-		{}
-	)
+	var dependent_snapshot: Dictionary = _find_module_snapshot(snapshot, dependent)
+	var declarations: Dictionary = dependent_snapshot.get("dependencies", {})
 	var factory_dependencies: Array = declarations.get("factories", [])
-	assert_eq(factory_dependencies, [PlanFactoryProduct])
+	assert_eq(
+		factory_dependencies,
+		[PlanFactoryProduct]
+	)
 	factory_dependencies.clear()
 	snapshot.clear()
 
@@ -272,14 +347,8 @@ func test_compile_captures_each_typed_hook_once_and_returns_defensive_snapshot()
 		plan.get_dependency_snapshot(),
 		dependent
 	)
-	var fresh_declarations: Dictionary = fresh_snapshot.get(
-		"dependencies",
-		{}
-	)
-	var fresh_factory_dependencies: Array = fresh_declarations.get(
-		"factories",
-		[]
-	)
+	var fresh_declarations: Dictionary = fresh_snapshot.get("dependencies", {})
+	var fresh_factory_dependencies: Array = fresh_declarations.get("factories", [])
 	assert_eq(
 		fresh_factory_dependencies,
 		[PlanFactoryProduct],
@@ -287,7 +356,10 @@ func test_compile_captures_each_typed_hook_once_and_returns_defensive_snapshot()
 	)
 
 	var records: Array[Dictionary] = plan.get_dependency_records()
-	assert_eq(_records_for_module(records, dependent).size(), 4)
+	assert_eq(
+		_records_for_module(records, dependent).size(),
+		4
+	)
 	var factory_record: Dictionary = _find_dependency_record(
 		records,
 		dependent,
@@ -300,23 +372,27 @@ func test_compile_captures_each_typed_hook_once_and_returns_defensive_snapshot()
 	assert_true(_get_dictionary_bool(factory_record, "resolved"))
 	assert_null(_get_dictionary_object(factory_record, "resolved_instance"))
 	records.clear()
-	assert_eq(plan.get_dependency_records().size(), 4)
+	assert_eq(
+		plan.get_dependency_records().size(),
+		4
+	)
 
 
 func test_factory_dependency_is_required_but_never_becomes_a_dag_edge() -> void:
 	var dependent: FactoryDependentSystem = FactoryDependentSystem.new()
-	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = (
-		GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
-	)
+	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 
 	assert_false(
 		plan.compile(
 			{},
 			{},
-			{FactoryDependentSystem: dependent}
+			{ FactoryDependentSystem: dependent }
 		)
 	)
-	assert_eq(_diagnostic_codes(plan), [&"missing_dependency"])
+	assert_eq(
+		_diagnostic_codes(plan),
+		[&"missing_dependency"]
+	)
 	var missing_record: Dictionary = plan.get_dependency_records()[0]
 	assert_eq(
 		_get_dictionary_string_name(missing_record, "dependency_kind"),
@@ -332,27 +408,32 @@ func test_factory_dependency_is_required_but_never_becomes_a_dag_edge() -> void:
 		&"factories": func(required_script: Script) -> Dictionary:
 			resolver_calls.value += 1
 			return {
-				"status": (
-					&"external"
-					if required_script == PlanFactoryProduct
-					else &"missing"
-				),
+				"status": (&"external" if required_script == PlanFactoryProduct else &"missing"),
 				"scope": &"parent",
 				"architecture_depth": 1,
-			}
+			},
 	}
 	assert_true(
 		plan.compile(
 			{},
 			{},
-			{FactoryDependentSystem: dependent},
+			{ FactoryDependentSystem: dependent },
 			resolvers
 		)
 	)
 	assert_eq(resolver_calls.value, 1)
-	assert_eq(plan.get_activation_order(), [dependent])
-	assert_eq(plan.get_dependency_closure(dependent).size(), 1)
-	assert_eq(plan.get_external_dependency_count(), 1)
+	assert_eq(
+		plan.get_activation_order(),
+		[dependent]
+	)
+	assert_eq(
+		plan.get_dependency_closure(dependent).size(),
+		1
+	)
+	assert_eq(
+		plan.get_external_dependency_count(),
+		1
+	)
 
 
 func test_structured_resolver_failure_statuses_are_preserved() -> void:
@@ -363,31 +444,25 @@ func test_structured_resolver_failure_statuses_are_preserved() -> void:
 	}
 	for status_variant: Variant in expected_codes.keys():
 		var status: StringName = status_variant
-		var dependent: SystemDependingOnPlanModel = (
-			SystemDependingOnPlanModel.new()
-		)
-		var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = (
-			GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
-		)
+		var dependent: SystemDependingOnPlanModel = SystemDependingOnPlanModel.new()
+		var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 		var resolvers: Dictionary = {
 			&"models": func(_required_script: Script) -> Dictionary:
 				return {
 					"status": status,
 					"scope": status,
-					"parent_chain_cycle_detected": (
-						status == &"parent_cycle"
-					),
+					"parent_chain_cycle_detected": status == &"parent_cycle",
 					"cycle_architecture": "fixture-parent",
 					"cycle_depth": 2,
 					"cycle_start_depth": 0,
-				}
+				},
 		}
 
 		assert_false(
 			plan.compile(
 				{},
 				{},
-				{SystemDependingOnPlanModel: dependent},
+				{ SystemDependingOnPlanModel: dependent },
 				resolvers
 			)
 		)
@@ -401,27 +476,27 @@ func test_structured_resolver_failure_statuses_are_preserved() -> void:
 			status
 		)
 		assert_false(
-			_get_dictionary_bool(record, "resolved", true)
+			_get_dictionary_bool(
+				record,
+				"resolved",
+				true
+			)
 		)
 
 
 func test_invalid_structured_resolver_result_fails_closed() -> void:
-	var dependent: SystemDependingOnPlanModel = (
-		SystemDependingOnPlanModel.new()
-	)
-	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = (
-		GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
-	)
+	var dependent: SystemDependingOnPlanModel = SystemDependingOnPlanModel.new()
+	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 	var resolvers: Dictionary = {
 		&"models": func(_required_script: Script) -> Variant:
-			return "not a resolution"
+			return "not a resolution",
 	}
 
 	assert_false(
 		plan.compile(
 			{},
 			{},
-			{SystemDependingOnPlanModel: dependent},
+			{ SystemDependingOnPlanModel: dependent },
 			resolvers
 		)
 	)
@@ -439,9 +514,7 @@ func test_invalid_structured_resolver_result_fails_closed() -> void:
 
 
 func test_diagnostics_are_bounded_and_report_truncation() -> void:
-	var provider: ManyInvalidDependenciesProvider = (
-		ManyInvalidDependenciesProvider.new()
-	)
+	var provider: ManyInvalidDependenciesProvider = ManyInvalidDependenciesProvider.new()
 	var plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT = GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT.new()
 	var _capture_result: Variant = plan.call(
 		&"_capture_dependency_hook",
@@ -460,9 +533,7 @@ func test_diagnostics_are_bounded_and_report_truncation() -> void:
 
 # --- 辅助方法 ---
 
-func _diagnostic_codes(
-	plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT
-) -> Array[StringName]:
+func _diagnostic_codes(plan: GF_ARCHITECTURE_LIFECYCLE_PLAN_SCRIPT) -> Array[StringName]:
 	var result: Array[StringName] = []
 	for diagnostic: Dictionary in plan.get_diagnostics():
 		result.append(_get_dictionary_string_name(diagnostic, "code"))
@@ -533,20 +604,14 @@ func _make_dependency_declarations() -> Dictionary:
 	}
 
 
-func _find_module_snapshot(
-	snapshot: Array[Dictionary],
-	module_instance: Object
-) -> Dictionary:
+func _find_module_snapshot(snapshot: Array[Dictionary], module_instance: Object) -> Dictionary:
 	for entry: Dictionary in snapshot:
 		if entry.get("module_instance") == module_instance:
 			return entry
 	return {}
 
 
-func _records_for_module(
-	records: Array[Dictionary],
-	module_instance: Object
-) -> Array[Dictionary]:
+func _records_for_module(records: Array[Dictionary], module_instance: Object) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in records:
 		if record.get("module_instance") == module_instance:
@@ -560,10 +625,7 @@ func _find_dependency_record(
 	dependency_kind: StringName
 ) -> Dictionary:
 	for record: Dictionary in records:
-		if (
-			record.get("module_instance") == module_instance
-			and record.get("dependency_kind") == dependency_kind
-		):
+		if (record.get("module_instance") == module_instance and record.get("dependency_kind") == dependency_kind):
 			return record
 	return {}
 
@@ -612,17 +674,21 @@ class CountingDependenciesSystem extends GFSystem:
 		model_hook_calls += 1
 		return [PlanModel]
 
+
 	func get_required_utilities() -> Array[Script]:
 		utility_hook_calls += 1
 		return [PlanUtility]
+
 
 	func get_required_systems() -> Array[Script]:
 		system_hook_calls += 1
 		return [PlanSystem]
 
+
 	func get_required_factories() -> Array[Script]:
 		factory_hook_calls += 1
 		return [PlanFactoryProduct]
+
 
 	func get_hook_call_counts() -> Dictionary:
 		return {
@@ -672,6 +738,7 @@ class SystemDependingOnUtility extends GFSystem:
 class InvalidDependencyProvider extends RefCounted:
 	func get_required_models() -> Variant:
 		return "invalid"
+
 
 	func get_required_systems() -> Array:
 		return [42]

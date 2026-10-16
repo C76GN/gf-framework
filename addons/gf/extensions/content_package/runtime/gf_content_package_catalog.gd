@@ -122,7 +122,10 @@ func add_manifest(manifest: GFContentPackageManifest) -> bool:
 func set_manifests(manifests: Array[GFContentPackageManifest]) -> GFContentPackageCatalog:
 	clear()
 	for index: int in range(manifests.size()):
-		var _added: bool = _add_manifest_input(manifests[index], index)
+		var _added: bool = _add_manifest_input(
+			manifests[index],
+			index
+		)
 	return self
 
 
@@ -214,7 +217,11 @@ func get_package_ids() -> PackedStringArray:
 ## @return 依赖包先于依赖方出现的内容包 ID 列表。
 func get_ordered_package_ids() -> PackedStringArray:
 	var graph_report: Dictionary = _get_dependency_sort_report()
-	return GFVariantData.get_option_packed_string_array(graph_report, "ordered_ids", PackedStringArray())
+	return GFVariantData.get_option_packed_string_array(
+		graph_report,
+		"ordered_ids",
+		PackedStringArray()
+	)
 
 
 ## 查询有效内容包并返回隔离结果。
@@ -230,10 +237,7 @@ func get_ordered_package_ids() -> PackedStringArray:
 ## @return 类型化查询终态；目录无效时不返回部分结果。
 ## [br]
 ## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
-func query_packages(
-	query: GFContentPackageQuery,
-	options: Dictionary = {}
-) -> GFContentPackageQueryResult:
+func query_packages(query: GFContentPackageQuery, options: Dictionary = {}) -> GFContentPackageQueryResult:
 	if query == null:
 		return _make_query_failure(
 			GFContentPackageQueryResult.STATUS_INVALID_QUERY,
@@ -242,21 +246,24 @@ func query_packages(
 			"content package query is required"
 		)
 	var graph_report: Dictionary = get_graph_report(options)
-	if not GFVariantData.get_option_bool(graph_report, "ok", false):
-		return GFContentPackageQueryResult.new().configure_result(
-			false,
-			GFContentPackageQueryResult.STATUS_INVALID_CATALOG,
-			query.query_id,
-			PackedStringArray(),
-			PackedStringArray(),
-			[],
-			graph_report
+	if not GFVariantData.get_option_bool(
+		graph_report,
+		"ok",
+		false
+	):
+		return (
+			GFContentPackageQueryResult.new().configure_result(
+				false,
+				GFContentPackageQueryResult.STATUS_INVALID_CATALOG,
+				query.query_id,
+				PackedStringArray(),
+				PackedStringArray(),
+				[],
+				graph_report
+			)
 		)
 
-	var ordered_package_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		graph_report,
-		"ordered_package_ids"
-	)
+	var ordered_package_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(graph_report, "ordered_package_ids")
 	var direct_package_ids: PackedStringArray = PackedStringArray()
 	for package_id_text: String in ordered_package_ids:
 		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
@@ -282,14 +289,16 @@ func query_packages(
 	report["direct_package_count"] = direct_package_ids.size()
 	report["package_count"] = package_ids.size()
 	report = _finalize_report(report, "Content package query")
-	return GFContentPackageQueryResult.new().configure_result(
-		true,
-		GFContentPackageQueryResult.STATUS_COMPLETED,
-		query.query_id,
-		direct_package_ids,
-		package_ids,
-		manifests,
-		report
+	return (
+		GFContentPackageQueryResult.new().configure_result(
+			true,
+			GFContentPackageQueryResult.STATUS_COMPLETED,
+			query.query_id,
+			direct_package_ids,
+			package_ids,
+			manifests,
+			report
+		)
 	)
 
 
@@ -311,10 +320,7 @@ func get_graph_report(options: Dictionary = {}) -> Dictionary:
 	var dependency_sort_report: Dictionary = _get_dependency_sort_report()
 	report["package_count"] = _manifests.size()
 	report["package_ids"] = get_package_ids()
-	report["ordered_package_ids"] = GFVariantData.get_option_packed_string_array(
-		dependency_sort_report,
-		"ordered_ids"
-	)
+	report["ordered_package_ids"] = GFVariantData.get_option_packed_string_array(dependency_sort_report, "ordered_ids")
 	report["duplicate_package_ids"] = _duplicate_package_ids.duplicate()
 	report["rejected_manifest_count"] = _rejected_manifest_inputs.size()
 	report["rejected_manifest_inputs"] = _get_rejected_manifest_summaries()
@@ -344,16 +350,22 @@ func get_graph_report(options: Dictionary = {}) -> Dictionary:
 func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("Content package resource registration")
 	var graph_report: Dictionary = get_graph_report(options)
-	var _merged_report: Dictionary = GFValidationReportDictionary.merge_report(report, graph_report, {
-		"copy_fields": PackedStringArray([
-			"package_count",
-			"package_ids",
-			"ordered_package_ids",
-			"duplicate_package_ids",
-			"rejected_manifest_count",
-			"rejected_manifest_inputs",
-		]),
-	})
+	var _merged_report: Dictionary = GFValidationReportDictionary.merge_report(
+		report,
+		graph_report,
+		{
+			"copy_fields": PackedStringArray(
+				[
+					"package_count",
+					"package_ids",
+					"ordered_package_ids",
+					"duplicate_package_ids",
+					"rejected_manifest_count",
+					"rejected_manifest_inputs",
+				]
+			),
+		}
+	)
 	var registered_count: int = 0
 	var base_priority: int = GFVariantData.get_option_int(options, "base_priority")
 
@@ -372,10 +384,7 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 		return _finalize_report(report, "Content package resource registration")
 
 	var registration_entries: Array[Dictionary] = []
-	for package_id_text: String in GFVariantData.get_option_packed_string_array(
-		graph_report,
-		"ordered_package_ids"
-	):
+	for package_id_text: String in GFVariantData.get_option_packed_string_array(graph_report, "ordered_package_ids"):
 		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
 		if manifest == null:
 			continue
@@ -388,19 +397,22 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 			metadata["content_package_id"] = StringName(package_id_text)
 			metadata["content_package_resource_key"] = resource_key
 			metadata["_gf_content_package_resource"] = true
-			registration_entries.append({
-				"resource_key": resource_key,
-				"path": path,
-				"type_hint": type_hint,
-				"priority": priority,
-				"metadata": metadata,
-			})
+			registration_entries.append(
+				{
+					"resource_key": resource_key,
+					"path": path,
+					"type_hint": type_hint,
+					"priority": priority,
+					"metadata": metadata,
+				}
+			)
 
-	var replacement_report: Dictionary = resolver.replace_owner_paths(
-		_RESOLVER_OWNER_ID,
-		registration_entries
-	)
-	if GFVariantData.get_option_bool(replacement_report, "ok", false):
+	var replacement_report: Dictionary = resolver.replace_owner_paths(_RESOLVER_OWNER_ID, registration_entries)
+	if GFVariantData.get_option_bool(
+		replacement_report,
+		"ok",
+		false
+	):
 		registered_count = GFVariantData.get_option_int(replacement_report, "registered_count")
 	else:
 		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
@@ -412,7 +424,11 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 				"field": &"resources",
 				"path": "packages.resources",
 				"actual_value": GFVariantData.get_option_string_name(replacement_report, "reason"),
-				"row_index": GFVariantData.get_option_int(replacement_report, "failed_index", -1),
+				"row_index": GFVariantData.get_option_int(
+					replacement_report,
+					"failed_index",
+					-1
+				),
 			}
 		)
 
@@ -457,19 +473,23 @@ func _get_manifest_ref(package_id: StringName) -> GFContentPackageManifest:
 ## @api private
 func _add_manifest_input(manifest: GFContentPackageManifest, input_index: int) -> bool:
 	if manifest == null:
-		_rejected_manifest_inputs.append({
-			"input_index": input_index,
-			"reason": "null_manifest",
-			"source_path": "",
-		})
+		_rejected_manifest_inputs.append(
+			{
+				"input_index": input_index,
+				"reason": "null_manifest",
+				"source_path": "",
+			}
+		)
 		return false
 	if manifest.package_id == &"":
-		_rejected_manifest_inputs.append({
-			"input_index": input_index,
-			"reason": "missing_package_id",
-			"source_path": manifest.source_path,
-			"manifest": manifest.duplicate_manifest(),
-		})
+		_rejected_manifest_inputs.append(
+			{
+				"input_index": input_index,
+				"reason": "missing_package_id",
+				"source_path": manifest.source_path,
+				"manifest": manifest.duplicate_manifest(),
+			}
+		)
 		return false
 	if _manifests.has(manifest.package_id):
 		_add_duplicate_package_id(manifest.package_id)
@@ -486,21 +506,28 @@ func _add_manifest_input(manifest: GFContentPackageManifest, input_index: int) -
 func _get_rejected_manifest_summaries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in _rejected_manifest_inputs:
-		result.append({
-			"input_index": GFVariantData.get_option_int(record, "input_index", -1),
-			"reason": GFVariantData.get_option_string(record, "reason", _KIND_INVALID_MANIFEST),
-			"source_path": GFVariantData.get_option_string(record, "source_path"),
-		})
+		result.append(
+			{
+				"input_index": GFVariantData.get_option_int(
+					record,
+					"input_index",
+					-1
+				),
+				"reason": GFVariantData.get_option_string(
+					record,
+					"reason",
+					_KIND_INVALID_MANIFEST
+				),
+				"source_path": GFVariantData.get_option_string(record, "source_path"),
+			}
+		)
 	return result
 
 
 ## 从直接命中 ID 遍历现存依赖，再按已排序 ID 顺序输出闭包成员。
 ## [br]
 ## @api private
-func _expand_dependency_closure(
-	direct_package_ids: PackedStringArray,
-	ordered_package_ids: PackedStringArray
-) -> PackedStringArray:
+func _expand_dependency_closure(direct_package_ids: PackedStringArray, ordered_package_ids: PackedStringArray) -> PackedStringArray:
 	var included_ids: Dictionary = {}
 	var pending_ids: PackedStringArray = direct_package_ids.duplicate()
 	while not pending_ids.is_empty():
@@ -543,15 +570,18 @@ func _make_query_failure(
 	report["direct_package_ids"] = PackedStringArray()
 	report["package_ids"] = PackedStringArray()
 	report = _finalize_report(report, "Content package query")
-	return GFContentPackageQueryResult.new().configure_result(
-		false,
-		status,
-		query_id,
-		PackedStringArray(),
-		PackedStringArray(),
-		[],
-		report
+	return (
+		GFContentPackageQueryResult.new().configure_result(
+			false,
+			status,
+			query_id,
+			PackedStringArray(),
+			PackedStringArray(),
+			[],
+			report
+		)
 	)
+
 
 ## 将重复 package_id 以字符串形式加入诊断列表，列表中只保留一项。
 ## [br]
@@ -596,15 +626,17 @@ func _add_duplicate_issues(report: Dictionary) -> void:
 ## 按注册顺序校验目录中接纳的 manifest 并合并其问题。
 ## [br]
 ## @api private
-func _add_manifest_issues(
-	report: Dictionary,
-	options: Dictionary
-) -> void:
+func _add_manifest_issues(report: Dictionary, options: Dictionary) -> void:
 	for package_id: StringName in _manifest_order:
 		var manifest: GFContentPackageManifest = _get_manifest_ref(package_id)
 		if manifest == null:
 			continue
-		_append_manifest_validation_issues(report, manifest, package_id, options)
+		_append_manifest_validation_issues(
+			report,
+			manifest,
+			package_id,
+			options
+		)
 
 
 ## 汇总被拒输入；有 manifest 快照时复用其校验结果，否则报告缺失 manifest。
@@ -612,11 +644,21 @@ func _add_manifest_issues(
 ## @api private
 func _add_rejected_manifest_issues(report: Dictionary, options: Dictionary) -> void:
 	for record: Dictionary in _rejected_manifest_inputs:
-		var input_index: int = GFVariantData.get_option_int(record, "input_index", -1)
+		var input_index: int = GFVariantData.get_option_int(
+			record,
+			"input_index",
+			-1
+		)
 		var manifest_value: Variant = record.get("manifest")
 		if manifest_value is GFContentPackageManifest:
 			var manifest: GFContentPackageManifest = manifest_value
-			_append_manifest_validation_issues(report, manifest, manifest.package_id, options, input_index)
+			_append_manifest_validation_issues(
+				report,
+				manifest,
+				manifest.package_id,
+				options,
+				input_index
+			)
 			continue
 		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
@@ -646,14 +688,30 @@ func _append_manifest_validation_issues(
 	var manifest_report: Dictionary = manifest.get_validation_report(options)
 	for issue_variant: Variant in GFVariantData.get_option_array(manifest_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
-		var issue_row_index: int = GFVariantData.get_option_int(issue, "row_index", -1)
+		var issue_row_index: int = GFVariantData.get_option_int(
+			issue,
+			"row_index",
+			-1
+		)
 		if issue_row_index < 0:
 			issue_row_index = input_index
 		var issue_fields: Dictionary = {
 			"key": package_id,
-			"source_path": GFVariantData.get_option_string(issue, "source_path", manifest.source_path),
-			"source": GFVariantData.get_option_string(issue, "source", manifest.source_path),
-			"row_key": GFVariantData.get_option_value(issue, "row_key", package_id),
+			"source_path": GFVariantData.get_option_string(
+				issue,
+				"source_path",
+				manifest.source_path
+			),
+			"source": GFVariantData.get_option_string(
+				issue,
+				"source",
+				manifest.source_path
+			),
+			"row_key": GFVariantData.get_option_value(
+				issue,
+				"row_key",
+				package_id
+			),
 			"row_index": issue_row_index,
 			"field": GFVariantData.get_option_string_name(issue, "field"),
 			"path": GFVariantData.get_option_string(issue, "path"),
@@ -662,8 +720,18 @@ func _append_manifest_validation_issues(
 		}
 		var _added_issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
-			GFVariantData.get_option_string(issue, "severity", "error"),
-			StringName(GFVariantData.get_option_string(issue, "kind", _KIND_INVALID_MANIFEST)),
+			GFVariantData.get_option_string(
+				issue,
+				"severity",
+				"error"
+			),
+			StringName(
+				GFVariantData.get_option_string(
+					issue,
+					"kind",
+					_KIND_INVALID_MANIFEST
+				)
+			),
 			GFVariantData.get_option_string(issue, "message"),
 			issue_fields
 		)
@@ -711,6 +779,7 @@ func _add_dependency_issues(report: Dictionary, dependency_sort_report: Dictiona
 			}
 		)
 
+
 ## 按注册顺序建立只包含目录内依赖项的字符串 ID 邻接表。
 ## [br]
 ## @api private
@@ -754,17 +823,15 @@ func _get_manifest_order_as_strings() -> PackedStringArray:
 ## [br]
 ## @api private
 func _make_report(subject: String = _REPORT_SUBJECT) -> Dictionary:
-	return {
-		"subject": subject,
-		"issues": [],
-	}
+	return { "subject": subject, "issues": [], }
 
 
 ## 使用目录专属的无问题与需复核行动文本完成报告。
 ## [br]
 ## @api private
 func _finalize_report(report: Dictionary, subject: String = _REPORT_SUBJECT) -> Dictionary:
-	return GFValidationReportDictionary.finalize_report(report, subject, {
-		"fallback_action": "Review the first content package catalog issue.",
-		"no_action": "Content package catalog is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		subject,
+		{ "fallback_action": "Review the first content package catalog issue.", "no_action": "Content package catalog is valid.", }
+	)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHapticBackend" path="addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd" module="extensions/feedback" extends="RefCounted" classDigest="761993172c8deec1629c0622adb59431e6bbd8e901fa98396d1e045d50fe4430">
+<class name="GFHapticBackend" path="addons/gf/extensions/feedback/runtime/gf_haptic_backend.gd" module="extensions/feedback" extends="RefCounted" classDigest="89a58d4fae949ad52973c7c7c8318fe353c24ddae6d4a1af7f8a68bb85feaf28">
 	<description>GFHapticBackend: 震动输出后端协议。
 项目可实现该协议，把 GFHapticUtility 的采样输出路由到平台 SDK、远程设备、
 测试替身或自定义输入系统。该协议只承载输出能力，不定义播放策略。实现必须成对
@@ -31,7 +31,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="stop_output">
-			<signature>func stop_output(target_type: int, target_id: int, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func stop_output( target_type: int, target_id: int, metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>停止指定目标的震动输出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -60,7 +60,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_stop_output">
-			<signature>func _stop_output(_target_type: int, _target_id: int, _metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func _stop_output( _target_type: int, _target_id: int, _metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>子类实现停止震动输出。</description>
 			<tags>
 				<tag name="api">protected</tag>

@@ -33,9 +33,7 @@ const DEFAULT_MAX_REFLECTION_PROPERTIES: int = 256
 ## 将上下文快照投影为 JSON-safe 报告值。
 ## [br]
 ## @api private
-const _REPORT_SCHEMA_PROJECTION = preload(
-	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
-)
+const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
 
 ## 捕获预算允许的条目数量上限。
 ## [br]
@@ -220,7 +218,11 @@ func set_metadata_value(key: StringName, value: Variant) -> void:
 ## [br]
 ## @schema return: 元数据中的项目值，或传入的 default_value。
 func get_metadata_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.get_option_value(metadata, key, default_value)
+	return GFVariantData.get_option_value(
+		metadata,
+		key,
+		default_value
+	)
 
 
 ## 从主体快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。
@@ -239,7 +241,13 @@ func get_metadata_value(key: StringName, default_value: Variant = null) -> Varia
 ## [br]
 ## @schema return: 从主体读取的项目值，或传入的 fallback。
 func get_subject_value(key: StringName, fallback: Variant = null) -> Variant:
-	return _read_object_snapshot_value(subject_values, get_subject_or_null(), key, fallback, &"subject")
+	return _read_object_snapshot_value(
+		subject_values,
+		get_subject_or_null(),
+		key,
+		fallback,
+		&"subject"
+	)
 
 
 ## 从目标快照视图读取决策值；每个缺失 key 最多触发一次受预算约束的 provider 懒读取，miss 也会负缓存并消费预算。
@@ -258,7 +266,13 @@ func get_subject_value(key: StringName, fallback: Variant = null) -> Variant:
 ## [br]
 ## @schema return: 从目标读取的项目值，或传入的 fallback。
 func get_target_value(key: StringName, fallback: Variant = null) -> Variant:
-	return _read_object_snapshot_value(target_values, get_target_or_null(), key, fallback, &"target")
+	return _read_object_snapshot_value(
+		target_values,
+		get_target_or_null(),
+		key,
+		fallback,
+		&"target"
+	)
 
 
 ## 获取当前主体对象；对象已释放时返回 null。
@@ -344,18 +358,9 @@ func get_debug_snapshot() -> Dictionary:
 		"metadata": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(metadata, report_options),
 		"subject_class": current_subject.get_class() if current_subject != null else "",
 		"target_class": current_target.get_class() if current_target != null else "",
-		"subject_values": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
-			subject_values,
-			report_options
-		),
-		"target_values": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
-			target_values,
-			report_options
-		),
-		"capture_diagnostics": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
-			_capture_diagnostics,
-			report_options
-		),
+		"subject_values": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(subject_values, report_options),
+		"target_values": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(target_values, report_options),
+		"capture_diagnostics": _REPORT_SCHEMA_PROJECTION.to_report_dictionary(_capture_diagnostics, report_options),
 	}
 
 
@@ -378,7 +383,10 @@ func _set_subject(value: Object) -> void:
 	_subject_ref = weakref(value) if value != null else null
 	var entries: Dictionary = _get_capture_entries(&"subject")
 	var snapshot: Dictionary = _snapshot_decision_object(value, &"subject")
-	if not is_same(entries, _get_capture_entries(&"subject")):
+	if not is_same(
+		entries,
+		_get_capture_entries(&"subject")
+	):
 		return
 	subject_values = snapshot
 	_seed_capture_entries(&"subject", subject_values)
@@ -392,7 +400,10 @@ func _set_target(value: Object) -> void:
 	_target_ref = weakref(value) if value != null else null
 	var entries: Dictionary = _get_capture_entries(&"target")
 	var snapshot: Dictionary = _snapshot_decision_object(value, &"target")
-	if not is_same(entries, _get_capture_entries(&"target")):
+	if not is_same(
+		entries,
+		_get_capture_entries(&"target")
+	):
 		return
 	target_values = snapshot
 	_seed_capture_entries(&"target", target_values)
@@ -413,9 +424,16 @@ func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> 
 	if object_ref == null or not is_instance_valid(object_ref):
 		return {}
 
-	if _can_invoke_provider_method(object_ref, &"get_decision_snapshot", 0):
+	if _can_invoke_provider_method(
+		object_ref,
+		&"get_decision_snapshot",
+		0
+	):
 		var method_snapshot: Variant = object_ref.call("get_decision_snapshot")
-		if not is_same(entries, _get_capture_entries(capture_slot)):
+		if not is_same(
+			entries,
+			_get_capture_entries(capture_slot)
+		):
 			return {}
 		if method_snapshot is Dictionary:
 			var method_result: Dictionary = _copy_snapshot_dictionary(
@@ -425,9 +443,16 @@ func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> 
 			)
 			_apply_decision_value_overrides(object_ref, method_result)
 			return method_result
-	if _can_invoke_provider_method(object_ref, &"get_decision_values", 0):
+	if _can_invoke_provider_method(
+		object_ref,
+		&"get_decision_values",
+		0
+	):
 		var method_values: Variant = object_ref.call("get_decision_values")
-		if not is_same(entries, _get_capture_entries(capture_slot)):
+		if not is_same(
+			entries,
+			_get_capture_entries(capture_slot)
+		):
 			return {}
 		if method_values is Dictionary:
 			var values_result: Dictionary = _copy_snapshot_dictionary(
@@ -464,7 +489,13 @@ func _copy_snapshot_dictionary(
 		if snapshot.size() >= limit:
 			continue
 		snapshot[normalized_key] = GFVariantData.duplicate_variant(source[key_variant])
-	_set_capture_diagnostics(capture_slot, capture_source, snapshot.size(), eligible_count > snapshot.size(), limit)
+	_set_capture_diagnostics(
+		capture_slot,
+		capture_source,
+		snapshot.size(),
+		eligible_count > snapshot.size(),
+		limit
+	)
 	return snapshot
 
 
@@ -489,10 +520,19 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 		if snapshot.size() >= limit:
 			continue
 		var value: Variant = object_ref.get(property_name)
-		if not is_same(entries, _get_capture_entries(capture_slot)):
+		if not is_same(
+			entries,
+			_get_capture_entries(capture_slot)
+		):
 			return {}
 		snapshot[StringName(property_name)] = GFVariantData.duplicate_variant(value)
-	_set_capture_diagnostics(capture_slot, &"reflection", snapshot.size(), eligible_count > snapshot.size(), limit)
+	_set_capture_diagnostics(
+		capture_slot,
+		&"reflection",
+		snapshot.size(),
+		eligible_count > snapshot.size(),
+		limit
+	)
 	return snapshot
 
 
@@ -500,7 +540,11 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 ## [br]
 ## @api private
 func _apply_decision_value_overrides(object_ref: Object, snapshot: Dictionary) -> void:
-	if not _can_invoke_provider_method(object_ref, &"get_decision_value", 2):
+	if not _can_invoke_provider_method(
+		object_ref,
+		&"get_decision_value",
+		2
+	):
 		return
 
 	var sentinel: RefCounted = RefCounted.new()
@@ -510,7 +554,11 @@ func _apply_decision_value_overrides(object_ref: Object, snapshot: Dictionary) -
 			continue
 
 		var key: StringName = normalized_key
-		var value: Variant = object_ref.call("get_decision_value", key, sentinel)
+		var value: Variant = object_ref.call(
+			"get_decision_value",
+			key,
+			sentinel
+		)
 		if value is RefCounted and is_same(value, sentinel):
 			continue
 		snapshot[key] = GFVariantData.duplicate_variant(value)
@@ -519,7 +567,11 @@ func _apply_decision_value_overrides(object_ref: Object, snapshot: Dictionary) -
 ## 先按 StringName 再按 String 键读取快照，并经 Variant 复制器返回值。
 ## [br]
 ## @api private
-func _read_snapshot_value(snapshot: Dictionary, key: StringName, fallback: Variant = null) -> Variant:
+func _read_snapshot_value(
+	snapshot: Dictionary,
+	key: StringName,
+	fallback: Variant = null
+) -> Variant:
 	if snapshot.has(key):
 		return GFVariantData.duplicate_variant(snapshot[key])
 	var string_key: String = String(key)
@@ -540,7 +592,11 @@ func _read_object_snapshot_value(
 	capture_slot: StringName
 ) -> Variant:
 	if _snapshot_has_key(snapshot, key):
-		return _read_snapshot_value(snapshot, key, fallback)
+		return _read_snapshot_value(
+			snapshot,
+			key,
+			fallback
+		)
 	var capture_entries: Dictionary = _get_capture_entries(capture_slot)
 	if _snapshot_has_key(capture_entries, key):
 		return fallback
@@ -564,7 +620,11 @@ func _read_object_snapshot_value(
 	# as the negative-cache entry and blocks same-key reentry.
 	capture_entries[key] = true
 	attempted_count += 1
-	if not _can_invoke_provider_method(object_ref, &"get_decision_value", 2):
+	if not _can_invoke_provider_method(
+		object_ref,
+		&"get_decision_value",
+		2
+	):
 		_set_capture_diagnostics(
 			capture_slot,
 			&"lazy_cache",
@@ -575,8 +635,15 @@ func _read_object_snapshot_value(
 		)
 		return fallback
 	var sentinel: RefCounted = RefCounted.new()
-	var value: Variant = object_ref.call("get_decision_value", key, sentinel)
-	if not is_same(_get_capture_entries(capture_slot), capture_entries):
+	var value: Variant = object_ref.call(
+		"get_decision_value",
+		key,
+		sentinel
+	)
+	if not is_same(
+		_get_capture_entries(capture_slot),
+		capture_entries
+	):
 		return fallback
 	if value is RefCounted and is_same(value, sentinel):
 		_set_capture_diagnostics(
@@ -658,7 +725,11 @@ func _normalize_snapshot_key(key: Variant) -> Variant:
 ## @api private
 func _get_capture_limit(option_name: String, default_value: int) -> int:
 	return clampi(
-		GFVariantData.get_option_int(capture_options, option_name, default_value),
+		GFVariantData.get_option_int(
+			capture_options,
+			option_name,
+			default_value
+		),
 		0,
 		_HARD_MAX_CAPTURE_ENTRIES
 	)
@@ -672,7 +743,11 @@ func _can_invoke_provider_method(
 	method_name: StringName,
 	argument_count: int
 ) -> bool:
-	if object_ref == null or not is_instance_valid(object_ref) or not object_ref.has_method(method_name):
+	if (
+		object_ref == null
+		or not is_instance_valid(object_ref)
+		or not object_ref.has_method(method_name)
+	):
 		return false
 	for method_info: Dictionary in object_ref.get_method_list():
 		if GFVariantData.get_option_string_name(method_info, "name") != method_name:
@@ -682,11 +757,18 @@ func _can_invoke_provider_method(
 		if default_arguments.size() > arguments.size():
 			return false
 		var required_count: int = arguments.size() - default_arguments.size()
-		var method_flags: int = GFVariantData.get_option_int(method_info, "flags", 0)
+		var method_flags: int = GFVariantData.get_option_int(
+			method_info,
+			"flags",
+			0
+		)
 		var accepts_varargs: bool = (method_flags & METHOD_FLAG_VARARG) != 0
 		return (
 			required_count <= argument_count
-			and (argument_count <= arguments.size() or accepts_varargs)
+			and (
+				argument_count <= arguments.size()
+				or accepts_varargs
+			)
 		)
 	return false
 
@@ -716,7 +798,11 @@ func _set_capture_diagnostics(
 	var previous: Dictionary = GFVariantData.get_option_dictionary(_capture_diagnostics, capture_slot)
 	var resolved_attempted_count: int = captured_count if attempted_count < 0 else attempted_count
 	_capture_diagnostics[capture_slot] = {
-		"truncated": truncated or GFVariantData.get_option_bool(previous, "truncated", false),
+		"truncated": truncated or GFVariantData.get_option_bool(
+			previous,
+			"truncated",
+			false
+		),
 		"captured_count": captured_count,
 		"attempted_count": resolved_attempted_count,
 		"source": capture_source,

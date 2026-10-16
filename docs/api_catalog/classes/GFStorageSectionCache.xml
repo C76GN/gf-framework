@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSectionCache" path="addons/gf/standard/utilities/storage/gf_storage_section_cache.gd" module="standard" extends="RefCounted" classDigest="2b927a7b0ee09eb6b9d1b23eeb96407932cd44672f9222bd59d892d8c8fac8f0">
+<class name="GFStorageSectionCache" path="addons/gf/standard/utilities/storage/gf_storage_section_cache.gd" module="standard" extends="RefCounted" classDigest="6658704c4ee0712d0282d0389d81ced68d7f3d2f44c9c8eec3f7dceb7cd3a8f0">
 	<description>GFStorageSectionCache: 通用分区数据脏标记缓存。
 用 scope_id + section_id 管理 Dictionary 分区，记录哪些分区被修改，并可生成只包含脏分区的
 存储载荷。它不定义存档字段、业务模块或 UI，只负责分区缓存和脏状态机制。
@@ -16,7 +16,7 @@ scope_id 按每次调用时的序列化值识别；修改 Array/Dictionary 内�
 	<properties />
 	<methods>
 		<member kind="method" name="write_section">
-			<signature>func write_section(scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true) -&gt; bool:</signature>
+			<signature>func write_section( scope_id: Variant, section_id: StringName, data: Dictionary, mark_dirty: bool = true ) -&gt; bool:</signature>
 			<description>写入一个分区。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -48,7 +48,7 @@ scope_id 按每次调用时的序列化值识别；修改 Array/Dictionary 内�
 			</tags>
 		</member>
 		<member kind="method" name="read_section">
-			<signature>func read_section(scope_id: Variant, section_id: StringName, duplicate_value: bool = true) -&gt; Dictionary:</signature>
+			<signature>func read_section( scope_id: Variant, section_id: StringName, duplicate_value: bool = true ) -&gt; Dictionary:</signature>
 			<description>读取一个分区。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -133,7 +133,7 @@ scope_id 按每次调用时的序列化值识别；修改 Array/Dictionary 内�
 			</tags>
 		</member>
 		<member kind="method" name="apply_payload">
-			<signature>func apply_payload(scope_id: Variant, payload: Dictionary, mark_dirty: bool = false) -&gt; int:</signature>
+			<signature>func apply_payload( scope_id: Variant, payload: Dictionary, mark_dirty: bool = false ) -&gt; int:</signature>
 			<description>从 payload 填充作用域。</description>
 			<tags>
 				<tag name="api">public</tag>

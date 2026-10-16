@@ -109,14 +109,15 @@ func get_read_result() -> GFStorageReadResult:
 ## @param read_result: 仅 SUCCESS 接收非空成功读取结果；直接保存，不复制。
 ## [br]
 ## @return 首次配置成功时返回 true。
-func configure_for_framework(
-	status: Status,
-	read_result: GFStorageReadResult = null
-) -> bool:
+func configure_for_framework(status: Status, read_result: GFStorageReadResult = null) -> bool:
 	if _configured or not Status.values().has(int(status)):
 		return false
 	if status == Status.SUCCESS:
-		if read_result == null or not read_result.ok or read_result.error_code != OK:
+		if (
+			read_result == null
+			or not read_result.ok
+			or read_result.error_code != OK
+		):
 			return false
 	elif read_result != null:
 		return false

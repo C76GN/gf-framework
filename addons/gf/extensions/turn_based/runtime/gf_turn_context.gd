@@ -94,7 +94,11 @@ var _next_flow_operation_lease_id: int = 1
 ## [br]
 ## @param actor: 参与者对象。Context 会强持有 RefCounted，直到 remove_actor() 或 Context 自身释放。
 func add_actor(actor: Object) -> void:
-	if actor == null or not is_instance_valid(actor) or _actors.has(actor):
+	if (
+		actor == null
+		or not is_instance_valid(actor)
+		or _actors.has(actor)
+	):
 		return
 	_actors.append(actor)
 
@@ -134,7 +138,11 @@ func get_actors() -> Array[Object]:
 ## @schema return: int removed invalid actor reference count.
 func cleanup_invalid_actors() -> int:
 	var removed_count: int = 0
-	for index: int in range(_actors.size() - 1, -1, -1):
+	for index: int in range(
+		_actors.size() - 1,
+		-1,
+		-1
+	):
 		var actor: Object = _actors[index]
 		if actor == null or not is_instance_valid(actor):
 			_actors.remove_at(index)
@@ -165,15 +173,27 @@ func cleanup_invalid_actors() -> int:
 ## @schema fallback: Variant returned when no actor value can be read.
 ## [br]
 ## @schema return: Variant read from get_turn_value(), object property access, or fallback.
-func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -> Variant:
+func get_actor_value(
+	actor: Object,
+	key: StringName,
+	fallback: Variant = null
+) -> Variant:
 	if actor == null or not is_instance_valid(actor):
 		return fallback
 	var arguments: Array = [key, fallback]
-	if _can_invoke_actor_method(actor, &"get_turn_value", arguments):
+	if _can_invoke_actor_method(
+		actor,
+		&"get_turn_value",
+		arguments
+	):
 		return actor.callv(&"get_turn_value", arguments)
 
 	var property_name: StringName = key
-	return GFObjectPropertyTools.read_property(actor, NodePath(String(property_name)), fallback)
+	return GFObjectPropertyTools.read_property(
+		actor,
+		NodePath(String(property_name)),
+		fallback
+	)
 
 
 # --- 框架内部方法 ---
@@ -190,18 +210,11 @@ func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -
 ## @param flow_serial: 请求 claim 的 Flow generation。
 ## [br]
 ## @return: 成功时返回精确租约；Context 正被其他 owner/generation 持有时返回 null。
-func try_acquire_flow_operation_lease(
-	owner: GFTurnFlowSystem,
-	flow_serial: int
-) -> FlowOperationLease:
+func try_acquire_flow_operation_lease(owner: GFTurnFlowSystem, flow_serial: int) -> FlowOperationLease:
 	if owner == null or not is_instance_valid(owner):
 		return null
 	if not _flow_operation_leases.is_empty():
-		var current_owner: Object = (
-			_flow_operation_owner_ref.get_ref()
-			if _flow_operation_owner_ref != null
-			else null
-		)
+		var current_owner: Object = (_flow_operation_owner_ref.get_ref() if _flow_operation_owner_ref != null else null)
 		if current_owner != owner or _flow_operation_owner_serial != flow_serial:
 			return null
 	else:
@@ -211,7 +224,12 @@ func try_acquire_flow_operation_lease(
 	var lease_id: int = _next_flow_operation_lease_id
 	_next_flow_operation_lease_id += 1
 	var lease: FlowOperationLease = FlowOperationLease.new()
-	lease._configure(self, owner, flow_serial, lease_id)
+	lease._configure(
+		self,
+		owner,
+		flow_serial,
+		lease_id
+	)
 	_flow_operation_leases[lease_id] = lease
 	return lease
 
@@ -234,10 +252,7 @@ func is_flow_operation_lease_active(
 	owner: GFTurnFlowSystem,
 	flow_serial: int
 ) -> bool:
-	return (
-		_is_flow_operation_lease_reserved(lease)
-		and lease._is_active_for(owner, flow_serial)
-	)
+	return (_is_flow_operation_lease_reserved(lease) and lease._is_active_for(owner, flow_serial))
 
 
 ## 撤销精确租约的后续正常写入，但保留 claim，直到旧 continuation 完成清理。
@@ -251,10 +266,7 @@ func is_flow_operation_lease_active(
 ## @param owner: 预期 Flow System owner。
 ## [br]
 ## @return: 首次成功撤销时返回 true。
-func cancel_flow_operation_lease(
-	lease: FlowOperationLease,
-	owner: GFTurnFlowSystem
-) -> bool:
+func cancel_flow_operation_lease(lease: FlowOperationLease, owner: GFTurnFlowSystem) -> bool:
 	if not _is_flow_operation_lease_reserved(lease) or not lease._is_owned_by(owner):
 		return false
 	return lease._cancel()
@@ -271,10 +283,7 @@ func cancel_flow_operation_lease(
 ## @param owner: 预期 Flow System owner。
 ## [br]
 ## @return: 首次成功释放时返回 true。
-func release_flow_operation_lease(
-	lease: FlowOperationLease,
-	owner: GFTurnFlowSystem
-) -> bool:
+func release_flow_operation_lease(lease: FlowOperationLease, owner: GFTurnFlowSystem) -> bool:
 	if not _is_flow_operation_lease_reserved(lease) or not lease._is_owned_by(owner):
 		return false
 	var lease_id: int = lease._get_lease_id()
@@ -304,7 +313,11 @@ func cleanup_invalid_actors_from_flow(
 	owner: GFTurnFlowSystem,
 	flow_serial: int
 ) -> int:
-	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+	if not is_flow_operation_lease_active(
+		lease,
+		owner,
+		flow_serial
+	):
 		return 0
 	return cleanup_invalid_actors()
 
@@ -328,7 +341,11 @@ func set_current_actor_from_flow(
 	owner: GFTurnFlowSystem,
 	flow_serial: int
 ) -> void:
-	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+	if not is_flow_operation_lease_active(
+		lease,
+		owner,
+		flow_serial
+	):
 		return
 	_current_actor = actor if actor == null or is_instance_valid(actor) else null
 
@@ -342,10 +359,7 @@ func set_current_actor_from_flow(
 ## @param lease: 仍被本次旧 operation 保留的精确租约。
 ## [br]
 ## @param owner: 租约的 Flow System owner。
-func clear_current_actor_from_flow(
-	lease: FlowOperationLease,
-	owner: GFTurnFlowSystem
-) -> void:
+func clear_current_actor_from_flow(lease: FlowOperationLease, owner: GFTurnFlowSystem) -> void:
 	if not _is_flow_operation_lease_reserved(lease) or not lease._is_owned_by(owner):
 		return
 	_current_actor = null
@@ -367,7 +381,11 @@ func reset_round_from_flow(
 	owner: GFTurnFlowSystem,
 	flow_serial: int
 ) -> void:
-	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+	if not is_flow_operation_lease_active(
+		lease,
+		owner,
+		flow_serial
+	):
 		return
 	_round_index = 0
 
@@ -388,7 +406,11 @@ func advance_round_from_flow(
 	owner: GFTurnFlowSystem,
 	flow_serial: int
 ) -> void:
-	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+	if not is_flow_operation_lease_active(
+		lease,
+		owner,
+		flow_serial
+	):
 		return
 	_round_index += 1
 
@@ -403,10 +425,7 @@ func _is_flow_operation_lease_reserved(lease: FlowOperationLease) -> bool:
 	if lease == null:
 		return false
 	var lease_id: int = lease._get_lease_id()
-	var stored_value: Variant = GFVariantData.get_option_value(
-		_flow_operation_leases,
-		lease_id
-	)
+	var stored_value: Variant = GFVariantData.get_option_value(_flow_operation_leases, lease_id)
 	return stored_value == lease and lease._is_reserved_for(self)
 
 
@@ -420,18 +439,31 @@ func _can_invoke_actor_method(
 	method_name: StringName,
 	arguments: Array
 ) -> bool:
-	if actor == null or not is_instance_valid(actor) or not actor.has_method(method_name):
+	if (
+		actor == null
+		or not is_instance_valid(actor)
+		or not actor.has_method(method_name)
+	):
 		return false
 	for method_info: Dictionary in actor.get_method_list():
 		if GFVariantData.get_option_string_name(method_info, "name") != method_name:
 			continue
-		if not _method_accepts_argument_count(method_info, arguments.size()):
+		if not _method_accepts_argument_count(
+			method_info,
+			arguments.size()
+		):
 			return false
 		var method_arguments: Array = GFVariantData.get_option_array(method_info, "args")
-		var fixed_argument_count: int = mini(arguments.size(), method_arguments.size())
+		var fixed_argument_count: int = mini(
+			arguments.size(),
+			method_arguments.size()
+		)
 		for index: int in range(fixed_argument_count):
 			var argument_info: Dictionary = GFVariantData.as_dictionary(method_arguments[index])
-			if not _method_argument_accepts_value(argument_info, arguments[index]):
+			if not _method_argument_accepts_value(
+				argument_info,
+				arguments[index]
+			):
 				return false
 		return true
 	return false
@@ -447,11 +479,18 @@ func _method_accepts_argument_count(method_info: Dictionary, argument_count: int
 	if default_arguments.size() > method_arguments.size():
 		return false
 	var required_count: int = method_arguments.size() - default_arguments.size()
-	var method_flags: int = GFVariantData.get_option_int(method_info, "flags", 0)
+	var method_flags: int = GFVariantData.get_option_int(
+		method_info,
+		"flags",
+		0
+	)
 	var accepts_varargs: bool = (method_flags & METHOD_FLAG_VARARG) != 0
 	return (
 		required_count <= argument_count
-		and (argument_count <= method_arguments.size() or accepts_varargs)
+		and (
+			argument_count <= method_arguments.size()
+			or accepts_varargs
+		)
 	)
 
 
@@ -460,7 +499,11 @@ func _method_accepts_argument_count(method_info: Dictionary, argument_count: int
 ## @api private
 ## [br]
 func _method_argument_accepts_value(argument_info: Dictionary, value: Variant) -> bool:
-	var expected_type: int = GFVariantData.get_option_int(argument_info, "type", TYPE_NIL)
+	var expected_type: int = GFVariantData.get_option_int(
+		argument_info,
+		"type",
+		TYPE_NIL
+	)
 	if expected_type == TYPE_NIL:
 		return true
 	if value == null:
@@ -470,8 +513,14 @@ func _method_argument_accepts_value(argument_info: Dictionary, value: Variant) -
 	if expected_type == TYPE_FLOAT and actual_type == TYPE_INT:
 		return true
 	if (
-		(expected_type == TYPE_STRING and actual_type == TYPE_STRING_NAME)
-		or (expected_type == TYPE_STRING_NAME and actual_type == TYPE_STRING)
+		(
+			expected_type == TYPE_STRING
+			and actual_type == TYPE_STRING_NAME
+		)
+		or (
+			expected_type == TYPE_STRING_NAME
+			and actual_type == TYPE_STRING
+		)
 	):
 		return true
 	if actual_type != expected_type:
@@ -479,10 +528,7 @@ func _method_argument_accepts_value(argument_info: Dictionary, value: Variant) -
 	if expected_type != TYPE_OBJECT:
 		return true
 
-	var expected_class_name: StringName = GFVariantData.get_option_string_name(
-		argument_info,
-		"class_name"
-	)
+	var expected_class_name: StringName = GFVariantData.get_option_string_name(argument_info, "class_name")
 	if expected_class_name == &"":
 		return true
 	var object_value: Object = value
@@ -502,10 +548,7 @@ func _object_matches_class_name(value: Object, expected_class_name: StringName) 
 	var script_value: Variant = value.get_script()
 	while script_value is Script:
 		var script: Script = script_value
-		if (
-			StringName(script.get_global_name()) == expected_class_name
-			or StringName(script.resource_path) == expected_class_name
-		):
+		if (StringName(script.get_global_name()) == expected_class_name or StringName(script.resource_path) == expected_class_name):
 			return true
 		script_value = script.get_base_script()
 	return false
@@ -521,6 +564,8 @@ func _object_matches_class_name(value: Object, expected_class_name: StringName) 
 ## [br]
 ## @since 11.0.0
 class FlowOperationLease extends RefCounted:
+
+
 	# --- 私有变量 ---
 
 	## 登记此 claim 的上下文弱引用。
@@ -606,7 +651,11 @@ class FlowOperationLease extends RefCounted:
 	## [br]
 	## @api private
 	func _is_active_for(owner: GFTurnFlowSystem, flow_serial: int) -> bool:
-		return _active and _is_owned_by(owner) and _flow_serial == flow_serial
+		return (
+			_active
+			and _is_owned_by(owner)
+			and _flow_serial == flow_serial
+		)
 
 
 	## 仅使仍活跃的预留 claim 失活；保留登记资格，重复取消返回 false。

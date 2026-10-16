@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncProgressAggregator" path="addons/gf/standard/common/gf_async_progress_aggregator.gd" module="standard" extends="RefCounted" classDigest="32108a25913c490d2e1e10b4ce185c30196f77d98365485b8d76a4f330a7ae52">
+<class name="GFAsyncProgressAggregator" path="addons/gf/standard/common/gf_async_progress_aggregator.gd" module="standard" extends="RefCounted" classDigest="04ee79576988ce7d93e75cbe71f50a12d3465475b1b0d072fd380e418fc2d546">
 	<description>GFAsyncProgressAggregator: 多任务加权进度聚合器。
 用于把调用方定义的多个子任务进度合成为一个 0 到 1 的总进度，并复用
 GFAsyncProgress 的数值、消息和时间节流。它只记录和发布进度，不执行任务、
@@ -11,7 +11,7 @@ GFAsyncProgress 的数值、消息和时间节流。它只记录和发布进度�
 	</tags>
 	<signals>
 		<member kind="signal" name="progressed">
-			<signature>signal progressed(value: float, message: String, metadata: Dictionary)</signature>
+			<signature>signal progressed( value: float, message: String, metadata: Dictionary )</signature>
 			<description>总进度通过节流条件并对外发布时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -61,7 +61,7 @@ GFAsyncProgress 的数值、消息和时间节流。它只记录和发布进度�
 	</properties>
 	<methods>
 		<member kind="method" name="add_task">
-			<signature>func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {}) -&gt; int:</signature>
+			<signature>func add_task( task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {} ) -&gt; int:</signature>
 			<description>添加一个子任务，并返回任务索引。
 如果 task_key 非 null 且已经存在，返回既有任务索引，不修改既有任务。权重会夹到不小于 0。</description>
 			<tags>
@@ -98,7 +98,7 @@ GFAsyncProgress 的数值、消息和时间节流。它只记录和发布进度�
 			</tags>
 		</member>
 		<member kind="method" name="set_task_progress">
-			<signature>func set_task_progress(task_index: int, value: float, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func set_task_progress( task_index: int, value: float, message: String = "", task_metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>设置指定任务的 0 到 1 进度。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -112,7 +112,7 @@ GFAsyncProgress 的数值、消息和时间节流。它只记录和发布进度�
 			</tags>
 		</member>
 		<member kind="method" name="set_task_progress_by_key">
-			<signature>func set_task_progress_by_key(task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func set_task_progress_by_key( task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>通过任务 key 设置 0 到 1 进度。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -159,7 +159,7 @@ total 小于等于 0 时按已完成处理，避免未知总量流程永久卡�
 			</tags>
 		</member>
 		<member kind="method" name="complete_task">
-			<signature>func complete_task(task_index: int, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func complete_task( task_index: int, message: String = "", task_metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>将指定任务标记为完成。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -172,7 +172,7 @@ total 小于等于 0 时按已完成处理，避免未知总量流程永久卡�
 			</tags>
 		</member>
 		<member kind="method" name="complete_task_by_key">
-			<signature>func complete_task_by_key(task_key: Variant, message: String = "", task_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func complete_task_by_key( task_key: Variant, message: String = "", task_metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>通过任务 key 标记任务完成。</description>
 			<tags>
 				<tag name="api">public</tag>

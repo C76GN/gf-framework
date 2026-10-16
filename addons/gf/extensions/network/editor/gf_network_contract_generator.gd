@@ -202,7 +202,11 @@ func generate(
 	overwrite_existing: bool = true,
 	options: Dictionary = {}
 ) -> Error:
-	var report: Dictionary = generate_with_report(contract, output_path, _merge_generation_save_options(options, overwrite_existing))
+	var report: Dictionary = generate_with_report(
+		contract,
+		output_path,
+		_merge_generation_save_options(options, overwrite_existing)
+	)
 	return _get_legacy_error_code(report)
 
 
@@ -237,7 +241,11 @@ func generate_with_report(
 			_make_pre_save_failure_report_options(options)
 		)
 	var validation: Dictionary = contract.validate_contract()
-	if not GFVariantData.get_option_bool(validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		return _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(
 			output_path,
 			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
@@ -251,7 +259,11 @@ func generate_with_report(
 		var class_name_value: String = _resolve_class_name(contract, options)
 		resolved_output_path = DEFAULT_OUTPUT_DIR.path_join("%s.gd" % class_name_value.to_snake_case())
 	var source: String = build_source(contract, options)
-	return save_source_with_report(resolved_output_path, source, _make_artifact_report_options(options, contract))
+	return save_source_with_report(
+		resolved_output_path,
+		source,
+		_make_artifact_report_options(options, contract)
+	)
 
 
 ## 批量生成多个契约访问器脚本。
@@ -279,7 +291,11 @@ func generate_many(
 	overwrite_existing: bool = true,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var plan_result: Dictionary = _build_many_plan(contract_paths, output_dir, options)
+	var plan_result: Dictionary = _build_many_plan(
+		contract_paths,
+		output_dir,
+		options
+	)
 	var generated: Array[Dictionary] = []
 	var artifact_reports: Array[Dictionary] = []
 	var issues: Array[Dictionary] = _get_record_array(plan_result, "issues")
@@ -294,9 +310,7 @@ func generate_many(
 		for plan_entry: Dictionary in plan:
 			var contract_path: String = _get_record_string(plan_entry, "contract_path")
 			var output_path: String = _get_record_string(plan_entry, "output_path")
-			var contract: GFNetworkContract = _variant_to_contract(
-				GFVariantData.get_option_value(plan_entry, "contract")
-			)
+			var contract: GFNetworkContract = _variant_to_contract(GFVariantData.get_option_value(plan_entry, "contract"))
 			var source: String = _get_record_string(plan_entry, "source")
 			var artifact_report: Dictionary = save_source_with_report(
 				output_path,
@@ -304,30 +318,35 @@ func generate_many(
 				_make_artifact_report_options(save_options, contract)
 			)
 			artifact_reports.append(artifact_report)
-			var artifact_status: StringName = GFVariantData.get_option_string_name(artifact_report, "status", &"")
+			var artifact_status: StringName = GFVariantData.get_option_string_name(
+				artifact_report,
+				"status",
+				&""
+			)
 			var error: Error = _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(artifact_report)
-			generated.append({
-				"contract_path": contract_path,
-				"output_path": output_path,
-				"status": String(artifact_status),
-				"written": GFVariantData.get_option_bool(artifact_report, "written"),
-				"changed": GFVariantData.get_option_bool(artifact_report, "changed"),
-				"error": error,
-				"error_name": error_string(error),
-				"artifact_report": artifact_report,
-			})
+			generated.append(
+				{
+					"contract_path": contract_path,
+					"output_path": output_path,
+					"status": String(artifact_status),
+					"written": GFVariantData.get_option_bool(artifact_report, "written"),
+					"changed": GFVariantData.get_option_bool(artifact_report, "changed"),
+					"error": error,
+					"error_name": error_string(error),
+					"artifact_report": artifact_report,
+				}
+			)
 			if artifact_status == _GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED:
-				issues.append({
-					"severity": "error",
-					"kind": "generate_failed",
-					"path": contract_path,
-					"message": _get_artifact_error_message(artifact_report),
-				})
+				issues.append(
+					{
+						"severity": "error",
+						"kind": "generate_failed",
+						"path": contract_path,
+						"message": _get_artifact_error_message(artifact_report),
+					}
+				)
 
-	var artifact_summary: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.summarize_reports(
-		artifact_reports,
-		"Network contract generation"
-	)
+	var artifact_summary: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.summarize_reports(artifact_reports, "Network contract generation")
 	var report: Dictionary = {
 		"ok": issues.is_empty(),
 		"generated_count": GFVariantData.get_option_int(artifact_summary, "written_count"),
@@ -339,12 +358,16 @@ func generate_many(
 		"issues": issues,
 		"plan_fingerprint": GFVariantData.get_option_string(plan_result, "plan_fingerprint"),
 	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract generation", {
-		"include_issue_count": true,
-		"next_actions": _get_generation_next_actions(),
-		"fallback_action": "Review the first network contract generation issue.",
-		"no_action": "Network contract generation completed.",
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(
+		report,
+		"Network contract generation",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_generation_next_actions(),
+			"fallback_action": "Review the first network contract generation issue.",
+			"no_action": "Network contract generation completed.",
+		}
+	)
 
 
 ## 构建契约访问器源码。测试或项目工具可直接调用该方法。
@@ -371,7 +394,11 @@ func build_source(contract: GFNetworkContract, options: Dictionary = {}) -> Stri
 	builder.line("class_name %s" % class_name_value)
 	builder.line("extends RefCounted")
 	builder.blank(2)
-	_append_constants(builder, contract, message_records)
+	_append_constants(
+		builder,
+		contract,
+		message_records
+	)
 	builder.section("公共方法")
 	_append_version_methods(builder)
 	for record: Dictionary in message_records:
@@ -393,10 +420,16 @@ func build_source(contract: GFNetworkContract, options: Dictionary = {}) -> Stri
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
 ## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
-func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
-	var report: Dictionary = save_source_with_report(output_path, source, {
-		"overwrite_existing": overwrite_existing,
-	})
+func save_source(
+	output_path: String,
+	source: String,
+	overwrite_existing: bool = true
+) -> Error:
+	var report: Dictionary = save_source_with_report(
+		output_path,
+		source,
+		{ "overwrite_existing": overwrite_existing, }
+	)
 	return _get_legacy_error_code(report)
 
 
@@ -417,10 +450,18 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 ## @return: 生成产物报告。
 ## [br]
 ## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
-func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -> Dictionary:
+func save_source_with_report(
+	output_path: String,
+	source: String,
+	options: Dictionary = {}
+) -> Dictionary:
 	var save_options: Dictionary = options.duplicate(true)
 	save_options["label"] = "GFNetworkContractGenerator"
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(output_path, source, save_options)
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.save_text(
+		output_path,
+		source,
+		save_options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -430,7 +471,11 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 ## @api private
 ## [br]
 func _get_legacy_error_code(report: Dictionary) -> Error:
-	if GFVariantData.get_option_bool(report, "written", false):
+	if GFVariantData.get_option_bool(
+		report,
+		"written",
+		false
+	):
 		return OK
 	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
 
@@ -451,45 +496,63 @@ func _build_many_plan(
 	var budgets: Dictionary = _resolve_generation_budgets(options)
 	if not GFVariantData.get_option_bool(budgets, "ok"):
 		issues.append(GFVariantData.get_option_dictionary(budgets, "issue"))
-		return _make_many_plan_result(entries, issues, normalized_output_dir)
+		return _make_many_plan_result(
+			entries,
+			issues,
+			normalized_output_dir
+		)
 	var max_contracts: int = GFVariantData.get_option_int(budgets, "max_contracts")
 	if contract_paths.size() > max_contracts:
-		issues.append(_make_generation_budget_issue(
-			"contract_count",
-			max_contracts,
-			contract_paths.size()
-		))
-		return _make_many_plan_result(entries, issues, normalized_output_dir)
+		issues.append(
+			_make_generation_budget_issue(
+				"contract_count",
+				max_contracts,
+				contract_paths.size()
+			)
+		)
+		return _make_many_plan_result(
+			entries,
+			issues,
+			normalized_output_dir
+		)
 	if normalized_output_dir.is_empty():
-		issues.append({
-			"severity": "error",
-			"kind": "invalid_generation_output_root",
-			"path": output_dir,
-			"message": "Network contract output_dir must be a non-empty resource root.",
-		})
-		return _make_many_plan_result(entries, issues, normalized_output_dir)
+		issues.append(
+			{
+				"severity": "error",
+				"kind": "invalid_generation_output_root",
+				"path": output_dir,
+				"message": "Network contract output_dir must be a non-empty resource root.",
+			}
+		)
+		return _make_many_plan_result(
+			entries,
+			issues,
+			normalized_output_dir
+		)
 	var total_source_bytes: int = 0
 	for contract_path_value: String in contract_paths:
-		var contract_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
-			contract_path_value
-		)
+		var contract_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(contract_path_value)
 		if contract_path.length() > _MAX_CONTRACT_PATH_LENGTH:
-			issues.append(_make_generation_budget_issue(
-				"contract_path_length",
-				_MAX_CONTRACT_PATH_LENGTH,
-				contract_path.length(),
-				contract_path.left(128)
-			))
+			issues.append(
+				_make_generation_budget_issue(
+					"contract_path_length",
+					_MAX_CONTRACT_PATH_LENGTH,
+					contract_path.length(),
+					contract_path.left(128)
+				)
+			)
 			continue
 		var contract: GFNetworkContract = _variant_to_contract(load(contract_path))
 		if contract == null:
-			issues.append({
-				"severity": "error",
-				"kind": "invalid_contract_resource",
-				"path": contract_path,
-				"resource_path": contract_path,
-				"message": "Contract resource is not a GFNetworkContract resource.",
-			})
+			issues.append(
+				{
+					"severity": "error",
+					"kind": "invalid_contract_resource",
+					"path": contract_path,
+					"resource_path": contract_path,
+					"message": "Contract resource is not a GFNetworkContract resource.",
+				}
+			)
 			continue
 		var contract_budget_issue: Dictionary = _get_contract_generation_budget_issue(
 			contract,
@@ -502,56 +565,59 @@ func _build_many_plan(
 			continue
 		var validation: Dictionary = contract.validate_contract()
 		if not GFVariantData.get_option_bool(validation, "ok"):
-			issues.append({
-				"severity": "error",
-				"kind": "invalid_contract_definition",
-				"path": contract_path,
-				"resource_path": contract_path,
-				"message": "Network contract validation failed before generation planning.",
-			})
+			issues.append(
+				{
+					"severity": "error",
+					"kind": "invalid_contract_definition",
+					"path": contract_path,
+					"resource_path": contract_path,
+					"message": "Network contract validation failed before generation planning.",
+				}
+			)
 			continue
 		var class_name_value: String = _resolve_class_name(contract, options)
-		var output_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
-			normalized_output_dir.path_join("%s.gd" % class_name_value.to_snake_case())
-		)
+		var output_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(normalized_output_dir.path_join("%s.gd" % class_name_value.to_snake_case()))
 		var output_identity: String = output_path.to_lower()
 		if used_output_paths.has(output_identity):
-			issues.append({
-				"severity": "error",
-				"kind": "duplicate_output_path",
-				"path": contract_path,
-				"resource_path": contract_path,
-				"output_path": output_path,
-				"first_contract_path": GFVariantData.get_option_string(
-					GFVariantData.as_dictionary(used_output_paths[output_identity]),
-					"contract_path"
-				),
-				"message": "Multiple network contracts map to the same canonical output path.",
-			})
+			issues.append(
+				{
+					"severity": "error",
+					"kind": "duplicate_output_path",
+					"path": contract_path,
+					"resource_path": contract_path,
+					"output_path": output_path,
+					"first_contract_path": GFVariantData.get_option_string(
+						GFVariantData.as_dictionary(used_output_paths[output_identity]),
+						"contract_path"
+					),
+					"message": "Multiple network contracts map to the same canonical output path.",
+				}
+			)
 			continue
 		var source: String = build_source(contract, options)
 		var source_bytes: int = source.to_utf8_buffer().size()
 		var max_source_bytes: int = GFVariantData.get_option_int(budgets, "max_source_bytes")
 		if source_bytes > max_source_bytes:
-			issues.append(_make_generation_budget_issue(
-				"source_bytes",
-				max_source_bytes,
-				source_bytes,
-				contract_path
-			))
+			issues.append(
+				_make_generation_budget_issue(
+					"source_bytes",
+					max_source_bytes,
+					source_bytes,
+					contract_path
+				)
+			)
 			continue
 		total_source_bytes += source_bytes
-		var max_total_source_bytes: int = GFVariantData.get_option_int(
-			budgets,
-			"max_total_source_bytes"
-		)
+		var max_total_source_bytes: int = GFVariantData.get_option_int(budgets, "max_total_source_bytes")
 		if total_source_bytes > max_total_source_bytes:
-			issues.append(_make_generation_budget_issue(
-				"total_source_bytes",
-				max_total_source_bytes,
-				total_source_bytes,
-				contract_path
-			))
+			issues.append(
+				_make_generation_budget_issue(
+					"total_source_bytes",
+					max_total_source_bytes,
+					total_source_bytes,
+					contract_path
+				)
+			)
 			continue
 		var entry: Dictionary = {
 			"contract_path": contract_path,
@@ -563,7 +629,11 @@ func _build_many_plan(
 		}
 		used_output_paths[output_identity] = entry
 		entries.append(entry)
-	return _make_many_plan_result(entries, issues, normalized_output_dir)
+	return _make_many_plan_result(
+		entries,
+		issues,
+		normalized_output_dir
+	)
 
 
 ## 汇总批量计划状态、输出目录、条目、问题和计划指纹。
@@ -627,7 +697,11 @@ func _resolve_generation_budgets(options: Dictionary) -> Dictionary:
 		var default_value: int = GFVariantData.get_option_int(specification, "default")
 		var absolute_value: int = GFVariantData.get_option_int(specification, "absolute")
 		var has_value: bool = options.has(key) or options.has(StringName(key))
-		var raw_value: Variant = GFVariantData.get_option_value(options, key, default_value)
+		var raw_value: Variant = GFVariantData.get_option_value(
+			options,
+			key,
+			default_value
+		)
 		var budget_value: int = raw_value if raw_value is int else -1
 		if has_value and budget_value <= 0:
 			return {
@@ -653,14 +727,8 @@ func _get_contract_generation_budget_issue(
 	budgets: Dictionary,
 	options: Dictionary
 ) -> Dictionary:
-	var max_identifier_length: int = GFVariantData.get_option_int(
-		budgets,
-		"max_identifier_length"
-	)
-	var configured_class_name: String = GFVariantData.get_option_string(
-		options,
-		"class_name"
-	).strip_edges()
+	var max_identifier_length: int = GFVariantData.get_option_int(budgets, "max_identifier_length")
+	var configured_class_name: String = (GFVariantData.get_option_string(options, "class_name").strip_edges())
 	if configured_class_name.length() > max_identifier_length:
 		return _make_generation_budget_issue(
 			"class_name_length",
@@ -675,10 +743,7 @@ func _get_contract_generation_budget_issue(
 			String(contract.contract_id).length(),
 			contract_path
 		)
-	var max_messages: int = GFVariantData.get_option_int(
-		budgets,
-		"max_messages_per_contract"
-	)
+	var max_messages: int = GFVariantData.get_option_int(budgets, "max_messages_per_contract")
 	if contract.messages.size() > max_messages:
 		return _make_generation_budget_issue(
 			"message_count",
@@ -743,11 +808,13 @@ func _make_generation_budget_issue(
 func _make_plan_fingerprint(entries: Array[Dictionary]) -> String:
 	var records: Array[Dictionary] = []
 	for entry: Dictionary in entries:
-		records.append({
-			"contract_path": _get_record_string(entry, "contract_path"),
-			"output_path": _get_record_string(entry, "output_path"),
-			"content_sha256": _get_record_string(entry, "content_sha256"),
-		})
+		records.append(
+			{
+				"contract_path": _get_record_string(entry, "contract_path"),
+				"output_path": _get_record_string(entry, "output_path"),
+				"content_sha256": _get_record_string(entry, "content_sha256"),
+			}
+		)
 	return JSON.stringify(records).sha256_text()
 
 
@@ -764,6 +831,7 @@ func _make_batch_save_options(
 	if not save_options.has("allowed_roots") and not save_options.has(&"allowed_roots"):
 		save_options["allowed_roots"] = PackedStringArray([output_dir])
 	return save_options
+
 
 ## 深复制生成选项并写入 overwrite_existing 标志。
 ## [br]
@@ -795,10 +863,7 @@ func _make_artifact_report_options(options: Dictionary, contract: GFNetworkContr
 ## [br]
 ## @api private
 ## [br]
-func _make_pre_save_failure_report_options(
-	options: Dictionary,
-	contract: GFNetworkContract = null
-) -> Dictionary:
+func _make_pre_save_failure_report_options(options: Dictionary, contract: GFNetworkContract = null) -> Dictionary:
 	var report_options: Dictionary = _make_artifact_report_options(options, contract)
 	report_options["written"] = false
 	report_options["changed"] = false
@@ -835,7 +900,10 @@ func _resolve_class_name(contract: GFNetworkContract, options: Dictionary) -> St
 		base_name = contract.resource_path.get_file().get_basename()
 	if base_name.is_empty():
 		base_name = "generated"
-	return _to_pascal_identifier("%s_network_messages" % base_name, "GFGeneratedNetworkContract")
+	return _to_pascal_identifier(
+		"%s_network_messages" % base_name,
+		"GFGeneratedNetworkContract"
+	)
 
 
 ## 为契约消息分配唯一常量、方法和字段访问器名称并生成记录。
@@ -860,31 +928,48 @@ func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 			continue
 
 		var suffix: String = _make_unique_name(
-			_to_snake_identifier(String(message_contract.message_type), "message"),
+			_to_snake_identifier(
+				String(message_contract.message_type),
+				"message"
+			),
 			used_suffixes
 		)
 		var message_constant: String = _make_unique_name(
-			"MESSAGE_%s" % _to_constant_name(String(message_contract.message_type), "MESSAGE"),
+			"MESSAGE_%s" % _to_constant_name(
+				String(message_contract.message_type),
+				"MESSAGE"
+			),
 			used_constants
 		)
 		var channel_constant: String = _make_unique_name(
-			"CHANNEL_%s" % _to_constant_name(String(message_contract.message_type), "MESSAGE"),
+			"CHANNEL_%s" % _to_constant_name(
+				String(message_contract.message_type),
+				"MESSAGE"
+			),
 			used_constants
 		)
-		for method_name: String in ["make_%s" % suffix, "send_%s" % suffix, "is_%s" % suffix, "get_%s_payload" % suffix]:
+		for method_name: String in [
+			"make_%s" % suffix,
+			"send_%s" % suffix,
+			"is_%s" % suffix,
+			"get_%s_payload" % suffix,
+		]:
 			used_methods[method_name] = true
-		records.append({
-			"message": message_contract,
-			"suffix": suffix,
-			"message_constant": message_constant,
-			"channel_constant": channel_constant,
-			"field_records": _build_field_records(message_contract, used_constants),
-		})
+		records.append(
+			{
+				"message": message_contract,
+				"suffix": suffix,
+				"message_constant": message_constant,
+				"channel_constant": channel_constant,
+				"field_records": _build_field_records(message_contract, used_constants),
+			}
+		)
 	for record: Dictionary in records:
 		var field_records: Array = _get_record_array(record, "field_records")
 		for field_record: Dictionary in field_records:
 			field_record["accessor_name"] = _make_unique_name(
-				"get_%s_%s" % [_get_record_string(record, "suffix"), _get_record_string(field_record, "accessor_suffix")],
+				"get_%s_%s"
+				% [_get_record_string(record, "suffix"), _get_record_string(field_record, "accessor_suffix")],
 				used_methods
 			)
 		record["field_records"] = field_records
@@ -895,10 +980,7 @@ func _build_message_records(contract: GFNetworkContract) -> Array[Dictionary]:
 ## [br]
 ## @api private
 ## [br]
-func _build_field_records(
-	message_contract: GFNetworkContractMessage,
-	used_constants: Dictionary
-) -> Array[Dictionary]:
+func _build_field_records(message_contract: GFNetworkContractMessage, used_constants: Dictionary) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_parameters: Dictionary = {}
 	var used_accessor_suffixes: Dictionary = {}
@@ -909,24 +991,42 @@ func _build_field_records(
 	used_parameters["message"] = true
 	used_parameters["channel_id"] = true
 
-	var message_constant_part: String = _to_constant_name(String(message_contract.message_type), "MESSAGE")
+	var message_constant_part: String = _to_constant_name(
+		String(message_contract.message_type),
+		"MESSAGE"
+	)
 	for field: GFNetworkContractField in _ordered_fields(message_contract.fields):
 		if field == null or field.field_name == &"":
 			continue
 
 		var field_constant: String = _make_unique_name(
-			"FIELD_%s_%s" % [
+			"FIELD_%s_%s"
+			% [
 				message_constant_part,
-				_to_constant_name(String(field.field_name), "FIELD"),
+				_to_constant_name(
+					String(field.field_name),
+					"FIELD"
+				),
 			],
 			used_constants
 		)
-		records.append({
-			"field": field,
-			"field_constant": field_constant,
-			"parameter_name": _allocate_identifier(String(field.field_name), "field", used_parameters, true),
-			"accessor_suffix": _allocate_identifier(String(field.field_name), "field", used_accessor_suffixes),
-		})
+		records.append(
+			{
+				"field": field,
+				"field_constant": field_constant,
+				"parameter_name": _allocate_identifier(
+					String(field.field_name),
+					"field",
+					used_parameters,
+					true
+				),
+				"accessor_suffix": _allocate_identifier(
+					String(field.field_name),
+					"field",
+					used_accessor_suffixes
+				),
+			}
+		)
 	return records
 
 
@@ -968,7 +1068,14 @@ func _append_constants(
 	builder.line("const CONTRACT_ID: StringName = &\"%s\"" % String(contract.contract_id).c_escape())
 	builder.line("const CONTRACT_VERSION_MAJOR: int = %d" % contract.contract_version_major)
 	builder.line("const CONTRACT_VERSION_MINOR: int = %d" % contract.contract_version_minor)
-	builder.line("const CONTRACT_SCHEMA_DESCRIPTOR_VERSION: int = %d" % GFVariantData.get_option_int(contract_version, "schema_descriptor_version", 1))
+	builder.line(
+		"const CONTRACT_SCHEMA_DESCRIPTOR_VERSION: int = %d"
+		% GFVariantData.get_option_int(
+			contract_version,
+			"schema_descriptor_version",
+			1
+		)
+	)
 	builder.line("const CONTRACT_SCHEMA_DIGEST: String = \"%s\"" % contract.get_schema_digest().c_escape())
 	builder.blank()
 
@@ -981,22 +1088,22 @@ func _append_constants(
 		var message_contract: GFNetworkContractMessage = _get_record_message(record)
 		if message_contract == null:
 			continue
-		builder.line("const %s: StringName = &\"%s\"" % [
-			_get_record_string(record, "message_constant"),
-			String(message_contract.message_type).c_escape(),
-		])
-		builder.line("const %s: StringName = &\"%s\"" % [
-			_get_record_string(record, "channel_constant"),
-			String(message_contract.channel_id).c_escape(),
-		])
+		builder.line(
+			"const %s: StringName = &\"%s\""
+			% [_get_record_string(record, "message_constant"), String(message_contract.message_type).c_escape(),]
+		)
+		builder.line(
+			"const %s: StringName = &\"%s\""
+			% [_get_record_string(record, "channel_constant"), String(message_contract.channel_id).c_escape(),]
+		)
 		for field_record: Dictionary in _get_record_array(record, "field_records"):
 			var field: GFNetworkContractField = _get_record_field(field_record)
 			if field == null:
 				continue
-			builder.line("const %s: StringName = &\"%s\"" % [
-				_get_record_string(field_record, "field_constant"),
-				String(field.field_name).c_escape(),
-			])
+			builder.line(
+				"const %s: StringName = &\"%s\""
+				% [_get_record_string(field_record, "field_constant"), String(field.field_name).c_escape(),]
+			)
 		builder.blank()
 	builder.blank()
 
@@ -1043,7 +1150,11 @@ func _append_message_methods(builder: GFSourceBuilder, record: Dictionary) -> vo
 	var message_contract: GFNetworkContractMessage = _get_record_message(record)
 	if message_contract == null:
 		return
-	var suffix: String = _get_record_string(record, "suffix", "message")
+	var suffix: String = _get_record_string(
+		record,
+		"suffix",
+		"message"
+	)
 	var field_records: Array = _get_record_array(record, "field_records")
 	var make_params: PackedStringArray = _build_function_parameters(field_records, true)
 	var send_params: PackedStringArray = _build_function_parameters(field_records, true)
@@ -1051,7 +1162,10 @@ func _append_message_methods(builder: GFSourceBuilder, record: Dictionary) -> vo
 	var _network_inserted: int = send_params.insert(0, "network: GFNetworkUtility")
 
 	builder.doc("创建 %s 消息。" % String(message_contract.message_type))
-	builder.line("static func make_%s(%s) -> GFNetworkMessage:" % [suffix, ", ".join(make_params)])
+	builder.line(
+		"static func make_%s(%s) -> GFNetworkMessage:"
+		% [suffix, ", ".join(make_params)]
+	)
 	builder.indent()
 	_append_payload_builder(builder, field_records)
 	builder.line("return GFNetworkMessage.new(")
@@ -1068,9 +1182,15 @@ func _append_message_methods(builder: GFSourceBuilder, record: Dictionary) -> vo
 	builder.blank(2)
 
 	builder.doc("发送 %s 消息。" % String(message_contract.message_type))
-	builder.line("static func send_%s(%s) -> Error:" % [suffix, ", ".join(send_params)])
+	builder.line(
+		"static func send_%s(%s) -> Error:"
+		% [suffix, ", ".join(send_params)]
+	)
 	builder.indent()
-	builder.line("var message: GFNetworkMessage = make_%s(%s)" % [suffix, _build_make_call_arguments(field_records)])
+	builder.line(
+		"var message: GFNetworkMessage = make_%s(%s)"
+		% [suffix, _build_make_call_arguments(field_records)]
+	)
 	builder.line("var channel_id: StringName = GFVariantData.get_option_string_name(options, \"channel_id\", %s)" % _get_record_string(record, "channel_constant"))
 	builder.line("return _send_contract_message(network, peer_id, message, channel_id, options)")
 	builder.dedent()
@@ -1109,14 +1229,17 @@ func _append_payload_builder(builder: GFSourceBuilder, field_records: Array) -> 
 		if _should_omit_null_optional_parameter(field):
 			builder.line("if %s != null or GFVariantData.get_option_bool(options, \"include_null_optional_fields\"):" % parameter_name)
 			builder.indent()
-			builder.line("payload[%s] = %s" % [field_constant, parameter_name])
+			builder.line(
+				"payload[%s] = %s"
+				% [field_constant, parameter_name]
+			)
 			builder.dedent()
 			continue
 
-		builder.line("payload[%s] = %s" % [
-			_get_record_string(field_record, "field_constant"),
-			_get_record_string(field_record, "parameter_name"),
-		])
+		builder.line(
+			"payload[%s] = %s"
+			% [_get_record_string(field_record, "field_constant"), _get_record_string(field_record, "parameter_name"),]
+		)
 
 
 ## 为单个契约字段写入使用声明类型和默认值的访问器。
@@ -1131,12 +1254,15 @@ func _append_field_getter(builder: GFSourceBuilder, field_record: Dictionary) ->
 	var return_type: String = _get_accessor_return_type(field)
 	var default_literal: String = _get_default_literal(field)
 	builder.doc("读取 %s 字段。" % String(field.field_name))
-	builder.line("static func %s(message: GFNetworkMessage, default_value: %s = %s) -> %s:" % [
-		accessor_name,
-		return_type,
-		default_literal,
-		return_type,
-	])
+	builder.line(
+		"static func %s(message: GFNetworkMessage, default_value: %s = %s) -> %s:"
+		% [
+			accessor_name,
+			return_type,
+			default_literal,
+			return_type,
+		]
+	)
 	builder.indent()
 	builder.line("var value: Variant = _get_payload_value(message, %s, default_value)" % _get_record_string(field_record, "field_constant"))
 	if field.allow_null:
@@ -1283,10 +1409,10 @@ func _build_function_parameters(field_records: Array, include_options: bool) -> 
 		var field: GFNetworkContractField = _get_record_field(field_record)
 		if field == null:
 			continue
-		var parameter: String = "%s: %s" % [
-			_get_record_string(field_record, "parameter_name"),
-			_get_parameter_type(field),
-		]
+		var parameter: String = (
+			"%s: %s"
+			% [_get_record_string(field_record, "parameter_name"), _get_parameter_type(field),]
+		)
 		if not field.required:
 			parameter += " = %s" % _get_parameter_default_literal(field)
 		_append_packed_string(params, parameter)
@@ -1302,7 +1428,10 @@ func _build_function_parameters(field_records: Array, include_options: bool) -> 
 func _build_make_call_arguments(field_records: Array) -> String:
 	var args: PackedStringArray = PackedStringArray()
 	for field_record: Dictionary in field_records:
-		_append_packed_string(args, _get_record_string(field_record, "parameter_name"))
+		_append_packed_string(
+			args,
+			_get_record_string(field_record, "parameter_name")
+		)
 	_append_packed_string(args, "options")
 	return ", ".join(args)
 
@@ -1335,8 +1464,16 @@ func _get_record_array(record: Dictionary, field_name: String) -> Array:
 ## [br]
 ## @api private
 ## [br]
-func _get_record_string(record: Dictionary, field_name: String, default_value: String = "") -> String:
-	return GFVariantData.get_option_string(record, field_name, default_value)
+func _get_record_string(
+	record: Dictionary,
+	field_name: String,
+	default_value: String = ""
+) -> String:
+	return GFVariantData.get_option_string(
+		record,
+		field_name,
+		default_value
+	)
 
 
 ## 仅当 Variant 为 GFNetworkContract 时返回该资源。
@@ -1546,7 +1683,11 @@ func _get_parameter_default_literal(field: GFNetworkContractField) -> String:
 ## @api private
 ## [br]
 func _should_omit_null_optional_parameter(field: GFNetworkContractField) -> bool:
-	return field != null and not field.required and field.default_value == null
+	return (
+		field != null
+		and not field.required
+		and field.default_value == null
+	)
 
 
 ## 将字段默认值序列化为字面量，失败时返回该类型的内建默认值。
@@ -1623,24 +1764,47 @@ func _variant_literal_unchecked(value: Variant) -> String:
 			return "&\"%s\"" % GFVariantData.to_text(value).c_escape()
 		TYPE_VECTOR2:
 			var vector2: Vector2 = _variant_to_vector2(value)
-			return "Vector2(%s, %s)" % [_float_literal(vector2.x), _float_literal(vector2.y)]
+			return (
+				"Vector2(%s, %s)"
+				% [_float_literal(vector2.x), _float_literal(vector2.y)]
+			)
 		TYPE_VECTOR3:
 			var vector3: Vector3 = _variant_to_vector3(value)
-			return "Vector3(%s, %s, %s)" % [_float_literal(vector3.x), _float_literal(vector3.y), _float_literal(vector3.z)]
+			return (
+				"Vector3(%s, %s, %s)"
+				% [
+					_float_literal(vector3.x),
+					_float_literal(vector3.y),
+					_float_literal(vector3.z),
+				]
+			)
 		TYPE_VECTOR2I:
 			var vector2i: Vector2i = _variant_to_vector2i(value)
-			return "Vector2i(%d, %d)" % [vector2i.x, vector2i.y]
+			return (
+				"Vector2i(%d, %d)"
+				% [vector2i.x, vector2i.y]
+			)
 		TYPE_VECTOR3I:
 			var vector3i: Vector3i = _variant_to_vector3i(value)
-			return "Vector3i(%d, %d, %d)" % [vector3i.x, vector3i.y, vector3i.z]
+			return (
+				"Vector3i(%d, %d, %d)"
+				% [
+					vector3i.x,
+					vector3i.y,
+					vector3i.z,
+				]
+			)
 		TYPE_COLOR:
 			var color: Color = _variant_to_color(value)
-			return "Color(%s, %s, %s, %s)" % [
-				_float_literal(color.r),
-				_float_literal(color.g),
-				_float_literal(color.b),
-				_float_literal(color.a),
-			]
+			return (
+				"Color(%s, %s, %s, %s)"
+				% [
+					_float_literal(color.r),
+					_float_literal(color.g),
+					_float_literal(color.b),
+					_float_literal(color.a),
+				]
+			)
 		TYPE_NODE_PATH:
 			return "NodePath(\"%s\")" % GFVariantData.to_text(value).c_escape()
 		TYPE_DICTIONARY:
@@ -1662,19 +1826,18 @@ func _dictionary_literal(value: Dictionary) -> String:
 		var value_literal: String = _variant_literal_unchecked(value[key])
 		if key_literal.is_empty() or value_literal.is_empty():
 			return ""
-		entries.append({
-			"key": key_literal,
-			"value": value_literal,
-		})
-	entries.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
-		return GFVariantData.get_option_string(first, "key") < GFVariantData.get_option_string(second, "key")
+		entries.append({ "key": key_literal, "value": value_literal, })
+	entries.sort_custom(
+		func(first: Dictionary, second: Dictionary) -> bool:
+			return GFVariantData.get_option_string(first, "key") < GFVariantData.get_option_string(second, "key")
 	)
 	var parts: PackedStringArray = PackedStringArray()
 	for entry: Dictionary in entries:
-		_append_packed_string(parts, "%s: %s" % [
-			GFVariantData.get_option_string(entry, "key"),
-			GFVariantData.get_option_string(entry, "value"),
-		])
+		_append_packed_string(
+			parts,
+			"%s: %s"
+			% [GFVariantData.get_option_string(entry, "key"), GFVariantData.get_option_string(entry, "value"),]
+		)
 	return "{%s}" % ", ".join(parts)
 
 
@@ -1704,7 +1867,12 @@ func _float_literal(value: float) -> String:
 	var bits: int = bytes.decode_u64(0)
 	if value == 0.0:
 		return "-0.0" if bits < 0 else "0.0"
-	var text: String = JSON.stringify(value, "", false, true)
+	var text: String = JSON.stringify(
+		value,
+		"",
+		false,
+		true
+	)
 	if text.to_float() != value:
 		text = String.num_scientific(value)
 	if text.to_float() == value:
@@ -1718,7 +1886,10 @@ func _float_literal(value: float) -> String:
 		exponent -= 1075
 	if bits < 0:
 		significand = -significand
-	return "(%d * (2.0 ** %d))" % [significand, exponent]
+	return (
+		"(%d * (2.0 ** %d))"
+		% [significand, exponent]
+	)
 
 
 ## 将输入规范化为 PascalCase 标识符，并在结果为空时使用回退名。
@@ -1730,7 +1901,10 @@ func _to_pascal_identifier(value: String, fallback: String) -> String:
 	if base.is_empty():
 		base = fallback
 	if _starts_with_digit(base):
-		base = "%s%s" % [fallback, base]
+		base = (
+			"%s%s"
+			% [fallback, base]
+		)
 	return base
 
 
@@ -1745,8 +1919,14 @@ func _to_snake_identifier(value: String, fallback: String) -> String:
 	for index: int in range(snake.length()):
 		var code: int = snake.unicode_at(index)
 		var valid: bool = (
-			(code >= 97 and code <= 122)
-			or (code >= 48 and code <= 57)
+			(
+				code >= 97
+				and code <= 122
+			)
+			or (
+				code >= 48
+				and code <= 57
+			)
 			or code == 95
 		)
 		if valid:
@@ -1760,7 +1940,10 @@ func _to_snake_identifier(value: String, fallback: String) -> String:
 	if result.is_empty():
 		result = fallback.to_snake_case().to_lower()
 	if _starts_with_digit(result):
-		result = "%s_%s" % [fallback.to_snake_case().to_lower(), result]
+		result = (
+			"%s_%s"
+			% [fallback.to_snake_case().to_lower(), result]
+		)
 	return result
 
 
@@ -1781,7 +1964,10 @@ func _make_unique_name(base_name: String, used_names: Dictionary) -> String:
 	var candidate: String = base_name
 	var index: int = 2
 	while used_names.has(candidate):
-		candidate = "%s_%d" % [base_name, index]
+		candidate = (
+			"%s_%d"
+			% [base_name, index]
+		)
 		index += 1
 	used_names[candidate] = true
 	return candidate
@@ -1799,7 +1985,10 @@ func _allocate_identifier(
 ) -> String:
 	var base_name: String = _to_snake_identifier(value, fallback)
 	if avoid_reserved and _GDSCRIPT_RESERVED_IDENTIFIERS.has(base_name):
-		base_name = "%s_%s" % [fallback.to_snake_case().to_lower(), base_name]
+		base_name = (
+			"%s_%s"
+			% [fallback.to_snake_case().to_lower(), base_name]
+		)
 	return _make_unique_name(base_name, used_names)
 
 
@@ -1824,4 +2013,8 @@ func _get_generation_next_actions() -> Dictionary:
 ## @api private
 ## [br]
 func _starts_with_digit(value: String) -> bool:
-	return not value.is_empty() and value.unicode_at(0) >= 48 and value.unicode_at(0) <= 57
+	return (
+		not value.is_empty()
+		and value.unicode_at(0) >= 48
+		and value.unicode_at(0) <= 57
+	)

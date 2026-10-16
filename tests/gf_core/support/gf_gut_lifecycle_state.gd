@@ -21,17 +21,11 @@ const MAX_DETAIL_COUNT: int = 20
 const MAX_TEXT_UTF8_BYTES: int = 512
 const MAX_GUT_OBSERVATION_JUNIT_BYTES: int = 32 * 1024 * 1024
 const MAX_GUT_OBSERVATION_JSON_BYTES: int = 8 * 1024 * 1024
-const GUT_OBSERVATION_NONCE_ENVIRONMENT: String = (
-	"GF_GUT_SHARD_OBSERVATION_NONCE"
-)
-const GUT_OBSERVATION_PATH_ENVIRONMENT: String = (
-	"GF_GUT_SHARD_OBSERVATION_PATH"
-)
+const GUT_OBSERVATION_NONCE_ENVIRONMENT: String = "GF_GUT_SHARD_OBSERVATION_NONCE"
+const GUT_OBSERVATION_PATH_ENVIRONMENT: String = "GF_GUT_SHARD_OBSERVATION_PATH"
 const GUT_OBSERVATION_NONCE_HEX_LENGTH: int = 64
 const GUT_OBSERVATION_JUNIT_FILENAME: String = "gut-authoritative.xml"
-const GUT_OBSERVATION_SIDECAR_FILENAME: String = (
-	"gut-authoritative-provenance.json"
-)
+const GUT_OBSERVATION_SIDECAR_FILENAME: String = "gut-authoritative-provenance.json"
 
 
 # --- 私有变量 ---
@@ -101,7 +95,11 @@ static func begin_terminal_capture() -> void:
 	_mutex.unlock()
 
 
-static func record_raw_warning(code: String, file: String, line: int) -> void:
+static func record_raw_warning(
+	code: String,
+	file: String,
+	line: int
+) -> void:
 	_mutex.lock()
 	var test_id: String = ""
 	if _capture_phase == CapturePhase.EARLY:
@@ -109,7 +107,12 @@ static func record_raw_warning(code: String, file: String, line: int) -> void:
 	elif _capture_phase == CapturePhase.TERMINAL:
 		test_id = "terminal"
 	if not test_id.is_empty():
-		_append_warning_locked(test_id, code, file, line)
+		_append_warning_locked(
+			test_id,
+			code,
+			file,
+			line
+		)
 	_mutex.unlock()
 
 
@@ -127,18 +130,17 @@ static func gut_observation_is_enabled() -> bool:
 	return enabled
 
 
-static func commit_gut_observation_timing_connections(
-	start_connected: bool,
-	end_connected: bool
-) -> bool:
+static func commit_gut_observation_timing_connections(start_connected: bool, end_connected: bool) -> bool:
 	_mutex.lock()
 	if not _gut_observation_enabled:
 		_mutex.unlock()
 		return true
-	if _gut_observation_timing_connected or not start_connected or not end_connected:
-		_set_configuration_error_locked(
-			"gut_observation_timing_connection_failed"
-		)
+	if (
+		_gut_observation_timing_connected
+		or not start_connected
+		or not end_connected
+	):
+		_set_configuration_error_locked("gut_observation_timing_connection_failed")
 		_mutex.unlock()
 		return false
 	_gut_observation_timing_connected = true
@@ -146,9 +148,7 @@ static func commit_gut_observation_timing_connections(
 	return true
 
 
-static func record_gut_observation_script_started(
-	test_script_value: Variant
-) -> void:
+static func record_gut_observation_script_started(test_script_value: Variant) -> void:
 	var identity: Dictionary = _gut_observation_script_identity(test_script_value)
 	var identity_ok_value: Variant = identity.get("ok", false)
 	if not identity_ok_value is bool or not identity_ok_value:
@@ -203,17 +203,11 @@ static func capture_gut_observation(gut_main: GutMain) -> bool:
 	if not _gut_observation_current_script_key.is_empty():
 		_finish_gut_observation_script_timing_locked(captured_usec, true)
 	var timing_connected: bool = _gut_observation_timing_connected
-	var durations_usec: Dictionary = (
-		_gut_observation_script_durations_usec.duplicate()
-	)
-	var implicit_end_keys: Dictionary = (
-		_gut_observation_implicit_end_keys.duplicate()
-	)
+	var durations_usec: Dictionary = _gut_observation_script_durations_usec.duplicate()
+	var implicit_end_keys: Dictionary = _gut_observation_implicit_end_keys.duplicate()
 	_mutex.unlock()
 
-	if not timing_connected or not _gut_observation_junit_configuration_is_valid(
-		gut_main
-	):
+	if (not timing_connected or not _gut_observation_junit_configuration_is_valid(gut_main)):
 		record_configuration_error("gut_observation_configuration_invalid")
 		return false
 
@@ -323,7 +317,11 @@ static func publish_gut_observation() -> bool:
 		"script_count": snapshot.get("script_count", 0),
 		"scripts": snapshot.get("scripts", []),
 	}
-	var json_text: String = JSON.stringify(payload, "", true) + "\n"
+	var json_text: String = JSON.stringify(
+		payload,
+		"",
+		true
+	) + "\n"
 	if json_text.to_utf8_buffer().size() > MAX_GUT_OBSERVATION_JSON_BYTES:
 		record_configuration_error("gut_observation_sidecar_oversized")
 		return false
@@ -348,10 +346,7 @@ static func snapshot_new_orphans() -> Dictionary:
 		for orphan_id: int in Node.get_orphan_node_ids():
 			if not orphan_baseline.has(orphan_id):
 				orphan_details.append(_orphan_detail(orphan_id))
-	return {
-		"ok": baseline_available,
-		"orphans": orphan_details,
-	}
+	return { "ok": baseline_available, "orphans": orphan_details, }
 
 
 static func commit_post_snapshot(
@@ -411,10 +406,7 @@ static func finalize_report() -> Dictionary:
 		"orphan_count": orphan_count,
 		"warnings": _warning_details.duplicate(true),
 		"orphans": orphan_details,
-		"details_truncated": (
-			_warning_count > MAX_DETAIL_COUNT
-			or orphan_count > MAX_DETAIL_COUNT
-		),
+		"details_truncated": (_warning_count > MAX_DETAIL_COUNT or orphan_count > MAX_DETAIL_COUNT),
 		"configuration_error": _bounded_text(_configuration_error),
 	}
 	_mutex.unlock()
@@ -438,12 +430,8 @@ static func _reset_gut_observation_locked() -> void:
 
 
 static func _configure_gut_observation_locked() -> void:
-	var nonce_present: bool = OS.has_environment(
-		GUT_OBSERVATION_NONCE_ENVIRONMENT
-	)
-	var path_present: bool = OS.has_environment(
-		GUT_OBSERVATION_PATH_ENVIRONMENT
-	)
+	var nonce_present: bool = OS.has_environment(GUT_OBSERVATION_NONCE_ENVIRONMENT)
+	var path_present: bool = OS.has_environment(GUT_OBSERVATION_PATH_ENVIRONMENT)
 	if not nonce_present and not path_present:
 		return
 	if not nonce_present or not path_present:
@@ -451,9 +439,7 @@ static func _configure_gut_observation_locked() -> void:
 		return
 
 	var nonce: String = OS.get_environment(GUT_OBSERVATION_NONCE_ENVIRONMENT)
-	var sidecar_path: String = OS.get_environment(
-		GUT_OBSERVATION_PATH_ENVIRONMENT
-	)
+	var sidecar_path: String = OS.get_environment(GUT_OBSERVATION_PATH_ENVIRONMENT)
 	if not _gut_observation_nonce_is_valid(nonce):
 		_set_configuration_error_locked("gut_observation_nonce_invalid")
 		return
@@ -472,8 +458,14 @@ static func _gut_observation_nonce_is_valid(value: String) -> bool:
 	for character_index: int in range(value.length()):
 		var codepoint: int = value.unicode_at(character_index)
 		if not (
-			(codepoint >= 48 and codepoint <= 57)
-			or (codepoint >= 97 and codepoint <= 102)
+			(
+				codepoint >= 48
+				and codepoint <= 57
+			)
+			or (
+				codepoint >= 97
+				and codepoint <= 102
+			)
 		):
 			return false
 	return true
@@ -484,43 +476,28 @@ static func _expected_gut_observation_directory(nonce: String) -> String:
 
 
 static func _expected_gut_observation_junit_path(nonce: String) -> String:
-	return (
-		_expected_gut_observation_directory(nonce)
-		+ "/"
-		+ GUT_OBSERVATION_JUNIT_FILENAME
-	)
+	return _expected_gut_observation_directory(nonce) + "/" + GUT_OBSERVATION_JUNIT_FILENAME
 
 
 static func _expected_gut_observation_sidecar_path(nonce: String) -> String:
-	return (
-		_expected_gut_observation_directory(nonce)
-		+ "/"
-		+ GUT_OBSERVATION_SIDECAR_FILENAME
-	)
+	return _expected_gut_observation_directory(nonce) + "/" + GUT_OBSERVATION_SIDECAR_FILENAME
 
 
-static func _finish_gut_observation_script_timing_locked(
-	ended_usec: int,
-	implicit_end: bool
-) -> void:
+static func _finish_gut_observation_script_timing_locked(ended_usec: int, implicit_end: bool) -> void:
 	var duration_usec: int = maxi(
 		ended_usec - _gut_observation_current_script_started_usec,
 		0
 	)
-	_gut_observation_script_durations_usec[
-		_gut_observation_current_script_key
-	] = duration_usec
+	_gut_observation_script_durations_usec[_gut_observation_current_script_key] = duration_usec
 	if implicit_end:
-		_gut_observation_implicit_end_keys[
-			_gut_observation_current_script_key
-		] = true
+		_gut_observation_implicit_end_keys[_gut_observation_current_script_key] = true
 	_gut_observation_current_script_key = ""
 	_gut_observation_current_script_started_usec = 0
 
 
 static func _gut_observation_script_identity(value: Variant) -> Dictionary:
 	if not value is Object:
-		return {"ok": false}
+		return { "ok": false }
 	var script_object: Object = value
 	var script_result: Dictionary = _gut_observation_required_text(
 		script_object.get("path"),
@@ -531,11 +508,11 @@ static func _gut_observation_script_identity(value: Variant) -> Dictionary:
 		true
 	)
 	if not script_result.get("ok", false) or not inner_result.get("ok", false):
-		return {"ok": false}
+		return { "ok": false }
 	var script: String = script_result.get("value", "")
 	var inner_class: String = inner_result.get("value", "")
 	if not script.begins_with("res://"):
-		return {"ok": false}
+		return { "ok": false }
 	return {
 		"ok": true,
 		"script": script,
@@ -554,19 +531,13 @@ static func _gut_observation_record_identity(record: Dictionary) -> Dictionary:
 		true
 	)
 	if not script_result.get("ok", false) or not inner_result.get("ok", false):
-		return {"ok": false}
+		return { "ok": false }
 	var script: String = script_result.get("value", "")
 	var inner_class: String = inner_result.get("value", "")
-	return {
-		"ok": true,
-		"key": _gut_observation_script_key(script, inner_class),
-	}
+	return { "ok": true, "key": _gut_observation_script_key(script, inner_class), }
 
 
-static func _gut_observation_script_key(
-	script: String,
-	inner_class: String
-) -> String:
+static func _gut_observation_script_key(script: String, inner_class: String) -> String:
 	return script + "\u001f" + inner_class
 
 
@@ -577,25 +548,19 @@ static func _capture_gut_observation_script(
 ) -> Dictionary:
 	var identity: Dictionary = _gut_observation_script_identity(raw_script)
 	if not identity.get("ok", false) or not raw_script is Object:
-		return {"ok": false}
+		return { "ok": false }
 	var script_object: Object = raw_script
-	var was_run_result: Dictionary = _gut_observation_required_bool(
-		script_object.get("was_run")
-	)
-	var was_skipped_result: Dictionary = _gut_observation_required_bool(
-		script_object.get("was_skipped")
-	)
+	var was_run_result: Dictionary = _gut_observation_required_bool(script_object.get("was_run"))
+	var was_skipped_result: Dictionary = _gut_observation_required_bool(script_object.get("was_skipped"))
 	var raw_tests: Variant = script_object.get("tests")
-	var raw_lifecycle_tests: Variant = script_object.get(
-		"setup_teardown_tests"
-	)
+	var raw_lifecycle_tests: Variant = script_object.get("setup_teardown_tests")
 	if (
 		not was_run_result.get("ok", false)
 		or not was_skipped_result.get("ok", false)
 		or not raw_tests is Array
 		or not raw_lifecycle_tests is Array
 	):
-		return {"ok": false}
+		return { "ok": false }
 
 	var tests: Array[Dictionary] = []
 	var seen_test_names: Dictionary = {}
@@ -605,21 +570,21 @@ static func _capture_gut_observation_script(
 	for raw_test: Variant in test_values:
 		var captured_test: Dictionary = _capture_gut_observation_test(raw_test)
 		if not captured_test.get("ok", false):
-			return {"ok": false}
+			return { "ok": false }
 		var record_value: Variant = captured_test.get("record")
 		if not record_value is Dictionary:
-			return {"ok": false}
+			return { "ok": false }
 		var test_record: Dictionary = record_value
 		var test_name_value: Variant = test_record.get("name")
 		if not test_name_value is String:
-			return {"ok": false}
+			return { "ok": false }
 		var test_name: String = test_name_value
 		if seen_test_names.has(test_name):
-			return {"ok": false}
+			return { "ok": false }
 		seen_test_names[test_name] = true
 		var assertion_count_value: Variant = test_record.get("assertion_count")
 		if not assertion_count_value is int:
-			return {"ok": false}
+			return { "ok": false }
 		testcase_assertion_count += assertion_count_value
 		tests.append(test_record)
 		if not captured_test.get("complete", false):
@@ -631,29 +596,24 @@ static func _capture_gut_observation_script(
 	var lifecycle_values: Array = raw_lifecycle_tests
 	for raw_lifecycle_test: Variant in lifecycle_values:
 		if not raw_lifecycle_test is Object:
-			return {"ok": false}
+			return { "ok": false }
 		var lifecycle_test: Object = raw_lifecycle_test
 		var lifecycle_name_result: Dictionary = _gut_observation_required_text(
 			lifecycle_test.get("name"),
 			false
 		)
 		if not lifecycle_name_result.get("ok", false):
-			return {"ok": false}
+			return { "ok": false }
 		var lifecycle_name_value: Variant = lifecycle_name_result.get("value")
 		if not lifecycle_name_value is String:
-			return {"ok": false}
+			return { "ok": false }
 		var lifecycle_name: String = lifecycle_name_value
-		if (
-			lifecycle_name not in ["before_all", "after_all"]
-			or lifecycle_names.has(lifecycle_name)
-		):
-			return {"ok": false}
+		if (lifecycle_name not in ["before_all", "after_all"] or lifecycle_names.has(lifecycle_name)):
+			return { "ok": false }
 		lifecycle_names[lifecycle_name] = true
-		var lifecycle_count: int = _gut_observation_test_assertion_count(
-			lifecycle_test
-		)
+		var lifecycle_count: int = _gut_observation_test_assertion_count(lifecycle_test)
 		if lifecycle_count < 0:
-			return {"ok": false}
+			return { "ok": false }
 		lifecycle_assertion_count += lifecycle_count
 
 	var script_key_value: Variant = identity.get("key")
@@ -668,14 +628,14 @@ static func _capture_gut_observation_script(
 		or not was_run_value is bool
 		or not was_skipped_value is bool
 	):
-		return {"ok": false}
+		return { "ok": false }
 	var script_key: String = script_key_value
 	var duration_usec: int = 0
 	var timing_complete: bool = false
 	if durations_usec.has(script_key):
 		var duration_value: Variant = durations_usec.get(script_key)
 		if not duration_value is int or duration_value < 0:
-			return {"ok": false}
+			return { "ok": false }
 		duration_usec = duration_value
 		timing_complete = not implicit_end_keys.has(script_key)
 
@@ -700,9 +660,7 @@ static func _capture_gut_observation_script(
 			"was_run": was_run_value,
 			"was_skipped": was_skipped_value,
 			"duration_seconds": float(duration_usec) / 1_000_000.0,
-			"assertion_count": (
-				testcase_assertion_count + lifecycle_assertion_count
-			),
+			"assertion_count": testcase_assertion_count + lifecycle_assertion_count,
 			"lifecycle_assertion_count": lifecycle_assertion_count,
 			"tests": tests,
 		},
@@ -711,25 +669,19 @@ static func _capture_gut_observation_script(
 
 static func _capture_gut_observation_test(raw_test: Variant) -> Dictionary:
 	if not raw_test is Object:
-		return {"ok": false}
+		return { "ok": false }
 	var test_object: Object = raw_test
 	var name_result: Dictionary = _gut_observation_required_text(
 		test_object.get("name"),
 		false
 	)
-	var was_run_result: Dictionary = _gut_observation_required_bool(
-		test_object.get("was_run")
-	)
-	var duration_result: Dictionary = _gut_observation_nonnegative_float(
-		test_object.get("time_taken")
-	)
+	var was_run_result: Dictionary = _gut_observation_required_bool(test_object.get("was_run"))
+	var duration_result: Dictionary = _gut_observation_nonnegative_float(test_object.get("time_taken"))
 	var status_result: Dictionary = _gut_observation_required_text(
 		test_object.call(&"get_status_text"),
 		false
 	)
-	var assertion_count: int = _gut_observation_test_assertion_count(
-		test_object
-	)
+	var assertion_count: int = _gut_observation_test_assertion_count(test_object)
 	if (
 		not name_result.get("ok", false)
 		or not was_run_result.get("ok", false)
@@ -737,7 +689,7 @@ static func _capture_gut_observation_test(raw_test: Variant) -> Dictionary:
 		or not status_result.get("ok", false)
 		or assertion_count < 0
 	):
-		return {"ok": false}
+		return { "ok": false }
 
 	var name_value: Variant = name_result.get("value")
 	var was_run_value: Variant = was_run_result.get("value")
@@ -749,7 +701,7 @@ static func _capture_gut_observation_test(raw_test: Variant) -> Dictionary:
 		or not duration_value is float
 		or not status_value is String
 	):
-		return {"ok": false}
+		return { "ok": false }
 	var status: String = status_value
 	return {
 		"ok": true,
@@ -768,9 +720,7 @@ static func _capture_gut_observation_test(raw_test: Variant) -> Dictionary:
 	}
 
 
-static func _gut_observation_test_assertion_count(
-	test_object: Object
-) -> int:
+static func _gut_observation_test_assertion_count(test_object: Object) -> int:
 	var raw_pass_texts: Variant = test_object.get("pass_texts")
 	var raw_fail_texts: Variant = test_object.get("fail_texts")
 	if not raw_pass_texts is Array or not raw_fail_texts is Array:
@@ -780,10 +730,7 @@ static func _gut_observation_test_assertion_count(
 	return pass_texts.size() + fail_texts.size()
 
 
-static func _gut_observation_required_text(
-	value: Variant,
-	allow_empty: bool
-) -> Dictionary:
+static func _gut_observation_required_text(value: Variant, allow_empty: bool) -> Dictionary:
 	var text_value: String = ""
 	if value is String:
 		text_value = value
@@ -791,25 +738,19 @@ static func _gut_observation_required_text(
 		var string_name_value: StringName = value
 		text_value = String(string_name_value)
 	else:
-		return {"ok": false}
+		return { "ok": false }
 	if not allow_empty and text_value.is_empty():
-		return {"ok": false}
+		return { "ok": false }
 	for character_index: int in range(text_value.length()):
 		if text_value.unicode_at(character_index) < 32:
-			return {"ok": false}
-	return {
-		"ok": true,
-		"value": text_value,
-	}
+			return { "ok": false }
+	return { "ok": true, "value": text_value, }
 
 
 static func _gut_observation_required_bool(value: Variant) -> Dictionary:
 	if not value is bool:
-		return {"ok": false}
-	return {
-		"ok": true,
-		"value": value,
-	}
+		return { "ok": false }
+	return { "ok": true, "value": value, }
 
 
 static func _gut_observation_nonnegative_float(value: Variant) -> Dictionary:
@@ -820,13 +761,10 @@ static func _gut_observation_nonnegative_float(value: Variant) -> Dictionary:
 		var integer_value: int = value
 		number = float(integer_value)
 	else:
-		return {"ok": false}
+		return { "ok": false }
 	if not is_finite(number) or number < 0.0:
-		return {"ok": false}
-	return {
-		"ok": true,
-		"value": number,
-	}
+		return { "ok": false }
+	return { "ok": true, "value": number, }
 
 
 static func _gut_observation_filter_is_empty(value: Variant) -> bool:
@@ -841,9 +779,7 @@ static func _gut_observation_filter_is_empty(value: Variant) -> bool:
 	return false
 
 
-static func _gut_observation_junit_configuration_is_valid(
-	gut_main: GutMain
-) -> bool:
+static func _gut_observation_junit_configuration_is_valid(gut_main: GutMain) -> bool:
 	var timestamp_value: Variant = gut_main.get("junit_xml_timestamp")
 	if not timestamp_value is bool or timestamp_value:
 		return false
@@ -857,14 +793,9 @@ static func _gut_observation_junit_configuration_is_valid(
 	if not junit_path_value is String:
 		return false
 	var junit_path: String = junit_path_value
-	var expected_absolute: String = ProjectSettings.globalize_path(
-		_expected_gut_observation_junit_path(_gut_observation_nonce)
-	)
+	var expected_absolute: String = ProjectSettings.globalize_path(_expected_gut_observation_junit_path(_gut_observation_nonce))
 	var actual_absolute: String = ProjectSettings.globalize_path(junit_path)
-	return (
-		_normalized_gut_observation_path(actual_absolute)
-		== _normalized_gut_observation_path(expected_absolute)
-	)
+	return _normalized_gut_observation_path(actual_absolute) == _normalized_gut_observation_path(expected_absolute)
 
 
 static func _normalized_gut_observation_path(value: String) -> String:
@@ -874,24 +805,15 @@ static func _normalized_gut_observation_path(value: String) -> String:
 	return normalized
 
 
-static func _compare_gut_observation_script_records(
-	left: Dictionary,
-	right: Dictionary
-) -> bool:
+static func _compare_gut_observation_script_records(left: Dictionary, right: Dictionary) -> bool:
 	var left_script: String = _dictionary_string(left, "script")
 	var right_script: String = _dictionary_string(right, "script")
 	if left_script != right_script:
 		return left_script < right_script
-	return (
-		_dictionary_string(left, "inner_class")
-		< _dictionary_string(right, "inner_class")
-	)
+	return _dictionary_string(left, "inner_class") < _dictionary_string(right, "inner_class")
 
 
-static func _compare_gut_observation_test_records(
-	left: Dictionary,
-	right: Dictionary
-) -> bool:
+static func _compare_gut_observation_test_records(left: Dictionary, right: Dictionary) -> bool:
 	return _dictionary_string(left, "name") < _dictionary_string(right, "name")
 
 
@@ -921,10 +843,7 @@ static func _gut_observation_sha256_bytes(data: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
-static func _write_gut_observation_sidecar(
-	path: String,
-	json_text: String
-) -> bool:
+static func _write_gut_observation_sidecar(path: String, json_text: String) -> bool:
 	var directory_path: String = path.get_base_dir()
 	var absolute_directory: String = ProjectSettings.globalize_path(directory_path)
 	if not DirAccess.dir_exists_absolute(absolute_directory):
@@ -941,28 +860,17 @@ static func _write_gut_observation_sidecar(
 	var write_error: Error = file.get_error()
 	file.close()
 	if not stored or write_error != OK:
-		var failed_temporary_absolute: String = ProjectSettings.globalize_path(
-			temporary_path
-		)
+		var failed_temporary_absolute: String = ProjectSettings.globalize_path(temporary_path)
 		if FileAccess.file_exists(temporary_path):
-			var _remove_failed_temporary_result: Error = (
-				DirAccess.remove_absolute(failed_temporary_absolute)
-			)
+			var _remove_failed_temporary_result: Error = DirAccess.remove_absolute(failed_temporary_absolute)
 		return false
 
-	var temporary_absolute: String = ProjectSettings.globalize_path(
-		temporary_path
-	)
+	var temporary_absolute: String = ProjectSettings.globalize_path(temporary_path)
 	var final_absolute: String = ProjectSettings.globalize_path(path)
-	var rename_error: Error = DirAccess.rename_absolute(
-		temporary_absolute,
-		final_absolute
-	)
+	var rename_error: Error = DirAccess.rename_absolute(temporary_absolute, final_absolute)
 	if rename_error != OK:
 		if FileAccess.file_exists(temporary_path):
-			var _remove_temporary_result: Error = DirAccess.remove_absolute(
-				temporary_absolute
-			)
+			var _remove_temporary_result: Error = DirAccess.remove_absolute(temporary_absolute)
 		return false
 	return true
 
@@ -976,12 +884,14 @@ static func _append_warning_locked(
 	_warning_count += 1
 	if _warning_details.size() >= MAX_DETAIL_COUNT:
 		return
-	_warning_details.append({
-		"test_id": _bounded_text(test_id),
-		"code": _bounded_text(code),
-		"file": _bounded_text(file),
-		"line": maxi(line, 0),
-	})
+	_warning_details.append(
+		{
+			"test_id": _bounded_text(test_id),
+			"code": _bounded_text(code),
+			"file": _bounded_text(file),
+			"line": maxi(line, 0),
+		}
+	)
 
 
 static func _merge_orphan_snapshot_locked(orphan_snapshot: Dictionary) -> void:

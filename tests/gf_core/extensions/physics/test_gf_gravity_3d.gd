@@ -23,7 +23,11 @@ class MutatingCandidateProvider extends RefCounted:
 	var probe: GFGravityProbe3D = null
 
 	func get_candidate_objects(_options: Dictionary) -> Array:
-		probe.global_position = Vector3(10.0, 0.0, 0.0)
+		probe.global_position = Vector3(
+			10.0,
+			0.0,
+			0.0
+		)
 		probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
 		return candidates
 
@@ -36,6 +40,7 @@ class CountingField extends Node3D:
 	func get_acceleration_at(_world_position: Vector3) -> Vector3:
 		call_count += 1
 		return acceleration_value
+
 
 	func get_gravity_priority() -> Variant:
 		return priority_value
@@ -92,7 +97,11 @@ class QueryMutatingField extends Node3D:
 		call_count += 1
 		sampled_positions.append(world_position)
 		if mutate_on_first_call and call_count == 1:
-			probe.global_position = Vector3(10.0, 0.0, 0.0)
+			probe.global_position = Vector3(
+				10.0,
+				0.0,
+				0.0
+			)
 			probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
 		return acceleration_value
 
@@ -105,10 +114,25 @@ func test_point_gravity_field_returns_acceleration_toward_origin() -> void:
 	field.global_position = Vector3.ZERO
 	field.acceleration = 10.0
 
-	var acceleration: Vector3 = field.get_acceleration_at(Vector3(0.0, 5.0, 0.0))
+	var acceleration: Vector3 = field.get_acceleration_at(
+		Vector3(
+			0.0,
+			5.0,
+			0.0
+		)
+	)
 
-	assert_almost_eq(acceleration.y, -10.0, 0.001, "点重力应朝向力场原点。")
-	assert_almost_eq(acceleration.x, 0.0, 0.001)
+	assert_almost_eq(
+		acceleration.y,
+		-10.0,
+		0.001,
+		"点重力应朝向力场原点。"
+	)
+	assert_almost_eq(
+		acceleration.x,
+		0.0,
+		0.001
+	)
 
 
 func test_gravity_field_linear_falloff_respects_radius() -> void:
@@ -118,9 +142,24 @@ func test_gravity_field_linear_falloff_respects_radius() -> void:
 	field.radius = 10.0
 	field.falloff_mode = GFGravityField3D.FalloffMode.LINEAR
 
-	assert_almost_eq(field.get_strength_at_distance(5.0), 5.0, 0.001, "线性衰减应按距离占比降低强度。")
-	assert_almost_eq(field.get_strength_at_distance(11.0), 0.0, 0.001, "半径外应无力场强度。")
-	assert_almost_eq(field.get_strength_at_distance(-5.0), 10.0, 0.001, "负距离应按零距离处理。")
+	assert_almost_eq(
+		field.get_strength_at_distance(5.0),
+		5.0,
+		0.001,
+		"线性衰减应按距离占比降低强度。"
+	)
+	assert_almost_eq(
+		field.get_strength_at_distance(11.0),
+		0.0,
+		0.001,
+		"半径外应无力场强度。"
+	)
+	assert_almost_eq(
+		field.get_strength_at_distance(-5.0),
+		10.0,
+		0.001,
+		"负距离应按零距离处理。"
+	)
 
 
 func test_gravity_field_inverse_square_avoids_intermediate_overflow() -> void:
@@ -136,10 +175,26 @@ func test_gravity_field_inverse_square_avoids_intermediate_overflow() -> void:
 	var far_strength: float = field.get_strength_at_distance(field.min_distance * 2.0)
 	var unrepresentable_vector: Vector3 = field.get_acceleration_at(field.global_position)
 
-	assert_true(not is_nan(near_strength) and not is_inf(near_strength), "平方反比近端结果必须有限。")
-	assert_true(is_equal_approx(near_strength, field.acceleration), "distance == min_distance 时强度应恒等于 acceleration。")
-	assert_true(is_equal_approx(far_strength, field.acceleration * 0.25), "两倍最小距离处应保留平方反比比例。")
-	assert_eq(unrepresentable_vector, Vector3.ZERO, "标量强度无法表示为 Vector3 时公开加速度应失败关闭。")
+	assert_true(
+		not is_nan(near_strength) and not is_inf(near_strength),
+		"平方反比近端结果必须有限。"
+	)
+	assert_true(
+		is_equal_approx(near_strength, field.acceleration),
+		"distance == min_distance 时强度应恒等于 acceleration。"
+	)
+	assert_true(
+		is_equal_approx(
+			far_strength,
+			field.acceleration * 0.25
+		),
+		"两倍最小距离处应保留平方反比比例。"
+	)
+	assert_eq(
+		unrepresentable_vector,
+		Vector3.ZERO,
+		"标量强度无法表示为 Vector3 时公开加速度应失败关闭。"
+	)
 
 
 func test_gravity_field_curve_fails_closed_on_non_finite_strength() -> void:
@@ -154,7 +209,11 @@ func test_gravity_field_curve_fails_closed_on_non_finite_strength() -> void:
 	field.falloff_mode = GFGravityField3D.FalloffMode.CURVE
 	field.falloff_curve = curve
 
-	assert_eq(field.get_strength_at_distance(0.0), 0.0, "Curve 与 acceleration 的乘积溢出时强度应失败关闭。")
+	assert_eq(
+		field.get_strength_at_distance(0.0),
+		0.0,
+		"Curve 与 acceleration 的乘积溢出时强度应失败关闭。"
+	)
 
 
 func test_gravity_field_exposes_sampling_priority() -> void:
@@ -163,7 +222,11 @@ func test_gravity_field_exposes_sampling_priority() -> void:
 
 	field.priority = 7
 
-	assert_eq(field.get_gravity_priority(), 7, "力场应暴露稳定的采样优先级。")
+	assert_eq(
+		field.get_gravity_priority(),
+		7,
+		"力场应暴露稳定的采样优先级。"
+	)
 
 
 func test_gravity_probe_sums_group_fields() -> void:
@@ -178,8 +241,17 @@ func test_gravity_probe_sums_group_fields() -> void:
 
 	var acceleration: Vector3 = probe.sample()
 
-	assert_almost_eq(acceleration.y, -4.0, 0.001, "采样器应汇总分组中的力场。")
-	assert_eq(probe.get_up_direction(), Vector3.UP, "向上方向应与加速度方向相反。")
+	assert_almost_eq(
+		acceleration.y,
+		-4.0,
+		0.001,
+		"采样器应汇总分组中的力场。"
+	)
+	assert_eq(
+		probe.get_up_direction(),
+		Vector3.UP,
+		"向上方向应与加速度方向相反。"
+	)
 
 
 func test_gravity_probe_excludes_fields_from_another_world_3d() -> void:
@@ -203,9 +275,21 @@ func test_gravity_probe_excludes_fields_from_another_world_3d() -> void:
 
 	var acceleration: Vector3 = probe.sample()
 
-	assert_eq(acceleration, Vector3.RIGHT, "Probe 只能组合自己 World3D 中的 Node3D field。")
-	assert_eq(local_field.call_count, 1, "同世界 field 应参与采样。")
-	assert_eq(foreign_field.call_count, 0, "跨 World3D field 不得被调用。")
+	assert_eq(
+		acceleration,
+		Vector3.RIGHT,
+		"Probe 只能组合自己 World3D 中的 Node3D field。"
+	)
+	assert_eq(
+		local_field.call_count,
+		1,
+		"同世界 field 应参与采样。"
+	)
+	assert_eq(
+		foreign_field.call_count,
+		0,
+		"跨 World3D field 不得被调用。"
+	)
 
 
 func test_gravity_probe_direction_resamples_after_movement() -> void:
@@ -216,14 +300,32 @@ func test_gravity_probe_direction_resamples_after_movement() -> void:
 	field.global_position = Vector3.ZERO
 	field.acceleration = 10.0
 	probe.use_fallback_when_empty = false
-	probe.global_position = Vector3(1.0, 0.0, 0.0)
+	probe.global_position = Vector3(
+		1.0,
+		0.0,
+		0.0
+	)
 	var first_direction: Vector3 = probe.get_down_direction()
 
-	probe.global_position = Vector3(-1.0, 0.0, 0.0)
+	probe.global_position = Vector3(
+		-1.0,
+		0.0,
+		0.0
+	)
 	var moved_direction: Vector3 = probe.get_down_direction()
 
-	assert_almost_eq(first_direction.x, -1.0, 0.001, "初始方向应朝向力场。")
-	assert_almost_eq(moved_direction.x, 1.0, 0.001, "移动后方向 helper 应重新采样当前位置。")
+	assert_almost_eq(
+		first_direction.x,
+		-1.0,
+		0.001,
+		"初始方向应朝向力场。"
+	)
+	assert_almost_eq(
+		moved_direction.x,
+		1.0,
+		0.001,
+		"移动后方向 helper 应重新采样当前位置。"
+	)
 
 
 func test_gravity_probe_strongest_mode_selects_largest_acceleration() -> void:
@@ -233,15 +335,32 @@ func test_gravity_probe_strongest_mode_selects_largest_acceleration() -> void:
 	add_child_autofree(weak_field)
 	add_child_autofree(strong_field)
 	add_child_autofree(probe)
-	_configure_constant_field(weak_field, Vector3.DOWN, 2.0)
-	_configure_constant_field(strong_field, Vector3.RIGHT, 5.0)
+	_configure_constant_field(
+		weak_field,
+		Vector3.DOWN,
+		2.0
+	)
+	_configure_constant_field(
+		strong_field,
+		Vector3.RIGHT,
+		5.0
+	)
 	probe.use_fallback_when_empty = false
 	probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
 
 	var acceleration: Vector3 = probe.sample_fields([weak_field, strong_field])
 
-	assert_almost_eq(acceleration.x, 5.0, 0.001, "最强模式应选择长度最大的加速度。")
-	assert_almost_eq(acceleration.y, 0.0, 0.001)
+	assert_almost_eq(
+		acceleration.x,
+		5.0,
+		0.001,
+		"最强模式应选择长度最大的加速度。"
+	)
+	assert_almost_eq(
+		acceleration.y,
+		0.0,
+		0.001
+	)
 
 
 func test_gravity_probe_highest_priority_mode_combines_active_top_priority_fields() -> void:
@@ -255,24 +374,60 @@ func test_gravity_probe_highest_priority_mode_combines_active_top_priority_field
 	add_child_autofree(high_field)
 	add_child_autofree(high_tie_field)
 	add_child_autofree(probe)
-	_configure_constant_field(inactive_high_field, Vector3.LEFT, 99.0, 99)
-	_configure_constant_field(low_field, Vector3.DOWN, 10.0, 0)
-	_configure_constant_field(high_field, Vector3.RIGHT, 2.0, 5)
-	_configure_constant_field(high_tie_field, Vector3.UP, 3.0, 5)
-	inactive_high_field.global_position = Vector3(100.0, 0.0, 0.0)
+	_configure_constant_field(
+		inactive_high_field,
+		Vector3.LEFT,
+		99.0,
+		99
+	)
+	_configure_constant_field(
+		low_field,
+		Vector3.DOWN,
+		10.0,
+		0
+	)
+	_configure_constant_field(
+		high_field,
+		Vector3.RIGHT,
+		2.0,
+		5
+	)
+	_configure_constant_field(
+		high_tie_field,
+		Vector3.UP,
+		3.0,
+		5
+	)
+	inactive_high_field.global_position = Vector3(
+		100.0,
+		0.0,
+		0.0
+	)
 	inactive_high_field.radius = 1.0
 	probe.use_fallback_when_empty = false
 	probe.combination_mode = GFGravityProbe3D.CombinationMode.HIGHEST_PRIORITY
 
-	var acceleration: Vector3 = probe.sample_fields([
-		inactive_high_field,
-		low_field,
-		high_field,
-		high_tie_field,
-	])
+	var acceleration: Vector3 = probe.sample_fields(
+		[
+			inactive_high_field,
+			low_field,
+			high_field,
+			high_tie_field,
+		]
+	)
 
-	assert_almost_eq(acceleration.x, 2.0, 0.001, "最高优先级模式应汇总最高优先级的有效力场。")
-	assert_almost_eq(acceleration.y, 3.0, 0.001, "同优先级有效力场应被组合。")
+	assert_almost_eq(
+		acceleration.x,
+		2.0,
+		0.001,
+		"最高优先级模式应汇总最高优先级的有效力场。"
+	)
+	assert_almost_eq(
+		acceleration.y,
+		3.0,
+		0.001,
+		"同优先级有效力场应被组合。"
+	)
 
 
 func test_gravity_probe_highest_priority_supports_full_int64_range() -> void:
@@ -291,7 +446,11 @@ func test_gravity_probe_highest_priority_supports_full_int64_range() -> void:
 
 	var acceleration: Vector3 = probe.sample_fields([lower_field, higher_field])
 
-	assert_eq(acceleration, Vector3.RIGHT, "最高优先级选择不得用 32 位哨兵侵占合法 int64 值域。")
+	assert_eq(
+		acceleration,
+		Vector3.RIGHT,
+		"最高优先级选择不得用 32 位哨兵侵占合法 int64 值域。"
+	)
 
 
 func test_gravity_probe_reductions_fail_closed_on_finite_sum_overflow() -> void:
@@ -312,8 +471,16 @@ func test_gravity_probe_reductions_fail_closed_on_finite_sum_overflow() -> void:
 	probe.combination_mode = GFGravityProbe3D.CombinationMode.HIGHEST_PRIORITY
 	var priority_result: Vector3 = probe.sample_fields([field_a, field_b])
 
-	assert_eq(sum_result, Vector3.ZERO, "SUM 的有限分量相加溢出时应失败关闭。")
-	assert_eq(priority_result, Vector3.ZERO, "HIGHEST_PRIORITY 的有限分量相加溢出时应失败关闭。")
+	assert_eq(
+		sum_result,
+		Vector3.ZERO,
+		"SUM 的有限分量相加溢出时应失败关闭。"
+	)
+	assert_eq(
+		priority_result,
+		Vector3.ZERO,
+		"HIGHEST_PRIORITY 的有限分量相加溢出时应失败关闭。"
+	)
 
 
 func test_gravity_probe_strongest_uses_overflow_safe_magnitude_comparison() -> void:
@@ -332,7 +499,11 @@ func test_gravity_probe_strongest_uses_overflow_safe_magnitude_comparison() -> v
 
 	var acceleration: Vector3 = probe.sample_fields([weaker_field, stronger_field])
 
-	assert_eq(acceleration, stronger_field.acceleration_value, "两个平方范数都溢出时仍应选择真实幅值更大的 field。")
+	assert_eq(
+		acceleration,
+		stronger_field.acceleration_value,
+		"两个平方范数都溢出时仍应选择真实幅值更大的 field。"
+	)
 
 
 func test_gravity_probe_strongest_tie_uses_stable_order_key() -> void:
@@ -352,8 +523,16 @@ func test_gravity_probe_strongest_tie_uses_stable_order_key() -> void:
 	var reversed_input: Vector3 = probe.sample_fields([field_b, field_a])
 	var forward_input: Vector3 = probe.sample_fields([field_a, field_b])
 
-	assert_eq(reversed_input, field_a.acceleration_value, "等长 field 应按稳定结构键而非输入顺序裁决。")
-	assert_eq(forward_input, field_a.acceleration_value, "稳定平局裁决不应随输入排列变化。")
+	assert_eq(
+		reversed_input,
+		field_a.acceleration_value,
+		"等长 field 应按稳定结构键而非输入顺序裁决。"
+	)
+	assert_eq(
+		forward_input,
+		field_a.acceleration_value,
+		"稳定平局裁决不应随输入排列变化。"
+	)
 
 
 func test_gravity_probe_cache_accounts_for_combination_mode() -> void:
@@ -363,18 +542,44 @@ func test_gravity_probe_cache_accounts_for_combination_mode() -> void:
 	add_child_autofree(weak_field)
 	add_child_autofree(strong_field)
 	add_child_autofree(probe)
-	_configure_constant_field(weak_field, Vector3.DOWN, 2.0)
-	_configure_constant_field(strong_field, Vector3.RIGHT, 5.0)
+	_configure_constant_field(
+		weak_field,
+		Vector3.DOWN,
+		2.0
+	)
+	_configure_constant_field(
+		strong_field,
+		Vector3.RIGHT,
+		5.0
+	)
 	probe.use_fallback_when_empty = false
 
 	var summed: Vector3 = probe.sample()
 	probe.combination_mode = GFGravityProbe3D.CombinationMode.STRONGEST
 	var strongest: Vector3 = probe.sample()
 
-	assert_almost_eq(summed.x, 5.0, 0.001, "默认模式仍应求和。")
-	assert_almost_eq(summed.y, -2.0, 0.001)
-	assert_almost_eq(strongest.x, 5.0, 0.001, "组合模式变化应使同帧缓存失效。")
-	assert_almost_eq(strongest.y, 0.0, 0.001)
+	assert_almost_eq(
+		summed.x,
+		5.0,
+		0.001,
+		"默认模式仍应求和。"
+	)
+	assert_almost_eq(
+		summed.y,
+		-2.0,
+		0.001
+	)
+	assert_almost_eq(
+		strongest.x,
+		5.0,
+		0.001,
+		"组合模式变化应使同帧缓存失效。"
+	)
+	assert_almost_eq(
+		strongest.y,
+		0.0,
+		0.001
+	)
 
 
 func test_gravity_probe_cache_accounts_for_fallback_configuration() -> void:
@@ -390,9 +595,21 @@ func test_gravity_probe_cache_accounts_for_fallback_configuration() -> void:
 	probe.use_fallback_when_empty = false
 	var disabled_fallback: Vector3 = probe.sample()
 
-	assert_eq(first, Vector3.DOWN * 4.0, "首次采样应使用当前 fallback 加速度。")
-	assert_eq(changed_acceleration, Vector3.RIGHT * 3.0, "同帧修改 fallback 向量应使缓存失效。")
-	assert_eq(disabled_fallback, Vector3.ZERO, "同帧关闭 fallback 应使缓存失效。")
+	assert_eq(
+		first,
+		Vector3.DOWN * 4.0,
+		"首次采样应使用当前 fallback 加速度。"
+	)
+	assert_eq(
+		changed_acceleration,
+		Vector3.RIGHT * 3.0,
+		"同帧修改 fallback 向量应使缓存失效。"
+	)
+	assert_eq(
+		disabled_fallback,
+		Vector3.ZERO,
+		"同帧关闭 fallback 应使缓存失效。"
+	)
 
 
 func test_gravity_probe_cache_accounts_for_same_frame_field_parameters() -> void:
@@ -409,8 +626,18 @@ func test_gravity_probe_cache_accounts_for_same_frame_field_parameters() -> void
 	field.acceleration = 8.0
 	var changed: Vector3 = probe.sample()
 
-	assert_almost_eq(first.y, -4.0, 0.001, "首次采样应读取当前力场。")
-	assert_almost_eq(changed.y, -8.0, 0.001, "同帧修改力场参数应使缓存失效。")
+	assert_almost_eq(
+		first.y,
+		-4.0,
+		0.001,
+		"首次采样应读取当前力场。"
+	)
+	assert_almost_eq(
+		changed.y,
+		-8.0,
+		0.001,
+		"同帧修改力场参数应使缓存失效。"
+	)
 
 
 func test_gravity_probe_cache_accounts_for_same_curve_content_mutation() -> void:
@@ -425,7 +652,11 @@ func test_gravity_probe_cache_accounts_for_same_curve_content_mutation() -> void
 	field.radius = 10.0
 	field.falloff_mode = GFGravityField3D.FalloffMode.CURVE
 	field.falloff_curve = curve
-	probe.global_position = Vector3(5.0, 0.0, 0.0)
+	probe.global_position = Vector3(
+		5.0,
+		0.0,
+		0.0
+	)
 	probe.use_fallback_when_empty = false
 
 	var first: Vector3 = probe.sample()
@@ -433,8 +664,18 @@ func test_gravity_probe_cache_accounts_for_same_curve_content_mutation() -> void
 	curve.set_point_value(1, 0.25)
 	var changed: Vector3 = probe.sample()
 
-	assert_almost_eq(first.x, -8.0, 0.001, "首次采样应读取曲线当前内容。")
-	assert_almost_eq(changed.x, -2.0, 0.001, "同帧原位修改 Curve 内容应使缓存失效。")
+	assert_almost_eq(
+		first.x,
+		-8.0,
+		0.001,
+		"首次采样应读取曲线当前内容。"
+	)
+	assert_almost_eq(
+		changed.x,
+		-2.0,
+		0.001,
+		"同帧原位修改 Curve 内容应使缓存失效。"
+	)
 
 
 func test_gravity_probe_cache_accounts_for_same_frame_group_membership() -> void:
@@ -444,12 +685,25 @@ func test_gravity_probe_cache_accounts_for_same_frame_group_membership() -> void
 
 	var empty_sample: Vector3 = probe.sample()
 	var field: GFGravityField3D = GFGravityField3D.new()
-	_configure_constant_field(field, Vector3.DOWN, 6.0)
+	_configure_constant_field(
+		field,
+		Vector3.DOWN,
+		6.0
+	)
 	add_child_autofree(field)
 	var field_sample: Vector3 = probe.sample()
 
-	assert_eq(empty_sample, Vector3.ZERO, "首次采样没有力场时应返回零向量。")
-	assert_almost_eq(field_sample.y, -6.0, 0.001, "同帧新增力场应使缓存失效并参与采样。")
+	assert_eq(
+		empty_sample,
+		Vector3.ZERO,
+		"首次采样没有力场时应返回零向量。"
+	)
+	assert_almost_eq(
+		field_sample.y,
+		-6.0,
+		0.001,
+		"同帧新增力场应使缓存失效并参与采样。"
+	)
 
 
 func test_gravity_probe_cache_accounts_for_same_path_instance_replacement() -> void:
@@ -471,9 +725,21 @@ func test_gravity_probe_cache_accounts_for_same_path_instance_replacement() -> v
 	replacement_field.acceleration_value = Vector3.RIGHT
 	var replacement: Vector3 = probe.sample()
 
-	assert_eq(first, Vector3.DOWN, "首次采样应来自原实例。")
-	assert_eq(replacement, Vector3.RIGHT, "同帧同路径替换必须按新实例重新采样。")
-	assert_eq(replacement_field.call_count, 1, "新实例不得命中旧实例的缓存结果。")
+	assert_eq(
+		first,
+		Vector3.DOWN,
+		"首次采样应来自原实例。"
+	)
+	assert_eq(
+		replacement,
+		Vector3.RIGHT,
+		"同帧同路径替换必须按新实例重新采样。"
+	)
+	assert_eq(
+		replacement_field.call_count,
+		1,
+		"新实例不得命中旧实例的缓存结果。"
+	)
 
 
 func test_gravity_probe_cache_ignores_non_field_group_members() -> void:
@@ -490,9 +756,21 @@ func test_gravity_probe_cache_ignores_non_field_group_members() -> void:
 	unrelated_node.add_to_group(probe.field_group)
 	var cached: Vector3 = probe.sample()
 
-	assert_eq(first, Vector3.DOWN, "有效 field 应正常参与首次采样。")
-	assert_eq(cached, Vector3.DOWN, "非 field 分组成员不应改变采样值。")
-	assert_eq(field.call_count, 1, "非 field 分组成员不应使同帧缓存失效。")
+	assert_eq(
+		first,
+		Vector3.DOWN,
+		"有效 field 应正常参与首次采样。"
+	)
+	assert_eq(
+		cached,
+		Vector3.DOWN,
+		"非 field 分组成员不应改变采样值。"
+	)
+	assert_eq(
+		field.call_count,
+		1,
+		"非 field 分组成员不应使同帧缓存失效。"
+	)
 
 
 func test_gravity_probe_sample_fields_ignores_freed_objects() -> void:
@@ -502,9 +780,19 @@ func test_gravity_probe_sample_fields_ignores_freed_objects() -> void:
 	field.free()
 	probe.use_fallback_when_empty = false
 
-	var acceleration: Vector3 = probe.sample_fields([field, "not_a_field", null])
+	var acceleration: Vector3 = probe.sample_fields(
+		[
+			field,
+			"not_a_field",
+			null,
+		]
+	)
 
-	assert_eq(acceleration, Vector3.ZERO, "sample_fields 应跳过已释放对象引用和非对象输入。")
+	assert_eq(
+		acceleration,
+		Vector3.ZERO,
+		"sample_fields 应跳过已释放对象引用和非对象输入。"
+	)
 
 
 func test_priority_callback_can_remove_a_later_candidate_safely() -> void:
@@ -515,7 +803,10 @@ func test_priority_callback_can_remove_a_later_candidate_safely() -> void:
 	add_child_autofree(probe)
 	first.next_field = second
 	probe.use_fallback_when_empty = false
-	assert_eq(probe.sample_fields([first, second]), Vector3.RIGHT)
+	assert_eq(
+		probe.sample_fields([first, second]),
+		Vector3.RIGHT
+	)
 	assert_false(is_instance_valid(second))
 
 
@@ -527,7 +818,10 @@ func test_priority_callback_can_remove_an_already_sampled_candidate_safely() -> 
 	add_child_autofree(probe)
 	second.next_field = first
 	probe.use_fallback_when_empty = false
-	assert_eq(probe.sample_fields([first, second]), Vector3.RIGHT * 2.0)
+	assert_eq(
+		probe.sample_fields([first, second]),
+		Vector3.RIGHT * 2.0
+	)
 	assert_false(is_instance_valid(first))
 
 
@@ -536,6 +830,7 @@ class RemovingPriorityField extends Node3D:
 
 	func get_acceleration_at(_position: Vector3) -> Vector3:
 		return Vector3.RIGHT
+
 
 	func get_gravity_priority() -> int:
 		if is_instance_valid(next_field):
@@ -555,23 +850,39 @@ func test_gravity_probe_provider_ignores_freed_candidates() -> void:
 
 	var acceleration: Vector3 = probe.sample_field_provider(provider)
 
-	assert_eq(acceleration, Vector3.ZERO, "provider 返回的已释放候选必须被安全跳过。")
+	assert_eq(
+		acceleration,
+		Vector3.ZERO,
+		"provider 返回的已释放候选必须被安全跳过。"
+	)
 
 
 func test_gravity_probe_provider_preserves_nested_option_identity() -> void:
 	var provider: CandidateProvider = CandidateProvider.new()
 	var probe: GFGravityProbe3D = GFGravityProbe3D.new()
-	var nested_options: Dictionary = {"predicate_state": [1, 2, 3]}
-	var options: Dictionary = {"nested": nested_options}
+	var nested_options: Dictionary = {
+		"predicate_state": [
+			1,
+			2,
+			3,
+		],
+	}
+	var options: Dictionary = { "nested": nested_options }
 	add_child_autofree(probe)
 
 	var _sample: Vector3 = probe.sample_field_provider(provider, options)
 
 	assert_true(
-		is_same(provider.received_options.get("nested"), nested_options),
+		is_same(
+			provider.received_options.get("nested"),
+			nested_options
+		),
 		"透传 provider options 时只应复制顶层容器，不应无界深拷贝任意嵌套值。"
 	)
-	assert_false(options.has("method_name"), "框架补默认查询条件时不得修改调用方 options。")
+	assert_false(
+		options.has("method_name"),
+		"框架补默认查询条件时不得修改调用方 options。"
+	)
 
 
 func test_gravity_probe_provider_query_uses_entry_probe_snapshot() -> void:
@@ -593,9 +904,21 @@ func test_gravity_probe_provider_query_uses_entry_probe_snapshot() -> void:
 
 	var acceleration: Vector3 = probe.sample_field_provider(provider)
 
-	assert_eq(acceleration, Vector3.RIGHT + Vector3.UP * 2.0, "provider 回调修改 Probe 不得改变当前 reduction。")
-	assert_eq(field_a.sampled_positions, [Vector3.ZERO], "provider 后的 field 仍应收到入口位置。")
-	assert_eq(field_b.sampled_positions, [Vector3.ZERO], "同一 provider 事务必须使用一个位置快照。")
+	assert_eq(
+		acceleration,
+		Vector3.RIGHT + Vector3.UP * 2.0,
+		"provider 回调修改 Probe 不得改变当前 reduction。"
+	)
+	assert_eq(
+		field_a.sampled_positions,
+		[Vector3.ZERO],
+		"provider 后的 field 仍应收到入口位置。"
+	)
+	assert_eq(
+		field_b.sampled_positions,
+		[Vector3.ZERO],
+		"同一 provider 事务必须使用一个位置快照。"
+	)
 
 
 func test_gravity_probe_samples_a_snapshot_when_callback_mutates_candidate_array() -> void:
@@ -613,7 +936,11 @@ func test_gravity_probe_samples_a_snapshot_when_callback_mutates_candidate_array
 
 	var acceleration: Vector3 = probe.sample_fields(fields)
 
-	assert_eq(acceleration, Vector3.RIGHT, "回调新增候选只能从下一次采样开始生效。")
+	assert_eq(
+		acceleration,
+		Vector3.RIGHT,
+		"回调新增候选只能从下一次采样开始生效。"
+	)
 
 
 func test_gravity_probe_rejects_recursive_sampling_during_field_callback() -> void:
@@ -627,9 +954,21 @@ func test_gravity_probe_rejects_recursive_sampling_during_field_callback() -> vo
 
 	var acceleration: Vector3 = probe.sample()
 
-	assert_eq(acceleration, Vector3.RIGHT, "外层采样应完成。")
-	assert_eq(field.call_count, 1, "同一个 probe 的递归采样必须在再次调用 field 前失败关闭。")
-	assert_eq(field.nested_result, Vector3.ZERO, "被拒绝的递归采样应返回稳定零向量。")
+	assert_eq(
+		acceleration,
+		Vector3.RIGHT,
+		"外层采样应完成。"
+	)
+	assert_eq(
+		field.call_count,
+		1,
+		"同一个 probe 的递归采样必须在再次调用 field 前失败关闭。"
+	)
+	assert_eq(
+		field.nested_result,
+		Vector3.ZERO,
+		"被拒绝的递归采样应返回稳定零向量。"
+	)
 
 
 func test_gravity_probe_uses_one_query_snapshot_per_sampling_transaction() -> void:
@@ -650,10 +989,40 @@ func test_gravity_probe_uses_one_query_snapshot_per_sampling_transaction() -> vo
 	var first: Vector3 = probe.sample_fields([mutating_field, passive_field])
 	var second: Vector3 = probe.sample_fields([mutating_field, passive_field])
 
-	assert_eq(first, Vector3.RIGHT + Vector3.UP * 2.0, "回调修改 mode 不得改变正在执行的 reduction。")
-	assert_eq(second, Vector3.UP * 2.0, "回调修改应从下一次采样开始生效。")
-	assert_eq(mutating_field.sampled_positions, [Vector3.ZERO, Vector3(10.0, 0.0, 0.0)], "每次事务都应冻结自己的入口位置。")
-	assert_eq(passive_field.sampled_positions, [Vector3.ZERO, Vector3(10.0, 0.0, 0.0)], "同一事务的所有 field 必须收到同一位置。")
+	assert_eq(
+		first,
+		Vector3.RIGHT + Vector3.UP * 2.0,
+		"回调修改 mode 不得改变正在执行的 reduction。"
+	)
+	assert_eq(
+		second,
+		Vector3.UP * 2.0,
+		"回调修改应从下一次采样开始生效。"
+	)
+	assert_eq(
+		mutating_field.sampled_positions,
+		[
+			Vector3.ZERO,
+			Vector3(
+				10.0,
+				0.0,
+				0.0
+			),
+		],
+		"每次事务都应冻结自己的入口位置。"
+	)
+	assert_eq(
+		passive_field.sampled_positions,
+		[
+			Vector3.ZERO,
+			Vector3(
+				10.0,
+				0.0,
+				0.0
+			),
+		],
+		"同一事务的所有 field 必须收到同一位置。"
+	)
 
 
 func test_gravity_probe_cache_uses_entry_state_when_callback_mutates_probe() -> void:
@@ -672,8 +1041,23 @@ func test_gravity_probe_cache_uses_entry_state_when_callback_mutates_probe() -> 
 
 	assert_eq(first, Vector3.RIGHT)
 	assert_eq(second, Vector3.RIGHT)
-	assert_eq(field.call_count, 2, "回调修改后的 probe 状态不得被错误标记为已缓存。")
-	assert_eq(field.sampled_positions, [Vector3.ZERO, Vector3(10.0, 0.0, 0.0)], "新状态应在下一次采样中重新计算。")
+	assert_eq(
+		field.call_count,
+		2,
+		"回调修改后的 probe 状态不得被错误标记为已缓存。"
+	)
+	assert_eq(
+		field.sampled_positions,
+		[
+			Vector3.ZERO,
+			Vector3(
+				10.0,
+				0.0,
+				0.0
+			),
+		],
+		"新状态应在下一次采样中重新计算。"
+	)
 
 
 func test_gravity_probe_validates_required_and_default_method_arity() -> void:
@@ -687,9 +1071,21 @@ func test_gravity_probe_validates_required_and_default_method_arity() -> void:
 
 	var acceleration: Vector3 = probe.sample_fields([invalid_field, optional_field])
 
-	assert_eq(invalid_field.call_count, 0, "存在第二个必填参数的方法不得通过 duck-typed 调用检查。")
-	assert_eq(optional_field.call_count, 1, "第二个参数有默认值时应允许只传世界坐标。")
-	assert_eq(acceleration, Vector3.RIGHT * 2.0, "合法默认参数方法应正常参与采样。")
+	assert_eq(
+		invalid_field.call_count,
+		0,
+		"存在第二个必填参数的方法不得通过 duck-typed 调用检查。"
+	)
+	assert_eq(
+		optional_field.call_count,
+		1,
+		"第二个参数有默认值时应允许只传世界坐标。"
+	)
+	assert_eq(
+		acceleration,
+		Vector3.RIGHT * 2.0,
+		"合法默认参数方法应正常参与采样。"
+	)
 
 
 func test_gravity_probe_rejects_non_finite_field_acceleration() -> void:
@@ -698,13 +1094,21 @@ func test_gravity_probe_rejects_non_finite_field_acceleration() -> void:
 	add_child_autofree(field)
 	add_child_autofree(probe)
 	field.direction_mode = GFGravityField3D.DirectionMode.CONSTANT_DIRECTION
-	field.constant_direction = Vector3(NAN, 0.0, 0.0)
+	field.constant_direction = Vector3(
+		NAN,
+		0.0,
+		0.0
+	)
 	field.acceleration = INF
 	probe.use_fallback_when_empty = false
 
 	var acceleration: Vector3 = probe.sample_fields([field])
 
-	assert_eq(acceleration, Vector3.ZERO, "非有限力场参数不应进入采样结果。")
+	assert_eq(
+		acceleration,
+		Vector3.ZERO,
+		"非有限力场参数不应进入采样结果。"
+	)
 
 
 func test_gravity_field_normalizes_invalid_enum_state() -> void:
@@ -742,7 +1146,11 @@ func test_gravity_probe_normalizes_non_finite_duck_priority() -> void:
 
 	var acceleration: Vector3 = probe.sample_fields([invalid_priority_field, finite_priority_field])
 
-	assert_eq(acceleration, Vector3.UP * 3.0, "非有限 duck priority 应归一为零，不得污染优先级比较。")
+	assert_eq(
+		acceleration,
+		Vector3.UP * 3.0,
+		"非有限 duck priority 应归一为零，不得污染优先级比较。"
+	)
 
 
 func test_gravity_probe_cache_uses_private_sample_value() -> void:
@@ -759,8 +1167,18 @@ func test_gravity_probe_cache_uses_private_sample_value() -> void:
 	probe.last_acceleration = Vector3.RIGHT * 99.0
 	var cached: Vector3 = probe.sample()
 
-	assert_almost_eq(first.y, -4.0, 0.001, "首次采样应读取当前力场。")
-	assert_almost_eq(cached.y, -4.0, 0.001, "外部写 last_acceleration 不应污染同帧缓存值。")
+	assert_almost_eq(
+		first.y,
+		-4.0,
+		0.001,
+		"首次采样应读取当前力场。"
+	)
+	assert_almost_eq(
+		cached.y,
+		-4.0,
+		0.001,
+		"外部写 last_acceleration 不应污染同帧缓存值。"
+	)
 
 
 func test_gravity_probe_samples_field_provider_candidates() -> void:
@@ -771,16 +1189,53 @@ func test_gravity_probe_samples_field_provider_candidates() -> void:
 	add_child_autofree(field_a)
 	add_child_autofree(field_b)
 	add_child_autofree(probe)
-	_configure_constant_field(field_a, Vector3.DOWN, 3.0)
-	_configure_constant_field(field_b, Vector3.RIGHT, 4.0)
+	_configure_constant_field(
+		field_a,
+		Vector3.DOWN,
+		3.0
+	)
+	_configure_constant_field(
+		field_b,
+		Vector3.RIGHT,
+		4.0
+	)
 
-	assert_true(GFVariantData.to_bool(registry.call("register_candidate", field_a, { "group": &"gravity" })))
-	assert_true(GFVariantData.to_bool(registry.call("register_candidate", field_b, { "group": &"gravity" })))
+	assert_true(
+		GFVariantData.to_bool(
+			registry.call(
+				"register_candidate",
+				field_a,
+				{ "group": &"gravity" }
+			)
+		)
+	)
+	assert_true(
+		GFVariantData.to_bool(
+			registry.call(
+				"register_candidate",
+				field_b,
+				{ "group": &"gravity" }
+			)
+		)
+	)
 
-	var acceleration: Vector3 = probe.sample_field_provider(registry, { "group": &"gravity" })
+	var acceleration: Vector3 = probe.sample_field_provider(
+		registry,
+		{ "group": &"gravity" }
+	)
 
-	assert_almost_eq(acceleration.y, -3.0, 0.001, "provider 候选 field_a 应参与采样。")
-	assert_almost_eq(acceleration.x, 4.0, 0.001, "provider 候选 field_b 应参与采样。")
+	assert_almost_eq(
+		acceleration.y,
+		-3.0,
+		0.001,
+		"provider 候选 field_a 应参与采样。"
+	)
+	assert_almost_eq(
+		acceleration.x,
+		4.0,
+		0.001,
+		"provider 候选 field_b 应参与采样。"
+	)
 
 
 func _configure_constant_field(

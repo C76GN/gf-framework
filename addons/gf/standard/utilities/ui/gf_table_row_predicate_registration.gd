@@ -83,9 +83,7 @@ static func create(
 ## @param registration: 待隔离的注册值。
 ## [br]
 ## @return 纯 GFTableRowPredicateRegistration；输入为空时返回 null。
-static func snapshot_for_framework(
-	registration: GFTableRowPredicateRegistration
-) -> GFTableRowPredicateRegistration:
+static func snapshot_for_framework(registration: GFTableRowPredicateRegistration) -> GFTableRowPredicateRegistration:
 	if registration == null or not is_instance_valid(registration):
 		return null
 	return create(
@@ -173,8 +171,12 @@ func validate_registration() -> Dictionary:
 			"Table row predicate registration requires a predicate instance.",
 			{ "path": "predicate" }
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Table row predicate registration", {
-		"include_issue_count": true,
-		"fallback_action": "Review the first table row predicate registration issue.",
-		"no_action": "Table row predicate registration is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Table row predicate registration",
+		{
+			"include_issue_count": true,
+			"fallback_action": "Review the first table row predicate registration issue.",
+			"no_action": "Table row predicate registration is valid.",
+		}
+	)

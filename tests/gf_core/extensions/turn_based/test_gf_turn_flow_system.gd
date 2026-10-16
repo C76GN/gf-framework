@@ -13,15 +13,15 @@ class RecordingPhase extends GFTurnPhase:
 		phase_id = p_phase_id
 		order = p_order
 
+
 	func _enter(_context: GFTurnContext) -> void:
 		order.append("enter:%s" % phase_id)
 
-	func _execute(
-		_context: GFTurnContext,
-		_completion: GFTurnPhaseCompletionHandle
-	) -> Variant:
+
+	func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -> Variant:
 		order.append("execute:%s" % phase_id)
 		return null
+
 
 	func _exit(_context: GFTurnContext) -> void:
 		order.append("exit:%s" % phase_id)
@@ -29,7 +29,6 @@ class RecordingPhase extends GFTurnPhase:
 
 class ManualPhase extends GFTurnPhase:
 	signal completed
-
 	var order: Array[String] = []
 	var completion_handle: GFTurnPhaseCompletionHandle = null
 
@@ -37,16 +36,16 @@ class ManualPhase extends GFTurnPhase:
 		order = p_order
 		auto_finish = false
 
+
 	func _enter(_context: GFTurnContext) -> void:
 		order.append("enter")
 
-	func _execute(
-		_context: GFTurnContext,
-		completion: GFTurnPhaseCompletionHandle
-	) -> Variant:
+
+	func _execute(_context: GFTurnContext, completion: GFTurnPhaseCompletionHandle) -> Variant:
 		completion_handle = completion
 		order.append("execute")
 		return completed
+
 
 	func _exit(_context: GFTurnContext) -> void:
 		order.append("exit")
@@ -60,10 +59,8 @@ class StoppingPhase extends GFTurnPhase:
 		system = p_system
 		order = p_order
 
-	func _execute(
-		_context: GFTurnContext,
-		_completion: GFTurnPhaseCompletionHandle
-	) -> Variant:
+
+	func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -> Variant:
 		order.append("execute")
 		if system != null:
 			system.stop()
@@ -73,11 +70,17 @@ class StoppingPhase extends GFTurnPhase:
 class RecordingAction extends GFTurnAction:
 	var order: Array[String] = []
 
-	func _init(p_label: String, p_priority: int, p_sort_value: float, p_order: Array[String]) -> void:
+	func _init(
+		p_label: String,
+		p_priority: int,
+		p_sort_value: float,
+		p_order: Array[String]
+	) -> void:
 		action_id = StringName(p_label)
 		priority = p_priority
 		sort_value = p_sort_value
 		order = p_order
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		order.append(String(action_id))
@@ -86,12 +89,12 @@ class RecordingAction extends GFTurnAction:
 
 class ManualAction extends GFTurnAction:
 	signal completed
-
 	var order: Array[String] = []
 
 	func _init(p_order: Array[String]) -> void:
 		action_id = &"manual"
 		order = p_order
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		order.append("resolve")
@@ -103,11 +106,16 @@ class StopAction extends GFTurnAction:
 	var clear_actions: bool = true
 	var order: Array[String] = []
 
-	func _init(p_system: GFTurnFlowSystem, p_clear_actions: bool, p_order: Array[String]) -> void:
+	func _init(
+		p_system: GFTurnFlowSystem,
+		p_clear_actions: bool,
+		p_order: Array[String]
+	) -> void:
 		action_id = &"stop_action"
 		system = p_system
 		clear_actions = p_clear_actions
 		order = p_order
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		order.append("stop")
@@ -124,6 +132,7 @@ class StartAction extends GFTurnAction:
 		action_id = &"start_action"
 		system = p_system
 		order = p_order
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		order.append("start")
@@ -150,15 +159,15 @@ class SharedManualFinishPhase extends GFTurnPhase:
 	func _init() -> void:
 		auto_finish = false
 
-	func _execute(
-		context: GFTurnContext,
-		completion: GFTurnPhaseCompletionHandle
-	) -> Variant:
+
+	func _execute(context: GFTurnContext, completion: GFTurnPhaseCompletionHandle) -> Variant:
 		completions_by_context_id[context.get_instance_id()] = completion
 		return null
 
+
 	func _exit(context: GFTurnContext) -> void:
 		exited_contexts.append(context)
+
 
 	func get_completion(context: GFTurnContext) -> GFTurnPhaseCompletionHandle:
 		if context == null:
@@ -180,12 +189,11 @@ class CapturingManualPhase extends GFTurnPhase:
 	func _init() -> void:
 		auto_finish = false
 
-	func _execute(
-		_context: GFTurnContext,
-		completion: GFTurnPhaseCompletionHandle
-	) -> Variant:
+
+	func _execute(_context: GFTurnContext, completion: GFTurnPhaseCompletionHandle) -> Variant:
 		completions.append(completion)
 		return null
+
 
 	func _exit(context: GFTurnContext) -> void:
 		exited_contexts.append(context)
@@ -193,16 +201,13 @@ class CapturingManualPhase extends GFTurnPhase:
 
 class ConcurrentResolutionPhase extends GFTurnPhase:
 	signal completed
-
 	var system: GFTurnFlowSystem = null
 
 	func _init(p_system: GFTurnFlowSystem) -> void:
 		system = p_system
 
-	func _execute(
-		_context: GFTurnContext,
-		_completion: GFTurnPhaseCompletionHandle
-	) -> Variant:
+
+	func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -> Variant:
 		@warning_ignore("missing_await")
 		system.resolve_actions()
 		return completed
@@ -214,6 +219,7 @@ class InjectionCollisionAction extends GFTurnAction:
 
 	func inject(_value: Variant) -> void:
 		collision_inject_called = true
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		resolved = true
@@ -227,6 +233,7 @@ class ExplicitInjectionAction extends GFTurnAction:
 	func _inject_dependencies(architecture: GFArchitecture) -> void:
 		injected_architecture = architecture
 
+
 	func _resolve(_context: GFTurnContext) -> Variant:
 		resolved = true
 		return null
@@ -239,9 +246,11 @@ class StopDuringInjectionAction extends GFTurnAction:
 	func _init(p_system: GFTurnFlowSystem) -> void:
 		system = p_system
 
+
 	func _inject_dependencies(_architecture: GFArchitecture) -> void:
 		if system != null:
 			system.stop(false)
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		resolved = true
@@ -255,6 +264,7 @@ class CancelDuringInjectionAction extends GFTurnAction:
 	func _inject_dependencies(_architecture: GFArchitecture) -> void:
 		injection_called = true
 		cancel()
+
 
 	func _resolve(_context: GFTurnContext) -> Variant:
 		resolved = true
@@ -276,26 +286,35 @@ class WrongArityTurnValueActor extends Object:
 func test_unconfigured_phase_completion_handle_is_inert() -> void:
 	var completion: GFTurnPhaseCompletionHandle = GFTurnPhaseCompletionHandle.new()
 
-	assert_false(completion.try_complete(), "项目手工构造的未配置 handle 不得拥有完成权限。")
+	assert_false(
+		completion.try_complete(),
+		"项目手工构造的未配置 handle 不得拥有完成权限。"
+	)
 
 
 ## 验证阶段推进会调用 enter/execute/exit 生命周期。
 func test_advance_phase_runs_phase_lifecycle() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	system.set_phases([
-		RecordingPhase.new(&"prepare", order),
-	])
+	system.set_phases([RecordingPhase.new(&"prepare", order),])
 
 	system.start()
 	await system.advance_phase()
 
-	assert_eq(order, [
-		"enter:prepare",
-		"execute:prepare",
-		"exit:prepare",
-	], "阶段推进应按生命周期顺序调用。")
-	assert_eq(system.context.round_index, 1, "首次进入第 0 阶段应推进轮次。")
+	assert_eq(
+		order,
+		[
+			"enter:prepare",
+			"execute:prepare",
+			"exit:prepare",
+		],
+		"阶段推进应按生命周期顺序调用。"
+	)
+	assert_eq(
+		system.context.round_index,
+		1,
+		"首次进入第 0 阶段应推进轮次。"
+	)
 
 
 ## 验证行动默认按 priority 与 sort_value 降序解析。
@@ -303,13 +322,45 @@ func test_resolve_actions_sorts_by_priority_and_sort_value() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 
-	system.enqueue_action(RecordingAction.new("low", 0, 100.0, order))
-	system.enqueue_action(RecordingAction.new("fast", 1, 20.0, order))
-	system.enqueue_action(RecordingAction.new("slow", 1, 10.0, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"low",
+			0,
+			100.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"fast",
+			1,
+			20.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"slow",
+			1,
+			10.0,
+			order
+		)
+	)
 	await system.resolve_actions()
 
-	assert_eq(order, ["fast", "slow", "low"], "行动应优先按 priority 再按 sort_value 降序解析。")
-	assert_true(system.get_actions().is_empty(), "解析后待处理行动应被清空。")
+	assert_eq(
+		order,
+		[
+			"fast",
+			"slow",
+			"low",
+		],
+		"行动应优先按 priority 再按 sort_value 降序解析。"
+	)
+	assert_true(
+		system.get_actions().is_empty(),
+		"解析后待处理行动应被清空。"
+	)
 	assert_null(system.context.current_actor, "解析完成后 current_actor 应复位。")
 
 
@@ -334,7 +385,11 @@ func test_stop_prevents_awaited_phase_from_resuming() -> void:
 	phase.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(order, ["enter", "execute"], "stop 后等待中的阶段不应继续 finish/exit。")
+	assert_eq(
+		order,
+		["enter", "execute"],
+		"stop 后等待中的阶段不应继续 finish/exit。"
+	)
 
 
 func test_turn_flow_start_and_stop_are_idempotent_under_signal_reentry() -> void:
@@ -346,17 +401,13 @@ func test_turn_flow_start_and_stop_are_idempotent_under_signal_reentry() -> void
 			started_count[0] += 1
 			system.start()
 	)
-	var _started_connection: Error = system.flow_started.connect(
-		started_callback
-	) as Error
+	var _started_connection: Error = system.flow_started.connect(started_callback) as Error
 	var stopped_callback: Callable = (
 		func(_context: GFTurnContext) -> void:
 			stopped_count[0] += 1
 			system.stop()
 	)
-	var _stopped_connection: Error = system.flow_stopped.connect(
-		stopped_callback
-	) as Error
+	var _stopped_connection: Error = system.flow_stopped.connect(stopped_callback) as Error
 
 	system.start()
 	system.start(false)
@@ -365,8 +416,16 @@ func test_turn_flow_start_and_stop_are_idempotent_under_signal_reentry() -> void
 	system.flow_started.disconnect(started_callback)
 	system.flow_stopped.disconnect(stopped_callback)
 
-	assert_eq(started_count[0], 1, "start 及 flow_started 重入不得重复发出生命周期信号。")
-	assert_eq(stopped_count[0], 1, "stop 及 flow_stopped 重入不得重复发出生命周期信号。")
+	assert_eq(
+		started_count[0],
+		1,
+		"start 及 flow_started 重入不得重复发出生命周期信号。"
+	)
+	assert_eq(
+		stopped_count[0],
+		1,
+		"stop 及 flow_stopped 重入不得重复发出生命周期信号。"
+	)
 	assert_false(system.is_running, "幂等 stop 后状态必须稳定为 stopped。")
 
 
@@ -387,7 +446,11 @@ func test_flow_started_holds_context_authority_until_observers_finish() -> void:
 
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.context_operation_active] set_context failed: a Context operation is active.")
-	assert_same(owner_system.context, context, "start 通知期间不得替换仍被事务持有的 Context。")
+	assert_same(
+		owner_system.context,
+		context,
+		"start 通知期间不得替换仍被事务持有的 Context。"
+	)
 	assert_false(foreign_system.is_running, "flow_started 观察者不得穿插 foreign Context mutation。")
 	foreign_system.start()
 	assert_true(foreign_system.is_running, "start 事务结束后空闲 Context 仍允许另一 system 顺序使用。")
@@ -405,15 +468,16 @@ func test_turn_flow_can_restart_from_completed_stop_notification() -> void:
 			restarted[0] = true
 			system.start(false)
 	)
-	var _stopped_connection: Error = system.flow_stopped.connect(
-		stopped_callback
-	) as Error
+	var _stopped_connection: Error = system.flow_stopped.connect(stopped_callback) as Error
 
 	system.start()
 	system.stop()
 	system.flow_stopped.disconnect(stopped_callback)
 
-	assert_true(restarted[0], "flow_stopped 应观察到已完成的 stopped 状态并可启动新周期。")
+	assert_true(
+		restarted[0],
+		"flow_stopped 应观察到已完成的 stopped 状态并可启动新周期。"
+	)
 	assert_true(system.is_running, "旧 stop 调用链不得在通知返回后覆盖重入启动的新周期。")
 
 
@@ -430,8 +494,16 @@ func test_turn_flow_honors_restart_requested_from_nested_start_stop_notification
 	owner_system.stop()
 	var preserved_phase_index: int = owner_system.current_phase_index
 	var preserved_round_index: int = context.round_index
-	assert_eq(preserved_phase_index, 0, "回归夹具必须先建立可观察的非默认 phase index。")
-	assert_eq(preserved_round_index, 1, "回归夹具必须先建立可观察的非默认轮次。")
+	assert_eq(
+		preserved_phase_index,
+		0,
+		"回归夹具必须先建立可观察的非默认 phase index。"
+	)
+	assert_eq(
+		preserved_round_index,
+		1,
+		"回归夹具必须先建立可观察的非默认轮次。"
+	)
 	var events: Array[String] = []
 	var started_count: Array[int] = [0]
 	var stopped_count: Array[int] = [0]
@@ -467,8 +539,16 @@ func test_turn_flow_honors_restart_requested_from_nested_start_stop_notification
 		],
 		"新 generation 必须等外层 start 通知展开完成后再同步启动。"
 	)
-	assert_eq(started_count[0], 2, "完成嵌套 stop 通知后应启动一次新 generation。")
-	assert_eq(stopped_count[0], 1, "嵌套重启不得重复发出 stop 通知。")
+	assert_eq(
+		started_count[0],
+		2,
+		"完成嵌套 stop 通知后应启动一次新 generation。"
+	)
+	assert_eq(
+		stopped_count[0],
+		1,
+		"嵌套重启不得重复发出 stop 通知。"
+	)
 	assert_true(owner_system.is_running, "flow_stopped 中请求的重启应在外层 start 事务释放后生效。")
 	assert_false(foreign_system.is_running, "外层 start 通知仍在展开时不得穿插 foreign Context mutation。")
 	assert_eq(
@@ -508,7 +588,11 @@ func test_later_stop_cancels_restart_queued_during_start_notification() -> void:
 	system.flow_stopped.disconnect(restart_callback)
 	system.flow_stopped.disconnect(final_stop_callback)
 
-	assert_eq(started_count[0], 1, "后续 stop 应取消尚未执行的嵌套重启请求。")
+	assert_eq(
+		started_count[0],
+		1,
+		"后续 stop 应取消尚未执行的嵌套重启请求。"
+	)
 	assert_false(system.is_running, "延迟重启不得反转后续 stop 的最终状态。")
 
 
@@ -519,8 +603,15 @@ func test_stop_true_clears_actions_even_when_already_stopped() -> void:
 
 	system.stop(true)
 
-	assert_eq(system.get_action_count(), 0, "stopped 状态的 clear policy 仍必须收敛队列。")
-	assert_true(action.is_sealed(), "被 stopped cleanup 丢弃的 action 必须永久封存。")
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"stopped 状态的 clear policy 仍必须收敛队列。"
+	)
+	assert_true(
+		action.is_sealed(),
+		"被 stopped cleanup 丢弃的 action 必须永久封存。"
+	)
 
 
 func test_disposed_flow_rejects_new_action_without_claiming_it() -> void:
@@ -531,26 +622,58 @@ func test_disposed_flow_rejects_new_action_without_claiming_it() -> void:
 
 	system.enqueue_action(action)
 
-	assert_eq(system.get_action_count(), 0, "disposed system 不得接纳新 action。")
-	assert_false(action.is_sealed(), "未被接纳的 action 不得被 claim 或封存。")
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"disposed system 不得接纳新 action。"
+	)
+	assert_false(
+		action.is_sealed(),
+		"未被接纳的 action 不得被 claim 或封存。"
+	)
 	fresh_system.enqueue_action(action)
-	assert_eq(fresh_system.get_action_count(), 1, "disposed guard 必须位于 one-shot claim 之前。")
+	assert_eq(
+		fresh_system.get_action_count(),
+		1,
+		"disposed guard 必须位于 one-shot claim 之前。"
+	)
 	fresh_system.stop(true)
 
 
 func test_stop_true_upgrades_completed_stop_false_restore() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var pending_action: RecordingAction = RecordingAction.new("pending", 0, 0.0, order)
-	system.enqueue_action(StopAction.new(system, false, order))
+	var pending_action: RecordingAction = RecordingAction.new(
+		"pending",
+		0,
+		0.0,
+		order
+	)
+	system.enqueue_action(
+		StopAction.new(
+			system,
+			false,
+			order
+		)
+	)
 	system.enqueue_action(pending_action)
 	await system.resolve_actions()
-	assert_eq(system.get_action_count(), 1)
+	assert_eq(
+		system.get_action_count(),
+		1
+	)
 
 	system.stop(true)
 
-	assert_eq(system.get_action_count(), 0, "stop(false) 恢复后必须允许升级为 clear。")
-	assert_true(pending_action.is_sealed(), "升级清理必须封存已恢复的一次性 action。")
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"stop(false) 恢复后必须允许升级为 clear。"
+	)
+	assert_true(
+		pending_action.is_sealed(),
+		"升级清理必须封存已恢复的一次性 action。"
+	)
 
 
 func test_phase_signal_timeout_aborts_without_exit() -> void:
@@ -567,10 +690,17 @@ func test_phase_signal_timeout_aborts_without_exit() -> void:
 	await get_tree().process_frame
 
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.phase_signal_timeout] Waiting for the phase Signal timed out; phase advancement was aborted.")
-	assert_eq(order, ["enter", "execute"], "阶段 Signal 超时后不应继续 finish/exit。")
+	assert_eq(
+		order,
+		["enter", "execute"],
+		"阶段 Signal 超时后不应继续 finish/exit。"
+	)
 	assert_not_null(phase.completion_handle)
 	if phase.completion_handle != null:
-		assert_false(phase.completion_handle.try_complete(), "Signal timeout 后 handle 必须失效。")
+		assert_false(
+			phase.completion_handle.try_complete(),
+			"Signal timeout 后 handle 必须失效。"
+		)
 
 
 func test_phase_completion_wait_timeout_invalidates_handle_without_exit() -> void:
@@ -588,10 +718,19 @@ func test_phase_completion_wait_timeout_invalidates_handle_without_exit() -> voi
 	await get_tree().process_frame
 
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.phase_completion_timeout] Waiting for phase completion timed out; phase advancement was aborted.")
-	assert_eq(phase.completions.size(), 1)
-	assert_true(phase.exited_contexts.is_empty(), "completion timeout 不得调用 phase exit。")
+	assert_eq(
+		phase.completions.size(),
+		1
+	)
+	assert_true(
+		phase.exited_contexts.is_empty(),
+		"completion timeout 不得调用 phase exit。"
+	)
 	if not phase.completions.is_empty():
-		assert_false(phase.completions[0].try_complete(), "completion timeout 后 handle 必须失效。")
+		assert_false(
+			phase.completions[0].try_complete(),
+			"completion timeout 后 handle 必须失效。"
+		)
 	foreign_system.start()
 	assert_true(foreign_system.is_running, "completion timeout 清理后必须释放 Context claim。")
 	foreign_system.stop()
@@ -611,7 +750,11 @@ func test_advance_phase_reentry_is_rejected_while_waiting() -> void:
 	system.advance_phase()
 
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.advance_during_advance] advance_phase failed: a phase is being advanced.")
-	assert_eq(order, ["enter", "execute"], "阶段等待中再次推进不应重复进入同一阶段。")
+	assert_eq(
+		order,
+		["enter", "execute"],
+		"阶段等待中再次推进不应重复进入同一阶段。"
+	)
 
 	system.stop()
 	await get_tree().process_frame
@@ -627,7 +770,10 @@ func test_implicit_start_does_not_advance_a_second_phase_from_the_old_call() -> 
 	var _connection: Error = system.flow_started.connect(callback) as Error
 	GF_ASYNC_CALL_SCRIPT.run_detached(system.advance_phase)
 	await get_tree().process_frame
-	assert_eq(first_order, ["enter", "execute"])
+	assert_eq(
+		first_order,
+		["enter", "execute"]
+	)
 	assert_eq(second_order, [])
 	system.flow_started.disconnect(callback)
 	system.stop()
@@ -647,7 +793,11 @@ func test_phase_changed_stop_prevents_phase_enter() -> void:
 	await system.advance_phase()
 	system.phase_changed.disconnect(phase_changed_callback)
 
-	assert_eq(order, [], "phase_changed 中 stop 后不应继续调用新阶段 enter。")
+	assert_eq(
+		order,
+		[],
+		"phase_changed 中 stop 后不应继续调用新阶段 enter。"
+	)
 
 
 func test_sync_phase_stop_prevents_auto_finish() -> void:
@@ -655,18 +805,32 @@ func test_sync_phase_stop_prevents_auto_finish() -> void:
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var phase: StoppingPhase = StoppingPhase.new(system, order)
 	var finished_count: Array[int] = [0]
-	var _connect_result: Error = phase.finished.connect(func() -> void:
-		finished_count[0] = finished_count[0] + 1
-	) as Error
+	var _connect_result: Error = (
+		phase.finished.connect(
+			func() -> void:
+				finished_count[0] = finished_count[0] + 1,
+		) as Error
+	)
 	system.set_phases([phase])
 
 	system.start()
 	await system.advance_phase()
 	phase.system = null
 
-	assert_eq(order, ["execute"], "同步 stop 后不应继续阶段完成流程。")
-	assert_eq(finished_count[0], 0, "同步 stop 后不应发出 finished。")
-	assert_false(phase.is_finished_for(system.context), "同步 stop 后 phase 不应保留已完成运行态。")
+	assert_eq(
+		order,
+		["execute"],
+		"同步 stop 后不应继续阶段完成流程。"
+	)
+	assert_eq(
+		finished_count[0],
+		0,
+		"同步 stop 后不应发出 finished。"
+	)
+	assert_false(
+		phase.is_finished_for(system.context),
+		"同步 stop 后 phase 不应保留已完成运行态。"
+	)
 
 
 func test_advance_phase_skips_null_phase_entries_safely() -> void:
@@ -678,12 +842,20 @@ func test_advance_phase_skips_null_phase_entries_safely() -> void:
 	system.start()
 	await system.advance_phase()
 
-	assert_eq(order, [
-		"enter:play",
-		"execute:play",
-		"exit:play",
-	], "空阶段条目应被跳过并进入下一个有效阶段。")
-	assert_eq(system.context.round_index, 1, "跳过空阶段后首次进入有效阶段仍应推进轮次。")
+	assert_eq(
+		order,
+		[
+			"enter:play",
+			"execute:play",
+			"exit:play",
+		],
+		"空阶段条目应被跳过并进入下一个有效阶段。"
+	)
+	assert_eq(
+		system.context.round_index,
+		1,
+		"跳过空阶段后首次进入有效阶段仍应推进轮次。"
+	)
 
 
 func test_stop_prevents_awaited_action_from_resuming() -> void:
@@ -700,7 +872,11 @@ func test_stop_prevents_awaited_action_from_resuming() -> void:
 	action.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(order, ["resolve"], "stop 后等待中的行动不应继续发出 resolved。")
+	assert_eq(
+		order,
+		["resolve"],
+		"stop 后等待中的行动不应继续发出 resolved。"
+	)
 	assert_null(system.context.current_actor, "stop 打断行动解析后 current_actor 应复位。")
 
 
@@ -714,7 +890,14 @@ func test_context_replacement_is_rejected_during_awaited_action() -> void:
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	system.set_context(old_context)
 	system.enqueue_action(action)
-	system.enqueue_action(RecordingAction.new("next", 0, 0.0, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"next",
+			0,
+			0.0,
+			order
+		)
+	)
 
 	@warning_ignore("missing_await")
 	system.resolve_actions()
@@ -724,9 +907,17 @@ func test_context_replacement_is_rejected_during_awaited_action() -> void:
 	action.completed.emit()
 	await get_tree().process_frame
 
-	assert_same(system.context, old_context, "in-flight 解析必须持有启动时 context lease。")
+	assert_same(
+		system.context,
+		old_context,
+		"in-flight 解析必须持有启动时 context lease。"
+	)
 	assert_null(old_context.current_actor, "解析结束必须清理启动时 context 的 current_actor。")
-	assert_eq(_get_queued_actions(system).size(), 2, "stop(false) 应把未解析行动恢复到原 flow 队列。")
+	assert_eq(
+		_get_queued_actions(system).size(),
+		2,
+		"stop(false) 应把未解析行动恢复到原 flow 队列。"
+	)
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.context_operation_active] set_context failed: a Context operation is active.")
 	system.stop(true)
 	actor.free()
@@ -737,9 +928,12 @@ func test_awaited_action_cancel_prevents_resolved_signal() -> void:
 	var action: ManualAction = ManualAction.new(order)
 	var resolved_count: Array[int] = [0]
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var _connect_result: Error = system.action_resolved.connect(func(_action: GFTurnAction) -> void:
-		resolved_count[0] = resolved_count[0] + 1
-	) as Error
+	var _connect_result: Error = (
+		system.action_resolved.connect(
+			func(_action: GFTurnAction) -> void:
+				resolved_count[0] = resolved_count[0] + 1,
+		) as Error
+	)
 	system.enqueue_action(action)
 
 	@warning_ignore("missing_await")
@@ -750,8 +944,16 @@ func test_awaited_action_cancel_prevents_resolved_signal() -> void:
 	action.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(order, ["resolve"], "取消 awaited action 后不应重新解析。")
-	assert_eq(resolved_count[0], 0, "取消 awaited action 后不应发出 resolved。")
+	assert_eq(
+		order,
+		["resolve"],
+		"取消 awaited action 后不应重新解析。"
+	)
+	assert_eq(
+		resolved_count[0],
+		0,
+		"取消 awaited action 后不应发出 resolved。"
+	)
 	assert_null(system.context.current_actor, "取消 awaited action 后 current_actor 应复位。")
 
 
@@ -762,9 +964,12 @@ func test_awaited_action_actor_freed_prevents_resolved_signal() -> void:
 	action.actor = actor
 	var resolved_count: Array[int] = [0]
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var _connect_result: Error = system.action_resolved.connect(func(_action: GFTurnAction) -> void:
-		resolved_count[0] = resolved_count[0] + 1
-	) as Error
+	var _connect_result: Error = (
+		system.action_resolved.connect(
+			func(_action: GFTurnAction) -> void:
+				resolved_count[0] = resolved_count[0] + 1,
+		) as Error
+	)
 	system.enqueue_action(action)
 
 	@warning_ignore("missing_await")
@@ -775,7 +980,11 @@ func test_awaited_action_actor_freed_prevents_resolved_signal() -> void:
 	action.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(resolved_count[0], 0, "actor 失效后的 awaited action 不应发出 resolved。")
+	assert_eq(
+		resolved_count[0],
+		0,
+		"actor 失效后的 awaited action 不应发出 resolved。"
+	)
 	assert_null(system.context.current_actor, "actor 失效后 current_actor 应复位。")
 
 
@@ -783,28 +992,70 @@ func test_sync_action_stop_prevents_resolved_signal() -> void:
 	var order: Array[String] = []
 	var resolved_count: Array[int] = [0]
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var _connect_result: Error = system.action_resolved.connect(func(_action: GFTurnAction) -> void:
-		resolved_count[0] = resolved_count[0] + 1
-	) as Error
-	system.enqueue_action(StopAction.new(system, true, order))
+	var _connect_result: Error = (
+		system.action_resolved.connect(
+			func(_action: GFTurnAction) -> void:
+				resolved_count[0] = resolved_count[0] + 1,
+		) as Error
+	)
+	system.enqueue_action(
+		StopAction.new(
+			system,
+			true,
+			order
+		)
+	)
 
 	await system.resolve_actions()
 
-	assert_eq(order, ["stop"], "同步 stop action 应已执行 resolve。")
-	assert_eq(resolved_count[0], 0, "stop 打断后不应再发出 action_resolved。")
+	assert_eq(
+		order,
+		["stop"],
+		"同步 stop action 应已执行 resolve。"
+	)
+	assert_eq(
+		resolved_count[0],
+		0,
+		"stop 打断后不应再发出 action_resolved。"
+	)
 
 
 func test_stop_without_clearing_restores_unresolved_pending_actions() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	system.enqueue_action(StopAction.new(system, false, order))
-	system.enqueue_action(RecordingAction.new("next", 0, 0.0, order))
+	system.enqueue_action(
+		StopAction.new(
+			system,
+			false,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"next",
+			0,
+			0.0,
+			order
+		)
+	)
 
 	await system.resolve_actions()
 
-	assert_eq(order, ["stop"], "stop(false) 后本轮不应继续解析剩余行动。")
-	assert_eq(system.get_actions().size(), 1, "stop(false) 应保留尚未解析的行动。")
-	assert_eq(String(system.get_actions()[0].action_id), "next", "保留的行动应是未解析部分。")
+	assert_eq(
+		order,
+		["stop"],
+		"stop(false) 后本轮不应继续解析剩余行动。"
+	)
+	assert_eq(
+		system.get_actions().size(),
+		1,
+		"stop(false) 应保留尚未解析的行动。"
+	)
+	assert_eq(
+		String(system.get_actions()[0].action_id),
+		"next",
+		"保留的行动应是未解析部分。"
+	)
 
 
 func test_stop_without_clearing_restores_awaited_current_action() -> void:
@@ -812,7 +1063,14 @@ func test_stop_without_clearing_restores_awaited_current_action() -> void:
 	var manual: ManualAction = ManualAction.new(order)
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	system.enqueue_action(manual)
-	system.enqueue_action(RecordingAction.new("next", 0, 0.0, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"next",
+			0,
+			0.0,
+			order
+		)
+	)
 
 	@warning_ignore("missing_await")
 	system.resolve_actions()
@@ -822,9 +1080,21 @@ func test_stop_without_clearing_restores_awaited_current_action() -> void:
 	manual.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(system.get_actions().size(), 2, "await 期间 stop(false) 应恢复 current 和后续未解析行动。")
-	assert_eq(String(system.get_actions()[0].action_id), "manual", "current action 应按原顺序恢复。")
-	assert_eq(String(system.get_actions()[1].action_id), "next", "后续 action 应按原顺序恢复。")
+	assert_eq(
+		system.get_actions().size(),
+		2,
+		"await 期间 stop(false) 应恢复 current 和后续未解析行动。"
+	)
+	assert_eq(
+		String(system.get_actions()[0].action_id),
+		"manual",
+		"current action 应按原顺序恢复。"
+	)
+	assert_eq(
+		String(system.get_actions()[1].action_id),
+		"next",
+		"后续 action 应按原顺序恢复。"
+	)
 
 
 func test_cross_channel_stop_policy_converges_when_phase_finishes_first() -> void:
@@ -839,12 +1109,23 @@ func test_start_reentry_during_action_is_rejected_without_dropping_pending_actio
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	system.enqueue_action(StartAction.new(system, order))
-	system.enqueue_action(RecordingAction.new("next", 0, 0.0, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"next",
+			0,
+			0.0,
+			order
+		)
+	)
 
 	await system.resolve_actions()
 
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_during_processing] start failed: the flow is advancing or resolving.")
-	assert_eq(order, ["start", "next"], "解析中 start 重入应被拒绝且不丢弃后续行动。")
+	assert_eq(
+		order,
+		["start", "next"],
+		"解析中 start 重入应被拒绝且不丢弃后续行动。"
+	)
 
 
 func test_resolve_actions_reentry_is_rejected_while_waiting() -> void:
@@ -860,7 +1141,11 @@ func test_resolve_actions_reentry_is_rejected_while_waiting() -> void:
 	system.resolve_actions()
 
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.resolution_active] resolve_actions failed: actions are being resolved.")
-	assert_eq(order, ["resolve"], "解析等待中再次调用 resolve_actions 不应重复执行同一批行动。")
+	assert_eq(
+		order,
+		["resolve"],
+		"解析等待中再次调用 resolve_actions 不应重复执行同一批行动。"
+	)
 
 	system.stop()
 	await get_tree().process_frame
@@ -869,40 +1154,121 @@ func test_resolve_actions_reentry_is_rejected_while_waiting() -> void:
 func test_equal_priority_actions_resolve_in_enqueue_order() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	system.enqueue_action(RecordingAction.new("first", 0, 0.0, order))
-	system.enqueue_action(RecordingAction.new("second", 0, 0.0, order))
-	system.enqueue_action(RecordingAction.new("third", 0, 0.0, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"first",
+			0,
+			0.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"second",
+			0,
+			0.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"third",
+			0,
+			0.0,
+			order
+		)
+	)
 
 	await system.resolve_actions()
 
-	assert_eq(order, ["first", "second", "third"], "priority 与 sort_value 相同时应按入队顺序解析。")
+	assert_eq(
+		order,
+		[
+			"first",
+			"second",
+			"third",
+		],
+		"priority 与 sort_value 相同时应按入队顺序解析。"
+	)
 
 
 func test_custom_comparator_applies_requested_order_while_operation_is_current() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var comparator_calls: Array[int] = [0]
-	system.enqueue_action(RecordingAction.new("first", 1, 0.0, order))
-	system.enqueue_action(RecordingAction.new("second", 3, 0.0, order))
-	system.enqueue_action(RecordingAction.new("third", 2, 0.0, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"first",
+			1,
+			0.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"second",
+			3,
+			0.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"third",
+			2,
+			0.0,
+			order
+		)
+	)
 	var comparator: Callable = func(a: GFTurnAction, b: GFTurnAction) -> bool:
 		comparator_calls[0] += 1
 		return a.priority < b.priority
 
 	await system.resolve_actions(comparator)
 
-	assert_gt(comparator_calls[0], 0, "有效 operation 应调用项目 comparator。")
-	assert_eq(order, ["first", "third", "second"], "有效 comparator 应决定 action 解析顺序。")
-	assert_eq(system.get_action_count(), 0, "自定义排序完成后不应遗留 action。")
+	assert_gt(
+		comparator_calls[0],
+		0,
+		"有效 operation 应调用项目 comparator。"
+	)
+	assert_eq(
+		order,
+		[
+			"first",
+			"third",
+			"second",
+		],
+		"有效 comparator 应决定 action 解析顺序。"
+	)
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"自定义排序完成后不应遗留 action。"
+	)
 
 
 func test_comparator_stop_restores_original_enqueue_order() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var comparator_calls: Array[int] = [0]
-	var first_action: RecordingAction = RecordingAction.new("first", 1, 0.0, order)
-	var second_action: RecordingAction = RecordingAction.new("second", 3, 0.0, order)
-	var third_action: RecordingAction = RecordingAction.new("third", 2, 0.0, order)
+	var first_action: RecordingAction = RecordingAction.new(
+		"first",
+		1,
+		0.0,
+		order
+	)
+	var second_action: RecordingAction = RecordingAction.new(
+		"second",
+		3,
+		0.0,
+		order
+	)
+	var third_action: RecordingAction = RecordingAction.new(
+		"third",
+		2,
+		0.0,
+		order
+	)
 	system.enqueue_action(first_action)
 	system.enqueue_action(second_action)
 	system.enqueue_action(third_action)
@@ -914,17 +1280,38 @@ func test_comparator_stop_restores_original_enqueue_order() -> void:
 
 	await system.resolve_actions(comparator)
 
-	assert_eq(order, [], "比较器使 transaction 失效后不得开始解析行动。")
-	assert_eq(comparator_calls[0], 1, "比较器使 operation 失效后不得继续调用项目回调。")
+	assert_eq(
+		order,
+		[],
+		"比较器使 transaction 失效后不得开始解析行动。"
+	)
+	assert_eq(
+		comparator_calls[0],
+		1,
+		"比较器使 operation 失效后不得继续调用项目回调。"
+	)
 	var queued_actions: Array = _get_queued_actions(system)
-	assert_eq(queued_actions.size(), 3, "比较器 stop(false) 后应完整恢复排序前快照。")
+	assert_eq(
+		queued_actions.size(),
+		3,
+		"比较器 stop(false) 后应完整恢复排序前快照。"
+	)
 	if queued_actions.size() == 3:
 		var restored_first_value: Variant = queued_actions[0]
 		var restored_second_value: Variant = queued_actions[1]
 		var restored_third_value: Variant = queued_actions[2]
-		assert_true(restored_first_value is GFTurnAction, "恢复队列的第一项应保持 action 类型。")
-		assert_true(restored_second_value is GFTurnAction, "恢复队列的第二项应保持 action 类型。")
-		assert_true(restored_third_value is GFTurnAction, "恢复队列的第三项应保持 action 类型。")
+		assert_true(
+			restored_first_value is GFTurnAction,
+			"恢复队列的第一项应保持 action 类型。"
+		)
+		assert_true(
+			restored_second_value is GFTurnAction,
+			"恢复队列的第二项应保持 action 类型。"
+		)
+		assert_true(
+			restored_third_value is GFTurnAction,
+			"恢复队列的第三项应保持 action 类型。"
+		)
 		if (
 			restored_first_value is GFTurnAction
 			and restored_second_value is GFTurnAction
@@ -933,29 +1320,86 @@ func test_comparator_stop_restores_original_enqueue_order() -> void:
 			var restored_first: GFTurnAction = restored_first_value
 			var restored_second: GFTurnAction = restored_second_value
 			var restored_third: GFTurnAction = restored_third_value
-			assert_same(restored_first, first_action, "恢复队列应保留第一个 action 的入队位置。")
-			assert_same(restored_second, second_action, "恢复队列应保留第二个 action 的入队位置。")
-			assert_same(restored_third, third_action, "恢复队列应保留第三个 action 的入队位置。")
-	assert_false(first_action.is_sealed(), "stop(false) 恢复的第一个 action 应仍可再次解析。")
-	assert_false(second_action.is_sealed(), "stop(false) 恢复的第二个 action 应仍可再次解析。")
-	assert_false(third_action.is_sealed(), "stop(false) 恢复的第三个 action 应仍可再次解析。")
+			assert_same(
+				restored_first,
+				first_action,
+				"恢复队列应保留第一个 action 的入队位置。"
+			)
+			assert_same(
+				restored_second,
+				second_action,
+				"恢复队列应保留第二个 action 的入队位置。"
+			)
+			assert_same(
+				restored_third,
+				third_action,
+				"恢复队列应保留第三个 action 的入队位置。"
+			)
+	assert_false(
+		first_action.is_sealed(),
+		"stop(false) 恢复的第一个 action 应仍可再次解析。"
+	)
+	assert_false(
+		second_action.is_sealed(),
+		"stop(false) 恢复的第二个 action 应仍可再次解析。"
+	)
+	assert_false(
+		third_action.is_sealed(),
+		"stop(false) 恢复的第三个 action 应仍可再次解析。"
+	)
 
 	await system.resolve_actions()
 
-	assert_eq(order, ["second", "third", "first"], "恢复后的 action 应能在下一次调用中正常解析。")
-	assert_true(first_action.is_sealed(), "再次解析后第一个 action 应被封存。")
-	assert_true(second_action.is_sealed(), "再次解析后第二个 action 应被封存。")
-	assert_true(third_action.is_sealed(), "再次解析后第三个 action 应被封存。")
-	assert_eq(system.get_action_count(), 0, "再次解析后不应遗留恢复 action。")
+	assert_eq(
+		order,
+		[
+			"second",
+			"third",
+			"first",
+		],
+		"恢复后的 action 应能在下一次调用中正常解析。"
+	)
+	assert_true(
+		first_action.is_sealed(),
+		"再次解析后第一个 action 应被封存。"
+	)
+	assert_true(
+		second_action.is_sealed(),
+		"再次解析后第二个 action 应被封存。"
+	)
+	assert_true(
+		third_action.is_sealed(),
+		"再次解析后第三个 action 应被封存。"
+	)
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"再次解析后不应遗留恢复 action。"
+	)
 
 
 func test_comparator_clear_stop_seals_original_snapshot() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var comparator_calls: Array[int] = [0]
-	var first_action: RecordingAction = RecordingAction.new("first", 1, 0.0, order)
-	var second_action: RecordingAction = RecordingAction.new("second", 3, 0.0, order)
-	var third_action: RecordingAction = RecordingAction.new("third", 2, 0.0, order)
+	var first_action: RecordingAction = RecordingAction.new(
+		"first",
+		1,
+		0.0,
+		order
+	)
+	var second_action: RecordingAction = RecordingAction.new(
+		"second",
+		3,
+		0.0,
+		order
+	)
+	var third_action: RecordingAction = RecordingAction.new(
+		"third",
+		2,
+		0.0,
+		order
+	)
 	system.enqueue_action(first_action)
 	system.enqueue_action(second_action)
 	system.enqueue_action(third_action)
@@ -967,38 +1411,104 @@ func test_comparator_clear_stop_seals_original_snapshot() -> void:
 
 	await system.resolve_actions(comparator)
 
-	assert_eq(order, [], "比较器 stop(true) 后不得解析 action。")
-	assert_eq(comparator_calls[0], 1, "clear stop 失效后不得继续调用项目 comparator。")
-	assert_eq(system.get_action_count(), 0, "stop(true) 应清空排序前 action 快照。")
-	assert_true(first_action.is_sealed(), "stop(true) 应封存第一个 action。")
-	assert_true(second_action.is_sealed(), "stop(true) 应封存第二个 action。")
-	assert_true(third_action.is_sealed(), "stop(true) 应封存第三个 action。")
+	assert_eq(
+		order,
+		[],
+		"比较器 stop(true) 后不得解析 action。"
+	)
+	assert_eq(
+		comparator_calls[0],
+		1,
+		"clear stop 失效后不得继续调用项目 comparator。"
+	)
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"stop(true) 应清空排序前 action 快照。"
+	)
+	assert_true(
+		first_action.is_sealed(),
+		"stop(true) 应封存第一个 action。"
+	)
+	assert_true(
+		second_action.is_sealed(),
+		"stop(true) 应封存第二个 action。"
+	)
+	assert_true(
+		third_action.is_sealed(),
+		"stop(true) 应封存第三个 action。"
+	)
 
 
 func test_non_finite_sort_values_are_stable_and_last() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	system.enqueue_action(RecordingAction.new("nan", 0, NAN, order))
-	system.enqueue_action(RecordingAction.new("finite", 0, 1.0, order))
-	system.enqueue_action(RecordingAction.new("inf", 0, INF, order))
+	system.enqueue_action(
+		RecordingAction.new(
+			"nan",
+			0,
+			NAN,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"finite",
+			0,
+			1.0,
+			order
+		)
+	)
+	system.enqueue_action(
+		RecordingAction.new(
+			"inf",
+			0,
+			INF,
+			order
+		)
+	)
 
 	await system.resolve_actions()
 
-	assert_eq(order, ["finite", "nan", "inf"], "非有限 sort_value 应按入队顺序稳定排在有限值之后。")
+	assert_eq(
+		order,
+		[
+			"finite",
+			"nan",
+			"inf",
+		],
+		"非有限 sort_value 应按入队顺序稳定排在有限值之后。"
+	)
 
 
 func test_action_constructor_filters_invalid_and_duplicate_targets() -> void:
 	var target: Node = Node.new()
 	var stale_target: Node = Node.new()
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var action: GFTurnAction = GFTurnAction.new(null, [target, target, stale_target, null])
+	var action: GFTurnAction = GFTurnAction.new(
+		null,
+		[
+			target,
+			target,
+			stale_target,
+			null,
+		]
+	)
 	system.enqueue_action(action)
 	stale_target.free()
 
 	await system.resolve_actions()
 
-	assert_eq(action.targets.size(), 1, "行动目标应过滤 null、重复和已释放对象。")
-	assert_eq(action.targets[0], target, "有效目标应保留。")
+	assert_eq(
+		action.targets.size(),
+		1,
+		"行动目标应过滤 null、重复和已释放对象。"
+	)
+	assert_eq(
+		action.targets[0],
+		target,
+		"有效目标应保留。"
+	)
 	target.free()
 
 
@@ -1013,7 +1523,11 @@ func test_phase_cleans_invalid_actors_before_enter() -> void:
 	system.start()
 	await system.advance_phase()
 
-	assert_eq(phase.actor_counts, [0], "phase enter 前必须清理 context 中已失效的 actor。")
+	assert_eq(
+		phase.actor_counts,
+		[0],
+		"phase enter 前必须清理 context 中已失效的 actor。"
+	)
 
 
 func test_shared_phase_completion_is_scoped_to_one_context() -> void:
@@ -1039,12 +1553,26 @@ func test_shared_phase_completion_is_scoped_to_one_context() -> void:
 		system_a.stop()
 		system_b.stop()
 		return
-	assert_ne(completion_a, completion_b, "共享 phase 的 completion handle 不得跨 Context 复用。")
-	assert_true(completion_b.try_complete(), "精确 handle 应完成自己的 runtime。")
-	assert_false(completion_b.try_complete(), "completion handle 必须一次性提交。")
+	assert_ne(
+		completion_a,
+		completion_b,
+		"共享 phase 的 completion handle 不得跨 Context 复用。"
+	)
+	assert_true(
+		completion_b.try_complete(),
+		"精确 handle 应完成自己的 runtime。"
+	)
+	assert_false(
+		completion_b.try_complete(),
+		"completion handle 必须一次性提交。"
+	)
 	await get_tree().process_frame
 
-	assert_eq(phase.exited_contexts, [system_b.context], "完成 Context B 不得结算 Context A。")
+	assert_eq(
+		phase.exited_contexts,
+		[system_b.context],
+		"完成 Context B 不得结算 Context A。"
+	)
 	system_a.stop()
 	system_b.stop()
 	await get_tree().process_frame
@@ -1063,7 +1591,11 @@ func test_stale_phase_completion_cannot_settle_restarted_generation() -> void:
 	system.advance_phase()
 	await get_tree().process_frame
 
-	assert_eq(phase.completions.size(), 1, "首个 generation 必须收到 completion handle。")
+	assert_eq(
+		phase.completions.size(),
+		1,
+		"首个 generation 必须收到 completion handle。"
+	)
 	if phase.completions.is_empty() or phase.completions[0] == null:
 		system.stop()
 		return
@@ -1079,7 +1611,11 @@ func test_stale_phase_completion_cannot_settle_restarted_generation() -> void:
 	@warning_ignore("missing_await")
 	system.advance_phase()
 	await get_tree().process_frame
-	assert_eq(phase.completions.size(), 2, "重启后必须创建新的 completion handle。")
+	assert_eq(
+		phase.completions.size(),
+		2,
+		"重启后必须创建新的 completion handle。"
+	)
 	if phase.completions.size() < 2 or phase.completions[1] == null:
 		system.stop()
 		return
@@ -1098,7 +1634,11 @@ func test_stale_phase_completion_cannot_settle_restarted_generation() -> void:
 		"当前 handle 完成后必须拒绝重复提交。"
 	)
 	await get_tree().process_frame
-	assert_eq(phase.exited_contexts, [system.context], "只有重启后的 generation 应正常 exit。")
+	assert_eq(
+		phase.exited_contexts,
+		[system.context],
+		"只有重启后的 generation 应正常 exit。"
+	)
 
 
 func test_dispose_invalidates_completion_and_releases_context_after_unwind() -> void:
@@ -1114,13 +1654,19 @@ func test_dispose_invalidates_completion_and_releases_context_after_unwind() -> 
 	owner_system.advance_phase()
 	await get_tree().process_frame
 
-	assert_eq(phase.completions.size(), 1)
+	assert_eq(
+		phase.completions.size(),
+		1
+	)
 	if phase.completions.is_empty():
 		owner_system.dispose()
 		return
 	var completion: GFTurnPhaseCompletionHandle = phase.completions[0]
 	owner_system.dispose()
-	assert_false(completion.try_complete(), "dispose 返回时必须立即撤销 phase completion。")
+	assert_false(
+		completion.try_complete(),
+		"dispose 返回时必须立即撤销 phase completion。"
+	)
 	owner_system.dispose()
 	owner_system.start()
 	assert_false(owner_system.is_running, "disposed Flow System 不得重新启动。")
@@ -1139,12 +1685,8 @@ func test_context_claims_release_only_after_last_exact_lease() -> void:
 	var owner_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var foreign_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var third_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var first_lease: GFTurnContext.FlowOperationLease = (
-		context.try_acquire_flow_operation_lease(owner_system, 1)
-	)
-	var second_lease: GFTurnContext.FlowOperationLease = (
-		context.try_acquire_flow_operation_lease(owner_system, 1)
-	)
+	var first_lease: GFTurnContext.FlowOperationLease = context.try_acquire_flow_operation_lease(owner_system, 1)
+	var second_lease: GFTurnContext.FlowOperationLease = context.try_acquire_flow_operation_lease(owner_system, 1)
 
 	assert_not_null(first_lease)
 	assert_not_null(second_lease)
@@ -1159,9 +1701,7 @@ func test_context_claims_release_only_after_last_exact_lease() -> void:
 		"取消只撤销写权限，不得提前释放旧 continuation 的 claim。"
 	)
 	assert_true(context.release_flow_operation_lease(second_lease, owner_system))
-	var foreign_lease: GFTurnContext.FlowOperationLease = (
-		context.try_acquire_flow_operation_lease(foreign_system, 1)
-	)
+	var foreign_lease: GFTurnContext.FlowOperationLease = context.try_acquire_flow_operation_lease(foreign_system, 1)
 	assert_not_null(foreign_lease)
 	assert_false(
 		context.release_flow_operation_lease(second_lease, owner_system),
@@ -1196,18 +1736,40 @@ func test_shared_context_rejects_foreign_flow_before_phase_mutation() -> void:
 	foreign_start_system.start()
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_false(foreign_start_system.is_running, "foreign start 失败后不得提交 lifecycle 状态。")
-	assert_eq(context.round_index, owned_round, "foreign start 不得提前重置 Context 轮次。")
+	assert_eq(
+		context.round_index,
+		owned_round,
+		"foreign start 不得提前重置 Context 轮次。"
+	)
 	@warning_ignore("missing_await")
 	foreign_system.advance_phase()
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.advance_context_held] advance_phase failed: context is held by another flow generation.")
-	assert_eq(foreign_system.current_phase_index, -1, "foreign advance 不得提前切换 phase index。")
-	assert_eq(context.round_index, owned_round, "foreign advance 不得提前推进 Context 轮次。")
-	assert_true(foreign_order.is_empty(), "foreign phase 不得 enter/execute/exit。")
+	assert_eq(
+		foreign_system.current_phase_index,
+		-1,
+		"foreign advance 不得提前切换 phase index。"
+	)
+	assert_eq(
+		context.round_index,
+		owned_round,
+		"foreign advance 不得提前推进 Context 轮次。"
+	)
+	assert_true(
+		foreign_order.is_empty(),
+		"foreign phase 不得 enter/execute/exit。"
+	)
 
 	owner_system.stop()
 	await get_tree().process_frame
 	await foreign_system.advance_phase()
-	assert_eq(foreign_order, ["enter:foreign", "execute:foreign", "exit:foreign"])
+	assert_eq(
+		foreign_order,
+		[
+			"enter:foreign",
+			"execute:foreign",
+			"exit:foreign",
+		]
+	)
 	foreign_system.stop()
 
 
@@ -1217,7 +1779,12 @@ func test_shared_context_rejects_foreign_action_before_queue_mutation() -> void:
 	var owner_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var foreign_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var foreign_order: Array[String] = []
-	var foreign_action: RecordingAction = RecordingAction.new("foreign", 0, 0.0, foreign_order)
+	var foreign_action: RecordingAction = RecordingAction.new(
+		"foreign",
+		0,
+		0.0,
+		foreign_order
+	)
 	owner_system.set_context(context)
 	foreign_system.set_context(context)
 	owner_system.set_phases([owner_phase])
@@ -1229,15 +1796,30 @@ func test_shared_context_rejects_foreign_action_before_queue_mutation() -> void:
 
 	await foreign_system.resolve_actions()
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.resolve_context_held] resolve_actions failed: context is held by another flow generation.")
-	assert_eq(foreign_order, [], "foreign action 不得开始 resolve。")
-	assert_eq(foreign_system.get_action_count(), 1, "foreign rejection 不得清空或封存队列。")
-	assert_false(foreign_action.is_sealed(), "未接纳的 foreign action 必须保持待处理状态。")
+	assert_eq(
+		foreign_order,
+		[],
+		"foreign action 不得开始 resolve。"
+	)
+	assert_eq(
+		foreign_system.get_action_count(),
+		1,
+		"foreign rejection 不得清空或封存队列。"
+	)
+	assert_false(
+		foreign_action.is_sealed(),
+		"未接纳的 foreign action 必须保持待处理状态。"
+	)
 	assert_null(context.current_actor, "foreign rejection 不得写入 current_actor。")
 
 	owner_system.stop()
 	await get_tree().process_frame
 	await foreign_system.resolve_actions()
-	assert_eq(foreign_order, ["foreign"], "owner release 后另一 system 应可解析自己的队列。")
+	assert_eq(
+		foreign_order,
+		["foreign"],
+		"owner release 后另一 system 应可解析自己的队列。"
+	)
 	assert_true(foreign_action.is_sealed())
 
 
@@ -1259,14 +1841,22 @@ func test_same_owner_phase_and_action_claims_block_foreign_until_both_finish() -
 	owner_system.advance_phase()
 	await get_tree().process_frame
 
-	assert_eq(action_order, ["resolve"], "phase 内启动的同 owner action 必须真实进入 resolve。")
+	assert_eq(
+		action_order,
+		["resolve"],
+		"phase 内启动的同 owner action 必须真实进入 resolve。"
+	)
 	assert_same(context.current_actor, actor)
 	foreign_system.start()
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 
 	phase.completed.emit()
 	await get_tree().process_frame
-	assert_same(context.current_actor, actor, "phase claim 释放后 action claim 仍应独占 Context。")
+	assert_same(
+		context.current_actor,
+		actor,
+		"phase claim 释放后 action claim 仍应独占 Context。"
+	)
 	foreign_system.start()
 	assert_push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 	assert_false(foreign_system.is_running)
@@ -1294,7 +1884,11 @@ func test_action_injection_uses_framework_internal_dispatch_to_explicit_protecte
 	await system.resolve_actions()
 
 	assert_false(collision_action.collision_inject_called, "项目自有 inject 方法不得被隐藏协议调用。")
-	assert_same(explicit_action.injected_architecture, architecture, "framework_internal 边界应调度显式 protected 注入 hook。")
+	assert_same(
+		explicit_action.injected_architecture,
+		architecture,
+		"framework_internal 边界应调度显式 protected 注入 hook。"
+	)
 	assert_true(collision_action.resolved)
 	assert_true(explicit_action.resolved)
 	system.release_dependencies()
@@ -1313,7 +1907,11 @@ func test_action_injection_stop_is_rechecked_before_context_write_or_resolve() -
 	await system.resolve_actions()
 
 	assert_false(stopping_action.resolved, "injection hook stop 后不得继续调用 action resolve。")
-	assert_eq(system.get_action_count(), 2, "stop(false) 应保留 current 与后续 action。")
+	assert_eq(
+		system.get_action_count(),
+		2,
+		"stop(false) 应保留 current 与后续 action。"
+	)
 	assert_null(system.context.current_actor, "injection stop 后不得写入 current_actor。")
 	system.stop(true)
 	stopping_action.system = null
@@ -1326,7 +1924,12 @@ func test_action_injection_cancel_skips_resolve_and_continues_queue() -> void:
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var order: Array[String] = []
 	var cancelling_action: CancelDuringInjectionAction = CancelDuringInjectionAction.new()
-	var next_action: RecordingAction = RecordingAction.new("next", 0, 0.0, order)
+	var next_action: RecordingAction = RecordingAction.new(
+		"next",
+		0,
+		0.0,
+		order
+	)
 	system.inject_dependencies(architecture)
 	system.enqueue_action(cancelling_action)
 	system.enqueue_action(next_action)
@@ -1336,9 +1939,20 @@ func test_action_injection_cancel_skips_resolve_and_continues_queue() -> void:
 	assert_true(cancelling_action.injection_called, "action 应先经过显式依赖注入 hook。")
 	assert_true(cancelling_action.is_cancelled, "注入 hook 的取消请求应保留。")
 	assert_false(cancelling_action.resolved, "注入期间取消的 action 不得继续执行 resolve hook。")
-	assert_true(cancelling_action.is_sealed(), "注入期间取消的 action 应离开队列并封存。")
-	assert_eq(order, ["next"], "取消当前 action 后应继续解析后续有效 action。")
-	assert_eq(system.get_action_count(), 0, "完成解析后不应遗留已消费 action。")
+	assert_true(
+		cancelling_action.is_sealed(),
+		"注入期间取消的 action 应离开队列并封存。"
+	)
+	assert_eq(
+		order,
+		["next"],
+		"取消当前 action 后应继续解析后续有效 action。"
+	)
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"完成解析后不应遗留已消费 action。"
+	)
 	system.release_dependencies()
 	architecture.dispose()
 
@@ -1348,14 +1962,24 @@ func test_action_queue_is_system_owned_and_snapshot_only() -> void:
 	var action: GFTurnAction = GFTurnAction.new()
 	system.enqueue_action(action)
 
-	assert_true(system.has_method("get_actions"), "flow system 必须提供只读行动快照入口。")
+	assert_true(
+		system.has_method("get_actions"),
+		"flow system 必须提供只读行动快照入口。"
+	)
 	if not system.has_method("get_actions"):
 		return
 	var snapshot: Array = GFVariantData.as_array(system.call("get_actions"))
 	snapshot.clear()
 
-	assert_eq(_get_queued_actions(system).size(), 1, "修改返回快照不得绕过 system 队列所有权。")
-	assert_false(_has_property(system.context, &"actions"), "context 不应再暴露第二套可变 action 队列。")
+	assert_eq(
+		_get_queued_actions(system).size(),
+		1,
+		"修改返回快照不得绕过 system 队列所有权。"
+	)
+	assert_false(
+		_has_property(system.context, &"actions"),
+		"context 不应再暴露第二套可变 action 队列。"
+	)
 	system.stop(true)
 
 
@@ -1370,9 +1994,21 @@ func test_action_instance_is_one_shot_and_configuration_seals_on_enqueue() -> vo
 	system_b.enqueue_action(action)
 	action.priority = 99
 
-	assert_eq(_get_queued_actions(system_a).size(), 1, "同一 action 实例不得重复入队。")
-	assert_eq(_get_queued_actions(system_b).size(), 0, "同一 action 实例不得跨 flow 复用。")
-	assert_eq(action.priority, 3, "action 入队后配置必须冻结。")
+	assert_eq(
+		_get_queued_actions(system_a).size(),
+		1,
+		"同一 action 实例不得重复入队。"
+	)
+	assert_eq(
+		_get_queued_actions(system_b).size(),
+		0,
+		"同一 action 实例不得跨 flow 复用。"
+	)
+	assert_eq(
+		action.priority,
+		3,
+		"action 入队后配置必须冻结。"
+	)
 	for _index: int in range(2):
 		assert_push_warning("[GFTurnFlowSystem][turn_flow_system.action_already_enqueued] enqueue_action failed: an action instance can be enqueued only once.")
 	assert_push_error("[GFTurnAction][turn_action.queued_configuration_read_only] Cannot modify the configuration of an enqueued action: priority.")
@@ -1386,8 +2022,22 @@ func test_turn_context_reads_actor_value() -> void:
 	var context: GFTurnContext = GFTurnContext.new()
 	context.add_actor(actor)
 
-	assert_eq(GFVariantData.to_float(context.get_actor_value(actor, &"speed")), 7.0, "应能从对象属性读取值。")
-	assert_eq(GFVariantData.to_float(context.get_actor_value(null, &"speed", 0.0)), 0.0, "空对象应返回 fallback。")
+	assert_eq(
+		GFVariantData.to_float(context.get_actor_value(actor, &"speed")),
+		7.0,
+		"应能从对象属性读取值。"
+	)
+	assert_eq(
+		GFVariantData.to_float(
+			context.get_actor_value(
+				null,
+				&"speed",
+				0.0
+			)
+		),
+		0.0,
+		"空对象应返回 fallback。"
+	)
 
 	actor.free()
 
@@ -1397,9 +2047,26 @@ func test_turn_context_preflights_get_turn_value_signature() -> void:
 	var incompatible: WrongArityTurnValueActor = WrongArityTurnValueActor.new()
 	var context: GFTurnContext = GFTurnContext.new()
 
-	assert_eq(GFVariantData.to_int(context.get_actor_value(compatible, &"initiative", 3), -1), 9)
 	assert_eq(
-		GFVariantData.to_int(context.get_actor_value(incompatible, &"initiative", 3), -1),
+		GFVariantData.to_int(
+			context.get_actor_value(
+				compatible,
+				&"initiative",
+				3
+			),
+			-1
+		),
+		9
+	)
+	assert_eq(
+		GFVariantData.to_int(
+			context.get_actor_value(
+				incompatible,
+				&"initiative",
+				3
+			),
+			-1
+		),
 		3,
 		"同名但不接受两个参数的方法必须稳定返回 fallback，不能直接错误调用。"
 	)
@@ -1413,13 +2080,25 @@ func test_turn_context_cleanup_invalid_actors() -> void:
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var lease: GFTurnContext.FlowOperationLease = context.try_acquire_flow_operation_lease(system, 1)
 	context.add_actor(actor)
-	context.set_current_actor_from_flow(actor, lease, system, 1)
+	context.set_current_actor_from_flow(
+		actor,
+		lease,
+		system,
+		1
+	)
 
 	actor.free()
 	var removed_count: int = context.cleanup_invalid_actors()
 
-	assert_eq(removed_count, 1, "cleanup_invalid_actors 应移除失效 actor。")
-	assert_true(context.get_actors().is_empty(), "失效 actor 不应留在 actors 中。")
+	assert_eq(
+		removed_count,
+		1,
+		"cleanup_invalid_actors 应移除失效 actor。"
+	)
+	assert_true(
+		context.get_actors().is_empty(),
+		"失效 actor 不应留在 actors 中。"
+	)
 	assert_null(context.current_actor, "失效 current_actor 应被复位。")
 	assert_true(context.release_flow_operation_lease(lease, system))
 
@@ -1446,10 +2125,12 @@ func _assert_cross_channel_stop_policy_converges(phase_finishes_first: bool) -> 
 	system.set_phases([phase])
 	system.enqueue_action(action)
 	var stopped_count: Array[int] = [0]
-	var _stopped_connection: Error = system.flow_stopped.connect(
-		func(_context: GFTurnContext) -> void:
-			stopped_count[0] += 1
-	) as Error
+	var _stopped_connection: Error = (
+		system.flow_stopped.connect(
+			func(_context: GFTurnContext) -> void:
+				stopped_count[0] += 1,
+		) as Error
+	)
 	system.start()
 	@warning_ignore("missing_await")
 	system.advance_phase()
@@ -1467,9 +2148,20 @@ func _assert_cross_channel_stop_policy_converges(phase_finishes_first: bool) -> 
 		phase.completed.emit()
 	await get_tree().process_frame
 
-	assert_eq(stopped_count[0], 1, "cross-channel 重复 stop 不得重复通知。")
-	assert_eq(system.get_action_count(), 0, "更强 clear policy 必须覆盖仍在途的 restore policy。")
-	assert_true(action.is_sealed(), "最终 clear policy 必须封存 in-flight action。")
+	assert_eq(
+		stopped_count[0],
+		1,
+		"cross-channel 重复 stop 不得重复通知。"
+	)
+	assert_eq(
+		system.get_action_count(),
+		0,
+		"更强 clear policy 必须覆盖仍在途的 restore policy。"
+	)
+	assert_true(
+		action.is_sealed(),
+		"最终 clear policy 必须封存 in-flight action。"
+	)
 	assert_null(system.context.current_actor)
 	phase.system = null
 	actor.free()

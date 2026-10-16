@@ -11,7 +11,7 @@ extends RefCounted
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
-const EXTENSION_MANAGER_DOCK_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd"
+const EXTENSION_MANAGER_DOCK_SCRIPT_PATH: String = ("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
 
 ## 工作区窗口脚本。
 ## [br]
@@ -103,8 +103,10 @@ var _task_host: _TASK_HOST_SCRIPT = _TASK_HOST_SCRIPT.new()
 ## [br]
 ## @schema resource_action_records: Array[Dictionary]；任务记录字段加 resource_types: Array[String] 和 max_selection: int；action_id 非空。
 func setup(
-	plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = [],
-	task_records: Array[Dictionary] = [], resource_action_records: Array[Dictionary] = []
+	plugin: EditorPlugin,
+	standard_dock_records: Array[Dictionary] = [],
+	task_records: Array[Dictionary] = [],
+	resource_action_records: Array[Dictionary] = []
 ) -> void:
 	if plugin == null:
 		return
@@ -125,7 +127,12 @@ func setup(
 	for record: Dictionary in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(extension_records, "resource_action_records"):
 		actions.append(record)
 	_append_page_tasks(tasks)
-	_task_host.configure(tasks, actions, _dock_records, self)
+	_task_host.configure(
+		tasks,
+		actions,
+		_dock_records,
+		self
+	)
 	_editor_context.bind_workspace_host(_task_host)
 	if is_instance_valid(_workspace_window):
 		_workspace_window.setup(_dock_records, _editor_context)
@@ -134,8 +141,14 @@ func setup(
 		var mode_value: Variant = _PREFERENCES_SCRIPT.get_value("startup_mode", "first_use")
 		var opened_value: Variant = _PREFERENCES_SCRIPT.get_value("has_opened", false)
 		var has_opened: bool = opened_value == true
-		if Engine.is_editor_hint() and _PREFERENCES_SCRIPT.should_auto_open(
-			str(mode_value), has_opened
+		if (
+			Engine.is_editor_hint()
+			and (
+				_PREFERENCES_SCRIPT.should_auto_open(
+					str(mode_value),
+					has_opened
+				)
+			)
 		):
 			show_workspace()
 
@@ -228,11 +241,15 @@ func open_workspace_page(page_path: String) -> Control:
 ## @api private
 func _collect_core_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _copy_records(_standard_dock_records)
-	records.append({
-		"source_id": "gf.kernel.home",
-		"path": "res://addons/gf/kernel/editor/workspace/gf_workspace_home.gd",
-		"label": "GF Home", "short_label": "首页", "order": -100,
-	})
+	records.append(
+		{
+			"source_id": "gf.kernel.home",
+			"path": "res://addons/gf/kernel/editor/workspace/gf_workspace_home.gd",
+			"label": "GF Home",
+			"short_label": "首页",
+			"order": -100,
+		}
+	)
 	records.append(
 		{
 			"source_id": "gf.kernel.extensions",
@@ -257,12 +274,17 @@ func _append_page_tasks(tasks: Array[Dictionary]) -> void:
 		var source_id: String = str(page.get("source_id", path))
 		if described_paths.has(path) or source_id == "gf.kernel.home":
 			continue
-		tasks.append({
-			"source_id": "%s:open" % source_id,
-			"title": str(page.get("label", "")), "group": "工具页面",
-			"description": "打开此页面，查看状态或执行对应工具操作。",
-			"keywords": [], "page_path": path, "action_id": "",
-		})
+		tasks.append(
+			{
+				"source_id": "%s:open" % source_id,
+				"title": str(page.get("label", "")),
+				"group": "工具页面",
+				"description": "打开此页面，查看状态或执行对应工具操作。",
+				"keywords": [],
+				"page_path": path,
+				"action_id": "",
+			}
+		)
 
 
 ## 合并核心页与启用扩展页，按规范化路径去重并按稳定比较器排序。
@@ -293,7 +315,11 @@ func _deduplicate_dock_records(source: Array[Dictionary]) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
 	for record: Dictionary in source:
-		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path", "").strip_edges()
+		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			record,
+			"path",
+			""
+		).strip_edges()
 		if path.is_empty() or used_paths.has(path):
 			continue
 		used_paths[path] = true
@@ -310,50 +336,37 @@ func _deduplicate_dock_records(source: Array[Dictionary]) -> Array[Dictionary]:
 func _collect_enabled_extension_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
-	var contribution_records: Array[Dictionary] = (
-		GFExtensionSettingsBase.get_enabled_editor_contribution_records("editor_dock_paths")
-	)
+	var contribution_records: Array[Dictionary] = GFExtensionSettingsBase.get_enabled_editor_contribution_records("editor_dock_paths")
 	var dock_counts_by_extension: Dictionary = {}
 	for contribution_record: Dictionary in contribution_records:
-		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"extension_id"
-		)
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "extension_id")
 		if extension_id.is_empty():
 			continue
-		dock_counts_by_extension[extension_id] = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(dock_counts_by_extension, extension_id) + 1
-		)
+		dock_counts_by_extension[extension_id] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(dock_counts_by_extension, extension_id) + 1)
 	for contribution_record: Dictionary in contribution_records:
-		var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"path"
-		).strip_edges()
+		var normalized_path: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "path").strip_edges())
 		if normalized_path.is_empty() or used_paths.has(normalized_path):
 			continue
-		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"extension_id"
-		)
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "extension_id")
 		used_paths[normalized_path] = true
-		records.append({
-			"source_id": "%s:%s" % [extension_id, normalized_path],
-			"path": normalized_path,
-			"label": _get_extension_dock_label(
-				contribution_record,
-				normalized_path,
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-					dock_counts_by_extension,
-					extension_id
-				)
-			),
-			"short_label": _get_extension_short_label(contribution_record),
-			"order": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-				contribution_record,
-				"editor_dock_order",
-				1000
-			),
-		})
+		records.append(
+			{
+				"source_id": "%s:%s"
+				% [extension_id, normalized_path],
+				"path": normalized_path,
+				"label": _get_extension_dock_label(
+					contribution_record,
+					normalized_path,
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(dock_counts_by_extension, extension_id)
+				),
+				"short_label": _get_extension_short_label(contribution_record),
+				"order": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					contribution_record,
+					"editor_dock_order",
+					1000
+				),
+			}
+		)
 	return records
 
 
@@ -390,15 +403,9 @@ func _get_extension_dock_label(
 	dock_path: String,
 	dock_count: int
 ) -> String:
-	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		contribution_record,
-		"display_name"
-	)
+	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "display_name")
 	if extension_name.is_empty():
-		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"extension_id"
-		)
+		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "extension_id")
 	if dock_count <= 1:
 		return extension_name
 
@@ -406,35 +413,32 @@ func _get_extension_dock_label(
 	if script_label.begins_with("gf_"):
 		script_label = script_label.substr(3)
 	if script_label.ends_with("_dock"):
-		script_label = script_label.substr(0, script_label.length() - 5)
+		script_label = script_label.substr(
+			0,
+			script_label.length() - 5
+		)
 	if script_label.is_empty():
 		return extension_name
 	script_label = script_label.to_pascal_case()
 	if extension_name.ends_with(script_label):
 		return extension_name
-	return "%s %s" % [extension_name, script_label]
+	return (
+		"%s %s"
+		% [extension_name, script_label]
+	)
 
 
 ## 优先返回 editor_dock_short_label，否则取扩展显示名或 ID 并移除 `GF ` 前缀。
 ## [br]
 ## @api private
 func _get_extension_short_label(contribution_record: Dictionary) -> String:
-	var short_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		contribution_record,
-		"editor_dock_short_label"
-	)
+	var short_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "editor_dock_short_label")
 	if not short_label.is_empty():
 		return short_label
 
-	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		contribution_record,
-		"display_name"
-	)
+	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "display_name")
 	if extension_name.is_empty():
-		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			contribution_record,
-			"extension_id"
-		)
+		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(contribution_record, "extension_id")
 	if extension_name.begins_with("GF "):
 		extension_name = extension_name.substr(3)
 	return extension_name
@@ -444,16 +448,40 @@ func _get_extension_short_label(contribution_record: Dictionary) -> String:
 ## [br]
 ## @api private
 func _sort_dock_records(left: Dictionary, right: Dictionary) -> bool:
-	var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "order", 1000)
-	var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "order", 1000)
+	var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		left,
+		"order",
+		1000
+	)
+	var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		right,
+		"order",
+		1000
+	)
 	if left_order != right_order:
 		return left_order < right_order
 
-	var left_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(left, "label", "")
-	var right_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(right, "label", "")
+	var left_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		left,
+		"label",
+		""
+	)
+	var right_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		right,
+		"label",
+		""
+	)
 	if left_label != right_label:
 		return left_label < right_label
 	return (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(left, "path", "")
-		< _GF_VARIANT_ACCESS_SCRIPT.get_option_string(right, "path", "")
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			left,
+			"path",
+			""
+		)
+		< _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			right,
+			"path",
+			""
+		)
 	)

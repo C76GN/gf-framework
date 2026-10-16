@@ -191,11 +191,7 @@ func schedule(task: GFRuntimeTask) -> bool:
 		if member.is_scheduled() or member.has_initialized():
 			task_rejected.emit(
 				task,
-				(
-					GFRuntimeTaskGroup.REJECTION_CHILD_SCHEDULED
-					if member != task
-					else &"already_scheduled"
-				)
+				(GFRuntimeTaskGroup.REJECTION_CHILD_SCHEDULED if member != task else &"already_scheduled")
 			)
 			return false
 
@@ -209,14 +205,15 @@ func schedule(task: GFRuntimeTask) -> bool:
 		return false
 	var requirements: Array[Object] = task.get_requirements()
 	var current_index_result: Dictionary = _build_requirement_owner_index(_active_tasks)
-	if not GFVariantData.get_option_bool(current_index_result, "ok", false):
+	if not GFVariantData.get_option_bool(
+		current_index_result,
+		"ok",
+		false
+	):
 		_abort_schedule_resolution(schedule_members)
 		task_rejected.emit(task, &"requirement_index_invalid")
 		return false
-	var current_index: Dictionary = GFVariantData.get_option_dictionary(
-		current_index_result,
-		"index"
-	)
+	var current_index: Dictionary = GFVariantData.get_option_dictionary(current_index_result, "index")
 	_requirement_owners = current_index
 	var conflicts: Array[GFRuntimeTask] = _get_conflicting_tasks(requirements, current_index)
 	for conflict: GFRuntimeTask in conflicts:
@@ -231,7 +228,11 @@ func schedule(task: GFRuntimeTask) -> bool:
 			proposed_tasks.append(active_task)
 	proposed_tasks.append(task)
 	var proposed_index_result: Dictionary = _build_requirement_owner_index(proposed_tasks, task)
-	if not GFVariantData.get_option_bool(proposed_index_result, "ok", false):
+	if not GFVariantData.get_option_bool(
+		proposed_index_result,
+		"ok",
+		false
+	):
 		_abort_schedule_resolution(schedule_members)
 		task_rejected.emit(task, &"requirement_index_invalid")
 		return false
@@ -313,10 +314,7 @@ func register_default_task(requirement: Object, task: GFRuntimeTask) -> bool:
 		var _add_requirement_result: GFRuntimeTask = task.add_requirement(requirement)
 		if not task.has_requirement(requirement):
 			return false
-	_default_tasks[requirement.get_instance_id()] = {
-		"requirement_ref": weakref(requirement),
-		"task": task,
-	}
+	_default_tasks[requirement.get_instance_id()] = { "requirement_ref": weakref(requirement), "task": task, }
 	return true
 
 
@@ -358,7 +356,10 @@ func unregister_default_task(requirement: Object) -> bool:
 func get_default_task(requirement: Object) -> GFRuntimeTask:
 	if requirement == null or not is_instance_valid(requirement):
 		return null
-	var value: Variant = _default_tasks.get(requirement.get_instance_id(), null)
+	var value: Variant = _default_tasks.get(
+		requirement.get_instance_id(),
+		null
+	)
 	var record: Dictionary = _default_record_from_value(value)
 	if _default_record_requirement(record) == requirement:
 		return _default_record_task(record)
@@ -505,11 +506,7 @@ func get_debug_snapshot() -> Dictionary:
 		task_snapshots.append(task.get_debug_snapshot())
 	return {
 		"active_tasks": task_snapshots,
-		"requirement_owner_ids": (
-			_requirement_owners.keys()
-			if requirement_index_valid
-			else []
-		),
+		"requirement_owner_ids": (_requirement_owners.keys() if requirement_index_valid else []),
 		"default_requirement_ids": _default_tasks.keys(),
 	}
 
@@ -538,10 +535,7 @@ func _run_tasks(delta: float, use_physics: bool) -> void:
 		return
 	var snapshot: Array[Dictionary] = []
 	for active_task: GFRuntimeTask in get_active_tasks():
-		snapshot.append({
-			"task": active_task,
-			"generation": active_task.get_schedule_generation(),
-		})
+		snapshot.append({ "task": active_task, "generation": active_task.get_schedule_generation(), })
 	for entry: Dictionary in snapshot:
 		var task_value: Variant = GFVariantData.get_option_value(entry, "task")
 		if not (task_value is GFRuntimeTask):
@@ -562,7 +556,11 @@ func _run_tasks(delta: float, use_physics: bool) -> void:
 		if not _is_task_execution_current(task, generation):
 			continue
 		if task_finished:
-			var _finished: bool = _finish_task(task, false, generation)
+			var _finished: bool = _finish_task(
+				task,
+				false,
+				generation
+			)
 	if auto_schedule_default_tasks:
 		_schedule_available_defaults()
 
@@ -594,10 +592,7 @@ func _finish_task(
 ) -> bool:
 	if task == null or not _active_tasks.has(task):
 		return false
-	if (
-		expected_generation >= 0
-		and not _is_task_execution_current(task, expected_generation)
-	):
+	if (expected_generation >= 0 and not _is_task_execution_current(task, expected_generation)):
 		return false
 	if not _detach_task(task):
 		return false
@@ -629,7 +624,11 @@ func _detach_task(task: GFRuntimeTask) -> bool:
 		if active_task != task:
 			proposed_tasks.append(active_task)
 	var proposed_index_result: Dictionary = _build_requirement_owner_index(proposed_tasks)
-	if not GFVariantData.get_option_bool(proposed_index_result, "ok", false):
+	if not GFVariantData.get_option_bool(
+		proposed_index_result,
+		"ok",
+		false
+	):
 		return false
 	task.mark_unscheduled()
 	_active_tasks = proposed_tasks
@@ -655,10 +654,7 @@ func _end_detached_task(task: GFRuntimeTask, interrupted: bool) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _build_requirement_owner_index(
-	tasks: Array[GFRuntimeTask],
-	pending_task: GFRuntimeTask = null
-) -> Dictionary:
+func _build_requirement_owner_index(tasks: Array[GFRuntimeTask], pending_task: GFRuntimeTask = null) -> Dictionary:
 	var candidate: Dictionary = {}
 	for task: GFRuntimeTask in tasks:
 		if task == null:
@@ -676,10 +672,7 @@ func _build_requirement_owner_index(
 		for requirement: Object in task.get_requirements():
 			var requirement_id: int = requirement.get_instance_id()
 			if candidate.has(requirement_id):
-				var existing_record: Dictionary = GFVariantData.get_option_dictionary(
-					candidate,
-					requirement_id
-				)
+				var existing_record: Dictionary = GFVariantData.get_option_dictionary(candidate, requirement_id)
 				var existing_owner: GFRuntimeTask = _get_requirement_record_task(existing_record)
 				if existing_owner != task:
 					return {
@@ -688,10 +681,7 @@ func _build_requirement_owner_index(
 						"index": {},
 					}
 				continue
-			candidate[requirement_id] = {
-				"requirement_ref": weakref(requirement),
-				"task": task,
-			}
+			candidate[requirement_id] = { "requirement_ref": weakref(requirement), "task": task, }
 	return {
 		"ok": true,
 		"reason": &"ok",
@@ -705,7 +695,11 @@ func _build_requirement_owner_index(
 ## [br]
 func _rebuild_requirement_owner_index() -> bool:
 	var build_result: Dictionary = _build_requirement_owner_index(_active_tasks)
-	if not GFVariantData.get_option_bool(build_result, "ok", false):
+	if not GFVariantData.get_option_bool(
+		build_result,
+		"ok",
+		false
+	):
 		return false
 	_requirement_owners = GFVariantData.get_option_dictionary(build_result, "index")
 	return true
@@ -715,10 +709,7 @@ func _rebuild_requirement_owner_index() -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_task_for_requirement_from_index(
-	requirement: Object,
-	owner_index: Dictionary
-) -> GFRuntimeTask:
+func _get_task_for_requirement_from_index(requirement: Object, owner_index: Dictionary) -> GFRuntimeTask:
 	if requirement == null or not is_instance_valid(requirement):
 		return null
 	var record: Dictionary = GFVariantData.get_option_dictionary(
@@ -728,7 +719,11 @@ func _get_task_for_requirement_from_index(
 	if _get_requirement_record_requirement(record) != requirement:
 		return null
 	var task: GFRuntimeTask = _get_requirement_record_task(record)
-	if task == null or not is_scheduled(task) or not task.has_requirement(requirement):
+	if (
+		task == null
+		or not is_scheduled(task)
+		or not task.has_requirement(requirement)
+	):
 		return null
 	return task
 
@@ -766,16 +761,10 @@ func _get_requirement_record_requirement(record: Dictionary) -> Object:
 ## [br]
 ## @api private
 ## [br]
-func _get_conflicting_tasks(
-	requirements: Array[Object],
-	owner_index: Dictionary
-) -> Array[GFRuntimeTask]:
+func _get_conflicting_tasks(requirements: Array[Object], owner_index: Dictionary) -> Array[GFRuntimeTask]:
 	var conflicts: Array[GFRuntimeTask] = []
 	for requirement: Object in requirements:
-		var owner: GFRuntimeTask = _get_task_for_requirement_from_index(
-			requirement,
-			owner_index
-		)
+		var owner: GFRuntimeTask = _get_task_for_requirement_from_index(requirement, owner_index)
 		if owner != null and not conflicts.has(owner):
 			conflicts.append(owner)
 	return conflicts

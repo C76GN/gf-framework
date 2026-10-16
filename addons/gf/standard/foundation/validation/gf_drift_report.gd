@@ -82,7 +82,11 @@ static func compare_ids(
 
 	var compare_options: Dictionary = options.duplicate(true)
 	compare_options["compare_values"] = false
-	return compare_entries(expected_entries, actual_entries, compare_options)
+	return compare_entries(
+		expected_entries,
+		actual_entries,
+		compare_options
+	)
 
 
 ## 比较两个 key -> entry 字典。
@@ -113,12 +117,36 @@ static func compare_entries(
 	actual_entries: Dictionary,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var subject: String = GFVariantData.get_option_string(options, "subject", _DEFAULT_SUBJECT)
-	var expected_label: String = GFVariantData.get_option_string(options, "expected_label", "expected")
-	var actual_label: String = GFVariantData.get_option_string(options, "actual_label", "actual")
-	var compare_values: bool = GFVariantData.get_option_bool(options, "compare_values", true)
-	var include_values: bool = GFVariantData.get_option_bool(options, "include_values", false)
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata", {})
+	var subject: String = GFVariantData.get_option_string(
+		options,
+		"subject",
+		_DEFAULT_SUBJECT
+	)
+	var expected_label: String = GFVariantData.get_option_string(
+		options,
+		"expected_label",
+		"expected"
+	)
+	var actual_label: String = GFVariantData.get_option_string(
+		options,
+		"actual_label",
+		"actual"
+	)
+	var compare_values: bool = GFVariantData.get_option_bool(
+		options,
+		"compare_values",
+		true
+	)
+	var include_values: bool = GFVariantData.get_option_bool(
+		options,
+		"include_values",
+		false
+	)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(
+		options,
+		"metadata",
+		{}
+	)
 	var report: GFValidationReport = GFValidationReport.new(subject, metadata)
 
 	var expected: Dictionary = _normalize_entry_keys(expected_entries)
@@ -133,33 +161,45 @@ static func compare_entries(
 			var _append_missing: bool = missing.append(key)
 			_add_drift_issue(
 				report,
-				GFVariantData.get_option_string(options, "missing_severity", "error"),
+				GFVariantData.get_option_string(
+					options,
+					"missing_severity",
+					"error"
+				),
 				KIND_MISSING,
-				"%s is missing from %s." % [key, actual_label],
+				"%s is missing from %s."
+				% [key, actual_label],
 				key,
-				{
-					"expected_label": expected_label,
-					"actual_label": actual_label,
-				}
+				{ "expected_label": expected_label, "actual_label": actual_label, }
 			)
 			continue
 
 		var expected_value: Variant = expected[key]
 		var actual_value: Variant = actual[key]
-		if compare_values and not _variant_values_equal(expected_value, actual_value, options):
+		if compare_values and not _variant_values_equal(
+			expected_value,
+			actual_value,
+			options
+		):
 			var _append_stale: bool = stale.append(key)
-			var stale_metadata: Dictionary = {
-				"expected_label": expected_label,
-				"actual_label": actual_label,
-			}
+			var stale_metadata: Dictionary = { "expected_label": expected_label, "actual_label": actual_label, }
 			if include_values:
 				stale_metadata["expected"] = GFVariantData.duplicate_variant(expected_value)
 				stale_metadata["actual"] = GFVariantData.duplicate_variant(actual_value)
 			_add_drift_issue(
 				report,
-				GFVariantData.get_option_string(options, "stale_severity", "warning"),
+				GFVariantData.get_option_string(
+					options,
+					"stale_severity",
+					"warning"
+				),
 				KIND_STALE,
-				"%s differs between %s and %s." % [key, expected_label, actual_label],
+				"%s differs between %s and %s."
+				% [
+					key,
+					expected_label,
+					actual_label,
+				],
 				key,
 				stale_metadata
 			)
@@ -173,32 +213,37 @@ static func compare_entries(
 		var _append_extra: bool = extra.append(key)
 		_add_drift_issue(
 			report,
-			GFVariantData.get_option_string(options, "extra_severity", "warning"),
+			GFVariantData.get_option_string(
+				options,
+				"extra_severity",
+				"warning"
+			),
 			KIND_EXTRA,
-			"%s exists only in %s." % [key, actual_label],
+			"%s exists only in %s."
+			% [key, actual_label],
 			key,
-			{
-				"expected_label": expected_label,
-				"actual_label": actual_label,
-			}
+			{ "expected_label": expected_label, "actual_label": actual_label, }
 		)
 
-	return report.to_dict({
-		"expected_count": expected.size(),
-		"actual_count": actual.size(),
-		"matched_count": matched.size(),
-		"missing_count": missing.size(),
-		"extra_count": extra.size(),
-		"stale_count": stale.size(),
-		"matched": _packed_to_array(matched),
-		"missing": _packed_to_array(missing),
-		"extra": _packed_to_array(extra),
-		"stale": _packed_to_array(stale),
-	}, {
-		"include_metadata": true,
-		"fallback_action": "Review the reported drift before using the generated or mirrored data.",
-		"no_action": "No drift found.",
-	})
+	return report.to_dict(
+		{
+			"expected_count": expected.size(),
+			"actual_count": actual.size(),
+			"matched_count": matched.size(),
+			"missing_count": missing.size(),
+			"extra_count": extra.size(),
+			"stale_count": stale.size(),
+			"matched": _packed_to_array(matched),
+			"missing": _packed_to_array(missing),
+			"extra": _packed_to_array(extra),
+			"stale": _packed_to_array(stale),
+		},
+		{
+			"include_metadata": true,
+			"fallback_action": "Review the reported drift before using the generated or mirrored data.",
+			"no_action": "No drift found.",
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -231,19 +276,45 @@ static func _add_drift_issue(
 ) -> void:
 	match severity.strip_edges().to_lower():
 		"info":
-			var _info_issue: RefCounted = report.add_info(kind, message, key, "", metadata)
+			var _info_issue: RefCounted = report.add_info(
+				kind,
+				message,
+				key,
+				"",
+				metadata
+			)
 		"warning":
-			var _warning_issue: RefCounted = report.add_warning(kind, message, key, "", metadata)
+			var _warning_issue: RefCounted = report.add_warning(
+				kind,
+				message,
+				key,
+				"",
+				metadata
+			)
 		_:
-			var _error_issue: RefCounted = report.add_error(kind, message, key, "", metadata)
+			var _error_issue: RefCounted = report.add_error(
+				kind,
+				message,
+				key,
+				"",
+				metadata
+			)
 
 
 ## 委托 GFVariantData 按选项比较两个 Variant 值。
 ## [br]
 ## @api private
 ## [br]
-static func _variant_values_equal(left: Variant, right: Variant, options: Dictionary) -> bool:
-	return GFVariantData.values_equal(left, right, options)
+static func _variant_values_equal(
+	left: Variant,
+	right: Variant,
+	options: Dictionary
+) -> bool:
+	return GFVariantData.values_equal(
+		left,
+		right,
+		options
+	)
 
 
 ## 把字典键转换为文本并按升序返回。

@@ -109,37 +109,20 @@ func get_method(method_id: StringName) -> GFPlatformContractMethodDescriptor:
 ## [br]
 ## @return 标准校验报告。
 func validate_definition() -> GFValidationReport:
-	var report: GFValidationReport = GFValidationReport.new(
-		"Platform contract %s" % String(contract_id)
-	)
+	var report: GFValidationReport = GFValidationReport.new("Platform contract %s" % String(contract_id))
 	var normalized_contract_id: StringName = StringName(String(contract_id).strip_edges())
 	if normalized_contract_id == &"":
-		var _contract_issue: RefCounted = report.add_error(
-			&"missing_contract_id",
-			"Platform contract ID is required."
-		)
+		var _contract_issue: RefCounted = report.add_error(&"missing_contract_id", "Platform contract ID is required.")
 	elif contract_id != normalized_contract_id:
-		var _contract_format_issue: RefCounted = report.add_error(
-			&"non_canonical_contract_id",
-			"Platform contract ID must not have surrounding whitespace."
-		)
+		var _contract_format_issue: RefCounted = report.add_error(&"non_canonical_contract_id", "Platform contract ID must not have surrounding whitespace.")
 	if contract_version.is_empty():
-		var _version_issue: RefCounted = report.add_error(
-			&"missing_contract_version",
-			"Platform contract version is required."
-		)
+		var _version_issue: RefCounted = report.add_error(&"missing_contract_version", "Platform contract version is required.")
 	if methods.is_empty():
-		var _methods_issue: RefCounted = report.add_error(
-			&"missing_contract_methods",
-			"Platform contract must declare at least one method."
-		)
+		var _methods_issue: RefCounted = report.add_error(&"missing_contract_methods", "Platform contract must declare at least one method.")
 	var seen_method_ids: Dictionary = {}
 	for method: GFPlatformContractMethodDescriptor in methods:
 		if method == null:
-			var _null_method_issue: RefCounted = report.add_error(
-				&"null_contract_method",
-				"Platform contract contains a null method descriptor."
-			)
+			var _null_method_issue: RefCounted = report.add_error(&"null_contract_method", "Platform contract contains a null method descriptor.")
 			continue
 		var method_report: GFValidationReport = method.validate_definition()
 		var _merged_method: RefCounted = report.merge(method_report)
@@ -161,11 +144,13 @@ func validate_definition() -> GFValidationReport:
 ## [br]
 ## @return 新描述符。
 func duplicate_descriptor() -> GFPlatformContractDescriptor:
-	return GFPlatformContractDescriptor.new().configure(
-		contract_id,
-		contract_version,
-		methods,
-		metadata
+	return (
+		GFPlatformContractDescriptor.new().configure(
+			contract_id,
+			contract_version,
+			methods,
+			metadata
+		)
 	)
 
 
@@ -185,7 +170,7 @@ func to_dict() -> Dictionary:
 			method_entries.append(method.to_dict())
 	method_entries.sort_custom(
 		func(left: Dictionary, right: Dictionary) -> bool:
-			return GFVariantData.get_option_string(left, "method_id") < GFVariantData.get_option_string(right, "method_id")
+			return (GFVariantData.get_option_string(left, "method_id") < GFVariantData.get_option_string(right, "method_id"))
 	)
 	return {
 		"contract_id": contract_id,

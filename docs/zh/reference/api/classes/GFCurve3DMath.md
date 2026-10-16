@@ -19,7 +19,7 @@ Curve3D 与 3D 折线的纯算法辅助。 提供路径长度、归一化采样�
 | 方法 | [`sample_polyline`](#member-gfcurve3dmath-methods-sample_polyline) | `static func sample_polyline( points: PackedVector3Array, ratio: float, total_length: float = -1.0 ) -> Vector3:` |
 | 方法 | [`sample_polyline_pose`](#member-gfcurve3dmath-methods-sample_polyline_pose) | `static func sample_polyline_pose( points: PackedVector3Array, ratio: float, closed: bool = false, total_length: float = -1.0, up_hint: Vector3 = Vector3.UP ) -> Dictionary:` |
 | 方法 | [`project_point_to_polyline`](#member-gfcurve3dmath-methods-project_point_to_polyline) | `static func project_point_to_polyline( points: PackedVector3Array, target: Vector3, closed: bool = false, up_hint: Vector3 = Vector3.UP ) -> Dictionary:` |
-| 方法 | [`sample_curve`](#member-gfcurve3dmath-methods-sample_curve) | `static func sample_curve(curve: Curve3D, ratio: float, cubic: bool = false) -> Vector3:` |
+| 方法 | [`sample_curve`](#member-gfcurve3dmath-methods-sample_curve) | `static func sample_curve( curve: Curve3D, ratio: float, cubic: bool = false ) -> Vector3:` |
 | 方法 | [`sample_curve_pose`](#member-gfcurve3dmath-methods-sample_curve_pose) | `static func sample_curve_pose( curve: Curve3D, ratio: float, cubic: bool = false, tangent_sample_distance: float = -1.0, up_hint: Vector3 = Vector3.UP ) -> Dictionary:` |
 
 ## 方法
@@ -133,7 +133,7 @@ static func project_point_to_polyline( points: PackedVector3Array, target: Vecto
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func sample_curve(curve: Curve3D, ratio: float, cubic: bool = false) -> Vector3:
+static func sample_curve( curve: Curve3D, ratio: float, cubic: bool = false ) -> Vector3:
 ```
 
 按 0 到 1 的比例采样 Curve3D 的 baked 路径。

@@ -46,7 +46,6 @@ var _insert_nodes: Array[GFFlowNode] = []
 ## @api private
 var _insert_dependencies: Array = []
 
-
 ## 当前操作命中的零写入结构守卫；预检本身不发布页面结果。
 ## [br]
 ## @api private
@@ -56,7 +55,6 @@ var _guard_reason: StringName = &""
 ## [br]
 ## @api private
 var _last_flow_edit_result: Dictionary = {}
-
 
 ## 已写入实际原生历史的共享门禁；历史强持有状态，命令不得反向形成强引用环。
 ## [br]
@@ -84,10 +82,23 @@ func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true)
 		var manager: EditorUndoRedoManager = undo_manager
 		if manager.is_committing_action():
 			return ERR_BUSY
-		var state: GFFlowEditorHistoryState = GFFlowEditorHistoryState.acquire(manager, get_graph_for_editor())
-		if state == null or (is_sealed() and previous != null and previous != state):
+		var state: GFFlowEditorHistoryState = GFFlowEditorHistoryState.acquire(
+			manager,
+			get_graph_for_editor()
+		)
+		if (
+			state == null
+			or (
+				is_sealed()
+				and previous != null
+				and previous != state
+			)
+		):
 			return ERR_UNAVAILABLE
-		if state.is_blocked() or GFVariantData.get_option_bool(state.get_status(), "busy"):
+		if state.is_blocked() or GFVariantData.get_option_bool(
+			state.get_status(),
+			"busy"
+		):
 			return ERR_BUSY
 		_history_state_ref = weakref(state)
 	elif is_sealed() and previous != null:
@@ -181,7 +192,14 @@ func _undo_it() -> Error:
 	if _history_is_blocked():
 		_guard_reason = &"history_blocked"
 		return ERR_BUSY
-	if not _insert_after.is_empty() and not GFVariantData.get_option_bool(get_transaction_report(), "recovery_required") and not _inventory_matches(_insert_after):
+	if (
+		not _insert_after.is_empty()
+		and not GFVariantData.get_option_bool(
+			get_transaction_report(),
+			"recovery_required"
+		)
+		and not _inventory_matches(_insert_after)
+	):
 		_guard_reason = &"source_mismatch"
 		return ERR_BUSY
 	var error: Error = super._undo_it()
@@ -206,8 +224,12 @@ func _get_undo_context() -> Object:
 func get_flow_edit_result() -> Dictionary:
 	if _last_flow_edit_result.is_empty():
 		return {
-			"ok": true, "operation": &"pending", "error": OK,
-			"guard_reason": &"", "zero_write": false, "transaction": get_transaction_report(),
+			"ok": true,
+			"operation": &"pending",
+			"error": OK,
+			"guard_reason": &"",
+			"zero_write": false,
+			"transaction": get_transaction_report(),
 		}
 	return _last_flow_edit_result.duplicate(true)
 
@@ -255,9 +277,18 @@ func get_inserted_node_ids() -> PackedStringArray:
 ## @return: 完整插入命令；无效包、端口或预算失败返回 null，图不变。
 ## [br]
 ## @schema selection_package: Dictionary，包含 nodes: Array、connections: Array 和可选 start_node_id: StringName。
-static func create_selection_paste(graph: GFFlowGraph, selection_package: Dictionary, offset: Vector2 = Vector2(30, 30), action_name: String = "粘贴 Flow 节点") -> GFFlowGraphEditCommand:
+static func create_selection_paste(
+	graph: GFFlowGraph,
+	selection_package: Dictionary,
+	offset: Vector2 = Vector2(30, 30),
+	action_name: String = "粘贴 Flow 节点"
+) -> GFFlowGraphEditCommand:
 	var model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
-	var plan: Dictionary = model.build_selection_paste_plan(graph, selection_package, offset)
+	var plan: Dictionary = model.build_selection_paste_plan(
+		graph,
+		selection_package,
+		offset
+	)
 	if not GFVariantData.get_option_bool(plan, "ok"):
 		return null
 	var added_ids_value: Variant = plan["added_node_ids"]
@@ -271,11 +302,27 @@ static func create_selection_paste(graph: GFFlowGraph, selection_package: Dictio
 			if added_ids.has(String(node.node_id)):
 				inserted.append(node)
 	var dependencies: Array = _capture_insert_dependencies(inserted)
-	var command: GFFlowGraphEditCommand = _create(graph, [
-		{"target": graph, "property_name": &"nodes", "new_value": plan["nodes"]},
-		{"target": graph, "property_name": &"connections", "new_value": plan["connections"]},
-		{"target": graph, "property_name": &"start_node_id", "new_value": plan["start_node_id"]},
-	], action_name)
+	var command: GFFlowGraphEditCommand = _create(
+		graph,
+		[
+			{
+				"target": graph,
+				"property_name": &"nodes",
+				"new_value": plan["nodes"],
+			},
+			{
+				"target": graph,
+				"property_name": &"connections",
+				"new_value": plan["connections"],
+			},
+			{
+				"target": graph,
+				"property_name": &"start_node_id",
+				"new_value": plan["start_node_id"],
+			},
+		],
+		action_name
+	)
 	command._insert_before = GFVariantData.get_option_dictionary(plan, "before_state")
 	command._inserted_ids = added_ids
 	command._insert_nodes = inserted
@@ -317,11 +364,20 @@ static func create_selection_paste(graph: GFFlowGraph, selection_package: Dictio
 ## @param set_as_start: 空图时允许新节点成为起点。
 ## [br]
 ## @return: 零写入命令；未保存、位置或端口无效时为 null。
-static func create_template_insertion(graph: GFFlowGraph, template: GFFlowNode, position: Vector2, set_as_start: bool = false) -> GFFlowGraphEditCommand:
+static func create_template_insertion(
+	graph: GFFlowGraph,
+	template: GFFlowNode,
+	position: Vector2,
+	set_as_start: bool = false
+) -> GFFlowGraphEditCommand:
 	if template == null or not position.is_finite():
 		return null
 	var path: String = template.resource_path
-	if not path.begins_with("res://") or path.contains("::") or path != path.simplify_path():
+	if (
+		not path.begins_with("res://")
+		or path.contains("::")
+		or path != path.simplify_path()
+	):
 		return null
 	if path.get_extension().to_lower() not in ["tres", "res"] or not FileAccess.file_exists(path):
 		return null
@@ -333,9 +389,16 @@ static func create_template_insertion(graph: GFFlowGraph, template: GFFlowNode, 
 		copied.node_id = StringName(template.resource_path.get_file().get_basename())
 	copied.editor_position = position
 	copied.next_node_ids = PackedStringArray()
-	return create_selection_paste(graph, {
-		"nodes": [copied], "connections": [], "start_node_id": copied.node_id if set_as_start else &"",
-	}, Vector2.ZERO, "添加 Flow 节点模板")
+	return create_selection_paste(
+		graph,
+		{
+			"nodes": [copied],
+			"connections": [],
+			"start_node_id": copied.node_id if set_as_start else &"",
+		},
+		Vector2.ZERO,
+		"添加 Flow 节点模板"
+	)
 
 
 ## 为图连接创建零写入候选；无变化或无效请求返回 null。
@@ -371,14 +434,32 @@ static func create_connection_edit(
 	candidate.validate_port_compatibility = graph.validate_port_compatibility
 	var changed: bool = false
 	if remove:
-		changed = candidate.remove_connection(from_node_id, from_port_id, to_node_id, to_port_id)
+		changed = candidate.remove_connection(
+			from_node_id,
+			from_port_id,
+			to_node_id,
+			to_port_id
+		)
 	else:
-		changed = candidate.add_connection(from_node_id, from_port_id, to_node_id, to_port_id)
+		changed = candidate.add_connection(
+			from_node_id,
+			from_port_id,
+			to_node_id,
+			to_port_id
+		)
 	if not changed:
 		return null
-	return _create(graph, [{
-		"target": graph, "property_name": &"connections", "new_value": candidate.connections,
-	}], "删除 Flow 连接" if remove else "添加 Flow 连接")
+	return _create(
+		graph,
+		[
+			{
+				"target": graph,
+				"property_name": &"connections",
+				"new_value": candidate.connections,
+			},
+		],
+		"删除 Flow 连接" if remove else "添加 Flow 连接"
+	)
 
 
 ## 以一个事务删除节点及其显式连接和执行后继引用，保留资源身份以便撤销。
@@ -395,7 +476,10 @@ static func create_node_removal(graph: GFFlowGraph, node_ids: PackedStringArray)
 		return null
 	var removed: Dictionary = {}
 	for node_id: String in node_ids:
-		if _find_node(graph, StringName(node_id)) != null:
+		if _find_node(
+			graph,
+			StringName(node_id)
+		) != null:
 			removed[StringName(node_id)] = true
 	if removed.is_empty():
 		return null
@@ -413,19 +497,47 @@ static func create_node_removal(graph: GFFlowGraph, node_ids: PackedStringArray)
 			if not removed.has(StringName(successor)):
 				var _appended: bool = successors.append(successor)
 		if successors != node.next_node_ids:
-			changes.append({"target": node, "property_name": &"next_node_ids", "new_value": successors})
+			changes.append(
+				{
+					"target": node,
+					"property_name": &"next_node_ids",
+					"new_value": successors,
+				}
+			)
 	var connections: Array[Dictionary] = []
 	for connection: Dictionary in graph.connections:
 		var from_id: StringName = GFVariantData.get_option_string_name(connection, "from_node_id")
 		var to_id: StringName = GFVariantData.get_option_string_name(connection, "to_node_id")
 		if not removed.has(from_id) and not removed.has(to_id):
 			connections.append(connection.duplicate(true))
-	changes.append({"target": graph, "property_name": &"nodes", "new_value": remaining})
+	changes.append(
+		{
+			"target": graph,
+			"property_name": &"nodes",
+			"new_value": remaining,
+		}
+	)
 	if graph.connections != connections:
-		changes.append({"target": graph, "property_name": &"connections", "new_value": connections})
+		changes.append(
+			{
+				"target": graph,
+				"property_name": &"connections",
+				"new_value": connections,
+			}
+		)
 	if removed.has(graph.start_node_id):
-		changes.append({"target": graph, "property_name": &"start_node_id", "new_value": &""})
-	return _create(graph, changes, "删除 Flow 节点")
+		changes.append(
+			{
+				"target": graph,
+				"property_name": &"start_node_id",
+				"new_value": &"",
+			}
+		)
+	return _create(
+		graph,
+		changes,
+		"删除 Flow 节点"
+	)
 
 
 ## 为一次拖动或自动布局构建多节点位置事务；拒绝无效节点或非有限位置。
@@ -441,7 +553,11 @@ static func create_node_removal(graph: GFFlowGraph, node_ids: PackedStringArray)
 ## @param action_name: 撤销历史中显示的操作名称。
 ## [br]
 ## @return: 尚未执行的布局编辑命令；图为空、候选无效或所有位置均未变化时为 null。
-static func create_layout_edit(graph: GFFlowGraph, positions: Dictionary, action_name: String) -> GFFlowGraphEditCommand:
+static func create_layout_edit(
+	graph: GFFlowGraph,
+	positions: Dictionary,
+	action_name: String
+) -> GFFlowGraphEditCommand:
 	if graph == null:
 		return null
 	var changes: Array[Dictionary] = []
@@ -457,10 +573,20 @@ static func create_layout_edit(graph: GFFlowGraph, positions: Dictionary, action
 		if not position.is_finite():
 			return null
 		if node.editor_position != position:
-			changes.append({"target": node, "property_name": &"editor_position", "new_value": position})
+			changes.append(
+				{
+					"target": node,
+					"property_name": &"editor_position",
+					"new_value": position,
+				}
+			)
 	if changes.is_empty():
 		return null
-	return _create(graph, changes, action_name)
+	return _create(
+		graph,
+		changes,
+		action_name
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -471,8 +597,11 @@ static func create_layout_edit(graph: GFFlowGraph, positions: Dictionary, action
 func _record_flow_edit_result(operation: StringName, error: Error) -> void:
 	var reason: StringName = _guard_reason if error != OK else &""
 	_last_flow_edit_result = {
-		"ok": error == OK, "operation": operation, "error": error,
-		"guard_reason": reason, "zero_write": reason != &"",
+		"ok": error == OK,
+		"operation": operation,
+		"error": error,
+		"guard_reason": reason,
+		"zero_write": reason != &"",
 		"transaction": get_transaction_report(),
 	}
 	var history_state: GFFlowEditorHistoryState = _get_history_state()
@@ -531,10 +660,14 @@ static func _capture_insert_dependencies(nodes: Array[GFFlowNode]) -> Array:
 	for node: GFFlowNode in nodes:
 		if node == null:
 			return []
-		dependencies.append([
-			node.node_id, node.next_node_ids.duplicate(),
-			_capture_port_dependencies(node.input_ports), _capture_port_dependencies(node.output_ports),
-		])
+		dependencies.append(
+			[
+				node.node_id,
+				node.next_node_ids.duplicate(),
+				_capture_port_dependencies(node.input_ports),
+				_capture_port_dependencies(node.output_ports),
+			]
+		)
 	return dependencies
 
 
@@ -547,7 +680,15 @@ static func _capture_port_dependencies(ports: Array[GFFlowPort]) -> Array:
 		if port == null:
 			dependencies.append(null)
 		else:
-			dependencies.append([port.port_id, port.direction, port.value_type, port.allow_multiple, port.class_name_hint])
+			dependencies.append(
+				[
+					port.port_id,
+					port.direction,
+					port.value_type,
+					port.allow_multiple,
+					port.class_name_hint,
+				]
+			)
 	return dependencies
 
 
@@ -577,8 +718,15 @@ func _notify_observer() -> void:
 ## 处理func内部数据。
 ## [br]
 ## @api private
-static func _create(graph: GFFlowGraph, changes: Array[Dictionary], action_name: String) -> GFFlowGraphEditCommand:
+static func _create(
+	graph: GFFlowGraph,
+	changes: Array[Dictionary],
+	action_name: String
+) -> GFFlowGraphEditCommand:
 	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.new()
 	command._graph = graph
-	var _configured: GFEditorPropertyBatchCommand = command.configure(changes, {"command_name": action_name})
+	var _configured: GFEditorPropertyBatchCommand = command.configure(
+		changes,
+		{ "command_name": action_name }
+	)
 	return command

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableColumnDefinition" path="addons/gf/standard/utilities/ui/gf_table_column_definition.gd" module="standard" extends="Resource" classDigest="a545edfabdc6bf18490711a2e5f6cefdb6649d7e1948daa477fec5f9b563197f">
+<class name="GFTableColumnDefinition" path="addons/gf/standard/utilities/ui/gf_table_column_definition.gd" module="standard" extends="Resource" classDigest="9ae3a39c34f0b4a143e8055770355bac627a6291d896e6de9a4e5a4e65afe723">
 	<description>GFTableColumnDefinition: 通用表格列定义。
 描述一列如何从任意行数据中读取、格式化、排序、过滤和写回值。
 它不创建 Control、不绑定资源表或配置表格式，也不规定视觉、编辑器或业务语义。</description>
@@ -215,7 +215,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="matches_query">
-			<signature>func matches_query(row_data: Variant, query: String, case_sensitive: bool = false) -&gt; bool:</signature>
+			<signature>func matches_query( row_data: Variant, query: String, case_sensitive: bool = false ) -&gt; bool:</signature>
 			<description>判断该列是否匹配过滤文本。</description>
 			<tags>
 				<tag name="api">public</tag>

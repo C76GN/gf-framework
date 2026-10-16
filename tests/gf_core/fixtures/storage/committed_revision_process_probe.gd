@@ -22,9 +22,16 @@ func _initialize() -> void:
 			_failures.append("Unexpected argument")
 	var prefix: String = "gf-storage-revision-process-"
 	if (
-		_phase not in ["prepare_empty_prefix", "seed", "verify"]
+		_phase not in [
+			"prepare_empty_prefix",
+			"seed",
+			"verify",
+		]
 		or not _root_name.begins_with(prefix)
-		or not GFUuid.is_valid(_root_name.trim_prefix(prefix), 4)
+		or not GFUuid.is_valid(
+			_root_name.trim_prefix(prefix),
+			4
+		)
 	):
 		_failures.append("Invalid owned fixture identity")
 	if not _failures.is_empty():
@@ -53,41 +60,92 @@ func _prepare_empty_prefix() -> void:
 		_failures.append("prefix fixture root already exists")
 		return
 	var version_root: String = root_path.path_join(".gf-storage/v1")
-	_expect(DirAccess.make_dir_recursive_absolute(version_root) == OK, "create empty prefix")
-	_expect(DirAccess.dir_exists_absolute(version_root), "empty version prefix exists")
-	_expect(not FileAccess.file_exists(version_root.path_join("layout.json")), "layout not yet published")
+	_expect(
+		DirAccess.make_dir_recursive_absolute(version_root) == OK,
+		"create empty prefix"
+	)
+	_expect(
+		DirAccess.dir_exists_absolute(version_root),
+		"empty version prefix exists"
+	)
+	_expect(
+		not FileAccess.file_exists(version_root.path_join("layout.json")),
+		"layout not yet published"
+	)
 
 
 func _seed() -> void:
 	var creation_error: Error = _storage.create_revision_storage()
-	_expect(creation_error == OK, "create")
+	_expect(
+		creation_error == OK,
+		"create"
+	)
 	if creation_error != OK:
 		return
-	_expect(_storage.save_data("process.json", {"value": 17}) == OK, "seed save")
+	_expect(
+		_storage.save_data(
+			"process.json",
+			{ "value": 17 }
+		) == OK,
+		"seed save"
+	)
 	var revision: GFStorageRevisionResult = _storage.query_committed_revision("process.json")
-	_expect(revision.is_successful(), "seed revision")
-	var file: FileAccess = FileAccess.open(_proof_path(), FileAccess.WRITE)
+	_expect(
+		revision.is_successful(),
+		"seed revision"
+	)
+	var file: FileAccess = FileAccess.open(
+		_proof_path(),
+		FileAccess.WRITE
+	)
 	if file == null:
 		_failures.append("proof open")
 		return
 	var _written: bool = file.store_string(revision.get_revision()) != null
 	file.flush()
-	_expect(file.get_error() == OK, "proof write")
+	_expect(
+		file.get_error() == OK,
+		"proof write"
+	)
 	file.close()
 
 
 func _verify() -> void:
 	var original: String = FileAccess.get_file_as_string(_proof_path())
-	_expect(not original.is_empty(), "seed proof present")
+	_expect(
+		not original.is_empty(),
+		"seed proof present"
+	)
 	var revision: GFStorageRevisionResult = _storage.query_committed_revision("process.json")
-	_expect(revision.is_successful(), "restarted query")
-	_expect(revision.get_revision() == original, "same token after independent process restart")
+	_expect(
+		revision.is_successful(),
+		"restarted query"
+	)
+	_expect(
+		revision.get_revision() == original,
+		"same token after independent process restart"
+	)
 	var result: GFStorageReadResult = _storage.load_data("process.json")
-	_expect(result.ok and GFVariantData.get_option_int(result.payload, "value") == 17, "restarted payload")
-	_expect(result.get_committed_revision().get_revision() == original, "restarted read token pairing")
-	_expect(_storage.save_data("process.json", {"value": 17}) == OK, "same bytes rewrite")
+	_expect(
+		result.ok and GFVariantData.get_option_int(result.payload, "value") == 17,
+		"restarted payload"
+	)
+	_expect(
+		result.get_committed_revision().get_revision() == original,
+		"restarted read token pairing"
+	)
+	_expect(
+		_storage.save_data(
+			"process.json",
+			{ "value": 17 }
+		) == OK,
+		"same bytes rewrite"
+	)
 	var rewritten: GFStorageRevisionResult = _storage.query_committed_revision("process.json")
-	_expect(rewritten.is_successful() and rewritten.get_revision() != original, "rewrite rotates token across process boundary")
+	_expect(
+		rewritten.is_successful() and rewritten.get_revision() != original,
+		"rewrite rotates token across process boundary"
+	)
 
 
 func _proof_path() -> String:
@@ -100,9 +158,16 @@ func _expect(condition: bool, description: String) -> void:
 
 
 func _finish() -> void:
-	print("GF_STORAGE_REVISION_PROCESS_PROBE=" + JSON.stringify({
-		"phase": _phase,
-		"ok": _failures.is_empty(),
-		"failures": _failures,
-	}))
+	print(
+		"GF_STORAGE_REVISION_PROCESS_PROBE="
+		+ (
+			JSON.stringify(
+				{
+					"phase": _phase,
+					"ok": _failures.is_empty(),
+					"failures": _failures,
+				}
+			)
+		)
+	)
 	quit(0 if _failures.is_empty() else 1)

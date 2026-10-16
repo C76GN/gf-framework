@@ -32,10 +32,7 @@ extends Resource
 ## @param projectile_id: 非空稳定 ID。
 ## [br]
 ## @param definition: typed definition；null 等价于移除。
-func set_definition(
-	projectile_id: StringName,
-	definition: GFProjectileDefinition
-) -> void:
+func set_definition(projectile_id: StringName, definition: GFProjectileDefinition) -> void:
 	if projectile_id == &"":
 		return
 	if definition == null:
@@ -47,7 +44,10 @@ func set_definition(
 		entry.projectile_id = projectile_id
 		entries.append(entry)
 	entry.definition = definition
-	_remove_duplicates(projectile_id, entries.find(entry))
+	_remove_duplicates(
+		projectile_id,
+		entries.find(entry)
+	)
 
 
 ## 查找指定 ID 的 typed definition。
@@ -88,7 +88,11 @@ func has_definition(projectile_id: StringName) -> bool:
 ## @return: 是否至少移除一个条目。
 func remove_definition(projectile_id: StringName) -> bool:
 	var removed: bool = false
-	for index: int in range(entries.size() - 1, -1, -1):
+	for index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: GFProjectileCatalogEntry = entries[index]
 		if entry != null and entry.projectile_id == projectile_id:
 			entries.remove_at(index)
@@ -107,7 +111,11 @@ func get_projectile_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	var seen: Dictionary = {}
 	for entry: GFProjectileCatalogEntry in entries:
-		if entry == null or not entry.is_valid_entry() or seen.has(entry.projectile_id):
+		if (
+			entry == null
+			or not entry.is_valid_entry()
+			or seen.has(entry.projectile_id)
+		):
 			continue
 		seen[entry.projectile_id] = true
 		var _appended: bool = result.append(String(entry.projectile_id))
@@ -127,7 +135,11 @@ func prune_invalid_entries() -> int:
 	var seen: Dictionary = {}
 	var retained: Array[GFProjectileCatalogEntry] = []
 	for entry: GFProjectileCatalogEntry in entries:
-		if entry == null or not entry.is_valid_entry() or seen.has(entry.projectile_id):
+		if (
+			entry == null
+			or not entry.is_valid_entry()
+			or seen.has(entry.projectile_id)
+		):
 			continue
 		seen[entry.projectile_id] = true
 		retained.append(entry)
@@ -157,7 +169,11 @@ func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 ## [br]
 ## @api private
 func _remove_duplicates(projectile_id: StringName, keep_index: int) -> void:
-	for index: int in range(entries.size() - 1, -1, -1):
+	for index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		if index == keep_index:
 			continue
 		var entry: GFProjectileCatalogEntry = entries[index]

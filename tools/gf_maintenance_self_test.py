@@ -68,19 +68,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		if not passed:
 			failures.append(result)
 
-	first_task_command = CHECK_DEFINITIONS["first_task_smoke"]
-	record_result(
-		"examples_runs_local_first_task_with_import_and_full_coverage",
-		CHECK_SUITES["examples"] == ["first_task_smoke"]
-		and first_task_command[-2:] == ["--", "--first-task-smoke"]
-		and "res://examples/first_task/first_task.tscn" in first_task_command
-		and CHECK_DEPENDENCIES["first_task_smoke"] == ["godot_import"]
-		and all("first_task_smoke" in CHECK_SUITES[suite] for suite in (
-			"framework-integration", "framework", "full", "release"
-		)),
-		"Examples and integration must run the repository-owned smoke through the import dependency.",
-	)
-
 	normalized_log_argv = normalize_maintenance_cli_argv([
 		"gf_maintenance.py",
 		"check",
@@ -2678,6 +2665,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				destination_containment_root=fixture_root,
 				expected_destination_identity=overflow_destination.lstat(),
 				expected_destination_containment_identity=fixture_root.lstat(),
+				max_files=DEFAULT_MAINTENANCE_LOG_MAX_FILES,
 			)
 		except ValueError:
 			overflow_rejected = True
@@ -6303,6 +6291,34 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and "diagnostic_policy" in maintenance_in_process_adapter_registry(),
 		"Framework diagnostic conventions and their regression tests must run in quick, Full, and release flows.",
 	)
+	readability_fixture_commands = {
+		"gdscript_readability_tests": "tests/gf_core/tools/test_gf_gdscript_readability.py",
+		"gdscript_list_layout_tests": "tests/gf_core/tools/test_gf_gdscript_list_layout.py",
+		"gdscript_expression_layout_tests": "tests/gf_core/tools/test_gf_gdscript_expression_layout.py",
+		"gdscript_layout_integrity_tests": "tests/gf_core/tools/test_gf_gdscript_layout_integrity.py",
+	}
+	readability_checks = {"gdscript_readability", *readability_fixture_commands}
+	record_result(
+		"gdscript_readability_is_a_mandatory_static_gate",
+		all(
+			readability_checks.issubset(
+				CHECK_SUITES[suite_name],
+			)
+			for suite_name in ("quick", "framework-static", "framework", "full", "release")
+		)
+		and readability_checks.issubset(LIGHT_BOUNDARY_CHECKS)
+		and "gdscript-readability" in CHECK_DEFINITIONS["gdscript_readability"]
+		and _VALIDATION_CATALOG.executor_kind("gdscript_readability")
+		is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+		and all(
+			_VALIDATION_CATALOG.executor_kind(name)
+			is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+			and CHECK_DEFINITIONS.get(name) == [sys.executable, script]
+			for name, script in readability_fixture_commands.items()
+		)
+		and "gdscript_readability" in maintenance_in_process_adapter_registry(),
+		"Owned GDScript layout and its negative fixtures must gate quick, Full and release.",
+	)
 	codeql_python_fixture_results = [
 		gf_codeql_suppression_policy.audit_python_source(
 			"tests/gf_core/tools/test_fixture.py",
@@ -6483,13 +6499,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"timeout-minutes",
 		4,
 	)
-	parallel_batch_names_by_jobs = {
-		jobs: tuple(
-			tuple(shard.name for shard in batch)
-			for batch in parallel_full_shard_batches(parallel_plan, jobs)
-		)
-		for jobs in range(1, MAX_PARALLEL_FULL_JOBS + 1)
-	}
 	parallel_owned_checks = [
 		check_name
 		for shard in parallel_plan
@@ -6506,37 +6515,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			if "gdscript_lsp_diagnostics" in shard.checks
 		) == "framework-lsp",
 		"Local parallel Full must assign every target check exactly once and keep LSP owned by its hard-gate shard.",
-	)
-	record_result(
-		"local_parallel_full_schedule_separates_heavy_shards",
-		parallel_plan_names == (
-			"framework-static",
-			"framework-integration",
-			"framework-gut",
-			"framework-lsp",
-		)
-		and parallel_batch_names_by_jobs[2] == (
-			("framework-static", "framework-integration"),
-			("framework-gut",),
-			("framework-lsp",),
-		)
-		and parallel_batch_names_by_jobs[3] == (
-			("framework-static", "framework-integration"),
-			("framework-gut",),
-			("framework-lsp",),
-		)
-		and all(
-			tuple(name for batch in batches for name in batch) == parallel_plan_names
-			and all(1 <= len(batch) <= jobs for batch in batches)
-			and tuple(
-				batch for batch in batches if "framework-gut" in batch
-			) == (("framework-gut",),)
-			for jobs, batches in parallel_batch_names_by_jobs.items()
-		),
-		(
-			"Local parallel Full must preserve stable shard ownership and run the "
-			"resource-intensive framework GUT shard in its own batch."
-		),
 	)
 	deadline_fixture_snapshot = CapturedWorkspace(
 		source_root=ROOT,

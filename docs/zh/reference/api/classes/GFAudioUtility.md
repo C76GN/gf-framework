@@ -33,7 +33,7 @@
 | 方法 | [`play_bgm`](#member-gfaudioutility-methods-play_bgm) | `func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:` |
 | 方法 | [`play_bgm_with_options`](#member-gfaudioutility-methods-play_bgm_with_options) | `func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:` |
 | 方法 | [`play_bgm_clip`](#member-gfaudioutility-methods-play_bgm_clip) | `func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void:` |
-| 方法 | [`play_bgm_from_bank`](#member-gfaudioutility-methods-play_bgm_from_bank) | `func play_bgm_from_bank(bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0) -> void:` |
+| 方法 | [`play_bgm_from_bank`](#member-gfaudioutility-methods-play_bgm_from_bank) | `func play_bgm_from_bank( bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0 ) -> void:` |
 | 方法 | [`play_bgm_event`](#member-gfaudioutility-methods-play_bgm_event) | `func play_bgm_event( event_id: StringName, bank_id: StringName = &"", crossfade_seconds: float = -1.0 ) -> void:` |
 | 方法 | [`stop_bgm`](#member-gfaudioutility-methods-stop_bgm) | `func stop_bgm(fade_seconds: float = 0.0) -> void:` |
 | 方法 | [`pause_bgm`](#member-gfaudioutility-methods-pause_bgm) | `func pause_bgm(fade_seconds: float = 0.0) -> bool:` |
@@ -58,7 +58,7 @@
 | 方法 | [`set_audio_parameter`](#member-gfaudioutility-methods-set_audio_parameter) | `func set_audio_parameter(parameter: GFAudioParameter) -> bool:` |
 | 方法 | [`set_audio_state`](#member-gfaudioutility-methods-set_audio_state) | `func set_audio_state(state: GFAudioState) -> bool:` |
 | 方法 | [`set_audio_switch`](#member-gfaudioutility-methods-set_audio_switch) | `func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:` |
-| 方法 | [`play_ambient`](#member-gfaudioutility-methods-play_ambient) | `func play_ambient(path: String, channel: StringName = &"default", fade_seconds: float = 0.0) -> void:` |
+| 方法 | [`play_ambient`](#member-gfaudioutility-methods-play_ambient) | `func play_ambient( path: String, channel: StringName = &"default", fade_seconds: float = 0.0 ) -> void:` |
 | 方法 | [`play_ambient_clip`](#member-gfaudioutility-methods-play_ambient_clip) | `func play_ambient_clip( clip: GFAudioClip, channel: StringName = &"default", fade_seconds: float = 0.0 ) -> void:` |
 | 方法 | [`play_ambient_from_bank`](#member-gfaudioutility-methods-play_ambient_from_bank) | `func play_ambient_from_bank( bank: GFAudioBank, clip_id: StringName, channel: StringName = &"default", fade_seconds: float = 0.0 ) -> void:` |
 | 方法 | [`play_ambient_event`](#member-gfaudioutility-methods-play_ambient_event) | `func play_ambient_event( event_id: StringName, channel: StringName = &"default", bank_id: StringName = &"", fade_seconds: float = 0.0 ) -> void:` |
@@ -83,7 +83,7 @@
 | 方法 | [`play_sfx_clip_3d`](#member-gfaudioutility-methods-play_sfx_clip_3d) | `func play_sfx_clip_3d( clip: GFAudioClip, source: Node3D, follow_source: bool = false ) -> AudioStreamPlayer3D:` |
 | 方法 | [`play_sfx_clip_3d_handle`](#member-gfaudioutility-methods-play_sfx_clip_3d_handle) | `func play_sfx_clip_3d_handle( clip: GFAudioClip, source: Node3D, follow_source: bool = false ) -> GFAudioEmitterHandle:` |
 | 方法 | [`get_ambient_handle`](#member-gfaudioutility-methods-get_ambient_handle) | `func get_ambient_handle(channel: StringName = &"default") -> GFAudioEmitterHandle:` |
-| 方法 | [`set_bus_volume_db`](#member-gfaudioutility-methods-set_bus_volume_db) | `func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -> bool:` |
+| 方法 | [`set_bus_volume_db`](#member-gfaudioutility-methods-set_bus_volume_db) | `func set_bus_volume_db( bus_name: String, volume_db: float, transition_seconds: float = 0.0 ) -> bool:` |
 | 方法 | [`get_bus_volume_db`](#member-gfaudioutility-methods-get_bus_volume_db) | `func get_bus_volume_db(bus_name: String) -> float:` |
 | 方法 | [`set_bus_mute`](#member-gfaudioutility-methods-set_bus_mute) | `func set_bus_mute(bus_name: String, muted: bool) -> bool:` |
 | 方法 | [`set_bus_effect_property`](#member-gfaudioutility-methods-set_bus_effect_property) | `func set_bus_effect_property( bus_name: String, effect_ref: Variant, property_name: StringName, value: Variant, transition_seconds: float = 0.0 ) -> bool:` |
@@ -402,9 +402,10 @@ func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void:
 ### `play_bgm_from_bank`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func play_bgm_from_bank(bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0) -> void:
+func play_bgm_from_bank( bank: GFAudioBank, clip_id: StringName, crossfade_seconds: float = -1.0 ) -> void:
 ```
 
 从音频集合播放 BGM。
@@ -864,7 +865,7 @@ func set_audio_switch(audio_switch: GFAudioSwitch) -> bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func play_ambient(path: String, channel: StringName = &"default", fade_seconds: float = 0.0) -> void:
+func play_ambient( path: String, channel: StringName = &"default", fade_seconds: float = 0.0 ) -> void:
 ```
 
 播放环境音。每次替换都会先递增通道 generation，使旧加载和淡变回调失效。
@@ -1383,7 +1384,7 @@ func get_ambient_handle(channel: StringName = &"default") -> GFAudioEmitterHandl
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_bus_volume_db(bus_name: String, volume_db: float, transition_seconds: float = 0.0) -> bool:
+func set_bus_volume_db( bus_name: String, volume_db: float, transition_seconds: float = 0.0 ) -> bool:
 ```
 
 设置音频总线 dB 音量。增益与静音作为同一代事务提交，后发操作会使旧 tween 失效。

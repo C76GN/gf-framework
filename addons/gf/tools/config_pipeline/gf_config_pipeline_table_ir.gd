@@ -137,13 +137,15 @@ func validate_contract() -> Dictionary:
 		return _make_contract_failure("empty_table_name", "Table IR 的表名为空。")
 	if _source_format == &"":
 		return _make_contract_failure("empty_source_format", "Table IR 的来源格式为空。")
-	if _schema != null and _schema.get_table_key() != &"" and _schema.get_table_key() != _table_name:
+	if (
+		_schema != null
+		and _schema.get_table_key() != &""
+		and _schema.get_table_key() != _table_name
+	):
 		return _make_contract_failure(
 			"schema_table_mismatch",
-			"Table IR 的 schema 表名与 IR 表名不一致：%s != %s。" % [
-				String(_schema.get_table_key()),
-				String(_table_name),
-			]
+			"Table IR 的 schema 表名与 IR 表名不一致：%s != %s。"
+			% [String(_schema.get_table_key()), String(_table_name),]
 		)
 	return {
 		"success": true,
@@ -246,7 +248,15 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @return: 单表 IR 副本。
 func duplicate_ir() -> GFConfigPipelineTableIR:
-	return create(_table_name, _source_path, _source_format, _records, _schema, _source_map, _metadata)
+	return create(
+		_table_name,
+		_source_path,
+		_source_format,
+		_records,
+		_schema,
+		_source_map,
+		_metadata
+	)
 
 
 ## 导出不包含完整记录载荷的稳定摘要。

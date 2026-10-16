@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLayerMaskUtility" path="addons/gf/standard/foundation/math/gf_layer_mask_utility.gd" module="standard" extends="RefCounted" classDigest="8e73faae7614be8af1b211429a9715e0d36f4435abd9eed4a32d585579e7dfab">
+<class name="GFLayerMaskUtility" path="addons/gf/standard/foundation/math/gf_layer_mask_utility.gd" module="standard" extends="RefCounted" classDigest="1b660b4efb2878df23097c4cb5f22e197bf7f2cefa9d39b94e7549dca6956e2b">
 	<description>GFLayerMaskUtility: 层名与 bitmask 互转工具。
 提供通用层名数组到整数 bitmask 的稳定转换，也可读取 Godot 项目的
 2D / 3D Physics Layer Names。它只处理名称、索引和整数掩码，
@@ -30,7 +30,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="names_to_mask">
-			<signature>static func names_to_mask(names: Array, layer_names: Array, case_sensitive: bool = true) -&gt; int:</signature>
+			<signature>static func names_to_mask( names: Array, layer_names: Array, case_sensitive: bool = true ) -&gt; int:</signature>
 			<description>将层名列表转换为 bitmask。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -40,10 +40,11 @@
 				<tag name="return">对应 bitmask；未知名称会被忽略。</tag>
 				<tag name="schema">names: Array of String or StringName layer names.</tag>
 				<tag name="schema">layer_names: Array of String or StringName layer names ordered by layer index.</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mask_to_names">
-			<signature>static func mask_to_names(mask: int, layer_names: Array, include_unnamed: bool = false) -&gt; PackedStringArray:</signature>
+			<signature>static func mask_to_names( mask: int, layer_names: Array, include_unnamed: bool = false ) -&gt; PackedStringArray:</signature>
 			<description>将 bitmask 转换为层名列表。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -52,10 +53,11 @@
 				<tag name="param">include_unnamed: 是否为未命名但启用的层返回默认名称。</tag>
 				<tag name="return">按层索引排序的层名列表。</tag>
 				<tag name="schema">layer_names: Array of String or StringName layer names ordered by layer index.</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="find_layer_index">
-			<signature>static func find_layer_index(layer_name: String, layer_names: Array, case_sensitive: bool = true) -&gt; int:</signature>
+			<signature>static func find_layer_index( layer_name: String, layer_names: Array, case_sensitive: bool = true ) -&gt; int:</signature>
 			<description>查找层名对应的零基索引。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -64,6 +66,7 @@
 				<tag name="param">case_sensitive: 是否区分大小写。</tag>
 				<tag name="return">找到时返回零基索引；否则返回 INVALID_LAYER_INDEX。</tag>
 				<tag name="schema">layer_names: Array of String or StringName layer names ordered by layer index.</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="layer_index_to_mask">
@@ -86,7 +89,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_missing_names">
-			<signature>static func get_missing_names(names: Array, layer_names: Array, case_sensitive: bool = true) -&gt; PackedStringArray:</signature>
+			<signature>static func get_missing_names( names: Array, layer_names: Array, case_sensitive: bool = true ) -&gt; PackedStringArray:</signature>
 			<description>获取输入层名中无法解析的名称。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -96,16 +99,18 @@
 				<tag name="return">未找到的层名列表，按首次出现顺序去重。</tag>
 				<tag name="schema">names: Array of String or StringName layer names.</tag>
 				<tag name="schema">layer_names: Array of String or StringName layer names ordered by layer index.</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_project_physics_layer_names">
-			<signature>static func get_project_physics_layer_names( dimension: int = 2, fallback_to_default_names: bool = false ) -&gt; PackedStringArray:</signature>
+			<signature>static func get_project_physics_layer_names(dimension: int = 2, fallback_to_default_names: bool = false) -&gt; PackedStringArray:</signature>
 			<description>读取项目的 2D 或 3D 物理层名称。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">dimension: 物理维度，只支持 2 或 3。</tag>
 				<tag name="param">fallback_to_default_names: 未命名层是否返回 `Layer N`。</tag>
 				<tag name="return">长度为 DEFAULT_LAYER_COUNT 的层名列表；维度无效时返回空列表。</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 	</methods>

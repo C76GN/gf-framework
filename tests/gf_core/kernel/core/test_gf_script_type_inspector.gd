@@ -48,11 +48,22 @@ func test_script_extends_any_and_inheritance_chain() -> void:
 	assert_true(
 		GFScriptTypeInspectorBase.script_extends_any(
 			ChildScriptForTest,
-			[null, OtherScriptForTest, BaseScriptForTest]
+			[
+				null,
+				OtherScriptForTest,
+				BaseScriptForTest,
+			]
 		),
 		"任一父脚本命中时应返回 true，并忽略非脚本值。"
 	)
 
 	var chain: Array[Script] = GFScriptTypeInspectorBase.get_inheritance_chain(ChildScriptForTest)
-	assert_eq(chain[0], ChildScriptForTest, "继承链第一项应是输入脚本。")
-	assert_true(chain.has(BaseScriptForTest), "继承链应包含父脚本。")
+	assert_eq(
+		chain[0],
+		ChildScriptForTest,
+		"继承链第一项应是输入脚本。"
+	)
+	assert_true(
+		chain.has(BaseScriptForTest),
+		"继承链应包含父脚本。"
+	)

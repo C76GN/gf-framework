@@ -122,6 +122,8 @@ static func get_inverse_transform(transform: int) -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param cell: 原始局部格坐标，通常位于 `[0, size)`。
 ## [br]
 ## @param source_size: 原始矩形尺寸。
@@ -129,7 +131,11 @@ static func get_inverse_transform(transform: int) -> int:
 ## @param transform: Transform 枚举值。
 ## [br]
 ## @return 变换后的局部格坐标。
-static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transform: int) -> Vector2i:
+static func transform_local_cell(
+	cell: Vector2i,
+	source_size: Vector2i,
+	transform: int
+) -> Vector2i:
 	if not _is_size_positive(source_size) or not is_transform_valid(transform):
 		return cell
 
@@ -139,19 +145,37 @@ static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transfor
 		Transform.IDENTITY:
 			return cell
 		Transform.ROTATE_90:
-			return Vector2i(max_y - cell.y, cell.x)
+			return Vector2i(
+				max_y - cell.y,
+				cell.x
+			)
 		Transform.ROTATE_180:
-			return Vector2i(max_x - cell.x, max_y - cell.y)
+			return Vector2i(
+				max_x - cell.x,
+				max_y - cell.y
+			)
 		Transform.ROTATE_270:
-			return Vector2i(cell.y, max_x - cell.x)
+			return Vector2i(
+				cell.y,
+				max_x - cell.x
+			)
 		Transform.MIRROR_X:
-			return Vector2i(max_x - cell.x, cell.y)
+			return Vector2i(
+				max_x - cell.x,
+				cell.y
+			)
 		Transform.MIRROR_Y:
-			return Vector2i(cell.x, max_y - cell.y)
+			return Vector2i(
+				cell.x,
+				max_y - cell.y
+			)
 		Transform.DIAGONAL_MAIN:
 			return Vector2i(cell.y, cell.x)
 		Transform.DIAGONAL_ANTI:
-			return Vector2i(max_y - cell.y, max_x - cell.x)
+			return Vector2i(
+				max_y - cell.y,
+				max_x - cell.x
+			)
 	return cell
 
 
@@ -177,7 +201,11 @@ static func transform_cell(
 	if not _is_size_positive(source_rect.size) or not is_transform_valid(transform):
 		return cell
 	var local_cell: Vector2i = cell - source_rect.position
-	return target_origin + transform_local_cell(local_cell, source_rect.size, transform)
+	return target_origin + transform_local_cell(
+		local_cell,
+		source_rect.size,
+		transform
+	)
 
 
 ## 批量变换矩形内的全局格坐标。
@@ -201,7 +229,14 @@ static func transform_cells(
 ) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	for cell: Vector2i in cells:
-		result.append(transform_cell(cell, source_rect, transform, target_origin))
+		result.append(
+			transform_cell(
+				cell,
+				source_rect,
+				transform,
+				target_origin
+			)
+		)
 	return result
 
 
@@ -247,6 +282,8 @@ static func transform_cardinal_direction(direction: Vector2i, transform: int) ->
 ## [br]
 ## @api public
 ## [br]
+## @since 3.21.0
+## [br]
 ## @param point: 原始局部坐标，通常位于 `[0, size]`。
 ## [br]
 ## @param source_size: 原始矩形尺寸。
@@ -254,7 +291,11 @@ static func transform_cardinal_direction(direction: Vector2i, transform: int) ->
 ## @param transform: Transform 枚举值。
 ## [br]
 ## @return 变换后的局部坐标。
-static func transform_local_point(point: Vector2, source_size: Vector2, transform: int) -> Vector2:
+static func transform_local_point(
+	point: Vector2,
+	source_size: Vector2,
+	transform: int
+) -> Vector2:
 	if not _is_vector_size_positive(source_size) or not is_transform_valid(transform):
 		return point
 
@@ -262,19 +303,37 @@ static func transform_local_point(point: Vector2, source_size: Vector2, transfor
 		Transform.IDENTITY:
 			return point
 		Transform.ROTATE_90:
-			return Vector2(source_size.y - point.y, point.x)
+			return Vector2(
+				source_size.y - point.y,
+				point.x
+			)
 		Transform.ROTATE_180:
-			return Vector2(source_size.x - point.x, source_size.y - point.y)
+			return Vector2(
+				source_size.x - point.x,
+				source_size.y - point.y
+			)
 		Transform.ROTATE_270:
-			return Vector2(point.y, source_size.x - point.x)
+			return Vector2(
+				point.y,
+				source_size.x - point.x
+			)
 		Transform.MIRROR_X:
-			return Vector2(source_size.x - point.x, point.y)
+			return Vector2(
+				source_size.x - point.x,
+				point.y
+			)
 		Transform.MIRROR_Y:
-			return Vector2(point.x, source_size.y - point.y)
+			return Vector2(
+				point.x,
+				source_size.y - point.y
+			)
 		Transform.DIAGONAL_MAIN:
 			return Vector2(point.y, point.x)
 		Transform.DIAGONAL_ANTI:
-			return Vector2(source_size.y - point.y, source_size.x - point.x)
+			return Vector2(
+				source_size.y - point.y,
+				source_size.x - point.x
+			)
 	return point
 
 
@@ -300,7 +359,11 @@ static func transform_point(
 	if not _is_vector_size_positive(source_rect.size) or not is_transform_valid(transform):
 		return point
 	var local_point: Vector2 = point - source_rect.position
-	return target_origin + transform_local_point(local_point, source_rect.size, transform)
+	return target_origin + transform_local_point(
+		local_point,
+		source_rect.size,
+		transform
+	)
 
 
 # --- 私有/辅助方法 ---

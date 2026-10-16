@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTransform3DMath" path="addons/gf/standard/foundation/math/gf_transform_3d_math.gd" module="standard" extends="RefCounted" classDigest="5f815d3f3420608f01a076ceba2598563a10670255da2ea9d6113eed23dd0064">
+<class name="GFTransform3DMath" path="addons/gf/standard/foundation/math/gf_transform_3d_math.gd" module="standard" extends="RefCounted" classDigest="0e0f1e297c1c6be4d231d02c5714cf42a41cd9c37d297a6944a30a5b7ed81570">
 	<description>GFTransform3DMath: 通用 3D Transform 纯数学工具。
 提供点、方向与 Transform3D 的平面反射、射线平面命中、表面吸附和锚点对齐计算。
 它不创建节点、不处理镜面渲染，也不决定相机、材质、Portal、关卡编辑器或放置工具的业务语义。</description>
@@ -45,7 +45,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="reflect_point">
-			<signature>static func reflect_point(point: Vector3, plane_normal: Vector3, plane_point: Vector3) -&gt; Vector3:</signature>
+			<signature>static func reflect_point( point: Vector3, plane_normal: Vector3, plane_point: Vector3 ) -&gt; Vector3:</signature>
 			<description>将点按指定平面反射。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -98,7 +98,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_basis_from_up_and_z_hint">
-			<signature>static func make_basis_from_up_and_z_hint( up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK ) -&gt; Basis:</signature>
+			<signature>static func make_basis_from_up_and_z_hint(up_axis: Vector3, z_axis_hint: Vector3 = Vector3.BACK) -&gt; Basis:</signature>
 			<description>用目标 Y 轴和候选 Z 轴构建稳定正交 basis。
 适合把物体局部 Y 轴贴合表面法线，同时尽量保持原本局部 Z 轴朝向。
 z_axis_hint 与 up_axis 近似平行时，会自动选择稳定的兜底轴。</description>
@@ -111,7 +111,7 @@ z_axis_hint 与 up_axis 近似平行时，会自动选择稳定的兜底轴。</
 			</tags>
 		</member>
 		<member kind="method" name="apply_scale_axis_mode">
-			<signature>static func apply_scale_axis_mode( weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM ) -&gt; Vector3:</signature>
+			<signature>static func apply_scale_axis_mode(weight: Vector3, mode: ScaleAxisMode = ScaleAxisMode.UNIFORM) -&gt; Vector3:</signature>
 			<description>按轴向锁定模式归一 3D 缩放插值权重。
 该方法只处理权重复制关系，不钳制 0 到 1 范围；调用方可以用超出范围的权重做外插。
 输入包含非有限数时返回 Vector3.ZERO。</description>

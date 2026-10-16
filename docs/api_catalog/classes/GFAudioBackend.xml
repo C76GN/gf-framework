@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="355e4aa3cbc7d039d343284871806b84357c080182537253df8edaa67c22318b">
+<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="e019c1a82f73e3592828b6999840c72cbaf709ec0933f84023e573dd767e5043">
 	<description>GFAudioBackend: GFAudioUtility 的可插拔音频后端协议。
 默认实现不处理任何请求。项目或扩展可继承它，把部分音频事件转交给
 外部中间件、平台接口或自定义混音系统；未声明可处理的请求会回退到 Godot 默认播放器。</description>
@@ -54,7 +54,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="can_handle_path">
-			<signature>func can_handle_path(_path: String, _channel: StringName, _context: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func can_handle_path( _path: String, _channel: StringName, _context: Dictionary = {} ) -&gt; bool:</signature>
 			<description>判断后端是否可处理指定资源路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -63,10 +63,11 @@
 				<tag name="param">_context: 请求上下文。</tag>
 				<tag name="return">可处理时返回 true。</tag>
 				<tag name="schema">_context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_handle_clip">
-			<signature>func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func can_handle_clip( _clip: GFAudioClip, _channel: StringName, _context: Dictionary = {} ) -&gt; bool:</signature>
 			<description>判断后端是否可处理指定音频片段。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -75,6 +76,7 @@
 				<tag name="param">_context: 请求上下文。</tag>
 				<tag name="return">可处理时返回 true。</tag>
 				<tag name="schema">_context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="evaluate_playback_region">
@@ -181,7 +183,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="play_ambient_path">
-			<signature>func play_ambient_path(_path: String, _channel: StringName = &amp;"default", _options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func play_ambient_path( _path: String, _channel: StringName = &amp;"default", _options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>播放环境音路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -190,10 +192,11 @@
 				<tag name="param">_options: 请求选项。</tag>
 				<tag name="return">已处理返回 true。</tag>
 				<tag name="schema">_options: 请求选项 Dictionary；常见字段包含 volume_db、pitch_scale、fade_seconds 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_ambient_clip">
-			<signature>func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &amp;"default", _options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func play_ambient_clip( _clip: GFAudioClip, _channel: StringName = &amp;"default", _options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>播放环境音 Clip。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -340,7 +343,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_bus_volume_db">
-			<signature>func set_bus_volume_db(_bus_name: String, _volume_db: float, _transition_seconds: float = 0.0) -&gt; bool:</signature>
+			<signature>func set_bus_volume_db( _bus_name: String, _volume_db: float, _transition_seconds: float = 0.0 ) -&gt; bool:</signature>
 			<description>设置总线 dB 音量。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -348,6 +351,7 @@
 				<tag name="param">_volume_db: dB 音量。</tag>
 				<tag name="param">_transition_seconds: 平滑过渡秒数。</tag>
 				<tag name="return">已处理返回 true。</tag>
+				<tag name="since">3.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_bus_mute">

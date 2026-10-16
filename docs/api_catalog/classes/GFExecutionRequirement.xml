@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExecutionRequirement" path="addons/gf/standard/common/gf_execution_requirement.gd" module="standard" extends="RefCounted" classDigest="0cabfa591104a967fdec3326a3c54c9e6b6a6c6357d9ebd0af608ce99da45748">
+<class name="GFExecutionRequirement" path="addons/gf/standard/common/gf_execution_requirement.gd" module="standard" extends="RefCounted" classDigest="bfb79795caa5c6dc1254b820dbf1b09413270b701b68e02bd10a1f9af65f4b59">
 	<description>GFExecutionRequirement: 通用执行条件集合。
 用于在任务、系统、工具按钮或资源流程执行前统一评估一组声明式条件。
 它只读取调用方传入的 context 字典和可选谓词，不绑定具体调度器或业务系统。</description>
@@ -102,7 +102,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_predicate">
-			<signature>func add_predicate(condition_id: StringName, predicate: Callable, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_predicate( condition_id: StringName, predicate: Callable, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加 Callable 谓词条件。谓词签名为 `(context: Dictionary) -&gt; bool|Dictionary`。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -133,7 +133,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_presence">
-			<signature>func add_presence(condition_id: StringName, key: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_presence( condition_id: StringName, key: Variant, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加 context key 存在性条件。</description>
 			<tags>
 				<tag name="api">public</tag>

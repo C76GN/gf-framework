@@ -45,7 +45,11 @@ var _amount: int = 0
 
 # --- Godot 生命周期方法 ---
 
-func _init(stack_item_id: StringName = &"", stack_amount: int = 0, stack_instance_data: Dictionary = {}) -> void:
+func _init(
+	stack_item_id: StringName = &"",
+	stack_amount: int = 0,
+	stack_instance_data: Dictionary = {}
+) -> void:
 	item_id = stack_item_id
 	amount = stack_amount
 	instance_data = stack_instance_data.duplicate(true)
@@ -85,7 +89,10 @@ func get_stack_limit(registry: GFInventoryItemRegistry = null) -> int:
 func get_available_space(registry: GFInventoryItemRegistry = null) -> int:
 	if is_empty():
 		return get_stack_limit(registry)
-	return maxi(get_stack_limit(registry) - amount, 0)
+	return maxi(
+		get_stack_limit(registry) - amount,
+		0
+	)
 
 
 ## 检查是否可与指定物品实例合并。
@@ -112,7 +119,11 @@ func can_merge(
 		return false
 	if registry == null:
 		return instance_data == target_instance_data
-	return registry.are_instance_data_compatible(item_id, instance_data, target_instance_data)
+	return registry.are_instance_data_compatible(
+		item_id,
+		instance_data,
+		target_instance_data
+	)
 
 
 ## 增加数量并返回未加入的剩余数量。
@@ -127,7 +138,10 @@ func can_merge(
 func add_amount(quantity: int, registry: GFInventoryItemRegistry = null) -> int:
 	if quantity <= 0 or is_empty():
 		return maxi(quantity, 0)
-	var accepted: int = mini(quantity, get_available_space(registry))
+	var accepted: int = mini(
+		quantity,
+		get_available_space(registry)
+	)
 	amount += accepted
 	return quantity - accepted
 
@@ -164,7 +178,11 @@ func clear() -> void:
 ## [br]
 ## @return: 新堆叠资源。
 func duplicate_stack() -> GFInventoryStack:
-	return GFInventoryStack.new(item_id, amount, instance_data)
+	return GFInventoryStack.new(
+		item_id,
+		amount,
+		instance_data
+	)
 
 
 ## 转换为字典。
@@ -192,8 +210,16 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，可包含 item_id、amount 与 instance_data。
 func apply_dict(data: Dictionary) -> void:
-	item_id = GFVariantData.get_option_string_name(data, "item_id", item_id)
-	amount = GFVariantData.get_option_int(data, "amount", amount)
+	item_id = GFVariantData.get_option_string_name(
+		data,
+		"item_id",
+		item_id
+	)
+	amount = GFVariantData.get_option_int(
+		data,
+		"amount",
+		amount
+	)
 	instance_data = GFVariantData.get_option_dictionary(data, "instance_data")
 	if amount <= 0:
 		clear()

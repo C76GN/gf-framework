@@ -134,8 +134,18 @@ func to_dict() -> Dictionary:
 ## @schema data: Dictionary，可包含 source_path、subject_path、subject_kind 与 metadata 字段。
 func apply_dict(data: Dictionary) -> void:
 	source_path = _normalize_source_path(GFVariantData.get_option_string(data, "source_path"))
-	subject_path = NodePath(GFVariantData.get_option_string(data, "subject_path", "."))
-	subject_kind = GFVariantData.get_option_string_name(data, "subject_kind", &"")
+	subject_path = NodePath(
+		GFVariantData.get_option_string(
+			data,
+			"subject_path",
+			"."
+		)
+	)
+	subject_kind = GFVariantData.get_option_string_name(
+		data,
+		"subject_kind",
+		&""
+	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 

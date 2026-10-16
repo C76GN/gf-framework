@@ -10,20 +10,19 @@ class CompletedProvider extends GFSaveSectionProvider:
 	var latest_snapshot: GFSaveSectionSnapshot = null
 	var latest_operation: GFSaveSectionSnapshotOperation = null
 
-	func _begin_save_snapshot(
-		_context: Dictionary = {}
-	) -> GFSaveSectionSnapshotOperation:
+	func _begin_save_snapshot(_context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
 		begin_call_count += 1
 		if clock != null and begin_advance_msec > 0:
 			var _advanced: bool = clock.advance_msec(begin_advance_msec)
-		latest_snapshot = make_snapshot({"value": begin_call_count})
+		latest_snapshot = make_snapshot({ "value": begin_call_count })
 		latest_operation = GFSaveSectionSnapshotOperation.completed(latest_snapshot)
 		if utility_to_dispose != null:
 			utility_to_dispose.dispose()
 		return latest_operation
 
+
 	func _capture_section(_context: Dictionary = {}) -> GFSaveSection:
-		return make_section({"value": begin_call_count})
+		return make_section({ "value": begin_call_count })
 
 
 class TimedStorage extends GFStorageUtility:
@@ -52,11 +51,13 @@ class TimedStorage extends GFStorageUtility:
 		save_call_count += 1
 		latest_transfer = transfer
 		var attempt: Dictionary = (
-			transfer.begin_attempt_for_framework(
-				get_instance_id(),
-				file_name,
-				_get_async_file_key(file_name),
-				_get_codec_options()
+			(
+				transfer.begin_attempt_for_framework(
+					get_instance_id(),
+					file_name,
+					_get_async_file_key(file_name),
+					_get_codec_options()
+				)
 			)
 			if transfer != null
 			else {}
@@ -76,11 +77,13 @@ class TimedStorage extends GFStorageUtility:
 			pending_operations.append(operation)
 		return operation
 
+
 	func get_request_ids() -> PackedInt64Array:
 		var result: PackedInt64Array = PackedInt64Array()
 		for operation: GFStorageAsyncOperation in pending_operations:
 			var _appended: bool = result.append(operation.get_request_id())
 		return result
+
 
 	func complete_request(request_id: int, error_code: Error = OK) -> bool:
 		for index: int in range(pending_operations.size()):
@@ -92,20 +95,17 @@ class TimedStorage extends GFStorageUtility:
 			return true
 		return false
 
+
 	func complete_all(error_code: Error = ERR_UNAVAILABLE) -> void:
 		while not pending_operations.is_empty():
 			var operation: GFStorageAsyncOperation = pending_operations.pop_front()
 			_complete(operation, error_code)
 
-	func _complete(
-		operation: GFStorageAsyncOperation,
-		error_code: Error
-	) -> void:
+
+	func _complete(operation: GFStorageAsyncOperation, error_code: Error) -> void:
 		var _finished: bool = operation.finish_payload_attempt_for_framework()
 		var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
-		var write_failure_kind: GFStorageAsyncResult.WriteFailureKind = (
-			_resolve_write_failure_kind(error_code)
-		)
+		var write_failure_kind: GFStorageAsyncResult.WriteFailureKind = _resolve_write_failure_kind(error_code)
 		var _configured: bool = result.configure_for_framework(
 			operation.get_request_id(),
 			operation.get_operation(),
@@ -117,9 +117,8 @@ class TimedStorage extends GFStorageUtility:
 		)
 		var _completed: bool = operation.complete_for_framework(result)
 
-	static func _resolve_write_failure_kind(
-		error_code: Error
-	) -> GFStorageAsyncResult.WriteFailureKind:
+
+	static func _resolve_write_failure_kind(error_code: Error) -> GFStorageAsyncResult.WriteFailureKind:
 		if error_code == OK:
 			return GFStorageAsyncResult.WriteFailureKind.NONE
 		match error_code:
@@ -159,17 +158,26 @@ func after_each() -> void:
 func test_many_idle_profiles_only_schedule_the_requested_profile() -> void:
 	var idle_providers: Array[CompletedProvider] = []
 	for index: int in range(256):
-		var provider: CompletedProvider = _make_provider(
-			StringName("idle_%d" % index)
-		)
+		var provider: CompletedProvider = _make_provider(StringName("idle_%d" % index))
 		idle_providers.append(provider)
-		assert_true(_register(_make_profile(
-			StringName("test.scheduler_idle_%d" % index),
-			[provider]
-		)))
+		assert_true(
+			_register(
+				_make_profile(
+					StringName("test.scheduler_idle_%d" % index),
+					[provider]
+				)
+			)
+		)
 	var target_provider: CompletedProvider = _make_provider(&"target")
 	var target_id: StringName = &"test.scheduler_target"
-	assert_true(_register(_make_profile(target_id, [target_provider])))
+	assert_true(
+		_register(
+			_make_profile(
+				target_id,
+				[target_provider]
+			)
+		)
+	)
 	_utility.save_preparation_work_budget_per_tick = 1
 	_utility.save_preparation_slice_budget = 1
 
@@ -196,9 +204,7 @@ func test_provider_scan_charges_disabled_entries_begin_and_finalize() -> void:
 	var providers: Array[GFSaveSectionProvider] = []
 	var disabled_providers: Array[CompletedProvider] = []
 	for index: int in range(12):
-		var disabled: CompletedProvider = _make_provider(
-			StringName("disabled_%d" % index)
-		)
+		var disabled: CompletedProvider = _make_provider(StringName("disabled_%d" % index))
 		disabled.save_enabled = false
 		disabled.required_on_load = false
 		disabled_providers.append(disabled)
@@ -224,32 +230,55 @@ func test_provider_scan_charges_disabled_entries_begin_and_finalize() -> void:
 		)
 		assert_eq(target.begin_call_count, 0)
 	_utility.tick(0.0)
-	assert_eq(target.begin_call_count, 0, "选择可用 Provider 本身应单独计费。")
+	assert_eq(
+		target.begin_call_count,
+		0,
+		"选择可用 Provider 本身应单独计费。"
+	)
 	_utility.tick(0.0)
-	assert_eq(target.begin_call_count, 1, "Provider begin 应单独计费。")
+	assert_eq(
+		target.begin_call_count,
+		1,
+		"Provider begin 应单独计费。"
+	)
 	assert_eq(_storage.save_call_count, 0)
 	_utility.tick(0.0)
-	assert_eq(_storage.save_call_count, 1, "Finalize 应单独计费后才可进入 Storage。")
+	assert_eq(
+		_storage.save_call_count,
+		1,
+		"Finalize 应单独计费后才可进入 Storage。"
+	)
 	for disabled: CompletedProvider in disabled_providers:
 		assert_eq(disabled.begin_call_count, 0)
 	assert_true(_storage.complete_request(1))
-	assert_eq(operation.get_result().get_preparation_work_units(), 15)
+	assert_eq(
+		operation.get_result().get_preparation_work_units(),
+		15
+	)
 
 
 func test_begin_callback_dispose_cancels_returned_snapshot() -> void:
 	var provider: CompletedProvider = _make_provider(&"reentrant")
 	provider.utility_to_dispose = _utility
-	assert_true(_register(_make_profile(&"test.scheduler_dispose_begin", [provider])))
+	assert_true(
+		_register(
+			_make_profile(
+				&"test.scheduler_dispose_begin",
+				[provider]
+			)
+		)
+	)
 	_utility.save_preparation_work_budget_per_tick = 2
 	_utility.save_preparation_slice_budget = 2
 
-	var operation: GFSaveProfileOperation = _utility.save_profile(
-		&"test.scheduler_dispose_begin"
-	)
+	var operation: GFSaveProfileOperation = _utility.save_profile(&"test.scheduler_dispose_begin")
 	_utility.tick(0.0)
 
 	assert_true(operation.is_completed())
-	assert_eq(operation.get_result().get_status(), GFSaveProfileResult.STATUS_DISPOSED)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileResult.STATUS_DISPOSED
+	)
 	assert_not_null(provider.latest_operation)
 	assert_eq(
 		provider.latest_operation.get_status(),
@@ -268,7 +297,14 @@ func test_clock_zero_tracks_preparation_and_storage_time() -> void:
 	provider.clock = _clock
 	provider.begin_advance_msec = 3
 	var profile_id: StringName = &"test.scheduler_clock_zero"
-	assert_true(_register(_make_profile(profile_id, [provider])))
+	assert_true(
+		_register(
+			_make_profile(
+				profile_id,
+				[provider]
+			)
+		)
+	)
 
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile_id)
 	_utility.tick(0.0)
@@ -278,17 +314,30 @@ func test_clock_zero_tracks_preparation_and_storage_time() -> void:
 
 	var result: GFSaveProfileResult = operation.get_result()
 	assert_true(result.is_successful())
-	assert_eq(result.get_preparation_duration_msec(), 3)
-	assert_eq(result.get_storage_duration_msec(), 7)
-	assert_eq(result.get_preparation_work_units(), 3)
+	assert_eq(
+		result.get_preparation_duration_msec(),
+		3
+	)
+	assert_eq(
+		result.get_storage_duration_msec(),
+		7
+	)
+	assert_eq(
+		result.get_preparation_work_units(),
+		3
+	)
 
 
 func test_profile_snapshot_reports_live_preparation_and_storage_time() -> void:
 	var profile_id: StringName = &"test.scheduler_live_timing"
-	assert_true(_register(_make_profile(
-		profile_id,
-		[_make_provider(&"state")]
-	)))
+	assert_true(
+		_register(
+			_make_profile(
+				profile_id,
+				[_make_provider(&"state")]
+			)
+		)
+	)
 	_utility.save_preparation_work_budget_per_tick = 1
 	_utility.save_preparation_slice_budget = 1
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile_id)
@@ -297,10 +346,7 @@ func test_profile_snapshot_reports_live_preparation_and_storage_time() -> void:
 	var _advanced_preparation: bool = _clock.advance_msec(4)
 	var preparing: Dictionary = _utility.get_profile_state_snapshot(profile_id)
 	assert_eq(
-		GFVariantData.get_option_int(
-			preparing,
-			"preparation_duration_msec"
-		),
+		GFVariantData.get_option_int(preparing, "preparation_duration_msec"),
 		4
 	)
 	assert_eq(
@@ -314,10 +360,7 @@ func test_profile_snapshot_reports_live_preparation_and_storage_time() -> void:
 	var _advanced_storage: bool = _clock.advance_msec(6)
 	var saving: Dictionary = _utility.get_profile_state_snapshot(profile_id)
 	assert_eq(
-		GFVariantData.get_option_int(
-			saving,
-			"preparation_duration_msec"
-		),
+		GFVariantData.get_option_int(saving, "preparation_duration_msec"),
 		4
 	)
 	assert_eq(
@@ -332,7 +375,14 @@ func test_profile_snapshot_reports_live_preparation_and_storage_time() -> void:
 func test_synchronous_storage_admission_is_timed_and_finalize_is_charged() -> void:
 	var provider: CompletedProvider = _make_provider(&"sync")
 	var profile_id: StringName = &"test.scheduler_sync_storage"
-	assert_true(_register(_make_profile(profile_id, [provider])))
+	assert_true(
+		_register(
+			_make_profile(
+				profile_id,
+				[provider]
+			)
+		)
+	)
 	_storage.complete_synchronously = true
 	_storage.admission_advance_msec = 6
 
@@ -341,8 +391,14 @@ func test_synchronous_storage_admission_is_timed_and_finalize_is_charged() -> vo
 
 	var result: GFSaveProfileResult = operation.get_result()
 	assert_true(result.is_successful())
-	assert_eq(result.get_storage_duration_msec(), 6)
-	assert_eq(result.get_preparation_work_units(), 3)
+	assert_eq(
+		result.get_storage_duration_msec(),
+		6
+	)
+	assert_eq(
+		result.get_preparation_work_units(),
+		3
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(
 			_utility.get_profile_state_snapshot(profile_id),
@@ -354,11 +410,15 @@ func test_synchronous_storage_admission_is_timed_and_finalize_is_charged() -> vo
 
 func test_detached_tail_is_counted_while_retry_is_pending() -> void:
 	var profile_id: StringName = &"test.scheduler_detached_tail"
-	assert_true(_register(_make_profile(
-		profile_id,
-		[_make_provider(&"state")],
-		_make_retry_policy()
-	)))
+	assert_true(
+		_register(
+			_make_profile(
+				profile_id,
+				[_make_provider(&"state")],
+				_make_retry_policy()
+			)
+		)
+	)
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile_id)
 	_utility.tick(0.0)
 	var _advanced_timeout: bool = _clock.advance_msec(10)
@@ -369,24 +429,37 @@ func test_detached_tail_is_counted_while_retry_is_pending() -> void:
 
 	var result: GFSaveProfileResult = operation.get_result()
 	assert_true(result.is_successful())
-	assert_eq(result.get_storage_duration_msec(), 14)
-	assert_eq(result.get_attempt_count(), 1)
+	assert_eq(
+		result.get_storage_duration_msec(),
+		14
+	)
+	assert_eq(
+		result.get_attempt_count(),
+		1
+	)
 
 
 func test_detached_success_counts_overlap_without_late_result_rewrite() -> void:
 	var profile_id: StringName = &"test.scheduler_detached_overlap"
-	assert_true(_register(_make_profile(
-		profile_id,
-		[_make_provider(&"state")],
-		_make_retry_policy()
-	)))
+	assert_true(
+		_register(
+			_make_profile(
+				profile_id,
+				[_make_provider(&"state")],
+				_make_retry_policy()
+			)
+		)
+	)
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile_id)
 	_utility.tick(0.0)
 	var _advanced_timeout: bool = _clock.advance_msec(10)
 	_utility.tick(0.0)
 	var _advanced_retry_wait: bool = _clock.advance_msec(5)
 	_utility.tick(0.0)
-	assert_eq(_storage.get_request_ids(), PackedInt64Array([1, 2]))
+	assert_eq(
+		_storage.get_request_ids(),
+		PackedInt64Array([1, 2])
+	)
 	var _advanced_overlap: bool = _clock.advance_msec(3)
 	var live_snapshot: Dictionary = _utility.get_profile_state_snapshot(profile_id)
 	assert_eq(
@@ -398,27 +471,43 @@ func test_detached_success_counts_overlap_without_late_result_rewrite() -> void:
 
 	var result: GFSaveProfileResult = operation.get_result()
 	assert_true(result.is_successful())
-	assert_eq(result.get_attempt_count(), 2)
-	assert_eq(result.get_storage_duration_msec(), 21)
-	assert_eq(result.get_storage_request_ids(), PackedInt64Array([1, 2]))
+	assert_eq(
+		result.get_attempt_count(),
+		2
+	)
+	assert_eq(
+		result.get_storage_duration_msec(),
+		21
+	)
+	assert_eq(
+		result.get_storage_request_ids(),
+		PackedInt64Array([1, 2])
+	)
 	assert_not_null(_storage.latest_transfer)
 	assert_eq(
 		_storage.latest_transfer.get_state(),
 		GFStoragePayloadTransfer.State.RELEASE_PENDING
 	)
 	assert_true(_storage.complete_request(2, ERR_BUSY))
-	assert_eq(operation.get_result().get_storage_duration_msec(), 21)
+	assert_eq(
+		operation.get_result().get_storage_duration_msec(),
+		21
+	)
 	assert_true(operation.get_result().is_successful())
 	assert_true(_storage.latest_transfer.is_released())
 
 
 func test_dispose_counts_detached_tail_and_active_retry_overlap() -> void:
 	var profile_id: StringName = &"test.scheduler_dispose_timing"
-	assert_true(_register(_make_profile(
-		profile_id,
-		[_make_provider(&"state")],
-		_make_retry_policy()
-	)))
+	assert_true(
+		_register(
+			_make_profile(
+				profile_id,
+				[_make_provider(&"state")],
+				_make_retry_policy()
+			)
+		)
+	)
 	var operation: GFSaveProfileOperation = _utility.save_profile(profile_id)
 	_utility.tick(0.0)
 	var _advanced_timeout: bool = _clock.advance_msec(10)
@@ -430,10 +519,22 @@ func test_dispose_counts_detached_tail_and_active_retry_overlap() -> void:
 	_utility.dispose()
 
 	var result: GFSaveProfileResult = operation.get_result()
-	assert_eq(result.get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
-	assert_eq(result.get_attempt_count(), 2)
-	assert_eq(result.get_storage_duration_msec(), 21)
-	assert_eq(result.get_storage_request_ids(), PackedInt64Array([1, 2]))
+	assert_eq(
+		result.get_status(),
+		GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN
+	)
+	assert_eq(
+		result.get_attempt_count(),
+		2
+	)
+	assert_eq(
+		result.get_storage_duration_msec(),
+		21
+	)
+	assert_eq(
+		result.get_storage_request_ids(),
+		PackedInt64Array([1, 2])
+	)
 	assert_eq(
 		_storage.latest_transfer.get_state(),
 		GFStoragePayloadTransfer.State.RELEASE_PENDING

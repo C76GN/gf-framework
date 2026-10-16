@@ -118,24 +118,57 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ## [br]
 ## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
 func validate_profile() -> Dictionary:
-	var report: Dictionary = {"issues": []}
+	var report: Dictionary = { "issues": [] }
 	if profile_id == &"" or String(profile_id) != String(profile_id).strip_edges():
-		_append_issue(report, &"invalid_profile_id", "Profile id must be non-empty and trimmed.", "profile_id")
+		_append_issue(
+			report,
+			&"invalid_profile_id",
+			"Profile id must be non-empty and trimmed.",
+			"profile_id"
+		)
 	if schema_id != &"" and String(schema_id) != String(schema_id).strip_edges():
-		_append_issue(report, &"invalid_schema_id", "Schema id must be empty or trimmed.", "schema_id")
+		_append_issue(
+			report,
+			&"invalid_schema_id",
+			"Schema id must be empty or trimmed.",
+			"schema_id"
+		)
 	if file_name.is_empty() or file_name != file_name.strip_edges():
-		_append_issue(report, &"invalid_file_name", "Profile file name must be non-empty and trimmed.", "file_name")
+		_append_issue(
+			report,
+			&"invalid_file_name",
+			"Profile file name must be non-empty and trimmed.",
+			"file_name"
+		)
 	if schema_version <= 0:
-		_append_issue(report, &"invalid_schema_version", "Profile schema version must be positive.", "schema_version")
+		_append_issue(
+			report,
+			&"invalid_schema_version",
+			"Profile schema version must be positive.",
+			"schema_version"
+		)
 	if providers.is_empty():
-		_append_issue(report, &"missing_providers", "Profile requires at least one section provider.", "providers")
+		_append_issue(
+			report,
+			&"missing_providers",
+			"Profile requires at least one section provider.",
+			"providers"
+		)
 	if not save_enabled and not load_enabled:
-		_append_issue(report, &"profile_disabled", "Profile must support save, load, or both.", "save_enabled")
-	if unknown_section_policy not in [
-		UNKNOWN_SECTION_REJECT,
-		UNKNOWN_SECTION_PRESERVE,
-		UNKNOWN_SECTION_DROP,
-	]:
+		_append_issue(
+			report,
+			&"profile_disabled",
+			"Profile must support save, load, or both.",
+			"save_enabled"
+		)
+	if (
+		unknown_section_policy
+		not in [
+			UNKNOWN_SECTION_REJECT,
+			UNKNOWN_SECTION_PRESERVE,
+			UNKNOWN_SECTION_DROP,
+		]
+	):
 		_append_issue(
 			report,
 			&"invalid_unknown_section_policy",
@@ -146,16 +179,29 @@ func validate_profile() -> Dictionary:
 	for index: int in range(providers.size()):
 		var provider: GFSaveSectionProvider = providers[index]
 		if provider == null:
-			_append_issue(report, &"missing_provider", "Profile provider is null.", "providers.%d" % index)
+			_append_issue(
+				report,
+				&"missing_provider",
+				"Profile provider is null.",
+				"providers.%d" % index
+			)
 			continue
-		_append_nested_issues(report, provider.validate_provider(), "providers.%d" % index)
-		if save_enabled and provider.required_on_load and not provider.save_enabled:
+		_append_nested_issues(
+			report,
+			provider.validate_provider(),
+			"providers.%d" % index
+		)
+		if (
+			save_enabled
+			and provider.required_on_load
+			and not provider.save_enabled
+		):
 			_append_issue(
 				report,
 				&"required_provider_not_saveable",
 				"A writable Profile must save every section required by its own schema.",
 				"providers.%d.save_enabled" % index,
-				{"section_id": provider.section_id}
+				{ "section_id": provider.section_id }
 			)
 		if provider.section_id != &"" and seen_ids.has(provider.section_id):
 			_append_issue(
@@ -163,31 +209,44 @@ func validate_profile() -> Dictionary:
 				&"duplicate_section_provider",
 				"Profile section ids must be unique.",
 				"providers.%d.section_id" % index,
-				{"section_id": provider.section_id}
+				{ "section_id": provider.section_id }
 			)
 		seen_ids[provider.section_id] = true
 	if recovery_policy == null:
-		_append_issue(report, &"missing_recovery_policy", "Profile recovery policy is required.", "recovery_policy")
+		_append_issue(
+			report,
+			&"missing_recovery_policy",
+			"Profile recovery policy is required.",
+			"recovery_policy"
+		)
 	else:
-		_append_nested_issues(report, recovery_policy.validate_policy(), "recovery_policy")
-	return GFValidationReportDictionary.finalize_report(report, "Save profile", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_profile_id": "Assign one stable non-empty trimmed runtime profile id.",
-			"invalid_schema_id": "Use an empty schema id or one stable trimmed schema id.",
-			"invalid_file_name": "Assign one owned storage-relative file name.",
-			"invalid_schema_version": "Use a positive current document version.",
-			"missing_providers": "Register at least one section owner.",
-			"missing_provider": "Remove null entries or provide a valid provider.",
-			"duplicate_section_provider": "Keep exactly one owner for each section id.",
-			"missing_recovery_policy": "Assign an explicit recovery policy.",
-			"profile_disabled": "Enable save, load, or both for the Profile.",
-			"invalid_unknown_section_policy": "Use reject, preserve, or drop.",
-			"required_provider_not_saveable": "Enable save or make the load section optional.",
-		},
-		"fallback_action": "Review the first save profile issue.",
-		"no_action": "Save profile is valid.",
-	})
+		_append_nested_issues(
+			report,
+			recovery_policy.validate_policy(),
+			"recovery_policy"
+		)
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save profile",
+		{
+			"include_issue_count": true,
+			"next_actions": {
+				"invalid_profile_id": "Assign one stable non-empty trimmed runtime profile id.",
+				"invalid_schema_id": "Use an empty schema id or one stable trimmed schema id.",
+				"invalid_file_name": "Assign one owned storage-relative file name.",
+				"invalid_schema_version": "Use a positive current document version.",
+				"missing_providers": "Register at least one section owner.",
+				"missing_provider": "Remove null entries or provide a valid provider.",
+				"duplicate_section_provider": "Keep exactly one owner for each section id.",
+				"missing_recovery_policy": "Assign an explicit recovery policy.",
+				"profile_disabled": "Enable save, load, or both for the Profile.",
+				"invalid_unknown_section_policy": "Use reject, preserve, or drop.",
+				"required_provider_not_saveable": "Enable save or make the load section optional.",
+			},
+			"fallback_action": "Review the first save profile issue.",
+			"no_action": "Save profile is valid.",
+		}
+	)
 
 
 ## 从当前 provider 清单派生文档 schema。
@@ -206,14 +265,13 @@ func build_schema() -> GFSaveDocumentSchema:
 		section_versions[provider.section_id] = provider.schema_version
 		if provider.load_enabled and provider.required_on_load:
 			var _appended: bool = required_sections.append(String(provider.section_id))
-	return GFSaveDocumentSchema.new().configure(
-		get_effective_schema_id(),
-		schema_version,
-		section_versions,
-		{
-			"required_sections": required_sections,
-			"allow_unknown_sections": unknown_section_policy != UNKNOWN_SECTION_REJECT,
-		}
+	return (
+		GFSaveDocumentSchema.new().configure(
+			get_effective_schema_id(),
+			schema_version,
+			section_versions,
+			{ "required_sections": required_sections, "allow_unknown_sections": unknown_section_policy != UNKNOWN_SECTION_REJECT, }
+		)
 	)
 
 
@@ -283,16 +341,35 @@ func _append_issue(
 ## [br]
 ## @api private
 ## [br]
-func _append_nested_issues(report: Dictionary, nested_report: Dictionary, prefix: String) -> void:
+func _append_nested_issues(
+	report: Dictionary,
+	nested_report: Dictionary,
+	prefix: String
+) -> void:
 	for issue_value: Variant in GFVariantData.get_option_array(nested_report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
 		var nested_path: String = GFVariantData.get_option_string(issue, "path")
 		var metadata: Dictionary = issue.duplicate(true)
-		metadata["path"] = prefix if nested_path.is_empty() else "%s.%s" % [prefix, nested_path]
+		metadata["path"] = prefix if nested_path.is_empty() else (
+			"%s.%s"
+			% [prefix, nested_path]
+		)
 		var _issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
-			GFVariantData.get_option_string(issue, "severity", "error"),
-			GFVariantData.get_option_string_name(issue, "kind", &"invalid_nested_value"),
-			GFVariantData.get_option_string(issue, "message", "Nested validation failed."),
+			GFVariantData.get_option_string(
+				issue,
+				"severity",
+				"error"
+			),
+			GFVariantData.get_option_string_name(
+				issue,
+				"kind",
+				&"invalid_nested_value"
+			),
+			GFVariantData.get_option_string(
+				issue,
+				"message",
+				"Nested validation failed."
+			),
 			metadata
 		)

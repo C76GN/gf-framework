@@ -34,7 +34,7 @@
 | 方法 | [`get_cache_key`](#member-gfassetcatalogentry-methods-get_cache_key) | `func get_cache_key() -> String:` |
 | 方法 | [`to_dict`](#member-gfassetcatalogentry-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`from_dict`](#member-gfassetcatalogentry-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFAssetCatalogEntry:` |
-| 方法 | [`from_resource_registry_entry`](#member-gfassetcatalogentry-methods-from_resource_registry_entry) | `static func from_resource_registry_entry( registry_entry: GFResourceRegistryEntry, options: Dictionary = {} ) -> GFAssetCatalogEntry:` |
+| 方法 | [`from_resource_registry_entry`](#member-gfassetcatalogentry-methods-from_resource_registry_entry) | `static func from_resource_registry_entry(registry_entry: GFResourceRegistryEntry, options: Dictionary = {}) -> GFAssetCatalogEntry:` |
 
 ## 属性
 
@@ -341,7 +341,7 @@ static func from_dict(data: Dictionary) -> GFAssetCatalogEntry:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func from_resource_registry_entry( registry_entry: GFResourceRegistryEntry, options: Dictionary = {} ) -> GFAssetCatalogEntry:
+static func from_resource_registry_entry(registry_entry: GFResourceRegistryEntry, options: Dictionary = {}) -> GFAssetCatalogEntry:
 ```
 
 从资源注册表条目创建资产条目。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="5d5430c2b5f43af9d0553770dbc9b0bedf38cb6a3ef27cec60b4b565b955e26f">
+<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="45d1d1c071859747069ee960f5ef968f783f915f5cadad40d8f2fa9aabb6a6b8">
 	<description>GFInputMappingUtility: 资源化输入上下文与动作映射运行时。
 负责把 Godot InputEvent 转换为项目定义的抽象动作状态，并支持上下文优先级、
 运行时重绑定、动作值查询和一次性触发消费。</description>
@@ -66,7 +66,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="player_action_value_changed">
-			<signature>signal player_action_value_changed(player_index: int, action_id: StringName, value: Variant)</signature>
+			<signature>signal player_action_value_changed( player_index: int, action_id: StringName, value: Variant )</signature>
 			<description>玩家动作值变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -74,10 +74,11 @@
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">value: 新动作值。</tag>
 				<tag name="schema">value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="player_action_started">
-			<signature>signal player_action_started(player_index: int, action_id: StringName, value: Variant)</signature>
+			<signature>signal player_action_started( player_index: int, action_id: StringName, value: Variant )</signature>
 			<description>玩家动作从非活跃变为活跃时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -85,10 +86,11 @@
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">value: 激活时的动作值。</tag>
 				<tag name="schema">value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="player_action_triggered">
-			<signature>signal player_action_triggered(player_index: int, action_id: StringName, value: Variant)</signature>
+			<signature>signal player_action_triggered( player_index: int, action_id: StringName, value: Variant )</signature>
 			<description>玩家动作活跃且收到匹配输入事件时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -96,10 +98,11 @@
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">value: 当前动作值。</tag>
 				<tag name="schema">value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="player_action_completed">
-			<signature>signal player_action_completed(player_index: int, action_id: StringName, value: Variant)</signature>
+			<signature>signal player_action_completed( player_index: int, action_id: StringName, value: Variant )</signature>
 			<description>玩家动作从活跃变为非活跃时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -107,6 +110,7 @@
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">value: 完成时的动作值。</tag>
 				<tag name="schema">value: Variant，根据动作值类型使用 bool、float、Vector2 或 Vector3。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -289,7 +293,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_virtual_source_snapshot_for_player">
-			<signature>func get_virtual_source_snapshot_for_player( source_id: StringName = &amp;"virtual", player_index: int = -1 ) -&gt; Dictionary:</signature>
+			<signature>func get_virtual_source_snapshot_for_player(source_id: StringName = &amp;"virtual", player_index: int = -1) -&gt; Dictionary:</signature>
 			<description>获取指定虚拟输入源与玩家身份的状态快照。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -466,27 +470,29 @@
 			</tags>
 		</member>
 		<member kind="method" name="unbind">
-			<signature>func unbind(context_id: StringName, action_id: StringName, binding_index: int) -&gt; void:</signature>
+			<signature>func unbind( context_id: StringName, action_id: StringName, binding_index: int ) -&gt; void:</signature>
 			<description>显式解绑某个绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context_id: 上下文标识。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">binding_index: 绑定索引。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_binding_override">
-			<signature>func clear_binding_override(context_id: StringName, action_id: StringName, binding_index: int) -&gt; void:</signature>
+			<signature>func clear_binding_override( context_id: StringName, action_id: StringName, binding_index: int ) -&gt; void:</signature>
 			<description>清除某个绑定覆盖。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context_id: 上下文标识。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="param">binding_index: 绑定索引。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_remappable_items">
-			<signature>func get_remappable_items( context_filter: StringName = &amp;"", display_category_filter: String = "" ) -&gt; Array[Dictionary]:</signature>
+			<signature>func get_remappable_items(context_filter: StringName = &amp;"", display_category_filter: String = "") -&gt; Array[Dictionary]:</signature>
 			<description>获取可重绑条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -494,6 +500,7 @@
 				<tag name="param">display_category_filter: 可选显示分类过滤。</tag>
 				<tag name="return">条目字典数组。</tag>
 				<tag name="schema">return: Array[Dictionary]，包含 context、context_id、mapping、action、action_id、binding、binding_index、display_name、display_category 和 event 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_input_state">

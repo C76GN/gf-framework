@@ -53,7 +53,11 @@ signal service_updated(service_key: String, record: Dictionary)
 ## @param reason: 移除原因。
 ## [br]
 ## @schema record: Dictionary with service_key, service_id, endpoint, display_name, tags, metadata, ttl_seconds, first_seen_seconds, last_seen_seconds, expires_at_seconds, remote_address, remote_port, and sequence.
-signal service_lost(service_key: String, record: Dictionary, reason: String)
+signal service_lost(
+	service_key: String,
+	record: Dictionary,
+	reason: String
+)
 
 
 # --- 常量 ---
@@ -160,7 +164,11 @@ func make_advertisement(
 	options: Dictionary = {}
 ) -> Dictionary:
 	var ttl_seconds: float = _normalize_positive_seconds(
-		GFVariantData.get_option_float(options, "ttl_seconds", default_ttl_seconds),
+		GFVariantData.get_option_float(
+			options,
+			"ttl_seconds",
+			default_ttl_seconds
+		),
 		default_ttl_seconds
 	)
 	return {
@@ -169,11 +177,21 @@ func make_advertisement(
 		"service_id": String(service_id).strip_edges(),
 		"endpoint": endpoint.strip_edges(),
 		"display_name": GFVariantData.get_option_string(options, "display_name"),
-		"tags": _normalize_tags(GFVariantData.get_option_value(options, "tags", PackedStringArray())),
+		"tags": _normalize_tags(
+			GFVariantData.get_option_value(
+				options,
+				"tags",
+				PackedStringArray()
+			)
+		),
 		"metadata": GFVariantData.to_dictionary(metadata),
 		"ttl_seconds": ttl_seconds,
 		"sequence": GFVariantData.get_option_int(options, "sequence"),
-		"time_msec": GFVariantData.get_option_int(options, "time_msec", Time.get_ticks_msec()),
+		"time_msec": GFVariantData.get_option_int(
+			options,
+			"time_msec",
+			Time.get_ticks_msec()
+		),
 	}
 
 
@@ -204,13 +222,25 @@ func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -
 	var endpoint: String = GFVariantData.get_option_string(normalized, "endpoint")
 	var service_key: String = make_service_key(service_id, endpoint)
 	var now_seconds: float = _normalize_now_seconds(
-		GFVariantData.get_option_float(options, "now_seconds", _elapsed_seconds)
+		GFVariantData.get_option_float(
+			options,
+			"now_seconds",
+			_elapsed_seconds
+		)
 	)
-	var ttl_seconds: float = GFVariantData.get_option_float(normalized, "ttl_seconds", default_ttl_seconds)
+	var ttl_seconds: float = GFVariantData.get_option_float(
+		normalized,
+		"ttl_seconds",
+		default_ttl_seconds
+	)
 	var existed: bool = _services.has(service_key)
 	var previous_record: Dictionary = GFVariantData.get_option_dictionary(_services, service_key)
 	if existed and _is_stale_advertisement(normalized, previous_record):
-		return _make_accept_report("ignored_stale", service_key, previous_record)
+		return _make_accept_report(
+			"ignored_stale",
+			service_key,
+			previous_record
+		)
 
 	var first_seen_seconds: float = GFVariantData.get_option_float(
 		previous_record,
@@ -229,11 +259,21 @@ func accept_advertisement(advertisement: Dictionary, options: Dictionary = {}) -
 	_services[service_key] = record
 	_service_expiry_deadlines[service_key] = _elapsed_seconds + ttl_seconds
 
-	var report: Dictionary = _make_accept_report("updated" if existed else "found", service_key, record)
+	var report: Dictionary = _make_accept_report(
+		"updated" if existed else "found",
+		service_key,
+		record
+	)
 	if existed:
-		service_updated.emit(service_key, record.duplicate(true))
+		service_updated.emit(
+			service_key,
+			record.duplicate(true)
+		)
 	else:
-		service_found.emit(service_key, record.duplicate(true))
+		service_found.emit(
+			service_key,
+			record.duplicate(true)
+		)
 	return report
 
 
@@ -266,11 +306,18 @@ func accept_packet(
 	if not GFVariantData.get_option_bool(decoded, "ok"):
 		return decoded
 
-	return accept_advertisement(GFVariantData.get_option_dictionary(decoded, "data"), {
-		"remote_address": remote_address,
-		"remote_port": remote_port,
-		"now_seconds": GFVariantData.get_option_float(options, "now_seconds", _elapsed_seconds),
-	})
+	return accept_advertisement(
+		GFVariantData.get_option_dictionary(decoded, "data"),
+		{
+			"remote_address": remote_address,
+			"remote_port": remote_port,
+			"now_seconds": GFVariantData.get_option_float(
+				options,
+				"now_seconds",
+				_elapsed_seconds
+			),
+		}
+	)
 
 
 ## 推进发现列表时间并移除过期服务。
@@ -281,7 +328,11 @@ func accept_packet(
 ## [br]
 ## @param delta: 本帧时间增量，单位秒。
 func tick(delta: float) -> void:
-	if delta <= 0.0 or is_nan(delta) or is_inf(delta):
+	if (
+		delta <= 0.0
+		or is_nan(delta)
+		or is_inf(delta)
+	):
 		return
 	_elapsed_seconds += delta
 	_prune_expired_services()
@@ -377,12 +428,14 @@ func clear_services(reason: String = "cleared") -> void:
 ## [br]
 ## @schema return: Dictionary with service_count, service_keys, default_ttl_seconds, and elapsed_seconds.
 func get_debug_snapshot() -> Dictionary:
-	return GFNetworkDebugTools.sanitize_debug_dictionary({
-		"service_count": _services.size(),
-		"service_keys": get_service_keys(),
-		"default_ttl_seconds": default_ttl_seconds,
-		"elapsed_seconds": _elapsed_seconds,
-	})
+	return GFNetworkDebugTools.sanitize_debug_dictionary(
+		{
+			"service_count": _services.size(),
+			"service_keys": get_service_keys(),
+			"default_ttl_seconds": default_ttl_seconds,
+			"elapsed_seconds": _elapsed_seconds,
+		}
+	)
 
 
 ## 编码服务广告为 UTF-8 JSON bytes。
@@ -402,22 +455,36 @@ func get_debug_snapshot() -> Dictionary:
 ## @schema options: Dictionary with json_codec_options, max_advertisement_bytes, max_metadata_depth, and max_metadata_entries.
 static func encode_advertisement(advertisement: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 	var validation: Dictionary = validate_advertisement(advertisement, options)
-	if not GFVariantData.get_option_bool(validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		push_error(
-			"[GFNetworkServiceDiscovery][network_service_discovery.advertisement_encoding_failed] Advertisement encoding failed: %s." %
-			GFVariantData.get_option_string(validation, "error", "invalid_advertisement")
+			"[GFNetworkServiceDiscovery][network_service_discovery.advertisement_encoding_failed] Advertisement encoding failed: %s."
+			% GFVariantData.get_option_string(
+				validation,
+				"error",
+				"invalid_advertisement"
+			)
 		)
 		return PackedByteArray()
 	var codec_options: Dictionary = GFVariantData.get_option_dictionary(options, "json_codec_options")
 	var normalized: Dictionary = GFVariantData.get_option_dictionary(validation, "data")
-	var encoded: PackedByteArray = GFVariantJsonCodec.stringify_json_compatible(
-		normalized,
-		"",
-		false,
-		codec_options
-	).to_utf8_buffer()
+	var encoded: PackedByteArray = (
+		GFVariantJsonCodec.stringify_json_compatible(
+			normalized,
+			"",
+			false,
+			codec_options
+		).to_utf8_buffer()
+	)
 	var max_advertisement_bytes: int = maxi(
-		GFVariantData.get_option_int(options, "max_advertisement_bytes", _DEFAULT_MAX_ADVERTISEMENT_BYTES),
+		GFVariantData.get_option_int(
+			options,
+			"max_advertisement_bytes",
+			_DEFAULT_MAX_ADVERTISEMENT_BYTES
+		),
 		1
 	)
 	if encoded.size() > max_advertisement_bytes:
@@ -445,7 +512,11 @@ static func decode_advertisement(bytes: PackedByteArray, options: Dictionary = {
 	if bytes.is_empty():
 		return _make_failure("empty_bytes", "Provide non-empty advertisement bytes.")
 	var max_advertisement_bytes: int = maxi(
-		GFVariantData.get_option_int(options, "max_advertisement_bytes", _DEFAULT_MAX_ADVERTISEMENT_BYTES),
+		GFVariantData.get_option_int(
+			options,
+			"max_advertisement_bytes",
+			_DEFAULT_MAX_ADVERTISEMENT_BYTES
+		),
 		1
 	)
 	if bytes.size() > max_advertisement_bytes:
@@ -454,7 +525,10 @@ static func decode_advertisement(bytes: PackedByteArray, options: Dictionary = {
 	var json: JSON = JSON.new()
 	var error: Error = json.parse(bytes.get_string_from_utf8())
 	if error != OK:
-		return _make_failure("invalid_json", json.get_error_message())
+		return _make_failure(
+			"invalid_json",
+			json.get_error_message()
+		)
 
 	var codec_options: Dictionary = GFVariantData.get_option_dictionary(options, "json_codec_options")
 	var decoded: Variant = GFVariantJsonCodec.json_compatible_to_variant(json.data, codec_options)
@@ -483,7 +557,11 @@ static func decode_advertisement(bytes: PackedByteArray, options: Dictionary = {
 ## @schema return: Dictionary with ok, data, error, issues, issue_count, and next_action.
 static func validate_advertisement(advertisement: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var issues: Array[Dictionary] = []
-	var normalized: Dictionary = _normalize_advertisement(advertisement, issues, options)
+	var normalized: Dictionary = _normalize_advertisement(
+		advertisement,
+		issues,
+		options
+	)
 	if not issues.is_empty():
 		var first_issue: Dictionary = issues[0]
 		return {
@@ -521,7 +599,10 @@ static func validate_advertisement(advertisement: Dictionary, options: Dictionar
 static func make_service_key(service_id: StringName, endpoint: String) -> String:
 	var service_text: String = String(service_id).strip_edges()
 	var endpoint_text: String = GFNetworkDebugTools.sanitize_endpoint(endpoint.strip_edges())
-	return "%s@%s" % [service_text, endpoint_text.sha256_text()]
+	return (
+		"%s@%s"
+		% [service_text, endpoint_text.sha256_text()]
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -535,8 +616,16 @@ static func _normalize_advertisement(
 	issues: Array[Dictionary],
 	options: Dictionary
 ) -> Dictionary:
-	var metadata_value: Variant = GFVariantData.get_option_value(advertisement, "metadata", {})
-	var tags_value: Variant = GFVariantData.get_option_value(advertisement, "tags", PackedStringArray())
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		advertisement,
+		"metadata",
+		{}
+	)
+	var tags_value: Variant = GFVariantData.get_option_value(
+		advertisement,
+		"tags",
+		PackedStringArray()
+	)
 	var kind: String = GFVariantData.get_option_string(advertisement, "kind")
 	var schema_version: int = GFVariantData.get_option_int(advertisement, "schema_version")
 	var service_id: StringName = GFVariantData.get_option_string_name(advertisement, "service_id")
@@ -544,33 +633,59 @@ static func _normalize_advertisement(
 	var ttl_seconds: float = GFVariantData.get_option_float(advertisement, "ttl_seconds")
 
 	if kind != MESSAGE_KIND:
-		issues.append(_make_issue("invalid_kind", "Advertisement kind must be %s." % MESSAGE_KIND))
+		issues.append(
+			_make_issue(
+				"invalid_kind",
+				"Advertisement kind must be %s." % MESSAGE_KIND
+			)
+		)
 	if schema_version != SCHEMA_VERSION:
 		issues.append(_make_issue("unsupported_schema_version", "Advertisement schema_version is not supported."))
 	if service_id == &"":
 		issues.append(_make_issue("missing_service_id", "Advertisement service_id must be non-empty."))
 	if endpoint.is_empty():
 		issues.append(_make_issue("missing_endpoint", "Advertisement endpoint must be non-empty."))
-	if ttl_seconds <= 0.0 or is_nan(ttl_seconds) or is_inf(ttl_seconds):
+	if (
+		ttl_seconds <= 0.0
+		or is_nan(ttl_seconds)
+		or is_inf(ttl_seconds)
+	):
 		issues.append(_make_issue("invalid_ttl_seconds", "Advertisement ttl_seconds must be a positive finite number."))
 	if not (metadata_value is Dictionary):
 		issues.append(_make_issue("metadata_not_dictionary", "Advertisement metadata must be a Dictionary."))
 	else:
-		var metadata_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(metadata_value, {
-			"max_depth": maxi(
-				GFVariantData.get_option_int(options, "max_metadata_depth", _DEFAULT_MAX_METADATA_DEPTH),
-				0
-			),
-			"max_nodes": maxi(
-				GFVariantData.get_option_int(options, "max_metadata_entries", _DEFAULT_MAX_METADATA_ENTRIES),
-				1
-			),
-		})
+		var metadata_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(
+			metadata_value,
+			{
+				"max_depth": maxi(
+					GFVariantData.get_option_int(
+						options,
+						"max_metadata_depth",
+						_DEFAULT_MAX_METADATA_DEPTH
+					),
+					0
+				),
+				"max_nodes": maxi(
+					GFVariantData.get_option_int(
+						options,
+						"max_metadata_entries",
+						_DEFAULT_MAX_METADATA_ENTRIES
+					),
+					1
+				),
+			}
+		)
 		if not GFVariantData.get_option_bool(metadata_report, "ok"):
-			issues.append(_make_issue(
-				"metadata_%s" % GFVariantData.get_option_string(metadata_report, "error", "invalid_value"),
-				"Advertisement metadata is not transport-safe."
-			))
+			issues.append(
+				_make_issue(
+					"metadata_%s" % GFVariantData.get_option_string(
+						metadata_report,
+						"error",
+						"invalid_value"
+					),
+					"Advertisement metadata is not transport-safe."
+				)
+			)
 	if not (tags_value is PackedStringArray) and not (tags_value is Array):
 		issues.append(_make_issue("tags_not_array", "Advertisement tags must be PackedStringArray or Array."))
 
@@ -596,14 +711,30 @@ static func _normalize_advertisement(
 static func _is_stale_advertisement(normalized: Dictionary, previous_record: Dictionary) -> bool:
 	if previous_record.is_empty():
 		return false
-	var incoming_sequence: int = GFVariantData.get_option_int(normalized, "sequence", 0)
-	var previous_sequence: int = GFVariantData.get_option_int(previous_record, "sequence", 0)
+	var incoming_sequence: int = GFVariantData.get_option_int(
+		normalized,
+		"sequence",
+		0
+	)
+	var previous_sequence: int = GFVariantData.get_option_int(
+		previous_record,
+		"sequence",
+		0
+	)
 	if incoming_sequence < previous_sequence:
 		return true
 	if incoming_sequence > previous_sequence:
 		return false
-	var incoming_time_msec: int = GFVariantData.get_option_int(normalized, "time_msec", 0)
-	var previous_time_msec: int = GFVariantData.get_option_int(previous_record, "time_msec", 0)
+	var incoming_time_msec: int = GFVariantData.get_option_int(
+		normalized,
+		"time_msec",
+		0
+	)
+	var previous_time_msec: int = GFVariantData.get_option_int(
+		previous_record,
+		"time_msec",
+		0
+	)
 	return incoming_time_msec < previous_time_msec
 
 
@@ -620,7 +751,10 @@ static func _normalize_tags(value: Variant) -> PackedStringArray:
 	elif value is Array:
 		var array_tags: Array = value
 		for tag_value: Variant in array_tags:
-			_append_tag(result, GFVariantData.to_text(tag_value))
+			_append_tag(
+				result,
+				GFVariantData.to_text(tag_value)
+			)
 	result.sort()
 	return result
 
@@ -641,10 +775,7 @@ static func _append_tag(tags: PackedStringArray, tag: String) -> void:
 ## @api private
 ## [br]
 static func _make_issue(kind: String, message: String) -> Dictionary:
-	return {
-		"kind": kind,
-		"message": message,
-	}
+	return { "kind": kind, "message": message, }
 
 
 ## 构造含错误、单项 issue 和后续操作建议的失败报告。
@@ -668,9 +799,17 @@ static func _make_failure(error: String, next_action: String = "") -> Dictionary
 ## @api private
 ## [br]
 static func _normalize_positive_seconds(value: float, fallback: float) -> float:
-	if value > 0.0 and not is_nan(value) and not is_inf(value):
+	if (
+		value > 0.0
+		and not is_nan(value)
+		and not is_inf(value)
+	):
 		return value
-	if fallback > 0.0 and not is_nan(fallback) and not is_inf(fallback):
+	if (
+		fallback > 0.0
+		and not is_nan(fallback)
+		and not is_inf(fallback)
+	):
 		return fallback
 	return 5.0
 
@@ -679,7 +818,11 @@ static func _normalize_positive_seconds(value: float, fallback: float) -> float:
 ## [br]
 ## @api private
 ## [br]
-func _make_accept_report(status: String, service_key: String, record: Dictionary) -> Dictionary:
+func _make_accept_report(
+	status: String,
+	service_key: String,
+	record: Dictionary
+) -> Dictionary:
 	return {
 		"ok": true,
 		"status": status,
@@ -697,7 +840,11 @@ func _make_accept_report(status: String, service_key: String, record: Dictionary
 ## @api private
 ## [br]
 func _normalize_now_seconds(value: float) -> float:
-	if value >= 0.0 and not is_nan(value) and not is_inf(value):
+	if (
+		value >= 0.0
+		and not is_nan(value)
+		and not is_inf(value)
+	):
 		return value
 	return _elapsed_seconds
 
@@ -742,5 +889,9 @@ func _remove_service(service_key: String, reason: String) -> bool:
 	var erased: bool = _services.erase(normalized_key)
 	if erased:
 		var _deadline_erased: bool = _service_expiry_deadlines.erase(normalized_key)
-		service_lost.emit(normalized_key, record, reason)
+		service_lost.emit(
+			normalized_key,
+			record,
+			reason
+		)
 	return erased

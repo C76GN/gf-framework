@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`dialogue_started`](#member-gfdialoguerunner-signals-dialogue_started) | `signal dialogue_started(resource: GFDialogueResource)` |
 | 信号 | [`line_reached`](#member-gfdialoguerunner-signals-line_reached) | `signal line_reached(line: GFDialogueLine)` |
-| 信号 | [`mutation_requested`](#member-gfdialoguerunner-signals-mutation_requested) | `signal mutation_requested(mutation_id: StringName, payload: Variant, line: GFDialogueLine)` |
+| 信号 | [`mutation_requested`](#member-gfdialoguerunner-signals-mutation_requested) | `signal mutation_requested( mutation_id: StringName, payload: Variant, line: GFDialogueLine )` |
 | 信号 | [`dialogue_ended`](#member-gfdialoguerunner-signals-dialogue_ended) | `signal dialogue_ended(resource: GFDialogueResource)` |
 | 信号 | [`line_blocked`](#member-gfdialoguerunner-signals-line_blocked) | `signal line_blocked(line_id: StringName, reason: StringName)` |
 | 常量 | [`SNAPSHOT_SCHEMA_VERSION`](#member-gfdialoguerunner-constants-snapshot_schema_version) | `const SNAPSHOT_SCHEMA_VERSION: int = 4` |
@@ -77,9 +77,10 @@ signal line_reached(line: GFDialogueLine)
 ### `mutation_requested`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal mutation_requested(mutation_id: StringName, payload: Variant, line: GFDialogueLine)
+signal mutation_requested( mutation_id: StringName, payload: Variant, line: GFDialogueLine )
 ```
 
 请求执行 mutation 时发出。

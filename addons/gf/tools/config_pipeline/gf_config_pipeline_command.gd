@@ -62,13 +62,25 @@ func run(arguments: PackedStringArray = PackedStringArray(), base_options: Dicti
 	if not GFVariantData.get_option_bool(parse_result, "success"):
 		return _make_command_result(
 			false,
-			GFVariantData.get_option_int(parse_result, "exit_code", 2),
-			GFVariantData.get_option_string_name(parse_result, "operation", _DEFAULT_OPERATION),
+			GFVariantData.get_option_int(
+				parse_result,
+				"exit_code",
+				2
+			),
+			GFVariantData.get_option_string_name(
+				parse_result,
+				"operation",
+				_DEFAULT_OPERATION
+			),
 			GFVariantData.get_option_string(parse_result, "profile_path"),
 			GFVariantData.get_option_dictionary(parse_result, "options"),
 			{},
 			GFVariantData.get_option_bool(parse_result, "json_report"),
-			GFVariantData.get_option_bool(parse_result, "pretty_output", true),
+			GFVariantData.get_option_bool(
+				parse_result,
+				"pretty_output",
+				true
+			),
 			GFVariantData.get_option_bool(parse_result, "usage_requested"),
 			GFVariantData.get_option_bool(parse_result, "strict"),
 			GFVariantData.get_option_string(parse_result, "error")
@@ -78,25 +90,46 @@ func run(arguments: PackedStringArray = PackedStringArray(), base_options: Dicti
 		return _make_command_result(
 			true,
 			0,
-			GFVariantData.get_option_string_name(parse_result, "operation", _DEFAULT_OPERATION),
+			GFVariantData.get_option_string_name(
+				parse_result,
+				"operation",
+				_DEFAULT_OPERATION
+			),
 			GFVariantData.get_option_string(parse_result, "profile_path"),
 			GFVariantData.get_option_dictionary(parse_result, "options"),
 			{},
 			GFVariantData.get_option_bool(parse_result, "json_report"),
-			GFVariantData.get_option_bool(parse_result, "pretty_output", true),
+			GFVariantData.get_option_bool(
+				parse_result,
+				"pretty_output",
+				true
+			),
 			true,
 			GFVariantData.get_option_bool(parse_result, "strict"),
 			""
 		)
 
-	var operation: StringName = GFVariantData.get_option_string_name(parse_result, "operation", _DEFAULT_OPERATION)
+	var operation: StringName = GFVariantData.get_option_string_name(
+		parse_result,
+		"operation",
+		_DEFAULT_OPERATION
+	)
 	var profile_path: String = GFVariantData.get_option_string(parse_result, "profile_path")
 	var options: Dictionary = GFVariantData.get_option_dictionary(parse_result, "options").duplicate(true)
 	var runner: GFConfigPipelineRunner = GFConfigPipelineRunner.new()
-	var runner_result: Dictionary = _run_operation(runner, operation, profile_path, options)
+	var runner_result: Dictionary = _run_operation(
+		runner,
+		operation,
+		profile_path,
+		options
+	)
 	var command_success: bool = GFVariantData.get_option_bool(runner_result, "success")
 	var command_error: String = GFVariantData.get_option_string(runner_result, "error")
-	if command_success and GFVariantData.get_option_bool(parse_result, "strict") and _runner_result_has_warnings(runner_result):
+	if (
+		command_success
+		and GFVariantData.get_option_bool(parse_result, "strict")
+		and _runner_result_has_warnings(runner_result)
+	):
 		command_success = false
 		command_error = "严格模式下导表报告存在 warning。"
 
@@ -108,7 +141,11 @@ func run(arguments: PackedStringArray = PackedStringArray(), base_options: Dicti
 		options,
 		runner_result,
 		GFVariantData.get_option_bool(parse_result, "json_report"),
-		GFVariantData.get_option_bool(parse_result, "pretty_output", true),
+		GFVariantData.get_option_bool(
+			parse_result,
+			"pretty_output",
+			true
+		),
 		false,
 		GFVariantData.get_option_bool(parse_result, "strict"),
 		command_error
@@ -233,10 +270,29 @@ func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) ->
 
 		var value_result: Dictionary = {}
 		if option_name in ["--max-validation-cells", "--max-source-bytes"]:
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			var budget_text: String = GFVariantData.get_option_string(value_result, "value")
-			if not GFVariantData.get_option_bool(value_result, "success") or not budget_text.is_valid_int() or budget_text.to_int() < 0:
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, "%s 需要非负整数。" % option_name)
+			if (
+				not GFVariantData.get_option_bool(value_result, "success")
+				or not budget_text.is_valid_int()
+				or budget_text.to_int() < 0
+			):
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					"%s 需要非负整数。" % option_name
+				)
 			if option_name == "--max-validation-cells":
 				options["max_validation_cells"] = budget_text.to_int()
 			else:
@@ -245,51 +301,156 @@ func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) ->
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--profile" or option_name == "-p":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			profile_path = GFVariantData.get_option_string(value_result, "value")
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--operation" or option_name == "-o":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			operation = StringName(GFVariantData.get_option_string(value_result, "value").to_lower())
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--output":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			options["output_path"] = GFVariantData.get_option_string(value_result, "value")
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--access-output":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			options["access_output_path"] = GFVariantData.get_option_string(value_result, "value")
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--class-name":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			options["access_class_name"] = GFVariantData.get_option_string(value_result, "value")
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--provider-accessor":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			options["access_provider_accessor"] = GFVariantData.get_option_string(value_result, "value")
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
 		if option_name == "--manifest":
-			value_result = _read_option_value(arguments, index, option_name, inline_value, has_inline_value)
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
 			if not GFVariantData.get_option_bool(value_result, "success"):
-				return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, GFVariantData.get_option_string(value_result, "error"))
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
 			options["manifest_path"] = GFVariantData.get_option_string(value_result, "value")
 			index = GFVariantData.get_option_int(value_result, "next_index")
 			continue
@@ -306,9 +467,27 @@ func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) ->
 		)
 
 	if not usage_requested and profile_path.is_empty():
-		return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, "缺少 --profile 参数。")
+		return _make_parse_failure(
+			operation,
+			profile_path,
+			options,
+			json_report,
+			pretty_output,
+			usage_requested,
+			strict,
+			"缺少 --profile 参数。"
+		)
 	if not _is_supported_operation(operation):
-		return _make_parse_failure(operation, profile_path, options, json_report, pretty_output, usage_requested, strict, "不支持的导表操作：%s。" % String(operation))
+		return _make_parse_failure(
+			operation,
+			profile_path,
+			options,
+			json_report,
+			pretty_output,
+			usage_requested,
+			strict,
+			"不支持的导表操作：%s。" % String(operation)
+		)
 
 	return {
 		"success": true,
@@ -372,7 +551,8 @@ func _read_option_value(
 			"success": false,
 			"value": "",
 			"next_index": index + 1,
-			"error": "%s 缺少参数值；后续 token 是另一个 option：%s。" % [option_name, next_token],
+			"error": "%s 缺少参数值；后续 token 是另一个 option：%s。"
+			% [option_name, next_token],
 		}
 	return {
 		"success": true,
@@ -494,19 +674,37 @@ func _make_summary_text(result: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var operation: String = String(GFVariantData.get_option_string_name(result, "operation"))
 	var status_text: String = "ok" if GFVariantData.get_option_bool(result, "success") else "failed"
-	_append_line(lines, "GF Config Pipeline: %s" % status_text)
-	_append_line(lines, "operation: %s" % operation)
-	_append_line(lines, "profile: %s" % GFVariantData.get_option_string(result, "profile_path"))
-	_append_line(lines, "exit_code: %d" % GFVariantData.get_option_int(result, "exit_code"))
+	_append_line(
+		lines,
+		"GF Config Pipeline: %s" % status_text
+	)
+	_append_line(
+		lines,
+		"operation: %s" % operation
+	)
+	_append_line(
+		lines,
+		"profile: %s" % GFVariantData.get_option_string(result, "profile_path")
+	)
+	_append_line(
+		lines,
+		"exit_code: %d" % GFVariantData.get_option_int(result, "exit_code")
+	)
 	var runner_result: Dictionary = GFVariantData.get_option_dictionary(result, "runner_result")
 	if GFVariantData.get_option_bool(runner_result, "skipped"):
 		_append_line(lines, "skipped: true")
 	var manifest_path: String = GFVariantData.get_option_string(runner_result, "manifest_path")
 	if not manifest_path.is_empty():
-		_append_line(lines, "manifest: %s" % manifest_path)
+		_append_line(
+			lines,
+			"manifest: %s" % manifest_path
+		)
 	var error: String = GFVariantData.get_option_string(result, "error")
 	if not error.is_empty():
-		_append_line(lines, "error: %s" % error)
+		_append_line(
+			lines,
+			"error: %s" % error
+		)
 	return "\n".join(lines)
 
 

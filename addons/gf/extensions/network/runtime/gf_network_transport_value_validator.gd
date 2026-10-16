@@ -38,14 +38,37 @@ const _DEFAULT_MAX_NODES: int = 1024
 ## @schema return: Dictionary，包含 ok、error、path 和 node_count。
 static func validate(value: Variant, options: Dictionary = {}) -> Dictionary:
 	var state: Dictionary = {
-		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", _DEFAULT_MAX_DEPTH), 0),
-		"max_nodes": maxi(GFVariantData.get_option_int(options, "max_nodes", _DEFAULT_MAX_NODES), 1),
+		"max_depth": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_depth",
+				_DEFAULT_MAX_DEPTH
+			),
+			0
+		),
+		"max_nodes": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_nodes",
+				_DEFAULT_MAX_NODES
+			),
+			1
+		),
 		"node_count": 0,
-		"max_bytes": maxi(GFVariantData.get_option_int(options, "max_bytes"), 0),
+		"max_bytes": maxi(
+			GFVariantData.get_option_int(options, "max_bytes"),
+			0
+		),
 		"byte_count": 0,
 		"visited": [],
 	}
-	var issue: Dictionary = _validate_value(value, state, 0, "$", false)
+	var issue: Dictionary = _validate_value(
+		value,
+		state,
+		0,
+		"$",
+		false
+	)
 	return {
 		"ok": issue.is_empty(),
 		"error": GFVariantData.get_option_string(issue, "error"),
@@ -99,12 +122,27 @@ static func _validate_value(
 		_get_visited(state).append(dictionary_value)
 		for key: Variant in dictionary_value:
 			var key_path: String = "%s.<key>" % path
-			var key_issue: Dictionary = _validate_value(key, state, depth + 1, key_path, true)
+			var key_issue: Dictionary = _validate_value(
+				key,
+				state,
+				depth + 1,
+				key_path,
+				true
+			)
 			if not key_issue.is_empty():
 				var _removed_key_reference: Variant = _get_visited(state).pop_back()
 				return key_issue
-			var value_path: String = "%s.%s" % [path, GFVariantData.to_text(key)]
-			var child_issue: Dictionary = _validate_value(dictionary_value[key], state, depth + 1, value_path, false)
+			var value_path: String = (
+				"%s.%s"
+				% [path, GFVariantData.to_text(key)]
+			)
+			var child_issue: Dictionary = _validate_value(
+				dictionary_value[key],
+				state,
+				depth + 1,
+				value_path,
+				false
+			)
 			if not child_issue.is_empty():
 				var _removed_child_reference: Variant = _get_visited(state).pop_back()
 				return child_issue
@@ -117,7 +155,14 @@ static func _validate_value(
 			return _make_issue("circular_reference", path)
 		_get_visited(state).append(array_value)
 		for index: int in range(array_value.size()):
-			var child_issue: Dictionary = _validate_value(array_value[index], state, depth + 1, "%s[%d]" % [path, index], false)
+			var child_issue: Dictionary = _validate_value(
+				array_value[index],
+				state,
+				depth + 1,
+				"%s[%d]"
+				% [path, index],
+				false
+			)
 			if not child_issue.is_empty():
 				var _removed_array_child_reference: Variant = _get_visited(state).pop_back()
 				return child_issue
@@ -130,7 +175,8 @@ static func _validate_value(
 				_get_packed_array_value(value, index),
 				state,
 				depth + 1,
-				"%s[%d]" % [path, index],
+				"%s[%d]"
+				% [path, index],
 				false
 			)
 			if not child_issue.is_empty():
@@ -143,16 +189,18 @@ static func _validate_value(
 ## @api private
 ## [br]
 static func _has_unsafe_container_type(value: Variant) -> bool:
-	var unsafe_types: Array[int] = [TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID]
+	var unsafe_types: Array[int] = [
+		TYPE_OBJECT,
+		TYPE_CALLABLE,
+		TYPE_SIGNAL,
+		TYPE_RID,
+	]
 	if value is Array:
 		var array_value: Array = value
 		return array_value.get_typed_builtin() in unsafe_types
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
-		return (
-			dictionary_value.get_typed_key_builtin() in unsafe_types
-			or dictionary_value.get_typed_value_builtin() in unsafe_types
-		)
+		return (dictionary_value.get_typed_key_builtin() in unsafe_types or dictionary_value.get_typed_value_builtin() in unsafe_types)
 	return false
 
 
@@ -166,7 +214,11 @@ static func _consume_bytes(value: Variant, state: Dictionary) -> bool:
 		return true
 	var remaining: int = max_bytes - GFVariantData.get_option_int(state, "byte_count")
 	var size_bytes: int = 8
-	if not (value is Dictionary or value is Array or _is_packed_array(value)):
+	if not (
+		value is Dictionary
+		or value is Array
+		or _is_packed_array(value)
+	):
 		if value is NodePath:
 			var node_path: NodePath = value
 			if not _node_path_fits_budget(node_path, remaining):
@@ -211,7 +263,11 @@ static func _node_path_fits_budget(path: NodePath, budget: int) -> bool:
 ## @api private
 ## [br]
 static func _is_transport_dictionary_key(value: Variant) -> bool:
-	return value is String or value is StringName or typeof(value) == TYPE_INT
+	return (
+		value is String
+		or value is StringName
+		or typeof(value) == TYPE_INT
+	)
 
 
 ## 检查数值转换结果不是 NaN 或无穷大。
@@ -237,7 +293,11 @@ static func _is_finite_composite(value: Variant) -> bool:
 			return _is_finite_composite(rect.position) and _is_finite_composite(rect.size)
 		TYPE_VECTOR3:
 			var vector: Vector3 = value
-			return _is_finite_number(vector.x) and _is_finite_number(vector.y) and _is_finite_number(vector.z)
+			return (
+				_is_finite_number(vector.x)
+				and _is_finite_number(vector.y)
+				and _is_finite_number(vector.z)
+			)
 		TYPE_TRANSFORM2D:
 			var transform: Transform2D = value
 			return (
@@ -301,18 +361,21 @@ static func _is_finite_composite(value: Variant) -> bool:
 ## @api private
 ## [br]
 static func _is_packed_array(value: Variant) -> bool:
-	return typeof(value) in [
-		TYPE_PACKED_BYTE_ARRAY,
-		TYPE_PACKED_INT32_ARRAY,
-		TYPE_PACKED_INT64_ARRAY,
-		TYPE_PACKED_FLOAT32_ARRAY,
-		TYPE_PACKED_FLOAT64_ARRAY,
-		TYPE_PACKED_STRING_ARRAY,
-		TYPE_PACKED_VECTOR2_ARRAY,
-		TYPE_PACKED_VECTOR3_ARRAY,
-		TYPE_PACKED_COLOR_ARRAY,
-		TYPE_PACKED_VECTOR4_ARRAY,
-	]
+	return (
+		typeof(value)
+		in [
+			TYPE_PACKED_BYTE_ARRAY,
+			TYPE_PACKED_INT32_ARRAY,
+			TYPE_PACKED_INT64_ARRAY,
+			TYPE_PACKED_FLOAT32_ARRAY,
+			TYPE_PACKED_FLOAT64_ARRAY,
+			TYPE_PACKED_STRING_ARRAY,
+			TYPE_PACKED_VECTOR2_ARRAY,
+			TYPE_PACKED_VECTOR3_ARRAY,
+			TYPE_PACKED_COLOR_ARRAY,
+			TYPE_PACKED_VECTOR4_ARRAY,
+		]
+	)
 
 
 ## 按 Packed 数组具体类型读取元素数。
@@ -417,7 +480,4 @@ static func _get_visited(state: Dictionary) -> Array:
 ## @api private
 ## [br]
 static func _make_issue(error: String, path: String) -> Dictionary:
-	return {
-		"error": error,
-		"path": path,
-	}
+	return { "error": error, "path": path, }

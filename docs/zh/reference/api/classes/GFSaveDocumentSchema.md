@@ -25,7 +25,7 @@
 | 方法 | [`has_section`](#member-gfsavedocumentschema-methods-has_section) | `func has_section(section_id: StringName) -> bool:` |
 | 方法 | [`get_section_ids`](#member-gfsavedocumentschema-methods-get_section_ids) | `func get_section_ids() -> PackedStringArray:` |
 | 方法 | [`validate_schema`](#member-gfsavedocumentschema-methods-validate_schema) | `func validate_schema() -> Dictionary:` |
-| 方法 | [`validate_document`](#member-gfsavedocumentschema-methods-validate_document) | `func validate_document( document: GFSaveDocument, require_current_versions: bool = true ) -> Dictionary:` |
+| 方法 | [`validate_document`](#member-gfsavedocumentschema-methods-validate_document) | `func validate_document(document: GFSaveDocument, require_current_versions: bool = true) -> Dictionary:` |
 | 方法 | [`to_dict`](#member-gfsavedocumentschema-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`duplicate_schema`](#member-gfsavedocumentschema-methods-duplicate_schema) | `func duplicate_schema() -> GFSaveDocumentSchema:` |
 | 方法 | [`from_dict`](#member-gfsavedocumentschema-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:` |
@@ -216,7 +216,7 @@ func validate_schema() -> Dictionary:
 - 首次版本：`9.0.0`
 
 ```gdscript
-func validate_document( document: GFSaveDocument, require_current_versions: bool = true ) -> Dictionary:
+func validate_document(document: GFSaveDocument, require_current_versions: bool = true) -> Dictionary:
 ```
 
 校验文档是否符合该 schema。

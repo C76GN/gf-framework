@@ -32,6 +32,7 @@ enum ModifierMask {
 	META = 8,
 }
 
+
 ## 滚轮缩放使用的物理轴。
 ## [br]
 ## @api public
@@ -43,6 +44,7 @@ enum WheelAxis {
 	## 使用向左/向右滚轮事件。
 	HORIZONTAL,
 }
+
 
 ## 滚轮事件的画布路由策略。
 ## [br]
@@ -57,6 +59,7 @@ enum WheelRouting {
 	## 画布始终忽略滚轮，让 GUI 祖先继续处理。
 	PARENT_ONLY,
 }
+
 
 ## 单指触摸的主行为。
 ## [br]
@@ -93,12 +96,7 @@ const ABSOLUTE_MAX_ACTION_EVENTS: int = 64
 ## [br]
 ## @api private
 ## [br]
-const _ALL_MODIFIER_MASK: int = (
-	ModifierMask.SHIFT
-	| ModifierMask.CTRL
-	| ModifierMask.ALT
-	| ModifierMask.META
-)
+const _ALL_MODIFIER_MASK: int = ModifierMask.SHIFT | ModifierMask.CTRL | ModifierMask.ALT | ModifierMask.META
 
 
 # --- 导出变量 ---
@@ -145,9 +143,7 @@ const _ALL_MODIFIER_MASK: int = (
 ## @api public
 ## [br]
 ## @since 11.0.0
-@export var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (
-	GFSpatialCanvas2D.SelectionMode.REPLACE
-)
+@export var selection_default_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE
 
 ## 修饰键到选择模式的精确匹配表；重复掩码会使策略校验失败。
 ## [br]
@@ -261,18 +257,9 @@ const _ALL_MODIFIER_MASK: int = (
 
 func _init() -> void:
 	selection_modifier_bindings = [
-		_make_selection_binding(
-			ModifierMask.SHIFT,
-			GFSpatialCanvas2D.SelectionMode.ADD
-		),
-		_make_selection_binding(
-			ModifierMask.CTRL,
-			GFSpatialCanvas2D.SelectionMode.TOGGLE
-		),
-		_make_selection_binding(
-			ModifierMask.META,
-			GFSpatialCanvas2D.SelectionMode.TOGGLE
-		),
+		_make_selection_binding(ModifierMask.SHIFT, GFSpatialCanvas2D.SelectionMode.ADD),
+		_make_selection_binding(ModifierMask.CTRL, GFSpatialCanvas2D.SelectionMode.TOGGLE),
+		_make_selection_binding(ModifierMask.META, GFSpatialCanvas2D.SelectionMode.TOGGLE),
 	]
 
 
@@ -292,10 +279,28 @@ func _init() -> void:
 ## @schema return: GFValidationReportDictionary-compatible report with issues describing invalid fields.
 func validate_policy() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
-	_validate_pointer_mapping(report, &"pan", pan_mouse_button, pan_action)
-	_validate_pointer_mapping(report, &"selection", selection_mouse_button, selection_action)
-	_validate_modifier_mask(report, &"pan_modifier_mask", pan_modifier_mask)
-	_validate_modifier_mask(report, &"wheel_modifier_mask", wheel_modifier_mask)
+	_validate_pointer_mapping(
+		report,
+		&"pan",
+		pan_mouse_button,
+		pan_action
+	)
+	_validate_pointer_mapping(
+		report,
+		&"selection",
+		selection_mouse_button,
+		selection_action
+	)
+	_validate_modifier_mask(
+		report,
+		&"pan_modifier_mask",
+		pan_modifier_mask
+	)
+	_validate_modifier_mask(
+		report,
+		&"wheel_modifier_mask",
+		wheel_modifier_mask
+	)
 	_validate_selection_bindings(report)
 	_validate_pointer_mapping_overlap(report)
 
@@ -307,31 +312,60 @@ func validate_policy() -> Dictionary:
 			&"pan_modifier_mask"
 		)
 	if not _is_valid_selection_mode(selection_default_mode):
-		_append_issue(report, &"invalid_selection_mode", "selection_default_mode 超出有效枚举范围。", &"selection_default_mode")
+		_append_issue(
+			report,
+			&"invalid_selection_mode",
+			"selection_default_mode 超出有效枚举范围。",
+			&"selection_default_mode"
+		)
 	if not _is_finite_float(drag_threshold) or drag_threshold < 0.0:
-		_append_issue(report, &"invalid_drag_threshold", "drag_threshold 必须为有限非负值。", &"drag_threshold")
+		_append_issue(
+			report,
+			&"invalid_drag_threshold",
+			"drag_threshold 必须为有限非负值。",
+			&"drag_threshold"
+		)
 	if wheel_axis < WheelAxis.VERTICAL or wheel_axis > WheelAxis.HORIZONTAL:
-		_append_issue(report, &"invalid_wheel_axis", "wheel_axis 超出有效枚举范围。", &"wheel_axis")
+		_append_issue(
+			report,
+			&"invalid_wheel_axis",
+			"wheel_axis 超出有效枚举范围。",
+			&"wheel_axis"
+		)
 	if wheel_routing < WheelRouting.CANVAS or wheel_routing > WheelRouting.PARENT_ONLY:
-		_append_issue(report, &"invalid_wheel_routing", "wheel_routing 超出有效枚举范围。", &"wheel_routing")
+		_append_issue(
+			report,
+			&"invalid_wheel_routing",
+			"wheel_routing 超出有效枚举范围。",
+			&"wheel_routing"
+		)
 	if wheel_routing == WheelRouting.MODIFIER_GATED and wheel_modifier_mask == ModifierMask.NONE:
-		_append_issue(report, &"missing_wheel_modifier", "Modifier-gated wheel 必须声明非零修饰键。", &"wheel_modifier_mask")
+		_append_issue(
+			report,
+			&"missing_wheel_modifier",
+			"Modifier-gated wheel 必须声明非零修饰键。",
+			&"wheel_modifier_mask"
+		)
 	if not _is_finite_float(wheel_zoom_factor) or wheel_zoom_factor <= 1.0:
-		_append_issue(report, &"invalid_wheel_zoom_factor", "wheel_zoom_factor 必须为有限且大于 1 的值。", &"wheel_zoom_factor")
-	if (
-		touch_primary_behavior < TouchPrimaryBehavior.NONE
-		or touch_primary_behavior > TouchPrimaryBehavior.SELECT
-	):
-		_append_issue(report, &"invalid_touch_behavior", "touch_primary_behavior 超出有效枚举范围。", &"touch_primary_behavior")
+		_append_issue(
+			report,
+			&"invalid_wheel_zoom_factor",
+			"wheel_zoom_factor 必须为有限且大于 1 的值。",
+			&"wheel_zoom_factor"
+		)
+	if (touch_primary_behavior < TouchPrimaryBehavior.NONE or touch_primary_behavior > TouchPrimaryBehavior.SELECT):
+		_append_issue(
+			report,
+			&"invalid_touch_behavior",
+			"touch_primary_behavior 超出有效枚举范围。",
+			&"touch_primary_behavior"
+		)
 	_validate_cancel_action(report)
 
 	return GFValidationReportDictionary.finalize_report(
 		report,
 		"Spatial canvas input policy",
-		{
-			"fallback_action": "Fix the first invalid spatial canvas input policy field.",
-			"no_action": "No action required.",
-		}
+		{ "fallback_action": "Fix the first invalid spatial canvas input policy field.", "no_action": "No action required.", }
 	)
 
 
@@ -360,9 +394,7 @@ func duplicate_policy() -> GFSpatialCanvasInputPolicy:
 		if binding == null:
 			policy.selection_modifier_bindings.append(null)
 		else:
-			var copied_binding: GFSpatialCanvasSelectionModeBinding = (
-				GFSpatialCanvasSelectionModeBinding.new()
-			)
+			var copied_binding: GFSpatialCanvasSelectionModeBinding = GFSpatialCanvasSelectionModeBinding.new()
 			copied_binding.modifier_mask = binding.modifier_mask
 			copied_binding.selection_mode = binding.selection_mode
 			policy.selection_modifier_bindings.append(copied_binding)
@@ -451,9 +483,18 @@ func _validate_pointer_mapping(
 ## [br]
 ## @api private
 ## [br]
-func _validate_modifier_mask(report: Dictionary, field_name: StringName, mask: int) -> void:
+func _validate_modifier_mask(
+	report: Dictionary,
+	field_name: StringName,
+	mask: int
+) -> void:
 	if mask < 0 or (mask & ~_ALL_MODIFIER_MASK) != 0:
-		_append_issue(report, &"invalid_modifier_mask", "%s 包含未知修饰键位。" % String(field_name), field_name)
+		_append_issue(
+			report,
+			&"invalid_modifier_mask",
+			"%s 包含未知修饰键位。" % String(field_name),
+			field_name
+		)
 
 
 ## 校验选择绑定数量、空项、掩码重复/合法性和选择模式。
@@ -462,10 +503,7 @@ func _validate_modifier_mask(report: Dictionary, field_name: StringName, mask: i
 ## [br]
 func _validate_selection_bindings(report: Dictionary) -> void:
 	var seen_masks: Dictionary = {}
-	if (
-		selection_modifier_bindings.size()
-		> ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS
-	):
+	if selection_modifier_bindings.size() > ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS:
 		_append_issue(
 			report,
 			&"too_many_selection_bindings",
@@ -479,17 +517,45 @@ func _validate_selection_bindings(report: Dictionary) -> void:
 	for binding_index: int in range(binding_count):
 		var binding: GFSpatialCanvasSelectionModeBinding = selection_modifier_bindings[binding_index]
 		if binding == null:
-			_append_issue(report, &"null_selection_binding", "selection_modifier_bindings 包含空绑定。", &"selection_modifier_bindings", binding_index)
+			_append_issue(
+				report,
+				&"null_selection_binding",
+				"selection_modifier_bindings 包含空绑定。",
+				&"selection_modifier_bindings",
+				binding_index
+			)
 			continue
-		_validate_modifier_mask(report, &"selection_modifier_bindings", binding.modifier_mask)
+		_validate_modifier_mask(
+			report,
+			&"selection_modifier_bindings",
+			binding.modifier_mask
+		)
 		if binding.modifier_mask == ModifierMask.NONE:
-			_append_issue(report, &"empty_selection_modifier", "选择修饰键绑定必须声明非零掩码。", &"selection_modifier_bindings", binding_index)
+			_append_issue(
+				report,
+				&"empty_selection_modifier",
+				"选择修饰键绑定必须声明非零掩码。",
+				&"selection_modifier_bindings",
+				binding_index
+			)
 		if seen_masks.has(binding.modifier_mask):
-			_append_issue(report, &"duplicate_selection_modifier", "选择修饰键掩码不得重复。", &"selection_modifier_bindings", binding_index)
+			_append_issue(
+				report,
+				&"duplicate_selection_modifier",
+				"选择修饰键掩码不得重复。",
+				&"selection_modifier_bindings",
+				binding_index
+			)
 		else:
 			seen_masks[binding.modifier_mask] = true
 		if not _is_valid_selection_mode(binding.selection_mode):
-			_append_issue(report, &"invalid_selection_mode", "选择修饰键绑定的 selection_mode 无效。", &"selection_modifier_bindings", binding_index)
+			_append_issue(
+				report,
+				&"invalid_selection_mode",
+				"选择修饰键绑定的 selection_mode 无效。",
+				&"selection_modifier_bindings",
+				binding_index
+			)
 
 
 ## 校验取消 action 存在、事件数受限且不含鼠标、触摸或手势事件。
@@ -507,9 +573,7 @@ func _validate_cancel_action(report: Dictionary) -> void:
 			&"placement_cancel_action"
 		)
 		return
-	var action_events: Array[InputEvent] = InputMap.action_get_events(
-		placement_cancel_action
-	)
+	var action_events: Array[InputEvent] = InputMap.action_get_events(placement_cancel_action)
 	if action_events.size() > ABSOLUTE_MAX_ACTION_EVENTS:
 		_append_issue(
 			report,
@@ -693,10 +757,7 @@ func _is_finite_float(value: float) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _make_selection_binding(
-	mask: int,
-	mode: GFSpatialCanvas2D.SelectionMode
-) -> GFSpatialCanvasSelectionModeBinding:
+func _make_selection_binding(mask: int, mode: GFSpatialCanvas2D.SelectionMode) -> GFSpatialCanvasSelectionModeBinding:
 	var binding: GFSpatialCanvasSelectionModeBinding = GFSpatialCanvasSelectionModeBinding.new()
 	binding.modifier_mask = mask
 	binding.selection_mode = mode

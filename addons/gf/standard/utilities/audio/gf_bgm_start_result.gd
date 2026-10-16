@@ -34,6 +34,7 @@ enum Status {
 	CANCELLED,
 }
 
+
 ## 当前请求与可选 Audio Backend 的交互结果。
 ## [br]
 ## @api public
@@ -145,9 +146,7 @@ const REASON_STREAM_UNPLAYABLE: StringName = &"stream_unplayable"
 ## @api public
 ## [br]
 ## @since 11.0.0
-const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
-	&"backend_rejected_and_local_failed"
-)
+const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = &"backend_rejected_and_local_failed"
 
 ## 从旧 backend-owned 会话交接到本地会话时，后端拒绝释放 owner。
 ## [br]
@@ -371,10 +370,7 @@ func used_backend_fallback() -> bool:
 	return (
 		is_successful()
 		and _owner_kind == GFBgmSessionHandle.OwnerKind.LOCAL
-		and _backend_disposition in [
-			BackendDisposition.NOT_CLAIMED,
-			BackendDisposition.REJECTED,
-		]
+		and (_backend_disposition in [BackendDisposition.NOT_CLAIMED, BackendDisposition.REJECTED,])
 	)
 
 
@@ -492,8 +488,16 @@ func configure_for_framework(
 		or not Status.values().has(int(status))
 		or not BackendDisposition.values().has(int(backend_disposition))
 		or not GFBgmSessionHandle.OwnerKind.values().has(int(owner_kind))
-		or not _status_reason_error_is_valid(status, reason, error_code)
-		or not _reason_disposition_is_valid(status, reason, backend_disposition)
+		or not _status_reason_error_is_valid(
+			status,
+			reason,
+			error_code
+		)
+		or not _reason_disposition_is_valid(
+			status,
+			reason,
+			backend_disposition
+		)
 		or not _session_union_is_valid(
 			status,
 			request_id,
@@ -544,23 +548,35 @@ static func _status_reason_error_is_valid(
 ) -> bool:
 	match status:
 		Status.STARTED:
-			return error_code == OK and reason in [
-				REASON_LOCAL_STARTED,
-				REASON_BACKEND_STARTED,
-				REASON_BACKEND_FALLBACK_STARTED,
-			]
+			return (
+				error_code == OK
+				and (
+					reason
+					in [
+						REASON_LOCAL_STARTED,
+						REASON_BACKEND_STARTED,
+						REASON_BACKEND_FALLBACK_STARTED,
+					]
+				)
+			)
 		Status.REJECTED:
 			return (
-				(reason in [
-					REASON_INVALID_PATH,
-					REASON_INVALID_OPTIONS,
-					REASON_INVALID_CLIP,
-					REASON_INVALID_PLAYBACK_REGION,
-				] and error_code == ERR_INVALID_PARAMETER)
-				or (reason in [
-					REASON_UTILITY_NOT_INITIALIZED,
-					REASON_OWNER_UNAVAILABLE,
-				] and error_code == ERR_UNAVAILABLE)
+				(
+					(
+						reason
+						in [
+							REASON_INVALID_PATH,
+							REASON_INVALID_OPTIONS,
+							REASON_INVALID_CLIP,
+							REASON_INVALID_PLAYBACK_REGION,
+						]
+					)
+					and error_code == ERR_INVALID_PARAMETER
+				)
+				or (
+					(reason in [REASON_UTILITY_NOT_INITIALIZED, REASON_OWNER_UNAVAILABLE,])
+					and error_code == ERR_UNAVAILABLE
+				)
 				or (
 					reason == REASON_BACKEND_DISPATCH_IN_PROGRESS
 					and error_code == ERR_BUSY
@@ -579,13 +595,19 @@ static func _status_reason_error_is_valid(
 		Status.SUPERSEDED:
 			return reason == REASON_NEWER_REQUEST and error_code == ERR_BUSY
 		Status.CANCELLED:
-			return error_code == ERR_SKIP and reason in [
-				REASON_CALLER_CANCELLED,
-				REASON_OWNER_RELEASED,
-				REASON_STOP_REQUESTED,
-				REASON_UTILITY_DISPOSED,
-				REASON_BACKEND_CHANGED,
-			]
+			return (
+				error_code == ERR_SKIP
+				and (
+					reason
+					in [
+						REASON_CALLER_CANCELLED,
+						REASON_OWNER_RELEASED,
+						REASON_STOP_REQUESTED,
+						REASON_UTILITY_DISPOSED,
+						REASON_BACKEND_CHANGED,
+					]
+				)
+			)
 	return false
 
 
@@ -605,17 +627,11 @@ static func _reason_disposition_is_valid(
 			REASON_BACKEND_STARTED:
 				return backend_disposition == BackendDisposition.STARTED
 			REASON_BACKEND_FALLBACK_STARTED:
-				return backend_disposition in [
-					BackendDisposition.NOT_CLAIMED,
-					BackendDisposition.REJECTED,
-				]
+				return (backend_disposition in [BackendDisposition.NOT_CLAIMED, BackendDisposition.REJECTED,])
 		return false
 	if status == Status.REJECTED:
 		if reason == REASON_INVALID_PLAYBACK_REGION:
-			return backend_disposition in [
-				BackendDisposition.NOT_ATTEMPTED,
-				BackendDisposition.REJECTED,
-			]
+			return (backend_disposition in [BackendDisposition.NOT_ATTEMPTED, BackendDisposition.REJECTED,])
 		return backend_disposition == BackendDisposition.NOT_ATTEMPTED
 	if status == Status.FAILED:
 		match reason:
@@ -624,25 +640,28 @@ static func _reason_disposition_is_valid(
 			REASON_BACKEND_REJECTED_AND_LOCAL_FAILED:
 				return backend_disposition == BackendDisposition.REJECTED
 			REASON_BACKEND_OWNER_RELEASE_FAILED:
-				return backend_disposition in [
-					BackendDisposition.NOT_CLAIMED,
-					BackendDisposition.REJECTED,
-				]
+				return (backend_disposition in [BackendDisposition.NOT_CLAIMED, BackendDisposition.REJECTED,])
 			REASON_ASSET_LOAD_FAILED, REASON_STREAM_UNPLAYABLE, REASON_LOCAL_PLAYER_REJECTED:
-				return backend_disposition in [
-					BackendDisposition.NOT_ATTEMPTED,
-					BackendDisposition.NOT_CLAIMED,
-					BackendDisposition.REJECTED,
-				]
+				return (
+					backend_disposition
+					in [
+						BackendDisposition.NOT_ATTEMPTED,
+						BackendDisposition.NOT_CLAIMED,
+						BackendDisposition.REJECTED,
+					]
+				)
 		return false
 	if status == Status.CANCELLED and reason == REASON_BACKEND_CHANGED:
 		return backend_disposition == BackendDisposition.INVALIDATED
-	return backend_disposition in [
-		BackendDisposition.NOT_ATTEMPTED,
-		BackendDisposition.NOT_CLAIMED,
-		BackendDisposition.REJECTED,
-		BackendDisposition.INVALIDATED,
-	]
+	return (
+		backend_disposition
+		in [
+			BackendDisposition.NOT_ATTEMPTED,
+			BackendDisposition.NOT_CLAIMED,
+			BackendDisposition.REJECTED,
+			BackendDisposition.INVALIDATED,
+		]
+	)
 
 
 ## 校验成功结果必须含匹配会话句柄，非成功结果必须没有会话 owner。
@@ -682,18 +701,9 @@ static func _session_union_is_valid(
 	):
 		return false
 	if owner_kind == GFBgmSessionHandle.OwnerKind.BACKEND:
-		return (
-			backend_disposition == BackendDisposition.STARTED
-			and reason == REASON_BACKEND_STARTED
-		)
+		return (backend_disposition == BackendDisposition.STARTED and reason == REASON_BACKEND_STARTED)
 	if owner_kind != GFBgmSessionHandle.OwnerKind.LOCAL:
 		return false
 	if backend_disposition == BackendDisposition.NOT_ATTEMPTED:
 		return reason == REASON_LOCAL_STARTED
-	return (
-		backend_disposition in [
-			BackendDisposition.NOT_CLAIMED,
-			BackendDisposition.REJECTED,
-		]
-		and reason == REASON_BACKEND_FALLBACK_STARTED
-	)
+	return ((backend_disposition in [BackendDisposition.NOT_CLAIMED, BackendDisposition.REJECTED,]) and reason == REASON_BACKEND_FALLBACK_STARTED)

@@ -274,17 +274,15 @@ func pick(input_data: Dictionary) -> int:
 ## @schema return: Dictionary apply result from the active pick operation.
 func apply_pick_operation() -> Dictionary:
 	if not _active:
-		return {
-			"ok": false,
-			"reason": &"tool_inactive",
-		}
+		return { "ok": false, "reason": &"tool_inactive", }
 	if _pick_operation == null:
-		return {
-			"ok": false,
-			"reason": &"missing_operation",
-		}
+		return { "ok": false, "reason": &"missing_operation", }
 	var result: Dictionary = _pick_operation.apply()
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		result,
+		"ok",
+		false
+	):
 		_pick_operation = null
 	return result
 

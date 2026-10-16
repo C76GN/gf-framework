@@ -198,7 +198,11 @@ const _RESPONSE_FIELDS: PackedStringArray = [
 ## [br]
 ## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
 func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionary:
-	return _compile_text(text, options, false)
+	return _compile_text(
+		text,
+		options,
+		false
+	)
 
 
 ## 只编译结构资源：验证 strict JSON、schema 和资源图，不承诺 Runner 身份准入。
@@ -221,8 +225,17 @@ func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionar
 ## @return: 所选合同的结果。
 ## [br]
 ## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
-func compile_structure_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:
-	return _compile_source(source_key, loader, options, false)
+func compile_structure_source(
+	source_key: String,
+	loader: GFSourceTextLoader,
+	options: Dictionary = {}
+) -> Dictionary:
+	return _compile_source(
+		source_key,
+		loader,
+		options,
+		false
+	)
 
 
 ## 构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。
@@ -244,7 +257,11 @@ func compile_structure_source(source_key: String, loader: GFSourceTextLoader, op
 ## [br]
 ## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
 func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
-	return _compile_text(text, options, true)
+	return _compile_text(
+		text,
+		options,
+		true
+	)
 
 
 ## 构建内置 Runner 生产资源：结构校验后验证默认完整身份预算。
@@ -267,8 +284,17 @@ func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
 ## @return: 所选合同的结果。
 ## [br]
 ## @schema return: Dictionary，包含 contract（structure 或 runner）、success、resource、report、source_path、content_hash、line_count；success 只表示所选合同通过，失败时 resource=null、line_count=0。
-func build_runner_source(source_key: String, loader: GFSourceTextLoader, options: Dictionary = {}) -> Dictionary:
-	return _compile_source(source_key, loader, options, true)
+func build_runner_source(
+	source_key: String,
+	loader: GFSourceTextLoader,
+	options: Dictionary = {}
+) -> Dictionary:
+	return _compile_source(
+		source_key,
+		loader,
+		options,
+		true
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -276,7 +302,11 @@ func build_runner_source(source_key: String, loader: GFSourceTextLoader, options
 ## 验证内置 Runner 同样使用的默认完整身份边界；仅报告计数与路径，不复制身份内容进诊断。
 ## [br]
 ## @api private
-func _validate_runner_identity(resource: GFDialogueResource, report: GFValidationReport, source_path: String) -> void:
+func _validate_runner_identity(
+	resource: GFDialogueResource,
+	report: GFValidationReport,
+	source_path: String
+) -> void:
 	var identity_report: Dictionary = resource.build_identity_report()
 	if GFVariantData.get_option_bool(identity_report, "ok"):
 		return
@@ -298,16 +328,38 @@ func _validate_runner_identity(resource: GFDialogueResource, report: GFValidatio
 ## 共享 strict 解析与结构校验，按生产合同追加完整身份准入。
 ## [br]
 ## @api private
-func _compile_text(text: String, options: Dictionary, runner_contract: bool) -> Dictionary:
-	var source_path: String = GFVariantData.get_option_string(options, "source_path", "<memory>")
-	var subject: String = GFVariantData.get_option_string(options, "subject", "Dialogue text compile")
+func _compile_text(
+	text: String,
+	options: Dictionary,
+	runner_contract: bool
+) -> Dictionary:
+	var source_path: String = GFVariantData.get_option_string(
+		options,
+		"source_path",
+		"<memory>"
+	)
+	var subject: String = GFVariantData.get_option_string(
+		options,
+		"subject",
+		"Dialogue text compile"
+	)
 	var report: GFValidationReport = GFValidationReport.new(
 		subject,
 		_sanitize_report_metadata(GFVariantData.get_option_value(options, "metadata"))
 	)
-	var limits: Dictionary = _resolve_limits(options, report, source_path)
+	var limits: Dictionary = _resolve_limits(
+		options,
+		report,
+		source_path
+	)
 	if not report.is_ok():
-		return _make_result(null, report, source_path, "", runner_contract)
+		return _make_result(
+			null,
+			report,
+			source_path,
+			"",
+			runner_contract
+		)
 	var text_byte_count: int = text.to_utf8_buffer().size()
 	if text_byte_count > GFVariantData.get_option_int(limits, "max_text_bytes"):
 		_add_unlocated_error(
@@ -316,12 +368,15 @@ func _compile_text(text: String, options: Dictionary, runner_contract: bool) -> 
 			"Dialogue source exceeds max_text_bytes before parsing.",
 			source_path,
 			"#",
-			{
-				"actual_bytes": text_byte_count,
-				"max_text_bytes": GFVariantData.get_option_int(limits, "max_text_bytes"),
-			}
+			{ "actual_bytes": text_byte_count, "max_text_bytes": GFVariantData.get_option_int(limits, "max_text_bytes"), }
 		)
-		return _make_result(null, report, source_path, "", runner_contract)
+		return _make_result(
+			null,
+			report,
+			source_path,
+			"",
+			runner_contract
+		)
 
 	var content_hash: String = text.sha256_text()
 	var source_parser: _JSON_SOURCE_PARSER_SCRIPT = _JSON_SOURCE_PARSER_SCRIPT.new()
@@ -330,33 +385,86 @@ func _compile_text(text: String, options: Dictionary, runner_contract: bool) -> 
 	if not GFVariantData.get_option_bool(parse_result, "ok"):
 		_add_error_at_explicit_span(
 			report,
-			GFVariantData.get_option_string_name(parse_result, "error_kind", &"invalid_json"),
-			GFVariantData.get_option_string(parse_result, "error", "Strict JSON parsing failed."),
+			GFVariantData.get_option_string_name(
+				parse_result,
+				"error_kind",
+				&"invalid_json"
+			),
+			GFVariantData.get_option_string(
+				parse_result,
+				"error",
+				"Strict JSON parsing failed."
+			),
 			source_path,
 			GFVariantData.get_option_string(parse_result, "pointer"),
 			GFVariantData.get_option_dictionary(parse_result, "span"),
 			GFVariantData.get_option_dictionary(parse_result, "metadata"),
 			provenance
 		)
-		return _make_result(null, report, source_path, content_hash, runner_contract)
+		return _make_result(
+			null,
+			report,
+			source_path,
+			content_hash,
+			runner_contract
+		)
 
 	var root_value: Variant = GFVariantData.get_option_value(parse_result, "value")
 	if not (root_value is Dictionary):
-		_add_error(report, &"invalid_root_type", "Dialogue source root must be a JSON object.", source_path, "", provenance)
-		return _make_result(null, report, source_path, content_hash, runner_contract)
+		_add_error(
+			report,
+			&"invalid_root_type",
+			"Dialogue source root must be a JSON object.",
+			source_path,
+			"",
+			provenance
+		)
+		return _make_result(
+			null,
+			report,
+			source_path,
+			content_hash,
+			runner_contract
+		)
 
 	var source: Dictionary = root_value
-	if not _validate_document_budgets(source, report, source_path, provenance, limits):
-		return _make_result(null, report, source_path, content_hash, runner_contract)
+	if not _validate_document_budgets(
+		source,
+		report,
+		source_path,
+		provenance,
+		limits
+	):
+		return _make_result(
+			null,
+			report,
+			source_path,
+			content_hash,
+			runner_contract
+		)
 	var resource: GFDialogueResource = _compile_dictionary(
 		source,
 		report,
 		source_path,
 		provenance
 	)
-	if runner_contract and resource != null and report.is_ok():
-		_validate_runner_identity(resource, report, source_path)
-	return _make_result(resource, report, source_path, content_hash, runner_contract)
+	if (
+		runner_contract
+		and resource != null
+		and report.is_ok()
+	):
+		_validate_runner_identity(
+			resource,
+			report,
+			source_path
+		)
+	return _make_result(
+		resource,
+		report,
+		source_path,
+		content_hash,
+		runner_contract
+	)
 
 
 ## 有界加载后沿用所选文本合同，保留同一来源诊断。
@@ -368,17 +476,43 @@ func _compile_source(
 	options: Dictionary,
 	runner_contract: bool
 ) -> Dictionary:
-	var subject: String = GFVariantData.get_option_string(options, "subject", "Dialogue text compile")
+	var subject: String = GFVariantData.get_option_string(
+		options,
+		"subject",
+		"Dialogue text compile"
+	)
 	var report: GFValidationReport = GFValidationReport.new(
 		subject,
 		_sanitize_report_metadata(GFVariantData.get_option_value(options, "metadata"))
 	)
-	var limits: Dictionary = _resolve_limits(options, report, source_key)
+	var limits: Dictionary = _resolve_limits(
+		options,
+		report,
+		source_key
+	)
 	if not report.is_ok():
-		return _make_result(null, report, source_key, "", runner_contract)
+		return _make_result(
+			null,
+			report,
+			source_key,
+			"",
+			runner_contract
+		)
 	if loader == null:
-		_add_unlocated_error(report, &"missing_source_loader", "Dialogue source loader is null.", source_key, "#")
-		return _make_result(null, report, source_key, "", runner_contract)
+		_add_unlocated_error(
+			report,
+			&"missing_source_loader",
+			"Dialogue source loader is null.",
+			source_key,
+			"#"
+		)
+		return _make_result(
+			null,
+			report,
+			source_key,
+			"",
+			runner_contract
+		)
 	var max_text_bytes: int = GFVariantData.get_option_int(limits, "max_text_bytes")
 	if loader.max_bytes <= 0 or loader.max_bytes > max_text_bytes:
 		_add_unlocated_error(
@@ -387,12 +521,15 @@ func _compile_source(
 			"Source loader max_bytes must be positive and no larger than the compiler max_text_bytes.",
 			source_key,
 			"#",
-			{
-				"loader_max_bytes": loader.max_bytes,
-				"max_text_bytes": max_text_bytes,
-			}
+			{ "loader_max_bytes": loader.max_bytes, "max_text_bytes": max_text_bytes, }
 		)
-		return _make_result(null, report, source_key, "", runner_contract)
+		return _make_result(
+			null,
+			report,
+			source_key,
+			"",
+			runner_contract
+		)
 
 	var load_result: Dictionary = loader.load_text(source_key)
 	if not GFResultDictionary.is_ok(load_result):
@@ -403,13 +540,33 @@ func _compile_source(
 		)
 		_capture_owned_next_action(report, safe_loader_report)
 		var _merge_result: RefCounted = report.merge(safe_loader_report)
-		_add_unlocated_error(report, &"source_load_failed", "Dialogue source could not be loaded.", source_key, "#")
-		return _make_result(null, report, source_key, "", runner_contract)
+		_add_unlocated_error(
+			report,
+			&"source_load_failed",
+			"Dialogue source could not be loaded.",
+			source_key,
+			"#"
+		)
+		return _make_result(
+			null,
+			report,
+			source_key,
+			"",
+			runner_contract
+		)
 
 	var compile_options: Dictionary = options.duplicate()
 	if not compile_options.has("source_path"):
-		compile_options["source_path"] = GFVariantData.get_option_string(load_result, "resolved_path", source_key)
-	return _compile_text(GFVariantData.get_option_string(load_result, "text"), compile_options, runner_contract)
+		compile_options["source_path"] = GFVariantData.get_option_string(
+			load_result,
+			"resolved_path",
+			source_key
+		)
+	return _compile_text(
+		GFVariantData.get_option_string(load_result, "text"),
+		compile_options,
+		runner_contract
+	)
 
 
 ## 验证顶层字段并构建候选对话资源，跳过非字典行且合并资源级校验诊断；可能返回带错误的部分资源，最终结果负责隐藏失败候选。
@@ -421,33 +578,92 @@ func _compile_dictionary(
 	source_path: String,
 	provenance: Dictionary
 ) -> GFDialogueResource:
-	_validate_allowed_fields(source, _TOP_LEVEL_FIELDS, "", report, source_path, provenance)
-	_validate_header(source, report, source_path, provenance)
+	_validate_allowed_fields(
+		source,
+		_TOP_LEVEL_FIELDS,
+		"",
+		report,
+		source_path,
+		provenance
+	)
+	_validate_header(
+		source,
+		report,
+		source_path,
+		provenance
+	)
 
 	var resource: GFDialogueResource = GFDialogueResource.new()
-	resource.start_line_id = _read_string_name(source, "start_line_id", "", report, source_path, provenance)
-	resource.metadata = _read_dictionary(source, "metadata", "", report, source_path, provenance)
+	resource.start_line_id = _read_string_name(
+		source,
+		"start_line_id",
+		"",
+		report,
+		source_path,
+		provenance
+	)
+	resource.metadata = _read_dictionary(
+		source,
+		"metadata",
+		"",
+		report,
+		source_path,
+		provenance
+	)
 
 	var lines_value: Variant = GFVariantData.get_option_value(source, "lines")
 	if not (lines_value is Array):
-		_add_error(report, &"invalid_field_type", "Field #/lines must be an array.", source_path, "/lines", provenance)
+		_add_error(
+			report,
+			&"invalid_field_type",
+			"Field #/lines must be an array.",
+			source_path,
+			"/lines",
+			provenance
+		)
 		return resource
 
 	var line_entries: Array = lines_value
 	if line_entries.is_empty():
-		_add_error(report, &"empty_lines", "Dialogue source must contain at least one line.", source_path, "/lines", provenance)
+		_add_error(
+			report,
+			&"empty_lines",
+			"Dialogue source must contain at least one line.",
+			source_path,
+			"/lines",
+			provenance
+		)
 	for line_index: int in range(line_entries.size()):
 		var line_value: Variant = line_entries[line_index]
 		var line_path: String = "/lines/%d" % line_index
 		if not (line_value is Dictionary):
-			_add_error(report, &"invalid_line_type", "Dialogue line must be an object.", source_path, line_path, provenance)
+			_add_error(
+				report,
+				&"invalid_line_type",
+				"Dialogue line must be an object.",
+				source_path,
+				line_path,
+				provenance
+			)
 			continue
 		var line_data: Dictionary = line_value
-		var line: GFDialogueLine = _compile_line(line_data, line_path, resource.lines.size(), report, source_path, provenance)
+		var line: GFDialogueLine = _compile_line(
+			line_data,
+			line_path,
+			resource.lines.size(),
+			report,
+			source_path,
+			provenance
+		)
 		resource.lines.append(line)
 
 	var resource_report: Dictionary = resource.validate_resource()
-	_merge_resource_report(report, resource_report, source_path, provenance)
+	_merge_resource_report(
+		report,
+		resource_report,
+		source_path,
+		provenance
+	)
 	return resource
 
 
@@ -478,7 +694,11 @@ func _validate_header(
 		parsed_version = version_value
 	elif version_value is float:
 		var float_version: float = version_value
-		if not is_nan(float_version) and not is_inf(float_version) and float_version == floorf(float_version):
+		if (
+			not is_nan(float_version)
+			and not is_inf(float_version)
+			and float_version == floorf(float_version)
+		):
 			parsed_version = int(float_version)
 	if parsed_version != SOURCE_SCHEMA_VERSION:
 		_add_error(
@@ -502,24 +722,118 @@ func _compile_line(
 	source_path: String,
 	provenance: Dictionary
 ) -> GFDialogueLine:
-	_validate_allowed_fields(data, _LINE_FIELDS, path, report, source_path, provenance)
+	_validate_allowed_fields(
+		data,
+		_LINE_FIELDS,
+		path,
+		report,
+		source_path,
+		provenance
+	)
 	var line: GFDialogueLine = GFDialogueLine.new()
-	line.line_id = _read_string_name(data, "line_id", path, report, source_path, provenance, true)
-	line.kind = _read_line_kind(data, path, report, source_path, provenance) as GFDialogueLine.LineKind
-	line.speaker_id = _read_string_name(data, "speaker_id", path, report, source_path, provenance)
-	line.text = _read_string(data, "text", path, report, source_path, provenance)
-	line.next_line_id = _read_string_name(data, "next_line_id", path, report, source_path, provenance)
-	line.jump_line_id = _read_string_name(data, "jump_line_id", path, report, source_path, provenance)
-	line.condition_id = _read_string_name(data, "condition_id", path, report, source_path, provenance)
+	line.line_id = _read_string_name(
+		data,
+		"line_id",
+		path,
+		report,
+		source_path,
+		provenance,
+		true
+	)
+	line.kind = _read_line_kind(
+		data,
+		path,
+		report,
+		source_path,
+		provenance
+	) as GFDialogueLine.LineKind
+	line.speaker_id = _read_string_name(
+		data,
+		"speaker_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	line.text = _read_string(
+		data,
+		"text",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	line.next_line_id = _read_string_name(
+		data,
+		"next_line_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	line.jump_line_id = _read_string_name(
+		data,
+		"jump_line_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	line.condition_id = _read_string_name(
+		data,
+		"condition_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
 	line.condition_payload = _read_payload(data, "condition_payload")
-	line.fallback_line_id = _read_string_name(data, "fallback_line_id", path, report, source_path, provenance)
-	line.mutation_id = _read_string_name(data, "mutation_id", path, report, source_path, provenance)
+	line.fallback_line_id = _read_string_name(
+		data,
+		"fallback_line_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	line.mutation_id = _read_string_name(
+		data,
+		"mutation_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
 	line.mutation_payload = _read_payload(data, "mutation_payload")
-	line.tags = _read_tags(data, "tags", path, report, source_path, provenance)
-	line.metadata = _read_dictionary(data, "metadata", path, report, source_path, provenance)
-	_record_line_provenance(line, path, resource_index, source_path, provenance)
+	line.tags = _read_tags(
+		data,
+		"tags",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	line.metadata = _read_dictionary(
+		data,
+		"metadata",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	_record_line_provenance(
+		line,
+		path,
+		resource_index,
+		source_path,
+		provenance
+	)
 
-	var responses_value: Variant = GFVariantData.get_option_value(data, "responses", [])
+	var responses_value: Variant = GFVariantData.get_option_value(
+		data,
+		"responses",
+		[]
+	)
 	if not (responses_value is Array):
 		var responses_pointer: String = _append_pointer(path, "responses")
 		_add_error(
@@ -534,20 +848,32 @@ func _compile_line(
 	var response_entries: Array = responses_value
 	for response_index: int in range(response_entries.size()):
 		var response_value: Variant = response_entries[response_index]
-		var response_path: String = "%s/responses/%d" % [path, response_index]
+		var response_path: String = (
+			"%s/responses/%d"
+			% [path, response_index]
+		)
 		if not (response_value is Dictionary):
-			_add_error(report, &"invalid_response_type", "Dialogue response must be an object.", source_path, response_path, provenance)
+			_add_error(
+				report,
+				&"invalid_response_type",
+				"Dialogue response must be an object.",
+				source_path,
+				response_path,
+				provenance
+			)
 			continue
 		var response_data: Dictionary = response_value
-		line.responses.append(_compile_response(
-			response_data,
-			response_path,
-			line.line_id,
-			line.responses.size(),
-			report,
-			source_path,
-			provenance
-		))
+		line.responses.append(
+			_compile_response(
+				response_data,
+				response_path,
+				line.line_id,
+				line.responses.size(),
+				report,
+				source_path,
+				provenance
+			)
+		)
 	return line
 
 
@@ -563,18 +889,82 @@ func _compile_response(
 	source_path: String,
 	provenance: Dictionary
 ) -> GFDialogueResponse:
-	_validate_allowed_fields(data, _RESPONSE_FIELDS, path, report, source_path, provenance)
+	_validate_allowed_fields(
+		data,
+		_RESPONSE_FIELDS,
+		path,
+		report,
+		source_path,
+		provenance
+	)
 	var response: GFDialogueResponse = GFDialogueResponse.new()
-	response.response_id = _read_string_name(data, "response_id", path, report, source_path, provenance, true)
-	response.text = _read_string(data, "text", path, report, source_path, provenance)
-	response.next_line_id = _read_string_name(data, "next_line_id", path, report, source_path, provenance)
-	response.condition_id = _read_string_name(data, "condition_id", path, report, source_path, provenance)
+	response.response_id = _read_string_name(
+		data,
+		"response_id",
+		path,
+		report,
+		source_path,
+		provenance,
+		true
+	)
+	response.text = _read_string(
+		data,
+		"text",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	response.next_line_id = _read_string_name(
+		data,
+		"next_line_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	response.condition_id = _read_string_name(
+		data,
+		"condition_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
 	response.condition_payload = _read_payload(data, "condition_payload")
-	response.mutation_id = _read_string_name(data, "mutation_id", path, report, source_path, provenance)
+	response.mutation_id = _read_string_name(
+		data,
+		"mutation_id",
+		path,
+		report,
+		source_path,
+		provenance
+	)
 	response.mutation_payload = _read_payload(data, "mutation_payload")
-	response.tags = _read_tags(data, "tags", path, report, source_path, provenance)
-	response.metadata = _read_dictionary(data, "metadata", path, report, source_path, provenance)
-	_record_response_provenance(response, line_id, path, resource_index, source_path, provenance)
+	response.tags = _read_tags(
+		data,
+		"tags",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	response.metadata = _read_dictionary(
+		data,
+		"metadata",
+		path,
+		report,
+		source_path,
+		provenance
+	)
+	_record_response_provenance(
+		response,
+		line_id,
+		path,
+		resource_index,
+		source_path,
+		provenance
+	)
 	return response
 
 
@@ -606,8 +996,7 @@ func _read_line_kind(
 	_add_error(
 		report,
 		&"invalid_line_kind",
-		"Field %s must be one of text, mutation, jump, or end."
-		% _pointer_to_uri_fragment(_append_pointer(path, "kind")),
+		"Field %s must be one of text, mutation, jump, or end." % _pointer_to_uri_fragment(_append_pointer(path, "kind")),
 		source_path,
 		_append_pointer(path, "kind"),
 		provenance
@@ -772,7 +1161,10 @@ func _read_tags(
 			var tag_name: StringName = tag_value
 			var _append_name_result: bool = result.append(String(tag_name))
 		else:
-			var tag_pointer: String = "%s/%d" % [_append_pointer(path, field), tag_index]
+			var tag_pointer: String = (
+				"%s/%d"
+				% [_append_pointer(path, field), tag_index]
+			)
 			_add_error(
 				report,
 				&"invalid_tag_type",
@@ -798,7 +1190,15 @@ func _validate_allowed_fields(
 ) -> void:
 	for key_value: Variant in data.keys():
 		if not (key_value is String or key_value is StringName):
-			_add_error(report, &"invalid_field_name", "Field names must be strings.", source_path, path, provenance, true)
+			_add_error(
+				report,
+				&"invalid_field_name",
+				"Field names must be strings.",
+				source_path,
+				path,
+				provenance,
+				true
+			)
 			continue
 		var key_text: String = GFVariantData.to_text(key_value)
 		if allowed_fields.has(key_text):
@@ -807,8 +1207,7 @@ func _validate_allowed_fields(
 		_add_error(
 			report,
 			&"unknown_field",
-			"Unknown dialogue source field at %s; use metadata for project-defined data."
-			% _pointer_to_uri_fragment(field_pointer),
+			"Unknown dialogue source field at %s; use metadata for project-defined data." % _pointer_to_uri_fragment(field_pointer),
 			source_path,
 			field_pointer,
 			provenance,
@@ -829,7 +1228,11 @@ func _add_error(
 	prefer_key_span: bool = false,
 	metadata: Dictionary = {}
 ) -> void:
-	if not _reserve_diagnostic_slot(report, source_path, provenance):
+	if not _reserve_diagnostic_slot(
+		report,
+		source_path,
+		provenance
+	):
 		return
 	var span_data: Dictionary = _find_source_span(
 		provenance,
@@ -859,13 +1262,41 @@ func _resolve_limits(
 	source_path: String
 ) -> Dictionary:
 	var definitions: Array[Dictionary] = [
-		{ "key": "max_text_bytes", "default": _DEFAULT_MAX_TEXT_BYTES, "hard": _HARD_MAX_TEXT_BYTES },
-		{ "key": "max_depth", "default": _DEFAULT_MAX_DEPTH, "hard": _HARD_MAX_DEPTH },
-		{ "key": "max_nodes", "default": _DEFAULT_MAX_NODES, "hard": _HARD_MAX_NODES },
-		{ "key": "max_string_bytes", "default": _DEFAULT_MAX_STRING_BYTES, "hard": _HARD_MAX_STRING_BYTES },
-		{ "key": "max_lines", "default": _DEFAULT_MAX_LINES, "hard": _HARD_MAX_LINES },
-		{ "key": "max_responses", "default": _DEFAULT_MAX_RESPONSES, "hard": _HARD_MAX_RESPONSES },
-		{ "key": "max_diagnostics", "default": _DEFAULT_MAX_DIAGNOSTICS, "hard": _HARD_MAX_DIAGNOSTICS },
+		{
+			"key": "max_text_bytes",
+			"default": _DEFAULT_MAX_TEXT_BYTES,
+			"hard": _HARD_MAX_TEXT_BYTES,
+		},
+		{
+			"key": "max_depth",
+			"default": _DEFAULT_MAX_DEPTH,
+			"hard": _HARD_MAX_DEPTH,
+		},
+		{
+			"key": "max_nodes",
+			"default": _DEFAULT_MAX_NODES,
+			"hard": _HARD_MAX_NODES,
+		},
+		{
+			"key": "max_string_bytes",
+			"default": _DEFAULT_MAX_STRING_BYTES,
+			"hard": _HARD_MAX_STRING_BYTES,
+		},
+		{
+			"key": "max_lines",
+			"default": _DEFAULT_MAX_LINES,
+			"hard": _HARD_MAX_LINES,
+		},
+		{
+			"key": "max_responses",
+			"default": _DEFAULT_MAX_RESPONSES,
+			"hard": _HARD_MAX_RESPONSES,
+		},
+		{
+			"key": "max_diagnostics",
+			"default": _DEFAULT_MAX_DIAGNOSTICS,
+			"hard": _HARD_MAX_DIAGNOSTICS,
+		},
 	]
 	var result: Dictionary = {}
 	for definition: Dictionary in definitions:
@@ -939,7 +1370,11 @@ func _validate_document_budgets(
 	if not (lines_value is Array):
 		return true
 	var lines: Array = lines_value
-	var max_lines: int = GFVariantData.get_option_int(limits, "max_lines", _DEFAULT_MAX_LINES)
+	var max_lines: int = GFVariantData.get_option_int(
+		limits,
+		"max_lines",
+		_DEFAULT_MAX_LINES
+	)
 	if lines.size() > max_lines:
 		_add_error(
 			report,
@@ -963,7 +1398,11 @@ func _validate_document_budgets(
 		if not (line_value is Dictionary):
 			continue
 		var line_data: Dictionary = line_value
-		var responses_value: Variant = GFVariantData.get_option_value(line_data, "responses", [])
+		var responses_value: Variant = GFVariantData.get_option_value(
+			line_data,
+			"responses",
+			[]
+		)
 		if not (responses_value is Array):
 			continue
 		var responses: Array = responses_value
@@ -1000,7 +1439,12 @@ func _record_line_provenance(
 ) -> void:
 	var line_id_pointer: String = _append_pointer(path, "line_id")
 	var resource_subject: String = "lines[%d]" % resource_index
-	_record_occurrence(provenance, "resource_subject_occurrences", resource_subject, line_id_pointer)
+	_record_occurrence(
+		provenance,
+		"resource_subject_occurrences",
+		resource_subject,
+		line_id_pointer
+	)
 	if line.line_id != &"":
 		_record_occurrence(
 			provenance,
@@ -1027,11 +1471,7 @@ func _record_line_provenance(
 		provenance
 	)
 	if line.line_id != &"":
-		var automatic_pointer: String = (
-			_append_pointer(path, "jump_line_id")
-			if line.kind == GFDialogueLine.LineKind.JUMP and line.jump_line_id != &""
-			else _append_pointer(path, "next_line_id")
-		)
+		var automatic_pointer: String = (_append_pointer(path, "jump_line_id") if line.kind == GFDialogueLine.LineKind.JUMP and line.jump_line_id != &"" else _append_pointer(path, "next_line_id"))
 		_record_occurrence(
 			provenance,
 			"automatic_transition_occurrences",
@@ -1052,7 +1492,10 @@ func _record_response_provenance(
 	provenance: Dictionary
 ) -> void:
 	var response_id_pointer: String = _append_pointer(path, "response_id")
-	var resource_subject: String = "%s.responses[%d]" % [line_id, resource_index]
+	var resource_subject: String = (
+		"%s.responses[%d]"
+		% [line_id, resource_index]
+	)
 	_record_occurrence(
 		provenance,
 		"resource_subject_occurrences",
@@ -1063,7 +1506,8 @@ func _record_response_provenance(
 		_record_occurrence(
 			provenance,
 			"response_occurrences",
-			"%s.responses.%s" % [line_id, response.response_id],
+			"%s.responses.%s"
+			% [line_id, response.response_id],
 			response_id_pointer
 		)
 	_record_transition_provenance(
@@ -1089,7 +1533,8 @@ func _record_transition_provenance(
 	_record_occurrence(
 		provenance,
 		"transition_occurrences",
-		"%s -> %s" % [line_id, target_id],
+		"%s -> %s"
+		% [line_id, target_id],
 		pointer
 	)
 
@@ -1127,7 +1572,11 @@ func _merge_resource_report(
 	var pointer_offsets: Dictionary = {}
 	_capture_owned_next_action(report, resource_report)
 	for issue_value: Variant in issue_values:
-		if not _reserve_diagnostic_slot(report, source_path, provenance):
+		if not _reserve_diagnostic_slot(
+			report,
+			source_path,
+			provenance
+		):
 			break
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_value).duplicate(true)
 		var kind: StringName = GFVariantData.get_option_string_name(issue, "kind")
@@ -1136,7 +1585,11 @@ func _merge_resource_report(
 			"path",
 			GFVariantData.get_option_string(issue, "subject")
 		)
-		var pointers: Array = _resolve_resource_issue_pointers(kind, subject, provenance)
+		var pointers: Array = _resolve_resource_issue_pointers(
+			kind,
+			subject,
+			provenance
+		)
 		var primary_pointer: String = ""
 		if not pointers.is_empty():
 			var primary_index: int = _consume_primary_pointer_index(
@@ -1174,12 +1627,23 @@ func _consume_primary_pointer_index(
 ) -> int:
 	if pointer_count <= 1:
 		return 0
-	if kind not in [&"duplicate_line_id", &"duplicate_response_id", &"missing_next_line"]:
+	if kind not in [
+		&"duplicate_line_id",
+		&"duplicate_response_id",
+		&"missing_next_line",
+	]:
 		return 0
-	var offset_key: String = "%s\u001F%s" % [kind, subject]
+	var offset_key: String = (
+		"%s\u001F%s"
+		% [kind, subject]
+	)
 	var default_index: int = 1 if kind in [&"duplicate_line_id", &"duplicate_response_id"] else 0
 	var selected_index: int = mini(
-		GFVariantData.get_option_int(pointer_offsets, offset_key, default_index),
+		GFVariantData.get_option_int(
+			pointer_offsets,
+			offset_key,
+			default_index
+		),
 		pointer_count - 1
 	)
 	pointer_offsets[offset_key] = selected_index + 1
@@ -1189,10 +1653,7 @@ func _consume_primary_pointer_index(
 ## 外层尚无问题且资源报告有问题时，暂存资源报告的下一步建议，供最终结果构建时消费。
 ## [br]
 ## @api private
-func _capture_owned_next_action(
-	report: GFValidationReport,
-	owned_report: Dictionary
-) -> void:
+func _capture_owned_next_action(report: GFValidationReport, owned_report: Dictionary) -> void:
 	if not report.issues.is_empty():
 		return
 	var owned_issues: Array = GFVariantData.get_option_array(owned_report, "issues")
@@ -1219,11 +1680,23 @@ func _resolve_resource_issue_pointers(
 		&"missing_start_line":
 			return ["/start_line_id"]
 		&"duplicate_line_id":
-			return _get_occurrences(provenance, "line_occurrences", subject)
+			return _get_occurrences(
+				provenance,
+				"line_occurrences",
+				subject
+			)
 		&"duplicate_response_id":
-			return _get_occurrences(provenance, "response_occurrences", subject)
+			return _get_occurrences(
+				provenance,
+				"response_occurrences",
+				subject
+			)
 		&"missing_next_line":
-			return _get_occurrences(provenance, "transition_occurrences", subject)
+			return _get_occurrences(
+				provenance,
+				"transition_occurrences",
+				subject
+			)
 		&"automatic_cycle":
 			return _get_occurrences(
 				provenance,
@@ -1237,7 +1710,11 @@ func _resolve_resource_issue_pointers(
 	)
 	if not subject_occurrences.is_empty():
 		return subject_occurrences
-	return _get_occurrences(provenance, "line_occurrences", subject)
+	return _get_occurrences(
+		provenance,
+		"line_occurrences",
+		subject
+	)
 
 
 ## 从 provenance 的指定映射中取回 identity 对应的 pointer 数组。
@@ -1265,10 +1742,12 @@ func _make_related_source_spans(
 	var spans: Array[Dictionary] = []
 	for pointer_value: Variant in pointers:
 		var pointer: String = GFVariantData.to_text(pointer_value)
-		spans.append(_span_with_source_path(
-			_find_source_span(provenance, pointer),
-			source_path
-		))
+		spans.append(
+			_span_with_source_path(
+				_find_source_span(provenance, pointer),
+				source_path
+			)
+		)
 	return spans
 
 
@@ -1311,16 +1790,17 @@ func _add_error_at_explicit_span(
 	provenance: Dictionary,
 	reserve_slot: bool = true
 ) -> void:
-	if reserve_slot and not _reserve_diagnostic_slot(report, source_path, provenance):
+	if reserve_slot and not _reserve_diagnostic_slot(
+		report,
+		source_path,
+		provenance
+	):
 		return
 	var field_path: String = _pointer_to_uri_fragment(field_pointer)
 	var issue_metadata: Dictionary = metadata.duplicate(true)
 	issue_metadata["field_path"] = field_path
 	if issue_metadata.has("related_source_spans"):
-		var related_values: Array = GFVariantData.get_option_array(
-			issue_metadata,
-			"related_source_spans"
-		)
+		var related_values: Array = GFVariantData.get_option_array(issue_metadata, "related_source_spans")
 		var related_spans: Array[Dictionary] = []
 		for related_value: Variant in related_values:
 			var related_span: Dictionary = GFVariantData.as_dictionary(related_value)
@@ -1349,7 +1829,10 @@ func _reserve_diagnostic_slot(
 		"max_diagnostics",
 		_DEFAULT_MAX_DIAGNOSTICS
 	)
-	if report.issues.size() < maxi(max_diagnostics - 1, 0):
+	if report.issues.size() < maxi(
+		max_diagnostics - 1,
+		0
+	):
 		return true
 	if not GFVariantData.get_option_bool(provenance, "diagnostic_budget_reported"):
 		provenance["diagnostic_budget_reported"] = true
@@ -1406,7 +1889,10 @@ func _span_with_source_path(span_data: Dictionary, source_path: String) -> Dicti
 ## @api private
 ## [br]
 func _append_pointer(parent: String, token: String) -> String:
-	return "%s/%s" % [parent, token.replace("~", "~0").replace("/", "~1")]
+	return (
+		"%s/%s"
+		% [parent, token.replace("~", "~0").replace("/", "~1")]
+	)
 
 
 ## 将 JSON Pointer 编码为 URI fragment；仅保留斜线和 unreserved UTF-8 字节。
@@ -1429,10 +1915,24 @@ func _pointer_to_uri_fragment(pointer: String) -> String:
 ## [br]
 func _is_uri_unreserved_byte(byte_value: int) -> bool:
 	return (
-		(byte_value >= 48 and byte_value <= 57)
-		or (byte_value >= 65 and byte_value <= 90)
-		or (byte_value >= 97 and byte_value <= 122)
-		or byte_value in [45, 46, 95, 126]
+		(
+			byte_value >= 48
+			and byte_value <= 57
+		)
+		or (
+			byte_value >= 65
+			and byte_value <= 90
+		)
+		or (
+			byte_value >= 97
+			and byte_value <= 122
+		)
+		or byte_value in [
+			45,
+			46,
+			95,
+			126,
+		]
 	)
 
 
@@ -1521,13 +2021,11 @@ func _make_result(
 		"_dialogue_owned_next_action",
 		"Review the first reported issue."
 	)
-	var _erased_owned_next_action: bool = report.extra_fields.erase(
-		"_dialogue_owned_next_action"
+	var _erased_owned_next_action: bool = report.extra_fields.erase("_dialogue_owned_next_action")
+	var raw_report: Dictionary = report.to_dict(
+		{},
+		{ "next_actions": _get_compiler_next_actions(), "fallback_action": runtime_fallback_action, }
 	)
-	var raw_report: Dictionary = report.to_dict({}, {
-		"next_actions": _get_compiler_next_actions(),
-		"fallback_action": runtime_fallback_action,
-	})
 	var report_dictionary: Dictionary = _REPORT_VALUE_CODEC_SCRIPT.to_report_dictionary(
 		raw_report,
 		_make_report_codec_options()

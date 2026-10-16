@@ -8,7 +8,6 @@
 class_name GFProjectileCatalogEntry
 extends Resource
 
-
 ## definition 的稳定目录 ID。
 ## [br]
 ## @api public

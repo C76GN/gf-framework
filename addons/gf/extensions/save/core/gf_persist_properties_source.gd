@@ -55,6 +55,8 @@ var _property_serializer: GFNodePropertySerializer = GFNodePropertySerializer.ne
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.23.0
+## [br]
 ## @param context: 调用上下文字典。
 ## [br]
 ## @param serializer_registry: 可选节点序列化器注册表。
@@ -64,21 +66,20 @@ var _property_serializer: GFNodePropertySerializer = GFNodePropertySerializer.ne
 ## @schema context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
 ## [br]
 ## @schema return: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。
-func _gather_save_data(
-	context: Dictionary = {},
-	serializer_registry: GFNodeSerializerRegistry = null
-) -> Variant:
+func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -> Variant:
 	var target: Node = get_target_node()
 	if target == null:
 		return {}
 
-	var serializer_payloads: Array[Dictionary] = _gather_configured_serializers(target, context, serializer_registry)
+	var serializer_payloads: Array[Dictionary] = _gather_configured_serializers(
+		target,
+		context,
+		serializer_registry
+	)
 	if serializer_payloads.is_empty():
 		return {}
 
-	return {
-		"serializers": serializer_payloads,
-	}
+	return { "serializers": serializer_payloads, }
 
 
 ## 应用属性白名单保存数据。
@@ -116,7 +117,11 @@ func _apply_save_data(
 	if not dictionary.has("serializers"):
 		return make_result(false, "Serializer payloads are missing.")
 
-	var serializer_payloads_variant: Variant = GFVariantData.get_option_value(dictionary, "serializers", [])
+	var serializer_payloads_variant: Variant = GFVariantData.get_option_value(
+		dictionary,
+		"serializers",
+		[]
+	)
 	if not (serializer_payloads_variant is Array):
 		return make_result(false, "Serializer payloads must be an Array.")
 
@@ -124,7 +129,12 @@ func _apply_save_data(
 	if serializer_payloads.is_empty():
 		return make_result(true)
 
-	return _apply_configured_serializers(target, serializer_payloads, context, serializer_registry)
+	return _apply_configured_serializers(
+		target,
+		serializer_payloads,
+		context,
+		serializer_registry
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -140,8 +150,15 @@ func _gather_configured_serializers(
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var plan: Dictionary = _build_configured_serializer_plan(target, serializer_registry)
-	if not GFVariantData.get_option_bool(plan, "ok", false):
-		_add_serializer_plan_error(context, GFVariantData.get_option_string(plan, "error"))
+	if not GFVariantData.get_option_bool(
+		plan,
+		"ok",
+		false
+	):
+		_add_serializer_plan_error(
+			context,
+			GFVariantData.get_option_string(plan, "error")
+		)
 		return result
 	for serializer_variant: Variant in GFVariantData.get_option_array(plan, "serializers"):
 		var serializer: GFNodeSerializer = _get_node_serializer_value(serializer_variant)
@@ -150,10 +167,7 @@ func _gather_configured_serializers(
 		var serializer_data: Dictionary = serializer.gather(target, context)
 		if serializer_data.is_empty():
 			continue
-		result.append({
-			"id": serializer.get_serializer_id(),
-			"data": serializer_data,
-		})
+		result.append({ "id": serializer.get_serializer_id(), "data": serializer_data, })
 	return result
 
 
@@ -168,7 +182,11 @@ func _apply_configured_serializers(
 	serializer_registry: GFNodeSerializerRegistry
 ) -> Dictionary:
 	var plan: Dictionary = _build_configured_serializer_plan(target, serializer_registry)
-	if not GFVariantData.get_option_bool(plan, "ok", false):
+	if not GFVariantData.get_option_bool(
+		plan,
+		"ok",
+		false
+	):
 		return {
 			"ok": false,
 			"applied": 0,
@@ -198,17 +216,35 @@ func _apply_configured_serializers(
 			errors.append("Serializer does not support target: %s" % String(serializer_id))
 			continue
 
-		var serializer_data_value: Variant = GFVariantData.get_option_value(payload, "data", {})
+		var serializer_data_value: Variant = GFVariantData.get_option_value(
+			payload,
+			"data",
+			{}
+		)
 		if not (serializer_data_value is Dictionary):
 			errors.append("Serializer data must be a Dictionary: %s" % String(serializer_id))
 			continue
 
 		var serializer_data: Dictionary = GFVariantData.as_dictionary(serializer_data_value)
-		var result: Dictionary = serializer.apply(target, serializer_data, context)
-		if GFVariantData.get_option_bool(result, "ok", false):
+		var result: Dictionary = serializer.apply(
+			target,
+			serializer_data,
+			context
+		)
+		if GFVariantData.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			applied += 1
 		else:
-			errors.append(GFVariantData.get_option_string(result, "error", "Apply failed: %s" % String(serializer_id)))
+			errors.append(
+				GFVariantData.get_option_string(
+					result,
+					"error",
+					"Apply failed: %s" % String(serializer_id)
+				)
+			)
 
 	return {
 		"ok": errors.is_empty(),
@@ -221,10 +257,7 @@ func _apply_configured_serializers(
 ## [br]
 ## @api private
 ## [br]
-func _build_configured_serializer_plan(
-	target: Node,
-	serializer_registry: GFNodeSerializerRegistry
-) -> Dictionary:
+func _build_configured_serializer_plan(target: Node, serializer_registry: GFNodeSerializerRegistry) -> Dictionary:
 	var configured: Array[GFNodeSerializer] = []
 	var origins: Array[StringName] = []
 	_prepare_property_serializer()
@@ -257,11 +290,14 @@ func _build_configured_serializer_plan(
 		if seen_origins.has(serializer_id):
 			return {
 				"ok": false,
-				"error": "Configured serializer ID conflict: %s (%s and %s)." % [
-					String(serializer_id),
-					GFVariantData.to_text(seen_origins[serializer_id]),
-					String(origins[index]),
-				],
+				"error": (
+					"Configured serializer ID conflict: %s (%s and %s)."
+					% [
+						String(serializer_id),
+						GFVariantData.to_text(seen_origins[serializer_id]),
+						String(origins[index]),
+					]
+				),
 				"serializers": [],
 			}
 		seen_origins[serializer_id] = origins[index]
@@ -280,7 +316,10 @@ func _add_serializer_plan_error(context: Dictionary, message: String) -> void:
 	var pipeline_value: Variant = GFVariantData.get_option_value(context, "pipeline_context")
 	if pipeline_value is GFSavePipelineContext:
 		var pipeline_context: GFSavePipelineContext = pipeline_value
-		pipeline_context.add_error(message, { "kind": "serializer_id_conflict" })
+		pipeline_context.add_error(
+			message,
+			{ "kind": "serializer_id_conflict" }
+		)
 
 
 ## 将导出的属性与资源允许列表同步到属性序列化器。

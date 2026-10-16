@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`resource_replaced`](#member-gfassetslot-signals-resource_replaced) | `signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)` |
+| 信号 | [`resource_replaced`](#member-gfassetslot-signals-resource_replaced) | `signal resource_replaced( previous_resource: Resource, current_resource: Resource, generation: int )` |
 | 信号 | [`released`](#member-gfassetslot-signals-released) | `signal released(previous_resource: Resource, generation: int)` |
 | 方法 | [`configure`](#member-gfassetslot-methods-configure) | `func configure( resource_identity: GFResourceIdentity, initial_resource: Resource = null, owner: Object = null, type_hint_override: String = "" ) -> bool:` |
 | 方法 | [`get_resource_identity`](#member-gfassetslot-methods-get_resource_identity) | `func get_resource_identity() -> GFResourceIdentity:` |
@@ -39,7 +39,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)
+signal resource_replaced( previous_resource: Resource, current_resource: Resource, generation: int )
 ```
 
 当前资源成功替换后发出。 信号发出前资源与 generation 已经提交；通知期间再次替换或释放会失败关闭。

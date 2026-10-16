@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`drag_started`](#member-gfdragdropcontroller-signals-drag_started) | `signal drag_started(session_id: int, drag_type: StringName)` |
-| 信号 | [`drag_moved`](#member-gfdragdropcontroller-signals-drag_moved) | `signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: StringName)` |
-| 信号 | [`drag_dropped`](#member-gfdragdropcontroller-signals-drag_dropped) | `signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)` |
+| 信号 | [`drag_moved`](#member-gfdragdropcontroller-signals-drag_moved) | `signal drag_moved( session_id: int, position: Vector2, delta: Vector2, zone_id: StringName )` |
+| 信号 | [`drag_dropped`](#member-gfdragdropcontroller-signals-drag_dropped) | `signal drag_dropped( session_id: int, zone_id: StringName, result: Dictionary )` |
 | 信号 | [`drag_drop_rejected`](#member-gfdragdropcontroller-signals-drag_drop_rejected) | `signal drag_drop_rejected(session_id: int, reason: StringName)` |
 | 信号 | [`drag_cancelled`](#member-gfdragdropcontroller-signals-drag_cancelled) | `signal drag_cancelled(session_id: int, reason: StringName)` |
 | 信号 | [`drop_zone_registered`](#member-gfdragdropcontroller-signals-drop_zone_registered) | `signal drop_zone_registered(zone_id: StringName)` |
@@ -72,7 +72,7 @@ signal drag_started(session_id: int, drag_type: StringName)
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: StringName)
+signal drag_moved( session_id: int, position: Vector2, delta: Vector2, zone_id: StringName )
 ```
 
 拖拽位置更新时发出。
@@ -94,7 +94,7 @@ signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: S
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
+signal drag_dropped( session_id: int, zone_id: StringName, result: Dictionary )
 ```
 
 旧会话的 pointer/source/reparent lease 已清理后同步发出。

@@ -51,7 +51,12 @@ const _COPY_BACKUP_SUFFIX: String = ".gf-copy.backup"
 ## @api public
 ## [br]
 ## @since 5.0.0
-const DEFAULT_SEARCH_FIELDS: PackedStringArray = ["clip_id", "relative_path", "file_name", "source_path"]
+const DEFAULT_SEARCH_FIELDS: PackedStringArray = [
+	"clip_id",
+	"relative_path",
+	"file_name",
+	"source_path",
+]
 
 ## 默认单次复制计划可执行的文件数量上限。传入 0 表示不限制。
 ## [br]
@@ -87,7 +92,11 @@ const DEFAULT_MAX_COPY_BYTES: int = 512 * 1024 * 1024
 ## @schema return: Array[Dictionary]，元素包含 source_path、library_root、relative_path、directory、file_name、basename、extension 和 clip_id 字段。
 static func scan_library(root_path: String, options: Dictionary = {}) -> Array[Dictionary]:
 	var paths: PackedStringArray = GFAudioBankTools.scan_audio_paths(root_path, options)
-	return build_entries(paths, root_path, options)
+	return build_entries(
+		paths,
+		root_path,
+		options
+	)
 
 
 ## 从已有路径列表构建音频素材库候选条目。
@@ -115,9 +124,18 @@ static func build_entries(
 	var entries: Array[Dictionary] = []
 	var normalized_root: String = _normalize_dir_path(library_root)
 	for path: String in paths:
-		if not GFAudioBankTools.is_audio_path(path, _get_extensions(options)):
+		if not GFAudioBankTools.is_audio_path(
+			path,
+			_get_extensions(options)
+		):
 			continue
-		entries.append(_make_entry(path, normalized_root, options))
+		entries.append(
+			_make_entry(
+				path,
+				normalized_root,
+				options
+			)
+		)
 	return entries
 
 
@@ -151,8 +169,16 @@ static func filter_entries(
 	var result: Array[Dictionary] = []
 	var scorer_options: Dictionary = _make_text_search_options(options)
 	for entry: Dictionary in entries:
-		var report: Dictionary = _GF_TEXT_SEARCH_SCORER.score_candidate(query, entry, scorer_options)
-		if GFVariantData.get_option_bool(report, "matched", false):
+		var report: Dictionary = _GF_TEXT_SEARCH_SCORER.score_candidate(
+			query,
+			entry,
+			scorer_options
+		)
+		if GFVariantData.get_option_bool(
+			report,
+			"matched",
+			false
+		):
 			result.append(entry.duplicate(true))
 	return result
 
@@ -185,7 +211,11 @@ static func make_import_plan(
 	var normalized_target_root: String = _normalize_dir_path(target_root)
 	var seen_target_paths: Dictionary = {}
 	for entry: Dictionary in entries:
-		var plan_entry: Dictionary = _make_plan_entry(entry, normalized_target_root, options)
+		var plan_entry: Dictionary = _make_plan_entry(
+			entry,
+			normalized_target_root,
+			options
+		)
 		var target_path: String = GFVariantData.get_option_string(plan_entry, "target_path")
 		if not target_path.is_empty():
 			if seen_target_paths.has(target_path):
@@ -219,19 +249,35 @@ static func make_import_plan(
 ## @schema return: GFValidationReport；metadata 包含 planned_copy_count、planned_copy_bytes、copy_preflight_complete、copied_count、skipped_count、error_count、copied_paths、consumed_copy_bytes 和 committed_copy_bytes；恢复或清理失败通过结构化 issue metadata 暴露 deterministic temp/backup path 与 recovery state。
 static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new("GFAudioLibraryTools.copy_import_plan")
-	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", false)
-	var max_copy_files: int = maxi(GFVariantData.get_option_int(options, "max_copy_files", DEFAULT_MAX_COPY_FILES), 0)
-	var max_copy_bytes: int = maxi(GFVariantData.get_option_int(options, "max_copy_bytes", DEFAULT_MAX_COPY_BYTES), 0)
+	var overwrite: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		false
+	)
+	var max_copy_files: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_copy_files",
+			DEFAULT_MAX_COPY_FILES
+		),
+		0
+	)
+	var max_copy_bytes: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_copy_bytes",
+			DEFAULT_MAX_COPY_BYTES
+		),
+		0
+	)
 	var planned_copy_count: int = _get_planned_copy_count(plan, overwrite)
-	var preflight: Dictionary = _build_copy_preflight(plan, overwrite, report)
-	var planned_copy_bytes: int = GFVariantData.get_option_int(
-		preflight,
-		"planned_copy_bytes"
+	var preflight: Dictionary = _build_copy_preflight(
+		plan,
+		overwrite,
+		report
 	)
-	var expected_source_sizes: Array = GFVariantData.get_option_array(
-		preflight,
-		"expected_source_sizes"
-	)
+	var planned_copy_bytes: int = GFVariantData.get_option_int(preflight, "planned_copy_bytes")
+	var expected_source_sizes: Array = GFVariantData.get_option_array(preflight, "expected_source_sizes")
 	var copied_paths: PackedStringArray = PackedStringArray()
 	var copied_count: int = 0
 	var skipped_count: int = 0
@@ -242,11 +288,14 @@ static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) 
 		"committed_bytes": 0,
 	}
 
-	_apply_copy_budget_metadata(report, planned_copy_count, planned_copy_bytes, max_copy_files, max_copy_bytes)
-	report.metadata["copy_preflight_complete"] = GFVariantData.get_option_bool(
-		preflight,
-		"ok"
+	_apply_copy_budget_metadata(
+		report,
+		planned_copy_count,
+		planned_copy_bytes,
+		max_copy_files,
+		max_copy_bytes
 	)
+	report.metadata["copy_preflight_complete"] = GFVariantData.get_option_bool(preflight, "ok")
 	if (
 		not GFVariantData.get_option_bool(preflight, "ok")
 		or not _validate_copy_budget(
@@ -329,7 +378,11 @@ static func get_plan_target_paths(plan: Array[Dictionary], only_copyable: bool =
 ## [br]
 ## @api private
 ## [br]
-static func _make_entry(path: String, library_root: String, options: Dictionary) -> Dictionary:
+static func _make_entry(
+	path: String,
+	library_root: String,
+	options: Dictionary
+) -> Dictionary:
 	var source_path: String = _normalize_resource_path(path)
 	var relative_path: String = _make_safe_relative_path(source_path, library_root)
 	var file_name: String = source_path.get_file()
@@ -352,9 +405,17 @@ static func _make_entry(path: String, library_root: String, options: Dictionary)
 ## [br]
 static func _make_clip_id_options(options: Dictionary, library_root: String) -> Dictionary:
 	var id_options: Dictionary = GFVariantData.to_dictionary(options)
-	if GFVariantData.get_option_value(id_options, "id_mode", null) == null:
+	if GFVariantData.get_option_value(
+		id_options,
+		"id_mode",
+		null
+	) == null:
 		id_options["id_mode"] = GFAudioBankTools.ClipIdMode.RELATIVE_PATH
-	if GFVariantData.get_option_string(id_options, "base_path", "").is_empty():
+	if GFVariantData.get_option_string(
+		id_options,
+		"base_path",
+		""
+	).is_empty():
 		id_options["base_path"] = library_root
 	return id_options
 
@@ -363,7 +424,11 @@ static func _make_clip_id_options(options: Dictionary, library_root: String) -> 
 ## [br]
 ## @api private
 ## [br]
-static func _make_plan_entry(entry: Dictionary, target_root: String, options: Dictionary) -> Dictionary:
+static func _make_plan_entry(
+	entry: Dictionary,
+	target_root: String,
+	options: Dictionary
+) -> Dictionary:
 	var source_path: String = GFVariantData.get_option_string(entry, "source_path")
 	var relative_path: String = _get_entry_relative_path(entry)
 	var target_relative_path: String = _make_target_relative_path(entry, options)
@@ -412,11 +477,22 @@ static func _get_plan_skip_reason(
 		return "empty_target_path"
 	if source_path == target_path:
 		return "same_path"
-	if not GFAudioBankTools.is_audio_path(source_path, _get_extensions(options)):
+	if not GFAudioBankTools.is_audio_path(
+		source_path,
+		_get_extensions(options)
+	):
 		return "invalid_audio_path"
-	if GFVariantData.get_option_bool(options, "check_source_exists", true) and not source_exists:
+	if GFVariantData.get_option_bool(
+		options,
+		"check_source_exists",
+		true
+	) and not source_exists:
 		return "missing_source"
-	if target_exists and not GFVariantData.get_option_bool(options, "overwrite", false):
+	if target_exists and not GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		false
+	):
 		return "target_exists"
 	return ""
 
@@ -435,12 +511,30 @@ static func _copy_plan_entry(
 	var source_path: String = GFVariantData.get_option_string(plan_entry, "source_path")
 	var target_path: String = GFVariantData.get_option_string(plan_entry, "target_path")
 	var reason: String = GFVariantData.get_option_string(plan_entry, "reason")
-	if not GFVariantData.get_option_bool(plan_entry, "will_copy") and not (reason == "target_exists" and overwrite):
+	if (
+		not GFVariantData.get_option_bool(plan_entry, "will_copy")
+		and not (
+			reason == "target_exists"
+			and overwrite
+		)
+	):
 		var skip_reason: String = reason if not reason.is_empty() else "not_copyable"
-		_add_report_warning(report, StringName(skip_reason), "Audio import plan entry is not copyable.", source_path, target_path)
+		_add_report_warning(
+			report,
+			StringName(skip_reason),
+			"Audio import plan entry is not copyable.",
+			source_path,
+			target_path
+		)
 		return ERR_SKIP
 	if source_path.is_empty() or target_path.is_empty():
-		_add_report_error(report, &"invalid_import_path", "Audio import path is empty.", source_path, target_path)
+		_add_report_error(
+			report,
+			&"invalid_import_path",
+			"Audio import path is empty.",
+			source_path,
+			target_path
+		)
 		return ERR_INVALID_PARAMETER
 	if _has_parent_path_segment(source_path) or _has_parent_path_segment(target_path):
 		_add_report_error(
@@ -452,13 +546,31 @@ static func _copy_plan_entry(
 		)
 		return ERR_UNAUTHORIZED
 	if source_path == target_path:
-		_add_report_warning(report, &"same_path", "Audio import source and target are the same path.", source_path, target_path)
+		_add_report_warning(
+			report,
+			&"same_path",
+			"Audio import source and target are the same path.",
+			source_path,
+			target_path
+		)
 		return ERR_SKIP
 	if not _file_exists(source_path):
-		_add_report_error(report, &"missing_source", "Audio import source file does not exist.", source_path, target_path)
+		_add_report_error(
+			report,
+			&"missing_source",
+			"Audio import source file does not exist.",
+			source_path,
+			target_path
+		)
 		return ERR_FILE_NOT_FOUND
 	if _file_exists(target_path) and not overwrite:
-		_add_report_warning(report, &"target_exists", "Audio import target already exists.", source_path, target_path)
+		_add_report_warning(
+			report,
+			&"target_exists",
+			"Audio import target already exists.",
+			source_path,
+			target_path
+		)
 		return ERR_SKIP
 
 	var ensure_error: Error = _ensure_parent_dir(target_path)
@@ -501,10 +613,7 @@ static func _copy_plan_entry(
 			"Audio import committed, but the previous target backup could not be removed.",
 			source_path,
 			target_path,
-			{
-				"error": cleanup_error,
-				"backup_path": GFVariantData.get_option_string(copy_result, "backup_path"),
-			}
+			{ "error": cleanup_error, "backup_path": GFVariantData.get_option_string(copy_result, "backup_path"), }
 		)
 	var copy_error: Error = GFVariantData.get_option_int(
 		copy_result,
@@ -577,11 +686,7 @@ static func _build_copy_preflight(
 		if source_size >= 0:
 			total_bytes += source_size
 			continue
-		var issue_kind: StringName = (
-			&"missing_source"
-			if source_path.is_empty() or not _file_exists(source_path)
-			else &"copy_source_preflight_failed"
-		)
+		var issue_kind: StringName = (&"missing_source" if source_path.is_empty() or not _file_exists(source_path) else &"copy_source_preflight_failed")
 		_add_report_error(
 			report,
 			issue_kind,
@@ -662,10 +767,7 @@ static func _validate_copy_budget(
 			"Audio import copy plan exceeds the configured file count limit.",
 			planned_copy_count,
 			"",
-			{
-				"planned_copy_count": planned_copy_count,
-				"max_copy_files": max_copy_files,
-			}
+			{ "planned_copy_count": planned_copy_count, "max_copy_files": max_copy_files, }
 		)
 		ok = false
 	if max_copy_bytes > 0 and planned_copy_bytes > max_copy_bytes:
@@ -675,10 +777,7 @@ static func _validate_copy_budget(
 			"Audio import copy plan exceeds the configured total byte limit.",
 			planned_copy_bytes,
 			"",
-			{
-				"planned_copy_bytes": planned_copy_bytes,
-				"max_copy_bytes": max_copy_bytes,
-			}
+			{ "planned_copy_bytes": planned_copy_bytes, "max_copy_bytes": max_copy_bytes, }
 		)
 		ok = false
 	return ok
@@ -700,14 +799,8 @@ static func _finalize_copy_report_metadata(
 	report.metadata["skipped_count"] = skipped_count
 	report.metadata["error_count"] = error_count
 	report.metadata["copied_paths"] = copied_paths
-	report.metadata["consumed_copy_bytes"] = GFVariantData.get_option_int(
-		copy_state,
-		"consumed_bytes"
-	)
-	report.metadata["committed_copy_bytes"] = GFVariantData.get_option_int(
-		copy_state,
-		"committed_bytes"
-	)
+	report.metadata["consumed_copy_bytes"] = GFVariantData.get_option_int(copy_state, "consumed_bytes")
+	report.metadata["committed_copy_bytes"] = GFVariantData.get_option_int(copy_state, "committed_bytes")
 
 
 ## 先恢复遗留事务，再写临时文件并提交备份替换结果。
@@ -728,7 +821,11 @@ static func _copy_file(
 		temp_path,
 		backup_path
 	)
-	if GFVariantData.get_option_int(recovery, "error", FAILED) != OK:
+	if GFVariantData.get_option_int(
+		recovery,
+		"error",
+		FAILED
+	) != OK:
 		return recovery
 	if _file_exists(target_path) and not overwrite:
 		return {
@@ -751,7 +848,11 @@ static func _copy_file(
 	copy_result["recovery"] = recovery
 	copy_result["temp_path"] = temp_path
 	copy_result["backup_path"] = backup_path
-	if GFVariantData.get_option_int(copy_result, "error", FAILED) != OK:
+	if GFVariantData.get_option_int(
+		copy_result,
+		"error",
+		FAILED
+	) != OK:
 		var temp_cleanup_error: Error = _remove_file_for_copy(temp_path)
 		if temp_cleanup_error != OK:
 			copy_result["temp_cleanup_error"] = temp_cleanup_error
@@ -765,22 +866,20 @@ static func _copy_file(
 	)
 	replace_result["recovered"] = GFVariantData.get_option_bool(recovery, "recovered")
 	replace_result["recovery"] = recovery
-	replace_result["copied_bytes"] = GFVariantData.get_option_int(
-		copy_result,
-		"copied_bytes"
-	)
+	replace_result["copied_bytes"] = GFVariantData.get_option_int(copy_result, "copied_bytes")
 	replace_result["temp_path"] = temp_path
 	replace_result["backup_path"] = backup_path
-	if GFVariantData.get_option_int(replace_result, "error", FAILED) != OK:
+	if GFVariantData.get_option_int(
+		replace_result,
+		"error",
+		FAILED
+	) != OK:
 		var temp_cleanup_error: Error = _remove_file_for_copy(temp_path)
 		if temp_cleanup_error != OK:
 			replace_result["temp_cleanup_error"] = temp_cleanup_error
 		return replace_result
 
-	copy_state["committed_bytes"] = (
-		GFVariantData.get_option_int(copy_state, "committed_bytes")
-		+ GFVariantData.get_option_int(copy_result, "copied_bytes")
-	)
+	copy_state["committed_bytes"] = (GFVariantData.get_option_int(copy_state, "committed_bytes") + GFVariantData.get_option_int(copy_result, "copied_bytes"))
 	return replace_result
 
 
@@ -815,10 +914,7 @@ static func _copy_file_to_path(
 		}
 
 	var max_copy_bytes: int = GFVariantData.get_option_int(copy_state, "max_bytes")
-	var consumed_copy_bytes: int = GFVariantData.get_option_int(
-		copy_state,
-		"consumed_bytes"
-	)
+	var consumed_copy_bytes: int = GFVariantData.get_option_int(copy_state, "consumed_bytes")
 	if (
 		max_copy_bytes > 0
 		and (
@@ -833,7 +929,10 @@ static func _copy_file_to_path(
 			"message": "Audio import source exceeds the remaining execution-time copy budget.",
 			"expected_source_size": expected_source_size,
 			"observed_source_size": observed_source_size,
-			"remaining_copy_bytes": maxi(max_copy_bytes - consumed_copy_bytes, 0),
+			"remaining_copy_bytes": maxi(
+				max_copy_bytes - consumed_copy_bytes,
+				0
+			),
 			"copied_bytes": 0,
 		}
 
@@ -852,10 +951,7 @@ static func _copy_file_to_path(
 		var remaining_bytes: int = observed_source_size - copied_bytes
 		var buffer_size: int = mini(_COPY_BUFFER_SIZE, remaining_bytes)
 		var buffer: PackedByteArray = source_file.get_buffer(buffer_size)
-		copy_state["consumed_bytes"] = (
-			GFVariantData.get_option_int(copy_state, "consumed_bytes")
-			+ buffer.size()
-		)
+		copy_state["consumed_bytes"] = (GFVariantData.get_option_int(copy_state, "consumed_bytes") + buffer.size())
 		if buffer.size() != buffer_size:
 			source_file.close()
 			target_file.close()
@@ -1067,7 +1163,11 @@ static func _make_target_relative_path(entry: Dictionary, options: Dictionary) -
 	var file_name: String = GFVariantData.get_option_string(entry, "file_name").get_file()
 	if file_name.is_empty() or not _is_safe_relative_path(file_name):
 		return ""
-	if not GFVariantData.get_option_bool(options, "preserve_structure", true):
+	if not GFVariantData.get_option_bool(
+		options,
+		"preserve_structure",
+		true
+	):
 		return file_name
 
 	var relative_path: String = _get_entry_relative_path(entry)
@@ -1150,8 +1250,16 @@ static func _make_text_search_options(options: Dictionary) -> Dictionary:
 	)
 	return {
 		"fields": fields,
-		"require_all_tokens": GFVariantData.get_option_bool(options, "match_all", true),
-		"case_sensitive": GFVariantData.get_option_bool(options, "case_sensitive", false),
+		"require_all_tokens": GFVariantData.get_option_bool(
+			options,
+			"match_all",
+			true
+		),
+		"case_sensitive": GFVariantData.get_option_bool(
+			options,
+			"case_sensitive",
+			false
+		),
 		"duplicate_candidate": false,
 	}
 
@@ -1173,7 +1281,11 @@ static func _duplicate_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 ## [br]
 static func _get_extensions(options: Dictionary) -> PackedStringArray:
 	return _normalize_extensions(
-		GFVariantData.get_option_packed_string_array(options, "extensions", GFAudioBankTools.AUDIO_EXTENSIONS)
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"extensions",
+			GFAudioBankTools.AUDIO_EXTENSIONS
+		)
 	)
 
 
@@ -1197,7 +1309,11 @@ static func _normalize_extensions(extensions: PackedStringArray) -> PackedString
 ## @api private
 ## [br]
 static func _normalize_resource_path(path: String) -> String:
-	return _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
+	return _GF_PATH_TOOLS.normalize_resource_path(
+		path,
+		"",
+		false
+	)
 
 
 ## 通过路径工具规范化扫描根目录。
@@ -1205,7 +1321,11 @@ static func _normalize_resource_path(path: String) -> String:
 ## @api private
 ## [br]
 static func _normalize_dir_path(path: String) -> String:
-	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
+	return _GF_PATH_TOOLS.normalize_root_path(
+		path,
+		"",
+		false
+	)
 
 
 ## 只拼接安全相对路径，并在结果离开规范化根目录时返回空字符串。
@@ -1290,7 +1410,13 @@ static func _add_report_warning(
 	path: String = "",
 	metadata: Dictionary = {}
 ) -> void:
-	var _issue: RefCounted = report.add_warning(kind, message, key, path, metadata)
+	var _issue: RefCounted = report.add_warning(
+		kind,
+		message,
+		key,
+		path,
+		metadata
+	)
 
 
 ## 将带键、路径和元数据的错误转交给校验报告。
@@ -1305,7 +1431,13 @@ static func _add_report_error(
 	path: String = "",
 	metadata: Dictionary = {}
 ) -> void:
-	var _issue: RefCounted = report.add_error(kind, message, key, path, metadata)
+	var _issue: RefCounted = report.add_error(
+		kind,
+		message,
+		key,
+		path,
+		metadata
+	)
 
 
 ## 忽略空值与已存在值后向 PackedStringArray 追加文本。

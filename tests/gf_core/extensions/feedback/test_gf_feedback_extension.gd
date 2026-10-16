@@ -14,7 +14,11 @@ func test_shake_capacity_eviction_does_not_chase_reentrant_replacements() -> voi
 			var _replacement: int = utility.play_shake(&"test", preset)
 	var _connection: Error = utility.shake_stopped.connect(callback) as Error
 	var _requested: int = utility.play_shake(&"test", preset)
-	assert_eq(stopped_count[0], 1, "单次容量预留只淘汰调用开始时的候选。")
+	assert_eq(
+		stopped_count[0],
+		1,
+		"单次容量预留只淘汰调用开始时的候选。"
+	)
 	utility.shake_stopped.disconnect(callback)
 	utility.dispose()
 
@@ -24,15 +28,35 @@ func test_haptic_capacity_eviction_does_not_chase_reentrant_replacements() -> vo
 	utility.max_active_haptics = 1
 	utility.haptic_backend = RecordingHapticBackend.new()
 	var preset: GFHapticPreset = GFHapticPreset.new()
-	var _first: int = utility.play_haptic(&"test", preset, 0)
+	var _first: int = utility.play_haptic(
+		&"test",
+		preset,
+		0
+	)
 	var stopped_count: Array[int] = [0]
-	var callback: Callable = func(_id: int, _channel: StringName, _type: int, _target: int) -> void:
+	var callback: Callable = func(
+		_id: int,
+		_channel: StringName,
+		_type: int,
+		_target: int
+	) -> void:
 		stopped_count[0] += 1
 		if stopped_count[0] <= 3:
-			var _replacement: int = utility.play_haptic(&"test", preset, 0)
+			var _replacement: int = utility.play_haptic(
+				&"test",
+				preset,
+				0
+			)
 	var _connection: Error = utility.haptic_stopped.connect(callback) as Error
-	var _requested: int = utility.play_haptic(&"test", preset, 0)
-	assert_eq(stopped_count[0], 1)
+	var _requested: int = utility.play_haptic(
+		&"test",
+		preset,
+		0
+	)
+	assert_eq(
+		stopped_count[0],
+		1
+	)
 	utility.haptic_stopped.disconnect(callback)
 	utility.dispose()
 
@@ -60,24 +84,33 @@ class RecordingHapticBackend extends RefCounted:
 		duration_seconds: float,
 		p_metadata: Dictionary = {}
 	) -> bool:
-		outputs.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"weak_magnitude": weak_magnitude,
-			"strong_magnitude": strong_magnitude,
-			"duration_seconds": duration_seconds,
-			"metadata": p_metadata,
-		})
+		outputs.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"weak_magnitude": weak_magnitude,
+				"strong_magnitude": strong_magnitude,
+				"duration_seconds": duration_seconds,
+				"metadata": p_metadata,
+			}
+		)
 		if on_start.is_valid():
 			var _on_start_result: Variant = on_start.call()
 		return accept_starts
 
-	func stop_output(target_type: int, target_id: int, p_metadata: Dictionary = {}) -> bool:
-		stops.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"metadata": p_metadata,
-		})
+
+	func stop_output(
+		target_type: int,
+		target_id: int,
+		p_metadata: Dictionary = {}
+	) -> bool:
+		stops.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"metadata": p_metadata,
+			}
+		)
 		return accept_stops
 
 
@@ -129,10 +162,19 @@ func test_feedback_extension_installer_registers_shake_and_haptic_utilities() ->
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var installer: GFInstaller = GF_FEEDBACK_EXTENSION.new()
 
-	installer.install(architecture, GFAsyncScope.new())
+	installer.install(
+		architecture,
+		GFAsyncScope.new()
+	)
 
-	assert_not_null(architecture.get_local_utility(GFShakeUtility), "启用 Feedback 扩展应注册 GFShakeUtility。")
-	assert_not_null(architecture.get_local_utility(GFHapticUtility), "启用 Feedback 扩展应注册 GFHapticUtility。")
+	assert_not_null(
+		architecture.get_local_utility(GFShakeUtility),
+		"启用 Feedback 扩展应注册 GFShakeUtility。"
+	)
+	assert_not_null(
+		architecture.get_local_utility(GFHapticUtility),
+		"启用 Feedback 扩展应注册 GFHapticUtility。"
+	)
 	architecture.dispose()
 
 
@@ -144,8 +186,15 @@ func test_feedback_installer_fails_and_rolls_back_when_second_registration_fails
 
 	installer.install(architecture, scope)
 
-	assert_eq(architecture.registration_call_count, 2, "安装器应尝试注册两个 Feedback Utility。")
-	assert_true(architecture.has_initialization_failed(), "Utility 注册失败必须传播为架构初始化失败。")
+	assert_eq(
+		architecture.registration_call_count,
+		2,
+		"安装器应尝试注册两个 Feedback Utility。"
+	)
+	assert_true(
+		architecture.has_initialization_failed(),
+		"Utility 注册失败必须传播为架构初始化失败。"
+	)
 	assert_null(
 		architecture.get_local_utility(GFShakeUtility),
 		"初始化失败必须回滚本轮已注册的 Shake Utility。"
@@ -163,9 +212,19 @@ func test_feedback_installer_stops_after_scope_cancellation() -> void:
 
 	installer.install(architecture, scope)
 
-	assert_eq(architecture.registration_call_count, 1, "scope 取消后不得继续注册 Haptic Utility。")
-	assert_not_null(architecture.get_local_utility(GFShakeUtility), "取消前成功的注册由外层初始化事务接管。")
-	assert_null(architecture.get_local_utility(GFHapticUtility), "取消检查必须阻止后续注册。")
+	assert_eq(
+		architecture.registration_call_count,
+		1,
+		"scope 取消后不得继续注册 Haptic Utility。"
+	)
+	assert_not_null(
+		architecture.get_local_utility(GFShakeUtility),
+		"取消前成功的注册由外层初始化事务接管。"
+	)
+	assert_null(
+		architecture.get_local_utility(GFHapticUtility),
+		"取消检查必须阻止后续注册。"
+	)
 	architecture.dispose()
 
 
@@ -186,12 +245,22 @@ func test_shake_utility_samples_and_finishes() -> void:
 	var sample: Dictionary = utility.sample_channel(&"camera")
 	var position: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 
-	assert_true(utility.is_shake_active(shake_id), "播放后反馈实例应处于活跃状态。")
-	assert_gt(absf(position.x), 0.5, "采样应产生位移偏移。")
+	assert_true(
+		utility.is_shake_active(shake_id),
+		"播放后反馈实例应处于活跃状态。"
+	)
+	assert_gt(
+		absf(position.x),
+		0.5,
+		"采样应产生位移偏移。"
+	)
 
 	utility.tick(0.2)
 
-	assert_false(utility.is_shake_active(shake_id), "超过持续时间后反馈实例应自动结束。")
+	assert_false(
+		utility.is_shake_active(shake_id),
+		"超过持续时间后反馈实例应自动结束。"
+	)
 
 
 func test_shake_utility_short_tick_keeps_one_sample_before_finishing() -> void:
@@ -210,12 +279,22 @@ func test_shake_utility_short_tick_keeps_one_sample_before_finishing() -> void:
 	var sample: Dictionary = utility.sample_channel(&"camera")
 	var position: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 
-	assert_true(utility.is_shake_active(shake_id), "首帧超过持续时间时应保留一次可采样状态。")
-	assert_gt(absf(position.x), 0.5, "短反馈不应在首帧被直接吞掉。")
+	assert_true(
+		utility.is_shake_active(shake_id),
+		"首帧超过持续时间时应保留一次可采样状态。"
+	)
+	assert_gt(
+		absf(position.x),
+		0.5,
+		"短反馈不应在首帧被直接吞掉。"
+	)
 
 	utility.tick(0.1)
 
-	assert_false(utility.is_shake_active(shake_id), "下一次 tick 后短反馈应完成。")
+	assert_false(
+		utility.is_shake_active(shake_id),
+		"下一次 tick 后短反馈应完成。"
+	)
 
 
 func test_shake_utility_finishes_when_active_preset_duration_becomes_zero() -> void:
@@ -224,11 +303,9 @@ func test_shake_utility_finishes_when_active_preset_duration_becomes_zero() -> v
 	var preset: GFShakePreset = GFShakePreset.new()
 	preset.duration_seconds = 1.0
 	var finished_ids: Array[int] = []
-	var _shake_finished_connected: int = utility.shake_finished.connect(func(
-		finished_shake_id: int,
-		_channel: StringName
-	) -> void:
-		finished_ids.append(finished_shake_id)
+	var _shake_finished_connected: int = utility.shake_finished.connect(
+		func(finished_shake_id: int, _channel: StringName) -> void:
+			finished_ids.append(finished_shake_id)
 	)
 	var shake_id: int = utility.play_shake(&"camera", preset)
 	preset.duration_seconds = 0.0
@@ -236,8 +313,15 @@ func test_shake_utility_finishes_when_active_preset_duration_becomes_zero() -> v
 	utility.tick(0.016)
 	utility.tick(0.016)
 
-	assert_false(utility.is_shake_active(shake_id), "播放后退化为零时长的 shake 必须终止。")
-	assert_eq(finished_ids, [shake_id], "退化时长只能发出一次完成信号。")
+	assert_false(
+		utility.is_shake_active(shake_id),
+		"播放后退化为零时长的 shake 必须终止。"
+	)
+	assert_eq(
+		finished_ids,
+		[shake_id],
+		"退化时长只能发出一次完成信号。"
+	)
 
 
 func test_shake_info_sanitizes_metadata_for_reports() -> void:
@@ -246,9 +330,12 @@ func test_shake_info_sanitizes_metadata_for_reports() -> void:
 	var preset: GFShakePreset = GFShakePreset.new()
 	preset.duration_seconds = 1.0
 
-	var shake_id: int = utility.play_shake(&"camera", preset, 1.0, {
-		"owner": self,
-	})
+	var shake_id: int = utility.play_shake(
+		&"camera",
+		preset,
+		1.0,
+		{ "owner": self, }
+	)
 	var info: Dictionary = utility.get_shake_info(shake_id)
 	var info_json: String = JSON.stringify(info)
 	var metadata_owner: Dictionary = GFVariantData.get_option_dictionary(
@@ -256,8 +343,14 @@ func test_shake_info_sanitizes_metadata_for_reports() -> void:
 		"owner"
 	)
 
-	assert_false(info_json.is_empty(), "shake info 应可直接 JSON.stringify。")
-	assert_true(metadata_owner.has("__gf_report_value__"), "metadata Object 应转换为报告 marker。")
+	assert_false(
+		info_json.is_empty(),
+		"shake info 应可直接 JSON.stringify。"
+	)
+	assert_true(
+		metadata_owner.has("__gf_report_value__"),
+		"metadata Object 应转换为报告 marker。"
+	)
 
 
 func test_shake_debug_snapshot_is_json_safe() -> void:
@@ -270,8 +363,15 @@ func test_shake_debug_snapshot_is_json_safe() -> void:
 	var snapshot: Dictionary = utility.get_debug_snapshot()
 	var snapshot_json: String = JSON.stringify(snapshot)
 
-	assert_false(snapshot_json.is_empty(), "shake debug snapshot 应可直接 JSON.stringify。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "active_count"), 1, "调试快照应保留活跃数量。")
+	assert_false(
+		snapshot_json.is_empty(),
+		"shake debug snapshot 应可直接 JSON.stringify。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "active_count"),
+		1,
+		"调试快照应保留活跃数量。"
+	)
 
 
 ## 验证 2D 接收器能把 channel 采样应用到目标节点。
@@ -297,7 +397,11 @@ func test_shake_receiver_2d_applies_sample_to_target() -> void:
 	utility.tick(0.025)
 	var _apply_current_sample_result_53: Variant = receiver.apply_current_sample()
 
-	assert_gt(target.position.x, 0.5, "接收器应把采样位移叠加到目标节点。")
+	assert_gt(
+		target.position.x,
+		0.5,
+		"接收器应把采样位移叠加到目标节点。"
+	)
 
 
 func test_shake_receiver_2d_rebinds_target_path_and_resets_previous_target() -> void:
@@ -329,14 +433,31 @@ func test_shake_receiver_2d_rebinds_target_path_and_resets_previous_target() -> 
 	utility.tick(0.025)
 	var _apply_first_result: Variant = receiver.apply_current_sample()
 
-	assert_gt(first_target.position.x, 0.5, "初始 target_path 应绑定到第一目标。")
+	assert_gt(
+		first_target.position.x,
+		0.5,
+		"初始 target_path 应绑定到第一目标。"
+	)
 
 	receiver.target_path = NodePath("../SecondTarget")
 	var _apply_second_result: Variant = receiver.apply_current_sample()
 
-	assert_almost_eq(first_target.position.x, 0.0, 0.001, "重绑目标时应撤销旧目标上的上一帧偏移。")
-	assert_eq(receiver.get_target(), second_target, "运行时修改 target_path 后应重新解析目标。")
-	assert_gt(second_target.position.x, 0.5, "重绑后采样应应用到新目标。")
+	assert_almost_eq(
+		first_target.position.x,
+		0.0,
+		0.001,
+		"重绑目标时应撤销旧目标上的上一帧偏移。"
+	)
+	assert_eq(
+		receiver.get_target(),
+		second_target,
+		"运行时修改 target_path 后应重新解析目标。"
+	)
+	assert_gt(
+		second_target.position.x,
+		0.5,
+		"重绑后采样应应用到新目标。"
+	)
 
 
 func test_shake_receiver_2d_preserves_external_motion_between_samples() -> void:
@@ -364,13 +485,22 @@ func test_shake_receiver_2d_preserves_external_motion_between_samples() -> void:
 	utility.tick(0.025)
 	var _apply_current_sample_result_81: Variant = receiver.apply_current_sample()
 
-	assert_almost_eq(target.position.y, 12.0, 0.001, "接收器应只撤销自身上一帧偏移，不应覆盖外部移动。")
+	assert_almost_eq(
+		target.position.y,
+		12.0,
+		0.001,
+		"接收器应只撤销自身上一帧偏移，不应覆盖外部移动。"
+	)
 
 
 func test_shake_receiver_2d_drops_stale_offset_when_dead_target_is_rebound() -> void:
 	var utility: StubShakeUtility = StubShakeUtility.new()
 	utility.current_sample = {
-		"position": Vector3(3.0, 0.0, 0.0),
+		"position": Vector3(
+			3.0,
+			0.0,
+			0.0
+		),
 		"rotation_degrees": Vector3.ZERO,
 		"scale": Vector3.ZERO,
 	}
@@ -391,20 +521,38 @@ func test_shake_receiver_2d_drops_stale_offset_when_dead_target_is_rebound() -> 
 	await get_tree().process_frame
 	receiver.set_process(false)
 
-	assert_true(receiver.apply_current_sample(), "首个目标应成功应用采样。")
+	assert_true(
+		receiver.apply_current_sample(),
+		"首个目标应成功应用采样。"
+	)
 	first_target.queue_free()
 	await get_tree().process_frame
-	utility.current_sample["position"] = Vector3(5.0, 0.0, 0.0)
+	utility.current_sample["position"] = Vector3(
+		5.0,
+		0.0,
+		0.0
+	)
 	receiver.target_path = NodePath("../SecondTarget")
 
-	assert_true(receiver.apply_current_sample(), "失效目标重绑后应成功应用采样。")
-	assert_eq(second_target.position, Vector2(15.0, 0.0), "新目标不得减去已失效目标遗留的 offset。")
+	assert_true(
+		receiver.apply_current_sample(),
+		"失效目标重绑后应成功应用采样。"
+	)
+	assert_eq(
+		second_target.position,
+		Vector2(15.0, 0.0),
+		"新目标不得减去已失效目标遗留的 offset。"
+	)
 
 
 func test_shake_receiver_3d_drops_stale_offset_when_dead_target_is_rebound() -> void:
 	var utility: StubShakeUtility = StubShakeUtility.new()
 	utility.current_sample = {
-		"position": Vector3(3.0, 0.0, 0.0),
+		"position": Vector3(
+			3.0,
+			0.0,
+			0.0
+		),
 		"rotation_degrees": Vector3.ZERO,
 		"scale": Vector3.ZERO,
 	}
@@ -413,7 +561,11 @@ func test_shake_receiver_3d_drops_stale_offset_when_dead_target_is_rebound() -> 
 	first_target.name = "FirstTarget"
 	var second_target: Node3D = Node3D.new()
 	second_target.name = "SecondTarget"
-	second_target.position = Vector3(10.0, 0.0, 0.0)
+	second_target.position = Vector3(
+		10.0,
+		0.0,
+		0.0
+	)
 	var receiver: GFShakeReceiver3D = GFShakeReceiver3D.new()
 	receiver.utility = utility
 	receiver.capture_on_ready = false
@@ -425,20 +577,42 @@ func test_shake_receiver_3d_drops_stale_offset_when_dead_target_is_rebound() -> 
 	await get_tree().process_frame
 	receiver.set_process(false)
 
-	assert_true(receiver.apply_current_sample(), "首个 3D 目标应成功应用采样。")
+	assert_true(
+		receiver.apply_current_sample(),
+		"首个 3D 目标应成功应用采样。"
+	)
 	first_target.queue_free()
 	await get_tree().process_frame
-	utility.current_sample["position"] = Vector3(5.0, 0.0, 0.0)
+	utility.current_sample["position"] = Vector3(
+		5.0,
+		0.0,
+		0.0
+	)
 	receiver.target_path = NodePath("../SecondTarget")
 
-	assert_true(receiver.apply_current_sample(), "失效 3D 目标重绑后应成功应用采样。")
-	assert_eq(second_target.position, Vector3(15.0, 0.0, 0.0), "新 3D 目标不得减去旧目标遗留的 offset。")
+	assert_true(
+		receiver.apply_current_sample(),
+		"失效 3D 目标重绑后应成功应用采样。"
+	)
+	assert_eq(
+		second_target.position,
+		Vector3(
+			15.0,
+			0.0,
+			0.0
+		),
+		"新 3D 目标不得减去旧目标遗留的 offset。"
+	)
 
 
 func test_shake_receivers_rebind_recreated_target_at_same_path() -> void:
 	var utility: StubShakeUtility = StubShakeUtility.new()
 	utility.current_sample = {
-		"position": Vector3(4.0, 0.0, 0.0),
+		"position": Vector3(
+			4.0,
+			0.0,
+			0.0
+		),
 		"rotation_degrees": Vector3.ZERO,
 		"scale": Vector3.ZERO,
 	}
@@ -478,16 +652,40 @@ func test_shake_receivers_rebind_recreated_target_at_same_path() -> void:
 	receiver_2d.call("_process", 0.0)
 	receiver_3d.call("_process", 0.0)
 
-	assert_eq(receiver_2d.get_target(), replacement_2d, "2D target_path 应在同路径节点重建后恢复绑定。")
-	assert_eq(receiver_3d.get_target(), replacement_3d, "3D target_path 应在同路径节点重建后恢复绑定。")
-	assert_eq(replacement_2d.position, Vector2(4.0, 0.0), "2D 新目标应收到当前采样且不减旧 offset。")
-	assert_eq(replacement_3d.position, Vector3(4.0, 0.0, 0.0), "3D 新目标应收到当前采样且不减旧 offset。")
+	assert_eq(
+		receiver_2d.get_target(),
+		replacement_2d,
+		"2D target_path 应在同路径节点重建后恢复绑定。"
+	)
+	assert_eq(
+		receiver_3d.get_target(),
+		replacement_3d,
+		"3D target_path 应在同路径节点重建后恢复绑定。"
+	)
+	assert_eq(
+		replacement_2d.position,
+		Vector2(4.0, 0.0),
+		"2D 新目标应收到当前采样且不减旧 offset。"
+	)
+	assert_eq(
+		replacement_3d.position,
+		Vector3(
+			4.0,
+			0.0,
+			0.0
+		),
+		"3D 新目标应收到当前采样且不减旧 offset。"
+	)
 
 
 func test_shake_receiver_reset_to_base_restores_captured_baseline() -> void:
 	var utility: StubShakeUtility = StubShakeUtility.new()
 	utility.current_sample = {
-		"position": Vector3(2.0, 0.0, 0.0),
+		"position": Vector3(
+			2.0,
+			0.0,
+			0.0
+		),
 		"rotation_degrees": Vector3.ZERO,
 		"scale": Vector3.ZERO,
 	}
@@ -500,18 +698,36 @@ func test_shake_receiver_reset_to_base_restores_captured_baseline() -> void:
 	await get_tree().process_frame
 	receiver.set_process(false)
 
-	assert_true(receiver.apply_current_sample(), "测试前应成功应用采样。")
+	assert_true(
+		receiver.apply_current_sample(),
+		"测试前应成功应用采样。"
+	)
 	target.position.y += 5.0
 
-	assert_true(receiver.reset_to_base(), "已捕获基线时应能恢复目标。")
-	assert_eq(target.position, Vector2(10.0, 4.0), "reset_to_base 应恢复捕获时基线，而不是重新捕获当前变换。")
+	assert_true(
+		receiver.reset_to_base(),
+		"已捕获基线时应能恢复目标。"
+	)
+	assert_eq(
+		target.position,
+		Vector2(10.0, 4.0),
+		"reset_to_base 应恢复捕获时基线，而不是重新捕获当前变换。"
+	)
 
 
 func test_shake_receivers_reject_non_finite_samples_atomically() -> void:
 	var utility: StubShakeUtility = StubShakeUtility.new()
 	utility.current_sample = {
-		"position": Vector3(NAN, 1.0, 2.0),
-		"rotation_degrees": Vector3(3.0, INF, 4.0),
+		"position": Vector3(
+			NAN,
+			1.0,
+			2.0
+		),
+		"rotation_degrees": Vector3(
+			3.0,
+			INF,
+			4.0
+		),
 		"scale": Vector3.ZERO,
 	}
 	var target_2d: Node2D = Node2D.new()
@@ -521,7 +737,11 @@ func test_shake_receivers_reject_non_finite_samples_atomically() -> void:
 	target_2d.add_child(receiver_2d)
 	add_child_autofree(target_2d)
 	var target_3d: Node3D = Node3D.new()
-	target_3d.position = Vector3(8.0, 9.0, 10.0)
+	target_3d.position = Vector3(
+		8.0,
+		9.0,
+		10.0
+	)
 	var receiver_3d: GFShakeReceiver3D = GFShakeReceiver3D.new()
 	receiver_3d.utility = utility
 	target_3d.add_child(receiver_3d)
@@ -532,13 +752,167 @@ func test_shake_receivers_reject_non_finite_samples_atomically() -> void:
 	var initial_2d_position: Vector2 = target_2d.position
 	var initial_3d_position: Vector3 = target_3d.position
 
-	assert_false(receiver_2d.apply_current_sample(), "2D 接收器必须拒绝非有限采样。")
-	assert_false(receiver_3d.apply_current_sample(), "3D 接收器必须拒绝非有限采样。")
-	assert_eq(target_2d.position, initial_2d_position, "拒绝非有限采样时 2D 变换必须保持原子不变。")
-	assert_eq(target_3d.position, initial_3d_position, "拒绝非有限采样时 3D 变换必须保持原子不变。")
+	assert_false(
+		receiver_2d.apply_current_sample(),
+		"2D 接收器必须拒绝非有限采样。"
+	)
+	assert_false(
+		receiver_3d.apply_current_sample(),
+		"3D 接收器必须拒绝非有限采样。"
+	)
+	assert_eq(
+		target_2d.position,
+		initial_2d_position,
+		"拒绝非有限采样时 2D 变换必须保持原子不变。"
+	)
+	assert_eq(
+		target_3d.position,
+		initial_3d_position,
+		"拒绝非有限采样时 3D 变换必须保持原子不变。"
+	)
 
 
 ## 验证反馈预设可以按多轨道合成采样。
+func test_shake_sampling_preserves_fixed_seed_phase_and_local_progress_values() -> void:
+	# Fixed public samples captured before sharing the sampling implementation.
+	var cases: Array[Array] = [
+		[
+			GFShakePreset.Waveform.SINE,
+			1,
+			3.25,
+			0.125,
+			Vector3(
+				-0.333342165,
+				-0.265373230,
+				0.598715365
+			),
+			Vector3(
+				-0.370380163,
+				-0.294859141,
+				0.665239334
+			),
+		],
+		[
+			GFShakePreset.Waveform.RANDOM,
+			73,
+			0.0,
+			-0.125,
+			Vector3(
+				-0.085661076,
+				-0.444488972,
+				0.040156782
+			),
+			Vector3(
+				-0.095178977,
+				-0.493876636,
+				0.044618648
+			),
+		],
+		[
+			GFShakePreset.Waveform.NOISE,
+			73,
+			3.25,
+			-0.125,
+			Vector3(
+				0.349948049,
+				-0.507196009,
+				0.358083189
+			),
+			Vector3(
+				0.388831139,
+				-0.563551068,
+				0.397870183
+			),
+		],
+		[
+			GFShakePreset.Waveform.NOISE,
+			73,
+			3.25,
+			1.0e30,
+			Vector3(
+				-0.198670208,
+				-0.233219966,
+				-0.443271935
+			),
+			Vector3(
+				-0.220744669,
+				-0.259133279,
+				-0.492524356
+			),
+		],
+		[
+			GFShakePreset.Waveform.CURVE,
+			1,
+			3.25,
+			0.125,
+			Vector3(
+				-0.177582204,
+				-0.177582204,
+				-0.177582204
+			),
+			Vector3(
+				-0.320987672,
+				-0.320987672,
+				-0.320987672
+			),
+		],
+		[
+			99,
+			1,
+			3.25,
+			0.125,
+			Vector3(
+				0.179720283,
+				0.332222939,
+				0.171886116
+			),
+			Vector3(
+				0.199689195,
+				0.369136572,
+				0.190984577
+			),
+		],
+	]
+	for sample_case: Array in cases:
+		var preset: GFShakePreset = GFShakePreset.new()
+		var track: GFShakeTrack = GFShakeTrack.new()
+		preset.waveform = GFVariantData.to_int(sample_case[0]) as GFShakePreset.Waveform
+		track.waveform = GFVariantData.to_int(sample_case[0]) as GFShakeTrack.Waveform
+		preset.sample_seed = GFVariantData.to_int(sample_case[1])
+		track.sample_seed = GFVariantData.to_int(sample_case[1])
+		preset.frequency = GFVariantData.to_float(sample_case[2])
+		track.frequency = GFVariantData.to_float(sample_case[2])
+		var curve: Curve = Curve.new()
+		var _curve_start: int = curve.add_point(Vector2.ZERO)
+		var _curve_end: int = curve.add_point(Vector2.ONE)
+		preset.wave_curve = curve
+		track.wave_curve = curve
+		track.start_progress = 0.2
+		track.end_progress = 0.8
+		var preset_sample: Dictionary = preset.sample_at_progress(
+			0.4,
+			GFVariantData.to_float(sample_case[3]),
+			1.0,
+			0.1875
+		)
+		var track_sample: Dictionary = track.sample(
+			0.4,
+			GFVariantData.to_float(sample_case[3]),
+			1.0,
+			0.1875
+		)
+		var expected_preset: Vector3 = sample_case[4]
+		var expected_track: Vector3 = sample_case[5]
+		assert_lt(
+			GFVariantData.get_option_vector3(preset_sample, "position").distance_to(expected_preset),
+			0.00001
+		)
+		assert_lt(
+			GFVariantData.get_option_vector3(track_sample, "position").distance_to(expected_track),
+			0.00001
+		)
+
+
 func test_shake_preset_combines_tracks() -> void:
 	var preset: GFShakePreset = GFShakePreset.new()
 	preset.duration_seconds = 1.0
@@ -555,7 +929,11 @@ func test_shake_preset_combines_tracks() -> void:
 	var rotation_track: GFShakeTrack = GFShakeTrack.new()
 	rotation_track.waveform = GFShakeTrack.Waveform.CURVE
 	rotation_track.position_axis = Vector3.ZERO
-	rotation_track.rotation_axis_degrees = Vector3(0.0, 0.0, 1.0)
+	rotation_track.rotation_axis_degrees = Vector3(
+		0.0,
+		0.0,
+		1.0
+	)
 	rotation_track.amplitude = 3.0
 	rotation_track.wave_curve = Curve.new()
 	var _add_point_result_106: Variant = rotation_track.wave_curve.add_point(Vector2(0.0, 1.0))
@@ -569,8 +947,16 @@ func test_shake_preset_combines_tracks() -> void:
 	var sample_position: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 	var sample_rotation: Vector3 = GFVariantData.get_option_vector3(sample, "rotation_degrees")
 
-	assert_eq(sample_position.x, 2.0, "位置轨道应贡献位移。")
-	assert_eq(sample_rotation.z, 3.0, "旋转轨道应贡献旋转。")
+	assert_eq(
+		sample_position.x,
+		2.0,
+		"位置轨道应贡献位移。"
+	)
+	assert_eq(
+		sample_rotation.z,
+		3.0,
+		"旋转轨道应贡献旋转。"
+	)
 
 
 func test_shake_preset_first_track_uses_track_sample_as_blend_seed() -> void:
@@ -592,7 +978,11 @@ func test_shake_preset_first_track_uses_track_sample_as_blend_seed() -> void:
 	var sample: Dictionary = preset.sample_at_progress(0.5, 0.5)
 	var sample_position: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 
-	assert_eq(sample_position.x, 2.0, "非 ADD 首轨不应被 zero_sample 的 0 中性值吞掉。")
+	assert_eq(
+		sample_position.x,
+		2.0,
+		"非 ADD 首轨不应被 zero_sample 的 0 中性值吞掉。"
+	)
 
 
 func test_shake_preset_nonempty_disabled_tracks_do_not_fall_back_to_legacy() -> void:
@@ -639,23 +1029,63 @@ func test_shake_sampling_sanitizes_non_finite_resource_and_call_values() -> void
 	preset.duration_seconds = NAN
 	preset.amplitude = INF
 	preset.frequency = NAN
-	preset.position_axis = Vector3(NAN, INF, -INF)
-	preset.rotation_axis_degrees = Vector3(INF, NAN, 1.0)
-	preset.scale_axis = Vector3(1.0, -INF, NAN)
+	preset.position_axis = Vector3(
+		NAN,
+		INF,
+		-INF
+	)
+	preset.rotation_axis_degrees = Vector3(
+		INF,
+		NAN,
+		1.0
+	)
+	preset.scale_axis = Vector3(
+		1.0,
+		-INF,
+		NAN
+	)
 
-	var legacy_sample: Dictionary = preset.sample_at_progress(NAN, INF, NAN, NAN)
-	assert_true(_shake_sample_is_finite(legacy_sample), "单波形预设必须把所有非有限输入收束成有限采样。")
+	var legacy_sample: Dictionary = preset.sample_at_progress(
+		NAN,
+		INF,
+		NAN,
+		NAN
+	)
+	assert_true(
+		_shake_sample_is_finite(legacy_sample),
+		"单波形预设必须把所有非有限输入收束成有限采样。"
+	)
 
 	var track: GFShakeTrack = GFShakeTrack.new()
 	track.amplitude = INF
 	track.frequency = NAN
-	track.position_axis = Vector3(NAN, 1.0, INF)
-	track.rotation_axis_degrees = Vector3(-INF, NAN, 1.0)
-	track.scale_axis = Vector3(1.0, INF, NAN)
+	track.position_axis = Vector3(
+		NAN,
+		1.0,
+		INF
+	)
+	track.rotation_axis_degrees = Vector3(
+		-INF,
+		NAN,
+		1.0
+	)
+	track.scale_axis = Vector3(
+		1.0,
+		INF,
+		NAN
+	)
 	preset.tracks = [track]
 
-	var track_sample: Dictionary = preset.sample_at_progress(NAN, INF, NAN, NAN)
-	assert_true(_shake_sample_is_finite(track_sample), "轨道预设必须把所有非有限输入收束成有限采样。")
+	var track_sample: Dictionary = preset.sample_at_progress(
+		NAN,
+		INF,
+		NAN,
+		NAN
+	)
+	assert_true(
+		_shake_sample_is_finite(track_sample),
+		"轨道预设必须把所有非有限输入收束成有限采样。"
+	)
 
 
 func test_haptic_preset_samples_motor_curves() -> void:
@@ -672,18 +1102,48 @@ func test_haptic_preset_samples_motor_curves() -> void:
 
 	var sample: Dictionary = preset.sample_at_progress(0.5, 0.5)
 
-	assert_almost_eq(GFVariantData.get_option_float(sample, "weak_magnitude"), 0.2, 0.001, "弱马达应按曲线和强度采样。")
-	assert_almost_eq(GFVariantData.get_option_float(sample, "strong_magnitude"), 0.25, 0.001, "强马达应按曲线和强度采样。")
+	assert_almost_eq(
+		GFVariantData.get_option_float(sample, "weak_magnitude"),
+		0.2,
+		0.001,
+		"弱马达应按曲线和强度采样。"
+	)
+	assert_almost_eq(
+		GFVariantData.get_option_float(sample, "strong_magnitude"),
+		0.25,
+		0.001,
+		"强马达应按曲线和强度采样。"
+	)
 
 
 func test_haptic_preset_combine_intensity_tracks_clamped_output() -> void:
-	var combined: Dictionary = GFHapticPreset.combine_samples([
-		{ "weak_magnitude": 0.8, "strong_magnitude": 0.1, "intensity": 0.2, "progress": 0.25 },
-		{ "weak_magnitude": 0.7, "strong_magnitude": 0.2, "intensity": 0.2, "progress": 0.5 },
-	])
+	var combined: Dictionary = GFHapticPreset.combine_samples(
+		[
+			{
+				"weak_magnitude": 0.8,
+				"strong_magnitude": 0.1,
+				"intensity": 0.2,
+				"progress": 0.25,
+			},
+			{
+				"weak_magnitude": 0.7,
+				"strong_magnitude": 0.2,
+				"intensity": 0.2,
+				"progress": 0.5,
+			},
+		]
+	)
 
-	assert_eq(GFVariantData.get_option_float(combined, "weak_magnitude"), 1.0, "弱马达合成应钳制到 1。")
-	assert_eq(GFVariantData.get_option_float(combined, "intensity"), 1.0, "合成 intensity 应反映最终输出强度，而不是输入 intensity 最大值。")
+	assert_eq(
+		GFVariantData.get_option_float(combined, "weak_magnitude"),
+		1.0,
+		"弱马达合成应钳制到 1。"
+	)
+	assert_eq(
+		GFVariantData.get_option_float(combined, "intensity"),
+		1.0,
+		"合成 intensity 应反映最终输出强度，而不是输入 intensity 最大值。"
+	)
 
 
 func test_haptic_non_finite_durations_never_reach_backend() -> void:
@@ -695,31 +1155,65 @@ func test_haptic_non_finite_durations_never_reach_backend() -> void:
 	utility.auto_apply_on_tick = false
 	utility.haptic_backend = backend
 
-	assert_true(is_finite(invalid_preset.get_duration_seconds()), "preset 有效时长必须有限。")
-	assert_eq(utility.play_haptic_for_device(&"invalid", invalid_preset, 3), -1, "无限时长 preset 必须被拒绝。")
+	assert_true(
+		is_finite(invalid_preset.get_duration_seconds()),
+		"preset 有效时长必须有限。"
+	)
+	assert_eq(
+		utility.play_haptic_for_device(
+			&"invalid",
+			invalid_preset,
+			3
+		),
+		-1,
+		"无限时长 preset 必须被拒绝。"
+	)
 
 	var valid_preset: GFHapticPreset = GFHapticPreset.new()
 	valid_preset.duration_seconds = 1.0
 	valid_preset.weak_magnitude = 0.5
 	utility.output_refresh_seconds = INF
-	var _haptic_id: int = utility.play_haptic_for_device(&"valid", valid_preset, 3)
+	var _haptic_id: int = utility.play_haptic_for_device(
+		&"valid",
+		valid_preset,
+		3
+	)
 	var _report: Dictionary = utility.apply_current_outputs(INF)
 
-	assert_eq(backend.outputs.size(), 1, "有限 preset 应产生一次输出。")
+	assert_eq(
+		backend.outputs.size(),
+		1,
+		"有限 preset 应产生一次输出。"
+	)
 	assert_true(
-		is_finite(GFVariantData.get_option_float(backend.outputs[0], "duration_seconds")),
+		is_finite(
+			GFVariantData.get_option_float(
+				backend.outputs[0],
+				"duration_seconds"
+			)
+		),
 		"backend duration 必须有限。"
 	)
 	assert_gt(
-		GFVariantData.get_option_float(backend.outputs[0], "duration_seconds"),
+		GFVariantData.get_option_float(
+			backend.outputs[0],
+			"duration_seconds"
+		),
 		0.0,
 		"非法显式时长应回退到有限正 refresh，而不是无限模式。"
 	)
 	utility.output_refresh_seconds = 0.0
 	var _zero_duration_report: Dictionary = utility.apply_current_outputs(0.0)
-	assert_eq(backend.outputs.size(), 2, "零时长刷新仍应更新当前输出。")
+	assert_eq(
+		backend.outputs.size(),
+		2,
+		"零时长刷新仍应更新当前输出。"
+	)
 	assert_gt(
-		GFVariantData.get_option_float(backend.outputs[1], "duration_seconds"),
+		GFVariantData.get_option_float(
+			backend.outputs[1],
+			"duration_seconds"
+		),
 		0.0,
 		"零时长不得被解释为硬件无限震动。"
 	)
@@ -738,12 +1232,16 @@ func test_haptic_sampling_sanitizes_non_finite_magnitudes() -> void:
 	assert_true(is_finite(GFVariantData.get_option_float(sample, "strong_magnitude")))
 	assert_true(is_finite(GFVariantData.get_option_float(sample, "intensity")))
 	assert_true(is_finite(GFVariantData.get_option_float(sample, "progress")))
-	var combined: Dictionary = GFHapticPreset.combine_samples([{
-		"weak_magnitude": NAN,
-		"strong_magnitude": INF,
-		"intensity": NAN,
-		"progress": INF,
-	}])
+	var combined: Dictionary = GFHapticPreset.combine_samples(
+		[
+			{
+				"weak_magnitude": NAN,
+				"strong_magnitude": INF,
+				"intensity": NAN,
+				"progress": INF,
+			},
+		]
+	)
 	assert_true(is_finite(GFVariantData.get_option_float(combined, "weak_magnitude")))
 	assert_true(is_finite(GFVariantData.get_option_float(combined, "strong_magnitude")))
 	assert_true(is_finite(GFVariantData.get_option_float(combined, "intensity")))
@@ -764,62 +1262,117 @@ func test_haptic_utility_applies_player_output_with_channel_strength() -> void:
 		duration_seconds: float,
 		metadata: Dictionary
 	) -> bool:
-		outputs.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"weak_magnitude": weak_magnitude,
-			"strong_magnitude": strong_magnitude,
-			"duration_seconds": duration_seconds,
-			"metadata": metadata,
-		})
+		outputs.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"weak_magnitude": weak_magnitude,
+				"strong_magnitude": strong_magnitude,
+				"duration_seconds": duration_seconds,
+				"metadata": metadata,
+			}
+		)
 		return true
-	utility.stop_handler = func(target_type: int, target_id: int, metadata: Dictionary) -> bool:
-		stops.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"metadata": metadata,
-		})
+	utility.stop_handler = func(
+		target_type: int,
+		target_id: int,
+		metadata: Dictionary
+	) -> bool:
+		stops.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"metadata": metadata,
+			}
+		)
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 0.1
 	preset.weak_magnitude = 1.0
 	preset.strong_magnitude = 0.5
-	var haptic_id: int = utility.play_haptic(&"impact", preset, 2)
+	var haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		2
+	)
 
 	utility.tick(0.025)
 	var player_sample: Dictionary = utility.sample_player(2)
 
-	assert_true(utility.is_haptic_active(haptic_id), "播放后震动实例应处于活跃状态。")
-	assert_almost_eq(GFVariantData.get_option_float(player_sample, "weak_magnitude"), 0.5, 0.001, "channel 强度应影响玩家采样。")
-	assert_eq(outputs.size(), 1, "tick 应输出一次当前震动。")
-	assert_eq(GFVariantData.get_option_int(outputs[0], "target_type"), GFHapticUtility.TargetType.PLAYER, "输出目标应为玩家。")
-	assert_eq(GFVariantData.get_option_int(outputs[0], "target_id"), 2, "输出目标玩家应匹配播放请求。")
+	assert_true(
+		utility.is_haptic_active(haptic_id),
+		"播放后震动实例应处于活跃状态。"
+	)
+	assert_almost_eq(
+		GFVariantData.get_option_float(player_sample, "weak_magnitude"),
+		0.5,
+		0.001,
+		"channel 强度应影响玩家采样。"
+	)
+	assert_eq(
+		outputs.size(),
+		1,
+		"tick 应输出一次当前震动。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			outputs[0],
+			"target_type"
+		),
+		GFHapticUtility.TargetType.PLAYER,
+		"输出目标应为玩家。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			outputs[0],
+			"target_id"
+		),
+		2,
+		"输出目标玩家应匹配播放请求。"
+	)
 
 	utility.tick(0.2)
 
-	assert_false(utility.is_haptic_active(haptic_id), "超过持续时间后震动实例应自动结束。")
-	assert_eq(stops.size(), 1, "震动结束后应停止上一帧输出过的目标。")
+	assert_false(
+		utility.is_haptic_active(haptic_id),
+		"超过持续时间后震动实例应自动结束。"
+	)
+	assert_eq(
+		stops.size(),
+		1,
+		"震动结束后应停止上一帧输出过的目标。"
+	)
 
 
 func test_haptic_backend_protocol_defaults_to_rejecting_outputs() -> void:
 	var backend: RefCounted = GF_HAPTIC_BACKEND_SCRIPT.new()
 
-	assert_false(GFVariantData.to_bool(backend.call(
-		"start_output",
-		GFHapticUtility.TargetType.DEVICE,
-		0,
-		0.1,
-		0.2,
-		0.3,
-		{}
-	)), "基础 backend 不应假装平台输出成功。")
-	assert_false(GFVariantData.to_bool(backend.call(
-		"stop_output",
-		GFHapticUtility.TargetType.DEVICE,
-		0,
-		{}
-	)), "基础 backend 不应假装平台停止成功。")
+	assert_false(
+		GFVariantData.to_bool(
+			backend.call(
+				"start_output",
+				GFHapticUtility.TargetType.DEVICE,
+				0,
+				0.1,
+				0.2,
+				0.3,
+				{}
+			)
+		),
+		"基础 backend 不应假装平台输出成功。"
+	)
+	assert_false(
+		GFVariantData.to_bool(
+			backend.call(
+				"stop_output",
+				GFHapticUtility.TargetType.DEVICE,
+				0,
+				{}
+			)
+		),
+		"基础 backend 不应假装平台停止成功。"
+	)
 
 
 func test_haptic_utility_prefers_backend_adapter_over_callbacks() -> void:
@@ -842,16 +1395,40 @@ func test_haptic_utility_prefers_backend_adapter_over_callbacks() -> void:
 	preset.duration_seconds = 0.05
 	preset.weak_magnitude = 0.4
 	preset.strong_magnitude = 0.8
-	var haptic_id: int = utility.play_haptic_for_device(&"rumble", preset, 3)
+	var haptic_id: int = utility.play_haptic_for_device(
+		&"rumble",
+		preset,
+		3
+	)
 
 	utility.tick(0.01)
 	var stopped: bool = utility.stop_haptic(haptic_id)
 
-	assert_eq(backend.outputs.size(), 1, "tick 应通过 backend 输出。")
-	assert_eq(GFVariantData.get_option_int(backend.outputs[0], "target_type"), GFHapticUtility.TargetType.DEVICE)
-	assert_eq(GFVariantData.get_option_int(backend.outputs[0], "target_id"), 3)
+	assert_eq(
+		backend.outputs.size(),
+		1,
+		"tick 应通过 backend 输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			backend.outputs[0],
+			"target_type"
+		),
+		GFHapticUtility.TargetType.DEVICE
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			backend.outputs[0],
+			"target_id"
+		),
+		3
+	)
 	assert_true(stopped, "backend stop_output 成功时 stop_haptic 应成功。")
-	assert_eq(backend.stops.size(), 1, "stop_haptic 应通过 backend 停止输出。")
+	assert_eq(
+		backend.stops.size(),
+		1,
+		"stop_haptic 应通过 backend 停止输出。"
+	)
 
 
 func test_haptic_output_stop_uses_backend_that_started_target() -> void:
@@ -864,13 +1441,25 @@ func test_haptic_output_stop_uses_backend_that_started_target() -> void:
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var haptic_id: int = utility.play_haptic_for_device(&"route", preset, 3)
+	var haptic_id: int = utility.play_haptic_for_device(
+		&"route",
+		preset,
+		3
+	)
 	var _first_report: Dictionary = utility.apply_current_outputs()
 	utility.haptic_backend = backend_b
 
 	assert_true(utility.stop_haptic(haptic_id))
-	assert_eq(backend_a.stops.size(), 1, "成功 start 的 backend 必须拥有匹配 stop。")
-	assert_eq(backend_b.stops.size(), 0, "后续替换的 backend 不得接收旧 session 的 stop。")
+	assert_eq(
+		backend_a.stops.size(),
+		1,
+		"成功 start 的 backend 必须拥有匹配 stop。"
+	)
+	assert_eq(
+		backend_b.stops.size(),
+		0,
+		"后续替换的 backend 不得接收旧 session 的 stop。"
+	)
 
 
 func test_haptic_partial_backend_is_rejected_as_atomic_route() -> void:
@@ -882,12 +1471,24 @@ func test_haptic_partial_backend_is_rejected_as_atomic_route() -> void:
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var _haptic_id: int = utility.play_haptic_for_device(&"partial", preset, 3)
+	var _haptic_id: int = utility.play_haptic_for_device(
+		&"partial",
+		preset,
+		3
+	)
 
 	var report: Dictionary = utility.apply_current_outputs()
 
-	assert_eq(backend.output_count, 0, "缺少 stop_output 的 backend 不得启动不可配对输出。")
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 0, "partial backend 不得计入成功输出。")
+	assert_eq(
+		backend.output_count,
+		0,
+		"缺少 stop_output 的 backend 不得启动不可配对输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "applied_count"),
+		0,
+		"partial backend 不得计入成功输出。"
+	)
 
 
 func test_haptic_apply_freezes_all_routes_before_backend_callbacks() -> void:
@@ -903,15 +1504,35 @@ func test_haptic_apply_freezes_all_routes_before_backend_callbacks() -> void:
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var _first_id: int = utility.play_haptic_for_device(&"first", preset, 3)
-	var _second_id: int = utility.play_haptic_for_device(&"second", preset, 4)
+	var _first_id: int = utility.play_haptic_for_device(
+		&"first",
+		preset,
+		3
+	)
+	var _second_id: int = utility.play_haptic_for_device(
+		&"second",
+		preset,
+		4
+	)
 
 	var report: Dictionary = utility.apply_current_outputs()
 	backend_a.on_start = Callable()
 
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 2, "两个目标都应完成本轮计划。")
-	assert_eq(backend_a.outputs.size(), 2, "一次 apply 必须在首个 callback 前冻结全部 provider route。")
-	assert_eq(backend_b.outputs.size(), 0, "callback 中替换 provider 只能影响后续 apply。")
+	assert_eq(
+		GFVariantData.get_option_int(report, "applied_count"),
+		2,
+		"两个目标都应完成本轮计划。"
+	)
+	assert_eq(
+		backend_a.outputs.size(),
+		2,
+		"一次 apply 必须在首个 callback 前冻结全部 provider route。"
+	)
+	assert_eq(
+		backend_b.outputs.size(),
+		0,
+		"callback 中替换 provider 只能影响后续 apply。"
+	)
 	utility.dispose()
 
 
@@ -930,20 +1551,36 @@ func test_haptic_utility_stop_haptic_immediately_stops_last_output() -> void:
 	) -> bool:
 		outputs.append({ "target_type": target_type, "target_id": target_id })
 		return true
-	utility.stop_handler = func(target_type: int, target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		target_type: int,
+		target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		stops.append({ "target_type": target_type, "target_id": target_id })
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	utility.tick(0.01)
 	var stopped: bool = utility.stop_haptic(haptic_id)
 
 	assert_true(stopped, "活跃震动应可停止。")
-	assert_eq(outputs.size(), 1, "测试应先产生一次输出。")
-	assert_eq(stops.size(), 1, "stop_haptic 应立即停止上一帧输出过的目标。")
+	assert_eq(
+		outputs.size(),
+		1,
+		"测试应先产生一次输出。"
+	)
+	assert_eq(
+		stops.size(),
+		1,
+		"stop_haptic 应立即停止上一帧输出过的目标。"
+	)
 
 
 func test_haptic_utility_reports_failed_output_stops() -> void:
@@ -969,16 +1606,32 @@ func test_haptic_utility_reports_failed_output_stops() -> void:
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 0.01
 	preset.weak_magnitude = 0.5
-	var _haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var _haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	var _first_apply: Dictionary = utility.apply_current_outputs()
 	utility.tick(0.1)
 	var stop_report: Dictionary = utility.apply_current_outputs()
 	var failed_stops: Array = GFVariantData.get_option_array(stop_report, "failed_stops")
 	var first_failed_stop: Dictionary = GFVariantData.as_dictionary(failed_stops[0])
 
-	assert_eq(GFVariantData.get_option_int(stop_report, "stopped_count"), 0, "停止失败不应计入成功停止。")
-	assert_eq(GFVariantData.get_option_int(stop_report, "failed_stop_count"), 1, "停止失败应保留在报告中。")
-	assert_eq(GFVariantData.get_option_string(first_failed_stop, "reason"), "stop_failed", "失败报告应有稳定 reason。")
+	assert_eq(
+		GFVariantData.get_option_int(stop_report, "stopped_count"),
+		0,
+		"停止失败不应计入成功停止。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(stop_report, "failed_stop_count"),
+		1,
+		"停止失败应保留在报告中。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(first_failed_stop, "reason"),
+		"stop_failed",
+		"失败报告应有稳定 reason。"
+	)
 
 
 func test_haptic_utility_retries_failed_stop_after_clear() -> void:
@@ -1006,15 +1659,38 @@ func test_haptic_utility_retries_failed_stop_after_clear() -> void:
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var _haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var _haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	var _first_apply: Dictionary = utility.apply_current_outputs()
 	utility.clear()
 	var retry_report: Dictionary = utility.apply_current_outputs()
 
-	assert_eq(stop_attempts[0], 2, "clear 中停止失败的目标必须保留到下一次 apply 重试。")
-	assert_eq(GFVariantData.get_option_int(retry_report, "stopped_count"), 1, "后续 stop 重试成功应进入成功报告。")
-	assert_eq(GFVariantData.get_option_int(retry_report, "failed_stop_count"), 0, "成功重试后不应继续报告失败目标。")
-	assert_eq(GFVariantData.get_option_dictionary(utility.get_debug_snapshot(), "last_output_targets"), {}, "成功重试后目标追踪应清空。")
+	assert_eq(
+		stop_attempts[0],
+		2,
+		"clear 中停止失败的目标必须保留到下一次 apply 重试。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(retry_report, "stopped_count"),
+		1,
+		"后续 stop 重试成功应进入成功报告。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(retry_report, "failed_stop_count"),
+		0,
+		"成功重试后不应继续报告失败目标。"
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(
+			utility.get_debug_snapshot(),
+			"last_output_targets"
+		),
+		{},
+		"成功重试后目标追踪应清空。"
+	)
 
 
 func test_haptic_manual_tick_requires_explicit_apply_to_stop_finished_output() -> void:
@@ -1031,21 +1707,41 @@ func test_haptic_manual_tick_requires_explicit_apply_to_stop_finished_output() -
 		_metadata: Dictionary
 	) -> bool:
 		return true
-	utility.stop_handler = func(target_type: int, target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		target_type: int,
+		target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		stops.append({ "target_type": target_type, "target_id": target_id })
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 0.01
 	preset.weak_magnitude = 0.5
-	var _haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var _haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	var _first_apply: Dictionary = utility.apply_current_outputs()
 	utility.tick(0.1)
 
-	assert_eq(stops.size(), 0, "手动输出模式下 tick 不应隐式 stop 输出设备。")
+	assert_eq(
+		stops.size(),
+		0,
+		"手动输出模式下 tick 不应隐式 stop 输出设备。"
+	)
 	var stop_report: Dictionary = utility.apply_current_outputs()
-	assert_eq(stops.size(), 1, "手动输出模式下调用方显式 apply 后应 stop 已结束输出。")
-	assert_eq(GFVariantData.get_option_int(stop_report, "stopped_count"), 1, "显式 apply 应报告 stop 成功。")
+	assert_eq(
+		stops.size(),
+		1,
+		"手动输出模式下调用方显式 apply 后应 stop 已结束输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(stop_report, "stopped_count"),
+		1,
+		"显式 apply 应报告 stop 成功。"
+	)
 
 
 func test_haptic_manual_tick_mode_keeps_stop_and_clear_immediate() -> void:
@@ -1058,15 +1754,31 @@ func test_haptic_manual_tick_mode_keeps_stop_and_clear_immediate() -> void:
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
 
-	var first_id: int = utility.play_haptic_for_device(&"first", preset, 3)
+	var first_id: int = utility.play_haptic_for_device(
+		&"first",
+		preset,
+		3
+	)
 	var _first_apply: Dictionary = utility.apply_current_outputs()
 	assert_true(utility.stop_haptic(first_id))
-	assert_eq(backend.stops.size(), 1, "auto_apply_on_tick=false 时显式 stop 仍须立即撤销输出。")
+	assert_eq(
+		backend.stops.size(),
+		1,
+		"auto_apply_on_tick=false 时显式 stop 仍须立即撤销输出。"
+	)
 
-	var _second_id: int = utility.play_haptic_for_device(&"second", preset, 4)
+	var _second_id: int = utility.play_haptic_for_device(
+		&"second",
+		preset,
+		4
+	)
 	var _second_apply: Dictionary = utility.apply_current_outputs()
 	utility.clear()
-	assert_eq(backend.stops.size(), 2, "auto_apply_on_tick=false 时 clear 仍须立即撤销输出。")
+	assert_eq(
+		backend.stops.size(),
+		2,
+		"auto_apply_on_tick=false 时 clear 仍须立即撤销输出。"
+	)
 
 
 func test_haptic_info_sanitizes_metadata_for_reports() -> void:
@@ -1076,9 +1788,13 @@ func test_haptic_info_sanitizes_metadata_for_reports() -> void:
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
 
-	var haptic_id: int = utility.play_haptic(&"impact", preset, 0, 1.0, {
-		"owner": self,
-	})
+	var haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0,
+		1.0,
+		{ "owner": self, }
+	)
 	var info: Dictionary = utility.get_haptic_info(haptic_id)
 	var info_json: String = JSON.stringify(info)
 	var metadata_owner: Dictionary = GFVariantData.get_option_dictionary(
@@ -1086,14 +1802,26 @@ func test_haptic_info_sanitizes_metadata_for_reports() -> void:
 		"owner"
 	)
 
-	assert_false(info_json.is_empty(), "haptic info 应可直接 JSON.stringify。")
-	assert_true(metadata_owner.has("__gf_report_value__"), "metadata Object 应转换为报告 marker。")
+	assert_false(
+		info_json.is_empty(),
+		"haptic info 应可直接 JSON.stringify。"
+	)
+	assert_true(
+		metadata_owner.has("__gf_report_value__"),
+		"metadata Object 应转换为报告 marker。"
+	)
 
 
 func test_haptic_utility_merges_player_and_device_for_same_joypad_output() -> void:
 	var input_devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
 	input_devices.max_players = 2
-	input_devices.set_assignment(input_devices.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 7))
+	input_devices.set_assignment(
+		input_devices.create_assignment(
+			0,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			7
+		)
+	)
 	var utility: GFHapticUtility = GFHapticUtility.new()
 	utility.init()
 	utility.input_device_utility = input_devices
@@ -1106,36 +1834,76 @@ func test_haptic_utility_merges_player_and_device_for_same_joypad_output() -> vo
 		_duration_seconds: float,
 		output_metadata: Dictionary
 	) -> bool:
-		outputs.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"metadata": output_metadata,
-		})
+		outputs.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"metadata": output_metadata,
+			}
+		)
 		return true
-	utility.stop_handler = func(_target_type: int, _target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		_target_type: int,
+		_target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var _player_haptic_id: int = utility.play_haptic(&"player", preset, 0)
-	var _device_haptic_id: int = utility.play_haptic_for_device(&"device", preset, 7)
+	var _player_haptic_id: int = utility.play_haptic(
+		&"player",
+		preset,
+		0
+	)
+	var _device_haptic_id: int = utility.play_haptic_for_device(
+		&"device",
+		preset,
+		7
+	)
 	var _report: Dictionary = utility.apply_current_outputs()
 	var output_report: Dictionary = GFVariantData.as_dictionary(outputs[0])
 	var merged_metadata: Dictionary = GFVariantData.get_option_dictionary(output_report, "metadata")
 	var haptic_ids: Array[int] = GFVariantData.get_option_int_array(merged_metadata, "haptic_ids")
 
-	assert_eq(outputs.size(), 1, "同一物理手柄不应被玩家目标和设备目标重复输出。")
-	assert_eq(GFVariantData.get_option_int(output_report, "target_type"), GFHapticUtility.TargetType.DEVICE, "合并后应使用物理设备目标输出。")
-	assert_eq(GFVariantData.get_option_int(output_report, "target_id"), 7, "合并目标应是玩家映射到的手柄设备。")
-	assert_eq(haptic_ids.size(), 2, "合并输出 metadata 应保留两个震动实例。")
-	assert_eq(utility.sample_player(0), utility.sample_device(7), "player/device 采样 API 都应返回最终物理输出视图。")
+	assert_eq(
+		outputs.size(),
+		1,
+		"同一物理手柄不应被玩家目标和设备目标重复输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(output_report, "target_type"),
+		GFHapticUtility.TargetType.DEVICE,
+		"合并后应使用物理设备目标输出。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(output_report, "target_id"),
+		7,
+		"合并目标应是玩家映射到的手柄设备。"
+	)
+	assert_eq(
+		haptic_ids.size(),
+		2,
+		"合并输出 metadata 应保留两个震动实例。"
+	)
+	assert_eq(
+		utility.sample_player(0),
+		utility.sample_device(7),
+		"player/device 采样 API 都应返回最终物理输出视图。"
+	)
 
 
 func test_haptic_utility_stop_device_stops_player_state_routed_to_device() -> void:
 	var input_devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
 	input_devices.max_players = 2
-	input_devices.set_assignment(input_devices.create_assignment(0, GFInputDeviceAssignment.DeviceType.JOYPAD, 7))
+	input_devices.set_assignment(
+		input_devices.create_assignment(
+			0,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			7
+		)
+	)
 	var utility: GFHapticUtility = GFHapticUtility.new()
 	utility.init()
 	utility.input_device_utility = input_devices
@@ -1149,20 +1917,39 @@ func test_haptic_utility_stop_device_stops_player_state_routed_to_device() -> vo
 		_metadata: Dictionary
 	) -> bool:
 		return true
-	utility.stop_handler = func(target_type: int, target_id: int, _metadata: Dictionary) -> bool:
-		stops.append({"target_type": target_type, "target_id": target_id})
+	utility.stop_handler = func(
+		target_type: int,
+		target_id: int,
+		_metadata: Dictionary
+	) -> bool:
+		stops.append({ "target_type": target_type, "target_id": target_id })
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var haptic_id: int = utility.play_haptic(&"player", preset, 0)
+	var haptic_id: int = utility.play_haptic(
+		&"player",
+		preset,
+		0
+	)
 	var _first_apply: Dictionary = utility.apply_current_outputs()
 	var stopped_count: int = utility.stop_device(7)
 
-	assert_eq(stopped_count, 1, "stop_device 应停止路由到该物理设备的玩家震动状态。")
-	assert_false(utility.is_haptic_active(haptic_id), "被物理设备停止的玩家震动不应继续活跃。")
-	assert_eq(stops.size(), 1, "物理设备停止应立即刷新并停止已输出目标。")
+	assert_eq(
+		stopped_count,
+		1,
+		"stop_device 应停止路由到该物理设备的玩家震动状态。"
+	)
+	assert_false(
+		utility.is_haptic_active(haptic_id),
+		"被物理设备停止的玩家震动不应继续活跃。"
+	)
+	assert_eq(
+		stops.size(),
+		1,
+		"物理设备停止应立即刷新并停止已输出目标。"
+	)
 
 
 func test_haptic_output_callback_cannot_reenter_state_mutation() -> void:
@@ -1179,20 +1966,38 @@ func test_haptic_output_callback_cannot_reenter_state_mutation() -> void:
 	) -> bool:
 		utility.clear()
 		return true
-	utility.stop_handler = func(_target_type: int, _target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		_target_type: int,
+		_target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	var report: Dictionary = utility.apply_current_outputs()
 
 	assert_push_error("[GFHapticUtility][haptic_utility.mutation_during_output] clear failed: haptic state cannot be modified synchronously while an output backend or callback is running. Wait until the current output finishes.")
-	assert_true(utility.is_haptic_active(haptic_id), "被拒绝的回调重入不得清除活跃状态。")
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1, "回调自身成功时本轮输出仍应按稳定快照完成。")
+	assert_true(
+		utility.is_haptic_active(haptic_id),
+		"被拒绝的回调重入不得清除活跃状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "applied_count"),
+		1,
+		"回调自身成功时本轮输出仍应按稳定快照完成。"
+	)
 	utility.dispose()
-	assert_false(utility.output_handler.is_valid(), "dispose 应由工具自身释放捕获工具的输出回调。")
+	assert_false(
+		utility.output_handler.is_valid(),
+		"dispose 应由工具自身释放捕获工具的输出回调。"
+	)
 
 
 func test_haptic_output_callback_cannot_reenter_dispose() -> void:
@@ -1206,14 +2011,28 @@ func test_haptic_output_callback_cannot_reenter_dispose() -> void:
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var haptic_id: int = utility.play_haptic_for_device(&"dispose", preset, 3)
+	var haptic_id: int = utility.play_haptic_for_device(
+		&"dispose",
+		preset,
+		3
+	)
 
 	var report: Dictionary = utility.apply_current_outputs()
 
 	assert_push_error("[GFHapticUtility][haptic_utility.mutation_during_output] dispose failed: haptic state cannot be modified synchronously while an output backend or callback is running. Wait until the current output finishes.")
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 1)
-	assert_true(utility.is_haptic_active(haptic_id), "被拒绝的 dispose 不得破坏逻辑状态。")
-	assert_same(utility.haptic_backend, backend, "被拒绝的 dispose 不得释放当前输出 owner。")
+	assert_eq(
+		GFVariantData.get_option_int(report, "applied_count"),
+		1
+	)
+	assert_true(
+		utility.is_haptic_active(haptic_id),
+		"被拒绝的 dispose 不得破坏逻辑状态。"
+	)
+	assert_same(
+		utility.haptic_backend,
+		backend,
+		"被拒绝的 dispose 不得释放当前输出 owner。"
+	)
 	backend.on_start = Callable()
 	utility.dispose()
 
@@ -1243,8 +2062,14 @@ func test_haptic_dispose_releases_injected_dependencies_and_callbacks() -> void:
 
 	assert_null(utility.input_device_utility, "dispose 应释放注入的输入设备工具。")
 	assert_null(utility.haptic_backend, "dispose 应释放注入的震动后端。")
-	assert_false(utility.output_handler.is_valid(), "dispose 应释放输出回调。")
-	assert_false(utility.stop_handler.is_valid(), "dispose 应释放停止回调。")
+	assert_false(
+		utility.output_handler.is_valid(),
+		"dispose 应释放输出回调。"
+	)
+	assert_false(
+		utility.stop_handler.is_valid(),
+		"dispose 应释放停止回调。"
+	)
 
 
 func test_haptic_dispose_terminalizes_failed_stop_without_fake_retry_state() -> void:
@@ -1257,23 +2082,44 @@ func test_haptic_dispose_terminalizes_failed_stop_without_fake_retry_state() -> 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var _haptic_id: int = utility.play_haptic_for_device(&"dispose", preset, 3)
+	var _haptic_id: int = utility.play_haptic_for_device(
+		&"dispose",
+		preset,
+		3
+	)
 	var _first_report: Dictionary = utility.apply_current_outputs()
 
 	utility.dispose()
 
-	assert_eq(backend.stops.size(), 1, "dispose 必须通过原 owner 尝试最终 stop。")
 	assert_eq(
-		GFVariantData.get_option_dictionary(utility.get_debug_snapshot(), "last_output_targets"),
+		backend.stops.size(),
+		1,
+		"dispose 必须通过原 owner 尝试最终 stop。"
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(
+			utility.get_debug_snapshot(),
+			"last_output_targets"
+		),
 		{},
 		"provider 已释放后不得留下伪可重试 pending target。"
 	)
 	var terminal_report: Dictionary = utility.get_last_output_report()
-	assert_eq(GFVariantData.get_option_int(terminal_report, "failed_stop_count"), 1, "dispose stop 失败必须留下终止报告。")
-	var failed_stops: Array = GFVariantData.get_option_array(terminal_report, "failed_stops")
-	assert_eq(failed_stops.size(), 1)
 	assert_eq(
-		GFVariantData.get_option_string(GFVariantData.as_dictionary(failed_stops[0]), "reason"),
+		GFVariantData.get_option_int(terminal_report, "failed_stop_count"),
+		1,
+		"dispose stop 失败必须留下终止报告。"
+	)
+	var failed_stops: Array = GFVariantData.get_option_array(terminal_report, "failed_stops")
+	assert_eq(
+		failed_stops.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(failed_stops[0]),
+			"reason"
+		),
 		"stop_failed",
 		"dispose 终止报告应保留稳定失败原因。"
 	)
@@ -1293,20 +2139,36 @@ func test_haptic_utility_clear_stops_and_clears_last_output_targets() -> void:
 		_metadata: Dictionary
 	) -> bool:
 		return true
-	utility.stop_handler = func(target_type: int, target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		target_type: int,
+		target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		stops.append({ "target_type": target_type, "target_id": target_id })
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
-	var _haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var _haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	utility.tick(0.01)
 	utility.clear()
 	var snapshot: Dictionary = utility.get_debug_snapshot()
 
-	assert_eq(stops.size(), 1, "clear 应停止上一帧输出过的目标。")
-	assert_eq(GFVariantData.get_option_dictionary(snapshot, "last_output_targets"), {}, "clear 后 last_output_targets 应同步清空。")
+	assert_eq(
+		stops.size(),
+		1,
+		"clear 应停止上一帧输出过的目标。"
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(snapshot, "last_output_targets"),
+		{},
+		"clear 后 last_output_targets 应同步清空。"
+	)
 
 
 func test_haptic_utility_short_tick_outputs_before_finishing() -> void:
@@ -1322,14 +2184,20 @@ func test_haptic_utility_short_tick_outputs_before_finishing() -> void:
 		_duration_seconds: float,
 		_metadata: Dictionary
 	) -> bool:
-		outputs.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"weak_magnitude": weak_magnitude,
-			"strong_magnitude": strong_magnitude,
-		})
+		outputs.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"weak_magnitude": weak_magnitude,
+				"strong_magnitude": strong_magnitude,
+			}
+		)
 		return true
-	utility.stop_handler = func(target_type: int, target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		target_type: int,
+		target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		stops.append({ "target_type": target_type, "target_id": target_id })
 		return true
 
@@ -1337,12 +2205,27 @@ func test_haptic_utility_short_tick_outputs_before_finishing() -> void:
 	preset.duration_seconds = 0.01
 	preset.weak_magnitude = 0.5
 	preset.strong_magnitude = 0.25
-	var haptic_id: int = utility.play_haptic(&"impact", preset, 0)
+	var haptic_id: int = utility.play_haptic(
+		&"impact",
+		preset,
+		0
+	)
 	utility.tick(0.1)
 
-	assert_false(utility.is_haptic_active(haptic_id), "短震动在超长 tick 后应结束。")
-	assert_eq(outputs.size(), 1, "即使单帧超过持续时间，也应先输出一次采样。")
-	assert_eq(stops.size(), 1, "同一帧结束后应停止输出目标。")
+	assert_false(
+		utility.is_haptic_active(haptic_id),
+		"短震动在超长 tick 后应结束。"
+	)
+	assert_eq(
+		outputs.size(),
+		1,
+		"即使单帧超过持续时间，也应先输出一次采样。"
+	)
+	assert_eq(
+		stops.size(),
+		1,
+		"同一帧结束后应停止输出目标。"
+	)
 
 
 func test_haptic_utility_can_target_device_ids() -> void:
@@ -1357,30 +2240,61 @@ func test_haptic_utility_can_target_device_ids() -> void:
 		duration_seconds: float,
 		metadata: Dictionary
 	) -> bool:
-		outputs.append({
-			"target_type": target_type,
-			"target_id": target_id,
-			"weak_magnitude": weak_magnitude,
-			"strong_magnitude": strong_magnitude,
-			"duration_seconds": duration_seconds,
-			"metadata": metadata,
-		})
+		outputs.append(
+			{
+				"target_type": target_type,
+				"target_id": target_id,
+				"weak_magnitude": weak_magnitude,
+				"strong_magnitude": strong_magnitude,
+				"duration_seconds": duration_seconds,
+				"metadata": metadata,
+			}
+		)
 		return true
-	utility.stop_handler = func(_target_type: int, _target_id: int, _metadata: Dictionary) -> bool:
+	utility.stop_handler = func(
+		_target_type: int,
+		_target_id: int,
+		_metadata: Dictionary
+	) -> bool:
 		return true
 
 	var preset: GFHapticPreset = GFHapticPreset.new()
 	preset.duration_seconds = 0.2
 	preset.weak_magnitude = 0.25
 	preset.strong_magnitude = 0.75
-	var haptic_id: int = utility.play_haptic_for_device(&"device", preset, 7)
+	var haptic_id: int = utility.play_haptic_for_device(
+		&"device",
+		preset,
+		7
+	)
 
 	utility.tick(0.01)
 
-	assert_true(utility.is_haptic_active(haptic_id), "设备震动实例应处于活跃状态。")
-	assert_eq(outputs.size(), 1, "设备目标应输出一次。")
-	assert_eq(GFVariantData.get_option_int(outputs[0], "target_type"), GFHapticUtility.TargetType.DEVICE, "输出目标应为设备。")
-	assert_eq(GFVariantData.get_option_int(outputs[0], "target_id"), 7, "输出设备 ID 应匹配播放请求。")
+	assert_true(
+		utility.is_haptic_active(haptic_id),
+		"设备震动实例应处于活跃状态。"
+	)
+	assert_eq(
+		outputs.size(),
+		1,
+		"设备目标应输出一次。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			outputs[0],
+			"target_type"
+		),
+		GFHapticUtility.TargetType.DEVICE,
+		"输出目标应为设备。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			outputs[0],
+			"target_id"
+		),
+		7,
+		"输出设备 ID 应匹配播放请求。"
+	)
 
 
 func test_haptic_default_backend_does_not_report_disconnected_device_as_applied() -> void:
@@ -1391,17 +2305,39 @@ func test_haptic_default_backend_does_not_report_disconnected_device_as_applied(
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
 	var disconnected_device_id: int = 999999
-	var _haptic_id: int = utility.play_haptic_for_device(&"device", preset, disconnected_device_id)
+	var _haptic_id: int = utility.play_haptic_for_device(
+		&"device",
+		preset,
+		disconnected_device_id
+	)
 
 	var report: Dictionary = utility.apply_current_outputs()
 	var rejected: Array = GFVariantData.get_option_array(report, "rejected")
 
-	assert_eq(GFVariantData.get_option_int(report, "applied_count"), 0, "默认后端不得把未连接设备报告为输出成功。")
-	assert_eq(GFVariantData.get_option_array(report, "applied"), [], "未连接设备不得进入成功输出明细。")
-	assert_eq(GFVariantData.get_option_int(report, "rejected_count"), 1, "设备拒绝必须进入可观察报告。")
-	assert_eq(rejected.size(), 1)
 	assert_eq(
-		GFVariantData.get_option_string(GFVariantData.as_dictionary(rejected[0]), "reason"),
+		GFVariantData.get_option_int(report, "applied_count"),
+		0,
+		"默认后端不得把未连接设备报告为输出成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(report, "applied"),
+		[],
+		"未连接设备不得进入成功输出明细。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "rejected_count"),
+		1,
+		"设备拒绝必须进入可观察报告。"
+	)
+	assert_eq(
+		rejected.size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(rejected[0]),
+			"reason"
+		),
 		"start_rejected"
 	)
 
@@ -1413,12 +2349,20 @@ func test_haptic_auto_tick_preserves_disconnected_device_rejection_report() -> v
 	preset.duration_seconds = 1.0
 	preset.weak_magnitude = 0.5
 	var disconnected_device_id: int = 999999
-	var scheduled_id: int = utility.play_haptic_for_device(&"device", preset, disconnected_device_id)
+	var scheduled_id: int = utility.play_haptic_for_device(
+		&"device",
+		preset,
+		disconnected_device_id
+	)
 
 	utility.tick(0.01)
 	var last_report: Dictionary = utility.get_last_output_report()
 
-	assert_gt(scheduled_id, 0, "play 返回值表示逻辑排程成功，不伪装物理接受。")
+	assert_gt(
+		scheduled_id,
+		0,
+		"play 返回值表示逻辑排程成功，不伪装物理接受。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(last_report, "rejected_count"),
 		1,
@@ -1453,4 +2397,8 @@ func _make_constant_position_track(position_x: float) -> GFShakeTrack:
 
 
 func _vector3_is_finite(value: Vector3) -> bool:
-	return is_finite(value.x) and is_finite(value.y) and is_finite(value.z)
+	return (
+		is_finite(value.x)
+		and is_finite(value.y)
+		and is_finite(value.z)
+	)

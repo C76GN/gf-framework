@@ -194,7 +194,11 @@ static func capture(shader: Shader) -> GFShaderInterfaceSnapshot:
 	var uniform_entries: Array[Dictionary] = []
 	for uniform_value: Variant in shader.get_shader_uniform_list(false):
 		uniform_entries.append(_normalize_uniform_value(uniform_value))
-	return _make_snapshot(CURRENT_SCHEMA_VERSION, shader.get_mode(), uniform_entries)
+	return _make_snapshot(
+		CURRENT_SCHEMA_VERSION,
+		shader.get_mode(),
+		uniform_entries
+	)
 
 
 ## 从字典创建快照。
@@ -221,8 +225,16 @@ static func from_dict(data: Dictionary) -> GFShaderInterfaceSnapshot:
 	else:
 		uniform_entries.append(_make_invalid_uniform_entry())
 	return _make_snapshot(
-		_get_strict_int_field(data, "schema_version", 0),
-		_get_strict_int_field(data, "shader_mode", -1),
+		_get_strict_int_field(
+			data,
+			"schema_version",
+			0
+		),
+		_get_strict_int_field(
+			data,
+			"shader_mode",
+			-1
+		),
 		uniform_entries
 	)
 
@@ -312,7 +324,11 @@ func get_uniform(parameter_name: StringName) -> Dictionary:
 	if parameter_name == &"":
 		return {}
 	for uniform: Dictionary in _uniforms:
-		if GFVariantData.get_option_string_name(uniform, "name", &"") == parameter_name:
+		if GFVariantData.get_option_string_name(
+			uniform,
+			"name",
+			&""
+		) == parameter_name:
 			return uniform.duplicate(true)
 	return {}
 
@@ -346,11 +362,18 @@ func accepts_parameter_value(
 	var uniform: Dictionary = get_uniform(parameter_name)
 	if uniform.is_empty():
 		return false
-	return _get_value_mismatch_kind(
-		uniform,
-		value,
-		GFVariantData.get_option_bool(options, "allow_null_object", true)
-	) == &""
+	return (
+		_get_value_mismatch_kind(
+			uniform,
+			value,
+			GFVariantData.get_option_bool(
+				options,
+				"allow_null_object",
+				true
+			)
+		)
+		== &""
+	)
 
 
 ## 校验快照 schema、Shader 模式、uniform 字段和重复名称。
@@ -365,18 +388,12 @@ func accepts_parameter_value(
 ## [br]
 ## @return 标准校验报告。
 func validate_definition(options: Dictionary = {}) -> GFValidationReport:
-	var report: GFValidationReport = _make_report(
-		options,
-		"Shader interface snapshot"
-	)
+	var report: GFValidationReport = _make_report(options, "Shader interface snapshot")
 	report.metadata["schema_version"] = _schema_version
 	report.metadata["shader_mode"] = _shader_mode
 	report.extra_fields["uniform_count"] = _uniforms.size()
 	if not _configured:
-		var _missing_snapshot_issue: RefCounted = report.add_error(
-			_KIND_INTERFACE_SNAPSHOT_MISSING,
-			"Shader interface snapshot has not been captured or imported."
-		)
+		var _missing_snapshot_issue: RefCounted = report.add_error(_KIND_INTERFACE_SNAPSHOT_MISSING, "Shader interface snapshot has not been captured or imported.")
 		return report
 
 	if _schema_version != CURRENT_SCHEMA_VERSION:
@@ -385,10 +402,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 			"Shader interface snapshot schema version is unsupported.",
 			_schema_version,
 			"schema_version",
-			{
-				"expected": CURRENT_SCHEMA_VERSION,
-				"actual": _schema_version,
-			}
+			{ "expected": CURRENT_SCHEMA_VERSION, "actual": _schema_version, }
 		)
 	if not _is_valid_shader_mode(_shader_mode):
 		var _mode_issue: RefCounted = report.add_error(
@@ -402,10 +416,7 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 	for uniform_index: int in range(_uniforms.size()):
 		var uniform: Dictionary = _uniforms[uniform_index]
 		var uniform_path: String = "uniforms[%d]" % uniform_index
-		if (
-			not _has_uniform_schema_fields(uniform)
-			or not _has_valid_uniform_field_types(uniform)
-		):
+		if (not _has_uniform_schema_fields(uniform) or not _has_valid_uniform_field_types(uniform)):
 			var _malformed_issue: RefCounted = report.add_error(
 				_KIND_UNIFORM_INVALID,
 				"Shader uniform entry fields do not match the snapshot schema.",
@@ -419,16 +430,22 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 			"name",
 			&""
 		)
-		var value_type: int = GFVariantData.get_option_int(uniform, "type", TYPE_NIL)
-		if parameter_name == &"" or value_type <= TYPE_NIL or value_type >= TYPE_MAX:
+		var value_type: int = GFVariantData.get_option_int(
+			uniform,
+			"type",
+			TYPE_NIL
+		)
+		if (
+			parameter_name == &""
+			or value_type <= TYPE_NIL
+			or value_type >= TYPE_MAX
+		):
 			var _invalid_issue: RefCounted = report.add_error(
 				_KIND_UNIFORM_INVALID,
 				"Shader uniform entry must declare a non-empty name and valid Variant type.",
 				parameter_name,
 				uniform_path,
-				{
-					"type": value_type,
-				}
+				{ "type": value_type, }
 			)
 			continue
 
@@ -461,17 +478,9 @@ func validate_definition(options: Dictionary = {}) -> GFValidationReport:
 ## @schema options: Dictionary，severity 可为 ignore、info、warning 或 error；missing 默认 ignore，extra/type mismatch 默认 error；allow_null_object 默认 true。
 ## [br]
 ## @return 标准校验报告。
-func validate_parameters(
-	parameters: Dictionary,
-	options: Dictionary = {}
-) -> GFValidationReport:
-	var report: GFValidationReport = _make_report(
-		options,
-		"Shader parameter contract"
-	)
-	var definition_report: GFValidationReport = validate_definition({
-		"subject": report.subject,
-	})
+func validate_parameters(parameters: Dictionary, options: Dictionary = {}) -> GFValidationReport:
+	var report: GFValidationReport = _make_report(options, "Shader parameter contract")
+	var definition_report: GFValidationReport = validate_definition({ "subject": report.subject, })
 	var _definition_merged: RefCounted = report.merge(definition_report, false)
 	if not definition_report.is_ok():
 		return report
@@ -541,10 +550,7 @@ func validate_parameters(
 			continue
 
 		matched_count += 1
-		var uniform: Dictionary = GFVariantData.get_option_dictionary(
-			declared_parameters,
-			parameter_key
-		)
+		var uniform: Dictionary = GFVariantData.get_option_dictionary(declared_parameters, parameter_key)
 		var parameter_value: Variant = normalized_parameters[parameter_key]
 		var mismatch_kind: StringName = _get_value_mismatch_kind(
 			uniform,
@@ -602,19 +608,10 @@ func validate_parameters(
 ## @schema options: Dictionary，severity 可为 ignore、info、warning 或 error；mode/missing/signature 默认 error，extra/usage 默认 warning。
 ## [br]
 ## @return 标准校验报告。
-func compare_with(
-	actual: GFShaderInterfaceSnapshot,
-	options: Dictionary = {}
-) -> GFValidationReport:
-	var report: GFValidationReport = _make_report(
-		options,
-		"Shader interface comparison"
-	)
+func compare_with(actual: GFShaderInterfaceSnapshot, options: Dictionary = {}) -> GFValidationReport:
+	var report: GFValidationReport = _make_report(options, "Shader interface comparison")
 	if actual == null:
-		var _missing_snapshot_issue: RefCounted = report.add_error(
-			_KIND_INTERFACE_SNAPSHOT_MISSING,
-			"Actual shader interface snapshot is missing."
-		)
+		var _missing_snapshot_issue: RefCounted = report.add_error(_KIND_INTERFACE_SNAPSHOT_MISSING, "Actual shader interface snapshot is missing.")
 		return report
 
 	var expected_definition: GFValidationReport = validate_definition()
@@ -657,10 +654,7 @@ func compare_with(
 			"Shader interface modes differ.",
 			actual.get_shader_mode(),
 			"shader_mode",
-			{
-				"expected": _shader_mode,
-				"actual": actual.get_shader_mode(),
-			}
+			{ "expected": _shader_mode, "actual": actual.get_shader_mode(), }
 		)
 
 	var expected_uniforms: Dictionary = _uniform_map(_uniforms)
@@ -685,14 +679,8 @@ func compare_with(
 			continue
 
 		matched_count += 1
-		var expected_uniform: Dictionary = GFVariantData.get_option_dictionary(
-			expected_uniforms,
-			parameter_key
-		)
-		var actual_uniform: Dictionary = GFVariantData.get_option_dictionary(
-			actual_uniforms,
-			parameter_key
-		)
+		var expected_uniform: Dictionary = GFVariantData.get_option_dictionary(expected_uniforms, parameter_key)
+		var actual_uniform: Dictionary = GFVariantData.get_option_dictionary(actual_uniforms, parameter_key)
 		var changed_fields: Array[String] = _changed_uniform_fields(
 			expected_uniform,
 			actual_uniform,
@@ -764,11 +752,11 @@ func compare_with(
 ## @schema options: Dictionary compare_with() options.
 ## [br]
 ## @return 标准校验报告。
-func validate_shader(
-	shader: Shader,
-	options: Dictionary = {}
-) -> GFValidationReport:
-	return compare_with(capture(shader), options)
+func validate_shader(shader: Shader, options: Dictionary = {}) -> GFValidationReport:
+	return compare_with(
+		capture(shader),
+		options
+	)
 
 
 ## 创建快照深拷贝。
@@ -828,9 +816,7 @@ static func _make_snapshot(
 ## [br]
 ## @api private
 ## [br]
-static func _normalize_uniform_entries(
-	uniform_entries: Array[Dictionary]
-) -> Array[Dictionary]:
+static func _normalize_uniform_entries(uniform_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for uniform: Dictionary in uniform_entries:
 		result.append(_normalize_uniform_value(uniform))
@@ -849,10 +835,7 @@ static func _normalize_uniform_value(value: Variant) -> Dictionary:
 	if not (value is Dictionary):
 		return _make_invalid_uniform_entry()
 	var uniform: Dictionary = value
-	if (
-		not _has_uniform_schema_fields(uniform)
-		or not _has_valid_uniform_field_types(uniform)
-	):
+	if (not _has_uniform_schema_fields(uniform) or not _has_valid_uniform_field_types(uniform)):
 		return _make_invalid_uniform_entry()
 
 	var name_value: Variant = _get_field_value(uniform, "name")
@@ -1011,23 +994,36 @@ static func _to_strict_int(value: Variant) -> int:
 ## @api private
 ## [br]
 static func _uniform_sort_key(uniform: Dictionary) -> String:
-	return "%s\u001f%010d\u001f%s\u001f%010d\u001f%s\u001f%010d" % [
-		GFVariantData.get_option_string(uniform, "name"),
-		GFVariantData.get_option_int(uniform, "type", TYPE_NIL),
-		GFVariantData.get_option_string(uniform, "class_name"),
-		GFVariantData.get_option_int(uniform, "hint", PROPERTY_HINT_NONE),
-		GFVariantData.get_option_string(uniform, "hint_string"),
-		GFVariantData.get_option_int(uniform, "usage", PROPERTY_USAGE_DEFAULT),
-	]
+	return (
+		"%s\u001f%010d\u001f%s\u001f%010d\u001f%s\u001f%010d"
+		% [
+			GFVariantData.get_option_string(uniform, "name"),
+			GFVariantData.get_option_int(
+				uniform,
+				"type",
+				TYPE_NIL
+			),
+			GFVariantData.get_option_string(uniform, "class_name"),
+			GFVariantData.get_option_int(
+				uniform,
+				"hint",
+				PROPERTY_HINT_NONE
+			),
+			GFVariantData.get_option_string(uniform, "hint_string"),
+			GFVariantData.get_option_int(
+				uniform,
+				"usage",
+				PROPERTY_USAGE_DEFAULT
+			),
+		]
+	)
 
 
 ## 对每个条目执行深复制并返回新数组。
 ## [br]
 ## @api private
 ## [br]
-static func _duplicate_uniform_entries(
-	uniform_entries: Array[Dictionary]
-) -> Array[Dictionary]:
+static func _duplicate_uniform_entries(uniform_entries: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for uniform: Dictionary in uniform_entries:
 		result.append(uniform.duplicate(true))
@@ -1060,12 +1056,13 @@ static func _is_valid_shader_mode(shader_mode: int) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _make_report(
-	options: Dictionary,
-	default_subject: String
-) -> GFValidationReport:
+static func _make_report(options: Dictionary, default_subject: String) -> GFValidationReport:
 	return GFValidationReport.new(
-		GFVariantData.get_option_string(options, "subject", default_subject),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			default_subject
+		),
 		GFVariantData.get_option_dictionary(options, "metadata")
 	)
 
@@ -1093,7 +1090,11 @@ static func _get_value_mismatch_kind(
 	value: Variant,
 	allow_null_object: bool
 ) -> StringName:
-	var expected_type: int = GFVariantData.get_option_int(uniform, "type", TYPE_NIL)
+	var expected_type: int = GFVariantData.get_option_int(
+		uniform,
+		"type",
+		TYPE_NIL
+	)
 	var actual_type: int = typeof(value)
 	if expected_type != TYPE_OBJECT:
 		return &"" if actual_type == expected_type else _KIND_PARAMETER_TYPE_MISMATCH
@@ -1116,30 +1117,29 @@ static func _get_value_mismatch_kind(
 ## @api private
 ## [br]
 static func _get_expected_object_class(uniform: Dictionary) -> String:
-	var class_name_hint: String = GFVariantData.get_option_string(
-		uniform,
-		"class_name"
-	).strip_edges()
+	var class_name_hint: String = (GFVariantData.get_option_string(uniform, "class_name").strip_edges())
 	if not class_name_hint.is_empty():
 		return class_name_hint
-	var hint_string: String = GFVariantData.get_option_string(
-		uniform,
-		"hint_string"
-	).strip_edges()
+	var hint_string: String = (GFVariantData.get_option_string(uniform, "hint_string").strip_edges())
 	if hint_string.is_empty():
 		return ""
-	return hint_string.split(",", false, 1)[0].strip_edges()
+	return hint_string.split(
+		",",
+		false,
+		1
+	)[0].strip_edges()
 
 
 ## 生成期望与实际 Variant 类型及期望对象类的诊断字段。
 ## [br]
 ## @api private
 ## [br]
-static func _make_type_mismatch_metadata(
-	uniform: Dictionary,
-	value: Variant
-) -> Dictionary:
-	var expected_type: int = GFVariantData.get_option_int(uniform, "type", TYPE_NIL)
+static func _make_type_mismatch_metadata(uniform: Dictionary, value: Variant) -> Dictionary:
+	var expected_type: int = GFVariantData.get_option_int(
+		uniform,
+		"type",
+		TYPE_NIL
+	)
 	var actual_type: int = typeof(value)
 	return {
 		"expected_type": expected_type,
@@ -1159,11 +1159,13 @@ static func _get_severity_option(
 	option_name: String,
 	default_value: String
 ) -> String:
-	var severity: String = GFVariantData.get_option_string(
-		options,
-		option_name,
-		default_value
-	).strip_edges().to_lower()
+	var severity: String = (
+		GFVariantData.get_option_string(
+			options,
+			option_name,
+			default_value
+		).strip_edges().to_lower()
+	)
 	if [
 		_SEVERITY_IGNORE,
 		_SEVERITY_INFO,

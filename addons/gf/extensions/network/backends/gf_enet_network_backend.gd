@@ -82,7 +82,11 @@ func host(options: Dictionary = {}) -> Error:
 	_peer = ENetMultiplayerPeer.new()
 	var error: Error = _peer.create_server(
 		port,
-		GFVariantData.get_option_int(options, "max_clients", 32),
+		GFVariantData.get_option_int(
+			options,
+			"max_clients",
+			32
+		),
 		GFVariantData.get_option_int(options, "max_channels"),
 		GFVariantData.get_option_int(options, "in_bandwidth"),
 		GFVariantData.get_option_int(options, "out_bandwidth")
@@ -132,7 +136,10 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 		_peer = null
 		return error
 
-	_endpoint = "%s:%d" % [address, port]
+	_endpoint = (
+		"%s:%d"
+		% [address, port]
+	)
 	_is_server = false
 	_connect_peer_signals()
 	_last_status = _peer.get_connection_status()
@@ -151,6 +158,8 @@ func disconnect_backend() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param peer_id: 目标网络 peer 标识。
 ## [br]
 ## @param bytes: 要发送的字节数据。
@@ -160,7 +169,11 @@ func disconnect_backend() -> void:
 ## @return Godot 错误码。
 ## [br]
 ## @schema options: Dictionary，支持 reliable、transfer_mode、channel。
-func send_bytes(peer_id: int, bytes: PackedByteArray, options: Dictionary = {}) -> Error:
+func send_bytes(
+	peer_id: int,
+	bytes: PackedByteArray,
+	options: Dictionary = {}
+) -> Error:
 	if _peer == null:
 		return ERR_UNCONFIGURED
 	if bytes.is_empty():
@@ -191,7 +204,10 @@ func poll(_delta: float) -> void:
 	while (
 		_peer != null
 		and _peer.get_available_packet_count() > 0
-		and (max_packets_per_poll <= 0 or processed_packets < max_packets_per_poll)
+		and (
+			max_packets_per_poll <= 0
+			or processed_packets < max_packets_per_poll
+		)
 	):
 		var peer_id: int = _peer.get_packet_peer()
 		var bytes: PackedByteArray = _peer.get_packet()
@@ -208,16 +224,18 @@ func poll(_delta: float) -> void:
 ## @schema return: Dictionary，包含 backend、available、endpoint、is_server、connection_status、connection_status_name、available_packet_count、max_packets_per_poll。
 func get_debug_snapshot() -> Dictionary:
 	var status: int = MultiplayerPeer.CONNECTION_DISCONNECTED if _peer == null else _peer.get_connection_status()
-	return GFNetworkDebugTools.sanitize_debug_dictionary({
-		"backend": "GFENetNetworkBackend",
-		"available": _peer != null,
-		"endpoint": _endpoint,
-		"is_server": _is_server,
-		"connection_status": status,
-		"connection_status_name": _get_status_name(status),
-		"available_packet_count": 0 if _peer == null else _peer.get_available_packet_count(),
-		"max_packets_per_poll": max_packets_per_poll,
-	})
+	return GFNetworkDebugTools.sanitize_debug_dictionary(
+		{
+			"backend": "GFENetNetworkBackend",
+			"available": _peer != null,
+			"endpoint": _endpoint,
+			"is_server": _is_server,
+			"connection_status": status,
+			"connection_status_name": _get_status_name(status),
+			"available_packet_count": 0 if _peer == null else _peer.get_available_packet_count(),
+			"max_packets_per_poll": max_packets_per_poll,
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -278,8 +296,14 @@ func _parse_endpoint(endpoint: String, options: Dictionary) -> Dictionary:
 	if address.begins_with("["):
 		var bracket_index: int = address.find("]")
 		if bracket_index > 0:
-			var parsed_host: String = address.substr(1, bracket_index - 1)
-			if bracket_index < address.length() - 2 and address.substr(bracket_index + 1, 1) == ":":
+			var parsed_host: String = address.substr(
+				1,
+				bracket_index - 1
+			)
+			if bracket_index < address.length() - 2 and address.substr(
+				bracket_index + 1,
+				1
+			) == ":":
 				port = int(address.substr(bracket_index + 2))
 			address = parsed_host
 	elif port <= 0:
@@ -291,10 +315,7 @@ func _parse_endpoint(endpoint: String, options: Dictionary) -> Dictionary:
 		):
 			port = int(address.substr(separator_index + 1))
 			address = address.substr(0, separator_index)
-	return {
-		"address": address,
-		"port": port,
-	}
+	return { "address": address, "port": port, }
 
 
 ## 将框架广播标识转换为 MultiplayerPeer 广播目标。
@@ -314,7 +335,11 @@ func _map_target_peer(peer_id: int) -> int:
 func _get_transfer_mode(options: Dictionary) -> MultiplayerPeer.TransferMode:
 	if options.has("transfer_mode"):
 		return _to_transfer_mode(GFVariantData.to_int(options["transfer_mode"]))
-	if GFVariantData.get_option_bool(options, "reliable", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"reliable",
+		true
+	):
 		return MultiplayerPeer.TRANSFER_MODE_RELIABLE
 	return MultiplayerPeer.TRANSFER_MODE_UNRELIABLE
 

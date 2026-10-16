@@ -94,7 +94,11 @@ func is_empty() -> bool:
 ## @return 表达式满足时返回 true。
 func matches(source: Variant) -> bool:
 	var report: Dictionary = get_match_report(source)
-	return GFVariantData.get_option_bool(report, "ok", false)
+	return GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	)
 
 
 ## 获取匹配报告。
@@ -115,7 +119,11 @@ func matches(source: Variant) -> bool:
 ## [br]
 ## @schema return: Dictionary，包含 ok、valid、matched、operator、query_report、child_reports、matched_indices、failed_indices、invalid_indices、reason 等字段。
 func get_match_report(source: Variant) -> Dictionary:
-	return _get_match_report(source, [], 0)
+	return _get_match_report(
+		source,
+		[],
+		0
+	)
 
 
 ## 配置为叶子查询表达式。
@@ -210,7 +218,11 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @return 新表达式。
 static func from_dictionary(data: Dictionary) -> GFTagExpression:
-	var expression: GFTagExpression = _from_dictionary(data, [], 0)
+	var expression: GFTagExpression = _from_dictionary(
+		data,
+		[],
+		0
+	)
 	return expression if expression != null else GFTagExpression.new()
 
 
@@ -230,16 +242,23 @@ static func from_query(tag_query: GFTagQuery) -> GFTagExpression:
 ## 按字典恢复表达式；超出深度或遇到相同字典实例时返回 null，并保留无效子项位置。
 ## [br]
 ## @api private
-static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GFTagExpression:
+static func _from_dictionary(
+	data: Dictionary,
+	visited: Array,
+	depth: int
+) -> GFTagExpression:
 	if depth > _MAX_RESTORE_DEPTH or _visited_contains_dictionary(visited, data):
 		return null
 
 	var expression: GFTagExpression = GFTagExpression.new()
 	visited.append(data)
-	expression.operator = (
-		_operator_from_variant(GFVariantData.get_option_value(data, "operator", Operator.QUERY))
-		as Operator
-	)
+	expression.operator = _operator_from_variant(
+		GFVariantData.get_option_value(
+			data,
+			"operator",
+			Operator.QUERY
+		)
+	) as Operator
 	var query_data: Dictionary = _get_raw_dictionary(data, "query")
 	if not query_data.is_empty():
 		expression.query = GFTagQuery.from_dictionary(query_data)
@@ -252,7 +271,13 @@ static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GF
 			elif GFVariantData.get_option_bool(child_dictionary, "cycle_detected"):
 				expression.expressions.append(null)
 			else:
-				expression.expressions.append(_from_dictionary(child_dictionary, visited, depth + 1))
+				expression.expressions.append(
+					_from_dictionary(
+						child_dictionary,
+						visited,
+						depth + 1
+					)
+				)
 		else:
 			expression.expressions.append(null)
 	var _removed_visit: Variant = visited.pop_back()
@@ -343,7 +368,11 @@ func _to_dictionary(visited: Dictionary) -> Dictionary:
 ## 检查深度与当前访问路径的循环，再按 operator 分派叶子或子表达式报告。
 ## [br]
 ## @api private
-func _get_match_report(source: Variant, visited: Array[int], depth: int = 0) -> Dictionary:
+func _get_match_report(
+	source: Variant,
+	visited: Array[int],
+	depth: int = 0
+) -> Dictionary:
 	if depth > _MAX_MATCH_DEPTH:
 		return _make_invalid_match_report("depth_limit_exceeded")
 
@@ -357,11 +386,27 @@ func _get_match_report(source: Variant, visited: Array[int], depth: int = 0) -> 
 		Operator.QUERY:
 			report = _get_query_match_report(source)
 		Operator.ALL:
-			report = _get_children_match_report(source, visited, depth, true, false)
+			report = _get_children_match_report(
+				source,
+				visited,
+				depth,
+				true,
+				false
+			)
 		Operator.ANY:
-			report = _get_children_match_report(source, visited, depth, false, true)
+			report = _get_children_match_report(
+				source,
+				visited,
+				depth,
+				false,
+				true
+			)
 		Operator.NONE:
-			report = _get_none_match_report(source, visited, depth)
+			report = _get_none_match_report(
+				source,
+				visited,
+				depth
+			)
 		_:
 			report = _make_invalid_match_report("unknown_operator")
 	visited.pop_back()
@@ -373,7 +418,11 @@ func _get_match_report(source: Variant, visited: Array[int], depth: int = 0) -> 
 ## @api private
 func _get_query_match_report(source: Variant) -> Dictionary:
 	var query_report: Dictionary = query.get_match_report(source) if query != null else { "ok": true }
-	var matched: bool = GFVariantData.get_option_bool(query_report, "ok", false)
+	var matched: bool = GFVariantData.get_option_bool(
+		query_report,
+		"ok",
+		false
+	)
 	return {
 		"ok": matched,
 		"valid": true,
@@ -405,17 +454,39 @@ func _get_children_match_report(
 	var invalid_indices: Array[int] = []
 	for index: int in range(expressions.size()):
 		var child: GFTagExpression = _get_expression_at(index)
-		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited, depth + 1)
+		var child_report: Dictionary = (
+			_get_null_child_report()
+			if child == null
+			else child._get_match_report(
+				source,
+				visited,
+				depth + 1
+			)
+		)
 		child_reports.append(child_report)
-		if not GFVariantData.get_option_bool(child_report, "valid", false):
+		if not GFVariantData.get_option_bool(
+			child_report,
+			"valid",
+			false
+		):
 			invalid_indices.append(index)
-		if GFVariantData.get_option_bool(child_report, "matched", false):
+		if GFVariantData.get_option_bool(
+			child_report,
+			"matched",
+			false
+		):
 			matched_indices.append(index)
 		else:
 			failed_indices.append(index)
 
-	var matched: bool = empty_value if expressions.is_empty() else (
-		failed_indices.is_empty() if require_all else not matched_indices.is_empty()
+	var matched: bool = (
+		empty_value
+		if expressions.is_empty()
+		else (
+			failed_indices.is_empty()
+			if require_all
+			else not matched_indices.is_empty()
+		)
 	)
 	var valid: bool = invalid_indices.is_empty()
 	var ok: bool = valid and matched
@@ -427,7 +498,15 @@ func _get_children_match_report(
 		"reason": (
 			"invalid_child"
 			if not valid
-			else ("" if matched else ("child_failed" if require_all else "no_child_matched"))
+			else (
+				""
+				if matched
+				else (
+					"child_failed"
+					if require_all
+					else "no_child_matched"
+				)
+			)
 		),
 		"query_report": {},
 		"child_reports": child_reports,
@@ -440,18 +519,38 @@ func _get_children_match_report(
 ## 汇总 NONE 子项报告；无子项匹配时 matched=true，但任一无效子项仍使 valid 与 ok 为 false。
 ## [br]
 ## @api private
-func _get_none_match_report(source: Variant, visited: Array[int], depth: int) -> Dictionary:
+func _get_none_match_report(
+	source: Variant,
+	visited: Array[int],
+	depth: int
+) -> Dictionary:
 	var child_reports: Array[Dictionary] = []
 	var matched_indices: Array[int] = []
 	var failed_indices: Array[int] = []
 	var invalid_indices: Array[int] = []
 	for index: int in range(expressions.size()):
 		var child: GFTagExpression = _get_expression_at(index)
-		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited, depth + 1)
+		var child_report: Dictionary = (
+			_get_null_child_report()
+			if child == null
+			else child._get_match_report(
+				source,
+				visited,
+				depth + 1
+			)
+		)
 		child_reports.append(child_report)
-		if not GFVariantData.get_option_bool(child_report, "valid", false):
+		if not GFVariantData.get_option_bool(
+			child_report,
+			"valid",
+			false
+		):
 			invalid_indices.append(index)
-		if GFVariantData.get_option_bool(child_report, "matched", false):
+		if GFVariantData.get_option_bool(
+			child_report,
+			"matched",
+			false
+		):
 			matched_indices.append(index)
 		else:
 			failed_indices.append(index)
@@ -464,7 +563,15 @@ func _get_none_match_report(source: Variant, visited: Array[int], depth: int) ->
 		"valid": valid,
 		"matched": matched,
 		"operator": _operator_to_string(operator),
-		"reason": "invalid_child" if not valid else ("" if matched else "blocked_child_matched"),
+		"reason": (
+			"invalid_child"
+			if not valid
+			else (
+				""
+				if matched
+				else "blocked_child_matched"
+			)
+		),
 		"query_report": {},
 		"child_reports": child_reports,
 		"matched_indices": matched_indices,

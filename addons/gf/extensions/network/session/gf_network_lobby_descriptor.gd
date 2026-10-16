@@ -136,11 +136,27 @@ func configure(p_lobby_id: String, options: Dictionary = {}) -> GFNetworkLobbyDe
 	lobby_id = p_lobby_id.strip_edges()
 	backend_id = GFVariantData.get_option_string_name(options, "backend_id")
 	display_name = GFVariantData.get_option_string(options, "display_name").strip_edges()
-	owner_peer_id = GFVariantData.get_option_int(options, "owner_peer_id", -1)
+	owner_peer_id = GFVariantData.get_option_int(
+		options,
+		"owner_peer_id",
+		-1
+	)
 	owner_platform_user_id = GFVariantData.get_option_string(options, "owner_platform_user_id").strip_edges()
-	max_members = GFVariantData.get_option_int(options, "max_members", 0)
-	joinable = GFVariantData.get_option_bool(options, "joinable", true)
-	visibility = GFVariantData.get_option_int(options, "visibility", Visibility.DEFAULT) as Visibility
+	max_members = GFVariantData.get_option_int(
+		options,
+		"max_members",
+		0
+	)
+	joinable = GFVariantData.get_option_bool(
+		options,
+		"joinable",
+		true
+	)
+	visibility = GFVariantData.get_option_int(
+		options,
+		"visibility",
+		Visibility.DEFAULT
+	) as Visibility
 	members = _copy_members_from_array(GFVariantData.get_option_array(options, "members"))
 	tags = _normalize_string_set(GFVariantData.get_option_packed_string_array(options, "tags"))
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
@@ -280,11 +296,27 @@ func apply_dict(data: Dictionary) -> void:
 	lobby_id = GFVariantData.get_option_string(data, "lobby_id").strip_edges()
 	backend_id = GFVariantData.get_option_string_name(data, "backend_id")
 	display_name = GFVariantData.get_option_string(data, "display_name").strip_edges()
-	owner_peer_id = GFVariantData.get_option_int(data, "owner_peer_id", -1)
+	owner_peer_id = GFVariantData.get_option_int(
+		data,
+		"owner_peer_id",
+		-1
+	)
 	owner_platform_user_id = GFVariantData.get_option_string(data, "owner_platform_user_id").strip_edges()
-	max_members = GFVariantData.get_option_int(data, "max_members", 0)
-	joinable = GFVariantData.get_option_bool(data, "joinable", true)
-	visibility = GFVariantData.get_option_int(data, "visibility", Visibility.DEFAULT) as Visibility
+	max_members = GFVariantData.get_option_int(
+		data,
+		"max_members",
+		0
+	)
+	joinable = GFVariantData.get_option_bool(
+		data,
+		"joinable",
+		true
+	)
+	visibility = GFVariantData.get_option_int(
+		data,
+		"visibility",
+		Visibility.DEFAULT
+	) as Visibility
 	members = _copy_members_from_array(GFVariantData.get_option_array(data, "members"))
 	tags = _normalize_string_set(GFVariantData.get_option_packed_string_array(data, "tags"))
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")

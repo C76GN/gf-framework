@@ -106,7 +106,14 @@ func execute() -> Variant:
 		return null
 
 	_active_tween = target.create_tween()
-	var _set_ease_result_92: Variant = _active_tween.tween_property(target, property_name, target_position, duration).set_trans(transition_type).set_ease(ease_type)
+	var _set_ease_result_92: Variant = (
+		_active_tween.tween_property(
+			target,
+			property_name,
+			target_position,
+			duration
+		).set_trans(transition_type).set_ease(ease_type)
+	)
 	var _finished_connected: Error = _active_tween.finished.connect(
 		_on_active_tween_finished,
 		CONNECT_ONE_SHOT as Object.ConnectFlags

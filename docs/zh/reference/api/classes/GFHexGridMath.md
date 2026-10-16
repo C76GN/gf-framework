@@ -27,7 +27,7 @@
 | 方法 | [`pixel_to_offset`](#member-gfhexgridmath-methods-pixel_to_offset) | `static func pixel_to_offset( pixel: Vector2, hex_size: float = DEFAULT_HEX_SIZE, layout: OffsetLayout = OffsetLayout.ODD_R, orientation: HexOrientation = HexOrientation.POINTY_TOP ) -> Vector2i:` |
 | 方法 | [`cube_to_pixel`](#member-gfhexgridmath-methods-cube_to_pixel) | `static func cube_to_pixel( cube: Vector3i, hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP ) -> Vector2:` |
 | 方法 | [`pixel_to_cube`](#member-gfhexgridmath-methods-pixel_to_cube) | `static func pixel_to_cube( pixel: Vector2, hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP ) -> Vector3i:` |
-| 方法 | [`get_polygon_points`](#member-gfhexgridmath-methods-get_polygon_points) | `static func get_polygon_points( hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP ) -> PackedVector2Array:` |
+| 方法 | [`get_polygon_points`](#member-gfhexgridmath-methods-get_polygon_points) | `static func get_polygon_points(hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP) -> PackedVector2Array:` |
 | 方法 | [`get_neighbors`](#member-gfhexgridmath-methods-get_neighbors) | `static func get_neighbors( cell: Vector2i, grid_size: Vector2i = Vector2i(-1, -1), layout: OffsetLayout = OffsetLayout.ODD_R ) -> Array[Vector2i]:` |
 | 方法 | [`distance`](#member-gfhexgridmath-methods-distance) | `static func distance( from_cell: Vector2i, to_cell: Vector2i, layout: OffsetLayout = OffsetLayout.ODD_R ) -> int:` |
 | 方法 | [`cube_distance`](#member-gfhexgridmath-methods-cube_distance) | `static func cube_distance(from_cube: Vector3i, to_cube: Vector3i) -> int:` |
@@ -287,9 +287,10 @@ static func pixel_to_cube( pixel: Vector2, hex_size: float = DEFAULT_HEX_SIZE, o
 ### `get_polygon_points`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func get_polygon_points( hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP ) -> PackedVector2Array:
+static func get_polygon_points(hex_size: float = DEFAULT_HEX_SIZE, orientation: HexOrientation = HexOrientation.POINTY_TOP) -> PackedVector2Array:
 ```
 
 获取六边形顶点相对坐标。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvasInputPolicy" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd" module="standard" extends="Resource" classDigest="4777270ab0a4da32984dfaf8582d5febdc923673cc9a579143281442e4b18371">
+<class name="GFSpatialCanvasInputPolicy" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd" module="standard" extends="Resource" classDigest="019b15ed6595eee4c8d5ebf8f6b8212179c620454126b1bbca63e283e061e9d1">
 	<description>GFSpatialCanvasInputPolicy: 空间画布输入解释策略。
 以数据方式声明平移、选择、滚轮、触摸和取消输入。策略不持有节点、
 Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校验通过的隔离副本。</description>
@@ -134,9 +134,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			</tags>
 		</member>
 		<member kind="property" name="selection_default_mode" decorators="@export">
-			<signature>var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (
-	GFSpatialCanvas2D.SelectionMode.REPLACE
-)</signature>
+			<signature>var selection_default_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE</signature>
 			<description>没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。</description>
 			<tags>
 				<tag name="api">public</tag>

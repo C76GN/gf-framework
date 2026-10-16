@@ -91,9 +91,17 @@ func configure_from_slot_summary(
 	active_slot_index: int = -1
 ) -> GFSaveSlotCard:
 	metadata = GFVariantData.get_option_dictionary(summary, "metadata")
-	slot_index = _get_summary_slot_index(summary, metadata, fallback_slot_id)
+	slot_index = _get_summary_slot_index(
+		summary,
+		metadata,
+		fallback_slot_id
+	)
 	var fallback_slot_text: String = String(fallback_slot_id) if fallback_slot_id != &"" else str(slot_index)
-	slot_id = GFVariantData.get_option_string_name(metadata, "slot_id", StringName(fallback_slot_text))
+	slot_id = GFVariantData.get_option_string_name(
+		metadata,
+		"slot_id",
+		StringName(fallback_slot_text)
+	)
 	display_name = GFVariantData.get_option_string(metadata, "display_name")
 	description = GFVariantData.get_option_string(metadata, "description")
 	modified_time = GFVariantData.get_option_int(
@@ -106,12 +114,20 @@ func configure_from_slot_summary(
 	is_compatible = GFVariantData.get_option_bool(
 		summary,
 		"is_compatible",
-		GFVariantData.get_option_bool(metadata, "is_compatible", true)
+		GFVariantData.get_option_bool(
+			metadata,
+			"is_compatible",
+			true
+		)
 	)
 	var compatibility_error_value: Variant = GFVariantData.get_option_value(
 		summary,
 		"compatibility_errors",
-		GFVariantData.get_option_value(metadata, "compatibility_errors", [])
+		GFVariantData.get_option_value(
+			metadata,
+			"compatibility_errors",
+			[]
+		)
 	)
 	compatibility_errors = PackedStringArray(GFVariantData.to_string_array(compatibility_error_value))
 	return self
@@ -175,11 +191,14 @@ static func from_slot_summary(
 	fallback_slot_id: StringName = &"",
 	active_slot_index: int = -1
 ) -> GFSaveSlotCard:
-	return GFSaveSlotCard.new().configure_from_slot_summary(summary, fallback_slot_id, active_slot_index)
+	return GFSaveSlotCard.new().configure_from_slot_summary(
+		summary,
+		fallback_slot_id,
+		active_slot_index
+	)
 
 
 # --- 私有/辅助方法 ---
-
 
 ## 优先读取显式槽位索引，再从摘要、元数据或兜底 ID 中解析索引。
 ## [br]
@@ -191,7 +210,11 @@ func _get_summary_slot_index(
 	fallback_slot_id: StringName
 ) -> int:
 	if summary.has("slot_index"):
-		return GFVariantData.get_option_int(summary, "slot_index", -1)
+		return GFVariantData.get_option_int(
+			summary,
+			"slot_index",
+			-1
+		)
 
 	var candidates: Array = [
 		GFVariantData.get_option_value(summary, "slot_id"),
@@ -220,7 +243,11 @@ func _parse_slot_index(value: Variant) -> int:
 		return text.to_int()
 
 	var digits: String = ""
-	for index: int in range(text.length() - 1, -1, -1):
+	for index: int in range(
+		text.length() - 1,
+		-1,
+		-1
+	):
 		var character: String = text.substr(index, 1)
 		if not character.is_valid_int():
 			break

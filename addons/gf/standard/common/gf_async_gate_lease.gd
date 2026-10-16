@@ -105,7 +105,11 @@ func release(reason: StringName = &"manual") -> bool:
 		var callback_result: Variant = _release_callback.call(self, safe_reason)
 		if callback_result is bool:
 			var released_by_owner: bool = callback_result
-			if released_by_owner and _active and not _release_pending:
+			if (
+				released_by_owner
+				and _active
+				and not _release_pending
+			):
 				var _marked_released: bool = _mark_released_from_gate(safe_reason)
 			return released_by_owner
 		return false
@@ -183,7 +187,10 @@ func get_held_msec() -> int:
 	if _acquired_msec <= 0:
 		return 0
 	var end_msec: int = _released_msec if _released_msec > 0 else Time.get_ticks_msec()
-	return maxi(end_msec - _acquired_msec, 0)
+	return maxi(
+		end_msec - _acquired_msec,
+		0
+	)
 
 
 ## 获取释放原因。
@@ -286,10 +293,7 @@ func _mark_release_pending_from_gate() -> bool:
 ## @param emit_release_signal: 是否在提交后立即发送 released；false 时由 Gate 稍后发送。
 ## [br]
 ## @return 首次从 active 提交释放时返回 true。
-func _mark_released_from_gate(
-	reason: StringName = &"manual",
-	emit_release_signal: bool = true
-) -> bool:
+func _mark_released_from_gate(reason: StringName = &"manual", emit_release_signal: bool = true) -> bool:
 	if not _active:
 		return false
 	_active = false

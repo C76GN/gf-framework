@@ -18,6 +18,8 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 当前二维贡献值；布尔与一维轴使用 x 分量。
 ## [br]
 ## @param _event: 产生该贡献的原生输入事件，可能为 null。
@@ -25,7 +27,11 @@ extends Resource
 ## @param _action: 当前输入动作。
 ## [br]
 ## @return 修饰后的贡献值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
 	return value
 
 
@@ -34,6 +40,8 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 当前三维贡献值。
 ## [br]
 ## @param event: 产生该贡献的原生输入事件，可能为 null。
@@ -41,9 +49,21 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param action: 当前输入动作。
 ## [br]
 ## @return 修饰后的三维贡献值。
-func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:
-	var xy: Vector2 = modify(Vector2(value.x, value.y), event, action)
-	return Vector3(xy.x, xy.y, value.z)
+func modify_3d(
+	value: Vector3,
+	event: InputEvent = null,
+	action: GFInputAction = null
+) -> Vector3:
+	var xy: Vector2 = modify(
+		Vector2(value.x, value.y),
+		event,
+		action
+	)
+	return Vector3(
+		xy.x,
+		xy.y,
+		value.z
+	)
 
 
 ## 创建运行时副本。

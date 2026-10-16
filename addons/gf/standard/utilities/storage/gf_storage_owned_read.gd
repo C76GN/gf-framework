@@ -255,7 +255,11 @@ func release() -> bool:
 ## [br]
 ## @return 首次绑定合法等待中请求时返回 true。
 func configure_for_framework(request_state: GFStorageAsyncRequestState) -> bool:
-	if not Thread.is_main_thread() or _request != null or request_state == null:
+	if (
+		not Thread.is_main_thread()
+		or _request != null
+		or request_state == null
+	):
 		return false
 	if (
 		request_state.get_request_id() <= 0
@@ -286,7 +290,11 @@ func complete_for_framework(
 	read_result: GFStorageReadResult = null,
 	emit_completion_signal: bool = true
 ) -> bool:
-	if not Thread.is_main_thread() or not is_pending() or receipt == null:
+	if (
+		not Thread.is_main_thread()
+		or not is_pending()
+		or receipt == null
+	):
 		return false
 	if (
 		receipt.get_request_id() != get_request_id()
@@ -295,10 +303,13 @@ func complete_for_framework(
 	):
 		return false
 	if receipt.is_ok():
-		if _state == State.WAITING and (
-			read_result == null
-			or not read_result.ok
-			or read_result.error_code != OK
+		if (
+			_state == State.WAITING
+			and (
+				read_result == null
+				or not read_result.ok
+				or read_result.error_code != OK
+			)
 		):
 			return false
 	elif read_result != null:
@@ -322,7 +333,11 @@ func complete_for_framework(
 ## [br]
 ## @param emit_completion_signal: owner 已释放时为 false，消费通知权但保留可查询终态。
 func notify_completion_for_framework(emit_completion_signal: bool = true) -> void:
-	if not Thread.is_main_thread() or _receipt == null or _completion_notified:
+	if (
+		not Thread.is_main_thread()
+		or _receipt == null
+		or _completion_notified
+	):
 		return
 	_completion_notified = true
 	if emit_completion_signal:
@@ -335,10 +350,7 @@ func notify_completion_for_framework(emit_completion_signal: bool = true) -> voi
 ## [br]
 ## @api private
 ## [br]
-func _make_take_result(
-	status: GFStorageOwnedReadTakeResult.Status,
-	read_result: GFStorageReadResult = null
-) -> GFStorageOwnedReadTakeResult:
+func _make_take_result(status: GFStorageOwnedReadTakeResult.Status, read_result: GFStorageReadResult = null) -> GFStorageOwnedReadTakeResult:
 	var result: GFStorageOwnedReadTakeResult = GFStorageOwnedReadTakeResult.new()
 	var _configured: bool = result.configure_for_framework(status, read_result)
 	return result

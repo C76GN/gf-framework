@@ -213,7 +213,11 @@ func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult:
 	if reentrant_failure != null:
 		return reentrant_failure
 	if _row_id_column == column_id:
-		return _publish_rebuild_success(false, 0, 0)
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
 	var build_report: Dictionary = _try_build_projection(
 		_rows,
 		_columns,
@@ -231,23 +235,17 @@ func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult:
 		return _publish_rebuild_failure(_get_build_failure(build_report))
 	var selected_ids_before: Array = _selection_model.get_selected_ids()
 	var anchor_before: Variant = _selection_model.anchor_row_id
-	var row_id_transitions: Array = GFVariantData.get_option_array(
-		build_report,
-		"row_id_transitions"
-	)
-	var mapped_selected_ids: Array = _map_selected_row_ids(
-		selected_ids_before,
-		row_id_transitions
-	)
+	var row_id_transitions: Array = GFVariantData.get_option_array(build_report, "row_id_transitions")
+	var mapped_selected_ids: Array = _map_selected_row_ids(selected_ids_before, row_id_transitions)
 	var mapped_anchor: Variant = _map_row_id(anchor_before, row_id_transitions)
 	_state_publication_in_progress = true
 	_row_id_column = column_id
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	var _selection_result: bool = _selection_model.replace_selection_with_anchor(
-		mapped_selected_ids,
-		mapped_anchor
+	var _selection_result: bool = _selection_model.replace_selection_with_anchor(mapped_selected_ids, mapped_anchor)
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
 	)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
 	_state_publication_in_progress = false
 	return result
 
@@ -279,7 +277,11 @@ func set_filter_case_sensitive(case_sensitive: bool) -> GFTableViewRebuildResult
 	if reentrant_failure != null:
 		return reentrant_failure
 	if _case_sensitive_filter == case_sensitive:
-		return _publish_rebuild_success(false, 0, 0)
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
 	var build_report: Dictionary = _try_build_projection(
 		_rows,
 		_columns,
@@ -296,7 +298,10 @@ func set_filter_case_sensitive(case_sensitive: bool) -> GFTableViewRebuildResult
 	_state_publication_in_progress = true
 	_case_sensitive_filter = case_sensitive
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	_state_publication_in_progress = false
 	return result
 
@@ -329,12 +334,13 @@ func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResu
 	if reentrant_failure != null:
 		return reentrant_failure
 	if model == null:
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"invalid_selection_model",
-			"Table selection model cannot be null."
-		))
+		return _publish_rebuild_failure(_make_rebuild_failure(&"invalid_selection_model", "Table selection model cannot be null."))
 	if is_same(_selection_model, model):
-		return _publish_rebuild_success(false, 0, 0)
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
 	var build_report: Dictionary = _try_build_projection(
 		_rows,
 		_columns,
@@ -352,7 +358,10 @@ func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResu
 	_selection_model = model
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
 	var _prune_result: bool = _selection_model.prune_to_row_ids(get_row_ids())
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	_state_publication_in_progress = false
 	return result
 
@@ -367,6 +376,7 @@ func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResu
 func get_selection_model() -> GFTableSelectionModel:
 	return _selection_model
 
+
 ## 设置列定义列表。
 ## [br]
 ## @api public
@@ -378,9 +388,7 @@ func get_selection_model() -> GFTableSelectionModel:
 ## @schema column_definitions: Array，包含 GFTableColumnDefinition。
 ## [br]
 ## @return 类型化投影重建结果；失败时保留原列与 prior projection。
-func set_columns(
-	column_definitions: Array[GFTableColumnDefinition]
-) -> GFTableViewRebuildResult:
+func set_columns(column_definitions: Array[GFTableColumnDefinition]) -> GFTableViewRebuildResult:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
 		return reentrant_failure
@@ -412,7 +420,10 @@ func set_columns(
 	_columns_by_id = next_columns_by_id
 	_sort_column_id = next_sort_column_id
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	_state_publication_in_progress = false
 	return result
 
@@ -482,17 +493,20 @@ func get_column(column_id: StringName) -> GFTableColumnDefinition:
 ## @schema row_values: Array，调用方保存的行数据。
 ## [br]
 ## @return 类型化投影重建结果；失败时保留原 source、projection 与 selection。
-func set_rows(
-	row_values: Array,
-	duplicate_rows: bool = false
-) -> GFTableViewRebuildResult:
+func set_rows(row_values: Array, duplicate_rows: bool = false) -> GFTableViewRebuildResult:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
 		return reentrant_failure
 	var next_rows: Array = []
 	for row_data: Variant in row_values:
 		if duplicate_rows:
-			next_rows.append(GFVariantData.duplicate_variant(row_data, true, false))
+			next_rows.append(
+				GFVariantData.duplicate_variant(
+					row_data,
+					true,
+					false
+				)
+			)
 		else:
 			next_rows.append(row_data)
 	var build_report: Dictionary = _try_build_projection(
@@ -512,7 +526,10 @@ func set_rows(
 	_rows = next_rows
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
 	var _prune_result: bool = _selection_model.prune_to_row_ids(get_row_ids())
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	rows_changed.emit(_rows.size())
 	_state_publication_in_progress = false
 	return result
@@ -547,14 +564,15 @@ func append_row(row_data: Variant) -> int:
 		_case_sensitive_filter
 	)
 	if not GFVariantData.get_option_bool(build_report, "ok"):
-		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(
-			_get_build_failure(build_report)
-		)
+		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(_get_build_failure(build_report))
 		return -1
 	_state_publication_in_progress = true
 	_rows = next_rows
 	var _rebuild_result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	rows_changed.emit(_rows.size())
 	_state_publication_in_progress = false
 	return row_index
@@ -590,16 +608,17 @@ func remove_row(row_index: int, should_prune_selection: bool = true) -> bool:
 		_case_sensitive_filter
 	)
 	if not GFVariantData.get_option_bool(build_report, "ok"):
-		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(
-			_get_build_failure(build_report)
-		)
+		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(_get_build_failure(build_report))
 		return false
 	_state_publication_in_progress = true
 	_rows = next_rows
 	var _rebuild_result: GFTableViewRebuildResult = _commit_projection_state(build_report)
 	if should_prune_selection:
 		var _prune_result: bool = _selection_model.prune_to_row_ids(get_row_ids())
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	rows_changed.emit(_rows.size())
 	_state_publication_in_progress = false
 	return true
@@ -628,15 +647,16 @@ func clear_rows() -> void:
 		_case_sensitive_filter
 	)
 	if not GFVariantData.get_option_bool(build_report, "ok"):
-		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(
-			_get_build_failure(build_report)
-		)
+		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(_get_build_failure(build_report))
 		return
 	_state_publication_in_progress = true
 	_rows = next_rows
 	var _rebuild_result: GFTableViewRebuildResult = _commit_projection_state(build_report)
 	_selection_model.clear_selection()
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	rows_changed.emit(0)
 	_state_publication_in_progress = false
 
@@ -744,7 +764,10 @@ func get_row_id(row_index: int) -> Variant:
 		return null
 	if _row_id_column == &"":
 		return row_index
-	var row_id: Variant = _read_row_property(_rows[row_index], _row_id_column)
+	var row_id: Variant = _read_row_property(
+		_rows[row_index],
+		_row_id_column
+	)
 	if row_id == null:
 		return row_index
 	return row_id
@@ -814,7 +837,11 @@ func set_filter_query(query: String) -> GFTableViewRebuildResult:
 	if reentrant_failure != null:
 		return reentrant_failure
 	if _filter_query == query:
-		return _publish_rebuild_success(false, 0, 0)
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
 	var build_report: Dictionary = _try_build_projection(
 		_rows,
 		_columns,
@@ -831,8 +858,14 @@ func set_filter_query(query: String) -> GFTableViewRebuildResult:
 	_state_publication_in_progress = true
 	_filter_query = query
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
-	filter_changed.emit(_filter_query, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
+	filter_changed.emit(
+		_filter_query,
+		_visible_row_indices.size()
+	)
 	_state_publication_in_progress = false
 	return result
 
@@ -864,28 +897,23 @@ func get_filter_query() -> String:
 ## @schema registrations: Array of GFTableRowPredicateRegistration values.
 ## [br]
 ## @return 类型化投影重建结果。
-func set_row_predicates(
-	registrations: Array[GFTableRowPredicateRegistration]
-) -> GFTableViewRebuildResult:
+func set_row_predicates(registrations: Array[GFTableRowPredicateRegistration]) -> GFTableViewRebuildResult:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
 		return reentrant_failure
 	if registrations.size() > MAX_ROW_PREDICATE_COUNT:
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"predicate_limit_exceeded",
-			"Table row predicate registration count exceeds the bounded limit."
-		))
-	var next_predicates: Array[GFTableRowPredicateRegistration] = (
-		_snapshot_row_predicate_registrations(registrations)
-	)
-	var validation_failure: GFTableViewRebuildResult = _validate_row_predicate_registrations(
-		next_predicates
-	)
+		return _publish_rebuild_failure(_make_rebuild_failure(&"predicate_limit_exceeded", "Table row predicate registration count exceeds the bounded limit."))
+	var next_predicates: Array[GFTableRowPredicateRegistration] = _snapshot_row_predicate_registrations(registrations)
+	var validation_failure: GFTableViewRebuildResult = _validate_row_predicate_registrations(next_predicates)
 	if validation_failure != null:
 		return _publish_rebuild_failure(validation_failure)
 	next_predicates.sort_custom(_compare_row_predicate_registrations)
 	if _row_predicate_registrations_equal(_row_predicates, next_predicates):
-		return _publish_rebuild_success(false, 0, 0)
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
 	var build_report: Dictionary = _try_build_projection(
 		_rows,
 		_columns,
@@ -903,7 +931,10 @@ func set_row_predicates(
 	_row_predicates = next_predicates
 	_row_predicates_by_id = _make_row_predicate_lookup(next_predicates)
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	_state_publication_in_progress = false
 	return result
 
@@ -917,22 +948,14 @@ func set_row_predicates(
 ## @param registration: 谓词注册定义；提交时复制 metadata。
 ## [br]
 ## @return 类型化投影重建结果。
-func register_row_predicate(
-	registration: GFTableRowPredicateRegistration
-) -> GFTableViewRebuildResult:
+func register_row_predicate(registration: GFTableRowPredicateRegistration) -> GFTableViewRebuildResult:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
 		return reentrant_failure
 	if registration == null:
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"invalid_predicate_registration",
-			"Table row predicate registration cannot be null."
-		))
+		return _publish_rebuild_failure(_make_rebuild_failure(&"invalid_predicate_registration", "Table row predicate registration cannot be null."))
 	if _row_predicates.size() >= MAX_ROW_PREDICATE_COUNT:
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"predicate_limit_exceeded",
-			"Table row predicate registration count exceeds the bounded limit."
-		))
+		return _publish_rebuild_failure(_make_rebuild_failure(&"predicate_limit_exceeded", "Table row predicate registration count exceeds the bounded limit."))
 	var next_predicates: Array[GFTableRowPredicateRegistration] = _row_predicates.duplicate()
 	next_predicates.append(registration)
 	return set_row_predicates(next_predicates)
@@ -952,11 +975,13 @@ func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildRes
 	if reentrant_failure != null:
 		return reentrant_failure
 	if not _row_predicates_by_id.has(predicate_id):
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"unknown_predicate_id",
-			"Table row predicate id is not registered.",
-			predicate_id
-		))
+		return _publish_rebuild_failure(
+			_make_rebuild_failure(
+				&"unknown_predicate_id",
+				"Table row predicate id is not registered.",
+				predicate_id
+			)
+		)
 	var next_predicates: Array[GFTableRowPredicateRegistration] = []
 	for registration: GFTableRowPredicateRegistration in _row_predicates:
 		if registration.get_predicate_id() != predicate_id:
@@ -975,28 +1000,33 @@ func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildRes
 ## @param enabled: 是否参与候选投影。
 ## [br]
 ## @return 类型化投影重建结果。
-func set_row_predicate_enabled(
-	predicate_id: StringName,
-	enabled: bool
-) -> GFTableViewRebuildResult:
+func set_row_predicate_enabled(predicate_id: StringName, enabled: bool) -> GFTableViewRebuildResult:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
 		return reentrant_failure
 	var current: GFTableRowPredicateRegistration = get_row_predicate(predicate_id)
 	if current == null:
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"unknown_predicate_id",
-			"Table row predicate id is not registered.",
-			predicate_id
-		))
+		return _publish_rebuild_failure(
+			_make_rebuild_failure(
+				&"unknown_predicate_id",
+				"Table row predicate id is not registered.",
+				predicate_id
+			)
+		)
 	if current.is_enabled() == enabled:
-		return _publish_rebuild_success(false, 0, 0)
-	return _replace_row_predicate_registration(GFTableRowPredicateRegistration.create(
-		predicate_id,
-		current.get_predicate(),
-		current.get_order(),
-		enabled
-	))
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
+	return _replace_row_predicate_registration(
+		GFTableRowPredicateRegistration.create(
+			predicate_id,
+			current.get_predicate(),
+			current.get_order(),
+			enabled
+		)
+	)
 
 
 ## 事务式设置命名行谓词的执行顺序。
@@ -1010,28 +1040,33 @@ func set_row_predicate_enabled(
 ## @param order: 新顺序；数值越小越早执行。
 ## [br]
 ## @return 类型化投影重建结果。
-func set_row_predicate_order(
-	predicate_id: StringName,
-	order: int
-) -> GFTableViewRebuildResult:
+func set_row_predicate_order(predicate_id: StringName, order: int) -> GFTableViewRebuildResult:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
 		return reentrant_failure
 	var current: GFTableRowPredicateRegistration = get_row_predicate(predicate_id)
 	if current == null:
-		return _publish_rebuild_failure(_make_rebuild_failure(
-			&"unknown_predicate_id",
-			"Table row predicate id is not registered.",
-			predicate_id
-		))
+		return _publish_rebuild_failure(
+			_make_rebuild_failure(
+				&"unknown_predicate_id",
+				"Table row predicate id is not registered.",
+				predicate_id
+			)
+		)
 	if current.get_order() == order:
-		return _publish_rebuild_success(false, 0, 0)
-	return _replace_row_predicate_registration(GFTableRowPredicateRegistration.create(
-		predicate_id,
-		current.get_predicate(),
-		order,
-		current.is_enabled()
-	))
+		return _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
+	return _replace_row_predicate_registration(
+		GFTableRowPredicateRegistration.create(
+			predicate_id,
+			current.get_predicate(),
+			order,
+			current.is_enabled()
+		)
+	)
 
 
 ## 获取一个命名行谓词注册值。
@@ -1044,10 +1079,7 @@ func set_row_predicate_order(
 ## [br]
 ## @return 独立 metadata 快照；predicate 协议实例保持同一引用，不存在时返回 null。
 func get_row_predicate(predicate_id: StringName) -> GFTableRowPredicateRegistration:
-	var registration_value: Variant = GFVariantData.get_option_value(
-		_row_predicates_by_id,
-		predicate_id
-	)
+	var registration_value: Variant = GFVariantData.get_option_value(_row_predicates_by_id, predicate_id)
 	if registration_value is GFTableRowPredicateRegistration:
 		var registration: GFTableRowPredicateRegistration = registration_value
 		return _snapshot_row_predicate_registration(registration)
@@ -1101,7 +1133,11 @@ func get_view_revision() -> int:
 ## @return 最近结果的隔离副本；尚未执行时返回 revision 0 的成功 no-op。
 func get_last_view_rebuild_result() -> GFTableViewRebuildResult:
 	if _last_view_rebuild_result == null:
-		_last_view_rebuild_result = _make_rebuild_success(false, 0, 0)
+		_last_view_rebuild_result = _make_rebuild_success(
+			false,
+			0,
+			0
+		)
 	return _last_view_rebuild_result.duplicate_result()
 
 
@@ -1123,7 +1159,11 @@ func sort_by_column(column_id: StringName, ascending: bool = true) -> bool:
 	if column == null or not column.sortable:
 		return false
 	if _sort_column_id == column_id and _sort_ascending == ascending:
-		var _noop_result: GFTableViewRebuildResult = _publish_rebuild_success(false, 0, 0)
+		var _noop_result: GFTableViewRebuildResult = _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
 		return true
 	var build_report: Dictionary = _try_build_projection(
 		_rows,
@@ -1137,15 +1177,16 @@ func sort_by_column(column_id: StringName, ascending: bool = true) -> bool:
 		_case_sensitive_filter
 	)
 	if not GFVariantData.get_option_bool(build_report, "ok"):
-		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(
-			_get_build_failure(build_report)
-		)
+		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(_get_build_failure(build_report))
 		return false
 	_state_publication_in_progress = true
 	_sort_column_id = column_id
 	_sort_ascending = ascending
 	var _rebuild_result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	sort_changed.emit(_sort_column_id, _sort_ascending)
 	_state_publication_in_progress = false
 	return true
@@ -1175,14 +1216,15 @@ func clear_sort() -> bool:
 		_case_sensitive_filter
 	)
 	if not GFVariantData.get_option_bool(build_report, "ok"):
-		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(
-			_get_build_failure(build_report)
-		)
+		var _failure_result: GFTableViewRebuildResult = _publish_rebuild_failure(_get_build_failure(build_report))
 		return false
 	_state_publication_in_progress = true
 	_sort_column_id = &""
 	var _rebuild_result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	sort_changed.emit(_sort_column_id, _sort_ascending)
 	_state_publication_in_progress = false
 	return true
@@ -1236,7 +1278,10 @@ func refresh_view() -> GFTableViewRebuildResult:
 		return _publish_rebuild_failure(_get_build_failure(build_report))
 	_state_publication_in_progress = true
 	var result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
+	)
 	_state_publication_in_progress = false
 	return result
 
@@ -1281,14 +1326,21 @@ func get_cell_value(row_index: int, column_id: StringName) -> Variant:
 ## @return 提交成功返回 true。
 ## [br]
 ## @schema new_value: Variant，要提交的新值。
-func commit_cell_value(row_index: int, column_id: StringName, new_value: Variant) -> bool:
-	var batch_report: Dictionary = _commit_cell_value_changes([
-		{
-			"row_index": row_index,
-			"column_id": column_id,
-			"new_value": new_value,
-		},
-	], false)
+func commit_cell_value(
+	row_index: int,
+	column_id: StringName,
+	new_value: Variant
+) -> bool:
+	var batch_report: Dictionary = _commit_cell_value_changes(
+		[
+			{
+				"row_index": row_index,
+				"column_id": column_id,
+				"new_value": new_value,
+			},
+		],
+		false
+	)
 	return GFVariantData.get_option_bool(batch_report, "ok")
 
 
@@ -1315,13 +1367,16 @@ func commit_visible_cell_value(
 	column_id: StringName,
 	new_value: Variant
 ) -> bool:
-	var batch_report: Dictionary = _commit_cell_value_changes([
-		{
-			"visible_row_index": visible_row_index,
-			"column_id": column_id,
-			"new_value": new_value,
-		},
-	], true)
+	var batch_report: Dictionary = _commit_cell_value_changes(
+		[
+			{
+				"visible_row_index": visible_row_index,
+				"column_id": column_id,
+				"new_value": new_value,
+			},
+		],
+		true
+	)
 	return GFVariantData.get_option_bool(batch_report, "ok")
 
 
@@ -1378,7 +1433,11 @@ func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ## @schema return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected 和 values。
 func describe_visible_row(visible_row_index: int) -> Dictionary:
 	var row_index: int = get_source_row_index(visible_row_index)
-	return _describe_row(row_index, visible_row_index, { "include_hidden_columns": true })
+	return _describe_row(
+		row_index,
+		visible_row_index,
+		{ "include_hidden_columns": true }
+	)
 
 
 ## 描述源行。
@@ -1400,7 +1459,11 @@ func describe_visible_row(visible_row_index: int) -> Dictionary:
 ## @schema return: Dictionary，包含 ok、row_index、visible_row_index、row_id、selected、values 和可选 row_data。
 func describe_row(row_index: int, options: Dictionary = {}) -> Dictionary:
 	var visible_row_index: int = _find_visible_row_index(row_index)
-	return _describe_row(row_index, visible_row_index, options)
+	return _describe_row(
+		row_index,
+		visible_row_index,
+		options
+	)
 
 
 ## 描述当前表格视图。
@@ -1419,18 +1482,38 @@ func describe_row(row_index: int, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，包含 view_revision、row_count、visible_count、column_count、predicate_count、filter_query、sort_column_id、sort_ascending、visible_only、columns 和 rows。
 func describe_view(options: Dictionary = {}) -> Dictionary:
-	var visible_only: bool = GFVariantData.get_option_bool(options, "visible_only", true)
-	var include_columns: bool = GFVariantData.get_option_bool(options, "include_columns", true)
+	var visible_only: bool = GFVariantData.get_option_bool(
+		options,
+		"visible_only",
+		true
+	)
+	var include_columns: bool = GFVariantData.get_option_bool(
+		options,
+		"include_columns",
+		true
+	)
 	var rows: Array[Dictionary] = []
 	if visible_only:
 		for visible_index: int in range(_visible_row_indices.size()):
 			var row_index: int = _visible_row_indices[visible_index]
-			rows.append(_describe_row(row_index, visible_index, options))
+			rows.append(
+				_describe_row(
+					row_index,
+					visible_index,
+					options
+				)
+			)
 	else:
 		var visible_row_indices_by_source: Dictionary = _make_visible_row_index_map()
 		for row_index: int in range(_rows.size()):
 			var visible_row_index: int = visible_row_indices_by_source.get(row_index, -1)
-			rows.append(_describe_row(row_index, visible_row_index, options))
+			rows.append(
+				_describe_row(
+					row_index,
+					visible_row_index,
+					options
+				)
+			)
 	return {
 		"view_revision": _view_revision,
 		"row_count": _rows.size(),
@@ -1501,7 +1584,11 @@ func get_debug_snapshot() -> Dictionary:
 ## 组装行描述；行索引无效时仅返回失败标记，选项可控制值与原始行数据字段。
 ## [br]
 ## @api private
-func _describe_row(row_index: int, visible_row_index: int, options: Dictionary) -> Dictionary:
+func _describe_row(
+	row_index: int,
+	visible_row_index: int,
+	options: Dictionary
+) -> Dictionary:
 	if not _is_valid_row_index(row_index):
 		return {
 			"ok": false,
@@ -1509,9 +1596,21 @@ func _describe_row(row_index: int, visible_row_index: int, options: Dictionary) 
 			"visible_row_index": visible_row_index,
 		}
 
-	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
-	var include_values: bool = GFVariantData.get_option_bool(options, "include_values", true)
-	var include_row_data: bool = GFVariantData.get_option_bool(options, "include_row_data", false)
+	var copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
+	var include_values: bool = GFVariantData.get_option_bool(
+		options,
+		"include_values",
+		true
+	)
+	var include_row_data: bool = GFVariantData.get_option_bool(
+		options,
+		"include_row_data",
+		false
+	)
 	var row_data: Variant = _rows[row_index]
 	var row_id: Variant = get_row_id(row_index)
 	var result: Dictionary = {
@@ -1532,15 +1631,26 @@ func _describe_row(row_index: int, visible_row_index: int, options: Dictionary) 
 ## [br]
 ## @api private
 func _describe_row_values(row_data: Variant, options: Dictionary) -> Dictionary:
-	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
-	var include_hidden_columns: bool = GFVariantData.get_option_bool(options, "include_hidden_columns", false)
+	var copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
+	var include_hidden_columns: bool = GFVariantData.get_option_bool(
+		options,
+		"include_hidden_columns",
+		false
+	)
 	var values: Dictionary = {}
 	for column: GFTableColumnDefinition in _columns:
 		if column == null:
 			continue
 		if not include_hidden_columns and not column.visible:
 			continue
-		values[column.column_id] = _copy_snapshot_value(column.read_value(row_data), copy_values)
+		values[column.column_id] = _copy_snapshot_value(
+			column.read_value(row_data),
+			copy_values
+		)
 	return values
 
 
@@ -1548,7 +1658,11 @@ func _describe_row_values(row_data: Variant, options: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 func _describe_columns(options: Dictionary) -> Array[Dictionary]:
-	var include_hidden_columns: bool = GFVariantData.get_option_bool(options, "include_hidden_columns", false)
+	var include_hidden_columns: bool = GFVariantData.get_option_bool(
+		options,
+		"include_hidden_columns",
+		false
+	)
 	var result: Array[Dictionary] = []
 	for column: GFTableColumnDefinition in _columns:
 		if column == null:
@@ -1565,7 +1679,11 @@ func _describe_columns(options: Dictionary) -> Array[Dictionary]:
 func _copy_snapshot_value(value: Variant, copy_values: bool) -> Variant:
 	if not copy_values:
 		return value
-	return GFVariantData.duplicate_variant(value, true, false)
+	return GFVariantData.duplicate_variant(
+		value,
+		true,
+		false
+	)
 
 
 ## 查找源行索引在当前可见投影中的位置；不可见时返回 -1。
@@ -1594,89 +1712,112 @@ func _make_visible_row_index_map() -> Dictionary:
 func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
 	var reentrant_failure: GFTableViewRebuildResult = _reject_reentrant_rebuild_request()
 	if reentrant_failure != null:
-		return _make_commit_batch_result(changes.size(), [], [
-			_make_commit_error(
-				-1,
-				reentrant_failure.get_error_code(),
-				-1,
-				&"",
-				{ "message": reentrant_failure.get_error_message() }
-			),
-		])
+		return _make_commit_batch_result(
+			changes.size(),
+			[],
+			[
+				_make_commit_error(
+					-1,
+					reentrant_failure.get_error_code(),
+					-1,
+					&"",
+					{ "message": reentrant_failure.get_error_message() }
+				),
+			]
+		)
 
 	var resolved_changes: Array[Dictionary] = []
 	var errors: Array[Dictionary] = []
 	for change_index: int in range(changes.size()):
 		var change: Dictionary = changes[change_index]
-		var column_id: StringName = GFVariantData.get_option_string_name(change, "column_id", &"")
+		var column_id: StringName = GFVariantData.get_option_string_name(
+			change,
+			"column_id",
+			&""
+		)
 		var row_index: int = -1
 		var visible_row_index: int = -1
 		if use_visible_rows:
-			visible_row_index = GFVariantData.get_option_int(change, "visible_row_index", -1)
+			visible_row_index = GFVariantData.get_option_int(
+				change,
+				"visible_row_index",
+				-1
+			)
 			if visible_row_index < 0 or visible_row_index >= _visible_row_indices.size():
-				errors.append(_make_commit_error(
-					change_index,
-					&"invalid_visible_row_index",
-					-1,
-					column_id,
-					{ "visible_row_index": visible_row_index }
-				))
+				errors.append(
+					_make_commit_error(
+						change_index,
+						&"invalid_visible_row_index",
+						-1,
+						column_id,
+						{ "visible_row_index": visible_row_index }
+					)
+				)
 				continue
 			row_index = _visible_row_indices[visible_row_index]
 		else:
-			row_index = GFVariantData.get_option_int(change, "row_index", -1)
+			row_index = GFVariantData.get_option_int(
+				change,
+				"row_index",
+				-1
+			)
 
 		if not _has_option_key(change, &"new_value"):
 			var missing_value_context: Dictionary = {}
 			if use_visible_rows:
 				missing_value_context["visible_row_index"] = visible_row_index
-			errors.append(_make_commit_error(
-				change_index,
-				&"missing_new_value",
-				row_index,
-				column_id,
-				missing_value_context
-			))
+			errors.append(
+				_make_commit_error(
+					change_index,
+					&"missing_new_value",
+					row_index,
+					column_id,
+					missing_value_context
+				)
+			)
 			continue
 
 		if not _is_valid_row_index(row_index):
-			errors.append(_make_commit_error(
-				change_index,
-				&"invalid_row_index",
-				row_index,
-				column_id
-			))
+			errors.append(
+				_make_commit_error(
+					change_index,
+					&"invalid_row_index",
+					row_index,
+					column_id
+				)
+			)
 			continue
 		var column: GFTableColumnDefinition = get_column(column_id)
 		if column == null:
-			errors.append(_make_commit_error(
-				change_index,
-				&"unknown_column",
-				row_index,
-				column_id
-			))
+			errors.append(
+				_make_commit_error(
+					change_index,
+					&"unknown_column",
+					row_index,
+					column_id
+				)
+			)
 			continue
 		if not column.editable:
-			errors.append(_make_commit_error(
-				change_index,
-				&"column_not_editable",
-				row_index,
-				column_id
-			))
+			errors.append(
+				_make_commit_error(
+					change_index,
+					&"column_not_editable",
+					row_index,
+					column_id
+				)
+			)
 			continue
 		if column.value_setter.is_valid():
-			errors.append(_make_commit_error(
-				change_index,
-				&"non_transactional_value_setter",
-				row_index,
-				column_id,
-				{
-					"message": (
-						"Custom table value setters are not accepted by the "
-						+ "transactional projection path."
-					),
-				}
-			))
+			errors.append(
+				_make_commit_error(
+					change_index,
+					&"non_transactional_value_setter",
+					row_index,
+					column_id,
+					{ "message": "Custom table value setters are not accepted by the " + "transactional projection path.", }
+				)
+			)
 			continue
 		var resolved_change: Dictionary = {
 			"index": change_index,
@@ -1690,7 +1831,11 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 		resolved_changes.append(resolved_change)
 
 	if not errors.is_empty():
-		return _make_commit_batch_result(changes.size(), [], errors)
+		return _make_commit_batch_result(
+			changes.size(),
+			[],
+			errors
+		)
 
 	_view_rebuild_in_progress = true
 	_reentrant_rebuild_attempted = false
@@ -1700,28 +1845,21 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 	var changed_reports: Array[Dictionary] = []
 	var staging_failure: GFTableViewRebuildResult = null
 	for resolved_change: Dictionary in resolved_changes:
-		var row_index: int = GFVariantData.get_option_int(resolved_change, "row_index", -1)
-		var column_id: StringName = GFVariantData.get_option_string_name(
+		var row_index: int = GFVariantData.get_option_int(
 			resolved_change,
-			"column_id"
+			"row_index",
+			-1
 		)
+		var column_id: StringName = GFVariantData.get_option_string_name(resolved_change, "column_id")
 		var column_value: Variant = GFVariantData.get_option_value(resolved_change, "column")
 		if not column_value is GFTableColumnDefinition:
-			staging_failure = _make_rebuild_failure(
-				&"invalid_column",
-				"Transactional cell staging received an invalid column definition."
-			)
+			staging_failure = _make_rebuild_failure(&"invalid_column", "Transactional cell staging received an invalid column definition.")
 			break
 		var column: GFTableColumnDefinition = column_value
 		if not copied_row_indices.has(row_index):
-			var copy_report: Dictionary = GFTableRowView.duplicate_isolated_variant_for_framework(
-				_rows[row_index]
-			)
+			var copy_report: Dictionary = GFTableRowView.duplicate_isolated_variant_for_framework(_rows[row_index])
 			if _reentrant_rebuild_attempted:
-				staging_failure = _make_rebuild_failure(
-					&"reentrant_rebuild",
-					"Table source isolation callback attempted a recursive mutation."
-				)
+				staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table source isolation callback attempted a recursive mutation.")
 				break
 			if not GFVariantData.get_option_bool(copy_report, "ok"):
 				staging_failure = _make_rebuild_failure(
@@ -1741,28 +1879,15 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 			_row_id_column
 		)
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table row identity callback attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table row identity callback attempted a recursive mutation.")
 			break
 		var old_value: Variant = column.read_value(candidate_row)
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table column getter attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table column getter attempted a recursive mutation.")
 			break
-		var new_value_report: Dictionary = (
-			GFTableRowView.duplicate_isolated_variant_for_framework(
-				GFVariantData.get_option_value(resolved_change, "new_value")
-			)
-		)
+		var new_value_report: Dictionary = GFTableRowView.duplicate_isolated_variant_for_framework(GFVariantData.get_option_value(resolved_change, "new_value"))
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table cell value isolation callback attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table cell value isolation callback attempted a recursive mutation.")
 			break
 		if not GFVariantData.get_option_bool(new_value_report, "ok"):
 			staging_failure = _make_rebuild_failure(
@@ -1776,40 +1901,21 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 		var new_value: Variant = GFVariantData.get_option_value(new_value_report, "value")
 		var changed: bool = not GFVariantData.values_equal(old_value, new_value)
 		if changed and not column.write_value(candidate_row, new_value):
-			staging_failure = _make_rebuild_failure(
-				&"write_failed",
-				"Table column rejected the staged value."
-			)
+			staging_failure = _make_rebuild_failure(&"write_failed", "Table column rejected the staged value.")
 			break
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table column setter attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table column setter attempted a recursive mutation.")
 			break
 		var committed_value: Variant = column.read_value(candidate_row)
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table column getter attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table column getter attempted a recursive mutation.")
 			break
-		var old_value_report: Dictionary = (
-			GFTableRowView.duplicate_isolated_variant_for_framework(old_value)
-		)
-		var committed_value_report: Dictionary = (
-			GFTableRowView.duplicate_isolated_variant_for_framework(committed_value)
-		)
+		var old_value_report: Dictionary = GFTableRowView.duplicate_isolated_variant_for_framework(old_value)
+		var committed_value_report: Dictionary = GFTableRowView.duplicate_isolated_variant_for_framework(committed_value)
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table cell report isolation callback attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table cell report isolation callback attempted a recursive mutation.")
 			break
-		if (
-			not GFVariantData.get_option_bool(old_value_report, "ok")
-			or not GFVariantData.get_option_bool(committed_value_report, "ok")
-		):
+		if (not GFVariantData.get_option_bool(old_value_report, "ok") or not GFVariantData.get_option_bool(committed_value_report, "ok")):
 			staging_failure = _make_rebuild_failure(
 				&"unisolatable_cell_value",
 				"Table cell transaction report values must be isolated.",
@@ -1824,10 +1930,7 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 			_row_id_column
 		)
 		if _reentrant_rebuild_attempted:
-			staging_failure = _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table row identity callback attempted a recursive mutation."
-			)
+			staging_failure = _make_rebuild_failure(&"reentrant_rebuild", "Table row identity callback attempted a recursive mutation.")
 			break
 		var staged_report: Dictionary = _make_cell_commit_success(
 			row_index,
@@ -1838,7 +1941,11 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 			GFVariantData.get_option_value(committed_value_report, "value"),
 			changed
 		)
-		staged_report["index"] = GFVariantData.get_option_int(resolved_change, "index", -1)
+		staged_report["index"] = GFVariantData.get_option_int(
+			resolved_change,
+			"index",
+			-1
+		)
 		if use_visible_rows:
 			staged_report["visible_row_index"] = GFVariantData.get_option_int(
 				resolved_change,
@@ -1872,55 +1979,60 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 				_row_id_column
 			)
 			if GFVariantData.get_option_bool(transition_report, "ok"):
-				build_report["row_id_transitions"] = GFVariantData.get_option_array(
-					transition_report,
-					"transitions"
-				)
+				build_report["row_id_transitions"] = GFVariantData.get_option_array(transition_report, "transitions")
 			else:
 				staging_failure = _get_build_failure(transition_report)
 	_view_rebuild_in_progress = false
 
 	if staging_failure != null:
-		var published_failure: GFTableViewRebuildResult = _publish_rebuild_failure(
-			staging_failure
+		var published_failure: GFTableViewRebuildResult = _publish_rebuild_failure(staging_failure)
+		return _make_commit_batch_result(
+			changes.size(),
+			[],
+			[
+				_make_commit_error(
+					-1,
+					published_failure.get_error_code(),
+					published_failure.get_failed_source_row_index(),
+					&"",
+					{ "message": published_failure.get_error_message() }
+				),
+			]
 		)
-		return _make_commit_batch_result(changes.size(), [], [
-			_make_commit_error(
-				-1,
-				published_failure.get_error_code(),
-				published_failure.get_failed_source_row_index(),
-				&"",
-				{ "message": published_failure.get_error_message() }
-			),
-		])
 
 	if changed_reports.is_empty():
-		var _noop_result: GFTableViewRebuildResult = _publish_rebuild_success(false, 0, 0)
-		return _make_commit_batch_result(changes.size(), staged_reports, [])
+		var _noop_result: GFTableViewRebuildResult = _publish_rebuild_success(
+			false,
+			0,
+			0
+		)
+		return _make_commit_batch_result(
+			changes.size(),
+			staged_reports,
+			[]
+		)
 
 	var selected_ids_before: Array = _selection_model.get_selected_ids()
 	var anchor_before: Variant = _selection_model.anchor_row_id
-	var row_id_transitions: Array = GFVariantData.get_option_array(
-		build_report,
-		"row_id_transitions"
-	)
-	var mapped_selected_ids: Array = _map_selected_row_ids(
-		selected_ids_before,
-		row_id_transitions
-	)
+	var row_id_transitions: Array = GFVariantData.get_option_array(build_report, "row_id_transitions")
+	var mapped_selected_ids: Array = _map_selected_row_ids(selected_ids_before, row_id_transitions)
 	var mapped_anchor: Variant = _map_row_id(anchor_before, row_id_transitions)
 	_state_publication_in_progress = true
 	_rows = next_rows
 	var _rebuild_result: GFTableViewRebuildResult = _commit_projection_state(build_report)
-	var _replace_selection_result: bool = _selection_model.replace_selection_with_anchor(
-		mapped_selected_ids,
-		mapped_anchor
+	var _replace_selection_result: bool = _selection_model.replace_selection_with_anchor(mapped_selected_ids, mapped_anchor)
+	view_changed.emit(
+		_view_revision,
+		_visible_row_indices.size()
 	)
-	view_changed.emit(_view_revision, _visible_row_indices.size())
 	for staged_report: Dictionary in changed_reports:
 		_emit_cell_value_committed(staged_report)
 	_state_publication_in_progress = false
-	return _make_commit_batch_result(changes.size(), staged_reports, [])
+	return _make_commit_batch_result(
+		changes.size(),
+		staged_reports,
+		[]
+	)
 
 
 ## 从提交报告读取行、ID、列和值，并发出 cell_value_committed。
@@ -1928,9 +2040,17 @@ func _commit_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bo
 ## @api private
 func _emit_cell_value_committed(report: Dictionary) -> void:
 	cell_value_committed.emit(
-		GFVariantData.get_option_int(report, "row_index", -1),
+		GFVariantData.get_option_int(
+			report,
+			"row_index",
+			-1
+		),
 		GFVariantData.get_option_value(report, "row_id"),
-		GFVariantData.get_option_string_name(report, "column_id", &""),
+		GFVariantData.get_option_string_name(
+			report,
+			"column_id",
+			&""
+		),
 		GFVariantData.get_option_value(report, "old_value"),
 		GFVariantData.get_option_value(report, "new_value")
 	)
@@ -1997,12 +2117,20 @@ func _make_commit_error(
 	var error: Dictionary = {
 		"index": change_index,
 		"reason": reason,
-		"message": GFVariantData.get_option_string(extra_fields, "message", String(reason)),
+		"message": GFVariantData.get_option_string(
+			extra_fields,
+			"message",
+			String(reason)
+		),
 		"row_index": row_index,
 		"column_id": column_id,
 	}
 	if _has_option_key(extra_fields, &"visible_row_index"):
-		error["visible_row_index"] = GFVariantData.get_option_int(extra_fields, "visible_row_index", -1)
+		error["visible_row_index"] = GFVariantData.get_option_int(
+			extra_fields,
+			"visible_row_index",
+			-1
+		)
 	return error
 
 
@@ -2062,10 +2190,7 @@ func _reject_reentrant_rebuild_request() -> GFTableViewRebuildResult:
 		return null
 	if _view_rebuild_in_progress:
 		_reentrant_rebuild_attempted = true
-	return _make_rebuild_failure(
-		&"reentrant_rebuild",
-		"Table view mutation cannot be entered recursively."
-	)
+	return _make_rebuild_failure(&"reentrant_rebuild", "Table view mutation cannot be entered recursively.")
 
 
 ## 设置重建保护并生成候选投影；可选地附加旧、新行 ID 的逐源行转换记录。
@@ -2086,13 +2211,7 @@ func _try_build_projection(
 ) -> Dictionary:
 	if _view_rebuild_in_progress or _state_publication_in_progress:
 		_reentrant_rebuild_attempted = true
-		return {
-			"ok": false,
-			"failure": _make_rebuild_failure(
-				&"reentrant_rebuild",
-				"Table view rebuild cannot be entered recursively."
-			),
-		}
+		return { "ok": false, "failure": _make_rebuild_failure(&"reentrant_rebuild", "Table view rebuild cannot be entered recursively."), }
 
 	_view_rebuild_in_progress = true
 	_reentrant_rebuild_attempted = false
@@ -2115,10 +2234,7 @@ func _try_build_projection(
 			row_id_column_key
 		)
 		if GFVariantData.get_option_bool(transition_report, "ok"):
-			build_report["row_id_transitions"] = GFVariantData.get_option_array(
-				transition_report,
-				"transitions"
-			)
+			build_report["row_id_transitions"] = GFVariantData.get_option_array(transition_report, "transitions")
 		else:
 			build_report = transition_report
 	_view_rebuild_in_progress = false
@@ -2200,10 +2316,7 @@ func _build_projection_under_guard(
 					)
 					break
 				canonical_row_id = GFVariantData.get_option_value(row_view_report, "row_id")
-				var row_view_value: Variant = GFVariantData.get_option_value(
-					row_view_report,
-					"row_view"
-				)
+				var row_view_value: Variant = GFVariantData.get_option_value(row_view_report, "row_view")
 				if row_view_value is GFTableRowView:
 					canonical_row_view = row_view_value
 				else:
@@ -2219,9 +2332,7 @@ func _build_projection_under_guard(
 					break
 			if failure != null:
 				break
-			var callback_row_view: GFTableRowView = GFTableRowView.snapshot_for_framework(
-				canonical_row_view
-			)
+			var callback_row_view: GFTableRowView = GFTableRowView.snapshot_for_framework(canonical_row_view)
 			if callback_row_view == null:
 				failure = _make_rebuild_failure(
 					&"invalid_row_view_snapshot",
@@ -2234,9 +2345,7 @@ func _build_projection_under_guard(
 				)
 				break
 			var predicate: GFTableRowPredicate = registration.get_predicate()
-			var predicate_result: GFTableRowPredicateResult = (
-				GFTableRowPredicate.evaluate_for_framework(predicate, callback_row_view)
-			)
+			var predicate_result: GFTableRowPredicateResult = GFTableRowPredicate.evaluate_for_framework(predicate, callback_row_view)
 			predicate_evaluation_count += 1
 			if _reentrant_rebuild_attempted:
 				failure = _make_rebuild_failure(
@@ -2280,11 +2389,13 @@ func _build_projection_under_guard(
 			candidate_indices.append(row_index)
 
 	if failure == null and sort_column_id != &"":
-		var comparator: Callable = Callable(self, &"_compare_projection_row_indices").bind(
-			rows,
-			columns_by_id,
-			sort_column_id,
-			sort_ascending
+		var comparator: Callable = (
+			Callable(self, &"_compare_projection_row_indices").bind(
+				rows,
+				columns_by_id,
+				sort_column_id,
+				sort_ascending
+			)
 		)
 		candidate_indices.sort_custom(comparator)
 		if _reentrant_rebuild_attempted:
@@ -2322,7 +2433,11 @@ func _row_matches_filter_for_state(
 		return true
 	var row_data: Variant = rows[row_index]
 	for column: GFTableColumnDefinition in columns:
-		if column == null or not column.visible or not column.filterable:
+		if (
+			column == null
+			or not column.visible
+			or not column.filterable
+		):
 			continue
 		var column_value: Variant = column.read_value(row_data)
 		if _reentrant_rebuild_attempted:
@@ -2349,7 +2464,11 @@ func _make_predicate_row_view(
 	row_id_column_key: StringName
 ) -> Dictionary:
 	var row_data: Variant = rows[row_index]
-	var row_id: Variant = _get_row_id_for_state(row_index, rows, row_id_column_key)
+	var row_id: Variant = _get_row_id_for_state(
+		row_index,
+		rows,
+		row_id_column_key
+	)
 	if _reentrant_rebuild_attempted:
 		return _make_row_view_failure(
 			&"reentrant_rebuild",
@@ -2428,13 +2547,7 @@ func _make_row_id_transitions_under_guard(
 	next_row_id_column_key: StringName
 ) -> Dictionary:
 	if previous_rows.size() != next_rows.size():
-		return {
-			"ok": false,
-			"failure": _make_rebuild_failure(
-				&"invalid_row_id_transition_state",
-				"Table row identity transitions require equal source row counts."
-			),
-		}
+		return { "ok": false, "failure": _make_rebuild_failure(&"invalid_row_id_transition_state", "Table row identity transitions require equal source row counts."), }
 	var transitions: Array[Dictionary] = []
 	for row_index: int in range(previous_rows.size()):
 		var previous_row_id: Variant = _get_row_id_for_state(
@@ -2469,11 +2582,13 @@ func _make_row_id_transitions_under_guard(
 					previous_row_id
 				),
 			}
-		transitions.append({
-			"row_index": row_index,
-			"row_id": previous_row_id,
-			"next_row_id": next_row_id,
-		})
+		transitions.append(
+			{
+				"row_index": row_index,
+				"row_id": previous_row_id,
+				"next_row_id": next_row_id,
+			}
+		)
 	return { "ok": true, "transitions": transitions }
 
 
@@ -2489,7 +2604,10 @@ func _get_row_id_for_state(
 		return null
 	if row_id_column_key == &"":
 		return row_index
-	var row_id: Variant = _read_row_property(rows[row_index], row_id_column_key)
+	var row_id: Variant = _read_row_property(
+		rows[row_index],
+		row_id_column_key
+	)
 	return row_index if row_id == null else row_id
 
 
@@ -2532,27 +2650,23 @@ func _compare_projection_row_indices(
 ## 限制谓词注册数量，逐项验证注册及非空且唯一的 predicate_id。
 ## [br]
 ## @api private
-func _validate_row_predicate_registrations(
-	registrations: Array[GFTableRowPredicateRegistration]
-) -> GFTableViewRebuildResult:
+func _validate_row_predicate_registrations(registrations: Array[GFTableRowPredicateRegistration]) -> GFTableViewRebuildResult:
 	if registrations.size() > MAX_ROW_PREDICATE_COUNT:
-		return _make_rebuild_failure(
-			&"predicate_limit_exceeded",
-			"Table row predicate registration count exceeds the bounded limit."
-		)
+		return _make_rebuild_failure(&"predicate_limit_exceeded", "Table row predicate registration count exceeds the bounded limit.")
 	var predicate_ids: Dictionary = {}
 	for registration: GFTableRowPredicateRegistration in registrations:
 		if registration == null:
-			return _make_rebuild_failure(
-				&"invalid_predicate_registration",
-				"Table row predicate registration cannot be null."
-			)
+			return _make_rebuild_failure(&"invalid_predicate_registration", "Table row predicate registration cannot be null.")
 		var validation_report: Dictionary = registration.validate_registration()
 		if not GFVariantData.get_option_bool(validation_report, "ok"):
 			var issues: Array = GFVariantData.get_option_array(validation_report, "issues")
 			var issue: Dictionary = GFVariantData.as_dictionary(issues[0]) if not issues.is_empty() else {}
 			return _make_rebuild_failure(
-				GFVariantData.get_option_string_name(issue, "kind", &"invalid_predicate_registration"),
+				GFVariantData.get_option_string_name(
+					issue,
+					"kind",
+					&"invalid_predicate_registration"
+				),
 				GFVariantData.get_option_string(
 					issue,
 					"message",
@@ -2574,10 +2688,7 @@ func _validate_row_predicate_registrations(
 ## 先按 registration order 升序排列，同序时按 predicate_id 文本升序排列。
 ## [br]
 ## @api private
-func _compare_row_predicate_registrations(
-	left: GFTableRowPredicateRegistration,
-	right: GFTableRowPredicateRegistration
-) -> bool:
+func _compare_row_predicate_registrations(left: GFTableRowPredicateRegistration, right: GFTableRowPredicateRegistration) -> bool:
 	if left.get_order() != right.get_order():
 		return left.get_order() < right.get_order()
 	return String(left.get_predicate_id()) < String(right.get_predicate_id())
@@ -2586,10 +2697,7 @@ func _compare_row_predicate_registrations(
 ## 比较两组注册的长度、predicate_id、predicate、order 和 enabled 状态。
 ## [br]
 ## @api private
-func _row_predicate_registrations_equal(
-	left: Array[GFTableRowPredicateRegistration],
-	right: Array[GFTableRowPredicateRegistration]
-) -> bool:
+func _row_predicate_registrations_equal(left: Array[GFTableRowPredicateRegistration], right: Array[GFTableRowPredicateRegistration]) -> bool:
 	if left.size() != right.size():
 		return false
 	for index: int in range(left.size()):
@@ -2609,9 +2717,7 @@ func _row_predicate_registrations_equal(
 ## 保持 null 项，并为其他注册逐项创建框架快照。
 ## [br]
 ## @api private
-func _snapshot_row_predicate_registrations(
-	registrations: Array[GFTableRowPredicateRegistration]
-) -> Array[GFTableRowPredicateRegistration]:
+func _snapshot_row_predicate_registrations(registrations: Array[GFTableRowPredicateRegistration]) -> Array[GFTableRowPredicateRegistration]:
 	var snapshots: Array[GFTableRowPredicateRegistration] = []
 	for registration: GFTableRowPredicateRegistration in registrations:
 		if registration == null:
@@ -2624,20 +2730,14 @@ func _snapshot_row_predicate_registrations(
 ## 通过 GFTableRowPredicateRegistration 的框架入口创建单项快照。
 ## [br]
 ## @api private
-func _snapshot_row_predicate_registration(
-	registration: GFTableRowPredicateRegistration
-) -> GFTableRowPredicateRegistration:
-	return GFTableRowPredicateRegistration.snapshot_for_framework(
-		registration
-	)
+func _snapshot_row_predicate_registration(registration: GFTableRowPredicateRegistration) -> GFTableRowPredicateRegistration:
+	return GFTableRowPredicateRegistration.snapshot_for_framework(registration)
 
 
 ## 按 predicate_id 将注册列表整理为字典查找表。
 ## [br]
 ## @api private
-func _make_row_predicate_lookup(
-	registrations: Array[GFTableRowPredicateRegistration]
-) -> Dictionary:
+func _make_row_predicate_lookup(registrations: Array[GFTableRowPredicateRegistration]) -> Dictionary:
 	var lookup: Dictionary = {}
 	for registration: GFTableRowPredicateRegistration in registrations:
 		lookup[registration.get_predicate_id()] = registration
@@ -2647,9 +2747,7 @@ func _make_row_predicate_lookup(
 ## 用相同 predicate_id 的注册替换当前项，然后交由 set_row_predicates() 提交。
 ## [br]
 ## @api private
-func _replace_row_predicate_registration(
-	replacement: GFTableRowPredicateRegistration
-) -> GFTableViewRebuildResult:
+func _replace_row_predicate_registration(replacement: GFTableRowPredicateRegistration) -> GFTableViewRebuildResult:
 	var next_predicates: Array[GFTableRowPredicateRegistration] = []
 	for registration: GFTableRowPredicateRegistration in _row_predicates:
 		if registration.get_predicate_id() == replacement.get_predicate_id():
@@ -2667,10 +2765,7 @@ func _get_build_failure(build_report: Dictionary) -> GFTableViewRebuildResult:
 	if failure_value is GFTableViewRebuildResult:
 		var failure: GFTableViewRebuildResult = failure_value
 		return failure
-	return _make_rebuild_failure(
-		&"invalid_rebuild_report",
-		"Table view candidate builder returned an invalid failure report."
-	)
+	return _make_rebuild_failure(&"invalid_rebuild_report", "Table view candidate builder returned an invalid failure report.")
 
 
 ## 从构建报告的 indices 数组中筛出 int 项。
@@ -2691,14 +2786,8 @@ func _get_build_indices(build_report: Dictionary) -> Array[int]:
 func _commit_projection_state(build_report: Dictionary) -> GFTableViewRebuildResult:
 	_visible_row_indices = _get_build_indices(build_report)
 	_view_revision += 1
-	var scanned_row_count: int = GFVariantData.get_option_int(
-		build_report,
-		"scanned_row_count"
-	)
-	var predicate_evaluation_count: int = GFVariantData.get_option_int(
-		build_report,
-		"predicate_evaluation_count"
-	)
+	var scanned_row_count: int = GFVariantData.get_option_int(build_report, "scanned_row_count")
+	var predicate_evaluation_count: int = GFVariantData.get_option_int(build_report, "predicate_evaluation_count")
 	var result: GFTableViewRebuildResult = _make_rebuild_success(
 		true,
 		scanned_row_count,
@@ -2718,10 +2807,7 @@ func _publish_rebuild_success(
 ) -> GFTableViewRebuildResult:
 	if _view_rebuild_in_progress or _state_publication_in_progress:
 		_reentrant_rebuild_attempted = true
-		return _make_rebuild_failure(
-			&"reentrant_rebuild",
-			"Table view rebuild cannot be entered recursively."
-		)
+		return _make_rebuild_failure(&"reentrant_rebuild", "Table view rebuild cannot be entered recursively.")
 	var result: GFTableViewRebuildResult = _make_rebuild_success(
 		committed,
 		scanned_row_count,
@@ -2734,9 +2820,7 @@ func _publish_rebuild_success(
 ## 在非重入状态下缓存并发出失败结果；投影构建或发布期间不递归发布。
 ## [br]
 ## @api private
-func _publish_rebuild_failure(
-	result: GFTableViewRebuildResult
-) -> GFTableViewRebuildResult:
+func _publish_rebuild_failure(result: GFTableViewRebuildResult) -> GFTableViewRebuildResult:
 	if _view_rebuild_in_progress:
 		_reentrant_rebuild_attempted = true
 		return result

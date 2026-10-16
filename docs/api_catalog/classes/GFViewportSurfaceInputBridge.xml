@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportSurfaceInputBridge" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" module="standard" extends="RefCounted" classDigest="f60684f331e2316023d69baa089d0106361b4477fca41f1cfcae6ed9bf21932b">
+<class name="GFViewportSurfaceInputBridge" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" module="standard" extends="RefCounted" classDigest="8a17724128a1e660900cac3eea520482053ac6689867b168926fc5c9f5c8e9b0">
 	<description>GFViewportSurfaceInputBridge: 将外部表面命中桥接为 Viewport 指针事件。
 调用方只提供稳定 source/device/pointer 身份、目标 Viewport 代际、
 0..1 标准化表面坐标和显式单调毫秒。桥不求解射线、UV、Mesh、XR 或交互模式；
@@ -172,7 +172,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="cancel_target">
-			<signature>func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int) -&gt; int:</signature>
+			<signature>func cancel_target( target: Viewport, target_generation: int, timestamp_msec: int ) -&gt; int:</signature>
 			<description>取消指定 Viewport 外部代际的全部捕获。</description>
 			<tags>
 				<tag name="api">public</tag>

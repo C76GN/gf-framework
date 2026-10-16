@@ -69,10 +69,7 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## @param initial_body: 成功的初始 body 快照；开启局部方向时读取其 transform basis。
 ## [br]
 ## @return: 保存锁定速度的 session 状态；body 失效或配置、转换后方向及速度非有限时返回 null。
-func _create_state_2d(
-	_launch_input: GFProjectileLaunchInput2D,
-	initial_body: GFProjectileBodyResult2D
-) -> GFProjectileMotionState:
+func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:
 	if (
 		initial_body == null
 		or not is_instance_valid(initial_body)
@@ -108,10 +105,7 @@ func _create_state_2d(
 ## @param initial_body: 成功的初始 body 快照；开启局部方向时读取其 transform basis。
 ## [br]
 ## @return: 保存锁定速度的 session 状态；body 失效或配置、转换后方向及速度非有限时返回 null。
-func _create_state_3d(
-	_launch_input: GFProjectileLaunchInput3D,
-	initial_body: GFProjectileBodyResult3D
-) -> GFProjectileMotionState:
+func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:
 	if (
 		initial_body == null
 		or not is_instance_valid(initial_body)
@@ -153,7 +147,11 @@ func _compute_intent_2d(
 	_current_body: GFProjectileBodyResult2D,
 	delta: float
 ) -> GFProjectileMotionIntent2D:
-	if typeof(state) != TYPE_OBJECT or not is_instance_valid(state) or not state is _LinearState:
+	if (
+		typeof(state) != TYPE_OBJECT
+		or not is_instance_valid(state)
+		or not state is _LinearState
+	):
 		return GFProjectileMotionIntent2D.rejected(&"invalid_motion_state")
 	var linear_state: _LinearState = state
 	return GFProjectileMotionIntent2D.move(linear_state._velocity_2d, delta)
@@ -178,7 +176,11 @@ func _compute_intent_3d(
 	_current_body: GFProjectileBodyResult3D,
 	delta: float
 ) -> GFProjectileMotionIntent3D:
-	if typeof(state) != TYPE_OBJECT or not is_instance_valid(state) or not state is _LinearState:
+	if (
+		typeof(state) != TYPE_OBJECT
+		or not is_instance_valid(state)
+		or not state is _LinearState
+	):
 		return GFProjectileMotionIntent3D.rejected(&"invalid_motion_state")
 	var linear_state: _LinearState = state
 	return GFProjectileMotionIntent3D.move(linear_state._velocity_3d, delta)
@@ -191,6 +193,7 @@ func _compute_intent_3d(
 ## @api private
 class _LinearState:
 	extends GFProjectileMotionState
+
 
 	# --- 私有变量 ---
 

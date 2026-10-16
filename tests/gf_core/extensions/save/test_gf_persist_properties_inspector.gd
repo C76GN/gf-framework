@@ -41,10 +41,25 @@ func test_property_picker_collects_editable_storable_target_properties() -> void
 	var target: PropertyTarget = PropertyTarget.new()
 	var names: PackedStringArray = GF_PERSIST_PROPERTIES_EDITOR_PROPERTY.collect_storable_property_names(target)
 
-	assert_true(names.has("health"), "属性选择器应包含导出的可存储属性。")
-	assert_true(names.has("title"), "属性选择器应包含多个导出的可存储属性。")
-	assert_false(names.has("runtime_only"), "未导出运行时字段不应出现在属性选择器中。")
-	assert_false(names.has("_private_state"), "私有命名的导出字段不应默认进入属性选择器。")
-	assert_false(names.has("script"), "脚本引用不应作为可持久化属性候选。")
+	assert_true(
+		names.has("health"),
+		"属性选择器应包含导出的可存储属性。"
+	)
+	assert_true(
+		names.has("title"),
+		"属性选择器应包含多个导出的可存储属性。"
+	)
+	assert_false(
+		names.has("runtime_only"),
+		"未导出运行时字段不应出现在属性选择器中。"
+	)
+	assert_false(
+		names.has("_private_state"),
+		"私有命名的导出字段不应默认进入属性选择器。"
+	)
+	assert_false(
+		names.has("script"),
+		"脚本引用不应作为可持久化属性候选。"
+	)
 
 	target.free()

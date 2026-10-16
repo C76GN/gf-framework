@@ -72,11 +72,13 @@ func _validate_imports_and_queue_preview(resource_filesystem: EditorFileSystem) 
 	if zh_translation == null:
 		return
 
-	var translation_types: PackedStringArray = PackedStringArray([
-		"Translation",
-		String(en_translation.get_class()),
-		String(zh_translation.get_class()),
-	])
+	var translation_types: PackedStringArray = PackedStringArray(
+		[
+			"Translation",
+			String(en_translation.get_class()),
+			String(zh_translation.get_class()),
+		]
+	)
 	if not _validate_generator_declines_types(translation_types):
 		return
 

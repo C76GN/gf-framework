@@ -103,7 +103,11 @@ func configure(
 	scene_root: Node,
 	options: Dictionary = {}
 ) -> Error:
-	if _applying or get_state() == State.PICKING or get_state() == State.READY:
+	if (
+		_applying
+		or get_state() == State.PICKING
+		or get_state() == State.READY
+	):
 		return ERR_BUSY
 	_source = null
 	_parent_ref = null
@@ -192,7 +196,10 @@ func apply() -> Dictionary:
 ## [br]
 ## @return 父节点仍位于原场景内，且世界变换可逆时返回 true。
 func is_destination_valid() -> bool:
-	return _source != null and _valid_destination(_get_parent_node(), _get_root_node())
+	return _source != null and _valid_destination(
+		_get_parent_node(),
+		_get_root_node()
+	)
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -234,11 +241,23 @@ func _on_pick(input_data: Dictionary) -> Dictionary:
 	var basis: Basis = _source_basis
 	var yaw_axis: Vector3 = Vector3.UP
 	if _bool_field(_options, "align_normal"):
-		basis = Basis(Quaternion(basis.y.normalized(), normal)) * basis
+		basis = Basis(
+			Quaternion(
+				basis.y.normalized(),
+				normal
+			)
+		) * basis
 		yaw_axis = normal
-	basis = Basis(yaw_axis, deg_to_rad(_number_field(_options, "yaw_degrees"))) * basis
+	basis = Basis(
+		yaw_axis,
+		deg_to_rad(_number_field(_options, "yaw_degrees"))
+	) * basis
 	var local_scale: Vector3 = _vector_field(_options, "scale")
-	basis = Basis(basis.x * local_scale.x, basis.y * local_scale.y, basis.z * local_scale.z)
+	basis = Basis(
+		basis.x * local_scale.x,
+		basis.y * local_scale.y,
+		basis.z * local_scale.z
+	)
 	var world_transform: Transform3D = GFTransform3DMath.move_local_point_to_world(
 		Transform3D(basis, Vector3.ZERO),
 		_vector_field(_options, "anchor"),
@@ -257,7 +276,11 @@ func _on_pick(input_data: Dictionary) -> Dictionary:
 		"normal": normal,
 		"reason": &"",
 	}
-	return { "preview": preview, "result": preview, "ready": true }
+	return {
+		"preview": preview,
+		"result": preview,
+		"ready": true,
+	}
 
 
 ## 检查最近命中与原目标仍可应用。
@@ -289,7 +312,12 @@ func _on_can_apply() -> bool:
 func _on_apply(tool_context: GFEditorToolContext, result: Dictionary) -> Dictionary:
 	if tool_context == null or tool_context.undo_manager == null:
 		return _apply_report(ERR_UNCONFIGURED, &"undo_manager_required")
-	for method_name: StringName in [&"create_action", &"add_do_method", &"add_undo_method", &"commit_action"]:
+	for method_name: StringName in [
+		&"create_action",
+		&"add_do_method",
+		&"add_undo_method",
+		&"commit_action",
+	]:
 		if not tool_context.undo_manager.has_method(method_name):
 			return _apply_report(ERR_INVALID_PARAMETER, &"undo_manager_incompatible")
 	if tool_context.edited_scene_root != _get_root_node() or not is_destination_valid():
@@ -299,10 +327,18 @@ func _on_apply(tool_context: GFEditorToolContext, result: Dictionary) -> Diction
 		return _apply_report(ERR_INVALID_DATA, &"invalid_transform")
 	var world_transform: Transform3D = transform_value
 	var command: GFScenePlacementCreateCommand = GFScenePlacementCreateCommand.new()
-	command.configure(_source, _get_parent_node(), _get_root_node(), world_transform)
+	command.configure(
+		_source,
+		_get_parent_node(),
+		_get_root_node(),
+		world_transform
+	)
 	var execute_error: Error = command.execute()
 	if execute_error != OK or not command.is_executed():
-		return _apply_report(execute_error if execute_error != OK else ERR_CANT_CREATE, &"creation_failed")
+		return _apply_report(
+			execute_error if execute_error != OK else ERR_CANT_CREATE,
+			&"creation_failed"
+		)
 	if not is_destination_valid() or get_state() != State.READY:
 		var _revert_error: Error = command.revert()
 		return _apply_report(ERR_UNAVAILABLE, &"operation_interrupted")
@@ -362,10 +398,19 @@ func _parse_options(options: Dictionary) -> Dictionary:
 	if _vector_field(parsed, "plane_normal").length_squared() < 0.000000000001:
 		return {}
 	var scale_value: Vector3 = _vector_field(parsed, "scale").abs()
-	if minf(scale_value.x, minf(scale_value.y, scale_value.z)) < 0.000001:
+	if minf(
+		scale_value.x,
+		minf(scale_value.y, scale_value.z)
+	) < 0.000001:
 		return {}
 	var grid: float = _number_field(parsed, "grid_step")
-	if grid < 0.0 or (grid > 0.0 and grid <= 0.000001):
+	if (
+		grid < 0.0
+		or (
+			grid > 0.0
+			and grid <= 0.000001
+		)
+	):
 		return {}
 	var distance: float = _number_field(parsed, "max_distance")
 	if distance <= 0.0 or distance > 100000.0:
@@ -381,7 +426,11 @@ func _read_source_root(scene: PackedScene) -> Dictionary:
 	var root_type: StringName = &""
 	var states: Array[SceneState] = []
 	while state != null:
-		if states.size() >= 32 or state.get_node_count() == 0 or state.get_node_property_count(0) > 4096:
+		if (
+			states.size() >= 32
+			or state.get_node_count() == 0
+			or state.get_node_property_count(0) > 4096
+		):
 			return {}
 		if root_type == &"":
 			root_type = state.get_node_type(0)
@@ -411,7 +460,11 @@ func _read_source_root(scene: PackedScene) -> Dictionary:
 ## 仅向原生变换探针写入类型正确且有限的变换属性；其他场景属性完全忽略，不加载脚本或资源。
 ## [br]
 ## @api private
-func _apply_source_transform_property(native_root: Node3D, property_name: StringName, value: Variant) -> bool:
+func _apply_source_transform_property(
+	native_root: Node3D,
+	property_name: StringName,
+	value: Variant
+) -> bool:
 	match property_name:
 		&"transform":
 			if not value is Transform3D:
@@ -464,8 +517,11 @@ func _resolve_hit(input_data: Dictionary) -> Dictionary:
 		if not _valid_vector(origin) or not _valid_vector(direction):
 			return {}
 		return GFTransform3DMath.intersect_ray_plane(
-			origin, direction, _vector_field(_options, "plane_normal"),
-			_vector_field(_options, "plane_origin"), max_distance
+			origin,
+			direction,
+			_vector_field(_options, "plane_normal"),
+			_vector_field(_options, "plane_origin"),
+			max_distance
 		)
 	var hit_value: Variant = input_data.get("hit")
 	if not hit_value is Dictionary:
@@ -477,13 +533,21 @@ func _resolve_hit(input_data: Dictionary) -> Dictionary:
 		return {}
 	var position: Vector3 = position_value
 	var normal: Vector3 = normal_value
-	if not _valid_vector(position) or not _valid_vector(normal) or normal.length_squared() < 0.000000000001:
+	if (
+		not _valid_vector(position)
+		or not _valid_vector(normal)
+		or normal.length_squared() < 0.000000000001
+	):
 		return {}
 	if origin_value is Vector3:
 		var origin: Vector3 = origin_value
 		if not _valid_vector(origin) or origin.distance_to(position) > max_distance:
 			return {}
-	return { "ok": true, "position": position, "normal": normal }
+	return {
+		"ok": true,
+		"position": position,
+		"normal": normal,
+	}
 
 
 ## 返回清除有效标记的无效 preview/result 结构。
@@ -499,7 +563,11 @@ func _failed_pick(reason: StringName) -> Dictionary:
 		"normal": Vector3.ZERO,
 		"reason": reason,
 	}
-	return { "preview": preview, "result": preview, "ready": false }
+	return {
+		"preview": preview,
+		"result": preview,
+		"ready": false,
+	}
 
 
 ## 构造含成功标记、错误码、原因和空节点的 apply 结果。
@@ -507,7 +575,12 @@ func _failed_pick(reason: StringName) -> Dictionary:
 ## @api private
 ## [br]
 func _apply_report(error: Error, reason: StringName) -> Dictionary:
-	return { "ok": error == OK, "error_code": error, "reason": reason, "node": null }
+	return {
+		"ok": error == OK,
+		"error_code": error,
+		"reason": reason,
+		"node": null,
+	}
 
 
 ## 通过父节点弱引用取得仍存活的 Node3D。
@@ -541,10 +614,16 @@ func _get_root_node() -> Node:
 ## @api private
 func _valid_destination(parent: Node3D, root: Node) -> bool:
 	return (
-		is_instance_valid(parent) and is_instance_valid(root)
-		and not parent.is_queued_for_deletion() and not root.is_queued_for_deletion()
-		and parent.is_inside_tree() and root.is_inside_tree()
-		and (parent == root or root.is_ancestor_of(parent))
+		is_instance_valid(parent)
+		and is_instance_valid(root)
+		and not parent.is_queued_for_deletion()
+		and not root.is_queued_for_deletion()
+		and parent.is_inside_tree()
+		and root.is_inside_tree()
+		and (
+			parent == root
+			or root.is_ancestor_of(parent)
+		)
 		and parent.global_transform.is_finite()
 		and absf(parent.global_transform.basis.determinant()) > 0.00000001
 	)
@@ -555,7 +634,13 @@ func _valid_destination(parent: Node3D, root: Node) -> bool:
 ## @api private
 ## [br]
 func _valid_vector(value: Vector3) -> bool:
-	return value.is_finite() and maxf(absf(value.x), maxf(absf(value.y), absf(value.z))) <= 1000000.0
+	return value.is_finite() and maxf(
+		absf(value.x),
+		maxf(
+			absf(value.y),
+			absf(value.z)
+		)
+	) <= 1000000.0
 
 
 ## 读取 Vector3 字段；类型不匹配时返回 Vector3.ZERO。

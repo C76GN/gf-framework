@@ -25,9 +25,7 @@ const _EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_wo
 ## [br]
 ## @api private
 ## [br]
-const _DIAGNOSTIC_TREE_PRESENTER = preload(
-	"res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd"
-)
+const _DIAGNOSTIC_TREE_PRESENTER = preload("res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd")
 
 
 # --- 私有变量 ---
@@ -115,11 +113,13 @@ func collect_snapshot() -> void:
 		_render_empty("诊断工具不可用。")
 		return
 
-	_last_snapshot = _diagnostics.collect_snapshot({
-		"include_scene_tree": _include_scene_tree_check != null and _include_scene_tree_check.button_pressed,
-		"include_recent_logs": _include_logs_check == null or _include_logs_check.button_pressed,
-		"monitor_preset": _get_selected_preset_id(),
-	})
+	_last_snapshot = _diagnostics.collect_snapshot(
+		{
+			"include_scene_tree": _include_scene_tree_check != null and _include_scene_tree_check.button_pressed,
+			"include_recent_logs": _include_logs_check == null or _include_logs_check.button_pressed,
+			"monitor_preset": _get_selected_preset_id(),
+		}
+	)
 	_render_snapshot()
 
 
@@ -178,7 +178,13 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = _EDITOR_WORKSPACE_UI.make_toolbar()
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("采集快照", "采集当前诊断快照。", collect_snapshot))
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"采集快照",
+			"采集当前诊断快照。",
+			collect_snapshot
+		)
+	)
 
 	_preset_option = OptionButton.new()
 	_preset_option.tooltip_text = "选择诊断监控预设。"
@@ -205,7 +211,13 @@ func _build_ui() -> void:
 	var _logs_connected: int = _include_logs_check.toggled.connect(_on_option_toggled)
 	toolbar.add_child(_include_logs_check)
 
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("复制快照", "复制当前诊断快照 JSON。", _on_copy_pressed))
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"复制快照",
+			"复制当前诊断快照 JSON。",
+			_on_copy_pressed
+		)
+	)
 
 	_summary_label = _EDITOR_WORKSPACE_UI.make_summary_label()
 	root_box.add_child(_summary_label)
@@ -261,7 +273,11 @@ func _render_snapshot() -> void:
 	_empty_label.visible = false
 	_tree.visible = true
 	_summary_label.text = _make_snapshot_summary(_last_snapshot)
-	_EDITOR_WORKSPACE_UI.set_status(_summary_label, _summary_label.text, _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
+	_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		_summary_label.text,
+		_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	)
 
 	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, _last_snapshot)
 
@@ -279,7 +295,11 @@ func _render_empty(message: String) -> void:
 	if _empty_label != null:
 		_empty_label.text = message + "\n选择监控范围后点击“采集快照”；选择条目查看摘要，需要原始数据时展开“高级详情”。"
 		_empty_label.visible = true
-	_EDITOR_WORKSPACE_UI.set_status(_summary_label, message, _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
+	_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		message,
+		_EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR
+	)
 
 
 ## 汇总性能、架构模块和监控数量，生成人类可读摘要。
@@ -287,21 +307,50 @@ func _render_empty(message: String) -> void:
 ## @api private
 ## [br]
 func _make_snapshot_summary(snapshot: Dictionary) -> String:
-	var performance: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(snapshot, "performance", {}))
-	var architecture: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(snapshot, "architecture", {}))
-	var monitors: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(snapshot, "monitors", {}))
-	var fps: float = GFVariantData.get_option_float(performance, "fps", 0.0)
+	var performance: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			snapshot,
+			"performance",
+			{}
+		)
+	)
+	var architecture: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			snapshot,
+			"architecture",
+			{}
+		)
+	)
+	var monitors: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			snapshot,
+			"monitors",
+			{}
+		)
+	)
+	var fps: float = GFVariantData.get_option_float(
+		performance,
+		"fps",
+		0.0
+	)
 	var model_count: int = _count_dictionary_section(architecture, "models")
 	var system_count: int = _count_dictionary_section(architecture, "systems")
 	var utility_count: int = _count_dictionary_section(architecture, "utilities")
-	var monitor_count: int = GFVariantData.get_option_int(monitors, "monitor_count", 0)
-	return "FPS：%.1f  Models：%d  Systems：%d  Utilities：%d  Monitors：%d" % [
-		fps,
-		model_count,
-		system_count,
-		utility_count,
-		monitor_count,
-	]
+	var monitor_count: int = GFVariantData.get_option_int(
+		monitors,
+		"monitor_count",
+		0
+	)
+	return (
+		"FPS：%.1f  Models：%d  Systems：%d  Utilities：%d  Monitors：%d"
+		% [
+			fps,
+			model_count,
+			system_count,
+			utility_count,
+			monitor_count,
+		]
+	)
 
 
 ## 读取快照的指定字典分区并返回其键数。
@@ -309,7 +358,13 @@ func _make_snapshot_summary(snapshot: Dictionary) -> String:
 ## @api private
 ## [br]
 func _count_dictionary_section(source: Dictionary, key: String) -> int:
-	var section: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(source, key, {}))
+	var section: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			source,
+			key,
+			{}
+		)
+	)
 	return section.size()
 
 
@@ -369,4 +424,8 @@ func _on_copy_pressed() -> void:
 	if _last_snapshot.is_empty():
 		return
 	DisplayServer.clipboard_set(_safe_json(_last_snapshot))
-	_EDITOR_WORKSPACE_UI.set_status(_summary_label, "已复制诊断快照。", _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
+	_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		"已复制诊断快照。",
+		_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	)

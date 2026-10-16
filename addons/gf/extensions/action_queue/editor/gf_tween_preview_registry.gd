@@ -91,21 +91,50 @@ static func get_shared() -> GFTweenPreviewRegistry:
 ## @param adapter: 受信任的隔离样机实现，不应强持 owner 或来源配置。
 ## [br]
 ## @return: 成功所有权句柄；拒绝返回 null，不产生部分注册。
-func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter) -> GFTweenPreviewRegistration:
+func register_adapter(
+	owner: Object,
+	descriptor: Dictionary,
+	adapter: GFTweenPreviewAdapter
+) -> GFTweenPreviewRegistration:
 	_prune()
-	if not is_instance_valid(owner) or adapter == null or _entries.size() >= 32 or descriptor.size() != 4:
+	if (
+		not is_instance_valid(owner)
+		or adapter == null
+		or _entries.size() >= 32
+		or descriptor.size() != 4
+	):
 		return null
 	for key: Variant in descriptor:
-		if not (key is String) or not key in ["id", "revision", "label", "properties"]:
+		if not (key is String) or not key in [
+			"id",
+			"revision",
+			"label",
+			"properties",
+		]:
 			return null
-	if not (descriptor.get("id") is String) or not (descriptor.get("label") is String) or not (descriptor.get("revision") is int) or not (descriptor.get("properties") is Array):
+	if (
+		not (descriptor.get("id") is String)
+		or not (descriptor.get("label") is String)
+		or not (descriptor.get("revision") is int)
+		or not (descriptor.get("properties") is Array)
+	):
 		return null
 	var id_text: String = descriptor["id"]
 	var label: String = descriptor["label"]
 	var revision: int = descriptor["revision"]
-	if id_text.is_empty() or id_text.length() > 64 or not id_text.is_valid_identifier() or _entries.has(StringName(id_text)):
+	if (
+		id_text.is_empty()
+		or id_text.length() > 64
+		or not id_text.is_valid_identifier()
+		or _entries.has(StringName(id_text))
+	):
 		return null
-	if label.is_empty() or label.length() > 96 or revision < 1 or revision > 2147483647:
+	if (
+		label.is_empty()
+		or label.length() > 96
+		or revision < 1
+		or revision > 2147483647
+	):
 		return null
 	var values: Array = descriptor["properties"]
 	if values.size() > 32:
@@ -120,9 +149,18 @@ func register_adapter(owner: Object, descriptor: Dictionary, adapter: GFTweenPre
 		return null
 	_next_lease += 1
 	var id: StringName = StringName(id_text)
-	_entries[id] = {"owner": weakref(owner), "adapter": adapter, "descriptor": descriptor.duplicate(true), "lease": _next_lease}
+	_entries[id] = {
+		"owner": weakref(owner),
+		"adapter": adapter,
+		"descriptor": descriptor.duplicate(true),
+		"lease": _next_lease,
+	}
 	var handle: GFTweenPreviewRegistration = GFTweenPreviewRegistration.new()
-	handle._bind(self, id, _next_lease)
+	handle._bind(
+		self,
+		id,
+		_next_lease
+	)
 	changed.emit()
 	return handle
 
@@ -171,7 +209,13 @@ func get_property_records(adapter_id: StringName, query: String = "") -> Array[D
 	for value: Variant in values:
 		var property: Dictionary = value
 		properties.append(property)
-	return _RECORDS_SCRIPT.search(_RECORDS_SCRIPT.get_numeric_records(properties, String(adapter_id)), query)
+	return _RECORDS_SCRIPT.search(
+		_RECORDS_SCRIPT.get_numeric_records(
+			properties,
+			String(adapter_id)
+		),
+		query
+	)
 
 
 ## 声明已保存资源的默认预览用途和起态；不改写或加载运行配置。
@@ -196,28 +240,50 @@ func get_property_records(adapter_id: StringName, query: String = "") -> Array[D
 ## [br]
 ## @return: 成功租约；无效声明、重复路径或超出预算返回 null，不产生部分登记。
 func register_binding(
-	owner: Object, resource_path: String, target_id: StringName,
-	initial_values: Dictionary = {}, label: String = ""
+	owner: Object,
+	resource_path: String,
+	target_id: StringName,
+	initial_values: Dictionary = {},
+	label: String = ""
 ) -> GFTweenPreviewRegistration:
 	_prune()
 	var id_text: String = String(target_id)
-	var native: bool = target_id in [&"gf.preview.2d", &"gf.preview.ui", &"gf.preview.3d"]
+	var native: bool = target_id in [
+		&"gf.preview.2d",
+		&"gf.preview.ui",
+		&"gf.preview.3d",
+	]
 	if (
-		not is_instance_valid(owner) or not _valid_resource_path(resource_path)
-		or _bindings.has(resource_path) or _bindings.size() >= 256
-		or id_text.is_empty() or id_text.length() > 64
-		or (not native and not id_text.is_valid_identifier())
-		or label.length() > 96 or not _valid_initial_values(initial_values)
+		not is_instance_valid(owner)
+		or not _valid_resource_path(resource_path)
+		or _bindings.has(resource_path)
+		or _bindings.size() >= 256
+		or id_text.is_empty()
+		or id_text.length() > 64
+		or (
+			not native
+			and not id_text.is_valid_identifier()
+		)
+		or label.length() > 96
+		or not _valid_initial_values(initial_values)
 	):
 		return null
 	_next_lease += 1
 	_bindings[resource_path] = {
-		"owner": weakref(owner), "lease": _next_lease,
-		"resource_path": resource_path, "target_id": target_id,
-		"initial_values": initial_values.duplicate(true), "label": label,
+		"owner": weakref(owner),
+		"lease": _next_lease,
+		"resource_path": resource_path,
+		"target_id": target_id,
+		"initial_values": initial_values.duplicate(true),
+		"label": label,
 	}
 	var handle: GFTweenPreviewRegistration = GFTweenPreviewRegistration.new()
-	handle._bind(self, StringName(resource_path), _next_lease, true)
+	handle._bind(
+		self,
+		StringName(resource_path),
+		_next_lease,
+		true
+	)
 	changed.emit()
 	return handle
 
@@ -239,8 +305,10 @@ func get_binding(resource_path: String) -> Dictionary:
 		return {}
 	var initial_values: Dictionary = entry["initial_values"]
 	return {
-		"resource_path": entry["resource_path"], "target_id": entry["target_id"],
-		"initial_values": initial_values.duplicate(true), "label": entry["label"],
+		"resource_path": entry["resource_path"],
+		"target_id": entry["target_id"],
+		"initial_values": initial_values.duplicate(true),
+		"label": entry["label"],
 	}
 
 
@@ -272,7 +340,11 @@ func _get_binding_entry(resource_path: String) -> Dictionary:
 ## @return: 当前租约仍有效时为 true。
 func _has_binding_lease(resource_path: String, lease: int) -> bool:
 	var entry: Dictionary = _get_binding_entry(resource_path)
-	return lease > 0 and not entry.is_empty() and entry["lease"] == lease
+	return (
+		lease > 0
+		and not entry.is_empty()
+		and entry["lease"] == lease
+	)
 
 
 ## 只撤销当前匹配的资源关联；旧句柄不能移除后续声明。
@@ -302,14 +374,17 @@ func _get_selection(config: Resource) -> Dictionary:
 	_prune()
 	if not is_instance_valid(config):
 		return {}
-	var entry: Dictionary = _selections.get(config.get_instance_id(), {})
+	var entry: Dictionary = _selections.get(
+		config.get_instance_id(),
+		{}
+	)
 	if entry.is_empty():
 		return {}
 	var source: WeakRef = entry["source"]
 	if source.get_ref() != config:
 		return {}
 	var initial_values: Dictionary = entry["initial_values"]
-	return {"id": entry["id"], "initial_values": initial_values.duplicate(true)}
+	return { "id": entry["id"], "initial_values": initial_values.duplicate(true) }
 
 
 ## 在当前编辑器会话记住人工选择；不会写入 Resource 或项目设置。
@@ -323,14 +398,23 @@ func _get_selection(config: Resource) -> Dictionary:
 ## @param initial_values: 已按目标校验的根属性覆盖。
 ## [br]
 ## @schema initial_values: Dictionary，同 register_binding。
-func _remember_selection(config: Resource, target_id: StringName, initial_values: Dictionary) -> void:
+func _remember_selection(
+	config: Resource,
+	target_id: StringName,
+	initial_values: Dictionary
+) -> void:
 	_prune()
 	if not is_instance_valid(config) or not _valid_initial_values(initial_values):
 		return
 	var key: int = config.get_instance_id()
 	if not _selections.has(key) and _selections.size() >= 256:
 		return
-	_selections[key] = {"source": weakref(config), "id": target_id, "initial_values": initial_values.duplicate(true)}
+	_selections[key] = {
+		"source": weakref(config),
+		"id": target_id,
+		"initial_values": initial_values.duplicate(true),
+	}
+
 
 ## 取得内部条目副本；只有 GF 自有预览控制器消费 adapter 引用。
 ## [br]
@@ -360,7 +444,11 @@ func _get_entry(adapter_id: StringName) -> Dictionary:
 ## @return: 仍有效时为 true。
 func _has_lease(adapter_id: StringName, lease: int) -> bool:
 	var entry: Dictionary = _get_entry(adapter_id)
-	return lease > 0 and not entry.is_empty() and entry["lease"] == lease
+	return (
+		lease > 0
+		and not entry.is_empty()
+		and entry["lease"] == lease
+	)
 
 
 ## 仅释放匹配租约；先删记录再发信号以允许重入重新注册。
@@ -419,7 +507,12 @@ func _valid_resource_path(resource_path: String) -> bool:
 	if not resource_path.begins_with("res://") or resource_path.length() > 1024:
 		return false
 	var relative: String = resource_path.trim_prefix("res://")
-	if relative.is_empty() or relative.contains("\\") or relative.contains("\n") or relative.contains("\r"):
+	if (
+		relative.is_empty()
+		or relative.contains("\\")
+		or relative.contains("\n")
+		or relative.contains("\r")
+	):
 		return false
 	for index: int in range(relative.length()):
 		if relative.unicode_at(index) == 0:
@@ -455,10 +548,23 @@ func _valid_initial_values(values: Dictionary) -> bool:
 			numbers.assign([vector.x, vector.y])
 		elif value is Vector3:
 			var vector: Vector3 = value
-			numbers.assign([vector.x, vector.y, vector.z])
+			numbers.assign(
+				[
+					vector.x,
+					vector.y,
+					vector.z,
+				]
+			)
 		elif value is Color:
 			var color: Color = value
-			numbers.assign([color.r, color.g, color.b, color.a])
+			numbers.assign(
+				[
+					color.r,
+					color.g,
+					color.b,
+					color.a,
+				]
+			)
 		else:
 			return false
 		for number: float in numbers:

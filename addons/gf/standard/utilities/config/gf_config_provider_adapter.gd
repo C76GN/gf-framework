@@ -98,7 +98,11 @@ var _active_load_failures: Dictionary = {}
 ## @schema options: Dictionary，可包含 schema: GFConfigTableSchema、id_field: StringName/String、table_method: StringName/String、record_method: StringName/String、cache: bool、duplicate_values: bool 和 metadata: Dictionary。
 ## [br]
 ## @return 注册成功返回 true。
-func register_table_source(table_name: StringName, source: Variant, options: Dictionary = {}) -> bool:
+func register_table_source(
+	table_name: StringName,
+	source: Variant,
+	options: Dictionary = {}
+) -> bool:
 	if table_name == &"":
 		push_error("[GFConfigProviderAdapter][config_provider_adapter.table_name_empty] Cannot register_table_source: table_name is empty.")
 		return false
@@ -119,15 +123,39 @@ func register_table_source(table_name: StringName, source: Variant, options: Dic
 		var _schema_registered: bool = register_schema(normalized_schema)
 	_sources[table_name] = {
 		"source": source,
-		"id_field": GFVariantData.get_option_string_name(options, "id_field", &"id"),
-		"table_method": GFVariantData.get_option_string_name(options, "table_method", &"get_table"),
-		"record_method": GFVariantData.get_option_string_name(options, "record_method", &"get_record"),
-		"cache": GFVariantData.get_option_bool(options, "cache", true),
-		"duplicate_values": GFVariantData.get_option_bool(options, "duplicate_values", true),
+		"id_field": GFVariantData.get_option_string_name(
+			options,
+			"id_field",
+			&"id"
+		),
+		"table_method": GFVariantData.get_option_string_name(
+			options,
+			"table_method",
+			&"get_table"
+		),
+		"record_method": GFVariantData.get_option_string_name(
+			options,
+			"record_method",
+			&"get_record"
+		),
+		"cache": GFVariantData.get_option_bool(
+			options,
+			"cache",
+			true
+		),
+		"duplicate_values": GFVariantData.get_option_bool(
+			options,
+			"duplicate_values",
+			true
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
 	var _removed_table: bool = _loaded_tables.erase(table_name)
-	_load_reports[table_name] = _make_report(table_name, STATUS_REGISTERED, true)
+	_load_reports[table_name] = _make_report(
+		table_name,
+		STATUS_REGISTERED,
+		true
+	)
 	return true
 
 
@@ -221,7 +249,11 @@ func preload_table(table_name: StringName) -> Dictionary:
 func clear_table_cache(table_name: StringName) -> bool:
 	var removed: bool = _loaded_tables.erase(table_name)
 	if _sources.has(table_name):
-		_load_reports[table_name] = _make_report(table_name, STATUS_REGISTERED, true)
+		_load_reports[table_name] = _make_report(
+			table_name,
+			STATUS_REGISTERED,
+			true
+		)
 	return removed
 
 
@@ -234,7 +266,11 @@ func clear_cache() -> void:
 	for table_name: Variant in _loaded_tables.keys():
 		var table_key: StringName = GFVariantData.to_string_name(table_name)
 		if _sources.has(table_key):
-			_load_reports[table_key] = _make_report(table_key, STATUS_REGISTERED, true)
+			_load_reports[table_key] = _make_report(
+				table_key,
+				STATUS_REGISTERED,
+				true
+			)
 	_loaded_tables.clear()
 
 
@@ -259,7 +295,11 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 		return null
 
 	var source_record: Dictionary = _get_source_record(table_name)
-	var record: Variant = _read_record_from_table(table_data, record_id, source_record)
+	var record: Variant = _read_record_from_table(
+		table_data,
+		record_id,
+		source_record
+	)
 	return _copy_value_if_needed(record, source_record)
 
 
@@ -278,7 +318,10 @@ func get_table(table_name: StringName) -> Variant:
 	var table_data: Variant = _load_table(table_name)
 	if table_data == null:
 		return null
-	return _copy_value_if_needed(table_data, _get_source_record(table_name))
+	return _copy_value_if_needed(
+		table_data,
+		_get_source_record(table_name)
+	)
 
 
 ## 获取指定表的最近加载报告。
@@ -327,15 +370,31 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 func _load_table(table_name: StringName) -> Variant:
 	if not _sources.has(table_name):
-		_load_reports[table_name] = _make_report(table_name, STATUS_MISSING, false, "表源未注册。")
+		_load_reports[table_name] = _make_report(
+			table_name,
+			STATUS_MISSING,
+			false,
+			"表源未注册。"
+		)
 		return null
 
 	var source_record: Dictionary = _get_source_record(table_name)
-	var cache_enabled: bool = GFVariantData.get_option_bool(source_record, "cache", true)
+	var cache_enabled: bool = GFVariantData.get_option_bool(
+		source_record,
+		"cache",
+		true
+	)
 	if cache_enabled and _loaded_tables.has(table_name):
 		var cached_table: Variant = _loaded_tables[table_name]
 		if _is_live_table_value(cached_table):
-			_load_reports[table_name] = _make_report(table_name, STATUS_LOADED, true, "", true, _estimate_record_count(cached_table))
+			_load_reports[table_name] = _make_report(
+				table_name,
+				STATUS_LOADED,
+				true,
+				"",
+				true,
+				_estimate_record_count(cached_table)
+			)
 			return cached_table
 		var _removed_invalid_cache: bool = _loaded_tables.erase(table_name)
 
@@ -345,20 +404,41 @@ func _load_table(table_name: StringName) -> Variant:
 
 	var source: Variant = GFVariantData.get_option_value(source_record, "source")
 	_loading_table_stack.append(table_name)
-	var loaded: Variant = _resolve_source_value(table_name, source_record, source)
+	var loaded: Variant = _resolve_source_value(
+		table_name,
+		source_record,
+		source
+	)
 	_loading_table_stack.pop_back()
 	if _active_load_failures.has(table_name):
 		var load_error: String = GFVariantData.get_option_string(_active_load_failures, table_name)
 		var _removed_failure: bool = _active_load_failures.erase(table_name)
-		_load_reports[table_name] = _make_report(table_name, STATUS_FAILED, false, load_error)
+		_load_reports[table_name] = _make_report(
+			table_name,
+			STATUS_FAILED,
+			false,
+			load_error
+		)
 		return null
 	if loaded == null:
-		_load_reports[table_name] = _make_report(table_name, STATUS_FAILED, false, "表源返回空值。")
+		_load_reports[table_name] = _make_report(
+			table_name,
+			STATUS_FAILED,
+			false,
+			"表源返回空值。"
+		)
 		return null
 
 	if cache_enabled:
 		_loaded_tables[table_name] = loaded
-	_load_reports[table_name] = _make_report(table_name, STATUS_LOADED, true, "", cache_enabled, _estimate_record_count(loaded))
+	_load_reports[table_name] = _make_report(
+		table_name,
+		STATUS_LOADED,
+		true,
+		"",
+		cache_enabled,
+		_estimate_record_count(loaded)
+	)
 	return loaded
 
 
@@ -366,12 +446,19 @@ func _load_table(table_name: StringName) -> Variant:
 ## [br]
 ## @api private
 ## [br]
-func _resolve_source_value(table_name: StringName, source_record: Dictionary, source: Variant) -> Variant:
+func _resolve_source_value(
+	table_name: StringName,
+	source_record: Dictionary,
+	source: Variant
+) -> Variant:
 	if source is Callable:
 		var loader: Callable = source
 		if not loader.is_valid():
 			return null
-		return loader.call(table_name, GFVariantData.get_option_dictionary(source_record, "metadata"))
+		return loader.call(
+			table_name,
+			GFVariantData.get_option_dictionary(source_record, "metadata")
+		)
 
 	if typeof(source) == TYPE_OBJECT:
 		if not is_instance_valid(source):
@@ -394,15 +481,26 @@ func _mark_load_cycle_failed(table_name: StringName) -> void:
 	if cycle_start < 0:
 		return
 	var cycle_path: PackedStringArray = PackedStringArray()
-	for index: int in range(cycle_start, _loading_table_stack.size()):
+	for index: int in range(
+		cycle_start,
+		_loading_table_stack.size()
+	):
 		var active_table: StringName = _loading_table_stack[index]
 		var _active_table_appended: bool = cycle_path.append(String(active_table))
 	var _closing_table_appended: bool = cycle_path.append(String(table_name))
 	var error: String = "检测到循环表源加载依赖：%s。" % " -> ".join(cycle_path)
-	for index: int in range(cycle_start, _loading_table_stack.size()):
+	for index: int in range(
+		cycle_start,
+		_loading_table_stack.size()
+	):
 		var active_table: StringName = _loading_table_stack[index]
 		_active_load_failures[active_table] = error
-		_load_reports[active_table] = _make_report(active_table, STATUS_FAILED, false, error)
+		_load_reports[active_table] = _make_report(
+			active_table,
+			STATUS_FAILED,
+			false,
+			error
+		)
 
 
 ## 检查表值是否仍是有效对象；非对象值视为有效。
@@ -419,15 +517,27 @@ func _is_live_table_value(table_data: Variant) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _read_record_from_table(table_data: Variant, record_id: Variant, source_record: Dictionary) -> Variant:
+func _read_record_from_table(
+	table_data: Variant,
+	record_id: Variant,
+	source_record: Dictionary
+) -> Variant:
 	if table_data is Dictionary:
 		var table_dictionary: Dictionary = table_data
 		return _read_record_from_dictionary(table_dictionary, record_id)
 
 	if table_data is Array:
 		var table_array: Array = table_data
-		var id_field: StringName = GFVariantData.get_option_string_name(source_record, "id_field", &"id")
-		return _read_record_from_array(table_array, record_id, id_field)
+		var id_field: StringName = GFVariantData.get_option_string_name(
+			source_record,
+			"id_field",
+			&"id"
+		)
+		return _read_record_from_array(
+			table_array,
+			record_id,
+			id_field
+		)
 
 	if typeof(table_data) == TYPE_OBJECT:
 		if not is_instance_valid(table_data):
@@ -435,7 +545,10 @@ func _read_record_from_table(table_data: Variant, record_id: Variant, source_rec
 		var table_object: Object = table_data
 		var record_method: StringName = GFVariantData.get_option_string_name(source_record, "record_method")
 		if record_method != &"" and table_object.has_method(String(record_method)):
-			return table_object.call(String(record_method), record_id)
+			return table_object.call(
+				String(record_method),
+				record_id
+			)
 	return null
 
 
@@ -456,7 +569,11 @@ func _read_record_from_dictionary(table_dictionary: Dictionary, record_id: Varia
 ## [br]
 ## @api private
 ## [br]
-func _read_record_from_array(table_array: Array, record_id: Variant, id_field: StringName) -> Variant:
+func _read_record_from_array(
+	table_array: Array,
+	record_id: Variant,
+	id_field: StringName
+) -> Variant:
 	for item: Variant in table_array:
 		if not item is Dictionary:
 			continue
@@ -472,7 +589,11 @@ func _read_record_from_array(table_array: Array, record_id: Variant, id_field: S
 ## @api private
 ## [br]
 func _ids_match(left: Variant, right: Variant) -> bool:
-	return GFVariantData.values_equal(left, right, { "match_string_names": true })
+	return GFVariantData.values_equal(
+		left,
+		right,
+		{ "match_string_names": true }
+	)
 
 
 ## 按源配置的 duplicate_values 选项决定复制读出的记录值。
@@ -482,9 +603,17 @@ func _ids_match(left: Variant, right: Variant) -> bool:
 func _copy_value_if_needed(value: Variant, source_record: Dictionary) -> Variant:
 	if value == null:
 		return null
-	if not GFVariantData.get_option_bool(source_record, "duplicate_values", true):
+	if not GFVariantData.get_option_bool(
+		source_record,
+		"duplicate_values",
+		true
+	):
 		return value
-	return GFVariantData.duplicate_variant(value, true, false)
+	return GFVariantData.duplicate_variant(
+		value,
+		true,
+		false
+	)
 
 
 ## 读取指定表名对应的数据源登记记录。
@@ -500,7 +629,16 @@ func _get_source_record(table_name: StringName) -> Dictionary:
 ## @api private
 ## [br]
 func _get_load_report(table_name: StringName) -> Dictionary:
-	return GFVariantData.get_option_dictionary(_load_reports, table_name, _make_report(table_name, STATUS_MISSING, false, "尚未加载。"))
+	return GFVariantData.get_option_dictionary(
+		_load_reports,
+		table_name,
+		_make_report(
+			table_name,
+			STATUS_MISSING,
+			false,
+			"尚未加载。"
+		)
+	)
 
 
 ## 构造包含表名、状态、成功标记及说明的加载报告。
@@ -542,7 +680,10 @@ func _estimate_record_count(table_data: Variant) -> int:
 			return 0
 		var table_object: Object = table_data
 		if table_object.has_method("get_record_count"):
-			return GFVariantData.to_int(table_object.call("get_record_count"), 0)
+			return GFVariantData.to_int(
+				table_object.call("get_record_count"),
+				0
+			)
 	return 0
 
 

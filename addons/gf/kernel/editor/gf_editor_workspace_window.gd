@@ -110,7 +110,11 @@ func _exit_tree() -> void:
 func setup(dock_records: Array[Dictionary], editor_context: GFEditorToolContext = null) -> void:
 	_dock_records = _copy_records(dock_records)
 	if _workspace != null and _workspace.has_method("setup"):
-		_workspace.call("setup", _dock_records, editor_context)
+		_workspace.call(
+			"setup",
+			_dock_records,
+			editor_context
+		)
 
 
 ## 更新已创建页面的编辑器上下文；传入 null 撤销页面的编辑环境。
@@ -252,7 +256,10 @@ func _restore_position() -> void:
 	var saved: Variant = _PREFERENCES_SCRIPT.get_value("window_position", position)
 	if saved is Vector2i:
 		var preferred: Vector2i = saved
-		position = preferred.clamp(usable.position, usable.end - size)
+		position = preferred.clamp(
+			usable.position,
+			usable.end - size
+		)
 
 
 ## 懒创建统一工作区 Dock 并让其填充整个 Window。

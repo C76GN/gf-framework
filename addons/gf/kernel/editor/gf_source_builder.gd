@@ -40,7 +40,10 @@ func line(text: String = "") -> void:
 	if text.is_empty():
 		var _push_back_result_34: Variant = _lines.push_back("")
 	else:
-		var _push_back_result_36: Variant = _lines.push_back("%s%s" % ["\t".repeat(_indent_level), text])
+		var _push_back_result_36: Variant = _lines.push_back(
+			"%s%s"
+			% ["\t".repeat(_indent_level), text]
+		)
 
 
 ## 添加文档注释行。
@@ -93,7 +96,10 @@ func indent() -> void:
 ## [br]
 ## @param count: 要减少的层级数，小于等于 0 时不改变缩进。
 func dedent(count: int = 1) -> void:
-	_indent_level = maxi(_indent_level - maxi(count, 0), 0)
+	_indent_level = maxi(
+		_indent_level - maxi(count, 0),
+		0
+	)
 
 
 ## 清空已构建内容并重置缩进。

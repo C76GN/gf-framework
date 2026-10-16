@@ -59,14 +59,16 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ## @api public
 ## [br]
 ## @since 10.0.0
-@export var transient_error_codes: PackedInt32Array = PackedInt32Array([
-	ERR_BUSY,
-	ERR_CANT_OPEN,
-	ERR_FILE_CANT_OPEN,
-	ERR_FILE_CANT_WRITE,
-	ERR_TIMEOUT,
-	ERR_UNAVAILABLE,
-])
+@export var transient_error_codes: PackedInt32Array = PackedInt32Array(
+	[
+		ERR_BUSY,
+		ERR_CANT_OPEN,
+		ERR_FILE_CANT_OPEN,
+		ERR_FILE_CANT_WRITE,
+		ERR_TIMEOUT,
+		ERR_UNAVAILABLE,
+	]
+)
 
 ## 单次底层 IO 的最大等待时间，单位毫秒。
 ##
@@ -91,16 +93,24 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 ## [br]
 ## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
 func validate_policy() -> Dictionary:
-	var report: Dictionary = {"issues": []}
-	_append_action_issue(report, "missing_file_action", missing_file_action)
-	_append_action_issue(report, "corrupt_file_action", corrupt_file_action)
+	var report: Dictionary = { "issues": [] }
+	_append_action_issue(
+		report,
+		"missing_file_action",
+		missing_file_action
+	)
+	_append_action_issue(
+		report,
+		"corrupt_file_action",
+		corrupt_file_action
+	)
 	if io_timeout_msec <= 0:
 		var _timeout_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
 			&"invalid_io_timeout",
 			"IO timeout must be positive milliseconds.",
-			{"path": "io_timeout_msec", "value": io_timeout_msec}
+			{ "path": "io_timeout_msec", "value": io_timeout_msec }
 		)
 	for index: int in range(retry_delays_msec.size()):
 		if retry_delays_msec[index] <= 0:
@@ -109,7 +119,7 @@ func validate_policy() -> Dictionary:
 				"error",
 				&"invalid_retry_delay",
 				"Retry delays must be positive milliseconds.",
-				{"path": "retry_delays_msec.%d" % index, "value": retry_delays_msec[index]}
+				{ "path": "retry_delays_msec.%d" % index, "value": retry_delays_msec[index] }
 			)
 	var seen_errors: Dictionary = {}
 	for index: int in range(transient_error_codes.size()):
@@ -120,20 +130,24 @@ func validate_policy() -> Dictionary:
 				"error",
 				&"invalid_transient_error",
 				"Transient error codes must be unique non-OK Error values.",
-				{"path": "transient_error_codes.%d" % index, "value": error_code}
+				{ "path": "transient_error_codes.%d" % index, "value": error_code }
 			)
 		seen_errors[error_code] = true
-	return GFValidationReportDictionary.finalize_report(report, "Save recovery policy", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_recovery_action": "Use fail or use_current_state.",
-			"invalid_retry_delay": "Use a finite sequence of positive millisecond delays.",
-			"invalid_transient_error": "Remove OK, invalid values, and duplicate error codes.",
-			"invalid_io_timeout": "Use a finite positive IO timeout.",
-		},
-		"fallback_action": "Review the first recovery policy issue.",
-		"no_action": "Save recovery policy is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save recovery policy",
+		{
+			"include_issue_count": true,
+			"next_actions": {
+				"invalid_recovery_action": "Use fail or use_current_state.",
+				"invalid_retry_delay": "Use a finite sequence of positive millisecond delays.",
+				"invalid_transient_error": "Remove OK, invalid values, and duplicate error codes.",
+				"invalid_io_timeout": "Use a finite positive IO timeout.",
+			},
+			"fallback_action": "Review the first recovery policy issue.",
+			"no_action": "Save recovery policy is valid.",
+		}
+	)
 
 
 ## 检查指定错误在当前失败次数后是否可以重试。
@@ -177,7 +191,11 @@ func get_retry_delay_msec(failed_attempt_count: int) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _append_action_issue(report: Dictionary, path: String, action: StringName) -> void:
+func _append_action_issue(
+	report: Dictionary,
+	path: String,
+	action: StringName
+) -> void:
 	if action in [ACTION_FAIL, ACTION_USE_CURRENT_STATE]:
 		return
 	var _action_issue: Variant = GFValidationReportDictionary.append_issue(
@@ -185,5 +203,5 @@ func _append_action_issue(report: Dictionary, path: String, action: StringName) 
 		"error",
 		&"invalid_recovery_action",
 		"Recovery action is not supported.",
-		{"path": path, "value": action}
+		{ "path": path, "value": action }
 	)

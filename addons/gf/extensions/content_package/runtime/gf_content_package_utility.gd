@@ -11,6 +11,7 @@
 class_name GFContentPackageUtility
 extends GFUtility
 
+
 # --- 信号 ---
 
 ## 当内容包目录重建后发出。
@@ -174,13 +175,11 @@ func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -
 ## @param root_paths: 新 root 集合；空集合表示释放 owner。
 ## [br]
 ## @return 类型化验证报告；任一 root 无效时不修改现有状态。
-func replace_owner_source_roots(
-	owner_id: StringName,
-	root_paths: PackedStringArray
-) -> GFValidationReport:
-	var report: GFValidationReport = GFValidationReport.new("Content package owner source roots", {
-		"owner_id": String(owner_id),
-	})
+func replace_owner_source_roots(owner_id: StringName, root_paths: PackedStringArray) -> GFValidationReport:
+	var report: GFValidationReport = GFValidationReport.new(
+		"Content package owner source roots",
+		{ "owner_id": String(owner_id), }
+	)
 	var normalized_roots: PackedStringArray = PackedStringArray()
 	if owner_id == &"":
 		var _owner_issue: RefCounted = report.add_error(
@@ -310,7 +309,10 @@ func discover_manifest_paths(root_path: String = "") -> PackedStringArray:
 		for source_root: String in get_source_roots():
 			_append_manifest_paths_for_root(source_root, result)
 	else:
-		_append_manifest_paths_for_root(_normalize_root_path(root_path), result)
+		_append_manifest_paths_for_root(
+			_normalize_root_path(root_path),
+			result
+		)
 	result.sort()
 	return result
 
@@ -350,7 +352,10 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 			var _append_failed_result: bool = failed_manifest_paths.append(manifest_path)
 	var candidate_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 	var _candidate_updated: GFContentPackageCatalog = candidate_catalog.set_manifests(manifests)
-	var report: Dictionary = _add_manifest_load_failures(candidate_catalog.get_graph_report(options), failed_manifest_paths)
+	var report: Dictionary = _add_manifest_load_failures(
+		candidate_catalog.get_graph_report(options),
+		failed_manifest_paths
+	)
 	if _report_ok(report):
 		_catalog = candidate_catalog
 		catalog_rebuilt.emit(_catalog.duplicate_catalog())
@@ -374,10 +379,7 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 ## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
-func set_manifests(
-	manifests: Array[GFContentPackageManifest],
-	options: Dictionary = {}
-) -> Dictionary:
+func set_manifests(manifests: Array[GFContentPackageManifest], options: Dictionary = {}) -> Dictionary:
 	var candidate_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 	var _candidate_updated: GFContentPackageCatalog = candidate_catalog.set_manifests(manifests)
 	var report: Dictionary = candidate_catalog.get_graph_report(options)
@@ -415,10 +417,11 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 			&"missing_resource_resolver",
 			"resource resolver is required"
 		)
-		return GFValidationReportDictionary.finalize_report(report, "Content package resource registration", {
-			"fallback_action": "Pass a valid GFResourceResolverUtility instance.",
-			"no_action": "Content package resources are registered.",
-		})
+		return GFValidationReportDictionary.finalize_report(
+			report,
+			"Content package resource registration",
+			{ "fallback_action": "Pass a valid GFResourceResolverUtility instance.", "no_action": "Content package resources are registered.", }
+		)
 	return _catalog.register_resources(resolver, options)
 
 
@@ -503,17 +506,22 @@ func _add_manifest_load_failures(report: Dictionary, failed_manifest_paths: Pack
 				"expected_value": "valid JSON object",
 			}
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Content package catalog", {
-		"fallback_action": "Review the first content package catalog issue.",
-		"no_action": "Content package catalog is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Content package catalog",
+		{ "fallback_action": "Review the first content package catalog issue.", "no_action": "Content package catalog is valid.", }
+	)
 
 
 ## 读取报告的 ok 标志，缺失时按 false 处理。
 ## [br]
 ## @api private
 func _report_ok(report: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(report, "ok", false)
+	return GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	)
 
 
 ## 根集合改变后替换为空目录，并发出新目录的隔离快照信号。

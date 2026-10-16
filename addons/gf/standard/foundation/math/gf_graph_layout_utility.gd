@@ -36,15 +36,54 @@ static func make_layered_layout(
 	connections: Array[Dictionary],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var from_key: String = GFVariantData.get_option_string(options, "from_key", "from_node_id")
-	var to_key: String = GFVariantData.get_option_string(options, "to_key", "to_node_id")
-	var origin: Vector2 = _get_option_vector2(options, "origin", Vector2.ZERO)
-	var x_spacing: float = GFVariantData.get_option_float(options, "x_spacing", 280.0)
-	var y_spacing: float = GFVariantData.get_option_float(options, "y_spacing", 160.0)
-	var adjacency: Dictionary = _build_adjacency(node_ids, connections, from_key, to_key)
-	var indegree: Dictionary = _build_indegree(node_ids, connections, from_key, to_key)
-	var layers: Array[PackedStringArray] = _assign_layers(node_ids, adjacency, indegree)
-	return _place_layers(layers, origin, x_spacing, y_spacing)
+	var from_key: String = GFVariantData.get_option_string(
+		options,
+		"from_key",
+		"from_node_id"
+	)
+	var to_key: String = GFVariantData.get_option_string(
+		options,
+		"to_key",
+		"to_node_id"
+	)
+	var origin: Vector2 = _get_option_vector2(
+		options,
+		"origin",
+		Vector2.ZERO
+	)
+	var x_spacing: float = GFVariantData.get_option_float(
+		options,
+		"x_spacing",
+		280.0
+	)
+	var y_spacing: float = GFVariantData.get_option_float(
+		options,
+		"y_spacing",
+		160.0
+	)
+	var adjacency: Dictionary = _build_adjacency(
+		node_ids,
+		connections,
+		from_key,
+		to_key
+	)
+	var indegree: Dictionary = _build_indegree(
+		node_ids,
+		connections,
+		from_key,
+		to_key
+	)
+	var layers: Array[PackedStringArray] = _assign_layers(
+		node_ids,
+		adjacency,
+		indegree
+	)
+	return _place_layers(
+		layers,
+		origin,
+		x_spacing,
+		y_spacing
+	)
 
 
 ## 生成简单网格布局。
@@ -61,15 +100,37 @@ static func make_layered_layout(
 ## [br]
 ## @schema return: Dictionary mapping node id strings to Vector2 positions.
 static func make_grid_layout(node_ids: PackedStringArray, options: Dictionary = {}) -> Dictionary:
-	var columns: int = maxi(1, GFVariantData.get_option_int(options, "columns", 4))
-	var origin: Vector2 = _get_option_vector2(options, "origin", Vector2.ZERO)
-	var x_spacing: float = GFVariantData.get_option_float(options, "x_spacing", 260.0)
-	var y_spacing: float = GFVariantData.get_option_float(options, "y_spacing", 150.0)
+	var columns: int = maxi(
+		1,
+		GFVariantData.get_option_int(
+			options,
+			"columns",
+			4
+		)
+	)
+	var origin: Vector2 = _get_option_vector2(
+		options,
+		"origin",
+		Vector2.ZERO
+	)
+	var x_spacing: float = GFVariantData.get_option_float(
+		options,
+		"x_spacing",
+		260.0
+	)
+	var y_spacing: float = GFVariantData.get_option_float(
+		options,
+		"y_spacing",
+		150.0
+	)
 	var result: Dictionary = {}
 	for index: int in range(node_ids.size()):
 		var column: int = index % columns
 		var row: int = floori(float(index) / float(columns))
-		result[node_ids[index]] = origin + Vector2(column * x_spacing, row * y_spacing)
+		result[node_ids[index]] = origin + Vector2(
+			column * x_spacing,
+			row * y_spacing
+		)
 	return result
 
 
@@ -89,8 +150,16 @@ static func _build_adjacency(
 		result[node_id] = PackedStringArray()
 
 	for connection: Dictionary in connections:
-		var from_id: String = GFVariantData.get_option_string(connection, from_key, "")
-		var to_id: String = GFVariantData.get_option_string(connection, to_key, "")
+		var from_id: String = GFVariantData.get_option_string(
+			connection,
+			from_key,
+			""
+		)
+		var to_id: String = GFVariantData.get_option_string(
+			connection,
+			to_key,
+			""
+		)
 		if from_id.is_empty() or to_id.is_empty():
 			continue
 		if not result.has(from_id) or not result.has(to_id):
@@ -116,13 +185,25 @@ static func _build_indegree(
 		result[node_id] = 0
 
 	for connection: Dictionary in connections:
-		var from_id: String = GFVariantData.get_option_string(connection, from_key, "")
-		var to_id: String = GFVariantData.get_option_string(connection, to_key, "")
+		var from_id: String = GFVariantData.get_option_string(
+			connection,
+			from_key,
+			""
+		)
+		var to_id: String = GFVariantData.get_option_string(
+			connection,
+			to_key,
+			""
+		)
 		if from_id.is_empty() or to_id.is_empty():
 			continue
 		if not result.has(from_id) or not result.has(to_id):
 			continue
-		result[to_id] = GFVariantData.get_option_int(result, to_id, 0) + 1
+		result[to_id] = GFVariantData.get_option_int(
+			result,
+			to_id,
+			0
+		) + 1
 	return result
 
 
@@ -130,12 +211,20 @@ static func _build_indegree(
 ## 这是布局回退，不是环检测或完整拓扑排序；不修改传入的入度表。
 ## [br]
 ## @api private
-static func _assign_layers(node_ids: PackedStringArray, adjacency: Dictionary, indegree: Dictionary) -> Array[PackedStringArray]:
+static func _assign_layers(
+	node_ids: PackedStringArray,
+	adjacency: Dictionary,
+	indegree: Dictionary
+) -> Array[PackedStringArray]:
 	var remaining_indegree: Dictionary = indegree.duplicate(true)
 	var queued: Dictionary = {}
 	var current: PackedStringArray = PackedStringArray()
 	for node_id: String in node_ids:
-		if GFVariantData.get_option_int(remaining_indegree, node_id, 0) == 0:
+		if GFVariantData.get_option_int(
+			remaining_indegree,
+			node_id,
+			0
+		) == 0:
 			var _current_appended: bool = current.append(node_id)
 			queued[node_id] = true
 
@@ -150,8 +239,19 @@ static func _assign_layers(node_ids: PackedStringArray, adjacency: Dictionary, i
 		var next_layer: PackedStringArray = PackedStringArray()
 		for node_id: String in current:
 			for target_id: String in GFVariantData.get_option_packed_string_array(adjacency, node_id):
-				remaining_indegree[target_id] = maxi(0, GFVariantData.get_option_int(remaining_indegree, target_id, 0) - 1)
-				if GFVariantData.get_option_int(remaining_indegree, target_id, 0) == 0 and not queued.has(target_id):
+				remaining_indegree[target_id] = maxi(
+					0,
+					GFVariantData.get_option_int(
+						remaining_indegree,
+						target_id,
+						0
+					) - 1
+				)
+				if GFVariantData.get_option_int(
+					remaining_indegree,
+					target_id,
+					0
+				) == 0 and not queued.has(target_id):
 					var _next_appended: bool = next_layer.append(target_id)
 					queued[target_id] = true
 		current = next_layer
@@ -179,15 +279,26 @@ static func _place_layers(
 	for layer_index: int in range(layers.size()):
 		var layer: PackedStringArray = layers[layer_index]
 		for row_index: int in range(layer.size()):
-			result[layer[row_index]] = origin + Vector2(layer_index * x_spacing, row_index * y_spacing)
+			result[layer[row_index]] = origin + Vector2(
+				layer_index * x_spacing,
+				row_index * y_spacing
+			)
 	return result
 
 
 ## 读取指定选项，仅在值为 Vector2 时采用，否则返回传入默认值。
 ## [br]
 ## @api private
-static func _get_option_vector2(options: Dictionary, key: String, default_value: Vector2) -> Vector2:
-	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+static func _get_option_vector2(
+	options: Dictionary,
+	key: String,
+	default_value: Vector2
+) -> Vector2:
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		default_value
+	)
 	if value is Vector2:
 		return value
 	return default_value

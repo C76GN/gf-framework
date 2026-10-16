@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveMigrationStep" path="addons/gf/extensions/save/document/gf_save_migration_step.gd" module="extensions/save" extends="Resource" classDigest="d5108f98763292024955fdbbccab5350fb5037dd653d3d5f276760531da775ab">
+<class name="GFSaveMigrationStep" path="addons/gf/extensions/save/document/gf_save_migration_step.gd" module="extensions/save" extends="Resource" classDigest="018727b395136c412160f74af347d88e7be0b63c7ff944198597385146925e85">
 	<description>GFSaveMigrationStep: 单向相邻版本迁移步骤协议。
 空 section_id 表示文档级迁移；非空 section_id 表示单个分区迁移。
 每个步骤只允许 `N -&gt; N + 1`，以消除路径歧义并保持迁移链可审计。</description>
@@ -84,7 +84,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_migrate_document">
-			<signature>func _migrate_document( document: GFSaveDocument, _context: Dictionary = {} ) -&gt; GFSaveDocument:</signature>
+			<signature>func _migrate_document(document: GFSaveDocument, _context: Dictionary = {}) -&gt; GFSaveDocument:</signature>
 			<description>执行文档级迁移。
 输入是隔离副本；返回 null 表示失败。Registry 会强制保持 schema_id，
 并在步骤成功后写入声明的目标版本。</description>
@@ -98,7 +98,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_migrate_section">
-			<signature>func _migrate_section( section: GFSaveSection, _context: Dictionary = {} ) -&gt; GFSaveSection:</signature>
+			<signature>func _migrate_section(section: GFSaveSection, _context: Dictionary = {}) -&gt; GFSaveSection:</signature>
 			<description>执行分区级迁移。
 输入是隔离副本；返回 null 表示失败。Registry 会强制保持 section_id，
 并在步骤成功后写入声明的目标版本。</description>

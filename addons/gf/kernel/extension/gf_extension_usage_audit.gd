@@ -169,10 +169,7 @@ const TEXT_FILE_EXTENSIONS: Array[String] = [
 ## @return 引用审计报告。
 ## [br]
 ## @schema return: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan. references only contains strong or verified blocking references.
-static func audit_disabled_extensions(
-	manifests: Array[GFExtensionManifest],
-	options: Dictionary = {}
-) -> Dictionary:
+static func audit_disabled_extensions(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> Dictionary:
 	var audited_manifests: Array[GFExtensionManifest] = []
 	var root_paths: Array[String] = []
 	var scan_targets: Array[Dictionary] = []
@@ -184,10 +181,7 @@ static func audit_disabled_extensions(
 			continue
 		audited_manifests.append(manifest)
 		root_paths.append(normalized_root)
-		scan_targets.append({
-			"id": manifest.id,
-			"root_path": normalized_root,
-		})
+		scan_targets.append({ "id": manifest.id, "root_path": normalized_root, })
 
 	var extension_reports: Dictionary = {}
 	var weak_extension_reports: Dictionary = {}
@@ -269,7 +263,11 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 		references,
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_report, "references")
 	)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_weak_references", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_weak_references",
+		false
+	):
 		_append_typed_references(
 			references,
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_report, "weak_references")
@@ -292,10 +290,7 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 ## @return: 引用与扫描完整性报告。
 ## [br]
 ## @schema return: Dictionary containing ok, partial_scan, budget_exceeded, truncated, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan.
-static func find_references_to_root_report(
-	root_path: String,
-	options: Dictionary = {}
-) -> Dictionary:
+static func find_references_to_root_report(root_path: String, options: Dictionary = {}) -> Dictionary:
 	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
 	if normalized_root.is_empty():
 		return _make_invalid_root_scan_report(root_path)
@@ -303,10 +298,9 @@ static func find_references_to_root_report(
 	if not _has_option_key(scan_options, "include_weak_references"):
 		scan_options["include_weak_references"] = false
 	return _scan_targets_with_class_names(
-		[{
-			"id": normalized_root,
-			"root_path": normalized_root,
-		}],
+		[
+			{ "id": normalized_root, "root_path": normalized_root, },
+		],
 		scan_options,
 		PackedStringArray([normalized_root])
 	)
@@ -343,10 +337,7 @@ static func _make_audit_report(
 		"scan_warnings": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_report, "scan_warnings"),
 		"issue_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_report, "issue_count"),
 		"issues": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_report, "issues"),
-		"class_name_scan": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			scan_report,
-			"class_name_scan"
-		),
+		"class_name_scan": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "class_name_scan"),
 	}
 
 
@@ -358,7 +349,11 @@ static func _make_scanner_options(options: Dictionary, additional_ignored_roots:
 	scan_options["warning_prefix"] = "[GFExtensionUsageAudit]"
 	if not _has_option_key(scan_options, "max_references_per_target"):
 		scan_options["max_references_per_target"] = maxi(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_references_per_extension", 50),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				options,
+				"max_references_per_extension",
+				50
+			),
 			1
 		)
 	if not _has_option_key(scan_options, "max_weak_references_per_target"):
@@ -366,7 +361,11 @@ static func _make_scanner_options(options: Dictionary, additional_ignored_roots:
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 				options,
 				"max_weak_references_per_extension",
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_options, "max_references_per_target", 50)
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					scan_options,
+					"max_references_per_target",
+					50
+				)
 			),
 			0
 		)
@@ -388,7 +387,11 @@ static func _make_scanner_options(options: Dictionary, additional_ignored_roots:
 ## [br]
 ## @api private
 static func _read_option_packed_string_array(options: Dictionary, key: String) -> PackedStringArray:
-	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, key, PackedStringArray())
+	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		options,
+		key,
+		PackedStringArray()
+	)
 	if value is PackedStringArray:
 		var packed_value: PackedStringArray = value
 		return packed_value.duplicate()
@@ -421,10 +424,7 @@ static func _scan_targets_with_class_names(
 	additional_ignored_roots: PackedStringArray
 ) -> Dictionary:
 	var class_name_report: Dictionary = _collect_class_name_scan_report(targets, options)
-	var class_names_by_target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		class_name_report,
-		"class_names_by_target"
-	)
+	var class_names_by_target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(class_name_report, "class_names_by_target")
 	var enriched_targets: Array[Dictionary] = []
 	for target: Dictionary in targets:
 		var enriched_target: Dictionary = target.duplicate(true)
@@ -433,43 +433,31 @@ static func _scan_targets_with_class_names(
 			"id",
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
 		)
-		enriched_target["class_names"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
-			class_names_by_target,
-			target_id
-		)
+		enriched_target["class_names"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(class_names_by_target, target_id)
 		enriched_targets.append(enriched_target)
 
 	var scanner_options: Dictionary = _make_scanner_options(options, additional_ignored_roots)
-	var can_scan_project: bool = _apply_remaining_scan_budgets(
-		scanner_options,
-		class_name_report
-	)
+	var can_scan_project: bool = _apply_remaining_scan_budgets(scanner_options, class_name_report)
 	var project_report: Dictionary = _make_empty_project_scan_report(enriched_targets)
 	if can_scan_project:
-		project_report = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.scan_references(
-			enriched_targets,
-			scanner_options
-		)
+		project_report = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.scan_references(enriched_targets, scanner_options)
 	return _merge_scan_phase_reports(project_report, class_name_report)
 
 
 ## 从共享文件及字节额度中扣除 class_name 阶段消耗，原地更新项目扫描选项；额度已耗尽时记录阶段问题并阻止项目扫描。
 ## [br]
 ## @api private
-static func _apply_remaining_scan_budgets(
-	scanner_options: Dictionary,
-	class_name_report: Dictionary
-) -> bool:
+static func _apply_remaining_scan_budgets(scanner_options: Dictionary, class_name_report: Dictionary) -> bool:
 	var can_scan_project: bool = true
-	var max_scanned_files: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		scanner_options,
-		"max_scanned_files",
-		DEFAULT_MAX_SCANNED_FILES
-	), 0)
-	var candidate_file_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		class_name_report,
-		"candidate_file_count"
+	var max_scanned_files: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			scanner_options,
+			"max_scanned_files",
+			DEFAULT_MAX_SCANNED_FILES
+		),
+		0
 	)
+	var candidate_file_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "candidate_file_count")
 	if max_scanned_files > 0:
 		var remaining_files: int = max_scanned_files - candidate_file_count
 		if remaining_files <= 0:
@@ -477,22 +465,21 @@ static func _apply_remaining_scan_budgets(
 				_mark_class_phase_exhausted(
 					class_name_report,
 					"max_scanned_files",
-					"[extension_usage_audit.shared_file_budget_exhausted] Extension class_name prescanning exhausted max_scanned_files=%d shared with project scanning."
-					% max_scanned_files
+					"[extension_usage_audit.shared_file_budget_exhausted] Extension class_name prescanning exhausted max_scanned_files=%d shared with project scanning." % max_scanned_files
 				)
 			can_scan_project = false
 		else:
 			scanner_options["max_scanned_files"] = remaining_files
 
-	var max_total_bytes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		scanner_options,
-		"max_total_bytes",
-		DEFAULT_MAX_TOTAL_BYTES
-	), 0)
-	var scanned_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		class_name_report,
-		"scanned_bytes"
+	var max_total_bytes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			scanner_options,
+			"max_total_bytes",
+			DEFAULT_MAX_TOTAL_BYTES
+		),
+		0
 	)
+	var scanned_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_bytes")
 	if max_total_bytes > 0:
 		var remaining_bytes: int = max_total_bytes - scanned_bytes
 		if remaining_bytes <= 0:
@@ -500,8 +487,7 @@ static func _apply_remaining_scan_budgets(
 				_mark_class_phase_exhausted(
 					class_name_report,
 					"max_total_bytes",
-					"[extension_usage_audit.shared_byte_budget_exhausted] Extension class_name prescanning exhausted the max_total_bytes=%d byte budget shared with project scanning."
-					% max_total_bytes
+					"[extension_usage_audit.shared_byte_budget_exhausted] Extension class_name prescanning exhausted the max_total_bytes=%d byte budget shared with project scanning." % max_total_bytes
 				)
 			can_scan_project = false
 		else:
@@ -512,10 +498,7 @@ static func _apply_remaining_scan_budgets(
 ## 按目标根共享预扫描结果，用正则读取每个脚本首个 class_name 并去重排序；这是受预算约束的文本发现，不执行脚本或完整解析语法。
 ## [br]
 ## @api private
-static func _collect_class_name_scan_report(
-	targets: Array[Dictionary],
-	options: Dictionary
-) -> Dictionary:
+static func _collect_class_name_scan_report(targets: Array[Dictionary], options: Dictionary) -> Dictionary:
 	var scan_state: Dictionary = _make_class_name_scan_state()
 	var regex: RegEx = RegEx.new()
 	var compile_error: Error = regex.compile("(?m)^\\s*class_name\\s+([A-Za-z_]\\w*)")
@@ -531,16 +514,22 @@ static func _collect_class_name_scan_report(
 		_emit_class_scan_warning("[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.", scan_state)
 		return scan_state
 
-	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		options,
-		"max_scan_depth",
-		DEFAULT_MAX_SCAN_DEPTH
-	), 0)
-	var max_scanned_files: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		options,
-		"max_scanned_files",
-		DEFAULT_MAX_SCANNED_FILES
-	), 0)
+	var max_scan_depth: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_scanned_files: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scanned_files",
+			DEFAULT_MAX_SCANNED_FILES
+		),
+		0
+	)
 	var class_names_by_root: Dictionary = {}
 	var class_names_by_target: Dictionary = {}
 	for target: Dictionary in targets:
@@ -551,14 +540,9 @@ static func _collect_class_name_scan_report(
 			"id",
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
 		)
-		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
-		)
+		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path"))
 		if class_names_by_root.has(root_path):
-			class_names_by_target[target_id] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
-				class_names_by_root,
-				root_path
-			)
+			class_names_by_target[target_id] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(class_names_by_root, root_path)
 			continue
 
 		var files: Array[String] = []
@@ -574,12 +558,14 @@ static func _collect_class_name_scan_report(
 		for path: String in files:
 			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "stop_scan"):
 				break
-			var source_report: Dictionary = _read_class_name_source(path, options, scan_state)
+			var source_report: Dictionary = _read_class_name_source(
+				path,
+				options,
+				scan_state
+			)
 			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source_report, "ok"):
 				continue
-			var match_result: RegExMatch = regex.search(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source")
-			)
+			var match_result: RegExMatch = regex.search(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source"))
 			if match_result == null:
 				continue
 			var class_name_value: String = match_result.get_string(1)
@@ -613,7 +599,14 @@ static func _collect_class_source_files(
 	var dir: DirAccess = DirAccess.open(root_path)
 	if dir == null:
 		_mark_class_scan_partial(scan_state)
-		_append_class_skipped_file(root_path, "directory_open_failed", 0, "", 0, scan_state)
+		_append_class_skipped_file(
+			root_path,
+			"directory_open_failed",
+			0,
+			"",
+			0,
+			scan_state
+		)
 		_append_class_scan_issue(
 			"class_name_directory_open_failed",
 			root_path,
@@ -630,11 +623,13 @@ static func _collect_class_source_files(
 	for directory_name: String in directory_names:
 		if directory_name.begins_with("."):
 			continue
-		var child_path: String = _GF_PATH_TOOLS.normalize_resource_path(
-			root_path.path_join(directory_name)
-		)
+		var child_path: String = _GF_PATH_TOOLS.normalize_resource_path(root_path.path_join(directory_name))
 		if max_scan_depth > 0 and depth >= max_scan_depth:
-			_mark_class_depth_limit(child_path, max_scan_depth, scan_state)
+			_mark_class_depth_limit(
+				child_path,
+				max_scan_depth,
+				scan_state
+			)
 			continue
 		_collect_class_source_files(
 			child_path,
@@ -649,10 +644,7 @@ static func _collect_class_source_files(
 	for file_name: String in file_names:
 		if file_name.begins_with(".") or file_name.get_extension().to_lower() != "gd":
 			continue
-		var candidate_file_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			scan_state,
-			"candidate_file_count"
-		)
+		var candidate_file_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "candidate_file_count")
 		if max_scanned_files > 0 and candidate_file_count >= max_scanned_files:
 			_mark_class_file_count_limit(max_scanned_files, scan_state)
 			return
@@ -669,14 +661,18 @@ static func _read_class_name_source(
 	options: Dictionary,
 	scan_state: Dictionary
 ) -> Dictionary:
-	var result: Dictionary = {
-		"ok": false,
-		"source": "",
-	}
+	var result: Dictionary = { "ok": false, "source": "", }
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		_mark_class_scan_partial(scan_state)
-		_append_class_skipped_file(path, "read_failed", 0, "", 0, scan_state)
+		_append_class_skipped_file(
+			path,
+			"read_failed",
+			0,
+			"",
+			0,
+			scan_state
+		)
 		_append_class_scan_issue(
 			"class_name_file_open_failed",
 			path,
@@ -686,11 +682,14 @@ static func _read_class_name_source(
 		)
 		return result
 	var size_bytes: int = file.get_length()
-	var max_file_bytes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		options,
-		"max_file_bytes",
-		DEFAULT_MAX_FILE_BYTES
-	), 0)
+	var max_file_bytes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_file_bytes",
+			DEFAULT_MAX_FILE_BYTES
+		),
+		0
+	)
 	if max_file_bytes > 0 and size_bytes > max_file_bytes:
 		file.close()
 		_mark_class_byte_budget(
@@ -702,15 +701,15 @@ static func _read_class_name_source(
 			scan_state
 		)
 		return result
-	var scanned_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		scan_state,
-		"scanned_bytes"
+	var scanned_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_bytes")
+	var max_total_bytes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_total_bytes",
+			DEFAULT_MAX_TOTAL_BYTES
+		),
+		0
 	)
-	var max_total_bytes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		options,
-		"max_total_bytes",
-		DEFAULT_MAX_TOTAL_BYTES
-	), 0)
 	if max_total_bytes > 0 and scanned_bytes + size_bytes > max_total_bytes:
 		file.close()
 		_mark_class_byte_budget(
@@ -727,7 +726,14 @@ static func _read_class_name_source(
 	file.close()
 	if read_error != OK:
 		_mark_class_scan_partial(scan_state)
-		_append_class_skipped_file(path, "read_failed", size_bytes, "", 0, scan_state)
+		_append_class_skipped_file(
+			path,
+			"read_failed",
+			size_bytes,
+			"",
+			0,
+			scan_state
+		)
 		_append_class_scan_issue(
 			"class_name_file_read_failed",
 			path,
@@ -736,10 +742,7 @@ static func _read_class_name_source(
 			scan_state
 		)
 		return result
-	scan_state["scanned_file_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		scan_state,
-		"scanned_file_count"
-	) + 1
+	scan_state["scanned_file_count"] = ((_GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_file_count")) + 1)
 	scan_state["scanned_bytes"] = scanned_bytes + size_bytes
 	result["ok"] = true
 	result["source"] = source
@@ -778,14 +781,8 @@ static func _mark_class_scan_partial(scan_state: Dictionary) -> void:
 ## 首次触及正数文件上限时设置截断/停止/partial 标记并记录问题和警告。
 ## [br]
 ## @api private
-static func _mark_class_file_count_limit(
-	max_scanned_files: int,
-	scan_state: Dictionary
-) -> void:
-	if (
-		max_scanned_files <= 0
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted")
-	):
+static func _mark_class_file_count_limit(max_scanned_files: int, scan_state: Dictionary) -> void:
+	if (max_scanned_files <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted")):
 		return
 	scan_state["count_warning_emitted"] = true
 	scan_state["truncated"] = true
@@ -799,8 +796,7 @@ static func _mark_class_file_count_limit(
 		scan_state
 	)
 	_emit_class_scan_warning(
-		"[extension_usage_audit.file_limit_reached] Extension class_name prescanning reached max_scanned_files=%d; subsequent scanning is treated as partial_scan."
-		% max_scanned_files,
+		"[extension_usage_audit.file_limit_reached] Extension class_name prescanning reached max_scanned_files=%d; subsequent scanning is treated as partial_scan." % max_scanned_files,
 		scan_state
 	)
 
@@ -813,10 +809,7 @@ static func _mark_class_depth_limit(
 	max_scan_depth: int,
 	scan_state: Dictionary
 ) -> void:
-	if (
-		max_scan_depth <= 0
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted")
-	):
+	if (max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted")):
 		return
 	scan_state["depth_warning_emitted"] = true
 	scan_state["truncated"] = true
@@ -851,7 +844,14 @@ static func _mark_class_byte_budget(
 	if stop_scan:
 		scan_state["stop_scan"] = true
 	_mark_class_scan_partial(scan_state)
-	_append_class_skipped_file(path, reason, size_bytes, reason, limit_bytes, scan_state)
+	_append_class_skipped_file(
+		path,
+		reason,
+		size_bytes,
+		reason,
+		limit_bytes,
+		scan_state
+	)
 	_append_class_scan_issue(
 		reason,
 		path,
@@ -864,7 +864,11 @@ static func _mark_class_byte_budget(
 	scan_state["budget_warning_emitted"] = true
 	_emit_class_scan_warning(
 		"[extension_usage_audit.byte_budget_reached] Extension class_name prescanning reached the %s=%d byte budget; results are treated as partial_scan: %s."
-		% [reason, limit_bytes, path],
+		% [
+			reason,
+			limit_bytes,
+			path,
+		],
 		scan_state
 	)
 
@@ -881,7 +885,13 @@ static func _mark_class_phase_exhausted(
 	class_name_report["truncated"] = true
 	class_name_report["stop_scan"] = true
 	class_name_report["partial_scan"] = true
-	_append_class_scan_issue(code, "", "", message, class_name_report)
+	_append_class_scan_issue(
+		code,
+		"",
+		"",
+		message,
+		class_name_report
+	)
 	_emit_class_scan_warning(message, class_name_report)
 
 
@@ -896,18 +906,17 @@ static func _append_class_skipped_file(
 	limit_bytes: int,
 	scan_state: Dictionary
 ) -> void:
-	var skipped_files: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		scan_state,
-		"skipped_files"
+	var skipped_files: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_state, "skipped_files")
+	skipped_files.append(
+		{
+			"path": path,
+			"reason": reason,
+			"size_bytes": size_bytes,
+			"limit_key": limit_key,
+			"limit_bytes": limit_bytes,
+			"phase": "class_name_pre_scan",
+		}
 	)
-	skipped_files.append({
-		"path": path,
-		"reason": reason,
-		"size_bytes": size_bytes,
-		"limit_key": limit_key,
-		"limit_bytes": limit_bytes,
-		"phase": "class_name_pre_scan",
-	})
 	scan_state["skipped_files"] = skipped_files
 
 
@@ -932,13 +941,15 @@ static func _append_class_scan_issue(
 			and _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "target_id") == target_id
 		):
 			return
-	issues.append({
-		"code": code,
-		"path": path,
-		"target_id": target_id,
-		"message": message,
-		"phase": "class_name_pre_scan",
-	})
+	issues.append(
+		{
+			"code": code,
+			"path": path,
+			"target_id": target_id,
+			"message": message,
+			"phase": "class_name_pre_scan",
+		}
+	)
 	scan_state["issues"] = issues
 
 
@@ -947,10 +958,7 @@ static func _append_class_scan_issue(
 ## @api private
 static func _emit_class_scan_warning(message: String, scan_state: Dictionary) -> void:
 	var warning_message: String = "[GFExtensionUsageAudit]%s" % message
-	var scan_warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		scan_state,
-		"scan_warnings"
-	)
+	var scan_warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_state, "scan_warnings")
 	if not scan_warnings.has(warning_message):
 		scan_warnings.append(warning_message)
 		scan_state["scan_warnings"] = scan_warnings
@@ -987,36 +995,15 @@ static func _make_empty_project_scan_report(targets: Array[Dictionary]) -> Dicti
 ## 合并预扫描与项目扫描的消耗、问题和截断标志；仅项目强引用数为零且两个阶段均完整时报告成功，并附预扫描分项详情。
 ## [br]
 ## @api private
-static func _merge_scan_phase_reports(
-	project_report: Dictionary,
-	class_name_report: Dictionary
-) -> Dictionary:
+static func _merge_scan_phase_reports(project_report: Dictionary, class_name_report: Dictionary) -> Dictionary:
 	var result: Dictionary = project_report.duplicate(true)
-	var partial_scan: bool = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(project_report, "partial_scan")
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "partial_scan")
-	)
+	var partial_scan: bool = (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(project_report, "partial_scan") or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "partial_scan"))
 	result["partial_scan"] = partial_scan
-	result["budget_exceeded"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(project_report, "budget_exceeded")
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "budget_exceeded")
-	)
-	result["truncated"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(project_report, "truncated")
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "truncated")
-	)
-	result["candidate_file_count"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "candidate_file_count")
-		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "candidate_file_count")
-	)
-	result["scanned_file_count"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "scanned_file_count")
-		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_file_count")
-	)
-	result["scanned_bytes"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "scanned_bytes")
-		+ _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_bytes")
-	)
+	result["budget_exceeded"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(project_report, "budget_exceeded") or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "budget_exceeded"))
+	result["truncated"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(project_report, "truncated") or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "truncated"))
+	result["candidate_file_count"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "candidate_file_count") + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "candidate_file_count"))
+	result["scanned_file_count"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "scanned_file_count") + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_file_count"))
+	result["scanned_bytes"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "scanned_bytes") + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_bytes"))
 	result["skipped_files"] = _merge_report_arrays(
 		class_name_report,
 		project_report,
@@ -1027,37 +1014,20 @@ static func _merge_scan_phase_reports(
 		project_report,
 		"scan_warnings"
 	)
-	result["issues"] = _merge_report_arrays(class_name_report, project_report, "issues")
-	result["issue_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "issues").size()
-	result["ok"] = (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "reference_count") == 0
-		and not partial_scan
+	result["issues"] = _merge_report_arrays(
+		class_name_report,
+		project_report,
+		"issues"
 	)
+	result["issue_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, "issues").size()
+	result["ok"] = (_GF_VARIANT_ACCESS_SCRIPT.get_option_int(project_report, "reference_count") == 0 and not partial_scan)
 	result["class_name_scan"] = {
-		"partial_scan": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			class_name_report,
-			"partial_scan"
-		),
-		"budget_exceeded": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			class_name_report,
-			"budget_exceeded"
-		),
-		"candidate_file_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			class_name_report,
-			"candidate_file_count"
-		),
-		"scanned_file_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			class_name_report,
-			"scanned_file_count"
-		),
-		"scanned_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			class_name_report,
-			"scanned_bytes"
-		),
-		"class_names_by_target": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			class_name_report,
-			"class_names_by_target"
-		),
+		"partial_scan": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "partial_scan"),
+		"budget_exceeded": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(class_name_report, "budget_exceeded"),
+		"candidate_file_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "candidate_file_count"),
+		"scanned_file_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_file_count"),
+		"scanned_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(class_name_report, "scanned_bytes"),
+		"class_names_by_target": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(class_name_report, "class_names_by_target"),
 	}
 	return result
 

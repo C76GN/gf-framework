@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="dec709be7918387aa065895c62b1bf241ee0f951e9cd4550cddfb2bed8ace52e">
+<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="89c57b9a2051343e3a8898207374607e3bdb379cc4a41e457bd4020634a17f97">
 	<description>GFLogUtility: 集中式日志系统。
 取代原生 print / push_error，提供分级日志（DEBUG → FATAL），
 每条日志同时写入本地按日期命名的日志文件，进入内存环形缓存，
@@ -11,13 +11,14 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="log_emitted">
-			<signature>signal log_emitted(level: int, tag: String, message: String)</signature>
+			<signature>signal log_emitted( level: int, tag: String, message: String )</signature>
 			<description>每次打印日志时发出，供 UI 控制台等消费者捕捉。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">level: LogLevel 枚举值。</tag>
 				<tag name="param">tag: 日志标签。</tag>
 				<tag name="param">message: 日志内容。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="log_entry_emitted">
@@ -136,7 +137,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="debug">
-			<signature>func debug(tag: String, msg: String, context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func debug( tag: String, msg: String, context: Dictionary = {} ) -&gt; void:</signature>
 			<description>输出 DEBUG 级别日志。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -144,20 +145,22 @@
 				<tag name="param">msg: 日志内容。</tag>
 				<tag name="param">context: 结构化上下文字典。</tag>
 				<tag name="schema">context: Dictionary[String, Variant] structured context merged into the log entry.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="debug_lazy">
-			<signature>func debug_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -&gt; void:</signature>
+			<signature>func debug_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -&gt; void:</signature>
 			<description>延迟输出 DEBUG 级别日志。只有日志未被过滤时才调用 message_builder。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">tag: 日志标签。</tag>
 				<tag name="param">message_builder: 延迟构造日志消息的回调。</tag>
 				<tag name="param">context_builder: 延迟构造结构化上下文的回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="info">
-			<signature>func info(tag: String, msg: String, context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func info( tag: String, msg: String, context: Dictionary = {} ) -&gt; void:</signature>
 			<description>输出 INFO 级别日志。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -165,20 +168,22 @@
 				<tag name="param">msg: 日志内容。</tag>
 				<tag name="param">context: 结构化上下文字典。</tag>
 				<tag name="schema">context: Dictionary[String, Variant] structured context merged into the log entry.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="info_lazy">
-			<signature>func info_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -&gt; void:</signature>
+			<signature>func info_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -&gt; void:</signature>
 			<description>延迟输出 INFO 级别日志。只有日志未被过滤时才调用 message_builder。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">tag: 日志标签。</tag>
 				<tag name="param">message_builder: 延迟构造日志消息的回调。</tag>
 				<tag name="param">context_builder: 延迟构造结构化上下文的回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="warn">
-			<signature>func warn(tag: String, msg: String, context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func warn( tag: String, msg: String, context: Dictionary = {} ) -&gt; void:</signature>
 			<description>输出 WARN 级别日志。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -186,20 +191,22 @@
 				<tag name="param">msg: 日志内容。</tag>
 				<tag name="param">context: 结构化上下文字典。</tag>
 				<tag name="schema">context: Dictionary[String, Variant] structured context merged into the log entry.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="warn_lazy">
-			<signature>func warn_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -&gt; void:</signature>
+			<signature>func warn_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -&gt; void:</signature>
 			<description>延迟输出 WARN 级别日志。只有日志未被过滤时才调用 message_builder。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">tag: 日志标签。</tag>
 				<tag name="param">message_builder: 延迟构造日志消息的回调。</tag>
 				<tag name="param">context_builder: 延迟构造结构化上下文的回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="error">
-			<signature>func error(tag: String, msg: String, context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func error( tag: String, msg: String, context: Dictionary = {} ) -&gt; void:</signature>
 			<description>输出 ERROR 级别日志。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -207,20 +214,22 @@
 				<tag name="param">msg: 日志内容。</tag>
 				<tag name="param">context: 结构化上下文字典。</tag>
 				<tag name="schema">context: Dictionary[String, Variant] structured context merged into the log entry.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="error_lazy">
-			<signature>func error_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -&gt; void:</signature>
+			<signature>func error_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -&gt; void:</signature>
 			<description>延迟输出 ERROR 级别日志。只有日志未被过滤时才调用 message_builder。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">tag: 日志标签。</tag>
 				<tag name="param">message_builder: 延迟构造日志消息的回调。</tag>
 				<tag name="param">context_builder: 延迟构造结构化上下文的回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="fatal">
-			<signature>func fatal(tag: String, msg: String, context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func fatal( tag: String, msg: String, context: Dictionary = {} ) -&gt; void:</signature>
 			<description>输出 FATAL 级别日志。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -228,20 +237,22 @@
 				<tag name="param">msg: 日志内容。</tag>
 				<tag name="param">context: 结构化上下文字典。</tag>
 				<tag name="schema">context: Dictionary[String, Variant] structured context merged into the log entry.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="fatal_lazy">
-			<signature>func fatal_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -&gt; void:</signature>
+			<signature>func fatal_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -&gt; void:</signature>
 			<description>延迟输出 FATAL 级别日志。只有日志未被过滤时才调用 message_builder。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">tag: 日志标签。</tag>
 				<tag name="param">message_builder: 延迟构造日志消息的回调。</tag>
 				<tag name="param">context_builder: 延迟构造结构化上下文的回调。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="log">
-			<signature>func log(level: int, tag: String, msg: String, context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func log( level: int, tag: String, msg: String, context: Dictionary = {} ) -&gt; void:</signature>
 			<description>输出指定等级日志。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -250,6 +261,7 @@
 				<tag name="param">msg: 日志内容。</tag>
 				<tag name="param">context: 结构化上下文字典。</tag>
 				<tag name="schema">context: Dictionary[String, Variant] structured context merged into the log entry.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_trace_id">

@@ -109,7 +109,11 @@ var _duration_scale: float = 1.0
 ## [br]
 ## @return 动作实例。
 func create_action(target: Object, host_node: Node = null) -> GFVisualAction:
-	return GFConfiguredTweenAction.new(target, self, host_node)
+	return GFConfiguredTweenAction.new(
+		target,
+		self,
+		host_node
+	)
 
 
 ## 添加一个属性步骤并返回该步骤。
@@ -158,7 +162,13 @@ func is_empty() -> bool:
 func has_timed_steps() -> bool:
 	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
 	for step: GFTweenActionStep in steps:
-		if step != null and (step.duration * effective_scale > 0.0 or step.delay * effective_scale > 0.0):
+		if (
+			step != null
+			and (
+				step.duration * effective_scale > 0.0
+				or step.delay * effective_scale > 0.0
+			)
+		):
 			return true
 	return false
 
@@ -213,7 +223,10 @@ func restore_initial_values(target: Object, snapshot: Dictionary) -> void:
 		var property_path: NodePath = NodePath(GFVariantData.to_text(key))
 		if property_path.is_empty():
 			continue
-		target.set_indexed(property_path, GFVariantData.duplicate_variant(snapshot[key]))
+		target.set_indexed(
+			property_path,
+			GFVariantData.duplicate_variant(snapshot[key])
+		)
 
 
 ## 获取配置对目标对象的校验报告。
@@ -226,18 +239,31 @@ func restore_initial_values(target: Object, snapshot: Dictionary) -> void:
 func get_validation_report(target: Object) -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new("GFTweenActionConfig")
 	if enable_playback_control or ping_pong:
-		var plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture(self, target, ping_pong)
+		var plan: GFTweenPlaybackPlan = GFTweenPlaybackPlan.capture(
+			self,
+			target,
+			ping_pong
+		)
 		if not plan.error.is_empty():
 			var _plan_error: Variant = report.add_error(&"invalid_playback_plan", plan.error)
 		return report
 	for index: int in range(steps.size()):
 		var step: GFTweenActionStep = steps[index]
 		if step == null:
-			var _add_warning_result_190: Variant = report.add_warning(&"null_step", "Tween step is null.", index)
+			var _add_warning_result_190: Variant = report.add_warning(
+				&"null_step",
+				"Tween step is null.",
+				index
+			)
 			continue
 		var validation_error: String = step.get_validation_error(target)
 		if not validation_error.is_empty():
-			var _add_error_result_194: Variant = report.add_error(&"invalid_step", validation_error, index, String(step.property_name))
+			var _add_error_result_194: Variant = report.add_error(
+				&"invalid_step",
+				validation_error,
+				index,
+				String(step.property_name)
+			)
 	return report
 
 

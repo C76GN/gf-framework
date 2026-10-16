@@ -47,11 +47,12 @@ var _committed_revision: GFStorageRevisionResult = null
 ## @param revision: 本次读取对应的成功 revision 结果。
 ## [br]
 ## @return 成功配对；任一参数无效时返回 ERR_INVALID_PARAMETER 且不保留参数引用。
-static func success(
-	resource: Resource,
-	revision: GFStorageRevisionResult
-) -> GFStorageResourceReadResult:
-	if resource == null or revision == null or not revision.is_successful():
+static func success(resource: Resource, revision: GFStorageRevisionResult) -> GFStorageResourceReadResult:
+	if (
+		resource == null
+		or revision == null
+		or not revision.is_successful()
+	):
 		return failure(ERR_INVALID_PARAMETER)
 	var result: GFStorageResourceReadResult = GFStorageResourceReadResult.new()
 	result._error_code = OK

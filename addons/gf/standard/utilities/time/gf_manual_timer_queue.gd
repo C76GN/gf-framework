@@ -99,13 +99,22 @@ var _lifecycle_generation: int = 0
 ## @schema options: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。
 ## [br]
 ## @return 计时器句柄；callback 无效时返回 0。
-func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {}) -> int:
+func schedule_at(
+	target_tick: int,
+	callback: Callable,
+	options: Dictionary = {}
+) -> int:
 	if not callback.is_valid():
 		push_error("[GFManualTimerQueue][manual_timer_queue.callback_invalid] Cannot schedule_at: callback is invalid.")
 		return 0
 
 	var owner: Object = _variant_to_object(GFVariantData.get_option_value(options, "owner"))
-	return _queue_timer(maxi(target_tick, _current_tick), callback, owner, options)
+	return _queue_timer(
+		maxi(target_tick, _current_tick),
+		callback,
+		owner,
+		options
+	)
 
 
 ## 在当前 tick 之后延迟若干 tick 调度回调。
@@ -123,8 +132,16 @@ func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {})
 ## @schema options: Dictionary，可包含 owner: Object、metadata: Dictionary、label: String、front: bool。
 ## [br]
 ## @return 计时器句柄；callback 无效时返回 0。
-func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = {}) -> int:
-	return schedule_at(_current_tick + maxi(delay_ticks, 0), callback, options)
+func schedule_after(
+	delay_ticks: int,
+	callback: Callable,
+	options: Dictionary = {}
+) -> int:
+	return schedule_at(
+		_current_tick + maxi(delay_ticks, 0),
+		callback,
+		options
+	)
 
 
 ## 在绝对 tick 上调度 owner 绑定回调。owner 释放后回调会被跳过。
@@ -144,13 +161,22 @@ func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = 
 ## @schema options: Dictionary，可包含 metadata: Dictionary、label: String、front: bool。
 ## [br]
 ## @return 计时器句柄；参数无效时返回 0。
-func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, options: Dictionary = {}) -> int:
+func schedule_at_owned(
+	owner: Object,
+	target_tick: int,
+	callback: Callable,
+	options: Dictionary = {}
+) -> int:
 	if owner == null:
 		push_error("[GFManualTimerQueue][manual_timer_queue.owner_null] Cannot schedule_at_owned: owner is null.")
 		return 0
 	var safe_options: Dictionary = options.duplicate(true)
 	safe_options["owner"] = owner
-	return schedule_at(target_tick, callback, safe_options)
+	return schedule_at(
+		target_tick,
+		callback,
+		safe_options
+	)
 
 
 ## 推进到指定绝对 tick，并执行所有到期回调。
@@ -183,11 +209,24 @@ func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 			false
 		)
 	if target_tick < _current_tick:
-		return _make_advance_report(false, &"backward_tick", _current_tick, target_tick, 0, 0, 0, false)
+		return _make_advance_report(
+			false,
+			&"backward_tick",
+			_current_tick,
+			target_tick,
+			0,
+			0,
+			0,
+			false
+		)
 
 	var from_tick: int = _current_tick
 	var lifecycle_generation: int = _lifecycle_generation
-	var max_callbacks: int = GFVariantData.get_option_int(options, "max_callbacks", max_callbacks_per_advance)
+	var max_callbacks: int = GFVariantData.get_option_int(
+		options,
+		"max_callbacks",
+		max_callbacks_per_advance
+	)
 	var limit: int = maxi(max_callbacks, 1)
 	var executed_now: int = 0
 	var failed_now: int = 0
@@ -204,7 +243,11 @@ func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 		if timer_data.is_empty():
 			break
 
-		_current_tick = GFVariantData.get_option_int(timer_data, "target_tick", _current_tick)
+		_current_tick = GFVariantData.get_option_int(
+			timer_data,
+			"target_tick",
+			_current_tick
+		)
 		if _timer_owner_is_released(timer_data):
 			skipped_owner_now += 1
 			_skipped_owner_count += 1
@@ -240,7 +283,16 @@ func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 		_current_tick = target_tick
 
 	_advance_in_progress = false
-	return _make_advance_report(true, &"advanced", from_tick, target_tick, executed_now, failed_now, skipped_owner_now, truncated)
+	return _make_advance_report(
+		true,
+		&"advanced",
+		from_tick,
+		target_tick,
+		executed_now,
+		failed_now,
+		skipped_owner_now,
+		truncated
+	)
 
 
 ## 按相对 tick 推进队列。
@@ -260,8 +312,20 @@ func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 ## @schema return: Dictionary，结构同 advance_to()。
 func advance_by(delta_ticks: int, options: Dictionary = {}) -> Dictionary:
 	if delta_ticks < 0:
-		return _make_advance_report(false, &"negative_delta", _current_tick, _current_tick + delta_ticks, 0, 0, 0, false)
-	return advance_to(_current_tick + delta_ticks, options)
+		return _make_advance_report(
+			false,
+			&"negative_delta",
+			_current_tick,
+			_current_tick + delta_ticks,
+			0,
+			0,
+			0,
+			false
+		)
+	return advance_to(
+		_current_tick + delta_ticks,
+		options
+	)
 
 
 ## 取消一个尚未执行的计时器。
@@ -298,7 +362,11 @@ func cancel_owner(owner: Object) -> int:
 		return 0
 	var owner_id: int = owner.get_instance_id()
 	var removed_count: int = 0
-	for index: int in range(_timers.size() - 1, -1, -1):
+	for index: int in range(
+		_timers.size() - 1,
+		-1,
+		-1
+	):
 		if _get_timer_owner_id(_timers[index]) == owner_id:
 			_timers.remove_at(index)
 			removed_count += 1
@@ -380,13 +448,24 @@ func get_debug_snapshot() -> Dictionary:
 ## 生成计时器条目、分配句柄与顺序号，并插入已排序队列。
 ## [br]
 ## @api private
-func _queue_timer(target_tick: int, callback: Callable, owner: Object, options: Dictionary) -> int:
+func _queue_timer(
+	target_tick: int,
+	callback: Callable,
+	owner: Object,
+	options: Dictionary
+) -> int:
 	var handle: int = _next_timer_id
 	_next_timer_id += 1
 	var timer_data: Dictionary = {
 		"id": handle,
 		"target_tick": target_tick,
-		"order": _make_order(GFVariantData.get_option_bool(options, "front", false)),
+		"order": _make_order(
+			GFVariantData.get_option_bool(
+				options,
+				"front",
+				false
+			)
+		),
 		"callback": callback,
 		"owner_ref": weakref(owner) if owner != null else null,
 		"owner_id": owner.get_instance_id() if owner != null else 0,
@@ -437,7 +516,10 @@ func _insert_timer_sorted(timer_data: Dictionary) -> void:
 	var high: int = _timers.size()
 	while low < high:
 		var middle: int = floori(float(low + high) / 2.0)
-		if _timer_is_before(timer_data, _timers[middle]):
+		if _timer_is_before(
+			timer_data,
+			_timers[middle]
+		):
 			high = middle
 		else:
 			low = middle + 1
@@ -472,7 +554,11 @@ func _callback_result_is_failure(result: Variant) -> bool:
 		return not bool_result
 	if result is Dictionary:
 		var dictionary_result: Dictionary = result
-		return not GFVariantData.get_option_bool(dictionary_result, "ok", true)
+		return not GFVariantData.get_option_bool(
+			dictionary_result,
+			"ok",
+			true
+		)
 	return false
 
 
@@ -528,7 +614,11 @@ func _get_timer_owner_id(timer_data: Dictionary) -> int:
 ## [br]
 ## @api private
 func _get_timer_callback(timer_data: Dictionary) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(timer_data, "callback", Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		timer_data,
+		"callback",
+		Callable()
+	)
 	if value is Callable:
 		var callback: Callable = value
 		return callback

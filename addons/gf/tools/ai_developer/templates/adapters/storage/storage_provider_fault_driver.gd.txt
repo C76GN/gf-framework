@@ -31,9 +31,7 @@ const FAULT_MALFORMED_READ_RESULT: StringName = &"malformed_read_result"
 ## 请求初始化后改变能力声明，验证适配器拒绝漂移并清理候选 Provider。
 ## [br]
 ## @api framework_internal
-const FAULT_POST_INITIALIZE_CAPABILITY_DRIFT: StringName = (
-	&"post_initialize_capability_drift"
-)
+const FAULT_POST_INITIALIZE_CAPABILITY_DRIFT: StringName = &"post_initialize_capability_drift"
 
 ## 读取进入 Provider 原子写方法的累计次数，包括随后失败的尝试。
 ## [br]
@@ -80,10 +78,7 @@ func supports_fault(_fault_id: StringName) -> bool:
 ## @schema _options: Dictionary，当前示例无附加参数；真实驱动应明确允许键及预算。
 ## [br]
 ## @return 安排成功为 OK，默认 ERR_UNAVAILABLE。
-func arm_fault(
-	_fault_id: StringName,
-	_options: Dictionary = {}
-) -> Error:
+func arm_fault(_fault_id: StringName, _options: Dictionary = {}) -> Error:
 	return ERR_UNAVAILABLE
 
 

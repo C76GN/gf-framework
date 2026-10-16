@@ -32,9 +32,7 @@ func test_manifest_normalizes_relative_resources() -> void:
 				"key": "icon",
 				"path": "assets/icon.tres",
 				"type_hint": "Resource",
-				"metadata": {
-					"role": "test",
-				},
+				"metadata": { "role": "test", },
 			},
 		],
 		TEMP_ROOT.path_join("base")
@@ -44,13 +42,20 @@ func test_manifest_normalizes_relative_resources() -> void:
 	var first_resource: Dictionary = resources[0]
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(first_resource, "metadata")
 
-	assert_true(manifest.is_valid(), "有效内容包 manifest 应通过基础校验。")
+	assert_true(
+		manifest.is_valid(),
+		"有效内容包 manifest 应通过基础校验。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(first_resource, "path"),
 		TEMP_ROOT.path_join("base/assets/icon.tres"),
 		"相对资源路径应归一化到内容包根目录下。"
 	)
-	assert_eq(GFVariantData.get_option_string(metadata, "role"), "test", "资源 metadata 应保留项目自定义字段。")
+	assert_eq(
+		GFVariantData.get_option_string(metadata, "role"),
+		"test",
+		"资源 metadata 应保留项目自定义字段。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(metadata, "package_id"),
 		&"author.base",
@@ -63,17 +68,17 @@ func test_manifest_rejects_paths_outside_package_root() -> void:
 		&"author.base",
 		[],
 		[
-			{
-				"key": "escape",
-				"path": "../escape.tres",
-			},
+			{ "key": "escape", "path": "../escape.tres", },
 		],
 		TEMP_ROOT.path_join("base")
 	)
 	var report: Dictionary = manifest.get_validation_report()
 	var issue: Dictionary = _find_issue(report, "resource_path_outside_package")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "越过内容包根目录的资源路径应失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"越过内容包根目录的资源路径应失败。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(issue, "kind"),
 		"resource_path_outside_package",
@@ -85,16 +90,21 @@ func test_manifest_rejects_absolute_resource_when_package_root_is_empty() -> voi
 	var manifest: GFContentPackageManifest = _make_manifest(
 		&"author.rootless",
 		[],
-		[{
-			"key": "foreign.icon",
-			"path": "res://icon.svg",
-		}]
+		[
+			{ "key": "foreign.icon", "path": "res://icon.svg", },
+		]
 	)
 	var report: Dictionary = manifest.get_validation_report()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "空 package root 不能取得任意绝对资源的所有权。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"空 package root 不能取得任意绝对资源的所有权。"
+	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "resource_path_outside_package"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(report, "resource_path_outside_package"),
+			"kind"
+		),
 		"resource_path_outside_package"
 	)
 
@@ -104,17 +114,17 @@ func test_manifest_rejects_uid_resources_because_package_root_cannot_be_verified
 		&"author.base",
 		[],
 		[
-			{
-				"key": "uid_asset",
-				"path": "uid://outside-package",
-			},
+			{ "key": "uid_asset", "path": "uid://outside-package", },
 		],
 		TEMP_ROOT.path_join("base")
 	)
 	var report: Dictionary = manifest.get_validation_report()
 	var issue: Dictionary = _find_issue(report, "resource_path_not_allowed")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "uid:// 不能证明资源仍在内容包根目录内，应失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"uid:// 不能证明资源仍在内容包根目录内，应失败。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(issue, "kind"),
 		"resource_path_not_allowed",
@@ -127,17 +137,17 @@ func test_manifest_accepts_user_resources_inside_user_root() -> void:
 		&"author.runtime",
 		[],
 		[
-			{
-				"key": "runtime.data",
-				"path": "assets/data.tres",
-			},
+			{ "key": "runtime.data", "path": "assets/data.tres", },
 		],
 		TEMP_USER_ROOT.path_join("runtime")
 	)
 	var resources: Array[Dictionary] = manifest.get_normalized_resources()
 	var first_resource: Dictionary = resources[0]
 
-	assert_true(manifest.is_valid(), "user:// source root 内的资源路径应可用于运行时内容包。")
+	assert_true(
+		manifest.is_valid(),
+		"user:// source root 内的资源路径应可用于运行时内容包。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(first_resource, "path"),
 		TEMP_USER_ROOT.path_join("runtime/assets/data.tres"),
@@ -150,17 +160,17 @@ func test_manifest_rejects_code_resources_for_data_only_packages() -> void:
 		&"author.data",
 		[],
 		[
-			{
-				"key": "script",
-				"path": "scripts/tool.gd",
-			},
+			{ "key": "script", "path": "scripts/tool.gd", },
 		],
 		TEMP_ROOT.path_join("data")
 	)
 	var report: Dictionary = manifest.get_validation_report()
 	var issue: Dictionary = _find_issue(report, "resource_extension_forbidden")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "data_only 内容包不应接受脚本资源。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"data_only 内容包不应接受脚本资源。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(issue, "kind"),
 		"resource_extension_forbidden",
@@ -173,16 +183,16 @@ func test_manifest_allows_code_resources_for_trusted_developer_packages() -> voi
 		&"author.tooling",
 		[],
 		[
-			{
-				"key": "script",
-				"path": "scripts/tool.gd",
-			},
+			{ "key": "script", "path": "scripts/tool.gd", },
 		],
 		TEMP_ROOT.path_join("tooling")
 	)
 	manifest.safety_kind = GFContentPackageManifest.SAFETY_KIND_TRUSTED_DEVELOPER
 
-	assert_true(manifest.is_valid(), "trusted_developer 内容包可显式承载开发者代码资源。")
+	assert_true(
+		manifest.is_valid(),
+		"trusted_developer 内容包可显式承载开发者代码资源。"
+	)
 
 
 func test_manifest_dependency_security_scan_rejects_transitive_code_resource() -> void:
@@ -190,165 +200,254 @@ func test_manifest_dependency_security_scan_rejects_transitive_code_resource() -
 	var script_path: String = root_path.path_join("payload.gd")
 	var resource_path: String = root_path.path_join("payload.tres")
 	_write_text_file(script_path, "extends Resource\n")
-	_write_text_file(resource_path, "\n".join([
-		"[gd_resource type=\"Resource\" load_steps=2 format=3]",
-		"",
-		"[ext_resource type=\"Script\" path=\"%s\" id=\"1\"]" % script_path,
-		"",
-		"[resource]",
-		"script = ExtResource(\"1\")",
-	]))
+	_write_text_file(
+		resource_path,
+		"\n".join(
+			[
+				"[gd_resource type=\"Resource\" load_steps=2 format=3]",
+				"",
+				"[ext_resource type=\"Script\" path=\"%s\" id=\"1\"]" % script_path,
+				"",
+				"[resource]",
+				"script = ExtResource(\"1\")",
+			]
+		)
+	)
 	var manifest: GFContentPackageManifest = _make_manifest(
 		&"author.dependency_security",
 		[],
-		[{ "key": "payload", "path": "payload.tres" }],
+		[
+			{ "key": "payload", "path": "payload.tres" },
+		],
 		root_path
 	)
 
-	var report: Dictionary = manifest.get_validation_report({
-		"check_resource_dependencies": true,
-	})
+	var report: Dictionary = manifest.get_validation_report({ "check_resource_dependencies": true, })
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "data_only 安全预检必须检查资源依赖闭包。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"data_only 安全预检必须检查资源依赖闭包。"
+	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "resource_dependency_extension_forbidden"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(report, "resource_dependency_extension_forbidden"),
+			"kind"
+		),
 		"resource_dependency_extension_forbidden"
 	)
 
 
 func test_manifest_requires_supported_schema_version_in_dictionary() -> void:
-	var missing_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"package_id": "author.missing_schema",
-		"version": "1.0.0",
-		"resources": [],
-	}, TEMP_ROOT.path_join("missing_schema"))
-	var unsupported_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"schema_version": 2,
-		"package_id": "author.unsupported_schema",
-		"version": "1.0.0",
-		"resources": [],
-	}, TEMP_ROOT.path_join("unsupported_schema"))
-	var invalid_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"schema_version": "1",
-		"package_id": "author.invalid_schema",
-		"version": "1.0.0",
-		"resources": [],
-	}, TEMP_ROOT.path_join("invalid_schema"))
+	var missing_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"package_id": "author.missing_schema",
+			"version": "1.0.0",
+			"resources": [],
+		},
+		TEMP_ROOT.path_join("missing_schema")
+	)
+	var unsupported_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"schema_version": 2,
+			"package_id": "author.unsupported_schema",
+			"version": "1.0.0",
+			"resources": [],
+		},
+		TEMP_ROOT.path_join("unsupported_schema")
+	)
+	var invalid_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"schema_version": "1",
+			"package_id": "author.invalid_schema",
+			"version": "1.0.0",
+			"resources": [],
+		},
+		TEMP_ROOT.path_join("invalid_schema")
+	)
 
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(missing_schema.get_validation_report(), "missing_schema_version"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(
+				missing_schema.get_validation_report(),
+				"missing_schema_version"
+			),
+			"kind"
+		),
 		"missing_schema_version",
 		"字典 manifest 必须显式声明 schema_version。"
 	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(unsupported_schema.get_validation_report(), "unsupported_schema_version"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(
+				unsupported_schema.get_validation_report(),
+				"unsupported_schema_version"
+			),
+			"kind"
+		),
 		"unsupported_schema_version",
 		"未来 schema_version 应被拒绝而不是按当前结构误读。"
 	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(invalid_schema.get_validation_report(), "invalid_schema_version"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(
+				invalid_schema.get_validation_report(),
+				"invalid_schema_version"
+			),
+			"kind"
+		),
 		"invalid_schema_version",
 		"schema_version 不能使用字符串等宽松类型。"
 	)
 
 
 func test_manifest_rejects_unknown_fields() -> void:
-	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"schema_version": 1,
-		"package_id": "author.unknown",
-		"version": "1.0.0",
-		"resources": [],
-		"download_url": "https://example.invalid/package.zip",
-	}, TEMP_ROOT.path_join("unknown"))
+	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"schema_version": 1,
+			"package_id": "author.unknown",
+			"version": "1.0.0",
+			"resources": [],
+			"download_url": "https://example.invalid/package.zip",
+		},
+		TEMP_ROOT.path_join("unknown")
+	)
 	var report: Dictionary = manifest.get_validation_report()
 	var issue: Dictionary = _find_issue(report, "unknown_field")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "内容包 manifest 应使用字段白名单，下载或安装策略不能写入运行时 manifest。")
-	assert_eq(GFVariantData.get_option_string(issue, "kind"), "unknown_field", "未知字段应使用稳定 issue kind。")
-	assert_eq(GFVariantData.get_option_string(issue, "actual_value"), "download_url", "报告应指出被拒绝的字段名。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"内容包 manifest 应使用字段白名单，下载或安装策略不能写入运行时 manifest。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "kind"),
+		"unknown_field",
+		"未知字段应使用稳定 issue kind。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "actual_value"),
+		"download_url",
+		"报告应指出被拒绝的字段名。"
+	)
 
 
 func test_manifest_dictionary_schema_rejects_type_coercion() -> void:
-	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"schema_version": 1,
-		"package_id": 123,
-		"version": true,
-		"dependencies": [1, true],
-		"resources": [{
-			"key": 456,
-			"path": "asset.tres",
-			"priority": "10",
+	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"schema_version": 1,
+			"package_id": 123,
+			"version": true,
+			"dependencies": [1, true],
+			"resources": [
+				{
+					"key": 456,
+					"path": "asset.tres",
+					"priority": "10",
+					"metadata": "not-a-dictionary",
+				},
+			],
 			"metadata": "not-a-dictionary",
-		}],
-		"metadata": "not-a-dictionary",
-	}, TEMP_ROOT.path_join("strict_schema"))
+		},
+		TEMP_ROOT.path_join("strict_schema")
+	)
 	var report: Dictionary = manifest.get_validation_report()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "跨工具 manifest 边界不应猜测错误字段类型。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"跨工具 manifest 边界不应猜测错误字段类型。"
+	)
 	assert_true(_count_issues(report, "invalid_manifest_field_type") >= 5)
 	assert_true(_count_issues(report, "invalid_resource_field_type") >= 3)
-	assert_eq(manifest.package_id, &"", "数字 package_id 不应被强制字符串化。")
-	assert_true(manifest.dependencies.is_empty(), "非字符串 dependency 不应进入依赖图。")
-	assert_true(manifest.metadata.is_empty(), "非 Dictionary metadata 不应被吞入 manifest。")
+	assert_eq(
+		manifest.package_id,
+		&"",
+		"数字 package_id 不应被强制字符串化。"
+	)
+	assert_true(
+		manifest.dependencies.is_empty(),
+		"非字符串 dependency 不应进入依赖图。"
+	)
+	assert_true(
+		manifest.metadata.is_empty(),
+		"非 Dictionary metadata 不应被吞入 manifest。"
+	)
 
 
 func test_manifest_rejects_conflicting_canonical_and_alias_fields() -> void:
-	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"schema_version": 1,
-		"package_id": "author.canonical",
-		"id": "author.alias",
-		"display_name": "Canonical Name",
-		"name": "Alias Name",
-		"version": "1.0.0",
-		"resources": [{
-			"key": "canonical.key",
-			"resource_key": "alias.key",
-			"path": "canonical.tres",
-			"resource_path": "alias.tres",
-		}],
-	}, TEMP_ROOT.path_join("alias_conflict"))
+	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"schema_version": 1,
+			"package_id": "author.canonical",
+			"id": "author.alias",
+			"display_name": "Canonical Name",
+			"name": "Alias Name",
+			"version": "1.0.0",
+			"resources": [
+				{
+					"key": "canonical.key",
+					"resource_key": "alias.key",
+					"path": "canonical.tres",
+					"resource_path": "alias.tres",
+				},
+			],
+		},
+		TEMP_ROOT.path_join("alias_conflict")
+	)
 	var report: Dictionary = manifest.get_validation_report()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "同一语义字段不能由两组冲突 wire name 定义。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"同一语义字段不能由两组冲突 wire name 定义。"
+	)
 	assert_eq(
 		_count_issues(report, "conflicting_alias_fields"),
 		4,
 		"package、display、resource key 和 resource path 冲突都应可诊断。"
 	)
-	var matching_alias_manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
-		"schema_version": 1,
-		"package_id": "author.matching",
-		"id": "author.matching",
-		"display_name": "Matching",
-		"name": "Matching",
-		"version": "1.0.0",
-		"resources": [{
-			"key": "same.key",
-			"resource_key": "same.key",
-			"path": "same.tres",
-			"resource_path": "same.tres",
-		}],
-	}, TEMP_ROOT.path_join("matching_alias"))
-	assert_true(matching_alias_manifest.is_valid(), "值一致的 schema v1 兼容双写仍应归一到 canonical 字段。")
+	var matching_alias_manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
+		{
+			"schema_version": 1,
+			"package_id": "author.matching",
+			"id": "author.matching",
+			"display_name": "Matching",
+			"name": "Matching",
+			"version": "1.0.0",
+			"resources": [
+				{
+					"key": "same.key",
+					"resource_key": "same.key",
+					"path": "same.tres",
+					"resource_path": "same.tres",
+				},
+			],
+		},
+		TEMP_ROOT.path_join("matching_alias")
+	)
+	assert_true(
+		matching_alias_manifest.is_valid(),
+		"值一致的 schema v1 兼容双写仍应归一到 canonical 字段。"
+	)
 
 
 func test_manifest_resource_exists_check_accepts_plain_files() -> void:
 	var root_path: String = TEMP_ROOT.path_join("plain_file")
-	_write_text_file(root_path.path_join("assets/readme.txt"), "plain")
+	_write_text_file(
+		root_path.path_join("assets/readme.txt"),
+		"plain"
+	)
 	var manifest: GFContentPackageManifest = _make_manifest(
 		&"author.plain_file",
 		[],
 		[
-			{
-				"key": "readme",
-				"path": "assets/readme.txt",
-			},
+			{ "key": "readme", "path": "assets/readme.txt", },
 		],
 		root_path
 	)
 	var report: Dictionary = manifest.get_validation_report({ "check_resource_exists": true })
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "普通文件存在性应可通过 FileAccess 校验，不应只依赖 ResourceLoader。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"普通文件存在性应可通过 FileAccess 校验，不应只依赖 ResourceLoader。"
+	)
 
 
 func test_catalog_orders_dependencies_before_dependents() -> void:
@@ -363,7 +462,11 @@ func test_catalog_orders_dependencies_before_dependents() -> void:
 
 	var ordered: PackedStringArray = catalog.get_ordered_package_ids()
 
-	assert_eq(Array(ordered), ["author.base", "author.feature"], "依赖包应先于依赖方注册。")
+	assert_eq(
+		Array(ordered),
+		["author.base", "author.feature"],
+		"依赖包应先于依赖方注册。"
+	)
 
 
 func test_catalog_reports_null_manifest_input_and_preserves_rejection_snapshot() -> void:
@@ -373,10 +476,26 @@ func test_catalog_reports_null_manifest_input_and_preserves_rejection_snapshot()
 	var copied_report: Dictionary = catalog.duplicate_catalog().get_graph_report()
 
 	assert_false(added)
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "null manifest 必须成为可诊断拒绝，不能等价于空目录。")
-	assert_eq(GFVariantData.get_option_int(report, "rejected_manifest_count"), 1)
-	assert_eq(GFVariantData.get_option_string(_find_issue(report, "invalid_manifest"), "kind"), "invalid_manifest")
-	assert_eq(GFVariantData.get_option_int(copied_report, "rejected_manifest_count"), 1, "catalog 深快照必须保留拒绝事实。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"null manifest 必须成为可诊断拒绝，不能等价于空目录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "rejected_manifest_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			_find_issue(report, "invalid_manifest"),
+			"kind"
+		),
+		"invalid_manifest"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(copied_report, "rejected_manifest_count"),
+		1,
+		"catalog 深快照必须保留拒绝事实。"
+	)
 
 
 func test_catalog_reports_missing_dependencies_and_cycles() -> void:
@@ -393,18 +512,31 @@ func test_catalog_reports_missing_dependencies_and_cycles() -> void:
 		PackedStringArray(["author.first"])
 	)
 	var catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
-	var manifests: Array[GFContentPackageManifest] = [missing_manifest, first_manifest, second_manifest]
+	var manifests: Array[GFContentPackageManifest] = [
+		missing_manifest,
+		first_manifest,
+		second_manifest,
+	]
 	var _catalog_updated: GFContentPackageCatalog = catalog.set_manifests(manifests)
 	var report: Dictionary = catalog.get_graph_report()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺失依赖和循环依赖应让图诊断失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"缺失依赖和循环依赖应让图诊断失败。"
+	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "missing_dependency"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(report, "missing_dependency"),
+			"kind"
+		),
 		"missing_dependency",
 		"缺失依赖应有稳定 issue kind。"
 	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "dependency_cycle"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(report, "dependency_cycle"),
+			"kind"
+		),
 		"dependency_cycle",
 		"循环依赖应有稳定 issue kind。"
 	)
@@ -421,10 +553,19 @@ func test_catalog_remove_manifest_clears_duplicate_package_id_state() -> void:
 	var removed: bool = catalog.remove_manifest(&"author.duplicate")
 	var clean_report: Dictionary = catalog.get_graph_report()
 
-	assert_false(GFVariantData.get_option_bool(duplicate_report, "ok"), "重复 package_id 应进入诊断。")
+	assert_false(
+		GFVariantData.get_option_bool(duplicate_report, "ok"),
+		"重复 package_id 应进入诊断。"
+	)
 	assert_true(removed, "应能移除已注册 manifest。")
-	assert_true(GFVariantData.get_option_bool(clean_report, "ok"), "移除重复 package_id 后重复状态不应残留。")
-	assert_true(GFVariantData.get_option_packed_string_array(clean_report, "duplicate_package_ids").is_empty(), "重复 ID 缓存应同步清空。")
+	assert_true(
+		GFVariantData.get_option_bool(clean_report, "ok"),
+		"移除重复 package_id 后重复状态不应残留。"
+	)
+	assert_true(
+		GFVariantData.get_option_packed_string_array(clean_report, "duplicate_package_ids").is_empty(),
+		"重复 ID 缓存应同步清空。"
+	)
 
 
 func test_catalog_isolated_snapshots_cannot_mutate_registered_graph() -> void:
@@ -439,10 +580,23 @@ func test_catalog_isolated_snapshots_cannot_mutate_registered_graph() -> void:
 	var catalog_copy: GFContentPackageCatalog = catalog.duplicate_catalog()
 	catalog_copy.clear()
 
-	assert_true(catalog.has_package(&"author.snapshot"), "catalog 必须存储 manifest 深拷贝。")
+	assert_true(
+		catalog.has_package(&"author.snapshot"),
+		"catalog 必须存储 manifest 深拷贝。"
+	)
 	assert_false(catalog.has_package(&"author.mutated_source"))
-	assert_eq(catalog.get_manifest(&"author.snapshot").package_id, &"author.snapshot", "查询结果也必须是隔离副本。")
-	assert_true(GFVariantData.get_option_bool(catalog.get_graph_report(), "ok"), "外部副本突变不能绕过图重建。")
+	assert_eq(
+		catalog.get_manifest(&"author.snapshot").package_id,
+		&"author.snapshot",
+		"查询结果也必须是隔离副本。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			catalog.get_graph_report(),
+			"ok"
+		),
+		"外部副本突变不能绕过图重建。"
+	)
 
 
 func test_catalog_registers_resources_to_resolver_in_dependency_order() -> void:
@@ -476,11 +630,25 @@ func test_catalog_registers_resources_to_resolver_in_dependency_order() -> void:
 	var resolver: GFResourceResolverUtility = GFResourceResolverUtility.new()
 	resolver.init()
 
-	var report: Dictionary = catalog.register_resources(resolver, { "check_resource_exists": false })
-	var resolved: Dictionary = resolver.resolve(&"shared.icon", "Resource", { "check_exists": false })
+	var report: Dictionary = catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
+	var resolved: Dictionary = resolver.resolve(
+		&"shared.icon",
+		"Resource",
+		{ "check_exists": false }
+	)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效内容包目录应可注册到资源解析器。")
-	assert_eq(GFVariantData.get_option_int(report, "registered_count"), 2, "两个内容包资源都应参与注册。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"有效内容包目录应可注册到资源解析器。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "registered_count"),
+		2,
+		"两个内容包资源都应参与注册。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(resolved, "path"),
 		TEMP_ROOT.path_join("feature/assets/feature_icon.tres"),
@@ -494,10 +662,7 @@ func test_catalog_register_resources_clears_previous_content_package_owned_keys(
 		&"author.base",
 		[],
 		[
-			{
-				"key": "shared.icon",
-				"path": "assets/base_icon.tres",
-			},
+			{ "key": "shared.icon", "path": "assets/base_icon.tres", },
 		],
 		TEMP_ROOT.path_join("base")
 	)
@@ -505,17 +670,33 @@ func test_catalog_register_resources_clears_previous_content_package_owned_keys(
 	var _catalog_updated: GFContentPackageCatalog = catalog.set_manifests([manifest])
 	var resolver: GFResourceResolverUtility = GFResourceResolverUtility.new()
 	resolver.init()
-	var _first_report: Dictionary = catalog.register_resources(resolver, { "check_resource_exists": false })
+	var _first_report: Dictionary = catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(
-		resolver.resolve(&"shared.icon", "", { "check_exists": false }),
+		resolver.resolve(
+			&"shared.icon",
+			"",
+			{ "check_exists": false }
+		),
 		"metadata"
 	)
 
 	var empty_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
-	var _second_report: Dictionary = empty_catalog.register_resources(resolver, { "check_resource_exists": false })
+	var _second_report: Dictionary = empty_catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
 
-	assert_true(GFVariantData.get_option_bool(metadata, "_gf_content_package_resource"), "内容包注册的资源应带 owned 标记。")
-	assert_false(resolver.has_registered_key(&"shared.icon"), "下一次同步应清理上一轮内容包拥有的旧资源键。")
+	assert_true(
+		GFVariantData.get_option_bool(metadata, "_gf_content_package_resource"),
+		"内容包注册的资源应带 owned 标记。"
+	)
+	assert_false(
+		resolver.has_registered_key(&"shared.icon"),
+		"下一次同步应清理上一轮内容包拥有的旧资源键。"
+	)
 	resolver.dispose()
 
 
@@ -524,10 +705,7 @@ func test_catalog_register_resources_preserves_project_owned_same_key() -> void:
 		&"author.base",
 		[],
 		[
-			{
-				"key": "shared.icon",
-				"path": "assets/base_icon.tres",
-			},
+			{ "key": "shared.icon", "path": "assets/base_icon.tres", },
 		],
 		TEMP_ROOT.path_join("base")
 	)
@@ -542,12 +720,26 @@ func test_catalog_register_resources_preserves_project_owned_same_key() -> void:
 		-10,
 		{ "source": "project" }
 	)
-	var _first_report: Dictionary = catalog.register_resources(resolver, { "check_resource_exists": false })
-	var content_report: Dictionary = resolver.resolve(&"shared.icon", "", { "check_exists": false })
+	var _first_report: Dictionary = catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
+	var content_report: Dictionary = resolver.resolve(
+		&"shared.icon",
+		"",
+		{ "check_exists": false }
+	)
 
 	var empty_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
-	var _second_report: Dictionary = empty_catalog.register_resources(resolver, { "check_resource_exists": false })
-	var restored_report: Dictionary = resolver.resolve(&"shared.icon", "", { "check_exists": false })
+	var _second_report: Dictionary = empty_catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
+	var restored_report: Dictionary = resolver.resolve(
+		&"shared.icon",
+		"",
+		{ "check_exists": false }
+	)
 	var restored_metadata: Dictionary = GFVariantData.get_option_dictionary(restored_report, "metadata")
 
 	assert_eq(
@@ -555,9 +747,20 @@ func test_catalog_register_resources_preserves_project_owned_same_key() -> void:
 		TEMP_ROOT.path_join("base/assets/base_icon.tres"),
 		"内容包 owned 记录应能按优先级覆盖同名项目记录。"
 	)
-	assert_true(resolver.has_registered_key(&"shared.icon"), "清理内容包 owner 后不应删除项目自己的同名 key。")
-	assert_eq(GFVariantData.get_option_string(restored_report, "path"), "res://icon.svg", "内容包清理后应恢复项目注册路径。")
-	assert_eq(GFVariantData.get_option_string(restored_metadata, "source"), "project", "恢复后的报告应保留项目注册 metadata。")
+	assert_true(
+		resolver.has_registered_key(&"shared.icon"),
+		"清理内容包 owner 后不应删除项目自己的同名 key。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(restored_report, "path"),
+		"res://icon.svg",
+		"内容包清理后应恢复项目注册路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(restored_metadata, "source"),
+		"project",
+		"恢复后的报告应保留项目注册 metadata。"
+	)
 	resolver.dispose()
 
 
@@ -566,10 +769,7 @@ func test_catalog_register_resources_keeps_previous_keys_when_candidate_graph_is
 		&"author.base",
 		[],
 		[
-			{
-				"key": "shared.icon",
-				"path": "assets/base_icon.tres",
-			},
+			{ "key": "shared.icon", "path": "assets/base_icon.tres", },
 		],
 		TEMP_ROOT.path_join("base")
 	)
@@ -577,7 +777,10 @@ func test_catalog_register_resources_keeps_previous_keys_when_candidate_graph_is
 	var _catalog_updated: GFContentPackageCatalog = catalog.set_manifests([manifest])
 	var resolver: GFResourceResolverUtility = GFResourceResolverUtility.new()
 	resolver.init()
-	var _first_report: Dictionary = catalog.register_resources(resolver, { "check_resource_exists": false })
+	var _first_report: Dictionary = catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
 	var invalid_manifest: GFContentPackageManifest = _make_manifest(
 		&"author.invalid",
 		PackedStringArray(["author.missing"])
@@ -585,10 +788,19 @@ func test_catalog_register_resources_keeps_previous_keys_when_candidate_graph_is
 	var invalid_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 	var _invalid_catalog_updated: GFContentPackageCatalog = invalid_catalog.set_manifests([invalid_manifest])
 
-	var invalid_report: Dictionary = invalid_catalog.register_resources(resolver, { "check_resource_exists": false })
+	var invalid_report: Dictionary = invalid_catalog.register_resources(
+		resolver,
+		{ "check_resource_exists": false }
+	)
 
-	assert_false(GFVariantData.get_option_bool(invalid_report, "ok"), "候选内容包图无效时注册应失败。")
-	assert_true(resolver.has_registered_key(&"shared.icon"), "候选图校验失败不应提前清理上一份有效内容包资源键。")
+	assert_false(
+		GFVariantData.get_option_bool(invalid_report, "ok"),
+		"候选内容包图无效时注册应失败。"
+	)
+	assert_true(
+		resolver.has_registered_key(&"shared.icon"),
+		"候选图校验失败不应提前清理上一份有效内容包资源键。"
+	)
 	resolver.dispose()
 
 
@@ -596,8 +808,18 @@ func test_catalog_register_resources_reports_missing_resolver_without_crash() ->
 	var catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 	var report: Dictionary = catalog.register_resources(null)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "直接调用 catalog.register_resources(null) 应返回诊断报告。")
-	assert_eq(GFVariantData.get_option_string(_find_issue(report, "missing_resource_resolver"), "kind"), "missing_resource_resolver", "空 resolver 应有稳定 issue kind。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"直接调用 catalog.register_resources(null) 应返回诊断报告。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			_find_issue(report, "missing_resource_resolver"),
+			"kind"
+		),
+		"missing_resource_resolver",
+		"空 resolver 应有稳定 issue kind。"
+	)
 
 
 func test_utility_discovers_direct_child_package_manifests() -> void:
@@ -617,9 +839,19 @@ func test_utility_discovers_direct_child_package_manifests() -> void:
 	var report: Dictionary = utility.rebuild_catalog()
 
 	assert_true(registered, "res:// source root 应可注册。")
-	assert_eq(paths.size(), 1, "source root 的直接子目录 manifest 应被发现。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "发现到的有效 manifest 应能重建目录。")
-	assert_true(utility.get_catalog().has_package(&"author.base"), "重建后的目录应包含内容包。")
+	assert_eq(
+		paths.size(),
+		1,
+		"source root 的直接子目录 manifest 应被发现。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"发现到的有效 manifest 应能重建目录。"
+	)
+	assert_true(
+		utility.get_catalog().has_package(&"author.base"),
+		"重建后的目录应包含内容包。"
+	)
 	utility.dispose()
 
 
@@ -630,15 +862,27 @@ func test_utility_source_root_removal_resets_stale_catalog() -> void:
 	var valid_manifest: GFContentPackageManifest = _make_manifest(&"author.valid")
 	var _set_report: Dictionary = utility.set_manifests([valid_manifest])
 
-	assert_true(utility.get_catalog().has_package(&"author.valid"), "测试前应已有目录内容。")
-	assert_true(utility.unregister_source_root(TEMP_ROOT), "已注册 source root 应可注销。")
-	assert_false(utility.get_catalog().has_package(&"author.valid"), "注销 source root 后不应继续暴露旧 catalog。")
+	assert_true(
+		utility.get_catalog().has_package(&"author.valid"),
+		"测试前应已有目录内容。"
+	)
+	assert_true(
+		utility.unregister_source_root(TEMP_ROOT),
+		"已注册 source root 应可注销。"
+	)
+	assert_false(
+		utility.get_catalog().has_package(&"author.valid"),
+		"注销 source root 后不应继续暴露旧 catalog。"
+	)
 
 	utility.dispose()
 
 
 func test_utility_reports_invalid_manifest_files() -> void:
-	_write_text_file(TEMP_ROOT.path_join("broken/gf_content_package.json"), "{not-json")
+	_write_text_file(
+		TEMP_ROOT.path_join("broken/gf_content_package.json"),
+		"{not-json"
+	)
 	var utility: GFContentPackageUtility = GFContentPackageUtility.new()
 	utility.init()
 	var _registered: bool = utility.register_source_root(TEMP_ROOT)
@@ -646,9 +890,20 @@ func test_utility_reports_invalid_manifest_files() -> void:
 	var report: Dictionary = utility.rebuild_catalog()
 	var issue: Dictionary = _find_issue(report, "invalid_manifest_file")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "坏 manifest JSON 不应被静默跳过。")
-	assert_eq(GFVariantData.get_option_int(report, "error_count"), 1, "坏 manifest 文件应计入错误数量。")
-	assert_eq(GFVariantData.get_option_int(report, "issue_count"), 1, "坏 manifest 文件应计入问题数量。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"坏 manifest JSON 不应被静默跳过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "error_count"),
+		1,
+		"坏 manifest 文件应计入错误数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "issue_count"),
+		1,
+		"坏 manifest 文件应计入问题数量。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(issue, "kind"),
 		"invalid_manifest_file",
@@ -659,11 +914,14 @@ func test_utility_reports_invalid_manifest_files() -> void:
 
 func test_utility_keeps_previous_catalog_when_discovered_manifest_has_empty_package_id() -> void:
 	var invalid_manifest_path: String = TEMP_ROOT.path_join("missing_id/gf_content_package.json")
-	_write_manifest_file(invalid_manifest_path, {
-		"schema_version": 1,
-		"version": "1.0.0",
-		"resources": [],
-	})
+	_write_manifest_file(
+		invalid_manifest_path,
+		{
+			"schema_version": 1,
+			"version": "1.0.0",
+			"resources": [],
+		}
+	)
 	var utility: GFContentPackageUtility = GFContentPackageUtility.new()
 	utility.init()
 	var _registered: bool = utility.register_source_root(TEMP_ROOT)
@@ -673,19 +931,45 @@ func test_utility_keeps_previous_catalog_when_discovered_manifest_has_empty_pack
 	var report: Dictionary = utility.rebuild_catalog()
 	var issue: Dictionary = _find_issue(report, "missing_package_id")
 	var rejected_inputs: Array = GFVariantData.get_option_array(report, "rejected_manifest_inputs")
-	assert_eq(rejected_inputs.size(), 1)
+	assert_eq(
+		rejected_inputs.size(),
+		1
+	)
 	if rejected_inputs.is_empty():
 		utility.dispose()
 		return
 	var rejected_input: Dictionary = GFVariantData.as_dictionary(rejected_inputs[0])
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺少 package_id 的已解析 manifest 必须拒绝整份候选目录。")
-	assert_eq(GFVariantData.get_option_int(report, "rejected_manifest_count"), 1)
-	assert_eq(GFVariantData.get_option_int(rejected_input, "input_index"), 0)
-	assert_eq(GFVariantData.get_option_string(rejected_input, "source_path"), invalid_manifest_path)
-	assert_eq(GFVariantData.get_option_string(issue, "source_path"), invalid_manifest_path, "拒绝诊断必须保留输入来源。")
-	assert_true(utility.get_catalog().has_package(&"author.previous"), "失败候选不得覆盖上一份有效目录。")
-	assert_signal_not_emitted(utility, "catalog_rebuilt", "失败候选不得发布 catalog_rebuilt。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"缺少 package_id 的已解析 manifest 必须拒绝整份候选目录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "rejected_manifest_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(rejected_input, "input_index"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rejected_input, "source_path"),
+		invalid_manifest_path
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "source_path"),
+		invalid_manifest_path,
+		"拒绝诊断必须保留输入来源。"
+	)
+	assert_true(
+		utility.get_catalog().has_package(&"author.previous"),
+		"失败候选不得覆盖上一份有效目录。"
+	)
+	assert_signal_not_emitted(
+		utility,
+		"catalog_rebuilt",
+		"失败候选不得发布 catalog_rebuilt。"
+	)
 	utility.dispose()
 
 
@@ -706,9 +990,19 @@ func test_utility_discovers_user_source_root_manifests() -> void:
 	var report: Dictionary = utility.rebuild_catalog()
 
 	assert_true(registered, "user:// source root 应可注册。")
-	assert_eq(paths.size(), 1, "user:// source root 的直接子目录 manifest 应被发现。")
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "user:// 内容包 manifest 应能重建目录。")
-	assert_true(utility.get_catalog().has_package(&"author.runtime"), "重建后的目录应包含 user:// 内容包。")
+	assert_eq(
+		paths.size(),
+		1,
+		"user:// source root 的直接子目录 manifest 应被发现。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"user:// 内容包 manifest 应能重建目录。"
+	)
+	assert_true(
+		utility.get_catalog().has_package(&"author.runtime"),
+		"重建后的目录应包含 user:// 内容包。"
+	)
 	utility.dispose()
 
 
@@ -723,10 +1017,23 @@ func test_utility_keeps_previous_catalog_when_manual_replacement_is_invalid() ->
 
 	var invalid_report: Dictionary = utility.set_manifests([duplicate_a, duplicate_b])
 
-	assert_false(GFVariantData.get_option_bool(invalid_report, "ok"), "无效候选 catalog 不应替换当前 catalog。")
-	assert_true(utility.get_catalog().has_package(&"author.valid"), "替换失败时应保留上一份有效 catalog。")
-	assert_false(utility.get_catalog().has_package(&"author.duplicate"), "替换失败时不应泄露候选 catalog。")
-	assert_signal_not_emitted(utility, "catalog_rebuilt", "失败替换不应发出 catalog_rebuilt。")
+	assert_false(
+		GFVariantData.get_option_bool(invalid_report, "ok"),
+		"无效候选 catalog 不应替换当前 catalog。"
+	)
+	assert_true(
+		utility.get_catalog().has_package(&"author.valid"),
+		"替换失败时应保留上一份有效 catalog。"
+	)
+	assert_false(
+		utility.get_catalog().has_package(&"author.duplicate"),
+		"替换失败时不应泄露候选 catalog。"
+	)
+	assert_signal_not_emitted(
+		utility,
+		"catalog_rebuilt",
+		"失败替换不应发出 catalog_rebuilt。"
+	)
 	utility.dispose()
 
 
@@ -737,9 +1044,15 @@ func test_utility_catalog_snapshot_and_source_root_changes_are_isolated() -> voi
 	var exposed_catalog: GFContentPackageCatalog = utility.get_catalog()
 	exposed_catalog.clear()
 
-	assert_true(utility.get_catalog().has_package(&"author.cached"), "get_catalog 不应暴露内部可变 catalog。")
+	assert_true(
+		utility.get_catalog().has_package(&"author.cached"),
+		"get_catalog 不应暴露内部可变 catalog。"
+	)
 	assert_true(utility.register_source_root(TEMP_ROOT))
-	assert_false(utility.get_catalog().has_package(&"author.cached"), "新增 source root 后旧 catalog 必须立即失效。")
+	assert_false(
+		utility.get_catalog().has_package(&"author.cached"),
+		"新增 source root 后旧 catalog 必须立即失效。"
+	)
 	utility.dispose()
 
 
@@ -757,15 +1070,23 @@ func test_export_plan_builds_manifest_and_resource_entries() -> void:
 		TEMP_ROOT.path_join("base")
 	)
 
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, {
-		"archive_root": "packages/base",
-	})
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(
+		manifest,
+		{ "archive_root": "packages/base", }
+	)
 	var report: Dictionary = plan.get_validation_report()
 	var entries: Array = GFVariantData.get_option_array(report, "entries")
 	var resource_entry: Dictionary = _find_export_entry(entries, &"resource")
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "有效 manifest 应能构建导出计划。")
-	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 2, "计划应包含 manifest 和资源条目。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"有效 manifest 应能构建导出计划。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "entry_count"),
+		2,
+		"计划应包含 manifest 和资源条目。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(resource_entry, "archive_path"),
 		"packages/base/assets/icon.tres",
@@ -774,25 +1095,39 @@ func test_export_plan_builds_manifest_and_resource_entries() -> void:
 
 
 func test_export_plan_deduplicates_resource_aliases_of_the_same_file() -> void:
-	var manifest: GFContentPackageManifest = _make_manifest(&"author.aliases", [], [
-		{ "key": "first", "path": "shared.tres" },
-		{ "key": "second", "path": "shared.tres" },
-	], TEMP_ROOT.path_join("aliases"))
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, { "include_manifest": false })
+	var manifest: GFContentPackageManifest = _make_manifest(
+		&"author.aliases",
+		[],
+		[
+			{ "key": "first", "path": "shared.tres" },
+			{ "key": "second", "path": "shared.tres" },
+		],
+		TEMP_ROOT.path_join("aliases")
+	)
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(
+		manifest,
+		{ "include_manifest": false }
+	)
 	var report: Dictionary = plan.get_validation_report()
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(GFVariantData.get_option_int(report, "entry_count"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(report, "entry_count"),
+		1
+	)
 
 
 func test_export_plan_artifact_report_includes_file_metadata() -> void:
 	var root_path: String = TEMP_ROOT.path_join("artifact")
 	var resource_path: String = root_path.path_join("assets/icon.txt")
-	_write_manifest_file(root_path.path_join("gf_content_package.json"), {
-		"schema_version": 1,
-		"package_id": "author.artifact",
-		"version": "1.0.0",
-		"resources": [],
-	})
+	_write_manifest_file(
+		root_path.path_join("gf_content_package.json"),
+		{
+			"schema_version": 1,
+			"package_id": "author.artifact",
+			"version": "1.0.0",
+			"resources": [],
+		}
+	)
 	_write_text_file(resource_path, "icon-data")
 	var expected_sha256: String = FileAccess.get_sha256(resource_path).to_lower()
 	var expected_size: int = _read_file_size(resource_path)
@@ -803,10 +1138,7 @@ func test_export_plan_artifact_report_includes_file_metadata() -> void:
 			{
 				"key": "icon",
 				"path": "assets/icon.txt",
-				"metadata": {
-					"expected_sha256": expected_sha256,
-					"expected_size_bytes": expected_size,
-				},
+				"metadata": { "expected_sha256": expected_sha256, "expected_size_bytes": expected_size, },
 			},
 		],
 		root_path
@@ -817,8 +1149,15 @@ func test_export_plan_artifact_report_includes_file_metadata() -> void:
 	var artifacts: Array = GFVariantData.get_option_array(report, "artifacts")
 	var resource_artifact: Dictionary = _find_export_entry(artifacts, &"resource")
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "artifact 元数据匹配时报告应通过。")
-	assert_eq(GFVariantData.get_option_int(report, "artifact_count"), 2, "报告应包含 manifest 和资源 artifact。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"artifact 元数据匹配时报告应通过。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "artifact_count"),
+		2,
+		"报告应包含 manifest 和资源 artifact。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(resource_artifact, "size_bytes"),
 		expected_size,
@@ -836,31 +1175,37 @@ func test_manifest_and_export_plan_report_dictionaries_are_json_safe() -> void:
 		&"author.report",
 		[],
 		[
-			{
-				"key": "icon",
-				"path": "assets/icon.tres",
-			},
+			{ "key": "icon", "path": "assets/icon.tres", },
 		],
 		TEMP_ROOT.path_join("report")
 	)
-	manifest.metadata = {
-		"resource": Resource.new(),
-		"heat": NAN,
-	}
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, {
-		"metadata": {
-			"resource": Resource.new(),
-			"heat": INF,
-		},
-	})
+	manifest.metadata = { "resource": Resource.new(), "heat": NAN, }
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(
+		manifest,
+		{
+			"metadata": { "resource": Resource.new(), "heat": INF, },
+		}
+	)
 
 	var manifest_text: String = JSON.stringify(manifest.to_report_dictionary())
 	var plan_text: String = JSON.stringify(plan.to_report_dictionary())
 
-	assert_true(manifest_text.contains("__gf_report_value__"), "manifest 报告应把 Resource 元数据转成报告 marker。")
-	assert_true(manifest_text.contains("__gf_variant__"), "manifest 报告应把 NaN 转成 GF Variant marker。")
-	assert_true(plan_text.contains("__gf_report_value__"), "导出计划报告应把 Resource 元数据转成报告 marker。")
-	assert_true(plan_text.contains("__gf_variant__"), "导出计划报告应把 INF 转成 GF Variant marker。")
+	assert_true(
+		manifest_text.contains("__gf_report_value__"),
+		"manifest 报告应把 Resource 元数据转成报告 marker。"
+	)
+	assert_true(
+		manifest_text.contains("__gf_variant__"),
+		"manifest 报告应把 NaN 转成 GF Variant marker。"
+	)
+	assert_true(
+		plan_text.contains("__gf_report_value__"),
+		"导出计划报告应把 Resource 元数据转成报告 marker。"
+	)
+	assert_true(
+		plan_text.contains("__gf_variant__"),
+		"导出计划报告应把 INF 转成 GF Variant marker。"
+	)
 
 
 func test_export_plan_from_catalog_propagates_graph_errors() -> void:
@@ -874,9 +1219,15 @@ func test_export_plan_from_catalog_propagates_graph_errors() -> void:
 	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_catalog(catalog)
 	var report: Dictionary = plan.get_validation_report()
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "catalog 依赖图错误应传播到导出计划。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"catalog 依赖图错误应传播到导出计划。"
+	)
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "missing_dependency"), "kind"),
+		GFVariantData.get_option_string(
+			_find_issue(report, "missing_dependency"),
+			"kind"
+		),
 		"missing_dependency",
 		"导出计划应保留 catalog graph issue kind。"
 	)
@@ -890,35 +1241,75 @@ func test_export_plan_from_catalog_scopes_archive_paths_and_dependency_ownership
 		var dependency_path: String = root_path.path_join("assets/shared_dependency.tres")
 		var root_resource_path: String = root_path.path_join("assets/shared.tres")
 		_write_text_file(dependency_path, "[gd_resource type=\"Resource\" format=3]\n\n[resource]\n")
-		_write_text_file(root_resource_path, "\n".join([
-			"[gd_resource type=\"Resource\" load_steps=2 format=3]",
-			"",
-			"[ext_resource type=\"Resource\" path=\"%s\" id=\"1\"]" % dependency_path,
-			"",
-			"[resource]",
-			"metadata/dependency = ExtResource(\"1\")",
-		]))
-		manifests.append(_make_manifest(
-			package_id,
-			[],
-			[{ "key": "%s.shared" % package_suffix, "path": "assets/shared.tres" }],
-			root_path
-		))
+		_write_text_file(
+			root_resource_path,
+			"\n".join(
+				[
+					"[gd_resource type=\"Resource\" load_steps=2 format=3]",
+					"",
+					"[ext_resource type=\"Resource\" path=\"%s\" id=\"1\"]" % dependency_path,
+					"",
+					"[resource]",
+					"metadata/dependency = ExtResource(\"1\")",
+				]
+			)
+		)
+		manifests.append(
+			_make_manifest(
+				package_id,
+				[],
+				[
+					{ "key": "%s.shared" % package_suffix, "path": "assets/shared.tres" },
+				],
+				root_path
+			)
+		)
 	var catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
 	var _catalog_updated: GFContentPackageCatalog = catalog.set_manifests(manifests)
 
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_catalog(catalog, {
-		"include_manifest": false,
-		"include_resource_dependencies": true,
-	})
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_catalog(
+		catalog,
+		{ "include_manifest": false, "include_resource_dependencies": true, }
+	)
 	var report: Dictionary = plan.get_validation_report()
 	var entries: Array = GFVariantData.get_option_array(report, "entries")
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "不同包的相同相对路径不应在归档中冲突。")
-	assert_true(_has_export_entry(entries, &"author.base", &"resource", "author.base/assets/shared.tres"))
-	assert_true(_has_export_entry(entries, &"author.feature", &"resource", "author.feature/assets/shared.tres"))
-	assert_true(_has_export_entry(entries, &"author.base", &"dependency", "author.base/assets/shared_dependency.tres"))
-	assert_true(_has_export_entry(entries, &"author.feature", &"dependency", "author.feature/assets/shared_dependency.tres"))
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"不同包的相同相对路径不应在归档中冲突。"
+	)
+	assert_true(
+		_has_export_entry(
+			entries,
+			&"author.base",
+			&"resource",
+			"author.base/assets/shared.tres"
+		)
+	)
+	assert_true(
+		_has_export_entry(
+			entries,
+			&"author.feature",
+			&"resource",
+			"author.feature/assets/shared.tres"
+		)
+	)
+	assert_true(
+		_has_export_entry(
+			entries,
+			&"author.base",
+			&"dependency",
+			"author.base/assets/shared_dependency.tres"
+		)
+	)
+	assert_true(
+		_has_export_entry(
+			entries,
+			&"author.feature",
+			&"dependency",
+			"author.feature/assets/shared_dependency.tres"
+		)
+	)
 
 
 func test_export_plan_rejects_unsafe_archive_paths() -> void:
@@ -932,9 +1323,16 @@ func test_export_plan_rejects_unsafe_archive_paths() -> void:
 	assert_false(parent_escape_added, "归档路径不应允许父级越界。")
 	assert_false(absolute_added, "归档路径不应允许绝对路径。")
 	assert_false(drive_added, "归档路径不应允许平台盘符或 scheme。")
-	assert_eq(GFVariantData.get_option_int(report, "error_count"), 3, "所有非法归档路径都应进入诊断。")
 	assert_eq(
-		GFVariantData.get_option_string(_find_issue(report, "invalid_archive_path"), "kind"),
+		GFVariantData.get_option_int(report, "error_count"),
+		3,
+		"所有非法归档路径都应进入诊断。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			_find_issue(report, "invalid_archive_path"),
+			"kind"
+		),
 		"invalid_archive_path",
 		"非法归档路径应使用稳定 issue kind。"
 	)
@@ -944,21 +1342,32 @@ func test_export_plan_rejects_duplicate_archive_paths_on_add_and_validation() ->
 	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
 	var first_added: bool = plan.add_entry("res://icon_a.txt", "assets/icon.txt")
 	var duplicate_added: bool = plan.add_entry("res://icon_b.txt", "assets/icon.txt")
-	plan.entries.append({
-		"source_path": "res://manual_a.txt",
-		"archive_path": "assets/manual.txt",
-		"role": &"resource",
-	})
-	plan.entries.append({
-		"source_path": "res://manual_b.txt",
-		"archive_path": "assets/manual.txt",
-		"role": &"resource",
-	})
+	plan.entries.append(
+		{
+			"source_path": "res://manual_a.txt",
+			"archive_path": "assets/manual.txt",
+			"role": &"resource",
+		}
+	)
+	plan.entries.append(
+		{
+			"source_path": "res://manual_b.txt",
+			"archive_path": "assets/manual.txt",
+			"role": &"resource",
+		}
+	)
 	var report: Dictionary = plan.get_validation_report()
 
 	assert_true(first_added, "第一条归档路径应可加入。")
 	assert_false(duplicate_added, "add_entry 应直接拒绝重复归档路径。")
-	assert_eq(GFVariantData.get_option_string(_find_issue(report, "duplicate_archive_path"), "kind"), "duplicate_archive_path", "手动篡改 entries 后校验报告仍应发现重复归档路径。")
+	assert_eq(
+		GFVariantData.get_option_string(
+			_find_issue(report, "duplicate_archive_path"),
+			"kind"
+		),
+		"duplicate_archive_path",
+		"手动篡改 entries 后校验报告仍应发现重复归档路径。"
+	)
 
 
 func test_export_plan_artifact_report_detects_expected_metadata_mismatch() -> void:
@@ -972,23 +1381,24 @@ func test_export_plan_artifact_report_detects_expected_metadata_mismatch() -> vo
 			{
 				"key": "icon",
 				"path": "assets/icon.txt",
-				"metadata": {
-					"expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-					"expected_size_bytes": 999,
-				},
+				"metadata": { "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000", "expected_size_bytes": 999, },
 			},
 		],
 		root_path
 	)
 
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, {
-		"include_manifest": false,
-	})
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(
+		manifest,
+		{ "include_manifest": false, }
+	)
 	var report: Dictionary = plan.get_artifact_report()
 	var size_issue: Dictionary = _find_issue(report, "artifact_size_mismatch")
 	var sha_issue: Dictionary = _find_issue(report, "artifact_sha256_mismatch")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "expected metadata 不匹配时 artifact 报告应失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"expected metadata 不匹配时 artifact 报告应失败。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(size_issue, "kind"),
 		"artifact_size_mismatch",
@@ -1012,26 +1422,28 @@ func test_export_plan_artifact_report_can_skip_sha256_calculation() -> void:
 			{
 				"key": "icon",
 				"path": "assets/icon.txt",
-				"metadata": {
-					"expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-					"expected_size_bytes": _read_file_size(resource_path),
-				},
+				"metadata": { "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000", "expected_size_bytes": _read_file_size(resource_path), },
 			},
 		],
 		root_path
 	)
 
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, {
-		"include_manifest": false,
-	})
-	var report: Dictionary = plan.get_artifact_report({
-		"include_sha256": false,
-	})
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(
+		manifest,
+		{ "include_manifest": false, }
+	)
+	var report: Dictionary = plan.get_artifact_report({ "include_sha256": false, })
 	var artifacts: Array = GFVariantData.get_option_array(report, "artifacts")
 	var resource_artifact: Dictionary = _find_export_entry(artifacts, &"resource")
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "关闭 sha256 计算时不应执行 sha256 metadata 校验。")
-	assert_false(resource_artifact.has("sha256"), "关闭 include_sha256 后 artifact 不应输出 sha256。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"关闭 sha256 计算时不应执行 sha256 metadata 校验。"
+	)
+	assert_false(
+		resource_artifact.has("sha256"),
+		"关闭 include_sha256 后 artifact 不应输出 sha256。"
+	)
 
 
 func test_export_plan_preflight_merges_profile_and_artifact_checks() -> void:
@@ -1042,16 +1454,14 @@ func test_export_plan_preflight_merges_profile_and_artifact_checks() -> void:
 		&"author.preflight",
 		[],
 		[
-			{
-				"key": "icon",
-				"path": "assets/icon.txt",
-			},
+			{ "key": "icon", "path": "assets/icon.txt", },
 		],
 		root_path
 	)
-	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(manifest, {
-		"include_manifest": false,
-	})
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_manifest(
+		manifest,
+		{ "include_manifest": false, }
+	)
 	var profile: GFCompatibilityProfile = GFCompatibilityProfile.new()
 	var _configured_profile: GFCompatibilityProfile = profile.configure(
 		&"desktop",
@@ -1061,22 +1471,41 @@ func test_export_plan_preflight_merges_profile_and_artifact_checks() -> void:
 		PackedStringArray(["content_package"])
 	)
 
-	var report: Dictionary = plan.get_preflight_report(profile, {
-		"minimum_godot_version": "4.8.0",
-		"required_features": PackedStringArray(["offline_bundle"]),
-	})
+	var report: Dictionary = plan.get_preflight_report(
+		profile,
+		{
+			"minimum_godot_version": "4.8.0",
+			"required_features": PackedStringArray(["offline_bundle"]),
+		}
+	)
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "不满足显式 Profile 要求时内容包预检应失败。")
-	assert_false(_find_issue(report, "godot_version_below_minimum").is_empty(), "Godot 版本要求应进入内容包预检。")
-	assert_false(_find_issue(report, "feature_missing").is_empty(), "功能要求应进入内容包预检。")
-	assert_eq(GFVariantData.get_option_string_name(report, "target_id"), &"author.preflight", "预检应标识内容包 ID。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"不满足显式 Profile 要求时内容包预检应失败。"
+	)
+	assert_false(
+		_find_issue(report, "godot_version_below_minimum").is_empty(),
+		"Godot 版本要求应进入内容包预检。"
+	)
+	assert_false(
+		_find_issue(report, "feature_missing").is_empty(),
+		"功能要求应进入内容包预检。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "target_id"),
+		&"author.preflight",
+		"预检应标识内容包 ID。"
+	)
 
 
 func test_extension_installer_registers_content_package_utility() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var installer: GFInstaller = GF_CONTENT_PACKAGE_EXTENSION.new()
 
-	installer.install(architecture, GFAsyncScope.new())
+	installer.install(
+		architecture,
+		GFAsyncScope.new()
+	)
 
 	assert_not_null(
 		architecture.get_local_utility(GFContentPackageUtility),
@@ -1151,7 +1580,10 @@ func _has_export_entry(
 
 
 func _write_manifest_file(path: String, data: Dictionary) -> void:
-	_write_text_file(path, JSON.stringify(data))
+	_write_text_file(
+		path,
+		JSON.stringify(data)
+	)
 
 
 func _write_text_file(path: String, text: String) -> void:

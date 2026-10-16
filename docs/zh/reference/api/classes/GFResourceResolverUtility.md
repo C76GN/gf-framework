@@ -25,7 +25,7 @@
 | 方法 | [`unregister_owner`](#member-gfresourceresolverutility-methods-unregister_owner) | `func unregister_owner(owner_id: StringName) -> int:` |
 | 方法 | [`replace_owner_paths`](#member-gfresourceresolverutility-methods-replace_owner_paths) | `func replace_owner_paths(owner_id: StringName, entries: Array) -> Dictionary:` |
 | 方法 | [`clear_paths`](#member-gfresourceresolverutility-methods-clear_paths) | `func clear_paths() -> void:` |
-| 方法 | [`register_provider`](#member-gfresourceresolverutility-methods-register_provider) | `func register_provider(provider: Object, provider_id: StringName = &"", priority: int = 0) -> bool:` |
+| 方法 | [`register_provider`](#member-gfresourceresolverutility-methods-register_provider) | `func register_provider( provider: Object, provider_id: StringName = &"", priority: int = 0 ) -> bool:` |
 | 方法 | [`unregister_provider`](#member-gfresourceresolverutility-methods-unregister_provider) | `func unregister_provider(provider: Object) -> bool:` |
 | 方法 | [`clear_providers`](#member-gfresourceresolverutility-methods-clear_providers) | `func clear_providers() -> void:` |
 | 方法 | [`has_registered_key`](#member-gfresourceresolverutility-methods-has_registered_key) | `func has_registered_key(resource_key: StringName) -> bool:` |
@@ -244,7 +244,7 @@ func clear_paths() -> void:
 - 首次版本：`4.4.0`
 
 ```gdscript
-func register_provider(provider: Object, provider_id: StringName = &"", priority: int = 0) -> bool:
+func register_provider( provider: Object, provider_id: StringName = &"", priority: int = 0 ) -> bool:
 ```
 
 注册一个资源解析 provider。 provider 应实现 `resolve_resource(request: Dictionary) -> Variant`。返回值可为 Dictionary、String 路径或 Resource。 Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`cache_key`、`resource_identity`、`reason`、`metadata` 和 `provider_id`。

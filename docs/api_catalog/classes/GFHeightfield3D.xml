@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHeightfield3D" path="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" module="standard" extends="RefCounted" classDigest="6b13b3ddcfacaa51d17da4d7fd418e0641597e0bb5de89a0f4f9b7179a94ae55">
+<class name="GFHeightfield3D" path="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" module="standard" extends="RefCounted" classDigest="e5c9dd0996ebb838aafb830ec26b2f298a906071ad5bac722b52fac5a1411740">
 	<description>GFHeightfield3D: 通用 X/Z 平面高度场采样数据。
 保存一组行优先高度样本，并提供世界坐标到网格坐标转换、双线性高度采样、
 法线估算和诊断快照。它只处理纯数据，不创建地形节点、碰撞体、材质或渲染资源。</description>
@@ -244,7 +244,7 @@ Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 2
 			</tags>
 		</member>
 		<member kind="method" name="sample_world">
-			<signature>func sample_world(world_x: float, world_z: float, fallback: Variant = null) -&gt; float:</signature>
+			<signature>func sample_world( world_x: float, world_z: float, fallback: Variant = null ) -&gt; float:</signature>
 			<description>按 X/Z 世界坐标采样高度。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -292,7 +292,7 @@ Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 2
 			</tags>
 		</member>
 		<member kind="method" name="sample_normal_world">
-			<signature>func sample_normal_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -&gt; Vector3:</signature>
+			<signature>func sample_normal_world( world_x: float, world_z: float, vertical_scale: float = 1.0 ) -&gt; Vector3:</signature>
 			<description>按 X/Z 世界坐标估算表面法线。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -304,7 +304,7 @@ Terrain-RGB 使用 RGB 三通道编码米制高度：-10000 + (R * 65536 + G * 2
 			</tags>
 		</member>
 		<member kind="method" name="sample_slope_world">
-			<signature>func sample_slope_world(world_x: float, world_z: float, vertical_scale: float = 1.0) -&gt; float:</signature>
+			<signature>func sample_slope_world( world_x: float, world_z: float, vertical_scale: float = 1.0 ) -&gt; float:</signature>
 			<description>按 X/Z 世界坐标估算归一化坡度。
 返回值范围为 0.0 到 1.0；无效高度场或坐标返回 1.0，便于调用方按保守策略拒绝无效表面。</description>
 			<tags>

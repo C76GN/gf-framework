@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuietWindowCoalescer" path="addons/gf/standard/common/gf_quiet_window_coalescer.gd" module="standard" extends="RefCounted" classDigest="1f0bb6557c9580b2565f3cfbc2b86d733427f8d45a4a50a119e7ac50514280e2">
+<class name="GFQuietWindowCoalescer" path="addons/gf/standard/common/gf_quiet_window_coalescer.gd" module="standard" extends="RefCounted" classDigest="5fa286aeaec7973ab44c8d989e64b7c4b7519d99c66f77f8d432d830eb3bb50b">
 	<description>GFQuietWindowCoalescer: 按 key 聚合连发消息的静默窗口协调器。
 每个 key 独立收集按序消息，在最后一次提交后的静默窗口、批次最大窗口或
 消息数量上限到达时关闭批次。框架不解释消息内容；项目可通过 merge_callback
@@ -132,7 +132,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="submit_at">
-			<signature>func submit_at(key: StringName, message: Variant, now_msec: int) -&gt; int:</signature>
+			<signature>func submit_at( key: StringName, message: Variant, now_msec: int ) -&gt; int:</signature>
 			<description>使用显式单调时间把消息提交到 key 对应批次。</description>
 			<tags>
 				<tag name="api">public</tag>

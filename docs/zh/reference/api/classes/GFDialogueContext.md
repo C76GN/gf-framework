@@ -23,8 +23,8 @@
 | 方法 | [`get_architecture`](#member-gfdialoguecontext-methods-get_architecture) | `func get_architecture() -> GFArchitecture:` |
 | 方法 | [`set_value`](#member-gfdialoguecontext-methods-set_value) | `func set_value(key: StringName, value: Variant) -> GFDialogueContext:` |
 | 方法 | [`get_value`](#member-gfdialoguecontext-methods-get_value) | `func get_value(key: StringName, default_value: Variant = null) -> Variant:` |
-| 方法 | [`check_condition`](#member-gfdialoguecontext-methods-check_condition) | `func check_condition(condition_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:` |
-| 方法 | [`apply_mutation`](#member-gfdialoguecontext-methods-apply_mutation) | `func apply_mutation(mutation_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:` |
+| 方法 | [`check_condition`](#member-gfdialoguecontext-methods-check_condition) | `func check_condition( condition_id: StringName, payload: Variant = null, subject: Variant = null ) -> Dictionary:` |
+| 方法 | [`apply_mutation`](#member-gfdialoguecontext-methods-apply_mutation) | `func apply_mutation( mutation_id: StringName, payload: Variant = null, subject: Variant = null ) -> Dictionary:` |
 | 方法 | [`resolve_text`](#member-gfdialoguecontext-methods-resolve_text) | `func resolve_text(text: String, subject: Variant = null) -> String:` |
 | 方法 | [`serialize_values`](#member-gfdialoguecontext-methods-serialize_values) | `func serialize_values() -> Dictionary:` |
 | 方法 | [`deserialize_values`](#member-gfdialoguecontext-methods-deserialize_values) | `func deserialize_values(data: Dictionary) -> bool:` |
@@ -175,9 +175,10 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ### `check_condition`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func check_condition(condition_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:
+func check_condition( condition_id: StringName, payload: Variant = null, subject: Variant = null ) -> Dictionary:
 ```
 
 检查条件。
@@ -203,9 +204,10 @@ func check_condition(condition_id: StringName, payload: Variant = null, subject:
 ### `apply_mutation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply_mutation(mutation_id: StringName, payload: Variant = null, subject: Variant = null) -> Dictionary:
+func apply_mutation( mutation_id: StringName, payload: Variant = null, subject: Variant = null ) -> Dictionary:
 ```
 
 请求执行 mutation。

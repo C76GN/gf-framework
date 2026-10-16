@@ -65,7 +65,11 @@ func get_slot_count() -> int:
 ## [br]
 ## @return: 视图有效且索引存在时返回 true。
 func is_valid_slot(slot_index: int) -> bool:
-	return _active and slot_index >= 0 and slot_index < _candidate_slots.size()
+	return (
+		_active
+		and slot_index >= 0
+		and slot_index < _candidate_slots.size()
+	)
 
 
 ## 获取候选堆叠的隔离副本。
@@ -134,7 +138,11 @@ func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int:
 		var stack: GFInventoryStack = _get_stack_value(stack_value)
 		if stack == null or stack.item_id != item_id:
 			continue
-		if filter_by_instance and not stack.can_merge(item_id, normalized_data, _registry):
+		if filter_by_instance and not stack.can_merge(
+			item_id,
+			normalized_data,
+			_registry
+		):
 			continue
 		total += stack.amount
 	return total
@@ -210,10 +218,7 @@ func get_occupied_slot_indices() -> PackedInt32Array:
 ## @return: 匹配槽位索引；失效视图返回空数组。
 ## [br]
 ## @schema instance_data: Dictionary，项目自定义物品实例数据。
-func get_slots_for_item(
-	item_id: StringName,
-	instance_data: Dictionary = {}
-) -> PackedInt32Array:
+func get_slots_for_item(item_id: StringName, instance_data: Dictionary = {}) -> PackedInt32Array:
 	var result: PackedInt32Array = PackedInt32Array()
 	if not _active or item_id == &"":
 		return result
@@ -223,7 +228,11 @@ func get_slots_for_item(
 		var stack: GFInventoryStack = _get_stack_ref(slot_index)
 		if stack == null or stack.item_id != item_id:
 			continue
-		if filter_by_instance and not stack.can_merge(item_id, normalized_data, _registry):
+		if filter_by_instance and not stack.can_merge(
+			item_id,
+			normalized_data,
+			_registry
+		):
 			continue
 		_append_slot_index(result, slot_index)
 	return result
@@ -244,10 +253,7 @@ func get_slots_for_item(
 ## @return: 首次有效绑定返回 true。
 ## [br]
 ## @schema candidate_slots: Internal bounded candidate slots owned by the transfer planner.
-func configure_for_framework(
-	candidate_slots: Array,
-	registry: GFInventoryItemRegistry
-) -> bool:
+func configure_for_framework(candidate_slots: Array, registry: GFInventoryItemRegistry) -> bool:
 	if _active or candidate_slots.is_empty():
 		return false
 	_candidate_slots = candidate_slots

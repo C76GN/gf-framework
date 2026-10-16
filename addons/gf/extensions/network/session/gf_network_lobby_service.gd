@@ -117,7 +117,11 @@ signal member_joined(lobby_id: String, member: GFNetworkLobbyMember)
 ## @param peer_id: 成员 peer ID。
 ## [br]
 ## @param reason: 离开原因。
-signal member_left(lobby_id: String, peer_id: int, reason: String)
+signal member_left(
+	lobby_id: String,
+	peer_id: int,
+	reason: String
+)
 
 ## 收到 Lobby 邀请后发出。
 ## [br]
@@ -141,7 +145,11 @@ signal invite_received(invite: GFNetworkLobbyInvite)
 ## @param details: 已脱敏错误详情。
 ## [br]
 ## @schema details: Dictionary backend-defined error metadata.
-signal backend_error(operation: StringName, error: StringName, details: Dictionary)
+signal backend_error(
+	operation: StringName,
+	error: StringName,
+	details: Dictionary
+)
 
 
 # --- 公共变量 ---
@@ -243,7 +251,10 @@ func ready() -> void:
 	var provider_value: Variant = architecture.get_utility(GFTimeProvider)
 	if provider_value is GFTimeProvider:
 		var provider: GFTimeProvider = provider_value
-		var _clock_applied: bool = _apply_clock(provider.get_clock(), false)
+		var _clock_applied: bool = _apply_clock(
+			provider.get_clock(),
+			false
+		)
 
 
 ## 推进 Backend callback pump 并处理操作超时。
@@ -338,10 +349,7 @@ func get_clock() -> GFClock:
 ## [br]
 ## @return 一次性操作句柄。
 func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
-	return invoke_operation(_make_request(
-		GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY,
-		options
-	))
+	return invoke_operation(_make_request(GFNetworkLobbyOperationRequest.OP_CREATE_LOBBY, options))
 
 
 ## 查询 Lobby。
@@ -357,15 +365,14 @@ func create_lobby(options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
 ## @schema options: Dictionary lobby query options.
 ## [br]
 ## @return 一次性操作句柄。
-func query_lobbies(
-	query: GFNetworkLobbyQuery = null,
-	options: Dictionary = {}
-) -> GFNetworkLobbyOperationHandle:
-	return invoke_operation(_make_request(
-		GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES,
-		options,
-		{"query": query}
-	))
+func query_lobbies(query: GFNetworkLobbyQuery = null, options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
+	return invoke_operation(
+		_make_request(
+			GFNetworkLobbyOperationRequest.OP_QUERY_LOBBIES,
+			options,
+			{ "query": query }
+		)
+	)
 
 
 ## 加入 Lobby。
@@ -381,15 +388,14 @@ func query_lobbies(
 ## @schema options: Dictionary lobby join options.
 ## [br]
 ## @return 一次性操作句柄。
-func join_lobby(
-	lobby_id: String,
-	options: Dictionary = {}
-) -> GFNetworkLobbyOperationHandle:
-	return invoke_operation(_make_request(
-		GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY,
-		options,
-		{"lobby_id": lobby_id.strip_edges()}
-	))
+func join_lobby(lobby_id: String, options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
+	return invoke_operation(
+		_make_request(
+			GFNetworkLobbyOperationRequest.OP_JOIN_LOBBY,
+			options,
+			{ "lobby_id": lobby_id.strip_edges() }
+		)
+	)
 
 
 ## 离开当前或指定 Lobby。
@@ -405,15 +411,14 @@ func join_lobby(
 ## @schema options: Dictionary lobby leave options.
 ## [br]
 ## @return 一次性操作句柄。
-func leave_lobby(
-	lobby_id: String = "",
-	options: Dictionary = {}
-) -> GFNetworkLobbyOperationHandle:
-	return invoke_operation(_make_request(
-		GFNetworkLobbyOperationRequest.OP_LEAVE_LOBBY,
-		options,
-		{"lobby_id": _resolve_lobby_id(lobby_id)}
-	))
+func leave_lobby(lobby_id: String = "", options: Dictionary = {}) -> GFNetworkLobbyOperationHandle:
+	return invoke_operation(
+		_make_request(
+			GFNetworkLobbyOperationRequest.OP_LEAVE_LOBBY,
+			options,
+			{ "lobby_id": _resolve_lobby_id(lobby_id) }
+		)
+	)
 
 
 ## 更新当前或指定 Lobby metadata。
@@ -438,14 +443,13 @@ func set_lobby_metadata(
 	lobby_id: String = "",
 	options: Dictionary = {}
 ) -> GFNetworkLobbyOperationHandle:
-	return invoke_operation(_make_request(
-		GFNetworkLobbyOperationRequest.OP_SET_LOBBY_METADATA,
-		options,
-		{
-			"lobby_id": _resolve_lobby_id(lobby_id),
-			"payload": metadata_patch,
-		}
-	))
+	return invoke_operation(
+		_make_request(
+			GFNetworkLobbyOperationRequest.OP_SET_LOBBY_METADATA,
+			options,
+			{ "lobby_id": _resolve_lobby_id(lobby_id), "payload": metadata_patch, }
+		)
+	)
 
 
 ## 更新当前或指定 Lobby 的成员 metadata。
@@ -473,15 +477,17 @@ func set_member_metadata(
 	lobby_id: String = "",
 	options: Dictionary = {}
 ) -> GFNetworkLobbyOperationHandle:
-	return invoke_operation(_make_request(
-		GFNetworkLobbyOperationRequest.OP_SET_MEMBER_METADATA,
-		options,
-		{
-			"lobby_id": _resolve_lobby_id(lobby_id),
-			"peer_id": peer_id,
-			"payload": metadata_patch,
-		}
-	))
+	return invoke_operation(
+		_make_request(
+			GFNetworkLobbyOperationRequest.OP_SET_MEMBER_METADATA,
+			options,
+			{
+				"lobby_id": _resolve_lobby_id(lobby_id),
+				"peer_id": peer_id,
+				"payload": metadata_patch,
+			}
+		)
+	)
 
 
 ## 提交完整 Lobby 操作请求。
@@ -493,9 +499,7 @@ func set_member_metadata(
 ## @param request: 完整请求。
 ## [br]
 ## @return 一次性操作句柄。
-func invoke_operation(
-	request: GFNetworkLobbyOperationRequest
-) -> GFNetworkLobbyOperationHandle:
+func invoke_operation(request: GFNetworkLobbyOperationRequest) -> GFNetworkLobbyOperationHandle:
 	if request == null or not request.is_valid():
 		var invalid_handle: GFNetworkLobbyOperationHandle = _make_rejected_handle(
 			request,
@@ -523,18 +527,10 @@ func invoke_operation(
 		_finalize_handle(missing_handle)
 		return missing_handle
 	var effective_request: GFNetworkLobbyOperationRequest = request.duplicate_request()
-	var timeout_msec: int = (
-		effective_request.timeout_msec
-		if effective_request.timeout_msec > 0
-		else maxi(default_timeout_msec, 0)
-	)
+	var timeout_msec: int = (effective_request.timeout_msec if effective_request.timeout_msec > 0 else maxi(default_timeout_msec, 0))
 	effective_request.timeout_msec = timeout_msec
 	var started_at_msec: int = _clock.get_monotonic_msec()
-	var deadline_msec: int = (
-		started_at_msec + timeout_msec
-		if timeout_msec > 0
-		else -1
-	)
+	var deadline_msec: int = (started_at_msec + timeout_msec if timeout_msec > 0 else -1)
 	var target_generation: int = _backend_generation
 	_pending_operations[request_key] = {
 		"backend_generation": target_generation,
@@ -552,10 +548,7 @@ func invoke_operation(
 		)
 		_finalize_handle(replaced_handle)
 		return replaced_handle
-	var handle: GFNetworkLobbyOperationHandle = target_backend.invoke_from_service(
-		effective_request,
-		started_at_msec
-	)
+	var handle: GFNetworkLobbyOperationHandle = target_backend.invoke_from_service(effective_request, started_at_msec)
 	if not handle.is_pending():
 		var _completed_reservation_erased: bool = _pending_operations.erase(request_key)
 		_finalize_handle(handle)
@@ -591,10 +584,7 @@ func invoke_operation(
 ## @param reason: 取消原因。
 ## [br]
 ## @return 找到并首次取消返回 true。
-func cancel_operation(
-	request_id: StringName,
-	reason: StringName = &"cancelled"
-) -> bool:
+func cancel_operation(request_id: StringName, reason: StringName = &"cancelled") -> bool:
 	var handle: GFNetworkLobbyOperationHandle = _get_pending_handle(request_id)
 	return handle != null and handle.cancel(reason)
 
@@ -678,10 +668,12 @@ func _make_request(
 	request_options["provider_options"] = provider_options
 	request_options["timeout_msec"] = GFVariantData.get_option_int(options, "timeout_msec")
 	request_options["metadata"] = GFVariantData.get_option_dictionary(options, "metadata")
-	return GFNetworkLobbyOperationRequest.new().configure(
-		request_id,
-		operation,
-		request_options
+	return (
+		GFNetworkLobbyOperationRequest.new().configure(
+			request_id,
+			operation,
+			request_options
+		)
 	)
 
 
@@ -709,21 +701,11 @@ func _make_rejected_handle(
 ## @api private
 ## [br]
 func _connect_backend_signals(target_backend: GFNetworkLobbyBackend) -> void:
-	var _lobby_connected: Error = target_backend.lobby_updated.connect(
-		_on_backend_lobby_updated
-	) as Error
-	var _member_joined_connected: Error = target_backend.member_joined.connect(
-		_on_backend_member_joined
-	) as Error
-	var _member_left_connected: Error = target_backend.member_left.connect(
-		_on_backend_member_left
-	) as Error
-	var _invite_connected: Error = target_backend.invite_received.connect(
-		_on_backend_invite_received
-	) as Error
-	var _error_connected: Error = target_backend.backend_error.connect(
-		_on_backend_error
-	) as Error
+	var _lobby_connected: Error = target_backend.lobby_updated.connect(_on_backend_lobby_updated) as Error
+	var _member_joined_connected: Error = target_backend.member_joined.connect(_on_backend_member_joined) as Error
+	var _member_left_connected: Error = target_backend.member_left.connect(_on_backend_member_left) as Error
+	var _invite_connected: Error = target_backend.invite_received.connect(_on_backend_invite_received) as Error
+	var _error_connected: Error = target_backend.backend_error.connect(_on_backend_error) as Error
 
 
 ## 移除 Service 对 Backend 建立的 Lobby 和成员信号连接。
@@ -747,9 +729,7 @@ func _disconnect_backend_signals(target_backend: GFNetworkLobbyBackend) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _get_pending_handle(
-	request_id: StringName
-) -> GFNetworkLobbyOperationHandle:
+func _get_pending_handle(request_id: StringName) -> GFNetworkLobbyOperationHandle:
 	var record_value: Variant = GFVariantData.get_option_value(
 		_pending_operations,
 		String(request_id)
@@ -770,19 +750,14 @@ func _get_pending_handle(
 ## [br]
 func _expire_operations(now_msec: int) -> void:
 	for request_key: Variant in _pending_operations.keys().duplicate():
-		var record_value: Variant = GFVariantData.get_option_value(
-			_pending_operations,
-			request_key
-		)
+		var record_value: Variant = GFVariantData.get_option_value(_pending_operations, request_key)
 		if not (record_value is Dictionary):
 			continue
 		var record: Dictionary = record_value
 		var deadline_msec: int = GFVariantData.get_option_int(record, "deadline_msec")
 		if deadline_msec < 0 or now_msec < deadline_msec:
 			continue
-		var handle: GFNetworkLobbyOperationHandle = _get_pending_handle(
-			StringName(str(request_key))
-		)
+		var handle: GFNetworkLobbyOperationHandle = _get_pending_handle(StringName(str(request_key)))
 		if handle != null:
 			var _timed_out: bool = handle.timeout_from_network_layer()
 
@@ -793,9 +768,7 @@ func _expire_operations(now_msec: int) -> void:
 ## [br]
 func _cancel_pending_operations(reason: StringName) -> void:
 	for request_key: Variant in _pending_operations.keys().duplicate():
-		var handle: GFNetworkLobbyOperationHandle = _get_pending_handle(
-			StringName(str(request_key))
-		)
+		var handle: GFNetworkLobbyOperationHandle = _get_pending_handle(StringName(str(request_key)))
 		if handle != null:
 			var _cancelled: bool = handle.cancel(reason)
 
@@ -911,10 +884,7 @@ func _resolve_lobby_id(lobby_id: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _on_operation_completed(
-	result: GFNetworkLobbyOperationResult,
-	request_id: StringName
-) -> void:
+func _on_operation_completed(result: GFNetworkLobbyOperationResult, request_id: StringName) -> void:
 	var _erased: bool = _pending_operations.erase(String(request_id))
 	_finalize_result(result)
 
@@ -936,10 +906,7 @@ func _on_backend_lobby_updated(lobby: GFNetworkLobbyDescriptor) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _on_backend_member_joined(
-	lobby_id: String,
-	member: GFNetworkLobbyMember
-) -> void:
+func _on_backend_member_joined(lobby_id: String, member: GFNetworkLobbyMember) -> void:
 	var lobby: GFNetworkLobbyDescriptor = _get_stored_lobby(lobby_id)
 	if lobby != null and member != null:
 		lobby.set_member(member)
@@ -967,7 +934,11 @@ func _on_backend_member_left(
 		_store_lobby(lobby)
 		if current_lobby != null and current_lobby.lobby_id == lobby_id:
 			current_lobby = lobby.duplicate_lobby()
-	member_left.emit(lobby_id, peer_id, reason)
+	member_left.emit(
+		lobby_id,
+		peer_id,
+		reason
+	)
 
 
 ## 转发 Backend 邀请的副本。
@@ -987,4 +958,8 @@ func _on_backend_error(
 	error: StringName,
 	details: Dictionary
 ) -> void:
-	backend_error.emit(operation, error, details.duplicate(true))
+	backend_error.emit(
+		operation,
+		error,
+		details.duplicate(true)
+	)

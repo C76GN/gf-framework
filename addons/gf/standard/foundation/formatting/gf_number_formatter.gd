@@ -30,6 +30,7 @@ enum Notation {
 	AUTO,
 }
 
+
 ## 科学计数法输出风格。
 ## [br]
 ## @api public
@@ -86,25 +87,27 @@ const _FULL_MIN_EXPONENT: int = -6
 ## [br]
 ## @return 默认紧凑缩写后缀表副本。
 static func get_default_compact_suffixes() -> PackedStringArray:
-	return PackedStringArray([
-		"",
-		"k",
-		"M",
-		"B",
-		"T",
-		"Qa",
-		"Qi",
-		"Sx",
-		"Sp",
-		"Oc",
-		"No",
-		"De",
-		"Ud",
-		"Dd",
-		"Td",
-		"Qad",
-		"Qid",
-	])
+	return PackedStringArray(
+		[
+			"",
+			"k",
+			"M",
+			"B",
+			"T",
+			"Qa",
+			"Qi",
+			"Sx",
+			"Sp",
+			"Oc",
+			"No",
+			"De",
+			"Ud",
+			"Dd",
+			"Td",
+			"Qad",
+			"Qid",
+		]
+	)
 
 
 ## 统一入口：按指定记法格式化一个数字值。
@@ -138,9 +141,20 @@ static func format_number(
 ) -> String:
 	match notation:
 		Notation.FULL:
-			return format_full(value, decimal_places, trim_zeroes, false, use_truncation)
+			return format_full(
+				value,
+				decimal_places,
+				trim_zeroes,
+				false,
+				use_truncation
+			)
 		Notation.COMPACT_SHORT:
-			return format_compact(value, decimal_places, trim_zeroes, use_truncation)
+			return format_compact(
+				value,
+				decimal_places,
+				trim_zeroes,
+				use_truncation
+			)
 		Notation.SCIENTIFIC:
 			return format_scientific(
 				value,
@@ -199,13 +213,26 @@ static func format_full(
 	if value is GFFixedDecimal:
 		var fixed_value: GFFixedDecimal = value
 		text = _DECIMAL_STRING_FORMATTER.format_decimal_text(
-			fixed_value.to_decimal_string(false), decimal_places, trim_zeroes, use_truncation
+			fixed_value.to_decimal_string(false),
+			decimal_places,
+			trim_zeroes,
+			use_truncation
 		)
 	elif value is GFBigNumber:
 		var big_value: GFBigNumber = value
 		if big_value.exponent > _FULL_MAX_EXPONENT or big_value.exponent < _FULL_MIN_EXPONENT:
-			return format_scientific(big_value, decimal_places, trim_zeroes, use_truncation)
-		text = _DECIMAL_STRING_FORMATTER.format_decimal_value(big_value.to_float(), decimal_places, trim_zeroes, use_truncation)
+			return format_scientific(
+				big_value,
+				decimal_places,
+				trim_zeroes,
+				use_truncation
+			)
+		text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
+			big_value.to_float(),
+			decimal_places,
+			trim_zeroes,
+			use_truncation
+		)
 	else:
 		match typeof(value):
 			TYPE_INT:
@@ -225,7 +252,13 @@ static func format_full(
 					return "0"
 				text = GFVariantData.get_option_string(normalization, "text")
 				if text.contains("e") or text.contains("E"):
-					return format_full(GFBigNumber.from_string(text), decimal_places, trim_zeroes, use_grouping, use_truncation)
+					return format_full(
+						GFBigNumber.from_string(text),
+						decimal_places,
+						trim_zeroes,
+						use_grouping,
+						use_truncation
+					)
 				text = _DECIMAL_STRING_FORMATTER.format_decimal_text(
 					text,
 					decimal_places,
@@ -274,14 +307,28 @@ static func format_compact(
 		return "0"
 
 	if big_value.exponent < _AUTO_COMPACT_THRESHOLD:
-		return format_full(value, decimal_places, trim_zeroes, false, use_truncation)
+		return format_full(
+			value,
+			decimal_places,
+			trim_zeroes,
+			false,
+			use_truncation
+		)
 
 	var suffix_index: int = GFVariantData.to_int(floor(float(big_value.exponent) / 3.0))
 	if suffix_index >= compact_suffixes.size():
-		return format_scientific(big_value, decimal_places, trim_zeroes, use_truncation)
+		return format_scientific(
+			big_value,
+			decimal_places,
+			trim_zeroes,
+			use_truncation
+		)
 
 	var scaled_exponent: int = suffix_index * 3
-	var display_value: float = big_value.mantissa * pow(10.0, big_value.exponent - scaled_exponent)
+	var display_value: float = big_value.mantissa * pow(
+		10.0,
+		big_value.exponent - scaled_exponent
+	)
 	var display_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(
 		display_value,
 		decimal_places,
@@ -292,8 +339,16 @@ static func format_compact(
 	if absf(reparsed) >= 1000.0 and suffix_index + 1 < compact_suffixes.size():
 		suffix_index += 1
 		scaled_exponent = suffix_index * 3
-		display_value = big_value.mantissa * pow(10.0, big_value.exponent - scaled_exponent)
-		display_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(display_value, decimal_places, trim_zeroes, use_truncation)
+		display_value = big_value.mantissa * pow(
+			10.0,
+			big_value.exponent - scaled_exponent
+		)
+		display_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
+			display_value,
+			decimal_places,
+			trim_zeroes,
+			use_truncation
+		)
 
 	return display_text + compact_suffixes[suffix_index]
 
@@ -333,7 +388,10 @@ static func format_scientific(
 	if engineering:
 		output_exponent = GFVariantData.to_int(floor(float(big_value.exponent) / 3.0)) * 3
 
-	var display_value: float = big_value.mantissa * pow(10.0, big_value.exponent - output_exponent)
+	var display_value: float = big_value.mantissa * pow(
+		10.0,
+		big_value.exponent - output_exponent
+	)
 	var display_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(
 		display_value,
 		decimal_places,
@@ -344,16 +402,33 @@ static func format_scientific(
 	var overflow_threshold: float = 1000.0 if engineering else 10.0
 	if absf(reparsed) >= overflow_threshold:
 		output_exponent += 3 if engineering else 1
-		display_value = big_value.mantissa * pow(10.0, big_value.exponent - output_exponent)
-		display_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(display_value, decimal_places, trim_zeroes, use_truncation)
+		display_value = big_value.mantissa * pow(
+			10.0,
+			big_value.exponent - output_exponent
+		)
+		display_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
+			display_value,
+			decimal_places,
+			trim_zeroes,
+			use_truncation
+		)
 
 	match style:
 		ScientificStyle.E_UPPER:
-			return "%sE%d" % [display_text, output_exponent]
+			return (
+				"%sE%d"
+				% [display_text, output_exponent]
+			)
 		ScientificStyle.POWER_OF_TEN:
-			return "%s x 10^%d" % [display_text, output_exponent]
+			return (
+				"%s x 10^%d"
+				% [display_text, output_exponent]
+			)
 		_:
-			return "%se%d" % [display_text, output_exponent]
+			return (
+				"%se%d"
+				% [display_text, output_exponent]
+			)
 
 
 ## 自动选择最合适的数字记法。
@@ -386,12 +461,29 @@ static func format_auto(
 
 	var max_compact_exponent: int = (get_default_compact_suffixes().size() - 1) * 3 + 2
 	if big_value.exponent >= _AUTO_COMPACT_THRESHOLD and big_value.exponent <= max_compact_exponent:
-		return format_compact(value, decimal_places, trim_zeroes, use_truncation)
+		return format_compact(
+			value,
+			decimal_places,
+			trim_zeroes,
+			use_truncation
+		)
 
 	if big_value.exponent < _AUTO_SMALL_SCIENTIFIC_THRESHOLD or big_value.exponent > max_compact_exponent:
-		return format_scientific(value, decimal_places, trim_zeroes, use_truncation, scientific_style)
+		return format_scientific(
+			value,
+			decimal_places,
+			trim_zeroes,
+			use_truncation,
+			scientific_style
+		)
 
-	return format_full(value, decimal_places, trim_zeroes, false, use_truncation)
+	return format_full(
+		value,
+		decimal_places,
+		trim_zeroes,
+		false,
+		use_truncation
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -415,7 +507,11 @@ static func _group_integer_part(text: String) -> String:
 
 	var grouped: String = ""
 	var digit_count: int = 0
-	for i: int in range(integer_part.length() - 1, -1, -1):
+	for i: int in range(
+		integer_part.length() - 1,
+		-1,
+		-1
+	):
 		grouped = integer_part.substr(i, 1) + grouped
 		digit_count += 1
 		if digit_count % 3 == 0 and i > 0:

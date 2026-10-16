@@ -161,7 +161,11 @@ func apply() -> int:
 		profile,
 		_build_apply_options(duplicate_material)
 	)
-	_update_owned_material_identity(target, material_before, duplicate_material)
+	_update_owned_material_identity(
+		target,
+		material_before,
+		duplicate_material
+	)
 	profile_applied.emit(applied_count)
 	return applied_count
 
@@ -232,7 +236,11 @@ func _update_owned_material_identity(
 		return
 	var material_after: ShaderMaterial = _get_target_shader_material(target)
 	if duplicate_material:
-		if material_before == null or material_after == null or material_after == material_before:
+		if (
+			material_before == null
+			or material_after == null
+			or material_after == material_before
+		):
 			_clear_owned_material_identity()
 			return
 	elif material_after == null or material_after.get_instance_id() != _owned_material_id:
@@ -248,7 +256,11 @@ func _update_owned_material_identity(
 ## @api private
 ## [br]
 func _get_target_shader_material(target: Object) -> ShaderMaterial:
-	if not is_instance_valid(target) or target is ShaderMaterial or material_property.is_empty():
+	if (
+		not is_instance_valid(target)
+		or target is ShaderMaterial
+		or material_property.is_empty()
+	):
 		return null
 	if not GFObjectPropertyTools.has_property_path(target, material_property):
 		return null

@@ -61,19 +61,34 @@ func raycast_all_3d(
 	to: Vector3,
 	options: Dictionary = {}
 ) -> Array[Dictionary]:
-	if world == null or not _SPATIAL_BOUNDS_MATH.is_finite_vector3(from) or not _SPATIAL_BOUNDS_MATH.is_finite_vector3(to):
+	if (
+		world == null
+		or not _SPATIAL_BOUNDS_MATH.is_finite_vector3(from)
+		or not _SPATIAL_BOUNDS_MATH.is_finite_vector3(to)
+	):
 		return []
 
 	var total_length: float = from.distance_to(to)
 	if not _SPATIAL_BOUNDS_MATH.is_finite_float(total_length) or total_length <= 0.0:
 		return []
 
-	var max_results: int = maxi(GFVariantData.get_option_int(options, "max_results", DEFAULT_MAX_RAYCAST_RESULTS), 0)
+	var max_results: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_results",
+			DEFAULT_MAX_RAYCAST_RESULTS
+		),
+		0
+	)
 	if max_results <= 0:
 		return []
 
 	var direction: Vector3 = (to - from).normalized()
-	var requested_margin: float = GFVariantData.get_option_float(options, "margin", DEFAULT_RAYCAST_MARGIN)
+	var requested_margin: float = GFVariantData.get_option_float(
+		options,
+		"margin",
+		DEFAULT_RAYCAST_MARGIN
+	)
 	if not _SPATIAL_BOUNDS_MATH.is_finite_float(requested_margin):
 		return []
 	var margin: float = maxf(requested_margin, 0.0)
@@ -84,15 +99,28 @@ func raycast_all_3d(
 	var space_state: PhysicsDirectSpaceState3D = world.direct_space_state
 
 	for index: int in range(max_results):
-		var query: PhysicsRayQueryParameters3D = _make_raycast_query_3d(current_from, to, excludes, options)
+		var query: PhysicsRayQueryParameters3D = _make_raycast_query_3d(
+			current_from,
+			to,
+			excludes,
+			options
+		)
 		var hit: Dictionary = space_state.intersect_ray(query)
 		if hit.is_empty():
 			break
 
-		var hit_position: Vector3 = GFVariantData.get_option_vector3(hit, "position", current_from)
+		var hit_position: Vector3 = GFVariantData.get_option_vector3(
+			hit,
+			"position",
+			current_from
+		)
 		if not _SPATIAL_BOUNDS_MATH.is_finite_vector3(hit_position):
 			break
-		var hit_distance: float = clampf((hit_position - from).dot(direction), 0.0, total_length)
+		var hit_distance: float = clampf(
+			(hit_position - from).dot(direction),
+			0.0,
+			total_length
+		)
 		var result: Dictionary = hit.duplicate(true)
 		result["index"] = index
 		result["distance"] = hit_distance
@@ -129,12 +157,32 @@ func _make_raycast_query_3d(
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
 	query.from = from
 	query.to = to
-	query.collision_mask = GFVariantData.get_option_int(options, "collision_mask", 0xffffffff)
+	query.collision_mask = GFVariantData.get_option_int(
+		options,
+		"collision_mask",
+		0xffffffff
+	)
 	query.exclude = excludes
-	query.collide_with_bodies = GFVariantData.get_option_bool(options, "collide_with_bodies", true)
-	query.collide_with_areas = GFVariantData.get_option_bool(options, "collide_with_areas", false)
-	query.hit_back_faces = GFVariantData.get_option_bool(options, "hit_back_faces", true)
-	query.hit_from_inside = GFVariantData.get_option_bool(options, "hit_from_inside", true)
+	query.collide_with_bodies = GFVariantData.get_option_bool(
+		options,
+		"collide_with_bodies",
+		true
+	)
+	query.collide_with_areas = GFVariantData.get_option_bool(
+		options,
+		"collide_with_areas",
+		false
+	)
+	query.hit_back_faces = GFVariantData.get_option_bool(
+		options,
+		"hit_back_faces",
+		true
+	)
+	query.hit_from_inside = GFVariantData.get_option_bool(
+		options,
+		"hit_from_inside",
+		true
+	)
 	return query
 
 
@@ -144,7 +192,11 @@ func _make_raycast_query_3d(
 ## [br]
 func _get_exclude_rids(options: Dictionary) -> Array[RID]:
 	var result: Array[RID] = []
-	var values: Array = GFVariantData.get_option_array(options, "exclude", [])
+	var values: Array = GFVariantData.get_option_array(
+		options,
+		"exclude",
+		[]
+	)
 	for value: Variant in values:
 		if value is RID:
 			var rid: RID = value
@@ -163,7 +215,11 @@ func _get_exclude_rids(options: Dictionary) -> Array[RID]:
 ## @api private
 ## [br]
 func _get_hit_rid(hit: Dictionary) -> RID:
-	var rid_value: Variant = GFVariantData.get_option_value(hit, "rid", RID())
+	var rid_value: Variant = GFVariantData.get_option_value(
+		hit,
+		"rid",
+		RID()
+	)
 	if rid_value is RID:
 		var rid: RID = rid_value
 		return rid

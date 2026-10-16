@@ -85,19 +85,55 @@ static func generate_rect_maze_backtracker(
 	is_cell_enabled: Callable = Callable(),
 	options: Dictionary = {}
 ) -> Dictionary:
-	var maze_seed: int = GFVariantData.get_option_int(options, "seed", 0)
-	var include_diagonal: bool = GFVariantData.get_option_bool(options, "include_diagonal", false)
+	var maze_seed: int = GFVariantData.get_option_int(
+		options,
+		"seed",
+		0
+	)
+	var include_diagonal: bool = GFVariantData.get_option_bool(
+		options,
+		"include_diagonal",
+		false
+	)
 	var max_cells: int = maxi(
-		GFVariantData.get_option_int(options, "max_cells", DEFAULT_MAX_MAZE_CELLS),
+		GFVariantData.get_option_int(
+			options,
+			"max_cells",
+			DEFAULT_MAX_MAZE_CELLS
+		),
 		1
 	)
 	var cell_count: int = grid_size.x * grid_size.y
 	if grid_size.x <= 0 or grid_size.y <= 0:
-		return _make_rect_maze_failure(grid_size, start_cell, maze_seed, include_diagonal, cell_count, max_cells, "grid_size must be positive.")
+		return _make_rect_maze_failure(
+			grid_size,
+			start_cell,
+			maze_seed,
+			include_diagonal,
+			cell_count,
+			max_cells,
+			"grid_size must be positive."
+		)
 	if cell_count > max_cells:
-		return _make_rect_maze_failure(grid_size, start_cell, maze_seed, include_diagonal, cell_count, max_cells, "cell_count exceeds max_cells.")
+		return _make_rect_maze_failure(
+			grid_size,
+			start_cell,
+			maze_seed,
+			include_diagonal,
+			cell_count,
+			max_cells,
+			"cell_count exceeds max_cells."
+		)
 	if not GFGridCoordinateMath2D.is_in_bounds(start_cell, grid_size):
-		return _make_rect_maze_failure(grid_size, start_cell, maze_seed, include_diagonal, cell_count, max_cells, "start_cell is outside grid_size.")
+		return _make_rect_maze_failure(
+			grid_size,
+			start_cell,
+			maze_seed,
+			include_diagonal,
+			cell_count,
+			max_cells,
+			"start_cell is outside grid_size."
+		)
 
 	var available_cells: Dictionary = _make_rect_maze_available_cells(grid_size, is_cell_enabled)
 	var available_count: int = available_cells.size()
@@ -134,16 +170,31 @@ static func generate_rect_maze_backtracker(
 			stack.remove_at(stack.size() - 1)
 			continue
 
-		var next_cell: Vector2i = candidates[rng.next_int_range(0, candidates.size() - 1)]
+		var next_cell: Vector2i = candidates[
+			rng.next_int_range(
+				0,
+				candidates.size() - 1
+			)
+		]
 		visited[next_cell] = true
 		stack.append(next_cell)
-		edges.append({
-			"from": current,
-			"to": next_cell,
-			"direction": next_cell - current,
-		})
-		_append_rect_maze_connection(connections, current, next_cell)
-		_append_rect_maze_connection(connections, next_cell, current)
+		edges.append(
+			{
+				"from": current,
+				"to": next_cell,
+				"direction": next_cell - current,
+			}
+		)
+		_append_rect_maze_connection(
+			connections,
+			current,
+			next_cell
+		)
+		_append_rect_maze_connection(
+			connections,
+			next_cell,
+			current
+		)
 
 	return {
 		"ok": true,
@@ -191,14 +242,41 @@ static func generate_cellular_automata_map(
 	is_initial_alive: Callable = Callable(),
 	options: Dictionary = {}
 ) -> Dictionary:
-	var automata_seed: int = GFVariantData.get_option_int(options, "seed", 0)
-	var requested_alive_chance: float = GFVariantData.get_option_float(options, "alive_chance", 0.45)
+	var automata_seed: int = GFVariantData.get_option_int(
+		options,
+		"seed",
+		0
+	)
+	var requested_alive_chance: float = GFVariantData.get_option_float(
+		options,
+		"alive_chance",
+		0.45
+	)
 	var alive_chance: float = 0.45
-	var iterations: int = maxi(GFVariantData.get_option_int(options, "iterations", 4), 0)
-	var include_diagonal: bool = GFVariantData.get_option_bool(options, "include_diagonal", true)
-	var outside_alive: bool = GFVariantData.get_option_bool(options, "outside_alive", true)
+	var iterations: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"iterations",
+			4
+		),
+		0
+	)
+	var include_diagonal: bool = GFVariantData.get_option_bool(
+		options,
+		"include_diagonal",
+		true
+	)
+	var outside_alive: bool = GFVariantData.get_option_bool(
+		options,
+		"outside_alive",
+		true
+	)
 	var max_cells: int = maxi(
-		GFVariantData.get_option_int(options, "max_cells", DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS),
+		GFVariantData.get_option_int(
+			options,
+			"max_cells",
+			DEFAULT_MAX_CELLULAR_AUTOMATA_CELLS
+		),
 		1
 	)
 	var cell_count: int = grid_size.x * grid_size.y
@@ -214,7 +292,11 @@ static func generate_cellular_automata_map(
 			max_cells,
 			"alive_chance must be finite."
 		)
-	alive_chance = clampf(requested_alive_chance, 0.0, 1.0)
+	alive_chance = clampf(
+		requested_alive_chance,
+		0.0,
+		1.0
+	)
 	if grid_size.x <= 0 or grid_size.y <= 0:
 		return _make_cellular_automata_failure(
 			grid_size,
@@ -241,10 +323,26 @@ static func generate_cellular_automata_map(
 		)
 
 	var max_neighbor_count: int = 8 if include_diagonal else 4
-	var survive_min: int = GFVariantData.get_option_int(options, "survive_min", 4)
-	var survive_max: int = GFVariantData.get_option_int(options, "survive_max", max_neighbor_count)
-	var birth_min: int = GFVariantData.get_option_int(options, "birth_min", 5 if include_diagonal else 3)
-	var birth_max: int = GFVariantData.get_option_int(options, "birth_max", max_neighbor_count)
+	var survive_min: int = GFVariantData.get_option_int(
+		options,
+		"survive_min",
+		4
+	)
+	var survive_max: int = GFVariantData.get_option_int(
+		options,
+		"survive_max",
+		max_neighbor_count
+	)
+	var birth_min: int = GFVariantData.get_option_int(
+		options,
+		"birth_min",
+		5 if include_diagonal else 3
+	)
+	var birth_max: int = GFVariantData.get_option_int(
+		options,
+		"birth_max",
+		max_neighbor_count
+	)
 	var rule_error: String = _validate_cellular_automata_rules(
 		survive_min,
 		survive_max,
@@ -327,9 +425,17 @@ static func generate_cellular_automata_map(
 ## [br]
 ## @schema return: Dictionary with ok, error, algorithm, include_diagonal, input_count, cell_count, max_cells, region_count, all_connected, largest_region_index, largest_region_size, regions, and region_indices.
 static func find_cell_regions(cells: Array[Vector2i], options: Dictionary = {}) -> Dictionary:
-	var include_diagonal: bool = GFVariantData.get_option_bool(options, "include_diagonal", false)
+	var include_diagonal: bool = GFVariantData.get_option_bool(
+		options,
+		"include_diagonal",
+		false
+	)
 	var max_cells: int = maxi(
-		GFVariantData.get_option_int(options, "max_cells", DEFAULT_MAX_CELL_REGION_CELLS),
+		GFVariantData.get_option_int(
+			options,
+			"max_cells",
+			DEFAULT_MAX_CELL_REGION_CELLS
+		),
 		1
 	)
 	if cells.size() > max_cells:
@@ -363,7 +469,12 @@ static func find_cell_regions(cells: Array[Vector2i], options: Dictionary = {}) 
 		if visited.has(start_cell):
 			continue
 
-		var region: Array[Vector2i] = _collect_cell_region(start_cell, cell_set, visited, directions)
+		var region: Array[Vector2i] = _collect_cell_region(
+			start_cell,
+			cell_set,
+			visited,
+			directions
+		)
 		region.sort_custom(_sort_cells_yx)
 		var region_index: int = regions.size()
 		for cell: Vector2i in region:
@@ -417,9 +528,17 @@ static func filter_cell_regions_by_size(
 	minimum_region_size: int,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var include_diagonal: bool = GFVariantData.get_option_bool(options, "include_diagonal", false)
+	var include_diagonal: bool = GFVariantData.get_option_bool(
+		options,
+		"include_diagonal",
+		false
+	)
 	var max_cells: int = maxi(
-		GFVariantData.get_option_int(options, "max_cells", DEFAULT_MAX_CELL_REGION_CELLS),
+		GFVariantData.get_option_int(
+			options,
+			"max_cells",
+			DEFAULT_MAX_CELL_REGION_CELLS
+		),
 		1
 	)
 	if minimum_region_size < 0:
@@ -432,10 +551,10 @@ static func filter_cell_regions_by_size(
 			"minimum_region_size must be non-negative."
 		)
 
-	var region_report: Dictionary = find_cell_regions(cells, {
-		"include_diagonal": include_diagonal,
-		"max_cells": max_cells,
-	})
+	var region_report: Dictionary = find_cell_regions(
+		cells,
+		{ "include_diagonal": include_diagonal, "max_cells": max_cells, }
+	)
 	if not GFVariantData.get_option_bool(region_report, "ok"):
 		return _make_cell_region_filter_failure(
 			include_diagonal,
@@ -486,10 +605,17 @@ static func filter_cell_regions_by_size(
 ## 调用有效格子谓词并转换为 bool；无效回调或转换失败时使用 fallback。
 ## [br]
 ## @api private
-static func _call_cell_predicate(predicate: Callable, cell: Vector2i, fallback: bool = false) -> bool:
+static func _call_cell_predicate(
+	predicate: Callable,
+	cell: Vector2i,
+	fallback: bool = false
+) -> bool:
 	if not predicate.is_valid():
 		return fallback
-	return GFVariantData.to_bool(predicate.call(cell), fallback)
+	return GFVariantData.to_bool(
+		predicate.call(cell),
+		fallback
+	)
 
 
 ## 按 y/x 遍历网格，并以启用回调结果建立可用格子集合。
@@ -500,7 +626,11 @@ static func _make_rect_maze_available_cells(grid_size: Vector2i, is_cell_enabled
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
-			if _call_cell_predicate(is_cell_enabled, cell, true):
+			if _call_cell_predicate(
+				is_cell_enabled,
+				cell,
+				true
+			):
 				result[cell] = true
 	return result
 
@@ -516,7 +646,11 @@ static func _get_rect_maze_unvisited_neighbors(
 	visited: Dictionary
 ) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(cell, grid_size, include_diagonal):
+	for next_cell: Vector2i in GFGridCoordinateMath2D.get_neighbors(
+		cell,
+		grid_size,
+		include_diagonal
+	):
 		if available_cells.has(next_cell) and not visited.has(next_cell):
 			result.append(next_cell)
 	return result
@@ -525,7 +659,11 @@ static func _get_rect_maze_unvisited_neighbors(
 ## 将目标格追加到起点的连接列表并回写字典。
 ## [br]
 ## @api private
-static func _append_rect_maze_connection(connections: Dictionary, from_cell: Vector2i, to_cell: Vector2i) -> void:
+static func _append_rect_maze_connection(
+	connections: Dictionary,
+	from_cell: Vector2i,
+	to_cell: Vector2i
+) -> void:
 	var neighbors: Array = []
 	var value: Variant = GFVariantData.get_option_value(connections, from_cell)
 	if value is Array:
@@ -637,7 +775,11 @@ static func _step_cellular_automata_cells(
 				directions,
 				outside_alive
 			)
-			var is_alive: bool = GFVariantData.get_option_bool(cells, cell, false)
+			var is_alive: bool = GFVariantData.get_option_bool(
+				cells,
+				cell,
+				false
+			)
 			if is_alive:
 				next_cells[cell] = alive_neighbors >= survive_min and alive_neighbors <= survive_max
 			else:
@@ -662,7 +804,11 @@ static func _count_cellular_automata_alive_neighbors(
 			if outside_alive:
 				count += 1
 			continue
-		if GFVariantData.get_option_bool(cells, next_cell, false):
+		if GFVariantData.get_option_bool(
+			cells,
+			next_cell,
+			false
+		):
 			count += 1
 	return count
 
@@ -801,7 +947,11 @@ static func _make_cellular_automata_success(
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
-			if GFVariantData.get_option_bool(cells, cell, false):
+			if GFVariantData.get_option_bool(
+				cells,
+				cell,
+				false
+			):
 				alive_cells.append(cell)
 
 	return {

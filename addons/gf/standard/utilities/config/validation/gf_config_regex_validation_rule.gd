@@ -90,6 +90,8 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待校验值。
 ## [br]
 ## @param context: 校验上下文。
@@ -101,29 +103,84 @@ func _get_default_rule_id() -> StringName:
 ## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value(
+	value: Variant,
+	context: Dictionary,
+	report: Dictionary
+) -> void:
 	if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
-		_add_issue(report, _make_issue_context(context, value, "String or StringName"), "regex_invalid_type", "正则校验只支持 String 或 StringName。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"String or StringName"
+			),
+			"regex_invalid_type",
+			"正则校验只支持 String 或 StringName。"
+		)
 		return
 
 	var text: String = GFVariantData.to_text(value)
 	if text.is_empty() and allow_empty:
 		return
 	if pattern.is_empty():
-		_add_issue(report, _make_issue_context(context, value, "non_empty_pattern"), "regex_empty_pattern", "正则表达式为空。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"non_empty_pattern"
+			),
+			"regex_empty_pattern",
+			"正则表达式为空。"
+		)
 		return
 
 	var regex: RegEx = _get_compiled_regex()
 	if regex == null:
-		_add_issue(report, _make_issue_context(context, value, pattern), "regex_compile_failed", "正则表达式无法编译：%s。" % error_string(_compile_error))
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				pattern
+			),
+			"regex_compile_failed",
+			"正则表达式无法编译：%s。" % error_string(_compile_error)
+		)
 		return
 
 	var matched: RegExMatch = regex.search(text)
 	if matched == null:
-		_add_issue(report, _make_issue_context(context, value, pattern), "regex_mismatch", "字符串不符合正则表达式。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				pattern
+			),
+			"regex_mismatch",
+			"字符串不符合正则表达式。"
+		)
 		return
-	if require_full_match and (matched.get_start() != 0 or matched.get_end() != text.length()):
-		_add_issue(report, _make_issue_context(context, value, pattern), "regex_mismatch", "字符串不完整匹配正则表达式。")
+	if (
+		require_full_match
+		and (
+			matched.get_start() != 0
+			or matched.get_end() != text.length()
+		)
+	):
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				pattern
+			),
+			"regex_mismatch",
+			"字符串不完整匹配正则表达式。"
+		)
 
 
 # --- 私有/辅助方法 ---
@@ -149,7 +206,11 @@ func _get_compiled_regex() -> RegEx:
 ## [br]
 ## @api private
 ## [br]
-func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
+func _make_issue_context(
+	context: Dictionary,
+	value: Variant,
+	expected_value: Variant
+) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
 	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)

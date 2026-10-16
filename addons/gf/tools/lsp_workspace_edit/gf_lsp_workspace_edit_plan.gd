@@ -62,7 +62,11 @@ var _payload: Dictionary = {}
 ## [br]
 ## @return: 计划已成功预检且尚未被消费时为 true。
 func is_valid() -> bool:
-	return _initialized and _valid and not _consumed
+	return (
+		_initialized
+		and _valid
+		and not _consumed
+	)
 
 
 ## 返回计划是否已经进入过底层写事务。

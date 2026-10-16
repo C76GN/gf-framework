@@ -22,7 +22,7 @@
 | 方法 | [`clear_source_roots`](#member-gfcontentpackageutility-methods-clear_source_roots) | `func clear_source_roots() -> void:` |
 | 方法 | [`register_source_root_for_owner`](#member-gfcontentpackageutility-methods-register_source_root_for_owner) | `func register_source_root_for_owner(owner_id: StringName, root_path: String) -> bool:` |
 | 方法 | [`unregister_source_root_for_owner`](#member-gfcontentpackageutility-methods-unregister_source_root_for_owner) | `func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -> bool:` |
-| 方法 | [`replace_owner_source_roots`](#member-gfcontentpackageutility-methods-replace_owner_source_roots) | `func replace_owner_source_roots( owner_id: StringName, root_paths: PackedStringArray ) -> GFValidationReport:` |
+| 方法 | [`replace_owner_source_roots`](#member-gfcontentpackageutility-methods-replace_owner_source_roots) | `func replace_owner_source_roots(owner_id: StringName, root_paths: PackedStringArray) -> GFValidationReport:` |
 | 方法 | [`clear_owner_source_roots`](#member-gfcontentpackageutility-methods-clear_owner_source_roots) | `func clear_owner_source_roots(owner_id: StringName) -> int:` |
 | 方法 | [`get_owner_source_roots`](#member-gfcontentpackageutility-methods-get_owner_source_roots) | `func get_owner_source_roots(owner_id: StringName) -> PackedStringArray:` |
 | 方法 | [`get_source_root_owner_ids`](#member-gfcontentpackageutility-methods-get_source_root_owner_ids) | `func get_source_root_owner_ids() -> PackedStringArray:` |
@@ -31,7 +31,7 @@
 | 方法 | [`discover_manifest_paths`](#member-gfcontentpackageutility-methods-discover_manifest_paths) | `func discover_manifest_paths(root_path: String = "") -> PackedStringArray:` |
 | 方法 | [`load_manifest`](#member-gfcontentpackageutility-methods-load_manifest) | `func load_manifest(path: String) -> GFContentPackageManifest:` |
 | 方法 | [`rebuild_catalog`](#member-gfcontentpackageutility-methods-rebuild_catalog) | `func rebuild_catalog(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`set_manifests`](#member-gfcontentpackageutility-methods-set_manifests) | `func set_manifests( manifests: Array[GFContentPackageManifest], options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`set_manifests`](#member-gfcontentpackageutility-methods-set_manifests) | `func set_manifests(manifests: Array[GFContentPackageManifest], options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`register_resources`](#member-gfcontentpackageutility-methods-register_resources) | `func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfcontentpackageutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -180,7 +180,7 @@ func unregister_source_root_for_owner(owner_id: StringName, root_path: String) -
 - 首次版本：`10.0.0`
 
 ```gdscript
-func replace_owner_source_roots( owner_id: StringName, root_paths: PackedStringArray ) -> GFValidationReport:
+func replace_owner_source_roots(owner_id: StringName, root_paths: PackedStringArray) -> GFValidationReport:
 ```
 
 原子替换一个 owner 的全部 source root。
@@ -354,7 +354,7 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 - 首次版本：`4.4.0`
 
 ```gdscript
-func set_manifests( manifests: Array[GFContentPackageManifest], options: Dictionary = {} ) -> Dictionary:
+func set_manifests(manifests: Array[GFContentPackageManifest], options: Dictionary = {}) -> Dictionary:
 ```
 
 手动替换内容包目录。

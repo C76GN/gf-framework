@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`entry_changed`](#member-gfobservabledictionaryresource-signals-entry_changed) | `signal entry_changed(operation: StringName, entry_key: Variant, old_value: Variant, new_value: Variant, metadata: Dictionary)` |
+| 信号 | [`entry_changed`](#member-gfobservabledictionaryresource-signals-entry_changed) | `signal entry_changed( operation: StringName, entry_key: Variant, old_value: Variant, new_value: Variant, metadata: Dictionary )` |
 | 信号 | [`entries_changed`](#member-gfobservabledictionaryresource-signals-entries_changed) | `signal entries_changed(changes: Array[Dictionary], metadata: Dictionary)` |
 | 常量 | [`OPERATION_SET`](#member-gfobservabledictionaryresource-constants-operation_set) | `const OPERATION_SET: StringName = &"set"` |
 | 常量 | [`OPERATION_ERASE`](#member-gfobservabledictionaryresource-constants-operation_erase) | `const OPERATION_ERASE: StringName = &"erase"` |
@@ -23,9 +23,9 @@
 | 常量 | [`OPERATION_REPLACE`](#member-gfobservabledictionaryresource-constants-operation_replace) | `const OPERATION_REPLACE: StringName = &"replace"` |
 | 属性 | [`entries`](#member-gfobservabledictionaryresource-properties-entries) | `var entries: Dictionary = {}` |
 | 属性 | [`metadata`](#member-gfobservabledictionaryresource-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`set_entries`](#member-gfobservabledictionaryresource-methods-set_entries) | `func set_entries(values: Dictionary, emit_change: bool = true, change_metadata: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`set_entries`](#member-gfobservabledictionaryresource-methods-set_entries) | `func set_entries( values: Dictionary, emit_change: bool = true, change_metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_entries`](#member-gfobservabledictionaryresource-methods-get_entries) | `func get_entries() -> Dictionary:` |
-| 方法 | [`set_value`](#member-gfobservabledictionaryresource-methods-set_value) | `func set_value(entry_key: Variant, value: Variant, change_metadata: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`set_value`](#member-gfobservabledictionaryresource-methods-set_value) | `func set_value( entry_key: Variant, value: Variant, change_metadata: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`erase_value`](#member-gfobservabledictionaryresource-methods-erase_value) | `func erase_value(entry_key: Variant, change_metadata: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`clear_entries`](#member-gfobservabledictionaryresource-methods-clear_entries) | `func clear_entries(change_metadata: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`begin_batch`](#member-gfobservabledictionaryresource-methods-begin_batch) | `func begin_batch(change_metadata: Dictionary = {}) -> void:` |
@@ -46,7 +46,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
-signal entry_changed(operation: StringName, entry_key: Variant, old_value: Variant, new_value: Variant, metadata: Dictionary)
+signal entry_changed( operation: StringName, entry_key: Variant, old_value: Variant, new_value: Variant, metadata: Dictionary )
 ```
 
 非 batch 模式下单个键值变更后发出。batch 内变更只在 end_batch() 时汇总到 entries_changed。
@@ -193,7 +193,7 @@ var metadata: Dictionary = {}
 - 首次版本：`6.0.0`
 
 ```gdscript
-func set_entries(values: Dictionary, emit_change: bool = true, change_metadata: Dictionary = {}) -> Dictionary:
+func set_entries( values: Dictionary, emit_change: bool = true, change_metadata: Dictionary = {} ) -> Dictionary:
 ```
 
 替换全部字典内容。
@@ -241,7 +241,7 @@ func get_entries() -> Dictionary:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func set_value(entry_key: Variant, value: Variant, change_metadata: Dictionary = {}) -> Dictionary:
+func set_value( entry_key: Variant, value: Variant, change_metadata: Dictionary = {} ) -> Dictionary:
 ```
 
 设置键值。

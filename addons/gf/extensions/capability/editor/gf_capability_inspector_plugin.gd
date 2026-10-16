@@ -29,32 +29,32 @@ const _CAPABILITY_EXTENSION_ID: String = "gf.capability"
 ## Capability 容器脚本资源路径。
 ## [br]
 ## @api private
-const _GF_CAPABILITY_CONTAINER_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_capability_container.gd"
+const _GF_CAPABILITY_CONTAINER_SCRIPT_PATH: String = ("res://addons/gf/extensions/capability/nodes/gf_capability_container.gd")
 
 ## Node Capability 基类脚本路径。
 ## [br]
 ## @api private
-const _GF_NODE_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_node_capability.gd"
+const _GF_NODE_CAPABILITY_SCRIPT_PATH: String = ("res://addons/gf/extensions/capability/nodes/gf_node_capability.gd")
 
 ## Node2D Capability 基类脚本路径。
 ## [br]
 ## @api private
-const _GF_NODE_2D_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_node_2d_capability.gd"
+const _GF_NODE_2D_CAPABILITY_SCRIPT_PATH: String = ("res://addons/gf/extensions/capability/nodes/gf_node_2d_capability.gd")
 
 ## Node3D Capability 基类脚本路径。
 ## [br]
 ## @api private
-const _GF_NODE_3D_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_node_3d_capability.gd"
+const _GF_NODE_3D_CAPABILITY_SCRIPT_PATH: String = ("res://addons/gf/extensions/capability/nodes/gf_node_3d_capability.gd")
 
 ## Control Capability 基类脚本路径。
 ## [br]
 ## @api private
-const _GF_CONTROL_CAPABILITY_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/nodes/gf_control_capability.gd"
+const _GF_CONTROL_CAPABILITY_SCRIPT_PATH: String = ("res://addons/gf/extensions/capability/nodes/gf_control_capability.gd")
 
 ## Capability Recipe 基类脚本路径。
 ## [br]
 ## @api private
-const _GF_CAPABILITY_RECIPE_SCRIPT_PATH: String = "res://addons/gf/extensions/capability/recipes/gf_capability_recipe.gd"
+const _GF_CAPABILITY_RECIPE_SCRIPT_PATH: String = ("res://addons/gf/extensions/capability/recipes/gf_capability_recipe.gd")
 
 ## Recipe 资源扫描允许的最大目录深度。
 ## [br]
@@ -171,25 +171,39 @@ func _parse_begin(object: Object) -> void:
 	add_button.text = "添加"
 	add_button.tooltip_text = "添加 GF 节点能力"
 	header.add_child(add_button)
-	_populate_add_menu(add_button.get_popup(), target)
+	_populate_add_menu(
+		add_button.get_popup(),
+		target
+	)
 
 	var recipe_button: MenuButton = MenuButton.new()
 	recipe_button.text = "Recipe"
 	recipe_button.tooltip_text = "应用 GFCapabilityRecipe 中的节点能力条目"
 	header.add_child(recipe_button)
-	_populate_recipe_menu(recipe_button.get_popup(), target)
+	_populate_recipe_menu(
+		recipe_button.get_popup(),
+		target
+	)
 
 	var validate_button: Button = Button.new()
 	validate_button.text = "校验"
 	validate_button.tooltip_text = "检查节点能力依赖"
-	_connect_signal_checked(validate_button.pressed, _on_validate_capabilities_pressed.bind(target), CONNECT_DEFERRED)
+	_connect_signal_checked(
+		validate_button.pressed,
+		_on_validate_capabilities_pressed.bind(target),
+		CONNECT_DEFERRED
+	)
 	header.add_child(validate_button)
 
 	var capabilities: Array[Node] = _get_capability_nodes(target)
 	if capabilities.is_empty():
 		var empty_label: Label = Label.new()
 		empty_label.text = "未挂载节点能力"
-		empty_label.modulate = Color(0.65, 0.65, 0.65)
+		empty_label.modulate = Color(
+			0.65,
+			0.65,
+			0.65
+		)
 		root.add_child(empty_label)
 		add_custom_control(root)
 		return
@@ -313,10 +327,7 @@ static func _get_validation_report_value(value: Variant) -> GFValidationReport:
 ## 将 Variant 中的整数转换为节点处理模式，类型不符时使用回退值。
 ## [br]
 ## @api private
-static func _get_process_mode_value(
-	value: Variant,
-	fallback: Node.ProcessMode = Node.PROCESS_MODE_INHERIT
-) -> Node.ProcessMode:
+static func _get_process_mode_value(value: Variant, fallback: Node.ProcessMode = Node.PROCESS_MODE_INHERIT) -> Node.ProcessMode:
 	if value is int:
 		var int_value: int = value
 		return _to_process_mode(int_value, fallback)
@@ -353,8 +364,16 @@ static func _empty_script_array() -> Array[Script]:
 ## 通过属性工具按名称读取对象属性并提供默认值。
 ## [br]
 ## @api private
-static func _read_property(object: Object, property_name: String, default_value: Variant = null) -> Variant:
-	return GFObjectPropertyTools.read_property(object, NodePath(property_name), default_value)
+static func _read_property(
+	object: Object,
+	property_name: String,
+	default_value: Variant = null
+) -> Variant:
+	return GFObjectPropertyTools.read_property(
+		object,
+		NodePath(property_name),
+		default_value
+	)
 
 
 ## 创建并收窄校验报告实例。
@@ -427,9 +446,7 @@ static func _get_editor_directory_value(value: Variant) -> EditorFileSystemDirec
 ## [br]
 ## @api private
 func _get_recipe_resource_type_names() -> Dictionary:
-	var accepted: Dictionary = {
-		"GFCapabilityRecipe": true,
-	}
+	var accepted: Dictionary = { "GFCapabilityRecipe": true, }
 	var changed: bool = true
 	while changed:
 		changed = false
@@ -469,13 +486,20 @@ func _editor_file_may_be_recipe(
 ## 校验连接条件后连接信号，连接失败时记录警告。
 ## [br]
 ## @api private
-static func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
+static func _connect_signal_checked(
+	source_signal: Signal,
+	callback: Callable,
+	flags: int = 0
+) -> void:
 	if source_signal.is_null() or not callback.is_valid():
 		return
 	if source_signal.is_connected(callback):
 		return
 
-	var error: int = source_signal.connect(callback, flags as Object.ConnectFlags)
+	var error: int = source_signal.connect(
+		callback,
+		flags as Object.ConnectFlags
+	)
 	if error != OK:
 		push_warning("[GFCapabilityInspector][capability_inspector.signal_connection_failed] Signal connection failed: %s." % error_string(error))
 
@@ -502,7 +526,13 @@ static func _report_add_warning(
 ) -> void:
 	if report == null:
 		return
-	var issue: RefCounted = report.add_warning(kind, message, key, path, issue_metadata)
+	var issue: RefCounted = report.add_warning(
+		kind,
+		message,
+		key,
+		path,
+		issue_metadata
+	)
 	if issue != null:
 		return
 
@@ -520,7 +550,13 @@ static func _report_add_error(
 ) -> void:
 	if report == null:
 		return
-	var issue: RefCounted = report.add_error(kind, message, key, path, issue_metadata)
+	var issue: RefCounted = report.add_error(
+		kind,
+		message,
+		key,
+		path,
+		issue_metadata
+	)
 	if issue != null:
 		return
 
@@ -542,7 +578,13 @@ static func _report_to_dict(
 ## [br]
 ## @api private
 static func _script_extends_or_equals(script: Script, base_script: Script) -> bool:
-	return GFVariantData.to_bool(_SCRIPT_TYPE_INSPECTOR.call("script_extends_or_equals", script, base_script))
+	return GFVariantData.to_bool(
+		_SCRIPT_TYPE_INSPECTOR.call(
+			"script_extends_or_equals",
+			script,
+			base_script
+		)
+	)
 
 
 ## 检查 Script 是否存在且可实例化。
@@ -751,10 +793,21 @@ func _populate_add_menu(popup: PopupMenu, target: Node) -> void:
 
 	for i: int in range(candidates.size()):
 		var candidate: Dictionary = candidates[i]
-		popup.add_item(GFVariantData.get_option_string(candidate, "label", ""), i)
+		popup.add_item(
+			GFVariantData.get_option_string(
+				candidate,
+				"label",
+				""
+			),
+			i
+		)
 		popup.set_item_metadata(i, candidate)
 
-	_connect_signal_checked(popup.id_pressed, _on_add_menu_id_pressed.bind(popup, target), CONNECT_DEFERRED)
+	_connect_signal_checked(
+		popup.id_pressed,
+		_on_add_menu_id_pressed.bind(popup, target),
+		CONNECT_DEFERRED
+	)
 
 
 ## 填充 Recipe 菜单并连接候选项选择信号。
@@ -773,10 +826,21 @@ func _populate_recipe_menu(popup: PopupMenu, target: Node) -> void:
 
 	for i: int in range(candidates.size()):
 		var candidate: Dictionary = candidates[i]
-		popup.add_item(GFVariantData.get_option_string(candidate, "label", ""), i)
+		popup.add_item(
+			GFVariantData.get_option_string(
+				candidate,
+				"label",
+				""
+			),
+			i
+		)
 		popup.set_item_metadata(i, candidate)
 
-	_connect_signal_checked(popup.id_pressed, _on_recipe_menu_id_pressed.bind(popup, target), CONNECT_DEFERRED)
+	_connect_signal_checked(
+		popup.id_pressed,
+		_on_recipe_menu_id_pressed.bind(popup, target),
+		CONNECT_DEFERRED
+	)
 
 
 ## 从编辑器类型索引收集并缓存脚本及场景根节点候选。
@@ -799,31 +863,63 @@ func _collect_node_capability_candidates() -> Array[Dictionary]:
 
 	for base_script: Script in base_scripts:
 		for record: Dictionary in type_index.collect_scripts_extending(base_script, excluded_scripts):
-			var class_name_value: String = GFVariantData.get_option_string(record, "class_name", "")
-			var path: String = GFVariantData.get_option_string(record, "path", "")
+			var class_name_value: String = GFVariantData.get_option_string(
+				record,
+				"class_name",
+				""
+			)
+			var path: String = GFVariantData.get_option_string(
+				record,
+				"path",
+				""
+			)
 			if used_paths.has(path):
 				continue
 
 			used_paths[path] = true
-			candidates.append({
-				"kind": "script",
-				"label": class_name_value,
-				"path": path,
-				"default_name": class_name_value,
-			})
+			candidates.append(
+				{
+					"kind": "script",
+					"label": class_name_value,
+					"path": path,
+					"default_name": class_name_value,
+				}
+			)
 
 	for base_script: Script in base_scripts:
 		for scene_record: Dictionary in type_index.collect_scene_roots_extending(base_script, used_paths):
-			var display_name: String = GFVariantData.get_option_string(scene_record, "display_name", "")
-			candidates.append({
-				"kind": "scene",
-				"label": "%s 场景" % display_name,
-				"path": GFVariantData.get_option_string(scene_record, "path", ""),
-				"default_name": display_name,
-			})
+			var display_name: String = GFVariantData.get_option_string(
+				scene_record,
+				"display_name",
+				""
+			)
+			candidates.append(
+				{
+					"kind": "scene",
+					"label": "%s 场景" % display_name,
+					"path": GFVariantData.get_option_string(
+						scene_record,
+						"path",
+						""
+					),
+					"default_name": display_name,
+				}
+			)
 
-	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return GFVariantData.get_option_string(left, "label", "") < GFVariantData.get_option_string(right, "label", "")
+	candidates.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (
+				GFVariantData.get_option_string(
+					left,
+					"label",
+					""
+				)
+				< GFVariantData.get_option_string(
+					right,
+					"label",
+					""
+				)
+			)
 	)
 	_node_candidate_cache = candidates.duplicate(true)
 	_has_node_candidate_cache = true
@@ -852,26 +948,28 @@ func _collect_recipe_candidates() -> Array[Dictionary]:
 	var used_paths: Dictionary = {}
 	var accepted_types: Dictionary = _get_recipe_resource_type_names()
 	var scan_state: Dictionary = _make_recipe_scan_state()
-	var directory_stack: Array[Dictionary] = [{
-		"directory": root_dir,
-		"depth": 0,
-	}]
+	var directory_stack: Array[Dictionary] = [
+		{ "directory": root_dir, "depth": 0, },
+	]
 	while not directory_stack.is_empty():
 		var stack_entry: Dictionary = GFVariantData.as_dictionary(directory_stack.pop_back())
-		var directory: EditorFileSystemDirectory = _get_editor_directory_value(
-			GFVariantData.get_option_value(stack_entry, "directory")
+		var directory: EditorFileSystemDirectory = _get_editor_directory_value(GFVariantData.get_option_value(stack_entry, "directory"))
+		var depth: int = GFVariantData.get_option_int(
+			stack_entry,
+			"depth",
+			0
 		)
-		var depth: int = GFVariantData.get_option_int(stack_entry, "depth", 0)
 		if directory == null:
 			continue
 
 		for subdir_index: int in range(directory.get_subdir_count()):
 			var subdir: EditorFileSystemDirectory = directory.get_subdir(subdir_index)
-			if _can_scan_recipe_deeper(subdir.get_path(), depth, scan_state):
-				directory_stack.append({
-					"directory": subdir,
-					"depth": depth + 1,
-				})
+			if _can_scan_recipe_deeper(
+				subdir.get_path(),
+				depth,
+				scan_state
+			):
+				directory_stack.append({ "directory": subdir, "depth": depth + 1, })
 
 		for file_index: int in range(directory.get_file_count()):
 			if not _can_scan_more_recipe_files(scan_state):
@@ -881,19 +979,31 @@ func _collect_recipe_candidates() -> Array[Dictionary]:
 			var file_name: String = directory.get_file(file_index)
 			if not _is_recipe_resource_file(file_name):
 				continue
-			scan_state["scanned_file_count"] = GFVariantData.get_option_int(
-				scan_state,
-				"scanned_file_count",
-				0
-			) + 1
-			if not _editor_file_may_be_recipe(directory, file_index, accepted_types):
+			scan_state["scanned_file_count"] = (
+				(
+					GFVariantData.get_option_int(
+						scan_state,
+						"scanned_file_count",
+						0
+					)
+				)
+				+ 1
+			)
+			if not _editor_file_may_be_recipe(
+				directory,
+				file_index,
+				accepted_types
+			):
 				continue
 			if not _can_collect_more_recipe_candidates(candidates, scan_state):
 				_warn_recipe_candidate_limit(scan_state)
 				directory_stack.clear()
 				break
 
-			var path: String = _join_resource_path(directory.get_path(), file_name)
+			var path: String = _join_resource_path(
+				directory.get_path(),
+				file_name
+			)
 			if used_paths.has(path):
 				continue
 			var recipe_base_script: Script = _get_capability_recipe_script()
@@ -904,13 +1014,27 @@ func _collect_recipe_candidates() -> Array[Dictionary]:
 			if recipe == null or not _resource_extends_script(recipe, recipe_base_script):
 				continue
 			used_paths[path] = true
-			candidates.append({
-				"label": _get_recipe_display_label(recipe, path),
-				"path": path,
-				"recipe": recipe,
-			})
-	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return GFVariantData.get_option_string(left, "label", "") < GFVariantData.get_option_string(right, "label", "")
+			candidates.append(
+				{
+					"label": _get_recipe_display_label(recipe, path),
+					"path": path,
+					"recipe": recipe,
+				}
+			)
+	candidates.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (
+				GFVariantData.get_option_string(
+					left,
+					"label",
+					""
+				)
+				< GFVariantData.get_option_string(
+					right,
+					"label",
+					""
+				)
+			)
 	)
 	_recipe_candidate_cache = candidates.duplicate(true)
 	_has_recipe_candidate_cache = true
@@ -920,16 +1044,24 @@ func _collect_recipe_candidates() -> Array[Dictionary]:
 ## 检查 Recipe 扫描深度并至多发出一次深度限制警告。
 ## [br]
 ## @api private
-func _can_scan_recipe_deeper(path: String, current_depth: int, scan_state: Dictionary) -> bool:
+func _can_scan_recipe_deeper(
+	path: String,
+	current_depth: int,
+	scan_state: Dictionary
+) -> bool:
 	if current_depth < _DEFAULT_MAX_RECIPE_SCAN_DEPTH:
 		return true
-	if GFVariantData.get_option_bool(scan_state, "depth_warning_emitted", false):
+	if GFVariantData.get_option_bool(
+		scan_state,
+		"depth_warning_emitted",
+		false
+	):
 		return false
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFCapabilityInspector][capability_inspector.recipe_scan_depth_limit] Recipe scanning reached the maximum directory depth %d; deeper directories were skipped: %s." % [
-		_DEFAULT_MAX_RECIPE_SCAN_DEPTH,
-		path,
-	])
+	push_warning(
+		"[GFCapabilityInspector][capability_inspector.recipe_scan_depth_limit] Recipe scanning reached the maximum directory depth %d; deeper directories were skipped: %s."
+		% [_DEFAULT_MAX_RECIPE_SCAN_DEPTH, path,]
+	)
 	return false
 
 
@@ -956,30 +1088,36 @@ func _make_recipe_scan_state() -> Dictionary:
 ## [br]
 ## @api private
 func _can_scan_more_recipe_files(scan_state: Dictionary) -> bool:
-	return (
-		GFVariantData.get_option_int(scan_state, "scanned_file_count", 0)
-		< _DEFAULT_MAX_RECIPE_FILES_SCANNED
-	)
+	return GFVariantData.get_option_int(
+		scan_state,
+		"scanned_file_count",
+		0
+	) < _DEFAULT_MAX_RECIPE_FILES_SCANNED
 
 
 ## 在文件扫描上限首次触发时记录警告。
 ## [br]
 ## @api private
 func _warn_recipe_file_limit(scan_state: Dictionary) -> void:
-	if GFVariantData.get_option_bool(scan_state, "file_warning_emitted", false):
+	if GFVariantData.get_option_bool(
+		scan_state,
+		"file_warning_emitted",
+		false
+	):
 		return
 	scan_state["file_warning_emitted"] = true
-	push_warning(
-		"[GFCapabilityInspector][capability_inspector.recipe_scan_file_limit] Recipe scanning reached the maximum resource file count %d; remaining resources were skipped."
-		% _DEFAULT_MAX_RECIPE_FILES_SCANNED
-	)
+	push_warning("[GFCapabilityInspector][capability_inspector.recipe_scan_file_limit] Recipe scanning reached the maximum resource file count %d; remaining resources were skipped." % _DEFAULT_MAX_RECIPE_FILES_SCANNED)
 
 
 ## 在候选数量上限首次触发时记录警告。
 ## [br]
 ## @api private
 func _warn_recipe_candidate_limit(scan_state: Dictionary) -> void:
-	if GFVariantData.get_option_bool(scan_state, "count_warning_emitted", false):
+	if GFVariantData.get_option_bool(
+		scan_state,
+		"count_warning_emitted",
+		false
+	):
 		return
 	scan_state["count_warning_emitted"] = true
 	push_warning("[GFCapabilityInspector][capability_inspector.recipe_candidate_limit] Recipe candidates reached the maximum count %d; remaining resources were skipped." % _DEFAULT_MAX_RECIPE_CANDIDATES)
@@ -1056,21 +1194,27 @@ func _is_recipe_resource_file(file_name: String) -> bool:
 func _join_resource_path(dir_path: String, file_name: String) -> String:
 	if dir_path.ends_with("/"):
 		return dir_path + file_name
-	return "%s/%s" % [dir_path, file_name]
+	return (
+		"%s/%s"
+		% [dir_path, file_name]
+	)
 
 
 ## 按显示名、Recipe ID 或文件名生成 Recipe 候选标签。
 ## [br]
 ## @api private
 func _get_recipe_display_label(recipe: Resource, path: String) -> String:
-	var display_name: String = GFVariantData.to_text(_read_property(recipe, "display_name")).strip_edges() if recipe != null else ""
+	var display_name: String = (GFVariantData.to_text(_read_property(recipe, "display_name")).strip_edges() if recipe != null else "")
 	if display_name.is_empty() and recipe != null:
 		var recipe_id: StringName = GFVariantData.to_string_name(_read_property(recipe, "recipe_id"))
 		if recipe_id != &"":
 			display_name = String(recipe_id)
 	if display_name.is_empty():
 		display_name = path.get_file().get_basename().to_pascal_case()
-	return "%s (%s)" % [display_name, path]
+	return (
+		"%s (%s)"
+		% [display_name, path]
+	)
 
 
 ## 检查 Recipe 条目是否指定能力脚本或场景。
@@ -1131,7 +1275,11 @@ func _create_capability_row(target: Node, capability: Node) -> Control:
 	var active_check: CheckBox = CheckBox.new()
 	active_check.button_pressed = _read_editor_capability_active(capability)
 	active_check.tooltip_text = "启用或停用能力"
-	_connect_signal_checked(active_check.toggled, _on_capability_active_toggled.bind(capability), CONNECT_DEFERRED)
+	_connect_signal_checked(
+		active_check.toggled,
+		_on_capability_active_toggled.bind(capability),
+		CONNECT_DEFERRED
+	)
 	row.add_child(active_check)
 
 	var label: Label = Label.new()
@@ -1143,13 +1291,21 @@ func _create_capability_row(target: Node, capability: Node) -> Control:
 	var edit_button: Button = Button.new()
 	edit_button.text = "编辑"
 	edit_button.tooltip_text = "在 Inspector 中编辑该能力"
-	_connect_signal_checked(edit_button.pressed, _on_capability_edit_pressed.bind(capability), CONNECT_DEFERRED)
+	_connect_signal_checked(
+		edit_button.pressed,
+		_on_capability_edit_pressed.bind(capability),
+		CONNECT_DEFERRED
+	)
 	row.add_child(edit_button)
 
 	var remove_button: Button = Button.new()
 	remove_button.text = "移除"
 	remove_button.tooltip_text = "移除该能力节点"
-	_connect_signal_checked(remove_button.pressed, _on_capability_remove_pressed.bind(target, capability), CONNECT_DEFERRED)
+	_connect_signal_checked(
+		remove_button.pressed,
+		_on_capability_remove_pressed.bind(target, capability),
+		CONNECT_DEFERRED
+	)
 	row.add_child(remove_button)
 
 	var properties: Control = _create_capability_properties(capability)
@@ -1170,14 +1326,38 @@ func _create_capability_properties(capability: Node) -> Control:
 		if not _is_editable_capability_property(property_info):
 			continue
 
-		var property_name: String = GFVariantData.get_option_string(property_info, "name", "")
+		var property_name: String = GFVariantData.get_option_string(
+			property_info,
+			"name",
+			""
+		)
 		var editor_property: EditorProperty = EditorInspector.instantiate_property_editor(
 			capability,
-			_get_property_type_value(GFVariantData.get_option_value(property_info, "type", TYPE_NIL)),
+			_get_property_type_value(
+				GFVariantData.get_option_value(
+					property_info,
+					"type",
+					TYPE_NIL
+				)
+			),
 			property_name,
-			_get_property_hint_value(GFVariantData.get_option_value(property_info, "hint", PROPERTY_HINT_NONE)),
-			GFVariantData.get_option_string(property_info, "hint_string", ""),
-			GFVariantData.get_option_int(property_info, "usage", PROPERTY_USAGE_DEFAULT),
+			_get_property_hint_value(
+				GFVariantData.get_option_value(
+					property_info,
+					"hint",
+					PROPERTY_HINT_NONE
+				)
+			),
+			GFVariantData.get_option_string(
+				property_info,
+				"hint_string",
+				""
+			),
+			GFVariantData.get_option_int(
+				property_info,
+				"usage",
+				PROPERTY_USAGE_DEFAULT
+			),
 			false
 		)
 		if editor_property != null:
@@ -1201,13 +1381,21 @@ func _create_capability_properties(capability: Node) -> Control:
 ## [br]
 ## @api private
 func _is_editable_capability_property(property_info: Dictionary) -> bool:
-	var usage: int = GFVariantData.get_option_int(property_info, "usage", 0)
+	var usage: int = GFVariantData.get_option_int(
+		property_info,
+		"usage",
+		0
+	)
 	if (usage & PROPERTY_USAGE_EDITOR) == 0:
 		return false
 	if (usage & PROPERTY_USAGE_SCRIPT_VARIABLE) == 0:
 		return false
 
-	var property_name: String = GFVariantData.get_option_string(property_info, "name", "")
+	var property_name: String = GFVariantData.get_option_string(
+		property_info,
+		"name",
+		""
+	)
 	return (
 		not property_name.is_empty()
 		and property_name != "script"
@@ -1257,7 +1445,10 @@ func _get_or_create_capability_container(target: Node, capability: Node) -> Node
 
 	var container: Node = _make_capability_container(target, capability)
 	target.add_child(container, true)
-	_set_owner_recursive(container, EditorInterface.get_edited_scene_root())
+	_set_owner_recursive(
+		container,
+		EditorInterface.get_edited_scene_root()
+	)
 	return container
 
 
@@ -1342,7 +1533,11 @@ static func _container_matches_capability(container: Node, capability: Node) -> 
 		return container is Node2D
 	if capability is Control:
 		return container is Control
-	return not (container is Node2D) and not (container is Node3D) and not (container is Control)
+	return (
+		not (container is Node2D)
+		and not (container is Node3D)
+		and not (container is Control)
+	)
 
 
 ## 通过标记元数据或容器脚本识别能力容器。
@@ -1377,8 +1572,16 @@ static func _get_capability_nodes(target: Node) -> Array[Node]:
 ## [br]
 ## @api private
 func _create_capability_node(candidate: Dictionary) -> Node:
-	var path: String = GFVariantData.get_option_string(candidate, "path", "")
-	match GFVariantData.get_option_string(candidate, "kind", ""):
+	var path: String = GFVariantData.get_option_string(
+		candidate,
+		"path",
+		""
+	)
+	match GFVariantData.get_option_string(
+		candidate,
+		"kind",
+		""
+	):
 		"script":
 			var script: Script = _get_script_value(load(path))
 			if script == null:
@@ -1409,9 +1612,22 @@ func _add_capability_node(target: Node, candidate: Dictionary) -> void:
 		return
 
 	var plans: Array[Dictionary] = [
-		_make_capability_add_plan(target, node, GFVariantData.get_option_string(candidate, "default_name", ""))
+		_make_capability_add_plan(
+			target,
+			node,
+			GFVariantData.get_option_string(
+				candidate,
+				"default_name",
+				""
+			)
+		),
 	]
-	_commit_capability_add_plans("添加 GF 节点能力", target, plans, node)
+	_commit_capability_add_plans(
+		"添加 GF 节点能力",
+		target,
+		plans,
+		node
+	)
 
 
 ## 为新增能力确定容器、唯一名称及计划中的插入位置。
@@ -1432,7 +1648,11 @@ static func _make_capability_add_plan(
 		container_is_new = true
 
 	var used_names: Dictionary = _get_planned_child_names(container, planned_additions)
-	node.name = _make_unique_child_name_with_used(container, default_name, used_names)
+	node.name = _make_unique_child_name_with_used(
+		container,
+		default_name,
+		used_names
+	)
 	return {
 		"target": target,
 		"container": container,
@@ -1479,7 +1699,11 @@ static func _get_planned_child_names(container: Node, planned_additions: Array[D
 static func _get_planned_container_index(target: Node, planned_additions: Array[Dictionary]) -> int:
 	var index: int = target.get_child_count() if is_instance_valid(target) else 0
 	for plan: Dictionary in planned_additions:
-		if not GFVariantData.get_option_bool(plan, "container_is_new", false):
+		if not GFVariantData.get_option_bool(
+			plan,
+			"container_is_new",
+			false
+		):
 			continue
 		var planned_target: Node = _get_node_value(plan.get("target", null))
 		if planned_target == target:
@@ -1502,15 +1726,30 @@ static func _get_planned_node_index(container: Node, planned_additions: Array[Di
 ## 在场景现有和计划名称中寻找唯一子节点名称。
 ## [br]
 ## @api private
-static func _make_unique_child_name_with_used(parent: Node, base_name: String, used_names: Dictionary) -> String:
+static func _make_unique_child_name_with_used(
+	parent: Node,
+	base_name: String,
+	used_names: Dictionary
+) -> String:
 	var clean_name: String = base_name if not base_name.is_empty() else "Capability"
 	if not parent.has_node(NodePath(clean_name)) and not used_names.has(clean_name):
 		return clean_name
 
 	var index: int = 2
-	while parent.has_node(NodePath("%s%d" % [clean_name, index])) or used_names.has("%s%d" % [clean_name, index]):
+	while parent.has_node(
+		NodePath(
+			"%s%d"
+			% [clean_name, index]
+		)
+	) or used_names.has(
+		"%s%d"
+		% [clean_name, index]
+	):
 		index += 1
-	return "%s%d" % [clean_name, index]
+	return (
+		"%s%d"
+		% [clean_name, index]
+	)
 
 
 ## 通过 UndoRedo 提交多条添加计划，无管理器时直接执行。
@@ -1535,9 +1774,17 @@ func _commit_capability_add_plans(
 	undo_redo.create_action(action_name)
 	for plan: Dictionary in plans:
 		_add_capability_plan_to_undo(undo_redo, plan)
-	undo_redo.add_do_method(self, "_select_and_inspect_node", selection_after_do)
+	undo_redo.add_do_method(
+		self,
+		"_select_and_inspect_node",
+		selection_after_do
+	)
 	if is_instance_valid(target):
-		undo_redo.add_undo_method(self, "_select_and_inspect_node", target)
+		undo_redo.add_undo_method(
+			self,
+			"_select_and_inspect_node",
+			target
+		)
 	undo_redo.commit_action()
 
 
@@ -1548,41 +1795,85 @@ func _add_capability_plan_to_undo(undo_redo: EditorUndoRedoManager, plan: Dictio
 	var target: Node = _get_node_value(plan.get("target", null))
 	var container: Node = _get_node_value(plan.get("container", null))
 	var node: Node = _get_node_value(plan.get("node", null))
-	if not is_instance_valid(target) or container == null or node == null:
+	if (
+		not is_instance_valid(target)
+		or container == null
+		or node == null
+	):
 		return
 
 	var scene_root: Node = EditorInterface.get_edited_scene_root()
-	if GFVariantData.get_option_bool(plan, "container_is_new", false):
+	if GFVariantData.get_option_bool(
+		plan,
+		"container_is_new",
+		false
+	):
 		undo_redo.add_do_method(
 			self,
 			"_add_child_at",
 			target,
 			container,
-			GFVariantData.get_option_int(plan, "container_index", target.get_child_count()),
+			GFVariantData.get_option_int(
+				plan,
+				"container_index",
+				target.get_child_count()
+			),
 			true
 		)
-		undo_redo.add_do_method(self, "_set_owner_recursive", container, scene_root)
+		undo_redo.add_do_method(
+			self,
+			"_set_owner_recursive",
+			container,
+			scene_root
+		)
 
 	undo_redo.add_do_method(
 		self,
 		"_add_child_at",
 		container,
 		node,
-		GFVariantData.get_option_int(plan, "node_index", container.get_child_count()),
+		GFVariantData.get_option_int(
+			plan,
+			"node_index",
+			container.get_child_count()
+		),
 		true
 	)
-	undo_redo.add_do_method(self, "_set_owner_recursive", node, scene_root)
+	undo_redo.add_do_method(
+		self,
+		"_set_owner_recursive",
+		node,
+		scene_root
+	)
 	if plan.has("active"):
 		undo_redo.add_do_method(
 			self,
 			"_set_editor_capability_active",
 			node,
-			GFVariantData.get_option_bool(plan, "active", true)
+			GFVariantData.get_option_bool(
+				plan,
+				"active",
+				true
+			)
 		)
 
-	undo_redo.add_undo_method(self, "_remove_child_if_parent", container, node)
-	if GFVariantData.get_option_bool(plan, "container_is_new", false):
-		undo_redo.add_undo_method(self, "_remove_child_if_parent", target, container)
+	undo_redo.add_undo_method(
+		self,
+		"_remove_child_if_parent",
+		container,
+		node
+	)
+	if GFVariantData.get_option_bool(
+		plan,
+		"container_is_new",
+		false
+	):
+		undo_redo.add_undo_method(
+			self,
+			"_remove_child_if_parent",
+			target,
+			container
+		)
 		undo_redo.add_do_reference(container)
 		undo_redo.add_undo_reference(container)
 	undo_redo.add_do_reference(node)
@@ -1596,17 +1887,56 @@ func _execute_capability_add_plan(plan: Dictionary) -> void:
 	var target: Node = _get_node_value(plan.get("target", null))
 	var container: Node = _get_node_value(plan.get("container", null))
 	var node: Node = _get_node_value(plan.get("node", null))
-	if not is_instance_valid(target) or container == null or node == null:
+	if (
+		not is_instance_valid(target)
+		or container == null
+		or node == null
+	):
 		return
 
-	if GFVariantData.get_option_bool(plan, "container_is_new", false):
-		_add_child_at(target, container, GFVariantData.get_option_int(plan, "container_index", target.get_child_count()), true)
-		_set_owner_recursive(container, EditorInterface.get_edited_scene_root())
+	if GFVariantData.get_option_bool(
+		plan,
+		"container_is_new",
+		false
+	):
+		_add_child_at(
+			target,
+			container,
+			GFVariantData.get_option_int(
+				plan,
+				"container_index",
+				target.get_child_count()
+			),
+			true
+		)
+		_set_owner_recursive(
+			container,
+			EditorInterface.get_edited_scene_root()
+		)
 
-	_add_child_at(container, node, GFVariantData.get_option_int(plan, "node_index", container.get_child_count()), true)
-	_set_owner_recursive(node, EditorInterface.get_edited_scene_root())
+	_add_child_at(
+		container,
+		node,
+		GFVariantData.get_option_int(
+			plan,
+			"node_index",
+			container.get_child_count()
+		),
+		true
+	)
+	_set_owner_recursive(
+		node,
+		EditorInterface.get_edited_scene_root()
+	)
 	if plan.has("active"):
-		_set_editor_capability_active(node, GFVariantData.get_option_bool(plan, "active", true))
+		_set_editor_capability_active(
+			node,
+			GFVariantData.get_option_bool(
+				plan,
+				"active",
+				true
+			)
+		)
 
 
 ## 校验 Recipe 条目、构造添加计划并返回应用与依赖报告。
@@ -1617,69 +1947,132 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 	var added: Array[Dictionary] = []
 	var skipped: Array[Dictionary] = []
 	if not is_instance_valid(target):
-		_report_add_error(report, &"invalid_target", "Target node is invalid.")
-		return _recipe_apply_report_to_dict(report, recipe, added, skipped)
+		_report_add_error(
+			report,
+			&"invalid_target",
+			"Target node is invalid."
+		)
+		return _recipe_apply_report_to_dict(
+			report,
+			recipe,
+			added,
+			skipped
+		)
 	if recipe == null:
-		_report_add_error(report, &"invalid_recipe", "Capability recipe is null.")
-		return _recipe_apply_report_to_dict(report, recipe, added, skipped)
+		_report_add_error(
+			report,
+			&"invalid_recipe",
+			"Capability recipe is null."
+		)
+		return _recipe_apply_report_to_dict(
+			report,
+			recipe,
+			added,
+			skipped
+		)
 
-	var entries: Array = GFVariantData.as_array(_read_property(recipe, "entries", []))
+	var entries: Array = GFVariantData.as_array(
+		_read_property(
+			recipe,
+			"entries",
+			[]
+		)
+	)
 	var add_plans: Array[Dictionary] = []
 	var planned_capability_keys: Dictionary = {}
 
 	for index: int in range(entries.size()):
 		var entry: Resource = _get_resource_value(entries[index])
 		if entry == null:
-			_report_add_warning(report, &"null_entry", "Recipe contains a null entry.", str(index))
+			_report_add_warning(
+				report,
+				&"null_entry",
+				"Recipe contains a null entry.",
+				str(index)
+			)
 			continue
 		if not _is_recipe_entry_valid(entry):
-			_report_add_error(report, &"invalid_entry", "Recipe entry requires capability_type or scene.", str(index))
+			_report_add_error(
+				report,
+				&"invalid_entry",
+				"Recipe entry requires capability_type or scene.",
+				str(index)
+			)
 			continue
 
-		var node: Node = _create_capability_node_from_recipe_entry(entry, report, index)
+		var node: Node = _create_capability_node_from_recipe_entry(
+			entry,
+			report,
+			index
+		)
 		if node == null:
-			skipped.append({
-				"index": index,
-				"kind": "not_node_capability",
-			})
+			skipped.append({ "index": index, "kind": "not_node_capability", })
 			continue
 
 		var capability_script: Script = _get_script_value(node.get_script())
 		var capability_key: String = _get_script_key(capability_script)
-		if capability_script != null and (
-			_target_has_capability_script(target, capability_script)
-			or planned_capability_keys.has(capability_key)
+		if (
+			capability_script != null
+			and (
+				_target_has_capability_script(target, capability_script)
+				or planned_capability_keys.has(capability_key)
+			)
 		):
 			node.queue_free()
-			skipped.append({
-				"index": index,
-				"kind": "already_exists",
-				"type": capability_key,
-			})
+			skipped.append(
+				{
+					"index": index,
+					"kind": "already_exists",
+					"type": capability_key,
+				}
+			)
 			continue
 
-		var active: bool = GFVariantData.to_bool(_read_property(entry, "active", true), true)
+		var active: bool = GFVariantData.to_bool(
+			_read_property(
+				entry,
+				"active",
+				true
+			),
+			true
+		)
 		_set_editor_capability_active(node, active)
 		var plan: Dictionary = _make_capability_add_plan(
 			target,
 			node,
-			_get_recipe_entry_node_name(entry, node, index),
+			_get_recipe_entry_node_name(
+				entry,
+				node,
+				index
+			),
 			add_plans
 		)
 		plan["active"] = active
 		add_plans.append(plan)
 		if capability_script != null:
 			planned_capability_keys[capability_key] = true
-		added.append({
-			"index": index,
-			"type": capability_key,
-			"name": node.name,
-			"active": active,
-		})
+		added.append(
+			{
+				"index": index,
+				"type": capability_key,
+				"name": node.name,
+				"active": active,
+			}
+		)
 
 	if not add_plans.is_empty():
-		_commit_capability_add_plans("应用 GF Capability Recipe", target, add_plans, target)
-	var result: Dictionary = _recipe_apply_report_to_dict(report, recipe, added, skipped)
+		_commit_capability_add_plans(
+			"应用 GF Capability Recipe",
+			target,
+			add_plans,
+			target
+		)
+	var result: Dictionary = _recipe_apply_report_to_dict(
+		report,
+		recipe,
+		added,
+		skipped
+	)
 	result["dependency_report"] = _build_editor_capability_report(target)
 	_select_editor_node(target)
 	EditorInterface.inspect_object(target)
@@ -1700,7 +2093,12 @@ static func _create_capability_node_from_recipe_entry(
 	if entry_scene != null:
 		var scene_node: Node = _get_node_value(entry_scene.instantiate())
 		if scene_node == null:
-			_report_add_error(report, &"scene_root_not_node", "Recipe scene root must be a Node.", str(index))
+			_report_add_error(
+				report,
+				&"scene_root_not_node",
+				"Recipe scene root must be a Node.",
+				str(index)
+			)
 			return null
 		var declared_script: Script = _get_script_value(_read_property(entry, "capability_type"))
 		var actual_script: Script = _get_script_value(scene_node.get_script())
@@ -1716,22 +2114,42 @@ static func _create_capability_node_from_recipe_entry(
 			scene_node.free()
 			return null
 		if not _script_is_node_capability(actual_script):
-			_report_add_warning(report, &"not_node_capability", "Recipe scene root is not a GF node capability.", str(index))
+			_report_add_warning(
+				report,
+				&"not_node_capability",
+				"Recipe scene root is not a GF node capability.",
+				str(index)
+			)
 			scene_node.free()
 			return null
 		return scene_node
 
 	var script: Script = _get_script_value(_read_property(entry, "capability_type"))
 	if not _script_is_node_capability(script):
-		_report_add_warning(report, &"not_node_capability", "Recipe entry is not a GF node capability.", str(index))
+		_report_add_warning(
+			report,
+			&"not_node_capability",
+			"Recipe entry is not a GF node capability.",
+			str(index)
+		)
 		return null
 	if not _script_can_instantiate(script):
-		_report_add_error(report, &"script_not_instantiable", "Recipe capability script cannot be instantiated.", str(index))
+		_report_add_error(
+			report,
+			&"script_not_instantiable",
+			"Recipe capability script cannot be instantiated.",
+			str(index)
+		)
 		return null
 
 	var node: Node = _instantiate_script_node(script)
 	if node == null:
-		_report_add_error(report, &"script_not_node", "Recipe capability script must instantiate a Node.", str(index))
+		_report_add_error(
+			report,
+			&"script_not_node",
+			"Recipe capability script must instantiate a Node.",
+			str(index)
+		)
 	return node
 
 
@@ -1747,7 +2165,11 @@ func _recipe_apply_report_to_dict(
 	return _report_to_dict(
 		report,
 		{
-			"recipe_id": _read_property(recipe, "recipe_id", &"") if recipe != null else &"",
+			"recipe_id": _read_property(
+				recipe,
+				"recipe_id",
+				&""
+			) if recipe != null else &"",
 			"added": added,
 			"skipped": skipped,
 			"added_count": added.size(),
@@ -1768,7 +2190,11 @@ func _recipe_apply_report_to_dict(
 ## 按脚本全局名、节点名或条目序号生成节点名称。
 ## [br]
 ## @api private
-func _get_recipe_entry_node_name(entry: Resource, node: Node, index: int) -> String:
+func _get_recipe_entry_node_name(
+	entry: Resource,
+	node: Node,
+	index: int
+) -> String:
 	var capability_type: Script = _get_script_value(node.get_script()) if node != null else null
 	if capability_type == null and entry != null:
 		capability_type = _get_script_value(_read_property(entry, "capability_type"))
@@ -1787,8 +2213,16 @@ func _get_recipe_entry_node_name(entry: Resource, node: Node, index: int) -> Str
 static func _build_editor_capability_report(target: Node) -> Dictionary:
 	var report: GFValidationReport = _make_validation_report("Capability inspector")
 	if not is_instance_valid(target):
-		_report_add_error(report, &"invalid_target", "Target node is invalid.")
-		return _report_to_dict(report, {}, { "include_subject": false })
+		_report_add_error(
+			report,
+			&"invalid_target",
+			"Target node is invalid."
+		)
+		return _report_to_dict(
+			report,
+			{},
+			{ "include_subject": false }
+		)
 
 	var capabilities: Array[Node] = _get_capability_nodes(target)
 	var capability_records: Array[Dictionary] = []
@@ -1797,20 +2231,31 @@ static func _build_editor_capability_report(target: Node) -> Dictionary:
 		var script: Script = _get_script_value(capability.get_script())
 		var script_key: String = _get_script_key(script)
 		if script == null:
-			_report_add_warning(report, &"missing_capability_script", "Capability node has no script.", capability.get_path())
+			_report_add_warning(
+				report,
+				&"missing_capability_script",
+				"Capability node has no script.",
+				capability.get_path()
+			)
 			continue
 		if seen_scripts.has(script):
-			_report_add_warning(report, &"duplicate_capability", "Target contains duplicate capability scripts.", script_key)
+			_report_add_warning(
+				report,
+				&"duplicate_capability",
+				"Target contains duplicate capability scripts.",
+				script_key
+			)
 		seen_scripts[script] = true
 
-		var required_types: Array[Script] = collect_required_capability_types(capability, report, script_key)
+		var required_types: Array[Script] = collect_required_capability_types(
+			capability,
+			report,
+			script_key
+		)
 		var missing_dependencies: Array[Dictionary] = []
 		var ambiguous_dependencies: Array[Dictionary] = []
 		for required_type: Script in required_types:
-			var matching_scripts: Array[Script] = _get_matching_capability_scripts(
-				capabilities,
-				required_type
-			)
+			var matching_scripts: Array[Script] = _get_matching_capability_scripts(capabilities, required_type)
 			if matching_scripts.size() == 1:
 				continue
 			if matching_scripts.size() > 1:
@@ -1829,10 +2274,7 @@ static func _build_editor_capability_report(target: Node) -> Dictionary:
 					{ "matches": _script_array_to_keys(matching_scripts) }
 				)
 				continue
-			var missing_entry: Dictionary = {
-				"capability": script_key,
-				"required": _get_script_key(required_type),
-			}
+			var missing_entry: Dictionary = { "capability": script_key, "required": _get_script_key(required_type), }
 			missing_dependencies.append(missing_entry)
 			_report_add_error(
 				report,
@@ -1842,14 +2284,16 @@ static func _build_editor_capability_report(target: Node) -> Dictionary:
 				_get_script_key(required_type)
 			)
 
-		capability_records.append({
-			"type": script_key,
-			"name": capability.name,
-			"active": _read_editor_capability_active(capability),
-			"required": _script_array_to_keys(required_types),
-			"missing_dependencies": missing_dependencies,
-			"ambiguous_dependencies": ambiguous_dependencies,
-		})
+		capability_records.append(
+			{
+				"type": script_key,
+				"name": capability.name,
+				"active": _read_editor_capability_active(capability),
+				"required": _script_array_to_keys(required_types),
+				"missing_dependencies": missing_dependencies,
+				"ambiguous_dependencies": ambiguous_dependencies,
+			}
+		)
 
 	return _report_to_dict(
 		report,
@@ -1874,7 +2318,10 @@ static func _build_editor_capability_report(target: Node) -> Dictionary:
 ## [br]
 ## @api private
 static func _target_has_capability_script(target: Node, expected_script: Script) -> bool:
-	return _capability_list_has_script(_get_capability_nodes(target), expected_script)
+	return _capability_list_has_script(
+		_get_capability_nodes(target),
+		expected_script
+	)
 
 
 ## 判断能力节点列表是否唯一匹配指定脚本类型。
@@ -1887,10 +2334,7 @@ static func _capability_list_has_script(capabilities: Array[Node], expected_scri
 ## 收集目标脚本的精确匹配或继承它的不同子类脚本。
 ## [br]
 ## @api private
-static func _get_matching_capability_scripts(
-	capabilities: Array[Node],
-	expected_script: Script
-) -> Array[Script]:
+static func _get_matching_capability_scripts(capabilities: Array[Node], expected_script: Script) -> Array[Script]:
 	var subtype_matches: Array[Script] = []
 	if expected_script == null:
 		return subtype_matches
@@ -1913,7 +2357,10 @@ static func _get_matching_capability_scripts(
 static func _script_array_to_keys(scripts: Array[Script]) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for script: Script in scripts:
-		_append_packed_string(result, _get_script_key(script))
+		_append_packed_string(
+			result,
+			_get_script_key(script)
+		)
 	result.sort()
 	return result
 
@@ -1948,8 +2395,16 @@ func _show_editor_report(title: String, report: Dictionary) -> void:
 	text_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	text_edit.text = _format_editor_report(report)
 	dialog.add_child(text_edit)
-	_connect_signal_checked(dialog.confirmed, dialog.queue_free, CONNECT_DEFERRED)
-	_connect_signal_checked(dialog.close_requested, dialog.queue_free, CONNECT_DEFERRED)
+	_connect_signal_checked(
+		dialog.confirmed,
+		dialog.queue_free,
+		CONNECT_DEFERRED
+	)
+	_connect_signal_checked(
+		dialog.close_requested,
+		dialog.queue_free,
+		CONNECT_DEFERRED
+	)
 
 	var base_control: Control = EditorInterface.get_base_control()
 	if base_control != null:
@@ -1962,19 +2417,66 @@ func _show_editor_report(title: String, report: Dictionary) -> void:
 ## @api private
 func _format_editor_report(report: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
-	_append_packed_string(lines, GFVariantData.get_option_string(report, "summary", "Capability report"))
-	_append_packed_string(lines, "ok: %s" % str(GFVariantData.get_option_bool(report, "ok", false)))
-	_append_packed_string(lines, "errors: %d, warnings: %d" % [
-		GFVariantData.get_option_int(report, "error_count", 0),
-		GFVariantData.get_option_int(report, "warning_count", 0),
-	])
+	_append_packed_string(
+		lines,
+		GFVariantData.get_option_string(
+			report,
+			"summary",
+			"Capability report"
+		)
+	)
+	_append_packed_string(
+		lines,
+		"ok: %s" % str(
+			GFVariantData.get_option_bool(
+				report,
+				"ok",
+				false
+			)
+		)
+	)
+	_append_packed_string(
+		lines,
+		"errors: %d, warnings: %d"
+		% [
+			GFVariantData.get_option_int(
+				report,
+				"error_count",
+				0
+			),
+			GFVariantData.get_option_int(
+				report,
+				"warning_count",
+				0
+			),
+		]
+	)
 	if report.has("added_count"):
-		_append_packed_string(lines, "added: %d, skipped: %d" % [
-			GFVariantData.get_option_int(report, "added_count", 0),
-			GFVariantData.get_option_int(report, "skipped_count", 0),
-		])
+		_append_packed_string(
+			lines,
+			"added: %d, skipped: %d"
+			% [
+				GFVariantData.get_option_int(
+					report,
+					"added_count",
+					0
+				),
+				GFVariantData.get_option_int(
+					report,
+					"skipped_count",
+					0
+				),
+			]
+		)
 	if report.has("capability_count"):
-		_append_packed_string(lines, "capabilities: %d" % GFVariantData.get_option_int(report, "capability_count", 0))
+		_append_packed_string(
+			lines,
+			"capabilities: %d" % GFVariantData.get_option_int(
+				report,
+				"capability_count",
+				0
+			)
+		)
 
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
 	if not issues.is_empty():
@@ -1984,17 +2486,56 @@ func _format_editor_report(report: Dictionary) -> String:
 			var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
 			if issue.is_empty():
 				continue
-			var kind: String = GFVariantData.get_option_string(issue, "kind", "unknown")
-			var severity: String = GFVariantData.get_option_string(issue, "severity", "error")
-			var message: String = GFVariantData.get_option_string(issue, "message", "")
-			var key: String = GFVariantData.get_option_string(issue, "key", "")
-			var path: String = GFVariantData.get_option_string(issue, "path", "")
-			_append_packed_string(lines, "- [%s] %s: %s" % [severity, kind, message])
+			var kind: String = GFVariantData.get_option_string(
+				issue,
+				"kind",
+				"unknown"
+			)
+			var severity: String = GFVariantData.get_option_string(
+				issue,
+				"severity",
+				"error"
+			)
+			var message: String = GFVariantData.get_option_string(
+				issue,
+				"message",
+				""
+			)
+			var key: String = GFVariantData.get_option_string(
+				issue,
+				"key",
+				""
+			)
+			var path: String = GFVariantData.get_option_string(
+				issue,
+				"path",
+				""
+			)
+			_append_packed_string(
+				lines,
+				"- [%s] %s: %s"
+				% [
+					severity,
+					kind,
+					message,
+				]
+			)
 			if not key.is_empty() or not path.is_empty():
-				_append_packed_string(lines, "  key=%s path=%s" % [key, path])
+				_append_packed_string(
+					lines,
+					"  key=%s path=%s"
+					% [key, path]
+				)
 
 	_append_packed_string(lines, "")
-	_append_packed_string(lines, "Next action: %s" % GFVariantData.get_option_string(report, "next_action", "No action required."))
+	_append_packed_string(
+		lines,
+		"Next action: %s" % GFVariantData.get_option_string(
+			report,
+			"next_action",
+			"No action required."
+		)
+	)
 	return "\n".join(lines)
 
 
@@ -2050,18 +2591,60 @@ func _remove_capability_node(target: Node, capability: Node) -> void:
 		return
 
 	undo_redo.create_action("移除 GF 节点能力")
-	undo_redo.add_do_method(self, "_remove_child_if_parent", container, capability)
+	undo_redo.add_do_method(
+		self,
+		"_remove_child_if_parent",
+		container,
+		capability
+	)
 	if remove_container:
-		undo_redo.add_do_method(self, "_remove_child_if_parent", container_parent, container)
-	undo_redo.add_do_method(self, "_select_and_inspect_node", target)
+		undo_redo.add_do_method(
+			self,
+			"_remove_child_if_parent",
+			container_parent,
+			container
+		)
+	undo_redo.add_do_method(
+		self,
+		"_select_and_inspect_node",
+		target
+	)
 	if remove_container:
-		undo_redo.add_undo_method(self, "_add_child_at", container_parent, container, container_index, true)
-		undo_redo.add_undo_method(self, "_set_owner_recursive", container, scene_root)
+		undo_redo.add_undo_method(
+			self,
+			"_add_child_at",
+			container_parent,
+			container,
+			container_index,
+			true
+		)
+		undo_redo.add_undo_method(
+			self,
+			"_set_owner_recursive",
+			container,
+			scene_root
+		)
 		undo_redo.add_do_reference(container)
 		undo_redo.add_undo_reference(container)
-	undo_redo.add_undo_method(self, "_add_child_at", container, capability, capability_index, true)
-	undo_redo.add_undo_method(self, "_set_owner_recursive", capability, scene_root)
-	undo_redo.add_undo_method(self, "_select_and_inspect_node", capability)
+	undo_redo.add_undo_method(
+		self,
+		"_add_child_at",
+		container,
+		capability,
+		capability_index,
+		true
+	)
+	undo_redo.add_undo_method(
+		self,
+		"_set_owner_recursive",
+		capability,
+		scene_root
+	)
+	undo_redo.add_undo_method(
+		self,
+		"_select_and_inspect_node",
+		capability
+	)
 	undo_redo.add_do_reference(capability)
 	undo_redo.add_undo_reference(capability)
 	undo_redo.commit_action()
@@ -2076,9 +2659,17 @@ func _make_unique_child_name(parent: Node, base_name: String) -> String:
 		return clean_name
 
 	var index: int = 2
-	while parent.has_node(NodePath("%s%d" % [clean_name, index])):
+	while parent.has_node(
+		NodePath(
+			"%s%d"
+			% [clean_name, index]
+		)
+	):
 		index += 1
-	return "%s%d" % [clean_name, index]
+	return (
+		"%s%d"
+		% [clean_name, index]
+	)
 
 
 ## 在编辑器选择中仅保留指定节点。
@@ -2112,14 +2703,23 @@ func _select_and_inspect_node(node: Node) -> void:
 func _set_owner_recursive(node: Node, owner: Node) -> void:
 	if owner == null:
 		return
-	for tree_node: Node in _collect_editor_node_tree(node, true, "set owner"):
+	for tree_node: Node in _collect_editor_node_tree(
+		node,
+		true,
+		"set owner"
+	):
 		tree_node.owner = owner
 
 
 ## 确保节点归属指定父节点并移动到限制后的索引。
 ## [br]
 ## @api private
-func _add_child_at(parent: Node, child: Node, index: int, force_readable_name: bool = true) -> void:
+func _add_child_at(
+	parent: Node,
+	child: Node,
+	index: int,
+	force_readable_name: bool = true
+) -> void:
 	if not is_instance_valid(parent) or not is_instance_valid(child):
 		return
 
@@ -2129,8 +2729,18 @@ func _add_child_at(parent: Node, child: Node, index: int, force_readable_name: b
 	if child.get_parent() == null:
 		parent.add_child(child, force_readable_name)
 
-	var max_index: int = maxi(parent.get_child_count() - 1, 0)
-	parent.move_child(child, clampi(index, 0, max_index))
+	var max_index: int = maxi(
+		parent.get_child_count() - 1,
+		0
+	)
+	parent.move_child(
+		child,
+		clampi(
+			index,
+			0,
+			max_index
+		)
+	)
 
 
 ## 仅当指定节点仍由该父节点拥有时移除子节点。
@@ -2148,9 +2758,19 @@ func _remove_child_if_parent(parent: Node, child: Node) -> void:
 ## @api private
 static func _read_editor_capability_active(capability: Node) -> bool:
 	if "active" in capability:
-		return GFVariantData.to_bool(_read_property(capability, "active", true), true)
+		return GFVariantData.to_bool(
+			_read_property(
+				capability,
+				"active",
+				true
+			),
+			true
+		)
 	if capability.has_meta(_META_CAPABILITY_ACTIVE):
-		return GFVariantData.to_bool(capability.get_meta(_META_CAPABILITY_ACTIVE), true)
+		return GFVariantData.to_bool(
+			capability.get_meta(_META_CAPABILITY_ACTIVE),
+			true
+		)
 	return true
 
 
@@ -2259,9 +2879,7 @@ static func _set_node_active_state(node: Node, active: bool) -> void:
 ## 发现源变化后清空节点和 recipe 候选缓存，并撤销两类缓存的有效标记。
 ## [br]
 ## @api private
-func _on_discovery_sources_changed(
-	_resources: PackedStringArray = PackedStringArray()
-) -> void:
+func _on_discovery_sources_changed(_resources: PackedStringArray = PackedStringArray()) -> void:
 	_node_candidate_cache.clear()
 	_recipe_candidate_cache.clear()
 	_has_node_candidate_cache = false
@@ -2271,7 +2889,11 @@ func _on_discovery_sources_changed(
 ## 读取添加菜单项元数据并执行能力节点添加。
 ## [br]
 ## @api private
-func _on_add_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void:
+func _on_add_menu_id_pressed(
+	id: int,
+	popup: PopupMenu,
+	target: Node
+) -> void:
 	var index: int = popup.get_item_index(id)
 	if index < 0:
 		return
@@ -2285,7 +2907,11 @@ func _on_add_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void:
 ## 读取 Recipe 菜单项、应用资源并显示结果报告。
 ## [br]
 ## @api private
-func _on_recipe_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void:
+func _on_recipe_menu_id_pressed(
+	id: int,
+	popup: PopupMenu,
+	target: Node
+) -> void:
 	var index: int = popup.get_item_index(id)
 	if index < 0:
 		return
@@ -2294,7 +2920,13 @@ func _on_recipe_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void
 	if candidate.is_empty():
 		return
 
-	var recipe: Resource = _get_resource_value(GFVariantData.get_option_value(candidate, "recipe", null))
+	var recipe: Resource = _get_resource_value(
+		GFVariantData.get_option_value(
+			candidate,
+			"recipe",
+			null
+		)
+	)
 	var report: Dictionary = _apply_recipe_to_target(target, recipe)
 	_show_editor_report("GF Capability Recipe", report)
 
@@ -2303,7 +2935,10 @@ func _on_recipe_menu_id_pressed(id: int, popup: PopupMenu, target: Node) -> void
 ## [br]
 ## @api private
 func _on_validate_capabilities_pressed(target: Node) -> void:
-	_show_editor_report("GF Capability Validation", _build_editor_capability_report(target))
+	_show_editor_report(
+		"GF Capability Validation",
+		_build_editor_capability_report(target)
+	)
 
 
 ## 通过 UndoRedo 应用能力启用状态变化。
@@ -2323,8 +2958,18 @@ func _on_capability_active_toggled(active: bool, capability: Node) -> void:
 		return
 
 	undo_redo.create_action("设置 GF 节点能力启用状态")
-	undo_redo.add_do_method(self, "_set_editor_capability_active", capability, active)
-	undo_redo.add_undo_method(self, "_set_editor_capability_active", capability, old_active)
+	undo_redo.add_do_method(
+		self,
+		"_set_editor_capability_active",
+		capability,
+		active
+	)
+	undo_redo.add_undo_method(
+		self,
+		"_set_editor_capability_active",
+		capability,
+		old_active
+	)
 	undo_redo.add_do_reference(capability)
 	undo_redo.add_undo_reference(capability)
 	undo_redo.commit_action()

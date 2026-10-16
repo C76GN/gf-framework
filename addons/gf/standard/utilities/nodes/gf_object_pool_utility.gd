@@ -154,7 +154,8 @@ func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 		var _succeeded: bool = completion.succeed()
 	else:
 		var _connected: Error = _dispose_completed.connect(
-			completion.succeed, CONNECT_ONE_SHOT as Object.ConnectFlags
+			completion.succeed,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
 		) as Error
 	return completion
 
@@ -202,7 +203,12 @@ func acquire(
 	context: Dictionary = {}
 ) -> GFObjectPoolAcquireResult:
 	var request: _Request = _make_acquire_request(
-		scene, parent, 1, context, lifetime_owner, true
+		scene,
+		parent,
+		1,
+		context,
+		lifetime_owner,
+		true
 	)
 	# 协程参数不能把弱生命周期锚点保活到请求交付。
 	lifetime_owner = null
@@ -249,10 +255,18 @@ func prewarm(
 	elif batch_size <= 0:
 		invalid_reason = &"invalid_batch_size"
 	if invalid_reason != &"":
-		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.INVALID, invalid_reason)
+		_finish_prewarm(
+			request,
+			GFObjectPoolPrewarmResult.Status.INVALID,
+			invalid_reason
+		)
 		return request._prewarm_result
 	if _disposing:
-		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.CANCELLED, &"pool_disposed")
+		_finish_prewarm(
+			request,
+			GFObjectPoolPrewarmResult.Status.CANCELLED,
+			&"pool_disposed"
+		)
 		return request._prewarm_result
 	_enqueue(request)
 	await request._completed
@@ -298,7 +312,11 @@ func get_available_count(scene: PackedScene) -> int:
 func get_active_count(scene: PackedScene) -> int:
 	var count: int = 0
 	for entry: _Entry in _entries.values():
-		if entry._scene == scene and entry._lease != null and entry._lease.get_node() != null:
+		if (
+			entry._scene == scene
+			and entry._lease != null
+			and entry._lease.get_node() != null
+		):
 			count += 1
 	return count
 
@@ -320,7 +338,14 @@ func get_debug_snapshot() -> Dictionary:
 		var key: String = entry._scene.resource_path
 		if key.is_empty():
 			key = str(entry._scene.get_instance_id())
-		var counts: Dictionary = snapshot.get(key, { "total": 0, "available": 0, "active": 0 })
+		var counts: Dictionary = snapshot.get(
+			key,
+			{
+				"total": 0,
+				"available": 0,
+				"active": 0,
+			}
+		)
 		counts["total"] += 1
 		if _is_available_entry(entry):
 			counts["available"] += 1
@@ -357,7 +382,12 @@ func acquire_batch_for_framework(
 	lifetime_owner: Object = null
 ) -> Array[GFObjectPoolAcquireResult]:
 	var request: _Request = _make_acquire_request(
-		scene, parent, count, context, lifetime_owner, false
+		scene,
+		parent,
+		count,
+		context,
+		lifetime_owner,
+		false
 	)
 	lifetime_owner = null
 	if request._results.is_empty():
@@ -377,7 +407,11 @@ func acquire_batch_for_framework(
 ## @return: 首次匹配当前借用并接纳归还时为 true；陈旧、重复或已退休借用为 false。
 func release_lease_for_framework(lease: GFObjectPoolLease, node_id: int) -> bool:
 	var entry: _Entry = _entries.get(node_id)
-	if entry == null or entry._lease != lease or entry._phase != _Phase.LEASED:
+	if (
+		entry == null
+		or entry._lease != lease
+		or entry._phase != _Phase.LEASED
+	):
 		return false
 	entry._phase = _Phase.RELEASING
 	lease.mark_pending_for_framework()
@@ -410,13 +444,31 @@ func _make_acquire_request(
 		invalid_reason = &"invalid_scene"
 	elif not _valid_parent(parent) or count < 1:
 		invalid_reason = &"invalid_parent"
-	elif (require_owner or lifetime_owner != null) and not _valid_lifetime_owner(lifetime_owner):
+	elif (
+		(
+			require_owner
+			or lifetime_owner != null
+		)
+		and not _valid_lifetime_owner(lifetime_owner)
+	):
 		invalid_reason = &"invalid_owner"
 	if invalid_reason != &"":
-		request._results = [_failure(GFObjectPoolAcquireResult.Status.INVALID, &"validation", invalid_reason)]
+		request._results = [
+			_failure(
+				GFObjectPoolAcquireResult.Status.INVALID,
+				&"validation",
+				invalid_reason
+			),
+		]
 		return request
 	if _disposing:
-		request._results = [_failure(GFObjectPoolAcquireResult.Status.CANCELLED, &"validation", &"pool_disposed")]
+		request._results = [
+			_failure(
+				GFObjectPoolAcquireResult.Status.CANCELLED,
+				&"validation",
+				&"pool_disposed"
+			),
+		]
 		return request
 	request._kind = _Kind.ACQUIRE
 	request._scene = scene
@@ -451,8 +503,17 @@ func _schedule() -> void:
 		return
 	_scheduled = true
 	var tree: SceneTree = _tree()
-	if (_draining or _notifying) and tree != null:
-		var _connected: Error = tree.process_frame.connect(_defer_drain, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
+	if (
+		(
+			_draining
+			or _notifying
+		)
+		and tree != null
+	):
+		var _connected: Error = tree.process_frame.connect(
+			_defer_drain,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
 	else:
 		call_deferred(&"_drain")
 
@@ -473,7 +534,10 @@ func _drain() -> void:
 	_scheduled = false
 	_draining = true
 	var current: Array[_Request] = _queue
-	var batch_count: int = mini(current.size(), _MAX_REQUESTS_PER_DRAIN)
+	var batch_count: int = mini(
+		current.size(),
+		_MAX_REQUESTS_PER_DRAIN
+	)
 	# Keep accepted requests ahead of continuations and callback reentry.
 	_queue = current.slice(batch_count)
 	var completed: Array[_Request] = []
@@ -503,7 +567,11 @@ func _drain() -> void:
 		var _settled: Variant = settle.call()
 	for request: _Request in completed:
 		# Earlier completion listeners may dispose the pool or invalidate later owners.
-		if request._kind == _Kind.ACQUIRE and not request._results.is_empty() and request._results[0].is_successful():
+		if (
+			request._kind == _Kind.ACQUIRE
+			and not request._results.is_empty()
+			and request._results[0].is_successful()
+		):
 			var reason: StringName = _request_failure_reason(request)
 			var status: GFObjectPoolAcquireResult.Status = GFObjectPoolAcquireResult.Status.CANCELLED
 			if reason == &"":
@@ -521,11 +589,21 @@ func _drain() -> void:
 						if entry != null:
 							entry._reason = &"node_lost"
 					var _released: bool = result.get_lease().release()
-				request._results = [_failure(status, &"complete", reason)]
+				request._results = [
+					_failure(
+						status,
+						&"complete",
+						reason
+					),
+				]
 		_disconnect_request_lifetime(request)
 		request._completed.emit()
 	_notifying = false
-	if _disposing and not _disposed and _queue.is_empty():
+	if (
+		_disposing
+		and not _disposed
+		and _queue.is_empty()
+	):
 		_disposed = true
 		_dispose_completed.emit()
 	if not _queue.is_empty():
@@ -542,7 +620,13 @@ func _drain() -> void:
 func _acquire_batch(request: _Request) -> void:
 	var reason: StringName = _request_failure_reason(request)
 	if reason != &"":
-		request._results = [_failure(GFObjectPoolAcquireResult.Status.CANCELLED, &"validation", reason)]
+		request._results = [
+			_failure(
+				GFObjectPoolAcquireResult.Status.CANCELLED,
+				&"validation",
+				reason
+			),
+		]
 		return
 	var candidates: Array[_Entry] = []
 	var stage: StringName = &"allocation"
@@ -561,7 +645,10 @@ func _acquire_batch(request: _Request) -> void:
 			break
 		stage = &"prepare"
 		if entry._node.has_method(&"on_gf_pool_prepare"):
-			var prepare_result: Variant = entry._node.call(&"on_gf_pool_prepare", request._context.duplicate(true))
+			var prepare_result: Variant = entry._node.call(
+				&"on_gf_pool_prepare",
+				request._context.duplicate(true)
+			)
 			if not prepare_result is int:
 				reason = &"invalid_prepare_result"
 			elif prepare_result != OK:
@@ -578,12 +665,22 @@ func _acquire_batch(request: _Request) -> void:
 		stage = &"attach"
 		for entry: _Entry in candidates:
 			var parent: Node = _request_parent(request)
-			if _live_node(entry) == null or entry._node.get_parent() != null or parent == null:
+			if (
+				_live_node(entry) == null
+				or entry._node.get_parent() != null
+				or parent == null
+			):
 				reason = &"candidate_invalidated"
 				break
 			parent.add_child(entry._node)
 			reason = _request_failure_reason(request)
-			if reason == &"" and (_live_node(entry) == null or entry._node.get_parent() != parent):
+			if (
+				reason == &""
+				and (
+					_live_node(entry) == null
+					or entry._node.get_parent() != parent
+				)
+			):
 				reason = &"candidate_invalidated"
 			if reason != &"":
 				break
@@ -596,9 +693,19 @@ func _acquire_batch(request: _Request) -> void:
 		for entry: _Entry in candidates:
 			_retire_entry(entry)
 		var status: GFObjectPoolAcquireResult.Status = GFObjectPoolAcquireResult.Status.FAILED
-		if reason in [&"pool_disposed", &"parent_lost", &"owner_lost"]:
+		if reason in [
+			&"pool_disposed",
+			&"parent_lost",
+			&"owner_lost",
+		]:
 			status = GFObjectPoolAcquireResult.Status.CANCELLED
-		request._results = [_failure(status, stage, reason)]
+		request._results = [
+			_failure(
+				status,
+				stage,
+				reason
+			),
+		]
 		return
 	for entry: _Entry in candidates:
 		entry._phase = _Phase.LEASED
@@ -608,7 +715,12 @@ func _acquire_batch(request: _Request) -> void:
 		entry._exit_callback = _on_root_exiting.bind(entry._id)
 		var _connected: Error = entry._node.tree_exiting.connect(entry._exit_callback) as Error
 		var result: GFObjectPoolAcquireResult = GFObjectPoolAcquireResult.new()
-		result.configure_for_framework(GFObjectPoolAcquireResult.Status.SUCCEEDED, &"complete", &"acquired", entry._lease)
+		result.configure_for_framework(
+			GFObjectPoolAcquireResult.Status.SUCCEEDED,
+			&"complete",
+			&"acquired",
+			entry._lease
+		)
 		request._results.append(result)
 
 
@@ -651,7 +763,13 @@ func _release_entry(entry: _Entry, settlements: Array[Callable]) -> void:
 		entry._reason = &"pool_disposed"
 	elif node == null or entry._reason == &"node_lost":
 		entry._reason = &"node_lost"
-	elif max_available_per_scene < 0 or (max_available_per_scene > 0 and get_available_count(entry._scene) >= max_available_per_scene):
+	elif (
+		max_available_per_scene < 0
+		or (
+			max_available_per_scene > 0
+			and get_available_count(entry._scene) >= max_available_per_scene
+		)
+	):
 		entry._reason = &"capacity_retired"
 	if entry._reason != &"released":
 		_retire_entry(entry)
@@ -659,7 +777,11 @@ func _release_entry(entry: _Entry, settlements: Array[Callable]) -> void:
 		var parent: Node = node.get_parent()
 		if parent != null:
 			parent.remove_child(node)
-		if _disposing or _live_node(entry) == null or node.get_parent() != null:
+		if (
+			_disposing
+			or _live_node(entry) == null
+			or node.get_parent() != null
+		):
 			entry._reason = &"pool_disposed" if _disposing else &"node_lost"
 			_retire_entry(entry)
 		else:
@@ -709,7 +831,11 @@ func _cache_entry(entry: _Entry) -> void:
 ## @api private
 ## [br]
 func _disconnect_exit(entry: _Entry) -> void:
-	if is_instance_valid(entry._node) and entry._exit_callback.is_valid() and entry._node.tree_exiting.is_connected(entry._exit_callback):
+	if (
+		is_instance_valid(entry._node)
+		and entry._exit_callback.is_valid()
+		and entry._node.tree_exiting.is_connected(entry._exit_callback)
+	):
 		entry._node.tree_exiting.disconnect(entry._exit_callback)
 	entry._exit_callback = Callable()
 
@@ -720,32 +846,73 @@ func _disconnect_exit(entry: _Entry) -> void:
 ## [br]
 func _prewarm_batch(request: _Request) -> void:
 	if _disposing:
-		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.CANCELLED, &"pool_disposed")
+		_finish_prewarm(
+			request,
+			GFObjectPoolPrewarmResult.Status.CANCELLED,
+			&"pool_disposed"
+		)
 		return
-	var remaining: int = mini(request._batch_size, request._count - request._created)
+	var remaining: int = mini(
+		request._batch_size,
+		request._count - request._created
+	)
 	for _index: int in range(remaining):
 		if request._token != null and request._token.is_cancel_requested():
-			_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.CANCELLED, &"cancelled")
+			_finish_prewarm(
+				request,
+				GFObjectPoolPrewarmResult.Status.CANCELLED,
+				&"cancelled"
+			)
 			return
-		if max_available_per_scene < 0 or (max_available_per_scene > 0 and get_available_count(request._scene) >= max_available_per_scene):
-			_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.PARTIAL, &"capacity_limited")
+		if (
+			max_available_per_scene < 0
+			or (
+				max_available_per_scene > 0
+				and get_available_count(request._scene) >= max_available_per_scene
+			)
+		):
+			_finish_prewarm(
+				request,
+				GFObjectPoolPrewarmResult.Status.PARTIAL,
+				&"capacity_limited"
+			)
 			return
 		if not request._scene.can_instantiate():
-			_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.FAILED, &"scene_instantiation_failed")
+			_finish_prewarm(
+				request,
+				GFObjectPoolPrewarmResult.Status.FAILED,
+				&"scene_instantiation_failed"
+			)
 			return
 		var node: Node = request._scene.instantiate()
 		if not is_instance_valid(node):
-			_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.FAILED, &"scene_instantiation_failed")
+			_finish_prewarm(
+				request,
+				GFObjectPoolPrewarmResult.Status.FAILED,
+				&"scene_instantiation_failed"
+			)
 			return
-		if _disposing or node.is_queued_for_deletion() or node.get_parent() != null:
+		if (
+			_disposing
+			or node.is_queued_for_deletion()
+			or node.get_parent() != null
+		):
 			node.queue_free()
-			var status: GFObjectPoolPrewarmResult.Status = GFObjectPoolPrewarmResult.Status.CANCELLED if _disposing else GFObjectPoolPrewarmResult.Status.FAILED
+			var status: GFObjectPoolPrewarmResult.Status = (GFObjectPoolPrewarmResult.Status.CANCELLED if _disposing else GFObjectPoolPrewarmResult.Status.FAILED)
 			var reason: StringName = &"pool_disposed" if _disposing else &"scene_instantiation_failed"
-			_finish_prewarm(request, status, reason)
+			_finish_prewarm(
+				request,
+				status,
+				reason
+			)
 			return
 		if request._token != null and request._token.is_cancel_requested():
 			node.queue_free()
-			_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.CANCELLED, &"cancelled")
+			_finish_prewarm(
+				request,
+				GFObjectPoolPrewarmResult.Status.CANCELLED,
+				&"cancelled"
+			)
 			return
 		var entry: _Entry = _Entry.new()
 		entry._node = node
@@ -755,7 +922,11 @@ func _prewarm_batch(request: _Request) -> void:
 		_cache_entry(entry)
 		request._created += 1
 	if request._created == request._count:
-		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.SUCCEEDED, &"prewarmed")
+		_finish_prewarm(
+			request,
+			GFObjectPoolPrewarmResult.Status.SUCCEEDED,
+			&"prewarmed"
+		)
 	else:
 		_queue.append(request)
 
@@ -764,18 +935,35 @@ func _prewarm_batch(request: _Request) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _finish_prewarm(request: _Request, status: GFObjectPoolPrewarmResult.Status, reason: StringName) -> void:
+func _finish_prewarm(
+	request: _Request,
+	status: GFObjectPoolPrewarmResult.Status,
+	reason: StringName
+) -> void:
 	request._prewarm_result = GFObjectPoolPrewarmResult.new()
-	request._prewarm_result.configure_for_framework(status, reason, request._count, request._created)
+	request._prewarm_result.configure_for_framework(
+		status,
+		reason,
+		request._count,
+		request._created
+	)
 
 
 ## 创建包含状态、阶段和原因的失败借用结果。
 ## [br]
 ## @api private
 ## [br]
-func _failure(status: GFObjectPoolAcquireResult.Status, stage: StringName, reason: StringName) -> GFObjectPoolAcquireResult:
+func _failure(
+	status: GFObjectPoolAcquireResult.Status,
+	stage: StringName,
+	reason: StringName
+) -> GFObjectPoolAcquireResult:
 	var result: GFObjectPoolAcquireResult = GFObjectPoolAcquireResult.new()
-	result.configure_for_framework(status, stage, reason)
+	result.configure_for_framework(
+		status,
+		stage,
+		reason
+	)
 	return result
 
 
@@ -844,7 +1032,11 @@ func _request_parent(request: _Request) -> Node:
 ## @api private
 ## [br]
 func _valid_parent(node: Node) -> bool:
-	return is_instance_valid(node) and node.is_inside_tree() and not node.is_queued_for_deletion()
+	return (
+		is_instance_valid(node)
+		and node.is_inside_tree()
+		and not node.is_queued_for_deletion()
+	)
 
 
 ## 验证生命周期锚点；Node 锚点还必须在运行中的场景树内。
@@ -865,7 +1057,11 @@ func _valid_lifetime_owner(value: Object) -> bool:
 ## @api private
 ## [br]
 func _is_available_entry(entry: _Entry) -> bool:
-	return entry._phase == _Phase.IDLE and _live_node(entry) != null and entry._node.get_parent() == null
+	return (
+		entry._phase == _Phase.IDLE
+		and _live_node(entry) != null
+		and entry._node.get_parent() == null
+	)
 
 
 ## 返回未释放且未排队删除的条目节点。
@@ -907,6 +1103,7 @@ func _on_root_exiting(entry_id: int) -> void:
 ## @api private
 ## [br]
 class _Entry extends RefCounted:
+
 
 	# --- 私有变量 ---
 
@@ -952,12 +1149,14 @@ class _Entry extends RefCounted:
 ## [br]
 class _Request extends RefCounted:
 
+
 	# --- 信号 ---
 
 	## 请求处理结束时唤醒等待者的内部信号；预热尚有后续批次时继续等待。
 	## [br]
 	## @api private
 	signal _completed
+
 
 	# --- 私有变量 ---
 
@@ -1035,7 +1234,6 @@ class _Request extends RefCounted:
 	## [br]
 	## @api private
 	var _prewarm_result: GFObjectPoolPrewarmResult = null
-
 
 
 	# --- 私有/辅助方法 ---

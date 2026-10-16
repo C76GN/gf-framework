@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDirectionTools" path="addons/gf/standard/input/common/gf_input_direction_tools.gd" module="standard" extends="RefCounted" classDigest="20a6b91769744f25cc3ba918a66cfd91b1b72e3bb846e0a3f847930d23ab14f1">
+<class name="GFInputDirectionTools" path="addons/gf/standard/input/common/gf_input_direction_tools.gd" module="standard" extends="RefCounted" classDigest="ad68c528abfe30e9b791436ee948fc20cf43ba73efd9d7f12f7e00538600f977">
 	<description>GFInputDirectionTools: 二维输入方向处理工具。
 提供径向 deadzone、2/4/8 向离散化、方向名称和反向方向映射。
 它只处理纯 Vector2 数据，不读取 InputMap，也不规定动作命名。</description>
@@ -97,7 +97,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_direction_from_name">
-			<signature>static func get_direction_from_name( direction_name: StringName, default_direction: Direction2D = Direction2D.NONE ) -&gt; Direction2D:</signature>
+			<signature>static func get_direction_from_name(direction_name: StringName, default_direction: Direction2D = Direction2D.NONE) -&gt; Direction2D:</signature>
 			<description>按名称获取方向枚举。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputTrigger" path="addons/gf/standard/input/triggers/gf_input_trigger.gd" module="standard" extends="Resource" classDigest="110b13e9aeb6cb6fae79122cd1c28e38ba6deb0d1980fc130ba91eed3105ab25">
+<class name="GFInputTrigger" path="addons/gf/standard/input/triggers/gf_input_trigger.gd" module="standard" extends="Resource" classDigest="19ed7b6fa298b958b61e2851c1617d99fa78346b1951dc02fdc850bb11eba014">
 	<description>GFInputTrigger: 输入动作触发器基类。
 触发器只决定“原始输入活跃后何时视为动作活跃”，不修改输入值。运行时状态由
 GFInputMappingUtility 传入的 Dictionary 保存，因此同一资源可被多个上下文复用。</description>
@@ -50,7 +50,7 @@ GFInputMappingUtility 传入的 Dictionary 保存，因此同一资源可被多�
 			</tags>
 		</member>
 		<member kind="method" name="update">
-			<signature>func update(raw_active: bool, _value: Variant, _delta: float, _state: Dictionary) -&gt; TriggerState:</signature>
+			<signature>func update( raw_active: bool, _value: Variant, _delta: float, _state: Dictionary ) -&gt; TriggerState:</signature>
 			<description>更新触发器状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -61,6 +61,7 @@ GFInputMappingUtility 传入的 Dictionary 保存，因此同一资源可被多�
 				<tag name="return">触发状态。</tag>
 				<tag name="schema">_value: Variant，由当前输入映射产生的动作值。</tag>
 				<tag name="schema">_state: Dictionary，由输入运行时为当前 trigger 实例持有。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_trigger">

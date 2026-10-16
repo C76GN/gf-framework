@@ -238,6 +238,11 @@ func _merge_default_options(options: Dictionary) -> Dictionary:
 		merged["skip_unchanged"] = skip_unchanged
 	var overlay_metadata: Dictionary = metadata.duplicate(true)
 	var option_metadata: Dictionary = GFVariantData.get_option_dictionary(merged, "metadata")
-	var _merge_result: Dictionary = GFVariantData.merge_dictionary(overlay_metadata, option_metadata, true, true)
+	var _merge_result: Dictionary = GFVariantData.merge_dictionary(
+		overlay_metadata,
+		option_metadata,
+		true,
+		true
+	)
 	merged["metadata"] = overlay_metadata
 	return merged

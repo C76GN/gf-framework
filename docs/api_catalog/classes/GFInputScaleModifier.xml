@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputScaleModifier" path="addons/gf/standard/input/modifiers/gf_input_scale_modifier.gd" module="standard" extends="GFInputModifier" classDigest="1e3c56ab4657cb29c7e0c9cfb5accae3720a2538c64085db0007a0570eb03341">
+<class name="GFInputScaleModifier" path="addons/gf/standard/input/modifiers/gf_input_scale_modifier.gd" module="standard" extends="GFInputModifier" classDigest="63e9aaa1e032c5a3a7dffc13a62479d9ed25130df275be23dbbb3362fb4d2d0e">
 	<description>GFInputScaleModifier: 输入缩放修饰器。
 适合统一调节轴灵敏度、反转某个方向或压低虚拟摇杆输出。</description>
 	<tags>
@@ -35,7 +35,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -43,10 +43,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">缩放后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -54,6 +55,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">缩放后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

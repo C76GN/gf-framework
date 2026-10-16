@@ -202,7 +202,10 @@ func flush() -> void:
 		_elapsed_since_flush_msec = 0.0
 		return
 
-	var take_count: int = mini(batch_size, _queue.size())
+	var take_count: int = mini(
+		batch_size,
+		_queue.size()
+	)
 	var batch: Array[Dictionary] = []
 	for _index: int in range(take_count):
 		batch.append(_queue.pop_front())
@@ -211,10 +214,12 @@ func flush() -> void:
 	_elapsed_since_flush_msec = 0.0
 	var payload: Dictionary = {
 		"logs": batch,
-		"metadata": GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(
-			metadata.duplicate(true),
-			_make_external_report_options()
-		)),
+		"metadata": GFVariantData.as_dictionary(
+			GFReportValueCodec.to_json_compatible(
+				metadata.duplicate(true),
+				_make_external_report_options()
+			)
+		),
 		"dropped_count": _dropped_count,
 	}
 	if sender_callback.is_valid():
@@ -229,17 +234,34 @@ func flush() -> void:
 			_requeue_front(batch)
 			return
 		if not GFVariantData.get_option_bool(send_dictionary, "ok"):
-			_record_send_failure(GFVariantData.get_option_string(send_dictionary, "error", "sender_callback reported failure"))
+			_record_send_failure(
+				GFVariantData.get_option_string(
+					send_dictionary,
+					"error",
+					"sender_callback reported failure"
+				)
+			)
 			_requeue_front(batch)
 			return
 		if send_dictionary.has("accepted") and not (send_dictionary["accepted"] is int):
 			_record_send_failure("sender_callback result requires accepted: int")
 			_requeue_front(batch)
 			return
-		var accepted_count: int = clampi(GFVariantData.get_option_int(send_dictionary, "accepted", batch.size()), 0, batch.size())
+		var accepted_count: int = clampi(
+			GFVariantData.get_option_int(
+				send_dictionary,
+				"accepted",
+				batch.size()
+			),
+			0,
+			batch.size()
+		)
 		if accepted_count < batch.size():
 			var remaining: Array[Dictionary] = []
-			for index: int in range(accepted_count, batch.size()):
+			for index: int in range(
+				accepted_count,
+				batch.size()
+			):
 				remaining.append(batch[index])
 			_requeue_front(remaining)
 		_last_error = ""
@@ -319,7 +341,11 @@ func _trim_queue() -> void:
 ## @api private
 ## [br]
 func _requeue_front(batch: Array[Dictionary]) -> void:
-	for index: int in range(batch.size() - 1, -1, -1):
+	for index: int in range(
+		batch.size() - 1,
+		-1,
+		-1
+	):
 		_queue.push_front(batch[index].duplicate(true))
 	_trim_queue()
 
@@ -363,7 +389,15 @@ func _format_sanitized_text(
 	message: String,
 	context: Dictionary
 ) -> String:
-	var text: String = "[%s][%s][%s] %s" % [timestamp, level_name, tag, message]
+	var text: String = (
+		"[%s][%s][%s] %s"
+		% [
+			timestamp,
+			level_name,
+			tag,
+			message,
+		]
+	)
 	if not context.is_empty():
 		text += " " + JSON.stringify(context)
 	return text

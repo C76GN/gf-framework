@@ -30,6 +30,7 @@ enum IntegrityStatus {
 	INVALID,
 }
 
+
 ## 读取失败的稳定分类。
 ##
 ## 调用方必须依据该分类选择恢复策略，不得从 Error 码或错误文本推断数据语义。
@@ -243,7 +244,14 @@ func configure_success(
 	error = ""
 	failure_kind = FailureKind.NONE
 	document_schema_version = maxi(p_document_schema_version, 0)
-	source_data_version = maxi(GFVariantData.get_option_int(metadata, "data_version", 1), 1)
+	source_data_version = maxi(
+		GFVariantData.get_option_int(
+			metadata,
+			"data_version",
+			1
+		),
+		1
+	)
 	data_version = source_data_version
 	migrated = false
 	return self
@@ -288,7 +296,14 @@ func configure_failure(
 	error = p_error.strip_edges()
 	failure_kind = p_failure_kind if p_failure_kind != FailureKind.NONE else FailureKind.IO_FAILED
 	document_schema_version = maxi(p_document_schema_version, 0)
-	source_data_version = maxi(GFVariantData.get_option_int(metadata, "data_version", 1), 1)
+	source_data_version = maxi(
+		GFVariantData.get_option_int(
+			metadata,
+			"data_version",
+			1
+		),
+		1
+	)
 	data_version = source_data_version
 	migrated = false
 	return self
@@ -381,19 +396,44 @@ func apply_dict(data: Dictionary) -> void:
 	payload = GFVariantData.get_option_dictionary(data, "payload") if ok else {}
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 	integrity_status = _to_integrity_status(GFVariantData.get_option_int(data, "integrity_status"))
-	error_code = GFVariantData.get_option_int(data, "error_code", ERR_INVALID_DATA) as Error
+	error_code = GFVariantData.get_option_int(
+		data,
+		"error_code",
+		ERR_INVALID_DATA
+	) as Error
 	error = GFVariantData.get_option_string(data, "error").strip_edges()
 	if ok:
 		failure_kind = FailureKind.NONE
 	else:
 		failure_kind = _to_failure_kind(
-			GFVariantData.get_option_int(data, "failure_kind", FailureKind.IO_FAILED)
+			GFVariantData.get_option_int(
+				data,
+				"failure_kind",
+				FailureKind.IO_FAILED
+			)
 		)
 		if failure_kind == FailureKind.NONE:
 			failure_kind = FailureKind.IO_FAILED
-	document_schema_version = maxi(GFVariantData.get_option_int(data, "document_schema_version"), 0)
-	source_data_version = maxi(GFVariantData.get_option_int(data, "source_data_version", 1), 1)
-	data_version = maxi(GFVariantData.get_option_int(data, "data_version", source_data_version), 1)
+	document_schema_version = maxi(
+		GFVariantData.get_option_int(data, "document_schema_version"),
+		0
+	)
+	source_data_version = maxi(
+		GFVariantData.get_option_int(
+			data,
+			"source_data_version",
+			1
+		),
+		1
+	)
+	data_version = maxi(
+		GFVariantData.get_option_int(
+			data,
+			"data_version",
+			source_data_version
+		),
+		1
+	)
 	migrated = GFVariantData.get_option_bool(data, "migrated")
 
 

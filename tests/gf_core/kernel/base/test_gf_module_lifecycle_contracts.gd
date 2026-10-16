@@ -24,14 +24,8 @@ func test_base_modules_expose_isolated_typed_dependency_declarations() -> void:
 func test_model_base_lifecycle_completions_are_already_succeeded() -> void:
 	var model: GF_MODEL_SCRIPT = GF_MODEL_SCRIPT.new()
 
-	var activation: GFAsyncCompletion = _call_completion(
-		model,
-		&"begin_activation"
-	)
-	var quiesce: GFAsyncCompletion = _call_completion(
-		model,
-		&"begin_quiesce"
-	)
+	var activation: GFAsyncCompletion = _call_completion(model, &"begin_activation")
+	var quiesce: GFAsyncCompletion = _call_completion(model, &"begin_quiesce")
 
 	assert_not_null(activation)
 	assert_not_null(quiesce)
@@ -45,14 +39,8 @@ func test_model_base_lifecycle_completions_are_already_succeeded() -> void:
 func test_system_base_lifecycle_completions_are_already_succeeded() -> void:
 	var system_instance: GF_SYSTEM_SCRIPT = GF_SYSTEM_SCRIPT.new()
 
-	var activation: GFAsyncCompletion = _call_completion(
-		system_instance,
-		&"begin_activation"
-	)
-	var quiesce: GFAsyncCompletion = _call_completion(
-		system_instance,
-		&"begin_quiesce"
-	)
+	var activation: GFAsyncCompletion = _call_completion(system_instance, &"begin_activation")
+	var quiesce: GFAsyncCompletion = _call_completion(system_instance, &"begin_quiesce")
 
 	assert_not_null(activation)
 	assert_not_null(quiesce)
@@ -66,14 +54,8 @@ func test_system_base_lifecycle_completions_are_already_succeeded() -> void:
 func test_utility_base_lifecycle_completions_are_already_succeeded() -> void:
 	var utility: GF_UTILITY_SCRIPT = GF_UTILITY_SCRIPT.new()
 
-	var activation: GFAsyncCompletion = _call_completion(
-		utility,
-		&"begin_activation"
-	)
-	var quiesce: GFAsyncCompletion = _call_completion(
-		utility,
-		&"begin_quiesce"
-	)
+	var activation: GFAsyncCompletion = _call_completion(utility, &"begin_activation")
+	var quiesce: GFAsyncCompletion = _call_completion(utility, &"begin_quiesce")
 
 	assert_not_null(activation)
 	assert_not_null(quiesce)
@@ -111,11 +93,11 @@ func _assert_empty_dependency_contract(module_instance: Object) -> void:
 				)
 
 
-func _call_completion(
-	module_instance: Object,
-	hook: StringName
-) -> GFAsyncCompletion:
-	var result: Variant = module_instance.call(hook, GFAsyncScope.new())
+func _call_completion(module_instance: Object, hook: StringName) -> GFAsyncCompletion:
+	var result: Variant = module_instance.call(
+		hook,
+		GFAsyncScope.new()
+	)
 	if result is GFAsyncCompletion:
 		var completion: GFAsyncCompletion = result
 		return completion

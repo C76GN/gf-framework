@@ -44,7 +44,11 @@ static var _default_registry: GFInputFormatterRegistry = null
 ## @return 可显示文本。
 static func input_event_as_text(input_event: InputEvent, options: Dictionary = {}) -> String:
 	if input_event == null:
-		return GFVariantData.get_option_string(options, "unbound_text", "Unbound")
+		return GFVariantData.get_option_string(
+			options,
+			"unbound_text",
+			"Unbound"
+		)
 
 	for provider: GFInputTextProvider in _get_formatter_registry(options).get_text_providers():
 		if provider == null or not provider.supports_event(input_event, options):
@@ -92,7 +96,13 @@ static func input_event_as_text(input_event: InputEvent, options: Dictionary = {
 ## @return BBCode 文本。
 static func input_event_as_rich_text(input_event: InputEvent, options: Dictionary = {}) -> String:
 	if input_event == null:
-		return _escape_bbcode(GFVariantData.get_option_string(options, "unbound_text", "Unbound"))
+		return _escape_bbcode(
+			GFVariantData.get_option_string(
+				options,
+				"unbound_text",
+				"Unbound"
+			)
+		)
 
 	for provider: GFInputIconProvider in _get_formatter_registry(options).get_icon_providers():
 		if provider == null or not provider.supports_event(input_event, options):
@@ -144,7 +154,11 @@ static func input_event_icon(input_event: InputEvent, options: Dictionary = {}) 
 ## [br]
 ## @return 可显示文本。
 static func action_as_text(action_name: StringName, options: Dictionary = {}) -> String:
-	var fallback_text: String = GFVariantData.get_option_string(options, "unbound_text", "Unbound")
+	var fallback_text: String = GFVariantData.get_option_string(
+		options,
+		"unbound_text",
+		"Unbound"
+	)
 	if action_name == &"":
 		return fallback_text
 
@@ -168,11 +182,21 @@ static func action_as_text(action_name: StringName, options: Dictionary = {}) ->
 ## [br]
 ## @return BBCode 文本。
 static func action_as_rich_text(action_name: StringName, options: Dictionary = {}) -> String:
-	var fallback_text: String = _escape_bbcode(GFVariantData.get_option_string(options, "unbound_text", "Unbound"))
+	var fallback_text: String = _escape_bbcode(
+		GFVariantData.get_option_string(
+			options,
+			"unbound_text",
+			"Unbound"
+		)
+	)
 	if action_name == &"":
 		return fallback_text
 
-	if GFVariantData.get_option_bool(options, "prefer_action_icon", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"prefer_action_icon",
+		false
+	):
 		var action_rich_text: String = _action_event_as_rich_text(action_name, options)
 		if not action_rich_text.is_empty():
 			return action_rich_text
@@ -202,7 +226,11 @@ static func action_icon(action_name: StringName, options: Dictionary = {}) -> Te
 	if action_name == &"":
 		return null
 
-	if GFVariantData.get_option_bool(options, "prefer_action_icon", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"prefer_action_icon",
+		false
+	):
 		var action_texture: Texture2D = _action_event_icon(action_name, options)
 		if action_texture != null:
 			return action_texture
@@ -230,7 +258,11 @@ static func action_icon(action_name: StringName, options: Dictionary = {}) -> Te
 ## @return 可显示文本。
 static func binding_as_text(binding: GFInputBinding, options: Dictionary = {}) -> String:
 	if binding == null:
-		return GFVariantData.get_option_string(options, "unbound_text", "Unbound")
+		return GFVariantData.get_option_string(
+			options,
+			"unbound_text",
+			"Unbound"
+		)
 	if not binding.display_name.is_empty():
 		return binding.display_name
 	return input_event_as_text(binding.input_event, options)
@@ -251,7 +283,13 @@ static func binding_as_text(binding: GFInputBinding, options: Dictionary = {}) -
 ## @return BBCode 文本。
 static func binding_as_rich_text(binding: GFInputBinding, options: Dictionary = {}) -> String:
 	if binding == null:
-		return _escape_bbcode(GFVariantData.get_option_string(options, "unbound_text", "Unbound"))
+		return _escape_bbcode(
+			GFVariantData.get_option_string(
+				options,
+				"unbound_text",
+				"Unbound"
+			)
+		)
 	if not binding.display_name.is_empty():
 		return _escape_bbcode(binding.display_name)
 	return input_event_as_rich_text(binding.input_event, options)
@@ -291,8 +329,16 @@ static func mapping_as_text(
 			continue
 
 		var event: InputEvent = binding.input_event
-		if remap_config != null and remap_config.has_binding(context_id, action_id, index):
-			event = remap_config.get_bound_event_or_null(context_id, action_id, index)
+		if remap_config != null and remap_config.has_binding(
+			context_id,
+			action_id,
+			index
+		):
+			event = remap_config.get_bound_event_or_null(
+				context_id,
+				action_id,
+				index
+			)
 		parts.append(input_event_as_text(event, options))
 
 	return " / ".join(parts)
@@ -332,8 +378,16 @@ static func mapping_as_rich_text(
 			continue
 
 		var event: InputEvent = binding.input_event
-		if remap_config != null and remap_config.has_binding(context_id, action_id, index):
-			event = remap_config.get_bound_event_or_null(context_id, action_id, index)
+		if remap_config != null and remap_config.has_binding(
+			context_id,
+			action_id,
+			index
+		):
+			event = remap_config.get_bound_event_or_null(
+				context_id,
+				action_id,
+				index
+			)
 		parts.append(input_event_as_rich_text(event, options))
 
 	return " / ".join(parts)
@@ -374,10 +428,7 @@ static func set_default_registry(registry: GFInputFormatterRegistry) -> void:
 ## @param owner: 可选拥有者；拥有者释放后注册会自动失效。
 ## [br]
 ## @return 注册句柄；provider 为空时返回非活动句柄。
-static func register_text_provider(
-	provider: GFInputTextProvider,
-	owner: Object = null
-) -> GFInputProviderRegistration:
+static func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -> GFInputProviderRegistration:
 	return get_default_registry().register_text_provider(provider, owner)
 
 
@@ -430,10 +481,7 @@ static func get_text_providers() -> Array[GFInputTextProvider]:
 ## @param owner: 可选拥有者；拥有者释放后注册会自动失效。
 ## [br]
 ## @return 注册句柄；provider 为空时返回非活动句柄。
-static func register_icon_provider(
-	provider: GFInputIconProvider,
-	owner: Object = null
-) -> GFInputProviderRegistration:
+static func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> GFInputProviderRegistration:
 	return get_default_registry().register_icon_provider(provider, owner)
 
 
@@ -486,12 +534,23 @@ static func _select_action_event(action_name: StringName, options: Dictionary) -
 	if action_events.is_empty():
 		return null
 
-	var preferred_device_type: StringName = GFVariantData.get_option_string_name(options, "preferred_device_type", &"")
+	var preferred_device_type: StringName = GFVariantData.get_option_string_name(
+		options,
+		"preferred_device_type",
+		&""
+	)
 	var candidate_events: Array[InputEvent] = _filter_action_events_by_device(action_events, preferred_device_type)
 	if candidate_events.is_empty():
 		candidate_events = action_events
 
-	var preferred_index: int = maxi(GFVariantData.get_option_int(options, "preferred_event_index", 0), 0)
+	var preferred_index: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"preferred_event_index",
+			0
+		),
+		0
+	)
 	if preferred_index >= candidate_events.size():
 		preferred_index = 0
 	return candidate_events[preferred_index]
@@ -527,7 +586,11 @@ static func _get_project_setting_action_events(action_name: StringName) -> Array
 		return []
 
 	var setting_dictionary: Dictionary = setting_value
-	var event_values: Variant = GFVariantData.get_option_value(setting_dictionary, "events", [])
+	var event_values: Variant = GFVariantData.get_option_value(
+		setting_dictionary,
+		"events",
+		[]
+	)
 	if not (event_values is Array):
 		return []
 
@@ -544,10 +607,7 @@ static func _get_project_setting_action_events(action_name: StringName) -> Array
 ## [br]
 ## @api private
 ## [br]
-static func _filter_action_events_by_device(
-	action_events: Array[InputEvent],
-	preferred_device_type: StringName
-) -> Array[InputEvent]:
+static func _filter_action_events_by_device(action_events: Array[InputEvent], preferred_device_type: StringName) -> Array[InputEvent]:
 	if preferred_device_type == &"" or preferred_device_type == &"any":
 		return action_events.duplicate()
 
@@ -562,10 +622,7 @@ static func _filter_action_events_by_device(
 ## [br]
 ## @api private
 ## [br]
-static func _event_matches_preferred_device_type(
-	input_event: InputEvent,
-	preferred_device_type: StringName
-) -> bool:
+static func _event_matches_preferred_device_type(input_event: InputEvent, preferred_device_type: StringName) -> bool:
 	match String(preferred_device_type).strip_edges().to_lower():
 		"keyboard_mouse", "key_mouse", "keys_mouse":
 			return input_event is InputEventKey or input_event is InputEventMouse

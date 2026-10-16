@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="47d57f569adc60bcb6ae82e35c37b57d11888876ae4e41c5a2f5541e054f1f85">
+<class name="GFNodeStateMachine" path="addons/gf/standard/state_machine/node/gf_node_state_machine.gd" module="standard" extends="Node" classDigest="2ce2d4310836331a6e4296096b6b1fe76bc9e21dede81745002f99b2ab70d632">
 	<description>GFNodeStateMachine: 基于场景树的多状态组状态机。
 支持直接子 GFNodeState 组成内部状态组，也支持多个 GFNodeStateGroup 并行工作。</description>
 	<tags>
@@ -25,17 +25,18 @@
 			</tags>
 		</member>
 		<member kind="signal" name="state_changed">
-			<signature>signal state_changed(group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState)</signature>
+			<signature>signal state_changed( group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState )</signature>
 			<description>任意状态组切换状态后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">group: 发生状态切换的状态组。</tag>
 				<tag name="param">old_state: 切换前的状态；没有旧状态时为 null。</tag>
 				<tag name="param">new_state: 切换后的状态；状态组停止时可为 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="state_event_handled">
-			<signature>signal state_event_handled(group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant)</signature>
+			<signature>signal state_event_handled( group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant )</signature>
 			<description>任意状态组中的状态处理状态事件后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -44,6 +45,7 @@
 				<tag name="param">handler_state: 实际处理事件的状态节点。</tag>
 				<tag name="param">payload: 状态事件载荷。</tag>
 				<tag name="schema">payload: 状态事件载荷；具体结构由 event_id 和项目逻辑约定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -154,7 +156,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_group_state">
-			<signature>func push_group_state(group_name: StringName, state_name: StringName, args: Dictionary = {}) -&gt; void:</signature>
+			<signature>func push_group_state( group_name: StringName, state_name: StringName, args: Dictionary = {} ) -&gt; void:</signature>
 			<description>暂停指定状态组当前状态并叠加进入一个子状态。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -162,6 +164,7 @@
 				<tag name="param">state_name: 目标状态名称。</tag>
 				<tag name="param">args: 状态切换时传递的可选参数。</tag>
 				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pop_state">
@@ -295,7 +298,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="dispatch_state_event">
-			<signature>func dispatch_state_event(event_id: StringName, payload: Variant = null, group_name: StringName = &amp;"") -&gt; bool:</signature>
+			<signature>func dispatch_state_event( event_id: StringName, payload: Variant = null, group_name: StringName = &amp;"" ) -&gt; bool:</signature>
 			<description>派发状态事件。group_name 为空时会按已注册状态组顺序广播到所有组。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -304,6 +307,7 @@
 				<tag name="param">group_name: 可选目标状态组名；为空表示所有状态组。</tag>
 				<tag name="return">有状态处理该事件时返回 true。</tag>
 				<tag name="schema">payload: 状态事件载荷；具体结构由 event_id 和项目逻辑约定。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state_snapshot">
@@ -448,7 +452,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_event_owned">
-			<signature>func register_event_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event_owned( listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册带拥有者的类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -460,7 +464,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="unregister_event">
-			<signature>func unregister_event(event_type: Script, listener: GFEventListener, listener_owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_event( event_type: Script, listener: GFEventListener, listener_owner: Object = null ) -&gt; void:</signature>
 			<description>注销类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -483,7 +487,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="unregister_assignable_event">
-			<signature>func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, listener_owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_assignable_event( base_event_type: Script, listener: GFEventListener, listener_owner: Object = null ) -&gt; void:</signature>
 			<description>注销可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -494,7 +498,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="register_simple_event_owned">
-			<signature>func register_simple_event_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -&gt; void:</signature>
+			<signature>func register_simple_event_owned( listener_owner: Object, event_id: StringName, listener: GFEventListener ) -&gt; void:</signature>
 			<description>注册带拥有者的轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -505,7 +509,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="unregister_simple_event">
-			<signature>func unregister_simple_event(event_id: StringName, listener: GFEventListener, listener_owner: Object = null) -&gt; void:</signature>
+			<signature>func unregister_simple_event( event_id: StringName, listener: GFEventListener, listener_owner: Object = null ) -&gt; void:</signature>
 			<description>注销轻量级 StringName 事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>

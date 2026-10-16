@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResultDictionary" path="addons/gf/standard/foundation/validation/gf_result_dictionary.gd" module="standard" extends="RefCounted" classDigest="4f2f4d4f1d3cc3fd3ecabd00784954a38ffbe4369ccbac108f544ab8b42d7989">
+<class name="GFResultDictionary" path="addons/gf/standard/foundation/validation/gf_result_dictionary.gd" module="standard" extends="RefCounted" classDigest="3464777096be6ad6f382e8173c6852d1b9bc9c75798eac840ee509b55577c4a3">
 	<description>GFResultDictionary: 通用结果字典常量、归一化与轻量工厂。
 用于统一 `ok`、`reason`、`message`、`data`、`metadata`、`issues` 等常见结果字段。
 普通操作结果应使用该结构；需要严重级别、统计和下一步建议时再使用校验报告。</description>
@@ -141,7 +141,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_rejected">
-			<signature>static func make_rejected(reason: StringName, message: String = "", fields: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func make_rejected( reason: StringName, message: String = "", fields: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>创建带机器可读原因和人类可读说明的失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -151,10 +151,11 @@
 				<tag name="return">新结果字典。</tag>
 				<tag name="schema">fields: Dictionary fields copied into the result.</tag>
 				<tag name="schema">return: Dictionary with ok set to false, reason, message, and caller-provided fields.</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_with_issues">
-			<signature>static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func make_with_issues( ok: bool, issues: Array = [], fields: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>创建带 issues 的结果字典。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -165,10 +166,11 @@
 				<tag name="schema">issues: Array of caller-defined issue dictionaries or values.</tag>
 				<tag name="schema">fields: Dictionary fields copied into the result.</tag>
 				<tag name="schema">return: Dictionary with ok, issues, issue_count, healthy, and caller-provided fields.</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="normalize">
-			<signature>static func normalize(result: Dictionary, default_ok: bool = false, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func normalize( result: Dictionary, default_ok: bool = false, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>归一化已有结果字典，补齐标准字段并返回副本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -179,6 +181,7 @@
 				<tag name="schema">result: Dictionary result payload.</tag>
 				<tag name="schema">options: Dictionary controlling normalization.</tag>
 				<tag name="schema">return: Dictionary normalized result payload.</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_ok">
@@ -193,7 +196,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="merge_metadata">
-			<signature>static func merge_metadata(result: Dictionary, metadata: Dictionary, overwrite: bool = true) -&gt; Dictionary:</signature>
+			<signature>static func merge_metadata( result: Dictionary, metadata: Dictionary, overwrite: bool = true ) -&gt; Dictionary:</signature>
 			<description>合并元数据到结果字典并返回同一个字典。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -204,6 +207,7 @@
 				<tag name="schema">result: Dictionary result payload mutated in place.</tag>
 				<tag name="schema">metadata: Dictionary metadata payload.</tag>
 				<tag name="schema">return: Dictionary result payload mutated in place.</tag>
+				<tag name="since">3.22.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -7,32 +7,60 @@ extends GutTest
 func test_json_encoding_sorts_dictionary_keys() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
-	var left: PackedByteArray = codec.encode({ "b": 2, "a": 1 }, { "obfuscation_key": 0 })
-	var right: PackedByteArray = codec.encode({ "a": 1, "b": 2 }, { "obfuscation_key": 0 })
+	var left: PackedByteArray = codec.encode(
+		{ "b": 2, "a": 1 },
+		{ "obfuscation_key": 0 }
+	)
+	var right: PackedByteArray = codec.encode(
+		{ "a": 1, "b": 2 },
+		{ "obfuscation_key": 0 }
+	)
 
-	assert_eq(left, right, "JSON 编码应递归排序字典键，保证输出稳定。")
+	assert_eq(
+		left,
+		right,
+		"JSON 编码应递归排序字典键，保证输出稳定。"
+	)
 
 
 func test_json_encoding_rejects_traversal_limited_document() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var deep_payload: Dictionary = _make_nested_dictionary(70, "leaf")
 
-	var plain_bytes: PackedByteArray = codec.encode(deep_payload, {
-		"obfuscation_key": 0,
-	})
-	var compressed_bytes: PackedByteArray = codec.encode(deep_payload, {
-		"use_compression": true,
-		"obfuscation_key": 0,
-	})
-	var obfuscated_bytes: PackedByteArray = codec.encode(deep_payload, {
-		"obfuscation_key": 77,
-	})
+	var plain_bytes: PackedByteArray = codec.encode(
+		deep_payload,
+		{ "obfuscation_key": 0, }
+	)
+	var compressed_bytes: PackedByteArray = codec.encode(
+		deep_payload,
+		{ "use_compression": true, "obfuscation_key": 0, }
+	)
+	var obfuscated_bytes: PackedByteArray = codec.encode(
+		deep_payload,
+		{ "obfuscation_key": 77, }
+	)
 
-	assert_true(plain_bytes.is_empty(), "JSON 遍历不完整时编码必须失败，不得持久化 TraversalLimit 标记。")
-	assert_true(compressed_bytes.is_empty(), "压缩不得把空失败结果转换成看似成功的字节流。")
-	assert_true(obfuscated_bytes.is_empty(), "混淆不得把空失败结果转换成看似成功的字节流。")
-	assert_true(codec.serialize_dictionary(deep_payload).is_empty(), "底层 JSON 序列化也必须 fail closed。")
-	assert_eq(codec.calculate_checksum(deep_payload), "", "不完整 JSON 文档不得生成可持久化的校验和。")
+	assert_true(
+		plain_bytes.is_empty(),
+		"JSON 遍历不完整时编码必须失败，不得持久化 TraversalLimit 标记。"
+	)
+	assert_true(
+		compressed_bytes.is_empty(),
+		"压缩不得把空失败结果转换成看似成功的字节流。"
+	)
+	assert_true(
+		obfuscated_bytes.is_empty(),
+		"混淆不得把空失败结果转换成看似成功的字节流。"
+	)
+	assert_true(
+		codec.serialize_dictionary(deep_payload).is_empty(),
+		"底层 JSON 序列化也必须 fail closed。"
+	)
+	assert_eq(
+		codec.calculate_checksum(deep_payload),
+		"",
+		"不完整 JSON 文档不得生成可持久化的校验和。"
+	)
 
 
 func test_json_encoding_rejects_cycles_before_copy_sort_and_checksum() -> void:
@@ -40,24 +68,48 @@ func test_json_encoding_rejects_cycles_before_copy_sort_and_checksum() -> void:
 	var cyclic: Dictionary = {}
 	var nested_array: Array = [cyclic]
 	cyclic["items"] = nested_array
-	_assert_encode_failure(codec.encode_result(cyclic), ERR_INVALID_DATA)
-	_assert_encode_failure(codec.encode_result(cyclic, {"use_integrity_checksum": true}), ERR_INVALID_DATA)
+	_assert_encode_failure(
+		codec.encode_result(cyclic),
+		ERR_INVALID_DATA
+	)
+	_assert_encode_failure(
+		codec.encode_result(
+			cyclic,
+			{ "use_integrity_checksum": true }
+		),
+		ERR_INVALID_DATA
+	)
 	assert_true(codec.serialize_dictionary(cyclic).is_empty())
-	assert_eq(codec.calculate_checksum(cyclic), "")
+	assert_eq(
+		codec.calculate_checksum(cyclic),
+		""
+	)
 	nested_array.clear()
 	cyclic.clear()
 
 
 func test_json_encoding_keeps_shared_acyclic_data_and_input_unchanged() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var shared: Array = [{"b": 2.0, "a": 1.0}]
-	var data: Dictionary = {"left": shared, "right": shared}
-	var encoded: Dictionary = codec.encode_result(data, {"use_integrity_checksum": true})
+	var shared: Array = [
+		{ "b": 2.0, "a": 1.0 },
+	]
+	var data: Dictionary = { "left": shared, "right": shared }
+	var encoded: Dictionary = codec.encode_result(
+		data,
+		{ "use_integrity_checksum": true }
+	)
 	assert_true(GFVariantData.get_option_bool(encoded, "ok"))
-	var restored: GFStorageReadResult = codec.decode(_get_encode_result_bytes(encoded), {"use_integrity_checksum": true})
+	var restored: GFStorageReadResult = codec.decode(
+		_get_encode_result_bytes(encoded),
+		{ "use_integrity_checksum": true }
+	)
 	assert_true(restored.ok)
 	assert_eq(restored.payload, data)
-	assert_eq(data.keys(), ["left", "right"], "编码不得把文档描述写入调用者载荷。")
+	assert_eq(
+		data.keys(),
+		["left", "right"],
+		"编码不得把文档描述写入调用者载荷。"
+	)
 	var left_value: Variant = data.get("left")
 	var right_value: Variant = data.get("right")
 	assert_true(left_value is Array)
@@ -65,20 +117,39 @@ func test_json_encoding_keeps_shared_acyclic_data_and_input_unchanged() -> void:
 	if left_value is Array and right_value is Array:
 		var left: Array = left_value
 		var right: Array = right_value
-		assert_same(left, right, "准入与排序不得改写调用者的共享集合。")
-		assert_same(left, shared, "编码后调用者仍应持有原始集合实例。")
+		assert_same(
+			left,
+			right,
+			"准入与排序不得改写调用者的共享集合。"
+		)
+		assert_same(
+			left,
+			shared,
+			"编码后调用者仍应持有原始集合实例。"
+		)
 
 
 func test_json_encoding_fails_when_expanded_checksum_exceeds_structure_budget() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var positions: Array[Vector2] = []
 	for index: int in range(1500):
-		positions.append(Vector2(float(index), 0.25))
-	var data: Dictionary = {"positions": positions}
-	var options: Dictionary = {"use_integrity_checksum": true}
+		positions.append(
+			Vector2(
+				float(index),
+				0.25
+			)
+		)
+	var data: Dictionary = { "positions": positions }
+	var options: Dictionary = { "use_integrity_checksum": true }
 
-	_assert_encode_failure(codec.encode_result(data, options), ERR_INVALID_DATA)
-	assert_true(codec.encode(data, options).is_empty(), "无法生成完整 checksum 时不得返回带空 digest 的成功文件。")
+	_assert_encode_failure(
+		codec.encode_result(data, options),
+		ERR_INVALID_DATA
+	)
+	assert_true(
+		codec.encode(data, options).is_empty(),
+		"无法生成完整 checksum 时不得返回带空 digest 的成功文件。"
+	)
 
 
 func test_json_checksum_budget_preserves_smaller_and_unchecked_roundtrips() -> void:
@@ -86,12 +157,23 @@ func test_json_checksum_budget_preserves_smaller_and_unchecked_roundtrips() -> v
 	for count: int in [1000, 1500]:
 		var positions: Array[Vector2] = []
 		for index: int in range(count):
-			positions.append(Vector2(float(index), 0.25))
-		var data: Dictionary = {"positions": positions}
-		var options: Dictionary = {"use_integrity_checksum": count == 1000}
+			positions.append(
+				Vector2(
+					float(index),
+					0.25
+				)
+			)
+		var data: Dictionary = { "positions": positions }
+		var options: Dictionary = { "use_integrity_checksum": count == 1000 }
 		var encoded: Dictionary = codec.encode_result(data, options)
-		assert_true(GFVariantData.get_option_bool(encoded, "ok"), "较小校验树及未启用 checksum 的原始图应继续成功编码。")
-		var restored: GFStorageReadResult = codec.decode(_get_encode_result_bytes(encoded), options)
+		assert_true(
+			GFVariantData.get_option_bool(encoded, "ok"),
+			"较小校验树及未启用 checksum 的原始图应继续成功编码。"
+		)
+		var restored: GFStorageReadResult = codec.decode(
+			_get_encode_result_bytes(encoded),
+			options
+		)
 		assert_true(restored.ok)
 		assert_eq(restored.payload, data)
 
@@ -99,9 +181,18 @@ func test_json_checksum_budget_preserves_smaller_and_unchecked_roundtrips() -> v
 func test_json_encoding_rejects_very_deep_data_before_local_recursion() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var data: Dictionary = _make_nested_dictionary(2048, 1)
-	_assert_encode_failure(codec.encode_result(data, {"use_integrity_checksum": true}), ERR_INVALID_DATA)
+	_assert_encode_failure(
+		codec.encode_result(
+			data,
+			{ "use_integrity_checksum": true }
+		),
+		ERR_INVALID_DATA
+	)
 	assert_true(codec.serialize_dictionary(data).is_empty())
-	assert_eq(codec.calculate_checksum(data), "")
+	assert_eq(
+		codec.calculate_checksum(data),
+		""
+	)
 	var current: Dictionary = data
 	while not current.is_empty():
 		var next: Variant = current.values()[0]
@@ -114,25 +205,59 @@ func test_json_encoding_rejects_very_deep_data_before_local_recursion() -> void:
 func test_json_encoding_sorts_non_string_dictionary_keys() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
-	var left: PackedByteArray = codec.encode({ 10: "ten", &"2": "two" }, { "obfuscation_key": 0 })
-	var right: PackedByteArray = codec.encode({ &"2": "two", 10: "ten" }, { "obfuscation_key": 0 })
+	var left: PackedByteArray = codec.encode(
+		{ 10: "ten", &"2": "two" },
+		{ "obfuscation_key": 0 }
+	)
+	var right: PackedByteArray = codec.encode(
+		{ &"2": "two", 10: "ten" },
+		{ "obfuscation_key": 0 }
+	)
 
-	assert_eq(left, right, "JSON 编码应能稳定排序非字符串键。")
-	assert_false(left.is_empty(), "非字符串键不应导致 JSON 编码失败。")
+	assert_eq(
+		left,
+		right,
+		"JSON 编码应能稳定排序非字符串键。"
+	)
+	assert_false(
+		left.is_empty(),
+		"非字符串键不应导致 JSON 编码失败。"
+	)
 
 
 func test_json_encoding_sorts_keys_by_type_aware_tokens() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
-	var left: PackedByteArray = codec.encode({ 1: "int", "1": "string" }, { "obfuscation_key": 0 })
-	var right: PackedByteArray = codec.encode({ "1": "string", 1: "int" }, { "obfuscation_key": 0 })
-	var result: GFStorageReadResult = codec.decode(left, { "obfuscation_key": 0 })
+	var left: PackedByteArray = codec.encode(
+		{ 1: "int", "1": "string" },
+		{ "obfuscation_key": 0 }
+	)
+	var right: PackedByteArray = codec.encode(
+		{ "1": "string", 1: "int" },
+		{ "obfuscation_key": 0 }
+	)
+	var result: GFStorageReadResult = codec.decode(
+		left,
+		{ "obfuscation_key": 0 }
+	)
 	var data: Dictionary = result.payload
 
-	assert_eq(left, right, "str(key) 相同但类型不同的键也应有稳定全序。")
+	assert_eq(
+		left,
+		right,
+		"str(key) 相同但类型不同的键也应有稳定全序。"
+	)
 	assert_true(result.ok, "类型不同的键应能正常往返。")
-	assert_eq(GFVariantData.get_option_string(data, 1), "int", "int key 不应与 string key 混淆。")
-	assert_eq(GFVariantData.get_option_string(data, "1"), "string", "string key 不应与 int key 混淆。")
+	assert_eq(
+		GFVariantData.get_option_string(data, 1),
+		"int",
+		"int key 不应与 string key 混淆。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(data, "1"),
+		"string",
+		"string key 不应与 int key 混淆。"
+	)
 
 
 func test_json_encoding_preserves_godot_variants_and_nonfinite_values() -> void:
@@ -141,19 +266,26 @@ func test_json_encoding_preserves_godot_variants_and_nonfinite_values() -> void:
 	var _nan_appended: bool = packed_values.append(NAN)
 	var _value_appended: bool = packed_values.append(3.5)
 
-	var bytes: PackedByteArray = codec.encode({
-		"position": Vector2(1.5, -2.0),
-		"tint": Color(0.25, 0.5, 0.75, 1.0),
-		"nan_value": NAN,
-		"inf_value": INF,
-		"packed": packed_values,
-	}, {
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{
+			"position": Vector2(1.5, -2.0),
+			"tint": Color(
+				0.25,
+				0.5,
+				0.75,
+				1.0
+			),
+			"nan_value": NAN,
+			"inf_value": INF,
+			"packed": packed_values,
+		},
+		{ "obfuscation_key": 0, }
+	)
 	var json_text: String = bytes.get_string_from_utf8()
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "obfuscation_key": 0, }
+	)
 	var data: Dictionary = result.payload
 	var position_value: Variant = GFVariantData.get_option_value(data, "position")
 	var tint_value: Variant = GFVariantData.get_option_value(data, "tint")
@@ -170,43 +302,95 @@ func test_json_encoding_preserves_godot_variants_and_nonfinite_values() -> void:
 		inf_preserved = is_inf(inf_float) and inf_float > 0.0
 
 	assert_true(result.ok, "包含 Godot 值类型的 JSON 存档应可读取。")
-	assert_false(json_text.contains(":null"), "JSON 存储不应把 NaN/Inf 交给 JSON.stringify 替换成 null。")
-	assert_true(json_text.contains("\"Vector2\""), "Vector2 应写入类型标记。")
-	assert_true(json_text.contains("\"Float\""), "非有限 float 应写入类型标记。")
-	assert_true(position_value is Vector2, "Vector2 应恢复为 Godot 值类型。")
-	assert_true(tint_value is Color, "Color 应恢复为 Godot 值类型。")
+	assert_false(
+		json_text.contains(":null"),
+		"JSON 存储不应把 NaN/Inf 交给 JSON.stringify 替换成 null。"
+	)
+	assert_true(
+		json_text.contains("\"Vector2\""),
+		"Vector2 应写入类型标记。"
+	)
+	assert_true(
+		json_text.contains("\"Float\""),
+		"非有限 float 应写入类型标记。"
+	)
+	assert_true(
+		position_value is Vector2,
+		"Vector2 应恢复为 Godot 值类型。"
+	)
+	assert_true(
+		tint_value is Color,
+		"Color 应恢复为 Godot 值类型。"
+	)
 	assert_true(nan_preserved, "NaN 应保持语义。")
 	assert_true(inf_preserved, "正无穷应保持语义。")
-	assert_true(packed_value is PackedFloat32Array, "PackedFloat32Array 应恢复为 Godot 值类型。")
+	assert_true(
+		packed_value is PackedFloat32Array,
+		"PackedFloat32Array 应恢复为 Godot 值类型。"
+	)
 	if position_value is Vector2:
 		var position: Vector2 = position_value
-		assert_eq(position, Vector2(1.5, -2.0), "Vector2 值应完整往返。")
+		assert_eq(
+			position,
+			Vector2(1.5, -2.0),
+			"Vector2 值应完整往返。"
+		)
 	if tint_value is Color:
 		var tint: Color = tint_value
-		assert_eq(tint, Color(0.25, 0.5, 0.75, 1.0), "Color 值应完整往返。")
+		assert_eq(
+			tint,
+			Color(
+				0.25,
+				0.5,
+				0.75,
+				1.0
+			),
+			"Color 值应完整往返。"
+		)
 	if packed_value is PackedFloat32Array:
 		var decoded_packed: PackedFloat32Array = packed_value
-		assert_eq(decoded_packed.size(), 2, "PackedFloat32Array 长度应保持。")
-		assert_true(is_nan(decoded_packed[0]), "PackedFloat32Array 内的 NaN 应保持语义。")
-		assert_eq(decoded_packed[1], 3.5, "PackedFloat32Array 普通 float 应保持。")
+		assert_eq(
+			decoded_packed.size(),
+			2,
+			"PackedFloat32Array 长度应保持。"
+		)
+		assert_true(
+			is_nan(decoded_packed[0]),
+			"PackedFloat32Array 内的 NaN 应保持语义。"
+		)
+		assert_eq(
+			decoded_packed[1],
+			3.5,
+			"PackedFloat32Array 普通 float 应保持。"
+		)
 
 
 func test_json_checksum_accepts_nonfinite_values() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({
-		"unstable_value": NAN,
-		"position": Vector3(1.0, INF, -INF),
-	}, {
-		"include_metadata": true,
-		"use_integrity_checksum": true,
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{
+			"unstable_value": NAN,
+			"position": Vector3(
+				1.0,
+				INF,
+				-INF
+			),
+		},
+		{
+			"include_metadata": true,
+			"use_integrity_checksum": true,
+			"obfuscation_key": 0,
+		}
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 	var data: Dictionary = result.payload
 	var unstable_value: Variant = GFVariantData.get_option_value(data, "unstable_value")
 	var position_value: Variant = GFVariantData.get_option_value(data, "position")
@@ -216,175 +400,278 @@ func test_json_checksum_accepts_nonfinite_values() -> void:
 		unstable_preserved = is_nan(unstable_float)
 
 	assert_true(result.ok, "checksum 不应把非有限 float 存档误判为损坏。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.VALID, "非有限 float 经类型标记编码后 checksum 应稳定。")
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.VALID,
+		"非有限 float 经类型标记编码后 checksum 应稳定。"
+	)
 	assert_true(unstable_preserved, "NaN 应在 checksum 往返后保持。")
-	assert_true(position_value is Vector3, "Vector3 应在 checksum 往返后保持。")
+	assert_true(
+		position_value is Vector3,
+		"Vector3 应在 checksum 往返后保持。"
+	)
 	if position_value is Vector3:
 		var position: Vector3 = position_value
-		assert_true(is_inf(position.y) and position.y > 0.0, "Vector3 中的 INF 应保持。")
-		assert_true(is_inf(position.z) and position.z < 0.0, "Vector3 中的 -INF 应保持。")
+		assert_true(
+			is_inf(position.y) and position.y > 0.0,
+			"Vector3 中的 INF 应保持。"
+		)
+		assert_true(
+			is_inf(position.z) and position.z < 0.0,
+			"Vector3 中的 -INF 应保持。"
+		)
 
 
 func test_checksum_rejects_tampered_payload_in_strict_mode() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({
-		"coins": 10,
-	}, {
-		"include_metadata": true,
-		"use_integrity_checksum": true,
-		"obfuscation_key": 0,
-	})
-	var tampered: Dictionary = GFVariantData.get_option_dictionary({
-		"payload": JSON.parse_string(bytes.get_string_from_utf8()),
-	}, "payload")
+	var bytes: PackedByteArray = codec.encode(
+		{ "coins": 10, },
+		{
+			"include_metadata": true,
+			"use_integrity_checksum": true,
+			"obfuscation_key": 0,
+		}
+	)
+	var tampered: Dictionary = GFVariantData.get_option_dictionary(
+		{ "payload": JSON.parse_string(bytes.get_string_from_utf8()), },
+		"payload"
+	)
 	var tampered_payload: Dictionary = GFVariantData.get_option_dictionary(tampered, GFStorageCodec.PAYLOAD_KEY)
 	tampered_payload["coins"] = 99
 	tampered[GFStorageCodec.PAYLOAD_KEY] = tampered_payload
 
-	var result: GFStorageReadResult = codec.decode(JSON.stringify(tampered).to_utf8_buffer(), {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		JSON.stringify(tampered).to_utf8_buffer(),
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 
 	assert_false(result.ok, "严格模式下 checksum 不匹配应拒绝读取。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.INVALID, "结果应标记完整性失败。")
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.INVALID,
+		"结果应标记完整性失败。"
+	)
 
 
 func test_checksum_accepts_json_roundtrip_large_integers() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({
-		"rng_state": 9_223_372_036_854_775_000,
-	}, {
-		"include_metadata": true,
-		"use_integrity_checksum": true,
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{ "rng_state": 9_223_372_036_854_775_000, },
+		{
+			"include_metadata": true,
+			"use_integrity_checksum": true,
+			"obfuscation_key": 0,
+		}
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 
 	assert_true(result.ok, "checksum 应按 JSON 写盘后的语义校验，不能把合法大整数 JSON 往返误判为损坏。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.VALID, "大整数 JSON 往返后的 checksum 应保持有效。")
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.VALID,
+		"大整数 JSON 往返后的 checksum 应保持有效。"
+	)
 
 
 func test_checksum_without_extra_metadata_roundtrips() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({ "coins": 10 }, {
-		"include_metadata": false,
-		"use_integrity_checksum": true,
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{ "coins": 10 },
+		{
+			"include_metadata": false,
+			"use_integrity_checksum": true,
+			"obfuscation_key": 0,
+		}
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 
 	assert_true(result.ok, "只启用 checksum 时也应能正常校验并读取。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.VALID, "checksum 应通过校验。")
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.VALID,
+		"checksum 应通过校验。"
+	)
 
 
 func test_user_meta_key_roundtrips_with_storage_metadata() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({
-		"_meta": {
-			"player_note": "keep",
+	var bytes: PackedByteArray = codec.encode(
+		{
+			"_meta": { "player_note": "keep", },
+			"coins": 10,
 		},
-		"coins": 10,
-	}, {
-		"include_metadata": true,
-		"use_integrity_checksum": true,
-		"obfuscation_key": 0,
-	})
+		{
+			"include_metadata": true,
+			"use_integrity_checksum": true,
+			"obfuscation_key": 0,
+		}
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 	var data: Dictionary = result.payload
 	var metadata: Dictionary = result.metadata
 	var user_meta: Dictionary = GFVariantData.get_option_dictionary(data, "_meta")
 
 	assert_true(result.ok, "带用户 _meta 的载荷仍应通过存储元数据校验。")
-	assert_eq(GFVariantData.get_option_string(user_meta, "player_note"), "keep", "用户 _meta 不应被存储 metadata 覆盖。")
-	assert_eq(GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY), 1, "存储 metadata 应独立包含数据版本。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.VALID, "存储文档应保留独立完整性状态。")
+	assert_eq(
+		GFVariantData.get_option_string(user_meta, "player_note"),
+		"keep",
+		"用户 _meta 不应被存储 metadata 覆盖。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY),
+		1,
+		"存储 metadata 应独立包含数据版本。"
+	)
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.VALID,
+		"存储文档应保留独立完整性状态。"
+	)
 
 
 func test_storage_metadata_never_enters_user_payload() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({ "coins": 10 }, {
-		"include_metadata": true,
-		"use_integrity_checksum": true,
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{ "coins": 10 },
+		{
+			"include_metadata": true,
+			"use_integrity_checksum": true,
+			"obfuscation_key": 0,
+		}
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 	var data: Dictionary = result.payload
 	var metadata: Dictionary = result.metadata
 
 	assert_true(result.ok, "存储文档应成功读取。")
-	assert_false(data.has("_meta"), "框架存储 metadata 不得进入用户 payload。")
-	assert_eq(GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY), 1, "框架存储 metadata 应只通过结果对象暴露。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.VALID, "完整性信息不得混入 metadata 或 payload。")
+	assert_false(
+		data.has("_meta"),
+		"框架存储 metadata 不得进入用户 payload。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(metadata, GFStorageCodec.VERSION_KEY),
+		1,
+		"框架存储 metadata 应只通过结果对象暴露。"
+	)
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.VALID,
+		"完整性信息不得混入 metadata 或 payload。"
+	)
 
 
 func test_checksum_enabled_rejects_missing_checksum_by_default() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({ "coins": 10 }, {
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{ "coins": 10 },
+		{ "obfuscation_key": 0, }
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"obfuscation_key": 0,
+		}
+	)
 
 	assert_false(result.ok, "启用 checksum 时，缺少 checksum 的载荷默认应被拒绝。")
-	assert_eq(result.integrity_status, GFStorageReadResult.IntegrityStatus.MISSING, "缺少 checksum 应标记完整性失败。")
-	assert_eq(result.error, "Integrity checksum missing", "应返回明确的缺失 checksum 错误。")
+	assert_eq(
+		result.integrity_status,
+		GFStorageReadResult.IntegrityStatus.MISSING,
+		"缺少 checksum 应标记完整性失败。"
+	)
+	assert_eq(
+		result.error,
+		"Integrity checksum missing",
+		"应返回明确的缺失 checksum 错误。"
+	)
 
 
 func test_missing_checksum_can_be_allowed_for_migration() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({ "coins": 10 }, {
-		"obfuscation_key": 0,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		{ "coins": 10 },
+		{ "obfuscation_key": 0, }
+	)
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_integrity_checksum": true,
-		"strict_integrity": true,
-		"require_integrity_checksum": false,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{
+			"use_integrity_checksum": true,
+			"strict_integrity": true,
+			"require_integrity_checksum": false,
+			"obfuscation_key": 0,
+		}
+	)
 	var data: Dictionary = result.payload
 
 	assert_true(result.ok, "可显式允许没有 checksum 的文档。")
-	assert_true(result.is_integrity_accepted(), "显式允许缺少 checksum 时应允许使用载荷。")
-	assert_eq(GFVariantData.get_option_int(data, "coins"), 10, "旧载荷数据应保持可读。")
+	assert_true(
+		result.is_integrity_accepted(),
+		"显式允许缺少 checksum 时应允许使用载荷。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(data, "coins"),
+		10,
+		"旧载荷数据应保持可读。"
+	)
 
 
 func test_empty_dictionary_is_valid_payload() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
-	var result: GFStorageReadResult = codec.decode(codec.encode({}, { "obfuscation_key": 0 }), {
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		codec.encode(
+			{},
+			{ "obfuscation_key": 0 }
+		),
+		{ "obfuscation_key": 0, }
+	)
 
 	assert_true(result.ok, "空字典是合法载荷，不应被当作解码失败。")
 	var data: Dictionary = result.payload
-	assert_true(data.is_empty(), "空字典载荷应保持为空字典。")
+	assert_true(
+		data.is_empty(),
+		"空字典载荷应保持为空字典。"
+	)
 
 
 func test_user_envelope_like_dictionary_roundtrips_without_field_loss() -> void:
@@ -395,88 +682,130 @@ func test_user_envelope_like_dictionary_roundtrips_without_field_loss() -> void:
 		"sibling": "must-survive",
 	}
 
-	var result: GFStorageReadResult = codec.decode(codec.encode(user_data), {})
+	var result: GFStorageReadResult = codec.decode(
+		codec.encode(user_data),
+		{}
+	)
 	var decoded: Dictionary = result.payload
 
 	assert_true(result.ok, "包含保留字段的用户字典应可往返。")
-	assert_true(GFVariantData.get_option_bool(GFVariantData.get_option_dictionary(decoded, GFStorageCodec.DOCUMENT_KEY), "business"), "用户 document 字段应保留。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			GFVariantData.get_option_dictionary(decoded, GFStorageCodec.DOCUMENT_KEY),
+			"business"
+		),
+		"用户 document 字段应保留。"
+	)
 	assert_eq(
-		GFVariantData.get_option_int(GFVariantData.get_option_dictionary(decoded, GFStorageCodec.PAYLOAD_KEY), "nested"),
+		GFVariantData.get_option_int(
+			GFVariantData.get_option_dictionary(decoded, GFStorageCodec.PAYLOAD_KEY),
+			"nested"
+		),
 		1,
 		"用户 payload 字段应保留。"
 	)
-	assert_eq(GFVariantData.get_option_string(decoded, "sibling"), "must-survive", "codec 不得丢弃 envelope-like 字典的兄弟字段。")
+	assert_eq(
+		GFVariantData.get_option_string(decoded, "sibling"),
+		"must-survive",
+		"codec 不得丢弃 envelope-like 字典的兄弟字段。"
+	)
 
 
 func test_empty_bytes_are_invalid_payload() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
-	var result: GFStorageReadResult = codec.decode(PackedByteArray(), {
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		PackedByteArray(),
+		{ "obfuscation_key": 0, }
+	)
 
 	assert_false(result.ok, "空 bytes 不应被当作合法空字典。")
-	assert_eq(result.error, "Payload is empty", "空 bytes 应返回明确诊断。")
+	assert_eq(
+		result.error,
+		"Payload is empty",
+		"空 bytes 应返回明确诊断。"
+	)
 
 
 func test_json_number_normalization_is_disabled_by_default() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({ "whole": 1.0 }, { "obfuscation_key": 0 })
+	var bytes: PackedByteArray = codec.encode(
+		{ "whole": 1.0 },
+		{ "obfuscation_key": 0 }
+	)
 
-	var preserved: GFStorageReadResult = codec.decode(bytes, {
-		"obfuscation_key": 0,
-	})
-	var normalized: GFStorageReadResult = codec.decode(bytes, {
-		"obfuscation_key": 0,
-		"normalize_json_numbers": true,
-	})
+	var preserved: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "obfuscation_key": 0, }
+	)
+	var normalized: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "obfuscation_key": 0, "normalize_json_numbers": true, }
+	)
 	var preserved_data: Dictionary = preserved.payload
 	var normalized_data: Dictionary = normalized.payload
 
-	assert_eq(typeof(GFVariantData.get_option_value(preserved_data, "whole")), TYPE_FLOAT, "2.0 默认应保留 JSON float 类型。")
-	assert_eq(typeof(GFVariantData.get_option_value(normalized_data, "whole")), TYPE_INT, "迁移旧整数语义时可显式开启数字归一化。")
+	assert_eq(
+		typeof(GFVariantData.get_option_value(preserved_data, "whole")),
+		TYPE_FLOAT,
+		"2.0 默认应保留 JSON float 类型。"
+	)
+	assert_eq(
+		typeof(GFVariantData.get_option_value(normalized_data, "whole")),
+		TYPE_INT,
+		"迁移旧整数语义时可显式开启数字归一化。"
+	)
 
 
 func test_plain_json_without_storage_document_is_rejected() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var bytes: PackedByteArray = "{\"coins\": 10}".to_utf8_buffer()
 
-	var result: GFStorageReadResult = codec.decode(bytes, { "obfuscation_key": 0 })
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "obfuscation_key": 0 }
+	)
 
 	assert_false(result.ok, "运行时 codec 不应把任意 JSON 当作 GF 存储文档。")
-	assert_eq(result.error, "Storage document envelope missing or malformed", "应报告缺少严格文档 envelope。")
+	assert_eq(
+		result.error,
+		"Storage document envelope missing or malformed",
+		"应报告缺少严格文档 envelope。"
+	)
 
 
 func test_storage_document_rejects_coercive_version_fields() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var canonical: Dictionary = JSON.parse_string(
-		codec.encode({ "coins": 10 }, { "obfuscation_key": 0 }).get_string_from_utf8()
+		codec.encode(
+			{ "coins": 10 },
+			{ "obfuscation_key": 0 }
+		).get_string_from_utf8()
 	)
-	var invalid_versions: Array = [2.5, "2", true]
+	var invalid_versions: Array = [
+		2.5,
+		"2",
+		true,
+	]
 
 	for invalid_version: Variant in invalid_versions:
 		var invalid_schema: Dictionary = canonical.duplicate(true)
-		var descriptor: Dictionary = GFVariantData.get_option_dictionary(
-			invalid_schema,
-			GFStorageCodec.DOCUMENT_KEY
-		)
+		var descriptor: Dictionary = GFVariantData.get_option_dictionary(invalid_schema, GFStorageCodec.DOCUMENT_KEY)
 		descriptor[GFStorageCodec.SCHEMA_VERSION_KEY] = invalid_version
 		invalid_schema[GFStorageCodec.DOCUMENT_KEY] = descriptor
 		var schema_result: GFStorageReadResult = codec.decode(
 			JSON.stringify(invalid_schema).to_utf8_buffer(),
 			{ "obfuscation_key": 0 }
 		)
-		assert_false(schema_result.ok, "schema_version 不得接受隐式类型转换：%s" % [invalid_version])
+		assert_false(
+			schema_result.ok,
+			"schema_version 不得接受隐式类型转换：%s"
+			% [invalid_version]
+		)
 
 		var invalid_data_version: Dictionary = canonical.duplicate(true)
-		descriptor = GFVariantData.get_option_dictionary(
-			invalid_data_version,
-			GFStorageCodec.DOCUMENT_KEY
-		)
-		var metadata: Dictionary = GFVariantData.get_option_dictionary(
-			descriptor,
-			GFStorageCodec.METADATA_KEY
-		)
+		descriptor = GFVariantData.get_option_dictionary(invalid_data_version, GFStorageCodec.DOCUMENT_KEY)
+		var metadata: Dictionary = GFVariantData.get_option_dictionary(descriptor, GFStorageCodec.METADATA_KEY)
 		metadata[GFStorageCodec.VERSION_KEY] = invalid_version
 		descriptor[GFStorageCodec.METADATA_KEY] = metadata
 		invalid_data_version[GFStorageCodec.DOCUMENT_KEY] = descriptor
@@ -484,40 +813,41 @@ func test_storage_document_rejects_coercive_version_fields() -> void:
 			JSON.stringify(invalid_data_version).to_utf8_buffer(),
 			{ "obfuscation_key": 0 }
 		)
-		assert_false(data_version_result.ok, "data_version 不得接受隐式类型转换：%s" % [invalid_version])
+		assert_false(
+			data_version_result.ok,
+			"data_version 不得接受隐式类型转换：%s"
+			% [invalid_version]
+		)
 
 
 func test_future_storage_document_schema_has_typed_future_failure() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var future_document: Dictionary = JSON.parse_string(
-		codec.encode({"future": true}, {"obfuscation_key": 0}).get_string_from_utf8()
+		codec.encode(
+			{ "future": true },
+			{ "obfuscation_key": 0 }
+		).get_string_from_utf8()
 	)
-	var descriptor: Dictionary = GFVariantData.get_option_dictionary(
-		future_document,
-		GFStorageCodec.DOCUMENT_KEY
-	)
+	var descriptor: Dictionary = GFVariantData.get_option_dictionary(future_document, GFStorageCodec.DOCUMENT_KEY)
 	descriptor[GFStorageCodec.SCHEMA_VERSION_KEY] = GFStorageCodec.DOCUMENT_SCHEMA_VERSION + 1
 	future_document[GFStorageCodec.DOCUMENT_KEY] = descriptor
 
 	var result: GFStorageReadResult = codec.decode(
 		JSON.stringify(future_document).to_utf8_buffer(),
-		{"obfuscation_key": 0}
+		{ "obfuscation_key": 0 }
 	)
 
 	assert_false(result.ok)
 	assert_eq(result.failure_kind, GFStorageReadResult.FailureKind.FUTURE_VERSION)
-	assert_eq(result.document_schema_version, GFStorageCodec.DOCUMENT_SCHEMA_VERSION + 1)
+	assert_eq(
+		result.document_schema_version,
+		GFStorageCodec.DOCUMENT_SCHEMA_VERSION + 1
+	)
 
 
 func test_storage_read_result_deserialization_enforces_success_failure_invariant() -> void:
-	var forged_success: GFStorageReadResult = GFStorageReadResult.from_dict({
-		"ok": true,
-		"failure_kind": GFStorageReadResult.FailureKind.CORRUPT,
-	})
-	var forged_failure: GFStorageReadResult = GFStorageReadResult.from_dict({
-		"ok": false,
-		"failure_kind": GFStorageReadResult.FailureKind.NONE,
-	})
+	var forged_success: GFStorageReadResult = GFStorageReadResult.from_dict({ "ok": true, "failure_kind": GFStorageReadResult.FailureKind.CORRUPT, })
+	var forged_failure: GFStorageReadResult = GFStorageReadResult.from_dict({ "ok": false, "failure_kind": GFStorageReadResult.FailureKind.NONE, })
 
 	assert_eq(forged_success.failure_kind, GFStorageReadResult.FailureKind.NONE)
 	assert_eq(forged_failure.failure_kind, GFStorageReadResult.FailureKind.IO_FAILED)
@@ -526,17 +856,14 @@ func test_storage_read_result_deserialization_enforces_success_failure_invariant
 func test_storage_document_rejects_noncanonical_metadata_and_integrity_types() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var canonical: Dictionary = JSON.parse_string(
-		codec.encode({ "coins": 10 }, { "obfuscation_key": 0 }).get_string_from_utf8()
+		codec.encode(
+			{ "coins": 10 },
+			{ "obfuscation_key": 0 }
+		).get_string_from_utf8()
 	)
 	var unknown_metadata: Dictionary = canonical.duplicate(true)
-	var descriptor: Dictionary = GFVariantData.get_option_dictionary(
-		unknown_metadata,
-		GFStorageCodec.DOCUMENT_KEY
-	)
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(
-		descriptor,
-		GFStorageCodec.METADATA_KEY
-	)
+	var descriptor: Dictionary = GFVariantData.get_option_dictionary(unknown_metadata, GFStorageCodec.DOCUMENT_KEY)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(descriptor, GFStorageCodec.METADATA_KEY)
 	metadata["future_field"] = true
 	descriptor[GFStorageCodec.METADATA_KEY] = metadata
 	unknown_metadata[GFStorageCodec.DOCUMENT_KEY] = descriptor
@@ -548,14 +875,8 @@ func test_storage_document_rejects_noncanonical_metadata_and_integrity_types() -
 	assert_false(metadata_result.ok, "同一存储 schema 不得静默接受未知 metadata 字段。")
 
 	var invalid_integrity: Dictionary = canonical.duplicate(true)
-	descriptor = GFVariantData.get_option_dictionary(
-		invalid_integrity,
-		GFStorageCodec.DOCUMENT_KEY
-	)
-	descriptor[GFStorageCodec.INTEGRITY_KEY] = {
-		GFStorageCodec.ALGORITHM_KEY: 256,
-		GFStorageCodec.DIGEST_KEY: "digest",
-	}
+	descriptor = GFVariantData.get_option_dictionary(invalid_integrity, GFStorageCodec.DOCUMENT_KEY)
+	descriptor[GFStorageCodec.INTEGRITY_KEY] = { GFStorageCodec.ALGORITHM_KEY: 256, GFStorageCodec.DIGEST_KEY: "digest", }
 	invalid_integrity[GFStorageCodec.DOCUMENT_KEY] = descriptor
 	var integrity_result: GFStorageReadResult = codec.decode(
 		JSON.stringify(invalid_integrity).to_utf8_buffer(),
@@ -568,10 +889,10 @@ func test_removed_legacy_option_cannot_reenable_runtime_fallback() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var bytes: PackedByteArray = "{\"coins\": 10}".to_utf8_buffer()
 
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"allow_legacy_plain_json_fallback": true,
-		"obfuscation_key": 0,
-	})
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "allow_legacy_plain_json_fallback": true, "obfuscation_key": 0, }
+	)
 
 	assert_false(result.ok, "已移除的 legacy 选项不得重新开启运行时兼容分支。")
 
@@ -580,20 +901,17 @@ func test_compression_and_obfuscation_roundtrip() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var data: Dictionary = {
 		"player": "demo",
-		"stats": {
-			"hp": 100,
-			"mp": 50,
-		},
+		"stats": { "hp": 100, "mp": 50, },
 	}
 
-	var bytes: PackedByteArray = codec.encode(data, {
-		"use_compression": true,
-		"obfuscation_key": 77,
-	})
-	var result: GFStorageReadResult = codec.decode(bytes, {
-		"use_compression": true,
-		"obfuscation_key": 77,
-	})
+	var bytes: PackedByteArray = codec.encode(
+		data,
+		{ "use_compression": true, "obfuscation_key": 77, }
+	)
+	var result: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "use_compression": true, "obfuscation_key": 77, }
+	)
 
 	assert_true(result.ok, "压缩和混淆组合应可正常往返。")
 	if not result.ok:
@@ -601,66 +919,144 @@ func test_compression_and_obfuscation_roundtrip() -> void:
 
 	var loaded: Dictionary = result.payload
 	var stats: Dictionary = GFVariantData.get_option_dictionary(loaded, "stats")
-	assert_eq(GFVariantData.get_option_int(stats, "hp"), 100, "嵌套字典应正确恢复。")
+	assert_eq(
+		GFVariantData.get_option_int(stats, "hp"),
+		100,
+		"嵌套字典应正确恢复。"
+	)
 
 
 func test_encode_result_uses_complete_plaintext_budget_for_every_format_transform() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var payload: Dictionary = {"text": "汉😀 bounded data ".repeat(24), "point": Vector2i(2, -3)}
+	var payload: Dictionary = { "text": "汉😀 bounded data ".repeat(24), "point": Vector2i(2, -3) }
 	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
 		for with_metadata: bool in [false, true]:
 			for with_checksum: bool in [false, true]:
 				for compressed: bool in [false, true]:
 					var options: Dictionary = {
-						"format": active_format, "use_compression": compressed,
-						"obfuscation_key": 0, "include_metadata": with_metadata,
+						"format": active_format,
+						"use_compression": compressed,
+						"obfuscation_key": 0,
+						"include_metadata": with_metadata,
 						"use_integrity_checksum": with_checksum,
 					}
 					var reference_bytes: PackedByteArray = codec.encode(payload, options)
-					assert_false(reference_bytes.is_empty(), "正常预算先生成实际完整文档 fixture。")
+					assert_false(
+						reference_bytes.is_empty(),
+						"正常预算先生成实际完整文档 fixture。"
+					)
 					var plaintext: PackedByteArray = reference_bytes
 					if compressed:
-						plaintext = reference_bytes.decompress_dynamic(1024 * 1024, FileAccess.COMPRESSION_DEFLATE)
-					assert_gt(plaintext.size(), codec.serialize_dictionary(payload, active_format).size(), "预算须包含文档封装、metadata 与 checksum，而非仅 payload。")
+						plaintext = reference_bytes.decompress_dynamic(
+							1024 * 1024,
+							FileAccess.COMPRESSION_DEFLATE
+						)
+					assert_gt(
+						plaintext.size(),
+						codec.serialize_dictionary(payload, active_format).size(),
+						"预算须包含文档封装、metadata 与 checksum，而非仅 payload。"
+					)
 					options["max_decode_bytes"] = plaintext.size()
 					for key: int in [0, 42]:
 						options["obfuscation_key"] = key
 						var accepted: Dictionary = codec.encode_result(payload, options)
 						var bytes: PackedByteArray = _get_encode_result_bytes(accepted)
-						assert_eq(accepted, {"ok": true, "error": OK, "bytes": bytes}, "成功结果必须严格闭合且保留完整 bytes。")
+						assert_eq(
+							accepted,
+							{
+								"ok": true,
+								"error": OK,
+								"bytes": bytes,
+							},
+							"成功结果必须严格闭合且保留完整 bytes。"
+						)
 						assert_false(bytes.is_empty())
 						var decoded: GFStorageReadResult = codec.decode(bytes, options)
 						assert_true(decoded.ok, "恰好符合预算的完整编码应能在相同预算下读回。")
 						assert_eq(decoded.payload, payload)
 						if not with_metadata:
-							assert_eq(codec.encode(payload, options), bytes, "便捷入口必须委托同一编码结果；无时间戳的 fixture 字节保持一致。")
+							assert_eq(
+								codec.encode(payload, options),
+								bytes,
+								"便捷入口必须委托同一编码结果；无时间戳的 fixture 字节保持一致。"
+							)
 						options["max_decode_bytes"] = plaintext.size() - 1
-						_assert_encode_failure(codec.encode_result(payload, options), ERR_OUT_OF_MEMORY)
-						assert_true(codec.encode(payload, options).is_empty(), "压缩或 Base64 不得绕过完整明文上限，也不得返回部分 bytes。")
+						_assert_encode_failure(
+							codec.encode_result(payload, options),
+							ERR_OUT_OF_MEMORY
+						)
+						assert_true(
+							codec.encode(payload, options).is_empty(),
+							"压缩或 Base64 不得绕过完整明文上限，也不得返回部分 bytes。"
+						)
 						options["max_decode_bytes"] = plaintext.size()
 
 
 func test_encode_result_rejects_invalid_or_retired_budgets_with_closed_empty_result() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	for invalid_limit: Variant in [0, -1, 10.5, "100", true, null]:
-		var options: Dictionary = {"max_decode_bytes": invalid_limit}
-		_assert_encode_failure(codec.encode_result({"value": 1}, options), ERR_INVALID_PARAMETER)
-		assert_true(codec.encode({"value": 1}, options).is_empty())
+	for invalid_limit: Variant in [
+		0,
+		-1,
+		10.5,
+		"100",
+		true,
+		null,
+	]:
+		var options: Dictionary = { "max_decode_bytes": invalid_limit }
+		_assert_encode_failure(
+			codec.encode_result(
+				{ "value": 1 },
+				options
+			),
+			ERR_INVALID_PARAMETER
+		)
+		assert_true(
+			codec.encode(
+				{ "value": 1 },
+				options
+			).is_empty()
+		)
 	for removed_limit: int in [0, 128 * 1024 * 1024]:
-		var options: Dictionary = {"max_decode_bytes": 1024, "max_decompressed_bytes": removed_limit}
-		_assert_encode_failure(codec.encode_result({"value": 1}, options), ERR_INVALID_PARAMETER)
-		assert_true(codec.encode({"value": 1}, options).is_empty(), "旧选项不得被静默忽略或成为预算别名。")
+		var options: Dictionary = { "max_decode_bytes": 1024, "max_decompressed_bytes": removed_limit }
+		_assert_encode_failure(
+			codec.encode_result(
+				{ "value": 1 },
+				options
+			),
+			ERR_INVALID_PARAMETER
+		)
+		assert_true(
+			codec.encode(
+				{ "value": 1 },
+				options
+			).is_empty(),
+			"旧选项不得被静默忽略或成为预算别名。"
+		)
 
 
 func test_encode_result_uses_configured_decode_budget_and_accepts_explicit_override() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var payload: Dictionary = {"text": "bounded"}
+	var payload: Dictionary = { "text": "bounded" }
 	var expected_bytes: PackedByteArray = codec.encode(payload)
 	codec.max_decode_bytes = expected_bytes.size() - 1
-	_assert_encode_failure(codec.encode_result(payload), ERR_OUT_OF_MEMORY)
+	_assert_encode_failure(
+		codec.encode_result(payload),
+		ERR_OUT_OF_MEMORY
+	)
 	assert_true(codec.encode(payload).is_empty())
-	var accepted: Dictionary = codec.encode_result(payload, {"max_decode_bytes": expected_bytes.size()})
-	assert_eq(accepted, {"ok": true, "error": OK, "bytes": expected_bytes}, "显式捕获预算覆盖资源当前值，不能使用后续 live 配置。")
+	var accepted: Dictionary = codec.encode_result(
+		payload,
+		{ "max_decode_bytes": expected_bytes.size() }
+	)
+	assert_eq(
+		accepted,
+		{
+			"ok": true,
+			"error": OK,
+			"bytes": expected_bytes,
+		},
+		"显式捕获预算覆盖资源当前值，不能使用后续 live 配置。"
+	)
 
 
 func test_encode_result_reports_encoding_failure_without_partial_bytes() -> void:
@@ -668,24 +1064,34 @@ func test_encode_result_reports_encoding_failure_without_partial_bytes() -> void
 	var deep_payload: Dictionary = _make_nested_dictionary(70, "leaf")
 	for compressed: bool in [false, true]:
 		for key: int in [0, 42]:
-			_assert_encode_failure(codec.encode_result(deep_payload, {
-				"use_compression": compressed, "obfuscation_key": key,
-				"use_integrity_checksum": true, "max_decode_bytes": 1,
-			}), ERR_INVALID_DATA)
+			_assert_encode_failure(
+				codec.encode_result(
+					deep_payload,
+					{
+						"use_compression": compressed,
+						"obfuscation_key": key,
+						"use_integrity_checksum": true,
+						"max_decode_bytes": 1,
+					}
+				),
+				ERR_INVALID_DATA
+			)
 
 
 func test_decode_plaintext_byte_budget_covers_every_format_transform() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var payload: Dictionary = {"text": "bounded data ".repeat(30)}
+	var payload: Dictionary = { "text": "bounded data ".repeat(30) }
 	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
-		var plain_options: Dictionary = {"format": active_format, "obfuscation_key": 0}
+		var plain_options: Dictionary = { "format": active_format, "obfuscation_key": 0 }
 		var plaintext_size: int = codec.encode(payload, plain_options).size()
 		assert_gt(plaintext_size, 1)
 		for compressed: bool in [false, true]:
 			for key: int in [0, 77]:
 				var options: Dictionary = {
-					"format": active_format, "use_compression": compressed,
-					"obfuscation_key": key, "max_decode_bytes": plaintext_size,
+					"format": active_format,
+					"use_compression": compressed,
+					"obfuscation_key": key,
+					"max_decode_bytes": plaintext_size,
 				}
 				var bytes: PackedByteArray = codec.encode(payload, options)
 				var accepted: GFStorageReadResult = codec.decode(bytes, options)
@@ -696,35 +1102,51 @@ func test_decode_plaintext_byte_budget_covers_every_format_transform() -> void:
 				if compressed:
 					assert_engine_error("Method/function failed. Returning: decompressed")
 				assert_false(rejected.ok, "Transformations must not bypass the plaintext byte limit.")
-				assert_true(rejected.payload.is_empty(), "A limit failure must never return partial data.")
+				assert_true(
+					rejected.payload.is_empty(),
+					"A limit failure must never return partial data."
+				)
 				assert_eq(rejected.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
 				assert_ne(rejected.error_code, OK)
 
 
 func test_decode_byte_budget_rejects_unbounded_or_invalid_options() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var bytes: PackedByteArray = codec.encode({"value": 1})
-	for invalid_limit: Variant in [0, -1, 10.5, "100"]:
-		var result: GFStorageReadResult = codec.decode(bytes, {"max_decode_bytes": invalid_limit})
+	var bytes: PackedByteArray = codec.encode({ "value": 1 })
+	for invalid_limit: Variant in [
+		0,
+		-1,
+		10.5,
+		"100",
+	]:
+		var result: GFStorageReadResult = codec.decode(
+			bytes,
+			{ "max_decode_bytes": invalid_limit }
+		)
 		assert_false(result.ok)
 		assert_eq(result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
 		assert_eq(result.error_code, ERR_INVALID_PARAMETER)
-	var compressed: PackedByteArray = codec.encode({"value": 1}, {"use_compression": true})
-	var invalid_decompression: GFStorageReadResult = codec.decode(compressed, {
-		"use_compression": true, "max_decompressed_bytes": 0,
-	})
+	var compressed: PackedByteArray = codec.encode(
+		{ "value": 1 },
+		{ "use_compression": true }
+	)
+	var invalid_decompression: GFStorageReadResult = codec.decode(
+		compressed,
+		{ "use_compression": true, "max_decompressed_bytes": 0, }
+	)
 	assert_false(invalid_decompression.ok)
 	assert_eq(invalid_decompression.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
-	var removed_positive_limit: GFStorageReadResult = codec.decode(compressed, {
-		"use_compression": true, "max_decompressed_bytes": 128 * 1024 * 1024,
-	})
+	var removed_positive_limit: GFStorageReadResult = codec.decode(
+		compressed,
+		{ "use_compression": true, "max_decompressed_bytes": 128 * 1024 * 1024, }
+	)
 	assert_false(removed_positive_limit.ok, "Removed options must be rejected rather than silently ignored.")
 	assert_eq(removed_positive_limit.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
 
 
 func test_json_decode_budget_rejects_entire_document_instead_of_restoring_markers() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var parsed: Variant = JSON.parse_string(codec.encode({"value": 1}).get_string_from_utf8())
+	var parsed: Variant = JSON.parse_string(codec.encode({ "value": 1 }).get_string_from_utf8())
 	assert_true(parsed is Dictionary)
 	if not parsed is Dictionary:
 		return
@@ -738,21 +1160,36 @@ func test_json_decode_budget_rejects_entire_document_instead_of_restoring_marker
 
 func test_decode_limits_have_finite_defaults_and_reject_invalid_configuration() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	assert_eq(codec.max_decode_bytes, 64 * 1024 * 1024)
+	assert_eq(
+		codec.max_decode_bytes,
+		64 * 1024 * 1024
+	)
 	codec.max_decode_bytes = 0
 	assert_push_error("[GFStorageCodec][storage_codec.decode_limit_invalid] max_decode_bytes must be positive.")
-	assert_eq(codec.max_decode_bytes, 64 * 1024 * 1024)
+	assert_eq(
+		codec.max_decode_bytes,
+		64 * 1024 * 1024
+	)
 	codec.max_decode_bytes = -1
 	assert_push_error("[GFStorageCodec][storage_codec.decode_limit_invalid] max_decode_bytes must be positive.")
-	assert_eq(codec.max_decode_bytes, 64 * 1024 * 1024)
+	assert_eq(
+		codec.max_decode_bytes,
+		64 * 1024 * 1024
+	)
 	codec.max_decode_bytes = 128 * 1024 * 1024
-	assert_eq(codec.max_decode_bytes, 128 * 1024 * 1024)
+	assert_eq(
+		codec.max_decode_bytes,
+		128 * 1024 * 1024
+	)
 
 
 func test_compressed_failure_is_not_evidence_of_corruption() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var invalid_stream: PackedByteArray = "not a deflate stream".to_utf8_buffer()
-	var rejected: GFStorageReadResult = codec.decode(invalid_stream, {"use_compression": true})
+	var rejected: GFStorageReadResult = codec.decode(
+		invalid_stream,
+		{ "use_compression": true }
+	)
 	assert_engine_error("Method/function failed. Returning: decompressed")
 	assert_engine_error("incorrect header check")
 	assert_false(rejected.ok)
@@ -768,16 +1205,24 @@ func test_json_node_and_collection_decode_limits_do_not_deliver_partial_data() -
 		return
 	var document: Dictionary = parsed
 	var wide_array: Array[int] = []
-	assert_eq(wide_array.resize(16_385), OK)
-	document[GFStorageCodec.PAYLOAD_KEY] = {"values": wide_array}
+	assert_eq(
+		wide_array.resize(16_385),
+		OK
+	)
+	document[GFStorageCodec.PAYLOAD_KEY] = { "values": wide_array }
 	var wide_result: GFStorageReadResult = codec.decode(JSON.stringify(document).to_utf8_buffer())
 	assert_eq(wide_result.failure_kind, GFStorageReadResult.FailureKind.LIMIT_EXCEEDED)
 	assert_true(wide_result.payload.is_empty())
 	var packed: PackedInt32Array = PackedInt32Array()
-	assert_eq(packed.resize(65_537), OK)
+	assert_eq(
+		packed.resize(65_537),
+		OK
+	)
 	var packed_document: Variant = GFVariantJsonCodec.variant_to_json_compatible(
-		{GFStorageCodec.PAYLOAD_KEY: {"values": packed}},
-		{"max_collection_items": 100_000}
+		{
+			GFStorageCodec.PAYLOAD_KEY: { "values": packed },
+		},
+		{ "max_collection_items": 100_000 }
 	)
 	if not packed_document is Dictionary:
 		fail_test("The packed fixture must be a Dictionary.")
@@ -791,7 +1236,7 @@ func test_json_node_and_collection_decode_limits_do_not_deliver_partial_data() -
 
 func test_malformed_typed_json_data_remains_corrupt_instead_of_a_budget_failure() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
-	var parsed: Variant = JSON.parse_string(codec.encode({"point": Vector2(1, 2)}).get_string_from_utf8())
+	var parsed: Variant = JSON.parse_string(codec.encode({ "point": Vector2(1, 2) }).get_string_from_utf8())
 	if not parsed is Dictionary:
 		fail_test("The fixture must be a storage document.")
 		return
@@ -812,18 +1257,27 @@ func test_malformed_typed_json_data_remains_corrupt_instead_of_a_budget_failure(
 func test_raw_dictionary_deserialization_obeys_plaintext_byte_limit() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
-		var bytes: PackedByteArray = codec.serialize_dictionary({"value": "bounded"}, active_format)
+		var bytes: PackedByteArray = codec.serialize_dictionary(
+			{ "value": "bounded" },
+			active_format
+		)
 		codec.max_decode_bytes = bytes.size() - 1
 		assert_true(codec.deserialize_dictionary(bytes, active_format).is_empty())
 		codec.max_decode_bytes = bytes.size()
-		assert_eq(codec.deserialize_dictionary(bytes, active_format), {"value": "bounded"})
+		assert_eq(
+			codec.deserialize_dictionary(bytes, active_format),
+			{ "value": "bounded" }
+		)
 
 
 # --- 私有/辅助方法 ---
 
 func _get_encode_result_bytes(result: Dictionary) -> PackedByteArray:
 	var bytes_value: Variant = result.get("bytes")
-	assert_true(bytes_value is PackedByteArray, "编码结果必须提供强类型 bytes 字段。")
+	assert_true(
+		bytes_value is PackedByteArray,
+		"编码结果必须提供强类型 bytes 字段。"
+	)
 	if bytes_value is PackedByteArray:
 		var bytes: PackedByteArray = bytes_value
 		return bytes
@@ -831,7 +1285,15 @@ func _get_encode_result_bytes(result: Dictionary) -> PackedByteArray:
 
 
 func _assert_encode_failure(result: Dictionary, error_code: Error) -> void:
-	assert_eq(result, {"ok": false, "error": error_code, "bytes": PackedByteArray()}, "失败结果必须闭合，不返回部分 bytes 或新增旁路字段。")
+	assert_eq(
+		result,
+		{
+			"ok": false,
+			"error": error_code,
+			"bytes": PackedByteArray(),
+		},
+		"失败结果必须闭合，不返回部分 bytes 或新增旁路字段。"
+	)
 
 
 func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:

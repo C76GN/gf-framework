@@ -111,10 +111,7 @@ const _STRING_FIELDS: Array[String] = [
 ## 按字符串数组类型检查的 preset 字段名称。
 ## [br]
 ## @api private
-const _STRING_ARRAY_FIELDS: Array[String] = [
-	"extension_ids",
-	"tags",
-]
+const _STRING_ARRAY_FIELDS: Array[String] = ["extension_ids", "tags",]
 
 
 # --- 公共变量 ---
@@ -195,20 +192,11 @@ static func from_dictionary(data: Dictionary, preset_source_path: String = "") -
 	preset._source_field_names = _normalize_field_name_list(data.keys())
 	preset._source_schema_errors = _get_source_schema_errors(data)
 	preset.id = StringName(_normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "id")))
-	preset.display_name = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		data,
-		"display_name"
-	))
+	preset.display_name = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "display_name"))
 	if preset.display_name.is_empty() and preset.id != &"":
 		preset.display_name = String(preset.id)
-	preset.description = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-		data,
-		"description"
-	))
-	preset.extension_ids = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
-		data,
-		"extension_ids"
-	))
+	preset.description = _normalize_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "description"))
+	preset.extension_ids = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "extension_ids"))
 	preset.tags = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "tags"))
 	preset.source_path = _GF_PATH_TOOLS.normalize_resource_path(preset_source_path)
 	return preset
@@ -225,7 +213,11 @@ static func from_dictionary(data: Dictionary, preset_source_path: String = "") -
 ## @return 读取成功时返回 preset；失败时返回 null。
 static func from_json_file(path: String) -> GFExtensionPreset:
 	var report: Dictionary = _from_json_file_object_report(path)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		return null
 	var preset_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(report, "preset")
 	if preset_value is GFExtensionPreset:
@@ -253,7 +245,11 @@ static func from_json_file_report(path: String) -> Dictionary:
 		var preset: GFExtensionPreset = preset_value
 		preset_data = preset.to_dictionary()
 	return {
-		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok", false),
+		"ok": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			report,
+			"ok",
+			false
+		),
 		"source_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "source_path"),
 		"preset_data": preset_data,
 		"errors": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "errors").duplicate(true),
@@ -305,7 +301,11 @@ func get_validation_errors() -> Array[String]:
 		errors.append(id_error)
 	if display_name.strip_edges().is_empty():
 		errors.append("display_name is required")
-	_append_identifier_errors(errors, "extension_ids", extension_ids)
+	_append_identifier_errors(
+		errors,
+		"extension_ids",
+		extension_ids
+	)
 	return errors
 
 
@@ -315,22 +315,39 @@ func get_validation_errors() -> Array[String]:
 ## [br]
 ## @api private
 static func _from_json_file_object_report(path: String) -> Dictionary:
-	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(path, {
-		"empty_path_error": "preset path is empty",
-		"open_error_prefix": "could not open preset",
-		"read_error_prefix": "could not read preset",
-		"parse_error_prefix": "could not parse preset JSON",
-		"root_type_error": "preset JSON root must be an object",
-	})
+	var json_report: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.read_object_report(
+		path,
+		{
+			"empty_path_error": "preset path is empty",
+			"open_error_prefix": "could not open preset",
+			"read_error_prefix": "could not read preset",
+			"parse_error_prefix": "could not parse preset JSON",
+			"root_type_error": "preset JSON root must be an object",
+		}
+	)
 	var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(json_report, "source_path")
 	var errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
-		return _make_json_file_report(false, normalized_path, null, errors)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		json_report,
+		"ok",
+		false
+	):
+		return _make_json_file_report(
+			false,
+			normalized_path,
+			null,
+			errors
+		)
 
 	var parsed_dictionary: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
 	var preset: GFExtensionPreset = from_dictionary(parsed_dictionary, normalized_path)
 	errors.append_array(preset.get_validation_errors())
-	return _make_json_file_report(errors.is_empty(), normalized_path, preset, errors)
+	return _make_json_file_report(
+		errors.is_empty(),
+		normalized_path,
+		preset,
+		errors
+	)
 
 
 ## 去除 preset 文本首尾空白。
@@ -360,8 +377,9 @@ static func _get_source_schema_errors(data: Dictionary) -> Array[String]:
 			continue
 		if raw_value is Array:
 			var raw_values: Array = raw_value
-			if raw_values.any(func(item: Variant) -> bool:
-				return not (item is String or item is StringName)
+			if raw_values.any(
+				func(item: Variant) -> bool:
+					return not (item is String or item is StringName)
 			):
 				errors.append("preset %s must contain only strings" % field_name)
 	return errors

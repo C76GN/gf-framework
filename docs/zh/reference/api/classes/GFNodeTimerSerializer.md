@@ -17,7 +17,7 @@ Timer 通用状态序列化器。 保存 Timer 的等待时间、暂停、一次
 |---|---|---|
 | 方法 | [`supports_node`](#member-gfnodetimerserializer-methods-supports_node) | `func supports_node(node: Node) -> bool:` |
 | 方法 | [`gather`](#member-gfnodetimerserializer-methods-gather) | `func gather(node: Node, _context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply`](#member-gfnodetimerserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply`](#member-gfnodetimerserializer-methods-apply) | `func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
 
@@ -72,9 +72,10 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ### `apply`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:
 ```
 
 将序列化数据应用到节点。

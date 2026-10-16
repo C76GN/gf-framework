@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCacheDiagnostics" path="addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd" module="standard" extends="RefCounted" classDigest="eb99b49693b523b38f0516616a2512fdfc25926eb7cb5174eed5dffc0ead5592">
+<class name="GFCacheDiagnostics" path="addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd" module="standard" extends="RefCounted" classDigest="c3e7b88ca426be41cf3c2410d862afecaea35be532f4f19f83df1eea56a00207">
 	<description>GFCacheDiagnostics: 通用缓存命中、写入和失效统计。
 用于给各类缓存、索引或预热池提供一致的诊断快照。它不持有缓存内容，
 也不规定缓存淘汰策略，只记录可观测事件。</description>
@@ -64,7 +64,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="record_invalidation">
-			<signature>func record_invalidation(reason: StringName = &amp;"invalidated", key: Variant = null, amount: int = 1) -&gt; void:</signature>
+			<signature>func record_invalidation( reason: StringName = &amp;"invalidated", key: Variant = null, amount: int = 1 ) -&gt; void:</signature>
 			<description>记录缓存失效。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -19,9 +19,7 @@ extends RefCounted
 ## [br]
 ## @api private
 ## [br]
-const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload(
-	"res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd"
-)
+const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
 
 ## 临时 context 与 result metadata 支持检查的最大嵌套深度。
 ## [br]
@@ -111,10 +109,12 @@ static func take_ownership(
 ) -> GFSaveProfileMutationRequest:
 	if mutations.is_empty():
 		return null
-	var document_report: Dictionary = _PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(
-		document_metadata
-	)
-	if not GFVariantData.get_option_bool(document_report, "ok", false):
+	var document_report: Dictionary = _PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(document_metadata)
+	if not GFVariantData.get_option_bool(
+		document_report,
+		"ok",
+		false
+	):
 		return null
 	if not _is_ephemeral_dictionary_supported(context):
 		return null
@@ -192,9 +192,7 @@ func get_mutation_count() -> int:
 func get_section_ids() -> PackedStringArray:
 	var section_ids: PackedStringArray = PackedStringArray()
 	for record: Dictionary in _mutation_records:
-		var _appended: bool = section_ids.append(
-			String(GFVariantData.get_option_string_name(record, "section_id"))
-		)
+		var _appended: bool = section_ids.append(String(GFVariantData.get_option_string_name(record, "section_id")))
 	return section_ids
 
 
@@ -255,22 +253,21 @@ func claim_for_framework() -> Dictionary:
 func _get_mutation_descriptors() -> Array[Dictionary]:
 	var descriptors: Array[Dictionary] = []
 	for record: Dictionary in _mutation_records:
-		descriptors.append({
-			"section_id": GFVariantData.get_option_string_name(record, "section_id"),
-			"schema_version": GFVariantData.get_option_int(record, "schema_version"),
-		})
+		descriptors.append({ "section_id": GFVariantData.get_option_string_name(record, "section_id"), "schema_version": GFVariantData.get_option_int(record, "schema_version"), })
 	return descriptors
+
 
 ## 以新的计数与访问路径状态检查临时字典中的值。
 ## [br]
 ## @api private
 ## [br]
 static func _is_ephemeral_dictionary_supported(value: Dictionary) -> bool:
-	var state: Dictionary = {
-		"items": 0,
-		"visited": [],
-	}
-	return _is_ephemeral_value_supported(value, 0, state)
+	var state: Dictionary = { "items": 0, "visited": [], }
+	return _is_ephemeral_value_supported(
+		value,
+		0,
+		state
+	)
 
 
 ## 限深和限量遍历临时值；拒绝对象类值及当前递归路径中的循环容器。
@@ -299,7 +296,11 @@ static func _is_ephemeral_value_supported(
 				return false
 			visited.append(array_value)
 			for entry: Variant in array_value:
-				if not _is_ephemeral_value_supported(entry, depth + 1, state):
+				if not _is_ephemeral_value_supported(
+					entry,
+					depth + 1,
+					state
+				):
 					var _removed_array_failure: Variant = visited.pop_back()
 					return false
 			var _removed_array: Variant = visited.pop_back()
@@ -311,8 +312,16 @@ static func _is_ephemeral_value_supported(
 			visited.append(dictionary_value)
 			for key: Variant in dictionary_value.keys():
 				if (
-					not _is_ephemeral_value_supported(key, depth + 1, state)
-					or not _is_ephemeral_value_supported(dictionary_value[key], depth + 1, state)
+					not _is_ephemeral_value_supported(
+						key,
+						depth + 1,
+						state
+					)
+					or not _is_ephemeral_value_supported(
+						dictionary_value[key],
+						depth + 1,
+						state
+					)
 				):
 					var _removed_dictionary_failure: Variant = visited.pop_back()
 					return false

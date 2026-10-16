@@ -197,15 +197,25 @@ func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
 		return 0
 
 	if _current_index < _snapshots.size() - 1:
-		_snapshots = _snapshots.slice(0, _current_index + 1)
+		_snapshots = _snapshots.slice(
+			0,
+			_current_index + 1
+		)
 
 	var snapshot_id: int = _next_snapshot_id
 	_next_snapshot_id += 1
-	var record: Dictionary = _make_record(snapshot_id, data, metadata)
+	var record: Dictionary = _make_record(
+		snapshot_id,
+		data,
+		metadata
+	)
 	_snapshots.append(record)
 	_current_index = _snapshots.size() - 1
 	var _trim_history_result_162: Variant = _trim_history()
-	snapshot_recorded.emit(snapshot_id, GFVariantData.as_dictionary(record["metadata"]).duplicate(true))
+	snapshot_recorded.emit(
+		snapshot_id,
+		GFVariantData.as_dictionary(record["metadata"]).duplicate(true)
+	)
 	_emit_history_changed()
 	return snapshot_id
 
@@ -255,11 +265,17 @@ func restore_index(index: int) -> bool:
 	var record: Dictionary = _snapshots[index]
 	if not _restore_data(_get_record_data(record)):
 		return false
-	if index >= _snapshots.size() or not is_same(_snapshots[index], record):
+	if index >= _snapshots.size() or not is_same(
+		_snapshots[index],
+		record
+	):
 		return false
 
 	_current_index = index
-	snapshot_restored.emit(_get_record_id(record), _current_index)
+	snapshot_restored.emit(
+		_get_record_id(record),
+		_current_index
+	)
 	_emit_history_changed()
 	return true
 
@@ -378,16 +394,15 @@ func _capture_data() -> Variant:
 	if architecture != null and architecture.has_method("get_global_snapshot"):
 		var capture_result: Dictionary = architecture.get_global_snapshot()
 		if GFVariantData.get_option_bool(capture_result, "ok"):
-			return GFVariantData.get_option_dictionary(
-				capture_result,
-				"snapshot"
-			)
+			return GFVariantData.get_option_dictionary(capture_result, "snapshot")
 		push_warning(
 			"[GFSnapshotHistoryUtility][snapshot_history_utility.capture_failed] capture() failed: %s."
-			% GFVariantData.get_option_string(
-				capture_result,
-				"error",
-				"Architecture snapshot capture failed."
+			% (
+				GFVariantData.get_option_string(
+					capture_result,
+					"error",
+					"Architecture snapshot capture failed."
+				)
 			)
 		)
 		return null
@@ -401,7 +416,11 @@ func _capture_data() -> Variant:
 ## @api private
 ## [br]
 func _get_callable_option(options: Dictionary, key: String) -> Callable:
-	var value: Variant = GFVariantData.get_option_value(options, key, Callable())
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		Callable()
+	)
 	if value is Callable:
 		return value
 	return Callable()
@@ -417,20 +436,23 @@ func _restore_data(data: Variant) -> bool:
 		return result != false
 
 	var architecture: GFArchitecture = _get_architecture_or_null()
-	if architecture != null and architecture.has_method("restore_global_snapshot") and data is Dictionary:
+	if (
+		architecture != null
+		and architecture.has_method("restore_global_snapshot")
+		and data is Dictionary
+	):
 		var snapshot_data: Dictionary = GFVariantData.as_dictionary(data)
-		var restore_result: Dictionary = architecture.restore_global_snapshot(
-			snapshot_data,
-			_restore_command_builder
-		)
+		var restore_result: Dictionary = architecture.restore_global_snapshot(snapshot_data, _restore_command_builder)
 		if GFVariantData.get_option_bool(restore_result, "ok"):
 			return true
 		push_warning(
 			"[GFSnapshotHistoryUtility][snapshot_history_utility.restore_failed] restore failed: %s."
-			% GFVariantData.get_option_string(
-				restore_result,
-				"error",
-				"Architecture snapshot restore failed."
+			% (
+				GFVariantData.get_option_string(
+					restore_result,
+					"error",
+					"Architecture snapshot restore failed."
+				)
 			)
 		)
 		return false
@@ -443,7 +465,11 @@ func _restore_data(data: Variant) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _make_record(snapshot_id: int, data: Variant, metadata: Dictionary) -> Dictionary:
+func _make_record(
+	snapshot_id: int,
+	data: Variant,
+	metadata: Dictionary
+) -> Dictionary:
 	return {
 		"id": snapshot_id,
 		"created_at_unix": int(Time.get_unix_time_from_system()),
@@ -470,7 +496,11 @@ func _duplicate_record(record: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _duplicate_snapshot_payload(value: Variant) -> Variant:
-	return GFVariantData.duplicate_variant(value, true, true)
+	return GFVariantData.duplicate_variant(
+		value,
+		true,
+		true
+	)
 
 
 ## 递归拒绝 Object、Callable、Signal、RID 及深度超过 64 的快照载荷。
@@ -482,20 +512,33 @@ func _is_snapshot_payload_allowed(value: Variant, depth: int) -> bool:
 		return false
 	if value is Object:
 		return false
-	if typeof(value) == TYPE_CALLABLE or typeof(value) == TYPE_SIGNAL or typeof(value) == TYPE_RID:
+	if (
+		typeof(value) == TYPE_CALLABLE
+		or typeof(value) == TYPE_SIGNAL
+		or typeof(value) == TYPE_RID
+	):
 		return false
 	if value is Array:
 		var source_array: Array = value
 		for item: Variant in source_array:
-			if not _is_snapshot_payload_allowed(item, depth + 1):
+			if not _is_snapshot_payload_allowed(
+				item,
+				depth + 1
+			):
 				return false
 		return true
 	if value is Dictionary:
 		var source_dictionary: Dictionary = value
 		for key: Variant in source_dictionary.keys():
-			if not _is_snapshot_payload_allowed(key, depth + 1):
+			if not _is_snapshot_payload_allowed(
+				key,
+				depth + 1
+			):
 				return false
-			if not _is_snapshot_payload_allowed(source_dictionary[key], depth + 1):
+			if not _is_snapshot_payload_allowed(
+				source_dictionary[key],
+				depth + 1
+			):
 				return false
 	return true
 
@@ -518,7 +561,11 @@ func _trim_history() -> bool:
 	if _snapshots.is_empty():
 		_current_index = -1
 	else:
-		_current_index = clampi(_current_index, 0, _snapshots.size() - 1)
+		_current_index = clampi(
+			_current_index,
+			0,
+			_snapshots.size() - 1
+		)
 	return changed or previous_index != _current_index
 
 
@@ -537,7 +584,10 @@ func _restore_current_snapshot_after_trim() -> void:
 	if not _restore_data(data):
 		_current_index = -1
 		return
-	snapshot_restored.emit(_get_record_id(record), _current_index)
+	snapshot_restored.emit(
+		_get_record_id(record),
+		_current_index
+	)
 
 
 ## 检查自定义恢复回调或可接收 Dictionary 的架构恢复入口是否可用。
@@ -548,7 +598,11 @@ func _has_restore_target(data: Variant) -> bool:
 	if _restore_callback.is_valid():
 		return true
 	var architecture: GFArchitecture = _get_architecture_or_null()
-	return architecture != null and architecture.has_method("restore_global_snapshot") and data is Dictionary
+	return (
+		architecture != null
+		and architecture.has_method("restore_global_snapshot")
+		and data is Dictionary
+	)
 
 
 ## 查找指定快照 ID 的数组索引，未找到时返回 -1。
@@ -588,7 +642,11 @@ func _get_current_snapshot_id() -> int:
 ## @api private
 ## [br]
 func _get_record_id(record: Dictionary) -> int:
-	return GFVariantData.get_option_int(record, "id", 0)
+	return GFVariantData.get_option_int(
+		record,
+		"id",
+		0
+	)
 
 
 ## 从快照记录读取 Unix 时间戳，缺失或类型不符时回退为 0。
@@ -596,7 +654,11 @@ func _get_record_id(record: Dictionary) -> int:
 ## @api private
 ## [br]
 func _get_record_created_at_unix(record: Dictionary) -> int:
-	return GFVariantData.get_option_int(record, "created_at_unix", 0)
+	return GFVariantData.get_option_int(
+		record,
+		"created_at_unix",
+		0
+	)
 
 
 ## 将记录 metadata 字段收窄为 Dictionary，缺失时使用空字典。
@@ -604,7 +666,13 @@ func _get_record_created_at_unix(record: Dictionary) -> int:
 ## @api private
 ## [br]
 func _get_record_metadata(record: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(record, "metadata", {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			record,
+			"metadata",
+			{}
+		)
+	)
 
 
 ## 读取记录 data 字段，缺失时返回 Variant 默认值。

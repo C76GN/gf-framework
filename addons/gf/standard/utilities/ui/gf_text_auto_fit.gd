@@ -187,7 +187,11 @@ func _bind_target() -> void:
 
 	_disconnect_target()
 	_target = resolved
-	if _target != null and refresh_on_resize and not _target.resized.is_connected(_on_target_resized):
+	if (
+		_target != null
+		and refresh_on_resize
+		and not _target.resized.is_connected(_on_target_resized)
+	):
 		var _connect_result_181: Variant = _target.resized.connect(_on_target_resized)
 
 

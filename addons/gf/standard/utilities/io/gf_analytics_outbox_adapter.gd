@@ -128,7 +128,11 @@ var endpoint_url: String = DEFAULT_ENDPOINT_URL
 ## @since 10.0.0
 var max_payload_bytes: int = 256 * 1024:
 	set(value):
-		max_payload_bytes = clampi(value, _MIN_PAYLOAD_BYTES, _MAX_PAYLOAD_BYTES)
+		max_payload_bytes = clampi(
+			value,
+			_MIN_PAYLOAD_BYTES,
+			_MAX_PAYLOAD_BYTES
+		)
 
 ## 单个持久化批次的事件数量上限；直接赋值会钳制到 1..500。
 ## [br]
@@ -137,7 +141,11 @@ var max_payload_bytes: int = 256 * 1024:
 ## @since 10.0.0
 var max_events_per_request: int = 500:
 	set(value):
-		max_events_per_request = clampi(value, 1, _MAX_EVENTS_HARD_LIMIT)
+		max_events_per_request = clampi(
+			value,
+			1,
+			_MAX_EVENTS_HARD_LIMIT
+		)
 
 ## 请求重放最大尝试次数；直接赋值和 configure() 都会钳制到 1..64。
 ## [br]
@@ -146,7 +154,11 @@ var max_events_per_request: int = 500:
 ## @since 10.0.0
 var max_attempts: int = 3:
 	set(value):
-		max_attempts = clampi(value, 1, _MAX_ATTEMPTS_HARD_LIMIT)
+		max_attempts = clampi(
+			value,
+			1,
+			_MAX_ATTEMPTS_HARD_LIMIT
+		)
 
 ## 单个事件嵌套深度上限；直接赋值会钳制到 1..32。
 ## [br]
@@ -155,7 +167,11 @@ var max_attempts: int = 3:
 ## @since 10.0.0
 var max_depth: int = 16:
 	set(value):
-		max_depth = clampi(value, 1, _MAX_DEPTH_HARD_LIMIT)
+		max_depth = clampi(
+			value,
+			1,
+			_MAX_DEPTH_HARD_LIMIT
+		)
 
 ## 单个嵌套集合的元素上限；直接赋值会钳制到 1..4096。
 ## [br]
@@ -164,7 +180,11 @@ var max_depth: int = 16:
 ## @since 10.0.0
 var max_collection_items: int = 256:
 	set(value):
-		max_collection_items = clampi(value, 1, _MAX_COLLECTION_ITEMS_HARD_LIMIT)
+		max_collection_items = clampi(
+			value,
+			1,
+			_MAX_COLLECTION_ITEMS_HARD_LIMIT
+		)
 
 ## 单个字符串的字符上限；直接赋值会钳制到 1..65_536。
 ## [br]
@@ -173,7 +193,11 @@ var max_collection_items: int = 256:
 ## @since 10.0.0
 var max_string_length: int = 4096:
 	set(value):
-		max_string_length = clampi(value, 1, _MAX_STRING_LENGTH_HARD_LIMIT)
+		max_string_length = clampi(
+			value,
+			1,
+			_MAX_STRING_LENGTH_HARD_LIMIT
+		)
 
 ## 整批遍历的节点上限；直接赋值会钳制到 1..1_000_000。
 ## [br]
@@ -182,7 +206,11 @@ var max_string_length: int = 4096:
 ## @since 10.0.0
 var max_total_nodes: int = 8192:
 	set(value):
-		max_total_nodes = clampi(value, 1, _MAX_TOTAL_NODES_HARD_LIMIT)
+		max_total_nodes = clampi(
+			value,
+			1,
+			_MAX_TOTAL_NODES_HARD_LIMIT
+		)
 
 
 # --- 私有变量 ---
@@ -212,23 +240,17 @@ var _last_reason: StringName = &"not_configured"
 ## @return 当前适配器。
 ## [br]
 ## @schema options: Dictionary of bounded adapter configuration overrides.
-func configure(
-	p_outbox: GFRequestOutboxUtility,
-	options: Dictionary = {}
-) -> GFAnalyticsOutboxAdapter:
+func configure(p_outbox: GFRequestOutboxUtility, options: Dictionary = {}) -> GFAnalyticsOutboxAdapter:
 	outbox = p_outbox
 	if options.has("endpoint_url") or options.has(&"endpoint_url"):
-		var configured_endpoint: Variant = GFVariantData.get_option_value(
-			options,
-			"endpoint_url"
-		)
-		endpoint_url = (
-			GFVariantData.to_text(configured_endpoint)
-			if _is_text_value(configured_endpoint)
-			else ""
-		)
+		var configured_endpoint: Variant = GFVariantData.get_option_value(options, "endpoint_url")
+		endpoint_url = (GFVariantData.to_text(configured_endpoint) if _is_text_value(configured_endpoint) else "")
 	max_payload_bytes = clampi(
-		GFVariantData.get_option_int(options, "max_payload_bytes", max_payload_bytes),
+		GFVariantData.get_option_int(
+			options,
+			"max_payload_bytes",
+			max_payload_bytes
+		),
 		_MIN_PAYLOAD_BYTES,
 		_MAX_PAYLOAD_BYTES
 	)
@@ -242,12 +264,20 @@ func configure(
 		_MAX_EVENTS_HARD_LIMIT
 	)
 	max_attempts = clampi(
-		GFVariantData.get_option_int(options, "max_attempts", max_attempts),
+		GFVariantData.get_option_int(
+			options,
+			"max_attempts",
+			max_attempts
+		),
 		1,
 		_MAX_ATTEMPTS_HARD_LIMIT
 	)
 	max_depth = clampi(
-		GFVariantData.get_option_int(options, "max_depth", max_depth),
+		GFVariantData.get_option_int(
+			options,
+			"max_depth",
+			max_depth
+		),
 		1,
 		_MAX_DEPTH_HARD_LIMIT
 	)
@@ -261,12 +291,20 @@ func configure(
 		_MAX_COLLECTION_ITEMS_HARD_LIMIT
 	)
 	max_string_length = clampi(
-		GFVariantData.get_option_int(options, "max_string_length", max_string_length),
+		GFVariantData.get_option_int(
+			options,
+			"max_string_length",
+			max_string_length
+		),
 		1,
 		_MAX_STRING_LENGTH_HARD_LIMIT
 	)
 	max_total_nodes = clampi(
-		GFVariantData.get_option_int(options, "max_total_nodes", max_total_nodes),
+		GFVariantData.get_option_int(
+			options,
+			"max_total_nodes",
+			max_total_nodes
+		),
 		1,
 		_MAX_TOTAL_NODES_HARD_LIMIT
 	)
@@ -298,16 +336,28 @@ func configure(
 ## @schema return: Dictionary with success, accepted, queued, persisted, reason, request_id, idempotency_key, and persistence_error.
 func enqueue_payload(payload: Dictionary) -> Dictionary:
 	if outbox == null:
-		return _make_result(false, 0, &"missing_outbox")
+		return _make_result(
+			false,
+			0,
+			&"missing_outbox"
+		)
 	if not _is_valid_endpoint_url(endpoint_url):
-		return _make_result(false, 0, &"invalid_endpoint")
+		return _make_result(
+			false,
+			0,
+			&"invalid_endpoint"
+		)
 
 	var validation: Dictionary = _validate_payload(payload)
 	if not GFVariantData.get_option_bool(validation, "ok"):
 		return _make_result(
 			false,
 			0,
-			GFVariantData.get_option_string_name(validation, "reason", &"invalid_payload")
+			GFVariantData.get_option_string_name(
+				validation,
+				"reason",
+				&"invalid_payload"
+			)
 		)
 	var events: Array = GFVariantData.get_option_array(validation, "events")
 	var identity: Dictionary = _make_batch_identity(events)
@@ -315,7 +365,11 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 		return _make_result(
 			false,
 			0,
-			GFVariantData.get_option_string_name(identity, "reason", &"invalid_payload")
+			GFVariantData.get_option_string_name(
+				identity,
+				"reason",
+				&"invalid_payload"
+			)
 		)
 
 	var batch_id: String = GFVariantData.get_option_string(identity, "batch_id")
@@ -329,9 +383,17 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 	}
 	var payload_bytes: int = _get_json_bytes(body)
 	if payload_bytes < 0:
-		return _make_result(false, 0, &"invalid_payload")
+		return _make_result(
+			false,
+			0,
+			&"invalid_payload"
+		)
 	if payload_bytes > max_payload_bytes:
-		return _make_result(false, 0, &"payload_too_large")
+		return _make_result(
+			false,
+			0,
+			&"payload_too_large"
+		)
 
 	var metadata: Dictionary = {
 		"request_kind": "analytics_batch",
@@ -352,16 +414,15 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 	envelope.max_attempts = max_attempts
 
 	var existing_report: Dictionary = _find_existing_requests(idempotency_key)
-	var pending_match_count: int = GFVariantData.get_option_int(
-		existing_report,
-		"pending_count"
-	)
-	var failed_match_count: int = GFVariantData.get_option_int(
-		existing_report,
-		"failed_count"
-	)
-	if pending_match_count > 1 or failed_match_count > 1 or (
-		pending_match_count > 0 and failed_match_count > 0
+	var pending_match_count: int = GFVariantData.get_option_int(existing_report, "pending_count")
+	var failed_match_count: int = GFVariantData.get_option_int(existing_report, "failed_count")
+	if (
+		pending_match_count > 1
+		or failed_match_count > 1
+		or (
+			pending_match_count > 0
+			and failed_match_count > 0
+		)
 	):
 		return _make_result(
 			false,
@@ -372,10 +433,7 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 		)
 	var failed_existing: GFRequestEnvelope = _get_existing_envelope(existing_report, "failed")
 	if failed_existing != null:
-		if (
-			not _validate_envelope(failed_existing)
-			or not _envelopes_match(failed_existing, envelope)
-		):
+		if (not _validate_envelope(failed_existing) or not _envelopes_match(failed_existing, envelope)):
 			return _make_result(
 				false,
 				0,
@@ -394,10 +452,7 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 		)
 	var pending_existing: GFRequestEnvelope = _get_existing_envelope(existing_report, "pending")
 	if pending_existing != null:
-		if (
-			not _validate_envelope(pending_existing)
-			or not _envelopes_match(pending_existing, envelope)
-		):
+		if (not _validate_envelope(pending_existing) or not _envelopes_match(pending_existing, envelope)):
 			return _make_result(
 				false,
 				0,
@@ -427,10 +482,7 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 				existing_save_error
 			)
 		var verified_report: Dictionary = _find_existing_requests(idempotency_key)
-		var verified_existing: GFRequestEnvelope = _get_existing_envelope(
-			verified_report,
-			"pending"
-		)
+		var verified_existing: GFRequestEnvelope = _get_existing_envelope(verified_report, "pending")
 		if (
 			GFVariantData.get_option_int(verified_report, "pending_count") != 1
 			or GFVariantData.get_option_int(verified_report, "failed_count") != 0
@@ -455,7 +507,10 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 				false,
 				OK
 			)
-		if not GFVariantData.get_option_bool(outbox.get_debug_snapshot(), "is_persisted"):
+		if not GFVariantData.get_option_bool(
+			outbox.get_debug_snapshot(),
+			"is_persisted"
+		):
 			return _make_result(
 				false,
 				0,
@@ -493,7 +548,11 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 			request_id,
 			idempotency_key,
 			false,
-			GFVariantData.get_option_int(enqueue_report, "persistence_error", OK) as Error
+			GFVariantData.get_option_int(
+				enqueue_report,
+				"persistence_error",
+				OK
+			) as Error
 		)
 	if not GFVariantData.get_option_bool(enqueue_report, "persisted"):
 		return _make_result(
@@ -503,7 +562,11 @@ func enqueue_payload(payload: Dictionary) -> Dictionary:
 			request_id,
 			idempotency_key,
 			false,
-			GFVariantData.get_option_int(enqueue_report, "persistence_error", ERR_CANT_CREATE) as Error
+			GFVariantData.get_option_int(
+				enqueue_report,
+				"persistence_error",
+				ERR_CANT_CREATE
+			) as Error
 		)
 
 	var stored_envelope: GFRequestEnvelope = _get_report_envelope(enqueue_report)
@@ -570,9 +633,16 @@ func get_debug_snapshot() -> Dictionary:
 ## @api private
 ## [br]
 func _validate_payload(payload: Dictionary) -> Dictionary:
-	if not _has_exact_keys(payload, PackedStringArray(["events"])):
+	if not _has_exact_keys(
+		payload,
+		PackedStringArray(["events"])
+	):
 		return { "ok": false, "reason": &"unsupported_payload_fields" }
-	var events_value: Variant = GFVariantData.get_option_value(payload, "events", null)
+	var events_value: Variant = GFVariantData.get_option_value(
+		payload,
+		"events",
+		null
+	)
 	if not (events_value is Array):
 		return { "ok": false, "reason": &"invalid_payload" }
 	var events: Array = events_value
@@ -583,7 +653,10 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 
 	var state: Dictionary = {
 		"nodes": 0,
-		"encoded_bytes": maxi(_get_empty_batch_body_bytes() - 2, 0),
+		"encoded_bytes": maxi(
+			_get_empty_batch_body_bytes() - 2,
+			0
+		),
 		"active": [],
 	}
 	var seen_event_ids: Dictionary = {}
@@ -592,7 +665,11 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 		if not (event_value is Dictionary):
 			return { "ok": false, "reason": &"invalid_payload" }
 		var event: Dictionary = event_value
-		var event_name_value: Variant = GFVariantData.get_option_value(event, "event", null)
+		var event_name_value: Variant = GFVariantData.get_option_value(
+			event,
+			"event",
+			null
+		)
 		if not (event_name_value is String or event_name_value is StringName):
 			return { "ok": false, "reason": &"invalid_payload" }
 		var event_name: String = GFVariantData.to_text(event_name_value)
@@ -607,20 +684,20 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 		var has_schema_version: bool = event.has("schema_version")
 		if has_event_id != has_schema_version:
 			return { "ok": false, "reason": &"invalid_payload" }
-		var expected_event_keys: PackedStringArray = PackedStringArray([
-			"event",
-			"client_id",
-			"session_id",
-			"timestamp",
-			"properties",
-		])
+		var expected_event_keys: PackedStringArray = PackedStringArray(
+			[
+				"event",
+				"client_id",
+				"session_id",
+				"timestamp",
+				"properties",
+			]
+		)
 		if event.has("context"):
 			var _context_key_appended: bool = expected_event_keys.append("context")
 		if has_event_id:
 			var _event_id_key_appended: bool = expected_event_keys.append("event_id")
-			var _schema_version_key_appended: bool = expected_event_keys.append(
-				"schema_version"
-			)
+			var _schema_version_key_appended: bool = expected_event_keys.append("schema_version")
 		if not _has_exact_keys(event, expected_event_keys):
 			return { "ok": false, "reason": &"invalid_payload" }
 		for required_text_key: String in [
@@ -633,9 +710,7 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 				not _is_text_value(required_text_value)
 				or GFVariantData.to_text(required_text_value).is_empty()
 				or GFVariantData.to_text(required_text_value).length() > max_string_length
-				or _contains_control_character(
-					GFVariantData.to_text(required_text_value)
-				)
+				or _contains_control_character(GFVariantData.to_text(required_text_value))
 			):
 				return { "ok": false, "reason": &"invalid_payload" }
 		if not (event["properties"] is Dictionary):
@@ -661,7 +736,11 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 				return { "ok": false, "reason": &"duplicate_event_id" }
 			seen_event_ids[event_id] = true
 
-	var value_report: Dictionary = _validate_json_value(events, 0, state)
+	var value_report: Dictionary = _validate_json_value(
+		events,
+		0,
+		state
+	)
 	if not GFVariantData.get_option_bool(value_report, "ok"):
 		return value_report
 	return {
@@ -675,7 +754,11 @@ func _validate_payload(payload: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _validate_json_value(value: Variant, depth: int, state: Dictionary) -> Dictionary:
+func _validate_json_value(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> Dictionary:
 	if depth > max_depth:
 		return { "ok": false, "reason": &"payload_depth_exceeded" }
 	var node_count: int = GFVariantData.get_option_int(state, "nodes") + 1
@@ -683,7 +766,11 @@ func _validate_json_value(value: Variant, depth: int, state: Dictionary) -> Dict
 	if node_count > max_total_nodes:
 		return { "ok": false, "reason": &"payload_node_budget_exceeded" }
 
-	if value == null or value is bool or value is int:
+	if (
+		value == null
+		or value is bool
+		or value is int
+	):
 		return _reserve_payload_scalar_bytes(value, state)
 	if value is float:
 		var float_value: float = value
@@ -702,7 +789,10 @@ func _validate_json_value(value: Variant, depth: int, state: Dictionary) -> Dict
 			return { "ok": false, "reason": &"circular_payload" }
 		if not _reserve_payload_bytes(
 			state,
-			2 + maxi(dictionary.size() - 1, 0)
+			2 + maxi(
+				dictionary.size() - 1,
+				0
+			)
 		):
 			return { "ok": false, "reason": &"payload_too_large" }
 		_push_active_collection(dictionary, state)
@@ -744,12 +834,19 @@ func _validate_json_value(value: Variant, depth: int, state: Dictionary) -> Dict
 			return { "ok": false, "reason": &"circular_payload" }
 		if not _reserve_payload_bytes(
 			state,
-			2 + maxi(array.size() - 1, 0)
+			2 + maxi(
+				array.size() - 1,
+				0
+			)
 		):
 			return { "ok": false, "reason": &"payload_too_large" }
 		_push_active_collection(array, state)
 		for item: Variant in array:
-			var item_report: Dictionary = _validate_json_value(item, depth + 1, state)
+			var item_report: Dictionary = _validate_json_value(
+				item,
+				depth + 1,
+				state
+			)
 			if not GFVariantData.get_option_bool(item_report, "ok"):
 				_pop_active_collection(state)
 				return item_report
@@ -776,10 +873,11 @@ func _make_batch_identity(events: Array) -> Dictionary:
 				"versioned": false,
 			}
 		event_ids.append(event_id)
-	var identity_text: String = JSON.stringify({
-		"protocol_version": PROTOCOL_VERSION,
-		"event_ids": event_ids,
-	}, "", true)
+	var identity_text: String = JSON.stringify(
+		{ "protocol_version": PROTOCOL_VERSION, "event_ids": event_ids, },
+		"",
+		true
+	)
 	return {
 		"ok": true,
 		"batch_id": identity_text.sha256_text(),
@@ -806,18 +904,27 @@ func _validate_envelope(envelope: GFRequestEnvelope) -> bool:
 		return false
 	if not _has_exact_keys(
 		envelope.body,
-		PackedStringArray(["schema_id", "protocol_version", "batch_id", "events"])
+		PackedStringArray(
+			[
+				"schema_id",
+				"protocol_version",
+				"batch_id",
+				"events",
+			]
+		)
 	):
 		return false
 	if not _has_exact_keys(
 		envelope.metadata,
-		PackedStringArray([
-			"request_kind",
-			"schema_id",
-			"protocol_version",
-			"batch_id",
-			"event_count",
-		])
+		PackedStringArray(
+			[
+				"request_kind",
+				"schema_id",
+				"protocol_version",
+				"batch_id",
+				"event_count",
+			]
+		)
 	):
 		return false
 	var body_schema_id_value: Variant = envelope.body["schema_id"]
@@ -861,7 +968,11 @@ func _validate_envelope(envelope: GFRequestEnvelope) -> bool:
 		return false
 
 	var payload: Dictionary = {
-		"events": GFVariantData.get_option_value(envelope.body, "events", null),
+		"events": GFVariantData.get_option_value(
+			envelope.body,
+			"events",
+			null
+		),
 	}
 	var payload_report: Dictionary = _validate_payload(payload)
 	if not GFVariantData.get_option_bool(payload_report, "ok"):
@@ -895,18 +1006,12 @@ func _find_existing_requests(idempotency_key: String) -> Dictionary:
 		return result
 	for envelope: GFRequestEnvelope in outbox.get_pending_requests():
 		if envelope.idempotency_key == idempotency_key:
-			result["pending_count"] = GFVariantData.get_option_int(
-				result,
-				"pending_count"
-			) + 1
+			result["pending_count"] = ((GFVariantData.get_option_int(result, "pending_count")) + 1)
 			if GFVariantData.get_option_value(result, "pending") == null:
 				result["pending"] = envelope
 	for envelope: GFRequestEnvelope in outbox.get_failed_requests():
 		if envelope.idempotency_key == idempotency_key:
-			result["failed_count"] = GFVariantData.get_option_int(
-				result,
-				"failed_count"
-			) + 1
+			result["failed_count"] = ((GFVariantData.get_option_int(result, "failed_count")) + 1)
 			if GFVariantData.get_option_value(result, "failed") == null:
 				result["failed"] = envelope
 	return result
@@ -917,7 +1022,11 @@ func _find_existing_requests(idempotency_key: String) -> Dictionary:
 ## @api private
 ## [br]
 func _get_existing_envelope(report: Dictionary, key: String) -> GFRequestEnvelope:
-	var value: Variant = GFVariantData.get_option_value(report, key, null)
+	var value: Variant = GFVariantData.get_option_value(
+		report,
+		key,
+		null
+	)
 	if value is GFRequestEnvelope:
 		var envelope: GFRequestEnvelope = value
 		return envelope
@@ -974,7 +1083,11 @@ func _has_exact_keys(value: Dictionary, expected_keys: PackedStringArray) -> boo
 ## @api private
 ## [br]
 func _is_active_collection(value: Variant, state: Dictionary) -> bool:
-	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
+	var active_value: Variant = GFVariantData.get_option_value(
+		state,
+		"active",
+		[]
+	)
 	if not (active_value is Array):
 		return false
 	var active: Array = active_value
@@ -1010,7 +1123,11 @@ func _pop_active_collection(state: Dictionary) -> void:
 ## @api private
 ## [br]
 func _get_active_array(state: Dictionary) -> Array:
-	var active_value: Variant = GFVariantData.get_option_value(state, "active", [])
+	var active_value: Variant = GFVariantData.get_option_value(
+		state,
+		"active",
+		[]
+	)
 	if active_value is Array:
 		var active: Array = active_value
 		return active
@@ -1024,7 +1141,11 @@ func _get_active_array(state: Dictionary) -> Array:
 ## @api private
 ## [br]
 func _get_report_envelope(report: Dictionary) -> GFRequestEnvelope:
-	var value: Variant = GFVariantData.get_option_value(report, "envelope", null)
+	var value: Variant = GFVariantData.get_option_value(
+		report,
+		"envelope",
+		null
+	)
 	if value is GFRequestEnvelope:
 		var envelope: GFRequestEnvelope = value
 		return envelope
@@ -1045,12 +1166,14 @@ func _get_json_bytes(value: Variant) -> int:
 ## @api private
 ## [br]
 func _get_empty_batch_body_bytes() -> int:
-	return _get_json_bytes({
-		"schema_id": String(SCHEMA_ID),
-		"protocol_version": PROTOCOL_VERSION,
-		"batch_id": "x".repeat(64),
-		"events": [],
-	})
+	return _get_json_bytes(
+		{
+			"schema_id": String(SCHEMA_ID),
+			"protocol_version": PROTOCOL_VERSION,
+			"batch_id": "x".repeat(64),
+			"events": [],
+		}
+	)
 
 
 ## 计算标量 JSON 字节数并尝试计入预算，返回编码或超限原因。
@@ -1062,10 +1185,7 @@ func _reserve_payload_scalar_bytes(value: Variant, state: Dictionary) -> Diction
 	if scalar_bytes < 0:
 		return { "ok": false, "reason": &"invalid_payload" }
 	var reserved: bool = _reserve_payload_bytes(state, scalar_bytes)
-	return {
-		"ok": reserved,
-		"reason": &"valid" if reserved else &"payload_too_large",
-	}
+	return { "ok": reserved, "reason": &"valid" if reserved else &"payload_too_large", }
 
 
 ## 仅在新增字节数非负且总量不超过配置上限时更新已用预算。
@@ -1088,7 +1208,11 @@ func _reserve_payload_bytes(state: Dictionary, byte_count: int) -> bool:
 ## [br]
 func _get_json_text(value: Variant) -> String:
 	var json_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(value)
-	return JSON.stringify(json_value, "", true)
+	return JSON.stringify(
+		json_value,
+		"",
+		true
+	)
 
 
 ## 将 JSON 文本重新解析并以键排序方式序列化，解析失败时返回空字符串。
@@ -1102,7 +1226,11 @@ func _get_canonical_json_text(value: Variant) -> String:
 	var json: JSON = JSON.new()
 	if json.parse(encoded_text) != OK:
 		return ""
-	return JSON.stringify(json.data, "", true)
+	return JSON.stringify(
+		json.data,
+		"",
+		true
+	)
 
 
 ## 拒绝空值、超长、首尾空白、userinfo 标记、query、fragment 与空白/控制字符。
@@ -1133,10 +1261,16 @@ func _is_valid_endpoint_url(value: String) -> bool:
 func _is_endpoint_whitespace_or_control(codepoint: int) -> bool:
 	return (
 		codepoint <= 0x20
-		or (codepoint >= 0x7f and codepoint <= 0x9f)
+		or (
+			codepoint >= 0x7f
+			and codepoint <= 0x9f
+		)
 		or codepoint == 0x00a0
 		or codepoint == 0x1680
-		or (codepoint >= 0x2000 and codepoint <= 0x200a)
+		or (
+			codepoint >= 0x2000
+			and codepoint <= 0x200a
+		)
 		or codepoint == 0x2028
 		or codepoint == 0x2029
 		or codepoint == 0x202f

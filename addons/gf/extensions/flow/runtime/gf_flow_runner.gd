@@ -336,7 +336,10 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 
 		var node_id: StringName = StringName(pending[pending_index])
 		pending_index += 1
-		_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
+		_active_report["pending_node_count"] = maxi(
+			pending.size() - pending_index,
+			0
+		)
 		if node_id == &"":
 			continue
 
@@ -344,14 +347,16 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		if node == null:
 			push_warning("[GFFlowRunner][flow_runner.missing_node] Flow node was not found: %s." % String(node_id))
 			_increment_active_report_count("missing_node_count")
-			_append_trace_entry(_make_trace_entry(
-				node_id,
-				&"missing",
-				Time.get_ticks_usec(),
-				Time.get_ticks_usec(),
-				&"not_started",
-				&"missing_node"
-			))
+			_append_trace_entry(
+				_make_trace_entry(
+					node_id,
+					&"missing",
+					Time.get_ticks_usec(),
+					Time.get_ticks_usec(),
+					&"not_started",
+					&"missing_node"
+				)
+			)
 			_abort_reason = &"missing_node"
 			return
 		var node_started_usec: int = Time.get_ticks_usec()
@@ -361,14 +366,16 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 			if runtime_state_lease_id <= 0:
 				_abort_reason = &"node_runtime_state_busy"
 				push_error("[GFFlowRunner][flow_runner.runtime_lease_active] Node runtime state is held by another execution lease: %s." % String(node_id))
-				_append_trace_entry(_make_trace_entry(
-					node_id,
-					&"aborted",
-					node_started_usec,
-					Time.get_ticks_usec(),
-					&"not_started",
-					_abort_reason
-				))
+				_append_trace_entry(
+					_make_trace_entry(
+						node_id,
+						&"aborted",
+						node_started_usec,
+						Time.get_ticks_usec(),
+						&"not_started",
+						_abort_reason
+					)
+				)
 				return
 
 		context.clear_next_nodes()
@@ -376,14 +383,16 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		if _cancel_requested:
 			if runtime_state_lease_id > 0:
 				var _released_after_cancel: bool = node.release_runtime_state_lease(runtime_state_lease_id)
-			_append_trace_entry(_make_trace_entry(
-				node_id,
-				&"cancelled",
-				node_started_usec,
-				Time.get_ticks_usec(),
-				&"not_started",
-				&"cancel_requested"
-			))
+			_append_trace_entry(
+				_make_trace_entry(
+					node_id,
+					&"cancelled",
+					node_started_usec,
+					Time.get_ticks_usec(),
+					&"not_started",
+					&"cancel_requested"
+				)
+			)
 			return
 		executed_count += 1
 		_active_report["executed_node_count"] = executed_count
@@ -395,14 +404,16 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 		if _abort_reason != &"":
 			if runtime_state_lease_id > 0:
 				var _released_after_abort: bool = node.release_runtime_state_lease(runtime_state_lease_id)
-			_append_trace_entry(_make_trace_entry(
-				node_id,
-				&"aborted",
-				node_started_usec,
-				Time.get_ticks_usec(),
-				&"not_started",
-				_abort_reason
-			))
+			_append_trace_entry(
+				_make_trace_entry(
+					node_id,
+					&"aborted",
+					node_started_usec,
+					Time.get_ticks_usec(),
+					&"not_started",
+					_abort_reason
+				)
+			)
 			return
 		var wait_status: StringName = &"not_requested"
 		if result is Signal:
@@ -420,25 +431,29 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 					if not node.release_runtime_state_lease(runtime_state_lease_id):
 						_abort_reason = &"node_runtime_state_lease_release_failed"
 						push_error("[GFFlowRunner][flow_runner.async_lease_release_failed] Could not release the asynchronous node runtime lease: %s." % String(node_id))
-						_append_trace_entry(_make_trace_entry(
-							node_id,
-							&"aborted",
-							node_started_usec,
-							Time.get_ticks_usec(),
-							wait_status,
-							_abort_reason
-						))
+						_append_trace_entry(
+							_make_trace_entry(
+								node_id,
+								&"aborted",
+								node_started_usec,
+								Time.get_ticks_usec(),
+								wait_status,
+								_abort_reason
+							)
+						)
 						return
 					runtime_state_lease_id = 0
 				if _cancel_requested:
-					_append_trace_entry(_make_trace_entry(
-						node_id,
-						&"cancelled",
-						node_started_usec,
-						Time.get_ticks_usec(),
-						wait_status,
-						&"cancel_requested"
-					))
+					_append_trace_entry(
+						_make_trace_entry(
+							node_id,
+							&"cancelled",
+							node_started_usec,
+							Time.get_ticks_usec(),
+							wait_status,
+							&"cancel_requested"
+						)
+					)
 					return
 			elif runtime_state_lease_id > 0:
 				if not _release_runtime_state_lease_when_signal_emits(
@@ -446,59 +461,80 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 					result_signal,
 					runtime_state_lease_id
 				):
-					_append_trace_entry(_make_trace_entry(
-						node_id,
-						&"aborted",
-						node_started_usec,
-						Time.get_ticks_usec(),
-						wait_status,
-						_abort_reason
-					))
+					_append_trace_entry(
+						_make_trace_entry(
+							node_id,
+							&"aborted",
+							node_started_usec,
+							Time.get_ticks_usec(),
+							wait_status,
+							_abort_reason
+						)
+					)
 					return
 				runtime_state_lease_id = 0
 		elif runtime_state_lease_id > 0:
 			if not node.release_runtime_state_lease(runtime_state_lease_id):
 				_abort_reason = &"node_runtime_state_lease_release_failed"
 				push_error("[GFFlowRunner][flow_runner.sync_lease_release_failed] Could not release the synchronous node runtime lease: %s." % String(node_id))
-				_append_trace_entry(_make_trace_entry(
-					node_id,
-					&"aborted",
-					node_started_usec,
-					Time.get_ticks_usec(),
-					wait_status,
-					_abort_reason
-				))
+				_append_trace_entry(
+					_make_trace_entry(
+						node_id,
+						&"aborted",
+						node_started_usec,
+						Time.get_ticks_usec(),
+						wait_status,
+						_abort_reason
+					)
+				)
 				return
 			runtime_state_lease_id = 0
 		_increment_active_report_count("completed_node_count")
-		_append_trace_entry(_make_trace_entry(
-			node_id,
-			&"completed",
-			node_started_usec,
-			Time.get_ticks_usec(),
-			wait_status,
-			&""
-		))
+		_append_trace_entry(
+			_make_trace_entry(
+				node_id,
+				&"completed",
+				node_started_usec,
+				Time.get_ticks_usec(),
+				wait_status,
+				&""
+			)
+		)
 		node_completed.emit(node_id, node)
 
-		var next_ids: PackedStringArray = _get_runtime_successor_node_ids(graph, node, context)
+		var next_ids: PackedStringArray = _get_runtime_successor_node_ids(
+			graph,
+			node,
+			context
+		)
 		for next_id: String in next_ids:
 			_append_packed_string(pending, next_id)
-		_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
-	_active_report["pending_node_count"] = maxi(pending.size() - pending_index, 0)
+		_active_report["pending_node_count"] = maxi(
+			pending.size() - pending_index,
+			0
+		)
+	_active_report["pending_node_count"] = maxi(
+		pending.size() - pending_index,
+		0
+	)
 
 
 ## 使用共享等待工具等待节点 Signal，并应用取消、时间工具和超时配置。
 ## [br]
 ## @api private
 func _await_signal_safely(result_signal: Signal) -> Dictionary:
-	return await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, {
-		"should_continue": _should_continue_waiting,
-		"time_utility": _get_time_utility(),
-		"timeout_seconds": signal_timeout_seconds,
-		"respect_time_scale": signal_timeout_respects_time_scale,
-		"timeout_warning": "[GFFlowRunner][flow_runner.signal_timeout] Waiting for the Signal timed out; the flow will continue with subsequent nodes.",
-	})
+	return await (
+		_GF_ASYNC_WAIT_SUPPORT.await_signal_state(
+			result_signal,
+			{
+				"should_continue": _should_continue_waiting,
+				"time_utility": _get_time_utility(),
+				"timeout_seconds": signal_timeout_seconds,
+				"respect_time_scale": signal_timeout_respects_time_scale,
+				"timeout_warning": "[GFFlowRunner][flow_runner.signal_timeout] Waiting for the Signal timed out; the flow will continue with subsequent nodes.",
+			}
+		)
+	)
 
 
 ## 在隔离模式下交换节点与上下文运行态，执行节点后恢复节点原状态。
@@ -564,13 +600,27 @@ func _get_runtime_successor_node_ids(
 	var result: PackedStringArray = node.get_next_nodes(context)
 	for connection: Dictionary in graph.get_connections_from(node.node_id):
 		if (
-			GFVariantData.get_option_string_name(connection, "from_port_id", &"") != &""
-			or GFVariantData.get_option_string_name(connection, "to_port_id", &"") != &""
+			GFVariantData.get_option_string_name(
+				connection,
+				"from_port_id",
+				&""
+			) != &""
+			or GFVariantData.get_option_string_name(
+				connection,
+				"to_port_id",
+				&""
+			) != &""
 		):
 			continue
 		_append_unique_packed_string(
 			result,
-			String(GFVariantData.get_option_string_name(connection, "to_node_id", &""))
+			String(
+				GFVariantData.get_option_string_name(
+					connection,
+					"to_node_id",
+					&""
+				)
+			)
 		)
 	return result
 
@@ -583,12 +633,8 @@ func _release_runtime_state_lease_when_signal_emits(
 	result_signal: Signal,
 	runtime_state_lease_id: int
 ) -> bool:
-	var release_callback: Callable = Callable(node, "release_runtime_state_lease").bind(
-		runtime_state_lease_id
-	)
-	var signal_argument_count: int = _GF_ASYNC_WAIT_SUPPORT.get_signal_argument_count(
-		result_signal
-	)
+	var release_callback: Callable = (Callable(node, "release_runtime_state_lease").bind(runtime_state_lease_id))
+	var signal_argument_count: int = _GF_ASYNC_WAIT_SUPPORT.get_signal_argument_count(result_signal)
 	if signal_argument_count > 0:
 		release_callback = release_callback.unbind(signal_argument_count)
 	var connect_error: Error = result_signal.connect(
@@ -597,9 +643,7 @@ func _release_runtime_state_lease_when_signal_emits(
 	) as Error
 	if connect_error == OK:
 		return true
-	var _released_after_connect_failure: bool = node.release_runtime_state_lease(
-		runtime_state_lease_id
-	)
+	var _released_after_connect_failure: bool = node.release_runtime_state_lease(runtime_state_lease_id)
 	_abort_reason = &"node_runtime_state_lease_connect_failed"
 	push_error("[GFFlowRunner][flow_runner.lease_release_connection_failed] Could not connect runtime lease release for a non-waited Signal.")
 	return false
@@ -683,7 +727,12 @@ func _finish_run_report(outcome: StringName, reason: StringName) -> Dictionary:
 	_active_report["outcome"] = String(outcome)
 	_active_report["reason"] = String(reason)
 	_active_report["finished_at_ticks_usec"] = finished_at_usec
-	_active_report["duration_msec"] = float(maxi(finished_at_usec - started_at_usec, 0)) / 1000.0
+	_active_report["duration_msec"] = float(
+		maxi(
+			finished_at_usec - started_at_usec,
+			0
+		)
+	) / 1000.0
 	_active_report["trace_entry_count"] = _trace_entry_count
 	_active_report["retained_trace_entry_count"] = _active_trace.size()
 	_active_report["dropped_trace_entry_count"] = _dropped_trace_entry_count
@@ -753,7 +802,12 @@ func _make_trace_entry(
 		"wait_status": String(wait_status),
 		"started_at_ticks_usec": started_at_usec,
 		"finished_at_ticks_usec": finished_at_usec,
-		"duration_msec": float(maxi(finished_at_usec - started_at_usec, 0)) / 1000.0,
+		"duration_msec": float(
+			maxi(
+				finished_at_usec - started_at_usec,
+				0
+			)
+		) / 1000.0,
 	}
 
 

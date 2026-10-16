@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableSelectionModel" path="addons/gf/standard/utilities/ui/gf_table_selection_model.gd" module="standard" extends="RefCounted" classDigest="73fac68c8145ccf12d3f27ff6c028b0ae727dcc3c905bde680fcda9c6ae46294">
+<class name="GFTableSelectionModel" path="addons/gf/standard/utilities/ui/gf_table_selection_model.gd" module="standard" extends="RefCounted" classDigest="3f9a4149f9395b96c6ed4c8dc152864bfffc63ec85f66d19e83d5e0d8759acea">
 	<description>GFTableSelectionModel: 稳定行 ID 驱动的表格选择模型。
 只维护选中行 ID、锚点和选择模式，不关心行如何渲染、排序或过滤。
 表格视图排序、过滤或重建可见行时，只要 row_id 稳定，选择状态就能保留。</description>
@@ -112,7 +112,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="replace_selection_with_anchor">
-			<signature>func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -&gt; bool:</signature>
+			<signature>func replace_selection_with_anchor(row_ids: Array, selection_anchor: Variant) -&gt; bool:</signature>
 			<description>用一组行 ID 与显式锚点原子替换当前选择。
 选择集合和锚点会在发出 selection_changed 前同时完成更新；锚点不在最终选择中时归一为空。</description>
 			<tags>

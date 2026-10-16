@@ -143,6 +143,8 @@ static func make_failure(error: String = "", fields: Dictionary = {}) -> Diction
 ## [br]
 ## @api public
 ## [br]
+## @since 3.22.0
+## [br]
 ## @param reason: 稳定失败原因，推荐使用 snake_case。
 ## [br]
 ## @param message: 面向开发者或工具 UI 的说明；为空时使用 reason。
@@ -154,7 +156,11 @@ static func make_failure(error: String = "", fields: Dictionary = {}) -> Diction
 ## @schema fields: Dictionary fields copied into the result.
 ## [br]
 ## @schema return: Dictionary with ok set to false, reason, message, and caller-provided fields.
-static func make_rejected(reason: StringName, message: String = "", fields: Dictionary = {}) -> Dictionary:
+static func make_rejected(
+	reason: StringName,
+	message: String = "",
+	fields: Dictionary = {}
+) -> Dictionary:
 	var result: Dictionary = make(false, fields)
 	var reason_text: String = String(reason)
 	var message_text: String = message if not message.is_empty() else reason_text
@@ -169,6 +175,8 @@ static func make_rejected(reason: StringName, message: String = "", fields: Dict
 ## [br]
 ## @api public
 ## [br]
+## @since 3.22.0
+## [br]
 ## @param ok: 操作是否成功。
 ## [br]
 ## @param issues: 问题数组。
@@ -182,7 +190,11 @@ static func make_rejected(reason: StringName, message: String = "", fields: Dict
 ## @schema fields: Dictionary fields copied into the result.
 ## [br]
 ## @schema return: Dictionary with ok, issues, issue_count, healthy, and caller-provided fields.
-static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = {}) -> Dictionary:
+static func make_with_issues(
+	ok: bool,
+	issues: Array = [],
+	fields: Dictionary = {}
+) -> Dictionary:
 	var result: Dictionary = make(ok, fields)
 	result[KEY_ISSUES] = issues.duplicate(true)
 	result[KEY_ISSUE_COUNT] = issues.size()
@@ -194,6 +206,8 @@ static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = 
 ## 归一化已有结果字典，补齐标准字段并返回副本。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param result: 输入结果字典。
 ## [br]
@@ -208,9 +222,17 @@ static func make_with_issues(ok: bool, issues: Array = [], fields: Dictionary = 
 ## @schema options: Dictionary controlling normalization.
 ## [br]
 ## @schema return: Dictionary normalized result payload.
-static func normalize(result: Dictionary, default_ok: bool = false, options: Dictionary = {}) -> Dictionary:
+static func normalize(
+	result: Dictionary,
+	default_ok: bool = false,
+	options: Dictionary = {}
+) -> Dictionary:
 	var normalized: Dictionary = result.duplicate(true)
-	normalized[KEY_OK] = GFVariantData.get_option_bool(normalized, KEY_OK, default_ok)
+	normalized[KEY_OK] = GFVariantData.get_option_bool(
+		normalized,
+		KEY_OK,
+		default_ok
+	)
 
 	var metadata_variant: Variant = GFVariantData.get_option_value(normalized, KEY_METADATA)
 	if metadata_variant is Dictionary:
@@ -220,7 +242,11 @@ static func normalize(result: Dictionary, default_ok: bool = false, options: Dic
 		normalized[KEY_METADATA] = {}
 
 	var reason_text: String = GFVariantData.to_text(
-		GFVariantData.get_option_value(normalized, KEY_REASON, GFVariantData.get_option_string(options, "default_reason"))
+		GFVariantData.get_option_value(
+			normalized,
+			KEY_REASON,
+			GFVariantData.get_option_string(options, "default_reason")
+		)
 	)
 	if reason_text.is_empty() and normalized.has(KEY_ERROR):
 		reason_text = GFVariantData.to_text(normalized[KEY_ERROR])
@@ -228,7 +254,11 @@ static func normalize(result: Dictionary, default_ok: bool = false, options: Dic
 		normalized[KEY_REASON] = reason_text
 
 	var message_text: String = GFVariantData.to_text(
-		GFVariantData.get_option_value(normalized, KEY_MESSAGE, GFVariantData.get_option_string(options, "default_message"))
+		GFVariantData.get_option_value(
+			normalized,
+			KEY_MESSAGE,
+			GFVariantData.get_option_string(options, "default_message")
+		)
 	)
 	if message_text.is_empty() and normalized.has(KEY_ERROR):
 		message_text = GFVariantData.to_text(normalized[KEY_ERROR])
@@ -241,13 +271,29 @@ static func normalize(result: Dictionary, default_ok: bool = false, options: Dic
 	if issues_variant is Array:
 		var issues: Array = GFVariantData.as_array(issues_variant)
 		normalized[KEY_ISSUES] = issues.duplicate(true)
-		if GFVariantData.get_option_bool(options, "include_issue_count", true):
+		if GFVariantData.get_option_bool(
+			options,
+			"include_issue_count",
+			true
+		):
 			normalized[KEY_ISSUE_COUNT] = issues.size()
-	elif GFVariantData.get_option_bool(options, "include_issue_count", false):
+	elif GFVariantData.get_option_bool(
+		options,
+		"include_issue_count",
+		false
+	):
 		normalized[KEY_ISSUE_COUNT] = 0
 
-	if GFVariantData.get_option_bool(options, "include_healthy", normalized.has(KEY_HEALTHY)):
-		var issue_count: int = GFVariantData.get_option_int(normalized, KEY_ISSUE_COUNT, 0)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_healthy",
+		normalized.has(KEY_HEALTHY)
+	):
+		var issue_count: int = GFVariantData.get_option_int(
+			normalized,
+			KEY_ISSUE_COUNT,
+			0
+		)
 		normalized[KEY_HEALTHY] = GFVariantData.to_bool(normalized[KEY_OK]) and issue_count == 0
 	return normalized
 
@@ -264,12 +310,18 @@ static func normalize(result: Dictionary, default_ok: bool = false, options: Dic
 ## [br]
 ## @schema result: Dictionary result payload.
 static func is_ok(result: Dictionary, default_value: bool = false) -> bool:
-	return GFVariantData.get_option_bool(result, KEY_OK, default_value)
+	return GFVariantData.get_option_bool(
+		result,
+		KEY_OK,
+		default_value
+	)
 
 
 ## 合并元数据到结果字典并返回同一个字典。
 ## [br]
 ## @api public
+## [br]
+## @since 3.22.0
 ## [br]
 ## @param result: 目标结果字典。
 ## [br]
@@ -284,11 +336,19 @@ static func is_ok(result: Dictionary, default_value: bool = false) -> bool:
 ## @schema metadata: Dictionary metadata payload.
 ## [br]
 ## @schema return: Dictionary result payload mutated in place.
-static func merge_metadata(result: Dictionary, metadata: Dictionary, overwrite: bool = true) -> Dictionary:
+static func merge_metadata(
+	result: Dictionary,
+	metadata: Dictionary,
+	overwrite: bool = true
+) -> Dictionary:
 	if not (GFVariantData.get_option_value(result, KEY_METADATA) is Dictionary):
 		result[KEY_METADATA] = {}
 	var result_metadata: Dictionary = result[KEY_METADATA]
-	var _merged_metadata: Dictionary = GFVariantData.merge_metadata(result_metadata, metadata, overwrite)
+	var _merged_metadata: Dictionary = GFVariantData.merge_metadata(
+		result_metadata,
+		metadata,
+		overwrite
+	)
 	return result
 
 

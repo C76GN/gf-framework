@@ -7,15 +7,20 @@ extends GutTest
 ## 验证自定义捕获/恢复回调可前后移动，并在新快照写入时裁剪未来分支。
 func test_restore_callback_clear_does_not_commit_deleted_snapshot() -> void:
 	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
-	history.configure(Callable(), func(_data: Variant) -> void:
-		history.clear()
+	history.configure(
+		Callable(),
+		func(_data: Variant) -> void:
+			history.clear()
 	)
-	var _snapshot: int = history.push_snapshot({"value": 1})
+	var _snapshot: int = history.push_snapshot({ "value": 1 })
 	watch_signals(history)
 	assert_false(history.restore_index(0))
 	assert_eq(history.current_index, -1)
 	assert_signal_not_emitted(history, "snapshot_restored")
-	history.configure(Callable(), Callable())
+	history.configure(
+		Callable(),
+		Callable()
+	)
 
 
 func test_custom_callbacks_step_and_prune_future_branch() -> void:
@@ -24,25 +29,54 @@ func test_custom_callbacks_step_and_prune_future_branch() -> void:
 	var capture_callback: Callable = func() -> Dictionary:
 		return state.duplicate(true)
 	var restore_callback: Callable = func(data: Variant) -> void:
-		_replace_dictionary_contents(state, GFVariantData.as_dictionary(data))
+		_replace_dictionary_contents(
+			state,
+			GFVariantData.as_dictionary(data)
+		)
 	history.configure(capture_callback, restore_callback)
 
 	var first_id: int = history.capture({ "label": "first" })
 	state["value"] = 2
 	var second_id: int = history.capture({ "label": "second" })
 
-	assert_true(history.step_back(), "应可恢复到上一份快照。")
-	assert_eq(GFVariantData.get_option_int(state, "value"), 1, "step_back 应恢复旧状态。")
+	assert_true(
+		history.step_back(),
+		"应可恢复到上一份快照。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(state, "value"),
+		1,
+		"step_back 应恢复旧状态。"
+	)
 
 	state["value"] = 3
 	var third_id: int = history.capture({ "label": "third" })
 	var ids: Array[int] = _snapshot_ids(history)
 
-	assert_eq(first_id, 1, "首个快照 ID 应从 1 开始。")
-	assert_eq(second_id, 2, "第二个快照 ID 应递增。")
-	assert_eq(third_id, 3, "裁剪未来分支后也应继续递增 ID。")
-	assert_eq(ids, [1, 3], "新快照应裁剪当前位置之后的未来分支。")
-	assert_false(history.restore_snapshot_id(second_id), "被裁剪的快照不应再可恢复。")
+	assert_eq(
+		first_id,
+		1,
+		"首个快照 ID 应从 1 开始。"
+	)
+	assert_eq(
+		second_id,
+		2,
+		"第二个快照 ID 应递增。"
+	)
+	assert_eq(
+		third_id,
+		3,
+		"裁剪未来分支后也应继续递增 ID。"
+	)
+	assert_eq(
+		ids,
+		[1, 3],
+		"新快照应裁剪当前位置之后的未来分支。"
+	)
+	assert_false(
+		history.restore_snapshot_id(second_id),
+		"被裁剪的快照不应再可恢复。"
+	)
 
 
 ## 验证历史上限会保留最新快照，并维持有效当前索引。
@@ -50,8 +84,14 @@ func test_max_history_size_trims_old_snapshots_and_keeps_index_valid() -> void:
 	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
 	var restored: Dictionary = {}
 	var restore_callback: Callable = func(data: Variant) -> void:
-		_replace_dictionary_contents(restored, GFVariantData.as_dictionary(data))
-	history.configure(Callable(), restore_callback)
+		_replace_dictionary_contents(
+			restored,
+			GFVariantData.as_dictionary(data)
+		)
+	history.configure(
+		Callable(),
+		restore_callback
+	)
 	history.max_history_size = 2
 
 	var _push_snapshot_result_44: Variant = history.push_snapshot({ "value": 1 })
@@ -59,17 +99,47 @@ func test_max_history_size_trims_old_snapshots_and_keeps_index_valid() -> void:
 	var _push_snapshot_result_46: Variant = history.push_snapshot({ "value": 3 })
 
 	var ids: Array[int] = _snapshot_ids(history)
-	assert_eq(ids, [2, 3], "超过上限时应丢弃最旧快照。")
-	assert_eq(history.current_index, 1, "当前索引应指向最新保留快照。")
+	assert_eq(
+		ids,
+		[2, 3],
+		"超过上限时应丢弃最旧快照。"
+	)
+	assert_eq(
+		history.current_index,
+		1,
+		"当前索引应指向最新保留快照。"
+	)
 
-	assert_true(history.step_back(), "裁剪后仍应可恢复上一份保留快照。")
-	assert_eq(GFVariantData.get_option_int(restored, "value"), 2, "step_back 应恢复到上一份保留快照。")
+	assert_true(
+		history.step_back(),
+		"裁剪后仍应可恢复上一份保留快照。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(restored, "value"),
+		2,
+		"step_back 应恢复到上一份保留快照。"
+	)
 	history.max_history_size = 1
 
 	var snapshot: Dictionary = history.get_current_snapshot()
-	assert_eq(history.current_index, 0, "进一步裁剪后当前索引仍应有效。")
-	assert_eq(GFVariantData.get_option_int(_snapshot_data(snapshot), "value"), 3, "当前被裁掉时应收敛到剩余快照。")
-	assert_eq(GFVariantData.get_option_int(restored, "value"), 3, "当前快照被裁剪并收敛到剩余快照时，外部恢复状态也应同步。")
+	assert_eq(
+		history.current_index,
+		0,
+		"进一步裁剪后当前索引仍应有效。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_snapshot_data(snapshot),
+			"value"
+		),
+		3,
+		"当前被裁掉时应收敛到剩余快照。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(restored, "value"),
+		3,
+		"当前快照被裁剪并收敛到剩余快照时，外部恢复状态也应同步。"
+	)
 
 
 ## 验证快照记录和读取结果都执行深拷贝。
@@ -93,8 +163,22 @@ func test_snapshots_are_deep_copied() -> void:
 	GFVariantData.as_array(snapshot_metadata["tags"]).append("c")
 
 	var stored_snapshot: Dictionary = history.get_current_snapshot()
-	assert_eq(GFVariantData.get_option_array(_snapshot_data(stored_snapshot), "items"), [1, 2], "原始数据和外部返回值都不应污染内部快照。")
-	assert_eq(GFVariantData.get_option_array(_snapshot_metadata(stored_snapshot), "tags"), ["a"], "元数据也应深拷贝。")
+	assert_eq(
+		GFVariantData.get_option_array(
+			_snapshot_data(stored_snapshot),
+			"items"
+		),
+		[1, 2],
+		"原始数据和外部返回值都不应污染内部快照。"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(
+			_snapshot_metadata(stored_snapshot),
+			"tags"
+		),
+		["a"],
+		"元数据也应深拷贝。"
+	)
 
 
 ## 验证恢复回调返回 false 时不会移动当前索引。
@@ -102,13 +186,23 @@ func test_restore_callback_can_reject_restore() -> void:
 	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
 	var restore_callback: Callable = func(_data: Variant) -> bool:
 		return false
-	history.configure(Callable(), restore_callback)
+	history.configure(
+		Callable(),
+		restore_callback
+	)
 
 	var _push_snapshot_result_93: Variant = history.push_snapshot({ "value": 1 })
 	var _push_snapshot_result_94: Variant = history.push_snapshot({ "value": 2 })
 
-	assert_false(history.restore_index(0), "恢复回调返回 false 时应报告恢复失败。")
-	assert_eq(history.current_index, 1, "恢复失败不应移动当前索引。")
+	assert_false(
+		history.restore_index(0),
+		"恢复回调返回 false 时应报告恢复失败。"
+	)
+	assert_eq(
+		history.current_index,
+		1,
+		"恢复失败不应移动当前索引。"
+	)
 
 
 ## 验证 configure 会忽略错误类型的可选回调，并钳制历史上限。
@@ -118,18 +212,37 @@ func test_configure_ignores_invalid_optional_callable() -> void:
 	var capture_callback: Callable = func() -> Dictionary:
 		return state.duplicate(true)
 	var restore_callback: Callable = func(data: Variant) -> void:
-		_replace_dictionary_contents(state, GFVariantData.as_dictionary(data))
+		_replace_dictionary_contents(
+			state,
+			GFVariantData.as_dictionary(data)
+		)
 
-	history.configure(capture_callback, restore_callback, {
-		"max_history_size": -10,
-		"restore_command_builder": "not_callable",
-	})
+	history.configure(
+		capture_callback,
+		restore_callback,
+		{ "max_history_size": -10, "restore_command_builder": "not_callable", }
+	)
 
-	assert_eq(history.max_history_size, 0, "负数历史上限应钳制为 0，表示不限制。")
-	assert_ne(history.capture(), 0, "错误类型的可选回调不应阻止捕获。")
+	assert_eq(
+		history.max_history_size,
+		0,
+		"负数历史上限应钳制为 0，表示不限制。"
+	)
+	assert_ne(
+		history.capture(),
+		0,
+		"错误类型的可选回调不应阻止捕获。"
+	)
 	state["value"] = 2
-	assert_true(history.restore_index(0), "错误类型的可选回调不应阻止自定义恢复。")
-	assert_eq(GFVariantData.get_option_int(state, "value"), 1, "自定义恢复回调仍应正常执行。")
+	assert_true(
+		history.restore_index(0),
+		"错误类型的可选回调不应阻止自定义恢复。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(state, "value"),
+		1,
+		"自定义恢复回调仍应正常执行。"
+	)
 
 
 ## 验证默认捕获/恢复路径会使用注入架构的全局快照。
@@ -146,8 +259,15 @@ func test_default_capture_uses_injected_architecture_snapshot() -> void:
 	model.value = 20
 	var _capture_result_133: Variant = history.capture()
 
-	assert_true(history.step_back(), "默认恢复路径应可还原架构全局快照。")
-	assert_eq(model.value, 10, "Model 状态应通过架构快照恢复。")
+	assert_true(
+		history.step_back(),
+		"默认恢复路径应可还原架构全局快照。"
+	)
+	assert_eq(
+		model.value,
+		10,
+		"Model 状态应通过架构快照恢复。"
+	)
 
 	arch.dispose()
 
@@ -164,14 +284,18 @@ func test_default_capture_does_not_record_failed_architecture_result() -> void:
 
 	var snapshot_id: int = history.capture()
 
-	assert_eq(snapshot_id, 0, "架构捕获失败时不得提交 SnapshotHistory 记录。")
-	assert_eq(history.snapshot_count, 0, "失败 Result 不得作为普通快照载荷写入历史。")
-	assert_push_error(
-		"[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\nDuplicate Model snapshot key: snapshot_history_duplicate. Provide a unique get_save_key() for each Model."
+	assert_eq(
+		snapshot_id,
+		0,
+		"架构捕获失败时不得提交 SnapshotHistory 记录。"
 	)
-	assert_push_warning(
-		"[GFSnapshotHistoryUtility][snapshot_history_utility.capture_failed] capture() failed: Duplicate Model snapshot key: snapshot_history_duplicate. Provide a unique get_save_key() for each Model.."
+	assert_eq(
+		history.snapshot_count,
+		0,
+		"失败 Result 不得作为普通快照载荷写入历史。"
 	)
+	assert_push_error("[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\nDuplicate Model snapshot key: snapshot_history_duplicate. Provide a unique get_save_key() for each Model.")
+	assert_push_warning("[GFSnapshotHistoryUtility][snapshot_history_utility.capture_failed] capture() failed: Duplicate Model snapshot key: snapshot_history_duplicate. Provide a unique get_save_key() for each Model..")
 
 	arch.dispose()
 
@@ -205,15 +329,20 @@ func test_default_restore_failure_does_not_move_current_index() -> void:
 		current_index_before_restore,
 		"架构 restore Result 失败时不得移动当前索引。"
 	)
-	assert_eq(model.value, 30, "validate 失败不得修改当前 Model 状态。")
 	assert_eq(
-		GFVariantData.get_option_int(history.get_current_snapshot(), "id"),
+		model.value,
+		30,
+		"validate 失败不得修改当前 Model 状态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			history.get_current_snapshot(),
+			"id"
+		),
 		valid_snapshot_id,
 		"恢复失败后当前快照记录必须保持不变。"
 	)
-	assert_push_warning(
-		"[GFSnapshotHistoryUtility][snapshot_history_utility.restore_failed] restore failed: The snapshot contains an unregistered Model key: unknown_model.."
-	)
+	assert_push_warning("[GFSnapshotHistoryUtility][snapshot_history_utility.restore_failed] restore failed: The snapshot contains an unregistered Model key: unknown_model..")
 
 	arch.dispose()
 
@@ -249,11 +378,17 @@ class SnapshotModel:
 	func get_save_key() -> StringName:
 		return &"snapshot_history_model"
 
+
 	func to_dict() -> Dictionary:
 		return { "value": value }
 
+
 	func from_dict(data: Dictionary) -> void:
-		value = GFVariantData.get_option_int(data, "value", 0)
+		value = GFVariantData.get_option_int(
+			data,
+			"value",
+			0
+		)
 
 
 class DuplicateSnapshotModel:

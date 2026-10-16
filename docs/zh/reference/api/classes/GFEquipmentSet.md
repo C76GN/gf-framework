@@ -18,7 +18,7 @@
 | 属性 | [`slots`](#member-gfequipmentset-properties-slots) | `var slots: Dictionary = {}` |
 | 方法 | [`set_slot`](#member-gfequipmentset-methods-set_slot) | `func set_slot(slot: GFEquipmentSlot) -> void:` |
 | 方法 | [`get_slot`](#member-gfequipmentset-methods-get_slot) | `func get_slot(slot_id: StringName) -> GFEquipmentSlot:` |
-| 方法 | [`equip`](#member-gfequipmentset-methods-equip) | `func equip(slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = []) -> bool:` |
+| 方法 | [`equip`](#member-gfequipmentset-methods-equip) | `func equip( slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = [] ) -> bool:` |
 | 方法 | [`unequip`](#member-gfequipmentset-methods-unequip) | `func unequip(slot_id: StringName) -> void:` |
 | 方法 | [`get_equipped_item`](#member-gfequipmentset-methods-get_equipped_item) | `func get_equipped_item(slot_id: StringName) -> StringName:` |
 
@@ -85,9 +85,10 @@ func get_slot(slot_id: StringName) -> GFEquipmentSlot:
 ### `equip`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func equip(slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = []) -> bool:
+func equip( slot_id: StringName, item_id: StringName, item_tags: Array[StringName] = [] ) -> bool:
 ```
 
 挂载物品到槽位。

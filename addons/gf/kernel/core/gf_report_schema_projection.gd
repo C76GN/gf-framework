@@ -61,7 +61,11 @@ static func to_report_dictionary(source: Dictionary, options: Dictionary = {}) -
 ## 读取整数选项；接受有限浮点并截为整数，其余值使用默认值。
 ## [br]
 ## @api private
-static func _get_int_option(options: Dictionary, key: String, default_value: int) -> int:
+static func _get_int_option(
+	options: Dictionary,
+	key: String,
+	default_value: int
+) -> int:
 	var value: Variant = options.get(key, default_value)
 	if value is int:
 		var int_value: int = value

@@ -213,7 +213,11 @@ func get_full_state() -> Dictionary:
 func set_full_state(state: Dictionary) -> void:
 	_ensure_rng()
 	var parsed_state: Dictionary = _parse_full_state(state)
-	if not GFVariantData.get_option_bool(parsed_state, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		parsed_state,
+		&"ok",
+		false
+	):
 		return
 
 	_global_seed = GFVariantData.get_option_int(parsed_state, &"global_seed")
@@ -290,7 +294,11 @@ static func try_make_stable_seed(parts: Array, options: Dictionary = {}) -> Dict
 ## @return 派生 seed；输入无法规范编码时返回 0。
 static func make_stable_seed(parts: Array, options: Dictionary = {}) -> int:
 	var seed_result: Dictionary = try_make_stable_seed(parts, options)
-	if not GFVariantData.get_option_bool(seed_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		seed_result,
+		&"ok",
+		false
+	):
 		return 0
 	return GFVariantData.get_option_int(seed_result, &"seed")
 
@@ -309,8 +317,18 @@ static func make_stable_seed(parts: Array, options: Dictionary = {}) -> int:
 ## @param namespace_id: 可选命名空间，用于隔离不同用途。
 ## [br]
 ## @return 0 到 4294967295 范围内的稳定整数 seed。
-static func make_stable_grid_seed(cell: Vector2i, seed_value: int = 0, namespace_id: String = "") -> int:
-	return make_stable_seed([namespace_id, seed_value, cell])
+static func make_stable_grid_seed(
+	cell: Vector2i,
+	seed_value: int = 0,
+	namespace_id: String = ""
+) -> int:
+	return make_stable_seed(
+		[
+			namespace_id,
+			seed_value,
+			cell,
+		]
+	)
 
 
 ## 基于主 RNG 当前状态与字符串标签，派生出一个独立的 Godot 子 RNG。
@@ -346,12 +364,15 @@ func get_branched_godot_rng(string_seed: String) -> RandomNumberGenerator:
 	var branched: RandomNumberGenerator = RandomNumberGenerator.new()
 	var branch_index: int = _next_branch_index(_branch_counters, string_seed)
 
-	var branch_seed: int = _stable_hash("%d:%d:%s:%d" % [
-		_global_seed,
-		_rng.state,
-		string_seed,
-		branch_index,
-	])
+	var branch_seed: int = _stable_hash(
+		"%d:%d:%s:%d"
+		% [
+			_global_seed,
+			_rng.state,
+			string_seed,
+			branch_index,
+		]
+	)
 	branched.seed = branch_seed
 	return branched
 
@@ -370,11 +391,14 @@ func get_branched_godot_rng(string_seed: String) -> RandomNumberGenerator:
 func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom:
 	_ensure_rng()
 	var branch_index: int = _next_branch_index(_deterministic_branch_counters, string_seed)
-	var branch_seed: int = _stable_hash("%d:deterministic:%s:%d" % [
-		_global_seed,
-		string_seed,
-		branch_index,
-	])
+	var branch_seed: int = _stable_hash(
+		"%d:deterministic:%s:%d"
+		% [
+			_global_seed,
+			string_seed,
+			branch_index,
+		]
+	)
 	return GFDeterministicRandom.from_seed(branch_seed)
 
 
@@ -431,13 +455,24 @@ func _try_decode_branch_counters(value: Variant, field_name: String) -> Dictiona
 	var dictionary: Dictionary = value
 	for key: Variant in dictionary.keys():
 		var key_text: String = str(key)
-		var value_result: Dictionary = _try_state_value_to_int(dictionary[key], "%s.%s" % [field_name, key_text])
-		if not GFVariantData.get_option_bool(value_result, &"ok", false):
+		var value_result: Dictionary = _try_state_value_to_int(
+			dictionary[key],
+			"%s.%s"
+			% [field_name, key_text]
+		)
+		if not GFVariantData.get_option_bool(
+			value_result,
+			&"ok",
+			false
+		):
 			return value_result
 
 		var counter: int = GFVariantData.get_option_int(value_result, &"value")
 		if counter < 0:
-			return _make_parse_error("Field %s.%s must be a nonnegative integer" % [field_name, key_text])
+			return _make_parse_error(
+				"Field %s.%s must be a nonnegative integer"
+				% [field_name, key_text]
+			)
 
 		result[key_text] = counter
 	return _make_parse_value(result)
@@ -468,7 +503,11 @@ func _get_branch_counter_value(source: Dictionary, key_text: String) -> Variant:
 ## [br]
 func _parse_full_state(state: Dictionary) -> Dictionary:
 	var schema_result: Dictionary = _try_get_required_state_int(state, &"state_schema_version")
-	if not GFVariantData.get_option_bool(schema_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		schema_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(schema_result)
 		return schema_result
 
@@ -478,17 +517,29 @@ func _parse_full_state(state: Dictionary) -> Dictionary:
 		return _make_parse_error("unsupported_schema")
 
 	var global_seed_result: Dictionary = _try_get_required_state_int(state, &"global_seed")
-	if not GFVariantData.get_option_bool(global_seed_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		global_seed_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(global_seed_result)
 		return global_seed_result
 
 	var rng_state_result: Dictionary = _try_get_required_state_int(state, &"rng_state")
-	if not GFVariantData.get_option_bool(rng_state_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		rng_state_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(rng_state_result)
 		return rng_state_result
 
 	var branch_value_result: Dictionary = _try_get_required_state_value(state, &"branch_counters")
-	if not GFVariantData.get_option_bool(branch_value_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		branch_value_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(branch_value_result)
 		return branch_value_result
 
@@ -496,12 +547,20 @@ func _parse_full_state(state: Dictionary) -> Dictionary:
 		GFVariantData.get_option_value(branch_value_result, &"value"),
 		"branch_counters"
 	)
-	if not GFVariantData.get_option_bool(branch_counters_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		branch_counters_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(branch_counters_result)
 		return branch_counters_result
 
 	var deterministic_value_result: Dictionary = _try_get_required_state_value(state, &"deterministic_branch_counters")
-	if not GFVariantData.get_option_bool(deterministic_value_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		deterministic_value_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(deterministic_value_result)
 		return deterministic_value_result
 
@@ -509,7 +568,11 @@ func _parse_full_state(state: Dictionary) -> Dictionary:
 		GFVariantData.get_option_value(deterministic_value_result, &"value"),
 		"deterministic_branch_counters"
 	)
-	if not GFVariantData.get_option_bool(deterministic_branch_counters_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		deterministic_branch_counters_result,
+		&"ok",
+		false
+	):
 		_report_invalid_full_state(deterministic_branch_counters_result)
 		return deterministic_branch_counters_result
 
@@ -528,7 +591,11 @@ func _parse_full_state(state: Dictionary) -> Dictionary:
 ## [br]
 func _try_get_required_state_int(state: Dictionary, key: StringName) -> Dictionary:
 	var value_result: Dictionary = _try_get_required_state_value(state, key)
-	if not GFVariantData.get_option_bool(value_result, &"ok", false):
+	if not GFVariantData.get_option_bool(
+		value_result,
+		&"ok",
+		false
+	):
 		return value_result
 	return _try_state_value_to_int(
 		GFVariantData.get_option_value(value_result, &"value"),
@@ -594,7 +661,11 @@ func _int_to_state_text(value: int) -> String:
 ## @api private
 ## [br]
 func _report_invalid_full_state(error_result: Dictionary) -> void:
-	var message: String = GFVariantData.get_option_string(error_result, &"error", "Invalid field")
+	var message: String = GFVariantData.get_option_string(
+		error_result,
+		&"error",
+		"Invalid field"
+	)
 	push_error("[GFSeedUtility][seed_utility.state_invalid] Invalid complete random state: %s." % message)
 
 
@@ -603,10 +674,7 @@ func _report_invalid_full_state(error_result: Dictionary) -> void:
 ## @api private
 ## [br]
 func _make_parse_value(value: Variant) -> Dictionary:
-	return {
-		&"ok": true,
-		&"value": value,
-	}
+	return { &"ok": true, &"value": value, }
 
 
 ## 创建表示解析失败及其消息的字典。
@@ -614,10 +682,7 @@ func _make_parse_value(value: Variant) -> Dictionary:
 ## @api private
 ## [br]
 func _make_parse_error(message: String) -> Dictionary:
-	return {
-		&"ok": false,
-		&"error": message,
-	}
+	return { &"ok": false, &"error": message, }
 
 
 ## 检查文本是否是范围可表示的有符号 64 位十进制整数。

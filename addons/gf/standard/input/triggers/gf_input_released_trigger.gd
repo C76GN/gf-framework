@@ -29,6 +29,8 @@ func reset_trigger_state(state: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param raw_active: 原始输入是否处于激活状态。
 ## [br]
 ## @param _value: 输入值，默认实现不直接使用。
@@ -42,8 +44,17 @@ func reset_trigger_state(state: Dictionary) -> void:
 ## @schema state: Dictionary，由输入运行时持有，包含 was_active: bool。
 ## [br]
 ## @return 触发状态。
-func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -> TriggerState:
-	var was_active: bool = GFVariantData.get_option_bool(state, "was_active", false)
+func update(
+	raw_active: bool,
+	_value: Variant,
+	_delta: float,
+	state: Dictionary
+) -> TriggerState:
+	var was_active: bool = GFVariantData.get_option_bool(
+		state,
+		"was_active",
+		false
+	)
 	state["was_active"] = raw_active
 	if was_active and not raw_active:
 		return TriggerState.TRIGGERED

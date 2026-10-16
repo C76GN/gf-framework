@@ -17,7 +17,7 @@ AnimationPlayer 通用播放状态序列化器。 保存当前动画、播放位
 |---|---|---|
 | 方法 | [`supports_node`](#member-gfnodeanimationplayerserializer-methods-supports_node) | `func supports_node(node: Node) -> bool:` |
 | 方法 | [`gather`](#member-gfnodeanimationplayerserializer-methods-gather) | `func gather(node: Node, _context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply`](#member-gfnodeanimationplayerserializer-methods-apply) | `func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply`](#member-gfnodeanimationplayerserializer-methods-apply) | `func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:` |
 
 ## 方法
 
@@ -72,9 +72,10 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ### `apply`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:
 ```
 
 将序列化数据应用到节点。

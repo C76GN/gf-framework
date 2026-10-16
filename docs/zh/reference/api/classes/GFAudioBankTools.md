@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`ClipIdMode`](#member-gfaudiobanktools-enums-clipidmode) | `enum ClipIdMode` |
-| 常量 | [`AUDIO_EXTENSIONS`](#member-gfaudiobanktools-constants-audio_extensions) | `const AUDIO_EXTENSIONS: PackedStringArray = ["wav", "ogg", "mp3", "opus"]` |
+| 常量 | [`AUDIO_EXTENSIONS`](#member-gfaudiobanktools-constants-audio_extensions) | `const AUDIO_EXTENSIONS: PackedStringArray = [ 	"wav", 	"ogg", 	"mp3", 	"opus", ]` |
 | 常量 | [`DEFAULT_EXCLUDED_PATHS`](#member-gfaudiobanktools-constants-default_excluded_paths) | `const DEFAULT_EXCLUDED_PATHS: PackedStringArray = ["res://addons"]` |
 | 常量 | [`DEFAULT_MAX_SCAN_DEPTH`](#member-gfaudiobanktools-constants-default_max_scan_depth) | `const DEFAULT_MAX_SCAN_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_AUDIO_PATHS`](#member-gfaudiobanktools-constants-default_max_audio_paths) | `const DEFAULT_MAX_AUDIO_PATHS: int = 10000` |
@@ -61,9 +61,15 @@ enum ClipIdMode {
 ### `AUDIO_EXTENSIONS`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-const AUDIO_EXTENSIONS: PackedStringArray = ["wav", "ogg", "mp3", "opus"]
+const AUDIO_EXTENSIONS: PackedStringArray = [
+	"wav",
+	"ogg",
+	"mp3",
+	"opus",
+]
 ```
 
 默认音频扩展名白名单，不包含点号。

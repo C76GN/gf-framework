@@ -128,17 +128,14 @@ session.close()
 python tools\gf_maintenance.py project-profile-boundary --root D:\path\to\project --profile gf_project_profile.json --json
 ```
 
-目标 Profile 必须位于 `--root` 内，可以位于声明捕获子目录之外。`--root` 只绑定来源项目根；实际 capture root 由 GDScript 按 Profile 的逻辑容器推导。维护 Python 只做有限稳定读取和结果传输；原始 JSON 由 GDScript 决定。配置支持的 Godot 工具可执行文件，例如 `GF_GODOT`。找不到 Godot、子进程超时或输出信封失效均明确失败，不回退到 Python 规则。
+目标 Profile 必须位于 `--root` 内，可以位于声明捕获子目录之外。`--root` 只绑定来源项目根；实际 capture root 由 GDScript 按 Profile 的逻辑容器推导。维护 Python 只做有限稳定读取和结果传输；原始 JSON 由 GDScript 决定。需要显式选择 Godot 时，将 `GF_GODOT_EXECUTABLE` 设置为支持的 Godot 工具可执行文件路径。找不到 Godot、子进程超时或输出信封失效均明确失败，不回退到 Python 规则。
 
-监督器启动独立可信工具 fixture，并提供私有 userdata 与临时目录，不启动目标 project.godot 的游戏/编辑器，不执行其 autoload、EditorPlugin、脚本或场景。目标目录仅由 Layout 作为只读文件数据访问。deadline、输出字节、身份拥有的终止/清理均由维护监督器执行。
-
-Quick 的纯 Python 检查验证静态分发材料与 transport 契约；实际九类规则、范围与会话行为属于 GUT/集成门禁。完整验证包含 native fixture acceptance，证明目标项目中的恶意 autoload 不被执行，并证明大量显式排除证据不扩大 included 文件上限。
+CLI 使用隔离的 GF 工具项目，并提供私有用户数据与临时目录；目标目录仅作为只读文件数据访问，不启动目标 `project.godot` 的游戏或编辑器，不执行其 autoload、EditorPlugin、脚本或场景。执行时间与输出大小有硬上限；超时、输出截断或工具进程清理不完整均返回错误。
 
 ## 迁移与项目责任
 
 - 旧 v1 Profile 明确改写为 v2，删除跨规则兼容字段；旧 snapshot/report 重新生成，不隐式升级。
 - `GFProjectLayoutValidator` 已删除，直接分析迁移到 Analyzer，多次查询迁移到 Session。
-- legacy/shadow 模式已删除；迁移完成以当前唯一 strict authority 的实际结果为准。
 - 生成源码仍进入 Godot 导入与脚本解析，应留在 included scope，并由 generated_boundary 规则管理。
 - `.gf/project_contract.json` 是人工维护的项目意图；可重建证据适合显式 disposable/generated_evidence 根。忽略策略与 Layout 捕获声明是不同契约。
 - 手工目录变更后重新捕获，并运行项目导入、场景、测试与版本控制检查。Layout 文件系统图不能替代游戏行为验证。

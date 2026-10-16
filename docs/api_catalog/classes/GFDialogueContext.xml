@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueContext" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" module="extensions/dialogue" extends="RefCounted" classDigest="88bf349cc44d2f9cc50a8812065e6ab4e0f1d39fd745e71c876638da2285b84b">
+<class name="GFDialogueContext" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_context.gd" module="extensions/dialogue" extends="RefCounted" classDigest="435092c430f5cf12365b75d637992ca16df667d29bf38a255bd5cf5a46120ee9">
 	<description>GFDialogueContext: 通用对话运行上下文。
 上下文保存运行时值，并把条件判断、mutation 和文本解析委托给项目提供的
 Callable。框架只负责规范调用与结果包装。</description>
@@ -84,7 +84,7 @@ Callable。框架只负责规范调用与结果包装。</description>
 			</tags>
 		</member>
 		<member kind="method" name="check_condition">
-			<signature>func check_condition(condition_id: StringName, payload: Variant = null, subject: Variant = null) -&gt; Dictionary:</signature>
+			<signature>func check_condition( condition_id: StringName, payload: Variant = null, subject: Variant = null ) -&gt; Dictionary:</signature>
 			<description>检查条件。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -95,10 +95,11 @@ Callable。框架只负责规范调用与结果包装。</description>
 				<tag name="schema">payload: 条件处理器接收的任意项目载荷；框架只透传。</tag>
 				<tag name="schema">subject: GFDialogueLine、GFDialogueResponse 或项目传入的任意条件主体。</tag>
 				<tag name="schema">return: 包含 ok、reason 和 value 等字段的 Dictionary；当处理器返回 Dictionary 时会保留调用方字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_mutation">
-			<signature>func apply_mutation(mutation_id: StringName, payload: Variant = null, subject: Variant = null) -&gt; Dictionary:</signature>
+			<signature>func apply_mutation( mutation_id: StringName, payload: Variant = null, subject: Variant = null ) -&gt; Dictionary:</signature>
 			<description>请求执行 mutation。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -109,6 +110,7 @@ Callable。框架只负责规范调用与结果包装。</description>
 				<tag name="schema">payload: mutation 处理器接收的任意项目载荷；框架只透传。</tag>
 				<tag name="schema">subject: GFDialogueLine、GFDialogueResponse 或项目传入的任意 mutation 主体。</tag>
 				<tag name="schema">return: 包含 ok、reason 和 value 等字段的 Dictionary；当处理器返回 Dictionary 时会保留调用方字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_text">

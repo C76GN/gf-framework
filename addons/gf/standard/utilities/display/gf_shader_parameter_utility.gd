@@ -66,7 +66,11 @@ func apply_profile(
 ) -> int:
 	if profile == null:
 		return 0
-	return apply_parameters(target, profile.parameters, options)
+	return apply_parameters(
+		target,
+		profile.parameters,
+		options
+	)
 
 
 ## 将 shader 参数 profile 应用到 RenderingServer 全局 shader 参数。
@@ -112,7 +116,11 @@ func apply_global_profile(profile: GFShaderParameterProfile, options: Dictionary
 ## @schema parameters: Dictionary[StringName, Variant]，shader uniform 名到参数值的映射。
 ## [br]
 ## @schema options: Dictionary，material_property 为 NodePath/String，默认 material；duplicate_material 为 true 时会复制目标材质并写回属性；require_declared_parameters 默认为 true，会跳过 shader 未声明的 uniform；validate_parameter_types 默认为 true，会跳过与 uniform 声明不兼容的值；warn_on_invalid_target、warn_on_missing_parameters 和 warn_on_type_mismatch 控制警告；copy_values 默认为 true，会复制集合参数值后再写入。
-func apply_parameters(target: Object, parameters: Dictionary, options: Dictionary = {}) -> int:
+func apply_parameters(
+	target: Object,
+	parameters: Dictionary,
+	options: Dictionary = {}
+) -> int:
 	if parameters.is_empty():
 		return 0
 
@@ -156,16 +164,17 @@ func apply_parameters(target: Object, parameters: Dictionary, options: Dictionar
 		true
 	)
 	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(material)
-	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
+	var copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
 	var applied_count: int = 0
 	for raw_key: Variant in parameters.keys():
 		var parameter_name: StringName = _variant_to_parameter_name(raw_key)
 		if parameter_name == &"":
 			continue
-		var parameter_declared: bool = (
-			interface_snapshot != null
-			and interface_snapshot.has_uniform(parameter_name)
-		)
+		var parameter_declared: bool = (interface_snapshot != null and interface_snapshot.has_uniform(parameter_name))
 		if require_declared_parameters and not parameter_declared:
 			if warn_on_missing_parameters:
 				push_warning("[GFShaderParameterUtility][shader_parameter_utility.parameter_missing] Shader parameter does not exist: %s." % String(parameter_name))
@@ -178,10 +187,7 @@ func apply_parameters(target: Object, parameters: Dictionary, options: Dictionar
 			and not interface_snapshot.accepts_parameter_value(parameter_name, value)
 		):
 			if warn_on_type_mismatch:
-				push_warning(
-					"[GFShaderParameterUtility][shader_parameter_utility.parameter_type_mismatch] Shader parameter value does not match its declared type: %s."
-					% String(parameter_name)
-				)
+				push_warning("[GFShaderParameterUtility][shader_parameter_utility.parameter_type_mismatch] Shader parameter value does not match its declared type: %s." % String(parameter_name))
 			continue
 		material.set_shader_parameter(
 			parameter_name,
@@ -218,8 +224,16 @@ func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -
 		return report
 
 	var parameter_types: Dictionary = GFVariantData.get_option_dictionary(options, "parameter_types")
-	var save_project_settings: bool = GFVariantData.get_option_bool(options, "save_project_settings", false)
-	var dry_run: bool = GFVariantData.get_option_bool(options, "dry_run", false)
+	var save_project_settings: bool = GFVariantData.get_option_bool(
+		options,
+		"save_project_settings",
+		false
+	)
+	var dry_run: bool = GFVariantData.get_option_bool(
+		options,
+		"dry_run",
+		false
+	)
 	var applied_count: int = 0
 	var registered_count: int = 0
 	var updated_count: int = 0
@@ -263,7 +277,11 @@ func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -
 			project_setting_written_count += 1
 
 	var project_settings_saved: bool = false
-	if save_project_settings and project_setting_written_count > 0 and not dry_run:
+	if (
+		save_project_settings
+		and project_setting_written_count > 0
+		and not dry_run
+	):
 		var save_result: int = ProjectSettings.save()
 		if save_result == OK:
 			project_settings_saved = true
@@ -294,11 +312,13 @@ func apply_global_parameters(parameters: Dictionary, options: Dictionary = {}) -
 ## @param material_property: 当 target 不是 ShaderMaterial 时读取的材质属性路径。
 ## [br]
 ## @return: 解析出的 ShaderMaterial；失败时返回 null。
-func resolve_shader_material(
-	target: Object,
-	material_property: NodePath = DEFAULT_MATERIAL_PROPERTY
-) -> ShaderMaterial:
-	return _resolve_shader_material(target, material_property, false, false)
+func resolve_shader_material(target: Object, material_property: NodePath = DEFAULT_MATERIAL_PROPERTY) -> ShaderMaterial:
+	return _resolve_shader_material(
+		target,
+		material_property,
+		false,
+		false
+	)
 
 
 ## 捕获 ShaderMaterial 当前 uniform 接口。
@@ -310,9 +330,7 @@ func resolve_shader_material(
 ## @param material: 目标 ShaderMaterial。
 ## [br]
 ## @return 接口快照；材质或 Shader 为空时返回 null。
-func capture_shader_interface(
-	material: ShaderMaterial
-) -> GFShaderInterfaceSnapshot:
+func capture_shader_interface(material: ShaderMaterial) -> GFShaderInterfaceSnapshot:
 	if material == null or material.shader == null:
 		return null
 	return GFShaderInterfaceSnapshot.capture(material.shader)
@@ -347,12 +365,13 @@ func validate_profile(
 			),
 			GFVariantData.get_option_dictionary(options, "metadata")
 		)
-		var _null_profile_issue: RefCounted = null_profile_report.add_error(
-			&"shader_parameter_profile_missing",
-			"Shader parameter profile is missing."
-		)
+		var _null_profile_issue: RefCounted = null_profile_report.add_error(&"shader_parameter_profile_missing", "Shader parameter profile is missing.")
 		return null_profile_report
-	return validate_parameters(material, profile.parameters, options)
+	return validate_parameters(
+		material,
+		profile.parameters,
+		options
+	)
 
 
 ## 校验参数字典是否符合 ShaderMaterial 当前 uniform 接口。
@@ -377,9 +396,7 @@ func validate_parameters(
 	parameters: Dictionary,
 	options: Dictionary = {}
 ) -> GFValidationReport:
-	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(
-		material
-	)
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(material)
 	if interface_snapshot != null:
 		return interface_snapshot.validate_parameters(parameters, options)
 
@@ -391,10 +408,7 @@ func validate_parameters(
 		),
 		GFVariantData.get_option_dictionary(options, "metadata")
 	)
-	var _missing_snapshot_issue: RefCounted = report.add_error(
-		&"shader_interface_snapshot_missing",
-		"ShaderMaterial must provide a Shader before its parameter contract can be validated."
-	)
+	var _missing_snapshot_issue: RefCounted = report.add_error(&"shader_interface_snapshot_missing", "ShaderMaterial must provide a Shader before its parameter contract can be validated.")
 	return report
 
 
@@ -410,9 +424,7 @@ func validate_parameters(
 ## [br]
 ## @schema return: Array[StringName]，material.shader 声明的 shader uniform 名称。
 func get_shader_parameter_names(material: ShaderMaterial) -> Array[StringName]:
-	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(
-		material
-	)
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(material)
 	if interface_snapshot == null:
 		var empty_names: Array[StringName] = []
 		return empty_names
@@ -433,13 +445,8 @@ func get_shader_parameter_names(material: ShaderMaterial) -> Array[StringName]:
 func has_shader_parameter(material: ShaderMaterial, parameter_name: StringName) -> bool:
 	if parameter_name == &"":
 		return false
-	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(
-		material
-	)
-	return (
-		interface_snapshot != null
-		and interface_snapshot.has_uniform(parameter_name)
-	)
+	var interface_snapshot: GFShaderInterfaceSnapshot = capture_shader_interface(material)
+	return (interface_snapshot != null and interface_snapshot.has_uniform(parameter_name))
 
 
 ## 确保 RenderingServer 全局 shader 参数存在，并可选写入 ProjectSettings。
@@ -469,7 +476,13 @@ func ensure_global_parameter(
 	default_value: Variant = null,
 	options: Dictionary = {}
 ) -> Dictionary:
-	return _ensure_global_parameter_internal(parameter_name, parameter_type, default_value, options, true)
+	return _ensure_global_parameter_internal(
+		parameter_name,
+		parameter_type,
+		default_value,
+		options,
+		true
+	)
 
 
 ## 获取 GF 可稳定识别的全局 shader 参数名。
@@ -575,10 +588,7 @@ func _resolve_shader_material(
 ) -> ShaderMaterial:
 	if target is ShaderMaterial:
 		if duplicate_material:
-			_warn_invalid_target(
-				"Cannot write the duplicated material back when a ShaderMaterial is passed directly.",
-				warn_on_invalid_target
-			)
+			_warn_invalid_target("Cannot write the duplicated material back when a ShaderMaterial is passed directly.", warn_on_invalid_target)
 			return null
 		return _variant_to_shader_material(target)
 	if not is_instance_valid(target):
@@ -588,12 +598,18 @@ func _resolve_shader_material(
 		_warn_invalid_target("Material property path is empty.", warn_on_invalid_target)
 		return null
 	if not GFObjectPropertyTools.has_property_path(target, material_property):
-		_warn_invalid_target("Target material property does not exist: %s." % String(material_property), warn_on_invalid_target)
+		_warn_invalid_target(
+			"Target material property does not exist: %s." % String(material_property),
+			warn_on_invalid_target
+		)
 		return null
 
 	var material_value: Variant = target.get_indexed(material_property)
 	if not (material_value is ShaderMaterial):
-		_warn_invalid_target("Target material property is not a ShaderMaterial: %s." % String(material_property), warn_on_invalid_target)
+		_warn_invalid_target(
+			"Target material property is not a ShaderMaterial: %s." % String(material_property),
+			warn_on_invalid_target
+		)
 		return null
 
 	var material: ShaderMaterial = _variant_to_shader_material(material_value)
@@ -624,8 +640,16 @@ func _resolve_shader_material(
 ## [br]
 ## @api private
 ## [br]
-func _get_option_node_path(options: Dictionary, key: Variant, default_value: NodePath) -> NodePath:
-	var raw_value: Variant = GFVariantData.get_option_value(options, key, default_value)
+func _get_option_node_path(
+	options: Dictionary,
+	key: Variant,
+	default_value: NodePath
+) -> NodePath:
+	var raw_value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		default_value
+	)
 	if raw_value is NodePath:
 		var node_path_value: NodePath = raw_value
 		return node_path_value
@@ -665,14 +689,22 @@ func _ensure_global_parameter_internal(
 		true
 	)
 	if parameter_name == &"":
-		return _fail_global_parameter_report(report, "Global shader parameter name must not be empty.", warn_on_invalid_parameter)
+		return _fail_global_parameter_report(
+			report,
+			"Global shader parameter name must not be empty.",
+			warn_on_invalid_parameter
+		)
 	if parameter_type == _INVALID_GLOBAL_PARAMETER_TYPE:
 		return _fail_global_parameter_report(
 			report,
 			"Cannot infer the global shader parameter type: %s." % String(parameter_name),
 			warn_on_invalid_parameter
 		)
-	if GFVariantData.get_option_bool(options, "persist_project_setting", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"persist_project_setting",
+		false
+	):
 		report["project_setting_path"] = _get_global_project_setting_path(parameter_name)
 		if options.has("project_setting_path"):
 			return _fail_global_parameter_report(
@@ -681,16 +713,36 @@ func _ensure_global_parameter_internal(
 				warn_on_invalid_parameter
 			)
 
-	var dry_run: bool = GFVariantData.get_option_bool(options, "dry_run", false)
-	var copy_values: bool = GFVariantData.get_option_bool(options, "copy_values", true)
+	var dry_run: bool = GFVariantData.get_option_bool(
+		options,
+		"dry_run",
+		false
+	)
+	var copy_values: bool = GFVariantData.get_option_bool(
+		options,
+		"copy_values",
+		true
+	)
 	var parameter_value: Variant = GFVariantData.duplicate_variant(default_value) if copy_values else default_value
-	var register_live_parameter: bool = GFVariantData.get_option_bool(options, "register_live_parameter", true)
-	var update_live_value: bool = GFVariantData.get_option_bool(options, "update_live_value", false)
+	var register_live_parameter: bool = GFVariantData.get_option_bool(
+		options,
+		"register_live_parameter",
+		true
+	)
+	var update_live_value: bool = GFVariantData.get_option_bool(
+		options,
+		"update_live_value",
+		false
+	)
 	var live_exists: bool = has_global_parameter_live(parameter_name)
 	report["live_already_registered"] = live_exists
 	if register_live_parameter and not live_exists:
 		if not dry_run:
-			RenderingServer.global_shader_parameter_add(parameter_name, parameter_type, parameter_value)
+			RenderingServer.global_shader_parameter_add(
+				parameter_name,
+				parameter_type,
+				parameter_value
+			)
 			_track_global_parameter(parameter_name)
 		report["live_registered"] = true
 		live_exists = true
@@ -707,7 +759,11 @@ func _ensure_global_parameter_internal(
 			RenderingServer.global_shader_parameter_set(parameter_name, parameter_value)
 		report["live_updated"] = true
 
-	if GFVariantData.get_option_bool(options, "persist_project_setting", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"persist_project_setting",
+		false
+	):
 		var project_report: Dictionary = _persist_global_parameter_project_setting(
 			parameter_name,
 			parameter_type,
@@ -748,7 +804,11 @@ func _persist_global_parameter_project_setting(
 		report["error"] = "Cannot build the persisted global shader parameter definition: %s." % String(parameter_name)
 		return report
 
-	var dry_run: bool = GFVariantData.get_option_bool(options, "dry_run", false)
+	var dry_run: bool = GFVariantData.get_option_bool(
+		options,
+		"dry_run",
+		false
+	)
 	var already_present: bool = ProjectSettings.has_setting(setting_path)
 	var overwrite_project_setting: bool = GFVariantData.get_option_bool(
 		options,
@@ -762,12 +822,19 @@ func _persist_global_parameter_project_setting(
 			ProjectSettings.set_setting(setting_path, definition)
 		report["project_setting_written"] = true
 		report["declaration_written"] = true
-	report["declaration_available"] = already_present or (
-		GFVariantData.get_option_bool(report, "project_setting_written")
-		and not dry_run
+	report["declaration_available"] = (
+		already_present
+		or (
+			GFVariantData.get_option_bool(report, "project_setting_written")
+			and not dry_run
+		)
 	)
 
-	var save_project_settings: bool = GFVariantData.get_option_bool(options, "save_project_settings", false)
+	var save_project_settings: bool = GFVariantData.get_option_bool(
+		options,
+		"save_project_settings",
+		false
+	)
 	if (
 		save_immediately
 		and save_project_settings
@@ -815,7 +882,10 @@ func _append_project_setting_global_parameter_names(names: Array[StringName]) ->
 
 		var parameter_text: String = setting_path.trim_prefix(_GLOBAL_SHADER_SETTING_PREFIX)
 		if not parameter_text.is_empty():
-			_append_unique_global_parameter_name(names, StringName(parameter_text))
+			_append_unique_global_parameter_name(
+				names,
+				StringName(parameter_text)
+			)
 
 
 ## 仅在名称非空且尚未存在时将参数名追加到数组。
@@ -842,10 +912,7 @@ func _track_global_parameter(parameter_name: StringName) -> void:
 ## [br]
 func _build_global_parameter_options(options: Dictionary, parameter_name: StringName) -> Dictionary:
 	var entry_options: Dictionary = options.duplicate(true)
-	var project_setting_types: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"project_setting_types"
-	)
+	var project_setting_types: Dictionary = GFVariantData.get_option_dictionary(options, "project_setting_types")
 	var project_setting_type: String = GFVariantData.get_option_string(
 		project_setting_types,
 		parameter_name,
@@ -854,10 +921,7 @@ func _build_global_parameter_options(options: Dictionary, parameter_name: String
 	if not project_setting_type.is_empty():
 		entry_options["project_setting_type"] = project_setting_type
 
-	var project_setting_definitions: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"project_setting_definitions"
-	)
+	var project_setting_definitions: Dictionary = GFVariantData.get_option_dictionary(options, "project_setting_definitions")
 	var raw_definition: Variant = _get_equivalent_dictionary_value(
 		project_setting_definitions,
 		parameter_name,
@@ -878,10 +942,7 @@ func _build_project_shader_global_definition(
 	default_value: Variant,
 	options: Dictionary
 ) -> Dictionary:
-	var explicit_definition: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"project_setting_definition"
-	)
+	var explicit_definition: Dictionary = GFVariantData.get_option_dictionary(options, "project_setting_definition")
 	if not explicit_definition.is_empty():
 		return explicit_definition.duplicate(true)
 
@@ -893,10 +954,7 @@ func _build_project_shader_global_definition(
 	if setting_type.is_empty():
 		return {}
 
-	return {
-		"type": setting_type,
-		"value": GFVariantData.duplicate_variant(default_value),
-	}
+	return { "type": setting_type, "value": GFVariantData.duplicate_variant(default_value), }
 
 
 ## 根据参数名生成 shader_globals/ 下的固定设置路径。
@@ -1056,7 +1114,11 @@ func _variant_to_parameter_name(value: Variant) -> StringName:
 ## [br]
 ## @api private
 ## [br]
-func _get_equivalent_dictionary_value(data: Dictionary, key: Variant, default_value: Variant) -> Variant:
+func _get_equivalent_dictionary_value(
+	data: Dictionary,
+	key: Variant,
+	default_value: Variant
+) -> Variant:
 	if data.has(key):
 		return data[key]
 	if key is StringName:

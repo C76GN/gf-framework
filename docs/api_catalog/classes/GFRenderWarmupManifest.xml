@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRenderWarmupManifest" path="addons/gf/standard/utilities/display/gf_render_warmup_manifest.gd" module="standard" extends="Resource" classDigest="9fda985b281c49c18a02ecf79b9b4977f2f771e029ce708a3f8131d0e6eae400">
+<class name="GFRenderWarmupManifest" path="addons/gf/standard/utilities/display/gf_render_warmup_manifest.gd" module="standard" extends="Resource" classDigest="e9c437a99bfc96c1217731a4ef7ba2f5712fbfa6bb310249c4d61ed7c58c8edf">
 	<description>GFRenderWarmupManifest: 通用渲染预热清单。
 只描述需要提前触碰的渲染相关资源，不绑定具体关卡、材质命名或项目加载流程。</description>
 	<tags>
@@ -50,7 +50,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="add_resource">
-			<signature>func add_resource(resource: Resource, kind: StringName = &amp;"", entry_metadata: Dictionary = {}) -&gt; int:</signature>
+			<signature>func add_resource( resource: Resource, kind: StringName = &amp;"", entry_metadata: Dictionary = {} ) -&gt; int:</signature>
 			<description>添加已持有的资源条目。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -59,6 +59,7 @@
 				<tag name="param">entry_metadata: 条目元数据。</tag>
 				<tag name="return">添加后的条目索引；失败返回 -1。</tag>
 				<tag name="schema">entry_metadata: Dictionary[String, Variant]，会复制到 manifest 条目的 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="append_manifest">

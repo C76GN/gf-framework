@@ -28,7 +28,7 @@
 | 方法 | [`validate`](#member-gfvalidationrule-methods-validate) | `func validate(target: Variant, context: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`duplicate_rule`](#member-gfvalidationrule-methods-duplicate_rule) | `func duplicate_rule() -> GFValidationRule:` |
 | 方法 | [`describe`](#member-gfvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
-| 方法 | [`_validate`](#member-gfvalidationrule-methods-_validate) | `func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:` |
+| 方法 | [`_validate`](#member-gfvalidationrule-methods-_validate) | `func _validate( _target: Variant, _report: GFValidationReport, _context: Dictionary ) -> Variant:` |
 
 ## 枚举
 
@@ -267,9 +267,10 @@ func describe() -> Dictionary:
 ### `_validate`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate(_target: Variant, _report: GFValidationReport, _context: Dictionary) -> Variant:
+func _validate( _target: Variant, _report: GFValidationReport, _context: Dictionary ) -> Variant:
 ```
 
 执行子类自定义校验逻辑。

@@ -98,10 +98,7 @@ var _metadata: Dictionary = {}
 ## @schema options: Dictionary with optional max_duration_usec: int and metadata: Dictionary.
 ## [br]
 ## @return 当前 Provider。
-func configure(
-	p_provider_id: StringName,
-	options: Dictionary = {}
-) -> GFDiagnosticSnapshotProvider:
+func configure(p_provider_id: StringName, options: Dictionary = {}) -> GFDiagnosticSnapshotProvider:
 	provider_id = p_provider_id
 	max_duration_usec = GFVariantData.get_option_int(
 		options,
@@ -109,7 +106,11 @@ func configure(
 		max_duration_usec
 	)
 	metadata = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(options, "metadata", {})
+		GFVariantData.get_option_value(
+			options,
+			"metadata",
+			{}
+		)
 	)
 	return self
 
@@ -126,7 +127,11 @@ func configure(
 func validate_provider() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
 	var provider_text: String = String(provider_id)
-	if provider_id == &"" or provider_text != provider_text.strip_edges() or provider_text.length() > 128:
+	if (
+		provider_id == &""
+		or provider_text != provider_text.strip_edges()
+		or provider_text.length() > 128
+	):
 		var _id_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
@@ -142,15 +147,16 @@ func validate_provider() -> Dictionary:
 			"Diagnostic provider max_duration_usec must be non-negative.",
 			{ "path": "max_duration_usec", "value": max_duration_usec }
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Diagnostic snapshot provider", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_provider_id": "Assign a stable, non-empty provider id with at most 128 characters.",
-			"invalid_provider_duration_budget": "Use a non-negative max_duration_usec; use 0 only when post-return duration rejection is intentionally disabled.",
-		},
-		"fallback_action": "Review the first diagnostic provider issue.",
-		"no_action": "Diagnostic snapshot provider is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Diagnostic snapshot provider",
+		{
+			"include_issue_count": true,
+			"next_actions": { "invalid_provider_id": "Assign a stable, non-empty provider id with at most 128 characters.", "invalid_provider_duration_budget": "Use a non-negative max_duration_usec; use 0 only when post-return duration rejection is intentionally disabled.", },
+			"fallback_action": "Review the first diagnostic provider issue.",
+			"no_action": "Diagnostic snapshot provider is valid.",
+		}
+	)
 
 
 ## 采集一次诊断结果。
@@ -182,10 +188,7 @@ func collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult:
 ## [br]
 ## @return 类型化采集结果。
 func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
-	return GFDiagnosticProviderResult.failed(
-		&"provider_not_implemented",
-		"Diagnostic provider did not implement _collect_snapshot()."
-	)
+	return GFDiagnosticProviderResult.failed(&"provider_not_implemented", "Diagnostic provider did not implement _collect_snapshot().")
 
 
 # --- 框架内部方法 ---
@@ -198,7 +201,11 @@ func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
 ## [br]
 ## @return Provider 合法且已锁定时返回 true。
 func lock_definition_for_framework() -> bool:
-	if not GFVariantData.get_option_bool(validate_provider(), "ok", false):
+	if not GFVariantData.get_option_bool(
+		validate_provider(),
+		"ok",
+		false
+	):
 		return false
 	_definition_locked = true
 	return true

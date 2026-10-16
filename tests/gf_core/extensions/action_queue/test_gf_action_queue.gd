@@ -5,7 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_ACTION_QUEUE_SYSTEM_PATH: String = "res://addons/gf/extensions/action_queue/core/gf_action_queue_system.gd"
-const ACTION_QUEUE_INTERCEPTOR_FIXTURES_PATH: String = "res://tests/gf_core/fixtures/action_queue/action_queue_interceptor_fixtures.gd"
+const ACTION_QUEUE_INTERCEPTOR_FIXTURES_PATH: String = ("res://tests/gf_core/fixtures/action_queue/action_queue_interceptor_fixtures.gd")
 const GF_ACTION_PROTOCOL = preload("res://addons/gf/extensions/action_queue/core/gf_action_protocol.gd")
 
 
@@ -21,6 +21,7 @@ class OrderAction:
 	func _init(p_list: Array, p_label: String) -> void:
 		order_list = p_list
 		label = p_label
+
 
 	func execute() -> Variant:
 		order_list.append(label)
@@ -44,8 +45,9 @@ class DeadlockSignalAction:
 	func _init(e: Node) -> void:
 		emitter = e
 
+
 	func execute() -> Variant:
-		return emitter.tree_exited # 返回一个永远不会在正常 await 中恢复的信号，除非手动触发 tree_exited
+		return emitter.tree_exited  # 返回一个永远不会在正常 await 中恢复的信号，除非手动触发 tree_exited
 
 
 ## 返回 Signal 但可被显式标记为 fire-and-forget 的测试动作。
@@ -56,10 +58,15 @@ class SignalOrderAction:
 	var label: String
 	var emitter: Node
 
-	func _init(p_list: Array, p_label: String, p_emitter: Node) -> void:
+	func _init(
+		p_list: Array,
+		p_label: String,
+		p_emitter: Node
+	) -> void:
 		order_list = p_list
 		label = p_label
 		emitter = p_emitter
+
 
 	func execute() -> Variant:
 		order_list.append(label)
@@ -71,7 +78,6 @@ class ManualSignalAction:
 	extends GFVisualAction
 
 	signal completed
-
 	var order_list: Array
 	var label: String
 	var cancelled: bool = false
@@ -80,12 +86,15 @@ class ManualSignalAction:
 		order_list = p_list
 		label = p_label
 
+
 	func execute() -> Variant:
 		order_list.append(label)
 		return completed
 
+
 	func cancel() -> void:
 		cancelled = true
+
 
 	func complete() -> void:
 		completed.emit()
@@ -102,8 +111,10 @@ class ControllableSignalAction:
 	func pause() -> void:
 		paused = true
 
+
 	func resume() -> void:
 		resumed = true
+
 
 	func finish() -> void:
 		finished = true
@@ -115,7 +126,10 @@ class EnqueueOnCancelAction extends ManualSignalAction:
 
 	func cancel() -> void:
 		super.cancel()
-		queue_system.call("enqueue", OrderAction.new(order_list, "NEW"))
+		queue_system.call(
+			"enqueue",
+			OrderAction.new(order_list, "NEW")
+		)
 
 
 ## 记录队列执行前注入到动作中的架构。
@@ -128,6 +142,7 @@ class InjectedAction:
 	func inject_dependencies(architecture: GFArchitecture) -> void:
 		super.inject_dependencies(architecture)
 		injected_architecture = architecture
+
 
 	func execute() -> Variant:
 		executed = true
@@ -145,6 +160,7 @@ class RecursiveEnqueueAction:
 		queue = p_queue
 		executions = p_executions
 
+
 	func execute() -> Variant:
 		executions.append(executions.size())
 		var next_action: RecursiveEnqueueAction = RecursiveEnqueueAction.new(queue, executions)
@@ -157,7 +173,6 @@ class ReentrantQueueControlAction:
 	extends GFVisualAction
 
 	signal completed
-
 	var queue: Object
 	var event_log: Array[String]
 	var event_label: String
@@ -173,19 +188,26 @@ class ReentrantQueueControlAction:
 	var resume_callback: Callable = Callable()
 	var finish_callback: Callable = Callable()
 
-	func _init(p_queue: Object, p_event_log: Array[String], p_event_label: String) -> void:
+	func _init(
+		p_queue: Object,
+		p_event_log: Array[String],
+		p_event_label: String
+	) -> void:
 		queue = p_queue
 		event_log = p_event_log
 		event_label = p_event_label
 
+
 	func execute() -> Variant:
 		return completed
+
 
 	func cancel() -> void:
 		cancel_count += 1
 		event_log.append("%s:cancel" % event_label)
 		if reenter_cancel and cancel_count == 1:
 			var _skip_result: Variant = queue.call(&"skip_current_action")
+
 
 	func pause() -> void:
 		pause_count += 1
@@ -196,6 +218,7 @@ class ReentrantQueueControlAction:
 			var _pause_callback_result: Variant = pause_callback.call()
 		event_log.append("%s:pause_exit" % event_label)
 
+
 	func resume() -> void:
 		resume_count += 1
 		event_log.append("%s:resume_enter" % event_label)
@@ -204,6 +227,7 @@ class ReentrantQueueControlAction:
 		if resume_callback.is_valid():
 			var _resume_callback_result: Variant = resume_callback.call()
 		event_log.append("%s:resume_exit" % event_label)
+
 
 	func finish() -> void:
 		finish_count += 1
@@ -223,6 +247,7 @@ class InvalidWaitContractAction:
 	func execute() -> Variant:
 		execute_count += 1
 		return 42
+
 
 	func should_wait_for_result(_result: Variant) -> bool:
 		return true
@@ -245,6 +270,7 @@ class NonNodeDeadlockSignalAction:
 	func _init(e: ObjectSignalEmitter) -> void:
 		emitter = e
 
+
 	func execute() -> Variant:
 		return emitter.get_completed_signal()
 
@@ -258,6 +284,7 @@ class InvalidCompletedSignalAction:
 	func _init(p_order_list: Array, p_label: String) -> void:
 		order_list = p_order_list
 		label = p_label
+
 
 	func execute() -> Variant:
 		order_list.append(label)
@@ -298,51 +325,121 @@ func _signal_from_result(result: Variant) -> Signal:
 func test_push_front_executes_before_enqueue() -> void:
 	var order: Array = []
 	_set_queue_processing(_system, true)
-	_enqueue(_system, OrderAction.new(order, "A"))
-	_enqueue(_system, OrderAction.new(order, "B"))
-	_push_front(_system, OrderAction.new(order, "FRONT"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "A")
+	)
+	_enqueue(
+		_system,
+		OrderAction.new(order, "B")
+	)
+	_push_front(
+		_system,
+		OrderAction.new(order, "FRONT")
+	)
 	_set_queue_processing(_system, false)
-	_enqueue(_system, OrderAction.new(order, "END"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "END")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order.size(), 4, "应有 4 个动作被执行。")
-	assert_eq(GFVariantData.to_text(order[0]), "FRONT", "push_front 的动作应最先执行。")
-	assert_eq(GFVariantData.to_text(order[1]), "A", "enqueue 的第一个动作应第二执行。")
-	assert_eq(GFVariantData.to_text(order[2]), "B", "enqueue 的第二个动作应第三执行。")
-	assert_eq(GFVariantData.to_text(order[3]), "END", "触发处理的动作应最后执行。")
+	assert_eq(
+		order.size(),
+		4,
+		"应有 4 个动作被执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[0]),
+		"FRONT",
+		"push_front 的动作应最先执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[1]),
+		"A",
+		"enqueue 的第一个动作应第二执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[2]),
+		"B",
+		"enqueue 的第二个动作应第三执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[3]),
+		"END",
+		"触发处理的动作应最后执行。"
+	)
 
 
 ## 验证多次 push_front 保持后进先出的顺序。
 func test_multiple_push_front_lifo() -> void:
 	var order: Array = []
 	_set_queue_processing(_system, true)
-	_push_front(_system, OrderAction.new(order, "C"))
-	_push_front(_system, OrderAction.new(order, "B"))
-	_push_front(_system, OrderAction.new(order, "A"))
+	_push_front(
+		_system,
+		OrderAction.new(order, "C")
+	)
+	_push_front(
+		_system,
+		OrderAction.new(order, "B")
+	)
+	_push_front(
+		_system,
+		OrderAction.new(order, "A")
+	)
 	_set_queue_processing(_system, false)
-	_enqueue(_system, OrderAction.new(order, "END"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "END")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order.size(), 4, "应有 4 个动作被执行。")
-	assert_eq(GFVariantData.to_text(order[0]), "A", "最后 push_front 的应最先执行。")
-	assert_eq(GFVariantData.to_text(order[1]), "B", "第二个 push_front 的应第二执行。")
-	assert_eq(GFVariantData.to_text(order[2]), "C", "最早 push_front 的应第三执行。")
-	assert_eq(GFVariantData.to_text(order[3]), "END", "触发处理的动作应最后执行。")
+	assert_eq(
+		order.size(),
+		4,
+		"应有 4 个动作被执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[0]),
+		"A",
+		"最后 push_front 的应最先执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[1]),
+		"B",
+		"第二个 push_front 的应第二执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[2]),
+		"C",
+		"最早 push_front 的应第三执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[3]),
+		"END",
+		"触发处理的动作应最后执行。"
+	)
 
 
 ## 验证空队列 push_front 能正常启动处理。
 func test_push_front_on_empty_queue() -> void:
 	var order: Array = []
-	_push_front(_system, OrderAction.new(order, "ONLY"))
+	_push_front(
+		_system,
+		OrderAction.new(order, "ONLY")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_true(order.has("ONLY"), "空队列 push_front 应正常执行。")
+	assert_true(
+		order.has("ONLY"),
+		"空队列 push_front 应正常执行。"
+	)
 
 
 ## 验证无效动作不会导致崩溃。
@@ -355,16 +452,30 @@ func test_push_front_null_action() -> void:
 func test_clear_then_push_front() -> void:
 	var order: Array = []
 	_set_queue_processing(_system, true)
-	_enqueue(_system, OrderAction.new(order, "OLD"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "OLD")
+	)
 	_clear_queue(_system)
 	_set_queue_processing(_system, false)
-	_push_front(_system, OrderAction.new(order, "NEW"))
+	_push_front(
+		_system,
+		OrderAction.new(order, "NEW")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order.size(), 1, "应只有 1 个动作被执行。")
-	assert_eq(GFVariantData.to_text(order[0]), "NEW", "clear 后 push_front 应正常执行。")
+	assert_eq(
+		order.size(),
+		1,
+		"应只有 1 个动作被执行。"
+	)
+	assert_eq(
+		GFVariantData.to_text(order[0]),
+		"NEW",
+		"clear 后 push_front 应正常执行。"
+	)
 
 
 ## 验证 clear_queue(true) 会终止当前等待并丢弃后续队列。
@@ -372,10 +483,16 @@ func test_clear_queue_can_stop_current_waiting_action() -> void:
 	var order: Array = []
 	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
 	_enqueue(_system, waiting_action)
-	_enqueue(_system, OrderAction.new(order, "AFTER"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "AFTER")
+	)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(_system), "队列应正在等待当前 Signal 动作。")
+	assert_true(
+		_is_queue_processing(_system),
+		"队列应正在等待当前 Signal 动作。"
+	)
 
 	watch_signals(_system)
 	_clear_queue(_system, true)
@@ -383,21 +500,38 @@ func test_clear_queue_can_stop_current_waiting_action() -> void:
 	await get_tree().process_frame
 
 	assert_true(waiting_action.cancelled, "stop_current 应向当前动作发送 cancel。")
-	assert_false(_is_queue_processing(_system), "stop_current 后队列不应继续处于处理中。")
-	assert_eq(order, ["WAIT"], "stop_current 后未执行的后续动作应被丢弃。")
-	assert_signal_emitted(_system, "queue_drained", "stop_current 清空运行中队列时应发出排空信号。")
+	assert_false(
+		_is_queue_processing(_system),
+		"stop_current 后队列不应继续处于处理中。"
+	)
+	assert_eq(
+		order,
+		["WAIT"],
+		"stop_current 后未执行的后续动作应被丢弃。"
+	)
+	assert_signal_emitted(
+		_system,
+		"queue_drained",
+		"stop_current 清空运行中队列时应发出排空信号。"
+	)
 
 
 ## 验证取消当前动作组时会递归取消正在等待的子动作。
 func test_clear_queue_propagates_cancel_to_group_children() -> void:
 	var order: Array = []
 	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT_CHILD")
-	var group: GFVisualActionGroup = GFVisualActionGroup.new([waiting_action], false)
+	var group: GFVisualActionGroup = GFVisualActionGroup.new(
+		[waiting_action],
+		false
+	)
 	_enqueue(_system, group)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(_system), "动作组应正在等待子动作 Signal。")
+	assert_true(
+		_is_queue_processing(_system),
+		"动作组应正在等待子动作 Signal。"
+	)
 
 	_clear_queue(_system, true)
 	await get_tree().process_frame
@@ -411,12 +545,22 @@ func test_current_action_controls_delegate_to_running_action() -> void:
 	_enqueue(_system, waiting_action)
 
 	await get_tree().process_frame
-	assert_eq(_get_current_action(_system), waiting_action, "等待 Signal 时应可查询当前动作。")
+	assert_eq(
+		_get_current_action(_system),
+		waiting_action,
+		"等待 Signal 时应可查询当前动作。"
+	)
 
-	assert_true(_pause_current_action(_system), "存在当前动作时暂停应返回 true。")
+	assert_true(
+		_pause_current_action(_system),
+		"存在当前动作时暂停应返回 true。"
+	)
 	assert_true(waiting_action.paused, "pause_current_action 应委托给当前动作。")
 
-	assert_true(_resume_current_action(_system), "存在当前动作时恢复应返回 true。")
+	assert_true(
+		_resume_current_action(_system),
+		"存在当前动作时恢复应返回 true。"
+	)
 	assert_true(waiting_action.resumed, "resume_current_action 应委托给当前动作。")
 
 	_finish_current_action(_system)
@@ -424,8 +568,14 @@ func test_current_action_controls_delegate_to_running_action() -> void:
 	await get_tree().process_frame
 
 	assert_true(waiting_action.finished, "finish_current_action 应委托给当前动作。")
-	assert_false(_is_queue_processing(_system), "完成当前动作后队列应恢复空闲。")
-	assert_null(_get_current_action(_system), "完成后不应保留当前动作。")
+	assert_false(
+		_is_queue_processing(_system),
+		"完成当前动作后队列应恢复空闲。"
+	)
+	assert_null(
+		_get_current_action(_system),
+		"完成后不应保留当前动作。"
+	)
 
 
 func test_finishing_last_action_emits_drained_once() -> void:
@@ -436,7 +586,11 @@ func test_finishing_last_action_emits_drained_once() -> void:
 	_finish_current_action(_system)
 	await get_tree().process_frame
 	_finish_current_action(_system)
-	assert_signal_emit_count(_system, "queue_drained", 1)
+	assert_signal_emit_count(
+		_system,
+		"queue_drained",
+		1
+	)
 
 
 func test_clear_current_reschedules_work_accepted_by_cancel_callback() -> void:
@@ -447,7 +601,10 @@ func test_clear_current_reschedules_work_accepted_by_cancel_callback() -> void:
 	await get_tree().process_frame
 	_clear_queue(_system, true)
 	await get_tree().process_frame
-	assert_eq(order, ["WAIT", "NEW"])
+	assert_eq(
+		order,
+		["WAIT", "NEW"]
+	)
 	assert_false(_is_queue_processing(_system))
 	action.queue_system = null
 
@@ -466,8 +623,15 @@ func test_cancel_current_action_detaches_before_reentrant_cancel_hook() -> void:
 	_skip_current_action(_system)
 	await get_tree().process_frame
 
-	assert_eq(action.cancel_count, 1, "cancel hook 反调 skip 时不得再次控制同一动作。")
-	assert_null(_get_current_action(_system), "取消回调期间当前动作所有权应已解除。")
+	assert_eq(
+		action.cancel_count,
+		1,
+		"cancel hook 反调 skip 时不得再次控制同一动作。"
+	)
+	assert_null(
+		_get_current_action(_system),
+		"取消回调期间当前动作所有权应已解除。"
+	)
 
 
 func test_pause_and_resume_current_action_ignore_same_hook_reentry() -> void:
@@ -481,12 +645,26 @@ func test_pause_and_resume_current_action_ignore_same_hook_reentry() -> void:
 	_enqueue(_system, action)
 	await get_tree().process_frame
 
-	assert_true(_pause_current_action(_system), "等待动作应可暂停。")
-	assert_eq(action.pause_count, 1, "pause hook 反调 pause 时不得递归委托。")
+	assert_true(
+		_pause_current_action(_system),
+		"等待动作应可暂停。"
+	)
+	assert_eq(
+		action.pause_count,
+		1,
+		"pause hook 反调 pause 时不得递归委托。"
+	)
 
 	action.reenter_resume = true
-	assert_true(_resume_current_action(_system), "暂停动作应可恢复。")
-	assert_eq(action.resume_count, 1, "resume hook 反调 resume 时不得递归委托。")
+	assert_true(
+		_resume_current_action(_system),
+		"暂停动作应可恢复。"
+	)
+	assert_eq(
+		action.resume_count,
+		1,
+		"resume hook 反调 resume 时不得递归委托。"
+	)
 
 	_clear_queue(_system, true)
 
@@ -503,27 +681,62 @@ func test_pause_hook_clear_queue_defers_cancellation_until_hook_returns() -> voi
 	action.pause_callback = func() -> void:
 		_clear_queue(_system, true)
 	_enqueue(_system, action)
-	_enqueue(_system, OrderAction.new(order, "STALE"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "STALE")
+	)
 	await get_tree().process_frame
 
-	assert_true(_pause_current_action(_system), "等待动作应接受外部暂停控制。")
+	assert_true(
+		_pause_current_action(_system),
+		"等待动作应接受外部暂停控制。"
+	)
 
-	assert_eq(action.pause_count, 1, "pause hook 反调 pause 时仍不得重复控制同一动作。")
-	assert_eq(action.cancel_count, 1, "clear_queue(true) 的取消请求必须在 pause hook 返回后执行一次。")
+	assert_eq(
+		action.pause_count,
+		1,
+		"pause hook 反调 pause 时仍不得重复控制同一动作。"
+	)
+	assert_eq(
+		action.cancel_count,
+		1,
+		"clear_queue(true) 的取消请求必须在 pause hook 返回后执行一次。"
+	)
 	assert_eq(
 		events,
-		["current:pause_enter", "current:pause_exit", "current:cancel"],
+		[
+			"current:pause_enter",
+			"current:pause_exit",
+			"current:cancel",
+		],
 		"生命周期取消不得嵌套进入尚未返回的 pause hook。"
 	)
-	assert_null(_get_current_action(_system), "clear_queue(true) 必须立即解除当前动作所有权。")
-	assert_false(_is_queue_processing(_system), "清理后的队列必须回到空闲状态。")
+	assert_null(
+		_get_current_action(_system),
+		"clear_queue(true) 必须立即解除当前动作所有权。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"清理后的队列必须回到空闲状态。"
+	)
 
-	_enqueue(_system, OrderAction.new(order, "FRESH"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "FRESH")
+	)
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["FRESH"], "清理后的新动作应正常执行，旧排队动作不得恢复。")
-	assert_eq(action.cancel_count, 1, "旧消费协程恢复时不得重复取消已清理动作。")
+	assert_eq(
+		order,
+		["FRESH"],
+		"清理后的新动作应正常执行，旧排队动作不得恢复。"
+	)
+	assert_eq(
+		action.cancel_count,
+		1,
+		"旧消费协程恢复时不得重复取消已清理动作。"
+	)
 
 
 func test_resume_hook_dispose_defers_cancellation_until_hook_returns() -> void:
@@ -537,28 +750,62 @@ func test_resume_hook_dispose_defers_cancellation_until_hook_returns() -> void:
 		_dispose_queue(_system)
 	_enqueue(_system, action)
 	await get_tree().process_frame
-	assert_true(_pause_current_action(_system), "等待动作应先进入暂停状态。")
+	assert_true(
+		_pause_current_action(_system),
+		"等待动作应先进入暂停状态。"
+	)
 	events.clear()
 
-	assert_true(_resume_current_action(_system), "暂停动作应接受恢复控制。")
+	assert_true(
+		_resume_current_action(_system),
+		"暂停动作应接受恢复控制。"
+	)
 
-	assert_eq(action.resume_count, 1, "resume hook 应只执行一次。")
-	assert_eq(action.cancel_count, 1, "dispose() 必须在 resume hook 返回后取消当前动作一次。")
+	assert_eq(
+		action.resume_count,
+		1,
+		"resume hook 应只执行一次。"
+	)
+	assert_eq(
+		action.cancel_count,
+		1,
+		"dispose() 必须在 resume hook 返回后取消当前动作一次。"
+	)
 	assert_eq(
 		events,
-		["current:resume_enter", "current:resume_exit", "current:cancel"],
+		[
+			"current:resume_enter",
+			"current:resume_exit",
+			"current:cancel",
+		],
 		"dispose() 的取消不得嵌套进入尚未返回的 resume hook。"
 	)
-	assert_null(_get_current_action(_system), "dispose() 后不得保留当前动作所有权。")
-	assert_false(_is_queue_processing(_system), "dispose() 后队列必须保持空闲。")
+	assert_null(
+		_get_current_action(_system),
+		"dispose() 后不得保留当前动作所有权。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"dispose() 后队列必须保持空闲。"
+	)
 
 	var order: Array = []
-	_enqueue(_system, OrderAction.new(order, "REJECTED"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "REJECTED")
+	)
 	await get_tree().process_frame
 	_dispose_queue(_system)
 
-	assert_true(order.is_empty(), "已释放队列不得接受新动作。")
-	assert_eq(action.cancel_count, 1, "重复 dispose() 不得重复取消同一动作。")
+	assert_true(
+		order.is_empty(),
+		"已释放队列不得接受新动作。"
+	)
+	assert_eq(
+		action.cancel_count,
+		1,
+		"重复 dispose() 不得重复取消同一动作。"
+	)
 
 
 func test_control_hook_flushes_multiple_deferred_cancellations_fifo_once() -> void:
@@ -580,7 +827,10 @@ func test_control_hook_flushes_multiple_deferred_cancellations_fifo_once() -> vo
 	_enqueue(_system, first)
 	await get_tree().process_frame
 
-	assert_true(_pause_current_action(_system), "第一个等待动作应接受暂停控制。")
+	assert_true(
+		_pause_current_action(_system),
+		"第一个等待动作应接受暂停控制。"
+	)
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -594,10 +844,24 @@ func test_control_hook_flushes_multiple_deferred_cancellations_fifo_once() -> vo
 		],
 		"同一控制 hook 累积的不同动作必须在 hook 返回后按请求顺序取消。"
 	)
-	assert_eq(first.cancel_count, 1, "第一个 pending 动作只能取消一次。")
-	assert_eq(second.cancel_count, 1, "第二个 pending 动作只能取消一次。")
-	assert_null(_get_current_action(_system), "批量刷新 pending 取消后不得保留当前动作。")
-	assert_false(_is_queue_processing(_system), "批量刷新 pending 取消后队列必须空闲。")
+	assert_eq(
+		first.cancel_count,
+		1,
+		"第一个 pending 动作只能取消一次。"
+	)
+	assert_eq(
+		second.cancel_count,
+		1,
+		"第二个 pending 动作只能取消一次。"
+	)
+	assert_null(
+		_get_current_action(_system),
+		"批量刷新 pending 取消后不得保留当前动作。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"批量刷新 pending 取消后队列必须空闲。"
+	)
 
 
 func test_finish_current_action_detaches_before_reentrant_finish_hook() -> void:
@@ -614,13 +878,24 @@ func test_finish_current_action_detaches_before_reentrant_finish_hook() -> void:
 	_finish_current_action(_system)
 	await get_tree().process_frame
 
-	assert_eq(action.finish_count, 1, "finish hook 反调 finish 时不得再次控制同一动作。")
-	assert_null(_get_current_action(_system), "finish 回调期间当前动作所有权应已解除。")
+	assert_eq(
+		action.finish_count,
+		1,
+		"finish hook 反调 finish 时不得再次控制同一动作。"
+	)
+	assert_null(
+		_get_current_action(_system),
+		"finish 回调期间当前动作所有权应已解除。"
+	)
 
 
 func test_finish_hook_clear_emits_queue_drained_once() -> void:
 	var events: Array[String] = []
-	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system, events, "current")
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
 	action.finish_callback = func() -> void:
 		_clear_queue(_system, true)
 	watch_signals(_system)
@@ -630,14 +905,23 @@ func test_finish_hook_clear_emits_queue_drained_once() -> void:
 	_finish_current_action(_system)
 	await get_tree().process_frame
 
-	assert_signal_emit_count(_system, "queue_drained", 1, "嵌套 clear 已提交排空，外层 finish 不得再次通知。")
+	assert_signal_emit_count(
+		_system,
+		"queue_drained",
+		1,
+		"嵌套 clear 已提交排空，外层 finish 不得再次通知。"
+	)
 	assert_eq(action.finish_count, 1)
 	assert_false(_is_queue_processing(_system))
 
 
 func test_finish_hook_clear_preserves_reentrant_processing_generation() -> void:
 	var events: Array[String] = []
-	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system, events, "current")
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
 	var replacement: ManualSignalAction = ManualSignalAction.new([], "replacement")
 	action.finish_callback = func() -> void:
 		_clear_queue(_system, true)
@@ -649,12 +933,27 @@ func test_finish_hook_clear_preserves_reentrant_processing_generation() -> void:
 	_finish_current_action(_system)
 	await get_tree().process_frame
 
-	assert_signal_emit_count(_system, "queue_drained", 1)
-	assert_eq(_get_current_action(_system), replacement)
-	assert_true(_is_queue_processing(_system), "旧 finish 栈不得清除回调启动的新消费代。")
+	assert_signal_emit_count(
+		_system,
+		"queue_drained",
+		1
+	)
+	assert_eq(
+		_get_current_action(_system),
+		replacement
+	)
+	assert_true(
+		_is_queue_processing(_system),
+		"旧 finish 栈不得清除回调启动的新消费代。"
+	)
 	replacement.completed.emit()
 	await get_tree().process_frame
-	assert_signal_emit_count(_system, "queue_drained", 2, "新消费代完成后应独立排空一次。")
+	assert_signal_emit_count(
+		_system,
+		"queue_drained",
+		2,
+		"新消费代完成后应独立排空一次。"
+	)
 	assert_false(_is_queue_processing(_system))
 
 
@@ -662,17 +961,32 @@ func test_pause_current_action_freezes_wait_action_and_queue_progress() -> void:
 	var order: Array = []
 	var wait_action: GFWaitAction = GFAction.wait(0.02, self)
 	_enqueue(_system, wait_action)
-	_enqueue(_system, OrderAction.new(order, "AFTER_WAIT"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "AFTER_WAIT")
+	)
 
 	await get_tree().process_frame
-	assert_true(_pause_current_action(_system), "等待动作进入当前动作后应可暂停。")
+	assert_true(
+		_pause_current_action(_system),
+		"等待动作进入当前动作后应可暂停。"
+	)
 	await get_tree().create_timer(0.05).timeout
 	await get_tree().process_frame
 
-	assert_true(order.is_empty(), "队列暂停期间等待动作不应到期推进后续动作。")
-	assert_true(_is_queue_processing(_system), "暂停期间队列应保持处理中。")
+	assert_true(
+		order.is_empty(),
+		"队列暂停期间等待动作不应到期推进后续动作。"
+	)
+	assert_true(
+		_is_queue_processing(_system),
+		"暂停期间队列应保持处理中。"
+	)
 
-	assert_true(_resume_current_action(_system), "暂停后应可恢复当前动作。")
+	assert_true(
+		_resume_current_action(_system),
+		"暂停后应可恢复当前动作。"
+	)
 	await wait_until(
 		func() -> bool:
 			return not _is_queue_processing(_system),
@@ -682,7 +996,11 @@ func test_pause_current_action_freezes_wait_action_and_queue_progress() -> void:
 	)
 	await get_tree().process_frame
 
-	assert_eq(order, ["AFTER_WAIT"], "恢复后队列应继续执行后续动作。")
+	assert_eq(
+		order,
+		["AFTER_WAIT"],
+		"恢复后队列应继续执行后续动作。"
+	)
 
 
 # --- 测试：并行队列与组合 ---
@@ -692,47 +1010,72 @@ func test_enqueue_parallel() -> void:
 	var order: Array = []
 	var act1: OrderAction = OrderAction.new(order, "P1")
 	var act2: OrderAction = OrderAction.new(order, "P2")
-	_enqueue_parallel(_system, [act1, act2])
+	_enqueue_parallel(
+		_system,
+		[act1, act2]
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_true(order.has("P1"), "并行 P1 应执行。")
-	assert_true(order.has("P2"), "并行 P2 应执行。")
+	assert_true(
+		order.has("P1"),
+		"并行 P1 应执行。"
+	)
+	assert_true(
+		order.has("P2"),
+		"并行 P2 应执行。"
+	)
 
 
 ## 验证顺序动作组中的瞬时动作会在同一轮队列处理中完整排空。
 func test_enqueue_sequence_group_with_immediate_actions_drains() -> void:
 	var order: Array = []
-	var group: GFVisualActionGroup = GFVisualActionGroup.new([
-		OrderAction.new(order, "S1"),
-		OrderAction.new(order, "S2"),
-	], false)
+	var group: GFVisualActionGroup = GFVisualActionGroup.new(
+		[OrderAction.new(order, "S1"), OrderAction.new(order, "S2"),],
+		false
+	)
 
 	_enqueue(_system, group)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["S1", "S2"], "顺序动作组应按顺序执行所有瞬时动作。")
-	assert_false(_is_queue_processing(_system), "顺序动作组执行完成后，队列应正常排空。")
+	assert_eq(
+		order,
+		["S1", "S2"],
+		"顺序动作组应按顺序执行所有瞬时动作。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"顺序动作组执行完成后，队列应正常排空。"
+	)
 
 
 func test_parallel_group_completion_waits_for_launch_loop() -> void:
 	var order: Array = []
-	var group: GFVisualActionGroup = GFVisualActionGroup.new([
-		InvalidCompletedSignalAction.new(order, "WAIT_INVALID"),
-		OrderAction.new(order, "SECOND"),
-	], true)
+	var group: GFVisualActionGroup = GFVisualActionGroup.new(
+		[InvalidCompletedSignalAction.new(order, "WAIT_INVALID"), OrderAction.new(order, "SECOND"),],
+		true
+	)
 	var completion: Signal = _signal_from_result(group.execute())
-	var _connect_result_367: Variant = completion.connect(func() -> void:
-		order.append("DONE")
+	var _connect_result_367: Variant = completion.connect(
+		func() -> void:
+			order.append("DONE")
 	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["WAIT_INVALID", "SECOND", "DONE"], "并行动作组应在启动循环结束后再报告完成。")
+	assert_eq(
+		order,
+		[
+			"WAIT_INVALID",
+			"SECOND",
+			"DONE",
+		],
+		"并行动作组应在启动循环结束后再报告完成。"
+	)
 
 
 func test_repeat_action_yields_during_unbounded_immediate_repeats() -> void:
@@ -744,10 +1087,18 @@ func test_repeat_action_yields_during_unbounded_immediate_repeats() -> void:
 	repeat.execute()
 
 	await get_tree().process_frame
-	assert_eq(order.size(), 2, "无限瞬时重复应按单帧预算让出主循环。")
+	assert_eq(
+		order.size(),
+		2,
+		"无限瞬时重复应按单帧预算让出主循环。"
+	)
 
 	await get_tree().process_frame
-	assert_eq(order.size(), 4, "让出主循环后应继续下一批重复。")
+	assert_eq(
+		order.size(),
+		4,
+		"让出主循环后应继续下一批重复。"
+	)
 
 	repeat.cancel()
 	await get_tree().process_frame
@@ -757,14 +1108,18 @@ func test_wait_action_cancel_suppresses_completion_signal() -> void:
 	var wait_action: GFWaitAction = GFWaitAction.new(0.01)
 	var completed: Array[bool] = []
 	var completion: Signal = _signal_from_result(wait_action.execute())
-	var _connect_result_399: Variant = completion.connect(func() -> void:
-		completed.append(true)
+	var _connect_result_399: Variant = completion.connect(
+		func() -> void:
+			completed.append(true)
 	)
 
 	wait_action.cancel()
 	await get_tree().create_timer(0.05).timeout
 
-	assert_true(completed.is_empty(), "取消等待动作后，旧 SceneTreeTimer 不应再触发动作完成信号。")
+	assert_true(
+		completed.is_empty(),
+		"取消等待动作后，旧 SceneTreeTimer 不应再触发动作完成信号。"
+	)
 
 
 ## 验证显式 fire-and-forget 动作即使返回 Signal，也不会阻塞后续队列。
@@ -773,25 +1128,52 @@ func test_enqueue_fire_and_forget_does_not_wait_for_signal() -> void:
 	var node: Node = Node.new()
 	add_child_autofree(node)
 
-	_enqueue_fire_and_forget(_system, SignalOrderAction.new(order, "ASYNC_FAF", node))
-	_enqueue(_system, OrderAction.new(order, "NEXT"))
+	_enqueue_fire_and_forget(
+		_system,
+		SignalOrderAction.new(
+			order,
+			"ASYNC_FAF",
+			node
+		)
+	)
+	_enqueue(
+		_system,
+		OrderAction.new(order, "NEXT")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["ASYNC_FAF", "NEXT"], "fire-and-forget 动作不应阻塞后续动作。")
-	assert_false(_is_queue_processing(_system), "队列应在 fire-and-forget 后正常排空。")
+	assert_eq(
+		order,
+		["ASYNC_FAF", "NEXT"],
+		"fire-and-forget 动作不应阻塞后续动作。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"队列应在 fire-and-forget 后正常排空。"
+	)
 
 
 func test_action_queue_skips_invalid_action_before_execute() -> void:
 	var order: Array = []
-	_enqueue(_system, InvalidOrderAction.new(order, "SKIP"))
-	_enqueue(_system, OrderAction.new(order, "RUN"))
+	_enqueue(
+		_system,
+		InvalidOrderAction.new(order, "SKIP")
+	)
+	_enqueue(
+		_system,
+		OrderAction.new(order, "RUN")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["RUN"], "执行前失效的动作应被跳过。")
+	assert_eq(
+		order,
+		["RUN"],
+		"执行前失效的动作应被跳过。"
+	)
 
 
 func test_action_queue_injects_scoped_architecture_into_actions() -> void:
@@ -807,7 +1189,11 @@ func test_action_queue_injects_scoped_architecture_into_actions() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(action.injected_architecture, child_arch, "ActionQueue 应把自身所属架构注入到动作。")
+	assert_eq(
+		action.injected_architecture,
+		child_arch,
+		"ActionQueue 应把自身所属架构注入到动作。"
+	)
 
 	child_arch.dispose()
 	parent_arch.dispose()
@@ -815,39 +1201,75 @@ func test_action_queue_injects_scoped_architecture_into_actions() -> void:
 
 func test_action_interceptor_can_skip_and_replace_actions() -> void:
 	var order: Array = []
-	_add_interceptor(_system, _make_rewrite_interceptor(order))
+	_add_interceptor(
+		_system,
+		_make_rewrite_interceptor(order)
+	)
 
-	_enqueue(_system, OrderAction.new(order, "SKIP"))
-	_enqueue(_system, OrderAction.new(order, "OLD"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "SKIP")
+	)
+	_enqueue(
+		_system,
+		OrderAction.new(order, "OLD")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["before:SKIP", "before:OLD", "NEW", "after:NEW"], "拦截器应能跳过和替换动作。")
+	assert_eq(
+		order,
+		[
+			"before:SKIP",
+			"before:OLD",
+			"NEW",
+			"after:NEW",
+		],
+		"拦截器应能跳过和替换动作。"
+	)
 
 
 func test_before_interceptor_clear_invalidates_dequeued_action() -> void:
 	var order: Array = []
-	var interceptor: Object = _get_object_value(
-		_call_object(_interceptor_fixtures, &"make_clear_queue_before_interceptor")
-	)
+	var interceptor: Object = _get_object_value(_call_object(_interceptor_fixtures, &"make_clear_queue_before_interceptor"))
 	_add_interceptor(_system, interceptor)
-	_enqueue(_system, OrderAction.new(order, "STALE"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "STALE")
+	)
 
 	await get_tree().process_frame
 
-	assert_true(order.is_empty(), "before interceptor 清空队列后，已出队但未执行的动作也必须失效。")
-	assert_false(_is_queue_processing(_system), "失效处理链应回到空闲状态。")
+	assert_true(
+		order.is_empty(),
+		"before interceptor 清空队列后，已出队但未执行的动作也必须失效。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"失效处理链应回到空闲状态。"
+	)
 
 
 func test_immediate_action_budget_yields_between_processing_slices() -> void:
 	var executions: Array[int] = []
 	_system.set(&"max_immediate_actions_per_slice", 2)
-	_enqueue(_system, RecursiveEnqueueAction.new(_system, executions))
+	_enqueue(
+		_system,
+		RecursiveEnqueueAction.new(_system, executions)
+	)
 
-	assert_lte(executions.size(), 2, "enqueue 调用栈内最多执行一个即时动作切片。")
+	assert_lte(
+		executions.size(),
+		2,
+		"enqueue 调用栈内最多执行一个即时动作切片。"
+	)
 	await get_tree().process_frame
-	assert_lte(executions.size(), 4, "每帧恢复后仍应受即时动作切片预算约束。")
+	assert_lte(
+		executions.size(),
+		4,
+		"每帧恢复后仍应受即时动作切片预算约束。"
+	)
 
 	_clear_queue(_system, true)
 
@@ -863,11 +1285,18 @@ func test_replaced_action_is_injected_before_following_interceptors() -> void:
 	_add_interceptor(_system, replacer)
 	_add_interceptor(_system, observer)
 
-	_enqueue(_system, OrderAction.new([], "OLD"))
+	_enqueue(
+		_system,
+		OrderAction.new([], "OLD")
+	)
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_same(_get_observed_architecture(observer), arch, "替换动作进入后续拦截器前应完成依赖注入。")
+	assert_same(
+		_get_observed_architecture(observer),
+		arch,
+		"替换动作进入后续拦截器前应完成依赖注入。"
+	)
 	assert_true(replacement.executed, "替换动作应被实际执行。")
 
 	arch.dispose()
@@ -875,30 +1304,74 @@ func test_replaced_action_is_injected_before_following_interceptors() -> void:
 
 func test_action_interceptors_run_by_priority() -> void:
 	var order: Array = []
-	_add_interceptor(_system, _make_priority_interceptor(order, "low", 0))
-	_add_interceptor(_system, _make_priority_interceptor(order, "high", 10))
-	_enqueue(_system, OrderAction.new(order, "RUN"))
+	_add_interceptor(
+		_system,
+		_make_priority_interceptor(
+			order,
+			"low",
+			0
+		)
+	)
+	_add_interceptor(
+		_system,
+		_make_priority_interceptor(
+			order,
+			"high",
+			10
+		)
+	)
+	_enqueue(
+		_system,
+		OrderAction.new(order, "RUN")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["high", "low", "RUN"], "拦截器应按高优先级优先执行。")
+	assert_eq(
+		order,
+		[
+			"high",
+			"low",
+			"RUN",
+		],
+		"拦截器应按高优先级优先执行。"
+	)
 
 
 func test_action_interceptor_priority_changes_apply_to_next_action_with_stable_ties() -> void:
 	var order: Array = []
-	var first: Object = _make_priority_interceptor(order, "first", 0)
-	var second: Object = _make_priority_interceptor(order, "second", 10)
+	var first: Object = _make_priority_interceptor(
+		order,
+		"first",
+		0
+	)
+	var second: Object = _make_priority_interceptor(
+		order,
+		"second",
+		10
+	)
 	_add_interceptor(_system, first)
 	_add_interceptor(_system, second)
 	first.set(&"priority", 20)
 	second.set(&"priority", 20)
-	_enqueue(_system, OrderAction.new(order, "RUN"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "RUN")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["first", "second", "RUN"], "下一动作应读取当前 priority，并以注册序稳定同优先级顺序。")
+	assert_eq(
+		order,
+		[
+			"first",
+			"second",
+			"RUN",
+		],
+		"下一动作应读取当前 priority，并以注册序稳定同优先级顺序。"
+	)
 
 
 func test_action_protocol_rejects_non_signal_custom_wait_result() -> void:
@@ -912,30 +1385,54 @@ func test_action_protocol_rejects_non_signal_custom_wait_result() -> void:
 
 	var order: Array = []
 	_enqueue(_system, action)
-	_enqueue(_system, OrderAction.new(order, "AFTER_INVALID_WAIT"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "AFTER_INVALID_WAIT")
+	)
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(action.execute_count, 1, "无效 wait 声明不应重复执行动作。")
-	assert_eq(order, ["AFTER_INVALID_WAIT"], "受控拒绝 wait 后队列仍应有界推进。")
+	assert_eq(
+		action.execute_count,
+		1,
+		"无效 wait 声明不应重复执行动作。"
+	)
+	assert_eq(
+		order,
+		["AFTER_INVALID_WAIT"],
+		"受控拒绝 wait 后队列仍应有界推进。"
+	)
 	assert_push_error("[GFActionProtocol][action_protocol.missing_wait_signal] The action requests waiting, but execute() did not return a Signal.")
 
 
 func test_action_interceptor_can_stop_remaining_queue() -> void:
 	var order: Array = []
 	var stop_action: ManualSignalAction = ManualSignalAction.new(order, "STOP")
-	_add_interceptor(_system, _make_stop_after_interceptor())
+	_add_interceptor(
+		_system,
+		_make_stop_after_interceptor()
+	)
 
 	_enqueue(_system, stop_action)
 	await get_tree().process_frame
-	_enqueue(_system, OrderAction.new(order, "AFTER"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "AFTER")
+	)
 
 	stop_action.complete()
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["STOP"], "after 拦截器停止队列后不应执行后续动作。")
-	assert_false(_is_queue_processing(_system), "停止后队列应回到空闲状态。")
+	assert_eq(
+		order,
+		["STOP"],
+		"after 拦截器停止队列后不应执行后续动作。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"停止后队列应回到空闲状态。"
+	)
 
 
 ## 验证 push_front_parallel 能置顶插队执行。
@@ -943,17 +1440,33 @@ func test_push_front_parallel() -> void:
 	var order: Array = []
 	# 为了测试插队，我们要利用一个需要稍微等待的动作或者在第一帧塞入
 	_set_queue_processing(_system, true)
-	_enqueue(_system, OrderAction.new(order, "END"))
-	_push_front_parallel(_system, [OrderAction.new(order, "P1"), OrderAction.new(order, "P2")])
+	_enqueue(
+		_system,
+		OrderAction.new(order, "END")
+	)
+	_push_front_parallel(
+		_system,
+		[OrderAction.new(order, "P1"), OrderAction.new(order, "P2")]
+	)
 	_set_queue_processing(_system, false)
 	_try_start_processing(_system)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order.size(), 3, "共有3个动作。")
-	assert_true(order.find("P1") < order.find("END"), "P1 应当在 END 之前")
-	assert_true(order.find("P2") < order.find("END"), "P2 应当在 END 之前")
+	assert_eq(
+		order.size(),
+		3,
+		"共有3个动作。"
+	)
+	assert_true(
+		order.find("P1") < order.find("END"),
+		"P1 应当在 END 之前"
+	)
+	assert_true(
+		order.find("P2") < order.find("END"),
+		"P2 应当在 END 之前"
+	)
 
 
 # --- 测试：防死锁安全网 (Task 5) ---
@@ -961,16 +1474,25 @@ func test_push_front_parallel() -> void:
 ## 模拟动作返回的信号发射器被意外释放，验证队列不会永久卡死。
 func test_no_deadlock_on_freed_non_node_emitter() -> void:
 	var emitter: ObjectSignalEmitter = ObjectSignalEmitter.new()
-	_enqueue(_system, NonNodeDeadlockSignalAction.new(emitter))
+	_enqueue(
+		_system,
+		NonNodeDeadlockSignalAction.new(emitter)
+	)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(_system), "队列应进入等待非 Node 信号的处理中状态。")
+	assert_true(
+		_is_queue_processing(_system),
+		"队列应进入等待非 Node 信号的处理中状态。"
+	)
 
 	emitter.free()
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_false(_is_queue_processing(_system), "非 Node 发射源被释放后，队列也应自动恢复，避免死锁。")
+	assert_false(
+		_is_queue_processing(_system),
+		"非 Node 发射源被释放后，队列也应自动恢复，避免死锁。"
+	)
 
 
 func test_signal_timeout_allows_queue_to_continue() -> void:
@@ -978,7 +1500,10 @@ func test_signal_timeout_allows_queue_to_continue() -> void:
 	var emitter: ObjectSignalEmitter = ObjectSignalEmitter.new()
 	var action: GFVisualAction = NonNodeDeadlockSignalAction.new(emitter).with_signal_timeout(0.25, false)
 	_enqueue(_system, action)
-	_enqueue(_system, OrderAction.new(order, "AFTER_TIMEOUT"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "AFTER_TIMEOUT")
+	)
 
 	await wait_until(
 		func() -> bool:
@@ -990,8 +1515,15 @@ func test_signal_timeout_allows_queue_to_continue() -> void:
 	await get_tree().process_frame
 
 	assert_push_warning("[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.")
-	assert_eq(order, ["AFTER_TIMEOUT"], "Signal 超时后队列应继续执行后续动作。")
-	assert_false(_is_queue_processing(_system), "Signal 超时后队列不应继续卡在处理中。")
+	assert_eq(
+		order,
+		["AFTER_TIMEOUT"],
+		"Signal 超时后队列应继续执行后续动作。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"Signal 超时后队列不应继续卡在处理中。"
+	)
 	emitter.free()
 
 
@@ -1008,13 +1540,22 @@ func test_signal_timeout_respects_time_utility_pause() -> void:
 	var action: GFVisualAction = NonNodeDeadlockSignalAction.new(emitter).with_signal_timeout(0.001)
 	time_utility.is_paused = true
 	_enqueue(queue, action)
-	_enqueue(queue, OrderAction.new(order, "AFTER_TIMEOUT"))
+	_enqueue(
+		queue,
+		OrderAction.new(order, "AFTER_TIMEOUT")
+	)
 
 	await get_tree().create_timer(0.03).timeout
 	await get_tree().process_frame
 
-	assert_true(_is_queue_processing(queue), "GFTimeUtility 暂停时，Signal 超时计时不应继续推进。")
-	assert_true(order.is_empty(), "暂停期间队列不应因超时执行后续动作。")
+	assert_true(
+		_is_queue_processing(queue),
+		"GFTimeUtility 暂停时，Signal 超时计时不应继续推进。"
+	)
+	assert_true(
+		order.is_empty(),
+		"暂停期间队列不应因超时执行后续动作。"
+	)
 
 	time_utility.is_paused = false
 	await wait_until(
@@ -1027,8 +1568,15 @@ func test_signal_timeout_respects_time_utility_pause() -> void:
 	await get_tree().process_frame
 
 	assert_push_warning("[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.")
-	assert_eq(order, ["AFTER_TIMEOUT"], "恢复时间后，Signal 超时应继续推进并执行后续动作。")
-	assert_false(_is_queue_processing(queue), "恢复时间并超时后队列应排空。")
+	assert_eq(
+		order,
+		["AFTER_TIMEOUT"],
+		"恢复时间后，Signal 超时应继续推进并执行后续动作。"
+	)
+	assert_false(
+		_is_queue_processing(queue),
+		"恢复时间并超时后队列应排空。"
+	)
 
 	emitter.free()
 	arch.dispose()
@@ -1039,17 +1587,32 @@ func test_signal_timeout_is_frozen_while_current_action_is_paused() -> void:
 	var emitter: ObjectSignalEmitter = ObjectSignalEmitter.new()
 	var action: GFVisualAction = NonNodeDeadlockSignalAction.new(emitter).with_signal_timeout(0.25, false)
 	_enqueue(_system, action)
-	_enqueue(_system, OrderAction.new(order, "AFTER_TIMEOUT"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "AFTER_TIMEOUT")
+	)
 
 	await get_tree().process_frame
-	assert_true(_pause_current_action(_system), "当前 Signal 动作应可暂停。")
+	assert_true(
+		_pause_current_action(_system),
+		"当前 Signal 动作应可暂停。"
+	)
 	await get_tree().create_timer(0.03).timeout
 	await get_tree().process_frame
 
-	assert_true(_is_queue_processing(_system), "当前动作暂停时 Signal timeout 不应推进队列。")
-	assert_true(order.is_empty(), "暂停期间不应因 timeout 执行后续动作。")
+	assert_true(
+		_is_queue_processing(_system),
+		"当前动作暂停时 Signal timeout 不应推进队列。"
+	)
+	assert_true(
+		order.is_empty(),
+		"暂停期间不应因 timeout 执行后续动作。"
+	)
 
-	assert_true(_resume_current_action(_system), "恢复后 timeout 应继续计时。")
+	assert_true(
+		_resume_current_action(_system),
+		"恢复后 timeout 应继续计时。"
+	)
 	await wait_until(
 		func() -> bool:
 			return not _is_queue_processing(_system),
@@ -1060,7 +1623,11 @@ func test_signal_timeout_is_frozen_while_current_action_is_paused() -> void:
 	await get_tree().process_frame
 
 	assert_push_warning("[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.")
-	assert_eq(order, ["AFTER_TIMEOUT"], "恢复后 Signal timeout 应继续执行后续动作。")
+	assert_eq(
+		order,
+		["AFTER_TIMEOUT"],
+		"恢复后 Signal timeout 应继续执行后续动作。"
+	)
 	emitter.free()
 
 
@@ -1075,7 +1642,10 @@ func test_no_deadlock_on_freed_node() -> void:
 	await get_tree().process_frame
 
 	# 此时队列应正在等待 node 的信号
-	assert_true(_is_queue_processing(_system), "队列应处于处理中。")
+	assert_true(
+		_is_queue_processing(_system),
+		"队列应处于处理中。"
+	)
 
 	# 模拟节点被销毁 (由外部逻辑触发)
 	node.free()
@@ -1084,7 +1654,10 @@ func test_no_deadlock_on_freed_node() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_false(_is_queue_processing(_system), "队列应在节点销毁后自动恢复并结束处理，不产生死锁。")
+	assert_false(
+		_is_queue_processing(_system),
+		"队列应在节点销毁后自动恢复并结束处理，不产生死锁。"
+	)
 
 
 func test_sequence_group_no_deadlock_on_freed_node() -> void:
@@ -1092,21 +1665,31 @@ func test_sequence_group_no_deadlock_on_freed_node() -> void:
 	var node: Node = Node.new()
 	add_child_autofree(node)
 
-	var group: GFVisualActionGroup = GFVisualActionGroup.new([
-		DeadlockSignalAction.new(node),
-		OrderAction.new(order, "AFTER"),
-	], false)
+	var group: GFVisualActionGroup = GFVisualActionGroup.new(
+		[DeadlockSignalAction.new(node), OrderAction.new(order, "AFTER"),],
+		false
+	)
 	_enqueue(_system, group)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(_system), "顺序动作组应进入等待状态。")
+	assert_true(
+		_is_queue_processing(_system),
+		"顺序动作组应进入等待状态。"
+	)
 
 	node.free()
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_eq(order, ["AFTER"], "等待源失效后，顺序动作组应继续执行后续动作。")
-	assert_false(_is_queue_processing(_system), "顺序动作组在等待源销毁后也应自动恢复。")
+	assert_eq(
+		order,
+		["AFTER"],
+		"等待源失效后，顺序动作组应继续执行后续动作。"
+	)
+	assert_false(
+		_is_queue_processing(_system),
+		"顺序动作组在等待源销毁后也应自动恢复。"
+	)
 
 
 # --- 测试：命名队列 ---
@@ -1114,54 +1697,94 @@ func test_sequence_group_no_deadlock_on_freed_node() -> void:
 func test_named_queues_run_independently() -> void:
 	var order: Array = []
 
-	_enqueue_to(_system, &"battle", OrderAction.new(order, "BATTLE"))
-	_enqueue_to(_system, &"dialogue", OrderAction.new(order, "DIALOGUE"))
+	_enqueue_to(
+		_system,
+		&"battle",
+		OrderAction.new(order, "BATTLE")
+	)
+	_enqueue_to(
+		_system,
+		&"dialogue",
+		OrderAction.new(order, "DIALOGUE")
+	)
 
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	assert_true(order.has("BATTLE"), "命名队列 battle 应执行动作。")
-	assert_true(order.has("DIALOGUE"), "命名队列 dialogue 应执行动作。")
-	assert_false(_is_queue_processing(_get_named_queue(_system, &"battle")), "battle 队列应排空。")
-	assert_false(_is_queue_processing(_get_named_queue(_system, &"dialogue")), "dialogue 队列应排空。")
+	assert_true(
+		order.has("BATTLE"),
+		"命名队列 battle 应执行动作。"
+	)
+	assert_true(
+		order.has("DIALOGUE"),
+		"命名队列 dialogue 应执行动作。"
+	)
+	assert_false(
+		_is_queue_processing(_get_named_queue(_system, &"battle")),
+		"battle 队列应排空。"
+	)
+	assert_false(
+		_is_queue_processing(_get_named_queue(_system, &"dialogue")),
+		"dialogue 队列应排空。"
+	)
 
 
 func test_linked_queue_clears_when_node_is_released() -> void:
 	var node: Node = Node.new()
 	add_child(node)
-	var queue: Object = _get_linked_queue(_system, &"linked", node)
+	var queue: Object = _get_linked_queue(
+		_system,
+		&"linked",
+		node
+	)
 	var order: Array = []
 	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
 	_enqueue(queue, waiting_action)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(queue), "绑定队列应进入等待状态。")
+	assert_true(
+		_is_queue_processing(queue),
+		"绑定队列应进入等待状态。"
+	)
 
 	node.free()
 	_tick_queue(_system, 0.016)
 	await get_tree().process_frame
 
 	assert_true(waiting_action.cancelled, "绑定节点释放后队列应取消当前动作。")
-	assert_false(_is_queue_processing(queue), "绑定节点释放后队列应停止处理。")
+	assert_false(
+		_is_queue_processing(queue),
+		"绑定节点释放后队列应停止处理。"
+	)
 
 
 func test_linked_queue_clears_on_node_tree_exit_without_parent_tick() -> void:
 	var node: Node = Node.new()
 	add_child(node)
-	var queue: Object = _get_linked_queue(_system, &"linked_direct", node)
+	var queue: Object = _get_linked_queue(
+		_system,
+		&"linked_direct",
+		node
+	)
 	var order: Array = []
 	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
 	_enqueue(queue, waiting_action)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(queue), "绑定队列应进入等待状态。")
+	assert_true(
+		_is_queue_processing(queue),
+		"绑定队列应进入等待状态。"
+	)
 
 	node.free()
 	await get_tree().process_frame
 	await get_tree().process_frame
 
 	assert_true(waiting_action.cancelled, "绑定节点离树后队列应主动取消当前动作。")
-	assert_false(_is_queue_processing(queue), "绑定节点离树后不应依赖父队列 tick 才停止。")
+	assert_false(
+		_is_queue_processing(queue),
+		"绑定节点离树后不应依赖父队列 tick 才停止。"
+	)
 
 
 func test_dispose_releases_named_queue_dependency_scope() -> void:
@@ -1175,11 +1798,17 @@ func test_dispose_releases_named_queue_dependency_scope() -> void:
 	_enqueue(named_queue, waiting_action)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(named_queue), "命名子队列应进入等待状态。")
+	assert_true(
+		_is_queue_processing(named_queue),
+		"命名子队列应进入等待状态。"
+	)
 
 	arch.dispose()
 	assert_true(waiting_action.cancelled, "父队列销毁时应取消命名子队列当前动作。")
-	assert_false(_is_queue_processing(named_queue), "父队列销毁后命名子队列不应继续处理。")
+	assert_false(
+		_is_queue_processing(named_queue),
+		"父队列销毁后命名子队列不应继续处理。"
+	)
 
 	var injected_action: InjectedAction = InjectedAction.new()
 	_enqueue(named_queue, injected_action)
@@ -1196,17 +1825,27 @@ func test_clear_all_named_queues_disposes_owned_named_queues() -> void:
 	_enqueue(named_queue, waiting_action)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(named_queue), "命名子队列应进入等待状态。")
+	assert_true(
+		_is_queue_processing(named_queue),
+		"命名子队列应进入等待状态。"
+	)
 
 	_clear_all_named_queues(_system, true)
 	await get_tree().process_frame
 
 	assert_true(waiting_action.cancelled, "clear_all_named_queues 应取消命名子队列当前动作。")
-	assert_false(_is_queue_processing(named_queue), "clear_all_named_queues 后旧命名子队列不应继续处理。")
+	assert_false(
+		_is_queue_processing(named_queue),
+		"clear_all_named_queues 后旧命名子队列不应继续处理。"
+	)
 	var next_action: OrderAction = OrderAction.new(order, "NEXT")
 	_enqueue(named_queue, next_action)
 	await get_tree().process_frame
-	assert_eq(order, ["WAIT"], "已被清理的旧命名子队列不应再执行新动作。")
+	assert_eq(
+		order,
+		["WAIT"],
+		"已被清理的旧命名子队列不应再执行新动作。"
+	)
 
 
 func test_reinit_cancels_current_action_and_disposes_named_queues() -> void:
@@ -1218,23 +1857,38 @@ func test_reinit_cancels_current_action_and_disposes_named_queues() -> void:
 	_enqueue(named_queue, named_waiting_action)
 
 	await get_tree().process_frame
-	assert_true(_is_queue_processing(_system), "主队列应进入等待状态。")
-	assert_true(_is_queue_processing(named_queue), "命名队列应进入等待状态。")
+	assert_true(
+		_is_queue_processing(_system),
+		"主队列应进入等待状态。"
+	)
+	assert_true(
+		_is_queue_processing(named_queue),
+		"命名队列应进入等待状态。"
+	)
 
 	_call_object(_system, &"init")
 	await get_tree().process_frame
 
 	assert_true(waiting_action.cancelled, "重复 init 应取消主队列当前动作。")
 	assert_true(named_waiting_action.cancelled, "重复 init 应释放命名子队列。")
-	assert_false(_is_queue_processing(_system), "重复 init 后主队列不应保持 processing。")
-	assert_false(_is_queue_processing(named_queue), "重复 init 后旧命名队列不应继续 processing。")
+	assert_false(
+		_is_queue_processing(_system),
+		"重复 init 后主队列不应保持 processing。"
+	)
+	assert_false(
+		_is_queue_processing(named_queue),
+		"重复 init 后旧命名队列不应继续 processing。"
+	)
 
 
 func test_skip_current_action_continues_with_next_action() -> void:
 	var order: Array = []
 	var waiting_action: ManualSignalAction = ManualSignalAction.new(order, "WAIT")
 	_enqueue(_system, waiting_action)
-	_enqueue(_system, OrderAction.new(order, "NEXT"))
+	_enqueue(
+		_system,
+		OrderAction.new(order, "NEXT")
+	)
 
 	await get_tree().process_frame
 	_skip_current_action(_system)
@@ -1242,23 +1896,46 @@ func test_skip_current_action_continues_with_next_action() -> void:
 	await get_tree().process_frame
 
 	assert_true(waiting_action.cancelled, "skip_current_action 应取消当前动作。")
-	assert_eq(order, ["WAIT", "NEXT"], "skip_current_action 后应继续执行后续动作。")
+	assert_eq(
+		order,
+		["WAIT", "NEXT"],
+		"skip_current_action 后应继续执行后续动作。"
+	)
 
 
 func test_debug_snapshot_reports_queue_and_named_queue_state() -> void:
 	_set_queue_processing(_system, true)
-	_enqueue(_system, OrderAction.new([], "A"))
+	_enqueue(
+		_system,
+		OrderAction.new([], "A")
+	)
 	var named_queue: Object = _get_named_queue(_system, &"named")
 	_set_queue_processing(named_queue, true)
-	_enqueue_to(_system, &"named", OrderAction.new([], "B"))
+	_enqueue_to(
+		_system,
+		&"named",
+		OrderAction.new([], "B")
+	)
 
 	var snapshot: Dictionary = _get_debug_snapshot(_system)
 	var named_queues: Dictionary = GFVariantData.get_option_dictionary(snapshot, "named_queues")
 	var named_snapshot: Dictionary = GFVariantData.get_option_dictionary(named_queues, &"named")
 
-	assert_eq(GFVariantData.get_option_int(snapshot, "queued_count"), 1, "快照应报告主队列待执行数量。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "named_queue_count"), 1, "快照应报告命名队列数量。")
-	assert_eq(GFVariantData.get_option_int(named_snapshot, "queued_count"), 1, "命名队列快照应报告自身待执行数量。")
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "queued_count"),
+		1,
+		"快照应报告主队列待执行数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "named_queue_count"),
+		1,
+		"快照应报告命名队列数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(named_snapshot, "queued_count"),
+		1,
+		"命名队列快照应报告自身待执行数量。"
+	)
 
 
 func test_debug_snapshot_bounds_named_queue_expansion() -> void:
@@ -1269,10 +1946,25 @@ func test_debug_snapshot_bounds_named_queue_expansion() -> void:
 	var snapshot: Dictionary = _get_debug_snapshot(_system)
 	var named_snapshots: Dictionary = GFVariantData.get_option_dictionary(snapshot, "named_queues")
 
-	assert_eq(GFVariantData.get_option_int(snapshot, "named_queue_count"), 2, "总数应保留真实命名队列数量。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "named_queue_snapshot_count"), 1, "快照展开数应受预算约束。")
-	assert_true(GFVariantData.get_option_bool(snapshot, "named_queues_truncated"), "截断时应显式标记。")
-	assert_eq(named_snapshots.size(), 1, "诊断预算不能只在编码后截断。")
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "named_queue_count"),
+		2,
+		"总数应保留真实命名队列数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "named_queue_snapshot_count"),
+		1,
+		"快照展开数应受预算约束。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(snapshot, "named_queues_truncated"),
+		"截断时应显式标记。"
+	)
+	assert_eq(
+		named_snapshots.size(),
+		1,
+		"诊断预算不能只在编码后截断。"
+	)
 
 
 func test_tween_action_step_reports_invalid_property() -> void:
@@ -1282,8 +1974,14 @@ func test_tween_action_step_reports_invalid_property() -> void:
 	step.property_name = ^"missing_property"
 	step.target_value = Vector2.ONE
 
-	assert_false(step.can_apply_to(node), "不存在的属性不应通过配置校验。")
-	assert_true(step.get_validation_error(node).contains("Property not found"), "校验错误应指出缺失属性。")
+	assert_false(
+		step.can_apply_to(node),
+		"不存在的属性不应通过配置校验。"
+	)
+	assert_true(
+		step.get_validation_error(node).contains("Property not found"),
+		"校验错误应指出缺失属性。"
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -1307,14 +2005,22 @@ func _new_interceptor_fixtures() -> Object:
 
 
 func _load_script(script_path: String) -> Script:
-	var resource: Resource = ResourceLoader.load(script_path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var resource: Resource = ResourceLoader.load(
+		script_path,
+		"",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
 	if resource is Script:
 		var script: Script = resource
 		return script
 	return null
 
 
-func _call_object(target: Object, method_name: StringName, arguments: Array = []) -> Variant:
+func _call_object(
+	target: Object,
+	method_name: StringName,
+	arguments: Array = []
+) -> Variant:
 	if target == null or not target.has_method(method_name):
 		return null
 	return target.callv(method_name, arguments)
@@ -1336,35 +2042,71 @@ func _is_queue_processing(queue: Object) -> bool:
 
 
 func _enqueue(queue: Object, action: Object) -> void:
-	var _result: Variant = _call_object(queue, &"enqueue", [action])
+	var _result: Variant = _call_object(
+		queue,
+		&"enqueue",
+		[action]
+	)
 
 
 func _enqueue_fire_and_forget(queue: Object, action: Object) -> void:
-	var _result: Variant = _call_object(queue, &"enqueue_fire_and_forget", [action])
+	var _result: Variant = _call_object(
+		queue,
+		&"enqueue_fire_and_forget",
+		[action]
+	)
 
 
 func _enqueue_parallel(queue: Object, actions: Array) -> void:
-	var _result: Variant = _call_object(queue, &"enqueue_parallel", [actions])
+	var _result: Variant = _call_object(
+		queue,
+		&"enqueue_parallel",
+		[actions]
+	)
 
 
-func _enqueue_to(queue: Object, queue_name: StringName, action: Object) -> void:
-	var _result: Variant = _call_object(queue, &"enqueue_to", [queue_name, action])
+func _enqueue_to(
+	queue: Object,
+	queue_name: StringName,
+	action: Object
+) -> void:
+	var _result: Variant = _call_object(
+		queue,
+		&"enqueue_to",
+		[queue_name, action]
+	)
 
 
 func _push_front(queue: Object, action: Object) -> void:
-	var _result: Variant = _call_object(queue, &"push_front", [action])
+	var _result: Variant = _call_object(
+		queue,
+		&"push_front",
+		[action]
+	)
 
 
 func _push_front_parallel(queue: Object, actions: Array) -> void:
-	var _result: Variant = _call_object(queue, &"push_front_parallel", [actions])
+	var _result: Variant = _call_object(
+		queue,
+		&"push_front_parallel",
+		[actions]
+	)
 
 
 func _clear_queue(queue: Object, stop_current: bool = false) -> void:
-	var _result: Variant = _call_object(queue, &"clear_queue", [stop_current])
+	var _result: Variant = _call_object(
+		queue,
+		&"clear_queue",
+		[stop_current]
+	)
 
 
 func _clear_all_named_queues(queue: Object, stop_current: bool = false) -> void:
-	var _result: Variant = _call_object(queue, &"clear_all_named_queues", [stop_current])
+	var _result: Variant = _call_object(
+		queue,
+		&"clear_all_named_queues",
+		[stop_current]
+	)
 
 
 func _dispose_queue(queue: Object) -> void:
@@ -1376,7 +2118,11 @@ func _try_start_processing(queue: Object) -> void:
 
 
 func _tick_queue(queue: Object, delta: float) -> void:
-	var _result: Variant = _call_object(queue, &"tick", [delta])
+	var _result: Variant = _call_object(
+		queue,
+		&"tick",
+		[delta]
+	)
 
 
 func _skip_current_action(queue: Object) -> void:
@@ -1400,11 +2146,27 @@ func _get_current_action(queue: Object) -> Object:
 
 
 func _get_named_queue(queue: Object, queue_name: StringName) -> Object:
-	return _get_object_value(_call_object(queue, &"get_named_queue", [queue_name]))
+	return _get_object_value(
+		_call_object(
+			queue,
+			&"get_named_queue",
+			[queue_name]
+		)
+	)
 
 
-func _get_linked_queue(queue: Object, queue_name: StringName, linked_node: Node) -> Object:
-	return _get_object_value(_call_object(queue, &"get_linked_queue", [queue_name, linked_node]))
+func _get_linked_queue(
+	queue: Object,
+	queue_name: StringName,
+	linked_node: Node
+) -> Object:
+	return _get_object_value(
+		_call_object(
+			queue,
+			&"get_linked_queue",
+			[queue_name, linked_node]
+		)
+	)
 
 
 func _get_debug_snapshot(queue: Object) -> Dictionary:
@@ -1416,19 +2178,47 @@ func _get_debug_snapshot(queue: Object) -> Dictionary:
 
 
 func _inject_dependencies(target: Object, architecture: GFArchitecture) -> void:
-	var _result: Variant = _call_object(target, &"inject_dependencies", [architecture])
+	var _result: Variant = _call_object(
+		target,
+		&"inject_dependencies",
+		[architecture]
+	)
 
 
 func _add_interceptor(queue: Object, interceptor: Object) -> void:
-	var _result: Variant = _call_object(queue, &"add_interceptor", [interceptor])
+	var _result: Variant = _call_object(
+		queue,
+		&"add_interceptor",
+		[interceptor]
+	)
 
 
 func _make_rewrite_interceptor(order_list: Array) -> Object:
-	return _get_object_value(_call_object(_interceptor_fixtures, &"make_rewrite_interceptor", [order_list]))
+	return _get_object_value(
+		_call_object(
+			_interceptor_fixtures,
+			&"make_rewrite_interceptor",
+			[order_list]
+		)
+	)
 
 
-func _make_priority_interceptor(order_list: Array, label: String, priority: int) -> Object:
-	return _get_object_value(_call_object(_interceptor_fixtures, &"make_priority_interceptor", [order_list, label, priority]))
+func _make_priority_interceptor(
+	order_list: Array,
+	label: String,
+	priority: int
+) -> Object:
+	return _get_object_value(
+		_call_object(
+			_interceptor_fixtures,
+			&"make_priority_interceptor",
+			[
+				order_list,
+				label,
+				priority,
+			]
+		)
+	)
 
 
 func _make_stop_after_interceptor() -> Object:
@@ -1436,7 +2226,13 @@ func _make_stop_after_interceptor() -> Object:
 
 
 func _make_replace_with_injected_interceptor(replacement: Object) -> Object:
-	return _get_object_value(_call_object(_interceptor_fixtures, &"make_replace_with_injected_interceptor", [replacement]))
+	return _get_object_value(
+		_call_object(
+			_interceptor_fixtures,
+			&"make_replace_with_injected_interceptor",
+			[replacement]
+		)
+	)
 
 
 func _make_observe_injected_replacement_interceptor() -> Object:

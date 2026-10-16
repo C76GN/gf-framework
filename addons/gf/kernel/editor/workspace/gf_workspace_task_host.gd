@@ -87,7 +87,10 @@ var _last_report: Dictionary = {}
 ## [br]
 ## @schema pages: Array[Dictionary]；使用各项 path: String 建立当前可用页面集合，其他页面字段由导航宿主管理。
 func configure(
-	tasks: Array[Dictionary], actions: Array[Dictionary], pages: Array[Dictionary], navigator: Object
+	tasks: Array[Dictionary],
+	actions: Array[Dictionary],
+	pages: Array[Dictionary],
+	navigator: Object
 ) -> void:
 	clear()
 	_navigator = weakref(navigator)
@@ -149,7 +152,11 @@ func request_workspace_task(source_id: String) -> Dictionary:
 	var record: Dictionary = _get_record(source_id)
 	if not _page_available(record):
 		var page: Control = _open_page("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
-		return {"ok": page != null, "status": "selection_required", "message": "请显式选择需要启用的扩展。"}
+		return {
+			"ok": page != null,
+			"status": "selection_required",
+			"message": "请显式选择需要启用的扩展。",
+		}
 	return _invoke_registered(source_id)
 
 
@@ -169,10 +176,14 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 	for source_id: String in _resource_actions:
 		var record: Dictionary = _get_record(source_id)
 		var reason: String = _resource_reason(record, paths)
-		result.append({
-			"action_id": source_id, "title": str(record.get("title", "")),
-			"available": reason.is_empty(), "reason": reason,
-		})
+		result.append(
+			{
+				"action_id": source_id,
+				"title": str(record.get("title", "")),
+				"available": reason.is_empty(),
+				"reason": reason,
+			}
+		)
 	return result
 
 
@@ -192,10 +203,16 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary:
 	if not _resource_actions.has(action_id):
 		return _failure("资源动作不存在或已撤销。")
-	var reason: String = _resource_reason(_get_record(action_id), paths)
+	var reason: String = _resource_reason(
+		_get_record(action_id),
+		paths
+	)
 	if not reason.is_empty():
 		return _failure(reason)
-	return _invoke_registered(action_id, {"paths": paths.duplicate()})
+	return _invoke_registered(
+		action_id,
+		{ "paths": paths.duplicate() }
+	)
 
 
 ## 执行同代路由命令，仅调用固定的工具接收协议。
@@ -211,7 +228,11 @@ func request_resource_action(action_id: String, paths: PackedStringArray) -> Dic
 ## @param generation: 命令创建时捕获的宿主代次，必须与当前代次相同。
 ## [br]
 ## @return: 成功为 OK；过期或页面失效为 ERR_UNAVAILABLE，资源不适用为 ERR_INVALID_PARAMETER，缺少接收方法为 ERR_METHOD_NOT_FOUND，响应非法为 ERR_INVALID_DATA，接收方拒绝为 FAILED。
-func invoke_workspace_record(source_id: String, paths: PackedStringArray, generation: int) -> Error:
+func invoke_workspace_record(
+	source_id: String,
+	paths: PackedStringArray,
+	generation: int
+) -> Error:
 	if generation != _generation or not _records.has(source_id):
 		return ERR_UNAVAILABLE
 	var record: Dictionary = _get_record(source_id)
@@ -229,7 +250,11 @@ func invoke_workspace_record(source_id: String, paths: PackedStringArray, genera
 	if _resource_actions.has(source_id):
 		if not page.has_method("receive_workspace_resources"):
 			return ERR_METHOD_NOT_FOUND
-		response = page.call("receive_workspace_resources", action_id, paths.duplicate())
+		response = page.call(
+			"receive_workspace_resources",
+			action_id,
+			paths.duplicate()
+		)
 	else:
 		if not page.has_method("run_workspace_task"):
 			return ERR_METHOD_NOT_FOUND
@@ -256,7 +281,7 @@ func invoke_workspace_record(source_id: String, paths: PackedStringArray, genera
 ## [br]
 ## @schema return: Dictionary；task_records 和 resource_action_records 均为 Array[Dictionary]，保持规范化贡献字段并将 page_path 解析为所属扩展内的完整 res:// 路径。
 static func collect_extension_records(manifests: Array[GFExtensionManifest]) -> Dictionary:
-	var result: Dictionary = {"task_records": [], "resource_action_records": []}
+	var result: Dictionary = { "task_records": [], "resource_action_records": [] }
 	var consumed_bytes: int = 0
 	for manifest: GFExtensionManifest in manifests:
 		var path: String = manifest.root_path.path_join("editor/gf_tool_contribution.json")
@@ -273,9 +298,17 @@ static func collect_extension_records(manifests: Array[GFExtensionManifest]) -> 
 		if remaining_bytes <= 0 or declared_bytes > remaining_bytes:
 			break
 		# 预检与实际读取之间文件可能变化；剩余预算必须由 reader 同份 bytes 校验并计费。
-		var read: Dictionary = _JSON_READER_SCRIPT.read_object(path, mini(1_048_576, remaining_bytes), 64)
+		var read: Dictionary = _JSON_READER_SCRIPT.read_object(
+			path,
+			mini(1_048_576, remaining_bytes),
+			64
+		)
 		var observed_bytes: int = read.get("size_bytes", 0)
-		consumed_bytes += clampi(observed_bytes, 0, remaining_bytes)
+		consumed_bytes += clampi(
+			observed_bytes,
+			0,
+			remaining_bytes
+		)
 		if read.get("ok", false) != true:
 			continue
 		var raw: Dictionary = read.get("data", {})
@@ -290,7 +323,7 @@ static func collect_extension_records(manifests: Array[GFExtensionManifest]) -> 
 				var page_path: String = str(record.get("page_path", ""))
 				if not page_path.begins_with("res://"):
 					page_path = manifest.root_path.path_join(page_path).simplify_path()
-				if page_path != page_path.simplify_path() or not page_path.begins_with(manifest.root_path.trim_suffix("/") + "/"):
+				if (page_path != page_path.simplify_path() or not page_path.begins_with(manifest.root_path.trim_suffix("/") + "/")):
 					continue
 				if target.size() < 1024:
 					var normalized: Dictionary = record.duplicate(true)
@@ -316,7 +349,11 @@ func _register_records(records: Array[Dictionary], resource_actions: bool) -> vo
 		action.tooltip = str(record.get("description", ""))
 		action.group = StringName(str(record.get("group", "")))
 		action.enabled = _page_available(record)
-		action.command_factory = _make_route_command.bind(weakref(self), _generation, source_id)
+		action.command_factory = _make_route_command.bind(
+			weakref(self),
+			_generation,
+			source_id
+		)
 		var registered: Dictionary = _registry.register_action(action)
 		if registered.get("ok", false) != true:
 			continue
@@ -330,15 +367,28 @@ func _register_records(records: Array[Dictionary], resource_actions: bool) -> vo
 ## 构建尚未执行的路由命令。
 ## [br]
 ## @api private
-static func _make_route_command(context: Dictionary, host_ref: WeakRef, generation: int, source_id: String) -> GFEditorCommand:
+static func _make_route_command(
+	context: Dictionary,
+	host_ref: WeakRef,
+	generation: int,
+	source_id: String
+) -> GFEditorCommand:
 	var value: Variant = host_ref.get_ref()
 	if not value is Object or not is_instance_valid(value):
 		return null
 	var host: Object = value
-	var paths_value: Variant = context.get("paths", PackedStringArray())
+	var paths_value: Variant = context.get(
+		"paths",
+		PackedStringArray()
+	)
 	var paths: PackedStringArray = paths_value if paths_value is PackedStringArray else PackedStringArray()
 	var command: _ROUTE_COMMAND_SCRIPT = _ROUTE_COMMAND_SCRIPT.new()
-	command.configure(host, generation, source_id, paths)
+	command.configure(
+		host,
+		generation,
+		source_id,
+		paths
+	)
 	return command
 
 
@@ -357,7 +407,10 @@ func _invoke_registered(source_id: String, context: Dictionary = {}) -> Dictiona
 	var previous_report: Dictionary = _last_report
 	var generation: int = _generation
 	_last_report = {}
-	var report: Dictionary = _registry.invoke_action(StringName(source_id), context)
+	var report: Dictionary = _registry.invoke_action(
+		StringName(source_id),
+		context
+	)
 	var receiver_report: Dictionary = _last_report
 	_last_report = previous_report
 	if generation != _generation or receiver_report.is_empty():
@@ -370,7 +423,11 @@ func _invoke_registered(source_id: String, context: Dictionary = {}) -> Dictiona
 	var receiver_status: String = _receiver_text(receiver_report, "status")
 	if not receiver_status.is_empty():
 		report["status"] = receiver_status
-	for field: String in ["message", "reason", "status"]:
+	for field: String in [
+		"message",
+		"reason",
+		"status",
+	]:
 		var message: String = _receiver_text(receiver_report, field)
 		if not message.is_empty():
 			report["message"] = message
@@ -407,7 +464,11 @@ func _resource_reason(record: Dictionary, paths: PackedStringArray) -> String:
 		return "请选择 1 至 %d 个资源。" % maximum
 	var types: Array = record.get("resource_types", [])
 	for path: String in paths:
-		if not path.begins_with("res://") or path != path.simplify_path() or path.contains("::"):
+		if (
+			not path.begins_with("res://")
+			or path != path.simplify_path()
+			or path.contains("::")
+		):
 			return "仅支持项目中的独立资源文件。"
 		var type_name: String = _get_native_resource_type(_get_file_type(path))
 		var accepted: bool = false
@@ -454,7 +515,11 @@ func _get_native_resource_type(type_name: String) -> String:
 ## [br]
 ## @api private
 func _is_live_page(page: Control) -> bool:
-	return is_instance_valid(page) and not page.is_queued_for_deletion() and page.is_inside_tree()
+	return (
+		is_instance_valid(page)
+		and not page.is_queued_for_deletion()
+		and page.is_inside_tree()
+	)
 
 
 ## 通过弱引用导航并确认返回实际页面。
@@ -478,4 +543,8 @@ func _open_page(path: String) -> Control:
 ## [br]
 ## @api private
 func _failure(message: String) -> Dictionary:
-	return {"ok": false, "message": message, "error_code": ERR_UNAVAILABLE}
+	return {
+		"ok": false,
+		"message": message,
+		"error_code": ERR_UNAVAILABLE,
+	}

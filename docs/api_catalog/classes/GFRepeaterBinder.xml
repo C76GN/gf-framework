@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRepeaterBinder" path="addons/gf/standard/utilities/ui/gf_repeater_binder.gd" module="standard" extends="RefCounted" classDigest="c5c02574b8d28e9fb8b570674d339953cce703a287d7fdd2c5a877272adb4276">
+<class name="GFRepeaterBinder" path="addons/gf/standard/utilities/ui/gf_repeater_binder.gd" module="standard" extends="RefCounted" classDigest="4dadab4eac01d7a15a055dbc06d36f319d93a5bfc2082237ba316a63be3d6c63">
 	<description>GFRepeaterBinder: 响应式模板重复渲染绑定器。
 将数组数据渲染为容器中的模板副本，也可以订阅 `GFReactiveStateStore`
 的路径并在数组变化时同步。显式提供 identity_callable 后，同 ID、同模板实例和
@@ -12,7 +12,7 @@ duplicate_flags 的节点会复用，普通 Container 继续负责布局。未�
 	</tags>
 	<signals>
 		<member kind="signal" name="synchronization_failed">
-			<signature>signal synchronization_failed(container: Node, group_key: StringName, error: StringName)</signature>
+			<signature>signal synchronization_failed( container: Node, group_key: StringName, error: StringName )</signature>
 			<description>活跃绑定的自动 store 刷新失败时发出；失败边界同 sync_container()。
 初次 bind_repeater() 的失败通过返回值报告。</description>
 			<tags>
@@ -79,7 +79,7 @@ duplicate_flags 的节点会复用，普通 Container 继续负责布局。未�
 			</tags>
 		</member>
 		<member kind="method" name="rebuild_target">
-			<signature>func rebuild_target(container: Node, template: Node, items: Array, options: Dictionary = {}) -&gt; Array[Node]:</signature>
+			<signature>func rebuild_target( container: Node, template: Node, items: Array, options: Dictionary = {} ) -&gt; Array[Node]:</signature>
 			<description>直接重建容器中的模板副本。</description>
 			<tags>
 				<tag name="api">public</tag>

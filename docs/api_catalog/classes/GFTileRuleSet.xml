@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTileRuleSet" path="addons/gf/standard/foundation/math/gf_tile_rule_set.gd" module="standard" extends="Resource" classDigest="b110879c91576808772aafdaf839346e3603fd9cf1ba2640eece702b84312115">
+<class name="GFTileRuleSet" path="addons/gf/standard/foundation/math/gf_tile_rule_set.gd" module="standard" extends="Resource" classDigest="9174c9959466957a708f02c468da6325c2179b4217bc47103924f48d6e9e2e4c">
 	<description>GFTileRuleSet: 通用瓦片邻域规则表。
 使用邻域值序列匹配结果，可用于自动铺砖、地形变体、网格装饰或任意
 基于相邻格子状态的选择逻辑。规则只处理 Variant 值，不绑定 TileSet 语义。</description>
@@ -38,7 +38,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="register_rule">
-			<signature>func register_rule(neighbor_values: Array, result: Variant, weight: float = 1.0) -&gt; void:</signature>
+			<signature>func register_rule( neighbor_values: Array, result: Variant, weight: float = 1.0 ) -&gt; void:</signature>
 			<description>注册一条邻域规则。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -47,6 +47,7 @@
 				<tag name="param">weight: 同一邻域下多个结果的权重。</tag>
 				<tag name="schema">neighbor_values: Array ordered neighbor values used as a rule key.</tag>
 				<tag name="schema">result: Variant result returned when the rule matches.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">
@@ -65,7 +66,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="resolve">
-			<signature>func resolve(neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0) -&gt; Variant:</signature>
+			<signature>func resolve( neighbor_values: Array, cell: Vector2i = Vector2i.ZERO, selection_seed: int = 0 ) -&gt; Variant:</signature>
 			<description>根据邻域值解析结果。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -75,6 +76,7 @@
 				<tag name="return">匹配结果；没有匹配时返回 default_result。</tag>
 				<tag name="schema">neighbor_values: Array ordered neighbor values used as a rule key.</tag>
 				<tag name="schema">return: Variant matched result or default_result.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_rule">

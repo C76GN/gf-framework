@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="81d657cbf43697a5d8d85d6bdb63bdf59e1185fc873ab973cd52ace397d3e17d">
+<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="0747fc1b5b047a290bf89a015d719d606f52259e984121a319e73d2ffaa0c770">
 	<description>GFSceneGroupIndex: 编辑器期已保存场景 Group 声明位置索引。
 只读取磁盘 .tscn / .scn 自身 SceneState 中的持久化声明，不实例化场景节点，
 不把继承或嵌套来源已有的组复制到引用场景。隐藏条目与 .gdignore 子树不在扫描范围内。
@@ -61,7 +61,7 @@ complete 仅表示已完成本次范围的声明扫描；不是运行时成员�
 			</tags>
 		</member>
 		<member kind="method" name="query">
-			<signature>func query(text: String = "", offset: int = 0, limit: int = 100) -&gt; Dictionary:</signature>
+			<signature>func query( text: String = "", offset: int = 0, limit: int = 100 ) -&gt; Dictionary:</signature>
 			<description>搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。
 结果稳定按 group、scene_path、node_path 排序；返回行均为副本。</description>
 			<tags>

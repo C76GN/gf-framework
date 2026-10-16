@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLspWorkspaceEditAdapter" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd" module="tools" extends="RefCounted" classDigest="bd1753435b4adfa4e1e03c86a977263f8df0811f338eb485cd63edc541dc5924">
+<class name="GFLspWorkspaceEditAdapter" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd" module="tools" extends="RefCounted" classDigest="93c2a47aae813b04496252ded42ff86d17392e102b346dcb504ef20489d581af">
 	<description>GFLspWorkspaceEditAdapter: 调用方提供的闭合 LSP WorkspaceEdit 安全适配器。
 该工具只把已完成的 `documentChanges` 文本编辑转换为一次性预检计划，并在
 工作区、文档版本和磁盘来源摘要仍一致时通过 GFArtifactWriteTransaction 提交。
@@ -54,7 +54,7 @@ workspace_snapshot 中恰好出现一次且 saved=true。计划阶段会读取�
 			</tags>
 		</member>
 		<member kind="method" name="commit_plan">
-			<signature>static func commit_plan( plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary ) -&gt; Dictionary:</signature>
+			<signature>static func commit_plan(plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary) -&gt; Dictionary:</signature>
 			<description>在绑定状态仍一致时一次性提交计划。
 提交前会重新验证计划 SHA、当前工作区身份与版本、全部文档 saved/version/hash，
 并重新读取磁盘严格 UTF-8 字节。通过后计划先被消费，再以 scan_filesystem=false

@@ -143,10 +143,7 @@ func get_parameter_names() -> Array[StringName]:
 ## @schema options: Dictionary shader parameter validation options.
 ## [br]
 ## @return 标准校验报告。
-func validate_against(
-	interface_snapshot: GFShaderInterfaceSnapshot,
-	options: Dictionary = {}
-) -> GFValidationReport:
+func validate_against(interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {}) -> GFValidationReport:
 	if interface_snapshot != null:
 		return interface_snapshot.validate_parameters(parameters, options)
 
@@ -158,10 +155,7 @@ func validate_against(
 		),
 		GFVariantData.get_option_dictionary(options, "metadata")
 	)
-	var _missing_snapshot_issue: RefCounted = report.add_error(
-		&"shader_interface_snapshot_missing",
-		"Shader interface snapshot is required to validate a parameter profile."
-	)
+	var _missing_snapshot_issue: RefCounted = report.add_error(&"shader_interface_snapshot_missing", "Shader interface snapshot is required to validate a parameter profile.")
 	return report
 
 
@@ -217,8 +211,16 @@ func blend_with(
 	if target_profile == null:
 		return result
 
-	var safe_weight: float = clampf(weight, 0.0, 1.0)
-	var include_unmatched: bool = GFVariantData.get_option_bool(options, "include_unmatched", true)
+	var safe_weight: float = clampf(
+		weight,
+		0.0,
+		1.0
+	)
+	var include_unmatched: bool = GFVariantData.get_option_bool(
+		options,
+		"include_unmatched",
+		true
+	)
 	for parameter_name: StringName in target_profile.get_parameter_names():
 		if has_parameter(parameter_name):
 			var _set_blended_result: GFShaderParameterProfile = result.set_parameter(
@@ -260,10 +262,7 @@ func duplicate_profile() -> GFShaderParameterProfile:
 ## [br]
 ## @schema return: Dictionary，包含 parameters 和 metadata 字段。
 func to_dict() -> Dictionary:
-	return {
-		"parameters": _duplicate_parameter_dictionary(parameters),
-		"metadata": metadata.duplicate(true),
-	}
+	return { "parameters": _duplicate_parameter_dictionary(parameters), "metadata": metadata.duplicate(true), }
 
 
 ## 应用 Dictionary 数据。
@@ -336,14 +335,22 @@ static func _duplicate_parameter_dictionary(source: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _blend_value(from_value: Variant, to_value: Variant, weight: float) -> Variant:
+static func _blend_value(
+	from_value: Variant,
+	to_value: Variant,
+	weight: float
+) -> Variant:
 	if weight <= 0.0:
 		return GFVariantData.duplicate_variant(from_value)
 	if weight >= 1.0:
 		return GFVariantData.duplicate_variant(to_value)
 
 	if _is_numeric_value(from_value) and _is_numeric_value(to_value):
-		var blended_number: float = lerpf(_number_to_float(from_value), _number_to_float(to_value), weight)
+		var blended_number: float = lerpf(
+			_number_to_float(from_value),
+			_number_to_float(to_value),
+			weight
+		)
 		if typeof(from_value) == TYPE_INT and typeof(to_value) == TYPE_INT:
 			return roundi(blended_number)
 		return blended_number

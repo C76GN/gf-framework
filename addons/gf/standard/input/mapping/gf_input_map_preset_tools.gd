@@ -48,9 +48,21 @@ const _INPUT_EVENT_TOOLS = preload("res://addons/gf/standard/input/common/gf_inp
 static func capture_input_map(options: Dictionary = {}) -> Dictionary:
 	var selected_action_ids: PackedStringArray = _get_action_ids_from_options(options)
 	var explicit_selection: bool = not selected_action_ids.is_empty()
-	var include_ui_actions: bool = GFVariantData.get_option_bool(options, "include_ui_actions", false)
-	var include_empty_actions: bool = GFVariantData.get_option_bool(options, "include_empty_actions", true)
-	var sort_actions: bool = GFVariantData.get_option_bool(options, "sort_actions", true)
+	var include_ui_actions: bool = GFVariantData.get_option_bool(
+		options,
+		"include_ui_actions",
+		false
+	)
+	var include_empty_actions: bool = GFVariantData.get_option_bool(
+		options,
+		"include_empty_actions",
+		true
+	)
+	var sort_actions: bool = GFVariantData.get_option_bool(
+		options,
+		"sort_actions",
+		true
+	)
 	var action_ids: PackedStringArray = selected_action_ids if explicit_selection else _get_all_input_map_actions()
 	if sort_actions:
 		action_ids.sort()
@@ -60,7 +72,11 @@ static func capture_input_map(options: Dictionary = {}) -> Dictionary:
 		var action_id: StringName = StringName(action_id_string)
 		if action_id == &"" or not InputMap.has_action(action_id):
 			continue
-		if not explicit_selection and not include_ui_actions and _is_ui_action(action_id):
+		if (
+			not explicit_selection
+			and not include_ui_actions
+			and _is_ui_action(action_id)
+		):
 			continue
 
 		var event_records: Array[Dictionary] = []
@@ -71,11 +87,13 @@ static func capture_input_map(options: Dictionary = {}) -> Dictionary:
 		if event_records.is_empty() and not include_empty_actions:
 			continue
 
-		actions.append({
-			"action_id": String(action_id),
-			"deadzone": InputMap.action_get_deadzone(action_id),
-			"events": event_records,
-		})
+		actions.append(
+			{
+				"action_id": String(action_id),
+				"deadzone": InputMap.action_get_deadzone(action_id),
+				"events": event_records,
+			}
+		)
 
 	return {
 		"version": PRESET_VERSION,
@@ -110,8 +128,17 @@ static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {})
 		"skipped_count": 0,
 		"issues": issues,
 	}
-	var clear_existing_events: bool = GFVariantData.get_option_bool(options, "clear_existing_events", true)
-	var plans: Array[Dictionary] = _collect_preset_action_plans(preset, options, issues, report)
+	var clear_existing_events: bool = GFVariantData.get_option_bool(
+		options,
+		"clear_existing_events",
+		true
+	)
+	var plans: Array[Dictionary] = _collect_preset_action_plans(
+		preset,
+		options,
+		issues,
+		report
+	)
 
 	if not issues.is_empty():
 		report["ok"] = false
@@ -119,7 +146,11 @@ static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {})
 
 	for plan: Dictionary in plans:
 		var plan_action_id: StringName = GFVariantData.get_option_string_name(plan, "action_id")
-		var plan_deadzone: float = GFVariantData.get_option_float(plan, "deadzone", 0.5)
+		var plan_deadzone: float = GFVariantData.get_option_float(
+			plan,
+			"deadzone",
+			0.5
+		)
 		if not InputMap.has_action(plan_action_id):
 			InputMap.add_action(plan_action_id, plan_deadzone)
 		else:
@@ -162,9 +193,21 @@ static func apply_input_map_preset(preset: Dictionary, options: Dictionary = {})
 static func ensure_input_map_preset(preset: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	var action_reports: Array[Dictionary] = []
-	var dry_run: bool = GFVariantData.get_option_bool(options, "dry_run", false)
-	var add_missing_events: bool = GFVariantData.get_option_bool(options, "add_missing_events", true)
-	var update_existing_deadzone: bool = GFVariantData.get_option_bool(options, "update_existing_deadzone", false)
+	var dry_run: bool = GFVariantData.get_option_bool(
+		options,
+		"dry_run",
+		false
+	)
+	var add_missing_events: bool = GFVariantData.get_option_bool(
+		options,
+		"add_missing_events",
+		true
+	)
+	var update_existing_deadzone: bool = GFVariantData.get_option_bool(
+		options,
+		"update_existing_deadzone",
+		false
+	)
 	var report: Dictionary = {
 		"ok": true,
 		"dry_run": dry_run,
@@ -179,7 +222,12 @@ static func ensure_input_map_preset(preset: Dictionary, options: Dictionary = {}
 		"actions": action_reports,
 		"issues": issues,
 	}
-	var plans: Array[Dictionary] = _collect_preset_action_plans(preset, options, issues, report)
+	var plans: Array[Dictionary] = _collect_preset_action_plans(
+		preset,
+		options,
+		issues,
+		report
+	)
 
 	if not issues.is_empty():
 		report["ok"] = false
@@ -187,11 +235,27 @@ static func ensure_input_map_preset(preset: Dictionary, options: Dictionary = {}
 
 	for plan: Dictionary in plans:
 		var plan_action_id: StringName = GFVariantData.get_option_string_name(plan, "action_id")
-		var plan_deadzone: float = GFVariantData.get_option_float(plan, "deadzone", 0.5)
+		var plan_deadzone: float = GFVariantData.get_option_float(
+			plan,
+			"deadzone",
+			0.5
+		)
 		var plan_events: Array = GFVariantData.get_option_array(plan, "events")
 		var action_exists: bool = InputMap.has_action(plan_action_id)
-		var missing_events: Array[InputEvent] = _collect_missing_events(plan_action_id, plan_events, action_exists, add_missing_events)
-		var deadzone_changed: bool = action_exists and update_existing_deadzone and not is_equal_approx(InputMap.action_get_deadzone(plan_action_id), plan_deadzone)
+		var missing_events: Array[InputEvent] = _collect_missing_events(
+			plan_action_id,
+			plan_events,
+			action_exists,
+			add_missing_events
+		)
+		var deadzone_changed: bool = (
+			action_exists
+			and update_existing_deadzone
+			and not is_equal_approx(
+				InputMap.action_get_deadzone(plan_action_id),
+				plan_deadzone
+			)
+		)
 		var action_report: Dictionary = {
 			"action_id": plan_action_id,
 			"existed": action_exists,
@@ -244,10 +308,18 @@ static func _collect_preset_action_plans(
 	var selected_action_ids: PackedStringArray = _get_action_ids_from_options(options)
 	var explicit_selection: bool = not selected_action_ids.is_empty()
 	var selected_lookup: Dictionary = _make_action_lookup(selected_action_ids)
-	var include_ui_actions: bool = GFVariantData.get_option_bool(options, "include_ui_actions", false)
+	var include_ui_actions: bool = GFVariantData.get_option_bool(
+		options,
+		"include_ui_actions",
+		false
+	)
 	var actions: Array = GFVariantData.get_option_array(preset, "actions")
 	var plans: Array[Dictionary] = []
-	var preset_version: int = GFVariantData.get_option_int(preset, "version", 0)
+	var preset_version: int = GFVariantData.get_option_int(
+		preset,
+		"version",
+		0
+	)
 	if preset_version != PRESET_VERSION:
 		_append_issue(
 			issues,
@@ -260,20 +332,42 @@ static func _collect_preset_action_plans(
 
 	for action_value: Variant in actions:
 		var action_record: Dictionary = GFVariantData.as_dictionary(action_value)
-		var action_id: StringName = GFVariantData.get_option_string_name(action_record, "action_id", &"")
+		var action_id: StringName = GFVariantData.get_option_string_name(
+			action_record,
+			"action_id",
+			&""
+		)
 		if action_id == &"":
-			_append_issue(issues, action_id, "invalid_action", "Action id is empty.")
+			_append_issue(
+				issues,
+				action_id,
+				"invalid_action",
+				"Action id is empty."
+			)
 			report["skipped_count"] += 1
 			continue
 		if explicit_selection and not selected_lookup.has(action_id):
 			report["skipped_count"] += 1
 			continue
-		if not explicit_selection and not include_ui_actions and _is_ui_action(action_id):
+		if (
+			not explicit_selection
+			and not include_ui_actions
+			and _is_ui_action(action_id)
+		):
 			report["skipped_count"] += 1
 			continue
 
-		var deadzone: float = GFVariantData.get_option_float(action_record, "deadzone", 0.5)
-		if is_nan(deadzone) or is_inf(deadzone) or deadzone < 0.0 or deadzone > 1.0:
+		var deadzone: float = GFVariantData.get_option_float(
+			action_record,
+			"deadzone",
+			0.5
+		)
+		if (
+			is_nan(deadzone)
+			or is_inf(deadzone)
+			or deadzone < 0.0
+			or deadzone > 1.0
+		):
 			_append_issue(
 				issues,
 				action_id,
@@ -288,15 +382,22 @@ static func _collect_preset_action_plans(
 			var event_record: Dictionary = GFVariantData.as_dictionary(event_record_value)
 			var input_event: InputEvent = _INPUT_EVENT_TOOLS.input_event_from_record(event_record)
 			if input_event == null:
-				_append_issue(issues, action_id, "invalid_event", "Input event record is invalid.")
+				_append_issue(
+					issues,
+					action_id,
+					"invalid_event",
+					"Input event record is invalid."
+				)
 				report["skipped_count"] += 1
 				continue
 			input_events.append(input_event)
-		plans.append({
-			"action_id": action_id,
-			"deadzone": deadzone,
-			"events": input_events,
-		})
+		plans.append(
+			{
+				"action_id": action_id,
+				"deadzone": deadzone,
+				"events": input_events,
+			}
+		)
 
 	return plans
 
@@ -351,9 +452,15 @@ static func _get_action_ids_from_options(options: Dictionary) -> PackedStringArr
 	elif raw_action_ids is Array:
 		var action_ids: Array = raw_action_ids
 		for action_id_value: Variant in action_ids:
-			_append_action_id(result, GFVariantData.to_text(action_id_value))
+			_append_action_id(
+				result,
+				GFVariantData.to_text(action_id_value)
+			)
 	elif raw_action_ids is String or raw_action_ids is StringName:
-		_append_action_id(result, GFVariantData.to_text(raw_action_ids))
+		_append_action_id(
+			result,
+			GFVariantData.to_text(raw_action_ids)
+		)
 	return result
 
 
@@ -398,8 +505,10 @@ static func _append_issue(
 	kind: String,
 	message: String
 ) -> void:
-	issues.append({
-		"action_id": action_id,
-		"kind": kind,
-		"message": message,
-	})
+	issues.append(
+		{
+			"action_id": action_id,
+			"kind": kind,
+			"message": message,
+		}
+	)

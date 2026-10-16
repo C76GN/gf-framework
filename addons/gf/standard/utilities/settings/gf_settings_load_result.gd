@@ -342,7 +342,15 @@ func configure_for_framework(
 	_applied = p_applied
 	_recovered = p_recovered
 	_recovery_action = p_recovery_action
-	_error_code = OK if p_ok else (p_error_code if p_error_code != OK else FAILED)
+	_error_code = (
+		OK
+		if p_ok
+		else (
+			p_error_code
+			if p_error_code != OK
+			else FAILED
+		)
+	)
 	_error = "" if p_ok else p_error.strip_edges()
 	_storage_result = p_storage_result.duplicate_result() if p_storage_result != null else null
 	return true
@@ -406,16 +414,19 @@ func _is_valid_configuration(
 ## @api private
 ## [br]
 func _is_known_status(status: StringName) -> bool:
-	return status in [
-		STATUS_LOADED,
-		STATUS_RECOVERED,
-		STATUS_INVALID_REQUEST,
-		STATUS_MISSING,
-		STATUS_CORRUPT,
-		STATUS_FUTURE_SCHEMA,
-		STATUS_MIGRATION_FAILED,
-		STATUS_STORAGE_FAILED,
-	]
+	return (
+		status
+		in [
+			STATUS_LOADED,
+			STATUS_RECOVERED,
+			STATUS_INVALID_REQUEST,
+			STATUS_MISSING,
+			STATUS_CORRUPT,
+			STATUS_FUTURE_SCHEMA,
+			STATUS_MIGRATION_FAILED,
+			STATUS_STORAGE_FAILED,
+		]
+	)
 
 
 ## 检查底层读取是否因缺失、损坏或未接受完整性而允许显式恢复。
@@ -425,32 +436,20 @@ func _is_known_status(status: StringName) -> bool:
 func _is_recoverable_storage_result(storage_result: GFStorageReadResult) -> bool:
 	if storage_result.ok:
 		return not storage_result.is_integrity_accepted()
-	return storage_result.failure_kind in [
-		GFStorageReadResult.FailureKind.NOT_FOUND,
-		GFStorageReadResult.FailureKind.CORRUPT,
-	]
+	return (storage_result.failure_kind in [GFStorageReadResult.FailureKind.NOT_FOUND, GFStorageReadResult.FailureKind.CORRUPT,])
 
 
 ## 按加载终态状态核对底层存储失败分类是否一致。
 ## [br]
 ## @api private
 ## [br]
-func _storage_result_matches_failure_status(
-	status: StringName,
-	storage_result: GFStorageReadResult
-) -> bool:
+func _storage_result_matches_failure_status(status: StringName, storage_result: GFStorageReadResult) -> bool:
 	var failure_kind: int = storage_result.failure_kind
 	match status:
 		STATUS_INVALID_REQUEST:
-			return (
-				not storage_result.ok
-				and failure_kind == GFStorageReadResult.FailureKind.INVALID_REQUEST
-			)
+			return (not storage_result.ok and failure_kind == GFStorageReadResult.FailureKind.INVALID_REQUEST)
 		STATUS_MISSING:
-			return (
-				not storage_result.ok
-				and failure_kind == GFStorageReadResult.FailureKind.NOT_FOUND
-			)
+			return (not storage_result.ok and failure_kind == GFStorageReadResult.FailureKind.NOT_FOUND)
 		STATUS_CORRUPT:
 			return (
 				(
@@ -463,23 +462,11 @@ func _storage_result_matches_failure_status(
 				)
 			)
 		STATUS_FUTURE_SCHEMA:
-			return (
-				not storage_result.ok
-				and failure_kind == GFStorageReadResult.FailureKind.FUTURE_VERSION
-			)
+			return (not storage_result.ok and failure_kind == GFStorageReadResult.FailureKind.FUTURE_VERSION)
 		STATUS_MIGRATION_FAILED:
-			return (
-				not storage_result.ok
-				and failure_kind == GFStorageReadResult.FailureKind.MIGRATION_FAILED
-			)
+			return (not storage_result.ok and failure_kind == GFStorageReadResult.FailureKind.MIGRATION_FAILED)
 		STATUS_STORAGE_FAILED:
-			return (
-				not storage_result.ok
-				and failure_kind in [
-					GFStorageReadResult.FailureKind.IO_FAILED,
-					GFStorageReadResult.FailureKind.UNAVAILABLE,
-				]
-			)
+			return (not storage_result.ok and (failure_kind in [GFStorageReadResult.FailureKind.IO_FAILED, GFStorageReadResult.FailureKind.UNAVAILABLE,]))
 		_:
 			return false
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuestUtility" path="addons/gf/extensions/domain/quest/gf_quest_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="970383865bf5ef9ffbdbd9d5ecaef78b3b35ac274c2c9ab816edac71d28ba9b2">
+<class name="GFQuestUtility" path="addons/gf/extensions/domain/quest/gf_quest_utility.gd" module="extensions/domain" extends="GFUtility" classDigest="836e93ade767f52572ab7397b092103083c76ff2541a747aeadddd44c76b30c0">
 	<description>GFQuestUtility: 轻量级任务进度监听系统。
 基于 `simple event` 将业务事件映射为任务进度累积，
 适合用于成就、收集与击杀类目标的低成本跟踪。</description>
@@ -35,13 +35,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="quest_progressed">
-			<signature>signal quest_progressed(quest_id: StringName, current: int, target: int)</signature>
+			<signature>signal quest_progressed( quest_id: StringName, current: int, target: int )</signature>
 			<description>当任务进度变化时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">quest_id: 任务 ID。</tag>
 				<tag name="param">current: 当前进度。</tag>
 				<tag name="param">target: 目标进度。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="quest_completed">
@@ -127,13 +128,14 @@
 	</properties>
 	<methods>
 		<member kind="method" name="start_quest">
-			<signature>func start_quest(quest_id: StringName, target_event: StringName, target_count: int = 1) -&gt; void:</signature>
+			<signature>func start_quest( quest_id: StringName, target_event: StringName, target_count: int = 1 ) -&gt; void:</signature>
 			<description>开始监听一个任务。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">quest_id: 任务 ID。</tag>
 				<tag name="param">target_event: 推进该任务的事件 ID。</tag>
 				<tag name="param">target_count: 完成任务所需的累计次数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="define_quest">

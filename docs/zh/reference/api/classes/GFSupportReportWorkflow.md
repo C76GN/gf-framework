@@ -28,7 +28,7 @@
 | 属性 | [`auto_wire_outbox_transport`](#member-gfsupportreportworkflow-properties-auto_wire_outbox_transport) | `var auto_wire_outbox_transport: bool = true:` |
 | 属性 | [`session_metadata`](#member-gfsupportreportworkflow-properties-session_metadata) | `var session_metadata: Dictionary = {}` |
 | 方法 | [`dispose`](#member-gfsupportreportworkflow-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`setup`](#member-gfsupportreportworkflow-methods-setup) | `func setup( report_utility: GFSupportReportUtility = null, outbox: GFRequestOutboxUtility = null ) -> GFSupportReportWorkflow:` |
+| 方法 | [`setup`](#member-gfsupportreportworkflow-methods-setup) | `func setup(report_utility: GFSupportReportUtility = null, outbox: GFRequestOutboxUtility = null) -> GFSupportReportWorkflow:` |
 | 方法 | [`set_transport`](#member-gfsupportreportworkflow-methods-set_transport) | `func set_transport(callback: Callable) -> GFSupportReportWorkflow:` |
 | 方法 | [`set_session_metadata`](#member-gfsupportreportworkflow-methods-set_session_metadata) | `func set_session_metadata(metadata: Dictionary, merge_existing: bool = false) -> GFSupportReportWorkflow:` |
 | 方法 | [`build_report`](#member-gfsupportreportworkflow-methods-build_report) | `func build_report(description: String = "", options: Dictionary = {}) -> Dictionary:` |
@@ -269,7 +269,7 @@ func dispose() -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func setup( report_utility: GFSupportReportUtility = null, outbox: GFRequestOutboxUtility = null ) -> GFSupportReportWorkflow:
+func setup(report_utility: GFSupportReportUtility = null, outbox: GFRequestOutboxUtility = null) -> GFSupportReportWorkflow:
 ```
 
 配置底层报告工具与离线队列。

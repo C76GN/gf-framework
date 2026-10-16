@@ -48,6 +48,8 @@ signal step_completed(index: int, step: Variant)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param index: 步骤索引。
 ## [br]
 ## @param step: 步骤对象、命令或 Callable。
@@ -55,7 +57,11 @@ signal step_completed(index: int, step: Variant)
 ## @param error: 错误消息。
 ## [br]
 ## @schema step: Variant sequence step value.
-signal step_failed(index: int, step: Variant, error: String)
+signal step_failed(
+	index: int,
+	step: Variant,
+	error: String
+)
 
 ## 序列全部执行完成时发出。
 ## [br]
@@ -312,8 +318,19 @@ func run(p_steps: Array = []) -> void:
 			failed = true
 			failed_index = index
 			failed_error = step_error
-			results.append(_make_step_report(index, false, step_error, result))
-			step_failed.emit(index, step, step_error)
+			results.append(
+				_make_step_report(
+					index,
+					false,
+					step_error,
+					result
+				)
+			)
+			step_failed.emit(
+				index,
+				step,
+				step_error
+			)
 			if stop_on_error:
 				if rollback_on_failure and _should_compensate_failed_step(step, result):
 					completed_steps.append(step)
@@ -323,7 +340,14 @@ func run(p_steps: Array = []) -> void:
 		step_completed.emit(index, step)
 		completed_steps.append(step)
 		succeeded_count += 1
-		results.append(_make_step_report(index, true, "", result))
+		results.append(
+			_make_step_report(
+				index,
+				true,
+				"",
+				result
+			)
+		)
 
 	_current_step = null
 	var rolled_back: bool = false
@@ -332,10 +356,18 @@ func run(p_steps: Array = []) -> void:
 	var rollback_cancelled: bool = false
 	var rollback_timeout: bool = false
 	var rollback_attempted_count: int = 0
-	if failed and stop_on_error and rollback_on_failure:
+	if (
+		failed
+		and stop_on_error
+		and rollback_on_failure
+	):
 		var rollback_report: Dictionary = await _rollback_steps(completed_steps)
 		rollback_errors = _get_dictionary_array(rollback_report, "errors")
-		rollback_status = GFVariantData.get_option_string_name(rollback_report, "status", ROLLBACK_STATUS_COMPLETED)
+		rollback_status = GFVariantData.get_option_string_name(
+			rollback_report,
+			"status",
+			ROLLBACK_STATUS_COMPLETED
+		)
 		rollback_cancelled = GFVariantData.get_option_bool(rollback_report, "cancelled")
 		rollback_timeout = GFVariantData.get_option_bool(rollback_report, "timeout")
 		rollback_attempted_count = GFVariantData.get_option_int(rollback_report, "attempted_count")
@@ -349,7 +381,11 @@ func run(p_steps: Array = []) -> void:
 		"error": failed_error,
 		"succeeded": succeeded_count,
 		"rolled_back": rolled_back,
-		"rollback_failed": rollback_status == ROLLBACK_STATUS_FAILED or rollback_status == ROLLBACK_STATUS_CANCELLED or rollback_status == ROLLBACK_STATUS_TIMEOUT,
+		"rollback_failed": (
+			rollback_status == ROLLBACK_STATUS_FAILED
+			or rollback_status == ROLLBACK_STATUS_CANCELLED
+			or rollback_status == ROLLBACK_STATUS_TIMEOUT
+		),
 		"rollback_status": rollback_status,
 		"rollback_cancelled": rollback_cancelled,
 		"rollback_timeout": rollback_timeout,
@@ -397,15 +433,14 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFC
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param should_stop_on_error: 是否在失败结果后停止。
 ## [br]
 ## @param should_rollback_on_failure: 是否逆序调用已完成步骤 undo()。
 ## [br]
 ## @return 当前序列。
-func with_failure_policy(
-	should_stop_on_error: bool = true,
-	should_rollback_on_failure: bool = false
-) -> GFCommandSequence:
+func with_failure_policy(should_stop_on_error: bool = true, should_rollback_on_failure: bool = false) -> GFCommandSequence:
 	stop_on_error = should_stop_on_error
 	rollback_on_failure = should_rollback_on_failure
 	return self
@@ -484,13 +519,25 @@ func _get_step_error(result: Variant) -> String:
 
 	var data: Dictionary = result
 	var failed: bool = false
-	if data.has("ok") and not GFVariantData.get_option_bool(data, "ok", true):
+	if data.has("ok") and not GFVariantData.get_option_bool(
+		data,
+		"ok",
+		true
+	):
 		failed = true
-	if data.has("success") and not GFVariantData.get_option_bool(data, "success", true):
+	if data.has("success") and not GFVariantData.get_option_bool(
+		data,
+		"success",
+		true
+	):
 		failed = true
 
 	var status: String = GFVariantData.get_option_string(data, "status").to_lower()
-	if status == "error" or status == "failed" or status == "failure":
+	if (
+		status == "error"
+		or status == "failed"
+		or status == "failure"
+	):
 		failed = true
 
 	if not failed:
@@ -502,7 +549,11 @@ func _get_step_error(result: Variant) -> String:
 		GFVariantData.get_option_value(
 			data,
 			"message",
-			GFVariantData.get_option_value(data, "reason", "")
+			GFVariantData.get_option_value(
+				data,
+				"reason",
+				""
+			)
 		)
 	)
 	if error_value is Dictionary or error_value is Array:
@@ -516,7 +567,12 @@ func _get_step_error(result: Variant) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _make_step_report(index: int, ok: bool, error: String, result: Variant) -> Dictionary:
+func _make_step_report(
+	index: int,
+	ok: bool,
+	error: String,
+	result: Variant
+) -> Dictionary:
 	var report: Dictionary = {
 		"index": index,
 		"ok": ok,
@@ -568,7 +624,11 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 	var rollback_timeout: bool = false
 	var attempted_count: int = 0
 	var previous_wait_result: Dictionary = _last_wait_result.duplicate(true)
-	for index: int in range(completed_steps.size() - 1, -1, -1):
+	for index: int in range(
+		completed_steps.size() - 1,
+		-1,
+		-1
+	):
 		if _cancel_requested:
 			rollback_status = ROLLBACK_STATUS_CANCELLED
 			rollback_cancelled = true
@@ -586,7 +646,7 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 			var result_signal: Signal = result
 			result = await _await_signal_result_safely(result_signal)
 		_current_rollback_step = null
-		var wait_status: StringName = _get_last_wait_status() if not _last_wait_result.is_empty() else ROLLBACK_STATUS_COMPLETED
+		var wait_status: StringName = (_get_last_wait_status() if not _last_wait_result.is_empty() else ROLLBACK_STATUS_COMPLETED)
 		if not _last_wait_result.is_empty() and wait_status == GFAsyncWaitUtility.STATUS_CANCELLED:
 			rollback_status = ROLLBACK_STATUS_CANCELLED
 			rollback_cancelled = true
@@ -629,10 +689,7 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 ## [br]
 func _get_rollback_step_error(step: Object, result: Variant) -> String:
 	var undo_successful: bool = true
-	var undo_reached_terminal: bool = (
-		_last_wait_result.is_empty()
-		or GFVariantData.get_option_bool(_last_wait_result, "completed")
-	)
+	var undo_reached_terminal: bool = (_last_wait_result.is_empty() or GFVariantData.get_option_bool(_last_wait_result, "completed"))
 	if undo_reached_terminal and step is GFUndoableCommand:
 		var command: GFUndoableCommand = step
 		undo_successful = command.is_undo_successful(result)
@@ -683,13 +740,15 @@ func _get_valid_step_object(step: Variant) -> Object:
 ## @api private
 ## [br]
 func _await_signal_result_safely(result_signal: Signal) -> Variant:
-	var wait_result: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_payload_safely(
-		result_signal,
-		_should_continue_waiting,
-		_get_time_utility(),
-		signal_timeout_seconds,
-		signal_timeout_respects_time_scale,
-		"[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed."
+	var wait_result: Dictionary = await (
+		_GF_ASYNC_WAIT_SUPPORT.await_signal_payload_safely(
+			result_signal,
+			_should_continue_waiting,
+			_get_time_utility(),
+			signal_timeout_seconds,
+			signal_timeout_respects_time_scale,
+			"[GFCommandSequence][command_sequence.signal_wait_timeout] Signal wait timed out; the sequence marked the current step as failed."
+		)
 	)
 	_last_wait_result = wait_result.duplicate(true)
 	if not GFVariantData.get_option_bool(wait_result, "completed"):

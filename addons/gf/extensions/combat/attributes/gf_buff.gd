@@ -26,6 +26,7 @@ enum StackMode {
 	IGNORE,
 }
 
+
 ## 重复添加同 ID Buff 时的持续时间刷新策略。
 ## [br]
 ## @api public
@@ -201,12 +202,18 @@ var _effects_applied: bool = false
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param p_id: Buff 标识。
 ## [br]
 ## @param p_duration: Buff 持续时间（秒）。
 ## [br]
 ## @param p_owner: Buff 所属对象。
-func setup(p_id: StringName, p_duration: float, p_owner: Object) -> void:
+func setup(
+	p_id: StringName,
+	p_duration: float,
+	p_owner: Object
+) -> void:
 	id = p_id
 	duration = p_duration
 	time_left = duration
@@ -234,14 +241,27 @@ func get_apply_report(context: Dictionary = {}) -> Dictionary:
 		if check == null:
 			continue
 		var check_report: Dictionary = check.can_apply(_make_lifecycle_context(&"apply_check", context))
-		if GFVariantData.get_option_bool(check_report, "ok", true):
+		if GFVariantData.get_option_bool(
+			check_report,
+			"ok",
+			true
+		):
 			var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
 			var check_metadata: Dictionary = GFVariantData.get_option_dictionary(check_report, "metadata")
-			var _metadata_merge: Dictionary = GFVariantData.merge_dictionary(report_metadata, check_metadata, true, true)
+			var _metadata_merge: Dictionary = GFVariantData.merge_dictionary(
+				report_metadata,
+				check_metadata,
+				true,
+				true
+			)
 			report["metadata"] = report_metadata
 			continue
 
-		var failed_reason: StringName = GFVariantData.get_option_string_name(check_report, "reason", &"buff_check_failed")
+		var failed_reason: StringName = GFVariantData.get_option_string_name(
+			check_report,
+			"reason",
+			&"buff_check_failed"
+		)
 		report["ok"] = false
 		report["reason"] = failed_reason
 		report["failed_check_id"] = GFVariantData.get_option_string_name(check_report, "check_id")
@@ -277,7 +297,11 @@ func on_apply() -> Dictionary:
 	_effects_applied = true
 	var reports: Array[Dictionary] = _run_apply_effects()
 	var report: Dictionary = _make_lifecycle_report(&"apply", reports)
-	if not GFVariantData.get_option_bool(report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		_remove_effects()
 		_effects_applied = false
 	return report
@@ -293,7 +317,10 @@ func on_apply() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
 func on_remove() -> Dictionary:
-	var reports: Array[Dictionary] = _run_effects(&"remove", { "reason": removal_reason })
+	var reports: Array[Dictionary] = _run_effects(
+		&"remove",
+		{ "reason": removal_reason }
+	)
 	if _effects_applied:
 		_remove_effects()
 		_effects_applied = false
@@ -313,20 +340,45 @@ func on_remove() -> Dictionary:
 ## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
 func on_refresh(p_new_duration: float) -> Dictionary:
 	if stack_mode == StackMode.IGNORE:
-		return _make_lifecycle_report(&"refresh", [], false)
+		return _make_lifecycle_report(
+			&"refresh",
+			[],
+			false
+		)
 
 	var previous_duration: float = duration
 	var previous_time_left: float = time_left
 	var previous_stacks: int = stacks
 	_apply_refresh_duration(p_new_duration)
 	if stack_mode == StackMode.ADD_STACK and max_stacks > 1:
-		stacks = mini(stacks + 1, max_stacks)
-	var stack_delta: int = maxi(0, stacks - previous_stacks)
+		stacks = mini(
+			stacks + 1,
+			max_stacks
+		)
+	var stack_delta: int = maxi(
+		0,
+		stacks - previous_stacks
+	)
 	if _effects_applied and stack_delta > 0:
 		_apply_effects(stack_delta)
-	var reports: Array[Dictionary] = _run_effects(&"refresh", { "refresh_duration": p_new_duration })
-	var report: Dictionary = _make_lifecycle_report(&"refresh", reports, _refresh_changed(previous_duration, previous_time_left, previous_stacks))
-	if not GFVariantData.get_option_bool(report, "ok", false):
+	var reports: Array[Dictionary] = _run_effects(
+		&"refresh",
+		{ "refresh_duration": p_new_duration }
+	)
+	var report: Dictionary = _make_lifecycle_report(
+		&"refresh",
+		reports,
+		_refresh_changed(
+			previous_duration,
+			previous_time_left,
+			previous_stacks
+		)
+	)
+	if not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		if _effects_applied and stack_delta > 0:
 			_remove_effects(stack_delta)
 		duration = previous_duration
@@ -349,7 +401,11 @@ func on_refresh(p_new_duration: float) -> Dictionary:
 ## @schema return: Dictionary with ok, reason, event, buff_id, changed, failed_effect_id, metadata, and effect_reports.
 func refresh_from(source_buff: GFBuff) -> Dictionary:
 	if source_buff == null:
-		return _make_lifecycle_report(&"refresh", [], false)
+		return _make_lifecycle_report(
+			&"refresh",
+			[],
+			false
+		)
 	return on_refresh(source_buff.duration)
 
 
@@ -359,7 +415,10 @@ func refresh_from(source_buff: GFBuff) -> Dictionary:
 ## [br]
 ## @param _p_delta: 帧间隔。
 func on_tick(_p_delta: float) -> void:
-	var _reports: Array[Dictionary] = _run_effects(&"tick", { "delta": _p_delta })
+	var _reports: Array[Dictionary] = _run_effects(
+		&"tick",
+		{ "delta": _p_delta }
+	)
 
 
 ## 内部状态更新流程。
@@ -451,27 +510,87 @@ func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null)
 		_remove_effects()
 		_effects_applied = false
 
-	id = GFVariantData.get_option_string_name(snapshot, "id", id)
-	duration = GFVariantData.get_option_float(snapshot, "duration", duration)
-	time_left = GFVariantData.get_option_float(snapshot, "time_left", time_left)
-	stacks = maxi(GFVariantData.get_option_int(snapshot, "stacks", stacks), 1)
-	max_stacks = maxi(GFVariantData.get_option_int(snapshot, "max_stacks", max_stacks), 1)
-	stack_mode = _int_to_stack_mode(GFVariantData.get_option_int(snapshot, "stack_mode", stack_mode))
-	duration_refresh_policy = _int_to_duration_refresh_policy(
-		GFVariantData.get_option_int(snapshot, "duration_refresh_policy", duration_refresh_policy)
+	id = GFVariantData.get_option_string_name(
+		snapshot,
+		"id",
+		id
 	)
-	tick_interval_seconds = GFVariantData.get_option_float(snapshot, "tick_interval_seconds", tick_interval_seconds)
+	duration = GFVariantData.get_option_float(
+		snapshot,
+		"duration",
+		duration
+	)
+	time_left = GFVariantData.get_option_float(
+		snapshot,
+		"time_left",
+		time_left
+	)
+	stacks = maxi(
+		GFVariantData.get_option_int(
+			snapshot,
+			"stacks",
+			stacks
+		),
+		1
+	)
+	max_stacks = maxi(
+		GFVariantData.get_option_int(
+			snapshot,
+			"max_stacks",
+			max_stacks
+		),
+		1
+	)
+	stack_mode = _int_to_stack_mode(
+		GFVariantData.get_option_int(
+			snapshot,
+			"stack_mode",
+			stack_mode
+		)
+	)
+	duration_refresh_policy = _int_to_duration_refresh_policy(
+		GFVariantData.get_option_int(
+			snapshot,
+			"duration_refresh_policy",
+			duration_refresh_policy
+		)
+	)
+	tick_interval_seconds = GFVariantData.get_option_float(
+		snapshot,
+		"tick_interval_seconds",
+		tick_interval_seconds
+	)
 	max_periodic_ticks_per_update = GFVariantData.get_option_int(
 		snapshot,
 		"max_periodic_ticks_per_update",
 		max_periodic_ticks_per_update
 	)
-	remove_on_expire = GFVariantData.get_option_bool(snapshot, "remove_on_expire", remove_on_expire)
-	_tick_accumulator = GFVariantData.get_option_float(snapshot, "tick_accumulator", _tick_accumulator)
-	removal_reason = GFVariantData.get_option_string_name(snapshot, "removal_reason", removal_reason)
-	tags = GFVariantData.get_option_string_name_array(snapshot, "tags", tags)
+	remove_on_expire = GFVariantData.get_option_bool(
+		snapshot,
+		"remove_on_expire",
+		remove_on_expire
+	)
+	_tick_accumulator = GFVariantData.get_option_float(
+		snapshot,
+		"tick_accumulator",
+		_tick_accumulator
+	)
+	removal_reason = GFVariantData.get_option_string_name(
+		snapshot,
+		"removal_reason",
+		removal_reason
+	)
+	tags = GFVariantData.get_option_string_name_array(
+		snapshot,
+		"tags",
+		tags
+	)
 	modifiers = _dictionaries_to_modifiers(GFVariantData.get_option_array(snapshot, "modifiers"))
-	metadata = GFVariantData.get_option_dictionary(snapshot, "metadata", metadata)
+	metadata = GFVariantData.get_option_dictionary(
+		snapshot,
+		"metadata",
+		metadata
+	)
 	if owner_override != null:
 		owner = owner_override
 	_restore_effect_state_snapshots(GFVariantData.get_option_array(snapshot, "effect_states"))
@@ -488,7 +607,12 @@ func restore_state_snapshot(snapshot: Dictionary, owner_override: Object = null)
 func _make_apply_report(context: Dictionary) -> Dictionary:
 	var report_metadata: Dictionary = metadata.duplicate(true)
 	var context_metadata: Dictionary = GFVariantData.get_option_dictionary(context, "metadata")
-	var _metadata_merge: Dictionary = GFVariantData.merge_dictionary(report_metadata, context_metadata, true, true)
+	var _metadata_merge: Dictionary = GFVariantData.merge_dictionary(
+		report_metadata,
+		context_metadata,
+		true,
+		true
+	)
 	return {
 		"ok": true,
 		"reason": &"",
@@ -513,7 +637,12 @@ func _make_lifecycle_context(event_name: StringName, extra: Dictionary = {}) -> 
 		"duration": duration,
 		"metadata": metadata.duplicate(true),
 	}
-	var _extra_merge: Dictionary = GFVariantData.merge_dictionary(context, extra, true, true)
+	var _extra_merge: Dictionary = GFVariantData.merge_dictionary(
+		context,
+		extra,
+		true,
+		true
+	)
 	return context
 
 
@@ -529,7 +658,11 @@ func _run_apply_effects() -> Array[Dictionary]:
 			continue
 		var report: Dictionary = effect.apply(context)
 		reports.append(report)
-		if GFVariantData.get_option_bool(report, "ok", true):
+		if GFVariantData.get_option_bool(
+			report,
+			"ok",
+			true
+		):
 			applied_effects.append(effect)
 			continue
 
@@ -569,12 +702,20 @@ func _run_effects(event_name: StringName, extra: Dictionary = {}) -> Array[Dicti
 func _rollback_applied_effects(applied_effects: Array[GFBuffEffect], failed_report: Dictionary) -> void:
 	if applied_effects.is_empty():
 		return
-	var reason: StringName = GFVariantData.get_option_string_name(failed_report, "reason", &"apply_failed")
-	var rollback_context: Dictionary = _make_lifecycle_context(&"remove", {
-		"reason": reason,
-		"rollback_event": &"apply",
-	})
-	for effect_index: int in range(applied_effects.size() - 1, -1, -1):
+	var reason: StringName = GFVariantData.get_option_string_name(
+		failed_report,
+		"reason",
+		&"apply_failed"
+	)
+	var rollback_context: Dictionary = _make_lifecycle_context(
+		&"remove",
+		{ "reason": reason, "rollback_event": &"apply", }
+	)
+	for effect_index: int in range(
+		applied_effects.size() - 1,
+		-1,
+		-1
+	):
 		var effect: GFBuffEffect = applied_effects[effect_index]
 		if effect == null:
 			continue
@@ -600,10 +741,18 @@ func _make_lifecycle_report(
 		"effect_reports": effect_reports.duplicate(true),
 	}
 	for effect_report: Dictionary in effect_reports:
-		if GFVariantData.get_option_bool(effect_report, "ok", true):
+		if GFVariantData.get_option_bool(
+			effect_report,
+			"ok",
+			true
+		):
 			continue
 		result["ok"] = false
-		result["reason"] = GFVariantData.get_option_string_name(effect_report, "reason", &"buff_effect_failed")
+		result["reason"] = GFVariantData.get_option_string_name(
+			effect_report,
+			"reason",
+			&"buff_effect_failed"
+		)
 		result["failed_effect_id"] = GFVariantData.get_option_string_name(effect_report, "effect_id")
 		return result
 	return result
@@ -612,7 +761,11 @@ func _make_lifecycle_report(
 ## 比较刷新前后的总时长、剩余时长和层数，判断运行状态是否变化。
 ## [br]
 ## @api private
-func _refresh_changed(previous_duration: float, previous_time_left: float, previous_stacks: int) -> bool:
+func _refresh_changed(
+	previous_duration: float,
+	previous_time_left: float,
+	previous_stacks: int
+) -> bool:
 	if duration != previous_duration:
 		return true
 	if time_left != previous_time_left:
@@ -654,11 +807,13 @@ func _get_effect_state_snapshots() -> Array[Dictionary]:
 		var effect: GFBuffEffect = effects[effect_index]
 		if effect == null:
 			continue
-		result.append({
-			"index": effect_index,
-			"effect_id": effect.effect_id,
-			"state": effect.get_state_snapshot(),
-		})
+		result.append(
+			{
+				"index": effect_index,
+				"effect_id": effect.effect_id,
+				"state": effect.get_state_snapshot(),
+			}
+		)
 	return result
 
 
@@ -670,7 +825,11 @@ func _restore_effect_state_snapshots(effect_states: Array) -> void:
 		if not state_value is Dictionary:
 			continue
 		var state_entry: Dictionary = state_value
-		var effect_index: int = GFVariantData.get_option_int(state_entry, "index", -1)
+		var effect_index: int = GFVariantData.get_option_int(
+			state_entry,
+			"index",
+			-1
+		)
 		if effect_index < 0 or effect_index >= effects.size():
 			continue
 		var effect: GFBuffEffect = effects[effect_index]
@@ -683,7 +842,11 @@ func _restore_effect_state_snapshots(effect_states: Array) -> void:
 ## [br]
 ## @api private
 func _int_to_stack_mode(value: int) -> StackMode:
-	match clampi(value, StackMode.REFRESH_ONLY, StackMode.IGNORE):
+	match clampi(
+		value,
+		StackMode.REFRESH_ONLY,
+		StackMode.IGNORE
+	):
 		StackMode.REFRESH_ONLY:
 			return StackMode.REFRESH_ONLY
 		StackMode.IGNORE:
@@ -696,7 +859,11 @@ func _int_to_stack_mode(value: int) -> StackMode:
 ## [br]
 ## @api private
 func _int_to_duration_refresh_policy(value: int) -> DurationRefreshPolicy:
-	match clampi(value, DurationRefreshPolicy.KEEP_CURRENT, DurationRefreshPolicy.KEEP_LONGER_REMAINING):
+	match clampi(
+		value,
+		DurationRefreshPolicy.KEEP_CURRENT,
+		DurationRefreshPolicy.KEEP_LONGER_REMAINING
+	):
 		DurationRefreshPolicy.KEEP_CURRENT:
 			return DurationRefreshPolicy.KEEP_CURRENT
 		DurationRefreshPolicy.EXTEND_BY_NEW_DURATION:
@@ -705,6 +872,7 @@ func _int_to_duration_refresh_policy(value: int) -> DurationRefreshPolicy:
 			return DurationRefreshPolicy.KEEP_LONGER_REMAINING
 		_:
 			return DurationRefreshPolicy.RESET_TO_NEW_DURATION
+
 
 ## 根据刷新策略保持当前时间、追加新时长、取较长时长，或将总时长和剩余时长重置为新值。
 ## [br]
@@ -759,11 +927,21 @@ func _update_periodic_tick(p_delta: float) -> void:
 	_tick_accumulator += p_delta
 	var tick_budget: int = max_periodic_ticks_per_update
 	var tick_count: int = 0
-	while _tick_accumulator >= tick_interval_seconds and (tick_budget <= 0 or tick_count < tick_budget):
+	while (
+		_tick_accumulator >= tick_interval_seconds
+		and (
+			tick_budget <= 0
+			or tick_count < tick_budget
+		)
+	):
 		_tick_accumulator -= tick_interval_seconds
 		on_tick(tick_interval_seconds)
 		tick_count += 1
-	if tick_budget > 0 and tick_count >= tick_budget and _tick_accumulator >= tick_interval_seconds:
+	if (
+		tick_budget > 0
+		and tick_count >= tick_budget
+		and _tick_accumulator >= tick_interval_seconds
+	):
 		_tick_accumulator = minf(_tick_accumulator, tick_interval_seconds)
 
 

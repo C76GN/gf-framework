@@ -239,20 +239,60 @@ func request(
 	if not Thread.is_main_thread():
 		return null
 	if _disposed:
-		return _reject(peer_id, GFNetworkRequestResult.STATUS_DISPOSED, ERR_UNAVAILABLE)
+		return _reject(
+			peer_id,
+			GFNetworkRequestResult.STATUS_DISPOSED,
+			ERR_UNAVAILABLE
+		)
 	if _closing_depth > 0 or _pending.size() >= _max_pending:
-		return _reject(peer_id, GFNetworkRequestResult.STATUS_REJECTED, ERR_BUSY)
+		return _reject(
+			peer_id,
+			GFNetworkRequestResult.STATUS_REJECTED,
+			ERR_BUSY
+		)
 	if not _active:
-		return _reject(peer_id, GFNetworkRequestResult.STATUS_REJECTED, ERR_UNCONFIGURED)
-	if peer_id <= 0 or not send.is_valid() or timeout_msec <= 0 or timeout_msec > _MAX_TIMEOUT_MSEC:
-		return _reject(peer_id, GFNetworkRequestResult.STATUS_REJECTED, ERR_INVALID_PARAMETER)
+		return _reject(
+			peer_id,
+			GFNetworkRequestResult.STATUS_REJECTED,
+			ERR_UNCONFIGURED
+		)
+	if (
+		peer_id <= 0
+		or not send.is_valid()
+		or timeout_msec <= 0
+		or timeout_msec > _MAX_TIMEOUT_MSEC
+	):
+		return _reject(
+			peer_id,
+			GFNetworkRequestResult.STATUS_REJECTED,
+			ERR_INVALID_PARAMETER
+		)
 	var now: int = _clock.get_monotonic_msec()
-	if now < 0 or now > _MAX_COUNTER - timeout_msec or _request_counter == _MAX_COUNTER:
-		return _reject(peer_id, GFNetworkRequestResult.STATUS_REJECTED, ERR_INVALID_PARAMETER)
+	if (
+		now < 0
+		or now > _MAX_COUNTER - timeout_msec
+		or _request_counter == _MAX_COUNTER
+	):
+		return _reject(
+			peer_id,
+			GFNetworkRequestResult.STATUS_REJECTED,
+			ERR_INVALID_PARAMETER
+		)
 	_request_counter += 1
-	var request_id: String = "%s:%d:%d" % [_namespace, _session_counter, _request_counter]
+	var request_id: String = (
+		"%s:%d:%d"
+		% [
+			_namespace,
+			_session_counter,
+			_request_counter,
+		]
+	)
 	var handle: GFNetworkRequestHandle = GFNetworkRequestHandle.new()
-	handle.configure_from_network_layer(request_id, peer_id, self)
+	handle.configure_from_network_layer(
+		request_id,
+		peer_id,
+		self
+	)
 	_pending[request_id] = { "handle": handle, "deadline": now + timeout_msec }
 	var send_result: Variant = send.call(request_id)
 	if _get_handle(request_id) != handle:
@@ -265,7 +305,12 @@ func request(
 		if error_code >= OK and error_code <= ERR_PRINTER_ON_FIRE:
 			send_error = error_code as Error
 	if send_error != OK:
-		var _finished: bool = _finish(handle, GFNetworkRequestResult.STATUS_SEND_FAILED, null, send_error)
+		var _finished: bool = _finish(
+			handle,
+			GFNetworkRequestResult.STATUS_SEND_FAILED,
+			null,
+			send_error
+		)
 	return handle
 
 
@@ -287,8 +332,16 @@ func request(
 ## @return: 本次提交 received 终态时为 true；其他情况为 false。
 ## [br]
 ## @schema response: Variant，传输安全纯值；拒绝 Object、Callable、Signal、RID、循环和非有限数，限制深度 16、节点 4096、估算传输字节 65536。
-func receive_reply(peer_id: int, request_id: String, response: Variant = null) -> bool:
-	if not Thread.is_main_thread() or not _active or _disposed:
+func receive_reply(
+	peer_id: int,
+	request_id: String,
+	response: Variant = null
+) -> bool:
+	if (
+		not Thread.is_main_thread()
+		or not _active
+		or _disposed
+	):
 		return false
 	if request_id.is_empty() or request_id.length() > 78:
 		return false
@@ -304,7 +357,12 @@ func receive_reply(peer_id: int, request_id: String, response: Variant = null) -
 		var _finished: bool = _finish(handle, GFNetworkRequestResult.STATUS_INVALID_RESPONSE)
 		return false
 	var result: GFNetworkRequestResult = GFNetworkRequestResult.new()
-	result.configure_from_network_layer(request_id, peer_id, GFNetworkRequestResult.STATUS_RECEIVED, response)
+	result.configure_from_network_layer(
+		request_id,
+		peer_id,
+		GFNetworkRequestResult.STATUS_RECEIVED,
+		response
+	)
 	# 隔离副本准备完成后再判截止时间，提交时不再复制回复。
 	if _expire(handle) or not _commit_result(handle, result):
 		return false
@@ -320,7 +378,12 @@ func receive_reply(peer_id: int, request_id: String, response: Variant = null) -
 ## [br]
 ## @since unreleased
 func tick() -> void:
-	if not Thread.is_main_thread() or _disposed or _ticking or _closing_depth > 0:
+	if (
+		not Thread.is_main_thread()
+		or _disposed
+		or _ticking
+		or _closing_depth > 0
+	):
 		return
 	_ticking = true
 	var now: int = _clock.get_monotonic_msec()
@@ -395,11 +458,25 @@ func cancel_from_handle(handle: GFNetworkRequestHandle) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _reject(peer_id: int, status: StringName, send_error: Error) -> GFNetworkRequestHandle:
+func _reject(
+	peer_id: int,
+	status: StringName,
+	send_error: Error
+) -> GFNetworkRequestHandle:
 	var handle: GFNetworkRequestHandle = GFNetworkRequestHandle.new()
-	handle.configure_from_network_layer("", peer_id, null)
+	handle.configure_from_network_layer(
+		"",
+		peer_id,
+		null
+	)
 	var result: GFNetworkRequestResult = GFNetworkRequestResult.new()
-	result.configure_from_network_layer("", peer_id, status, null, send_error)
+	result.configure_from_network_layer(
+		"",
+		peer_id,
+		status,
+		null,
+		send_error
+	)
 	var committed: bool = handle.commit_from_network_layer(result)
 	if committed:
 		handle.publish_from_network_layer()
@@ -424,7 +501,9 @@ func _get_handle(request_id: String) -> GFNetworkRequestHandle:
 ## [br]
 func _get_deadline(request_id: String) -> int:
 	return GFVariantData.get_option_int(
-		GFVariantData.get_option_dictionary(_pending, request_id), "deadline", _MAX_COUNTER
+		GFVariantData.get_option_dictionary(_pending, request_id),
+		"deadline",
+		_MAX_COUNTER
 	)
 
 
@@ -451,7 +530,13 @@ func _commit(
 	send_error: Error = OK
 ) -> bool:
 	var result: GFNetworkRequestResult = GFNetworkRequestResult.new()
-	result.configure_from_network_layer(handle.get_request_id(), handle.get_peer_id(), status, response, send_error)
+	result.configure_from_network_layer(
+		handle.get_request_id(),
+		handle.get_peer_id(),
+		status,
+		response,
+		send_error
+	)
 	return _commit_result(handle, result)
 
 
@@ -479,7 +564,12 @@ func _finish(
 	response: Variant = null,
 	send_error: Error = OK
 ) -> bool:
-	if not _commit(handle, status, response, send_error):
+	if not _commit(
+		handle,
+		status,
+		response,
+		send_error
+	):
 		return false
 	handle.publish_from_network_layer()
 	return true
@@ -495,7 +585,13 @@ func _close_pending(status: StringName, peer_id: int = -1) -> void:
 	for key: Variant in _pending.keys():
 		var request_id: String = key
 		var handle: GFNetworkRequestHandle = _get_handle(request_id)
-		if handle == null or (peer_id > 0 and handle.get_peer_id() != peer_id):
+		if (
+			handle == null
+			or (
+				peer_id > 0
+				and handle.get_peer_id() != peer_id
+			)
+		):
 			continue
 		if _commit(handle, status):
 			completed.append(handle)

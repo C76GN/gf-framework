@@ -69,6 +69,8 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待校验值。
 ## [br]
 ## @param context: 校验上下文。
@@ -80,22 +82,39 @@ func _get_default_rule_id() -> StringName:
 ## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value(
+	value: Variant,
+	context: Dictionary,
+	report: Dictionary
+) -> void:
 	var size: int = _get_value_size(value)
 	if size < 0:
 		_add_issue(
 			report,
-			_make_issue_context(context, value, "String, Array, Dictionary, or PackedArray", -1),
+			_make_issue_context(
+				context,
+				value,
+				"String, Array, Dictionary, or PackedArray",
+				-1
+			),
 			"size_invalid_type",
 			"数量校验只支持 String、Array、Dictionary 或 PackedArray。"
 		)
 		return
-	_validate_size(size, context, report, "size_out_of_range", value)
+	_validate_size(
+		size,
+		context,
+		report,
+		"size_out_of_range",
+		value
+	)
 
 
 ## 校验整张表的行数。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param rows: 规范化行列表。
 ## [br]
@@ -108,8 +127,18 @@ func _validate_value(value: Variant, context: Dictionary, report: Dictionary) ->
 ## @schema context: Dictionary，可包含 table_name 和 source 字段。
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
-func _validate_table(rows: Array[Dictionary], context: Dictionary, report: Dictionary) -> void:
-	_validate_size(rows.size(), context, report, "table_size_out_of_range", rows)
+func _validate_table(
+	rows: Array[Dictionary],
+	context: Dictionary,
+	report: Dictionary
+) -> void:
+	_validate_size(
+		rows.size(),
+		context,
+		report,
+		"table_size_out_of_range",
+		rows
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -126,9 +155,29 @@ func _validate_size(
 	value: Variant
 ) -> void:
 	if has_minimum_size and size < minimum_size:
-		_add_issue(report, _make_issue_context(context, value, _describe_size_range(), size), kind, "数量小于允许范围。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				_describe_size_range(),
+				size
+			),
+			kind,
+			"数量小于允许范围。"
+		)
 	if has_maximum_size and size > maximum_size:
-		_add_issue(report, _make_issue_context(context, value, _describe_size_range(), size), kind, "数量大于允许范围。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				_describe_size_range(),
+				size
+			),
+			kind,
+			"数量大于允许范围。"
+		)
 
 
 ## 读取支持值的长度或元素数量；不支持的类型返回负值。

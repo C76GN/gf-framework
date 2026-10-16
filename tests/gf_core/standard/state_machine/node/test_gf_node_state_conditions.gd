@@ -12,6 +12,7 @@ class FixedCondition:
 	func _init(p_accepted: bool = true) -> void:
 		accepted = p_accepted
 
+
 	func _evaluate(
 		_state: GFNodeState,
 		_phase: StringName,
@@ -30,6 +31,7 @@ class TrackingNodeState:
 	func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 		enter_count += 1
 
+
 	func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
 		exit_count += 1
 
@@ -45,13 +47,22 @@ func test_condition_group_combines_child_conditions() -> void:
 	group.conditions = [passing, failing]
 
 	group.mode = GFNodeStateConditionGroup.MatchMode.ALL
-	assert_false(group.evaluate(state, &"enter"), "ALL 模式应在任一条件失败时失败。")
+	assert_false(
+		group.evaluate(state, &"enter"),
+		"ALL 模式应在任一条件失败时失败。"
+	)
 
 	group.mode = GFNodeStateConditionGroup.MatchMode.ANY
-	assert_true(group.evaluate(state, &"enter"), "ANY 模式应在任一条件通过时通过。")
+	assert_true(
+		group.evaluate(state, &"enter"),
+		"ANY 模式应在任一条件通过时通过。"
+	)
 
 	group.mode = GFNodeStateConditionGroup.MatchMode.NONE
-	assert_false(group.evaluate(state, &"enter"), "NONE 模式应在任一条件通过时失败。")
+	assert_false(
+		group.evaluate(state, &"enter"),
+		"NONE 模式应在任一条件通过时失败。"
+	)
 
 
 func test_condition_group_cycle_fails_closed_even_when_inverted() -> void:
@@ -61,7 +72,10 @@ func test_condition_group_cycle_fails_closed_even_when_inverted() -> void:
 	group.invert = true
 	group.conditions = [group]
 
-	assert_false(group.evaluate(state, &"enter"), "自引用条件图必须失败，invert 不得把结构错误反转为通过。")
+	assert_false(
+		group.evaluate(state, &"enter"),
+		"自引用条件图必须失败，invert 不得把结构错误反转为通过。"
+	)
 
 	group.conditions.clear()
 
@@ -74,7 +88,10 @@ func test_condition_group_indirect_cycle_fails_closed() -> void:
 	first.conditions = [second]
 	second.conditions = [first]
 
-	assert_false(first.evaluate(state, &"enter"), "多节点递归条件图必须稳定失败。")
+	assert_false(
+		first.evaluate(state, &"enter"),
+		"多节点递归条件图必须稳定失败。"
+	)
 
 	first.conditions.clear()
 	second.conditions.clear()
@@ -89,7 +106,10 @@ func test_condition_group_depth_limit_fails_closed() -> void:
 	for index: int in range(groups.size() - 1):
 		groups[index].conditions = [groups[index + 1]]
 
-	assert_false(groups[0].evaluate(state, &"enter"), "超过 64 层的条件图必须在固定深度内失败。")
+	assert_false(
+		groups[0].evaluate(state, &"enter"),
+		"超过 64 层的条件图必须在固定深度内失败。"
+	)
 
 	for group: GFNodeStateConditionGroup in groups:
 		group.conditions.clear()
@@ -108,7 +128,10 @@ func test_condition_group_allows_shared_acyclic_subgraphs() -> void:
 	right.conditions = [shared]
 	root.conditions = [left, right]
 
-	assert_true(root.evaluate(state, &"enter"), "共享无环子图不是递归循环，应允许重复评估。")
+	assert_true(
+		root.evaluate(state, &"enter"),
+		"共享无环子图不是递归循环，应允许重复评估。"
+	)
 
 	root.conditions.clear()
 	left.conditions.clear()
@@ -133,10 +156,16 @@ func test_active_condition_reads_current_and_stacked_states() -> void:
 	condition.state_paths = PackedStringArray(["Idle", "Menu"])
 	condition.mode = GFNodeStateActiveCondition.MatchMode.ALL
 
-	assert_true(condition.evaluate(menu, &"enter"), "活跃状态条件应识别当前状态和暂停栈状态。")
+	assert_true(
+		condition.evaluate(menu, &"enter"),
+		"活跃状态条件应识别当前状态和暂停栈状态。"
+	)
 
 	condition.mode = GFNodeStateActiveCondition.MatchMode.NONE
-	assert_false(condition.evaluate(menu, &"enter"), "NONE 模式应在任一目标状态处于活动状态时失败。")
+	assert_false(
+		condition.evaluate(menu, &"enter"),
+		"NONE 模式应在任一目标状态处于活动状态时失败。"
+	)
 
 
 func test_node_state_machine_public_restore_snapshot_restores_stack() -> void:
@@ -160,7 +189,21 @@ func test_node_state_machine_public_restore_snapshot_restores_stack() -> void:
 
 	var report: Dictionary = machine.restore_state_snapshot(snapshot)
 
-	assert_true(GFVariantData.get_option_bool(report, "ok"), "公共快照恢复入口应返回成功报告。")
-	assert_eq(machine.get_current_state(), menu, "恢复后当前状态应来自快照。")
-	assert_eq(machine.get_stack_depth(), 1, "恢复后暂停栈应来自快照。")
-	assert_true(machine.is_in_state(&"Idle"), "恢复后暂停栈状态应仍被视为活动。")
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"公共快照恢复入口应返回成功报告。"
+	)
+	assert_eq(
+		machine.get_current_state(),
+		menu,
+		"恢复后当前状态应来自快照。"
+	)
+	assert_eq(
+		machine.get_stack_depth(),
+		1,
+		"恢复后暂停栈应来自快照。"
+	)
+	assert_true(
+		machine.is_in_state(&"Idle"),
+		"恢复后暂停栈状态应仍被视为活动。"
+	)

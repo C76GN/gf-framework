@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`bridge`](#member-gfsignalbridgebinding-properties-bridge) | `var bridge: GFSignalBridge = null` |
 | 属性 | [`connection`](#member-gfsignalbridgebinding-properties-connection) | `var connection: GFSignalConnection = null` |
-| 方法 | [`setup`](#member-gfsignalbridgebinding-methods-setup) | `func setup(new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection) -> void:` |
+| 方法 | [`setup`](#member-gfsignalbridgebinding-methods-setup) | `func setup( new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection ) -> void:` |
 | 方法 | [`disconnect_bridge`](#member-gfsignalbridgebinding-methods-disconnect_bridge) | `func disconnect_bridge() -> void:` |
 | 方法 | [`is_active`](#member-gfsignalbridgebinding-methods-is_active) | `func is_active() -> bool:` |
 
@@ -54,9 +54,10 @@ var connection: GFSignalConnection = null
 ### `setup`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func setup(new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection) -> void:
+func setup( new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection ) -> void:
 ```
 
 初始化绑定。

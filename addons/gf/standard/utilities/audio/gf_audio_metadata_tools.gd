@@ -159,7 +159,11 @@ static func normalize_tag_name(tag_name: String) -> StringName:
 ## @schema return: Dictionary normalized audio metadata.
 static func normalize_metadata(metadata: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {}
-	var drop_null_values: bool = GFVariantData.get_option_bool(options, "drop_null_values", false)
+	var drop_null_values: bool = GFVariantData.get_option_bool(
+		options,
+		"drop_null_values",
+		false
+	)
 	for raw_key: Variant in metadata.keys():
 		var key_text: String = _variant_to_key_text(raw_key)
 		if key_text.strip_edges().is_empty():
@@ -170,7 +174,11 @@ static func normalize_metadata(metadata: Dictionary, options: Dictionary = {}) -
 		if value == null and drop_null_values:
 			continue
 
-		result[normalized_key] = GFVariantData.duplicate_variant(value, true, true)
+		result[normalized_key] = GFVariantData.duplicate_variant(
+			value,
+			true,
+			true
+		)
 
 	return result
 
@@ -203,10 +211,18 @@ static func merge_metadata(
 ) -> Dictionary:
 	var result: Dictionary = normalize_metadata(base_metadata, options)
 	var overlay: Dictionary = normalize_metadata(overlay_metadata, options)
-	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", true)
+	var overwrite: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		true
+	)
 	for key: Variant in overlay.keys():
 		if overwrite or not result.has(key):
-			result[key] = GFVariantData.duplicate_variant(overlay[key], true, true)
+			result[key] = GFVariantData.duplicate_variant(
+				overlay[key],
+				true,
+				true
+			)
 	return result
 
 
@@ -232,25 +248,75 @@ static func make_display_summary(metadata: Dictionary, options: Dictionary = {})
 	var title: String = GFVariantData.get_option_string(
 		normalized,
 		"title",
-		GFVariantData.get_option_string(options, "fallback_title", "")
+		GFVariantData.get_option_string(
+			options,
+			"fallback_title",
+			""
+		)
 	)
-	var artist: String = GFVariantData.get_option_string(normalized, "artist", "")
+	var artist: String = GFVariantData.get_option_string(
+		normalized,
+		"artist",
+		""
+	)
 	if artist.is_empty():
-		artist = GFVariantData.get_option_string(normalized, "album_artist", "")
+		artist = GFVariantData.get_option_string(
+			normalized,
+			"album_artist",
+			""
+		)
 	return {
 		"title": title,
 		"artist": artist,
-		"album": GFVariantData.get_option_string(normalized, "album", ""),
-		"album_artist": GFVariantData.get_option_string(normalized, "album_artist", ""),
-		"genre": GFVariantData.get_option_string(normalized, "genre", ""),
-		"track_number": GFVariantData.get_option_int(normalized, "track_number", -1),
-		"track_count": GFVariantData.get_option_int(normalized, "track_count", -1),
-		"year": GFVariantData.get_option_int(normalized, "year", 0),
-		"bpm": GFVariantData.get_option_float(normalized, "bpm", 0.0),
-		"duration_seconds": GFVariantData.get_option_float(normalized, "duration_seconds", 0.0),
-		"has_cover": GFVariantData.get_option_bool(normalized, "has_cover", false)
+		"album": GFVariantData.get_option_string(
+			normalized,
+			"album",
+			""
+		),
+		"album_artist": GFVariantData.get_option_string(
+			normalized,
+			"album_artist",
+			""
+		),
+		"genre": GFVariantData.get_option_string(
+			normalized,
+			"genre",
+			""
+		),
+		"track_number": GFVariantData.get_option_int(
+			normalized,
+			"track_number",
+			-1
+		),
+		"track_count": GFVariantData.get_option_int(
+			normalized,
+			"track_count",
+			-1
+		),
+		"year": GFVariantData.get_option_int(
+			normalized,
+			"year",
+			0
+		),
+		"bpm": GFVariantData.get_option_float(
+			normalized,
+			"bpm",
+			0.0
+		),
+		"duration_seconds": GFVariantData.get_option_float(
+			normalized,
+			"duration_seconds",
+			0.0
+		),
+		"has_cover": (
+			GFVariantData.get_option_bool(
+				normalized,
+				"has_cover",
+				false
+			)
 			or normalized.has("cover")
-			or normalized.has("album_cover"),
+			or normalized.has("album_cover")
+		),
 	}
 
 
@@ -272,7 +338,11 @@ static func make_display_summary(metadata: Dictionary, options: Dictionary = {})
 static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("GFAudioMetadataTools.extract_stream_metadata")
 	if stream == null:
-		_add_issue(report, &"missing_stream", "AudioStream is null.")
+		_add_issue(
+			report,
+			&"missing_stream",
+			"AudioStream is null."
+		)
 		return report
 
 	var metadata: Dictionary = {}
@@ -280,9 +350,21 @@ static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {
 	if _is_finite_float(duration) and duration > 0.0:
 		metadata[&"duration_seconds"] = duration
 
-	_copy_stream_property(stream, &"bpm", metadata)
-	_copy_stream_property(stream, &"beat_count", metadata)
-	_copy_stream_property(stream, &"bar_beats", metadata)
+	_copy_stream_property(
+		stream,
+		&"bpm",
+		metadata
+	)
+	_copy_stream_property(
+		stream,
+		&"beat_count",
+		metadata
+	)
+	_copy_stream_property(
+		stream,
+		&"bar_beats",
+		metadata
+	)
 
 	if _object_has_property(stream, &"tags"):
 		var raw_tags: Variant = stream.get("tags")
@@ -290,19 +372,37 @@ static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {
 			var tag_metadata: Dictionary = raw_tags
 			metadata = merge_metadata(metadata, tag_metadata)
 
-	if GFVariantData.get_option_bool(options, "parse_stream_data", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"parse_stream_data",
+		true
+	):
 		var bytes: PackedByteArray = _get_audio_stream_bytes(stream)
 		if not bytes.is_empty():
 			var id3_report: Dictionary = parse_id3v2_metadata(bytes, options)
 			_merge_child_report(report, id3_report)
 			metadata = merge_metadata(
 				metadata,
-				GFVariantData.get_option_dictionary(id3_report, "metadata", {}),
-				{ "overwrite": GFVariantData.get_option_bool(options, "id3_overwrites_stream", true) }
+				GFVariantData.get_option_dictionary(
+					id3_report,
+					"metadata",
+					{}
+				),
+				{
+					"overwrite": GFVariantData.get_option_bool(
+						options,
+						"id3_overwrites_stream",
+						true
+					),
+				}
 			)
 
 	report["metadata"] = normalize_metadata(metadata)
-	report["recognized"] = not GFVariantData.get_option_dictionary(report, "metadata", {}).is_empty()
+	report["recognized"] = not GFVariantData.get_option_dictionary(
+		report,
+		"metadata",
+		{}
+	).is_empty()
 	return report
 
 
@@ -370,9 +470,16 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 
 	var major_version: int = bounded_bytes[3]
 	var revision: int = bounded_bytes[4]
-	report["id3_version"] = "2.%d.%d" % [major_version, revision]
+	report["id3_version"] = (
+		"2.%d.%d"
+		% [major_version, revision]
+	)
 	if major_version != 3 and major_version != 4:
-		_add_issue(report, &"unsupported_id3_version", "Only ID3v2.3 and ID3v2.4 are supported.")
+		_add_issue(
+			report,
+			&"unsupported_id3_version",
+			"Only ID3v2.3 and ID3v2.4 are supported."
+		)
 		return report
 
 	var header_flags: int = bounded_bytes[5]
@@ -386,10 +493,7 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 		)
 		return report
 
-	var unsupported_features: Array[String] = _get_unsupported_id3_header_features(
-		major_version,
-		header_flags
-	)
+	var unsupported_features: Array[String] = _get_unsupported_id3_header_features(major_version, header_flags)
 	report["unsupported_features"] = unsupported_features
 	if not unsupported_features.is_empty():
 		_add_issue(
@@ -412,7 +516,10 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 	report["tag_size"] = tag_size
 	var declared_id3_bytes: int = _ID3_HEADER_SIZE + tag_size
 	report["declared_id3_bytes"] = declared_id3_bytes
-	report["available_tag_bytes"] = maxi(bounded_bytes.size() - _ID3_HEADER_SIZE, 0)
+	report["available_tag_bytes"] = maxi(
+		bounded_bytes.size() - _ID3_HEADER_SIZE,
+		0
+	)
 	if declared_id3_bytes > bounded_bytes.size():
 		report["partial"] = true
 		_add_issue(
@@ -421,20 +528,36 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 			"ID3 tag declares more bytes than are available within the bounded prefix."
 		)
 
-	var end_offset: int = mini(declared_id3_bytes, bounded_bytes.size())
+	var end_offset: int = mini(
+		declared_id3_bytes,
+		bounded_bytes.size()
+	)
 	var offset: int = _ID3_HEADER_SIZE
 	var frame_count: int = 0
 	var skipped_frame_count: int = 0
 
 	while offset + _FRAME_HEADER_SIZE <= end_offset:
-		var frame_id: String = bounded_bytes.slice(offset, offset + 4).get_string_from_ascii()
+		var frame_id: String = bounded_bytes.slice(
+			offset,
+			offset + 4
+		).get_string_from_ascii()
 		if _is_padding_frame_id(frame_id):
 			break
 
-		var frame_size: int = _syncsafe_to_int(
-			bounded_bytes.slice(offset + 4, offset + 8)
-		) if major_version == 4 else _bytes_to_int(
-			bounded_bytes.slice(offset + 4, offset + 8)
+		var frame_size: int = (
+			_syncsafe_to_int(
+				bounded_bytes.slice(
+					offset + 4,
+					offset + 8
+				)
+			)
+			if major_version == 4
+			else _bytes_to_int(
+				bounded_bytes.slice(
+					offset + 4,
+					offset + 8
+				)
+			)
 		)
 		if frame_size <= 0:
 			break
@@ -442,13 +565,27 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 		var frame_start: int = offset + _FRAME_HEADER_SIZE
 		var frame_end: int = frame_start + frame_size
 		if frame_end > end_offset or frame_end > bounded_bytes.size():
-			_add_issue(report, &"truncated_id3_frame", "ID3 frame extends beyond available bytes.", frame_id)
-			if GFVariantData.get_option_bool(options, "fail_on_frame_error", false):
+			_add_issue(
+				report,
+				&"truncated_id3_frame",
+				"ID3 frame extends beyond available bytes.",
+				frame_id
+			)
+			if GFVariantData.get_option_bool(
+				options,
+				"fail_on_frame_error",
+				false
+			):
 				return report
 			break
 
 		var frame_data: PackedByteArray = bounded_bytes.slice(frame_start, frame_end)
-		var frame_parsed: bool = _parse_id3_frame(frame_id, frame_data, report, options)
+		var frame_parsed: bool = _parse_id3_frame(
+			frame_id,
+			frame_data,
+			report,
+			options
+		)
 		if frame_parsed:
 			frame_count += 1
 		else:
@@ -458,7 +595,13 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 
 	report["frame_count"] = frame_count
 	report["skipped_frame_count"] = skipped_frame_count
-	report["metadata"] = normalize_metadata(GFVariantData.get_option_dictionary(report, "metadata", {}))
+	report["metadata"] = normalize_metadata(
+		GFVariantData.get_option_dictionary(
+			report,
+			"metadata",
+			{}
+		)
+	)
 	return report
 
 
@@ -499,21 +642,33 @@ static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictio
 	report["read_bytes"] = 0
 	report["partial"] = false
 	if path.strip_edges().is_empty():
-		_add_issue(report, &"empty_path", "Audio metadata path is empty.")
+		_add_issue(
+			report,
+			&"empty_path",
+			"Audio metadata path is empty."
+		)
 		return report
 	if not FileAccess.file_exists(path):
-		_add_issue(report, &"missing_file", "Audio metadata file does not exist.")
+		_add_issue(
+			report,
+			&"missing_file",
+			"Audio metadata file does not exist."
+		)
 		return report
 
 	var read_result: Dictionary = _read_bounded_id3_prefix(path, effective_max_id3_bytes)
-	report["file_size_bytes"] = GFVariantData.get_option_int(
-		read_result,
-		"file_size_bytes"
-	)
+	report["file_size_bytes"] = GFVariantData.get_option_int(read_result, "file_size_bytes")
 	report["read_bytes"] = GFVariantData.get_option_int(read_result, "read_bytes")
-	var bytes: PackedByteArray = read_result.get("bytes", PackedByteArray())
+	var bytes: PackedByteArray = read_result.get(
+		"bytes",
+		PackedByteArray()
+	)
 	if bytes.is_empty():
-		_add_issue(report, &"read_failed", "Audio metadata file could not be read.")
+		_add_issue(
+			report,
+			&"read_failed",
+			"Audio metadata file could not be read."
+		)
 		return report
 
 	var parse_options: Dictionary = options.duplicate(true)
@@ -524,8 +679,16 @@ static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictio
 	report["effective_max_id3_bytes"] = effective_max_id3_bytes
 	report["absolute_max_id3_bytes"] = ABSOLUTE_MAX_ID3_BYTES
 	report["limit_clamped"] = requested_max_id3_bytes != effective_max_id3_bytes
-	report["recognized"] = GFVariantData.get_option_bool(id3_report, "recognized", false)
-	report["metadata"] = GFVariantData.get_option_dictionary(id3_report, "metadata", {})
+	report["recognized"] = GFVariantData.get_option_bool(
+		id3_report,
+		"recognized",
+		false
+	)
+	report["metadata"] = GFVariantData.get_option_dictionary(
+		id3_report,
+		"metadata",
+		{}
+	)
 	return report
 
 
@@ -547,26 +710,50 @@ static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictio
 static func read_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("GFAudioMetadataTools.read_clip_metadata")
 	if clip == null:
-		_add_issue(report, &"missing_clip", "GFAudioClip is null.")
+		_add_issue(
+			report,
+			&"missing_clip",
+			"GFAudioClip is null."
+		)
 		return report
 
 	var metadata: Dictionary = normalize_metadata(clip.metadata)
-	var overwrite_existing: bool = GFVariantData.get_option_bool(options, "overwrite_existing", false)
-	if GFVariantData.get_option_bool(options, "include_stream", true) and clip.stream != null:
+	var overwrite_existing: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite_existing",
+		false
+	)
+	if GFVariantData.get_option_bool(
+		options,
+		"include_stream",
+		true
+	) and clip.stream != null:
 		var stream_report: Dictionary = extract_stream_metadata(clip.stream, options)
 		_merge_child_report(report, stream_report)
 		metadata = merge_metadata(
 			metadata,
-			GFVariantData.get_option_dictionary(stream_report, "metadata", {}),
+			GFVariantData.get_option_dictionary(
+				stream_report,
+				"metadata",
+				{}
+			),
 			{ "overwrite": overwrite_existing }
 		)
 
-	if GFVariantData.get_option_bool(options, "include_path", false) and not clip.path.is_empty():
+	if GFVariantData.get_option_bool(
+		options,
+		"include_path",
+		false
+	) and not clip.path.is_empty():
 		var path_report: Dictionary = read_path_metadata(clip.path, options)
 		_merge_child_report(report, path_report)
 		metadata = merge_metadata(
 			metadata,
-			GFVariantData.get_option_dictionary(path_report, "metadata", {}),
+			GFVariantData.get_option_dictionary(
+				path_report,
+				"metadata",
+				{}
+			),
 			{ "overwrite": overwrite_existing }
 		)
 
@@ -593,10 +780,18 @@ static func read_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> D
 static func apply_clip_metadata(clip: GFAudioClip, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = read_clip_metadata(clip, options)
 	report["applied"] = false
-	if clip == null or not GFVariantData.get_option_bool(report, "ok", false):
+	if clip == null or not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		return report
 
-	clip.metadata = GFVariantData.get_option_dictionary(report, "metadata", {})
+	clip.metadata = GFVariantData.get_option_dictionary(
+		report,
+		"metadata",
+		{}
+	)
 	report["applied"] = true
 	return report
 
@@ -629,10 +824,7 @@ static func _add_issue(
 	frame_id: String = ""
 ) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	var issue: Dictionary = {
-		"kind": kind,
-		"message": message,
-	}
+	var issue: Dictionary = { "kind": kind, "message": message, }
 	if not frame_id.is_empty():
 		issue["frame_id"] = frame_id
 	issues.append(issue)
@@ -653,7 +845,11 @@ static func _merge_child_report(report: Dictionary, child_report: Dictionary) ->
 		report["issues"] = issues
 		report["issue_count"] = issues.size()
 		report["ok"] = false
-	if GFVariantData.get_option_bool(child_report, "recognized", false):
+	if GFVariantData.get_option_bool(
+		child_report,
+		"recognized",
+		false
+	):
 		report["recognized"] = true
 	for diagnostic_key: String in [
 		"id3_version",
@@ -728,7 +924,11 @@ static func _copy_stream_property(
 		if not _is_finite_float(float_value):
 			return
 
-	metadata[property_name] = GFVariantData.duplicate_variant(value, true, true)
+	metadata[property_name] = GFVariantData.duplicate_variant(
+		value,
+		true,
+		true
+	)
 
 
 ## 返回 MP3 流内嵌数据；其他音频流类型返回空字节数组。
@@ -766,13 +966,8 @@ static func _read_bounded_id3_prefix(path: String, max_bytes: int) -> Dictionary
 		return result
 
 	var target_read_size: int = header_read_size
-	if (
-		header_read_size == _ID3_HEADER_SIZE
-		and bytes.slice(0, 3).get_string_from_ascii() == _ID3_PREFIX
-	):
-		var declared_id3_bytes: int = _ID3_HEADER_SIZE + _syncsafe_to_int(
-			bytes.slice(6, 10)
-		)
+	if (header_read_size == _ID3_HEADER_SIZE and bytes.slice(0, 3).get_string_from_ascii() == _ID3_PREFIX):
+		var declared_id3_bytes: int = (_ID3_HEADER_SIZE + _syncsafe_to_int(bytes.slice(6, 10)))
 		target_read_size = mini(
 			file_size_bytes,
 			mini(max_bytes, declared_id3_bytes)
@@ -796,10 +991,7 @@ static func _read_bounded_id3_prefix(path: String, max_bytes: int) -> Dictionary
 ## [br]
 ## @api private
 ## [br]
-static func _get_unsupported_id3_header_features(
-	major_version: int,
-	header_flags: int
-) -> Array[String]:
+static func _get_unsupported_id3_header_features(major_version: int, header_flags: int) -> Array[String]:
 	var features: Array[String] = []
 	if (header_flags & _ID3_FLAG_UNSYNCHRONISATION) != 0:
 		features.append("unsynchronisation")
@@ -833,8 +1025,16 @@ static func _parse_id3_frame(
 	if not _FRAME_TO_TAG.has(frame_id):
 		return false
 
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata", {})
-	var tag_name: String = GFVariantData.get_option_string(_FRAME_TO_TAG, frame_id, "")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata",
+		{}
+	)
+	var tag_name: String = GFVariantData.get_option_string(
+		_FRAME_TO_TAG,
+		frame_id,
+		""
+	)
 	var text: String = _decode_id3_text(frame_data).strip_edges()
 	if text.is_empty():
 		return false
@@ -874,12 +1074,24 @@ static func _parse_comment_frame(frame_data: PackedByteArray, report: Dictionary
 
 	var payload: PackedByteArray = PackedByteArray()
 	payload.append_array(PackedByteArray([frame_data[0]]))
-	payload.append_array(frame_data.slice(_find_id3_text_value_start(frame_data, 4, frame_data[0])))
+	payload.append_array(
+		frame_data.slice(
+			_find_id3_text_value_start(
+				frame_data,
+				4,
+				frame_data[0]
+			)
+		)
+	)
 	var text: String = _decode_id3_text(payload).strip_edges()
 	if text.is_empty():
 		return false
 
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata", {})
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata",
+		{}
+	)
 	metadata[&"comments"] = text
 	report["metadata"] = metadata
 	return true
@@ -895,12 +1107,24 @@ static func _parse_user_text_frame(frame_data: PackedByteArray, report: Dictiona
 
 	var payload: PackedByteArray = PackedByteArray()
 	payload.append_array(PackedByteArray([frame_data[0]]))
-	payload.append_array(frame_data.slice(_find_id3_text_value_start(frame_data, 1, frame_data[0])))
+	payload.append_array(
+		frame_data.slice(
+			_find_id3_text_value_start(
+				frame_data,
+				1,
+				frame_data[0]
+			)
+		)
+	)
 	var text: String = _decode_id3_text(payload).strip_edges()
 	if text.is_empty():
 		return false
 
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata", {})
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata",
+		{}
+	)
 	var values: Array = GFVariantData.get_option_array(metadata, "user_defined_texts")
 	values.append(text)
 	metadata[&"user_defined_texts"] = values
@@ -920,12 +1144,23 @@ static func _parse_picture_frame(frame_data: PackedByteArray, report: Dictionary
 	if mime_end < 1:
 		return false
 
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata", {})
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"metadata",
+		{}
+	)
 	var encoding: int = frame_data[0]
-	var image_start: int = _find_id3_text_value_start(frame_data, mime_end + 2, encoding)
+	var image_start: int = _find_id3_text_value_start(
+		frame_data,
+		mime_end + 2,
+		encoding
+	)
 	metadata[&"has_cover"] = true
 	metadata[&"cover_mime_type"] = frame_data.slice(1, mime_end).get_string_from_ascii()
-	metadata[&"cover_byte_size"] = maxi(frame_data.size() - image_start, 0)
+	metadata[&"cover_byte_size"] = maxi(
+		frame_data.size() - image_start,
+		0
+	)
 	report["metadata"] = metadata
 	return true
 
@@ -960,9 +1195,15 @@ static func _decode_id3_text(frame_data: PackedByteArray) -> String:
 static func _decode_utf16_text(payload: PackedByteArray) -> String:
 	if payload.size() >= 2:
 		if payload[0] == 0xfe and payload[1] == 0xff:
-			return _decode_utf16_units(payload.slice(2), false)
+			return _decode_utf16_units(
+				payload.slice(2),
+				false
+			)
 		if payload[0] == 0xff and payload[1] == 0xfe:
-			return _decode_utf16_units(payload.slice(2), true)
+			return _decode_utf16_units(
+				payload.slice(2),
+				true
+			)
 	return _decode_utf16_units(payload, true)
 
 
@@ -982,12 +1223,24 @@ static func _decode_utf16_units(payload: PackedByteArray, little_endian: bool) -
 	var result: String = ""
 	var index: int = 0
 	while index + 1 < payload.size():
-		var code_unit: int = _read_utf16_code_unit(payload, index, little_endian)
+		var code_unit: int = _read_utf16_code_unit(
+			payload,
+			index,
+			little_endian
+		)
 		index += 2
 		if code_unit == 0:
 			break
-		if code_unit >= 0xd800 and code_unit <= 0xdbff and index + 1 < payload.size():
-			var low_surrogate: int = _read_utf16_code_unit(payload, index, little_endian)
+		if (
+			code_unit >= 0xd800
+			and code_unit <= 0xdbff
+			and index + 1 < payload.size()
+		):
+			var low_surrogate: int = _read_utf16_code_unit(
+				payload,
+				index,
+				little_endian
+			)
 			if low_surrogate >= 0xdc00 and low_surrogate <= 0xdfff:
 				var codepoint: int = 0x10000 + ((code_unit - 0xd800) << 10) + (low_surrogate - 0xdc00)
 				result += char(codepoint)
@@ -1002,7 +1255,11 @@ static func _decode_utf16_units(payload: PackedByteArray, little_endian: bool) -
 ## [br]
 ## @api private
 ## [br]
-static func _read_utf16_code_unit(payload: PackedByteArray, index: int, little_endian: bool) -> int:
+static func _read_utf16_code_unit(
+	payload: PackedByteArray,
+	index: int,
+	little_endian: bool
+) -> int:
 	if little_endian:
 		return payload[index] | (payload[index + 1] << 8)
 	return (payload[index] << 8) | payload[index + 1]
@@ -1014,7 +1271,11 @@ static func _read_utf16_code_unit(payload: PackedByteArray, index: int, little_e
 ## [br]
 static func _trim_utf16_terminator(value: PackedByteArray) -> PackedByteArray:
 	var end_index: int = value.size()
-	while end_index >= 2 and value[end_index - 1] == 0 and value[end_index - 2] == 0:
+	while (
+		end_index >= 2
+		and value[end_index - 1] == 0
+		and value[end_index - 2] == 0
+	):
 		end_index -= 2
 	return value.slice(0, end_index)
 
@@ -1026,7 +1287,11 @@ static func _trim_utf16_terminator(value: PackedByteArray) -> PackedByteArray:
 static func _decode_lossy_utf16ish(payload: PackedByteArray) -> String:
 	var filtered: PackedByteArray = PackedByteArray()
 	for byte_value: int in payload:
-		if byte_value == 0 or byte_value == 0xff or byte_value == 0xfe:
+		if (
+			byte_value == 0
+			or byte_value == 0xff
+			or byte_value == 0xfe
+		):
 			continue
 		var _append_result: bool = filtered.append(byte_value)
 	return filtered.get_string_from_utf8()
@@ -1059,7 +1324,10 @@ static func _find_id3_text_value_start(
 		var terminator_index: int = frame_data.find(0, description_start)
 		return terminator_index + 1 if terminator_index >= 0 else description_start
 
-	for index: int in range(description_start, frame_data.size() - 1):
+	for index: int in range(
+		description_start,
+		frame_data.size() - 1
+	):
 		if frame_data[index] == 0 and frame_data[index + 1] == 0:
 			return index + 2
 	return description_start
@@ -1072,9 +1340,15 @@ static func _find_id3_text_value_start(
 static func _apply_track_text(metadata: Dictionary, text: String) -> void:
 	var parts: PackedStringArray = text.split("/", false)
 	if parts.size() >= 1:
-		metadata[&"track_number"] = GFVariantData.to_int(parts[0], -1)
+		metadata[&"track_number"] = GFVariantData.to_int(
+			parts[0],
+			-1
+		)
 	if parts.size() >= 2:
-		metadata[&"track_count"] = GFVariantData.to_int(parts[1], -1)
+		metadata[&"track_count"] = GFVariantData.to_int(
+			parts[1],
+			-1
+		)
 
 
 ## 优先解析文本前四位年份，其次解析整段整数；无法解析时返回 0。
@@ -1098,8 +1372,15 @@ static func _parse_year(text: String) -> int:
 ## [br]
 static func _normalize_genre_text(text: String) -> String:
 	var genre: String = text.strip_edges()
-	if genre.begins_with("(") and genre.ends_with(")") and genre.length() > 2:
-		return genre.substr(1, genre.length() - 2).strip_edges()
+	if (
+		genre.begins_with("(")
+		and genre.ends_with(")")
+		and genre.length() > 2
+	):
+		return genre.substr(
+			1,
+			genre.length() - 2
+		).strip_edges()
 	return genre
 
 

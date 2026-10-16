@@ -102,12 +102,16 @@ func validate_step() -> Dictionary:
 				"to_version": to_version,
 			}
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Save migration step", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "Review the first save migration step issue.",
-		"no_action": "Save migration step is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save migration step",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_validation_next_actions(),
+			"fallback_action": "Review the first save migration step issue.",
+			"no_action": "Save migration step is valid.",
+		}
+	)
 
 
 ## 描述步骤。
@@ -148,10 +152,7 @@ func describe_step() -> Dictionary:
 ## @schema _context: Dictionary with caller-defined migration context and registry-provided step fields.
 ## [br]
 ## @return 迁移后的文档；失败时返回 null。
-func _migrate_document(
-	document: GFSaveDocument,
-	_context: Dictionary = {}
-) -> GFSaveDocument:
+func _migrate_document(document: GFSaveDocument, _context: Dictionary = {}) -> GFSaveDocument:
 	return document.duplicate_document() if document != null else null
 
 
@@ -171,10 +172,7 @@ func _migrate_document(
 ## @schema _context: Dictionary with caller-defined migration context and registry-provided step fields.
 ## [br]
 ## @return 迁移后的分区；失败时返回 null。
-func _migrate_section(
-	section: GFSaveSection,
-	_context: Dictionary = {}
-) -> GFSaveSection:
+func _migrate_section(section: GFSaveSection, _context: Dictionary = {}) -> GFSaveSection:
 	return section.duplicate_section() if section != null else null
 
 

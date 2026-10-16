@@ -15,8 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`warmup_queued`](#member-gfrenderwarmuputility-signals-warmup_queued) | `signal warmup_queued(queue_id: int, manifest_id: StringName, entry_count: int)` |
-| 信号 | [`warmup_entry_processed`](#member-gfrenderwarmuputility-signals-warmup_entry_processed) | `signal warmup_entry_processed(queue_id: int, entry_index: int, result: Dictionary)` |
+| 信号 | [`warmup_queued`](#member-gfrenderwarmuputility-signals-warmup_queued) | `signal warmup_queued( queue_id: int, manifest_id: StringName, entry_count: int )` |
+| 信号 | [`warmup_entry_processed`](#member-gfrenderwarmuputility-signals-warmup_entry_processed) | `signal warmup_entry_processed( queue_id: int, entry_index: int, result: Dictionary )` |
 | 信号 | [`warmup_completed`](#member-gfrenderwarmuputility-signals-warmup_completed) | `signal warmup_completed(queue_id: int, summary: Dictionary)` |
 | 枚举 | [`TouchMode`](#member-gfrenderwarmuputility-enums-touchmode) | `enum TouchMode` |
 | 属性 | [`default_entries_per_tick`](#member-gfrenderwarmuputility-properties-default_entries_per_tick) | `var default_entries_per_tick: int = 4` |
@@ -48,9 +48,10 @@
 ### `warmup_queued`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal warmup_queued(queue_id: int, manifest_id: StringName, entry_count: int)
+signal warmup_queued( queue_id: int, manifest_id: StringName, entry_count: int )
 ```
 
 清单加入预热队列时发出。
@@ -68,9 +69,10 @@ signal warmup_queued(queue_id: int, manifest_id: StringName, entry_count: int)
 ### `warmup_entry_processed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal warmup_entry_processed(queue_id: int, entry_index: int, result: Dictionary)
+signal warmup_entry_processed( queue_id: int, entry_index: int, result: Dictionary )
 ```
 
 单个条目预热完成后发出。

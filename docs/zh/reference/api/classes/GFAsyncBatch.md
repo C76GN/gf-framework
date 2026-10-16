@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`item_completed`](#member-gfasyncbatch-signals-item_completed) | `signal item_completed(key: Variant, result: Variant)` |
-| 信号 | [`item_settled`](#member-gfasyncbatch-signals-item_settled) | `signal item_settled(key: Variant, result: Variant, state: StringName)` |
+| 信号 | [`item_settled`](#member-gfasyncbatch-signals-item_settled) | `signal item_settled( key: Variant, result: Variant, state: StringName )` |
 | 信号 | [`completed`](#member-gfasyncbatch-signals-completed) | `signal completed(results: Dictionary)` |
 | 信号 | [`settled`](#member-gfasyncbatch-signals-settled) | `signal settled(report: Dictionary)` |
 | 信号 | [`cancelled`](#member-gfasyncbatch-signals-cancelled) | `signal cancelled(reason: StringName, metadata: Dictionary)` |
@@ -28,10 +28,10 @@
 | 方法 | [`add_item`](#member-gfasyncbatch-methods-add_item) | `func add_item(key: Variant, metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`set_item_cancel_callback`](#member-gfasyncbatch-methods-set_item_cancel_callback) | `func set_item_cancel_callback(key: Variant, callback: Callable) -> bool:` |
 | 方法 | [`watch_response`](#member-gfasyncbatch-methods-watch_response) | `func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:` |
-| 方法 | [`watch_completion`](#member-gfasyncbatch-methods-watch_completion) | `func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`watch_completion`](#member-gfasyncbatch-methods-watch_completion) | `func watch_completion( completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`mark_completed`](#member-gfasyncbatch-methods-mark_completed) | `func mark_completed(key: Variant, result: Variant = null) -> bool:` |
-| 方法 | [`mark_failed`](#member-gfasyncbatch-methods-mark_failed) | `func mark_failed(key: Variant, error: String = "", result: Variant = null) -> bool:` |
-| 方法 | [`mark_cancelled`](#member-gfasyncbatch-methods-mark_cancelled) | `func mark_cancelled(key: Variant, reason: StringName = &"cancelled", result: Variant = null) -> bool:` |
+| 方法 | [`mark_failed`](#member-gfasyncbatch-methods-mark_failed) | `func mark_failed( key: Variant, error: String = "", result: Variant = null ) -> bool:` |
+| 方法 | [`mark_cancelled`](#member-gfasyncbatch-methods-mark_cancelled) | `func mark_cancelled( key: Variant, reason: StringName = &"cancelled", result: Variant = null ) -> bool:` |
 | 方法 | [`cancel`](#member-gfasyncbatch-methods-cancel) | `func cancel(reason: StringName = &"cancelled", metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`bind_cancel_token`](#member-gfasyncbatch-methods-bind_cancel_token) | `func bind_cancel_token(token: GFCancellationToken) -> bool:` |
 | 方法 | [`set_timeout`](#member-gfasyncbatch-methods-set_timeout) | `func set_timeout( seconds: float, tree: SceneTree = null, reason: StringName = &"timeout", metadata: Dictionary = {} ) -> bool:` |
@@ -82,7 +82,7 @@ signal item_completed(key: Variant, result: Variant)
 - 首次版本：`7.0.0`
 
 ```gdscript
-signal item_settled(key: Variant, result: Variant, state: StringName)
+signal item_settled( key: Variant, result: Variant, state: StringName )
 ```
 
 单个条目进入任意终态后发出。
@@ -343,7 +343,7 @@ func watch_response(response: GFHttpResponse, key: Variant = null) -> bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func watch_completion(completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {}) -> bool:
+func watch_completion( completion: GFAsyncCompletion, key: Variant = null, metadata: Dictionary = {} ) -> bool:
 ```
 
 监听 GFAsyncCompletion。
@@ -398,7 +398,7 @@ func mark_completed(key: Variant, result: Variant = null) -> bool:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func mark_failed(key: Variant, error: String = "", result: Variant = null) -> bool:
+func mark_failed( key: Variant, error: String = "", result: Variant = null ) -> bool:
 ```
 
 手动标记条目失败。
@@ -426,7 +426,7 @@ func mark_failed(key: Variant, error: String = "", result: Variant = null) -> bo
 - 首次版本：`7.0.0`
 
 ```gdscript
-func mark_cancelled(key: Variant, reason: StringName = &"cancelled", result: Variant = null) -> bool:
+func mark_cancelled( key: Variant, reason: StringName = &"cancelled", result: Variant = null ) -> bool:
 ```
 
 手动标记条目取消。

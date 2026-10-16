@@ -19,23 +19,35 @@ class ChunkedSnapshotOperation extends GFSaveSectionSnapshotOperation:
 		snapshot_schema_version = p_schema_version
 		remaining_steps = maxi(p_remaining_steps, 0)
 
+
 	func _advance_snapshot(step_budget: int) -> int:
 		advance_call_count += 1
-		var consumed: int = mini(maxi(step_budget, 1), remaining_steps)
+		var consumed: int = mini(
+			maxi(step_budget, 1),
+			remaining_steps
+		)
 		for _index: int in range(consumed):
-			produced_values.append({
-				"state": produced_values.size(),
-				"values": [1, 2, 3, 4],
-			})
+			produced_values.append(
+				{
+					"state": produced_values.size(),
+					"values": [
+						1,
+						2,
+						3,
+						4,
+					],
+				}
+			)
 		remaining_steps -= consumed
 		if remaining_steps == 0:
 			var snapshot: GFSaveSectionSnapshot = GFSaveSectionSnapshot.take_ownership(
 				snapshot_section_id,
 				snapshot_schema_version,
-				{"history": produced_values}
+				{ "history": produced_values }
 			)
 			var _completed: bool = _complete_snapshot(snapshot)
 		return maxi(consumed, 1)
+
 
 	func _cancel_snapshot() -> void:
 		cancelled = true
@@ -48,17 +60,12 @@ class ChunkedProvider extends GFSaveSectionProvider:
 	var fail_begin: bool = false
 	var received_context: Dictionary = {}
 
-	func _begin_save_snapshot(
-		context: Dictionary = {}
-	) -> GFSaveSectionSnapshotOperation:
+	func _begin_save_snapshot(context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
 		begin_call_count += 1
 		received_context = context
 		if fail_begin:
 			var failed: GFSaveSectionSnapshotOperation = GFSaveSectionSnapshotOperation.new()
-			var _failed: bool = failed._fail_snapshot(
-				ERR_INVALID_DATA,
-				"Injected preparation failure."
-			)
+			var _failed: bool = failed._fail_snapshot(ERR_INVALID_DATA, "Injected preparation failure.")
 			return failed
 		latest_operation = ChunkedSnapshotOperation.new(
 			section_id,
@@ -67,8 +74,9 @@ class ChunkedProvider extends GFSaveSectionProvider:
 		)
 		return latest_operation
 
+
 	func _capture_section(_context: Dictionary = {}) -> GFSaveSection:
-		return make_section({"history": []})
+		return make_section({ "history": [] })
 
 
 class CaptureStorage extends GFStorageUtility:
@@ -113,18 +121,18 @@ class CaptureStorage extends GFStorageUtility:
 		pending_operations.append(operation)
 		return operation
 
+
 	func complete_next(error_code: Error = OK) -> void:
 		if pending_operations.is_empty():
 			return
 		var operation: GFStorageAsyncOperation = pending_operations.pop_front()
 		_complete(operation, error_code)
 
+
 	func _complete(operation: GFStorageAsyncOperation, error_code: Error) -> void:
 		var _finished: bool = operation.finish_payload_attempt_for_framework()
 		var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
-		var write_failure_kind: GFStorageAsyncResult.WriteFailureKind = (
-			_resolve_write_failure_kind(error_code)
-		)
+		var write_failure_kind: GFStorageAsyncResult.WriteFailureKind = _resolve_write_failure_kind(error_code)
 		var _configured: bool = result.configure_for_framework(
 			operation.get_request_id(),
 			operation.get_operation(),
@@ -136,9 +144,8 @@ class CaptureStorage extends GFStorageUtility:
 		)
 		var _completed: bool = operation.complete_for_framework(result)
 
-	static func _resolve_write_failure_kind(
-		error_code: Error
-	) -> GFStorageAsyncResult.WriteFailureKind:
+
+	static func _resolve_write_failure_kind(error_code: Error) -> GFStorageAsyncResult.WriteFailureKind:
 		if error_code == OK:
 			return GFStorageAsyncResult.WriteFailureKind.NONE
 		match error_code:
@@ -190,7 +197,10 @@ func test_save_request_returns_before_provider_or_storage_work() -> void:
 	assert_eq(provider.begin_call_count, 1)
 	assert_not_null(provider.latest_operation)
 	assert_eq(provider.latest_operation.advance_call_count, 0)
-	assert_eq(provider.latest_operation.produced_values.size(), 0)
+	assert_eq(
+		provider.latest_operation.produced_values.size(),
+		0
+	)
 	assert_eq(_storage.save_call_count, 0)
 
 	for _index: int in range(13):
@@ -220,9 +230,9 @@ func test_request_claim_preserves_large_alias_identity_and_is_one_shot() -> void
 	var document_values: Array = _make_large_values(4_096)
 	var context_values: Array = _make_large_values(4_096)
 	var result_values: Array = _make_large_values(4_096)
-	var document_metadata: Dictionary = {"values": document_values}
-	var context: Dictionary = {"values": context_values}
-	var result_metadata: Dictionary = {"values": result_values}
+	var document_metadata: Dictionary = { "values": document_values }
+	var context: Dictionary = { "values": context_values }
+	var result_metadata: Dictionary = { "values": result_values }
 	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
 		document_metadata,
 		context,
@@ -232,27 +242,42 @@ func test_request_claim_preserves_large_alias_identity_and_is_one_shot() -> void
 	var claim: Dictionary = request.claim_for_framework()
 
 	assert_true(request.is_claimed())
-	assert_true(is_same(
-		_dictionary_reference(claim, "document_metadata"),
-		document_metadata
-	))
-	assert_true(is_same(_dictionary_reference(claim, "context"), context))
-	assert_true(is_same(
-		_dictionary_reference(claim, "result_metadata"),
-		result_metadata
-	))
-	assert_true(is_same(
-		_dictionary_reference(claim, "document_metadata").get("values"),
-		document_values
-	))
-	assert_true(is_same(
-		_dictionary_reference(claim, "context").get("values"),
-		context_values
-	))
-	assert_true(is_same(
-		_dictionary_reference(claim, "result_metadata").get("values"),
-		result_values
-	))
+	assert_true(
+		is_same(
+			_dictionary_reference(claim, "document_metadata"),
+			document_metadata
+		)
+	)
+	assert_true(
+		is_same(
+			_dictionary_reference(claim, "context"),
+			context
+		)
+	)
+	assert_true(
+		is_same(
+			_dictionary_reference(claim, "result_metadata"),
+			result_metadata
+		)
+	)
+	assert_true(
+		is_same(
+			_dictionary_reference(claim, "document_metadata").get("values"),
+			document_values
+		)
+	)
+	assert_true(
+		is_same(
+			_dictionary_reference(claim, "context").get("values"),
+			context_values
+		)
+	)
+	assert_true(
+		is_same(
+			_dictionary_reference(claim, "result_metadata").get("values"),
+			result_values
+		)
+	)
 	assert_true(request.claim_for_framework().is_empty())
 
 
@@ -261,19 +286,16 @@ func test_save_admission_moves_large_request_without_request_frame_copy() -> voi
 	assert_true(_register(_make_profile(&"test.request_move", provider)))
 	var document_values: Array = _make_large_values(4_096)
 	var context_values: Array = _make_large_values(4_096)
-	var document_metadata: Dictionary = {"values": document_values}
-	var context: Dictionary = {"values": context_values}
-	var result_metadata: Dictionary = {"request_id": 42}
+	var document_metadata: Dictionary = { "values": document_values }
+	var context: Dictionary = { "values": context_values }
+	var result_metadata: Dictionary = { "request_id": 42 }
 	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
 		document_metadata,
 		context,
 		result_metadata
 	)
 
-	var operation: GFSaveProfileOperation = _utility.save_profile(
-		&"test.request_move",
-		request
-	)
+	var operation: GFSaveProfileOperation = _utility.save_profile(&"test.request_move", request)
 
 	assert_true(operation.is_pending())
 	assert_true(request.is_claimed())
@@ -283,32 +305,45 @@ func test_save_admission_moves_large_request_without_request_frame_copy() -> voi
 	_utility.tick(0.0)
 
 	assert_true(is_same(provider.received_context, context))
-	assert_eq(_storage.captured_payloads.size(), 1)
+	assert_eq(
+		_storage.captured_payloads.size(),
+		1
+	)
 	var persisted_metadata: Dictionary = _dictionary_reference(
 		_storage.captured_payloads[0],
 		"metadata"
 	)
 	assert_true(is_same(persisted_metadata, document_metadata))
-	assert_true(is_same(persisted_metadata.get("values"), document_values))
-	assert_true(is_same(provider.received_context.get("values"), context_values))
+	assert_true(
+		is_same(
+			persisted_metadata.get("values"),
+			document_values
+		)
+	)
+	assert_true(
+		is_same(
+			provider.received_context.get("values"),
+			context_values
+		)
+	)
 	_storage.complete_next()
 	assert_eq(
-		GFVariantData.get_option_int(operation.get_result().get_metadata(), "request_id"),
+		GFVariantData.get_option_int(
+			operation.get_result().get_metadata(),
+			"request_id"
+		),
 		42
 	)
 
 
 func test_rejection_does_not_claim_request_and_claimed_request_is_invalid() -> void:
 	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
-		{"document": true},
-		{"context": true},
-		{"result": true}
+		{ "document": true },
+		{ "context": true },
+		{ "result": true }
 	)
 
-	var missing: GFSaveProfileOperation = _utility.save_profile(
-		&"test.request_rejection",
-		request
-	)
+	var missing: GFSaveProfileOperation = _utility.save_profile(&"test.request_rejection", request)
 
 	assert_eq(
 		missing.get_result().get_status(),
@@ -318,19 +353,10 @@ func test_rejection_does_not_claim_request_and_claimed_request_is_invalid() -> v
 
 	var provider: ChunkedProvider = _make_provider(&"history", 1)
 	assert_true(_register(_make_profile(&"test.request_rejection", provider)))
-	var accepted: GFSaveProfileOperation = _utility.save_profile(
-		&"test.request_rejection",
-		request
-	)
-	var duplicate_request_operation: GFSaveProfileOperation = _utility.save_profile(
-		&"test.request_rejection",
-		request
-	)
+	var accepted: GFSaveProfileOperation = _utility.save_profile(&"test.request_rejection", request)
+	var duplicate_request_operation: GFSaveProfileOperation = _utility.save_profile(&"test.request_rejection", request)
 	var uninitialized: GFSaveProfileRequest = GFSaveProfileRequest.new()
-	var invalid: GFSaveProfileOperation = _utility.save_profile(
-		&"test.request_rejection",
-		uninitialized
-	)
+	var invalid: GFSaveProfileOperation = _utility.save_profile(&"test.request_rejection", uninitialized)
 
 	assert_true(accepted.is_pending())
 	assert_true(request.is_claimed())
@@ -372,13 +398,25 @@ func test_preparation_budget_is_global_and_round_robin() -> void:
 
 	assert_eq(first_provider.begin_call_count, 1)
 	assert_eq(second_provider.begin_call_count, 1)
-	assert_eq(first_provider.latest_operation.produced_values.size(), 0)
-	assert_eq(second_provider.latest_operation.produced_values.size(), 0)
+	assert_eq(
+		first_provider.latest_operation.produced_values.size(),
+		0
+	)
+	assert_eq(
+		second_provider.latest_operation.produced_values.size(),
+		0
+	)
 
 	_utility.tick(0.0)
 
-	assert_eq(first_provider.latest_operation.produced_values.size(), 1)
-	assert_eq(second_provider.latest_operation.produced_values.size(), 1)
+	assert_eq(
+		first_provider.latest_operation.produced_values.size(),
+		1
+	)
+	assert_eq(
+		second_provider.latest_operation.produced_values.size(),
+		1
+	)
 
 
 func test_preparation_failure_never_starts_storage() -> void:
@@ -394,8 +432,14 @@ func test_preparation_failure_never_starts_storage() -> void:
 		operation.get_result().get_status(),
 		GFSaveProfileResult.STATUS_PREPARATION_FAILED
 	)
-	assert_eq(operation.get_result().get_failed_section_id(), &"broken")
-	assert_eq(operation.get_result().get_attempt_count(), 0)
+	assert_eq(
+		operation.get_result().get_failed_section_id(),
+		&"broken"
+	)
+	assert_eq(
+		operation.get_result().get_attempt_count(),
+		0
+	)
 	assert_eq(_storage.save_call_count, 0)
 
 
@@ -411,7 +455,10 @@ func test_dispose_cancels_active_preparation_without_storage_admission() -> void
 	_utility.dispose()
 
 	assert_true(provider.latest_operation.cancelled)
-	assert_eq(operation.get_result().get_status(), GFSaveProfileResult.STATUS_DISPOSED)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileResult.STATUS_DISPOSED
+	)
 	assert_eq(_storage.save_call_count, 0)
 
 
@@ -434,10 +481,19 @@ func test_result_separates_preparation_and_storage_timing() -> void:
 	_storage.complete_next()
 
 	var result: GFSaveProfileResult = operation.get_result()
-	assert_eq(result.get_preparation_duration_msec(), 10)
-	assert_eq(result.get_storage_duration_msec(), 7)
+	assert_eq(
+		result.get_preparation_duration_msec(),
+		10
+	)
+	assert_eq(
+		result.get_storage_duration_msec(),
+		7
+	)
 	assert_true(result.get_preparation_work_units() >= 3)
-	assert_null(result.get_document(), "Save result 不应复制完整文档。")
+	assert_null(
+		result.get_document(),
+		"Save result 不应复制完整文档。"
+	)
 	assert_false(result.to_dict().has("payload"))
 
 
@@ -450,10 +506,7 @@ func _make_provider(section_id: StringName, required_steps: int) -> ChunkedProvi
 	return provider
 
 
-func _make_profile(
-	profile_id: StringName,
-	provider: GFSaveSectionProvider
-) -> GFSaveProfile:
+func _make_profile(profile_id: StringName, provider: GFSaveSectionProvider) -> GFSaveProfile:
 	var profile: GFSaveProfile = GFSaveProfile.new()
 	profile.profile_id = profile_id
 	profile.file_name = "%s.json" % String(profile_id).replace(".", "_")
@@ -474,7 +527,12 @@ func _make_large_values(count: int) -> Array:
 	for index: int in range(values.size()):
 		values[index] = {
 			"index": index,
-			"flags": [true, false, true, false],
+			"flags": [
+				true,
+				false,
+				true,
+				false,
+			],
 		}
 	return values
 

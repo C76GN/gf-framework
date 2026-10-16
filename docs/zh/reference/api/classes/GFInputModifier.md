@@ -15,8 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`modify`](#member-gfinputmodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputmodifier-methods-modify_3d) | `func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputmodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputmodifier-methods-modify_3d) | `func modify_3d( value: Vector3, event: InputEvent = null, action: GFInputAction = null ) -> Vector3:` |
 | 方法 | [`duplicate_modifier`](#member-gfinputmodifier-methods-duplicate_modifier) | `func duplicate_modifier() -> GFInputModifier:` |
 | 方法 | [`supports_runtime_state`](#member-gfinputmodifier-methods-supports_runtime_state) | `func supports_runtime_state() -> bool:` |
 | 方法 | [`get_modifier_runtime_state`](#member-gfinputmodifier-methods-get_modifier_runtime_state) | `func get_modifier_runtime_state() -> Dictionary:` |
@@ -32,9 +32,10 @@
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修饰输入贡献值。
@@ -54,9 +55,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, event: InputEvent = null, action: GFInputAction = null ) -> Vector3:
 ```
 
 修饰三维输入贡献值。 默认复用二维修饰逻辑处理 X/Y，并保留 Z 分量。

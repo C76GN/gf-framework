@@ -69,6 +69,7 @@ import gf_validation_test_inventory
 import gf_credential_gate
 import gf_codeql_suppression_policy
 import gf_diagnostic_policy
+import gf_gdscript_readability
 import gf_changelog
 import gf_gut_sharding
 import gf_gut_shard_worker
@@ -138,9 +139,12 @@ BREAKING_API_CHANGELOG_CATEGORIES = (
 	"🔧 API 变动说明 (API Changes)",
 	"📘 升级指南 (Migration Guide)",
 )
-MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SOURCE_IDENTIFIER_RE = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_]\w*)(?![A-Za-z0-9_])")
+GDSCRIPT_REFLECTED_IDENTIFIER_RE = re.compile(
+	r"\b(call|call_deferred|callv|has_method|get|set|set_deferred|get_indexed|set_indexed|instantiate|can_instantiate|class_exists)"
+	r"\s*\(\s*&?([\"'])([A-Za-z_]\w*)\2"
+)
 API_DOC_API_RE = re.compile(r"##\s*@api\s+(?P<visibility>public|protected)\b")
 API_DOC_SINCE_RE = re.compile(r"##\s*@since\s+\S+")
 GDSCRIPT_API_DECL_RE = re.compile(
@@ -1480,9 +1484,7 @@ def parse_gut_shard_run_timeout_seconds(text: str) -> int:
 	return value
 
 
-def main() -> int:
-	configure_stdio()
-	maintenance_rendering.set_json_output_path(None)
+def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 	parser = argparse.ArgumentParser(description="GF maintenance helper CLI.")
 	parser.add_argument(
 		"--keep-logs",
@@ -1561,6 +1563,11 @@ def main() -> int:
 		"diagnostic-policy", help="Check framework diagnostic templates and reviewed forwarding boundaries.",
 	)
 	diagnostic_policy_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+	readability_parser = subparsers.add_parser(
+		"gdscript-readability",
+		help="Enforce readable GDScript layout across owned sources and templates.",
+	)
+	readability_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	codeql_suppression_policy_parser = subparsers.add_parser(
 		"codeql-suppression-policy",
@@ -1971,7 +1978,20 @@ def main() -> int:
 	)
 	api_baseline_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	args = parser.parse_args()
+	return parser
+
+
+def main(
+	args: argparse.Namespace | None = None,
+	*,
+	parser: argparse.ArgumentParser | None = None,
+) -> int:
+	configure_stdio()
+	maintenance_rendering.set_json_output_path(None)
+	if parser is None:
+		parser = build_maintenance_cli_parser()
+	if args is None:
+		args = parser.parse_args()
 	if args.command == "check" and args.explain and not args.affected:
 		parser.error("--explain requires --affected")
 	if args.command == "check" and args.internal_complete_output_evidence and (
@@ -2030,6 +2050,12 @@ def main() -> int:
 	if args.command == "diagnostic-policy":
 		data = diagnostic_policy()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_diagnostic_policy_text)
+		return 0 if data["ok"] else 1
+	if args.command == "gdscript-readability":
+		data = gdscript_readability()
+		maintenance_rendering.print_output(
+			data, args.json, maintenance_rendering.render_gdscript_readability_text,
+		)
 		return 0 if data["ok"] else 1
 	if args.command == "api-since-touched":
 		data = api_since_touched()
@@ -3727,6 +3753,13 @@ def diagnostic_policy() -> dict[str, Any]:
 	)
 
 
+def gdscript_readability() -> dict[str, Any]:
+	snapshot = _ACTIVE_WORKSPACE_SNAPSHOT or WorkspaceSnapshot(ROOT)
+	return gf_gdscript_readability.audit_repository(
+		ROOT, read_text=snapshot.read_utf8_text_strict,
+	)
+
+
 def api_since_touched() -> dict[str, Any]:
 	entries = parse_git_status(git_lines(["status", "--short", "-uall", "--", "addons/gf"]))
 	paths = sorted({
@@ -4098,19 +4131,8 @@ def is_resource_boundary_observation(finding: dict[str, Any]) -> bool:
 
 
 def collect_resource_boundary_source_owner_entries() -> list[dict[str, str]]:
-	paths_payload = collect_package_manifest_paths()
-	if paths_payload["errors"]:
-		return []
-
-	records: list[dict[str, Any]] = []
-	issues: list[dict[str, Any]] = []
-	for path in paths_payload["paths"]:
-		record = load_package_manifest_record(path)
-		records.append(record)
-		issues.extend(record["issues"])
-	issues.extend(audit_package_manifest_graph(records))
-	issues.extend(audit_package_path_ownership(records))
-	if package_issue_error_count(issues) > 0:
+	records, issues, ownership_index = prepare_package_manifest_analysis()
+	if ownership_index is None or package_issue_error_count(issues) > 0:
 		return []
 	return collect_package_source_owner_entries(records)
 
@@ -4292,38 +4314,51 @@ def run_project_layout_native(request: dict[str, Any]) -> dict[str, Any]:
 	)
 
 
-def package_boundary() -> dict[str, Any]:
+def prepare_package_manifest_analysis() -> tuple[
+	list[dict[str, Any]],
+	list[dict[str, Any]],
+	PackageOwnershipIndex | None,
+]:
+	"""Read live manifests and validate their graph and ownership for one caller.
+
+	No derived state is cached: every gate retains its own discovery, bounded
+	manifest reads, candidate-path scan, records, and issue-list ownership.
+	A missing index distinguishes discovery failure from a valid empty inventory.
+	"""
 	paths_payload = collect_package_manifest_paths()
-	scan_errors = paths_payload["errors"]
-	if scan_errors:
+	if paths_payload["errors"]:
+		return [], list(paths_payload["errors"]), None
+	records: list[dict[str, Any]] = []
+	issues: list[dict[str, Any]] = []
+	for path in paths_payload["paths"]:
+		record = load_package_manifest_record(path)
+		records.append(record)
+		issues.extend(record["issues"])
+	issues.extend(audit_package_manifest_graph(records))
+	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
+	issues.extend(audit_package_path_ownership(records, ownership_index=ownership_index))
+	return records, issues, ownership_index
+
+
+def package_boundary() -> dict[str, Any]:
+	records, issues, ownership_index = prepare_package_manifest_analysis()
+	if ownership_index is None:
 		return {
 			"ok": False,
 			"root": str(ROOT),
 			"manifest_count": 0,
 			"package_count": 0,
 			"path_count": 0,
-			"issue_count": len(scan_errors),
-			"issue_kind_counts": count_issue_field(scan_errors, "kind"),
-			"issues": scan_errors,
+			"issue_count": len(issues),
+			"issue_kind_counts": count_issue_field(issues, "kind"),
+			"issues": issues,
 		}
-
-	records: list[dict[str, Any]] = []
-	issues: list[dict[str, Any]] = []
-	path_count = 0
-	for path in paths_payload["paths"]:
-		record = load_package_manifest_record(path)
-		records.append(record)
-		issues.extend(record["issues"])
-		path_count += len(record["paths"])
-
-	issues.extend(audit_package_manifest_graph(records))
-	issues.extend(audit_package_path_ownership(records))
 	return {
 		"ok": len(issues) == 0,
 		"root": str(ROOT),
 		"manifest_count": len(records),
 		"package_count": len([record for record in records if record["id"]]),
-		"path_count": path_count,
+		"path_count": sum(len(record["paths"]) for record in records),
 		"issue_count": len(issues),
 		"issue_kind_counts": count_issue_field(issues, "kind"),
 		"kind_counts": count_record_field(records, "kind"),
@@ -4332,20 +4367,9 @@ def package_boundary() -> dict[str, Any]:
 
 
 def package_closure_audit() -> dict[str, Any]:
-	paths_payload = collect_package_manifest_paths()
-	scan_errors = paths_payload["errors"]
-	if scan_errors:
-		return make_package_closure_audit_payload([], [], [], scan_errors)
-
-	records: list[dict[str, Any]] = []
-	issues: list[dict[str, Any]] = []
-	for path in paths_payload["paths"]:
-		record = load_package_manifest_record(path)
-		records.append(record)
-		issues.extend(record["issues"])
-
-	issues.extend(audit_package_manifest_graph(records))
-	issues.extend(audit_package_path_ownership(records))
+	records, issues, ownership_index = prepare_package_manifest_analysis()
+	if ownership_index is None:
+		return make_package_closure_audit_payload([], [], [], issues)
 	closure_rows: list[dict[str, Any]] = []
 	standard_fan_in: list[dict[str, Any]] = []
 	if package_issue_error_count(issues) == 0:
@@ -4710,20 +4734,9 @@ def package_issue_severity_count(issues: list[dict[str, Any]], severity: str) ->
 
 
 def package_focused_gut_mapping() -> dict[str, Any]:
-	paths_payload = collect_package_manifest_paths()
-	scan_errors = paths_payload["errors"]
-	if scan_errors:
-		return make_package_focused_gut_mapping_payload([], {}, scan_errors)
-
-	records: list[dict[str, Any]] = []
-	issues: list[dict[str, Any]] = []
-	for path in paths_payload["paths"]:
-		record = load_package_manifest_record(path)
-		records.append(record)
-		issues.extend(record["issues"])
-
-	issues.extend(audit_package_manifest_graph(records))
-	issues.extend(audit_package_path_ownership(records))
+	records, issues, ownership_index = prepare_package_manifest_analysis()
+	if ownership_index is None:
+		return make_package_focused_gut_mapping_payload([], {}, issues)
 	mapping_packages: dict[str, Any] = {}
 	if not issues:
 		mapping_payload = load_package_focused_gut_mapping_file()
@@ -10155,20 +10168,9 @@ def make_core_plugin_bootstrap_smoke_payload(
 
 
 def package_source_boundary() -> dict[str, Any]:
-	paths_payload = collect_package_manifest_paths()
-	scan_errors = paths_payload["errors"]
-	if scan_errors:
-		return make_package_source_boundary_payload([], [], scan_errors)
-
-	records: list[dict[str, Any]] = []
-	issues: list[dict[str, Any]] = []
-	for path in paths_payload["paths"]:
-		record = load_package_manifest_record(path)
-		records.append(record)
-		issues.extend(record["issues"])
-	issues.extend(audit_package_manifest_graph(records))
-	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
-	issues.extend(audit_package_path_ownership(records, ownership_index=ownership_index))
+	records, issues, ownership_index = prepare_package_manifest_analysis()
+	if ownership_index is None:
+		return make_package_source_boundary_payload([], [], issues)
 	issues.extend(audit_editor_contribution_target_ownership(ownership_index))
 	if issues:
 		return make_package_source_boundary_payload(records, [], issues)
@@ -10198,20 +10200,9 @@ def package_source_boundary() -> dict[str, Any]:
 
 
 def package_external_command_audit(fail_on_warnings: bool = False) -> dict[str, Any]:
-	paths_payload = collect_package_manifest_paths()
-	scan_errors = paths_payload["errors"]
-	if scan_errors:
-		return make_package_external_command_audit_payload([], [], scan_errors, fail_on_warnings)
-
-	records: list[dict[str, Any]] = []
-	issues: list[dict[str, Any]] = []
-	for path in paths_payload["paths"]:
-		record = load_package_manifest_record(path)
-		records.append(record)
-		issues.extend(record["issues"])
-
-	issues.extend(audit_package_manifest_graph(records))
-	issues.extend(audit_package_path_ownership(records))
+	records, issues, ownership_index = prepare_package_manifest_analysis()
+	if ownership_index is None:
+		return make_package_external_command_audit_payload([], [], issues, fail_on_warnings)
 	if package_issue_error_count(issues) > 0:
 		return make_package_external_command_audit_payload(records, [], issues, fail_on_warnings)
 
@@ -10225,7 +10216,6 @@ def package_external_command_audit(fail_on_warnings: bool = False) -> dict[str, 
 		for path in source_paths_payload["paths"]
 		if Path(path).suffix.lower() in PACKAGE_EXTERNAL_COMMAND_AUDIT_SOURCE_EXTENSIONS
 	]
-	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	for source_path in source_paths:
 		source_owner = find_package_source_owner(source_path, ownership_index)
 		if not source_owner:
@@ -11258,20 +11248,30 @@ def normalize_res_paths(paths: list[str]) -> list[str]:
 
 def parse_gdscript_string_array_constant(source: str, constant_name: str) -> list[str]:
 	pattern = re.compile(
-		rf"(?ms)^const\s+{re.escape(constant_name)}\b[^\n=]*=\s*\[(?P<body>.*?)^\]",
+		rf"(?m)^const\s+{re.escape(constant_name)}\b[^\n=]*=\s*\[",
 		re.MULTILINE,
 	)
 	match = pattern.search(source)
 	if not match:
 		return []
+	view = gf_gdscript_readability.lex_source("<string-array-constant>.gd", source)
+	array = next(
+		(group for group in view.groups if view.tokens[group.open_index].start == match.end() - 1),
+		None,
+	)
+	if array is None:
+		return []
 	values: list[str] = []
-	for string_match in re.finditer(r'"(?:[^"\\]|\\.)*"', match.group("body")):
+	for start, end in array.items:
+		if end != start + 1 or view.tokens[start].kind != "string":
+			return []
 		try:
-			value = json.loads(string_match.group(0))
+			value = json.loads(view.tokens[start].value)
 		except json.JSONDecodeError:
-			continue
-		if isinstance(value, str):
-			values.append(value)
+			return []
+		if not isinstance(value, str):
+			return []
+		values.append(value)
 	return sorted(values)
 
 
@@ -11700,6 +11700,7 @@ def audit_kernel_dependency_boundary(
 		source = strip_gdscript_comments(read_text_file(path))
 		if not source:
 			continue
+		code = strip_gdscript_comments(source, preserve_strings=False)
 		if GF_STANDARD_RES_ROOT in source or "addons/gf/standard" in source:
 			issues.append(make_boundary_issue(
 				"kernel_references_standard_path",
@@ -11728,7 +11729,7 @@ def audit_kernel_dependency_boundary(
 					"addons/gf/kernel must not hard-code bundled optional extension IDs.",
 					symbol=extension_id,
 				))
-		for class_name in sorted(source_identifiers(source).intersection(downstream_class_names)):
+		for class_name in sorted(gdscript_dependency_identifiers(source, code).intersection(downstream_class_names)):
 			issues.append(make_boundary_issue(
 				"kernel_references_downstream_class",
 				relative_path,
@@ -11749,6 +11750,7 @@ def audit_standard_dependency_boundary(
 		source = strip_gdscript_comments(read_text_file(path))
 		if not source:
 			continue
+		code = strip_gdscript_comments(source, preserve_strings=False)
 		if source_contains_bare_bundled_extension_root(source):
 			issues.append(make_boundary_issue(
 				"standard_references_extension_root",
@@ -11770,7 +11772,7 @@ def audit_standard_dependency_boundary(
 					"addons/gf/standard must not probe bundled optional extension IDs.",
 					symbol=extension_id,
 				))
-		for class_name in sorted(source_identifiers(source).intersection(extension_class_names)):
+		for class_name in sorted(gdscript_dependency_identifiers(source, code).intersection(extension_class_names)):
 			issues.append(make_boundary_issue(
 				"standard_references_extension_class",
 				relative_path,
@@ -11796,7 +11798,12 @@ def audit_bundled_extension_dependency_boundary(
 			continue
 		if path.suffix.lower() == ".gd":
 			source = strip_gdscript_comments(source)
-		source_class_names = source_identifiers(source).intersection(extension_class_roots)
+			code = strip_gdscript_comments(source, preserve_strings=False)
+			identifiers = gdscript_dependency_identifiers(source, code)
+		else:
+			code = source
+			identifiers = source_identifiers(source)
+		source_class_names = identifiers.intersection(extension_class_roots)
 		own_extension_id = extension_id_by_name.get(extension_name, "")
 		if source_contains_bare_bundled_extension_root(source):
 			issues.append(make_boundary_issue(
@@ -11834,7 +11841,7 @@ def audit_bundled_extension_dependency_boundary(
 					symbol=class_name,
 					extension_id=own_extension_id,
 				))
-		if GF_EXTENSION_FORBIDDEN_GLOBAL_FACADE in source:
+		if re.search(r"(?<![A-Za-z0-9_])Gf\s*\.", code):
 			issues.append(make_boundary_issue(
 				"extension_uses_global_facade",
 				relative_path,
@@ -13716,39 +13723,11 @@ def audit_content_package_graph(records: list[dict[str, Any]]) -> list[dict[str,
 
 
 def collect_content_package_cycles(dependency_map: dict[str, list[str]]) -> list[list[str]]:
-	visited: set[str] = set()
-	visiting: set[str] = set()
-	stack: list[str] = []
-	cycles: dict[tuple[str, ...], list[str]] = {}
-
-	def visit(package_id: str) -> None:
-		if package_id in visiting:
-			start = stack.index(package_id)
-			cycle = [*stack[start:], package_id]
-			cycles[canonical_content_package_cycle(cycle)] = cycle
-			return
-		if package_id in visited:
-			return
-		visiting.add(package_id)
-		stack.append(package_id)
-		for dependency_id in dependency_map.get(package_id, []):
-			visit(dependency_id)
-		stack.pop()
-		visiting.remove(package_id)
-		visited.add(package_id)
-
-	for package_id in sorted(dependency_map.keys()):
-		visit(package_id)
-	return [cycles[key] for key in sorted(cycles.keys())]
+	return collect_package_dependency_cycles(dependency_map)
 
 
 def canonical_content_package_cycle(cycle: list[str]) -> tuple[str, ...]:
-	nodes = cycle[:-1] if len(cycle) > 1 and cycle[0] == cycle[-1] else cycle
-	if not nodes:
-		return tuple(cycle)
-	rotations = [nodes[index:] + nodes[:index] for index in range(len(nodes))]
-	best = min(rotations)
-	return tuple([*best, best[0]])
+	return canonical_package_cycle(cycle)
 
 
 def content_package_string(data: dict[str, Any], key: str, fallback: str = "") -> str:
@@ -14412,7 +14391,7 @@ def strip_gdscript_line_comment(line: str) -> str:
 	return line
 
 
-def strip_gdscript_comments(source: str) -> str:
+def strip_gdscript_comments(source: str, *, preserve_strings: bool = True) -> str:
 	result: list[str] = []
 	index = 0
 	state = "code"
@@ -14430,14 +14409,15 @@ def strip_gdscript_comments(source: str) -> str:
 
 		if state == "string":
 			if source.startswith(delimiter, index):
-				result.append(delimiter)
+				result.append(delimiter if preserve_strings else " " * len(delimiter))
 				index += len(delimiter)
 				state = "code"
 				continue
 			character = source[index]
-			result.append(character)
+			result.append(character if preserve_strings or character == "\n" else " ")
 			if character == "\\" and index + 1 < len(source):
-				result.append(source[index + 1])
+				following = source[index + 1]
+				result.append(following if preserve_strings or following == "\n" else " ")
 				index += 2
 				continue
 			index += 1
@@ -14445,14 +14425,14 @@ def strip_gdscript_comments(source: str) -> str:
 
 		if source.startswith("'''", index) or source.startswith('\"\"\"', index):
 			delimiter = source[index:index + 3]
-			result.append(delimiter)
+			result.append(delimiter if preserve_strings else " " * len(delimiter))
 			index += 3
 			state = "string"
 			continue
 		character = source[index]
 		if character in ("'", '"'):
 			delimiter = character
-			result.append(character)
+			result.append(character if preserve_strings else " ")
 			index += 1
 			state = "string"
 			continue
@@ -14527,7 +14507,7 @@ def collect_text_files(root: Path, extensions: set[str]) -> list[Path]:
 def collect_class_name_roots(root: Path) -> dict[str, str]:
 	result: dict[str, str] = {}
 	for path in collect_text_files(root, {".gd"}):
-		text = read_text_file(path)
+		text = strip_gdscript_comments(read_text_file(path), preserve_strings=False)
 		for match in re.finditer(r"(?m)^\s*class_name\s+([A-Za-z_]\w*)", text):
 			result[match.group(1)] = path.relative_to(ROOT).as_posix()
 	return result
@@ -14558,6 +14538,25 @@ def get_bundled_extension_name_from_relative_path(path: str) -> str:
 	if "/" not in remaining:
 		return ""
 	return remaining.split("/", 1)[0].strip()
+
+
+def gdscript_dependency_identifiers(source: str, code: str) -> frozenset[str]:
+	identifiers = set(source_identifiers(code))
+	for match in GDSCRIPT_REFLECTED_IDENTIFIER_RE.finditer(source):
+		if code[match.start(1):match.end(1)] == match.group(1):
+			identifiers.add(match.group(3))
+	for match in re.finditer(r"\bCallable\s*\(", code):
+		arguments = extract_gdscript_call_arguments(code[match.start():])
+		first_argument, remaining_arguments = split_once_top_level(arguments, ",")
+		if not remaining_arguments:
+			continue
+		second_argument, _remaining = split_once_top_level(remaining_arguments, ",")
+		second_start = match.end() + len(first_argument) + 1
+		second_source = source[second_start:second_start + len(second_argument)]
+		method = re.fullmatch(r"\s*&?([\"'])([A-Za-z_]\w*)\1\s*", second_source)
+		if method is not None:
+			identifiers.add(method.group(2))
+	return frozenset(identifiers)
 
 
 def source_contains_identifier(source: str, identifier: str) -> bool:
@@ -14887,6 +14886,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/generate_ai_api.py --source addons/gf --output ai_analysis/generated_api --check-or-generate --check-wiki-coverage",
 			"python tools/gf_maintenance.py public-api-boundary --json",
 			"python tools/gf_maintenance.py api-since-touched --json",
+			"python tools/gf_maintenance.py gdscript-readability --json",
 			"python tools/gf_maintenance.py check --check gut --failed-only",
 			"python tools/gf_maintenance.py check --check gdscript_warnings --json",
 			"python tools/gf_maintenance.py check --check gdscript_lsp_diagnostics --json",
@@ -14901,6 +14901,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.append("python tools/gf_maintenance.py check --suite examples --json")
 	if categories["tests"]:
 		recommendations.extend([
+			"python tools/gf_maintenance.py gdscript-readability --json",
 			"python tools/gf_maintenance.py check --check gut --failed-only",
 			"python tools/gf_maintenance.py check --check gdscript_lsp_diagnostics --json",
 		])
@@ -15153,6 +15154,7 @@ def maintenance_in_process_adapter_registry(
 		),
 		"codeql_suppression_policy": codeql_suppression_policy,
 		"diagnostic_policy": diagnostic_policy,
+		"gdscript_readability": gdscript_readability,
 		"public_docs_boundary": public_docs_boundary,
 		"public_api_boundary": public_api_boundary,
 		"resource_boundary": lambda: resource_boundary(fail_on_issues=True),
@@ -18494,7 +18496,17 @@ def copy_parallel_log_tree(
 	destination_containment_root: Path | None = None,
 	expected_destination_identity: os.stat_result | None = None,
 	expected_destination_containment_identity: os.stat_result | None = None,
+	max_files: int = 256,
+	max_entries: int = 512,
+	max_depth: int = 16,
+	max_total_bytes: int = DEFAULT_MAINTENANCE_LOG_MAX_TOTAL_BYTES,
 ) -> None:
+	for label, limit in (
+		("files", max_files), ("entries", max_entries),
+		("depth", max_depth), ("bytes", max_total_bytes),
+	):
+		if type(limit) is not int or limit <= 0:
+			raise ValueError(f"Parallel log {label} limit must be a positive integer.")
 	managed_root = source_root if containment_root is None else containment_root
 	root_chain_before = snapshot_real_directory_chain(managed_root, source_root)
 	destination_managed_root = (
@@ -18522,76 +18534,193 @@ def copy_parallel_log_tree(
 		)
 	):
 		raise ValueError("Parallel log destination containment root was replaced.")
-	entry_names: list[str] = []
-	with os.scandir(source_root) as directory_entries:
-		for entry in directory_entries:
-			if len(entry_names) >= DEFAULT_MAINTENANCE_LOG_MAX_FILES:
-				raise ValueError(
-					f"Parallel log root exceeds the {DEFAULT_MAINTENANCE_LOG_MAX_FILES}-file collection limit."
-				)
-			entry_names.append(entry.name)
-	entries = sorted(entry_names)
-	root_chain_after_scan = snapshot_real_directory_chain(managed_root, source_root)
-	if not same_directory_chain_snapshot(root_chain_before, root_chain_after_scan):
-		raise ValueError("Parallel log directory chain changed while it was scanned.")
+	source_directories: dict[Path, tuple[tuple[Path, os.stat_result], ...]] = {}
+	source_files: dict[Path, os.stat_result] = {}
+	pending = [(source_root, 0, root_chain_before[-1][1])]
+	entry_count = 0
+	expected_bytes = 0
+	while pending:
+		current, depth, expected_directory = pending.pop()
+		chain_before_scan = snapshot_real_directory_chain(managed_root, current)
+		if not same_file_identity(expected_directory, chain_before_scan[-1][1]):
+			raise ValueError("Parallel log source directory changed before scanning.")
+		if not same_owned_directory_identity(chain_before_scan[-1][1], chain_before_scan[-1][1]):
+			raise ValueError("Parallel log source directory has no ordinary identity.")
+		source_directories[current] = chain_before_scan
+		children = []
+		with os.scandir(extended_length_syscall_path(current)) as directory_entries:
+			for entry in directory_entries:
+				entry_count += 1
+				if entry_count > max_entries:
+					raise ValueError(f"Parallel log tree exceeds the {max_entries}-entry collection limit.")
+				name = entry.name
+				if name in {"", ".", ".."} or "/" in name or "\\" in name:
+					raise ValueError(f"Parallel log entry has an unsafe name: {name!r}")
+				path = current / name
+				metadata = os.stat(extended_length_syscall_path(path), follow_symlinks=False)
+				if stat.S_ISLNK(metadata.st_mode) or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400):
+					raise ValueError("Parallel log entries must not be links or reparse points.")
+				children.append((path, metadata))
+		if not same_directory_chain_snapshot(chain_before_scan, snapshot_real_directory_chain(managed_root, current)):
+			raise ValueError("Parallel log directory chain changed while it was scanned.")
+		for path, metadata in sorted(children, key=lambda item: item[0].name):
+			if stat.S_ISDIR(metadata.st_mode):
+				if depth + 1 > max_depth:
+					raise ValueError(f"Parallel log tree exceeds the {max_depth}-level collection limit.")
+				if not same_owned_directory_identity(metadata, metadata):
+					raise ValueError("Parallel log source directory has no ordinary identity.")
+				pending.append((path, depth + 1, metadata))
+			elif stat.S_ISREG(metadata.st_mode):
+				if not same_open_file_identity(metadata, metadata):
+					raise ValueError("Parallel log source file has no ordinary identity.")
+				if len(source_files) >= max_files:
+					raise ValueError(f"Parallel log tree exceeds the {max_files}-file collection limit.")
+				expected_bytes += metadata.st_size
+				if metadata.st_size < 0 or expected_bytes > max_total_bytes:
+					raise ValueError(f"Parallel log tree exceeds the {max_total_bytes}-byte collection limit.")
+				source_files[path] = metadata
+			else:
+				raise ValueError("Parallel log entry must be an ordinary directory or regular file.")
+
+	def verify_source_tree() -> None:
+		for path, chain in source_directories.items():
+			if not same_directory_chain_snapshot(chain, snapshot_real_directory_chain(managed_root, path)):
+				raise ValueError("Parallel log source directory tree changed during collection.")
+		for path, metadata in source_files.items():
+			after = os.stat(extended_length_syscall_path(path), follow_symlinks=False)
+			if (
+				not same_file_identity(metadata, after)
+				or stat.S_ISLNK(after.st_mode)
+				or bool(int(getattr(after, "st_file_attributes", 0)) & 0x0400)
+			):
+				raise ValueError("Parallel log source file changed during collection.")
+
+	verify_source_tree()
+	if not same_directory_chain_snapshot(root_chain_before, snapshot_real_directory_chain(managed_root, source_root)):
+		raise ValueError("Parallel log source root changed during inventory.")
+	destination_directories = {destination_root: destination_chain_before}
+
+	@contextlib.contextmanager
+	def destination_parent_authority(parent: Path):
+		if os.name != "nt" and os.mkdir not in os.supports_dir_fd:
+			raise ValueError("Parallel log directory creation requires directory authority.")
+		bindings = gf_path_security._open_directory_chain(parent)
+		operation_error: BaseException | None = None
+		try:
+			opened_directories = {path: opened for path, _descriptor, opened, _parent in bindings}
+			for path, expected in destination_directories[parent]:
+				opened = opened_directories.get(gf_path_security.absolute_lexical_path(path))
+				if opened is None or not same_owned_directory_identity(expected, opened):
+					raise ValueError("Parallel log destination authority differs from its owner record.")
+			if not gf_path_security._directory_bindings_are_current(bindings):
+				raise ValueError("Parallel log destination directory authority changed before use.")
+			yield bindings[-1][1]
+			if not gf_path_security._directory_bindings_are_current(bindings):
+				raise ValueError("Parallel log destination directory authority changed during use.")
+		except BaseException as error:
+			operation_error = error
+			raise
+		finally:
+			try:
+				gf_path_security._close_descriptors([
+					descriptor for _path, descriptor, _opened, _parent in reversed(bindings)
+				])
+			except BaseException as close_error:
+				if operation_error is not None:
+					raise operation_error from close_error
+				raise
+	for path in sorted(source_directories, key=lambda value: (len(value.relative_to(source_root).parts), value.as_posix())):
+		if path == source_root:
+			continue
+		destination_path = destination_root / path.relative_to(source_root)
+		parent_chain = snapshot_real_directory_chain(destination_managed_root, destination_path.parent)
+		if not same_directory_chain_identity(destination_directories[destination_path.parent], parent_chain):
+			raise ValueError("Parallel log destination directory chain changed before creation.")
+		with destination_parent_authority(destination_path.parent) as parent_descriptor:
+			if os.name == "nt":
+				os.mkdir(extended_length_syscall_path(destination_path), 0o700)
+			else:
+				os.mkdir(destination_path.name, 0o700, dir_fd=parent_descriptor)
+			created_chain = snapshot_real_directory_chain(destination_managed_root, destination_path)
+			if not same_directory_chain_identity(parent_chain, created_chain[:-1]) or not same_owned_directory_identity(created_chain[-1][1], created_chain[-1][1]):
+				raise ValueError("Parallel log destination directory changed while it was created.")
+		destination_directories[destination_path] = created_chain
+	destination_files: dict[Path, os.stat_result] = {}
 	total_bytes = 0
-	for entry_name in entries:
-		if entry_name in {"", ".", ".."} or "/" in entry_name or "\\" in entry_name:
-			raise ValueError(f"Parallel log entry has an unsafe name: {entry_name!r}")
-		source_path = source_root / entry_name
-		remaining_bytes = DEFAULT_MAINTENANCE_LOG_MAX_TOTAL_BYTES - total_bytes
+	for source_path, source_metadata in sorted(source_files.items(), key=lambda item: item[0].as_posix()):
+		relative = source_path.relative_to(source_root)
+		if not same_file_identity(source_metadata, os.stat(extended_length_syscall_path(source_path), follow_symlinks=False)):
+			raise ValueError("Parallel log source file changed before reading.")
+		remaining_bytes = max_total_bytes - total_bytes
 		payload = read_bounded_regular_file_under_root(
 			managed_root,
 			source_path,
 			remaining_bytes,
-			label=f"Parallel log entry {entry_name!r}",
+			label=f"Parallel log entry {relative.as_posix()!r}",
 		)
 		total_bytes += len(payload)
 		destination_chain_before_write = snapshot_real_directory_chain(
 			destination_managed_root,
-			destination_root,
+			destination_root / relative.parent,
 		)
-		if not same_directory_chain_identity(destination_chain_before, destination_chain_before_write):
+		if not same_directory_chain_identity(destination_directories[destination_root / relative.parent], destination_chain_before_write):
 			raise ValueError("Parallel log destination directory chain changed before a write.")
-		destination_path = destination_root / entry_name
+		destination_path = destination_root / relative
 		write_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
 		if hasattr(os, "O_NOFOLLOW"):
 			write_flags |= os.O_NOFOLLOW
 		destination_open_path = extended_length_syscall_path(destination_path)
-		destination_descriptor = os.open(destination_open_path, write_flags, 0o600)
-		with os.fdopen(destination_descriptor, "wb") as destination_file:
-			destination_file.write(payload)
-			destination_file.flush()
-			destination_open_metadata = os.fstat(destination_file.fileno())
-		destination_file_metadata = os.stat(
-			destination_open_path,
-			follow_symlinks=False,
-		)
-		destination_chain_after_write = snapshot_real_directory_chain(
-			destination_managed_root,
-			destination_root,
-		)
-		if (
-			not stat.S_ISREG(destination_file_metadata.st_mode)
-			or stat.S_ISLNK(destination_file_metadata.st_mode)
-			or bool(int(getattr(destination_file_metadata, "st_file_attributes", 0)) & 0x0400)
-			or destination_file_metadata.st_size != len(payload)
-			or not same_open_file_identity(
-				destination_open_metadata,
-				destination_file_metadata,
+		with destination_parent_authority(destination_path.parent) as parent_descriptor:
+			if os.name == "nt":
+				destination_descriptor = os.open(destination_open_path, write_flags, 0o600)
+			else:
+				destination_descriptor = os.open(destination_path.name, write_flags, 0o600, dir_fd=parent_descriptor)
+			try:
+				destination_file = os.fdopen(destination_descriptor, "wb")
+			except BaseException as open_error:
+				try:
+					os.close(destination_descriptor)
+				except BaseException as close_error:
+					raise open_error from close_error
+				raise
+			with destination_file:
+				if destination_file.write(payload) != len(payload):
+					raise OSError("Parallel log destination write was incomplete.")
+				destination_file.flush()
+				destination_open_metadata = os.fstat(destination_file.fileno())
+			destination_file_metadata = os.stat(
+				destination_open_path,
+				follow_symlinks=False,
 			)
-			or not same_directory_chain_identity(destination_chain_before, destination_chain_after_write)
+			destination_chain_after_write = snapshot_real_directory_chain(
+				destination_managed_root,
+				destination_path.parent,
+			)
+			if (
+				not stat.S_ISREG(destination_file_metadata.st_mode)
+				or stat.S_ISLNK(destination_file_metadata.st_mode)
+				or bool(int(getattr(destination_file_metadata, "st_file_attributes", 0)) & 0x0400)
+				or destination_file_metadata.st_size != len(payload)
+				or not same_open_file_identity(
+					destination_open_metadata,
+					destination_file_metadata,
+				)
+				or not same_directory_chain_identity(destination_chain_before_write, destination_chain_after_write)
+			):
+				raise ValueError(f"Parallel log destination changed while writing: {relative.as_posix()}")
+		destination_files[destination_path] = destination_file_metadata
+	verify_source_tree()
+	for path, chain in destination_directories.items():
+		if not same_directory_chain_identity(chain, snapshot_real_directory_chain(destination_managed_root, path)):
+			raise ValueError("Parallel log destination directory tree changed during collection.")
+	for path, metadata in destination_files.items():
+		after = os.stat(extended_length_syscall_path(path), follow_symlinks=False)
+		if (
+			not same_file_identity(metadata, after)
+			or stat.S_ISLNK(after.st_mode)
+			or bool(int(getattr(after, "st_file_attributes", 0)) & 0x0400)
 		):
-			raise ValueError(f"Parallel log destination changed while writing: {entry_name}")
-	root_chain_after_copy = snapshot_real_directory_chain(managed_root, source_root)
-	if not same_directory_chain_snapshot(root_chain_before, root_chain_after_copy):
-		raise ValueError("Parallel log directory chain changed while files were collected.")
-	destination_chain_after_copy = snapshot_real_directory_chain(
-		destination_managed_root,
-		destination_root,
-	)
-	if not same_directory_chain_identity(destination_chain_before, destination_chain_after_copy):
-		raise ValueError("Parallel log destination directory chain changed while files were collected.")
+			raise ValueError("Parallel log destination file changed during collection.")
 
 
 def same_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
@@ -19938,6 +20067,10 @@ def run_main_with_log_hygiene() -> int:
 	)
 	original_argv = list(sys.argv)
 	normalized_argv = normalize_maintenance_cli_argv(original_argv)
+	configure_stdio()
+	maintenance_rendering.set_json_output_path(None)
+	parser = build_maintenance_cli_parser()
+	args = parser.parse_args(normalized_argv[1:])
 	keep_logs = "--keep-logs" in original_argv[1:] or maintenance_logs_kept_from_environment(
 		entry_process_environment
 	)
@@ -19965,7 +20098,7 @@ def run_main_with_log_hygiene() -> int:
 				)
 			)
 		with process_scope:
-			exit_code = main()
+			exit_code = main(args, parser=parser)
 	except BaseException as error:
 		primary_error = error
 		primary_traceback = safe_exception_traceback(error)
@@ -21273,46 +21406,21 @@ def read_asset_store_metadata() -> dict[str, Any]:
 
 
 def read_markdown_fields(path: Path) -> dict[str, str]:
-	fields: dict[str, str] = {}
 	if not path.exists():
-		return fields
-	for line in path.read_text(encoding="utf-8").splitlines():
-		match = MARKDOWN_FIELD_RE.match(line)
-		if match:
-			fields[match.group("name")] = match.group("value").strip()
-	return fields
+		return {}
+	return gf_release_notes.read_markdown_fields(path)
 
 
 def read_comma_separated_fenced_field(path: Path, field_name: str) -> list[str]:
-	text = read_fenced_field(path, field_name)
-	values: list[str] = []
-	for item in re.split(r"[,\n]", text):
-		value = item.strip()
-		if value:
-			values.append(value)
-	return values
+	if not path.exists():
+		return []
+	return gf_release_notes.read_comma_separated_fenced_field(path, field_name)
 
 
 def read_fenced_field(path: Path, field_name: str) -> str:
 	if not path.exists():
 		return ""
-	lines = path.read_text(encoding="utf-8").splitlines()
-	marker = f"- {field_name}:"
-	for index, line in enumerate(lines):
-		if line.strip() != marker:
-			continue
-		fence_start = -1
-		for candidate_index in range(index + 1, len(lines)):
-			if lines[candidate_index].strip().startswith("```"):
-				fence_start = candidate_index
-				break
-		if fence_start < 0:
-			return ""
-		for candidate_index in range(fence_start + 1, len(lines)):
-			if lines[candidate_index].strip().startswith("```"):
-				return "\n".join(lines[fence_start + 1:candidate_index]).strip()
-		return ""
-	return ""
+	return gf_release_notes.read_fenced_field(path, field_name)
 
 
 def audit_prebuilt_package_archive(release_artifacts: dict[str, Any]) -> dict[str, Any]:

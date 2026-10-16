@@ -150,7 +150,11 @@ func cancel() -> bool:
 ## [br]
 ## @return 首次完整配置成功返回 true。
 func configure_for_framework(request_id: int, cancel_delegate: Callable) -> bool:
-	if not Thread.is_main_thread() or _request_id != 0 or request_id <= 0:
+	if (
+		not Thread.is_main_thread()
+		or _request_id != 0
+		or request_id <= 0
+	):
 		return false
 	var invocation: GFWeakMethodInvocation = _make_weak_invocation(cancel_delegate)
 	if invocation == null:
@@ -175,10 +179,7 @@ func configure_for_framework(request_id: int, cancel_delegate: Callable) -> bool
 ## @param should_emit_signal: false 时只冻结终态，由 `emit_completed_for_framework()` 延后通知。
 ## [br]
 ## @return 首次完成成功返回 true。
-func complete_for_framework(
-	result: GFBgmStartResult,
-	should_emit_signal: bool = true
-) -> bool:
+func complete_for_framework(result: GFBgmStartResult, should_emit_signal: bool = true) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_pending()
@@ -228,10 +229,7 @@ func emit_completed_for_framework() -> bool:
 ## @api private
 ## [br]
 static func _make_weak_invocation(method_delegate: Callable) -> GFWeakMethodInvocation:
-	if (
-		not method_delegate.is_valid()
-		or method_delegate.get_bound_arguments_count() != 0
-	):
+	if (not method_delegate.is_valid() or method_delegate.get_bound_arguments_count() != 0):
 		return null
 	var delegate_owner: Object = method_delegate.get_object()
 	var delegate_method: StringName = method_delegate.get_method()

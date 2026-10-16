@@ -15,20 +15,20 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`progressed`](#member-gfasyncprogressaggregator-signals-progressed) | `signal progressed(value: float, message: String, metadata: Dictionary)` |
+| 信号 | [`progressed`](#member-gfasyncprogressaggregator-signals-progressed) | `signal progressed( value: float, message: String, metadata: Dictionary )` |
 | 属性 | [`allow_decrease`](#member-gfasyncprogressaggregator-properties-allow_decrease) | `var allow_decrease: bool = false` |
 | 属性 | [`min_delta`](#member-gfasyncprogressaggregator-properties-min_delta) | `var min_delta: float:` |
 | 属性 | [`min_interval_msec`](#member-gfasyncprogressaggregator-properties-min_interval_msec) | `var min_interval_msec: int:` |
 | 属性 | [`emit_on_message_change`](#member-gfasyncprogressaggregator-properties-emit_on_message_change) | `var emit_on_message_change: bool:` |
-| 方法 | [`add_task`](#member-gfasyncprogressaggregator-methods-add_task) | `func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {}) -> int:` |
+| 方法 | [`add_task`](#member-gfasyncprogressaggregator-methods-add_task) | `func add_task( task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {} ) -> int:` |
 | 方法 | [`has_task`](#member-gfasyncprogressaggregator-methods-has_task) | `func has_task(task_key: Variant) -> bool:` |
 | 方法 | [`get_task_index`](#member-gfasyncprogressaggregator-methods-get_task_index) | `func get_task_index(task_key: Variant) -> int:` |
-| 方法 | [`set_task_progress`](#member-gfasyncprogressaggregator-methods-set_task_progress) | `func set_task_progress(task_index: int, value: float, message: String = "", task_metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`set_task_progress_by_key`](#member-gfasyncprogressaggregator-methods-set_task_progress_by_key) | `func set_task_progress_by_key(task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`set_task_progress`](#member-gfasyncprogressaggregator-methods-set_task_progress) | `func set_task_progress( task_index: int, value: float, message: String = "", task_metadata: Dictionary = {} ) -> bool:` |
+| 方法 | [`set_task_progress_by_key`](#member-gfasyncprogressaggregator-methods-set_task_progress_by_key) | `func set_task_progress_by_key( task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`set_task_fraction`](#member-gfasyncprogressaggregator-methods-set_task_fraction) | `func set_task_fraction( task_index: int, completed: float, total: float, message: String = "", task_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`set_task_fraction_by_key`](#member-gfasyncprogressaggregator-methods-set_task_fraction_by_key) | `func set_task_fraction_by_key( task_key: Variant, completed: float, total: float, message: String = "", task_metadata: Dictionary = {} ) -> bool:` |
-| 方法 | [`complete_task`](#member-gfasyncprogressaggregator-methods-complete_task) | `func complete_task(task_index: int, message: String = "", task_metadata: Dictionary = {}) -> bool:` |
-| 方法 | [`complete_task_by_key`](#member-gfasyncprogressaggregator-methods-complete_task_by_key) | `func complete_task_by_key(task_key: Variant, message: String = "", task_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`complete_task`](#member-gfasyncprogressaggregator-methods-complete_task) | `func complete_task( task_index: int, message: String = "", task_metadata: Dictionary = {} ) -> bool:` |
+| 方法 | [`complete_task_by_key`](#member-gfasyncprogressaggregator-methods-complete_task_by_key) | `func complete_task_by_key( task_key: Variant, message: String = "", task_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`complete_all`](#member-gfasyncprogressaggregator-methods-complete_all) | `func complete_all(message: String = "", metadata: Dictionary = {}) -> bool:` |
 | 方法 | [`reset`](#member-gfasyncprogressaggregator-methods-reset) | `func reset(clear_tasks: bool = false) -> void:` |
 | 方法 | [`get_total_progress`](#member-gfasyncprogressaggregator-methods-get_total_progress) | `func get_total_progress() -> float:` |
@@ -47,7 +47,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal progressed(value: float, message: String, metadata: Dictionary)
+signal progressed( value: float, message: String, metadata: Dictionary )
 ```
 
 总进度通过节流条件并对外发布时发出。
@@ -128,7 +128,7 @@ var emit_on_message_change: bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func add_task(task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {}) -> int:
+func add_task( task_key: Variant = null, weight: float = 1.0, task_metadata: Dictionary = {} ) -> int:
 ```
 
 添加一个子任务，并返回任务索引。 如果 task_key 非 null 且已经存在，返回既有任务索引，不修改既有任务。权重会夹到不小于 0。
@@ -206,7 +206,7 @@ func get_task_index(task_key: Variant) -> int:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_task_progress(task_index: int, value: float, message: String = "", task_metadata: Dictionary = {}) -> bool:
+func set_task_progress( task_index: int, value: float, message: String = "", task_metadata: Dictionary = {} ) -> bool:
 ```
 
 设置指定任务的 0 到 1 进度。
@@ -234,7 +234,7 @@ func set_task_progress(task_index: int, value: float, message: String = "", task
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_task_progress_by_key(task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {}) -> bool:
+func set_task_progress_by_key( task_key: Variant, value: float, message: String = "", task_metadata: Dictionary = {} ) -> bool:
 ```
 
 通过任务 key 设置 0 到 1 进度。
@@ -322,7 +322,7 @@ func set_task_fraction_by_key( task_key: Variant, completed: float, total: float
 - 首次版本：`8.0.0`
 
 ```gdscript
-func complete_task(task_index: int, message: String = "", task_metadata: Dictionary = {}) -> bool:
+func complete_task( task_index: int, message: String = "", task_metadata: Dictionary = {} ) -> bool:
 ```
 
 将指定任务标记为完成。
@@ -349,7 +349,7 @@ func complete_task(task_index: int, message: String = "", task_metadata: Diction
 - 首次版本：`8.0.0`
 
 ```gdscript
-func complete_task_by_key(task_key: Variant, message: String = "", task_metadata: Dictionary = {}) -> bool:
+func complete_task_by_key( task_key: Variant, message: String = "", task_metadata: Dictionary = {} ) -> bool:
 ```
 
 通过任务 key 标记任务完成。

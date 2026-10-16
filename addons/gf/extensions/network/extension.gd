@@ -31,8 +31,8 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 		return
 	if architecture.get_local_utility(_GF_NETWORK_UTILITY_SCRIPT) != null:
 		if architecture.get_local_utility(_GF_NETWORK_LOBBY_SERVICE_SCRIPT) == null:
-			var _registered_lobby_only: bool = await architecture.register_utility_instance(_GF_NETWORK_LOBBY_SERVICE_SCRIPT.new())
+			var _registered_lobby_only: bool = await (architecture.register_utility_instance(_GF_NETWORK_LOBBY_SERVICE_SCRIPT.new()))
 		return
 	var _registered_network: bool = await architecture.register_utility_instance(_GF_NETWORK_UTILITY_SCRIPT.new())
 	if architecture.get_local_utility(_GF_NETWORK_LOBBY_SERVICE_SCRIPT) == null:
-		var _registered_lobby: bool = await architecture.register_utility_instance(_GF_NETWORK_LOBBY_SERVICE_SCRIPT.new())
+		var _registered_lobby: bool = await (architecture.register_utility_instance(_GF_NETWORK_LOBBY_SERVICE_SCRIPT.new()))

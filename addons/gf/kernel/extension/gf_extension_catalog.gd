@@ -68,7 +68,11 @@ static var _last_manifest_load_errors: Array[Dictionary] = []
 static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtensionManifest]:
 	_clear_last_manifest_load_errors()
 	var budget_state: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
-	return _load_manifests_in(EXTENSIONS_PATH, options, budget_state)
+	return _load_manifests_in(
+		EXTENSIONS_PATH,
+		options,
+		budget_state
+	)
 
 
 ## 读取所有 GF 可选扩展 manifest。
@@ -84,10 +88,7 @@ static func load_extension_manifests(options: Dictionary = {}) -> Array[GFExtens
 ## @schema options: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
 ## [br]
 ## @return 扩展 manifest 列表。
-static func load_all_manifests(
-	extra_root_paths: Array[String] = [],
-	options: Dictionary = {}
-) -> Array[GFExtensionManifest]:
+static func load_all_manifests(extra_root_paths: Array[String] = [], options: Dictionary = {}) -> Array[GFExtensionManifest]:
 	_clear_last_manifest_load_errors()
 	var budget_state: Dictionary = _get_or_make_budget_state(options)
 	var manifests: Array[GFExtensionManifest] = _load_manifests_in(
@@ -96,7 +97,13 @@ static func load_all_manifests(
 		budget_state
 	)
 	for root_path: String in _normalize_root_paths(extra_root_paths):
-		manifests.append_array(_load_manifests_in(root_path, options, budget_state))
+		manifests.append_array(
+			_load_manifests_in(
+				root_path,
+				options,
+				budget_state
+			)
+		)
 	return manifests
 
 
@@ -113,10 +120,7 @@ static func load_all_manifests(
 ## @schema options: Dictionary，支持 max_json_file_bytes、max_json_total_bytes 和 max_json_depth。
 ## [br]
 ## @return 扩展 manifest 列表。
-static func load_manifests_in(
-	root_path: String,
-	options: Dictionary = {}
-) -> Array[GFExtensionManifest]:
+static func load_manifests_in(root_path: String, options: Dictionary = {}) -> Array[GFExtensionManifest]:
 	_clear_last_manifest_load_errors()
 	var budget_state: Dictionary = _GF_EXTENSION_JSON_FILE_READER_SCRIPT.make_budget_state(options)
 	return _load_manifests_in(
@@ -211,41 +215,42 @@ static func _read_manifest_with_diagnostics(
 		_make_manifest_json_reader_options(options),
 		budget_state
 	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(json_report, "ok", false):
-		var errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
-			json_report,
-			"errors"
-		)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		json_report,
+		"ok",
+		false
+	):
+		var errors: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(json_report, "errors")
 		if errors.is_empty():
 			errors.append("could not read manifest")
 		for error: String in errors:
 			_record_manifest_load_error(path, error)
 		return null
-	var parsed_dictionary: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		json_report,
-		"data"
+	var parsed_dictionary: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(json_report, "data")
+	return GFExtensionManifestBase.from_dictionary(
+		parsed_dictionary,
+		path.get_base_dir(),
+		path
 	)
-	return GFExtensionManifestBase.from_dictionary(parsed_dictionary, path.get_base_dir(), path)
 
 
 ## 以规范化资源路径和单条错误消息追加 manifest 读取诊断。
 ## [br]
 ## @api private
 static func _record_manifest_load_error(path: String, message: String) -> void:
-	_last_manifest_load_errors.append({
-		"source_path": _GF_PATH_TOOLS.normalize_resource_path(path),
-		"errors": [message],
-	})
+	_last_manifest_load_errors.append(
+		{
+			"source_path": _GF_PATH_TOOLS.normalize_resource_path(path),
+			"errors": [message],
+		}
+	)
 
 
 ## 若 options 中的 json_budget_state 是 Dictionary 则返回它，否则创建新预算状态。
 ## [br]
 ## @api private
 static func _get_or_make_budget_state(options: Dictionary) -> Dictionary:
-	var raw_budget_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		options,
-		"json_budget_state"
-	)
+	var raw_budget_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "json_budget_state")
 	if raw_budget_state is Dictionary:
 		var budget_state: Dictionary = raw_budget_state
 		return budget_state
@@ -257,13 +262,16 @@ static func _get_or_make_budget_state(options: Dictionary) -> Dictionary:
 ## @api private
 static func _make_manifest_json_reader_options(options: Dictionary) -> Dictionary:
 	var reader_options: Dictionary = options.duplicate(true)
-	reader_options.merge({
-		"empty_path_error": "manifest path is empty",
-		"open_error_prefix": "could not open manifest",
-		"read_error_prefix": "could not read manifest",
-		"parse_error_prefix": "could not parse manifest JSON",
-		"root_type_error": "manifest JSON root must be an object",
-	}, true)
+	reader_options.merge(
+		{
+			"empty_path_error": "manifest path is empty",
+			"open_error_prefix": "could not open manifest",
+			"read_error_prefix": "could not read manifest",
+			"parse_error_prefix": "could not parse manifest JSON",
+			"root_type_error": "manifest JSON root must be an object",
+		},
+		true
+	)
 	return reader_options
 
 

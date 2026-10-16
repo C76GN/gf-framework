@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`property_changed`](#member-gfpropertybagcapability-signals-property_changed) | `signal property_changed(key: StringName, old_value: Variant, new_value: Variant)` |
+| 信号 | [`property_changed`](#member-gfpropertybagcapability-signals-property_changed) | `signal property_changed( key: StringName, old_value: Variant, new_value: Variant )` |
 | 信号 | [`property_removed`](#member-gfpropertybagcapability-signals-property_removed) | `signal property_removed(key: StringName, old_value: Variant)` |
 | 属性 | [`values`](#member-gfpropertybagcapability-properties-values) | `var values: Dictionary:` |
 | 方法 | [`set_property_value`](#member-gfpropertybagcapability-methods-set_property_value) | `func set_property_value(key: StringName, value: Variant) -> void:` |
@@ -37,9 +37,10 @@
 ### `property_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal property_changed(key: StringName, old_value: Variant, new_value: Variant)
+signal property_changed( key: StringName, old_value: Variant, new_value: Variant )
 ```
 
 当属性值发生变化时发出。

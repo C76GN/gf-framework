@@ -117,7 +117,10 @@ var _offset: int = 0
 static func from_table(table: GFConfigTableResource, duplicate_records: bool = true) -> GFConfigTableQuery:
 	var query: GFConfigTableQuery = GFConfigTableQuery.new()
 	if table != null:
-		var _set_records_result: GFConfigTableQuery = query.set_records(table.get_records(duplicate_records), false)
+		var _set_records_result: GFConfigTableQuery = query.set_records(
+			table.get_records(duplicate_records),
+			false
+		)
 	return query
 
 
@@ -190,7 +193,11 @@ func clear_query() -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_eq(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.EQ, path, value)
+	return _add_value_filter(
+		Operator.EQ,
+		path,
+		value
+	)
 
 
 ## 添加不等值过滤。
@@ -207,7 +214,11 @@ func where_eq(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_ne(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.NE, path, value)
+	return _add_value_filter(
+		Operator.NE,
+		path,
+		value
+	)
 
 
 ## 添加大于过滤。
@@ -224,7 +235,11 @@ func where_ne(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_gt(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.GT, path, value)
+	return _add_value_filter(
+		Operator.GT,
+		path,
+		value
+	)
 
 
 ## 添加大于等于过滤。
@@ -241,7 +256,11 @@ func where_gt(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_gte(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.GTE, path, value)
+	return _add_value_filter(
+		Operator.GTE,
+		path,
+		value
+	)
 
 
 ## 添加小于过滤。
@@ -258,7 +277,11 @@ func where_gte(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_lt(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.LT, path, value)
+	return _add_value_filter(
+		Operator.LT,
+		path,
+		value
+	)
 
 
 ## 添加小于等于过滤。
@@ -275,7 +298,11 @@ func where_lt(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_lte(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.LTE, path, value)
+	return _add_value_filter(
+		Operator.LTE,
+		path,
+		value
+	)
 
 
 ## 添加集合包含过滤。
@@ -292,7 +319,11 @@ func where_lte(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @schema candidate_values: Array，筛选候选值。
 func where_in(path: String, candidate_values: Array) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.IN, path, candidate_values.duplicate(true))
+	return _add_value_filter(
+		Operator.IN,
+		path,
+		candidate_values.duplicate(true)
+	)
 
 
 ## 添加字段包含过滤。
@@ -309,7 +340,11 @@ func where_in(path: String, candidate_values: Array) -> GFConfigTableQuery:
 ## [br]
 ## @schema value: Variant，筛选目标值。
 func where_contains(path: String, value: Variant) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.CONTAINS, path, value)
+	return _add_value_filter(
+		Operator.CONTAINS,
+		path,
+		value
+	)
 
 
 ## 添加字段存在性过滤。
@@ -324,7 +359,11 @@ func where_contains(path: String, value: Variant) -> GFConfigTableQuery:
 ## [br]
 ## @return 当前查询器。
 func where_exists(path: String, exists: bool = true) -> GFConfigTableQuery:
-	return _add_value_filter(Operator.EXISTS, path, exists)
+	return _add_value_filter(
+		Operator.EXISTS,
+		path,
+		exists
+	)
 
 
 ## 添加自定义记录过滤。
@@ -341,12 +380,14 @@ func where_exists(path: String, exists: bool = true) -> GFConfigTableQuery:
 func where_predicate(predicate: Callable, description: StringName = &"") -> GFConfigTableQuery:
 	if not predicate.is_valid():
 		return self
-	_filters.append({
-		"operator": Operator.PREDICATE,
-		"path": "",
-		"value": predicate,
-		"description": description,
-	})
+	_filters.append(
+		{
+			"operator": Operator.PREDICATE,
+			"path": "",
+			"value": predicate,
+			"description": description,
+		}
+	)
 	return self
 
 
@@ -378,7 +419,11 @@ static func condition(
 	return {
 		"operator": operator,
 		"path": path,
-		"value": GFVariantData.duplicate_variant(value, true, false),
+		"value": GFVariantData.duplicate_variant(
+			value,
+			true,
+			false
+		),
 		"description": description,
 	}
 
@@ -416,7 +461,11 @@ func where_filter(condition_data: Dictionary) -> GFConfigTableQuery:
 ## [br]
 ## @schema conditions: Array[Dictionary]，每个元素通常由 condition() 创建。
 func where_any(conditions: Array[Dictionary], description: StringName = &"") -> GFConfigTableQuery:
-	return _add_condition_group(Operator.ANY, conditions, description)
+	return _add_condition_group(
+		Operator.ANY,
+		conditions,
+		description
+	)
 
 
 ## 添加所有条件都不匹配过滤。
@@ -433,7 +482,11 @@ func where_any(conditions: Array[Dictionary], description: StringName = &"") -> 
 ## [br]
 ## @schema conditions: Array[Dictionary]，每个元素通常由 condition() 创建。
 func where_none(conditions: Array[Dictionary], description: StringName = &"") -> GFConfigTableQuery:
-	return _add_condition_group(Operator.NONE, conditions, description)
+	return _add_condition_group(
+		Operator.NONE,
+		conditions,
+		description
+	)
 
 
 ## 设置排序字段。
@@ -564,7 +617,11 @@ func values(path: String = "", duplicate_values: bool = true) -> Array:
 ## @schema default_value: Variant，路径不存在时返回的默认值。
 ## [br]
 ## @schema return: Variant，读取到的值或默认值。
-static func read_path(source: Variant, path: String, default_value: Variant = null) -> Variant:
+static func read_path(
+	source: Variant,
+	path: String,
+	default_value: Variant = null
+) -> Variant:
 	var read_result: Dictionary = _read_path(source, path)
 	if GFVariantData.get_option_bool(read_result, "found"):
 		return GFVariantData.get_option_value(read_result, "value")
@@ -601,16 +658,26 @@ func describe_query() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _add_value_filter(operator: Operator, path: String, value: Variant) -> GFConfigTableQuery:
+func _add_value_filter(
+	operator: Operator,
+	path: String,
+	value: Variant
+) -> GFConfigTableQuery:
 	var normalized_path: String = path.strip_edges()
 	if normalized_path.is_empty():
 		return self
-	_filters.append({
-		"operator": operator,
-		"path": normalized_path,
-		"value": GFVariantData.duplicate_variant(value, true, false),
-		"description": &"",
-	})
+	_filters.append(
+		{
+			"operator": operator,
+			"path": normalized_path,
+			"value": GFVariantData.duplicate_variant(
+				value,
+				true,
+				false
+			),
+			"description": &"",
+		}
+	)
 	return self
 
 
@@ -626,13 +693,15 @@ func _add_condition_group(
 	var normalized_filters: Array[Dictionary] = _normalize_condition_array(conditions)
 	if normalized_filters.is_empty():
 		return self
-	_filters.append({
-		"operator": operator,
-		"path": "",
-		"value": null,
-		"filters": normalized_filters,
-		"description": description,
-	})
+	_filters.append(
+		{
+			"operator": operator,
+			"path": "",
+			"value": null,
+			"filters": normalized_filters,
+			"description": description,
+		}
+	)
 	return self
 
 
@@ -664,16 +733,33 @@ func _record_matches(record: Dictionary) -> bool:
 ## @api private
 ## [br]
 func _filter_matches(record: Dictionary, filter: Dictionary) -> bool:
-	var operator: int = GFVariantData.get_option_int(filter, "operator", Operator.EQ)
+	var operator: int = GFVariantData.get_option_int(
+		filter,
+		"operator",
+		Operator.EQ
+	)
 	if operator == Operator.PREDICATE:
 		var predicate: Callable = _variant_to_callable(GFVariantData.get_option_value(filter, "value"))
-		return predicate.is_valid() and GFVariantData.to_bool(predicate.call(record.duplicate(true)), false)
+		return predicate.is_valid() and GFVariantData.to_bool(
+			predicate.call(record.duplicate(true)),
+			false
+		)
 	if operator == Operator.ANY:
-		return _any_child_filter_matches(record, GFVariantData.get_option_array(filter, "filters"))
+		return _any_child_filter_matches(
+			record,
+			GFVariantData.get_option_array(filter, "filters")
+		)
 	if operator == Operator.NONE:
-		return not _any_child_filter_matches(record, GFVariantData.get_option_array(filter, "filters"))
+		return not _any_child_filter_matches(
+			record,
+			GFVariantData.get_option_array(filter, "filters")
+		)
 
-	var path: String = GFVariantData.get_option_string(filter, "path", "")
+	var path: String = GFVariantData.get_option_string(
+		filter,
+		"path",
+		""
+	)
 	var value: Variant = GFVariantData.get_option_value(filter, "value")
 	var read_result: Dictionary = _read_path(record, path)
 	var found: bool = GFVariantData.get_option_bool(read_result, "found")
@@ -743,10 +829,16 @@ func _compare_records(left_record: Dictionary, right_record: Dictionary) -> bool
 ## [br]
 func _slice_records(records: Array[Dictionary], duplicate_records: bool) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var start_index: int = mini(_offset, records.size())
+	var start_index: int = mini(
+		_offset,
+		records.size()
+	)
 	var end_index: int = records.size()
 	if _limit >= 0:
-		end_index = mini(start_index + _limit, records.size())
+		end_index = mini(
+			start_index + _limit,
+			records.size()
+		)
 	for index: int in range(start_index, end_index):
 		var record: Dictionary = records[index]
 		result.append(record.duplicate(true) if duplicate_records else record)
@@ -761,8 +853,16 @@ func _normalize_filter_condition(condition_data: Dictionary) -> Dictionary:
 	if condition_data.is_empty():
 		return {}
 
-	var operator: int = GFVariantData.get_option_int(condition_data, "operator", Operator.EQ)
-	var description: StringName = GFVariantData.get_option_string_name(condition_data, "description", &"")
+	var operator: int = GFVariantData.get_option_int(
+		condition_data,
+		"operator",
+		Operator.EQ
+	)
+	var description: StringName = GFVariantData.get_option_string_name(
+		condition_data,
+		"description",
+		&""
+	)
 	if operator == Operator.PREDICATE:
 		var predicate: Callable = _variant_to_callable(GFVariantData.get_option_value(condition_data, "value"))
 		if not predicate.is_valid():
@@ -797,7 +897,11 @@ func _normalize_filter_condition(condition_data: Dictionary) -> Dictionary:
 	return {
 		"operator": operator,
 		"path": path,
-		"value": GFVariantData.duplicate_variant(GFVariantData.get_option_value(condition_data, "value"), true, false),
+		"value": GFVariantData.duplicate_variant(
+			GFVariantData.get_option_value(condition_data, "value"),
+			true,
+			false
+		),
 		"description": description,
 	}
 
@@ -821,12 +925,24 @@ func _normalize_condition_array(conditions: Array) -> Array[Dictionary]:
 ## @api private
 ## [br]
 func _describe_filter(filter: Dictionary) -> Dictionary:
-	var operator: int = GFVariantData.get_option_int(filter, "operator", Operator.EQ)
+	var operator: int = GFVariantData.get_option_int(
+		filter,
+		"operator",
+		Operator.EQ
+	)
 	var description: Dictionary = {
 		"operator": operator,
 		"operator_name": Operator.keys()[operator] if operator >= 0 and operator < Operator.size() else "UNKNOWN",
-		"path": GFVariantData.get_option_string(filter, "path", ""),
-		"description": GFVariantData.get_option_string_name(filter, "description", &""),
+		"path": GFVariantData.get_option_string(
+			filter,
+			"path",
+			""
+		),
+		"description": GFVariantData.get_option_string_name(
+			filter,
+			"description",
+			&""
+		),
 	}
 	if operator == Operator.ANY or operator == Operator.NONE:
 		var child_descriptions: Array[Dictionary] = []
@@ -845,24 +961,15 @@ func _describe_filter(filter: Dictionary) -> Dictionary:
 static func _read_path(source: Variant, path: String) -> Dictionary:
 	var normalized_path: String = path.strip_edges()
 	if normalized_path.is_empty():
-		return {
-			"found": true,
-			"value": source,
-		}
+		return { "found": true, "value": source, }
 
 	var current: Variant = source
 	for segment: String in normalized_path.split(".", false):
 		var segment_result: Dictionary = _read_segment(current, segment)
 		if not GFVariantData.get_option_bool(segment_result, "found"):
-			return {
-				"found": false,
-				"value": null,
-			}
+			return { "found": false, "value": null, }
 		current = GFVariantData.get_option_value(segment_result, "value")
-	return {
-		"found": true,
-		"value": current,
-	}
+	return { "found": true, "value": current, }
 
 
 ## 从字典、数组或对象中读取一个字段路径片段。
@@ -871,35 +978,20 @@ static func _read_path(source: Variant, path: String) -> Dictionary:
 ## [br]
 static func _read_segment(source: Variant, segment: String) -> Dictionary:
 	if typeof(source) == TYPE_OBJECT and not is_instance_valid(source):
-		return {
-			"found": false,
-			"value": null,
-		}
+		return { "found": false, "value": null, }
 
 	if source is Dictionary:
 		var dictionary: Dictionary = source
 		if _dictionary_has_key(dictionary, segment):
-			return {
-				"found": true,
-				"value": _get_dictionary_value(dictionary, segment),
-			}
-		return {
-			"found": false,
-			"value": null,
-		}
+			return { "found": true, "value": _get_dictionary_value(dictionary, segment), }
+		return { "found": false, "value": null, }
 
 	if source is Array:
 		var source_array: Array = source
 		var array_index: int = _parse_non_negative_index(segment)
 		if array_index >= 0 and array_index < source_array.size():
-			return {
-				"found": true,
-				"value": source_array[array_index],
-			}
-		return {
-			"found": false,
-			"value": null,
-		}
+			return { "found": true, "value": source_array[array_index], }
+		return { "found": false, "value": null, }
 
 	if typeof(source) == TYPE_OBJECT:
 		var object_ref: Object = source
@@ -907,14 +999,8 @@ static func _read_segment(source: Variant, segment: String) -> Dictionary:
 			var raw_property_name: Variant = GFVariantData.get_option_value(property_info, "name")
 			var property_name: String = GFVariantData.to_text(raw_property_name)
 			if property_name == segment:
-				return {
-					"found": true,
-					"value": object_ref.get(segment),
-				}
-	return {
-		"found": false,
-		"value": null,
-	}
+				return { "found": true, "value": object_ref.get(segment), }
+	return { "found": false, "value": null, }
 
 
 ## 检查字典是否含 String 键或对应的 StringName 键。
@@ -951,7 +1037,11 @@ static func _parse_non_negative_index(text: String) -> int:
 ## @api private
 ## [br]
 static func _compare_values(left: Variant, right: Variant) -> int:
-	if GFVariantData.values_equal(left, right, { "match_string_names": true }):
+	if GFVariantData.values_equal(
+		left,
+		right,
+		{ "match_string_names": true }
+	):
 		return 0
 
 	if _is_number(left) and _is_number(right):

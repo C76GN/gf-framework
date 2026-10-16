@@ -20,7 +20,7 @@ Curve2D 与折线的纯算法辅助。 提供路径长度、归一化采样、�
 | 方法 | [`sample_polyline`](#member-gfcurve2dmath-methods-sample_polyline) | `static func sample_polyline( points: PackedVector2Array, ratio: float, total_length: float = -1.0 ) -> Vector2:` |
 | 方法 | [`sample_polyline_pose`](#member-gfcurve2dmath-methods-sample_polyline_pose) | `static func sample_polyline_pose( points: PackedVector2Array, ratio: float, closed: bool = false, total_length: float = -1.0 ) -> Dictionary:` |
 | 方法 | [`project_point_to_polyline`](#member-gfcurve2dmath-methods-project_point_to_polyline) | `static func project_point_to_polyline( points: PackedVector2Array, target: Vector2, closed: bool = false ) -> Dictionary:` |
-| 方法 | [`sample_curve`](#member-gfcurve2dmath-methods-sample_curve) | `static func sample_curve(curve: Curve2D, ratio: float, cubic: bool = false) -> Vector2:` |
+| 方法 | [`sample_curve`](#member-gfcurve2dmath-methods-sample_curve) | `static func sample_curve( curve: Curve2D, ratio: float, cubic: bool = false ) -> Vector2:` |
 | 方法 | [`create_smooth_polyline_curve`](#member-gfcurve2dmath-methods-create_smooth_polyline_curve) | `static func create_smooth_polyline_curve( points: PackedVector2Array, tension: float = 1.0, closed: bool = false ) -> Curve2D:` |
 | 方法 | [`set_smooth_polyline_curve`](#member-gfcurve2dmath-methods-set_smooth_polyline_curve) | `static func set_smooth_polyline_curve( curve: Curve2D, points: PackedVector2Array, tension: float = 1.0, closed: bool = false ) -> Curve2D:` |
 | 方法 | [`create_meandered_polyline`](#member-gfcurve2dmath-methods-create_meandered_polyline) | `static func create_meandered_polyline(points: PackedVector2Array, options: Dictionary = {}) -> Dictionary:` |
@@ -151,9 +151,10 @@ static func project_point_to_polyline( points: PackedVector2Array, target: Vecto
 ### `sample_curve`
 
 - API：`public`
+- 首次版本：`3.19.0`
 
 ```gdscript
-static func sample_curve(curve: Curve2D, ratio: float, cubic: bool = false) -> Vector2:
+static func sample_curve( curve: Curve2D, ratio: float, cubic: bool = false ) -> Vector2:
 ```
 
 按 0 到 1 的比例采样 Curve2D 的 baked 路径。

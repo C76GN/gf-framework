@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSource" path="addons/gf/extensions/save/core/gf_save_source.gd" module="extensions/save" extends="Node" classDigest="0def7317b52b86a937e989aa92ee29dd8607363a5af2498d3498a7a4aca6985f">
+<class name="GFSaveSource" path="addons/gf/extensions/save/core/gf_save_source.gd" module="extensions/save" extends="Node" classDigest="6772204f1d09e1ec5e6cca9242c0e84b91d1111f244291ec7fae0bc0360731d2">
 	<description>GFSaveSource: 存档图数据源节点。
 Source 是存档图的最小数据入口。项目可继承并重写 gather/apply，
 也可配置节点序列化器保存通用节点属性。</description>
@@ -145,7 +145,7 @@ Source 是存档图的最小数据入口。项目可继承并重写 gather/apply
 			</tags>
 		</member>
 		<member kind="method" name="_gather_save_data">
-			<signature>func _gather_save_data( context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null ) -&gt; Variant:</signature>
+			<signature>func _gather_save_data(context: Dictionary = {}, serializer_registry: GFNodeSerializerRegistry = null) -&gt; Variant:</signature>
 			<description>采集保存数据。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -154,6 +154,7 @@ Source 是存档图的最小数据入口。项目可继承并重写 gather/apply
 				<tag name="return">可写入存档的数据。</tag>
 				<tag name="schema">context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
 				<tag name="schema">return: Variant，通常为 Dictionary；默认实现返回包含 serializers: Array[Dictionary] 的载荷，或空 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_save_data">

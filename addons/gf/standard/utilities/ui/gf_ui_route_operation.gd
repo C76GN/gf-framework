@@ -251,7 +251,11 @@ func configure_for_framework(
 ## [br]
 ## @return 首次关联成功返回 true。
 func attach_preload_session_for_framework(session: GFAssetLoadSession) -> bool:
-	if not is_pending() or session == null or _preload_session != null:
+	if (
+		not is_pending()
+		or session == null
+		or _preload_session != null
+	):
 		return false
 	_preload_session = session
 	return true

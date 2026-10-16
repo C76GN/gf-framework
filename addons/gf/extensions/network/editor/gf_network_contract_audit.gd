@@ -85,19 +85,44 @@ const _ABSOLUTE_MAX_CHANNEL_ID_LENGTH: int = 1024
 func audit_contract(contract: GFNetworkContract, options: Dictionary = {}) -> Dictionary:
 	var issues: Array[Dictionary] = []
 	if contract == null:
-		issues.append(_make_issue("error", "contract_missing", "Network contract is missing."))
+		issues.append(
+			_make_issue(
+				"error",
+				"contract_missing",
+				"Network contract is missing."
+			)
+		)
 		return _finalize_report(&"", issues)
 	var input_budget_issue: Dictionary = _get_contract_audit_input_budget_issue(options)
 	if not input_budget_issue.is_empty():
 		return _finalize_report(
 			contract.contract_id,
-			_copy_issues([input_budget_issue], &"input_budget")
+			_copy_issues(
+				[input_budget_issue],
+				&"input_budget"
+			)
 		)
 
-	issues.append_array(_copy_issues(GFVariantData.get_option_array(contract.validate_contract(), "issues"), &"definition"))
+	issues.append_array(
+		_copy_issues(
+			GFVariantData.get_option_array(
+				contract.validate_contract(),
+				"issues"
+			),
+			&"definition"
+		)
+	)
 	var policy_issues: Array[Dictionary] = []
-	_append_contract_policy_issues(contract, options, policy_issues)
-	_append_message_policy_issues(contract, options, policy_issues)
+	_append_contract_policy_issues(
+		contract,
+		options,
+		policy_issues
+	)
+	_append_message_policy_issues(
+		contract,
+		options,
+		policy_issues
+	)
 	issues.append_array(_copy_issues(policy_issues, &"policy"))
 	return _finalize_report(contract.contract_id, issues)
 
@@ -129,18 +154,22 @@ func audit_paths(contract_paths: PackedStringArray, options: Dictionary = {}) ->
 		_ABSOLUTE_MAX_CONTRACT_PATHS
 	)
 	if max_contract_paths < 0:
-		issues.append(_make_issue(
-			"error",
-			"invalid_audit_options",
-			"max_contract_paths must be a positive integer.",
-			{ "path": "max_contract_paths" }
-		))
+		issues.append(
+			_make_issue(
+				"error",
+				"invalid_audit_options",
+				"max_contract_paths must be a positive integer.",
+				{ "path": "max_contract_paths" }
+			)
+		)
 	elif contract_paths.size() > max_contract_paths:
-		issues.append(_make_audit_budget_issue(
-			"contract_path_count",
-			max_contract_paths,
-			contract_paths.size()
-		))
+		issues.append(
+			_make_audit_budget_issue(
+				"contract_path_count",
+				max_contract_paths,
+				contract_paths.size()
+			)
+		)
 	if not issues.is_empty():
 		return _finalize_paths_report(contract_count, issues)
 	for path: String in contract_paths:
@@ -151,31 +180,32 @@ func audit_paths(contract_paths: PackedStringArray, options: Dictionary = {}) ->
 		seen_input_paths[input_identity] = true
 		var resource: Resource = ResourceLoader.load(normalized_path)
 		if not (resource is GFNetworkContract):
-			issues.append(_make_issue(
-				"error",
-				"contract_load_failed",
-				"Network contract path did not load a GFNetworkContract resource.",
-				{
-					"path": normalized_path,
-					"resource_path": normalized_path,
-				}
-			))
+			issues.append(
+				_make_issue(
+					"error",
+					"contract_load_failed",
+					"Network contract path did not load a GFNetworkContract resource.",
+					{ "path": normalized_path, "resource_path": normalized_path, }
+				)
+			)
 			continue
 		var contract: GFNetworkContract = resource
-		var canonical_resource_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(
-			contract.resource_path,
-			normalized_path
-		)
+		var canonical_resource_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(contract.resource_path, normalized_path)
 		var resource_identity: String = canonical_resource_path.to_lower()
 		if seen_resource_paths.has(resource_identity):
 			continue
 		seen_resource_paths[resource_identity] = true
 		contract_count += 1
-		issues.append_array(_copy_issues(
-			GFVariantData.get_option_array(audit_contract(contract, options), "issues"),
-			&"path_audit",
-			{ "resource_path": canonical_resource_path }
-		))
+		issues.append_array(
+			_copy_issues(
+				GFVariantData.get_option_array(
+					audit_contract(contract, options),
+					"issues"
+				),
+				&"path_audit",
+				{ "resource_path": canonical_resource_path }
+			)
+		)
 
 	return _finalize_paths_report(contract_count, issues)
 
@@ -213,10 +243,7 @@ func _get_contract_audit_input_budget_issue(options: Dictionary) -> Dictionary:
 			"max_channel_id_length must be a positive integer.",
 			{ "path": "max_channel_id_length" }
 		)
-	var known_channel_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
-		options,
-		"known_channel_ids"
-	)
+	var known_channel_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "known_channel_ids")
 	if known_channel_ids.size() > max_known_channel_ids:
 		return _make_audit_budget_issue(
 			"known_channel_id_count",
@@ -272,6 +299,7 @@ func _make_audit_budget_issue(
 		}
 	)
 
+
 ## 根据契约 ID、版本、消息列表及消息数预算追加契约级审计问题。
 ## [br]
 ## @api private
@@ -281,24 +309,59 @@ func _append_contract_policy_issues(
 	options: Dictionary,
 	issues: Array[Dictionary]
 ) -> void:
-	if GFVariantData.get_option_bool(options, "require_contract_id", true) and contract.contract_id == &"":
-		issues.append(_make_issue("error", "contract_id_missing", "Network contract should declare a stable contract_id."))
-	if GFVariantData.get_option_bool(options, "require_version", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"require_contract_id",
+		true
+	) and contract.contract_id == &"":
+		issues.append(
+			_make_issue(
+				"error",
+				"contract_id_missing",
+				"Network contract should declare a stable contract_id."
+			)
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"require_version",
+		true
+	):
 		if contract.contract_version_major <= 0 and contract.contract_version_minor <= 0:
-			issues.append(_make_issue("warning", "contract_version_missing", "Network contract should declare a non-zero version before production use.", {
-				"contract_id": contract.contract_id,
-			}))
+			issues.append(
+				_make_issue(
+					"warning",
+					"contract_version_missing",
+					"Network contract should declare a non-zero version before production use.",
+					{ "contract_id": contract.contract_id, }
+				)
+			)
 	if contract.messages.is_empty():
-		issues.append(_make_issue("warning", "no_messages", "Network contract does not declare any messages.", {
-			"contract_id": contract.contract_id,
-		}))
-	var max_messages: int = GFVariantData.get_option_int(options, "max_messages", 0)
+		issues.append(
+			_make_issue(
+				"warning",
+				"no_messages",
+				"Network contract does not declare any messages.",
+				{ "contract_id": contract.contract_id, }
+			)
+		)
+	var max_messages: int = GFVariantData.get_option_int(
+		options,
+		"max_messages",
+		0
+	)
 	if max_messages > 0 and contract.messages.size() > max_messages:
-		issues.append(_make_issue("warning", "message_count_above_budget", "Network contract declares more messages than the configured audit budget.", {
-			"contract_id": contract.contract_id,
-			"expected_value": max_messages,
-			"actual_value": contract.messages.size(),
-		}))
+		issues.append(
+			_make_issue(
+				"warning",
+				"message_count_above_budget",
+				"Network contract declares more messages than the configured audit budget.",
+				{
+					"contract_id": contract.contract_id,
+					"expected_value": max_messages,
+					"actual_value": contract.messages.size(),
+				}
+			)
+		)
 
 
 ## 检查消息频道声明、已知频道、字段存在性及字段数预算。
@@ -311,41 +374,79 @@ func _append_message_policy_issues(
 	issues: Array[Dictionary]
 ) -> void:
 	var known_channels: PackedStringArray = _normalize_string_set(GFVariantData.get_option_packed_string_array(options, "known_channel_ids"))
-	var require_channel_ids: bool = GFVariantData.get_option_bool(options, "require_channel_ids", false)
-	var warn_variant_fields: bool = GFVariantData.get_option_bool(options, "warn_variant_fields", true)
+	var require_channel_ids: bool = GFVariantData.get_option_bool(
+		options,
+		"require_channel_ids",
+		false
+	)
+	var warn_variant_fields: bool = GFVariantData.get_option_bool(
+		options,
+		"warn_variant_fields",
+		true
+	)
 	var warn_collection_bounds_review: bool = GFVariantData.get_option_bool(
 		options,
 		"warn_collection_bounds_review",
 		true
 	)
-	var max_fields_per_message: int = GFVariantData.get_option_int(options, "max_fields_per_message", 0)
+	var max_fields_per_message: int = GFVariantData.get_option_int(
+		options,
+		"max_fields_per_message",
+		0
+	)
 
 	for message_contract: GFNetworkContractMessage in contract.messages:
 		if message_contract == null:
 			continue
 		if require_channel_ids and message_contract.channel_id == &"":
-			issues.append(_make_issue("warning", "message_channel_missing", "Network contract message does not declare a default channel_id.", {
-				"contract_id": contract.contract_id,
-				"message_type": message_contract.message_type,
-			}))
-		if not known_channels.is_empty() and message_contract.channel_id != &"" and not known_channels.has(String(message_contract.channel_id)):
-			issues.append(_make_issue("error", "unknown_channel_id", "Network contract message references an unknown channel_id.", {
-				"contract_id": contract.contract_id,
-				"message_type": message_contract.message_type,
-				"channel_id": message_contract.channel_id,
-			}))
+			issues.append(
+				_make_issue(
+					"warning",
+					"message_channel_missing",
+					"Network contract message does not declare a default channel_id.",
+					{ "contract_id": contract.contract_id, "message_type": message_contract.message_type, }
+				)
+			)
+		if (
+			not known_channels.is_empty()
+			and message_contract.channel_id != &""
+			and not known_channels.has(String(message_contract.channel_id))
+		):
+			issues.append(
+				_make_issue(
+					"error",
+					"unknown_channel_id",
+					"Network contract message references an unknown channel_id.",
+					{
+						"contract_id": contract.contract_id,
+						"message_type": message_contract.message_type,
+						"channel_id": message_contract.channel_id,
+					}
+				)
+			)
 		if message_contract.fields.is_empty():
-			issues.append(_make_issue("warning", "message_has_no_fields", "Network contract message has no payload fields.", {
-				"contract_id": contract.contract_id,
-				"message_type": message_contract.message_type,
-			}))
+			issues.append(
+				_make_issue(
+					"warning",
+					"message_has_no_fields",
+					"Network contract message has no payload fields.",
+					{ "contract_id": contract.contract_id, "message_type": message_contract.message_type, }
+				)
+			)
 		if max_fields_per_message > 0 and message_contract.fields.size() > max_fields_per_message:
-			issues.append(_make_issue("warning", "field_count_above_budget", "Network contract message declares more fields than the configured audit budget.", {
-				"contract_id": contract.contract_id,
-				"message_type": message_contract.message_type,
-				"expected_value": max_fields_per_message,
-				"actual_value": message_contract.fields.size(),
-			}))
+			issues.append(
+				_make_issue(
+					"warning",
+					"field_count_above_budget",
+					"Network contract message declares more fields than the configured audit budget.",
+					{
+						"contract_id": contract.contract_id,
+						"message_type": message_contract.message_type,
+						"expected_value": max_fields_per_message,
+						"actual_value": message_contract.fields.size(),
+					}
+				)
+			)
 		_append_field_policy_issues(
 			message_contract,
 			warn_variant_fields,
@@ -368,18 +469,29 @@ func _append_field_policy_issues(
 		if field == null:
 			continue
 		if warn_variant_fields and field.value_type == GFNetworkContractField.ValueType.VARIANT:
-			issues.append(_make_issue("warning", "loose_variant_field", "Network contract field uses unrestricted Variant.", {
-				"message_type": message_contract.message_type,
-				"field_name": field.field_name,
-			}))
-		if warn_collection_bounds_review and (
-			field.value_type == GFNetworkContractField.ValueType.DICTIONARY
-			or field.value_type == GFNetworkContractField.ValueType.ARRAY
+			issues.append(
+				_make_issue(
+					"warning",
+					"loose_variant_field",
+					"Network contract field uses unrestricted Variant.",
+					{ "message_type": message_contract.message_type, "field_name": field.field_name, }
+				)
+			)
+		if (
+			warn_collection_bounds_review
+			and (
+				field.value_type == GFNetworkContractField.ValueType.DICTIONARY
+				or field.value_type == GFNetworkContractField.ValueType.ARRAY
+			)
 		):
-			issues.append(_make_issue("warning", "collection_bounds_review_required", "Network contract collection bounds require manual review because GF does not interpret project-owned field metadata.", {
-				"message_type": message_contract.message_type,
-				"field_name": field.field_name,
-			}))
+			issues.append(
+				_make_issue(
+					"warning",
+					"collection_bounds_review_required",
+					"Network contract collection bounds require manual review because GF does not interpret project-owned field metadata.",
+					{ "message_type": message_contract.message_type, "field_name": field.field_name, }
+				)
+			)
 
 
 ## 复制非空问题字典并加入聚合阶段和上下文信息。
@@ -425,7 +537,11 @@ func _make_issue(
 		"kind": kind,
 		"message": message,
 	}
-	var _merge_result: Dictionary = GFVariantData.merge_dictionary(issue, fields, true)
+	var _merge_result: Dictionary = GFVariantData.merge_dictionary(
+		issue,
+		fields,
+		true
+	)
 	return issue
 
 
@@ -439,33 +555,38 @@ func _finalize_report(contract_id: StringName, issues: Array[Dictionary]) -> Dic
 		"contract_id": contract_id,
 		"issues": issues,
 	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract audit", {
-		"include_issue_count": true,
-		"next_actions": _get_next_actions(),
-		"fallback_action": "Review the first network contract audit issue.",
-		"no_action": "Network contract audit is healthy.",
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(
+		report,
+		"Network contract audit",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_next_actions(),
+			"fallback_action": "Review the first network contract audit issue.",
+			"no_action": "Network contract audit is healthy.",
+		}
+	)
 
 
 ## 将多路径审计的问题和契约数量封装为标准报告。
 ## [br]
 ## @api private
 ## [br]
-func _finalize_paths_report(
-	contract_count: int,
-	issues: Array[Dictionary]
-) -> Dictionary:
+func _finalize_paths_report(contract_count: int, issues: Array[Dictionary]) -> Dictionary:
 	var report: Dictionary = {
 		"subject": "Network contract audit",
 		"contract_count": contract_count,
 		"issues": issues,
 	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract audit", {
-		"include_issue_count": true,
-		"next_actions": _get_next_actions(),
-		"fallback_action": "Review the first network contract audit issue.",
-		"no_action": "Network contract audit is healthy.",
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(
+		report,
+		"Network contract audit",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_next_actions(),
+			"fallback_action": "Review the first network contract audit issue.",
+			"no_action": "Network contract audit is healthy.",
+		}
+	)
 
 
 ## 按网络契约审计问题类型提供修复建议。

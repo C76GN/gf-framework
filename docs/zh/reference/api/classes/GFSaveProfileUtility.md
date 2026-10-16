@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`profile_operation_completed`](#member-gfsaveprofileutility-signals-profile_operation_completed) | `signal profile_operation_completed(result: GFSaveProfileResult)` |
-| 信号 | [`profile_state_changed`](#member-gfsaveprofileutility-signals-profile_state_changed) | `signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)` |
+| 信号 | [`profile_state_changed`](#member-gfsaveprofileutility-signals-profile_state_changed) | `signal profile_state_changed( profile_id: StringName, previous_state: StringName, current_state: StringName )` |
 | 常量 | [`STATE_IDLE`](#member-gfsaveprofileutility-constants-state_idle) | `const STATE_IDLE: StringName = &"idle"` |
 | 常量 | [`STATE_PREPARING`](#member-gfsaveprofileutility-constants-state_preparing) | `const STATE_PREPARING: StringName = &"preparing"` |
 | 常量 | [`STATE_SAVING`](#member-gfsaveprofileutility-constants-state_saving) | `const STATE_SAVING: StringName = &"saving"` |
@@ -34,11 +34,11 @@
 | 方法 | [`tick`](#member-gfsaveprofileutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfsaveprofileutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`setup`](#member-gfsaveprofileutility-methods-setup) | `func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUtility:` |
-| 方法 | [`register_profile`](#member-gfsaveprofileutility-methods-register_profile) | `func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:` |
+| 方法 | [`register_profile`](#member-gfsaveprofileutility-methods-register_profile) | `func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null) -> Dictionary:` |
 | 方法 | [`unregister_profile`](#member-gfsaveprofileutility-methods-unregister_profile) | `func unregister_profile(profile_id: StringName) -> bool:` |
-| 方法 | [`save_profile`](#member-gfsaveprofileutility-methods-save_profile) | `func save_profile( profile_id: StringName, request: GFSaveProfileRequest = null ) -> GFSaveProfileOperation:` |
+| 方法 | [`save_profile`](#member-gfsaveprofileutility-methods-save_profile) | `func save_profile(profile_id: StringName, request: GFSaveProfileRequest = null) -> GFSaveProfileOperation:` |
 | 方法 | [`load_profile`](#member-gfsaveprofileutility-methods-load_profile) | `func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileOperation:` |
-| 方法 | [`flush_profile`](#member-gfsaveprofileutility-methods-flush_profile) | `func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -> GFSaveProfileOperation:` |
+| 方法 | [`flush_profile`](#member-gfsaveprofileutility-methods-flush_profile) | `func flush_profile(profile_id: StringName, metadata: Dictionary = {}) -> GFSaveProfileOperation:` |
 | 方法 | [`get_persisted_generation`](#member-gfsaveprofileutility-methods-get_persisted_generation) | `func get_persisted_generation(profile_id: StringName) -> int:` |
 | 方法 | [`get_profile_state_snapshot`](#member-gfsaveprofileutility-methods-get_profile_state_snapshot) | `func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:` |
 
@@ -71,7 +71,7 @@ signal profile_operation_completed(result: GFSaveProfileResult)
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal profile_state_changed(profile_id: StringName, previous_state: StringName, current_state: StringName)
+signal profile_state_changed( profile_id: StringName, previous_state: StringName, current_state: StringName )
 ```
 
 profile 状态机发生变化时发出。
@@ -352,7 +352,7 @@ func setup(storage: GFStorageUtility, clock: GFClock = null) -> GFSaveProfileUti
 - 首次版本：`10.0.0`
 
 ```gdscript
-func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:
+func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null) -> Dictionary:
 ```
 
 注册一个 profile 及其可选迁移注册表。
@@ -399,7 +399,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func save_profile( profile_id: StringName, request: GFSaveProfileRequest = null ) -> GFSaveProfileOperation:
+func save_profile(profile_id: StringName, request: GFSaveProfileRequest = null) -> GFSaveProfileOperation:
 ```
 
 请求异步保存 profile。 在途写入期间的新请求只保留最新 generation；每个句柄在覆盖自身 generation 的写入成功或失败后完成。
@@ -449,7 +449,7 @@ func load_profile( profile_id: StringName, context: Dictionary = {}, metadata: D
 - 首次版本：`10.0.0`
 
 ```gdscript
-func flush_profile( profile_id: StringName, metadata: Dictionary = {} ) -> GFSaveProfileOperation:
+func flush_profile(profile_id: StringName, metadata: Dictionary = {}) -> GFSaveProfileOperation:
 ```
 
 等待调用时可见的最新 generation 持久化。

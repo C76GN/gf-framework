@@ -29,9 +29,7 @@ const _SNAPSHOT_FORMAT_VERSION: int = 1
 ## 捕获或恢复事务已占用时使用的错误文本。
 ## [br]
 ## @api private
-const _SNAPSHOT_BUSY_ERROR: String = (
-	"A snapshot transaction is already running; concurrent or reentrant capture/restore is not allowed."
-)
+const _SNAPSHOT_BUSY_ERROR: String = ("A snapshot transaction is already running; concurrent or reentrant capture/restore is not allowed.")
 
 
 # --- 私有变量 ---
@@ -152,11 +150,13 @@ func restore_all_models_state(data: Dictionary) -> Dictionary:
 	if restore_generation == 0:
 		return _make_restore_busy_failure()
 	var plan_result: Dictionary = _build_model_restore_plan(data)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(plan_result, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		plan_result,
+		"ok",
+		false
+	):
 		return _finish_restore_transaction(restore_generation, plan_result)
-	var restore_result: Dictionary = _apply_model_restore_plan(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(plan_result, "entries")
-	)
+	var restore_result: Dictionary = _apply_model_restore_plan(_GF_VARIANT_ACCESS_SCRIPT.get_option_array(plan_result, "entries"))
 	return _finish_restore_transaction(restore_generation, restore_result)
 
 
@@ -177,15 +177,16 @@ func restore_all_models_state(data: Dictionary) -> Dictionary:
 ## @return 原子恢复 Result。
 ## [br]
 ## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
-func restore_all_models_state_async(
-	data: Dictionary,
-	options: Dictionary = {}
-) -> Dictionary:
+func restore_all_models_state_async(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 	var restore_generation: int = _begin_snapshot_transaction()
 	if restore_generation == 0:
 		return _make_restore_busy_failure()
 	var plan_result: Dictionary = _build_model_restore_plan(data)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(plan_result, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		plan_result,
+		"ok",
+		false
+	):
 		return _finish_restore_transaction(restore_generation, plan_result)
 	var restore_result: Dictionary = await _apply_model_restore_plan_async(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(plan_result, "entries"),
@@ -253,53 +254,45 @@ func get_global_snapshot_async(options: Dictionary = {}) -> Dictionary:
 ## @return 原子恢复 Result。
 ## [br]
 ## @schema return: Dictionary with ok: bool, phase: StringName, rolled_back: bool, and error: String.
-func restore_global_snapshot(
-	data: Dictionary,
-	command_builder: Callable = Callable()
-) -> Dictionary:
+func restore_global_snapshot(data: Dictionary, command_builder: Callable = Callable()) -> Dictionary:
 	var restore_generation: int = _begin_snapshot_transaction()
 	if restore_generation == 0:
 		return _make_restore_busy_failure()
 	var validation_result: Dictionary = _validate_global_snapshot(data, command_builder)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(validation_result, "ok", false):
-		return _finish_restore_transaction(
-			restore_generation,
-			validation_result
-		)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		validation_result,
+		"ok",
+		false
+	):
+		return _finish_restore_transaction(restore_generation, validation_result)
 
-	var models_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		data,
-		"models"
-	)
+	var models_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "models")
 	var plan_result: Dictionary = _build_model_restore_plan(models_data)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(plan_result, "ok", false):
-		return _finish_restore_transaction(restore_generation, plan_result)
-	var model_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		plan_result,
-		"entries"
-	)
+		"ok",
+		false
+	):
+		return _finish_restore_transaction(restore_generation, plan_result)
+	var model_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(plan_result, "entries")
 
 	var history_util: Object = null
 	var history_before: Dictionary = {}
 	var history_target: Dictionary = {}
 	if data.has("command_history"):
-		history_util = _get_dictionary_object(
-			validation_result,
-			"history_store"
-		)
+		history_util = _get_dictionary_object(validation_result, "history_store")
 		if history_util == null:
 			return _finish_restore_transaction(
 				restore_generation,
-				_make_restore_failure(
-					&"validate",
-					"The command history storage target became invalid after validation."
-				)
+				_make_restore_failure(&"validate", "The command history storage target became invalid after validation.")
 			)
 		var history_baseline_result: Dictionary = _capture_history_state(history_util)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			history_baseline_result,
-			"ok",
-			false
+		if not (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				history_baseline_result,
+				"ok",
+				false
+			)
 		):
 			return _finish_restore_transaction(
 				restore_generation,
@@ -312,24 +305,20 @@ func restore_global_snapshot(
 					)
 				)
 			)
-		history_before = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			history_baseline_result,
-			"snapshot"
-		)
-		history_target = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			data,
-			"command_history"
-		).duplicate(true)
+		history_before = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(history_baseline_result, "snapshot")
+		history_target = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "command_history").duplicate(true))
 
 	var models_result: Dictionary = _apply_model_restore_plan(model_entries)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(models_result, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		models_result,
+		"ok",
+		false
+	):
 		return _finish_restore_transaction(restore_generation, models_result)
 
 	if history_util != null:
 		if not _is_command_history_store_current(history_util):
-			var _models_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(model_entries)
-			)
+			var _models_rollback_succeeded: bool = _rollback_model_restore_entries(model_entries)
 			return _finish_restore_transaction(
 				restore_generation,
 				_make_restore_failure(
@@ -343,10 +332,12 @@ func restore_global_snapshot(
 			history_target,
 			command_builder
 		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			history_apply_result,
-			"ok",
-			false
+		if not (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				history_apply_result,
+				"ok",
+				false
+			)
 		):
 			var global_rolled_back: bool = _rollback_global_restore(
 				history_util,
@@ -367,10 +358,7 @@ func restore_global_snapshot(
 					global_rolled_back
 				)
 			)
-		if not _model_restore_entries_match_state(
-			model_entries,
-			"target"
-		):
+		if not _model_restore_entries_match_state(model_entries, "target"):
 			var global_rolled_back: bool = _rollback_global_restore(
 				history_util,
 				history_before,
@@ -419,51 +407,41 @@ func restore_global_snapshot_async(
 	var restore_generation: int = _begin_snapshot_transaction()
 	if restore_generation == 0:
 		return _make_restore_busy_failure()
-	var validation_result: Dictionary = _validate_global_snapshot(
-		data,
-		command_builder
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(validation_result, "ok", false):
-		return _finish_restore_transaction(
-			restore_generation,
-			validation_result
-		)
+	var validation_result: Dictionary = _validate_global_snapshot(data, command_builder)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		validation_result,
+		"ok",
+		false
+	):
+		return _finish_restore_transaction(restore_generation, validation_result)
 
-	var models_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		data,
-		"models"
-	)
+	var models_data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "models")
 	var plan_result: Dictionary = _build_model_restore_plan(models_data)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(plan_result, "ok", false):
-		return _finish_restore_transaction(restore_generation, plan_result)
-	var model_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		plan_result,
-		"entries"
-	)
+		"ok",
+		false
+	):
+		return _finish_restore_transaction(restore_generation, plan_result)
+	var model_entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(plan_result, "entries")
 
 	var history_util: Object = null
 	var history_before: Dictionary = {}
 	var history_target: Dictionary = {}
 	if data.has("command_history"):
-		history_util = _get_dictionary_object(
-			validation_result,
-			"history_store"
-		)
+		history_util = _get_dictionary_object(validation_result, "history_store")
 		if history_util == null:
 			return _finish_restore_transaction(
 				restore_generation,
-				_make_restore_failure(
-					&"validate",
-					"The command history storage target became invalid after validation."
-				)
+				_make_restore_failure(&"validate", "The command history storage target became invalid after validation.")
 			)
-		var history_baseline_result: Dictionary = _capture_history_state(
-			history_util
-		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			history_baseline_result,
-			"ok",
-			false
+		var history_baseline_result: Dictionary = _capture_history_state(history_util)
+		if not (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				history_baseline_result,
+				"ok",
+				false
+			)
 		):
 			return _finish_restore_transaction(
 				restore_generation,
@@ -476,27 +454,20 @@ func restore_global_snapshot_async(
 					)
 				)
 			)
-		history_before = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			history_baseline_result,
-			"snapshot"
-		)
-		history_target = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			data,
-			"command_history"
-		).duplicate(true)
+		history_before = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(history_baseline_result, "snapshot")
+		history_target = (_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(data, "command_history").duplicate(true))
 
-	var models_result: Dictionary = await _apply_model_restore_plan_async(
-		model_entries,
-		options
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(models_result, "ok", false):
+	var models_result: Dictionary = await _apply_model_restore_plan_async(model_entries, options)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		models_result,
+		"ok",
+		false
+	):
 		return _finish_restore_transaction(restore_generation, models_result)
 
 	if history_util != null:
 		if not _is_command_history_store_current(history_util):
-			var _models_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(model_entries)
-			)
+			var _models_rollback_succeeded: bool = _rollback_model_restore_entries(model_entries)
 			return _finish_restore_transaction(
 				restore_generation,
 				_make_restore_failure(
@@ -510,10 +481,12 @@ func restore_global_snapshot_async(
 			history_target,
 			command_builder
 		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			history_apply_result,
-			"ok",
-			false
+		if not (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				history_apply_result,
+				"ok",
+				false
+			)
 		):
 			var global_rolled_back: bool = _rollback_global_restore(
 				history_util,
@@ -534,10 +507,7 @@ func restore_global_snapshot_async(
 					global_rolled_back
 				)
 			)
-		if not _model_restore_entries_match_state(
-			model_entries,
-			"target"
-		):
+		if not _model_restore_entries_match_state(model_entries, "target"):
 			var global_rolled_back: bool = _rollback_global_restore(
 				history_util,
 				history_before,
@@ -566,7 +536,11 @@ func restore_global_snapshot_async(
 ## @api private
 func _capture_all_models_state() -> Dictionary:
 	var frozen_capture: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_capture, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		frozen_capture,
+		"ok",
+		false
+	):
 		return _make_capture_failure(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_capture,
@@ -574,17 +548,14 @@ func _capture_all_models_state() -> Dictionary:
 				"Model snapshot capture failed."
 			)
 		)
-	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
-		frozen_capture
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+	var stability_result: Dictionary = _verify_frozen_model_capture_stability(frozen_capture)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		stability_result,
+		"ok",
+		false
+	):
 		return stability_result
-	return _make_capture_success(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			frozen_capture,
-			"snapshot"
-		)
-	)
+	return _make_capture_success(_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(frozen_capture, "snapshot"))
 
 
 ## 先同步冻结并复核 Model 状态，再按帧预算复制冻结结果；跨帧阶段验证目标身份，不重新采集变化中的业务状态。
@@ -592,7 +563,11 @@ func _capture_all_models_state() -> Dictionary:
 ## @api private
 func _capture_all_models_state_async(options: Dictionary) -> Dictionary:
 	var frozen_capture: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_capture, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		frozen_capture,
+		"ok",
+		false
+	):
 		return _make_capture_failure(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_capture,
@@ -600,10 +575,12 @@ func _capture_all_models_state_async(options: Dictionary) -> Dictionary:
 				"Model snapshot capture failed."
 			)
 		)
-	var stability_result: Dictionary = _verify_frozen_model_capture_stability(
-		frozen_capture
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+	var stability_result: Dictionary = _verify_frozen_model_capture_stability(frozen_capture)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		stability_result,
+		"ok",
+		false
+	):
 		return stability_result
 	return await _materialize_frozen_model_capture(frozen_capture, options)
 
@@ -613,7 +590,11 @@ func _capture_all_models_state_async(options: Dictionary) -> Dictionary:
 ## @api private
 func _capture_global_snapshot() -> Dictionary:
 	var frozen_models: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_models, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		frozen_models,
+		"ok",
+		false
+	):
 		return _make_capture_failure(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_models,
@@ -627,7 +608,11 @@ func _capture_global_snapshot() -> Dictionary:
 	var history_util: Object = _get_command_history_store()
 	if history_util != null:
 		var history_result: Dictionary = _capture_history_state(history_util)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(history_result, "ok", false):
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			history_result,
+			"ok",
+			false
+		):
 			return _make_capture_failure(
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					history_result,
@@ -635,10 +620,7 @@ func _capture_global_snapshot() -> Dictionary:
 					"Command history snapshot capture failed."
 				)
 			)
-		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			history_result,
-			"snapshot"
-		)
+		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(history_result, "snapshot")
 		has_history = true
 
 	var stability_result: Dictionary = _verify_global_capture_stability(
@@ -647,16 +629,14 @@ func _capture_global_snapshot() -> Dictionary:
 		frozen_history,
 		has_history
 	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		stability_result,
+		"ok",
+		false
+	):
 		return stability_result
 
-	var snapshot: Dictionary = {
-		"format_version": _SNAPSHOT_FORMAT_VERSION,
-		"models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			frozen_models,
-			"snapshot"
-		),
-	}
+	var snapshot: Dictionary = { "format_version": _SNAPSHOT_FORMAT_VERSION, "models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(frozen_models, "snapshot"), }
 	if has_history:
 		snapshot["command_history"] = frozen_history
 	return _make_capture_success(snapshot)
@@ -667,7 +647,11 @@ func _capture_global_snapshot() -> Dictionary:
 ## @api private
 func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 	var frozen_models: Dictionary = _freeze_model_capture()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(frozen_models, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		frozen_models,
+		"ok",
+		false
+	):
 		return _make_capture_failure(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				frozen_models,
@@ -681,7 +665,11 @@ func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 	var history_util: Object = _get_command_history_store()
 	if history_util != null:
 		var history_result: Dictionary = _capture_history_state(history_util)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(history_result, "ok", false):
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			history_result,
+			"ok",
+			false
+		):
 			return _make_capture_failure(
 				_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 					history_result,
@@ -689,10 +677,7 @@ func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 					"Command history snapshot capture failed."
 				)
 			)
-		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			history_result,
-			"snapshot"
-		)
+		frozen_history = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(history_result, "snapshot")
 		has_history = true
 
 	var stability_result: Dictionary = _verify_global_capture_stability(
@@ -701,26 +686,23 @@ func _capture_global_snapshot_async(options: Dictionary) -> Dictionary:
 		frozen_history,
 		has_history
 	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(stability_result, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		stability_result,
+		"ok",
+		false
+	):
 		return stability_result
 
-	var models_result: Dictionary = await _materialize_frozen_model_capture(
-		frozen_models,
-		options
-	)
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(models_result, "ok", false):
+	var models_result: Dictionary = await _materialize_frozen_model_capture(frozen_models, options)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		models_result,
+		"ok",
+		false
+	):
 		return models_result
 	if has_history and not _is_command_history_store_current(history_util):
-		return _make_capture_failure(
-			"The command history storage target changed while the global snapshot waited between frames."
-		)
-	var snapshot: Dictionary = {
-		"format_version": _SNAPSHOT_FORMAT_VERSION,
-		"models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			models_result,
-			"snapshot"
-		),
-	}
+		return _make_capture_failure("The command history storage target changed while the global snapshot waited between frames.")
+	var snapshot: Dictionary = { "format_version": _SNAPSHOT_FORMAT_VERSION, "models": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(models_result, "snapshot"), }
 	if has_history:
 		snapshot["command_history"] = frozen_history
 	return _make_capture_success(snapshot)
@@ -740,17 +722,11 @@ func _make_capture_success(snapshot: Dictionary) -> Dictionary:
 ## 创建捕获失败字典；error 为空时写入默认失败文本，可选加入 phase。
 ## [br]
 ## @api private
-func _make_capture_failure(
-	error: String,
-	phase: StringName = &""
-) -> Dictionary:
+func _make_capture_failure(error: String, phase: StringName = &"") -> Dictionary:
 	var failure_error: String = error
 	if failure_error.is_empty():
 		failure_error = "Snapshot capture failed."
-	var result: Dictionary = {
-		"ok": false,
-		"error": failure_error,
-	}
+	var result: Dictionary = { "ok": false, "error": failure_error, }
 	if phase != &"":
 		result["phase"] = phase
 	return result
@@ -815,18 +791,9 @@ func _begin_snapshot_transaction() -> int:
 ## generation 仍为当前活动事务时清空占用并返回结果，否则返回 commit 失败。
 ## [br]
 ## @api private
-func _finish_capture_transaction(
-	snapshot_generation: int,
-	result: Dictionary
-) -> Dictionary:
-	if (
-		snapshot_generation <= 0
-		or _active_snapshot_transaction_generation != snapshot_generation
-	):
-		return _make_capture_failure(
-			"The snapshot capture transaction generation became invalid before completion.",
-			&"commit"
-		)
+func _finish_capture_transaction(snapshot_generation: int, result: Dictionary) -> Dictionary:
+	if (snapshot_generation <= 0 or _active_snapshot_transaction_generation != snapshot_generation):
+		return _make_capture_failure("The snapshot capture transaction generation became invalid before completion.", &"commit")
 	_active_snapshot_transaction_generation = 0
 	return result
 
@@ -834,18 +801,9 @@ func _finish_capture_transaction(
 ## generation 仍为当前活动事务时清空占用并返回结果，否则返回 commit 失败。
 ## [br]
 ## @api private
-func _finish_restore_transaction(
-	restore_generation: int,
-	result: Dictionary
-) -> Dictionary:
-	if (
-		restore_generation <= 0
-		or _active_snapshot_transaction_generation != restore_generation
-	):
-		return _make_restore_failure(
-			&"commit",
-			"The snapshot restore transaction generation became invalid before completion."
-		)
+func _finish_restore_transaction(restore_generation: int, result: Dictionary) -> Dictionary:
+	if (restore_generation <= 0 or _active_snapshot_transaction_generation != restore_generation):
+		return _make_restore_failure(&"commit", "The snapshot restore transaction generation became invalid before completion.")
 	_active_snapshot_transaction_generation = 0
 	return result
 
@@ -855,7 +813,11 @@ func _finish_restore_transaction(
 ## @api private
 func _freeze_model_capture() -> Dictionary:
 	var entry_report: Dictionary = _collect_model_snapshot_entries()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		entry_report,
+		"ok",
+		false
+	):
 		return _make_capture_failure(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				entry_report,
@@ -864,29 +826,17 @@ func _freeze_model_capture() -> Dictionary:
 			)
 		)
 
-	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		entry_report,
-		"entries"
-	)
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
 	var frozen_state: Dictionary = {}
 	for entry_variant: Variant in entries:
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null:
 			return _make_capture_failure("A Model snapshot target became invalid while freezing.")
-		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"key"
-		)
-		var model_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			model.to_dict()
-		)
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
+		var model_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		if not model_state is Dictionary:
-			return _make_capture_failure(
-				"The Model snapshot cannot be converted to Dictionary: %s." % class_name_key
-			)
+			return _make_capture_failure("The Model snapshot cannot be converted to Dictionary: %s." % class_name_key)
 		frozen_state[class_name_key] = model_state
 
 	if not _are_frozen_model_targets_current(entries):
@@ -910,169 +860,99 @@ func _verify_global_capture_stability(
 ) -> Dictionary:
 	if has_history:
 		if history_util == null:
-			return _make_capture_failure(
-				"Command history snapshot stability verification failed: the storage target is invalid."
-			)
+			return _make_capture_failure("Command history snapshot stability verification failed: the storage target is invalid.")
 		var history_result: Dictionary = _capture_history_state(history_util)
-		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-			history_result,
-			"ok",
-			false
+		if not (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				history_result,
+				"ok",
+				false
+			)
 		):
 			return _make_capture_failure(
 				"Command history snapshot stability verification failed: %s"
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-					history_result,
-					"error",
-					"Could not read the command history again."
+				% (
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+						history_result,
+						"error",
+						"Could not read the command history again."
+					)
 				)
 			)
-		var current_history: Dictionary = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-				history_result,
-				"snapshot"
-			)
-		)
+		var current_history: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(history_result, "snapshot")
 		if current_history != frozen_history:
-			return _make_capture_failure(
-				"Command history snapshot stability verification failed: the current JSON state does not match the frozen state."
-			)
+			return _make_capture_failure("Command history snapshot stability verification failed: the current JSON state does not match the frozen state.")
 	return _verify_frozen_model_capture_stability(frozen_models)
 
 
 ## 按冻结顺序的逆序重新序列化 Model，检测后序序列化器对前序状态的写入；逐项及末尾复核身份与稳定键，不提供跨线程锁定。
 ## [br]
 ## @api private
-func _verify_frozen_model_capture_stability(
-	frozen_capture: Dictionary
-) -> Dictionary:
-	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		frozen_capture,
-		"entries"
-	)
+func _verify_frozen_model_capture_stability(frozen_capture: Dictionary) -> Dictionary:
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(frozen_capture, "entries")
 	if not _are_frozen_model_targets_current(entries):
-		return _make_capture_failure(
-			"Model snapshot stability verification failed: the target set changed."
-		)
-	var frozen_state: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		frozen_capture,
-		"snapshot"
-	)
+		return _make_capture_failure("Model snapshot stability verification failed: the target set changed.")
+	var frozen_state: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(frozen_capture, "snapshot")
 
 	# 初次冻结按正序执行；反序复核先观察后序 serializer 对前序 Model 的写入。
-	for entry_index: int in range(entries.size() - 1, -1, -1):
+	for entry_index: int in range(
+		entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry_variant: Variant = entries[entry_index]
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		if not _is_frozen_model_target_current(entry):
-			return _make_capture_failure(
-				"Model snapshot stability verification failed: target identity or stable key changed."
-			)
+			return _make_capture_failure("Model snapshot stability verification failed: target identity or stable key changed.")
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null:
-			return _make_capture_failure(
-				"Model snapshot stability verification failed: the target is invalid."
-			)
-		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"key"
-		)
-		var current_state_value: Variant = (
-			_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
-		)
+			return _make_capture_failure("Model snapshot stability verification failed: the target is invalid.")
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
+		var current_state_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		if not current_state_value is Dictionary:
-			return _make_capture_failure(
-				"Model snapshot stability verification failed: %s cannot be converted to Dictionary."
-				% class_name_key
-			)
+			return _make_capture_failure("Model snapshot stability verification failed: %s cannot be converted to Dictionary." % class_name_key)
 		if not _is_frozen_model_target_current(entry):
-			return _make_capture_failure(
-				"Model snapshot stability verification failed: the target identity or stable key of %s changed."
-				% class_name_key
-			)
-		var expected_state_value: Variant = (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-				frozen_state,
-				class_name_key
-			)
-		)
+			return _make_capture_failure("Model snapshot stability verification failed: the target identity or stable key of %s changed." % class_name_key)
+		var expected_state_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(frozen_state, class_name_key)
 		if not expected_state_value is Dictionary:
-			return _make_capture_failure(
-				"Model snapshot stability verification failed: %s has no frozen Dictionary."
-				% class_name_key
-			)
+			return _make_capture_failure("Model snapshot stability verification failed: %s has no frozen Dictionary." % class_name_key)
 		var current_state: Dictionary = current_state_value
 		var expected_state: Dictionary = expected_state_value
 		if current_state != expected_state:
-			return _make_capture_failure(
-				"Model snapshot stability verification failed: the current JSON state of %s does not match its frozen state."
-				% class_name_key
-			)
+			return _make_capture_failure("Model snapshot stability verification failed: the current JSON state of %s does not match its frozen state." % class_name_key)
 
 	if not _are_frozen_model_targets_current(entries):
-		return _make_capture_failure(
-			"Model snapshot stability verification failed: the target set changed during verification."
-		)
-	return {
-		"ok": true,
-		"error": "",
-	}
+		return _make_capture_failure("Model snapshot stability verification failed: the target set changed during verification.")
+	return { "ok": true, "error": "", }
 
 
 ## 按每帧预算复制已冻结的 JSON 状态，等待帧后复核全部目标身份；不重新调用 Model 序列化器，目标失效即返回失败。
 ## [br]
 ## @api private
-func _materialize_frozen_model_capture(
-	frozen_capture: Dictionary,
-	options: Dictionary
-) -> Dictionary:
-	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		frozen_capture,
-		"entries"
-	)
+func _materialize_frozen_model_capture(frozen_capture: Dictionary, options: Dictionary) -> Dictionary:
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(frozen_capture, "entries")
 	if not _are_frozen_model_targets_current(entries):
 		return _make_capture_failure("The Model snapshot target set changed before materialization across frames.")
 
-	var frozen_state: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		frozen_capture,
-		"snapshot"
-	)
+	var frozen_state: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(frozen_capture, "snapshot")
 	var materialized_state: Dictionary = {}
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
 	for entry_index: int in range(entries.size()):
 		var entry_variant: Variant = entries[entry_index]
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		if not _is_frozen_model_target_current(entry):
 			return _make_capture_failure("A Model snapshot target became invalid during materialization across frames.")
-		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"key"
-		)
-		materialized_state[class_name_key] = (
-			_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-				_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-					frozen_state,
-					class_name_key
-				)
-			)
-		)
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
+		materialized_state[class_name_key] = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(frozen_state, class_name_key))
 		processed_since_yield += 1
 		if entry_index + 1 >= entries.size():
 			continue
-		var yielded: bool = await _wait_snapshot_frame_if_needed(
-			processed_since_yield,
-			max_models_per_frame
-		)
+		var yielded: bool = await _wait_snapshot_frame_if_needed(processed_since_yield, max_models_per_frame)
 		if yielded:
 			processed_since_yield = 0
 			if not _are_frozen_model_targets_current(entries):
-				return _make_capture_failure(
-					"The Model snapshot target set changed while waiting between frames."
-				)
+				return _make_capture_failure("The Model snapshot target set changed while waiting between frames.")
 
 	if not _are_frozen_model_targets_current(entries):
 		return _make_capture_failure("The Model snapshot target set changed after materialization across frames.")
@@ -1086,9 +966,7 @@ func _are_frozen_model_targets_current(entries: Array) -> bool:
 	if _models.size() != entries.size():
 		return false
 	for entry_variant: Variant in entries:
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		if not _is_frozen_model_target_current(entry):
 			return false
 	return true
@@ -1101,17 +979,11 @@ func _is_frozen_model_target_current(entry: Dictionary) -> bool:
 	var model: GFModel = _get_model_from_snapshot_entry(entry)
 	if model == null:
 		return false
-	var script_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
-		entry,
-		"script"
-	)
+	var script_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry, "script")
 	if not script_value is Script:
 		return false
 	var script_cls: Script = script_value
-	if (
-		_get_model_key(script_cls, model)
-		!= _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
-	):
+	if _get_model_key(script_cls, model) != _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"):
 		return false
 	return _get_model_from_snapshot_entry(entry) == model
 
@@ -1119,17 +991,11 @@ func _is_frozen_model_target_current(entry: Dictionary) -> bool:
 ## 验证格式版本、Model 字典及可选历史字典；含历史时要求有效命令构造器和仍为当前目标的完整历史读写服务，并返回该服务引用。
 ## [br]
 ## @api private
-func _validate_global_snapshot(
-	data: Dictionary,
-	command_builder: Callable
-) -> Dictionary:
+func _validate_global_snapshot(data: Dictionary, command_builder: Callable) -> Dictionary:
 	if not data.has("format_version"):
 		return _make_restore_failure(&"validate", "The global snapshot format version is invalid.")
 	var format_version_value: Variant = data["format_version"]
-	if (
-		typeof(format_version_value) != TYPE_INT
-		or format_version_value != _SNAPSHOT_FORMAT_VERSION
-	):
+	if (typeof(format_version_value) != TYPE_INT or format_version_value != _SNAPSHOT_FORMAT_VERSION):
 		return _make_restore_failure(&"validate", "The global snapshot format version is invalid.")
 	if not data.has("models") or not data["models"] is Dictionary:
 		return _make_restore_failure(&"validate", "Global snapshot models must be a Dictionary.")
@@ -1142,10 +1008,7 @@ func _validate_global_snapshot(
 	var history_util: Object = _get_command_history_store()
 	if history_util == null:
 		return _make_restore_failure(&"validate", "The snapshot contains command history, but this architecture has no command history storage service.")
-	if (
-		not history_util.has_method("serialize_full_history")
-		or not history_util.has_method("deserialize_full_history")
-	):
+	if (not history_util.has_method("serialize_full_history") or not history_util.has_method("deserialize_full_history")):
 		return _make_restore_failure(&"validate", "The command history storage service does not support complete snapshot transactions.")
 	if not _is_command_history_store_current(history_util):
 		return _make_restore_failure(&"validate", "The command history storage target changed during validation.")
@@ -1167,9 +1030,7 @@ func _capture_history_state(history_util: Object) -> Dictionary:
 		return _make_capture_failure("The command history storage target changed during capture.")
 	if not serialized_state is Dictionary:
 		return _make_capture_failure("The command history snapshot must be a Dictionary.")
-	var json_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-		serialized_state
-	)
+	var json_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(serialized_state)
 	if not json_state is Dictionary:
 		return _make_capture_failure("The command history snapshot cannot be converted to Dictionary.")
 	var history_state: Dictionary = json_state
@@ -1189,36 +1050,21 @@ func _apply_and_verify_history_state(
 		or not history_util.has_method("deserialize_full_history")
 		or not history_util.has_method("serialize_full_history")
 	):
-		return {
-			"ok": false,
-			"target_current": false,
-		}
+		return { "ok": false, "target_current": false, }
 	if not _is_command_history_store_current(history_util):
-		return {
-			"ok": false,
-			"target_current": false,
-		}
+		return { "ok": false, "target_current": false, }
 	history_util.call(
 		"deserialize_full_history",
 		target.duplicate(true),
 		command_builder
 	)
 	if not _is_command_history_store_current(history_util):
-		return {
-			"ok": false,
-			"target_current": false,
-		}
+		return { "ok": false, "target_current": false, }
 	var current_state: Variant = history_util.call("serialize_full_history")
 	if not _is_command_history_store_current(history_util):
-		return {
-			"ok": false,
-			"target_current": false,
-		}
+		return { "ok": false, "target_current": false, }
 	if not current_state is Dictionary:
-		return {
-			"ok": false,
-			"target_current": true,
-		}
+		return { "ok": false, "target_current": true, }
 	return {
 		"ok": _GF_VARIANT_ACCESS_SCRIPT.values_equal(
 			_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(current_state),
@@ -1231,10 +1077,7 @@ func _apply_and_verify_history_state(
 ## 当前 history store 仍是同一对象且序列化结果与 expected_state JSON 等价时返回 true。
 ## [br]
 ## @api private
-func _history_state_matches(
-	history_util: Object,
-	expected_state: Dictionary
-) -> bool:
+func _history_state_matches(history_util: Object, expected_state: Dictionary) -> bool:
 	if (
 		history_util == null
 		or not history_util.has_method("serialize_full_history")
@@ -1263,10 +1106,7 @@ func _rollback_global_restore(
 	history_target_current: bool
 ) -> bool:
 	var history_rolled_back: bool = false
-	if (
-		history_target_current
-		and _is_command_history_store_current(history_util)
-	):
+	if (history_target_current and _is_command_history_store_current(history_util)):
 		var history_rollback_result: Dictionary = _apply_and_verify_history_state(
 			history_util,
 			history_before,
@@ -1277,20 +1117,11 @@ func _rollback_global_restore(
 			"ok",
 			false
 		)
-	var models_rolled_back: bool = _rollback_model_restore_entries(
-		model_entries,
-		model_entries
-	)
+	var models_rolled_back: bool = _rollback_model_restore_entries(model_entries, model_entries)
 	if history_rolled_back:
-		history_rolled_back = _history_state_matches(
-			history_util,
-			history_before
-		)
+		history_rolled_back = _history_state_matches(history_util, history_before)
 	if models_rolled_back:
-		models_rolled_back = _model_restore_entries_match_state(
-			model_entries,
-			"before"
-		)
+		models_rolled_back = _model_restore_entries_match_state(model_entries, "before")
 	return history_rolled_back and models_rolled_back
 
 
@@ -1300,13 +1131,14 @@ func _rollback_global_restore(
 func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 	for data_key: Variant in data.keys():
 		if typeof(data_key) != TYPE_STRING:
-			return _make_restore_failure(
-				&"validate",
-				"Model snapshot keys must be String values."
-			)
+			return _make_restore_failure(&"validate", "Model snapshot keys must be String values.")
 
 	var entry_report: Dictionary = _collect_model_snapshot_entries()
-	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(entry_report, "ok", false):
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		entry_report,
+		"ok",
+		false
+	):
 		return _make_restore_failure(
 			&"validate",
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
@@ -1316,20 +1148,14 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 			)
 		)
 
-	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
-		entry_report,
-		"entries"
-	)
+	var entries: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(entry_report, "entries")
 	var known_keys: Dictionary = {}
 	for entry_variant: Variant in entries:
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null or not _is_frozen_model_target_current(entry):
 			return _make_restore_failure(&"validate", "A Model snapshot target became invalid during validation.")
-		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"key"
-		)
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
 		known_keys[class_name_key] = true
 
 	for data_key: Variant in data.keys():
@@ -1350,16 +1176,11 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 
 	var restore_entries: Array[Dictionary] = []
 	for entry_variant: Variant in entries:
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null or not _is_frozen_model_target_current(entry):
 			return _make_restore_failure(&"validate", "A Model snapshot target became invalid during validation.")
-		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			entry,
-			"key"
-		)
+		var class_name_key: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key")
 		if not data[class_name_key] is Dictionary:
 			return _make_restore_failure(
 				&"validate",
@@ -1368,20 +1189,12 @@ func _build_model_restore_plan(data: Dictionary) -> Dictionary:
 		var restore_entry: Dictionary = entry.duplicate()
 		restore_entry["before"] = model.to_dict().duplicate(true)
 		if not _is_frozen_model_target_current(entry):
-			return _make_restore_failure(
-				&"validate",
-				"The Model snapshot target changed while reading the restore baseline."
-			)
-		restore_entry["target"] = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			data[class_name_key]
-		).duplicate(true)
+			return _make_restore_failure(&"validate", "The Model snapshot target changed while reading the restore baseline.")
+		restore_entry["target"] = (_GF_VARIANT_ACCESS_SCRIPT.as_dictionary(data[class_name_key]).duplicate(true))
 		restore_entries.append(restore_entry)
 
 	if not _are_model_restore_targets_current(restore_entries):
-		return _make_restore_failure(
-			&"validate",
-			"The Model snapshot target set changed during validation."
-		)
+		return _make_restore_failure(&"validate", "The Model snapshot target set changed during validation.")
 	return {
 		"ok": true,
 		"entries": restore_entries,
@@ -1399,10 +1212,7 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 	for entry_variant: Variant in entries:
 		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		if not _is_frozen_model_target_current(entry):
-			var _partial_rollback_succeeded: bool = _rollback_model_restore_entries(
-				applied_entries,
-				entries
-			)
+			var _partial_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
 				"A Model snapshot target became invalid during application.",
@@ -1410,62 +1220,40 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 			)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null:
-			var _missing_target_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var _missing_target_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
 				"A Model snapshot target became invalid during application.",
 				false
 			)
 		applied_entries.append(entry)
-		var target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			entry,
-			"target"
-		)
+		var target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "target")
 		model.from_dict(target.duplicate(true))
 		if not _is_frozen_model_target_current(entry):
-			var target_drift_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var target_drift_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
-				"The registered Model identity or save key changed during application: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
+				"The registered Model identity or save key changed during application: %s." % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				target_drift_rollback_succeeded
 			)
-		var applied_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			model.to_dict()
-		)
+		var applied_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		if not _is_frozen_model_target_current(entry):
-			var verify_target_drift_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var verify_target_drift_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
-				"The registered Model identity or save key changed during validation: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
+				"The registered Model identity or save key changed during validation: %s." % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				verify_target_drift_rollback_succeeded
 			)
-		var target_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			target
-		)
+		var target_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(target)
 		if not _GF_VARIANT_ACCESS_SCRIPT.values_equal(applied_state, target_state):
-			var apply_rollback_succeeded: bool = _rollback_model_restore_entries(
-				applied_entries,
-				entries
-			)
+			var apply_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
-				"The Model state after application does not match the target snapshot: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
+				"The Model state after application does not match the target snapshot: %s." % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				apply_rollback_succeeded
 			)
 	if not _model_restore_entries_match_state(entries, "target"):
-		var final_rollback_succeeded: bool = _rollback_model_restore_entries(
-			applied_entries,
-			entries
-		)
+		var final_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 		return _make_restore_failure(
 			&"commit",
 			"The aggregate Model state does not match the target snapshot before restore commit.",
@@ -1477,23 +1265,15 @@ func _apply_model_restore_plan(entries: Array) -> Dictionary:
 ## 按每帧预算执行 Model 写入与读回验证，跨帧后复核整个目标集合；失败时尝试回滚已触及项，保留回滚结果而非保证原子恢复。
 ## [br]
 ## @api private
-func _apply_model_restore_plan_async(
-	entries: Array,
-	options: Dictionary
-) -> Dictionary:
+func _apply_model_restore_plan_async(entries: Array, options: Dictionary) -> Dictionary:
 	var applied_entries: Array[Dictionary] = []
 	var max_models_per_frame: int = _get_snapshot_models_per_frame(options)
 	var processed_since_yield: int = 0
 	for entry_index: int in range(entries.size()):
 		var entry_variant: Variant = entries[entry_index]
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		if not _is_frozen_model_target_current(entry):
-			var _partial_rollback_succeeded: bool = _rollback_model_restore_entries(
-				applied_entries,
-				entries
-			)
+			var _partial_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
 				"A Model snapshot target became invalid during asynchronous application.",
@@ -1501,70 +1281,47 @@ func _apply_model_restore_plan_async(
 			)
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null:
-			var _missing_target_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var _missing_target_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
 				"A Model snapshot target became invalid during asynchronous application.",
 				false
 			)
 		applied_entries.append(entry)
-		var target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			entry,
-			"target"
-		)
+		var target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "target")
 		model.from_dict(target.duplicate(true))
 		if not _is_frozen_model_target_current(entry):
-			var target_drift_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var target_drift_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
-				"The registered Model identity or save key changed during asynchronous application: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
+				"The registered Model identity or save key changed during asynchronous application: %s." % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				target_drift_rollback_succeeded
 			)
-		var applied_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			model.to_dict()
-		)
+		var applied_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		if not _is_frozen_model_target_current(entry):
-			var verify_target_drift_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var verify_target_drift_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
-				"The registered Model identity or save key changed during asynchronous validation: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
+				"The registered Model identity or save key changed during asynchronous validation: %s." % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				verify_target_drift_rollback_succeeded
 			)
-		var target_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			target
-		)
+		var target_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(target)
 		if not _GF_VARIANT_ACCESS_SCRIPT.values_equal(applied_state, target_state):
-			var apply_rollback_succeeded: bool = (
-				_rollback_model_restore_entries(applied_entries, entries)
-			)
+			var apply_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 			return _make_restore_failure(
 				&"apply",
-				"The Model state after asynchronous application does not match the target snapshot: %s."
-				% _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
+				"The Model state after asynchronous application does not match the target snapshot: %s." % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "key"),
 				apply_rollback_succeeded
 			)
 
 		processed_since_yield += 1
 		if entry_index + 1 >= entries.size():
 			continue
-		var yielded: bool = await _wait_snapshot_frame_if_needed(
-			processed_since_yield,
-			max_models_per_frame
-		)
+		var yielded: bool = await _wait_snapshot_frame_if_needed(processed_since_yield, max_models_per_frame)
 		if yielded:
 			processed_since_yield = 0
 			if not _are_model_restore_targets_current(entries):
-				var _wait_rollback_succeeded: bool = (
-					_rollback_model_restore_entries(applied_entries, entries)
-				)
+				var _wait_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 				return _make_restore_failure(
 					&"apply",
 					"The Model snapshot target set changed while waiting during asynchronous restore.",
@@ -1572,10 +1329,7 @@ func _apply_model_restore_plan_async(
 				)
 
 	if not _model_restore_entries_match_state(entries, "target"):
-		var final_rollback_succeeded: bool = _rollback_model_restore_entries(
-			applied_entries,
-			entries
-		)
+		var final_rollback_succeeded: bool = _rollback_model_restore_entries(applied_entries, entries)
 		return _make_restore_failure(
 			&"commit",
 			"The aggregate Model state does not match the target snapshot before asynchronous restore commit.",
@@ -1591,9 +1345,7 @@ func _are_model_restore_targets_current(entries: Array) -> bool:
 	if _models.size() != entries.size():
 		return false
 	for entry_variant: Variant in entries:
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
 		if not _is_frozen_model_target_current(entry):
 			return false
 	return true
@@ -1602,36 +1354,21 @@ func _are_model_restore_targets_current(entries: Array) -> bool:
 ## 所有冻结目标仍有效且其当前 JSON 状态分别等于 state_field 指定字典时返回 true。
 ## [br]
 ## @api private
-func _model_restore_entries_match_state(
-	entries: Array,
-	state_field: String
-) -> bool:
+func _model_restore_entries_match_state(entries: Array, state_field: String) -> bool:
 	if not _are_model_restore_targets_current(entries):
 		return false
 	for entry_variant: Variant in entries:
-		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
-			entry_variant
-		)
-		if (
-			not entry.has(state_field)
-			or not entry[state_field] is Dictionary
-		):
+		var entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(entry_variant)
+		if (not entry.has(state_field) or not entry[state_field] is Dictionary):
 			return false
 		var model: GFModel = _get_model_from_snapshot_entry(entry)
 		if model == null or not _is_frozen_model_target_current(entry):
 			return false
-		var current_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			model.to_dict()
-		)
+		var current_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		if not _is_frozen_model_target_current(entry):
 			return false
-		var expected_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(
-			entry[state_field]
-		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.values_equal(
-			current_state,
-			expected_state
-		):
+		var expected_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(entry[state_field])
+		if not (_GF_VARIANT_ACCESS_SCRIPT.values_equal(current_state, expected_state)):
 			return false
 	return _are_model_restore_targets_current(entries)
 
@@ -1639,12 +1376,13 @@ func _model_restore_entries_match_state(
 ## 逆序恢复已触及 Model 的基线深拷贝并读回验证，失效目标跳过且令结果失败；末尾复核事务集合或已触及集合的整体基线。
 ## [br]
 ## @api private
-func _rollback_model_restore_entries(
-	applied_entries: Array[Dictionary],
-	transaction_entries: Array = []
-) -> bool:
+func _rollback_model_restore_entries(applied_entries: Array[Dictionary], transaction_entries: Array = []) -> bool:
 	var rolled_back: bool = true
-	for index: int in range(applied_entries.size() - 1, -1, -1):
+	for index: int in range(
+		applied_entries.size() - 1,
+		-1,
+		-1
+	):
 		var entry: Dictionary = applied_entries[index]
 		if not _is_frozen_model_target_current(entry):
 			rolled_back = false
@@ -1653,38 +1391,22 @@ func _rollback_model_restore_entries(
 		if model == null:
 			rolled_back = false
 			continue
-		var before: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-			entry,
-			"before"
-		)
+		var before: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(entry, "before")
 		model.from_dict(before.duplicate(true))
 		if not _is_frozen_model_target_current(entry):
 			rolled_back = false
 			continue
-		var rolled_back_state: Variant = (
-			_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
-		)
+		var rolled_back_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(model.to_dict())
 		if not _is_frozen_model_target_current(entry):
 			rolled_back = false
 			continue
-		var expected_state: Variant = (
-			_GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(before)
-		)
-		if not _GF_VARIANT_ACCESS_SCRIPT.values_equal(
-			rolled_back_state,
-			expected_state
-		):
+		var expected_state: Variant = _GF_VARIANT_ACCESS_SCRIPT.to_json_compatible(before)
+		if not (_GF_VARIANT_ACCESS_SCRIPT.values_equal(rolled_back_state, expected_state)):
 			rolled_back = false
 	var verification_entries: Array = transaction_entries
 	if verification_entries.is_empty():
 		verification_entries = applied_entries
-	return (
-		rolled_back
-		and _model_restore_entries_match_state(
-			verification_entries,
-			"before"
-		)
-	)
+	return (rolled_back and _model_restore_entries_match_state(verification_entries, "before"))
 
 
 ## 从 options 读取每帧 Model 数量并限制为非负值，缺失时使用 configure 默认值。
@@ -1692,7 +1414,11 @@ func _rollback_model_restore_entries(
 ## @api private
 func _get_snapshot_models_per_frame(options: Dictionary) -> int:
 	return maxi(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_models_per_frame", _default_models_per_frame),
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_models_per_frame",
+			_default_models_per_frame
+		),
 		0
 	)
 
@@ -1771,11 +1497,13 @@ func _collect_model_snapshot_entries() -> Dictionary:
 				var _duplicate_appended: bool = duplicate_keys.append(class_name_key)
 			continue
 		used_keys[class_name_key] = true
-		entries.append({
-			"key": class_name_key,
-			"script": script_cls,
-			"model": model,
-		})
+		entries.append(
+			{
+				"key": class_name_key,
+				"script": script_cls,
+				"model": model,
+			}
+		)
 
 	if not invalid_target_error.is_empty():
 		return {
@@ -1785,10 +1513,7 @@ func _collect_model_snapshot_entries() -> Dictionary:
 		}
 
 	if not duplicate_keys.is_empty():
-		var duplicate_error: String = (
-			"Duplicate Model snapshot key: %s. Provide a unique get_save_key() for each Model."
-			% ", ".join(duplicate_keys)
-		)
+		var duplicate_error: String = ("Duplicate Model snapshot key: %s. Provide a unique get_save_key() for each Model." % ", ".join(duplicate_keys))
 		push_error("[GFArchitecture][architecture.snapshot_key_duplicate] Duplicate Model snapshot keys were found.\n%s" % duplicate_error)
 		return {
 			"ok": false,

@@ -41,6 +41,8 @@ const DEFAULT_MAX_DEGREE: int = 12
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param coefficients: 高阶到低阶排列的多项式系数。
 ## [br]
 ## @param epsilon: 小于等于该绝对值的前导项会被视为 0。
@@ -48,10 +50,7 @@ const DEFAULT_MAX_DEGREE: int = 12
 ## @return 规范化后的系数；零多项式返回空数组。
 ## [br]
 ## @schema coefficients: PackedFloat64Array high-to-low polynomial coefficients.
-static func normalize_coefficients(
-	coefficients: PackedFloat64Array,
-	epsilon: float = DEFAULT_EPSILON
-) -> PackedFloat64Array:
+static func normalize_coefficients(coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON) -> PackedFloat64Array:
 	if _has_non_finite_coefficients(coefficients):
 		push_error("[GFPolynomialMath][polynomial_math.coefficients_non_finite] coefficients must be finite numbers.")
 		return PackedFloat64Array()
@@ -62,7 +61,10 @@ static func normalize_coefficients(
 		start_index += 1
 
 	var result: PackedFloat64Array = PackedFloat64Array()
-	for index: int in range(start_index, coefficients.size()):
+	for index: int in range(
+		start_index,
+		coefficients.size()
+	):
 		var _coefficient_appended: bool = result.append(coefficients[index])
 	return result
 
@@ -79,7 +81,11 @@ static func normalize_coefficients(
 ## [br]
 ## @schema coefficients: PackedFloat64Array high-to-low polynomial coefficients.
 static func evaluate(coefficients: PackedFloat64Array, x: float) -> float:
-	if _has_non_finite_coefficients(coefficients) or is_nan(x) or is_inf(x):
+	if (
+		_has_non_finite_coefficients(coefficients)
+		or is_nan(x)
+		or is_inf(x)
+	):
 		push_error("[GFPolynomialMath][polynomial_math.evaluate_input_non_finite] evaluate inputs must be finite numbers.")
 		return NAN
 
@@ -93,6 +99,8 @@ static func evaluate(coefficients: PackedFloat64Array, x: float) -> float:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param coefficients: 高阶到低阶排列的多项式系数。
 ## [br]
 ## @param epsilon: 前导项规范化容差。
@@ -100,10 +108,7 @@ static func evaluate(coefficients: PackedFloat64Array, x: float) -> float:
 ## @return 导函数系数；常量或零多项式返回空数组。
 ## [br]
 ## @schema coefficients: PackedFloat64Array high-to-low polynomial coefficients.
-static func derivative(
-	coefficients: PackedFloat64Array,
-	epsilon: float = DEFAULT_EPSILON
-) -> PackedFloat64Array:
+static func derivative(coefficients: PackedFloat64Array, epsilon: float = DEFAULT_EPSILON) -> PackedFloat64Array:
 	var normalized: PackedFloat64Array = normalize_coefficients(coefficients, epsilon)
 	var degree: int = normalized.size() - 1
 	if degree <= 0:
@@ -119,15 +124,14 @@ static func derivative(
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param roots: 多项式实根列表，每个根生成一个 (x - root) 因子。
 ## [br]
 ## @param leading_coefficient: 最高阶系数。
 ## [br]
 ## @return 高阶到低阶排列的系数；leading_coefficient 为 0 时返回空数组。
-static func from_roots(
-	roots: PackedFloat64Array,
-	leading_coefficient: float = 1.0
-) -> PackedFloat64Array:
+static func from_roots(roots: PackedFloat64Array, leading_coefficient: float = 1.0) -> PackedFloat64Array:
 	if is_nan(leading_coefficient) or is_inf(leading_coefficient):
 		push_error("[GFPolynomialMath][polynomial_math.leading_coefficient_non_finite] leading_coefficient must be a finite number.")
 		return PackedFloat64Array()
@@ -154,6 +158,8 @@ static func from_roots(
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param coefficients: 高阶到低阶排列的多项式系数。
 ## [br]
 ## @param options: 可选参数，支持 epsilon、root_merge_epsilon、max_iterations、max_degree、min_x 和 max_x。
@@ -163,17 +169,43 @@ static func from_roots(
 ## @schema coefficients: PackedFloat64Array high-to-low polynomial coefficients.
 ## [br]
 ## @schema options: Dictionary with optional epsilon: float, root_merge_epsilon: float, max_iterations: int, max_degree: int, min_x: float, and max_x: float.
-static func real_roots(
-	coefficients: PackedFloat64Array,
-	options: Dictionary = {}
-) -> PackedFloat64Array:
-	var epsilon: float = maxf(absf(GFVariantData.get_option_float(options, "epsilon", DEFAULT_EPSILON)), DEFAULT_EPSILON)
+static func real_roots(coefficients: PackedFloat64Array, options: Dictionary = {}) -> PackedFloat64Array:
+	var epsilon: float = maxf(
+		absf(
+			GFVariantData.get_option_float(
+				options,
+				"epsilon",
+				DEFAULT_EPSILON
+			)
+		),
+		DEFAULT_EPSILON
+	)
 	var merge_epsilon: float = maxf(
-		absf(GFVariantData.get_option_float(options, "root_merge_epsilon", DEFAULT_ROOT_MERGE_EPSILON)),
+		absf(
+			GFVariantData.get_option_float(
+				options,
+				"root_merge_epsilon",
+				DEFAULT_ROOT_MERGE_EPSILON
+			)
+		),
 		epsilon
 	)
-	var max_iterations: int = maxi(GFVariantData.get_option_int(options, "max_iterations", DEFAULT_MAX_ITERATIONS), 1)
-	var max_degree: int = maxi(GFVariantData.get_option_int(options, "max_degree", DEFAULT_MAX_DEGREE), 1)
+	var max_iterations: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_iterations",
+			DEFAULT_MAX_ITERATIONS
+		),
+		1
+	)
+	var max_degree: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_degree",
+			DEFAULT_MAX_DEGREE
+		),
+		1
+	)
 	var normalized: PackedFloat64Array = normalize_coefficients(coefficients, epsilon)
 	var degree: int = normalized.size() - 1
 	if degree <= 0:
@@ -183,9 +215,22 @@ static func real_roots(
 		return PackedFloat64Array()
 
 	var bound: float = _estimate_root_bound(normalized)
-	var min_x: float = _get_option_float_or(options, "min_x", -bound)
-	var max_x: float = _get_option_float_or(options, "max_x", bound)
-	if is_nan(min_x) or is_nan(max_x) or is_inf(min_x) or is_inf(max_x):
+	var min_x: float = _get_option_float_or(
+		options,
+		"min_x",
+		-bound
+	)
+	var max_x: float = _get_option_float_or(
+		options,
+		"max_x",
+		bound
+	)
+	if (
+		is_nan(min_x)
+		or is_nan(max_x)
+		or is_inf(min_x)
+		or is_inf(max_x)
+	):
 		push_error("[GFPolynomialMath][polynomial_math.bounds_non_finite] min_x and max_x must be finite numbers.")
 		return PackedFloat64Array()
 	if min_x > max_x:
@@ -223,9 +268,19 @@ static func _solve_roots_in_range(
 	if degree <= 0 or absf(max_x - min_x) <= epsilon:
 		return PackedFloat64Array()
 	if degree == 1:
-		return _solve_linear_in_range(normalized, min_x, max_x, epsilon)
+		return _solve_linear_in_range(
+			normalized,
+			min_x,
+			max_x,
+			epsilon
+		)
 	if degree == 2:
-		return _solve_quadratic_in_range(normalized, min_x, max_x, epsilon)
+		return _solve_quadratic_in_range(
+			normalized,
+			min_x,
+			max_x,
+			epsilon
+		)
 
 	var roots: PackedFloat64Array = PackedFloat64Array()
 	var derivative_roots: PackedFloat64Array = _solve_roots_in_range(
@@ -236,12 +291,23 @@ static func _solve_roots_in_range(
 		merge_epsilon,
 		max_iterations
 	)
-	var points: PackedFloat64Array = _make_interval_points(min_x, max_x, derivative_roots, merge_epsilon)
+	var points: PackedFloat64Array = _make_interval_points(
+		min_x,
+		max_x,
+		derivative_roots,
+		merge_epsilon
+	)
 
 	for point: float in points:
 		var value_at_point: float = evaluate(normalized, point)
 		if absf(value_at_point) <= epsilon:
-			_append_root_if_in_range(roots, point, min_x, max_x, epsilon)
+			_append_root_if_in_range(
+				roots,
+				point,
+				min_x,
+				max_x,
+				epsilon
+			)
 
 	for index: int in range(points.size() - 1):
 		var left: float = points[index]
@@ -263,7 +329,13 @@ static func _solve_roots_in_range(
 				epsilon,
 				max_iterations
 			)
-			_append_root_if_in_range(roots, root, min_x, max_x, epsilon)
+			_append_root_if_in_range(
+				roots,
+				root,
+				min_x,
+				max_x,
+				epsilon
+			)
 
 	return _unique_sorted_roots(roots, merge_epsilon)
 
@@ -284,7 +356,13 @@ static func _solve_linear_in_range(
 
 	var root: float = -coefficients[1] / a
 	var result: PackedFloat64Array = PackedFloat64Array()
-	_append_root_if_in_range(result, root, min_x, max_x, epsilon)
+	_append_root_if_in_range(
+		result,
+		root,
+		min_x,
+		max_x,
+		epsilon
+	)
 	return result
 
 
@@ -300,7 +378,12 @@ static func _solve_quadratic_in_range(
 ) -> PackedFloat64Array:
 	var a: float = coefficients[0]
 	if absf(a) <= epsilon:
-		return _solve_linear_in_range(PackedFloat64Array([coefficients[1], coefficients[2]]), min_x, max_x, epsilon)
+		return _solve_linear_in_range(
+			PackedFloat64Array([coefficients[1], coefficients[2]]),
+			min_x,
+			max_x,
+			epsilon
+		)
 
 	var b: float = coefficients[1]
 	var c: float = coefficients[2]
@@ -309,13 +392,31 @@ static func _solve_quadratic_in_range(
 	if discriminant < -epsilon:
 		return result
 	if absf(discriminant) <= epsilon:
-		_append_root_if_in_range(result, -b / (2.0 * a), min_x, max_x, epsilon)
+		_append_root_if_in_range(
+			result,
+			-b / (2.0 * a),
+			min_x,
+			max_x,
+			epsilon
+		)
 		return result
 
 	var sqrt_discriminant: float = sqrt(discriminant)
 	var denominator: float = 2.0 * a
-	_append_root_if_in_range(result, (-b - sqrt_discriminant) / denominator, min_x, max_x, epsilon)
-	_append_root_if_in_range(result, (-b + sqrt_discriminant) / denominator, min_x, max_x, epsilon)
+	_append_root_if_in_range(
+		result,
+		(-b - sqrt_discriminant) / denominator,
+		min_x,
+		max_x,
+		epsilon
+	)
+	_append_root_if_in_range(
+		result,
+		(-b + sqrt_discriminant) / denominator,
+		min_x,
+		max_x,
+		epsilon
+	)
 	return _unique_sorted_roots(result, epsilon)
 
 
@@ -366,7 +467,13 @@ static func _make_interval_points(
 ) -> PackedFloat64Array:
 	var points: PackedFloat64Array = PackedFloat64Array([min_x])
 	for point: float in inner_points:
-		_append_root_if_in_range(points, point, min_x, max_x, merge_epsilon)
+		_append_root_if_in_range(
+			points,
+			point,
+			min_x,
+			max_x,
+			merge_epsilon
+		)
 	var _max_point_appended: bool = points.append(max_x)
 	return _unique_sorted_roots(points, merge_epsilon)
 
@@ -386,7 +493,13 @@ static func _append_root_if_in_range(
 		return
 	if root < min_x - epsilon or root > max_x + epsilon:
 		return
-	var _root_appended: bool = roots.append(clampf(root, min_x, max_x))
+	var _root_appended: bool = roots.append(
+		clampf(
+			root,
+			min_x,
+			max_x
+		)
+	)
 
 
 ## 丢弃非有限项、排序候选根，并把间距不超过阈值的相邻项平均合并。
@@ -428,9 +541,18 @@ static func _estimate_root_bound(coefficients: PackedFloat64Array) -> float:
 		return 1.0
 
 	var max_ratio: float = 0.0
-	for index: int in range(1, coefficients.size()):
-		max_ratio = maxf(max_ratio, absf(coefficients[index]) / leading_abs)
-	return maxf(1.0, 1.0 + max_ratio)
+	for index: int in range(
+		1,
+		coefficients.size()
+	):
+		max_ratio = maxf(
+			max_ratio,
+			absf(coefficients[index]) / leading_abs
+		)
+	return maxf(
+		1.0,
+		1.0 + max_ratio
+	)
 
 
 ## 判断两个非零函数值是否异号。
@@ -438,17 +560,33 @@ static func _estimate_root_bound(coefficients: PackedFloat64Array) -> float:
 ## @api private
 ## [br]
 static func _has_sign_change(left_value: float, right_value: float) -> bool:
-	return (left_value < 0.0 and right_value > 0.0) or (left_value > 0.0 and right_value < 0.0)
+	return (
+		(
+			left_value < 0.0
+			and right_value > 0.0
+		)
+		or (
+			left_value > 0.0
+			and right_value < 0.0
+		)
+	)
 
 
 ## 读取指定键并转为浮点数；键不存在或转换失败时返回默认值。
 ## [br]
 ## @api private
 ## [br]
-static func _get_option_float_or(options: Dictionary, key: String, default_value: float) -> float:
+static func _get_option_float_or(
+	options: Dictionary,
+	key: String,
+	default_value: float
+) -> float:
 	if not options.has(key):
 		return default_value
-	return GFVariantData.to_float(options[key], default_value)
+	return GFVariantData.to_float(
+		options[key],
+		default_value
+	)
 
 
 ## 检查系数数组是否含有 NaN 或正负无穷。

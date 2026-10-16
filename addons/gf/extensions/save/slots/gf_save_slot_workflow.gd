@@ -14,6 +14,7 @@ extends Resource
 
 # --- 常量 ---
 
+
 # --- 导出变量 ---
 
 ## 当前选中槽位索引。仅用于构建摘要时标记 active。
@@ -94,6 +95,7 @@ func set_clock(clock: GFClock) -> bool:
 func get_clock() -> GFClock:
 	return _clock
 
+
 ## 选择当前槽位。
 ## [br]
 ## @api public
@@ -158,7 +160,12 @@ func get_active_storage_slot_id() -> int:
 func get_slot_id_for_index(index: int) -> StringName:
 	if _slot_id_overrides.has(index):
 		return GFVariantData.to_string_name(_slot_id_overrides[index])
-	return StringName(slot_id_template.replace("{index}", str(index)))
+	return StringName(
+		slot_id_template.replace(
+			"{index}",
+			str(index)
+		)
+	)
 
 
 ## 获取空槽位展示名。
@@ -169,12 +176,17 @@ func get_slot_id_for_index(index: int) -> StringName:
 ## [br]
 ## @return 展示名。
 func get_empty_display_name_for_index(index: int) -> String:
-	return empty_display_name_template.replace("{index}", str(index))
+	return empty_display_name_template.replace(
+		"{index}",
+		str(index)
+	)
 
 
 ## 构建当前槽位元数据。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param display_name: 可选展示名。
 ## [br]
@@ -183,11 +195,12 @@ func get_empty_display_name_for_index(index: int) -> String:
 ## @return 元数据资源。
 ## [br]
 ## @schema custom_metadata: Dictionary，会写入 GFSaveSlotMetadata.custom_metadata；slot_role 非空时会额外写入 slot_role。
-func build_active_metadata(
-	display_name: String = "",
-	custom_metadata: Dictionary = {}
-) -> GFSaveSlotMetadata:
-	return build_slot_metadata(active_slot_index, display_name, custom_metadata)
+func build_active_metadata(display_name: String = "", custom_metadata: Dictionary = {}) -> GFSaveSlotMetadata:
+	return build_slot_metadata(
+		active_slot_index,
+		display_name,
+		custom_metadata
+	)
 
 
 ## 构建指定槽位元数据。
@@ -263,7 +276,11 @@ func build_card_for_index(
 
 	var card: GFSaveSlotCard = _new_card()
 	var selected_index: int = active_slot_index if p_active_slot_index < 0 else p_active_slot_index
-	var _configure_from_slot_summary_result_227: Variant = card.configure_from_slot_summary(summary, get_slot_id_for_index(index), selected_index)
+	var _configure_from_slot_summary_result_227: Variant = card.configure_from_slot_summary(
+		summary,
+		get_slot_id_for_index(index),
+		selected_index
+	)
 	if card.slot_index < 0:
 		card.slot_index = index
 	if card.slot_id == &"":
@@ -295,7 +312,13 @@ func build_cards_for_indices(indices: Array, summaries: Array = []) -> Array[GFS
 		var index: int = GFVariantData.to_int(index_variant, -1)
 		if index < 0:
 			continue
-		var summary: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(summary_index, index, {}))
+		var summary: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(
+				summary_index,
+				index,
+				{}
+			)
+		)
 		result.append(build_card_for_index(index, summary))
 	return result
 
@@ -364,7 +387,11 @@ func _new_card() -> GFSaveSlotCard:
 ## @api private
 ## [br]
 func _is_instantiable_subclass(candidate: Script, expected_base: Script) -> bool:
-	if candidate == null or expected_base == null or not candidate.can_instantiate():
+	if (
+		candidate == null
+		or expected_base == null
+		or not candidate.can_instantiate()
+	):
 		return false
 	var current: Script = candidate
 	var visited: Array[Script] = []
@@ -398,7 +425,11 @@ func _index_summaries(summaries: Array) -> Dictionary:
 ## [br]
 func _get_summary_slot_index(summary: Dictionary) -> int:
 	if summary.has("slot_index"):
-		return GFVariantData.get_option_int(summary, "slot_index", -1)
+		return GFVariantData.get_option_int(
+			summary,
+			"slot_index",
+			-1
+		)
 
 	var slot_id: Variant = GFVariantData.get_option_value(summary, "slot_id")
 	if slot_id == null:
@@ -428,7 +459,11 @@ func _parse_slot_index_from_id(slot_id: String) -> int:
 				return index_text.to_int()
 
 	var digits: String = ""
-	for i: int in range(slot_id.length() - 1, -1, -1):
+	for i: int in range(
+		slot_id.length() - 1,
+		-1,
+		-1
+	):
 		var character: String = slot_id.substr(i, 1)
 		if not character.is_valid_int():
 			break

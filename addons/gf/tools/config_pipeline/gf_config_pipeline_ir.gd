@@ -110,9 +110,17 @@ static func create(
 ## @schema return: Dictionary，包含 success、error_code、error_kind、error 和 table_name。
 func add_table(table_ir: GFConfigPipelineTableIR) -> Dictionary:
 	if _sealed:
-		return _make_add_failure(&"", "ir_sealed", "数据库 IR 已封存，不能继续注册表。")
+		return _make_add_failure(
+			&"",
+			"ir_sealed",
+			"数据库 IR 已封存，不能继续注册表。"
+		)
 	if table_ir == null:
-		return _make_add_failure(&"", "invalid_table_ir", "待注册的 Table IR 为空。")
+		return _make_add_failure(
+			&"",
+			"invalid_table_ir",
+			"待注册的 Table IR 为空。"
+		)
 	var contract: Dictionary = table_ir.validate_contract()
 	if not GFVariantData.get_option_bool(contract, "success"):
 		return _make_add_failure(
@@ -183,7 +191,11 @@ func validate_contract() -> Dictionary:
 	if not GFVariantData.get_option_bool(structure_result, "success"):
 		return structure_result
 	if not _sealed:
-		return _make_add_failure(&"", "unsealed_pipeline_ir", "数据库 IR 尚未封存，不能交给 Target。")
+		return _make_add_failure(
+			&"",
+			"unsealed_pipeline_ir",
+			"数据库 IR 尚未封存，不能交给 Target。"
+		)
 	return structure_result
 
 
@@ -259,7 +271,11 @@ func get_tables() -> Array[GFConfigPipelineTableIR]:
 ## [br]
 ## @return: 数据库 IR 副本；原 IR 已封存时，副本也会封存。
 func duplicate_ir() -> GFConfigPipelineIR:
-	var result: GFConfigPipelineIR = create(_database_id, _version, _metadata)
+	var result: GFConfigPipelineIR = create(
+		_database_id,
+		_version,
+		_metadata
+	)
 	for table_ir: GFConfigPipelineTableIR in _tables:
 		var _add_result: Dictionary = result.add_table(table_ir)
 	if _sealed:
@@ -302,10 +318,18 @@ func _validate_structure() -> Dictionary:
 	var seen_tables: Dictionary = {}
 	for table_ir: GFConfigPipelineTableIR in _tables:
 		if table_ir == null:
-			return _make_add_failure(&"", "invalid_table_ir", "数据库 IR 包含空 Table IR。")
+			return _make_add_failure(
+				&"",
+				"invalid_table_ir",
+				"数据库 IR 包含空 Table IR。"
+			)
 		var table_name: StringName = table_ir.get_table_name()
 		if seen_tables.has(table_name):
-			return _make_add_failure(table_name, "duplicate_table_ir", "数据库 IR 包含重复表：%s。" % String(table_name))
+			return _make_add_failure(
+				table_name,
+				"duplicate_table_ir",
+				"数据库 IR 包含重复表：%s。" % String(table_name)
+			)
 		seen_tables[table_name] = true
 		var contract: Dictionary = table_ir.validate_contract()
 		if not GFVariantData.get_option_bool(contract, "success"):
@@ -322,11 +346,16 @@ func _validate_structure() -> Dictionary:
 		"table_name": &"",
 	}
 
+
 ## 构造无效数据错误结果并保留表名、错误种类和消息。
 ## [br]
 ## @api private
 ## [br]
-func _make_add_failure(table_name: StringName, error_kind: String, message: String) -> Dictionary:
+func _make_add_failure(
+	table_name: StringName,
+	error_kind: String,
+	message: String
+) -> Dictionary:
 	return {
 		"success": false,
 		"error_code": ERR_INVALID_DATA,

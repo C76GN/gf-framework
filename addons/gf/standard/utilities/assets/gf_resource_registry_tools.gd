@@ -190,21 +190,59 @@ static func scan_resource_paths(root_path: String = "res://", options: Dictionar
 	var result: PackedStringArray = PackedStringArray()
 	var normalized_root: String = _normalize_dir_path(root_path)
 	var extensions: PackedStringArray = _get_extensions(options)
-	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
+	var recursive: bool = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		true
+	)
 	var excluded_paths: PackedStringArray = _get_excluded_paths(options)
 	var pattern_base_path: String = _get_pattern_base_path(options, normalized_root)
 	var include_patterns: Array[RegEx] = _compile_glob_patterns(
-		GFVariantData.get_option_packed_string_array(options, "include_patterns", PackedStringArray())
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"include_patterns",
+			PackedStringArray()
+		)
 	)
 	var exclude_patterns: Array[RegEx] = _compile_glob_patterns(
-		GFVariantData.get_option_packed_string_array(options, "exclude_patterns", PackedStringArray())
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"exclude_patterns",
+			PackedStringArray()
+		)
 	)
-	var include_hidden: bool = GFVariantData.get_option_bool(options, "include_hidden", false)
-	var include_import_sidecars: bool = GFVariantData.get_option_bool(options, "include_import_sidecars", false)
-	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_resource_paths: int = maxi(GFVariantData.get_option_int(options, "max_resource_paths", DEFAULT_MAX_RESOURCE_PATHS), 0)
+	var include_hidden: bool = GFVariantData.get_option_bool(
+		options,
+		"include_hidden",
+		false
+	)
+	var include_import_sidecars: bool = GFVariantData.get_option_bool(
+		options,
+		"include_import_sidecars",
+		false
+	)
+	var max_scan_depth: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_resource_paths: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_resource_paths",
+			DEFAULT_MAX_RESOURCE_PATHS
+		),
+		0
+	)
 	var max_scanned_entries: int = maxi(
-		GFVariantData.get_option_int(options, "max_scanned_entries", DEFAULT_MAX_SCANNED_ENTRIES),
+		GFVariantData.get_option_int(
+			options,
+			"max_scanned_entries",
+			DEFAULT_MAX_SCANNED_ENTRIES
+		),
 		0
 	)
 	var scan_state: Dictionary = _make_scan_state()
@@ -232,14 +270,22 @@ static func scan_resource_paths(root_path: String = "res://", options: Dictionar
 	result = GFVariantData.get_option_packed_string_array(scan_report, "paths")
 
 	if GFVariantData.get_option_bool(scan_report, "truncated"):
-		var limit_kind: String = GFVariantData.get_option_string(scan_report, "limit_kind", "")
+		var limit_kind: String = GFVariantData.get_option_string(
+			scan_report,
+			"limit_kind",
+			""
+		)
 		if limit_kind == "count":
 			_warn_resource_path_limit(max_resource_paths, scan_state)
 		elif limit_kind == "entry_count":
 			_warn_scanned_entry_limit(max_scanned_entries, scan_state)
 		elif limit_kind == "depth":
 			_warn_scan_depth_limit(
-				GFVariantData.get_option_string(scan_report, "limit_path", normalized_root),
+				GFVariantData.get_option_string(
+					scan_report,
+					"limit_path",
+					normalized_root
+				),
 				max_scan_depth,
 				scan_state
 			)
@@ -262,7 +308,11 @@ static func create_registry_from_paths(paths: PackedStringArray, options: Dictio
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
 	var import_options: Dictionary = GFVariantData.to_dictionary(options)
 	import_options["overwrite"] = true
-	var _import_report: GFValidationReport = add_paths_to_registry(registry, paths, import_options)
+	var _import_report: GFValidationReport = add_paths_to_registry(
+		registry,
+		paths,
+		import_options
+	)
 	return registry
 
 
@@ -304,14 +354,40 @@ static func collect_dependency_paths(resource_path: String, options: Dictionary 
 		return result
 
 	var extensions: PackedStringArray = _get_extensions(options)
-	var excluded_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "excluded_paths", PackedStringArray())
-	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_dependency_paths: int = maxi(GFVariantData.get_option_int(options, "max_dependency_paths", DEFAULT_MAX_RESOURCE_PATHS), 0)
-	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
+	var excluded_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		options,
+		"excluded_paths",
+		PackedStringArray()
+	)
+	var max_scan_depth: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_dependency_paths: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_dependency_paths",
+			DEFAULT_MAX_RESOURCE_PATHS
+		),
+		0
+	)
+	var recursive: bool = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		true
+	)
 	var scan_state: Dictionary = _make_scan_state()
 	var visited: Dictionary = {}
 
-	if GFVariantData.get_option_bool(options, "include_root", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_root",
+		false
+	):
 		var _root_appended: bool = _append_dependency_path(
 			result,
 			normalized_path,
@@ -369,12 +445,42 @@ static func build_dependency_report(resource_path: String, options: Dictionary =
 		return _finalize_dependency_report(report)
 
 	var extensions: PackedStringArray = _get_extensions(options)
-	var excluded_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "excluded_paths", PackedStringArray())
-	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_dependency_paths: int = maxi(GFVariantData.get_option_int(options, "max_dependency_paths", DEFAULT_MAX_RESOURCE_PATHS), 0)
-	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
-	var include_root: bool = GFVariantData.get_option_bool(options, "include_root", true)
-	var include_direct_dependencies: bool = GFVariantData.get_option_bool(options, "include_direct_dependencies", true)
+	var excluded_paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		options,
+		"excluded_paths",
+		PackedStringArray()
+	)
+	var max_scan_depth: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_dependency_paths: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_dependency_paths",
+			DEFAULT_MAX_RESOURCE_PATHS
+		),
+		0
+	)
+	var recursive: bool = GFVariantData.get_option_bool(
+		options,
+		"recursive",
+		true
+	)
+	var include_root: bool = GFVariantData.get_option_bool(
+		options,
+		"include_root",
+		true
+	)
+	var include_direct_dependencies: bool = GFVariantData.get_option_bool(
+		options,
+		"include_direct_dependencies",
+		true
+	)
 	var visited: Dictionary = {}
 	var active_paths: Dictionary = {}
 	var scan_state: Dictionary = _make_dependency_report_state()
@@ -422,7 +528,11 @@ static func add_paths_to_registry(
 		var _missing_registry_issue: RefCounted = report.add_error(&"missing_resource_registry", "Resource registry is null.")
 		return report
 
-	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", false)
+	var overwrite: bool = GFVariantData.get_option_bool(
+		options,
+		"overwrite",
+		false
+	)
 	var extensions: PackedStringArray = _get_extensions(options)
 	var added_count: int = 0
 	var skipped_count: int = 0
@@ -459,7 +569,12 @@ static func add_paths_to_registry(
 			continue
 
 		var entry: GFResourceRegistryEntry = GFResourceRegistryEntry.new()
-		var _configured_entry: Resource = entry.configure(entry_id, path, make_type_hint(path, options), make_entry_fields(path, options))
+		var _configured_entry: Resource = entry.configure(
+			entry_id,
+			path,
+			make_type_hint(path, options),
+			make_entry_fields(path, options)
+		)
 		var _entry_stored: bool = registry.set_entry(entry)
 		added_count += 1
 
@@ -487,7 +602,11 @@ static func sync_registry_from_scan(
 	options: Dictionary = {}
 ) -> GFValidationReport:
 	var paths: PackedStringArray = scan_resource_paths(root_path, options)
-	var report: GFValidationReport = add_paths_to_registry(registry, paths, options)
+	var report: GFValidationReport = add_paths_to_registry(
+		registry,
+		paths,
+		options
+	)
 	report.metadata["root_path"] = root_path
 	report.metadata["scanned_count"] = paths.size()
 	return report
@@ -507,20 +626,48 @@ static func sync_registry_from_scan(
 ## [br]
 ## @schema options: Dictionary，可包含 id_mode、base_path、path_separator 和 strip_extension 字段。
 static func make_entry_id(path: String, options: Dictionary = {}) -> StringName:
-	var mode: EntryIdMode = _resolve_id_mode(GFVariantData.get_option_value(options, "id_mode", EntryIdMode.BASENAME))
-	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
+	var mode: EntryIdMode = _resolve_id_mode(
+		GFVariantData.get_option_value(
+			options,
+			"id_mode",
+			EntryIdMode.BASENAME
+		)
+	)
+	var identity: GFResourceIdentity = _make_resource_identity(
+		path,
+		"",
+		&""
+	)
 	var id_text: String = _get_identity_load_path(identity)
 	match mode:
 		EntryIdMode.BASENAME:
 			id_text = id_text.get_file()
 		EntryIdMode.RELATIVE_PATH:
-			id_text = _make_relative_path(id_text, GFVariantData.get_option_string(options, "base_path", "res://"))
+			id_text = _make_relative_path(
+				id_text,
+				GFVariantData.get_option_string(
+					options,
+					"base_path",
+					"res://"
+				)
+			)
 		EntryIdMode.FULL_PATH:
 			pass
 
-	if GFVariantData.get_option_bool(options, "strip_extension", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"strip_extension",
+		true
+	):
 		id_text = id_text.get_basename()
-	id_text = id_text.replace("/", GFVariantData.get_option_string(options, "path_separator", "/")).strip_edges()
+	id_text = id_text.replace(
+		"/",
+		GFVariantData.get_option_string(
+			options,
+			"path_separator",
+			"/"
+		)
+	).strip_edges()
 	return StringName(id_text)
 
 
@@ -536,7 +683,11 @@ static func make_entry_id(path: String, options: Dictionary = {}) -> StringName:
 ## [br]
 ## @schema options: Dictionary，可包含 type_hint、default_type_hint 和 type_hints_by_extension 字段。
 static func make_type_hint(path: String, options: Dictionary = {}) -> String:
-	var explicit_type_hint: String = GFVariantData.get_option_string(options, "type_hint", "")
+	var explicit_type_hint: String = GFVariantData.get_option_string(
+		options,
+		"type_hint",
+		""
+	)
 	if not explicit_type_hint.is_empty():
 		return explicit_type_hint
 
@@ -545,13 +696,25 @@ static func make_type_hint(path: String, options: Dictionary = {}) -> String:
 		"type_hints_by_extension",
 		_DEFAULT_TYPE_HINTS_BY_EXTENSION
 	)
-	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
+	var identity: GFResourceIdentity = _make_resource_identity(
+		path,
+		"",
+		&""
+	)
 	var extension: String = identity.extension
-	var type_hint: Variant = GFVariantData.get_option_value(type_hints, extension, "")
+	var type_hint: Variant = GFVariantData.get_option_value(
+		type_hints,
+		extension,
+		""
+	)
 	var type_hint_text: String = GFVariantData.to_text(type_hint)
 	if not type_hint_text.is_empty():
 		return type_hint_text
-	return GFVariantData.get_option_string(options, "default_type_hint", "")
+	return GFVariantData.get_option_string(
+		options,
+		"default_type_hint",
+		""
+	)
 
 
 ## 按选项从路径生成可索引字段。
@@ -570,34 +733,80 @@ static func make_type_hint(path: String, options: Dictionary = {}) -> String:
 ## [br]
 ## @schema return: Dictionary keyed by field id with scalar, Array, or PackedStringArray values. include_path_fields adds extension, basename, directory, relative_path, and cache_key.
 static func make_entry_fields(path: String, options: Dictionary = {}) -> Dictionary:
-	var fields: Dictionary = GFVariantData.get_option_dictionary(options, "extra_fields", {})
-	var identity: GFResourceIdentity = _make_resource_identity(path, make_type_hint(path, options), make_entry_id(path, options))
+	var fields: Dictionary = GFVariantData.get_option_dictionary(
+		options,
+		"extra_fields",
+		{}
+	)
+	var identity: GFResourceIdentity = _make_resource_identity(
+		path,
+		make_type_hint(path, options),
+		make_entry_id(path, options)
+	)
 	var normalized_path: String = _get_identity_load_path(identity)
 	var relative_path: String = _make_relative_path(
 		normalized_path,
-		GFVariantData.get_option_string(options, "base_path", "res://")
+		GFVariantData.get_option_string(
+			options,
+			"base_path",
+			"res://"
+		)
 	)
 	var entry_id: StringName = make_entry_id(path, options)
 
-	if GFVariantData.get_option_bool(options, "include_path_fields", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_path_fields",
+		true
+	):
 		fields[FIELD_EXTENSION] = normalized_path.get_extension().to_lower()
 		fields[FIELD_BASENAME] = normalized_path.get_file().get_basename()
 		fields[FIELD_DIRECTORY] = _get_relative_directory(relative_path)
 		fields[FIELD_RELATIVE_PATH] = relative_path
 		fields[&"cache_key"] = identity.cache_key
 
-	if GFVariantData.get_option_bool(options, "include_tags", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_tags",
+		true
+	):
 		var tags: PackedStringArray = _make_path_tags(relative_path)
 		if not tags.is_empty():
-			fields[GFVariantData.get_option_string_name(options, "tag_field", FIELD_TAGS)] = tags
+			fields[
+				GFVariantData.get_option_string_name(
+					options,
+					"tag_field",
+					FIELD_TAGS
+				)
+			] = tags
 
-	if GFVariantData.get_option_bool(options, "include_category", true):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_category",
+		true
+	):
 		var category: String = _make_path_category(relative_path)
 		if not category.is_empty():
-			fields[GFVariantData.get_option_string_name(options, "category_field", FIELD_CATEGORY)] = category
+			fields[
+				GFVariantData.get_option_string_name(
+					options,
+					"category_field",
+					FIELD_CATEGORY
+				)
+			] = category
 
-	var _path_override_merge: Dictionary = GFVariantData.merge_dictionary(fields, _get_path_override_fields(path, options), true, true)
-	var _id_override_merge: Dictionary = GFVariantData.merge_dictionary(fields, _get_id_override_fields(entry_id, options), true, true)
+	var _path_override_merge: Dictionary = GFVariantData.merge_dictionary(
+		fields,
+		_get_path_override_fields(path, options),
+		true,
+		true
+	)
+	var _id_override_merge: Dictionary = GFVariantData.merge_dictionary(
+		fields,
+		_get_id_override_fields(entry_id, options),
+		true,
+		true
+	)
 	return fields
 
 
@@ -612,7 +821,12 @@ static func _make_resource_identity(
 	type_hint: String,
 	resource_key: StringName
 ) -> GFResourceIdentity:
-	return GFResourceIdentity.from_path(path, resource_key, type_hint, { "check_exists": false })
+	return GFResourceIdentity.from_path(
+		path,
+		resource_key,
+		type_hint,
+		{ "check_exists": false }
+	)
 
 
 ## 从身份对象取规范路径；身份不可用时回退原始路径或空字符串。
@@ -649,7 +863,12 @@ static func _collect_dependency_paths_recursive(
 	if not _can_collect_more_resource_paths(result, max_dependency_paths):
 		_warn_dependency_path_limit(max_dependency_paths, scan_state)
 		return
-	if not _can_scan_dependency_deeper(resource_path, depth, max_scan_depth, scan_state):
+	if not _can_scan_dependency_deeper(
+		resource_path,
+		depth,
+		max_scan_depth,
+		scan_state
+	):
 		return
 
 	var dependencies: PackedStringArray = ResourceLoader.get_dependencies(resource_path)
@@ -670,7 +889,13 @@ static func _collect_dependency_paths_recursive(
 			max_dependency_paths,
 			scan_state
 		)
-		if recursive and (appended or not visited.has(dependency_path)):
+		if (
+			recursive
+			and (
+				appended
+				or not visited.has(dependency_path)
+			)
+		):
 			_collect_dependency_paths_recursive(
 				dependency_path,
 				recursive,
@@ -709,18 +934,40 @@ static func _collect_dependency_report_recursive(
 	if resource_path.is_empty():
 		return
 	if active_paths.has(resource_path):
-		_append_dependency_report_cycle(report, resource_path, parent_path, depth, scan_state)
+		_append_dependency_report_cycle(
+			report,
+			resource_path,
+			parent_path,
+			depth,
+			scan_state
+		)
 		return
 
 	var path_exists: bool = _resource_path_exists(resource_path)
 	if not path_exists:
-		_append_dependency_report_missing(report, resource_path, parent_path, depth, scan_state)
+		_append_dependency_report_missing(
+			report,
+			resource_path,
+			parent_path,
+			depth,
+			scan_state
+		)
 		return
 
 	var resource_index: int = -1
 	if include_current_path:
-		if _can_include_dependency_path(resource_path, extensions, excluded_paths):
-			resource_index = _append_dependency_report_resource(report, resource_path, parent_path, depth, max_dependency_paths)
+		if _can_include_dependency_path(
+			resource_path,
+			extensions,
+			excluded_paths
+		):
+			resource_index = _append_dependency_report_resource(
+				report,
+				resource_path,
+				parent_path,
+				depth,
+				max_dependency_paths
+			)
 			if resource_index < 0 and GFVariantData.get_option_bool(report, "limit_reached"):
 				return
 		else:
@@ -729,7 +976,11 @@ static func _collect_dependency_report_recursive(
 				resource_path,
 				parent_path,
 				depth,
-				_get_dependency_filter_reason(resource_path, extensions, excluded_paths),
+				_get_dependency_filter_reason(
+					resource_path,
+					extensions,
+					excluded_paths
+				),
 				scan_state
 			)
 
@@ -738,12 +989,23 @@ static func _collect_dependency_report_recursive(
 	visited[resource_path] = true
 	if not traverse_children:
 		return
-	if not _can_scan_dependency_report_deeper(resource_path, depth, max_scan_depth, report, scan_state):
+	if not _can_scan_dependency_report_deeper(
+		resource_path,
+		depth,
+		max_scan_depth,
+		report,
+		scan_state
+	):
 		return
 
 	active_paths[resource_path] = true
 	var direct_dependencies: Array = _get_dependency_resource_paths(resource_path)
-	_update_dependency_report_resource_dependencies(report, resource_index, direct_dependencies, include_direct_dependencies)
+	_update_dependency_report_resource_dependencies(
+		report,
+		resource_index,
+		direct_dependencies,
+		include_direct_dependencies
+	)
 	for dependency_value: Variant in direct_dependencies:
 		var dependency_path: String = GFVariantData.to_text(dependency_value)
 		if dependency_path.is_empty():
@@ -785,7 +1047,12 @@ static func _can_include_file_entry(
 		return false
 	if not is_resource_path(entry, extensions):
 		return false
-	return _matches_scan_patterns(path, pattern_base_path, include_patterns, exclude_patterns)
+	return _matches_scan_patterns(
+		path,
+		pattern_base_path,
+		include_patterns,
+		exclude_patterns
+	)
 
 
 ## 检查当前依赖深度是否仍可展开；到达上限时经状态对象发出一次警告。
@@ -800,7 +1067,11 @@ static func _can_scan_dependency_deeper(
 ) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
-	_warn_dependency_depth_limit(path, max_scan_depth, scan_state)
+	_warn_dependency_depth_limit(
+		path,
+		max_scan_depth,
+		scan_state
+	)
 	return false
 
 
@@ -893,11 +1164,18 @@ static func _warn_scanned_entry_limit(max_scanned_entries: int, scan_state: Dict
 ## [br]
 ## @api private
 ## [br]
-static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
+static func _warn_scan_depth_limit(
+	path: String,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools][resource_registry_tools.resource_scan_depth_limit] scan_resource_paths reached max_scan_depth=%d; deeper directory skipped: %s." % [max_scan_depth, path])
+	push_warning(
+		"[GFResourceRegistryTools][resource_registry_tools.resource_scan_depth_limit] scan_resource_paths reached max_scan_depth=%d; deeper directory skipped: %s."
+		% [max_scan_depth, path]
+	)
 
 
 ## 依赖路径数触顶时最多发出一次依赖收集警告。
@@ -915,11 +1193,18 @@ static func _warn_dependency_path_limit(max_dependency_paths: int, scan_state: D
 ## [br]
 ## @api private
 ## [br]
-static func _warn_dependency_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
+static func _warn_dependency_depth_limit(
+	path: String,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> void:
 	if max_scan_depth <= 0 or GFVariantData.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFResourceRegistryTools][resource_registry_tools.dependency_scan_depth_limit] collect_dependency_paths reached max_scan_depth=%d; deeper dependency skipped: %s." % [max_scan_depth, path])
+	push_warning(
+		"[GFResourceRegistryTools][resource_registry_tools.dependency_scan_depth_limit] collect_dependency_paths reached max_scan_depth=%d; deeper dependency skipped: %s."
+		% [max_scan_depth, path]
+	)
 
 
 ## 从选项读取扩展名列表，并交由统一规范化逻辑清理。
@@ -928,7 +1213,11 @@ static func _warn_dependency_depth_limit(path: String, max_scan_depth: int, scan
 ## [br]
 static func _get_extensions(options: Dictionary) -> PackedStringArray:
 	return _normalize_extensions(
-		GFVariantData.get_option_packed_string_array(options, "extensions", RESOURCE_EXTENSIONS)
+		GFVariantData.get_option_packed_string_array(
+			options,
+			"extensions",
+			RESOURCE_EXTENSIONS
+		)
 	)
 
 
@@ -937,9 +1226,17 @@ static func _get_extensions(options: Dictionary) -> PackedStringArray:
 ## @api private
 ## [br]
 static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
-	if GFVariantData.get_option_bool(options, "include_addons", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"include_addons",
+		false
+	):
 		return PackedStringArray()
-	var paths: PackedStringArray = GFVariantData.get_option_packed_string_array(options, "excluded_paths", DEFAULT_EXCLUDED_PATHS)
+	var paths: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		options,
+		"excluded_paths",
+		DEFAULT_EXCLUDED_PATHS
+	)
 	return _GF_PATH_TOOLS.normalize_root_paths(paths, false)
 
 
@@ -948,7 +1245,11 @@ static func _get_excluded_paths(options: Dictionary) -> PackedStringArray:
 ## @api private
 ## [br]
 static func _get_pattern_base_path(options: Dictionary, normalized_root: String) -> String:
-	var configured_base: String = GFVariantData.get_option_string(options, "pattern_base_path", normalized_root)
+	var configured_base: String = GFVariantData.get_option_string(
+		options,
+		"pattern_base_path",
+		normalized_root
+	)
 	if configured_base.strip_edges().is_empty():
 		return normalized_root
 	return _normalize_dir_path(configured_base)
@@ -993,8 +1294,14 @@ static func _glob_to_regex(pattern: String) -> String:
 	while index < pattern.length():
 		var current: String = pattern.substr(index, 1)
 		if current == "*":
-			if index + 1 < pattern.length() and pattern.substr(index + 1, 1) == "*":
-				if index + 2 < pattern.length() and pattern.substr(index + 2, 1) == "/":
+			if index + 1 < pattern.length() and pattern.substr(
+				index + 1,
+				1
+			) == "*":
+				if index + 2 < pattern.length() and pattern.substr(
+					index + 2,
+					1
+				) == "/":
 					result += "(?:.*/)?"
 					index += 3
 				else:
@@ -1036,9 +1343,22 @@ static func _matches_scan_patterns(
 	var normalized_path: String = _normalize_resource_path(path)
 	var relative_path: String = _make_relative_path(normalized_path, pattern_base_path)
 	var basename: String = normalized_path.get_file()
-	if not include_patterns.is_empty() and not _matches_any_pattern(include_patterns, normalized_path, relative_path, basename):
+	if (
+		not include_patterns.is_empty()
+		and not _matches_any_pattern(
+			include_patterns,
+			normalized_path,
+			relative_path,
+			basename
+		)
+	):
 		return false
-	if _matches_any_pattern(exclude_patterns, normalized_path, relative_path, basename):
+	if _matches_any_pattern(
+		exclude_patterns,
+		normalized_path,
+		relative_path,
+		basename
+	):
 		return false
 	return true
 
@@ -1103,7 +1423,11 @@ static func _resolve_id_mode(value: Variant) -> EntryIdMode:
 static func _make_relative_path(path: String, base_path: String) -> String:
 	var relative_path: String = _GF_PATH_TOOLS.make_relative_path(path, base_path)
 	if relative_path.is_empty():
-		return _GF_PATH_TOOLS.normalize_resource_path(path, "", false)
+		return _GF_PATH_TOOLS.normalize_resource_path(
+			path,
+			"",
+			false
+		)
 	return relative_path
 
 
@@ -1151,13 +1475,25 @@ static func _make_path_category(relative_path: String) -> String:
 ## @api private
 ## [br]
 static func _get_path_override_fields(path: String, options: Dictionary) -> Dictionary:
-	var fields_by_path: Dictionary = GFVariantData.get_option_dictionary(options, "fields_by_path", {})
-	var identity: GFResourceIdentity = _make_resource_identity(path, "", &"")
+	var fields_by_path: Dictionary = GFVariantData.get_option_dictionary(
+		options,
+		"fields_by_path",
+		{}
+	)
+	var identity: GFResourceIdentity = _make_resource_identity(
+		path,
+		"",
+		&""
+	)
 	var normalized_path: String = _get_identity_load_path(identity)
 	var value: Variant = GFVariantData.get_option_value(
 		fields_by_path,
 		normalized_path,
-		GFVariantData.get_option_value(fields_by_path, path, {})
+		GFVariantData.get_option_value(
+			fields_by_path,
+			path,
+			{}
+		)
 	)
 	return GFVariantData.to_dictionary(value)
 
@@ -1177,7 +1513,11 @@ static func _append_dependency_path(
 	if not _can_collect_more_resource_paths(result, max_dependency_paths):
 		_warn_dependency_path_limit(max_dependency_paths, scan_state)
 		return false
-	if not _can_include_dependency_path(path, extensions, excluded_paths):
+	if not _can_include_dependency_path(
+		path,
+		extensions,
+		excluded_paths
+	):
 		return false
 	if result.has(path):
 		return false
@@ -1210,7 +1550,11 @@ static func _can_include_dependency_path(
 static func _get_dependency_resource_path(dependency: String) -> String:
 	var fallback_uid: String = ""
 	var parts: PackedStringArray = dependency.split("::", false)
-	for index: int in range(parts.size() - 1, -1, -1):
+	for index: int in range(
+		parts.size() - 1,
+		-1,
+		-1
+	):
 		var part: String = parts[index].strip_edges()
 		if part.begins_with("res://") or part.begins_with("user://"):
 			return part
@@ -1224,7 +1568,13 @@ static func _get_dependency_resource_path(dependency: String) -> String:
 ## @api private
 ## [br]
 static func _normalize_resource_path(path: String) -> String:
-	return _get_identity_load_path(_make_resource_identity(path, "", &""))
+	return _get_identity_load_path(
+		_make_resource_identity(
+			path,
+			"",
+			&""
+		)
+	)
 
 
 ## 按条目 ID 及其文本形式读取对应字段覆盖项。
@@ -1232,11 +1582,19 @@ static func _normalize_resource_path(path: String) -> String:
 ## @api private
 ## [br]
 static func _get_id_override_fields(entry_id: StringName, options: Dictionary) -> Dictionary:
-	var fields_by_id: Dictionary = GFVariantData.get_option_dictionary(options, "fields_by_id", {})
+	var fields_by_id: Dictionary = GFVariantData.get_option_dictionary(
+		options,
+		"fields_by_id",
+		{}
+	)
 	var value: Variant = GFVariantData.get_option_value(
 		fields_by_id,
 		entry_id,
-		GFVariantData.get_option_value(fields_by_id, String(entry_id), {})
+		GFVariantData.get_option_value(
+			fields_by_id,
+			String(entry_id),
+			{}
+		)
 	)
 	return GFVariantData.to_dictionary(value)
 
@@ -1246,7 +1604,11 @@ static func _get_id_override_fields(entry_id: StringName, options: Dictionary) -
 ## @api private
 ## [br]
 static func _int_to_entry_id_mode(value: int) -> EntryIdMode:
-	match clampi(value, EntryIdMode.BASENAME, EntryIdMode.FULL_PATH):
+	match clampi(
+		value,
+		EntryIdMode.BASENAME,
+		EntryIdMode.FULL_PATH
+	):
 		EntryIdMode.RELATIVE_PATH:
 			return EntryIdMode.RELATIVE_PATH
 		EntryIdMode.FULL_PATH:
@@ -1260,7 +1622,11 @@ static func _int_to_entry_id_mode(value: int) -> EntryIdMode:
 ## @api private
 ## [br]
 static func _normalize_dir_path(path: String) -> String:
-	return _GF_PATH_TOOLS.normalize_root_path(path, "", false)
+	return _GF_PATH_TOOLS.normalize_root_path(
+		path,
+		"",
+		false
+	)
 
 
 ## 委托统一路径工具判断路径是否落在排除目录中。
@@ -1282,26 +1648,46 @@ static func _append_dependency_report_resource(
 	depth: int,
 	max_dependency_paths: int
 ) -> int:
-	var paths: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "paths", []))
+	var paths: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"paths",
+			[]
+		)
+	)
 	if paths.has(path):
 		return -1
 	if max_dependency_paths > 0 and paths.size() >= max_dependency_paths:
-		_mark_dependency_report_limit(report, path, parent_path, depth, max_dependency_paths)
+		_mark_dependency_report_limit(
+			report,
+			path,
+			parent_path,
+			depth,
+			max_dependency_paths
+		)
 		return -1
 
 	paths.append(path)
 	report["paths"] = paths
-	var resources: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "resources", []))
-	resources.append({
-		"path": path,
-		"parent_path": parent_path,
-		"depth": depth,
-		"extension": path.get_extension().to_lower(),
-		"type_hint": make_type_hint(path),
-		"children_scanned": false,
-		"direct_dependency_count": 0,
-		"direct_dependencies": [],
-	})
+	var resources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"resources",
+			[]
+		)
+	)
+	resources.append(
+		{
+			"path": path,
+			"parent_path": parent_path,
+			"depth": depth,
+			"extension": path.get_extension().to_lower(),
+			"type_hint": make_type_hint(path),
+			"children_scanned": false,
+			"direct_dependency_count": 0,
+			"direct_dependencies": [],
+		}
+	)
 	report["resources"] = resources
 	return resources.size() - 1
 
@@ -1318,7 +1704,13 @@ static func _update_dependency_report_resource_dependencies(
 ) -> void:
 	if resource_index < 0:
 		return
-	var resources: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "resources", []))
+	var resources: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"resources",
+			[]
+		)
+	)
 	if resource_index >= resources.size():
 		return
 	var record_value: Variant = resources[resource_index]
@@ -1344,17 +1736,31 @@ static func _append_dependency_report_missing(
 	depth: int,
 	scan_state: Dictionary
 ) -> void:
-	var missing_paths: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(scan_state, "missing_paths", {}))
+	var missing_paths: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			scan_state,
+			"missing_paths",
+			{}
+		)
+	)
 	if missing_paths.has(path):
 		return
 	missing_paths[path] = true
 	scan_state["missing_paths"] = missing_paths
-	var missing: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "missing", []))
-	missing.append({
-		"path": path,
-		"parent_path": parent_path,
-		"depth": depth,
-	})
+	var missing: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"missing",
+			[]
+		)
+	)
+	missing.append(
+		{
+			"path": path,
+			"parent_path": parent_path,
+			"depth": depth,
+		}
+	)
 	report["missing"] = missing
 	_append_dependency_report_issue(
 		report,
@@ -1380,18 +1786,32 @@ static func _append_dependency_report_excluded(
 	scan_state: Dictionary
 ) -> void:
 	var key: String = _make_dependency_report_key(path, parent_path)
-	var excluded_keys: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(scan_state, "excluded_keys", {}))
+	var excluded_keys: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			scan_state,
+			"excluded_keys",
+			{}
+		)
+	)
 	if excluded_keys.has(key):
 		return
 	excluded_keys[key] = true
 	scan_state["excluded_keys"] = excluded_keys
-	var excluded: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "excluded", []))
-	excluded.append({
-		"path": path,
-		"parent_path": parent_path,
-		"depth": depth,
-		"reason": reason,
-	})
+	var excluded: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"excluded",
+			[]
+		)
+	)
+	excluded.append(
+		{
+			"path": path,
+			"parent_path": parent_path,
+			"depth": depth,
+			"reason": reason,
+		}
+	)
 	report["excluded"] = excluded
 
 
@@ -1407,17 +1827,31 @@ static func _append_dependency_report_cycle(
 	scan_state: Dictionary
 ) -> void:
 	var key: String = _make_dependency_report_key(path, parent_path)
-	var cycle_keys: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(scan_state, "cycle_keys", {}))
+	var cycle_keys: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			scan_state,
+			"cycle_keys",
+			{}
+		)
+	)
 	if cycle_keys.has(key):
 		return
 	cycle_keys[key] = true
 	scan_state["cycle_keys"] = cycle_keys
-	var cycles: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "cycles", []))
-	cycles.append({
-		"path": path,
-		"parent_path": parent_path,
-		"depth": depth,
-	})
+	var cycles: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"cycles",
+			[]
+		)
+	)
+	cycles.append(
+		{
+			"path": path,
+			"parent_path": parent_path,
+			"depth": depth,
+		}
+	)
 	report["cycles"] = cycles
 	_append_dependency_report_issue(
 		report,
@@ -1443,7 +1877,13 @@ static func _append_dependency_report_issue(
 	depth: int,
 	message: String
 ) -> void:
-	var issues: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "issues", []))
+	var issues: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"issues",
+			[]
+		)
+	)
 	var issue: Dictionary = {
 		"severity": severity,
 		"kind": kind,
@@ -1515,25 +1955,59 @@ static func _can_scan_dependency_report_deeper(
 ## @api private
 ## [br]
 static func _finalize_dependency_report(report: Dictionary) -> Dictionary:
-	var paths: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "paths", []))
+	var paths: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"paths",
+			[]
+		)
+	)
 	paths.sort()
 	report["paths"] = paths
-	var issues: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "issues", []))
+	var issues: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"issues",
+			[]
+		)
+	)
 	var error_count: int = 0
 	var warning_count: int = 0
 	for issue_value: Variant in issues:
 		if not issue_value is Dictionary:
 			continue
 		var issue: Dictionary = issue_value
-		match GFVariantData.get_option_string(issue, "severity", ""):
+		match GFVariantData.get_option_string(
+			issue,
+			"severity",
+			""
+		):
 			"error":
 				error_count += 1
 			"warning":
 				warning_count += 1
 
-	var missing: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "missing", []))
-	var excluded: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "excluded", []))
-	var cycles: Array = GFVariantData.as_array(GFVariantData.get_option_value(report, "cycles", []))
+	var missing: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"missing",
+			[]
+		)
+	)
+	var excluded: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"excluded",
+			[]
+		)
+	)
+	var cycles: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"cycles",
+			[]
+		)
+	)
 	report["resource_count"] = paths.size()
 	report["missing_count"] = missing.size()
 	report["excluded_count"] = excluded.size()
@@ -1558,18 +2032,24 @@ static func _update_dependency_report_summary(report: Dictionary) -> void:
 	var issue_count: int = GFVariantData.get_option_int(report, "issue_count")
 	if missing_count > 0:
 		report["summary"] = "Dependency report found %d missing resource(s)." % missing_count
-		report["next_action"] = "Restore, reimport, or remap the missing resource path(s) before using the dependency closure."
+		report["next_action"] = ("Restore, reimport, or remap the missing resource path(s) before using the dependency closure.")
 	elif GFVariantData.get_option_bool(report, "limit_reached"):
 		report["summary"] = "Dependency report reached the configured path limit after %d resource(s)." % resource_count
-		report["next_action"] = "Increase max_dependency_paths or narrow the entry resource before trusting this report as complete."
+		report["next_action"] = ("Increase max_dependency_paths or narrow the entry resource before trusting this report as complete.")
 	elif GFVariantData.get_option_bool(report, "depth_limit_reached"):
-		report["summary"] = "Dependency report reached the configured depth limit after %d resource(s)." % resource_count
-		report["next_action"] = "Increase max_scan_depth or inspect the skipped branch before trusting this report as complete."
+		report["summary"] = ("Dependency report reached the configured depth limit after %d resource(s)." % resource_count)
+		report["next_action"] = ("Increase max_scan_depth or inspect the skipped branch before trusting this report as complete.")
 	elif issue_count > 0:
-		report["summary"] = "Dependency report collected %d resource(s) with %d issue(s)." % [resource_count, issue_count]
+		report["summary"] = (
+			"Dependency report collected %d resource(s) with %d issue(s)."
+			% [resource_count, issue_count]
+		)
 		report["next_action"] = "Inspect issues before using the dependency closure in build or preload tooling."
 	else:
-		report["summary"] = "Dependency report is healthy with %d resource(s) and %d excluded path(s)." % [resource_count, excluded_count]
+		report["summary"] = (
+			"Dependency report is healthy with %d resource(s) and %d excluded path(s)."
+			% [resource_count, excluded_count]
+		)
 		report["next_action"] = ""
 
 
@@ -1622,4 +2102,7 @@ static func _get_dependency_filter_reason(
 ## @api private
 ## [br]
 static func _make_dependency_report_key(path: String, parent_path: String) -> String:
-	return "%s <- %s" % [path, parent_path]
+	return (
+		"%s <- %s"
+		% [path, parent_path]
+	)

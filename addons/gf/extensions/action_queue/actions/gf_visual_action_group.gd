@@ -265,7 +265,11 @@ func finish() -> void:
 ## [br]
 ## @api private
 func _run_parallel(current_serial: int, action_plan: Array[Object]) -> Variant:
-	call_deferred("_do_parallel_async", current_serial, action_plan)
+	call_deferred(
+		"_do_parallel_async",
+		current_serial,
+		action_plan
+	)
 	return _parallel_completed
 
 
@@ -273,7 +277,11 @@ func _run_parallel(current_serial: int, action_plan: Array[Object]) -> Variant:
 ## [br]
 ## @api private
 func _run_sequence(current_serial: int, action_plan: Array[Object]) -> Variant:
-	call_deferred("_do_sequence_async", current_serial, action_plan)
+	call_deferred(
+		"_do_sequence_async",
+		current_serial,
+		action_plan
+	)
 	return _sequence_completed
 
 
@@ -328,7 +336,12 @@ func _do_parallel_async(current_serial: int, action_plan: Array[Object]) -> void
 			pending_actions.append(action)
 			_GF_ASYNC_CALL_SCRIPT.run_detached(
 				Callable(self, &"_wait_parallel_action"),
-				[action, result, pending_state, current_serial]
+				[
+					action,
+					result,
+					pending_state,
+					current_serial,
+				]
 			)
 		elif _active_parallel_completion_policy == ParallelCompletionPolicy.FIRST_COMPLETED:
 			_unmark_action_active(action)
@@ -378,12 +391,14 @@ func _do_sequence_async(current_serial: int, action_plan: Array[Object]) -> void
 		if current_serial != _execution_serial:
 			return
 		if should_wait:
-			await _ACTION_PROTOCOL.await_result_safely(
-				action,
-				result,
-				_is_execution_serial_current.bind(current_serial),
-				_is_timeout_paused.bind(current_serial),
-				_get_architecture_or_null()
+			await (
+				_ACTION_PROTOCOL.await_result_safely(
+					action,
+					result,
+					_is_execution_serial_current.bind(current_serial),
+					_is_timeout_paused.bind(current_serial),
+					_get_architecture_or_null()
+				)
 			)
 			if current_serial != _execution_serial:
 				return
@@ -418,12 +433,14 @@ func _wait_parallel_action(
 		_try_emit_parallel_completed(pending_state, current_serial)
 		return
 
-	await _ACTION_PROTOCOL.await_result_safely(
-		action,
-		result,
-		_is_execution_serial_current.bind(current_serial),
-		_is_timeout_paused.bind(current_serial),
-		_get_architecture_or_null()
+	await (
+		_ACTION_PROTOCOL.await_result_safely(
+			action,
+			result,
+			_is_execution_serial_current.bind(current_serial),
+			_is_timeout_paused.bind(current_serial),
+			_get_architecture_or_null()
+		)
 	)
 
 	if current_serial != _execution_serial:
@@ -432,14 +449,21 @@ func _wait_parallel_action(
 
 	pending_state["count"] = GFVariantData.get_option_int(pending_state, "count") - 1
 	pending_state["completed_count"] = GFVariantData.get_option_int(pending_state, "completed_count") + 1
-	_try_emit_parallel_completed(pending_state, current_serial, action)
+	_try_emit_parallel_completed(
+		pending_state,
+		current_serial,
+		action
+	)
 
 
 ## 通过动作协议向子动作注入当前架构实例。
 ## [br]
 ## @api private
 func _inject_action_dependencies(action: Object) -> void:
-	_ACTION_PROTOCOL.inject_dependencies(action, _get_architecture_or_null())
+	_ACTION_PROTOCOL.inject_dependencies(
+		action,
+		_get_architecture_or_null()
+	)
 
 
 ## 在全部动作已启动后检查完成策略，并最多发出一次并行完成信号。
@@ -537,7 +561,13 @@ func _emit_active_completion() -> void:
 ## [br]
 ## @api private
 func _get_pending_actions(pending_state: Dictionary) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(pending_state, "actions", []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			pending_state,
+			"actions",
+			[]
+		)
+	)
 
 
 ## 将公开动作列表复制为本轮使用的类型化执行计划。

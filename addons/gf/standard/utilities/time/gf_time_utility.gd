@@ -31,10 +31,7 @@ extends GFTimeProvider
 var time_scale: float = 1.0:
 	set(value):
 		if not _is_finite_scalar(value):
-			_report_non_finite_once(
-				&"time_scale",
-				"[GFTimeUtility][time_utility.time_scale_non_finite] Ignored non-finite time_scale; keeping the previous valid value."
-			)
+			_report_non_finite_once(&"time_scale", "[GFTimeUtility][time_utility.time_scale_non_finite] Ignored non-finite time_scale; keeping the previous valid value.")
 			return
 		time_scale = maxf(value, 0.0)
 
@@ -48,10 +45,7 @@ var time_scale: float = 1.0:
 var max_scaled_delta: float = 0.0:
 	set(value):
 		if not _is_finite_scalar(value):
-			_report_non_finite_once(
-				&"max_scaled_delta",
-				"[GFTimeUtility][time_utility.max_scaled_delta_non_finite] Ignored non-finite max_scaled_delta; keeping the previous valid value."
-			)
+			_report_non_finite_once(&"max_scaled_delta", "[GFTimeUtility][time_utility.max_scaled_delta_non_finite] Ignored non-finite max_scaled_delta; keeping the previous valid value.")
 			return
 		max_scaled_delta = maxf(value, 0.0)
 
@@ -64,10 +58,7 @@ var max_scaled_delta: float = 0.0:
 var physics_substep_max_delta: float = 0.0:
 	set(value):
 		if not _is_finite_scalar(value):
-			_report_non_finite_once(
-				&"physics_substep_max_delta",
-				"[GFTimeUtility][time_utility.substep_delta_non_finite] Ignored non-finite physics_substep_max_delta; keeping the previous valid value."
-			)
+			_report_non_finite_once(&"physics_substep_max_delta", "[GFTimeUtility][time_utility.substep_delta_non_finite] Ignored non-finite physics_substep_max_delta; keeping the previous valid value.")
 			return
 		physics_substep_max_delta = maxf(value, 0.0)
 
@@ -150,7 +141,11 @@ func get_physics_scaled_delta_steps(delta: float) -> Array[float]:
 	var required_steps: float = absf(scaled_delta) / physics_substep_max_delta
 	var step_count: int = max_physics_substeps
 	if _is_finite_scalar(required_steps):
-		step_count = clampi(ceili(required_steps), 1, max_physics_substeps)
+		step_count = clampi(
+			ceili(required_steps),
+			1,
+			max_physics_substeps
+		)
 	var step_delta: float = scaled_delta / float(step_count)
 	var result: Array[float] = []
 	for _i: int in range(step_count):
@@ -201,7 +196,11 @@ func set_group_paused(group: StringName, paused: bool) -> void:
 ## [br]
 ## @return 该组是否暂停，未注册的组返回 false。
 func is_group_paused(group: StringName) -> bool:
-	return GFVariantData.get_option_bool(_group_paused, group, false)
+	return GFVariantData.get_option_bool(
+		_group_paused,
+		group,
+		false
+	)
 
 
 ## 获取指定组经过缩放的 delta 值。
@@ -246,10 +245,7 @@ func clear_groups() -> void:
 func _validate_delta(delta: float) -> bool:
 	if _is_finite_scalar(delta):
 		return true
-	_report_non_finite_once(
-		&"delta",
-		"[GFTimeUtility][time_utility.delta_non_finite] delta must be finite; returning a safe zero value for this call."
-	)
+	_report_non_finite_once(&"delta", "[GFTimeUtility][time_utility.delta_non_finite] delta must be finite; returning a safe zero value for this call.")
 	return false
 
 
@@ -260,10 +256,7 @@ func _scale_delta_or_zero(delta: float) -> float:
 	var scaled_delta: float = delta * time_scale
 	if _is_finite_scalar(scaled_delta):
 		return scaled_delta
-	_report_non_finite_once(
-		&"scaled_delta",
-		"[GFTimeUtility][time_utility.scaled_delta_overflow] scaled_delta overflowed to a non-finite value; returning a safe zero value for this call."
-	)
+	_report_non_finite_once(&"scaled_delta", "[GFTimeUtility][time_utility.scaled_delta_overflow] scaled_delta overflowed to a non-finite value; returning a safe zero value for this call.")
 	return 0.0
 
 
@@ -290,4 +283,8 @@ func _is_finite_scalar(value: float) -> bool:
 func _clamp_scaled_delta(delta: float) -> float:
 	if max_scaled_delta <= 0.0:
 		return delta
-	return clampf(delta, -max_scaled_delta, max_scaled_delta)
+	return clampf(
+		delta,
+		-max_scaled_delta,
+		max_scaled_delta
+	)

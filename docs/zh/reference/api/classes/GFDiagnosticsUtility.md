@@ -49,11 +49,11 @@
 | 方法 | [`has_command`](#member-gfdiagnosticsutility-methods-has_command) | `func has_command(command_name: StringName) -> bool:` |
 | 方法 | [`set_command_parameter_schema`](#member-gfdiagnosticsutility-methods-set_command_parameter_schema) | `func set_command_parameter_schema(command_name: StringName, parameters: Variant) -> bool:` |
 | 方法 | [`set_command_enabled`](#member-gfdiagnosticsutility-methods-set_command_enabled) | `func set_command_enabled(command_name: StringName, enabled: bool) -> bool:` |
-| 方法 | [`set_all_commands_enabled`](#member-gfdiagnosticsutility-methods-set_all_commands_enabled) | `func set_all_commands_enabled( enabled: bool, command_names: PackedStringArray = PackedStringArray() ) -> int:` |
+| 方法 | [`set_all_commands_enabled`](#member-gfdiagnosticsutility-methods-set_all_commands_enabled) | `func set_all_commands_enabled(enabled: bool, command_names: PackedStringArray = PackedStringArray()) -> int:` |
 | 方法 | [`is_command_enabled`](#member-gfdiagnosticsutility-methods-is_command_enabled) | `func is_command_enabled(command_name: StringName) -> bool:` |
 | 方法 | [`get_command_descriptions`](#member-gfdiagnosticsutility-methods-get_command_descriptions) | `func get_command_descriptions() -> Dictionary:` |
 | 方法 | [`get_command_catalog`](#member-gfdiagnosticsutility-methods-get_command_catalog) | `func get_command_catalog() -> Dictionary:` |
-| 方法 | [`register_monitor`](#member-gfdiagnosticsutility-methods-register_monitor) | `func register_monitor(owner: Object, monitor_id: StringName, options: Dictionary = {}) -> bool:` |
+| 方法 | [`register_monitor`](#member-gfdiagnosticsutility-methods-register_monitor) | `func register_monitor( owner: Object, monitor_id: StringName, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`publish_monitor_sample`](#member-gfdiagnosticsutility-methods-publish_monitor_sample) | `func publish_monitor_sample( owner: Object, monitor_id: StringName, value: Variant, sample_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`unregister_monitor`](#member-gfdiagnosticsutility-methods-unregister_monitor) | `func unregister_monitor(owner: Object, monitor_id: StringName) -> bool:` |
 | 方法 | [`has_monitor`](#member-gfdiagnosticsutility-methods-has_monitor) | `func has_monitor(monitor_id: StringName) -> bool:` |
@@ -63,18 +63,18 @@
 | 方法 | [`unregister_monitor_preset`](#member-gfdiagnosticsutility-methods-unregister_monitor_preset) | `func unregister_monitor_preset(preset_id: StringName) -> void:` |
 | 方法 | [`has_monitor_preset`](#member-gfdiagnosticsutility-methods-has_monitor_preset) | `func has_monitor_preset(preset_id: StringName) -> bool:` |
 | 方法 | [`get_monitor_preset_ids`](#member-gfdiagnosticsutility-methods-get_monitor_preset_ids) | `func get_monitor_preset_ids() -> PackedStringArray:` |
-| 方法 | [`publish_snapshot_section`](#member-gfdiagnosticsutility-methods-publish_snapshot_section) | `func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -> bool:` |
+| 方法 | [`publish_snapshot_section`](#member-gfdiagnosticsutility-methods-publish_snapshot_section) | `func publish_snapshot_section( owner: Object, section_id: StringName, section: Dictionary ) -> bool:` |
 | 方法 | [`remove_snapshot_section`](#member-gfdiagnosticsutility-methods-remove_snapshot_section) | `func remove_snapshot_section(owner: Object, section_id: StringName) -> bool:` |
 | 方法 | [`has_snapshot_section`](#member-gfdiagnosticsutility-methods-has_snapshot_section) | `func has_snapshot_section(section_id: StringName) -> bool:` |
-| 方法 | [`register_diagnostic_provider`](#member-gfdiagnosticsutility-methods-register_diagnostic_provider) | `func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -> bool:` |
+| 方法 | [`register_diagnostic_provider`](#member-gfdiagnosticsutility-methods-register_diagnostic_provider) | `func register_diagnostic_provider(owner: Object, provider: GFDiagnosticSnapshotProvider) -> bool:` |
 | 方法 | [`unregister_diagnostic_provider`](#member-gfdiagnosticsutility-methods-unregister_diagnostic_provider) | `func unregister_diagnostic_provider(owner: Object, provider_id: StringName) -> bool:` |
 | 方法 | [`has_diagnostic_provider`](#member-gfdiagnosticsutility-methods-has_diagnostic_provider) | `func has_diagnostic_provider(provider_id: StringName) -> bool:` |
 | 方法 | [`get_diagnostic_provider_catalog`](#member-gfdiagnosticsutility-methods-get_diagnostic_provider_catalog) | `func get_diagnostic_provider_catalog() -> Dictionary:` |
-| 方法 | [`collect_diagnostic_providers`](#member-gfdiagnosticsutility-methods-collect_diagnostic_providers) | `func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`publish_tool_snapshot`](#member-gfdiagnosticsutility-methods-publish_tool_snapshot) | `func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -> bool:` |
+| 方法 | [`collect_diagnostic_providers`](#member-gfdiagnosticsutility-methods-collect_diagnostic_providers) | `func collect_diagnostic_providers(provider_ids: PackedStringArray, request: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`publish_tool_snapshot`](#member-gfdiagnosticsutility-methods-publish_tool_snapshot) | `func publish_tool_snapshot( owner: Object, tool_id: StringName, snapshot: Dictionary ) -> bool:` |
 | 方法 | [`remove_tool_snapshot`](#member-gfdiagnosticsutility-methods-remove_tool_snapshot) | `func remove_tool_snapshot(owner: Object, tool_id: StringName) -> bool:` |
 | 方法 | [`has_tool_snapshot`](#member-gfdiagnosticsutility-methods-has_tool_snapshot) | `func has_tool_snapshot(tool_id: StringName) -> bool:` |
-| 方法 | [`collect_monitor_snapshot`](#member-gfdiagnosticsutility-methods-collect_monitor_snapshot) | `func collect_monitor_snapshot( monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false ) -> Dictionary:` |
+| 方法 | [`collect_monitor_snapshot`](#member-gfdiagnosticsutility-methods-collect_monitor_snapshot) | `func collect_monitor_snapshot(monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false) -> Dictionary:` |
 | 方法 | [`collect_monitor_preset`](#member-gfdiagnosticsutility-methods-collect_monitor_preset) | `func collect_monitor_preset(preset_id: StringName, include_hidden: bool = false) -> Dictionary:` |
 | 方法 | [`export_monitor_snapshot`](#member-gfdiagnosticsutility-methods-export_monitor_snapshot) | `func export_monitor_snapshot(snapshot: Dictionary, format: StringName = &"json") -> String:` |
 | 方法 | [`set_auth_token`](#member-gfdiagnosticsutility-methods-set_auth_token) | `func set_auth_token(token: String, required: bool = true) -> void:` |
@@ -623,9 +623,10 @@ func set_command_enabled(command_name: StringName, enabled: bool) -> bool:
 ### `set_all_commands_enabled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_all_commands_enabled( enabled: bool, command_names: PackedStringArray = PackedStringArray() ) -> int:
+func set_all_commands_enabled(enabled: bool, command_names: PackedStringArray = PackedStringArray()) -> int:
 ```
 
 批量设置命令是否启用。
@@ -703,7 +704,7 @@ func get_command_catalog() -> Dictionary:
 - 首次版本：`3.0.0`
 
 ```gdscript
-func register_monitor(owner: Object, monitor_id: StringName, options: Dictionary = {}) -> bool:
+func register_monitor( owner: Object, monitor_id: StringName, options: Dictionary = {} ) -> bool:
 ```
 
 注册一个由 owner 主动发布采样值的诊断监控项。
@@ -919,7 +920,7 @@ func get_monitor_preset_ids() -> PackedStringArray:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func publish_snapshot_section(owner: Object, section_id: StringName, section: Dictionary) -> bool:
+func publish_snapshot_section( owner: Object, section_id: StringName, section: Dictionary ) -> bool:
 ```
 
 发布快照分区。用于扩展或项目把自己的诊断数据贡献到 collect_snapshot() 顶层字段。
@@ -989,7 +990,7 @@ func has_snapshot_section(section_id: StringName) -> bool:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func register_diagnostic_provider( owner: Object, provider: GFDiagnosticSnapshotProvider ) -> bool:
+func register_diagnostic_provider(owner: Object, provider: GFDiagnosticSnapshotProvider) -> bool:
 ```
 
 注册一个仅在显式请求时执行的诊断 Provider。
@@ -1073,7 +1074,7 @@ func get_diagnostic_provider_catalog() -> Dictionary:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dictionary = {} ) -> Dictionary:
+func collect_diagnostic_providers(provider_ids: PackedStringArray, request: Dictionary = {}) -> Dictionary:
 ```
 
 显式采集一组惰性诊断 Provider。 空列表不会执行任何 Provider；重复 ID 只执行一次。原始列表最多包含 1024 项， 超限会在去重和项目回调前整体拒绝。不存在、失效、重入或输出被预算拒绝 都会成为独立失败结果，不会阻止其他 Provider 采集。
@@ -1100,7 +1101,7 @@ func collect_diagnostic_providers( provider_ids: PackedStringArray, request: Dic
 - 首次版本：`8.0.0`
 
 ```gdscript
-func publish_tool_snapshot(owner: Object, tool_id: StringName, snapshot: Dictionary) -> bool:
+func publish_tool_snapshot( owner: Object, tool_id: StringName, snapshot: Dictionary ) -> bool:
 ```
 
 发布工具快照。用于扩展或项目把 get_debug_snapshot() 风格数据贡献到 tools 字段。
@@ -1167,9 +1168,10 @@ func has_tool_snapshot(tool_id: StringName) -> bool:
 ### `collect_monitor_snapshot`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func collect_monitor_snapshot( monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false ) -> Dictionary:
+func collect_monitor_snapshot(monitor_ids: PackedStringArray = PackedStringArray(), include_hidden: bool = false) -> Dictionary:
 ```
 
 采集诊断监控快照。

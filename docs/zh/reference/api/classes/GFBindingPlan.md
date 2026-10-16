@@ -15,8 +15,8 @@ Installer 使用的显式、顺序、fail-fast required binding 计划。 声明
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`require_singleton`](#member-gfbindingplan-methods-require_singleton) | `func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan:` |
-| 方法 | [`require_transient`](#member-gfbindingplan-methods-require_transient) | `func require_transient( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan:` |
+| 方法 | [`require_singleton`](#member-gfbindingplan-methods-require_singleton) | `func require_singleton(binding_id: StringName, builder: GFBindBuilder) -> GFBindingPlan:` |
+| 方法 | [`require_transient`](#member-gfbindingplan-methods-require_transient) | `func require_transient(binding_id: StringName, builder: GFBindBuilder) -> GFBindingPlan:` |
 | 方法 | [`execute`](#member-gfbindingplan-methods-execute) | `func execute(scope: GFAsyncScope) -> GFBindingPlanResult:` |
 
 ## 方法
@@ -29,7 +29,7 @@ Installer 使用的显式、顺序、fail-fast required binding 计划。 声明
 - 首次版本：`11.0.0`
 
 ```gdscript
-func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan:
+func require_singleton(binding_id: StringName, builder: GFBindBuilder) -> GFBindingPlan:
 ```
 
 追加一个 required singleton entry，并立即冻结 Builder 配置。 Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。
@@ -51,7 +51,7 @@ func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -> GFBi
 - 首次版本：`11.0.0`
 
 ```gdscript
-func require_transient( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan:
+func require_transient(binding_id: StringName, builder: GFBindBuilder) -> GFBindingPlan:
 ```
 
 追加一个 required transient factory entry，并立即冻结 Builder 配置。 只有 bind_factory() 的 SELF 或 from_factory() 来源支持 transient。 Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。

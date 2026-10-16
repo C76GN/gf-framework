@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationReportDictionary" path="addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd" module="standard" extends="RefCounted" classDigest="beb0999149893fb1c19c874fafc5dda00b08225e508d9d6c1dc5a01dfe876a20">
+<class name="GFValidationReportDictionary" path="addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd" module="standard" extends="RefCounted" classDigest="96ccbe3e55c5f15422fcc2f5089a55dfee4deb405ce4199e2c12cd79003b9bd0">
 	<description>GFValidationReportDictionary: 通用校验报告字典辅助。
 提供字典报告的追加、归一化、统计和严重级别提升工具，便于字典式报告
 接入 `GFValidationIssue` / `GFValidationReport` 使用的标准字段。</description>
@@ -72,7 +72,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="merge_report">
-			<signature>static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func merge_report( target: Dictionary, source: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>合并另一份字典报告的问题。target 与 source 相同，或二者共享同一个 issues Array
 时，不重复合并 issues，避免别名输入在遍历期间放大；显式 copy_fields 仍正常复制。</description>
 			<tags>
@@ -103,7 +103,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="make_summary">
-			<signature>static func make_summary(subject: String, error_count: int, warning_count: int) -&gt; String:</signature>
+			<signature>static func make_summary( subject: String, error_count: int, warning_count: int ) -&gt; String:</signature>
 			<description>生成摘要文本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -111,6 +111,7 @@
 				<tag name="param">error_count: 错误数量。</tag>
 				<tag name="param">warning_count: 警告数量。</tag>
 				<tag name="return">摘要文本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_next_action">

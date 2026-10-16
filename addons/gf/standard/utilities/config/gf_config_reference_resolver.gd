@@ -30,7 +30,11 @@ static func build_index(table_data: Variant, field_names: PackedStringArray) -> 
 	var result: Dictionary = {}
 	for entry: Dictionary in _normalize_rows(table_data):
 		var record: Dictionary = _get_row_record(entry)
-		var key: String = _make_key(record, field_names, true)
+		var key: String = _make_key(
+			record,
+			field_names,
+			true
+		)
 		if key.is_empty():
 			continue
 		if not result.has(key):
@@ -66,7 +70,11 @@ static func validate_tables(
 ) -> Dictionary:
 	var report: Dictionary = _make_report()
 	var schema_lookup: Dictionary = _build_schema_lookup(schemas)
-	var validate_schema: bool = GFVariantData.get_option_bool(options, "validate_schema", true)
+	var validate_schema: bool = GFVariantData.get_option_bool(
+		options,
+		"validate_schema",
+		true
+	)
 	var reference_index_cache: Dictionary = {}
 
 	for schema: GFConfigTableSchema in schemas:
@@ -74,12 +82,32 @@ static func validate_tables(
 			continue
 		var table_name: StringName = schema.get_table_key()
 		if not tables_by_name.has(table_name):
-			_add_issue(report, "error", "missing_table", table_name, null, &"", "缺少表数据：%s。" % String(table_name))
+			_add_issue(
+				report,
+				"error",
+				"missing_table",
+				table_name,
+				null,
+				&"",
+				"缺少表数据：%s。" % String(table_name)
+			)
 			continue
 		if validate_schema:
-			_merge_report(report, schema.validate_definition())
-			_merge_report(report, schema.validate_table(tables_by_name[table_name]))
-		_validate_schema_references(schema, tables_by_name, schema_lookup, reference_index_cache, report)
+			_merge_report(
+				report,
+				schema.validate_definition()
+			)
+			_merge_report(
+				report,
+				schema.validate_table(tables_by_name[table_name])
+			)
+		_validate_schema_references(
+			schema,
+			tables_by_name,
+			schema_lookup,
+			reference_index_cache,
+			report
+		)
 
 	_finalize_report(report)
 	return report
@@ -130,7 +158,11 @@ static func resolve_record_references(
 
 		var target_schema: GFConfigTableSchema = _get_schema_by_name(schemas_by_name, reference_definition.target_table_name)
 		var target_fields: PackedStringArray = reference_definition.get_target_fields(target_schema)
-		var target_table: Variant = _get_table_by_name(tables_by_name, reference_definition.target_table_name, null)
+		var target_table: Variant = _get_table_by_name(
+			tables_by_name,
+			reference_definition.target_table_name,
+			null
+		)
 		if target_table == null:
 			continue
 		var target_index: Dictionary = _get_reference_index(
@@ -161,7 +193,15 @@ static func _validate_schema_references(
 ) -> void:
 	for reference_definition: GFConfigTableReference in schema.references:
 		if reference_definition == null or not reference_definition.is_valid_definition():
-			_add_issue(report, "error", "invalid_reference", schema.get_table_key(), null, &"", "引用声明无效。")
+			_add_issue(
+				report,
+				"error",
+				"invalid_reference",
+				schema.get_table_key(),
+				null,
+				&"",
+				"引用声明无效。"
+			)
 			continue
 
 		var target_schema: GFConfigTableSchema = _get_schema_by_name(schema_lookup, reference_definition.target_table_name)
@@ -178,7 +218,11 @@ static func _validate_schema_references(
 			)
 			continue
 
-		var target_table: Variant = _get_table_by_name(tables_by_name, reference_definition.target_table_name, null)
+		var target_table: Variant = _get_table_by_name(
+			tables_by_name,
+			reference_definition.target_table_name,
+			null
+		)
 		if target_table == null:
 			_add_issue(
 				report,
@@ -197,10 +241,22 @@ static func _validate_schema_references(
 			target_fields,
 			reference_index_cache
 		)
-		for entry: Dictionary in _normalize_rows(_get_table_by_name(tables_by_name, schema.get_table_key()), schema.id_field):
+		for entry: Dictionary in _normalize_rows(
+			_get_table_by_name(
+				tables_by_name,
+				schema.get_table_key()
+			),
+			schema.id_field
+		):
 			var record: Dictionary = _get_row_record(entry)
 			if reference_definition.source_mode == GFConfigTableReference.SourceMode.ARRAY_ELEMENTS:
-				_validate_array_reference(reference_definition, schema.get_table_key(), entry, target_index, report)
+				_validate_array_reference(
+					reference_definition,
+					schema.get_table_key(),
+					entry,
+					target_index,
+					report
+				)
 				continue
 			var source_key: String = reference_definition.make_source_key(record)
 			if source_key.is_empty():
@@ -248,34 +304,68 @@ static func _validate_array_reference(
 	if not record.has(field_name):
 		if reference_definition.required:
 			_add_issue(
-				report, "error", "missing_reference_value", table_name, row_key, field_name,
-				"引用来源字段缺失：%s。" % reference_id, { "row_index": row_index }
+				report,
+				"error",
+				"missing_reference_value",
+				table_name,
+				row_key,
+				field_name,
+				"引用来源字段缺失：%s。" % reference_id,
+				{ "row_index": row_index }
 			)
 		return
 	var source_value: Variant = record[field_name]
 	if not source_value is Array:
 		_add_issue(
-			report, "error", "invalid_reference_value", table_name, row_key, field_name,
-			"数组引用来源必须为 Array：%s。" % reference_id, { "row_index": row_index }
+			report,
+			"error",
+			"invalid_reference_value",
+			table_name,
+			row_key,
+			field_name,
+			"数组引用来源必须为 Array：%s。" % reference_id,
+			{ "row_index": row_index }
 		)
 		return
 	var elements: Array = source_value
 	for element_index: int in range(elements.size()):
 		var element: Variant = elements[element_index]
-		var context: Dictionary = { "row_index": row_index, "element_index": element_index, "value": element }
+		var context: Dictionary = {
+			"row_index": row_index,
+			"element_index": element_index,
+			"value": element,
+		}
 		if not _is_reference_element(element, reference_definition.allow_null_values):
 			_add_issue(
-				report, "error", "invalid_reference_element", table_name, row_key, field_name,
-				"数组引用元素类型无效：%s[%d]。" % [reference_id, element_index], context
+				report,
+				"error",
+				"invalid_reference_element",
+				table_name,
+				row_key,
+				field_name,
+				"数组引用元素类型无效：%s[%d]。"
+				% [reference_id, element_index],
+				context
 			)
 			continue
 		if not reference_definition.required:
 			continue
-		var element_key: String = _make_key({ field_name: element }, reference_definition.source_fields, reference_definition.allow_null_values)
+		var element_key: String = _make_key(
+			{ field_name: element },
+			reference_definition.source_fields,
+			reference_definition.allow_null_values
+		)
 		if not target_index.has(element_key):
 			_add_issue(
-				report, "error", "missing_reference", table_name, row_key, field_name,
-				"数组引用目标不存在：%s[%d]。" % [reference_id, element_index], context
+				report,
+				"error",
+				"missing_reference",
+				table_name,
+				row_key,
+				field_name,
+				"数组引用目标不存在：%s[%d]。"
+				% [reference_id, element_index],
+				context
 			)
 
 
@@ -289,7 +379,12 @@ static func _is_reference_element(value: Variant, allow_null_values: bool) -> bo
 	if value is float:
 		var number: float = value
 		return is_finite(number)
-	return value is bool or value is int or value is String or value is StringName
+	return (
+		value is bool
+		or value is int
+		or value is String
+		or value is StringName
+	)
 
 
 ## 按 table key 建立非空 schema 的查找字典。
@@ -335,7 +430,8 @@ static func _make_reference_index_field_key(field_names: PackedStringArray) -> S
 	var _field_count_appended: bool = encoded_fields.append("%d:" % field_names.size())
 	for field_name: String in field_names:
 		var _field_appended: bool = encoded_fields.append(
-			"%d:%s" % [field_name.length(), field_name]
+			"%d:%s"
+			% [field_name.length(), field_name]
 		)
 	return "".join(encoded_fields)
 
@@ -357,7 +453,11 @@ static func _get_table_by_name(
 	table_name: StringName,
 	default_value: Variant = []
 ) -> Variant:
-	return GFVariantData.get_option_value(tables_by_name, table_name, default_value)
+	return GFVariantData.get_option_value(
+		tables_by_name,
+		table_name,
+		default_value
+	)
 
 
 ## 从索引中读取对应键的记录条目数组。
@@ -365,7 +465,13 @@ static func _get_table_by_name(
 ## @api private
 ## [br]
 static func _get_index_records(index: Dictionary, key: String) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(index, key, []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			index,
+			key,
+			[]
+		)
+	)
 
 
 ## 从标准化行条目读取 record 字典。
@@ -373,7 +479,13 @@ static func _get_index_records(index: Dictionary, key: String) -> Array:
 ## @api private
 ## [br]
 static func _get_row_record(row_entry: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(row_entry, "record", {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			row_entry,
+			"record",
+			{}
+		)
+	)
 
 
 ## 从标准化行条目读取稳定 row_key。
@@ -396,11 +508,17 @@ static func _normalize_rows(table_data: Variant, id_field: StringName = &"id") -
 			var row_variant: Variant = array_table[index]
 			if row_variant is Dictionary:
 				var row: Dictionary = GFVariantData.as_dictionary(row_variant)
-				rows.append({
-					"row_key": GFVariantData.get_option_value(row, id_field, index) if id_field != &"" else index,
-					"row_index": index,
-					"record": row.duplicate(true),
-				})
+				rows.append(
+					{
+						"row_key": GFVariantData.get_option_value(
+							row,
+							id_field,
+							index
+						) if id_field != &"" else index,
+						"row_index": index,
+						"record": row.duplicate(true),
+					}
+				)
 	elif table_data is Dictionary:
 		var table: Dictionary = GFVariantData.as_dictionary(table_data)
 		var keys: Array = table.keys()
@@ -409,11 +527,13 @@ static func _normalize_rows(table_data: Variant, id_field: StringName = &"id") -
 			var row_variant: Variant = table[key]
 			if row_variant is Dictionary:
 				var row: Dictionary = GFVariantData.as_dictionary(row_variant)
-				rows.append({
-					"row_key": key,
-					"row_index": row_index,
-					"record": row.duplicate(true),
-				})
+				rows.append(
+					{
+						"row_key": key,
+						"row_index": row_index,
+						"record": row.duplicate(true),
+					}
+				)
 	return rows
 
 
@@ -421,7 +541,11 @@ static func _normalize_rows(table_data: Variant, id_field: StringName = &"id") -
 ## [br]
 ## @api private
 ## [br]
-static func _make_key(record: Dictionary, field_names: PackedStringArray, allow_null_values: bool) -> String:
+static func _make_key(
+	record: Dictionary,
+	field_names: PackedStringArray,
+	allow_null_values: bool
+) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for field_name: String in field_names:
 		var key: StringName = StringName(field_name)
@@ -430,7 +554,10 @@ static func _make_key(record: Dictionary, field_names: PackedStringArray, allow_
 		var value: Variant = record[key]
 		if value == null and not allow_null_values:
 			return ""
-		var _appended: bool = parts.append("%d:%s" % [typeof(value), var_to_str(value)])
+		var _appended: bool = parts.append(
+			"%d:%s"
+			% [typeof(value), var_to_str(value)]
+		)
 	return "|".join(parts)
 
 
@@ -456,7 +583,16 @@ static func _add_issue(
 	message: String,
 	context: Dictionary = {}
 ) -> void:
-	GFConfigValidationReport.new().add_issue(report, severity, kind, table_name, row_key, field_name, message, context)
+	GFConfigValidationReport.new().add_issue(
+		report,
+		severity,
+		kind,
+		table_name,
+		row_key,
+		field_name,
+		message,
+		context
+	)
 
 
 ## 通过 GFConfigValidationReport 合并来源报告。
@@ -464,7 +600,11 @@ static func _add_issue(
 ## @api private
 ## [br]
 static func _merge_report(target: Dictionary, source: Dictionary) -> void:
-	GFConfigValidationReport.new().merge_report(target, source, true)
+	GFConfigValidationReport.new().merge_report(
+		target,
+		source,
+		true
+	)
 
 
 ## 完成验证报告的计数与汇总字段。

@@ -21,14 +21,14 @@
 | 方法 | [`get_serializer_id`](#member-gfnodeserializer-methods-get_serializer_id) | `func get_serializer_id() -> StringName:` |
 | 方法 | [`supports_node`](#member-gfnodeserializer-methods-supports_node) | `func supports_node(node: Node) -> bool:` |
 | 方法 | [`gather`](#member-gfnodeserializer-methods-gather) | `func gather(_node: Node, _context: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply`](#member-gfnodeserializer-methods-apply) | `func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply`](#member-gfnodeserializer-methods-apply) | `func apply( _node: Node, _payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_result`](#member-gfnodeserializer-methods-make_result) | `func make_result(ok: bool, error: String = "") -> Dictionary:` |
-| 方法 | [`_copy_property_to_payload`](#member-gfnodeserializer-methods-_copy_property_to_payload) | `func _copy_property_to_payload(node: Object, payload: Dictionary, property_name: String) -> void:` |
-| 方法 | [`_copy_properties_to_payload`](#member-gfnodeserializer-methods-_copy_properties_to_payload) | `func _copy_properties_to_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:` |
-| 方法 | [`_apply_property_from_payload`](#member-gfnodeserializer-methods-_apply_property_from_payload) | `func _apply_property_from_payload(node: Object, payload: Dictionary, property_name: String) -> void:` |
-| 方法 | [`_apply_properties_from_payload`](#member-gfnodeserializer-methods-_apply_properties_from_payload) | `func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:` |
+| 方法 | [`_copy_property_to_payload`](#member-gfnodeserializer-methods-_copy_property_to_payload) | `func _copy_property_to_payload( node: Object, payload: Dictionary, property_name: String ) -> void:` |
+| 方法 | [`_copy_properties_to_payload`](#member-gfnodeserializer-methods-_copy_properties_to_payload) | `func _copy_properties_to_payload( node: Object, payload: Dictionary, property_names: PackedStringArray ) -> void:` |
+| 方法 | [`_apply_property_from_payload`](#member-gfnodeserializer-methods-_apply_property_from_payload) | `func _apply_property_from_payload( node: Object, payload: Dictionary, property_name: String ) -> void:` |
+| 方法 | [`_apply_properties_from_payload`](#member-gfnodeserializer-methods-_apply_properties_from_payload) | `func _apply_properties_from_payload( node: Object, payload: Dictionary, property_names: PackedStringArray ) -> void:` |
 | 方法 | [`_gather_property_specs`](#member-gfnodeserializer-methods-_gather_property_specs) | `func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionary:` |
-| 方法 | [`_apply_property_specs`](#member-gfnodeserializer-methods-_apply_property_specs) | `func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:` |
+| 方法 | [`_apply_property_specs`](#member-gfnodeserializer-methods-_apply_property_specs) | `func _apply_property_specs( node: Object, payload: Dictionary, specs: Array[Dictionary] ) -> Array[String]:` |
 | 方法 | [`_validate_property_specs_payload`](#member-gfnodeserializer-methods-_validate_property_specs_payload) | `func _validate_property_specs_payload(payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:` |
 | 方法 | [`_has_property`](#member-gfnodeserializer-methods-_has_property) | `func _has_property(object: Object, property_name: String) -> bool:` |
 
@@ -146,7 +146,7 @@ func gather(_node: Node, _context: Dictionary = {}) -> Dictionary:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func apply(_node: Node, _payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply( _node: Node, _payload: Dictionary, _context: Dictionary = {} ) -> Dictionary:
 ```
 
 应用节点数据。
@@ -201,7 +201,7 @@ func make_result(ok: bool, error: String = "") -> Dictionary:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _copy_property_to_payload(node: Object, payload: Dictionary, property_name: String) -> void:
+func _copy_property_to_payload( node: Object, payload: Dictionary, property_name: String ) -> void:
 ```
 
 将节点属性复制到序列化载荷。
@@ -226,7 +226,7 @@ func _copy_property_to_payload(node: Object, payload: Dictionary, property_name:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _copy_properties_to_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:
+func _copy_properties_to_payload( node: Object, payload: Dictionary, property_names: PackedStringArray ) -> void:
 ```
 
 批量将节点属性复制到序列化载荷。
@@ -251,7 +251,7 @@ func _copy_properties_to_payload(node: Object, payload: Dictionary, property_nam
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _apply_property_from_payload(node: Object, payload: Dictionary, property_name: String) -> void:
+func _apply_property_from_payload( node: Object, payload: Dictionary, property_name: String ) -> void:
 ```
 
 从载荷恢复一个节点属性。
@@ -276,7 +276,7 @@ func _apply_property_from_payload(node: Object, payload: Dictionary, property_na
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _apply_properties_from_payload(node: Object, payload: Dictionary, property_names: PackedStringArray) -> void:
+func _apply_properties_from_payload( node: Object, payload: Dictionary, property_names: PackedStringArray ) -> void:
 ```
 
 从载荷批量恢复节点属性。
@@ -328,7 +328,7 @@ func _gather_property_specs(node: Object, specs: Array[Dictionary]) -> Dictionar
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _apply_property_specs(node: Object, payload: Dictionary, specs: Array[Dictionary]) -> Array[String]:
+func _apply_property_specs( node: Object, payload: Dictionary, specs: Array[Dictionary] ) -> Array[String]:
 ```
 
 按属性规格将载荷应用到节点。

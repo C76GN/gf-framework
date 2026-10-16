@@ -19,7 +19,7 @@
 | 属性 | [`entries`](#member-gfrenderwarmupmanifest-properties-entries) | `var entries: Array[Dictionary] = []` |
 | 属性 | [`metadata`](#member-gfrenderwarmupmanifest-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`add_resource_path`](#member-gfrenderwarmupmanifest-methods-add_resource_path) | `func add_resource_path( entry_resource_path: String, kind: StringName = &"", type_hint: String = "", entry_metadata: Dictionary = {} ) -> int:` |
-| 方法 | [`add_resource`](#member-gfrenderwarmupmanifest-methods-add_resource) | `func add_resource(resource: Resource, kind: StringName = &"", entry_metadata: Dictionary = {}) -> int:` |
+| 方法 | [`add_resource`](#member-gfrenderwarmupmanifest-methods-add_resource) | `func add_resource( resource: Resource, kind: StringName = &"", entry_metadata: Dictionary = {} ) -> int:` |
 | 方法 | [`append_manifest`](#member-gfrenderwarmupmanifest-methods-append_manifest) | `func append_manifest(manifest: GFRenderWarmupManifest) -> int:` |
 | 方法 | [`clear`](#member-gfrenderwarmupmanifest-methods-clear) | `func clear() -> void:` |
 | 方法 | [`get_entry_count`](#member-gfrenderwarmupmanifest-methods-get_entry_count) | `func get_entry_count() -> int:` |
@@ -108,9 +108,10 @@ func add_resource_path( entry_resource_path: String, kind: StringName = &"", typ
 ### `add_resource`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_resource(resource: Resource, kind: StringName = &"", entry_metadata: Dictionary = {}) -> int:
+func add_resource( resource: Resource, kind: StringName = &"", entry_metadata: Dictionary = {} ) -> int:
 ```
 
 添加已持有的资源条目。

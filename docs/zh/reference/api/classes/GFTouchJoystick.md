@@ -22,7 +22,7 @@
 | 枚举 | [`OutputMode`](#member-gftouchjoystick-enums-outputmode) | `enum OutputMode` |
 | 属性 | [`radius`](#member-gftouchjoystick-properties-radius) | `var radius: float = 64.0:` |
 | 属性 | [`knob_radius_ratio`](#member-gftouchjoystick-properties-knob_radius_ratio) | `var knob_radius_ratio: float = 3.0:` |
-| 属性 | [`color`](#member-gftouchjoystick-properties-color) | `var color: Color = Color(1.0, 1.0, 1.0, 0.35):` |
+| 属性 | [`color`](#member-gftouchjoystick-properties-color) | `var color: Color = Color( 	1.0, 	1.0, 	1.0, 	0.35 ):` |
 | 属性 | [`draw_interaction_zone`](#member-gftouchjoystick-properties-draw_interaction_zone) | `var draw_interaction_zone: bool = false:` |
 | 属性 | [`deadzone`](#member-gftouchjoystick-properties-deadzone) | `var deadzone: float = 0.1` |
 | 属性 | [`output_mode`](#member-gftouchjoystick-properties-output_mode) | `var output_mode: OutputMode = OutputMode.ANALOG` |
@@ -158,9 +158,15 @@ var knob_radius_ratio: float = 3.0:
 ### `color`
 
 - API：`public`
+- 首次版本：`1.15.0`
 
 ```gdscript
-var color: Color = Color(1.0, 1.0, 1.0, 0.35):
+var color: Color = Color(
+	1.0,
+	1.0,
+	1.0,
+	0.35
+):
 ```
 
 摇杆颜色。

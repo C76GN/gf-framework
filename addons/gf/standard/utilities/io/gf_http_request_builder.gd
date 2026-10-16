@@ -32,6 +32,7 @@ enum Method {
 	HEAD,
 }
 
+
 ## 响应体解析模式。
 ## [br]
 ## @api public
@@ -228,10 +229,7 @@ func remove_header(key: String) -> GFHttpRequestBuilder:
 func add_query_parameter(key: String, value: Variant) -> GFHttpRequestBuilder:
 	if key.strip_edges().is_empty():
 		return self
-	_query_parameters.append({
-		"key": key,
-		"value": value,
-	})
+	_query_parameters.append({ "key": key, "value": value, })
 	return self
 
 
@@ -261,9 +259,12 @@ func set_text_body(text: String, content_type: String = "text/plain; charset=utf
 ## [br]
 ## @schema value: Variant，兼容 JSON.stringify 的请求体载荷。
 func set_json_body(value: Variant) -> GFHttpRequestBuilder:
-	_body_text = GFVariantJsonCodec.stringify_json_compatible(value, "", false, {
-		"unsupported": "string",
-	})
+	_body_text = GFVariantJsonCodec.stringify_json_compatible(
+		value,
+		"",
+		false,
+		{ "unsupported": "string", }
+	)
 	var _set_header_result_210: Variant = set_header("Content-Type", "application/json")
 	return self
 
@@ -279,13 +280,33 @@ func build_url() -> String:
 
 	var pairs: PackedStringArray = PackedStringArray()
 	for parameter: Dictionary in _query_parameters:
-		var _pair_appended: bool = pairs.append("%s=%s" % [
-			GFVariantData.get_option_string(parameter, "key", "").uri_encode(),
-			str(GFVariantData.get_option_value(parameter, "value", "")).uri_encode(),
-		])
+		var _pair_appended: bool = pairs.append(
+			"%s=%s"
+			% [
+				GFVariantData.get_option_string(
+					parameter,
+					"key",
+					""
+				).uri_encode(),
+				str(
+					GFVariantData.get_option_value(
+						parameter,
+						"value",
+						""
+					)
+				).uri_encode(),
+			]
+		)
 
 	var separator: String = "&" if url.contains("?") else "?"
-	return "%s%s%s" % [url, separator, "&".join(pairs)]
+	return (
+		"%s%s%s"
+		% [
+			url,
+			separator,
+			"&".join(pairs),
+		]
+	)
 
 
 ## 构建 Godot HTTPRequest 可用的请求头数组。
@@ -296,7 +317,10 @@ func build_url() -> String:
 func build_headers() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for key: String in _headers.keys():
-		var _header_appended: bool = result.append("%s: %s" % [key, GFVariantData.to_text(_headers[key])])
+		var _header_appended: bool = result.append(
+			"%s: %s"
+			% [key, GFVariantData.to_text(_headers[key])]
+		)
 	return result
 
 
@@ -372,23 +396,38 @@ func execute(parent: Node = null) -> GFHttpResponse:
 			request_node.cancel_request()
 			request_node.queue_free()
 
-	var _completion_connect_error: Error = request_node.request_completed.connect(
-		func(
-			result_code: int,
-			status_code: int,
-			response_headers: PackedStringArray,
-			body: PackedByteArray
-		) -> void:
-			_complete_response(response, request_node, result_code, status_code, response_headers, body),
-		CONNECT_ONE_SHOT as Object.ConnectFlags
-	) as Error
+	var _completion_connect_error: Error = (
+		request_node.request_completed.connect(
+			func(
+				result_code: int,
+				status_code: int,
+				response_headers: PackedStringArray,
+				body: PackedByteArray
+			) -> void:
+				_complete_response(
+					response,
+					request_node,
+					result_code,
+					status_code,
+					response_headers,
+					body
+				),
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	)
 
-	var error: Error = request_node.request(build_url(), build_headers(), _to_http_client_method(method), _body_text)
+	var error: Error = request_node.request(
+		build_url(),
+		build_headers(),
+		_to_http_client_method(method),
+		_body_text
+	)
 	if error != OK:
 		request_node.queue_free()
-		response.complete_failure(error_string(error), {
-			"result_code": error,
-		})
+		response.complete_failure(
+			error_string(error),
+			{ "result_code": error, }
+		)
 	return response
 
 
@@ -468,7 +507,11 @@ func _complete_response(
 		"status_code": status_code,
 		"headers": response_headers,
 		"body": body,
-		"text": GFVariantData.get_option_string(parsed, "text", ""),
+		"text": GFVariantData.get_option_string(
+			parsed,
+			"text",
+			""
+		),
 		"data": GFVariantData.get_option_value(parsed, "data"),
 		"metadata": response.metadata,
 	}
@@ -479,10 +522,24 @@ func _complete_response(
 		response.complete_failure("request_failed", fields)
 		return
 	if status_code < 200 or status_code >= 300:
-		response.complete_failure("http_status_%d" % status_code, fields)
+		response.complete_failure(
+			"http_status_%d" % status_code,
+			fields
+		)
 		return
-	if not GFVariantData.get_option_bool(parsed, "ok", false):
-		response.complete_failure(GFVariantData.get_option_string(parsed, "error", "parse_failed"), fields)
+	if not GFVariantData.get_option_bool(
+		parsed,
+		"ok",
+		false
+	):
+		response.complete_failure(
+			GFVariantData.get_option_string(
+				parsed,
+				"error",
+				"parse_failed"
+			),
+			fields
+		)
 		return
 	response.complete_success(fields)
 

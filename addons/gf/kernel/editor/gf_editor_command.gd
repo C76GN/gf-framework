@@ -152,30 +152,37 @@ func add_to_undo_manager(undo_manager: Object, execute_immediately: bool = true)
 
 	var undo_context: Object = _get_undo_context()
 	if undo_context != null and undo_manager.has_method("get_object_history_id"):
-		var context_history_value: Variant = undo_manager.call(
-			"get_object_history_id",
-			undo_context
-		)
+		var context_history_value: Variant = undo_manager.call("get_object_history_id", undo_context)
 		if not context_history_value is int:
 			return ERR_INVALID_DATA
 		var context_history_id: int = context_history_value
 		for target: Object in _get_undo_targets():
 			if target == null:
 				continue
-			var target_history_value: Variant = undo_manager.call(
-				"get_object_history_id",
-				target
-			)
+			var target_history_value: Variant = undo_manager.call("get_object_history_id", target)
 			if not target_history_value is int:
 				return ERR_INVALID_DATA
 			var target_history_id: int = target_history_value
 			if target_history_id != context_history_id:
 				return ERR_INVALID_PARAMETER
-		undo_manager.call("create_action", command_name, 0, undo_context)
+		undo_manager.call(
+			"create_action",
+			command_name,
+			0,
+			undo_context
+		)
 	else:
 		undo_manager.call("create_action", command_name)
-	undo_manager.call("add_do_method", self, "execute")
-	undo_manager.call("add_undo_method", self, "revert")
+	undo_manager.call(
+		"add_do_method",
+		self,
+		"execute"
+	)
+	undo_manager.call(
+		"add_undo_method",
+		self,
+		"revert"
+	)
 	if undo_manager.has_method("add_do_reference"):
 		undo_manager.call("add_do_reference", self)
 	if undo_manager.has_method("add_undo_reference"):

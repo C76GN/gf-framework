@@ -132,12 +132,7 @@ static func pack_cell(cell: Vector3i, orientation: int = 0) -> int:
 	if not can_pack_cell(cell, orientation):
 		return INVALID_KEY
 
-	return (
-		(_encode_coordinate(cell.x) << _X_SHIFT)
-		| (_encode_coordinate(cell.y) << _Y_SHIFT)
-		| (_encode_coordinate(cell.z) << _Z_SHIFT)
-		| (orientation << _ORIENTATION_SHIFT)
-	)
+	return ((_encode_coordinate(cell.x) << _X_SHIFT) | (_encode_coordinate(cell.y) << _Y_SHIFT) | (_encode_coordinate(cell.z) << _Z_SHIFT) | (orientation << _ORIENTATION_SHIFT))
 
 
 ## 判断整数是否可能是 GFGridKey3D 生成的 key。
@@ -219,7 +214,11 @@ static func can_quantize_position(
 	cell_size: Vector3 = Vector3.ONE,
 	origin: Vector3 = Vector3.ZERO
 ) -> bool:
-	return _is_finite_vector3(position) and _is_finite_vector3(cell_size) and _is_finite_vector3(origin)
+	return (
+		_is_finite_vector3(position)
+		and _is_finite_vector3(cell_size)
+		and _is_finite_vector3(origin)
+	)
 
 
 ## 尝试将世界位置量化为格坐标。
@@ -242,7 +241,11 @@ static func try_position_to_cell(
 	cell_size: Vector3 = Vector3.ONE,
 	origin: Vector3 = Vector3.ZERO
 ) -> Dictionary:
-	if not can_quantize_position(position, cell_size, origin):
+	if not can_quantize_position(
+		position,
+		cell_size,
+		origin
+	):
 		return {
 			"ok": false,
 			"error": "position, cell_size, and origin must contain finite values.",
@@ -251,7 +254,11 @@ static func try_position_to_cell(
 	return {
 		"ok": true,
 		"error": "",
-		"cell": _quantize_position_to_cell(position, cell_size, origin),
+		"cell": _quantize_position_to_cell(
+			position,
+			cell_size,
+			origin
+		),
 	}
 
 
@@ -273,8 +280,16 @@ static func position_to_cell(
 	cell_size: Vector3 = Vector3.ONE,
 	origin: Vector3 = Vector3.ZERO
 ) -> Vector3i:
-	var report: Dictionary = try_position_to_cell(position, cell_size, origin)
-	var cell: Variant = GFVariantData.get_option_value(report, "cell", Vector3i.ZERO)
+	var report: Dictionary = try_position_to_cell(
+		position,
+		cell_size,
+		origin
+	)
+	var cell: Variant = GFVariantData.get_option_value(
+		report,
+		"cell",
+		Vector3i.ZERO
+	)
 	if cell is Vector3i:
 		return cell
 	return Vector3i.ZERO
@@ -301,10 +316,18 @@ static func pack_position(
 	origin: Vector3 = Vector3.ZERO,
 	orientation: int = 0
 ) -> int:
-	var report: Dictionary = try_position_to_cell(position, cell_size, origin)
+	var report: Dictionary = try_position_to_cell(
+		position,
+		cell_size,
+		origin
+	)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return INVALID_KEY
-	var cell: Variant = GFVariantData.get_option_value(report, "cell", Vector3i.ZERO)
+	var cell: Variant = GFVariantData.get_option_value(
+		report,
+		"cell",
+		Vector3i.ZERO
+	)
 	if cell is Vector3i:
 		var cell_value: Vector3i = cell
 		return pack_cell(cell_value, orientation)
@@ -348,9 +371,18 @@ static func _quantize_position_to_cell(
 ## @api private
 static func _get_safe_cell_size(cell_size: Vector3) -> Vector3:
 	return Vector3(
-		maxf(absf(cell_size.x), _MIN_CELL_SIZE),
-		maxf(absf(cell_size.y), _MIN_CELL_SIZE),
-		maxf(absf(cell_size.z), _MIN_CELL_SIZE)
+		maxf(
+			absf(cell_size.x),
+			_MIN_CELL_SIZE
+		),
+		maxf(
+			absf(cell_size.y),
+			_MIN_CELL_SIZE
+		),
+		maxf(
+			absf(cell_size.z),
+			_MIN_CELL_SIZE
+		)
 	)
 
 
@@ -358,7 +390,11 @@ static func _get_safe_cell_size(cell_size: Vector3) -> Vector3:
 ## [br]
 ## @api private
 static func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)
 
 
 ## 排除 NaN 和正负无穷大的浮点数。

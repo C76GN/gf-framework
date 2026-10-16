@@ -7,16 +7,25 @@ func test_installer_bindings_register_utility_through_binder() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var scope: GFAsyncScope = GFAsyncScope.new()
 
-	await inst.install_bindings(arch.create_binder(), scope)
+	await inst.install_bindings(
+		arch.create_binder(),
+		scope
+	)
 
-	assert_true(arch.get_utility(GFSeedUtility) is GFSeedUtility, "Installer 应能通过 Binder 注册 Utility。")
+	assert_true(
+		arch.get_utility(GFSeedUtility) is GFSeedUtility,
+		"Installer 应能通过 Binder 注册 Utility。"
+	)
 
 
 func test_binder_bind_utility_returns_bind_builder() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	var binder: GFBinder = GFBinder.new(arch)
 	var builder: Variant = binder.bind_utility(GFSeedUtility)
-	assert_true(builder is GFBindBuilder, "bind_utility 应返回 GFBindBuilder。")
+	assert_true(
+		builder is GFBindBuilder,
+		"bind_utility 应返回 GFBindBuilder。"
+	)
 
 
 # --- 辅助类型 ---

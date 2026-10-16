@@ -157,7 +157,11 @@ func get_event_text(input_event: InputEvent, options: Dictionary = {}) -> String
 
 	var motion: InputEventJoypadMotion = _INPUT_EVENT_TOOLS.get_joypad_motion_event(input_event)
 	if motion != null:
-		return _axis_as_text(motion.axis, motion.axis_value, options)
+		return _axis_as_text(
+			motion.axis,
+			motion.axis_value,
+			options
+		)
 	return ""
 
 
@@ -168,7 +172,13 @@ func get_event_text(input_event: InputEvent, options: Dictionary = {}) -> String
 ## @api private
 ## [br]
 func _button_as_text(button: JoyButton, options: Dictionary) -> String:
-	var labels: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "joypad_button_labels", button_labels))
+	var labels: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			options,
+			"joypad_button_labels",
+			button_labels
+		)
+	)
 	if labels != null and labels.has(int(button)):
 		return GFVariantData.to_text(labels[int(button)])
 	return "Joy Button %d" % int(button)
@@ -178,17 +188,51 @@ func _button_as_text(button: JoyButton, options: Dictionary) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _axis_as_text(axis: JoyAxis, axis_value: float, options: Dictionary) -> String:
-	var labels: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(options, "joypad_axis_labels", axis_labels))
+func _axis_as_text(
+	axis: JoyAxis,
+	axis_value: float,
+	options: Dictionary
+) -> String:
+	var labels: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			options,
+			"joypad_axis_labels",
+			axis_labels
+		)
+	)
 	var base_text: String = ""
 	if labels != null and labels.has(int(axis)):
 		base_text = GFVariantData.to_text(labels[int(axis)])
 	else:
 		base_text = "Joy Axis %d" % int(axis)
 
-	var deadzone: float = GFVariantData.get_option_float(options, "joypad_axis_deadzone", axis_direction_deadzone)
+	var deadzone: float = GFVariantData.get_option_float(
+		options,
+		"joypad_axis_deadzone",
+		axis_direction_deadzone
+	)
 	if absf(axis_value) <= deadzone:
 		return base_text
 	if axis_value > 0.0:
-		return "%s %s" % [base_text, GFVariantData.get_option_string(options, "joypad_axis_positive_suffix", axis_positive_suffix)]
-	return "%s %s" % [base_text, GFVariantData.get_option_string(options, "joypad_axis_negative_suffix", axis_negative_suffix)]
+		return (
+			"%s %s"
+			% [
+				base_text,
+				GFVariantData.get_option_string(
+					options,
+					"joypad_axis_positive_suffix",
+					axis_positive_suffix
+				),
+			]
+		)
+	return (
+		"%s %s"
+		% [
+			base_text,
+			GFVariantData.get_option_string(
+				options,
+				"joypad_axis_negative_suffix",
+				axis_negative_suffix
+			),
+		]
+	)

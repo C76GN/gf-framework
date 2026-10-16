@@ -27,7 +27,7 @@
 | 常量 | [`METADATA_PROPERTY_HINT_STRING_KEY`](#member-gfconfigtableeditortools-constants-metadata_property_hint_string_key) | `const METADATA_PROPERTY_HINT_STRING_KEY: StringName = &"property_hint_string"` |
 | 常量 | [`METADATA_RESOURCE_TYPE_KEY`](#member-gfconfigtableeditortools-constants-metadata_resource_type_key) | `const METADATA_RESOURCE_TYPE_KEY: StringName = &"resource_type"` |
 | 常量 | [`METADATA_RESOURCE_EXTENSIONS_KEY`](#member-gfconfigtableeditortools-constants-metadata_resource_extensions_key) | `const METADATA_RESOURCE_EXTENSIONS_KEY: StringName = &"resource_extensions"` |
-| 方法 | [`build_column_descriptors`](#member-gfconfigtableeditortools-methods-build_column_descriptors) | `static func build_column_descriptors( schema: GFConfigTableSchema, options: Dictionary = {} ) -> Array[Dictionary]:` |
+| 方法 | [`build_column_descriptors`](#member-gfconfigtableeditortools-methods-build_column_descriptors) | `static func build_column_descriptors(schema: GFConfigTableSchema, options: Dictionary = {}) -> Array[Dictionary]:` |
 | 方法 | [`build_field_editor_descriptors`](#member-gfconfigtableeditortools-methods-build_field_editor_descriptors) | `static func build_field_editor_descriptors( schema: GFConfigTableSchema, database: GFConfigDatabaseResource = null, options: Dictionary = {} ) -> Array[Dictionary]:` |
 | 方法 | [`build_reference_choice_records`](#member-gfconfigtableeditortools-methods-build_reference_choice_records) | `static func build_reference_choice_records( reference_definition: GFConfigTableReference, target_table: Variant, target_schema: GFConfigTableSchema = null, options: Dictionary = {} ) -> Array[Dictionary]:` |
 | 方法 | [`build_reference_choice_records_for_database`](#member-gfconfigtableeditortools-methods-build_reference_choice_records_for_database) | `static func build_reference_choice_records_for_database( database: GFConfigDatabaseResource, reference_definition: GFConfigTableReference, options: Dictionary = {} ) -> Array[Dictionary]:` |
@@ -200,7 +200,7 @@ const METADATA_RESOURCE_EXTENSIONS_KEY: StringName = &"resource_extensions"
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func build_column_descriptors( schema: GFConfigTableSchema, options: Dictionary = {} ) -> Array[Dictionary]:
+static func build_column_descriptors(schema: GFConfigTableSchema, options: Dictionary = {}) -> Array[Dictionary]:
 ```
 
 根据配置表 schema 构建通用列描述。

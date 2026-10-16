@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="fe38b5b6801304174716ea57fe15c2267eff5ef4864df4ce449c33bd6f4d0dad">
+<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="dea325ccc9363ce60338e2203f443938e5a84744e25d016c6a49cd113a078eb2">
 	<description>GFAsyncKeyedGate: 按 key 仲裁异步并发槽位。
 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。
 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断；
@@ -13,7 +13,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 	</tags>
 	<signals>
 		<member kind="signal" name="request_queued">
-			<signature>signal request_queued(request_id: int, key: Variant, metadata: Dictionary)</signature>
+			<signature>signal request_queued( request_id: int, key: Variant, metadata: Dictionary )</signature>
 			<description>请求进入等待队列时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,7 +45,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			</tags>
 		</member>
 		<member kind="signal" name="request_cancelled">
-			<signature>signal request_cancelled(request_id: int, key: Variant, reason: StringName, metadata: Dictionary)</signature>
+			<signature>signal request_cancelled( request_id: int, key: Variant, reason: StringName, metadata: Dictionary )</signature>
 			<description>等待请求取消时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -59,7 +59,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			</tags>
 		</member>
 		<member kind="signal" name="request_timed_out">
-			<signature>signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)</signature>
+			<signature>signal request_timed_out( request_id: int, key: Variant, metadata: Dictionary )</signature>
 			<description>等待请求超时时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -405,7 +405,7 @@ acquire/release 生命周期通知中的重入释放会延迟到最外层通知�
 			</tags>
 		</member>
 		<member kind="method" name="cancel_request">
-			<signature>func cancel_request(request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func cancel_request( request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>取消一个仍在等待队列中的请求。</description>
 			<tags>
 				<tag name="api">public</tag>

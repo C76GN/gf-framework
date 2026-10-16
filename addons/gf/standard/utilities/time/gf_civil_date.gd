@@ -92,34 +92,32 @@ var _day: int = 0
 ## @param day: 当月有效日。
 ## [br]
 ## @return: 显式成功或失败结果；不钳制输入。
-static func create(year: int, month: int, day: int) -> GFCivilDateResult:
+static func create(
+	year: int,
+	month: int,
+	day: int
+) -> GFCivilDateResult:
 	if year < MIN_YEAR or year > MAX_YEAR:
-		return _make_failure(
-			GFCivilDateResult.STATUS_OUT_OF_RANGE,
-			"年份必须处于 1 到 9999。"
-		)
-	if month < 1 or month > 12 or day < 1 or day > _days_in_month_unchecked(year, month):
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_DATE,
-			"年、月、日组合不是有效公民日期。"
-		)
+		return _make_failure(GFCivilDateResult.STATUS_OUT_OF_RANGE, "年份必须处于 1 到 9999。")
+	if (
+		month < 1
+		or month > 12
+		or day < 1
+		or day > _days_in_month_unchecked(year, month)
+	):
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "年、月、日组合不是有效公民日期。")
 	var date: GFCivilDate = GFCivilDate.new()
-	var configured: bool = date.configure_from_time_layer(year, month, day)
-	if not configured:
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_DATE,
-			"日期组建失败。"
-		)
-	var result: GFCivilDateResult = GFCivilDateResult.new()
-	var result_configured: bool = result.configure_from_time_layer(
-		GFCivilDateResult.STATUS_OK,
-		date
+	var configured: bool = date.configure_from_time_layer(
+		year,
+		month,
+		day
 	)
+	if not configured:
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "日期组建失败。")
+	var result: GFCivilDateResult = GFCivilDateResult.new()
+	var result_configured: bool = result.configure_from_time_layer(GFCivilDateResult.STATUS_OK, date)
 	if not result_configured:
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_DATE,
-			"日期结果组建失败。"
-		)
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "日期结果组建失败。")
 	return result
 
 
@@ -137,15 +135,28 @@ static func parse_iso8601(text: String) -> GFCivilDateResult:
 		text.length() != 10
 		or text[4] != "-"
 		or text[7] != "-"
-		or not _is_ascii_digits(text, 0, 4)
-		or not _is_ascii_digits(text, 5, 2)
-		or not _is_ascii_digits(text, 8, 2)
-	):
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_FORMAT,
-			"日期文本必须严格使用 YYYY-MM-DD 格式。"
+		or not _is_ascii_digits(
+			text,
+			0,
+			4
 		)
-	return create(text.substr(0, 4).to_int(), text.substr(5, 2).to_int(), text.substr(8, 2).to_int())
+		or not _is_ascii_digits(
+			text,
+			5,
+			2
+		)
+		or not _is_ascii_digits(
+			text,
+			8,
+			2
+		)
+	):
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_FORMAT, "日期文本必须严格使用 YYYY-MM-DD 格式。")
+	return create(
+		text.substr(0, 4).to_int(),
+		text.substr(5, 2).to_int(),
+		text.substr(8, 2).to_int()
+	)
 
 
 ## 从稳定字典 schema 恢复日期。
@@ -160,23 +171,30 @@ static func parse_iso8601(text: String) -> GFCivilDateResult:
 ## [br]
 ## @return: 解析结果；缺少字段或字段类型错误时为 `STATUS_INVALID_FORMAT`。
 static func from_dict(data: Dictionary) -> GFCivilDateResult:
-	if data.size() != 3 or not data.has("year") or not data.has("month") or not data.has("day"):
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_FORMAT,
-			"日期字典必须仅包含 year、month 与 day。"
-		)
+	if (
+		data.size() != 3
+		or not data.has("year")
+		or not data.has("month")
+		or not data.has("day")
+	):
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_FORMAT, "日期字典必须仅包含 year、month 与 day。")
 	var year_value: Variant = data.get("year")
 	var month_value: Variant = data.get("month")
 	var day_value: Variant = data.get("day")
-	if not year_value is int or not month_value is int or not day_value is int:
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_FORMAT,
-			"日期字典必须包含整数 year、month 与 day。"
-		)
+	if (
+		not year_value is int
+		or not month_value is int
+		or not day_value is int
+	):
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_FORMAT, "日期字典必须包含整数 year、month 与 day。")
 	var year: int = year_value
 	var month: int = month_value
 	var day: int = day_value
-	return create(year, month, day)
+	return create(
+		year,
+		month,
+		day
+	)
 
 
 ## 从零起点日序号创建日期。
@@ -190,23 +208,26 @@ static func from_dict(data: Dictionary) -> GFCivilDateResult:
 ## @return: 序号在支持范围内时的日期结果。
 static func from_ordinal(ordinal: int) -> GFCivilDateResult:
 	if ordinal < 0 or ordinal > _maximum_ordinal():
-		return _make_failure(
-			GFCivilDateResult.STATUS_OUT_OF_RANGE,
-			"日序号超出支持的公民日期范围。"
-		)
+		return _make_failure(GFCivilDateResult.STATUS_OUT_OF_RANGE, "日序号超出支持的公民日期范围。")
 
 	var remaining: int = ordinal
 	var year: int = 1
 	var cycle_400: int = floori(float(remaining) / 146097.0)
 	year += cycle_400 * 400
 	remaining -= cycle_400 * 146097
-	var cycle_100: int = mini(floori(float(remaining) / 36524.0), 3)
+	var cycle_100: int = mini(
+		floori(float(remaining) / 36524.0),
+		3
+	)
 	year += cycle_100 * 100
 	remaining -= cycle_100 * 36524
 	var cycle_4: int = floori(float(remaining) / 1461.0)
 	year += cycle_4 * 4
 	remaining -= cycle_4 * 1461
-	var cycle_1: int = mini(floori(float(remaining) / 365.0), 3)
+	var cycle_1: int = mini(
+		floori(float(remaining) / 365.0),
+		3
+	)
 	year += cycle_1
 	remaining -= cycle_1 * 365
 
@@ -214,7 +235,11 @@ static func from_ordinal(ordinal: int) -> GFCivilDateResult:
 	while remaining >= _days_in_month_unchecked(year, month):
 		remaining -= _days_in_month_unchecked(year, month)
 		month += 1
-	return create(year, month, remaining + 1)
+	return create(
+		year,
+		month,
+		remaining + 1
+	)
 
 
 ## 检查年份是否为前推格里高利历闰年。
@@ -227,7 +252,11 @@ static func from_ordinal(ordinal: int) -> GFCivilDateResult:
 ## [br]
 ## @return: 1 到 9999 之内且符合闰年规则时返回 true。
 static func is_leap_year(year: int) -> bool:
-	return year >= MIN_YEAR and year <= MAX_YEAR and _is_leap_year_unchecked(year)
+	return (
+		year >= MIN_YEAR
+		and year <= MAX_YEAR
+		and _is_leap_year_unchecked(year)
+	)
 
 
 ## 获取指定月天数。
@@ -242,7 +271,12 @@ static func is_leap_year(year: int) -> bool:
 ## [br]
 ## @return: 当月天数；输入越界时返回 0。
 static func get_days_in_month(year: int, month: int) -> int:
-	if year < MIN_YEAR or year > MAX_YEAR or month < 1 or month > 12:
+	if (
+		year < MIN_YEAR
+		or year > MAX_YEAR
+		or month < 1
+		or month > 12
+	):
 		return 0
 	return _days_in_month_unchecked(year, month)
 
@@ -301,7 +335,14 @@ func get_day() -> int:
 func to_iso8601() -> String:
 	if not _configured:
 		return ""
-	return "%04d-%02d-%02d" % [_year, _month, _day]
+	return (
+		"%04d-%02d-%02d"
+		% [
+			_year,
+			_month,
+			_day,
+		]
+	)
 
 
 ## 转换为稳定组件字典。
@@ -333,7 +374,11 @@ func to_dict() -> Dictionary:
 func to_ordinal() -> int:
 	if not _configured:
 		return -1
-	return _date_to_ordinal(_year, _month, _day)
+	return _date_to_ordinal(
+		_year,
+		_month,
+		_day
+	)
 
 
 ## 获取 ISO 8601 星期编号。
@@ -359,7 +404,11 @@ func get_weekday() -> int:
 func get_day_of_year() -> int:
 	if not _configured:
 		return 0
-	return to_ordinal() - _date_to_ordinal(_year, 1, 1) + 1
+	return to_ordinal() - _date_to_ordinal(
+		_year,
+		1,
+		1
+	) + 1
 
 
 ## 获取 ISO 周所属周年。
@@ -372,9 +421,7 @@ func get_day_of_year() -> int:
 func get_iso_week_year() -> int:
 	if not _configured:
 		return 0
-	var thursday_result: GFCivilDateResult = from_ordinal(
-		to_ordinal() + (Weekday.THURSDAY - get_weekday())
-	)
+	var thursday_result: GFCivilDateResult = from_ordinal(to_ordinal() + (Weekday.THURSDAY - get_weekday()))
 	return thursday_result.get_date().get_year() if thursday_result.is_successful() else 0
 
 
@@ -389,7 +436,11 @@ func get_iso_week_number() -> int:
 	var iso_year: int = get_iso_week_year()
 	if iso_year == 0:
 		return 0
-	var january_four_ordinal: int = _date_to_ordinal(iso_year, 1, 4)
+	var january_four_ordinal: int = _date_to_ordinal(
+		iso_year,
+		1,
+		4
+	)
 	var january_four_weekday: int = (january_four_ordinal % 7) + Weekday.MONDAY
 	var week_one_monday: int = january_four_ordinal - (january_four_weekday - Weekday.MONDAY)
 	return floori(float(to_ordinal() - week_one_monday) / 7.0) + 1
@@ -409,10 +460,7 @@ func add_days(days: int) -> GFCivilDateResult:
 		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "未配置日期不能运算。")
 	var ordinal: int = to_ordinal()
 	if days < -ordinal or days > _maximum_ordinal() - ordinal:
-		return _make_failure(
-			GFCivilDateResult.STATUS_OUT_OF_RANGE,
-			"日偏移超出支持的公民日期范围。"
-		)
+		return _make_failure(GFCivilDateResult.STATUS_OUT_OF_RANGE, "日偏移超出支持的公民日期范围。")
 	return from_ordinal(ordinal + days)
 
 
@@ -433,20 +481,18 @@ func add_months(months: int, clamp_day: bool = true) -> GFCivilDateResult:
 	var current_index: int = (_year - MIN_YEAR) * 12 + (_month - 1)
 	var maximum_index: int = (MAX_YEAR - MIN_YEAR + 1) * 12 - 1
 	if months < -current_index or months > maximum_index - current_index:
-		return _make_failure(
-			GFCivilDateResult.STATUS_OUT_OF_RANGE,
-			"月偏移超出支持的公民日期范围。"
-		)
+		return _make_failure(GFCivilDateResult.STATUS_OUT_OF_RANGE, "月偏移超出支持的公民日期范围。")
 	var target_index: int = current_index + months
 	var target_year: int = floori(float(target_index) / 12.0) + MIN_YEAR
 	var target_month: int = target_index % 12 + 1
 	var target_day_limit: int = _days_in_month_unchecked(target_year, target_month)
 	if _day > target_day_limit and not clamp_day:
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_DATE,
-			"目标月不包含原月内日，且调用方禁止月末钳制。"
-		)
-	return create(target_year, target_month, mini(_day, target_day_limit))
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "目标月不包含原月内日，且调用方禁止月末钳制。")
+	return create(
+		target_year,
+		target_month,
+		mini(_day, target_day_limit)
+	)
 
 
 ## 加减公民年。
@@ -464,18 +510,16 @@ func add_years(years: int, clamp_day: bool = true) -> GFCivilDateResult:
 	if not _configured:
 		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "未配置日期不能运算。")
 	if years < MIN_YEAR - _year or years > MAX_YEAR - _year:
-		return _make_failure(
-			GFCivilDateResult.STATUS_OUT_OF_RANGE,
-			"年偏移超出支持的公民日期范围。"
-		)
+		return _make_failure(GFCivilDateResult.STATUS_OUT_OF_RANGE, "年偏移超出支持的公民日期范围。")
 	var target_year: int = _year + years
 	var target_day_limit: int = _days_in_month_unchecked(target_year, _month)
 	if _day > target_day_limit and not clamp_day:
-		return _make_failure(
-			GFCivilDateResult.STATUS_INVALID_DATE,
-			"目标年不包含原月内日，且调用方禁止月末钳制。"
-		)
-	return create(target_year, _month, mini(_day, target_day_limit))
+		return _make_failure(GFCivilDateResult.STATUS_INVALID_DATE, "目标年不包含原月内日，且调用方禁止月末钳制。")
+	return create(
+		target_year,
+		_month,
+		mini(_day, target_day_limit)
+	)
 
 
 ## 比较当前日期与另一日期。
@@ -502,7 +546,11 @@ func compare_to(other: GFCivilDate) -> GFCivilDateDifferenceResult:
 ## @return: 包含 `other - self` 日差和比较次序的类型化结果。
 func days_until(other: GFCivilDate) -> GFCivilDateDifferenceResult:
 	var result: GFCivilDateDifferenceResult = GFCivilDateDifferenceResult.new()
-	if not _configured or other == null or not other.is_valid():
+	if (
+		not _configured
+		or other == null
+		or not other.is_valid()
+	):
 		var _failure_configured: bool = result.configure_from_time_layer(
 			GFCivilDateDifferenceResult.STATUS_INVALID_DATE,
 			0,
@@ -533,7 +581,11 @@ func days_until(other: GFCivilDate) -> GFCivilDateDifferenceResult:
 ## @param day: 已校验月内日。
 ## [br]
 ## @return: 首次且输入合法时返回 true。
-func configure_from_time_layer(year: int, month: int, day: int) -> bool:
+func configure_from_time_layer(
+	year: int,
+	month: int,
+	day: int
+) -> bool:
 	if (
 		_configured
 		or year < MIN_YEAR
@@ -558,15 +610,26 @@ func configure_from_time_layer(year: int, month: int, day: int) -> bool:
 ## @api private
 static func _make_failure(status: StringName, error: String) -> GFCivilDateResult:
 	var result: GFCivilDateResult = GFCivilDateResult.new()
-	var _configured_result: bool = result.configure_from_time_layer(status, null, error)
+	var _configured_result: bool = result.configure_from_time_layer(
+		status,
+		null,
+		error
+	)
 	return result
 
 
 ## 检查指定文本区间是否全部由 ASCII 数字字符组成。
 ## [br]
 ## @api private
-static func _is_ascii_digits(text: String, start: int, length: int) -> bool:
-	for index: int in range(start, start + length):
+static func _is_ascii_digits(
+	text: String,
+	start: int,
+	length: int
+) -> bool:
+	for index: int in range(
+		start,
+		start + length
+	):
 		var codepoint: int = text.unicode_at(index)
 		if codepoint < 48 or codepoint > 57:
 			return false
@@ -577,20 +640,23 @@ static func _is_ascii_digits(text: String, start: int, length: int) -> bool:
 ## [br]
 ## @api private
 static func _maximum_ordinal() -> int:
-	return _date_to_ordinal(MAX_YEAR, 12, 31)
+	return _date_to_ordinal(
+		MAX_YEAR,
+		12,
+		31
+	)
 
 
 ## 按前推格里高利历把日期转换为从 0001-01-01 起算的零起点日序号。
 ## [br]
 ## @api private
-static func _date_to_ordinal(year: int, month: int, day: int) -> int:
+static func _date_to_ordinal(
+	year: int,
+	month: int,
+	day: int
+) -> int:
 	var previous_year: int = year - 1
-	var ordinal: int = (
-		previous_year * 365
-		+ floori(float(previous_year) / 4.0)
-		- floori(float(previous_year) / 100.0)
-		+ floori(float(previous_year) / 400.0)
-	)
+	var ordinal: int = (previous_year * 365 + floori(float(previous_year) / 4.0) - floori(float(previous_year) / 100.0) + floori(float(previous_year) / 400.0))
 	for previous_month: int in range(1, month):
 		ordinal += _days_in_month_unchecked(year, previous_month)
 	return ordinal + day - 1
@@ -613,4 +679,10 @@ static func _days_in_month_unchecked(year: int, month: int) -> int:
 ## [br]
 ## @api private
 static func _is_leap_year_unchecked(year: int) -> bool:
-	return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+	return (
+		year % 4 == 0
+		and (
+			year % 100 != 0
+			or year % 400 == 0
+		)
+	)

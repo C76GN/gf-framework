@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkServiceDiscovery" path="addons/gf/extensions/network/session/gf_network_service_discovery.gd" module="extensions/network" extends="RefCounted" classDigest="31cddbb2eca7d6de238546ff1b644b13b49495867b3d4e2f4db155299141c365">
+<class name="GFNetworkServiceDiscovery" path="addons/gf/extensions/network/session/gf_network_service_discovery.gd" module="extensions/network" extends="RefCounted" classDigest="25a3a17c6155ede393d759b7d42b4bcfed27b6b752303447751c382bab0e8e60">
 	<description>GFNetworkServiceDiscovery: 传输无关的网络服务发现记录器。
 负责生成服务广告字典、JSON bytes 编解码、接收入站广告并维护带 TTL 的服务列表。
 它不打开 socket、不决定广播地址，也不规定房间、账号、鉴权或同步协议。</description>
@@ -32,7 +32,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="service_lost">
-			<signature>signal service_lost(service_key: String, record: Dictionary, reason: String)</signature>
+			<signature>signal service_lost( service_key: String, record: Dictionary, reason: String )</signature>
 			<description>服务过期、被清空或被手动移除时发出。</description>
 			<tags>
 				<tag name="api">public</tag>

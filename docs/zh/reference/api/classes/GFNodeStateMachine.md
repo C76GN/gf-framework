@@ -17,8 +17,8 @@
 |---|---|---|
 | 信号 | [`state_group_added`](#member-gfnodestatemachine-signals-state_group_added) | `signal state_group_added(group: GFNodeStateGroup)` |
 | 信号 | [`state_group_removed`](#member-gfnodestatemachine-signals-state_group_removed) | `signal state_group_removed(group: GFNodeStateGroup)` |
-| 信号 | [`state_changed`](#member-gfnodestatemachine-signals-state_changed) | `signal state_changed(group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState)` |
-| 信号 | [`state_event_handled`](#member-gfnodestatemachine-signals-state_event_handled) | `signal state_event_handled(group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant)` |
+| 信号 | [`state_changed`](#member-gfnodestatemachine-signals-state_changed) | `signal state_changed( group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState )` |
+| 信号 | [`state_event_handled`](#member-gfnodestatemachine-signals-state_event_handled) | `signal state_event_handled( group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant )` |
 | 枚举 | [`StartMode`](#member-gfnodestatemachine-enums-startmode) | `enum StartMode` |
 | 常量 | [`INTERNAL_GROUP_NAME`](#member-gfnodestatemachine-constants-internal_group_name) | `const INTERNAL_GROUP_NAME: StringName = &"_internal"` |
 | 属性 | [`config`](#member-gfnodestatemachine-properties-config) | `var config: GFNodeStateMachineConfig = null:` |
@@ -30,7 +30,7 @@
 | 方法 | [`transition_to`](#member-gfnodestatemachine-methods-transition_to) | `func transition_to( path: StringName, args: Dictionary = {}, stack_exit_policy: int = GFNodeStateGroup.StackExitPolicy.REQUIRE_GUARDS ) -> void:` |
 | 方法 | [`transition_group_to`](#member-gfnodestatemachine-methods-transition_group_to) | `func transition_group_to( group_name: StringName, state_name: StringName, args: Dictionary = {}, stack_exit_policy: int = GFNodeStateGroup.StackExitPolicy.REQUIRE_GUARDS ) -> void:` |
 | 方法 | [`push_state`](#member-gfnodestatemachine-methods-push_state) | `func push_state(path: StringName, args: Dictionary = {}) -> void:` |
-| 方法 | [`push_group_state`](#member-gfnodestatemachine-methods-push_group_state) | `func push_group_state(group_name: StringName, state_name: StringName, args: Dictionary = {}) -> void:` |
+| 方法 | [`push_group_state`](#member-gfnodestatemachine-methods-push_group_state) | `func push_group_state( group_name: StringName, state_name: StringName, args: Dictionary = {} ) -> void:` |
 | 方法 | [`pop_state`](#member-gfnodestatemachine-methods-pop_state) | `func pop_state(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = {}) -> bool:` |
 | 方法 | [`start`](#member-gfnodestatemachine-methods-start) | `func start(args: Dictionary = {}) -> void:` |
 | 方法 | [`start_group`](#member-gfnodestatemachine-methods-start_group) | `func start_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = {}) -> void:` |
@@ -45,7 +45,7 @@
 | 方法 | [`get_stack_depth`](#member-gfnodestatemachine-methods-get_stack_depth) | `func get_stack_depth(group_name: StringName = INTERNAL_GROUP_NAME) -> int:` |
 | 方法 | [`is_in_state`](#member-gfnodestatemachine-methods-is_in_state) | `func is_in_state(path: StringName) -> bool:` |
 | 方法 | [`restart_group`](#member-gfnodestatemachine-methods-restart_group) | `func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionary = {}) -> void:` |
-| 方法 | [`dispatch_state_event`](#member-gfnodestatemachine-methods-dispatch_state_event) | `func dispatch_state_event(event_id: StringName, payload: Variant = null, group_name: StringName = &"") -> bool:` |
+| 方法 | [`dispatch_state_event`](#member-gfnodestatemachine-methods-dispatch_state_event) | `func dispatch_state_event( event_id: StringName, payload: Variant = null, group_name: StringName = &"" ) -> bool:` |
 | 方法 | [`get_state_snapshot`](#member-gfnodestatemachine-methods-get_state_snapshot) | `func get_state_snapshot() -> Dictionary:` |
 | 方法 | [`get_json_compatible_state_snapshot`](#member-gfnodestatemachine-methods-get_json_compatible_state_snapshot) | `func get_json_compatible_state_snapshot(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`restore_state_snapshot`](#member-gfnodestatemachine-methods-restore_state_snapshot) | `func restore_state_snapshot(snapshot: Dictionary) -> Dictionary:` |
@@ -60,12 +60,12 @@
 | 方法 | [`send_query`](#member-gfnodestatemachine-methods-send_query) | `func send_query(query: Object) -> Variant:` |
 | 方法 | [`send_event`](#member-gfnodestatemachine-methods-send_event) | `func send_event(event_instance: Object) -> void:` |
 | 方法 | [`send_simple_event`](#member-gfnodestatemachine-methods-send_simple_event) | `func send_simple_event(event_id: StringName, payload: Variant = null) -> void:` |
-| 方法 | [`register_event_owned`](#member-gfnodestatemachine-methods-register_event_owned) | `func register_event_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:` |
-| 方法 | [`unregister_event`](#member-gfnodestatemachine-methods-unregister_event) | `func unregister_event(event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:` |
+| 方法 | [`register_event_owned`](#member-gfnodestatemachine-methods-register_event_owned) | `func register_event_owned( listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
+| 方法 | [`unregister_event`](#member-gfnodestatemachine-methods-unregister_event) | `func unregister_event( event_type: Script, listener: GFEventListener, listener_owner: Object = null ) -> void:` |
 | 方法 | [`register_assignable_event_owned`](#member-gfnodestatemachine-methods-register_assignable_event_owned) | `func register_assignable_event_owned( listener_owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:` |
-| 方法 | [`unregister_assignable_event`](#member-gfnodestatemachine-methods-unregister_assignable_event) | `func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:` |
-| 方法 | [`register_simple_event_owned`](#member-gfnodestatemachine-methods-register_simple_event_owned) | `func register_simple_event_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void:` |
-| 方法 | [`unregister_simple_event`](#member-gfnodestatemachine-methods-unregister_simple_event) | `func unregister_simple_event(event_id: StringName, listener: GFEventListener, listener_owner: Object = null) -> void:` |
+| 方法 | [`unregister_assignable_event`](#member-gfnodestatemachine-methods-unregister_assignable_event) | `func unregister_assignable_event( base_event_type: Script, listener: GFEventListener, listener_owner: Object = null ) -> void:` |
+| 方法 | [`register_simple_event_owned`](#member-gfnodestatemachine-methods-register_simple_event_owned) | `func register_simple_event_owned( listener_owner: Object, event_id: StringName, listener: GFEventListener ) -> void:` |
+| 方法 | [`unregister_simple_event`](#member-gfnodestatemachine-methods-unregister_simple_event) | `func unregister_simple_event( event_id: StringName, listener: GFEventListener, listener_owner: Object = null ) -> void:` |
 | 方法 | [`unregister_owner_events`](#member-gfnodestatemachine-methods-unregister_owner_events) | `func unregister_owner_events(listener_owner: Object) -> void:` |
 | 方法 | [`reload_from_children`](#member-gfnodestatemachine-methods-reload_from_children) | `func reload_from_children() -> void:` |
 | 方法 | [`clear_state_groups`](#member-gfnodestatemachine-methods-clear_state_groups) | `func clear_state_groups(free_groups: bool = false) -> void:` |
@@ -113,9 +113,10 @@ signal state_group_removed(group: GFNodeStateGroup)
 ### `state_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal state_changed(group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState)
+signal state_changed( group: GFNodeStateGroup, old_state: GFNodeState, new_state: GFNodeState )
 ```
 
 任意状态组切换状态后发出。
@@ -133,9 +134,10 @@ signal state_changed(group: GFNodeStateGroup, old_state: GFNodeState, new_state:
 ### `state_event_handled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal state_event_handled(group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant)
+signal state_event_handled( group: GFNodeStateGroup, event_id: StringName, handler_state: GFNodeState, payload: Variant )
 ```
 
 任意状态组中的状态处理状态事件后发出。
@@ -347,9 +349,10 @@ func push_state(path: StringName, args: Dictionary = {}) -> void:
 ### `push_group_state`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func push_group_state(group_name: StringName, state_name: StringName, args: Dictionary = {}) -> void:
+func push_group_state( group_name: StringName, state_name: StringName, args: Dictionary = {} ) -> void:
 ```
 
 暂停指定状态组当前状态并叠加进入一个子状态。
@@ -659,9 +662,10 @@ func restart_group(group_name: StringName = INTERNAL_GROUP_NAME, args: Dictionar
 ### `dispatch_state_event`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func dispatch_state_event(event_id: StringName, payload: Variant = null, group_name: StringName = &"") -> bool:
+func dispatch_state_event( event_id: StringName, payload: Variant = null, group_name: StringName = &"" ) -> bool:
 ```
 
 派发状态事件。group_name 为空时会按已注册状态组顺序广播到所有组。
@@ -988,7 +992,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 - 首次版本：`3.0.0`
 
 ```gdscript
-func register_event_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void:
+func register_event_owned( listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void:
 ```
 
 注册带拥有者的类型事件监听器。
@@ -1010,7 +1014,7 @@ func register_event_owned(listener_owner: Object, event_type: Script, listener: 
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_event(event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:
+func unregister_event( event_type: Script, listener: GFEventListener, listener_owner: Object = null ) -> void:
 ```
 
 注销类型事件监听器。
@@ -1053,7 +1057,7 @@ func register_assignable_event_owned( listener_owner: Object, base_event_type: S
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_assignable_event(base_event_type: Script, listener: GFEventListener, listener_owner: Object = null) -> void:
+func unregister_assignable_event( base_event_type: Script, listener: GFEventListener, listener_owner: Object = null ) -> void:
 ```
 
 注销可赋值类型事件监听器。
@@ -1074,7 +1078,7 @@ func unregister_assignable_event(base_event_type: Script, listener: GFEventListe
 - 首次版本：`3.0.0`
 
 ```gdscript
-func register_simple_event_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void:
+func register_simple_event_owned( listener_owner: Object, event_id: StringName, listener: GFEventListener ) -> void:
 ```
 
 注册带拥有者的轻量级 StringName 事件监听器。
@@ -1095,7 +1099,7 @@ func register_simple_event_owned(listener_owner: Object, event_id: StringName, l
 - 首次版本：`5.0.0`
 
 ```gdscript
-func unregister_simple_event(event_id: StringName, listener: GFEventListener, listener_owner: Object = null) -> void:
+func unregister_simple_event( event_id: StringName, listener: GFEventListener, listener_owner: Object = null ) -> void:
 ```
 
 注销轻量级 StringName 事件监听器。

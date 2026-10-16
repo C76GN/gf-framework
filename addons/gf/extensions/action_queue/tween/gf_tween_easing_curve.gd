@@ -57,9 +57,12 @@ static func capture(source: Curve) -> Dictionary:
 	var modes: PackedInt32Array = PackedInt32Array()
 	for index: int in range(point_count):
 		var _position_added: bool = positions.append(source.get_point_position(index))
-		var _tangent_added: bool = tangents.append(Vector2(
-			source.get_point_left_tangent(index), source.get_point_right_tangent(index)
-		))
+		var _tangent_added: bool = tangents.append(
+			Vector2(
+				source.get_point_left_tangent(index),
+				source.get_point_right_tangent(index)
+			)
+		)
 		var _left_mode_added: bool = modes.append(source.get_point_left_mode(index))
 		var _right_mode_added: bool = modes.append(source.get_point_right_mode(index))
 	var data: Dictionary = {
@@ -205,8 +208,11 @@ static func _get_data_error(data: Dictionary) -> String:
 	var resolution_value: Variant = data.get("bake_resolution")
 	var range_value: Variant = data.get("value_range")
 	if not (
-		positions_value is PackedVector2Array and tangents_value is PackedVector2Array
-		and modes_value is PackedInt32Array and resolution_value is int and range_value is Vector2
+		positions_value is PackedVector2Array
+		and tangents_value is PackedVector2Array
+		and modes_value is PackedInt32Array
+		and resolution_value is int
+		and range_value is Vector2
 	):
 		return "Easing curve snapshot fields have invalid types."
 	var positions: PackedVector2Array = positions_value
@@ -221,7 +227,11 @@ static func _get_data_error(data: Dictionary) -> String:
 		return "Easing curve point, tangent and mode counts must agree."
 	if resolution < _MIN_BAKE_RESOLUTION or resolution > _MAX_BAKE_RESOLUTION:
 		return "Easing curve bake_resolution must be between 2 and 1000."
-	if not value_range.is_finite() or value_range.x > 0.0 or value_range.y < 1.0:
+	if (
+		not value_range.is_finite()
+		or value_range.x > 0.0
+		or value_range.y < 1.0
+	):
 		return "Easing curve editing ranges must be finite and include 0 to 1."
 	if positions[0] != Vector2.ZERO or positions[point_count - 1] != Vector2.ONE:
 		return "Easing curves must start exactly at (0, 0) and end exactly at (1, 1)."
@@ -233,7 +243,10 @@ static func _get_data_error(data: Dictionary) -> String:
 			return "Easing curve points must lie within their editing value range."
 		if index > 0 and position.x <= positions[index - 1].x:
 			return "Easing curve point X coordinates must be strictly increasing."
-		for mode_index: int in range(index * 2, index * 2 + 2):
+		for mode_index: int in range(
+			index * 2,
+			index * 2 + 2
+		):
 			if modes[mode_index] != Curve.TANGENT_FREE and modes[mode_index] != Curve.TANGENT_LINEAR:
 				return "Easing curve tangent modes must be valid native modes."
 	return ""
@@ -248,8 +261,10 @@ static func _build_curve(data: Dictionary) -> Curve:
 	var modes_value: Variant = data["modes"]
 	var range_value: Variant = data["value_range"]
 	if not (
-		positions_value is PackedVector2Array and tangents_value is PackedVector2Array
-		and modes_value is PackedInt32Array and range_value is Vector2
+		positions_value is PackedVector2Array
+		and tangents_value is PackedVector2Array
+		and modes_value is PackedInt32Array
+		and range_value is Vector2
 	):
 		return null
 	var positions: PackedVector2Array = positions_value

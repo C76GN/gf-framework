@@ -62,7 +62,10 @@ var _region_size: Vector2i = Vector2i(32, 32)
 ## @return 区域键。
 func get_region_key_for_cell(cell: Vector2i) -> Vector2i:
 	var safe_size: Vector2i = _get_safe_region_size()
-	return Vector2i(floori(float(cell.x) / float(safe_size.x)), floori(float(cell.y) / float(safe_size.y)))
+	return Vector2i(
+		floori(float(cell.x) / float(safe_size.x)),
+		floori(float(cell.y) / float(safe_size.y))
+	)
 
 
 ## 设置格子数据。
@@ -295,7 +298,10 @@ func _get_safe_region_size() -> Vector2i:
 ## @api private
 ## [br]
 func _normalize_region_size(value: Vector2i) -> Vector2i:
-	return Vector2i(maxi(value.x, 1), maxi(value.y, 1))
+	return Vector2i(
+		maxi(value.x, 1),
+		maxi(value.y, 1)
+	)
 
 
 ## 按当前区域尺寸重建分区，迁移全部合法格子并标脏旧、新受影响区域。

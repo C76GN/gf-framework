@@ -16,13 +16,13 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`schema`](#member-gftilemetadatalayer-properties-schema) | `var schema: Dictionary = {}` |
-| 方法 | [`set_cell_value`](#member-gftilemetadatalayer-methods-set_cell_value) | `func set_cell_value(cell: Vector2i, key: StringName, value: Variant) -> void:` |
+| 方法 | [`set_cell_value`](#member-gftilemetadatalayer-methods-set_cell_value) | `func set_cell_value( cell: Vector2i, key: StringName, value: Variant ) -> void:` |
 | 方法 | [`get_cell_data`](#member-gftilemetadatalayer-methods-get_cell_data) | `func get_cell_data(cell: Vector2i) -> Dictionary:` |
-| 方法 | [`get_cell_value`](#member-gftilemetadatalayer-methods-get_cell_value) | `func get_cell_value(cell: Vector2i, key: StringName, default_value: Variant = null) -> Variant:` |
-| 方法 | [`merge_cell_data`](#member-gftilemetadatalayer-methods-merge_cell_data) | `func merge_cell_data(cell: Vector2i, data: Dictionary, overwrite: bool = true) -> void:` |
+| 方法 | [`get_cell_value`](#member-gftilemetadatalayer-methods-get_cell_value) | `func get_cell_value( cell: Vector2i, key: StringName, default_value: Variant = null ) -> Variant:` |
+| 方法 | [`merge_cell_data`](#member-gftilemetadatalayer-methods-merge_cell_data) | `func merge_cell_data( cell: Vector2i, data: Dictionary, overwrite: bool = true ) -> void:` |
 | 方法 | [`erase_cell_key`](#member-gftilemetadatalayer-methods-erase_cell_key) | `func erase_cell_key(cell: Vector2i, key: StringName) -> bool:` |
 | 方法 | [`has_cell_key`](#member-gftilemetadatalayer-methods-has_cell_key) | `func has_cell_key(cell: Vector2i, key: StringName) -> bool:` |
-| 方法 | [`paint_cells`](#member-gftilemetadatalayer-methods-paint_cells) | `func paint_cells(target_cells: Array[Vector2i], key: StringName, value: Variant) -> int:` |
+| 方法 | [`paint_cells`](#member-gftilemetadatalayer-methods-paint_cells) | `func paint_cells( target_cells: Array[Vector2i], key: StringName, value: Variant ) -> int:` |
 | 方法 | [`erase_cells_key`](#member-gftilemetadatalayer-methods-erase_cells_key) | `func erase_cells_key(target_cells: Array[Vector2i], key: StringName) -> int:` |
 | 方法 | [`get_cells_with_value`](#member-gftilemetadatalayer-methods-get_cells_with_value) | `func get_cells_with_value(key: StringName, value: Variant) -> Array[Vector2i]:` |
 | 方法 | [`set_schema_entry`](#member-gftilemetadatalayer-methods-set_schema_entry) | `func set_schema_entry(key: StringName, metadata: Dictionary) -> void:` |
@@ -56,9 +56,10 @@ var schema: Dictionary = {}
 ### `set_cell_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func set_cell_value(cell: Vector2i, key: StringName, value: Variant) -> void:
+func set_cell_value( cell: Vector2i, key: StringName, value: Variant ) -> void:
 ```
 
 设置格子字段值。
@@ -104,9 +105,10 @@ func get_cell_data(cell: Vector2i) -> Dictionary:
 ### `get_cell_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_cell_value(cell: Vector2i, key: StringName, default_value: Variant = null) -> Variant:
+func get_cell_value( cell: Vector2i, key: StringName, default_value: Variant = null ) -> Variant:
 ```
 
 获取格子字段值。
@@ -131,9 +133,10 @@ func get_cell_value(cell: Vector2i, key: StringName, default_value: Variant = nu
 ### `merge_cell_data`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func merge_cell_data(cell: Vector2i, data: Dictionary, overwrite: bool = true) -> void:
+func merge_cell_data( cell: Vector2i, data: Dictionary, overwrite: bool = true ) -> void:
 ```
 
 合并格子数据。
@@ -197,9 +200,10 @@ func has_cell_key(cell: Vector2i, key: StringName) -> bool:
 ### `paint_cells`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func paint_cells(target_cells: Array[Vector2i], key: StringName, value: Variant) -> int:
+func paint_cells( target_cells: Array[Vector2i], key: StringName, value: Variant ) -> int:
 ```
 
 批量为格子绘制同一个字段值。

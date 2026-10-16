@@ -75,7 +75,11 @@ var _error: String = ""
 ## [br]
 ## @return: 包含有效日期时返回 true。
 func is_successful() -> bool:
-	return _configured and _status == STATUS_OK and _date != null
+	return (
+		_configured
+		and _status == STATUS_OK
+		and _date != null
+	)
 
 
 ## 获取稳定结果状态。
@@ -150,8 +154,14 @@ func configure_from_time_layer(
 func _is_valid_configuration(status: StringName, date: GFCivilDate) -> bool:
 	if status == STATUS_OK:
 		return date != null and date.is_valid()
-	return date == null and status in [
-		STATUS_OUT_OF_RANGE,
-		STATUS_INVALID_DATE,
-		STATUS_INVALID_FORMAT,
-	]
+	return (
+		date == null
+		and (
+			status
+			in [
+				STATUS_OUT_OF_RANGE,
+				STATUS_INVALID_DATE,
+				STATUS_INVALID_FORMAT,
+			]
+		)
+	)

@@ -23,9 +23,9 @@ Platform Adapter 静态一致性审查器。 在不调用外部 SDK 的前提下
 | 常量 | [`KIND_CONTRACT_VERSION_MISMATCH`](#member-gfplatformadapterconformance-constants-kind_contract_version_mismatch) | `const KIND_CONTRACT_VERSION_MISMATCH: StringName = &"platform_contract_version_mismatch"` |
 | 常量 | [`KIND_METHOD_MISSING`](#member-gfplatformadapterconformance-constants-kind_method_missing) | `const KIND_METHOD_MISSING: StringName = &"platform_contract_method_missing"` |
 | 常量 | [`KIND_CAPABILITY_MISSING`](#member-gfplatformadapterconformance-constants-kind_capability_missing) | `const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"` |
-| 方法 | [`validate`](#member-gfplatformadapterconformance-methods-validate) | `static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> GFValidationReport:` |
-| 方法 | [`inspect`](#member-gfplatformadapterconformance-methods-inspect) | `static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`make_bridge_entries`](#member-gfplatformadapterconformance-methods-make_bridge_entries) | `static func make_bridge_entries( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`validate`](#member-gfplatformadapterconformance-methods-validate) | `static func validate(adapter: GFPlatformAdapter, options: Dictionary = {}) -> GFValidationReport:` |
+| 方法 | [`inspect`](#member-gfplatformadapterconformance-methods-inspect) | `static func inspect(adapter: GFPlatformAdapter, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`make_bridge_entries`](#member-gfplatformadapterconformance-methods-make_bridge_entries) | `static func make_bridge_entries(adapter: GFPlatformAdapter, options: Dictionary = {}) -> Dictionary:` |
 
 ## 常量
 
@@ -143,7 +143,7 @@ const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> GFValidationReport:
+static func validate(adapter: GFPlatformAdapter, options: Dictionary = {}) -> GFValidationReport:
 ```
 
 校验 Platform Adapter 的静态契约。 options 支持 required_contract_ids、required_contract_versions、 required_capability_ids、required_methods、require_descriptors（默认 true）和 require_ready（默认 false）。版本采用精确匹配；required_methods 是 contract_id 到 method ID 列表的字典。
@@ -169,7 +169,7 @@ static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> 
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary:
+static func inspect(adapter: GFPlatformAdapter, options: Dictionary = {}) -> Dictionary:
 ```
 
 生成 JSON 安全的一致性报告和桥接覆盖附录。
@@ -196,7 +196,7 @@ static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> D
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func make_bridge_entries( adapter: GFPlatformAdapter, options: Dictionary = {} ) -> Dictionary:
+static func make_bridge_entries(adapter: GFPlatformAdapter, options: Dictionary = {}) -> Dictionary:
 ```
 
 构建通用 GFBridgeContractReport 输入条目。

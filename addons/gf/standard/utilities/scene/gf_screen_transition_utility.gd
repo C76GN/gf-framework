@@ -130,7 +130,10 @@ func tick(delta: float) -> void:
 	_elapsed_seconds += maxf(delta, 0.0)
 	var progress: float = _active_effect.sample_weight(_elapsed_seconds)
 	_apply_effect_visuals(progress)
-	transition_progressed.emit(progress, get_overlay_alpha())
+	transition_progressed.emit(
+		progress,
+		get_overlay_alpha()
+	)
 	if progress >= 1.0:
 		_finish_transition()
 
@@ -187,7 +190,12 @@ func fade_out(
 	on_finished: Callable = Callable()
 ) -> Error:
 	var effect: GFScreenTransitionEffect = GFScreenTransitionEffect.new()
-	var _configure_result_154: Variant = effect.configure(duration_seconds, 0.0, 1.0, color)
+	var _configure_result_154: Variant = effect.configure(
+		duration_seconds,
+		0.0,
+		1.0,
+		color
+	)
 	return play(effect, on_finished)
 
 
@@ -208,7 +216,12 @@ func fade_in(
 	on_finished: Callable = Callable()
 ) -> Error:
 	var effect: GFScreenTransitionEffect = GFScreenTransitionEffect.new()
-	var _configure_result_175: Variant = effect.configure(duration_seconds, 1.0, 0.0, color)
+	var _configure_result_175: Variant = effect.configure(
+		duration_seconds,
+		1.0,
+		0.0,
+		color
+	)
 	return play(effect, on_finished)
 
 
@@ -225,7 +238,11 @@ func set_overlay_alpha(alpha: float, color: Color = Color.BLACK) -> void:
 		return
 
 	var next_color: Color = color
-	next_color.a = clampf(alpha, 0.0, 1.0)
+	next_color.a = clampf(
+		alpha,
+		0.0,
+		1.0
+	)
 	_overlay_rect.material = null
 	_overlay_rect.color = next_color
 	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
@@ -335,12 +352,21 @@ func _ensure_overlay() -> void:
 	_overlay_rect.name = "Overlay"
 	_overlay_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_STOP as Control.MouseFilter
-	_overlay_rect.color = Color(0.0, 0.0, 0.0, 0.0)
+	_overlay_rect.color = Color(
+		0.0,
+		0.0,
+		0.0,
+		0.0
+	)
 	_overlay_layer.add_child(_overlay_rect)
 
 	var tree: SceneTree = _get_scene_tree()
 	if tree != null:
-		call_deferred("_add_overlay_if_current", _overlay_layer, _overlay_generation)
+		call_deferred(
+			"_add_overlay_if_current",
+			_overlay_layer,
+			_overlay_generation
+		)
 
 
 ## 仅在代次仍匹配且节点尚未挂载时，将覆盖层加入 SceneTree 根节点。
@@ -369,17 +395,20 @@ func _apply_effect_visuals(progress: float) -> void:
 	var next_color: Color = _active_effect.color
 	next_color.a = alpha
 	_overlay_layer.layer = _active_effect.layer
-	_overlay_rect.mouse_filter = (
-		Control.MOUSE_FILTER_STOP as Control.MouseFilter
-		if _active_effect.block_input
-		else Control.MOUSE_FILTER_IGNORE as Control.MouseFilter
-	)
+	_overlay_rect.mouse_filter = ((Control.MOUSE_FILTER_STOP as Control.MouseFilter if _active_effect.block_input else Control.MOUSE_FILTER_IGNORE) as Control.MouseFilter)
 	_overlay_rect.color = next_color
 
 	if _active_effect.shader_material != null:
 		_overlay_rect.material = _active_effect.shader_material
 		if _active_effect.progress_parameter != &"":
-			_active_effect.shader_material.set_shader_parameter(_active_effect.progress_parameter, clampf(progress, 0.0, 1.0))
+			_active_effect.shader_material.set_shader_parameter(
+				_active_effect.progress_parameter,
+				clampf(
+					progress,
+					0.0,
+					1.0
+				)
+			)
 	else:
 		_overlay_rect.material = null
 

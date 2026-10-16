@@ -125,19 +125,31 @@ var _focusable_callback: Callable = Callable()
 ## @schema options: Dictionary，支持 focused_index、wrap_navigation、auto_focus_on_count_change 和 focusable_callback。
 func configure(p_item_count: int, options: Dictionary = {}) -> GFVirtualListFocusModel:
 	var previous_focus_index: int = _focused_index
-	wrap_navigation = GFVariantData.get_option_bool(options, "wrap_navigation", wrap_navigation)
+	wrap_navigation = GFVariantData.get_option_bool(
+		options,
+		"wrap_navigation",
+		wrap_navigation
+	)
 	auto_focus_on_count_change = GFVariantData.get_option_bool(
 		options,
 		"auto_focus_on_count_change",
 		auto_focus_on_count_change
 	)
-	var raw_callback: Variant = GFVariantData.get_option_value(options, "focusable_callback", Callable())
+	var raw_callback: Variant = GFVariantData.get_option_value(
+		options,
+		"focusable_callback",
+		Callable()
+	)
 	if raw_callback is Callable:
 		_focusable_callback = raw_callback
 
 	_apply_item_count(p_item_count, false)
 	if options.has("focused_index"):
-		var requested_focus_index: int = GFVariantData.get_option_int(options, "focused_index", NO_FOCUS)
+		var requested_focus_index: int = GFVariantData.get_option_int(
+			options,
+			"focused_index",
+			NO_FOCUS
+		)
 		if requested_focus_index == NO_FOCUS or is_focusable(requested_focus_index):
 			_apply_focused_index(requested_focus_index)
 		else:
@@ -224,7 +236,10 @@ func focus_first() -> bool:
 ## [br]
 ## @return 焦点发生变化时返回 true。
 func focus_last() -> bool:
-	var next_index: int = _find_first_focusable(_item_count - 1, -1)
+	var next_index: int = _find_first_focusable(
+		_item_count - 1,
+		-1
+	)
 	if next_index == NO_FOCUS:
 		return clear_focus()
 	return set_focused_index(next_index)
@@ -481,4 +496,7 @@ func _set_focus_unchecked(next_index: int) -> void:
 func _clamp_index(item_index: int) -> int:
 	if _item_count <= 0:
 		return NO_FOCUS
-	return mini(maxi(item_index, 0), _item_count - 1)
+	return mini(
+		maxi(item_index, 0),
+		_item_count - 1
+	)

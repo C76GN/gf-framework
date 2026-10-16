@@ -9,19 +9,29 @@ func test_input_mapping_get_action_id_delegates_to_action() -> void:
 	action.action_id = &"fire"
 	var mapping: GFInputMapping = GFInputMapping.new()
 	mapping.action = action
-	assert_eq(mapping.get_action_id(), &"fire")
+	assert_eq(
+		mapping.get_action_id(),
+		&"fire"
+	)
 
 
 func test_input_action_id_does_not_fall_back_to_resource_path() -> void:
 	var action: GFInputAction = GFInputAction.new()
 	action.take_over_path("res://tests/gf_core/input_action_unit.tres")
 
-	assert_eq(action.get_action_id(), &"", "动作稳定 ID 必须显式设置，不能由资源路径隐式生成。")
+	assert_eq(
+		action.get_action_id(),
+		&"",
+		"动作稳定 ID 必须显式设置，不能由资源路径隐式生成。"
+	)
 
 
 func test_input_mapping_get_action_id_empty_without_action() -> void:
 	var mapping: GFInputMapping = GFInputMapping.new()
-	assert_eq(mapping.get_action_id(), &"")
+	assert_eq(
+		mapping.get_action_id(),
+		&""
+	)
 
 
 func test_input_mapping_display_name_and_category_override_action() -> void:
@@ -33,8 +43,14 @@ func test_input_mapping_display_name_and_category_override_action() -> void:
 	mapping.action = action
 	mapping.display_name = "映射覆盖名"
 	mapping.display_category = "映射分类"
-	assert_eq(mapping.get_display_name(), "映射覆盖名")
-	assert_eq(mapping.get_display_category(), "映射分类")
+	assert_eq(
+		mapping.get_display_name(),
+		"映射覆盖名"
+	)
+	assert_eq(
+		mapping.get_display_category(),
+		"映射分类"
+	)
 
 
 func test_input_mapping_display_fallback_to_action() -> void:
@@ -42,44 +58,68 @@ func test_input_mapping_display_fallback_to_action() -> void:
 	action.display_name = "仅动作名"
 	var mapping: GFInputMapping = GFInputMapping.new()
 	mapping.action = action
-	assert_eq(mapping.get_display_name(), "仅动作名")
-	assert_eq(mapping.get_display_category(), "")
+	assert_eq(
+		mapping.get_display_name(),
+		"仅动作名"
+	)
+	assert_eq(
+		mapping.get_display_category(),
+		""
+	)
 
 
 func test_input_mapping_default_display_name_when_no_action() -> void:
 	var mapping: GFInputMapping = GFInputMapping.new()
-	assert_eq(mapping.get_display_name(), "Input Mapping")
+	assert_eq(
+		mapping.get_display_name(),
+		"Input Mapping"
+	)
 
 
 func test_input_context_get_context_id_prefers_exported_id() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"gameplay"
-	assert_eq(context.get_context_id(), &"gameplay")
+	assert_eq(
+		context.get_context_id(),
+		&"gameplay"
+	)
 
 
 func test_input_context_get_display_name_prefers_exported_name() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"menu"
 	context.display_name = "主菜单"
-	assert_eq(context.get_display_name(), "主菜单")
+	assert_eq(
+		context.get_display_name(),
+		"主菜单"
+	)
 
 
 func test_input_context_get_display_name_falls_back_to_context_id_string() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"dialogue"
-	assert_eq(context.get_display_name(), "dialogue")
+	assert_eq(
+		context.get_display_name(),
+		"dialogue"
+	)
 
 
 func test_input_context_get_context_id_falls_back_to_resource_path() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.take_over_path("res://tests/gf_core/input_context_unit.tres")
-	assert_eq(context.get_context_id(), StringName("res://tests/gf_core/input_context_unit.tres"))
+	assert_eq(
+		context.get_context_id(),
+		StringName("res://tests/gf_core/input_context_unit.tres")
+	)
 
 
 func test_input_context_display_name_falls_back_to_resource_basename() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.take_over_path("res://tests/gf_core/gameplay_input.tres")
-	assert_eq(context.get_display_name(), "Gameplay Input")
+	assert_eq(
+		context.get_display_name(),
+		"Gameplay Input"
+	)
 
 
 func test_input_context_diagnostics_reports_healthy_context() -> void:
@@ -89,9 +129,18 @@ func test_input_context_diagnostics_reports_healthy_context() -> void:
 
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
 
-	assert_eq(GFVariantData.get_option_int(report, "mapping_count"), 1)
-	assert_eq(GFVariantData.get_option_int(report, "binding_count"), 1)
-	assert_eq(GFVariantData.get_option_int(report, "issue_count"), 0)
+	assert_eq(
+		GFVariantData.get_option_int(report, "mapping_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "binding_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "issue_count"),
+		0
+	)
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
 	assert_true(GFVariantData.get_option_bool(report, "healthy"))
 
@@ -120,7 +169,10 @@ func test_input_context_diagnostics_reports_structure_issues() -> void:
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
 	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
 
-	assert_false(GFVariantData.get_option_bool(report, "ok"), "结构错误应让报告失败。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "ok"),
+		"结构错误应让报告失败。"
+	)
 	assert_true(issue_counts.has("empty_context_id"))
 	assert_true(issue_counts.has("null_mapping"))
 	assert_true(issue_counts.has("missing_action"))
@@ -147,7 +199,11 @@ func test_input_context_diagnostics_rejects_nonfinite_threshold_and_deadzone() -
 	deadzone_mapping.bindings[0].deadzone = INF
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"nonfinite"
-	context.mappings = [threshold_mapping, release_mapping, deadzone_mapping]
+	context.mappings = [
+		threshold_mapping,
+		release_mapping,
+		deadzone_mapping,
+	]
 
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
 	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
@@ -167,7 +223,10 @@ func test_input_context_diagnostics_rejects_nonfinite_threshold_and_deadzone() -
 		1,
 		"Infinity deadzone 必须被诊断为无效。"
 	)
-	assert_false(GFVariantData.get_option_bool(report, "healthy"), "非有限映射参数不得被报告为健康。")
+	assert_false(
+		GFVariantData.get_option_bool(report, "healthy"),
+		"非有限映射参数不得被报告为健康。"
+	)
 
 
 func test_input_context_diagnostics_rejects_release_above_activation() -> void:
@@ -182,7 +241,10 @@ func test_input_context_diagnostics_rejects_release_above_activation() -> void:
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
 	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
 
-	assert_eq(GFVariantData.get_option_int(issue_counts, "invalid_threshold_order"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(issue_counts, "invalid_threshold_order"),
+		1
+	)
 	assert_false(GFVariantData.get_option_bool(report, "healthy"))
 
 
@@ -201,10 +263,7 @@ func test_input_context_diagnostics_ignore_axis_thresholds_for_bool_action() -> 
 		true,
 		{ "include_project_input_map_checks": false }
 	)
-	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(
-		report,
-		"issue_counts_by_kind"
-	)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
 
 	assert_false(issue_counts.has("invalid_activation_threshold"))
 	assert_false(issue_counts.has("invalid_release_threshold"))
@@ -218,10 +277,12 @@ func test_input_context_diagnostics_ignore_axis_thresholds_for_bool_action() -> 
 func test_input_context_diagnostics_can_skip_project_input_map_checks() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"gameplay"
-	context.mappings = [_make_mapping_with_binding(
-		&"open_map",
-		_make_input_event_action_binding(&"gf_missing_project_action_for_test")
-	)]
+	context.mappings = [
+		_make_mapping_with_binding(
+			&"open_map",
+			_make_input_event_action_binding(&"gf_missing_project_action_for_test")
+		),
+	]
 
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(
 		context,

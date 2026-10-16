@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`reset_trigger_state`](#member-gfinputpressedtrigger-methods-reset_trigger_state) | `func reset_trigger_state(state: Dictionary) -> void:` |
-| 方法 | [`update`](#member-gfinputpressedtrigger-methods-update) | `func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -> TriggerState:` |
+| 方法 | [`update`](#member-gfinputpressedtrigger-methods-update) | `func update( raw_active: bool, _value: Variant, _delta: float, state: Dictionary ) -> TriggerState:` |
 
 ## 方法
 
@@ -47,9 +47,10 @@ func reset_trigger_state(state: Dictionary) -> void:
 ### `update`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary) -> TriggerState:
+func update( raw_active: bool, _value: Variant, _delta: float, state: Dictionary ) -> TriggerState:
 ```
 
 更新运行时状态。

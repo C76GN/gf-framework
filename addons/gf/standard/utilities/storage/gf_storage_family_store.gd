@@ -148,9 +148,28 @@ const _ALNUM_CHARS: String = "abcdefghijklmnopqrstuvwxyz0123456789"
 ## @api private
 ## [br]
 const _RESERVED_DEVICE_STEMS: Array[String] = [
-	"con", "prn", "aux", "nul",
-	"com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
-	"lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
+	"con",
+	"prn",
+	"aux",
+	"nul",
+	"com1",
+	"com2",
+	"com3",
+	"com4",
+	"com5",
+	"com6",
+	"com7",
+	"com8",
+	"com9",
+	"lpt1",
+	"lpt2",
+	"lpt3",
+	"lpt4",
+	"lpt5",
+	"lpt6",
+	"lpt7",
+	"lpt8",
+	"lpt9",
 ]
 
 
@@ -221,7 +240,11 @@ static func is_valid_extension_filter_for_framework(extension_filter: String) ->
 		return false
 	for index: int in range(extension_filter.length()):
 		var character: String = extension_filter.substr(index, 1)
-		if not _ALNUM_CHARS.contains(character) and character != "_" and character != "-":
+		if (
+			not _ALNUM_CHARS.contains(character)
+			and character != "_"
+			and character != "-"
+		):
 			return false
 	return true
 
@@ -239,7 +262,10 @@ static func is_valid_private_relative_path_for_framework(relative_path: String) 
 	if (
 		relative_path.length() <= _PRIVATE_ROOT_NAME.length() + 4
 		or relative_path.length() > 1024
-		or not relative_path.begins_with("%s/v%d/" % [_PRIVATE_ROOT_NAME, _LAYOUT_VERSION])
+		or not relative_path.begins_with(
+			"%s/v%d/"
+			% [_PRIVATE_ROOT_NAME, _LAYOUT_VERSION]
+		)
 		or relative_path.contains("\\")
 	):
 		return false
@@ -247,7 +273,11 @@ static func is_valid_private_relative_path_for_framework(relative_path: String) 
 	if segments.size() < 3:
 		return false
 	for segment: String in segments:
-		if segment.is_empty() or segment == "." or segment == "..":
+		if (
+			segment.is_empty()
+			or segment == "."
+			or segment == ".."
+		):
 			return false
 		for index: int in range(segment.length()):
 			var character: String = segment.substr(index, 1)
@@ -290,14 +320,20 @@ static func make_family_id_for_framework(logical_path: String) -> String:
 		return ""
 	var raw: String = digest.substr(0, 32)
 	var variant_source: int = _HEX_CHARS.find(raw.substr(16, 1))
-	var variant_nibble: String = _HEX_CHARS.substr(8 | (variant_source & 3), 1)
-	return "%s-%s-8%s-%s-%s" % [
-		raw.substr(0, 8),
-		raw.substr(8, 4),
-		raw.substr(13, 3),
-		variant_nibble + raw.substr(17, 3),
-		raw.substr(20, 12),
-	]
+	var variant_nibble: String = _HEX_CHARS.substr(
+		8 | (variant_source & 3),
+		1
+	)
+	return (
+		"%s-%s-8%s-%s-%s"
+		% [
+			raw.substr(0, 8),
+			raw.substr(8, 4),
+			raw.substr(13, 3),
+			variant_nibble + raw.substr(17, 3),
+			raw.substr(20, 12),
+		]
+	)
 
 
 ## 纯计算一个 family descriptor；该方法不读取或创建文件。
@@ -313,10 +349,7 @@ static func make_family_id_for_framework(logical_path: String) -> String:
 ## @return 固定物理布局 descriptor；输入非法时为空字典。
 ## [br]
 ## @schema return: Dictionary，包含 logical_path、logical_sha256、family_id、file_key、catalog/family/owner、payload/candidate/backup/resource-stage、prepare/commit record 与 pending record 的物理及相对路径。
-static func make_family_descriptor_for_framework(
-	storage_root_path: String,
-	logical_path: String
-) -> Dictionary:
+static func make_family_descriptor_for_framework(storage_root_path: String, logical_path: String) -> Dictionary:
 	if not _is_valid_storage_root(storage_root_path):
 		return {}
 	if not is_valid_logical_file_path_for_framework(logical_path):
@@ -327,20 +360,26 @@ static func make_family_descriptor_for_framework(
 		return {}
 	var compact_family_id: String = family_id.replace("-", "")
 	var physical_extension: String = _derive_physical_extension(logical_path)
-	var catalog_relative_path: String = "%s/v%d/catalog/%s/%s/%s.json" % [
-		_PRIVATE_ROOT_NAME,
-		_LAYOUT_VERSION,
-		logical_sha256.substr(0, 2),
-		logical_sha256.substr(2, 2),
-		logical_sha256,
-	]
-	var family_relative_path: String = "%s/v%d/families/%s/%s/%s" % [
-		_PRIVATE_ROOT_NAME,
-		_LAYOUT_VERSION,
-		compact_family_id.substr(0, 2),
-		compact_family_id.substr(2, 2),
-		family_id,
-	]
+	var catalog_relative_path: String = (
+		"%s/v%d/catalog/%s/%s/%s.json"
+		% [
+			_PRIVATE_ROOT_NAME,
+			_LAYOUT_VERSION,
+			logical_sha256.substr(0, 2),
+			logical_sha256.substr(2, 2),
+			logical_sha256,
+		]
+	)
+	var family_relative_path: String = (
+		"%s/v%d/families/%s/%s/%s"
+		% [
+			_PRIVATE_ROOT_NAME,
+			_LAYOUT_VERSION,
+			compact_family_id.substr(0, 2),
+			compact_family_id.substr(2, 2),
+			family_id,
+		]
+	)
 	var payload_leaf: String = "payload.%s" % physical_extension
 	var candidate_leaf: String = "candidate.%s" % physical_extension
 	var backup_leaf: String = "backup.%s" % physical_extension
@@ -364,15 +403,42 @@ static func make_family_descriptor_for_framework(
 		"resource_stage_relative_path": family_relative_path + "/" + resource_stage_leaf,
 		"catalog_path": _join_storage_root(storage_root_path, catalog_relative_path),
 		"family_path": _join_storage_root(storage_root_path, family_relative_path),
-		"owner_path": _join_storage_root(storage_root_path, family_relative_path + "/owner.json"),
-		"payload_path": _join_storage_root(storage_root_path, family_relative_path + "/" + payload_leaf),
-		"candidate_path": _join_storage_root(storage_root_path, family_relative_path + "/" + candidate_leaf),
-		"backup_path": _join_storage_root(storage_root_path, family_relative_path + "/" + backup_leaf),
-		"transaction_path": _join_storage_root(storage_root_path, family_relative_path + "/transaction.prepare.json"),
-		"transaction_pending_path": _join_storage_root(storage_root_path, family_relative_path + "/transaction.prepare.pending.json"),
-		"transaction_commit_path": _join_storage_root(storage_root_path, family_relative_path + "/transaction.commit.json"),
-		"transaction_commit_pending_path": _join_storage_root(storage_root_path, family_relative_path + "/transaction.commit.pending.json"),
-		"resource_stage_path": _join_storage_root(storage_root_path, family_relative_path + "/" + resource_stage_leaf),
+		"owner_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/owner.json"
+		),
+		"payload_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/" + payload_leaf
+		),
+		"candidate_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/" + candidate_leaf
+		),
+		"backup_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/" + backup_leaf
+		),
+		"transaction_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/transaction.prepare.json"
+		),
+		"transaction_pending_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/transaction.prepare.pending.json"
+		),
+		"transaction_commit_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/transaction.commit.json"
+		),
+		"transaction_commit_pending_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/transaction.commit.pending.json"
+		),
+		"resource_stage_path": _join_storage_root(
+			storage_root_path,
+			family_relative_path + "/" + resource_stage_leaf
+		),
 	}
 
 
@@ -429,15 +495,8 @@ func inspect_layout_for_reset_for_framework() -> Dictionary:
 	if _path_leaf_is_link(private_root):
 		return _make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT)
 	if not DirAccess.dir_exists_absolute(private_root):
-		return (
-			_make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT)
-			if FileAccess.file_exists(private_root)
-			else _make_layout_inspection(&"missing", ERR_FILE_NOT_FOUND)
-		)
-	var private_entries: Dictionary = _read_directory_entries_bounded(
-		private_root,
-		_MAX_RESET_LAYOUT_INSPECTION_ENTRIES
-	)
+		return (_make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT) if FileAccess.file_exists(private_root) else _make_layout_inspection(&"missing", ERR_FILE_NOT_FOUND))
+	var private_entries: Dictionary = _read_directory_entries_bounded(private_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
 	var private_error: Error = GFVariantData.get_option_int(
 		private_entries,
 		"error",
@@ -463,10 +522,7 @@ func inspect_layout_for_reset_for_framework() -> Dictionary:
 		return _make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT)
 	if not DirAccess.dir_exists_absolute(version_root):
 		return _make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT)
-	var version_entries: Dictionary = _read_directory_entries_bounded(
-		version_root,
-		_MAX_RESET_LAYOUT_INSPECTION_ENTRIES
-	)
+	var version_entries: Dictionary = _read_directory_entries_bounded(version_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
 	var version_error: Error = GFVariantData.get_option_int(
 		version_entries,
 		"error",
@@ -475,7 +531,11 @@ func inspect_layout_for_reset_for_framework() -> Dictionary:
 	if version_error != OK:
 		return _make_layout_inspection(&"io_failed", version_error)
 	for entry: String in GFVariantData.get_option_array(version_entries, "names"):
-		if entry in ["layout.json", "catalog", "families"]:
+		if entry in [
+			"layout.json",
+			"catalog",
+			"families",
+		]:
 			continue
 		if not _is_publish_pending_leaf(entry, "layout.json"):
 			return _make_layout_inspection(&"corrupt", ERR_FILE_CORRUPT)
@@ -564,14 +624,13 @@ func inspect_reset_claim_for_framework(descriptor: Dictionary) -> Dictionary:
 	var catalog_path: String = GFVariantData.get_option_string(descriptor, "catalog_path")
 	var family_leaf_exists: bool = _path_leaf_exists(family_path)
 	var catalog_leaf_exists: bool = _path_leaf_exists(catalog_path)
-	var family_installed: bool = (
-		DirAccess.dir_exists_absolute(family_path)
-		and not _path_leaf_is_link(family_path)
-	)
+	var family_installed: bool = (DirAccess.dir_exists_absolute(family_path) and not _path_leaf_is_link(family_path))
 	var owner_installed: bool = false
 	var owner_read_error: Error = OK
-	if family_installed and FileAccess.file_exists(owner_path) and not _path_leaf_is_link(
-		owner_path
+	if (
+		family_installed
+		and FileAccess.file_exists(owner_path)
+		and not _path_leaf_is_link(owner_path)
 	):
 		var owner_result: Dictionary = _read_json_dictionary(owner_path)
 		owner_read_error = GFVariantData.get_option_int(
@@ -617,13 +676,8 @@ func inspect_reset_claim_for_framework(descriptor: Dictionary) -> Dictionary:
 			"error",
 			ERR_FILE_CANT_READ
 		) as Error
-		family_entries_clean = (
-			family_entries_error == OK
-			and GFVariantData.get_option_array(family_entries, "names") == ["owner.json"]
-		)
-	var recreated_member_count: int = (
-		int(family_installed) + int(owner_installed) + int(catalog_installed)
-	)
+		family_entries_clean = (family_entries_error == OK and GFVariantData.get_option_array(family_entries, "names") == ["owner.json"])
+	var recreated_member_count: int = int(family_installed) + int(owner_installed) + int(catalog_installed)
 	var claim_state: StringName = &"conflict"
 	if not family_leaf_exists and not catalog_leaf_exists:
 		claim_state = &"empty"
@@ -634,7 +688,11 @@ func inspect_reset_claim_for_framework(descriptor: Dictionary) -> Dictionary:
 		and not catalog_leaf_exists
 	):
 		claim_state = &"owner_only"
-	elif family_entries_clean and owner_installed and catalog_installed:
+	elif (
+		family_entries_clean
+		and owner_installed
+		and catalog_installed
+	):
 		claim_state = &"complete"
 	var failed_member: StringName = &"none"
 	if claim_state == &"complete":
@@ -679,12 +737,17 @@ func ensure_layout_for_framework() -> Error:
 	var version_root: String = private_root.path_join("v%d" % _LAYOUT_VERSION)
 	var layout_path: String = version_root.path_join("layout.json")
 	if DirAccess.dir_exists_absolute(private_root):
-		var private_entries: Dictionary = _read_directory_entries_bounded(
-			private_root,
-			_MAX_RESET_LAYOUT_INSPECTION_ENTRIES
-		)
-		if GFVariantData.get_option_int(private_entries, "error", OK) != OK:
-			return GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CANT_READ) as Error
+		var private_entries: Dictionary = _read_directory_entries_bounded(private_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+		if GFVariantData.get_option_int(
+			private_entries,
+			"error",
+			OK
+		) != OK:
+			return GFVariantData.get_option_int(
+				private_entries,
+				"error",
+				ERR_FILE_CANT_READ
+			) as Error
 		for entry: String in GFVariantData.get_option_array(private_entries, "names"):
 			if entry != "v%d" % _LAYOUT_VERSION:
 				return ERR_FILE_CORRUPT
@@ -695,14 +758,23 @@ func ensure_layout_for_framework() -> Error:
 	var version_error: Error = _ensure_directory(version_root)
 	if version_error != OK:
 		return version_error
-	var version_entries: Dictionary = _read_directory_entries_bounded(
-		version_root,
-		_MAX_RESET_LAYOUT_INSPECTION_ENTRIES
-	)
-	if GFVariantData.get_option_int(version_entries, "error", OK) != OK:
-		return GFVariantData.get_option_int(version_entries, "error", ERR_FILE_CANT_READ) as Error
+	var version_entries: Dictionary = _read_directory_entries_bounded(version_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+	if GFVariantData.get_option_int(
+		version_entries,
+		"error",
+		OK
+	) != OK:
+		return GFVariantData.get_option_int(
+			version_entries,
+			"error",
+			ERR_FILE_CANT_READ
+		) as Error
 	for entry: String in GFVariantData.get_option_array(version_entries, "names"):
-		if entry == "layout.json" or entry == "catalog" or entry == "families":
+		if (
+			entry == "layout.json"
+			or entry == "catalog"
+			or entry == "families"
+		):
 			continue
 		if not _is_publish_pending_leaf(entry, "layout.json"):
 			return ERR_FILE_CORRUPT
@@ -712,7 +784,11 @@ func ensure_layout_for_framework() -> Error:
 	if FileAccess.file_exists(layout_path):
 		var layout_read: Dictionary = _read_json_dictionary(layout_path)
 		if not GFVariantData.get_option_bool(layout_read, "ok"):
-			return GFVariantData.get_option_int(layout_read, "error", ERR_FILE_CORRUPT) as Error
+			return GFVariantData.get_option_int(
+				layout_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
 		var existing_layout: Dictionary = GFVariantData.get_option_dictionary(layout_read, "data")
 		if not _is_valid_layout_manifest(existing_layout):
 			return ERR_FILE_CORRUPT
@@ -736,12 +812,17 @@ func ensure_layout_for_framework() -> Error:
 	var publish_error: Error = _publish_json_if_absent(layout_path, expected_layout)
 	if publish_error != OK:
 		return publish_error
-	var layout_entries: Dictionary = _read_directory_entries_bounded(
-		version_root,
-		_MAX_RESET_LAYOUT_INSPECTION_ENTRIES
-	)
-	if GFVariantData.get_option_int(layout_entries, "error", OK) != OK:
-		return GFVariantData.get_option_int(layout_entries, "error", ERR_FILE_CANT_READ) as Error
+	var layout_entries: Dictionary = _read_directory_entries_bounded(version_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
+	if GFVariantData.get_option_int(
+		layout_entries,
+		"error",
+		OK
+	) != OK:
+		return GFVariantData.get_option_int(
+			layout_entries,
+			"error",
+			ERR_FILE_CANT_READ
+		) as Error
 	for entry: String in GFVariantData.get_option_array(layout_entries, "names"):
 		if (
 			entry != "layout.json"
@@ -765,7 +846,11 @@ func create_revision_layout_for_framework() -> Error:
 		return ERR_INVALID_PARAMETER
 	var private_root: String = _join_storage_root(_storage_root_path, _PRIVATE_ROOT_NAME)
 	var prefix: Dictionary = _inspect_revision_creation_prefix(private_root)
-	var prefix_error: Error = GFVariantData.get_option_int(prefix, "error", ERR_FILE_CORRUPT) as Error
+	var prefix_error: Error = GFVariantData.get_option_int(
+		prefix,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if prefix_error != OK:
 		return prefix_error
 	_creation_incarnation = GFVariantData.get_option_string(prefix, "incarnation")
@@ -1033,11 +1118,12 @@ func list_files_for_framework(
 	max_scan_depth: int,
 	max_file_count: int
 ) -> Dictionary:
-	var empty_result: Dictionary = {"error": OK, "files": PackedStringArray(), "complete": false}
-	if (
-		not is_valid_logical_directory_path_for_framework(directory_name)
-		or not is_valid_extension_filter_for_framework(extension_filter)
-	):
+	var empty_result: Dictionary = {
+		"error": OK,
+		"files": PackedStringArray(),
+		"complete": false,
+	}
+	if (not is_valid_logical_directory_path_for_framework(directory_name) or not is_valid_extension_filter_for_framework(extension_filter)):
 		empty_result["error"] = ERR_INVALID_PARAMETER
 		return empty_result
 	var layout_error: Error = ensure_layout_for_framework()
@@ -1054,15 +1140,17 @@ func list_files_for_framework(
 		empty_result["error"] = descriptors_error
 		return empty_result
 	var result: PackedStringArray = PackedStringArray()
-	for descriptor_value: Variant in GFVariantData.get_option_array(
-		descriptors_result,
-		"descriptors"
-	):
+	for descriptor_value: Variant in GFVariantData.get_option_array(descriptors_result, "descriptors"):
 		var descriptor: Dictionary = GFVariantData.as_dictionary(descriptor_value)
 		var logical_path: String = GFVariantData.get_option_string(descriptor, "logical_path")
 		if not FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path")):
 			continue
-		if not _matches_list_selector(logical_path, directory_name, recursive, max_scan_depth):
+		if not _matches_list_selector(
+			logical_path,
+			directory_name,
+			recursive,
+			max_scan_depth
+		):
 			continue
 		if not extension_filter.is_empty() and logical_path.get_extension() != extension_filter:
 			continue
@@ -1071,7 +1159,11 @@ func list_files_for_framework(
 	var complete: bool = max_file_count <= 0 or result.size() <= max_file_count
 	if not complete:
 		var _resized: bool = result.resize(max_file_count)
-	return {"error": OK, "files": result, "complete": complete}
+	return {
+		"error": OK,
+		"files": result,
+		"complete": complete,
+	}
 
 
 ## 枚举并严格校验 catalog-authoritative family descriptor。
@@ -1084,14 +1176,15 @@ func list_files_for_framework(
 ## [br]
 ## @schema return: Dictionary，包含 error: Error 和 descriptors: Array[Dictionary]。
 func list_claimed_family_descriptors_for_framework() -> Dictionary:
-	var empty_result: Dictionary = {"error": OK, "descriptors": []}
+	var empty_result: Dictionary = { "error": OK, "descriptors": [] }
 	var layout_error: Error = ensure_layout_for_framework()
 	if layout_error != OK:
 		empty_result["error"] = layout_error
 		return empty_result
 	var catalog_root: String = _join_storage_root(
 		_storage_root_path,
-		"%s/v%d/catalog" % [_PRIVATE_ROOT_NAME, _LAYOUT_VERSION]
+		"%s/v%d/catalog"
+		% [_PRIVATE_ROOT_NAME, _LAYOUT_VERSION]
 	)
 	var pending_recovery_error: Error = _reconcile_catalog_publish_residue(catalog_root)
 	if pending_recovery_error != OK:
@@ -1110,27 +1203,22 @@ func list_claimed_family_descriptors_for_framework() -> Dictionary:
 	for catalog_path: String in GFVariantData.get_option_array(catalog_paths_result, "paths"):
 		var catalog_result: Dictionary = _read_json_dictionary(catalog_path)
 		if not GFVariantData.get_option_bool(catalog_result, "ok"):
-			return {"error": ERR_FILE_CORRUPT, "descriptors": []}
+			return { "error": ERR_FILE_CORRUPT, "descriptors": [] }
 		var catalog: Dictionary = GFVariantData.get_option_dictionary(catalog_result, "data")
 		var logical_path: String = GFVariantData.get_option_string(catalog, "logical_path")
-		var descriptor: Dictionary = make_family_descriptor_for_framework(
-			_storage_root_path,
-			logical_path
-		)
+		var descriptor: Dictionary = make_family_descriptor_for_framework(_storage_root_path, logical_path)
 		if (
 			descriptor.is_empty()
 			or GFVariantData.get_option_string(descriptor, "catalog_path") != catalog_path
 			or validate_family_for_framework(descriptor) != OK
 		):
-			return {"error": ERR_FILE_CORRUPT, "descriptors": []}
+			return { "error": ERR_FILE_CORRUPT, "descriptors": [] }
 		descriptors.append(descriptor)
-	descriptors.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return (
-			GFVariantData.get_option_string(left, "logical_path")
-			< GFVariantData.get_option_string(right, "logical_path")
-		)
+	descriptors.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (GFVariantData.get_option_string(left, "logical_path") < GFVariantData.get_option_string(right, "logical_path"))
 	)
-	return {"error": OK, "descriptors": descriptors}
+	return { "error": OK, "descriptors": descriptors }
 
 
 ## 判断一个已 claim family 是否有 committed payload。
@@ -1145,10 +1233,7 @@ func list_claimed_family_descriptors_for_framework() -> Dictionary:
 ## [br]
 ## @return catalog/owner 有效且 payload 存在时返回 true。
 func has_file_for_framework(descriptor: Dictionary) -> bool:
-	return (
-		validate_family_for_framework(descriptor) == OK
-		and FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path"))
-	)
+	return (validate_family_for_framework(descriptor) == OK and FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path")))
 
 
 # --- 私有/辅助方法 ---
@@ -1180,7 +1265,12 @@ static func _is_valid_logical_segment(segment: String) -> bool:
 		return false
 	if not _is_ascii_alnum(segment.substr(0, 1)):
 		return false
-	if not _is_ascii_alnum(segment.substr(segment.length() - 1, 1)):
+	if not _is_ascii_alnum(
+		segment.substr(
+			segment.length() - 1,
+			1
+		)
+	):
 		return false
 	for index: int in range(segment.length()):
 		if not _ALLOWED_SEGMENT_CHARS.contains(segment.substr(index, 1)):
@@ -1273,46 +1363,60 @@ static func _make_layout_manifest() -> Dictionary:
 func _inspect_revision_creation_prefix(private_root: String) -> Dictionary:
 	# Utility 在进入前验证 user:// 到 private root 的所有祖先；这里不跟随待续建目录或记录的链接。
 	if _path_leaf_is_link(private_root):
-		return {"error": ERR_FILE_CORRUPT}
+		return { "error": ERR_FILE_CORRUPT }
 	if not _path_leaf_exists(private_root):
-		return {"error": OK}
+		return { "error": OK }
 	if not DirAccess.dir_exists_absolute(private_root):
-		return {"error": ERR_FILE_CORRUPT}
+		return { "error": ERR_FILE_CORRUPT }
 	var private_entries: Dictionary = _read_directory_entries_bounded(private_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
-	var private_error: Error = GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) as Error
+	var private_error: Error = GFVariantData.get_option_int(
+		private_entries,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if private_error != OK:
-		return {"error": private_error}
+		return { "error": private_error }
 	var private_names: Array = GFVariantData.get_option_array(private_entries, "names")
 	if private_names.is_empty():
-		return {"error": OK}
+		return { "error": OK }
 	if private_names != ["v%d" % _LAYOUT_VERSION]:
-		return {"error": ERR_ALREADY_EXISTS}
+		return { "error": ERR_ALREADY_EXISTS }
 	var version_root: String = private_root.path_join("v%d" % _LAYOUT_VERSION)
 	if _path_leaf_is_link(version_root) or not DirAccess.dir_exists_absolute(version_root):
-		return {"error": ERR_FILE_CORRUPT}
+		return { "error": ERR_FILE_CORRUPT }
 	var version_entries: Dictionary = _read_directory_entries_bounded(version_root, _MAX_RESET_LAYOUT_INSPECTION_ENTRIES)
-	var version_error: Error = GFVariantData.get_option_int(version_entries, "error", ERR_FILE_CORRUPT) as Error
+	var version_error: Error = GFVariantData.get_option_int(
+		version_entries,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
 	if version_error != OK:
-		return {"error": version_error}
+		return { "error": version_error }
 	var incarnation: String = ""
 	for entry: String in GFVariantData.get_option_array(version_entries, "names"):
 		if not _is_publish_pending_leaf(entry, "layout.json"):
-			return {"error": ERR_ALREADY_EXISTS}
+			return { "error": ERR_ALREADY_EXISTS }
 		var pending_path: String = version_root.path_join(entry)
 		if _path_leaf_is_link(pending_path) or not FileAccess.file_exists(pending_path):
-			return {"error": ERR_FILE_CORRUPT}
+			return { "error": ERR_FILE_CORRUPT }
 		var pending_read: Dictionary = _read_json_dictionary(pending_path)
 		if not GFVariantData.get_option_bool(pending_read, "ok"):
-			return {"error": GFVariantData.get_option_int(pending_read, "error", ERR_FILE_CORRUPT)}
+			return {
+				"error": GFVariantData.get_option_int(
+					pending_read,
+					"error",
+					ERR_FILE_CORRUPT
+				),
+			}
 		var pending_layout: Dictionary = GFVariantData.get_option_dictionary(pending_read, "data")
 		var pending_incarnation: String = GFVariantData.get_option_string(pending_layout, "storage_incarnation")
 		if not _is_valid_layout_manifest(pending_layout) or pending_incarnation.is_empty():
-			return {"error": ERR_FILE_CORRUPT}
+			return { "error": ERR_FILE_CORRUPT }
 		if not incarnation.is_empty() and incarnation != pending_incarnation:
-			return {"error": ERR_FILE_CORRUPT}
+			return { "error": ERR_FILE_CORRUPT }
 		incarnation = pending_incarnation
 	# 在所有候选均验证成功前，不发布 layout、不删除 pending，也不生成替代 incarnation。
-	return {"error": OK, "incarnation": incarnation}
+	return { "error": OK, "incarnation": incarnation }
 
 
 ## 接受精确基础 manifest，或携带合法 UUID v4 incarnation 的 schema 2 manifest。
@@ -1320,12 +1424,18 @@ func _inspect_revision_creation_prefix(private_root: String) -> Dictionary:
 ## @api private
 ## [br]
 static func _is_valid_layout_manifest(manifest: Dictionary) -> bool:
-	if _records_match_expected(manifest, _make_layout_manifest()):
+	if _records_match_expected(
+		manifest,
+		_make_layout_manifest()
+	):
 		return true
 	var incarnation: String = GFVariantData.get_option_string(manifest, "storage_incarnation")
 	return (
 		GFUuid.is_valid(incarnation, 4)
-		and _records_match_expected(manifest, _make_revision_layout_manifest(incarnation))
+		and _records_match_expected(
+			manifest,
+			_make_revision_layout_manifest(incarnation)
+		)
 	)
 
 
@@ -1345,10 +1455,7 @@ static func _make_revision_layout_manifest(incarnation: String) -> Dictionary:
 ## @api private
 ## [br]
 static func _make_layout_inspection(status: StringName, error: Error) -> Dictionary:
-	return {
-		"status": status,
-		"error": int(error),
-	}
+	return { "status": status, "error": int(error), }
 
 
 ## 按给定 schema 和 descriptor 构造含 logical identity 摘要及 payload leaf 的固定记录。
@@ -1372,8 +1479,15 @@ static func _make_identity_record(schema: String, descriptor: Dictionary) -> Dic
 ## [br]
 ## @api private
 ## [br]
-static func _matches_identity_record(record: Dictionary, schema: String, descriptor: Dictionary) -> bool:
-	return _records_match_expected(record, _make_identity_record(schema, descriptor))
+static func _matches_identity_record(
+	record: Dictionary,
+	schema: String,
+	descriptor: Dictionary
+) -> bool:
+	return _records_match_expected(
+		record,
+		_make_identity_record(schema, descriptor)
+	)
 
 
 ## 要求记录键数量和集合与 expected 完全一致，并按类型比较各字段值。
@@ -1420,26 +1534,51 @@ func _validate_revision_upgrade_layout() -> Error:
 	var private_root: String = _join_storage_root(_storage_root_path, _PRIVATE_ROOT_NAME)
 	var version_root: String = private_root.path_join("v1")
 	for directory_path: String in [
-		_storage_root_path, private_root, version_root,
-		version_root.path_join("catalog"), version_root.path_join("families"),
+		_storage_root_path,
+		private_root,
+		version_root,
+		version_root.path_join("catalog"),
+		version_root.path_join("families"),
 	]:
 		if _path_leaf_is_link(directory_path) or not DirAccess.dir_exists_absolute(directory_path):
 			return ERR_FILE_CORRUPT
 	var private_entries: Dictionary = _read_directory_entries_bounded(private_root, 2)
-	if GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) != OK:
-		return GFVariantData.get_option_int(private_entries, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_int(
+		private_entries,
+		"error",
+		ERR_FILE_CORRUPT
+	) != OK:
+		return GFVariantData.get_option_int(
+			private_entries,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	if GFVariantData.get_option_array(private_entries, "names") != ["v1"]:
 		return ERR_FILE_CORRUPT
 	var entries: Dictionary = _read_directory_entries_bounded(version_root, 8)
-	if GFVariantData.get_option_int(entries, "error", ERR_FILE_CORRUPT) != OK:
-		return GFVariantData.get_option_int(entries, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_int(
+		entries,
+		"error",
+		ERR_FILE_CORRUPT
+	) != OK:
+		return GFVariantData.get_option_int(
+			entries,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	for leaf: String in GFVariantData.get_option_array(entries, "names"):
 		if leaf in ["catalog", "families"]:
 			continue
-		if leaf not in [
-			"layout.json", "upgrade.intent.json", "upgrade.cursor.json",
-			"upgrade.cursor.pending.json", "upgrade.layout.json",
-		]:
+		if (
+			leaf
+			not in [
+				"layout.json",
+				"upgrade.intent.json",
+				"upgrade.cursor.json",
+				"upgrade.cursor.pending.json",
+				"upgrade.layout.json",
+			]
+		):
 			return ERR_FILE_CORRUPT
 		var leaf_path: String = version_root.path_join(leaf)
 		if _path_leaf_is_link(leaf_path) or not FileAccess.file_exists(leaf_path):
@@ -1448,7 +1587,8 @@ func _validate_revision_upgrade_layout() -> Error:
 	if (
 		not GFVariantData.get_option_bool(intent_read, "ok")
 		or not _records_match_expected(
-			GFVariantData.get_option_dictionary(intent_read, "data"), _revision_upgrade_intent
+			GFVariantData.get_option_dictionary(intent_read, "data"),
+			_revision_upgrade_intent
 		)
 	):
 		return ERR_FILE_CORRUPT
@@ -1457,25 +1597,42 @@ func _validate_revision_upgrade_layout() -> Error:
 	var layout_read: Dictionary = _read_json_dictionary(layout_path)
 	var layout: Dictionary = GFVariantData.get_option_dictionary(layout_read, "data")
 	if GFVariantData.get_option_bool(layout_read, "ok"):
-		if _records_match_expected(layout, _make_revision_layout_manifest(incarnation)):
+		if _records_match_expected(
+			layout,
+			_make_revision_layout_manifest(incarnation)
+		):
 			return OK
 		if (
-			_records_match_expected(layout, _make_layout_manifest())
-			and FileAccess.get_sha256(layout_path)
-			== GFVariantData.get_option_string(_revision_upgrade_intent, "old_layout_hash")
+			_records_match_expected(
+				layout,
+				_make_layout_manifest()
+			)
+			and (FileAccess.get_sha256(layout_path) == GFVariantData.get_option_string(_revision_upgrade_intent, "old_layout_hash"))
 		):
 			return OK
 		return ERR_FILE_CORRUPT
-	if GFVariantData.get_option_int(layout_read, "error", ERR_FILE_CORRUPT) != ERR_FILE_NOT_FOUND:
-		return GFVariantData.get_option_int(layout_read, "error", ERR_FILE_CORRUPT) as Error
+	if GFVariantData.get_option_int(
+		layout_read,
+		"error",
+		ERR_FILE_CORRUPT
+	) != ERR_FILE_NOT_FOUND:
+		return GFVariantData.get_option_int(
+			layout_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 	var staged_read: Dictionary = _read_json_dictionary(version_root.path_join("upgrade.layout.json"))
-	return OK if (
-		GFVariantData.get_option_bool(staged_read, "ok")
-		and _records_match_expected(
-			GFVariantData.get_option_dictionary(staged_read, "data"),
-			_make_revision_layout_manifest(incarnation)
+	return (
+		OK
+		if (
+			GFVariantData.get_option_bool(staged_read, "ok")
+			and _records_match_expected(
+				GFVariantData.get_option_dictionary(staged_read, "data"),
+				_make_revision_layout_manifest(incarnation)
+			)
 		)
-	) else ERR_FILE_CORRUPT
+		else ERR_FILE_CORRUPT
+	)
 
 
 ## 校验 family 目录仅含匹配 descriptor 的 owner.json。
@@ -1493,8 +1650,16 @@ func _validate_owner_only_claim(descriptor: Dictionary) -> Error:
 	):
 		return ERR_FILE_CORRUPT
 	var entries: Dictionary = _read_directory_entries_bounded(family_path, 2)
-	if GFVariantData.get_option_int(entries, "error", OK) != OK:
-		return GFVariantData.get_option_int(entries, "error", ERR_FILE_CANT_READ) as Error
+	if GFVariantData.get_option_int(
+		entries,
+		"error",
+		OK
+	) != OK:
+		return GFVariantData.get_option_int(
+			entries,
+			"error",
+			ERR_FILE_CANT_READ
+		) as Error
 	var names: Array = GFVariantData.get_option_array(entries, "names")
 	if names != ["owner.json"]:
 		return ERR_FILE_CORRUPT
@@ -1575,13 +1740,14 @@ func _reconcile_claim_staging(descriptor: Dictionary) -> Error:
 ## @api private
 ## [br]
 func _validate_claim_staging(descriptor: Dictionary, staging_path: String) -> Error:
-	if (
-		not DirAccess.dir_exists_absolute(staging_path)
-		or _path_leaf_is_link(staging_path)
-	):
+	if (not DirAccess.dir_exists_absolute(staging_path) or _path_leaf_is_link(staging_path)):
 		return ERR_FILE_CORRUPT
 	var entries: Dictionary = _read_directory_entries_bounded(staging_path, 2)
-	var entries_error: Error = GFVariantData.get_option_int(entries, "error", OK) as Error
+	var entries_error: Error = GFVariantData.get_option_int(
+		entries,
+		"error",
+		OK
+	) as Error
 	if entries_error != OK:
 		return entries_error
 	var names: Array = GFVariantData.get_option_array(entries, "names")
@@ -1600,11 +1766,15 @@ func _validate_claim_staging(descriptor: Dictionary, staging_path: String) -> Er
 			ERR_FILE_CORRUPT
 		) as Error
 		return ERR_FILE_NOT_FOUND if owner_error in [ERR_FILE_NOT_FOUND, ERR_FILE_CORRUPT] else owner_error
-	return OK if _matches_identity_record(
-		GFVariantData.get_option_dictionary(owner_result, "data"),
-		_OWNER_SCHEMA,
-		descriptor
-	) else ERR_FILE_CORRUPT
+	return (
+		OK
+		if _matches_identity_record(
+			GFVariantData.get_option_dictionary(owner_result, "data"),
+			_OWNER_SCHEMA,
+			descriptor
+		)
+		else ERR_FILE_CORRUPT
+	)
 
 
 ## 限制 family 目录中的文件名集合，并拒绝链接或子目录成员。
@@ -1614,7 +1784,11 @@ func _validate_claim_staging(descriptor: Dictionary, staging_path: String) -> Er
 func _validate_family_entries(descriptor: Dictionary) -> Error:
 	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
 	var entries: Dictionary = _read_directory_entries_bounded(family_path, 16)
-	var entries_error: Error = GFVariantData.get_option_int(entries, "error", OK) as Error
+	var entries_error: Error = GFVariantData.get_option_int(
+		entries,
+		"error",
+		OK
+	) as Error
 	if entries_error != OK:
 		return entries_error
 	var allowed: Dictionary = {
@@ -1646,37 +1820,53 @@ func _validate_family_entries(descriptor: Dictionary) -> Error:
 func _collect_catalog_paths(catalog_root: String) -> Dictionary:
 	var result: Array[String] = []
 	var first_level: Dictionary = _read_directory_entries(catalog_root)
-	var first_error: Error = GFVariantData.get_option_int(first_level, "error", OK) as Error
+	var first_error: Error = GFVariantData.get_option_int(
+		first_level,
+		"error",
+		OK
+	) as Error
 	if first_error != OK:
-		return {"error": first_error, "paths": result}
+		return { "error": first_error, "paths": result }
 	for first_shard: String in GFVariantData.get_option_array(first_level, "names"):
 		if not _is_hex_shard(first_shard):
-			return {"error": ERR_FILE_CORRUPT, "paths": []}
+			return { "error": ERR_FILE_CORRUPT, "paths": [] }
 		var first_path: String = catalog_root.path_join(first_shard)
 		if not DirAccess.dir_exists_absolute(first_path):
-			return {"error": ERR_FILE_CORRUPT, "paths": []}
+			return { "error": ERR_FILE_CORRUPT, "paths": [] }
 		var second_level: Dictionary = _read_directory_entries(first_path)
-		var second_error: Error = GFVariantData.get_option_int(second_level, "error", OK) as Error
+		var second_error: Error = GFVariantData.get_option_int(
+			second_level,
+			"error",
+			OK
+		) as Error
 		if second_error != OK:
-			return {"error": second_error, "paths": []}
+			return { "error": second_error, "paths": [] }
 		for second_shard: String in GFVariantData.get_option_array(second_level, "names"):
 			if not _is_hex_shard(second_shard):
-				return {"error": ERR_FILE_CORRUPT, "paths": []}
+				return { "error": ERR_FILE_CORRUPT, "paths": [] }
 			var second_path: String = first_path.path_join(second_shard)
 			if not DirAccess.dir_exists_absolute(second_path):
-				return {"error": ERR_FILE_CORRUPT, "paths": []}
+				return { "error": ERR_FILE_CORRUPT, "paths": [] }
 			var leaf_entries: Dictionary = _read_directory_entries(second_path)
-			var leaf_error: Error = GFVariantData.get_option_int(leaf_entries, "error", OK) as Error
+			var leaf_error: Error = GFVariantData.get_option_int(
+				leaf_entries,
+				"error",
+				OK
+			) as Error
 			if leaf_error != OK:
-				return {"error": leaf_error, "paths": []}
+				return { "error": leaf_error, "paths": [] }
 			for leaf_name: String in GFVariantData.get_option_array(leaf_entries, "names"):
-				if not _is_catalog_leaf(leaf_name, first_shard, second_shard):
-					return {"error": ERR_FILE_CORRUPT, "paths": []}
+				if not _is_catalog_leaf(
+					leaf_name,
+					first_shard,
+					second_shard
+				):
+					return { "error": ERR_FILE_CORRUPT, "paths": [] }
 				if DirAccess.dir_exists_absolute(second_path.path_join(leaf_name)):
-					return {"error": ERR_FILE_CORRUPT, "paths": []}
+					return { "error": ERR_FILE_CORRUPT, "paths": [] }
 				result.append(second_path.path_join(leaf_name))
 	result.sort()
-	return {"error": OK, "paths": result}
+	return { "error": OK, "paths": result }
 
 
 ## 扫描 catalog 分片中的 pending 记录，验证逻辑身份后按目标路径排序并发布。
@@ -1686,7 +1876,11 @@ func _collect_catalog_paths(catalog_root: String) -> Dictionary:
 func _reconcile_catalog_publish_residue(catalog_root: String) -> Error:
 	var pending_targets: Dictionary = {}
 	var first_level: Dictionary = _read_directory_entries(catalog_root)
-	var first_error: Error = GFVariantData.get_option_int(first_level, "error", OK) as Error
+	var first_error: Error = GFVariantData.get_option_int(
+		first_level,
+		"error",
+		OK
+	) as Error
 	if first_error != OK:
 		return first_error
 	for first_shard: String in GFVariantData.get_option_array(first_level, "names"):
@@ -1718,14 +1912,22 @@ func _reconcile_catalog_publish_residue(catalog_root: String) -> Error:
 			if leaf_error != OK:
 				return leaf_error
 			for leaf_name: String in GFVariantData.get_option_array(leaf_entries, "names"):
-				if _is_catalog_leaf(leaf_name, first_shard, second_shard):
+				if _is_catalog_leaf(
+					leaf_name,
+					first_shard,
+					second_shard
+				):
 					continue
 				var separator_index: int = leaf_name.find(_PUBLISH_PENDING_SEPARATOR)
 				if separator_index <= 0:
 					return ERR_FILE_CORRUPT
 				var target_leaf: String = leaf_name.substr(0, separator_index)
 				if (
-					not _is_catalog_leaf(target_leaf, first_shard, second_shard)
+					not _is_catalog_leaf(
+						target_leaf,
+						first_shard,
+						second_shard
+					)
 					or not _is_publish_pending_leaf(leaf_name, target_leaf)
 				):
 					return ERR_FILE_CORRUPT
@@ -1735,18 +1937,9 @@ func _reconcile_catalog_publish_residue(catalog_root: String) -> Error:
 				var pending_result: Dictionary = _read_json_dictionary(pending_path)
 				if not GFVariantData.get_option_bool(pending_result, "ok"):
 					return ERR_FILE_CORRUPT
-				var pending_record: Dictionary = GFVariantData.get_option_dictionary(
-					pending_result,
-					"data"
-				)
-				var logical_path: String = GFVariantData.get_option_string(
-					pending_record,
-					"logical_path"
-				)
-				var descriptor: Dictionary = make_family_descriptor_for_framework(
-					_storage_root_path,
-					logical_path
-				)
+				var pending_record: Dictionary = GFVariantData.get_option_dictionary(pending_result, "data")
+				var logical_path: String = GFVariantData.get_option_string(pending_record, "logical_path")
+				var descriptor: Dictionary = make_family_descriptor_for_framework(_storage_root_path, logical_path)
 				var target_path: String = second_path.path_join(target_leaf)
 				var expected: Dictionary = _make_identity_record(_CATALOG_SCHEMA, descriptor)
 				if (
@@ -1784,7 +1977,11 @@ static func _is_hex_shard(value: String) -> bool:
 ## [br]
 ## @api private
 ## [br]
-static func _is_catalog_leaf(leaf_name: String, first_shard: String, second_shard: String) -> bool:
+static func _is_catalog_leaf(
+	leaf_name: String,
+	first_shard: String,
+	second_shard: String
+) -> bool:
 	if not leaf_name.ends_with(".json"):
 		return false
 	var digest: String = leaf_name.trim_suffix(".json")
@@ -1804,7 +2001,10 @@ static func _is_publish_pending_leaf(leaf_name: String, target_leaf: String) -> 
 	var prefix: String = target_leaf + _PUBLISH_PENDING_SEPARATOR
 	if not leaf_name.begins_with(prefix):
 		return false
-	return GFUuid.is_valid(leaf_name.trim_prefix(prefix), 4)
+	return GFUuid.is_valid(
+		leaf_name.trim_prefix(prefix),
+		4
+	)
 
 
 ## 按目录前缀、recursive 标志和最大相对深度筛选 logical path。
@@ -1823,7 +2023,10 @@ static func _matches_list_selector(
 		if not logical_path.begins_with(prefix):
 			return false
 		remainder = logical_path.trim_prefix(prefix)
-	var directory_depth: int = maxi(remainder.get_slice_count("/") - 1, 0)
+	var directory_depth: int = maxi(
+		remainder.get_slice_count("/") - 1,
+		0
+	)
 	if not recursive and directory_depth > 0:
 		return false
 	return max_scan_depth <= 0 or directory_depth <= max_scan_depth
@@ -1848,10 +2051,14 @@ func _publish_json_if_absent(path: String, data: Dictionary) -> Error:
 		var existing: Dictionary = _read_json_dictionary(path)
 		if not GFVariantData.get_option_bool(existing, "ok"):
 			return ERR_FILE_CORRUPT
-		return OK if _records_match_expected(
-			GFVariantData.get_option_dictionary(existing, "data"),
-			data
-		) else ERR_FILE_CORRUPT
+		return (
+			OK
+			if _records_match_expected(
+				GFVariantData.get_option_dictionary(existing, "data"),
+				data
+			)
+			else ERR_FILE_CORRUPT
+		)
 	var pending_path: String = path + _PUBLISH_PENDING_SEPARATOR + GFUuid.generate_v4()
 	var write_error: Error = _write_json_direct(pending_path, data)
 	if write_error != OK:
@@ -1928,8 +2135,8 @@ func _reconcile_publish_pending_files(path: String, expected: Dictionary) -> Err
 			malformed_pending_paths.append(pending_path)
 			continue
 		if not _records_match_expected(
-				GFVariantData.get_option_dictionary(pending_result, "data"),
-				expected
+			GFVariantData.get_option_dictionary(pending_result, "data"),
+			expected
 		):
 			return ERR_FILE_CORRUPT
 		pending_paths.append(pending_path)
@@ -2007,27 +2214,55 @@ static func _write_json_direct(path: String, data: Dictionary) -> Error:
 ## [br]
 static func _read_json_dictionary(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return {"ok": false, "error": ERR_FILE_NOT_FOUND, "data": {}}
+		return {
+			"ok": false,
+			"error": ERR_FILE_NOT_FOUND,
+			"data": {},
+		}
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"ok": false, "error": FileAccess.get_open_error(), "data": {}}
+		return {
+			"ok": false,
+			"error": FileAccess.get_open_error(),
+			"data": {},
+		}
 	var length: int = file.get_length()
 	if length <= 0 or length > _MAX_MANIFEST_BYTES:
 		file.close()
-		return {"ok": false, "error": ERR_FILE_CORRUPT, "data": {}}
+		return {
+			"ok": false,
+			"error": ERR_FILE_CORRUPT,
+			"data": {},
+		}
 	var text: String = file.get_as_text()
 	var read_error: Error = file.get_error()
 	file.close()
 	if read_error != OK:
-		return {"ok": false, "error": read_error, "data": {}}
+		return {
+			"ok": false,
+			"error": read_error,
+			"data": {},
+		}
 	var parser: JSON = JSON.new()
 	if parser.parse(text) != OK:
-		return {"ok": false, "error": ERR_FILE_CORRUPT, "data": {}}
+		return {
+			"ok": false,
+			"error": ERR_FILE_CORRUPT,
+			"data": {},
+		}
 	var parsed: Variant = parser.data
 	if not parsed is Dictionary:
-		return {"ok": false, "error": ERR_FILE_CORRUPT, "data": {}}
+		return {
+			"ok": false,
+			"error": ERR_FILE_CORRUPT,
+			"data": {},
+		}
 	var data: Dictionary = parsed
-	return {"ok": true, "error": OK, "data": data}
+	return {
+		"ok": true,
+		"error": OK,
+		"data": data,
+	}
 
 
 ## 确保路径目录存在；空路径返回参数错误，否则递归创建缺失目录。
@@ -2083,10 +2318,10 @@ static func _remove_claim_staging(staging_path: String) -> Error:
 static func _read_directory_entries(path: String) -> Dictionary:
 	var dir: DirAccess = DirAccess.open(path)
 	if dir == null:
-		return {"error": ERR_FILE_CANT_OPEN, "names": []}
+		return { "error": ERR_FILE_CANT_OPEN, "names": [] }
 	var begin_error: Error = dir.list_dir_begin()
 	if begin_error != OK:
-		return {"error": begin_error, "names": []}
+		return { "error": begin_error, "names": [] }
 	var names: Array[String] = []
 	var entry: String = dir.get_next()
 	while not entry.is_empty():
@@ -2094,7 +2329,7 @@ static func _read_directory_entries(path: String) -> Dictionary:
 		entry = dir.get_next()
 	dir.list_dir_end()
 	names.sort()
-	return {"error": OK, "names": names}
+	return { "error": OK, "names": names }
 
 
 ## 包含隐藏条目读取目录；超过 max_entries 或参数无效时返回错误和空 names。
@@ -2103,26 +2338,26 @@ static func _read_directory_entries(path: String) -> Dictionary:
 ## [br]
 static func _read_directory_entries_bounded(path: String, max_entries: int) -> Dictionary:
 	if max_entries <= 0:
-		return {"error": ERR_INVALID_PARAMETER, "names": []}
+		return { "error": ERR_INVALID_PARAMETER, "names": [] }
 	var dir: DirAccess = DirAccess.open(path)
 	if dir == null:
-		return {"error": ERR_FILE_CANT_OPEN, "names": []}
+		return { "error": ERR_FILE_CANT_OPEN, "names": [] }
 	# 隐藏条目同样属于物理证据，必须参与布局白名单和数量上限检查。
 	dir.include_hidden = true
 	var begin_error: Error = dir.list_dir_begin()
 	if begin_error != OK:
-		return {"error": begin_error, "names": []}
+		return { "error": begin_error, "names": [] }
 	var names: Array[String] = []
 	var entry: String = dir.get_next()
 	while not entry.is_empty():
 		if names.size() >= max_entries:
 			dir.list_dir_end()
-			return {"error": ERR_OUT_OF_MEMORY, "names": []}
+			return { "error": ERR_OUT_OF_MEMORY, "names": [] }
 		names.append(entry)
 		entry = dir.get_next()
 	dir.list_dir_end()
 	names.sort()
-	return {"error": OK, "names": names}
+	return { "error": OK, "names": names }
 
 
 ## 通过父目录 DirAccess 检查目标 leaf 是否为链接。

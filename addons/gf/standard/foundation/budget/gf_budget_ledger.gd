@@ -18,12 +18,18 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param budget_id: 预算标识。
 ## [br]
 ## @param available: 当前可用量。
 ## [br]
 ## @param capacity: 当前容量。
-signal budget_changed(budget_id: StringName, available: float, capacity: float)
+signal budget_changed(
+	budget_id: StringName,
+	available: float,
+	capacity: float
+)
 
 ## 资源消费成功后发出。
 ## [br]
@@ -38,12 +44,18 @@ signal budget_consumed(budget_id: StringName, amount: float)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param budget_id: 预算标识。
 ## [br]
 ## @param amount: 请求数量。
 ## [br]
 ## @param reason: 拒绝原因。
-signal budget_rejected(budget_id: StringName, amount: float, reason: String)
+signal budget_rejected(
+	budget_id: StringName,
+	amount: float,
+	reason: String
+)
 
 ## 所有预算清空后发出。
 ## [br]
@@ -69,12 +81,18 @@ var _budgets: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param budget_id: 预算标识。
 ## [br]
 ## @param capacity: 容量。
 ## [br]
 ## @param reset_available: 是否把可用量重置为容量。
-func set_capacity(budget_id: StringName, capacity: float, reset_available: bool = true) -> void:
+func set_capacity(
+	budget_id: StringName,
+	capacity: float,
+	reset_available: bool = true
+) -> void:
 	if budget_id == &"":
 		return
 
@@ -84,9 +102,17 @@ func set_capacity(budget_id: StringName, capacity: float, reset_available: bool 
 	if reset_available:
 		entry["available"] = normalized_capacity
 	else:
-		entry["available"] = clampf(_get_entry_available(entry), 0.0, normalized_capacity)
+		entry["available"] = clampf(
+			_get_entry_available(entry),
+			0.0,
+			normalized_capacity
+		)
 	_budgets[budget_id] = entry
-	budget_changed.emit(budget_id, _get_entry_available(entry), normalized_capacity)
+	budget_changed.emit(
+		budget_id,
+		_get_entry_available(entry),
+		normalized_capacity
+	)
 
 
 ## 设置当前可用量。
@@ -102,9 +128,17 @@ func set_available(budget_id: StringName, available: float) -> void:
 
 	var entry: Dictionary = _get_or_make_entry(budget_id)
 	var capacity: float = _get_entry_capacity(entry)
-	entry["available"] = clampf(_normalize_non_negative_amount(available), 0.0, capacity)
+	entry["available"] = clampf(
+		_normalize_non_negative_amount(available),
+		0.0,
+		capacity
+	)
 	_budgets[budget_id] = entry
-	budget_changed.emit(budget_id, _get_entry_available(entry), capacity)
+	budget_changed.emit(
+		budget_id,
+		_get_entry_available(entry),
+		capacity
+	)
 
 
 ## 获取容量。
@@ -156,6 +190,8 @@ func can_consume(budget_id: StringName, amount: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param budget_id: 预算标识。
 ## [br]
 ## @param amount: 消费数量。
@@ -167,36 +203,110 @@ func can_consume(budget_id: StringName, amount: float) -> bool:
 ## @schema metadata: Dictionary copied into the consume result.
 ## [br]
 ## @schema return: Dictionary with ok, budget_id, amount, reason, available, capacity, and metadata.
-func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) -> Dictionary:
+func consume(
+	budget_id: StringName,
+	amount: float,
+	metadata: Dictionary = {}
+) -> Dictionary:
 	if budget_id == &"":
-		budget_rejected.emit(budget_id, amount, "empty_budget_id")
-		return _make_result(false, budget_id, amount, "empty_budget_id", metadata)
+		budget_rejected.emit(
+			budget_id,
+			amount,
+			"empty_budget_id"
+		)
+		return _make_result(
+			false,
+			budget_id,
+			amount,
+			"empty_budget_id",
+			metadata
+		)
 	if not _is_finite_amount(amount):
-		budget_rejected.emit(budget_id, amount, "invalid_amount")
-		return _make_result(false, budget_id, amount, "invalid_amount", metadata)
+		budget_rejected.emit(
+			budget_id,
+			amount,
+			"invalid_amount"
+		)
+		return _make_result(
+			false,
+			budget_id,
+			amount,
+			"invalid_amount",
+			metadata
+		)
 	if amount < 0.0:
-		budget_rejected.emit(budget_id, amount, "negative_amount")
-		return _make_result(false, budget_id, amount, "negative_amount", metadata)
+		budget_rejected.emit(
+			budget_id,
+			amount,
+			"negative_amount"
+		)
+		return _make_result(
+			false,
+			budget_id,
+			amount,
+			"negative_amount",
+			metadata
+		)
 	if not _budgets.has(budget_id):
-		budget_rejected.emit(budget_id, amount, "missing_budget")
-		return _make_result(false, budget_id, amount, "missing_budget", metadata)
+		budget_rejected.emit(
+			budget_id,
+			amount,
+			"missing_budget"
+		)
+		return _make_result(
+			false,
+			budget_id,
+			amount,
+			"missing_budget",
+			metadata
+		)
 	var entry: Dictionary = _get_entry_copy(budget_id)
 	var available: float = _get_entry_available(entry)
 	if available < amount:
-		budget_rejected.emit(budget_id, amount, "insufficient_budget")
-		return _make_result(false, budget_id, amount, "insufficient_budget", metadata)
+		budget_rejected.emit(
+			budget_id,
+			amount,
+			"insufficient_budget"
+		)
+		return _make_result(
+			false,
+			budget_id,
+			amount,
+			"insufficient_budget",
+			metadata
+		)
 	var next_available: float = available - amount
 	if amount > 0.0 and not next_available < available:
-		budget_rejected.emit(budget_id, amount, "precision_loss")
-		return _make_result(false, budget_id, amount, "precision_loss", metadata)
+		budget_rejected.emit(
+			budget_id,
+			amount,
+			"precision_loss"
+		)
+		return _make_result(
+			false,
+			budget_id,
+			amount,
+			"precision_loss",
+			metadata
+		)
 
 	entry["available"] = next_available
 	_budgets[budget_id] = entry
 	budget_consumed.emit(budget_id, amount)
 	if _budgets.has(budget_id):
 		var current_entry: Dictionary = _get_entry_copy(budget_id)
-		budget_changed.emit(budget_id, _get_entry_available(current_entry), _get_entry_capacity(current_entry))
-	return _make_result(true, budget_id, amount, "", metadata)
+		budget_changed.emit(
+			budget_id,
+			_get_entry_available(current_entry),
+			_get_entry_capacity(current_entry)
+		)
+	return _make_result(
+		true,
+		budget_id,
+		amount,
+		"",
+		metadata
+	)
 
 
 ## 释放预算，可用量不会超过容量。
@@ -207,16 +317,28 @@ func consume(budget_id: StringName, amount: float, metadata: Dictionary = {}) ->
 ## [br]
 ## @param amount: 释放数量。
 func release(budget_id: StringName, amount: float) -> void:
-	if budget_id == &"" or not _is_finite_amount(amount) or amount <= 0.0:
+	if (
+		budget_id == &""
+		or not _is_finite_amount(amount)
+		or amount <= 0.0
+	):
 		return
 	if not _budgets.has(budget_id):
 		return
 
 	var entry: Dictionary = _get_entry_copy(budget_id)
 	var capacity: float = _get_entry_capacity(entry)
-	entry["available"] = clampf(_get_entry_available(entry) + amount, 0.0, capacity)
+	entry["available"] = clampf(
+		_get_entry_available(entry) + amount,
+		0.0,
+		capacity
+	)
 	_budgets[budget_id] = entry
-	budget_changed.emit(budget_id, _get_entry_available(entry), capacity)
+	budget_changed.emit(
+		budget_id,
+		_get_entry_available(entry),
+		capacity
+	)
 
 
 ## 将一个或全部预算重置为容量。
@@ -231,7 +353,11 @@ func reset(budget_id: StringName = &"") -> void:
 		var entry: Dictionary = _get_entry_copy(budget_id)
 		entry["available"] = _get_entry_capacity(entry)
 		_budgets[budget_id] = entry
-		budget_changed.emit(budget_id, _get_entry_available(entry), _get_entry_capacity(entry))
+		budget_changed.emit(
+			budget_id,
+			_get_entry_available(entry),
+			_get_entry_capacity(entry)
+		)
 		return
 
 	for key: StringName in _budgets.keys():
@@ -275,10 +401,7 @@ func get_snapshot() -> Dictionary:
 func _get_or_make_entry(budget_id: StringName) -> Dictionary:
 	if _budgets.has(budget_id):
 		return _get_entry_copy(budget_id)
-	return {
-		"capacity": 0.0,
-		"available": 0.0,
-	}
+	return { "capacity": 0.0, "available": 0.0, }
 
 
 ## 获取指定预算条目并转换为 Dictionary；不存在时返回空字典。
@@ -292,14 +415,22 @@ func _get_entry_copy(budget_id: StringName) -> Dictionary:
 ## [br]
 ## @api private
 func _get_entry_capacity(entry: Dictionary) -> float:
-	return GFVariantData.get_option_float(entry, "capacity", 0.0)
+	return GFVariantData.get_option_float(
+		entry,
+		"capacity",
+		0.0
+	)
 
 
 ## 读取条目的 available 数值；字段缺失或无法转换时默认为 0。
 ## [br]
 ## @api private
 func _get_entry_available(entry: Dictionary) -> float:
-	return GFVariantData.get_option_float(entry, "available", 0.0)
+	return GFVariantData.get_option_float(
+		entry,
+		"available",
+		0.0
+	)
 
 
 ## 创建消费结果，并读取构造时账本中的可用量与容量。

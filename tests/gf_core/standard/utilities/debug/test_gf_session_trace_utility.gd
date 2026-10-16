@@ -12,7 +12,11 @@ func test_session_trace_requires_explicit_channel_and_active_session() -> void:
 		"未开始会话时应拒绝事件。"
 	)
 
-	var _session_id: StringName = trace.start_session(&"session-a", {}, { "started_ticks_usec": 100 })
+	var _session_id: StringName = trace.start_session(
+		&"session-a",
+		{},
+		{ "started_ticks_usec": 100 }
+	)
 	var unknown: Dictionary = trace.record_event(&"input", &"pressed")
 	assert_eq(
 		GFVariantData.get_option_string_name(unknown, "reason"),
@@ -20,7 +24,10 @@ func test_session_trace_requires_explicit_channel_and_active_session() -> void:
 		"未注册通道应 fail closed。"
 	)
 
-	assert_true(trace.register_channel(&"input"), "显式通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"input"),
+		"显式通道应注册成功。"
+	)
 	var recorded: Dictionary = trace.record_event(
 		&"input",
 		&"pressed",
@@ -29,47 +36,123 @@ func test_session_trace_requires_explicit_channel_and_active_session() -> void:
 	)
 	var event: Dictionary = GFVariantData.get_option_dictionary(recorded, "event")
 
-	assert_true(GFVariantData.get_option_bool(recorded, "ok"), "注册通道应允许记录。")
-	assert_eq(GFVariantData.get_option_int(event, "elapsed_usec"), 25, "事件应记录相对会话时钟。")
-	assert_eq(GFVariantData.get_option_int(event, "simulation_tick"), 4, "事件应保留显式模拟 tick。")
-	assert_eq(GFVariantData.get_option_string_name(event, "channel_id"), &"input", "事件应保留通道标识。")
+	assert_true(
+		GFVariantData.get_option_bool(recorded, "ok"),
+		"注册通道应允许记录。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(event, "elapsed_usec"),
+		25,
+		"事件应记录相对会话时钟。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(event, "simulation_tick"),
+		4,
+		"事件应保留显式模拟 tick。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(event, "channel_id"),
+		&"input",
+		"事件应保留通道标识。"
+	)
 
 
 func test_session_trace_trims_by_global_and_channel_limits() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	trace.max_events = 3
-	assert_true(trace.register_channel(&"route", { "max_events": 2 }), "路由通道应注册成功。")
-	var _session_id: StringName = trace.start_session(&"session-b", {}, { "started_ticks_usec": 0 })
+	assert_true(
+		trace.register_channel(
+			&"route",
+			{ "max_events": 2 }
+		),
+		"路由通道应注册成功。"
+	)
+	var _session_id: StringName = trace.start_session(
+		&"session-b",
+		{},
+		{ "started_ticks_usec": 0 }
+	)
 
-	var _first: Dictionary = trace.record_event(&"route", &"opened", 1, { "ticks_usec": 10 })
-	var _second: Dictionary = trace.record_event(&"route", &"opened", 2, { "ticks_usec": 20 })
-	var _third: Dictionary = trace.record_event(&"route", &"opened", 3, { "ticks_usec": 30 })
+	var _first: Dictionary = trace.record_event(
+		&"route",
+		&"opened",
+		1,
+		{ "ticks_usec": 10 }
+	)
+	var _second: Dictionary = trace.record_event(
+		&"route",
+		&"opened",
+		2,
+		{ "ticks_usec": 20 }
+	)
+	var _third: Dictionary = trace.record_event(
+		&"route",
+		&"opened",
+		3,
+		{ "ticks_usec": 30 }
+	)
 	var events: Array[Dictionary] = trace.get_events()
 	var snapshot: Dictionary = trace.get_debug_snapshot()
 	var summary: Dictionary = GFVariantData.get_option_dictionary(snapshot, "summary")
 
-	assert_eq(events.size(), 2, "通道上限应只保留最近两条事件。")
-	assert_eq(GFVariantData.get_option_int(events[0], "sequence"), 2, "丢弃旧事件后序列不应重排。")
-	assert_eq(GFVariantData.get_option_int(events[1], "sequence"), 3, "最新事件序列应保持单调。")
-	assert_eq(GFVariantData.get_option_int(summary, "dropped_event_count"), 1, "容量淘汰应进入 dropped 计数。")
+	assert_eq(
+		events.size(),
+		2,
+		"通道上限应只保留最近两条事件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			events[0],
+			"sequence"
+		),
+		2,
+		"丢弃旧事件后序列不应重排。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			events[1],
+			"sequence"
+		),
+		3,
+		"最新事件序列应保持单调。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "dropped_event_count"),
+		1,
+		"容量淘汰应进入 dropped 计数。"
+	)
 
 
 func test_session_trace_applies_privacy_redaction_before_storage() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(trace.register_channel(&"state"), "状态通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"state"),
+		"状态通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"session-c")
-	var recorded: Dictionary = trace.record_event(&"state", &"snapshot", {
-		"owner": self,
-		"path": "res://private/player_state.json",
-	})
+	var recorded: Dictionary = trace.record_event(
+		&"state",
+		&"snapshot",
+		{ "owner": self, "path": "res://private/player_state.json", }
+	)
 	var event: Dictionary = GFVariantData.get_option_dictionary(recorded, "event")
 	var payload: Dictionary = GFVariantData.get_option_dictionary(event, "payload")
 	var owner_value: Dictionary = GFVariantData.get_option_dictionary(payload, "owner")
 	var owner_marker: Dictionary = GFVariantData.get_option_dictionary(owner_value, "__gf_report_value__")
 
-	assert_true(GFVariantData.get_option_bool(owner_marker, "redacted"), "运行时对象应在进入内存前脱敏。")
-	assert_eq(GFVariantData.get_option_string(payload, "path"), "<redacted_path>", "资源路径默认应脱敏。")
-	assert_false(JSON.stringify(event).contains("player_state.json"), "轨迹中不应残留原始私有路径。")
+	assert_true(
+		GFVariantData.get_option_bool(owner_marker, "redacted"),
+		"运行时对象应在进入内存前脱敏。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(payload, "path"),
+		"<redacted_path>",
+		"资源路径默认应脱敏。"
+	)
+	assert_false(
+		JSON.stringify(event).contains("player_state.json"),
+		"轨迹中不应残留原始私有路径。"
+	)
 
 
 func test_session_trace_persistent_metadata_uses_privacy_floor() -> void:
@@ -79,10 +162,7 @@ func test_session_trace_persistent_metadata_uses_privacy_floor() -> void:
 		trace.register_channel(
 			&"state",
 			{
-				"metadata": {
-					"channel_owner": self,
-					"channel_path": "res://private/channel_metadata.json",
-				},
+				"metadata": { "channel_owner": self, "channel_path": "res://private/channel_metadata.json", },
 			}
 		),
 		"带 metadata 的通道应注册成功。"
@@ -94,10 +174,7 @@ func test_session_trace_persistent_metadata_uses_privacy_floor() -> void:
 			func() -> Dictionary:
 				return { "value": 1 },
 			{
-				"metadata": {
-					"provider_owner": self,
-					"provider_path": "res://private/provider_metadata.json",
-				},
+				"metadata": { "provider_owner": self, "provider_path": "res://private/provider_metadata.json", },
 			}
 		),
 		"带 metadata 的 provider 应注册成功。"
@@ -105,44 +182,50 @@ func test_session_trace_persistent_metadata_uses_privacy_floor() -> void:
 
 	var _session_id: StringName = trace.start_session(
 		&"metadata-profile",
-		{
-			"session_owner": self,
-			"session_path": "res://private/session_context.json",
-		}
+		{ "session_owner": self, "session_path": "res://private/session_context.json", }
 	)
 	trace.redaction_profile = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 	var direct: Dictionary = trace.record_event(&"state", &"direct")
 	var captured: Dictionary = trace.capture_snapshot_provider(&"state_provider")
-	var context: Dictionary = GFVariantData.get_option_dictionary(trace.build_snapshot(), "context")
+	var context: Dictionary = GFVariantData.get_option_dictionary(
+		trace.build_snapshot(),
+		"context"
+	)
 	var direct_event: Dictionary = GFVariantData.get_option_dictionary(direct, "event")
 	var captured_event: Dictionary = GFVariantData.get_option_dictionary(captured, "event")
 	var direct_metadata: Dictionary = GFVariantData.get_option_dictionary(direct_event, "metadata")
 	var captured_metadata: Dictionary = GFVariantData.get_option_dictionary(captured_event, "metadata")
 	var channel_owner: Dictionary = GFVariantData.get_option_dictionary(direct_metadata, "channel_owner")
-	var channel_marker: Dictionary = GFVariantData.get_option_dictionary(
-		channel_owner,
-		"__gf_report_value__"
-	)
-	var provider_owner: Dictionary = GFVariantData.get_option_dictionary(
-		captured_metadata,
-		"provider_owner"
-	)
-	var provider_marker: Dictionary = GFVariantData.get_option_dictionary(
-		provider_owner,
-		"__gf_report_value__"
-	)
+	var channel_marker: Dictionary = GFVariantData.get_option_dictionary(channel_owner, "__gf_report_value__")
+	var provider_owner: Dictionary = GFVariantData.get_option_dictionary(captured_metadata, "provider_owner")
+	var provider_marker: Dictionary = GFVariantData.get_option_dictionary(provider_owner, "__gf_report_value__")
 	var session_owner: Dictionary = GFVariantData.get_option_dictionary(context, "session_owner")
-	var session_marker: Dictionary = GFVariantData.get_option_dictionary(
-		session_owner,
-		"__gf_report_value__"
-	)
+	var session_marker: Dictionary = GFVariantData.get_option_dictionary(session_owner, "__gf_report_value__")
 
-	assert_false(session_marker.has("instance_id"), "长期 session context 不应保留对象实例 ID。")
-	assert_false(session_marker.has("node_name"), "长期 session context 不应保留节点名称。")
-	assert_false(channel_marker.has("instance_id"), "长期通道 metadata 不应保留对象实例 ID。")
-	assert_false(channel_marker.has("node_name"), "长期通道 metadata 不应保留节点名称。")
-	assert_false(provider_marker.has("instance_id"), "长期 provider metadata 不应保留对象实例 ID。")
-	assert_false(provider_marker.has("node_name"), "长期 provider metadata 不应保留节点名称。")
+	assert_false(
+		session_marker.has("instance_id"),
+		"长期 session context 不应保留对象实例 ID。"
+	)
+	assert_false(
+		session_marker.has("node_name"),
+		"长期 session context 不应保留节点名称。"
+	)
+	assert_false(
+		channel_marker.has("instance_id"),
+		"长期通道 metadata 不应保留对象实例 ID。"
+	)
+	assert_false(
+		channel_marker.has("node_name"),
+		"长期通道 metadata 不应保留节点名称。"
+	)
+	assert_false(
+		provider_marker.has("instance_id"),
+		"长期 provider metadata 不应保留对象实例 ID。"
+	)
+	assert_false(
+		provider_marker.has("node_name"),
+		"长期 provider metadata 不应保留节点名称。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(context, "session_path"),
 		"<redacted_path>",
@@ -165,7 +248,10 @@ func test_session_trace_bounds_circular_metadata_at_every_public_recording_bound
 	circular_metadata["self"] = circular_metadata
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	assert_true(
-		trace.register_channel(&"state", { "metadata": circular_metadata }),
+		trace.register_channel(
+			&"state",
+			{ "metadata": circular_metadata }
+		),
 		"通道注册应有界编码循环 metadata。"
 	)
 	assert_true(
@@ -180,14 +266,8 @@ func test_session_trace_bounds_circular_metadata_at_every_public_recording_bound
 	)
 	var channel_catalog: Dictionary = trace.get_channel_catalog()
 	var provider_catalog: Dictionary = trace.get_snapshot_provider_catalog()
-	var channel_entry: Dictionary = GFVariantData.get_option_dictionary(
-		channel_catalog,
-		&"state"
-	)
-	var provider_entry: Dictionary = GFVariantData.get_option_dictionary(
-		provider_catalog,
-		&"state_provider"
-	)
+	var channel_entry: Dictionary = GFVariantData.get_option_dictionary(channel_catalog, &"state")
+	var provider_entry: Dictionary = GFVariantData.get_option_dictionary(provider_catalog, &"state_provider")
 	_assert_circular_report_marker(
 		GFVariantData.get_option_value(
 			GFVariantData.get_option_dictionary(channel_entry, "metadata"),
@@ -240,7 +320,9 @@ func test_session_trace_accepts_string_name_metadata_option_keys() -> void:
 	assert_true(
 		trace.register_channel(
 			&"state",
-			{ &"metadata": { "channel_value": 1 } }
+			{
+				&"metadata": { "channel_value": 1 },
+			}
 		),
 		"通道注册应接受 StringName metadata 选项键。"
 	)
@@ -250,7 +332,9 @@ func test_session_trace_accepts_string_name_metadata_option_keys() -> void:
 			&"state",
 			func() -> Dictionary:
 				return { "ready": true },
-			{ &"metadata": { "provider_value": 2 } }
+			{
+				&"metadata": { "provider_value": 2 },
+			}
 		),
 		"Provider 注册应接受 StringName metadata 选项键。"
 	)
@@ -259,19 +343,29 @@ func test_session_trace_accepts_string_name_metadata_option_keys() -> void:
 		&"state",
 		&"direct",
 		{},
-		{ &"metadata": { "direct_value": 3 } }
+		{
+			&"metadata": { "direct_value": 3 },
+		}
 	)
 	var capture_result: Dictionary = trace.capture_snapshot_provider(
 		&"state_provider",
-		{ &"metadata": { "capture_value": 4 } }
+		{
+			&"metadata": { "capture_value": 4 },
+		}
 	)
 	var direct_event: Dictionary = GFVariantData.get_option_dictionary(direct_result, "event")
 	var capture_event: Dictionary = GFVariantData.get_option_dictionary(capture_result, "event")
 	var direct_metadata: Dictionary = GFVariantData.get_option_dictionary(direct_event, "metadata")
 	var capture_metadata: Dictionary = GFVariantData.get_option_dictionary(capture_event, "metadata")
 
-	assert_true(GFVariantData.get_option_bool(direct_result, "ok"), "直接事件应成功记录。")
-	assert_true(GFVariantData.get_option_bool(capture_result, "ok"), "Provider capture 应成功记录。")
+	assert_true(
+		GFVariantData.get_option_bool(direct_result, "ok"),
+		"直接事件应成功记录。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(capture_result, "ok"),
+		"Provider capture 应成功记录。"
+	)
 	assert_eq(
 		GFVariantData.get_option_int(direct_metadata, "channel_value"),
 		1,
@@ -302,7 +396,10 @@ func test_session_trace_accepts_string_name_metadata_option_keys() -> void:
 
 func test_session_trace_snapshot_provider_is_explicit_and_bounded() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(trace.register_channel(&"model"), "模型通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"model"),
+		"模型通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"session-d")
 	assert_true(
 		trace.register_snapshot_provider(
@@ -310,7 +407,10 @@ func test_session_trace_snapshot_provider_is_explicit_and_bounded() -> void:
 			&"model",
 			func() -> Dictionary:
 				return { "health": 7 },
-			{ "event_id": &"checkpoint", "metadata": { "scope": &"player" } }
+			{
+				"event_id": &"checkpoint",
+				"metadata": { "scope": &"player" },
+			}
 		),
 		"同步 provider 应显式注册。"
 	)
@@ -323,9 +423,20 @@ func test_session_trace_snapshot_provider_is_explicit_and_bounded() -> void:
 	var payload: Dictionary = GFVariantData.get_option_dictionary(event, "payload")
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(event, "metadata")
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "显式 capture 应记录 provider 结果。")
-	assert_eq(GFVariantData.get_option_int(payload, "health"), 7, "provider 载荷应进入事件。")
-	assert_eq(GFVariantData.get_option_string(metadata, "provider_id"), "player_model", "事件应标明 provider 来源。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"显式 capture 应记录 provider 结果。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(payload, "health"),
+		7,
+		"provider 载荷应进入事件。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(metadata, "provider_id"),
+		"player_model",
+		"事件应标明 provider 来源。"
+	)
 	assert_eq(
 		_get_variant_marker_value(metadata, "scope"),
 		"player",
@@ -336,25 +447,60 @@ func test_session_trace_snapshot_provider_is_explicit_and_bounded() -> void:
 func test_session_trace_hidden_channels_require_explicit_snapshot_override() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	assert_true(
-		trace.register_channel(&"private", { "include_in_snapshot": false }),
+		trace.register_channel(
+			&"private",
+			{ "include_in_snapshot": false }
+		),
 		"隐藏通道应注册成功。"
 	)
 	var _session_id: StringName = trace.start_session(&"session-e")
-	var _recorded: Dictionary = trace.record_event(&"private", &"internal", { "value": 1 })
+	var _recorded: Dictionary = trace.record_event(
+		&"private",
+		&"internal",
+		{ "value": 1 }
+	)
 
-	assert_eq(trace.get_events().size(), 0, "默认快照不应包含隐藏通道。")
 	assert_eq(
-		trace.get_events(0, { "include_hidden_channels": true }).size(),
+		trace.get_events().size(),
+		0,
+		"默认快照不应包含隐藏通道。"
+	)
+	assert_eq(
+		trace.get_events(
+			0,
+			{ "include_hidden_channels": true }
+		).size(),
 		1,
 		"调用方必须显式请求隐藏通道。"
 	)
-	assert_true(trace.unregister_channel(&"private"), "隐藏通道应可注销。")
-	assert_eq(trace.get_events().size(), 0, "注销通道不能改变历史事件的快照可见性。")
-	assert_true(trace.register_channel(&"private"), "同 ID 通道应可重新注册为可见。")
-	var _visible_recorded: Dictionary = trace.record_event(&"private", &"visible", { "value": 2 })
-	assert_eq(trace.get_events().size(), 1, "重新注册后只有新事件应按新可见性进入默认快照。")
+	assert_true(
+		trace.unregister_channel(&"private"),
+		"隐藏通道应可注销。"
+	)
 	assert_eq(
-		trace.get_events(0, { "include_hidden_channels": true }).size(),
+		trace.get_events().size(),
+		0,
+		"注销通道不能改变历史事件的快照可见性。"
+	)
+	assert_true(
+		trace.register_channel(&"private"),
+		"同 ID 通道应可重新注册为可见。"
+	)
+	var _visible_recorded: Dictionary = trace.record_event(
+		&"private",
+		&"visible",
+		{ "value": 2 }
+	)
+	assert_eq(
+		trace.get_events().size(),
+		1,
+		"重新注册后只有新事件应按新可见性进入默认快照。"
+	)
+	assert_eq(
+		trace.get_events(
+			0,
+			{ "include_hidden_channels": true }
+		).size(),
 		2,
 		"显式读取隐藏通道时应同时保留历史事件。"
 	)
@@ -366,9 +512,16 @@ func test_session_trace_provider_preflight_does_not_call_when_recording_is_rejec
 	var provider: Callable = func() -> Dictionary:
 		call_count[0] += 1
 		return { "value": 1 }
-	assert_true(trace.register_channel(&"model"), "模型通道应注册成功。")
 	assert_true(
-		trace.register_snapshot_provider(&"model", &"model", provider),
+		trace.register_channel(&"model"),
+		"模型通道应注册成功。"
+	)
+	assert_true(
+		trace.register_snapshot_provider(
+			&"model",
+			&"model",
+			provider
+		),
 		"provider 应注册成功。"
 	)
 
@@ -379,14 +532,21 @@ func test_session_trace_provider_preflight_does_not_call_when_recording_is_rejec
 		"非活动会话应在调用 provider 前拒绝。"
 	)
 	var _session_id: StringName = trace.start_session(&"provider-preflight")
-	assert_true(trace.set_channel_enabled(&"model", false), "模型通道应可禁用。")
+	assert_true(
+		trace.set_channel_enabled(&"model", false),
+		"模型通道应可禁用。"
+	)
 	var disabled: Dictionary = trace.capture_snapshot_provider(&"model")
 	assert_eq(
 		GFVariantData.get_option_string_name(disabled, "reason"),
 		GFSessionTraceUtility.REJECT_CHANNEL_DISABLED,
 		"禁用通道应在调用 provider 前拒绝。"
 	)
-	assert_eq(call_count[0], 0, "被拒绝的 capture 不应执行项目回调。")
+	assert_eq(
+		call_count[0],
+		0,
+		"被拒绝的 capture 不应执行项目回调。"
+	)
 
 
 func test_session_trace_recipe_configures_channels_checkpoints_and_snapshot_defaults() -> void:
@@ -399,7 +559,9 @@ func test_session_trace_recipe_configures_channels_checkpoints_and_snapshot_defa
 	var _configured_checkpoint: GFSessionTraceCheckpoint = checkpoint.configure(
 		&"route_failure",
 		PackedStringArray(["route_state"]),
-		{ "metadata": { "trigger": &"error" } }
+		{
+			"metadata": { "trigger": &"error" },
+		}
 	)
 	var recipe: GFSessionTraceRecipe = GFSessionTraceRecipe.new()
 	var _configured_recipe: GFSessionTraceRecipe = recipe.configure(
@@ -428,18 +590,42 @@ func test_session_trace_recipe_configures_channels_checkpoints_and_snapshot_defa
 		"配方通道应用后应允许注册运行时 Provider。"
 	)
 	var _session_id: StringName = trace.start_session(&"recipe-session")
-	var _opened: Dictionary = trace.record_event(&"route", &"opened", { "route_id": &"settings" })
+	var _opened: Dictionary = trace.record_event(
+		&"route",
+		&"opened",
+		{ "route_id": &"settings" }
+	)
 	var checkpoint_result: Dictionary = trace.capture_recipe_checkpoint(recipe, &"route_failure")
 	var snapshot: Dictionary = trace.build_recipe_snapshot(recipe)
 	var debug_snapshot: Dictionary = trace.get_debug_snapshot()
 	var events: Array = GFVariantData.get_option_array(snapshot, "events")
 
-	assert_true(GFVariantData.get_option_bool(applied, "ok"), "合法配方应原子应用。")
-	assert_true(trace.has_channel(&"route"), "配方应注册声明通道。")
-	assert_true(GFVariantData.get_option_bool(checkpoint_result, "ok"), "必需 Provider 成功时检查点应成功。")
-	assert_eq(provider_calls[0], 1, "检查点应按声明执行 Provider 一次。")
-	assert_eq(events.size(), 1, "配方快照应应用默认 limit。")
-	assert_false(snapshot.has("context"), "配方快照应应用 include_context=false。")
+	assert_true(
+		GFVariantData.get_option_bool(applied, "ok"),
+		"合法配方应原子应用。"
+	)
+	assert_true(
+		trace.has_channel(&"route"),
+		"配方应注册声明通道。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(checkpoint_result, "ok"),
+		"必需 Provider 成功时检查点应成功。"
+	)
+	assert_eq(
+		provider_calls[0],
+		1,
+		"检查点应按声明执行 Provider 一次。"
+	)
+	assert_eq(
+		events.size(),
+		1,
+		"配方快照应应用默认 limit。"
+	)
+	assert_false(
+		snapshot.has("context"),
+		"配方快照应应用 include_context=false。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(snapshot, "recipe_id"),
 		&"ui_route_failure",
@@ -475,7 +661,13 @@ func test_session_trace_recipe_detects_definition_and_runtime_drift() -> void:
 		[checkpoint]
 	)
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(GFVariantData.get_option_bool(trace.apply_recipe(recipe), "ok"), "配方应成功应用。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			trace.apply_recipe(recipe),
+			"ok"
+		),
+		"配方应成功应用。"
+	)
 
 	recipe.snapshot_limit = 3
 	var changed_recipe_snapshot: Dictionary = trace.build_recipe_snapshot(recipe)
@@ -486,7 +678,10 @@ func test_session_trace_recipe_detects_definition_and_runtime_drift() -> void:
 	)
 	recipe.snapshot_limit = 0
 	assert_true(
-		trace.register_channel(&"save", { "max_events": 7 }),
+		trace.register_channel(
+			&"save",
+			{ "max_events": 7 }
+		),
 		"测试应能模拟绕过配方修改运行时通道。"
 	)
 	var drifted_snapshot: Dictionary = trace.build_recipe_snapshot(recipe)
@@ -497,7 +692,11 @@ func test_session_trace_recipe_detects_definition_and_runtime_drift() -> void:
 		"运行时通道与配方漂移时应 fail closed。"
 	)
 	assert_false(
-		GFVariantData.get_option_bool(reapplied_after_drift, "ok", true),
+		GFVariantData.get_option_bool(
+			reapplied_after_drift,
+			"ok",
+			true
+		),
 		"运行时已漂移时不得把重复应用报告为幂等成功。"
 	)
 	assert_eq(
@@ -527,7 +726,11 @@ func test_session_trace_recipe_owns_the_complete_channel_catalog() -> void:
 	)
 	var rejected: Dictionary = preconfigured_trace.apply_recipe(recipe)
 	assert_false(
-		GFVariantData.get_option_bool(rejected, "ok", true),
+		GFVariantData.get_option_bool(
+			rejected,
+			"ok",
+			true
+		),
 		"配方不得接纳未声明的既有通道。"
 	)
 	assert_eq(
@@ -535,19 +738,37 @@ func test_session_trace_recipe_owns_the_complete_channel_catalog() -> void:
 		&"unmanaged_channel_conflict",
 		"未声明通道应返回稳定错误码。"
 	)
-	assert_true(preconfigured_trace.has_channel(&"unmanaged"), "拒绝应用不得修改既有目录。")
-	assert_false(preconfigured_trace.has_channel(&"declared"), "拒绝应用不得部分注册配方通道。")
+	assert_true(
+		preconfigured_trace.has_channel(&"unmanaged"),
+		"拒绝应用不得修改既有目录。"
+	)
+	assert_false(
+		preconfigured_trace.has_channel(&"declared"),
+		"拒绝应用不得部分注册配方通道。"
+	)
 
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(GFVariantData.get_option_bool(trace.apply_recipe(recipe), "ok"), "干净目录应应用成功。")
-	assert_true(trace.register_channel(&"added_later"), "测试应能模拟应用后新增通道。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			trace.apply_recipe(recipe),
+			"ok"
+		),
+		"干净目录应应用成功。"
+	)
+	assert_true(
+		trace.register_channel(&"added_later"),
+		"测试应能模拟应用后新增通道。"
+	)
 	var drifted_snapshot: Dictionary = trace.build_recipe_snapshot(recipe)
 	assert_eq(
 		GFVariantData.get_option_string_name(drifted_snapshot, "error_code"),
 		&"recipe_runtime_drift",
 		"应用后新增通道必须让配方快照 fail closed。"
 	)
-	assert_true(trace.unregister_channel(&"added_later"), "测试应恢复表面相同的通道目录。")
+	assert_true(
+		trace.unregister_channel(&"added_later"),
+		"测试应恢复表面相同的通道目录。"
+	)
 	var restored_snapshot: Dictionary = trace.build_recipe_snapshot(recipe)
 	assert_eq(
 		GFVariantData.get_option_string_name(restored_snapshot, "error_code"),
@@ -565,7 +786,9 @@ func test_session_trace_recipe_fingerprint_tracks_runtime_redaction_semantics() 
 	var _configured_checkpoint: GFSessionTraceCheckpoint = checkpoint.configure(
 		&"support_capture",
 		PackedStringArray(["support_state"]),
-		{ "metadata": { "source_path": "res://private/first.cfg" } }
+		{
+			"metadata": { "source_path": "res://private/first.cfg" },
+		}
 	)
 	var recipe: GFSessionTraceRecipe = GFSessionTraceRecipe.new()
 	var _configured_recipe: GFSessionTraceRecipe = recipe.configure(
@@ -575,7 +798,13 @@ func test_session_trace_recipe_fingerprint_tracks_runtime_redaction_semantics() 
 		{ "redaction_profile": GFReportValueCodec.REDACTION_PROFILE_DEBUG }
 	)
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(GFVariantData.get_option_bool(trace.apply_recipe(recipe), "ok"), "调试配方应成功应用。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			trace.apply_recipe(recipe),
+			"ok"
+		),
+		"调试配方应成功应用。"
+	)
 
 	checkpoint.metadata["source_path"] = "res://private/second.cfg"
 	var changed: Dictionary = trace.build_recipe_snapshot(recipe)
@@ -610,20 +839,10 @@ func test_session_trace_recipe_bounds_circular_metadata_without_recursion() -> v
 		{ "metadata": circular_metadata }
 	)
 	var recipe_report: Dictionary = recipe.to_report_dictionary()
-	var recipe_channel_records: Array = GFVariantData.get_option_array(
-		recipe_report,
-		"channels"
-	)
-	var recipe_checkpoint_records: Array = GFVariantData.get_option_array(
-		recipe_report,
-		"checkpoints"
-	)
-	var recipe_channel_record: Dictionary = GFVariantData.as_dictionary(
-		recipe_channel_records[0]
-	)
-	var recipe_checkpoint_record: Dictionary = GFVariantData.as_dictionary(
-		recipe_checkpoint_records[0]
-	)
+	var recipe_channel_records: Array = GFVariantData.get_option_array(recipe_report, "channels")
+	var recipe_checkpoint_records: Array = GFVariantData.get_option_array(recipe_report, "checkpoints")
+	var recipe_channel_record: Dictionary = GFVariantData.as_dictionary(recipe_channel_records[0])
+	var recipe_checkpoint_record: Dictionary = GFVariantData.as_dictionary(recipe_checkpoint_records[0])
 	_assert_circular_report_marker(
 		GFVariantData.get_option_value(
 			GFVariantData.get_option_dictionary(
@@ -643,7 +862,10 @@ func test_session_trace_recipe_bounds_circular_metadata_without_recursion() -> v
 	)
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	assert_true(
-		GFVariantData.get_option_bool(trace.apply_recipe(recipe), "ok"),
+		GFVariantData.get_option_bool(
+			trace.apply_recipe(recipe),
+			"ok"
+		),
 		"循环资源 metadata 应先被有界编码，再安全应用配方。"
 	)
 	assert_true(
@@ -661,14 +883,8 @@ func test_session_trace_recipe_bounds_circular_metadata_without_recursion() -> v
 		&"circular_capture",
 		{ "metadata": circular_metadata }
 	)
-	var results: Dictionary = GFVariantData.get_option_dictionary(
-		checkpoint_result,
-		"results"
-	)
-	var provider_result: Dictionary = GFVariantData.get_option_dictionary(
-		results,
-		&"circular_state"
-	)
+	var results: Dictionary = GFVariantData.get_option_dictionary(checkpoint_result, "results")
+	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"circular_state")
 	var event: Dictionary = GFVariantData.get_option_dictionary(provider_result, "event")
 
 	assert_true(GFVariantData.get_option_bool(checkpoint_result, "ok"))
@@ -687,29 +903,87 @@ func test_session_trace_recipe_rejects_out_of_contract_numeric_budgets() -> void
 	var channel: GFSessionTraceChannelDefinition = GFSessionTraceChannelDefinition.new()
 	var _configured_channel: GFSessionTraceChannelDefinition = channel.configure(&"bounded")
 	var recipe: GFSessionTraceRecipe = GFSessionTraceRecipe.new()
-	var _configured_recipe: GFSessionTraceRecipe = recipe.configure(&"bounded_recipe", [channel])
+	var _configured_recipe: GFSessionTraceRecipe = recipe.configure(
+		&"bounded_recipe",
+		[channel]
+	)
 
 	recipe.max_events = -1
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "负事件上限必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"负事件上限必须被拒绝。"
+	)
 	recipe.max_events = 1_000_001
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "超大事件上限必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"超大事件上限必须被拒绝。"
+	)
 	recipe.max_events = 512
 	recipe.max_event_buffer_bytes = 1_073_741_825
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "超大缓冲预算必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"超大缓冲预算必须被拒绝。"
+	)
 	recipe.max_event_buffer_bytes = 1024 * 1024
 	recipe.max_event_bytes = 16_777_217
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "超大单事件预算必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"超大单事件预算必须被拒绝。"
+	)
 	recipe.max_event_bytes = 16 * 1024
 	recipe.snapshot_limit = -1
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "负快照上限必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"负快照上限必须被拒绝。"
+	)
 	recipe.snapshot_limit = 0
 	channel.max_events = -1
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "负通道事件上限必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"负通道事件上限必须被拒绝。"
+	)
 	channel.max_events = 0
 	channel.max_event_bytes = 1
-	assert_false(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok", true), "低于安全包络的通道预算必须被拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok",
+			true
+		),
+		"低于安全包络的通道预算必须被拒绝。"
+	)
 	channel.max_event_bytes = 0
-	assert_true(GFVariantData.get_option_bool(recipe.validate_recipe(), "ok"), "恢复合法边界后配方应通过校验。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			recipe.validate_recipe(),
+			"ok"
+		),
+		"恢复合法边界后配方应通过校验。"
+	)
 
 	var invalid_configured_channel: GFSessionTraceChannelDefinition = (
 		GFSessionTraceChannelDefinition.new().configure(
@@ -718,27 +992,41 @@ func test_session_trace_recipe_rejects_out_of_contract_numeric_budgets() -> void
 		)
 	)
 	assert_false(
-		GFVariantData.get_option_bool(invalid_configured_channel.validate_definition(), "ok", true),
+		GFVariantData.get_option_bool(
+			invalid_configured_channel.validate_definition(),
+			"ok",
+			true
+		),
 		"configure() 不得把非法通道预算静默提升成合法值。"
 	)
-	var valid_channel: GFSessionTraceChannelDefinition = (
-		GFSessionTraceChannelDefinition.new().configure(&"valid_configured_channel")
-	)
-	var invalid_configured_recipe: GFSessionTraceRecipe = GFSessionTraceRecipe.new().configure(
-		&"invalid_configured_recipe",
-		[valid_channel],
-		[],
-		{ "max_events": -1 }
+	var valid_channel: GFSessionTraceChannelDefinition = (GFSessionTraceChannelDefinition.new().configure(&"valid_configured_channel"))
+	var invalid_configured_recipe: GFSessionTraceRecipe = (
+		GFSessionTraceRecipe.new().configure(
+			&"invalid_configured_recipe",
+			[valid_channel],
+			[],
+			{ "max_events": -1 }
+		)
 	)
 	assert_false(
-		GFVariantData.get_option_bool(invalid_configured_recipe.validate_recipe(), "ok", true),
+		GFVariantData.get_option_bool(
+			invalid_configured_recipe.validate_recipe(),
+			"ok",
+			true
+		),
 		"configure() 不得把非法配方预算静默改成禁用值。"
 	)
 
 
 func test_session_trace_recipe_rejects_nonempty_trace_without_mutation() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(trace.register_channel(&"existing", { "max_events": 3 }), "既有通道应注册成功。")
+	assert_true(
+		trace.register_channel(
+			&"existing",
+			{ "max_events": 3 }
+		),
+		"既有通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"existing-session")
 	var _recorded: Dictionary = trace.record_event(&"existing", &"before_recipe")
 	var _stopped: Dictionary = trace.stop_session()
@@ -759,14 +1047,29 @@ func test_session_trace_recipe_rejects_nonempty_trace_without_mutation() -> void
 	)
 	var result: Dictionary = trace.apply_recipe(recipe)
 
-	assert_false(GFVariantData.get_option_bool(result, "ok", true), "已有会话历史时不得追认配方。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			result,
+			"ok",
+			true
+		),
+		"已有会话历史时不得追认配方。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(result, "error_code"),
 		&"trace_not_empty",
 		"非空轨迹应返回稳定失败码。"
 	)
-	assert_eq(trace.get_channel_catalog(), previous_catalog, "拒绝应用后通道目录不得变化。")
-	assert_eq(trace.max_events, previous_max_events, "拒绝应用后全局预算不得变化。")
+	assert_eq(
+		trace.get_channel_catalog(),
+		previous_catalog,
+		"拒绝应用后通道目录不得变化。"
+	)
+	assert_eq(
+		trace.max_events,
+		previous_max_events,
+		"拒绝应用后全局预算不得变化。"
+	)
 	trace.dispose()
 
 
@@ -777,7 +1080,9 @@ func test_session_trace_recipe_checkpoint_distinguishes_optional_failures_and_co
 	var _configured_optional_checkpoint: GFSessionTraceCheckpoint = optional_checkpoint.configure(
 		&"optional_only",
 		PackedStringArray(["missing_optional", "healthy"]),
-		{ "optional_provider_ids": PackedStringArray(["missing_optional"]) }
+		{
+			"optional_provider_ids": PackedStringArray(["missing_optional"]),
+		}
 	)
 	var required_checkpoint: GFSessionTraceCheckpoint = GFSessionTraceCheckpoint.new()
 	var _configured_required_checkpoint: GFSessionTraceCheckpoint = required_checkpoint.configure(
@@ -791,7 +1096,13 @@ func test_session_trace_recipe_checkpoint_distinguishes_optional_failures_and_co
 		[optional_checkpoint, required_checkpoint]
 	)
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(GFVariantData.get_option_bool(trace.apply_recipe(recipe), "ok"), "检查点配方应应用成功。")
+	assert_true(
+		GFVariantData.get_option_bool(
+			trace.apply_recipe(recipe),
+			"ok"
+		),
+		"检查点配方应应用成功。"
+	)
 	var provider_calls: Array[int] = [0]
 	assert_true(
 		trace.register_snapshot_provider(
@@ -808,11 +1119,33 @@ func test_session_trace_recipe_checkpoint_distinguishes_optional_failures_and_co
 	var optional_result: Dictionary = trace.capture_recipe_checkpoint(recipe, &"optional_only")
 	var required_result: Dictionary = trace.capture_recipe_checkpoint(recipe, &"required_failure")
 
-	assert_true(GFVariantData.get_option_bool(optional_result, "ok"), "仅可选 Provider 失败时检查点应成功。")
-	assert_eq(GFVariantData.get_option_int(optional_result, "optional_failure_count"), 1, "应统计可选失败。")
-	assert_false(GFVariantData.get_option_bool(required_result, "ok", true), "必需 Provider 失败时检查点应失败。")
-	assert_eq(GFVariantData.get_option_int(required_result, "required_failure_count"), 1, "应统计必需失败。")
-	assert_eq(provider_calls[0], 2, "前序失败不得阻止后续健康 Provider 执行。")
+	assert_true(
+		GFVariantData.get_option_bool(optional_result, "ok"),
+		"仅可选 Provider 失败时检查点应成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(optional_result, "optional_failure_count"),
+		1,
+		"应统计可选失败。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			required_result,
+			"ok",
+			true
+		),
+		"必需 Provider 失败时检查点应失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(required_result, "required_failure_count"),
+		1,
+		"应统计必需失败。"
+	)
+	assert_eq(
+		provider_calls[0],
+		2,
+		"前序失败不得阻止后续健康 Provider 执行。"
+	)
 	trace.dispose()
 
 
@@ -821,12 +1154,18 @@ func test_session_trace_checkpoint_rejects_duplicate_optional_provider_ids() -> 
 	var _configured_checkpoint: GFSessionTraceCheckpoint = checkpoint.configure(
 		&"duplicate_optional",
 		PackedStringArray(["state"]),
-		{ "optional_provider_ids": PackedStringArray(["state", "state"]) }
+		{
+			"optional_provider_ids": PackedStringArray(["state", "state"]),
+		}
 	)
 
 	var report: Dictionary = checkpoint.validate_checkpoint()
 	assert_false(
-		GFVariantData.get_option_bool(report, "ok", true),
+		GFVariantData.get_option_bool(
+			report,
+			"ok",
+			true
+		),
 		"可选 Provider 列表必须保持集合语义，不能接受重复 ID。"
 	)
 
@@ -836,13 +1175,14 @@ func test_session_trace_checkpoint_rejects_oversized_provider_list() -> void:
 	for index: int in range(257):
 		var _id_appended: bool = provider_ids.append("provider_%d" % index)
 	var checkpoint: GFSessionTraceCheckpoint = GFSessionTraceCheckpoint.new()
-	var _configured_checkpoint: GFSessionTraceCheckpoint = checkpoint.configure(
-		&"oversized",
-		provider_ids
-	)
+	var _configured_checkpoint: GFSessionTraceCheckpoint = checkpoint.configure(&"oversized", provider_ids)
 
 	assert_false(
-		GFVariantData.get_option_bool(checkpoint.validate_checkpoint(), "ok", true),
+		GFVariantData.get_option_bool(
+			checkpoint.validate_checkpoint(),
+			"ok",
+			true
+		),
 		"单检查点 Provider 列表必须有独立硬上限。"
 	)
 
@@ -852,20 +1192,50 @@ func test_session_trace_forwards_only_bounded_events_to_journal_sink() -> void:
 	var sink: MemoryJournalSink = MemoryJournalSink.new()
 	trace.max_journal_events = 1
 	assert_true(
-		trace.configure_journal_sink(sink, { "flush_after_write": true }),
+		trace.configure_journal_sink(
+			sink,
+			{ "flush_after_write": true }
+		),
 		"内存 journal sink 应配置成功。"
 	)
-	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"route"),
+		"路由通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"session-f")
-	var _first: Dictionary = trace.record_event(&"route", &"opened", &"home")
-	var _second: Dictionary = trace.record_event(&"route", &"opened", &"settings")
+	var _first: Dictionary = trace.record_event(
+		&"route",
+		&"opened",
+		&"home"
+	)
+	var _second: Dictionary = trace.record_event(
+		&"route",
+		&"opened",
+		&"settings"
+	)
 	var snapshot: Dictionary = trace.get_debug_snapshot()
 	var summary: Dictionary = GFVariantData.get_option_dictionary(snapshot, "summary")
 
-	assert_eq(sink.entries.size(), 1, "journal 应遵守单会话写入上限。")
-	assert_eq(sink.flush_count, 1, "逐条 flush 选项应立即刷新。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_event_count"), 1, "成功 journal 写入应计数。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_dropped_event_count"), 1, "超出 journal 上限应计入丢弃数。")
+	assert_eq(
+		sink.entries.size(),
+		1,
+		"journal 应遵守单会话写入上限。"
+	)
+	assert_eq(
+		sink.flush_count,
+		1,
+		"逐条 flush 选项应立即刷新。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_event_count"),
+		1,
+		"成功 journal 写入应计数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_dropped_event_count"),
+		1,
+		"超出 journal 上限应计入丢弃数。"
+	)
 
 
 func test_session_trace_reconfigures_same_journal_sink_without_shutdown() -> void:
@@ -874,70 +1244,146 @@ func test_session_trace_reconfigures_same_journal_sink_without_shutdown() -> voi
 	assert_true(
 		trace.configure_journal_sink(
 			sink,
-			{
-				"initialize": true,
-				"shutdown_on_dispose": true,
-			}
+			{ "initialize": true, "shutdown_on_dispose": true, }
 		),
 		"有状态 journal sink 应完成首次配置。"
 	)
 	assert_true(
 		trace.configure_journal_sink(
 			sink,
-			{
-				"shutdown_on_dispose": true,
-				"flush_after_write": true,
-			}
+			{ "shutdown_on_dispose": true, "flush_after_write": true, }
 		),
 		"同一 sink 应能原位更新生命周期选项。"
 	)
-	assert_eq(sink.init_count, 1, "未请求 initialize 时不应重复初始化同一 sink。")
-	assert_eq(sink.flush_count, 0, "原位重配不应提前刷新同一 sink。")
-	assert_eq(sink.shutdown_count, 0, "原位重配不应关闭仍在使用的 sink。")
+	assert_eq(
+		sink.init_count,
+		1,
+		"未请求 initialize 时不应重复初始化同一 sink。"
+	)
+	assert_eq(
+		sink.flush_count,
+		0,
+		"原位重配不应提前刷新同一 sink。"
+	)
+	assert_eq(
+		sink.shutdown_count,
+		0,
+		"原位重配不应关闭仍在使用的 sink。"
+	)
 
-	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"route"),
+		"路由通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"journal-reconfigure")
 	var _recorded: Dictionary = trace.record_event(&"route", &"opened")
-	assert_eq(sink.entries.size(), 1, "原位重配后 sink 仍应保持可写。")
-	assert_eq(sink.flush_count, 1, "更新后的逐条 flush 选项应生效。")
+	assert_eq(
+		sink.entries.size(),
+		1,
+		"原位重配后 sink 仍应保持可写。"
+	)
+	assert_eq(
+		sink.flush_count,
+		1,
+		"更新后的逐条 flush 选项应生效。"
+	)
 	trace.dispose()
-	assert_eq(sink.shutdown_count, 1, "最终 dispose 应按更新后的所有权关闭 sink 一次。")
+	assert_eq(
+		sink.shutdown_count,
+		1,
+		"最终 dispose 应按更新后的所有权关闭 sink 一次。"
+	)
 
 
 func test_session_trace_stop_and_snapshot_expose_structured_summary() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(trace.register_channel(&"save"), "存档通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"save"),
+		"存档通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(
 		&"session-g",
 		{ "build": "test" },
 		{ "started_ticks_usec": 50 }
 	)
-	var _recorded: Dictionary = trace.record_event(&"save", &"completed", {}, { "ticks_usec": 80 })
+	var _recorded: Dictionary = trace.record_event(
+		&"save",
+		&"completed",
+		{},
+		{ "ticks_usec": 80 }
+	)
 	var stopped: Dictionary = trace.stop_session(&"quit")
 	var snapshot: Dictionary = trace.build_snapshot({ "include_channel_catalog": true })
 	var context: Dictionary = GFVariantData.get_option_dictionary(snapshot, "context")
 	var summary: Dictionary = GFVariantData.get_option_dictionary(snapshot, "summary")
 
-	assert_false(GFVariantData.get_option_bool(stopped, "active", true), "停止摘要应标明会话已结束。")
-	assert_eq(GFVariantData.get_option_string_name(stopped, "stop_reason"), &"quit", "停止摘要应保留原因。")
-	assert_eq(GFVariantData.get_option_string(context, "build"), "test", "快照应包含已脱敏上下文。")
-	assert_eq(GFVariantData.get_option_int(summary, "event_count"), 1, "快照摘要应包含事件数量。")
-	assert_true(snapshot.has("channel_catalog"), "显式选项应包含通道目录。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			stopped,
+			"active",
+			true
+		),
+		"停止摘要应标明会话已结束。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(stopped, "stop_reason"),
+		&"quit",
+		"停止摘要应保留原因。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(context, "build"),
+		"test",
+		"快照应包含已脱敏上下文。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "event_count"),
+		1,
+		"快照摘要应包含事件数量。"
+	)
+	assert_true(
+		snapshot.has("channel_catalog"),
+		"显式选项应包含通道目录。"
+	)
 
 
 func test_session_trace_clear_preserves_sequence_and_stop_is_idempotent() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
-	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
-	var _session_id: StringName = trace.start_session(&"sequence", {}, { "started_ticks_usec": 0 })
-	var _first: Dictionary = trace.record_event(&"route", &"first", {}, { "ticks_usec": 1 })
+	assert_true(
+		trace.register_channel(&"route"),
+		"路由通道应注册成功。"
+	)
+	var _session_id: StringName = trace.start_session(
+		&"sequence",
+		{},
+		{ "started_ticks_usec": 0 }
+	)
+	var _first: Dictionary = trace.record_event(
+		&"route",
+		&"first",
+		{},
+		{ "ticks_usec": 1 }
+	)
 	trace.clear()
-	var second: Dictionary = trace.record_event(&"route", &"second", {}, { "ticks_usec": 2 })
+	var second: Dictionary = trace.record_event(
+		&"route",
+		&"second",
+		{},
+		{ "ticks_usec": 2 }
+	)
 	var event: Dictionary = GFVariantData.get_option_dictionary(second, "event")
 
-	assert_eq(GFVariantData.get_option_int(event, "sequence"), 2, "活动会话 clear 后序号仍应单调。")
+	assert_eq(
+		GFVariantData.get_option_int(event, "sequence"),
+		2,
+		"活动会话 clear 后序号仍应单调。"
+	)
 	var first_stop: Dictionary = trace.stop_session(&"quit")
 	var second_stop: Dictionary = trace.stop_session(&"ignored")
-	assert_eq(GFVariantData.get_option_string_name(first_stop, "stop_reason"), &"quit", "首次停止原因应保留。")
+	assert_eq(
+		GFVariantData.get_option_string_name(first_stop, "stop_reason"),
+		&"quit",
+		"首次停止原因应保留。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(second_stop, "stop_reason"),
 		&"quit",
@@ -949,8 +1395,14 @@ func test_session_trace_rejects_overlong_channel_aliases_and_disabled_buffer() -
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	var allowed_id: StringName = StringName("x".repeat(128))
 	var overlong_id: StringName = StringName("x".repeat(129))
-	assert_true(trace.register_channel(allowed_id), "边界长度 ID 应可注册。")
-	assert_false(trace.register_channel(overlong_id), "超长 ID 应 fail closed，而不是静默截断。")
+	assert_true(
+		trace.register_channel(allowed_id),
+		"边界长度 ID 应可注册。"
+	)
+	assert_false(
+		trace.register_channel(overlong_id),
+		"超长 ID 应 fail closed，而不是静默截断。"
+	)
 	var _session_id: StringName = trace.start_session(&"id-boundary")
 	var aliased: Dictionary = trace.record_event(overlong_id, &"event")
 	assert_eq(
@@ -972,33 +1424,75 @@ func test_session_trace_dispose_clears_context_and_owned_journal() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	var sink: MemoryJournalSink = MemoryJournalSink.new()
 	assert_true(
-		trace.configure_journal_sink(sink, { "shutdown_on_dispose": true }),
+		trace.configure_journal_sink(
+			sink,
+			{ "shutdown_on_dispose": true }
+		),
 		"测试 journal 应配置成功。"
 	)
-	var _session_id: StringName = trace.start_session(&"dispose", { "secret": "temporary" })
+	var _session_id: StringName = trace.start_session(
+		&"dispose",
+		{ "secret": "temporary" }
+	)
 	trace.dispose()
 	var snapshot: Dictionary = trace.build_snapshot()
 	var summary: Dictionary = GFVariantData.get_option_dictionary(snapshot, "summary")
 
-	assert_true(GFVariantData.get_option_dictionary(snapshot, "context").is_empty(), "dispose 应清除会话上下文。")
-	assert_eq(GFVariantData.get_option_string_name(summary, "session_id"), &"", "dispose 应清除会话标识。")
-	assert_eq(sink.shutdown_count, 1, "由工具拥有生命周期的 journal 应关闭一次。")
+	assert_true(
+		GFVariantData.get_option_dictionary(snapshot, "context").is_empty(),
+		"dispose 应清除会话上下文。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(summary, "session_id"),
+		&"",
+		"dispose 应清除会话标识。"
+	)
+	assert_eq(
+		sink.shutdown_count,
+		1,
+		"由工具拥有生命周期的 journal 应关闭一次。"
+	)
 
 
 func test_session_trace_prevents_reentrant_journal_recursion() -> void:
 	var trace: GFSessionTraceUtility = GFSessionTraceUtility.new()
 	var sink: ReentrantJournalSink = ReentrantJournalSink.new()
 	sink.trace = trace
-	assert_true(trace.configure_journal_sink(sink), "重入测试 sink 应配置成功。")
-	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	assert_true(
+		trace.configure_journal_sink(sink),
+		"重入测试 sink 应配置成功。"
+	)
+	assert_true(
+		trace.register_channel(&"route"),
+		"路由通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"journal-reentry")
 	var _recorded: Dictionary = trace.record_event(&"route", &"outer")
-	var summary: Dictionary = GFVariantData.get_option_dictionary(trace.get_debug_snapshot(), "summary")
+	var summary: Dictionary = GFVariantData.get_option_dictionary(
+		trace.get_debug_snapshot(),
+		"summary"
+	)
 
-	assert_eq(sink.write_count, 1, "嵌套事件不应再次递归写入同一 journal。")
-	assert_eq(trace.get_events().size(), 2, "journal 回调产生的事件仍应遵守普通内存轨迹语义。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_event_count"), 1, "外层 journal 写入应计数。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_dropped_event_count"), 1, "重入 journal 应计入丢弃。")
+	assert_eq(
+		sink.write_count,
+		1,
+		"嵌套事件不应再次递归写入同一 journal。"
+	)
+	assert_eq(
+		trace.get_events().size(),
+		2,
+		"journal 回调产生的事件仍应遵守普通内存轨迹语义。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_event_count"),
+		1,
+		"外层 journal 写入应计数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_dropped_event_count"),
+		1,
+		"重入 journal 应计入丢弃。"
+	)
 	trace.dispose()
 	sink.trace = null
 
@@ -1010,31 +1504,62 @@ func test_session_trace_guards_flush_and_deferred_sink_cleanup_reentry() -> void
 	assert_true(
 		trace.configure_journal_sink(
 			sink,
-			{
-				"flush_after_write": true,
-				"shutdown_on_dispose": true,
-			}
+			{ "flush_after_write": true, "shutdown_on_dispose": true, }
 		),
 		"生命周期重入测试 sink 应配置成功。"
 	)
-	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"route"),
+		"路由通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"journal-lifecycle-reentry")
 	var _recorded: Dictionary = trace.record_event(&"route", &"outer")
-	var summary: Dictionary = GFVariantData.get_option_dictionary(trace.get_debug_snapshot(), "summary")
+	var summary: Dictionary = GFVariantData.get_option_dictionary(
+		trace.get_debug_snapshot(),
+		"summary"
+	)
 
-	assert_eq(sink.write_count, 1, "flush 回写事件不应再次写入 journal。")
-	assert_eq(sink.flush_count, 1, "逐条 flush 应只执行一次。")
-	assert_eq(trace.get_events().size(), 2, "flush 回写事件仍应进入普通内存轨迹。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_event_count"), 1, "外层写入应计数一次。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_dropped_event_count"), 1, "flush 重入应计入 journal 丢弃。")
+	assert_eq(
+		sink.write_count,
+		1,
+		"flush 回写事件不应再次写入 journal。"
+	)
+	assert_eq(
+		sink.flush_count,
+		1,
+		"逐条 flush 应只执行一次。"
+	)
+	assert_eq(
+		trace.get_events().size(),
+		2,
+		"flush 回写事件仍应进入普通内存轨迹。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_event_count"),
+		1,
+		"外层写入应计数一次。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_dropped_event_count"),
+		1,
+		"flush 重入应计入 journal 丢弃。"
+	)
 
 	sink.clear_on_write = true
 	var _clearing_recorded: Dictionary = trace.record_event(&"route", &"clear_sink")
 	assert_false(
-		GFVariantData.get_option_bool(trace.get_debug_snapshot(), "journal_configured", true),
+		GFVariantData.get_option_bool(
+			trace.get_debug_snapshot(),
+			"journal_configured",
+			true
+		),
 		"sink 在 write 回调中请求清除时应先原子脱离。"
 	)
-	assert_eq(sink.shutdown_count, 1, "延迟清理应在外层 write 返回后关闭 sink 一次。")
+	assert_eq(
+		sink.shutdown_count,
+		1,
+		"延迟清理应在外层 write 返回后关闭 sink 一次。"
+	)
 
 
 func test_session_trace_allows_reentrant_configure_null_journal_clear() -> void:
@@ -1042,19 +1567,33 @@ func test_session_trace_allows_reentrant_configure_null_journal_clear() -> void:
 	var sink: ConfigureNullJournalSink = ConfigureNullJournalSink.new()
 	sink.trace = trace
 	assert_true(
-		trace.configure_journal_sink(sink, { "shutdown_on_dispose": true }),
+		trace.configure_journal_sink(
+			sink,
+			{ "shutdown_on_dispose": true }
+		),
 		"回调清除测试 sink 应配置成功。"
 	)
-	assert_true(trace.register_channel(&"route"), "路由通道应注册成功。")
+	assert_true(
+		trace.register_channel(&"route"),
+		"路由通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"journal-configure-null")
 	var _recorded: Dictionary = trace.record_event(&"route", &"clear_sink")
 
 	assert_true(sink.configure_null_result, "write 回调中的 configure_journal_sink(null) 应成功。")
 	assert_false(
-		GFVariantData.get_option_bool(trace.get_debug_snapshot(), "journal_configured", true),
+		GFVariantData.get_option_bool(
+			trace.get_debug_snapshot(),
+			"journal_configured",
+			true
+		),
 		"null 配置应在回调内先原子断开 sink。"
 	)
-	assert_eq(sink.shutdown_count, 1, "回调结束后应按既有所有权关闭 sink 一次。")
+	assert_eq(
+		sink.shutdown_count,
+		1,
+		"回调结束后应按既有所有权关闭 sink 一次。"
+	)
 
 
 func test_session_trace_preserves_reentrant_clear_during_sink_replacement() -> void:
@@ -1062,7 +1601,10 @@ func test_session_trace_preserves_reentrant_clear_during_sink_replacement() -> v
 	var old_sink: CleanupConfigureNullJournalSink = CleanupConfigureNullJournalSink.new()
 	var replacement_sink: MemoryJournalSink = MemoryJournalSink.new()
 	old_sink.trace = trace
-	assert_true(trace.configure_journal_sink(old_sink), "旧 journal sink 应配置成功。")
+	assert_true(
+		trace.configure_journal_sink(old_sink),
+		"旧 journal sink 应配置成功。"
+	)
 	old_sink.clear_on_flush = true
 
 	assert_false(
@@ -1071,7 +1613,11 @@ func test_session_trace_preserves_reentrant_clear_during_sink_replacement() -> v
 	)
 	assert_true(old_sink.configure_null_result, "旧 sink 的清理回调应能请求置空。")
 	assert_false(
-		GFVariantData.get_option_bool(trace.get_debug_snapshot(), "journal_configured", true),
+		GFVariantData.get_option_bool(
+			trace.get_debug_snapshot(),
+			"journal_configured",
+			true
+		),
 		"清理回调的置空结果不应被外层替换覆盖。"
 	)
 	assert_true(
@@ -1089,13 +1635,23 @@ func test_session_trace_rejects_journal_profile_weaker_than_sink_boundary() -> v
 		"debug 轨迹不能连接到要求 privacy 的外发 sink。"
 	)
 	assert_false(
-		GFVariantData.get_option_bool(trace.get_debug_snapshot(), "journal_configured", true),
+		GFVariantData.get_option_bool(
+			trace.get_debug_snapshot(),
+			"journal_configured",
+			true
+		),
 		"不安全的 profile 组合不得部分配置 sink。"
 	)
 
 	trace.redaction_profile = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
-	assert_true(trace.configure_journal_sink(sink), "privacy 轨迹应满足 privacy sink 边界。")
-	assert_true(trace.register_channel(&"state"), "状态通道应注册成功。")
+	assert_true(
+		trace.configure_journal_sink(sink),
+		"privacy 轨迹应满足 privacy sink 边界。"
+	)
+	assert_true(
+		trace.register_channel(&"state"),
+		"状态通道应注册成功。"
+	)
 	var _session_id: StringName = trace.start_session(&"journal-profile")
 	sink.output_profile = "unsupported"
 	var _dynamic_profile_recorded: Dictionary = trace.record_event(&"state", &"dynamic_sink_profile")
@@ -1106,10 +1662,21 @@ func test_session_trace_rejects_journal_profile_weaker_than_sink_boundary() -> v
 		&"snapshot",
 		{ "path": "res://private/player_state.json" }
 	)
-	var summary: Dictionary = GFVariantData.get_option_dictionary(trace.get_debug_snapshot(), "summary")
+	var summary: Dictionary = GFVariantData.get_option_dictionary(
+		trace.get_debug_snapshot(),
+		"summary"
+	)
 
-	assert_eq(sink.entries.size(), 0, "运行期 sink 声明变化或 trace profile 放宽后 journal 应 fail closed。")
-	assert_eq(GFVariantData.get_option_int(summary, "journal_dropped_event_count"), 2, "两次不安全写入都应计入 journal 丢弃。")
+	assert_eq(
+		sink.entries.size(),
+		0,
+		"运行期 sink 声明变化或 trace profile 放宽后 journal 应 fail closed。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(summary, "journal_dropped_event_count"),
+		2,
+		"两次不安全写入都应计入 journal 丢弃。"
+	)
 
 
 func _get_variant_marker_value(source: Dictionary, key: String) -> String:
@@ -1120,10 +1687,7 @@ func _get_variant_marker_value(source: Dictionary, key: String) -> String:
 
 func _assert_circular_report_marker(value: Variant, boundary: String) -> void:
 	var encoded: Dictionary = GFVariantData.as_dictionary(value)
-	var marker: Dictionary = GFVariantData.get_option_dictionary(
-		encoded,
-		"__gf_report_value__"
-	)
+	var marker: Dictionary = GFVariantData.get_option_dictionary(encoded, "__gf_report_value__")
 	assert_eq(
 		GFVariantData.get_option_int(marker, "version"),
 		1,
@@ -1138,7 +1702,11 @@ func _assert_circular_report_marker(value: Variant, boundary: String) -> void:
 		GFVariantData.get_option_bool(marker, "redacted"),
 		"%s 的循环 marker 应明确标记为已脱敏。" % boundary
 	)
-	assert_eq(marker.size(), 3, "%s 不得把 marker 再封装为用户 Dictionary。" % boundary)
+	assert_eq(
+		marker.size(),
+		3,
+		"%s 不得把 marker 再封装为用户 Dictionary。" % boundary
+	)
 
 
 # --- 内部类 ---
@@ -1151,8 +1719,10 @@ class MemoryJournalSink extends GFLogSink:
 	func write(entry: Dictionary) -> void:
 		entries.append(entry.duplicate(true))
 
+
 	func flush() -> void:
 		flush_count += 1
+
 
 	func shutdown() -> void:
 		shutdown_count += 1
@@ -1166,9 +1736,11 @@ class StatefulJournalSink extends MemoryJournalSink:
 		init_count += 1
 		active = true
 
+
 	func write(entry: Dictionary) -> void:
 		if active:
 			super.write(entry)
+
 
 	func shutdown() -> void:
 		active = false
@@ -1194,6 +1766,7 @@ class LifecycleReentrantJournalSink extends MemoryJournalSink:
 		super.write(entry)
 		if clear_on_write:
 			trace.clear_journal_sink(true)
+
 
 	func flush() -> void:
 		super.flush()

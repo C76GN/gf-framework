@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFScreenshotUtility" path="addons/gf/standard/utilities/debug/gf_screenshot_utility.gd" module="standard" extends="GFUtility" classDigest="3c9527f4083e1efe2bd33aa09afedf0d272dca280c812c0ba09b79d3e261a0b5">
+<class name="GFScreenshotUtility" path="addons/gf/standard/utilities/debug/gf_screenshot_utility.gd" module="standard" extends="GFUtility" classDigest="cb5fd4a1722fdcd57c5b2625cf832de21393d300e8ef6f4feb3037bf45888798">
 	<description>GFScreenshotUtility: 通用 Viewport 截图捕获与保存工具。
 提供无 UI 的截图捕获、文件保存和批量尺寸/语言截图流程。它不绑定调试面板、
 上传服务、文件浏览器或项目业务命名规则。</description>
@@ -186,7 +186,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_image">
-			<signature>func save_image(image: Image, file_path: String = "", options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func save_image( image: Image, file_path: String = "", options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>保存已有 Image 为截图文件。</description>
 			<tags>
 				<tag name="api">public</tag>

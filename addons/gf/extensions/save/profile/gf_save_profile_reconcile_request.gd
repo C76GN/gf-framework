@@ -75,10 +75,7 @@ var _result_metadata: Dictionary = {}
 ## @schema result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.
 ## [br]
 ## @return 可用请求；输入无效时返回 null。
-static func take_ownership(
-	context: Dictionary = {},
-	result_metadata: Dictionary = {}
-) -> GFSaveProfileReconcileRequest:
+static func take_ownership(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest:
 	if not _is_dictionary_supported(context) or not _is_dictionary_supported(result_metadata):
 		return null
 	var request: GFSaveProfileReconcileRequest = GFSaveProfileReconcileRequest.new()
@@ -122,10 +119,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @schema return: Payload-free Dictionary with available and claimed.
 func inspect_for_framework() -> Dictionary:
-	return {
-		"available": is_available(),
-		"claimed": _claimed,
-	}
+	return { "available": is_available(), "claimed": _claimed, }
 
 
 ## 一次性移出 context 与 result_metadata。
@@ -140,10 +134,7 @@ func inspect_for_framework() -> Dictionary:
 func claim_for_framework() -> Dictionary:
 	if not is_available():
 		return {}
-	var claim: Dictionary = {
-		"context": _context,
-		"result_metadata": _result_metadata,
-	}
+	var claim: Dictionary = { "context": _context, "result_metadata": _result_metadata, }
 	_context = {}
 	_result_metadata = {}
 	_ready = false
@@ -158,18 +149,23 @@ func claim_for_framework() -> Dictionary:
 ## @api private
 ## [br]
 static func _is_dictionary_supported(value: Dictionary) -> bool:
-	var state: Dictionary = {
-		"items": 0,
-		"visited": [],
-	}
-	return _is_value_supported(value, 0, state)
+	var state: Dictionary = { "items": 0, "visited": [], }
+	return _is_value_supported(
+		value,
+		0,
+		state
+	)
 
 
 ## 检查值类型、容器内容与递归深度，并拒绝访问路径中的循环容器。
 ## [br]
 ## @api private
 ## [br]
-static func _is_value_supported(value: Variant, depth: int, state: Dictionary) -> bool:
+static func _is_value_supported(
+	value: Variant,
+	depth: int,
+	state: Dictionary
+) -> bool:
 	if depth > _MAX_DEPTH:
 		return false
 	var item_count: int = GFVariantData.get_option_int(state, "items") + 1
@@ -187,7 +183,11 @@ static func _is_value_supported(value: Variant, depth: int, state: Dictionary) -
 				return false
 			visited.append(array_value)
 			for entry: Variant in array_value:
-				if not _is_value_supported(entry, depth + 1, state):
+				if not _is_value_supported(
+					entry,
+					depth + 1,
+					state
+				):
 					var _removed_array_failure: Variant = visited.pop_back()
 					return false
 			var _removed_array: Variant = visited.pop_back()
@@ -199,8 +199,16 @@ static func _is_value_supported(value: Variant, depth: int, state: Dictionary) -
 			visited.append(dictionary_value)
 			for key: Variant in dictionary_value.keys():
 				if (
-					not _is_value_supported(key, depth + 1, state)
-					or not _is_value_supported(dictionary_value[key], depth + 1, state)
+					not _is_value_supported(
+						key,
+						depth + 1,
+						state
+					)
+					or not _is_value_supported(
+						dictionary_value[key],
+						depth + 1,
+						state
+					)
 				):
 					var _removed_dictionary_failure: Variant = visited.pop_back()
 					return false

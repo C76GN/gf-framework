@@ -20,7 +20,7 @@
 | 方法 | [`apply_radial_deadzone`](#member-gfinputdirectiontools-methods-apply_radial_deadzone) | `static func apply_radial_deadzone( raw_direction: Vector2, deadzone: float, rescale_after_deadzone: bool = true ) -> Vector2:` |
 | 方法 | [`snap_vector`](#member-gfinputdirectiontools-methods-snap_vector) | `static func snap_vector( raw_direction: Vector2, mode: SnapMode = SnapMode.CARDINAL_4, deadzone: float = 0.0, rescale_analog_after_deadzone: bool = false ) -> Vector2:` |
 | 方法 | [`get_direction_name`](#member-gfinputdirectiontools-methods-get_direction_name) | `static func get_direction_name(direction: Direction2D) -> StringName:` |
-| 方法 | [`get_direction_from_name`](#member-gfinputdirectiontools-methods-get_direction_from_name) | `static func get_direction_from_name( direction_name: StringName, default_direction: Direction2D = Direction2D.NONE ) -> Direction2D:` |
+| 方法 | [`get_direction_from_name`](#member-gfinputdirectiontools-methods-get_direction_from_name) | `static func get_direction_from_name(direction_name: StringName, default_direction: Direction2D = Direction2D.NONE) -> Direction2D:` |
 | 方法 | [`get_direction_vector`](#member-gfinputdirectiontools-methods-get_direction_vector) | `static func get_direction_vector(direction: Direction2D) -> Vector2:` |
 | 方法 | [`get_closest_direction`](#member-gfinputdirectiontools-methods-get_closest_direction) | `static func get_closest_direction( raw_direction: Vector2, include_diagonal: bool = true, default_direction: Direction2D = Direction2D.NONE ) -> Direction2D:` |
 | 方法 | [`get_direction_from_vector`](#member-gfinputdirectiontools-methods-get_direction_from_vector) | `static func get_direction_from_vector( direction_vector: Vector2, include_diagonal: bool = true, default_direction: Direction2D = Direction2D.NONE ) -> Direction2D:` |
@@ -163,7 +163,7 @@ static func get_direction_name(direction: Direction2D) -> StringName:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func get_direction_from_name( direction_name: StringName, default_direction: Direction2D = Direction2D.NONE ) -> Direction2D:
+static func get_direction_from_name(direction_name: StringName, default_direction: Direction2D = Direction2D.NONE) -> Direction2D:
 ```
 
 按名称获取方向枚举。

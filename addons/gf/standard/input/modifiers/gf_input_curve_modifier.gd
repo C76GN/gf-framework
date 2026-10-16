@@ -45,6 +45,8 @@ extends GFInputModifier
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -52,7 +54,11 @@ extends GFInputModifier
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 按曲线采样后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
 	return Vector2(
 		_apply_curve(value.x) if apply_x else value.x,
 		_apply_curve(value.y) if apply_y else value.y
@@ -63,6 +69,8 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -70,7 +78,11 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 按曲线采样后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
 	return Vector3(
 		_apply_curve(value.x) if apply_x else value.x,
 		_apply_curve(value.y) if apply_y else value.y,
@@ -89,5 +101,11 @@ func _apply_curve(value: float) -> float:
 		return value
 	var sign_value: float = signf(value) if preserve_sign else 1.0
 	var sample_value: float = absf(value) if preserve_sign else value
-	var sampled: float = curve.sample_baked(clampf(sample_value, 0.0, 1.0))
+	var sampled: float = curve.sample_baked(
+		clampf(
+			sample_value,
+			0.0,
+			1.0
+		)
+	)
 	return sampled * sign_value

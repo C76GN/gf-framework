@@ -44,10 +44,17 @@ var _tags: Dictionary = {}
 func add_tag(p_tag: StringName, p_count: int = 1) -> void:
 	if p_count <= 0:
 		return
-		
-	var current: int = GFVariantData.get_option_int(_tags, p_tag, 0)
+
+	var current: int = GFVariantData.get_option_int(
+		_tags,
+		p_tag,
+		0
+	)
 	_tags[p_tag] = current + p_count
-	tag_changed.emit(p_tag, _tags[p_tag])
+	tag_changed.emit(
+		p_tag,
+		_tags[p_tag]
+	)
 
 
 ## 移除标签或减少层数。
@@ -72,7 +79,7 @@ func remove_tag(p_tag: StringName, p_count: int = 1) -> void:
 
 	var current: int = _tags[p_tag]
 	var updated: int = current - p_count
-	
+
 	if updated <= 0:
 		var _erase_result_74: Variant = _tags.erase(p_tag)
 		tag_changed.emit(p_tag, 0)
@@ -91,7 +98,11 @@ func remove_tag(p_tag: StringName, p_count: int = 1) -> void:
 ## [br]
 ## @return: 拥有指定标签且层数不低于要求时返回 true。
 func has_tag(p_tag: StringName, p_min_count: int = 1) -> bool:
-	return GFVariantData.get_option_int(_tags, p_tag, 0) >= p_min_count
+	return GFVariantData.get_option_int(
+		_tags,
+		p_tag,
+		0
+	) >= p_min_count
 
 
 ## 获取标签的当前层数。
@@ -102,7 +113,11 @@ func has_tag(p_tag: StringName, p_min_count: int = 1) -> bool:
 ## [br]
 ## @return: 当前标签层数；不存在时返回 0。
 func get_tag_count(p_tag: StringName) -> int:
-	return GFVariantData.get_option_int(_tags, p_tag, 0)
+	return GFVariantData.get_option_int(
+		_tags,
+		p_tag,
+		0
+	)
 
 
 ## 获取当前持有的标签名。
@@ -113,7 +128,11 @@ func get_tag_count(p_tag: StringName) -> int:
 func get_tags() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for tag_variant: Variant in _tags.keys():
-		if GFVariantData.get_option_int(_tags, tag_variant, 0) > 0:
+		if GFVariantData.get_option_int(
+			_tags,
+			tag_variant,
+			0
+		) > 0:
 			var _append_result_114: Variant = result.append(GFVariantData.to_text(tag_variant))
 	result.sort()
 	return result
@@ -137,4 +156,7 @@ func clear_all() -> void:
 	var keys: Array = _tags.keys()
 	_tags.clear()
 	for tag_variant: Variant in keys:
-		tag_changed.emit(GFVariantData.to_string_name(tag_variant), 0)
+		tag_changed.emit(
+			GFVariantData.to_string_name(tag_variant),
+			0
+		)

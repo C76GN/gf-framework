@@ -73,7 +73,11 @@ func _handles(type: String) -> bool:
 ## 让注册表按请求尺寸构建资源预览，并从结果中提取可用 Texture2D；未成功生成时沿用提取助手的空值结果。
 ## [br]
 ## @api private
-func _generate(resource: Resource, size: Vector2i, _metadata: Dictionary) -> Texture2D:
+func _generate(
+	resource: Resource,
+	size: Vector2i,
+	_metadata: Dictionary
+) -> Texture2D:
 	var result: Dictionary = _registry.build_preview_result(resource, size)
 	return _get_result_texture(result)
 
@@ -143,8 +147,16 @@ func get_source_records() -> Array[Dictionary]:
 ## @return 预览生成结果。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、source_id、texture、source_size、target_size 和 error。
-func build_preview_result(resource: Resource, size: Vector2i, options: Dictionary = {}) -> Dictionary:
-	return _registry.build_preview_result(resource, size, options)
+func build_preview_result(
+	resource: Resource,
+	size: Vector2i,
+	options: Dictionary = {}
+) -> Dictionary:
+	return _registry.build_preview_result(
+		resource,
+		size,
+		options
+	)
 
 
 ## 从资源读取 GF 预览纹理。

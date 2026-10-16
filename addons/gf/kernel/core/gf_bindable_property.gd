@@ -180,14 +180,22 @@ func subscribe_token(callback: Callable, emit_current: bool = false) -> GFSubscr
 ## @param emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。
 ## [br]
 ## @return 当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或 callback 无效时返回非活动句柄。
-func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = false) -> GFLifetimeSubscription:
+func subscribe_owned(
+	owner: Object,
+	callback: Callable,
+	emit_current: bool = false
+) -> GFLifetimeSubscription:
 	if owner == null or not is_instance_valid(owner):
 		push_error("[GFBindableProperty][bindable_property.subscribe_owned_owner_invalid] subscribe_owned failed: owner is invalid.")
 		return GFLifetimeSubscription.new()
 	if not callback.is_valid():
 		push_error("[GFBindableProperty][bindable_property.subscribe_owned_callback_invalid] subscribe_owned failed: callback is invalid.")
 		return GFLifetimeSubscription.new()
-	return _subscribe_owned_callable_token(owner, callback, emit_current)
+	return _subscribe_owned_callable_token(
+		owner,
+		callback,
+		emit_current
+	)
 
 
 ## 通过 owner 与方法名订阅属性变化。
@@ -204,14 +212,22 @@ func subscribe_owned(owner: Object, callback: Callable, emit_current: bool = fal
 ## @param emit_current: 是否立即以当前值调用一次回调；为 true 时 old_value 和 new_value 都是当前值。
 ## [br]
 ## @return 当前这次独立订阅且绑定 owner 生命周期的句柄；owner 或方法无效时返回非活动句柄。
-func subscribe_method(owner: Object, method_name: StringName, emit_current: bool = false) -> GFLifetimeSubscription:
+func subscribe_method(
+	owner: Object,
+	method_name: StringName,
+	emit_current: bool = false
+) -> GFLifetimeSubscription:
 	if owner == null or not is_instance_valid(owner):
 		push_error("[GFBindableProperty][bindable_property.subscribe_method_owner_invalid] subscribe_method failed: owner is invalid.")
 		return GFLifetimeSubscription.new()
 	if method_name == &"" or not owner.has_method(method_name):
 		push_error("[GFBindableProperty][bindable_property.subscribe_method_name_invalid] subscribe_method failed: method_name is invalid.")
 		return GFLifetimeSubscription.new()
-	return _subscribe_owner_method_token(owner, method_name, emit_current)
+	return _subscribe_owner_method_token(
+		owner,
+		method_name,
+		emit_current
+	)
 
 
 ## 强制发出 value_changed 信号。
@@ -485,15 +501,16 @@ func bind_to(node: Node, callable: Callable) -> void:
 			CONNECT_ONE_SHOT as Object.ConnectFlags
 		)
 
-	_node_bindings.append({
-		"node_ref": weakref(node),
-		"callable": callable,
-		"exit_callable": exit_callable,
-	})
+	_node_bindings.append(
+		{
+			"node_ref": weakref(node),
+			"callable": callable,
+			"exit_callable": exit_callable,
+		}
+	)
 
 
 # --- 私有/辅助方法 ---
-
 
 ## 清理失效绑定后，以隔离的旧值和新值发出变化信号。
 ## [br]
@@ -501,7 +518,10 @@ func bind_to(node: Node, callable: Callable) -> void:
 func _emit_value_changed(old_value: Variant, new_value: Variant) -> void:
 	_prune_inactive_subscription_bindings()
 	_prune_invalid_node_bindings()
-	value_changed.emit(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
+	value_changed.emit(
+		_copy_signal_payload(old_value),
+		_copy_signal_payload(new_value)
+	)
 
 
 ## 深复制集合类信号载荷；具体复制规则由 GFVariantAccess 提供。
@@ -509,8 +529,6 @@ func _emit_value_changed(old_value: Variant, new_value: Variant) -> void:
 ## @api private
 func _copy_signal_payload(source_value: Variant) -> Variant:
 	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_collection(source_value, true)
-
-
 
 
 ## 使用 GFVariantAccess 的值比较规则判断两个 Variant 是否相等。
@@ -537,22 +555,39 @@ func _subscribe_callable_token(callback: Callable, emit_current: bool) -> GFSubs
 	_prune_inactive_subscription_bindings()
 	var signal_callback: Callable = func(old_value: Variant, new_value: Variant) -> void:
 		if callback.is_valid():
-			_call_subscription_callable(callback, old_value, new_value)
-	var subscription_token: GFSubscriptionToken = _register_subscription({
-		"kind": &"callable",
-		"callback": callback,
-		"owner_id": 0,
-		"method_name": &"",
-	}, signal_callback, null, "GFBindableProperty.subscribe")
+			_call_subscription_callable(
+				callback,
+				old_value,
+				new_value
+			)
+	var subscription_token: GFSubscriptionToken = _register_subscription(
+		{
+			"kind": &"callable",
+			"callback": callback,
+			"owner_id": 0,
+			"method_name": &"",
+		},
+		signal_callback,
+		null,
+		"GFBindableProperty.subscribe"
+	)
 	if emit_current and subscription_token.is_active():
-		_call_subscription_callable(callback, _value, _value)
+		_call_subscription_callable(
+			callback,
+			_value,
+			_value
+		)
 	return subscription_token
 
 
 ## 为 owner 生命周期注册 Callable 订阅，并可选地立即用当前值调用回调。
 ## [br]
 ## @api private
-func _subscribe_owned_callable_token(owner: Object, callback: Callable, emit_current: bool) -> GFLifetimeSubscription:
+func _subscribe_owned_callable_token(
+	owner: Object,
+	callback: Callable,
+	emit_current: bool
+) -> GFLifetimeSubscription:
 	_prune_inactive_subscription_bindings()
 	var owner_id: int = owner.get_instance_id()
 	var owner_ref: WeakRef = weakref(owner)
@@ -560,35 +595,67 @@ func _subscribe_owned_callable_token(owner: Object, callback: Callable, emit_cur
 		if _get_live_owner_from_ref(owner_ref) == null:
 			return
 		if callback.is_valid():
-			_call_subscription_callable(callback, old_value, new_value)
-	var subscription_token: GFLifetimeSubscription = _register_lifetime_subscription(owner, {
-		"kind": &"owned_callable",
-		"callback": callback,
-		"owner_id": owner_id,
-		"method_name": &"",
-	}, signal_callback, "GFBindableProperty.subscribe_owned")
+			_call_subscription_callable(
+				callback,
+				old_value,
+				new_value
+			)
+	var subscription_token: GFLifetimeSubscription = _register_lifetime_subscription(
+		owner,
+		{
+			"kind": &"owned_callable",
+			"callback": callback,
+			"owner_id": owner_id,
+			"method_name": &"",
+		},
+		signal_callback,
+		"GFBindableProperty.subscribe_owned"
+	)
 	if emit_current and subscription_token.is_active():
-		_call_subscription_callable(callback, _value, _value)
+		_call_subscription_callable(
+			callback,
+			_value,
+			_value
+		)
 	return subscription_token
 
 
 ## 以 owner 的弱引用和方法名注册生命周期订阅，可选地立即调用该方法。
 ## [br]
 ## @api private
-func _subscribe_owner_method_token(owner: Object, method_name: StringName, emit_current: bool) -> GFLifetimeSubscription:
+func _subscribe_owner_method_token(
+	owner: Object,
+	method_name: StringName,
+	emit_current: bool
+) -> GFLifetimeSubscription:
 	_prune_inactive_subscription_bindings()
 	var owner_id: int = owner.get_instance_id()
 	var owner_ref: WeakRef = weakref(owner)
 	var signal_callback: Callable = func(old_value: Variant, new_value: Variant) -> void:
-		_call_owner_method(owner_ref, method_name, old_value, new_value)
-	var subscription_token: GFLifetimeSubscription = _register_lifetime_subscription(owner, {
-		"kind": &"owner_method",
-		"callback": Callable(),
-		"owner_id": owner_id,
-		"method_name": method_name,
-	}, signal_callback, "GFBindableProperty.subscribe_method")
+		_call_owner_method(
+			owner_ref,
+			method_name,
+			old_value,
+			new_value
+		)
+	var subscription_token: GFLifetimeSubscription = _register_lifetime_subscription(
+		owner,
+		{
+			"kind": &"owner_method",
+			"callback": Callable(),
+			"owner_id": owner_id,
+			"method_name": method_name,
+		},
+		signal_callback,
+		"GFBindableProperty.subscribe_method"
+	)
 	if emit_current and subscription_token.is_active():
-		_call_owner_method(owner_ref, method_name, _value, _value)
+		_call_owner_method(
+			owner_ref,
+			method_name,
+			_value,
+			_value
+		)
 	return subscription_token
 
 
@@ -610,7 +677,11 @@ func _register_subscription(
 
 	var subscription_token: GFSubscriptionToken = GFSubscriptionToken.new(cancel_callback, debug_label)
 	if owner != null:
-		subscription_token = GFLifetimeSubscription.new(owner, cancel_callback, debug_label)
+		subscription_token = GFLifetimeSubscription.new(
+			owner,
+			cancel_callback,
+			debug_label
+		)
 	if not subscription_token.is_active():
 		return subscription_token
 
@@ -630,7 +701,12 @@ func _register_lifetime_subscription(
 	signal_callback: Callable,
 	debug_label: String
 ) -> GFLifetimeSubscription:
-	var subscription_token: GFSubscriptionToken = _register_subscription(binding, signal_callback, owner, debug_label)
+	var subscription_token: GFSubscriptionToken = _register_subscription(
+		binding,
+		signal_callback,
+		owner,
+		debug_label
+	)
 	if subscription_token is GFLifetimeSubscription:
 		var lifetime_subscription: GFLifetimeSubscription = subscription_token
 		return lifetime_subscription
@@ -661,21 +737,33 @@ func _prune_inactive_subscription_bindings() -> void:
 ## 复制变化载荷后调用普通订阅回调。
 ## [br]
 ## @api private
-func _call_subscription_callable(callback: Callable, old_value: Variant, new_value: Variant) -> void:
-	callback.call(_copy_signal_payload(old_value), _copy_signal_payload(new_value))
+func _call_subscription_callable(
+	callback: Callable,
+	old_value: Variant,
+	new_value: Variant
+) -> void:
+	callback.call(
+		_copy_signal_payload(old_value),
+		_copy_signal_payload(new_value)
+	)
 
 
 ## owner 仍有效且含有指定方法时，复制载荷并调用该方法。
 ## [br]
 ## @api private
-func _call_owner_method(owner_ref: WeakRef, method_name: StringName, old_value: Variant, new_value: Variant) -> void:
+func _call_owner_method(
+	owner_ref: WeakRef,
+	method_name: StringName,
+	old_value: Variant,
+	new_value: Variant
+) -> void:
 	var owner: Object = _get_live_owner_from_ref(owner_ref)
 	if owner == null or not owner.has_method(method_name):
 		return
-	var _callback_result: Variant = owner.callv(method_name, [
-		_copy_signal_payload(old_value),
-		_copy_signal_payload(new_value),
-	])
+	var _callback_result: Variant = owner.callv(
+		method_name,
+		[_copy_signal_payload(old_value), _copy_signal_payload(new_value),]
+	)
 
 
 ## 从弱引用中取得仍有效的 Object；引用无效时返回 null。
@@ -696,8 +784,15 @@ func _get_live_owner_from_ref(owner_ref: WeakRef) -> Object:
 ## [br]
 ## @api private
 func _remove_subscription_binding_by_signal_callable(signal_callable: Callable) -> void:
-	for i: int in range(_subscription_bindings.size() - 1, -1, -1):
-		if _get_binding_callable(_subscription_bindings[i], "signal_callable") == signal_callable:
+	for i: int in range(
+		_subscription_bindings.size() - 1,
+		-1,
+		-1
+	):
+		if _get_binding_callable(
+			_subscription_bindings[i],
+			"signal_callable"
+		) == signal_callable:
 			_subscription_bindings.remove_at(i)
 			return
 
@@ -727,7 +822,11 @@ func _disconnect_node_binding(node: Node, callable: Callable) -> void:
 
 	var binding: Dictionary = _node_bindings[binding_index]
 	var exit_callable: Callable = _get_binding_callable(binding, "exit_callable")
-	if is_instance_valid(node) and exit_callable.is_valid() and node.tree_exited.is_connected(exit_callable):
+	if (
+		is_instance_valid(node)
+		and exit_callable.is_valid()
+		and node.tree_exited.is_connected(exit_callable)
+	):
 		node.tree_exited.disconnect(exit_callable)
 	_node_bindings.remove_at(binding_index)
 
@@ -751,7 +850,11 @@ func _has_node_binding_for_callable(callable: Callable, prune_invalid: bool = tr
 ## @api private
 func _prune_invalid_node_bindings() -> void:
 	var pruned_callables: Array[Callable] = []
-	for i: int in range(_node_bindings.size() - 1, -1, -1):
+	for i: int in range(
+		_node_bindings.size() - 1,
+		-1,
+		-1
+	):
 		var binding: Dictionary = _node_bindings[i]
 		var node_ref: WeakRef = _get_binding_weak_ref(binding, "node_ref")
 		var tracked_node: Node = _INSTANCE_GUARD._get_live_node_from_ref(node_ref)
@@ -788,7 +891,11 @@ func _get_binding_weak_ref(binding: Dictionary, key: String) -> WeakRef:
 ## [br]
 ## @api private
 func _get_binding_callable(binding: Dictionary, key: String) -> Callable:
-	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(binding, key, Callable())
+	var raw_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		binding,
+		key,
+		Callable()
+	)
 	if raw_value is Callable:
 		var binding_callable: Callable = raw_value
 		return binding_callable

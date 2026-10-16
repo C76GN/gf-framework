@@ -123,10 +123,22 @@ func _is_state_active(state: GFNodeState, state_path: String) -> bool:
 	if normalized_path.contains("/"):
 		var machine: Object = state.get_machine()
 		if machine != null and machine.has_method("is_in_state"):
-			return GFVariantData.to_bool(machine.call("is_in_state", StringName(normalized_path)), false)
+			return GFVariantData.to_bool(
+				machine.call(
+					"is_in_state",
+					StringName(normalized_path)
+				),
+				false
+			)
 		return false
 
 	var group: Object = state.get_group()
 	if group != null and group.has_method("is_in_state"):
-		return GFVariantData.to_bool(group.call("is_in_state", StringName(normalized_path)), false)
+		return GFVariantData.to_bool(
+			group.call(
+				"is_in_state",
+				StringName(normalized_path)
+			),
+			false
+		)
 	return false

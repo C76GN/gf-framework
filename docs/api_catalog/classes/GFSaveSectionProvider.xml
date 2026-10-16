@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="b4f34ed4fe49bbc2b22274300ed9b02be1401207653b4fb1070713616b6e650c">
+<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="265efe1ef16868c06e2163bcff4f0737d051e6dc348bba6252f0800575b04f2a">
 	<description>GFSaveSectionProvider: Save Profile section 所有权协议。
 一个 provider 只拥有一个稳定 section。保存通过显式协作式 Snapshot Operation
 分片推进；读取应用与回滚快照保持独立协议。</description>
@@ -65,7 +65,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="begin_save_snapshot">
-			<signature>func begin_save_snapshot( context: Dictionary = {} ) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<signature>func begin_save_snapshot(context: Dictionary = {}) -&gt; GFSaveSectionSnapshotOperation:</signature>
 			<description>开始主线程协作式保存快照。
 begin 回调必须保持有界，只捕获稳定根引用或创建 Operation；大型数据应由
 Operation 的后续 slice 分片构造。返回的 Operation 会绑定当前 Provider 身份。</description>
@@ -127,7 +127,7 @@ Operation 的后续 slice 分片构造。返回的 Operation 会绑定当前 Pro
 			</tags>
 		</member>
 		<member kind="method" name="make_snapshot">
-			<signature>func make_snapshot( payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionSnapshot:</signature>
+			<signature>func make_snapshot(payload: Variant, metadata: Dictionary = {}) -&gt; GFSaveSectionSnapshot:</signature>
 			<description>接管纯数据并创建一次性 Snapshot。
 该方法不深复制数据；成功返回后调用方必须放弃 payload、metadata 及全部嵌套
 alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再调用本方法。</description>
@@ -142,7 +142,7 @@ alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再
 			</tags>
 		</member>
 		<member kind="method" name="make_completed_snapshot">
-			<signature>func make_completed_snapshot( payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<signature>func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -&gt; GFSaveSectionSnapshotOperation:</signature>
 			<description>创建已经完成的小型 Snapshot Operation。
 该便捷方法只适用于已经独占且可在固定成本内移交的数据；不得用它在 begin
 回调中同步构造大型对象图。</description>
@@ -157,7 +157,7 @@ alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再
 			</tags>
 		</member>
 		<member kind="method" name="_begin_save_snapshot">
-			<signature>func _begin_save_snapshot( _context: Dictionary = {} ) -&gt; GFSaveSectionSnapshotOperation:</signature>
+			<signature>func _begin_save_snapshot(_context: Dictionary = {}) -&gt; GFSaveSectionSnapshotOperation:</signature>
 			<description>创建协作式保存 Snapshot Operation。返回 null 表示失败。</description>
 			<tags>
 				<tag name="api">protected</tag>

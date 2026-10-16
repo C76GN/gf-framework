@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRectPacking2D" path="addons/gf/standard/foundation/math/gf_rect_packing_2d.gd" module="standard" extends="RefCounted" classDigest="27f6e80d3d523496b65b576b961161a5d6e1d55373eefb26e95f4ec1856fc987">
+<class name="GFRectPacking2D" path="addons/gf/standard/foundation/math/gf_rect_packing_2d.gd" module="standard" extends="RefCounted" classDigest="3678f35f0cf9101e61269e9368d4cd83089505646dd64bf578be325ea050100b">
 	<description>GFRectPacking2D: 通用 2D 矩形打包算法。
 使用 MaxRects 风格的空闲矩形拆分，将一组矩形尺寸放入固定容器或自动求解正方形容器。
 它只计算 Rect2i 放置结果，不创建 Texture、Material、Node 或图集资源。</description>
@@ -52,7 +52,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="normalize_placements">
-			<signature>static func normalize_placements( placements: Array[Rect2i], container_size: Vector2i ) -&gt; Array[Rect2]:</signature>
+			<signature>static func normalize_placements(placements: Array[Rect2i], container_size: Vector2i) -&gt; Array[Rect2]:</signature>
 			<description>将像素 Rect2i 放置结果归一化为 0 到 1 的 Rect2。</description>
 			<tags>
 				<tag name="api">public</tag>

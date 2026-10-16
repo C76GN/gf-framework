@@ -79,7 +79,11 @@ func _exit_tree() -> void:
 func show_paths(paths: PackedStringArray, context: GFEditorToolContext) -> Dictionary:
 	if has_unsaved_changes():
 		_status.text = "当前表格有未保存修改；请先保存或使用 Undo 恢复后再更换选择。"
-		return {"loaded_count": _resources.size(), "group_count": _tabs.get_child_count(), "rejected_paths": paths}
+		return {
+			"loaded_count": _resources.size(),
+			"group_count": _tabs.get_child_count(),
+			"rejected_paths": paths,
+		}
 	_clear_resources()
 	set_editor_context(context)
 	for child: Node in _tabs.get_children():
@@ -101,7 +105,10 @@ func show_paths(paths: PackedStringArray, context: GFEditorToolContext) -> Dicti
 			history_id = manager.get_object_history_id(resource)
 		var script: Script = resource.get_script()
 		var resource_type: String = script.resource_path if script != null else resource.get_class()
-		var group_key: String = "%d:%s" % [history_id, resource_type]
+		var group_key: String = (
+			"%d:%s"
+			% [history_id, resource_type]
+		)
 		var group: Array[Resource] = []
 		if groups.has(group_key):
 			group.assign(groups[group_key])
@@ -114,16 +121,30 @@ func show_paths(paths: PackedStringArray, context: GFEditorToolContext) -> Dicti
 		var group: Array[Resource] = []
 		group.assign(groups[group_key])
 		var table: GFResourceTableEditor = GFResourceTableEditor.new()
-		table.name = "组 %d · %d 项" % [_tabs.get_child_count() + 1, group.size()]
+		table.name = (
+			"组 %d · %d 项"
+			% [_tabs.get_child_count() + 1, group.size()]
+		)
 		table.set_editor_context(context)
 		table.auto_save_committed_resources = false
 		table.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		_tabs.add_child(table)
 		table.load_resources(group)
-	_status.text = "%d 个源资源，%d 个独立 Undo 分组。跳过 %d 项；每组独立撤销，磁盘保存逐文件执行。" % [_resources.size(), groups.size(), rejected.size()]
+	_status.text = (
+		"%d 个源资源，%d 个独立 Undo 分组。跳过 %d 项；每组独立撤销，磁盘保存逐文件执行。"
+		% [
+			_resources.size(),
+			groups.size(),
+			rejected.size(),
+		]
+	)
 	if not rejected.is_empty():
 		_status.text += "\n只读或不支持：" + ", ".join(rejected)
-	return {"loaded_count": _resources.size(), "group_count": groups.size(), "rejected_paths": rejected}
+	return {
+		"loaded_count": _resources.size(),
+		"group_count": groups.size(),
+		"rejected_paths": rejected,
+	}
 
 
 ## 检查当前受管源资源是否与读取或最近成功保存的字段状态不同。
@@ -167,7 +188,13 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ## [br]
 ## @return 是否允许进入保存流程。
 static func is_editable_source_path(path: String) -> bool:
-	return path.begins_with("res://") and not path.contains("::") and not path.contains("..") and path.get_extension().to_lower() in ["tres", "res"] and not FileAccess.file_exists(path + ".import")
+	return (
+		path.begins_with("res://")
+		and not path.contains("::")
+		and not path.contains("..")
+		and path.get_extension().to_lower() in ["tres", "res"]
+		and not FileAccess.file_exists(path + ".import")
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -217,7 +244,10 @@ func _save_resources() -> void:
 		else:
 			_saved_values[resource.get_instance_id()] = _fingerprint(resource)
 			saved_count += 1
-	_status.text = "已保存 %d 项；失败 %d 项。磁盘保存不随属性 Undo 自动撤销。" % [saved_count, failures.size()]
+	_status.text = (
+		"已保存 %d 项；失败 %d 项。磁盘保存不随属性 Undo 自动撤销。"
+		% [saved_count, failures.size()]
+	)
 	if not failures.is_empty():
 		_status.text += "\n" + "\n".join(failures)
 
@@ -232,4 +262,7 @@ func _on_resource_changed() -> void:
 	for resource: Resource in _resources:
 		if _saved_values.get(resource.get_instance_id()) != _fingerprint(resource):
 			dirty_count += 1
-	_status.text = "%d / %d 个源资源与本次读取或保存状态不同；请显式保存。不同页签独立 Undo。" % [dirty_count, _resources.size()]
+	_status.text = (
+		"%d / %d 个源资源与本次读取或保存状态不同；请显式保存。不同页签独立 Undo。"
+		% [dirty_count, _resources.size()]
+	)

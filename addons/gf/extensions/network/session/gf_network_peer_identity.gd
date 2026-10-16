@@ -147,7 +147,10 @@ func has_capability(capability_id: StringName) -> bool:
 ## @return 身份 key；优先使用 platform_id:platform_user_id，缺失时回退到 peer:<peer_id>。
 func get_stable_key() -> String:
 	if platform_id != &"" and not platform_user_id.is_empty():
-		return "%s:%s" % [String(platform_id), platform_user_id]
+		return (
+			"%s:%s"
+			% [String(platform_id), platform_user_id]
+		)
 	if peer_id >= 0:
 		return "peer:%d" % peer_id
 	return ""
@@ -184,7 +187,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary with peer_id, platform_id, platform_user_id, display_name, avatar_uri, capabilities, and metadata.
 func apply_dict(data: Dictionary) -> void:
-	peer_id = GFVariantData.get_option_int(data, "peer_id", -1)
+	peer_id = GFVariantData.get_option_int(
+		data,
+		"peer_id",
+		-1
+	)
 	platform_id = GFVariantData.get_option_string_name(data, "platform_id")
 	platform_user_id = GFVariantData.get_option_string(data, "platform_user_id").strip_edges()
 	display_name = GFVariantData.get_option_string(data, "display_name").strip_edges()

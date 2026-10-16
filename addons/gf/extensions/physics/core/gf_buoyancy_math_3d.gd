@@ -29,13 +29,21 @@ extends RefCounted
 ## [br]
 ## @return: 0 到 1 的浸没比例；端点计算不依赖 `2 * immersion_radius`，输入无效时返回 0。
 static func calculate_submersion_ratio(signed_depth: float, immersion_radius: float) -> float:
-	if not _is_finite_float(signed_depth) or not _is_finite_float(immersion_radius) or immersion_radius <= 0.0:
+	if (
+		not _is_finite_float(signed_depth)
+		or not _is_finite_float(immersion_radius)
+		or immersion_radius <= 0.0
+	):
 		return 0.0
 	if signed_depth <= -immersion_radius:
 		return 0.0
 	if signed_depth >= immersion_radius:
 		return 1.0
-	return clampf(0.5 + 0.5 * (signed_depth / immersion_radius), 0.0, 1.0)
+	return clampf(
+		0.5 + 0.5 * (signed_depth / immersion_radius),
+		0.0,
+		1.0
+	)
 
 
 ## 计算一个采样点的阿基米德浮力。
@@ -68,7 +76,11 @@ static func calculate_buoyancy_force(
 		or displaced_volume <= 0.0
 	):
 		return Vector3.ZERO
-	var ratio: float = clampf(submersion_ratio, 0.0, 1.0)
+	var ratio: float = clampf(
+		submersion_ratio,
+		0.0,
+		1.0
+	)
 	var force: Vector3 = -gravity_acceleration * fluid_density * displaced_volume * ratio
 	return force if _is_finite_vector3(force) else Vector3.ZERO
 
@@ -104,16 +116,17 @@ static func calculate_drag_force(
 		or not _is_finite_float(submersion_ratio)
 	):
 		return Vector3.ZERO
-	var ratio: float = clampf(submersion_ratio, 0.0, 1.0)
+	var ratio: float = clampf(
+		submersion_ratio,
+		0.0,
+		1.0
+	)
 	var linear_drag: float = maxf(linear_coefficient, 0.0)
 	var quadratic_drag: float = maxf(quadratic_coefficient, 0.0)
 	var speed: float = relative_velocity.length()
 	if not _is_finite_float(speed):
 		return Vector3.ZERO
-	var force: Vector3 = -(
-		relative_velocity * linear_drag
-		+ relative_velocity * speed * quadratic_drag
-	) * ratio
+	var force: Vector3 = -(relative_velocity * linear_drag + relative_velocity * speed * quadratic_drag) * ratio
 	return force if _is_finite_vector3(force) else Vector3.ZERO
 
 
@@ -181,4 +194,8 @@ static func _is_finite_float(value: float) -> bool:
 ## @api private
 ## [br]
 static func _is_finite_vector3(value: Vector3) -> bool:
-	return _is_finite_float(value.x) and _is_finite_float(value.y) and _is_finite_float(value.z)
+	return (
+		_is_finite_float(value.x)
+		and _is_finite_float(value.y)
+		and _is_finite_float(value.z)
+	)

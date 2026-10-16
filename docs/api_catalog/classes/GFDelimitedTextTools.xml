@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDelimitedTextTools" path="addons/gf/standard/foundation/text/gf_delimited_text_tools.gd" module="standard" extends="RefCounted" classDigest="6876ff8c098829e7ff90ab73858a542dc47ef1a0dc22b1c69a54ab910f8553fa">
+<class name="GFDelimitedTextTools" path="addons/gf/standard/foundation/text/gf_delimited_text_tools.gd" module="standard" extends="RefCounted" classDigest="2c27c6c9af0a60a6cf23a8b34f5275906ab6bd42e67146f0b9b7cf062a8953e1">
 	<description>GFDelimitedTextTools: 顶层分隔符扫描工具。
 用于把函数参数、轻量命令或配置片段按分隔符拆分，同时忽略引号与括号内的分隔符。
 该类只做纯文本扫描，不解释 SQL、表达式、对象方法或项目业务语义。</description>
@@ -55,7 +55,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="find_top_level_delimiters">
-			<signature>static func find_top_level_delimiters(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func find_top_level_delimiters( text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>查找顶层分隔符位置。
 分隔符只有在不处于 quote_chars 或 pairs 管理的嵌套区间内时才会被记录。</description>
 			<tags>
@@ -70,7 +70,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="split_top_level">
-			<signature>static func split_top_level(text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func split_top_level( text: String, delimiter: String = _DEFAULT_DELIMITER, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>按顶层分隔符拆分文本。
 分隔符出现在引号、圆括号、方括号或花括号内时不会触发拆分。调用方可通过 pairs 或
 quote_chars 改写扫描规则。</description>

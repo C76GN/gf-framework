@@ -90,6 +90,7 @@ var _service_generation: int = 0
 func get_service_generation() -> int:
 	return _service_generation
 
+
 ## 获取资源实例。
 ## [br]
 ## @api public
@@ -153,6 +154,7 @@ func release() -> bool:
 func bind_service_retention(retention: GFResourceServiceReservation) -> void:
 	_service_retention = retention
 	_service_generation = retention.get_generation() if retention != null else 0
+
 
 ## 绑定句柄到创建它的资源加载工具。
 ## [br]

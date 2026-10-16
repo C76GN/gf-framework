@@ -69,19 +69,37 @@ static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GF
 	var record_error: String = _RECORDS_SCRIPT.validate_numeric(properties)
 	if not record_error.is_empty():
 		return _reject(timeline, record_error)
-	if not _only_keys(definition, ["steps", "loop_count", "duration_scale", "ping_pong"]):
+	if not _only_keys(
+		definition,
+		[
+			"steps",
+			"loop_count",
+			"duration_scale",
+			"ping_pong",
+		]
+	):
 		return _reject(timeline, "Unknown timeline fields.")
 	var steps_value: Variant = definition.get("steps")
 	var loops_value: Variant = definition.get("loop_count", 1)
 	var scale_value: Variant = definition.get("duration_scale", 1.0)
 	var ping_value: Variant = definition.get("ping_pong", false)
-	if not (steps_value is Array) or not (loops_value is int) or not (ping_value is bool):
+	if (
+		not (steps_value is Array)
+		or not (loops_value is int)
+		or not (ping_value is bool)
+	):
 		return _reject(timeline, "Steps, loop count or ping-pong have invalid types.")
 	var source_steps: Array = steps_value
 	var loops: int = loops_value
 	var scale: float = _number(scale_value)
 	var ping_pong: bool = ping_value
-	if source_steps.is_empty() or source_steps.size() > 128 or loops < 1 or loops > 32 or source_steps.size() * loops > 4096:
+	if (
+		source_steps.is_empty()
+		or source_steps.size() > 128
+		or loops < 1
+		or loops > 32
+		or source_steps.size() * loops > 4096
+	):
 		return _reject(timeline, "Numeric timeline exceeds its step or loop budget.")
 	if not is_finite(scale) or scale < 0.0:
 		return _reject(timeline, "Duration scale must be finite and nonnegative.")
@@ -94,31 +112,69 @@ static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GF
 		if not (value is Dictionary):
 			return _reject(timeline, "Steps must be dictionaries.")
 		var step: Dictionary = value
-		if not _only_keys(step, ["property_name", "target_value", "duration", "delay", "as_relative", "parallel", "transition_type", "ease_type", "easing_curve_data"]):
+		if not _only_keys(
+			step,
+			[
+				"property_name",
+				"target_value",
+				"duration",
+				"delay",
+				"as_relative",
+				"parallel",
+				"transition_type",
+				"ease_type",
+				"easing_curve_data",
+			]
+		):
 			return _reject(timeline, "Unknown numeric step fields.")
 		if not (step.get("property_name") is NodePath):
 			return _reject(timeline, "Numeric property_name must be a NodePath.")
 		var path: NodePath = step["property_name"]
-		if not baseline.has(String(path)) or not (step.get("target_value") is int or step.get("target_value") is float):
+		if (
+			not baseline.has(String(path))
+			or not (
+				step.get("target_value") is int
+				or step.get("target_value") is float
+			)
+		):
 			return _reject(timeline, "Numeric steps require a declared direct root property and numeric endpoint.")
 		var copied: Dictionary = {
-			"property_name": path, "target_value": step["target_value"],
-			"duration": step.get("duration", 0.2), "delay": step.get("delay", 0.0),
-			"as_relative": step.get("as_relative", false), "parallel": step.get("parallel", false),
-			"transition_type": step.get("transition_type", Tween.TRANS_CUBIC), "ease_type": step.get("ease_type", Tween.EASE_OUT),
+			"property_name": path,
+			"target_value": step["target_value"],
+			"duration": step.get("duration", 0.2),
+			"delay": step.get("delay", 0.0),
+			"as_relative": step.get("as_relative", false),
+			"parallel": step.get("parallel", false),
+			"transition_type": step.get("transition_type", Tween.TRANS_CUBIC),
+			"ease_type": step.get("ease_type", Tween.EASE_OUT),
 			"easing_curve_data": step.get("easing_curve_data", {}),
 		}
 		var curve_value: Variant = copied["easing_curve_data"]
 		if not (curve_value is Dictionary):
 			return _reject(timeline, "Curve data must be a pure dictionary.")
 		var curve_data: Dictionary = curve_value
-		if not _only_keys(curve_data, ["positions", "tangents", "modes", "bake_resolution", "value_range"]):
+		if not _only_keys(
+			curve_data,
+			[
+				"positions",
+				"tangents",
+				"modes",
+				"bake_resolution",
+				"value_range",
+			]
+		):
 			return _reject(timeline, "Unknown curve fields.")
 		conservative_seconds += (_number(copied["duration"]) + _number(copied["delay"])) * scale
-		if not is_finite(conservative_seconds) or conservative_seconds * float(loops) * (2.0 if ping_pong else 1.0) > 120.0:
+		if (not is_finite(conservative_seconds) or conservative_seconds * float(loops) * (2.0 if ping_pong else 1.0) > 120.0):
 			return _reject(timeline, "Numeric timeline exceeds 120 seconds.")
 		data.append(copied)
-	var plan: GFTweenPlaybackPlan = _PLAN_SCRIPT.capture_data(data, baseline, loops, scale, ping_pong)
+	var plan: GFTweenPlaybackPlan = _PLAN_SCRIPT.capture_data(
+		data,
+		baseline,
+		loops,
+		scale,
+		ping_pong
+	)
 	if not plan.error.is_empty():
 		return _reject(timeline, plan.error)
 	for record: Dictionary in properties:
@@ -127,8 +183,15 @@ static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GF
 		# Unused declared properties retain their baseline and still participate in samples.
 		if envelope.is_empty() and not plan.initial_values.has(name_text):
 			continue
-		if envelope.size() != 2 or envelope[0] < _number(record["minimum"]) or envelope[1] > _number(record["maximum"]):
-			return _reject(timeline, "Interpolation exceeds the hard envelope for %s." % name_text)
+		if (
+			envelope.size() != 2
+			or envelope[0] < _number(record["minimum"])
+			or envelope[1] > _number(record["maximum"])
+		):
+			return _reject(
+				timeline,
+				"Interpolation exceeds the hard envelope for %s." % name_text
+			)
 	timeline._records = properties.duplicate(true)
 	timeline._plan = plan
 	return timeline
@@ -197,7 +260,11 @@ func sample(time_seconds: float) -> Dictionary:
 		if sampled.has(name_text):
 			values[name_text] = sampled[name_text]
 		var number: float = _number(values[name_text])
-		if not is_finite(number) or number < _number(record["minimum"]) or number > _number(record["maximum"]):
+		if (
+			not is_finite(number)
+			or number < _number(record["minimum"])
+			or number > _number(record["maximum"])
+		):
 			return {}
 	return values
 

@@ -43,14 +43,22 @@ var _status: Label = null
 func _ready() -> void:
 	_WORKSPACE_UI_SCRIPT.apply_page_root(self)
 	_actions = _ACTIONS_SCRIPT.new()
-	var create_button: Button = _WORKSPACE_UI_SCRIPT.make_button("创建 Tween 配置…", "选择项目内保存位置，然后在 Inspector 编辑步骤。", _on_create_pressed)
+	var create_button: Button = _WORKSPACE_UI_SCRIPT.make_button(
+		"创建 Tween 配置…",
+		"选择项目内保存位置，然后在 Inspector 编辑步骤。",
+		_on_create_pressed
+	)
 	add_child(create_button)
 	_picker = EditorResourcePicker.new()
 	_picker.base_type = "GFTweenActionConfig"
 	_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_picker)
 	var _selected_connected: int = _picker.resource_selected.connect(_on_resource_selected)
-	var open_button: Button = _WORKSPACE_UI_SCRIPT.make_button("在 Inspector 打开", "", _on_open_pressed)
+	var open_button: Button = _WORKSPACE_UI_SCRIPT.make_button(
+		"在 Inspector 打开",
+		"",
+		_on_open_pressed
+	)
 	add_child(open_button)
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -80,9 +88,17 @@ func _exit_tree() -> void:
 ## @schema return: Dictionary，ok: bool、status: String（dialog_opened 或 unavailable）、message: String（可读说明）。
 func run_workspace_task(action_id: String) -> Dictionary:
 	if action_id != "new_resource" or _actions == null:
-		return {"ok": false, "status": "unavailable", "message": "Tween 创建入口当前不可用；请重新打开工作区后重试。"}
+		return {
+			"ok": false,
+			"status": "unavailable",
+			"message": "Tween 创建入口当前不可用；请重新打开工作区后重试。",
+		}
 	_actions.handle_menu_action(&"create_tween_config")
-	return {"ok": true, "status": "dialog_opened", "message": "已打开 Tween 配置创建窗口；确认保存位置后创建。"}
+	return {
+		"ok": true,
+		"status": "dialog_opened",
+		"message": "已打开 Tween 配置创建窗口；确认保存位置后创建。",
+	}
 
 
 # --- 信号处理函数 ---

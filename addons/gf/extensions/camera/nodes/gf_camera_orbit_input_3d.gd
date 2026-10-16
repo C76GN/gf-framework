@@ -269,15 +269,24 @@ func process_input(delta: float) -> bool:
 	if input_mapping == null:
 		return false
 
-	var safe_delta: float = maxf(_GF_CAMERA_FINITE_MATH.sanitize_float(delta, 0.0), 0.0)
+	var safe_delta: float = maxf(
+		_GF_CAMERA_FINITE_MATH.sanitize_float(delta, 0.0),
+		0.0
+	)
 	var applied: bool = false
 	var orbit_value: Vector2 = input_mapping.get_action_vector(orbit_action_id)
 	if orbit_value != Vector2.ZERO:
-		applied = apply_orbit_vector(orbit_value, orbit_degrees_per_second * safe_delta) or applied
+		applied = apply_orbit_vector(
+			orbit_value,
+			orbit_degrees_per_second * safe_delta
+		) or applied
 
 	var zoom_value: float = _coerce_zoom_value(input_mapping.get_action_value(zoom_action_id))
 	if not is_zero_approx(zoom_value):
-		applied = apply_zoom_value(zoom_value, zoom_units_per_second * safe_delta) or applied
+		applied = apply_zoom_value(
+			zoom_value,
+			zoom_units_per_second * safe_delta
+		) or applied
 	return applied
 
 
@@ -294,7 +303,11 @@ func apply_orbit_vector(value: Vector2, scale: float = 1.0) -> bool:
 	var rig: GFCameraOrbitRig3D = get_orbit_rig()
 	if rig == null:
 		return false
-	return _apply_orbit_vector_to_rig(rig, value, scale)
+	return _apply_orbit_vector_to_rig(
+		rig,
+		value,
+		scale
+	)
 
 
 ## 应用一维缩放输入。
@@ -340,20 +353,33 @@ func get_debug_snapshot() -> Dictionary:
 	for action_id: String in missing_actions:
 		missing_action_values.append(action_id)
 	var captured_rig: GFCameraOrbitRig3D = _get_captured_mouse_orbit_rig()
-	return GFReportValueCodec.to_report_dictionary({
-		"enabled": enabled,
-		"update_mode": update_mode,
-		"use_input_mapping": use_input_mapping,
-		"orbit_action_id": String(orbit_action_id),
-		"zoom_action_id": String(zoom_action_id),
-		"has_rig": get_orbit_rig() != null,
-		"has_input_mapping": input_mapping != null,
-		"input_mapping_missing": use_input_mapping and input_mapping == null,
-		"missing_actions": missing_action_values,
-		"mouse_orbit_captured": captured_rig != null,
-		"mouse_orbit_capture_generation": _mouse_orbit_capture_generation,
-		"ready": enabled and get_orbit_rig() != null and (not use_input_mapping or (input_mapping != null and missing_actions.is_empty())),
-	}, GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG))
+	return GFReportValueCodec.to_report_dictionary(
+		{
+			"enabled": enabled,
+			"update_mode": update_mode,
+			"use_input_mapping": use_input_mapping,
+			"orbit_action_id": String(orbit_action_id),
+			"zoom_action_id": String(zoom_action_id),
+			"has_rig": get_orbit_rig() != null,
+			"has_input_mapping": input_mapping != null,
+			"input_mapping_missing": use_input_mapping and input_mapping == null,
+			"missing_actions": missing_action_values,
+			"mouse_orbit_captured": captured_rig != null,
+			"mouse_orbit_capture_generation": _mouse_orbit_capture_generation,
+			"ready": (
+				enabled
+				and get_orbit_rig() != null
+				and (
+					not use_input_mapping
+					or (
+						input_mapping != null
+						and missing_actions.is_empty()
+					)
+				)
+			),
+		},
+		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -570,8 +596,16 @@ func _get_missing_action_ids(input_mapping: GFInputMappingUtility) -> PackedStri
 	var result: PackedStringArray = PackedStringArray()
 	if not use_input_mapping:
 		return result
-	_append_missing_action_id(result, input_mapping, orbit_action_id)
-	_append_missing_action_id(result, input_mapping, zoom_action_id)
+	_append_missing_action_id(
+		result,
+		input_mapping,
+		orbit_action_id
+	)
+	_append_missing_action_id(
+		result,
+		input_mapping,
+		zoom_action_id
+	)
 	return result
 
 

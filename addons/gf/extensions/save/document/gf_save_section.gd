@@ -102,16 +102,8 @@ func configure(
 	_schema_version = schema_version
 	_payload_admission_failure = _get_persisted_admission_failure(payload)
 	_metadata_admission_failure = _get_persisted_admission_failure(metadata)
-	_payload = (
-		null
-		if not _payload_admission_failure.is_empty()
-		else GFVariantData.duplicate_variant(payload)
-	)
-	_metadata = (
-		{}
-		if not _metadata_admission_failure.is_empty()
-		else metadata.duplicate(true)
-	)
+	_payload = (null if not _payload_admission_failure.is_empty() else GFVariantData.duplicate_variant(payload))
+	_metadata = ({} if not _metadata_admission_failure.is_empty() else metadata.duplicate(true))
 	return self
 
 
@@ -204,12 +196,16 @@ func validate_section() -> Dictionary:
 		&"invalid_section_metadata",
 		_metadata_admission_failure
 	)
-	return GFValidationReportDictionary.finalize_report(report, "Save section", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-		"fallback_action": "Review the first save section issue.",
-		"no_action": "Save section is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save section",
+		{
+			"include_issue_count": true,
+			"next_actions": _get_validation_next_actions(),
+			"fallback_action": "Review the first save section issue.",
+			"no_action": "Save section is valid.",
+		}
+	)
 
 
 ## 转换为规范持久化字典。
@@ -238,11 +234,13 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @return 分区副本。
 func duplicate_section() -> GFSaveSection:
-	return GFSaveSection.new().configure(
-		_section_id,
-		_schema_version,
-		_payload,
-		_metadata
+	return (
+		GFSaveSection.new().configure(
+			_section_id,
+			_schema_version,
+			_payload,
+			_metadata
+		)
 	)
 
 
@@ -290,32 +288,40 @@ static func from_dict(data: Dictionary) -> GFSaveSection:
 			return null
 	var section_id_value: Variant = GFVariantData.get_option_value(data, "section_id")
 	if (
-		typeof(section_id_value) != TYPE_STRING
-		and typeof(section_id_value) != TYPE_STRING_NAME
-	) or GFVariantData.to_text(section_id_value).is_empty():
+		(
+			typeof(section_id_value) != TYPE_STRING
+			and typeof(section_id_value) != TYPE_STRING_NAME
+		)
+		or GFVariantData.to_text(section_id_value).is_empty()
+	):
 		return null
 	var schema_version_value: Variant = GFVariantData.get_option_value(data, "schema_version")
-	if (
-		not GFVariantData.is_exact_integer(schema_version_value)
-		or GFVariantData.to_exact_int(schema_version_value) <= 0
-	):
+	if (not GFVariantData.is_exact_integer(schema_version_value) or GFVariantData.to_exact_int(schema_version_value) <= 0):
 		return null
 	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata")
 	if not metadata_value is Dictionary:
 		return null
-	var payload_validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(
-		GFVariantData.get_option_value(data, "payload")
-	)
-	if not GFVariantData.get_option_bool(payload_validation, "ok", false):
+	var payload_validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(GFVariantData.get_option_value(data, "payload"))
+	if not GFVariantData.get_option_bool(
+		payload_validation,
+		"ok",
+		false
+	):
 		return null
 	var metadata_validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(metadata_value)
-	if not GFVariantData.get_option_bool(metadata_validation, "ok", false):
+	if not GFVariantData.get_option_bool(
+		metadata_validation,
+		"ok",
+		false
+	):
 		return null
-	return GFSaveSection.new().configure(
-		GFVariantData.to_string_name(section_id_value),
-		GFVariantData.to_exact_int(schema_version_value),
-		GFVariantData.get_option_value(data, "payload"),
-		GFVariantData.as_dictionary(metadata_value)
+	return (
+		GFSaveSection.new().configure(
+			GFVariantData.to_string_name(section_id_value),
+			GFVariantData.to_exact_int(schema_version_value),
+			GFVariantData.get_option_value(data, "payload"),
+			GFVariantData.as_dictionary(metadata_value)
+		)
 	)
 
 
@@ -332,21 +338,30 @@ func _append_persisted_value_issue(
 	issue_kind: StringName,
 	admission_failure: Dictionary = {}
 ) -> void:
-	var validation: Dictionary = (
-		admission_failure
-		if not admission_failure.is_empty()
-		else _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
-	)
-	if GFVariantData.get_option_bool(validation, "ok", false):
+	var validation: Dictionary = (admission_failure if not admission_failure.is_empty() else _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value))
+	if GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	):
 		return
-	var nested_path: String = GFVariantData.get_option_string(validation, "path", "$")
+	var nested_path: String = GFVariantData.get_option_string(
+		validation,
+		"path",
+		"$"
+	)
 	var _persisted_issue: Variant = GFValidationReportDictionary.append_issue(
 		report,
 		"error",
 		issue_kind,
-		GFVariantData.get_option_string(validation, "error", "Value cannot be persisted."),
+		GFVariantData.get_option_string(
+			validation,
+			"error",
+			"Value cannot be persisted."
+		),
 		{
-			"path": "%s%s" % [field_path, nested_path.trim_prefix("$")],
+			"path": "%s%s"
+			% [field_path, nested_path.trim_prefix("$")],
 			"value_type": GFVariantData.get_option_string(validation, "value_type"),
 		}
 	)
@@ -358,7 +373,11 @@ func _append_persisted_value_issue(
 ## [br]
 func _get_persisted_admission_failure(value: Variant) -> Dictionary:
 	var validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
-	return {} if GFVariantData.get_option_bool(validation, "ok", false) else validation
+	return {} if GFVariantData.get_option_bool(
+		validation,
+		"ok",
+		false
+	) else validation
 
 
 ## 返回分区校验问题对应的后续操作建议。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnPhase" path="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" module="extensions/turn_based" extends="Resource" classDigest="c01795f933ac9204afc1a728c29fb744cf9e57c4219cf21853cc6da257cb4333">
+<class name="GFTurnPhase" path="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" module="extensions/turn_based" extends="Resource" classDigest="5ba5ae52dfc23bfc7db543bbe2528b881f51882e33b267d4d82f56edbf6ad267">
 	<description>GFTurnPhase: 通用回合阶段基类。
 阶段只提供 _enter/_execute/_exit 生命周期和完成信号，
 不绑定任何具体游戏流程。</description>
@@ -55,7 +55,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_execute">
-			<signature>func _execute( _context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle ) -&gt; Variant:</signature>
+			<signature>func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -&gt; Variant:</signature>
 			<description>执行阶段逻辑时由 GFTurnFlowSystem 调用。</description>
 			<tags>
 				<tag name="api">protected</tag>

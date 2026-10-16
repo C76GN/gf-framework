@@ -169,10 +169,7 @@ func to_dictionary() -> Dictionary:
 ## @param result_message: 面向开发者的结果说明。
 ## [br]
 ## @return: UNSUPPORTED 状态结果。
-static func unsupported(
-	reason_id: StringName,
-	result_message: String
-) -> GFAudioPlaybackRegionResult:
+static func unsupported(reason_id: StringName, result_message: String) -> GFAudioPlaybackRegionResult:
 	var result: GFAudioPlaybackRegionResult = GFAudioPlaybackRegionResult.new()
 	result.status = Status.UNSUPPORTED
 	result.reason = reason_id
@@ -217,9 +214,19 @@ static func _normalize_reason(value: StringName) -> StringName:
 	for index: int in range(text.length()):
 		var codepoint: int = text.unicode_at(index)
 		var allowed: bool = (
-			(codepoint >= 48 and codepoint <= 57)
-			or (codepoint >= 97 and codepoint <= 122)
-			or codepoint in [45, 46, 95]
+			(
+				codepoint >= 48
+				and codepoint <= 57
+			)
+			or (
+				codepoint >= 97
+				and codepoint <= 122
+			)
+			or codepoint in [
+				45,
+				46,
+				95,
+			]
 		)
 		if not allowed:
 			return &"invalid_reason"

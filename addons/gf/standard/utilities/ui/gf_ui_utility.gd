@@ -46,27 +46,41 @@ signal navigation_changed(layer: int, top_panel: Node)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param panel: 请求关闭的面板。
 ## [br]
 ## @param layer: 所在层级。
 ## [br]
 ## @param reason: 关闭原因。
-signal panel_dismiss_requested(panel: Node, layer: int, reason: String)
+signal panel_dismiss_requested(
+	panel: Node,
+	layer: int,
+	reason: String
+)
 
 ## 异步面板加载请求开始时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param path: 面板场景路径。
 ## [br]
 ## @param layer: 目标层级。
 ## [br]
 ## @param operation: 打开操作，可能为 push 或 replace。
-signal panel_async_load_started(path: String, layer: int, operation: StringName)
+signal panel_async_load_started(
+	path: String,
+	layer: int,
+	operation: StringName
+)
 
 ## 异步面板加载请求结束时发出。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param path: 面板场景路径。
 ## [br]
@@ -77,7 +91,13 @@ signal panel_async_load_started(path: String, layer: int, operation: StringName)
 ## @param status: 结束状态，使用 AsyncPanelLoadStatus。
 ## [br]
 ## @param panel: 成功打开的面板；失败或取消时为 null。
-signal panel_async_load_finished(path: String, layer: int, operation: StringName, status: int, panel: Node)
+signal panel_async_load_finished(
+	path: String,
+	layer: int,
+	operation: StringName,
+	status: int,
+	panel: Node
+)
 
 
 # --- 枚举 ---
@@ -97,6 +117,7 @@ enum Layer {
 	TOP = 2,
 }
 
+
 ## 面板交互模式。
 ## [br]
 ## @api public
@@ -106,6 +127,7 @@ enum PanelMode {
 	## Modal 面板，通常会独占当前交互焦点。
 	MODAL,
 }
+
 
 ## 异步面板加载结束状态。
 ## [br]
@@ -461,14 +483,9 @@ func push_panel_async_with_options(
 			layer,
 			pending_serial
 		)
-		var pending_operation: GFUIPanelAsyncOperation = (
-			_get_async_panel_operation_from_request(pending_request_key)
-		)
+		var pending_operation: GFUIPanelAsyncOperation = _get_async_panel_operation_from_request(pending_request_key)
 		if pending_operation != null:
-			if not _connect_async_panel_completion_callback(
-				pending_operation,
-				completion_callback
-			):
+			if not _connect_async_panel_completion_callback(pending_operation, completion_callback):
 				push_error("[GFUIUtility][ui_utility.panel_terminal_connect_failed] Cannot connect the asynchronous panel request terminal callback.")
 			return pending_operation
 		var _stale_push_erased: bool = _pending_async_push_serials.erase(request_key)
@@ -507,7 +524,12 @@ func push_panel_async_with_options(
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
 		push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
-		var fallback_panel: Node = push_panel_with_options(path, layer, options, config_callback)
+		var fallback_panel: Node = push_panel_with_options(
+			path,
+			layer,
+			options,
+			config_callback
+		)
 		_clear_pending_async_push(request_key, request_serial)
 		_finish_async_panel_request(
 			async_request_key,
@@ -523,19 +545,40 @@ func push_panel_async_with_options(
 
 		var scene: PackedScene = _get_packed_scene(res)
 		if scene == null:
-			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
+			_finish_async_panel_request(
+				async_request_key,
+				AsyncPanelLoadStatus.FAILED,
+				null
+			)
 			push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: %s." % path)
 			return
 
 		var panel_instance: Node = scene.instantiate()
-		if _add_panel_instance(panel_instance, layer, config_callback, options):
-			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.OPENED, panel_instance)
+		if _add_panel_instance(
+			panel_instance,
+			layer,
+			config_callback,
+			options
+		):
+			_finish_async_panel_request(
+				async_request_key,
+				AsyncPanelLoadStatus.OPENED,
+				panel_instance
+			)
 		else:
-			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
+			_finish_async_panel_request(
+				async_request_key,
+				AsyncPanelLoadStatus.FAILED,
+				null
+			)
 			if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 				panel_instance.queue_free()
 
-	asset_util.load_async(path, on_loaded, "PackedScene")
+	asset_util.load_async(
+		path,
+		on_loaded,
+		"PackedScene"
+	)
 	return operation_handle
 
 
@@ -552,8 +595,17 @@ func push_panel_async_with_options(
 ## @param config_callback: 实例化后、入栈前的可选配置回调。
 ## [br]
 ## @return 成功时返回面板实例，失败时返回 `null`。
-func push_panel(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
-	return push_panel_with_options(path, layer, {}, config_callback)
+func push_panel(
+	path: String,
+	layer: int = Layer.POPUP,
+	config_callback: Callable = Callable()
+) -> Node:
+	return push_panel_with_options(
+		path,
+		layer,
+		{},
+		config_callback
+	)
 
 
 ## 同步压入一个带策略选项的面板场景。
@@ -585,7 +637,12 @@ func push_panel_with_options(
 		return null
 
 	var panel_instance: Node = scene.instantiate()
-	if not _add_panel_instance(panel_instance, layer, config_callback, options):
+	if not _add_panel_instance(
+		panel_instance,
+		layer,
+		config_callback,
+		options
+	):
 		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 			panel_instance.queue_free()
 		return null
@@ -606,8 +663,17 @@ func push_panel_with_options(
 ## @param config_callback: 实例化后、入栈前的可选配置回调。
 ## [br]
 ## @return 成功时返回面板实例，失败时返回 `null`。
-func replace_layer(path: String, layer: int = Layer.POPUP, config_callback: Callable = Callable()) -> Node:
-	return replace_layer_with_options(path, layer, {}, config_callback)
+func replace_layer(
+	path: String,
+	layer: int = Layer.POPUP,
+	config_callback: Callable = Callable()
+) -> Node:
+	return replace_layer_with_options(
+		path,
+		layer,
+		{},
+		config_callback
+	)
 
 
 ## 同步替换指定层级为带策略选项的面板。
@@ -633,7 +699,13 @@ func replace_layer_with_options(
 	options: Dictionary = {},
 	config_callback: Callable = Callable()
 ) -> Node:
-	return _replace_layer_synchronously(path, layer, options, config_callback, true)
+	return _replace_layer_synchronously(
+		path,
+		layer,
+		options,
+		config_callback,
+		true
+	)
 
 
 ## 异步替换指定层级的面板栈。
@@ -757,20 +829,41 @@ func replace_layer_async_with_options(
 
 		var scene: PackedScene = _get_packed_scene(res)
 		if scene == null:
-			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
+			_finish_async_panel_request(
+				async_request_key,
+				AsyncPanelLoadStatus.FAILED,
+				null
+			)
 			push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: %s." % path)
 			return
 
 		var panel_instance: Node = scene.instantiate()
 		_clear_layer_without_invalidating_requests(layer)
-		if _add_panel_instance(panel_instance, layer, config_callback, options):
-			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.OPENED, panel_instance)
+		if _add_panel_instance(
+			panel_instance,
+			layer,
+			config_callback,
+			options
+		):
+			_finish_async_panel_request(
+				async_request_key,
+				AsyncPanelLoadStatus.OPENED,
+				panel_instance
+			)
 		else:
-			_finish_async_panel_request(async_request_key, AsyncPanelLoadStatus.FAILED, null)
+			_finish_async_panel_request(
+				async_request_key,
+				AsyncPanelLoadStatus.FAILED,
+				null
+			)
 			if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 				panel_instance.queue_free()
 
-	asset_util.load_async(path, on_loaded, "PackedScene")
+	asset_util.load_async(
+		path,
+		on_loaded,
+		"PackedScene"
+	)
 	return operation_handle
 
 
@@ -790,7 +883,12 @@ func push_panel_instance(
 	layer: int = Layer.POPUP,
 	config_callback: Callable = Callable()
 ) -> void:
-	push_panel_instance_with_options(panel_instance, layer, {}, config_callback)
+	push_panel_instance_with_options(
+		panel_instance,
+		layer,
+		{},
+		config_callback
+	)
 
 
 ## 压入一个已实例化且带策略选项的面板节点。
@@ -818,7 +916,12 @@ func push_panel_instance_with_options(
 		push_error("[GFUIUtility][ui_utility.panel_instance_invalid] The supplied panel_instance is invalid.")
 		return
 
-	var _added: bool = _add_panel_instance(panel_instance, layer, config_callback, options)
+	var _added: bool = _add_panel_instance(
+		panel_instance,
+		layer,
+		config_callback,
+		options
+	)
 
 
 ## 用已实例化面板替换指定层级的面板栈。
@@ -837,7 +940,12 @@ func replace_layer_instance(
 	layer: int = Layer.POPUP,
 	config_callback: Callable = Callable()
 ) -> void:
-	replace_layer_instance_with_options(panel_instance, layer, {}, config_callback)
+	replace_layer_instance_with_options(
+		panel_instance,
+		layer,
+		{},
+		config_callback
+	)
 
 
 ## 用已实例化且带策略选项的面板替换指定层级的面板栈。
@@ -866,7 +974,12 @@ func replace_layer_instance_with_options(
 		return
 
 	clear_layer(layer)
-	push_panel_instance_with_options(panel_instance, layer, options, config_callback)
+	push_panel_instance_with_options(
+		panel_instance,
+		layer,
+		options,
+		config_callback
+	)
 
 
 ## 弹出指定层级的顶部面板。
@@ -910,7 +1023,11 @@ func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:
 ## @param do_free: 是否释放被弹出的面板。
 ## [br]
 ## @return 找到目标面板并完成回退时返回 true。
-func pop_to_panel(panel: Node, layer: int = Layer.POPUP, do_free: bool = true) -> bool:
+func pop_to_panel(
+	panel: Node,
+	layer: int = Layer.POPUP,
+	do_free: bool = true
+) -> bool:
 	if not is_instance_valid(panel):
 		return false
 
@@ -1096,7 +1213,13 @@ func set_panel_options(panel: Node, options: Dictionary) -> void:
 func get_panel_options(panel: Node) -> Dictionary:
 	if not is_instance_valid(panel):
 		return {}
-	return GFVariantData.to_dictionary(GFVariantData.get_option_value(_panel_options, panel.get_instance_id(), {}))
+	return GFVariantData.to_dictionary(
+		GFVariantData.get_option_value(
+			_panel_options,
+			panel.get_instance_id(),
+			{}
+		)
+	)
 
 
 ## 判断面板是否按 modal 策略管理。
@@ -1110,7 +1233,11 @@ func is_panel_modal(panel: Node) -> bool:
 	if not is_instance_valid(panel):
 		return false
 	var options: Dictionary = _get_panel_options_for_id(panel.get_instance_id())
-	return GFVariantData.get_option_int(options, "mode", PanelMode.NORMAL) == PanelMode.MODAL
+	return GFVariantData.get_option_int(
+		options,
+		"mode",
+		PanelMode.NORMAL
+	) == PanelMode.MODAL
 
 
 ## 检查是否存在打开的 modal 面板。
@@ -1141,9 +1268,17 @@ func has_modal_open(layer: int = -1) -> bool:
 ## @return 存在匹配请求时返回 true。
 func has_pending_async_panel(layer: int = -1, path: String = "") -> bool:
 	for request: Dictionary in _pending_async_panel_requests.values():
-		if layer >= 0 and GFVariantData.get_option_int(request, "layer", -1) != layer:
+		if layer >= 0 and GFVariantData.get_option_int(
+			request,
+			"layer",
+			-1
+		) != layer:
 			continue
-		if not path.is_empty() and GFVariantData.get_option_string(request, "path", "") != path:
+		if not path.is_empty() and GFVariantData.get_option_string(
+			request,
+			"path",
+			""
+		) != path:
 			continue
 		return true
 	return false
@@ -1163,7 +1298,11 @@ func has_pending_async_panel(layer: int = -1, path: String = "") -> bool:
 func get_pending_async_panel_requests(layer: int = -1) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for request: Dictionary in _pending_async_panel_requests.values():
-		if layer >= 0 and GFVariantData.get_option_int(request, "layer", -1) != layer:
+		if layer >= 0 and GFVariantData.get_option_int(
+			request,
+			"layer",
+			-1
+		) != layer:
 			continue
 		result.append(request.duplicate(true))
 	return result
@@ -1200,7 +1339,11 @@ func request_dismiss_top(layer: int = -1, reason: String = "cancel") -> bool:
 		return _request_dismiss_layer(layer, reason)
 
 	var layer_values: Array[int] = _get_layer_ids_by_display_order()
-	for index: int in range(layer_values.size() - 1, -1, -1):
+	for index: int in range(
+		layer_values.size() - 1,
+		-1,
+		-1
+	):
 		var candidate_layer: int = layer_values[index]
 		if _request_dismiss_layer(candidate_layer, reason):
 			return true
@@ -1224,7 +1367,11 @@ func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -> bool:
 	if viewport == null:
 		return false
 	var focused: Control = viewport.gui_get_focus_owner()
-	if focused != null and _can_focus_control(focused) and _is_descendant_of(focused, top_panel):
+	if (
+		focused != null
+		and _can_focus_control(focused)
+		and _is_descendant_of(focused, top_panel)
+	):
 		return false
 	return _focus_first_control(top_panel)
 
@@ -1251,12 +1398,18 @@ func _replace_layer_synchronously(
 		clear_layer(layer)
 	else:
 		_clear_layer_without_invalidating_requests(layer)
-	if not _add_panel_instance(panel_instance, layer, config_callback, options):
+	if not _add_panel_instance(
+		panel_instance,
+		layer,
+		config_callback,
+		options
+	):
 		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 			panel_instance.queue_free()
 		return null
 
 	return panel_instance
+
 
 ## 清空指定层的面板栈，但不取消该层正在等待的异步请求。
 ## [br]
@@ -1322,7 +1475,11 @@ func _restore_layer_request_serial_after_rejection(
 ## [br]
 ## @api private
 func _get_layer_request_serial(layer: int) -> int:
-	return GFVariantData.get_option_int(_layer_request_serials, layer, 0)
+	return GFVariantData.get_option_int(
+		_layer_request_serials,
+		layer,
+		0
+	)
 
 
 ## 判断给定请求序号是否仍是指定层当前记录的序号。
@@ -1336,14 +1493,30 @@ func _is_layer_request_serial_current(layer: int, request_serial: int) -> bool:
 ## [br]
 ## @api private
 func _make_async_push_key(path: String, layer: int) -> String:
-	return "%d:%s" % [layer, path]
+	return (
+		"%d:%s"
+		% [layer, path]
+	)
 
 
 ## 组合操作、层级、请求序号和路径，生成异步面板请求键。
 ## [br]
 ## @api private
-func _make_async_panel_request_key(operation: StringName, path: String, layer: int, request_serial: int) -> String:
-	return "%s:%d:%d:%s" % [String(operation), layer, request_serial, path]
+func _make_async_panel_request_key(
+	operation: StringName,
+	path: String,
+	layer: int,
+	request_serial: int
+) -> String:
+	return (
+		"%s:%d:%d:%s"
+		% [
+			String(operation),
+			layer,
+			request_serial,
+			path,
+		]
+	)
 
 
 ## 配置终态句柄并登记请求；配置或回调连接失败时返回 null。
@@ -1358,7 +1531,12 @@ func _track_async_panel_request(
 	completion_callback: Callable
 ) -> GFUIPanelAsyncOperation:
 	var operation_handle: GFUIPanelAsyncOperation = GFUIPanelAsyncOperation.new()
-	if not operation_handle.configure_for_framework(request_serial, path, layer, operation):
+	if not operation_handle.configure_for_framework(
+		request_serial,
+		path,
+		layer,
+		operation
+	):
 		push_error("[GFUIUtility][ui_utility.panel_request_configuration_failed] Cannot configure the asynchronous panel request handle.")
 		return null
 	if not _connect_async_panel_completion_callback(operation_handle, completion_callback):
@@ -1371,17 +1549,18 @@ func _track_async_panel_request(
 		"serial": request_serial,
 		"operation_handle": operation_handle,
 	}
-	panel_async_load_started.emit(path, layer, operation)
+	panel_async_load_started.emit(
+		path,
+		layer,
+		operation
+	)
 	return operation_handle
 
 
 ## 将有效完成回调以一次性连接方式接到异步面板句柄。
 ## [br]
 ## @api private
-func _connect_async_panel_completion_callback(
-	operation_handle: GFUIPanelAsyncOperation,
-	completion_callback: Callable
-) -> bool:
+func _connect_async_panel_completion_callback(operation_handle: GFUIPanelAsyncOperation, completion_callback: Callable) -> bool:
 	if not completion_callback.is_valid():
 		return true
 	if operation_handle.completed.is_connected(completion_callback):
@@ -1396,7 +1575,11 @@ func _connect_async_panel_completion_callback(
 ## 验证成功面板仍在目标层栈中，移除请求记录并完成句柄及结束信号。
 ## [br]
 ## @api private
-func _finish_async_panel_request(request_key: String, status: int, panel: Node) -> void:
+func _finish_async_panel_request(
+	request_key: String,
+	status: int,
+	panel: Node
+) -> void:
 	if not _pending_async_panel_requests.has(request_key):
 		return
 
@@ -1406,36 +1589,60 @@ func _finish_async_panel_request(request_key: String, status: int, panel: Node) 
 	if terminal_status == AsyncPanelLoadStatus.OPENED:
 		var panel_is_open: bool = _get_valid_panel_from_variant(terminal_panel) != null
 		if panel_is_open:
-			var request_layer: int = GFVariantData.get_option_int(request, "layer", -1)
+			var request_layer: int = GFVariantData.get_option_int(
+				request,
+				"layer",
+				-1
+			)
 			panel_is_open = _get_layer_stack(request_layer).has(terminal_panel)
 		if not panel_is_open:
 			terminal_status = AsyncPanelLoadStatus.FAILED
 			terminal_panel = null
-	var operation_handle: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(
-		request.get("operation_handle")
-	)
-	if (
-		GFVariantData.get_option_string_name(request, "operation", &"")
-		== GFUIPanelAsyncOperation.OPERATION_PUSH
-	):
+	var operation_handle: GFUIPanelAsyncOperation = _get_ui_panel_async_operation_value(request.get("operation_handle"))
+	if GFVariantData.get_option_string_name(
+		request,
+		"operation",
+		&""
+	) == GFUIPanelAsyncOperation.OPERATION_PUSH:
 		_clear_pending_async_push(
 			_make_async_push_key(
-				GFVariantData.get_option_string(request, "path", ""),
-				GFVariantData.get_option_int(request, "layer", -1)
+				GFVariantData.get_option_string(
+					request,
+					"path",
+					""
+				),
+				GFVariantData.get_option_int(
+					request,
+					"layer",
+					-1
+				)
 			),
-			GFVariantData.get_option_int(request, "serial", -1)
+			GFVariantData.get_option_int(
+				request,
+				"serial",
+				-1
+			)
 		)
 	var _erased: bool = _pending_async_panel_requests.erase(request_key)
-	if (
-		operation_handle == null
-		or not operation_handle.complete_for_framework(terminal_status, terminal_panel)
-	):
+	if (operation_handle == null or not operation_handle.complete_for_framework(terminal_status, terminal_panel)):
 		push_error("[GFUIUtility][ui_utility.panel_terminal_failed] The asynchronous panel request handle cannot enter a terminal state.")
 		return
 	panel_async_load_finished.emit(
-		GFVariantData.get_option_string(request, "path", ""),
-		GFVariantData.get_option_int(request, "layer", -1),
-		GFVariantData.get_option_string_name(request, "operation", &""),
+		GFVariantData.get_option_string(
+			request,
+			"path",
+			""
+		),
+		GFVariantData.get_option_int(
+			request,
+			"layer",
+			-1
+		),
+		GFVariantData.get_option_string_name(
+			request,
+			"operation",
+			&""
+		),
 		terminal_status,
 		terminal_panel
 	)
@@ -1445,23 +1652,32 @@ func _finish_async_panel_request(request_key: String, status: int, panel: Node) 
 ## [br]
 ## @api private
 func _clear_pending_async_push(request_key: String, request_serial: int) -> void:
-	if GFVariantData.get_option_int(_pending_async_push_serials, request_key, -1) == request_serial:
+	if GFVariantData.get_option_int(
+		_pending_async_push_serials,
+		request_key,
+		-1
+	) == request_serial:
 		var _erased: bool = _pending_async_push_serials.erase(request_key)
 
 
 ## 取消指定层的 pending 请求，可排除当前正在启动的请求键。
 ## [br]
 ## @api private
-func _cancel_pending_async_panel_requests_for_layer(
-	layer: int,
-	excluded_request_key: String = ""
-) -> void:
+func _cancel_pending_async_panel_requests_for_layer(layer: int, excluded_request_key: String = "") -> void:
 	for request_key: String in _pending_async_panel_requests.keys():
 		if request_key == excluded_request_key:
 			continue
 		var request: Dictionary = _get_pending_async_panel_request(request_key)
-		if GFVariantData.get_option_int(request, "layer", -1) == layer:
-			_finish_async_panel_request(request_key, AsyncPanelLoadStatus.CANCELLED, null)
+		if GFVariantData.get_option_int(
+			request,
+			"layer",
+			-1
+		) == layer:
+			_finish_async_panel_request(
+				request_key,
+				AsyncPanelLoadStatus.CANCELLED,
+				null
+			)
 
 
 ## 取消指定层所有尚未完成的 replace 面板请求。
@@ -1470,14 +1686,26 @@ func _cancel_pending_async_panel_requests_for_layer(
 func _cancel_pending_async_replace_requests_for_layer(layer: int) -> void:
 	for request_key: String in _pending_async_panel_requests.keys():
 		var request: Dictionary = _get_pending_async_panel_request(request_key)
-		if GFVariantData.get_option_int(request, "layer", -1) != layer:
+		if GFVariantData.get_option_int(
+			request,
+			"layer",
+			-1
+		) != layer:
 			continue
 		if (
-			GFVariantData.get_option_string_name(request, "operation", &"")
+			GFVariantData.get_option_string_name(
+				request,
+				"operation",
+				&""
+			)
 			!= GFUIPanelAsyncOperation.OPERATION_REPLACE
 		):
 			continue
-		_finish_async_panel_request(request_key, AsyncPanelLoadStatus.CANCELLED, null)
+		_finish_async_panel_request(
+			request_key,
+			AsyncPanelLoadStatus.CANCELLED,
+			null
+		)
 
 
 ## 将所有 pending 异步面板请求以 CANCELLED 状态终结。
@@ -1485,7 +1713,11 @@ func _cancel_pending_async_replace_requests_for_layer(layer: int) -> void:
 ## @api private
 func _cancel_all_pending_async_panel_requests() -> void:
 	for request_key: String in _pending_async_panel_requests.keys():
-		_finish_async_panel_request(request_key, AsyncPanelLoadStatus.CANCELLED, null)
+		_finish_async_panel_request(
+			request_key,
+			AsyncPanelLoadStatus.CANCELLED,
+			null
+		)
 
 
 ## 按已注册层 ID 创建或更新所有 CanvasLayer 根节点。
@@ -1528,22 +1760,40 @@ func _create_or_update_layer_root(layer: int) -> bool:
 ## [br]
 ## @api private
 func _ensure_default_layer_definitions() -> void:
-	_register_default_layer_if_missing(Layer.HUD, &"HUD", _DEFAULT_HUD_CANVAS_LAYER)
-	_register_default_layer_if_missing(Layer.POPUP, &"POPUP", _DEFAULT_POPUP_CANVAS_LAYER)
-	_register_default_layer_if_missing(Layer.TOP, &"TOP", _DEFAULT_TOP_CANVAS_LAYER)
+	_register_default_layer_if_missing(
+		Layer.HUD,
+		&"HUD",
+		_DEFAULT_HUD_CANVAS_LAYER
+	)
+	_register_default_layer_if_missing(
+		Layer.POPUP,
+		&"POPUP",
+		_DEFAULT_POPUP_CANVAS_LAYER
+	)
+	_register_default_layer_if_missing(
+		Layer.TOP,
+		&"TOP",
+		_DEFAULT_TOP_CANVAS_LAYER
+	)
 
 
 ## 仅在层 ID 尚未注册时创建并保存默认层定义。
 ## [br]
 ## @api private
-func _register_default_layer_if_missing(layer: int, display_name: StringName, canvas_layer: int) -> void:
+func _register_default_layer_if_missing(
+	layer: int,
+	display_name: StringName,
+	canvas_layer: int
+) -> void:
 	if _layer_definitions.has(layer):
 		return
-	var definition: GFUILayerDefinition = GFUILayerDefinition.new().configure(
-		layer,
-		display_name,
-		canvas_layer,
-		_auto_hide_under
+	var definition: GFUILayerDefinition = (
+		GFUILayerDefinition.new().configure(
+			layer,
+			display_name,
+			canvas_layer,
+			_auto_hide_under
+		)
 	)
 	_layer_definitions[layer] = definition
 
@@ -1591,12 +1841,20 @@ func _add_panel_instance(
 		if not is_instance_valid(panel):
 			push_warning("[GFUIUtility][ui_utility.panel_destroyed_by_callback] config_callback destroyed the panel instance; this push was cancelled.")
 			return false
-		if not _is_active or not is_instance_valid(canvas) or get_layer_root(layer) != canvas:
+		if (
+			not _is_active
+			or not is_instance_valid(canvas)
+			or get_layer_root(layer) != canvas
+		):
 			return false
 		if _is_panel_in_any_stack(panel):
 			return false
 
-	_capture_previous_focus(panel, normalized_options, canvas.get_viewport())
+	_capture_previous_focus(
+		panel,
+		normalized_options,
+		canvas.get_viewport()
+	)
 	if panel.get_parent() != null and panel.get_parent() != canvas:
 		panel.get_parent().remove_child(panel)
 	if panel.get_parent() != canvas:
@@ -1612,16 +1870,32 @@ func _add_panel_instance(
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	_sync_layer_visibility(layer)
-	if _get_valid_panel_from_variant(panel) == null or not _is_panel_open_current(panel, layer, open_serial):
+	if _get_valid_panel_from_variant(panel) == null or not _is_panel_open_current(
+		panel,
+		layer,
+		open_serial
+	):
 		return false
 	_apply_open_focus_policy(panel, normalized_options)
-	if _get_valid_panel_from_variant(panel) == null or not _is_panel_open_current(panel, layer, open_serial):
+	if _get_valid_panel_from_variant(panel) == null or not _is_panel_open_current(
+		panel,
+		layer,
+		open_serial
+	):
 		return false
 	panel_opened.emit(panel, layer)
-	if not is_instance_valid(panel) or not _is_panel_open_current(panel, layer, open_serial):
+	if not is_instance_valid(panel) or not _is_panel_open_current(
+		panel,
+		layer,
+		open_serial
+	):
 		return false
 	_emit_navigation_changed(layer)
-	return _get_valid_panel_from_variant(panel) != null and _is_panel_open_current(panel, layer, open_serial)
+	return _get_valid_panel_from_variant(panel) != null and _is_panel_open_current(
+		panel,
+		layer,
+		open_serial
+	)
 
 
 ## 清理所有已注册层栈中的失效面板条目。
@@ -1651,7 +1925,11 @@ func _prune_layer_stack(layer: int) -> void:
 	var stack: Array = _get_layer_stack(layer)
 	var removed_any: bool = false
 	var queued_panels: Array[Node] = []
-	for index: int in range(stack.size() - 1, -1, -1):
+	for index: int in range(
+		stack.size() - 1,
+		-1,
+		-1
+	):
 		var panel: Node = _get_live_node(stack[index])
 		if panel == null:
 			removed_any = true
@@ -1684,7 +1962,11 @@ func _is_panel_in_any_stack(panel: Node) -> bool:
 func _sync_layer_visibility(layer: int) -> void:
 	var stack: Array = _get_layer_stack(layer)
 	var hidden_by_upper_panel: bool = false
-	for index: int in range(stack.size() - 1, -1, -1):
+	for index: int in range(
+		stack.size() - 1,
+		-1,
+		-1
+	):
 		var panel: Node = _get_valid_panel_from_variant(stack[index])
 		var canvas_item: CanvasItem = _get_canvas_item(panel)
 		if canvas_item == null:
@@ -1692,7 +1974,11 @@ func _sync_layer_visibility(layer: int) -> void:
 		canvas_item.visible = not hidden_by_upper_panel
 		if not hidden_by_upper_panel:
 			var options: Dictionary = _get_panel_options_for_id(panel.get_instance_id())
-			if GFVariantData.get_option_bool(options, "hide_under", _get_layer_auto_hide_under(layer)):
+			if GFVariantData.get_option_bool(
+				options,
+				"hide_under",
+				_get_layer_auto_hide_under(layer)
+			):
 				hidden_by_upper_panel = true
 
 
@@ -1700,7 +1986,10 @@ func _sync_layer_visibility(layer: int) -> void:
 ## [br]
 ## @api private
 func _emit_navigation_changed(layer: int) -> void:
-	navigation_changed.emit(layer, get_top_panel(layer))
+	navigation_changed.emit(
+		layer,
+		get_top_panel(layer)
+	)
 
 
 ## 向顶层面板发送关闭请求；按选项调用 resolve_cancel 或弹出该面板。
@@ -1711,9 +2000,17 @@ func _request_dismiss_layer(layer: int, reason: String) -> bool:
 	if top_panel == null:
 		return false
 
-	panel_dismiss_requested.emit(top_panel, layer, reason)
+	panel_dismiss_requested.emit(
+		top_panel,
+		layer,
+		reason
+	)
 	var options: Dictionary = get_panel_options(top_panel)
-	if not GFVariantData.get_option_bool(options, "dismiss_on_cancel", false):
+	if not GFVariantData.get_option_bool(
+		options,
+		"dismiss_on_cancel",
+		false
+	):
 		return false
 
 	if top_panel.has_method("resolve_cancel"):
@@ -1741,15 +2038,43 @@ func _count_modals_in_layer(layer: int) -> int:
 ## [br]
 ## @api private
 func _normalize_panel_options(options: Dictionary, layer: int) -> Dictionary:
-	var is_modal: bool = GFVariantData.get_option_bool(options, "modal", false)
-	var mode: int = GFVariantData.get_option_int(options, "mode", PanelMode.MODAL if is_modal else PanelMode.NORMAL)
-	mode = clampi(mode, PanelMode.NORMAL, PanelMode.MODAL)
+	var is_modal: bool = GFVariantData.get_option_bool(
+		options,
+		"modal",
+		false
+	)
+	var mode: int = GFVariantData.get_option_int(
+		options,
+		"mode",
+		PanelMode.MODAL if is_modal else PanelMode.NORMAL
+	)
+	mode = clampi(
+		mode,
+		PanelMode.NORMAL,
+		PanelMode.MODAL
+	)
 	return {
 		"mode": mode,
-		"hide_under": GFVariantData.get_option_bool(options, "hide_under", _get_layer_auto_hide_under(layer)),
-		"dismiss_on_cancel": GFVariantData.get_option_bool(options, "dismiss_on_cancel", mode == PanelMode.MODAL),
-		"focus_on_open": GFVariantData.get_option_bool(options, "focus_on_open", mode == PanelMode.MODAL),
-		"restore_focus_on_close": GFVariantData.get_option_bool(options, "restore_focus_on_close", mode == PanelMode.MODAL),
+		"hide_under": GFVariantData.get_option_bool(
+			options,
+			"hide_under",
+			_get_layer_auto_hide_under(layer)
+		),
+		"dismiss_on_cancel": GFVariantData.get_option_bool(
+			options,
+			"dismiss_on_cancel",
+			mode == PanelMode.MODAL
+		),
+		"focus_on_open": GFVariantData.get_option_bool(
+			options,
+			"focus_on_open",
+			mode == PanelMode.MODAL
+		),
+		"restore_focus_on_close": GFVariantData.get_option_bool(
+			options,
+			"restore_focus_on_close",
+			mode == PanelMode.MODAL
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
 
@@ -1762,7 +2087,11 @@ func _capture_previous_focus(
 	options: Dictionary,
 	viewport: Viewport
 ) -> void:
-	if not GFVariantData.get_option_bool(options, "restore_focus_on_close", false):
+	if not GFVariantData.get_option_bool(
+		options,
+		"restore_focus_on_close",
+		false
+	):
 		return
 	if viewport == null:
 		return
@@ -1775,7 +2104,11 @@ func _capture_previous_focus(
 ## [br]
 ## @api private
 func _apply_open_focus_policy(panel: Node, options: Dictionary) -> void:
-	if GFVariantData.get_option_bool(options, "focus_on_open", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"focus_on_open",
+		false
+	):
 		var _focused: bool = _focus_first_control(panel)
 
 
@@ -1786,7 +2119,11 @@ func _handle_panel_closed(panel: Node) -> void:
 	var panel_id: int = panel.get_instance_id()
 	var _serial_erased: bool = _panel_open_serials.erase(panel_id)
 	var options: Dictionary = _get_panel_options_for_id(panel_id)
-	if GFVariantData.get_option_bool(options, "restore_focus_on_close", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"restore_focus_on_close",
+		false
+	):
 		_restore_previous_focus(panel_id)
 	var _options_erased: bool = _panel_options.erase(panel_id)
 	var _focus_erased: bool = _previous_focus_by_panel_id.erase(panel_id)
@@ -1810,34 +2147,72 @@ func _restore_previous_focus(panel_id: int) -> void:
 func _focus_first_control(panel: Node) -> bool:
 	if not is_instance_valid(panel):
 		return false
-	var open_serial: int = GFVariantData.get_option_int(_panel_open_serials, panel.get_instance_id())
-	return _focus_first_control_in_branch(panel, panel, _find_panel_layer(panel), open_serial)
+	var open_serial: int = GFVariantData.get_option_int(
+		_panel_open_serials,
+		panel.get_instance_id()
+	)
+	return _focus_first_control_in_branch(
+		panel,
+		panel,
+		_find_panel_layer(panel),
+		open_serial
+	)
 
 
 ## 递归检查子树中的控件；每次聚焦后确认原面板打开身份仍有效。
 ## [br]
 ## @api private
-func _focus_first_control_in_branch(root: Node, panel: Node, layer: int, open_serial: int) -> bool:
-	if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
+func _focus_first_control_in_branch(
+	root: Node,
+	panel: Node,
+	layer: int,
+	open_serial: int
+) -> bool:
+	if not is_instance_valid(panel) or not _is_current_focus_panel(
+		panel,
+		layer,
+		open_serial
+	):
 		return false
-	if not is_instance_valid(root) or root.is_queued_for_deletion() or not _is_descendant_of(root, panel):
+	if (
+		not is_instance_valid(root)
+		or root.is_queued_for_deletion()
+		or not _is_descendant_of(root, panel)
+	):
 		return false
 	if root is Control:
 		var control: Control = root
 		if _can_focus_control(control):
 			control.grab_focus()
-			if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
+			if not is_instance_valid(panel) or not _is_current_focus_panel(
+				panel,
+				layer,
+				open_serial
+			):
 				return false
 			var focused: Control = panel.get_viewport().gui_get_focus_owner()
 			if _can_focus_control(focused) and _is_descendant_of(focused, panel):
 				return true
 
-	if not is_instance_valid(root) or root.is_queued_for_deletion() or not _is_descendant_of(root, panel):
+	if (
+		not is_instance_valid(root)
+		or root.is_queued_for_deletion()
+		or not _is_descendant_of(root, panel)
+	):
 		return false
 	for child: Node in root.get_children():
-		if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer, open_serial):
+		if not is_instance_valid(panel) or not _is_current_focus_panel(
+			panel,
+			layer,
+			open_serial
+		):
 			return false
-		if is_instance_valid(child) and _focus_first_control_in_branch(child, panel, layer, open_serial):
+		if is_instance_valid(child) and _focus_first_control_in_branch(
+			child,
+			panel,
+			layer,
+			open_serial
+		):
 			return true
 	return false
 
@@ -1845,10 +2220,17 @@ func _focus_first_control_in_branch(root: Node, panel: Node, layer: int, open_se
 ## 判断面板仍在指定层栈中且其打开序号匹配给定身份。
 ## [br]
 ## @api private
-func _is_panel_open_current(panel: Node, layer: int, open_serial: int) -> bool:
+func _is_panel_open_current(
+	panel: Node,
+	layer: int,
+	open_serial: int
+) -> bool:
 	if not is_instance_valid(panel):
 		return false
-	if open_serial <= 0 or GFVariantData.get_option_int(_panel_open_serials, panel.get_instance_id()) != open_serial:
+	if open_serial <= 0 or GFVariantData.get_option_int(
+		_panel_open_serials,
+		panel.get_instance_id()
+	) != open_serial:
 		return false
 	return _get_layer_stack(layer).has(panel)
 
@@ -1856,8 +2238,16 @@ func _is_panel_open_current(panel: Node, layer: int, open_serial: int) -> bool:
 ## 检查打开身份有效、节点仍在树中且面板仍为该层有效栈顶。
 ## [br]
 ## @api private
-func _is_current_focus_panel(panel: Node, layer: int, open_serial: int) -> bool:
-	if not _is_panel_open_current(panel, layer, open_serial):
+func _is_current_focus_panel(
+	panel: Node,
+	layer: int,
+	open_serial: int
+) -> bool:
+	if not _is_panel_open_current(
+		panel,
+		layer,
+		open_serial
+	):
 		return false
 	if not panel.is_inside_tree() or panel.is_queued_for_deletion():
 		return false
@@ -1911,7 +2301,11 @@ func _get_asset_util() -> GFAssetUtility:
 ## [br]
 ## @api private
 func _get_layer_stack(layer: int) -> Array:
-	var value: Variant = GFVariantData.get_option_value(_panel_stacks, layer, [])
+	var value: Variant = GFVariantData.get_option_value(
+		_panel_stacks,
+		layer,
+		[]
+	)
 	if value is Array:
 		var stack: Array = value
 		return stack
@@ -1973,14 +2367,26 @@ func _is_layer_before(left: int, right: int) -> bool:
 ## [br]
 ## @api private
 func _get_panel_options_for_id(panel_id: int) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_panel_options, panel_id, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_panel_options,
+			panel_id,
+			{}
+		)
+	)
 
 
 ## 按请求键读取 pending 异步面板条目；缺失时返回空字典。
 ## [br]
 ## @api private
 func _get_pending_async_panel_request(request_key: String) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_pending_async_panel_requests, request_key, {}))
+	return GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			_pending_async_panel_requests,
+			request_key,
+			{}
+		)
+	)
 
 
 ## 从 pending 请求条目取出并收窄异步面板操作句柄。

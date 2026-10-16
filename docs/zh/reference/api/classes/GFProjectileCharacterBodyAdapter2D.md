@@ -17,7 +17,7 @@ CharacterBody2D 运动适配器。
 |---|---|---|
 | 方法 | [`_validate_root`](#member-gfprojectilecharacterbodyadapter2d-methods-_validate_root) | `func _validate_root(root: Node) -> Error:` |
 | 方法 | [`_capture_body`](#member-gfprojectilecharacterbodyadapter2d-methods-_capture_body) | `func _capture_body(root: Node) -> GFProjectileBodyResult2D:` |
-| 方法 | [`_apply_intent`](#member-gfprojectilecharacterbodyadapter2d-methods-_apply_intent) | `func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D:` |
+| 方法 | [`_apply_intent`](#member-gfprojectilecharacterbodyadapter2d-methods-_apply_intent) | `func _apply_intent(root: Node, intent: GFProjectileMotionIntent2D) -> GFProjectileBodyResult2D:` |
 | 方法 | [`_stop`](#member-gfprojectilecharacterbodyadapter2d-methods-_stop) | `func _stop(root: Node) -> GFProjectileBodyResult2D:` |
 
 ## 方法
@@ -72,7 +72,7 @@ func _capture_body(root: Node) -> GFProjectileBodyResult2D:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D:
+func _apply_intent(root: Node, intent: GFProjectileMotionIntent2D) -> GFProjectileBodyResult2D:
 ```
 
 将 MOVE 速度写入 CharacterBody2D 后调用 move_and_slide，返回实际产生的全局位移。 intent 时长用于候选位移的有限性预检，实际移动由 move_and_slide 执行；其他有效种类使用零速度。 若移动后位置或位移非有限，只还原本节点先前的变换与速度，不承诺撤销物理查询或其他外部影响。

@@ -1,11 +1,7 @@
 ## 测试 Storage payload transfer 的单所有者、attempt lease 与失败归还语义。
 extends GutTest
 
-
-const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
-)
-
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
 const _STORAGE_ROOTS: Array[String] = [
 	"test_storage_payload_transfer",
 	"test_storage_payload_transfer_frozen_a",
@@ -61,13 +57,8 @@ var _additional_storages: Array[GFStorageUtility] = []
 
 
 func _make_family_descriptor(save_dir_name: String, file_name: String) -> Dictionary:
-	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-		save_dir_name
-	)
-	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
-		storage_root_path,
-		file_name
-	)
+	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(save_dir_name)
+	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(storage_root_path, file_name)
 
 
 func _cleanup_file_family(save_dir_name: String, file_name: String) -> void:
@@ -106,10 +97,13 @@ func _cleanup_file_family(save_dir_name: String, file_name: String) -> void:
 
 
 func _cleanup_legacy_visible_files(save_dir_name: String, file_name: String) -> void:
-	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-		save_dir_name
-	)
-	for suffix: String in ["", ".tmp", ".bak", ".txn"]:
+	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(save_dir_name)
+	for suffix: String in [
+		"",
+		".tmp",
+		".bak",
+		".txn",
+	]:
 		var visible_path: String = storage_root_path.path_join(file_name + suffix)
 		if FileAccess.file_exists(visible_path):
 			var _remove_visible_result: Error = DirAccess.remove_absolute(visible_path)
@@ -128,11 +122,7 @@ func _remove_owned_directory_tree(path: String) -> Error:
 			return remove_file_error
 	for directory_name: String in directory.get_directories():
 		var child_path: String = path.path_join(directory_name)
-		var remove_directory_error: Error = (
-			DirAccess.remove_absolute(child_path)
-			if directory.is_link(directory_name)
-			else _remove_owned_directory_tree(child_path)
-		)
+		var remove_directory_error: Error = (DirAccess.remove_absolute(child_path) if directory.is_link(directory_name) else _remove_owned_directory_tree(child_path))
 		if remove_directory_error != OK:
 			return remove_directory_error
 	directory = null
@@ -142,9 +132,7 @@ func _remove_owned_directory_tree(path: String) -> Error:
 func _cleanup_owned_private_namespace(save_dir_name: String) -> Error:
 	if not _STORAGE_ROOTS.has(save_dir_name):
 		return ERR_UNAUTHORIZED
-	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
-		save_dir_name
-	).simplify_path()
+	var storage_root_path: String = (_GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(save_dir_name).simplify_path())
 	var private_root_name: String = ".gf-storage"
 	var private_root_path: String = storage_root_path.path_join(private_root_name).simplify_path()
 	if (
@@ -181,25 +169,25 @@ func _write_legacy_visible_data_file(file_name: String, data: Dictionary) -> Str
 	assert_not_null(file, "测试夹具应能写入 legacy visible payload。")
 	if file == null:
 		return path
-	var bytes: PackedByteArray = _storage._get_codec().encode(
-		data,
-		_storage._get_codec_options()
+	var bytes: PackedByteArray = (
+		_storage._get_codec().encode(
+			data,
+			_storage._get_codec_options()
+		)
 	)
 	var _store_buffer_result: Variant = file.store_buffer(bytes)
 	var write_error: Error = file.get_error()
 	file.close()
-	assert_eq(write_error, OK, "测试夹具应完整写入 legacy visible payload。")
+	assert_eq(
+		write_error,
+		OK,
+		"测试夹具应完整写入 legacy visible payload。"
+	)
 	return path
 
 
-func _assert_transaction_records_absent(
-	storage_utility: GFStorageUtility,
-	file_name: String
-) -> void:
-	var descriptor: Dictionary = _make_family_descriptor(
-		storage_utility.save_dir_name,
-		file_name
-	)
+func _assert_transaction_records_absent(storage_utility: GFStorageUtility, file_name: String) -> void:
+	var descriptor: Dictionary = _make_family_descriptor(storage_utility.save_dir_name, file_name)
 	for path_key: String in [
 		"transaction_path",
 		"transaction_pending_path",
@@ -220,24 +208,34 @@ func _assert_single_member_transaction_record(
 ) -> void:
 	var logical_path: String = GFVariantData.get_option_string(descriptor, "logical_path")
 	var family_id: String = GFVariantData.get_option_string(descriptor, "family_id")
-	assert_eq(record.size(), 6, "v2 transaction record 必须使用固定六字段 envelope。")
+	assert_eq(
+		record.size(),
+		6,
+		"v2 transaction record 必须使用固定六字段 envelope。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(record, "schema"),
 		"gf.storage.transaction-commit" if committed else "gf.storage.transaction-prepare"
 	)
-	assert_eq(GFVariantData.get_option_int(record, "schema_version"), 2)
+	assert_eq(
+		GFVariantData.get_option_int(record, "schema_version"),
+		2
+	)
 	assert_false(GFVariantData.get_option_string(record, "transaction_id").is_empty())
 	assert_true(record.get("committed") is bool)
-	assert_eq(GFVariantData.get_option_bool(record, "committed"), committed)
+	assert_eq(
+		GFVariantData.get_option_bool(record, "committed"),
+		committed
+	)
 	assert_eq(
 		GFVariantData.get_option_dictionary(record, "owner"),
-		{
-			"logical_path": logical_path,
-			"family_id": family_id,
-		}
+		{ "logical_path": logical_path, "family_id": family_id, }
 	)
 	var members: Array = GFVariantData.get_option_array(record, "members")
-	assert_eq(members.size(), 1)
+	assert_eq(
+		members.size(),
+		1
+	)
 	if members.size() != 1:
 		return
 	assert_eq(
@@ -278,19 +276,31 @@ func after_each() -> void:
 
 
 func test_transfer_takes_and_releases_ownership_once_without_public_payload_getter() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1 })
 
 	assert_not_null(transfer)
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.READY)
-	assert_false(transfer.has_method("get_payload"), "opaque transfer 不得公开 payload getter。")
-	assert_false(transfer.has_method("peek_payload"), "opaque transfer 不得公开 payload peek。")
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.READY
+	)
+	assert_false(
+		transfer.has_method("get_payload"),
+		"opaque transfer 不得公开 payload getter。"
+	)
+	assert_false(
+		transfer.has_method("peek_payload"),
+		"opaque transfer 不得公开 payload peek。"
+	)
 	assert_true(transfer.release())
 	assert_true(transfer.is_released())
-	assert_false(transfer.release(), "release 只能接受一次。")
+	assert_false(
+		transfer.release(),
+		"release 只能接受一次。"
+	)
 
 
 func test_invalid_path_does_not_claim_transfer() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1 })
 
 	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("", transfer)
 
@@ -300,47 +310,60 @@ func test_invalid_path_does_not_claim_transfer() -> void:
 		operation.get_result().get_write_failure_kind(),
 		GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
 	)
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.READY)
-	assert_eq(transfer.get_active_attempt_count(), 0)
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.READY
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
 	assert_null(operation.get_payload_transfer())
 	assert_null(operation.reclaim_failed_payload())
 	assert_push_error("[GFStorageUtility][storage_utility.filename_empty] save_payload_request_async failed: file_name is empty.")
 
 
 func test_absolute_path_does_not_claim_transfer() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1 })
 
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"C:/outside/transfer.json",
-		transfer
-	)
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("C:/outside/transfer.json", transfer)
 
 	assert_true(operation.is_completed())
 	assert_false(operation.get_result().is_successful())
-	assert_eq(operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
-	assert_eq(operation.get_file_name(), "")
-	assert_eq(operation.get_result().get_file_name(), "")
+	assert_eq(
+		operation.get_result().get_error_code(),
+		ERR_INVALID_PARAMETER
+	)
+	assert_eq(
+		operation.get_file_name(),
+		""
+	)
+	assert_eq(
+		operation.get_result().get_file_name(),
+		""
+	)
 	assert_eq(
 		operation.get_result().get_write_failure_kind(),
 		GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
 	)
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.READY)
-	assert_eq(transfer.get_active_attempt_count(), 0)
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.READY
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
 	assert_null(operation.get_payload_transfer())
 	assert_null(operation.reclaim_failed_payload())
 	assert_true(transfer.release())
-	assert_push_error(
-		"[GFStorageUtility][storage_utility.filename_profile_invalid] save_payload_request_async failed: file_name does not satisfy the portable logical path profile."
-	)
+	assert_push_error("[GFStorageUtility][storage_utility.filename_profile_invalid] save_payload_request_async failed: file_name does not satisfy the portable logical path profile.")
 
 
 func test_malformed_transfer_payload_fails_closed_before_queueing() -> void:
 	var transfer: GFStoragePayloadTransfer = MalformedPayloadTransfer.new()
 
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_invalid_payload.json",
-		transfer
-	)
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_invalid_payload.json", transfer)
 
 	assert_true(operation.is_completed())
 	assert_false(operation.get_result().is_successful())
@@ -355,37 +378,60 @@ func test_malformed_transfer_payload_fails_closed_before_queueing() -> void:
 
 
 func test_successful_attempt_cannot_be_reclaimed_and_release_clears_payload() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"coins": 42})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "coins": 42 })
 
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_success.json",
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_success.json", transfer)
+	assert_same(
+		operation.get_payload_transfer(),
 		transfer
 	)
-	assert_same(operation.get_payload_transfer(), transfer)
 	await _pump_storage_async_tasks()
 
 	var result: GFStorageAsyncResult = operation.get_result()
 	assert_true(result.is_successful())
-	assert_eq(result.get_write_failure_kind(), GFStorageAsyncResult.WriteFailureKind.NONE)
-	assert_true(GFVariantData.get_option_bool(result.get_write_validation_report(), "ok"))
+	assert_eq(
+		result.get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.NONE
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			result.get_write_validation_report(),
+			"ok"
+		)
+	)
 	assert_null(
 		operation.get_payload_transfer(),
 		"终态 operation 不得绕过失败归还协议继续暴露 transfer。"
 	)
-	assert_null(operation.reclaim_failed_payload(), "成功 attempt 不得走失败归还通道。")
-	assert_eq(transfer.get_active_attempt_count(), 0)
-	assert_true(transfer.is_claimed(), "完成单个 attempt 不等于结束整个 retry generation。")
+	assert_null(
+		operation.reclaim_failed_payload(),
+		"成功 attempt 不得走失败归还通道。"
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
+	assert_true(
+		transfer.is_claimed(),
+		"完成单个 attempt 不等于结束整个 retry generation。"
+	)
 	assert_true(transfer.release())
 	assert_true(transfer.is_released())
 
 	var loaded: GFStorageReadResult = _storage.load_data("test_transfer_success.json")
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "coins"), 42)
+	assert_eq(
+		GFVariantData.get_option_int(loaded.payload, "coins"),
+		42
+	)
 
 
 func test_payload_transfer_does_not_read_or_adopt_legacy_visible_file() -> void:
 	var file_name: String = "test_transfer_legacy_visible.json"
-	var visible_path: String = _write_legacy_visible_data_file(file_name, { "value": 1 })
+	var visible_path: String = _write_legacy_visible_data_file(
+		file_name,
+		{ "value": 1 }
+	)
 	var visible_before: PackedByteArray = FileAccess.get_file_as_bytes(visible_path)
 	var descriptor: Dictionary = _make_family_descriptor(_storage.save_dir_name, file_name)
 
@@ -397,13 +443,13 @@ func test_payload_transfer_does_not_read_or_adopt_legacy_visible_file() -> void:
 		FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "catalog_path")),
 		"读取 legacy visible 文件不得隐式创建 catalog。"
 	)
-	assert_eq(FileAccess.get_file_as_bytes(visible_path), visible_before)
+	assert_eq(
+		FileAccess.get_file_as_bytes(visible_path),
+		visible_before
+	)
 
 	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 2 })
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		file_name,
-		transfer
-	)
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(file_name, transfer)
 	await _pump_storage_async_tasks()
 
 	assert_true(operation.get_result().is_successful())
@@ -415,25 +461,26 @@ func test_payload_transfer_does_not_read_or_adopt_legacy_visible_file() -> void:
 	)
 	var loaded: GFStorageReadResult = _storage.load_data(file_name)
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "value"), 2)
+	assert_eq(
+		GFVariantData.get_option_int(loaded.payload, "value"),
+		2
+	)
 	assert_true(transfer.release())
 
 
 func test_invalid_payload_reports_stable_failure_and_reclaims_same_transfer_once() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"unsafe": Resource.new(),
-	})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "unsafe": Resource.new(), })
 
-	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_invalid_payload.json",
-		transfer
-	)
+	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_invalid_payload.json", transfer)
 	await _pump_storage_async_tasks()
 
 	var first_result: GFStorageAsyncResult = first_operation.get_result()
 	var validation_report: Dictionary = first_result.get_write_validation_report()
 	assert_false(first_result.is_successful())
-	assert_eq(first_result.get_error_code(), ERR_INVALID_DATA)
+	assert_eq(
+		first_result.get_error_code(),
+		ERR_INVALID_DATA
+	)
 	assert_eq(
 		first_result.get_write_failure_kind(),
 		GFStorageAsyncResult.WriteFailureKind.PAYLOAD_INVALID
@@ -455,34 +502,44 @@ func test_invalid_payload_reports_stable_failure_and_reclaims_same_transfer_once
 		JSON.stringify(validation_report).contains("key_token"),
 		"validation report 不得保留可离线关联 Dictionary key 的 digest。"
 	)
-	assert_eq(transfer.get_active_attempt_count(), 0)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
 	assert_null(first_operation.get_payload_transfer())
-	assert_same(first_operation.reclaim_failed_payload(), transfer)
-	assert_null(first_operation.reclaim_failed_payload(), "失败 transfer 只归还一次。")
-
-	var retry_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_invalid_payload.json",
+	assert_same(
+		first_operation.reclaim_failed_payload(),
 		transfer
 	)
-	assert_same(retry_operation.get_payload_transfer(), transfer, "重试必须复用同一 opaque snapshot。")
+	assert_null(
+		first_operation.reclaim_failed_payload(),
+		"失败 transfer 只归还一次。"
+	)
+
+	var retry_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_invalid_payload.json", transfer)
+	assert_same(
+		retry_operation.get_payload_transfer(),
+		transfer,
+		"重试必须复用同一 opaque snapshot。"
+	)
 	await _pump_storage_async_tasks()
 	assert_false(retry_operation.get_result().is_successful())
-	assert_same(retry_operation.reclaim_failed_payload(), transfer)
+	assert_same(
+		retry_operation.reclaim_failed_payload(),
+		transfer
+	)
 	assert_true(transfer.release())
 
 
 func test_non_finite_nested_value_is_rejected_without_logging_payload_value() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"records": [
-			{
-				"position": Vector2(INF, 1.0),
-			},
-		],
-	})
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_non_finite.json",
-		transfer
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership(
+		{
+			"records": [
+				{ "position": Vector2(INF, 1.0), },
+			],
+		}
 	)
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_non_finite.json", transfer)
 	await _pump_storage_async_tasks()
 
 	var result: GFStorageAsyncResult = operation.get_result()
@@ -497,36 +554,101 @@ func test_non_finite_nested_value_is_rejected_without_logging_payload_value() ->
 		GFVariantData.get_option_string(report, "failure_kind"),
 		"non_finite_number"
 	)
-	assert_eq(path_segments.size(), 3)
-	assert_eq(GFVariantData.get_option_string(report, "failure_path"), "${value:0}[0]{value:0}")
-	assert_eq(path_segments, [
-		{"kind": "dictionary_value", "entry_index": 0},
-		{"kind": "array_index", "index": 0},
-		{"kind": "dictionary_value", "entry_index": 0},
-	])
-	assert_eq(GFVariantData.get_option_int(report, "visited_values"), 6)
-	assert_eq(GFVariantData.get_option_int(report, "visited_bytes"), 79)
-	assert_eq(GFVariantData.get_option_string(report, "variant_type_name"), "Vector2")
+	assert_eq(
+		path_segments.size(),
+		3
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "failure_path"),
+		"${value:0}[0]{value:0}"
+	)
+	assert_eq(
+		path_segments,
+		[
+			{ "kind": "dictionary_value", "entry_index": 0 },
+			{ "kind": "array_index", "index": 0 },
+			{ "kind": "dictionary_value", "entry_index": 0 },
+		]
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "visited_values"),
+		6
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "visited_bytes"),
+		79
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "variant_type_name"),
+		"Vector2"
+	)
 	assert_false(JSON.stringify(report).to_lower().contains("inf"))
-	assert_same(operation.reclaim_failed_payload(), transfer)
+	assert_same(
+		operation.reclaim_failed_payload(),
+		transfer
+	)
 	assert_true(transfer.release())
 
 
 func test_preflight_rejects_non_finite_compound_and_packed_variants() -> void:
 	var invalid_values: Array[Variant] = [
 		NAN,
-		Rect2(Vector2.ZERO, Vector2(INF, 1.0)),
-		Transform2D(0.0, Vector2(1.0, INF)),
-		Transform3D(Basis.IDENTITY, Vector3(0.0, NAN, 0.0)),
-		Color(1.0, INF, 1.0, 1.0),
+		Rect2(
+			Vector2.ZERO,
+			Vector2(INF, 1.0)
+		),
+		Transform2D(
+			0.0,
+			Vector2(1.0, INF)
+		),
+		Transform3D(
+			Basis.IDENTITY,
+			Vector3(
+				0.0,
+				NAN,
+				0.0
+			)
+		),
+		Color(
+			1.0,
+			INF,
+			1.0,
+			1.0
+		),
 		PackedFloat64Array([1.0, NAN]),
-		PackedVector3Array([Vector3(0.0, INF, 0.0)]),
-		PackedColorArray([Color(1.0, 1.0, NAN, 1.0)]),
-		PackedVector4Array([Vector4(0.0, 0.0, 0.0, INF)]),
+		PackedVector3Array(
+			[
+				Vector3(
+					0.0,
+					INF,
+					0.0
+				),
+			]
+		),
+		PackedColorArray(
+			[
+				Color(
+					1.0,
+					1.0,
+					NAN,
+					1.0
+				),
+			]
+		),
+		PackedVector4Array(
+			[
+				Vector4(
+					0.0,
+					0.0,
+					0.0,
+					INF
+				),
+			]
+		),
 	]
 
 	for value: Variant in invalid_values:
-		var report: Dictionary = _validate_in_both_path_modes({"value": value})
+		var report: Dictionary = _validate_in_both_path_modes({ "value": value })
 		assert_false(GFVariantData.get_option_bool(report, "ok"))
 		assert_eq(
 			GFVariantData.get_option_string(report, "failure_kind"),
@@ -539,18 +661,14 @@ func test_preflight_charges_packed_array_elements_against_value_budget() -> void
 	var oversized: PackedByteArray = PackedByteArray()
 	var _resize_error: int = oversized.resize(1_000_001)
 
-	var report: Dictionary = _validate_in_both_path_modes({
-		"value": oversized,
-	})
+	var report: Dictionary = _validate_in_both_path_modes({ "value": oversized, })
 
 	assert_false(GFVariantData.get_option_bool(report, "ok"))
 	assert_eq(
 		GFVariantData.get_option_string(report, "failure_kind"),
 		"value_budget_exceeded"
 	)
-	assert_true(
-		GFVariantData.get_option_int(report, "visited_values") > 1_000_000
-	)
+	assert_true(GFVariantData.get_option_int(report, "visited_values") > 1_000_000)
 
 
 func test_preflight_stops_dictionary_iteration_at_value_budget_without_key_snapshot() -> void:
@@ -570,12 +688,15 @@ func test_preflight_stops_dictionary_iteration_at_value_budget_without_key_snaps
 		GFVariantData.get_option_string(report, "failure_kind"),
 		"value_budget_exceeded"
 	)
-	assert_eq(GFVariantData.get_option_int(report, "visited_values"), 9)
+	assert_eq(
+		GFVariantData.get_option_int(report, "visited_values"),
+		9
+	)
 
 
 func test_preflight_enforces_byte_budget_without_exposing_key_value_or_digest() -> void:
 	var report: Dictionary = _validate_in_both_path_modes(
-		{"private_key": "do-not-expose-this-payload-value"},
+		{ "private_key": "do-not-expose-this-payload-value" },
 		100,
 		16,
 		16
@@ -595,9 +716,7 @@ func test_preflight_enforces_byte_budget_without_exposing_key_value_or_digest() 
 
 func test_preflight_rejects_typed_object_container_metadata_without_elements() -> void:
 	var unsafe_values: Array[Resource] = []
-	var array_report: Dictionary = _validate_in_both_path_modes({
-		"values": unsafe_values,
-	})
+	var array_report: Dictionary = _validate_in_both_path_modes({ "values": unsafe_values, })
 
 	assert_false(GFVariantData.get_option_bool(array_report, "ok"))
 	assert_eq(
@@ -610,9 +729,7 @@ func test_preflight_rejects_typed_object_container_metadata_without_elements() -
 	)
 
 	var unsafe_entries: Dictionary[String, Resource] = {}
-	var dictionary_report: Dictionary = _validate_in_both_path_modes({
-		"entries": unsafe_entries,
-	})
+	var dictionary_report: Dictionary = _validate_in_both_path_modes({ "entries": unsafe_entries, })
 	assert_false(GFVariantData.get_option_bool(dictionary_report, "ok"))
 	assert_eq(
 		GFVariantData.get_option_string(dictionary_report, "failure_kind"),
@@ -623,33 +740,39 @@ func test_preflight_rejects_typed_object_container_metadata_without_elements() -
 		"Dictionary"
 	)
 
-	var safe_values: Array[int] = [1, 2, 3]
-	var safe_entries: Dictionary[String, int] = {"value": 1}
-	var safe_report: Dictionary = _validate_in_both_path_modes({
-		"values": safe_values,
-		"entries": safe_entries,
-	})
+	var safe_values: Array[int] = [
+		1,
+		2,
+		3,
+	]
+	var safe_entries: Dictionary[String, int] = { "value": 1 }
+	var safe_report: Dictionary = _validate_in_both_path_modes({ "values": safe_values, "entries": safe_entries, })
 	assert_true(GFVariantData.get_option_bool(safe_report, "ok"))
 
 
 func test_same_binding_can_lease_pending_snapshot_and_dispose_reclaims_queued_attempt() -> void:
 	_storage.max_async_thread_count = 1
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"values": PackedInt32Array(range(4096)),
-	})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "values": PackedInt32Array(range(4096)), })
 
-	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_dispose.json",
-		transfer
-	)
+	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_dispose.json", transfer)
 	var queued_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
 		"test_transfer_dispose.json",
 		first_operation.get_payload_transfer()
 	)
 
-	assert_same(queued_operation.get_payload_transfer(), transfer)
-	assert_eq(transfer.get_active_attempt_count(), 2)
-	assert_eq(_storage._async_queue.size(), 1, "同文件 retry 应保留独立 lease 并等待当前原子写。")
+	assert_same(
+		queued_operation.get_payload_transfer(),
+		transfer
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		2
+	)
+	assert_eq(
+		_storage._async_queue.size(),
+		1,
+		"同文件 retry 应保留独立 lease 并等待当前原子写。"
+	)
 	_storage.dispose()
 
 	assert_true(first_operation.is_completed())
@@ -661,7 +784,10 @@ func test_same_binding_can_lease_pending_snapshot_and_dispose_reclaims_queued_at
 		queued_result.get_settlement_kind(),
 		GFStorageAsyncResult.SettlementKind.CANCELLED
 	)
-	assert_eq(queued_result.get_error_code(), ERR_SKIP)
+	assert_eq(
+		queued_result.get_error_code(),
+		ERR_SKIP
+	)
 	assert_null(queued_result.get_read_result())
 	assert_null(queued_result.get_delete_result())
 	assert_eq(
@@ -669,25 +795,25 @@ func test_same_binding_can_lease_pending_snapshot_and_dispose_reclaims_queued_at
 		GFStorageAsyncResult.WriteFailureKind.NONE
 	)
 	assert_true(queued_result.get_write_validation_report().is_empty())
-	assert_eq(transfer.get_active_attempt_count(), 0)
-	assert_same(queued_operation.reclaim_failed_payload(), transfer)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
+	assert_same(
+		queued_operation.reclaim_failed_payload(),
+		transfer
+	)
 	assert_null(queued_operation.reclaim_failed_payload())
 	assert_true(transfer.release())
 	assert_true(transfer.is_released())
 
 
 func test_claim_freezes_storage_file_and_codec_binding() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
-	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_frozen_binding.json",
-		transfer
-	)
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1 })
+	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_frozen_binding.json", transfer)
 	_storage.encrypt_key = 7
 
-	var rejected_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_frozen_binding.json",
-		transfer
-	)
+	var rejected_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_frozen_binding.json", transfer)
 
 	assert_true(rejected_operation.is_completed())
 	assert_false(rejected_operation.get_result().is_successful())
@@ -696,7 +822,10 @@ func test_claim_freezes_storage_file_and_codec_binding() -> void:
 		GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
 	)
 	assert_null(rejected_operation.get_payload_transfer())
-	assert_eq(transfer.get_active_attempt_count(), 1)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		1
+	)
 	await _pump_storage_async_tasks()
 	assert_true(first_operation.get_result().is_successful())
 	assert_true(transfer.release())
@@ -709,21 +838,14 @@ func test_initialized_root_is_frozen_while_queued_task_keeps_original_family() -
 	storage_utility.init()
 	storage_utility.max_async_thread_count = 1
 	_additional_storages.append(storage_utility)
-	var blocker_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"value": 1,
-	})
-	var blocker_operation: GFStorageAsyncOperation = storage_utility.save_payload_request_async(
-		"test_transfer_path_blocker.json",
-		blocker_transfer
+	var blocker_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1, })
+	var blocker_operation: GFStorageAsyncOperation = storage_utility.save_payload_request_async("test_transfer_path_blocker.json", blocker_transfer)
+	var target_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 2, })
+	var target_operation: GFStorageAsyncOperation = storage_utility.save_payload_request_async("test_transfer_path_freeze.json", target_transfer)
+	assert_eq(
+		storage_utility._async_queue.size(),
+		1
 	)
-	var target_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"value": 2,
-	})
-	var target_operation: GFStorageAsyncOperation = storage_utility.save_payload_request_async(
-		"test_transfer_path_freeze.json",
-		target_transfer
-	)
-	assert_eq(storage_utility._async_queue.size(), 1)
 
 	storage_utility.save_dir_name = "test_storage_payload_transfer_frozen_b"
 
@@ -732,25 +854,23 @@ func test_initialized_root_is_frozen_while_queued_task_keeps_original_family() -
 		"test_storage_payload_transfer_frozen_a",
 		"初始化后的 Storage root 不得漂移。"
 	)
-	assert_push_error(
-		"[GFStorageUtility][storage_utility.root_frozen] save_dir_name is frozen after Storage initialization; create a new utility for another root."
+	assert_push_error("[GFStorageUtility][storage_utility.root_frozen] save_dir_name is frozen after Storage initialization; create a new utility for another root.")
+	assert_eq(
+		target_transfer.get_active_attempt_count(),
+		1
 	)
-	assert_eq(target_transfer.get_active_attempt_count(), 1)
 	await _pump_specific_storage(storage_utility)
 	assert_true(blocker_operation.get_result().is_successful())
 	assert_true(target_operation.get_result().is_successful())
 
 	var loaded: GFStorageReadResult = storage_utility.load_data("test_transfer_path_freeze.json")
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "value"), 2)
-	var frozen_descriptor: Dictionary = _make_family_descriptor(
-		storage_utility.save_dir_name,
-		"test_transfer_path_freeze.json"
+	assert_eq(
+		GFVariantData.get_option_int(loaded.payload, "value"),
+		2
 	)
-	var other_descriptor: Dictionary = _make_family_descriptor(
-		"test_storage_payload_transfer_frozen_b",
-		"test_transfer_path_freeze.json"
-	)
+	var frozen_descriptor: Dictionary = _make_family_descriptor(storage_utility.save_dir_name, "test_transfer_path_freeze.json")
+	var other_descriptor: Dictionary = _make_family_descriptor("test_storage_payload_transfer_frozen_b", "test_transfer_path_freeze.json")
 	assert_true(
 		FileAccess.file_exists(GFVariantData.get_option_string(frozen_descriptor, "payload_path")),
 		"queued task 应提交到初始化时冻结的 private family。"
@@ -764,29 +884,30 @@ func test_initialized_root_is_frozen_while_queued_task_keeps_original_family() -
 
 
 func test_old_attempt_and_retry_publish_independent_terminals_then_release_once() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"generation": 7,
-	})
-	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_retry.json",
-		transfer
-	)
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "generation": 7, })
+	var first_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_retry.json", transfer)
 	var retry_transfer: GFStoragePayloadTransfer = first_operation.get_payload_transfer()
-	var retry_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_retry.json",
-		retry_transfer
-	)
+	var retry_operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_retry.json", retry_transfer)
 
 	assert_same(retry_transfer, transfer)
-	assert_same(retry_operation.get_payload_transfer(), transfer)
-	assert_eq(transfer.get_active_attempt_count(), 2)
+	assert_same(
+		retry_operation.get_payload_transfer(),
+		transfer
+	)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		2
+	)
 	await _pump_storage_async_tasks()
 
 	assert_true(first_operation.is_completed())
 	assert_true(first_operation.get_result().is_successful())
 	assert_true(retry_operation.is_completed())
 	assert_true(retry_operation.get_result().is_successful())
-	assert_eq(transfer.get_active_attempt_count(), 0)
+	assert_eq(
+		transfer.get_active_attempt_count(),
+		0
+	)
 	assert_null(first_operation.reclaim_failed_payload())
 	assert_null(retry_operation.reclaim_failed_payload())
 	assert_true(transfer.release())
@@ -794,33 +915,31 @@ func test_old_attempt_and_retry_publish_independent_terminals_then_release_once(
 
 
 func test_dispose_closes_async_admission_before_terminal_callbacks() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"value": 1,
-	})
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_dispose.json",
-		transfer
-	)
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1, })
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_dispose.json", transfer)
 	var reentrant_transfers: Array[GFStoragePayloadTransfer] = []
 	var reentrant_operations: Array[GFStorageAsyncOperation] = []
-	var connect_error: Error = operation.completed.connect(
-		func(_result: GFStorageAsyncResult) -> void:
-			var admitted_transfer: GFStoragePayloadTransfer = (
-				GFStoragePayloadTransfer.take_ownership({"value": 2})
-			)
-			reentrant_transfers.append(admitted_transfer)
-			reentrant_operations.append(_storage.save_payload_request_async(
-				"test_transfer_reentrant.json",
-				admitted_transfer
-			))
-	) as Error
+	var connect_error: Error = (
+		operation.completed.connect(
+			func(_result: GFStorageAsyncResult) -> void:
+				var admitted_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 2 })
+				reentrant_transfers.append(admitted_transfer)
+				reentrant_operations.append(_storage.save_payload_request_async("test_transfer_reentrant.json", admitted_transfer)),
+		) as Error
+	)
 	assert_eq(connect_error, OK)
 
 	_storage.dispose()
 
 	assert_true(operation.is_completed())
-	assert_eq(reentrant_transfers.size(), 1)
-	assert_eq(reentrant_operations.size(), 1)
+	assert_eq(
+		reentrant_transfers.size(),
+		1
+	)
+	assert_eq(
+		reentrant_operations.size(),
+		1
+	)
 	var reentrant_operation: GFStorageAsyncOperation = reentrant_operations[0]
 	var captured_transfer: GFStoragePayloadTransfer = reentrant_transfers[0]
 	assert_true(reentrant_operation.is_completed())
@@ -828,7 +947,10 @@ func test_dispose_closes_async_admission_before_terminal_callbacks() -> void:
 		reentrant_operation.get_result().get_write_failure_kind(),
 		GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
 	)
-	assert_eq(captured_transfer.get_state(), GFStoragePayloadTransfer.State.READY)
+	assert_eq(
+		captured_transfer.get_state(),
+		GFStoragePayloadTransfer.State.READY
+	)
 	assert_true(_storage._async_tasks.is_empty())
 	assert_true(_storage._async_queue.is_empty())
 	assert_true(captured_transfer.release())
@@ -847,28 +969,27 @@ func test_worker_committed_marker_uses_shared_schema_and_recovery_keeps_new_file
 	var descriptor: Dictionary = _make_family_descriptor(probe.save_dir_name, file_name)
 	probe.preserved_paths[GFVariantData.get_option_string(descriptor, "backup_path")] = true
 	probe.preserved_paths[GFVariantData.get_option_string(descriptor, "transaction_path")] = true
-	probe.preserved_paths[
-		GFVariantData.get_option_string(descriptor, "transaction_commit_path")
-	] = true
+	probe.preserved_paths[GFVariantData.get_option_string(descriptor, "transaction_commit_path")] = true
 	probe.preserve_committed_artifacts = true
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
-		"value": 9,
-	})
-	var operation: GFStorageAsyncOperation = probe.save_payload_request_async(
-		file_name,
-		transfer
-	)
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 9, })
+	var operation: GFStorageAsyncOperation = probe.save_payload_request_async(file_name, transfer)
 	await _pump_specific_storage(probe)
 
 	assert_true(operation.get_result().is_successful())
-	var prepare_record: Dictionary = _read_plain_json_file(
-		GFVariantData.get_option_string(descriptor, "transaction_path")
+	var prepare_record: Dictionary = _read_plain_json_file(GFVariantData.get_option_string(descriptor, "transaction_path"))
+	var commit_record: Dictionary = _read_plain_json_file(GFVariantData.get_option_string(descriptor, "transaction_commit_path"))
+	_assert_single_member_transaction_record(
+		prepare_record,
+		descriptor,
+		false,
+		false
 	)
-	var commit_record: Dictionary = _read_plain_json_file(
-		GFVariantData.get_option_string(descriptor, "transaction_commit_path")
+	_assert_single_member_transaction_record(
+		commit_record,
+		descriptor,
+		true,
+		false
 	)
-	_assert_single_member_transaction_record(prepare_record, descriptor, false, false)
-	_assert_single_member_transaction_record(commit_record, descriptor, true, false)
 	assert_eq(
 		GFVariantData.get_option_string(prepare_record, "transaction_id"),
 		GFVariantData.get_option_string(commit_record, "transaction_id"),
@@ -886,26 +1007,50 @@ func test_worker_committed_marker_uses_shared_schema_and_recovery_keeps_new_file
 	await _pump_storage_async_tasks()
 	var loaded: GFStorageReadResult = load_operation.get_result().get_read_result()
 	assert_true(loaded.ok)
-	assert_eq(GFVariantData.get_option_int(loaded.payload, "value"), 9)
+	assert_eq(
+		GFVariantData.get_option_int(loaded.payload, "value"),
+		9
+	)
 	_assert_transaction_records_absent(_storage, file_name)
 
 
 func test_frozen_async_recovery_rolls_back_valid_uncommitted_marker() -> void:
 	var file_name: String = "test_transfer_uncommitted_recovery.json"
-	assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+	assert_eq(
+		_storage.save_data(
+			file_name,
+			{ "value": 1 }
+		),
+		OK
+	)
 	var descriptor: Dictionary = _make_family_descriptor(_storage.save_dir_name, file_name)
 	var payload_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
 	var backup_path: String = GFVariantData.get_option_string(descriptor, "backup_path")
-	assert_eq(_storage._write_transaction_markers([file_name], false), OK)
-	var prepare_record: Dictionary = _read_plain_json_file(
-		GFVariantData.get_option_string(descriptor, "transaction_path")
+	assert_eq(
+		_storage._write_transaction_markers(
+			[file_name],
+			false
+		),
+		OK
 	)
-	_assert_single_member_transaction_record(prepare_record, descriptor, false, true)
+	var prepare_record: Dictionary = _read_plain_json_file(GFVariantData.get_option_string(descriptor, "transaction_path"))
+	_assert_single_member_transaction_record(
+		prepare_record,
+		descriptor,
+		false,
+		true
+	)
 	assert_eq(
 		DirAccess.rename_absolute(payload_path, backup_path),
 		OK
 	)
-	assert_eq(_storage._write_json(file_name, { "value": 2 }), OK)
+	assert_eq(
+		_storage._write_json(
+			file_name,
+			{ "value": 2 }
+		),
+		OK
+	)
 
 	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(file_name)
 	await _pump_storage_async_tasks()
@@ -922,23 +1067,26 @@ func test_frozen_async_recovery_rolls_back_valid_uncommitted_marker() -> void:
 
 
 func test_release_waits_for_active_attempt_before_clearing_payload() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
-	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_success.json",
-		transfer
-	)
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1 })
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async("test_transfer_success.json", transfer)
 
 	assert_true(transfer.release())
-	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.RELEASE_PENDING)
+	assert_eq(
+		transfer.get_state(),
+		GFStoragePayloadTransfer.State.RELEASE_PENDING
+	)
 	assert_false(transfer.is_released())
 	await _pump_storage_async_tasks()
 
 	assert_true(operation.get_result().is_successful())
-	assert_true(transfer.is_released(), "最后一个 active attempt 完成后才应清空 payload。")
+	assert_true(
+		transfer.is_released(),
+		"最后一个 active attempt 完成后才应清空 payload。"
+	)
 
 
 func test_operation_cannot_publish_terminal_result_before_attempt_lease_finishes() -> void:
-	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 1 })
 	var attempt: Dictionary = transfer.begin_attempt_for_framework(
 		_storage.get_instance_id(),
 		"test_transfer_success.json",
@@ -946,23 +1094,29 @@ func test_operation_cannot_publish_terminal_result_before_attempt_lease_finishes
 		_storage._get_codec_options()
 	)
 	var operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
-	assert_true(operation.configure_for_framework(
-		999,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		"test_transfer_success.json"
-	))
-	assert_true(operation.configure_payload_attempt_for_framework(
-		transfer,
-		GFVariantData.get_option_int(attempt, "attempt_id")
-	))
+	assert_true(
+		operation.configure_for_framework(
+			999,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			"test_transfer_success.json"
+		)
+	)
+	assert_true(
+		operation.configure_payload_attempt_for_framework(
+			transfer,
+			GFVariantData.get_option_int(attempt, "attempt_id")
+		)
+	)
 	var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
-	assert_true(result.configure_for_framework(
-		999,
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		"test_transfer_success.json",
-		true,
-		OK
-	))
+	assert_true(
+		result.configure_for_framework(
+			999,
+			GFStorageAsyncOperation.OPERATION_SAVE,
+			"test_transfer_success.json",
+			true,
+			OK
+		)
+	)
 
 	assert_false(
 		operation.complete_for_framework(result),
@@ -976,14 +1130,9 @@ func test_operation_cannot_publish_terminal_result_before_attempt_lease_finishes
 
 func test_legacy_request_api_keeps_deep_snapshot_copy() -> void:
 	var source: Dictionary = {
-		"nested": {
-			"value": 1,
-		},
+		"nested": { "value": 1, },
 	}
-	var operation: GFStorageAsyncOperation = _storage.save_data_request_async(
-		"test_transfer_snapshot.json",
-		source
-	)
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async("test_transfer_snapshot.json", source)
 	var nested: Dictionary = GFVariantData.as_dictionary(source["nested"])
 	nested["value"] = 99
 	await _pump_storage_async_tasks()
@@ -991,18 +1140,40 @@ func test_legacy_request_api_keeps_deep_snapshot_copy() -> void:
 	assert_true(operation.get_result().is_successful())
 	var loaded: GFStorageReadResult = _storage.load_data("test_transfer_snapshot.json")
 	var loaded_nested: Dictionary = GFVariantData.get_option_dictionary(loaded.payload, "nested")
-	assert_eq(GFVariantData.get_option_int(loaded_nested, "value"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(loaded_nested, "value"),
+		1
+	)
 
 
 func test_projection_preflight_accepts_finite_values_and_accounts_all_components() -> void:
 	var projections: Array[Projection] = [Projection.IDENTITY]
-	var report: Dictionary = _validate_in_both_path_modes({"p": Projection.IDENTITY}, 3, 145, 1)
+	var report: Dictionary = _validate_in_both_path_modes(
+		{ "p": Projection.IDENTITY },
+		3,
+		145,
+		1
+	)
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(GFVariantData.get_option_int(report, "visited_bytes"), 145)
-	assert_eq(GFVariantData.get_option_int(report, "visited_values"), 3)
-	report = _validate_in_both_path_modes({"p": Projection.IDENTITY}, 3, 144, 1)
-	assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "byte_budget_exceeded")
-	report = _validate_in_both_path_modes({"p": projections})
+	assert_eq(
+		GFVariantData.get_option_int(report, "visited_bytes"),
+		145
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "visited_values"),
+		3
+	)
+	report = _validate_in_both_path_modes(
+		{ "p": Projection.IDENTITY },
+		3,
+		144,
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "failure_kind"),
+		"byte_budget_exceeded"
+	)
+	report = _validate_in_both_path_modes({ "p": projections })
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
 	for column: int in range(4):
 		for row: int in range(4):
@@ -1010,9 +1181,15 @@ func test_projection_preflight_accepts_finite_values_and_accounts_all_components
 			var component: Vector4 = projection[column]
 			component[row] = INF if (column + row) % 2 == 0 else NAN
 			projection[column] = component
-			report = _validate_in_both_path_modes({"p": projection})
-			assert_eq(GFVariantData.get_option_string(report, "failure_kind"), "non_finite_number")
-			assert_eq(GFVariantData.get_option_string(report, "variant_type_name"), "Projection")
+			report = _validate_in_both_path_modes({ "p": projection })
+			assert_eq(
+				GFVariantData.get_option_string(report, "failure_kind"),
+				"non_finite_number"
+			)
+			assert_eq(
+				GFVariantData.get_option_string(report, "variant_type_name"),
+				"Projection"
+			)
 
 
 func _validate_in_both_path_modes(
@@ -1022,19 +1199,33 @@ func _validate_in_both_path_modes(
 	max_depth: int = 128
 ) -> Dictionary:
 	var detailed: Dictionary = _storage._validate_thread_payload(
-		payload, max_values, max_bytes, max_depth
+		payload,
+		max_values,
+		max_bytes,
+		max_depth
 	)
 	var compact: Dictionary = _storage._validate_thread_payload(
-		payload, max_values, max_bytes, max_depth, false
+		payload,
+		max_values,
+		max_bytes,
+		max_depth,
+		false
 	)
-	assert_eq(GFVariantData.get_option_string(compact, "failure_path"), "")
+	assert_eq(
+		GFVariantData.get_option_string(compact, "failure_path"),
+		""
+	)
 	assert_true(GFVariantData.as_array(compact.get("path_segments")).is_empty())
 	var detailed_comparison: Dictionary = detailed.duplicate(true)
 	var compact_comparison: Dictionary = compact.duplicate(true)
 	for field: String in ["failure_path", "path_segments"]:
 		assert_true(detailed_comparison.erase(field))
 		assert_true(compact_comparison.erase(field))
-	assert_eq(compact_comparison, detailed_comparison, "诊断收集开关不得改变分类、预算计数或其余报告字段。")
+	assert_eq(
+		compact_comparison,
+		detailed_comparison,
+		"诊断收集开关不得改变分类、预算计数或其余报告字段。"
+	)
 	return detailed
 
 

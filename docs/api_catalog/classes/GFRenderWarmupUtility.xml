@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="feaf28cb7fb9af71fa9769b711249b46627af1db4fd9ff37468d493966f2d7a8">
+<class name="GFRenderWarmupUtility" path="addons/gf/standard/utilities/display/gf_render_warmup_utility.gd" module="standard" extends="GFUtility" classDigest="88d0a5953dc820a929e9d9424388ffed0d9d5add1be215b883a358903bc11fc8">
 	<description>GFRenderWarmupUtility: 通用渲染资源预热工具。
 通过清单或节点树收集 Mesh、Material、Texture 等渲染资源，并按帧预算提前加载和触碰 RID。
 它不决定项目何时预热、预热哪些场景或如何展示加载进度。</description>
@@ -10,17 +10,18 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="warmup_queued">
-			<signature>signal warmup_queued(queue_id: int, manifest_id: StringName, entry_count: int)</signature>
+			<signature>signal warmup_queued( queue_id: int, manifest_id: StringName, entry_count: int )</signature>
 			<description>清单加入预热队列时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">queue_id: 预热队列标识。</tag>
 				<tag name="param">manifest_id: 清单标识。</tag>
 				<tag name="param">entry_count: 清单条目数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="warmup_entry_processed">
-			<signature>signal warmup_entry_processed(queue_id: int, entry_index: int, result: Dictionary)</signature>
+			<signature>signal warmup_entry_processed( queue_id: int, entry_index: int, result: Dictionary )</signature>
 			<description>单个条目预热完成后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -28,6 +29,7 @@
 				<tag name="param">entry_index: 清单条目索引。</tag>
 				<tag name="param">result: 单个条目的预热结果。</tag>
 				<tag name="schema">result: Dictionary，包含 ok、resource_path、kind、resource_class、touched_count、error、metadata 和 entry_index。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="warmup_completed">

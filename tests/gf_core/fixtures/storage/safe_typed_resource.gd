@@ -1,14 +1,7 @@
 extends Resource
 
-
-const _SAFE_TYPED_CHILD_RESOURCE_SCRIPT = preload(
-	"res://tests/gf_core/fixtures/storage/safe_typed_child_resource.gd"
-)
-
-
+const _SAFE_TYPED_CHILD_RESOURCE_SCRIPT = preload("res://tests/gf_core/fixtures/storage/safe_typed_child_resource.gd")
 static var last_instance: WeakRef = null
-
-
 @export var value: int = 0
 @export var numbers: Array[int] = []
 @export var counts: Dictionary[String, int] = {}

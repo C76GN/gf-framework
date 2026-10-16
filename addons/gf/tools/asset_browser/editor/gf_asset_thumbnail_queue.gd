@@ -15,7 +15,11 @@ extends RefCounted
 ## @param texture: 原生预览或 null。
 ## [br]
 ## @param generation: 当前视图代次。
-signal preview_ready(path: String, texture: Texture2D, generation: int)
+signal preview_ready(
+	path: String,
+	texture: Texture2D,
+	generation: int
+)
 
 
 # --- 常量 ---
@@ -166,13 +170,31 @@ func _pump() -> void:
 		if _cache.has(path):
 			var cached: Variant = _cache[path]
 			var texture: Texture2D = cached if cached is Texture2D else null
-			preview_ready.emit(path, texture, _generation)
+			preview_ready.emit(
+				path,
+				texture,
+				_generation
+			)
 			continue
-		var request_key: String = "%d:%d:%s" % [_generation, _content_revision, path]
+		var request_key: String = (
+			"%d:%d:%s"
+			% [
+				_generation,
+				_content_revision,
+				path,
+			]
+		)
 		_in_flight[request_key] = true
-		_previewer.queue_resource_preview(path, self, &"_on_preview_ready", {
-			"key": request_key, "generation": _generation, "revision": _content_revision,
-		})
+		_previewer.queue_resource_preview(
+			path,
+			self,
+			&"_on_preview_ready",
+			{
+				"key": request_key,
+				"generation": _generation,
+				"revision": _content_revision,
+			}
+		)
 
 
 # --- 信号处理函数 ---
@@ -180,7 +202,12 @@ func _pump() -> void:
 ## 从字典回传信息归还在途槽，再按释放状态和内容代次决定是否缓存；只有路径仍可见且视图代次匹配才通知，最后延迟继续排队。
 ## [br]
 ## @api private
-func _on_preview_ready(path: String, preview: Texture2D, small_preview: Texture2D, userdata: Variant) -> void:
+func _on_preview_ready(
+	path: String,
+	preview: Texture2D,
+	small_preview: Texture2D,
+	userdata: Variant
+) -> void:
 	if not userdata is Dictionary:
 		return
 	var request: Dictionary = userdata
@@ -188,7 +215,11 @@ func _on_preview_ready(path: String, preview: Texture2D, small_preview: Texture2
 	var _removed: bool = _in_flight.erase(request_key)
 	if _disposed:
 		return
-	if GFVariantData.get_option_int(request, "revision", -1) == _content_revision:
+	if GFVariantData.get_option_int(
+		request,
+		"revision",
+		-1
+	) == _content_revision:
 		var texture: Texture2D = preview if preview != null else small_preview
 		if not _cache.has(path):
 			var _appended: bool = _cache_order.append(path)
@@ -197,6 +228,14 @@ func _on_preview_ready(path: String, preview: Texture2D, small_preview: Texture2
 			var oldest: String = _cache_order[0]
 			_cache_order.remove_at(0)
 			var _evicted: bool = _cache.erase(oldest)
-		if _visible.has(path) and GFVariantData.get_option_int(request, "generation", -1) == _generation:
-			preview_ready.emit(path, texture, _generation)
+		if _visible.has(path) and GFVariantData.get_option_int(
+			request,
+			"generation",
+			-1
+		) == _generation:
+			preview_ready.emit(
+				path,
+				texture,
+				_generation
+			)
 	_pump.call_deferred()

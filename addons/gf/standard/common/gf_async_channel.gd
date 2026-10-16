@@ -236,16 +236,10 @@ var _dropped_count: int = 0
 ## @param overflow_policy: OVERFLOW_REJECT、OVERFLOW_DROP_OLDEST 或 OVERFLOW_DROP_NEWEST。
 ## [br]
 ## @return 配置被接受时返回 true。
-func configure_ingress(
-	max_buffered_items: int,
-	overflow_policy: StringName = OVERFLOW_REJECT
-) -> bool:
+func configure_ingress(max_buffered_items: int, overflow_policy: StringName = OVERFLOW_REJECT) -> bool:
 	if not Thread.is_main_thread():
 		return false
-	if (
-		max_buffered_items <= 0
-		or max_buffered_items > ABSOLUTE_MAX_BUFFERED_ITEMS
-	):
+	if (max_buffered_items <= 0 or max_buffered_items > ABSOLUTE_MAX_BUFFERED_ITEMS):
 		return false
 	if max_buffered_items < _item_count:
 		return false
@@ -301,7 +295,13 @@ func try_write_detailed(item: Variant) -> Dictionary:
 			"overflow_policy": &"",
 		}
 	if _closed:
-		return _make_write_result(STATUS_CLOSED, false, false, null, STATUS_CLOSED)
+		return _make_write_result(
+			STATUS_CLOSED,
+			false,
+			false,
+			null,
+			STATUS_CLOSED
+		)
 
 	var dropped: bool = false
 	var dropped_item: Variant = null
@@ -365,7 +365,10 @@ func close(reason: StringName = STATUS_CLOSED, metadata: Dictionary = {}) -> boo
 	_closed = true
 	_close_reason = reason if reason != &"" else STATUS_CLOSED
 	_close_metadata = metadata.duplicate(true)
-	closed.emit(_close_reason, _close_metadata.duplicate(true))
+	closed.emit(
+		_close_reason,
+		_close_metadata.duplicate(true)
+	)
 	return true
 
 
@@ -394,10 +397,25 @@ func try_read(default_value: Variant = null) -> Dictionary:
 	if _item_count > 0:
 		var item: Variant = _take_buffered_item()
 		_read_count += 1
-		return _make_read_result(STATUS_COMPLETED, true, item)
+		return _make_read_result(
+			STATUS_COMPLETED,
+			true,
+			item
+		)
 	if _closed:
-		return _make_read_result(STATUS_CLOSED, false, default_value, true, _close_reason, _close_metadata)
-	return _make_read_result(STATUS_PENDING, false, default_value)
+		return _make_read_result(
+			STATUS_CLOSED,
+			false,
+			default_value,
+			true,
+			_close_reason,
+			_close_metadata
+		)
+	return _make_read_result(
+		STATUS_PENDING,
+		false,
+		default_value
+	)
 
 
 ## 等待并读取下一条数据。
@@ -440,7 +458,11 @@ func read_async(options: Dictionary = {}, default_value: Variant = null) -> Dict
 				GFVariantData.get_option_dictionary(wait_result, "metadata"),
 				{ "wait_result": wait_result }
 			)
-	return _make_read_result(STATUS_INVALID, false, default_value)
+	return _make_read_result(
+		STATUS_INVALID,
+		false,
+		default_value
+	)
 
 
 ## 等待通道进入可读或关闭状态，不消费数据。
@@ -477,7 +499,12 @@ func wait_to_read_async(options: Dictionary = {}) -> Dictionary:
 
 	if has_items():
 		return _make_ready_result(STATUS_COMPLETED, true)
-	return _make_ready_result(STATUS_CLOSED, false, _close_reason, _close_metadata)
+	return _make_ready_result(
+		STATUS_CLOSED,
+		false,
+		_close_reason,
+		_close_metadata
+	)
 
 
 ## 读出当前缓冲区中的数据。
@@ -498,7 +525,10 @@ func drain(max_items: int = -1) -> Array:
 	var take_count: int = (
 		_item_count
 		if max_items < 0
-		else mini(_item_count, maxi(0, max_items))
+		else mini(
+			_item_count,
+			maxi(0, max_items)
+		)
 	)
 	var _resize_result: int = result.resize(take_count)
 	for index: int in range(take_count):
@@ -663,9 +693,7 @@ func _ensure_item_storage() -> void:
 ## @api private
 func _append_buffered_item(item: Variant) -> void:
 	_ensure_item_storage()
-	var tail_index: int = (
-		(_item_head + _item_count) % _items.size()
-	)
+	var tail_index: int = (_item_head + _item_count) % _items.size()
 	_items[tail_index] = item
 	_item_count += 1
 
@@ -721,7 +749,12 @@ func _make_read_result(
 	metadata: Dictionary = {},
 	extra: Dictionary = {}
 ) -> Dictionary:
-	var result: Dictionary = _GF_ASYNC_RESULT_SUPPORT.make_operation_result(status, ok, reason, metadata)
+	var result: Dictionary = _GF_ASYNC_RESULT_SUPPORT.make_operation_result(
+		status,
+		ok,
+		reason,
+		metadata
+	)
 	result["item"] = GFVariantData.duplicate_variant(item)
 	result["closed"] = is_channel_closed
 	_merge_extra(result, extra)
@@ -738,7 +771,12 @@ func _make_ready_result(
 	metadata: Dictionary = {},
 	extra: Dictionary = {}
 ) -> Dictionary:
-	var result: Dictionary = _GF_ASYNC_RESULT_SUPPORT.make_operation_result(status, readable, reason, metadata)
+	var result: Dictionary = _GF_ASYNC_RESULT_SUPPORT.make_operation_result(
+		status,
+		readable,
+		reason,
+		metadata
+	)
 	var _erased_ok: bool = result.erase("ok")
 	result["readable"] = readable
 	result["closed"] = _closed and not readable

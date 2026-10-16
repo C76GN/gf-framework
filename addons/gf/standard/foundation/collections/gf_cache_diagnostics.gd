@@ -158,13 +158,21 @@ func record_eviction(reason: StringName = &"evicted", key: Variant = null) -> vo
 ## @schema key: 任意缓存键；诊断快照会以字符串形式记录。
 ## [br]
 ## @param amount: 失效数量。
-func record_invalidation(reason: StringName = &"invalidated", key: Variant = null, amount: int = 1) -> void:
+func record_invalidation(
+	reason: StringName = &"invalidated",
+	key: Variant = null,
+	amount: int = 1
+) -> void:
 	if amount <= 0:
 		return
 	var count: int = amount
 	_invalidation_count = _add_counter(_invalidation_count, count)
 	_record_invalidation_reason(reason, count)
-	_last_event = _make_event(reason, key, count)
+	_last_event = _make_event(
+		reason,
+		key,
+		count
+	)
 
 
 ## 清空统计。
@@ -230,7 +238,11 @@ func _record_invalidation_reason(reason: StringName, amount: int = 1) -> void:
 		return
 	var reason_key: String = String(reason) if reason != &"" else "invalidated"
 	_invalidation_reasons[reason_key] = _add_counter(
-		GFVariantData.get_option_int(_invalidation_reasons, reason_key, 0),
+		GFVariantData.get_option_int(
+			_invalidation_reasons,
+			reason_key,
+			0
+		),
 		amount
 	)
 
@@ -250,7 +262,11 @@ func _add_counter(current: int, amount: int) -> int:
 ## 创建包含类型、key 文本、数量和毫秒 tick 的事件字典。
 ## [br]
 ## @api private
-func _make_event(event_type: StringName, key: Variant, amount: int = 1) -> Dictionary:
+func _make_event(
+	event_type: StringName,
+	key: Variant,
+	amount: int = 1
+) -> Dictionary:
 	return {
 		"type": event_type,
 		"key": _make_key_text(key),
@@ -268,4 +284,8 @@ func _make_key_text(key: Variant) -> String:
 	var key_token: String = _GF_VARIANT_KEY_CODEC_SCRIPT.make_key_token(key)
 	if not key_token.is_empty():
 		return key_token
-	return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(key, "", true)
+	return _GF_REPORT_VALUE_CODEC_SCRIPT.stringify_json_compatible(
+		key,
+		"",
+		true
+	)

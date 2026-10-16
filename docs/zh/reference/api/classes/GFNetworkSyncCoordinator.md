@@ -16,10 +16,10 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`phase_changed`](#member-gfnetworksynccoordinator-signals-phase_changed) | `signal phase_changed(previous_phase: Phase, current_phase: Phase)` |
-| 信号 | [`input_finalized`](#member-gfnetworksynccoordinator-signals-input_finalized) | `signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)` |
+| 信号 | [`input_finalized`](#member-gfnetworksynccoordinator-signals-input_finalized) | `signal input_finalized( peer_id: int, sequence: int, accepted: bool, reason: StringName )` |
 | 信号 | [`authority_snapshot_created`](#member-gfnetworksynccoordinator-signals-authority_snapshot_created) | `signal authority_snapshot_created(snapshot: GFNetworkSnapshot)` |
 | 信号 | [`authoritative_snapshot_applied`](#member-gfnetworksynccoordinator-signals-authoritative_snapshot_applied) | `signal authoritative_snapshot_applied( snapshot: GFNetworkSnapshot, corrected: bool, replayed_tick_count: int )` |
-| 信号 | [`synchronization_rejected`](#member-gfnetworksynccoordinator-signals-synchronization_rejected) | `signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)` |
+| 信号 | [`synchronization_rejected`](#member-gfnetworksynccoordinator-signals-synchronization_rejected) | `signal synchronization_rejected( peer_id: int, reason: StringName, details: Dictionary )` |
 | 信号 | [`resync_required`](#member-gfnetworksynccoordinator-signals-resync_required) | `signal resync_required(reason: StringName, details: Dictionary)` |
 | 枚举 | [`Role`](#member-gfnetworksynccoordinator-enums-role) | `enum Role` |
 | 枚举 | [`Phase`](#member-gfnetworksynccoordinator-enums-phase) | `enum Phase` |
@@ -35,7 +35,7 @@
 | 方法 | [`make_input_message`](#member-gfnetworksynccoordinator-methods-make_input_message) | `func make_input_message(frame: GFNetworkInputFrame) -> GFNetworkMessage:` |
 | 方法 | [`advance_authority_tick`](#member-gfnetworksynccoordinator-methods-advance_authority_tick) | `func advance_authority_tick() -> Dictionary:` |
 | 方法 | [`advance_prediction_tick`](#member-gfnetworksynccoordinator-methods-advance_prediction_tick) | `func advance_prediction_tick() -> Dictionary:` |
-| 方法 | [`make_snapshot_message`](#member-gfnetworksynccoordinator-methods-make_snapshot_message) | `func make_snapshot_message( snapshot: GFNetworkSnapshot, replica_peer_id: int ) -> GFNetworkMessage:` |
+| 方法 | [`make_snapshot_message`](#member-gfnetworksynccoordinator-methods-make_snapshot_message) | `func make_snapshot_message(snapshot: GFNetworkSnapshot, replica_peer_id: int) -> GFNetworkMessage:` |
 | 方法 | [`handle_message`](#member-gfnetworksynccoordinator-methods-handle_message) | `func handle_message(actual_peer_id: int, message: GFNetworkMessage) -> Dictionary:` |
 | 方法 | [`get_role`](#member-gfnetworksynccoordinator-methods-get_role) | `func get_role() -> Role:` |
 | 方法 | [`get_phase`](#member-gfnetworksynccoordinator-methods-get_phase) | `func get_phase() -> Phase:` |
@@ -75,7 +75,7 @@ signal phase_changed(previous_phase: Phase, current_phase: Phase)
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)
+signal input_finalized( peer_id: int, sequence: int, accepted: bool, reason: StringName )
 ```
 
 权威端最终裁决输入后发出。
@@ -137,7 +137,7 @@ Replica 原子应用权威快照后发出。
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)
+signal synchronization_rejected( peer_id: int, reason: StringName, details: Dictionary )
 ```
 
 同步消息被拒绝后发出。 details 只包含协议元数据和稳定原因，不包含 state、input 或原始消息。
@@ -472,7 +472,7 @@ Replica 在当前权威基线上推进一个本地预测 tick。 prediction_enab
 - 首次版本：`10.0.0`
 
 ```gdscript
-func make_snapshot_message( snapshot: GFNetworkSnapshot, replica_peer_id: int ) -> GFNetworkMessage:
+func make_snapshot_message(snapshot: GFNetworkSnapshot, replica_peer_id: int) -> GFNetworkMessage:
 ```
 
 Authority 为指定 replica 构建最新的全量快照消息。 只接受最近一次 advance_authority_tick() 签发且内容未被调用方修改的快照。 ack_input_sequence 是该 replica 在该最新 tick 已连续最终裁决的输入序号；消息构建不执行发送。

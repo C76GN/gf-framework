@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableResource" path="addons/gf/standard/utilities/config/gf_config_table_resource.gd" module="standard" extends="Resource" classDigest="e5fc80f16486a0080b572e928686d9e653e25610461e86fb8617af93bf6decb1">
+<class name="GFConfigTableResource" path="addons/gf/standard/utilities/config/gf_config_table_resource.gd" module="standard" extends="Resource" classDigest="bca0dfed8803abfc6b934684014da4aa3ca52492e0a7ed0b9f2a6021987cc5d5">
 	<description>GFConfigTableResource: 可保存为 Godot Resource 的通用配置表。
 用于承载导表工具生成的单表数据，保留稳定顺序、可选 schema、可选 ID 索引和元数据。
 该资源不绑定业务表语义，适合保存为 `.tres` / `.res` 后由运行时 Provider 读取。</description>
@@ -163,7 +163,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_index_records">
-			<signature>func get_index_records(index_id: StringName, index_key: String, duplicate_records: bool = true) -&gt; Array[Dictionary]:</signature>
+			<signature>func get_index_records( index_id: StringName, index_key: String, duplicate_records: bool = true ) -&gt; Array[Dictionary]:</signature>
 			<description>根据命名索引获取记录列表。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -176,7 +176,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="get_index_record">
-			<signature>func get_index_record(index_id: StringName, index_key: String, duplicate_record: bool = true) -&gt; Variant:</signature>
+			<signature>func get_index_record( index_id: StringName, index_key: String, duplicate_record: bool = true ) -&gt; Variant:</signature>
 			<description>根据命名索引获取第一条记录。</description>
 			<tags>
 				<tag name="api">public</tag>

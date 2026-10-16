@@ -76,6 +76,7 @@ const STATUS_STALE_REVISION: StringName = &"stale_revision"
 ## @since 11.0.0
 const STATUS_STALE_PLAN: StringName = &"stale_plan"
 
+
 # --- 私有变量 ---
 
 ## 标记结果是否已经通过一次性框架配置。
@@ -189,7 +190,10 @@ func get_transferred_amount() -> int:
 ## [br]
 ## @return: 请求数量减去实际转移数量。
 func get_remaining_amount() -> int:
-	return maxi(_requested_amount - _transferred_amount, 0)
+	return maxi(
+		_requested_amount - _transferred_amount,
+		0
+	)
 
 
 ## 获取来源槽位。
@@ -320,9 +324,18 @@ func configure_for_framework(
 ) -> bool:
 	if _configured or status not in _get_valid_statuses():
 		return false
-	if requested_amount < 0 or transferred_amount < 0 or transferred_amount > requested_amount:
+	if (
+		requested_amount < 0
+		or transferred_amount < 0
+		or transferred_amount > requested_amount
+	):
 		return false
-	if source_slot < -1 or target_slot < -1 or source_revision < -1 or target_revision < -1:
+	if (
+		source_slot < -1
+		or target_slot < -1
+		or source_revision < -1
+		or target_revision < -1
+	):
 		return false
 	if (source_revision < 0) != (target_revision < 0):
 		return false

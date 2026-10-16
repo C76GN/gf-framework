@@ -23,7 +23,7 @@
 | 方法 | [`erase_parameter`](#member-gfshaderparameterprofile-methods-erase_parameter) | `func erase_parameter(parameter_name: StringName) -> bool:` |
 | 方法 | [`clear_parameters`](#member-gfshaderparameterprofile-methods-clear_parameters) | `func clear_parameters() -> void:` |
 | 方法 | [`get_parameter_names`](#member-gfshaderparameterprofile-methods-get_parameter_names) | `func get_parameter_names() -> Array[StringName]:` |
-| 方法 | [`validate_against`](#member-gfshaderparameterprofile-methods-validate_against) | `func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:` |
+| 方法 | [`validate_against`](#member-gfshaderparameterprofile-methods-validate_against) | `func validate_against(interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {}) -> GFValidationReport:` |
 | 方法 | [`merge_from`](#member-gfshaderparameterprofile-methods-merge_from) | `func merge_from(source: GFShaderParameterProfile, overwrite: bool = true) -> GFShaderParameterProfile:` |
 | 方法 | [`blend_with`](#member-gfshaderparameterprofile-methods-blend_with) | `func blend_with( target_profile: GFShaderParameterProfile, weight: float, options: Dictionary = {} ) -> GFShaderParameterProfile:` |
 | 方法 | [`duplicate_profile`](#member-gfshaderparameterprofile-methods-duplicate_profile) | `func duplicate_profile() -> GFShaderParameterProfile:` |
@@ -197,7 +197,7 @@ func get_parameter_names() -> Array[StringName]:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func validate_against( interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {} ) -> GFValidationReport:
+func validate_against(interface_snapshot: GFShaderInterfaceSnapshot, options: Dictionary = {}) -> GFValidationReport:
 ```
 
 根据 Shader 接口快照校验当前参数。

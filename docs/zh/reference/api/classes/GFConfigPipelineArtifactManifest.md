@@ -19,7 +19,7 @@
 | 常量 | [`FORMAT_VERSION`](#member-gfconfigpipelineartifactmanifest-constants-format_version) | `const FORMAT_VERSION: int = 2` |
 | 方法 | [`make_manifest`](#member-gfconfigpipelineartifactmanifest-methods-make_manifest) | `func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {}, run_result: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`load_manifest`](#member-gfconfigpipelineartifactmanifest-methods-load_manifest) | `func load_manifest(manifest_path: String) -> Dictionary:` |
-| 方法 | [`save_manifest`](#member-gfconfigpipelineartifactmanifest-methods-save_manifest) | `func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`save_manifest`](#member-gfconfigpipelineartifactmanifest-methods-save_manifest) | `func save_manifest( manifest_path: String, manifest: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_freshness_report`](#member-gfconfigpipelineartifactmanifest-methods-make_freshness_report) | `func make_freshness_report( manifest_path: String, profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_default_manifest_path`](#member-gfconfigpipelineartifactmanifest-methods-get_default_manifest_path) | `func get_default_manifest_path(output_path: String) -> String:` |
 | 方法 | [`make_source_receipt_validation_report`](#member-gfconfigpipelineartifactmanifest-methods-make_source_receipt_validation_report) | `func make_source_receipt_validation_report( profile: GFConfigPipelineProfile, run_result: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
@@ -117,7 +117,7 @@ func load_manifest(manifest_path: String) -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -> Dictionary:
+func save_manifest( manifest_path: String, manifest: Dictionary, options: Dictionary = {} ) -> Dictionary:
 ```
 
 保存 manifest JSON 文件。

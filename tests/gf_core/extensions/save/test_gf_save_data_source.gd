@@ -5,7 +5,6 @@ extends GutTest
 # --- 常量 ---
 
 
-
 # --- 辅助类 ---
 
 class PayloadResource extends Resource:
@@ -13,9 +12,8 @@ class PayloadResource extends Resource:
 	var apply_count: int = 0
 
 	func to_dict() -> Dictionary:
-		return {
-			"value": value,
-		}
+		return { "value": value, }
+
 
 	func from_dict(data: Dictionary) -> void:
 		value = GFVariantData.get_option_int(data, "value")
@@ -25,6 +23,7 @@ class PayloadResource extends Resource:
 class ErrorPayloadResource extends Resource:
 	func to_dict() -> Dictionary:
 		return {}
+
 
 	func from_dict(_data: Dictionary) -> Error:
 		return ERR_INVALID_DATA
@@ -76,10 +75,28 @@ func test_direct_resource_roundtrips_through_save_graph() -> void:
 	model.value = 1
 	var result: Dictionary = _utility.apply_scope(_scope, payload)
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "Resource 数据源应可成功应用。")
-	assert_eq(GFVariantData.get_option_int(_get_source_data(payload, "model"), "value"), 7, "采集载荷应来自数据对象。")
-	assert_eq(model.value, 7, "应用后 Resource 状态应恢复。")
-	assert_eq(model.apply_count, 1, "数据对象应用方法应被调用一次。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"Resource 数据源应可成功应用。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_get_source_data(payload, "model"),
+			"value"
+		),
+		7,
+		"采集载荷应来自数据对象。"
+	)
+	assert_eq(
+		model.value,
+		7,
+		"应用后 Resource 状态应恢复。"
+	)
+	assert_eq(
+		model.apply_count,
+		1,
+		"数据对象应用方法应被调用一次。"
+	)
 
 
 ## 验证目标节点属性上的数据对象可作为 Source provider。
@@ -100,9 +117,23 @@ func test_target_property_provider_roundtrips_through_save_graph() -> void:
 	model.value = 0
 	var result: Dictionary = _utility.apply_scope(_scope, payload)
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "目标属性数据源应可成功应用。")
-	assert_eq(GFVariantData.get_option_int(_get_source_data(payload, "holder_model"), "value"), 42, "采集载荷应来自目标属性。")
-	assert_eq(model.value, 42, "应用后目标属性对象状态应恢复。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"目标属性数据源应可成功应用。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_get_source_data(payload, "holder_model"),
+			"value"
+		),
+		42,
+		"采集载荷应来自目标属性。"
+	)
+	assert_eq(
+		model.value,
+		42,
+		"应用后目标属性对象状态应恢复。"
+	)
 
 
 ## 验证描述信息能报告缺失 provider，且不执行项目采集方法。
@@ -114,9 +145,20 @@ func test_describe_source_reports_missing_provider() -> void:
 	var descriptor: Dictionary = source.describe_source(_scope)
 	var data_provider: Dictionary = GFVariantData.get_option_dictionary(descriptor, "data_provider")
 
-	assert_eq(GFVariantData.get_option_string(descriptor, "kind"), "data", "DataSource 描述应声明数据源类型。")
-	assert_false(GFVariantData.get_option_bool(data_provider, "valid"), "缺失 provider 时诊断应为无效。")
-	assert_eq(GFVariantData.get_option_string(data_provider, "reason"), "missing_target", "诊断应指出目标节点缺失。")
+	assert_eq(
+		GFVariantData.get_option_string(descriptor, "kind"),
+		"data",
+		"DataSource 描述应声明数据源类型。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(data_provider, "valid"),
+		"缺失 provider 时诊断应为无效。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(data_provider, "reason"),
+		"missing_target",
+		"诊断应指出目标节点缺失。"
+	)
 
 
 ## 验证采集协议缺失时写入流程错误，便于调试面板或测试捕获。
@@ -127,12 +169,20 @@ func test_missing_gather_method_records_pipeline_error() -> void:
 	_scope.add_child(source)
 	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope)
 
-	var gather_result: Dictionary = _utility.gather_scope(_scope, {
-		"pipeline_context": pipeline_context,
-	})
+	var gather_result: Dictionary = _utility.gather_scope(
+		_scope,
+		{ "pipeline_context": pipeline_context, }
+	)
 
-	assert_true(gather_result.is_empty(), "Source 已记录 error 时，Graph 采集必须失败关闭。")
-	assert_gt(pipeline_context.errors.size(), 0, "缺失采集方法应写入流程错误。")
+	assert_true(
+		gather_result.is_empty(),
+		"Source 已记录 error 时，Graph 采集必须失败关闭。"
+	)
+	assert_gt(
+		pipeline_context.errors.size(),
+		0,
+		"缺失采集方法应写入流程错误。"
+	)
 	assert_true(
 		String(pipeline_context.errors[0]).contains("gather method"),
 		"流程错误应说明缺失采集方法。"
@@ -152,7 +202,10 @@ func test_save_scope_does_not_overwrite_healthy_file_after_gather_error() -> voi
 	source.data = model
 	_scope.add_child(source)
 
-	assert_eq(_utility.save_scope("profile.sav", _scope), OK)
+	assert_eq(
+		_utility.save_scope("profile.sav", _scope),
+		OK
+	)
 	var healthy_result: GFStorageReadResult = storage.load_data("profile.sav")
 	assert_true(healthy_result.ok)
 	var healthy_payload: Dictionary = healthy_result.payload.duplicate(true)
@@ -162,9 +215,17 @@ func test_save_scope_does_not_overwrite_healthy_file_after_gather_error() -> voi
 	var failed_save: Error = _utility.save_scope("profile.sav", _scope)
 	var retained_result: GFStorageReadResult = storage.load_data("profile.sav")
 
-	assert_eq(failed_save, ERR_INVALID_DATA, "采集错误必须阻止 Storage 写入。")
+	assert_eq(
+		failed_save,
+		ERR_INVALID_DATA,
+		"采集错误必须阻止 Storage 写入。"
+	)
 	assert_true(retained_result.ok)
-	assert_eq(retained_result.payload, healthy_payload, "失败保存必须保留最后一份健康文档。")
+	assert_eq(
+		retained_result.payload,
+		healthy_payload,
+		"失败保存必须保留最后一份健康文档。"
+	)
 	var _delete_result: Error = storage.delete_file("profile.sav")
 	_utility.release_dependencies()
 	architecture.dispose()
@@ -184,14 +245,23 @@ func test_freed_property_provider_is_rejected_without_calling_protocol_methods()
 	_scope.add_child(source)
 	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope)
 
-	var payload: Variant = source._gather_save_data({
-		"pipeline_context": pipeline_context,
-	})
+	var payload: Variant = source._gather_save_data({ "pipeline_context": pipeline_context, })
 	var descriptor: Dictionary = source.describe_data_provider()
 
-	assert_true(GFVariantData.as_dictionary(payload).is_empty(), "已释放 provider 不应产生有效载荷。")
-	assert_eq(GFVariantData.get_option_string(descriptor, "reason"), "invalid_property_object", "诊断应明确属性对象已失效。")
-	assert_gt(pipeline_context.errors.size(), 0, "已释放 provider 应记录流程错误。")
+	assert_true(
+		GFVariantData.as_dictionary(payload).is_empty(),
+		"已释放 provider 不应产生有效载荷。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(descriptor, "reason"),
+		"invalid_property_object",
+		"诊断应明确属性对象已失效。"
+	)
+	assert_gt(
+		pipeline_context.errors.size(),
+		0,
+		"已释放 provider 应记录流程错误。"
+	)
 
 
 ## 验证应用载荷必须是 Dictionary。
@@ -201,8 +271,14 @@ func test_apply_rejects_non_dictionary_payload() -> void:
 
 	var result: Dictionary = source._apply_save_data("bad")
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "非 Dictionary 载荷不应被应用。")
-	assert_true(GFVariantData.get_option_string(result, "error").contains("Dictionary"), "错误应指出载荷类型要求。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"非 Dictionary 载荷不应被应用。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(result, "error").contains("Dictionary"),
+		"错误应指出载荷类型要求。"
+	)
 	source.free()
 
 
@@ -212,8 +288,14 @@ func test_apply_treats_error_code_result_as_failure() -> void:
 
 	var result: Dictionary = source._apply_save_data({})
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "Error 整数返回值不应被归一化为成功。")
-	assert_true(GFVariantData.get_option_string(result, "error").contains("Error"), "错误信息应保留 Error 码线索。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"Error 整数返回值不应被归一化为成功。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(result, "error").contains("Error"),
+		"错误信息应保留 Error 码线索。"
+	)
 	source.free()
 
 

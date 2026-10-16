@@ -66,6 +66,8 @@ func prepare_runtime(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param raw_active: 原始输入是否活跃。
 ## [br]
 ## @param _value: 当前动作值。
@@ -79,7 +81,12 @@ func prepare_runtime(
 ## @schema _state: Dictionary，由输入运行时为当前 trigger 实例持有。
 ## [br]
 ## @return 触发状态。
-func update(raw_active: bool, _value: Variant, _delta: float, _state: Dictionary) -> TriggerState:
+func update(
+	raw_active: bool,
+	_value: Variant,
+	_delta: float,
+	_state: Dictionary
+) -> TriggerState:
 	return TriggerState.TRIGGERED if raw_active else TriggerState.INACTIVE
 
 

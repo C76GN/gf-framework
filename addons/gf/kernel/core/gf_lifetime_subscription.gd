@@ -45,7 +45,11 @@ var _owner_exit_callable: Callable = Callable()
 ## @param cancel_callback: 首次取消时执行的无参清理回调。
 ## [br]
 ## @param debug_label: 可选诊断标签。
-func _init(owner: Object = null, cancel_callback: Callable = Callable(), debug_label: String = "") -> void:
+func _init(
+	owner: Object = null,
+	cancel_callback: Callable = Callable(),
+	debug_label: String = ""
+) -> void:
 	super._init(cancel_callback, debug_label)
 	_set_owner(owner)
 

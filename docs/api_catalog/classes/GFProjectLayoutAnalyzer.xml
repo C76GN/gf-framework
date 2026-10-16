@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="8fd159b2f9d0a550b738c5eda55d9df653ec0170125dbe0418156d8316660eee">
+<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="98665c24339bd60d031ed505edc2052222115863e6ea1fb2abdfc44b385a86fd">
 	<description>GFProjectLayoutAnalyzer: 只读的项目结构分析器。
 捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
 所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。
@@ -13,7 +13,7 @@
 	<enums />
 	<constants>
 		<member kind="const" name="EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH">
-			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"</signature>
+			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = ("res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json")</signature>
 			<description>Feature 内聚式示例 profile 路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -93,7 +93,7 @@ schema_version、kind、root_path、scope、complete、capture_status、files �
 			</tags>
 		</member>
 		<member kind="method" name="analyze_profile_snapshot">
-			<signature>func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -&gt; Dictionary:</signature>
+			<signature>func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -&gt; Dictionary:</signature>
 			<description>按 profile 分析已经冻结的 data-only 项目库存，不再扫描项目目录。
 该便捷入口会只读加载 canonical contract、编译 profile，并在传入的冻结库存上完成分析。</description>
 			<tags>

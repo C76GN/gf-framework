@@ -88,17 +88,49 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，由 to_dict() 生成。
 func apply_dict(data: Dictionary) -> void:
-	target_scene_path = GFVariantData.get_option_string(data, "target_scene_path", target_scene_path)
-	loading_scene_path = GFVariantData.get_option_string(data, "loading_scene_path", loading_scene_path)
-	preload_before_change = GFVariantData.get_option_bool(data, "preload_before_change", preload_before_change)
-	preload_as_fixed_cache = GFVariantData.get_option_bool(data, "preload_as_fixed_cache", preload_as_fixed_cache)
-	cache_loaded_scene = GFVariantData.get_option_bool(data, "cache_loaded_scene", cache_loaded_scene)
-	params = GFVariantData.get_option_dictionary(data, "params", {})
+	target_scene_path = GFVariantData.get_option_string(
+		data,
+		"target_scene_path",
+		target_scene_path
+	)
+	loading_scene_path = GFVariantData.get_option_string(
+		data,
+		"loading_scene_path",
+		loading_scene_path
+	)
+	preload_before_change = GFVariantData.get_option_bool(
+		data,
+		"preload_before_change",
+		preload_before_change
+	)
+	preload_as_fixed_cache = GFVariantData.get_option_bool(
+		data,
+		"preload_as_fixed_cache",
+		preload_as_fixed_cache
+	)
+	cache_loaded_scene = GFVariantData.get_option_bool(
+		data,
+		"cache_loaded_scene",
+		cache_loaded_scene
+	)
+	params = GFVariantData.get_option_dictionary(
+		data,
+		"params",
+		{}
+	)
 	minimum_duration_seconds = maxf(
-		GFVariantData.get_option_float(data, "minimum_duration_seconds", minimum_duration_seconds),
+		GFVariantData.get_option_float(
+			data,
+			"minimum_duration_seconds",
+			minimum_duration_seconds
+		),
 		0.0
 	)
-	metadata = GFVariantData.get_option_dictionary(data, "metadata", {})
+	metadata = GFVariantData.get_option_dictionary(
+		data,
+		"metadata",
+		{}
+	)
 
 
 ## 从 Dictionary 创建配置。

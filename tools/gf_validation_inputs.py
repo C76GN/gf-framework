@@ -33,6 +33,8 @@ from gf_validation_contracts import CheckInputSpec
 from gf_validation_contracts import PathRule
 from gf_validation_contracts import ValidationInputContractError
 from gf_validation_contracts import ValidationInputError
+from gf_validation_contracts import validate_path_segment
+from gf_validation_contracts import validate_portable_relative_path
 
 
 FROZEN_ACTION_INPUTS_SCHEMA_VERSION = 1
@@ -114,15 +116,6 @@ _CHECK_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _ARTIFACT_NAME_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
-_WINDOWS_FORBIDDEN_CHARACTERS = frozenset('<>:"|?*')
-_WINDOWS_RESERVED_NAMES = frozenset({
-	"CON",
-	"PRN",
-	"AUX",
-	"NUL",
-	*(f"COM{index}" for index in range(1, 10)),
-	*(f"LPT{index}" for index in range(1, 10)),
-})
 
 
 class ValidationInputCaptureError(ValidationInputError):
@@ -372,7 +365,7 @@ class ChangedPathSet:
 				"validation_inputs.changed_paths_not_tuple"
 			)
 		for path in self.paths:
-			_validate_portable_relative_path(path)
+			validate_portable_relative_path(path)
 		if tuple(sorted(set(self.paths), key=_portable_sort_key)) != self.paths:
 			raise ValidationInputContractError(
 				"validation_inputs.changed_paths_not_canonical"
@@ -566,7 +559,7 @@ def changed_paths_since(
 			"validation_inputs.changed_path_limit"
 		)
 	for path in paths:
-		_validate_portable_relative_path(path)
+		validate_portable_relative_path(path)
 	deadline.check()
 	return ChangedPathSet(
 		base_revision=base_revision,
@@ -1018,7 +1011,7 @@ def _validate_affected_check_report(payload: Any) -> Mapping[str, Any]:
 			"validation_inputs.check_matched_paths_not_array"
 		)
 	for path in data["matched_paths"]:
-		_validate_portable_relative_path(path)
+		validate_portable_relative_path(path)
 	if data["matched_paths"] != sorted(set(data["matched_paths"]), key=_portable_sort_key):
 		raise ValidationInputContractError(
 			"validation_inputs.check_matched_paths_not_canonical"
@@ -1173,7 +1166,7 @@ def _walk_selected_tree(
 		) from error
 	for entry_name in sorted(entry_names, key=_portable_sort_key):
 		deadline.check()
-		_validate_path_segment(entry_name)
+		validate_path_segment(entry_name)
 		path = directory / entry_name
 		logical_path = f"{logical_directory}/{entry_name}"
 		_consume_entry(logical_path, state=state, limits=limits)
@@ -1681,7 +1674,7 @@ def _decode_git_token(value: bytes) -> str:
 		raise ValidationInputGitError(
 			"validation_inputs.git_path_not_utf8"
 		) from error
-	_validate_portable_relative_path(text)
+	validate_portable_relative_path(text)
 	return text
 
 
@@ -1775,7 +1768,7 @@ def _validated_pathspecs(pathspecs: Iterable[str]) -> tuple[str, ...]:
 			"validation_inputs.pathspecs_not_iterable"
 		) from error
 	for path in values:
-		_validate_portable_relative_path(path)
+		validate_portable_relative_path(path)
 	if len(set(values)) != len(values):
 		raise ValidationInputContractError(
 			"validation_inputs.pathspecs_duplicate"
@@ -1851,56 +1844,6 @@ def _validate_artifact_name(name: Any) -> None:
 	):
 		raise ValidationInputContractError(
 			"validation_inputs.artifact_name_invalid"
-		)
-
-
-def _validate_portable_relative_path(value: Any) -> None:
-	if (
-		type(value) is not str
-		or not value
-		or value.startswith("/")
-		or value.endswith("/")
-		or "\\" in value
-		or "\0" in value
-		or unicodedata.normalize("NFC", value) != value
-	):
-		raise ValidationInputContractError(
-			"validation_inputs.path_not_canonical"
-		)
-	for segment in value.split("/"):
-		_validate_path_segment(segment)
-
-
-def _validate_path_segment(segment: str) -> None:
-	if not segment or segment in {".", ".."}:
-		raise ValidationInputContractError(
-			"validation_inputs.path_segment_invalid"
-		)
-	try:
-		segment_bytes = segment.encode("utf-8", errors="strict")
-	except UnicodeEncodeError as error:
-		raise ValidationInputContractError(
-			"validation_inputs.path_not_utf8"
-		) from error
-	if len(segment_bytes) > 255:
-		raise ValidationInputContractError(
-			"validation_inputs.path_segment_too_long"
-		)
-	if any(ord(character) < 32 or ord(character) == 127 for character in segment):
-		raise ValidationInputContractError(
-			"validation_inputs.path_control_character"
-		)
-	if any(character in _WINDOWS_FORBIDDEN_CHARACTERS for character in segment):
-		raise ValidationInputContractError(
-			"validation_inputs.path_not_portable"
-		)
-	if segment.endswith((" ", ".")):
-		raise ValidationInputContractError(
-			"validation_inputs.path_not_portable"
-		)
-	if segment.split(".", 1)[0].upper() in _WINDOWS_RESERVED_NAMES:
-		raise ValidationInputContractError(
-			"validation_inputs.path_not_portable"
 		)
 
 

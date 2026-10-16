@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFManualTimerQueue" path="addons/gf/standard/utilities/time/gf_manual_timer_queue.gd" module="standard" extends="RefCounted" classDigest="1fc2b7de53f140a60877a38fd1e0c7ea02f4d07261b27889684c8837adbafedc">
+<class name="GFManualTimerQueue" path="addons/gf/standard/utilities/time/gf_manual_timer_queue.gd" module="standard" extends="RefCounted" classDigest="a56086277bc46b99187325a148f8b79af87e01f4b009c50c56a7c0cc8487c3c7">
 	<description>GFManualTimerQueue: 手动 tick 驱动的确定性计时队列。
 用整数 tick 调度一次性回调，适合回放、模拟、服务器步进、测试或编辑器批处理。
 队列不读取引擎时间，也不创建 Timer 节点；调用方显式调用 advance_to() 或 advance_by() 推进时间。</description>
@@ -23,7 +23,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="schedule_at">
-			<signature>func schedule_at(target_tick: int, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<signature>func schedule_at( target_tick: int, callback: Callable, options: Dictionary = {} ) -&gt; int:</signature>
 			<description>在绝对 tick 上调度回调。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -36,7 +36,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="schedule_after">
-			<signature>func schedule_after(delay_ticks: int, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<signature>func schedule_after( delay_ticks: int, callback: Callable, options: Dictionary = {} ) -&gt; int:</signature>
 			<description>在当前 tick 之后延迟若干 tick 调度回调。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -49,7 +49,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="schedule_at_owned">
-			<signature>func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, options: Dictionary = {}) -&gt; int:</signature>
+			<signature>func schedule_at_owned( owner: Object, target_tick: int, callback: Callable, options: Dictionary = {} ) -&gt; int:</signature>
 			<description>在绝对 tick 上调度 owner 绑定回调。owner 释放后回调会被跳过。</description>
 			<tags>
 				<tag name="api">public</tag>

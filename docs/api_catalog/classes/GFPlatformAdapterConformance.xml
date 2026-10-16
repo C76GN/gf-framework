@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformAdapterConformance" path="addons/gf/standard/platform/gf_platform_adapter_conformance.gd" module="standard" extends="RefCounted" classDigest="68093e340e12fd73909a5fdff38d0f263ae08459acdab07ce43e1e873b525167">
+<class name="GFPlatformAdapterConformance" path="addons/gf/standard/platform/gf_platform_adapter_conformance.gd" module="standard" extends="RefCounted" classDigest="65b9dcbd6d4a8806774b47e65c1022a26fed57920c314e199320fcad1a74e9e9">
 	<description>GFPlatformAdapterConformance: Platform Adapter 静态一致性审查器。
 在不调用外部 SDK 的前提下检查 Adapter 身份、状态、契约描述符、必需方法、
 运行时能力和桥接覆盖。动态单终态、取消和结果 schema 由 GFPlatformAdapter
@@ -80,7 +80,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="validate">
-			<signature>static func validate( adapter: GFPlatformAdapter, options: Dictionary = {} ) -&gt; GFValidationReport:</signature>
+			<signature>static func validate(adapter: GFPlatformAdapter, options: Dictionary = {}) -&gt; GFValidationReport:</signature>
 			<description>校验 Platform Adapter 的静态契约。
 options 支持 required_contract_ids、required_contract_versions、
 required_capability_ids、required_methods、require_descriptors（默认 true）和
@@ -96,7 +96,7 @@ require_ready（默认 false）。版本采用精确匹配；required_methods �
 			</tags>
 		</member>
 		<member kind="method" name="inspect">
-			<signature>static func inspect( adapter: GFPlatformAdapter, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>static func inspect(adapter: GFPlatformAdapter, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>生成 JSON 安全的一致性报告和桥接覆盖附录。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -109,7 +109,7 @@ require_ready（默认 false）。版本采用精确匹配；required_methods �
 			</tags>
 		</member>
 		<member kind="method" name="make_bridge_entries">
-			<signature>static func make_bridge_entries( adapter: GFPlatformAdapter, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>static func make_bridge_entries(adapter: GFPlatformAdapter, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>构建通用 GFBridgeContractReport 输入条目。</description>
 			<tags>
 				<tag name="api">public</tag>

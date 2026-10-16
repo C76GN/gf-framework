@@ -18,9 +18,9 @@
 | 信号 | [`state_added`](#member-gfnodestategroup-signals-state_added) | `signal state_added(state: GFNodeState)` |
 | 信号 | [`state_removed`](#member-gfnodestategroup-signals-state_removed) | `signal state_removed(state: GFNodeState)` |
 | 信号 | [`current_state_changed`](#member-gfnodestategroup-signals-current_state_changed) | `signal current_state_changed(old_state: GFNodeState, new_state: GFNodeState)` |
-| 信号 | [`transition_blocked`](#member-gfnodestategroup-signals-transition_blocked) | `signal transition_blocked(from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String)` |
-| 信号 | [`requested_transition`](#member-gfnodestategroup-signals-requested_transition) | `signal requested_transition(group_name: StringName, state_name: StringName, args: Dictionary)` |
-| 信号 | [`state_event_handled`](#member-gfnodestategroup-signals-state_event_handled) | `signal state_event_handled(event_id: StringName, handler_state: GFNodeState, payload: Variant)` |
+| 信号 | [`transition_blocked`](#member-gfnodestategroup-signals-transition_blocked) | `signal transition_blocked( from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String )` |
+| 信号 | [`requested_transition`](#member-gfnodestategroup-signals-requested_transition) | `signal requested_transition( group_name: StringName, state_name: StringName, args: Dictionary )` |
+| 信号 | [`state_event_handled`](#member-gfnodestategroup-signals-state_event_handled) | `signal state_event_handled( event_id: StringName, handler_state: GFNodeState, payload: Variant )` |
 | 枚举 | [`StackExitPolicy`](#member-gfnodestategroup-enums-stackexitpolicy) | `enum StackExitPolicy` |
 | 属性 | [`group_name`](#member-gfnodestategroup-properties-group_name) | `var group_name: StringName = &"":` |
 | 属性 | [`initial_state`](#member-gfnodestategroup-properties-initial_state) | `var initial_state: StringName = &"":` |
@@ -118,7 +118,7 @@ signal current_state_changed(old_state: GFNodeState, new_state: GFNodeState)
 - 首次版本：`3.0.0`
 
 ```gdscript
-signal transition_blocked(from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String)
+signal transition_blocked( from_state: GFNodeState, to_state_name: StringName, args: Dictionary, reason: String )
 ```
 
 状态切换被守卫阻止后发出。
@@ -141,9 +141,10 @@ signal transition_blocked(from_state: GFNodeState, to_state_name: StringName, ar
 ### `requested_transition`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal requested_transition(group_name: StringName, state_name: StringName, args: Dictionary)
+signal requested_transition( group_name: StringName, state_name: StringName, args: Dictionary )
 ```
 
 子状态请求跨组切换时发出。
@@ -165,9 +166,10 @@ signal requested_transition(group_name: StringName, state_name: StringName, args
 ### `state_event_handled`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal state_event_handled(event_id: StringName, handler_state: GFNodeState, payload: Variant)
+signal state_event_handled( event_id: StringName, handler_state: GFNodeState, payload: Variant )
 ```
 
 当前状态或暂停栈状态处理状态事件后发出。

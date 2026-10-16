@@ -119,7 +119,10 @@ func focus_task_search() -> void:
 ## [br]
 ## @api private
 func _read_ids(key: String) -> PackedStringArray:
-	var value: Variant = _PREFERENCES_SCRIPT.get_value(key, PackedStringArray())
+	var value: Variant = _PREFERENCES_SCRIPT.get_value(
+		key,
+		PackedStringArray()
+	)
 	if value is PackedStringArray:
 		var ids: PackedStringArray = value
 		return ids.slice(0, 32)
@@ -137,7 +140,11 @@ func _rebuild() -> void:
 		child.queue_free()
 	var filter: String = _search.text.strip_edges().to_lower()
 	var shown: Dictionary = {}
-	for section: String in ["收藏", "最近使用", "全部任务"]:
+	for section: String in [
+		"收藏",
+		"最近使用",
+		"全部任务",
+	]:
 		var entries: Array[Dictionary] = []
 		for record: Dictionary in _tasks:
 			var identity: String = str(record.get("source_id", ""))
@@ -147,7 +154,15 @@ func _rebuild() -> void:
 				continue
 			if section == "最近使用" and not _recent.has(identity):
 				continue
-			var search_text: String = "%s %s %s %s" % [record.get("title", ""), record.get("description", ""), record.get("group", ""), record.get("keywords", [])]
+			var search_text: String = (
+				"%s %s %s %s"
+				% [
+					record.get("title", ""),
+					record.get("description", ""),
+					record.get("group", ""),
+					record.get("keywords", []),
+				]
+			)
 			if not filter.is_empty() and not search_text.to_lower().contains(filter):
 				continue
 			entries.append(record)
@@ -162,9 +177,14 @@ func _rebuild() -> void:
 		for record: Dictionary in entries:
 			_add_task(record)
 	if shown.is_empty():
-		_list.add_child(_UI_SCRIPT.make_empty_state(
-			"没有匹配的任务", "清空搜索，或通过扩展页面启用所需工具。", "清空搜索", _clear_search
-		))
+		_list.add_child(
+			_UI_SCRIPT.make_empty_state(
+				"没有匹配的任务",
+				"清空搜索，或通过扩展页面启用所需工具。",
+				"清空搜索",
+				_clear_search
+			)
+		)
 
 
 ## 构建一个可用性明确、带收藏切换的任务卡片。
@@ -174,16 +194,27 @@ func _add_task(record: Dictionary) -> void:
 	var identity: String = str(record.get("source_id", ""))
 	var row: HBoxContainer = HBoxContainer.new()
 	_list.add_child(row)
-	var favorite: Button = _UI_SCRIPT.make_button("★" if _favorites.has(identity) else "☆", "收藏或取消收藏此任务", _toggle_favorite.bind(identity))
+	var favorite: Button = _UI_SCRIPT.make_button(
+		"★" if _favorites.has(identity) else "☆",
+		"收藏或取消收藏此任务",
+		_toggle_favorite.bind(identity)
+	)
 	row.add_child(favorite)
 	var content: VBoxContainer = VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(content)
 	var available: bool = record.get("available", false) == true
-	var title: String = "%s · %s" % [record.get("group", "常用"), record.get("title", "")]
+	var title: String = (
+		"%s · %s"
+		% [record.get("group", "常用"), record.get("title", "")]
+	)
 	if not available:
 		title += "（需要启用）"
-	var button: Button = _UI_SCRIPT.make_button(title, str(record.get("reason", "")), _open_task.bind(identity))
+	var button: Button = _UI_SCRIPT.make_button(
+		title,
+		str(record.get("reason", "")),
+		_open_task.bind(identity)
+	)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	content.add_child(button)
 	var description: Label = Label.new()

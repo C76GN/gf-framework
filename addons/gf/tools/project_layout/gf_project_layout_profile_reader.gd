@@ -60,7 +60,11 @@ func parse_text(text: String) -> Dictionary:
 	if not parsed["ok"]:
 		var error: String = parsed["error"]
 		return _failure(error)
-	return {"success": true, "profile": parsed["data"], "error": ""}
+	return {
+		"success": true,
+		"profile": parsed["data"],
+		"error": "",
+	}
 
 
 ## 有界读取实际文件，再由相同严格文本入口准入；读取期间长度与原始 bytes 必须稳定。
@@ -73,22 +77,60 @@ func parse_text(text: String) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary，精确包含 success: bool、profile: Dictionary、error: String 和 text: String。
 func read_path(path: String) -> Dictionary:
-	if path.length() > 16_384 or not _SCOPE_SCRIPT.root_is_canonical(path) or _SCOPE_SCRIPT.path_crosses_link(path):
-		return {"success": false, "profile": {}, "error": "Profile 文件路径不规范或穿过链接。", "text": ""}
+	if (
+		path.length() > 16_384
+		or not _SCOPE_SCRIPT.root_is_canonical(path)
+		or _SCOPE_SCRIPT.path_crosses_link(path)
+	):
+		return {
+			"success": false,
+			"profile": {},
+			"error": "Profile 文件路径不规范或穿过链接。",
+			"text": "",
+		}
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {"success": false, "profile": {}, "error": "Profile 文件无法只读打开。", "text": ""}
+		return {
+			"success": false,
+			"profile": {},
+			"error": "Profile 文件无法只读打开。",
+			"text": "",
+		}
 	var size: int = file.get_length()
 	if size > 1_048_576:
-		return {"success": false, "profile": {}, "error": "Profile 文件超过 1 MiB 字节预算。", "text": ""}
+		return {
+			"success": false,
+			"profile": {},
+			"error": "Profile 文件超过 1 MiB 字节预算。",
+			"text": "",
+		}
 	var bytes: PackedByteArray = file.get_buffer(size + 1)
-	if bytes.size() != size or file.get_length() != size or _SCOPE_SCRIPT.path_crosses_link(path):
-		return {"success": false, "profile": {}, "error": "Profile 文件读取期间发生变化。", "text": ""}
+	if (
+		bytes.size() != size
+		or file.get_length() != size
+		or _SCOPE_SCRIPT.path_crosses_link(path)
+	):
+		return {
+			"success": false,
+			"profile": {},
+			"error": "Profile 文件读取期间发生变化。",
+			"text": "",
+		}
 	if not _utf8_is_valid(bytes):
-		return {"success": false, "profile": {}, "error": "Profile 文件不是严格 UTF-8。", "text": ""}
+		return {
+			"success": false,
+			"profile": {},
+			"error": "Profile 文件不是严格 UTF-8。",
+			"text": "",
+		}
 	var text: String = bytes.get_string_from_utf8()
 	if text.to_utf8_buffer() != bytes:
-		return {"success": false, "profile": {}, "error": "Profile 文件不是严格 UTF-8。", "text": ""}
+		return {
+			"success": false,
+			"profile": {},
+			"error": "Profile 文件不是严格 UTF-8。",
+			"text": "",
+		}
 	var parsed: Dictionary = parse_text(text)
 	parsed["text"] = text if parsed["success"] else ""
 	return parsed
@@ -106,11 +148,40 @@ func _utf8_is_valid(bytes: PackedByteArray) -> bool:
 		if first < 0x80:
 			index += 1
 			continue
-		var count: int = 2 if first >= 0xC2 and first <= 0xDF else 3 if first >= 0xE0 and first <= 0xEF else 4 if first >= 0xF0 and first <= 0xF4 else 0
+		var count: int = (
+			2
+			if first >= 0xC2 and first <= 0xDF
+			else (
+				3
+				if first >= 0xE0 and first <= 0xEF
+				else (
+					4
+					if first >= 0xF0 and first <= 0xF4
+					else 0
+				)
+			)
+		)
 		if count == 0 or index + count > bytes.size():
 			return false
 		var second: int = bytes[index + 1]
-		if (first == 0xE0 and second < 0xA0) or (first == 0xED and second > 0x9F) or (first == 0xF0 and second < 0x90) or (first == 0xF4 and second > 0x8F):
+		if (
+			(
+				first == 0xE0
+				and second < 0xA0
+			)
+			or (
+				first == 0xED
+				and second > 0x9F
+			)
+			or (
+				first == 0xF0
+				and second < 0x90
+			)
+			or (
+				first == 0xF4
+				and second > 0x8F
+			)
+		):
 			return false
 		for offset: int in range(1, count):
 			if bytes[index + offset] < 0x80 or bytes[index + offset] > 0xBF:
@@ -118,13 +189,18 @@ func _utf8_is_valid(bytes: PackedByteArray) -> bool:
 		index += count
 	return true
 
+
 ## JSON grammar value；数值有限性由 kernel reader 最终复核。
 ## [br]
 ## @api private
 func _parse_value(depth: int) -> bool:
 	_values += 1
 	_skip_space()
-	if depth > 64 or _values > 65_536 or _cursor >= _text.length():
+	if (
+		depth > 64
+		or _values > 65_536
+		or _cursor >= _text.length()
+	):
 		return false
 	var first: String = _text[_cursor]
 	if first == "{":
@@ -137,7 +213,12 @@ func _parse_value(depth: int) -> bool:
 			var key_start: int = _cursor
 			if not _parse_string():
 				return false
-			var key_value: Variant = JSON.parse_string(_text.substr(key_start, _cursor - key_start))
+			var key_value: Variant = JSON.parse_string(
+				_text.substr(
+					key_start,
+					_cursor - key_start
+				)
+			)
 			if not key_value is String:
 				return false
 			var key: String = key_value
@@ -170,8 +251,15 @@ func _parse_value(depth: int) -> bool:
 		return false
 	if first == "\"":
 		return _parse_string()
-	for literal: String in ["true", "false", "null"]:
-		if _text.substr(_cursor, literal.length()) == literal:
+	for literal: String in [
+		"true",
+		"false",
+		"null",
+	]:
+		if _text.substr(
+			_cursor,
+			literal.length()
+		) == literal:
 			_cursor += literal.length()
 			return true
 	return _parse_number()
@@ -188,7 +276,13 @@ func _parse_string() -> bool:
 		_cursor += 1
 		if codepoint == 34:
 			return true
-		if codepoint < 32 or codepoint >= 0xD800 and codepoint <= 0xDFFF:
+		if (
+			codepoint < 32
+			or (
+				codepoint >= 0xD800
+				and codepoint <= 0xDFFF
+			)
+		):
 			return false
 		if codepoint != 92:
 			continue
@@ -284,4 +378,8 @@ func _take(character: String) -> bool:
 ## [br]
 ## @api private
 func _failure(error: String) -> Dictionary:
-	return {"success": false, "profile": {}, "error": error}
+	return {
+		"success": false,
+		"profile": {},
+		"error": error,
+	}

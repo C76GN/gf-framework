@@ -113,7 +113,11 @@ func dispose() -> void:
 	_complete_all_mounts(GFAssetCatalogMount.STATUS_DISPOSED, _revision)
 	_mount_records.clear()
 	_catalog = GFAssetCatalog.new()
-	_last_report = _make_runtime_report(true, &"disposed", [])
+	_last_report = _make_runtime_report(
+		true,
+		&"disposed",
+		[]
+	)
 
 
 # --- 公共方法 ---
@@ -170,7 +174,11 @@ func mount_catalog(
 			&"runtime_disposed",
 			"asset catalog runtime is disposed"
 		)
-	if owner_id == &"" or mount_id == &"" or catalog == null:
+	if (
+		owner_id == &""
+		or mount_id == &""
+		or catalog == null
+	):
 		return _make_failed_mount(
 			GFAssetCatalogMount.STATUS_INVALID_REQUEST,
 			owner_id,
@@ -194,50 +202,68 @@ func mount_catalog(
 	var token: int = _next_token
 	var catalog_snapshot: GFAssetCatalog = _duplicate_catalog(catalog)
 	var candidate_records: Array[Dictionary] = _copy_mount_records(_mount_records)
-	candidate_records.append({
-		"token": token,
-		"owner_id": owner_id,
-		"mount_id": mount_id,
-		"source_id": effective_source_id,
-		"priority": priority,
-		"catalog": catalog_snapshot,
-		"handle": null,
-	})
+	candidate_records.append(
+		{
+			"token": token,
+			"owner_id": owner_id,
+			"mount_id": mount_id,
+			"source_id": effective_source_id,
+			"priority": priority,
+			"catalog": catalog_snapshot,
+			"handle": null,
+		}
+	)
 	var composition: Dictionary = _compose_mount_records(candidate_records)
-	if not GFVariantData.get_option_bool(composition, "ok", false):
+	if not GFVariantData.get_option_bool(
+		composition,
+		"ok",
+		false
+	):
 		var failure_status: StringName = (
 			GFAssetCatalogMount.STATUS_CONFLICT
-			if GFVariantData.get_option_bool(composition, "has_conflicts", false)
+			if GFVariantData.get_option_bool(
+				composition,
+				"has_conflicts",
+				false
+			)
 			else GFAssetCatalogMount.STATUS_BUILD_FAILED
 		)
 		var failure_report: Dictionary = GFVariantData.get_option_dictionary(composition, "report")
 		_last_report = failure_report.duplicate(true)
-		return GFAssetCatalogMount.new().configure_failure(
-			failure_status,
-			owner_id,
-			mount_id,
-			effective_source_id,
-			priority,
-			failure_report
+		return (
+			GFAssetCatalogMount.new().configure_failure(
+				failure_status,
+				owner_id,
+				mount_id,
+				effective_source_id,
+				priority,
+				failure_report
+			)
 		)
 
 	_next_token += 1
 	var committed_catalog: GFAssetCatalog = _get_composed_catalog(composition)
 	_revision += 1
 	var report: Dictionary = GFVariantData.get_option_dictionary(composition, "report")
-	var mount: GFAssetCatalogMount = GFAssetCatalogMount.new().configure_active(
-		self,
-		token,
-		owner_id,
-		mount_id,
-		effective_source_id,
-		priority,
-		_revision,
-		catalog_snapshot,
-		report
+	var mount: GFAssetCatalogMount = (
+		GFAssetCatalogMount.new().configure_active(
+			self,
+			token,
+			owner_id,
+			mount_id,
+			effective_source_id,
+			priority,
+			_revision,
+			catalog_snapshot,
+			report
+		)
 	)
 	candidate_records[candidate_records.size() - 1]["handle"] = mount
-	_commit_composition(candidate_records, committed_catalog, report)
+	_commit_composition(
+		candidate_records,
+		committed_catalog,
+		report
+	)
 	return mount
 
 
@@ -336,7 +362,12 @@ func mount_provider(
 ## [br]
 ## @return 完整候选成功提交返回 true；失败时保留原 Mount、目录和 revision。
 func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) -> bool:
-	if _disposed or mount == null or not mount.is_active() or catalog == null:
+	if (
+		_disposed
+		or mount == null
+		or not mount.is_active()
+		or catalog == null
+	):
 		return false
 	var record_index: int = _find_mount_record_index_by_handle(mount)
 	if record_index < 0:
@@ -346,12 +377,24 @@ func replace_mount_catalog(mount: GFAssetCatalogMount, catalog: GFAssetCatalog) 
 	candidate_records[record_index]["catalog"] = catalog_snapshot
 	var composition: Dictionary = _compose_mount_records(candidate_records)
 	var report: Dictionary = GFVariantData.get_option_dictionary(composition, "report")
-	if not GFVariantData.get_option_bool(composition, "ok", false):
+	if not GFVariantData.get_option_bool(
+		composition,
+		"ok",
+		false
+	):
 		_last_report = report.duplicate(true)
 		return false
 	_revision += 1
-	mount.refresh_catalog(catalog_snapshot, _revision, report)
-	_commit_composition(candidate_records, _get_composed_catalog(composition), report)
+	mount.refresh_catalog(
+		catalog_snapshot,
+		_revision,
+		report
+	)
+	_commit_composition(
+		candidate_records,
+		_get_composed_catalog(composition),
+		report
+	)
 	return true
 
 
@@ -377,7 +420,11 @@ func unmount_owner(owner_id: StringName) -> int:
 	if removed_records.is_empty():
 		return 0
 	var composition: Dictionary = _compose_mount_records(candidate_records)
-	if not GFVariantData.get_option_bool(composition, "ok", false):
+	if not GFVariantData.get_option_bool(
+		composition,
+		"ok",
+		false
+	):
 		return 0
 	_revision += 1
 	for removed_record: Dictionary in removed_records:
@@ -490,7 +537,11 @@ func release_mount(token: int) -> bool:
 	var candidate_records: Array[Dictionary] = _copy_mount_records(_mount_records)
 	candidate_records.remove_at(record_index)
 	var composition: Dictionary = _compose_mount_records(candidate_records)
-	if not GFVariantData.get_option_bool(composition, "ok", false):
+	if not GFVariantData.get_option_bool(
+		composition,
+		"ok",
+		false
+	):
 		return false
 	_revision += 1
 	var mount: GFAssetCatalogMount = _get_mount_handle(removed_record)
@@ -519,38 +570,50 @@ func _compose_mount_records(records: Array[Dictionary]) -> Dictionary:
 	for mount_record: Dictionary in ordered_records:
 		var source_catalog: GFAssetCatalog = _get_mount_catalog(mount_record)
 		if source_catalog == null:
-			issues.append({
-				"severity": "error",
-				"kind": "missing_mount_catalog",
-				"owner_id": String(GFVariantData.get_option_string_name(mount_record, "owner_id")),
-				"mount_id": String(GFVariantData.get_option_string_name(mount_record, "mount_id")),
-			})
+			issues.append(
+				{
+					"severity": "error",
+					"kind": "missing_mount_catalog",
+					"owner_id": String(GFVariantData.get_option_string_name(mount_record, "owner_id")),
+					"mount_id": String(GFVariantData.get_option_string_name(mount_record, "mount_id")),
+				}
+			)
 			continue
 		for asset_id_text: String in source_catalog.get_all_ids():
 			var asset_id: StringName = StringName(asset_id_text)
 			if result_catalog.has_entry(asset_id):
 				has_conflicts = true
-				issues.append({
-					"severity": "error" if _conflict_policy == CONFLICT_REJECT else "warning",
-					"kind": "duplicate_asset_id",
-					"asset_id": asset_id_text,
-					"owner_id": String(GFVariantData.get_option_string_name(mount_record, "owner_id")),
-					"mount_id": String(GFVariantData.get_option_string_name(mount_record, "mount_id")),
-				})
+				issues.append(
+					{
+						"severity": "error" if _conflict_policy == CONFLICT_REJECT else "warning",
+						"kind": "duplicate_asset_id",
+						"asset_id": asset_id_text,
+						"owner_id": String(GFVariantData.get_option_string_name(mount_record, "owner_id")),
+						"mount_id": String(GFVariantData.get_option_string_name(mount_record, "mount_id")),
+					}
+				)
 				continue
 			var entry: GFAssetCatalogEntry = source_catalog.get_entry(asset_id)
 			if entry == null or not result_catalog.set_entry(entry):
-				issues.append({
-					"severity": "error",
-					"kind": "invalid_asset_entry",
-					"asset_id": asset_id_text,
-				})
+				issues.append(
+					{
+						"severity": "error",
+						"kind": "invalid_asset_entry",
+						"asset_id": asset_id_text,
+					}
+				)
 	var ok: bool = _issues_have_no_errors(issues)
 	return {
 		"ok": ok,
 		"has_conflicts": has_conflicts,
 		"catalog": result_catalog,
-		"report": _make_runtime_report(ok, &"composed", issues, records.size(), result_catalog.get_all_ids().size()),
+		"report": _make_runtime_report(
+			ok,
+			&"composed",
+			issues,
+			records.size(),
+			result_catalog.get_all_ids().size()
+		),
 	}
 
 
@@ -569,7 +632,10 @@ func _commit_composition(
 	_last_report["revision"] = _revision
 	_last_report["mount_count"] = _mount_records.size()
 	_last_report["asset_count"] = _catalog.get_all_ids().size()
-	catalog_changed.emit(_duplicate_catalog(_catalog), _revision)
+	catalog_changed.emit(
+		_duplicate_catalog(_catalog),
+		_revision
+	)
 
 
 ## 生成失败报告、更新最近报告并返回非活动句柄。
@@ -593,15 +659,21 @@ func _make_failed_mount(
 		"mount_id": String(mount_id),
 		"source_id": String(source_id),
 	}
-	var report: Dictionary = _make_runtime_report(false, status, [issue])
-	_last_report = report.duplicate(true)
-	return GFAssetCatalogMount.new().configure_failure(
+	var report: Dictionary = _make_runtime_report(
+		false,
 		status,
-		owner_id,
-		mount_id,
-		source_id,
-		priority,
-		report
+		[issue]
+	)
+	_last_report = report.duplicate(true)
+	return (
+		GFAssetCatalogMount.new().configure_failure(
+			status,
+			owner_id,
+			mount_id,
+			source_id,
+			priority,
+			report
+		)
 	)
 
 
@@ -647,10 +719,7 @@ func _make_runtime_report(
 func _find_mount_record_index(owner_id: StringName, mount_id: StringName) -> int:
 	for index: int in range(_mount_records.size()):
 		var mount_record: Dictionary = _mount_records[index]
-		if (
-			GFVariantData.get_option_string_name(mount_record, "owner_id") == owner_id
-			and GFVariantData.get_option_string_name(mount_record, "mount_id") == mount_id
-		):
+		if (GFVariantData.get_option_string_name(mount_record, "owner_id") == owner_id and GFVariantData.get_option_string_name(mount_record, "mount_id") == mount_id):
 			return index
 	return -1
 
@@ -661,7 +730,10 @@ func _find_mount_record_index(owner_id: StringName, mount_id: StringName) -> int
 ## [br]
 func _find_mount_record_index_by_token(token: int) -> int:
 	for index: int in range(_mount_records.size()):
-		if GFVariantData.get_option_int(_mount_records[index], "token") == token:
+		if GFVariantData.get_option_int(
+			_mount_records[index],
+			"token"
+		) == token:
 			return index
 	return -1
 

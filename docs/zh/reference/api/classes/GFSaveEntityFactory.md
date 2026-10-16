@@ -19,7 +19,7 @@
 | 属性 | [`packed_scene`](#member-gfsaveentityfactory-properties-packed_scene) | `var packed_scene: PackedScene` |
 | 方法 | [`get_type_key`](#member-gfsaveentityfactory-methods-get_type_key) | `func get_type_key() -> StringName:` |
 | 方法 | [`_create_entity`](#member-gfsaveentityfactory-methods-_create_entity) | `func _create_entity(_descriptor: Dictionary, _context: Dictionary = {}) -> Node:` |
-| 方法 | [`_after_entity_created`](#member-gfsaveentityfactory-methods-_after_entity_created) | `func _after_entity_created(_entity: Node, _descriptor: Dictionary, _context: Dictionary = {}) -> void:` |
+| 方法 | [`_after_entity_created`](#member-gfsaveentityfactory-methods-_after_entity_created) | `func _after_entity_created( _entity: Node, _descriptor: Dictionary, _context: Dictionary = {} ) -> void:` |
 
 ## 属性
 
@@ -94,9 +94,10 @@ func _create_entity(_descriptor: Dictionary, _context: Dictionary = {}) -> Node:
 ### `_after_entity_created`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _after_entity_created(_entity: Node, _descriptor: Dictionary, _context: Dictionary = {}) -> void:
+func _after_entity_created( _entity: Node, _descriptor: Dictionary, _context: Dictionary = {} ) -> void:
 ```
 
 实体加入场景树后调用。

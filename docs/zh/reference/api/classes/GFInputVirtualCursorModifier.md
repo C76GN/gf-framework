@@ -25,8 +25,8 @@
 | 属性 | [`idle_threshold`](#member-gfinputvirtualcursormodifier-properties-idle_threshold) | `var idle_threshold: float = 0.0` |
 | 属性 | [`reset_when_idle`](#member-gfinputvirtualcursormodifier-properties-reset_when_idle) | `var reset_when_idle: bool = false` |
 | 属性 | [`position`](#member-gfinputvirtualcursormodifier-properties-position) | `var position: Vector2 = Vector2(0.5, 0.5)` |
-| 方法 | [`modify`](#member-gfinputvirtualcursormodifier-methods-modify) | `func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:` |
-| 方法 | [`modify_3d`](#member-gfinputvirtualcursormodifier-methods-modify_3d) | `func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:` |
+| 方法 | [`modify`](#member-gfinputvirtualcursormodifier-methods-modify) | `func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:` |
+| 方法 | [`modify_3d`](#member-gfinputvirtualcursormodifier-methods-modify_3d) | `func modify_3d( value: Vector3, event: InputEvent = null, action: GFInputAction = null ) -> Vector3:` |
 | 方法 | [`reset_position`](#member-gfinputvirtualcursormodifier-methods-reset_position) | `func reset_position() -> GFInputVirtualCursorModifier:` |
 | 方法 | [`set_manual_delta_seconds`](#member-gfinputvirtualcursormodifier-methods-set_manual_delta_seconds) | `func set_manual_delta_seconds(delta_seconds: float) -> GFInputVirtualCursorModifier:` |
 | 方法 | [`get_runtime_state`](#member-gfinputvirtualcursormodifier-methods-get_runtime_state) | `func get_runtime_state() -> Dictionary:` |
@@ -170,9 +170,10 @@ var position: Vector2 = Vector2(0.5, 0.5)
 ### `modify`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
+func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -> Vector2:
 ```
 
 修改二维输入值。
@@ -192,9 +193,10 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ### `modify_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func modify_3d(value: Vector3, event: InputEvent = null, action: GFInputAction = null) -> Vector3:
+func modify_3d( value: Vector3, event: InputEvent = null, action: GFInputAction = null ) -> Vector3:
 ```
 
 修改三维输入值。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveEntityFactory" path="addons/gf/extensions/save/core/gf_save_entity_factory.gd" module="extensions/save" extends="Resource" classDigest="46d4ba7c9e86f2119970595d90f82f973eac8b6cc4bc74be6acc9b8dc1aa251f">
+<class name="GFSaveEntityFactory" path="addons/gf/extensions/save/core/gf_save_entity_factory.gd" module="extensions/save" extends="Resource" classDigest="51cc5f10c7e8e66da9c62d7edc03ef8ee86ed3f72011356dae8b8b30b0fe2663">
 	<description>GFSaveEntityFactory: 存档恢复实体工厂基类。
 由 GFSaveGraphUtility 在缺失 Source 且 Scope 允许工厂恢复时调用。</description>
 	<tags>
@@ -48,7 +48,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_after_entity_created">
-			<signature>func _after_entity_created(_entity: Node, _descriptor: Dictionary, _context: Dictionary = {}) -&gt; void:</signature>
+			<signature>func _after_entity_created( _entity: Node, _descriptor: Dictionary, _context: Dictionary = {} ) -&gt; void:</signature>
 			<description>实体加入场景树后调用。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -57,6 +57,7 @@
 				<tag name="param">_context: 调用上下文字典。</tag>
 				<tag name="schema">_descriptor: Dictionary，通常包含 persistent_id、type_key、phase 与 Source 描述字段。</tag>
 				<tag name="schema">_context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

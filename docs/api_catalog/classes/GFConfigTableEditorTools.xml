@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableEditorTools" path="addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd" module="standard" extends="RefCounted" classDigest="1ec0c53115ff250a96432235079fa0fa27264c0ab5690d3c090f0a5c62a01a2f">
+<class name="GFConfigTableEditorTools" path="addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd" module="standard" extends="RefCounted" classDigest="bfc12cf345d66496db33bba3d091e0e58ba357468c8863045e81c2cdd4e4b059">
 	<description>GFConfigTableEditorTools: 配置表 schema 的编辑器描述辅助。
 该工具只把 `GFConfigTableSchema`、列声明和跨表引用转换为通用描述字典，
 供 Inspector、表格编辑器、CI 预览或项目侧工具自由消费；不会创建 UI 控件，
@@ -112,7 +112,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="build_column_descriptors">
-			<signature>static func build_column_descriptors( schema: GFConfigTableSchema, options: Dictionary = {} ) -&gt; Array[Dictionary]:</signature>
+			<signature>static func build_column_descriptors(schema: GFConfigTableSchema, options: Dictionary = {}) -&gt; Array[Dictionary]:</signature>
 			<description>根据配置表 schema 构建通用列描述。</description>
 			<tags>
 				<tag name="api">public</tag>

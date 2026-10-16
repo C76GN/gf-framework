@@ -19,9 +19,9 @@
 | 方法 | [`report_from_dict`](#member-gfvalidationreportdictionary-methods-report_from_dict) | `static func report_from_dict(data: Dictionary) -> RefCounted:` |
 | 方法 | [`append_issue`](#member-gfvalidationreportdictionary-methods-append_issue) | `static func append_issue( report: Dictionary, severity: Variant, kind: StringName, message: String, fields: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`append_source_issue`](#member-gfvalidationreportdictionary-methods-append_source_issue) | `static func append_source_issue( report: Dictionary, severity: Variant, kind: StringName, message: String, source_span: Variant, fields: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`merge_report`](#member-gfvalidationreportdictionary-methods-merge_report) | `static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`merge_report`](#member-gfvalidationreportdictionary-methods-merge_report) | `static func merge_report( target: Dictionary, source: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`finalize_report`](#member-gfvalidationreportdictionary-methods-finalize_report) | `static func finalize_report( report: Dictionary, subject: String = "", options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`make_summary`](#member-gfvalidationreportdictionary-methods-make_summary) | `static func make_summary(subject: String, error_count: int, warning_count: int) -> String:` |
+| 方法 | [`make_summary`](#member-gfvalidationreportdictionary-methods-make_summary) | `static func make_summary( subject: String, error_count: int, warning_count: int ) -> String:` |
 | 方法 | [`get_next_action`](#member-gfvalidationreportdictionary-methods-get_next_action) | `static func get_next_action( report: Dictionary, action_map: Dictionary = {}, fallback_action: String = "Review the first reported issue.", no_action: String = "No action required.", options: Dictionary = {} ) -> String:` |
 | 方法 | [`has_error_issues`](#member-gfvalidationreportdictionary-methods-has_error_issues) | `static func has_error_issues(report: Dictionary, options: Dictionary = {}) -> bool:` |
 | 方法 | [`make_issue_fingerprint`](#member-gfvalidationreportdictionary-methods-make_issue_fingerprint) | `static func make_issue_fingerprint(issue: Variant, fields: PackedStringArray = PackedStringArray()) -> String:` |
@@ -152,7 +152,7 @@ static func append_source_issue( report: Dictionary, severity: Variant, kind: St
 - 首次版本：`4.4.0`
 
 ```gdscript
-static func merge_report(target: Dictionary, source: Dictionary, options: Dictionary = {}) -> Dictionary:
+static func merge_report( target: Dictionary, source: Dictionary, options: Dictionary = {} ) -> Dictionary:
 ```
 
 合并另一份字典报告的问题。target 与 source 相同，或二者共享同一个 issues Array 时，不重复合并 issues，避免别名输入在遍历期间放大；显式 copy_fields 仍正常复制。
@@ -207,9 +207,10 @@ static func finalize_report( report: Dictionary, subject: String = "", options: 
 ### `make_summary`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func make_summary(subject: String, error_count: int, warning_count: int) -> String:
+static func make_summary( subject: String, error_count: int, warning_count: int ) -> String:
 ```
 
 生成摘要文本。

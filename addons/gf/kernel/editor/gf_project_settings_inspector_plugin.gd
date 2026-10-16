@@ -170,7 +170,11 @@ func configure(
 func _get_presentation(setting_name: String, locale: String = "") -> Dictionary:
 	if _catalog == null or not _catalog.has_method(&"get_presentation"):
 		return {}
-	var presentation_value: Variant = _catalog.call(&"get_presentation", setting_name, locale)
+	var presentation_value: Variant = _catalog.call(
+		&"get_presentation",
+		setting_name,
+		locale
+	)
 	return _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(presentation_value)
 
 
@@ -215,7 +219,11 @@ func _create_editor_property(
 	editor_property.tooltip_text = tooltip
 	_apply_tooltip_to_empty_controls(editor_property, tooltip)
 	if type == TYPE_STRING and hint_type == PROPERTY_HINT_ENUM:
-		_apply_enum_presentation(editor_property, presentation, tooltip)
+		_apply_enum_presentation(
+			editor_property,
+			presentation,
+			tooltip
+		)
 	return editor_property
 
 
@@ -236,7 +244,10 @@ func _resolve_setting_name(object: Object, property_name: String) -> String:
 		section = _resolve_project_settings_section(object)
 	if section.is_empty():
 		return ""
-	return "%s/%s" % [section, property_name]
+	return (
+		"%s/%s"
+		% [section, property_name]
+	)
 
 
 ## 比较过滤对象与目录各分区的属性签名；没有匹配项或存在多个匹配项时返回空值。
@@ -273,7 +284,10 @@ func _get_catalog_sections() -> PackedStringArray:
 		var path_parts: PackedStringArray = setting_name.split("/", false)
 		if path_parts.size() < 3:
 			continue
-		var section: String = "%s/%s" % [path_parts[0], path_parts[1]]
+		var section: String = (
+			"%s/%s"
+			% [path_parts[0], path_parts[1]]
+		)
 		if sections.has(section):
 			continue
 		var _append_result: bool = sections.append(section)
@@ -317,8 +331,16 @@ func _collect_property_signature(property_list: Array[Dictionary]) -> Dictionary
 		):
 			continue
 		signature[property_name] = {
-			"type": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(property_info, "type", TYPE_NIL),
-			"hint": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(property_info, "hint", PROPERTY_HINT_NONE),
+			"type": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				property_info,
+				"type",
+				TYPE_NIL
+			),
+			"hint": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				property_info,
+				"hint",
+				PROPERTY_HINT_NONE
+			),
 			"hint_string": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(property_info, "hint_string"),
 			"usage": usage,
 			"class_name": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(property_info, "class_name"),
@@ -350,10 +372,7 @@ func _apply_enum_presentation(
 	var enum_labels: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(presentation, "enum_labels")
 	if enum_labels.is_empty():
 		return
-	var enum_descriptions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
-		presentation,
-		"enum_descriptions"
-	)
+	var enum_descriptions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(presentation, "enum_descriptions")
 	var option_button: OptionButton = _find_option_button(editor_property)
 	if option_button == null:
 		return
@@ -362,9 +381,15 @@ func _apply_enum_presentation(
 	for index: int in range(option_button.item_count):
 		var value: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(option_button.get_item_metadata(index))
 		if enum_labels.has(value):
-			option_button.set_item_text(index, _GF_VARIANT_ACCESS_SCRIPT.to_text(enum_labels[value]))
+			option_button.set_item_text(
+				index,
+				_GF_VARIANT_ACCESS_SCRIPT.to_text(enum_labels[value])
+			)
 		if enum_descriptions.has(value):
-			option_button.set_item_tooltip(index, _GF_VARIANT_ACCESS_SCRIPT.to_text(enum_descriptions[value]))
+			option_button.set_item_tooltip(
+				index,
+				_GF_VARIANT_ACCESS_SCRIPT.to_text(enum_descriptions[value])
+			)
 
 
 ## 按子节点顺序深度优先查找并返回第一个 OptionButton，未找到时返回 null。

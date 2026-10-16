@@ -23,7 +23,7 @@
 | 属性 | [`inclusive_maximum`](#member-gfconfigrangevalidationrule-properties-inclusive_maximum) | `var inclusive_maximum: bool = true` |
 | 方法 | [`describe`](#member-gfconfigrangevalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_get_default_rule_id`](#member-gfconfigrangevalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
-| 方法 | [`_validate_value`](#member-gfconfigrangevalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
+| 方法 | [`_validate_value`](#member-gfconfigrangevalidationrule-methods-_validate_value) | `func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:` |
 
 ## 属性
 
@@ -138,9 +138,10 @@ func _get_default_rule_id() -> StringName:
 ### `_validate_value`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:
 ```
 
 校验单个数值是否落在允许范围内。

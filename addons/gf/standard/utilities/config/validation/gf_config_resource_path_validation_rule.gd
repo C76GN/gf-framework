@@ -77,6 +77,8 @@ func describe() -> Dictionary:
 	result["use_resource_loader"] = use_resource_loader
 	result["use_file_access_fallback"] = use_file_access_fallback
 	return result
+
+
 # --- 可重写钩子 / 虚方法 ---
 
 ## 返回资源路径规则的默认稳定标识。
@@ -92,6 +94,8 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待校验值。
 ## [br]
 ## @param context: 校验上下文。
@@ -103,26 +107,70 @@ func _get_default_rule_id() -> StringName:
 ## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value(
+	value: Variant,
+	context: Dictionary,
+	report: Dictionary
+) -> void:
 	if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
-		_add_issue(report, _make_issue_context(context, value, "String or StringName"), "resource_path_invalid_type", "资源路径校验只支持 String 或 StringName。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"String or StringName"
+			),
+			"resource_path_invalid_type",
+			"资源路径校验只支持 String 或 StringName。"
+		)
 		return
 
 	var path: String = GFVariantData.to_text(value).strip_edges()
 	if path.is_empty() and allow_empty:
 		return
 	if require_resource_prefix and not _has_allowed_resource_prefix(path):
-		_add_issue(report, _make_issue_context(context, value, _describe_allowed_prefixes()), "resource_path_invalid_prefix", "资源路径前缀不在允许范围内。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				_describe_allowed_prefixes()
+			),
+			"resource_path_invalid_prefix",
+			"资源路径前缀不在允许范围内。"
+		)
 		return
 	if not _extension_allowed(path):
-		_add_issue(report, _make_issue_context(context, value, _describe_allowed_extensions()), "resource_path_extension_not_allowed", "资源路径扩展名不在允许范围内。")
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				_describe_allowed_extensions()
+			),
+			"resource_path_extension_not_allowed",
+			"资源路径扩展名不在允许范围内。"
+		)
 		return
 	var existence: Dictionary = _resolve_path_existence(path, context)
 	if not GFVariantData.get_option_bool(existence, "checked"):
-		_add_budget_exhausted_issue(report, context, value)
+		_add_budget_exhausted_issue(
+			report,
+			context,
+			value
+		)
 		return
 	if not GFVariantData.get_option_bool(existence, "exists"):
-		_add_issue(report, _make_issue_context(context, value, "existing resource path"), "resource_path_missing", "资源路径不存在：%s。" % path)
+		_add_issue(
+			report,
+			_make_issue_context(
+				context,
+				value,
+				"existing resource path"
+			),
+			"resource_path_missing",
+			"资源路径不存在：%s。" % path
+		)
 
 
 # --- 框架内部方法 ---
@@ -180,7 +228,11 @@ func _extension_allowed(path: String) -> bool:
 func _path_exists(path: String) -> bool:
 	if use_resource_loader and ResourceLoader.exists(path):
 		return true
-	if use_file_access_fallback and path.begins_with("res://") and FileAccess.file_exists(path):
+	if (
+		use_file_access_fallback
+		and path.begins_with("res://")
+		and FileAccess.file_exists(path)
+	):
 		return true
 	return false
 
@@ -193,7 +245,10 @@ func _resolve_path_existence(path: String, context: Dictionary) -> Dictionary:
 	var session_value: Variant = GFVariantData.get_option_value(context, _VALIDATION_SESSION_CONTEXT_KEY)
 	if session_value is _ResourcePathValidationSession:
 		var session: _ResourcePathValidationSession = session_value
-		return session._resolve(_make_existence_cache_key(path), _path_exists.bind(path))
+		return session._resolve(
+			_make_existence_cache_key(path),
+			_path_exists.bind(path)
+		)
 	return {
 		"checked": true,
 		"exists": _path_exists(path),
@@ -206,14 +261,25 @@ func _resolve_path_existence(path: String, context: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _make_existence_cache_key(path: String) -> String:
-	return "%d:%d:%s" % [int(use_resource_loader), int(use_file_access_fallback), path]
+	return (
+		"%d:%d:%s"
+		% [
+			int(use_resource_loader),
+			int(use_file_access_fallback),
+			path,
+		]
+	)
 
 
 ## 路径探测预算耗尽且允许通知时，将诊断加入报告。
 ## [br]
 ## @api private
 ## [br]
-func _add_budget_exhausted_issue(report: Dictionary, context: Dictionary, value: Variant) -> void:
+func _add_budget_exhausted_issue(
+	report: Dictionary,
+	context: Dictionary,
+	value: Variant
+) -> void:
 	var session_value: Variant = GFVariantData.get_option_value(context, _VALIDATION_SESSION_CONTEXT_KEY)
 	if not (session_value is _ResourcePathValidationSession):
 		return
@@ -221,7 +287,11 @@ func _add_budget_exhausted_issue(report: Dictionary, context: Dictionary, value:
 	if not session._take_budget_notice(severity):
 		return
 
-	var issue_context: Dictionary = _make_issue_context(context, value, "resource path check budget")
+	var issue_context: Dictionary = _make_issue_context(
+		context,
+		value,
+		"resource path check budget"
+	)
 	issue_context["checked_path_count"] = session._get_check_count()
 	issue_context["max_path_checks"] = session._get_max_check_count()
 	_add_issue(
@@ -262,7 +332,11 @@ func _resolve_extension_source_path(path: String) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _make_issue_context(context: Dictionary, value: Variant, expected_value: Variant) -> Dictionary:
+func _make_issue_context(
+	context: Dictionary,
+	value: Variant,
+	expected_value: Variant
+) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
 	var _session_erased: bool = issue_context.erase(_VALIDATION_SESSION_CONTEXT_KEY)
 	issue_context["value"] = GFVariantData.duplicate_variant(value)
@@ -320,6 +394,7 @@ func _describe_allowed_prefixes() -> PackedStringArray:
 class _ResourcePathValidationSession:
 	extends RefCounted
 
+
 	# --- 私有变量 ---
 
 	## 只在首次探测缓存键时消耗的步骤预算；缓存命中不再收费。
@@ -337,13 +412,15 @@ class _ResourcePathValidationSession:
 	## @api private
 	var _budget_notice_severities: Dictionary = {}
 
+
 	# --- Godot 生命周期方法 ---
 
 	## 把会话的唯一探测次数上限钳制为至少一，缓存初始为空。
 	## [br]
 	## @api private
 	func _init(max_unique_checks: int) -> void:
-		_budget = GFExecutionBudget.new({"max_steps": maxi(max_unique_checks, 1)})
+		_budget = GFExecutionBudget.new({ "max_steps": maxi(max_unique_checks, 1) })
+
 
 	# --- 私有/辅助方法 ---
 
@@ -376,6 +453,7 @@ class _ResourcePathValidationSession:
 			"cached": false,
 		}
 
+
 	## 在返回 true 前登记严重度，确保同一会话的同级预算诊断最多取得一次发送资格。
 	## [br]
 	## @api private
@@ -385,11 +463,13 @@ class _ResourcePathValidationSession:
 		_budget_notice_severities[issue_severity] = true
 		return true
 
+
 	## 返回已获准的新键探测次数，不包含缓存命中或被预算拒绝的调用。
 	## [br]
 	## @api private
 	func _get_check_count() -> int:
 		return _budget.get_steps()
+
 
 	## 返回构造时钳制后的探测上限，供预算诊断报告实际生效值。
 	## [br]

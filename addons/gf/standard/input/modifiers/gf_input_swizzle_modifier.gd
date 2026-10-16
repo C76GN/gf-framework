@@ -47,6 +47,8 @@ enum SwizzleOrder {
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
 ## @param _event: 原始输入事件，默认实现不直接使用。
@@ -54,14 +56,26 @@ enum SwizzleOrder {
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 分量重排后的二维输入值。
-func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -> Vector2:
-	var swizzled: Vector3 = _swizzle(Vector3(value.x, value.y, 0.0))
+func modify(
+	value: Vector2,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector2:
+	var swizzled: Vector3 = _swizzle(
+		Vector3(
+			value.x,
+			value.y,
+			0.0
+		)
+	)
 	return Vector2(swizzled.x, swizzled.y)
 
 
 ## 修改三维输入值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 要写入或修改的值。
 ## [br]
@@ -70,7 +84,11 @@ func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = 
 ## @param _action: 当前输入动作配置，默认实现不直接使用。
 ## [br]
 ## @return 分量重排后的三维输入值。
-func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -> Vector3:
+func modify_3d(
+	value: Vector3,
+	_event: InputEvent = null,
+	_action: GFInputAction = null
+) -> Vector3:
 	return _swizzle(value)
 
 
@@ -83,14 +101,34 @@ func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction
 func _swizzle(value: Vector3) -> Vector3:
 	match order:
 		SwizzleOrder.XZY:
-			return Vector3(value.x, value.z, value.y)
+			return Vector3(
+				value.x,
+				value.z,
+				value.y
+			)
 		SwizzleOrder.YXZ:
-			return Vector3(value.y, value.x, value.z)
+			return Vector3(
+				value.y,
+				value.x,
+				value.z
+			)
 		SwizzleOrder.YZX:
-			return Vector3(value.y, value.z, value.x)
+			return Vector3(
+				value.y,
+				value.z,
+				value.x
+			)
 		SwizzleOrder.ZXY:
-			return Vector3(value.z, value.x, value.y)
+			return Vector3(
+				value.z,
+				value.x,
+				value.y
+			)
 		SwizzleOrder.ZYX:
-			return Vector3(value.z, value.y, value.x)
+			return Vector3(
+				value.z,
+				value.y,
+				value.x
+			)
 		_:
 			return value

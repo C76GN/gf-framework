@@ -27,7 +27,7 @@ Analytics 批次到通用请求 Outbox 的有界持久交接适配器。 把 GFA
 | 属性 | [`max_collection_items`](#member-gfanalyticsoutboxadapter-properties-max_collection_items) | `var max_collection_items: int = 256:` |
 | 属性 | [`max_string_length`](#member-gfanalyticsoutboxadapter-properties-max_string_length) | `var max_string_length: int = 4096:` |
 | 属性 | [`max_total_nodes`](#member-gfanalyticsoutboxadapter-properties-max_total_nodes) | `var max_total_nodes: int = 8192:` |
-| 方法 | [`configure`](#member-gfanalyticsoutboxadapter-methods-configure) | `func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -> GFAnalyticsOutboxAdapter:` |
+| 方法 | [`configure`](#member-gfanalyticsoutboxadapter-methods-configure) | `func configure(p_outbox: GFRequestOutboxUtility, options: Dictionary = {}) -> GFAnalyticsOutboxAdapter:` |
 | 方法 | [`enqueue_payload`](#member-gfanalyticsoutboxadapter-methods-enqueue_payload) | `func enqueue_payload(payload: Dictionary) -> Dictionary:` |
 | 方法 | [`handles_request`](#member-gfanalyticsoutboxadapter-methods-handles_request) | `func handles_request(envelope: GFRequestEnvelope) -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfanalyticsoutboxadapter-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -202,7 +202,7 @@ var max_total_nodes: int = 8192:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -> GFAnalyticsOutboxAdapter:
+func configure(p_outbox: GFRequestOutboxUtility, options: Dictionary = {}) -> GFAnalyticsOutboxAdapter:
 ```
 
 配置适配器。 本方法只保存 Outbox 引用和有界选项，不修改 Outbox 的 transport_callback、 replay_filter、storage_path 或生命周期。

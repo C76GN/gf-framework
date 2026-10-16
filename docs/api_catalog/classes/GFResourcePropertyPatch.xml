@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourcePropertyPatch" path="addons/gf/standard/utilities/assets/gf_resource_property_patch.gd" module="standard" extends="Resource" classDigest="0d70054084838c394c2167f079fb44a0ea12c4fd55e76fd616d2867d4cd8e211">
+<class name="GFResourcePropertyPatch" path="addons/gf/standard/utilities/assets/gf_resource_property_patch.gd" module="standard" extends="Resource" classDigest="9891c3af28e25b6bd9c7c612d241cf6d76575dca63f971e6ab53668e0697a815">
 	<description>GFResourcePropertyPatch: 通用资源属性差异补丁。
 用声明式属性列表和覆盖值描述一份 Resource 或 Object 的小范围差异。
 它只会写入声明过的属性路径，不规定资源类型、主题语义或项目业务规则。</description>
@@ -265,7 +265,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="collect_values">
-			<signature>static func collect_values(target: Object, patch_definitions: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func collect_values( target: Object, patch_definitions: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>收集目标对象上的属性值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -314,7 +314,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply_patch_chain">
-			<signature>static func apply_patch_chain(target: Object, patch_chain: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func apply_patch_chain( target: Object, patch_chain: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>按顺序把一组补丁应用到目标对象。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -329,7 +329,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="build_resource_chain">
-			<signature>static func build_resource_chain(base_resource: Resource, patch_chain: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func build_resource_chain( base_resource: Resource, patch_chain: Array, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>复制或修改 base Resource，并按顺序应用一组补丁。</description>
 			<tags>
 				<tag name="api">public</tag>

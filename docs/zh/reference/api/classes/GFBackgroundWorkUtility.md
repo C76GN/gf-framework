@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`work_queued`](#member-gfbackgroundworkutility-signals-work_queued) | `signal work_queued(task: GFBackgroundWorkTask)` |
 | 信号 | [`work_started`](#member-gfbackgroundworkutility-signals-work_started) | `signal work_started(task: GFBackgroundWorkTask)` |
-| 信号 | [`work_progressed`](#member-gfbackgroundworkutility-signals-work_progressed) | `signal work_progressed(task: GFBackgroundWorkTask, progress: float, message: String)` |
+| 信号 | [`work_progressed`](#member-gfbackgroundworkutility-signals-work_progressed) | `signal work_progressed( task: GFBackgroundWorkTask, progress: float, message: String )` |
 | 信号 | [`work_completed`](#member-gfbackgroundworkutility-signals-work_completed) | `signal work_completed(task: GFBackgroundWorkTask)` |
 | 信号 | [`work_failed`](#member-gfbackgroundworkutility-signals-work_failed) | `signal work_failed(task: GFBackgroundWorkTask)` |
 | 信号 | [`work_cancelled`](#member-gfbackgroundworkutility-signals-work_cancelled) | `signal work_cancelled(task: GFBackgroundWorkTask)` |
@@ -35,7 +35,7 @@
 | 方法 | [`dispose`](#member-gfbackgroundworkutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`release_dependencies`](#member-gfbackgroundworkutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`set_resource_broker`](#member-gfbackgroundworkutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
-| 方法 | [`setup_standalone_resource_broker`](#member-gfbackgroundworkutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
+| 方法 | [`setup_standalone_resource_broker`](#member-gfbackgroundworkutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfbackgroundworkutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`submit_cpu_work`](#member-gfbackgroundworkutility-methods-submit_cpu_work) | `func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
 | 方法 | [`submit_io_work`](#member-gfbackgroundworkutility-methods-submit_io_work) | `func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
@@ -45,7 +45,7 @@
 | 方法 | [`pause`](#member-gfbackgroundworkutility-methods-pause) | `func pause() -> void:` |
 | 方法 | [`resume`](#member-gfbackgroundworkutility-methods-resume) | `func resume() -> void:` |
 | 方法 | [`is_paused`](#member-gfbackgroundworkutility-methods-is_paused) | `func is_paused() -> bool:` |
-| 方法 | [`update_work_progress`](#member-gfbackgroundworkutility-methods-update_work_progress) | `func update_work_progress(work_id: StringName, progress: float, message: String = "") -> bool:` |
+| 方法 | [`update_work_progress`](#member-gfbackgroundworkutility-methods-update_work_progress) | `func update_work_progress( work_id: StringName, progress: float, message: String = "" ) -> bool:` |
 | 方法 | [`get_task`](#member-gfbackgroundworkutility-methods-get_task) | `func get_task(work_id: StringName) -> GFBackgroundWorkTask:` |
 | 方法 | [`clear_finished_tasks`](#member-gfbackgroundworkutility-methods-clear_finished_tasks) | `func clear_finished_tasks() -> void:` |
 | 方法 | [`clear_all`](#member-gfbackgroundworkutility-methods-clear_all) | `func clear_all() -> void:` |
@@ -94,9 +94,10 @@ signal work_started(task: GFBackgroundWorkTask)
 ### `work_progressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal work_progressed(task: GFBackgroundWorkTask, progress: float, message: String)
+signal work_progressed( task: GFBackgroundWorkTask, progress: float, message: String )
 ```
 
 工作进度变化时发出。
@@ -368,7 +369,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
+func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:
 ```
 
 为单个独立 BackgroundWork Utility 显式创建私有 Resource Broker。 需要与 Asset 或 Scene 协调时，应由项目创建一个共享 Broker 并分别注入。
@@ -558,9 +559,10 @@ func is_paused() -> bool:
 ### `update_work_progress`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update_work_progress(work_id: StringName, progress: float, message: String = "") -> bool:
+func update_work_progress( work_id: StringName, progress: float, message: String = "" ) -> bool:
 ```
 
 更新工作进度。

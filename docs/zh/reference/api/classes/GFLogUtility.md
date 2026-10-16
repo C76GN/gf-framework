@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`log_emitted`](#member-gflogutility-signals-log_emitted) | `signal log_emitted(level: int, tag: String, message: String)` |
+| 信号 | [`log_emitted`](#member-gflogutility-signals-log_emitted) | `signal log_emitted( level: int, tag: String, message: String )` |
 | 信号 | [`log_entry_emitted`](#member-gflogutility-signals-log_entry_emitted) | `signal log_entry_emitted(entry: Dictionary)` |
 | 信号 | [`previous_crash_detected`](#member-gflogutility-signals-previous_crash_detected) | `signal previous_crash_detected(marker: Dictionary)` |
 | 枚举 | [`LogLevel`](#member-gflogutility-enums-loglevel) | `enum LogLevel` |
@@ -29,17 +29,17 @@
 | 方法 | [`init`](#member-gflogutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gflogutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gflogutility-methods-tick) | `func tick(delta: float) -> void:` |
-| 方法 | [`debug`](#member-gflogutility-methods-debug) | `func debug(tag: String, msg: String, context: Dictionary = {}) -> void:` |
-| 方法 | [`debug_lazy`](#member-gflogutility-methods-debug_lazy) | `func debug_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:` |
-| 方法 | [`info`](#member-gflogutility-methods-info) | `func info(tag: String, msg: String, context: Dictionary = {}) -> void:` |
-| 方法 | [`info_lazy`](#member-gflogutility-methods-info_lazy) | `func info_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:` |
-| 方法 | [`warn`](#member-gflogutility-methods-warn) | `func warn(tag: String, msg: String, context: Dictionary = {}) -> void:` |
-| 方法 | [`warn_lazy`](#member-gflogutility-methods-warn_lazy) | `func warn_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:` |
-| 方法 | [`error`](#member-gflogutility-methods-error) | `func error(tag: String, msg: String, context: Dictionary = {}) -> void:` |
-| 方法 | [`error_lazy`](#member-gflogutility-methods-error_lazy) | `func error_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:` |
-| 方法 | [`fatal`](#member-gflogutility-methods-fatal) | `func fatal(tag: String, msg: String, context: Dictionary = {}) -> void:` |
-| 方法 | [`fatal_lazy`](#member-gflogutility-methods-fatal_lazy) | `func fatal_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:` |
-| 方法 | [`log`](#member-gflogutility-methods-log) | `func log(level: int, tag: String, msg: String, context: Dictionary = {}) -> void:` |
+| 方法 | [`debug`](#member-gflogutility-methods-debug) | `func debug( tag: String, msg: String, context: Dictionary = {} ) -> void:` |
+| 方法 | [`debug_lazy`](#member-gflogutility-methods-debug_lazy) | `func debug_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:` |
+| 方法 | [`info`](#member-gflogutility-methods-info) | `func info( tag: String, msg: String, context: Dictionary = {} ) -> void:` |
+| 方法 | [`info_lazy`](#member-gflogutility-methods-info_lazy) | `func info_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:` |
+| 方法 | [`warn`](#member-gflogutility-methods-warn) | `func warn( tag: String, msg: String, context: Dictionary = {} ) -> void:` |
+| 方法 | [`warn_lazy`](#member-gflogutility-methods-warn_lazy) | `func warn_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:` |
+| 方法 | [`error`](#member-gflogutility-methods-error) | `func error( tag: String, msg: String, context: Dictionary = {} ) -> void:` |
+| 方法 | [`error_lazy`](#member-gflogutility-methods-error_lazy) | `func error_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:` |
+| 方法 | [`fatal`](#member-gflogutility-methods-fatal) | `func fatal( tag: String, msg: String, context: Dictionary = {} ) -> void:` |
+| 方法 | [`fatal_lazy`](#member-gflogutility-methods-fatal_lazy) | `func fatal_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:` |
+| 方法 | [`log`](#member-gflogutility-methods-log) | `func log( level: int, tag: String, msg: String, context: Dictionary = {} ) -> void:` |
 | 方法 | [`set_trace_id`](#member-gflogutility-methods-set_trace_id) | `func set_trace_id(value: String) -> void:` |
 | 方法 | [`get_trace_id`](#member-gflogutility-methods-get_trace_id) | `func get_trace_id() -> String:` |
 | 方法 | [`set_global_context`](#member-gflogutility-methods-set_global_context) | `func set_global_context(context: Dictionary) -> void:` |
@@ -72,9 +72,10 @@
 ### `log_emitted`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal log_emitted(level: int, tag: String, message: String)
+signal log_emitted( level: int, tag: String, message: String )
 ```
 
 每次打印日志时发出，供 UI 控制台等消费者捕捉。
@@ -292,9 +293,10 @@ func tick(delta: float) -> void:
 ### `debug`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func debug(tag: String, msg: String, context: Dictionary = {}) -> void:
+func debug( tag: String, msg: String, context: Dictionary = {} ) -> void:
 ```
 
 输出 DEBUG 级别日志。
@@ -316,9 +318,10 @@ func debug(tag: String, msg: String, context: Dictionary = {}) -> void:
 ### `debug_lazy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func debug_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
+func debug_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:
 ```
 
 延迟输出 DEBUG 级别日志。只有日志未被过滤时才调用 message_builder。
@@ -336,9 +339,10 @@ func debug_lazy(tag: String, message_builder: Callable, context_builder: Callabl
 ### `info`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func info(tag: String, msg: String, context: Dictionary = {}) -> void:
+func info( tag: String, msg: String, context: Dictionary = {} ) -> void:
 ```
 
 输出 INFO 级别日志。
@@ -360,9 +364,10 @@ func info(tag: String, msg: String, context: Dictionary = {}) -> void:
 ### `info_lazy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func info_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
+func info_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:
 ```
 
 延迟输出 INFO 级别日志。只有日志未被过滤时才调用 message_builder。
@@ -380,9 +385,10 @@ func info_lazy(tag: String, message_builder: Callable, context_builder: Callable
 ### `warn`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func warn(tag: String, msg: String, context: Dictionary = {}) -> void:
+func warn( tag: String, msg: String, context: Dictionary = {} ) -> void:
 ```
 
 输出 WARN 级别日志。
@@ -404,9 +410,10 @@ func warn(tag: String, msg: String, context: Dictionary = {}) -> void:
 ### `warn_lazy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func warn_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
+func warn_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:
 ```
 
 延迟输出 WARN 级别日志。只有日志未被过滤时才调用 message_builder。
@@ -424,9 +431,10 @@ func warn_lazy(tag: String, message_builder: Callable, context_builder: Callable
 ### `error`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func error(tag: String, msg: String, context: Dictionary = {}) -> void:
+func error( tag: String, msg: String, context: Dictionary = {} ) -> void:
 ```
 
 输出 ERROR 级别日志。
@@ -448,9 +456,10 @@ func error(tag: String, msg: String, context: Dictionary = {}) -> void:
 ### `error_lazy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func error_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
+func error_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:
 ```
 
 延迟输出 ERROR 级别日志。只有日志未被过滤时才调用 message_builder。
@@ -468,9 +477,10 @@ func error_lazy(tag: String, message_builder: Callable, context_builder: Callabl
 ### `fatal`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func fatal(tag: String, msg: String, context: Dictionary = {}) -> void:
+func fatal( tag: String, msg: String, context: Dictionary = {} ) -> void:
 ```
 
 输出 FATAL 级别日志。
@@ -492,9 +502,10 @@ func fatal(tag: String, msg: String, context: Dictionary = {}) -> void:
 ### `fatal_lazy`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func fatal_lazy(tag: String, message_builder: Callable, context_builder: Callable = Callable()) -> void:
+func fatal_lazy( tag: String, message_builder: Callable, context_builder: Callable = Callable() ) -> void:
 ```
 
 延迟输出 FATAL 级别日志。只有日志未被过滤时才调用 message_builder。
@@ -512,9 +523,10 @@ func fatal_lazy(tag: String, message_builder: Callable, context_builder: Callabl
 ### `log`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func log(level: int, tag: String, msg: String, context: Dictionary = {}) -> void:
+func log( level: int, tag: String, msg: String, context: Dictionary = {} ) -> void:
 ```
 
 输出指定等级日志。

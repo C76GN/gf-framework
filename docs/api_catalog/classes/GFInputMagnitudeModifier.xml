@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMagnitudeModifier" path="addons/gf/standard/input/modifiers/gf_input_magnitude_modifier.gd" module="standard" extends="GFInputModifier" classDigest="2e42d658fed88c3e13f4e1be8cc0389b676ecf83f3c4c20920457f2022d841a2">
+<class name="GFInputMagnitudeModifier" path="addons/gf/standard/input/modifiers/gf_input_magnitude_modifier.gd" module="standard" extends="GFInputModifier" classDigest="419ebae433059215159f2f058b50a9fe54f7c4ecd72d12cdf9effcc4ca1af45e">
 	<description>GFInputMagnitudeModifier: 输入幅值投影修饰器。
 将多轴输入转换为长度值，并按配置写回到指定分量。它只处理向量数值，
 不解释这个幅值代表移动、视角、压力或其他业务含义。</description>
@@ -50,7 +50,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -58,10 +58,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">幅值投影后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -69,6 +70,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">幅值投影后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuadTreeUtility" path="addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd" module="standard" extends="GFUtility" classDigest="fb48d989c7d63d8826a431711ad9f84c613f7f870d21ec108c0b67d9b230ddb7">
+<class name="GFQuadTreeUtility" path="addons/gf/standard/utilities/spatial/gf_quad_tree_utility.gd" module="standard" extends="GFUtility" classDigest="e557331d60dd6004efa198047dfa57ed079de310e4eb5866f59013b42c094415">
 	<description>GFQuadTreeUtility: 纯逻辑 2D 四叉树空间划分工具。
 继承自 GFUtility，提供不依赖引擎物理节点的 2D 空间划分和范围查询能力。
 适用于模拟经营、RTS 等需要对海量实体进行高效范围检索的场景。
@@ -67,13 +67,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="setup">
-			<signature>func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -&gt; void:</signature>
+			<signature>func setup( world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES ) -&gt; void:</signature>
 			<description>配置四叉树参数并重建。应在 init() 之前或之后调用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">world_bounds: 世界边界矩形。</tag>
 				<tag name="param">depth: 最大递归深度。</tag>
 				<tag name="param">entities_per_node: 每节点最大实体数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_index_rect">
@@ -98,7 +99,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="insert_with_hit_test">
-			<signature>func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -&gt; bool:</signature>
+			<signature>func insert_with_hit_test( entity_id: int, rect: Rect2, hit_test: Callable ) -&gt; bool:</signature>
 			<description>将带精确点命中测试的实体插入四叉树。</description>
 			<tags>
 				<tag name="api">public</tag>

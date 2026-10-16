@@ -40,7 +40,13 @@ var _error_label: Label = null
 ## [br]
 ## @schema return: Array[Dictionary]，每项包含 id: StringName、label/section: String。
 func get_menu_entries() -> Array[Dictionary]:
-	return [{"id": &"create_tween_config", "label": "创建 Tween 配置…", "section": "创建"}]
+	return [
+		{
+			"id": &"create_tween_config",
+			"label": "创建 Tween 配置…",
+			"section": "创建",
+		},
+	]
 
 
 ## 显示创建对话框；相同入口重复调用复用对话框。
@@ -60,7 +66,11 @@ func handle_menu_action(action_id: StringName) -> void:
 		_dialog.add_filter("*.tres", "Tween 配置")
 		_dialog.current_file = "new_tween.tres"
 		_kind_picker = OptionButton.new()
-		for label: String in ["2D 移动偏移", "UI 移动偏移", "3D 移动偏移"]:
+		for label: String in [
+			"2D 移动偏移",
+			"UI 移动偏移",
+			"3D 移动偏移",
+		]:
 			_kind_picker.add_item(label)
 		_dialog.get_vbox().add_child(_kind_picker)
 		_error_label = Label.new()
@@ -91,8 +101,8 @@ func cleanup() -> void:
 ## [br]
 ## @return: 供项目复制使用的 GDScript 文本。
 static func make_binding_example(resource_path: String) -> String:
-	var path: String = resource_path if resource_path.begins_with("res://") and not resource_path.contains("::") else "res://path/to/tween.tres"
-	return "extends Node\n\n@export var target: Node\n@export var tween_config: GFTweenActionConfig = preload(%s)\nvar _action: GFVisualAction\n\nfunc _ready() -> void:\n\tif target == null or tween_config == null:\n\t\treturn\n\t_action = tween_config.create_action(target, self)\n\tvar _completion: Variant = _action.execute()\n\nfunc _exit_tree() -> void:\n\tif _action != null:\n\t\t_action.cancel()\n\t\t_action = null\n" % JSON.stringify(path)
+	var path: String = (resource_path if resource_path.begins_with("res://") and not resource_path.contains("::") else "res://path/to/tween.tres")
+	return ("extends Node\n\n@export var target: Node\n@export var tween_config: GFTweenActionConfig = preload(%s)\nvar _action: GFVisualAction\n\nfunc _ready() -> void:\n\tif target == null or tween_config == null:\n\t\treturn\n\t_action = tween_config.create_action(target, self)\n\tvar _completion: Variant = _action.execute()\n\nfunc _exit_tree() -> void:\n\tif _action != null:\n\t\t_action.cancel()\n\t\t_action = null\n" % JSON.stringify(path))
 
 
 ## 将创建动作中已明确选择的原生用途交给当前来源的弱会话缓存。
@@ -107,10 +117,18 @@ static func make_binding_example(resource_path: String) -> String:
 ## @param registry: 可选隔离目录；null 使用编辑器共享目录。
 ## [br]
 ## @return: 当前来源仍保有已验证的明确用途时返回 true。
-static func remember_created_preview(config: Resource, kind: int, registry: GFTweenPreviewRegistry = null) -> bool:
-	if kind < 0 or kind > 2 or not is_instance_valid(config):
+static func remember_created_preview(
+	config: Resource,
+	kind: int,
+	registry: GFTweenPreviewRegistry = null
+) -> bool:
+	if (
+		kind < 0
+		or kind > 2
+		or not is_instance_valid(config)
+	):
 		return false
-	var selected_registry: GFTweenPreviewRegistry = registry if registry != null else GFTweenPreviewRegistry.get_shared()
+	var selected_registry: GFTweenPreviewRegistry = (registry if registry != null else GFTweenPreviewRegistry.get_shared())
 	var context: GFTweenPreviewContext = GFTweenPreviewContext.new()
 	context.configure(config, selected_registry)
 	for choice: Dictionary in context.get_choices():
@@ -135,13 +153,23 @@ static func remember_created_preview(config: Resource, kind: int, registry: GFTw
 func _on_file_selected(path: String) -> void:
 	if not is_instance_valid(_dialog) or not is_instance_valid(_kind_picker):
 		return
-	if not path.begins_with("res://") or path != path.simplify_path() or ".." in path.trim_prefix("res://").split("/") or path.get_extension().to_lower() != "tres" or FileAccess.file_exists(path):
+	if (
+		not path.begins_with("res://")
+		or path != path.simplify_path()
+		or ".." in path.trim_prefix("res://").split("/")
+		or path.get_extension().to_lower() != "tres"
+		or FileAccess.file_exists(path)
+	):
 		_error_label.text = "请选择尚不存在的项目内 .tres 文件；已有文件未改动。"
 		_dialog.popup_centered_ratio(0.6)
 		return
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	config.steps = _PRESETS_SCRIPT.create_steps("move_by", _kind_picker.selected)
-	var error: Error = ResourceSaver.save(config, path, ResourceSaver.FLAG_CHANGE_PATH)
+	var error: Error = ResourceSaver.save(
+		config,
+		path,
+		ResourceSaver.FLAG_CHANGE_PATH
+	)
 	if error != OK:
 		_error_label.text = "保存失败：%s" % error_string(error)
 		_dialog.popup_centered_ratio(0.6)

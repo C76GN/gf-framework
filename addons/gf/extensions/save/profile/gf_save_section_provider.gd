@@ -96,14 +96,14 @@ var _definition_locked: bool = false
 ## [br]
 ## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
 func validate_provider() -> Dictionary:
-	var report: Dictionary = {"issues": []}
+	var report: Dictionary = { "issues": [] }
 	if section_id == &"" or String(section_id) != String(section_id).strip_edges():
 		var _id_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
 			&"invalid_section_id",
 			"Section provider id must be non-empty and trimmed.",
-			{"path": "section_id"}
+			{ "path": "section_id" }
 		)
 	if schema_version <= 0:
 		var _version_issue: Variant = GFValidationReportDictionary.append_issue(
@@ -111,7 +111,7 @@ func validate_provider() -> Dictionary:
 			"error",
 			&"invalid_section_version",
 			"Section provider schema version must be positive.",
-			{"path": "schema_version", "value": schema_version}
+			{ "path": "schema_version", "value": schema_version }
 		)
 	if not save_enabled and not load_enabled:
 		var _capability_issue: Variant = GFValidationReportDictionary.append_issue(
@@ -119,7 +119,7 @@ func validate_provider() -> Dictionary:
 			"error",
 			&"provider_disabled",
 			"Section provider must support save, load, or both.",
-			{"path": "save_enabled"}
+			{ "path": "save_enabled" }
 		)
 	if required_on_load and not load_enabled:
 		var _required_issue: Variant = GFValidationReportDictionary.append_issue(
@@ -127,19 +127,23 @@ func validate_provider() -> Dictionary:
 			"error",
 			&"required_provider_not_loadable",
 			"A required section provider must support load.",
-			{"path": "required_on_load"}
+			{ "path": "required_on_load" }
 		)
-	return GFValidationReportDictionary.finalize_report(report, "Save section provider", {
-		"include_issue_count": true,
-		"next_actions": {
-			"invalid_section_id": "Assign a non-empty trimmed section id owned by one module.",
-			"invalid_section_version": "Use a positive current section version.",
-			"provider_disabled": "Enable save, load, or both.",
-			"required_provider_not_loadable": "Enable load or make the section optional.",
-		},
-		"fallback_action": "Review the first section provider issue.",
-		"no_action": "Save section provider is valid.",
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		"Save section provider",
+		{
+			"include_issue_count": true,
+			"next_actions": {
+				"invalid_section_id": "Assign a non-empty trimmed section id owned by one module.",
+				"invalid_section_version": "Use a positive current section version.",
+				"provider_disabled": "Enable save, load, or both.",
+				"required_provider_not_loadable": "Enable load or make the section optional.",
+			},
+			"fallback_action": "Review the first section provider issue.",
+			"no_action": "Save section provider is valid.",
+		}
+	)
 
 
 ## 开始主线程协作式保存快照。
@@ -156,9 +160,7 @@ func validate_provider() -> Dictionary:
 ## @schema context: Dictionary with caller-defined ephemeral operation data.
 ## [br]
 ## @return 已绑定 Operation；创建失败时返回 null。
-func begin_save_snapshot(
-	context: Dictionary = {}
-) -> GFSaveSectionSnapshotOperation:
+func begin_save_snapshot(context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
 	if not save_enabled:
 		return null
 	var operation: GFSaveSectionSnapshotOperation = _begin_save_snapshot(context)
@@ -204,7 +206,10 @@ func capture_section(context: Dictionary = {}) -> GFSaveSection:
 func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
 	if not load_enabled or not _matches_section(section):
 		return ERR_INVALID_DATA
-	return _apply_section(section.duplicate_section(), context)
+	return _apply_section(
+		section.duplicate_section(),
+		context
+	)
 
 
 ## 使用应用前快照恢复当前 provider。
@@ -223,7 +228,10 @@ func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
 func rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error:
 	if not load_enabled or not _matches_section(previous_section):
 		return ERR_INVALID_DATA
-	return _rollback_section(previous_section.duplicate_section(), context)
+	return _rollback_section(
+		previous_section.duplicate_section(),
+		context
+	)
 
 
 ## 创建带当前 provider 身份的 section。
@@ -242,7 +250,12 @@ func rollback_section(previous_section: GFSaveSection, context: Dictionary = {})
 ## [br]
 ## @return 新 section。
 func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
-	return GFSaveSection.new().configure(section_id, schema_version, payload, metadata)
+	return GFSaveSection.new().configure(
+		section_id,
+		schema_version,
+		payload,
+		metadata
+	)
 
 
 ## 接管纯数据并创建一次性 Snapshot。
@@ -263,10 +276,7 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 ## @schema metadata: Dictionary with provider-defined persisted metadata.
 ## [br]
 ## @return 可用 Snapshot。
-func make_snapshot(
-	payload: Variant,
-	metadata: Dictionary = {}
-) -> GFSaveSectionSnapshot:
+func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshot:
 	return GFSaveSectionSnapshot.take_ownership(
 		section_id,
 		schema_version,
@@ -293,13 +303,8 @@ func make_snapshot(
 ## @schema metadata: Dictionary with provider-defined persisted metadata.
 ## [br]
 ## @return 已完成 Operation。
-func make_completed_snapshot(
-	payload: Variant,
-	metadata: Dictionary = {}
-) -> GFSaveSectionSnapshotOperation:
-	return GFSaveSectionSnapshotOperation.completed(
-		make_snapshot(payload, metadata)
-	)
+func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
+	return GFSaveSectionSnapshotOperation.completed(make_snapshot(payload, metadata))
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -315,9 +320,7 @@ func make_completed_snapshot(
 ## @schema _context: Dictionary with caller-defined ephemeral operation data.
 ## [br]
 ## @return 自定义 Operation，或通过 `make_completed_snapshot()` 创建的小型 Operation。
-func _begin_save_snapshot(
-	_context: Dictionary = {}
-) -> GFSaveSectionSnapshotOperation:
+func _begin_save_snapshot(_context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
 	return null
 
 
@@ -384,7 +387,11 @@ func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}
 ## [br]
 ## @return Provider 合法且已锁定时返回 true。
 func lock_definition_for_framework() -> bool:
-	if not GFVariantData.get_option_bool(validate_provider(), "ok", false):
+	if not GFVariantData.get_option_bool(
+		validate_provider(),
+		"ok",
+		false
+	):
 		return false
 	_definition_locked = true
 	return true
@@ -401,9 +408,14 @@ func _normalize_section(section: GFSaveSection) -> GFSaveSection:
 		return null
 	if section.get_section_id() != section_id or section.get_schema_version() != schema_version:
 		return null
-	if not GFVariantData.get_option_bool(section.validate_section(), "ok", false):
+	if not GFVariantData.get_option_bool(
+		section.validate_section(),
+		"ok",
+		false
+	):
 		return null
 	return section.duplicate_section()
+
 
 ## 检查 section 非空、身份与版本匹配且自身校验通过。
 ## [br]
@@ -414,5 +426,9 @@ func _matches_section(section: GFSaveSection) -> bool:
 		section != null
 		and section.get_section_id() == section_id
 		and section.get_schema_version() == schema_version
-		and GFVariantData.get_option_bool(section.validate_section(), "ok", false)
+		and GFVariantData.get_option_bool(
+			section.validate_section(),
+			"ok",
+			false
+		)
 	)

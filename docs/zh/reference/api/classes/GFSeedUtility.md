@@ -29,7 +29,7 @@
 | 方法 | [`make_stable_text_seed`](#member-gfseedutility-methods-make_stable_text_seed) | `static func make_stable_text_seed(text: String) -> int:` |
 | 方法 | [`try_make_stable_seed`](#member-gfseedutility-methods-try_make_stable_seed) | `static func try_make_stable_seed(parts: Array, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_stable_seed`](#member-gfseedutility-methods-make_stable_seed) | `static func make_stable_seed(parts: Array, options: Dictionary = {}) -> int:` |
-| 方法 | [`make_stable_grid_seed`](#member-gfseedutility-methods-make_stable_grid_seed) | `static func make_stable_grid_seed(cell: Vector2i, seed_value: int = 0, namespace_id: String = "") -> int:` |
+| 方法 | [`make_stable_grid_seed`](#member-gfseedutility-methods-make_stable_grid_seed) | `static func make_stable_grid_seed( cell: Vector2i, seed_value: int = 0, namespace_id: String = "" ) -> int:` |
 | 方法 | [`get_branched_rng`](#member-gfseedutility-methods-get_branched_rng) | `func get_branched_rng(string_seed: String) -> RandomNumberGenerator:` |
 | 方法 | [`get_branched_godot_rng`](#member-gfseedutility-methods-get_branched_godot_rng) | `func get_branched_godot_rng(string_seed: String) -> RandomNumberGenerator:` |
 | 方法 | [`get_branched_deterministic_random`](#member-gfseedutility-methods-get_branched_deterministic_random) | `func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom:` |
@@ -311,7 +311,7 @@ static func make_stable_seed(parts: Array, options: Dictionary = {}) -> int:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func make_stable_grid_seed(cell: Vector2i, seed_value: int = 0, namespace_id: String = "") -> int:
+static func make_stable_grid_seed( cell: Vector2i, seed_value: int = 0, namespace_id: String = "" ) -> int:
 ```
 
 将 2D 网格坐标稳定映射为 32-bit seed。 适合 tile 变体、程序化摆放、刷点或规则 tie-break。namespace_id 用于隔离不同系统，seed_value 用于接入项目主种子或配置种子。

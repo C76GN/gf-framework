@@ -19,7 +19,7 @@ Control 主题覆盖属性列表构建器。 帮助自定义 Control 把一组�
 | 常量 | [`KEY_DATA_TYPE`](#member-gfthemeoverridepropertylist-constants-key_data_type) | `const KEY_DATA_TYPE: String = "data_type"` |
 | 常量 | [`KEY_HINT`](#member-gfthemeoverridepropertylist-constants-key_hint) | `const KEY_HINT: String = "hint"` |
 | 常量 | [`KEY_HINT_STRING`](#member-gfthemeoverridepropertylist-constants-key_hint_string) | `const KEY_HINT_STRING: String = "hint_string"` |
-| 方法 | [`make_definition`](#member-gfthemeoverridepropertylist-methods-make_definition) | `static func make_definition(override_name: StringName, data_type: int, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`make_definition`](#member-gfthemeoverridepropertylist-methods-make_definition) | `static func make_definition( override_name: StringName, data_type: int, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_property_list`](#member-gfthemeoverridepropertylist-methods-make_property_list) | `static func make_property_list( control: Control, definitions: Array, options: Dictionary = {} ) -> Array[Dictionary]:` |
 | 方法 | [`get_property_path`](#member-gfthemeoverridepropertylist-methods-get_property_path) | `static func get_property_path(definition: Dictionary) -> String:` |
 | 方法 | [`has_property_path`](#member-gfthemeoverridepropertylist-methods-has_property_path) | `static func has_property_path(property_path: StringName, definitions: Array) -> bool:` |
@@ -94,7 +94,7 @@ const KEY_HINT_STRING: String = "hint_string"
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func make_definition(override_name: StringName, data_type: int, options: Dictionary = {}) -> Dictionary:
+static func make_definition( override_name: StringName, data_type: int, options: Dictionary = {} ) -> Dictionary:
 ```
 
 创建主题覆盖定义。

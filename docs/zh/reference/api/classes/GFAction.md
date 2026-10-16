@@ -34,8 +34,8 @@
 | 方法 | [`fade_by`](#member-gfaction-methods-fade_by) | `static func fade_by( target: Object, alpha_delta: float, duration: float = 0.2, options: Dictionary = {} ) -> GFConfiguredTweenAction:` |
 | 方法 | [`colorize`](#member-gfaction-methods-colorize) | `static func colorize( target: Object, color: Color, duration: float = 0.2, options: Dictionary = {} ) -> GFConfiguredTweenAction:` |
 | 方法 | [`shader_parameter`](#member-gfaction-methods-shader_parameter) | `static func shader_parameter( target: Object, parameter_name: StringName, target_value: Variant, duration: float = 0.2, options: Dictionary = {} ) -> GFShaderParameterAction:` |
-| 方法 | [`set_property`](#member-gfaction-methods-set_property) | `static func set_property(target: Object, property_name: NodePath, value: Variant) -> GFCallableAction:` |
-| 方法 | [`set_visible`](#member-gfaction-methods-set_visible) | `static func set_visible(target: Object, visible: bool, property_name: NodePath = ^"visible") -> GFCallableAction:` |
+| 方法 | [`set_property`](#member-gfaction-methods-set_property) | `static func set_property( target: Object, property_name: NodePath, value: Variant ) -> GFCallableAction:` |
+| 方法 | [`set_visible`](#member-gfaction-methods-set_visible) | `static func set_visible( target: Object, visible: bool, property_name: NodePath = ^"visible" ) -> GFCallableAction:` |
 | 方法 | [`show`](#member-gfaction-methods-show) | `static func show(target: Object, property_name: NodePath = ^"visible") -> GFCallableAction:` |
 | 方法 | [`hide`](#member-gfaction-methods-hide) | `static func hide(target: Object, property_name: NodePath = ^"visible") -> GFCallableAction:` |
 | 方法 | [`remove_node`](#member-gfaction-methods-remove_node) | `static func remove_node(target: Node) -> GFCallableAction:` |
@@ -550,9 +550,10 @@ static func shader_parameter( target: Object, parameter_name: StringName, target
 ### `set_property`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func set_property(target: Object, property_name: NodePath, value: Variant) -> GFCallableAction:
+static func set_property( target: Object, property_name: NodePath, value: Variant ) -> GFCallableAction:
 ```
 
 创建设置任意属性的瞬时动作。
@@ -576,9 +577,10 @@ static func set_property(target: Object, property_name: NodePath, value: Variant
 ### `set_visible`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-static func set_visible(target: Object, visible: bool, property_name: NodePath = ^"visible") -> GFCallableAction:
+static func set_visible( target: Object, visible: bool, property_name: NodePath = ^"visible" ) -> GFCallableAction:
 ```
 
 创建设置 visible 属性的瞬时动作。

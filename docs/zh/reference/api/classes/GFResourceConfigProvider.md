@@ -27,10 +27,10 @@
 | 方法 | [`get_table_ids`](#member-gfresourceconfigprovider-methods-get_table_ids) | `func get_table_ids() -> PackedStringArray:` |
 | 方法 | [`get_table_resource`](#member-gfresourceconfigprovider-methods-get_table_resource) | `func get_table_resource(table_name: StringName, duplicate_table: bool = true) -> GFConfigTableResource:` |
 | 方法 | [`get_record`](#member-gfresourceconfigprovider-methods-get_record) | `func get_record(table_name: StringName, record_id: Variant) -> Variant:` |
-| 方法 | [`make_index_key`](#member-gfresourceconfigprovider-methods-make_index_key) | `func make_index_key(table_name: StringName, index_id: StringName, record: Dictionary) -> String:` |
-| 方法 | [`has_index_key`](#member-gfresourceconfigprovider-methods-has_index_key) | `func has_index_key(table_name: StringName, index_id: StringName, index_key: String) -> bool:` |
-| 方法 | [`get_index_records`](#member-gfresourceconfigprovider-methods-get_index_records) | `func get_index_records(table_name: StringName, index_id: StringName, index_key: String) -> Array[Dictionary]:` |
-| 方法 | [`get_index_record`](#member-gfresourceconfigprovider-methods-get_index_record) | `func get_index_record(table_name: StringName, index_id: StringName, index_key: String) -> Variant:` |
+| 方法 | [`make_index_key`](#member-gfresourceconfigprovider-methods-make_index_key) | `func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -> String:` |
+| 方法 | [`has_index_key`](#member-gfresourceconfigprovider-methods-has_index_key) | `func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -> bool:` |
+| 方法 | [`get_index_records`](#member-gfresourceconfigprovider-methods-get_index_records) | `func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -> Array[Dictionary]:` |
+| 方法 | [`get_index_record`](#member-gfresourceconfigprovider-methods-get_index_record) | `func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -> Variant:` |
 | 方法 | [`get_table`](#member-gfresourceconfigprovider-methods-get_table) | `func get_table(table_name: StringName) -> Variant:` |
 
 ## 方法
@@ -296,7 +296,7 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 - 首次版本：`5.2.0`
 
 ```gdscript
-func make_index_key(table_name: StringName, index_id: StringName, record: Dictionary) -> String:
+func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -> String:
 ```
 
 根据表名和索引声明构建索引键。
@@ -323,7 +323,7 @@ func make_index_key(table_name: StringName, index_id: StringName, record: Dictio
 - 首次版本：`5.2.0`
 
 ```gdscript
-func has_index_key(table_name: StringName, index_id: StringName, index_key: String) -> bool:
+func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -> bool:
 ```
 
 检查表资源中的命名索引键是否存在。
@@ -346,7 +346,7 @@ func has_index_key(table_name: StringName, index_id: StringName, index_key: Stri
 - 首次版本：`5.2.0`
 
 ```gdscript
-func get_index_records(table_name: StringName, index_id: StringName, index_key: String) -> Array[Dictionary]:
+func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -> Array[Dictionary]:
 ```
 
 根据表名和命名索引获取记录列表。
@@ -373,7 +373,7 @@ func get_index_records(table_name: StringName, index_id: StringName, index_key: 
 - 首次版本：`5.2.0`
 
 ```gdscript
-func get_index_record(table_name: StringName, index_id: StringName, index_key: String) -> Variant:
+func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -> Variant:
 ```
 
 根据表名和命名索引获取第一条记录。

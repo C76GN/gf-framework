@@ -219,7 +219,10 @@ func apply_all() -> void:
 ## @param mode: 目标窗口模式。
 func set_window_mode(mode: DisplayServer.WindowMode) -> void:
 	_capture_current_windowed_size(mode)
-	_set_setting_value(WINDOW_MODE_KEY, int(mode))
+	_set_setting_value(
+		WINDOW_MODE_KEY,
+		int(mode)
+	)
 	apply_window_mode()
 	if mode == DisplayServer.WINDOW_MODE_WINDOWED:
 		_apply_window_size(true)
@@ -232,7 +235,10 @@ func set_window_mode(mode: DisplayServer.WindowMode) -> void:
 ## @return 窗口模式。
 func get_window_mode() -> DisplayServer.WindowMode:
 	var mode_value: int = GFVariantData.to_int(
-		_get_setting_value(WINDOW_MODE_KEY, int(_window_get_mode())),
+		_get_setting_value(
+			WINDOW_MODE_KEY,
+			int(_window_get_mode())
+		),
 		int(_window_get_mode())
 	)
 	return _to_window_mode(mode_value)
@@ -261,7 +267,10 @@ func toggle_fullscreen() -> void:
 func apply_window_mode() -> void:
 	var mode: DisplayServer.WindowMode = get_window_mode()
 	_window_set_mode(mode)
-	display_setting_applied.emit(WINDOW_MODE_KEY, int(mode))
+	display_setting_applied.emit(
+		WINDOW_MODE_KEY,
+		int(mode)
+	)
 
 
 ## 设置窗口尺寸并应用。
@@ -284,13 +293,19 @@ func set_window_size(size: Vector2i) -> void:
 ## [br]
 ## @return 窗口尺寸。
 func get_window_size() -> Vector2i:
-	var value: Variant = _get_setting_value(WINDOW_SIZE_KEY, _resolve_initial_windowed_size())
+	var value: Variant = _get_setting_value(
+		WINDOW_SIZE_KEY,
+		_resolve_initial_windowed_size()
+	)
 	if value is Vector2i:
 		var size_2i: Vector2i = value
 		return size_2i
 	if value is Vector2:
 		var vector2: Vector2 = value
-		return Vector2i(roundi(vector2.x), roundi(vector2.y))
+		return Vector2i(
+			roundi(vector2.x),
+			roundi(vector2.y)
+		)
 	return _resolve_initial_windowed_size()
 
 
@@ -307,7 +322,10 @@ func apply_window_size() -> void:
 ## [br]
 ## @param mode: VSync 模式。
 func set_vsync_mode(mode: DisplayServer.VSyncMode) -> void:
-	_set_setting_value(VSYNC_MODE_KEY, int(mode))
+	_set_setting_value(
+		VSYNC_MODE_KEY,
+		int(mode)
+	)
 	apply_vsync_mode()
 
 
@@ -318,7 +336,10 @@ func set_vsync_mode(mode: DisplayServer.VSyncMode) -> void:
 ## @return VSync 模式。
 func get_vsync_mode() -> DisplayServer.VSyncMode:
 	var mode_value: int = GFVariantData.to_int(
-		_get_setting_value(VSYNC_MODE_KEY, int(DisplayServer.window_get_vsync_mode())),
+		_get_setting_value(
+			VSYNC_MODE_KEY,
+			int(DisplayServer.window_get_vsync_mode())
+		),
 		int(DisplayServer.window_get_vsync_mode())
 	)
 	return _to_vsync_mode(mode_value)
@@ -330,7 +351,10 @@ func get_vsync_mode() -> DisplayServer.VSyncMode:
 func apply_vsync_mode() -> void:
 	var mode: DisplayServer.VSyncMode = get_vsync_mode()
 	DisplayServer.window_set_vsync_mode(mode)
-	display_setting_applied.emit(VSYNC_MODE_KEY, int(mode))
+	display_setting_applied.emit(
+		VSYNC_MODE_KEY,
+		int(mode)
+	)
 
 
 ## 设置语言并应用。
@@ -349,7 +373,13 @@ func set_locale(locale: String) -> void:
 ## [br]
 ## @return 语言代码。
 func get_locale() -> String:
-	return GFVariantData.to_text(_get_setting_value(LOCALE_KEY, OS.get_locale_language()), OS.get_locale_language())
+	return GFVariantData.to_text(
+		_get_setting_value(
+			LOCALE_KEY,
+			OS.get_locale_language()
+		),
+		OS.get_locale_language()
+	)
 
 
 ## 应用语言设置。
@@ -394,8 +424,15 @@ func set_audio_bus_volume(bus_name: String, volume_linear: float) -> void:
 	if not is_finite(volume_linear):
 		push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_non_finite] Rejected non-finite audio bus volume: %s." % bus_name)
 		return
-	var clamped_volume: float = clampf(volume_linear, 0.0, 1.0)
-	_set_setting_value(_get_audio_bus_volume_key(bus_name), clamped_volume)
+	var clamped_volume: float = clampf(
+		volume_linear,
+		0.0,
+		1.0
+	)
+	_set_setting_value(
+		_get_audio_bus_volume_key(bus_name),
+		clamped_volume
+	)
 	apply_audio_bus_volume(bus_name)
 
 
@@ -411,7 +448,10 @@ func set_audio_bus_volume(bus_name: String, volume_linear: float) -> void:
 func get_audio_bus_volume(bus_name: String, fallback: float = 1.0) -> float:
 	var normalized_fallback: float = _normalize_linear_volume(fallback, 1.0)
 	var value: float = GFVariantData.to_float(
-		_get_setting_value(_get_audio_bus_volume_key(bus_name), normalized_fallback),
+		_get_setting_value(
+			_get_audio_bus_volume_key(bus_name),
+			normalized_fallback
+		),
 		normalized_fallback
 	)
 	return _normalize_linear_volume(value, normalized_fallback)
@@ -436,7 +476,10 @@ func apply_audio_bus_volume(bus_name: String) -> void:
 			applied = true
 
 	if applied:
-		display_setting_applied.emit(_get_audio_bus_volume_key(bus_name), volume)
+		display_setting_applied.emit(
+			_get_audio_bus_volume_key(bus_name),
+			volume
+		)
 	else:
 		push_warning("[GFDisplaySettingsUtility][display_settings_utility.audio_volume_apply_failed] Cannot apply audio bus volume: bus missing or backend rejected the request: %s." % bus_name)
 
@@ -464,8 +507,17 @@ func apply_registered_audio_bus_volumes() -> void:
 ## @api private
 ## [br]
 func _normalize_linear_volume(value: float, fallback: float) -> float:
-	var normalized_fallback: float = clampf(fallback, 0.0, 1.0) if is_finite(fallback) else 1.0
-	return clampf(value, 0.0, 1.0) if is_finite(value) else normalized_fallback
+	var normalized_fallback: float = clampf(
+		fallback,
+		0.0,
+		1.0
+	) if is_finite(fallback) else 1.0
+	return clampf(
+		value,
+		0.0,
+		1.0
+	) if is_finite(value) else normalized_fallback
+
 
 ## 仅在设置尺寸有效且允许窗口模式切换或当前已是窗口模式时应用窗口尺寸。
 ## [br]
@@ -475,10 +527,7 @@ func _apply_window_size(allow_window_mode_transition: bool) -> void:
 	var size: Vector2i = get_window_size()
 	if size.x <= 0 or size.y <= 0:
 		return
-	if (
-		not allow_window_mode_transition
-		and _window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED
-	):
+	if (not allow_window_mode_transition and _window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED):
 		return
 
 	_window_set_size(size)
@@ -532,7 +581,10 @@ func _resolve_initial_windowed_size() -> Vector2i:
 ## @api private
 ## [br]
 func _project_setting_int(path: String) -> int:
-	return GFVariantData.to_int(ProjectSettings.get_setting(path, 0), 0)
+	return GFVariantData.to_int(
+		ProjectSettings.get_setting(path, 0),
+		0
+	)
 
 
 ## 读取 DisplayServer 当前窗口模式。
@@ -575,7 +627,11 @@ func _set_setting_value(key: StringName, value: Variant) -> void:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings != null:
 		_internal_setting_write_depth += 1
-		settings.set_value(key, value, persist_changes)
+		settings.set_value(
+			key,
+			value,
+			persist_changes
+		)
 		_internal_setting_write_depth -= 1
 	else:
 		_runtime_values[key] = value
@@ -588,7 +644,11 @@ func _set_setting_value(key: StringName, value: Variant) -> void:
 func _get_setting_value(key: StringName, fallback: Variant = null) -> Variant:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings == null:
-		return GFVariantData.get_option_value(_runtime_values, key, fallback)
+		return GFVariantData.get_option_value(
+			_runtime_values,
+			key,
+			fallback
+		)
 	return settings.get_value(key, fallback)
 
 
@@ -627,7 +687,10 @@ func _get_audio_utility() -> GFAudioUtility:
 ## @api private
 ## [br]
 func _get_audio_bus_volume_key(bus_name: String) -> StringName:
-	return StringName("%s/%s/volume" % [String(audio_setting_prefix), bus_name])
+	return StringName(
+		"%s/%s/volume"
+		% [String(audio_setting_prefix), bus_name]
+	)
 
 
 ## 切换到当前设置工具并连接变更及加载完成信号；第二个连接失败时断开已成功建立的第一个连接。
@@ -642,16 +705,12 @@ func _connect_settings_signals() -> void:
 	_disconnect_settings_signals()
 	_connected_settings = settings
 	if not _connected_settings.setting_changed.is_connected(_on_setting_changed):
-		var settings_changed_error: Error = (
-			_connected_settings.setting_changed.connect(_on_setting_changed) as Error
-		)
+		var settings_changed_error: Error = _connected_settings.setting_changed.connect(_on_setting_changed) as Error
 		if settings_changed_error != OK:
 			_connected_settings = null
 			return
 	if not _connected_settings.settings_load_completed.is_connected(_on_settings_load_completed):
-		var settings_load_completed_error: Error = (
-			_connected_settings.settings_load_completed.connect(_on_settings_load_completed) as Error
-		)
+		var settings_load_completed_error: Error = _connected_settings.settings_load_completed.connect(_on_settings_load_completed) as Error
 		if settings_load_completed_error != OK:
 			if _connected_settings.setting_changed.is_connected(_on_setting_changed):
 				_connected_settings.setting_changed.disconnect(_on_setting_changed)
@@ -722,7 +781,11 @@ func _on_settings_load_completed(result: GFSettingsLoadResult) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _on_setting_changed(key: StringName, _old_value: Variant, _new_value: Variant) -> void:
+func _on_setting_changed(
+	key: StringName,
+	_old_value: Variant,
+	_new_value: Variant
+) -> void:
 	if not auto_apply_setting_changes or _internal_setting_write_depth > 0:
 		return
 

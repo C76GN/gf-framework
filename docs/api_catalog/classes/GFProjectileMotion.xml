@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="be9f47aa4cc2ecd9ce989de51315ff44237f1a94714147674b379235288da9c2">
+<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="a6b37c74cf58f092551fd7a3f4e71afdb8a0da98ff4157f81645a2b465a319dc">
 	<description>GFProjectileMotion: 以 per-session state 计算 typed intent 的移动策略基类。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -12,7 +12,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="create_state_2d">
-			<signature>func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -&gt; GFProjectileMotionState:</signature>
+			<signature>func create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -&gt; GFProjectileMotionState:</signature>
 			<description>为一次 2D session 创建私有 motion state。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -23,7 +23,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="create_state_3d">
-			<signature>func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -&gt; GFProjectileMotionState:</signature>
+			<signature>func create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -&gt; GFProjectileMotionState:</signature>
 			<description>为一次 3D session 创建私有 motion state。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -58,7 +58,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_create_state_2d">
-			<signature>func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D ) -&gt; Variant:</signature>
+			<signature>func _create_state_2d(_launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D) -&gt; Variant:</signature>
 			<description>实现 2D state 创建策略。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -70,7 +70,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_create_state_3d">
-			<signature>func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D ) -&gt; Variant:</signature>
+			<signature>func _create_state_3d(_launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D) -&gt; Variant:</signature>
 			<description>实现 3D state 创建策略。</description>
 			<tags>
 				<tag name="api">protected</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFActionInterceptor" path="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" module="extensions/action_queue" extends="RefCounted" classDigest="0bb2eea71afe65b3c1852ba3ece102177b320a4f3ff3ce956e9135478486e727">
+<class name="GFActionInterceptor" path="addons/gf/extensions/action_queue/core/gf_action_interceptor.gd" module="extensions/action_queue" extends="RefCounted" classDigest="fbb777a11bcd51fba8f6cf95e5a8eda5dd8a6bebaf071d9512441e7b73a3ac22">
 	<description>GFActionInterceptor: 动作队列的通用拦截器基类。
 拦截器可在表现动作执行前后做横切处理，例如跳过、替换、停止后续队列、
 记录诊断或根据运行时状态调整表现，不绑定任何具体玩法规则。</description>
@@ -31,13 +31,14 @@
 	</properties>
 	<methods>
 		<member kind="method" name="_before_execute">
-			<signature>func _before_execute( _action: Object, _queue: GFActionQueueSystem ) -&gt; GFActionInterceptionResult:</signature>
+			<signature>func _before_execute(_action: Object, _queue: GFActionQueueSystem) -&gt; GFActionInterceptionResult:</signature>
 			<description>动作执行前调用。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">_action: 即将执行的动作。</tag>
 				<tag name="param">_queue: 当前动作队列。</tag>
 				<tag name="return">拦截结果；返回 null 等价于继续。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_after_execute">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="bd352c53ed1d75064351cb3b80c08c6ed6a9d60a88b01d185db1a8e1bf12916b">
+<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="04b16cd448323579c8dd7f164212e053b92bf0409967eca890931a3c8d9cc786">
 	<description>GFSceneUtility: 场景与流程切换管理器。
 封装原生场景切换，支持带有 `loading scene` 的异步加载、PackedScene
 资源预加载缓存、切换参数、场景历史，并可在切换完成后清理不需要跨场景保留的 `System/Model`。</description>
@@ -105,13 +105,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="scene_switch_failed">
-			<signature>signal scene_switch_failed(path: String, previous_path: String, message: String)</signature>
+			<signature>signal scene_switch_failed( path: String, previous_path: String, message: String )</signature>
 			<description>当一次场景切换流程失败时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 目标场景路径。</tag>
 				<tag name="param">previous_path: 切换前场景路径。</tag>
 				<tag name="param">message: 失败说明。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="loading_scene_shown">
@@ -311,7 +312,7 @@ fixed 缓存不受该容量限制。</description>
 			</tags>
 		</member>
 		<member kind="method" name="setup_standalone_resource_broker">
-			<signature>func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -&gt; GFResourceBroker:</signature>
+			<signature>func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -&gt; GFResourceBroker:</signature>
 			<description>为单个独立 Scene Utility 显式创建私有 Resource Broker。
 需要与 Asset 或 BackgroundWork 协调时，应由项目创建一个共享 Broker 并分别注入。</description>
 			<tags>
@@ -399,7 +400,7 @@ fixed 缓存不受该容量限制。</description>
 			</tags>
 		</member>
 		<member kind="method" name="begin_background_scene_load">
-			<signature>func begin_background_scene_load(path: String, params: Dictionary = {}, fixed: bool = false) -&gt; Error:</signature>
+			<signature>func begin_background_scene_load( path: String, params: Dictionary = {}, fixed: bool = false ) -&gt; Error:</signature>
 			<description>后台加载一个场景并记录稍后激活时使用的参数。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -408,6 +409,7 @@ fixed 缓存不受该容量限制。</description>
 				<tag name="param">fixed: 为 true 时写入固定缓存，不受 LRU 容量淘汰影响。</tag>
 				<tag name="return">发起请求的 Godot Error。</tag>
 				<tag name="schema">params: Dictionary[String, Variant]，后台场景激活时复制并应用的参数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="activate_background_scene">
@@ -453,7 +455,7 @@ fixed 缓存不受该容量限制。</description>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene_preload_map_plan">
-			<signature>func get_scene_preload_map_plan(path: String, radius: int = -1, include_fixed: bool = true) -&gt; Dictionary:</signature>
+			<signature>func get_scene_preload_map_plan( path: String, radius: int = -1, include_fixed: bool = true ) -&gt; Dictionary:</signature>
 			<description>获取指定场景的图谱预加载计划。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -466,7 +468,7 @@ fixed 缓存不受该容量限制。</description>
 			</tags>
 		</member>
 		<member kind="method" name="preload_scene_map_for">
-			<signature>func preload_scene_map_for(path: String, radius: int = -1, include_fixed: bool = true) -&gt; Dictionary:</signature>
+			<signature>func preload_scene_map_for( path: String, radius: int = -1, include_fixed: bool = true ) -&gt; Dictionary:</signature>
 			<description>按图谱为指定场景发起预加载。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -475,6 +477,7 @@ fixed 缓存不受该容量限制。</description>
 				<tag name="param">include_fixed: 是否包含固定预加载路径。</tag>
 				<tag name="return">预加载结果字典。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、source_path、radius、include_fixed、requested_count、fixed_requested、temporary_requested、results、errors 和 plan。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="preload_current_scene_map">
@@ -532,13 +535,14 @@ fixed 缓存不受该容量限制。</description>
 			</tags>
 		</member>
 		<member kind="method" name="put_preloaded_scene">
-			<signature>func put_preloaded_scene(path: String, scene: PackedScene, fixed: bool = false) -&gt; void:</signature>
+			<signature>func put_preloaded_scene( path: String, scene: PackedScene, fixed: bool = false ) -&gt; void:</signature>
 			<description>手动写入预加载缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 场景路径。</tag>
 				<tag name="param">scene: PackedScene 实例。</tag>
 				<tag name="param">fixed: 为 true 时写入固定缓存。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_preloaded_scene">

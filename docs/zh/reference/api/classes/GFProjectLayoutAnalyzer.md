@@ -15,13 +15,13 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`](#member-gfprojectlayoutanalyzer-constants-example_feature_cohesive_profile_path) | `const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"` |
+| 常量 | [`EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`](#member-gfprojectlayoutanalyzer-constants-example_feature_cohesive_profile_path) | `const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = ("res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json")` |
 | 方法 | [`analyze`](#member-gfprojectlayoutanalyzer-methods-analyze) | `func analyze(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`analyze_example_profile`](#member-gfprojectlayoutanalyzer-methods-analyze_example_profile) | `func analyze_example_profile(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`analyze_profile_path`](#member-gfprojectlayoutanalyzer-methods-analyze_profile_path) | `func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`analyze_profile`](#member-gfprojectlayoutanalyzer-methods-analyze_profile) | `func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`analyze_snapshot`](#member-gfprojectlayoutanalyzer-methods-analyze_snapshot) | `func analyze_snapshot(snapshot: Dictionary) -> Dictionary:` |
-| 方法 | [`analyze_profile_snapshot`](#member-gfprojectlayoutanalyzer-methods-analyze_profile_snapshot) | `func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -> Dictionary:` |
+| 方法 | [`analyze_profile_snapshot`](#member-gfprojectlayoutanalyzer-methods-analyze_profile_snapshot) | `func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -> Dictionary:` |
 | 方法 | [`explain_finding`](#member-gfprojectlayoutanalyzer-methods-explain_finding) | `func explain_finding(analysis: Dictionary, finding_id: String) -> Dictionary:` |
 | 方法 | [`analyze_change_impact`](#member-gfprojectlayoutanalyzer-methods-analyze_change_impact) | `func analyze_change_impact(analysis: Dictionary, change: Dictionary) -> Dictionary:` |
 
@@ -35,7 +35,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
-const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json"
+const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = ("res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json")
 ```
 
 Feature 内聚式示例 profile 路径。
@@ -183,7 +183,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -> Dictionary:
+func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -> Dictionary:
 ```
 
 按 profile 分析已经冻结的 data-only 项目库存，不再扫描项目目录。 该便捷入口会只读加载 canonical contract、编译 profile，并在传入的冻结库存上完成分析。

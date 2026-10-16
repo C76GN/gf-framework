@@ -193,13 +193,63 @@ func record_lane_snapshot(lane_id: StringName, options: Dictionary = {}) -> Dict
 	if lane_id == &"":
 		return {}
 	var lane: Dictionary = _get_or_create_lane(lane_id)
-	lane["label"] = GFVariantData.get_option_string(options, "label", GFVariantData.get_option_string(lane, "label", String(lane_id)))
-	lane["queued_count"] = maxi(GFVariantData.get_option_int(options, "queued_count", GFVariantData.get_option_int(lane, "queued_count")), 0)
-	lane["active_count"] = maxi(GFVariantData.get_option_int(options, "active_count", GFVariantData.get_option_int(lane, "active_count")), 0)
-	lane["completed_count"] = maxi(GFVariantData.get_option_int(options, "completed_count", GFVariantData.get_option_int(lane, "completed_count")), 0)
-	lane["failed_count"] = maxi(GFVariantData.get_option_int(options, "failed_count", GFVariantData.get_option_int(lane, "failed_count")), 0)
-	lane["timeout_count"] = maxi(GFVariantData.get_option_int(options, "timeout_count", GFVariantData.get_option_int(lane, "timeout_count")), 0)
-	lane["cancelled_count"] = maxi(GFVariantData.get_option_int(options, "cancelled_count", GFVariantData.get_option_int(lane, "cancelled_count")), 0)
+	lane["label"] = GFVariantData.get_option_string(
+		options,
+		"label",
+		GFVariantData.get_option_string(
+			lane,
+			"label",
+			String(lane_id)
+		)
+	)
+	lane["queued_count"] = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"queued_count",
+			GFVariantData.get_option_int(lane, "queued_count")
+		),
+		0
+	)
+	lane["active_count"] = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"active_count",
+			GFVariantData.get_option_int(lane, "active_count")
+		),
+		0
+	)
+	lane["completed_count"] = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"completed_count",
+			GFVariantData.get_option_int(lane, "completed_count")
+		),
+		0
+	)
+	lane["failed_count"] = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"failed_count",
+			GFVariantData.get_option_int(lane, "failed_count")
+		),
+		0
+	)
+	lane["timeout_count"] = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"timeout_count",
+			GFVariantData.get_option_int(lane, "timeout_count")
+		),
+		0
+	)
+	lane["cancelled_count"] = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"cancelled_count",
+			GFVariantData.get_option_int(lane, "cancelled_count")
+		),
+		0
+	)
 	lane["metadata"] = GFVariantData.merge_dictionary(
 		GFVariantData.get_option_dictionary(lane, "metadata"),
 		GFVariantData.get_option_dictionary(options, "metadata"),
@@ -207,13 +257,22 @@ func record_lane_snapshot(lane_id: StringName, options: Dictionary = {}) -> Dict
 		true
 	)
 	_update_lane_peaks(lane)
-	lane["status"] = _normalize_status(GFVariantData.get_option_string_name(options, "status", _derive_lane_status(lane)))
+	lane["status"] = _normalize_status(
+		GFVariantData.get_option_string_name(
+			options,
+			"status",
+			_derive_lane_status(lane)
+		)
+	)
 	lane["last_seen_msec"] = Time.get_ticks_msec()
 	lane["last_sequence"] = _take_sequence()
 	_lanes[lane_id] = lane
 	_compact_lanes_if_needed()
 	var snapshot: Dictionary = _lane_to_snapshot(lane)
-	lane_snapshot_recorded.emit(lane_id, snapshot.duplicate(true))
+	lane_snapshot_recorded.emit(
+		lane_id,
+		snapshot.duplicate(true)
+	)
 	return snapshot
 
 
@@ -234,16 +293,42 @@ func record_lane_snapshot(lane_id: StringName, options: Dictionary = {}) -> Dict
 ## @schema options: Dictionary，包含 queued_delta、active_delta、status、label 和 metadata。
 ## [br]
 ## @schema return: Dictionary，包含 sequence、event_type、lane_id、status、计数和 metadata。
-func record_lane_event(lane_id: StringName, event_type: StringName, options: Dictionary = {}) -> Dictionary:
+func record_lane_event(
+	lane_id: StringName,
+	event_type: StringName,
+	options: Dictionary = {}
+) -> Dictionary:
 	if lane_id == &"" or event_type == &"":
 		return {}
 	var lane: Dictionary = _get_or_create_lane(lane_id)
 	var event_metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
-	var queued_delta: int = GFVariantData.get_option_int(options, "queued_delta", _default_queued_delta(event_type))
-	var active_delta: int = GFVariantData.get_option_int(options, "active_delta", _default_active_delta(event_type))
-	lane["label"] = GFVariantData.get_option_string(options, "label", GFVariantData.get_option_string(lane, "label", String(lane_id)))
-	lane["queued_count"] = maxi(GFVariantData.get_option_int(lane, "queued_count") + queued_delta, 0)
-	lane["active_count"] = maxi(GFVariantData.get_option_int(lane, "active_count") + active_delta, 0)
+	var queued_delta: int = GFVariantData.get_option_int(
+		options,
+		"queued_delta",
+		_default_queued_delta(event_type)
+	)
+	var active_delta: int = GFVariantData.get_option_int(
+		options,
+		"active_delta",
+		_default_active_delta(event_type)
+	)
+	lane["label"] = GFVariantData.get_option_string(
+		options,
+		"label",
+		GFVariantData.get_option_string(
+			lane,
+			"label",
+			String(lane_id)
+		)
+	)
+	lane["queued_count"] = maxi(
+		GFVariantData.get_option_int(lane, "queued_count") + queued_delta,
+		0
+	)
+	lane["active_count"] = maxi(
+		GFVariantData.get_option_int(lane, "active_count") + active_delta,
+		0
+	)
 	lane["event_count"] = GFVariantData.get_option_int(lane, "event_count") + 1
 	lane["last_event_type"] = event_type
 	lane["last_seen_msec"] = Time.get_ticks_msec()
@@ -266,7 +351,13 @@ func record_lane_event(lane_id: StringName, event_type: StringName, options: Dic
 		_:
 			pass
 	_update_lane_peaks(lane)
-	lane["status"] = _normalize_status(GFVariantData.get_option_string_name(options, "status", _derive_lane_status(lane)))
+	lane["status"] = _normalize_status(
+		GFVariantData.get_option_string_name(
+			options,
+			"status",
+			_derive_lane_status(lane)
+		)
+	)
 	_lanes[lane_id] = lane
 	_compact_lanes_if_needed()
 
@@ -274,7 +365,11 @@ func record_lane_event(lane_id: StringName, event_type: StringName, options: Dic
 		"sequence": GFVariantData.get_option_int(lane, "last_sequence"),
 		"event_type": event_type,
 		"lane_id": lane_id,
-		"status": GFVariantData.get_option_string_name(lane, "status", STATUS_OK),
+		"status": GFVariantData.get_option_string_name(
+			lane,
+			"status",
+			STATUS_OK
+		),
 		"queued_count": GFVariantData.get_option_int(lane, "queued_count"),
 		"active_count": GFVariantData.get_option_int(lane, "active_count"),
 		"completed_count": GFVariantData.get_option_int(lane, "completed_count"),
@@ -286,7 +381,10 @@ func record_lane_event(lane_id: StringName, event_type: StringName, options: Dic
 	}
 	_events.append(event)
 	_trim_events()
-	lane_event_recorded.emit(lane_id, event.duplicate(true))
+	lane_event_recorded.emit(
+		lane_id,
+		event.duplicate(true)
+	)
 	return event.duplicate(true)
 
 
@@ -387,7 +485,10 @@ func get_recent_events(limit: int = 0) -> Array[Dictionary]:
 	var start_index: int = 0
 	if limit > 0 and _events.size() > limit:
 		start_index = _events.size() - limit
-	for index: int in range(start_index, _events.size()):
+	for index: int in range(
+		start_index,
+		_events.size()
+	):
 		result.append(_events[index].duplicate(true))
 	return result
 
@@ -419,7 +520,14 @@ func get_health_snapshot(limit: int = 5) -> Dictionary:
 		failed_count += GFVariantData.get_option_int(lane, "failed_count")
 		timeout_count += GFVariantData.get_option_int(lane, "timeout_count")
 		cancelled_count += GFVariantData.get_option_int(lane, "cancelled_count")
-		status = _max_status(status, GFVariantData.get_option_string_name(lane, "status", STATUS_OK))
+		status = _max_status(
+			status,
+			GFVariantData.get_option_string_name(
+				lane,
+				"status",
+				STATUS_OK
+			)
+		)
 	return {
 		"status": status,
 		"lane_count": _lanes.size(),
@@ -489,7 +597,11 @@ func _lane_to_snapshot(lane: Dictionary) -> Dictionary:
 	return {
 		"lane_id": GFVariantData.get_option_string_name(lane, "lane_id"),
 		"label": GFVariantData.get_option_string(lane, "label"),
-		"status": GFVariantData.get_option_string_name(lane, "status", STATUS_OK),
+		"status": GFVariantData.get_option_string_name(
+			lane,
+			"status",
+			STATUS_OK
+		),
 		"queued_count": GFVariantData.get_option_int(lane, "queued_count"),
 		"active_count": GFVariantData.get_option_int(lane, "active_count"),
 		"completed_count": GFVariantData.get_option_int(lane, "completed_count"),
@@ -524,9 +636,9 @@ func _update_lane_peaks(lane: Dictionary) -> void:
 ## [br]
 ## @api private
 func _derive_lane_status(lane: Dictionary) -> StringName:
-	if GFVariantData.get_option_int(lane, "failed_count") > 0 or GFVariantData.get_option_int(lane, "timeout_count") > 0:
+	if (GFVariantData.get_option_int(lane, "failed_count") > 0 or GFVariantData.get_option_int(lane, "timeout_count") > 0):
 		return STATUS_ERROR
-	if GFVariantData.get_option_int(lane, "cancelled_count") > 0 or GFVariantData.get_option_int(lane, "queued_count") > 0:
+	if (GFVariantData.get_option_int(lane, "cancelled_count") > 0 or GFVariantData.get_option_int(lane, "queued_count") > 0):
 		return STATUS_WARNING
 	return STATUS_OK
 
@@ -653,10 +765,11 @@ func _sorted_lane_ids_for_removal() -> Array[StringName]:
 		var lane_id: StringName = GFVariantData.to_string_name(raw_lane_id)
 		if lane_id != &"":
 			lane_ids.append(lane_id)
-	lane_ids.sort_custom(func(left: StringName, right: StringName) -> bool:
-		var left_lane: Dictionary = GFVariantData.as_dictionary(_lanes.get(left, {}))
-		var right_lane: Dictionary = GFVariantData.as_dictionary(_lanes.get(right, {}))
-		return GFVariantData.get_option_int(left_lane, "last_sequence") < GFVariantData.get_option_int(right_lane, "last_sequence")
+	lane_ids.sort_custom(
+		func(left: StringName, right: StringName) -> bool:
+			var left_lane: Dictionary = GFVariantData.as_dictionary(_lanes.get(left, {}))
+			var right_lane: Dictionary = GFVariantData.as_dictionary(_lanes.get(right, {}))
+			return (GFVariantData.get_option_int(left_lane, "last_sequence") < GFVariantData.get_option_int(right_lane, "last_sequence"))
 	)
 	return lane_ids
 
@@ -665,10 +778,7 @@ func _sorted_lane_ids_for_removal() -> Array[StringName]:
 ## [br]
 ## @api private
 func _lane_is_active(lane: Dictionary) -> bool:
-	return (
-		GFVariantData.get_option_int(lane, "queued_count") > 0
-		or GFVariantData.get_option_int(lane, "active_count") > 0
-	)
+	return (GFVariantData.get_option_int(lane, "queued_count") > 0 or GFVariantData.get_option_int(lane, "active_count") > 0)
 
 
 ## 按 last_sequence 降序比较两个快照。
@@ -677,4 +787,4 @@ func _lane_is_active(lane: Dictionary) -> bool:
 func _sort_snapshots_desc(left: Variant, right: Variant) -> bool:
 	var left_snapshot: Dictionary = GFVariantData.as_dictionary(left)
 	var right_snapshot: Dictionary = GFVariantData.as_dictionary(right)
-	return GFVariantData.get_option_int(left_snapshot, "last_sequence") > GFVariantData.get_option_int(right_snapshot, "last_sequence")
+	return (GFVariantData.get_option_int(left_snapshot, "last_sequence") > GFVariantData.get_option_int(right_snapshot, "last_sequence"))

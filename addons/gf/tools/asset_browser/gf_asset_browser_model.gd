@@ -346,15 +346,18 @@ func replace_catalog(catalog: GFAssetCatalog) -> Dictionary:
 	report["catalog_revision"] = _catalog_revision
 	report["query_generation"] = _query_generation
 	var notifications: Array[Dictionary] = [
-		_make_notification(_NOTIFICATION_CATALOG_CHANGED, {
-			"catalog_revision": _catalog_revision,
-			"query_generation": _query_generation,
-		}),
+		_make_notification(
+			_NOTIFICATION_CATALOG_CHANGED,
+			{ "catalog_revision": _catalog_revision, "query_generation": _query_generation, }
+		),
 	]
 	if previous_selection != _selected_asset_id:
-		notifications.append(_make_notification(_NOTIFICATION_SELECTION_CHANGED, {
-			"asset_id": _selected_asset_id,
-		}))
+		notifications.append(
+			_make_notification(
+				_NOTIFICATION_SELECTION_CHANGED,
+				{ "asset_id": _selected_asset_id, }
+			)
+		)
 	_publish_notifications(notifications)
 	return report
 
@@ -375,18 +378,24 @@ func select_asset(asset_id: StringName) -> bool:
 		if _selected_asset_id == &"":
 			return true
 		_selected_asset_id = &""
-		_publish_notification(_make_notification(_NOTIFICATION_SELECTION_CHANGED, {
-			"asset_id": _selected_asset_id,
-		}))
+		_publish_notification(
+			_make_notification(
+				_NOTIFICATION_SELECTION_CHANGED,
+				{ "asset_id": _selected_asset_id, }
+			)
+		)
 		return true
 	if not _catalog.has_entry(asset_id):
 		return false
 	if _selected_asset_id == asset_id:
 		return true
 	_selected_asset_id = asset_id
-	_publish_notification(_make_notification(_NOTIFICATION_SELECTION_CHANGED, {
-		"asset_id": _selected_asset_id,
-	}))
+	_publish_notification(
+		_make_notification(
+			_NOTIFICATION_SELECTION_CHANGED,
+			{ "asset_id": _selected_asset_id, }
+		)
+	)
 	return true
 
 
@@ -406,10 +415,7 @@ func select_asset(asset_id: StringName) -> bool:
 ## @return: 查询更新报告。
 ## [br]
 ## @schema return: Dictionary with ok, changed, error, query_generation, query, and filter_count.
-func set_query(
-	query_text: String,
-	asset_ids: PackedStringArray = PackedStringArray()
-) -> Dictionary:
+func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -> Dictionary:
 	var report: Dictionary = {
 		"ok": false,
 		"changed": false,
@@ -444,9 +450,12 @@ func set_query(
 	report["query_generation"] = _query_generation
 	report["query"] = _query_text
 	report["filter_count"] = _query_asset_ids.size()
-	_publish_notification(_make_notification(_NOTIFICATION_QUERY_CHANGED, {
-		"query_generation": _query_generation,
-	}))
+	_publish_notification(
+		_make_notification(
+			_NOTIFICATION_QUERY_CHANGED,
+			{ "query_generation": _query_generation, }
+		)
+	)
 	return report
 
 
@@ -520,11 +529,23 @@ func request_preview(
 	var catalog_revision: int = _catalog_revision
 	var query_generation: int = _query_generation
 	_cancel_active_preview(&"superseded")
-	if not _is_preview_request_current(preview_generation, catalog_revision, query_generation):
+	if not _is_preview_request_current(
+		preview_generation,
+		catalog_revision,
+		query_generation
+	):
 		return null
 	var task: GFThumbnailRenderTask = renderer.submit_render_request(request)
-	if not _is_preview_request_current(preview_generation, catalog_revision, query_generation):
-		if task != null and task != _active_preview_task and not task.is_finished():
+	if not _is_preview_request_current(
+		preview_generation,
+		catalog_revision,
+		query_generation
+	):
+		if (
+			task != null
+			and task != _active_preview_task
+			and not task.is_finished()
+		):
 			var _cancelled: bool = task.cancel(&"superseded")
 		return null
 	if task == null:
@@ -634,19 +655,36 @@ func dispose() -> void:
 ## [br]
 ## @schema return: Dictionary with catalog_revision, query_generation, query, page, page_size, page_count, total_count, has_previous, has_next, asset_ids, and items.
 func get_page(page: int = 1, page_size: int = 50) -> Dictionary:
-	var bounded_page_size: int = clampi(page_size, 1, MAX_PAGE_SIZE)
-	var catalog_page: Dictionary = _catalog.search_page(_query_text, page, bounded_page_size, {
-		"asset_ids": _query_asset_ids,
-		"limit": MAX_RESULT_COUNT,
-		"include_summaries": true,
-		"summary_options": { "include_metadata": true },
-	})
+	var bounded_page_size: int = clampi(
+		page_size,
+		1,
+		MAX_PAGE_SIZE
+	)
+	var catalog_page: Dictionary = _catalog.search_page(
+		_query_text,
+		page,
+		bounded_page_size,
+		{
+			"asset_ids": _query_asset_ids,
+			"limit": MAX_RESULT_COUNT,
+			"include_summaries": true,
+			"summary_options": { "include_metadata": true },
+		}
+	)
 	return {
 		"catalog_revision": _catalog_revision,
 		"query_generation": _query_generation,
 		"query": _query_text,
-		"page": _read_int(catalog_page, "page", 1),
-		"page_size": _read_int(catalog_page, "page_size", bounded_page_size),
+		"page": _read_int(
+			catalog_page,
+			"page",
+			1
+		),
+		"page_size": _read_int(
+			catalog_page,
+			"page_size",
+			bounded_page_size
+		),
 		"page_count": _read_int(catalog_page, "page_count"),
 		"total_count": _read_int(catalog_page, "total_count"),
 		"has_previous": _read_bool(catalog_page, "has_previous"),
@@ -673,12 +711,24 @@ func get_page(page: int = 1, page_size: int = 50) -> Dictionary:
 func create_page_query(page: int = 1, page_size: int = 50) -> RefCounted:
 	var task: _PAGE_QUERY_SCRIPT = _PAGE_QUERY_SCRIPT.new()
 	var owner_ref: WeakRef = weakref(self)
-	task.configure(owner_ref, _catalog, {
-		"catalog_revision": _catalog_revision, "query_generation": _query_generation,
-		"query": _query_text, "asset_ids": _query_asset_ids,
-		"page": maxi(page, 1), "page_size": clampi(page_size, 1, MAX_PAGE_SIZE),
-		"limit": MAX_RESULT_COUNT,
-	}, _make_page_items)
+	task.configure(
+		owner_ref,
+		_catalog,
+		{
+			"catalog_revision": _catalog_revision,
+			"query_generation": _query_generation,
+			"query": _query_text,
+			"asset_ids": _query_asset_ids,
+			"page": maxi(page, 1),
+			"page_size": clampi(
+				page_size,
+				1,
+				MAX_PAGE_SIZE
+			),
+			"limit": MAX_RESULT_COUNT,
+		},
+		_make_page_items
+	)
 	return task
 
 
@@ -694,7 +744,11 @@ func create_page_query(page: int = 1, page_size: int = 50) -> RefCounted:
 ## [br]
 ## @return 模型未释放且两种代次均相同时为 true。
 func is_page_query_current(catalog_revision: int, query_generation: int) -> bool:
-	return not _disposed and _catalog_revision == catalog_revision and _query_generation == query_generation
+	return (
+		not _disposed
+		and _catalog_revision == catalog_revision
+		and _query_generation == query_generation
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -702,10 +756,7 @@ func is_page_query_current(catalog_revision: int, query_generation: int) -> bool
 ## 直接在传入 payload 上写入通知类型并将该字典设为只读；不复制 payload，也不递归冻结其中的对象。
 ## [br]
 ## @api private
-static func _make_notification(
-	notification_type: StringName,
-	payload: Dictionary
-) -> Dictionary:
+static func _make_notification(notification_type: StringName, payload: Dictionary) -> Dictionary:
 	var event_record: Dictionary = payload
 	event_record["type"] = notification_type
 	event_record.make_read_only()
@@ -768,19 +819,14 @@ func _dispatch_notification(event_record: Dictionary) -> void:
 				var report: Dictionary = report_value
 				preview_resolved.emit(report)
 
+
 ## 先用共享数量与文本预算验证全部条目，再复制数据并建立完整查找表；字段索引按需建立，任一条目失败都不发布候选目录。
 ## [br]
 ## @api private
 static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictionary:
 	if catalog.entries.size() > MAX_CATALOG_ENTRIES:
-		return {
-			"ok": false,
-			"error": "catalog_entry_limit_exceeded",
-		}
-	var state: Dictionary = {
-		"value_count": 0,
-		"text_bytes": 0,
-	}
+		return { "ok": false, "error": "catalog_entry_limit_exceeded", }
+	var state: Dictionary = { "value_count": 0, "text_bytes": 0, }
 	var asset_id_lookup: Dictionary = {}
 	var validated_entries: Array[GFAssetCatalogEntry] = []
 	for entry: GFAssetCatalogEntry in catalog.entries:
@@ -790,10 +836,7 @@ static func _make_isolated_catalog_snapshot(catalog: GFAssetCatalog) -> Dictiona
 			asset_id_lookup
 		)
 		if not validation_error.is_empty():
-			return {
-				"ok": false,
-				"error": validation_error,
-			}
+			return { "ok": false, "error": validation_error, }
 		validated_entries.append(entry)
 
 	var candidate_catalog: GFAssetCatalog = GFAssetCatalog.new()
@@ -851,23 +894,22 @@ static func _validate_catalog_entry(
 	var tags_error: String = _validate_catalog_text_array(entry.tags, state)
 	if not tags_error.is_empty():
 		return tags_error
-	var resource_ids_error: String = _validate_catalog_text_array(
-		entry.resource_entry_ids,
-		state
-	)
+	var resource_ids_error: String = _validate_catalog_text_array(entry.resource_entry_ids, state)
 	if not resource_ids_error.is_empty():
 		return resource_ids_error
-	return _validate_catalog_metadata_value(entry.metadata, state, [], 0)
+	return _validate_catalog_metadata_value(
+		entry.metadata,
+		state,
+		[],
+		0
+	)
 
 
 ## 检查文本数组项数上限，并逐项累加文本长度与字节预算。
 ## [br]
 ## @api private
 ## [br]
-static func _validate_catalog_text_array(
-	values: PackedStringArray,
-	state: Dictionary
-) -> String:
+static func _validate_catalog_text_array(values: PackedStringArray, state: Dictionary) -> String:
 	if values.size() > _MAX_CATALOG_COLLECTION_ITEMS:
 		return "catalog_entry_collection_limit_exceeded"
 	for text_value: String in values:
@@ -902,9 +944,19 @@ static func _validate_catalog_metadata_value(
 	match typeof(value):
 		TYPE_STRING:
 			var string_value: String = value
-			return _reserve_catalog_text(string_value, state, "catalog_metadata", false)
+			return _reserve_catalog_text(
+				string_value,
+				state,
+				"catalog_metadata",
+				false
+			)
 		TYPE_STRING_NAME, TYPE_NODE_PATH:
-			return _reserve_catalog_text(str(value), state, "catalog_metadata", false)
+			return _reserve_catalog_text(
+				str(value),
+				state,
+				"catalog_metadata",
+				false
+			)
 		TYPE_ARRAY:
 			var array_value: Array = value
 			if array_value.size() > _MAX_CATALOG_COLLECTION_ITEMS:
@@ -946,13 +998,23 @@ static func _validate_catalog_metadata_value(
 					var _removed_dictionary_reference_on_value_error: Variant = active_references.pop_back()
 					return item_error
 			var _removed_dictionary_reference: Variant = active_references.pop_back()
-		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, \
-		TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, \
-		TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
+		TYPE_PACKED_BYTE_ARRAY, \
+		TYPE_PACKED_INT32_ARRAY, \
+		TYPE_PACKED_INT64_ARRAY, \
+		TYPE_PACKED_FLOAT32_ARRAY, \
+		TYPE_PACKED_FLOAT64_ARRAY, \
+		TYPE_PACKED_VECTOR2_ARRAY, \
+		TYPE_PACKED_VECTOR3_ARRAY, \
+		TYPE_PACKED_COLOR_ARRAY, \
+		TYPE_PACKED_VECTOR4_ARRAY:
 			var packed_size: int = len(value)
 			if packed_size > _MAX_CATALOG_COLLECTION_ITEMS:
 				return "catalog_metadata_collection_limit_exceeded"
-			return _consume_catalog_value_nodes(state, packed_size, "catalog_metadata")
+			return _consume_catalog_value_nodes(
+				state,
+				packed_size,
+				"catalog_metadata"
+			)
 		TYPE_PACKED_STRING_ARRAY:
 			var packed_strings: PackedStringArray = value
 			if packed_strings.size() > _MAX_CATALOG_COLLECTION_ITEMS:
@@ -999,7 +1061,11 @@ static func _reserve_catalog_text(
 ## @api private
 ## [br]
 static func _consume_catalog_value_node(state: Dictionary, prefix: String) -> String:
-	return _consume_catalog_value_nodes(state, 1, prefix)
+	return _consume_catalog_value_nodes(
+		state,
+		1,
+		prefix
+	)
 
 
 ## 在累计节点预算未超限时增加 count；否则返回带 prefix 的错误键。
@@ -1024,7 +1090,10 @@ static func _consume_catalog_value_nodes(
 ## [br]
 static func _find_catalog_active_reference(references: Array, value: Variant) -> int:
 	for index: int in range(references.size()):
-		if is_same(references[index], value):
+		if is_same(
+			references[index],
+			value
+		):
 			return index
 	return -1
 
@@ -1047,11 +1116,16 @@ static func _copy_catalog_entry(source: GFAssetCatalogEntry) -> GFAssetCatalogEn
 	copy.metadata = source.metadata.duplicate(true)
 	return copy
 
+
 ## 仅当字典值是 int 时读取，否则返回 fallback。
 ## [br]
 ## @api private
 ## [br]
-static func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
+static func _read_int(
+	data: Dictionary,
+	key: String,
+	fallback: int = 0
+) -> int:
 	var value: Variant = data.get(key, fallback)
 	if value is int:
 		var int_value: int = value
@@ -1063,7 +1137,11 @@ static func _read_int(data: Dictionary, key: String, fallback: int = 0) -> int:
 ## [br]
 ## @api private
 ## [br]
-static func _read_bool(data: Dictionary, key: String, fallback: bool = false) -> bool:
+static func _read_bool(
+	data: Dictionary,
+	key: String,
+	fallback: bool = false
+) -> bool:
 	var value: Variant = data.get(key, fallback)
 	if value is bool:
 		var bool_value: bool = value
@@ -1088,7 +1166,10 @@ static func _read_array(data: Dictionary, key: String) -> Array:
 ## @api private
 ## [br]
 static func _read_packed_string_array(data: Dictionary, key: String) -> PackedStringArray:
-	var value: Variant = data.get(key, PackedStringArray())
+	var value: Variant = data.get(
+		key,
+		PackedStringArray()
+	)
 	if value is PackedStringArray:
 		var array_value: PackedStringArray = value
 		return array_value.duplicate()
@@ -1179,7 +1260,11 @@ func _cancel_active_preview(reason: StringName) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _is_preview_request_current(preview_generation: int, catalog_revision: int, query_generation: int) -> bool:
+func _is_preview_request_current(
+	preview_generation: int,
+	catalog_revision: int,
+	query_generation: int
+) -> bool:
 	return (
 		not _disposed
 		and preview_generation == _preview_generation
@@ -1245,10 +1330,7 @@ func _resolve_preview_task(
 	var preview_error: String = task.get_error()
 	if not _read_bool(preview_result_report, "ok"):
 		state = &"failed"
-		preview_error = GFVariantData.get_option_string(
-			preview_result_report,
-			"error"
-		)
+		preview_error = GFVariantData.get_option_string(preview_result_report, "error")
 	var report: Dictionary = {
 		"asset_id": asset_id,
 		"preview_generation": preview_generation,
@@ -1260,18 +1342,18 @@ func _resolve_preview_task(
 		"cancel_reason": task.get_cancel_reason(),
 	}
 	report.make_read_only()
-	_publish_notification(_make_notification(_NOTIFICATION_PREVIEW_RESOLVED, {
-		"report": report,
-	}))
+	_publish_notification(
+		_make_notification(
+			_NOTIFICATION_PREVIEW_RESOLVED,
+			{ "report": report, }
+		)
+	)
 
 
 ## 按 allow_null 接受空结果；Image 与 ImageTexture 保留对象引用，字典结果交由计划校验器复制容器，其他类型拒绝。
 ## [br]
 ## @api private
-static func _make_frozen_preview_result(
-	value: Variant,
-	allow_null: bool
-) -> Dictionary:
+static func _make_frozen_preview_result(value: Variant, allow_null: bool) -> Dictionary:
 	if value == null:
 		return {
 			"ok": allow_null,
@@ -1315,10 +1397,12 @@ static func _make_frozen_preview_plan(plan: Dictionary) -> Dictionary:
 	var cancelled: bool = plan["cancelled"]
 	var changes: Array = plan["changes"]
 	if changes.size() > MAX_RESULT_COUNT:
-		return _make_invalid_preview_result(
-			"preview_plan_change_limit_exceeded"
-		)
-	if not plan_ok or generated_count < 0 or generated_count != changes.size():
+		return _make_invalid_preview_result("preview_plan_change_limit_exceeded")
+	if (
+		not plan_ok
+		or generated_count < 0
+		or generated_count != changes.size()
+	):
 		return _make_invalid_preview_result("invalid_preview_plan")
 
 	var frozen_changes: Array = []
@@ -1339,7 +1423,10 @@ static func _make_frozen_preview_plan(plan: Dictionary) -> Dictionary:
 		var new_preview: Variant = change["new_preview"]
 		if (
 			item_id < 0
-			or (old_preview != null and not old_preview is Texture2D)
+			or (
+				old_preview != null
+				and not old_preview is Texture2D
+			)
 			or not new_preview is Texture2D
 		):
 			return _make_invalid_preview_result("invalid_preview_plan")

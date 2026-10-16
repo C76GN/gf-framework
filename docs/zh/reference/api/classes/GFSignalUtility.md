@@ -19,7 +19,7 @@ Godot 原生 Signal 的安全连接与链式处理工具。 用于连接不适�
 | 方法 | [`connect_signal`](#member-gfsignalutility-methods-connect_signal) | `func connect_signal( source_signal: Signal, callback: Callable, owner: Object = null, default_args: Array = [], connect_flags: int = 0 ) -> GFSignalConnection:` |
 | 方法 | [`connect_once`](#member-gfsignalutility-methods-connect_once) | `func connect_once( source_signal: Signal, callback: Callable, owner: Object = null, default_args: Array = [], connect_flags: int = 0 ) -> GFSignalConnection:` |
 | 方法 | [`connect_any`](#member-gfsignalutility-methods-connect_any) | `func connect_any( source_signals: Array, callback: Callable, owner: Object = null, default_args: Array = [], connect_flags: int = 0 ) -> Array[GFSignalConnection]:` |
-| 方法 | [`disconnect_signal`](#member-gfsignalutility-methods-disconnect_signal) | `func disconnect_signal(source_signal: Signal, callback: Callable, owner: Object = null) -> void:` |
+| 方法 | [`disconnect_signal`](#member-gfsignalutility-methods-disconnect_signal) | `func disconnect_signal( source_signal: Signal, callback: Callable, owner: Object = null ) -> void:` |
 | 方法 | [`disconnect_owner`](#member-gfsignalutility-methods-disconnect_owner) | `func disconnect_owner(owner: Object) -> void:` |
 | 方法 | [`disconnect_connections`](#member-gfsignalutility-methods-disconnect_connections) | `func disconnect_connections(connections: Array) -> void:` |
 | 方法 | [`disconnect_all`](#member-gfsignalutility-methods-disconnect_all) | `func disconnect_all() -> void:` |
@@ -130,9 +130,10 @@ func connect_any( source_signals: Array, callback: Callable, owner: Object = nul
 ### `disconnect_signal`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func disconnect_signal(source_signal: Signal, callback: Callable, owner: Object = null) -> void:
+func disconnect_signal( source_signal: Signal, callback: Callable, owner: Object = null ) -> void:
 ```
 
 断开指定 Signal 与回调的连接。

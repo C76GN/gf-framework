@@ -55,6 +55,7 @@ enum DeviceType {
 	TOUCH,
 }
 
+
 ## 检测阶段。
 ## [br]
 ## @api public
@@ -244,11 +245,18 @@ func _process(delta: float) -> void:
 	_accumulate_elapsed(safe_delta)
 	if is_finite(timeout_seconds) and timeout_seconds > 0.0:
 		if _elapsed >= timeout_seconds:
-			_finish_detection(null, false, GFInputDetectionResult.FinishReason.TIMEOUT)
+			_finish_detection(
+				null,
+				false,
+				GFInputDetectionResult.FinishReason.TIMEOUT
+			)
 			return
 
 	if _state == DetectionState.COUNTDOWN:
-		_countdown_remaining = maxf(_countdown_remaining - safe_delta, 0.0)
+		_countdown_remaining = maxf(
+			_countdown_remaining - safe_delta,
+			0.0
+		)
 		if _countdown_remaining <= 0.0:
 			_enter_pre_clear_or_detecting()
 		return
@@ -284,15 +292,14 @@ func begin_detection(allowed_device_types: Array[int] = []) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value_type: 期望的动作值类型。
 ## [br]
 ## @param allowed_device_types: 允许的设备类型。空数组表示不限制。
 ## [br]
 ## @schema allowed_device_types: Array[int]，包含 DeviceType 枚举值；为空表示不过滤设备。
-func begin_detection_for_value_type(
-	value_type: GFInputAction.ValueType,
-	allowed_device_types: Array[int] = []
-) -> void:
+func begin_detection_for_value_type(value_type: GFInputAction.ValueType, allowed_device_types: Array[int] = []) -> void:
 	_begin_detection_internal(value_type, allowed_device_types)
 
 
@@ -300,15 +307,14 @@ func begin_detection_for_value_type(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param action: 输入动作资源。
 ## [br]
 ## @param allowed_device_types: 允许的设备类型。空数组表示不限制。
 ## [br]
 ## @schema allowed_device_types: Array[int]，包含 DeviceType 枚举值；为空表示不过滤设备。
-func begin_detection_for_action(
-	action: GFInputAction,
-	allowed_device_types: Array[int] = []
-) -> void:
+func begin_detection_for_action(action: GFInputAction, allowed_device_types: Array[int] = []) -> void:
 	if action == null:
 		begin_detection(allowed_device_types)
 		return
@@ -393,7 +399,11 @@ func is_accepting_input() -> bool:
 func cancel_detection() -> void:
 	if _state == DetectionState.IDLE:
 		return
-	_finish_detection(null, false, GFInputDetectionResult.FinishReason.CANCELLED)
+	_finish_detection(
+		null,
+		false,
+		GFInputDetectionResult.FinishReason.CANCELLED
+	)
 
 
 ## 检查当前是否正在检测。
@@ -435,7 +445,11 @@ func _mark_current_input_as_handled() -> void:
 func _begin_detection_internal(value_type: int, allowed_device_types: Array[int]) -> void:
 	if _state != DetectionState.IDLE:
 		var replaced_generation: int = _session_generation
-		_finish_detection(null, false, GFInputDetectionResult.FinishReason.REPLACED)
+		_finish_detection(
+			null,
+			false,
+			GFInputDetectionResult.FinishReason.REPLACED
+		)
 		if _session_generation != replaced_generation:
 			return
 	_session_generation += 1
@@ -463,7 +477,11 @@ func _finish_detection(
 	wait_for_release: bool,
 	finish_reason: GFInputDetectionResult.FinishReason
 ) -> void:
-	if input_event != null and wait_for_release and _is_event_still_pressed(input_event):
+	if (
+		input_event != null
+		and wait_for_release
+		and _is_event_still_pressed(input_event)
+	):
 		_pending_detected_event = input_event
 		_pending_finish_reason = finish_reason
 		_track_pending_touch(input_event)

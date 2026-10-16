@@ -27,8 +27,8 @@
 | 方法 | [`has_capability`](#member-gfplatformcapabilityset-methods-has_capability) | `func has_capability(capability_id: StringName) -> bool:` |
 | 方法 | [`has_all`](#member-gfplatformcapabilityset-methods-has_all) | `func has_all(required_capabilities: PackedStringArray) -> bool:` |
 | 方法 | [`has_any`](#member-gfplatformcapabilityset-methods-has_any) | `func has_any(candidate_capabilities: PackedStringArray) -> bool:` |
-| 方法 | [`set_limit`](#member-gfplatformcapabilityset-methods-set_limit) | `func set_limit(capability_id: StringName, key: StringName, value: Variant) -> bool:` |
-| 方法 | [`get_limit`](#member-gfplatformcapabilityset-methods-get_limit) | `func get_limit(capability_id: StringName, key: StringName, default_value: Variant = null) -> Variant:` |
+| 方法 | [`set_limit`](#member-gfplatformcapabilityset-methods-set_limit) | `func set_limit( capability_id: StringName, key: StringName, value: Variant ) -> bool:` |
+| 方法 | [`get_limit`](#member-gfplatformcapabilityset-methods-get_limit) | `func get_limit( capability_id: StringName, key: StringName, default_value: Variant = null ) -> Variant:` |
 | 方法 | [`get_capability_limits`](#member-gfplatformcapabilityset-methods-get_capability_limits) | `func get_capability_limits(capability_id: StringName) -> Dictionary:` |
 | 方法 | [`merge_from`](#member-gfplatformcapabilityset-methods-merge_from) | `func merge_from(other: GFPlatformCapabilitySet, overwrite_existing: bool = true) -> GFPlatformCapabilitySet:` |
 | 方法 | [`to_dict`](#member-gfplatformcapabilityset-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -272,7 +272,7 @@ func has_any(candidate_capabilities: PackedStringArray) -> bool:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func set_limit(capability_id: StringName, key: StringName, value: Variant) -> bool:
+func set_limit( capability_id: StringName, key: StringName, value: Variant ) -> bool:
 ```
 
 设置能力限制字段。
@@ -299,7 +299,7 @@ func set_limit(capability_id: StringName, key: StringName, value: Variant) -> bo
 - 首次版本：`8.0.0`
 
 ```gdscript
-func get_limit(capability_id: StringName, key: StringName, default_value: Variant = null) -> Variant:
+func get_limit( capability_id: StringName, key: StringName, default_value: Variant = null ) -> Variant:
 ```
 
 读取能力限制字段。

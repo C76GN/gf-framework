@@ -92,23 +92,19 @@ const KIND_CAPABILITY_MISSING: StringName = &"platform_capability_missing"
 ## @schema options: Dictionary platform adapter conformance requirements.
 ## [br]
 ## @return 强类型校验报告。
-static func validate(
-	adapter: GFPlatformAdapter,
-	options: Dictionary = {}
-) -> GFValidationReport:
-	var report: GFValidationReport = GFValidationReport.new(
-		"Platform adapter conformance"
-	)
+static func validate(adapter: GFPlatformAdapter, options: Dictionary = {}) -> GFValidationReport:
+	var report: GFValidationReport = GFValidationReport.new("Platform adapter conformance")
 	if adapter == null:
-		var _invalid_adapter: RefCounted = report.add_error(
-			KIND_ADAPTER_INVALID,
-			"Platform adapter is null."
-		)
+		var _invalid_adapter: RefCounted = report.add_error(KIND_ADAPTER_INVALID, "Platform adapter is null.")
 		return report
 	var adapter_id: StringName = adapter.get_adapter_id()
 	var platform_id: StringName = adapter.get_platform_id()
 	var contract_ids: PackedStringArray = adapter.get_contract_ids()
-	if adapter_id == &"" or platform_id == &"" or contract_ids.is_empty():
+	if (
+		adapter_id == &""
+		or platform_id == &""
+		or contract_ids.is_empty()
+	):
 		var _invalid_identity: RefCounted = report.add_error(
 			KIND_ADAPTER_INVALID,
 			"Platform adapter identity and contract IDs must be configured.",
@@ -121,7 +117,7 @@ static func validate(
 			"Platform adapter is in a terminal unavailable state.",
 			adapter_id,
 			"",
-			{"state": state}
+			{ "state": state }
 		)
 	elif GFVariantData.get_option_bool(options, "require_ready") and not adapter.is_ready():
 		var _not_ready: RefCounted = report.add_error(
@@ -129,15 +125,10 @@ static func validate(
 			"Platform adapter must be READY for this conformance profile.",
 			adapter_id,
 			"",
-			{"state": state}
+			{ "state": state }
 		)
 
-	var required_contract_ids: PackedStringArray = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(
-			options,
-			"required_contract_ids"
-		)
-	)
+	var required_contract_ids: PackedStringArray = _normalize_string_set(GFVariantData.get_option_packed_string_array(options, "required_contract_ids"))
 	for contract_id_text: String in required_contract_ids:
 		if contract_ids.has(contract_id_text):
 			continue
@@ -152,19 +143,11 @@ static func validate(
 		"require_descriptors",
 		true
 	)
-	var required_methods: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"required_methods"
-	)
-	var required_contract_versions: Dictionary = GFVariantData.get_option_dictionary(
-		options,
-		"required_contract_versions"
-	)
+	var required_methods: Dictionary = GFVariantData.get_option_dictionary(options, "required_methods")
+	var required_contract_versions: Dictionary = GFVariantData.get_option_dictionary(options, "required_contract_versions")
 	for contract_id_text: String in contract_ids:
 		var contract_id: StringName = StringName(contract_id_text)
-		var descriptor: GFPlatformContractDescriptor = adapter.get_contract_descriptor(
-			contract_id
-		)
+		var descriptor: GFPlatformContractDescriptor = adapter.get_contract_descriptor(contract_id)
 		if descriptor == null:
 			if require_descriptors:
 				var _missing_descriptor: RefCounted = report.add_error(
@@ -180,27 +163,18 @@ static func validate(
 				"Platform contract descriptor is invalid.",
 				contract_id,
 				"",
-				{"validation": definition_report.to_dict()}
+				{ "validation": definition_report.to_dict() }
 			)
-		var required_version: String = GFVariantData.get_option_string(
-			required_contract_versions,
-			contract_id_text
-		).strip_edges()
+		var required_version: String = (GFVariantData.get_option_string(required_contract_versions, contract_id_text).strip_edges())
 		if not required_version.is_empty() and descriptor.contract_version != required_version:
 			var _version_mismatch: RefCounted = report.add_error(
 				KIND_CONTRACT_VERSION_MISMATCH,
 				"Platform contract version does not match the required version.",
 				contract_id,
 				"",
-				{
-					"actual_version": descriptor.contract_version,
-					"required_version": required_version,
-				}
+				{ "actual_version": descriptor.contract_version, "required_version": required_version, }
 			)
-		var method_ids: PackedStringArray = _get_string_set(
-			required_methods,
-			contract_id_text
-		)
+		var method_ids: PackedStringArray = _get_string_set(required_methods, contract_id_text)
 		for method_id_text: String in method_ids:
 			if descriptor.get_method(StringName(method_id_text)) != null:
 				continue
@@ -212,12 +186,7 @@ static func validate(
 			)
 
 	var context: GFPlatformRuntimeContext = adapter.get_context()
-	var required_capability_ids: PackedStringArray = _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(
-			options,
-			"required_capability_ids"
-		)
-	)
+	var required_capability_ids: PackedStringArray = _normalize_string_set(GFVariantData.get_option_packed_string_array(options, "required_capability_ids"))
 	for capability_id_text: String in required_capability_ids:
 		if context != null and context.has_capability(StringName(capability_id_text)):
 			continue
@@ -250,18 +219,15 @@ static func validate(
 ## @return JSON 安全报告字典。
 ## [br]
 ## @schema return: Dictionary validation report with bridge_coverage.
-static func inspect(
-	adapter: GFPlatformAdapter,
-	options: Dictionary = {}
-) -> Dictionary:
+static func inspect(adapter: GFPlatformAdapter, options: Dictionary = {}) -> Dictionary:
 	var report: GFValidationReport = validate(adapter, options)
 	var bridge_entries: Dictionary = make_bridge_entries(adapter, options)
 	var coverage: Dictionary = GFBridgeContractReport.from_entries(
 		_get_dictionary_entries(bridge_entries, "contract_entries"),
 		_get_dictionary_entries(bridge_entries, "adapter_entries"),
-		{"subject": "Platform adapter contract coverage"}
+		{ "subject": "Platform adapter contract coverage" }
 	)
-	return report.to_json_compatible_dict({"bridge_coverage": coverage})
+	return report.to_json_compatible_dict({ "bridge_coverage": coverage })
 
 
 ## 构建通用 GFBridgeContractReport 输入条目。
@@ -279,46 +245,29 @@ static func inspect(
 ## @return contract_entries 与 adapter_entries。
 ## [br]
 ## @schema return: Dictionary bridge contract and adapter entry arrays.
-static func make_bridge_entries(
-	adapter: GFPlatformAdapter,
-	options: Dictionary = {}
-) -> Dictionary:
+static func make_bridge_entries(adapter: GFPlatformAdapter, options: Dictionary = {}) -> Dictionary:
 	var contract_ids: PackedStringArray = PackedStringArray()
 	if adapter != null:
 		contract_ids = adapter.get_contract_ids()
-	for required_id: String in GFVariantData.get_option_packed_string_array(
-		options,
-		"required_contract_ids"
-	):
+	for required_id: String in GFVariantData.get_option_packed_string_array(options, "required_contract_ids"):
 		if not contract_ids.has(required_id):
 			var _appended: bool = contract_ids.append(required_id)
 	contract_ids = _normalize_string_set(contract_ids)
 	var contract_entries: Array[Dictionary] = []
 	for contract_id_text: String in contract_ids:
-		contract_entries.append({
-			"contract_id": StringName(contract_id_text),
-			"required": true,
-		})
+		contract_entries.append({ "contract_id": StringName(contract_id_text), "required": true, })
 	var adapter_entries: Array[Dictionary] = []
 	if adapter != null:
 		var context: GFPlatformRuntimeContext = adapter.get_context()
-		adapter_entries.append({
-			"adapter_id": adapter.get_adapter_id(),
-			"contract_ids": adapter.get_contract_ids(),
-			"enabled": adapter.get_state() not in [
-				GFPlatformAdapter.State.FAILED,
-				GFPlatformAdapter.State.SHUTDOWN,
-			],
-			"capabilities": (
-				context.capabilities.capabilities.duplicate()
-				if context != null and context.capabilities != null
-				else PackedStringArray()
-			),
-		})
-	return {
-		"contract_entries": contract_entries,
-		"adapter_entries": adapter_entries,
-	}
+		adapter_entries.append(
+			{
+				"adapter_id": adapter.get_adapter_id(),
+				"contract_ids": adapter.get_contract_ids(),
+				"enabled": (adapter.get_state() not in [GFPlatformAdapter.State.FAILED, GFPlatformAdapter.State.SHUTDOWN,]),
+				"capabilities": (context.capabilities.capabilities.duplicate() if context != null and context.capabilities != null else PackedStringArray()),
+			}
+		)
+	return { "contract_entries": contract_entries, "adapter_entries": adapter_entries, }
 
 
 # --- 私有/辅助方法 ---
@@ -328,9 +277,7 @@ static func make_bridge_entries(
 ## @api private
 ## [br]
 static func _get_string_set(source: Dictionary, key: String) -> PackedStringArray:
-	return _normalize_string_set(
-		GFVariantData.get_option_packed_string_array(source, key)
-	)
+	return _normalize_string_set(GFVariantData.get_option_packed_string_array(source, key))
 
 
 ## 去除首尾空白、过滤空值、去重并排序字符串集合。

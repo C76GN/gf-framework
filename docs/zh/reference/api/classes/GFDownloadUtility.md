@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 信号 | [`download_started`](#member-gfdownloadutility-signals-download_started) | `signal download_started(task_id: int, task: GFDownloadTask)` |
-| 信号 | [`download_progressed`](#member-gfdownloadutility-signals-download_progressed) | `signal download_progressed(task_id: int, received_bytes: int, total_bytes: int)` |
+| 信号 | [`download_progressed`](#member-gfdownloadutility-signals-download_progressed) | `signal download_progressed( task_id: int, received_bytes: int, total_bytes: int )` |
 | 信号 | [`download_completed`](#member-gfdownloadutility-signals-download_completed) | `signal download_completed(task_id: int, result: Dictionary)` |
 | 信号 | [`download_failed`](#member-gfdownloadutility-signals-download_failed) | `signal download_failed(task_id: int, result: Dictionary)` |
 | 信号 | [`download_cancelled`](#member-gfdownloadutility-signals-download_cancelled) | `signal download_cancelled(task_id: int, result: Dictionary)` |
@@ -73,9 +73,10 @@ signal download_started(task_id: int, task: GFDownloadTask)
 ### `download_progressed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal download_progressed(task_id: int, received_bytes: int, total_bytes: int)
+signal download_progressed( task_id: int, received_bytes: int, total_bytes: int )
 ```
 
 下载进度更新时发出。

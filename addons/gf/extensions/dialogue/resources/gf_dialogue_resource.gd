@@ -116,10 +116,7 @@ func get_line_ids() -> PackedStringArray:
 ## [br]
 ## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。
 func validate_resource() -> Dictionary:
-	var report: Dictionary = {
-		"subject": "Dialogue resource",
-		"issues": [],
-	}
+	var report: Dictionary = { "subject": "Dialogue resource", "issues": [], }
 	var line_index: Dictionary = _build_line_index()
 	if line_index.is_empty():
 		_append_issue(
@@ -140,13 +137,28 @@ func validate_resource() -> Dictionary:
 	for index: int in range(lines.size()):
 		var line: GFDialogueLine = lines[index]
 		if line == null:
-			_append_issue(report, &"null_line", "lines[%d]" % index, "Dialogue line is null.")
+			_append_issue(
+				report,
+				&"null_line",
+				"lines[%d]" % index,
+				"Dialogue line is null."
+			)
 			continue
 		if line.line_id == &"":
-			_append_issue(report, &"empty_line_id", "lines[%d]" % index, "Dialogue line_id is empty.")
+			_append_issue(
+				report,
+				&"empty_line_id",
+				"lines[%d]" % index,
+				"Dialogue line_id is empty."
+			)
 			continue
 		if seen.has(line.line_id):
-			_append_issue(report, &"duplicate_line_id", String(line.line_id), "Dialogue line_id is duplicated.")
+			_append_issue(
+				report,
+				&"duplicate_line_id",
+				String(line.line_id),
+				"Dialogue line_id is duplicated."
+			)
 		seen[line.line_id] = true
 		if not _is_valid_line_kind(line.kind):
 			_append_issue(
@@ -170,7 +182,8 @@ func validate_resource() -> Dictionary:
 				_append_issue(
 					report,
 					&"null_response",
-					"%s.responses[%d]" % [line.line_id, response_index],
+					"%s.responses[%d]"
+					% [line.line_id, response_index],
 					"Dialogue response is null."
 				)
 				continue
@@ -178,14 +191,16 @@ func validate_resource() -> Dictionary:
 				_append_issue(
 					report,
 					&"empty_response_id",
-					"%s.responses[%d]" % [line.line_id, response_index],
+					"%s.responses[%d]"
+					% [line.line_id, response_index],
 					"Dialogue response_id is empty."
 				)
 			elif seen_response_ids.has(response.response_id):
 				_append_issue(
 					report,
 					&"duplicate_response_id",
-					"%s.responses.%s" % [line.line_id, response.response_id],
+					"%s.responses.%s"
+					% [line.line_id, response.response_id],
 					"Dialogue response_id is duplicated within the line."
 				)
 			seen_response_ids[response.response_id] = true
@@ -196,16 +211,18 @@ func validate_resource() -> Dictionary:
 				_append_issue(
 					report,
 					&"missing_next_line",
-					"%s -> %s" % [line.line_id, next_id],
+					"%s -> %s"
+					% [line.line_id, next_id],
 					"Dialogue transition references a missing line."
 				)
 
 	_validate_automatic_cycles(report, line_index)
 
-	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(report, "Dialogue resource", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.finalize_report(
+		report,
+		"Dialogue resource",
+		{ "include_issue_count": true, "next_actions": _get_validation_next_actions(), }
+	)
 
 
 ## 创建深拷贝。
@@ -272,7 +289,10 @@ func create_serialization_source() -> Dictionary:
 ## [br]
 ## @schema return: 包含 ok、value、error、path、node_count、byte_count 和 packed_length 字段的 Dictionary。
 func build_identity_report(options: Dictionary = {}) -> Dictionary:
-	return _SNAPSHOT_COPY.copy_complete_report(create_serialization_source(), options)
+	return _SNAPSHOT_COPY.copy_complete_report(
+		create_serialization_source(),
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -286,10 +306,13 @@ func _append_issue(
 	subject: String,
 	message: String
 ) -> void:
-	var _append_issue_result_198: Variant = _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.append_issue(report, "error", kind, message, {
-		"subject": subject,
-		"path": subject,
-	})
+	var _append_issue_result_198: Variant = _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.append_issue(
+		report,
+		"error",
+		kind,
+		message,
+		{ "subject": subject, "path": subject, }
+	)
 
 
 ## 返回各类对话资源校验错误对应的建议操作文本。
@@ -317,7 +340,11 @@ func _get_validation_next_actions() -> Dictionary:
 func _build_line_index() -> Dictionary:
 	var line_index: Dictionary = {}
 	for line: GFDialogueLine in lines:
-		if line == null or line.line_id == &"" or line_index.has(line.line_id):
+		if (
+			line == null
+			or line.line_id == &""
+			or line_index.has(line.line_id)
+		):
 			continue
 		line_index[line.line_id] = line
 	return line_index
@@ -333,7 +360,12 @@ func _validate_automatic_cycles(report: Dictionary, line_index: Dictionary) -> v
 			continue
 		if completed_line_ids.has(line.line_id):
 			continue
-		_validate_automatic_chain(line.line_id, line_index, completed_line_ids, report)
+		_validate_automatic_chain(
+			line.line_id,
+			line_index,
+			completed_line_ids,
+			report
+		)
 
 
 ## 沿默认后继遍历自动行；重复到当前路径 ID 时报告循环，其他终点停止。
@@ -408,12 +440,15 @@ func _is_automatic_line(line: GFDialogueLine) -> bool:
 ## [br]
 ## @api private
 func _is_valid_line_kind(kind: int) -> bool:
-	return kind in [
-		GFDialogueLine.LineKind.TEXT,
-		GFDialogueLine.LineKind.MUTATION,
-		GFDialogueLine.LineKind.JUMP,
-		GFDialogueLine.LineKind.END,
-	]
+	return (
+		kind
+		in [
+			GFDialogueLine.LineKind.TEXT,
+			GFDialogueLine.LineKind.MUTATION,
+			GFDialogueLine.LineKind.JUMP,
+			GFDialogueLine.LineKind.END,
+		]
+	)
 
 
 ## 将 Variant 收窄为 GFDialogueResource；类型不符时返回 null。

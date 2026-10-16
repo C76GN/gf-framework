@@ -270,7 +270,11 @@ func configure_for_framework(
 ## [br]
 ## @return: 首次完成成功返回 true。
 func complete_for_framework(status: int, panel: Node) -> bool:
-	if not is_pending() or status not in [_STATUS_OPENED, _STATUS_FAILED, _STATUS_CANCELLED]:
+	if not is_pending() or status not in [
+		_STATUS_OPENED,
+		_STATUS_FAILED,
+		_STATUS_CANCELLED,
+	]:
 		return false
 	if status == _STATUS_OPENED and not is_instance_valid(panel):
 		return false

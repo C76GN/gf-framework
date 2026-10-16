@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryModel" path="addons/gf/extensions/domain/inventory/gf_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="6c3731fe98bbd7e650126467d0746212b24c7b1d7fc853dfd97359c837a704fe">
+<class name="GFInventoryModel" path="addons/gf/extensions/domain/inventory/gf_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="6fb0b7497a17bf3ae6126ca53089883d7f76689575a32d342d1ffd1e5c28ac3d">
 	<description>GFInventoryModel: 通用可序列化库存模型。
 只管理 item_id、数量和元数据，不假设道具类型、品质、装备等业务概念。</description>
 	<tags>
@@ -13,7 +13,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="add_item">
-			<signature>func add_item(item_id: StringName, amount: int = 1, metadata: Dictionary = {}) -&gt; void:</signature>
+			<signature>func add_item( item_id: StringName, amount: int = 1, metadata: Dictionary = {} ) -&gt; void:</signature>
 			<description>添加物品数量。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -21,6 +21,7 @@
 				<tag name="param">amount: 增加数量。</tag>
 				<tag name="param">metadata: 可选元数据；首次加入时保存。</tag>
 				<tag name="schema">metadata: Dictionary，首次加入物品时保存的项目自定义元数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_item">

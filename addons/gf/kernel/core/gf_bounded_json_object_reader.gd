@@ -158,7 +158,11 @@ static func read_object_with_content_sha256(
 	max_bytes: int = DEFAULT_MAX_BYTES,
 	max_depth: int = DEFAULT_MAX_DEPTH
 ) -> Dictionary:
-	var report: Dictionary = _read_object_report(path, max_bytes, max_depth)
+	var report: Dictionary = _read_object_report(
+		path,
+		max_bytes,
+		max_depth
+	)
 	if not report.has("content_sha256"):
 		report["content_sha256"] = ""
 	return report
@@ -193,10 +197,8 @@ static func _read_object_report(
 			normalized_path,
 			0,
 			"open_failed",
-			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_open_failed] Could not open the JSON file: %s (%s)." % [
-				normalized_path,
-				error_string(FileAccess.get_open_error()),
-			],
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_open_failed] Could not open the JSON file: %s (%s)."
+			% [normalized_path, error_string(FileAccess.get_open_error()),],
 			effective_max_bytes,
 			effective_max_depth
 		)
@@ -210,10 +212,8 @@ static func _read_object_report(
 			normalized_path,
 			declared_size_bytes,
 			"payload_too_large",
-			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_size_limit] The JSON file exceeds the %d byte limit: %s." % [
-				effective_max_bytes,
-				normalized_path,
-			],
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_size_limit] The JSON file exceeds the %d byte limit: %s."
+			% [effective_max_bytes, normalized_path,],
 			effective_max_bytes,
 			effective_max_depth
 		)
@@ -229,10 +229,8 @@ static func _read_object_report(
 			normalized_path,
 			bytes.size(),
 			"read_failed",
-			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_read_failed] Could not read the JSON file: %s (%s)." % [
-				normalized_path,
-				error_string(read_error),
-			],
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_read_failed] Could not read the JSON file: %s (%s)."
+			% [normalized_path, error_string(read_error),],
 			effective_max_bytes,
 			effective_max_depth
 		)
@@ -241,12 +239,13 @@ static func _read_object_report(
 			false,
 			{},
 			normalized_path,
-			maxi(bytes.size(), observed_size_bytes),
+			maxi(
+				bytes.size(),
+				observed_size_bytes
+			),
 			"payload_too_large",
-			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_size_limit] The JSON file exceeds the %d byte limit: %s." % [
-				effective_max_bytes,
-				normalized_path,
-			],
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.file_size_limit] The JSON file exceeds the %d byte limit: %s."
+			% [effective_max_bytes, normalized_path,],
 			effective_max_bytes,
 			effective_max_depth
 		)
@@ -344,9 +343,7 @@ static func _parse_object_bytes_without_digest(
 			max_bytes,
 			max_depth
 		)
-	var normalized_number_fragments: PackedStringArray = (
-		_normalize_json_numbers_for_parser(text)
-	)
+	var normalized_number_fragments: PackedStringArray = _normalize_json_numbers_for_parser(text)
 	if normalized_number_fragments.is_empty():
 		return _make_report(
 			false,
@@ -380,10 +377,8 @@ static func _parse_object_bytes_without_digest(
 			source_path,
 			size_bytes,
 			"parse_failed",
-			"[GFBoundedJsonObjectReader][bounded_json_object_reader.parse_failed] JSON parsing failed at line %d: %s." % [
-				parser.get_error_line(),
-				parser.get_error_message(),
-			],
+			"[GFBoundedJsonObjectReader][bounded_json_object_reader.parse_failed] JSON parsing failed at line %d: %s."
+			% [parser.get_error_line(), parser.get_error_message(),],
 			max_bytes,
 			max_depth
 		)
@@ -441,7 +436,11 @@ static func _content_sha256(bytes: PackedByteArray) -> String:
 ## 非正请求值采用 fallback，否则将请求值限制在 absolute_maximum 以内。
 ## [br]
 ## @api private
-static func _effective_limit(requested: int, fallback: int, absolute_maximum: int) -> int:
+static func _effective_limit(
+	requested: int,
+	fallback: int,
+	absolute_maximum: int
+) -> int:
 	if requested <= 0:
 		return fallback
 	return mini(requested, absolute_maximum)
@@ -471,7 +470,10 @@ static func _exceeds_json_depth(text: String, max_depth: int) -> bool:
 			if depth > max_depth:
 				return true
 		elif codepoint == 125 or codepoint == 93:
-			depth = maxi(depth - 1, 0)
+			depth = maxi(
+				depth - 1,
+				0
+			)
 	return false
 
 
@@ -499,9 +501,18 @@ static func _normalize_json_numbers_for_parser(text: String) -> PackedStringArra
 			in_string = true
 			index += 1
 			continue
-		if codepoint == 45 or (codepoint >= 48 and codepoint <= 57):
+		if (
+			codepoint == 45
+			or (
+				codepoint >= 48
+				and codepoint <= 57
+			)
+		):
 			var end_index: int = _scan_json_number_candidate_end(text, index)
-			var token: String = text.substr(index, end_index - index)
+			var token: String = text.substr(
+				index,
+				end_index - index
+			)
 			if not _json_number_token_is_structurally_valid(token):
 				return PackedStringArray()
 			var normalized_token: String = _normalize_json_number_token(token)
@@ -509,7 +520,10 @@ static func _normalize_json_numbers_for_parser(text: String) -> PackedStringArra
 				return PackedStringArray()
 			if normalized_token != token:
 				var _append_unchanged: bool = fragments.append(
-					text.substr(unchanged_start, index - unchanged_start)
+					text.substr(
+						unchanged_start,
+						index - unchanged_start
+					)
 				)
 				var _append_normalized: bool = fragments.append(normalized_token)
 				unchanged_start = end_index
@@ -623,9 +637,7 @@ static func _json_number_token_is_structurally_valid(token: String) -> bool:
 ## [br]
 ## @api private
 static func _normalize_json_number_token(token: String) -> String:
-	var parser_would_warn: bool = (
-		_json_number_token_triggers_parser_exponent_warning(token)
-	)
+	var parser_would_warn: bool = _json_number_token_triggers_parser_exponent_warning(token)
 	var is_negative: bool = token.begins_with("-")
 	var unsigned_token: String = token.trim_prefix("-")
 	var exponent_index: int = unsigned_token.find("e")
@@ -635,9 +647,7 @@ static func _normalize_json_number_token(token: String) -> String:
 	var exponent: int = 0
 	if exponent_index >= 0:
 		mantissa = unsigned_token.substr(0, exponent_index)
-		exponent = _parse_bounded_decimal_exponent(
-			unsigned_token.substr(exponent_index + 1)
-		)
+		exponent = _parse_bounded_decimal_exponent(unsigned_token.substr(exponent_index + 1))
 	var decimal_index: int = mantissa.find(".")
 	var integer_digits: String = mantissa
 	var fraction_digits: String = ""
@@ -659,16 +669,8 @@ static func _normalize_json_number_token(token: String) -> String:
 		18,
 		combined_digits.length() - first_significant_index
 	)
-	var significant_digits: String = combined_digits.substr(
-		first_significant_index,
-		significant_count
-	)
-	var scientific_exponent: int = (
-		exponent
-		+ integer_digits.length()
-		- first_significant_index
-		- 1
-	)
+	var significant_digits: String = combined_digits.substr(first_significant_index, significant_count)
+	var scientific_exponent: int = exponent + integer_digits.length() - first_significant_index - 1
 	var normalized: String = "-" if is_negative else ""
 	normalized += significant_digits.substr(0, 1)
 	if significant_digits.length() > 1:
@@ -691,9 +693,7 @@ static func _json_number_token_triggers_parser_exponent_warning(token: String) -
 	var exponent: int = 0
 	if exponent_index >= 0:
 		mantissa = unsigned_token.substr(0, exponent_index)
-		exponent = _parse_bounded_decimal_exponent(
-			unsigned_token.substr(exponent_index + 1)
-		)
+		exponent = _parse_bounded_decimal_exponent(unsigned_token.substr(exponent_index + 1))
 	var decimal_index: int = mantissa.find(".")
 	var integer_digits: String = mantissa
 	var fraction_digits: String = ""
@@ -703,9 +703,7 @@ static func _json_number_token_triggers_parser_exponent_warning(token: String) -
 	var combined_digits: String = integer_digits + fraction_digits
 	var mantissa_size: int = combined_digits.length()
 	var decimal_point: int = integer_digits.length()
-	var fractional_exponent: int = (
-		decimal_point - 18 if mantissa_size > 18 else decimal_point - mantissa_size
-	)
+	var fractional_exponent: int = decimal_point - 18 if mantissa_size > 18 else decimal_point - mantissa_size
 	var effective_exponent: int = fractional_exponent + exponent
 	return absi(effective_exponent) > 511
 
@@ -754,37 +752,82 @@ static func _is_valid_utf8(bytes: PackedByteArray) -> bool:
 			index += 1
 			continue
 		if first >= 0xc2 and first <= 0xdf:
-			if not _has_utf8_continuations(bytes, index, 1):
+			if not _has_utf8_continuations(
+				bytes,
+				index,
+				1
+			):
 				return false
 			index += 2
 			continue
 		if first == 0xe0:
-			if not _has_utf8_second_byte(bytes, index, 0xa0, 0xbf, 2):
+			if not _has_utf8_second_byte(
+				bytes,
+				index,
+				0xa0,
+				0xbf,
+				2
+			):
 				return false
 			index += 3
 			continue
-		if (first >= 0xe1 and first <= 0xec) or (first >= 0xee and first <= 0xef):
-			if not _has_utf8_continuations(bytes, index, 2):
+		if (
+			(
+				first >= 0xe1
+				and first <= 0xec
+			)
+			or (
+				first >= 0xee
+				and first <= 0xef
+			)
+		):
+			if not _has_utf8_continuations(
+				bytes,
+				index,
+				2
+			):
 				return false
 			index += 3
 			continue
 		if first == 0xed:
-			if not _has_utf8_second_byte(bytes, index, 0x80, 0x9f, 2):
+			if not _has_utf8_second_byte(
+				bytes,
+				index,
+				0x80,
+				0x9f,
+				2
+			):
 				return false
 			index += 3
 			continue
 		if first == 0xf0:
-			if not _has_utf8_second_byte(bytes, index, 0x90, 0xbf, 3):
+			if not _has_utf8_second_byte(
+				bytes,
+				index,
+				0x90,
+				0xbf,
+				3
+			):
 				return false
 			index += 4
 			continue
 		if first >= 0xf1 and first <= 0xf3:
-			if not _has_utf8_continuations(bytes, index, 3):
+			if not _has_utf8_continuations(
+				bytes,
+				index,
+				3
+			):
 				return false
 			index += 4
 			continue
 		if first == 0xf4:
-			if not _has_utf8_second_byte(bytes, index, 0x80, 0x8f, 3):
+			if not _has_utf8_second_byte(
+				bytes,
+				index,
+				0x80,
+				0x8f,
+				3
+			):
 				return false
 			index += 4
 			continue
@@ -828,7 +871,10 @@ static func _has_utf8_second_byte(
 	var second: int = bytes[index + 1]
 	if second < minimum_second or second > maximum_second:
 		return false
-	for offset: int in range(2, continuation_count + 1):
+	for offset: int in range(
+		2,
+		continuation_count + 1
+	):
 		var continuation: int = bytes[index + offset]
 		if continuation < 0x80 or continuation > 0xbf:
 			return false

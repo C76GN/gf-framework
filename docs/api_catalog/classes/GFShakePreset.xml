@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakePreset" path="addons/gf/extensions/feedback/resources/gf_shake_preset.gd" module="extensions/feedback" extends="Resource" classDigest="cad9586bce29709f3af36a811419e329145829d6a3e69dba7a82fcdbd8cd9dbd">
+<class name="GFShakePreset" path="addons/gf/extensions/feedback/resources/gf_shake_preset.gd" module="extensions/feedback" extends="Resource" classDigest="96f2a8ba429a79d4f1ab80c86737723f877599a5513221b7a61a4330938177f3">
 	<description>GFShakePreset: 通用反馈采样预设。
 描述一段可采样的位移、旋转和缩放偏移，不绑定相机、角色、UI 或业务事件。</description>
 	<tags>
@@ -131,7 +131,7 @@ disabled、null 或当前进度范围外的轨道不参与合成，轨道采样�
 			</tags>
 		</member>
 		<member kind="method" name="sample">
-			<signature>func sample(elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0) -&gt; Dictionary:</signature>
+			<signature>func sample( elapsed_seconds: float, strength: float = 1.0, phase_offset: float = 0.0 ) -&gt; Dictionary:</signature>
 			<description>按时间采样反馈偏移。</description>
 			<tags>
 				<tag name="api">public</tag>

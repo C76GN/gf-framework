@@ -74,8 +74,6 @@ enum _LifecycleState {
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
 
 
-
-
 # --- 公共变量 ---
 
 ## 当前回合上下文。
@@ -320,10 +318,7 @@ func start(reset_indices: bool = true) -> void:
 		return
 	var active_context: GFTurnContext = _context
 	var next_flow_serial: int = _flow_serial + 1
-	var start_lease: GFTurnContext.FlowOperationLease = _acquire_context_operation_lease(
-		active_context,
-		next_flow_serial
-	)
+	var start_lease: GFTurnContext.FlowOperationLease = _acquire_context_operation_lease(active_context, next_flow_serial)
 	if start_lease == null:
 		push_warning("[GFTurnFlowSystem][turn_flow_system.start_context_held] start failed: context is held by another flow generation.")
 		return
@@ -331,7 +326,11 @@ func start(reset_indices: bool = true) -> void:
 	_flow_serial = next_flow_serial
 	if reset_indices:
 		_current_phase_index = -1
-		active_context.reset_round_from_flow(start_lease, self, _flow_serial)
+		active_context.reset_round_from_flow(
+			start_lease,
+			self,
+			_flow_serial
+		)
 	_restore_pending_actions_on_cancel = false
 	_active_operation_stop_requested = false
 	_is_running = true
@@ -360,7 +359,10 @@ func stop(should_clear_actions: bool = true) -> void:
 	if (
 		_lifecycle_state == _LifecycleState.STOPPED
 		and (
-			not (_is_advancing_phase or _is_resolving_actions)
+			not (
+				_is_advancing_phase
+				or _is_resolving_actions
+			)
 			or _active_operation_stop_requested
 		)
 	):
@@ -409,10 +411,7 @@ func advance_phase() -> void:
 		return
 	var flow_serial: int = _flow_serial
 	var active_context: GFTurnContext = _context
-	var phase_lease: GFTurnContext.FlowOperationLease = _acquire_context_operation_lease(
-		active_context,
-		flow_serial
-	)
+	var phase_lease: GFTurnContext.FlowOperationLease = _acquire_context_operation_lease(active_context, flow_serial)
 	if phase_lease == null:
 		push_warning("[GFTurnFlowSystem][turn_flow_system.advance_context_held] advance_phase failed: context is held by another flow generation.")
 		return
@@ -421,12 +420,22 @@ func advance_phase() -> void:
 
 	var next_phase: Dictionary = _next_valid_phase()
 	if next_phase.is_empty():
-		_end_phase_advance(null, active_context, null, phase_lease)
+		_end_phase_advance(
+			null,
+			active_context,
+			null,
+			phase_lease
+		)
 		return
 	var next_phase_index: int = GFVariantData.get_option_int(next_phase, "index")
 	var phase: GFTurnPhase = _phases[next_phase_index]
 	if phase == null:
-		_end_phase_advance(null, active_context, null, phase_lease)
+		_end_phase_advance(
+			null,
+			active_context,
+			null,
+			phase_lease
+		)
 		return
 	var phase_runtime: GFTurnPhase.RuntimeState = phase.begin_runtime(
 		active_context,
@@ -435,7 +444,12 @@ func advance_phase() -> void:
 		flow_serial
 	)
 	if phase_runtime == null:
-		_end_phase_advance(null, active_context, null, phase_lease)
+		_end_phase_advance(
+			null,
+			active_context,
+			null,
+			phase_lease
+		)
 		return
 	var _cleanup_before_phase: int = active_context.cleanup_invalid_actors_from_flow(
 		phase_lease,
@@ -444,11 +458,24 @@ func advance_phase() -> void:
 	)
 	_current_phase_index = next_phase_index
 	if GFVariantData.get_option_bool(next_phase, "wrapped"):
-		active_context.advance_round_from_flow(phase_lease, self, flow_serial)
+		active_context.advance_round_from_flow(
+			phase_lease,
+			self,
+			flow_serial
+		)
 
 	phase_changed.emit(phase, _current_phase_index)
-	if not _is_active_context_operation_lease(phase_lease, flow_serial, active_context):
-		_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+	if not _is_active_context_operation_lease(
+		phase_lease,
+		flow_serial,
+		active_context
+	):
+		_end_phase_advance(
+			phase,
+			active_context,
+			phase_runtime,
+			phase_lease
+		)
 		return
 	var _cleanup_after_phase_signal: int = active_context.cleanup_invalid_actors_from_flow(
 		phase_lease,
@@ -456,16 +483,34 @@ func advance_phase() -> void:
 		flow_serial
 	)
 	phase._enter(active_context)
-	if not _is_active_context_operation_lease(phase_lease, flow_serial, active_context):
-		_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+	if not _is_active_context_operation_lease(
+		phase_lease,
+		flow_serial,
+		active_context
+	):
+		_end_phase_advance(
+			phase,
+			active_context,
+			phase_runtime,
+			phase_lease
+		)
 		return
 
 	var result: Variant = phase._execute(
 		active_context,
 		phase_runtime.get_completion_handle()
 	)
-	if not _is_active_context_operation_lease(phase_lease, flow_serial, active_context):
-		_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+	if not _is_active_context_operation_lease(
+		phase_lease,
+		flow_serial,
+		active_context
+	):
+		_end_phase_advance(
+			phase,
+			active_context,
+			phase_runtime,
+			phase_lease
+		)
 		return
 	if result is Signal:
 		var result_signal: Signal = result
@@ -480,14 +525,32 @@ func advance_phase() -> void:
 		)
 		if (
 			not completed
-			or not _is_active_context_operation_lease(phase_lease, flow_serial, active_context)
+			or not _is_active_context_operation_lease(
+				phase_lease,
+				flow_serial,
+				active_context
+			)
 		):
-			_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+			_end_phase_advance(
+				phase,
+				active_context,
+				phase_runtime,
+				phase_lease
+			)
 			return
 	if phase.auto_finish:
 		var _auto_completed: bool = phase_runtime.try_complete_from_flow()
-	if not _is_active_context_operation_lease(phase_lease, flow_serial, active_context):
-		_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+	if not _is_active_context_operation_lease(
+		phase_lease,
+		flow_serial,
+		active_context
+	):
+		_end_phase_advance(
+			phase,
+			active_context,
+			phase_runtime,
+			phase_lease
+		)
 		return
 	if not phase_runtime.is_finished:
 		var completed: bool = await _await_signal_safely(
@@ -501,12 +564,26 @@ func advance_phase() -> void:
 		)
 		if (
 			not completed
-			or not _is_active_context_operation_lease(phase_lease, flow_serial, active_context)
+			or not _is_active_context_operation_lease(
+				phase_lease,
+				flow_serial,
+				active_context
+			)
 		):
-			_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+			_end_phase_advance(
+				phase,
+				active_context,
+				phase_runtime,
+				phase_lease
+			)
 			return
 	phase._exit(active_context)
-	_end_phase_advance(phase, active_context, phase_runtime, phase_lease)
+	_end_phase_advance(
+		phase,
+		active_context,
+		phase_runtime,
+		phase_lease
+	)
 
 
 ## 获取待处理行动的只读快照。
@@ -578,10 +655,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 
 	var flow_serial: int = _flow_serial
 	var active_context: GFTurnContext = _context
-	var action_lease: GFTurnContext.FlowOperationLease = _acquire_context_operation_lease(
-		active_context,
-		flow_serial
-	)
+	var action_lease: GFTurnContext.FlowOperationLease = _acquire_context_operation_lease(active_context, flow_serial)
 	if action_lease == null:
 		push_warning("[GFTurnFlowSystem][turn_flow_system.resolve_context_held] resolve_actions failed: context is held by another flow generation.")
 		return
@@ -600,7 +674,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 
 	if sort_actions_before_resolve:
 		if order_resolver.is_valid():
-			var comparator_state: Dictionary = {"is_active": true}
+			var comparator_state: Dictionary = { "is_active": true }
 			pending_actions.sort_custom(
 				Callable(self, "_sort_action_with_operation_guard").bind(
 					order_resolver,
@@ -612,7 +686,11 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 			)
 		else:
 			pending_actions.sort_custom(_sort_action_desc)
-	if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+	if not _is_context_operation_lease_current(
+		action_lease,
+		flow_serial,
+		active_context
+	):
 		_restore_unresolved_actions(original_pending_actions, 0)
 		_finish_action_resolution(active_context, action_lease)
 		return
@@ -620,23 +698,43 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 	var action_index: int = 0
 	while action_index < pending_actions.size():
 		var action: GFTurnAction = pending_actions[action_index]
-		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+		if not _is_context_operation_lease_current(
+			action_lease,
+			flow_serial,
+			active_context
+		):
 			_restore_unresolved_actions(pending_actions, action_index)
 			break
-		if action == null or action.is_cancelled or _action_has_invalid_actor(action):
+		if (
+			action == null
+			or action.is_cancelled
+			or _action_has_invalid_actor(action)
+		):
 			_consume_action(action)
 			action_index += 1
 			continue
 		_inject_action(action)
-		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+		if not _is_context_operation_lease_current(
+			action_lease,
+			flow_serial,
+			active_context
+		):
 			_restore_unresolved_actions(pending_actions, action_index)
 			break
-		if action == null or action.is_cancelled or _action_has_invalid_actor(action):
+		if (
+			action == null
+			or action.is_cancelled
+			or _action_has_invalid_actor(action)
+		):
 			_consume_action(action)
 			action_index += 1
 			continue
 		action.replace_runtime_targets(action.targets)
-		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+		if not _is_context_operation_lease_current(
+			action_lease,
+			flow_serial,
+			active_context
+		):
 			_restore_unresolved_actions(pending_actions, action_index)
 			break
 		active_context.set_current_actor_from_flow(
@@ -645,7 +743,11 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 			self,
 			flow_serial
 		)
-		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+		if not _is_context_operation_lease_current(
+			action_lease,
+			flow_serial,
+			active_context
+		):
 			_restore_unresolved_actions(pending_actions, action_index)
 			break
 		var result: Variant = action._resolve(active_context)
@@ -660,18 +762,33 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 				),
 				"[GFTurnFlowSystem][turn_flow_system.action_signal_timeout] Waiting for the action Signal timed out; the current action was skipped."
 			)
-			if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+			if not _is_context_operation_lease_current(
+				action_lease,
+				flow_serial,
+				active_context
+			):
 				_restore_unresolved_actions(pending_actions, action_index)
 				break
 			if not completed:
 				_consume_action(action)
 				action_index += 1
 				continue
-		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
+		if not _is_context_operation_lease_current(
+			action_lease,
+			flow_serial,
+			active_context
+		):
 			_consume_action(action)
-			_restore_unresolved_actions(pending_actions, action_index + 1)
+			_restore_unresolved_actions(
+				pending_actions,
+				action_index + 1
+			)
 			break
-		if action == null or action.is_cancelled or _action_has_invalid_actor(action):
+		if (
+			action == null
+			or action.is_cancelled
+			or _action_has_invalid_actor(action)
+		):
 			_consume_action(action)
 			action_index += 1
 			continue
@@ -713,12 +830,20 @@ func _sort_action_with_operation_guard(
 ) -> bool:
 	if (
 		not GFVariantData.get_option_bool(comparator_state, "is_active")
-		or not _is_context_operation_lease_current(lease, flow_serial, active_context)
+		or not _is_context_operation_lease_current(
+			lease,
+			flow_serial,
+			active_context
+		)
 	):
 		comparator_state["is_active"] = false
 		return false
 	var result: Variant = order_resolver.call(a, b)
-	if not _is_context_operation_lease_current(lease, flow_serial, active_context):
+	if not _is_context_operation_lease_current(
+		lease,
+		flow_serial,
+		active_context
+	):
 		comparator_state["is_active"] = false
 		return false
 	return result is bool and result
@@ -739,10 +864,7 @@ func _next_valid_phase() -> Dictionary:
 		if phase == null:
 			push_warning("[GFTurnFlowSystem][turn_flow_system.empty_advance_phase] advance_phase skipped a null phase.")
 			continue
-		return {
-			"index": next_index,
-			"wrapped": wrapped,
-		}
+		return { "index": next_index, "wrapped": wrapped, }
 	return {}
 
 
@@ -767,7 +889,11 @@ func _ensure_action_order(action: GFTurnAction) -> void:
 func _get_action_order(action: GFTurnAction) -> int:
 	if action == null:
 		return 0
-	return GFVariantData.get_option_int(_action_order_by_instance_id, action.get_instance_id(), 0)
+	return GFVariantData.get_option_int(
+		_action_order_by_instance_id,
+		action.get_instance_id(),
+		0
+	)
 
 
 ## 从入队顺序缓存移除行动实例。
@@ -816,19 +942,33 @@ func _consume_action(action: GFTurnAction) -> void:
 ## [br]
 func _restore_unresolved_actions(pending_actions: Array[GFTurnAction], start_index: int) -> void:
 	if not _restore_pending_actions_on_cancel:
-		for index: int in range(start_index, pending_actions.size()):
+		for index: int in range(
+			start_index,
+			pending_actions.size()
+		):
 			_consume_action(pending_actions[index])
 		return
 	var restored: Array[GFTurnAction] = []
-	for index: int in range(start_index, pending_actions.size()):
+	for index: int in range(
+		start_index,
+		pending_actions.size()
+	):
 		var action: GFTurnAction = pending_actions[index]
-		if action == null or action.is_cancelled or _action_has_invalid_actor(action):
+		if (
+			action == null
+			or action.is_cancelled
+			or _action_has_invalid_actor(action)
+		):
 			_consume_action(action)
 			continue
 		if _actions.has(action):
 			continue
 		restored.append(action)
-	for index: int in range(restored.size() - 1, -1, -1):
+	for index: int in range(
+		restored.size() - 1,
+		-1,
+		-1
+	):
 		_actions.push_front(restored[index])
 
 
@@ -884,14 +1024,20 @@ func _normalized_action_sort_value(action: GFTurnAction) -> float:
 ## [br]
 ## @api private
 ## [br]
-func _await_signal_safely(result_signal: Signal, should_continue: Callable, timeout_warning: String) -> bool:
-	return await _GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
-		result_signal,
-		should_continue,
-		_get_time_utility(),
-		signal_timeout_seconds,
-		signal_timeout_respects_time_scale,
-		timeout_warning
+func _await_signal_safely(
+	result_signal: Signal,
+	should_continue: Callable,
+	timeout_warning: String
+) -> bool:
+	return await (
+		_GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
+			result_signal,
+			should_continue,
+			_get_time_utility(),
+			signal_timeout_seconds,
+			signal_timeout_respects_time_scale,
+			timeout_warning
+		)
 	)
 
 
@@ -929,10 +1075,7 @@ func _end_phase_advance(
 ## [br]
 ## @api private
 ## [br]
-func _finish_action_resolution(
-	active_context: GFTurnContext,
-	action_lease: GFTurnContext.FlowOperationLease
-) -> void:
+func _finish_action_resolution(active_context: GFTurnContext, action_lease: GFTurnContext.FlowOperationLease) -> void:
 	if active_context != null:
 		active_context.clear_current_actor_from_flow(action_lease, self)
 	_is_resolving_actions = false
@@ -946,15 +1089,10 @@ func _finish_action_resolution(
 ## [br]
 ## @api private
 ## [br]
-func _acquire_context_operation_lease(
-	active_context: GFTurnContext,
-	flow_serial: int
-) -> GFTurnContext.FlowOperationLease:
+func _acquire_context_operation_lease(active_context: GFTurnContext, flow_serial: int) -> GFTurnContext.FlowOperationLease:
 	if active_context == null:
 		return null
-	var lease: GFTurnContext.FlowOperationLease = (
-		active_context.try_acquire_flow_operation_lease(self, flow_serial)
-	)
+	var lease: GFTurnContext.FlowOperationLease = active_context.try_acquire_flow_operation_lease(self, flow_serial)
 	if lease != null:
 		_active_context_operation_leases.append(lease)
 	return lease
@@ -975,10 +1113,7 @@ func _cancel_active_context_operation_leases() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _release_context_operation_lease(
-	active_context: GFTurnContext,
-	lease: GFTurnContext.FlowOperationLease
-) -> void:
+func _release_context_operation_lease(active_context: GFTurnContext, lease: GFTurnContext.FlowOperationLease) -> void:
 	if lease == null:
 		return
 	if active_context != null:
@@ -1028,7 +1163,11 @@ func _is_context_operation_lease_current(
 		serial == _flow_serial
 		and active_context == _context
 		and active_context != null
-		and active_context.is_flow_operation_lease_active(lease, self, serial)
+		and active_context.is_flow_operation_lease_active(
+			lease,
+			self,
+			serial
+		)
 	)
 
 
@@ -1044,5 +1183,9 @@ func _is_active_context_operation_lease(
 	return (
 		not _is_disposed
 		and _is_running
-		and _is_context_operation_lease_current(lease, serial, active_context)
+		and _is_context_operation_lease_current(
+			lease,
+			serial,
+			active_context
+		)
 	)

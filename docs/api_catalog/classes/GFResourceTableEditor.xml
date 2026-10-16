@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="515f9069413942c3372021da44d978de4a4954d0543734076aff222d6ae8c685">
+<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="4d3098c9d5ee8f15dd59a87d2c5739f54749845a1645a62a1145c1def5c3e6ce">
 	<description>GFResourceTableEditor: 通用 Resource 表格编辑控件。
 提供资源扫描、属性列提取、表格刷新与单元格提交，不绑定具体资源类型或业务数据。</description>
 	<tags>
@@ -18,7 +18,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="cell_value_committed">
-			<signature>signal cell_value_committed(resource: Resource, property: StringName, old_value: Variant, new_value: Variant)</signature>
+			<signature>signal cell_value_committed( resource: Resource, property: StringName, old_value: Variant, new_value: Variant )</signature>
 			<description>单元格值实际变化且整批事务成功后发出；空批次和规范化后同值的提交不发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -32,13 +32,14 @@
 			</tags>
 		</member>
 		<member kind="signal" name="resource_save_failed">
-			<signature>signal resource_save_failed(resource: Resource, path: String, error: Error)</signature>
+			<signature>signal resource_save_failed( resource: Resource, path: String, error: Error )</signature>
 			<description>自动保存资源失败时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">resource: 保存失败的资源。</tag>
 				<tag name="param">path: 资源路径。</tag>
 				<tag name="param">error: Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="resources_reordered">
@@ -307,7 +308,7 @@ Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新�
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_resource">
-			<signature>func duplicate_resource(row_index: int, deep: bool = false, insert_after: bool = true) -&gt; Resource:</signature>
+			<signature>func duplicate_resource( row_index: int, deep: bool = false, insert_after: bool = true ) -&gt; Resource:</signature>
 			<description>复制资源并插入到列表。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -315,10 +316,11 @@ Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新�
 				<tag name="param">deep: 是否深拷贝子资源。</tag>
 				<tag name="param">insert_after: 为 true 时插入到当前资源之后，否则插入到当前位置。</tag>
 				<tag name="return">复制出的资源；无效索引返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit_cell_value">
-			<signature>func commit_cell_value(row_index: int, property: StringName, new_value: Variant) -&gt; bool:</signature>
+			<signature>func commit_cell_value( row_index: int, property: StringName, new_value: Variant ) -&gt; bool:</signature>
 			<description>提交单元格值。
 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
 cell_value_committed、不自动保存，也不刷新表格。</description>
@@ -333,7 +335,7 @@ cell_value_committed、不自动保存，也不刷新表格。</description>
 			</tags>
 		</member>
 		<member kind="method" name="commit_visible_cell_value">
-			<signature>func commit_visible_cell_value(visible_row_index: int, property: StringName, new_value: Variant) -&gt; bool:</signature>
+			<signature>func commit_visible_cell_value( visible_row_index: int, property: StringName, new_value: Variant ) -&gt; bool:</signature>
 			<description>提交当前可见行的单元格值。
 当规范化请求值与稳定当前值相同时返回成功，但不调用 setter、不发出
 cell_value_committed、不自动保存，也不刷新表格。</description>

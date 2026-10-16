@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInteractionSensor" path="addons/gf/extensions/interaction/nodes/gf_interaction_sensor.gd" module="extensions/interaction" extends="Node" classDigest="105ed2ef6f2817bb93bc719ce0c7edc5019bbc6b6df019c0c62d53b6d3d21d5b">
+<class name="GFInteractionSensor" path="addons/gf/extensions/interaction/nodes/gf_interaction_sensor.gd" module="extensions/interaction" extends="Node" classDigest="ea453792e955aa57a3e9bccd0c240641281546314739a420233f0cd1f429cfff">
 	<description>GFInteractionSensor: 通用交互发送节点。
 负责构建 GFInteractionContext，并把交互请求发送给具备 receive_interaction()
 方法的接收对象。发送者、目标、payload 和分组均保持通用，不绑定具体玩法。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="interaction_sent">
-			<signature>signal interaction_sent(context: GFInteractionContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal interaction_sent( context: GFInteractionContext, receiver: Object, report: Dictionary )</signature>
 			<description>交互已发送。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -22,7 +22,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="interaction_accepted">
-			<signature>signal interaction_accepted(context: GFInteractionContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal interaction_accepted( context: GFInteractionContext, receiver: Object, report: Dictionary )</signature>
 			<description>交互被接收对象接受。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="interaction_rejected">
-			<signature>signal interaction_rejected(context: GFInteractionContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal interaction_rejected( context: GFInteractionContext, receiver: Object, report: Dictionary )</signature>
 			<description>交互被接收对象拒绝或发送失败。</description>
 			<tags>
 				<tag name="api">public</tag>

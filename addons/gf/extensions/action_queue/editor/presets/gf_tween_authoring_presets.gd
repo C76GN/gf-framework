@@ -30,14 +30,29 @@ const _VERSION: int = 1
 ## [br]
 ## @api private
 const _FIELDS: Array[StringName] = [
-	&"property_name", &"target_value", &"duration", &"delay", &"as_relative",
-	&"parallel", &"transition_type", &"ease_type", &"marker_id",
+	&"property_name",
+	&"target_value",
+	&"duration",
+	&"delay",
+	&"as_relative",
+	&"parallel",
+	&"transition_type",
+	&"ease_type",
+	&"marker_id",
 ]
 
 ## 来源记录允许的预设 ID；具体样机适用性仍由创建步骤时检查。
 ## [br]
 ## @api private
-const _IDS: Array[String] = ["move_by", "scale_to", "rotate_by", "opacity_to", "fade_in", "emphasis", "pulse"]
+const _IDS: Array[String] = [
+	"move_by",
+	"scale_to",
+	"rotate_by",
+	"opacity_to",
+	"fade_in",
+	"emphasis",
+	"pulse",
+]
 
 
 # --- 框架内部方法 ---
@@ -56,18 +71,91 @@ static func get_records(kind: int) -> Array[Dictionary]:
 	if kind < 0 or kind > 2:
 		return []
 	var records: Array[Dictionary] = [
-		_record("move_by", "移动偏移", "从当前姿态平移：2D/UI 为 80 像素，3D 为 1 单位。", [0, 1, 2]),
-		_record("scale_to", "缩放到目标值", "从当前缩放到各轴 1.2；目标值可继续调整。", [0, 1, 2]),
-		_record("rotate_by", "旋转偏移", "从当前角度偏移 45 度；3D 绕 Y 轴。", [0, 1, 2]),
+		_record(
+			"move_by",
+			"移动偏移",
+			"从当前姿态平移：2D/UI 为 80 像素，3D 为 1 单位。",
+			[
+				0,
+				1,
+				2,
+			]
+		),
+		_record(
+			"scale_to",
+			"缩放到目标值",
+			"从当前缩放到各轴 1.2；目标值可继续调整。",
+			[
+				0,
+				1,
+				2,
+			]
+		),
+		_record(
+			"rotate_by",
+			"旋转偏移",
+			"从当前角度偏移 45 度；3D 绕 Y 轴。",
+			[
+				0,
+				1,
+				2,
+			]
+		),
 	]
 	if kind != 2:
-		records.append(_record("opacity_to", "淡出隐藏", "alpha 从当前值到 0；保留颜色与节点布局。", [0, 1]))
-		records.append(_record("fade_in", "淡入显示", "alpha 从当前值到 1。样机和运行前须显式设 alpha 为 0；保留项目颜色。", [0, 1], {"modulate": Color(1.0, 1.0, 1.0, 0.0)}))
+		records.append(
+			_record(
+				"opacity_to",
+				"淡出隐藏",
+				"alpha 从当前值到 0；保留颜色与节点布局。",
+				[0, 1]
+			)
+		)
+		records.append(
+			_record(
+				"fade_in",
+				"淡入显示",
+				"alpha 从当前值到 1。样机和运行前须显式设 alpha 为 0；保留项目颜色。",
+				[0, 1],
+				{
+					"modulate": Color(
+						1.0,
+						1.0,
+						1.0,
+						0.0
+					),
+				}
+			)
+		)
 	var rest_scale: Variant = Vector2.ONE
 	if kind == 2:
 		rest_scale = Vector3.ONE
-	records.append(_record("emphasis", "轻微强调", "轻微收缩、放大后恢复单位缩放。样机和运行前须为单位缩放；其他基线请修改终点。", [0, 1, 2], {"scale": rest_scale}))
-	records.append(_record("pulse", "缩放脉冲", "放大到 1.08 后恢复单位缩放。样机和运行前须为单位缩放；其他基线请修改终点。", [0, 1, 2], {"scale": rest_scale}))
+	records.append(
+		_record(
+			"emphasis",
+			"轻微强调",
+			"轻微收缩、放大后恢复单位缩放。样机和运行前须为单位缩放；其他基线请修改终点。",
+			[
+				0,
+				1,
+				2,
+			],
+			{ "scale": rest_scale }
+		)
+	)
+	records.append(
+		_record(
+			"pulse",
+			"缩放脉冲",
+			"放大到 1.08 后恢复单位缩放。样机和运行前须为单位缩放；其他基线请修改终点。",
+			[
+				0,
+				1,
+				2,
+			],
+			{ "scale": rest_scale }
+		)
+	)
 	return records
 
 
@@ -83,20 +171,69 @@ static func get_records(kind: int) -> Array[Dictionary]:
 ## @param version: 冻结版本；当前只支持 1。
 ## [br]
 ## @return: 独立步骤数组；参数不支持时为空。
-static func create_steps(preset_id: String, kind: int, version: int = 1) -> Array[GFTweenActionStep]:
+static func create_steps(
+	preset_id: String,
+	kind: int,
+	version: int = 1
+) -> Array[GFTweenActionStep]:
 	var result: Array[GFTweenActionStep] = []
-	if version != _VERSION or not _IDS.has(preset_id) or kind < 0 or kind > 2:
+	if (
+		version != _VERSION
+		or not _IDS.has(preset_id)
+		or kind < 0
+		or kind > 2
+	):
 		return result
 	if preset_id in ["opacity_to", "fade_in"] and kind == 2:
 		return result
 	if preset_id == "emphasis" or preset_id == "pulse":
 		if preset_id == "emphasis":
-			result.append(_scale_step(kind, 0.98, 0.06, Tween.TRANS_SINE, "轻微收缩"))
-			result.append(_scale_step(kind, 1.05, 0.14, Tween.TRANS_SINE, "强调放大"))
-			result.append(_scale_step(kind, 1.0, 0.16, Tween.TRANS_SINE, "恢复静止缩放"))
+			result.append(
+				_scale_step(
+					kind,
+					0.98,
+					0.06,
+					Tween.TRANS_SINE,
+					"轻微收缩"
+				)
+			)
+			result.append(
+				_scale_step(
+					kind,
+					1.05,
+					0.14,
+					Tween.TRANS_SINE,
+					"强调放大"
+				)
+			)
+			result.append(
+				_scale_step(
+					kind,
+					1.0,
+					0.16,
+					Tween.TRANS_SINE,
+					"恢复静止缩放"
+				)
+			)
 		else:
-			result.append(_scale_step(kind, 1.08, 0.18, Tween.TRANS_SINE, "脉冲放大"))
-			result.append(_scale_step(kind, 1.0, 0.22, Tween.TRANS_SINE, "恢复静止缩放"))
+			result.append(
+				_scale_step(
+					kind,
+					1.08,
+					0.18,
+					Tween.TRANS_SINE,
+					"脉冲放大"
+				)
+			)
+			result.append(
+				_scale_step(
+					kind,
+					1.0,
+					0.22,
+					Tween.TRANS_SINE,
+					"恢复静止缩放"
+				)
+			)
 		for effect_step: GFTweenActionStep in result:
 			_record_provenance(effect_step, preset_id)
 		return result
@@ -106,7 +243,11 @@ static func create_steps(preset_id: String, kind: int, version: int = 1) -> Arra
 			step.property_name = ^"position"
 			step.target_value = Vector2(80.0, 0.0)
 			if kind == 2:
-				step.target_value = Vector3(1.0, 0.0, 0.0)
+				step.target_value = Vector3(
+					1.0,
+					0.0,
+					0.0
+				)
 			step.as_relative = true
 		"scale_to":
 			step.property_name = ^"scale"
@@ -117,7 +258,11 @@ static func create_steps(preset_id: String, kind: int, version: int = 1) -> Arra
 			step.property_name = ^"rotation"
 			step.target_value = PI / 4.0
 			if kind == 2:
-				step.target_value = Vector3(0.0, PI / 4.0, 0.0)
+				step.target_value = Vector3(
+					0.0,
+					PI / 4.0,
+					0.0
+				)
 			step.as_relative = true
 		"opacity_to":
 			step.property_name = ^"modulate:a"
@@ -149,7 +294,10 @@ static func copy_step(source: GFTweenActionStep) -> GFTweenActionStep:
 		return null
 	var copied: GFTweenActionStep = GFTweenActionStep.new()
 	for field: StringName in _FIELDS:
-		copied.set(field, source.get(field))
+		copied.set(
+			field,
+			source.get(field)
+		)
 	copied.easing_curve = curve
 	copied.resource_name = source.resource_name
 	copied.resource_local_to_scene = source.resource_local_to_scene
@@ -183,9 +331,18 @@ static func get_provenance(step: GFTweenActionStep) -> Dictionary:
 	var version: Variant = record.get("preset_version")
 	var managed: Variant = record.get("managed_fields")
 	var baseline_value: Variant = record.get("baseline")
-	if not preset_id is String or not version is int or not managed is Array or not baseline_value is Dictionary:
+	if (
+		not preset_id is String
+		or not version is int
+		or not managed is Array
+		or not baseline_value is Dictionary
+	):
 		return {}
-	if version != _VERSION or not _IDS.has(preset_id) or managed != _FIELDS:
+	if (
+		version != _VERSION
+		or not _IDS.has(preset_id)
+		or managed != _FIELDS
+	):
 		return {}
 	var baseline: Dictionary = baseline_value
 	if baseline.size() != _FIELDS.size():
@@ -227,11 +384,21 @@ static func get_overrides(step: GFTweenActionStep) -> Array[StringName]:
 static func restore_step(source: GFTweenActionStep, field: StringName = &"") -> GFTweenActionStep:
 	var baseline: GFTweenActionStep = _get_baseline(source)
 	var copied: GFTweenActionStep = copy_step(source)
-	if baseline == null or copied == null or (field != &"" and not _FIELDS.has(field)):
+	if (
+		baseline == null
+		or copied == null
+		or (
+			field != &""
+			and not _FIELDS.has(field)
+		)
+	):
 		return null
 	for managed_field: StringName in _FIELDS:
 		if field == &"" or field == managed_field:
-			copied.set(managed_field, baseline.get(managed_field))
+			copied.set(
+				managed_field,
+				baseline.get(managed_field)
+			)
 	return copied
 
 
@@ -240,15 +407,32 @@ static func restore_step(source: GFTweenActionStep, field: StringName = &"") -> 
 ## 创建独立目录记录；建议初值和目标列表都复制，调用方不能修改后续目录。
 ## [br]
 ## @api private
-static func _record(recipe_id: String, label: String, description: String, kinds: Array[int], initial_values: Dictionary = {}) -> Dictionary:
-	return {"id": recipe_id, "label": label, "description": description,
-		"target_kinds": kinds.duplicate(), "initial_values": initial_values.duplicate(true)}
+static func _record(
+	recipe_id: String,
+	label: String,
+	description: String,
+	kinds: Array[int],
+	initial_values: Dictionary = {}
+) -> Dictionary:
+	return {
+		"id": recipe_id,
+		"label": label,
+		"description": description,
+		"target_kinds": kinds.duplicate(),
+		"initial_values": initial_values.duplicate(true),
+	}
 
 
 ## 创建一个绝对单位缩放阶段；不读取目标，也不承担运行初值设置。
 ## [br]
 ## @api private
-static func _scale_step(kind: int, factor: float, seconds: float, transition: Tween.TransitionType, label: String) -> GFTweenActionStep:
+static func _scale_step(
+	kind: int,
+	factor: float,
+	seconds: float,
+	transition: Tween.TransitionType,
+	label: String
+) -> GFTweenActionStep:
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	step.property_name = ^"scale"
 	step.target_value = Vector2.ONE * factor
@@ -268,10 +452,16 @@ static func _record_provenance(step: GFTweenActionStep, preset_id: String) -> vo
 	var baseline: Dictionary = {}
 	for field: StringName in _FIELDS:
 		baseline[String(field)] = step.get(field)
-	step.set_meta(_META_KEY, {
-		"schema_version": 1, "preset_id": preset_id, "preset_version": _VERSION,
-		"managed_fields": _FIELDS.duplicate(), "baseline": baseline,
-	})
+	step.set_meta(
+		_META_KEY,
+		{
+			"schema_version": 1,
+			"preset_id": preset_id,
+			"preset_version": _VERSION,
+			"managed_fields": _FIELDS.duplicate(),
+			"baseline": baseline,
+		}
+	)
 
 
 ## 从已验证来源记录重建独立的受管字段基线；记录无效时返回 null，不修改原步骤。
@@ -284,7 +474,10 @@ static func _get_baseline(step: GFTweenActionStep) -> GFTweenActionStep:
 	var baseline: Dictionary = record["baseline"]
 	var restored: GFTweenActionStep = GFTweenActionStep.new()
 	for field: StringName in _FIELDS:
-		restored.set(field, baseline[String(field)])
+		restored.set(
+			field,
+			baseline[String(field)]
+		)
 	return restored
 
 
@@ -305,11 +498,26 @@ static func _is_field_value(field: StringName, value: Variant) -> bool:
 		&"as_relative", &"parallel":
 			return value is bool
 		&"transition_type":
-			return value is int and value >= Tween.TRANS_LINEAR and value <= Tween.TRANS_SPRING
+			return (
+				value is int
+				and value >= Tween.TRANS_LINEAR
+				and value <= Tween.TRANS_SPRING
+			)
 		&"ease_type":
-			return value is int and value >= Tween.EASE_IN and value <= Tween.EASE_OUT_IN
+			return (
+				value is int
+				and value >= Tween.EASE_IN
+				and value <= Tween.EASE_OUT_IN
+			)
 		&"duration", &"delay":
-			return (value is float or value is int) and is_finite(_number(value)) and _number(value) >= 0.0
+			return (
+				(
+					value is float
+					or value is int
+				)
+				and is_finite(_number(value))
+				and _number(value) >= 0.0
+			)
 		&"target_value":
 			if value is float or value is int:
 				return is_finite(_number(value))
@@ -321,7 +529,12 @@ static func _is_field_value(field: StringName, value: Variant) -> bool:
 				return vector.is_finite()
 			if value is Color:
 				var color: Color = value
-				return is_finite(color.r) and is_finite(color.g) and is_finite(color.b) and is_finite(color.a)
+				return (
+					is_finite(color.r)
+					and is_finite(color.g)
+					and is_finite(color.b)
+					and is_finite(color.a)
+				)
 	return false
 
 

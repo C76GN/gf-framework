@@ -39,10 +39,7 @@ func evaluate(row_view: GFTableRowView) -> GFTableRowPredicateResult:
 ## [br]
 ## @return 类型化包含、排除或失败结果。
 func _evaluate(_row_view: GFTableRowView) -> GFTableRowPredicateResult:
-	return GFTableRowPredicateResult.failed(
-		&"predicate_not_implemented",
-		"Row predicate did not implement _evaluate()."
-	)
+	return GFTableRowPredicateResult.failed(&"predicate_not_implemented", "Row predicate did not implement _evaluate().")
 
 
 # --- 框架内部方法 ---
@@ -61,19 +58,10 @@ func _evaluate(_row_view: GFTableRowView) -> GFTableRowPredicateResult:
 ## @param row_view: 本次调用独占的隔离行视图。
 ## [br]
 ## @return 纯 GFTableRowPredicateResult。
-static func evaluate_for_framework(
-	predicate: GFTableRowPredicate,
-	row_view: GFTableRowView
-) -> GFTableRowPredicateResult:
+static func evaluate_for_framework(predicate: GFTableRowPredicate, row_view: GFTableRowView) -> GFTableRowPredicateResult:
 	if predicate == null or not is_instance_valid(predicate):
-		return GFTableRowPredicateResult.failed(
-			&"invalid_predicate",
-			"Row predicate instance is unavailable."
-		)
+		return GFTableRowPredicateResult.failed(&"invalid_predicate", "Row predicate instance is unavailable.")
 	if row_view == null or not is_instance_valid(row_view):
-		return GFTableRowPredicateResult.failed(
-			&"invalid_row_view",
-			"Row predicate received a null or unavailable row view."
-		)
+		return GFTableRowPredicateResult.failed(&"invalid_row_view", "Row predicate received a null or unavailable row view.")
 	var raw_result: GFTableRowPredicateResult = predicate._evaluate(row_view)
 	return GFTableRowPredicateResult.snapshot_for_framework(raw_result)

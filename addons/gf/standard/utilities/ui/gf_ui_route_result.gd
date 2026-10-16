@@ -381,7 +381,10 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @return 非负毫秒数。
 func get_duration_msec() -> int:
-	return maxi(_completed_at_msec - _started_at_msec, 0)
+	return maxi(
+		_completed_at_msec - _started_at_msec,
+		0
+	)
 
 
 ## 获取调用方元数据副本。
@@ -549,20 +552,23 @@ func configure_for_framework(
 ## [br]
 ## @api private
 static func _is_valid_status(status: StringName) -> bool:
-	return status in [
-		STATUS_OPENED,
-		STATUS_MISSING_ROUTE,
-		STATUS_INVALID_ROUTE,
-		STATUS_MISSING_UI_UTILITY,
-		STATUS_MISSING_UI_LAYER,
-		STATUS_ASYNC_CONFLICT,
-		STATUS_INVALID_PRELOAD_POLICY,
-		STATUS_INVALID_LIFECYCLE,
-		STATUS_MISSING_ASSET_UTILITY,
-		STATUS_PRELOAD_PLAN_FAILED,
-		STATUS_PRELOAD_FAILED,
-		STATUS_PANEL_FAILED,
-		STATUS_CANCELLED,
-		STATUS_DISPOSED,
-		STATUS_OUTCOME_UNKNOWN,
-	]
+	return (
+		status
+		in [
+			STATUS_OPENED,
+			STATUS_MISSING_ROUTE,
+			STATUS_INVALID_ROUTE,
+			STATUS_MISSING_UI_UTILITY,
+			STATUS_MISSING_UI_LAYER,
+			STATUS_ASYNC_CONFLICT,
+			STATUS_INVALID_PRELOAD_POLICY,
+			STATUS_INVALID_LIFECYCLE,
+			STATUS_MISSING_ASSET_UTILITY,
+			STATUS_PRELOAD_PLAN_FAILED,
+			STATUS_PRELOAD_FAILED,
+			STATUS_PANEL_FAILED,
+			STATUS_CANCELLED,
+			STATUS_DISPOSED,
+			STATUS_OUTCOME_UNKNOWN,
+		]
+	)

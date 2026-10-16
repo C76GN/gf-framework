@@ -39,6 +39,7 @@ var _import_plugins: Array[EditorImportPlugin] = []
 func get_setup_issues() -> Array[String]:
 	return _setup_issues.duplicate()
 
+
 ## 注册当前启用扩展声明的 EditorImportPlugin。
 ## [br]
 ## @api framework_internal

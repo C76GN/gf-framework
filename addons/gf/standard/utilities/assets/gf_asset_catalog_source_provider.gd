@@ -47,7 +47,11 @@ var priority: int = 0
 ## @return 当前 provider。
 func configure(p_source_id: StringName, options: Dictionary = {}) -> GFAssetCatalogSourceProvider:
 	source_id = p_source_id
-	priority = GFVariantData.get_option_int(options, "priority", priority)
+	priority = GFVariantData.get_option_int(
+		options,
+		"priority",
+		priority
+	)
 	return self
 
 

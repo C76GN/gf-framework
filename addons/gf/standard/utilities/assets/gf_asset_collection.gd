@@ -100,7 +100,10 @@ func add_asset_id(asset_id: StringName, index: int = -1) -> bool:
 	var safe_index: int = index
 	if safe_index < 0 or safe_index > asset_ids.size():
 		safe_index = asset_ids.size()
-	var insert_error: Error = asset_ids.insert(safe_index, String(asset_id)) as Error
+	var insert_error: Error = asset_ids.insert(
+		safe_index,
+		String(asset_id)
+	) as Error
 	return insert_error == OK
 
 
@@ -138,7 +141,11 @@ func move_asset_id(asset_id: StringName, target_index: int) -> bool:
 		return false
 	var asset_id_text: String = asset_ids[source_index]
 	asset_ids.remove_at(source_index)
-	var safe_index: int = clampi(target_index, 0, asset_ids.size())
+	var safe_index: int = clampi(
+		target_index,
+		0,
+		asset_ids.size()
+	)
 	var insert_error: Error = asset_ids.insert(safe_index, asset_id_text) as Error
 	return insert_error == OK
 
@@ -192,10 +199,10 @@ func resolve_entries(catalog: GFAssetCatalog) -> Array[GFAssetCatalogEntry]:
 ## @return 包含缺失、重复、空 ID 和有序解析摘要的通用校验报告。
 func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
 	var subject: String = String(collection_id) if collection_id != &"" else "asset_collection"
-	var report: GFValidationReport = GFValidationReport.new(subject, {
-		"collection_id": collection_id,
-		"title": title,
-	})
+	var report: GFValidationReport = GFValidationReport.new(
+		subject,
+		{ "collection_id": collection_id, "title": title, }
+	)
 	var resolved_ids: PackedStringArray = PackedStringArray()
 	var missing_ids: PackedStringArray = PackedStringArray()
 	var duplicate_ids: PackedStringArray = PackedStringArray()
@@ -203,15 +210,9 @@ func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
 	var seen: Dictionary = {}
 
 	if collection_id == &"":
-		var _missing_collection_id: RefCounted = report.add_error(
-			&"missing_collection_id",
-			"Asset collection requires a non-empty collection_id."
-		)
+		var _missing_collection_id: RefCounted = report.add_error(&"missing_collection_id", "Asset collection requires a non-empty collection_id.")
 	if catalog == null:
-		var _missing_catalog: RefCounted = report.add_error(
-			&"missing_catalog",
-			"Asset collection validation requires a catalog."
-		)
+		var _missing_catalog: RefCounted = report.add_error(&"missing_catalog", "Asset collection validation requires a catalog.")
 
 	for index: int in asset_ids.size():
 		var asset_id_text: String = asset_ids[index].strip_edges()

@@ -107,11 +107,20 @@ func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
 		issue_context["value"] = null
 		issue_context["actual_value"] = null
 		issue_context["expected_value"] = "non_null"
-		_add_issue(report, issue_context, "null_value", "值不允许为空。")
+		_add_issue(
+			report,
+			issue_context,
+			"null_value",
+			"值不允许为空。"
+		)
 		_finalize_report(report)
 		return report
 
-	_validate_value(value, context, report)
+	_validate_value(
+		value,
+		context,
+		report
+	)
 	_finalize_report(report)
 	return report
 
@@ -135,7 +144,11 @@ func validate_record(record: Dictionary, context: Dictionary = {}) -> Dictionary
 	var report: Dictionary = _make_report(context)
 	if not enabled:
 		return report
-	_validate_record(record, context, report)
+	_validate_record(
+		record,
+		context,
+		report
+	)
 	_finalize_report(report)
 	return report
 
@@ -159,7 +172,11 @@ func validate_table(rows: Array[Dictionary], context: Dictionary = {}) -> Dictio
 	var report: Dictionary = _make_report(context)
 	if not enabled:
 		return report
-	_validate_table(rows, context, report)
+	_validate_table(
+		rows,
+		context,
+		report
+	)
 	_finalize_report(report)
 	return report
 
@@ -219,13 +236,19 @@ func _get_default_rule_id() -> StringName:
 ## @schema _context: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为原数组零基位置，field 仍为字段名。
 ## [br]
 ## @schema _report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
-func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
+func _validate_value(
+	_value: Variant,
+	_context: Dictionary,
+	_report: Dictionary
+) -> void:
 	pass
 
 
 ## 校验单条记录。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _record: 待校验记录。
 ## [br]
@@ -238,13 +261,19 @@ func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary)
 ## @schema _context: Dictionary，可包含 table_name、row_key、source 和 line 字段。
 ## [br]
 ## @schema _report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
-func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictionary) -> void:
+func _validate_record(
+	_record: Dictionary,
+	_context: Dictionary,
+	_report: Dictionary
+) -> void:
 	pass
 
 
 ## 校验整张表。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _rows: 规范化行列表。
 ## [br]
@@ -257,13 +286,19 @@ func _validate_record(_record: Dictionary, _context: Dictionary, _report: Dictio
 ## @schema _context: Dictionary，可包含 table_name 和 source 字段。
 ## [br]
 ## @schema _report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
-func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Dictionary) -> void:
+func _validate_table(
+	_rows: Array[Dictionary],
+	_context: Dictionary,
+	_report: Dictionary
+) -> void:
 	pass
 
 
 ## 向当前报告追加一个带规则上下文的问题。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param report: 当前校验报告。
 ## [br]
@@ -276,18 +311,37 @@ func _validate_table(_rows: Array[Dictionary], _context: Dictionary, _report: Di
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前辅助方法修改。
 ## [br]
 ## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
-func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: String) -> void:
+func _add_issue(
+	report: Dictionary,
+	context: Dictionary,
+	kind: String,
+	message: String
+) -> void:
 	var issue_context: Dictionary = context.duplicate(true)
 	issue_context["rule_id"] = get_rule_id()
-	_CONFIG_VALIDATION_REPORT.new().add_issue(
-		report,
-		_severity_to_string(),
-		kind,
-		GFVariantData.get_option_string_name(context, "table_name", &""),
-		GFVariantData.get_option_value(context, "row_key", null),
-		GFVariantData.get_option_string_name(context, "field", &""),
-		message,
-		issue_context
+	(
+		_CONFIG_VALIDATION_REPORT.new().add_issue(
+			report,
+			_severity_to_string(),
+			kind,
+			GFVariantData.get_option_string_name(
+				context,
+				"table_name",
+				&""
+			),
+			GFVariantData.get_option_value(
+				context,
+				"row_key",
+				null
+			),
+			GFVariantData.get_option_string_name(
+				context,
+				"field",
+				&""
+			),
+			message,
+			issue_context
+		)
 	)
 
 
@@ -301,7 +355,10 @@ func _add_issue(report: Dictionary, context: Dictionary, kind: String, message: 
 ## [br]
 ## @schema value: Variant，用于集合或默认值校验规则比较的值。
 func _make_variant_key(value: Variant) -> String:
-	return "%d:%s" % [typeof(value), var_to_str(value)]
+	return (
+		"%d:%s"
+		% [typeof(value), var_to_str(value)]
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -311,8 +368,14 @@ func _make_variant_key(value: Variant) -> String:
 ## @api private
 ## [br]
 func _make_report(context: Dictionary) -> Dictionary:
-	return _CONFIG_VALIDATION_REPORT.new().make_report(
-		GFVariantData.get_option_string_name(context, "table_name", &"")
+	return (
+		_CONFIG_VALIDATION_REPORT.new().make_report(
+			GFVariantData.get_option_string_name(
+				context,
+				"table_name",
+				&""
+			)
+		)
 	)
 
 

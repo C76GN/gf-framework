@@ -109,13 +109,21 @@ var metadata: Dictionary = {}
 func start_host(options: Dictionary = {}) -> void:
 	mode = Mode.HOST
 	var default_endpoint: String = "0.0.0.0:%d" % GFVariantData.get_option_int(options, "port")
-	endpoint = GFVariantData.get_option_string(options, "endpoint", default_endpoint)
+	endpoint = GFVariantData.get_option_string(
+		options,
+		"endpoint",
+		default_endpoint
+	)
 	max_peers = GFVariantData.get_option_int(
 		options,
 		"max_clients",
 		GFVariantData.get_option_int(options, "max_peers")
 	)
-	local_peer_id = GFVariantData.get_option_int(options, "local_peer_id", 1)
+	local_peer_id = GFVariantData.get_option_int(
+		options,
+		"local_peer_id",
+		1
+	)
 	metadata = _get_metadata_copy(options)
 	is_active = true
 	has_connection = false
@@ -136,7 +144,11 @@ func start_client(next_endpoint: String, options: Dictionary = {}) -> void:
 	mode = Mode.CLIENT
 	endpoint = next_endpoint
 	max_peers = GFVariantData.get_option_int(options, "max_peers")
-	local_peer_id = GFVariantData.get_option_int(options, "local_peer_id", -1)
+	local_peer_id = GFVariantData.get_option_int(
+		options,
+		"local_peer_id",
+		-1
+	)
 	metadata = _get_metadata_copy(options)
 	is_active = true
 	has_connection = false
@@ -184,17 +196,19 @@ func close(reason: String = "closed") -> void:
 ## [br]
 ## @schema return: Dictionary，包含 mode、mode_name、endpoint、local_peer_id、max_peers、is_active、has_connection、started_at_unix、metadata。
 func get_debug_snapshot() -> Dictionary:
-	return GFNetworkDebugTools.sanitize_debug_dictionary({
-		"mode": mode,
-		"mode_name": _get_mode_name(mode),
-		"endpoint": endpoint,
-		"local_peer_id": local_peer_id,
-		"max_peers": max_peers,
-		"is_active": is_active,
-		"has_connection": has_connection,
-		"started_at_unix": started_at_unix,
-		"metadata": metadata.duplicate(true),
-	})
+	return GFNetworkDebugTools.sanitize_debug_dictionary(
+		{
+			"mode": mode,
+			"mode_name": _get_mode_name(mode),
+			"endpoint": endpoint,
+			"local_peer_id": local_peer_id,
+			"max_peers": max_peers,
+			"is_active": is_active,
+			"has_connection": has_connection,
+			"started_at_unix": started_at_unix,
+			"metadata": metadata.duplicate(true),
+		}
+	)
 
 
 # --- 私有/辅助方法 ---

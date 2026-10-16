@@ -37,6 +37,7 @@ var _debugger_plugins: Array[EditorDebuggerPlugin] = []
 func get_setup_issues() -> Array[String]:
 	return _setup_issues.duplicate()
 
+
 ## 安装 GF Debugger 插件。
 ## [br]
 ## @api framework_internal
@@ -91,10 +92,7 @@ func cleanup(plugin: EditorPlugin) -> void:
 ## 标准记录缺少 label 时以路径作为标签，扩展路径始终以自身作为标签。
 ## [br]
 ## @api private
-func _collect_debugger_records(
-	standard_records: Dictionary,
-	extension_paths: Array[String]
-) -> Array[Dictionary]:
+func _collect_debugger_records(standard_records: Dictionary, extension_paths: Array[String]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
 	var standard_debugger_records: Array[Dictionary] = _to_record_array(
@@ -105,40 +103,32 @@ func _collect_debugger_records(
 		)
 	)
 	for record: Dictionary in standard_debugger_records:
-		var script_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"path"
-		).strip_edges()
+		var script_path: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "path").strip_edges())
 		if script_path.is_empty() or used_paths.has(script_path):
 			continue
-		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			record,
-			"label"
-		).strip_edges()
+		var label: String = (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label").strip_edges())
 		if label.is_empty():
 			label = script_path
 		used_paths[script_path] = true
-		result.append({
-			"path": script_path,
-			"label": label,
-		})
+		result.append({ "path": script_path, "label": label, })
 
 	for raw_path: String in extension_paths:
 		var extension_script_path: String = raw_path.strip_edges()
 		if extension_script_path.is_empty() or used_paths.has(extension_script_path):
 			continue
 		used_paths[extension_script_path] = true
-		result.append({
-			"path": extension_script_path,
-			"label": extension_script_path,
-		})
+		result.append({ "path": extension_script_path, "label": extension_script_path, })
 	return result
 
 
 ## 加载有效 Debugger 插件脚本，安装到 EditorPlugin 后保存实例供清理。
 ## [br]
 ## @api private
-func _add_debugger_plugin(plugin: EditorPlugin, script_path: String, label: String) -> void:
+func _add_debugger_plugin(
+	plugin: EditorPlugin,
+	script_path: String,
+	label: String
+) -> void:
 	var debugger_plugin: EditorDebuggerPlugin = _load_debugger_plugin(script_path, label)
 	if debugger_plugin == null:
 		_setup_issues.append("debugger:load_failed:%s" % script_path)
@@ -157,10 +147,7 @@ func _load_debugger_plugin(script_path: String, label: String) -> EditorDebugger
 		push_error("[GFPluginDebuggerTools][plugin_debugger_tools.debugger_load_failed] Could not load the %s Debugger plugin script." % label)
 		return null
 	if not _is_editor_debugger_plugin_script(debugger_script):
-		push_error(
-			"[GFPluginDebuggerTools][plugin_debugger_tools.debugger_type_invalid] The %s Debugger plugin script must extend EditorDebuggerPlugin."
-			% label
-		)
+		push_error("[GFPluginDebuggerTools][plugin_debugger_tools.debugger_type_invalid] The %s Debugger plugin script must extend EditorDebuggerPlugin." % label)
 		return null
 
 	var instance: Variant = debugger_script.call("new")
@@ -179,13 +166,7 @@ func _is_editor_debugger_plugin_script(debugger_script: Script) -> bool:
 	if debugger_script == null:
 		return false
 	var instance_base_type: StringName = debugger_script.get_instance_base_type()
-	return (
-		instance_base_type == &"EditorDebuggerPlugin"
-		or ClassDB.is_parent_class(
-			instance_base_type,
-			&"EditorDebuggerPlugin"
-		)
-	)
+	return (instance_base_type == &"EditorDebuggerPlugin" or (ClassDB.is_parent_class(instance_base_type, &"EditorDebuggerPlugin")))
 
 
 ## 拒绝空路径，加载资源并仅在资源为 Script 时返回。

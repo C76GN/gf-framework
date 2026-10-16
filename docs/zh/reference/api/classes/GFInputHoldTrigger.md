@@ -17,7 +17,7 @@
 |---|---|---|
 | 属性 | [`hold_seconds`](#member-gfinputholdtrigger-properties-hold_seconds) | `var hold_seconds: float = 0.25:` |
 | 方法 | [`reset_trigger_state`](#member-gfinputholdtrigger-methods-reset_trigger_state) | `func reset_trigger_state(state: Dictionary) -> void:` |
-| 方法 | [`update`](#member-gfinputholdtrigger-methods-update) | `func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:` |
+| 方法 | [`update`](#member-gfinputholdtrigger-methods-update) | `func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -> TriggerState:` |
 
 ## 属性
 
@@ -62,9 +62,10 @@ func reset_trigger_state(state: Dictionary) -> void:
 ### `update`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
+func update( raw_active: bool, _value: Variant, delta: float, state: Dictionary ) -> TriggerState:
 ```
 
 更新运行时状态。

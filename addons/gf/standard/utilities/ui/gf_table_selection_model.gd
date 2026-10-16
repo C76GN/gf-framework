@@ -176,7 +176,11 @@ func select_single(row_id: Variant) -> bool:
 ## [br]
 ## @schema row_ids: Array，调用方提供的稳定行 ID。
 func replace_selection(row_ids: Array) -> bool:
-	return _replace_selection_internal(row_ids, null, false)
+	return _replace_selection_internal(
+		row_ids,
+		null,
+		false
+	)
 
 
 ## 用一组行 ID 与显式锚点原子替换当前选择。
@@ -196,11 +200,12 @@ func replace_selection(row_ids: Array) -> bool:
 ## @schema selection_anchor: Variant，最终选择中的稳定行 ID，或 null。
 ## [br]
 ## @return 选择集合或锚点发生变化时返回 true。
-func replace_selection_with_anchor(
-	row_ids: Array,
-	selection_anchor: Variant
-) -> bool:
-	return _replace_selection_internal(row_ids, selection_anchor, true)
+func replace_selection_with_anchor(row_ids: Array, selection_anchor: Variant) -> bool:
+	return _replace_selection_internal(
+		row_ids,
+		selection_anchor,
+		true
+	)
 
 
 ## 在有序行 ID 列表中选择范围。
@@ -246,7 +251,10 @@ func select_range(
 
 	var start_index: int = mini(from_index, to_index)
 	var end_index: int = maxi(from_index, to_index)
-	for index: int in range(start_index, end_index + 1):
+	for index: int in range(
+		start_index,
+		end_index + 1
+	):
 		_select_row_id_internal(ordered_row_ids[index])
 	anchor_row_id = from_row_id
 
@@ -384,13 +392,11 @@ func _replace_selection_internal(
 	elif not _selected_ids.is_empty():
 		anchor_row_id = _selected_ids[_selected_ids.size() - 1]
 
-	if (
-		_arrays_equal(previous_ids, _selected_ids)
-		and GFVariantData.values_equal(previous_anchor, anchor_row_id)
-	):
+	if (_arrays_equal(previous_ids, _selected_ids) and GFVariantData.values_equal(previous_anchor, anchor_row_id)):
 		return false
 	selection_changed.emit(get_selected_ids())
 	return true
+
 
 ## 更新选择模式；NONE 清空选择，SINGLE 在多选时只保留当前首项。
 ## [br]

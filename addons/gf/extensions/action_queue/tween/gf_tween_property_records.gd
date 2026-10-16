@@ -27,13 +27,24 @@ static func validate_numeric(records: Array[Dictionary]) -> String:
 		if record.size() != 5:
 			return "Numeric property records must contain exactly five fields."
 		for key: Variant in record:
-			if not (key is String) or not key in ["name", "type", "initial", "minimum", "maximum"]:
+			if not (key is String) or not key in [
+				"name",
+				"type",
+				"initial",
+				"minimum",
+				"maximum",
+			]:
 				return "Unknown numeric property field."
 		if not (record.get("name") is String) or not (record.get("type") is int):
 			return "Numeric property names and types are invalid."
 		var property_name: String = record["name"]
 		var value_type: int = record["type"]
-		if property_name.is_empty() or property_name.length() > 64 or not property_name.is_valid_identifier() or names.has(property_name):
+		if (
+			property_name.is_empty()
+			or property_name.length() > 64
+			or not property_name.is_valid_identifier()
+			or names.has(property_name)
+		):
 			return "Property names must be unique direct identifiers of at most 64 characters."
 		names[property_name] = true
 		if not value_type in [TYPE_INT, TYPE_FLOAT] or typeof(record.get("initial")) != value_type:
@@ -41,9 +52,19 @@ static func validate_numeric(records: Array[Dictionary]) -> String:
 		var minimum: float = _number(record.get("minimum"))
 		var maximum: float = _number(record.get("maximum"))
 		var initial: float = _number(record.get("initial"))
-		if not is_finite(minimum) or not is_finite(maximum) or not is_finite(initial) or minimum >= maximum:
+		if (
+			not is_finite(minimum)
+			or not is_finite(maximum)
+			or not is_finite(initial)
+			or minimum >= maximum
+		):
 			return "Numeric bounds and initial values must be finite with minimum < maximum."
-		if absf(minimum) > 1000000.0 or absf(maximum) > 1000000.0 or initial < minimum or initial > maximum:
+		if (
+			absf(minimum) > 1000000.0
+			or absf(maximum) > 1000000.0
+			or initial < minimum
+			or initial > maximum
+		):
 			return "Numeric bounds must contain the initial value and have magnitude at most 1000000."
 	return ""
 
@@ -66,9 +87,19 @@ static func validate_numeric(records: Array[Dictionary]) -> String:
 static func get_native_values(kind: int, include_alias: bool = false) -> Dictionary:
 	var values: Dictionary = {}
 	if kind == 2:
-		values = {"position": Vector3.ZERO, "rotation": Vector3.ZERO, "scale": Vector3.ONE}
+		values = {
+			"position": Vector3.ZERO,
+			"rotation": Vector3.ZERO,
+			"scale": Vector3.ONE,
+		}
 	elif kind == 0 or kind == 1:
-		values = {"position": Vector2.ZERO, "rotation": 0.0, "scale": Vector2.ONE, "modulate": Color.WHITE, "self_modulate": Color.WHITE}
+		values = {
+			"position": Vector2.ZERO,
+			"rotation": 0.0,
+			"scale": Vector2.ONE,
+			"modulate": Color.WHITE,
+			"self_modulate": Color.WHITE,
+		}
 		if kind == 1:
 			values["size"] = Vector2(64.0, 64.0)
 			values["pivot_offset"] = Vector2(32.0, 32.0)
@@ -99,14 +130,29 @@ static func get_native_records(kind: int) -> Array[Dictionary]:
 	for key: Variant in values:
 		var property_name: String = key
 		var initial: Variant = values[property_name]
-		records.append(_record(property_name, initial, "native"))
+		records.append(
+			_record(
+				property_name,
+				initial,
+				"native"
+			)
+		)
 		var components: Array[String] = []
 		if initial is Vector2:
 			components = ["x", "y"]
 		elif initial is Vector3:
-			components = ["x", "y", "z"]
+			components = [
+				"x",
+				"y",
+				"z",
+			]
 		elif initial is Color:
-			components = ["r", "g", "b", "a"]
+			components = [
+				"r",
+				"g",
+				"b",
+				"a",
+			]
 		for component: String in components:
 			var component_initial: float = 0.0
 			if initial is Vector2:
@@ -118,7 +164,13 @@ static func get_native_records(kind: int) -> Array[Dictionary]:
 			elif initial is Color:
 				var color: Color = initial
 				component_initial = color[components.find(component)]
-			records.append(_record(property_name + ":" + component, component_initial, "native"))
+			records.append(
+				_record(
+					property_name + ":" + component,
+					component_initial,
+					"native"
+				)
+			)
 	return records
 
 
@@ -186,8 +238,21 @@ static func search(records: Array[Dictionary], query: String) -> Array[Dictionar
 ## 创建一条固定原生目录记录。
 ## [br]
 ## @api private
-static func _record(property_name: String, initial: Variant, source: String) -> Dictionary:
-	return {"name": property_name, "type": typeof(initial), "initial": initial, "minimum": -1000000.0, "maximum": 1000000.0, "source": source, "supported": true, "reason": ""}
+static func _record(
+	property_name: String,
+	initial: Variant,
+	source: String
+) -> Dictionary:
+	return {
+		"name": property_name,
+		"type": typeof(initial),
+		"initial": initial,
+		"minimum": -1000000.0,
+		"maximum": 1000000.0,
+		"source": source,
+		"supported": true,
+		"reason": "",
+	}
 
 
 ## 数值到 float 的严格读取；其他类型返回 NAN。

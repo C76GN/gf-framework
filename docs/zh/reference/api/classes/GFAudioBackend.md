@@ -20,8 +20,8 @@ GFAudioUtility 的可插拔音频后端协议。 默认实现不处理任何请�
 | 方法 | [`get_host`](#member-gfaudiobackend-methods-get_host) | `func get_host() -> Object:` |
 | 方法 | [`get_capabilities`](#member-gfaudiobackend-methods-get_capabilities) | `func get_capabilities() -> GFAudioBackendCapability:` |
 | 方法 | [`has_capability`](#member-gfaudiobackend-methods-has_capability) | `func has_capability(capability_id: StringName) -> bool:` |
-| 方法 | [`can_handle_path`](#member-gfaudiobackend-methods-can_handle_path) | `func can_handle_path(_path: String, _channel: StringName, _context: Dictionary = {}) -> bool:` |
-| 方法 | [`can_handle_clip`](#member-gfaudiobackend-methods-can_handle_clip) | `func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Dictionary = {}) -> bool:` |
+| 方法 | [`can_handle_path`](#member-gfaudiobackend-methods-can_handle_path) | `func can_handle_path( _path: String, _channel: StringName, _context: Dictionary = {} ) -> bool:` |
+| 方法 | [`can_handle_clip`](#member-gfaudiobackend-methods-can_handle_clip) | `func can_handle_clip( _clip: GFAudioClip, _channel: StringName, _context: Dictionary = {} ) -> bool:` |
 | 方法 | [`evaluate_playback_region`](#member-gfaudiobackend-methods-evaluate_playback_region) | `func evaluate_playback_region( _clip: GFAudioClip, _channel: StringName, _region: GFAudioPlaybackRegion, _context: Dictionary = {} ) -> GFAudioPlaybackRegionResult:` |
 | 方法 | [`play_bgm_path`](#member-gfaudiobackend-methods-play_bgm_path) | `func play_bgm_path(_path: String, _options: Dictionary = {}) -> bool:` |
 | 方法 | [`play_bgm_clip`](#member-gfaudiobackend-methods-play_bgm_clip) | `func play_bgm_clip(_clip: GFAudioClip, _options: Dictionary = {}) -> bool:` |
@@ -32,8 +32,8 @@ GFAudioUtility 的可插拔音频后端协议。 默认实现不处理任何请�
 | 方法 | [`get_bgm_playback_position`](#member-gfaudiobackend-methods-get_bgm_playback_position) | `func get_bgm_playback_position() -> float:` |
 | 方法 | [`is_bgm_playing`](#member-gfaudiobackend-methods-is_bgm_playing) | `func is_bgm_playing() -> bool:` |
 | 方法 | [`is_bgm_paused`](#member-gfaudiobackend-methods-is_bgm_paused) | `func is_bgm_paused() -> bool:` |
-| 方法 | [`play_ambient_path`](#member-gfaudiobackend-methods-play_ambient_path) | `func play_ambient_path(_path: String, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:` |
-| 方法 | [`play_ambient_clip`](#member-gfaudiobackend-methods-play_ambient_clip) | `func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:` |
+| 方法 | [`play_ambient_path`](#member-gfaudiobackend-methods-play_ambient_path) | `func play_ambient_path( _path: String, _channel: StringName = &"default", _options: Dictionary = {} ) -> bool:` |
+| 方法 | [`play_ambient_clip`](#member-gfaudiobackend-methods-play_ambient_clip) | `func play_ambient_clip( _clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {} ) -> bool:` |
 | 方法 | [`stop_ambient`](#member-gfaudiobackend-methods-stop_ambient) | `func stop_ambient(_channel: StringName = &"default", _fade_seconds: float = 0.0) -> bool:` |
 | 方法 | [`stop_all_ambient`](#member-gfaudiobackend-methods-stop_all_ambient) | `func stop_all_ambient(_fade_seconds: float = 0.0) -> bool:` |
 | 方法 | [`is_ambient_playing`](#member-gfaudiobackend-methods-is_ambient_playing) | `func is_ambient_playing(_channel: StringName = &"default") -> bool:` |
@@ -47,7 +47,7 @@ GFAudioUtility 的可插拔音频后端协议。 默认实现不处理任何请�
 | 方法 | [`set_state`](#member-gfaudiobackend-methods-set_state) | `func set_state(_state: GFAudioState) -> bool:` |
 | 方法 | [`set_switch`](#member-gfaudiobackend-methods-set_switch) | `func set_switch(_switch: GFAudioSwitch) -> bool:` |
 | 方法 | [`set_bus_volume`](#member-gfaudiobackend-methods-set_bus_volume) | `func set_bus_volume(_bus_name: String, _volume_linear: float) -> bool:` |
-| 方法 | [`set_bus_volume_db`](#member-gfaudiobackend-methods-set_bus_volume_db) | `func set_bus_volume_db(_bus_name: String, _volume_db: float, _transition_seconds: float = 0.0) -> bool:` |
+| 方法 | [`set_bus_volume_db`](#member-gfaudiobackend-methods-set_bus_volume_db) | `func set_bus_volume_db( _bus_name: String, _volume_db: float, _transition_seconds: float = 0.0 ) -> bool:` |
 | 方法 | [`set_bus_mute`](#member-gfaudiobackend-methods-set_bus_mute) | `func set_bus_mute(_bus_name: String, _muted: bool) -> bool:` |
 | 方法 | [`set_bus_effect_property`](#member-gfaudiobackend-methods-set_bus_effect_property) | `func set_bus_effect_property( _bus_name: String, _effect_ref: Variant, _property_name: StringName, _value: Variant, _transition_seconds: float = 0.0 ) -> bool:` |
 | 方法 | [`apply_mix_snapshot`](#member-gfaudiobackend-methods-apply_mix_snapshot) | `func apply_mix_snapshot(_snapshot: Dictionary, _transition_seconds: float = 0.0) -> bool:` |
@@ -136,9 +136,10 @@ func has_capability(capability_id: StringName) -> bool:
 ### `can_handle_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func can_handle_path(_path: String, _channel: StringName, _context: Dictionary = {}) -> bool:
+func can_handle_path( _path: String, _channel: StringName, _context: Dictionary = {} ) -> bool:
 ```
 
 判断后端是否可处理指定资源路径。
@@ -162,9 +163,10 @@ func can_handle_path(_path: String, _channel: StringName, _context: Dictionary =
 ### `can_handle_clip`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Dictionary = {}) -> bool:
+func can_handle_clip( _clip: GFAudioClip, _channel: StringName, _context: Dictionary = {} ) -> bool:
 ```
 
 判断后端是否可处理指定音频片段。
@@ -392,9 +394,10 @@ func is_bgm_paused() -> bool:
 ### `play_ambient_path`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func play_ambient_path(_path: String, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:
+func play_ambient_path( _path: String, _channel: StringName = &"default", _options: Dictionary = {} ) -> bool:
 ```
 
 播放环境音路径。
@@ -421,7 +424,7 @@ func play_ambient_path(_path: String, _channel: StringName = &"default", _option
 - 首次版本：`3.2.0`
 
 ```gdscript
-func play_ambient_clip(_clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {}) -> bool:
+func play_ambient_clip( _clip: GFAudioClip, _channel: StringName = &"default", _options: Dictionary = {} ) -> bool:
 ```
 
 播放环境音 Clip。
@@ -737,9 +740,10 @@ func set_bus_volume(_bus_name: String, _volume_linear: float) -> bool:
 ### `set_bus_volume_db`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-func set_bus_volume_db(_bus_name: String, _volume_db: float, _transition_seconds: float = 0.0) -> bool:
+func set_bus_volume_db( _bus_name: String, _volume_db: float, _transition_seconds: float = 0.0 ) -> bool:
 ```
 
 设置总线 dB 音量。

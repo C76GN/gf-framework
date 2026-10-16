@@ -30,6 +30,7 @@ enum Waveform {
 	CURVE,
 }
 
+
 ## 轨道混合模式。
 ## [br]
 ## @api public
@@ -51,6 +52,15 @@ enum BlendMode {
 	## 逐分量取最小值。
 	MIN,
 }
+
+
+# --- 常量 ---
+
+## 复用反馈扩展内不持有资源状态的波形采样核心。
+## [br]
+## @api private
+## [br]
+const _GF_SHAKE_SAMPLING_SCRIPT = preload("res://addons/gf/extensions/feedback/resources/gf_shake_sampling.gd")
 
 
 # --- 导出变量 ---
@@ -184,9 +194,21 @@ func sample(
 	if not enabled:
 		return zero_sample()
 
-	var range_start: float = clampf(_finite_float(start_progress), 0.0, 1.0)
-	var range_end: float = clampf(_finite_float(end_progress, 1.0), range_start, 1.0)
-	var clamped_progress: float = clampf(_finite_float(preset_progress), 0.0, 1.0)
+	var range_start: float = clampf(
+		_finite_float(start_progress),
+		0.0,
+		1.0
+	)
+	var range_end: float = clampf(
+		_finite_float(end_progress, 1.0),
+		range_start,
+		1.0
+	)
+	var clamped_progress: float = clampf(
+		_finite_float(preset_progress),
+		0.0,
+		1.0
+	)
 	if clamped_progress < range_start or clamped_progress > range_end:
 		return zero_sample()
 
@@ -194,32 +216,38 @@ func sample(
 	if range_end > range_start:
 		local_progress = (clamped_progress - range_start) / (range_end - range_start)
 
-	var intensity: float = _finite_nonnegative(amplitude) * _finite_nonnegative(strength) * _sample_envelope(local_progress)
+	var intensity: float = (_finite_nonnegative(amplitude) * _finite_nonnegative(strength) * _sample_envelope(local_progress))
 	intensity = _finite_nonnegative(intensity)
 	var wave_value: Vector3 = _finite_vector3(
-		_sample_wave_vector(_finite_float(elapsed_seconds), local_progress, _finite_float(phase_offset)) * intensity
+		_sample_wave_vector(
+			_finite_float(elapsed_seconds),
+			local_progress,
+			_finite_float(phase_offset)
+		) * intensity
 	)
-	return _sanitize_track_sample({
-		"position": Vector3(
-			_finite_float(position_axis.x) * wave_value.x,
-			_finite_float(position_axis.y) * wave_value.y,
-			_finite_float(position_axis.z) * wave_value.z
-		),
-		"rotation_degrees": Vector3(
-			_finite_float(rotation_axis_degrees.x) * wave_value.x,
-			_finite_float(rotation_axis_degrees.y) * wave_value.y,
-			_finite_float(rotation_axis_degrees.z) * wave_value.z
-		),
-		"scale": Vector3(
-			_finite_float(scale_axis.x) * wave_value.x,
-			_finite_float(scale_axis.y) * wave_value.y,
-			_finite_float(scale_axis.z) * wave_value.z
-		),
-		"intensity": intensity,
-		"progress": clamped_progress,
-		"track_progress": local_progress,
-		"metadata": metadata.duplicate(true),
-	})
+	return _sanitize_track_sample(
+		{
+			"position": Vector3(
+				_finite_float(position_axis.x) * wave_value.x,
+				_finite_float(position_axis.y) * wave_value.y,
+				_finite_float(position_axis.z) * wave_value.z
+			),
+			"rotation_degrees": Vector3(
+				_finite_float(rotation_axis_degrees.x) * wave_value.x,
+				_finite_float(rotation_axis_degrees.y) * wave_value.y,
+				_finite_float(rotation_axis_degrees.z) * wave_value.z
+			),
+			"scale": Vector3(
+				_finite_float(scale_axis.x) * wave_value.x,
+				_finite_float(scale_axis.y) * wave_value.y,
+				_finite_float(scale_axis.z) * wave_value.z
+			),
+			"intensity": intensity,
+			"progress": clamped_progress,
+			"track_progress": local_progress,
+			"metadata": metadata.duplicate(true),
+		}
+	)
 
 
 ## 创建空采样结果。
@@ -262,15 +290,43 @@ static func zero_sample() -> Dictionary:
 ## @return: 合成后的采样。
 ## [br]
 ## @schema return: Dictionary，合并后的反馈采样，包含 position、rotation_degrees、scale、intensity 与 progress。
-static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode: BlendMode) -> Dictionary:
+static func blend_sample(
+	base_sample: Dictionary,
+	track_sample: Dictionary,
+	mode: BlendMode
+) -> Dictionary:
 	var result: Dictionary = _normalize_sample(base_sample)
 	var next_sample: Dictionary = _normalize_sample(track_sample)
-	var position: Vector3 = _get_sample_vector3(result, "position", Vector3.ZERO)
-	var rotation_degrees: Vector3 = _get_sample_vector3(result, "rotation_degrees", Vector3.ZERO)
-	var scale: Vector3 = _get_sample_vector3(result, "scale", Vector3.ZERO)
-	var next_position: Vector3 = _get_sample_vector3(next_sample, "position", Vector3.ZERO)
-	var next_rotation_degrees: Vector3 = _get_sample_vector3(next_sample, "rotation_degrees", Vector3.ZERO)
-	var next_scale: Vector3 = _get_sample_vector3(next_sample, "scale", Vector3.ZERO)
+	var position: Vector3 = _get_sample_vector3(
+		result,
+		"position",
+		Vector3.ZERO
+	)
+	var rotation_degrees: Vector3 = _get_sample_vector3(
+		result,
+		"rotation_degrees",
+		Vector3.ZERO
+	)
+	var scale: Vector3 = _get_sample_vector3(
+		result,
+		"scale",
+		Vector3.ZERO
+	)
+	var next_position: Vector3 = _get_sample_vector3(
+		next_sample,
+		"position",
+		Vector3.ZERO
+	)
+	var next_rotation_degrees: Vector3 = _get_sample_vector3(
+		next_sample,
+		"rotation_degrees",
+		Vector3.ZERO
+	)
+	var next_scale: Vector3 = _get_sample_vector3(
+		next_sample,
+		"scale",
+		Vector3.ZERO
+	)
 	match mode:
 		BlendMode.OVERRIDE:
 			position = next_position
@@ -305,12 +361,28 @@ static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode
 	result["rotation_degrees"] = rotation_degrees
 	result["scale"] = scale
 	result["intensity"] = maxf(
-		_get_sample_float(result, "intensity", 0.0),
-		_get_sample_float(next_sample, "intensity", 0.0)
+		_get_sample_float(
+			result,
+			"intensity",
+			0.0
+		),
+		_get_sample_float(
+			next_sample,
+			"intensity",
+			0.0
+		)
 	)
 	result["progress"] = maxf(
-		_get_sample_float(result, "progress", 0.0),
-		_get_sample_float(next_sample, "progress", 0.0)
+		_get_sample_float(
+			result,
+			"progress",
+			0.0
+		),
+		_get_sample_float(
+			next_sample,
+			"progress",
+			0.0
+		)
 	)
 	return _normalize_sample(result)
 
@@ -322,26 +394,76 @@ static func blend_sample(base_sample: Dictionary, track_sample: Dictionary, mode
 ## @api private
 static func _normalize_sample(sample_data: Dictionary) -> Dictionary:
 	return {
-		"position": _finite_vector3(_get_sample_vector3(sample_data, "position", Vector3.ZERO)),
-		"rotation_degrees": _finite_vector3(_get_sample_vector3(sample_data, "rotation_degrees", Vector3.ZERO)),
-		"scale": _finite_vector3(_get_sample_vector3(sample_data, "scale", Vector3.ZERO)),
-		"intensity": _finite_nonnegative(_get_sample_float(sample_data, "intensity", 0.0)),
-		"progress": clampf(_finite_float(_get_sample_float(sample_data, "progress", 0.0)), 0.0, 1.0),
+		"position": _finite_vector3(
+			_get_sample_vector3(
+				sample_data,
+				"position",
+				Vector3.ZERO
+			)
+		),
+		"rotation_degrees": _finite_vector3(
+			_get_sample_vector3(
+				sample_data,
+				"rotation_degrees",
+				Vector3.ZERO
+			)
+		),
+		"scale": _finite_vector3(
+			_get_sample_vector3(
+				sample_data,
+				"scale",
+				Vector3.ZERO
+			)
+		),
+		"intensity": _finite_nonnegative(
+			_get_sample_float(
+				sample_data,
+				"intensity",
+				0.0
+			)
+		),
+		"progress": clampf(
+			_finite_float(
+				_get_sample_float(
+					sample_data,
+					"progress",
+					0.0
+				)
+			),
+			0.0,
+			1.0
+		),
 	}
 
 
 ## 从采样字典读取向量字段，缺少或类型不符时使用默认值。
 ## [br]
 ## @api private
-static func _get_sample_vector3(sample_data: Dictionary, key: String, default_value: Vector3) -> Vector3:
-	return GFVariantData.get_option_vector3(sample_data, key, default_value)
+static func _get_sample_vector3(
+	sample_data: Dictionary,
+	key: String,
+	default_value: Vector3
+) -> Vector3:
+	return GFVariantData.get_option_vector3(
+		sample_data,
+		key,
+		default_value
+	)
 
 
 ## 从采样字典读取浮点字段，缺少或类型不符时使用默认值。
 ## [br]
 ## @api private
-static func _get_sample_float(sample_data: Dictionary, key: String, default_value: float) -> float:
-	return GFVariantData.get_option_float(sample_data, key, default_value)
+static func _get_sample_float(
+	sample_data: Dictionary,
+	key: String,
+	default_value: float
+) -> float:
+	return GFVariantData.get_option_float(
+		sample_data,
+		key,
+		default_value
+	)
 
 
 ## 逐分量返回两个向量的最大值。
@@ -378,60 +500,32 @@ func _sample_envelope(progress: float) -> float:
 ## 根据轨道波形、时间、局部进度和相位计算三轴波形值。
 ## [br]
 ## @api private
-func _sample_wave_vector(elapsed_seconds: float, progress: float, phase_offset: float) -> Vector3:
+func _sample_wave_vector(
+	elapsed_seconds: float,
+	progress: float,
+	phase_offset: float
+) -> Vector3:
 	match waveform:
 		Waveform.SINE:
-			var phase_cycles: float = (
-				fposmod(_finite_float(elapsed_seconds * _finite_nonnegative(frequency)), 1.0)
-				+ fposmod(_finite_float(phase_offset), 1.0)
-			)
-			var phase: float = phase_cycles * TAU
-			return Vector3(
-				sin(phase),
-				sin(phase + TAU / 3.0),
-				sin(phase + TAU * 2.0 / 3.0)
+			return _GF_SHAKE_SAMPLING_SCRIPT.sample_sine_for_framework(
+				elapsed_seconds,
+				frequency,
+				phase_offset
 			)
 		Waveform.RANDOM:
-			var step: int = floori(_safe_sample_cursor(elapsed_seconds, frequency))
-			return Vector3(
-				_hash_noise(step, sample_seed + 11),
-				_hash_noise(step, sample_seed + 37),
-				_hash_noise(step, sample_seed + 73)
+			return _GF_SHAKE_SAMPLING_SCRIPT.sample_random_for_framework(
+				elapsed_seconds,
+				frequency,
+				sample_seed
 			)
 		Waveform.CURVE:
-			var curve_value: float = 0.5
-			if wave_curve != null:
-				curve_value = _finite_float(wave_curve.sample_baked(progress), 0.5)
-			var mapped: float = clampf(curve_value, 0.0, 1.0) * 2.0 - 1.0
-			return Vector3(mapped, mapped, mapped)
+			return _GF_SHAKE_SAMPLING_SCRIPT.sample_curve_for_framework(progress, wave_curve)
 		_:
-			return _sample_noise_vector(elapsed_seconds)
-
-
-## 对相邻确定性噪声样本作平滑插值，生成三轴噪声值。
-## [br]
-## @api private
-func _sample_noise_vector(elapsed_seconds: float) -> Vector3:
-	var cursor: float = _safe_sample_cursor(elapsed_seconds, maxf(_finite_nonnegative(frequency), 1.0))
-	var step: int = floori(cursor)
-	var blend: float = smoothstep(0.0, 1.0, cursor - float(step))
-	return Vector3(
-		lerpf(_hash_noise(step, sample_seed + 11), _hash_noise(step + 1, sample_seed + 11), blend),
-		lerpf(_hash_noise(step, sample_seed + 37), _hash_noise(step + 1, sample_seed + 37), blend),
-		lerpf(_hash_noise(step, sample_seed + 73), _hash_noise(step + 1, sample_seed + 73), blend)
-	)
-
-
-## 从采样步数、盐值和轨道种子计算确定性噪声值。
-## [br]
-## @api private
-func _hash_noise(step: int, salt: int) -> float:
-	var value: int = step * 1103515245 + salt * 12345 + sample_seed * 2654435761
-	value = value ^ (value >> 13)
-	value = value * 1274126177
-	value = value ^ (value >> 16)
-	var normalized: float = float(value & 0x7fffffff) / float(0x7fffffff)
-	return normalized * 2.0 - 1.0
+			return _GF_SHAKE_SAMPLING_SCRIPT.sample_noise_for_framework(
+				elapsed_seconds,
+				frequency,
+				sample_seed
+			)
 
 
 ## 规范化轨道采样，并保留局部进度和元数据字段。
@@ -440,7 +534,13 @@ func _hash_noise(step: int, salt: int) -> float:
 static func _sanitize_track_sample(sample_data: Dictionary) -> Dictionary:
 	var result: Dictionary = _normalize_sample(sample_data)
 	result["track_progress"] = clampf(
-		_finite_float(GFVariantData.get_option_float(sample_data, "track_progress", 0.0)),
+		_finite_float(
+			GFVariantData.get_option_float(
+				sample_data,
+				"track_progress",
+				0.0
+			)
+		),
 		0.0,
 		1.0
 	)
@@ -448,19 +548,14 @@ static func _sanitize_track_sample(sample_data: Dictionary) -> Dictionary:
 	return result
 
 
-## 计算带频率下限和整数转换安全边界的采样游标。
-## [br]
-## @api private
-static func _safe_sample_cursor(elapsed_seconds: float, sample_frequency: float) -> float:
-	var cursor: float = _finite_float(elapsed_seconds) * maxf(_finite_nonnegative(sample_frequency), 1.0)
-	return clampf(_finite_float(cursor), -2147483647.0, 2147483647.0)
-
-
 ## 将非有限输入替换为后备值，并限制结果不小于零。
 ## [br]
 ## @api private
 static func _finite_nonnegative(value: float, fallback: float = 0.0) -> float:
-	return maxf(_finite_float(value, fallback), 0.0)
+	return maxf(
+		_finite_float(value, fallback),
+		0.0
+	)
 
 
 ## 将非有限浮点输入替换为指定后备值。
@@ -474,6 +569,10 @@ static func _finite_float(value: float, fallback: float = 0.0) -> float:
 ## [br]
 ## @api private
 static func _finite_vector3(value: Vector3, fallback: Vector3 = Vector3.ZERO) -> Vector3:
-	if not is_finite(value.x) or not is_finite(value.y) or not is_finite(value.z):
+	if (
+		not is_finite(value.x)
+		or not is_finite(value.y)
+		or not is_finite(value.z)
+	):
 		return fallback
 	return value

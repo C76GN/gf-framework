@@ -83,6 +83,8 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待校验值。
 ## [br]
 ## @param context: 校验上下文。
@@ -94,10 +96,19 @@ func _get_default_rule_id() -> StringName:
 ## @schema context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value(
+	value: Variant,
+	context: Dictionary,
+	report: Dictionary
+) -> void:
 	var lookup: Dictionary = _build_lookup()
 	if not lookup.has(_make_comparison_key(value)):
-		_add_issue(report, _make_issue_context(context, value), "set_value_not_allowed", "值不在允许集合中。")
+		_add_issue(
+			report,
+			_make_issue_context(context, value),
+			"set_value_not_allowed",
+			"值不在允许集合中。"
+		)
 
 
 # --- 私有/辅助方法 ---
@@ -124,7 +135,13 @@ func _build_lookup() -> Dictionary:
 ## @api private
 ## [br]
 func _make_comparison_key(value: Variant) -> String:
-	if not case_sensitive and (typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME):
+	if (
+		not case_sensitive
+		and (
+			typeof(value) == TYPE_STRING
+			or typeof(value) == TYPE_STRING_NAME
+		)
+	):
 		return "string:%s" % GFVariantData.to_text(value).to_lower()
 	return _make_variant_key(value)
 
@@ -140,16 +157,13 @@ func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
 	if allowed_values.size() <= _SUPPORTED_VALUES_INLINE_LIMIT:
 		issue_context["supported_values"] = GFVariantData.duplicate_variant(allowed_values)
 	else:
-		var summary: Dictionary = GFReportValueCodec.make_collection_summary(allowed_values, {
-			"sample_count": _SUPPORTED_VALUES_INLINE_LIMIT,
-			"encode_dictionary_keys": true,
-		})
+		var summary: Dictionary = GFReportValueCodec.make_collection_summary(
+			allowed_values,
+			{ "sample_count": _SUPPORTED_VALUES_INLINE_LIMIT, "encode_dictionary_keys": true, }
+		)
 		issue_context["supported_values_count"] = GFVariantData.get_option_int(summary, "count")
 		issue_context["supported_values_sample"] = GFVariantData.get_option_array(summary, "sample")
-		issue_context["supported_values_preview_hash"] = GFVariantData.get_option_string(
-			summary,
-			"encoded_preview_hash"
-		)
+		issue_context["supported_values_preview_hash"] = GFVariantData.get_option_string(summary, "encoded_preview_hash")
 		issue_context["supported_values_truncated"] = true
 	return issue_context
 

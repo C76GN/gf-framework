@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsOutboxAdapter" path="addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd" module="standard" extends="RefCounted" classDigest="4d6a4991a42355dcaa31d23c780fc04d3a219cb80e59e0bb399a11a54cc93a8c">
+<class name="GFAnalyticsOutboxAdapter" path="addons/gf/standard/utilities/io/gf_analytics_outbox_adapter.gd" module="standard" extends="RefCounted" classDigest="9056fde36c3af74b966751a9ad9470c190c19fc4e4683d3fddbea10579048875">
 	<description>GFAnalyticsOutboxAdapter: Analytics 批次到通用请求 Outbox 的有界持久交接适配器。
 把 GFAnalyticsUtility 的 JSON-safe events 封装为固定、版本化的中立请求信封，
 并在确认 GFRequestOutboxUtility 已可靠持久化后才接受整批事件。适配器不接管
@@ -119,7 +119,7 @@ transport 动态注入。</description>
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
-			<signature>func configure( p_outbox: GFRequestOutboxUtility, options: Dictionary = {} ) -&gt; GFAnalyticsOutboxAdapter:</signature>
+			<signature>func configure(p_outbox: GFRequestOutboxUtility, options: Dictionary = {}) -&gt; GFAnalyticsOutboxAdapter:</signature>
 			<description>配置适配器。
 本方法只保存 Outbox 引用和有界选项，不修改 Outbox 的 transport_callback、
 replay_filter、storage_path 或生命周期。</description>

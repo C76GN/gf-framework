@@ -15,4 +15,4 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture == null:
 		return
 	if architecture.get_local_utility(GFAssetMetadataUtility) == null:
-		var _registered_asset_metadata: bool = await architecture.register_utility_instance(GFAssetMetadataUtility.new())
+		var _registered_asset_metadata: bool = await (architecture.register_utility_instance(GFAssetMetadataUtility.new()))

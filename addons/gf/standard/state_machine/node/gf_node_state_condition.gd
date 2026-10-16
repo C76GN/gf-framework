@@ -54,7 +54,12 @@ func evaluate(
 	peer_state: StringName = &"",
 	args: Dictionary = {}
 ) -> bool:
-	var accepted: bool = _evaluate(state, phase, peer_state, args)
+	var accepted: bool = _evaluate(
+		state,
+		phase,
+		peer_state,
+		args
+	)
 	return not accepted if invert else accepted
 
 

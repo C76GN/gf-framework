@@ -15,19 +15,25 @@ func test_seed_42_matches_golden_u32_sequence() -> void:
 	for _index: int in range(10):
 		values.append(rng.next_u32())
 
-	assert_eq(values, [
-		11_355_432,
-		2_836_018_348,
-		476_557_059,
-		3_648_046_016,
-		3_759_983_556,
-		1_441_438_134,
-		3_713_466_840,
-		2_431_644_334,
-		3_120_216_979,
-		1_067_267_639,
-	])
-	assert_eq(rng.get_state(), 1_067_267_639)
+	assert_eq(
+		values,
+		[
+			11_355_432,
+			2_836_018_348,
+			476_557_059,
+			3_648_046_016,
+			3_759_983_556,
+			1_441_438_134,
+			3_713_466_840,
+			2_431_644_334,
+			3_120_216_979,
+			1_067_267_639,
+		]
+	)
+	assert_eq(
+		rng.get_state(),
+		1_067_267_639
+	)
 
 
 func test_seed_1_matches_golden_u32_sequence() -> void:
@@ -36,26 +42,35 @@ func test_seed_1_matches_golden_u32_sequence() -> void:
 	for _index: int in range(10):
 		values.append(rng.next_u32())
 
-	assert_eq(values, [
-		270_369,
-		67_634_689,
-		2_647_435_461,
-		307_599_695,
-		2_398_689_233,
-		745_495_504,
-		632_435_482,
-		435_756_210,
-		2_005_365_029,
-		2_916_098_932,
-	])
+	assert_eq(
+		values,
+		[
+			270_369,
+			67_634_689,
+			2_647_435_461,
+			307_599_695,
+			2_398_689_233,
+			745_495_504,
+			632_435_482,
+			435_756_210,
+			2_005_365_029,
+			2_916_098_932,
+		]
+	)
 
 
 func test_zero_seed_maps_to_stable_default_seed() -> void:
 	var zero_seed_rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(0)
 	var default_seed_rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.new()
 
-	assert_eq(zero_seed_rng.get_initial_seed(), default_seed_rng.get_initial_seed())
-	assert_eq(zero_seed_rng.next_u32(), default_seed_rng.next_u32())
+	assert_eq(
+		zero_seed_rng.get_initial_seed(),
+		default_seed_rng.get_initial_seed()
+	)
+	assert_eq(
+		zero_seed_rng.next_u32(),
+		default_seed_rng.next_u32()
+	)
 
 
 func test_state_roundtrip_continues_same_sequence() -> void:
@@ -65,9 +80,18 @@ func test_state_roundtrip_continues_same_sequence() -> void:
 
 	var restored: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_dict(source.to_dict())
 
-	assert_eq(restored.get_initial_seed(), source.get_initial_seed())
-	assert_eq(restored.get_state(), source.get_state())
-	assert_eq(restored.next_u32(), source.next_u32())
+	assert_eq(
+		restored.get_initial_seed(),
+		source.get_initial_seed()
+	)
+	assert_eq(
+		restored.get_state(),
+		source.get_state()
+	)
+	assert_eq(
+		restored.next_u32(),
+		source.next_u32()
+	)
 
 
 func test_set_state_rejects_zero_state() -> void:
@@ -78,7 +102,10 @@ func test_set_state_rejects_zero_state() -> void:
 
 	assert_false(changed)
 	assert_push_error("[GFDeterministicRandom][deterministic_random.zero_state] The xorshift32 state must not be zero.")
-	assert_eq(rng.get_state(), previous_state)
+	assert_eq(
+		rng.get_state(),
+		previous_state
+	)
 
 
 func test_int_range_matches_golden_sequence() -> void:
@@ -87,7 +114,23 @@ func test_int_range_matches_golden_sequence() -> void:
 	for _index: int in range(12):
 		values.append(rng.next_int_range(10, 20))
 
-	assert_eq(values, [10, 19, 10, 20, 20, 14, 16, 19, 10, 19, 13, 16])
+	assert_eq(
+		values,
+		[
+			10,
+			19,
+			10,
+			20,
+			20,
+			14,
+			16,
+			19,
+			10,
+			19,
+			13,
+			16,
+		]
+	)
 
 
 func test_int_range_accepts_exact_u32_span() -> void:
@@ -96,8 +139,16 @@ func test_int_range_accepts_exact_u32_span() -> void:
 
 	var value: int = rng.next_int_range(-2_147_483_648, 2_147_483_647)
 
-	assert_eq(value, -2_136_128_216, "正好 u32 跨度的闭区间应使用一次 u32 样本映射。")
-	assert_ne(rng.get_state(), previous_state, "合法 u32 跨度应推进随机序列。")
+	assert_eq(
+		value,
+		-2_136_128_216,
+		"正好 u32 跨度的闭区间应使用一次 u32 样本映射。"
+	)
+	assert_ne(
+		rng.get_state(),
+		previous_state,
+		"合法 u32 跨度应推进随机序列。"
+	)
 
 
 func test_int_range_rejects_span_larger_than_u32_without_advancing() -> void:
@@ -106,25 +157,53 @@ func test_int_range_rejects_span_larger_than_u32_without_advancing() -> void:
 
 	var value: int = rng.next_int_range(-2_147_483_648, 2_147_483_648)
 
-	assert_eq(value, -2_147_483_648, "超过 u32 跨度时应返回规范化后的下界。")
-	assert_eq(rng.get_state(), previous_state, "非法跨度不应消耗随机序列。")
+	assert_eq(
+		value,
+		-2_147_483_648,
+		"超过 u32 跨度时应返回规范化后的下界。"
+	)
+	assert_eq(
+		rng.get_state(),
+		previous_state,
+		"非法跨度不应消耗随机序列。"
+	)
 	assert_push_error("[GFDeterministicRandom][deterministic_random.integer_range_too_wide] next_int_range requires a closed interval whose span does not exceed u32.")
 
 
 func test_float_unit_matches_scaled_u32_golden_sequence() -> void:
 	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 
-	assert_almost_eq(rng.next_float_unit(), 0.0026438925, 0.0000000001)
-	assert_almost_eq(rng.next_float_unit(), 0.6603119774, 0.0000000001)
-	assert_almost_eq(rng.next_float_unit(), 0.1109570868, 0.0000000001)
+	assert_almost_eq(
+		rng.next_float_unit(),
+		0.0026438925,
+		0.0000000001
+	)
+	assert_almost_eq(
+		rng.next_float_unit(),
+		0.6603119774,
+		0.0000000001
+	)
+	assert_almost_eq(
+		rng.next_float_unit(),
+		0.1109570868,
+		0.0000000001
+	)
 
 
 func test_float_range_uses_fixed_u32_sequence_and_swaps_bounds() -> void:
 	var forward: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 	var reversed: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 
-	assert_almost_eq(forward.next_float_range(5.0, 8.0), 5.0079316776, 0.0000000001)
-	assert_almost_eq(reversed.next_float_range(8.0, 5.0), 5.0079316776, 0.0000000001)
+	assert_almost_eq(
+		forward.next_float_range(5.0, 8.0),
+		5.0079316776,
+		0.0000000001
+	)
+	assert_almost_eq(
+		reversed.next_float_range(8.0, 5.0),
+		5.0079316776,
+		0.0000000001
+	)
 
 
 func test_float_range_rejects_non_finite_bounds() -> void:
@@ -143,7 +222,11 @@ func test_float_range_rejects_non_finite_span_without_advancing() -> void:
 	var value: float = rng.next_float_range(-1.0e308, 1.0e308)
 
 	assert_eq(value, 0.0)
-	assert_eq(rng.get_state(), previous_state, "范围跨度变成非有限值时不应消耗随机序列。")
+	assert_eq(
+		rng.get_state(),
+		previous_state,
+		"范围跨度变成非有限值时不应消耗随机序列。"
+	)
 	assert_push_error("[GFDeterministicRandom][deterministic_random.float_range_non_finite] next_float_range requires a finite floating-point range.")
 
 
@@ -155,8 +238,14 @@ func test_skip_matches_manual_consumption() -> void:
 	for _index: int in range(7):
 		var _discarded: int = manual.next_u32()
 
-	assert_eq(skipped.get_state(), manual.get_state())
-	assert_eq(skipped.next_u32(), manual.next_u32())
+	assert_eq(
+		skipped.get_state(),
+		manual.get_state()
+	)
+	assert_eq(
+		skipped.next_u32(),
+		manual.next_u32()
+	)
 
 
 func test_fork_is_stable_and_does_not_advance_parent() -> void:
@@ -167,30 +256,55 @@ func test_fork_is_stable_and_does_not_advance_parent() -> void:
 	var child_b: GF_DETERMINISTIC_RANDOM = parent_b.fork(7)
 	var other_child: GF_DETERMINISTIC_RANDOM = parent_b.fork(8)
 
-	assert_eq(parent_a.get_state(), parent_b.get_state())
-	assert_eq(child_a.get_initial_seed(), child_b.get_initial_seed())
-	assert_eq(child_a.next_u32(), child_b.next_u32())
-	assert_ne(child_a.get_initial_seed(), other_child.get_initial_seed())
+	assert_eq(
+		parent_a.get_state(),
+		parent_b.get_state()
+	)
+	assert_eq(
+		child_a.get_initial_seed(),
+		child_b.get_initial_seed()
+	)
+	assert_eq(
+		child_a.next_u32(),
+		child_b.next_u32()
+	)
+	assert_ne(
+		child_a.get_initial_seed(),
+		other_child.get_initial_seed()
+	)
 
 
 func test_apply_dict_rejects_unknown_algorithm() -> void:
 	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 
-	var applied: bool = rng.apply_dict({
-		"algorithm": "other",
-		"version": 1,
-		"seed": 42,
-		"state": 42,
-	})
+	var applied: bool = rng.apply_dict(
+		{
+			"algorithm": "other",
+			"version": 1,
+			"seed": 42,
+			"state": 42,
+		}
+	)
 
 	assert_false(applied)
 	assert_push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
-	assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
-	assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
+	assert_eq(
+		rng.get_initial_seed(),
+		GF_DETERMINISTIC_RANDOM.new().get_initial_seed()
+	)
+	assert_eq(
+		rng.get_state(),
+		GF_DETERMINISTIC_RANDOM.new().get_state()
+	)
 
 
 func test_apply_dict_requires_every_state_identity_and_payload_field() -> void:
-	var required_fields: Array[String] = ["algorithm", "version", "seed", "state"]
+	var required_fields: Array[String] = [
+		"algorithm",
+		"version",
+		"seed",
+		"state",
+	]
 	for field_name: String in required_fields:
 		var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 		var state_data: Dictionary = rng.to_dict()
@@ -198,23 +312,40 @@ func test_apply_dict_requires_every_state_identity_and_payload_field() -> void:
 
 		var applied: bool = rng.apply_dict(state_data)
 
-		assert_false(applied, "缺少 %s 时必须 fail closed。" % field_name)
+		assert_false(
+			applied,
+			"缺少 %s 时必须 fail closed。" % field_name
+		)
 		assert_push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
-		assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
-		assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
+		assert_eq(
+			rng.get_initial_seed(),
+			GF_DETERMINISTIC_RANDOM.new().get_initial_seed()
+		)
+		assert_eq(
+			rng.get_state(),
+			GF_DETERMINISTIC_RANDOM.new().get_state()
+		)
 
 
 func test_apply_dict_rejects_zero_state() -> void:
 	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 
-	var applied: bool = rng.apply_dict({
-		"algorithm": "xorshift32",
-		"version": 1,
-		"seed": 42,
-		"state": 0,
-	})
+	var applied: bool = rng.apply_dict(
+		{
+			"algorithm": "xorshift32",
+			"version": 1,
+			"seed": 42,
+			"state": 0,
+		}
+	)
 
 	assert_false(applied)
 	assert_push_error("[GFDeterministicRandom][deterministic_random.zero_state] The xorshift32 state must not be zero.")
-	assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
-	assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
+	assert_eq(
+		rng.get_initial_seed(),
+		GF_DETERMINISTIC_RANDOM.new().get_initial_seed()
+	)
+	assert_eq(
+		rng.get_state(),
+		GF_DETERMINISTIC_RANDOM.new().get_state()
+	)

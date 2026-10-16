@@ -15,13 +15,13 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`synchronization_failed`](#member-gfrepeaterbinder-signals-synchronization_failed) | `signal synchronization_failed(container: Node, group_key: StringName, error: StringName)` |
+| 信号 | [`synchronization_failed`](#member-gfrepeaterbinder-signals-synchronization_failed) | `signal synchronization_failed( container: Node, group_key: StringName, error: StringName )` |
 | 常量 | [`META_CLONE`](#member-gfrepeaterbinder-constants-meta_clone) | `const META_CLONE: StringName = &"gf_repeater_clone"` |
 | 常量 | [`META_GROUP_KEY`](#member-gfrepeaterbinder-constants-meta_group_key) | `const META_GROUP_KEY: StringName = &"gf_repeater_group_key"` |
 | 常量 | [`META_INDEX`](#member-gfrepeaterbinder-constants-meta_index) | `const META_INDEX: StringName = &"gf_repeater_index"` |
 | 常量 | [`META_ITEM`](#member-gfrepeaterbinder-constants-meta_item) | `const META_ITEM: StringName = &"gf_repeater_item"` |
 | 方法 | [`bind_repeater`](#member-gfrepeaterbinder-methods-bind_repeater) | `func bind_repeater( store: RefCounted, path: Variant, container: Node, template: Node, options: Dictionary = {} ) -> bool:` |
-| 方法 | [`rebuild_target`](#member-gfrepeaterbinder-methods-rebuild_target) | `func rebuild_target(container: Node, template: Node, items: Array, options: Dictionary = {}) -> Array[Node]:` |
+| 方法 | [`rebuild_target`](#member-gfrepeaterbinder-methods-rebuild_target) | `func rebuild_target( container: Node, template: Node, items: Array, options: Dictionary = {} ) -> Array[Node]:` |
 | 方法 | [`unbind_container`](#member-gfrepeaterbinder-methods-unbind_container) | `func unbind_container(container: Node, options: Dictionary = {}) -> bool:` |
 | 方法 | [`unbind_path`](#member-gfrepeaterbinder-methods-unbind_path) | `func unbind_path(store: RefCounted, path: Variant) -> int:` |
 | 方法 | [`clear`](#member-gfrepeaterbinder-methods-clear) | `func clear() -> void:` |
@@ -41,7 +41,7 @@
 - 首次版本：`unreleased`
 
 ```gdscript
-signal synchronization_failed(container: Node, group_key: StringName, error: StringName)
+signal synchronization_failed( container: Node, group_key: StringName, error: StringName )
 ```
 
 活跃绑定的自动 store 刷新失败时发出；失败边界同 sync_container()。 初次 bind_repeater() 的失败通过返回值报告。
@@ -149,7 +149,7 @@ func bind_repeater( store: RefCounted, path: Variant, container: Node, template:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func rebuild_target(container: Node, template: Node, items: Array, options: Dictionary = {}) -> Array[Node]:
+func rebuild_target( container: Node, template: Node, items: Array, options: Dictionary = {} ) -> Array[Node]:
 ```
 
 直接重建容器中的模板副本。

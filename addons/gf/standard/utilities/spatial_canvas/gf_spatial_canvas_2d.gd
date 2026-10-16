@@ -108,6 +108,7 @@ enum SelectionMode {
 	SUBTRACT,
 }
 
+
 ## 输入处理结果。
 ##
 ## 手工转发调用只观察该返回值；只有 [constant InputDisposition.CONSUMED]
@@ -124,6 +125,7 @@ enum InputDisposition {
 	## 事件已更新画布，并应在 GUI 边界停止传播。
 	CONSUMED,
 }
+
 
 ## 区分当前由鼠标还是原始触摸手势持有画布输入捕获。
 ## [br]
@@ -230,10 +232,7 @@ const _PLACEMENT_OPERATION_VERSION: int = 1
 ## [br]
 ## @api private
 ## [br]
-const _GRID_OPTION_KEYS: Array[String] = [
-	"rotation_step_radians",
-	"visible",
-]
+const _GRID_OPTION_KEYS: Array[String] = ["rotation_step_radians", "visible",]
 
 ## 资源预算配置接受的选项键白名单。
 ## [br]
@@ -271,17 +270,13 @@ const _PLACEMENT_BEGIN_OPTION_KEYS: Array[String] = [
 ## [br]
 ## @api private
 ## [br]
-const _PLACEMENT_UPDATE_OPTION_KEYS: Array[String] = [
-	"rotation_radians",
-]
+const _PLACEMENT_UPDATE_OPTION_KEYS: Array[String] = ["rotation_radians",]
 
 ## 创建并绘制画布辅助叠层的脚本资源。
 ## [br]
 ## @api private
 ## [br]
-const _OVERLAY_SCRIPT = preload(
-	"res://addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_overlay.gd"
-)
+const _OVERLAY_SCRIPT = preload("res://addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_overlay.gd")
 
 
 # --- 私有变量 ---
@@ -616,16 +611,21 @@ func get_content_root() -> Node2D:
 ## [br]
 ## @return 输入有限且缩放有效时返回 true。
 func set_view(world_center: Vector2, zoom: float) -> bool:
-	if not _is_finite_vector2(world_center) or not _is_finite_float(zoom) or zoom <= 0.0:
+	if (
+		not _is_finite_vector2(world_center)
+		or not _is_finite_float(zoom)
+		or zoom <= 0.0
+	):
 		return false
-	var resolved_zoom: float = clampf(zoom, _min_zoom, _max_zoom)
+	var resolved_zoom: float = clampf(
+		zoom,
+		_min_zoom,
+		_max_zoom
+	)
 	var resolved_center: Vector2 = _clamp_world_center(world_center, resolved_zoom)
 	if not _is_view_state_finite(resolved_center, resolved_zoom):
 		return false
-	var changed: bool = not resolved_center.is_equal_approx(_world_center) or not is_equal_approx(
-		resolved_zoom,
-		_zoom
-	)
+	var changed: bool = (not resolved_center.is_equal_approx(_world_center) or not is_equal_approx(resolved_zoom, _zoom))
 	_world_center = resolved_center
 	_zoom = resolved_zoom
 	_apply_view(changed)
@@ -700,7 +700,13 @@ func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool:
 	if not _is_finite_rect2(bounds):
 		return false
 	var normalized_bounds: Rect2 = _normalize_rect(bounds)
-	if enabled and (normalized_bounds.size.x <= 0.0 or normalized_bounds.size.y <= 0.0):
+	if (
+		enabled
+		and (
+			normalized_bounds.size.x <= 0.0
+			or normalized_bounds.size.y <= 0.0
+		)
+	):
 		return false
 	var previous_bounds: Rect2 = _world_bounds
 	var previous_enabled: bool = _world_bounds_enabled
@@ -728,7 +734,10 @@ func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool:
 func pan_by_canvas_delta(canvas_delta: Vector2) -> bool:
 	if not _is_finite_vector2(canvas_delta) or _zoom <= 0.0:
 		return false
-	return set_view(_world_center - canvas_delta / _zoom, _zoom)
+	return set_view(
+		_world_center - canvas_delta / _zoom,
+		_zoom
+	)
 
 
 ## 围绕指定画布焦点缩放。
@@ -753,7 +762,11 @@ func zoom_at(canvas_position: Vector2, factor: float) -> bool:
 	if not GFVariantData.get_option_bool(world_focus_result, "ok"):
 		return false
 	var world_focus: Vector2 = GFVariantData.get_option_vector2(world_focus_result, "value")
-	var resolved_zoom: float = clampf(_zoom * factor, _min_zoom, _max_zoom)
+	var resolved_zoom: float = clampf(
+		_zoom * factor,
+		_min_zoom,
+		_max_zoom
+	)
 	if not _is_finite_float(resolved_zoom):
 		return false
 	var viewport_center: Vector2 = size * 0.5
@@ -788,7 +801,10 @@ func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -> bool:
 		available_size.x / normalized_rect.size.x,
 		available_size.y / normalized_rect.size.y
 	)
-	return set_view(normalized_rect.get_center(), target_zoom)
+	return set_view(
+		normalized_rect.get_center(),
+		target_zoom
+	)
 
 
 ## 把世界坐标转换为本 Control 的画布坐标。
@@ -834,10 +850,7 @@ func world_to_screen(world_position: Vector2) -> Vector2:
 	var canvas_result: Dictionary = _try_world_to_canvas(world_position)
 	if not GFVariantData.get_option_bool(canvas_result, "ok"):
 		return Vector2.ZERO
-	var screen_position: Vector2 = (
-		get_global_transform_with_canvas()
-		* GFVariantData.get_option_vector2(canvas_result, "value")
-	)
+	var screen_position: Vector2 = (get_global_transform_with_canvas() * GFVariantData.get_option_vector2(canvas_result, "value"))
 	return screen_position if _is_finite_vector2(screen_position) else Vector2.ZERO
 
 
@@ -924,7 +937,11 @@ func configure_grid(
 	_grid_origin = origin
 	_grid_size = cell_size
 	_rotation_step_radians = rotation_step
-	_grid_visible = GFVariantData.get_option_bool(options, "visible", _grid_visible)
+	_grid_visible = GFVariantData.get_option_bool(
+		options,
+		"visible",
+		_grid_visible
+	)
 	_request_overlay_redraw()
 	return true
 
@@ -968,7 +985,10 @@ func world_to_cell(world_position: Vector2) -> Vector2i:
 	var local: Vector2 = world_position - _grid_origin
 	if not _is_finite_vector2(local):
 		return Vector2i.ZERO
-	var scaled: Vector2 = Vector2(local.x / _grid_size.x, local.y / _grid_size.y)
+	var scaled: Vector2 = Vector2(
+		local.x / _grid_size.x,
+		local.y / _grid_size.y
+	)
 	if (
 		not _is_finite_vector2(scaled)
 		or scaled.x < -2147483648.0
@@ -1133,7 +1153,11 @@ func upsert_item(
 	var record: Dictionary = {
 		"id": normalized_id,
 		"bounds": _normalize_rect(world_bounds),
-		"selectable": GFVariantData.get_option_bool(options, "selectable", true),
+		"selectable": GFVariantData.get_option_bool(
+			options,
+			"selectable",
+			true
+		),
 		"selection_priority": GFVariantData.get_option_int(
 			options,
 			"selection_priority",
@@ -1141,13 +1165,12 @@ func upsert_item(
 		),
 		"exact_hit": exact_hit,
 	}
-	if not _query_index.upsert(
-		normalized_id,
-		_get_option_rect2(record, "bounds"),
-		{
-			"selectable": GFVariantData.get_option_bool(record, "selectable"),
-			"selection_priority": GFVariantData.get_option_int(record, "selection_priority"),
-		}
+	if not (
+		_query_index.upsert(
+			normalized_id,
+			_get_option_rect2(record, "bounds"),
+			{ "selectable": GFVariantData.get_option_bool(record, "selectable"), "selection_priority": GFVariantData.get_option_int(record, "selection_priority"), }
+		)
 	):
 		return false
 	_items[normalized_id] = record
@@ -1172,7 +1195,11 @@ func upsert_item(
 ## @return 找到并移除时返回 true。
 func remove_item(item_id: StringName) -> bool:
 	var normalized_id: StringName = _normalize_id(item_id)
-	if _callback_active or normalized_id == &"" or not _items.has(normalized_id):
+	if (
+		_callback_active
+		or normalized_id == &""
+		or not _items.has(normalized_id)
+	):
 		return false
 	var _index_removed: bool = _query_index.remove(normalized_id)
 	var _item_removed: bool = _items.erase(normalized_id)
@@ -1244,11 +1271,12 @@ func query_items_at(world_position: Vector2) -> PackedStringArray:
 ## @param fully_contained: 为 true 时只保留完全位于矩形内的条目。
 ## [br]
 ## @return 匹配的稳定 ID。
-func query_items_in_rect(
-	world_rect: Rect2,
-	fully_contained: bool = false
-) -> PackedStringArray:
-	return _query_items_in_rect_internal(world_rect, fully_contained, false)
+func query_items_in_rect(world_rect: Rect2, fully_contained: bool = false) -> PackedStringArray:
+	return _query_items_in_rect_internal(
+		world_rect,
+		fully_contained,
+		false
+	)
 
 
 ## 按模式更新选择。
@@ -1264,10 +1292,7 @@ func query_items_in_rect(
 ## @param mode: [enum SelectionMode] 值。
 ## [br]
 ## @return 更新后的隔离选择副本。
-func set_selection(
-	item_ids: PackedStringArray,
-	mode: SelectionMode = SelectionMode.REPLACE
-) -> PackedStringArray:
+func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:
 	if (
 		_callback_active
 		or not _is_selection_mode_valid(mode)
@@ -1318,10 +1343,7 @@ func set_selection(
 ## @param mode: [enum SelectionMode] 值。
 ## [br]
 ## @return 更新后的选择。
-func select_point(
-	canvas_position: Vector2,
-	mode: SelectionMode = SelectionMode.REPLACE
-) -> PackedStringArray:
+func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:
 	if not _is_finite_vector2(canvas_position) or not _is_selection_mode_valid(mode):
 		return get_selection()
 	var world_position_result: Dictionary = _try_canvas_to_world(canvas_position)
@@ -1361,14 +1383,16 @@ func select_rect(
 	var normalized_canvas_rect: Rect2 = _normalize_rect(canvas_rect)
 	var world_start_result: Dictionary = _try_canvas_to_world(normalized_canvas_rect.position)
 	var world_end_result: Dictionary = _try_canvas_to_world(normalized_canvas_rect.end)
-	if (
-		not GFVariantData.get_option_bool(world_start_result, "ok")
-		or not GFVariantData.get_option_bool(world_end_result, "ok")
-	):
+	if (not GFVariantData.get_option_bool(world_start_result, "ok") or not GFVariantData.get_option_bool(world_end_result, "ok")):
 		return get_selection()
 	var world_start: Vector2 = GFVariantData.get_option_vector2(world_start_result, "value")
 	var world_end: Vector2 = GFVariantData.get_option_vector2(world_end_result, "value")
-	var world_rect: Rect2 = _normalize_rect(Rect2(world_start, world_end - world_start))
+	var world_rect: Rect2 = _normalize_rect(
+		Rect2(
+			world_start,
+			world_end - world_start
+		)
+	)
 	if not _is_finite_rect2(world_rect):
 		return get_selection()
 	var matches: PackedStringArray = _query_items_in_rect_internal(
@@ -1547,10 +1571,7 @@ func begin_placement(
 ## @schema options: Dictionary，可包含 rotation_radians: float。
 ## [br]
 ## @return 会话活动且输入有限时返回 true。
-func update_placement(
-	world_position: Vector2,
-	options: Dictionary = {}
-) -> bool:
+func update_placement(world_position: Vector2, options: Dictionary = {}) -> bool:
 	if (
 		not has_active_placement()
 		or _callback_active
@@ -1605,7 +1626,11 @@ func commit_placement() -> Dictionary:
 	if not GFVariantData.get_option_bool(validation, "ok"):
 		return _make_placement_report(
 			false,
-			GFVariantData.get_option_string_name(validation, "reason", &"validation_rejected")
+			GFVariantData.get_option_string_name(
+				validation,
+				"reason",
+				&"validation_rejected"
+			)
 		)
 	if not _placement_session_matches(session_id):
 		return _make_placement_report(false, &"placement_changed_during_callback")
@@ -1929,21 +1954,15 @@ func _ensure_gesture_utility() -> void:
 	_gesture_utility.track_mouse_wheel = false
 	_gesture_utility.track_touch = true
 	_gesture_utility.track_gesture_events = true
-	var _gesture_updated_connected: Error = _gesture_utility.gesture_updated.connect(
-		_on_gesture_updated
-	) as Error
-	var _gesture_ended_connected: Error = _gesture_utility.gesture_ended.connect(
-		_on_gesture_ended
-	) as Error
+	var _gesture_updated_connected: Error = _gesture_utility.gesture_updated.connect(_on_gesture_updated) as Error
+	var _gesture_ended_connected: Error = _gesture_utility.gesture_ended.connect(_on_gesture_ended) as Error
 
 
 ## 复制输入策略字段并克隆有上限的选择修饰键绑定。
 ## [br]
 ## @api private
 ## [br]
-func _isolate_input_policy(
-	source: GFSpatialCanvasInputPolicy
-) -> GFSpatialCanvasInputPolicy:
+func _isolate_input_policy(source: GFSpatialCanvasInputPolicy) -> GFSpatialCanvasInputPolicy:
 	if source == null:
 		return null
 	var isolated: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
@@ -1959,22 +1978,15 @@ func _isolate_input_policy(
 		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS
 	)
 	for binding_index: int in range(binding_count):
-		var source_binding: GFSpatialCanvasSelectionModeBinding = (
-			source.selection_modifier_bindings[binding_index]
-		)
+		var source_binding: GFSpatialCanvasSelectionModeBinding = source.selection_modifier_bindings[binding_index]
 		if source_binding == null:
 			isolated.selection_modifier_bindings.append(null)
 			continue
-		var isolated_binding: GFSpatialCanvasSelectionModeBinding = (
-			GFSpatialCanvasSelectionModeBinding.new()
-		)
+		var isolated_binding: GFSpatialCanvasSelectionModeBinding = GFSpatialCanvasSelectionModeBinding.new()
 		isolated_binding.modifier_mask = source_binding.modifier_mask
 		isolated_binding.selection_mode = source_binding.selection_mode
 		isolated.selection_modifier_bindings.append(isolated_binding)
-	if (
-		source.selection_modifier_bindings.size()
-		> GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS
-	):
+	if (source.selection_modifier_bindings.size() > GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS):
 		isolated.selection_modifier_bindings.append(null)
 	isolated.drag_threshold = source.drag_threshold
 	isolated.wheel_axis = source.wheel_axis
@@ -2038,11 +2050,19 @@ func _clamp_world_center(candidate: Vector2, candidate_zoom: float) -> Vector2:
 	if half_visible.x * 2.0 >= _world_bounds.size.x:
 		result.x = _world_bounds.get_center().x
 	else:
-		result.x = clampf(candidate.x, bounds_min.x + half_visible.x, bounds_max.x - half_visible.x)
+		result.x = clampf(
+			candidate.x,
+			bounds_min.x + half_visible.x,
+			bounds_max.x - half_visible.x
+		)
 	if half_visible.y * 2.0 >= _world_bounds.size.y:
 		result.y = _world_bounds.get_center().y
 	else:
-		result.y = clampf(candidate.y, bounds_min.y + half_visible.y, bounds_max.y - half_visible.y)
+		result.y = clampf(
+			candidate.y,
+			bounds_min.y + half_visible.y,
+			bounds_max.y - half_visible.y
+		)
 	return result
 
 
@@ -2163,7 +2183,11 @@ func _try_snap_rotation(rotation_radians: float) -> Dictionary:
 		snapped_rotation = roundf(rotation_units) * _rotation_step_radians
 		if not _is_finite_float(snapped_rotation):
 			return { "ok": false, "value": 0.0 }
-	var wrapped_rotation: float = wrapf(snapped_rotation, -PI, PI)
+	var wrapped_rotation: float = wrapf(
+		snapped_rotation,
+		-PI,
+		PI
+	)
 	if not _is_finite_float(wrapped_rotation):
 		return { "ok": false, "value": 0.0 }
 	return { "ok": true, "value": wrapped_rotation }
@@ -2173,14 +2197,16 @@ func _try_snap_rotation(rotation_radians: float) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-func _query_items_at_internal(
-	world_position: Vector2,
-	selectable_only: bool
-) -> PackedStringArray:
+func _query_items_at_internal(world_position: Vector2, selectable_only: bool) -> PackedStringArray:
 	if not _is_finite_vector2(world_position) or _callback_active:
 		return PackedStringArray()
 	var records: Array[Dictionary] = _query_index.query_records_radius(world_position, 0.0)
-	return _filter_query_records(records, world_position, true, selectable_only)
+	return _filter_query_records(
+		records,
+		world_position,
+		true,
+		selectable_only
+	)
 
 
 ## 查询矩形相交候选，可选要求条目完全包含于查询区域，再执行候选过滤。
@@ -2224,10 +2250,7 @@ func _filter_query_records(
 	apply_exact_hit: bool,
 	selectable_only: bool
 ) -> PackedStringArray:
-	var bounded_records: Array[Dictionary] = _take_bounded_query_records(
-		records,
-		selectable_only
-	)
+	var bounded_records: Array[Dictionary] = _take_bounded_query_records(records, selectable_only)
 	bounded_records.sort_custom(_sort_query_records)
 	var result: PackedStringArray = PackedStringArray()
 	for record: Dictionary in bounded_records:
@@ -2245,10 +2268,7 @@ func _filter_query_records(
 ## [br]
 ## @api private
 ## [br]
-func _take_bounded_query_records(
-	records: Array[Dictionary],
-	selectable_only: bool
-) -> Array[Dictionary]:
+func _take_bounded_query_records(records: Array[Dictionary], selectable_only: bool) -> Array[Dictionary]:
 	var heap: Array[Dictionary] = []
 	var eligible_count: int = 0
 	for record: Dictionary in records:
@@ -2256,12 +2276,19 @@ func _take_bounded_query_records(
 		if item_id == &"" or not _items.has(item_id):
 			continue
 		var item_record: Dictionary = GFVariantData.as_dictionary(_items[item_id])
-		if selectable_only and not GFVariantData.get_option_bool(item_record, "selectable", true):
+		if selectable_only and not GFVariantData.get_option_bool(
+			item_record,
+			"selectable",
+			true
+		):
 			continue
 		eligible_count += 1
 		if heap.size() < _max_query_candidates:
 			_push_query_record_heap(heap, record)
-		elif _sort_query_records(record, heap[0]):
+		elif _sort_query_records(
+			record,
+			heap[0]
+		):
 			heap[0] = record
 			_sift_query_record_heap_down(heap, 0)
 	_last_query_candidate_count = eligible_count
@@ -2278,7 +2305,10 @@ func _push_query_record_heap(heap: Array[Dictionary], record: Dictionary) -> voi
 	var index: int = heap.size() - 1
 	while index > 0:
 		var parent_index: int = (index - 1) >> 1
-		if not _query_record_is_worse(heap[index], heap[parent_index]):
+		if not _query_record_is_worse(
+			heap[index],
+			heap[parent_index]
+		):
 			break
 		var parent_record: Dictionary = heap[parent_index]
 		heap[parent_index] = heap[index]
@@ -2300,10 +2330,16 @@ func _sift_query_record_heap_down(heap: Array[Dictionary], start_index: int) -> 
 		var worse_index: int = left_index
 		if (
 			right_index < heap.size()
-			and _query_record_is_worse(heap[right_index], heap[left_index])
+			and _query_record_is_worse(
+				heap[right_index],
+				heap[left_index]
+			)
 		):
 			worse_index = right_index
-		if not _query_record_is_worse(heap[worse_index], heap[index]):
+		if not _query_record_is_worse(
+			heap[worse_index],
+			heap[index]
+		):
 			return
 		var current_record: Dictionary = heap[index]
 		heap[index] = heap[worse_index]
@@ -2349,7 +2385,11 @@ func _record_item_id(record: Dictionary) -> StringName:
 ## [br]
 func _item_exact_hit(item_record: Dictionary, world_position: Vector2) -> bool:
 	var callback: Callable = _get_callable_value(
-		GFVariantData.get_option_value(item_record, "exact_hit", Callable())
+		GFVariantData.get_option_value(
+			item_record,
+			"exact_hit",
+			Callable()
+		)
 	)
 	if callback.is_null():
 		return true
@@ -2376,10 +2416,18 @@ func _normalize_selectable_ids(item_ids: PackedStringArray) -> PackedStringArray
 	var seen: Dictionary = {}
 	for item_text: String in item_ids:
 		var item_id: StringName = _normalize_id(StringName(item_text))
-		if item_id == &"" or seen.has(item_id) or not _items.has(item_id):
+		if (
+			item_id == &""
+			or seen.has(item_id)
+			or not _items.has(item_id)
+		):
 			continue
 		var item_record: Dictionary = GFVariantData.as_dictionary(_items[item_id])
-		if not GFVariantData.get_option_bool(item_record, "selectable", true):
+		if not GFVariantData.get_option_bool(
+			item_record,
+			"selectable",
+			true
+		):
 			continue
 		seen[item_id] = true
 		var _selectable_added: bool = result.append(String(item_id))
@@ -2416,11 +2464,12 @@ func _item_public_snapshot(item_record: Dictionary) -> Dictionary:
 	return {
 		"id": GFVariantData.get_option_string_name(item_record, "id"),
 		"bounds": _get_option_rect2(item_record, "bounds"),
-		"selectable": GFVariantData.get_option_bool(item_record, "selectable", true),
-		"selection_priority": GFVariantData.get_option_int(
+		"selectable": GFVariantData.get_option_bool(
 			item_record,
-			"selection_priority"
+			"selectable",
+			true
 		),
+		"selection_priority": GFVariantData.get_option_int(item_record, "selection_priority"),
 	}
 
 
@@ -2429,18 +2478,9 @@ func _item_public_snapshot(item_record: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _resolve_placement_geometry(candidate_placement: Dictionary) -> bool:
-	var world_position: Vector2 = GFVariantData.get_option_vector2(
-		candidate_placement,
-		"world_position"
-	)
-	var rotation_radians: float = GFVariantData.get_option_float(
-		candidate_placement,
-		"rotation_radians"
-	)
-	if (
-		not _is_finite_vector2(world_position)
-		or not _is_finite_float(rotation_radians)
-	):
+	var world_position: Vector2 = GFVariantData.get_option_vector2(candidate_placement, "world_position")
+	var rotation_radians: float = GFVariantData.get_option_float(candidate_placement, "rotation_radians")
+	if (not _is_finite_vector2(world_position) or not _is_finite_float(rotation_radians)):
 		return false
 	if GFVariantData.get_option_bool(candidate_placement, "snap_to_grid"):
 		var position_result: Dictionary = _try_snap_world_position(world_position)
@@ -2487,12 +2527,14 @@ func _try_transformed_rect_bounds(
 		or not _is_finite_vector2(transform.origin)
 	):
 		return { "ok": false, "value": Rect2() }
-	var corners: PackedVector2Array = PackedVector2Array([
-		transform * rect.position,
-		transform * Vector2(rect.end.x, rect.position.y),
-		transform * rect.end,
-		transform * Vector2(rect.position.x, rect.end.y),
-	])
+	var corners: PackedVector2Array = PackedVector2Array(
+		[
+			transform * rect.position,
+			transform * Vector2(rect.end.x, rect.position.y),
+			transform * rect.end,
+			transform * Vector2(rect.position.x, rect.end.y),
+		]
+	)
 	var minimum: Vector2 = corners[0]
 	var maximum: Vector2 = corners[0]
 	for corner: Vector2 in corners:
@@ -2500,7 +2542,10 @@ func _try_transformed_rect_bounds(
 			return { "ok": false, "value": Rect2() }
 		minimum = minimum.min(corner)
 		maximum = maximum.max(corner)
-	var result: Rect2 = Rect2(minimum, maximum - minimum)
+	var result: Rect2 = Rect2(
+		minimum,
+		maximum - minimum
+	)
 	if not _is_finite_rect2(result):
 		return { "ok": false, "value": Rect2() }
 	return { "ok": true, "value": result }
@@ -2542,10 +2587,7 @@ func _invoke_acceptance_callback(
 	var result: Variant = callback.call(value.duplicate(true))
 	_callback_active = false
 	if result is bool:
-		return {
-			"ok": GFVariantData.to_bool(result),
-			"reason": &"accepted" if GFVariantData.to_bool(result) else default_rejection_reason,
-		}
+		return { "ok": GFVariantData.to_bool(result), "reason": &"accepted" if GFVariantData.to_bool(result) else default_rejection_reason, }
 	if result is Dictionary:
 		var report: Dictionary = GFVariantData.as_dictionary(result)
 		if not _option_is_present_bool(report, "ok"):
@@ -2614,10 +2656,7 @@ func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDispositio
 			_reset_mouse_pan_capture()
 			_release_input_capture(_InputCaptureOwner.MOUSE)
 			return _general_disposition()
-		if (
-			_selection_capture_button != MOUSE_BUTTON_NONE
-			and event.button_index == _selection_capture_button
-		):
+		if (_selection_capture_button != MOUSE_BUTTON_NONE and event.button_index == _selection_capture_button):
 			if _is_finite_vector2(event.position):
 				_finish_selection_capture_at(event.position)
 			else:
@@ -2653,9 +2692,7 @@ func _handle_mouse_button_input(event: InputEventMouseButton) -> InputDispositio
 			return InputDisposition.IGNORED
 		if is_inside_tree():
 			grab_focus()
-		var selection_mode: SelectionMode = _selection_mode_from_modifier_mask(
-			_modifier_mask_from_mouse_event(event)
-		)
+		var selection_mode: SelectionMode = _selection_mode_from_modifier_mask(_modifier_mask_from_mouse_event(event))
 		if not _start_selection_capture(
 			event.position,
 			selection_mode,
@@ -2708,19 +2745,12 @@ func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
 		return InputDisposition.IGNORED
 	if not _wheel_button_matches_axis(event.button_index):
 		return InputDisposition.IGNORED
-	if (
-		_input_policy.wheel_routing
-		== GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED
-		and _modifier_mask_from_mouse_event(event) != _input_policy.wheel_modifier_mask
-	):
+	if (_input_policy.wheel_routing == GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED and _modifier_mask_from_mouse_event(event) != _input_policy.wheel_modifier_mask):
 		return InputDisposition.IGNORED
 	var factor: float = pow(_input_policy.wheel_zoom_factor, event.factor)
 	if not _is_finite_float(factor) or factor <= 0.0:
 		return InputDisposition.IGNORED
-	if (
-		event.button_index == MOUSE_BUTTON_WHEEL_DOWN
-		or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT
-	):
+	if (event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT):
 		factor = 1.0 / factor
 	if not zoom_at(event.position, factor):
 		return InputDisposition.IGNORED
@@ -2734,11 +2764,7 @@ func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
 func _handle_screen_touch_input(event: InputEventScreenTouch) -> InputDisposition:
 	if not _input_policy.touch_enabled:
 		return InputDisposition.IGNORED
-	if (
-		_input_policy.touch_primary_behavior
-		== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.NONE
-		and not _has_raw_touch_multi_behavior()
-	):
+	if (_input_policy.touch_primary_behavior == GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.NONE and not _has_raw_touch_multi_behavior()):
 		return InputDisposition.IGNORED
 	var tracked: bool = _gesture_tracks_pointer(event.index)
 	if not _is_finite_vector2(event.position):
@@ -2760,15 +2786,9 @@ func _handle_screen_touch_input(event: InputEventScreenTouch) -> InputDispositio
 		if active_pointer_count > 0:
 			if not _has_raw_touch_multi_behavior():
 				return InputDisposition.IGNORED
-			if (
-				_input_policy.touch_primary_behavior
-				== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
-			):
+			if _input_policy.touch_primary_behavior == GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT:
 				_reset_selection_capture()
-		elif (
-			_input_policy.touch_primary_behavior
-			== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
-		):
+		elif _input_policy.touch_primary_behavior == GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT:
 			if not _start_selection_capture(
 				event.position,
 				_input_policy.selection_default_mode,
@@ -2826,10 +2846,7 @@ func _handle_screen_drag_input(event: InputEventScreenDrag) -> InputDisposition:
 func _handle_system_gesture_input(event: InputEvent) -> InputDisposition:
 	var pan_gesture: InputEventPanGesture = event as InputEventPanGesture
 	if pan_gesture != null:
-		if (
-			not _is_finite_vector2(pan_gesture.position)
-			or not _is_finite_vector2(pan_gesture.delta)
-		):
+		if (not _is_finite_vector2(pan_gesture.position) or not _is_finite_vector2(pan_gesture.delta)):
 			return InputDisposition.IGNORED
 	var magnify_gesture: InputEventMagnifyGesture = event as InputEventMagnifyGesture
 	if magnify_gesture != null:
@@ -2882,19 +2899,13 @@ func _finish_selection_capture_at(canvas_position: Vector2) -> void:
 		_selection_drag_end = canvas_position
 		var drag_size: float = _selection_drag_start.distance_to(_selection_drag_end)
 		if drag_size <= _input_policy.drag_threshold:
-			var _selected_point: PackedStringArray = select_point(
-				_selection_drag_end,
-				_selection_drag_mode
-			)
+			var _selected_point: PackedStringArray = select_point(_selection_drag_end, _selection_drag_mode)
 		else:
 			var drag_rect: Rect2 = Rect2(
 				_selection_drag_start,
 				_selection_drag_end - _selection_drag_start
 			)
-			var _selected_rect: PackedStringArray = select_rect(
-				drag_rect,
-				_selection_drag_mode
-			)
+			var _selected_rect: PackedStringArray = select_rect(drag_rect, _selection_drag_mode)
 	_reset_selection_capture()
 
 
@@ -2905,19 +2916,10 @@ func _finish_selection_capture_at(canvas_position: Vector2) -> void:
 func _handle_canceled_input_event(event: InputEvent) -> InputDisposition:
 	var mouse_button: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_button != null:
-		if (
-			_input_capture_owner != _InputCaptureOwner.MOUSE
-			or mouse_button.device != _input_capture_device
-		):
+		if (_input_capture_owner != _InputCaptureOwner.MOUSE or mouse_button.device != _input_capture_device):
 			return InputDisposition.IGNORED
-		var matches_pan: bool = (
-			_mouse_pan_active
-			and mouse_button.button_index == _mouse_pan_button
-		)
-		var matches_selection: bool = (
-			_selection_capture_button != MOUSE_BUTTON_NONE
-			and mouse_button.button_index == _selection_capture_button
-		)
+		var matches_pan: bool = (_mouse_pan_active and mouse_button.button_index == _mouse_pan_button)
+		var matches_selection: bool = (_selection_capture_button != MOUSE_BUTTON_NONE and mouse_button.button_index == _selection_capture_button)
 		if not matches_pan and not matches_selection:
 			return InputDisposition.IGNORED
 		_reset_transient_input()
@@ -2943,9 +2945,7 @@ func _update_placement_from_canvas_position(canvas_position: Vector2) -> bool:
 	var world_position_result: Dictionary = _try_canvas_to_world(canvas_position)
 	if not GFVariantData.get_option_bool(world_position_result, "ok"):
 		return false
-	return update_placement(
-		GFVariantData.get_option_vector2(world_position_result, "value")
-	)
+	return update_placement(GFVariantData.get_option_vector2(world_position_result, "value"))
 
 
 ## 返回第一个精确修饰键绑定的选择模式，未匹配时返回默认模式。
@@ -2981,10 +2981,7 @@ func _matches_pointer_press(
 ## [br]
 func _matches_pan_press(event: InputEventMouseButton) -> bool:
 	if _input_policy.pan_mouse_button != MOUSE_BUTTON_NONE:
-		return (
-			event.button_index == _input_policy.pan_mouse_button
-			and _modifier_mask_from_mouse_event(event) == _input_policy.pan_modifier_mask
-		)
+		return (event.button_index == _input_policy.pan_mouse_button and _modifier_mask_from_mouse_event(event) == _input_policy.pan_modifier_mask)
 	if _input_policy.pan_action == &"":
 		return false
 	return _runtime_pointer_action_matches(event, _input_policy.pan_action)
@@ -3012,10 +3009,7 @@ func _matches_cancel_action(event: InputEvent) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _runtime_pointer_action_matches(
-	event: InputEventMouseButton,
-	action: StringName
-) -> bool:
+func _runtime_pointer_action_matches(event: InputEventMouseButton, action: StringName) -> bool:
 	if action == &"" or not InputMap.has_action(action):
 		return false
 	var action_events: Array[InputEvent] = InputMap.action_get_events(action)
@@ -3026,15 +3020,16 @@ func _runtime_pointer_action_matches(
 		if not action_event is InputEventMouseButton:
 			continue
 		var mouse_action_event: InputEventMouseButton = action_event
-		if (
-			not _is_mouse_wheel_button(mouse_action_event.button_index)
-			and mouse_action_event.button_index != MOUSE_BUTTON_NONE
-		):
+		if (not _is_mouse_wheel_button(mouse_action_event.button_index) and mouse_action_event.button_index != MOUSE_BUTTON_NONE):
 			has_pointer_event = true
 			break
 	if not has_pointer_event:
 		return false
-	return event.is_action_pressed(action, false, true)
+	return event.is_action_pressed(
+		action,
+		false,
+		true
+	)
 
 
 ## 检查取消 action 存在且事件列表中没有指针事件。
@@ -3126,10 +3121,7 @@ func _gesture_tracks_pointer(pointer_index: int) -> bool:
 ## @api private
 ## [br]
 func _has_raw_touch_multi_behavior() -> bool:
-	return (
-		_input_policy.touch_multi_pan_enabled
-		or _input_policy.touch_multi_zoom_enabled
-	)
+	return (_input_policy.touch_multi_pan_enabled or _input_policy.touch_multi_zoom_enabled)
 
 
 ## 空闲时记录捕获类别和设备；后续仅允许同一类别与设备继续持有。
@@ -3162,7 +3154,10 @@ func _release_input_capture(capture_owner: _InputCaptureOwner) -> void:
 func _input_capture_conflicts_with_event(event: InputEvent) -> bool:
 	if _input_capture_owner == _InputCaptureOwner.MOUSE:
 		return (
-			(event is InputEventMouse and event.device != _input_capture_device)
+			(
+				event is InputEventMouse
+				and event.device != _input_capture_device
+			)
 			or event is InputEventScreenTouch
 			or event is InputEventScreenDrag
 			or event is InputEventPanGesture
@@ -3171,7 +3166,10 @@ func _input_capture_conflicts_with_event(event: InputEvent) -> bool:
 	if _input_capture_owner == _InputCaptureOwner.RAW_TOUCH:
 		return (
 			(
-				(event is InputEventScreenTouch or event is InputEventScreenDrag)
+				(
+					event is InputEventScreenTouch
+					or event is InputEventScreenDrag
+				)
 				and event.device != _input_capture_device
 			)
 			or event is InputEventMouse
@@ -3214,12 +3212,6 @@ func _wheel_disposition() -> InputDisposition:
 	if _input_policy.consume_wheel_events:
 		return InputDisposition.CONSUMED
 	return InputDisposition.HANDLED
-
-
-
-
-
-
 
 
 ## 清除捕获、平移、选择和手势状态，并重置手势工具。
@@ -3287,13 +3279,14 @@ func _draw_grid_overlay(target: Control) -> void:
 	if not _grid_visible or _zoom <= 0.0:
 		return
 	var visible_rect: Rect2 = get_visible_world_rect()
-	var start_x: float = _grid_origin.x + floorf(
-		(visible_rect.position.x - _grid_origin.x) / _grid_size.x
-	) * _grid_size.x
-	var start_y: float = _grid_origin.y + floorf(
-		(visible_rect.position.y - _grid_origin.y) / _grid_size.y
-	) * _grid_size.y
-	var line_color: Color = Color(0.55, 0.65, 0.8, 0.22)
+	var start_x: float = (_grid_origin.x + (floorf((visible_rect.position.x - _grid_origin.x) / _grid_size.x) * _grid_size.x))
+	var start_y: float = (_grid_origin.y + (floorf((visible_rect.position.y - _grid_origin.y) / _grid_size.y) * _grid_size.y))
+	var line_color: Color = Color(
+		0.55,
+		0.65,
+		0.8,
+		0.22
+	)
 	var x: float = start_x
 	while x <= visible_rect.end.x and _last_grid_line_count < _max_grid_lines:
 		target.draw_line(
@@ -3323,14 +3316,24 @@ func _draw_grid_overlay(target: Control) -> void:
 func _draw_selection_overlay(target: Control) -> void:
 	if not _selected_item_outlines_visible:
 		return
-	var color: Color = Color(0.25, 0.72, 1.0, 0.95)
+	var color: Color = Color(
+		0.25,
+		0.72,
+		1.0,
+		0.95
+	)
 	for item_text: String in _selected_ids:
 		var item_id: StringName = StringName(item_text)
 		if not _items.has(item_id):
 			continue
 		var item_record: Dictionary = GFVariantData.as_dictionary(_items[item_id])
 		var world_rect: Rect2 = _get_option_rect2(item_record, "bounds")
-		target.draw_rect(_world_rect_to_canvas_rect(world_rect), color, false, 2.0)
+		target.draw_rect(
+			_world_rect_to_canvas_rect(world_rect),
+			color,
+			false,
+			2.0
+		)
 
 
 ## 将活动放置 footprint 四角变换到画布并绘制预览轮廓。
@@ -3341,20 +3344,28 @@ func _draw_placement_overlay(target: Control) -> void:
 	if not has_active_placement():
 		return
 	var footprint: Rect2 = _get_option_rect2(_placement, "footprint")
-	var world_position: Vector2 = GFVariantData.get_option_vector2(
-		_placement,
-		"world_position"
-	)
+	var world_position: Vector2 = GFVariantData.get_option_vector2(_placement, "world_position")
 	var rotation_radians: float = GFVariantData.get_option_float(_placement, "rotation_radians")
 	var transform: Transform2D = Transform2D(rotation_radians, world_position)
-	var points: PackedVector2Array = PackedVector2Array([
-		world_to_canvas(transform * footprint.position),
-		world_to_canvas(transform * Vector2(footprint.end.x, footprint.position.y)),
-		world_to_canvas(transform * footprint.end),
-		world_to_canvas(transform * Vector2(footprint.position.x, footprint.end.y)),
-		world_to_canvas(transform * footprint.position),
-	])
-	target.draw_polyline(points, Color(0.35, 1.0, 0.55, 0.95), 2.0)
+	var points: PackedVector2Array = PackedVector2Array(
+		[
+			world_to_canvas(transform * footprint.position),
+			world_to_canvas(transform * Vector2(footprint.end.x, footprint.position.y)),
+			world_to_canvas(transform * footprint.end),
+			world_to_canvas(transform * Vector2(footprint.position.x, footprint.end.y)),
+			world_to_canvas(transform * footprint.position),
+		]
+	)
+	target.draw_polyline(
+		points,
+		Color(
+			0.35,
+			1.0,
+			0.55,
+			0.95
+		),
+		2.0
+	)
 
 
 ## 拖动选择活动时绘制规范化的选择矩形。
@@ -3366,9 +3377,17 @@ func _draw_selection_drag_overlay(target: Control) -> void:
 		return
 	target.draw_rect(
 		_normalize_rect(
-			Rect2(_selection_drag_start, _selection_drag_end - _selection_drag_start)
+			Rect2(
+				_selection_drag_start,
+				_selection_drag_end - _selection_drag_start
+			)
 		),
-		Color(0.2, 0.65, 1.0, 0.8),
+		Color(
+			0.2,
+			0.65,
+			1.0,
+			0.8
+		),
 		false,
 		1.0
 	)
@@ -3381,7 +3400,12 @@ func _draw_selection_drag_overlay(target: Control) -> void:
 func _world_rect_to_canvas_rect(world_rect: Rect2) -> Rect2:
 	var start: Vector2 = world_to_canvas(world_rect.position)
 	var finish: Vector2 = world_to_canvas(world_rect.end)
-	return _normalize_rect(Rect2(start, finish - start))
+	return _normalize_rect(
+		Rect2(
+			start,
+			finish - start
+		)
+	)
 
 
 ## 用包含边界的比较判断外矩形是否完全包住内矩形。
@@ -3467,7 +3491,13 @@ func _is_finite_rect2(value: Rect2) -> bool:
 ## @api private
 ## [br]
 func _get_callable_option(options: Dictionary, key: String) -> Callable:
-	return _get_callable_value(GFVariantData.get_option_value(options, key, Callable()))
+	return _get_callable_value(
+		GFVariantData.get_option_value(
+			options,
+			key,
+			Callable()
+		)
+	)
 
 
 ## 读取指定选项的 Rect2；字段缺失或类型不符时返回默认矩形。
@@ -3479,7 +3509,11 @@ func _get_option_rect2(
 	key: Variant,
 	default_value: Rect2 = Rect2()
 ) -> Rect2:
-	var value: Variant = GFVariantData.get_option_value(options, key, default_value)
+	var value: Variant = GFVariantData.get_option_value(
+		options,
+		key,
+		default_value
+	)
 	if value is Rect2:
 		var rect: Rect2 = value
 		return rect
@@ -3501,10 +3535,7 @@ func _get_callable_value(value: Variant) -> Callable:
 ## [br]
 ## @api private
 ## [br]
-func _options_have_only_known_keys(
-	options: Dictionary,
-	known_keys: Array[String]
-) -> bool:
+func _options_have_only_known_keys(options: Dictionary, known_keys: Array[String]) -> bool:
 	var seen_keys: Dictionary = {}
 	for raw_key: Variant in options.keys():
 		var normalized_key: String = ""
@@ -3601,10 +3632,7 @@ func _vector_to_json(value: Vector2) -> Dictionary:
 ## @api private
 ## [br]
 func _rect_to_json(value: Rect2) -> Dictionary:
-	return {
-		"position": _vector_to_json(value.position),
-		"size": _vector_to_json(value.size),
-	}
+	return { "position": _vector_to_json(value.position), "size": _vector_to_json(value.size), }
 
 
 # --- 信号处理函数 ---
@@ -3626,20 +3654,23 @@ func _on_gesture_updated(snapshot: Dictionary, _event: InputEvent) -> void:
 			apply_pan = _input_policy.touch_multi_pan_enabled
 			apply_zoom = _input_policy.touch_multi_zoom_enabled
 		else:
-			apply_pan = (
-				_input_policy.touch_primary_behavior
-				== GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN
-			)
+			apply_pan = (_input_policy.touch_primary_behavior == GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN)
 			apply_zoom = false
 	var pan_delta: Vector2 = GFVariantData.get_option_vector2(snapshot, "pan_delta")
-	var scale_factor: float = GFVariantData.get_option_float(snapshot, "scale", 1.0)
-	var center: Vector2 = GFVariantData.get_option_vector2(snapshot, "center", size * 0.5)
+	var scale_factor: float = GFVariantData.get_option_float(
+		snapshot,
+		"scale",
+		1.0
+	)
+	var center: Vector2 = GFVariantData.get_option_vector2(
+		snapshot,
+		"center",
+		size * 0.5
+	)
 	if apply_pan and not pan_delta.is_zero_approx():
 		var _panned: bool = pan_by_canvas_delta(pan_delta)
 	if apply_zoom and not is_equal_approx(scale_factor, 1.0):
 		var _zoomed: bool = zoom_at(center, scale_factor)
-
-
 
 
 ## 清除手势活跃标志并释放 RAW_TOUCH 的输入占用，不释放其他输入来源的捕获。
@@ -3648,8 +3679,6 @@ func _on_gesture_updated(snapshot: Dictionary, _event: InputEvent) -> void:
 func _on_gesture_ended(_snapshot: Dictionary) -> void:
 	_gesture_active = false
 	_release_input_capture(_InputCaptureOwner.RAW_TOUCH)
-
-
 
 
 ## 焦点离开时清除临时输入状态，防止未收到释放事件的拖动或手势延续。

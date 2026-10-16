@@ -29,7 +29,7 @@ Godot Object 属性访问辅助。 集中处理属性列表查询、属性路径
 | 方法 | [`value_matches_property_type`](#member-gfobjectpropertytools-methods-value_matches_property_type) | `static func value_matches_property_type(value: Variant, property_type: int) -> bool:` |
 | 方法 | [`coerce_property_value`](#member-gfobjectpropertytools-methods-coerce_property_value) | `static func coerce_property_value(value: Variant, property_type: int) -> Variant:` |
 | 方法 | [`object_to_dictionary`](#member-gfobjectpropertytools-methods-object_to_dictionary) | `static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`apply_dictionary`](#member-gfobjectpropertytools-methods-apply_dictionary) | `static func apply_dictionary(object: Object, values: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`apply_dictionary`](#member-gfobjectpropertytools-methods-apply_dictionary) | `static func apply_dictionary( object: Object, values: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_root_property_name`](#member-gfobjectpropertytools-methods-get_root_property_name) | `static func get_root_property_name(property_path: NodePath) -> StringName:` |
 
 ## 方法
@@ -390,7 +390,7 @@ static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Di
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func apply_dictionary(object: Object, values: Dictionary, options: Dictionary = {}) -> Dictionary:
+static func apply_dictionary( object: Object, values: Dictionary, options: Dictionary = {} ) -> Dictionary:
 ```
 
 将 Dictionary 字段批量写回对象属性。

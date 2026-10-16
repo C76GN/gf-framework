@@ -29,7 +29,7 @@
 | 属性 | [`modifiers`](#member-gfcombatgauge-properties-modifiers) | `var modifiers: Array[GFCombatActionModifier] = []` |
 | 属性 | [`metadata`](#member-gfcombatgauge-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`validation_callback`](#member-gfcombatgauge-properties-validation_callback) | `var validation_callback: Callable = Callable()` |
-| 方法 | [`configure`](#member-gfcombatgauge-methods-configure) | `func configure(p_min_value: float, p_max_value: float, p_current_value: float) -> void:` |
+| 方法 | [`configure`](#member-gfcombatgauge-methods-configure) | `func configure( p_min_value: float, p_max_value: float, p_current_value: float ) -> void:` |
 | 方法 | [`set_value`](#member-gfcombatgauge-methods-set_value) | `func set_value(value: float) -> void:` |
 | 方法 | [`set_bounds`](#member-gfcombatgauge-methods-set_bounds) | `func set_bounds(p_min_value: float, p_max_value: float) -> void:` |
 | 方法 | [`get_ratio`](#member-gfcombatgauge-methods-get_ratio) | `func get_ratio() -> float:` |
@@ -267,9 +267,10 @@ var validation_callback: Callable = Callable()
 ### `configure`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func configure(p_min_value: float, p_max_value: float, p_current_value: float) -> void:
+func configure( p_min_value: float, p_max_value: float, p_current_value: float ) -> void:
 ```
 
 配置数值槽。

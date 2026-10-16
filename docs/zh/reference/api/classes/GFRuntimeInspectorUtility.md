@@ -17,7 +17,7 @@
 |---|---|---|
 | 信号 | [`target_registered`](#member-gfruntimeinspectorutility-signals-target_registered) | `signal target_registered(target_id: StringName)` |
 | 信号 | [`target_unregistered`](#member-gfruntimeinspectorutility-signals-target_unregistered) | `signal target_unregistered(target_id: StringName)` |
-| 信号 | [`property_changed`](#member-gfruntimeinspectorutility-signals-property_changed) | `signal property_changed(target_id: StringName, property_id: StringName, old_value: Variant, new_value: Variant)` |
+| 信号 | [`property_changed`](#member-gfruntimeinspectorutility-signals-property_changed) | `signal property_changed( target_id: StringName, property_id: StringName, old_value: Variant, new_value: Variant )` |
 | 属性 | [`allow_writes`](#member-gfruntimeinspectorutility-properties-allow_writes) | `var allow_writes: bool = true` |
 | 属性 | [`debug_build_writes_only`](#member-gfruntimeinspectorutility-properties-debug_build_writes_only) | `var debug_build_writes_only: bool = true` |
 | 方法 | [`dispose`](#member-gfruntimeinspectorutility-methods-dispose) | `func dispose() -> void:` |
@@ -28,7 +28,7 @@
 | 方法 | [`remove_property`](#member-gfruntimeinspectorutility-methods-remove_property) | `func remove_property(target_id: StringName, property_id: StringName) -> bool:` |
 | 方法 | [`get_target_ids`](#member-gfruntimeinspectorutility-methods-get_target_ids) | `func get_target_ids(include_hidden: bool = false) -> PackedStringArray:` |
 | 方法 | [`get_property_value`](#member-gfruntimeinspectorutility-methods-get_property_value) | `func get_property_value(target_id: StringName, property_id: StringName) -> Variant:` |
-| 方法 | [`set_property_value`](#member-gfruntimeinspectorutility-methods-set_property_value) | `func set_property_value(target_id: StringName, property_id: StringName, value: Variant) -> bool:` |
+| 方法 | [`set_property_value`](#member-gfruntimeinspectorutility-methods-set_property_value) | `func set_property_value( target_id: StringName, property_id: StringName, value: Variant ) -> bool:` |
 | 方法 | [`get_target_snapshot`](#member-gfruntimeinspectorutility-methods-get_target_snapshot) | `func get_target_snapshot(include_hidden: bool = false) -> Array[Dictionary]:` |
 | 方法 | [`clear_targets`](#member-gfruntimeinspectorutility-methods-clear_targets) | `func clear_targets() -> void:` |
 | 方法 | [`attach_to_debug_overlay`](#member-gfruntimeinspectorutility-methods-attach_to_debug_overlay) | `func attach_to_debug_overlay(panel_id: StringName = &"gf.runtime_inspector") -> bool:` |
@@ -79,9 +79,10 @@ signal target_unregistered(target_id: StringName)
 ### `property_changed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-signal property_changed(target_id: StringName, property_id: StringName, old_value: Variant, new_value: Variant)
+signal property_changed( target_id: StringName, property_id: StringName, old_value: Variant, new_value: Variant )
 ```
 
 属性成功写入后发出。
@@ -303,7 +304,7 @@ func get_property_value(target_id: StringName, property_id: StringName) -> Varia
 - 首次版本：`11.0.0`
 
 ```gdscript
-func set_property_value(target_id: StringName, property_id: StringName, value: Variant) -> bool:
+func set_property_value( target_id: StringName, property_id: StringName, value: Variant ) -> bool:
 ```
 
 写入目标属性。

@@ -25,7 +25,7 @@
 | 常量 | [`OWNER_EXTERNAL`](#member-gfgeneratedartifactreport-constants-owner_external) | `const OWNER_EXTERNAL: StringName = &"external"` |
 | 方法 | [`make_report`](#member-gfgeneratedartifactreport-methods-make_report) | `static func make_report( output_path: String, status: StringName, error_code: Error = OK, message: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`summarize_reports`](#member-gfgeneratedartifactreport-methods-summarize_reports) | `static func summarize_reports( reports: Array[Dictionary], subject: String = "", options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`save_text`](#member-gfgeneratedartifactreport-methods-save_text) | `static func save_text(output_path: String, text: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`save_text`](#member-gfgeneratedartifactreport-methods-save_text) | `static func save_text( output_path: String, text: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_error_code`](#member-gfgeneratedartifactreport-methods-get_error_code) | `static func get_error_code(report: Dictionary) -> Error:` |
 
 ## 常量
@@ -203,7 +203,7 @@ static func summarize_reports( reports: Array[Dictionary], subject: String = "",
 - 首次版本：`6.0.0`
 
 ```gdscript
-static func save_text(output_path: String, text: String, options: Dictionary = {}) -> Dictionary:
+static func save_text( output_path: String, text: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
 保存文本产物并返回统一报告。 dry_run 为 true 时只比较目标文件状态，不创建目录或写入文件。 overwrite_existing 为 false 且目标文件需要改写时返回 skipped / ERR_ALREADY_EXISTS。

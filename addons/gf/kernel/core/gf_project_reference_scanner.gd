@@ -27,7 +27,6 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## @api private
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 
-
 ## Godot 依赖图确认的资源引用。
 ## [br]
 ## @api public
@@ -154,10 +153,7 @@ const TEXT_FILE_EXTENSIONS: Array[String] = [
 ## 通过 ResourceLoader 依赖图处理的二进制资源扩展名。
 ## [br]
 ## @api private
-const _BINARY_RESOURCE_EXTENSIONS: Array[String] = [
-	"res",
-	"scn",
-]
+const _BINARY_RESOURCE_EXTENSIONS: Array[String] = ["res", "scn",]
 
 ## 接受二进制资源头时要求的最小文件字节数。
 ## [br]
@@ -188,11 +184,15 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 	var scan_state: Dictionary = _make_scan_state(options)
 	scan_state["input_target_count"] = targets.size()
 	var scan_targets: Array[Dictionary] = _normalize_targets(targets, scan_state)
-	if (
-		scan_targets.is_empty()
-		or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "target_preflight_failed")
-	):
-		return _make_scan_report(scan_targets, [], [], {}, {}, scan_state)
+	if (scan_targets.is_empty() or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "target_preflight_failed")):
+		return _make_scan_report(
+			scan_targets,
+			[],
+			[],
+			{},
+			{},
+			scan_state
+		)
 
 	var references_by_target: Array[Array] = []
 	var weak_references_by_target: Array[Array] = []
@@ -205,31 +205,53 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 		weak_truncated_by_target.append(false)
 
 	var files: Array[String] = _collect_reference_scan_files(options, scan_state)
-	var max_references: int = maxi(_get_option_int_with_alias(
+	var max_references: int = maxi(
+		_get_option_int_with_alias(
+			options,
+			"max_references_per_target",
+			"max_references_per_extension",
+			50
+		),
+		1
+	)
+	var max_weak_references: int = maxi(
+		_get_option_int_with_alias(
+			options,
+			"max_weak_references_per_target",
+			"max_weak_references_per_extension",
+			max_references
+		),
+		0
+	)
+	var include_weak_references: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		options,
-		"max_references_per_target",
-		"max_references_per_extension",
-		50
-	), 1)
-	var max_weak_references: int = maxi(_get_option_int_with_alias(
+		"include_weak_references",
+		true
+	)
+	var use_resource_dependencies: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		options,
-		"max_weak_references_per_target",
-		"max_weak_references_per_extension",
-		max_references
-	), 0)
-	var include_weak_references: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_weak_references", true)
-	var use_resource_dependencies: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "use_resource_dependencies", true)
+		"use_resource_dependencies",
+		true
+	)
 
 	for path: String in files:
 		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "stop_scan"):
 			break
-		var source_report: Dictionary = _read_scan_source(path, options, scan_state)
+		var source_report: Dictionary = _read_scan_source(
+			path,
+			options,
+			scan_state
+		)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source_report, "ok"):
 			continue
 		var source: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source")
 		var dependency_paths: PackedStringArray = PackedStringArray()
 		if use_resource_dependencies:
-			dependency_paths = _collect_resource_dependency_paths(path, source, scan_state)
+			dependency_paths = _collect_resource_dependency_paths(
+				path,
+				source,
+				scan_state
+			)
 		var source_lines: PackedStringArray = source.split("\n")
 		var gdscript_code_lines: PackedStringArray = PackedStringArray()
 		var gdscript_identifier_lines: PackedStringArray = PackedStringArray()
@@ -237,19 +259,14 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 			for source_line: String in source_lines:
 				var code_line: String = _strip_gdscript_line_comment(source_line)
 				var _appended_code_line: bool = gdscript_code_lines.append(code_line)
-				var _appended_identifier_line: bool = gdscript_identifier_lines.append(
-					_replace_quoted_segments(code_line)
-				)
+				var _appended_identifier_line: bool = gdscript_identifier_lines.append(_replace_quoted_segments(code_line))
 		for index: int in range(scan_targets.size()):
 			var target: Dictionary = scan_targets[index]
 			var references: Array = references_by_target[index]
 			var weak_references: Array = weak_references_by_target[index]
 			if blocking_truncated_by_target[index]:
 				continue
-			var collect_weak_references: bool = (
-				include_weak_references
-				and not weak_truncated_by_target[index]
-			)
+			var collect_weak_references: bool = (include_weak_references and not weak_truncated_by_target[index])
 			var file_report: Dictionary = _collect_file_references_for_target(
 				path,
 				source_lines,
@@ -313,9 +330,7 @@ static func scan_references(targets: Array[Dictionary], options: Dictionary = {}
 				"references": references,
 				"reference_count": references.size(),
 				"truncated": blocking_truncated,
-				"truncation_reason": (
-					"max_references_per_target" if blocking_truncated else ""
-				),
+				"truncation_reason": "max_references_per_target" if blocking_truncated else "",
 			}
 			all_references.append_array(references)
 		if not weak_references.is_empty() or weak_truncated:
@@ -375,22 +390,32 @@ static func scan_root_references(
 	if normalized_root.is_empty():
 		# 保留原始调用目标，让统一 target preflight 输出 invalid_target_root
 		# 并以 partial/ok=false 终结；空 targets 本身是合法的无工作量扫描。
-		return scan_references([{
-			"id": root_path,
-			"root_path": root_path,
-			"class_names": class_names,
-		}], options)
+		return scan_references(
+			[
+				{
+					"id": root_path,
+					"root_path": root_path,
+					"class_names": class_names,
+				},
+			],
+			options
+		)
 
 	var scan_options: Dictionary = options.duplicate(true)
 	var ignored_roots: PackedStringArray = _read_additional_ignored_roots(scan_options)
 	if not ignored_roots.has(normalized_root):
 		var _append_root: bool = ignored_roots.append(normalized_root)
 	scan_options["additional_ignored_roots"] = ignored_roots
-	return scan_references([{
-		"id": normalized_root,
-		"root_path": normalized_root,
-		"class_names": class_names,
-	}], scan_options)
+	return scan_references(
+		[
+			{
+				"id": normalized_root,
+				"root_path": normalized_root,
+				"class_names": class_names,
+			},
+		],
+		scan_options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -398,17 +423,12 @@ static func scan_root_references(
 ## 规范化根路径、补足空 ID、排序 class_names，并报告无效根或重复目标 ID。
 ## [br]
 ## @api private
-static func _normalize_targets(
-	targets: Array[Dictionary],
-	scan_state: Dictionary
-) -> Array[Dictionary]:
+static func _normalize_targets(targets: Array[Dictionary], scan_state: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var target_ids: Dictionary = {}
 	for target_index: int in range(targets.size()):
 		var raw_target: Dictionary = targets[target_index]
-		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(raw_target, "root_path")
-		)
+		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(raw_target, "root_path"))
 		if root_path.is_empty():
 			scan_state["target_preflight_failed"] = true
 			_mark_scan_partial(scan_state)
@@ -439,11 +459,13 @@ static func _normalize_targets(
 		target_ids[target_id] = true
 		var class_names: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(raw_target, "class_names")
 		class_names.sort()
-		result.append({
-			"id": target_id,
-			"root_path": root_path,
-			"class_names": class_names,
-		})
+		result.append(
+			{
+				"id": target_id,
+				"root_path": root_path,
+				"class_names": class_names,
+			}
+		)
 	return result
 
 
@@ -471,16 +493,36 @@ static func _collect_reference_scan_files(options: Dictionary, scan_state: Dicti
 			continue
 		if not scan_roots.has(normalized_scan_root):
 			var _append_scan_root: bool = scan_roots.append(normalized_scan_root)
-	var ignored_roots: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(PackedStringArray(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(options, "ignored_roots", DEFAULT_IGNORED_ROOTS)
-	))
+	var ignored_roots: PackedStringArray = _GF_PATH_TOOLS.normalize_root_paths(
+		PackedStringArray(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(
+				options,
+				"ignored_roots",
+				DEFAULT_IGNORED_ROOTS
+			)
+		)
+	)
 	for ignored_root: String in _read_additional_ignored_roots(options):
 		if ignored_root.is_empty() or ignored_roots.has(ignored_root):
 			continue
 		var _append_ignored_root: bool = ignored_roots.append(ignored_root)
 
-	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_scanned_files: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scanned_files", DEFAULT_MAX_SCANNED_FILES), 0)
+	var max_scan_depth: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_scanned_files: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scanned_files",
+			DEFAULT_MAX_SCANNED_FILES
+		),
+		0
+	)
 	var include_binary_resources: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		options,
 		"use_resource_dependencies",
@@ -531,7 +573,14 @@ static func _collect_scan_files(
 	var dir: DirAccess = DirAccess.open(root_path)
 	if dir == null:
 		_mark_scan_partial(scan_state)
-		_append_skipped_file(root_path, "directory_open_failed", 0, "", 0, scan_state)
+		_append_skipped_file(
+			root_path,
+			"directory_open_failed",
+			0,
+			"",
+			0,
+			scan_state
+		)
 		_append_scan_issue(
 			"scan_root_open_failed" if depth == 0 else "scan_directory_open_failed",
 			root_path,
@@ -557,7 +606,12 @@ static func _collect_scan_files(
 			return
 		var path: String = _GF_PATH_TOOLS.normalize_resource_path(root_path.path_join(entry))
 		if directory_names.has(entry):
-			if _can_scan_deeper(path, depth, max_scan_depth, scan_state):
+			if _can_scan_deeper(
+				path,
+				depth,
+				max_scan_depth,
+				scan_state
+			):
 				_collect_scan_files(
 					path,
 					ignored_roots,
@@ -572,7 +626,10 @@ static func _collect_scan_files(
 			continue
 		if not (
 			_is_text_resource_file(entry)
-			or (include_binary_resources and _is_binary_resource_file(entry))
+			or (
+				include_binary_resources
+				and _is_binary_resource_file(entry)
+			)
 		):
 			continue
 		if seen_files.has(path):
@@ -587,15 +644,23 @@ static func _collect_scan_files(
 ## 在单文件和总字节预算内读取文本，二进制资源仅验证头和可加载性；成功才累加扫描数及声明大小，总预算超限要求停止扫描。
 ## [br]
 ## @api private
-static func _read_scan_source(path: String, options: Dictionary, scan_state: Dictionary) -> Dictionary:
-	var result: Dictionary = {
-		"ok": false,
-		"source": "",
-	}
+static func _read_scan_source(
+	path: String,
+	options: Dictionary,
+	scan_state: Dictionary
+) -> Dictionary:
+	var result: Dictionary = { "ok": false, "source": "", }
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		_mark_scan_partial(scan_state)
-		_append_skipped_file(path, "read_failed", 0, "", 0, scan_state)
+		_append_skipped_file(
+			path,
+			"read_failed",
+			0,
+			"",
+			0,
+			scan_state
+		)
 		_append_scan_issue(
 			"scan_file_open_failed",
 			path,
@@ -606,17 +671,43 @@ static func _read_scan_source(path: String, options: Dictionary, scan_state: Dic
 		return result
 
 	var size_bytes: int = file.get_length()
-	var max_file_bytes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_file_bytes", DEFAULT_MAX_FILE_BYTES), 0)
-	var max_total_bytes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_total_bytes", DEFAULT_MAX_TOTAL_BYTES), 0)
+	var max_file_bytes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_file_bytes",
+			DEFAULT_MAX_FILE_BYTES
+		),
+		0
+	)
+	var max_total_bytes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_total_bytes",
+			DEFAULT_MAX_TOTAL_BYTES
+		),
+		0
+	)
 	if max_file_bytes > 0 and size_bytes > max_file_bytes:
 		file.close()
-		_mark_budget_exceeded(path, "max_file_bytes", size_bytes, max_file_bytes, scan_state)
+		_mark_budget_exceeded(
+			path,
+			"max_file_bytes",
+			size_bytes,
+			max_file_bytes,
+			scan_state
+		)
 		return result
 
 	var scanned_bytes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_bytes")
 	if max_total_bytes > 0 and scanned_bytes + size_bytes > max_total_bytes:
 		file.close()
-		_mark_budget_exceeded(path, "max_total_bytes", scanned_bytes + size_bytes, max_total_bytes, scan_state)
+		_mark_budget_exceeded(
+			path,
+			"max_total_bytes",
+			scanned_bytes + size_bytes,
+			max_total_bytes,
+			scan_state
+		)
 		scan_state["stop_scan"] = true
 		return result
 
@@ -625,13 +716,23 @@ static func _read_scan_source(path: String, options: Dictionary, scan_state: Dic
 		var binary_header: String = header_bytes.get_string_from_ascii()
 		if (
 			header_bytes.size() != 4
-			or (binary_header != "RSRC" and binary_header != "RSCC")
+			or (
+				binary_header != "RSRC"
+				and binary_header != "RSCC"
+			)
 			or size_bytes < _MIN_BINARY_RESOURCE_HEADER_BYTES
 			or not ResourceLoader.exists(path)
 		):
 			file.close()
 			_mark_scan_partial(scan_state)
-			_append_skipped_file(path, "resource_dependencies_unavailable", size_bytes, "", 0, scan_state)
+			_append_skipped_file(
+				path,
+				"resource_dependencies_unavailable",
+				size_bytes,
+				"",
+				0,
+				scan_state
+			)
 			_append_scan_issue(
 				"resource_dependencies_unavailable",
 				path,
@@ -647,7 +748,14 @@ static func _read_scan_source(path: String, options: Dictionary, scan_state: Dic
 		if read_error != OK:
 			file.close()
 			_mark_scan_partial(scan_state)
-			_append_skipped_file(path, "read_failed", size_bytes, "", 0, scan_state)
+			_append_skipped_file(
+				path,
+				"read_failed",
+				size_bytes,
+				"",
+				0,
+				scan_state
+			)
 			_append_scan_issue(
 				"scan_file_read_failed",
 				path,
@@ -681,7 +789,10 @@ static func _collect_file_references_for_target(
 	var result: Dictionary = _make_file_reference_report()
 	if (
 		remaining_blocking < 0
-		and (not include_weak_references or remaining_weak < 0)
+		and (
+			not include_weak_references
+			or remaining_weak < 0
+		)
 	):
 		return result
 
@@ -689,11 +800,20 @@ static func _collect_file_references_for_target(
 	var target_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(target, "id")
 	var class_names: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(target, "class_names")
 	var blocking_references: Array[Dictionary] = []
-	var blocking_probe_limit: int = maxi(remaining_blocking + 1, 1)
+	var blocking_probe_limit: int = maxi(
+		remaining_blocking + 1,
+		1
+	)
 	if use_resource_dependencies:
 		_append_reference_array_unique(
 			blocking_references,
-			_collect_dependency_references(path, dependency_paths, root_path, target_id, blocking_probe_limit),
+			_collect_dependency_references(
+				path,
+				dependency_paths,
+				root_path,
+				target_id,
+				blocking_probe_limit
+			),
 			blocking_probe_limit
 		)
 
@@ -727,13 +847,14 @@ static func _collect_file_references_for_target(
 
 	var blocking_truncated: bool = blocking_references.size() > remaining_blocking
 	if blocking_truncated:
-		var _resize_blocking_result: Variant = blocking_references.resize(
-			maxi(remaining_blocking, 0)
-		)
+		var _resize_blocking_result: Variant = blocking_references.resize(maxi(remaining_blocking, 0))
 	var weak_references: Array[Dictionary] = []
 	var weak_truncated: bool = false
 	if include_weak_references and not blocking_truncated:
-		var weak_probe_limit: int = maxi(remaining_weak + 1, 1)
+		var weak_probe_limit: int = maxi(
+			remaining_weak + 1,
+			1
+		)
 		_collect_weak_text_file_references(
 			path,
 			gdscript_code_lines if extension == "gd" else source_lines,
@@ -746,9 +867,7 @@ static func _collect_file_references_for_target(
 		)
 		weak_truncated = weak_references.size() > remaining_weak
 		if weak_truncated:
-			var _resize_weak_result: Variant = weak_references.resize(
-				maxi(remaining_weak, 0)
-			)
+			var _resize_weak_result: Variant = weak_references.resize(maxi(remaining_weak, 0))
 
 	result["references"] = blocking_references
 	result["weak_references"] = weak_references
@@ -786,18 +905,22 @@ static func _collect_dependency_references(
 	for dependency_path: String in dependency_paths:
 		if dependency_path.is_empty() or not _line_references_root(dependency_path, root_path):
 			continue
-		_append_reference_unique(result, _make_reference(
-			path,
-			0,
-			root_path,
-			target_id,
-			"path",
-			"",
-			root_path,
-			REFERENCE_STRENGTH_VERIFIED,
-			REFERENCE_SOURCE_GODOT_DEPENDENCY,
-			dependency_path
-		), remaining)
+		_append_reference_unique(
+			result,
+			_make_reference(
+				path,
+				0,
+				root_path,
+				target_id,
+				"path",
+				"",
+				root_path,
+				REFERENCE_STRENGTH_VERIFIED,
+				REFERENCE_SOURCE_GODOT_DEPENDENCY,
+				dependency_path
+			),
+			remaining
+		)
 		if result.size() >= remaining:
 			break
 	return result
@@ -828,9 +951,7 @@ static func _collect_resource_dependency_paths(
 		_mark_resource_dependencies_unavailable(path, scan_state)
 		return result
 	for dependency_entry: String in dependency_entries:
-		var dependency_resource_paths: PackedStringArray = _extract_dependency_resource_paths(
-			dependency_entry
-		)
+		var dependency_resource_paths: PackedStringArray = _extract_dependency_resource_paths(dependency_entry)
 		if dependency_resource_paths.is_empty() and not dependency_entry.strip_edges().is_empty():
 			_mark_scan_partial(scan_state)
 			_append_scan_issue(
@@ -851,10 +972,7 @@ static func _collect_resource_dependency_paths(
 ## 将资源依赖不可用记录为 partial scan issue。
 ## [br]
 ## @api private
-static func _mark_resource_dependencies_unavailable(
-	path: String,
-	scan_state: Dictionary
-) -> void:
+static func _mark_resource_dependencies_unavailable(path: String, scan_state: Dictionary) -> void:
 	_mark_scan_partial(scan_state)
 	_append_scan_issue(
 		"resource_dependencies_unavailable",
@@ -884,18 +1002,22 @@ static func _collect_gdscript_file_references(
 	for line_index: int in range(code_lines.size()):
 		var code_line: String = String(code_lines[line_index])
 		if _line_references_root(code_line, root_path) and _line_has_gdscript_path_context(code_line, root_path):
-			_append_reference_unique(result, _make_reference(
-				path,
-				line_index + 1,
-				root_path,
-				target_id,
-				"path",
-				"",
-				root_path,
-				REFERENCE_STRENGTH_STRONG,
-				REFERENCE_SOURCE_GDSCRIPT_LOAD,
-				root_path
-			), remaining)
+			_append_reference_unique(
+				result,
+				_make_reference(
+					path,
+					line_index + 1,
+					root_path,
+					target_id,
+					"path",
+					"",
+					root_path,
+					REFERENCE_STRENGTH_STRONG,
+					REFERENCE_SOURCE_GDSCRIPT_LOAD,
+					root_path
+				),
+				remaining
+			)
 			if result.size() >= remaining:
 				break
 
@@ -903,18 +1025,22 @@ static func _collect_gdscript_file_references(
 		for class_name_value: String in class_names:
 			if not _line_references_identifier(identifier_line, class_name_value):
 				continue
-			_append_reference_unique(result, _make_reference(
-				path,
-				line_index + 1,
-				root_path,
-				target_id,
-				"class_name",
-				class_name_value,
-				class_name_value,
-				REFERENCE_STRENGTH_STRONG,
-				REFERENCE_SOURCE_GDSCRIPT_SYMBOL,
-				class_name_value
-			), remaining)
+			_append_reference_unique(
+				result,
+				_make_reference(
+					path,
+					line_index + 1,
+					root_path,
+					target_id,
+					"class_name",
+					class_name_value,
+					class_name_value,
+					REFERENCE_STRENGTH_STRONG,
+					REFERENCE_SOURCE_GDSCRIPT_SYMBOL,
+					class_name_value
+				),
+				remaining
+			)
 			break
 		if result.size() >= remaining:
 			break
@@ -941,18 +1067,22 @@ static func _collect_resource_text_file_references(
 			continue
 		if not _line_has_resource_path_context(line):
 			continue
-		_append_reference_unique(result, _make_reference(
-			path,
-			line_index + 1,
-			root_path,
-			target_id,
-			"path",
-			"",
-			root_path,
-			REFERENCE_STRENGTH_STRONG,
-			REFERENCE_SOURCE_RESOURCE_TEXT,
-			root_path
-		), remaining)
+		_append_reference_unique(
+			result,
+			_make_reference(
+				path,
+				line_index + 1,
+				root_path,
+				target_id,
+				"path",
+				"",
+				root_path,
+				REFERENCE_STRENGTH_STRONG,
+				REFERENCE_SOURCE_RESOURCE_TEXT,
+				root_path
+			),
+			remaining
+		)
 		if result.size() >= remaining:
 			break
 	return result
@@ -980,33 +1110,43 @@ static func _collect_weak_text_file_references(
 			continue
 
 		if _line_references_root(line, root_path):
-			_append_weak_reference_unique(result, blocking_references, _make_reference(
-				path,
-				line_index + 1,
-				root_path,
-				target_id,
-				"path",
-				"",
-				root_path,
-				REFERENCE_STRENGTH_WEAK,
-				REFERENCE_SOURCE_TEXT_FALLBACK,
-				root_path
-			), max_count)
+			_append_weak_reference_unique(
+				result,
+				blocking_references,
+				_make_reference(
+					path,
+					line_index + 1,
+					root_path,
+					target_id,
+					"path",
+					"",
+					root_path,
+					REFERENCE_STRENGTH_WEAK,
+					REFERENCE_SOURCE_TEXT_FALLBACK,
+					root_path
+				),
+				max_count
+			)
 		for class_name_value: String in class_names:
 			if not _line_references_identifier(line, class_name_value):
 				continue
-			_append_weak_reference_unique(result, blocking_references, _make_reference(
-				path,
-				line_index + 1,
-				root_path,
-				target_id,
-				"class_name",
-				class_name_value,
-				class_name_value,
-				REFERENCE_STRENGTH_WEAK,
-				REFERENCE_SOURCE_TEXT_FALLBACK,
-				class_name_value
-			), max_count)
+			_append_weak_reference_unique(
+				result,
+				blocking_references,
+				_make_reference(
+					path,
+					line_index + 1,
+					root_path,
+					target_id,
+					"class_name",
+					class_name_value,
+					class_name_value,
+					REFERENCE_STRENGTH_WEAK,
+					REFERENCE_SOURCE_TEXT_FALLBACK,
+					class_name_value
+				),
+				max_count
+			)
 			break
 		if result.size() >= max_count:
 			break
@@ -1043,7 +1183,8 @@ static func _make_reference(
 		"source": String(source),
 		"evidence": evidence,
 		"blocking": strength == REFERENCE_STRENGTH_VERIFIED or strength == REFERENCE_STRENGTH_STRONG,
-		"preview": "%s reference: %s" % [kind, match_text],
+		"preview": "%s reference: %s"
+		% [kind, match_text],
 	}
 
 
@@ -1058,7 +1199,11 @@ static func _append_reference_array_unique(
 	for value: Variant in values:
 		if value is Dictionary:
 			var reference_record: Dictionary = value
-			_append_reference_unique(result, reference_record, max_count)
+			_append_reference_unique(
+				result,
+				reference_record,
+				max_count
+			)
 
 
 ## 按引用键去重；重复项保留等级较高者，新项受 max_count 限制。
@@ -1098,9 +1243,16 @@ static func _append_weak_reference_unique(
 	candidate: Dictionary,
 	max_count: int
 ) -> void:
-	if _reference_key_exists(blocking_references, _make_reference_key(candidate)):
+	if _reference_key_exists(
+		blocking_references,
+		_make_reference_key(candidate)
+	):
 		return
-	_append_reference_unique(result, candidate, max_count)
+	_append_reference_unique(
+		result,
+		candidate,
+		max_count
+	)
 
 
 ## 检查引用数组中是否已存在给定唯一键。
@@ -1120,12 +1272,15 @@ static func _reference_key_exists(references: Array, reference_key: String) -> b
 ## [br]
 ## @api private
 static func _make_reference_key(reference_record: Dictionary) -> String:
-	return "%s|%s|%s|%s" % [
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "path"),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "root_path"),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "kind"),
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "match"),
-	]
+	return (
+		"%s|%s|%s|%s"
+		% [
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "path"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "root_path"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "kind"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(reference_record, "match"),
+		]
+	)
 
 
 ## 将 verified、strong、weak 等级映射为 3、2、1，未知等级为零。
@@ -1159,9 +1314,7 @@ static func _extract_dependency_resource_paths(dependency_entry: String) -> Pack
 			var resource_id: int = ResourceUID.text_to_id(candidate)
 			if resource_id == ResourceUID.INVALID_ID or not ResourceUID.has_id(resource_id):
 				continue
-			var resolved_path: String = _GF_PATH_TOOLS.normalize_resource_path(
-				ResourceUID.get_id_path(resource_id)
-			)
+			var resolved_path: String = _GF_PATH_TOOLS.normalize_resource_path(ResourceUID.get_id_path(resource_id))
 			if resolved_path.begins_with("res://") or resolved_path.begins_with("user://"):
 				_append_unique_variant(result, resolved_path)
 	return result
@@ -1178,7 +1331,11 @@ static func _line_has_gdscript_path_context(line: String, root_path: String) -> 
 		var before_path: String = normalized_line.substr(0, start)
 		if _context_before_path_is_gdscript_load(before_path):
 			return true
-		start = _find_root_reference_start_from(normalized_line, normalized_root, start + 1)
+		start = _find_root_reference_start_from(
+			normalized_line,
+			normalized_root,
+			start + 1
+		)
 	return false
 
 
@@ -1316,7 +1473,10 @@ static func _line_references_root_variant(line: String, root_path: String) -> bo
 		var next_character: String = line.substr(next_index, 1)
 		if _is_reference_boundary(next_character):
 			return true
-		start = line.find(root_path, start + 1)
+		start = line.find(
+			root_path,
+			start + 1
+		)
 	return false
 
 
@@ -1324,13 +1484,21 @@ static func _line_references_root_variant(line: String, root_path: String) -> bo
 ## [br]
 ## @api private
 static func _find_root_reference_start(line: String, root_path: String) -> int:
-	return _find_root_reference_start_from(line, root_path, 0)
+	return _find_root_reference_start_from(
+		line,
+		root_path,
+		0
+	)
 
 
 ## 从指定偏移处查找目标根路径，并忽略尾部边界不成立的命中。
 ## [br]
 ## @api private
-static func _find_root_reference_start_from(line: String, root_path: String, from_index: int) -> int:
+static func _find_root_reference_start_from(
+	line: String,
+	root_path: String,
+	from_index: int
+) -> int:
 	if root_path.is_empty():
 		return -1
 	var start: int = line.find(root_path, from_index)
@@ -1342,7 +1510,10 @@ static func _find_root_reference_start_from(line: String, root_path: String, fro
 		var next_character: String = line.substr(next_index, 1)
 		if _is_reference_boundary(next_character):
 			return start
-		start = line.find(root_path, start + 1)
+		start = line.find(
+			root_path,
+			start + 1
+		)
 	return -1
 
 
@@ -1353,8 +1524,14 @@ static func _root_reference_variants(root_path: String) -> PackedStringArray:
 	var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(root_path)
 	var variants: PackedStringArray = PackedStringArray()
 	_append_unique_variant(variants, normalized_root)
-	_append_unique_variant(variants, normalized_root.replace("/", "\\"))
-	_append_unique_variant(variants, normalized_root.replace("/", "\\\\"))
+	_append_unique_variant(
+		variants,
+		normalized_root.replace("/", "\\")
+	)
+	_append_unique_variant(
+		variants,
+		normalized_root.replace("/", "\\\\")
+	)
 	return variants
 
 
@@ -1376,12 +1553,20 @@ static func _line_references_identifier(line: String, identifier: String) -> boo
 
 	var start: int = line.find(identifier)
 	while start >= 0:
-		var before_ok: bool = start == 0 or not _is_identifier_character(line.substr(start - 1, 1))
+		var before_ok: bool = start == 0 or not _is_identifier_character(
+			line.substr(
+				start - 1,
+				1
+			)
+		)
 		var end: int = start + identifier.length()
 		var after_ok: bool = end >= line.length() or not _is_identifier_character(line.substr(end, 1))
 		if before_ok and after_ok:
 			return true
-		start = line.find(identifier, start + 1)
+		start = line.find(
+			identifier,
+			start + 1
+		)
 	return false
 
 
@@ -1393,9 +1578,18 @@ static func _is_identifier_character(character: String) -> bool:
 		return false
 	var code: int = character.unicode_at(0)
 	return (
-		(code >= 65 and code <= 90)
-		or (code >= 97 and code <= 122)
-		or (code >= 48 and code <= 57)
+		(
+			code >= 65
+			and code <= 90
+		)
+		or (
+			code >= 97
+			and code <= 122
+		)
+		or (
+			code >= 48
+			and code <= 57
+		)
 		or code == 95
 	)
 
@@ -1404,7 +1598,18 @@ static func _is_identifier_character(character: String) -> bool:
 ## [br]
 ## @api private
 static func _is_reference_boundary(character: String) -> bool:
-	return ["/", "\\", "\"", "'", ")", "]", "}", ",", " ", "\t"].has(character)
+	return [
+		"/",
+		"\\",
+		"\"",
+		"'",
+		")",
+		"]",
+		"}",
+		",",
+		" ",
+		"\t",
+	].has(character)
 
 
 ## 按公开文本扩展名列表判断文件是否进入文本扫描。
@@ -1426,7 +1631,12 @@ static func _is_binary_resource_file(path: String) -> bool:
 ## [br]
 ## @api private
 static func _is_loadable_resource_file(path: String) -> bool:
-	return ["res", "scn", "tres", "tscn"].has(path.get_extension().to_lower())
+	return [
+		"res",
+		"scn",
+		"tres",
+		"tscn",
+	].has(path.get_extension().to_lower())
 
 
 ## 判断路径是否为可解析的 `.tres` 或 `.tscn` 文本资源。
@@ -1475,14 +1685,23 @@ static func _is_resource_section_prefix(line: String) -> bool:
 ## [br]
 ## @api private
 static func _is_resource_text_extension(extension: String) -> bool:
-	return ["tscn", "tres", "godot", "import"].has(extension)
+	return [
+		"tscn",
+		"tres",
+		"godot",
+		"import",
+	].has(extension)
 
 
 ## 判断值是否以 Godot 资源、用户或 UID 路径前缀开头。
 ## [br]
 ## @api private
 static func _is_resource_path_text(value: String) -> bool:
-	return value.begins_with("res://") or value.begins_with("user://") or value.begins_with("uid://")
+	return (
+		value.begins_with("res://")
+		or value.begins_with("user://")
+		or value.begins_with("uid://")
+	)
 
 
 ## 委托路径工具判断路径是否落在忽略根目录内。
@@ -1495,10 +1714,19 @@ static func _is_path_ignored(path: String, ignored_roots: PackedStringArray) -> 
 ## 判断当前目录是否可继续递归，并在达到正数深度上限时记录截断。
 ## [br]
 ## @api private
-static func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
+static func _can_scan_deeper(
+	path: String,
+	current_depth: int,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
-	_warn_scan_depth_limit(path, max_scan_depth, scan_state)
+	_warn_scan_depth_limit(
+		path,
+		max_scan_depth,
+		scan_state
+	)
 	return false
 
 
@@ -1523,7 +1751,11 @@ static func _make_scan_state(options: Dictionary) -> Dictionary:
 		"count_warning_emitted": false,
 		"depth_warning_emitted": false,
 		"budget_warning_emitted": false,
-		"warning_prefix": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "warning_prefix", "[GFProjectReferenceScanner]"),
+		"warning_prefix": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			options,
+			"warning_prefix",
+			"[GFProjectReferenceScanner]"
+		),
 	}
 
 
@@ -1605,7 +1837,14 @@ static func _mark_budget_exceeded(
 	scan_state["budget_exceeded"] = true
 	scan_state["truncated"] = true
 	_mark_scan_partial(scan_state)
-	_append_skipped_file(path, reason, size_bytes, reason, limit_bytes, scan_state)
+	_append_skipped_file(
+		path,
+		reason,
+		size_bytes,
+		reason,
+		limit_bytes,
+		scan_state
+	)
 	_append_scan_issue(
 		reason,
 		path,
@@ -1617,7 +1856,12 @@ static func _mark_budget_exceeded(
 		return
 	scan_state["budget_warning_emitted"] = true
 	_emit_scan_warning(
-		"[project_reference_scanner.byte_budget_reached] Reference scanning reached the %s=%d byte budget; subsequent results are treated as partial_scan: %s." % [reason, limit_bytes, path],
+		"[project_reference_scanner.byte_budget_reached] Reference scanning reached the %s=%d byte budget; subsequent results are treated as partial_scan: %s."
+		% [
+			reason,
+			limit_bytes,
+			path,
+		],
 		scan_state
 	)
 
@@ -1634,13 +1878,15 @@ static func _append_skipped_file(
 	scan_state: Dictionary
 ) -> void:
 	var skipped_files: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_state, "skipped_files")
-	skipped_files.append({
-		"path": path,
-		"reason": reason,
-		"size_bytes": size_bytes,
-		"limit_key": limit_key,
-		"limit_bytes": limit_bytes,
-	})
+	skipped_files.append(
+		{
+			"path": path,
+			"reason": reason,
+			"size_bytes": size_bytes,
+			"limit_key": limit_key,
+			"limit_bytes": limit_bytes,
+		}
+	)
 	scan_state["skipped_files"] = skipped_files
 
 
@@ -1665,12 +1911,14 @@ static func _append_scan_issue(
 			and _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "target_id") == target_id
 		):
 			return
-	issues.append({
-		"code": code,
-		"path": path,
-		"target_id": target_id,
-		"message": message,
-	})
+	issues.append(
+		{
+			"code": code,
+			"path": path,
+			"target_id": target_id,
+			"message": message,
+		}
+	)
 	scan_state["issues"] = issues
 
 
@@ -1691,13 +1939,20 @@ static func _warn_scanned_file_limit(max_scanned_files: int, scan_state: Diction
 		"候选扫描文件数量超过配额。",
 		scan_state
 	)
-	_emit_scan_warning("[project_reference_scanner.file_limit_reached] max_scanned_files=%d was reached; subsequent files were skipped." % max_scanned_files, scan_state)
+	_emit_scan_warning(
+		"[project_reference_scanner.file_limit_reached] max_scanned_files=%d was reached; subsequent files were skipped." % max_scanned_files,
+		scan_state
+	)
 
 
 ## 首次达到正数目录深度上限时记录截断诊断。
 ## [br]
 ## @api private
-static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
+static func _warn_scan_depth_limit(
+	path: String,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> void:
 	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted"):
 		return
 	scan_state["depth_warning_emitted"] = true
@@ -1710,7 +1965,11 @@ static func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state
 		"扫描目录深度超过配额。",
 		scan_state
 	)
-	_emit_scan_warning("[project_reference_scanner.depth_limit_reached] max_scan_depth=%d was reached; deeper directories were skipped: %s." % [max_scan_depth, path], scan_state)
+	_emit_scan_warning(
+		"[project_reference_scanner.depth_limit_reached] max_scan_depth=%d was reached; deeper directories were skipped: %s."
+		% [max_scan_depth, path],
+		scan_state
+	)
 
 
 ## 添加警告前缀、保存警告文本并发送 Godot warning。
@@ -1722,7 +1981,10 @@ static func _emit_scan_warning(message: String, scan_state: Dictionary) -> void:
 		"warning_prefix",
 		"[GFProjectReferenceScanner]"
 	)
-	var warning_message: String = "%s%s" % [warning_prefix, message]
+	var warning_message: String = (
+		"%s%s"
+		% [warning_prefix, message]
+	)
 	var scan_warnings: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_state, "scan_warnings")
 	scan_warnings.append(warning_message)
 	scan_state["scan_warnings"] = scan_warnings
@@ -1733,7 +1995,11 @@ static func _emit_scan_warning(message: String, scan_state: Dictionary) -> void:
 ## [br]
 ## @api private
 static func _read_additional_ignored_roots(options: Dictionary) -> PackedStringArray:
-	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(options, "additional_ignored_roots", PackedStringArray())
+	var value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+		options,
+		"additional_ignored_roots",
+		PackedStringArray()
+	)
 	if value is PackedStringArray:
 		var packed_roots: PackedStringArray = value
 		return _GF_PATH_TOOLS.normalize_root_paths(packed_roots)
@@ -1750,8 +2016,16 @@ static func _get_option_int_with_alias(
 	default_value: int
 ) -> int:
 	if _has_option_key(options, key):
-		return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, key, default_value)
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, alias, default_value)
+		return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			key,
+			default_value
+		)
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		alias,
+		default_value
+	)
 
 
 ## 同时检查 String 和 StringName 形式的选项键。

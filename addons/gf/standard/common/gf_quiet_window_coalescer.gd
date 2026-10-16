@@ -195,7 +195,11 @@ var _capacity_notification_drain_scheduled: bool = false
 ## [br]
 ## @schema message: Variant，由项目解释的消息载荷。
 func submit(key: StringName, message: Variant) -> int:
-	return submit_at(key, message, Time.get_ticks_msec())
+	return submit_at(
+		key,
+		message,
+		Time.get_ticks_msec()
+	)
 
 
 ## 使用显式单调时间把消息提交到 key 对应批次。
@@ -213,7 +217,11 @@ func submit(key: StringName, message: Variant) -> int:
 ## @return 当前批次 ID。
 ## [br]
 ## @schema message: Variant，由项目解释的消息载荷。
-func submit_at(key: StringName, message: Variant, now_msec: int) -> int:
+func submit_at(
+	key: StringName,
+	message: Variant,
+	now_msec: int
+) -> int:
 	var effective_now: int = maxi(now_msec, 0)
 	var evicted_batch: Dictionary = {}
 	if not _batches.has(key):
@@ -239,12 +247,20 @@ func submit_at(key: StringName, message: Variant, now_msec: int) -> int:
 		batch = current_batch
 		messages = GFVariantData.get_option_array(batch, "messages")
 	if messages.size() >= max_messages_per_batch:
-		var _limit_report: Dictionary = _close_batch(key, REASON_BATCH_LIMIT, effective_now)
+		var _limit_report: Dictionary = _close_batch(
+			key,
+			REASON_BATCH_LIMIT,
+			effective_now
+		)
 		return batch_id
 	if auto_flush:
 		var ready_reason: StringName = _get_ready_reason(batch, effective_now)
 		if ready_reason != &"":
-			var _ready_report: Dictionary = _close_batch(key, ready_reason, effective_now)
+			var _ready_report: Dictionary = _close_batch(
+				key,
+				ready_reason,
+				effective_now
+			)
 		else:
 			_start_batch_timer_if_needed(key, batch)
 	return batch_id
@@ -271,7 +287,11 @@ func flush_ready(now_msec: int = -1) -> Array[Dictionary]:
 		var reason: StringName = _get_ready_reason(batch, effective_now)
 		if reason == &"":
 			continue
-		var report: Dictionary = _close_batch(key, reason, effective_now)
+		var report: Dictionary = _close_batch(
+			key,
+			reason,
+			effective_now
+		)
 		if not report.is_empty():
 			reports.append(report)
 	return reports
@@ -292,7 +312,11 @@ func flush_ready(now_msec: int = -1) -> Array[Dictionary]:
 ## @schema return: Dictionary，与 batch_closed 的 report schema 相同。
 func flush(key: StringName, reason: StringName = REASON_MANUAL) -> Dictionary:
 	var effective_reason: StringName = reason if reason != &"" else REASON_MANUAL
-	return _close_batch(key, effective_reason, Time.get_ticks_msec())
+	return _close_batch(
+		key,
+		effective_reason,
+		Time.get_ticks_msec()
+	)
 
 
 ## 显式关闭调用开始时已经存在的所有批次；回调重入创建的新批次留给下一轮。
@@ -312,9 +336,16 @@ func flush_all(reason: StringName = REASON_MANUAL) -> Array[Dictionary]:
 	for identity: Dictionary in _get_batch_identity_snapshot():
 		var key: StringName = GFVariantData.get_option_string_name(identity, "key")
 		var batch_id: int = GFVariantData.get_option_int(identity, "batch_id")
-		if GFVariantData.get_option_int(_get_batch(key), "batch_id") != batch_id:
+		if GFVariantData.get_option_int(
+			_get_batch(key),
+			"batch_id"
+		) != batch_id:
 			continue
-		var report: Dictionary = _close_batch(key, effective_reason, Time.get_ticks_msec())
+		var report: Dictionary = _close_batch(
+			key,
+			effective_reason,
+			Time.get_ticks_msec()
+		)
 		if not report.is_empty():
 			reports.append(report)
 	return reports
@@ -373,13 +404,15 @@ func get_debug_snapshot(max_entries: int = 32) -> Dictionary:
 			break
 		var key: StringName = GFVariantData.to_string_name(key_value)
 		var batch: Dictionary = _get_batch(key)
-		summaries.append({
-			"batch_id": GFVariantData.get_option_int(batch, "batch_id"),
-			"key": String(key),
-			"message_count": GFVariantData.get_option_array(batch, "messages").size(),
-			"opened_msec": GFVariantData.get_option_int(batch, "opened_msec"),
-			"last_message_msec": GFVariantData.get_option_int(batch, "last_message_msec"),
-		})
+		summaries.append(
+			{
+				"batch_id": GFVariantData.get_option_int(batch, "batch_id"),
+				"key": String(key),
+				"message_count": GFVariantData.get_option_array(batch, "messages").size(),
+				"opened_msec": GFVariantData.get_option_int(batch, "opened_msec"),
+				"last_message_msec": GFVariantData.get_option_int(batch, "last_message_msec"),
+			}
+		)
 	return {
 		"quiet_window_msec": quiet_window_msec,
 		"max_window_msec": max_window_msec,
@@ -443,7 +476,11 @@ func _start_batch_timer_if_needed(key: StringName, batch: Dictionary) -> void:
 	var lifecycle_serial: int = _lifecycle_serial
 	_GF_ASYNC_CALL_SCRIPT.run_detached(
 		Callable(self, &"_run_batch_timer"),
-		[key, batch_id, lifecycle_serial]
+		[
+			key,
+			batch_id,
+			lifecycle_serial,
+		]
 	)
 
 
@@ -451,7 +488,11 @@ func _start_batch_timer_if_needed(key: StringName, batch: Dictionary) -> void:
 ## auto_flush 关闭或没有 SceneTree 时撤销当前批次的计时标记；达到窗口后交给关闭流程。
 ## [br]
 ## @api private
-func _run_batch_timer(key: StringName, batch_id: int, lifecycle_serial: int) -> void:
+func _run_batch_timer(
+	key: StringName,
+	batch_id: int,
+	lifecycle_serial: int
+) -> void:
 	while lifecycle_serial == _lifecycle_serial:
 		var batch: Dictionary = _get_batch(key)
 		if batch.is_empty() or GFVariantData.get_option_int(batch, "batch_id") != batch_id:
@@ -463,7 +504,11 @@ func _run_batch_timer(key: StringName, batch_id: int, lifecycle_serial: int) -> 
 		var now_msec: int = Time.get_ticks_msec()
 		var reason: StringName = _get_ready_reason(batch, now_msec)
 		if reason != &"":
-			var _report: Dictionary = _close_batch(key, reason, now_msec)
+			var _report: Dictionary = _close_batch(
+				key,
+				reason,
+				now_msec
+			)
 			return
 
 		var wait_msec: int = _get_next_wait_msec(batch, now_msec)
@@ -472,8 +517,16 @@ func _run_batch_timer(key: StringName, batch_id: int, lifecycle_serial: int) -> 
 			batch["timer_started"] = false
 			return
 		var tree: SceneTree = main_loop
-		var timer_slice_msec: int = mini(maxi(wait_msec, 1), _MAX_TIMER_SLICE_MSEC)
-		await tree.create_timer(float(timer_slice_msec) / 1000.0, true, false, true).timeout
+		var timer_slice_msec: int = mini(
+			maxi(wait_msec, 1),
+			_MAX_TIMER_SLICE_MSEC
+		)
+		await tree.create_timer(
+			float(timer_slice_msec) / 1000.0,
+			true,
+			false,
+			true
+		).timeout
 
 
 ## 先检查最大窗口，再检查最后消息静默窗口，返回首个达到的关闭原因。
@@ -499,18 +552,32 @@ func _get_next_wait_msec(batch: Dictionary, now_msec: int) -> int:
 	var deadline_msec: int = last_message_msec + quiet_window_msec
 	if max_window_msec > 0:
 		var opened_msec: int = GFVariantData.get_option_int(batch, "opened_msec")
-		deadline_msec = mini(deadline_msec, opened_msec + max_window_msec)
-	return maxi(deadline_msec - now_msec, 1)
+		deadline_msec = mini(
+			deadline_msec,
+			opened_msec + max_window_msec
+		)
+	return maxi(
+		deadline_msec - now_msec,
+		1
+	)
 
 
 ## 移除指定打开批次，并将其交给关闭报告生成流程。
 ## [br]
 ## @api private
-func _close_batch(key: StringName, reason: StringName, closed_msec: int) -> Dictionary:
+func _close_batch(
+	key: StringName,
+	reason: StringName,
+	closed_msec: int
+) -> Dictionary:
 	var batch: Dictionary = _take_batch(key)
 	if batch.is_empty():
 		return {}
-	return _finalize_closed_batch(batch, reason, closed_msec)
+	return _finalize_closed_batch(
+		batch,
+		reason,
+		closed_msec
+	)
 
 
 ## 为已从活动表取出的批次生成关闭报告；merge_callback 和 batch_closed 均同步调用，允许发起新的批次。
@@ -526,7 +593,10 @@ func _finalize_closed_batch(
 	var messages: Array = GFVariantData.get_option_array(batch, "messages").duplicate(true)
 	var merged_value: Variant = messages.duplicate(true)
 	if merge_callback.is_valid():
-		merged_value = merge_callback.call(key, messages.duplicate(true))
+		merged_value = merge_callback.call(
+			key,
+			messages.duplicate(true)
+		)
 	var opened_msec: int = GFVariantData.get_option_int(batch, "opened_msec")
 	var effective_closed_msec: int = maxi(closed_msec, opened_msec)
 	var report: Dictionary = {
@@ -570,10 +640,7 @@ func _dispatch_capacity_notification(batch: Dictionary, closed_msec: int) -> voi
 ## [br]
 ## @api private
 func _enqueue_capacity_notification(batch: Dictionary, closed_msec: int) -> void:
-	_pending_capacity_notifications.append({
-		"batch": batch.duplicate(true),
-		"closed_msec": closed_msec,
-	})
+	_pending_capacity_notifications.append({ "batch": batch.duplicate(true), "closed_msec": closed_msec, })
 	_schedule_capacity_notification_drain()
 
 
@@ -670,7 +737,11 @@ func _restart_auto_flush_timers() -> void:
 			continue
 		var reason: StringName = _get_ready_reason(batch, now_msec)
 		if reason != &"":
-			var _report: Dictionary = _close_batch(key, reason, now_msec)
+			var _report: Dictionary = _close_batch(
+				key,
+				reason,
+				now_msec
+			)
 		else:
 			_start_batch_timer_if_needed(key, batch)
 
@@ -682,7 +753,10 @@ func _get_batch_identity_snapshot() -> Array[Dictionary]:
 	var remaining: Dictionary = {}
 	for key_value: Variant in _batches.keys():
 		var key: StringName = GFVariantData.to_string_name(key_value)
-		remaining[key] = GFVariantData.get_option_int(_get_batch(key), "batch_id")
+		remaining[key] = GFVariantData.get_option_int(
+			_get_batch(key),
+			"batch_id"
+		)
 
 	var result: Array[Dictionary] = []
 	while not remaining.is_empty():
@@ -699,10 +773,7 @@ func _get_batch_identity_snapshot() -> Array[Dictionary]:
 		if not found:
 			break
 		var _erased_identity: bool = remaining.erase(oldest_key)
-		result.append({
-			"key": oldest_key,
-			"batch_id": oldest_batch_id,
-		})
+		result.append({ "key": oldest_key, "batch_id": oldest_batch_id, })
 	return result
 
 
@@ -715,7 +786,10 @@ func _find_oldest_key() -> StringName:
 	var oldest_batch_id: int = 0
 	for key_value: Variant in _batches.keys():
 		var key: StringName = GFVariantData.to_string_name(key_value)
-		var batch_id: int = GFVariantData.get_option_int(_get_batch(key), "batch_id")
+		var batch_id: int = GFVariantData.get_option_int(
+			_get_batch(key),
+			"batch_id"
+		)
 		if not found or batch_id < oldest_batch_id:
 			found = true
 			oldest_key = key

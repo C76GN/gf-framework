@@ -73,14 +73,38 @@ static func fit_control(control: Control, options: Dictionary = {}) -> int:
 	var resolved_options: Dictionary = _resolve_options(
 		control,
 		_merge_control_text_options(options, text_info),
-		GFVariantData.get_option_string_name(text_info, "font_name", &"font"),
-		GFVariantData.get_option_string_name(text_info, "font_size_name", &"font_size")
+		GFVariantData.get_option_string_name(
+			text_info,
+			"font_name",
+			&"font"
+		),
+		GFVariantData.get_option_string_name(
+			text_info,
+			"font_size_name",
+			&"font_size"
+		)
 	)
 	resolved_options["available_size"] = _resolve_content_available_size(control, resolved_options)
-	var font_size: int = _find_largest_fitting_font_size(control, GFVariantData.get_option_string(text_info, "text", ""), resolved_options)
-	if GFVariantData.get_option_bool(resolved_options, "apply", true):
+	var font_size: int = _find_largest_fitting_font_size(
+		control,
+		GFVariantData.get_option_string(
+			text_info,
+			"text",
+			""
+		),
+		resolved_options
+	)
+	if GFVariantData.get_option_bool(
+		resolved_options,
+		"apply",
+		true
+	):
 		control.add_theme_font_size_override(
-			GFVariantData.get_option_string_name(resolved_options, "font_size_name", &"font_size"),
+			GFVariantData.get_option_string_name(
+				resolved_options,
+				"font_size_name",
+				&"font_size"
+			),
 			font_size
 		)
 	return font_size
@@ -105,16 +129,35 @@ static func fit_label(label: Label, options: Dictionary = {}) -> int:
 
 	var resolved_options: Dictionary = _resolve_options(
 		label,
-		_merge_control_text_options(options, _get_label_text_info(label)),
+		_merge_control_text_options(
+			options,
+			_get_label_text_info(label)
+		),
 		&"font",
 		&"font_size"
 	)
 	resolved_options["available_size"] = _resolve_content_available_size(label, resolved_options)
-	var text: String = GFVariantData.get_option_string(resolved_options, "text", label.text)
-	var font_size: int = _find_largest_fitting_font_size(label, text, resolved_options)
-	if GFVariantData.get_option_bool(resolved_options, "apply", true):
+	var text: String = GFVariantData.get_option_string(
+		resolved_options,
+		"text",
+		label.text
+	)
+	var font_size: int = _find_largest_fitting_font_size(
+		label,
+		text,
+		resolved_options
+	)
+	if GFVariantData.get_option_bool(
+		resolved_options,
+		"apply",
+		true
+	):
 		label.add_theme_font_size_override(
-			GFVariantData.get_option_string_name(resolved_options, "font_size_name", &"font_size"),
+			GFVariantData.get_option_string_name(
+				resolved_options,
+				"font_size_name",
+				&"font_size"
+			),
 			font_size
 		)
 	return font_size
@@ -139,16 +182,35 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 
 	var resolved_options: Dictionary = _resolve_options(
 		label,
-		_merge_control_text_options(options, _get_rich_text_label_text_info(label)),
+		_merge_control_text_options(
+			options,
+			_get_rich_text_label_text_info(label)
+		),
 		&"normal_font",
 		&"normal_font_size"
 	)
 	resolved_options["available_size"] = _resolve_content_available_size(label, resolved_options)
-	var text: String = GFVariantData.get_option_string(resolved_options, "text", "")
-	var font_size: int = _find_largest_fitting_font_size(label, text, resolved_options)
-	if GFVariantData.get_option_bool(resolved_options, "apply", true):
+	var text: String = GFVariantData.get_option_string(
+		resolved_options,
+		"text",
+		""
+	)
+	var font_size: int = _find_largest_fitting_font_size(
+		label,
+		text,
+		resolved_options
+	)
+	if GFVariantData.get_option_bool(
+		resolved_options,
+		"apply",
+		true
+	):
 		label.add_theme_font_size_override(
-			GFVariantData.get_option_string_name(resolved_options, "font_size_name", &"normal_font_size"),
+			GFVariantData.get_option_string_name(
+				resolved_options,
+				"font_size_name",
+				&"normal_font_size"
+			),
 			font_size
 		)
 	return font_size
@@ -157,6 +219,8 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 ## 测量常见 Control 在指定字体尺寸下的文本占用。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param control: 目标文本控件。
 ## [br]
@@ -167,7 +231,11 @@ static func fit_rich_text_label(label: RichTextLabel, options: Dictionary = {}) 
 ## @return 文本尺寸；目标无效或字体缺失时返回 Vector2.ZERO。
 ## [br]
 ## @schema options: Dictionary，字段同 fit_control() 的 options。
-static func measure_control_text(control: Control, font_size: int, options: Dictionary = {}) -> Vector2:
+static func measure_control_text(
+	control: Control,
+	font_size: int,
+	options: Dictionary = {}
+) -> Vector2:
 	if control == null:
 		return Vector2.ZERO
 
@@ -177,7 +245,16 @@ static func measure_control_text(control: Control, font_size: int, options: Dict
 
 	var resolved_options: Dictionary = _merge_control_text_options(options, text_info)
 	resolved_options["available_size"] = _resolve_content_available_size(control, resolved_options)
-	return measure_text(control, GFVariantData.get_option_string(text_info, "text", ""), font_size, resolved_options)
+	return measure_text(
+		control,
+		GFVariantData.get_option_string(
+			text_info,
+			"text",
+			""
+		),
+		font_size,
+		resolved_options
+	)
 
 
 ## 测量 Control 在指定字体尺寸下的文本占用。
@@ -197,11 +274,20 @@ static func measure_control_text(control: Control, font_size: int, options: Dict
 ## @return 文本尺寸；字体缺失时返回 Vector2.ZERO。
 ## [br]
 ## @schema options: Dictionary，支持 available_size、fit_width、font_name、font、measurement_mode、horizontal_alignment、autowrap_mode、line_break_flags、justification_flags、text_direction。
-static func measure_text(control: Control, text: String, font_size: int, options: Dictionary = {}) -> Vector2:
+static func measure_text(
+	control: Control,
+	text: String,
+	font_size: int,
+	options: Dictionary = {}
+) -> Vector2:
 	if control == null:
 		return Vector2.ZERO
 
-	var font_name: StringName = GFVariantData.get_option_string_name(options, "font_name", &"font")
+	var font_name: StringName = GFVariantData.get_option_string_name(
+		options,
+		"font_name",
+		&"font"
+	)
 	var font: Font = _get_dictionary_font(options, "font")
 	if font == null:
 		font = control.get_theme_font(font_name)
@@ -209,13 +295,33 @@ static func measure_text(control: Control, text: String, font_size: int, options
 		return Vector2.ZERO
 
 	var available_size: Vector2 = _resolve_available_size(control, options)
-	var fit_width: bool = GFVariantData.get_option_bool(options, "fit_width", true)
+	var fit_width: bool = GFVariantData.get_option_bool(
+		options,
+		"fit_width",
+		true
+	)
 	var wrap_width: float = available_size.x if fit_width and available_size.x > 0.0 else -1.0
 	if _get_measurement_mode(options) == MeasurementMode.SINGLE_LINE:
-		return _measure_single_line_text(font, text, font_size, options)
+		return _measure_single_line_text(
+			font,
+			text,
+			font_size,
+			options
+		)
 	if _uses_multiline_text_measurement(options):
-		return _measure_multiline_text(font, text, font_size, wrap_width, options)
-	return _measure_lines(font, text, font_size, wrap_width)
+		return _measure_multiline_text(
+			font,
+			text,
+			font_size,
+			wrap_width,
+			options
+		)
+	return _measure_lines(
+		font,
+		text,
+		font_size,
+		wrap_width
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -240,20 +346,64 @@ static func _resolve_options(
 	default_font_size_name: StringName
 ) -> Dictionary:
 	var resolved: Dictionary = options.duplicate(true)
-	resolved["font_name"] = GFVariantData.get_option_string_name(resolved, "font_name", default_font_name)
-	resolved["font_size_name"] = GFVariantData.get_option_string_name(resolved, "font_size_name", default_font_size_name)
-	resolved["min_font_size"] = maxi(GFVariantData.get_option_int(resolved, "min_font_size", DEFAULT_MIN_FONT_SIZE), 1)
+	resolved["font_name"] = GFVariantData.get_option_string_name(
+		resolved,
+		"font_name",
+		default_font_name
+	)
+	resolved["font_size_name"] = GFVariantData.get_option_string_name(
+		resolved,
+		"font_size_name",
+		default_font_size_name
+	)
+	resolved["min_font_size"] = maxi(
+		GFVariantData.get_option_int(
+			resolved,
+			"min_font_size",
+			DEFAULT_MIN_FONT_SIZE
+		),
+		1
+	)
 
-	var max_font_size: int = GFVariantData.get_option_int(resolved, "max_font_size", 0)
+	var max_font_size: int = GFVariantData.get_option_int(
+		resolved,
+		"max_font_size",
+		0
+	)
 	if max_font_size <= 0:
-		max_font_size = control.get_theme_font_size(GFVariantData.get_option_string_name(resolved, "font_size_name", default_font_size_name))
+		max_font_size = control.get_theme_font_size(
+			GFVariantData.get_option_string_name(
+				resolved,
+				"font_size_name",
+				default_font_size_name
+			)
+		)
 	if max_font_size <= 0:
 		max_font_size = DEFAULT_MAX_FONT_SIZE
 
-	resolved["max_font_size"] = maxi(max_font_size, GFVariantData.get_option_int(resolved, "min_font_size", DEFAULT_MIN_FONT_SIZE))
-	resolved["fit_width"] = GFVariantData.get_option_bool(resolved, "fit_width", true)
-	resolved["fit_height"] = GFVariantData.get_option_bool(resolved, "fit_height", true)
-	resolved["apply"] = GFVariantData.get_option_bool(resolved, "apply", true)
+	resolved["max_font_size"] = maxi(
+		max_font_size,
+		GFVariantData.get_option_int(
+			resolved,
+			"min_font_size",
+			DEFAULT_MIN_FONT_SIZE
+		)
+	)
+	resolved["fit_width"] = GFVariantData.get_option_bool(
+		resolved,
+		"fit_width",
+		true
+	)
+	resolved["fit_height"] = GFVariantData.get_option_bool(
+		resolved,
+		"fit_height",
+		true
+	)
+	resolved["apply"] = GFVariantData.get_option_bool(
+		resolved,
+		"apply",
+		true
+	)
 	resolved["measurement_mode"] = _get_measurement_mode(resolved)
 	return resolved
 
@@ -264,11 +414,23 @@ static func _resolve_options(
 static func _merge_control_text_options(options: Dictionary, text_info: Dictionary) -> Dictionary:
 	var merged: Dictionary = options.duplicate(true)
 	if not merged.has("font_name"):
-		merged["font_name"] = GFVariantData.get_option_string_name(text_info, "font_name", &"font")
+		merged["font_name"] = GFVariantData.get_option_string_name(
+			text_info,
+			"font_name",
+			&"font"
+		)
 	if not merged.has("font_size_name"):
-		merged["font_size_name"] = GFVariantData.get_option_string_name(text_info, "font_size_name", &"font_size")
+		merged["font_size_name"] = GFVariantData.get_option_string_name(
+			text_info,
+			"font_size_name",
+			&"font_size"
+		)
 	if not merged.has("content_insets"):
-		merged["content_insets"] = GFVariantData.get_option_value(text_info, "content_insets", Vector4.ZERO)
+		merged["content_insets"] = GFVariantData.get_option_value(
+			text_info,
+			"content_insets",
+			Vector4.ZERO
+		)
 	for key: String in [
 		"text",
 		"horizontal_alignment",
@@ -289,10 +451,26 @@ static func _merge_control_text_options(options: Dictionary, text_info: Dictiona
 static func _get_control_text_info(control: Control, options: Dictionary) -> Dictionary:
 	if options.has("text"):
 		return {
-			"text": GFVariantData.get_option_string(options, "text", ""),
-			"font_name": GFVariantData.get_option_string_name(options, "font_name", &"font"),
-			"font_size_name": GFVariantData.get_option_string_name(options, "font_size_name", &"font_size"),
-			"content_insets": GFVariantData.get_option_value(options, "content_insets", Vector4.ZERO),
+			"text": GFVariantData.get_option_string(
+				options,
+				"text",
+				""
+			),
+			"font_name": GFVariantData.get_option_string_name(
+				options,
+				"font_name",
+				&"font"
+			),
+			"font_size_name": GFVariantData.get_option_string_name(
+				options,
+				"font_size_name",
+				&"font_size"
+			),
+			"content_insets": GFVariantData.get_option_value(
+				options,
+				"content_insets",
+				Vector4.ZERO
+			),
 		}
 	if control is RichTextLabel:
 		var rich_label: RichTextLabel = control
@@ -347,7 +525,11 @@ static func _get_button_text_info(button: Button) -> Dictionary:
 ## @api private
 static func _get_line_edit_text_info(line_edit: LineEdit, options: Dictionary) -> Dictionary:
 	var text: String = line_edit.text
-	if text.is_empty() and GFVariantData.get_option_bool(options, "use_placeholder", true):
+	if text.is_empty() and GFVariantData.get_option_bool(
+		options,
+		"use_placeholder",
+		true
+	):
 		text = line_edit.placeholder_text
 	return {
 		"text": text,
@@ -398,10 +580,26 @@ static func _get_rich_text_label_text_info(label: RichTextLabel) -> Dictionary:
 ## 按单行一次测量、字号候选或二分搜索路径寻找可容纳的最大字号。
 ## [br]
 ## @api private
-static func _find_largest_fitting_font_size(control: Control, text: String, options: Dictionary) -> int:
-	var min_font_size: int = GFVariantData.get_option_int(options, "min_font_size", DEFAULT_MIN_FONT_SIZE)
-	var max_font_size: int = GFVariantData.get_option_int(options, "max_font_size", DEFAULT_MAX_FONT_SIZE)
-	var font_size_candidates: Array[int] = _resolve_font_size_candidates(options, min_font_size, max_font_size)
+static func _find_largest_fitting_font_size(
+	control: Control,
+	text: String,
+	options: Dictionary
+) -> int:
+	var min_font_size: int = GFVariantData.get_option_int(
+		options,
+		"min_font_size",
+		DEFAULT_MIN_FONT_SIZE
+	)
+	var max_font_size: int = GFVariantData.get_option_int(
+		options,
+		"max_font_size",
+		DEFAULT_MAX_FONT_SIZE
+	)
+	var font_size_candidates: Array[int] = _resolve_font_size_candidates(
+		options,
+		min_font_size,
+		max_font_size
+	)
 	if _get_measurement_mode(options) == MeasurementMode.SINGLE_LINE:
 		var measurement_provider: Callable = func(
 			measurement_control: Control,
@@ -425,7 +623,13 @@ static func _find_largest_fitting_font_size(control: Control, text: String, opti
 			measurement_provider
 		)
 	if not font_size_candidates.is_empty():
-		return _find_largest_candidate_font_size(control, text, options, font_size_candidates, min_font_size)
+		return _find_largest_candidate_font_size(
+			control,
+			text,
+			options,
+			font_size_candidates,
+			min_font_size
+		)
 
 	var best_size: int = min_font_size
 	var low: int = min_font_size
@@ -433,7 +637,12 @@ static func _find_largest_fitting_font_size(control: Control, text: String, opti
 
 	while low <= high:
 		var candidate: int = (low + high) >> 1
-		if _fits(control, text, candidate, options):
+		if _fits(
+			control,
+			text,
+			candidate,
+			options
+		):
 			best_size = candidate
 			low = candidate + 1
 		else:
@@ -457,16 +666,35 @@ static func _find_single_line_font_size_one_pass(
 	if not measurement_provider.is_valid():
 		return min_font_size
 	var measured_size: Vector2 = Vector2.ZERO
-	var measured_value: Variant = measurement_provider.call(control, text, max_font_size, options)
+	var measured_value: Variant = measurement_provider.call(
+		control,
+		text,
+		max_font_size,
+		options
+	)
 	if measured_value is Vector2:
 		var vector_measurement: Vector2 = measured_value
 		measured_size = vector_measurement
 	var available_size: Vector2 = _resolve_available_size(control, options)
 	var scale_factor: float = 1.0
-	if GFVariantData.get_option_bool(options, "fit_width", true) and available_size.x > 0.0:
-		scale_factor = minf(scale_factor, available_size.x / maxf(measured_size.x, 1.0))
-	if GFVariantData.get_option_bool(options, "fit_height", true) and available_size.y > 0.0:
-		scale_factor = minf(scale_factor, available_size.y / maxf(measured_size.y, 1.0))
+	if GFVariantData.get_option_bool(
+		options,
+		"fit_width",
+		true
+	) and available_size.x > 0.0:
+		scale_factor = minf(
+			scale_factor,
+			available_size.x / maxf(measured_size.x, 1.0)
+		)
+	if GFVariantData.get_option_bool(
+		options,
+		"fit_height",
+		true
+	) and available_size.y > 0.0:
+		scale_factor = minf(
+			scale_factor,
+			available_size.y / maxf(measured_size.y, 1.0)
+		)
 
 	var estimated_font_size: int = clampi(
 		floori(float(max_font_size) * minf(scale_factor, 1.0)),
@@ -492,7 +720,12 @@ static func _find_largest_candidate_font_size(
 	fallback_font_size: int
 ) -> int:
 	for candidate: int in font_size_candidates:
-		if _fits(control, text, candidate, options):
+		if _fits(
+			control,
+			text,
+			candidate,
+			options
+		):
 			return candidate
 	return fallback_font_size
 
@@ -500,8 +733,16 @@ static func _find_largest_candidate_font_size(
 ## 过滤范围外和重复字号后，以降序返回有效整数候选列表。
 ## [br]
 ## @api private
-static func _resolve_font_size_candidates(options: Dictionary, min_font_size: int, max_font_size: int) -> Array[int]:
-	var raw_candidates: Array[int] = GFVariantData.get_option_int_array(options, "font_size_candidates", [])
+static func _resolve_font_size_candidates(
+	options: Dictionary,
+	min_font_size: int,
+	max_font_size: int
+) -> Array[int]:
+	var raw_candidates: Array[int] = GFVariantData.get_option_int_array(
+		options,
+		"font_size_candidates",
+		[]
+	)
 	var result: Array[int] = []
 	var seen: Dictionary = {}
 	for raw_candidate: int in raw_candidates:
@@ -520,17 +761,43 @@ static func _resolve_font_size_candidates(options: Dictionary, min_font_size: in
 ## 测量指定字号，并仅在启用且可用尺寸为正的宽高方向检查是否容纳。
 ## [br]
 ## @api private
-static func _fits(control: Control, text: String, font_size: int, options: Dictionary) -> bool:
+static func _fits(
+	control: Control,
+	text: String,
+	font_size: int,
+	options: Dictionary
+) -> bool:
 	var available_size: Vector2 = _resolve_available_size(control, options)
 	if available_size.x <= 0.0 and available_size.y <= 0.0:
 		return true
 
-	var measured_size: Vector2 = measure_text(control, text, font_size, options)
-	var fit_width: bool = GFVariantData.get_option_bool(options, "fit_width", true)
-	var fit_height: bool = GFVariantData.get_option_bool(options, "fit_height", true)
-	if fit_width and available_size.x > 0.0 and measured_size.x > available_size.x:
+	var measured_size: Vector2 = measure_text(
+		control,
+		text,
+		font_size,
+		options
+	)
+	var fit_width: bool = GFVariantData.get_option_bool(
+		options,
+		"fit_width",
+		true
+	)
+	var fit_height: bool = GFVariantData.get_option_bool(
+		options,
+		"fit_height",
+		true
+	)
+	if (
+		fit_width
+		and available_size.x > 0.0
+		and measured_size.x > available_size.x
+	):
 		return false
-	if fit_height and available_size.y > 0.0 and measured_size.y > available_size.y:
+	if (
+		fit_height
+		and available_size.y > 0.0
+		and measured_size.y > available_size.y
+	):
 		return false
 	return true
 
@@ -539,7 +806,11 @@ static func _fits(control: Control, text: String, font_size: int, options: Dicti
 ## [br]
 ## @api private
 static func _resolve_available_size(control: Control, options: Dictionary) -> Vector2:
-	var available_size: Variant = GFVariantData.get_option_value(options, "available_size", control.size)
+	var available_size: Variant = GFVariantData.get_option_value(
+		options,
+		"available_size",
+		control.size
+	)
 	if available_size is Vector2i:
 		var vector2i_size: Vector2i = available_size
 		return Vector2(vector2i_size)
@@ -554,10 +825,22 @@ static func _resolve_available_size(control: Control, options: Dictionary) -> Ve
 ## @api private
 static func _resolve_content_available_size(control: Control, options: Dictionary) -> Vector2:
 	var size: Vector2 = _resolve_available_size(control, options)
-	var insets: Vector4 = _resolve_content_insets(GFVariantData.get_option_value(options, "content_insets", Vector4.ZERO))
+	var insets: Vector4 = _resolve_content_insets(
+		GFVariantData.get_option_value(
+			options,
+			"content_insets",
+			Vector4.ZERO
+		)
+	)
 	return Vector2(
-		maxf(size.x - insets.x - insets.z, 0.0),
-		maxf(size.y - insets.y - insets.w, 0.0)
+		maxf(
+			size.x - insets.x - insets.z,
+			0.0
+		),
+		maxf(
+			size.y - insets.y - insets.w,
+			0.0
+		)
 	)
 
 
@@ -570,14 +853,35 @@ static func _resolve_content_insets(value: Variant) -> Vector4:
 		return vector
 	if value is Rect2:
 		var rect: Rect2 = value
-		return Vector4(rect.position.x, rect.position.y, rect.size.x, rect.size.y)
+		return Vector4(
+			rect.position.x,
+			rect.position.y,
+			rect.size.x,
+			rect.size.y
+		)
 	if value is Dictionary:
 		var data: Dictionary = value
 		return Vector4(
-			GFVariantData.get_option_float(data, "left", 0.0),
-			GFVariantData.get_option_float(data, "top", 0.0),
-			GFVariantData.get_option_float(data, "right", 0.0),
-			GFVariantData.get_option_float(data, "bottom", 0.0)
+			GFVariantData.get_option_float(
+				data,
+				"left",
+				0.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"top",
+				0.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"right",
+				0.0
+			),
+			GFVariantData.get_option_float(
+				data,
+				"bottom",
+				0.0
+			)
 		)
 	return Vector4.ZERO
 
@@ -606,7 +910,11 @@ static func _uses_multiline_text_measurement(options: Dictionary) -> bool:
 		return true
 	if measurement_mode == MeasurementMode.SINGLE_LINE:
 		return false
-	if GFVariantData.get_option_bool(options, "use_multiline_measurement", false):
+	if GFVariantData.get_option_bool(
+		options,
+		"use_multiline_measurement",
+		false
+	):
 		return true
 	for key: String in [
 		"horizontal_alignment",
@@ -626,7 +934,11 @@ static func _uses_multiline_text_measurement(options: Dictionary) -> bool:
 ## @api private
 static func _get_measurement_mode(options: Dictionary) -> int:
 	return clampi(
-		GFVariantData.get_option_int(options, "measurement_mode", MeasurementMode.AUTO),
+		GFVariantData.get_option_int(
+			options,
+			"measurement_mode",
+			MeasurementMode.AUTO
+		),
 		MeasurementMode.AUTO,
 		MeasurementMode.MULTILINE
 	)
@@ -641,14 +953,26 @@ static func _measure_single_line_text(
 	font_size: int,
 	options: Dictionary
 ) -> Vector2:
-	var alignment: int = GFVariantData.get_option_int(options, "horizontal_alignment", HORIZONTAL_ALIGNMENT_LEFT)
+	var alignment: int = GFVariantData.get_option_int(
+		options,
+		"horizontal_alignment",
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
 	var justification_flags: int = GFVariantData.get_option_int(
 		options,
 		"justification_flags",
 		TextServer.JUSTIFICATION_KASHIDA | TextServer.JUSTIFICATION_WORD_BOUND
 	)
-	var text_direction: int = GFVariantData.get_option_int(options, "text_direction", TextServer.DIRECTION_AUTO)
-	var orientation: int = GFVariantData.get_option_int(options, "orientation", TextServer.ORIENTATION_HORIZONTAL)
+	var text_direction: int = GFVariantData.get_option_int(
+		options,
+		"text_direction",
+		TextServer.DIRECTION_AUTO
+	)
+	var orientation: int = GFVariantData.get_option_int(
+		options,
+		"orientation",
+		TextServer.ORIENTATION_HORIZONTAL
+	)
 	var size: Vector2 = font.get_string_size(
 		text,
 		alignment,
@@ -659,7 +983,10 @@ static func _measure_single_line_text(
 		orientation
 	)
 	if text.is_empty():
-		size.y = maxf(size.y, float(font_size))
+		size.y = maxf(
+			size.y,
+			float(font_size)
+		)
 	return size
 
 
@@ -673,17 +1000,39 @@ static func _measure_multiline_text(
 	wrap_width: float,
 	options: Dictionary
 ) -> Vector2:
-	var alignment: int = GFVariantData.get_option_int(options, "horizontal_alignment", HORIZONTAL_ALIGNMENT_LEFT)
-	var line_break_flags: int = GFVariantData.get_option_int(options, "line_break_flags", TextServer.BREAK_MANDATORY)
+	var alignment: int = GFVariantData.get_option_int(
+		options,
+		"horizontal_alignment",
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
+	var line_break_flags: int = GFVariantData.get_option_int(
+		options,
+		"line_break_flags",
+		TextServer.BREAK_MANDATORY
+	)
 	if options.has("autowrap_mode") and not options.has("line_break_flags"):
-		line_break_flags = _autowrap_mode_to_line_break_flags(GFVariantData.get_option_int(options, "autowrap_mode", TextServer.AUTOWRAP_OFF))
+		line_break_flags = _autowrap_mode_to_line_break_flags(
+			GFVariantData.get_option_int(
+				options,
+				"autowrap_mode",
+				TextServer.AUTOWRAP_OFF
+			)
+		)
 	var justification_flags: int = GFVariantData.get_option_int(
 		options,
 		"justification_flags",
 		TextServer.JUSTIFICATION_KASHIDA | TextServer.JUSTIFICATION_WORD_BOUND
 	)
-	var text_direction: int = GFVariantData.get_option_int(options, "text_direction", TextServer.DIRECTION_AUTO)
-	var orientation: int = GFVariantData.get_option_int(options, "orientation", TextServer.ORIENTATION_HORIZONTAL)
+	var text_direction: int = GFVariantData.get_option_int(
+		options,
+		"text_direction",
+		TextServer.DIRECTION_AUTO
+	)
+	var orientation: int = GFVariantData.get_option_int(
+		options,
+		"orientation",
+		TextServer.ORIENTATION_HORIZONTAL
+	)
 	var size: Vector2 = font.get_multiline_string_size(
 		text,
 		alignment,
@@ -696,7 +1045,10 @@ static func _measure_multiline_text(
 		orientation
 	)
 	if text.is_empty():
-		size.y = maxf(size.y, float(font_size))
+		size.y = maxf(
+			size.y,
+			float(font_size)
+		)
 	return size
 
 
@@ -718,15 +1070,34 @@ static func _autowrap_mode_to_line_break_flags(autowrap_mode: int, trim_flags: i
 ## 按换行拆分文本并累计各行尺寸；超过 wrap_width 的行交给 _measure_wrapped_line()。
 ## [br]
 ## @api private
-static func _measure_lines(font: Font, text: String, font_size: int, wrap_width: float) -> Vector2:
+static func _measure_lines(
+	font: Font,
+	text: String,
+	font_size: int,
+	wrap_width: float
+) -> Vector2:
 	var lines: PackedStringArray = text.split("\n")
 	var max_width: float = 0.0
 	var total_height: float = 0.0
 	for line: String in lines:
-		var line_size: Vector2 = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-		var line_height: float = maxf(line_size.y, float(font_size))
+		var line_size: Vector2 = font.get_string_size(
+			line,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			font_size
+		)
+		var line_height: float = maxf(
+			line_size.y,
+			float(font_size)
+		)
 		if wrap_width > 0.0 and line_size.x > wrap_width:
-			var wrapped_size: Vector2 = _measure_wrapped_line(font, line, font_size, wrap_width, line_height)
+			var wrapped_size: Vector2 = _measure_wrapped_line(
+				font,
+				line,
+				font_size,
+				wrap_width,
+				line_height
+			)
 			max_width = maxf(max_width, wrapped_size.x)
 			total_height += wrapped_size.y
 		else:
@@ -753,19 +1124,43 @@ static func _measure_wrapped_line(
 	var current_text: String = ""
 	for index: int in range(line.length()):
 		var next_text: String = current_text + line.substr(index, 1)
-		var next_width: float = font.get_string_size(next_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		var next_width: float = font.get_string_size(
+			next_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			font_size
+		).x
 		if not current_text.is_empty() and next_width > wrap_width:
-			var current_width: float = font.get_string_size(current_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
-			max_width = maxf(max_width, minf(current_width, wrap_width))
+			var current_width: float = font.get_string_size(
+				current_text,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				font_size
+			).x
+			max_width = maxf(
+				max_width,
+				minf(current_width, wrap_width)
+			)
 			line_count += 1
 			current_text = line.substr(index, 1)
 		else:
 			current_text = next_text
 
 	if not current_text.is_empty():
-		var current_width: float = font.get_string_size(current_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
-		max_width = maxf(max_width, minf(current_width, wrap_width))
-	return Vector2(max_width, line_height * float(line_count))
+		var current_width: float = font.get_string_size(
+			current_text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			font_size
+		).x
+		max_width = maxf(
+			max_width,
+			minf(current_width, wrap_width)
+		)
+	return Vector2(
+		max_width,
+		line_height * float(line_count)
+	)
 
 
 ## 用正则表达式移除方括号标签；正则编译失败时返回原文本。
@@ -776,4 +1171,8 @@ static func _strip_bbcode(text: String) -> String:
 	var error: Error = regex.compile("\\[[^\\]]*\\]")
 	if error != OK:
 		return text
-	return regex.sub(text, "", true)
+	return regex.sub(
+		text,
+		"",
+		true
+	)

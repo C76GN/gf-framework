@@ -91,10 +91,7 @@ const _WORKSPACE_RECORDS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_w
 ## @schema return: Dictionary，含 ok: bool、data: Dictionary、errors: Array[String]；仅 ok 为 true 时可消费 data。data 始终含 schema_version: int、extension_id: String 及全部 PATH_FIELDS（去空白、去重的字符串数组，省略时为空）。v2 不返回工作区记录字段，输入携带它们时失败；v3 另含 task_records、resource_action_records: Array[Dictionary]（省略时为空）。每项均含 owner_package_id: String（默认 extension_id）、source_id: String（owner_package_id:本地来源 ID）、title: String（去首尾空白）、description: String（默认空）、keywords: 字符串数组（默认空）、group: String（默认“常用”）、page_path: String（保留声明路径，须匹配同一 owner 的 editor_dock_paths）、action_id: String（任务默认空）。资源动作另要求 action_id 非空，并含 resource_types: 非空字符串数组（仅 Resource、PackedScene、Texture2D、AudioStream、Font、Material、Mesh、Script）、max_selection: int（1 到 100，默认 1）。失败时 errors 非空，data 可保留部分规范化结果，不能作为已通过校验的贡献。
 static func parse_dictionary(data: Dictionary, expected_extension_id: String = "") -> Dictionary:
 	var errors: Array[String] = []
-	var normalized_data: Dictionary = {
-		"schema_version": 0,
-		"extension_id": "",
-	}
+	var normalized_data: Dictionary = { "schema_version": 0, "extension_id": "", }
 	for path_field: String in PATH_FIELDS:
 		normalized_data[path_field] = []
 
@@ -106,7 +103,13 @@ static func parse_dictionary(data: Dictionary, expected_extension_id: String = "
 			continue
 		var field_name: String = raw_key
 		var workspace_field: bool = field_name in ["task_records", "resource_action_records"]
-		if not ALLOWED_FIELDS.has(field_name) and not (schema_version == 3 and workspace_field):
+		if (
+			not ALLOWED_FIELDS.has(field_name)
+			and not (
+				schema_version == 3
+				and workspace_field
+			)
+		):
 			errors.append("unsupported tool contribution field: %s" % field_name)
 		elif schema_version == 2 and workspace_field:
 			errors.append("workspace records require tool contribution schema_version 3")
@@ -127,10 +130,7 @@ static func parse_dictionary(data: Dictionary, expected_extension_id: String = "
 		if extension_id.is_empty():
 			errors.append("tool contribution extension_id must not be empty")
 		else:
-			var id_error: String = _GF_EXTENSION_ID_VALIDATOR_SCRIPT.get_extension_id_validation_error(
-				extension_id,
-				"tool contribution extension_id"
-			)
+			var id_error: String = _GF_EXTENSION_ID_VALIDATOR_SCRIPT.get_extension_id_validation_error(extension_id, "tool contribution extension_id")
 			if not id_error.is_empty():
 				errors.append(id_error)
 			elif not expected_extension_id.is_empty() and extension_id != expected_extension_id:
@@ -167,7 +167,10 @@ static func parse_dictionary(data: Dictionary, expected_extension_id: String = "
 		var workspace_identities: Dictionary = {}
 		for family: String in ["task_records", "resource_action_records"]:
 			var parsed: Dictionary = _WORKSPACE_RECORDS_SCRIPT.parse_records(
-				data.get(family, []), extension_id, page_owners, family == "resource_action_records"
+				data.get(family, []),
+				extension_id,
+				page_owners,
+				family == "resource_action_records"
 			)
 			normalized_data[family] = parsed["records"]
 			var family_errors: Array = parsed["errors"]

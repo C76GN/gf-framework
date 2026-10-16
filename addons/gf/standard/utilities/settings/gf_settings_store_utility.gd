@@ -63,13 +63,15 @@ func write_settings(file_name: String, data: Dictionary) -> Error:
 ## @api private
 ## [br]
 func _make_unavailable_read_result(_file_name: String) -> GFStorageReadResult:
-	return GFStorageReadResult.new().configure_failure(
-		"Settings persistence store is unavailable.",
-		ERR_UNAVAILABLE,
-		{},
-		GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
-		0,
-		GFStorageReadResult.FailureKind.UNAVAILABLE
+	return (
+		GFStorageReadResult.new().configure_failure(
+			"Settings persistence store is unavailable.",
+			ERR_UNAVAILABLE,
+			{},
+			GFStorageReadResult.IntegrityStatus.NOT_CHECKED,
+			0,
+			GFStorageReadResult.FailureKind.UNAVAILABLE
+		)
 	)
 
 

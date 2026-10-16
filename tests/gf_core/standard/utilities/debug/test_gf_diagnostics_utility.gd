@@ -10,10 +10,22 @@ func test_diagnostics_command_executes() -> void:
 	var result: Dictionary = diagnostics.execute_command(&"diagnostics.performance")
 	var performance_value: Dictionary = GFVariantData.as_dictionary(result["value"])
 
-	assert_true(GFVariantData.get_option_bool(result, "ok"), "内置性能诊断命令应执行成功。")
-	assert_true(performance_value.has("fps"), "性能快照应包含 fps。")
-	assert_true(diagnostics.has_command(&"diagnostics.scene"), "Diagnostics 应注册只读场景树快照命令。")
-	assert_true(diagnostics.has_command(&"diagnostics.signals"), "Diagnostics 应注册只读信号图快照命令。")
+	assert_true(
+		GFVariantData.get_option_bool(result, "ok"),
+		"内置性能诊断命令应执行成功。"
+	)
+	assert_true(
+		performance_value.has("fps"),
+		"性能快照应包含 fps。"
+	)
+	assert_true(
+		diagnostics.has_command(&"diagnostics.scene"),
+		"Diagnostics 应注册只读场景树快照命令。"
+	)
+	assert_true(
+		diagnostics.has_command(&"diagnostics.signals"),
+		"Diagnostics 应注册只读信号图快照命令。"
+	)
 
 
 func test_diagnostics_optional_console_lookup_is_silent_in_strict_architecture() -> void:
@@ -28,10 +40,7 @@ func test_diagnostics_optional_console_lookup_is_silent_in_strict_architecture()
 		diagnostics.is_ready_in_architecture(),
 		"缺少可选 Console 不应阻止架构初始化。"
 	)
-	assert_push_error_count(
-		0,
-		"Diagnostics 的全部可选工具查询在严格模式下都必须保持静默。"
-	)
+	assert_push_error_count(0, "Diagnostics 的全部可选工具查询在严格模式下都必须保持静默。")
 	architecture.dispose()
 	await get_tree().process_frame
 
@@ -69,20 +78,40 @@ func test_diagnostics_collects_read_only_scene_tree_snapshot() -> void:
 	add_child_autofree(root)
 
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	var snapshot: Dictionary = diagnostics.collect_scene_tree_snapshot(root, {
-		"max_depth": 1,
-		"max_nodes": 8,
-		"include_groups": true,
-	})
+	var snapshot: Dictionary = diagnostics.collect_scene_tree_snapshot(
+		root,
+		{
+			"max_depth": 1,
+			"max_nodes": 8,
+			"include_groups": true,
+		}
+	)
 	var root_data: Dictionary = GFVariantData.as_dictionary(snapshot["root"])
 	var children: Array = GFVariantData.as_array(root_data["children"])
 	var child_data: Dictionary = GFVariantData.as_dictionary(children[0])
 
-	assert_true(GFVariantData.get_option_bool(snapshot, "available"), "传入根节点时场景树快照应可用。")
-	assert_eq(GFVariantData.get_option_string(root_data, "name"), "Root", "快照应记录节点名称。")
-	assert_eq(GFVariantData.get_option_string(child_data, "name"), "Child", "快照应记录直接子节点。")
-	assert_true(GFVariantData.get_option_bool(child_data, "depth_limit_reached"), "超过深度的子树应只标记截断，不继续展开。")
-	assert_true(GFVariantData.get_option_bool(snapshot, "truncated"), "达到深度限制时顶层快照应标记截断。")
+	assert_true(
+		GFVariantData.get_option_bool(snapshot, "available"),
+		"传入根节点时场景树快照应可用。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(root_data, "name"),
+		"Root",
+		"快照应记录节点名称。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(child_data, "name"),
+		"Child",
+		"快照应记录直接子节点。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(child_data, "depth_limit_reached"),
+		"超过深度的子树应只标记截断，不继续展开。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(snapshot, "truncated"),
+		"达到深度限制时顶层快照应标记截断。"
+	)
 
 
 func test_diagnostics_scene_tree_snapshot_can_redact_paths() -> void:
@@ -91,17 +120,32 @@ func test_diagnostics_scene_tree_snapshot_can_redact_paths() -> void:
 	add_child_autofree(root)
 
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	var snapshot: Dictionary = diagnostics.collect_scene_tree_snapshot(root, {
-		"redact_paths": true,
-		"include_script_path": true,
-		"include_owner_path": true,
-	})
+	var snapshot: Dictionary = diagnostics.collect_scene_tree_snapshot(
+		root,
+		{
+			"redact_paths": true,
+			"include_script_path": true,
+			"include_owner_path": true,
+		}
+	)
 	var root_data: Dictionary = GFVariantData.as_dictionary(snapshot["root"])
 
-	assert_eq(GFVariantData.get_option_string(snapshot, "root_path"), "<redacted>", "共享快照可隐藏 root_path。")
-	assert_eq(GFVariantData.get_option_string(root_data, "path"), "<redacted>", "共享快照可隐藏节点 path。")
+	assert_eq(
+		GFVariantData.get_option_string(snapshot, "root_path"),
+		"<redacted>",
+		"共享快照可隐藏 root_path。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(root_data, "path"),
+		"<redacted>",
+		"共享快照可隐藏节点 path。"
+	)
 	if not GFVariantData.get_option_string(root_data, "script_path").is_empty():
-		assert_eq(GFVariantData.get_option_string(root_data, "script_path"), "<redacted>", "共享快照可隐藏脚本路径。")
+		assert_eq(
+			GFVariantData.get_option_string(root_data, "script_path"),
+			"<redacted>",
+			"共享快照可隐藏脚本路径。"
+		)
 
 
 ## 验证诊断命令等级默认只允许观察类命令。
@@ -119,8 +163,15 @@ func test_diagnostics_command_tier_denies_control_by_default() -> void:
 	var result: Dictionary = diagnostics.execute_command(&"runtime.pause")
 	var metadata: Dictionary = GFVariantData.as_dictionary(result["metadata"])
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "默认等级不应允许 CONTROL 命令。")
-	assert_eq(GFVariantData.get_option_string(metadata, "tier_name"), "control", "失败结果应包含命令等级。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"默认等级不应允许 CONTROL 命令。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(metadata, "tier_name"),
+		"control",
+		"失败结果应包含命令等级。"
+	)
 
 
 ## 验证诊断命令可要求 token 认证。
@@ -128,29 +179,53 @@ func test_diagnostics_command_requires_auth_token() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.set_auth_token("secret")
 	var command_state: Dictionary = { "args": {} }
-	var _command_registered: bool = diagnostics.register_command(self, &"diagnostics.test", func(args: Dictionary) -> String:
-		command_state["args"] = args.duplicate(true)
-		return "ok"
+	var _command_registered: bool = diagnostics.register_command(
+		self,
+		&"diagnostics.test",
+		func(args: Dictionary) -> String:
+			command_state["args"] = args.duplicate(true)
+			return "ok"
 	)
 
 	var rejected: Dictionary = diagnostics.execute_command(&"diagnostics.test")
-	var accepted: Dictionary = diagnostics.execute_command(&"diagnostics.test", { "auth_token": "secret" })
+	var accepted: Dictionary = diagnostics.execute_command(
+		&"diagnostics.test",
+		{ "auth_token": "secret" }
+	)
 	var accepted_string_name: Dictionary = diagnostics.execute_command(
 		&"diagnostics.test",
 		{ &"auth_token": "secret" }
 	)
 	var received_args: Dictionary = GFVariantData.get_option_dictionary(command_state, "args")
 
-	assert_false(GFVariantData.get_option_bool(rejected, "ok"), "缺少 token 时命令应被拒绝。")
-	assert_true(GFVariantData.get_option_bool(accepted, "ok"), "提供正确 token 时命令应执行。")
+	assert_false(
+		GFVariantData.get_option_bool(rejected, "ok"),
+		"缺少 token 时命令应被拒绝。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(accepted, "ok"),
+		"提供正确 token 时命令应执行。"
+	)
 	assert_true(
 		GFVariantData.get_option_bool(accepted_string_name, "ok"),
 		"StringName token 键通过同一认证协议时命令应执行。"
 	)
-	assert_false(received_args.has("auth_token"), "认证字段验证后必须从回调参数中剥离。")
-	assert_false(received_args.has(&"auth_token"), "StringName 认证字段也必须从回调参数中剥离。")
-	assert_false(received_args.has("_auth_token"), "兼容认证字段也不得传给命令回调。")
-	assert_false(received_args.has(&"_auth_token"), "StringName 兼容认证字段也不得传给命令回调。")
+	assert_false(
+		received_args.has("auth_token"),
+		"认证字段验证后必须从回调参数中剥离。"
+	)
+	assert_false(
+		received_args.has(&"auth_token"),
+		"StringName 认证字段也必须从回调参数中剥离。"
+	)
+	assert_false(
+		received_args.has("_auth_token"),
+		"兼容认证字段也不得传给命令回调。"
+	)
+	assert_false(
+		received_args.has(&"_auth_token"),
+		"StringName 兼容认证字段也不得传给命令回调。"
+	)
 
 
 func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> void:
@@ -164,17 +239,12 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 		GFDiagnosticsUtility.CommandTier.OBSERVE,
 		{
 			"parameters": [
-				{
-					"name": "count",
-					"type": "interger",
-				},
+				{ "name": "count", "type": "interger", },
 			],
 		}
 	)
 	assert_false(unknown_registered, "未知 parameter type 必须在注册阶段 fail closed。")
-	assert_push_error(
-		"[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: interger."
-	)
+	assert_push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: interger.")
 
 	var non_string_type_registered: bool = diagnostics.register_command(
 		self,
@@ -185,20 +255,12 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 		GFDiagnosticsUtility.CommandTier.OBSERVE,
 		{
 			"parameters": [
-				{
-					"name": "count",
-					"type": 7,
-				},
+				{ "name": "count", "type": 7, },
 			],
 		}
 	)
-	assert_false(
-		non_string_type_registered,
-		"非字符串 parameter type 不能被静默归一为 any。"
-	)
-	assert_push_error(
-		"[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: <invalid:int>."
-	)
+	assert_false(non_string_type_registered, "非字符串 parameter type 不能被静默归一为 any。")
+	assert_push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_type_unknown] Command argument schema uses an unknown type: <invalid:int>.")
 
 	var invalid_container_registered: bool = diagnostics.register_command(
 		self,
@@ -210,9 +272,7 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 		{ "parameters": "count" }
 	)
 	assert_false(invalid_container_registered, "非 Array/Dictionary schema 顶层必须拒绝。")
-	assert_push_error(
-		"[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Command argument schema must be an Array or Dictionary at the top level.."
-	)
+	assert_push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Command argument schema must be an Array or Dictionary at the top level..")
 
 	var invalid_array_item_registered: bool = diagnostics.register_command(
 		self,
@@ -221,12 +281,12 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 			pass,
 		"",
 		GFDiagnosticsUtility.CommandTier.OBSERVE,
-		{ "parameters": ["count"] }
+		{
+			"parameters": ["count"],
+		}
 	)
 	assert_false(invalid_array_item_registered, "Array schema 的非 Dictionary 项必须拒绝。")
-	assert_push_error(
-		"[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Each command argument schema Array item must be a Dictionary.."
-	)
+	assert_push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Each command argument schema Array item must be a Dictionary..")
 
 	var invalid_map_value_registered: bool = diagnostics.register_command(
 		self,
@@ -235,12 +295,12 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 			pass,
 		"",
 		GFDiagnosticsUtility.CommandTier.OBSERVE,
-		{ "parameters": { "count": "int" } }
+		{
+			"parameters": { "count": "int" },
+		}
 	)
 	assert_false(invalid_map_value_registered, "Dictionary schema 的非 Dictionary value 必须拒绝。")
-	assert_push_error(
-		"[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Command argument schema Dictionary values must be Dictionary values.."
-	)
+	assert_push_error("[GFDiagnosticsUtility][diagnostics_utility.argument_schema_invalid] Command argument schema is invalid: Command argument schema Dictionary values must be Dictionary values..")
 
 	var reserved_registered: bool = diagnostics.register_command(
 		self,
@@ -251,17 +311,12 @@ func test_diagnostics_command_schema_rejects_unknown_and_reserved_types() -> voi
 		GFDiagnosticsUtility.CommandTier.OBSERVE,
 		{
 			"parameters": [
-				{
-					"name": "auth_token",
-					"type": "string",
-				},
+				{ "name": "auth_token", "type": "string", },
 			],
 		}
 	)
 	assert_false(reserved_registered, "命令 schema 不得把认证字段重新引入 callback。")
-	assert_push_error(
-		"[GFDiagnosticsUtility][diagnostics_utility.authentication_field_reserved] Command argument schema must not declare a reserved authentication field: auth_token."
-	)
+	assert_push_error("[GFDiagnosticsUtility][diagnostics_utility.authentication_field_reserved] Command argument schema must not declare a reserved authentication field: auth_token.")
 
 
 func test_diagnostics_command_schema_validates_arguments_and_defaults() -> void:
@@ -288,19 +343,39 @@ func test_diagnostics_command_schema_validates_arguments_and_defaults() -> void:
 	)
 
 	var defaulted: Dictionary = diagnostics.execute_command(&"runtime.limit")
-	var rejected: Dictionary = diagnostics.execute_command(&"runtime.limit", { "limit": 8 })
+	var rejected: Dictionary = diagnostics.execute_command(
+		&"runtime.limit",
+		{ "limit": 8 }
+	)
 	var defaulted_value: Dictionary = GFVariantData.as_dictionary(defaulted["value"])
 
-	assert_true(GFVariantData.get_option_bool(defaulted, "ok"), "带默认值的必填参数缺省时应使用默认值。")
-	assert_eq(GFVariantData.get_option_int(defaulted_value, "limit"), 3, "命令回调应收到填充默认值后的参数。")
-	assert_false(GFVariantData.get_option_bool(rejected, "ok"), "超出 schema 范围的参数应被拒绝。")
-	assert_true(GFVariantData.get_option_string(rejected, "error").contains("error"), "参数校验失败应返回校验摘要。")
+	assert_true(
+		GFVariantData.get_option_bool(defaulted, "ok"),
+		"带默认值的必填参数缺省时应使用默认值。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(defaulted_value, "limit"),
+		3,
+		"命令回调应收到填充默认值后的参数。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(rejected, "ok"),
+		"超出 schema 范围的参数应被拒绝。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(rejected, "error").contains("error"),
+		"参数校验失败应返回校验摘要。"
+	)
 
 
 func test_diagnostics_command_schema_accepts_explicitly_nullable_typed_parameters() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var received: Dictionary = {}
-	for type_name: String in ["object", "dictionary", "string"]:
+	for type_name: String in [
+		"object",
+		"dictionary",
+		"string",
+	]:
 		var command_name: StringName = StringName("runtime.nullable_%s" % type_name)
 		var registered: bool = diagnostics.register_command(
 			self,
@@ -321,11 +396,26 @@ func test_diagnostics_command_schema_accepts_explicitly_nullable_typed_parameter
 				],
 			}
 		)
-		var result: Dictionary = diagnostics.execute_command(command_name, { "target": null })
-		assert_true(registered, "合法 nullable typed schema 应成功注册：%s。" % type_name)
-		assert_true(GFVariantData.get_option_bool(result, "ok"), "显式允许的 null 应到达回调：%s。" % type_name)
-		assert_true(received.has(type_name), "nullable 回调应被调用：%s。" % type_name)
-		assert_true(received[type_name] == null, "回调收到的值应保持 null：%s。" % type_name)
+		var result: Dictionary = diagnostics.execute_command(
+			command_name,
+			{ "target": null }
+		)
+		assert_true(
+			registered,
+			"合法 nullable typed schema 应成功注册：%s。" % type_name
+		)
+		assert_true(
+			GFVariantData.get_option_bool(result, "ok"),
+			"显式允许的 null 应到达回调：%s。" % type_name
+		)
+		assert_true(
+			received.has(type_name),
+			"nullable 回调应被调用：%s。" % type_name
+		)
+		assert_true(
+			received[type_name] == null,
+			"回调收到的值应保持 null：%s。" % type_name
+		)
 
 	var rejected_registered: bool = diagnostics.register_command(
 		self,
@@ -351,7 +441,10 @@ func test_diagnostics_command_schema_accepts_explicitly_nullable_typed_parameter
 	)
 
 	assert_true(rejected_registered, "non-nullable schema 本身仍应合法。")
-	assert_false(GFVariantData.get_option_bool(rejected, "ok"), "未允许的 null 仍必须拒绝。")
+	assert_false(
+		GFVariantData.get_option_bool(rejected, "ok"),
+		"未允许的 null 仍必须拒绝。"
+	)
 	assert_true(
 		GFVariantData.get_option_string(
 			GFVariantData.get_option_dictionary(
@@ -375,26 +468,41 @@ func test_diagnostics_command_rejects_non_finite_numeric_parameter() -> void:
 		GFDiagnosticsUtility.CommandTier.OBSERVE,
 		{
 			"parameters": [
-				{
-					"name": "scale",
-					"type": "float",
-				},
+				{ "name": "scale", "type": "float", },
 			],
 		}
 	)
 
-	var result: Dictionary = diagnostics.execute_command(&"runtime.scale", { "scale": NAN })
+	var result: Dictionary = diagnostics.execute_command(
+		&"runtime.scale",
+		{ "scale": NAN }
+	)
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
 	var validation: Dictionary = GFVariantData.get_option_dictionary(metadata, "validation")
 
-	assert_false(GFVariantData.get_option_bool(result, "ok"), "诊断命令不应接受 NaN 参数。")
-	assert_true(GFVariantData.get_option_string(validation, "summary").contains("parameter_non_finite"), "校验报告应说明非有限数值。")
+	assert_false(
+		GFVariantData.get_option_bool(result, "ok"),
+		"诊断命令不应接受 NaN 参数。"
+	)
+	assert_true(
+		GFVariantData.get_option_string(validation, "summary").contains("parameter_non_finite"),
+		"校验报告应说明非有限数值。"
+	)
 
 
 func test_diagnostics_command_can_be_disabled_and_exported_json_safe() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	var _command_registered: bool = diagnostics.register_command(self, &"runtime.vector", func(_args: Dictionary) -> Dictionary:
-		return { "position": Vector3(1.0, 2.0, 3.0) }
+	var _command_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.vector",
+		func(_args: Dictionary) -> Dictionary:
+			return {
+				"position": Vector3(
+					1.0,
+					2.0,
+					3.0
+				),
+			}
 	)
 
 	var disabled_ok: bool = diagnostics.set_command_enabled(&"runtime.vector", false)
@@ -405,8 +513,14 @@ func test_diagnostics_command_can_be_disabled_and_exported_json_safe() -> void:
 	var position: Dictionary = GFVariantData.as_dictionary(value["position"])
 
 	assert_true(disabled_ok, "已注册命令应可被禁用。")
-	assert_false(GFVariantData.get_option_bool(disabled, "ok"), "禁用命令不应执行回调。")
-	assert_true(position.has(GFVariantJsonCodec.JSON_MARKER_KEY), "JSON-safe 命令结果应编码 Godot Variant。")
+	assert_false(
+		GFVariantData.get_option_bool(disabled, "ok"),
+		"禁用命令不应执行回调。"
+	)
+	assert_true(
+		position.has(GFVariantJsonCodec.JSON_MARKER_KEY),
+		"JSON-safe 命令结果应编码 Godot Variant。"
+	)
 
 
 ## 验证诊断快照可读取架构生命周期状态。
@@ -416,12 +530,13 @@ func test_diagnostics_collects_architecture_snapshot() -> void:
 	await arch.register_utility_instance(diagnostics)
 	await arch.init()
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_recent_logs": false, })
 	var architecture: Dictionary = GFVariantData.as_dictionary(snapshot["architecture"])
 
-	assert_true(architecture.has("utilities"), "架构快照应包含 Utility 状态。")
+	assert_true(
+		architecture.has("utilities"),
+		"架构快照应包含 Utility 状态。"
+	)
 
 	arch.dispose()
 
@@ -437,23 +552,40 @@ func test_diagnostics_collects_tool_debug_snapshots() -> void:
 	await arch.register_system_instance(action_queue)
 	await arch.init()
 	assert_true(
-		diagnostics.publish_tool_snapshot(self, &"download", { "pending_count": 0 }),
+		diagnostics.publish_tool_snapshot(
+			self,
+			&"download",
+			{ "pending_count": 0 }
+		),
 		"外部贡献应能发布 download 快照。"
 	)
 
-	var _execute_after_result_161: Variant = timer.execute_after(1.0, func() -> void:
-		pass
+	var _execute_after_result_161: Variant = timer.execute_after(
+		1.0,
+		func() -> void:
+			pass
 	)
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_recent_logs": false, })
 	var tools: Dictionary = GFVariantData.as_dictionary(snapshot["tools"])
 	var timer_snapshot: Dictionary = GFVariantData.as_dictionary(tools[&"timer"])
 
-	assert_true(tools.has(&"timer"), "工具快照应包含 TimerUtility。")
-	assert_true(tools.has(&"download"), "工具快照应包含外部注册的 Download provider。")
-	assert_true(tools.has(&"action_queue"), "工具快照应包含 ActionQueueSystem。")
-	assert_eq(GFVariantData.get_option_int(timer_snapshot, "pending_count"), 1, "Timer 快照应保留工具自身诊断数据。")
+	assert_true(
+		tools.has(&"timer"),
+		"工具快照应包含 TimerUtility。"
+	)
+	assert_true(
+		tools.has(&"download"),
+		"工具快照应包含外部注册的 Download provider。"
+	)
+	assert_true(
+		tools.has(&"action_queue"),
+		"工具快照应包含 ActionQueueSystem。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(timer_snapshot, "pending_count"),
+		1,
+		"Timer 快照应保留工具自身诊断数据。"
+	)
 
 	arch.dispose()
 
@@ -471,14 +603,19 @@ func test_diagnostics_collects_build_info_snapshot() -> void:
 	build_info.build_id = "diagnostics-build"
 	build_info_utility.set_build_info(build_info)
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_recent_logs": false, })
 	var build: Dictionary = GFVariantData.as_dictionary(snapshot["build"])
 	var tools: Dictionary = GFVariantData.as_dictionary(snapshot["tools"])
 
-	assert_eq(GFVariantData.get_option_string(build, "build_id"), "diagnostics-build", "诊断快照应使用 BuildInfoUtility 的稳定副本。")
-	assert_true(tools.has(&"build_info"), "工具快照应包含 BuildInfoUtility。")
+	assert_eq(
+		GFVariantData.get_option_string(build, "build_id"),
+		"diagnostics-build",
+		"诊断快照应使用 BuildInfoUtility 的稳定副本。"
+	)
+	assert_true(
+		tools.has(&"build_info"),
+		"工具快照应包含 BuildInfoUtility。"
+	)
 
 	arch.dispose()
 
@@ -487,12 +624,29 @@ func test_diagnostics_collects_build_info_snapshot() -> void:
 func test_diagnostics_monitor_registry_collects_custom_monitor() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
-	assert_true(diagnostics.register_monitor(self, &"test.value", {
-		"label": "Value",
-		"group": "Tests",
-	}), "有效监控项应注册成功。")
-	assert_true(diagnostics.publish_monitor_sample(self, &"test.value", 7), "监控项应接受 owner 发布的采样值。")
-	assert_true(diagnostics.register_monitor_preset(&"test", PackedStringArray(["test.value"])), "监控预设应注册成功。")
+	assert_true(
+		diagnostics.register_monitor(
+			self,
+			&"test.value",
+			{ "label": "Value", "group": "Tests", }
+		),
+		"有效监控项应注册成功。"
+	)
+	assert_true(
+		diagnostics.publish_monitor_sample(
+			self,
+			&"test.value",
+			7
+		),
+		"监控项应接受 owner 发布的采样值。"
+	)
+	assert_true(
+		diagnostics.register_monitor_preset(
+			&"test",
+			PackedStringArray(["test.value"])
+		),
+		"监控预设应注册成功。"
+	)
 
 	var snapshot: Dictionary = diagnostics.collect_monitor_snapshot(PackedStringArray(["test.value"]))
 	var monitors: Dictionary = GFVariantData.as_dictionary(snapshot["monitors"])
@@ -500,9 +654,20 @@ func test_diagnostics_monitor_registry_collects_custom_monitor() -> void:
 	var preset_snapshot: Dictionary = diagnostics.collect_monitor_preset(&"test")
 	var exported_text: String = diagnostics.export_monitor_snapshot(preset_snapshot, &"text")
 
-	assert_eq(GFVariantData.get_option_int(sample, "value"), 7, "监控快照应包含已发布值。")
-	assert_eq(GFVariantData.get_option_string_name(preset_snapshot, "preset_id"), &"test", "预设快照应记录预设 id。")
-	assert_true("Value" in exported_text, "文本导出应包含监控标签。")
+	assert_eq(
+		GFVariantData.get_option_int(sample, "value"),
+		7,
+		"监控快照应包含已发布值。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(preset_snapshot, "preset_id"),
+		&"test",
+		"预设快照应记录预设 id。"
+	)
+	assert_true(
+		"Value" in exported_text,
+		"文本导出应包含监控标签。"
+	)
 
 
 func test_publish_monitor_emits_once_and_collect_is_side_effect_free() -> void:
@@ -514,7 +679,11 @@ func test_publish_monitor_emits_once_and_collect_is_side_effect_free() -> void:
 	)
 
 	assert_true(
-		diagnostics.publish_monitor_sample(self, &"signal.count", 1),
+		diagnostics.publish_monitor_sample(
+			self,
+			&"signal.count",
+			1
+		),
 		"发布有效采样应成功。"
 	)
 	assert_signal_emit_count(
@@ -524,9 +693,7 @@ func test_publish_monitor_emits_once_and_collect_is_side_effect_free() -> void:
 		"一次成功 publish 必须恰好发出一次 monitor_sampled。"
 	)
 
-	var _snapshot: Dictionary = diagnostics.collect_monitor_snapshot(
-		PackedStringArray(["signal.count"])
-	)
+	var _snapshot: Dictionary = diagnostics.collect_monitor_snapshot(PackedStringArray(["signal.count"]))
 	assert_signal_emit_count(
 		diagnostics,
 		"monitor_sampled",
@@ -541,33 +708,37 @@ func test_published_monitor_samples_do_not_alias_internal_cache() -> void:
 		diagnostics.register_monitor(self, &"sample.snapshot"),
 		"测试监控项应注册成功。"
 	)
-	var connect_error: Error = diagnostics.monitor_sampled.connect(
-		func(_monitor_id: StringName, emitted_sample: Dictionary) -> void:
-			var emitted_value: Dictionary = GFVariantData.as_dictionary(emitted_sample["value"])
-			var emitted_nested: Dictionary = GFVariantData.as_dictionary(emitted_value["nested"])
-			var emitted_metadata: Dictionary = GFVariantData.as_dictionary(
-				emitted_sample["sample_metadata"]
-			)
-			var emitted_source: Dictionary = GFVariantData.as_dictionary(
-				emitted_metadata["source"]
-			)
-			emitted_nested["count"] = 77
-			emitted_source["name"] = "listener_mutated"
-	) as Error
-	assert_eq(connect_error, OK, "测试应能监听 monitor_sampled。")
+	var connect_error: Error = (
+		diagnostics.monitor_sampled.connect(
+			func(_monitor_id: StringName, emitted_sample: Dictionary) -> void:
+				var emitted_value: Dictionary = GFVariantData.as_dictionary(emitted_sample["value"])
+				var emitted_nested: Dictionary = GFVariantData.as_dictionary(emitted_value["nested"])
+				var emitted_metadata: Dictionary = GFVariantData.as_dictionary(emitted_sample["sample_metadata"])
+				var emitted_source: Dictionary = GFVariantData.as_dictionary(emitted_metadata["source"])
+				emitted_nested["count"] = 77
+				emitted_source["name"] = "listener_mutated",
+		) as Error
+	)
+	assert_eq(
+		connect_error,
+		OK,
+		"测试应能监听 monitor_sampled。"
+	)
 	assert_true(
 		diagnostics.publish_monitor_sample(
 			self,
 			&"sample.snapshot",
-			{ "nested": { "count": 1 } },
-			{ "source": { "name": "original" } }
+			{
+				"nested": { "count": 1 },
+			},
+			{
+				"source": { "name": "original" },
+			}
 		),
 		"集合采样应发布成功。"
 	)
 
-	var first_snapshot: Dictionary = diagnostics.collect_monitor_snapshot(
-		PackedStringArray(["sample.snapshot"])
-	)
+	var first_snapshot: Dictionary = diagnostics.collect_monitor_snapshot(PackedStringArray(["sample.snapshot"]))
 	var first_monitors: Dictionary = GFVariantData.as_dictionary(first_snapshot["monitors"])
 	var first_sample: Dictionary = GFVariantData.as_dictionary(first_monitors["sample.snapshot"])
 	var first_value: Dictionary = GFVariantData.as_dictionary(first_sample["value"])
@@ -587,9 +758,7 @@ func test_published_monitor_samples_do_not_alias_internal_cache() -> void:
 	first_nested["count"] = 99
 	first_source["name"] = "mutated"
 
-	var second_snapshot: Dictionary = diagnostics.collect_monitor_snapshot(
-		PackedStringArray(["sample.snapshot"])
-	)
+	var second_snapshot: Dictionary = diagnostics.collect_monitor_snapshot(PackedStringArray(["sample.snapshot"]))
 	var second_monitors: Dictionary = GFVariantData.get_option_dictionary(second_snapshot, "monitors")
 	var second_sample: Dictionary = GFVariantData.get_option_dictionary(second_monitors, "sample.snapshot")
 	var second_value: Dictionary = GFVariantData.get_option_dictionary(second_sample, "value")
@@ -611,16 +780,38 @@ func test_published_monitor_samples_do_not_alias_internal_cache() -> void:
 
 func test_missing_monitor_preset_fails_closed_without_collecting_all() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	assert_true(diagnostics.register_monitor(self, &"secret.monitor"), "测试监控项应注册成功。")
 	assert_true(
-		diagnostics.publish_monitor_sample(self, &"secret.monitor", "private"),
+		diagnostics.register_monitor(self, &"secret.monitor"),
+		"测试监控项应注册成功。"
+	)
+	assert_true(
+		diagnostics.publish_monitor_sample(
+			self,
+			&"secret.monitor",
+			"private"
+		),
 		"测试监控采样应发布成功。"
 	)
 
 	var snapshot: Dictionary = diagnostics.collect_monitor_preset(&"missing")
 
-	assert_false(GFVariantData.get_option_bool(snapshot, "ok", true), "不存在的 preset 必须显式失败。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "monitor_count", -1), 0, "missing preset 不得退化为全量采集。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			snapshot,
+			"ok",
+			true
+		),
+		"不存在的 preset 必须显式失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			snapshot,
+			"monitor_count",
+			-1
+		),
+		0,
+		"missing preset 不得退化为全量采集。"
+	)
 	assert_true(
 		GFVariantData.get_option_dictionary(snapshot, "monitors").is_empty(),
 		"missing preset 结果不得泄漏任何 monitor。"
@@ -629,19 +820,28 @@ func test_missing_monitor_preset_fails_closed_without_collecting_all() -> void:
 
 func test_diagnostics_monitor_json_export_is_report_safe() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	var exported_json: String = diagnostics.export_monitor_snapshot({
-		"monitors": {
-			&"runtime.nan": {
-				"label": "NaN",
-				"group": "Runtime",
-				"value": NAN,
-				"valid": true,
+	var exported_json: String = diagnostics.export_monitor_snapshot(
+		{
+			"monitors": {
+				&"runtime.nan": {
+					"label": "NaN",
+					"group": "Runtime",
+					"value": NAN,
+					"valid": true,
+				},
 			},
 		},
-	}, &"json")
+		&"json"
+	)
 
-	assert_true(exported_json.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "监控 JSON 导出应编码 NaN。")
-	assert_false(exported_json.contains("\"value\":null"), "监控 JSON 导出不应把 NaN 退化为 null。")
+	assert_true(
+		exported_json.contains(GFVariantJsonCodec.JSON_MARKER_KEY),
+		"监控 JSON 导出应编码 NaN。"
+	)
+	assert_false(
+		exported_json.contains("\"value\":null"),
+		"监控 JSON 导出不应把 NaN 退化为 null。"
+	)
 
 
 func test_diagnostics_debugger_bridge_state_and_catalog_are_available() -> void:
@@ -654,10 +854,23 @@ func test_diagnostics_debugger_bridge_state_and_catalog_are_available() -> void:
 	var commands: Dictionary = GFVariantData.get_option_dictionary(catalog, "commands")
 	var monitors: Dictionary = GFVariantData.get_option_dictionary(catalog, "monitors")
 
-	assert_eq(GFVariantData.get_option_string_name(bridge_state, "capture_name"), GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME, "Debugger bridge 应暴露稳定 capture 名称。")
-	assert_false(GFVariantData.get_option_bool(bridge_state, "allow_command_execution"), "Debugger bridge 默认不应允许执行诊断命令。")
-	assert_true(commands.has(&"diagnostics.snapshot"), "Debugger catalog 应包含内置快照命令。")
-	assert_true(monitors.has(&"performance.fps"), "Debugger catalog 应包含内置性能监控。")
+	assert_eq(
+		GFVariantData.get_option_string_name(bridge_state, "capture_name"),
+		GFDiagnosticsUtility.DEBUGGER_CAPTURE_NAME,
+		"Debugger bridge 应暴露稳定 capture 名称。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(bridge_state, "allow_command_execution"),
+		"Debugger bridge 默认不应允许执行诊断命令。"
+	)
+	assert_true(
+		commands.has(&"diagnostics.snapshot"),
+		"Debugger catalog 应包含内置快照命令。"
+	)
+	assert_true(
+		monitors.has(&"performance.fps"),
+		"Debugger catalog 应包含内置性能监控。"
+	)
 
 	diagnostics.dispose()
 
@@ -666,27 +879,53 @@ func test_diagnostics_collects_external_published_snapshots() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
 
-	assert_true(diagnostics.publish_snapshot_section(self, &"runtime", {
-		"enemy_count": 3,
-	}), "外部快照分区应可发布。")
-	assert_true(diagnostics.publish_tool_snapshot(self, &"runtime_tool", {
-		"pending": 2,
-	}), "外部工具快照应可发布。")
+	assert_true(
+		diagnostics.publish_snapshot_section(
+			self,
+			&"runtime",
+			{ "enemy_count": 3, }
+		),
+		"外部快照分区应可发布。"
+	)
+	assert_true(
+		diagnostics.publish_tool_snapshot(
+			self,
+			&"runtime_tool",
+			{ "pending": 2, }
+		),
+		"外部工具快照应可发布。"
+	)
 	var _monitor_registered: bool = diagnostics.register_monitor(self, &"runtime.pending")
-	var _monitor_published: bool = diagnostics.publish_monitor_sample(self, &"runtime.pending", 2)
-	assert_true(diagnostics.add_monitor_to_preset(&"tools", &"runtime.pending"), "外部监控项应可加入内置 tools 预设。")
+	var _monitor_published: bool = diagnostics.publish_monitor_sample(
+		self,
+		&"runtime.pending",
+		2
+	)
+	assert_true(
+		diagnostics.add_monitor_to_preset(&"tools", &"runtime.pending"),
+		"外部监控项应可加入内置 tools 预设。"
+	)
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_recent_logs": false, })
 	var runtime: Dictionary = GFVariantData.as_dictionary(snapshot["runtime"])
 	var tools: Dictionary = GFVariantData.as_dictionary(snapshot["tools"])
 	var tool_monitors: Dictionary = GFVariantData.as_dictionary(diagnostics.collect_monitor_preset(&"tools")["monitors"])
 
 	var runtime_tool: Dictionary = GFVariantData.as_dictionary(tools[&"runtime_tool"])
-	assert_eq(GFVariantData.get_option_int(runtime, "enemy_count"), 3, "外部快照分区应进入 collect_snapshot 顶层字段。")
-	assert_eq(GFVariantData.get_option_int(runtime_tool, "pending"), 2, "外部工具快照应进入 tools 字段。")
-	assert_true(tool_monitors.has(&"runtime.pending"), "追加到 tools 预设的外部监控项应可采样。")
+	assert_eq(
+		GFVariantData.get_option_int(runtime, "enemy_count"),
+		3,
+		"外部快照分区应进入 collect_snapshot 顶层字段。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(runtime_tool, "pending"),
+		2,
+		"外部工具快照应进入 tools 字段。"
+	)
+	assert_true(
+		tool_monitors.has(&"runtime.pending"),
+		"追加到 tools 预设的外部监控项应可采样。"
+	)
 
 
 func test_diagnostics_preserves_existing_diagnostic_providers_snapshot_section() -> void:
@@ -703,14 +942,8 @@ func test_diagnostics_preserves_existing_diagnostic_providers_snapshot_section()
 		),
 		"既有 diagnostic_providers 自定义分区应继续允许发布。"
 	)
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-	})
-	var section: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot,
-		"diagnostic_providers"
-	)
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_monitors": false, "include_recent_logs": false, })
+	var section: Dictionary = GFVariantData.get_option_dictionary(snapshot, "diagnostic_providers")
 
 	assert_eq(
 		GFVariantData.get_option_int(section, "legacy_value"),
@@ -721,32 +954,39 @@ func test_diagnostics_preserves_existing_diagnostic_providers_snapshot_section()
 		diagnostics.register_diagnostic_provider(self, provider),
 		"兼容测试 Provider 应注册成功。"
 	)
-	var requested_snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-		"diagnostic_provider_ids": PackedStringArray(["game.compatibility"]),
-	})
-	var requested_batch: Dictionary = GFVariantData.get_option_dictionary(
-		requested_snapshot,
-		"diagnostic_providers"
+	var requested_snapshot: Dictionary = diagnostics.collect_snapshot(
+		{
+			"include_monitors": false,
+			"include_recent_logs": false,
+			"diagnostic_provider_ids": PackedStringArray(["game.compatibility"]),
+		}
 	)
+	var requested_batch: Dictionary = GFVariantData.get_option_dictionary(requested_snapshot, "diagnostic_providers")
 	var equivalent_key_count: int = 0
 	for key: Variant in requested_snapshot.keys():
 		if GFVariantData.to_text(key) == "diagnostic_providers":
 			equivalent_key_count += 1
 
-	assert_true(GFVariantData.get_option_bool(requested_batch, "ok"), "显式请求时内置 Provider 批次应优先。")
-	assert_eq(provider.call_count, 1, "显式请求应执行一次 Provider。")
-	assert_eq(equivalent_key_count, 1, "显式请求不得留下文本等价的双重顶层键。")
-	assert_true(diagnostics.has_snapshot_section(&"diagnostic_providers"), "内置批次覆盖不应注销既有分区。")
-	var later_snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-	})
-	var later_section: Dictionary = GFVariantData.get_option_dictionary(
-		later_snapshot,
-		"diagnostic_providers"
+	assert_true(
+		GFVariantData.get_option_bool(requested_batch, "ok"),
+		"显式请求时内置 Provider 批次应优先。"
 	)
+	assert_eq(
+		provider.call_count,
+		1,
+		"显式请求应执行一次 Provider。"
+	)
+	assert_eq(
+		equivalent_key_count,
+		1,
+		"显式请求不得留下文本等价的双重顶层键。"
+	)
+	assert_true(
+		diagnostics.has_snapshot_section(&"diagnostic_providers"),
+		"内置批次覆盖不应注销既有分区。"
+	)
+	var later_snapshot: Dictionary = diagnostics.collect_snapshot({ "include_monitors": false, "include_recent_logs": false, })
+	var later_section: Dictionary = GFVariantData.get_option_dictionary(later_snapshot, "diagnostic_providers")
 	assert_eq(
 		GFVariantData.get_option_int(later_section, "legacy_value"),
 		7,
@@ -759,22 +999,34 @@ func test_diagnostics_rejects_external_contributions_for_reserved_snapshot_keys(
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
 
-	var section_registered: bool = diagnostics.publish_snapshot_section(self, &"build", { "fake": true })
+	var section_registered: bool = diagnostics.publish_snapshot_section(
+		self,
+		&"build",
+		{ "fake": true }
+	)
 	assert_push_warning("[GFDiagnosticsUtility][diagnostics_utility.snapshot_partition_reserved_field] Snapshot partition uses a reserved field and was rejected: build.")
-	var tool_registered: bool = diagnostics.publish_tool_snapshot(self, &"timer", { "fake": true })
+	var tool_registered: bool = diagnostics.publish_tool_snapshot(
+		self,
+		&"timer",
+		{ "fake": true }
+	)
 	assert_push_warning("[GFDiagnosticsUtility][diagnostics_utility.tool_snapshot_reserved_field] Tool snapshot uses a built-in field and was rejected: timer.")
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_recent_logs": false, })
 	var build: Dictionary = GFVariantData.get_option_dictionary(snapshot, "build")
 	var tools: Dictionary = GFVariantData.get_option_dictionary(snapshot, "tools")
 
 	assert_false(section_registered, "外部分区不应覆盖内置 build 字段。")
 	assert_false(tool_registered, "外部工具快照不应覆盖内置 timer 字段。")
-	assert_false(GFVariantData.get_option_bool(build, "fake"), "拒绝后的外部分区不应进入 build。")
+	assert_false(
+		GFVariantData.get_option_bool(build, "fake"),
+		"拒绝后的外部分区不应进入 build。"
+	)
 	if tools.has(&"timer"):
 		var timer_snapshot: Dictionary = GFVariantData.get_option_dictionary(tools, &"timer")
-		assert_false(GFVariantData.get_option_bool(timer_snapshot, "fake"), "拒绝后的外部工具不应覆盖 timer。")
+		assert_false(
+			GFVariantData.get_option_bool(timer_snapshot, "fake"),
+			"拒绝后的外部工具不应覆盖 timer。"
+		)
 
 
 func test_diagnostics_registries_enforce_owner_safe_replace_and_unregister() -> void:
@@ -784,85 +1036,217 @@ func test_diagnostics_registries_enforce_owner_safe_replace_and_unregister() -> 
 	var first_command: Callable = Callable(first_owner, "execute_command")
 	var other_command: Callable = Callable(other_owner, "execute_command")
 
-	assert_true(diagnostics.register_command(first_owner, &"owned.command", first_command), "首个 owner 应能注册命令。")
-	assert_true(diagnostics.register_command(first_owner, &"owned.command", first_command), "同一 owner 应能更新自己的命令。")
-	assert_false(diagnostics.register_command(other_owner, &"owned.command", other_command), "其他 owner 不应覆盖已有命令。")
-	assert_false(diagnostics.unregister_command(other_owner, &"owned.command"), "其他 owner 不应注销已有命令。")
-	assert_true(diagnostics.has_command(&"owned.command"), "被拒绝的注销不应移除命令。")
-	assert_true(diagnostics.unregister_command(first_owner, &"owned.command"), "当前 owner 应能注销自己的命令。")
+	assert_true(
+		diagnostics.register_command(
+			first_owner,
+			&"owned.command",
+			first_command
+		),
+		"首个 owner 应能注册命令。"
+	)
+	assert_true(
+		diagnostics.register_command(
+			first_owner,
+			&"owned.command",
+			first_command
+		),
+		"同一 owner 应能更新自己的命令。"
+	)
+	assert_false(
+		diagnostics.register_command(
+			other_owner,
+			&"owned.command",
+			other_command
+		),
+		"其他 owner 不应覆盖已有命令。"
+	)
+	assert_false(
+		diagnostics.unregister_command(other_owner, &"owned.command"),
+		"其他 owner 不应注销已有命令。"
+	)
+	assert_true(
+		diagnostics.has_command(&"owned.command"),
+		"被拒绝的注销不应移除命令。"
+	)
+	assert_true(
+		diagnostics.unregister_command(first_owner, &"owned.command"),
+		"当前 owner 应能注销自己的命令。"
+	)
 
-	assert_true(diagnostics.register_monitor(first_owner, &"owned.monitor"), "首个 owner 应能注册监控项。")
-	assert_false(diagnostics.register_monitor(other_owner, &"owned.monitor"), "其他 owner 不应覆盖已有监控项。")
-	assert_false(diagnostics.publish_monitor_sample(other_owner, &"owned.monitor", 2), "其他 owner 不应发布监控采样。")
-	assert_true(diagnostics.publish_monitor_sample(first_owner, &"owned.monitor", 1), "当前 owner 应能发布监控采样。")
-	assert_false(diagnostics.unregister_monitor(other_owner, &"owned.monitor"), "其他 owner 不应注销已有监控项。")
-	assert_true(diagnostics.unregister_monitor(first_owner, &"owned.monitor"), "当前 owner 应能注销自己的监控项。")
+	assert_true(
+		diagnostics.register_monitor(first_owner, &"owned.monitor"),
+		"首个 owner 应能注册监控项。"
+	)
+	assert_false(
+		diagnostics.register_monitor(other_owner, &"owned.monitor"),
+		"其他 owner 不应覆盖已有监控项。"
+	)
+	assert_false(
+		diagnostics.publish_monitor_sample(
+			other_owner,
+			&"owned.monitor",
+			2
+		),
+		"其他 owner 不应发布监控采样。"
+	)
+	assert_true(
+		diagnostics.publish_monitor_sample(
+			first_owner,
+			&"owned.monitor",
+			1
+		),
+		"当前 owner 应能发布监控采样。"
+	)
+	assert_false(
+		diagnostics.unregister_monitor(other_owner, &"owned.monitor"),
+		"其他 owner 不应注销已有监控项。"
+	)
+	assert_true(
+		diagnostics.unregister_monitor(first_owner, &"owned.monitor"),
+		"当前 owner 应能注销自己的监控项。"
+	)
 
-	assert_true(diagnostics.publish_snapshot_section(first_owner, &"owned_section", { "value": 1 }), "首个 owner 应能发布快照分区。")
-	assert_false(diagnostics.publish_snapshot_section(other_owner, &"owned_section", { "value": 2 }), "其他 owner 不应覆盖快照分区。")
-	assert_false(diagnostics.remove_snapshot_section(other_owner, &"owned_section"), "其他 owner 不应移除快照分区。")
-	assert_true(diagnostics.remove_snapshot_section(first_owner, &"owned_section"), "当前 owner 应能移除快照分区。")
+	assert_true(
+		diagnostics.publish_snapshot_section(
+			first_owner,
+			&"owned_section",
+			{ "value": 1 }
+		),
+		"首个 owner 应能发布快照分区。"
+	)
+	assert_false(
+		diagnostics.publish_snapshot_section(
+			other_owner,
+			&"owned_section",
+			{ "value": 2 }
+		),
+		"其他 owner 不应覆盖快照分区。"
+	)
+	assert_false(
+		diagnostics.remove_snapshot_section(other_owner, &"owned_section"),
+		"其他 owner 不应移除快照分区。"
+	)
+	assert_true(
+		diagnostics.remove_snapshot_section(first_owner, &"owned_section"),
+		"当前 owner 应能移除快照分区。"
+	)
 
-	assert_true(diagnostics.publish_tool_snapshot(first_owner, &"owned_tool", { "value": 1 }), "首个 owner 应能发布工具快照。")
-	assert_false(diagnostics.publish_tool_snapshot(other_owner, &"owned_tool", { "value": 2 }), "其他 owner 不应覆盖工具快照。")
-	assert_false(diagnostics.remove_tool_snapshot(other_owner, &"owned_tool"), "其他 owner 不应移除工具快照。")
-	assert_true(diagnostics.remove_tool_snapshot(first_owner, &"owned_tool"), "当前 owner 应能移除工具快照。")
+	assert_true(
+		diagnostics.publish_tool_snapshot(
+			first_owner,
+			&"owned_tool",
+			{ "value": 1 }
+		),
+		"首个 owner 应能发布工具快照。"
+	)
+	assert_false(
+		diagnostics.publish_tool_snapshot(
+			other_owner,
+			&"owned_tool",
+			{ "value": 2 }
+		),
+		"其他 owner 不应覆盖工具快照。"
+	)
+	assert_false(
+		diagnostics.remove_tool_snapshot(other_owner, &"owned_tool"),
+		"其他 owner 不应移除工具快照。"
+	)
+	assert_true(
+		diagnostics.remove_tool_snapshot(first_owner, &"owned_tool"),
+		"当前 owner 应能移除工具快照。"
+	)
 
 
 func test_snapshot_collection_never_executes_published_callable_values() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
 	var state: CallableValueState = CallableValueState.new()
-	assert_true(diagnostics.publish_snapshot_section(state, &"callable_value", {
-		"callback": Callable(state, "get_value"),
-	}), "Callable 可作为待报告数据发布。")
+	assert_true(
+		diagnostics.publish_snapshot_section(
+			state,
+			&"callable_value",
+			{ "callback": Callable(state, "get_value"), }
+		),
+		"Callable 可作为待报告数据发布。"
+	)
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_monitors": false, "include_recent_logs": false, })
 
-	assert_true(snapshot.has("callable_value"), "已发布分区应进入快照。")
-	assert_eq(state.call_count, 0, "collect_snapshot 不得执行外部 Callable。")
+	assert_true(
+		snapshot.has("callable_value"),
+		"已发布分区应进入快照。"
+	)
+	assert_eq(
+		state.call_count,
+		0,
+		"collect_snapshot 不得执行外部 Callable。"
+	)
 
 
 func test_snapshot_publication_respects_structural_budgets_and_keeps_last_good_value() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
-	assert_true(diagnostics.publish_snapshot_section(self, &"bounded", {
-		"values": [1, 2],
-	}), "预算内快照应发布成功。")
+	assert_true(
+		diagnostics.publish_snapshot_section(
+			self,
+			&"bounded",
+			{
+				"values": [1, 2],
+			}
+		),
+		"预算内快照应发布成功。"
+	)
 	diagnostics.max_contribution_collection_items = 2
-	assert_false(diagnostics.publish_snapshot_section(self, &"bounded", {
-		"values": [1, 2, 3],
-	}), "超过结构预算的更新应被拒绝。")
+	assert_false(
+		diagnostics.publish_snapshot_section(
+			self,
+			&"bounded",
+			{
+				"values": [
+					1,
+					2,
+					3,
+				],
+			}
+		),
+		"超过结构预算的更新应被拒绝。"
+	)
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_monitors": false, "include_recent_logs": false, })
 	var section: Dictionary = GFVariantData.get_option_dictionary(snapshot, "bounded")
 	var values: Array = GFVariantData.get_option_array(section, "values")
 
-	assert_eq(values, [1, 2], "发布失败后应保留上一份有效快照。")
+	assert_eq(
+		values,
+		[1, 2],
+		"发布失败后应保留上一份有效快照。"
+	)
 
 
 func test_released_contribution_owner_is_pruned_before_collection() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	diagnostics.init()
 	var contribution_owner: RegistrationOwner = RegistrationOwner.new()
-	assert_true(diagnostics.publish_snapshot_section(contribution_owner, &"released", {
-		"value": 1,
-	}), "有效 owner 应能发布分区。")
+	assert_true(
+		diagnostics.publish_snapshot_section(
+			contribution_owner,
+			&"released",
+			{ "value": 1, }
+		),
+		"有效 owner 应能发布分区。"
+	)
 	contribution_owner = null
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-	})
+	var snapshot: Dictionary = diagnostics.collect_snapshot({ "include_monitors": false, "include_recent_logs": false, })
 
-	assert_false(snapshot.has("released"), "owner 释放后的分区不应进入快照。")
-	assert_false(diagnostics.has_snapshot_section(&"released"), "失效 owner 的注册应被清理。")
+	assert_false(
+		snapshot.has("released"),
+		"owner 释放后的分区不应进入快照。"
+	)
+	assert_false(
+		diagnostics.has_snapshot_section(&"released"),
+		"失效 owner 的注册应被清理。"
+	)
 
 
 func test_lazy_diagnostic_provider_runs_only_when_explicitly_requested() -> void:
@@ -875,31 +1259,49 @@ func test_lazy_diagnostic_provider_runs_only_when_explicitly_requested() -> void
 		diagnostics.register_diagnostic_provider(self, provider),
 		"有效的惰性诊断 Provider 应注册成功。"
 	)
-	var ordinary_snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-	})
-	assert_eq(provider.call_count, 0, "普通快照不得隐式执行项目 Provider。")
-	assert_false(ordinary_snapshot.has("diagnostic_providers"), "未请求 Provider 时不应生成空分区。")
-
-	var requested_snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-		"diagnostic_provider_ids": PackedStringArray(["game.runtime"]),
-		"diagnostic_provider_request": { "reason": &"support_report" },
-	})
-	var provider_batch: Dictionary = GFVariantData.get_option_dictionary(
-		requested_snapshot,
-		"diagnostic_providers"
+	var ordinary_snapshot: Dictionary = diagnostics.collect_snapshot({ "include_monitors": false, "include_recent_logs": false, })
+	assert_eq(
+		provider.call_count,
+		0,
+		"普通快照不得隐式执行项目 Provider。"
 	)
+	assert_false(
+		ordinary_snapshot.has("diagnostic_providers"),
+		"未请求 Provider 时不应生成空分区。"
+	)
+
+	var requested_snapshot: Dictionary = diagnostics.collect_snapshot(
+		{
+			"include_monitors": false,
+			"include_recent_logs": false,
+			"diagnostic_provider_ids": PackedStringArray(["game.runtime"]),
+			"diagnostic_provider_request": { "reason": &"support_report" },
+		}
+	)
+	var provider_batch: Dictionary = GFVariantData.get_option_dictionary(requested_snapshot, "diagnostic_providers")
 	var results: Dictionary = GFVariantData.get_option_dictionary(provider_batch, "results")
 	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.runtime")
 	var value: Dictionary = GFVariantData.get_option_dictionary(provider_result, "value")
 
-	assert_eq(provider.call_count, 1, "显式请求应只执行一次 Provider。")
-	assert_true(GFVariantData.get_option_bool(provider_result, "ok"), "合法 Provider 结果应采集成功。")
-	assert_eq(GFVariantData.get_option_int(value, "pending"), 2, "Provider 值应进入有界结果。")
-	assert_eq(provider.last_reason, &"support_report", "调用请求应作为临时上下文传给 Provider。")
+	assert_eq(
+		provider.call_count,
+		1,
+		"显式请求应只执行一次 Provider。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(provider_result, "ok"),
+		"合法 Provider 结果应采集成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(value, "pending"),
+		2,
+		"Provider 值应进入有界结果。"
+	)
+	assert_eq(
+		provider.last_reason,
+		&"support_report",
+		"调用请求应作为临时上下文传给 Provider。"
+	)
 
 	diagnostics.dispose()
 
@@ -910,21 +1312,32 @@ func test_lazy_diagnostic_provider_rejects_result_after_registry_changes_during_
 	var provider: DisposingDiagnosticProvider = DisposingDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.disposing")
 	provider.diagnostics = diagnostics
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "故障注入 Provider 应注册成功。")
-
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.disposing"])
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"故障注入 Provider 应注册成功。"
 	)
+
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.disposing"]))
 	var results: Dictionary = GFVariantData.get_option_dictionary(batch, "results")
 	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.disposing")
 
-	assert_false(GFVariantData.get_option_bool(provider_result, "ok", true), "注册表变化后不得接纳旧结果。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider_result,
+			"ok",
+			true
+		),
+		"注册表变化后不得接纳旧结果。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(provider_result, "error_code"),
 		&"provider_registration_changed",
 		"回调期间释放应返回稳定失败码。"
 	)
-	assert_false(diagnostics.has_diagnostic_provider(&"game.disposing"), "dispose 后 Provider 应失效。")
+	assert_false(
+		diagnostics.has_diagnostic_provider(&"game.disposing"),
+		"dispose 后 Provider 应失效。"
+	)
 
 
 func test_lazy_diagnostic_provider_batch_reports_request_truncation_without_extra_calls() -> void:
@@ -934,26 +1347,57 @@ func test_lazy_diagnostic_provider_batch_reports_request_truncation_without_extr
 	var second_provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
 	var _first_configured_provider: GFDiagnosticSnapshotProvider = first_provider.configure(&"game.first")
 	var _second_configured_provider: GFDiagnosticSnapshotProvider = second_provider.configure(&"game.second")
-	assert_true(diagnostics.register_diagnostic_provider(self, first_provider), "首个 Provider 应注册成功。")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, first_provider),
+		"首个 Provider 应注册成功。"
+	)
 	diagnostics.max_diagnostic_providers = 2
-	assert_true(diagnostics.register_diagnostic_provider(self, second_provider), "第二个 Provider 应注册成功。")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, second_provider),
+		"第二个 Provider 应注册成功。"
+	)
 	diagnostics.max_diagnostic_providers = 1
 
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.first", "game.second"])
-	)
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.first", "game.second"]))
 
-	assert_false(GFVariantData.get_option_bool(batch, "ok", true), "截断批次不能伪装成完整成功。")
-	assert_eq(GFVariantData.get_option_int(batch, "requested_count"), 2, "报告应保留调用方提交数量。")
-	assert_eq(GFVariantData.get_option_int(batch, "executed_count"), 1, "执行数量应服从硬上限。")
-	assert_eq(GFVariantData.get_option_int(batch, "omitted_count"), 1, "报告应显式暴露遗漏数量。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			batch,
+			"ok",
+			true
+		),
+		"截断批次不能伪装成完整成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "requested_count"),
+		2,
+		"报告应保留调用方提交数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "executed_count"),
+		1,
+		"执行数量应服从硬上限。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "omitted_count"),
+		1,
+		"报告应显式暴露遗漏数量。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(batch, "error_code"),
 		&"provider_request_limit_exceeded",
 		"超限批次应返回稳定错误码。"
 	)
-	assert_eq(first_provider.call_count, 1, "上限内 Provider 应执行一次。")
-	assert_eq(second_provider.call_count, 0, "被截断 Provider 不得执行。")
+	assert_eq(
+		first_provider.call_count,
+		1,
+		"上限内 Provider 应执行一次。"
+	)
+	assert_eq(
+		second_provider.call_count,
+		0,
+		"被截断 Provider 不得执行。"
+	)
 
 
 func test_lazy_diagnostic_provider_isolates_duration_budget_failure() -> void:
@@ -964,29 +1408,53 @@ func test_lazy_diagnostic_provider_isolates_duration_budget_failure() -> void:
 		&"game.slow",
 		{ "max_duration_usec": 100 }
 	)
-	var _configured_healthy_provider: GFDiagnosticSnapshotProvider = healthy_provider.configure(
-		&"game.healthy"
+	var _configured_healthy_provider: GFDiagnosticSnapshotProvider = healthy_provider.configure(&"game.healthy")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, slow_provider),
+		"慢 Provider 应注册成功。"
 	)
-	assert_true(diagnostics.register_diagnostic_provider(self, slow_provider), "慢 Provider 应注册成功。")
-	assert_true(diagnostics.register_diagnostic_provider(self, healthy_provider), "健康 Provider 应注册成功。")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, healthy_provider),
+		"健康 Provider 应注册成功。"
+	)
 
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.slow", "game.healthy"])
-	)
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.slow", "game.healthy"]))
 	var results: Dictionary = GFVariantData.get_option_dictionary(batch, "results")
 	var slow_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.slow")
 	var healthy_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.healthy")
 
-	assert_false(GFVariantData.get_option_bool(batch, "ok", true), "任一 Provider 失败时批次应失败。")
-	assert_eq(GFVariantData.get_option_int(batch, "success_count"), 1, "健康 Provider 应继续成功。")
-	assert_eq(GFVariantData.get_option_int(batch, "failure_count"), 1, "超时 Provider 应独立计入失败。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			batch,
+			"ok",
+			true
+		),
+		"任一 Provider 失败时批次应失败。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "success_count"),
+		1,
+		"健康 Provider 应继续成功。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "failure_count"),
+		1,
+		"超时 Provider 应独立计入失败。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(slow_result, "error_code"),
 		&"provider_duration_budget_exceeded",
 		"超出时长预算应返回稳定错误码。"
 	)
-	assert_true(GFVariantData.get_option_bool(healthy_result, "ok"), "前一个 Provider 失败不应中断后续采集。")
-	assert_eq(healthy_provider.call_count, 1, "健康 Provider 应执行一次。")
+	assert_true(
+		GFVariantData.get_option_bool(healthy_result, "ok"),
+		"前一个 Provider 失败不应中断后续采集。"
+	)
+	assert_eq(
+		healthy_provider.call_count,
+		1,
+		"健康 Provider 应执行一次。"
+	)
 	diagnostics.dispose()
 
 
@@ -994,9 +1462,7 @@ func test_lazy_diagnostic_provider_rejects_result_when_owner_is_released_during_
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var registration_owner: RegistrationOwner = RegistrationOwner.new()
 	var provider: OwnerReleasingDiagnosticProvider = OwnerReleasingDiagnosticProvider.new()
-	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(
-		&"game.owner_releasing"
-	)
+	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.owner_releasing")
 	provider.owner_holder.append(registration_owner)
 	assert_true(
 		diagnostics.register_diagnostic_provider(registration_owner, provider),
@@ -1004,22 +1470,27 @@ func test_lazy_diagnostic_provider_rejects_result_when_owner_is_released_during_
 	)
 	registration_owner = null
 
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.owner_releasing"])
-	)
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.owner_releasing"]))
 	var results: Dictionary = GFVariantData.get_option_dictionary(batch, "results")
-	var provider_result: Dictionary = GFVariantData.get_option_dictionary(
-		results,
-		&"game.owner_releasing"
-	)
+	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.owner_releasing")
 
-	assert_false(GFVariantData.get_option_bool(provider_result, "ok", true), "owner 在回调中释放后不得接纳结果。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider_result,
+			"ok",
+			true
+		),
+		"owner 在回调中释放后不得接纳结果。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(provider_result, "error_code"),
 		&"provider_registration_changed",
 		"owner 生命周期变化应返回稳定失败码。"
 	)
-	assert_false(diagnostics.has_diagnostic_provider(&"game.owner_releasing"), "失效注册应立即清理。")
+	assert_false(
+		diagnostics.has_diagnostic_provider(&"game.owner_releasing"),
+		"失效注册应立即清理。"
+	)
 	diagnostics.dispose()
 
 
@@ -1028,17 +1499,29 @@ func test_lazy_diagnostic_provider_isolates_reentrant_collection() -> void:
 	var provider: ReentrantDiagnosticProvider = ReentrantDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.reentrant")
 	provider.diagnostics = diagnostics
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "重入故障注入 Provider 应注册成功。")
-
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.reentrant"])
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"重入故障注入 Provider 应注册成功。"
 	)
+
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.reentrant"]))
 	var results: Dictionary = GFVariantData.get_option_dictionary(batch, "results")
 	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.reentrant")
 
-	assert_true(GFVariantData.get_option_bool(provider_result, "ok"), "外层 Provider 结果仍应成功。")
-	assert_eq(provider.call_count, 1, "重入请求不得再次执行同一 Provider。")
-	assert_eq(provider.nested_error_code, &"provider_reentrant", "内层请求应得到稳定重入失败码。")
+	assert_true(
+		GFVariantData.get_option_bool(provider_result, "ok"),
+		"外层 Provider 结果仍应成功。"
+	)
+	assert_eq(
+		provider.call_count,
+		1,
+		"重入请求不得再次执行同一 Provider。"
+	)
+	assert_eq(
+		provider.nested_error_code,
+		&"provider_reentrant",
+		"内层请求应得到稳定重入失败码。"
+	)
 	diagnostics.dispose()
 	provider.diagnostics = null
 
@@ -1048,22 +1531,33 @@ func test_lazy_diagnostic_provider_rejects_oversized_value_without_leaking_raw_d
 	diagnostics.max_contribution_collection_items = 2
 	var provider: OversizedValueDiagnosticProvider = OversizedValueDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.oversized")
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "超预算故障注入 Provider 应注册成功。")
-
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.oversized"])
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"超预算故障注入 Provider 应注册成功。"
 	)
+
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.oversized"]))
 	var results: Dictionary = GFVariantData.get_option_dictionary(batch, "results")
 	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.oversized")
 
-	assert_false(GFVariantData.get_option_bool(provider_result, "ok", true), "超预算值必须 fail closed。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider_result,
+			"ok",
+			true
+		),
+		"超预算值必须 fail closed。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(provider_result, "error_code"),
 		&"provider_value_rejected",
 		"超预算值应返回稳定失败码。"
 	)
 	var rejected_value: Variant = GFVariantData.get_option_value(provider_result, "value")
-	assert_true(rejected_value == null, "失败报告不得回显未验收的原始值。")
+	assert_true(
+		rejected_value == null,
+		"失败报告不得回显未验收的原始值。"
+	)
 	diagnostics.dispose()
 
 
@@ -1081,26 +1575,23 @@ func test_lazy_diagnostic_provider_rejects_circular_metadata_without_recursion()
 		"循环目录 metadata 应由结构预算稳定拒绝。"
 	)
 
-	var result_provider: CircularMetadataDiagnosticProvider = (
-		CircularMetadataDiagnosticProvider.new()
-	)
-	var _configured_result_provider: GFDiagnosticSnapshotProvider = result_provider.configure(
-		&"game.circular_result"
-	)
+	var result_provider: CircularMetadataDiagnosticProvider = CircularMetadataDiagnosticProvider.new()
+	var _configured_result_provider: GFDiagnosticSnapshotProvider = result_provider.configure(&"game.circular_result")
 	assert_true(
 		diagnostics.register_diagnostic_provider(self, result_provider),
 		"无循环目录 metadata 的 Provider 应注册成功。"
 	)
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.circular_result"])
-	)
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.circular_result"]))
 	var results: Dictionary = GFVariantData.get_option_dictionary(batch, "results")
-	var provider_result: Dictionary = GFVariantData.get_option_dictionary(
-		results,
-		&"game.circular_result"
-	)
+	var provider_result: Dictionary = GFVariantData.get_option_dictionary(results, &"game.circular_result")
 
-	assert_false(GFVariantData.get_option_bool(provider_result, "ok", true))
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider_result,
+			"ok",
+			true
+		)
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(provider_result, "error_code"),
 		&"provider_metadata_rejected",
@@ -1129,7 +1620,10 @@ func test_lazy_diagnostic_provider_failed_registration_does_not_lock_definition(
 		diagnostics.register_diagnostic_provider(self, provider),
 		"失败注册不应锁死 Provider，修正定义后应能重试。"
 	)
-	assert_true(diagnostics.has_diagnostic_provider(&"game.after_retry"), "重试应使用修正后的身份。")
+	assert_true(
+		diagnostics.has_diagnostic_provider(&"game.after_retry"),
+		"重试应使用修正后的身份。"
+	)
 	diagnostics.dispose()
 
 
@@ -1142,7 +1636,11 @@ func test_lazy_diagnostic_provider_rejects_negative_duration_budget_without_disa
 	)
 
 	assert_false(
-		GFVariantData.get_option_bool(provider.validate_provider(), "ok", true),
+		GFVariantData.get_option_bool(
+			provider.validate_provider(),
+			"ok",
+			true
+		),
 		"负时长预算不得被静默改成 0 的无限制语义。"
 	)
 	assert_false(
@@ -1161,18 +1659,42 @@ func test_lazy_diagnostic_provider_deduplicates_requests_without_reporting_limit
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.duplicate")
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "去重测试 Provider 应注册成功。")
-
-	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
-		PackedStringArray(["game.duplicate", " game.duplicate "])
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"去重测试 Provider 应注册成功。"
 	)
 
-	assert_true(GFVariantData.get_option_bool(batch, "ok"), "重复 ID 去重不应伪装成容量截断。")
-	assert_eq(GFVariantData.get_option_int(batch, "requested_count"), 2, "应保留原始请求项数。")
-	assert_eq(GFVariantData.get_option_int(batch, "unique_request_count"), 1, "应报告唯一合法 ID 数。")
-	assert_eq(GFVariantData.get_option_int(batch, "duplicate_count"), 1, "应报告去重数量。")
-	assert_eq(GFVariantData.get_option_int(batch, "omitted_count"), 0, "去重项不属于容量遗漏。")
-	assert_eq(provider.call_count, 1, "重复 ID 只应执行一次。")
+	var batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray(["game.duplicate", " game.duplicate "]))
+
+	assert_true(
+		GFVariantData.get_option_bool(batch, "ok"),
+		"重复 ID 去重不应伪装成容量截断。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "requested_count"),
+		2,
+		"应保留原始请求项数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "unique_request_count"),
+		1,
+		"应报告唯一合法 ID 数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "duplicate_count"),
+		1,
+		"应报告去重数量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(batch, "omitted_count"),
+		0,
+		"去重项不属于容量遗漏。"
+	)
+	assert_eq(
+		provider.call_count,
+		1,
+		"重复 ID 只应执行一次。"
+	)
 	diagnostics.dispose()
 
 
@@ -1181,21 +1703,45 @@ func test_lazy_diagnostic_provider_rejects_unbounded_shared_request_before_callb
 	diagnostics.max_contribution_collection_items = 2
 	var provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.request_guard")
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "请求预算测试 Provider 应注册成功。")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"请求预算测试 Provider 应注册成功。"
+	)
 
 	var batch: Dictionary = diagnostics.collect_diagnostic_providers(
 		PackedStringArray(["game.request_guard"]),
-		{ "values": [1, 2, 3] }
+		{
+			"values": [
+				1,
+				2,
+				3,
+			],
+		}
 	)
 
-	assert_false(GFVariantData.get_option_bool(batch, "ok", true), "超预算共享 request 必须 fail closed。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			batch,
+			"ok",
+			true
+		),
+		"超预算共享 request 必须 fail closed。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(batch, "error_code"),
 		&"provider_request_rejected",
 		"共享 request 被拒绝时应返回稳定批次错误码。"
 	)
-	assert_eq(GFVariantData.get_option_int(batch, "executed_count"), 0, "非法 request 不得执行任何 Provider。")
-	assert_eq(provider.call_count, 0, "预算预检必须早于项目回调。")
+	assert_eq(
+		GFVariantData.get_option_int(batch, "executed_count"),
+		0,
+		"非法 request 不得执行任何 Provider。"
+	)
+	assert_eq(
+		provider.call_count,
+		0,
+		"预算预检必须早于项目回调。"
+	)
 	diagnostics.dispose()
 
 
@@ -1203,29 +1749,46 @@ func test_collect_snapshot_rejects_circular_provider_request_before_callbacks() 
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.circular_request")
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "循环请求测试 Provider 应注册成功。")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"循环请求测试 Provider 应注册成功。"
+	)
 	var circular_request: Dictionary = {}
 	circular_request["self"] = circular_request
 
-	var snapshot: Dictionary = diagnostics.collect_snapshot({
-		"include_monitors": false,
-		"include_recent_logs": false,
-		"diagnostic_provider_ids": PackedStringArray(["game.circular_request"]),
-		&"diagnostic_provider_request": circular_request,
-	})
-	var batch: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot,
-		"diagnostic_providers"
+	var snapshot: Dictionary = diagnostics.collect_snapshot(
+		{
+			"include_monitors": false,
+			"include_recent_logs": false,
+			"diagnostic_provider_ids": PackedStringArray(["game.circular_request"]),
+			&"diagnostic_provider_request": circular_request,
+		}
 	)
+	var batch: Dictionary = GFVariantData.get_option_dictionary(snapshot, "diagnostic_providers")
 
-	assert_false(GFVariantData.get_option_bool(batch, "ok", true), "循环 request 必须 fail closed。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			batch,
+			"ok",
+			true
+		),
+		"循环 request 必须 fail closed。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(batch, "error_code"),
 		&"provider_request_rejected",
 		"循环 request 应返回稳定批次错误码。"
 	)
-	assert_eq(GFVariantData.get_option_int(batch, "executed_count"), 0, "循环 request 不得执行 Provider。")
-	assert_eq(provider.call_count, 0, "循环检测必须早于项目回调。")
+	assert_eq(
+		GFVariantData.get_option_int(batch, "executed_count"),
+		0,
+		"循环 request 不得执行 Provider。"
+	)
+	assert_eq(
+		provider.call_count,
+		0,
+		"循环检测必须早于项目回调。"
+	)
 	diagnostics.dispose()
 
 
@@ -1233,21 +1796,39 @@ func test_lazy_diagnostic_provider_rejects_oversized_raw_id_list_before_callback
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var provider: CountingDiagnosticProvider = CountingDiagnosticProvider.new()
 	var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(&"game.raw_request_guard")
-	assert_true(diagnostics.register_diagnostic_provider(self, provider), "原始列表预算测试 Provider 应注册成功。")
+	assert_true(
+		diagnostics.register_diagnostic_provider(self, provider),
+		"原始列表预算测试 Provider 应注册成功。"
+	)
 	var provider_ids: PackedStringArray = PackedStringArray()
 	for _index: int in range(1025):
 		var _id_appended: bool = provider_ids.append("game.raw_request_guard")
 
 	var batch: Dictionary = diagnostics.collect_diagnostic_providers(provider_ids)
 
-	assert_false(GFVariantData.get_option_bool(batch, "ok", true), "超大原始 ID 列表必须 fail closed。")
+	assert_false(
+		GFVariantData.get_option_bool(
+			batch,
+			"ok",
+			true
+		),
+		"超大原始 ID 列表必须 fail closed。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string_name(batch, "error_code"),
 		&"provider_request_size_exceeded",
 		"原始列表超限应返回稳定批次错误码。"
 	)
-	assert_eq(GFVariantData.get_option_int(batch, "executed_count"), 0, "超限列表不得执行任何 Provider。")
-	assert_eq(provider.call_count, 0, "原始列表硬上限必须早于去重和项目回调。")
+	assert_eq(
+		GFVariantData.get_option_int(batch, "executed_count"),
+		0,
+		"超限列表不得执行任何 Provider。"
+	)
+	assert_eq(
+		provider.call_count,
+		0,
+		"原始列表硬上限必须早于去重和项目回调。"
+	)
 	diagnostics.dispose()
 
 
@@ -1257,8 +1838,16 @@ func test_diagnostic_provider_failure_result_bounds_untrusted_error_details() ->
 		"x".repeat(2048)
 	)
 
-	assert_eq(result.get_error_code(), &"provider_failed", "非法错误码应归一为稳定兜底码。")
-	assert_eq(result.get_error_message().length(), 1024, "错误说明应在进入聚合器前限制长度。")
+	assert_eq(
+		result.get_error_code(),
+		&"provider_failed",
+		"非法错误码应归一为稳定兜底码。"
+	)
+	assert_eq(
+		result.get_error_message().length(),
+		1024,
+		"错误说明应在进入聚合器前限制长度。"
+	)
 
 
 ## 验证内置工具监控预设可采样。
@@ -1273,8 +1862,14 @@ func test_diagnostics_builtin_tools_monitor_preset() -> void:
 	var snapshot: Dictionary = diagnostics.collect_monitor_preset(&"tools")
 	var monitors: Dictionary = GFVariantData.as_dictionary(snapshot["monitors"])
 
-	assert_true(diagnostics.has_monitor_preset(&"tools"), "Diagnostics 应注册 tools 监控预设。")
-	assert_true(monitors.has(&"tools.timer"), "tools 预设应包含 Timer 监控项。")
+	assert_true(
+		diagnostics.has_monitor_preset(&"tools"),
+		"Diagnostics 应注册 tools 监控预设。"
+	)
+	assert_true(
+		monitors.has(&"tools.timer"),
+		"tools 预设应包含 Timer 监控项。"
+	)
 
 	arch.dispose()
 
@@ -1285,13 +1880,17 @@ func test_diagnostics_collects_signal_graph_snapshot() -> void:
 	var emitter: SignalEmitter = SignalEmitter.new()
 	emitter.name = "Emitter"
 	root.add_child(emitter)
-	var _connect_result_279: Variant = emitter.ping.connect(func() -> void:
-		pass
+	var _connect_result_279: Variant = emitter.ping.connect(
+		func() -> void:
+			pass
 	)
 	add_child_autofree(root)
 
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
-	var graph: Dictionary = diagnostics.collect_signal_graph_snapshot(root, { "include_index": true })
+	var graph: Dictionary = diagnostics.collect_signal_graph_snapshot(
+		root,
+		{ "include_index": true }
+	)
 	var index: Dictionary = GFVariantData.as_dictionary(graph["index"])
 	var ping_connection_count: int = 0
 	var connections: Array = GFVariantData.get_option_array(graph, "connections")
@@ -1299,15 +1898,22 @@ func test_diagnostics_collects_signal_graph_snapshot() -> void:
 		var connection: Dictionary = GFVariantData.as_dictionary(connection_variant)
 		if connection.is_empty():
 			continue
-		if (
-			GFVariantData.get_option_string(connection, "source_path").ends_with("Emitter")
-			and GFVariantData.get_option_string(connection, "signal") == "ping"
-		):
+		if (GFVariantData.get_option_string(connection, "source_path").ends_with("Emitter") and GFVariantData.get_option_string(connection, "signal") == "ping"):
 			ping_connection_count += 1
 
-	assert_true(GFVariantData.get_option_bool(graph, "ok"), "传入根节点时信号图应可用。")
-	assert_eq(ping_connection_count, 1, "运行时连接应进入信号图。")
-	assert_true(index.has("by_source"), "include_index 应附加按来源节点索引。")
+	assert_true(
+		GFVariantData.get_option_bool(graph, "ok"),
+		"传入根节点时信号图应可用。"
+	)
+	assert_eq(
+		ping_connection_count,
+		1,
+		"运行时连接应进入信号图。"
+	)
+	assert_true(
+		index.has("by_source"),
+		"include_index 应附加按来源节点索引。"
+	)
 
 
 func test_diagnostics_signal_graph_applies_all_output_budgets() -> void:
@@ -1316,11 +1922,13 @@ func test_diagnostics_signal_graph_applies_all_output_budgets() -> void:
 	var emitter: SignalEmitter = SignalEmitter.new()
 	emitter.name = "Emitter"
 	root.add_child(emitter)
-	var _first_connection: Variant = emitter.ping.connect(func() -> void:
-		pass
+	var _first_connection: Variant = emitter.ping.connect(
+		func() -> void:
+			pass
 	)
-	var _second_connection: Variant = emitter.ping.connect(func() -> void:
-		pass
+	var _second_connection: Variant = emitter.ping.connect(
+		func() -> void:
+			pass
 	)
 	add_child_autofree(root)
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
@@ -1359,8 +1967,15 @@ func test_diagnostics_signal_graph_applies_all_output_budgets() -> void:
 			"max_bytes": 65_536,
 		}
 	)
-	assert_true(GFVariantData.get_option_bool(signal_limited, "truncated"), "signal 预算耗尽时应截断。")
-	assert_eq(GFVariantData.get_option_int(signal_limited, "signal_count"), 1, "信号输出不得超过 max_signals。")
+	assert_true(
+		GFVariantData.get_option_bool(signal_limited, "truncated"),
+		"signal 预算耗尽时应截断。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(signal_limited, "signal_count"),
+		1,
+		"信号输出不得超过 max_signals。"
+	)
 
 	var long_root: Node = Node.new()
 	long_root.name = "X".repeat(2048)
@@ -1375,13 +1990,20 @@ func test_diagnostics_signal_graph_applies_all_output_budgets() -> void:
 			"max_bytes": 512,
 		}
 	)
-	assert_true(GFVariantData.get_option_bool(byte_limited, "truncated"), "字节预算耗尽时应截断。")
+	assert_true(
+		GFVariantData.get_option_bool(byte_limited, "truncated"),
+		"字节预算耗尽时应截断。"
+	)
 	assert_eq(
 		GFVariantData.get_option_string(byte_limited, "truncation_reason"),
 		"max_bytes",
 		"字节预算应报告稳定截断原因。"
 	)
-	assert_eq(GFVariantData.get_option_int(byte_limited, "node_count"), 0, "超长根路径不得绕过字节预算继续展开。")
+	assert_eq(
+		GFVariantData.get_option_int(byte_limited, "node_count"),
+		0,
+		"超长根路径不得绕过字节预算继续展开。"
+	)
 
 	var over_codec_default: String = "X".repeat(1_100_000)
 	var direct_estimate: int = diagnostics._estimate_signal_graph_entry_bytes(
@@ -1455,24 +2077,24 @@ class ReentrantDiagnosticProvider extends GFDiagnosticSnapshotProvider:
 
 	func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
 		call_count += 1
-		var nested_batch: Dictionary = diagnostics.collect_diagnostic_providers(
-			PackedStringArray([String(provider_id)])
-		)
-		var nested_results: Dictionary = GFVariantData.get_option_dictionary(
-			nested_batch,
-			"results"
-		)
-		var nested_result: Dictionary = GFVariantData.get_option_dictionary(
-			nested_results,
-			provider_id
-		)
+		var nested_batch: Dictionary = diagnostics.collect_diagnostic_providers(PackedStringArray([String(provider_id)]))
+		var nested_results: Dictionary = GFVariantData.get_option_dictionary(nested_batch, "results")
+		var nested_result: Dictionary = GFVariantData.get_option_dictionary(nested_results, provider_id)
 		nested_error_code = GFVariantData.get_option_string_name(nested_result, "error_code")
 		return GFDiagnosticProviderResult.succeeded({ "nested_rejected": true })
 
 
 class OversizedValueDiagnosticProvider extends GFDiagnosticSnapshotProvider:
 	func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
-		return GFDiagnosticProviderResult.succeeded({ "values": [1, 2, 3] })
+		return GFDiagnosticProviderResult.succeeded(
+			{
+				"values": [
+					1,
+					2,
+					3,
+				],
+			}
+		)
 
 
 class CircularMetadataDiagnosticProvider extends GFDiagnosticSnapshotProvider:

@@ -20,7 +20,7 @@
 | 属性 | [`auto_finish`](#member-gfturnphase-properties-auto_finish) | `var auto_finish: bool = true` |
 | 方法 | [`is_finished_for`](#member-gfturnphase-methods-is_finished_for) | `func is_finished_for(context: GFTurnContext) -> bool:` |
 | 方法 | [`_enter`](#member-gfturnphase-methods-_enter) | `func _enter(_context: GFTurnContext) -> void:` |
-| 方法 | [`_execute`](#member-gfturnphase-methods-_execute) | `func _execute( _context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle ) -> Variant:` |
+| 方法 | [`_execute`](#member-gfturnphase-methods-_execute) | `func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -> Variant:` |
 | 方法 | [`_exit`](#member-gfturnphase-methods-_exit) | `func _exit(_context: GFTurnContext) -> void:` |
 
 ## 信号
@@ -112,7 +112,7 @@ func _enter(_context: GFTurnContext) -> void:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func _execute( _context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle ) -> Variant:
+func _execute(_context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle) -> Variant:
 ```
 
 执行阶段逻辑时由 GFTurnFlowSystem 调用。

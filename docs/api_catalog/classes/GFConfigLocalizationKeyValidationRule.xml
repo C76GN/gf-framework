@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigLocalizationKeyValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="cf2506be73ed405d230bbb491ddebbcf80947a279bd374219b262c26cd67eac0">
+<class name="GFConfigLocalizationKeyValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="216680983e9318d8055f179ce5d8c44b457d0cedb3cc376c1eb4dc62f10091a7">
 	<description>GFConfigLocalizationKeyValidationRule: 文本 key 校验规则。
 用于检查配置字段中的本地化 key 是否存在于显式 key 列表或字典中。
 非严格模式可把 Godot TranslationServer 作为弱 fallback，但不能替代显式 key catalog。</description>
@@ -70,7 +70,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_value">
-			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -&gt; void:</signature>
 			<description>校验单个字段值是否存在于配置的文本 key 来源中。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -80,6 +80,7 @@
 				<tag name="schema">value: Variant，期望为 String 或 StringName 本地化 key。</tag>
 				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

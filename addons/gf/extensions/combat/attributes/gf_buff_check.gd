@@ -76,10 +76,19 @@ func _can_apply(_context: Dictionary) -> Dictionary:
 ## @api private
 func _normalize_report(report: Dictionary) -> Dictionary:
 	var result: Dictionary = report.duplicate(true)
-	result["ok"] = GFVariantData.get_option_bool(result, "ok", true)
+	result["ok"] = GFVariantData.get_option_bool(
+		result,
+		"ok",
+		true
+	)
 	result["reason"] = GFVariantData.get_option_string_name(result, "reason")
 	result["check_id"] = check_id
 	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
-	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(report_metadata, metadata, false, true)
+	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(
+		report_metadata,
+		metadata,
+		false,
+		true
+	)
 	result["metadata"] = report_metadata
 	return result

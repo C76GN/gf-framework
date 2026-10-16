@@ -248,12 +248,15 @@ func is_disposed() -> bool:
 ## [br]
 ## @return initializing、activating、ready 或 quiescing 状态返回 true。
 func is_lifecycle_active() -> bool:
-	return _state in [
-		LifecycleState.INITIALIZING,
-		LifecycleState.ACTIVATING,
-		LifecycleState.READY,
-		LifecycleState.QUIESCING,
-	]
+	return (
+		_state
+		in [
+			LifecycleState.INITIALIZING,
+			LifecycleState.ACTIVATING,
+			LifecycleState.READY,
+			LifecycleState.QUIESCING,
+		]
+	)
 
 
 ## 开始一次初始化流程并推进 generation。
@@ -436,7 +439,11 @@ func finish_transaction(transaction: Dictionary) -> void:
 		return
 	transaction[_TRANSACTION_ACTIVE_KEY] = false
 	var transaction_id: int = _get_transaction_id(transaction)
-	for index: int in range(_transactions.size() - 1, -1, -1):
+	for index: int in range(
+		_transactions.size() - 1,
+		-1,
+		-1
+	):
 		if _get_transaction_id(_transactions[index]) == transaction_id:
 			_transactions.remove_at(index)
 			return

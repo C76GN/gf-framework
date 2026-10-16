@@ -345,7 +345,7 @@ func duplicate_runtime() -> BTNode:
 | 方法 | [`reset`](#member-gfbehaviortree-btnode-methods-reset) | `func reset() -> void:` |
 | 方法 | [`duplicate_runtime`](#member-gfbehaviortree-btnode-methods-duplicate_runtime) | `func duplicate_runtime() -> BTNode:` |
 | 方法 | [`clear_debug_state`](#member-gfbehaviortree-btnode-methods-clear_debug_state) | `func clear_debug_state(recursive: bool = true) -> void:` |
-| 方法 | [`record_status`](#member-gfbehaviortree-btnode-methods-record_status) | `func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0) -> int:` |
+| 方法 | [`record_status`](#member-gfbehaviortree-btnode-methods-record_status) | `func record_status( status: int, reason: StringName = &"", elapsed_usec: int = 0 ) -> int:` |
 | 方法 | [`get_debug_snapshot`](#member-gfbehaviortree-btnode-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`_get_debug_children`](#member-gfbehaviortree-btnode-methods-_get_debug_children) | `func _get_debug_children() -> Array[BTNode]:` |
 
@@ -516,9 +516,10 @@ func clear_debug_state(recursive: bool = true) -> void:
 ##### `record_status`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0) -> int:
+func record_status( status: int, reason: StringName = &"", elapsed_usec: int = 0 ) -> int:
 ```
 
 记录节点状态。

@@ -133,11 +133,7 @@ var _active_wait_source: GFCancellationSource = null
 # --- Godot 生命周期方法 ---
 
 func _ready() -> void:
-	process_mode = (
-		Node.PROCESS_MODE_ALWAYS as Node.ProcessMode
-		if process_while_paused
-		else Node.PROCESS_MODE_INHERIT as Node.ProcessMode
-	)
+	process_mode = ((Node.PROCESS_MODE_ALWAYS as Node.ProcessMode if process_while_paused else Node.PROCESS_MODE_INHERIT) as Node.ProcessMode)
 	if auto_start:
 		start()
 
@@ -227,9 +223,17 @@ func process_next_job() -> GFJob:
 ## [br]
 ## @return 实际处理数量。
 func process_batch() -> int:
-	if not _running or _processing or _next_job_in_flight:
+	if (
+		not _running
+		or _processing
+		or _next_job_in_flight
+	):
 		return 0
-	if is_inside_tree() and get_tree().paused and not process_while_paused:
+	if (
+		is_inside_tree()
+		and get_tree().paused
+		and not process_while_paused
+	):
 		return 0
 
 	_processing = true
@@ -290,23 +294,40 @@ func _process_next_job_once() -> GFJob:
 	if result is Signal:
 		var result_signal: Signal = _variant_to_signal(result)
 		var wait_result: Dictionary = await _await_processor_signal_result(result_signal, job)
-		if not GFVariantData.get_option_bool(wait_result, "completed", false):
+		if not GFVariantData.get_option_bool(
+			wait_result,
+			"completed",
+			false
+		):
 			if not job.is_finished():
-				var wait_status: StringName = GFVariantData.get_option_string_name(wait_result, "status", &"invalid")
+				var wait_status: StringName = GFVariantData.get_option_string_name(
+					wait_result,
+					"status",
+					&"invalid"
+				)
 				if wait_status == _GF_ASYNC_WAIT_SUPPORT.STATUS_CANCELLED:
 					var _cancel_job_result: Variant = utility.cancel_job(job.job_id)
 				else:
 					var failure_reason: String = _get_processor_wait_failure_reason(wait_status)
-					var _fail_job_result: Variant = utility.fail_job(job.job_id, failure_reason, wait_result)
+					var _fail_job_result: Variant = utility.fail_job(
+						job.job_id,
+						failure_reason,
+						wait_result
+					)
 			_emit_job_processed_if_not_cancelled(job)
 			return job
 		if job.is_finished():
 			_emit_job_processed_if_not_cancelled(job)
 			return job
 		result = GFVariantData.get_option_value(wait_result, "result")
-	_apply_processor_result(utility, job, result)
+	_apply_processor_result(
+		utility,
+		job,
+		result
+	)
 	_emit_job_processed_if_not_cancelled(job)
 	return job
+
 
 ## 优先返回显式队列工具，否则从全局架构查找，未找到时返回 null。
 ## [br]
@@ -330,25 +351,48 @@ func _await_processor_signal_result(result_signal: Signal, job: GFJob) -> Dictio
 	var guard_node: Node = self if is_inside_tree() else null
 	var wait_source: GFCancellationSource = GFCancellationSource.new()
 	_active_wait_source = wait_source
-	var wait_result: Dictionary = await _GF_ASYNC_WAIT_SUPPORT.await_signal_state(result_signal, {
-		"should_continue": _should_continue_waiting.bind(job),
-		"time_utility": _get_time_utility(),
-		"timeout_seconds": signal_timeout_seconds,
-		"respect_time_scale": signal_timeout_respects_time_scale,
-		"timeout_warning": "[GFJobWorker][job_worker.handler_signal_timeout] Timed out waiting for the task handler Signal; the task will be marked as failed.",
-		"guard_node": guard_node,
-		"cancel_token": wait_source.get_token(),
-		"capture_payload": true,
-	})
+	var wait_result: Dictionary = await (
+		_GF_ASYNC_WAIT_SUPPORT.await_signal_state(
+			result_signal,
+			{
+				"should_continue": _should_continue_waiting.bind(job),
+				"time_utility": _get_time_utility(),
+				"timeout_seconds": signal_timeout_seconds,
+				"respect_time_scale": signal_timeout_respects_time_scale,
+				"timeout_warning": "[GFJobWorker][job_worker.handler_signal_timeout] Timed out waiting for the task handler Signal; the task will be marked as failed.",
+				"guard_node": guard_node,
+				"cancel_token": wait_source.get_token(),
+				"capture_payload": true,
+			}
+		)
+	)
 	if _active_wait_source == wait_source:
 		_active_wait_source = null
 	wait_source.dispose()
-	var completed: bool = GFVariantData.get_option_bool(wait_result, "completed", false)
+	var completed: bool = GFVariantData.get_option_bool(
+		wait_result,
+		"completed",
+		false
+	)
 	return {
 		"completed": completed,
-		"status": GFVariantData.get_option_string_name(wait_result, "status", &"invalid"),
-		"result": _normalize_signal_result(GFVariantData.get_option_value(wait_result, "args", [])) if completed else null,
-		"reason": GFVariantData.get_option_string_name(wait_result, "reason", &""),
+		"status": GFVariantData.get_option_string_name(
+			wait_result,
+			"status",
+			&"invalid"
+		),
+		"result": _normalize_signal_result(
+			GFVariantData.get_option_value(
+				wait_result,
+				"args",
+				[]
+			)
+		) if completed else null,
+		"reason": GFVariantData.get_option_string_name(
+			wait_result,
+			"reason",
+			&""
+		),
 		"metadata": GFVariantData.get_option_dictionary(wait_result, "metadata"),
 	}
 
@@ -381,17 +425,33 @@ func _get_processor_wait_failure_reason(status: StringName) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _apply_processor_result(utility: GFJobQueueUtility, job: GFJob, result: Variant) -> void:
+func _apply_processor_result(
+	utility: GFJobQueueUtility,
+	job: GFJob,
+	result: Variant
+) -> void:
 	if job == null or job.is_finished():
 		return
 	if result is Dictionary:
 		var result_dictionary: Dictionary = GFVariantData.as_dictionary(result)
-		if not GFVariantData.get_option_bool(result_dictionary, "ok", true):
-			var _fail_job_result_279: Variant = utility.fail_job(job.job_id, GFVariantData.get_option_string(result_dictionary, "error"), result)
+		if not GFVariantData.get_option_bool(
+			result_dictionary,
+			"ok",
+			true
+		):
+			var _fail_job_result_279: Variant = utility.fail_job(
+				job.job_id,
+				GFVariantData.get_option_string(result_dictionary, "error"),
+				result
+			)
 			return
 		var _complete_job_result_281: Variant = utility.complete_job(job.job_id, result)
 	elif result is bool and not GFVariantData.to_bool(result):
-		var _fail_job_result_283: Variant = utility.fail_job(job.job_id, "", result)
+		var _fail_job_result_283: Variant = utility.fail_job(
+			job.job_id,
+			"",
+			result
+		)
 	else:
 		var _complete_job_result_285: Variant = utility.complete_job(job.job_id, result)
 

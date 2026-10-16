@@ -149,13 +149,44 @@ static func solve_grid(
 	adjacency_rules: Array[Dictionary],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var seed_value: int = GFVariantData.get_option_int(options, "seed", 0)
-	var heuristic: StringName = _normalize_heuristic(GFVariantData.get_option_value(options, "heuristic", Heuristic.ENTROPY))
-	var periodic: bool = GFVariantData.get_option_bool(options, "periodic", false)
-	var max_cells: int = maxi(GFVariantData.get_option_int(options, "max_cells", DEFAULT_MAX_CELLS), 1)
-	var max_tiles: int = maxi(GFVariantData.get_option_int(options, "max_tiles", DEFAULT_MAX_TILES), 1)
+	var seed_value: int = GFVariantData.get_option_int(
+		options,
+		"seed",
+		0
+	)
+	var heuristic: StringName = _normalize_heuristic(
+		GFVariantData.get_option_value(
+			options,
+			"heuristic",
+			Heuristic.ENTROPY
+		)
+	)
+	var periodic: bool = GFVariantData.get_option_bool(
+		options,
+		"periodic",
+		false
+	)
+	var max_cells: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_cells",
+			DEFAULT_MAX_CELLS
+		),
+		1
+	)
+	var max_tiles: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_tiles",
+			DEFAULT_MAX_TILES
+		),
+		1
+	)
 	var cell_count: int = grid_size.x * grid_size.y
-	var max_steps: int = _get_max_steps(options, maxi(cell_count, 0))
+	var max_steps: int = _get_max_steps(
+		options,
+		maxi(cell_count, 0)
+	)
 	if grid_size.x <= 0 or grid_size.y <= 0:
 		return _make_report(
 			false,
@@ -194,7 +225,11 @@ static func solve_grid(
 		)
 
 	var tile_report: Dictionary = _parse_tiles(tiles, max_tiles)
-	if not GFVariantData.get_option_bool(tile_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		tile_report,
+		"ok",
+		false
+	):
 		return _make_report(
 			false,
 			STATUS_INVALID_INPUT,
@@ -216,8 +251,21 @@ static func solve_grid(
 	var tile_ids: Array = GFVariantData.get_option_array(tile_report, "tile_ids")
 	var tile_weights: Dictionary = GFVariantData.get_option_dictionary(tile_report, "weights")
 	var tile_set: Dictionary = GFVariantData.get_option_dictionary(tile_report, "tile_set")
-	var rule_report: Dictionary = _build_adjacency(tile_ids, tile_set, adjacency_rules, GFVariantData.get_option_bool(options, "bidirectional_rules", true))
-	if not GFVariantData.get_option_bool(rule_report, "ok", false):
+	var rule_report: Dictionary = _build_adjacency(
+		tile_ids,
+		tile_set,
+		adjacency_rules,
+		GFVariantData.get_option_bool(
+			options,
+			"bidirectional_rules",
+			true
+		)
+	)
+	if not GFVariantData.get_option_bool(
+		rule_report,
+		"ok",
+		false
+	):
 		return _make_report(
 			false,
 			STATUS_INVALID_INPUT,
@@ -237,8 +285,17 @@ static func solve_grid(
 		)
 
 	var domains: Dictionary = _make_initial_domains(grid_size, tile_ids)
-	var fixed_report: Dictionary = _apply_fixed_cells(domains, grid_size, tile_set, options)
-	if not GFVariantData.get_option_bool(fixed_report, "ok", false):
+	var fixed_report: Dictionary = _apply_fixed_cells(
+		domains,
+		grid_size,
+		tile_set,
+		options
+	)
+	if not GFVariantData.get_option_bool(
+		fixed_report,
+		"ok",
+		false
+	):
 		return _make_report(
 			false,
 			STATUS_INVALID_INPUT,
@@ -262,8 +319,18 @@ static func solve_grid(
 	if tile_ids.size() == 1:
 		# 初始域已经全部坍缩，也必须传播邻接约束后才能报告完成。
 		initial_queue.assign(domains.keys())
-	var initial_propagation: Dictionary = _propagate(domains, grid_size, allowed_by_direction, periodic, initial_queue)
-	if not GFVariantData.get_option_bool(initial_propagation, "ok", false):
+	var initial_propagation: Dictionary = _propagate(
+		domains,
+		grid_size,
+		allowed_by_direction,
+		periodic,
+		initial_queue
+	)
+	if not GFVariantData.get_option_bool(
+		initial_propagation,
+		"ok",
+		false
+	):
 		return _make_report(
 			false,
 			STATUS_CONTRADICTION,
@@ -279,13 +346,23 @@ static func solve_grid(
 			max_steps,
 			0,
 			domains,
-			_get_report_cell(initial_propagation, "cell", _INVALID_CELL)
+			_get_report_cell(
+				initial_propagation,
+				"cell",
+				_INVALID_CELL
+			)
 		)
 
 	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(seed_value)
 	var step_count: int = 0
 	while true:
-		var next_cell: Vector2i = _select_next_cell(domains, grid_size, heuristic, tile_weights, rng)
+		var next_cell: Vector2i = _select_next_cell(
+			domains,
+			grid_size,
+			heuristic,
+			tile_weights,
+			rng
+		)
 		if next_cell == _INVALID_CELL:
 			if _count_undecided_domains(domains) > 0:
 				return _make_report(
@@ -341,7 +418,12 @@ static func solve_grid(
 				_INVALID_CELL
 			)
 
-		var selected_tile: Variant = _choose_weighted_tile(_get_domain(domains, next_cell), tile_ids, tile_weights, rng)
+		var selected_tile: Variant = _choose_weighted_tile(
+			_get_domain(domains, next_cell),
+			tile_ids,
+			tile_weights,
+			rng
+		)
 		if selected_tile == null:
 			return _make_report(
 				false,
@@ -362,8 +444,18 @@ static func solve_grid(
 			)
 		domains[next_cell] = { selected_tile: true }
 		step_count += 1
-		var propagation: Dictionary = _propagate(domains, grid_size, allowed_by_direction, periodic, [next_cell])
-		if not GFVariantData.get_option_bool(propagation, "ok", false):
+		var propagation: Dictionary = _propagate(
+			domains,
+			grid_size,
+			allowed_by_direction,
+			periodic,
+			[next_cell]
+		)
+		if not GFVariantData.get_option_bool(
+			propagation,
+			"ok",
+			false
+		):
 			return _make_report(
 				false,
 				STATUS_CONTRADICTION,
@@ -379,7 +471,11 @@ static func solve_grid(
 				max_steps,
 				step_count,
 				domains,
-				_get_report_cell(propagation, "cell", next_cell)
+				_get_report_cell(
+					propagation,
+					"cell",
+					next_cell
+				)
 			)
 
 	return _make_report(
@@ -455,9 +551,17 @@ static func expand_transformed_adjacency_rules(
 	transform_specs: Array[Dictionary],
 	options: Dictionary = {}
 ) -> Dictionary:
-	var preserve_unknown_remaps: bool = GFVariantData.get_option_bool(options, "preserve_unknown_remaps", true)
+	var preserve_unknown_remaps: bool = GFVariantData.get_option_bool(
+		options,
+		"preserve_unknown_remaps",
+		true
+	)
 	var spec_report: Dictionary = _normalize_rule_transform_specs(transform_specs)
-	if not GFVariantData.get_option_bool(spec_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		spec_report,
+		"ok",
+		false
+	):
 		return _make_adjacency_expansion_failure(GFVariantData.get_option_string(spec_report, "error"))
 
 	var normalized_specs: Array[Dictionary] = _get_dictionary_array(spec_report, "transform_specs")
@@ -467,7 +571,11 @@ static func expand_transformed_adjacency_rules(
 	var skipped_count: int = 0
 	for rule: Dictionary in adjacency_rules:
 		var rule_report: Dictionary = _normalize_adjacency_rule_for_expansion(rule)
-		if not GFVariantData.get_option_bool(rule_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			rule_report,
+			"ok",
+			false
+		):
 			return _make_adjacency_expansion_failure(GFVariantData.get_option_string(rule_report, "error"))
 
 		var normalized_rule: Dictionary = GFVariantData.get_option_dictionary(rule_report, "rule")
@@ -477,9 +585,17 @@ static func expand_transformed_adjacency_rules(
 				transform_spec,
 				preserve_unknown_remaps
 			)
-			if not GFVariantData.get_option_bool(transform_report, "ok", false):
+			if not GFVariantData.get_option_bool(
+				transform_report,
+				"ok",
+				false
+			):
 				return _make_adjacency_expansion_failure(GFVariantData.get_option_string(transform_report, "error"))
-			if GFVariantData.get_option_bool(transform_report, "skipped", false):
+			if GFVariantData.get_option_bool(
+				transform_report,
+				"skipped",
+				false
+			):
 				skipped_count += 1
 				continue
 
@@ -511,7 +627,11 @@ static func expand_transformed_adjacency_rules(
 ## @api private
 ## [br]
 static func _get_max_steps(options: Dictionary, cell_count: int) -> int:
-	var requested: int = GFVariantData.get_option_int(options, "max_steps", cell_count)
+	var requested: int = GFVariantData.get_option_int(
+		options,
+		"max_steps",
+		cell_count
+	)
 	return maxi(requested, 1)
 
 
@@ -559,16 +679,28 @@ static func _parse_tiles(tiles: Array, max_tiles: int) -> Dictionary:
 		if raw_entry is Dictionary:
 			var entry: Dictionary = raw_entry
 			raw_tile_id = GFVariantData.get_option_value(entry, "id")
-			weight = GFVariantData.get_option_float(entry, "weight", 1.0)
+			weight = GFVariantData.get_option_float(
+				entry,
+				"weight",
+				1.0
+			)
 
 		var tile_report: Dictionary = _normalize_tile_id(raw_tile_id)
-		if not GFVariantData.get_option_bool(tile_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			tile_report,
+			"ok",
+			false
+		):
 			return _make_failure(GFVariantData.get_option_string(tile_report, "error"))
 
 		var tile_id: Variant = GFVariantData.get_option_value(tile_report, "id")
 		if tile_set.has(tile_id):
 			return _make_failure("duplicate tile id.")
-		if weight <= 0.0 or is_nan(weight) or is_inf(weight):
+		if (
+			weight <= 0.0
+			or is_nan(weight)
+			or is_inf(weight)
+		):
 			return _make_failure("tile weight must be a finite positive number.")
 
 		tile_ids.append(tile_id)
@@ -626,9 +758,17 @@ static func _normalize_tile_id(value: Variant) -> Dictionary:
 static func _normalize_adjacency_rule_for_expansion(rule: Dictionary) -> Dictionary:
 	var from_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(rule, "from"))
 	var to_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(rule, "to"))
-	if not GFVariantData.get_option_bool(from_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		from_report,
+		"ok",
+		false
+	):
 		return _make_failure("rule.from " + GFVariantData.get_option_string(from_report, "error"))
-	if not GFVariantData.get_option_bool(to_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		to_report,
+		"ok",
+		false
+	):
 		return _make_failure("rule.to " + GFVariantData.get_option_string(to_report, "error"))
 
 	var direction: Vector2i = _normalize_direction(GFVariantData.get_option_value(rule, "direction"))
@@ -641,7 +781,11 @@ static func _normalize_adjacency_rule_for_expansion(rule: Dictionary) -> Diction
 		"direction": direction,
 	}
 	if rule.has("bidirectional"):
-		normalized_rule["bidirectional"] = GFVariantData.get_option_bool(rule, "bidirectional", true)
+		normalized_rule["bidirectional"] = GFVariantData.get_option_bool(
+			rule,
+			"bidirectional",
+			true
+		)
 	return {
 		"ok": true,
 		"error": "",
@@ -656,10 +800,7 @@ static func _normalize_adjacency_rule_for_expansion(rule: Dictionary) -> Diction
 static func _normalize_rule_transform_specs(transform_specs: Array[Dictionary]) -> Dictionary:
 	var normalized_specs: Array[Dictionary] = []
 	if transform_specs.is_empty():
-		normalized_specs.append({
-			"transform": GFGridTransform2D.Transform.IDENTITY,
-			"tile_remaps": {},
-		})
+		normalized_specs.append({ "transform": GFGridTransform2D.Transform.IDENTITY, "tile_remaps": {}, })
 		return {
 			"ok": true,
 			"error": "",
@@ -677,16 +818,15 @@ static func _normalize_rule_transform_specs(transform_specs: Array[Dictionary]) 
 		if not GFGridTransform2D.is_transform_valid(transform_value):
 			return _make_failure("transform_specs.transform must be a GFGridTransform2D.Transform value.")
 
-		var tile_remap_report: Dictionary = _normalize_tile_remaps(
-			GFVariantData.get_option_dictionary(transform_spec, "tile_remaps")
-		)
-		if not GFVariantData.get_option_bool(tile_remap_report, "ok", false):
+		var tile_remap_report: Dictionary = _normalize_tile_remaps(GFVariantData.get_option_dictionary(transform_spec, "tile_remaps"))
+		if not GFVariantData.get_option_bool(
+			tile_remap_report,
+			"ok",
+			false
+		):
 			return _make_failure(GFVariantData.get_option_string(tile_remap_report, "error"))
 
-		normalized_specs.append({
-			"transform": transform_value,
-			"tile_remaps": GFVariantData.get_option_dictionary(tile_remap_report, "tile_remaps"),
-		})
+		normalized_specs.append({ "transform": transform_value, "tile_remaps": GFVariantData.get_option_dictionary(tile_remap_report, "tile_remaps"), })
 
 	return {
 		"ok": true,
@@ -735,9 +875,17 @@ static func _normalize_tile_remaps(tile_remaps: Dictionary) -> Dictionary:
 	for raw_source_id: Variant in tile_remaps.keys():
 		var source_report: Dictionary = _normalize_tile_id(raw_source_id)
 		var target_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(tile_remaps, raw_source_id))
-		if not GFVariantData.get_option_bool(source_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			source_report,
+			"ok",
+			false
+		):
 			return _make_failure("tile_remaps key " + GFVariantData.get_option_string(source_report, "error"))
-		if not GFVariantData.get_option_bool(target_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			target_report,
+			"ok",
+			false
+		):
 			return _make_failure("tile_remaps value " + GFVariantData.get_option_string(target_report, "error"))
 
 		normalized_remaps[GFVariantData.get_option_value(source_report, "id")] = GFVariantData.get_option_value(target_report, "id")
@@ -769,7 +917,18 @@ static func _transform_adjacency_rule(
 		tile_remaps,
 		preserve_unknown_remaps
 	)
-	if GFVariantData.get_option_bool(from_report, "skipped", false) or GFVariantData.get_option_bool(to_report, "skipped", false):
+	if (
+		GFVariantData.get_option_bool(
+			from_report,
+			"skipped",
+			false
+		)
+		or GFVariantData.get_option_bool(
+			to_report,
+			"skipped",
+			false
+		)
+	):
 		return {
 			"ok": true,
 			"error": "",
@@ -782,7 +941,11 @@ static func _transform_adjacency_rule(
 		"transform",
 		GFGridTransform2D.Transform.IDENTITY
 	)
-	var direction: Vector2i = _get_report_cell(rule, "direction", _INVALID_DIRECTION)
+	var direction: Vector2i = _get_report_cell(
+		rule,
+		"direction",
+		_INVALID_DIRECTION
+	)
 	var transformed_direction: Vector2i = GFGridTransform2D.transform_cardinal_direction(direction, transform_value)
 	if transformed_direction == Vector2i.ZERO:
 		return _make_failure("rule.direction cannot be transformed.")
@@ -793,7 +956,11 @@ static func _transform_adjacency_rule(
 		"direction": transformed_direction,
 	}
 	if rule.has("bidirectional"):
-		transformed_rule["bidirectional"] = GFVariantData.get_option_bool(rule, "bidirectional", true)
+		transformed_rule["bidirectional"] = GFVariantData.get_option_bool(
+			rule,
+			"bidirectional",
+			true
+		)
 	return {
 		"ok": true,
 		"error": "",
@@ -838,17 +1005,28 @@ static func _resolve_remapped_tile_id(
 ## @api private
 ## [br]
 static func _make_adjacency_rule_key(rule: Dictionary) -> String:
-	var direction: Vector2i = _get_report_cell(rule, "direction", _INVALID_DIRECTION)
+	var direction: Vector2i = _get_report_cell(
+		rule,
+		"direction",
+		_INVALID_DIRECTION
+	)
 	var has_bidirectional: bool = rule.has("bidirectional")
-	var bidirectional: bool = GFVariantData.get_option_bool(rule, "bidirectional", true)
-	return "%s|%s|%d,%d|%s|%s" % [
-		_make_tile_key(GFVariantData.get_option_value(rule, "from")),
-		_make_tile_key(GFVariantData.get_option_value(rule, "to")),
-		direction.x,
-		direction.y,
-		str(has_bidirectional),
-		str(bidirectional),
-	]
+	var bidirectional: bool = GFVariantData.get_option_bool(
+		rule,
+		"bidirectional",
+		true
+	)
+	return (
+		"%s|%s|%d,%d|%s|%s"
+		% [
+			_make_tile_key(GFVariantData.get_option_value(rule, "from")),
+			_make_tile_key(GFVariantData.get_option_value(rule, "to")),
+			direction.x,
+			direction.y,
+			str(has_bidirectional),
+			str(bidirectional),
+		]
+	)
 
 
 ## 为整数与 StringName 瓦片 ID 加类型前缀生成键，其它值使用通用文本表示。
@@ -886,9 +1064,17 @@ static func _build_adjacency(
 	for rule: Dictionary in adjacency_rules:
 		var from_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(rule, "from"))
 		var to_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(rule, "to"))
-		if not GFVariantData.get_option_bool(from_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			from_report,
+			"ok",
+			false
+		):
 			return _make_failure("rule.from " + GFVariantData.get_option_string(from_report, "error"))
-		if not GFVariantData.get_option_bool(to_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			to_report,
+			"ok",
+			false
+		):
 			return _make_failure("rule.to " + GFVariantData.get_option_string(to_report, "error"))
 
 		var from_tile: Variant = GFVariantData.get_option_value(from_report, "id")
@@ -900,9 +1086,23 @@ static func _build_adjacency(
 		if direction == _INVALID_DIRECTION:
 			return _make_failure("rule.direction must be one of the four orthogonal directions.")
 
-		_add_allowed_edge(allowed_by_direction, direction, from_tile, to_tile)
-		if GFVariantData.get_option_bool(rule, "bidirectional", default_bidirectional):
-			_add_allowed_edge(allowed_by_direction, direction, to_tile, from_tile)
+		_add_allowed_edge(
+			allowed_by_direction,
+			direction,
+			from_tile,
+			to_tile
+		)
+		if GFVariantData.get_option_bool(
+			rule,
+			"bidirectional",
+			default_bidirectional
+		):
+			_add_allowed_edge(
+				allowed_by_direction,
+				direction,
+				to_tile,
+				from_tile
+			)
 
 	return {
 		"ok": true,
@@ -994,8 +1194,18 @@ static func _add_allowed_edge(
 	from_tile: Variant,
 	to_tile: Variant
 ) -> void:
-	_add_allowed_pair(allowed_by_direction, direction, from_tile, to_tile)
-	_add_allowed_pair(allowed_by_direction, _opposite_direction(direction), to_tile, from_tile)
+	_add_allowed_pair(
+		allowed_by_direction,
+		direction,
+		from_tile,
+		to_tile
+	)
+	_add_allowed_pair(
+		allowed_by_direction,
+		_opposite_direction(direction),
+		to_tile,
+		from_tile
+	)
 
 
 ## 从方向映射表取得反向方向，缺少映射时返回无效哨兵。
@@ -1003,7 +1213,11 @@ static func _add_allowed_edge(
 ## @api private
 ## [br]
 static func _opposite_direction(direction: Vector2i) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(_OPPOSITE_DIRECTIONS, direction, _INVALID_DIRECTION)
+	var value: Variant = GFVariantData.get_option_value(
+		_OPPOSITE_DIRECTIONS,
+		direction,
+		_INVALID_DIRECTION
+	)
 	if value is Vector2i:
 		var opposite: Vector2i = value
 		return opposite
@@ -1054,7 +1268,11 @@ static func _apply_fixed_cells(
 			return _make_failure("fixed cell is outside grid_size.")
 
 		var tile_report: Dictionary = _normalize_tile_id(GFVariantData.get_option_value(fixed_cells, cell))
-		if not GFVariantData.get_option_bool(tile_report, "ok", false):
+		if not GFVariantData.get_option_bool(
+			tile_report,
+			"ok",
+			false
+		):
 			return _make_failure("fixed cell " + GFVariantData.get_option_string(tile_report, "error"))
 
 		var tile_id: Variant = GFVariantData.get_option_value(tile_report, "id")
@@ -1093,11 +1311,20 @@ static func _propagate(
 			return _make_contradiction(cell, "domain is empty.")
 
 		for direction: Vector2i in _DIRECTIONS:
-			var neighbor: Vector2i = _resolve_neighbor(cell, direction, grid_size, periodic)
+			var neighbor: Vector2i = _resolve_neighbor(
+				cell,
+				direction,
+				grid_size,
+				periodic
+			)
 			if neighbor == _INVALID_CELL:
 				continue
 
-			var allowed_targets: Dictionary = _make_allowed_targets(domain, direction, allowed_by_direction)
+			var allowed_targets: Dictionary = _make_allowed_targets(
+				domain,
+				direction,
+				allowed_by_direction
+			)
 			var neighbor_domain: Dictionary = _get_domain(domains, neighbor)
 			var changed: bool = false
 			for tile_id: Variant in neighbor_domain.keys():
@@ -1187,7 +1414,13 @@ static func _select_next_cell(
 			if heuristic == &"entropy":
 				score = _calculate_entropy(domain, weights)
 			var tie: float = rng.next_float_unit()
-			if score < best_score or (is_equal_approx(score, best_score) and tie < best_tie):
+			if (
+				score < best_score
+				or (
+					is_equal_approx(score, best_score)
+					and tie < best_tie
+				)
+			):
 				best_cell = cell
 				best_score = score
 				best_tie = tie
@@ -1203,7 +1436,11 @@ static func _calculate_entropy(domain: Dictionary, weights: Dictionary) -> float
 	var weighted_log_sum: float = 0.0
 	var max_weight: float = 0.0
 	for tile_id: Variant in domain.keys():
-		var weight: float = GFVariantData.get_option_float(weights, tile_id, 1.0)
+		var weight: float = GFVariantData.get_option_float(
+			weights,
+			tile_id,
+			1.0
+		)
 		weight_sum += weight
 		weighted_log_sum += weight * log(weight)
 		max_weight = maxf(max_weight, weight)
@@ -1215,13 +1452,18 @@ static func _calculate_entropy(domain: Dictionary, weights: Dictionary) -> float
 	var scaled_sum: float = 0.0
 	var scaled_weighted_log_sum: float = 0.0
 	for tile_id: Variant in domain.keys():
-		var scaled_weight: float = (
-			GFVariantData.get_option_float(weights, tile_id, 1.0)
-			/ max_weight
-		)
+		var scaled_weight: float = GFVariantData.get_option_float(
+			weights,
+			tile_id,
+			1.0
+		) / max_weight
 		scaled_sum += scaled_weight
 		scaled_weighted_log_sum += scaled_weight * log(scaled_weight)
-	if scaled_sum <= 0.0 or not is_finite(scaled_sum) or not is_finite(scaled_weighted_log_sum):
+	if (
+		scaled_sum <= 0.0
+		or not is_finite(scaled_sum)
+		or not is_finite(scaled_weighted_log_sum)
+	):
 		return INF
 	return log(scaled_sum) - scaled_weighted_log_sum / scaled_sum
 
@@ -1240,7 +1482,11 @@ static func _choose_weighted_tile(
 	var max_weight: float = 0.0
 	for tile_id: Variant in tile_ids:
 		if domain.has(tile_id):
-			var weight: float = GFVariantData.get_option_float(weights, tile_id, 1.0)
+			var weight: float = GFVariantData.get_option_float(
+				weights,
+				tile_id,
+				1.0
+			)
 			total_weight += weight
 			max_weight = maxf(max_weight, weight)
 
@@ -1253,8 +1499,11 @@ static func _choose_weighted_tile(
 		for tile_id: Variant in tile_ids:
 			if domain.has(tile_id):
 				total_weight += (
-					GFVariantData.get_option_float(weights, tile_id, 1.0)
-					/ scale
+					GFVariantData.get_option_float(
+						weights,
+						tile_id,
+						1.0
+					) / scale
 				)
 	if total_weight <= 0.0 or not is_finite(total_weight):
 		return null
@@ -1267,7 +1516,11 @@ static func _choose_weighted_tile(
 			continue
 		if fallback == null:
 			fallback = tile_id
-		cumulative += GFVariantData.get_option_float(weights, tile_id, 1.0) / scale
+		cumulative += GFVariantData.get_option_float(
+			weights,
+			tile_id,
+			1.0
+		) / scale
 		if threshold <= cumulative:
 			return tile_id
 	return fallback
@@ -1319,7 +1572,11 @@ static func _make_report(
 		"undecided_count": _count_undecided_domains(domains),
 		"contradiction_cell": contradiction_cell,
 		"grid": _make_collapsed_grid(domains, grid_size) if can_materialize_grid else {},
-		"domains": _make_domain_snapshot(domains, grid_size, tile_ids) if can_materialize_grid else {},
+		"domains": _make_domain_snapshot(
+			domains,
+			grid_size,
+			tile_ids
+		) if can_materialize_grid else {},
 	}
 
 
@@ -1342,7 +1599,11 @@ static func _make_collapsed_grid(domains: Dictionary, grid_size: Vector2i) -> Di
 ## [br]
 ## @api private
 ## [br]
-static func _make_domain_snapshot(domains: Dictionary, grid_size: Vector2i, tile_ids: Array) -> Dictionary:
+static func _make_domain_snapshot(
+	domains: Dictionary,
+	grid_size: Vector2i,
+	tile_ids: Array
+) -> Dictionary:
 	var snapshot: Dictionary = {}
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
@@ -1459,8 +1720,16 @@ static func _get_dictionary_array(report: Dictionary, key: String) -> Array[Dict
 ## [br]
 ## @api private
 ## [br]
-static func _get_report_cell(report: Dictionary, key: String, fallback: Vector2i) -> Vector2i:
-	var value: Variant = GFVariantData.get_option_value(report, key, fallback)
+static func _get_report_cell(
+	report: Dictionary,
+	key: String,
+	fallback: Vector2i
+) -> Vector2i:
+	var value: Variant = GFVariantData.get_option_value(
+		report,
+		key,
+		fallback
+	)
 	if value is Vector2i:
 		var cell: Vector2i = value
 		return cell
@@ -1472,10 +1741,7 @@ static func _get_report_cell(report: Dictionary, key: String, fallback: Vector2i
 ## @api private
 ## [br]
 static func _make_failure(error: String) -> Dictionary:
-	return {
-		"ok": false,
-		"error": error,
-	}
+	return { "ok": false, "error": error, }
 
 
 ## 创建带规则展开计数零值字段的失败报告。

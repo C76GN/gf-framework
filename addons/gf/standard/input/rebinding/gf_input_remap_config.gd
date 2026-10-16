@@ -57,7 +57,11 @@ func set_binding(
 	binding_index: int,
 	input_event: InputEvent
 ) -> void:
-	if context_id == &"" or action_id == &"" or binding_index < 0:
+	if (
+		context_id == &""
+		or action_id == &""
+		or binding_index < 0
+	):
 		return
 
 	var action_map: Dictionary = _ensure_action_map(context_id, action_id)
@@ -69,26 +73,47 @@ func set_binding(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context_id: 上下文标识。
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param binding_index: 绑定索引。
-func unbind(context_id: StringName, action_id: StringName, binding_index: int) -> void:
-	set_binding(context_id, action_id, binding_index, null)
+func unbind(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> void:
+	set_binding(
+		context_id,
+		action_id,
+		binding_index,
+		null
+	)
 
 
 ## 清除某个覆盖，使其回退到默认绑定。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context_id: 上下文标识。
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param binding_index: 绑定索引。
-func clear_binding(context_id: StringName, action_id: StringName, binding_index: int) -> void:
-	if not has_binding(context_id, action_id, binding_index):
+func clear_binding(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> void:
+	if not has_binding(
+		context_id,
+		action_id,
+		binding_index
+	):
 		return
 
 	var context_key: Variant = _find_dictionary_key(remapped_events, context_id)
@@ -107,6 +132,8 @@ func clear_binding(context_id: StringName, action_id: StringName, binding_index:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context_id: 上下文标识。
 ## [br]
 ## @param action_id: 动作标识。
@@ -114,7 +141,11 @@ func clear_binding(context_id: StringName, action_id: StringName, binding_index:
 ## @param binding_index: 绑定索引。
 ## [br]
 ## @return 是否存在覆盖。
-func has_binding(context_id: StringName, action_id: StringName, binding_index: int) -> bool:
+func has_binding(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> bool:
 	var context_map: Dictionary = _get_context_map(context_id)
 	if context_map.is_empty():
 		return false
@@ -126,6 +157,8 @@ func has_binding(context_id: StringName, action_id: StringName, binding_index: i
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param context_id: 上下文标识。
 ## [br]
 ## @param action_id: 动作标识。
@@ -133,8 +166,16 @@ func has_binding(context_id: StringName, action_id: StringName, binding_index: i
 ## @param binding_index: 绑定索引。
 ## [br]
 ## @return 覆盖事件；显式解绑或未覆盖时均可能返回 null，应先调用 has_binding() 区分。
-func get_bound_event_or_null(context_id: StringName, action_id: StringName, binding_index: int) -> InputEvent:
-	if not has_binding(context_id, action_id, binding_index):
+func get_bound_event_or_null(
+	context_id: StringName,
+	action_id: StringName,
+	binding_index: int
+) -> InputEvent:
+	if not has_binding(
+		context_id,
+		action_id,
+		binding_index
+	):
 		return null
 	var context_map: Dictionary = _get_context_map(context_id)
 	var action_map: Dictionary = _get_action_map(context_map, action_id)
@@ -207,19 +248,14 @@ func to_dict(json_compatible: bool = true) -> Dictionary:
 				var binding_index: int = GFVariantData.to_int(binding_key, -1)
 				if binding_index < 0:
 					continue
-				serialized_action[str(binding_index)] = _event_to_record(
-					_variant_to_input_event(_get_binding_value(action_map, binding_key))
-				)
+				serialized_action[str(binding_index)] = _event_to_record(_variant_to_input_event(_get_binding_value(action_map, binding_key)))
 			if not serialized_action.is_empty():
 				serialized_context[GFVariantData.to_text(action_key)] = serialized_action
 
 		if not serialized_context.is_empty():
 			serialized_events[GFVariantData.to_text(context_key)] = serialized_context
 
-	return {
-		"remapped_events": serialized_events,
-		"custom_data": GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data),
-	}
+	return { "remapped_events": serialized_events, "custom_data": (GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data)), }
 
 
 ## 应用由 to_dict() 生成的重映射配置。
@@ -247,9 +283,18 @@ func apply_dict(data: Dictionary, json_compatible: bool = true) -> Dictionary:
 		"unbound_count": 0,
 		"issues": issues,
 	}
-	var serialized_events_value: Variant = GFVariantData.get_option_value(data, "remapped_events", {})
+	var serialized_events_value: Variant = GFVariantData.get_option_value(
+		data,
+		"remapped_events",
+		{}
+	)
 	if not (serialized_events_value is Dictionary):
-		_append_apply_issue(issues, "remapped_events", "invalid_map", "remapped_events must be a Dictionary.")
+		_append_apply_issue(
+			issues,
+			"remapped_events",
+			"invalid_map",
+			"remapped_events must be a Dictionary."
+		)
 		return _finish_apply_report(report, false)
 	var serialized_events: Dictionary = serialized_events_value
 	var candidate: GFInputRemapConfig = GFInputRemapConfig.new()
@@ -258,51 +303,114 @@ func apply_dict(data: Dictionary, json_compatible: bool = true) -> Dictionary:
 		var context_id: StringName = GFVariantData.to_string_name(context_key)
 		var context_path: String = "remapped_events.%s" % GFVariantData.to_text(context_key)
 		if context_id == &"" or not (context_value is Dictionary):
-			_append_apply_issue(issues, context_path, "invalid_context", "Context id and map must be valid.")
+			_append_apply_issue(
+				issues,
+				context_path,
+				"invalid_context",
+				"Context id and map must be valid."
+			)
 			continue
 		var context_map: Dictionary = context_value
 		for action_key: Variant in context_map.keys():
 			var action_value: Variant = GFVariantData.get_option_value(context_map, action_key)
 			var action_id: StringName = GFVariantData.to_string_name(action_key)
-			var action_path: String = "%s.%s" % [context_path, GFVariantData.to_text(action_key)]
+			var action_path: String = (
+				"%s.%s"
+				% [context_path, GFVariantData.to_text(action_key)]
+			)
 			if action_id == &"" or not (action_value is Dictionary):
-				_append_apply_issue(issues, action_path, "invalid_action", "Action id and map must be valid.")
+				_append_apply_issue(
+					issues,
+					action_path,
+					"invalid_action",
+					"Action id and map must be valid."
+				)
 				continue
 			var action_map: Dictionary = action_value
 			for binding_key: Variant in action_map.keys():
-				var binding_path: String = "%s.%s" % [action_path, GFVariantData.to_text(binding_key)]
+				var binding_path: String = (
+					"%s.%s"
+					% [action_path, GFVariantData.to_text(binding_key)]
+				)
 				var binding_result: Dictionary = _parse_binding_index(binding_key)
 				if not GFVariantData.get_option_bool(binding_result, "ok"):
-					_append_apply_issue(issues, binding_path, "invalid_binding_index", "Binding index must be a non-negative integer.")
+					_append_apply_issue(
+						issues,
+						binding_path,
+						"invalid_binding_index",
+						"Binding index must be a non-negative integer."
+					)
 					continue
 				var binding_index: int = GFVariantData.get_option_int(binding_result, "value")
 				var record_value: Variant = GFVariantData.get_option_value(action_map, binding_key)
 				if not (record_value is Dictionary):
-					_append_apply_issue(issues, binding_path, "invalid_record", "Binding record must be a Dictionary.")
+					_append_apply_issue(
+						issues,
+						binding_path,
+						"invalid_record",
+						"Binding record must be a Dictionary."
+					)
 					continue
 				var record: Dictionary = record_value
 				if record.is_empty():
-					_append_apply_issue(issues, binding_path, "empty_record", "Binding record cannot be empty.")
+					_append_apply_issue(
+						issues,
+						binding_path,
+						"empty_record",
+						"Binding record cannot be empty."
+					)
 					continue
-				if candidate.has_binding(context_id, action_id, binding_index):
-					_append_apply_issue(issues, binding_path, "duplicate_binding", "Binding index is duplicated after normalization.")
+				if candidate.has_binding(
+					context_id,
+					action_id,
+					binding_index
+				):
+					_append_apply_issue(
+						issues,
+						binding_path,
+						"duplicate_binding",
+						"Binding index is duplicated after normalization."
+					)
 					continue
 				if GFVariantData.get_option_bool(record, "unbound"):
-					candidate.unbind(context_id, action_id, binding_index)
+					candidate.unbind(
+						context_id,
+						action_id,
+						binding_index
+					)
 					report["unbound_count"] += 1
 				else:
 					var input_event: InputEvent = _event_from_record(record)
 					if input_event == null:
-						_append_apply_issue(issues, binding_path, "invalid_event", "Binding event record is invalid or unsupported.")
+						_append_apply_issue(
+							issues,
+							binding_path,
+							"invalid_event",
+							"Binding event record is invalid or unsupported."
+						)
 						continue
-					candidate.set_binding(context_id, action_id, binding_index, input_event)
+					candidate.set_binding(
+						context_id,
+						action_id,
+						binding_index,
+						input_event
+					)
 					report["bound_count"] += 1
 				report["binding_count"] += 1
 
-	var custom_data_value: Variant = GFVariantData.get_option_value(data, "custom_data", {})
-	custom_data_value = GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value)
+	var custom_data_value: Variant = GFVariantData.get_option_value(
+		data,
+		"custom_data",
+		{}
+	)
+	custom_data_value = (GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value))
 	if not (custom_data_value is Dictionary):
-		_append_apply_issue(issues, "custom_data", "invalid_custom_data", "custom_data must decode to a Dictionary.")
+		_append_apply_issue(
+			issues,
+			"custom_data",
+			"invalid_custom_data",
+			"custom_data must decode to a Dictionary."
+		)
 	if not issues.is_empty():
 		return _finish_apply_report(report, false)
 
@@ -337,7 +445,10 @@ static func from_dict(data: Dictionary, json_compatible: bool = true) -> GFInput
 ## [br]
 ## @return 深拷贝后的重映射配置。
 func duplicate_config() -> GFInputRemapConfig:
-	return GFInputRemapConfig.from_dict(to_dict(false), false)
+	return GFInputRemapConfig.from_dict(
+		to_dict(false),
+		false
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -352,11 +463,13 @@ static func _append_apply_issue(
 	code: String,
 	message: String
 ) -> void:
-	issues.append({
-		"path": path,
-		"code": code,
-		"message": message,
-	})
+	issues.append(
+		{
+			"path": path,
+			"code": code,
+			"message": message,
+		}
+	)
 
 
 ## 根据提交结果和问题列表填写 committed 与 ok 字段，并返回报告。
@@ -383,6 +496,7 @@ static func _parse_binding_index(value: Variant) -> Dictionary:
 			var parsed: int = int(text)
 			return { "ok": parsed >= 0, "value": parsed }
 	return { "ok": false, "value": -1 }
+
 
 ## 确保 remapped_events 中存在指定上下文和动作的字典映射；遇到非字典映射时以空字典替换。
 ## 返回对应动作字典，供绑定写入路径使用。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBigNumber" path="addons/gf/standard/foundation/numeric/gf_big_number.gd" module="standard" extends="RefCounted" classDigest="209df6d2359b481fcd0275ea3e40d4baf312d269926e1179d31d6323212e724c">
+<class name="GFBigNumber" path="addons/gf/standard/foundation/numeric/gf_big_number.gd" module="standard" extends="RefCounted" classDigest="68e0d462e0c14c8a8b1691a80a38c3aa7550ca70ca4f7b94ed38565749cfb968">
 	<description>GFBigNumber: 面向挂机/放置场景的近似大数值对象。
 使用科学计数法的尾数 + 指数表示任意量级的数值，
 适合做超出原生 int/float 直观显示范围后的比较、加减乘除与格式化输入。</description>
@@ -64,7 +64,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="from_string">
-			<signature>static func from_string( value: String, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH ) -&gt; GFBigNumber:</signature>
+			<signature>static func from_string(value: String, max_input_length: int = GFDecimalStringFormatter.DEFAULT_MAX_NUMERIC_TEXT_LENGTH) -&gt; GFBigNumber:</signature>
 			<description>从字符串构建大数，支持普通写法与科学计数法。</description>
 			<tags>
 				<tag name="api">public</tag>

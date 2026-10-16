@@ -27,12 +27,12 @@
 | 方法 | [`mapping_as_rich_text`](#member-gfinputformatter-methods-mapping_as_rich_text) | `static func mapping_as_rich_text( mapping: GFInputMapping, context_id: StringName = &"", remap_config: GFInputRemapConfig = null, options: Dictionary = {} ) -> String:` |
 | 方法 | [`get_default_registry`](#member-gfinputformatter-methods-get_default_registry) | `static func get_default_registry() -> GFInputFormatterRegistry:` |
 | 方法 | [`set_default_registry`](#member-gfinputformatter-methods-set_default_registry) | `static func set_default_registry(registry: GFInputFormatterRegistry) -> void:` |
-| 方法 | [`register_text_provider`](#member-gfinputformatter-methods-register_text_provider) | `static func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -> GFInputProviderRegistration:` |
+| 方法 | [`register_text_provider`](#member-gfinputformatter-methods-register_text_provider) | `static func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -> GFInputProviderRegistration:` |
 | 方法 | [`add_text_provider`](#member-gfinputformatter-methods-add_text_provider) | `static func add_text_provider(provider: GFInputTextProvider, owner: Object = null) -> void:` |
 | 方法 | [`remove_text_provider`](#member-gfinputformatter-methods-remove_text_provider) | `static func remove_text_provider(provider: GFInputTextProvider) -> void:` |
 | 方法 | [`clear_text_providers`](#member-gfinputformatter-methods-clear_text_providers) | `static func clear_text_providers() -> void:` |
 | 方法 | [`get_text_providers`](#member-gfinputformatter-methods-get_text_providers) | `static func get_text_providers() -> Array[GFInputTextProvider]:` |
-| 方法 | [`register_icon_provider`](#member-gfinputformatter-methods-register_icon_provider) | `static func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -> GFInputProviderRegistration:` |
+| 方法 | [`register_icon_provider`](#member-gfinputformatter-methods-register_icon_provider) | `static func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> GFInputProviderRegistration:` |
 | 方法 | [`add_icon_provider`](#member-gfinputformatter-methods-add_icon_provider) | `static func add_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> void:` |
 | 方法 | [`remove_icon_provider`](#member-gfinputformatter-methods-remove_icon_provider) | `static func remove_icon_provider(provider: GFInputIconProvider) -> void:` |
 | 方法 | [`clear_icon_providers`](#member-gfinputformatter-methods-clear_icon_providers) | `static func clear_icon_providers() -> void:` |
@@ -346,7 +346,7 @@ static func set_default_registry(registry: GFInputFormatterRegistry) -> void:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func register_text_provider( provider: GFInputTextProvider, owner: Object = null ) -> GFInputProviderRegistration:
+static func register_text_provider(provider: GFInputTextProvider, owner: Object = null) -> GFInputProviderRegistration:
 ```
 
 注册文本 provider 并返回释放句柄。
@@ -432,7 +432,7 @@ static func get_text_providers() -> Array[GFInputTextProvider]:
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func register_icon_provider( provider: GFInputIconProvider, owner: Object = null ) -> GFInputProviderRegistration:
+static func register_icon_provider(provider: GFInputIconProvider, owner: Object = null) -> GFInputProviderRegistration:
 ```
 
 注册图标 provider 并返回释放句柄。

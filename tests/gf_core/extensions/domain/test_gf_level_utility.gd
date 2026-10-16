@@ -10,9 +10,18 @@ func test_empty_pack_navigation_does_not_enter_named_pack() -> void:
 		entry.sort_order = index
 		entry.pack_id = &"named" if index == 1 else &""
 		catalog.entries.append(entry)
-	assert_eq(catalog.get_next_level_id(&"level_0"), &"level_2")
-	assert_eq(catalog.get_previous_level_id(&"level_2"), &"level_0")
-	assert_eq(catalog.get_levels().size(), 3)
+	assert_eq(
+		catalog.get_next_level_id(&"level_0"),
+		&"level_2"
+	)
+	assert_eq(
+		catalog.get_previous_level_id(&"level_2"),
+		&"level_0"
+	)
+	assert_eq(
+		catalog.get_levels().size(),
+		3
+	)
 
 
 const GF_LEVEL_UTILITY = preload("res://addons/gf/extensions/domain/level/gf_level_utility.gd")
@@ -32,17 +41,18 @@ class UndoableCommandStub extends GFUndoableCommand:
 	func execute() -> Variant:
 		return null
 
+
 	func undo() -> Variant:
 		return null
 
 
 class WaitingAction extends GFVisualAction:
 	signal completed
-
 	var cancelled: bool = false
 
 	func execute() -> Variant:
 		return completed
+
 
 	func cancel() -> void:
 		cancelled = true
@@ -70,10 +80,7 @@ func before_each() -> void:
 
 	_config.records = {
 		&"levels": {
-			&"1": {
-				"name": "Level 1",
-				"moves": 10,
-			},
+			&"1": { "name": "Level 1", "moves": 10, },
 		},
 	}
 
@@ -84,10 +91,16 @@ func before_each() -> void:
 	await _arch.register_utility_instance(_level)
 	var history_cleanup: Callable = func() -> void:
 		_history.clear()
-	var _register_history_cleanup_result: bool = _level.register_runtime_cleanup(&"command_history", history_cleanup, 100)
-	var _register_runtime_cleanup_result_72: Variant = _level.register_runtime_cleanup(&"action_queue", func() -> void:
-		_actions.clear_queue(true)
-		_actions.clear_all_named_queues(true)
+	var _register_history_cleanup_result: bool = _level.register_runtime_cleanup(
+		&"command_history",
+		history_cleanup,
+		100
+	)
+	var _register_runtime_cleanup_result_72: Variant = _level.register_runtime_cleanup(
+		&"action_queue",
+		func() -> void:
+			_actions.clear_queue(true)
+			_actions.clear_all_named_queues(true)
 	)
 	await Gf.set_architecture(_arch)
 
@@ -104,9 +117,21 @@ func after_each() -> void:
 func test_start_level_loads_data_from_config_provider() -> void:
 	var data: Dictionary = _level.start_level(1)
 
-	assert_eq(GFVariantData.get_option_string(data, "name"), "Level 1", "start_level 应从配置工具读取关卡数据。")
-	assert_eq(_level.current_level_id, &"1", "当前关卡 ID 应规范化为 StringName。")
-	assert_eq(GFVariantData.get_option_int(_level.current_level_data, "moves"), 10, "当前关卡数据应保存在工具中。")
+	assert_eq(
+		GFVariantData.get_option_string(data, "name"),
+		"Level 1",
+		"start_level 应从配置工具读取关卡数据。"
+	)
+	assert_eq(
+		_level.current_level_id,
+		&"1",
+		"当前关卡 ID 应规范化为 StringName。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_level.current_level_data, "moves"),
+		10,
+		"当前关卡数据应保存在工具中。"
+	)
 
 
 func test_init_preserves_catalog_assigned_before_lifecycle() -> void:
@@ -116,7 +141,11 @@ func test_init_preserves_catalog_assigned_before_lifecycle() -> void:
 	level.catalog = catalog
 	level.init()
 
-	assert_eq(level.get_catalog(), catalog, "init 不应清空 Installer 或外部提前注入的目录资源。")
+	assert_eq(
+		level.get_catalog(),
+		catalog,
+		"init 不应清空 Installer 或外部提前注入的目录资源。"
+	)
 
 
 func test_start_level_emits_signal() -> void:
@@ -124,7 +153,11 @@ func test_start_level_emits_signal() -> void:
 
 	var _start_level_result_109: Variant = _level.start_level(1)
 
-	assert_signal_emitted(_level, "level_started", "开始关卡时应发出 level_started。")
+	assert_signal_emitted(
+		_level,
+		"level_started",
+		"开始关卡时应发出 level_started。"
+	)
 
 
 func test_start_level_rejects_empty_id_without_emitting_started() -> void:
@@ -132,28 +165,51 @@ func test_start_level_rejects_empty_id_without_emitting_started() -> void:
 
 	var data: Dictionary = _level.start_level("")
 
-	assert_true(data.is_empty(), "空关卡 ID 应被拒绝。")
-	assert_eq(_level.current_level_id, &"", "空 ID 不应创建不可操作的当前关卡状态。")
-	assert_signal_not_emitted(_level, "level_started", "空 ID 不应发出 level_started。")
+	assert_true(
+		data.is_empty(),
+		"空关卡 ID 应被拒绝。"
+	)
+	assert_eq(
+		_level.current_level_id,
+		&"",
+		"空 ID 不应创建不可操作的当前关卡状态。"
+	)
+	assert_signal_not_emitted(
+		_level,
+		"level_started",
+		"空 ID 不应发出 level_started。"
+	)
 	assert_push_error("[GFLevelUtility][level_utility.empty_start_level_id] start_level failed: level ID is empty.")
 
 
 func test_load_level_data_rejects_empty_id_before_provider_lookup() -> void:
 	var data: Dictionary = _level.load_level_data("")
 
-	assert_true(data.is_empty(), "空关卡 ID 不应进入配置或目录查询。")
+	assert_true(
+		data.is_empty(),
+		"空关卡 ID 不应进入配置或目录查询。"
+	)
 	assert_push_error("[GFLevelUtility][level_utility.empty_load_level_id] load_level_data failed: level ID is empty.")
 
 
 func test_start_level_signal_data_cannot_mutate_current_state() -> void:
-	var _connect_result_115: Variant = _level.level_started.connect(func(_level_id: Variant, signal_payload: Dictionary) -> void:
-		signal_payload["moves"] = 0
+	var _connect_result_115: Variant = _level.level_started.connect(
+		func(_level_id: Variant, signal_payload: Dictionary) -> void:
+			signal_payload["moves"] = 0
 	)
 
 	var data: Dictionary = _level.start_level(1)
 
-	assert_eq(GFVariantData.get_option_int(data, "moves"), 10, "返回数据应保持关卡配置值。")
-	assert_eq(GFVariantData.get_option_int(_level.current_level_data, "moves"), 10, "信号监听者不应通过 Dictionary 引用污染 current_level_data。")
+	assert_eq(
+		GFVariantData.get_option_int(data, "moves"),
+		10,
+		"返回数据应保持关卡配置值。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_level.current_level_data, "moves"),
+		10,
+		"信号监听者不应通过 Dictionary 引用污染 current_level_data。"
+	)
 
 
 func test_strict_start_level_rejects_missing_data() -> void:
@@ -162,8 +218,15 @@ func test_strict_start_level_rejects_missing_data() -> void:
 
 	var data: Dictionary = _level.start_level(&"missing")
 
-	assert_true(data.is_empty(), "严格模式下缺失关卡数据应返回空字典。")
-	assert_eq(_level.current_level_id, &"", "严格模式下缺失关卡不应更新 current_level_id。")
+	assert_true(
+		data.is_empty(),
+		"严格模式下缺失关卡数据应返回空字典。"
+	)
+	assert_eq(
+		_level.current_level_id,
+		&"",
+		"严格模式下缺失关卡不应更新 current_level_id。"
+	)
 	assert_push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: missing.")
 
 
@@ -175,17 +238,37 @@ func test_restart_level_clears_runtime_and_emits_signal() -> void:
 
 	var data: Dictionary = _level.restart_level()
 
-	assert_eq(GFVariantData.get_option_string(data, "name"), "Level 1", "restart_level 应返回当前关卡数据。")
-	assert_eq(_history.undo_count, 0, "重开关卡应清理命令历史。")
-	assert_signal_emitted(_level, "level_restarted", "重开关卡时应发出 level_restarted。")
-	assert_signal_not_emitted(_level, "level_started", "重开关卡不应重复发出 level_started。")
+	assert_eq(
+		GFVariantData.get_option_string(data, "name"),
+		"Level 1",
+		"restart_level 应返回当前关卡数据。"
+	)
+	assert_eq(
+		_history.undo_count,
+		0,
+		"重开关卡应清理命令历史。"
+	)
+	assert_signal_emitted(
+		_level,
+		"level_restarted",
+		"重开关卡时应发出 level_restarted。"
+	)
+	assert_signal_not_emitted(
+		_level,
+		"level_started",
+		"重开关卡不应重复发出 level_started。"
+	)
 
 
 func test_strict_restart_resolves_data_before_runtime_cleanup() -> void:
-	var cleanup_state: Dictionary = {"called": false}
-	assert_true(_level.register_runtime_cleanup(&"strict_restart_probe", func() -> void:
-		cleanup_state["called"] = true
-	))
+	var cleanup_state: Dictionary = { "called": false }
+	assert_true(
+		_level.register_runtime_cleanup(
+			&"strict_restart_probe",
+			func() -> void:
+				cleanup_state["called"] = true,
+		)
+	)
 	var started_data: Dictionary = _level.start_level(1)
 	var before_data: Dictionary = _level.current_level_data.duplicate(true)
 	_config.records.clear()
@@ -193,28 +276,57 @@ func test_strict_restart_resolves_data_before_runtime_cleanup() -> void:
 
 	var restarted_data: Dictionary = _level.restart_level()
 
-	assert_true(restarted_data.is_empty(), "严格模式缺失下一份数据时重开应失败。")
+	assert_true(
+		restarted_data.is_empty(),
+		"严格模式缺失下一份数据时重开应失败。"
+	)
 	assert_false(
 		GFVariantData.get_option_bool(cleanup_state, "called"),
 		"无法提交重开时不得提前执行不可逆运行时清理。"
 	)
-	assert_eq(_level.current_level_id, &"1", "失败重开不得改变当前关卡 ID。")
-	assert_eq(_level.current_level_data, before_data, "失败重开不得改变当前关卡数据。")
-	assert_eq(started_data, before_data, "测试基线应保存启动时的稳定数据。")
+	assert_eq(
+		_level.current_level_id,
+		&"1",
+		"失败重开不得改变当前关卡 ID。"
+	)
+	assert_eq(
+		_level.current_level_data,
+		before_data,
+		"失败重开不得改变当前关卡数据。"
+	)
+	assert_eq(
+		started_data,
+		before_data,
+		"测试基线应保存启动时的稳定数据。"
+	)
 	assert_push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: 1.")
 
 
 func test_register_runtime_cleanup_tracks_callbacks() -> void:
 	var state: Dictionary = { "called": false }
-	assert_true(_level.register_runtime_cleanup(&"test", func() -> void:
-		state["called"] = true
-	), "有效清理回调应注册成功。")
+	assert_true(
+		_level.register_runtime_cleanup(
+			&"test",
+			func() -> void:
+				state["called"] = true,
+		),
+		"有效清理回调应注册成功。"
+	)
 
 	_level.clear_level_runtime()
 
-	assert_true(GFVariantData.get_option_bool(state, "called"), "清理运行时时应调用外部注册的清理回调。")
-	assert_true(_level.has_runtime_cleanup(&"test"), "注册后应可查询清理项。")
-	assert_true(_level.get_runtime_cleanup_ids().has("test"), "清理项列表应包含注册 ID。")
+	assert_true(
+		GFVariantData.get_option_bool(state, "called"),
+		"清理运行时时应调用外部注册的清理回调。"
+	)
+	assert_true(
+		_level.has_runtime_cleanup(&"test"),
+		"注册后应可查询清理项。"
+	)
+	assert_true(
+		_level.get_runtime_cleanup_ids().has("test"),
+		"清理项列表应包含注册 ID。"
+	)
 
 
 func test_restart_level_stops_current_action_queue_wait() -> void:
@@ -250,7 +362,11 @@ func test_restart_level_reloads_clean_config_data() -> void:
 
 	var data: Dictionary = _level.restart_level()
 
-	assert_eq(GFVariantData.get_option_int(data, "moves"), 10, "restart_level 应重新读取干净的关卡配置数据。")
+	assert_eq(
+		GFVariantData.get_option_int(data, "moves"),
+		10,
+		"restart_level 应重新读取干净的关卡配置数据。"
+	)
 
 
 func test_win_and_lose_current_level_emit_signals() -> void:
@@ -260,8 +376,16 @@ func test_win_and_lose_current_level_emit_signals() -> void:
 	_level.win_current_level()
 	_level.lose_current_level()
 
-	assert_signal_emitted(_level, "level_won", "胜利时应发出 level_won。")
-	assert_signal_emitted(_level, "level_lost", "失败时应发出 level_lost。")
+	assert_signal_emitted(
+		_level,
+		"level_won",
+		"胜利时应发出 level_won。"
+	)
+	assert_signal_emitted(
+		_level,
+		"level_lost",
+		"失败时应发出 level_lost。"
+	)
 
 
 func test_load_level_data_falls_back_to_catalog_entry() -> void:
@@ -270,8 +394,16 @@ func test_load_level_data_falls_back_to_catalog_entry() -> void:
 
 	var data: Dictionary = _level.start_level(&"level_1")
 
-	assert_eq(GFVariantData.get_option_string(data, "scene_path"), "res://levels/level_1.tscn", "配置表缺失时应从目录条目读取场景路径。")
-	assert_eq(GFVariantData.get_option_string(data, "difficulty"), "intro", "目录条目 metadata 应进入关卡数据。")
+	assert_eq(
+		GFVariantData.get_option_string(data, "scene_path"),
+		"res://levels/level_1.tscn",
+		"配置表缺失时应从目录条目读取场景路径。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(data, "difficulty"),
+		"intro",
+		"目录条目 metadata 应进入关卡数据。"
+	)
 
 
 func test_complete_current_level_updates_progress_and_unlocks_next_levels() -> void:
@@ -281,10 +413,26 @@ func test_complete_current_level_updates_progress_and_unlocks_next_levels() -> v
 
 	_level.complete_current_level({ "stars": 3 })
 
-	assert_true(_progress.is_level_completed(&"level_1"), "完成关卡应写入通用进度模型。")
-	assert_true(_progress.is_level_unlocked(&"level_2"), "完成关卡应可按目录顺序解锁下一关。")
-	assert_true(_progress.is_level_unlocked(&"bonus"), "完成关卡应可解锁条目声明的额外关卡。")
-	assert_eq(GFVariantData.get_option_int(_progress.get_level_result(&"level_1"), "stars"), 3, "完成结果应存入进度模型。")
+	assert_true(
+		_progress.is_level_completed(&"level_1"),
+		"完成关卡应写入通用进度模型。"
+	)
+	assert_true(
+		_progress.is_level_unlocked(&"level_2"),
+		"完成关卡应可按目录顺序解锁下一关。"
+	)
+	assert_true(
+		_progress.is_level_unlocked(&"bonus"),
+		"完成关卡应可解锁条目声明的额外关卡。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_progress.get_level_result(&"level_1"),
+			"stars"
+		),
+		3,
+		"完成结果应存入进度模型。"
+	)
 
 
 func test_complete_with_unlock_next_false_keeps_declared_unlocks_only() -> void:
@@ -292,9 +440,16 @@ func test_complete_with_unlock_next_false_keeps_declared_unlocks_only() -> void:
 	_level.set_catalog(_make_catalog())
 	var _started: Dictionary = _level.start_level(&"level_1")
 
-	_level.complete_current_level({}, false, false)
+	_level.complete_current_level(
+		{},
+		false,
+		false
+	)
 
-	assert_true(_progress.is_level_completed(&"level_1"), "关闭顺序解锁不应阻止完成进度提交。")
+	assert_true(
+		_progress.is_level_completed(&"level_1"),
+		"关闭顺序解锁不应阻止完成进度提交。"
+	)
 	assert_true(
 		_progress.is_level_unlocked(&"bonus"),
 		"entry.unlocks_on_complete 是声明式完成规则，不受 unlock_next 控制。"
@@ -312,8 +467,16 @@ func test_start_next_level_uses_catalog_order() -> void:
 
 	var data: Dictionary = _level.start_next_level()
 
-	assert_eq(GFVariantData.to_string_name(_level.current_level_id), &"level_2", "start_next_level 应切换到目录顺序中的下一关。")
-	assert_eq(GFVariantData.get_option_string(data, "scene_path"), "res://levels/level_2.tscn", "返回数据应来自下一关目录条目。")
+	assert_eq(
+		GFVariantData.to_string_name(_level.current_level_id),
+		&"level_2",
+		"start_next_level 应切换到目录顺序中的下一关。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(data, "scene_path"),
+		"res://levels/level_2.tscn",
+		"返回数据应来自下一关目录条目。"
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -340,5 +503,9 @@ func _make_catalog() -> GFLevelCatalog:
 	bonus.sort_order = 10
 
 	var catalog: GFLevelCatalog = GFLevelCatalog.new()
-	catalog.entries = [level_1, level_2, bonus]
+	catalog.entries = [
+		level_1,
+		level_2,
+		bonus,
+	]
 	return catalog

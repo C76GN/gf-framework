@@ -17,7 +17,7 @@
 |---|---|---|
 | 方法 | [`included`](#member-gftablerowpredicateresult-methods-included) | `static func included() -> GFTableRowPredicateResult:` |
 | 方法 | [`excluded`](#member-gftablerowpredicateresult-methods-excluded) | `static func excluded() -> GFTableRowPredicateResult:` |
-| 方法 | [`failed`](#member-gftablerowpredicateresult-methods-failed) | `static func failed( error_code: StringName, error_message: String = "" ) -> GFTableRowPredicateResult:` |
+| 方法 | [`failed`](#member-gftablerowpredicateresult-methods-failed) | `static func failed(error_code: StringName, error_message: String = "") -> GFTableRowPredicateResult:` |
 | 方法 | [`is_successful`](#member-gftablerowpredicateresult-methods-is_successful) | `func is_successful() -> bool:` |
 | 方法 | [`should_include`](#member-gftablerowpredicateresult-methods-should_include) | `func should_include() -> bool:` |
 | 方法 | [`get_error_code`](#member-gftablerowpredicateresult-methods-get_error_code) | `func get_error_code() -> StringName:` |
@@ -63,7 +63,7 @@ static func excluded() -> GFTableRowPredicateResult:
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func failed( error_code: StringName, error_message: String = "" ) -> GFTableRowPredicateResult:
+static func failed(error_code: StringName, error_message: String = "") -> GFTableRowPredicateResult:
 ```
 
 创建求值失败结果。

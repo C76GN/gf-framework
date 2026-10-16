@@ -39,6 +39,7 @@ var _document_extensions: Array[GLTFDocumentExtension] = []
 func get_setup_issues() -> Array[String]:
 	return _setup_issues.duplicate()
 
+
 ## 注册当前启用扩展声明的 GLTFDocumentExtension。
 ## [br]
 ## @api framework_internal

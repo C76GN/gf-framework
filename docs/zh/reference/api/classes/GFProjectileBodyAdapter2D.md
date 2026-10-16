@@ -17,11 +17,11 @@
 |---|---|---|
 | 方法 | [`validate_root`](#member-gfprojectilebodyadapter2d-methods-validate_root) | `func validate_root(root: Node) -> Error:` |
 | 方法 | [`capture_body`](#member-gfprojectilebodyadapter2d-methods-capture_body) | `func capture_body(root: Node) -> GFProjectileBodyResult2D:` |
-| 方法 | [`apply_intent`](#member-gfprojectilebodyadapter2d-methods-apply_intent) | `func apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D:` |
+| 方法 | [`apply_intent`](#member-gfprojectilebodyadapter2d-methods-apply_intent) | `func apply_intent(root: Node, intent: GFProjectileMotionIntent2D) -> GFProjectileBodyResult2D:` |
 | 方法 | [`stop`](#member-gfprojectilebodyadapter2d-methods-stop) | `func stop(root: Node) -> GFProjectileBodyResult2D:` |
 | 方法 | [`_validate_root`](#member-gfprojectilebodyadapter2d-methods-_validate_root) | `func _validate_root(_root: Node) -> Variant:` |
 | 方法 | [`_capture_body`](#member-gfprojectilebodyadapter2d-methods-_capture_body) | `func _capture_body(_root: Node) -> Variant:` |
-| 方法 | [`_apply_intent`](#member-gfprojectilebodyadapter2d-methods-_apply_intent) | `func _apply_intent( _root: Node, _intent: GFProjectileMotionIntent2D ) -> Variant:` |
+| 方法 | [`_apply_intent`](#member-gfprojectilebodyadapter2d-methods-_apply_intent) | `func _apply_intent(_root: Node, _intent: GFProjectileMotionIntent2D) -> Variant:` |
 | 方法 | [`_stop`](#member-gfprojectilebodyadapter2d-methods-_stop) | `func _stop(_root: Node) -> Variant:` |
 
 ## 方法
@@ -76,7 +76,7 @@ func capture_body(root: Node) -> GFProjectileBodyResult2D:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D:
+func apply_intent(root: Node, intent: GFProjectileMotionIntent2D) -> GFProjectileBodyResult2D:
 ```
 
 将一次 typed intent 应用于 root。
@@ -169,7 +169,7 @@ func _capture_body(_root: Node) -> Variant:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _apply_intent( _root: Node, _intent: GFProjectileMotionIntent2D ) -> Variant:
+func _apply_intent(_root: Node, _intent: GFProjectileMotionIntent2D) -> Variant:
 ```
 
 应用具体 body intent。

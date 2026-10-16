@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetSlot" path="addons/gf/standard/utilities/assets/gf_asset_slot.gd" module="standard" extends="RefCounted" classDigest="42bf894aab4c5ea15fca83767bc6d9e5d67ed8789982ddb5e17305c7b8cd093d">
+<class name="GFAssetSlot" path="addons/gf/standard/utilities/assets/gf_asset_slot.gd" module="standard" extends="RefCounted" classDigest="6d019855e2ba9306b7b38c667904be6d8beeb615e02353f0b53695da3eece67b">
 	<description>GFAssetSlot: 稳定资源身份下的显式可替换资源槽位。
 槽位强持有当前 Resource，并在成功配置、替换或终态释放后推进单调 generation。
 它不监听文件变化、不接管 GFAssetUtility 缓存，也不改变 GFAssetHandle 的快照语义。
@@ -11,7 +11,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="resource_replaced">
-			<signature>signal resource_replaced(previous_resource: Resource, current_resource: Resource, generation: int)</signature>
+			<signature>signal resource_replaced( previous_resource: Resource, current_resource: Resource, generation: int )</signature>
 			<description>当前资源成功替换后发出。
 信号发出前资源与 generation 已经提交；通知期间再次替换或释放会失败关闭。</description>
 			<tags>

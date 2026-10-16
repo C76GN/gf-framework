@@ -129,18 +129,54 @@ func clear() -> void:
 ## @schema return: Dictionary containing ok, status, action_id, replaced, error_code, message, and metadata.
 func register_action(action: GFEditorActionDefinitionBase, options: Dictionary = {}) -> Dictionary:
 	if action == null:
-		return _make_result(false, STATUS_INVALID, &"", false, ERR_INVALID_PARAMETER, "动作为空。", options)
+		return _make_result(
+			false,
+			STATUS_INVALID,
+			&"",
+			false,
+			ERR_INVALID_PARAMETER,
+			"动作为空。",
+			options
+		)
 	if action.action_id == &"":
-		return _make_result(false, STATUS_INVALID, &"", false, ERR_INVALID_PARAMETER, "动作缺少 action_id。", options)
+		return _make_result(
+			false,
+			STATUS_INVALID,
+			&"",
+			false,
+			ERR_INVALID_PARAMETER,
+			"动作缺少 action_id。",
+			options
+		)
 
 	var action_id: StringName = action.action_id
 	var exists: bool = _records.has(action_id)
-	var replace_existing: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "replace_existing", false)
+	var replace_existing: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"replace_existing",
+		false
+	)
 	if exists and not replace_existing:
-		return _make_result(false, STATUS_DUPLICATE, action_id, false, ERR_ALREADY_EXISTS, "动作 ID 已存在。", options)
+		return _make_result(
+			false,
+			STATUS_DUPLICATE,
+			action_id,
+			false,
+			ERR_ALREADY_EXISTS,
+			"动作 ID 已存在。",
+			options
+		)
 
 	_records[action_id] = _make_record(action, options)
-	return _make_result(true, STATUS_REPLACED if exists else STATUS_REGISTERED, action_id, exists, OK, "", options)
+	return _make_result(
+		true,
+		STATUS_REPLACED if exists else STATUS_REGISTERED,
+		action_id,
+		exists,
+		OK,
+		"",
+		options
+	)
 
 
 ## 批量注册动作。
@@ -167,7 +203,11 @@ func register_actions(actions: Array[GFEditorActionDefinitionBase], options: Dic
 	for action: GFEditorActionDefinitionBase in actions:
 		var result: Dictionary = register_action(action, options)
 		results.append(result)
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(result, "ok", false):
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			result,
+			"ok",
+			false
+		):
 			registered_count += 1
 		else:
 			failed_count += 1
@@ -288,7 +328,13 @@ func get_action_ids(filters: Dictionary = {}) -> PackedStringArray:
 func get_action_snapshots(context: Dictionary = {}, options: Dictionary = {}) -> Array[Dictionary]:
 	var snapshots: Array[Dictionary] = []
 	for record: Dictionary in _get_sorted_records(options):
-		snapshots.append(_make_action_snapshot(record, context, options))
+		snapshots.append(
+			_make_action_snapshot(
+				record,
+				context,
+				options
+			)
+		)
 	return snapshots
 
 
@@ -324,11 +370,14 @@ func resolve_layout(
 		if record.is_empty():
 			var _append_missing: bool = missing_ids.append(action_id_text)
 			continue
-		entries.append(_make_action_snapshot(record, context, options))
-	return {
-		"entries": entries,
-		"missing_ids": missing_ids,
-	}
+		entries.append(
+			_make_action_snapshot(
+				record,
+				context,
+				options
+			)
+		)
+	return { "entries": entries, "missing_ids": missing_ids, }
 
 
 ## 按 ID 调用动作。
@@ -355,12 +404,32 @@ func invoke_action(
 ) -> Dictionary:
 	var action: GFEditorActionDefinitionBase = get_action(action_id)
 	if action == null:
-		return _make_result(false, STATUS_MISSING, action_id, false, ERR_DOES_NOT_EXIST, "动作不存在。")
+		return _make_result(
+			false,
+			STATUS_MISSING,
+			action_id,
+			false,
+			ERR_DOES_NOT_EXIST,
+			"动作不存在。"
+		)
 
 	var error: Error = action.invoke(context, undo_manager)
 	if error != OK:
-		return _make_result(false, STATUS_FAILED, action_id, false, error, error_string(error))
-	return _make_result(true, STATUS_INVOKED, action_id, false, OK)
+		return _make_result(
+			false,
+			STATUS_FAILED,
+			action_id,
+			false,
+			error,
+			error_string(error)
+		)
+	return _make_result(
+		true,
+		STATUS_INVOKED,
+		action_id,
+		false,
+		OK
+	)
 
 
 ## 获取注册表调试快照。
@@ -395,9 +464,21 @@ func get_debug_snapshot(context: Dictionary = {}, options: Dictionary = {}) -> D
 ## [br]
 ## @api private
 func _make_record(action: GFEditorActionDefinitionBase, options: Dictionary) -> Dictionary:
-	var group: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "group", action.group)
-	var source_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "source_id", action.source_id)
-	var sort_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "sort_order", action.sort_order)
+	var group: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		options,
+		"group",
+		action.group
+	)
+	var source_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		options,
+		"source_id",
+		action.source_id
+	)
+	var sort_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		options,
+		"sort_order",
+		action.sort_order
+	)
 	return {
 		"action": action,
 		"action_id": action.action_id,
@@ -455,7 +536,7 @@ func _record_matches_filters(record: Dictionary, filters: Dictionary) -> bool:
 		return false
 
 	var expected_source_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(filters, "source_id")
-	if expected_source_id != &"" and _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "source_id") != expected_source_id:
+	if (expected_source_id != &"" and _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "source_id") != expected_source_id):
 		return false
 	return true
 
@@ -463,23 +544,48 @@ func _record_matches_filters(record: Dictionary, filters: Dictionary) -> bool:
 ## 动作无效时返回 valid=false；否则加入注册字段，并按选项附加可用性与调用报告。
 ## [br]
 ## @api private
-func _make_action_snapshot(record: Dictionary, context: Dictionary, options: Dictionary) -> Dictionary:
+func _make_action_snapshot(
+	record: Dictionary,
+	context: Dictionary,
+	options: Dictionary
+) -> Dictionary:
 	var action: GFEditorActionDefinitionBase = _record_action(record)
 	if action == null:
-		return {
-			"action_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "action_id")),
-			"valid": false,
-		}
+		return { "action_id": String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "action_id")), "valid": false, }
 
 	var snapshot: Dictionary = action.get_debug_snapshot()
 	snapshot["valid"] = true
-	snapshot["group"] = String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "group", action.group))
-	snapshot["source_id"] = String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "source_id", action.source_id))
-	snapshot["sort_order"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(record, "sort_order", action.sort_order)
+	snapshot["group"] = String(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			record,
+			"group",
+			action.group
+		)
+	)
+	snapshot["source_id"] = String(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			record,
+			"source_id",
+			action.source_id
+		)
+	)
+	snapshot["sort_order"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		record,
+		"sort_order",
+		action.sort_order
+	)
 	snapshot["registry_metadata"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(record, "metadata")
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_availability", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_availability",
+		false
+	):
 		snapshot["available"] = action.is_available(context)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "include_invocation", false):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"include_invocation",
+		false
+	):
 		snapshot["invocation"] = action.get_invocation_report(context)
 	return snapshot
 
@@ -506,8 +612,16 @@ func _sort_action_records_asc(left_value: Variant, right_value: Variant) -> bool
 	if left_group != right_group:
 		return left_group < right_group
 
-	var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(left, "sort_order", 0)
-	var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(right, "sort_order", 0)
+	var left_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		left,
+		"sort_order",
+		0
+	)
+	var right_order: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		right,
+		"sort_order",
+		0
+	)
 	if left_order != right_order:
 		return left_order < right_order
 
@@ -517,4 +631,4 @@ func _sort_action_records_asc(left_value: Variant, right_value: Variant) -> bool
 	var right_label: String = right_action.label if right_action != null else ""
 	if left_label != right_label:
 		return left_label < right_label
-	return String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(left, "action_id")) < String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(right, "action_id"))
+	return (String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(left, "action_id")) < String(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(right, "action_id")))

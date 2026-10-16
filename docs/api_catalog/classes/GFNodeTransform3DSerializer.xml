@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeTransform3DSerializer" path="addons/gf/extensions/save/serializers/gf_node_transform_3d_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="a3894ccfcb4606d2a028e52bcc4eece972abc4e1984c2c1cbb22f3f9dd3be9a4">
+<class name="GFNodeTransform3DSerializer" path="addons/gf/extensions/save/serializers/gf_node_transform_3d_serializer.gd" module="extensions/save" extends="GFNodeSerializer" classDigest="5b9ae287494f75f7f1f1e45fa3a1f5e14441d512894fe8a3aee57026c18ae8e1">
 	<description>GFNodeTransform3DSerializer: Node3D Transform 序列化器。
 以 JSON 友好的标量数组保存 position、rotation 与 scale。</description>
 	<tags>
@@ -34,7 +34,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply">
-			<signature>func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func apply( node: Node, payload: Dictionary, _context: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>将序列化数据应用到节点。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -45,6 +45,7 @@
 				<tag name="schema">payload: Dictionary，可包含 position: Array[float]、rotation: Array[float] 与 scale: Array[float]。</tag>
 				<tag name="schema">_context: Dictionary，调用方附加上下文；当前实现不读取。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool 与 error: String。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

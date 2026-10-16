@@ -62,7 +62,12 @@ static func calculate(
 		return _reject("当前时长倍率必须是有限正数。")
 	if _number(captured_signature[0]) != current_scale:
 		return _reject("倍率与捕获来源不一致；请重新准备。")
-	if plan == null or not plan.error.is_empty() or plan.steps.is_empty() or plan.steps.size() > _MAX_STEPS:
+	if (
+		plan == null
+		or not plan.error.is_empty()
+		or plan.steps.is_empty()
+		or plan.steps.size() > _MAX_STEPS
+	):
 		return _reject("当前计划无效；请先准备有效预览。")
 	if plan.loop_count < 1 or plan.loop_count > _MAX_LOOPS:
 		return _reject("只支持 1 至 32 次有限循环。")
@@ -72,19 +77,34 @@ static func calculate(
 		return _reject("目标总时长必须是有限正数。")
 	var ratio: float = target_seconds / plan.duration_seconds
 	var next_scale: float = current_scale * ratio
-	if not is_finite(ratio) or ratio <= 0.0 or not is_finite(next_scale) or next_scale <= 0.0:
+	if (
+		not is_finite(ratio)
+		or ratio <= 0.0
+		or not is_finite(next_scale)
+		or next_scale <= 0.0
+	):
 		return _reject("换算后的倍率必须是有限正数。")
 	var cumulative_seconds: float = 0.0
 	for step: Dictionary in plan.steps:
 		var duration: float = _number(step.get("duration"))
 		var delay: float = _number(step.get("delay"))
-		if not is_finite(duration) or duration < 0.0 or not is_finite(delay) or delay < 0.0:
+		if (
+			not is_finite(duration)
+			or duration < 0.0
+			or not is_finite(delay)
+			or delay < 0.0
+		):
 			return _reject("计划的时长与延迟必须是有限非负数。")
 		cumulative_seconds += duration + delay
-		var budget_seconds: float = cumulative_seconds * ratio * float(plan.loop_count) * (2.0 if plan.ping_pong else 1.0)
+		var budget_seconds: float = (cumulative_seconds * ratio * float(plan.loop_count) * (2.0 if plan.ping_pong else 1.0))
 		if not is_finite(budget_seconds) or budget_seconds > _MAX_SECONDS:
 			return _reject("调整后全部步骤时间与延迟的保守累计值乘循环和往返次数不能超过 120 秒。")
-	return {"ok": true, "error": "", "duration_scale": next_scale, "total_seconds": target_seconds}
+	return {
+		"ok": true,
+		"error": "",
+		"duration_scale": next_scale,
+		"total_seconds": target_seconds,
+	}
 
 
 # --- 私有/辅助方法 ---
@@ -93,7 +113,12 @@ static func calculate(
 ## [br]
 ## @api private
 static func _reject(message: String) -> Dictionary:
-	return {"ok": false, "error": message, "duration_scale": 0.0, "total_seconds": 0.0}
+	return {
+		"ok": false,
+		"error": message,
+		"duration_scale": 0.0,
+		"total_seconds": 0.0,
+	}
 
 
 ## 只读取整数和浮点数；其他字段产生 NAN，由有限检查拒绝。

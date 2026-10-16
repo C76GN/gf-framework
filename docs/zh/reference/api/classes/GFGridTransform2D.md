@@ -21,11 +21,11 @@
 | 方法 | [`is_axis_swapped`](#member-gfgridtransform2d-methods-is_axis_swapped) | `static func is_axis_swapped(transform: int) -> bool:` |
 | 方法 | [`get_transformed_size`](#member-gfgridtransform2d-methods-get_transformed_size) | `static func get_transformed_size(size: Vector2i, transform: int) -> Vector2i:` |
 | 方法 | [`get_inverse_transform`](#member-gfgridtransform2d-methods-get_inverse_transform) | `static func get_inverse_transform(transform: int) -> int:` |
-| 方法 | [`transform_local_cell`](#member-gfgridtransform2d-methods-transform_local_cell) | `static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transform: int) -> Vector2i:` |
+| 方法 | [`transform_local_cell`](#member-gfgridtransform2d-methods-transform_local_cell) | `static func transform_local_cell( cell: Vector2i, source_size: Vector2i, transform: int ) -> Vector2i:` |
 | 方法 | [`transform_cell`](#member-gfgridtransform2d-methods-transform_cell) | `static func transform_cell( cell: Vector2i, source_rect: Rect2i, transform: int, target_origin: Vector2i = Vector2i.ZERO ) -> Vector2i:` |
 | 方法 | [`transform_cells`](#member-gfgridtransform2d-methods-transform_cells) | `static func transform_cells( cells: Array[Vector2i], source_rect: Rect2i, transform: int, target_origin: Vector2i = Vector2i.ZERO ) -> Array[Vector2i]:` |
 | 方法 | [`transform_cardinal_direction`](#member-gfgridtransform2d-methods-transform_cardinal_direction) | `static func transform_cardinal_direction(direction: Vector2i, transform: int) -> Vector2i:` |
-| 方法 | [`transform_local_point`](#member-gfgridtransform2d-methods-transform_local_point) | `static func transform_local_point(point: Vector2, source_size: Vector2, transform: int) -> Vector2:` |
+| 方法 | [`transform_local_point`](#member-gfgridtransform2d-methods-transform_local_point) | `static func transform_local_point( point: Vector2, source_size: Vector2, transform: int ) -> Vector2:` |
 | 方法 | [`transform_point`](#member-gfgridtransform2d-methods-transform_point) | `static func transform_point( point: Vector2, source_rect: Rect2, transform: int, target_origin: Vector2 = Vector2.ZERO ) -> Vector2:` |
 
 ## 枚举
@@ -161,9 +161,10 @@ static func get_inverse_transform(transform: int) -> int:
 ### `transform_local_cell`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func transform_local_cell(cell: Vector2i, source_size: Vector2i, transform: int) -> Vector2i:
+static func transform_local_cell( cell: Vector2i, source_size: Vector2i, transform: int ) -> Vector2i:
 ```
 
 变换局部格坐标。
@@ -251,9 +252,10 @@ static func transform_cardinal_direction(direction: Vector2i, transform: int) ->
 ### `transform_local_point`
 
 - API：`public`
+- 首次版本：`3.21.0`
 
 ```gdscript
-static func transform_local_point(point: Vector2, source_size: Vector2, transform: int) -> Vector2:
+static func transform_local_point( point: Vector2, source_size: Vector2, transform: int ) -> Vector2:
 ```
 
 变换局部连续坐标。

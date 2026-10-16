@@ -26,6 +26,7 @@ enum Severity {
 	ERROR,
 }
 
+
 # --- 公共变量 ---
 
 ## 严重级别。
@@ -216,15 +217,47 @@ func apply_dict(data: Dictionary) -> void:
 	if source_span_value is Dictionary:
 		var source_span_data: Dictionary = GFVariantData.as_dictionary(source_span_value)
 		_apply_source_span(source_span_data, true)
-	severity = normalize_severity(GFVariantData.get_option_value(data, "severity", severity))
-	kind = _read_string_name(data, "kind", kind)
-	key = GFVariantData.duplicate_variant(GFVariantData.get_option_value(data, "key", key))
-	path = GFVariantData.get_option_string(data, "path", path)
+	severity = normalize_severity(
+		GFVariantData.get_option_value(
+			data,
+			"severity",
+			severity
+		)
+	)
+	kind = _read_string_name(
+		data,
+		"kind",
+		kind
+	)
+	key = GFVariantData.duplicate_variant(
+		GFVariantData.get_option_value(
+			data,
+			"key",
+			key
+		)
+	)
+	path = GFVariantData.get_option_string(
+		data,
+		"path",
+		path
+	)
 	_apply_source_span(data)
-	subject = GFVariantData.get_option_string(data, "subject", subject)
-	message = GFVariantData.get_option_string(data, "message", message)
+	subject = GFVariantData.get_option_string(
+		data,
+		"subject",
+		subject
+	)
+	message = GFVariantData.get_option_string(
+		data,
+		"message",
+		message
+	)
 
-	var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", metadata)
+	var metadata_value: Variant = GFVariantData.get_option_value(
+		data,
+		"metadata",
+		metadata
+	)
 	metadata = GFVariantData.as_dictionary(metadata_value).duplicate(true)
 	extra_fields.clear()
 	for field_key: Variant in data.keys():
@@ -243,10 +276,7 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @schema return: Dictionary validation issue fields.
 func to_dict(include_empty_fields: bool = false) -> Dictionary:
-	var result: Dictionary = {
-		"severity": severity_to_string(severity),
-		"message": message,
-	}
+	var result: Dictionary = { "severity": severity_to_string(severity), "message": message, }
 	var kind_key: String = get_kind_key()
 	if include_empty_fields or not kind_key.is_empty():
 		result["kind"] = kind_key
@@ -291,7 +321,10 @@ func duplicate_issue() -> RefCounted:
 func set_source_span(source_span: Variant) -> RefCounted:
 	if source_span is GFSourceSpan:
 		var typed_span: GFSourceSpan = source_span
-		_apply_source_span(typed_span.to_dict(true), true)
+		_apply_source_span(
+			typed_span.to_dict(true),
+			true
+		)
 	elif source_span is Dictionary:
 		var source_span_data: Dictionary = source_span
 		_apply_source_span(source_span_data, true)
@@ -379,7 +412,11 @@ static func normalize_severity(value: Variant) -> Severity:
 		return Severity.ERROR
 	if typeof(value) == TYPE_INT:
 		var int_value: int = value
-		var severity_index: int = clampi(int_value, Severity.INFO, Severity.ERROR)
+		var severity_index: int = clampi(
+			int_value,
+			Severity.INFO,
+			Severity.ERROR
+		)
 		match severity_index:
 			Severity.INFO:
 				return Severity.INFO
@@ -440,10 +477,18 @@ static func from_dict(data: Dictionary) -> RefCounted:
 ## [br]
 ## @api private
 ## [br]
-static func _read_string_name(data: Dictionary, field_name: String, default_value: StringName = &"") -> StringName:
+static func _read_string_name(
+	data: Dictionary,
+	field_name: String,
+	default_value: StringName = &""
+) -> StringName:
 	if not data.has(field_name):
 		return default_value
-	var value: Variant = GFVariantData.get_option_value(data, field_name, "")
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		field_name,
+		""
+	)
 	if value == null:
 		return default_value
 	return GFVariantData.to_string_name(value)
@@ -455,14 +500,42 @@ static func _read_string_name(data: Dictionary, field_name: String, default_valu
 ## [br]
 func _apply_source_span(data: Dictionary, include_metadata: bool = false) -> void:
 	source_path = _read_source_path(data, source_path)
-	line = _read_non_negative_int(data, "line", line)
-	column = _read_non_negative_int(data, "column", column)
-	length = _read_non_negative_int(data, "length", length)
-	end_line = _read_non_negative_int(data, "end_line", end_line)
-	end_column = _read_non_negative_int(data, "end_column", end_column)
-	preview = GFVariantData.get_option_string(data, "preview", preview)
+	line = _read_non_negative_int(
+		data,
+		"line",
+		line
+	)
+	column = _read_non_negative_int(
+		data,
+		"column",
+		column
+	)
+	length = _read_non_negative_int(
+		data,
+		"length",
+		length
+	)
+	end_line = _read_non_negative_int(
+		data,
+		"end_line",
+		end_line
+	)
+	end_column = _read_non_negative_int(
+		data,
+		"end_column",
+		end_column
+	)
+	preview = GFVariantData.get_option_string(
+		data,
+		"preview",
+		preview
+	)
 	if include_metadata:
-		var metadata_value: Variant = GFVariantData.get_option_value(data, "metadata", {})
+		var metadata_value: Variant = GFVariantData.get_option_value(
+			data,
+			"metadata",
+			{}
+		)
 		_source_span_metadata = GFVariantData.as_dictionary(metadata_value).duplicate(true)
 
 
@@ -497,13 +570,32 @@ static func _read_source_path(data: Dictionary, default_value: String = "") -> S
 ## [br]
 ## @api private
 ## [br]
-static func _read_non_negative_int(data: Dictionary, field_name: String, default_value: int) -> int:
+static func _read_non_negative_int(
+	data: Dictionary,
+	field_name: String,
+	default_value: int
+) -> int:
 	if not data.has(field_name):
 		return default_value
-	var value: Variant = GFVariantData.get_option_value(data, field_name, default_value)
+	var value: Variant = GFVariantData.get_option_value(
+		data,
+		field_name,
+		default_value
+	)
 	if value is float:
-		return maxi(roundi(GFVariantData.to_float(value, float(default_value))), 0)
-	return maxi(GFVariantData.to_int(value, default_value), 0)
+		return maxi(
+			roundi(
+				GFVariantData.to_float(
+					value,
+					float(default_value)
+				)
+			),
+			0
+		)
+	return maxi(
+		GFVariantData.to_int(value, default_value),
+		0
+	)
 
 
 ## 按当前定位字段和私有定位元数据构造 GFSourceSpan。

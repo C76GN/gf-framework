@@ -16,7 +16,7 @@ extends GFBindableProperty
 ## 外部尝试修改只读派生值时输出的错误文本。
 ## [br]
 ## @api private
-const _READ_ONLY_ERROR: String = "[GFComputedProperty][computed_property.read_only] This property is derived from the compute callback; modify its source properties."
+const _READ_ONLY_ERROR: String = ("[GFComputedProperty][computed_property.read_only] This property is derived from the compute callback; modify its source properties.")
 
 ## 用于复制 get_value() 返回的集合值。
 ## [br]
@@ -57,7 +57,11 @@ func _init(
 ) -> void:
 	super._init(default_value)
 	if not sources.is_empty() or compute.is_valid():
-		bind_sources(sources, compute, owner)
+		bind_sources(
+			sources,
+			compute,
+			owner
+		)
 
 
 # --- 公共方法 ---
@@ -73,7 +77,10 @@ func _init(
 ## [br]
 ## @schema return: Variant current computed value; Array and Dictionary values are returned as deep copies.
 func get_value() -> Variant:
-	return _COMPUTED_VARIANT_ACCESS_SCRIPT.duplicate_collection(super.get_value(), true)
+	return _COMPUTED_VARIANT_ACCESS_SCRIPT.duplicate_collection(
+		super.get_value(),
+		true
+	)
 
 
 ## 绑定来源属性与计算回调。重复调用会替换旧绑定。

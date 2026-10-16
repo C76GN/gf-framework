@@ -166,6 +166,8 @@ func add_issue(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param target: 目标报告。
 ## [br]
 ## @param source: 来源报告。
@@ -175,7 +177,11 @@ func add_issue(
 ## @schema target: GFConfigValidationReport 兼容 Dictionary，会被当前方法修改。
 ## [br]
 ## @schema source: GFConfigValidationReport 兼容 Dictionary，会复制合并到 target。
-func merge_report(target: Dictionary, source: Dictionary, include_row_count: bool = false) -> void:
+func merge_report(
+	target: Dictionary,
+	source: Dictionary,
+	include_row_count: bool = false
+) -> void:
 	if include_row_count:
 		target["row_count"] = _get_row_count(target) + _get_row_count(source)
 	target["error_count"] = _get_error_count(target) + _get_error_count(source)
@@ -235,7 +241,13 @@ func _get_context_field(context: Dictionary) -> StringName:
 ## @api private
 ## [br]
 func _get_issues(report: Dictionary) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(report, "issues", []))
+	return GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			report,
+			"issues",
+			[]
+		)
+	)
 
 
 ## 从报告读取行数。
@@ -267,7 +279,11 @@ func _get_warning_count(report: Dictionary) -> int:
 ## @api private
 ## [br]
 func _is_report_ok(report: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(report, "ok", true)
+	return GFVariantData.get_option_bool(
+		report,
+		"ok",
+		true
+	)
 
 
 ## 将诊断上下文值转换为可安全保存的 Variant 表示。

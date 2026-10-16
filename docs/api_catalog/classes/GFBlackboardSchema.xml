@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBlackboardSchema" path="addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd" module="standard" extends="Resource" classDigest="79bc601e1bb393ae4f65e644c9cb47cf7378243f1e5343e938574692bbd9df1f">
+<class name="GFBlackboardSchema" path="addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd" module="standard" extends="Resource" classDigest="ab192ff5271db8e51df205869c2ff5f2a06e01abfe63309322c0087cd67e193a">
 	<description>GFBlackboardSchema: 通用黑板数据结构声明与校验器。
 用于为行为树、状态机、任务系统或项目自定义运行时字典提供可复用字段契约。</description>
 	<tags>
@@ -101,7 +101,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="apply_defaults">
-			<signature>func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -&gt; Dictionary:</signature>
+			<signature>func apply_defaults( values: Dictionary, include_optional: bool = true, should_coerce: bool = true ) -&gt; Dictionary:</signature>
 			<description>为输入数据补齐默认值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -111,6 +111,7 @@
 				<tag name="return">补齐后的新字典。</tag>
 				<tag name="schema">values: Dictionary source blackboard values.</tag>
 				<tag name="schema">return: Dictionary normalized blackboard values.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="coerce_dictionary">

@@ -63,10 +63,7 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## @param initial_body: 成功的初始 body 快照，用于计算指向目标的方向。
 ## [br]
 ## @return: 本次 session 独占的状态；输入失效、body 失败或配置及目标偏移非有限时返回 null。
-func _create_state_2d(
-	launch_input: GFProjectileLaunchInput2D,
-	initial_body: GFProjectileBodyResult2D
-) -> GFProjectileMotionState:
+func _create_state_2d(launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D) -> GFProjectileMotionState:
 	if (
 		launch_input == null
 		or not is_instance_valid(launch_input)
@@ -105,10 +102,7 @@ func _create_state_2d(
 ## @param initial_body: 成功的初始 body 快照，用于计算指向目标的方向。
 ## [br]
 ## @return: 本次 session 独占的状态；输入失效、body 失败或配置及目标偏移非有限时返回 null。
-func _create_state_3d(
-	launch_input: GFProjectileLaunchInput3D,
-	initial_body: GFProjectileBodyResult3D
-) -> GFProjectileMotionState:
+func _create_state_3d(launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D) -> GFProjectileMotionState:
 	if (
 		launch_input == null
 		or not is_instance_valid(launch_input)
@@ -188,7 +182,12 @@ func _compute_intent_2d(
 	if track_target or direction.is_zero_approx():
 		direction = offset.normalized() if not offset.is_zero_approx() else Vector2.ZERO
 		homing_state._locked_direction_2d = direction
-	return _make_intent_2d(direction, offset.length(), delta, not locked_target_lost)
+	return _make_intent_2d(
+		direction,
+		offset.length(),
+		delta,
+		not locked_target_lost
+	)
 
 
 ## 根据三维目标与当前 body 计算追踪 intent，只更新状态中的锁定方向，不移动节点。
@@ -244,7 +243,12 @@ func _compute_intent_3d(
 	if track_target or direction.is_zero_approx():
 		direction = offset.normalized() if not offset.is_zero_approx() else Vector3.ZERO
 		homing_state._locked_direction_3d = direction
-	return _make_intent_3d(direction, offset.length(), delta, not locked_target_lost)
+	return _make_intent_3d(
+		direction,
+		offset.length(),
+		delta,
+		not locked_target_lost
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -265,13 +269,29 @@ func _make_intent_2d(
 	):
 		return GFProjectileMotionIntent2D.rejected(&"non_finite_motion_configuration")
 	if delta <= 0.0:
-		return GFProjectileMotionIntent2D.move(Vector2.ZERO, maxf(delta, 0.0))
+		return GFProjectileMotionIntent2D.move(
+			Vector2.ZERO,
+			maxf(delta, 0.0)
+		)
 	var travel_distance: float = speed * delta
-	if clamp_to_target and stop_when_reached and arrival_distance >= 0.0:
-		travel_distance = minf(travel_distance, maxf(distance - arrival_distance, 0.0))
+	if (
+		clamp_to_target
+		and stop_when_reached
+		and arrival_distance >= 0.0
+	):
+		travel_distance = minf(
+			travel_distance,
+			maxf(
+				distance - arrival_distance,
+				0.0
+			)
+		)
 	if not _GF_COMBAT_FINITE_MATH.is_finite_float(travel_distance):
 		return GFProjectileMotionIntent2D.rejected(&"non_finite_motion_configuration")
-	return GFProjectileMotionIntent2D.move(direction * (travel_distance / delta), delta)
+	return GFProjectileMotionIntent2D.move(
+		direction * (travel_distance / delta),
+		delta
+	)
 
 
 ## 校验运动输入后计算 3D 速度；可选按到达距离截短本帧路程，非正 delta 返回零速度 intent。
@@ -290,23 +310,36 @@ func _make_intent_3d(
 	):
 		return GFProjectileMotionIntent3D.rejected(&"non_finite_motion_configuration")
 	if delta <= 0.0:
-		return GFProjectileMotionIntent3D.move(Vector3.ZERO, maxf(delta, 0.0))
+		return GFProjectileMotionIntent3D.move(
+			Vector3.ZERO,
+			maxf(delta, 0.0)
+		)
 	var travel_distance: float = speed * delta
-	if clamp_to_target and stop_when_reached and arrival_distance >= 0.0:
-		travel_distance = minf(travel_distance, maxf(distance - arrival_distance, 0.0))
+	if (
+		clamp_to_target
+		and stop_when_reached
+		and arrival_distance >= 0.0
+	):
+		travel_distance = minf(
+			travel_distance,
+			maxf(
+				distance - arrival_distance,
+				0.0
+			)
+		)
 	if not _GF_COMBAT_FINITE_MATH.is_finite_float(travel_distance):
 		return GFProjectileMotionIntent3D.rejected(&"non_finite_motion_configuration")
-	return GFProjectileMotionIntent3D.move(direction * (travel_distance / delta), delta)
+	return GFProjectileMotionIntent3D.move(
+		direction * (travel_distance / delta),
+		delta
+	)
 
 
 ## 检查 speed 与 arrival_distance 是否均为有限浮点数。
 ## [br]
 ## @api private
 func _motion_configuration_is_finite() -> bool:
-	return (
-		_GF_COMBAT_FINITE_MATH.is_finite_float(speed)
-		and _GF_COMBAT_FINITE_MATH.is_finite_float(arrival_distance)
-	)
+	return (_GF_COMBAT_FINITE_MATH.is_finite_float(speed) and _GF_COMBAT_FINITE_MATH.is_finite_float(arrival_distance))
 
 
 ## 从 WeakRef 读取仍可用且未排队删除的 Node2D；其他状态返回 null。
@@ -360,6 +393,7 @@ func _get_position_2d(node: Node2D) -> Vector2:
 ## @api private
 class _HomingState:
 	extends GFProjectileMotionState
+
 
 	# --- 私有变量 ---
 

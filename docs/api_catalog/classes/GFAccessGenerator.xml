@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="821faa536acd6b336720945808632a3b0505bc18d95e981ea6e69f0f2f97d6cc">
+<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="5deb1a6f5dea609d6f552305f336088970e0a8f6437cefa7be5e2a0383ff9202">
 	<description>GFAccessGenerator: 生成强类型 GF 访问器脚本。
 生成结果用于减少 `Gf.get_model(Type) as Type` 这类重复样板，
 并为 Model / System / Utility / Command / Query 提供稳定的 IDE 补全入口。</description>
@@ -112,7 +112,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="generate_project_access_with_report">
-			<signature>func generate_project_access_with_report( output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<signature>func generate_project_access_with_report(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>生成项目常量访问器报告。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -165,7 +165,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_source">
-			<signature>func save_source(output_path: String, source: String, overwrite_existing: bool = true) -&gt; Error:</signature>
+			<signature>func save_source( output_path: String, source: String, overwrite_existing: bool = true ) -&gt; Error:</signature>
 			<description>保存生成源码到指定路径。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -177,7 +177,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_source_with_report">
-			<signature>func save_source_with_report(output_path: String, source: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func save_source_with_report( output_path: String, source: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>保存生成源码到指定路径并返回生成产物报告。</description>
 			<tags>
 				<tag name="api">public</tag>

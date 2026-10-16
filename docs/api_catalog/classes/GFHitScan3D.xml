@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHitScan3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_scan_3d.gd" module="extensions/combat" extends="RayCast3D" classDigest="acb41ef496bd90525af747c60ed9dd8b07e770587265806b0ba21de5bf324607">
+<class name="GFHitScan3D" path="addons/gf/extensions/combat/hit_detection/gf_hit_scan_3d.gd" module="extensions/combat" extends="RayCast3D" classDigest="2620d7c20e9b57b061e3c2492358b7286a6883a2e2cd9370d6959c99dc51ca75">
 	<description>GFHitScan3D: 3D 通用射线命中发送器。
 基于 RayCast3D 构建 GFCombatHitContext 并发送给具备 receive_hit() 的接收对象。
 它不规定伤害、穿透、命中特效或任何业务规则。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="scan_hit">
-			<signature>signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal scan_hit( context: GFCombatHitContext, receiver: Object, report: Dictionary )</signature>
 			<description>扫描命中对象后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -32,7 +32,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="hit_accepted">
-			<signature>signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal hit_accepted( context: GFCombatHitContext, receiver: Object, report: Dictionary )</signature>
 			<description>命中被接收对象接受。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -44,7 +44,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="hit_rejected">
-			<signature>signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)</signature>
+			<signature>signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dictionary )</signature>
 			<description>命中被接收对象拒绝或发送失败。</description>
 			<tags>
 				<tag name="api">public</tag>

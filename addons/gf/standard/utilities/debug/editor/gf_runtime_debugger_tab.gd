@@ -26,9 +26,7 @@ const _EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_wo
 ## [br]
 ## @api private
 ## [br]
-const _DIAGNOSTIC_TREE_PRESENTER = preload(
-	"res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd"
-)
+const _DIAGNOSTIC_TREE_PRESENTER = preload("res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd")
 
 
 # --- 私有变量 ---
@@ -144,7 +142,10 @@ func setup_session(session: EditorDebuggerSession, session_id: int) -> void:
 ## [br]
 ## @return 消息是否已发送。
 func request_snapshot() -> bool:
-	return _send_debugger_message(GFDiagnosticsUtility.DEBUGGER_MESSAGE_REQUEST_SNAPSHOT, [_make_snapshot_options()])
+	return _send_debugger_message(
+		GFDiagnosticsUtility.DEBUGGER_MESSAGE_REQUEST_SNAPSHOT,
+		[_make_snapshot_options()]
+	)
 
 
 ## 请求运行时诊断目录。
@@ -175,7 +176,10 @@ func execute_command(command_name: StringName, args: Dictionary = {}) -> bool:
 	if command_name == &"":
 		_set_status("诊断命令为空。", _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
 		return false
-	return _send_debugger_message(GFDiagnosticsUtility.DEBUGGER_MESSAGE_EXECUTE_COMMAND, [String(command_name), args])
+	return _send_debugger_message(
+		GFDiagnosticsUtility.DEBUGGER_MESSAGE_EXECUTE_COMMAND,
+		[String(command_name), args]
+	)
 
 
 ## 处理运行时快照 payload。
@@ -218,10 +222,7 @@ func handle_catalog(payload: Dictionary) -> void:
 ## [br]
 ## @schema payload: Dictionary command result payload.
 func handle_command_result(command_name: StringName, payload: Dictionary) -> void:
-	_last_command_result = {
-		"command_name": command_name,
-		"result": payload.duplicate(true),
-	}
+	_last_command_result = { "command_name": command_name, "result": payload.duplicate(true), }
 	_render_dictionary("command", _last_command_result)
 
 
@@ -272,8 +273,20 @@ func _build_ui() -> void:
 	var toolbar: HBoxContainer = _EDITOR_WORKSPACE_UI.make_toolbar()
 	root_box.add_child(toolbar)
 
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("快照", "请求运行时 GF 诊断快照。", request_snapshot))
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("目录", "请求运行时诊断命令和监控目录。", request_catalog))
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"快照",
+			"请求运行时 GF 诊断快照。",
+			request_snapshot
+		)
+	)
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"目录",
+			"请求运行时诊断命令和监控目录。",
+			request_catalog
+		)
+	)
 
 	_preset_option = OptionButton.new()
 	_preset_option.tooltip_text = "选择运行时监控预设。"
@@ -301,8 +314,20 @@ func _build_ui() -> void:
 	_command_edit.tooltip_text = "输入已注册诊断命令名。"
 	_command_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(_command_edit)
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("执行", "执行输入的诊断命令。", _on_execute_pressed))
-	toolbar.add_child(_EDITOR_WORKSPACE_UI.make_button("复制", "复制当前详情 JSON。", _on_copy_pressed))
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"执行",
+			"执行输入的诊断命令。",
+			_on_execute_pressed
+		)
+	)
+	toolbar.add_child(
+		_EDITOR_WORKSPACE_UI.make_button(
+			"复制",
+			"复制当前详情 JSON。",
+			_on_copy_pressed
+		)
+	)
 
 	_summary_label = _EDITOR_WORKSPACE_UI.make_summary_label("等待运行时连接。")
 	root_box.add_child(_summary_label)
@@ -350,10 +375,7 @@ func _add_monitor_preset_option(preset_id: StringName, label: String) -> void:
 ## [br]
 func _make_snapshot_options() -> Dictionary:
 	var preset_id: StringName = _get_selected_preset_id()
-	var options: Dictionary = {
-		"include_scene_tree": _include_scene_tree_check != null and _include_scene_tree_check.button_pressed,
-		"include_recent_logs": _include_logs_check == null or _include_logs_check.button_pressed,
-	}
+	var options: Dictionary = { "include_scene_tree": _include_scene_tree_check != null and _include_scene_tree_check.button_pressed, "include_recent_logs": _include_logs_check == null or _include_logs_check.button_pressed, }
 	if preset_id != &"":
 		options["monitor_preset"] = preset_id
 	return options
@@ -379,7 +401,10 @@ func _send_debugger_message(message: String, data: Array) -> bool:
 		_set_status("没有可用的运行时调试会话。", _EDITOR_WORKSPACE_UI.WARNING_TEXT_COLOR)
 		return false
 	_session.send_message(message, data)
-	_set_status("已发送请求：%s" % message, _EDITOR_WORKSPACE_UI.INFO_TEXT_COLOR)
+	_set_status(
+		"已发送请求：%s" % message,
+		_EDITOR_WORKSPACE_UI.INFO_TEXT_COLOR
+	)
 	return true
 
 
@@ -393,7 +418,10 @@ func _render_dictionary(kind: String, payload: Dictionary) -> void:
 	_tree.visible = true
 	_empty_label.visible = false
 	_details.text = _safe_json(payload)
-	_set_status(_make_summary(kind, payload), _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
+	_set_status(
+		_make_summary(kind, payload),
+		_EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
+	)
 
 	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, payload)
 
@@ -406,24 +434,34 @@ func _make_summary(kind: String, payload: Dictionary) -> String:
 	if kind == "snapshot":
 		var architecture: Dictionary = GFVariantData.get_option_dictionary(payload, "architecture")
 		var performance: Dictionary = GFVariantData.get_option_dictionary(payload, "performance")
-		return "Snapshot  FPS：%.1f  Models：%d  Systems：%d  Utilities：%d" % [
-			GFVariantData.get_option_float(performance, "fps", 0.0),
-			GFVariantData.get_option_dictionary(architecture, "models").size(),
-			GFVariantData.get_option_dictionary(architecture, "systems").size(),
-			GFVariantData.get_option_dictionary(architecture, "utilities").size(),
-		]
+		return (
+			"Snapshot  FPS：%.1f  Models：%d  Systems：%d  Utilities：%d"
+			% [
+				GFVariantData.get_option_float(
+					performance,
+					"fps",
+					0.0
+				),
+				GFVariantData.get_option_dictionary(architecture, "models").size(),
+				GFVariantData.get_option_dictionary(architecture, "systems").size(),
+				GFVariantData.get_option_dictionary(architecture, "utilities").size(),
+			]
+		)
 	if kind == "catalog":
-		return "Catalog  Commands：%d  Monitors：%d" % [
-			GFVariantData.get_option_dictionary(payload, "commands").size(),
-			GFVariantData.get_option_dictionary(payload, "monitors").size(),
-		]
+		return (
+			"Catalog  Commands：%d  Monitors：%d"
+			% [GFVariantData.get_option_dictionary(payload, "commands").size(), GFVariantData.get_option_dictionary(payload, "monitors").size(),]
+		)
 	if kind == "command":
 		var result: Dictionary = GFVariantData.get_option_dictionary(payload, "result")
-		return "Command %s  %s" % [
-			GFVariantData.get_option_string(payload, "command_name"),
-			"OK" if GFVariantData.get_option_bool(result, "ok") else "Failed",
-		]
-	return "%s  %d fields" % [kind.capitalize(), payload.size()]
+		return (
+			"Command %s  %s"
+			% [GFVariantData.get_option_string(payload, "command_name"), "OK" if GFVariantData.get_option_bool(result, "ok") else "Failed",]
+		)
+	return (
+		"%s  %d fields"
+		% [kind.capitalize(), payload.size()]
+	)
 
 
 ## 通过工作区 UI 辅助设置摘要标签的文本和颜色。
@@ -431,7 +469,11 @@ func _make_summary(kind: String, payload: Dictionary) -> String:
 ## @api private
 ## [br]
 func _set_status(text: String, color: Color) -> void:
-	_EDITOR_WORKSPACE_UI.set_status(_summary_label, text, color)
+	_EDITOR_WORKSPACE_UI.set_status(
+		_summary_label,
+		text,
+		color
+	)
 
 
 ## 使用诊断树展示器的 debug 脱敏规则序列化数据。

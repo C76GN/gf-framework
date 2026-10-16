@@ -224,9 +224,27 @@ func compile(
 		_REGISTRY_UTILITIES: {},
 		_REGISTRY_SYSTEMS: {},
 	}
-	_collect_registry_nodes(model_instances, _KIND_MODEL, _REGISTRY_MODELS, nodes, node_ids_by_kind)
-	_collect_registry_nodes(utility_instances, _KIND_UTILITY, _REGISTRY_UTILITIES, nodes, node_ids_by_kind)
-	_collect_registry_nodes(system_instances, _KIND_SYSTEM, _REGISTRY_SYSTEMS, nodes, node_ids_by_kind)
+	_collect_registry_nodes(
+		model_instances,
+		_KIND_MODEL,
+		_REGISTRY_MODELS,
+		nodes,
+		node_ids_by_kind
+	)
+	_collect_registry_nodes(
+		utility_instances,
+		_KIND_UTILITY,
+		_REGISTRY_UTILITIES,
+		nodes,
+		node_ids_by_kind
+	)
+	_collect_registry_nodes(
+		system_instances,
+		_KIND_SYSTEM,
+		_REGISTRY_SYSTEMS,
+		nodes,
+		node_ids_by_kind
+	)
 
 	if not _is_compilation_valid(validity_guard):
 		return false
@@ -317,9 +335,7 @@ func get_dependency_closure(instance: Object, include_self: bool = true) -> Dict
 		if current == null or result.has(current):
 			continue
 		result[current] = true
-		var dependencies: Array[Object] = _get_object_array(
-			_local_dependencies_by_instance.get(current, [])
-		)
+		var dependencies: Array[Object] = _get_object_array(_local_dependencies_by_instance.get(current, []))
 		for dependency: Object in dependencies:
 			if dependency != null and not result.has(dependency):
 				pending.append(dependency)
@@ -428,7 +444,8 @@ func _collect_registry_nodes(
 			_append_diagnostic(
 				&"invalid_registration_script",
 				kind,
-				"%s[%d]" % [kind, ordinal],
+				"%s[%d]"
+				% [kind, ordinal],
 				&"",
 				"",
 				"Registration key must be a Script."
@@ -437,7 +454,11 @@ func _collect_registry_nodes(
 			continue
 		var script_cls: Script = script_variant
 		var instance: Object = _as_object(registry.get(script_cls))
-		var module_key: String = _make_module_key(kind, script_cls, ordinal)
+		var module_key: String = _make_module_key(
+			kind,
+			script_cls,
+			ordinal
+		)
 		if instance == null or not _is_expected_module_kind(instance, kind):
 			_append_diagnostic(
 				&"invalid_registration_instance",
@@ -487,10 +508,7 @@ func _collect_registry_nodes(
 ## 按类别调用模块依赖 hook，捕获声明快照；有效性检查失败时停止并返回 false。
 ## [br]
 ## @api private
-func _collect_dependency_declarations(
-	nodes: Array[Dictionary],
-	validity_guard: Callable
-) -> bool:
+func _collect_dependency_declarations(nodes: Array[Dictionary], validity_guard: Callable) -> bool:
 	for node: Dictionary in nodes:
 		if not _is_compilation_valid(validity_guard):
 			return false
@@ -528,15 +546,15 @@ func _collect_dependency_declarations(
 		if not _is_compilation_valid(validity_guard):
 			return false
 		node["declarations"] = declarations
-		_dependency_snapshot.append({
-			"module_kind": _registry_key_to_module_kind(
-				_get_node_registry_key(node)
-			),
-			"module_script": _get_node_script(node),
-			"module_instance": _get_node_instance(node),
-			"module_key": _get_node_key(node),
-			"dependencies": _duplicate_dependency_map(declarations),
-		})
+		_dependency_snapshot.append(
+			{
+				"module_kind": _registry_key_to_module_kind(_get_node_registry_key(node)),
+				"module_script": _get_node_script(node),
+				"module_instance": _get_node_instance(node),
+				"module_key": _get_node_key(node),
+				"dependencies": _duplicate_dependency_map(declarations),
+			}
+		)
 	return true
 
 
@@ -606,9 +624,7 @@ func _collect_dependency_edges(
 			return false
 		var declarations: Dictionary = _get_dictionary(node, "declarations")
 		for dependency_kind: StringName in dependency_kinds:
-			var dependency_scripts: Array[Script] = _get_script_array(
-				declarations.get(dependency_kind, [])
-			)
+			var dependency_scripts: Array[Script] = _get_script_array(declarations.get(dependency_kind, []))
 			for dependency_script: Script in dependency_scripts:
 				if not _is_compilation_valid(validity_guard):
 					return false
@@ -656,7 +672,10 @@ func _collect_dependency_edges(
 func _is_compilation_valid(validity_guard: Callable) -> bool:
 	if not validity_guard.is_valid():
 		return true
-	return _to_bool(validity_guard.call(), false)
+	return _to_bool(
+		validity_guard.call(),
+		false
+	)
 
 
 ## 优先使用类别 resolver；没有 resolver 时 Factory 记为 missing，其他类别按本地快照解析。
@@ -672,14 +691,10 @@ func _resolve_dependency(
 	if resolvers.has(dependency_kind):
 		var resolver_variant: Variant = resolvers.get(dependency_kind)
 		if not resolver_variant is Callable:
-			return _make_invalid_resolution(
-				"Dependency resolver must be a valid Callable."
-			)
+			return _make_invalid_resolution("Dependency resolver must be a valid Callable.")
 		var resolver: Callable = resolver_variant
 		if not resolver.is_valid():
-			return _make_invalid_resolution(
-				"Dependency resolver Callable is not valid."
-			)
+			return _make_invalid_resolution("Dependency resolver Callable is not valid.")
 		return _normalize_dependency_resolution(
 			resolver.call(dependency_script),
 			dependency_kind,
@@ -688,10 +703,7 @@ func _resolve_dependency(
 
 	if dependency_kind == _REGISTRY_FACTORIES:
 		return _make_resolution(_STATUS_MISSING)
-	var ids_for_kind: Dictionary = _get_dictionary(
-		node_ids_by_kind,
-		dependency_kind
-	)
+	var ids_for_kind: Dictionary = _get_dictionary(node_ids_by_kind, dependency_kind)
 	return _resolve_local_dependency(
 		dependency_script,
 		dependency_kind,
@@ -727,19 +739,17 @@ func _resolve_local_dependency(
 		if not registered_variant is Script:
 			continue
 		var registered_script: Script = registered_variant
-		if _GF_SCRIPT_TYPE_INSPECTOR_SCRIPT.script_extends_or_equals(
-			registered_script,
-			dependency_script
-		):
+		if _GF_SCRIPT_TYPE_INSPECTOR_SCRIPT.script_extends_or_equals(registered_script, dependency_script):
 			match_ids.append(
-				_to_int(ids_by_script.get(registered_script), -1)
+				_to_int(
+					ids_by_script.get(registered_script),
+					-1
+				)
 			)
 	if match_ids.size() > 1:
 		return _make_resolution(
 			_STATUS_AMBIGUOUS,
-			{
-				"reason": "More than one local registration is assignable to the dependency.",
-			}
+			{ "reason": "More than one local registration is assignable to the dependency.", }
 		)
 	if match_ids.size() == 1:
 		var match_id: int = match_ids[0]
@@ -764,14 +774,10 @@ func _make_local_resolution(
 	resolution_kind: StringName
 ) -> Dictionary:
 	if node_id < 0 or node_id >= nodes.size():
-		return _make_invalid_resolution(
-			"Local dependency resolver returned an invalid node id."
-		)
+		return _make_invalid_resolution("Local dependency resolver returned an invalid node id.")
 	var resolved_node: Dictionary = nodes[node_id]
 	if _get_node_registry_key(resolved_node) != dependency_kind:
-		return _make_invalid_resolution(
-			"Local dependency resolver returned a module from the wrong registry."
-		)
+		return _make_invalid_resolution("Local dependency resolver returned a module from the wrong registry.")
 	return _make_resolution(
 		_STATUS_LOCAL,
 		{
@@ -793,22 +799,21 @@ func _normalize_dependency_resolution(
 	nodes: Array[Dictionary]
 ) -> Dictionary:
 	if not raw_resolution is Dictionary:
-		return _make_invalid_resolution(
-			"Dependency resolver must return a Dictionary."
-		)
+		return _make_invalid_resolution("Dependency resolver must return a Dictionary.")
 	var source: Dictionary = raw_resolution
 	var status: StringName = _to_string_name(source.get("status"))
-	if status not in [
-		_STATUS_LOCAL,
-		_STATUS_EXTERNAL,
-		_STATUS_MISSING,
-		_STATUS_STALE_ALIAS,
-		_STATUS_AMBIGUOUS,
-		_STATUS_PARENT_CYCLE,
-	]:
-		return _make_invalid_resolution(
-			"Dependency resolver returned an unknown status."
-		)
+	if (
+		status
+		not in [
+			_STATUS_LOCAL,
+			_STATUS_EXTERNAL,
+			_STATUS_MISSING,
+			_STATUS_STALE_ALIAS,
+			_STATUS_AMBIGUOUS,
+			_STATUS_PARENT_CYCLE,
+		]
+	):
+		return _make_invalid_resolution("Dependency resolver returned an unknown status.")
 
 	var resolution: Dictionary = _make_resolution(
 		status,
@@ -821,17 +826,16 @@ func _normalize_dependency_resolution(
 				source.get("architecture_depth"),
 				0
 			),
-			"resolution_kind": _to_string_name(
-				source.get("resolution_kind")
-			),
+			"resolution_kind": _to_string_name(source.get("resolution_kind")),
 			"parent_chain_cycle_detected": _to_bool(
 				source.get("parent_chain_cycle_detected"),
 				status == _STATUS_PARENT_CYCLE
 			),
-			"cycle_architecture": _variant_to_string(
-				source.get("cycle_architecture")
+			"cycle_architecture": _variant_to_string(source.get("cycle_architecture")),
+			"cycle_depth": _to_int(
+				source.get("cycle_depth"),
+				-1
 			),
-			"cycle_depth": _to_int(source.get("cycle_depth"), -1),
 			"cycle_start_depth": _to_int(
 				source.get("cycle_start_depth"),
 				-1
@@ -839,9 +843,7 @@ func _normalize_dependency_resolution(
 			"reason": _variant_to_string(source.get("reason")),
 		}
 	)
-	var registered_script: Script = _as_script(
-		source.get("registered_script")
-	)
+	var registered_script: Script = _as_script(source.get("registered_script"))
 	if registered_script != null:
 		resolution["registered_script"] = registered_script
 	var resolved_instance: Object = _as_object(source.get("instance"))
@@ -851,49 +853,33 @@ func _normalize_dependency_resolution(
 	if status == _STATUS_LOCAL:
 		if dependency_kind == _REGISTRY_FACTORIES:
 			return resolution
-		if resolved_instance == null or not _node_id_by_instance.has(
-			resolved_instance
-		):
-			return _make_invalid_resolution(
-				"Local dependency resolution must identify a local module instance."
-			)
+		if (resolved_instance == null or not (_node_id_by_instance.has(resolved_instance))):
+			return _make_invalid_resolution("Local dependency resolution must identify a local module instance.")
 		var node_id: int = _to_int(
 			_node_id_by_instance.get(resolved_instance),
 			-1
 		)
 		if node_id < 0 or node_id >= nodes.size():
-			return _make_invalid_resolution(
-				"Local dependency resolution points outside the plan snapshot."
-			)
+			return _make_invalid_resolution("Local dependency resolution points outside the plan snapshot.")
 		if _get_node_registry_key(nodes[node_id]) != dependency_kind:
-			return _make_invalid_resolution(
-				"Local dependency resolution returned a module from the wrong registry."
-			)
+			return _make_invalid_resolution("Local dependency resolution returned a module from the wrong registry.")
 		resolution["node_id"] = node_id
 	elif status == _STATUS_EXTERNAL and dependency_kind != _REGISTRY_FACTORIES:
 		if (
 			resolved_instance != null
 			and (
 				_node_id_by_instance.has(resolved_instance)
-				or not _is_expected_dependency_kind(
-					resolved_instance,
-					dependency_kind
-				)
+				or not _is_expected_dependency_kind(resolved_instance, dependency_kind)
 			)
 		):
-			return _make_invalid_resolution(
-				"External dependency resolution returned an invalid module instance."
-			)
+			return _make_invalid_resolution("External dependency resolution returned an invalid module instance.")
 	return resolution
 
 
 ## 生成带默认范围、深度、解析方式和父链循环字段的结果字典，再合并额外字段。
 ## [br]
 ## @api private
-func _make_resolution(
-	status: StringName,
-	fields: Dictionary = {}
-) -> Dictionary:
+func _make_resolution(status: StringName, fields: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = {
 		"status": status,
 		"scope": status,
@@ -915,10 +901,7 @@ func _make_resolution(
 func _make_invalid_resolution(reason: String) -> Dictionary:
 	return _make_resolution(
 		_STATUS_INVALID,
-		{
-			"scope": _STATUS_INVALID,
-			"reason": reason,
-		}
+		{ "scope": _STATUS_INVALID, "reason": reason, }
 	)
 
 
@@ -933,9 +916,7 @@ func _make_dependency_record(
 ) -> Dictionary:
 	var status: StringName = _get_resolution_status(resolution)
 	return {
-		"module_kind": _registry_key_to_module_kind(
-			_get_node_registry_key(node)
-		),
+		"module_kind": _registry_key_to_module_kind(_get_node_registry_key(node)),
 		"module_script": _get_node_script(node),
 		"module_instance": _get_node_instance(node),
 		"module_key": _get_node_key(node),
@@ -943,26 +924,26 @@ func _make_dependency_record(
 		"dependency_script": dependency_script,
 		"resolved": status == _STATUS_LOCAL or status == _STATUS_EXTERNAL,
 		"status": status,
-		"scope": _to_string_name(resolution.get("scope"), status),
+		"scope": _to_string_name(
+			resolution.get("scope"),
+			status
+		),
 		"resolved_instance": _as_object(resolution.get("instance")),
 		"architecture_depth": _to_int(
 			resolution.get("architecture_depth"),
 			0
 		),
-		"resolution_kind": _to_string_name(
-			resolution.get("resolution_kind")
-		),
-		"registered_script": _as_script(
-			resolution.get("registered_script")
-		),
+		"resolution_kind": _to_string_name(resolution.get("resolution_kind")),
+		"registered_script": _as_script(resolution.get("registered_script")),
 		"parent_chain_cycle_detected": _to_bool(
 			resolution.get("parent_chain_cycle_detected"),
 			status == _STATUS_PARENT_CYCLE
 		),
-		"cycle_architecture": _variant_to_string(
-			resolution.get("cycle_architecture")
+		"cycle_architecture": _variant_to_string(resolution.get("cycle_architecture")),
+		"cycle_depth": _to_int(
+			resolution.get("cycle_depth"),
+			-1
 		),
-		"cycle_depth": _to_int(resolution.get("cycle_depth"), -1),
 		"cycle_start_depth": _to_int(
 			resolution.get("cycle_start_depth"),
 			-1
@@ -1014,9 +995,7 @@ func _append_resolution_diagnostic(
 				resolution.get("parent_chain_cycle_detected"),
 				false
 			),
-			"cycle_architecture": _variant_to_string(
-				resolution.get("cycle_architecture")
-			),
+			"cycle_architecture": _variant_to_string(resolution.get("cycle_architecture")),
 			"cycle_depth": _to_int(
 				resolution.get("cycle_depth"),
 				-1
@@ -1033,20 +1012,30 @@ func _append_resolution_diagnostic(
 ## [br]
 ## @api private
 func _get_resolution_status(resolution: Dictionary) -> StringName:
-	return _to_string_name(resolution.get("status"), _STATUS_INVALID)
+	return _to_string_name(
+		resolution.get("status"),
+		_STATUS_INVALID
+	)
 
 
 ## 读取结果的 node_id；不是 int 时回退为 -1。
 ## [br]
 ## @api private
 func _get_resolution_node_id(resolution: Dictionary) -> int:
-	return _to_int(resolution.get("node_id"), -1)
+	return _to_int(
+		resolution.get("node_id"),
+		-1
+	)
 
 
 ## 在依赖 ID 有效且尚未连接时更新节点的依赖/依赖者列表与本地实例依赖表。
 ## [br]
 ## @api private
-func _add_local_edge(nodes: Array[Dictionary], node: Dictionary, dependency_id: int) -> void:
+func _add_local_edge(
+	nodes: Array[Dictionary],
+	node: Dictionary,
+	dependency_id: int
+) -> void:
 	if dependency_id < 0 or dependency_id >= nodes.size():
 		return
 	var dependencies: Array[int] = _get_int_array(node.get("dependencies", []))
@@ -1054,16 +1043,17 @@ func _add_local_edge(nodes: Array[Dictionary], node: Dictionary, dependency_id: 
 		return
 	dependencies.append(dependency_id)
 	node["dependencies"] = dependencies
-	var dependent_id: int = _to_int(node.get("id"), -1)
+	var dependent_id: int = _to_int(
+		node.get("id"),
+		-1
+	)
 	var dependency_node: Dictionary = nodes[dependency_id]
 	var dependents: Array[int] = _get_int_array(dependency_node.get("dependents", []))
 	dependents.append(dependent_id)
 	dependency_node["dependents"] = dependents
 	var instance: Object = _get_node_instance(node)
 	var dependency_instance: Object = _get_node_instance(dependency_node)
-	var local_dependencies: Array[Object] = _get_object_array(
-		_local_dependencies_by_instance.get(instance, [])
-	)
+	var local_dependencies: Array[Object] = _get_object_array(_local_dependencies_by_instance.get(instance, []))
 	local_dependencies.append(dependency_instance)
 	_local_dependencies_by_instance[instance] = local_dependencies
 
@@ -1082,8 +1072,12 @@ func _build_kahn_order(nodes: Array[Dictionary]) -> Array[int]:
 
 	var result: Array[int] = []
 	while not ready.is_empty():
-		ready.sort_custom(func(left_id: int, right_id: int) -> bool:
-			return _node_precedes(nodes[left_id], nodes[right_id])
+		ready.sort_custom(
+			func(left_id: int, right_id: int) -> bool:
+				return _node_precedes(
+					nodes[left_id],
+					nodes[right_id]
+				)
 		)
 		var current_id: int = ready.pop_front()
 		result.append(current_id)
@@ -1128,8 +1122,12 @@ func _append_cycle_diagnostics(nodes: Array[Dictionary], ordered_node_ids: Array
 		if node_id_variant is int:
 			var remaining_node_id: int = node_id_variant
 			remaining_ids.append(remaining_node_id)
-	remaining_ids.sort_custom(func(left_id: int, right_id: int) -> bool:
-		return _node_precedes(nodes[left_id], nodes[right_id])
+	remaining_ids.sort_custom(
+		func(left_id: int, right_id: int) -> bool:
+			return _node_precedes(
+				nodes[left_id],
+				nodes[right_id]
+			)
 	)
 
 	var assigned: Dictionary = {}
@@ -1141,23 +1139,37 @@ func _append_cycle_diagnostics(nodes: Array[Dictionary], ordered_node_ids: Array
 			if assigned.has(candidate_id):
 				continue
 			if (
-				_is_reachable(seed_id, candidate_id, nodes, remaining)
-				and _is_reachable(candidate_id, seed_id, nodes, remaining)
+				_is_reachable(
+					seed_id,
+					candidate_id,
+					nodes,
+					remaining
+				)
+				and _is_reachable(
+					candidate_id,
+					seed_id,
+					nodes,
+					remaining
+				)
 			):
 				component.append(candidate_id)
-		var is_self_cycle: bool = (
-			component.size() == 1
-			and _get_int_array(nodes[seed_id].get("dependencies", [])).has(seed_id)
-		)
+		var is_self_cycle: bool = (component.size() == 1 and _get_int_array(nodes[seed_id].get("dependencies", [])).has(seed_id))
 		if component.size() <= 1 and not is_self_cycle:
 			continue
-		component.sort_custom(func(left_id: int, right_id: int) -> bool:
-			return _node_precedes(nodes[left_id], nodes[right_id])
+		component.sort_custom(
+			func(left_id: int, right_id: int) -> bool:
+				return _node_precedes(
+					nodes[left_id],
+					nodes[right_id]
+				)
 		)
 		for component_id: int in component:
 			assigned[component_id] = true
 		var cycle_members: Array[String] = []
-		var member_limit: int = mini(component.size(), _MAX_CYCLE_MEMBERS_PER_DIAGNOSTIC)
+		var member_limit: int = mini(
+			component.size(),
+			_MAX_CYCLE_MEMBERS_PER_DIAGNOSTIC
+		)
 		for member_index: int in range(member_limit):
 			cycle_members.append(_get_node_key(nodes[component[member_index]]))
 		var seed_node: Dictionary = nodes[component[0]]
@@ -1187,7 +1199,7 @@ func _is_reachable(
 ) -> bool:
 	if from_id == target_id:
 		return true
-	var visited: Dictionary = {from_id: true}
+	var visited: Dictionary = { from_id: true }
 	var pending: Array[int] = [from_id]
 	while not pending.is_empty():
 		var current_id: int = pending.pop_back()
@@ -1248,10 +1260,7 @@ func _is_expected_module_kind(instance: Object, kind: StringName) -> bool:
 ## 根据依赖注册表类别检查实例是否为对应的模块类型。
 ## [br]
 ## @api private
-func _is_expected_dependency_kind(
-	instance: Object,
-	dependency_kind: StringName
-) -> bool:
+func _is_expected_dependency_kind(instance: Object, dependency_kind: StringName) -> bool:
 	match dependency_kind:
 		_REGISTRY_MODELS:
 			return instance is GFModel
@@ -1297,8 +1306,19 @@ func _get_lifecycle_priority(instance: Object) -> int:
 ## 组合模块种类、注册序号和脚本键生成诊断用模块标识。
 ## [br]
 ## @api private
-func _make_module_key(kind: StringName, script_cls: Script, ordinal: int) -> String:
-	return "%s[%d]:%s" % [kind, ordinal, _get_script_key(script_cls)]
+func _make_module_key(
+	kind: StringName,
+	script_cls: Script,
+	ordinal: int
+) -> String:
+	return (
+		"%s[%d]:%s"
+		% [
+			kind,
+			ordinal,
+			_get_script_key(script_cls),
+		]
+	)
 
 
 ## 返回脚本的全局类名或资源路径；无有效标识时返回固定占位文本。
@@ -1382,27 +1402,17 @@ func _make_dependency_map() -> Dictionary:
 ## @api private
 func _duplicate_dependency_map(source: Dictionary) -> Dictionary:
 	return {
-		_REGISTRY_MODELS: _get_script_array(
-			source.get(_REGISTRY_MODELS, [])
-		),
-		_REGISTRY_SYSTEMS: _get_script_array(
-			source.get(_REGISTRY_SYSTEMS, [])
-		),
-		_REGISTRY_UTILITIES: _get_script_array(
-			source.get(_REGISTRY_UTILITIES, [])
-		),
-		_REGISTRY_FACTORIES: _get_script_array(
-			source.get(_REGISTRY_FACTORIES, [])
-		),
+		_REGISTRY_MODELS: _get_script_array(source.get(_REGISTRY_MODELS, [])),
+		_REGISTRY_SYSTEMS: _get_script_array(source.get(_REGISTRY_SYSTEMS, [])),
+		_REGISTRY_UTILITIES: _get_script_array(source.get(_REGISTRY_UTILITIES, [])),
+		_REGISTRY_FACTORIES: _get_script_array(source.get(_REGISTRY_FACTORIES, [])),
 	}
 
 
 ## 对数组中的每个 Dictionary 调用 duplicate(true)，返回新的容器数组。
 ## [br]
 ## @api private
-func _duplicate_dictionary_array(
-	source: Array[Dictionary]
-) -> Array[Dictionary]:
+func _duplicate_dictionary_array(source: Array[Dictionary]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in source:
 		result.append(entry.duplicate(true))
@@ -1432,10 +1442,7 @@ func _as_script(value: Variant) -> Script:
 ## 收窄 StringName 或将 String 转为 StringName；不匹配时返回默认值。
 ## [br]
 ## @api private
-func _to_string_name(
-	value: Variant,
-	default_value: StringName = &""
-) -> StringName:
+func _to_string_name(value: Variant, default_value: StringName = &"") -> StringName:
 	if value is StringName:
 		var string_name_value: StringName = value
 		return string_name_value
@@ -1448,10 +1455,7 @@ func _to_string_name(
 ## 返回 String，或将 StringName 转为 String；不匹配时返回默认值。
 ## [br]
 ## @api private
-func _variant_to_string(
-	value: Variant,
-	default_value: String = ""
-) -> String:
+func _variant_to_string(value: Variant, default_value: String = "") -> String:
 	if value is String:
 		var string_value: String = value
 		return string_value

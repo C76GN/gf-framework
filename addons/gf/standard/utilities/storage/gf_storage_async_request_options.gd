@@ -71,7 +71,11 @@ static func create(
 	timeout_msec: int = 0
 ) -> GFStorageAsyncRequestOptions:
 	var options: GFStorageAsyncRequestOptions = GFStorageAsyncRequestOptions.new()
-	if owner == null or not is_instance_valid(owner) or timeout_msec < 0:
+	if (
+		owner == null
+		or not is_instance_valid(owner)
+		or timeout_msec < 0
+	):
 		return options
 	options._configured = true
 	options._owner_ref = weakref(owner)
@@ -89,7 +93,11 @@ static func create(
 ## [br]
 ## @return 仅 `create()` 接受全部参数时返回 true；owner 后续释放不会改写该配置事实。
 func is_valid() -> bool:
-	return _configured and _owner_ref != null and _owner_id != 0
+	return (
+		_configured
+		and _owner_ref != null
+		and _owner_id != 0
+	)
 
 
 # --- 框架内部方法 ---

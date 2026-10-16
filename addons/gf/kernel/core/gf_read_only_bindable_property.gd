@@ -17,7 +17,7 @@ extends GFBindableProperty
 ## 只读视图被调用写入接口时发出的错误文本。
 ## [br]
 ## @api private
-const _READ_ONLY_ERROR: String = "[GFReadOnlyBindableProperty][read_only_bindable_property.read_only] This property is a read-only view; modify its value through the owning object."
+const _READ_ONLY_ERROR: String = ("[GFReadOnlyBindableProperty][read_only_bindable_property.read_only] This property is a read-only view; modify its value through the owning object.")
 
 ## 深拷贝 Array 与 Dictionary 读取结果的 Variant 辅助脚本。
 ## [br]
@@ -53,7 +53,10 @@ func _init(default_value: Variant = null) -> void:
 ## [br]
 ## @schema return: Variant current read-only value; Array and Dictionary values are returned as deep copies.
 func get_value() -> Variant:
-	return _READ_ONLY_VARIANT_ACCESS_SCRIPT.duplicate_collection(super.get_value(), true)
+	return _READ_ONLY_VARIANT_ACCESS_SCRIPT.duplicate_collection(
+		super.get_value(),
+		true
+	)
 
 
 ## 只读视图不允许外部直接写入值。

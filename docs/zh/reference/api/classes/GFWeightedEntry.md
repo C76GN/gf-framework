@@ -18,7 +18,7 @@
 | 属性 | [`value`](#member-gfweightedentry-properties-value) | `var value: Variant = null` |
 | 属性 | [`weight`](#member-gfweightedentry-properties-weight) | `var weight: float = 1.0:` |
 | 属性 | [`metadata`](#member-gfweightedentry-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`configure`](#member-gfweightedentry-methods-configure) | `func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {}) -> GFWeightedEntry:` |
+| 方法 | [`configure`](#member-gfweightedentry-methods-configure) | `func configure( p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {} ) -> GFWeightedEntry:` |
 | 方法 | [`is_selectable`](#member-gfweightedentry-methods-is_selectable) | `func is_selectable() -> bool:` |
 | 方法 | [`duplicate_entry`](#member-gfweightedentry-methods-duplicate_entry) | `func duplicate_entry(deep: bool = true) -> GFWeightedEntry:` |
 | 方法 | [`to_dict`](#member-gfweightedentry-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -81,7 +81,7 @@ var metadata: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
-func configure(p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {}) -> GFWeightedEntry:
+func configure( p_value: Variant, p_weight: float = 1.0, p_metadata: Dictionary = {} ) -> GFWeightedEntry:
 ```
 
 配置条目内容。

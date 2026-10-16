@@ -154,12 +154,24 @@ func configure(
 		return self
 	_target_node = node
 	_metadata_key = key
-	_remove_on_execute = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "remove_on_execute", false)
+	_remove_on_execute = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		options,
+		"remove_on_execute",
+		false
+	)
 	_set_value_unsealed(
 		new_value,
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "duplicate_resources", false)
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			options,
+			"duplicate_resources",
+			false
+		)
 	)
-	command_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "command_name", "Edit Scene Metadata")
+	command_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		options,
+		"command_name",
+		"Edit Scene Metadata"
+	)
 	metadata = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata")
 	_clear_previous_snapshot()
 	return self
@@ -213,7 +225,10 @@ func _do_it() -> Error:
 			_target_node.remove_meta(_metadata_key)
 		return OK
 
-	_target_node.set_meta(_metadata_key, _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value))
+	_target_node.set_meta(
+		_metadata_key,
+		_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+	)
 	return OK
 
 
@@ -230,7 +245,10 @@ func _undo_it() -> Error:
 	if not _has_previous_snapshot:
 		return ERR_UNAVAILABLE
 	if _previous_exists:
-		_target_node.set_meta(_metadata_key, _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_previous_value))
+		_target_node.set_meta(
+			_metadata_key,
+			_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_previous_value)
+		)
 	elif _target_node.has_meta(_metadata_key):
 		_target_node.remove_meta(_metadata_key)
 	return OK

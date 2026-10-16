@@ -86,11 +86,11 @@ static func duplicate_input_event(event: InputEvent) -> InputEvent:
 ## @schema return: Dictionary with unbound, event_class, and properties fields.
 static func input_event_to_record(event: InputEvent) -> Dictionary:
 	if event == null:
-		return {"unbound": true}
+		return { "unbound": true }
 
 	var event_class: String = event.get_class()
 	if not _ALLOWED_INPUT_EVENT_CLASSES.has(event_class):
-		return {"unbound": true}
+		return { "unbound": true }
 
 	return {
 		"unbound": false,
@@ -363,7 +363,10 @@ static func _event_from_structured_record(event_class: String, record: Dictionar
 		var property_name: String = GFVariantData.to_text(property_key)
 		if property_name.is_empty() or not writable_properties.has(property_name):
 			continue
-		event.set(property_name, GFVariantJsonCodec.json_compatible_to_variant(properties[property_key]))
+		event.set(
+			property_name,
+			GFVariantJsonCodec.json_compatible_to_variant(properties[property_key])
+		)
 	return event
 
 
@@ -380,7 +383,10 @@ static func _event_properties_to_record(event: InputEvent) -> Dictionary:
 		if not _is_stored_event_property(property_info):
 			continue
 
-		var value: Variant = GFObjectPropertyTools.read_property(event, NodePath(property_name))
+		var value: Variant = GFObjectPropertyTools.read_property(
+			event,
+			NodePath(property_name)
+		)
 		if _can_store_event_property(value):
 			result[property_name] = GFVariantJsonCodec.variant_to_json_compatible(value)
 	return result

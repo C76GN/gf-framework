@@ -149,17 +149,18 @@ var _metrics: Dictionary[StringName, float] = {}
 ## @return 指标合法、未突破容量并已写入时返回 true；达到容量后仍可更新既有指标。
 func set_metric(metric_id: StringName, value: float) -> bool:
 	var normalized_id: StringName = _normalize_metric_id(metric_id)
-	if normalized_id == &"" or not is_finite(value) or value < 0.0:
+	if (
+		normalized_id == &""
+		or not is_finite(value)
+		or value < 0.0
+	):
 		return false
 	if normalized_id == PACKET_LOSS_RATIO and value > 1.0:
 		return false
 	if not _metrics.has(normalized_id):
 		if _metrics.size() >= ABSOLUTE_MAX_METRIC_COUNT:
 			return false
-		if (
-			not _is_builtin_metric_id(normalized_id)
-			and _get_custom_metric_count() >= ABSOLUTE_MAX_CUSTOM_METRIC_COUNT
-		):
+		if (not _is_builtin_metric_id(normalized_id) and _get_custom_metric_count() >= ABSOLUTE_MAX_CUSTOM_METRIC_COUNT):
 			return false
 	_metrics[normalized_id] = value
 	return true
@@ -203,7 +204,10 @@ func has_metric(metric_id: StringName) -> bool:
 ## [br]
 ## @return 指标值或默认值。
 func get_metric(metric_id: StringName, default_value: float = 0.0) -> float:
-	return _metrics.get(_normalize_metric_id(metric_id), default_value)
+	return _metrics.get(
+		_normalize_metric_id(metric_id),
+		default_value
+	)
 
 
 ## 获取排序后的已知指标 ID。
@@ -233,7 +237,10 @@ func merge_from(other: GFNetworkTransportMetrics) -> void:
 		return
 	for metric_id_text: String in other.get_metric_ids():
 		var metric_id: StringName = StringName(metric_id_text)
-		var _set: bool = set_metric(metric_id, other.get_metric(metric_id))
+		var _set: bool = set_metric(
+			metric_id,
+			other.get_metric(metric_id)
+		)
 
 
 ## 转换为 JSON 安全字典。
@@ -270,8 +277,14 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary with sample_time_msec, sample_window_msec, and metrics.
 func apply_dict(data: Dictionary) -> void:
-	sample_time_msec = maxi(GFVariantData.get_option_int(data, "sample_time_msec"), 0)
-	sample_window_msec = maxi(GFVariantData.get_option_int(data, "sample_window_msec"), 0)
+	sample_time_msec = maxi(
+		GFVariantData.get_option_int(data, "sample_time_msec"),
+		0
+	)
+	sample_window_msec = maxi(
+		GFVariantData.get_option_int(data, "sample_window_msec"),
+		0
+	)
 	_metrics.clear()
 	var metric_values_value: Variant = data.get("metrics", {})
 	if not (metric_values_value is Dictionary):
@@ -348,10 +361,7 @@ static func _normalize_metric_id(metric_id: StringName) -> StringName:
 	if raw_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH:
 		return &""
 	var normalized_text: String = raw_text.strip_edges()
-	if (
-		normalized_text.is_empty()
-		or normalized_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH
-	):
+	if (normalized_text.is_empty() or normalized_text.length() > ABSOLUTE_MAX_METRIC_ID_LENGTH):
 		return &""
 	return StringName(normalized_text)
 
@@ -361,18 +371,21 @@ static func _normalize_metric_id(metric_id: StringName) -> StringName:
 ## @api private
 ## [br]
 static func _is_builtin_metric_id(metric_id: StringName) -> bool:
-	return metric_id in [
-		BYTES_SENT,
-		BYTES_RECEIVED,
-		PACKETS_SENT,
-		PACKETS_RECEIVED,
-		CONNECTION_AGE_MSEC,
-		ROUND_TRIP_TIME_MSEC,
-		JITTER_MSEC,
-		PACKET_LOSS_RATIO,
-		SEND_QUEUE_PACKETS,
-		RECEIVE_QUEUE_PACKETS,
-	]
+	return (
+		metric_id
+		in [
+			BYTES_SENT,
+			BYTES_RECEIVED,
+			PACKETS_SENT,
+			PACKETS_RECEIVED,
+			CONNECTION_AGE_MSEC,
+			ROUND_TRIP_TIME_MSEC,
+			JITTER_MSEC,
+			PACKET_LOSS_RATIO,
+			SEND_QUEUE_PACKETS,
+			RECEIVE_QUEUE_PACKETS,
+		]
+	)
 
 
 ## 统计当前已登记的非内建指标数量。

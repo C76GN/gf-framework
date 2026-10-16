@@ -53,14 +53,8 @@ var _actual_displacement: Vector3 = Vector3.ZERO
 ## @param actual_displacement: 本次操作产生的真实 world displacement。
 ## [br]
 ## @return: 成功结果。
-static func successful(
-	transform_value: Transform3D,
-	actual_displacement: Vector3 = Vector3.ZERO
-) -> GFProjectileBodyResult3D:
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_transform3d(transform_value)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_vector3(actual_displacement)
-	):
+static func successful(transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO) -> GFProjectileBodyResult3D:
+	if (not _GF_COMBAT_FINITE_MATH.is_finite_transform3d(transform_value) or not _GF_COMBAT_FINITE_MATH.is_finite_vector3(actual_displacement)):
 		return failed(&"non_finite_body_result")
 	var result: GFProjectileBodyResult3D = GFProjectileBodyResult3D.new()
 	result._successful = true
@@ -81,10 +75,7 @@ static func successful(
 ## @param transform_value: 失败边界观测到的 transform。
 ## [br]
 ## @return: 失败结果。
-static func failed(
-	reason: StringName,
-	transform_value: Transform3D = Transform3D.IDENTITY
-) -> GFProjectileBodyResult3D:
+static func failed(reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY) -> GFProjectileBodyResult3D:
 	var result: GFProjectileBodyResult3D = GFProjectileBodyResult3D.new()
 	result._failure_reason = reason if reason != &"" else &"body_operation_failed"
 	if _GF_COMBAT_FINITE_MATH.is_finite_transform3d(transform_value):

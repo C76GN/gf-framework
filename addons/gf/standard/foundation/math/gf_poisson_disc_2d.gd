@@ -68,42 +68,90 @@ const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_re
 ## @schema options: Dictionary，seed 为确定性随机种子，candidate_attempts 为每个活动点的候选尝试次数，max_points 为最大输出点数，max_grid_cells 为内部空间网格单元上限，start_point 为可选起始 Vector2。
 ## [br]
 ## @schema return: Dictionary，包含 ok、error、area、minimum_distance、seed、candidate_attempts、max_points、max_grid_cells、points、point_count 与 truncated 字段。
-static func generate_points(area: Rect2, minimum_distance: float, options: Dictionary = {}) -> Dictionary:
+static func generate_points(
+	area: Rect2,
+	minimum_distance: float,
+	options: Dictionary = {}
+) -> Dictionary:
 	var validation_error: String = _get_input_error(area, minimum_distance)
 	if not validation_error.is_empty():
-		return _make_failure_result(area, minimum_distance, options, validation_error)
-
-	var candidate_attempts: int = maxi(
-		GFVariantData.get_option_int(options, "candidate_attempts", DEFAULT_CANDIDATE_ATTEMPTS),
-		1
-	)
-	var max_points: int = maxi(
-		GFVariantData.get_option_int(options, "max_points", DEFAULT_MAX_POINTS),
-		0
-	)
-	if max_points <= 0:
-		return _make_failure_result(area, minimum_distance, options, "max_points must be greater than 0.")
-
-	var max_grid_cells: int = maxi(
-		GFVariantData.get_option_int(options, "max_grid_cells", DEFAULT_MAX_GRID_CELLS),
-		1
-	)
-	var rng_seed: int = GFVariantData.get_option_int(options, "seed", 0)
-	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(rng_seed)
-
-	var start_result: Dictionary = _resolve_start_point(area, rng, options)
-	if not GFVariantData.get_option_bool(start_result, "ok", false):
 		return _make_failure_result(
 			area,
 			minimum_distance,
 			options,
-			GFVariantData.get_option_string(start_result, "error", "")
+			validation_error
+		)
+
+	var candidate_attempts: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"candidate_attempts",
+			DEFAULT_CANDIDATE_ATTEMPTS
+		),
+		1
+	)
+	var max_points: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_points",
+			DEFAULT_MAX_POINTS
+		),
+		0
+	)
+	if max_points <= 0:
+		return _make_failure_result(
+			area,
+			minimum_distance,
+			options,
+			"max_points must be greater than 0."
+		)
+
+	var max_grid_cells: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_grid_cells",
+			DEFAULT_MAX_GRID_CELLS
+		),
+		1
+	)
+	var rng_seed: int = GFVariantData.get_option_int(
+		options,
+		"seed",
+		0
+	)
+	var rng: GFDeterministicRandom = GFDeterministicRandom.from_seed(rng_seed)
+
+	var start_result: Dictionary = _resolve_start_point(
+		area,
+		rng,
+		options
+	)
+	if not GFVariantData.get_option_bool(
+		start_result,
+		"ok",
+		false
+	):
+		return _make_failure_result(
+			area,
+			minimum_distance,
+			options,
+			GFVariantData.get_option_string(
+				start_result,
+				"error",
+				""
+			)
 		)
 
 	var cell_size: float = minimum_distance / _SQRT_TWO
 	var grid_size: Vector2i = Vector2i(
-		maxi(ceili(area.size.x / cell_size), 1),
-		maxi(ceili(area.size.y / cell_size), 1)
+		maxi(
+			ceili(area.size.x / cell_size),
+			1
+		),
+		maxi(
+			ceili(area.size.y / cell_size),
+			1
+		)
 	)
 	var grid_cell_count: int = grid_size.x * grid_size.y
 	if grid_cell_count > max_grid_cells:
@@ -135,16 +183,41 @@ static func generate_points(area: Rect2, minimum_distance: float, options: Dicti
 	)
 
 	while not active_indices.is_empty() and points.size() < max_points:
-		var active_slot: int = rng.next_int_range(0, active_indices.size() - 1)
+		var active_slot: int = rng.next_int_range(
+			0,
+			active_indices.size() - 1
+		)
 		var source_index: int = active_indices[active_slot]
 		var source_point: Vector2 = points[source_index]
 		var accepted: bool = false
 		for _candidate_index: int in range(candidate_attempts):
 			var angle: float = rng.next_float_unit() * TAU
-			var radius: float = rng.next_float_range(minimum_distance, minimum_distance * 2.0)
-			var candidate: Vector2 = source_point + Vector2(cos(angle), sin(angle)) * radius
-			if _is_candidate_valid(candidate, area, cell_size, minimum_distance, grid_size, grid, points):
-				_add_point(candidate, area, cell_size, grid_size, grid, points, active_indices)
+			var radius: float = rng.next_float_range(
+				minimum_distance,
+				minimum_distance * 2.0
+			)
+			var candidate: Vector2 = source_point + Vector2(
+				cos(angle),
+				sin(angle)
+			) * radius
+			if _is_candidate_valid(
+				candidate,
+				area,
+				cell_size,
+				minimum_distance,
+				grid_size,
+				grid,
+				points
+			):
+				_add_point(
+					candidate,
+					area,
+					cell_size,
+					grid_size,
+					grid,
+					points,
+					active_indices
+				)
 				accepted = true
 				break
 
@@ -195,7 +268,11 @@ static func _get_input_error(area: Rect2, minimum_distance: float) -> String:
 		return "area must contain finite values."
 	if area.size.x <= 0.0 or area.size.y <= 0.0:
 		return "area size must be positive."
-	if is_nan(minimum_distance) or is_inf(minimum_distance) or minimum_distance <= 0.0:
+	if (
+		is_nan(minimum_distance)
+		or is_inf(minimum_distance)
+		or minimum_distance <= 0.0
+	):
 		return "minimum_distance must be a positive finite value."
 	return ""
 
@@ -204,7 +281,11 @@ static func _get_input_error(area: Rect2, minimum_distance: float) -> String:
 ## [br]
 ## @api private
 ## [br]
-static func _resolve_start_point(area: Rect2, rng: GFDeterministicRandom, options: Dictionary) -> Dictionary:
+static func _resolve_start_point(
+	area: Rect2,
+	rng: GFDeterministicRandom,
+	options: Dictionary
+) -> Dictionary:
 	if options.has("start_point"):
 		var start_value: Variant = GFVariantData.get_option_value(options, "start_point")
 		if not start_value is Vector2:
@@ -215,13 +296,24 @@ static func _resolve_start_point(area: Rect2, rng: GFDeterministicRandom, option
 			return { "ok": false, "error": "start_point must contain finite values." }
 		if not area.has_point(start_point):
 			return { "ok": false, "error": "start_point must be inside area." }
-		return { "ok": true, "error": "", "point": start_point }
+		return {
+			"ok": true,
+			"error": "",
+			"point": start_point,
+		}
 
-	var random_point: Vector2 = area.position + Vector2(
-		rng.next_float_unit() * area.size.x,
-		rng.next_float_unit() * area.size.y
+	var random_point: Vector2 = (
+		area.position
+		+ Vector2(
+			rng.next_float_unit() * area.size.x,
+			rng.next_float_unit() * area.size.y
+		)
 	)
-	return { "ok": true, "error": "", "point": random_point }
+	return {
+		"ok": true,
+		"error": "",
+		"point": random_point,
+	}
 
 
 ## 将点加入输出和活动列表，并在空间网格中记录其一基索引。
@@ -240,7 +332,12 @@ static func _add_point(
 	var point_index: int = points.size()
 	var _point_appended: bool = points.append(point)
 	var _active_appended: bool = active_indices.append(point_index)
-	var cell: Vector2i = _point_to_cell(point, area, cell_size, grid_size)
+	var cell: Vector2i = _point_to_cell(
+		point,
+		area,
+		cell_size,
+		grid_size
+	)
 	grid[_cell_to_index(cell, grid_size)] = point_index + 1
 
 
@@ -262,13 +359,47 @@ static func _is_candidate_valid(
 	if not area.has_point(candidate):
 		return false
 
-	var cell: Vector2i = _point_to_cell(candidate, area, cell_size, grid_size)
-	var search_start: Vector2i = Vector2i(maxi(cell.x - 2, 0), maxi(cell.y - 2, 0))
-	var search_end: Vector2i = Vector2i(mini(cell.x + 2, grid_size.x - 1), mini(cell.y + 2, grid_size.y - 1))
+	var cell: Vector2i = _point_to_cell(
+		candidate,
+		area,
+		cell_size,
+		grid_size
+	)
+	var search_start: Vector2i = Vector2i(
+		maxi(
+			cell.x - 2,
+			0
+		),
+		maxi(
+			cell.y - 2,
+			0
+		)
+	)
+	var search_end: Vector2i = Vector2i(
+		mini(
+			cell.x + 2,
+			grid_size.x - 1
+		),
+		mini(
+			cell.y + 2,
+			grid_size.y - 1
+		)
+	)
 	var minimum_distance_squared: float = minimum_distance * minimum_distance
-	for x: int in range(search_start.x, search_end.x + 1):
-		for y: int in range(search_start.y, search_end.y + 1):
-			var point_index: int = grid[_cell_to_index(Vector2i(x, y), grid_size)] - 1
+	for x: int in range(
+		search_start.x,
+		search_end.x + 1
+	):
+		for y: int in range(
+			search_start.y,
+			search_end.y + 1
+		):
+			var point_index: int = grid[
+				_cell_to_index(
+					Vector2i(x, y),
+					grid_size
+				)
+			] - 1
 			if point_index < 0:
 				continue
 			if candidate.distance_squared_to(points[point_index]) < minimum_distance_squared:
@@ -280,11 +411,24 @@ static func _is_candidate_valid(
 ## [br]
 ## @api private
 ## [br]
-static func _point_to_cell(point: Vector2, area: Rect2, cell_size: float, grid_size: Vector2i) -> Vector2i:
+static func _point_to_cell(
+	point: Vector2,
+	area: Rect2,
+	cell_size: float,
+	grid_size: Vector2i
+) -> Vector2i:
 	var local: Vector2 = point - area.position
 	return Vector2i(
-		clampi(floori(local.x / cell_size), 0, grid_size.x - 1),
-		clampi(floori(local.y / cell_size), 0, grid_size.y - 1)
+		clampi(
+			floori(local.x / cell_size),
+			0,
+			grid_size.x - 1
+		),
+		clampi(
+			floori(local.y / cell_size),
+			0,
+			grid_size.y - 1
+		)
 	)
 
 
@@ -340,14 +484,33 @@ static func _make_failure_result(
 		"error": error,
 		"area": area,
 		"minimum_distance": minimum_distance,
-		"seed": GFVariantData.get_option_int(options, "seed", 0),
+		"seed": GFVariantData.get_option_int(
+			options,
+			"seed",
+			0
+		),
 		"candidate_attempts": maxi(
-			GFVariantData.get_option_int(options, "candidate_attempts", DEFAULT_CANDIDATE_ATTEMPTS),
+			GFVariantData.get_option_int(
+				options,
+				"candidate_attempts",
+				DEFAULT_CANDIDATE_ATTEMPTS
+			),
 			1
 		),
-		"max_points": maxi(GFVariantData.get_option_int(options, "max_points", DEFAULT_MAX_POINTS), 0),
+		"max_points": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_points",
+				DEFAULT_MAX_POINTS
+			),
+			0
+		),
 		"max_grid_cells": maxi(
-			GFVariantData.get_option_int(options, "max_grid_cells", DEFAULT_MAX_GRID_CELLS),
+			GFVariantData.get_option_int(
+				options,
+				"max_grid_cells",
+				DEFAULT_MAX_GRID_CELLS
+			),
 			1
 		),
 		"points": PackedVector2Array(),
@@ -361,4 +524,9 @@ static func _make_failure_result(
 ## @api private
 ## [br]
 static func _is_finite_point(point: Vector2) -> bool:
-	return not is_nan(point.x) and not is_inf(point.x) and not is_nan(point.y) and not is_inf(point.y)
+	return (
+		not is_nan(point.x)
+		and not is_inf(point.x)
+		and not is_nan(point.y)
+		and not is_inf(point.y)
+	)

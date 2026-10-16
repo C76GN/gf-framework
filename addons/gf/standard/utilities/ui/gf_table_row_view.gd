@@ -113,7 +113,13 @@ func has_value(column_id: StringName) -> bool:
 ## [br]
 ## @schema return: Variant isolated column value copy.
 func get_value(column_id: StringName, default_value: Variant = null) -> Variant:
-	return _get_isolated_copy(GFVariantData.get_option_value(_values, column_id, default_value))
+	return _get_isolated_copy(
+		GFVariantData.get_option_value(
+			_values,
+			column_id,
+			default_value
+		)
+	)
 
 
 ## 获取全部列值副本。
@@ -158,7 +164,11 @@ static func duplicate_isolated_variant_for_framework(value: Variant) -> Dictiona
 	if not GFVariantData.get_option_bool(preflight_report, "ok"):
 		return preflight_report
 	var copy_state: Dictionary = _make_snapshot_state()
-	return _duplicate_isolated_value(value, copy_state, 0)
+	return _duplicate_isolated_value(
+		value,
+		copy_state,
+		0
+	)
 
 
 ## 从未暴露的 canonical RowView 基类存储创建项目回调独占快照。
@@ -173,13 +183,19 @@ static func duplicate_isolated_variant_for_framework(value: Variant) -> Dictiona
 ## [br]
 ## @return 独立的纯 GFTableRowView；输入失效或复制失败时返回 null。
 static func snapshot_for_framework(source: GFTableRowView) -> GFTableRowView:
-	if source == null or not is_instance_valid(source) or not source._configured:
+	if (
+		source == null
+		or not is_instance_valid(source)
+		or not source._configured
+	):
 		return null
 	var snapshot: GFTableRowView = GFTableRowView.new()
-	if not snapshot.configure_for_framework(
-		source._source_row_index,
-		source._row_id,
-		source._values
+	if not (
+		snapshot.configure_for_framework(
+			source._source_row_index,
+			source._row_id,
+			source._values
+		)
 	):
 		return null
 	return snapshot
@@ -207,7 +223,11 @@ func configure_for_framework(
 	row_id: Variant,
 	values: Dictionary
 ) -> bool:
-	if _configured or source_row_index < 0 or not GFVariantKeyCodec.is_stable_key(row_id):
+	if (
+		_configured
+		or source_row_index < 0
+		or not GFVariantKeyCodec.is_stable_key(row_id)
+	):
 		return false
 	var row_id_report: Dictionary = duplicate_isolated_variant_for_framework(row_id)
 	if not GFVariantData.get_option_bool(row_id_report, "ok"):
@@ -258,11 +278,17 @@ static func _preflight_isolated_value(
 
 	match typeof(value):
 		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
-			if not _reserve_utf8_bytes(state, GFVariantData.to_text(value)):
+			if not _reserve_utf8_bytes(
+				state,
+				GFVariantData.to_text(value)
+			):
 				return _make_copy_failure(&"snapshot_utf8_budget_exceeded")
 		TYPE_ARRAY:
 			var source_array: Array = value
-			if not _reserve_collection_items(state, source_array.size()):
+			if not _reserve_collection_items(
+				state,
+				source_array.size()
+			):
 				return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 			if not _push_active_reference(state, source_array):
 				return _make_copy_failure(&"circular_snapshot_value")
@@ -278,7 +304,10 @@ static func _preflight_isolated_value(
 			_pop_active_reference(state)
 		TYPE_DICTIONARY:
 			var source_dictionary: Dictionary = value
-			if not _reserve_collection_items(state, source_dictionary.size() * 2):
+			if not _reserve_collection_items(
+				state,
+				source_dictionary.size() * 2
+			):
 				return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 			if not _push_active_reference(state, source_dictionary):
 				return _make_copy_failure(&"circular_snapshot_value")
@@ -309,17 +338,17 @@ static func _preflight_isolated_value(
 			if not _push_active_reference(state, source_resource):
 				return _make_copy_failure(&"circular_snapshot_value")
 			var property_list: Array[Dictionary] = source_resource.get_property_list()
-			if not _reserve_collection_items(state, property_list.size()):
+			if not _reserve_collection_items(
+				state,
+				property_list.size()
+			):
 				_pop_active_reference(state)
 				return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 			for property_info: Dictionary in property_list:
 				var usage: int = GFVariantData.get_option_int(property_info, "usage")
 				if (usage & PROPERTY_USAGE_STORAGE) == 0:
 					continue
-				var property_name: StringName = GFVariantData.get_option_string_name(
-					property_info,
-					"name"
-				)
+				var property_name: StringName = GFVariantData.get_option_string_name(property_info, "name")
 				if property_name == &"script":
 					continue
 				var property_report: Dictionary = _preflight_isolated_value(
@@ -360,23 +389,44 @@ static func _duplicate_isolated_value(
 	if _is_packed_array_type(typeof(value)):
 		if not _reserve_packed_array_bytes(state, value):
 			return _make_copy_failure(&"snapshot_utf8_budget_exceeded")
-		return _make_copy_success(GFVariantData.duplicate_variant(value, true, false))
+		return _make_copy_success(
+			GFVariantData.duplicate_variant(
+				value,
+				true,
+				false
+			)
+		)
 
 	match typeof(value):
 		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
-			if not _reserve_utf8_bytes(state, GFVariantData.to_text(value)):
+			if not _reserve_utf8_bytes(
+				state,
+				GFVariantData.to_text(value)
+			):
 				return _make_copy_failure(&"snapshot_utf8_budget_exceeded")
 			return _make_copy_success(value)
 		TYPE_ARRAY:
 			var source_array: Array = value
-			return _duplicate_isolated_array(source_array, state, depth)
+			return _duplicate_isolated_array(
+				source_array,
+				state,
+				depth
+			)
 		TYPE_DICTIONARY:
 			var source_dictionary: Dictionary = value
-			return _duplicate_isolated_dictionary(source_dictionary, state, depth)
+			return _duplicate_isolated_dictionary(
+				source_dictionary,
+				state,
+				depth
+			)
 		TYPE_OBJECT:
 			if value is Resource:
 				var source_resource: Resource = value
-				return _duplicate_isolated_resource(source_resource, state, depth)
+				return _duplicate_isolated_resource(
+					source_resource,
+					state,
+					depth
+				)
 			return _make_copy_failure(&"unsafe_snapshot_reference")
 		TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID:
 			return _make_copy_failure(&"unsafe_snapshot_reference")
@@ -392,13 +442,20 @@ static func _duplicate_isolated_array(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	if not _reserve_collection_items(state, source_array.size()):
+	if not _reserve_collection_items(
+		state,
+		source_array.size()
+	):
 		return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 	if not _push_active_reference(state, source_array):
 		return _make_copy_failure(&"circular_snapshot_value")
 	var copied_array: Array = _create_isolated_array(source_array)
 	for item: Variant in source_array:
-		var item_report: Dictionary = _duplicate_isolated_value(item, state, depth + 1)
+		var item_report: Dictionary = _duplicate_isolated_value(
+			item,
+			state,
+			depth + 1
+		)
 		if not GFVariantData.get_option_bool(item_report, "ok"):
 			_pop_active_reference(state)
 			return item_report
@@ -415,13 +472,20 @@ static func _duplicate_isolated_dictionary(
 	state: Dictionary,
 	depth: int
 ) -> Dictionary:
-	if not _reserve_collection_items(state, source_dictionary.size() * 2):
+	if not _reserve_collection_items(
+		state,
+		source_dictionary.size() * 2
+	):
 		return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 	if not _push_active_reference(state, source_dictionary):
 		return _make_copy_failure(&"circular_snapshot_value")
 	var copied_dictionary: Dictionary = _create_isolated_dictionary(source_dictionary)
 	for source_key: Variant in source_dictionary.keys():
-		var key_report: Dictionary = _duplicate_isolated_value(source_key, state, depth + 1)
+		var key_report: Dictionary = _duplicate_isolated_value(
+			source_key,
+			state,
+			depth + 1
+		)
 		if not GFVariantData.get_option_bool(key_report, "ok"):
 			_pop_active_reference(state)
 			return key_report
@@ -433,9 +497,7 @@ static func _duplicate_isolated_dictionary(
 		if not GFVariantData.get_option_bool(value_report, "ok"):
 			_pop_active_reference(state)
 			return value_report
-		copied_dictionary[GFVariantData.get_option_value(key_report, "value")] = (
-			GFVariantData.get_option_value(value_report, "value")
-		)
+		copied_dictionary[GFVariantData.get_option_value(key_report, "value")] = GFVariantData.get_option_value(value_report, "value")
 	_pop_active_reference(state)
 	return _make_copy_success(copied_dictionary)
 
@@ -511,16 +573,16 @@ static func _validate_resource_copy(
 	if source_resource.get_script() != null or copied_resource.get_script() != null:
 		return _make_copy_failure(&"scripted_resource_snapshot")
 	var property_list: Array[Dictionary] = source_resource.get_property_list()
-	if not _reserve_collection_items(state, property_list.size()):
+	if not _reserve_collection_items(
+		state,
+		property_list.size()
+	):
 		return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 	for property_info: Dictionary in property_list:
 		var usage: int = GFVariantData.get_option_int(property_info, "usage")
 		if (usage & PROPERTY_USAGE_STORAGE) == 0:
 			continue
-		var property_name: StringName = GFVariantData.get_option_string_name(
-			property_info,
-			"name"
-		)
+		var property_name: StringName = GFVariantData.get_option_string_name(property_info, "name")
 		if property_name == &"script":
 			continue
 		var pair_report: Dictionary = _validate_isolated_pair(
@@ -557,7 +619,10 @@ static func _validate_isolated_pair(
 
 	match typeof(source_value):
 		TYPE_STRING, TYPE_STRING_NAME, TYPE_NODE_PATH:
-			if not _reserve_utf8_bytes(state, GFVariantData.to_text(copied_value)):
+			if not _reserve_utf8_bytes(
+				state,
+				GFVariantData.to_text(copied_value)
+			):
 				return _make_copy_failure(&"snapshot_utf8_budget_exceeded")
 			if not GFVariantData.values_equal(source_value, copied_value):
 				return _make_copy_failure(&"resource_snapshot_value_mismatch")
@@ -566,7 +631,10 @@ static func _validate_isolated_pair(
 			var copied_array: Array = copied_value
 			if is_same(source_array, copied_array) or source_array.size() != copied_array.size():
 				return _make_copy_failure(&"resource_snapshot_alias")
-			if not _reserve_collection_items(state, source_array.size()):
+			if not _reserve_collection_items(
+				state,
+				source_array.size()
+			):
 				return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 			if not _push_active_reference(state, source_array):
 				return _make_copy_failure(&"circular_snapshot_value")
@@ -584,14 +652,14 @@ static func _validate_isolated_pair(
 		TYPE_DICTIONARY:
 			var source_dictionary: Dictionary = source_value
 			var copied_dictionary: Dictionary = copied_value
-			if (
-				is_same(source_dictionary, copied_dictionary)
-				or source_dictionary.size() != copied_dictionary.size()
-			):
+			if (is_same(source_dictionary, copied_dictionary) or source_dictionary.size() != copied_dictionary.size()):
 				return _make_copy_failure(&"resource_snapshot_alias")
 			var source_keys: Array = source_dictionary.keys()
 			var copied_keys: Array = copied_dictionary.keys()
-			if not _reserve_collection_items(state, source_keys.size() * 2):
+			if not _reserve_collection_items(
+				state,
+				source_keys.size() * 2
+			):
 				return _make_copy_failure(&"snapshot_collection_budget_exceeded")
 			if not _push_active_reference(state, source_dictionary):
 				return _make_copy_failure(&"circular_snapshot_value")
@@ -659,10 +727,7 @@ static func _consume_snapshot_node(state: Dictionary, depth: int) -> StringName:
 ## [br]
 ## @api private
 static func _reserve_collection_items(state: Dictionary, item_count: int) -> bool:
-	var next_count: int = (
-		GFVariantData.get_option_int(state, "collection_item_count")
-		+ maxi(item_count, 0)
-	)
+	var next_count: int = GFVariantData.get_option_int(state, "collection_item_count") + maxi(item_count, 0)
 	state["collection_item_count"] = next_count
 	return next_count <= _MAX_SNAPSHOT_COLLECTION_ITEM_COUNT
 
@@ -675,7 +740,10 @@ static func _reserve_utf8_bytes(state: Dictionary, text_value: String) -> bool:
 	var remaining_bytes: int = _MAX_SNAPSHOT_UTF8_BYTES - used_bytes
 	if remaining_bytes < 0 or text_value.length() > remaining_bytes:
 		return false
-	return _reserve_bytes(state, text_value.to_utf8_buffer().size())
+	return _reserve_bytes(
+		state,
+		text_value.to_utf8_buffer().size()
+	)
 
 
 ## 按 PackedArray 元素类型统计集合项与字节预算；PackedStringArray 逐项计入文本字节。
@@ -686,34 +754,73 @@ static func _reserve_packed_array_bytes(state: Dictionary, value: Variant) -> bo
 	match typeof(value):
 		TYPE_PACKED_BYTE_ARRAY:
 			var values: PackedByteArray = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 1)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				1
+			)
 		TYPE_PACKED_INT32_ARRAY:
 			var values: PackedInt32Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 4)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				4
+			)
 		TYPE_PACKED_FLOAT32_ARRAY:
 			var values: PackedFloat32Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 4)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				4
+			)
 		TYPE_PACKED_INT64_ARRAY:
 			var values: PackedInt64Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 8)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				8
+			)
 		TYPE_PACKED_FLOAT64_ARRAY:
 			var values: PackedFloat64Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 8)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				8
+			)
 		TYPE_PACKED_VECTOR2_ARRAY:
 			var values: PackedVector2Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 16)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				16
+			)
 		TYPE_PACKED_VECTOR3_ARRAY:
 			var values: PackedVector3Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 24)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				24
+			)
 		TYPE_PACKED_COLOR_ARRAY:
 			var values: PackedColorArray = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 16)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				16
+			)
 		TYPE_PACKED_VECTOR4_ARRAY:
 			var values: PackedVector4Array = value
-			return _reserve_fixed_width_packed_array(state, values.size(), 32)
+			return _reserve_fixed_width_packed_array(
+				state,
+				values.size(),
+				32
+			)
 		TYPE_PACKED_STRING_ARRAY:
 			var values: PackedStringArray = value
-			if not _reserve_collection_items(state, values.size()):
+			if not _reserve_collection_items(
+				state,
+				values.size()
+			):
 				return false
 			for item: String in values:
 				if not _reserve_utf8_bytes(state, item):
@@ -736,35 +843,38 @@ static func _reserve_fixed_width_packed_array(
 	var remaining_bytes: int = _MAX_SNAPSHOT_UTF8_BYTES - used_bytes
 	if item_width <= 0 or item_count > floori(float(remaining_bytes) / float(item_width)):
 		return false
-	return _reserve_bytes(state, item_count * item_width)
+	return _reserve_bytes(
+		state,
+		item_count * item_width
+	)
 
 
 ## 识别支持隔离复制的内置 PackedArray Variant 类型。
 ## [br]
 ## @api private
 static func _is_packed_array_type(value_type: int) -> bool:
-	return value_type in [
-		TYPE_PACKED_BYTE_ARRAY,
-		TYPE_PACKED_INT32_ARRAY,
-		TYPE_PACKED_INT64_ARRAY,
-		TYPE_PACKED_FLOAT32_ARRAY,
-		TYPE_PACKED_FLOAT64_ARRAY,
-		TYPE_PACKED_STRING_ARRAY,
-		TYPE_PACKED_VECTOR2_ARRAY,
-		TYPE_PACKED_VECTOR3_ARRAY,
-		TYPE_PACKED_COLOR_ARRAY,
-		TYPE_PACKED_VECTOR4_ARRAY,
-	]
+	return (
+		value_type
+		in [
+			TYPE_PACKED_BYTE_ARRAY,
+			TYPE_PACKED_INT32_ARRAY,
+			TYPE_PACKED_INT64_ARRAY,
+			TYPE_PACKED_FLOAT32_ARRAY,
+			TYPE_PACKED_FLOAT64_ARRAY,
+			TYPE_PACKED_STRING_ARRAY,
+			TYPE_PACKED_VECTOR2_ARRAY,
+			TYPE_PACKED_VECTOR3_ARRAY,
+			TYPE_PACKED_COLOR_ARRAY,
+			TYPE_PACKED_VECTOR4_ARRAY,
+		]
+	)
 
 
 ## 将非负字节数加入累计值，并检查 UTF-8 字节预算是否超限。
 ## [br]
 ## @api private
 static func _reserve_bytes(state: Dictionary, byte_count: int) -> bool:
-	var next_count: int = (
-		GFVariantData.get_option_int(state, "utf8_byte_count")
-		+ maxi(byte_count, 0)
-	)
+	var next_count: int = GFVariantData.get_option_int(state, "utf8_byte_count") + maxi(byte_count, 0)
 	state["utf8_byte_count"] = next_count
 	return next_count <= _MAX_SNAPSHOT_UTF8_BYTES
 
@@ -773,10 +883,7 @@ static func _reserve_bytes(state: Dictionary, byte_count: int) -> bool:
 ## [br]
 ## @api private
 static func _push_active_reference(state: Dictionary, value: Variant) -> bool:
-	var active_references_value: Variant = GFVariantData.get_option_value(
-		state,
-		"active_references"
-	)
+	var active_references_value: Variant = GFVariantData.get_option_value(state, "active_references")
 	var active_references: Array = []
 	if active_references_value is Array:
 		active_references = active_references_value
@@ -792,10 +899,7 @@ static func _push_active_reference(state: Dictionary, value: Variant) -> bool:
 ## [br]
 ## @api private
 static func _pop_active_reference(state: Dictionary) -> void:
-	var active_references_value: Variant = GFVariantData.get_option_value(
-		state,
-		"active_references"
-	)
+	var active_references_value: Variant = GFVariantData.get_option_value(state, "active_references")
 	var active_references: Array = []
 	if active_references_value is Array:
 		active_references = active_references_value

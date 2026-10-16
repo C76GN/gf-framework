@@ -19,10 +19,12 @@ func get_save_key() -> StringName:
 
 
 func to_dict() -> Dictionary:
-	return {
-		"volume": volume,
-	}
+	return { "volume": volume, }
 
 
 func from_dict(data: Dictionary) -> void:
-	volume = _GF_VARIANT_ACCESS_SCRIPT.get_option_float(data, "volume", 1.0)
+	volume = _GF_VARIANT_ACCESS_SCRIPT.get_option_float(
+		data,
+		"volume",
+		1.0
+	)

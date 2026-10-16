@@ -4,9 +4,7 @@ extends Logger
 
 # --- 常量 ---
 
-const GF_GUT_LIFECYCLE_STATE_SCRIPT = preload(
-	"res://tests/gf_core/support/gf_gut_lifecycle_state.gd"
-)
+const GF_GUT_LIFECYCLE_STATE_SCRIPT = preload("res://tests/gf_core/support/gf_gut_lifecycle_state.gd")
 
 
 # --- Godot 回调方法 ---
@@ -23,4 +21,8 @@ func _log_error(
 ) -> void:
 	if source_function != "push_warning":
 		return
-	GF_GUT_LIFECYCLE_STATE_SCRIPT.record_raw_warning(code, file, line)
+	GF_GUT_LIFECYCLE_STATE_SCRIPT.record_raw_warning(
+		code,
+		file,
+		line
+	)

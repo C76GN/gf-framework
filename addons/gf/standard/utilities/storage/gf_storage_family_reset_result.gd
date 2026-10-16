@@ -40,6 +40,7 @@ enum FailureKind {
 	IO_FAILED,
 }
 
+
 ## reset 前精确目标的稳定分类。
 ## [br]
 ## @api public
@@ -55,6 +56,7 @@ enum SourceKind {
 	## catalog、owner、事务身份或 family 结构发生冲突。
 	STRUCTURAL_IDENTITY,
 }
+
 
 ## 失败发生的稳定 reset 阶段。
 ## [br]
@@ -73,6 +75,7 @@ enum Phase {
 	## 清理已退休的私有 evidence。
 	CLEANUP,
 }
+
 
 ## reset 结果可报告的路径无关成员分类。
 ## [br]
@@ -361,15 +364,18 @@ func configure_for_framework(
 	remaining_evidence_count: int,
 	failed_member: FamilyMember
 ) -> bool:
-	if _configured or not _is_valid_configuration(
-		error_code,
-		failure_kind,
-		source_kind,
-		failed_phase,
-		retired_member_count,
-		recreated_member_count,
-		remaining_evidence_count,
-		failed_member
+	if (
+		_configured
+		or not _is_valid_configuration(
+			error_code,
+			failure_kind,
+			source_kind,
+			failed_phase,
+			retired_member_count,
+			recreated_member_count,
+			remaining_evidence_count,
+			failed_member
+		)
 	):
 		return false
 	_configured = true

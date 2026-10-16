@@ -44,7 +44,11 @@ func after_each() -> void:
 # --- 测试：结果与离树语义 ---
 
 func test_prewarm_creates_requested_detached_instances_without_lifecycle_hooks() -> void:
-	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(_scene, 3, 2)
+	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(
+		_scene,
+		3,
+		2
+	)
 
 	_assert_prewarm_result(
 		result,
@@ -53,30 +57,54 @@ func test_prewarm_creates_requested_detached_instances_without_lifecycle_hooks()
 		3,
 		3
 	)
-	assert_eq(_pool.get_available_count(_scene), 3)
-	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		3
+	)
+	assert_eq(
+		_pool.get_active_count(_scene),
+		0
+	)
 	assert_eq(PrewarmLifecycleNode.instantiation_count, 3)
-	assert_eq(PrewarmLifecycleNode.prepare_count, 0, "prewarm 不得执行 prepare。")
-	assert_eq(PrewarmLifecycleNode.enter_count, 0, "prewarm 不得临时挂树。")
-	assert_eq(PrewarmLifecycleNode.ready_count, 0, "prewarm 不得触发 ready。")
+	assert_eq(
+		PrewarmLifecycleNode.prepare_count,
+		0,
+		"prewarm 不得执行 prepare。"
+	)
+	assert_eq(
+		PrewarmLifecycleNode.enter_count,
+		0,
+		"prewarm 不得临时挂树。"
+	)
+	assert_eq(
+		PrewarmLifecycleNode.ready_count,
+		0,
+		"prewarm 不得触发 ready。"
+	)
 
 
 func test_first_acquire_after_prewarm_runs_prepare_and_tree_lifecycle() -> void:
 	var prewarm_result: GFObjectPoolPrewarmResult = await _pool.prewarm(_scene, 1)
 	assert_true(prewarm_result.is_successful())
 
-	var acquire_result: GFObjectPoolAcquireResult = await _pool.acquire(
-		_scene,
-		_parent,
-		self,
-		{ "value": 42 }
+	var acquire_result: GFObjectPoolAcquireResult = await (
+		_pool.acquire(
+			_scene,
+			_parent,
+			self,
+			{ "value": 42 }
+		)
 	)
 	var lease: GFObjectPoolLease = acquire_result.get_lease()
 	var node: Node = lease.get_node()
 
 	assert_true(acquire_result.is_successful())
 	assert_true(node is PrewarmLifecycleNode)
-	assert_eq(PrewarmLifecycleNode.instantiation_count, 1, "借用必须消费已预热实例。")
+	assert_eq(
+		PrewarmLifecycleNode.instantiation_count,
+		1,
+		"借用必须消费已预热实例。"
+	)
 	assert_eq(PrewarmLifecycleNode.prepare_count, 1)
 	assert_eq(PrewarmLifecycleNode.enter_count, 1)
 	assert_eq(PrewarmLifecycleNode.ready_count, 1)
@@ -95,24 +123,28 @@ func test_zero_count_is_successful_no_op() -> void:
 		0,
 		0
 	)
-	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		0
+	)
 	assert_eq(PrewarmLifecycleNode.instantiation_count, 0)
 
 
 func test_invalid_scene_count_and_batch_size_have_distinct_reasons() -> void:
 	var null_scene_result: GFObjectPoolPrewarmResult = await _pool.prewarm(null, 1)
-	var empty_scene_result: GFObjectPoolPrewarmResult = await _pool.prewarm(
-		PackedScene.new(),
-		1
+	var empty_scene_result: GFObjectPoolPrewarmResult = await (
+		_pool.prewarm(
+			PackedScene.new(),
+			1
+		)
 	)
-	var invalid_count_result: GFObjectPoolPrewarmResult = await _pool.prewarm(
-		_scene,
-		-1
-	)
-	var invalid_batch_result: GFObjectPoolPrewarmResult = await _pool.prewarm(
-		_scene,
-		1,
-		0
+	var invalid_count_result: GFObjectPoolPrewarmResult = await (_pool.prewarm(_scene, -1))
+	var invalid_batch_result: GFObjectPoolPrewarmResult = await (
+		_pool.prewarm(
+			_scene,
+			1,
+			0
+		)
 	)
 
 	_assert_prewarm_result(
@@ -154,13 +186,23 @@ func test_zero_capacity_limit_means_unlimited() -> void:
 
 	assert_true(first_result.is_successful())
 	assert_true(second_result.is_successful())
-	assert_eq(first_result.get_created_count() + second_result.get_created_count(), 5)
-	assert_eq(_pool.get_available_count(_scene), 5)
+	assert_eq(
+		first_result.get_created_count() + second_result.get_created_count(),
+		5
+	)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		5
+	)
 
 
 func test_positive_capacity_returns_partial_result_at_limit() -> void:
 	_pool.max_available_per_scene = 2
-	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(_scene, 5, 3)
+	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(
+		_scene,
+		5,
+		3
+	)
 
 	_assert_prewarm_result(
 		result,
@@ -169,7 +211,10 @@ func test_positive_capacity_returns_partial_result_at_limit() -> void:
 		5,
 		2
 	)
-	assert_eq(_pool.get_available_count(_scene), 2)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		2
+	)
 	assert_eq(PrewarmLifecycleNode.instantiation_count, 2)
 
 
@@ -192,7 +237,10 @@ func test_existing_available_instances_count_toward_capacity() -> void:
 		3,
 		1
 	)
-	assert_eq(_pool.get_available_count(_scene), 3)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		3
+	)
 
 
 func test_minus_one_capacity_disables_caching() -> void:
@@ -206,7 +254,10 @@ func test_minus_one_capacity_disables_caching() -> void:
 		1,
 		0
 	)
-	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		0
+	)
 	assert_eq(PrewarmLifecycleNode.instantiation_count, 0)
 
 
@@ -214,32 +265,52 @@ func test_concurrent_requests_share_the_same_capacity_limit() -> void:
 	_pool.max_available_per_scene = 3
 	var first_state: Dictionary = {}
 	var second_state: Dictionary = {}
-	_start_prewarm.call_deferred(_pool, _scene, 2, 1, null, first_state)
-	_start_prewarm.call_deferred(_pool, _scene, 2, 1, null, second_state)
-
-	var first_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(
+	_start_prewarm.call_deferred(
+		_pool,
+		_scene,
+		2,
+		1,
+		null,
 		first_state
 	)
-	var second_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(
+	_start_prewarm.call_deferred(
+		_pool,
+		_scene,
+		2,
+		1,
+		null,
 		second_state
 	)
-	var statuses: Array[int] = [
-		first_result.get_status(),
-		second_result.get_status(),
-	]
 
-	assert_eq(first_result.get_created_count() + second_result.get_created_count(), 3)
+	var first_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(first_state)
+	var second_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(second_state)
+	var statuses: Array[int] = [first_result.get_status(), second_result.get_status(),]
+
+	assert_eq(
+		first_result.get_created_count() + second_result.get_created_count(),
+		3
+	)
 	assert_true(statuses.has(GFObjectPoolPrewarmResult.Status.PARTIAL))
-	assert_eq(_pool.get_available_count(_scene), 3)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		3
+	)
 
 
 # --- 测试：分帧、取消与 dispose ---
 
 func test_batch_size_one_yields_between_instantiations() -> void:
-	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(_scene, 4, 1)
+	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(
+		_scene,
+		4,
+		1
+	)
 
 	assert_true(result.is_successful())
-	assert_eq(PrewarmLifecycleNode.instantiation_frames.size(), 4)
+	assert_eq(
+		PrewarmLifecycleNode.instantiation_frames.size(),
+		4
+	)
 	if PrewarmLifecycleNode.instantiation_frames.size() != 4:
 		return
 	assert_gt(
@@ -250,10 +321,12 @@ func test_batch_size_one_yields_between_instantiations() -> void:
 
 
 func test_prewarm_continuations_do_not_overtake_accepted_release_and_acquire() -> void:
-	var initial_result: GFObjectPoolAcquireResult = await _pool.acquire(
-		_scene,
-		_parent,
-		self
+	var initial_result: GFObjectPoolAcquireResult = await (
+		_pool.acquire(
+			_scene,
+			_parent,
+			self
+		)
 	)
 	assert_true(initial_result.is_successful())
 	var initial_lease: GFObjectPoolLease = initial_result.get_lease()
@@ -269,34 +342,61 @@ func test_prewarm_continuations_do_not_overtake_accepted_release_and_acquire() -
 	for _request_index: int in range(64):
 		var state: Dictionary = {}
 		long_states.append(state)
-		_start_prewarm.call_deferred(_pool, _scene, 4, 1, source.get_token(), state)
+		_start_prewarm.call_deferred(
+			_pool,
+			_scene,
+			4,
+			1,
+			source.get_token(),
+			state
+		)
 	var release_state: Dictionary = {}
 	var acquire_state: Dictionary = {}
 	var witness_state: Dictionary = {}
 	var witness_scene: PackedScene = _pack_node(Node.new())
 	_start_fairness_release.call_deferred(initial_lease, release_state)
 	_start_fairness_acquire.call_deferred(acquire_state)
-	_start_prewarm.call_deferred(_pool, witness_scene, 1, 1, null, witness_state)
-
-	var witness_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(
+	_start_prewarm.call_deferred(
+		_pool,
+		witness_scene,
+		1,
+		1,
+		null,
 		witness_state
 	)
+
+	var witness_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(witness_state)
 	assert_not_null(witness_result)
 	if witness_result != null:
 		assert_true(witness_result.is_successful())
 	assert_true(GFVariantData.get_option_bool(release_state, "accepted"))
-	assert_signal_emit_count(initial_lease, "settled", 1)
+	assert_signal_emit_count(
+		initial_lease,
+		"settled",
+		1
+	)
 	assert_lte(
-		GFVariantData.get_option_int(witness_state, "instantiation_count", -1),
+		GFVariantData.get_option_int(
+			witness_state,
+			"instantiation_count",
+			-1
+		),
 		128,
 		"已接纳的 release/acquire 及短见证必须先于长预热的第二轮续任务。"
 	)
-	assert_eq(GFVariantData.get_option_int(witness_state, "completion_count"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(witness_state, "completion_count"),
+		1
+	)
 	var completed_long_requests: int = 0
 	for state: Dictionary in long_states:
 		if state.has("result"):
 			completed_long_requests += 1
-	assert_eq(completed_long_requests, 0, "短见证不应等待任何四批预热全部完成。")
+	assert_eq(
+		completed_long_requests,
+		0,
+		"短见证不应等待任何四批预热全部完成。"
+	)
 
 	var next_lease: GFObjectPoolLease = null
 	var raw_acquire_result: Variant = acquire_state.get("result")
@@ -306,30 +406,51 @@ func test_prewarm_continuations_do_not_overtake_accepted_release_and_acquire() -
 		assert_true(acquire_result.is_successful())
 		next_lease = acquire_result.get_lease()
 		assert_not_null(next_lease)
-	assert_eq(GFVariantData.get_option_int(acquire_state, "completion_count"), 1)
+	assert_eq(
+		GFVariantData.get_option_int(acquire_state, "completion_count"),
+		1
+	)
 
 	assert_true(source.cancel(&"fairness_observed"))
 	for state: Dictionary in long_states:
 		var result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(state)
 		assert_not_null(result)
 		if result != null:
-			assert_true(result.get_status() in [
-				GFObjectPoolPrewarmResult.Status.CANCELLED,
-				GFObjectPoolPrewarmResult.Status.SUCCEEDED,
-			])
-		assert_eq(GFVariantData.get_option_int(state, "completion_count"), 1)
+			assert_true(result.get_status() in [GFObjectPoolPrewarmResult.Status.CANCELLED, GFObjectPoolPrewarmResult.Status.SUCCEEDED,])
+		assert_eq(
+			GFVariantData.get_option_int(state, "completion_count"),
+			1
+		)
 	source.dispose()
 	if next_lease != null:
 		watch_signals(next_lease)
 		assert_true(next_lease.release())
-		assert_eq(await next_lease.wait_settled(), &"released")
-		assert_signal_emit_count(next_lease, "settled", 1)
+		assert_eq(
+			await next_lease.wait_settled(),
+			&"released"
+		)
+		assert_signal_emit_count(
+			next_lease,
+			"settled",
+			1
+		)
 	_pool.dispose()
 	await _pool.wait_disposed()
-	assert_signal_emit_count(initial_lease, "settled", 1)
+	assert_signal_emit_count(
+		initial_lease,
+		"settled",
+		1
+	)
 	if next_lease != null:
-		assert_signal_emit_count(next_lease, "settled", 1)
-	assert_eq(_parent.get_child_count(), 0)
+		assert_signal_emit_count(
+			next_lease,
+			"settled",
+			1
+		)
+	assert_eq(
+		_parent.get_child_count(),
+		0
+	)
 	assert_true(_pool.get_debug_snapshot().is_empty())
 
 
@@ -337,11 +458,13 @@ func test_already_cancelled_token_creates_nothing() -> void:
 	var source: GFCancellationSource = GFCancellationSource.new()
 	assert_true(source.cancel(&"test_cancel"))
 
-	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(
-		_scene,
-		3,
-		2,
-		source.get_token()
+	var result: GFObjectPoolPrewarmResult = await (
+		_pool.prewarm(
+			_scene,
+			3,
+			2,
+			source.get_token()
+		)
 	)
 
 	_assert_prewarm_result(
@@ -351,7 +474,10 @@ func test_already_cancelled_token_creates_nothing() -> void:
 		3,
 		0
 	)
-	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		0
+	)
 	assert_eq(PrewarmLifecycleNode.instantiation_count, 0)
 	source.dispose()
 
@@ -362,11 +488,13 @@ func test_cancellation_mid_batch_keeps_committed_instances_without_leak() -> voi
 	CancellingPrewarmNode.instantiation_count = 0
 	CancellingPrewarmNode.cancel_source = source
 
-	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(
-		cancelling_scene,
-		4,
-		4,
-		source.get_token()
+	var result: GFObjectPoolPrewarmResult = await (
+		_pool.prewarm(
+			cancelling_scene,
+			4,
+			4,
+			source.get_token()
+		)
 	)
 
 	_assert_prewarm_result(
@@ -376,11 +504,29 @@ func test_cancellation_mid_batch_keeps_committed_instances_without_leak() -> voi
 		4,
 		1
 	)
-	assert_eq(_pool.get_available_count(cancelling_scene), 1)
-	assert_eq(_pool.get_active_count(cancelling_scene), 0)
-	assert_eq(_debug_total(_pool.get_debug_snapshot(), cancelling_scene), 1)
+	assert_eq(
+		_pool.get_available_count(cancelling_scene),
+		1
+	)
+	assert_eq(
+		_pool.get_active_count(cancelling_scene),
+		0
+	)
+	assert_eq(
+		_debug_total(
+			_pool.get_debug_snapshot(),
+			cancelling_scene
+		),
+		1
+	)
 	await get_tree().process_frame
-	assert_eq(_debug_total(_pool.get_debug_snapshot(), cancelling_scene), 1)
+	assert_eq(
+		_debug_total(
+			_pool.get_debug_snapshot(),
+			cancelling_scene
+		),
+		1
+	)
 	source.dispose()
 
 
@@ -389,10 +535,12 @@ func test_dispose_mid_batch_cancels_request_and_retires_committed_instances() ->
 	DisposingPrewarmNode.instantiation_count = 0
 	DisposingPrewarmNode.pool = _pool
 
-	var result: GFObjectPoolPrewarmResult = await _pool.prewarm(
-		disposing_scene,
-		4,
-		4
+	var result: GFObjectPoolPrewarmResult = await (
+		_pool.prewarm(
+			disposing_scene,
+			4,
+			4
+		)
 	)
 
 	_assert_prewarm_result(
@@ -403,28 +551,64 @@ func test_dispose_mid_batch_cancels_request_and_retires_committed_instances() ->
 		1
 	)
 	await _pool.wait_disposed()
-	assert_eq(_pool.get_available_count(disposing_scene), 0)
-	assert_eq(_pool.get_active_count(disposing_scene), 0)
+	assert_eq(
+		_pool.get_available_count(disposing_scene),
+		0
+	)
+	assert_eq(
+		_pool.get_active_count(disposing_scene),
+		0
+	)
 	assert_true(_pool.get_debug_snapshot().is_empty())
 	await get_tree().process_frame
 
 
 func test_dispose_cancels_request_waiting_for_next_batch() -> void:
 	var state: Dictionary = {}
-	_start_prewarm.call_deferred(_pool, _scene, 4, 1, null, state)
+	_start_prewarm.call_deferred(
+		_pool,
+		_scene,
+		4,
+		1,
+		null,
+		state
+	)
 	await get_tree().process_frame
-	assert_gt(_pool.get_available_count(_scene), 0, "首批必须先提交至少一个实例。")
-	assert_lt(_pool.get_available_count(_scene), 4, "请求必须仍有后续批次。")
+	assert_gt(
+		_pool.get_available_count(_scene),
+		0,
+		"首批必须先提交至少一个实例。"
+	)
+	assert_lt(
+		_pool.get_available_count(_scene),
+		4,
+		"请求必须仍有后续批次。"
+	)
 
 	_pool.dispose()
 	var result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(state)
 	await _pool.wait_disposed()
 
-	assert_eq(result.get_status(), GFObjectPoolPrewarmResult.Status.CANCELLED)
-	assert_eq(result.get_reason(), &"pool_disposed")
-	assert_gt(result.get_created_count(), 0)
-	assert_lt(result.get_created_count(), result.get_requested_count())
-	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(
+		result.get_status(),
+		GFObjectPoolPrewarmResult.Status.CANCELLED
+	)
+	assert_eq(
+		result.get_reason(),
+		&"pool_disposed"
+	)
+	assert_gt(
+		result.get_created_count(),
+		0
+	)
+	assert_lt(
+		result.get_created_count(),
+		result.get_requested_count()
+	)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		0
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -449,7 +633,11 @@ func _pack_node(root: Node) -> PackedScene:
 	var packed_scene: PackedScene = PackedScene.new()
 	var pack_error: Error = packed_scene.pack(root)
 	root.free()
-	assert_eq(pack_error, OK, "测试 PackedScene 必须成功打包。")
+	assert_eq(
+		pack_error,
+		OK,
+		"测试 PackedScene 必须成功打包。"
+	)
 	return packed_scene
 
 
@@ -463,13 +651,34 @@ func _assert_prewarm_result(
 	assert_not_null(result)
 	if result == null:
 		return
-	assert_eq(result.get_status(), status)
-	assert_eq(result.get_reason(), reason)
-	assert_eq(result.get_requested_count(), requested_count)
-	assert_eq(result.get_created_count(), created_count)
-	assert_eq(result.is_successful(), status == GFObjectPoolPrewarmResult.Status.SUCCEEDED)
-	assert_gte(result.get_created_count(), 0)
-	assert_lte(result.get_created_count(), result.get_requested_count())
+	assert_eq(
+		result.get_status(),
+		status
+	)
+	assert_eq(
+		result.get_reason(),
+		reason
+	)
+	assert_eq(
+		result.get_requested_count(),
+		requested_count
+	)
+	assert_eq(
+		result.get_created_count(),
+		created_count
+	)
+	assert_eq(
+		result.is_successful(),
+		status == GFObjectPoolPrewarmResult.Status.SUCCEEDED
+	)
+	assert_gte(
+		result.get_created_count(),
+		0
+	)
+	assert_lte(
+		result.get_created_count(),
+		result.get_requested_count()
+	)
 
 
 func _start_prewarm(
@@ -480,7 +689,12 @@ func _start_prewarm(
 	token: GFCancellationToken,
 	state: Dictionary
 ) -> void:
-	state["result"] = await pool.prewarm(packed_scene, count, batch_size, token)
+	state["result"] = await pool.prewarm(
+		packed_scene,
+		count,
+		batch_size,
+		token
+	)
 	state["instantiation_count"] = PrewarmLifecycleNode.instantiation_count
 	state["completion_count"] = GFVariantData.get_option_int(state, "completion_count") + 1
 
@@ -490,14 +704,15 @@ func _start_fairness_release(lease: GFObjectPoolLease, state: Dictionary) -> voi
 
 
 func _start_fairness_acquire(state: Dictionary) -> void:
-	state["result"] = await _pool.acquire(_scene, _parent, self)
+	state["result"] = await _pool.acquire(
+		_scene,
+		_parent,
+		self
+	)
 	state["completion_count"] = GFVariantData.get_option_int(state, "completion_count") + 1
 
 
-func _wait_for_prewarm_result(
-	state: Dictionary,
-	max_frames: int = 16
-) -> GFObjectPoolPrewarmResult:
+func _wait_for_prewarm_result(state: Dictionary, max_frames: int = 16) -> GFObjectPoolPrewarmResult:
 	for _frame_index: int in range(max_frames):
 		var raw_result: Variant = state.get("result")
 		if raw_result is GFObjectPoolPrewarmResult:
@@ -530,16 +745,20 @@ class PrewarmLifecycleNode extends Node:
 		instantiation_count += 1
 		instantiation_frames.append(Engine.get_process_frames())
 
+
 	func _enter_tree() -> void:
 		enter_count += 1
 
+
 	func _ready() -> void:
 		ready_count += 1
+
 
 	func on_gf_pool_prepare(context: Dictionary) -> Error:
 		prepare_count += 1
 		prepared_value = GFVariantData.get_option_int(context, "value")
 		return OK
+
 
 	static func reset_observations() -> void:
 		instantiation_count = 0

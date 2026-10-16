@@ -35,7 +35,11 @@ var _menu: PopupMenu
 ## @param menu_entries: 菜单项记录列表。
 ## [br]
 ## @schema menu_entries: Array of Dictionary entries with label, id, and optional section.
-func setup(plugin: EditorPlugin, handler: Callable, menu_entries: Array = []) -> void:
+func setup(
+	plugin: EditorPlugin,
+	handler: Callable,
+	menu_entries: Array = []
+) -> void:
 	if plugin == null:
 		return
 	cleanup(plugin)
@@ -73,7 +77,11 @@ func _populate_menu(menu_entries: Array) -> void:
 			continue
 		var entry: Dictionary = entry_variant
 		var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(entry, "label").strip_edges()
-		var id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry, "id", -1)
+		var id: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			entry,
+			"id",
+			-1
+		)
 		if label.is_empty() or id < 0:
 			continue
 

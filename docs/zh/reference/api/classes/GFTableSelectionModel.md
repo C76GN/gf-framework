@@ -24,7 +24,7 @@
 | 方法 | [`toggle_selected`](#member-gftableselectionmodel-methods-toggle_selected) | `func toggle_selected(row_id: Variant) -> bool:` |
 | 方法 | [`select_single`](#member-gftableselectionmodel-methods-select_single) | `func select_single(row_id: Variant) -> bool:` |
 | 方法 | [`replace_selection`](#member-gftableselectionmodel-methods-replace_selection) | `func replace_selection(row_ids: Array) -> bool:` |
-| 方法 | [`replace_selection_with_anchor`](#member-gftableselectionmodel-methods-replace_selection_with_anchor) | `func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -> bool:` |
+| 方法 | [`replace_selection_with_anchor`](#member-gftableselectionmodel-methods-replace_selection_with_anchor) | `func replace_selection_with_anchor(row_ids: Array, selection_anchor: Variant) -> bool:` |
 | 方法 | [`select_range`](#member-gftableselectionmodel-methods-select_range) | `func select_range( ordered_row_ids: Array, from_row_id: Variant, to_row_id: Variant, additive: bool = false ) -> bool:` |
 | 方法 | [`prune_to_row_ids`](#member-gftableselectionmodel-methods-prune_to_row_ids) | `func prune_to_row_ids(row_ids: Array) -> bool:` |
 | 方法 | [`is_selected`](#member-gftableselectionmodel-methods-is_selected) | `func is_selected(row_id: Variant) -> bool:` |
@@ -236,7 +236,7 @@ func replace_selection(row_ids: Array) -> bool:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -> bool:
+func replace_selection_with_anchor(row_ids: Array, selection_anchor: Variant) -> bool:
 ```
 
 用一组行 ID 与显式锚点原子替换当前选择。 选择集合和锚点会在发出 selection_changed 前同时完成更新；锚点不在最终选择中时归一为空。

@@ -84,7 +84,11 @@ func collect_scripts_extending(base_script: Script, excluded_scripts: Array[Scri
 	for global_class: Dictionary in ProjectSettings.get_global_class_list():
 		var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "class")
 		var path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(global_class, "path")
-		if class_name_value.is_empty() or path.is_empty() or used_paths.has(path):
+		if (
+			class_name_value.is_empty()
+			or path.is_empty()
+			or used_paths.has(path)
+		):
 			continue
 
 		var script: Script = _load_script(path)
@@ -94,17 +98,17 @@ func collect_scripts_extending(base_script: Script, excluded_scripts: Array[Scri
 			continue
 
 		used_paths[path] = true
-		records.append({
-			"class_name": class_name_value,
-			"path": path,
-			"script": script,
-		})
-
-	records.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(left, "class_name")
-			< _GF_VARIANT_ACCESS_SCRIPT.get_option_string(right, "class_name")
+		records.append(
+			{
+				"class_name": class_name_value,
+				"path": path,
+				"script": script,
+			}
 		)
+
+	records.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(left, "class_name") < _GF_VARIANT_ACCESS_SCRIPT.get_option_string(right, "class_name"))
 	)
 	return records
 
@@ -146,32 +150,54 @@ func collect_scene_roots_extending(
 	if root_dir == null:
 		return records
 
-	var max_scan_depth: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scan_depth", DEFAULT_MAX_SCAN_DEPTH), 0)
-	var max_scanned_scenes: int = maxi(_GF_VARIANT_ACCESS_SCRIPT.get_option_int(options, "max_scanned_scenes", DEFAULT_MAX_SCANNED_SCENES), 0)
+	var max_scan_depth: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scan_depth",
+			DEFAULT_MAX_SCAN_DEPTH
+		),
+		0
+	)
+	var max_scanned_scenes: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			options,
+			"max_scanned_scenes",
+			DEFAULT_MAX_SCANNED_SCENES
+		),
+		0
+	)
 	var scan_state: Dictionary = _make_scene_scan_state()
-	var dir_stack: Array[Dictionary] = [{
-		"directory": root_dir,
-		"depth": 0,
-	}]
+	var dir_stack: Array[Dictionary] = [
+		{ "directory": root_dir, "depth": 0, },
+	]
 	while not dir_stack.is_empty():
 		var stack_entry: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(dir_stack.pop_back())
 		var current_dir: EditorFileSystemDirectory = _variant_to_editor_directory(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(stack_entry, "directory"))
-		var current_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(stack_entry, "depth", 0)
+		var current_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			stack_entry,
+			"depth",
+			0
+		)
 		if current_dir == null:
 			continue
 
 		for i: int in range(current_dir.get_subdir_count()):
 			var subdir: EditorFileSystemDirectory = current_dir.get_subdir(i)
-			if _can_scan_deeper(subdir.get_path(), current_depth, max_scan_depth, scan_state):
-				dir_stack.append({
-					"directory": subdir,
-					"depth": current_depth + 1,
-				})
+			if _can_scan_deeper(
+				subdir.get_path(),
+				current_depth,
+				max_scan_depth,
+				scan_state
+			):
+				dir_stack.append({ "directory": subdir, "depth": current_depth + 1, })
 
 		for i: int in range(current_dir.get_file_count()):
 			if current_dir.get_file_type(i) != "PackedScene":
 				continue
-			var path: String = _join_resource_path(current_dir.get_path(), current_dir.get_file(i))
+			var path: String = _join_resource_path(
+				current_dir.get_path(),
+				current_dir.get_file(i)
+			)
 			if used_paths.has(path):
 				continue
 			if not _path_matches_roots(path, root_paths):
@@ -179,24 +205,31 @@ func collect_scene_roots_extending(
 			if not _can_scan_more_scene_files(scan_state, max_scanned_scenes):
 				_warn_scene_file_limit(max_scanned_scenes, scan_state)
 				break
-			scan_state["scanned_scene_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_scene_count", 0) + 1
+			scan_state["scanned_scene_count"] = (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					scan_state,
+					"scanned_scene_count",
+					0
+				)
+				+ 1
+			)
 
 			var script: Script = get_scene_root_script(path)
 			if script == null or not _SCRIPT_TYPE_INSPECTOR.script_extends_or_equals(script, base_script):
 				continue
 
 			used_paths[path] = true
-			records.append({
-				"path": path,
-				"script": script,
-				"display_name": path.get_file().get_basename().to_pascal_case(),
-			})
+			records.append(
+				{
+					"path": path,
+					"script": script,
+					"display_name": path.get_file().get_basename().to_pascal_case(),
+				}
+			)
 
-	records.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		return (
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(left, "display_name")
-			< _GF_VARIANT_ACCESS_SCRIPT.get_option_string(right, "display_name")
-		)
+	records.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return (_GF_VARIANT_ACCESS_SCRIPT.get_option_string(left, "display_name") < _GF_VARIANT_ACCESS_SCRIPT.get_option_string(right, "display_name"))
 	)
 	return records
 
@@ -271,10 +304,30 @@ func enable_live_invalidation(owner: Object) -> bool:
 
 	disable_live_invalidation()
 	_live_invalidation_owner_ref = weakref(owner)
-	_connect_editor_filesystem_signal(filesystem, owner, &"filesystem_changed", Callable(self, "_on_editor_filesystem_changed"))
-	_connect_editor_filesystem_signal(filesystem, owner, &"resources_reimported", Callable(self, "_on_editor_filesystem_resources_changed"))
-	_connect_editor_filesystem_signal(filesystem, owner, &"resources_reload", Callable(self, "_on_editor_filesystem_resources_changed"))
-	_connect_editor_filesystem_signal(filesystem, owner, &"script_classes_updated", Callable(self, "_on_editor_filesystem_changed"))
+	_connect_editor_filesystem_signal(
+		filesystem,
+		owner,
+		&"filesystem_changed",
+		Callable(self, "_on_editor_filesystem_changed")
+	)
+	_connect_editor_filesystem_signal(
+		filesystem,
+		owner,
+		&"resources_reimported",
+		Callable(self, "_on_editor_filesystem_resources_changed")
+	)
+	_connect_editor_filesystem_signal(
+		filesystem,
+		owner,
+		&"resources_reload",
+		Callable(self, "_on_editor_filesystem_resources_changed")
+	)
+	_connect_editor_filesystem_signal(
+		filesystem,
+		owner,
+		&"script_classes_updated",
+		Callable(self, "_on_editor_filesystem_changed")
+	)
 	if _live_invalidation_tokens.is_empty():
 		_live_invalidation_owner_ref = null
 		return false
@@ -334,7 +387,7 @@ func _load_script(path: String) -> Script:
 	return script
 
 
-## 读取指定缓存的有效 Script；修改时间过期时删除条目，旧格式值会删除后返回转换结果。
+## 读取指定缓存的有效 Script；修改时间过期或条目格式无效时删除条目。
 ## [br]
 ## @api private
 func _get_cached_script(path: String, cache: Dictionary) -> Script:
@@ -343,13 +396,19 @@ func _get_cached_script(path: String, cache: Dictionary) -> Script:
 	var entry: Variant = cache[path]
 	if entry is Dictionary:
 		var entry_data: Dictionary = entry
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry_data, "modified_time", -1) != _get_resource_modified_time(path):
+		if (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				entry_data,
+				"modified_time",
+				-1
+			)
+			!= _get_resource_modified_time(path)
+		):
 			var _removed_stale: bool = cache.erase(path)
 			return null
 		return _variant_to_script(_GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry_data, "script"))
-	var legacy_script: Script = _variant_to_script(entry)
-	var _removed_legacy: bool = cache.erase(path)
-	return legacy_script
+	var _removed_invalid: bool = cache.erase(path)
+	return null
 
 
 ## 判断缓存是否仍对应当前修改时间且未保存 Script；失效条目会当场删除。
@@ -362,7 +421,11 @@ func _cache_has_current_null(path: String, cache: Dictionary) -> bool:
 	if not (entry is Dictionary):
 		return false
 	var entry_data: Dictionary = entry
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(entry_data, "modified_time", -1) != _get_resource_modified_time(path):
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		entry_data,
+		"modified_time",
+		-1
+	) != _get_resource_modified_time(path):
 		var _removed_stale: bool = cache.erase(path)
 		return false
 	var script_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(entry_data, "script")
@@ -373,10 +436,7 @@ func _cache_has_current_null(path: String, cache: Dictionary) -> bool:
 ## [br]
 ## @api private
 func _make_cache_entry(path: String, script: Script) -> Dictionary:
-	return {
-		"modified_time": _get_resource_modified_time(path),
-		"script": script,
-	}
+	return { "modified_time": _get_resource_modified_time(path), "script": script, }
 
 
 ## 对 res:// 和 user:// 路径先转成本地路径，再读取文件修改时间。
@@ -395,7 +455,10 @@ func _get_resource_modified_time(path: String) -> int:
 func _join_resource_path(dir_path: String, file_name: String) -> String:
 	if dir_path.ends_with("/"):
 		return dir_path + file_name
-	return "%s/%s" % [dir_path, file_name]
+	return (
+		"%s/%s"
+		% [dir_path, file_name]
+	)
 
 
 ## 仅在 EditorFileSystem 存在目标信号时创建 owner 绑定订阅，并保存活动 token。
@@ -426,7 +489,11 @@ func _connect_editor_filesystem_signal(
 ## [br]
 ## @api private
 func _prune_inactive_live_invalidation_tokens() -> void:
-	for i: int in range(_live_invalidation_tokens.size() - 1, -1, -1):
+	for i: int in range(
+		_live_invalidation_tokens.size() - 1,
+		-1,
+		-1
+	):
 		var subscription_token: GFLifetimeSubscription = _live_invalidation_tokens[i]
 		if subscription_token != null and subscription_token.is_active():
 			continue
@@ -470,10 +537,19 @@ func _path_matches_roots(path: String, root_paths: PackedStringArray) -> bool:
 ## 深度上限不大于零时允许继续扫描，否则超限时发出一次告警并拒绝深入。
 ## [br]
 ## @api private
-func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, scan_state: Dictionary) -> bool:
+func _can_scan_deeper(
+	path: String,
+	current_depth: int,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> bool:
 	if max_scan_depth <= 0 or current_depth < max_scan_depth:
 		return true
-	_warn_scan_depth_limit(path, max_scan_depth, scan_state)
+	_warn_scan_depth_limit(
+		path,
+		max_scan_depth,
+		scan_state
+	)
 	return false
 
 
@@ -481,7 +557,14 @@ func _can_scan_deeper(path: String, current_depth: int, max_scan_depth: int, sca
 ## [br]
 ## @api private
 func _can_scan_more_scene_files(scan_state: Dictionary, max_scanned_scenes: int) -> bool:
-	return max_scanned_scenes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_scene_count", 0) < max_scanned_scenes
+	return (
+		max_scanned_scenes <= 0
+		or _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			scan_state,
+			"scanned_scene_count",
+			0
+		) < max_scanned_scenes
+	)
 
 
 ## 创建场景扫描计数及深度、数量告警去重标记。
@@ -499,7 +582,11 @@ func _make_scene_scan_state() -> Dictionary:
 ## [br]
 ## @api private
 func _warn_scene_file_limit(max_scanned_scenes: int, scan_state: Dictionary) -> void:
-	if max_scanned_scenes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "count_warning_emitted", false):
+	if max_scanned_scenes <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		scan_state,
+		"count_warning_emitted",
+		false
+	):
 		return
 	scan_state["count_warning_emitted"] = true
 	push_warning("[GFEditorTypeIndex][editor_type_index.scene_limit_reached] collect_scene_roots_extending reached max_scanned_scenes=%d; subsequent scenes were skipped." % max_scanned_scenes)
@@ -508,11 +595,22 @@ func _warn_scene_file_limit(max_scanned_scenes: int, scan_state: Dictionary) -> 
 ## 达到正数深度上限时至多输出一次告警，并附上首次触发的目录路径。
 ## [br]
 ## @api private
-func _warn_scan_depth_limit(path: String, max_scan_depth: int, scan_state: Dictionary) -> void:
-	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "depth_warning_emitted", false):
+func _warn_scan_depth_limit(
+	path: String,
+	max_scan_depth: int,
+	scan_state: Dictionary
+) -> void:
+	if max_scan_depth <= 0 or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		scan_state,
+		"depth_warning_emitted",
+		false
+	):
 		return
 	scan_state["depth_warning_emitted"] = true
-	push_warning("[GFEditorTypeIndex][editor_type_index.depth_limit_reached] collect_scene_roots_extending reached max_scan_depth=%d; deeper directories were skipped: %s." % [max_scan_depth, path])
+	push_warning(
+		"[GFEditorTypeIndex][editor_type_index.depth_limit_reached] collect_scene_roots_extending reached max_scan_depth=%d; deeper directories were skipped: %s."
+		% [max_scan_depth, path]
+	)
 
 
 ## 仅当 Variant 为 Script 时返回强类型脚本值，否则返回 null。

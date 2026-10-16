@@ -17,7 +17,7 @@
 |---|---|---|
 | 方法 | [`_validate_root`](#member-gfprojectiletransformbodyadapter3d-methods-_validate_root) | `func _validate_root(root: Node) -> Error:` |
 | 方法 | [`_capture_body`](#member-gfprojectiletransformbodyadapter3d-methods-_capture_body) | `func _capture_body(root: Node) -> GFProjectileBodyResult3D:` |
-| 方法 | [`_apply_intent`](#member-gfprojectiletransformbodyadapter3d-methods-_apply_intent) | `func _apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProjectileBodyResult3D:` |
+| 方法 | [`_apply_intent`](#member-gfprojectiletransformbodyadapter3d-methods-_apply_intent) | `func _apply_intent(root: Node, intent: GFProjectileMotionIntent3D) -> GFProjectileBodyResult3D:` |
 | 方法 | [`_stop`](#member-gfprojectiletransformbodyadapter3d-methods-_stop) | `func _stop(root: Node) -> GFProjectileBodyResult3D:` |
 
 ## 方法
@@ -72,7 +72,7 @@ func _capture_body(root: Node) -> GFProjectileBodyResult3D:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func _apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProjectileBodyResult3D:
+func _apply_intent(root: Node, intent: GFProjectileMotionIntent3D) -> GFProjectileBodyResult3D:
 ```
 
 按 MOVE 的速度乘以时长直接写入 Node3D.global_position，不执行碰撞移动。 写入前检查位移与目标位置是否有限；其他有效 intent 种类保持位置不变。 结果工厂若因最终变换或实际位置差非有限而失败，不撤销已经写入的位置。

@@ -25,7 +25,7 @@
 | 方法 | [`format_path`](#member-gfreactivestatestore-methods-format_path) | `static func format_path(path: Variant) -> String:` |
 | 方法 | [`get_state`](#member-gfreactivestatestore-methods-get_state) | `func get_state(copy_value: bool = true) -> Dictionary:` |
 | 方法 | [`set_state`](#member-gfreactivestatestore-methods-set_state) | `func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:` |
-| 方法 | [`get_value`](#member-gfreactivestatestore-methods-get_value) | `func get_value(path: Variant, fallback: Variant = null, copy_value: bool = true) -> Variant:` |
+| 方法 | [`get_value`](#member-gfreactivestatestore-methods-get_value) | `func get_value( path: Variant, fallback: Variant = null, copy_value: bool = true ) -> Variant:` |
 | 方法 | [`has_value`](#member-gfreactivestatestore-methods-has_value) | `func has_value(path: Variant) -> bool:` |
 | 方法 | [`set_value`](#member-gfreactivestatestore-methods-set_value) | `func set_value(path: Variant, value: Variant) -> bool:` |
 | 方法 | [`set_values`](#member-gfreactivestatestore-methods-set_values) | `func set_values(values_by_path: Dictionary) -> int:` |
@@ -35,7 +35,7 @@
 | 方法 | [`is_batching`](#member-gfreactivestatestore-methods-is_batching) | `func is_batching() -> bool:` |
 | 方法 | [`flush`](#member-gfreactivestatestore-methods-flush) | `func flush() -> Array[Dictionary]:` |
 | 方法 | [`get_dirty_changes`](#member-gfreactivestatestore-methods-get_dirty_changes) | `func get_dirty_changes() -> Array[Dictionary]:` |
-| 方法 | [`subscribe`](#member-gfreactivestatestore-methods-subscribe) | `func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -> Callable:` |
+| 方法 | [`subscribe`](#member-gfreactivestatestore-methods-subscribe) | `func subscribe( path: Variant, callback: Callable, options: Dictionary = {} ) -> Callable:` |
 | 方法 | [`unsubscribe`](#member-gfreactivestatestore-methods-unsubscribe) | `func unsubscribe(subscription_id: int) -> bool:` |
 | 方法 | [`clear_subscriptions`](#member-gfreactivestatestore-methods-clear_subscriptions) | `func clear_subscriptions(owner: Object = null) -> void:` |
 | 方法 | [`get_subscription_count`](#member-gfreactivestatestore-methods-get_subscription_count) | `func get_subscription_count() -> int:` |
@@ -269,7 +269,7 @@ func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func get_value(path: Variant, fallback: Variant = null, copy_value: bool = true) -> Variant:
+func get_value( path: Variant, fallback: Variant = null, copy_value: bool = true ) -> Variant:
 ```
 
 读取路径值。
@@ -485,7 +485,7 @@ func get_dirty_changes() -> Array[Dictionary]:
 - 首次版本：`5.0.0`
 
 ```gdscript
-func subscribe(path: Variant, callback: Callable, options: Dictionary = {}) -> Callable:
+func subscribe( path: Variant, callback: Callable, options: Dictionary = {} ) -> Callable:
 ```
 
 订阅指定路径变化。

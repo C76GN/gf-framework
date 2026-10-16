@@ -20,9 +20,7 @@ extends RefCounted
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## 生产者仅落实唯一核心已准入的声明和来源 identity。
 ## [br]
@@ -64,15 +62,13 @@ const _MAX_SNAPSHOT_ISSUES: int = 1_024
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_MAX_SCANNED_FILES: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
+const _DEFAULT_MAX_SCANNED_FILES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES
 
 ## 默认最大扫描目录数，沿用共享库存上限。
 ## [br]
 ## @api private
 ## [br]
-const _DEFAULT_MAX_SCANNED_DIRECTORIES: int = \
-	_ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
+const _DEFAULT_MAX_SCANNED_DIRECTORIES: int = _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES
 
 ## 默认最大扫描深度，沿用共享库存上限。
 ## [br]
@@ -230,36 +226,57 @@ func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
 	if not _read_options(options):
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
-	_inventory_string_bytes = _snapshot_base_string_bytes(
-		root_path,
-		"capturing"
-	)
+	_inventory_string_bytes = _snapshot_base_string_bytes(root_path, "capturing")
 	if _inventory_string_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES:
 		_set_resource_limit_failure()
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	if not _is_canonical_root_path(root_path):
-		_add_issue("invalid_root_path", root_path, "库存根路径必须是规范 res:// 或绝对本地根。")
+		_add_issue(
+			"invalid_root_path",
+			root_path,
+			"库存根路径必须是规范 res:// 或绝对本地根。"
+		)
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	_root_path = root_path
-	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare({}, root_path, options)
+	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(
+		{},
+		root_path,
+		options
+	)
 	if not prepared["success"]:
-		_add_issue("capture_scope_invalid", "capture_scope", _get_string(prepared, "error"))
+		_add_issue(
+			"capture_scope_invalid",
+			"capture_scope",
+			_get_string(prepared, "error")
+		)
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	_capture_binding = prepared["binding"]
 	_initial_root_states = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
 	if not _initial_root_states["success"]:
-		_add_issue("capture_scope_identity_invalid", "capture_scope", _get_string(_initial_root_states, "error"))
+		_add_issue(
+			"capture_scope_identity_invalid",
+			"capture_scope",
+			_get_string(_initial_root_states, "error")
+		)
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(_root_path)):
-		_add_issue("root_path_not_found", _root_path, "库存根目录不存在。")
+		_add_issue(
+			"root_path_not_found",
+			_root_path,
+			"库存根目录不存在。"
+		)
 		_status = "failed"
 		return ERR_DOES_NOT_EXIST
 	if _path_crosses_link(_root_path):
-		_add_issue("linked_root_path_not_allowed", _root_path, "库存根路径不能穿过符号链接或目录联接。")
+		_add_issue(
+			"linked_root_path_not_allowed",
+			_root_path,
+			"库存根路径不能穿过符号链接或目录联接。"
+		)
 		_status = "failed"
 		return ERR_INVALID_PARAMETER
 	_pending_directories.append({ "relative_path": "", "depth": 0 })
@@ -282,7 +299,11 @@ func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
 ## @schema options: Dictionary，沿用 begin 的字段闭集，可包含 include_hidden: bool、max_scanned_files: int、max_scanned_directories: int、max_scan_depth: int、source_root: String、capture_scope: Dictionary 和 profile_source_path: String；三项预算必须为框架上限内的正整数，三个来源字段统一由 binding 覆盖，不能改变已准入的捕获范围。
 ## [br]
 ## @return 错误码；拒绝时不会枚举目录。
-func begin_prepared(root_path: String, binding: Dictionary, options: Dictionary = {}) -> Error:
+func begin_prepared(
+	root_path: String,
+	binding: Dictionary,
+	options: Dictionary = {}
+) -> Error:
 	if not _CAPTURE_SCOPE_SCRIPT.binding_is_valid(binding) or binding.get("root_path") != root_path:
 		return ERR_INVALID_PARAMETER
 	var capture_options: Dictionary = options.duplicate(true)
@@ -295,7 +316,11 @@ func begin_prepared(root_path: String, binding: Dictionary, options: Dictionary 
 	_capture_binding = binding.duplicate(true)
 	var initial_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
 	if not initial_root_states["success"]:
-		_add_issue("capture_scope_identity_invalid", "capture_scope", _get_string(initial_root_states, "error"))
+		_add_issue(
+			"capture_scope_identity_invalid",
+			"capture_scope",
+			_get_string(initial_root_states, "error")
+		)
 		_pending_directories.clear()
 		_finish("failed")
 		return ERR_INVALID_PARAMETER
@@ -314,7 +339,11 @@ func begin_prepared(root_path: String, binding: Dictionary, options: Dictionary 
 ## @schema return: Dictionary，精确包含 status、file_count、directory_count、pending_directory_count 和 issues。
 func step(max_entries: int = 256) -> Dictionary:
 	if max_entries < 1:
-		_add_issue("invalid_step_budget", "max_entries", "step 预算必须是正整数。")
+		_add_issue(
+			"invalid_step_budget",
+			"max_entries",
+			"step 预算必须是正整数。"
+		)
 		_finish("failed")
 		return get_progress()
 	if _status != "capturing":
@@ -345,10 +374,7 @@ func step(max_entries: int = 256) -> Dictionary:
 			_set_resource_limit_failure()
 			_finish("partial")
 			break
-		var relative_path: String = _join_relative_path(
-			_current_relative_path,
-			entry_name
-		)
+		var relative_path: String = _join_relative_path(_current_relative_path, entry_name)
 		if _is_excluded_project_source_path(relative_path):
 			continue
 		if not _include_hidden and entry_name.begins_with("."):
@@ -384,10 +410,7 @@ func step(max_entries: int = 256) -> Dictionary:
 				_finish("partial")
 				break
 			var _append_directory: bool = _directories.append(relative_path)
-			_pending_directories.append({
-				"relative_path": relative_path,
-				"depth": child_depth,
-			})
+			_pending_directories.append({ "relative_path": relative_path, "depth": child_depth, })
 		else:
 			if _files.size() >= _max_scanned_files:
 				_add_issue(
@@ -464,7 +487,16 @@ func make_snapshot() -> Dictionary:
 	var sorted_directories: PackedStringArray = _directories.duplicate()
 	sorted_directories.sort()
 	var scope: Dictionary = _capture_binding.duplicate(true)
-	scope.merge({"kind": "project_source", "include_hidden": _include_hidden, "max_scanned_files": _max_scanned_files, "max_scanned_directories": _max_scanned_directories, "max_scan_depth": _max_scan_depth}, true)
+	scope.merge(
+		{
+			"kind": "project_source",
+			"include_hidden": _include_hidden,
+			"max_scanned_files": _max_scanned_files,
+			"max_scanned_directories": _max_scanned_directories,
+			"max_scan_depth": _max_scan_depth,
+		},
+		true
+	)
 	return {
 		"schema_version": 2,
 		"kind": "project_layout_snapshot",
@@ -502,11 +534,13 @@ func _open_next_directory() -> bool:
 		)
 		_finish("partial")
 		return false
-	var directory: DirAccess = DirAccess.open(
-		ProjectSettings.globalize_path(current_path)
-	)
+	var directory: DirAccess = DirAccess.open(ProjectSettings.globalize_path(current_path))
 	if directory == null:
-		_add_issue("directory_scan_failed", _current_relative_path, "目录无法打开。")
+		_add_issue(
+			"directory_scan_failed",
+			_current_relative_path,
+			"目录无法打开。"
+		)
 		_finish("partial")
 		return false
 	if _path_crosses_link(current_path):
@@ -521,7 +555,11 @@ func _open_next_directory() -> bool:
 	_current_directory.include_hidden = _include_hidden
 	var begin_error: Error = _current_directory.list_dir_begin()
 	if begin_error != OK:
-		_add_issue("directory_scan_failed", _current_relative_path, "目录无法枚举。")
+		_add_issue(
+			"directory_scan_failed",
+			_current_relative_path,
+			"目录无法枚举。"
+		)
 		_finish("partial")
 		return false
 	return true
@@ -544,8 +582,16 @@ func _close_current_directory() -> void:
 func _finish(status: String) -> void:
 	if status == "complete":
 		var final_root_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
-		if not _initial_root_states.get("success", false) or not final_root_states["success"] or final_root_states != _initial_root_states:
-			_add_issue("capture_scope_identity_changed", "capture_scope", "排除根或父链在捕获期间发生变化。")
+		if (
+			not _initial_root_states.get("success", false)
+			or not final_root_states["success"]
+			or final_root_states != _initial_root_states
+		):
+			_add_issue(
+				"capture_scope_identity_changed",
+				"capture_scope",
+				"排除根或父链在捕获期间发生变化。"
+			)
 			status = "partial"
 	_close_current_directory()
 	_status = status
@@ -599,18 +645,9 @@ func _read_options(options: Dictionary) -> bool:
 			return false
 		_include_hidden = include_hidden_value
 	for budget_limit: Dictionary in [
-		{
-			"field": "max_scanned_files",
-			"maximum": _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES,
-		},
-		{
-			"field": "max_scanned_directories",
-			"maximum": _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES,
-		},
-		{
-			"field": "max_scan_depth",
-			"maximum": _ANALYSIS_CONTRACT_SCRIPT.MAX_SCAN_DEPTH,
-		},
+		{ "field": "max_scanned_files", "maximum": _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_FILES, },
+		{ "field": "max_scanned_directories", "maximum": _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_DIRECTORIES, },
+		{ "field": "max_scan_depth", "maximum": _ANALYSIS_CONTRACT_SCRIPT.MAX_SCAN_DEPTH, },
 	]:
 		var field_name: String = _get_string(budget_limit, "field")
 		if not options.has(field_name):
@@ -642,12 +679,7 @@ func _entry_path_length_is_admissible(entry_name: String) -> bool:
 	if entry_name.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 		return false
 	var separator_length: int = 0 if _current_relative_path.is_empty() else 1
-	return (
-		_current_relative_path.length()
-		+ separator_length
-		+ entry_name.length()
-		<= _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH
-	)
+	return (_current_relative_path.length() + separator_length + entry_name.length() <= _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH)
 
 
 ## 先检查相对路径字符上限，再预留其 UTF-8 字节预算；失败不增加累计值。
@@ -657,10 +689,7 @@ func _reserve_inventory_path(relative_path: String) -> bool:
 	if relative_path.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_RELATIVE_PATH_LENGTH:
 		return false
 	var path_bytes: int = relative_path.to_utf8_buffer().size()
-	if (
-		_inventory_string_bytes
-		> _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - path_bytes
-	):
+	if _inventory_string_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - path_bytes:
 		return false
 	_inventory_string_bytes += path_bytes
 	return true
@@ -706,17 +735,11 @@ func _captured_inventory_is_admissible() -> bool:
 		if total_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES:
 			return false
 	for issue: Dictionary in _issues:
-		if (
-			issue.size() != _SNAPSHOT_ISSUE_FIELDS.size()
-			or not _dictionary_has_only_fields(issue, _SNAPSHOT_ISSUE_FIELDS)
-		):
+		if (issue.size() != _SNAPSHOT_ISSUE_FIELDS.size() or not _dictionary_has_only_fields(issue, _SNAPSHOT_ISSUE_FIELDS)):
 			return false
 		for field_name: String in _SNAPSHOT_ISSUE_FIELDS:
 			var field_bytes: int = field_name.to_utf8_buffer().size()
-			if (
-				total_bytes
-				> _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - field_bytes
-			):
+			if total_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - field_bytes:
 				return false
 			total_bytes += field_bytes
 			var text_value: Variant = issue.get(field_name)
@@ -726,10 +749,7 @@ func _captured_inventory_is_admissible() -> bool:
 			if text.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH:
 				return false
 			var text_bytes: int = text.to_utf8_buffer().size()
-			if (
-				total_bytes
-				> _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - text_bytes
-			):
+			if total_bytes > _ANALYSIS_CONTRACT_SCRIPT.MAX_INVENTORY_STRING_BYTES - text_bytes:
 				return false
 			total_bytes += text_bytes
 	return true
@@ -774,20 +794,14 @@ func _snapshot_base_string_bytes(root_path: String, capture_status: String) -> i
 ## [br]
 ## @api private
 ## [br]
-func _dictionary_has_only_fields(
-	value: Dictionary,
-	allowed_fields: PackedStringArray
-) -> bool:
+func _dictionary_has_only_fields(value: Dictionary, allowed_fields: PackedStringArray) -> bool:
 	if value.size() > allowed_fields.size():
 		return false
 	for key_value: Variant in value.keys():
 		if not key_value is String:
 			return false
 		var key: String = key_value
-		if (
-			key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH
-			or not allowed_fields.has(key)
-		):
+		if (key.length() > _ANALYSIS_CONTRACT_SCRIPT.MAX_DATA_STRING_LENGTH or not allowed_fields.has(key)):
 			return false
 	return true
 
@@ -832,13 +846,19 @@ func _set_resource_limit_failure() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _add_issue(kind: String, path: String, message: String) -> void:
-	_issues.append({
-		"severity": "error",
-		"kind": kind,
-		"path": path,
-		"message": message,
-	})
+func _add_issue(
+	kind: String,
+	path: String,
+	message: String
+) -> void:
+	_issues.append(
+		{
+			"severity": "error",
+			"kind": kind,
+			"path": path,
+			"message": message,
+		}
+	)
 
 
 ## 只接受无首尾空白的 res:// 根或规范子路径，拒绝反斜线、尾分隔符、空段、点段和冒号。
@@ -880,10 +900,7 @@ func _join_relative_path(base_path: String, entry_name: String) -> String:
 ## @api private
 func _is_excluded_project_source_path(relative_path: String) -> bool:
 	for excluded_prefix: String in _get_array_prefixes():
-		if (
-			relative_path == excluded_prefix
-			or relative_path.begins_with("%s/" % excluded_prefix)
-		):
+		if (relative_path == excluded_prefix or relative_path.begins_with("%s/" % excluded_prefix)):
 			return true
 	return false
 
@@ -903,7 +920,11 @@ func _get_array_prefixes() -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
@@ -912,6 +933,10 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value

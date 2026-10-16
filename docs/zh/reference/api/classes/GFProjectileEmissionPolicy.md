@@ -25,15 +25,15 @@
 | 属性 | [`charge_cost_per_projectile`](#member-gfprojectileemissionpolicy-properties-charge_cost_per_projectile) | `var charge_cost_per_projectile: float = 0.0` |
 | 属性 | [`charge_recovery_seconds`](#member-gfprojectileemissionpolicy-properties-charge_recovery_seconds) | `var charge_recovery_seconds: float = 0.0` |
 | 方法 | [`prepare_emission`](#member-gfprojectileemissionpolicy-methods-prepare_emission) | `func prepare_emission( emitter: Node, projectile_id: StringName, projectile_context: Dictionary = {}, requested_count: int = 1, now_msec: int = -1 ) -> Dictionary:` |
-| 方法 | [`commit_emission`](#member-gfprojectileemissionpolicy-methods-commit_emission) | `func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: int) -> Dictionary:` |
+| 方法 | [`commit_emission`](#member-gfprojectileemissionpolicy-methods-commit_emission) | `func commit_emission( emitter: Node, prepare_report: Dictionary, emitted_count: int ) -> Dictionary:` |
 | 方法 | [`reset`](#member-gfprojectileemissionpolicy-methods-reset) | `func reset(now_msec: int = -1) -> void:` |
 | 方法 | [`get_available_charges`](#member-gfprojectileemissionpolicy-methods-get_available_charges) | `func get_available_charges(now_msec: int = -1) -> float:` |
 | 方法 | [`get_required_charges`](#member-gfprojectileemissionpolicy-methods-get_required_charges) | `func get_required_charges(emit_count: int) -> float:` |
 | 方法 | [`get_remaining_cooldown_seconds`](#member-gfprojectileemissionpolicy-methods-get_remaining_cooldown_seconds) | `func get_remaining_cooldown_seconds(now_msec: int = -1) -> float:` |
 | 方法 | [`is_configuration_valid`](#member-gfprojectileemissionpolicy-methods-is_configuration_valid) | `func is_configuration_valid() -> bool:` |
 | 方法 | [`get_debug_snapshot`](#member-gfprojectileemissionpolicy-methods-get_debug_snapshot) | `func get_debug_snapshot(now_msec: int = -1) -> Dictionary:` |
-| 方法 | [`_prepare_emission`](#member-gfprojectileemissionpolicy-methods-_prepare_emission) | `func _prepare_emission(_emitter: Node, _projectile_id: StringName, _prepare_report: Dictionary) -> Dictionary:` |
-| 方法 | [`_commit_emission`](#member-gfprojectileemissionpolicy-methods-_commit_emission) | `func _commit_emission(_emitter: Node, _prepare_report: Dictionary, _emitted_count: int) -> void:` |
+| 方法 | [`_prepare_emission`](#member-gfprojectileemissionpolicy-methods-_prepare_emission) | `func _prepare_emission( _emitter: Node, _projectile_id: StringName, _prepare_report: Dictionary ) -> Dictionary:` |
+| 方法 | [`_commit_emission`](#member-gfprojectileemissionpolicy-methods-_commit_emission) | `func _commit_emission( _emitter: Node, _prepare_report: Dictionary, _emitted_count: int ) -> void:` |
 
 ## 属性
 
@@ -194,7 +194,7 @@ func prepare_emission( emitter: Node, projectile_id: StringName, projectile_cont
 - 首次版本：`8.0.0`
 
 ```gdscript
-func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: int) -> Dictionary:
+func commit_emission( emitter: Node, prepare_report: Dictionary, emitted_count: int ) -> Dictionary:
 ```
 
 提交一次已生成的发射请求。
@@ -344,7 +344,7 @@ func get_debug_snapshot(now_msec: int = -1) -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func _prepare_emission(_emitter: Node, _projectile_id: StringName, _prepare_report: Dictionary) -> Dictionary:
+func _prepare_emission( _emitter: Node, _projectile_id: StringName, _prepare_report: Dictionary ) -> Dictionary:
 ```
 
 发射准备扩展点。 返回的字段会合并到 prepare_emission() 报告。子类可修改 ok、reason、emit_count 或 projectile_context。
@@ -372,7 +372,7 @@ func _prepare_emission(_emitter: Node, _projectile_id: StringName, _prepare_repo
 - 首次版本：`8.0.0`
 
 ```gdscript
-func _commit_emission(_emitter: Node, _prepare_report: Dictionary, _emitted_count: int) -> void:
+func _commit_emission( _emitter: Node, _prepare_report: Dictionary, _emitted_count: int ) -> void:
 ```
 
 发射提交扩展点。

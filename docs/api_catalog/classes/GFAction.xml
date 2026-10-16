@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAction" path="addons/gf/extensions/action_queue/core/gf_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="25e1bb44c549380f277a334c2aab2b624a64ff9fc841f191b8f0bf6cddd600ca">
+<class name="GFAction" path="addons/gf/extensions/action_queue/core/gf_action.gd" module="extensions/action_queue" extends="RefCounted" classDigest="ba2cdda4f89ff0321fe6842ccf7fa437d2f23b4d5e47c5483061e2985e3026cc">
 	<description>GFAction: 动作队列常用工厂。
 提供轻量、静态的动作创建入口，让项目用更少样板组合 ActionQueue。
 它只创建通用动作，不隐含任何项目业务流程。</description>
@@ -260,7 +260,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="set_property">
-			<signature>static func set_property(target: Object, property_name: NodePath, value: Variant) -&gt; GFCallableAction:</signature>
+			<signature>static func set_property( target: Object, property_name: NodePath, value: Variant ) -&gt; GFCallableAction:</signature>
 			<description>创建设置任意属性的瞬时动作。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -269,10 +269,11 @@
 				<tag name="param">value: 要写入的值。</tag>
 				<tag name="return">回调动作。</tag>
 				<tag name="schema">value: Variant，会通过 target.set_indexed(property_name, value) 写入的值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_visible">
-			<signature>static func set_visible(target: Object, visible: bool, property_name: NodePath = ^"visible") -&gt; GFCallableAction:</signature>
+			<signature>static func set_visible( target: Object, visible: bool, property_name: NodePath = ^"visible" ) -&gt; GFCallableAction:</signature>
 			<description>创建设置 visible 属性的瞬时动作。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -280,6 +281,7 @@
 				<tag name="param">visible: 可见性。</tag>
 				<tag name="param">property_name: 可见性属性路径。</tag>
 				<tag name="return">回调动作。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="show">

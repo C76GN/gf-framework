@@ -167,16 +167,16 @@ static func create(
 	result._module_results = _normalize_module_entries(module_results)
 	result._unfinished_modules = _normalize_module_entries(unfinished_modules)
 	result._duplicate_request_count = maxi(duplicate_request_count, 0)
-	result._error_code = (
-		OK
-		if result.is_successful()
-		else error_code
-	)
+	result._error_code = (OK if result.is_successful() else error_code)
 	result._error = error.left(_MAX_ERROR_LENGTH)
 	result._cancel_reason = (
 		cancel_reason.left(_MAX_REASON_LENGTH)
 		if result._status == Status.CANCELLED and not cancel_reason.is_empty()
-		else ("cancelled" if result._status == Status.CANCELLED else "")
+		else (
+			"cancelled"
+			if result._status == Status.CANCELLED
+			else ""
+		)
 	)
 	return result
 
@@ -481,7 +481,10 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @return 非负单调毫秒耗时。
 func get_duration_msec() -> int:
-	return maxi(_completed_at_msec - _started_at_msec, 0)
+	return maxi(
+		_completed_at_msec - _started_at_msec,
+		0
+	)
 
 
 ## 获取已完成模块结果的隔离副本。
@@ -607,14 +610,17 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api private
 static func _normalize_status(status: Status) -> Status:
-	if status in [
-		Status.SUCCEEDED,
-		Status.FAILED,
-		Status.CANCELLED,
-		Status.TIMED_OUT,
-		Status.FORCED,
-		Status.ALREADY_DISPOSED,
-	]:
+	if (
+		status
+		in [
+			Status.SUCCEEDED,
+			Status.FAILED,
+			Status.CANCELLED,
+			Status.TIMED_OUT,
+			Status.FORCED,
+			Status.ALREADY_DISPOSED,
+		]
+	):
 		return status
 	return Status.FAILED
 
@@ -645,16 +651,35 @@ static func _status_name(status: Status) -> StringName:
 ## @api private
 static func _normalize_module_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
 	var normalized_entries: Array[Dictionary] = []
-	var entry_count: int = mini(entries.size(), _MAX_MODULE_ENTRIES)
+	var entry_count: int = mini(
+		entries.size(),
+		_MAX_MODULE_ENTRIES
+	)
 	var _resize_error: Error = normalized_entries.resize(entry_count) as Error
 	for index: int in range(entry_count):
 		var entry: Dictionary = entries[index]
 		var normalized_entry: Dictionary = {
-			"kind": _get_bounded_string_name(entry, "kind", _MAX_IDENTIFIER_LENGTH),
-			"script": _get_bounded_string(entry, "script", _MAX_SCRIPT_LENGTH),
+			"kind": _get_bounded_string_name(
+				entry,
+				"kind",
+				_MAX_IDENTIFIER_LENGTH
+			),
+			"script": _get_bounded_string(
+				entry,
+				"script",
+				_MAX_SCRIPT_LENGTH
+			),
 			"instance_id": _get_int(entry, "instance_id"),
-			"status": _get_bounded_string_name(entry, "status", _MAX_IDENTIFIER_LENGTH),
-			"reason": _get_bounded_string(entry, "reason", _MAX_REASON_LENGTH),
+			"status": _get_bounded_string_name(
+				entry,
+				"status",
+				_MAX_IDENTIFIER_LENGTH
+			),
+			"reason": _get_bounded_string(
+				entry,
+				"reason",
+				_MAX_REASON_LENGTH
+			),
 			"duration_msec": _get_non_negative_int(entry, "duration_msec"),
 		}
 		normalized_entries[index] = normalized_entry
@@ -698,7 +723,13 @@ static func _get_bounded_string_name(
 	key: String,
 	max_length: int
 ) -> StringName:
-	return StringName(_get_bounded_string(entry, key, max_length))
+	return StringName(
+		_get_bounded_string(
+			entry,
+			key,
+			max_length
+		)
+	)
 
 
 ## 读取整数并将负值归零；缺失或其他类型返回 0。

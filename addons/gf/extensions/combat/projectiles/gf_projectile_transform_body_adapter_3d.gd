@@ -62,10 +62,7 @@ func _capture_body(root: Node) -> GFProjectileBodyResult3D:
 ## @param intent: 本帧 intent；空值或 REJECTED 会在写入前失败，并尽量保留 intent 的失败原因。
 ## [br]
 ## @return: 成功时为操作后的变换与实际位置差；root、intent 或目标位移非法时失败，最终变换或实际位置差非有限时返回 non_finite_body_result。
-func _apply_intent(
-	root: Node,
-	intent: GFProjectileMotionIntent3D
-) -> GFProjectileBodyResult3D:
+func _apply_intent(root: Node, intent: GFProjectileMotionIntent3D) -> GFProjectileBodyResult3D:
 	if _validate_root(root) != OK:
 		return GFProjectileBodyResult3D.failed(&"unsupported_body")
 	var body: Node3D = root
@@ -79,10 +76,7 @@ func _apply_intent(
 		var displacement: Vector3 = intent.get_velocity() * intent.get_delta_seconds()
 		var target_position: Vector3 = before_transform.origin + displacement
 		if not displacement.is_finite() or not target_position.is_finite():
-			return GFProjectileBodyResult3D.failed(
-				&"non_finite_motion_intent",
-				before_transform
-			)
+			return GFProjectileBodyResult3D.failed(&"non_finite_motion_intent", before_transform)
 		body.global_position = target_position
 	var after_transform: Transform3D = body.global_transform
 	return GFProjectileBodyResult3D.successful(
@@ -104,7 +98,4 @@ func _stop(root: Node) -> GFProjectileBodyResult3D:
 	if _validate_root(root) != OK:
 		return GFProjectileBodyResult3D.failed(&"unsupported_body")
 	var body: Node3D = root
-	return GFProjectileBodyResult3D.successful(
-		body.global_transform,
-		Vector3.ZERO
-	)
+	return GFProjectileBodyResult3D.successful(body.global_transform, Vector3.ZERO)

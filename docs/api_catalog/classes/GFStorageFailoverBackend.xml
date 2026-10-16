@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="a0e5a60910f4d9b428b81143f0c579cb3479c46d732447ef3c8c79c5f7952c08">
+<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="91f0afc6bd73a1e0ca7d7142aa77c65e1b8917012e0f9fef7d29e6479008e9c0">
 	<description>GFStorageFailoverBackend: 有序存储故障转移后端。
 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序
 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、
@@ -125,7 +125,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_save_data">
-			<signature>func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -&gt; Error:</signature>
+			<signature>func _save_data( file_name: String, data: Dictionary, metadata: Dictionary ) -&gt; Error:</signature>
 			<description>按当前 mutation_policy 保存数据。</description>
 			<tags>
 				<tag name="api">protected</tag>

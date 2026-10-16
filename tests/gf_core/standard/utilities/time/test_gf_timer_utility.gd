@@ -1,7 +1,6 @@
 ## 测试 GFTimerUtility 的时间缩放与暂停行为。
 extends GutTest
 
-
 var _arch: GFArchitecture
 var _time_util: GFTimeUtility
 var _timer_util: GFTimerUtility
@@ -31,28 +30,48 @@ func test_execute_after_uses_scaled_delta() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 	_time_util.time_scale = 0.5
 
-	var handle: int = _timer_util.execute_after(1.0, func() -> void:
-		fired.count += 1
+	var handle: int = _timer_util.execute_after(
+		1.0,
+		func() -> void:
+			fired.count += 1
 	)
 
 	_arch.tick(1.0)
-	assert_gt(handle, 0, "排队定时器应返回有效句柄。")
-	assert_eq(fired.count, 0, "半速时间下，1 秒真实时间不应立刻消耗完 1 秒逻辑计时。")
+	assert_gt(
+		handle,
+		0,
+		"排队定时器应返回有效句柄。"
+	)
+	assert_eq(
+		fired.count,
+		0,
+		"半速时间下，1 秒真实时间不应立刻消耗完 1 秒逻辑计时。"
+	)
 
 	_arch.tick(1.0)
-	assert_eq(fired.count, 1, "累计 2 秒真实时间后，应恰好触发 1 秒逻辑计时。")
+	assert_eq(
+		fired.count,
+		1,
+		"累计 2 秒真实时间后，应恰好触发 1 秒逻辑计时。"
+	)
 
 
 func test_execute_after_respects_pause() -> void:
 	var fired: TimerBoolState = TimerBoolState.new()
 
-	var handle: int = _timer_util.execute_after(0.5, func() -> void:
-		fired.value = true
+	var handle: int = _timer_util.execute_after(
+		0.5,
+		func() -> void:
+			fired.value = true
 	)
 
 	_time_util.is_paused = true
 	_arch.tick(1.0)
-	assert_gt(handle, 0, "排队定时器应返回有效句柄。")
+	assert_gt(
+		handle,
+		0,
+		"排队定时器应返回有效句柄。"
+	)
 	assert_false(fired.value, "暂停期间，定时器不应推进。")
 
 	_time_util.is_paused = false
@@ -63,21 +82,52 @@ func test_execute_after_respects_pause() -> void:
 func test_execute_after_zero_delay_runs_immediately() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 
-	var handle: int = _timer_util.execute_after(0.0, func() -> void:
-		fired.count += 1
+	var handle: int = _timer_util.execute_after(
+		0.0,
+		func() -> void:
+			fired.count += 1
 	)
 
-	assert_eq(handle, 0, "立即执行不应返回排队句柄。")
-	assert_eq(fired.count, 1, "0 秒延迟应立即执行回调。")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "立即执行不应加入待执行队列。")
+	assert_eq(
+		handle,
+		0,
+		"立即执行不应返回排队句柄。"
+	)
+	assert_eq(
+		fired.count,
+		1,
+		"0 秒延迟应立即执行回调。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"立即执行不应加入待执行队列。"
+	)
 
 
 func test_execute_after_rejects_invalid_callback() -> void:
-	var handle: int = _timer_util.execute_after(1.0, Callable())
+	var handle: int = _timer_util.execute_after(
+		1.0,
+		Callable()
+	)
 
-	assert_eq(handle, 0, "无效回调不应返回有效句柄。")
+	assert_eq(
+		handle,
+		0,
+		"无效回调不应返回有效句柄。"
+	)
 	assert_push_error("[GFTimerUtility][timer_utility.after_callback_invalid] Cannot execute_after: the supplied callback is invalid.")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "无效回调不应加入待执行队列。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"无效回调不应加入待执行队列。"
+	)
 
 
 func test_execute_after_variants_reject_non_finite_delays() -> void:
@@ -86,20 +136,31 @@ func test_execute_after_variants_reject_non_finite_delays() -> void:
 	var callback: Callable = func() -> void:
 		fired.count += 1
 
-	for delay: float in [NAN, INF, -INF]:
-		assert_eq(_timer_util.execute_after(delay, callback), 0)
-		assert_push_error(
-			"[GFTimerUtility][timer_utility.after_delay_non_finite] Cannot execute_after: delay must be finite."
+	for delay: float in [
+		NAN,
+		INF,
+		-INF,
+	]:
+		assert_eq(
+			_timer_util.execute_after(delay, callback),
+			0
 		)
+		assert_push_error("[GFTimerUtility][timer_utility.after_delay_non_finite] Cannot execute_after: delay must be finite.")
 
 	assert_eq(
-		_timer_util.execute_after_owned(timer_owner, INF, callback),
+		_timer_util.execute_after_owned(
+			timer_owner,
+			INF,
+			callback
+		),
 		0
 	)
-	assert_push_error(
-		"[GFTimerUtility][timer_utility.after_owned_delay_non_finite] Cannot execute_after_owned: delay must be finite."
+	assert_push_error("[GFTimerUtility][timer_utility.after_owned_delay_non_finite] Cannot execute_after_owned: delay must be finite.")
+	assert_eq(
+		fired.count,
+		0,
+		"非有限 delay 不得退化成立即执行。"
 	)
-	assert_eq(fired.count, 0, "非有限 delay 不得退化成立即执行。")
 	assert_eq(
 		GFVariantData.get_option_int(
 			_timer_util.get_debug_snapshot(),
@@ -113,30 +174,58 @@ func test_execute_after_variants_reject_non_finite_delays() -> void:
 func test_multiple_timers_fire_in_registration_order() -> void:
 	var order: Array[String] = []
 
-	var first_handle: int = _timer_util.execute_after(0.2, func() -> void:
-		order.append("first")
+	var first_handle: int = _timer_util.execute_after(
+		0.2,
+		func() -> void:
+			order.append("first")
 	)
-	var second_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		order.append("second")
+	var second_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			order.append("second")
 	)
 
 	_arch.tick(0.2)
 
-	assert_gt(first_handle, 0, "第一个定时器应返回有效句柄。")
-	assert_gt(second_handle, 0, "第二个定时器应返回有效句柄。")
-	assert_eq(order, ["first", "second"], "同一 tick 中多个到期定时器应按注册顺序执行。")
+	assert_gt(
+		first_handle,
+		0,
+		"第一个定时器应返回有效句柄。"
+	)
+	assert_gt(
+		second_handle,
+		0,
+		"第二个定时器应返回有效句柄。"
+	)
+	assert_eq(
+		order,
+		["first", "second"],
+		"同一 tick 中多个到期定时器应按注册顺序执行。"
+	)
 
 
 func test_cancel_prevents_pending_timer_from_firing() -> void:
 	var fired: TimerBoolState = TimerBoolState.new()
 
-	var handle: int = _timer_util.execute_after(0.5, func() -> void:
-		fired.value = true
+	var handle: int = _timer_util.execute_after(
+		0.5,
+		func() -> void:
+			fired.value = true
 	)
 
-	assert_gt(handle, 0, "排队定时器应返回有效句柄。")
-	assert_true(_timer_util.cancel(handle), "未触发的定时器应可取消。")
-	assert_false(_timer_util.cancel(handle), "同一句柄取消一次后不应再次命中。")
+	assert_gt(
+		handle,
+		0,
+		"排队定时器应返回有效句柄。"
+	)
+	assert_true(
+		_timer_util.cancel(handle),
+		"未触发的定时器应可取消。"
+	)
+	assert_false(
+		_timer_util.cancel(handle),
+		"同一句柄取消一次后不应再次命中。"
+	)
 
 	_arch.tick(0.5)
 
@@ -146,27 +235,39 @@ func test_cancel_prevents_pending_timer_from_firing() -> void:
 func test_dispose_clears_pending_timers() -> void:
 	var fired: TimerBoolState = TimerBoolState.new()
 
-	var handle: int = _timer_util.execute_after(0.1, func() -> void:
-		fired.value = true
+	var handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			fired.value = true
 	)
 	_timer_util.dispose()
 	_timer_util.tick(0.2)
 
-	assert_gt(handle, 0, "排队定时器应返回有效句柄。")
+	assert_gt(
+		handle,
+		0,
+		"排队定时器应返回有效句柄。"
+	)
 	assert_false(fired.value, "dispose 后残留定时器不应触发。")
 
 
 func test_tick_ignores_non_finite_delta() -> void:
 	var fired: TimerBoolState = TimerBoolState.new()
 
-	var handle: int = _timer_util.execute_after(0.1, func() -> void:
-		fired.value = true
+	var handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			fired.value = true
 	)
 	_timer_util.tick(NAN)
 	_timer_util.tick(INF)
 	_timer_util.tick(0.1)
 
-	assert_gt(handle, 0, "排队定时器应返回有效句柄。")
+	assert_gt(
+		handle,
+		0,
+		"排队定时器应返回有效句柄。"
+	)
 	assert_true(fired.value, "忽略非有限 delta 后，正常 delta 应继续触发定时器。")
 
 
@@ -181,10 +282,12 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 			_timer_util.execute_repeating(interval, callback),
 			0
 		)
-		assert_push_error(
-			"[GFTimerUtility][timer_utility.repeating_interval_non_finite] Cannot execute_repeating: interval must be finite."
-		)
-	for initial_delay: float in [NAN, INF, -INF]:
+		assert_push_error("[GFTimerUtility][timer_utility.repeating_interval_non_finite] Cannot execute_repeating: interval must be finite.")
+	for initial_delay: float in [
+		NAN,
+		INF,
+		-INF,
+	]:
 		assert_eq(
 			_timer_util.execute_repeating(
 				0.1,
@@ -194,9 +297,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 			),
 			0
 		)
-		assert_push_error(
-			"[GFTimerUtility][timer_utility.repeating_initial_delay_non_finite] Cannot execute_repeating: initial_delay must be finite."
-		)
+		assert_push_error("[GFTimerUtility][timer_utility.repeating_initial_delay_non_finite] Cannot execute_repeating: initial_delay must be finite.")
 
 	assert_eq(
 		_timer_util.execute_repeating_owned(
@@ -206,9 +307,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 		),
 		0
 	)
-	assert_push_error(
-		"[GFTimerUtility][timer_utility.repeating_owned_interval_non_finite] Cannot execute_repeating_owned: interval must be finite."
-	)
+	assert_push_error("[GFTimerUtility][timer_utility.repeating_owned_interval_non_finite] Cannot execute_repeating_owned: interval must be finite.")
 	assert_eq(
 		_timer_util.execute_repeating_owned(
 			timer_owner,
@@ -219,9 +318,7 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 		),
 		0
 	)
-	assert_push_error(
-		"[GFTimerUtility][timer_utility.repeating_owned_initial_delay_non_finite] Cannot execute_repeating_owned: initial_delay must be finite."
-	)
+	assert_push_error("[GFTimerUtility][timer_utility.repeating_owned_initial_delay_non_finite] Cannot execute_repeating_owned: initial_delay must be finite.")
 	assert_eq(fired.count, 0)
 	assert_eq(
 		GFVariantData.get_option_int(
@@ -236,122 +333,233 @@ func test_execute_repeating_variants_reject_non_finite_durations() -> void:
 func test_execute_repeating_runs_expected_count() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 
-	var handle: int = _timer_util.execute_repeating(0.1, func() -> void:
-		fired.count += 1
-	, 3)
+	var handle: int = _timer_util.execute_repeating(
+		0.1,
+		func() -> void:
+			fired.count += 1,
+		3
+	)
 
-	assert_gt(handle, 0, "重复定时器应返回有效句柄。")
+	assert_gt(
+		handle,
+		0,
+		"重复定时器应返回有效句柄。"
+	)
 	_arch.tick(0.1)
 	_arch.tick(0.1)
 	_arch.tick(0.1)
 	_arch.tick(0.1)
 
-	assert_eq(fired.count, 3, "repeat_count 为 3 时应只触发三次。")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "有限重复完成后不应继续保留待执行任务。")
+	assert_eq(
+		fired.count,
+		3,
+		"repeat_count 为 3 时应只触发三次。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"有限重复完成后不应继续保留待执行任务。"
+	)
 
 
 func test_execute_repeating_catches_up_with_long_delta() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 
-	var handle: int = _timer_util.execute_repeating(0.5, func() -> void:
-		fired.count += 1
-	, 3, 0.25)
+	var handle: int = _timer_util.execute_repeating(
+		0.5,
+		func() -> void:
+			fired.count += 1,
+		3,
+		0.25
+	)
 	_arch.tick(1.25)
 
-	assert_gt(handle, 0, "重复定时器应返回有效句柄。")
-	assert_eq(fired.count, 3, "长 delta 应补齐当前 tick 内已到期的重复次数。")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "有限重复补齐后不应继续保留待执行任务。")
+	assert_gt(
+		handle,
+		0,
+		"重复定时器应返回有效句柄。"
+	)
+	assert_eq(
+		fired.count,
+		3,
+		"长 delta 应补齐当前 tick 内已到期的重复次数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"有限重复补齐后不应继续保留待执行任务。"
+	)
 
 
 func test_owner_bound_timer_is_dropped_when_owner_is_released() -> void:
 	var fired: TimerBoolState = TimerBoolState.new()
 	var timer_owner: RefCounted = RefCounted.new()
 
-	var handle: int = _timer_util.execute_after_owned(timer_owner, 0.1, func() -> void:
-		fired.value = true
+	var handle: int = _timer_util.execute_after_owned(
+		timer_owner,
+		0.1,
+		func() -> void:
+			fired.value = true
 	)
 	timer_owner = null
 	_arch.tick(0.2)
 
-	assert_gt(handle, 0, "owner 绑定定时器应返回有效句柄。")
+	assert_gt(
+		handle,
+		0,
+		"owner 绑定定时器应返回有效句柄。"
+	)
 	assert_false(fired.value, "owner 释放后绑定定时器不应触发。")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "释放 owner 后绑定任务应被清理。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"释放 owner 后绑定任务应被清理。"
+	)
 
 
 func test_cancel_owner_removes_owned_timers() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 	var timer_owner: RefCounted = RefCounted.new()
 
-	var after_handle: int = _timer_util.execute_after_owned(timer_owner, 0.1, func() -> void:
-		fired.count += 1
+	var after_handle: int = _timer_util.execute_after_owned(
+		timer_owner,
+		0.1,
+		func() -> void:
+			fired.count += 1
 	)
-	var repeating_handle: int = _timer_util.execute_repeating_owned(timer_owner, 0.1, func() -> void:
-		fired.count += 1
+	var repeating_handle: int = _timer_util.execute_repeating_owned(
+		timer_owner,
+		0.1,
+		func() -> void:
+			fired.count += 1
 	)
 	var removed: int = _timer_util.cancel_owner(timer_owner)
 	_arch.tick(0.2)
 
-	assert_gt(after_handle, 0, "owner 绑定单次定时器应返回有效句柄。")
-	assert_gt(repeating_handle, 0, "owner 绑定重复定时器应返回有效句柄。")
-	assert_eq(removed, 2, "cancel_owner 应取消同一 owner 的全部任务。")
-	assert_eq(fired.count, 0, "被 cancel_owner 移除的任务不应触发。")
+	assert_gt(
+		after_handle,
+		0,
+		"owner 绑定单次定时器应返回有效句柄。"
+	)
+	assert_gt(
+		repeating_handle,
+		0,
+		"owner 绑定重复定时器应返回有效句柄。"
+	)
+	assert_eq(
+		removed,
+		2,
+		"cancel_owner 应取消同一 owner 的全部任务。"
+	)
+	assert_eq(
+		fired.count,
+		0,
+		"被 cancel_owner 移除的任务不应触发。"
+	)
 
 
 func test_same_tick_callback_can_cancel_later_ready_timer() -> void:
 	var events: Array[String] = []
 	var second_timer: TimerCancelState = TimerCancelState.new()
-	var first_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		events.append("first")
-		assert_true(
-			_timer_util.cancel(second_timer.handle),
-			"callback 尚未开始的同 tick ready timer 必须仍可按 handle 取消。"
-		)
+	var first_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("first")
+			assert_true(
+				_timer_util.cancel(second_timer.handle),
+				"callback 尚未开始的同 tick ready timer 必须仍可按 handle 取消。"
+			)
 	)
-	second_timer.handle = _timer_util.execute_after(0.1, func() -> void:
-		events.append("second")
+	second_timer.handle = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("second")
 	)
 
 	_arch.tick(0.1)
 
-	assert_gt(first_handle, 0, "第一个同 tick timer 应成功排队。")
-	assert_gt(second_timer.handle, 0, "第二个同 tick timer 应成功排队。")
-	assert_eq(events, ["first"], "被前序 callback 取消的 ready timer 不得执行。")
+	assert_gt(
+		first_handle,
+		0,
+		"第一个同 tick timer 应成功排队。"
+	)
+	assert_gt(
+		second_timer.handle,
+		0,
+		"第二个同 tick timer 应成功排队。"
+	)
+	assert_eq(
+		events,
+		["first"],
+		"被前序 callback 取消的 ready timer 不得执行。"
+	)
 
 
 func test_same_tick_callback_can_cancel_owner_of_later_ready_timer() -> void:
 	var events: Array[String] = []
 	var timer_owner: RefCounted = RefCounted.new()
-	var first_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		events.append("first")
-		assert_eq(
-			_timer_util.cancel_owner(timer_owner),
-			1,
-			"cancel_owner 应命中同 tick 尚未开始的 ready timer。"
-		)
+	var first_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("first")
+			assert_eq(
+				_timer_util.cancel_owner(timer_owner),
+				1,
+				"cancel_owner 应命中同 tick 尚未开始的 ready timer。"
+			)
 	)
-	var second_handle: int = _timer_util.execute_after_owned(timer_owner, 0.1, func() -> void:
-		events.append("second")
+	var second_handle: int = _timer_util.execute_after_owned(
+		timer_owner,
+		0.1,
+		func() -> void:
+			events.append("second")
 	)
 
 	_arch.tick(0.1)
 
-	assert_gt(first_handle, 0, "第一个同 tick timer 应成功排队。")
-	assert_gt(second_handle, 0, "owner timer 应成功排队。")
-	assert_eq(events, ["first"], "被 cancel_owner 取消的 ready timer 不得执行。")
+	assert_gt(
+		first_handle,
+		0,
+		"第一个同 tick timer 应成功排队。"
+	)
+	assert_gt(
+		second_handle,
+		0,
+		"owner timer 应成功排队。"
+	)
+	assert_eq(
+		events,
+		["first"],
+		"被 cancel_owner 取消的 ready timer 不得执行。"
+	)
 
 
 func test_owned_timer_query_includes_ready_timers_and_excludes_cancelled_timers() -> void:
 	var timer_owner: RefCounted = RefCounted.new()
 	var wrong_owner: RefCounted = RefCounted.new()
 	var second_timer: TimerCancelState = TimerCancelState.new()
-	var _first_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		assert_true(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
-		assert_false(_timer_util.has_owned_timer_for_framework(second_timer.handle, wrong_owner))
-		assert_true(_timer_util.cancel(second_timer.handle))
-		assert_false(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
+	var _first_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			assert_true(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
+			assert_false(_timer_util.has_owned_timer_for_framework(second_timer.handle, wrong_owner))
+			assert_true(_timer_util.cancel(second_timer.handle))
+			assert_false(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
 	)
-	second_timer.handle = _timer_util.execute_after_owned(timer_owner, 0.1, func() -> void:
-		fail_test("Cancelled ready timer must not run.")
+	second_timer.handle = _timer_util.execute_after_owned(
+		timer_owner,
+		0.1,
+		func() -> void:
+			fail_test("Cancelled ready timer must not run.")
 	)
 	assert_true(_timer_util.has_owned_timer_for_framework(second_timer.handle, timer_owner))
 	_arch.tick(0.1)
@@ -359,94 +567,187 @@ func test_owned_timer_query_includes_ready_timers_and_excludes_cancelled_timers(
 
 func test_dispose_during_callback_invalidates_remaining_ready_timers() -> void:
 	var events: Array[String] = []
-	var first_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		events.append("first")
-		_timer_util.dispose()
+	var first_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("first")
+			_timer_util.dispose()
 	)
-	var second_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		events.append("second")
+	var second_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("second")
 	)
 
 	_arch.tick(0.1)
 	var snapshot: Dictionary = _timer_util.get_debug_snapshot()
 
-	assert_gt(first_handle, 0, "dispose 测试的第一个 timer 应成功排队。")
-	assert_gt(second_handle, 0, "dispose 测试的第二个 timer 应成功排队。")
-	assert_eq(events, ["first"], "dispose 后旧 ready snapshot 不得继续执行。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "pending_count"), 0)
-	assert_eq(GFVariantData.get_option_int(snapshot, "executing_count"), 0)
+	assert_gt(
+		first_handle,
+		0,
+		"dispose 测试的第一个 timer 应成功排队。"
+	)
+	assert_gt(
+		second_handle,
+		0,
+		"dispose 测试的第二个 timer 应成功排队。"
+	)
+	assert_eq(
+		events,
+		["first"],
+		"dispose 后旧 ready snapshot 不得继续执行。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "pending_count"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "executing_count"),
+		0
+	)
 
 
 func test_init_during_callback_invalidates_old_ready_generation_but_keeps_new_work() -> void:
 	var events: Array[String] = []
 	var replacement_handle: TimerCancelState = TimerCancelState.new()
-	var first_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		events.append("first")
-		_timer_util.init()
-		replacement_handle.handle = _timer_util.execute_after(0.1, func() -> void:
-			events.append("replacement")
-		)
+	var first_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("first")
+			_timer_util.init()
+			replacement_handle.handle = _timer_util.execute_after(
+				0.1,
+				func() -> void:
+					events.append("replacement")
+			)
 	)
-	var old_second_handle: int = _timer_util.execute_after(0.1, func() -> void:
-		events.append("old_second")
+	var old_second_handle: int = _timer_util.execute_after(
+		0.1,
+		func() -> void:
+			events.append("old_second")
 	)
 
 	_arch.tick(0.1)
-	assert_gt(first_handle, 0, "init 测试的第一个 timer 应成功排队。")
-	assert_gt(old_second_handle, 0, "init 测试的旧第二个 timer 应成功排队。")
-	assert_gt(replacement_handle.handle, 0, "init 后应能排入新 generation timer。")
-	assert_eq(events, ["first"], "init 后旧 ready generation 不得继续执行。")
+	assert_gt(
+		first_handle,
+		0,
+		"init 测试的第一个 timer 应成功排队。"
+	)
+	assert_gt(
+		old_second_handle,
+		0,
+		"init 测试的旧第二个 timer 应成功排队。"
+	)
+	assert_gt(
+		replacement_handle.handle,
+		0,
+		"init 后应能排入新 generation timer。"
+	)
 	assert_eq(
-		GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"),
+		events,
+		["first"],
+		"init 后旧 ready generation 不得继续执行。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
 		1,
 		"init 后新 generation timer 必须保留。"
 	)
 
 	_timer_util.tick(0.1)
-	assert_eq(events, ["first", "replacement"], "后续 tick 应只执行 init 后的新任务。")
+	assert_eq(
+		events,
+		["first", "replacement"],
+		"后续 tick 应只执行 init 后的新任务。"
+	)
 
 
 func test_cancel_repeating_timer_from_callback_stops_next_repeat() -> void:
 	var fired: TimerCancelState = TimerCancelState.new()
-	fired.handle = _timer_util.execute_repeating(0.1, func() -> void:
-		fired.count += 1
-		var cancelled: bool = _timer_util.cancel(fired.handle)
-		assert_true(cancelled, "执行中的重复定时器应能被回调取消。")
+	fired.handle = _timer_util.execute_repeating(
+		0.1,
+		func() -> void:
+			fired.count += 1
+			var cancelled: bool = _timer_util.cancel(fired.handle)
+			assert_true(cancelled, "执行中的重复定时器应能被回调取消。")
 	)
 
 	_arch.tick(0.1)
 	_arch.tick(0.1)
 
-	assert_eq(fired.count, 1, "回调内取消重复任务后不应再次触发。")
+	assert_eq(
+		fired.count,
+		1,
+		"回调内取消重复任务后不应再次触发。"
+	)
 
 
 func test_cancel_owner_from_callback_stops_owned_repeating_timer() -> void:
 	var fired: TimerCountState = TimerCountState.new()
 	var timer_owner: RefCounted = RefCounted.new()
 
-	var handle: int = _timer_util.execute_repeating_owned(timer_owner, 0.1, func() -> void:
-		fired.count += 1
-		var removed: int = _timer_util.cancel_owner(timer_owner)
-		assert_eq(removed, 1, "回调中 cancel_owner 应命中正在执行的 owner 定时器。")
+	var handle: int = _timer_util.execute_repeating_owned(
+		timer_owner,
+		0.1,
+		func() -> void:
+			fired.count += 1
+			var removed: int = _timer_util.cancel_owner(timer_owner)
+			assert_eq(
+				removed,
+				1,
+				"回调中 cancel_owner 应命中正在执行的 owner 定时器。"
+			)
 	)
 	_arch.tick(0.1)
 	_arch.tick(0.1)
 
-	assert_gt(handle, 0, "owner 绑定重复定时器应返回有效句柄。")
-	assert_eq(fired.count, 1, "回调内 cancel_owner 后不应重新排队。")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "执行中 owner 取消后不应残留 pending timer。")
+	assert_gt(
+		handle,
+		0,
+		"owner 绑定重复定时器应返回有效句柄。"
+	)
+	assert_eq(
+		fired.count,
+		1,
+		"回调内 cancel_owner 后不应重新排队。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"执行中 owner 取消后不应残留 pending timer。"
+	)
 
 
 func test_repeating_timer_drops_invalid_callback_when_ready() -> void:
 	var receiver: TimerCallbackReceiver = TimerCallbackReceiver.new()
 	add_child(receiver)
-	var handle: int = _timer_util.execute_repeating(0.1, Callable(receiver, "mark"))
+	var handle: int = _timer_util.execute_repeating(
+		0.1,
+		Callable(receiver, "mark")
+	)
 	receiver.free()
 
 	_arch.tick(0.1)
 
-	assert_gt(handle, 0, "重复定时器应先接受原本有效的回调。")
-	assert_eq(GFVariantData.get_option_int(_timer_util.get_debug_snapshot(), "pending_count"), 0, "到期时回调已失效的重复定时器不应重新排队。")
+	assert_gt(
+		handle,
+		0,
+		"重复定时器应先接受原本有效的回调。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_timer_util.get_debug_snapshot(),
+			"pending_count"
+		),
+		0,
+		"到期时回调已失效的重复定时器不应重新排队。"
+	)
 
 
 # --- 辅助类 ---

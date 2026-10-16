@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSourceTextLoader" path="addons/gf/standard/utilities/io/gf_source_text_loader.gd" module="standard" extends="RefCounted" classDigest="74473b8f396ee118fa085da277beadd154ba5705c87ed999a7fef461bdab55b4">
+<class name="GFSourceTextLoader" path="addons/gf/standard/utilities/io/gf_source_text_loader.gd" module="standard" extends="RefCounted" classDigest="1bb4f474f68faad69e9e3635a6f740d51496c191f734408b17f259194bf59ce7">
 	<description>GFSourceTextLoader: 受根路径约束的源码文本加载器。
 将逻辑 key 解析、文本加载、内存注册文本、缓存 key 和诊断报告拆开，
 供生成器、导入器、编辑器工具或校验器读取 UTF-8 文本。文件访问默认要求
@@ -112,7 +112,7 @@ root_path，避免 include 或片段加载越过调用方声明的根目录。</
 			</tags>
 		</member>
 		<member kind="method" name="register_text">
-			<signature>func register_text(source_key: String, text: String, entry_metadata: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func register_text( source_key: String, text: String, entry_metadata: Dictionary = {} ) -&gt; bool:</signature>
 			<description>注册内存文本。</description>
 			<tags>
 				<tag name="api">public</tag>

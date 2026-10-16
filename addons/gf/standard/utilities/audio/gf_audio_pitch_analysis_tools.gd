@@ -92,7 +92,20 @@ const _DEFAULT_MAX_CORRELATION_OPERATIONS: int = MAX_CORRELATION_OPERATIONS
 ## [br]
 ## @api private
 ## [br]
-const _NOTE_NAMES: Array[String] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+const _NOTE_NAMES: Array[String] = [
+	"C",
+	"C#",
+	"D",
+	"D#",
+	"E",
+	"F",
+	"F#",
+	"G",
+	"G#",
+	"A",
+	"A#",
+	"B",
+]
 
 
 # --- 公共方法 ---
@@ -123,32 +136,67 @@ static func analyze_mono_samples(
 ) -> Dictionary:
 	var report: Dictionary = _make_report()
 	if not _is_finite_float(sample_rate) or sample_rate <= 0.0:
-		_add_issue(report, &"invalid_sample_rate", "sample_rate must be positive.")
+		_add_issue(
+			report,
+			&"invalid_sample_rate",
+			"sample_rate must be positive."
+		)
 		return _finalize_report(report)
 
 	report["input_sample_count"] = samples.size()
-	var window: PackedFloat32Array = _slice_samples(samples, options, report)
+	var window: PackedFloat32Array = _slice_samples(
+		samples,
+		options,
+		report
+	)
 	report["analyzed_sample_count"] = window.size()
 	if window.size() < 8:
-		_add_issue(report, &"insufficient_samples", "samples window is too small.")
+		_add_issue(
+			report,
+			&"insufficient_samples",
+			"samples window is too small."
+		)
 		return _finalize_report(report)
 	if not _samples_are_finite(window):
-		_add_issue(report, &"non_finite_sample", "samples must not contain NaN or Infinity.")
+		_add_issue(
+			report,
+			&"non_finite_sample",
+			"samples must not contain NaN or Infinity."
+		)
 		return _finalize_report(report)
 
 	var rms: float = calculate_rms(window)
 	report["rms"] = rms
-	var min_rms: float = _finite_or_default(GFVariantData.get_option_float(options, "min_rms", DEFAULT_MIN_RMS), DEFAULT_MIN_RMS)
+	var min_rms: float = _finite_or_default(
+		GFVariantData.get_option_float(
+			options,
+			"min_rms",
+			DEFAULT_MIN_RMS
+		),
+		DEFAULT_MIN_RMS
+	)
 	if rms < min_rms:
-		_add_issue(report, &"signal_too_quiet", "RMS is below min_rms.")
+		_add_issue(
+			report,
+			&"signal_too_quiet",
+			"RMS is below min_rms."
+		)
 		return _finalize_report(report)
 
 	var requested_min_frequency: float = _finite_or_default(
-		GFVariantData.get_option_float(options, "min_frequency_hz", DEFAULT_MIN_FREQUENCY_HZ),
+		GFVariantData.get_option_float(
+			options,
+			"min_frequency_hz",
+			DEFAULT_MIN_FREQUENCY_HZ
+		),
 		DEFAULT_MIN_FREQUENCY_HZ
 	)
 	var requested_max_frequency: float = _finite_or_default(
-		GFVariantData.get_option_float(options, "max_frequency_hz", DEFAULT_MAX_FREQUENCY_HZ),
+		GFVariantData.get_option_float(
+			options,
+			"max_frequency_hz",
+			DEFAULT_MAX_FREQUENCY_HZ
+		),
 		DEFAULT_MAX_FREQUENCY_HZ
 	)
 	var min_frequency: float = maxf(requested_min_frequency, 1.0)
@@ -157,19 +205,37 @@ static func analyze_mono_samples(
 		sample_rate * 0.5
 	)
 	if max_frequency <= min_frequency:
-		_add_issue(report, &"invalid_frequency_range", "max_frequency_hz must be greater than min_frequency_hz.")
+		_add_issue(
+			report,
+			&"invalid_frequency_range",
+			"max_frequency_hz must be greater than min_frequency_hz."
+		)
 		return _finalize_report(report)
 
 	var normalized: PackedFloat32Array = _remove_dc_offset(window)
-	var min_lag: int = maxi(floori(sample_rate / max_frequency), 1)
-	var max_lag: int = mini(ceili(sample_rate / min_frequency), normalized.size() - 2)
+	var min_lag: int = maxi(
+		floori(sample_rate / max_frequency),
+		1
+	)
+	var max_lag: int = mini(
+		ceili(sample_rate / min_frequency),
+		normalized.size() - 2
+	)
 	if max_lag <= min_lag:
-		_add_issue(report, &"insufficient_lag_range", "sample window is too small for the requested frequency range.")
+		_add_issue(
+			report,
+			&"insufficient_lag_range",
+			"sample window is too small for the requested frequency range."
+		)
 		return _finalize_report(report)
 
 	var requested_lag_count: int = max_lag - min_lag + 1
 	var max_lag_count: int = clampi(
-		GFVariantData.get_option_int(options, "max_lag_count", _DEFAULT_MAX_LAG_COUNT),
+		GFVariantData.get_option_int(
+			options,
+			"max_lag_count",
+			_DEFAULT_MAX_LAG_COUNT
+		),
 		1,
 		MAX_LAG_COUNT
 	)
@@ -182,7 +248,10 @@ static func analyze_mono_samples(
 		1,
 		MAX_CORRELATION_OPERATIONS
 	)
-	var normalized_size: int = maxi(normalized.size(), 1)
+	var normalized_size: int = maxi(
+		normalized.size(),
+		1
+	)
 	report["correlation_operation_budget"] = max_operations
 	report["minimum_required_correlation_operations"] = normalized_size
 	if max_operations < normalized_size:
@@ -192,10 +261,11 @@ static func analyze_mono_samples(
 			"max_correlation_operations is smaller than one complete lag."
 		)
 		return _finalize_report(report)
-	var operation_lag_limit: int = floori(
-		float(max_operations) / float(normalized_size)
+	var operation_lag_limit: int = floori(float(max_operations) / float(normalized_size))
+	var lag_count: int = mini(
+		requested_lag_count,
+		mini(max_lag_count, operation_lag_limit)
 	)
-	var lag_count: int = mini(requested_lag_count, mini(max_lag_count, operation_lag_limit))
 	if lag_count < requested_lag_count:
 		report["truncated"] = true
 	max_lag = min_lag + lag_count - 1
@@ -205,15 +275,28 @@ static func analyze_mono_samples(
 	var best_lag: int = 0
 	var best_confidence: float = -1.0
 	var correlations: Array[float] = []
-	for lag: int in range(min_lag, max_lag + 1):
+	for lag: int in range(
+		min_lag,
+		max_lag + 1
+	):
 		var confidence: float = _normalized_autocorrelation(normalized, lag)
 		correlations.append(confidence)
 		if confidence > best_confidence:
 			best_confidence = confidence
 			best_lag = lag
 
-	var peak_threshold: float = _finite_or_default(GFVariantData.get_option_float(options, "peak_pick_threshold", 0.75), 0.75)
-	for offset: int in range(1, correlations.size() - 1):
+	var peak_threshold: float = _finite_or_default(
+		GFVariantData.get_option_float(
+			options,
+			"peak_pick_threshold",
+			0.75
+		),
+		0.75
+	)
+	for offset: int in range(
+		1,
+		correlations.size() - 1
+	):
 		var previous_confidence: float = correlations[offset - 1]
 		var current_confidence: float = correlations[offset]
 		var next_confidence: float = correlations[offset + 1]
@@ -227,12 +310,20 @@ static func analyze_mono_samples(
 			break
 
 	if best_lag <= 0:
-		_add_issue(report, &"pitch_not_found", "No usable autocorrelation peak was found.")
+		_add_issue(
+			report,
+			&"pitch_not_found",
+			"No usable autocorrelation peak was found."
+		)
 		return _finalize_report(report)
 
 	var frequency: float = sample_rate / float(best_lag)
 	var threshold: float = _finite_or_default(
-		GFVariantData.get_option_float(options, "confidence_threshold", DEFAULT_CONFIDENCE_THRESHOLD),
+		GFVariantData.get_option_float(
+			options,
+			"confidence_threshold",
+			DEFAULT_CONFIDENCE_THRESHOLD
+		),
 		DEFAULT_CONFIDENCE_THRESHOLD
 	)
 	var note: Dictionary = frequency_to_note(frequency)
@@ -242,11 +333,19 @@ static func analyze_mono_samples(
 	report["confidence"] = best_confidence
 	report["lag"] = best_lag
 	report["algorithm"] = ALGORITHM_AUTOCORRELATION
-	report["note_number"] = GFVariantData.get_option_int(note, "note_number", -1)
+	report["note_number"] = GFVariantData.get_option_int(
+		note,
+		"note_number",
+		-1
+	)
 	report["note_name"] = GFVariantData.get_option_string(note, "note_name")
 	report["cents"] = GFVariantData.get_option_float(note, "cents")
 	if not GFVariantData.get_option_bool(report, "detected"):
-		_add_issue(report, &"low_confidence", "Pitch confidence is below threshold.")
+		_add_issue(
+			report,
+			&"low_confidence",
+			"Pitch confidence is below threshold."
+		)
 	return _finalize_report(report)
 
 
@@ -274,9 +373,21 @@ static func analyze_stereo_frames(
 	sample_rate: float,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var start_index: int = clampi(GFVariantData.get_option_int(options, "start_index", 0), 0, frames.size())
+	var start_index: int = clampi(
+		GFVariantData.get_option_int(
+			options,
+			"start_index",
+			0
+		),
+		0,
+		frames.size()
+	)
 	var requested_count: int = clampi(
-		GFVariantData.get_option_int(options, "sample_count", frames.size() - start_index),
+		GFVariantData.get_option_int(
+			options,
+			"sample_count",
+			frames.size() - start_index
+		),
 		0,
 		frames.size() - start_index
 	)
@@ -297,20 +408,35 @@ static func analyze_stereo_frames(
 		mid[index] = (frame.x + frame.y) * 0.5
 		side[index] = (frame.x - frame.y) * 0.5
 
-	var selected: Dictionary = _select_stereo_pitch_candidate(left, right, mid, side)
+	var selected: Dictionary = _select_stereo_pitch_candidate(
+		left,
+		right,
+		mid,
+		side
+	)
 	var mono_options: Dictionary = options.duplicate(true)
 	mono_options["start_index"] = 0
 	mono_options["sample_count"] = frame_count
 	mono_options["max_sample_count"] = frame_count
 	var report: Dictionary = analyze_mono_samples(
-		_get_float_array_value(GFVariantData.get_option_value(selected, "samples", mid)),
+		_get_float_array_value(
+			GFVariantData.get_option_value(
+				selected,
+				"samples",
+				mid
+			)
+		),
 		sample_rate,
 		mono_options
 	)
 	report["input_sample_count"] = frames.size()
 	if frame_count < requested_count:
 		report["truncated"] = true
-	report["stereo_mix_mode"] = GFVariantData.get_option_string_name(selected, "mode", &"mid")
+	report["stereo_mix_mode"] = GFVariantData.get_option_string_name(
+		selected,
+		"mode",
+		&"mid"
+	)
 	return report
 
 
@@ -365,7 +491,8 @@ static func frequency_to_note(frequency_hz: float) -> Dictionary:
 		"ok": true,
 		"frequency_hz": frequency_hz,
 		"note_number": note_number,
-		"note_name": "%s%d" % [_NOTE_NAMES[note_index], octave],
+		"note_name": "%s%d"
+		% [_NOTE_NAMES[note_index], octave],
 		"midi_float": midi_float,
 		"cents": (midi_float - float(note_number)) * 100.0,
 	}
@@ -382,10 +509,29 @@ static func _slice_samples(
 	options: Dictionary,
 	report: Dictionary
 ) -> PackedFloat32Array:
-	var start_index: int = clampi(GFVariantData.get_option_int(options, "start_index", 0), 0, samples.size())
-	var requested_count: int = GFVariantData.get_option_int(options, "sample_count", samples.size() - start_index)
-	requested_count = clampi(requested_count, 0, samples.size() - start_index)
-	var count: int = mini(requested_count, _resolve_max_sample_count(options))
+	var start_index: int = clampi(
+		GFVariantData.get_option_int(
+			options,
+			"start_index",
+			0
+		),
+		0,
+		samples.size()
+	)
+	var requested_count: int = GFVariantData.get_option_int(
+		options,
+		"sample_count",
+		samples.size() - start_index
+	)
+	requested_count = clampi(
+		requested_count,
+		0,
+		samples.size() - start_index
+	)
+	var count: int = mini(
+		requested_count,
+		_resolve_max_sample_count(options)
+	)
 	if count < requested_count:
 		report["truncated"] = true
 	var result: PackedFloat32Array = PackedFloat32Array()
@@ -401,7 +547,11 @@ static func _slice_samples(
 ## [br]
 static func _resolve_max_sample_count(options: Dictionary) -> int:
 	return clampi(
-		GFVariantData.get_option_int(options, "max_sample_count", _DEFAULT_MAX_SAMPLE_COUNT),
+		GFVariantData.get_option_int(
+			options,
+			"max_sample_count",
+			_DEFAULT_MAX_SAMPLE_COUNT
+		),
 		8,
 		MAX_SAMPLE_COUNT
 	)
@@ -434,10 +584,26 @@ static func _select_stereo_pitch_candidate(
 	side: PackedFloat32Array
 ) -> Dictionary:
 	var candidates: Array[Dictionary] = [
-		{ "mode": &"mid", "samples": mid, "rms": calculate_rms(mid) },
-		{ "mode": &"side", "samples": side, "rms": calculate_rms(side) },
-		{ "mode": &"left", "samples": left, "rms": calculate_rms(left) },
-		{ "mode": &"right", "samples": right, "rms": calculate_rms(right) },
+		{
+			"mode": &"mid",
+			"samples": mid,
+			"rms": calculate_rms(mid),
+		},
+		{
+			"mode": &"side",
+			"samples": side,
+			"rms": calculate_rms(side),
+		},
+		{
+			"mode": &"left",
+			"samples": left,
+			"rms": calculate_rms(left),
+		},
+		{
+			"mode": &"right",
+			"samples": right,
+			"rms": calculate_rms(right),
+		},
 	]
 	var best: Dictionary = candidates[0]
 	for candidate: Dictionary in candidates:
@@ -543,12 +709,13 @@ static func _make_report() -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _add_issue(report: Dictionary, kind: StringName, message: String) -> void:
+static func _add_issue(
+	report: Dictionary,
+	kind: StringName,
+	message: String
+) -> void:
 	var issues: Array = GFVariantData.get_option_array(report, "issues")
-	issues.append({
-		"kind": kind,
-		"message": message,
-	})
+	issues.append({ "kind": kind, "message": message, })
 	report["issues"] = issues
 
 

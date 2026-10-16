@@ -32,7 +32,11 @@ extends RefCounted
 ## @schema key: Variant，调用方传入的 key。
 ## [br]
 ## @schema metadata: Dictionary，调用方定义的请求上下文。
-signal request_queued(request_id: int, key: Variant, metadata: Dictionary)
+signal request_queued(
+	request_id: int,
+	key: Variant,
+	metadata: Dictionary
+)
 
 ## 请求获得租约时发出。
 ## [br]
@@ -71,7 +75,12 @@ signal lease_released(lease: GFAsyncGateLease, reason: StringName)
 ## @schema key: Variant，调用方传入的 key。
 ## [br]
 ## @schema metadata: Dictionary，包含取消上下文。
-signal request_cancelled(request_id: int, key: Variant, reason: StringName, metadata: Dictionary)
+signal request_cancelled(
+	request_id: int,
+	key: Variant,
+	reason: StringName,
+	metadata: Dictionary
+)
 
 ## 等待请求超时时发出。
 ## [br]
@@ -88,7 +97,11 @@ signal request_cancelled(request_id: int, key: Variant, reason: StringName, meta
 ## @schema key: Variant，调用方传入的 key。
 ## [br]
 ## @schema metadata: Dictionary，包含超时上下文。
-signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)
+signal request_timed_out(
+	request_id: int,
+	key: Variant,
+	metadata: Dictionary
+)
 
 
 # --- 常量 ---
@@ -760,8 +773,22 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	var request_id: int = _take_request_id()
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
-	var timeout_msec: int = maxi(GFVariantData.get_option_int(options, "timeout_msec", 0), 0)
-	var lease_timeout_msec: int = maxi(GFVariantData.get_option_int(options, "lease_timeout_msec", 0), 0)
+	var timeout_msec: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"timeout_msec",
+			0
+		),
+		0
+	)
+	var lease_timeout_msec: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"lease_timeout_msec",
+			0
+		),
+		0
+	)
 	var request_max_concurrency: int = _get_request_max_concurrency(options)
 	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(options, "cancel_token"))
 	var request: Dictionary = {
@@ -839,7 +866,11 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 		and _get_queue_size(key_token) <= 0
 		and _can_activate_request(key_token, request)
 	):
-		return _activate_request(request, now_msec, true)
+		return _activate_request(
+			request,
+			now_msec,
+			true
+		)
 
 	if _get_queue_size(key_token) >= _max_waiting_per_key:
 		_forget_request_record(request)
@@ -865,7 +896,12 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	if _pump_in_progress or _notification_depth > 0:
 		_pump_dirty = true
 		_pump_followup_requested = true
-	_record_event(&"request_queued", request, null, &"")
+	_record_event(
+		&"request_queued",
+		request,
+		null,
+		&""
+	)
 	var queued_result: Dictionary = _make_request_result(
 		STATUS_QUEUED,
 		true,
@@ -882,10 +918,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 		metadata.duplicate(true)
 	)
 	_end_notification()
-	var terminal_result: Dictionary = GFVariantData.get_option_dictionary(
-		request,
-		"terminal_result"
-	)
+	var terminal_result: Dictionary = GFVariantData.get_option_dictionary(request, "terminal_result")
 	if not terminal_result.is_empty():
 		return terminal_result.duplicate(true)
 	return queued_result
@@ -922,9 +955,7 @@ func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	if not GFVariantData.get_option_bool(key_report, "ok"):
 		return _make_invalid_key_result(key, key_report)
 	var key_token: String = GFVariantData.get_option_string(key_report, "key_token")
-	var request_probe: Dictionary = {
-		"max_concurrency": _get_request_max_concurrency(options),
-	}
+	var request_probe: Dictionary = { "max_concurrency": _get_request_max_concurrency(options), }
 	var can_commit_immediately: bool = (
 		not _pump_in_progress
 		and _notification_depth <= 0
@@ -1034,10 +1065,19 @@ func release_lease(lease: GFAsyncGateLease, reason: StringName = &"manual") -> b
 ## @return 找到并取消等待请求时返回 true。
 ## [br]
 ## @schema metadata: Dictionary，调用方定义的取消上下文。
-func cancel_request(request_id: int, reason: StringName = STATUS_CANCELLED, metadata: Dictionary = {}) -> bool:
+func cancel_request(
+	request_id: int,
+	reason: StringName = STATUS_CANCELLED,
+	metadata: Dictionary = {}
+) -> bool:
 	if not Thread.is_main_thread():
 		return false
-	return _cancel_request_on_main_thread(request_id, reason, metadata, false)
+	return _cancel_request_on_main_thread(
+		request_id,
+		reason,
+		metadata,
+		false
+	)
 
 
 ## 取消全部等待请求并释放全部活跃租约。
@@ -1057,9 +1097,7 @@ func clear(reason: StringName = &"cleared", metadata: Dictionary = {}) -> int:
 	if not Thread.is_main_thread():
 		return 0
 	_begin_lifecycle_batch()
-	var detached_requests: Array[Dictionary] = (
-		_detach_all_waiting_requests()
-	)
+	var detached_requests: Array[Dictionary] = _detach_all_waiting_requests()
 	var leases: Array[GFAsyncGateLease] = _collect_active_leases()
 
 	for request: Dictionary in detached_requests:
@@ -1216,13 +1254,7 @@ func expire_waiting_requests(now_msec: int = -1) -> int:
 		if request_id <= 0:
 			continue
 		var request: Dictionary = _get_request_record(request_id)
-		if (
-			request.is_empty()
-			or GFVariantData.get_option_string_name(
-				request,
-				"location"
-			) != &"queued"
-		):
+		if (request.is_empty() or ((GFVariantData.get_option_string_name(request, "location")) != &"queued")):
 			continue
 		if _request_has_observed_cancellation(request):
 			var _detached_cancelled: bool = _detach_waiting_request(request)
@@ -1232,20 +1264,14 @@ func expire_waiting_requests(now_msec: int = -1) -> int:
 			expired_metadata.append(_get_request_cancel_metadata(request))
 			expired_as_timeout.append(false)
 			continue
-		var expires_at_msec: int = GFVariantData.get_option_int(
-			request,
-			"expires_at_msec"
-		)
+		var expires_at_msec: int = GFVariantData.get_option_int(request, "expires_at_msec")
 		if expires_at_msec <= 0 or now < expires_at_msec:
 			continue
 		var _detached_expired: bool = _detach_waiting_request(request)
 		expired_requests.append(request)
 		expired_statuses.append(STATUS_TIMEOUT)
 		expired_reasons.append(STATUS_TIMEOUT)
-		expired_metadata.append({
-			"now_msec": now,
-			"expires_at_msec": expires_at_msec,
-		})
+		expired_metadata.append({ "now_msec": now, "expires_at_msec": expires_at_msec, })
 		expired_as_timeout.append(true)
 
 	for index: int in range(expired_requests.size()):
@@ -1365,9 +1391,7 @@ func get_recent_events() -> Array[Dictionary]:
 	if not Thread.is_main_thread():
 		return result
 	for offset: int in range(_events.size()):
-		var event_index: int = (
-			(_event_start_index + offset) % _events.size()
-		)
+		var event_index: int = (_event_start_index + offset) % _events.size()
 		var event: Dictionary = _events[event_index]
 		result.append(event.duplicate(true))
 	return result
@@ -1426,13 +1450,7 @@ func _cancel_request_on_main_thread(
 	if request_id <= 0:
 		return false
 	var request: Dictionary = _get_request_record(request_id)
-	if (
-		request.is_empty()
-		or GFVariantData.get_option_string_name(
-			request,
-			"location"
-		) != &"queued"
-	):
+	if (request.is_empty() or ((GFVariantData.get_option_string_name(request, "location")) != &"queued")):
 		return false
 	if not _detach_waiting_request(request):
 		return false
@@ -1447,27 +1465,17 @@ func _cancel_request_on_main_thread(
 		false,
 		false
 	)
-	_prune_key_if_transient(
-		GFVariantData.get_option_string(request, "key_token")
-	)
+	_prune_key_if_transient(GFVariantData.get_option_string(request, "key_token"))
 	return true
 
 
 ## 在主线程执行按 token_id 查找并取消相关请求的工作。
 ## [br]
 ## @api private
-func _cancel_requests_for_token_from_worker(
-	token_id: int,
-	reason: StringName
-) -> void:
+func _cancel_requests_for_token_from_worker(token_id: int, reason: StringName) -> void:
 	if not Thread.is_main_thread():
 		return
-	var _cancelled_count_for_token: int = (
-		_cancel_requests_for_token_on_main_thread(
-			token_id,
-			reason
-		)
-	)
+	var _cancelled_count_for_token: int = _cancel_requests_for_token_on_main_thread(token_id, reason)
 
 
 ## 提交租约前最后检查已观测到的取消；接受后先登记活动租约和请求终态，再完成 completion 并发送 acquired。
@@ -1495,20 +1503,11 @@ func _activate_request(
 
 	var key_token: String = GFVariantData.get_option_string(request, "key_token")
 	var key: Variant = GFVariantData.get_option_value(request, "key")
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(
-		request,
-		"metadata"
-	)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(request, "metadata")
 	var request_id: int = GFVariantData.get_option_int(request, "request_id")
 	var lease_id: int = _take_lease_id()
-	var lease_timeout_msec: int = GFVariantData.get_option_int(
-		request,
-		"lease_timeout_msec"
-	)
-	var expires_at_msec: int = _make_deadline_msec(
-		now_msec,
-		lease_timeout_msec
-	)
+	var lease_timeout_msec: int = GFVariantData.get_option_int(request, "lease_timeout_msec")
+	var expires_at_msec: int = _make_deadline_msec(now_msec, lease_timeout_msec)
 	var lease: GFAsyncGateLease = GFAsyncGateLease.new()
 	var _configured: GFAsyncGateLease = lease.configure_from_gate(
 		lease_id,
@@ -1522,7 +1521,11 @@ func _activate_request(
 		"max_concurrency",
 		0
 	)
-	_add_active_lease(key_token, lease, request_limit)
+	_add_active_lease(
+		key_token,
+		lease,
+		request_limit
+	)
 	_lease_records[lease_id] = {
 		"lease": lease,
 		"lease_id": lease_id,
@@ -1547,12 +1550,15 @@ func _activate_request(
 		true
 	)
 	request["terminal_result"] = result.duplicate(true)
-	_record_event(&"lease_acquired", request, lease, &"")
+	_record_event(
+		&"lease_acquired",
+		request,
+		lease,
+		&""
+	)
 	var notification_cutoff: int = _next_request_id - 1
 	_begin_notification(notification_cutoff)
-	var completion: GFAsyncCompletion = _variant_to_completion(
-		GFVariantData.get_option_value(request, "completion")
-	)
+	var completion: GFAsyncCompletion = _variant_to_completion(GFVariantData.get_option_value(request, "completion"))
 	if completion != null and completion.is_pending():
 		var completion_result: Dictionary = _make_request_result(
 			STATUS_ACQUIRED,
@@ -1566,9 +1572,7 @@ func _activate_request(
 		var _completed: bool = completion.succeed(completion_result)
 	lease_acquired.emit(lease)
 	_end_notification()
-	_prune_key_if_transient(
-		GFVariantData.get_option_string(request, "key_token")
-	)
+	_prune_key_if_transient(GFVariantData.get_option_string(request, "key_token"))
 	return result
 
 
@@ -1576,10 +1580,7 @@ func _activate_request(
 ## 延迟释放沿用最外层通知的请求截止值，避免重入请求提前获得空出的配额。
 ## [br]
 ## @api private
-func _release_lease_from_handle(
-	lease: GFAsyncGateLease,
-	reason: StringName = &"manual"
-) -> bool:
+func _release_lease_from_handle(lease: GFAsyncGateLease, reason: StringName = &"manual") -> bool:
 	if not Thread.is_main_thread():
 		return false
 	if lease == null:
@@ -1588,20 +1589,12 @@ func _release_lease_from_handle(
 	if not _lease_records.has(lease_id):
 		return false
 
-	var record: Dictionary = GFVariantData.as_dictionary(
-		_lease_records[lease_id]
-	)
-	var recorded_lease: GFAsyncGateLease = _variant_to_lease(
-		GFVariantData.get_option_value(record, "lease")
-	)
+	var record: Dictionary = GFVariantData.as_dictionary(_lease_records[lease_id])
+	var recorded_lease: GFAsyncGateLease = _variant_to_lease(GFVariantData.get_option_value(record, "lease"))
 	if recorded_lease != lease:
 		return false
 	var safe_reason: StringName = reason if reason != &"" else &"manual"
-	var eligible_cutoff: int = (
-		_get_current_notification_cutoff()
-		if _notification_depth > 0
-		else _next_request_id - 1
-	)
+	var eligible_cutoff: int = (_get_current_notification_cutoff() if _notification_depth > 0 else _next_request_id - 1)
 	if _notification_depth > 0:
 		return _queue_pending_release(
 			lease,
@@ -1630,30 +1623,32 @@ func _release_lease_now(
 	var lease_id: int = lease.get_lease_id()
 	if not _lease_records.has(lease_id):
 		return false
-	var record: Dictionary = GFVariantData.as_dictionary(
-		_lease_records[lease_id]
-	)
-	var recorded_lease: GFAsyncGateLease = _variant_to_lease(
-		GFVariantData.get_option_value(record, "lease")
-	)
+	var record: Dictionary = GFVariantData.as_dictionary(_lease_records[lease_id])
+	var recorded_lease: GFAsyncGateLease = _variant_to_lease(GFVariantData.get_option_value(record, "lease"))
 	if recorded_lease != lease:
 		return false
-	var key_token: String = GFVariantData.get_option_string(
-		record,
-		"key_token"
-	)
+	var key_token: String = GFVariantData.get_option_string(record, "key_token")
 	var safe_reason: StringName = reason if reason != &"" else &"manual"
 	if not lease._mark_released_from_gate(safe_reason, false):
 		return false
 	_remove_active_lease(
 		key_token,
 		lease_id,
-		GFVariantData.get_option_int(record, "max_concurrency", 0)
+		GFVariantData.get_option_int(
+			record,
+			"max_concurrency",
+			0
+		)
 	)
 	_unregister_active_lease_slot(lease_id)
 	var _record_erased: bool = _lease_records.erase(lease_id)
 	_released_count += 1
-	_record_event(&"lease_released", record, lease, safe_reason)
+	_record_event(
+		&"lease_released",
+		record,
+		lease,
+		safe_reason
+	)
 	_remember_pending_pump_cutoff(eligible_cutoff)
 	_begin_notification(eligible_cutoff)
 	lease._emit_released_from_gate()
@@ -1703,13 +1698,9 @@ func _drain_pending_releases() -> int:
 	while release_index < _pending_release_order.size():
 		var lease_id: int = _pending_release_order[release_index]
 		release_index += 1
-		var pending: Dictionary = GFVariantData.as_dictionary(
-			_pending_releases.get(lease_id, {})
-		)
+		var pending: Dictionary = GFVariantData.as_dictionary(_pending_releases.get(lease_id, {}))
 		var _pending_erased: bool = _pending_releases.erase(lease_id)
-		var lease: GFAsyncGateLease = _variant_to_lease(
-			GFVariantData.get_option_value(pending, "lease")
-		)
+		var lease: GFAsyncGateLease = _variant_to_lease(GFVariantData.get_option_value(pending, "lease"))
 		if lease == null:
 			continue
 		var reason: StringName = GFVariantData.get_option_string_name(
@@ -1722,7 +1713,11 @@ func _drain_pending_releases() -> int:
 			"eligible_cutoff",
 			_next_request_id - 1
 		)
-		if _release_lease_now(lease, reason, eligible_cutoff):
+		if _release_lease_now(
+			lease,
+			reason,
+			eligible_cutoff
+		):
 			released_count += 1
 			_remember_pending_pump_cutoff(eligible_cutoff)
 	_pending_release_order.clear()
@@ -1735,11 +1730,7 @@ func _drain_pending_releases() -> int:
 ## @api private
 func _begin_notification(eligible_cutoff: int) -> void:
 	_notification_depth += 1
-	_notification_cutoffs.append(
-		eligible_cutoff
-		if eligible_cutoff > 0
-		else _next_request_id - 1
-	)
+	_notification_cutoffs.append((eligible_cutoff if eligible_cutoff > 0 else _next_request_id - 1))
 
 
 ## 退出一层通知；最外层通知和生命周期批次结束后调用 _flush_lifecycle()。
@@ -1778,10 +1769,7 @@ func _begin_lifecycle_batch() -> void:
 ## 结束一层生命周期批处理；最外层结束时按参数将积压工作提交到 _flush_lifecycle()。
 ## [br]
 ## @api private
-func _end_lifecycle_batch_and_flush(
-	default_cutoff: int = 0,
-	allow_immediate_pump: bool = true
-) -> void:
+func _end_lifecycle_batch_and_flush(default_cutoff: int = 0, allow_immediate_pump: bool = true) -> void:
 	if _lifecycle_batch_depth > 0:
 		_lifecycle_batch_depth -= 1
 	if _lifecycle_batch_depth > 0:
@@ -1798,10 +1786,7 @@ func _remember_pending_pump_cutoff(eligible_cutoff: int) -> void:
 	if _pending_pump_cutoff <= 0:
 		_pending_pump_cutoff = eligible_cutoff
 	else:
-		_pending_pump_cutoff = mini(
-			_pending_pump_cutoff,
-			eligible_cutoff
-		)
+		_pending_pump_cutoff = mini(_pending_pump_cutoff, eligible_cutoff)
 
 
 ## 取出待处理队列推进截止值并将存储值重置为 0。
@@ -1817,10 +1802,7 @@ func _take_pending_pump_cutoff() -> int:
 ## 禁止立即推进时不消费截止值；没有排队请求时才清除它。
 ## [br]
 ## @api private
-func _flush_lifecycle(
-	default_cutoff: int = 0,
-	allow_immediate_pump: bool = true
-) -> void:
+func _flush_lifecycle(default_cutoff: int = 0, allow_immediate_pump: bool = true) -> void:
 	_remember_pending_pump_cutoff(default_cutoff)
 	if (
 		_notification_depth > 0
@@ -1887,10 +1869,7 @@ func _release_leases_without_pump(
 ## 嵌套调用只标脏并安排后续轮次；返回本轮激活租约数，不承诺不同 key 的等待时长相等。
 ## [br]
 ## @api private
-func _pump_all_keys(
-	continue_scan: bool = false,
-	request_cutoff: int = 0
-) -> int:
+func _pump_all_keys(continue_scan: bool = false, request_cutoff: int = 0) -> int:
 	if (
 		_pump_in_progress
 		or _notification_depth > 0
@@ -1933,21 +1912,11 @@ func _pump_all_keys(
 	if starts_new_snapshot:
 		_pump_scan_remaining_keys = slot_count
 		_pump_cycle_progress_count = 0
-		_pump_snapshot_request_cutoff = (
-			request_cutoff
-			if request_cutoff > 0
-			else _next_request_id - 1
-		)
-		_pump_followup_requested = (
-			_next_request_id - 1
-			> _pump_snapshot_request_cutoff
-		)
+		_pump_snapshot_request_cutoff = (request_cutoff if request_cutoff > 0 else _next_request_id - 1)
+		_pump_followup_requested = (_next_request_id - 1 > _pump_snapshot_request_cutoff)
 		_pump_dirty = false
 	else:
-		_pump_scan_remaining_keys = mini(
-			_pump_scan_remaining_keys,
-			slot_count
-		)
+		_pump_scan_remaining_keys = mini(_pump_scan_remaining_keys, slot_count)
 
 	_pump_in_progress = true
 	var activated_count: int = 0
@@ -1966,31 +1935,17 @@ func _pump_all_keys(
 		var key_token: String = _key_slots[slot_index]
 		if key_token.is_empty():
 			continue
-		var key_report: Dictionary = _pump_key(
-			key_token,
-			_pump_snapshot_request_cutoff
-		)
-		var key_activated_count: int = GFVariantData.get_option_int(
-			key_report,
-			"activated_count"
-		)
-		var key_processed_count: int = GFVariantData.get_option_int(
-			key_report,
-			"processed_count"
-		)
+		var key_report: Dictionary = _pump_key(key_token, _pump_snapshot_request_cutoff)
+		var key_activated_count: int = GFVariantData.get_option_int(key_report, "activated_count")
+		var key_processed_count: int = GFVariantData.get_option_int(key_report, "processed_count")
 		activated_count += key_activated_count
 		_processed_count += key_processed_count
 		_pump_cycle_progress_count += key_processed_count
 
 	_pump_in_progress = false
-	var has_remaining_capacity: bool = (
-		_lease_records.size() < _max_active_leases
-	)
+	var has_remaining_capacity: bool = _lease_records.size() < _max_active_leases
 	var should_continue: bool = false
-	if (
-		has_remaining_capacity
-		and _queued_count > 0
-	):
+	if (has_remaining_capacity and _queued_count > 0):
 		if _pump_scan_remaining_keys > 0:
 			should_continue = true
 		elif _pump_cycle_progress_count > 0:
@@ -2018,25 +1973,16 @@ func _pump_all_keys(
 ## 处理指定 key 的队首请求，并返回本次激活数与终态处理数。
 ## [br]
 ## @api private
-func _pump_key(
-	key_token: String,
-	snapshot_max_request_id: int
-) -> Dictionary:
+func _pump_key(key_token: String, snapshot_max_request_id: int) -> Dictionary:
 	var now_msec: int = Time.get_ticks_msec()
 	var activated_count: int = 0
 	var processed_count: int = 0
 	var request_id: int = _get_queue_head_request_id(key_token)
 	if request_id <= 0 or request_id > snapshot_max_request_id:
-		return {
-			"activated_count": 0,
-			"processed_count": 0,
-		}
+		return { "activated_count": 0, "processed_count": 0, }
 	var request: Dictionary = _get_request_record(request_id)
 	if request.is_empty():
-		return {
-			"activated_count": 0,
-			"processed_count": 0,
-		}
+		return { "activated_count": 0, "processed_count": 0, }
 	if _request_has_observed_cancellation(request):
 		var _detached_cancelled: bool = _detach_waiting_request(request)
 		var _cancel_result: Dictionary = _complete_waiting_request(
@@ -2049,20 +1995,14 @@ func _pump_key(
 		)
 		processed_count = 1
 	else:
-		var expires_at_msec: int = GFVariantData.get_option_int(
-			request,
-			"expires_at_msec"
-		)
+		var expires_at_msec: int = GFVariantData.get_option_int(request, "expires_at_msec")
 		if expires_at_msec > 0 and now_msec >= expires_at_msec:
 			var _detached_expired: bool = _detach_waiting_request(request)
 			var _timeout_result: Dictionary = _complete_waiting_request(
 				request,
 				STATUS_TIMEOUT,
 				STATUS_TIMEOUT,
-				{
-					"now_msec": now_msec,
-					"expires_at_msec": expires_at_msec,
-				},
+				{ "now_msec": now_msec, "expires_at_msec": expires_at_msec, },
 				true,
 				false
 			)
@@ -2074,29 +2014,18 @@ func _pump_key(
 				now_msec,
 				false
 			)
-			if (
-				GFVariantData.get_option_string_name(
-					activation_result,
-					"status"
-				) == STATUS_ACQUIRED
-			):
+			if ((GFVariantData.get_option_string_name(activation_result, "status")) == STATUS_ACQUIRED):
 				activated_count = 1
 			processed_count = 1
 
 	_prune_key_if_transient(key_token)
-	return {
-		"activated_count": activated_count,
-		"processed_count": processed_count,
-	}
+	return { "activated_count": activated_count, "processed_count": processed_count, }
 
 
 ## 判断 key 队首请求是否存在且不晚于本轮扫描的 request_id 截止值。
 ## [br]
 ## @api private
-func _queue_front_is_in_snapshot(
-	key_token: String,
-	snapshot_max_request_id: int
-) -> bool:
+func _queue_front_is_in_snapshot(key_token: String, snapshot_max_request_id: int) -> bool:
 	var request_id: int = _get_queue_head_request_id(key_token)
 	return request_id > 0 and request_id <= snapshot_max_request_id
 
@@ -2108,9 +2037,7 @@ func _schedule_deferred_key_pump() -> void:
 	if _deferred_pump_scheduled:
 		return
 	_deferred_pump_scheduled = true
-	var _deferred_result: Variant = call_deferred(
-		"_flush_deferred_key_pump"
-	)
+	var _deferred_result: Variant = call_deferred("_flush_deferred_key_pump")
 
 
 ## 在延迟调用中恢复或启动一次队列推进扫描。
@@ -2120,19 +2047,9 @@ func _flush_deferred_key_pump() -> void:
 	_deferred_pump_scheduled = false
 	if not Thread.is_main_thread():
 		return
-	var continue_scan: bool = (
-		_pump_scan_remaining_keys > 0
-		and _pump_snapshot_request_cutoff > 0
-	)
-	var cutoff: int = (
-		0
-		if continue_scan
-		else _take_pending_pump_cutoff()
-	)
-	var _pumped_count: int = _pump_all_keys(
-		continue_scan,
-		cutoff
-	)
+	var continue_scan: bool = (_pump_scan_remaining_keys > 0 and _pump_snapshot_request_cutoff > 0)
+	var cutoff: int = (0 if continue_scan else _take_pending_pump_cutoff())
+	var _pumped_count: int = _pump_all_keys(continue_scan, cutoff)
 
 
 ## 从请求记录移除等待请求，并构造取消或超时终态结果、计数、事件和通知。
@@ -2147,16 +2064,10 @@ func _complete_waiting_request(
 	include_completion: bool
 ) -> Dictionary:
 	_forget_request_record(request)
-	var safe_status: StringName = (
-		status if status != &"" else STATUS_CANCELLED
-	)
+	var safe_status: StringName = status if status != &"" else STATUS_CANCELLED
 	var safe_reason: StringName = reason if reason != &"" else safe_status
-	var completion: GFAsyncCompletion = _variant_to_completion(
-		GFVariantData.get_option_value(request, "completion")
-	)
-	var completion_metadata: Dictionary = (
-		GFVariantData.get_option_dictionary(request, "metadata")
-	)
+	var completion: GFAsyncCompletion = _variant_to_completion(GFVariantData.get_option_value(request, "completion"))
+	var completion_metadata: Dictionary = GFVariantData.get_option_dictionary(request, "metadata")
 	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(
 		completion_metadata,
 		metadata,
@@ -2180,32 +2091,32 @@ func _complete_waiting_request(
 	_begin_notification(notification_cutoff)
 	if timed_out:
 		_timeout_count += 1
-		_record_event(&"request_timed_out", request, null, safe_reason)
+		_record_event(
+			&"request_timed_out",
+			request,
+			null,
+			safe_reason
+		)
 		if completion != null and completion.is_pending():
-			var _timeout_completed: bool = completion.cancel(
-				STATUS_TIMEOUT,
-				_merged_metadata
-			)
+			var _timeout_completed: bool = completion.cancel(STATUS_TIMEOUT, _merged_metadata)
 		request_timed_out.emit(
 			GFVariantData.get_option_int(request, "request_id"),
-			GFVariantData.duplicate_variant(
-				GFVariantData.get_option_value(request, "key")
-			),
+			GFVariantData.duplicate_variant(GFVariantData.get_option_value(request, "key")),
 			_merged_metadata.duplicate(true)
 		)
 	else:
 		_cancelled_count += 1
-		_record_event(&"request_cancelled", request, null, safe_reason)
+		_record_event(
+			&"request_cancelled",
+			request,
+			null,
+			safe_reason
+		)
 		if completion != null and completion.is_pending():
-			var _cancel_completed: bool = completion.cancel(
-				safe_reason,
-				_merged_metadata
-			)
+			var _cancel_completed: bool = completion.cancel(safe_reason, _merged_metadata)
 		request_cancelled.emit(
 			GFVariantData.get_option_int(request, "request_id"),
-			GFVariantData.duplicate_variant(
-				GFVariantData.get_option_value(request, "key")
-			),
+			GFVariantData.duplicate_variant(GFVariantData.get_option_value(request, "key")),
 			safe_reason,
 			_merged_metadata.duplicate(true)
 		)
@@ -2255,7 +2166,11 @@ func _make_invalid_key_result(key: Variant, key_report: Dictionary) -> Dictionar
 		"request_id": 0,
 		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(key),
 		"metadata": {},
-		"reason": GFVariantData.get_option_string_name(key_report, "reason", STATUS_INVALID),
+		"reason": GFVariantData.get_option_string_name(
+			key_report,
+			"reason",
+			STATUS_INVALID
+		),
 	}
 
 
@@ -2343,7 +2258,12 @@ func _make_rejected_request_result(
 		false
 	)
 	result["capacity_scope"] = capacity_scope
-	_record_event(&"request_rejected", request, null, reason)
+	_record_event(
+		&"request_rejected",
+		request,
+		null,
+		reason
+	)
 	return result
 
 
@@ -2367,45 +2287,29 @@ func _make_busy_request_result(key: Variant, options: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 func _bind_request_cancel_token(request: Dictionary) -> bool:
-	var token: GFCancellationToken = _variant_to_cancel_token(
-		GFVariantData.get_option_value(request, "cancel_token")
-	)
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
 	if token == null:
 		return true
 	var request_id: int = GFVariantData.get_option_int(request, "request_id")
 	var token_id: int = token.get_instance_id()
 	request["cancel_token_id"] = token_id
 	if _cancel_token_states.has(token_id):
-		var existing_state: Dictionary = GFVariantData.as_dictionary(
-			_cancel_token_states[token_id]
-		)
-		var existing_request_ids: Dictionary = (
-			GFVariantData.as_dictionary(
-				existing_state.get("request_ids")
-			)
-		)
+		var existing_state: Dictionary = GFVariantData.as_dictionary(_cancel_token_states[token_id])
+		var existing_request_ids: Dictionary = GFVariantData.as_dictionary(existing_state.get("request_ids"))
 		existing_request_ids[request_id] = true
 		existing_state["request_ids"] = existing_request_ids
 		_cancel_token_states[token_id] = existing_state
 		return true
 
-	var callback: Callable = Callable(
-		self,
-		"_handle_cancel_token_requested"
-	).bind(token_id)
-	var request_ids: Dictionary = {
-		request_id: true,
-	}
+	var callback: Callable = (Callable(self, "_handle_cancel_token_requested").bind(token_id))
+	var request_ids: Dictionary = { request_id: true, }
 	_cancel_token_states[token_id] = {
 		"token": token,
 		"callback": callback,
 		"request_ids": request_ids,
 	}
 	request["cancel_callback"] = callback
-	var connect_error: Error = _connect_request_cancel_token(
-		token,
-		callback
-	)
+	var connect_error: Error = _connect_request_cancel_token(token, callback)
 	if connect_error != OK:
 		var _state_erased: bool = _cancel_token_states.erase(token_id)
 		request["cancel_token_id"] = 0
@@ -2417,17 +2321,9 @@ func _bind_request_cancel_token(request: Dictionary) -> bool:
 ## 在主线程直接处理令牌取消；若回调来自 worker，则延迟投递一次主线程处理。
 ## [br]
 ## @api private
-func _handle_cancel_token_requested(
-	reason: StringName,
-	token_id: int
-) -> void:
+func _handle_cancel_token_requested(reason: StringName, token_id: int) -> void:
 	if Thread.is_main_thread():
-		var _cancelled_for_token: int = (
-			_cancel_requests_for_token_on_main_thread(
-				token_id,
-				reason
-			)
-		)
+		var _cancelled_for_token: int = _cancel_requests_for_token_on_main_thread(token_id, reason)
 		return
 	# Worker callbacks never enumerate requests. The token contributes one
 	# deferred main-thread task regardless of how many requests share it.
@@ -2441,10 +2337,7 @@ func _handle_cancel_token_requested(
 ## 使用一次性连接监听取消令牌，并返回信号连接结果。
 ## [br]
 ## @api private
-func _connect_request_cancel_token(
-	token: GFCancellationToken,
-	callback: Callable
-) -> Error:
+func _connect_request_cancel_token(token: GFCancellationToken, callback: Callable) -> Error:
 	return token.cancel_requested.connect(
 		callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -2455,32 +2348,18 @@ func _connect_request_cancel_token(
 ## [br]
 ## @api private
 func _disconnect_request_cancel_token(request: Dictionary) -> void:
-	var token_id: int = GFVariantData.get_option_int(
-		request,
-		"cancel_token_id"
-	)
+	var token_id: int = GFVariantData.get_option_int(request, "cancel_token_id")
 	if token_id == 0 or not _cancel_token_states.has(token_id):
 		request["cancel_token_id"] = 0
 		request["cancel_callback"] = Callable()
 		return
-	var state: Dictionary = GFVariantData.as_dictionary(
-		_cancel_token_states[token_id]
-	)
-	var request_ids: Dictionary = GFVariantData.as_dictionary(
-		state.get("request_ids")
-	)
-	var request_id: int = GFVariantData.get_option_int(
-		request,
-		"request_id"
-	)
+	var state: Dictionary = GFVariantData.as_dictionary(_cancel_token_states[token_id])
+	var request_ids: Dictionary = GFVariantData.as_dictionary(state.get("request_ids"))
+	var request_id: int = GFVariantData.get_option_int(request, "request_id")
 	var _request_erased: bool = request_ids.erase(request_id)
 	if request_ids.is_empty():
-		var token: GFCancellationToken = _variant_to_cancel_token(
-			GFVariantData.get_option_value(state, "token")
-		)
-		var callback: Callable = _variant_to_callable(
-			GFVariantData.get_option_value(state, "callback")
-		)
+		var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(state, "token"))
+		var callback: Callable = _variant_to_callable(GFVariantData.get_option_value(state, "callback"))
 		if (
 			token != null
 			and callback.is_valid()
@@ -2499,24 +2378,13 @@ func _disconnect_request_cancel_token(request: Dictionary) -> void:
 ## 通知在生命周期批次内执行，队列推进延至整批结束；新建请求不属于已取出的 request_ids 集合。
 ## [br]
 ## @api private
-func _cancel_requests_for_token_on_main_thread(
-	token_id: int,
-	reason: StringName
-) -> int:
+func _cancel_requests_for_token_on_main_thread(token_id: int, reason: StringName) -> int:
 	if token_id == 0 or not _cancel_token_states.has(token_id):
 		return 0
-	var state: Dictionary = GFVariantData.as_dictionary(
-		_cancel_token_states[token_id]
-	)
-	var token: GFCancellationToken = _variant_to_cancel_token(
-		GFVariantData.get_option_value(state, "token")
-	)
-	var callback: Callable = _variant_to_callable(
-		GFVariantData.get_option_value(state, "callback")
-	)
-	var request_ids: Dictionary = GFVariantData.as_dictionary(
-		state.get("request_ids")
-	)
+	var state: Dictionary = GFVariantData.as_dictionary(_cancel_token_states[token_id])
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(state, "token"))
+	var callback: Callable = _variant_to_callable(GFVariantData.get_option_value(state, "callback"))
+	var request_ids: Dictionary = GFVariantData.as_dictionary(state.get("request_ids"))
 	var _state_erased: bool = _cancel_token_states.erase(token_id)
 	if (
 		token != null
@@ -2544,13 +2412,7 @@ func _cancel_requests_for_token_on_main_thread(
 		request["cancel_observed"] = true
 		request["cancel_reason"] = safe_reason
 		request["cancel_metadata"] = cancel_metadata.duplicate(true)
-		if (
-			GFVariantData.get_option_string_name(
-				request,
-				"location"
-			) == &"queued"
-			and _detach_waiting_request(request)
-		):
+		if (((GFVariantData.get_option_string_name(request, "location")) == &"queued") and _detach_waiting_request(request)):
 			detached_requests.append(request)
 
 	for request: Dictionary in detached_requests:
@@ -2572,9 +2434,7 @@ func _cancel_requests_for_token_on_main_thread(
 func _request_has_observed_cancellation(request: Dictionary) -> bool:
 	if GFVariantData.get_option_bool(request, "cancel_observed"):
 		return true
-	var token: GFCancellationToken = _variant_to_cancel_token(
-		GFVariantData.get_option_value(request, "cancel_token")
-	)
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
 	return token != null and token.is_cancel_requested()
 
 
@@ -2582,15 +2442,10 @@ func _request_has_observed_cancellation(request: Dictionary) -> bool:
 ## [br]
 ## @api private
 func _get_request_cancel_reason(request: Dictionary) -> StringName:
-	var stored_reason: StringName = GFVariantData.get_option_string_name(
-		request,
-		"cancel_reason"
-	)
+	var stored_reason: StringName = GFVariantData.get_option_string_name(request, "cancel_reason")
 	if stored_reason != &"":
 		return stored_reason
-	var token: GFCancellationToken = _variant_to_cancel_token(
-		GFVariantData.get_option_value(request, "cancel_token")
-	)
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
 	if token != null and token.is_cancel_requested():
 		var token_reason: StringName = token.get_cancel_reason()
 		if token_reason != &"":
@@ -2602,15 +2457,10 @@ func _get_request_cancel_reason(request: Dictionary) -> StringName:
 ## [br]
 ## @api private
 func _get_request_cancel_metadata(request: Dictionary) -> Dictionary:
-	var stored_metadata: Dictionary = GFVariantData.get_option_dictionary(
-		request,
-		"cancel_metadata"
-	)
+	var stored_metadata: Dictionary = GFVariantData.get_option_dictionary(request, "cancel_metadata")
 	if not stored_metadata.is_empty():
 		return stored_metadata
-	var token: GFCancellationToken = _variant_to_cancel_token(
-		GFVariantData.get_option_value(request, "cancel_token")
-	)
+	var token: GFCancellationToken = _variant_to_cancel_token(GFVariantData.get_option_value(request, "cancel_token"))
 	if token != null and token.is_cancel_requested():
 		return token.get_cancel_metadata()
 	return {}
@@ -2620,11 +2470,7 @@ func _get_request_cancel_metadata(request: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 func _can_activate_request(key_token: String, request: Dictionary) -> bool:
-	return (
-		_lease_records.size() < _max_active_leases
-		and _get_active_count(key_token)
-		< _get_effective_request_limit(key_token, request)
-	)
+	return (_lease_records.size() < _max_active_leases and _get_active_count(key_token) < _get_effective_request_limit(key_token, request))
 
 
 ## 返回 key 的显式并发限制，未配置时使用默认值。
@@ -2648,11 +2494,19 @@ func _get_key_limit(key_token: String) -> int:
 ## @api private
 func _get_effective_request_limit(key_token: String, request: Dictionary) -> int:
 	var configured_limit: int = _get_current_active_limit(key_token)
-	var request_limit: int = GFVariantData.get_option_int(request, "max_concurrency", 0)
+	var request_limit: int = GFVariantData.get_option_int(
+		request,
+		"max_concurrency",
+		0
+	)
 	if request_limit > 0:
 		return mini(
 			configured_limit,
-			clampi(request_limit, 1, ABSOLUTE_MAX_CONCURRENCY)
+			clampi(
+				request_limit,
+				1,
+				ABSOLUTE_MAX_CONCURRENCY
+			)
 		)
 	return configured_limit
 
@@ -2677,10 +2531,18 @@ func _get_current_active_limit(key_token: String) -> int:
 ## [br]
 ## @api private
 func _get_request_max_concurrency(options: Dictionary) -> int:
-	var limit: int = GFVariantData.get_option_int(options, "max_concurrency", 0)
+	var limit: int = GFVariantData.get_option_int(
+		options,
+		"max_concurrency",
+		0
+	)
 	if limit <= 0:
 		return 0
-	return clampi(limit, 1, ABSOLUTE_MAX_CONCURRENCY)
+	return clampi(
+		limit,
+		1,
+		ABSOLUTE_MAX_CONCURRENCY
+	)
 
 
 ## 为新 key token 分配可复用槽位并记录原始 key 与 token。
@@ -2697,10 +2559,7 @@ func _remember_key(key_token: String, key: Variant) -> void:
 		slot_index = _free_key_slots.pop_back()
 		_key_slots[slot_index] = key_token
 	_key_slot_by_token[key_token] = slot_index
-	_key_data[key_token] = {
-		"key": GFVariantData.duplicate_variant(key),
-		"key_token": key_token,
-	}
+	_key_data[key_token] = { "key": GFVariantData.duplicate_variant(key), "key_token": key_token, }
 
 
 ## 判断 key token 是否已存在于跟踪数据中。
@@ -2714,7 +2573,10 @@ func _is_key_tracked(key_token: String) -> bool:
 ## [br]
 ## @api private
 func _update_key_high_watermark() -> void:
-	_key_high_watermark = maxi(_key_high_watermark, _key_data.size())
+	_key_high_watermark = maxi(
+		_key_high_watermark,
+		_key_data.size()
+	)
 
 
 ## 返回 key token 对应的队列状态；未创建时返回空字典。
@@ -2772,34 +2634,21 @@ func _get_request_record(request_id: int) -> Dictionary:
 ## [br]
 ## @api private
 func _enqueue_waiting_request(request: Dictionary) -> void:
-	var request_id: int = GFVariantData.get_option_int(
-		request,
-		"request_id"
-	)
-	var key_token: String = GFVariantData.get_option_string(
-		request,
-		"key_token"
-	)
+	var request_id: int = GFVariantData.get_option_int(request, "request_id")
+	var key_token: String = GFVariantData.get_option_string(request, "key_token")
 	var queue_state: Dictionary = _get_or_create_queue_state(key_token)
-	var tail_request_id: int = GFVariantData.get_option_int(
-		queue_state,
-		"tail_request_id"
-	)
+	var tail_request_id: int = GFVariantData.get_option_int(queue_state, "tail_request_id")
 	request["location"] = &"queued"
 	request["queue_previous_request_id"] = tail_request_id
 	request["queue_next_request_id"] = 0
 	if tail_request_id > 0:
-		var previous_request: Dictionary = _get_request_record(
-			tail_request_id
-		)
+		var previous_request: Dictionary = _get_request_record(tail_request_id)
 		previous_request["queue_next_request_id"] = request_id
 		_request_records[tail_request_id] = previous_request
 	else:
 		queue_state["head_request_id"] = request_id
 	queue_state["tail_request_id"] = request_id
-	queue_state["size"] = (
-		GFVariantData.get_option_int(queue_state, "size") + 1
-	)
+	queue_state["size"] = (GFVariantData.get_option_int(queue_state, "size") + 1)
 	_queue_states_by_key[key_token] = queue_state
 	_request_records[request_id] = request
 	_register_waiting_request_slot(request_id)
@@ -2810,36 +2659,17 @@ func _enqueue_waiting_request(request: Dictionary) -> void:
 ## [br]
 ## @api private
 func _detach_waiting_request(request: Dictionary) -> bool:
-	if (
-		GFVariantData.get_option_string_name(
-			request,
-			"location"
-		) != &"queued"
-	):
+	if ((GFVariantData.get_option_string_name(request, "location")) != &"queued"):
 		return false
-	var request_id: int = GFVariantData.get_option_int(
-		request,
-		"request_id"
-	)
-	var key_token: String = GFVariantData.get_option_string(
-		request,
-		"key_token"
-	)
+	var request_id: int = GFVariantData.get_option_int(request, "request_id")
+	var key_token: String = GFVariantData.get_option_string(request, "key_token")
 	var queue_state: Dictionary = _get_queue_state(key_token)
 	if queue_state.is_empty():
 		return false
-	var previous_request_id: int = GFVariantData.get_option_int(
-		request,
-		"queue_previous_request_id"
-	)
-	var next_request_id: int = GFVariantData.get_option_int(
-		request,
-		"queue_next_request_id"
-	)
+	var previous_request_id: int = GFVariantData.get_option_int(request, "queue_previous_request_id")
+	var next_request_id: int = GFVariantData.get_option_int(request, "queue_next_request_id")
 	if previous_request_id > 0:
-		var previous_request: Dictionary = _get_request_record(
-			previous_request_id
-		)
+		var previous_request: Dictionary = _get_request_record(previous_request_id)
 		previous_request["queue_next_request_id"] = next_request_id
 		_request_records[previous_request_id] = previous_request
 	else:
@@ -2864,7 +2694,10 @@ func _detach_waiting_request(request: Dictionary) -> bool:
 	request["queue_next_request_id"] = 0
 	_request_records[request_id] = request
 	_unregister_waiting_request_slot(request_id)
-	_queued_count = maxi(_queued_count - 1, 0)
+	_queued_count = maxi(
+		_queued_count - 1,
+		0
+	)
 	return true
 
 
@@ -2888,18 +2721,10 @@ func _detach_all_waiting_requests() -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _forget_request_record(request: Dictionary) -> void:
-	if (
-		GFVariantData.get_option_string_name(
-			request,
-			"location"
-		) == &"queued"
-	):
+	if ((GFVariantData.get_option_string_name(request, "location")) == &"queued"):
 		var _detached: bool = _detach_waiting_request(request)
 	_disconnect_request_cancel_token(request)
-	var request_id: int = GFVariantData.get_option_int(
-		request,
-		"request_id"
-	)
+	var request_id: int = GFVariantData.get_option_int(request, "request_id")
 	if request_id > 0:
 		var _request_erased: bool = _request_records.erase(request_id)
 	request["location"] = &"terminal"
@@ -2970,18 +2795,10 @@ func _add_active_lease(
 		1,
 		ABSOLUTE_MAX_CONCURRENCY
 	)
-	var counts: Dictionary = GFVariantData.as_dictionary(
-		_active_limit_counts_by_key.get(key_token, {})
-	)
-	counts[safe_limit] = GFVariantData.to_int(
-		counts.get(safe_limit, 0)
-	) + 1
+	var counts: Dictionary = GFVariantData.as_dictionary(_active_limit_counts_by_key.get(key_token, {}))
+	counts[safe_limit] = ((GFVariantData.to_int(counts.get(safe_limit, 0))) + 1)
 	_active_limit_counts_by_key[key_token] = counts
-	if (
-		not _active_min_limit_by_key.has(key_token)
-		or safe_limit
-		< GFVariantData.to_int(_active_min_limit_by_key[key_token])
-	):
+	if (not _active_min_limit_by_key.has(key_token) or safe_limit < GFVariantData.to_int(_active_min_limit_by_key[key_token])):
 		_active_min_limit_by_key[key_token] = safe_limit
 
 
@@ -3006,9 +2823,7 @@ func _remove_active_lease(
 		1,
 		ABSOLUTE_MAX_CONCURRENCY
 	)
-	var counts: Dictionary = GFVariantData.as_dictionary(
-		_active_limit_counts_by_key.get(key_token, {})
-	)
+	var counts: Dictionary = GFVariantData.as_dictionary(_active_limit_counts_by_key.get(key_token, {}))
 	var remaining_count: int = maxi(
 		GFVariantData.to_int(counts.get(safe_limit, 0)) - 1,
 		0
@@ -3019,17 +2834,11 @@ func _remove_active_lease(
 		return
 	var _limit_erased: bool = counts.erase(safe_limit)
 	if counts.is_empty():
-		var _counts_erased: bool = _active_limit_counts_by_key.erase(
-			key_token
-		)
+		var _counts_erased: bool = _active_limit_counts_by_key.erase(key_token)
 		var _min_erased: bool = _active_min_limit_by_key.erase(key_token)
 		return
 	_active_limit_counts_by_key[key_token] = counts
-	if (
-		GFVariantData.to_int(
-			_active_min_limit_by_key.get(key_token, 0)
-		) != safe_limit
-	):
+	if ((GFVariantData.to_int(_active_min_limit_by_key.get(key_token, 0))) != safe_limit):
 		return
 	var next_minimum: int = ABSOLUTE_MAX_CONCURRENCY
 	for limit_value: Variant in counts:
@@ -3079,12 +2888,8 @@ func _collect_active_leases() -> Array[GFAsyncGateLease]:
 	for lease_id: int in _active_lease_slots:
 		if lease_id <= 0 or not _lease_records.has(lease_id):
 			continue
-		var record: Dictionary = GFVariantData.as_dictionary(
-			_lease_records[lease_id]
-		)
-		var lease: GFAsyncGateLease = _variant_to_lease(
-			GFVariantData.get_option_value(record, "lease")
-		)
+		var record: Dictionary = GFVariantData.as_dictionary(_lease_records[lease_id])
+		var lease: GFAsyncGateLease = _variant_to_lease(GFVariantData.get_option_value(record, "lease"))
 		if lease != null:
 			leases.append(lease)
 	return leases
@@ -3095,7 +2900,11 @@ func _collect_active_leases() -> Array[GFAsyncGateLease]:
 ## @api private
 func _get_key_snapshot_by_token(key_token: String) -> Dictionary:
 	var key_record: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(_key_data, key_token, {})
+		GFVariantData.get_option_value(
+			_key_data,
+			key_token,
+			{}
+		)
 	)
 	var key: Variant = GFVariantData.get_option_value(key_record, "key")
 	var waiting_request_ids: Array[int] = []
@@ -3105,10 +2914,7 @@ func _get_key_snapshot_by_token(key_token: String) -> Dictionary:
 		var request: Dictionary = _get_request_record(request_id)
 		if request.is_empty():
 			break
-		request_id = GFVariantData.get_option_int(
-			request,
-			"queue_next_request_id"
-		)
+		request_id = GFVariantData.get_option_int(request, "queue_next_request_id")
 	var active_lease_ids: Array[int] = []
 	var active: Dictionary = _get_active_lease_map(key_token)
 	for lease_id_value: Variant in active:
@@ -3207,7 +3013,12 @@ func _make_deadline_msec(now_msec: int, timeout_msec: int) -> int:
 ## 将请求或租约事件写入有界环形历史，容量为 0 时不记录。
 ## [br]
 ## @api private
-func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGateLease, reason: StringName) -> void:
+func _record_event(
+	event_type: StringName,
+	source: Dictionary,
+	lease: GFAsyncGateLease,
+	reason: StringName
+) -> void:
 	if _max_recent_events <= 0:
 		return
 	var key: Variant = GFVariantData.get_option_value(source, "key")
@@ -3217,7 +3028,11 @@ func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGat
 		"request_id": GFVariantData.get_option_int(source, "request_id"),
 		"lease_id": lease.get_lease_id() if lease != null else GFVariantData.get_option_int(source, "lease_id"),
 		"key": _GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(key),
-		"key_token": GFVariantData.get_option_string(source, "key_token", _make_key_token(key)),
+		"key_token": GFVariantData.get_option_string(
+			source,
+			"key_token",
+			_make_key_token(key)
+		),
 		"reason": reason,
 		"timestamp_msec": Time.get_ticks_msec(),
 	}
@@ -3226,9 +3041,7 @@ func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGat
 		_events.append(event)
 		return
 	_events[_event_start_index] = event
-	_event_start_index = (
-		(_event_start_index + 1) % _events.size()
-	)
+	_event_start_index = ((_event_start_index + 1) % _events.size())
 
 
 ## 按当前事件容量保留最近事件并重建从索引 0 开始的缓冲区。
@@ -3249,9 +3062,7 @@ func _trim_events() -> void:
 		first_retained_offset,
 		_events.size()
 	):
-		var event_index: int = (
-			(_event_start_index + offset) % _events.size()
-		)
+		var event_index: int = (_event_start_index + offset) % _events.size()
 		retained_events.append(_events[event_index])
 	_events = retained_events
 	_event_start_index = 0

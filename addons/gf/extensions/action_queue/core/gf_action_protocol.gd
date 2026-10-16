@@ -175,10 +175,7 @@ static func should_wait_for_result(action: Object, result: Variant) -> bool:
 			push_error("[GFActionProtocol][action_protocol.missing_wait_signal] The action requests waiting, but execute() did not return a Signal.")
 			return false
 		return should_wait
-	if (
-		_has_property(action, "completion_mode")
-		and GFVariantData.to_int(GFObjectPropertyTools.read_property(action, ^"completion_mode")) == _COMPLETION_MODE_FIRE_AND_FORGET
-	):
+	if (_has_property(action, "completion_mode") and (GFVariantData.to_int(GFObjectPropertyTools.read_property(action, ^"completion_mode")) == _COMPLETION_MODE_FIRE_AND_FORGET)):
 		return false
 	return result is Signal
 
@@ -213,15 +210,17 @@ static func await_result_safely(
 		return
 
 	var signal_result: Signal = result
-	await _GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
-		signal_result,
-		should_continue,
-		_get_time_utility(architecture),
-		_get_signal_timeout_seconds(action),
-		_get_signal_timeout_respects_time_scale(action),
-		"[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.",
-		_get_wait_guard_node(action),
-		should_pause_timeout
+	await (
+		_GF_ASYNC_WAIT_SUPPORT.await_signal_safely(
+			signal_result,
+			should_continue,
+			_get_time_utility(architecture),
+			_get_signal_timeout_seconds(action),
+			_get_signal_timeout_respects_time_scale(action),
+			"[GFActionQueueSystem][action_queue_system.action_signal_timeout] Waiting for the action Signal timed out; the queue will continue with subsequent actions.",
+			_get_wait_guard_node(action),
+			should_pause_timeout
+		)
 	)
 
 
@@ -262,9 +261,7 @@ static func _get_wait_guard_node(action: Object) -> Node:
 static func _get_signal_timeout_seconds(action: Object) -> float:
 	if _has_property(action, "signal_timeout_seconds"):
 		return _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
-			GFVariantData.to_float(
-				GFObjectPropertyTools.read_property(action, ^"signal_timeout_seconds")
-			),
+			GFVariantData.to_float(GFObjectPropertyTools.read_property(action, ^"signal_timeout_seconds")),
 			_DEFAULT_SIGNAL_TIMEOUT_SECONDS
 		)
 	return _DEFAULT_SIGNAL_TIMEOUT_SECONDS

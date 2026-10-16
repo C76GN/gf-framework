@@ -62,20 +62,30 @@ static func source_has_tag(
 	if tag == &"":
 		return false
 
-	var count: int = get_tag_count(source, tag, include_child_tags)
+	var count: int = get_tag_count(
+		source,
+		tag,
+		include_child_tags
+	)
 	if count >= max(1, minimum_count):
 		return true
 	if include_child_tags:
 		return false
 	if source is Object:
 		var object_source: Object = source
-		return _call_has_tag(object_source, tag, minimum_count)
+		return _call_has_tag(
+			object_source,
+			tag,
+			minimum_count
+		)
 	return false
 
 
 ## 获取标签源中的标签层数。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param source: 标签源。
 ## [br]
@@ -86,7 +96,11 @@ static func source_has_tag(
 ## @param include_child_tags: 为 true 时合并子标签层数。
 ## [br]
 ## @return 标签层数。
-static func get_tag_count(source: Variant, tag: StringName, include_child_tags: bool = false) -> int:
+static func get_tag_count(
+	source: Variant,
+	tag: StringName,
+	include_child_tags: bool = false
+) -> int:
 	if source == null or tag == &"":
 		return 0
 	if source is GFTagSet:
@@ -94,12 +108,24 @@ static func get_tag_count(source: Variant, tag: StringName, include_child_tags: 
 		return tag_set.get_tag_count(tag, include_child_tags)
 	if source is Dictionary:
 		var data: Dictionary = source
-		return _get_dictionary_tag_count(data, tag, include_child_tags)
+		return _get_dictionary_tag_count(
+			data,
+			tag,
+			include_child_tags
+		)
 	if source is PackedStringArray or source is Array:
-		return _get_array_tag_count(source, tag, include_child_tags)
+		return _get_array_tag_count(
+			source,
+			tag,
+			include_child_tags
+		)
 	if source is Object:
 		var object_source: Object = source
-		return _get_object_tag_count(object_source, tag, include_child_tags)
+		return _get_object_tag_count(
+			object_source,
+			tag,
+			include_child_tags
+		)
 	return 0
 
 
@@ -123,7 +149,11 @@ static func get_tags(source: Variant) -> PackedStringArray:
 		var source_data: Dictionary = source
 		var data: Dictionary = _resolve_dictionary_tag_data(source_data)
 		for tag_variant: Variant in data.keys():
-			if GFVariantData.get_option_int(data, tag_variant, 0) > 0:
+			if GFVariantData.get_option_int(
+				data,
+				tag_variant,
+				0
+			) > 0:
 				var _tag_appended: bool = result.append(GFVariantData.to_text(tag_variant))
 	elif source is PackedStringArray:
 		var packed_source: PackedStringArray = source
@@ -161,7 +191,11 @@ static func get_tag_counts(source: Variant) -> Dictionary:
 		var sorted_counts: Dictionary = {}
 		for tag_text: String in array_tags:
 			var tag: StringName = StringName(tag_text)
-			var count: int = GFVariantData.get_option_int(array_counts, tag, 0)
+			var count: int = GFVariantData.get_option_int(
+				array_counts,
+				tag,
+				0
+			)
 			if count > 0:
 				sorted_counts[tag] = count
 		return sorted_counts
@@ -215,6 +249,8 @@ static func merge_sources(sources: Array) -> GFTagSet:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param source: 标签源。
 ## [br]
 ## @schema source: Variant tag source accepted by the adapter.
@@ -224,9 +260,18 @@ static func merge_sources(sources: Array) -> GFTagSet:
 ## @param include_child_tags: 是否启用层级匹配。
 ## [br]
 ## @return 全部满足返回 true。
-static func matches_all(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:
+static func matches_all(
+	source: Variant,
+	tags: Array[StringName],
+	include_child_tags: bool = false
+) -> bool:
 	for tag: StringName in tags:
-		if not source_has_tag(source, tag, 1, include_child_tags):
+		if not source_has_tag(
+			source,
+			tag,
+			1,
+			include_child_tags
+		):
 			return false
 	return true
 
@@ -234,6 +279,8 @@ static func matches_all(source: Variant, tags: Array[StringName], include_child_
 ## 检查标签源是否包含任意标签。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param source: 标签源。
 ## [br]
@@ -244,11 +291,20 @@ static func matches_all(source: Variant, tags: Array[StringName], include_child_
 ## @param include_child_tags: 是否启用层级匹配。
 ## [br]
 ## @return 满足任意标签返回 true。
-static func matches_any(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:
+static func matches_any(
+	source: Variant,
+	tags: Array[StringName],
+	include_child_tags: bool = false
+) -> bool:
 	if tags.is_empty():
 		return true
 	for tag: StringName in tags:
-		if source_has_tag(source, tag, 1, include_child_tags):
+		if source_has_tag(
+			source,
+			tag,
+			1,
+			include_child_tags
+		):
 			return true
 	return false
 
@@ -256,6 +312,8 @@ static func matches_any(source: Variant, tags: Array[StringName], include_child_
 ## 检查标签源是否不包含任何禁止标签。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param source: 标签源。
 ## [br]
@@ -266,9 +324,18 @@ static func matches_any(source: Variant, tags: Array[StringName], include_child_
 ## @param include_child_tags: 是否启用层级匹配。
 ## [br]
 ## @return 未命中禁止标签返回 true。
-static func matches_none(source: Variant, tags: Array[StringName], include_child_tags: bool = false) -> bool:
+static func matches_none(
+	source: Variant,
+	tags: Array[StringName],
+	include_child_tags: bool = false
+) -> bool:
 	for tag: StringName in tags:
-		if source_has_tag(source, tag, 1, include_child_tags):
+		if source_has_tag(
+			source,
+			tag,
+			1,
+			include_child_tags
+		):
 			return false
 	return true
 
@@ -279,7 +346,11 @@ static func matches_none(source: Variant, tags: Array[StringName], include_child
 ## [br]
 ## @api private
 ## [br]
-static func _get_dictionary_tag_count(data: Dictionary, tag: StringName, include_child_tags: bool) -> int:
+static func _get_dictionary_tag_count(
+	data: Dictionary,
+	tag: StringName,
+	include_child_tags: bool
+) -> int:
 	var tag_data: Dictionary = _resolve_dictionary_tag_data(data)
 	if not include_child_tags:
 		return _get_exact_dictionary_tag_count(tag_data, tag)
@@ -289,7 +360,11 @@ static func _get_dictionary_tag_count(data: Dictionary, tag: StringName, include
 	for candidate_variant: Variant in tag_data.keys():
 		var candidate_text: String = GFVariantData.to_text(candidate_variant)
 		if candidate_text == String(tag) or candidate_text.begins_with(prefix):
-			count += GFVariantData.get_option_int(tag_data, candidate_variant, 0)
+			count += GFVariantData.get_option_int(
+				tag_data,
+				candidate_variant,
+				0
+			)
 	return count
 
 
@@ -321,7 +396,11 @@ static func _resolve_dictionary_tag_data(data: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _get_array_tag_count(source: Variant, tag: StringName, include_child_tags: bool) -> int:
+static func _get_array_tag_count(
+	source: Variant,
+	tag: StringName,
+	include_child_tags: bool
+) -> int:
 	var count: int = 0
 	var prefix: String = "%s." % String(tag)
 	var values: PackedStringArray = PackedStringArray()
@@ -334,7 +413,13 @@ static func _get_array_tag_count(source: Variant, tag: StringName, include_child
 			var _tag_appended: bool = values.append(GFVariantData.to_text(tag_variant))
 
 	for candidate_text: String in values:
-		if candidate_text == String(tag) or (include_child_tags and candidate_text.begins_with(prefix)):
+		if (
+			candidate_text == String(tag)
+			or (
+				include_child_tags
+				and candidate_text.begins_with(prefix)
+			)
+		):
 			count += 1
 	return count
 
@@ -349,12 +434,20 @@ static func _array_to_counts(source: Variant) -> Dictionary:
 		var packed_source: PackedStringArray = source
 		for tag_text: String in packed_source:
 			var tag: StringName = StringName(tag_text)
-			result[tag] = GFVariantData.get_option_int(result, tag, 0) + 1
+			result[tag] = GFVariantData.get_option_int(
+				result,
+				tag,
+				0
+			) + 1
 	elif source is Array:
 		var array_source: Array = source
 		for tag_variant: Variant in array_source:
 			var tag: StringName = GFVariantData.to_string_name(tag_variant)
-			result[tag] = GFVariantData.get_option_int(result, tag, 0) + 1
+			result[tag] = GFVariantData.get_option_int(
+				result,
+				tag,
+				0
+			) + 1
 	return result
 
 
@@ -362,13 +455,25 @@ static func _array_to_counts(source: Variant) -> Dictionary:
 ## [br]
 ## @api private
 ## [br]
-static func _get_object_tag_count(source: Object, tag: StringName, include_child_tags: bool) -> int:
+static func _get_object_tag_count(
+	source: Object,
+	tag: StringName,
+	include_child_tags: bool
+) -> int:
 	var exact_count: int = 0
 	var has_get_tag_count: bool = source.has_method("get_tag_count")
 	if has_get_tag_count:
 		if _get_get_tag_count_argument_count(source) >= 2:
-			return _call_get_tag_count(source, tag, include_child_tags)
-		exact_count = _call_get_tag_count(source, tag, false)
+			return _call_get_tag_count(
+				source,
+				tag,
+				include_child_tags
+			)
+		exact_count = _call_get_tag_count(
+			source,
+			tag,
+			false
+		)
 	if not include_child_tags:
 		return exact_count
 
@@ -378,7 +483,11 @@ static func _get_object_tag_count(source: Object, tag: StringName, include_child
 		if candidate_text == String(tag):
 			continue
 		if candidate_text.begins_with(prefix):
-			count += _call_get_tag_count(source, StringName(candidate_text), false) if has_get_tag_count else 1
+			count += _call_get_tag_count(
+				source,
+				StringName(candidate_text),
+				false
+			) if has_get_tag_count else 1
 	return count
 
 
@@ -405,13 +514,23 @@ static func _get_object_tags(source: Object) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-static func _call_has_tag(source: Object, tag: StringName, minimum_count: int) -> bool:
+static func _call_has_tag(
+	source: Object,
+	tag: StringName,
+	minimum_count: int
+) -> bool:
 	if not source.has_method("has_tag"):
 		return false
 
 	var argument_count: int = _get_has_tag_argument_count(source)
 	if argument_count >= 2:
-		return GFVariantData.to_bool(source.call("has_tag", tag, minimum_count))
+		return GFVariantData.to_bool(
+			source.call(
+				"has_tag",
+				tag,
+				minimum_count
+			)
+		)
 	if argument_count >= 1:
 		return GFVariantData.to_bool(source.call("has_tag", tag))
 	return false
@@ -421,13 +540,23 @@ static func _call_has_tag(source: Object, tag: StringName, minimum_count: int) -
 ## [br]
 ## @api private
 ## [br]
-static func _call_get_tag_count(source: Object, tag: StringName, include_child_tags: bool) -> int:
+static func _call_get_tag_count(
+	source: Object,
+	tag: StringName,
+	include_child_tags: bool
+) -> int:
 	if not source.has_method("get_tag_count"):
 		return 0
 
 	var argument_count: int = _get_get_tag_count_argument_count(source)
 	if argument_count >= 2:
-		return GFVariantData.to_int(source.call("get_tag_count", tag, include_child_tags))
+		return GFVariantData.to_int(
+			source.call(
+				"get_tag_count",
+				tag,
+				include_child_tags
+			)
+		)
 	if argument_count >= 1:
 		return GFVariantData.to_int(source.call("get_tag_count", tag))
 	return 0
@@ -440,13 +569,23 @@ static func _call_get_tag_count(source: Object, tag: StringName, include_child_t
 static func _get_get_tag_count_argument_count(source: Object) -> int:
 	var cache_key: String = _get_object_protocol_cache_key(source)
 	if not cache_key.is_empty() and _get_tag_count_arity_cache.has(cache_key):
-		return GFVariantData.get_option_int(_get_tag_count_arity_cache, cache_key, -1)
+		return GFVariantData.get_option_int(
+			_get_tag_count_arity_cache,
+			cache_key,
+			-1
+		)
 
 	var argument_count: int = -1
 	for method: Dictionary in source.get_method_list():
 		if GFVariantData.get_option_string(method, "name") != "get_tag_count":
 			continue
-		var args: Array = GFVariantData.as_array(GFVariantData.get_option_value(method, "args", []))
+		var args: Array = GFVariantData.as_array(
+			GFVariantData.get_option_value(
+				method,
+				"args",
+				[]
+			)
+		)
 		argument_count = args.size()
 		break
 
@@ -464,13 +603,23 @@ static func _get_get_tag_count_argument_count(source: Object) -> int:
 static func _get_has_tag_argument_count(source: Object) -> int:
 	var cache_key: String = _get_object_protocol_cache_key(source)
 	if not cache_key.is_empty() and _has_tag_arity_cache.has(cache_key):
-		return GFVariantData.get_option_int(_has_tag_arity_cache, cache_key, -1)
+		return GFVariantData.get_option_int(
+			_has_tag_arity_cache,
+			cache_key,
+			-1
+		)
 
 	var argument_count: int = -1
 	for method: Dictionary in source.get_method_list():
 		if GFVariantData.get_option_string(method, "name") != "has_tag":
 			continue
-		var args: Array = GFVariantData.as_array(GFVariantData.get_option_value(method, "args", []))
+		var args: Array = GFVariantData.as_array(
+			GFVariantData.get_option_value(
+				method,
+				"args",
+				[]
+			)
+		)
 		argument_count = args.size()
 		break
 
@@ -492,8 +641,14 @@ static func _get_object_protocol_cache_key(source: Object) -> String:
 	if script_value is Script:
 		var source_script: Script = script_value
 		if not source_script.resource_path.is_empty():
-			return "%s:%s" % [source.get_class(), source_script.resource_path]
-		return "%s:%d" % [source.get_class(), source_script.get_instance_id()]
+			return (
+				"%s:%s"
+				% [source.get_class(), source_script.resource_path]
+			)
+		return (
+			"%s:%d"
+			% [source.get_class(), source_script.get_instance_id()]
+		)
 	return source.get_class()
 
 

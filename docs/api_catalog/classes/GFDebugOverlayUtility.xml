@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDebugOverlayUtility" path="addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd" module="standard" extends="GFUtility" classDigest="3bf988ebcbd362b43c1cb56c393d281b6c1967e7fad6b47d13c4144911742d62">
+<class name="GFDebugOverlayUtility" path="addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd" module="standard" extends="GFUtility" classDigest="314f463accded1ff87fe41cef52edb6259c60303c6b119c0a134d8e329a4f0ed">
 	<description>GFDebugOverlayUtility: 开发期运行时观察覆盖层。
 提供 watch / panel 注册、轻量运行时快照和可选调试 GUI。默认只在 debug 构建中创建 GUI。
 发布构建如确实需要显示，必须显式关闭 debug_only 并自行确认可见性与数据脱敏策略。</description>
@@ -171,7 +171,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_watch_value">
-			<signature>func push_watch_value(id: StringName, value: Variant, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func push_watch_value( id: StringName, value: Variant, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>推送一个由调用方主动更新的运行时观察值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -181,6 +181,7 @@
 				<tag name="return">注册成功返回 true；id 为空时返回 false。</tag>
 				<tag name="schema">value: Variant，可为任意可显示值。</tag>
 				<tag name="schema">options: Dictionary，支持 label、group 和 visible。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_watch">
@@ -218,7 +219,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_content">
-			<signature>func push_panel_content(panel_id: StringName, content: Variant, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func push_panel_content( panel_id: StringName, content: Variant, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>推送一个由调用方主动更新的 Overlay 面板值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -232,7 +233,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="push_panel_text">
-			<signature>func push_panel_text(panel_id: StringName, content: String, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func push_panel_text( panel_id: StringName, content: String, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>推送一个静态 Overlay 面板文本。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -241,6 +242,7 @@
 				<tag name="param">options: 可选显示参数，支持 label、group、visible。</tag>
 				<tag name="return">注册成功返回 true。</tag>
 				<tag name="schema">options: Dictionary，支持 label、group 和 visible。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remove_panel">
@@ -278,7 +280,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="record_metric_sample">
-			<signature>func record_metric_sample(metric_id: StringName, value: float, options: Dictionary = {}) -&gt; bool:</signature>
+			<signature>func record_metric_sample( metric_id: StringName, value: float, options: Dictionary = {} ) -&gt; bool:</signature>
 			<description>追加一个短期指标采样。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -287,6 +289,7 @@
 				<tag name="param">options: 可选配置，支持 label、group、visible、max_samples、timestamp_seconds、metadata 和 sample_metadata。</tag>
 				<tag name="return">采样成功返回 true。</tag>
 				<tag name="schema">options: Dictionary，支持 label、group、visible、max_samples、timestamp_seconds、metadata 和 sample_metadata。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_or_create_metric_series">

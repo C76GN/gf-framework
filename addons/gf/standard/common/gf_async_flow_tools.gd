@@ -70,17 +70,49 @@ const ABSOLUTE_MAX_COMPLETIONS: int = 4096
 ## @schema return: Dictionary with ok, status, value, error, attempts, history, metadata, and optional cancel_reason.
 static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictionary:
 	if not operation.is_valid():
-		return _make_report(false, STATUS_FAILED, null, "operation is invalid.", 0, [], options)
+		return _make_report(
+			false,
+			STATUS_FAILED,
+			null,
+			"operation is invalid.",
+			0,
+			[],
+			options
+		)
 
-	var max_attempts: int = maxi(GFVariantData.get_option_int(options, "attempts", 1), 1)
-	var delay_seconds: float = maxf(GFVariantData.get_option_float(options, "delay_seconds", 0.0), 0.0)
+	var max_attempts: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"attempts",
+			1
+		),
+		1
+	)
+	var delay_seconds: float = maxf(
+		GFVariantData.get_option_float(
+			options,
+			"delay_seconds",
+			0.0
+		),
+		0.0
+	)
 	var history: Array[Dictionary] = []
 	for attempt_index: int in range(max_attempts):
-		var cancel_result: Dictionary = _get_cancel_result(options, attempt_index, history)
+		var cancel_result: Dictionary = _get_cancel_result(
+			options,
+			attempt_index,
+			history
+		)
 		if not cancel_result.is_empty():
 			return cancel_result
 
-		var raw_result: Variant = operation.callv(_make_operation_args(options, attempt_index, null))
+		var raw_result: Variant = operation.callv(
+			_make_operation_args(
+				options,
+				attempt_index,
+				null
+			)
+		)
 		var normalized: Dictionary = await _normalize_async_result(raw_result, options)
 		normalized["attempt"] = attempt_index + 1
 		history.append(normalized.duplicate(true))
@@ -98,10 +130,22 @@ static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictio
 		if attempt_index + 1 < max_attempts and delay_seconds > 0.0:
 			var wait_result: Dictionary = await GFAsyncWaitUtility.delay_seconds(delay_seconds, options)
 			if GFVariantData.get_option_string_name(wait_result, "status") == GFAsyncWaitUtility.STATUS_CANCELLED:
-				return _make_cancelled_report(options, attempt_index + 1, history)
+				return _make_cancelled_report(
+					options,
+					attempt_index + 1,
+					history
+				)
 
 	var last_error: String = _get_last_error(history)
-	return _make_report(false, STATUS_FAILED, null, last_error, max_attempts, history, options)
+	return _make_report(
+		false,
+		STATUS_FAILED,
+		null,
+		last_error,
+		max_attempts,
+		history,
+		options
+	)
 
 
 ## 顺序处理数组项。
@@ -123,20 +167,46 @@ static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictio
 ## @return 流程报告。
 ## [br]
 ## @schema return: Dictionary with ok, status, value, error, attempts, history, metadata, succeeded_count, and failed_count.
-static func each_async(items: Array, operation: Callable, options: Dictionary = {}) -> Dictionary:
+static func each_async(
+	items: Array,
+	operation: Callable,
+	options: Dictionary = {}
+) -> Dictionary:
 	if not operation.is_valid():
-		return _make_report(false, STATUS_FAILED, null, "operation is invalid.", 0, [], options)
+		return _make_report(
+			false,
+			STATUS_FAILED,
+			null,
+			"operation is invalid.",
+			0,
+			[],
+			options
+		)
 
 	var history: Array[Dictionary] = []
 	var values: Array = []
 	var failed_count: int = 0
-	var stop_on_failure: bool = GFVariantData.get_option_bool(options, "stop_on_failure", true)
+	var stop_on_failure: bool = GFVariantData.get_option_bool(
+		options,
+		"stop_on_failure",
+		true
+	)
 	for index: int in range(items.size()):
-		var cancel_result: Dictionary = _get_cancel_result(options, index, history)
+		var cancel_result: Dictionary = _get_cancel_result(
+			options,
+			index,
+			history
+		)
 		if not cancel_result.is_empty():
 			return cancel_result
 
-		var raw_result: Variant = operation.callv(_make_operation_args(options, index, items[index]))
+		var raw_result: Variant = operation.callv(
+			_make_operation_args(
+				options,
+				index,
+				items[index]
+			)
+		)
 		var normalized: Dictionary = await _normalize_async_result(raw_result, options)
 		normalized["index"] = index
 		history.append(normalized.duplicate(true))
@@ -186,33 +256,86 @@ static func each_async(items: Array, operation: Callable, options: Dictionary = 
 ## @return 流程报告。
 ## [br]
 ## @schema return: Dictionary with ok, status, value, error, attempts, history, and metadata.
-static func fold_async(items: Array, reducer: Callable, initial_value: Variant, options: Dictionary = {}) -> Dictionary:
+static func fold_async(
+	items: Array,
+	reducer: Callable,
+	initial_value: Variant,
+	options: Dictionary = {}
+) -> Dictionary:
 	if not reducer.is_valid():
-		return _make_report(false, STATUS_FAILED, initial_value, "reducer is invalid.", 0, [], options)
+		return _make_report(
+			false,
+			STATUS_FAILED,
+			initial_value,
+			"reducer is invalid.",
+			0,
+			[],
+			options
+		)
 
 	var history: Array[Dictionary] = []
-	var accumulator: Variant = GFVariantData.duplicate_variant(initial_value, true, true)
-	var stop_on_failure: bool = GFVariantData.get_option_bool(options, "stop_on_failure", true)
+	var accumulator: Variant = GFVariantData.duplicate_variant(
+		initial_value,
+		true,
+		true
+	)
+	var stop_on_failure: bool = GFVariantData.get_option_bool(
+		options,
+		"stop_on_failure",
+		true
+	)
 	for index: int in range(items.size()):
-		var cancel_result: Dictionary = _get_cancel_result(options, index, history)
+		var cancel_result: Dictionary = _get_cancel_result(
+			options,
+			index,
+			history
+		)
 		if not cancel_result.is_empty():
-			cancel_result["value"] = GFVariantData.duplicate_variant(accumulator, true, true)
+			cancel_result["value"] = GFVariantData.duplicate_variant(
+				accumulator,
+				true,
+				true
+			)
 			return cancel_result
 
 		var args: Array = [accumulator, items[index]]
-		if GFVariantData.get_option_bool(options, "pass_index", false):
+		if GFVariantData.get_option_bool(
+			options,
+			"pass_index",
+			false
+		):
 			args.append(index)
 		var raw_result: Variant = reducer.callv(args)
 		var normalized: Dictionary = await _normalize_async_result(raw_result, options)
 		normalized["index"] = index
 		history.append(normalized.duplicate(true))
 		if GFVariantData.get_option_bool(normalized, "ok"):
-			accumulator = GFVariantData.duplicate_variant(GFVariantData.get_option_value(normalized, "value"), true, true)
+			accumulator = GFVariantData.duplicate_variant(
+				GFVariantData.get_option_value(normalized, "value"),
+				true,
+				true
+			)
 			continue
 		if stop_on_failure:
-			return _make_report(false, STATUS_FAILED, accumulator, _get_last_error(history), history.size(), history, options)
+			return _make_report(
+				false,
+				STATUS_FAILED,
+				accumulator,
+				_get_last_error(history),
+				history.size(),
+				history,
+				options
+			)
 
-	return _make_report(true, STATUS_SUCCEEDED, accumulator, "", history.size(), history, options)
+	return _make_report(
+		true,
+		STATUS_SUCCEEDED,
+		accumulator,
+		"",
+		history.size(),
+		history,
+		options
+	)
 
 
 ## 在主线程等待所有完成源进入终态。
@@ -233,7 +356,11 @@ static func fold_async(items: Array, reducer: Callable, initial_value: Variant, 
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。
 static func wait_all_completions_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return await _wait_completions_async(completions, false, options)
+	return await _wait_completions_async(
+		completions,
+		false,
+		options
+	)
 
 
 ## 在主线程等待任一完成源成功。
@@ -254,7 +381,11 @@ static func wait_all_completions_async(completions: Dictionary, options: Diction
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、value、error、metadata、count、completed_count、pending_count、succeeded_count、failed_count、cancelled_count、items、results、completion_order、first_completed_key、first_success_key、cancel_reason、cancel_metadata 和 timed_out。
 static func wait_any_completion_async(completions: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return await _wait_completions_async(completions, true, options)
+	return await _wait_completions_async(
+		completions,
+		true,
+		options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -263,7 +394,11 @@ static func wait_any_completion_async(completions: Dictionary, options: Dictiona
 ## 达到结束条件或等待被取消后，按选项取消剩余项，再补收终态并断开本次订阅、释放本次取消源。
 ## [br]
 ## @api private
-static func _wait_completions_async(completions: Dictionary, wait_for_any_success: bool, options: Dictionary) -> Dictionary:
+static func _wait_completions_async(
+	completions: Dictionary,
+	wait_for_any_success: bool,
+	options: Dictionary
+) -> Dictionary:
 	if not Thread.is_main_thread():
 		return _make_completion_wait_invalid_report(
 			"completion waits require the main thread.",
@@ -292,9 +427,7 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 		)
 		excessive_limit["input_count"] = completions.size()
 		excessive_limit["max_completions"] = max_completions
-		excessive_limit["absolute_max_completions"] = (
-			ABSOLUTE_MAX_COMPLETIONS
-		)
+		excessive_limit["absolute_max_completions"] = (ABSOLUTE_MAX_COMPLETIONS)
 		return excessive_limit
 	if completions.size() > max_completions:
 		var oversized: Dictionary = _make_completion_wait_invalid_report(
@@ -310,14 +443,23 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 	for key: Variant in completions.keys():
 		var completion_value: Variant = completions[key]
 		if not (completion_value is GFAsyncCompletion):
-			return _make_completion_wait_invalid_report("completion is invalid.", key, options)
+			return _make_completion_wait_invalid_report(
+				"completion is invalid.",
+				key,
+				options
+			)
 		var completion: GFAsyncCompletion = completion_value
 		entries[GFVariantData.duplicate_variant(key)] = completion
 
 	var completion_order: Array = []
 	_append_precompleted_keys(entries, completion_order)
 	if entries.is_empty():
-		return _make_completion_wait_report(entries, completion_order, wait_for_any_success, options)
+		return _make_completion_wait_report(
+			entries,
+			completion_order,
+			wait_for_any_success,
+			options
+		)
 
 	var channel: GFAsyncChannel = GFAsyncChannel.new()
 	var configured: bool = channel.configure_ingress(
@@ -331,23 +473,49 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 			options
 		)
 	var callbacks: Dictionary = {}
-	var connect_report: Dictionary = _connect_pending_completions(entries, channel, callbacks)
+	var connect_report: Dictionary = _connect_pending_completions(
+		entries,
+		channel,
+		callbacks
+	)
 	if not GFVariantData.get_option_bool(connect_report, "ok"):
 		return _make_completion_wait_invalid_report(
-			GFVariantData.get_option_string(connect_report, "error", "completion connect failed."),
+			GFVariantData.get_option_string(
+				connect_report,
+				"error",
+				"completion connect failed."
+			),
 			GFVariantData.get_option_value(connect_report, "key"),
 			options
 		)
 
 	var wait_source: GFCancellationSource = _make_completion_wait_cancel_source(options)
 	var wait_options: Dictionary = _make_completion_wait_options(options, wait_source)
-	var fail_fast: bool = GFVariantData.get_option_bool(options, "fail_fast", false)
+	var fail_fast: bool = GFVariantData.get_option_bool(
+		options,
+		"fail_fast",
+		false
+	)
 	while true:
-		var report: Dictionary = _make_completion_wait_report(entries, completion_order, wait_for_any_success, options)
-		if _is_completion_wait_finished(report, wait_for_any_success, fail_fast):
+		var report: Dictionary = _make_completion_wait_report(
+			entries,
+			completion_order,
+			wait_for_any_success,
+			options
+		)
+		if _is_completion_wait_finished(
+			report,
+			wait_for_any_success,
+			fail_fast
+		):
 			_cancel_remaining_completions_if_requested(entries, options)
 			_append_precompleted_keys(entries, completion_order)
-			var final_report: Dictionary = _make_completion_wait_report(entries, completion_order, wait_for_any_success, options)
+			var final_report: Dictionary = _make_completion_wait_report(
+				entries,
+				completion_order,
+				wait_for_any_success,
+				options
+			)
 			_disconnect_completion_callbacks(callbacks)
 			if wait_source != null:
 				wait_source.dispose()
@@ -356,8 +524,17 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 		var read_result: Dictionary = await channel.read_async(wait_options)
 		var read_status: StringName = GFVariantData.get_option_string_name(read_result, "status")
 		if read_status != GFAsyncChannel.STATUS_COMPLETED:
-			var cancelled_report: Dictionary = _make_completion_wait_report(entries, completion_order, wait_for_any_success, options)
-			var wait_reason: StringName = GFVariantData.get_option_string_name(read_result, "reason", read_status)
+			var cancelled_report: Dictionary = _make_completion_wait_report(
+				entries,
+				completion_order,
+				wait_for_any_success,
+				options
+			)
+			var wait_reason: StringName = GFVariantData.get_option_string_name(
+				read_result,
+				"reason",
+				read_status
+			)
 			cancelled_report["ok"] = false
 			cancelled_report["status"] = STATUS_CANCELLED
 			cancelled_report["error"] = String(wait_reason)
@@ -366,7 +543,12 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 			cancelled_report["timed_out"] = wait_reason == &"timeout" or read_status == GFAsyncChannel.STATUS_TIMEOUT
 			_cancel_remaining_completions_if_requested(entries, options)
 			_append_precompleted_keys(entries, completion_order)
-			cancelled_report = _make_completion_wait_report(entries, completion_order, wait_for_any_success, options)
+			cancelled_report = _make_completion_wait_report(
+				entries,
+				completion_order,
+				wait_for_any_success,
+				options
+			)
 			cancelled_report["ok"] = false
 			cancelled_report["status"] = STATUS_CANCELLED
 			cancelled_report["error"] = String(wait_reason)
@@ -379,8 +561,15 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 			return cancelled_report
 
 		var event: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(read_result, "item"))
-		_append_completion_order(completion_order, GFVariantData.get_option_value(event, "key"))
-	return _make_completion_wait_invalid_report("completion wait ended unexpectedly.", null, options)
+		_append_completion_order(
+			completion_order,
+			GFVariantData.get_option_value(event, "key")
+		)
+	return _make_completion_wait_invalid_report(
+		"completion wait ended unexpectedly.",
+		null,
+		options
+	)
 
 
 ## 将 Callable、GFAsyncCompletion 或带 ok 字段的字典转换为统一操作结果。
@@ -389,39 +578,82 @@ static func _wait_completions_async(completions: Dictionary, wait_for_any_succes
 static func _normalize_async_result(raw_result: Variant, options: Dictionary) -> Dictionary:
 	if raw_result is GFAsyncCompletion:
 		var completion: GFAsyncCompletion = raw_result
-		var snapshot: Dictionary = await GFAsyncWaitUtility.wait_completion_async(
-			completion,
-			GFVariantData.get_option_dictionary(options, "operation_options")
+		var snapshot: Dictionary = await (
+			GFAsyncWaitUtility.wait_completion_async(
+				completion,
+				GFVariantData.get_option_dictionary(options, "operation_options")
+			)
 		)
 		if GFVariantData.get_option_bool(snapshot, "successful"):
-			return _make_operation_result(true, GFVariantData.get_option_value(snapshot, "result"), "")
+			return _make_operation_result(
+				true,
+				GFVariantData.get_option_value(snapshot, "result"),
+				""
+			)
 		if GFVariantData.get_option_bool(snapshot, "cancelled"):
-			return _make_operation_result(false, null, "cancelled", {
-				"cancelled": true,
-				"cancel_reason": GFVariantData.get_option_string_name(snapshot, "cancel_reason"),
-			})
-		return _make_operation_result(false, null, GFVariantData.get_option_string(snapshot, "error", "operation failed."))
+			return _make_operation_result(
+				false,
+				null,
+				"cancelled",
+				{ "cancelled": true, "cancel_reason": GFVariantData.get_option_string_name(snapshot, "cancel_reason"), }
+			)
+		return _make_operation_result(
+			false,
+			null,
+			GFVariantData.get_option_string(
+				snapshot,
+				"error",
+				"operation failed."
+			)
+		)
 
 	if raw_result is Dictionary:
 		var data: Dictionary = raw_result
 		if data.has("ok"):
 			return _make_operation_result(
 				GFVariantData.get_option_bool(data, "ok"),
-				GFVariantData.get_option_value(data, "value", GFVariantData.get_option_value(data, "data")),
+				GFVariantData.get_option_value(
+					data,
+					"value",
+					GFVariantData.get_option_value(data, "data")
+				),
 				GFVariantData.get_option_string(data, "error"),
 				GFVariantData.get_option_dictionary(data, "metadata")
 			)
-	return _make_operation_result(true, raw_result, "")
+	return _make_operation_result(
+		true,
+		raw_result,
+		""
+	)
 
 
 ## 根据选项生成传给操作回调的项目值和索引/尝试序号参数。
 ## [br]
 ## @api private
-static func _make_operation_args(options: Dictionary, index: int, item: Variant) -> Array:
+static func _make_operation_args(
+	options: Dictionary,
+	index: int,
+	item: Variant
+) -> Array:
 	var args: Array = []
-	if item != null or GFVariantData.get_option_bool(options, "pass_null_item", false):
+	if item != null or GFVariantData.get_option_bool(
+		options,
+		"pass_null_item",
+		false
+	):
 		args.append(item)
-	if GFVariantData.get_option_bool(options, "pass_index", false) or GFVariantData.get_option_bool(options, "pass_attempt", false):
+	if (
+		GFVariantData.get_option_bool(
+			options,
+			"pass_index",
+			false
+		)
+		or GFVariantData.get_option_bool(
+			options,
+			"pass_attempt",
+			false
+		)
+	):
 		args.append(index)
 	return args
 
@@ -429,11 +661,19 @@ static func _make_operation_args(options: Dictionary, index: int, item: Variant)
 ## 若取消令牌已请求取消，则构造取消报告并附上令牌原因与元数据。
 ## [br]
 ## @api private
-static func _get_cancel_result(options: Dictionary, attempt_index: int, history: Array[Dictionary]) -> Dictionary:
+static func _get_cancel_result(
+	options: Dictionary,
+	attempt_index: int,
+	history: Array[Dictionary]
+) -> Dictionary:
 	var token: GFCancellationToken = _get_cancel_token(options)
 	if token == null or not token.is_cancel_requested():
 		return {}
-	var report: Dictionary = _make_cancelled_report(options, attempt_index, history)
+	var report: Dictionary = _make_cancelled_report(
+		options,
+		attempt_index,
+		history
+	)
 	report["cancel_reason"] = token.get_cancel_reason()
 	report["cancel_metadata"] = token.get_cancel_metadata()
 	return report
@@ -442,7 +682,11 @@ static func _get_cancel_result(options: Dictionary, attempt_index: int, history:
 ## 构造状态为 STATUS_CANCELLED 的流程报告，并在存在取消令牌时附加其信息。
 ## [br]
 ## @api private
-static func _make_cancelled_report(options: Dictionary, attempt_index: int, history: Array[Dictionary]) -> Dictionary:
+static func _make_cancelled_report(
+	options: Dictionary,
+	attempt_index: int,
+	history: Array[Dictionary]
+) -> Dictionary:
 	var token: GFCancellationToken = _get_cancel_token(options)
 	var report: Dictionary = _make_report(
 		false,
@@ -462,10 +706,19 @@ static func _make_cancelled_report(options: Dictionary, attempt_index: int, hist
 ## 组装单次操作的 ok、value、error 和 metadata 字段。
 ## [br]
 ## @api private
-static func _make_operation_result(ok: bool, value: Variant, error: String, metadata: Dictionary = {}) -> Dictionary:
+static func _make_operation_result(
+	ok: bool,
+	value: Variant,
+	error: String,
+	metadata: Dictionary = {}
+) -> Dictionary:
 	return {
 		"ok": ok,
-		"value": GFVariantData.duplicate_variant(value, true, true),
+		"value": GFVariantData.duplicate_variant(
+			value,
+			true,
+			true
+		),
 		"error": error,
 		"metadata": metadata.duplicate(true),
 	}
@@ -486,7 +739,11 @@ static func _make_report(
 	return {
 		"ok": ok,
 		"status": status,
-		"value": GFVariantData.duplicate_variant(value, true, true),
+		"value": GFVariantData.duplicate_variant(
+			value,
+			true,
+			true
+		),
 		"error": error,
 		"attempts": attempts,
 		"history": _copy_history(history),
@@ -508,8 +765,15 @@ static func _copy_history(history: Array[Dictionary]) -> Array[Dictionary]:
 ## [br]
 ## @api private
 static func _get_last_error(history: Array[Dictionary]) -> String:
-	for index: int in range(history.size() - 1, -1, -1):
-		var error: String = GFVariantData.get_option_string(history[index], "error")
+	for index: int in range(
+		history.size() - 1,
+		-1,
+		-1
+	):
+		var error: String = GFVariantData.get_option_string(
+			history[index],
+			"error"
+		)
 		if not error.is_empty():
 			return error
 	return "operation failed."
@@ -529,13 +793,20 @@ static func _get_cancel_token(options: Dictionary) -> GFCancellationToken:
 ## 从 entries 中为仍 pending 的完成源连接一次性完成回调，并登记连接信息。
 ## [br]
 ## @api private
-static func _connect_pending_completions(entries: Dictionary, channel: GFAsyncChannel, callbacks: Dictionary) -> Dictionary:
+static func _connect_pending_completions(
+	entries: Dictionary,
+	channel: GFAsyncChannel,
+	callbacks: Dictionary
+) -> Dictionary:
 	for key: Variant in entries.keys():
 		var completion: GFAsyncCompletion = _get_completion_entry(entries, key)
 		if completion == null or not completion.is_pending():
 			continue
 		var callback: Callable = _make_completion_channel_callback(channel, key)
-		var connect_error: Error = completion.completed.connect(callback, CONNECT_ONE_SHOT as Object.ConnectFlags) as Error
+		var connect_error: Error = completion.completed.connect(
+			callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
 		if connect_error != OK:
 			_disconnect_completion_callbacks(callbacks)
 			return {
@@ -543,10 +814,7 @@ static func _connect_pending_completions(entries: Dictionary, channel: GFAsyncCh
 				"key": GFVariantData.duplicate_variant(key),
 				"error": "completion signal connect failed.",
 			}
-		callbacks[GFVariantData.duplicate_variant(key)] = {
-			"completion": completion,
-			"callback": callback,
-		}
+		callbacks[GFVariantData.duplicate_variant(key)] = { "completion": completion, "callback": callback, }
 	return { "ok": true }
 
 
@@ -558,9 +826,7 @@ static func _make_completion_channel_callback(channel: GFAsyncChannel, key: Vari
 	return func(_completion: GFAsyncCompletion) -> void:
 		if not Thread.is_main_thread():
 			return
-		var event: Dictionary = {
-			"key": GFVariantData.duplicate_variant(stored_key),
-		}
+		var event: Dictionary = { "key": GFVariantData.duplicate_variant(stored_key), }
 		var _write_result: bool = channel.try_write(event)
 
 
@@ -585,7 +851,14 @@ static func _disconnect_completion_callbacks(callbacks: Dictionary) -> void:
 ## @api private
 static func _make_completion_wait_cancel_source(options: Dictionary) -> GFCancellationSource:
 	var token: GFCancellationToken = _get_cancel_token(options)
-	var timeout_seconds: float = maxf(GFVariantData.get_option_float(options, "timeout_seconds", 0.0), 0.0)
+	var timeout_seconds: float = maxf(
+		GFVariantData.get_option_float(
+			options,
+			"timeout_seconds",
+			0.0
+		),
+		0.0
+	)
 	var has_timeout: bool = options.has("timeout_seconds") and timeout_seconds > 0.0
 	if token == null and not has_timeout:
 		return null
@@ -595,9 +868,12 @@ static func _make_completion_wait_cancel_source(options: Dictionary) -> GFCancel
 		var _linked: bool = source.link_token(token)
 	if has_timeout:
 		var tree: SceneTree = _get_scene_tree_option(options)
-		var _timeout: bool = source.cancel_after_seconds(timeout_seconds, tree, &"timeout", {
-			"timeout_seconds": timeout_seconds,
-		})
+		var _timeout: bool = source.cancel_after_seconds(
+			timeout_seconds,
+			tree,
+			&"timeout",
+			{ "timeout_seconds": timeout_seconds, }
+		)
 	return source
 
 
@@ -606,7 +882,13 @@ static func _make_completion_wait_cancel_source(options: Dictionary) -> GFCancel
 ## @api private
 static func _make_completion_wait_options(options: Dictionary, wait_source: GFCancellationSource) -> Dictionary:
 	var wait_options: Dictionary = {}
-	for option_key: String in ["guard_node", "tree", "time_utility", "respect_time_scale", "process_in_physics"]:
+	for option_key: String in [
+		"guard_node",
+		"tree",
+		"time_utility",
+		"respect_time_scale",
+		"process_in_physics",
+	]:
 		if options.has(option_key):
 			wait_options[option_key] = GFVariantData.get_option_value(options, option_key)
 	if wait_source != null:
@@ -675,13 +957,29 @@ static func _make_completion_wait_report(
 			first_completed_key = GFVariantData.duplicate_variant(key)
 
 	var pending_count: int = entries.size() - completed_count
-	var ok: bool = (succeeded_count > 0) if wait_for_any_success else (pending_count == 0 and failed_count == 0 and cancelled_count == 0)
-	var status: StringName = _get_completion_wait_status(ok, failed_count, cancelled_count)
+	var ok: bool = (
+		(succeeded_count > 0)
+		if wait_for_any_success
+		else (
+			pending_count == 0
+			and failed_count == 0
+			and cancelled_count == 0
+		)
+	)
+	var status: StringName = _get_completion_wait_status(
+		ok,
+		failed_count,
+		cancelled_count
+	)
 	var report: Dictionary = {
 		"ok": ok,
 		"status": status,
 		"value": results.duplicate(true),
-		"error": "" if ok else _get_completion_wait_error(failed_count, cancelled_count, pending_count),
+		"error": "" if ok else _get_completion_wait_error(
+			failed_count,
+			cancelled_count,
+			pending_count
+		),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 		"count": entries.size(),
 		"completed_count": completed_count,
@@ -708,7 +1006,11 @@ static func _finalize_completion_wait_report(report: Dictionary) -> Dictionary:
 	if GFVariantData.get_option_bool(report, "ok"):
 		return report
 	var cancel_reason: StringName = GFVariantData.get_option_string_name(report, "cancel_reason")
-	if cancel_reason == &"" and GFVariantData.get_option_int(report, "failed_count") == 0 and GFVariantData.get_option_int(report, "cancelled_count") > 0:
+	if (
+		cancel_reason == &""
+		and GFVariantData.get_option_int(report, "failed_count") == 0
+		and GFVariantData.get_option_int(report, "cancelled_count") > 0
+	):
 		report["cancel_reason"] = &"cancelled"
 	return report
 
@@ -716,8 +1018,17 @@ static func _finalize_completion_wait_report(report: Dictionary) -> Dictionary:
 ## 从空完成集合构造失败报告，并加入错误文本和 invalid_key。
 ## [br]
 ## @api private
-static func _make_completion_wait_invalid_report(error: String, key: Variant, options: Dictionary) -> Dictionary:
-	var report: Dictionary = _make_completion_wait_report({}, [], false, options)
+static func _make_completion_wait_invalid_report(
+	error: String,
+	key: Variant,
+	options: Dictionary
+) -> Dictionary:
+	var report: Dictionary = _make_completion_wait_report(
+		{},
+		[],
+		false,
+		options
+	)
 	report["ok"] = false
 	report["status"] = STATUS_FAILED
 	report["error"] = error
@@ -728,14 +1039,21 @@ static func _make_completion_wait_invalid_report(error: String, key: Variant, op
 ## 根据空输入、任一成功、fail_fast 失败/取消或全部终态判断是否结束等待。
 ## [br]
 ## @api private
-static func _is_completion_wait_finished(report: Dictionary, wait_for_any_success: bool, fail_fast: bool) -> bool:
+static func _is_completion_wait_finished(
+	report: Dictionary,
+	wait_for_any_success: bool,
+	fail_fast: bool
+) -> bool:
 	if GFVariantData.get_option_int(report, "count") == 0:
 		return true
 	if wait_for_any_success and GFVariantData.get_option_int(report, "succeeded_count") > 0:
 		return true
-	if fail_fast and (
-		GFVariantData.get_option_int(report, "failed_count") > 0
-		or GFVariantData.get_option_int(report, "cancelled_count") > 0
+	if (
+		fail_fast
+		and (
+			GFVariantData.get_option_int(report, "failed_count") > 0
+			or GFVariantData.get_option_int(report, "cancelled_count") > 0
+		)
 	):
 		return true
 	return GFVariantData.get_option_int(report, "pending_count") == 0
@@ -745,14 +1063,19 @@ static func _is_completion_wait_finished(report: Dictionary, wait_for_any_succes
 ## [br]
 ## @api private
 static func _cancel_remaining_completions_if_requested(entries: Dictionary, options: Dictionary) -> void:
-	if not GFVariantData.get_option_bool(options, "cancel_remaining_on_finish", false):
+	if not GFVariantData.get_option_bool(
+		options,
+		"cancel_remaining_on_finish",
+		false
+	):
 		return
 	for key: Variant in entries.keys():
 		var completion: GFAsyncCompletion = _get_completion_entry(entries, key)
 		if completion != null and completion.is_pending():
-			var _cancelled_completion: bool = completion.cancel(&"flow_completed", {
-				"key": GFVariantData.duplicate_variant(key),
-			})
+			var _cancelled_completion: bool = completion.cancel(
+				&"flow_completed",
+				{ "key": GFVariantData.duplicate_variant(key), }
+			)
 
 
 ## 将 entries 中已进入终态的键加入 completion_order。
@@ -789,7 +1112,11 @@ static func _get_completion_entry(entries: Dictionary, key: Variant) -> GFAsyncC
 ## 按成功、仅取消和其他失败三种情况选择组合等待状态。
 ## [br]
 ## @api private
-static func _get_completion_wait_status(ok: bool, failed_count: int, cancelled_count: int) -> StringName:
+static func _get_completion_wait_status(
+	ok: bool,
+	failed_count: int,
+	cancelled_count: int
+) -> StringName:
 	if ok:
 		return STATUS_SUCCEEDED
 	if failed_count == 0 and cancelled_count > 0:
@@ -800,7 +1127,11 @@ static func _get_completion_wait_status(ok: bool, failed_count: int, cancelled_c
 ## 按失败、取消、仍 pending 的优先次序选择组合等待错误文本。
 ## [br]
 ## @api private
-static func _get_completion_wait_error(failed_count: int, cancelled_count: int, pending_count: int) -> String:
+static func _get_completion_wait_error(
+	failed_count: int,
+	cancelled_count: int,
+	pending_count: int
+) -> String:
 	if failed_count > 0:
 		return "completion failed."
 	if cancelled_count > 0:

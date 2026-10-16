@@ -41,7 +41,11 @@ func add_trait(p_trait: GFTrait) -> void:
 ## [br]
 ## @param trait_id: 特征 ID。
 func remove_traits_by_id(trait_id: StringName) -> void:
-	for index: int in range(traits.size() - 1, -1, -1):
+	for index: int in range(
+		traits.size() - 1,
+		-1,
+		-1
+	):
 		var current_trait: GFTrait = traits[index]
 		if current_trait != null and current_trait.trait_id == trait_id:
 			traits.remove_at(index)
@@ -75,6 +79,8 @@ func get_traits(target_id: StringName, category: StringName = &"") -> Array[GFTr
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param target_id: 目标键。
 ## [br]
 ## @param base_value: 基础值。
@@ -82,7 +88,11 @@ func get_traits(target_id: StringName, category: StringName = &"") -> Array[GFTr
 ## @param category: 可选分类。
 ## [br]
 ## @return 合并后的数值。
-func calculate_number(target_id: StringName, base_value: float, category: StringName = &"") -> float:
+func calculate_number(
+	target_id: StringName,
+	base_value: float,
+	category: StringName = &""
+) -> float:
 	var result: float = base_value
 	for current_trait: GFTrait in get_traits(target_id, category):
 		result = current_trait.apply_number(result)
@@ -102,9 +112,14 @@ func clear() -> void:
 ## [br]
 ## @api private
 func _sort_traits() -> void:
-	for index: int in range(traits.size() - 1, -1, -1):
+	for index: int in range(
+		traits.size() - 1,
+		-1,
+		-1
+	):
 		if traits[index] == null:
 			traits.remove_at(index)
-	traits.sort_custom(func(a: GFTrait, b: GFTrait) -> bool:
-		return a.priority < b.priority
+	traits.sort_custom(
+		func(a: GFTrait, b: GFTrait) -> bool:
+			return a.priority < b.priority
 	)

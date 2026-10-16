@@ -15,7 +15,7 @@ GF 扩展 manifest 发现快照缓存。 在 `GFExtensionCatalog` 的无状态 m
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`get_snapshot`](#member-gfextensionmanifestdiscovery-methods-get_snapshot) | `static func get_snapshot( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`get_snapshot`](#member-gfextensionmanifestdiscovery-methods-get_snapshot) | `static func get_snapshot(extra_root_paths: Array[String] = [], options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`clear_cache`](#member-gfextensionmanifestdiscovery-methods-clear_cache) | `static func clear_cache() -> void:` |
 
 ## 方法
@@ -28,7 +28,7 @@ GF 扩展 manifest 发现快照缓存。 在 `GFExtensionCatalog` 的无状态 m
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func get_snapshot( extra_root_paths: Array[String] = [], options: Dictionary = {} ) -> Dictionary:
+static func get_snapshot(extra_root_paths: Array[String] = [], options: Dictionary = {}) -> Dictionary:
 ```
 
 获取当前扩展 manifest 发现快照。 默认会复用仍然有效的快照；当扩展根目录、manifest 路径集合或 manifest 内容摘要变化时， 自动重新扫描并替换缓存。

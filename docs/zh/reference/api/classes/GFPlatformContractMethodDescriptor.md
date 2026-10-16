@@ -25,9 +25,9 @@
 | 属性 | [`supports_cancellation`](#member-gfplatformcontractmethoddescriptor-properties-supports_cancellation) | `var supports_cancellation: bool = true` |
 | 属性 | [`sensitive_fields`](#member-gfplatformcontractmethoddescriptor-properties-sensitive_fields) | `var sensitive_fields: PackedStringArray = PackedStringArray()` |
 | 属性 | [`metadata`](#member-gfplatformcontractmethoddescriptor-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`configure`](#member-gfplatformcontractmethoddescriptor-methods-configure) | `func configure( p_method_id: StringName, options: Dictionary = {} ) -> GFPlatformContractMethodDescriptor:` |
+| 方法 | [`configure`](#member-gfplatformcontractmethoddescriptor-methods-configure) | `func configure(p_method_id: StringName, options: Dictionary = {}) -> GFPlatformContractMethodDescriptor:` |
 | 方法 | [`validate_definition`](#member-gfplatformcontractmethoddescriptor-methods-validate_definition) | `func validate_definition() -> GFValidationReport:` |
-| 方法 | [`validate_request`](#member-gfplatformcontractmethoddescriptor-methods-validate_request) | `func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySet = null ) -> GFValidationReport:` |
+| 方法 | [`validate_request`](#member-gfplatformcontractmethoddescriptor-methods-validate_request) | `func validate_request(payload: Dictionary, capabilities: GFPlatformCapabilitySet = null) -> GFValidationReport:` |
 | 方法 | [`validate_result`](#member-gfplatformcontractmethoddescriptor-methods-validate_result) | `func validate_result(value: Variant) -> GFValidationReport:` |
 | 方法 | [`duplicate_descriptor`](#member-gfplatformcontractmethoddescriptor-methods-duplicate_descriptor) | `func duplicate_descriptor() -> GFPlatformContractMethodDescriptor:` |
 | 方法 | [`to_dict`](#member-gfplatformcontractmethoddescriptor-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -178,7 +178,7 @@ Adapter 作者定义的非业务元数据。
 - 首次版本：`10.0.0`
 
 ```gdscript
-func configure( p_method_id: StringName, options: Dictionary = {} ) -> GFPlatformContractMethodDescriptor:
+func configure(p_method_id: StringName, options: Dictionary = {}) -> GFPlatformContractMethodDescriptor:
 ```
 
 配置方法契约。
@@ -219,7 +219,7 @@ func validate_definition() -> GFValidationReport:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func validate_request( payload: Dictionary, capabilities: GFPlatformCapabilitySet = null ) -> GFValidationReport:
+func validate_request(payload: Dictionary, capabilities: GFPlatformCapabilitySet = null) -> GFValidationReport:
 ```
 
 校验请求载荷和能力前置条件。

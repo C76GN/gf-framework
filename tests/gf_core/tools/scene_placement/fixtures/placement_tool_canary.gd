@@ -11,4 +11,7 @@ func _init() -> void:
 	var count: int = 0
 	if previous is int:
 		count = previous
-	Engine.set_meta(&"gf_placement_canary_instances", count + 1)
+	Engine.set_meta(
+		&"gf_placement_canary_instances",
+		count + 1
+	)

@@ -19,7 +19,7 @@
 | 方法 | [`set_tags`](#member-gftagset-methods-set_tags) | `func set_tags(source_tags: Variant) -> GFTagSet:` |
 | 方法 | [`add_tag`](#member-gftagset-methods-add_tag) | `func add_tag(tag: StringName, count: int = 1) -> GFTagSet:` |
 | 方法 | [`remove_tag`](#member-gftagset-methods-remove_tag) | `func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:` |
-| 方法 | [`has_tag`](#member-gftagset-methods-has_tag) | `func has_tag(tag: StringName, minimum_count: int = 1, include_child_tags: bool = false) -> bool:` |
+| 方法 | [`has_tag`](#member-gftagset-methods-has_tag) | `func has_tag( tag: StringName, minimum_count: int = 1, include_child_tags: bool = false ) -> bool:` |
 | 方法 | [`get_tag_count`](#member-gftagset-methods-get_tag_count) | `func get_tag_count(tag: StringName, include_child_tags: bool = false) -> int:` |
 | 方法 | [`get_tags`](#member-gftagset-methods-get_tags) | `func get_tags() -> PackedStringArray:` |
 | 方法 | [`get_tag_counts`](#member-gftagset-methods-get_tag_counts) | `func get_tag_counts() -> Dictionary:` |
@@ -119,9 +119,10 @@ func remove_tag(tag: StringName, count: int = 1) -> GFTagSet:
 ### `has_tag`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func has_tag(tag: StringName, minimum_count: int = 1, include_child_tags: bool = false) -> bool:
+func has_tag( tag: StringName, minimum_count: int = 1, include_child_tags: bool = false ) -> bool:
 ```
 
 检查是否拥有指定标签且层数达到要求。

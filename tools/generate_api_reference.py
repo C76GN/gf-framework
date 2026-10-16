@@ -203,28 +203,6 @@ def api_script_members(api_script: ApiScript) -> list[ApiMember]:
 	]
 
 
-def strip_internal_members(api_class: ApiClass) -> ApiClass:
-	api_class.signals = filter_public_members(api_class.signals)
-	api_class.enums = filter_public_members(api_class.enums)
-	api_class.constants = filter_public_members(api_class.constants)
-	api_class.properties = filter_public_members(api_class.properties)
-	api_class.methods = filter_public_members(api_class.methods)
-	api_class.inner_classes = [
-		strip_internal_members(inner_class)
-		for inner_class in api_class.inner_classes
-		if visibility_of(inner_class.docs) in PUBLIC_API_VISIBILITIES
-	]
-	return api_class
-
-
-def filter_public_members(members: list[ApiMember]) -> list[ApiMember]:
-	return [
-		member
-		for member in members
-		if visibility_of(member.docs) in PUBLIC_API_VISIBILITIES
-	]
-
-
 def render_catalog_files(
 	api_classes: list[ApiClass],
 	source_root: Path,

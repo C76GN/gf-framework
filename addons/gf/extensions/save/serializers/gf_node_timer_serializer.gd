@@ -63,6 +63,8 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param node: 目标节点。
 ## [br]
 ## @param payload: Timer 状态载荷。
@@ -76,24 +78,37 @@ func gather(node: Node, _context: Dictionary = {}) -> Dictionary:
 ## @schema _context: Dictionary，调用方附加上下文；当前实现不读取。
 ## [br]
 ## @schema return: Dictionary，包含 ok: bool 与 error: String。
-func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictionary:
+func apply(
+	node: Node,
+	payload: Dictionary,
+	_context: Dictionary = {}
+) -> Dictionary:
 	var timer: Timer = _get_timer(node)
 	if timer == null:
 		return make_result(false, "Node is not Timer.")
 
-	var errors: Array[String] = _validate_property_specs_payload(payload, [
-		{ "key": "wait_time", "kind": &"float" },
-		{ "key": "one_shot", "kind": &"bool" },
-		{ "key": "autostart", "kind": &"bool" },
-		{ "key": "paused", "kind": &"bool" },
-		{ "key": "time_left", "kind": &"float" },
-		{ "key": "stopped", "kind": &"bool" },
-	])
+	var errors: Array[String] = _validate_property_specs_payload(
+		payload,
+		[
+			{ "key": "wait_time", "kind": &"float" },
+			{ "key": "one_shot", "kind": &"bool" },
+			{ "key": "autostart", "kind": &"bool" },
+			{ "key": "paused", "kind": &"bool" },
+			{ "key": "time_left", "kind": &"float" },
+			{ "key": "stopped", "kind": &"bool" },
+		]
+	)
 	if not errors.is_empty():
-		return make_result(false, "; ".join(errors))
+		return make_result(
+			false,
+			"; ".join(errors)
+		)
 
 	if payload.has("wait_time"):
-		timer.wait_time = maxf(GFVariantData.to_float(payload["wait_time"]), 0.0)
+		timer.wait_time = maxf(
+			GFVariantData.to_float(payload["wait_time"]),
+			0.0
+		)
 	if payload.has("one_shot"):
 		timer.one_shot = GFVariantData.to_bool(payload["one_shot"])
 	if payload.has("autostart"):
@@ -105,7 +120,11 @@ func apply(node: Node, payload: Dictionary, _context: Dictionary = {}) -> Dictio
 		if GFVariantData.to_bool(payload["stopped"]):
 			timer.stop()
 		else:
-			var time_left: float = GFVariantData.get_option_float(payload, "time_left", timer.wait_time)
+			var time_left: float = GFVariantData.get_option_float(
+				payload,
+				"time_left",
+				timer.wait_time
+			)
 			timer.start(time_left if time_left > 0.0 else timer.wait_time)
 	return make_result(true)
 

@@ -47,7 +47,10 @@ extends Resource
 ## [br]
 ## @schema return: Dictionary with ok, reason, effect_id, and metadata.
 func apply(context: Dictionary) -> Dictionary:
-	return _normalize_report(_apply(context), &"apply")
+	return _normalize_report(
+		_apply(context),
+		&"apply"
+	)
 
 
 ## 响应 Buff 移除。
@@ -64,7 +67,10 @@ func apply(context: Dictionary) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with ok, reason, effect_id, and metadata.
 func remove(context: Dictionary) -> Dictionary:
-	return _normalize_report(_remove(context), &"remove")
+	return _normalize_report(
+		_remove(context),
+		&"remove"
+	)
 
 
 ## 响应 Buff 刷新。
@@ -81,7 +87,10 @@ func remove(context: Dictionary) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with ok, reason, effect_id, and metadata.
 func refresh(context: Dictionary) -> Dictionary:
-	return _normalize_report(_refresh(context), &"refresh")
+	return _normalize_report(
+		_refresh(context),
+		&"refresh"
+	)
 
 
 ## 响应 Buff tick。
@@ -98,7 +107,10 @@ func refresh(context: Dictionary) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with ok, reason, effect_id, and metadata.
 func tick(context: Dictionary) -> Dictionary:
-	return _normalize_report(_tick(context), &"tick")
+	return _normalize_report(
+		_tick(context),
+		&"tick"
+	)
 
 
 ## 获取效果运行时状态快照。
@@ -230,11 +242,20 @@ func _restore_state_snapshot(_snapshot: Dictionary) -> void:
 ## @api private
 func _normalize_report(report: Dictionary, event_name: StringName) -> Dictionary:
 	var result: Dictionary = report.duplicate(true)
-	result["ok"] = GFVariantData.get_option_bool(result, "ok", true)
+	result["ok"] = GFVariantData.get_option_bool(
+		result,
+		"ok",
+		true
+	)
 	result["reason"] = GFVariantData.get_option_string_name(result, "reason")
 	result["effect_id"] = effect_id
 	result["event"] = event_name
 	var report_metadata: Dictionary = GFVariantData.get_option_dictionary(result, "metadata")
-	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(report_metadata, metadata, false, true)
+	var _merged_metadata: Dictionary = GFVariantData.merge_dictionary(
+		report_metadata,
+		metadata,
+		false,
+		true
+	)
 	result["metadata"] = report_metadata
 	return result

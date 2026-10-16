@@ -186,7 +186,11 @@ func prepare() -> Dictionary:
 			"projectile_context": _projectile_context.duplicate(true),
 			"now_msec": _now_msec,
 		}
-	if not GFVariantData.get_option_bool(_prepare_report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		_prepare_report,
+		"ok",
+		false
+	):
 		state = STATE_FAILED
 		return _decorate_report(_prepare_report)
 
@@ -195,7 +199,10 @@ func prepare() -> Dictionary:
 		"emit_count",
 		_requested_count
 	)
-	_allowed_count = mini(maxi(policy_count, 0), mini(_requested_count, _hard_limit))
+	_allowed_count = mini(
+		maxi(policy_count, 0),
+		mini(_requested_count, _hard_limit)
+	)
 	if _allowed_count <= 0:
 		state = STATE_FAILED
 		_prepare_report["ok"] = false
@@ -227,7 +234,11 @@ func commit(emitted_count: int) -> Dictionary:
 
 	var report: Dictionary = {}
 	if _policy != null:
-		report = _policy.commit_emission(_emitter, _prepare_report, emitted_count)
+		report = _policy.commit_emission(
+			_emitter,
+			_prepare_report,
+			emitted_count
+		)
 	else:
 		report = {
 			"ok": true,
@@ -237,7 +248,11 @@ func commit(emitted_count: int) -> Dictionary:
 			"available_charges": 0.0,
 			"consumed_charges": 0.0,
 		}
-	if not GFVariantData.get_option_bool(report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		state = STATE_FAILED
 		return _decorate_report(report)
 	state = STATE_COMMITTED
@@ -253,10 +268,12 @@ func commit(emitted_count: int) -> Dictionary:
 ## @param emitted_count: 全批预留成功后的实际候选数。
 ## [br]
 ## @return: 已扣费但尚未发布 hook 的 receipt；任务或提交失败时返回 null。
-func commit_deferred_for_framework(
-	emitted_count: int
-) -> GFProjectileEmissionReceipt:
-	if state != STATE_PREPARED or emitted_count <= 0 or emitted_count > _allowed_count:
+func commit_deferred_for_framework(emitted_count: int) -> GFProjectileEmissionReceipt:
+	if (
+		state != STATE_PREPARED
+		or emitted_count <= 0
+		or emitted_count > _allowed_count
+	):
 		state = STATE_FAILED
 		return null
 	var policy_snapshot: Dictionary = {}
@@ -274,11 +291,16 @@ func commit_deferred_for_framework(
 		policy_snapshot = _policy.capture_state_for_framework()
 		if (
 			not is_instance_valid(_policy)
-			or GFVariantData.get_option_int(
-				policy_snapshot,
-				"policy_instance_id",
-				-1
-			) != _policy.get_instance_id()
+			or (
+				(
+					GFVariantData.get_option_int(
+						policy_snapshot,
+						"policy_instance_id",
+						-1
+					)
+				)
+				!= _policy.get_instance_id()
+			)
 		):
 			state = STATE_FAILED
 			return null
@@ -298,7 +320,11 @@ func commit_deferred_for_framework(
 			)
 		else:
 			committed_generation = _policy.get_state_generation_for_framework()
-	if not GFVariantData.get_option_bool(report, "ok", false):
+	if not GFVariantData.get_option_bool(
+		report,
+		"ok",
+		false
+	):
 		state = STATE_FAILED
 		return null
 	var receipt: GFProjectileEmissionReceipt = GFProjectileEmissionReceipt.new()
@@ -312,10 +338,7 @@ func commit_deferred_for_framework(
 	)
 	if initialize_result != OK:
 		if _policy != null and is_instance_valid(_policy):
-			var _compensated: Dictionary = _policy.compensate_deferred_for_framework(
-				policy_snapshot,
-				committed_generation
-			)
+			var _compensated: Dictionary = _policy.compensate_deferred_for_framework(policy_snapshot, committed_generation)
 		state = STATE_FAILED
 		return null
 	state = STATE_COMMITTED
@@ -337,11 +360,13 @@ func rollback(reason: StringName = &"emission_rolled_back") -> Dictionary:
 	if state == STATE_COMMITTED:
 		return _make_state_failure(&"committed_emission_cannot_rollback")
 	state = STATE_ROLLED_BACK
-	return _decorate_report({
-		"ok": true,
-		"rolled_back": true,
-		"reason": reason,
-	})
+	return _decorate_report(
+		{
+			"ok": true,
+			"rolled_back": true,
+			"reason": reason,
+		}
+	)
 
 
 ## 获取策略允许的生成数量。
@@ -365,11 +390,13 @@ func get_allowed_count() -> int:
 ## [br]
 ## @schema return: Dictionary，策略返回的 projectile_context 深副本。
 func get_projectile_context() -> Dictionary:
-	return GFVariantData.get_option_dictionary(
-		_prepare_report,
-		"projectile_context",
-		_projectile_context
-	).duplicate(true)
+	return (
+		GFVariantData.get_option_dictionary(
+			_prepare_report,
+			"projectile_context",
+			_projectile_context
+		).duplicate(true)
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -391,8 +418,10 @@ func _decorate_report(report: Dictionary) -> Dictionary:
 ## [br]
 ## @api private
 func _make_state_failure(reason: StringName) -> Dictionary:
-	return _decorate_report({
-		"ok": false,
-		"committed": false,
-		"reason": reason,
-	})
+	return _decorate_report(
+		{
+			"ok": false,
+			"committed": false,
+			"reason": reason,
+		}
+	)

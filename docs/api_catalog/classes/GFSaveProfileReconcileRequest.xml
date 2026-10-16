@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="f8ae72c30c61b57d9f15275a6db4f252c632f0a3668f02239e4da04a97d7eb45">
+<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="640f298e6ba61e32fcf70092ccf90ffdd3ce2e5ae0ffd343dfc53dbd7e72155d">
 	<description>GFSaveProfileReconcileRequest: uncertain 写入对账的一次性请求句柄。
 请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease
 身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。
@@ -15,7 +15,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="take_ownership">
-			<signature>static func take_ownership( context: Dictionary = {}, result_metadata: Dictionary = {} ) -&gt; GFSaveProfileReconcileRequest:</signature>
+			<signature>static func take_ownership(context: Dictionary = {}, result_metadata: Dictionary = {}) -&gt; GFSaveProfileReconcileRequest:</signature>
 			<description>创建请求并接管 context 与 result_metadata 的逻辑唯一所有权。
 输入必须是有界纯 Variant 数据，不能包含 Callable、Object、Signal、RID 或
 循环集合。该请求不接受可执行恢复策略或 patch；项目策略应在提交前完成决策。</description>

@@ -19,8 +19,8 @@
 | 属性 | [`default_locale`](#member-gfplatformlocalemap-properties-default_locale) | `var default_locale: String = ""` |
 | 方法 | [`set_mapping`](#member-gfplatformlocalemap-methods-set_mapping) | `func set_mapping( platform_id: StringName, platform_locale: String, locale: String, fallback_locale: String = "", display_name: String = "" ) -> Dictionary:` |
 | 方法 | [`get_mapping`](#member-gfplatformlocalemap-methods-get_mapping) | `func get_mapping(platform_id: StringName, platform_locale: String) -> Dictionary:` |
-| 方法 | [`map_locale`](#member-gfplatformlocalemap-methods-map_locale) | `func map_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -> String:` |
-| 方法 | [`map_fallback_locale`](#member-gfplatformlocalemap-methods-map_fallback_locale) | `func map_fallback_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -> String:` |
+| 方法 | [`map_locale`](#member-gfplatformlocalemap-methods-map_locale) | `func map_locale( platform_id: StringName, platform_locale: String, fallback_value: String = "" ) -> String:` |
+| 方法 | [`map_fallback_locale`](#member-gfplatformlocalemap-methods-map_fallback_locale) | `func map_fallback_locale( platform_id: StringName, platform_locale: String, fallback_value: String = "" ) -> String:` |
 | 方法 | [`erase_mapping`](#member-gfplatformlocalemap-methods-erase_mapping) | `func erase_mapping(platform_id: StringName, platform_locale: String) -> bool:` |
 | 方法 | [`to_dict`](#member-gfplatformlocalemap-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfplatformlocalemap-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
@@ -125,7 +125,7 @@ func get_mapping(platform_id: StringName, platform_locale: String) -> Dictionary
 - 首次版本：`8.0.0`
 
 ```gdscript
-func map_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -> String:
+func map_locale( platform_id: StringName, platform_locale: String, fallback_value: String = "" ) -> String:
 ```
 
 映射到 Godot locale。
@@ -148,7 +148,7 @@ func map_locale(platform_id: StringName, platform_locale: String, fallback_value
 - 首次版本：`8.0.0`
 
 ```gdscript
-func map_fallback_locale(platform_id: StringName, platform_locale: String, fallback_value: String = "") -> String:
+func map_fallback_locale( platform_id: StringName, platform_locale: String, fallback_value: String = "" ) -> String:
 ```
 
 映射到 fallback Godot locale。

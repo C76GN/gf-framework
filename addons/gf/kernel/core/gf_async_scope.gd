@@ -143,7 +143,11 @@ func complete() -> void:
 func _run_cleanup_callbacks() -> void:
 	var callbacks: Array[Callable] = _cleanup_callbacks.duplicate()
 	_cleanup_callbacks.clear()
-	for index: int in range(callbacks.size() - 1, -1, -1):
+	for index: int in range(
+		callbacks.size() - 1,
+		-1,
+		-1
+	):
 		var cleanup_callback: Callable = callbacks[index]
 		if cleanup_callback.is_valid():
 			var _cleanup_result: Variant = cleanup_callback.call()

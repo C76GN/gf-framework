@@ -24,7 +24,7 @@
 | 方法 | [`duplicate_catalog`](#member-gfcontentpackagecatalog-methods-duplicate_catalog) | `func duplicate_catalog() -> GFContentPackageCatalog:` |
 | 方法 | [`get_package_ids`](#member-gfcontentpackagecatalog-methods-get_package_ids) | `func get_package_ids() -> PackedStringArray:` |
 | 方法 | [`get_ordered_package_ids`](#member-gfcontentpackagecatalog-methods-get_ordered_package_ids) | `func get_ordered_package_ids() -> PackedStringArray:` |
-| 方法 | [`query_packages`](#member-gfcontentpackagecatalog-methods-query_packages) | `func query_packages( query: GFContentPackageQuery, options: Dictionary = {} ) -> GFContentPackageQueryResult:` |
+| 方法 | [`query_packages`](#member-gfcontentpackagecatalog-methods-query_packages) | `func query_packages(query: GFContentPackageQuery, options: Dictionary = {}) -> GFContentPackageQueryResult:` |
 | 方法 | [`get_graph_report`](#member-gfcontentpackagecatalog-methods-get_graph_report) | `func get_graph_report(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`register_resources`](#member-gfcontentpackagecatalog-methods-register_resources) | `func register_resources(resolver: GFResourceResolverUtility, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfcontentpackagecatalog-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -201,7 +201,7 @@ func get_ordered_package_ids() -> PackedStringArray:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func query_packages( query: GFContentPackageQuery, options: Dictionary = {} ) -> GFContentPackageQueryResult:
+func query_packages(query: GFContentPackageQuery, options: Dictionary = {}) -> GFContentPackageQueryResult:
 ```
 
 查询有效内容包并返回隔离结果。

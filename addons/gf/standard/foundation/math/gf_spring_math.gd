@@ -66,7 +66,16 @@ static func step_float(
 	response: float = 0.0,
 	target_velocity: float = 0.0
 ) -> Dictionary:
-	if not _scalar_inputs_are_finite(current_value, velocity, target_value, delta_seconds, frequency_hz, damping_ratio, response, target_velocity):
+	if not _scalar_inputs_are_finite(
+		current_value,
+		velocity,
+		target_value,
+		delta_seconds,
+		frequency_hz,
+		damping_ratio,
+		response,
+		target_velocity
+	):
 		return _reject_input("step_float")
 	var values: PackedFloat64Array = _step_float_values(
 		current_value,
@@ -80,10 +89,7 @@ static func step_float(
 	)
 	if not _values_are_finite(values):
 		return _reject_result("step_float")
-	return {
-		"value": values[0],
-		"velocity": values[1],
-	}
+	return { "value": values[0], "velocity": values[1], }
 
 
 ## 对弧度角执行一次二阶弹簧步进，并沿最短角度方向靠近目标。
@@ -122,10 +128,19 @@ static func step_angle(
 	response: float = 0.0,
 	target_velocity: float = 0.0
 ) -> Dictionary:
-	if not _scalar_inputs_are_finite(current_radians, velocity, target_radians, delta_seconds, frequency_hz, damping_ratio, response, target_velocity):
+	if not _scalar_inputs_are_finite(
+		current_radians,
+		velocity,
+		target_radians,
+		delta_seconds,
+		frequency_hz,
+		damping_ratio,
+		response,
+		target_velocity
+	):
 		return _reject_input("step_angle")
 	if delta_seconds <= 0.0:
-		return {"value": current_radians, "velocity": velocity}
+		return { "value": current_radians, "velocity": velocity }
 	var adjusted_target: float = current_radians + angle_difference(current_radians, target_radians)
 	if not is_finite(adjusted_target):
 		return _reject_result("step_angle")
@@ -141,7 +156,7 @@ static func step_angle(
 	)
 	if not _values_are_finite(values):
 		return _reject_result("step_angle")
-	return {"value": values[0], "velocity": values[1]}
+	return { "value": values[0], "velocity": values[1] }
 
 
 ## 对 Vector2 值执行一次逐分量二阶弹簧步进。
@@ -180,9 +195,19 @@ static func step_vector2(
 	response: float = 0.0,
 	target_velocity: Vector2 = Vector2.ZERO
 ) -> Dictionary:
-	if not current_value.is_finite() or not velocity.is_finite() or not target_value.is_finite() or not target_velocity.is_finite():
+	if (
+		not current_value.is_finite()
+		or not velocity.is_finite()
+		or not target_value.is_finite()
+		or not target_velocity.is_finite()
+	):
 		return _reject_input("step_vector2")
-	if not _parameters_are_finite(delta_seconds, frequency_hz, damping_ratio, response):
+	if not _parameters_are_finite(
+		delta_seconds,
+		frequency_hz,
+		damping_ratio,
+		response
+	):
 		return _reject_input("step_vector2")
 	var x_values: PackedFloat64Array = _step_float_values(
 		current_value.x,
@@ -206,14 +231,17 @@ static func step_vector2(
 	)
 	if not _values_are_finite(x_values) or not _values_are_finite(y_values):
 		return _reject_result("step_vector2")
-	var next_value: Vector2 = Vector2(x_values[0], y_values[0])
-	var next_velocity: Vector2 = Vector2(x_values[1], y_values[1])
+	var next_value: Vector2 = Vector2(
+		x_values[0],
+		y_values[0]
+	)
+	var next_velocity: Vector2 = Vector2(
+		x_values[1],
+		y_values[1]
+	)
 	if not next_value.is_finite() or not next_velocity.is_finite():
 		return _reject_result("step_vector2")
-	return {
-		"value": next_value,
-		"velocity": next_velocity,
-	}
+	return { "value": next_value, "velocity": next_velocity, }
 
 
 ## 对 Vector3 值执行一次逐分量二阶弹簧步进。
@@ -252,9 +280,19 @@ static func step_vector3(
 	response: float = 0.0,
 	target_velocity: Vector3 = Vector3.ZERO
 ) -> Dictionary:
-	if not current_value.is_finite() or not velocity.is_finite() or not target_value.is_finite() or not target_velocity.is_finite():
+	if (
+		not current_value.is_finite()
+		or not velocity.is_finite()
+		or not target_value.is_finite()
+		or not target_velocity.is_finite()
+	):
 		return _reject_input("step_vector3")
-	if not _parameters_are_finite(delta_seconds, frequency_hz, damping_ratio, response):
+	if not _parameters_are_finite(
+		delta_seconds,
+		frequency_hz,
+		damping_ratio,
+		response
+	):
 		return _reject_input("step_vector3")
 	var x_values: PackedFloat64Array = _step_float_values(
 		current_value.x,
@@ -286,16 +324,25 @@ static func step_vector3(
 		response,
 		target_velocity.z
 	)
-	if not _values_are_finite(x_values) or not _values_are_finite(y_values) or not _values_are_finite(z_values):
+	if (
+		not _values_are_finite(x_values)
+		or not _values_are_finite(y_values)
+		or not _values_are_finite(z_values)
+	):
 		return _reject_result("step_vector3")
-	var next_value: Vector3 = Vector3(x_values[0], y_values[0], z_values[0])
-	var next_velocity: Vector3 = Vector3(x_values[1], y_values[1], z_values[1])
+	var next_value: Vector3 = Vector3(
+		x_values[0],
+		y_values[0],
+		z_values[0]
+	)
+	var next_velocity: Vector3 = Vector3(
+		x_values[1],
+		y_values[1],
+		z_values[1]
+	)
 	if not next_value.is_finite() or not next_velocity.is_finite():
 		return _reject_result("step_vector3")
-	return {
-		"value": next_value,
-		"velocity": next_velocity,
-	}
+	return { "value": next_value, "velocity": next_velocity, }
 
 
 # --- 私有/辅助方法 ---
@@ -303,22 +350,56 @@ static func step_vector3(
 ## 一次验证全部标量输入，不构造临时参数数组，不把非有限参数交给钳制算式。
 ## [br]
 ## @api private
-static func _scalar_inputs_are_finite(current_value: float, velocity: float, target_value: float, delta_seconds: float, frequency_hz: float, damping_ratio: float, response: float, target_velocity: float) -> bool:
-	return is_finite(current_value) and is_finite(velocity) and is_finite(target_value) and is_finite(target_velocity) and _parameters_are_finite(delta_seconds, frequency_hz, damping_ratio, response)
+static func _scalar_inputs_are_finite(
+	current_value: float,
+	velocity: float,
+	target_value: float,
+	delta_seconds: float,
+	frequency_hz: float,
+	damping_ratio: float,
+	response: float,
+	target_velocity: float
+) -> bool:
+	return (
+		is_finite(current_value)
+		and is_finite(velocity)
+		and is_finite(target_value)
+		and is_finite(target_velocity)
+		and _parameters_are_finite(
+			delta_seconds,
+			frequency_hz,
+			damping_ratio,
+			response
+		)
+	)
 
 
 ## 校验四种入口共用的时间、频率、阻尼和响应参数；有限负参数仍由既有算式规范化。
 ## [br]
 ## @api private
-static func _parameters_are_finite(delta_seconds: float, frequency_hz: float, damping_ratio: float, response: float) -> bool:
-	return is_finite(delta_seconds) and is_finite(frequency_hz) and is_finite(damping_ratio) and is_finite(response)
+static func _parameters_are_finite(
+	delta_seconds: float,
+	frequency_hz: float,
+	damping_ratio: float,
+	response: float
+) -> bool:
+	return (
+		is_finite(delta_seconds)
+		and is_finite(frequency_hz)
+		and is_finite(damping_ratio)
+		and is_finite(response)
+	)
 
 
 ## 检查私有标量步进的完整双状态，不允许有限极值产生非有限候选。
 ## [br]
 ## @api private
 static func _values_are_finite(values: PackedFloat64Array) -> bool:
-	return values.size() == 2 and is_finite(values[0]) and is_finite(values[1])
+	return (
+		values.size() == 2
+		and is_finite(values[0])
+		and is_finite(values[1])
+	)
 
 
 ## 所有入口复用一个输入拒绝模板，向量失败不会逐分量重复输出。
@@ -360,9 +441,7 @@ static func _step_float_values(
 	var k1: float = safe_damping_ratio / (PI * safe_frequency_hz)
 	var k2: float = 1.0 / (angular_frequency * angular_frequency)
 	var k3: float = response * safe_damping_ratio / angular_frequency
-	var combined_stability_floor: float = _STABILITY_SAFETY_MARGIN * (
-		delta_seconds * delta_seconds * 0.25 + delta_seconds * k1 * 0.5
-	)
+	var combined_stability_floor: float = (_STABILITY_SAFETY_MARGIN * (delta_seconds * delta_seconds * 0.25 + delta_seconds * k1 * 0.5))
 	var stable_k2: float = maxf(
 		k2,
 		maxf(
@@ -370,12 +449,7 @@ static func _step_float_values(
 			delta_seconds * k1
 		)
 	)
-	var acceleration: float = (
-		target_value
-		+ k3 * target_velocity
-		- current_value
-		- k1 * velocity
-	) / stable_k2
+	var acceleration: float = (target_value + k3 * target_velocity - current_value - k1 * velocity) / stable_k2
 	var next_velocity: float = velocity + delta_seconds * acceleration
 	var next_value: float = current_value + delta_seconds * next_velocity
 	return PackedFloat64Array([next_value, next_velocity])

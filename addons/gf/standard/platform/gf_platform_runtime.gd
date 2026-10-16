@@ -43,7 +43,11 @@ signal adapter_unregistered(adapter_id: StringName)
 ## @param previous_state: 变化前状态。
 ## [br]
 ## @param current_state: 变化后状态。
-signal adapter_state_changed(adapter_id: StringName, previous_state: int, current_state: int)
+signal adapter_state_changed(
+	adapter_id: StringName,
+	previous_state: int,
+	current_state: int
+)
 
 ## Adapter 上下文变化后转发。
 ## [br]
@@ -242,7 +246,11 @@ func ready() -> void:
 	var provider_value: Variant = architecture.get_utility(GFTimeProvider)
 	if provider_value is GFTimeProvider:
 		var provider: GFTimeProvider = provider_value
-		var _clock_applied: bool = _apply_clock(provider.get_clock(), false)
+		var _clock_applied: bool = _apply_clock(
+			provider.get_clock(),
+			false
+		)
+
 
 ## 推进 adapter callback pump 并处理请求超时。
 ## [br]
@@ -270,7 +278,10 @@ func dispose() -> void:
 		if pending_handle != null:
 			var _cancelled: bool = pending_handle.cancel(&"runtime_disposed")
 	for adapter_id: String in get_adapter_ids():
-		var _removed: bool = unregister_adapter(StringName(adapter_id), true)
+		var _removed: bool = unregister_adapter(
+			StringName(adapter_id),
+			true
+		)
 	_contract_candidates.clear()
 	_contract_routes.clear()
 	_pending_requests.clear()
@@ -325,6 +336,7 @@ func configure_activation_queue(max_pending: int, max_seen: int) -> bool:
 	_trim_activation_queue()
 	_trim_seen_activation_ids()
 	return true
+
 
 ## 注册平台 adapter。
 ##
@@ -421,7 +433,10 @@ func initialize_adapter(adapter_id: StringName, options: Dictionary = {}) -> GFA
 	if adapter != null:
 		return adapter.initialize(options)
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
-	var _failed: bool = completion.fail("Platform adapter is not registered.", {"adapter_id": adapter_id})
+	var _failed: bool = completion.fail(
+		"Platform adapter is not registered.",
+		{ "adapter_id": adapter_id }
+	)
 	return completion
 
 
@@ -439,7 +454,11 @@ func initialize_adapter(adapter_id: StringName, options: Dictionary = {}) -> GFA
 func set_contract_route(contract_id: StringName, adapter_id: StringName) -> bool:
 	var normalized_contract: StringName = StringName(String(contract_id).strip_edges())
 	var adapter: GFPlatformAdapter = _get_adapter(adapter_id)
-	if normalized_contract == &"" or adapter == null or not adapter.supports_contract(normalized_contract):
+	if (
+		normalized_contract == &""
+		or adapter == null
+		or not adapter.supports_contract(normalized_contract)
+	):
 		return false
 	_contract_routes[String(normalized_contract)] = adapter.get_adapter_id()
 	return true
@@ -488,15 +507,8 @@ func get_contract_route(contract_id: StringName) -> StringName:
 ## @param adapter_id: 可选显式 Adapter ID；会移除首尾空白。
 ## [br]
 ## @return 一次性请求句柄；所有输入和路由失败也返回终态句柄。
-func invoke(
-	request: GFPlatformBridgeRequest,
-	adapter_id: StringName = &""
-) -> GFPlatformRequestHandle:
-	var canonical_request: GFPlatformBridgeRequest = (
-		request.duplicate_request()
-		if request != null
-		else null
-	)
+func invoke(request: GFPlatformBridgeRequest, adapter_id: StringName = &"") -> GFPlatformRequestHandle:
+	var canonical_request: GFPlatformBridgeRequest = (request.duplicate_request() if request != null else null)
 	if canonical_request == null or canonical_request.is_empty():
 		return _make_rejected_handle(
 			canonical_request,
@@ -518,12 +530,12 @@ func invoke(
 		"handle": null,
 		"reserved": true,
 	}
-	var resolution: Dictionary = _resolve_adapter(
-		canonical_request.contract_id,
-		normalized_adapter_id
-	)
+	var resolution: Dictionary = _resolve_adapter(canonical_request.contract_id, normalized_adapter_id)
 	var resolved_adapter_id: StringName = GFVariantData.get_option_string_name(resolution, "adapter_id")
-	request_started.emit(resolved_adapter_id, canonical_request.duplicate_request())
+	request_started.emit(
+		resolved_adapter_id,
+		canonical_request.duplicate_request()
+	)
 	var routing_error: StringName = GFVariantData.get_option_string_name(resolution, "error")
 	if routing_error != &"":
 		var _routing_reservation_erased: bool = _pending_requests.erase(request_key)
@@ -544,12 +556,13 @@ func invoke(
 		)
 		_emit_completed_handle(resolved_adapter_id, missing)
 		return missing
-	var handle: GFPlatformRequestHandle = adapter.invoke_from_runtime(
-		canonical_request,
-		started_at_msec
-	)
+	var handle: GFPlatformRequestHandle = adapter.invoke_from_runtime(canonical_request, started_at_msec)
 	if handle.is_pending():
-		_track_pending_handle(resolved_adapter_id, canonical_request, handle)
+		_track_pending_handle(
+			resolved_adapter_id,
+			canonical_request,
+			handle
+		)
 	else:
 		var _completed_reservation_erased: bool = _pending_requests.erase(request_key)
 		_emit_completed_handle(resolved_adapter_id, handle)
@@ -585,15 +598,20 @@ func invoke_contract(
 	if request_id == &"":
 		_request_serial += 1
 		request_id = StringName("gf_platform_%d" % _request_serial)
-	var request: GFPlatformBridgeRequest = GFPlatformBridgeRequest.new().configure(
-		request_id,
-		contract_id,
-		method_id,
-		payload,
-		GFVariantData.get_option_int(options, "timeout_msec"),
-		GFVariantData.get_option_dictionary(options, "metadata")
+	var request: GFPlatformBridgeRequest = (
+		GFPlatformBridgeRequest.new().configure(
+			request_id,
+			contract_id,
+			method_id,
+			payload,
+			GFVariantData.get_option_int(options, "timeout_msec"),
+			GFVariantData.get_option_dictionary(options, "metadata")
+		)
 	)
-	return invoke(request, GFVariantData.get_option_string_name(options, "adapter_id"))
+	return invoke(
+		request,
+		GFVariantData.get_option_string_name(options, "adapter_id")
+	)
 
 
 ## 取消等待中的请求。
@@ -669,10 +687,7 @@ func get_activation_intents() -> Array[GFPlatformActivationIntent]:
 ## @param intent_id: 该 Adapter 内的 Intent ID。
 ## [br]
 ## @return 找到时返回意图副本，否则返回 null。
-func consume_activation_intent(
-	adapter_id: StringName,
-	intent_id: StringName
-) -> GFPlatformActivationIntent:
+func consume_activation_intent(adapter_id: StringName, intent_id: StringName) -> GFPlatformActivationIntent:
 	var normalized_adapter_id: StringName = StringName(String(adapter_id).strip_edges())
 	var normalized_id: StringName = StringName(String(intent_id).strip_edges())
 	for index: int in range(_activation_intents.size()):
@@ -680,10 +695,7 @@ func consume_activation_intent(
 		if intent.adapter_id != normalized_adapter_id or intent.intent_id != normalized_id:
 			continue
 		_activation_intents.remove_at(index)
-		var intent_key: String = _make_activation_intent_key(
-			intent.adapter_id,
-			intent.intent_id
-		)
+		var intent_key: String = _make_activation_intent_key(intent.adapter_id, intent.intent_id)
 		var _pending_erased: bool = _pending_activation_ids.erase(intent_key)
 		return intent.duplicate_intent()
 	return null
@@ -700,10 +712,7 @@ func consume_activation_intent(
 ## @param intent_id: 该 Adapter 内的 Intent ID。
 ## [br]
 ## @return 找到并移除返回 true。
-func acknowledge_activation_intent(
-	adapter_id: StringName,
-	intent_id: StringName
-) -> bool:
+func acknowledge_activation_intent(adapter_id: StringName, intent_id: StringName) -> bool:
 	return consume_activation_intent(adapter_id, intent_id) != null
 
 
@@ -736,10 +745,18 @@ func clear_activation_intents(clear_dedupe_history: bool = false) -> void:
 func has_capability(capability_id: StringName, adapter_id: StringName = &"") -> bool:
 	if adapter_id != &"":
 		var selected: GFPlatformAdapter = _get_adapter(adapter_id)
-		return selected != null and selected.is_ready() and selected.get_context().has_capability(capability_id)
+		return (
+			selected != null
+			and selected.is_ready()
+			and selected.get_context().has_capability(capability_id)
+		)
 	for candidate_id: String in get_adapter_ids():
 		var candidate: GFPlatformAdapter = _get_adapter(StringName(candidate_id))
-		if candidate != null and candidate.is_ready() and candidate.get_context().has_capability(capability_id):
+		if (
+			candidate != null
+			and candidate.is_ready()
+			and candidate.get_context().has_capability(capability_id)
+		):
 			return true
 	return false
 
@@ -811,33 +828,62 @@ func _resolve_adapter(contract_id: StringName, explicit_adapter_id: StringName) 
 	if explicit_adapter_id != &"":
 		var explicit_adapter: GFPlatformAdapter = _get_adapter(explicit_adapter_id)
 		if explicit_adapter == null:
-			return _routing_failure(&"adapter_not_found", "Explicit platform adapter is not registered.", explicit_adapter_id)
+			return _routing_failure(
+				&"adapter_not_found",
+				"Explicit platform adapter is not registered.",
+				explicit_adapter_id
+			)
 		if not explicit_adapter.supports_contract(normalized_contract):
-			return _routing_failure(&"unsupported_contract", "Explicit platform adapter does not support the contract.", explicit_adapter_id)
-		return {"adapter_id": explicit_adapter_id, "error": &"", "message": ""}
+			return _routing_failure(
+				&"unsupported_contract",
+				"Explicit platform adapter does not support the contract.",
+				explicit_adapter_id
+			)
+		return {
+			"adapter_id": explicit_adapter_id,
+			"error": &"",
+			"message": "",
+		}
 	var routed_adapter_id: StringName = get_contract_route(normalized_contract)
 	if routed_adapter_id != &"":
 		var routed_adapter: GFPlatformAdapter = _get_adapter(routed_adapter_id)
 		if routed_adapter == null or not routed_adapter.supports_contract(normalized_contract):
-			return _routing_failure(&"stale_contract_route", "Configured platform route is no longer valid.", routed_adapter_id)
-		return {"adapter_id": routed_adapter_id, "error": &"", "message": ""}
+			return _routing_failure(
+				&"stale_contract_route",
+				"Configured platform route is no longer valid.",
+				routed_adapter_id
+			)
+		return {
+			"adapter_id": routed_adapter_id,
+			"error": &"",
+			"message": "",
+		}
 	var candidates: PackedStringArray = _get_contract_candidates(normalized_contract)
 	if candidates.is_empty():
 		return _routing_failure(&"unbound_contract", "No platform adapter supports the requested contract.")
 	if candidates.size() > 1:
-		return _routing_failure(
-			&"ambiguous_adapter",
-			"Multiple platform adapters support the contract; set an explicit route."
-		)
-	return {"adapter_id": StringName(candidates[0]), "error": &"", "message": ""}
+		return _routing_failure(&"ambiguous_adapter", "Multiple platform adapters support the contract; set an explicit route.")
+	return {
+		"adapter_id": StringName(candidates[0]),
+		"error": &"",
+		"message": "",
+	}
 
 
 ## 生成包含稳定错误码、人读说明和可选 Adapter ID 的路由结果字典。
 ## [br]
 ## @api private
 ## [br]
-func _routing_failure(error: StringName, message: String, adapter_id: StringName = &"") -> Dictionary:
-	return {"adapter_id": adapter_id, "error": error, "message": message}
+func _routing_failure(
+	error: StringName,
+	message: String,
+	adapter_id: StringName = &""
+) -> Dictionary:
+	return {
+		"adapter_id": adapter_id,
+		"error": error,
+		"message": message,
+	}
 
 
 ## 创建并立即提交 Platform 层拒绝结果的请求句柄。
@@ -879,10 +925,7 @@ func _track_pending_handle(
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
 	if connect_error != OK:
-		var _failed: bool = handle.fail_from_platform_layer(
-			&"signal_connection_failed",
-			"Platform runtime could not track request completion."
-		)
+		var _failed: bool = handle.fail_from_platform_layer(&"signal_connection_failed", "Platform runtime could not track request completion.")
 		var _erased: bool = _pending_requests.erase(String(request.request_id))
 		_emit_completed_handle(adapter_id, handle)
 
@@ -974,18 +1017,10 @@ func _cancel_adapter_requests(adapter_id: StringName, reason: StringName) -> voi
 ## [br]
 func _connect_adapter(adapter: GFPlatformAdapter) -> void:
 	var adapter_id: StringName = adapter.get_adapter_id()
-	var _state_connected: Error = adapter.state_changed.connect(
-		_on_adapter_state_changed.bind(adapter_id)
-	) as Error
-	var _context_connected: Error = adapter.context_changed.connect(
-		_on_adapter_context_changed.bind(adapter_id)
-	) as Error
-	var _lifecycle_connected: Error = adapter.lifecycle_event.connect(
-		_on_adapter_lifecycle_event.bind(adapter_id)
-	) as Error
-	var _activation_connected: Error = adapter.activation_intent.connect(
-		_on_adapter_activation_intent.bind(adapter_id)
-	) as Error
+	var _state_connected: Error = adapter.state_changed.connect(_on_adapter_state_changed.bind(adapter_id)) as Error
+	var _context_connected: Error = adapter.context_changed.connect(_on_adapter_context_changed.bind(adapter_id)) as Error
+	var _lifecycle_connected: Error = adapter.lifecycle_event.connect(_on_adapter_lifecycle_event.bind(adapter_id)) as Error
+	var _activation_connected: Error = adapter.activation_intent.connect(_on_adapter_activation_intent.bind(adapter_id)) as Error
 
 
 ## 断开此前为该 Adapter 绑定的四个 Runtime 转发回调。
@@ -1026,14 +1061,15 @@ func _trim_activation_queue() -> void:
 	var dropped_intents: Array[GFPlatformActivationIntent] = []
 	while _activation_intents.size() > _max_activation_intents:
 		var dropped: GFPlatformActivationIntent = _activation_intents.pop_front()
-		var dropped_key: String = _make_activation_intent_key(
-			dropped.adapter_id,
-			dropped.intent_id
-		)
+		var dropped_key: String = _make_activation_intent_key(dropped.adapter_id, dropped.intent_id)
 		var _pending_erased: bool = _pending_activation_ids.erase(dropped_key)
 		dropped_intents.append(dropped)
 	for dropped: GFPlatformActivationIntent in dropped_intents:
-		activation_intent_dropped.emit(dropped.adapter_id, dropped.intent_id, &"capacity")
+		activation_intent_dropped.emit(
+			dropped.adapter_id,
+			dropped.intent_id,
+			&"capacity"
+		)
 
 
 ## 超出历史容量时按接收顺序移除最旧 ID，并同步清理近期已见集合。
@@ -1051,18 +1087,18 @@ func _trim_seen_activation_ids() -> void:
 ## [br]
 ## @api private
 ## [br]
-static func _make_activation_intent_key(
-	adapter_id: StringName,
-	intent_id: StringName
-) -> String:
+static func _make_activation_intent_key(adapter_id: StringName, intent_id: StringName) -> String:
 	var adapter_text: String = String(adapter_id)
 	var intent_text: String = String(intent_id)
-	return "%d:%s%d:%s" % [
-		adapter_text.length(),
-		adapter_text,
-		intent_text.length(),
-		intent_text,
-	]
+	return (
+		"%d:%s%d:%s"
+		% [
+			adapter_text.length(),
+			adapter_text,
+			intent_text.length(),
+			intent_text,
+		]
+	)
 
 
 # --- 信号处理函数 ---
@@ -1076,7 +1112,10 @@ func _on_request_handle_completed(
 	request_id: StringName
 ) -> void:
 	var _erased: bool = _pending_requests.erase(String(request_id))
-	request_completed.emit(adapter_id, result.duplicate_result())
+	request_completed.emit(
+		adapter_id,
+		result.duplicate_result()
+	)
 
 
 ## 为 Adapter 状态通知补上注册时绑定的 adapter_id 后转发。
@@ -1087,41 +1126,50 @@ func _on_adapter_state_changed(
 	current_state: int,
 	adapter_id: StringName
 ) -> void:
-	adapter_state_changed.emit(adapter_id, previous_state, current_state)
+	adapter_state_changed.emit(
+		adapter_id,
+		previous_state,
+		current_state
+	)
 
 
 ## 复制 Adapter 上下文后转发，避免 Runtime 监听者直接持有本次传入容器。
 ## [br]
 ## @api private
-func _on_adapter_context_changed(
-	context: GFPlatformRuntimeContext,
-	adapter_id: StringName
-) -> void:
-	context_changed.emit(adapter_id, context.duplicate_context())
+func _on_adapter_context_changed(context: GFPlatformRuntimeContext, adapter_id: StringName) -> void:
+	context_changed.emit(
+		adapter_id,
+		context.duplicate_context()
+	)
 
 
 ## 复制生命周期事件后附带绑定的 adapter_id 转发。
 ## [br]
 ## @api private
-func _on_adapter_lifecycle_event(
-	event: GFPlatformLifecycleEvent,
-	adapter_id: StringName
-) -> void:
-	lifecycle_event.emit(adapter_id, event.duplicate_event())
+func _on_adapter_lifecycle_event(event: GFPlatformLifecycleEvent, adapter_id: StringName) -> void:
+	lifecycle_event.emit(
+		adapter_id,
+		event.duplicate_event()
+	)
 
 
 ## 拒绝无效、身份不匹配或已见过的意图；先记录去重身份并排队副本，容量修剪后仍在队列才通知。
 ## [br]
 ## @api private
-func _on_adapter_activation_intent(
-	intent: GFPlatformActivationIntent,
-	adapter_id: StringName
-) -> void:
-	if intent == null or intent.is_empty() or intent.adapter_id != adapter_id:
+func _on_adapter_activation_intent(intent: GFPlatformActivationIntent, adapter_id: StringName) -> void:
+	if (
+		intent == null
+		or intent.is_empty()
+		or intent.adapter_id != adapter_id
+	):
 		return
 	var intent_key: String = _make_activation_intent_key(adapter_id, intent.intent_id)
 	if _pending_activation_ids.has(intent_key) or _seen_activation_ids.has(intent_key):
-		activation_intent_dropped.emit(adapter_id, intent.intent_id, &"duplicate")
+		activation_intent_dropped.emit(
+			adapter_id,
+			intent.intent_id,
+			&"duplicate"
+		)
 		return
 	_seen_activation_ids[intent_key] = true
 	var _seen_appended: bool = _seen_activation_order.append(intent_key)
@@ -1131,4 +1179,7 @@ func _on_adapter_activation_intent(
 	_pending_activation_ids[intent_key] = true
 	_trim_activation_queue()
 	if _activation_intents.has(queued_intent):
-		activation_intent_received.emit(adapter_id, queued_intent.duplicate_intent())
+		activation_intent_received.emit(
+			adapter_id,
+			queued_intent.duplicate_intent()
+		)

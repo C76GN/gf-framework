@@ -78,7 +78,12 @@ func _get_spawn_transforms(
 		if count > 1:
 			factor = float(index) / float(count - 1)
 		var local_position: Vector3 = local_start.lerp(local_end, factor)
-		result.append(Transform3D(basis, emitter.to_global(local_position)))
+		result.append(
+			Transform3D(
+				basis,
+				emitter.to_global(local_position)
+			)
+		)
 	return result
 
 

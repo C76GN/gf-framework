@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="91972f8b8cbedbd15917182f45b53a282bf3200d37ca9e059778d63106eb8200">
+<class name="GFSystem" path="addons/gf/kernel/base/gf_system.gd" module="kernel" extends="Object" classDigest="10066bf9dd7191d50ee72b60dbf29db27844cdb0580894bacb614ddeafb22765">
 	<description>GFSystem: 逻辑层抽象基类。
 负责实现核心业务逻辑。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -264,7 +264,7 @@ GFArchitecture.is_accepting_runtime_work() 检查。</description>
 			</tags>
 		</member>
 		<member kind="method" name="register_event">
-			<signature>func register_event(event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_event( event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -285,7 +285,7 @@ GFArchitecture.is_accepting_runtime_work() 检查。</description>
 			</tags>
 		</member>
 		<member kind="method" name="register_assignable_event">
-			<signature>func register_assignable_event(base_event_type: Script, listener: GFEventListener, priority: int = 0) -&gt; void:</signature>
+			<signature>func register_assignable_event( base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -&gt; void:</signature>
 			<description>注册可赋值类型事件监听器。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -20,53 +20,147 @@ func after_each() -> void:
 		if InputMap.has_action(action_id):
 			InputMap.erase_action(action_id)
 
+
 func test_view_coordinates_round_trip_and_content_root_follow_view() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	assert_true(canvas.set_view(Vector2(100.0, 50.0), 2.0), "有限视图应配置成功。")
+	assert_true(
+		canvas.set_view(
+			Vector2(100.0, 50.0),
+			2.0
+		),
+		"有限视图应配置成功。"
+	)
 
 	var canvas_position: Vector2 = canvas.world_to_canvas(Vector2(120.0, 60.0))
 	var restored_world: Vector2 = canvas.canvas_to_world(canvas_position)
 	var content_root: Node2D = canvas.get_content_root()
 
-	assert_almost_eq(canvas_position.x, 440.0, 0.001, "世界 X 应映射到画布中心右侧。")
-	assert_almost_eq(canvas_position.y, 320.0, 0.001, "世界 Y 应映射到画布中心下方。")
-	assert_almost_eq(restored_world.x, 120.0, 0.001, "坐标往返不应漂移 X。")
-	assert_almost_eq(restored_world.y, 60.0, 0.001, "坐标往返不应漂移 Y。")
-	assert_eq(content_root.scale, Vector2(2.0, 2.0), "内容根应使用画布缩放。")
-	assert_eq(content_root.position, Vector2(200.0, 200.0), "内容根应使用画布视图平移。")
+	assert_almost_eq(
+		canvas_position.x,
+		440.0,
+		0.001,
+		"世界 X 应映射到画布中心右侧。"
+	)
+	assert_almost_eq(
+		canvas_position.y,
+		320.0,
+		0.001,
+		"世界 Y 应映射到画布中心下方。"
+	)
+	assert_almost_eq(
+		restored_world.x,
+		120.0,
+		0.001,
+		"坐标往返不应漂移 X。"
+	)
+	assert_almost_eq(
+		restored_world.y,
+		60.0,
+		0.001,
+		"坐标往返不应漂移 Y。"
+	)
+	assert_eq(
+		content_root.scale,
+		Vector2(2.0, 2.0),
+		"内容根应使用画布缩放。"
+	)
+	assert_eq(
+		content_root.position,
+		Vector2(200.0, 200.0),
+		"内容根应使用画布视图平移。"
+	)
 
 
 func test_focal_zoom_keeps_world_position_under_focus() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	assert_true(canvas.set_view(Vector2(50.0, 25.0), 1.0))
+	assert_true(
+		canvas.set_view(
+			Vector2(50.0, 25.0),
+			1.0
+		)
+	)
 	var focus: Vector2 = Vector2(700.0, 500.0)
 	var before: Vector2 = canvas.canvas_to_world(focus)
 
-	assert_true(canvas.zoom_at(focus, 2.0), "合法缩放因子应被接受。")
+	assert_true(
+		canvas.zoom_at(focus, 2.0),
+		"合法缩放因子应被接受。"
+	)
 	var after: Vector2 = canvas.canvas_to_world(focus)
 
-	assert_almost_eq(after.x, before.x, 0.001, "焦点缩放不得改变焦点下的世界 X。")
-	assert_almost_eq(after.y, before.y, 0.001, "焦点缩放不得改变焦点下的世界 Y。")
-	assert_almost_eq(canvas.get_zoom(), 2.0, 0.001, "缩放值应更新。")
+	assert_almost_eq(
+		after.x,
+		before.x,
+		0.001,
+		"焦点缩放不得改变焦点下的世界 X。"
+	)
+	assert_almost_eq(
+		after.y,
+		before.y,
+		0.001,
+		"焦点缩放不得改变焦点下的世界 Y。"
+	)
+	assert_almost_eq(
+		canvas.get_zoom(),
+		2.0,
+		0.001,
+		"缩放值应更新。"
+	)
 
 
 func test_view_bounds_clamp_center_and_center_small_world() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas(Vector2(40.0, 40.0))
-	assert_true(canvas.set_world_bounds(Rect2(Vector2.ZERO, Vector2(100.0, 100.0)), true))
-	assert_true(canvas.set_view(Vector2(-100.0, -100.0), 1.0))
-	assert_eq(canvas.get_world_center(), Vector2(20.0, 20.0), "中心应为可见半尺寸保留边界。")
+	assert_true(
+		canvas.set_world_bounds(
+			Rect2(
+				Vector2.ZERO,
+				Vector2(100.0, 100.0)
+			),
+			true
+		)
+	)
+	assert_true(
+		canvas.set_view(
+			Vector2(-100.0, -100.0),
+			1.0
+		)
+	)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(20.0, 20.0),
+		"中心应为可见半尺寸保留边界。"
+	)
 
-	assert_true(canvas.set_view(Vector2(500.0, 500.0), 1.0))
-	assert_eq(canvas.get_world_center(), Vector2(80.0, 80.0), "中心应在另一侧边界内。")
+	assert_true(
+		canvas.set_view(
+			Vector2(500.0, 500.0),
+			1.0
+		)
+	)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(80.0, 80.0),
+		"中心应在另一侧边界内。"
+	)
 
 	var resize_snapshots: Array[Dictionary] = []
-	var _view_changed_connected: Error = canvas.view_changed.connect(
-		func(snapshot: Dictionary) -> void:
-			resize_snapshots.append(snapshot)
-	) as Error
+	var _view_changed_connected: Error = (
+		canvas.view_changed.connect(
+			func(snapshot: Dictionary) -> void:
+				resize_snapshots.append(snapshot),
+		) as Error
+	)
 	canvas.size = Vector2(200.0, 200.0)
-	assert_eq(canvas.get_world_center(), Vector2(50.0, 50.0), "视口大于世界时应固定在世界中心。")
-	assert_eq(resize_snapshots.size(), 1, "尺寸变化必须发布新的可见世界矩形。")
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(50.0, 50.0),
+		"视口大于世界时应固定在世界中心。"
+	)
+	assert_eq(
+		resize_snapshots.size(),
+		1,
+		"尺寸变化必须发布新的可见世界矩形。"
+	)
 	var visible_rect_value: Variant = GFVariantData.get_option_value(
 		resize_snapshots[0],
 		"visible_world_rect",
@@ -75,25 +169,53 @@ func test_view_bounds_clamp_center_and_center_small_world() -> void:
 	var visible_rect: Rect2 = visible_rect_value if visible_rect_value is Rect2 else Rect2()
 	assert_eq(
 		visible_rect,
-		Rect2(Vector2(-50.0, -50.0), Vector2(200.0, 200.0))
+		Rect2(
+			Vector2(-50.0, -50.0),
+			Vector2(200.0, 200.0)
+		)
 	)
 
 
 func test_non_finite_view_and_grid_changes_are_transactional() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	assert_true(canvas.set_view(Vector2(10.0, 20.0), 2.0))
-	assert_true(canvas.configure_grid(Vector2(5.0, 6.0), Vector2(8.0, 12.0)))
+	assert_true(
+		canvas.set_view(
+			Vector2(10.0, 20.0),
+			2.0
+		)
+	)
+	assert_true(
+		canvas.configure_grid(
+			Vector2(5.0, 6.0),
+			Vector2(8.0, 12.0)
+		)
+	)
 	var original_center: Vector2 = canvas.get_world_center()
 	var original_zoom: float = canvas.get_zoom()
 
-	assert_false(canvas.set_view(Vector2(NAN, 0.0), 3.0), "非有限中心必须拒绝。")
-	assert_false(canvas.set_view(Vector2.ZERO, INF), "非有限缩放必须拒绝。")
 	assert_false(
-		canvas.configure_grid(Vector2.ZERO, Vector2(0.0, 10.0)),
+		canvas.set_view(
+			Vector2(NAN, 0.0),
+			3.0
+		),
+		"非有限中心必须拒绝。"
+	)
+	assert_false(
+		canvas.set_view(Vector2.ZERO, INF),
+		"非有限缩放必须拒绝。"
+	)
+	assert_false(
+		canvas.configure_grid(
+			Vector2.ZERO,
+			Vector2(0.0, 10.0)
+		),
 		"零网格尺寸必须拒绝。"
 	)
 	assert_false(
-		canvas.configure_grid(Vector2(INF, 0.0), Vector2.ONE),
+		canvas.configure_grid(
+			Vector2(INF, 0.0),
+			Vector2.ONE
+		),
 		"非有限网格原点必须拒绝。"
 	)
 	var overflowing_rect: Rect2 = Rect2(
@@ -114,10 +236,27 @@ func test_non_finite_view_and_grid_changes_are_transactional() -> void:
 		"终点溢出的 footprint 必须拒绝。"
 	)
 
-	assert_eq(canvas.get_world_center(), original_center, "拒绝后中心不得变化。")
-	assert_almost_eq(canvas.get_zoom(), original_zoom, 0.001, "拒绝后缩放不得变化。")
-	assert_eq(canvas.get_grid_origin(), Vector2(5.0, 6.0), "拒绝后网格原点不得变化。")
-	assert_eq(canvas.get_grid_size(), Vector2(8.0, 12.0), "拒绝后网格尺寸不得变化。")
+	assert_eq(
+		canvas.get_world_center(),
+		original_center,
+		"拒绝后中心不得变化。"
+	)
+	assert_almost_eq(
+		canvas.get_zoom(),
+		original_zoom,
+		0.001,
+		"拒绝后缩放不得变化。"
+	)
+	assert_eq(
+		canvas.get_grid_origin(),
+		Vector2(5.0, 6.0),
+		"拒绝后网格原点不得变化。"
+	)
+	assert_eq(
+		canvas.get_grid_size(),
+		Vector2(8.0, 12.0),
+		"拒绝后网格尺寸不得变化。"
+	)
 
 
 func test_finite_inputs_with_non_finite_derived_geometry_fail_closed() -> void:
@@ -126,10 +265,16 @@ func test_finite_inputs_with_non_finite_derived_geometry_fail_closed() -> void:
 	var content_root: Node2D = canvas.get_content_root()
 
 	assert_false(
-		canvas.set_view(Vector2(2.0e38, 0.0), 2.0),
+		canvas.set_view(
+			Vector2(2.0e38, 0.0),
+			2.0
+		),
 		"有限中心与缩放产生非有限内容变换时必须原子拒绝。"
 	)
-	assert_eq(canvas.get_world_center(), original_center)
+	assert_eq(
+		canvas.get_world_center(),
+		original_center
+	)
 	assert_true(
 		not is_inf(content_root.position.x)
 		and not is_nan(content_root.position.x)
@@ -194,7 +339,12 @@ func test_finite_inputs_with_non_finite_derived_geometry_fail_closed() -> void:
 		"非法输入后活动预览必须保持不变。"
 	)
 	assert_true(canvas.has_active_placement())
-	assert_true(GFVariantData.get_option_bool(canvas.cancel_placement(), "ok"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.cancel_placement(),
+			"ok"
+		)
+	)
 
 	var large_rotated_footprint: Rect2 = Rect2(
 		Vector2(2.5e38, 2.5e38),
@@ -227,13 +377,22 @@ func test_grid_conversion_uses_floor_for_negative_coordinates_and_stable_snappin
 		Vector2i(-1, -2),
 		"负坐标必须使用 floor 语义。"
 	)
-	assert_eq(canvas.cell_to_world(Vector2i(-1, -2)), Vector2(-10.0, -20.0))
 	assert_eq(
-		canvas.cell_to_world(Vector2i(-1, -2), true),
+		canvas.cell_to_world(Vector2i(-1, -2)),
+		Vector2(-10.0, -20.0)
+	)
+	assert_eq(
+		canvas.cell_to_world(
+			Vector2i(-1, -2),
+			true
+		),
 		Vector2(-5.0, -15.0),
 		"调用方应能取得格子中心。"
 	)
-	assert_eq(canvas.snap_world_position(Vector2(-6.0, 14.0)), Vector2(-10.0, 10.0))
+	assert_eq(
+		canvas.snap_world_position(Vector2(-6.0, 14.0)),
+		Vector2(-10.0, 10.0)
+	)
 	assert_almost_eq(
 		canvas.snap_rotation(PI * 0.6),
 		PI / 2.0,
@@ -244,21 +403,39 @@ func test_grid_conversion_uses_floor_for_negative_coordinates_and_stable_snappin
 
 func test_item_queries_use_priority_stable_ids_and_exact_hit_hook() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	assert_true(canvas.upsert_item(&"alpha", Rect2(Vector2.ZERO, Vector2(20.0, 20.0))))
+	assert_true(
+		canvas.upsert_item(
+			&"alpha",
+			Rect2(
+				Vector2.ZERO,
+				Vector2(20.0, 20.0)
+			)
+		)
+	)
 	assert_true(
 		canvas.upsert_item(
 			&"beta",
-			Rect2(Vector2.ZERO, Vector2(20.0, 20.0)),
+			Rect2(
+				Vector2.ZERO,
+				Vector2(20.0, 20.0)
+			),
 			{ "selection_priority": 20 }
 		)
 	)
 	assert_true(
 		canvas.upsert_item(
 			&"blocked",
-			Rect2(Vector2.ZERO, Vector2(20.0, 20.0)),
+			Rect2(
+				Vector2.ZERO,
+				Vector2(20.0, 20.0)
+			),
 			{
 				"selection_priority": 100,
-				"exact_hit": func(_item_id: StringName, _point: Vector2, _bounds: Rect2) -> bool:
+				"exact_hit": func(
+					_item_id: StringName,
+					_point: Vector2,
+					_bounds: Rect2
+				) -> bool:
 					return false,
 			}
 		)
@@ -273,7 +450,10 @@ func test_item_queries_use_priority_stable_ids_and_exact_hit_hook() -> void:
 
 func test_point_and_containment_queries_include_shared_rect_boundaries() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	var bounds: Rect2 = Rect2(Vector2(10.0, 20.0), Vector2(30.0, 40.0))
+	var bounds: Rect2 = Rect2(
+		Vector2(10.0, 20.0),
+		Vector2(30.0, 40.0)
+	)
 	assert_true(canvas.upsert_item(&"boundary", bounds))
 
 	assert_eq(
@@ -299,14 +479,20 @@ func test_select_point_skips_unselectable_occluders_and_rejects_non_finite_input
 	assert_true(
 		canvas.upsert_item(
 			&"locked",
-			Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)),
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			),
 			{ "selectable": false, "selection_priority": 100 }
 		)
 	)
 	assert_true(
 		canvas.upsert_item(
 			&"selectable",
-			Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)),
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			),
 			{ "selection_priority": 1 }
 		)
 	)
@@ -349,11 +535,21 @@ func test_item_and_query_budgets_fail_closed() -> void:
 			{ "selection_priority": 100 }
 		)
 	)
-	assert_false(canvas.upsert_item(&"c", Rect2(Vector2.ZERO, Vector2.ONE)), "容量耗尽后不得插入。")
+	assert_false(
+		canvas.upsert_item(
+			&"c",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		"容量耗尽后不得插入。"
+	)
 
 	var matches: PackedStringArray = canvas.query_items_at(Vector2(0.5, 0.5))
 	var snapshot: Dictionary = canvas.get_debug_snapshot()
-	assert_eq(matches, PackedStringArray(["b"]), "查询窗口必须保留全局最高优先级候选。")
+	assert_eq(
+		matches,
+		PackedStringArray(["b"]),
+		"查询窗口必须保留全局最高优先级候选。"
+	)
 	assert_true(
 		GFVariantData.get_option_bool(snapshot, "last_query_truncated"),
 		"诊断应明确记录查询截断。"
@@ -380,9 +576,7 @@ func test_item_and_query_budgets_fail_closed() -> void:
 		)
 	)
 	assert_eq(
-		selection_canvas.select_point(
-			selection_canvas.world_to_canvas(Vector2(0.5, 0.5))
-		),
+		selection_canvas.select_point(selection_canvas.world_to_canvas(Vector2(0.5, 0.5))),
 		PackedStringArray(["z_selectable"]),
 		"不可选候选不得占用点选查询窗口。"
 	)
@@ -398,7 +592,13 @@ func test_query_top_k_is_global_and_stable_for_multiple_candidates() -> void:
 		&"m_mid": 10,
 		&"z_high": 30,
 	}
-	for item_id: StringName in [&"a_low", &"b_tie", &"c_tie", &"m_mid", &"z_high"]:
+	for item_id: StringName in [
+		&"a_low",
+		&"b_tie",
+		&"c_tie",
+		&"m_mid",
+		&"z_high",
+	]:
 		assert_true(
 			canvas.upsert_item(
 				item_id,
@@ -409,22 +609,48 @@ func test_query_top_k_is_global_and_stable_for_multiple_candidates() -> void:
 
 	assert_eq(
 		canvas.query_items_at(Vector2(0.5, 0.5)),
-		PackedStringArray(["z_high", "b_tie", "c_tie"]),
+		PackedStringArray(
+			[
+				"z_high",
+				"b_tie",
+				"c_tie",
+			]
+		),
 		"多元素 top-K 必须覆盖替换、下沉和同优先级稳定 ID 排序。"
 	)
 	var snapshot: Dictionary = canvas.get_debug_snapshot()
-	assert_eq(GFVariantData.get_option_int(snapshot, "last_query_candidate_count"), 5)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_query_candidate_count"),
+		5
+	)
 	assert_true(GFVariantData.get_option_bool(snapshot, "last_query_truncated"))
 
 
 func test_selection_budget_is_stable_before_truncation() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(canvas.configure_budgets({ "max_selection": 2 }))
-	for item_id: StringName in [&"a", &"m", &"z"]:
-		assert_true(canvas.upsert_item(item_id, Rect2(Vector2.ZERO, Vector2.ONE)))
+	for item_id: StringName in [
+		&"a",
+		&"m",
+		&"z",
+	]:
+		assert_true(
+			canvas.upsert_item(
+				item_id,
+				Rect2(Vector2.ZERO, Vector2.ONE)
+			)
+		)
 
 	assert_eq(
-		canvas.set_selection(PackedStringArray(["z", "m", "a"])),
+		canvas.set_selection(
+			PackedStringArray(
+				[
+					"z",
+					"m",
+					"a",
+				]
+			)
+		),
 		PackedStringArray(["a", "m"]),
 		"选择应先按稳定 ID 排序，再应用实例预算。"
 	)
@@ -434,9 +660,17 @@ func test_subtract_and_toggle_process_all_candidates_before_capacity_limit() -> 
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(canvas.configure_budgets({ "max_selection": 1 }))
 	for item_id: StringName in [&"a", &"z"]:
-		assert_true(canvas.upsert_item(item_id, Rect2(Vector2.ZERO, Vector2.ONE)))
+		assert_true(
+			canvas.upsert_item(
+				item_id,
+				Rect2(Vector2.ZERO, Vector2.ONE)
+			)
+		)
 
-	assert_eq(canvas.set_selection(PackedStringArray(["z"])), PackedStringArray(["z"]))
+	assert_eq(
+		canvas.set_selection(PackedStringArray(["z"])),
+		PackedStringArray(["z"])
+	)
 	assert_eq(
 		canvas.set_selection(
 			PackedStringArray(["a", "z"]),
@@ -446,7 +680,10 @@ func test_subtract_and_toggle_process_all_candidates_before_capacity_limit() -> 
 		"SUBTRACT 必须处理容量窗口外的已选 ID。"
 	)
 
-	assert_eq(canvas.set_selection(PackedStringArray(["z"])), PackedStringArray(["z"]))
+	assert_eq(
+		canvas.set_selection(PackedStringArray(["z"])),
+		PackedStringArray(["z"])
+	)
 	assert_eq(
 		canvas.set_selection(
 			PackedStringArray(["a", "z"]),
@@ -488,17 +725,50 @@ func test_option_dictionaries_reject_unknown_or_mistyped_values_transactionally(
 		0,
 		"放置 bool 选项不得接受整数。"
 	)
-	assert_eq(canvas.get_grid_size(), Vector2.ONE)
+	assert_eq(
+		canvas.get_grid_size(),
+		Vector2.ONE
+	)
 	assert_true(canvas.get_item(&"invalid").is_empty())
 	assert_false(canvas.has_active_placement())
 
 
 func test_selection_modes_rect_selection_and_item_removal_are_consistent() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas(Vector2(100.0, 100.0))
-	assert_true(canvas.set_view(Vector2(50.0, 50.0), 1.0))
-	assert_true(canvas.upsert_item(&"a", Rect2(Vector2(10.0, 10.0), Vector2(10.0, 10.0))))
-	assert_true(canvas.upsert_item(&"b", Rect2(Vector2(30.0, 10.0), Vector2(10.0, 10.0))))
-	assert_true(canvas.upsert_item(&"locked", Rect2(Vector2(50.0, 10.0), Vector2(10.0, 10.0)), { "selectable": false }))
+	assert_true(
+		canvas.set_view(
+			Vector2(50.0, 50.0),
+			1.0
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"a",
+			Rect2(
+				Vector2(10.0, 10.0),
+				Vector2(10.0, 10.0)
+			)
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"b",
+			Rect2(
+				Vector2(30.0, 10.0),
+				Vector2(10.0, 10.0)
+			)
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"locked",
+			Rect2(
+				Vector2(50.0, 10.0),
+				Vector2(10.0, 10.0)
+			),
+			{ "selectable": false }
+		)
+	)
 
 	assert_eq(
 		canvas.set_selection(
@@ -530,12 +800,23 @@ func test_selection_modes_rect_selection_and_item_removal_are_consistent() -> vo
 	)
 
 	var selected: PackedStringArray = canvas.select_rect(
-		Rect2(Vector2(5.0, 5.0), Vector2(60.0, 20.0)),
+		Rect2(
+			Vector2(5.0, 5.0),
+			Vector2(60.0, 20.0)
+		),
 		GFSpatialCanvas2D.SelectionMode.REPLACE
 	)
-	assert_eq(selected, PackedStringArray(["a", "b"]), "框选不得加入不可选项。")
+	assert_eq(
+		selected,
+		PackedStringArray(["a", "b"]),
+		"框选不得加入不可选项。"
+	)
 	assert_true(canvas.remove_item(&"a"))
-	assert_eq(canvas.get_selection(), PackedStringArray(["b"]), "移除条目必须同步清理选择。")
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["b"]),
+		"移除条目必须同步清理选择。"
+	)
 
 
 func test_selected_item_outlines_visibility_can_be_configured_before_tree_entry() -> void:
@@ -556,75 +837,188 @@ func test_selected_item_outlines_visibility_can_be_configured_before_tree_entry(
 
 func test_selected_item_outlines_visibility_preserves_selection_signals_and_drag_capture() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas(Vector2(100.0, 100.0))
-	assert_true(canvas.set_view(Vector2(50.0, 50.0), 1.0))
-	assert_true(canvas.upsert_item(&"a", Rect2(10.0, 10.0, 10.0, 10.0)))
-	assert_true(canvas.upsert_item(&"b", Rect2(50.0, 10.0, 10.0, 10.0)))
+	assert_true(
+		canvas.set_view(
+			Vector2(50.0, 50.0),
+			1.0
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"a",
+			Rect2(
+				10.0,
+				10.0,
+				10.0,
+				10.0
+			)
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"b",
+			Rect2(
+				50.0,
+				10.0,
+				10.0,
+				10.0
+			)
+		)
+	)
 	var emitted: Array[PackedStringArray] = []
 	var _selection_connected: int = canvas.selection_changed.connect(
 		func(ids: PackedStringArray) -> void:
 			emitted.append(ids)
 	)
-	assert_eq(canvas.select_point(Vector2(15.0, 15.0)), PackedStringArray(["a"]))
+	assert_eq(
+		canvas.select_point(Vector2(15.0, 15.0)),
+		PackedStringArray(["a"])
+	)
 	canvas.set_selected_item_outlines_visible(false)
-	assert_eq(canvas.get_selection(), PackedStringArray(["a"]), "关闭轮廓应保留当前选择。")
-	assert_eq(emitted.size(), 1, "显示开关不得发出选择变化信号。")
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, Vector2(55.0, 15.0), true)),
+		canvas.get_selection(),
+		PackedStringArray(["a"]),
+		"关闭轮廓应保留当前选择。"
+	)
+	assert_eq(
+		emitted.size(),
+		1,
+		"显示开关不得发出选择变化信号。"
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				Vector2(55.0, 15.0),
+				true
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, Vector2(55.0, 15.0), false)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				Vector2(55.0, 15.0),
+				false
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_selection(), PackedStringArray(["b"]), "关闭条目轮廓后仍应正常点选。")
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, Vector2(5.0, 5.0), true)),
+		canvas.get_selection(),
+		PackedStringArray(["b"]),
+		"关闭条目轮廓后仍应正常点选。"
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				Vector2(5.0, 5.0),
+				true
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
 	motion.position = Vector2(75.0, 30.0)
-	assert_eq(canvas.handle_input_event(motion), GFSpatialCanvas2D.InputDisposition.CONSUMED)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_eq(
+		canvas.handle_input_event(motion),
+		GFSpatialCanvas2D.InputDisposition.CONSUMED
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	canvas.set_selected_item_outlines_visible(true)
 	canvas.set_selected_item_outlines_visible(false)
 	assert_true(
-		GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"),
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		),
 		"拖拽期间切换条目轮廓不得释放输入捕获。"
 	)
-	assert_eq(emitted.size(), 2, "显示开关不得提前提交框选。")
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, motion.position, false)),
+		emitted.size(),
+		2,
+		"显示开关不得提前提交框选。"
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				motion.position,
+				false
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_selection(), PackedStringArray(["a", "b"]))
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["a", "b"])
+	)
 	assert_eq(
 		emitted,
-		[PackedStringArray(["a"]), PackedStringArray(["b"]), PackedStringArray(["a", "b"])],
+		[
+			PackedStringArray(["a"]),
+			PackedStringArray(["b"]),
+			PackedStringArray(["a", "b"]),
+		],
 		"点选和框选仍应各发出一次实际选择变化。"
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	canvas.set_selected_item_outlines_visible(true)
-	assert_eq(canvas.get_selection(), PackedStringArray(["a", "b"]))
-	assert_eq(emitted.size(), 3, "恢复条目轮廓不得重复发布现有选择。")
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["a", "b"])
+	)
+	assert_eq(
+		emitted.size(),
+		3,
+		"恢复条目轮廓不得重复发布现有选择。"
+	)
 
 
 func test_selection_results_and_signals_are_copy_isolated() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	assert_true(canvas.upsert_item(&"a", Rect2(Vector2.ZERO, Vector2.ONE)))
+	assert_true(
+		canvas.upsert_item(
+			&"a",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		)
+	)
 	var emitted: Array[PackedStringArray] = []
-	var _selection_changed_connected: Error = canvas.selection_changed.connect(
-		func(ids: PackedStringArray) -> void:
-			emitted.append(ids)
-			var _mutated_added: bool = ids.append("mutated")
-	) as Error
+	var _selection_changed_connected: Error = (
+		canvas.selection_changed.connect(
+			func(ids: PackedStringArray) -> void:
+				emitted.append(ids)
+				var _mutated_added: bool = ids.append("mutated"),
+		) as Error
+	)
 	var selected: PackedStringArray = canvas.set_selection(
 		PackedStringArray(["a"]),
 		GFSpatialCanvas2D.SelectionMode.REPLACE
 	)
 	var _outside_added: bool = selected.append("outside")
 
-	assert_eq(canvas.get_selection(), PackedStringArray(["a"]), "返回值和信号都不得泄露内部选择数组。")
-	assert_eq(emitted.size(), 1, "实际变化应只发出一次信号。")
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["a"]),
+		"返回值和信号都不得泄露内部选择数组。"
+	)
+	assert_eq(
+		emitted.size(),
+		1,
+		"实际变化应只发出一次信号。"
+	)
 
 
 func test_placement_snaps_validates_and_emits_history_only_after_success() -> void:
@@ -649,7 +1043,10 @@ func test_placement_snaps_validates_and_emits_history_only_after_success() -> vo
 
 	var session_id: int = canvas.begin_placement(
 		&"tower",
-		Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)),
+		Rect2(
+			Vector2(-5.0, -5.0),
+			Vector2(10.0, 10.0)
+		),
 		{
 			"initial_world_position": Vector2(6.0, 14.0),
 			"initial_rotation_radians": 1.4,
@@ -658,8 +1055,15 @@ func test_placement_snaps_validates_and_emits_history_only_after_success() -> vo
 		}
 	)
 	var preview: Dictionary = canvas.get_placement_snapshot()
-	assert_gt(session_id, 0, "有效放置应创建会话。")
-	assert_eq(GFVariantData.get_option_vector2(preview, "world_position"), Vector2(10.0, 10.0))
+	assert_gt(
+		session_id,
+		0,
+		"有效放置应创建会话。"
+	)
+	assert_eq(
+		GFVariantData.get_option_vector2(preview, "world_position"),
+		Vector2(10.0, 10.0)
+	)
 	assert_almost_eq(
 		GFVariantData.get_option_float(preview, "rotation_radians"),
 		PI / 2.0,
@@ -667,18 +1071,46 @@ func test_placement_snaps_validates_and_emits_history_only_after_success() -> vo
 	)
 
 	var denied: Dictionary = canvas.commit_placement()
-	assert_false(GFVariantData.get_option_bool(denied, "ok"), "项目校验拒绝时不得提交。")
-	assert_eq(GFVariantData.get_option_string_name(denied, "reason"), &"occupied")
-	assert_true(canvas.has_active_placement(), "拒绝后应保留预览供项目修正。")
-	assert_true(history_operations.is_empty(), "失败提交不得触发历史 Hook。")
-
-	canvas.set_placement_validator(func(_candidate: Dictionary) -> bool: return true)
-	var committed: Dictionary = canvas.commit_placement()
-	assert_true(GFVariantData.get_option_bool(committed, "ok"), "校验通过后应冻结通用操作记录。")
-	assert_false(canvas.has_active_placement(), "成功后应结束会话。")
-	assert_eq(history_operations.size(), 1, "成功提交只触发一次历史 Hook。")
+	assert_false(
+		GFVariantData.get_option_bool(denied, "ok"),
+		"项目校验拒绝时不得提交。"
+	)
 	assert_eq(
-		GFVariantData.get_option_string_name(history_operations[0], "type_id"),
+		GFVariantData.get_option_string_name(denied, "reason"),
+		&"occupied"
+	)
+	assert_true(
+		canvas.has_active_placement(),
+		"拒绝后应保留预览供项目修正。"
+	)
+	assert_true(
+		history_operations.is_empty(),
+		"失败提交不得触发历史 Hook。"
+	)
+
+	canvas.set_placement_validator(
+		func(_candidate: Dictionary) -> bool:
+			return true
+	)
+	var committed: Dictionary = canvas.commit_placement()
+	assert_true(
+		GFVariantData.get_option_bool(committed, "ok"),
+		"校验通过后应冻结通用操作记录。"
+	)
+	assert_false(
+		canvas.has_active_placement(),
+		"成功后应结束会话。"
+	)
+	assert_eq(
+		history_operations.size(),
+		1,
+		"成功提交只触发一次历史 Hook。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			history_operations[0],
+			"type_id"
+		),
 		&"tower",
 		"历史记录应包含稳定类型 ID。"
 	)
@@ -693,13 +1125,29 @@ func test_placement_history_rejection_and_callback_reentrancy_fail_closed() -> v
 			canvas.set_history_hook(Callable())
 			return true
 	)
-	canvas.set_history_hook(func(_operation: Dictionary) -> bool: return false)
-	assert_gt(canvas.begin_placement(&"road", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	canvas.set_history_hook(
+		func(_operation: Dictionary) -> bool:
+			return false
+	)
+	assert_gt(
+		canvas.begin_placement(
+			&"road",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 
 	var rejected: Dictionary = canvas.commit_placement()
-	assert_eq(nested_results.size(), 1, "校验器应执行一次。")
 	assert_eq(
-		GFVariantData.get_option_string_name(nested_results[0], "reason"),
+		nested_results.size(),
+		1,
+		"校验器应执行一次。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			nested_results[0],
+			"reason"
+		),
 		&"callback_reentrancy",
 		"回调内重入必须失败关闭。"
 	)
@@ -708,8 +1156,14 @@ func test_placement_history_rejection_and_callback_reentrancy_fail_closed() -> v
 		&"history_rejected",
 		"回调内不得移除 History Hook 并绕过其拒绝。"
 	)
-	assert_true(canvas.has_active_placement(), "历史拒绝后应保留会话。")
-	canvas.set_placement_validator(func(_preview: Dictionary) -> bool: return true)
+	assert_true(
+		canvas.has_active_placement(),
+		"历史拒绝后应保留会话。"
+	)
+	canvas.set_placement_validator(
+		func(_preview: Dictionary) -> bool:
+			return true
+	)
 	canvas.set_history_hook(
 		func(_operation: Dictionary) -> Dictionary:
 			return { "ok": false, "reason": &"history_capacity_reached" }
@@ -728,9 +1182,7 @@ func test_cancel_reentrancy_cannot_clear_the_outer_placement_transaction() -> vo
 	var nested_cancel_reports: Array[Dictionary] = []
 	canvas.set_placement_validator(
 		func(_preview: Dictionary) -> bool:
-			nested_cancel_reports.append(
-				canvas.cancel_placement(&"nested_cancel")
-			)
+			nested_cancel_reports.append(canvas.cancel_placement(&"nested_cancel"))
 			return true
 	)
 	var session_id: int = canvas.begin_placement(
@@ -740,13 +1192,22 @@ func test_cancel_reentrancy_cannot_clear_the_outer_placement_transaction() -> vo
 	assert_gt(session_id, 0)
 
 	var committed: Dictionary = canvas.commit_placement()
-	assert_eq(nested_cancel_reports.size(), 1)
+	assert_eq(
+		nested_cancel_reports.size(),
+		1
+	)
 	assert_false(
-		GFVariantData.get_option_bool(nested_cancel_reports[0], "ok"),
+		GFVariantData.get_option_bool(
+			nested_cancel_reports[0],
+			"ok"
+		),
 		"回调内取消必须失败关闭。"
 	)
 	assert_eq(
-		GFVariantData.get_option_string_name(nested_cancel_reports[0], "reason"),
+		GFVariantData.get_option_string_name(
+			nested_cancel_reports[0],
+			"reason"
+		),
 		&"callback_reentrancy"
 	)
 	assert_true(GFVariantData.get_option_bool(committed, "ok"))
@@ -760,7 +1221,10 @@ func test_cancel_reentrancy_cannot_clear_the_outer_placement_transaction() -> vo
 func test_invalid_or_malformed_acceptance_callbacks_fail_closed() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_gt(
-		canvas.begin_placement(&"gate", Rect2(Vector2.ZERO, Vector2.ONE)),
+		canvas.begin_placement(
+			&"gate",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
 		0
 	)
 	var invalid_target: Node = Node.new()
@@ -795,30 +1259,65 @@ func test_cancel_placement_returns_stable_report_without_touching_content() -> v
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var project_child: Node2D = Node2D.new()
 	canvas.get_content_root().add_child(project_child)
-	assert_gt(canvas.begin_placement(&"marker", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	assert_gt(
+		canvas.begin_placement(
+			&"marker",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 
 	var report: Dictionary = canvas.cancel_placement(&"user_cancelled")
 	assert_true(GFVariantData.get_option_bool(report, "ok"))
-	assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"user_cancelled")
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"user_cancelled"
+	)
 	assert_false(canvas.has_active_placement())
-	assert_true(is_instance_valid(project_child), "取消会话不得释放项目内容节点。")
-	assert_eq(project_child.get_parent(), canvas.get_content_root(), "取消会话不得重挂项目内容。")
+	assert_true(
+		is_instance_valid(project_child),
+		"取消会话不得释放项目内容节点。"
+	)
+	assert_eq(
+		project_child.get_parent(),
+		canvas.get_content_root(),
+		"取消会话不得重挂项目内容。"
+	)
 	var no_active_report: Dictionary = canvas.cancel_placement()
-	assert_true(no_active_report.has("preview"), "取消失败报告仍应保持 preview schema。")
-	assert_false(no_active_report.has("operation"), "取消报告不得混用提交报告的 operation schema。")
+	assert_true(
+		no_active_report.has("preview"),
+		"取消失败报告仍应保持 preview schema。"
+	)
+	assert_false(
+		no_active_report.has("operation"),
+		"取消报告不得混用提交报告的 operation schema。"
+	)
 
 
 func test_screen_conversion_and_screen_input_respect_control_transform() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas(Vector2(200.0, 100.0))
 	canvas.position = Vector2(30.0, 40.0)
 	canvas.scale = Vector2(1.5, 2.0)
-	assert_true(canvas.set_view(Vector2(20.0, 10.0), 1.0))
+	assert_true(
+		canvas.set_view(
+			Vector2(20.0, 10.0),
+			1.0
+		)
+	)
 	var world_position: Vector2 = Vector2(35.0, 25.0)
 	var screen_position: Vector2 = canvas.world_to_screen(world_position)
 	var restored_world: Vector2 = canvas.screen_to_world(screen_position)
 
-	assert_almost_eq(restored_world.x, world_position.x, 0.001)
-	assert_almost_eq(restored_world.y, world_position.y, 0.001)
+	assert_almost_eq(
+		restored_world.x,
+		world_position.x,
+		0.001
+	)
+	assert_almost_eq(
+		restored_world.y,
+		world_position.y,
+		0.001
+	)
 
 	var screen_focus: Vector2 = canvas.world_to_screen(Vector2(20.0, 10.0))
 	var before_focus: Vector2 = canvas.screen_to_world(screen_focus)
@@ -833,8 +1332,16 @@ func test_screen_conversion_and_screen_input_respect_control_transform() -> void
 		"Viewport 坐标事件应先转换到本地画布坐标。"
 	)
 	var after_focus: Vector2 = canvas.screen_to_world(screen_focus)
-	assert_almost_eq(after_focus.x, before_focus.x, 0.001)
-	assert_almost_eq(after_focus.y, before_focus.y, 0.001)
+	assert_almost_eq(
+		after_focus.x,
+		before_focus.x,
+		0.001
+	)
+	assert_almost_eq(
+		after_focus.y,
+		before_focus.y,
+		0.001
+	)
 
 
 func test_mouse_pan_and_wheel_zoom_are_captured_but_unrelated_input_is_not() -> void:
@@ -869,7 +1376,11 @@ func test_mouse_pan_and_wheel_zoom_are_captured_but_unrelated_input_is_not() -> 
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"捕获期间移动应平移。"
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0), "拖动画布应反向移动世界中心。")
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-20.0, 0.0),
+		"拖动画布应反向移动世界中心。"
+	)
 	assert_eq(
 		canvas.handle_input_event(release),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
@@ -880,9 +1391,16 @@ func test_mouse_pan_and_wheel_zoom_are_captured_but_unrelated_input_is_not() -> 
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"滚轮应执行焦点缩放。"
 	)
-	assert_gt(canvas.get_zoom(), 1.0, "向上滚轮应放大。")
+	assert_gt(
+		canvas.get_zoom(),
+		1.0,
+		"向上滚轮应放大。"
+	)
 	assert_false(
-		GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"),
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		),
 		"一次性滚轮手势不得让诊断永久保持活动。"
 	)
 
@@ -899,38 +1417,34 @@ func test_mouse_pan_and_wheel_zoom_are_captured_but_unrelated_input_is_not() -> 
 func test_public_input_and_selection_contracts_use_named_enum_types() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var policy: GFSpatialCanvasInputPolicy = canvas.get_input_policy()
-	var wheel_axis: GFSpatialCanvasInputPolicy.WheelAxis = (
-		policy.wheel_axis as GFSpatialCanvasInputPolicy.WheelAxis
-	)
-	var wheel_routing: GFSpatialCanvasInputPolicy.WheelRouting = (
-		policy.wheel_routing as GFSpatialCanvasInputPolicy.WheelRouting
-	)
-	var touch_behavior: GFSpatialCanvasInputPolicy.TouchPrimaryBehavior = (
-		policy.touch_primary_behavior as GFSpatialCanvasInputPolicy.TouchPrimaryBehavior
-	)
-	var disposition: GFSpatialCanvas2D.InputDisposition = canvas.handle_input_event(
-		_key_event(KEY_A)
-	)
-	var default_selection_mode: GFSpatialCanvas2D.SelectionMode = (
-		policy.selection_default_mode as GFSpatialCanvas2D.SelectionMode
-	)
-	var binding_selection_mode: GFSpatialCanvas2D.SelectionMode = (
-		policy.selection_modifier_bindings[0].selection_mode as GFSpatialCanvas2D.SelectionMode
-	)
+	var wheel_axis: GFSpatialCanvasInputPolicy.WheelAxis = policy.wheel_axis as GFSpatialCanvasInputPolicy.WheelAxis
+	var wheel_routing: GFSpatialCanvasInputPolicy.WheelRouting = (policy.wheel_routing as GFSpatialCanvasInputPolicy.WheelRouting)
+	var touch_behavior: GFSpatialCanvasInputPolicy.TouchPrimaryBehavior = (policy.touch_primary_behavior as GFSpatialCanvasInputPolicy.TouchPrimaryBehavior)
+	var disposition: GFSpatialCanvas2D.InputDisposition = canvas.handle_input_event(_key_event(KEY_A))
+	var default_selection_mode: GFSpatialCanvas2D.SelectionMode = (policy.selection_default_mode as GFSpatialCanvas2D.SelectionMode)
+	var binding_selection_mode: GFSpatialCanvas2D.SelectionMode = (policy.selection_modifier_bindings[0].selection_mode as GFSpatialCanvas2D.SelectionMode)
 
 	assert_eq(wheel_axis, GFSpatialCanvasInputPolicy.WheelAxis.VERTICAL)
 	assert_eq(wheel_routing, GFSpatialCanvasInputPolicy.WheelRouting.CANVAS)
-	assert_eq(
-		touch_behavior,
-		GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN
-	)
+	assert_eq(touch_behavior, GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN)
 	assert_eq(disposition, GFSpatialCanvas2D.InputDisposition.IGNORED)
 	assert_eq(default_selection_mode, GFSpatialCanvas2D.SelectionMode.REPLACE)
 	assert_eq(binding_selection_mode, GFSpatialCanvas2D.SelectionMode.ADD)
 
-	assert_true(canvas.upsert_item(&"typed", Rect2(Vector2(-1.0, -1.0), Vector2(2.0, 2.0))))
+	assert_true(
+		canvas.upsert_item(
+			&"typed",
+			Rect2(
+				Vector2(-1.0, -1.0),
+				Vector2(2.0, 2.0)
+			)
+		)
+	)
 	assert_eq(
-		canvas.set_selection(PackedStringArray(["typed"]), default_selection_mode),
+		canvas.set_selection(
+			PackedStringArray(["typed"]),
+			default_selection_mode
+		),
 		PackedStringArray(["typed"])
 	)
 	var canvas_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
@@ -939,7 +1453,10 @@ func test_public_input_and_selection_contracts_use_named_enum_types() -> void:
 	var add_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.ADD
 	assert_eq(
 		canvas.select_rect(
-			Rect2(canvas_position - Vector2.ONE, Vector2.ONE * 2.0),
+			Rect2(
+				canvas_position - Vector2.ONE,
+				Vector2.ONE * 2.0
+			),
 			add_mode
 		),
 		PackedStringArray(["typed"])
@@ -982,7 +1499,10 @@ func test_active_middle_mouse_gesture_takes_priority_over_placement_motion() -> 
 		canvas.handle_input_event(release),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0))
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-20.0, 0.0)
+	)
 	assert_eq(
 		GFVariantData.get_option_vector2(
 			canvas.get_placement_snapshot(),
@@ -1005,7 +1525,10 @@ func test_input_policy_validation_rejects_invalid_mappings_atomically() -> void:
 		GFVariantData.get_option_bool(report, "ok"),
 		"同一行为同时配置直接按钮和 action 必须失败关闭。"
 	)
-	assert_false(canvas.set_input_policy(invalid_policy), "非法策略不得部分应用。")
+	assert_false(
+		canvas.set_input_policy(invalid_policy),
+		"非法策略不得部分应用。"
+	)
 	assert_eq(
 		canvas.get_input_policy().pan_mouse_button,
 		original_policy.pan_mouse_button,
@@ -1013,14 +1536,13 @@ func test_input_policy_validation_rejects_invalid_mappings_atomically() -> void:
 	)
 
 	var invalid_wheel_policy: GFSpatialCanvasInputPolicy = original_policy.duplicate_policy()
-	invalid_wheel_policy.wheel_routing = (
-		GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED
-	)
-	invalid_wheel_policy.wheel_modifier_mask = (
-		GFSpatialCanvasInputPolicy.ModifierMask.NONE
-	)
+	invalid_wheel_policy.wheel_routing = (GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED)
+	invalid_wheel_policy.wheel_modifier_mask = (GFSpatialCanvasInputPolicy.ModifierMask.NONE)
 	assert_false(
-		GFVariantData.get_option_bool(invalid_wheel_policy.validate_policy(), "ok"),
+		GFVariantData.get_option_bool(
+			invalid_wheel_policy.validate_policy(),
+			"ok"
+		),
 		"modifier-gated wheel 必须声明非零 modifier。"
 	)
 
@@ -1041,13 +1563,22 @@ func test_named_policy_enums_reject_dynamic_out_of_range_values_fail_closed() ->
 	]
 	for property_index: int in range(property_names.size()):
 		var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
-		policy.set(property_names[property_index], 99)
+		policy.set(
+			property_names[property_index],
+			99
+		)
 		var report: Dictionary = policy.validate_policy()
 		assert_true(
-			_report_has_issue_kind(report, issue_kinds[property_index]),
+			_report_has_issue_kind(
+				report,
+				issue_kinds[property_index]
+			),
 			"反射或反序列化写入的越界命名枚举必须由完整策略校验拒绝。"
 		)
-		assert_false(canvas.set_input_policy(policy), "非法动态枚举值不得部分应用。")
+		assert_false(
+			canvas.set_input_policy(policy),
+			"非法动态枚举值不得部分应用。"
+		)
 
 
 func test_invalid_nested_selection_mode_binding_is_rejected_atomically() -> void:
@@ -1055,9 +1586,7 @@ func test_invalid_nested_selection_mode_binding_is_rejected_atomically() -> void
 	var original_policy: GFSpatialCanvasInputPolicy = canvas.get_input_policy()
 	var invalid_policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	invalid_policy.selection_modifier_bindings.clear()
-	var invalid_binding: GFSpatialCanvasSelectionModeBinding = (
-		GFSpatialCanvasSelectionModeBinding.new()
-	)
+	var invalid_binding: GFSpatialCanvasSelectionModeBinding = GFSpatialCanvasSelectionModeBinding.new()
 	invalid_binding.modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.SHIFT
 	invalid_binding.set(&"selection_mode", 99)
 	invalid_policy.selection_modifier_bindings.append(invalid_binding)
@@ -1085,9 +1614,7 @@ func test_cancel_action_rejects_pointer_events_and_fixed_budget_overflow() -> vo
 	)
 
 	_add_key_action(_CANCEL_ACTION, KEY_Q)
-	for device_index: int in range(
-		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 2
-	):
+	for device_index: int in range(GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 2):
 		var extra_key: InputEventKey = InputEventKey.new()
 		extra_key.keycode = KEY_Q
 		extra_key.device = device_index + 100
@@ -1142,7 +1669,11 @@ func test_canvas_isolates_policy_without_calling_overridable_candidate_methods()
 		GFSpatialCanvas2D.SelectionMode.ADD,
 		"应用后修改调用方嵌套 Resource 不得污染 Canvas。"
 	)
-	assert_eq(malicious_policy.duplicate_call_count, 0, "getter 也不得调用候选 override。")
+	assert_eq(
+		malicious_policy.duplicate_call_count,
+		0,
+		"getter 也不得调用候选 override。"
+	)
 	assert_eq(malicious_binding.duplicate_call_count, 0)
 
 
@@ -1155,13 +1686,21 @@ func test_input_policy_duplicate_isolates_nested_subclass_without_virtual_dispat
 	policy.selection_modifier_bindings.append(malicious_binding)
 
 	var copied_policy: GFSpatialCanvasInputPolicy = policy.duplicate_policy()
-	var copied_binding: GFSpatialCanvasSelectionModeBinding = (
-		copied_policy.selection_modifier_bindings[0]
-	)
+	var copied_binding: GFSpatialCanvasSelectionModeBinding = copied_policy.selection_modifier_bindings[0]
 
-	assert_eq(malicious_binding.duplicate_call_count, 0, "策略复制不得调用嵌套候选 override。")
-	assert_false(copied_binding is MaliciousSelectionBinding, "副本必须收敛到 GF 基类绑定。")
-	assert_false(is_same(copied_binding, malicious_binding), "嵌套绑定不得与源对象共享引用。")
+	assert_eq(
+		malicious_binding.duplicate_call_count,
+		0,
+		"策略复制不得调用嵌套候选 override。"
+	)
+	assert_false(
+		copied_binding is MaliciousSelectionBinding,
+		"副本必须收敛到 GF 基类绑定。"
+	)
+	assert_false(
+		is_same(copied_binding, malicious_binding),
+		"嵌套绑定不得与源对象共享引用。"
+	)
 	assert_eq(copied_binding.modifier_mask, GFSpatialCanvasInputPolicy.ModifierMask.SHIFT)
 	assert_eq(copied_binding.selection_mode, GFSpatialCanvas2D.SelectionMode.ADD)
 
@@ -1311,10 +1850,16 @@ func test_runtime_input_map_conflict_is_ignored_without_state_mutation() -> void
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"策略应用后 InputMap 产生冲突时必须逐事件失败关闭。"
 	)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
 	assert_true(canvas.get_selection().is_empty())
 	assert_false(
-		GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"),
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		),
 		"冲突事件不得留下任一捕获状态。"
 	)
 
@@ -1327,9 +1872,7 @@ func test_runtime_pointer_action_budget_drift_fails_closed() -> void:
 	policy.pan_action = _PAN_ACTION
 	assert_true(canvas.set_input_policy(policy))
 
-	for device_index: int in range(
-		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 2
-	):
+	for device_index: int in range(GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 2):
 		var extra_button: InputEventMouseButton = InputEventMouseButton.new()
 		extra_button.button_index = MOUSE_BUTTON_RIGHT
 		extra_button.device = device_index + 100
@@ -1348,7 +1891,12 @@ func test_runtime_pointer_action_budget_drift_fails_closed() -> void:
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"应用后膨胀的 InputMap action 不得进入无界匹配或建立捕获。"
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_policy_validation_budgets_bindings_and_action_event_scans() -> void:
@@ -1358,9 +1906,7 @@ func test_policy_validation_budgets_bindings_and_action_event_scans() -> void:
 		1,
 		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS + 2
 	):
-		var binding: GFSpatialCanvasSelectionModeBinding = (
-			GFSpatialCanvasSelectionModeBinding.new()
-		)
+		var binding: GFSpatialCanvasSelectionModeBinding = GFSpatialCanvasSelectionModeBinding.new()
 		binding.modifier_mask = mask
 		binding_policy.selection_modifier_bindings.append(binding)
 	var binding_report: Dictionary = binding_policy.validate_policy()
@@ -1372,9 +1918,7 @@ func test_policy_validation_budgets_bindings_and_action_event_scans() -> void:
 	if InputMap.has_action(_PAN_ACTION):
 		InputMap.erase_action(_PAN_ACTION)
 	InputMap.add_action(_PAN_ACTION)
-	for event_index: int in range(
-		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 1
-	):
+	for event_index: int in range(GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 1):
 		var action_event: InputEventMouseButton = InputEventMouseButton.new()
 		var button_slot: int = event_index % 5
 		var buttons: Array[MouseButton] = [
@@ -1385,7 +1929,10 @@ func test_policy_validation_budgets_bindings_and_action_event_scans() -> void:
 			MOUSE_BUTTON_XBUTTON2,
 		]
 		action_event.button_index = buttons[button_slot]
-		_apply_modifier_mask(action_event, floori(float(event_index) / 5.0))
+		_apply_modifier_mask(
+			action_event,
+			floori(float(event_index) / 5.0)
+		)
 		action_event.device = event_index
 		InputMap.action_add_event(_PAN_ACTION, action_event)
 	assert_gt(
@@ -1411,9 +1958,7 @@ func test_policy_actions_buttons_and_modifier_selection_are_explicit() -> void:
 	policy.pan_mouse_button = MOUSE_BUTTON_NONE
 	policy.pan_action = _PAN_ACTION
 	policy.selection_modifier_bindings.clear()
-	var subtract_binding: GFSpatialCanvasSelectionModeBinding = (
-		GFSpatialCanvasSelectionModeBinding.new()
-	)
+	var subtract_binding: GFSpatialCanvasSelectionModeBinding = GFSpatialCanvasSelectionModeBinding.new()
 	subtract_binding.modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.SHIFT
 	subtract_binding.selection_mode = GFSpatialCanvas2D.SelectionMode.SUBTRACT
 	policy.selection_modifier_bindings.append(subtract_binding)
@@ -1455,14 +2000,21 @@ func test_policy_actions_buttons_and_modifier_selection_are_explicit() -> void:
 		canvas.handle_input_event(right_release),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0))
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-20.0, 0.0)
+	)
 
 	assert_true(
-		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
-	var _initial_selection: PackedStringArray = canvas.set_selection(
-		PackedStringArray(["target"])
-	)
+	var _initial_selection: PackedStringArray = canvas.set_selection(PackedStringArray(["target"]))
 	var selection_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	var select_press: InputEventMouseButton = _mouse_button(
 		MOUSE_BUTTON_LEFT,
@@ -1483,7 +2035,10 @@ func test_policy_actions_buttons_and_modifier_selection_are_explicit() -> void:
 		canvas.handle_input_event(select_release),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(canvas.get_selection().is_empty(), "Shift mapping 应按 policy 执行 subtract。")
+	assert_true(
+		canvas.get_selection().is_empty(),
+		"Shift mapping 应按 policy 执行 subtract。"
+	)
 
 
 func test_wheel_uses_bounded_smooth_event_factor() -> void:
@@ -1501,7 +2056,12 @@ func test_wheel_uses_bounded_smooth_event_factor() -> void:
 		canvas.handle_input_event(wheel),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_almost_eq(canvas.get_zoom(), 2.0, 0.001, "0.5 格应使用倍率的平方根。")
+	assert_almost_eq(
+		canvas.get_zoom(),
+		2.0,
+		0.001,
+		"0.5 格应使用倍率的平方根。"
+	)
 
 	var zoom_before_invalid: float = canvas.get_zoom()
 	wheel.factor = 0.0
@@ -1521,7 +2081,10 @@ func test_wheel_uses_bounded_smooth_event_factor() -> void:
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"非有限 wheel factor 必须失败关闭。"
 	)
-	assert_eq(canvas.get_zoom(), zoom_before_invalid)
+	assert_eq(
+		canvas.get_zoom(),
+		zoom_before_invalid
+	)
 
 
 func test_cancel_uses_input_map_action_instead_of_raw_escape() -> void:
@@ -1530,7 +2093,13 @@ func test_cancel_uses_input_map_action_instead_of_raw_escape() -> void:
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.placement_cancel_action = _CANCEL_ACTION
 	assert_true(canvas.set_input_policy(policy))
-	assert_gt(canvas.begin_placement(&"marker", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	assert_gt(
+		canvas.begin_placement(
+			&"marker",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 
 	var escape_event: InputEventKey = _key_event(KEY_ESCAPE)
 	assert_eq(
@@ -1554,7 +2123,13 @@ func test_cancel_action_runtime_drift_cannot_starve_pointer_or_bypass_budget() -
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.placement_cancel_action = _CANCEL_ACTION
 	assert_true(canvas.set_input_policy(policy))
-	assert_gt(canvas.begin_placement(&"marker", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	assert_gt(
+		canvas.begin_placement(
+			&"marker",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 
 	_add_mouse_action(_CANCEL_ACTION, MOUSE_BUTTON_MIDDLE)
 	var pan_press: InputEventMouseButton = _mouse_button(
@@ -1576,12 +2151,13 @@ func test_cancel_action_runtime_drift_cannot_starve_pointer_or_bypass_budget() -
 		canvas.handle_input_event(pan_release),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(canvas.has_active_placement(), "pointer 漂移不得取消 placement。")
+	assert_true(
+		canvas.has_active_placement(),
+		"pointer 漂移不得取消 placement。"
+	)
 
 	_add_key_action(_CANCEL_ACTION, KEY_Q)
-	for device_index: int in range(
-		GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 2
-	):
+	for device_index: int in range(GFSpatialCanvasInputPolicy.ABSOLUTE_MAX_ACTION_EVENTS + 2):
 		var extra_key: InputEventKey = InputEventKey.new()
 		extra_key.keycode = KEY_Q
 		extra_key.device = device_index + 100
@@ -1614,8 +2190,15 @@ func test_manual_forwarding_distinguishes_handled_and_consumed() -> void:
 		GFSpatialCanvas2D.InputDisposition.HANDLED,
 		"手工转发必须能观察到已处理但继续传播。"
 	)
-	assert_eq(wheel.position, original_position, "屏幕转发不得原地改写调用方事件。")
-	assert_gt(canvas.get_zoom(), 1.0)
+	assert_eq(
+		wheel.position,
+		original_position,
+		"屏幕转发不得原地改写调用方事件。"
+	)
+	assert_gt(
+		canvas.get_zoom(),
+		1.0
+	)
 
 	policy.consume_wheel_events = true
 	assert_true(canvas.set_input_policy(policy))
@@ -1638,7 +2221,10 @@ func test_system_gesture_policy_controls_pan_magnify_and_disposition() -> void:
 		canvas.handle_input_event(pan_gesture),
 		GFSpatialCanvas2D.InputDisposition.HANDLED
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-12.0, 8.0))
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-12.0, 8.0)
+	)
 
 	policy.system_pan_gesture_enabled = false
 	assert_true(canvas.set_input_policy(policy))
@@ -1647,7 +2233,10 @@ func test_system_gesture_policy_controls_pan_magnify_and_disposition() -> void:
 		canvas.handle_input_event(pan_gesture),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_eq(canvas.get_world_center(), center_before_disabled_pan)
+	assert_eq(
+		canvas.get_world_center(),
+		center_before_disabled_pan
+	)
 
 	var magnify_gesture: InputEventMagnifyGesture = InputEventMagnifyGesture.new()
 	magnify_gesture.position = Vector2(400.0, 300.0)
@@ -1656,7 +2245,11 @@ func test_system_gesture_policy_controls_pan_magnify_and_disposition() -> void:
 		canvas.handle_input_event(magnify_gesture),
 		GFSpatialCanvas2D.InputDisposition.HANDLED
 	)
-	assert_almost_eq(canvas.get_zoom(), 2.0, 0.001)
+	assert_almost_eq(
+		canvas.get_zoom(),
+		2.0,
+		0.001
+	)
 
 	policy.system_magnify_gesture_enabled = false
 	assert_true(canvas.set_input_policy(policy))
@@ -1665,7 +2258,10 @@ func test_system_gesture_policy_controls_pan_magnify_and_disposition() -> void:
 		canvas.handle_input_event(magnify_gesture),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_eq(canvas.get_zoom(), zoom_before_disabled_magnify)
+	assert_eq(
+		canvas.get_zoom(),
+		zoom_before_disabled_magnify
+	)
 
 
 func test_manual_screen_forwarding_localizes_system_gestures_without_mutation() -> void:
@@ -1682,11 +2278,27 @@ func test_manual_screen_forwarding_localizes_system_gestures_without_mutation() 
 		canvas.handle_screen_input_event(magnify_gesture),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(magnify_gesture.position, screen_focus, "屏幕转发不得改写调用方手势事件。")
-	assert_almost_eq(canvas.get_zoom(), 2.0, 0.001)
+	assert_eq(
+		magnify_gesture.position,
+		screen_focus,
+		"屏幕转发不得改写调用方手势事件。"
+	)
+	assert_almost_eq(
+		canvas.get_zoom(),
+		2.0,
+		0.001
+	)
 	var restored_focus: Vector2 = canvas.screen_to_world(screen_focus)
-	assert_almost_eq(restored_focus.x, world_focus.x, 0.001)
-	assert_almost_eq(restored_focus.y, world_focus.y, 0.001)
+	assert_almost_eq(
+		restored_focus.x,
+		world_focus.x,
+		0.001
+	)
+	assert_almost_eq(
+		restored_focus.y,
+		world_focus.y,
+		0.001
+	)
 
 	var pan_gesture: InputEventPanGesture = InputEventPanGesture.new()
 	pan_gesture.position = screen_focus
@@ -1696,52 +2308,105 @@ func test_manual_screen_forwarding_localizes_system_gestures_without_mutation() 
 		canvas.handle_screen_input_event(pan_gesture),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(pan_gesture.position, screen_focus, "屏幕转发不得原地局部化 pan gesture。")
+	assert_eq(
+		pan_gesture.position,
+		screen_focus,
+		"屏幕转发不得原地局部化 pan gesture。"
+	)
 	assert_false(canvas.get_world_center().is_equal_approx(center_before_pan))
 
 
 func test_touch_policy_selects_pans_and_can_disable_raw_touch() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(
-		canvas.upsert_item(&"touch_target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"touch_target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
 	var touch_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
-	policy.touch_primary_behavior = (
-		GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
-	)
+	policy.touch_primary_behavior = (GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT)
 	assert_true(canvas.set_input_policy(policy))
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, true, touch_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				touch_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, false, touch_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				false,
+				touch_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_selection(), PackedStringArray(["touch_target"]))
-	assert_eq(canvas.get_world_center(), Vector2.ZERO, "触摸选择不得同时平移视图。")
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["touch_target"])
+	)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO,
+		"触摸选择不得同时平移视图。"
+	)
 
 	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.PAN
 	assert_true(canvas.set_input_policy(policy))
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, true, touch_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				true,
+				touch_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(1, touch_position + Vector2(20.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				1,
+				touch_position + Vector2(20.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, false, touch_position + Vector2(20.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				false,
+				touch_position + Vector2(20.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0))
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-20.0, 0.0)
+	)
 
 	policy.touch_enabled = false
 	assert_true(canvas.set_input_policy(policy))
 	assert_eq(
-		canvas.handle_input_event(_touch_event(2, true, touch_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				2,
+				true,
+				touch_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
 
@@ -1758,40 +2423,97 @@ func test_touch_primary_none_ignores_single_touch_when_multitouch_is_disabled() 
 	var zoom_before: float = canvas.get_zoom()
 
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, true, start)),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				start
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(0, start + Vector2(40.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				0,
+				start + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, false, start + Vector2(40.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				false,
+				start + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_eq(canvas.get_world_center(), center_before)
-	assert_eq(canvas.get_zoom(), zoom_before)
+	assert_eq(
+		canvas.get_world_center(),
+		center_before
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		zoom_before
+	)
 	assert_true(canvas.get_selection().is_empty())
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 	policy.touch_multi_pan_enabled = true
 	assert_true(canvas.set_input_policy(policy))
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, true, start)),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				true,
+				start
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"启用多指行为时首触点必须被捕获以等待第二触点。"
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(1, start + Vector2(40.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				1,
+				start + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_world_center(), center_before, "NONE 单指移动不得应用多指 pan。")
-	assert_eq(canvas.get_zoom(), zoom_before)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, false, start + Vector2(40.0, 0.0))),
+		canvas.get_world_center(),
+		center_before,
+		"NONE 单指移动不得应用多指 pan。"
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		zoom_before
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				false,
+				start + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_touch_multi_pan_and_zoom_are_independently_configurable() -> void:
@@ -1807,11 +2529,23 @@ func test_touch_multi_pan_and_zoom_are_independently_configurable() -> void:
 	pan_policy.touch_multi_zoom_enabled = false
 	assert_true(pan_canvas.set_input_policy(pan_policy))
 	assert_eq(
-		pan_canvas.handle_input_event(_touch_event(0, true, first_point)),
+		pan_canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				first_point
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		pan_canvas.handle_input_event(_touch_event(1, true, second_point)),
+		pan_canvas.handle_input_event(
+			_touch_event(
+				1,
+				true,
+				second_point
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
@@ -1819,13 +2553,28 @@ func test_touch_multi_pan_and_zoom_are_independently_configurable() -> void:
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_true(pan_expected.pan_by_canvas_delta(Vector2(-10.0, 0.0)))
-	assert_eq(pan_canvas.get_world_center(), pan_expected.get_world_center())
-	assert_eq(pan_canvas.get_zoom(), pan_expected.get_zoom(), "禁用多指缩放后距离变化不得修改 zoom。")
+	assert_eq(
+		pan_canvas.get_world_center(),
+		pan_expected.get_world_center()
+	)
+	assert_eq(
+		pan_canvas.get_zoom(),
+		pan_expected.get_zoom(),
+		"禁用多指缩放后距离变化不得修改 zoom。"
+	)
 	var _pan_release_first: GFSpatialCanvas2D.InputDisposition = pan_canvas.handle_input_event(
-		_touch_event(0, false, moved_first_point)
+		_touch_event(
+			0,
+			false,
+			moved_first_point
+		)
 	)
 	var _pan_release_second: GFSpatialCanvas2D.InputDisposition = pan_canvas.handle_input_event(
-		_touch_event(1, false, second_point)
+		_touch_event(
+			1,
+			false,
+			second_point
+		)
 	)
 
 	var zoom_canvas: GFSpatialCanvas2D = _make_canvas()
@@ -1836,19 +2585,40 @@ func test_touch_multi_pan_and_zoom_are_independently_configurable() -> void:
 	zoom_policy.touch_multi_zoom_enabled = true
 	assert_true(zoom_canvas.set_input_policy(zoom_policy))
 	assert_eq(
-		zoom_canvas.handle_input_event(_touch_event(0, true, first_point)),
+		zoom_canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				first_point
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		zoom_canvas.handle_input_event(_touch_event(1, true, second_point)),
+		zoom_canvas.handle_input_event(
+			_touch_event(
+				1,
+				true,
+				second_point
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
 		zoom_canvas.handle_input_event(_touch_drag_event(0, moved_first_point)),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(zoom_expected.zoom_at(Vector2(340.0, 300.0), 1.2))
-	assert_almost_eq(zoom_canvas.get_zoom(), zoom_expected.get_zoom(), 0.001)
+	assert_true(
+		zoom_expected.zoom_at(
+			Vector2(340.0, 300.0),
+			1.2
+		)
+	)
+	assert_almost_eq(
+		zoom_canvas.get_zoom(),
+		zoom_expected.get_zoom(),
+		0.001
+	)
 	assert_almost_eq(
 		zoom_canvas.get_world_center().x,
 		zoom_expected.get_world_center().x,
@@ -1861,52 +2631,112 @@ func test_touch_multi_pan_and_zoom_are_independently_configurable() -> void:
 		0.001
 	)
 	var _zoom_release_first: GFSpatialCanvas2D.InputDisposition = zoom_canvas.handle_input_event(
-		_touch_event(0, false, moved_first_point)
+		_touch_event(
+			0,
+			false,
+			moved_first_point
+		)
 	)
 	var _zoom_release_second: GFSpatialCanvas2D.InputDisposition = zoom_canvas.handle_input_event(
-		_touch_event(1, false, second_point)
+		_touch_event(
+			1,
+			false,
+			second_point
+		)
 	)
 
 
 func test_touch_select_multi_to_single_does_not_restart_selection() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(
-		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
 	assert_true(canvas.set_input_policy(policy))
 	var center: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, true, center)),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				center
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, true, center + Vector2(40.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				true,
+				center + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"第二触点应把未提交单指选择升级为多指手势。"
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(1, center + Vector2(60.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				1,
+				center + Vector2(60.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, false, center + Vector2(60.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				false,
+				center + Vector2(60.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	var center_after_downgrade: Vector2 = canvas.get_world_center()
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(0, center + Vector2(10.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				0,
+				center + Vector2(10.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"降级后的剩余触点仍归当前手势所有，直到物理 release。"
 	)
-	assert_eq(canvas.get_world_center(), center_after_downgrade, "降级不得隐式切换为单指 pan。")
-	assert_true(canvas.get_selection().is_empty(), "降级不得隐式重启选择捕获。")
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, false, center + Vector2(10.0, 0.0))),
+		canvas.get_world_center(),
+		center_after_downgrade,
+		"降级不得隐式切换为单指 pan。"
+	)
+	assert_true(
+		canvas.get_selection().is_empty(),
+		"降级不得隐式重启选择捕获。"
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				false,
+				center + Vector2(10.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_touch_multi_pan_and_zoom_disabled_leave_additional_pointer_unowned() -> void:
@@ -1918,29 +2748,66 @@ func test_touch_multi_pan_and_zoom_disabled_leave_additional_pointer_unowned() -
 	assert_true(canvas.set_input_policy(policy))
 	var start: Vector2 = Vector2(100.0, 100.0)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, true, start)),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				start
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, true, start + Vector2(30.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				true,
+				start + Vector2(30.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(1, start + Vector2(40.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				1,
+				start + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(1, false, start + Vector2(40.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_event(
+				1,
+				false,
+				start + Vector2(40.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"未接管的额外触点 press/drag/release 都必须继续传播。"
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(0, start + Vector2(20.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				0,
+				start + Vector2(20.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0))
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, false, start + Vector2(20.0, 0.0))),
+		canvas.get_world_center(),
+		Vector2(-20.0, 0.0)
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				false,
+				start + Vector2(20.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 
@@ -1948,14 +2815,26 @@ func test_touch_multi_pan_and_zoom_disabled_leave_additional_pointer_unowned() -
 func test_raw_touch_capture_excludes_mouse_without_polluting_selection_or_view() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(
-		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
 	assert_true(canvas.set_input_policy(policy))
 	var target_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, true, target_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				true,
+				target_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	var center_before_mouse: Vector2 = canvas.get_world_center()
@@ -1979,27 +2858,61 @@ func test_raw_touch_capture_excludes_mouse_without_polluting_selection_or_view()
 		true
 	)
 
-	for conflicting_event: InputEvent in [mouse_press, mouse_drag, wheel, mouse_release]:
+	for conflicting_event: InputEvent in [
+		mouse_press,
+		mouse_drag,
+		wheel,
+		mouse_release,
+	]:
 		assert_eq(
 			canvas.handle_input_event(conflicting_event),
 			GFSpatialCanvas2D.InputDisposition.IGNORED,
 			"raw touch 捕获期间全部鼠标事件（含 wheel）都必须继续传播。"
 		)
-	assert_eq(canvas.get_world_center(), center_before_mouse)
-	assert_eq(canvas.get_zoom(), zoom_before_mouse)
-	assert_true(canvas.get_selection().is_empty(), "冲突鼠标不得提交或改写触摸选择几何。")
 	assert_eq(
-		canvas.handle_input_event(_touch_event(0, false, target_position)),
+		canvas.get_world_center(),
+		center_before_mouse
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		zoom_before_mouse
+	)
+	assert_true(
+		canvas.get_selection().is_empty(),
+		"冲突鼠标不得提交或改写触摸选择几何。"
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event(
+				0,
+				false,
+				target_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_selection(), PackedStringArray(["target"]))
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["target"])
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_mouse_capture_excludes_raw_touch_until_matching_mouse_release() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(
-		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
@@ -2007,32 +2920,62 @@ func test_mouse_capture_excludes_raw_touch_until_matching_mouse_release() -> voi
 	var target_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	assert_eq(
 		canvas.handle_input_event(
-			_mouse_button(MOUSE_BUTTON_LEFT, target_position, true)
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				target_position,
+				true
+			)
 		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	var touch_position: Vector2 = target_position + Vector2(100.0, 0.0)
 	var center_before_touch: Vector2 = canvas.get_world_center()
 	for conflicting_event: InputEvent in [
-		_touch_event(7, true, touch_position),
-		_touch_drag_event(7, touch_position + Vector2(30.0, 0.0)),
-		_touch_event(7, false, touch_position + Vector2(30.0, 0.0)),
+		_touch_event(
+			7,
+			true,
+			touch_position
+		),
+		_touch_drag_event(
+			7,
+			touch_position + Vector2(30.0, 0.0)
+		),
+		_touch_event(
+			7,
+			false,
+			touch_position + Vector2(30.0, 0.0)
+		),
 	]:
 		assert_eq(
 			canvas.handle_input_event(conflicting_event),
 			GFSpatialCanvas2D.InputDisposition.IGNORED,
 			"鼠标捕获期间 raw touch press/drag/release 都不得接管状态。"
 		)
-	assert_eq(canvas.get_world_center(), center_before_touch)
+	assert_eq(
+		canvas.get_world_center(),
+		center_before_touch
+	)
 	assert_true(canvas.get_selection().is_empty())
 	assert_eq(
 		canvas.handle_input_event(
-			_mouse_button(MOUSE_BUTTON_LEFT, target_position, false)
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				target_position,
+				false
+			)
 		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_selection(), PackedStringArray(["target"]))
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["target"])
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel() -> void:
@@ -2070,7 +3013,11 @@ func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel()
 		canvas.handle_input_event(foreign_motion),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO, "其他鼠标设备不得推动当前捕获。")
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO,
+		"其他鼠标设备不得推动当前捕获。"
+	)
 
 	var foreign_release: InputEventMouseButton = _mouse_button_for_device(
 		MOUSE_BUTTON_MIDDLE,
@@ -2082,7 +3029,12 @@ func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel()
 		canvas.handle_input_event(foreign_release),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	var foreign_cancel: InputEventMouseButton = _mouse_button_for_device(
 		MOUSE_BUTTON_MIDDLE,
 		foreign_motion.position,
@@ -2094,7 +3046,12 @@ func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel()
 		canvas.handle_input_event(foreign_cancel),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 	var matching_motion: InputEventMouseMotion = InputEventMouseMotion.new()
 	matching_motion.device = capture_device
@@ -2104,7 +3061,10 @@ func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel()
 		canvas.handle_input_event(matching_motion),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-20.0, 0.0))
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-20.0, 0.0)
+	)
 	assert_eq(
 		canvas.handle_input_event(
 			_mouse_button_for_device(
@@ -2116,13 +3076,24 @@ func test_mouse_capture_requires_matching_device_for_motion_release_and_cancel()
 		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(
-		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
@@ -2133,7 +3104,12 @@ func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel
 	var target_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	assert_eq(
 		canvas.handle_input_event(
-			_touch_event_for_device(touch_index, true, target_position, capture_device)
+			_touch_event_for_device(
+				touch_index,
+				true,
+				target_position,
+				capture_device
+			)
 		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
@@ -2148,7 +3124,10 @@ func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel
 		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
 	assert_true(canvas.get_selection().is_empty())
 	var foreign_release: InputEventScreenTouch = _touch_event_for_device(
 		touch_index,
@@ -2160,7 +3139,12 @@ func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel
 		canvas.handle_input_event(foreign_release),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	var foreign_cancel: InputEventScreenTouch = _touch_event_for_device(
 		touch_index,
 		false,
@@ -2172,7 +3156,12 @@ func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel
 		canvas.handle_input_event(foreign_cancel),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	assert_eq(
 		canvas.handle_input_event(
 			_touch_event_for_device(
@@ -2188,12 +3177,25 @@ func test_raw_touch_capture_requires_matching_device_for_drag_release_and_cancel
 
 	assert_eq(
 		canvas.handle_input_event(
-			_touch_event_for_device(touch_index, false, target_position, capture_device)
+			_touch_event_for_device(
+				touch_index,
+				false,
+				target_position,
+				capture_device
+			)
 		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_eq(canvas.get_selection(), PackedStringArray(["target"]))
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_eq(
+		canvas.get_selection(),
+		PackedStringArray(["target"])
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_active_physical_capture_excludes_system_gestures_until_release() -> void:
@@ -2206,7 +3208,13 @@ func test_active_physical_capture_excludes_system_gestures_until_release() -> vo
 	magnify_gesture.position = focus
 	magnify_gesture.factor = 2.0
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_MIDDLE, focus, true)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_MIDDLE,
+				focus,
+				true
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	for system_gesture: InputEvent in [pan_gesture, magnify_gesture]:
@@ -2215,16 +3223,39 @@ func test_active_physical_capture_excludes_system_gestures_until_release() -> vo
 			GFSpatialCanvas2D.InputDisposition.IGNORED,
 			"鼠标捕获期间系统手势不得修改 Canvas。"
 		)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
-	assert_eq(canvas.get_zoom(), 1.0)
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_MIDDLE, focus, false)),
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		1.0
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_MIDDLE,
+				focus,
+				false
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 	assert_eq(
-		canvas.handle_input_event(_touch_event(3, true, focus)),
+		canvas.handle_input_event(
+			_touch_event(
+				3,
+				true,
+				focus
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	for system_gesture: InputEvent in [pan_gesture, magnify_gesture]:
@@ -2233,20 +3264,45 @@ func test_active_physical_capture_excludes_system_gestures_until_release() -> vo
 			GFSpatialCanvas2D.InputDisposition.IGNORED,
 			"raw touch 捕获期间系统手势不得修改 Canvas。"
 		)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
-	assert_eq(canvas.get_zoom(), 1.0)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(3, false, focus)),
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		1.0
+	)
+	assert_eq(
+		canvas.handle_input_event(
+			_touch_event(
+				3,
+				false,
+				focus
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	assert_eq(
 		canvas.handle_input_event(pan_gesture),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"物理捕获结束后系统手势应恢复正常处理。"
 	)
-	assert_eq(canvas.get_world_center(), Vector2(-25.0, 10.0))
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2(-25.0, 10.0)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_cancel_and_policy_replacement_release_entire_physical_capture() -> void:
@@ -2258,7 +3314,13 @@ func test_cancel_and_policy_replacement_release_entire_physical_capture() -> voi
 	assert_true(canvas.set_input_policy(policy))
 	var position: Vector2 = Vector2(200.0, 150.0)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(4, true, position)),
+		canvas.handle_input_event(
+			_touch_event(
+				4,
+				true,
+				position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
@@ -2266,19 +3328,41 @@ func test_cancel_and_policy_replacement_release_entire_physical_capture() -> voi
 		GFSpatialCanvas2D.InputDisposition.CONSUMED,
 		"显式 cancel 应释放 raw-touch owner 和 pointer tracking。"
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	assert_eq(
-		canvas.handle_input_event(_touch_drag_event(4, position + Vector2(20.0, 0.0))),
+		canvas.handle_input_event(
+			_touch_drag_event(
+				4,
+				position + Vector2(20.0, 0.0)
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(4, false, position)),
+		canvas.handle_input_event(
+			_touch_event(
+				4,
+				false,
+				position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"cancel 后的陈旧 release 不得复活已结束捕获。"
 	)
 
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_MIDDLE, position, true)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_MIDDLE,
+				position,
+				true
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
@@ -2286,19 +3370,47 @@ func test_cancel_and_policy_replacement_release_entire_physical_capture() -> voi
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_MIDDLE, position, false)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_MIDDLE,
+				position,
+				false
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED
 	)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 	assert_eq(
-		canvas.handle_input_event(_touch_event(5, true, position)),
+		canvas.handle_input_event(
+			_touch_event(
+				5,
+				true,
+				position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	assert_true(canvas.set_input_policy(GFSpatialCanvasInputPolicy.new()))
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(5, false, position)),
+		canvas.handle_input_event(
+			_touch_event(
+				5,
+				false,
+				position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"成功替换策略必须原子释放旧 raw-touch 捕获。"
 	)
@@ -2307,26 +3419,56 @@ func test_cancel_and_policy_replacement_release_entire_physical_capture() -> voi
 func test_canceled_pointer_release_discards_capture_without_committing() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	assert_true(
-		canvas.upsert_item(&"target", Rect2(Vector2(-5.0, -5.0), Vector2(10.0, 10.0)))
+		canvas.upsert_item(
+			&"target",
+			Rect2(
+				Vector2(-5.0, -5.0),
+				Vector2(10.0, 10.0)
+			)
+		)
 	)
 	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
 	policy.touch_primary_behavior = GFSpatialCanvasInputPolicy.TouchPrimaryBehavior.SELECT
 	assert_true(canvas.set_input_policy(policy))
 	var target_position: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(6, true, target_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				6,
+				true,
+				target_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	var canceled_touch: InputEventScreenTouch = _touch_event(6, false, target_position)
+	var canceled_touch: InputEventScreenTouch = _touch_event(
+		6,
+		false,
+		target_position
+	)
 	canceled_touch.canceled = true
 	assert_eq(
 		canvas.handle_input_event(canceled_touch),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(canvas.get_selection().is_empty(), "系统取消的 touch 不得提交选择。")
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		canvas.get_selection().is_empty(),
+		"系统取消的 touch 不得提交选择。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(6, false, target_position)),
+		canvas.handle_input_event(
+			_touch_event(
+				6,
+				false,
+				target_position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"取消后的陈旧 release 不得恢复 capture。"
 	)
@@ -2337,9 +3479,21 @@ func test_canceled_pointer_release_discards_capture_without_committing() -> void
 			history_commit_count[0] += 1
 			return true
 	)
-	assert_gt(canvas.begin_placement(&"marker", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	assert_gt(
+		canvas.begin_placement(
+			&"marker",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_LEFT, target_position, true)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_LEFT,
+				target_position,
+				true
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
 	var canceled_mouse: InputEventMouseButton = _mouse_button(
@@ -2352,14 +3506,31 @@ func test_canceled_pointer_release_discards_capture_without_committing() -> void
 		canvas.handle_input_event(canceled_mouse),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(canvas.has_active_placement(), "系统取消的鼠标 release 不得提交 placement。")
-	assert_eq(history_commit_count[0], 0)
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		canvas.has_active_placement(),
+		"系统取消的鼠标 release 不得提交 placement。"
+	)
+	assert_eq(
+		history_commit_count[0],
+		0
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 
 func test_input_disable_releases_capture_without_clearing_placement() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	assert_gt(canvas.begin_placement(&"marker", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	assert_gt(
+		canvas.begin_placement(
+			&"marker",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 	var pan_press: InputEventMouseButton = _mouse_button(
 		MOUSE_BUTTON_MIDDLE,
 		Vector2(100.0, 100.0),
@@ -2381,49 +3552,105 @@ func test_input_disable_releases_capture_without_clearing_placement() -> void:
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"禁用输入必须释放已捕获的 pan。"
 	)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
-	assert_true(canvas.has_active_placement(), "输入生命周期清理不得取消 placement。")
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
+	assert_true(
+		canvas.has_active_placement(),
+		"输入生命周期清理不得取消 placement。"
+	)
 
 
 func test_application_focus_loss_releases_mouse_capture_and_ignores_stale_release() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var position: Vector2 = Vector2(100.0, 100.0)
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_MIDDLE, position, true)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_MIDDLE,
+				position,
+				true
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 	canvas.notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
 
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	assert_eq(
-		canvas.handle_input_event(_mouse_button(MOUSE_BUTTON_MIDDLE, position, false)),
+		canvas.handle_input_event(
+			_mouse_button(
+				MOUSE_BUTTON_MIDDLE,
+				position,
+				false
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"应用失焦后的陈旧 release 不得恢复已释放的 mouse owner。"
 	)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
 
 
 func test_hiding_canvas_releases_raw_touch_capture_and_ignores_stale_release() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var position: Vector2 = Vector2(100.0, 100.0)
 	assert_eq(
-		canvas.handle_input_event(_touch_event(7, true, position)),
+		canvas.handle_input_event(
+			_touch_event(
+				7,
+				true,
+				position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.CONSUMED
 	)
-	assert_true(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 
 	canvas.hide()
 
-	assert_false(GFVariantData.get_option_bool(canvas.get_debug_snapshot(), "input_active"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			canvas.get_debug_snapshot(),
+			"input_active"
+		)
+	)
 	canvas.show()
 	assert_eq(
-		canvas.handle_input_event(_touch_event(7, false, position)),
+		canvas.handle_input_event(
+			_touch_event(
+				7,
+				false,
+				position
+			)
+		),
 		GFSpatialCanvas2D.InputDisposition.IGNORED,
 		"Canvas 隐藏后的陈旧 release 不得恢复已释放的 touch owner。"
 	)
-	assert_eq(canvas.get_world_center(), Vector2.ZERO)
+	assert_eq(
+		canvas.get_world_center(),
+		Vector2.ZERO
+	)
 
 
 func test_modifier_gated_wheel_bubbles_to_parent_scroll_container() -> void:
@@ -2452,8 +3679,15 @@ func test_modifier_gated_wheel_bubbles_to_parent_scroll_container() -> void:
 	)
 	Input.parse_input_event(plain_wheel)
 	await wait_process_frames(2)
-	assert_gt(scroll.wheel_event_count, 0, "未修饰 wheel 应冒泡到父 ScrollContainer。")
-	assert_eq(canvas.get_zoom(), 1.0)
+	assert_gt(
+		scroll.wheel_event_count,
+		0,
+		"未修饰 wheel 应冒泡到父 ScrollContainer。"
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		1.0
+	)
 
 	var parent_count_before_ctrl: int = scroll.wheel_event_count
 	var ctrl_wheel: InputEventMouseButton = _mouse_button(
@@ -2469,28 +3703,64 @@ func test_modifier_gated_wheel_bubbles_to_parent_scroll_container() -> void:
 		parent_count_before_ctrl,
 		"Canvas 消费的 Ctrl+wheel 不得继续到父 ScrollContainer。"
 	)
-	assert_gt(canvas.get_zoom(), 1.0)
+	assert_gt(
+		canvas.get_zoom(),
+		1.0
+	)
 
 
 func test_debug_snapshot_is_json_safe_and_excludes_callbacks_and_project_payloads() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
-	canvas.set_placement_validator(func(_preview: Dictionary) -> bool: return true)
-	canvas.set_history_hook(func(_operation: Dictionary) -> bool: return true)
+	canvas.set_placement_validator(
+		func(_preview: Dictionary) -> bool:
+			return true
+	)
+	canvas.set_history_hook(
+		func(_operation: Dictionary) -> bool:
+			return true
+	)
 	assert_true(
 		canvas.upsert_item(
 			&"secret_item",
 			Rect2(Vector2.ZERO, Vector2.ONE),
-			{ "exact_hit": func(_id: StringName, _point: Vector2, _bounds: Rect2) -> bool: return true }
+			{
+				"exact_hit": func(
+					_id: StringName,
+					_point: Vector2,
+					_bounds: Rect2
+				) -> bool:
+					return true,
+			}
 		)
 	)
-	assert_gt(canvas.begin_placement(&"secret_type", Rect2(Vector2.ZERO, Vector2.ONE)), 0)
+	assert_gt(
+		canvas.begin_placement(
+			&"secret_type",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		),
+		0
+	)
 
 	var snapshot: Dictionary = canvas.get_debug_snapshot()
 	var encoded: String = JSON.stringify(snapshot)
-	assert_false(encoded.is_empty(), "诊断快照必须可 JSON 编码。")
-	assert_eq(encoded.find("Callable"), -1, "诊断不得泄露回调。")
-	assert_eq(encoded.find("payload"), -1, "诊断不得包含任意项目载荷。")
-	assert_eq(GFVariantData.get_option_int(snapshot, "item_count"), 1)
+	assert_false(
+		encoded.is_empty(),
+		"诊断快照必须可 JSON 编码。"
+	)
+	assert_eq(
+		encoded.find("Callable"),
+		-1,
+		"诊断不得泄露回调。"
+	)
+	assert_eq(
+		encoded.find("payload"),
+		-1,
+		"诊断不得包含任意项目载荷。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "item_count"),
+		1
+	)
 	assert_true(GFVariantData.get_option_bool(snapshot, "placement_active"))
 
 
@@ -2503,7 +3773,11 @@ func _make_canvas(canvas_size: Vector2 = Vector2(800.0, 600.0)) -> GFSpatialCanv
 	return canvas
 
 
-func _mouse_button(button_index: MouseButton, position: Vector2, pressed: bool) -> InputEventMouseButton:
+func _mouse_button(
+	button_index: MouseButton,
+	position: Vector2,
+	pressed: bool
+) -> InputEventMouseButton:
 	var event: InputEventMouseButton = InputEventMouseButton.new()
 	event.button_index = button_index
 	event.position = position
@@ -2517,7 +3791,11 @@ func _mouse_button_for_device(
 	pressed: bool,
 	device: int
 ) -> InputEventMouseButton:
-	var event: InputEventMouseButton = _mouse_button(button_index, position, pressed)
+	var event: InputEventMouseButton = _mouse_button(
+		button_index,
+		position,
+		pressed
+	)
 	event.device = device
 	return event
 
@@ -2529,7 +3807,11 @@ func _key_event(keycode: Key) -> InputEventKey:
 	return event
 
 
-func _touch_event(index: int, pressed: bool, position: Vector2) -> InputEventScreenTouch:
+func _touch_event(
+	index: int,
+	pressed: bool,
+	position: Vector2
+) -> InputEventScreenTouch:
 	var event: InputEventScreenTouch = InputEventScreenTouch.new()
 	event.index = index
 	event.pressed = pressed
@@ -2543,7 +3825,11 @@ func _touch_event_for_device(
 	position: Vector2,
 	device: int
 ) -> InputEventScreenTouch:
-	var event: InputEventScreenTouch = _touch_event(index, pressed, position)
+	var event: InputEventScreenTouch = _touch_event(
+		index,
+		pressed,
+		position
+	)
 	event.device = device
 	return event
 
@@ -2605,18 +3891,10 @@ func _add_key_action(action_id: StringName, keycode: Key) -> void:
 
 
 func _apply_modifier_mask(event: InputEventMouseButton, modifier_mask: int) -> void:
-	event.shift_pressed = (
-		modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.SHIFT
-	) != 0
-	event.ctrl_pressed = (
-		modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.CTRL
-	) != 0
-	event.alt_pressed = (
-		modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.ALT
-	) != 0
-	event.meta_pressed = (
-		modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.META
-	) != 0
+	event.shift_pressed = ((modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.SHIFT) != 0)
+	event.ctrl_pressed = ((modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.CTRL) != 0)
+	event.alt_pressed = ((modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.ALT) != 0)
+	event.meta_pressed = ((modifier_mask & GFSpatialCanvasInputPolicy.ModifierMask.META) != 0)
 
 
 func _report_has_issue_kind(report: Dictionary, expected_kind: String) -> bool:
@@ -2633,7 +3911,6 @@ class MaliciousInputPolicy extends GFSpatialCanvasInputPolicy:
 	var validate_call_count: int = 0
 	var duplicate_call_count: int = 0
 
-
 	func validate_policy() -> Dictionary:
 		validate_call_count += 1
 		return { "ok": true, "issues": [] }
@@ -2647,7 +3924,6 @@ class MaliciousInputPolicy extends GFSpatialCanvasInputPolicy:
 class MaliciousSelectionBinding extends GFSpatialCanvasSelectionModeBinding:
 	var duplicate_call_count: int = 0
 
-
 	func duplicate_binding() -> GFSpatialCanvasSelectionModeBinding:
 		duplicate_call_count += 1
 		return self
@@ -2656,14 +3932,16 @@ class MaliciousSelectionBinding extends GFSpatialCanvasSelectionModeBinding:
 class ScrollProbe extends ScrollContainer:
 	var wheel_event_count: int = 0
 
-
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton:
 			var mouse_event: InputEventMouseButton = event
-			if mouse_event.button_index in [
-				MOUSE_BUTTON_WHEEL_UP,
-				MOUSE_BUTTON_WHEEL_DOWN,
-				MOUSE_BUTTON_WHEEL_LEFT,
-				MOUSE_BUTTON_WHEEL_RIGHT,
-			]:
+			if (
+				mouse_event.button_index
+				in [
+					MOUSE_BUTTON_WHEEL_UP,
+					MOUSE_BUTTON_WHEEL_DOWN,
+					MOUSE_BUTTON_WHEEL_LEFT,
+					MOUSE_BUTTON_WHEEL_RIGHT,
+				]
+			):
 				wheel_event_count += 1

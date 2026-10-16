@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`normalize_attribution`](#member-gfassetattributiontools-methods-normalize_attribution) | `static func normalize_attribution(data: Dictionary, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`resolve_attribution`](#member-gfassetattributiontools-methods-resolve_attribution) | `static func resolve_attribution(path: String, entries: Array, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`resolve_attribution`](#member-gfassetattributiontools-methods-resolve_attribution) | `static func resolve_attribution( path: String, entries: Array, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_attribution_report`](#member-gfassetattributiontools-methods-build_attribution_report) | `static func build_attribution_report( entries: Array, resource_paths: PackedStringArray = PackedStringArray(), options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`format_notice_text`](#member-gfassetattributiontools-methods-format_notice_text) | `static func format_notice_text(report: Dictionary, options: Dictionary = {}) -> String:` |
 
@@ -58,7 +58,7 @@ static func normalize_attribution(data: Dictionary, options: Dictionary = {}) ->
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func resolve_attribution(path: String, entries: Array, options: Dictionary = {}) -> Dictionary:
+static func resolve_attribution( path: String, entries: Array, options: Dictionary = {} ) -> Dictionary:
 ```
 
 按资源路径解析最匹配的归因条目。 精确路径优先；inherit_from_parent 为 true 时，父目录归因可覆盖其子资源。

@@ -19,7 +19,7 @@ PackedByteArray 读写游标。 提供边界检查、显式字节序和 varuint 
 | 属性 | [`max_read_byte_count`](#member-gfbytecursor-properties-max_read_byte_count) | `var max_read_byte_count: int = _DEFAULT_MAX_READ_BYTE_COUNT` |
 | 属性 | [`max_write_byte_count`](#member-gfbytecursor-properties-max_write_byte_count) | `var max_write_byte_count: int = _DEFAULT_MAX_WRITE_BYTE_COUNT` |
 | 方法 | [`_init`](#member-gfbytecursor-methods-_init) | `func _init(source_bytes: PackedByteArray = PackedByteArray(), p_little_endian: bool = false) -> void:` |
-| 方法 | [`from_bytes`](#member-gfbytecursor-methods-from_bytes) | `static func from_bytes(source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false) -> GFByteCursor:` |
+| 方法 | [`from_bytes`](#member-gfbytecursor-methods-from_bytes) | `static func from_bytes( source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false ) -> GFByteCursor:` |
 | 方法 | [`reset`](#member-gfbytecursor-methods-reset) | `func reset(source_bytes: PackedByteArray = PackedByteArray()) -> void:` |
 | 方法 | [`get_bytes`](#member-gfbytecursor-methods-get_bytes) | `func get_bytes() -> PackedByteArray:` |
 | 方法 | [`get_position`](#member-gfbytecursor-methods-get_position) | `func get_position() -> int:` |
@@ -134,7 +134,7 @@ func _init(source_bytes: PackedByteArray = PackedByteArray(), p_little_endian: b
 - 首次版本：`7.0.0`
 
 ```gdscript
-static func from_bytes(source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false) -> GFByteCursor:
+static func from_bytes( source_bytes: PackedByteArray, offset: int = 0, p_little_endian: bool = false ) -> GFByteCursor:
 ```
 
 从字节创建游标。

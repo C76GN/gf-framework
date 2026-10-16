@@ -26,9 +26,9 @@
 | 属性 | [`incoming_window_size`](#member-gfprotocolackledger-properties-incoming_window_size) | `var incoming_window_size: int = 256:` |
 | 属性 | [`metadata`](#member-gfprotocolackledger-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`clear`](#member-gfprotocolackledger-methods-clear) | `func clear() -> void:` |
-| 方法 | [`register_packet`](#member-gfprotocolackledger-methods-register_packet) | `func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1) -> bool:` |
-| 方法 | [`acknowledge_packet`](#member-gfprotocolackledger-methods-acknowledge_packet) | `func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: int = -1) -> bool:` |
-| 方法 | [`fail_packet`](#member-gfprotocolackledger-methods-fail_packet) | `func fail_packet(packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1) -> bool:` |
+| 方法 | [`register_packet`](#member-gfprotocolackledger-methods-register_packet) | `func register_packet( packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1 ) -> bool:` |
+| 方法 | [`acknowledge_packet`](#member-gfprotocolackledger-methods-acknowledge_packet) | `func acknowledge_packet( packet_id: Variant, result: Variant = null, now_msec: int = -1 ) -> bool:` |
+| 方法 | [`fail_packet`](#member-gfprotocolackledger-methods-fail_packet) | `func fail_packet( packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1 ) -> bool:` |
 | 方法 | [`expire_pending`](#member-gfprotocolackledger-methods-expire_pending) | `func expire_pending(now_msec: int = -1) -> Dictionary:` |
 | 方法 | [`record_packet_attempt`](#member-gfprotocolackledger-methods-record_packet_attempt) | `func record_packet_attempt( packet_id: Variant, now_msec: int = -1, retry_delay_msec: int = -1 ) -> bool:` |
 | 方法 | [`get_retry_ready_ids`](#member-gfprotocolackledger-methods-get_retry_ready_ids) | `func get_retry_ready_ids(now_msec: int = -1, limit: int = 0) -> Array:` |
@@ -206,7 +206,7 @@ func clear() -> void:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1) -> bool:
+func register_packet( packet_id: Variant, entry_metadata: Dictionary = {}, now_msec: int = -1 ) -> bool:
 ```
 
 注册一个待确认条目。
@@ -234,7 +234,7 @@ func register_packet(packet_id: Variant, entry_metadata: Dictionary = {}, now_ms
 - 首次版本：`7.0.0`
 
 ```gdscript
-func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: int = -1) -> bool:
+func acknowledge_packet( packet_id: Variant, result: Variant = null, now_msec: int = -1 ) -> bool:
 ```
 
 标记条目确认成功。
@@ -262,7 +262,7 @@ func acknowledge_packet(packet_id: Variant, result: Variant = null, now_msec: in
 - 首次版本：`7.0.0`
 
 ```gdscript
-func fail_packet(packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1) -> bool:
+func fail_packet( packet_id: Variant, error: String = "", result: Variant = null, now_msec: int = -1 ) -> bool:
 ```
 
 标记条目失败。

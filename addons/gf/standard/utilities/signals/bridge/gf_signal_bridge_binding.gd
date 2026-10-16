@@ -55,12 +55,18 @@ var _root_ref: WeakRef = null
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param new_bridge: 桥接资源。
 ## [br]
 ## @param root: 路径解析根节点。
 ## [br]
 ## @param new_connection: 底层连接。
-func setup(new_bridge: GFSignalBridge, root: Node, new_connection: GFSignalConnection) -> void:
+func setup(
+	new_bridge: GFSignalBridge,
+	root: Node,
+	new_connection: GFSignalConnection
+) -> void:
 	bridge = new_bridge
 	connection = new_connection
 	_root_ref = weakref(root) if root != null else null
@@ -81,9 +87,11 @@ func disconnect_bridge() -> void:
 ## [br]
 ## @return 活跃时返回 true。
 func is_active() -> bool:
-	return connection != null and connection.is_active() and _get_root() != null
-
-
+	return (
+		connection != null
+		and connection.is_active()
+		and _get_root() != null
+	)
 
 
 # --- 框架内部方法 ---
@@ -178,29 +186,33 @@ func _invoke_from_signal(
 	if bridge == null or root == null:
 		disconnect_bridge()
 		return
-	var _invoke_result_98: Variant = bridge.invoke(root, _collect_args(root, [
-		arg1,
-		arg2,
-		arg3,
-		arg4,
-		arg5,
-		arg6,
-		arg7,
-		arg8,
-		arg9,
-		arg10,
-		arg11,
-		arg12,
-		arg13,
-		arg14,
-		arg15,
-		arg16,
-	]))
+	var _invoke_result_98: Variant = bridge.invoke(
+		root,
+		_collect_args(
+			root,
+			[
+				arg1,
+				arg2,
+				arg3,
+				arg4,
+				arg5,
+				arg6,
+				arg7,
+				arg8,
+				arg9,
+				arg10,
+				arg11,
+				arg12,
+				arg13,
+				arg14,
+				arg15,
+				arg16,
+			]
+		)
+	)
 
 
 # --- 私有/辅助方法 ---
-
-
 
 ## 按来源信号参数数裁剪回调参数；无法读取元数据时移除末尾 null 占位项。
 ## [br]
@@ -214,7 +226,13 @@ func _collect_args(root: Node, raw_args: Array) -> Array:
 	if argument_count >= 0:
 		if argument_count > _MAX_SIGNAL_ARGUMENTS:
 			push_warning("[GFSignalBridgeBinding][signal_bridge_binding.signal_argument_limit] Signal bridge capture supports at most %d arguments." % _MAX_SIGNAL_ARGUMENTS)
-		return raw_args.slice(0, mini(argument_count, raw_args.size()))
+		return raw_args.slice(
+			0,
+			mini(
+				argument_count,
+				raw_args.size()
+			)
+		)
 	return _trim_trailing_null_args(raw_args)
 
 

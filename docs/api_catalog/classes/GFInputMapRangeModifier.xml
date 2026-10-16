@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMapRangeModifier" path="addons/gf/standard/input/modifiers/gf_input_map_range_modifier.gd" module="standard" extends="GFInputModifier" classDigest="8acab3b4ce4f27431f51e2c766e407b0c5cb4f5895d063a1a2811af80f4acde6">
+<class name="GFInputMapRangeModifier" path="addons/gf/standard/input/modifiers/gf_input_map_range_modifier.gd" module="standard" extends="GFInputModifier" classDigest="a10bb9e600014c179ef2edd6dd9fa58b2980ac9bcc02bc2c668a44d4dcd19610">
 	<description>GFInputMapRangeModifier: 输入范围映射修饰器。
 将输入分量从一个数值范围线性映射到另一个范围，适合灵敏度曲线前后的
 简单归一化处理。</description>
@@ -50,7 +50,7 @@
 	</properties>
 	<methods>
 		<member kind="method" name="modify">
-			<signature>func modify(value: Vector2, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector2:</signature>
+			<signature>func modify( value: Vector2, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector2:</signature>
 			<description>修改二维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -58,10 +58,11 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">范围映射后的二维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="modify_3d">
-			<signature>func modify_3d(value: Vector3, _event: InputEvent = null, _action: GFInputAction = null) -&gt; Vector3:</signature>
+			<signature>func modify_3d( value: Vector3, _event: InputEvent = null, _action: GFInputAction = null ) -&gt; Vector3:</signature>
 			<description>修改三维输入值。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -69,6 +70,7 @@
 				<tag name="param">_event: 原始输入事件，默认实现不直接使用。</tag>
 				<tag name="param">_action: 当前输入动作配置，默认实现不直接使用。</tag>
 				<tag name="return">范围映射后的三维输入值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

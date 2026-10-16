@@ -66,7 +66,11 @@ func create_required_plan() -> GFBindingPlan:
 ## [br]
 ## @return 绑定构建器。
 func bind_model(script_cls: Script) -> GFBindBuilder:
-	return GFBindBuilderBase.new(_architecture, GFBindBuilderBase.TargetKind.MODEL, script_cls)
+	return GFBindBuilderBase.new(
+		_architecture,
+		GFBindBuilderBase.TargetKind.MODEL,
+		script_cls
+	)
 
 
 ## 声明一个 System 绑定。
@@ -77,7 +81,11 @@ func bind_model(script_cls: Script) -> GFBindBuilder:
 ## [br]
 ## @return 绑定构建器。
 func bind_system(script_cls: Script) -> GFBindBuilder:
-	return GFBindBuilderBase.new(_architecture, GFBindBuilderBase.TargetKind.SYSTEM, script_cls)
+	return GFBindBuilderBase.new(
+		_architecture,
+		GFBindBuilderBase.TargetKind.SYSTEM,
+		script_cls
+	)
 
 
 ## 声明一个 Utility 绑定。
@@ -88,7 +96,11 @@ func bind_system(script_cls: Script) -> GFBindBuilder:
 ## [br]
 ## @return 绑定构建器。
 func bind_utility(script_cls: Script) -> GFBindBuilder:
-	return GFBindBuilderBase.new(_architecture, GFBindBuilderBase.TargetKind.UTILITY, script_cls)
+	return GFBindBuilderBase.new(
+		_architecture,
+		GFBindBuilderBase.TargetKind.UTILITY,
+		script_cls
+	)
 
 
 ## 声明一个短生命周期对象工厂绑定。
@@ -99,4 +111,8 @@ func bind_utility(script_cls: Script) -> GFBindBuilder:
 ## [br]
 ## @return 绑定构建器。
 func bind_factory(script_cls: Script) -> GFBindBuilder:
-	return GFBindBuilderBase.new(_architecture, GFBindBuilderBase.TargetKind.FACTORY, script_cls)
+	return GFBindBuilderBase.new(
+		_architecture,
+		GFBindBuilderBase.TargetKind.FACTORY,
+		script_cls
+	)

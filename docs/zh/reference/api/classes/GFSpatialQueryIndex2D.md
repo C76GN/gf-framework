@@ -24,7 +24,7 @@
 | 属性 | [`quadtree_max_depth`](#member-gfspatialqueryindex2d-properties-quadtree_max_depth) | `var quadtree_max_depth: int = GFQuadTreeUtility.DEFAULT_MAX_DEPTH:` |
 | 属性 | [`quadtree_max_entities`](#member-gfspatialqueryindex2d-properties-quadtree_max_entities) | `var quadtree_max_entities: int = GFQuadTreeUtility.DEFAULT_MAX_ENTITIES:` |
 | 方法 | [`configure`](#member-gfspatialqueryindex2d-methods-configure) | `func configure( world_bounds: Rect2, p_strategy: StringName = STRATEGY_AUTO, options: Dictionary = {} ) -> GFSpatialQueryIndex2D:` |
-| 方法 | [`upsert`](#member-gfspatialqueryindex2d-methods-upsert) | `func upsert(entity: Variant, rect: Rect2, p_metadata: Dictionary = {}) -> bool:` |
+| 方法 | [`upsert`](#member-gfspatialqueryindex2d-methods-upsert) | `func upsert( entity: Variant, rect: Rect2, p_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`upsert_point`](#member-gfspatialqueryindex2d-methods-upsert_point) | `func upsert_point( entity: Variant, position: Vector2, radius: float = 0.0, p_metadata: Dictionary = {} ) -> bool:` |
 | 方法 | [`remove`](#member-gfspatialqueryindex2d-methods-remove) | `func remove(entity: Variant) -> bool:` |
 | 方法 | [`clear`](#member-gfspatialqueryindex2d-methods-clear) | `func clear() -> void:` |
@@ -33,13 +33,13 @@
 | 方法 | [`prune_invalid_entities`](#member-gfspatialqueryindex2d-methods-prune_invalid_entities) | `func prune_invalid_entities() -> void:` |
 | 方法 | [`get_entity_record`](#member-gfspatialqueryindex2d-methods-get_entity_record) | `func get_entity_record(entity: Variant) -> Dictionary:` |
 | 方法 | [`query_rect`](#member-gfspatialqueryindex2d-methods-query_rect) | `func query_rect(area: Rect2) -> Array[Variant]:` |
-| 方法 | [`query_rect_into`](#member-gfspatialqueryindex2d-methods-query_rect_into) | `func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_rect_into`](#member-gfspatialqueryindex2d-methods-query_rect_into) | `func query_rect_into( area: Rect2, out_entities: Array, clear_output: bool = true ) -> Array:` |
 | 方法 | [`query_radius`](#member-gfspatialqueryindex2d-methods-query_radius) | `func query_radius(center: Vector2, radius: float) -> Array[Variant]:` |
-| 方法 | [`query_radius_into`](#member-gfspatialqueryindex2d-methods-query_radius_into) | `func query_radius_into(center: Vector2, radius: float, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_radius_into`](#member-gfspatialqueryindex2d-methods-query_radius_into) | `func query_radius_into( center: Vector2, radius: float, out_entities: Array, clear_output: bool = true ) -> Array:` |
 | 方法 | [`query_point`](#member-gfspatialqueryindex2d-methods-query_point) | `func query_point(point: Vector2) -> Array[Variant]:` |
-| 方法 | [`query_point_into`](#member-gfspatialqueryindex2d-methods-query_point_into) | `func query_point_into(point: Vector2, out_entities: Array, clear_output: bool = true) -> Array:` |
+| 方法 | [`query_point_into`](#member-gfspatialqueryindex2d-methods-query_point_into) | `func query_point_into( point: Vector2, out_entities: Array, clear_output: bool = true ) -> Array:` |
 | 方法 | [`query_records_rect`](#member-gfspatialqueryindex2d-methods-query_records_rect) | `func query_records_rect(area: Rect2) -> Array[Dictionary]:` |
-| 方法 | [`query_records_rect_into`](#member-gfspatialqueryindex2d-methods-query_records_rect_into) | `func query_records_rect_into(area: Rect2, out_records: Array[Dictionary], clear_output: bool = true) -> Array[Dictionary]:` |
+| 方法 | [`query_records_rect_into`](#member-gfspatialqueryindex2d-methods-query_records_rect_into) | `func query_records_rect_into( area: Rect2, out_records: Array[Dictionary], clear_output: bool = true ) -> Array[Dictionary]:` |
 | 方法 | [`query_records_radius`](#member-gfspatialqueryindex2d-methods-query_records_radius) | `func query_records_radius(center: Vector2, radius: float) -> Array[Dictionary]:` |
 | 方法 | [`query_records_radius_into`](#member-gfspatialqueryindex2d-methods-query_records_radius_into) | `func query_records_radius_into( center: Vector2, radius: float, out_records: Array[Dictionary], clear_output: bool = true ) -> Array[Dictionary]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfspatialqueryindex2d-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -190,7 +190,7 @@ func configure( world_bounds: Rect2, p_strategy: StringName = STRATEGY_AUTO, opt
 - 首次版本：`7.0.0`
 
 ```gdscript
-func upsert(entity: Variant, rect: Rect2, p_metadata: Dictionary = {}) -> bool:
+func upsert( entity: Variant, rect: Rect2, p_metadata: Dictionary = {} ) -> bool:
 ```
 
 插入或更新实体 Rect2。
@@ -389,7 +389,7 @@ func query_rect(area: Rect2) -> Array[Variant]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_rect_into(area: Rect2, out_entities: Array, clear_output: bool = true) -> Array:
+func query_rect_into( area: Rect2, out_entities: Array, clear_output: bool = true ) -> Array:
 ```
 
 查询与 Rect2 相交的实体，并写入调用方提供的数组。
@@ -443,7 +443,7 @@ func query_radius(center: Vector2, radius: float) -> Array[Variant]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_radius_into(center: Vector2, radius: float, out_entities: Array, clear_output: bool = true) -> Array:
+func query_radius_into( center: Vector2, radius: float, out_entities: Array, clear_output: bool = true ) -> Array:
 ```
 
 查询与圆相交的实体，并写入调用方提供的数组。
@@ -497,7 +497,7 @@ func query_point(point: Vector2) -> Array[Variant]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_point_into(point: Vector2, out_entities: Array, clear_output: bool = true) -> Array:
+func query_point_into( point: Vector2, out_entities: Array, clear_output: bool = true ) -> Array:
 ```
 
 查询包含点的实体，并写入调用方提供的数组。
@@ -550,7 +550,7 @@ func query_records_rect(area: Rect2) -> Array[Dictionary]:
 - 首次版本：`7.0.0`
 
 ```gdscript
-func query_records_rect_into(area: Rect2, out_records: Array[Dictionary], clear_output: bool = true) -> Array[Dictionary]:
+func query_records_rect_into( area: Rect2, out_records: Array[Dictionary], clear_output: bool = true ) -> Array[Dictionary]:
 ```
 
 查询与 Rect2 相交的实体记录，并写入调用方提供的数组。

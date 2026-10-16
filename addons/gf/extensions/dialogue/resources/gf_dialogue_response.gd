@@ -88,7 +88,15 @@ func is_available(context: GFDialogueContext) -> bool:
 		return true
 	if context == null:
 		return false
-	return GFVariantData.get_option_bool(context.check_condition(condition_id, condition_payload, self), "ok", false)
+	return GFVariantData.get_option_bool(
+		context.check_condition(
+			condition_id,
+			condition_payload,
+			self
+		),
+		"ok",
+		false
+	)
 
 
 ## 创建深拷贝。

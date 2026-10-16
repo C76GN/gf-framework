@@ -20,7 +20,7 @@
 | 属性 | [`allow_empty`](#member-gfconfigregexvalidationrule-properties-allow_empty) | `var allow_empty: bool = true` |
 | 方法 | [`describe`](#member-gfconfigregexvalidationrule-methods-describe) | `func describe() -> Dictionary:` |
 | 方法 | [`_get_default_rule_id`](#member-gfconfigregexvalidationrule-methods-_get_default_rule_id) | `func _get_default_rule_id() -> StringName:` |
-| 方法 | [`_validate_value`](#member-gfconfigregexvalidationrule-methods-_validate_value) | `func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:` |
+| 方法 | [`_validate_value`](#member-gfconfigregexvalidationrule-methods-_validate_value) | `func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:` |
 
 ## 属性
 
@@ -99,9 +99,10 @@ func _get_default_rule_id() -> StringName:
 ### `_validate_value`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -> void:
+func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -> void:
 ```
 
 校验单个字符串值是否匹配正则表达式。

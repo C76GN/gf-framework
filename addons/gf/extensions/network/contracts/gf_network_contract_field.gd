@@ -182,9 +182,21 @@ func normalize_value(value: Variant) -> Variant:
 func validate_definition() -> Dictionary:
 	var issues: Array[Dictionary] = []
 	if field_name == &"":
-		issues.append(_make_issue("error", "empty_field_name", "Network contract field name is empty."))
+		issues.append(
+			_make_issue(
+				"error",
+				"empty_field_name",
+				"Network contract field name is empty."
+			)
+		)
 	if value_type == ValueType.OBJECT:
-		issues.append(_make_issue("error", "object_value_type_not_transport_safe", "Network contract fields must not use Object values across the transport boundary."))
+		issues.append(
+			_make_issue(
+				"error",
+				"object_value_type_not_transport_safe",
+				"Network contract fields must not use Object values across the transport boundary."
+			)
+		)
 	elif default_value != null:
 		var default_issue: Dictionary = _get_default_value_issue()
 		if not default_issue.is_empty():
@@ -206,7 +218,15 @@ func validate_definition() -> Dictionary:
 func validate_value(value: Variant) -> Dictionary:
 	if value == null:
 		if not allow_null:
-			return _finalize_report([_make_issue("error", "null_not_allowed", "Network contract field does not allow null.")])
+			return _finalize_report(
+				[
+					_make_issue(
+						"error",
+						"null_not_allowed",
+						"Network contract field does not allow null."
+					),
+				]
+			)
 		return _finalize_report([])
 
 	var issue: Dictionary = _get_value_type_issue(value)
@@ -214,14 +234,27 @@ func validate_value(value: Variant) -> Dictionary:
 		return _finalize_report([issue])
 	var transport_report: Dictionary = _TRANSPORT_VALUE_VALIDATOR.validate(value)
 	if not GFVariantData.get_option_bool(transport_report, "ok"):
-		return _finalize_report([_make_issue(
-			"error",
-			"value_not_transport_safe",
-			"Network contract field contains a transport-unsafe value at %s (%s)." % [
-				GFVariantData.get_option_string(transport_report, "path", "$"),
-				GFVariantData.get_option_string(transport_report, "error", "invalid_value"),
+		return _finalize_report(
+			[
+				_make_issue(
+					"error",
+					"value_not_transport_safe",
+					"Network contract field contains a transport-unsafe value at %s (%s)."
+					% [
+						GFVariantData.get_option_string(
+							transport_report,
+							"path",
+							"$"
+						),
+						GFVariantData.get_option_string(
+							transport_report,
+							"error",
+							"invalid_value"
+						),
+					]
+				),
 			]
-		)])
+		)
 	return _finalize_report([])
 
 
@@ -266,12 +299,22 @@ func _get_default_value_issue() -> Dictionary:
 		return _make_issue(
 			"error",
 			"default_value_not_transport_safe",
-			"Network contract field default_value is not transport-safe at %s (%s)." % [
-				GFVariantData.get_option_string(transport_report, "path", "$"),
-				GFVariantData.get_option_string(transport_report, "error", "invalid_value"),
+			"Network contract field default_value is not transport-safe at %s (%s)."
+			% [
+				GFVariantData.get_option_string(
+					transport_report,
+					"path",
+					"$"
+				),
+				GFVariantData.get_option_string(
+					transport_report,
+					"error",
+					"invalid_value"
+				),
 			]
 		)
 	return {}
+
 
 ## 按声明的 ValueType 检查 Variant 类型并返回不匹配问题。
 ## [br]
@@ -319,7 +362,11 @@ func _get_value_type_issue(value: Variant) -> Dictionary:
 			if not (value is NodePath):
 				return _make_type_issue("NodePath")
 		ValueType.OBJECT:
-			return _make_issue("error", "object_value_type_not_transport_safe", "Network contract fields must not use Object values across the transport boundary.")
+			return _make_issue(
+				"error",
+				"object_value_type_not_transport_safe",
+				"Network contract fields must not use Object values across the transport boundary."
+			)
 		_:
 			pass
 	return {}
@@ -350,14 +397,22 @@ func _object_matches_class_hint(value: Object) -> bool:
 ## @api private
 ## [br]
 func _make_type_issue(expected_type: String) -> Dictionary:
-	return _make_issue("error", "type_mismatch", "Network contract field expected %s." % expected_type)
+	return _make_issue(
+		"error",
+		"type_mismatch",
+		"Network contract field expected %s." % expected_type
+	)
 
 
 ## 构造包含字段名及字段路径的验证问题字典。
 ## [br]
 ## @api private
 ## [br]
-func _make_issue(severity: String, kind: String, message: String) -> Dictionary:
+func _make_issue(
+	severity: String,
+	kind: String,
+	message: String
+) -> Dictionary:
 	var issue: Dictionary = {
 		"severity": severity,
 		"kind": kind,
@@ -379,10 +434,11 @@ func _finalize_report(issues: Array[Dictionary]) -> Dictionary:
 		"field_name": field_name,
 		"issues": issues,
 	}
-	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(report, "Network contract field", {
-		"include_issue_count": true,
-		"next_actions": _get_validation_next_actions(),
-	})
+	return _GF_VALIDATION_REPORT_DICTIONARY.finalize_report(
+		report,
+		"Network contract field",
+		{ "include_issue_count": true, "next_actions": _get_validation_next_actions(), }
+	)
 
 
 ## 按字段默认值、类型及传输安全错误提供修复建议。

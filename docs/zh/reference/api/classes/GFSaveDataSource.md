@@ -23,7 +23,7 @@
 | 方法 | [`get_data_provider`](#member-gfsavedatasource-methods-get_data_provider) | `func get_data_provider() -> Object:` |
 | 方法 | [`describe_data_provider`](#member-gfsavedatasource-methods-describe_data_provider) | `func describe_data_provider() -> Dictionary:` |
 | 方法 | [`describe_source`](#member-gfsavedatasource-methods-describe_source) | `func describe_source(scope: Node = null) -> Dictionary:` |
-| 方法 | [`_gather_save_data`](#member-gfsavedatasource-methods-_gather_save_data) | `func _gather_save_data( context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:` |
+| 方法 | [`_gather_save_data`](#member-gfsavedatasource-methods-_gather_save_data) | `func _gather_save_data(context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null) -> Variant:` |
 | 方法 | [`_apply_save_data`](#member-gfsavedatasource-methods-_apply_save_data) | `func _apply_save_data( payload: Variant, _context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Dictionary:` |
 
 ## 属性
@@ -151,9 +151,10 @@ func describe_source(scope: Node = null) -> Dictionary:
 ### `_gather_save_data`
 
 - API：`protected`
+- 首次版本：`3.18.0`
 
 ```gdscript
-func _gather_save_data( context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null ) -> Variant:
+func _gather_save_data(context: Dictionary = {}, _serializer_registry: GFNodeSerializerRegistry = null) -> Variant:
 ```
 
 采集数据对象载荷。

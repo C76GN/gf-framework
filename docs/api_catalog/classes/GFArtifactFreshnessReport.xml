@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArtifactFreshnessReport" path="addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd" module="standard" extends="RefCounted" classDigest="134fb55cd9bfe1598c36fb97dc66dd14dd33b43311addcf7d9f878b9a885a394">
+<class name="GFArtifactFreshnessReport" path="addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd" module="standard" extends="RefCounted" classDigest="6bf52e5683e5e413c5523d8f699d1512ccf526cf4f40549335f96f62bba0a36a">
 	<description>GFArtifactFreshnessReport: 通用 artifact 新鲜度与完整性报告。
 检查本地 artifact 是否存在、可读、大小和 sha256 是否符合期望，以及生成时记录的
 source digest 是否仍匹配当前 source digest。它只读取本地文件元数据，不解析业务内容。</description>
@@ -61,7 +61,7 @@ source digest 是否仍匹配当前 source digest。它只读取本地文件元�
 			</tags>
 		</member>
 		<member kind="method" name="add_artifact">
-			<signature>func add_artifact(artifact_id: StringName, path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func add_artifact( artifact_id: StringName, path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>添加 artifact 条目。</description>
 			<tags>
 				<tag name="api">public</tag>

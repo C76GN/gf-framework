@@ -15,10 +15,10 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`scan_hit`](#member-gfhitscan3d-signals-scan_hit) | `signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionary)` |
+| 信号 | [`scan_hit`](#member-gfhitscan3d-signals-scan_hit) | `signal scan_hit( context: GFCombatHitContext, receiver: Object, report: Dictionary )` |
 | 信号 | [`scan_missed`](#member-gfhitscan3d-signals-scan_missed) | `signal scan_missed(report: Dictionary)` |
-| 信号 | [`hit_accepted`](#member-gfhitscan3d-signals-hit_accepted) | `signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)` |
-| 信号 | [`hit_rejected`](#member-gfhitscan3d-signals-hit_rejected) | `signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)` |
+| 信号 | [`hit_accepted`](#member-gfhitscan3d-signals-hit_accepted) | `signal hit_accepted( context: GFCombatHitContext, receiver: Object, report: Dictionary )` |
+| 信号 | [`hit_rejected`](#member-gfhitscan3d-signals-hit_rejected) | `signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dictionary )` |
 | 属性 | [`hit_enabled`](#member-gfhitscan3d-properties-hit_enabled) | `var hit_enabled: bool = true` |
 | 属性 | [`force_update_before_scan`](#member-gfhitscan3d-properties-force_update_before_scan) | `var force_update_before_scan: bool = true` |
 | 属性 | [`hit_id`](#member-gfhitscan3d-properties-hit_id) | `var hit_id: StringName = &""` |
@@ -40,7 +40,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal scan_hit(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal scan_hit( context: GFCombatHitContext, receiver: Object, report: Dictionary )
 ```
 
 扫描命中对象后发出。
@@ -88,7 +88,7 @@ signal scan_missed(report: Dictionary)
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_accepted( context: GFCombatHitContext, receiver: Object, report: Dictionary )
 ```
 
 命中被接收对象接受。
@@ -113,7 +113,7 @@ signal hit_accepted(context: GFCombatHitContext, receiver: Object, report: Dicti
 - 首次版本：`3.17.0`
 
 ```gdscript
-signal hit_rejected(context: GFCombatHitContext, receiver: Object, report: Dictionary)
+signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dictionary )
 ```
 
 命中被接收对象拒绝或发送失败。

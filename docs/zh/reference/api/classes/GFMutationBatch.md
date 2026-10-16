@@ -22,7 +22,7 @@
 | 信号 | [`cleared`](#member-gfmutationbatch-signals-cleared) | `signal cleared` |
 | 属性 | [`stop_on_error`](#member-gfmutationbatch-properties-stop_on_error) | `var stop_on_error: bool = true` |
 | 属性 | [`auto_clear_committed_on_success`](#member-gfmutationbatch-properties-auto_clear_committed_on_success) | `var auto_clear_committed_on_success: bool = false` |
-| 方法 | [`add_operation`](#member-gfmutationbatch-methods-add_operation) | `func add_operation(operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {}) -> int:` |
+| 方法 | [`add_operation`](#member-gfmutationbatch-methods-add_operation) | `func add_operation( operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {} ) -> int:` |
 | 方法 | [`commit`](#member-gfmutationbatch-methods-commit) | `func commit(max_operations: int = -1) -> Dictionary:` |
 | 方法 | [`rollback_committed`](#member-gfmutationbatch-methods-rollback_committed) | `func rollback_committed(max_operations: int = -1) -> Dictionary:` |
 | 方法 | [`clear`](#member-gfmutationbatch-methods-clear) | `func clear() -> void:` |
@@ -162,9 +162,10 @@ var auto_clear_committed_on_success: bool = false
 ### `add_operation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func add_operation(operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {}) -> int:
+func add_operation( operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {} ) -> int:
 ```
 
 添加一个批次操作。

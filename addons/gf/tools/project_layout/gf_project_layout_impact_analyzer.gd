@@ -10,13 +10,21 @@ extends RefCounted
 ## [br]
 ## @api private
 ## [br]
-const _CHANGE_FIELDS: PackedStringArray = ["kind", "source_path", "target_path"]
+const _CHANGE_FIELDS: PackedStringArray = [
+	"kind",
+	"source_path",
+	"target_path",
+]
 
 ## change.kind 允许的操作值集合。
 ## [br]
 ## @api private
 ## [br]
-const _CHANGE_KINDS: PackedStringArray = ["delete", "move", "rename"]
+const _CHANGE_KINDS: PackedStringArray = [
+	"delete",
+	"move",
+	"rename",
+]
 
 ## change 字典允许的最大字段数。
 ## [br]
@@ -46,9 +54,7 @@ const _MAX_CHANGE_PATH_LENGTH: int = 16_379
 ## [br]
 ## @api private
 ## [br]
-const _ANALYSIS_CONTRACT_SCRIPT = preload(
-	"res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd"
-)
+const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_analysis_contract.gd")
 
 ## change 分析接受的 validation 字段名集合。
 ## [br]
@@ -142,7 +148,11 @@ func analyze_validated_change(
 		return _make_resource_limited_result()
 	var result: Dictionary = _make_result("")
 	if not _validation_is_usable(validation):
-		_add_issue(result, "invalid_analysis", "输入不符合闭合 Project Layout analysis/graph 契约。")
+		_add_issue(
+			result,
+			"invalid_analysis",
+			"输入不符合闭合 Project Layout analysis/graph 契约。"
+		)
 		result["status"] = "unsafe"
 		return result
 	if not _checkpoint_allows(checkpoint):
@@ -155,12 +165,19 @@ func analyze_validated_change(
 		result["status"] = "unsafe"
 		return result
 	var graph: Dictionary = _get_dictionary(analysis, "graph")
-	if (
-		not _get_bool(validation, "complete")
-		or not _get_bool(analysis, "evaluation_complete")
-	):
-		_add_blocker(result, "analysis_incomplete", "", "分析输入或求值不完整；当前影响只能保持 unknown。")
-		_add_blocker(result, "dependency_coverage_incomplete", "", "当前图未证明完整依赖覆盖。")
+	if (not _get_bool(validation, "complete") or not _get_bool(analysis, "evaluation_complete")):
+		_add_blocker(
+			result,
+			"analysis_incomplete",
+			"",
+			"分析输入或求值不完整；当前影响只能保持 unknown。"
+		)
+		_add_blocker(
+			result,
+			"dependency_coverage_incomplete",
+			"",
+			"当前图未证明完整依赖覆盖。"
+		)
 		result["status"] = "unknown"
 		result["complete"] = false
 		return result
@@ -168,10 +185,25 @@ func analyze_validated_change(
 	var source_path: String = _get_string(normalized_change, "source_path")
 	var source_node_id: String = _find_node_id(analysis_index, source_path)
 	if source_node_id.is_empty():
-		_add_blocker(result, "source_not_observed", source_path, "源路径不在冻结库存中。")
-		return _finalize_result(result, analysis, graph, checkpoint)
+		_add_blocker(
+			result,
+			"source_not_observed",
+			source_path,
+			"源路径不在冻结库存中。"
+		)
+		return _finalize_result(
+			result,
+			analysis,
+			graph,
+			checkpoint
+		)
 	if source_path == ".":
-		_add_blocker(result, "project_root_protected", source_path, "项目根目录不能作为结构变更目标。")
+		_add_blocker(
+			result,
+			"project_root_protected",
+			source_path,
+			"项目根目录不能作为结构变更目标。"
+		)
 	var affected_node_ids: PackedStringArray = _collect_descendants(
 		result,
 		analysis_index,
@@ -193,12 +225,30 @@ func analyze_validated_change(
 	var target_path: String = _get_string(normalized_change, "target_path")
 	if (
 		not target_path.is_empty()
-		and (target_path == source_path or target_path.begins_with("%s/" % source_path))
+		and (
+			target_path == source_path
+			or target_path.begins_with("%s/" % source_path)
+		)
 	):
-		_add_blocker(result, "target_inside_source", target_path, "移动或重命名目标不能位于源路径内部。")
+		_add_blocker(
+			result,
+			"target_inside_source",
+			target_path,
+			"移动或重命名目标不能位于源路径内部。"
+		)
 	if not target_path.is_empty() and not _find_node_id(analysis_index, target_path).is_empty():
-		_add_blocker(result, "target_already_exists", target_path, "目标路径已存在。")
-	return _finalize_result(result, analysis, graph, checkpoint)
+		_add_blocker(
+			result,
+			"target_already_exists",
+			target_path,
+			"目标路径已存在。"
+		)
+	return _finalize_result(
+		result,
+		analysis,
+		graph,
+		checkpoint
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -293,18 +343,13 @@ func _change_is_intrinsically_admissible(change: Dictionary) -> bool:
 		if not key_value is String:
 			return false
 		var key: String = key_value
-		if (
-			key.length() > _MAX_CHANGE_KEY_LENGTH
-			or not _CHANGE_FIELDS.has(key)
-		):
+		if (key.length() > _MAX_CHANGE_KEY_LENGTH or not _CHANGE_FIELDS.has(key)):
 			return false
 		var field_value: Variant = change[key]
 		if not field_value is String:
 			return false
 		var text: String = field_value
-		var maximum_length: int = (
-			_MAX_CHANGE_KIND_LENGTH if key == "kind" else _MAX_CHANGE_PATH_LENGTH
-		)
+		var maximum_length: int = _MAX_CHANGE_KIND_LENGTH if key == "kind" else _MAX_CHANGE_PATH_LENGTH
 		if text.length() > maximum_length:
 			return false
 	return true
@@ -316,22 +361,42 @@ func _change_is_intrinsically_admissible(change: Dictionary) -> bool:
 func _normalize_change(change: Dictionary, result: Dictionary) -> Dictionary:
 	for key_value: Variant in change.keys():
 		if not key_value is String:
-			_add_issue(result, "unsupported_change_field", "change 包含不受支持的字段。")
+			_add_issue(
+				result,
+				"unsupported_change_field",
+				"change 包含不受支持的字段。"
+			)
 			continue
 		var key: String = key_value
 		if not _CHANGE_FIELDS.has(key):
-			_add_issue(result, "unsupported_change_field", "change 包含不受支持的字段。")
+			_add_issue(
+				result,
+				"unsupported_change_field",
+				"change 包含不受支持的字段。"
+			)
 	var change_kind: String = _get_string(change, "kind")
 	if not _CHANGE_KINDS.has(change_kind):
-		_add_issue(result, "unsupported_change_kind", "change.kind 必须是 delete、move 或 rename。")
+		_add_issue(
+			result,
+			"unsupported_change_kind",
+			"change.kind 必须是 delete、move 或 rename。"
+		)
 	var source_path: String = _canonical_relative_path(_get_string(change, "source_path"))
 	if source_path.is_empty():
-		_add_issue(result, "invalid_source_path", "source_path 必须是规范项目相对路径。")
+		_add_issue(
+			result,
+			"invalid_source_path",
+			"source_path 必须是规范项目相对路径。"
+		)
 	var target_path: String = ""
 	if change_kind == "move" or change_kind == "rename":
 		target_path = _canonical_relative_path(_get_string(change, "target_path"))
 		if target_path.is_empty() or target_path == ".":
-			_add_issue(result, "invalid_target_path", "target_path 必须是非根规范项目相对路径。")
+			_add_issue(
+				result,
+				"invalid_target_path",
+				"target_path 必须是非根规范项目相对路径。"
+			)
 	return {
 		"kind": change_kind,
 		"source_path": source_path,
@@ -345,13 +410,25 @@ func _normalize_change(change: Dictionary, result: Dictionary) -> Dictionary:
 func _canonical_relative_path(path: String) -> String:
 	if path == ".":
 		return path
-	if path.is_empty() or path != path.strip_edges() or path.contains("\\"):
+	if (
+		path.is_empty()
+		or path != path.strip_edges()
+		or path.contains("\\")
+	):
 		return ""
-	if path.begins_with("/") or path.contains(":") or path.ends_with("/"):
+	if (
+		path.begins_with("/")
+		or path.contains(":")
+		or path.ends_with("/")
+	):
 		return ""
 	var parts: PackedStringArray = path.split("/", true)
 	for part: String in parts:
-		if part.is_empty() or part == "." or part == "..":
+		if (
+			part.is_empty()
+			or part == "."
+			or part == ".."
+		):
 			return ""
 	return path
 
@@ -360,10 +437,7 @@ func _canonical_relative_path(path: String) -> String:
 ## [br]
 ## @api private
 func _find_node_id(analysis_index: Dictionary, relative_path: String) -> String:
-	var node_id_by_path: Dictionary = _get_dictionary(
-		analysis_index,
-		"node_id_by_path"
-	)
+	var node_id_by_path: Dictionary = _get_dictionary(analysis_index, "node_id_by_path")
 	var node_id_value: Variant = node_id_by_path.get(relative_path)
 	return node_id_value if node_id_value is String else ""
 
@@ -379,10 +453,7 @@ func _collect_descendants(
 ) -> PackedStringArray:
 	var collected_ids: PackedStringArray = PackedStringArray([source_node_id])
 	var visited: Dictionary = { source_node_id: true }
-	var children_by_id: Dictionary = _get_dictionary(
-		analysis_index,
-		"children_by_id"
-	)
+	var children_by_id: Dictionary = _get_dictionary(analysis_index, "children_by_id")
 	var cursor: int = 0
 	while cursor < collected_ids.size():
 		if not _checkpoint_allows(checkpoint):
@@ -404,7 +475,13 @@ func _collect_descendants(
 				visited[child_id] = true
 				var _append_child: bool = collected_ids.append(child_id)
 		cursor += 1
-	if not _checkpoint_allows(checkpoint, maxi(1, _sort_work_units(collected_ids.size()))):
+	if not _checkpoint_allows(
+		checkpoint,
+		maxi(
+			1,
+			_sort_work_units(collected_ids.size())
+		)
+	):
 		_stop_for_checkpoint(impact)
 		return PackedStringArray()
 	collected_ids.sort()
@@ -445,7 +522,13 @@ func _collect_evidence_ids(
 				continue
 			seen_ids[evidence_id] = true
 			collected_ids.append(evidence_id)
-	if not _checkpoint_allows(checkpoint, maxi(1, _sort_work_units(collected_ids.size()))):
+	if not _checkpoint_allows(
+		checkpoint,
+		maxi(
+			1,
+			_sort_work_units(collected_ids.size())
+		)
+	):
 		_stop_for_checkpoint(impact)
 		return []
 	collected_ids.sort()
@@ -535,24 +618,32 @@ func _add_blocker(
 	message: String
 ) -> void:
 	var blockers: Array = _get_array(result, "blockers")
-	blockers.append({
-		"kind": blocker_kind,
-		"path": path,
-		"message": message,
-	})
+	blockers.append(
+		{
+			"kind": blocker_kind,
+			"path": path,
+			"message": message,
+		}
+	)
 
 
 ## 向 impact result.issues 追加一条 error 级诊断。
 ## [br]
 ## @api private
 ## [br]
-func _add_issue(result: Dictionary, issue_kind: String, message: String) -> void:
+func _add_issue(
+	result: Dictionary,
+	issue_kind: String,
+	message: String
+) -> void:
 	var issues: Array = _get_array(result, "issues")
-	issues.append({
-		"severity": "error",
-		"kind": issue_kind,
-		"message": message,
-	})
+	issues.append(
+		{
+			"severity": "error",
+			"kind": issue_kind,
+			"message": message,
+		}
+	)
 
 
 ## 判断字典键是否全部为字符串且与给定字段集合完全相同。
@@ -575,7 +666,11 @@ func _has_exact_fields(source: Dictionary, fields: PackedStringArray) -> bool:
 ## [br]
 ## @api private
 ## [br]
-func _get_string(source: Dictionary, key: String, default_value: String = "") -> String:
+func _get_string(
+	source: Dictionary,
+	key: String,
+	default_value: String = ""
+) -> String:
 	var value: Variant = source.get(key, default_value)
 	return value if value is String else default_value
 
@@ -584,7 +679,11 @@ func _get_string(source: Dictionary, key: String, default_value: String = "") ->
 ## [br]
 ## @api private
 ## [br]
-func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
+func _get_int(
+	source: Dictionary,
+	key: String,
+	default_value: int = 0
+) -> int:
 	var value: Variant = source.get(key, default_value)
 	return value if value is int else default_value
 
@@ -593,7 +692,11 @@ func _get_int(source: Dictionary, key: String, default_value: int = 0) -> int:
 ## [br]
 ## @api private
 ## [br]
-func _get_bool(source: Dictionary, key: String, default_value: bool = false) -> bool:
+func _get_bool(
+	source: Dictionary,
+	key: String,
+	default_value: bool = false
+) -> bool:
 	var value: Variant = source.get(key, default_value)
 	return value if value is bool else default_value
 

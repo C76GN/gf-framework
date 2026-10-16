@@ -95,10 +95,7 @@ func build_catalog(options: Dictionary = {}) -> GFAssetCatalog:
 			continue
 		var registry_entry_value: Resource = registry.get_entry(StringName(entry_id_text))
 		var registry_entry: GFResourceRegistryEntry = _get_registry_entry(registry_entry_value)
-		var asset_entry: GFAssetCatalogEntry = GFAssetCatalogEntry.from_resource_registry_entry(
-			registry_entry,
-			resolved_entry_options
-		)
+		var asset_entry: GFAssetCatalogEntry = GFAssetCatalogEntry.from_resource_registry_entry(registry_entry, resolved_entry_options)
 		if asset_entry != null:
 			var _stored: bool = catalog.set_entry(asset_entry)
 	return catalog
@@ -129,7 +126,12 @@ func get_debug_snapshot() -> Dictionary:
 func _resolve_entry_options(options: Dictionary) -> Dictionary:
 	var resolved: Dictionary = entry_options.duplicate(true)
 	var override_options: Dictionary = GFVariantData.get_option_dictionary(options, "entry_options")
-	var _merged: Dictionary = GFVariantData.merge_dictionary(resolved, override_options, true, true)
+	var _merged: Dictionary = GFVariantData.merge_dictionary(
+		resolved,
+		override_options,
+		true,
+		true
+	)
 	return resolved
 
 

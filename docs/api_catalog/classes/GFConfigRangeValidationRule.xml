@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigRangeValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_range_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="c43b89166c658530b2fe6404fb6d809518d6e86666602355cb057cae31c8a0cd">
+<class name="GFConfigRangeValidationRule" path="addons/gf/standard/utilities/config/validation/gf_config_range_validation_rule.gd" module="standard" extends="GFConfigValidationRule" classDigest="43c453eaf21dcaa702ddcc3d1739d5bf6f4ffb88fc42585019251e8fa5571f5e">
 	<description>GFConfigRangeValidationRule: 数值范围校验规则。
 用于声明字段数值上下限。上下限可以单独启用，比较方式可选择是否包含边界。</description>
 	<tags>
@@ -73,7 +73,7 @@
 			</tags>
 		</member>
 		<member kind="method" name="_validate_value">
-			<signature>func _validate_value(value: Variant, context: Dictionary, report: Dictionary) -&gt; void:</signature>
+			<signature>func _validate_value( value: Variant, context: Dictionary, report: Dictionary ) -&gt; void:</signature>
 			<description>校验单个数值是否落在允许范围内。</description>
 			<tags>
 				<tag name="api">protected</tag>
@@ -83,6 +83,7 @@
 				<tag name="schema">value: Variant，期望为 int 或 float。</tag>
 				<tag name="schema">context: Dictionary，可包含 table_name、row_key、field、source、line 和 column 字段。</tag>
 				<tag name="schema">report: GFConfigValidationReport 兼容 Dictionary，会被当前规则修改。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -25,7 +25,7 @@
 | 方法 | [`reset_backend_health`](#member-gfstoragefailoverbackend-methods-reset_backend_health) | `func reset_backend_health(backend_id: StringName = &"") -> bool:` |
 | 方法 | [`_initialize`](#member-gfstoragefailoverbackend-methods-_initialize) | `func _initialize(config: Dictionary) -> Error:` |
 | 方法 | [`_shutdown`](#member-gfstoragefailoverbackend-methods-_shutdown) | `func _shutdown() -> void:` |
-| 方法 | [`_save_data`](#member-gfstoragefailoverbackend-methods-_save_data) | `func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error:` |
+| 方法 | [`_save_data`](#member-gfstoragefailoverbackend-methods-_save_data) | `func _save_data( file_name: String, data: Dictionary, metadata: Dictionary ) -> Error:` |
 | 方法 | [`_load_data`](#member-gfstoragefailoverbackend-methods-_load_data) | `func _load_data(file_name: String) -> Dictionary:` |
 | 方法 | [`_delete_data`](#member-gfstoragefailoverbackend-methods-_delete_data) | `func _delete_data(file_name: String) -> Error:` |
 | 方法 | [`_has_data`](#member-gfstoragefailoverbackend-methods-_has_data) | `func _has_data(file_name: String) -> bool:` |
@@ -237,7 +237,7 @@ func _shutdown() -> void:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error:
+func _save_data( file_name: String, data: Dictionary, metadata: Dictionary ) -> Error:
 ```
 
 按当前 mutation_policy 保存数据。

@@ -231,7 +231,11 @@ func write_value(row_data: Variant, new_value: Variant) -> bool:
 	if not editable:
 		return false
 	if value_setter.is_valid():
-		var setter_result: Variant = value_setter.call(row_data, new_value, self)
+		var setter_result: Variant = value_setter.call(
+			row_data,
+			new_value,
+			self
+		)
 		if setter_result is bool:
 			var setter_ok: bool = setter_result
 			return setter_ok
@@ -256,7 +260,11 @@ func write_value(row_data: Variant, new_value: Variant) -> bool:
 ## @schema row_data: Variant，调用方保存的行数据。
 func format_value(value: Variant, row_data: Variant = null) -> String:
 	if value_formatter.is_valid():
-		var formatted_value: Variant = value_formatter.call(value, row_data, self)
+		var formatted_value: Variant = value_formatter.call(
+			value,
+			row_data,
+			self
+		)
 		return GFVariantData.to_text(formatted_value)
 	if value == null:
 		return ""
@@ -278,13 +286,20 @@ func format_value(value: Variant, row_data: Variant = null) -> String:
 ## @return 匹配时返回 true。
 ## [br]
 ## @schema row_data: Variant，调用方保存的行数据。
-func matches_query(row_data: Variant, query: String, case_sensitive: bool = false) -> bool:
+func matches_query(
+	row_data: Variant,
+	query: String,
+	case_sensitive: bool = false
+) -> bool:
 	if not filterable:
 		return false
 	if query.is_empty():
 		return true
 
-	var value_text: String = format_value(read_value(row_data), row_data)
+	var value_text: String = format_value(
+		read_value(row_data),
+		row_data
+	)
 	var query_text: String = query
 	if not case_sensitive:
 		value_text = value_text.to_lower()
@@ -322,7 +337,13 @@ func compare_values(
 	right_row: Variant = null
 ) -> int:
 	if value_comparator.is_valid():
-		var compare_result: Variant = value_comparator.call(left_value, right_value, left_row, right_row, self)
+		var compare_result: Variant = value_comparator.call(
+			left_value,
+			right_value,
+			left_row,
+			right_row,
+			self
+		)
 		return _normalize_compare_result(compare_result)
 
 	match _resolve_sort_mode(left_value, right_value):
@@ -331,7 +352,12 @@ func compare_values(
 		SortMode.BOOL:
 			return _compare_bool_values(left_value, right_value)
 		_:
-			return _compare_text_values(left_value, right_value, left_row, right_row)
+			return _compare_text_values(
+				left_value,
+				right_value,
+				left_row,
+				right_row
+			)
 
 
 ## 创建同内容拷贝。

@@ -34,12 +34,18 @@ signal attribute_removed(attribute_id: StringName)
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param attribute_id: 属性标识。
 ## [br]
 ## @param current_value: 当前值。
 ## [br]
 ## @param previous_value: 变化前的值。
-signal attribute_changed(attribute_id: StringName, current_value: float, previous_value: float)
+signal attribute_changed(
+	attribute_id: StringName,
+	current_value: float,
+	previous_value: float
+)
 
 
 # --- 私有变量 ---
@@ -84,7 +90,10 @@ func set_attribute(attribute_id: StringName, attribute: GFModifiedAttribute) -> 
 		return false
 
 	if _attributes.has(attribute_id):
-		_disconnect_attribute(attribute_id, _attributes[attribute_id])
+		_disconnect_attribute(
+			attribute_id,
+			_attributes[attribute_id]
+		)
 	_attributes[attribute_id] = attribute
 	_connect_attribute(attribute_id, attribute)
 	attribute_defined.emit(attribute_id, attribute)
@@ -220,7 +229,10 @@ func get_value(attribute_id: StringName, default_value: float = 0.0) -> float:
 	var attribute: GFModifiedAttribute = get_attribute(attribute_id)
 	if attribute == null:
 		return default_value
-	return GFVariantData.to_float(attribute.current_value.get_value(), default_value)
+	return GFVariantData.to_float(
+		attribute.current_value.get_value(),
+		default_value
+	)
 
 
 ## 设置属性基础值。
@@ -425,7 +437,11 @@ func _get_attribute_value(value: Variant) -> GFModifiedAttribute:
 ## 将绑定的属性标识与收窄后的新旧浮点值转发为 attribute_changed，输出参数按新值、旧值排列。
 ## [br]
 ## @api private
-func _on_attribute_value_changed(previous_value: Variant, current_value: Variant, attribute_id: StringName) -> void:
+func _on_attribute_value_changed(
+	previous_value: Variant,
+	current_value: Variant,
+	attribute_id: StringName
+) -> void:
 	attribute_changed.emit(
 		attribute_id,
 		GFVariantData.to_float(current_value),

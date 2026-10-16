@@ -28,11 +28,11 @@
 | 方法 | [`is_filter_case_sensitive`](#member-gftabledataview-methods-is_filter_case_sensitive) | `func is_filter_case_sensitive() -> bool:` |
 | 方法 | [`set_selection_model`](#member-gftabledataview-methods-set_selection_model) | `func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResult:` |
 | 方法 | [`get_selection_model`](#member-gftabledataview-methods-get_selection_model) | `func get_selection_model() -> GFTableSelectionModel:` |
-| 方法 | [`set_columns`](#member-gftabledataview-methods-set_columns) | `func set_columns( column_definitions: Array[GFTableColumnDefinition] ) -> GFTableViewRebuildResult:` |
+| 方法 | [`set_columns`](#member-gftabledataview-methods-set_columns) | `func set_columns(column_definitions: Array[GFTableColumnDefinition]) -> GFTableViewRebuildResult:` |
 | 方法 | [`add_column`](#member-gftabledataview-methods-add_column) | `func add_column(column: GFTableColumnDefinition) -> bool:` |
 | 方法 | [`get_columns`](#member-gftabledataview-methods-get_columns) | `func get_columns() -> Array[GFTableColumnDefinition]:` |
 | 方法 | [`get_column`](#member-gftabledataview-methods-get_column) | `func get_column(column_id: StringName) -> GFTableColumnDefinition:` |
-| 方法 | [`set_rows`](#member-gftabledataview-methods-set_rows) | `func set_rows( row_values: Array, duplicate_rows: bool = false ) -> GFTableViewRebuildResult:` |
+| 方法 | [`set_rows`](#member-gftabledataview-methods-set_rows) | `func set_rows(row_values: Array, duplicate_rows: bool = false) -> GFTableViewRebuildResult:` |
 | 方法 | [`append_row`](#member-gftabledataview-methods-append_row) | `func append_row(row_data: Variant) -> int:` |
 | 方法 | [`remove_row`](#member-gftabledataview-methods-remove_row) | `func remove_row(row_index: int, should_prune_selection: bool = true) -> bool:` |
 | 方法 | [`clear_rows`](#member-gftabledataview-methods-clear_rows) | `func clear_rows() -> void:` |
@@ -48,11 +48,11 @@
 | 方法 | [`get_visible_row_ids`](#member-gftabledataview-methods-get_visible_row_ids) | `func get_visible_row_ids() -> Array:` |
 | 方法 | [`set_filter_query`](#member-gftabledataview-methods-set_filter_query) | `func set_filter_query(query: String) -> GFTableViewRebuildResult:` |
 | 方法 | [`get_filter_query`](#member-gftabledataview-methods-get_filter_query) | `func get_filter_query() -> String:` |
-| 方法 | [`set_row_predicates`](#member-gftabledataview-methods-set_row_predicates) | `func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] ) -> GFTableViewRebuildResult:` |
-| 方法 | [`register_row_predicate`](#member-gftabledataview-methods-register_row_predicate) | `func register_row_predicate( registration: GFTableRowPredicateRegistration ) -> GFTableViewRebuildResult:` |
+| 方法 | [`set_row_predicates`](#member-gftabledataview-methods-set_row_predicates) | `func set_row_predicates(registrations: Array[GFTableRowPredicateRegistration]) -> GFTableViewRebuildResult:` |
+| 方法 | [`register_row_predicate`](#member-gftabledataview-methods-register_row_predicate) | `func register_row_predicate(registration: GFTableRowPredicateRegistration) -> GFTableViewRebuildResult:` |
 | 方法 | [`unregister_row_predicate`](#member-gftabledataview-methods-unregister_row_predicate) | `func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildResult:` |
-| 方法 | [`set_row_predicate_enabled`](#member-gftabledataview-methods-set_row_predicate_enabled) | `func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -> GFTableViewRebuildResult:` |
-| 方法 | [`set_row_predicate_order`](#member-gftabledataview-methods-set_row_predicate_order) | `func set_row_predicate_order( predicate_id: StringName, order: int ) -> GFTableViewRebuildResult:` |
+| 方法 | [`set_row_predicate_enabled`](#member-gftabledataview-methods-set_row_predicate_enabled) | `func set_row_predicate_enabled(predicate_id: StringName, enabled: bool) -> GFTableViewRebuildResult:` |
+| 方法 | [`set_row_predicate_order`](#member-gftabledataview-methods-set_row_predicate_order) | `func set_row_predicate_order(predicate_id: StringName, order: int) -> GFTableViewRebuildResult:` |
 | 方法 | [`get_row_predicate`](#member-gftabledataview-methods-get_row_predicate) | `func get_row_predicate(predicate_id: StringName) -> GFTableRowPredicateRegistration:` |
 | 方法 | [`get_row_predicates`](#member-gftabledataview-methods-get_row_predicates) | `func get_row_predicates() -> Array[GFTableRowPredicateRegistration]:` |
 | 方法 | [`get_row_predicate_ids`](#member-gftabledataview-methods-get_row_predicate_ids) | `func get_row_predicate_ids() -> Array[StringName]:` |
@@ -64,7 +64,7 @@
 | 方法 | [`is_sort_ascending`](#member-gftabledataview-methods-is_sort_ascending) | `func is_sort_ascending() -> bool:` |
 | 方法 | [`refresh_view`](#member-gftabledataview-methods-refresh_view) | `func refresh_view() -> GFTableViewRebuildResult:` |
 | 方法 | [`get_cell_value`](#member-gftabledataview-methods-get_cell_value) | `func get_cell_value(row_index: int, column_id: StringName) -> Variant:` |
-| 方法 | [`commit_cell_value`](#member-gftabledataview-methods-commit_cell_value) | `func commit_cell_value(row_index: int, column_id: StringName, new_value: Variant) -> bool:` |
+| 方法 | [`commit_cell_value`](#member-gftabledataview-methods-commit_cell_value) | `func commit_cell_value( row_index: int, column_id: StringName, new_value: Variant ) -> bool:` |
 | 方法 | [`commit_visible_cell_value`](#member-gftabledataview-methods-commit_visible_cell_value) | `func commit_visible_cell_value( visible_row_index: int, column_id: StringName, new_value: Variant ) -> bool:` |
 | 方法 | [`commit_cell_values`](#member-gftabledataview-methods-commit_cell_values) | `func commit_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
 | 方法 | [`commit_visible_cell_values`](#member-gftabledataview-methods-commit_visible_cell_values) | `func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:` |
@@ -336,7 +336,7 @@ func get_selection_model() -> GFTableSelectionModel:
 - 首次版本：`5.2.0`
 
 ```gdscript
-func set_columns( column_definitions: Array[GFTableColumnDefinition] ) -> GFTableViewRebuildResult:
+func set_columns(column_definitions: Array[GFTableColumnDefinition]) -> GFTableViewRebuildResult:
 ```
 
 设置列定义列表。
@@ -422,7 +422,7 @@ func get_column(column_id: StringName) -> GFTableColumnDefinition:
 - 首次版本：`5.2.0`
 
 ```gdscript
-func set_rows( row_values: Array, duplicate_rows: bool = false ) -> GFTableViewRebuildResult:
+func set_rows(row_values: Array, duplicate_rows: bool = false) -> GFTableViewRebuildResult:
 ```
 
 设置源行数据。
@@ -748,7 +748,7 @@ func get_filter_query() -> String:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] ) -> GFTableViewRebuildResult:
+func set_row_predicates(registrations: Array[GFTableRowPredicateRegistration]) -> GFTableViewRebuildResult:
 ```
 
 事务式替换全部命名行谓词。 注册会先完整校验并按 order 升序、predicate_id 字典序排序，再构建一个候选投影。 GFTableDataView 保存 predicate_id、order、enabled 与 predicate 引用的框架自有 metadata 快照；调用方后续修改注册对象不会改变已提交 registry。 任一失败都会保留当前 registry、projection、revision 与 selection。
@@ -773,7 +773,7 @@ func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] )
 - 首次版本：`11.0.0`
 
 ```gdscript
-func register_row_predicate( registration: GFTableRowPredicateRegistration ) -> GFTableViewRebuildResult:
+func register_row_predicate(registration: GFTableRowPredicateRegistration) -> GFTableViewRebuildResult:
 ```
 
 事务式注册一个命名行谓词。
@@ -815,7 +815,7 @@ func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildRes
 - 首次版本：`11.0.0`
 
 ```gdscript
-func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -> GFTableViewRebuildResult:
+func set_row_predicate_enabled(predicate_id: StringName, enabled: bool) -> GFTableViewRebuildResult:
 ```
 
 事务式设置命名行谓词的启用状态。
@@ -837,7 +837,7 @@ func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -> GFT
 - 首次版本：`11.0.0`
 
 ```gdscript
-func set_row_predicate_order( predicate_id: StringName, order: int ) -> GFTableViewRebuildResult:
+func set_row_predicate_order(predicate_id: StringName, order: int) -> GFTableViewRebuildResult:
 ```
 
 事务式设置命名行谓词的执行顺序。
@@ -1052,7 +1052,7 @@ func get_cell_value(row_index: int, column_id: StringName) -> Variant:
 - 首次版本：`5.2.0`
 
 ```gdscript
-func commit_cell_value(row_index: int, column_id: StringName, new_value: Variant) -> bool:
+func commit_cell_value( row_index: int, column_id: StringName, new_value: Variant ) -> bool:
 ```
 
 事务式提交源行单元格值。 写入先发生在隔离候选行上，完整投影成功后才交换权威 source；自定义 value_setter 与不可隔离的 Object / 脚本 Resource 会在调用任何 setter 前失败关闭。

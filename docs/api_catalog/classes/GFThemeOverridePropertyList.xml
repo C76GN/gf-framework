@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThemeOverridePropertyList" path="addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd" module="standard" extends="RefCounted" classDigest="20008ed94f10fe847acb57b4a3da57c1f9f2221090ea56ef16a08d5889912e07">
+<class name="GFThemeOverridePropertyList" path="addons/gf/standard/utilities/ui/gf_theme_override_property_list.gd" module="standard" extends="RefCounted" classDigest="09612ca5a8ff27078cfeef4afcf4f41e8b146ad2361d7d8fce30f1a2ed5b67a9">
 	<description>GFThemeOverridePropertyList: Control 主题覆盖属性列表构建器。
 帮助自定义 Control 把一组主题覆盖项暴露到 Inspector。它只生成 Godot 属性列表
 与 revert 信息，不规定控件外观、主题命名或业务语义。</description>
@@ -47,7 +47,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="make_definition">
-			<signature>static func make_definition(override_name: StringName, data_type: int, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>static func make_definition( override_name: StringName, data_type: int, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>创建主题覆盖定义。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -47,6 +47,8 @@ var _fields: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param key: 字段键。
 ## [br]
 ## @param control: 控件节点。
@@ -54,7 +56,11 @@ var _fields: Dictionary = {}
 ## @param default_value: 控件失效或读取失败时的默认值。
 ## [br]
 ## @schema default_value: Variant，控件失效或读取失败时返回的默认值。
-func bind_field(key: StringName, control: Control, default_value: Variant = null) -> void:
+func bind_field(
+	key: StringName,
+	control: Control,
+	default_value: Variant = null
+) -> void:
 	if key == &"":
 		push_error("[GFFormBinder][form_binder.field_key_empty] Cannot bind_field: field key is empty.")
 		return
@@ -63,8 +69,10 @@ func bind_field(key: StringName, control: Control, default_value: Variant = null
 		return
 
 	unbind_field(key)
-	var value_changed_connections: Array[Dictionary] = GFControlValueAdapter.connect_value_changed_with_handles(control, func() -> void:
-		_on_field_changed(key)
+	var value_changed_connections: Array[Dictionary] = GFControlValueAdapter.connect_value_changed_with_handles(
+		control,
+		func() -> void:
+			_on_field_changed(key)
 	)
 	var tree_exited_callback: Callable = func() -> void:
 		unbind_field(key)
@@ -136,7 +144,11 @@ func get_field_value(key: StringName, fallback: Variant = null) -> Variant:
 		return fallback
 
 	var info: Dictionary = _get_field_info(key)
-	var default_value: Variant = GFVariantData.get_option_value(info, "default_value", fallback)
+	var default_value: Variant = GFVariantData.get_option_value(
+		info,
+		"default_value",
+		fallback
+	)
 	return GFControlValueAdapter.get_value(control, default_value)
 
 
@@ -188,7 +200,10 @@ func write_values(data: Dictionary, ignore_missing_fields: bool = true) -> void:
 			if not ignore_missing_fields:
 				push_warning("[GFFormBinder][form_binder.field_unbound] Field is not bound: %s." % String(key))
 			continue
-		var _set_field_value_result_182: Variant = set_field_value(key, data[key_variant])
+		var _set_field_value_result_182: Variant = set_field_value(
+			key,
+			data[key_variant]
+		)
 
 
 # --- 私有/辅助方法 ---
@@ -209,13 +224,15 @@ func _get_control(key: StringName) -> Control:
 	return control
 
 
-
-
 ## 按字段键读取绑定记录；缺失或值不是 Dictionary 时返回空字典。
 ## [br]
 ## @api private
 func _get_field_info(key: StringName) -> Dictionary:
-	var info_variant: Variant = GFVariantData.get_option_value(_fields, key, {})
+	var info_variant: Variant = GFVariantData.get_option_value(
+		_fields,
+		key,
+		{}
+	)
 	if info_variant is Dictionary:
 		var info: Dictionary = info_variant
 		return info
@@ -271,4 +288,7 @@ func _variant_to_callable(value: Variant) -> Callable:
 func _on_field_changed(key: StringName) -> void:
 	if not _fields.has(key):
 		return
-	field_changed.emit(key, get_field_value(key))
+	field_changed.emit(
+		key,
+		get_field_value(key)
+	)

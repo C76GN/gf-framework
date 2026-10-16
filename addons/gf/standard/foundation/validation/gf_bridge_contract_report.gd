@@ -179,7 +179,10 @@ func clear() -> void:
 ## [br]
 ## @schema return: JSON-compatible redacted bridge contract report Dictionary.
 func get_json_compatible_report(report_options: Dictionary = {}, codec_options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(get_report(report_options), codec_options)
+	return GFReportValueCodec.to_report_dictionary(
+		get_report(report_options),
+		codec_options
+	)
 
 
 ## 添加一个期望桥接契约。
@@ -202,7 +205,10 @@ func add_contract(contract_id: StringName, options: Dictionary = {}) -> Dictiona
 	entry["contract_id"] = contract_id
 	entry["id"] = contract_id
 	contracts.append(entry)
-	return _normalize_contract(entry, contracts.size() - 1).duplicate(true)
+	return _normalize_contract(
+		entry,
+		contracts.size() - 1
+	).duplicate(true)
 
 
 ## 批量添加期望桥接契约。
@@ -250,7 +256,10 @@ func add_adapter(
 	if contract_id != &"":
 		entry["contract_id"] = contract_id
 	adapters.append(entry)
-	return _normalize_adapter(entry, adapters.size() - 1).duplicate(true)
+	return _normalize_adapter(
+		entry,
+		adapters.size() - 1
+	).duplicate(true)
 
 
 ## 批量添加实际桥接适配器。
@@ -284,7 +293,13 @@ func add_adapters(entries: Array[Dictionary]) -> GFBridgeContractReport:
 ## [br]
 ## @schema return: Dictionary with ok、healthy、contracts、adapters、coverage counts、issues、summary and next_action.
 func get_report(options: Dictionary = {}) -> Dictionary:
-	return _build_report(contracts, adapters, subject, metadata, options)
+	return _build_report(
+		contracts,
+		adapters,
+		subject,
+		metadata,
+		options
+	)
 
 
 ## 从契约和适配器数组直接创建覆盖报告。
@@ -316,7 +331,11 @@ static func from_entries(
 	return _build_report(
 		contract_entries,
 		adapter_entries,
-		GFVariantData.get_option_string(options, "subject", _DEFAULT_SUBJECT),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			_DEFAULT_SUBJECT
+		),
 		GFVariantData.get_option_dictionary(options, "metadata"),
 		options
 	)
@@ -356,7 +375,11 @@ static func report_request_handlers(
 	return _build_report(
 		_get_dictionary_array(entries, "contract_entries"),
 		_get_dictionary_array(entries, "adapter_entries"),
-		GFVariantData.get_option_string(options, "subject", "Request handler coverage"),
+		GFVariantData.get_option_string(
+			options,
+			"subject",
+			"Request handler coverage"
+		),
 		GFVariantData.get_option_dictionary(options, "metadata"),
 		options
 	)
@@ -395,7 +418,11 @@ static func make_object_adapter_entry(
 		"adapter_id": adapter_id,
 		"id": adapter_id,
 		"contract_ids": contract_ids.duplicate(),
-		"kind": GFVariantData.get_option_string_name(options, "kind", &"object_adapter"),
+		"kind": GFVariantData.get_option_string_name(
+			options,
+			"kind",
+			&"object_adapter"
+		),
 		"signature": GFVariantData.get_option_string(options, "signature"),
 		"version": GFVariantData.get_option_string(options, "version"),
 		"enabled": is_instance_valid(target),
@@ -412,8 +439,14 @@ static func make_object_adapter_entry(
 		if script_value is Script:
 			var script: Script = script_value
 			adapter_metadata["script_path"] = script.resource_path
-		missing_methods = _get_missing_object_methods(target, GFVariantData.get_option_packed_string_array(options, "required_methods"))
-		missing_signals = _get_missing_object_signals(target, GFVariantData.get_option_packed_string_array(options, "required_signals"))
+		missing_methods = _get_missing_object_methods(
+			target,
+			GFVariantData.get_option_packed_string_array(options, "required_methods")
+		)
+		missing_signals = _get_missing_object_signals(
+			target,
+			GFVariantData.get_option_packed_string_array(options, "required_signals")
+		)
 	else:
 		adapter_metadata["object_class"] = ""
 
@@ -458,7 +491,7 @@ static func make_engine_singleton_adapter_entry(
 	var singleton_options: Dictionary = options.duplicate(true)
 	if not singleton_options.has("kind"):
 		singleton_options["kind"] = &"engine_singleton"
-	var singleton_metadata: Dictionary = GFVariantData.get_option_dictionary(singleton_options, "metadata").duplicate(true)
+	var singleton_metadata: Dictionary = (GFVariantData.get_option_dictionary(singleton_options, "metadata").duplicate(true))
 	singleton_metadata["singleton_name"] = singleton_name
 	singleton_metadata["has_singleton"] = target != null
 	singleton_metadata["platform"] = OS.get_name()
@@ -469,7 +502,12 @@ static func make_engine_singleton_adapter_entry(
 		"adapter_id",
 		StringName("engine_singleton:%s" % singleton_text)
 	)
-	return make_object_adapter_entry(adapter_id, contract_ids, target, singleton_options)
+	return make_object_adapter_entry(
+		adapter_id,
+		contract_ids,
+		target,
+		singleton_options
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -515,19 +553,53 @@ static func _build_report(
 		"metadata": report_metadata.duplicate(true),
 	}
 
-	_collect_contracts(source_contracts, normalized_contracts, contract_lookup, report, options)
-	_collect_adapters(source_adapters, normalized_adapters, adapter_lookup, contract_lookup, report, options)
-	_evaluate_contracts(normalized_contracts, adapter_lookup, report, options)
+	_collect_contracts(
+		source_contracts,
+		normalized_contracts,
+		contract_lookup,
+		report,
+		options
+	)
+	_collect_adapters(
+		source_adapters,
+		normalized_adapters,
+		adapter_lookup,
+		contract_lookup,
+		report,
+		options
+	)
+	_evaluate_contracts(
+		normalized_contracts,
+		adapter_lookup,
+		report,
+		options
+	)
 
 	report["contract_count"] = normalized_contracts.size()
 	report["adapter_count"] = normalized_adapters.size()
 	report["contracts"] = _copy_entries(normalized_contracts)
 	report["adapters"] = _copy_entries(normalized_adapters)
-	return GFValidationReportDictionary.finalize_report(report, report_subject, {
-		"fallback_action": GFVariantData.get_option_string(options, "fallback_action", "Review bridge contract coverage before relying on the adapter boundary."),
-		"no_action": GFVariantData.get_option_string(options, "no_action", "Bridge contracts are covered by compatible adapters."),
-		"warnings_as_errors": GFVariantData.get_option_bool(options, "warnings_as_errors", false),
-	})
+	return GFValidationReportDictionary.finalize_report(
+		report,
+		report_subject,
+		{
+			"fallback_action": GFVariantData.get_option_string(
+				options,
+				"fallback_action",
+				"Review bridge contract coverage before relying on the adapter boundary."
+			),
+			"no_action": GFVariantData.get_option_string(
+				options,
+				"no_action",
+				"Bridge contracts are covered by compatible adapters."
+			),
+			"warnings_as_errors": GFVariantData.get_option_bool(
+				options,
+				"warnings_as_errors",
+				false
+			),
+		}
+	)
 
 
 ## 规范化契约条目，拒绝空或重复 ID，并应用默认多适配器设置。
@@ -562,14 +634,18 @@ static func _collect_contracts(
 				"error",
 				KIND_CONTRACT_DUPLICATE,
 				"bridge contract is declared more than once",
-				{
-					"contract_id": contract_id,
-					"entry_index": index,
-				}
+				{ "contract_id": contract_id, "entry_index": index, }
 			)
 			continue
-		var default_allow_multiple: bool = GFVariantData.get_option_bool(options, "default_allow_multiple", false)
-		if not _entry_has_any(source_contract, PackedStringArray(["allow_multiple", "multi_adapter"])):
+		var default_allow_multiple: bool = GFVariantData.get_option_bool(
+			options,
+			"default_allow_multiple",
+			false
+		)
+		if not _entry_has_any(
+			source_contract,
+			PackedStringArray(["allow_multiple", "multi_adapter"])
+		):
 			contract["allow_multiple"] = default_allow_multiple
 		contract_lookup[contract_id] = contract
 		normalized_contracts.append(contract)
@@ -588,7 +664,10 @@ static func _collect_adapters(
 	options: Dictionary
 ) -> void:
 	for index: int in range(source_adapters.size()):
-		var adapter: Dictionary = _normalize_adapter(source_adapters[index], index)
+		var adapter: Dictionary = _normalize_adapter(
+			source_adapters[index],
+			index
+		)
 		normalized_adapters.append(adapter)
 		var adapter_id: StringName = GFVariantData.get_option_string_name(adapter, "adapter_id")
 		var contract_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(adapter, "contract_ids")
@@ -599,24 +678,26 @@ static func _collect_adapters(
 				"error",
 				KIND_ADAPTER_INVALID,
 				"bridge adapter id or contract ids are empty",
-				{
-					"adapter_id": adapter_id,
-					"entry_index": index,
-				}
+				{ "adapter_id": adapter_id, "entry_index": index, }
 			)
 			continue
 
-		if not GFVariantData.get_option_bool(adapter, "enabled", true):
+		if not GFVariantData.get_option_bool(
+			adapter,
+			"enabled",
+			true
+		):
 			_increment_report_count(report, "disabled_count")
 			_append_issue(
 				report,
-				GFVariantData.get_option_value(options, "disabled_severity", "warning"),
+				GFVariantData.get_option_value(
+					options,
+					"disabled_severity",
+					"warning"
+				),
 				KIND_ADAPTER_DISABLED,
 				"bridge adapter is disabled",
-				{
-					"adapter_id": adapter_id,
-					"contract_ids": contract_ids,
-				}
+				{ "adapter_id": adapter_id, "contract_ids": contract_ids, }
 			)
 			continue
 
@@ -624,16 +705,21 @@ static func _collect_adapters(
 			var contract_id: StringName = StringName(contract_text)
 			if not contract_lookup.has(contract_id):
 				_increment_report_count(report, "extra_count")
-				_append_string_unique(report, "extra_adapters", String(adapter_id))
+				_append_string_unique(
+					report,
+					"extra_adapters",
+					String(adapter_id)
+				)
 				_append_issue(
 					report,
-					GFVariantData.get_option_value(options, "extra_severity", "warning"),
+					GFVariantData.get_option_value(
+						options,
+						"extra_severity",
+						"warning"
+					),
 					KIND_ADAPTER_EXTRA,
 					"bridge adapter targets an unknown contract",
-					{
-						"adapter_id": adapter_id,
-						"contract_id": contract_id,
-					}
+					{ "adapter_id": adapter_id, "contract_id": contract_id, }
 				)
 				continue
 			if not adapter_lookup.has(contract_id):
@@ -666,17 +752,35 @@ static func _evaluate_contracts(
 		contract["compatible_adapter_ids"] = compatible_adapter_ids
 
 		if expected_adapters.is_empty():
-			_handle_missing_contract(contract, report, options)
+			_handle_missing_contract(
+				contract,
+				report,
+				options
+			)
 			continue
 
 		_increment_report_count(report, "covered_count")
-		_append_string_unique(report, "covered", String(contract_id))
-		_check_duplicate_adapters(contract, adapter_ids, report, options)
+		_append_string_unique(
+			report,
+			"covered",
+			String(contract_id)
+		)
+		_check_duplicate_adapters(
+			contract,
+			adapter_ids,
+			report,
+			options
+		)
 		for adapter_value: Variant in expected_adapters:
 			if not (adapter_value is Dictionary):
 				continue
 			var adapter: Dictionary = adapter_value
-			if _adapter_matches_contract(adapter, contract, report, options):
+			if _adapter_matches_contract(
+				adapter,
+				contract,
+				report,
+				options
+			):
 				var adapter_id: StringName = GFVariantData.get_option_string_name(adapter, "adapter_id")
 				var _appended_compatible_id: bool = compatible_adapter_ids.append(String(adapter_id))
 
@@ -684,42 +788,68 @@ static func _evaluate_contracts(
 		contract["compatible_adapter_ids"] = compatible_adapter_ids
 		if not compatible_adapter_ids.is_empty():
 			_increment_report_count(report, "compatible_count")
-			_append_string_unique(report, "compatible", String(contract_id))
+			_append_string_unique(
+				report,
+				"compatible",
+				String(contract_id)
+			)
 
 
 ## 按契约 required 状态登记缺失，并按选项决定是否为可选缺失生成问题。
 ## [br]
 ## @api private
 ## [br]
-static func _handle_missing_contract(contract: Dictionary, report: Dictionary, options: Dictionary) -> void:
+static func _handle_missing_contract(
+	contract: Dictionary,
+	report: Dictionary,
+	options: Dictionary
+) -> void:
 	var contract_id: StringName = GFVariantData.get_option_string_name(contract, "contract_id")
-	if GFVariantData.get_option_bool(contract, "required", true):
+	if GFVariantData.get_option_bool(
+		contract,
+		"required",
+		true
+	):
 		_increment_report_count(report, "missing_count")
-		_append_string_unique(report, "missing", String(contract_id))
+		_append_string_unique(
+			report,
+			"missing",
+			String(contract_id)
+		)
 		_append_issue(
 			report,
-			GFVariantData.get_option_value(options, "missing_severity", "error"),
+			GFVariantData.get_option_value(
+				options,
+				"missing_severity",
+				"error"
+			),
 			KIND_CONTRACT_MISSING,
 			"required bridge contract has no enabled adapter",
-			{
-				"contract_id": contract_id,
-				"contract_kind": GFVariantData.get_option_string_name(contract, "kind"),
-			}
+			{ "contract_id": contract_id, "contract_kind": GFVariantData.get_option_string_name(contract, "kind"), }
 		)
 		return
 
 	_increment_report_count(report, "optional_missing_count")
-	_append_string_unique(report, "optional_missing", String(contract_id))
-	if GFVariantData.get_option_bool(options, "report_optional_missing", false):
+	_append_string_unique(
+		report,
+		"optional_missing",
+		String(contract_id)
+	)
+	if GFVariantData.get_option_bool(
+		options,
+		"report_optional_missing",
+		false
+	):
 		_append_issue(
 			report,
-			GFVariantData.get_option_value(options, "optional_missing_severity", "info"),
+			GFVariantData.get_option_value(
+				options,
+				"optional_missing_severity",
+				"info"
+			),
 			KIND_CONTRACT_MISSING,
 			"optional bridge contract has no enabled adapter",
-			{
-				"contract_id": contract_id,
-				"contract_kind": GFVariantData.get_option_string_name(contract, "kind"),
-			}
+			{ "contract_id": contract_id, "contract_kind": GFVariantData.get_option_string_name(contract, "kind"), }
 		)
 
 
@@ -733,20 +863,29 @@ static func _check_duplicate_adapters(
 	report: Dictionary,
 	options: Dictionary
 ) -> void:
-	if adapter_ids.size() <= 1 or GFVariantData.get_option_bool(contract, "allow_multiple", false):
+	if adapter_ids.size() <= 1 or GFVariantData.get_option_bool(
+		contract,
+		"allow_multiple",
+		false
+	):
 		return
 	var contract_id: StringName = GFVariantData.get_option_string_name(contract, "contract_id")
 	_increment_report_count(report, "duplicate_count")
-	_append_string_unique(report, "duplicate_contracts", String(contract_id))
+	_append_string_unique(
+		report,
+		"duplicate_contracts",
+		String(contract_id)
+	)
 	_append_issue(
 		report,
-		GFVariantData.get_option_value(options, "duplicate_severity", "warning"),
+		GFVariantData.get_option_value(
+			options,
+			"duplicate_severity",
+			"warning"
+		),
 		KIND_ADAPTER_DUPLICATE,
 		"bridge contract is covered by multiple adapters",
-		{
-			"contract_id": contract_id,
-			"adapter_ids": adapter_ids,
-		}
+		{ "contract_id": contract_id, "adapter_ids": adapter_ids, }
 	)
 
 
@@ -761,11 +900,26 @@ static func _adapter_matches_contract(
 	options: Dictionary
 ) -> bool:
 	var matches: bool = true
-	if not _check_signature(adapter, contract, report, options):
+	if not _check_signature(
+		adapter,
+		contract,
+		report,
+		options
+	):
 		matches = false
-	if not _check_version(adapter, contract, report, options):
+	if not _check_version(
+		adapter,
+		contract,
+		report,
+		options
+	):
 		matches = false
-	if not _check_capabilities(adapter, contract, report, options):
+	if not _check_capabilities(
+		adapter,
+		contract,
+		report,
+		options
+	):
 		matches = false
 	return matches
 
@@ -793,10 +947,7 @@ static func _check_signature(
 		"bridge adapter signature does not match contract",
 		adapter,
 		contract,
-		{
-			"expected_signature": expected_signature,
-			"actual_signature": actual_signature,
-		}
+		{ "expected_signature": expected_signature, "actual_signature": actual_signature, }
 	)
 	return false
 
@@ -824,10 +975,7 @@ static func _check_version(
 		"bridge adapter version does not match contract",
 		adapter,
 		contract,
-		{
-			"expected_version": expected_version,
-			"actual_version": actual_version,
-		}
+		{ "expected_version": expected_version, "actual_version": actual_version, }
 	)
 	return false
 
@@ -884,15 +1032,24 @@ static func _append_mismatch_issue(
 	var contract_id: StringName = GFVariantData.get_option_string_name(contract, "contract_id")
 	var adapter_id: StringName = GFVariantData.get_option_string_name(adapter, "adapter_id")
 	_increment_report_count(report, "mismatch_count")
-	_append_string_unique(report, "mismatched_contracts", String(contract_id))
-	var issue_fields: Dictionary = {
-		"contract_id": contract_id,
-		"adapter_id": adapter_id,
-	}
-	var _merged_fields: Dictionary = GFVariantData.merge_dictionary(issue_fields, fields, true)
+	_append_string_unique(
+		report,
+		"mismatched_contracts",
+		String(contract_id)
+	)
+	var issue_fields: Dictionary = { "contract_id": contract_id, "adapter_id": adapter_id, }
+	var _merged_fields: Dictionary = GFVariantData.merge_dictionary(
+		issue_fields,
+		fields,
+		true
+	)
 	_append_issue(
 		report,
-		GFVariantData.get_option_value(options, "mismatch_severity", "error"),
+		GFVariantData.get_option_value(
+			options,
+			"mismatch_severity",
+			"error"
+		),
 		kind,
 		message,
 		issue_fields
@@ -904,24 +1061,53 @@ static func _append_mismatch_issue(
 ## @api private
 ## [br]
 static func _normalize_contract(entry: Dictionary, entry_index: int) -> Dictionary:
-	var contract_id: StringName = _get_first_string_name(entry, PackedStringArray([
-		"contract_id",
-		"id",
-		"request_type",
-	]), &"")
+	var contract_id: StringName = _get_first_string_name(
+		entry,
+		PackedStringArray(
+			[
+				"contract_id",
+				"id",
+				"request_type",
+			]
+		),
+		&""
+	)
 	return {
 		"contract_id": contract_id,
 		"id": contract_id,
-		"kind": _get_first_string_name(entry, PackedStringArray(["kind", "contract_kind"]), &""),
-		"signature": _get_first_string(entry, PackedStringArray(["signature", "expected_signature"])),
-		"version": _get_first_string(entry, PackedStringArray(["version", "expected_version"])),
-		"required": _get_first_bool(entry, PackedStringArray(["required", "is_required"]), true),
-		"allow_multiple": _get_first_bool(entry, PackedStringArray(["allow_multiple", "multi_adapter"]), false),
-		"capabilities": _get_first_packed_string_array(entry, PackedStringArray([
-			"capabilities",
-			"required_capabilities",
-			"capability_ids",
-		])),
+		"kind": _get_first_string_name(
+			entry,
+			PackedStringArray(["kind", "contract_kind"]),
+			&""
+		),
+		"signature": _get_first_string(
+			entry,
+			PackedStringArray(["signature", "expected_signature"])
+		),
+		"version": _get_first_string(
+			entry,
+			PackedStringArray(["version", "expected_version"])
+		),
+		"required": _get_first_bool(
+			entry,
+			PackedStringArray(["required", "is_required"]),
+			true
+		),
+		"allow_multiple": _get_first_bool(
+			entry,
+			PackedStringArray(["allow_multiple", "multi_adapter"]),
+			false
+		),
+		"capabilities": _get_first_packed_string_array(
+			entry,
+			PackedStringArray(
+				[
+					"capabilities",
+					"required_capabilities",
+					"capability_ids",
+				]
+			)
+		),
 		"metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
 		"entry_index": entry_index,
 	}
@@ -932,25 +1118,56 @@ static func _normalize_contract(entry: Dictionary, entry_index: int) -> Dictiona
 ## @api private
 ## [br]
 static func _normalize_adapter(entry: Dictionary, entry_index: int) -> Dictionary:
-	var adapter_id: StringName = _get_first_string_name(entry, PackedStringArray([
-		"adapter_id",
-		"id",
-		"handler_id",
-	]), &"")
+	var adapter_id: StringName = _get_first_string_name(
+		entry,
+		PackedStringArray(
+			[
+				"adapter_id",
+				"id",
+				"handler_id",
+			]
+		),
+		&""
+	)
 	var contract_ids: PackedStringArray = _get_adapter_contract_ids(entry)
 	return {
 		"adapter_id": adapter_id,
 		"id": adapter_id,
 		"contract_ids": contract_ids,
-		"kind": _get_first_string_name(entry, PackedStringArray(["kind", "adapter_kind"]), &""),
-		"signature": _get_first_string(entry, PackedStringArray(["signature", "provided_signature"])),
-		"version": _get_first_string(entry, PackedStringArray(["version", "provided_version"])),
-		"enabled": _get_first_bool(entry, PackedStringArray(["enabled", "active", "has_valid_handler"]), true),
-		"capabilities": _get_first_packed_string_array(entry, PackedStringArray([
-			"capabilities",
-			"provided_capabilities",
-			"capability_ids",
-		])),
+		"kind": _get_first_string_name(
+			entry,
+			PackedStringArray(["kind", "adapter_kind"]),
+			&""
+		),
+		"signature": _get_first_string(
+			entry,
+			PackedStringArray(["signature", "provided_signature"])
+		),
+		"version": _get_first_string(
+			entry,
+			PackedStringArray(["version", "provided_version"])
+		),
+		"enabled": _get_first_bool(
+			entry,
+			PackedStringArray(
+				[
+					"enabled",
+					"active",
+					"has_valid_handler",
+				]
+			),
+			true
+		),
+		"capabilities": _get_first_packed_string_array(
+			entry,
+			PackedStringArray(
+				[
+					"capabilities",
+					"provided_capabilities",
+					"capability_ids",
+				]
+			)
+		),
 		"metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
 		"entry_index": entry_index,
 	}
@@ -975,9 +1192,19 @@ static func _get_dictionary_array(source: Dictionary, key: String) -> Array[Dict
 ## [br]
 static func _get_adapter_contract_ids(entry: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	_append_string_name_value(result, GFVariantData.get_option_value(entry, "contract_id"))
-	_append_string_name_value(result, GFVariantData.get_option_value(entry, "request_type"))
-	for key: String in ["contract_ids", "contracts", "supported_contracts"]:
+	_append_string_name_value(
+		result,
+		GFVariantData.get_option_value(entry, "contract_id")
+	)
+	_append_string_name_value(
+		result,
+		GFVariantData.get_option_value(entry, "request_type")
+	)
+	for key: String in [
+		"contract_ids",
+		"contracts",
+		"supported_contracts",
+	]:
 		var values: PackedStringArray = GFVariantData.get_option_packed_string_array(entry, key)
 		for value: String in values:
 			_append_string_name_value(result, value)
@@ -995,7 +1222,10 @@ static func _get_adapter_ids(adapter_entries: Array) -> PackedStringArray:
 		if not (adapter_value is Dictionary):
 			continue
 		var adapter: Dictionary = adapter_value
-		_append_string_name_value(result, GFVariantData.get_option_value(adapter, "adapter_id"))
+		_append_string_name_value(
+			result,
+			GFVariantData.get_option_value(adapter, "adapter_id")
+		)
 	result.sort()
 	return result
 
@@ -1004,13 +1234,23 @@ static func _get_adapter_ids(adapter_entries: Array) -> PackedStringArray:
 ## [br]
 ## @api private
 ## [br]
-static func _get_first_string(entry: Dictionary, keys: PackedStringArray, default_value: String = "") -> String:
+static func _get_first_string(
+	entry: Dictionary,
+	keys: PackedStringArray,
+	default_value: String = ""
+) -> String:
 	for key: String in keys:
 		if entry.has(key):
-			return GFVariantData.to_text(entry[key], default_value).strip_edges()
+			return GFVariantData.to_text(
+				entry[key],
+				default_value
+			).strip_edges()
 		var key_name: StringName = StringName(key)
 		if entry.has(key_name):
-			return GFVariantData.to_text(entry[key_name], default_value).strip_edges()
+			return GFVariantData.to_text(
+				entry[key_name],
+				default_value
+			).strip_edges()
 	return default_value
 
 
@@ -1018,8 +1258,16 @@ static func _get_first_string(entry: Dictionary, keys: PackedStringArray, defaul
 ## [br]
 ## @api private
 ## [br]
-static func _get_first_string_name(entry: Dictionary, keys: PackedStringArray, default_value: StringName = &"") -> StringName:
-	var text: String = _get_first_string(entry, keys, String(default_value))
+static func _get_first_string_name(
+	entry: Dictionary,
+	keys: PackedStringArray,
+	default_value: StringName = &""
+) -> StringName:
+	var text: String = _get_first_string(
+		entry,
+		keys,
+		String(default_value)
+	)
 	return StringName(text) if not text.is_empty() else default_value
 
 
@@ -1027,13 +1275,23 @@ static func _get_first_string_name(entry: Dictionary, keys: PackedStringArray, d
 ## [br]
 ## @api private
 ## [br]
-static func _get_first_bool(entry: Dictionary, keys: PackedStringArray, default_value: bool = false) -> bool:
+static func _get_first_bool(
+	entry: Dictionary,
+	keys: PackedStringArray,
+	default_value: bool = false
+) -> bool:
 	for key: String in keys:
 		if entry.has(key):
-			return GFVariantData.to_bool(entry[key], default_value)
+			return GFVariantData.to_bool(
+				entry[key],
+				default_value
+			)
 		var key_name: StringName = StringName(key)
 		if entry.has(key_name):
-			return GFVariantData.to_bool(entry[key_name], default_value)
+			return GFVariantData.to_bool(
+				entry[key_name],
+				default_value
+			)
 	return default_value
 
 
@@ -1072,14 +1330,24 @@ static func _append_issue(
 	message: String,
 	fields: Dictionary
 ) -> void:
-	var _issue: Dictionary = GFValidationReportDictionary.append_issue(report, severity, kind, message, fields)
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		severity,
+		kind,
+		message,
+		fields
+	)
 
 
 ## 把值唯一追加到报告指定数组，随后排序并回写。
 ## [br]
 ## @api private
 ## [br]
-static func _append_string_unique(report: Dictionary, field_name: String, value: String) -> void:
+static func _append_string_unique(
+	report: Dictionary,
+	field_name: String,
+	value: String
+) -> void:
 	var values: Array = GFVariantData.get_option_array(report, field_name)
 	if values.has(value):
 		return

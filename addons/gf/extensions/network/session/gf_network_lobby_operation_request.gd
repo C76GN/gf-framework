@@ -158,7 +158,10 @@ func configure(
 	query = _get_query(options)
 	payload = GFVariantData.get_option_dictionary(options, "payload")
 	provider_options = GFVariantData.get_option_dictionary(options, "provider_options")
-	timeout_msec = maxi(GFVariantData.get_option_int(options, "timeout_msec"), 0)
+	timeout_msec = maxi(
+		GFVariantData.get_option_int(options, "timeout_msec"),
+		0
+	)
 	metadata = GFVariantData.get_option_dictionary(options, "metadata")
 	return self
 
@@ -179,7 +182,11 @@ func is_valid() -> bool:
 		OP_SET_LOBBY_METADATA:
 			return not lobby_id.is_empty() and not payload.is_empty()
 		OP_SET_MEMBER_METADATA:
-			return not lobby_id.is_empty() and peer_id > 0 and not payload.is_empty()
+			return (
+				not lobby_id.is_empty()
+				and peer_id > 0
+				and not payload.is_empty()
+			)
 		_:
 			return true
 
@@ -225,7 +232,10 @@ func apply_dict(data: Dictionary) -> void:
 	query = GFNetworkLobbyQuery.from_dict(query_data) if not query_data.is_empty() else null
 	payload = GFVariantData.get_option_dictionary(data, "payload")
 	provider_options = GFVariantData.get_option_dictionary(data, "provider_options")
-	timeout_msec = maxi(GFVariantData.get_option_int(data, "timeout_msec"), 0)
+	timeout_msec = maxi(
+		GFVariantData.get_option_int(data, "timeout_msec"),
+		0
+	)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 
 
@@ -248,14 +258,16 @@ func duplicate_request() -> GFNetworkLobbyOperationRequest:
 ## [br]
 ## @return 固定操作 ID 集合。
 static func get_supported_operations() -> PackedStringArray:
-	return PackedStringArray([
-		OP_CREATE_LOBBY,
-		OP_QUERY_LOBBIES,
-		OP_JOIN_LOBBY,
-		OP_LEAVE_LOBBY,
-		OP_SET_LOBBY_METADATA,
-		OP_SET_MEMBER_METADATA,
-	])
+	return PackedStringArray(
+		[
+			OP_CREATE_LOBBY,
+			OP_QUERY_LOBBIES,
+			OP_JOIN_LOBBY,
+			OP_LEAVE_LOBBY,
+			OP_SET_LOBBY_METADATA,
+			OP_SET_MEMBER_METADATA,
+		]
+	)
 
 
 ## 从字典创建请求。

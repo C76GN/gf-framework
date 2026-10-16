@@ -71,13 +71,25 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, options: Dictionary
 	var path: String = directory.strip_edges().trim_suffix("/")
 	var mode: String = normalized["mode"]
 	var plan: Dictionary = {
-		"ok": false, "status": "preflight_failed", "issues": issues,
-		"directory": path, "mode": mode, "options": normalized,
-		"template_id": "", "template_version": 0, "paths": PackedStringArray(),
-		"scene_path": "", "main_scene_path": "", "installer_path": "",
-		"integration_snippet": "", "guidance_only": false,
-		"entries": [], "settings_before": {}, "settings_after": {},
-		"project_sha256": "", "signature": "",
+		"ok": false,
+		"status": "preflight_failed",
+		"issues": issues,
+		"directory": path,
+		"mode": mode,
+		"options": normalized,
+		"template_id": "",
+		"template_version": 0,
+		"paths": PackedStringArray(),
+		"scene_path": "",
+		"main_scene_path": "",
+		"installer_path": "",
+		"integration_snippet": "",
+		"guidance_only": false,
+		"entries": [],
+		"settings_before": {},
+		"settings_after": {},
+		"project_sha256": "",
+		"signature": "",
 	}
 	if not _valid_directory(path):
 		issues.append("输出目录须为 res:// 下的项目目录，不能包含父路径、引号、反斜杠或指向 addons/.godot。")
@@ -99,7 +111,13 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, options: Dictionary
 		issues.append("项目主场景设置不是有效的字符串；请先修复项目设置。")
 		return plan
 	var current_main_scene: String = str(raw_main_scene)
-	if mode == "new_project" and (not current_main_scene.is_empty() or not _installers_empty(installers)):
+	if (
+		mode == "new_project"
+		and (
+			not current_main_scene.is_empty()
+			or not _installers_empty(installers)
+		)
+	):
 		issues.append("新项目初始化要求主场景与项目 Installer 均为空；已有项目请选择“接入已有项目”。")
 	var after: Dictionary = {}
 	if mode == "new_project":
@@ -141,9 +159,15 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, options: Dictionary
 	if snippet.is_empty():
 		issues.append("初始化接入说明缺失或无法读取；请检查 GF 工具文件。")
 	if not entries.is_empty():
-		var preflight: Dictionary = GFArtifactWriteTransaction.get_preflight_report(entries, _transaction_options(path))
+		var preflight: Dictionary = GFArtifactWriteTransaction.get_preflight_report(
+			entries,
+			_transaction_options(path)
+		)
 		if preflight.get("ok") != true:
-			_append_issues(issues, preflight.get("issues", []))
+			_append_issues(
+				issues,
+				preflight.get("issues", [])
+			)
 	var project_hash: String = FileAccess.get_sha256("res://project.godot")
 	if project_hash.is_empty():
 		issues.append("无法读取 project.godot 的当前内容。")
@@ -153,9 +177,20 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, options: Dictionary
 	plan["ok"] = issues.is_empty()
 	if plan["ok"]:
 		plan["status"] = "guidance_only" if plan["guidance_only"] else "planned"
-	plan["signature"] = var_to_str([
-		manifest, path, normalized, contents, snippet, before, after, project_hash,
-	]).sha256_text()
+	plan["signature"] = (
+		var_to_str(
+			[
+				manifest,
+				path,
+				normalized,
+				contents,
+				snippet,
+				before,
+				after,
+				project_hash,
+			]
+		).sha256_text()
+	)
 	return plan
 
 
@@ -174,7 +209,11 @@ static func get_plan(directory: String = _DEFAULT_DIRECTORY, options: Dictionary
 ## @return 操作报告；只有存在 settings_after 时才保存项目设置。
 ## [br]
 ## @schema return: Dictionary，包含 ok:bool、status:String、issues:Array[String]、mode:String、paths:PackedStringArray、scene_path:String、main_scene_path:String、installer_path:String、integration_snippet:String、guidance_only:bool、settings_saved:bool、files_created:bool、rolled_back:bool、recovery_required:bool 和 transactions:Array[Dictionary]。transactions 保存 GFArtifactWriteTransaction 的提交与终态报告，必要时含原样 recovery_transaction。guidance_only 成功时无事务、无文件或设置写入。
-static func create(directory: String = _DEFAULT_DIRECTORY, options: Dictionary = {}, expected_signature: String = "") -> Dictionary:
+static func create(
+	directory: String = _DEFAULT_DIRECTORY,
+	options: Dictionary = {},
+	expected_signature: String = ""
+) -> Dictionary:
 	var report: Dictionary = _report()
 	var issues: Array[String] = report["issues"]
 	if _busy or not Thread.is_main_thread():
@@ -182,13 +221,30 @@ static func create(directory: String = _DEFAULT_DIRECTORY, options: Dictionary =
 		return report
 	_busy = true
 	var plan: Dictionary = get_plan(directory, options)
-	if plan.get("ok") != true or (not expected_signature.is_empty() and plan["signature"] != expected_signature):
-		_append_issues(issues, plan["issues"])
+	if (
+		plan.get("ok") != true
+		or (
+			not expected_signature.is_empty()
+			and plan["signature"] != expected_signature
+		)
+	):
+		_append_issues(
+			issues,
+			plan["issues"]
+		)
 		if plan.get("ok") == true:
 			issues.append("模板、项目设置或文件已变化，请重新预览初始化计划。")
 		_busy = false
 		return report
-	for key: String in ["mode", "paths", "scene_path", "main_scene_path", "installer_path", "integration_snippet", "guidance_only"]:
+	for key: String in [
+		"mode",
+		"paths",
+		"scene_path",
+		"main_scene_path",
+		"installer_path",
+		"integration_snippet",
+		"guidance_only",
+	]:
 		report[key] = plan[key]
 	if plan["guidance_only"]:
 		report["ok"] = true
@@ -211,20 +267,30 @@ static func create(directory: String = _DEFAULT_DIRECTORY, options: Dictionary =
 	_record_transaction(report, written)
 	if written.get("ok") != true:
 		report["files_created"] = written.get("written_count", 0) > 0 or written.get("recovery_required") == true
-		_record_transaction(report, GFArtifactWriteTransaction.complete(transaction))
+		_record_transaction(
+			report,
+			GFArtifactWriteTransaction.complete(transaction)
+		)
 		report["status"] = "file_commit_failed"
 		_busy = false
 		return report
 	report["files_created"] = true
 	if not _settings_match(before) or FileAccess.get_sha256("res://project.godot") != plan["project_sha256"]:
 		issues.append("创建文件期间项目设置发生变化；未保存设置。")
-		_compensate_files(plan, transaction, report)
+		_compensate_files(
+			plan,
+			transaction,
+			report
+		)
 		_busy = false
 		return report
 	var after: Dictionary = plan["settings_after"]
 	if not after.is_empty():
 		for key: String in after:
-			ProjectSettings.set_setting(key, after[key])
+			ProjectSettings.set_setting(
+				key,
+				after[key]
+			)
 		var save_error: Error = _test_save_error
 		_test_save_error = OK
 		if save_error == OK:
@@ -233,7 +299,11 @@ static func create(directory: String = _DEFAULT_DIRECTORY, options: Dictionary =
 			issues.append("项目设置保存失败：" + error_string(save_error))
 			var restored: bool = _restore_settings(before, after)
 			if restored and FileAccess.get_sha256("res://project.godot") == plan["project_sha256"]:
-				_compensate_files(plan, transaction, report)
+				_compensate_files(
+					plan,
+					transaction,
+					report
+				)
 			else:
 				issues.append("设置内容或所有权已变化，保留新文件，请检查 project.godot 与 Installer 列表。")
 				_retain_files(transaction, report)
@@ -270,7 +340,11 @@ static func configure_test_save_error(error: Error) -> void:
 ## [br]
 ## @api private
 static func _normalize_options(options: Dictionary, issues: Array[String]) -> Dictionary:
-	var normalized: Dictionary = {"mode": "new_project", "create_installer": true, "include_readme": false}
+	var normalized: Dictionary = {
+		"mode": "new_project",
+		"create_installer": true,
+		"include_readme": false,
+	}
 	for key: Variant in options:
 		if not key is String or not normalized.has(key):
 			issues.append("初始化选项包含未知字段：" + str(key))
@@ -297,10 +371,18 @@ static func _valid_directory(path: String) -> bool:
 	if relative.is_empty() or relative.split("/")[0].to_lower() in ["addons", ".godot"]:
 		return false
 	for part: String in relative.split("/"):
-		if part.is_empty() or part in [".", ".."] or not part.is_valid_filename():
+		if (
+			part.is_empty()
+			or part in [".", ".."]
+			or not part.is_valid_filename()
+		):
 			return false
 		for character: String in part:
-			if character.unicode_at(0) < 32 or character in ["\"", "\\", ":"]:
+			if character.unicode_at(0) < 32 or character in [
+				"\"",
+				"\\",
+				":",
+			]:
 				return false
 	return true
 
@@ -378,7 +460,7 @@ static func _setting_snapshot(key: String) -> Dictionary:
 	elif value is Dictionary:
 		var dictionary_value: Dictionary = value
 		value = dictionary_value.duplicate(true)
-	return {"exists": ProjectSettings.has_setting(key), "value": value}
+	return { "exists": ProjectSettings.has_setting(key), "value": value }
 
 
 ## 按存在性和值逐项复核预检快照，包括只读 AutoLoad 前提；不检查快照外的设置。
@@ -411,7 +493,11 @@ static func _saved_settings_equal(values: Dictionary) -> bool:
 		return false
 	for key: String in values:
 		var separator: int = key.find("/")
-		if settings_file.get_value(key.left(separator), key.substr(separator + 1), null) != values[key]:
+		if settings_file.get_value(
+			key.left(separator),
+			key.substr(separator + 1),
+			null
+		) != values[key]:
 			return false
 	return true
 
@@ -425,7 +511,10 @@ static func _restore_settings(before: Dictionary, after: Dictionary) -> bool:
 		return false
 	for key: String in after:
 		var snapshot: Dictionary = before[key]
-		ProjectSettings.set_setting(key, snapshot["value"] if snapshot["exists"] else null)
+		ProjectSettings.set_setting(
+			key,
+			snapshot["value"] if snapshot["exists"] else null
+		)
 	return _settings_match(before)
 
 
@@ -433,7 +522,14 @@ static func _restore_settings(before: Dictionary, after: Dictionary) -> bool:
 ## [br]
 ## @api private
 static func _transaction_options(directory: String) -> Dictionary:
-	return {"allowed_roots": PackedStringArray([directory]), "overwrite_existing": false, "max_file_count": 5, "max_file_bytes": 65536, "max_total_bytes": 262144, "scan_filesystem": false}
+	return {
+		"allowed_roots": PackedStringArray([directory]),
+		"overwrite_existing": false,
+		"max_file_count": 5,
+		"max_file_bytes": 65536,
+		"max_total_bytes": 262144,
+		"scan_filesystem": false,
+	}
 
 
 ## 建立默认失败且尚未产生副作用的独立报告；各提交阶段逐项记录文件、设置、回滚及恢复状态。
@@ -442,7 +538,23 @@ static func _transaction_options(directory: String) -> Dictionary:
 static func _report() -> Dictionary:
 	var issues: Array[String] = []
 	var transactions: Array[Dictionary] = []
-	return {"ok": false, "status": "preflight_failed", "issues": issues, "mode": "", "paths": PackedStringArray(), "scene_path": "", "main_scene_path": "", "installer_path": "", "integration_snippet": "", "guidance_only": false, "settings_saved": false, "files_created": false, "rolled_back": false, "recovery_required": false, "transactions": transactions}
+	return {
+		"ok": false,
+		"status": "preflight_failed",
+		"issues": issues,
+		"mode": "",
+		"paths": PackedStringArray(),
+		"scene_path": "",
+		"main_scene_path": "",
+		"installer_path": "",
+		"integration_snippet": "",
+		"guidance_only": false,
+		"settings_saved": false,
+		"files_created": false,
+		"rolled_back": false,
+		"recovery_required": false,
+		"transactions": transactions,
+	}
 
 
 ## 仅收集数组中的 String 问题项，不隐式转换任意对象，以保持可显示的诊断载荷。
@@ -462,7 +574,10 @@ static func _record_transaction(report: Dictionary, transaction: Dictionary) -> 
 	var transactions: Array[Dictionary] = report["transactions"]
 	transactions.append(transaction)
 	var issues: Array[String] = report["issues"]
-	_append_issues(issues, transaction.get("issues", []))
+	_append_issues(
+		issues,
+		transaction.get("issues", [])
+	)
 	if transaction.get("recovery_required") == true:
 		report["recovery_required"] = true
 
@@ -470,7 +585,11 @@ static func _record_transaction(report: Dictionary, transaction: Dictionary) -> 
 ## 删除前复核所有新文件的内容身份和当前设置引用，不能移除已经被用户接管的产物。
 ## [br]
 ## @api private
-static func _compensate_files(plan: Dictionary, transaction: Dictionary, report: Dictionary) -> void:
+static func _compensate_files(
+	plan: Dictionary,
+	transaction: Dictionary,
+	report: Dictionary
+) -> void:
 	var issues: Array[String] = report["issues"]
 	var current_installers: Variant = _copy_installers(ProjectSettings.get_setting(_INSTALLERS, []))
 	var paths: PackedStringArray = plan["paths"]
@@ -512,6 +631,9 @@ static func _settings_reference_outputs(installers: Variant, paths: PackedString
 ## [br]
 ## @api private
 static func _retain_files(transaction: Dictionary, report: Dictionary) -> void:
-	_record_transaction(report, GFArtifactWriteTransaction.complete(transaction))
+	_record_transaction(
+		report,
+		GFArtifactWriteTransaction.complete(transaction)
+	)
 	report["recovery_required"] = true
 	report["status"] = "recovery_required"

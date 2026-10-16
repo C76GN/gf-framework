@@ -56,7 +56,10 @@ func add_entry(
 ) -> GFTimedTextEntry:
 	var entry: GFTimedTextEntry = GFTimedTextEntry.new()
 	entry.start_time = _normalize_time_seconds(start_time)
-	entry.end_time = maxf(_normalize_time_seconds(end_time), entry.start_time)
+	entry.end_time = maxf(
+		_normalize_time_seconds(end_time),
+		entry.start_time
+	)
 	entry.text = text
 	entry.metadata = entry_metadata.duplicate(true)
 	entries.append(entry)
@@ -75,16 +78,17 @@ func clear() -> void:
 ## @api public
 func sort_entries() -> void:
 	var sequence_by_instance_id: Dictionary = _make_entry_sequence_lookup()
-	entries.sort_custom(func(left: GFTimedTextEntry, right: GFTimedTextEntry) -> bool:
-		if left == null:
-			return false
-		if right == null:
-			return true
-		if left.start_time == right.start_time:
-			if left.end_time == right.end_time:
-				return _get_entry_sequence(left, sequence_by_instance_id) < _get_entry_sequence(right, sequence_by_instance_id)
-			return left.end_time < right.end_time
-		return left.start_time < right.start_time
+	entries.sort_custom(
+		func(left: GFTimedTextEntry, right: GFTimedTextEntry) -> bool:
+			if left == null:
+				return false
+			if right == null:
+				return true
+			if left.start_time == right.start_time:
+				if left.end_time == right.end_time:
+					return (_get_entry_sequence(left, sequence_by_instance_id) < _get_entry_sequence(right, sequence_by_instance_id))
+				return left.end_time < right.end_time
+			return left.start_time < right.start_time
 	)
 
 
@@ -189,15 +193,31 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary serialized timed text track.
 func apply_dictionary(data: Dictionary) -> void:
-	track_id = GFVariantData.get_option_string_name(data, "track_id", track_id)
+	track_id = GFVariantData.get_option_string_name(
+		data,
+		"track_id",
+		track_id
+	)
 	entries.clear()
-	var raw_entries: Array = GFVariantData.as_array(GFVariantData.get_option_value(data, "entries", []))
+	var raw_entries: Array = GFVariantData.as_array(
+		GFVariantData.get_option_value(
+			data,
+			"entries",
+			[]
+		)
+	)
 	for raw_entry: Variant in raw_entries:
 		if raw_entry is Dictionary:
 			var entry: GFTimedTextEntry = GFTimedTextEntry.new()
 			entry.apply_dictionary(GFVariantData.as_dictionary(raw_entry))
 			entries.append(entry)
-	var raw_metadata: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "metadata", {}))
+	var raw_metadata: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(
+			data,
+			"metadata",
+			{}
+		)
+	)
 	metadata = raw_metadata.duplicate(true)
 	sort_entries()
 
@@ -232,4 +252,8 @@ func _make_entry_sequence_lookup() -> Dictionary:
 ## @api private
 ## [br]
 func _get_entry_sequence(entry: GFTimedTextEntry, sequence_by_instance_id: Dictionary) -> int:
-	return GFVariantData.get_option_int(sequence_by_instance_id, entry.get_instance_id(), 0)
+	return GFVariantData.get_option_int(
+		sequence_by_instance_id,
+		entry.get_instance_id(),
+		0
+	)
