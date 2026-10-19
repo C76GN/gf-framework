@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="335cee652934164688e1621f491c3e40da61f3ec47e08550d78e70849579e17f">
+	<description>GFConfigWorkBudget: 单次配置操作及批次共享的有限工作预算。
+句柄只累计、不重置；首次失败锁存。它约束受信任配置代码的协作工作量，
+不隔离自定义代码，也不统计 Resource 属性或引擎内部全部内存。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(limits: Dictionary = {}) -&gt; void:</signature>
+			<description>创建不可重置的操作预算；非法限额创建失败句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limits: 覆盖默认容量的字段。</tag>
+				<tag name="schema">limits: Dictionary，仅接受 max_input_bytes、max_depth、max_work_units、max_value_bytes、max_output_bytes 的正整数；max_depth 最大为 256。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_options">
+			<signature>static func from_options(options: Dictionary = {}) -&gt; GFConfigWorkBudget:</signature>
+			<description>从入口选项取得共享句柄；不得同时声明限额与句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 调用入口选项，其他业务选项不参与预算解析。</tag>
+				<tag name="return">新建或原有句柄；非法选项返回失败句柄，并锁存可识别的原句柄。</tag>
+				<tag name="schema">options: Dictionary，work_limits 为构造函数限额字典，work_budget 为 GFConfigWorkBudget；两字段互斥，省略时创建默认有限句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_input_bytes">
+			<signature>func check_input_bytes(amount: int, context: String = "") -&gt; bool:</signature>
+			<description>读取或分配前检查剩余输入字节容量，不扣除额度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">amount: 本次准备读取的非负字节数。</tag>
+				<tag name="param">context: 诊断位置。</tag>
+				<tag name="return">本次读取仍在剩余额度内时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="consume_input_bytes">
+			<signature>func consume_input_bytes(amount: int, context: String = "") -&gt; bool:</signature>
+			<description>累计原始输入字节；一个来源由读取者或解析者中的一方记账。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">amount: 本次新增的非负字节数。</tag>
+				<tag name="param">context: 诊断位置。</tag>
+				<tag name="return">接受本次输入时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="consume_output_bytes">
+			<signature>func consume_output_bytes(amount: int, context: String = "") -&gt; bool:</signature>
+			<description>累计序列化输出的 UTF-8 字节，供构造输出片段前预留容量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">amount: 本次新增的非负字节数。</tag>
+				<tag name="param">context: 诊断位置。</tag>
+				<tag name="return">接受本次输出时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="consume_work">
+			<signature>func consume_work(amount: int = 1, context: String = "") -&gt; bool:</signature>
+			<description>累计显式工作单元，内部复用 GFExecutionBudget。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">amount: 本次执行的非负工作单元数。</tag>
+				<tag name="param">context: 诊断位置。</tag>
+				<tag name="return">本次工作在剩余额度内时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="check_depth">
+			<signature>func check_depth(depth: int, context: String = "") -&gt; bool:</signature>
+			<description>检查当前绝对嵌套深度；根值深度为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">depth: 当前非负深度。</tag>
+				<tag name="param">context: 诊断位置。</tag>
+				<tag name="return">深度合法且句柄未失败时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="admit_value">
+			<signature>func admit_value(value: Variant, context: String = "") -&gt; bool:</signature>
+			<description>复制或遍历前准入数据图，重复调用按实际访问量累计，不缓存已检查身份。
+Dictionary 键和值及 Array 元素各计一个节点；Packed 元素与祖先身份比较也计工作量。
+PackedByteArray 按每 1024 字节一个工作块向上取整，完整字节仍计入载荷。
+String/StringName 计 UTF-8 载荷，数值 Packed 数组计保守存储字节。
+仅拒绝当前祖先链循环，共享子容器合法。Resource 作为叶引用保留，不读取其属性；
+其余 Object、Callable、Signal、RID 不属于可准入的配置值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 要准入的配置值。</tag>
+				<tag name="param">context: 诊断位置。</tag>
+				<tag name="return">完整数据图通过准入时为 true，失败不会复制输入。</tag>
+				<tag name="schema">value: Variant，支持无循环容器、原生值及 Resource 叶引用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_ok">
+			<signature>func is_ok() -&gt; bool:</signature>
+			<description>检查句柄是否仍可使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次失败前为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; Dictionary:</signature>
+			<description>取得独立报告；修改报告不会改变预算状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">预算状态及计数。</tag>
+				<tag name="schema">return: Dictionary，含 ok、error_kind、error、context、limits 与 usage；usage 含 work_units、input_bytes、value_bytes、output_bytes、peak_depth。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

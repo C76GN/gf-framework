@@ -77,6 +77,18 @@ Windows / Godot 4.7.2 的一次本地整数表测量中，10×100×20 的 Valida
 
 项目或独立工具插件确实需要替换来源或目标时，可以继承对应 Stage，并通过 `configure_stages()` 注入。自定义阶段必须保持内置输入输出契约，只替换稳定机制；远程表服务、业务字段解释、分端裁剪、热更新签名和发布审批仍应留在项目流水线。`get_stage_descriptors()` 会按实际执行顺序返回阶段 ID、实现版本、实现路径、`implementation_dependencies` 和契约，可用于诊断、编译指纹与工具展示。具名脚本会自动提供 `implementation_path`；阶段依赖的 schema、列、Importer 或其他辅助实现必须显式列入 `implementation_dependencies`。运行时内部类或动态脚本若没有稳定资源路径，必须在描述器中显式声明可追踪的实现路径，否则产物新鲜度检查应 fail closed。
 
+## 构建工作预算
+
+`build_table()`、`build_table_from_text()` 和 `build_database()` 在每次顶层构建创建新的 `GFConfigWorkBudget`。构建一组表时，全部来源共享累计预算；单表成功不会为下一张表重置额度。Profile 的 `build_options.work_limits` 或构建调用的 `work_limits` 可覆盖[配置工作预算](../../standard/utilities/io/config-remote-outbox/config-provider/validation-importer/json-csv-import.md#工作预算与批次)。顶层构建不接受外部 `work_budget`；句柄只在阶段间传递，避免独立构建意外共用历史计数。
+
+Profile 选项沿用 `make_build_options()` 的覆盖规则：本次 `build_options.work_limits` 按字段合并 Profile 中的同名限额；直接传入的 `work_limits` 优先级最高，整体替换合成后的限额字典，缺省字段重新采用框架默认值。每层显式提供的非法限额都会被拒绝。
+
+预算选项只能由构建入口声明，`source.parse_options` 和构建的 `parse_options` 中不能放 `work_limits` 或 `work_budget`。Reader 在分配载荷前检查剩余输入额度；文本由 Importer 计入原文 UTF-8 字节，XLSX 计入归档字节及展开后实际单元格文本。Validation 在复制 Layout 数据前再次执行数据图准入，因此自定义 Layout 也必须遵守相同数据合同。原有文件、XLSX 和 `max_validation_cells` 限制继续作为额外约束；`max_validation_cells = -1` 不能关闭工作预算。
+
+构建阶段生成 Resource 与 IR，不消费工作预算中的文本 `output_bytes`。Target 的 JSON 导出继续使用自身选项中的 `max_depth`、`max_nodes` 和 `max_output_bytes`；它们与构建的 `work_limits` 分别约束不同操作。
+
+任一阶段失败时，构建不交付可用的部分数据库或 IR，也不进入产物发布。报告保留错误分类和来源，调用方修正输入或容量后重新构建。自定义 Stage 仍须遵守阶段合同；预算不会抢占其内部代码，也不能为原生解析或 Resource 属性提供进程级内存保证。
+
 ## 典型流程
 
 ```gdscript
@@ -247,7 +259,7 @@ CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_pr
 
 XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI；`sharedStrings.xml`、`workbook.xml`、关系表和 worksheet 任一 XML 非正常结束、根不完整或存在截断尾部都会整表失败。`max_xlsx_file_bytes` 的负值只关闭项目配置的文件预算；进入共享 ZIP 读取边界后仍会收敛到框架绝对 archive 与累计解压硬上限，不会产生真正无界的读取。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
 
-CSV / JSON / ConfigFile 的 Reader 默认用 `max_source_file_bytes = 64 MiB` 在读取前限制单文件，但 Layout 复用的直接 importer 尚无行、列、累计单元格或嵌套节点预算；文件预算不能证明解析峰值内存和主线程时间有同样上界。处理不受信来源时，项目应先收紧文件预算并在进入 Pipeline 前做来源级预检；不要通过传负值关闭限制后仍把该路径描述为有界导入。
+CSV / JSON / ConfigFile 的 Reader 默认用 `max_source_file_bytes = 64 MiB` 在读取前限制单文件，并与 Layout、Validation 共用本次构建的有限工作预算。文件局部限额不能替代批次累计额度；两者也不能证明原生解析峰值内存或主线程时间具有相同上界。处理不受信来源时，项目仍应收紧输入容量并执行来源级预检，必要时使用独立进程隔离。
 
 XLSX 的共享字符串按原始索引保留空项。`<si/>`、`<si></si>` 和 `<si><t/></si>` 都表示一个空字符串，仍计入 `max_xlsx_shared_strings`；后续单元格引用的索引不会因空项前移。
 

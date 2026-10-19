@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。
+通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。 每个顶层操作默认使用有限的 GFConfigWorkBudget；解析、映射和校验共享同一预算。 输入按 UTF-8 字节计量，文本每扫描 1024 个字符消耗一个工作单元，表格处理另按单元格和比较次数计量。 JSON 与 ConfigFile 原生解析调用不可硬中断；容量和文本嵌套检查在调用前完成，解析结果随后通过值图准入。 JSON 根容器深度为零；ConfigFile 另保守限制构造器嵌套，最终深度按映射出的记录数组计量。 schema 校验前按记录、字段和声明规则访问次数预留工作；自定义规则及原生方法不提供可抢占执行保证。
 
 ## 成员概览
 
@@ -32,6 +32,7 @@
 ### `parse_json_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:
@@ -44,14 +45,14 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 | 名称 | 说明 |
 |---|---|
 | `text` | JSON 文本。 |
-| `options` | 可选参数，支持 source。 |
+| `options` | 可选参数，支持 source；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：结果字典，包含 success、data、error、error_line 与 source。
 
 结构：
 
-- `options`: Dictionary，可包含 source。
-- `return`: Dictionary，包含 success、data、error、error_line 和 source。
+- `options`: Dictionary，可包含 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+- `return`: Dictionary，包含 success、data、error、error_line 和 source；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 
 <a id="member-gfconfigtableimporter-methods-parse_rows_table"></a>
 
@@ -71,15 +72,15 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 | 名称 | 说明 |
 |---|---|
 | `rows` | 已解析的二维文本行。 |
-| `options` | 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。 |
+| `options` | 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：结果字典，包含 success、data、header、row_locations 与 error。
 
 结构：
 
 - `rows`: Array[PackedStringArray]，每个条目是一行单元格文本。
-- `options`: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
-- `return`: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
+- `options`: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+- `return`: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 
 <a id="member-gfconfigtableimporter-methods-parse_csv_table"></a>
 
@@ -99,14 +100,14 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 | 名称 | 说明 |
 |---|---|
 | `text` | CSV 文本。 |
-| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source。 |
+| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：结果字典，包含 success、data、header、row_locations 与 error。
 
 结构：
 
-- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
-- `return`: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
+- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+- `return`: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 
 <a id="member-gfconfigtableimporter-methods-parse_config_file_table"></a>
 
@@ -126,14 +127,14 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 | 名称 | 说明 |
 |---|---|
 | `text` | ConfigFile 文本。 |
-| `options` | 可选参数，支持 source、section_field、include_empty_sections。 |
+| `options` | 可选参数，支持 source、section_field、include_empty_sections；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：结果字典，包含 success、data、sections、row_locations 与 error。
 
 结构：
 
-- `options`: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段。
-- `return`: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source。
+- `options`: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+- `return`: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 
 <a id="member-gfconfigtableimporter-methods-validate_json_table"></a>
 
@@ -154,13 +155,13 @@ static func validate_json_table( text: String, schema: GFConfigTableSchema, opti
 |---|---|
 | `text` | JSON 文本。 |
 | `schema` | 表结构声明。 |
-| `options` | 可选参数，支持 source。 |
+| `options` | 可选参数，支持 source；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：校验报告；解析失败时返回失败报告。
 
 结构：
 
-- `options`: Dictionary，可包含 source。
+- `options`: Dictionary，可包含 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigtableimporter-methods-validate_json_record"></a>
@@ -183,14 +184,14 @@ static func validate_json_record( text: String, schema: GFConfigTableSchema, row
 | `text` | JSON 文本，根节点必须是 Dictionary。 |
 | `schema` | 表结构声明；当前方法复用其字段声明校验单条记录。 |
 | `row_key` | 可选行标识；为空且 schema 声明了 id_field 时会尝试从记录字段读取。 |
-| `options` | 可选参数，支持 source。 |
+| `options` | 可选参数，支持 source；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：校验报告；解析失败或根节点不是 Dictionary 时返回失败报告。
 
 结构：
 
 - `row_key`: Variant，写入校验报告 issue 的行标识。
-- `options`: Dictionary，可包含 source。
+- `options`: Dictionary，可包含 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigtableimporter-methods-validate_csv_table"></a>
@@ -212,13 +213,13 @@ static func validate_csv_table( text: String, schema: GFConfigTableSchema, optio
 |---|---|
 | `text` | CSV 文本。 |
 | `schema` | 表结构声明。 |
-| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。 |
+| `options` | 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：校验报告；解析失败时返回失败报告。
 
 结构：
 
-- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
+- `options`: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigtableimporter-methods-validate_config_file_table"></a>
@@ -240,13 +241,13 @@ static func validate_config_file_table( text: String, schema: GFConfigTableSchem
 |---|---|
 | `text` | ConfigFile 文本。 |
 | `schema` | 表结构声明。 |
-| `options` | 可选参数，支持 source、section_field、include_empty_sections。 |
+| `options` | 可选参数，支持 source、section_field、include_empty_sections；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：校验报告；解析失败时返回失败报告。
 
 结构：
 
-- `options`: Dictionary，可包含 source、section_field 和 include_empty_sections 字段。
+- `options`: Dictionary，可包含 source、section_field 和 include_empty_sections 字段；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigtableimporter-methods-export_csv_table"></a>
@@ -254,6 +255,7 @@ static func validate_config_file_table( text: String, schema: GFConfigTableSchem
 ### `export_csv_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema = null, options: Dictionary = {} ) -> Dictionary:
@@ -267,12 +269,12 @@ static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema =
 |---|---|
 | `table_data` | Array[Dictionary] 或 Dictionary 形式的表数据。 |
 | `schema` | 可选 schema；提供时默认按 schema.columns 排列列。 |
-| `options` | 可选参数，支持 delimiter、columns、include_header、coerce_values。 |
+| `options` | 可选参数，支持 delimiter、columns、include_header、coerce_values；另支持互斥的 work_limits 或 work_budget。 |
 
 返回：结果字典，包含 success、text 与 error。
 
 结构：
 
 - `table_data`: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
-- `options`: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values。
-- `return`: Dictionary，包含 success、text 和 error。
+- `options`: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+- `return`: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。

@@ -1,3 +1,5 @@
+@tool
+
 ## 测试配置导表工具包的 CSV / JSON / XLSX 到 Resource 构建流程。
 extends GutTest
 
@@ -2032,7 +2034,7 @@ func test_pipeline_database_reports_empty_sources() -> void:
 		GFVariantData.get_option_bool(build_result, "success"),
 		"空来源数据库不应被当作成功构建。"
 	)
-	assert_not_null(database, "失败结果仍应返回数据库资源以便调用方检查上下文。")
+	assert_null(database, "失败结果只保留诊断，不交付可消费的数据库资源。")
 	assert_true(
 		_has_issue_kind(
 			GFVariantData.get_option_array(report, "issues"),
@@ -2081,10 +2083,10 @@ func test_pipeline_database_rejects_duplicate_table_sources() -> void:
 		),
 		"报告应包含重复来源错误。"
 	)
-	assert_eq(
-		database.get_table_ids().size(),
-		1,
-		"重复来源失败时数据库只应保留首个成功注册表，避免覆盖。"
+	assert_null(database, "重复来源失败不得交付部分数据库。")
+	assert_true(
+		build_result.get("ir") == null,
+		"重复来源失败不得交付部分 IR。"
 	)
 
 
@@ -4458,6 +4460,489 @@ func test_pipeline_rejects_source_over_configured_byte_budget() -> void:
 	)
 
 
+func test_pipeline_work_budget_accumulates_across_tables_and_resets_per_build() -> void:
+	var text: String = "id\n1\n"
+	var first: GFConfigPipelineTableSource = _make_work_budget_source("first", text)
+	var second: GFConfigPipelineTableSource = _make_work_budget_source("second", text)
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
+	var options: Dictionary = {
+		"work_limits": { "max_input_bytes": text.to_utf8_buffer().size() },
+		"max_validation_cells": -1,
+	}
+	var batch: Dictionary = pipeline.build_database(
+		[first, second],
+		options
+	)
+	var first_run: Dictionary = pipeline.build_database(
+		[first],
+		options
+	)
+	var second_run: Dictionary = pipeline.build_database(
+		[first],
+		options
+	)
+	var batch_report: Dictionary = GFVariantData.get_option_dictionary(batch, "budget_report")
+	var usage: Dictionary = GFVariantData.get_option_dictionary(batch_report, "usage")
+	var diagnostics: Array = GFVariantData.get_option_array(batch, "table_results")
+
+	assert_false(
+		GFVariantData.get_option_bool(batch, "success"),
+		"跨表必须累计同一输入预算。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(batch, "error_kind"),
+		"config_work_input_bytes_exceeded"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(usage, "input_bytes"),
+		text.to_utf8_buffer().size(),
+		"文本 Reader 预检不得重复扣除解析器输入。"
+	)
+	assert_true(
+		batch.get("database") == null,
+		"失败批次不得返回第一张可用表组成的部分数据库。"
+	)
+	assert_true(
+		batch.get("ir") == null,
+		"失败批次不得返回部分 IR。"
+	)
+	assert_eq(
+		diagnostics.size(),
+		2
+	)
+	for diagnostic_value: Variant in diagnostics:
+		var diagnostic: Dictionary = GFVariantData.as_dictionary(diagnostic_value)
+		assert_false(diagnostic.has("table"))
+		assert_false(diagnostic.has("ir"))
+	assert_true(
+		GFVariantData.get_option_bool(first_run, "success"),
+		"失败后新的构建必须使用全新预算。"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(second_run, "success"),
+		"复用选项字典不能复用上次已消耗会话。"
+	)
+	assert_false(
+		options.has("work_budget"),
+		"构建不得向调用方选项注入内部句柄。"
+	)
+
+
+func test_pipeline_rejects_invalid_work_limits_before_reading_sources() -> void:
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"missing"
+	source.source_path = "user://missing_work_budget_source.csv"
+	var invalid_limits: Array = [
+		null,
+		{ "max_input_bytes": 0 },
+		{ "max_work_units": -1 },
+		{ "max_depth": 257 },
+		{ "max_depth": 2.0 },
+		{ "unknown_limit": 1 },
+	]
+	for limits: Variant in invalid_limits:
+		var result: Dictionary = GFConfigPipeline.new().build_database(
+			[source],
+			{ "work_limits": limits }
+		)
+		assert_false(GFVariantData.get_option_bool(result, "success"))
+		assert_true(
+			GFVariantData.get_option_string(result, "error_kind").begins_with("config_work_invalid_"),
+			"非法限额应先于文件打开失败。"
+		)
+		assert_true(result.get("database") == null)
+		assert_true(result.get("ir") == null)
+	var shared: GFConfigWorkBudget = GFConfigWorkBudget.new()
+	var shared_result: Dictionary = GFConfigPipeline.new().build_database(
+		[source],
+		{ "work_budget": shared }
+	)
+	assert_eq(
+		GFVariantData.get_option_string(shared_result, "error_kind"),
+		"config_work_invalid_options",
+		"顶层构建不接受外部持久预算。"
+	)
+	assert_true(
+		shared.is_ok(),
+		"拒绝顶层句柄不得改变调用方持有的会话。"
+	)
+
+
+func test_pipeline_rejects_parse_option_budget_overrides() -> void:
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
+	for key: String in ["work_limits", "work_budget"]:
+		var nested: Dictionary = { key: {} }
+		var top_result: Dictionary = pipeline.build_table_from_text(
+			source,
+			"id\n1\n",
+			{ "parse_options": nested }
+		)
+		assert_eq(
+			GFVariantData.get_option_string(top_result, "error_kind"),
+			"config_work_invalid_options"
+		)
+		source.parse_options = nested
+		var source_result: Dictionary = pipeline.build_table_from_text(source, "id\n1\n")
+		assert_eq(
+			GFVariantData.get_option_string(source_result, "error_kind"),
+			"config_work_invalid_options"
+		)
+		assert_true(source_result.get("table") == null)
+		source.parse_options = {}
+
+
+func test_pipeline_reader_rejects_total_input_limit_before_allocating_payload() -> void:
+	var source: GFConfigPipelineTableSource = _make_work_budget_source("reader", "id\n12345\n")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_input_bytes": 4 })
+	var result: Dictionary = GFConfigPipelineReaderStage.new().read_source(
+		source,
+		{ "work_budget": budget, "max_source_file_bytes": -1 }
+	)
+	var report: Dictionary = GFVariantData.get_option_dictionary(result, "budget_report")
+
+	assert_false(GFVariantData.get_option_bool(result, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(result, "text"),
+		""
+	)
+	assert_true(
+		GFVariantData.get_option_dictionary(result, "source_receipt").is_empty(),
+		"读取前拒绝不得生成内容收据。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "context"),
+		"reader.source_bytes"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.get_option_dictionary(report, "usage"),
+			"input_bytes"
+		),
+		0,
+		"预检不扣输入字节。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "error_code"),
+		ERR_OUT_OF_MEMORY
+	)
+	var invalid_result: Dictionary = GFConfigPipelineReaderStage.new().read_source(
+		source,
+		{
+			"work_limits": { "max_input_bytes": 0 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(invalid_result, "error_code"),
+		ERR_INVALID_PARAMETER
+	)
+
+
+func test_pipeline_rejects_cyclic_schema_payloads_before_cloning() -> void:
+	for location: String in [
+		"schema_metadata",
+		"column_default",
+		"column_metadata",
+		"rule_metadata",
+		"rule_payload",
+	]:
+		var schema: _BudgetCloneCountingSchema = _BudgetCloneCountingSchema.new()
+		schema.table_name = &"items"
+		schema.coerce_values = false
+		var column: GFConfigTableColumn = _make_column(&"id", GFConfigTableColumn.ValueType.INT)
+		schema.columns = [column]
+		var cycle: Dictionary = {}
+		cycle["self"] = cycle
+		var rule: GFConfigNotDefaultValidationRule = GFConfigNotDefaultValidationRule.new()
+		match location:
+			"schema_metadata":
+				schema.metadata = cycle
+			"column_default":
+				column.default_value = cycle
+			"column_metadata":
+				column.metadata = cycle
+			"rule_metadata":
+				rule.metadata = cycle
+				column.validation_rules = [rule]
+			"rule_payload":
+				rule.default_value = cycle
+				column.validation_rules = [rule]
+		var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+		source.table_name = &"items"
+		source.source_format = GFConfigPipelineTableSource.FORMAT_JSON
+		source.schema = schema
+		var result: Dictionary = GFConfigPipeline.new().build_table_from_text(source, "[{\"id\":1}]")
+		cycle.clear()
+
+		assert_eq(
+			GFVariantData.get_option_string(result, "error_kind"),
+			"config_work_cycle",
+			location
+		)
+		assert_eq(
+			schema.clone_count,
+			0,
+			"循环声明载荷必须在 duplicate_schema 前拒绝：%s。" % location
+		)
+		assert_true(result.get("table") == null)
+		assert_true(result.get("ir") == null)
+
+
+func test_pipeline_validation_admits_default_depth_in_final_records() -> void:
+	var nested_default: Array = []
+	for _index: int in range(5):
+		nested_default = [nested_default]
+	var column: GFConfigTableColumn = _make_column(&"payload", GFConfigTableColumn.ValueType.ARRAY)
+	column.required = false
+	column.default_value = nested_default
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"items"
+	schema.id_field = &""
+	schema.coerce_values = true
+	schema.columns = [column]
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_format = GFConfigPipelineTableSource.FORMAT_JSON
+	source.schema = schema
+	var result: Dictionary = GFConfigPipelineValidationStage.new().compile_table(
+		source,
+		{
+			"success": true,
+			"data": [{}],
+		},
+		{
+			"work_limits": { "max_depth": 6 },
+		}
+	)
+	var budget_report: Dictionary = GFVariantData.get_option_dictionary(result, "budget_report")
+
+	assert_eq(
+		GFVariantData.get_option_string(result, "error_kind"),
+		"config_work_depth_exceeded"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(budget_report, "context"),
+		"validation.final_records",
+		"默认值嵌入记录后的额外深度必须在 IR 复制前拒绝。"
+	)
+	assert_true(result.get("ir") == null)
+
+
+func test_pipeline_validation_counts_converted_strings_before_ir_copy() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"items"
+	schema.id_field = &""
+	schema.coerce_values = true
+	schema.columns = [_make_column(&"value", GFConfigTableColumn.ValueType.STRING)]
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_format = GFConfigPipelineTableSource.FORMAT_JSON
+	source.schema = schema
+	var layout: Dictionary = {
+		"success": true,
+		"data": [
+			{ "value": 1234567890123456789 },
+		],
+	}
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new()
+	var stage: GFConfigPipelineValidationStage = GFConfigPipelineValidationStage.new()
+	var accepted: Dictionary = stage.compile_table(
+		source,
+		layout,
+		{ "work_budget": budget }
+	)
+	assert_true(GFVariantData.get_option_bool(accepted, "success"))
+	var value_bytes: int = GFVariantData.get_option_int(
+		GFVariantData.get_option_dictionary(
+			budget.get_report(),
+			"usage"
+		),
+		"value_bytes"
+	)
+	var rejected: Dictionary = stage.compile_table(
+		source,
+		layout,
+		{
+			"work_limits": { "max_value_bytes": value_bytes - 1 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_value_bytes_exceeded"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(rejected, "budget_report"),
+			"context"
+		),
+		"validation.final_records",
+		"数值转字符串产生的新载荷必须累计到同一预算。"
+	)
+	assert_true(rejected.get("ir") == null)
+
+
+func test_pipeline_admits_custom_layout_before_validation_copy() -> void:
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_format = GFConfigPipelineTableSource.FORMAT_JSON
+	var layout: _BudgetTestLayoutStage = _BudgetTestLayoutStage.new()
+	var validation: _BudgetCountingValidationStage = _BudgetCountingValidationStage.new()
+	var cycle: Array = []
+	cycle.append(cycle)
+	layout.payload = cycle
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
+	var _configured: GFConfigPipeline = pipeline.configure_stages(
+		null,
+		layout,
+		validation
+	)
+	var result: Dictionary = pipeline.build_table_from_text(source, "[]")
+	cycle.clear()
+
+	assert_eq(
+		GFVariantData.get_option_string(result, "error_kind"),
+		"config_work_cycle"
+	)
+	assert_eq(
+		validation.call_count,
+		0,
+		"自定义 Layout 的循环数据必须在 Validation 深复制前拒绝。"
+	)
+	assert_true(result.get("table") == null)
+	assert_true(result.get("ir") == null)
+
+
+func test_pipeline_profile_budget_failure_preserves_artifact_and_returns_no_database() -> void:
+	var source: GFConfigPipelineTableSource = _make_work_budget_source("profile", "id\n12345\n")
+	var output_path: String = _write_text(
+		"user://gf_config_pipeline_budget_output_%d.json" % Time.get_ticks_usec(),
+		"existing artifact"
+	)
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.sources = [source]
+	profile.output_path = output_path
+	profile.build_options = {
+		"work_limits": { "max_input_bytes": 4 },
+	}
+	var result: Dictionary = GFConfigPipeline.new().export_profile(profile)
+
+	assert_false(GFVariantData.get_option_bool(result, "success"))
+	assert_true(result.get("database") == null)
+	assert_eq(
+		FileAccess.get_file_as_string(output_path),
+		"existing artifact",
+		"预算失败不得进入产物写入。"
+	)
+	var build_result: Dictionary = GFVariantData.get_option_dictionary(result, "build_result")
+	assert_eq(
+		GFVariantData.get_option_string(build_result, "error_kind"),
+		"config_work_input_bytes_exceeded"
+	)
+	var success_result: Dictionary = GFConfigPipeline.new().build_profile(
+		profile,
+		{
+			"work_limits": { "max_input_bytes": 64 },
+		}
+	)
+	assert_true(
+		GFVariantData.get_option_bool(success_result, "success"),
+		"Profile 顶层限额覆盖应进入一次新的构建会话。"
+	)
+
+
+func test_pipeline_profile_work_limits_match_composed_build_options() -> void:
+	var source: GFConfigPipelineTableSource = _make_work_budget_source("profile_limits", "id\n1\n")
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.sources = [source]
+	profile.build_options = {
+		"work_limits": { "max_input_bytes": 4, "max_work_units": 100000 },
+	}
+	var overrides_list: Array[Dictionary] = [
+		{
+			"build_options": {
+				"work_limits": { "max_work_units": 50000 },
+			},
+		},
+		{
+			"build_options": {
+				"work_limits": { "max_input_bytes": 64 },
+			},
+		},
+		{
+			"work_limits": { "max_work_units": 50000 },
+		},
+		{ "work_limits": {} },
+	]
+	var expected_success: Array[bool] = [
+		false,
+		true,
+		true,
+		true,
+	]
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
+	for index: int in range(overrides_list.size()):
+		var overrides: Dictionary = overrides_list[index]
+		var composed_options: Dictionary = profile.make_build_options(overrides)
+		var from_profile: Dictionary = pipeline.build_profile(profile, overrides)
+		var from_options: Dictionary = pipeline.build_database(profile.sources, composed_options)
+		assert_eq(
+			GFVariantData.get_option_bool(from_profile, "success"),
+			expected_success[index],
+			"嵌套限额按维合并；直接 work_limits（包括空字典）整体替换。"
+		)
+		assert_eq(
+			GFVariantData.get_option_bool(from_profile, "success"),
+			GFVariantData.get_option_bool(from_options, "success")
+		)
+		assert_eq(
+			GFVariantData.get_option_dictionary(
+				GFVariantData.get_option_dictionary(from_profile, "budget_report"),
+				"limits"
+			),
+			GFVariantData.get_option_dictionary(
+				GFVariantData.get_option_dictionary(from_options, "budget_report"),
+				"limits"
+			),
+			"两条公开构建入口必须解析出相同的有效限额。"
+		)
+
+
+func test_pipeline_profile_rejects_invalid_limits_in_overridden_layers() -> void:
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = "user://missing_profile_limits.csv"
+	for layer_index: int in range(3):
+		var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+		profile.sources = [source]
+		profile.build_options = {
+			"work_limits": { "max_input_bytes": 64 },
+		}
+		var overrides: Dictionary = {
+			"build_options": {
+				"work_limits": { "max_input_bytes": 64 },
+			},
+			"work_limits": { "max_input_bytes": 64 },
+		}
+		var invalid: Dictionary = { "max_input_bytes": 0 }
+		match layer_index:
+			0:
+				profile.build_options["work_limits"] = invalid
+			1:
+				overrides["build_options"] = { "work_limits": invalid }
+			2:
+				overrides["work_limits"] = invalid
+		var result: Dictionary = GFConfigPipeline.new().build_profile(profile, overrides)
+		assert_eq(
+			GFVariantData.get_option_string(result, "error_kind"),
+			"config_work_invalid_limits",
+			"任何层的非法限额都必须在读取文件前拒绝，即使之后被覆盖。"
+		)
+		assert_true(result.get("database") == null)
+		assert_true(result.get("ir") == null)
+
+
 func test_pipeline_rejects_statement_shaped_provider_accessor() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("provider_accessor")
 	var output_path: String = _track_path("user://gf_config_pipeline_accessor_%d.gd" % Time.get_ticks_usec())
@@ -4505,6 +4990,18 @@ func test_pipeline_command_json_uses_report_codec_markers() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_work_budget_source(label: String, text: String) -> GFConfigPipelineTableSource:
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = StringName(label)
+	source.source_path = _write_text(
+		"user://gf_config_pipeline_work_%s_%d.csv"
+		% [label, Time.get_ticks_usec()],
+		text
+	)
+	source.source_format = GFConfigPipelineTableSource.FORMAT_CSV
+	return source
+
 
 func _build_items_database_from_csv(label: String) -> GFConfigDatabaseResource:
 	var csv_path: String = _write_text(
@@ -5026,6 +5523,45 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 
 
 # --- 内部类 ---
+
+class _BudgetCloneCountingSchema extends GFConfigTableSchema:
+	var clone_count: int = 0
+
+	func duplicate_schema() -> GFConfigTableSchema:
+		clone_count += 1
+		return super.duplicate_schema()
+
+
+class _BudgetTestLayoutStage extends GFConfigPipelineLayoutStage:
+	var payload: Variant = null
+
+	func decode_source(
+		_source: GFConfigPipelineTableSource,
+		_read_result: Dictionary,
+		_options: Dictionary = {}
+	) -> Dictionary:
+		return {
+			"success": true,
+			"data": payload,
+			"row_locations": [],
+		}
+
+
+class _BudgetCountingValidationStage extends GFConfigPipelineValidationStage:
+	var call_count: int = 0
+
+	func compile_table(
+		source: GFConfigPipelineTableSource,
+		layout_result: Dictionary,
+		options: Dictionary = {}
+	) -> Dictionary:
+		call_count += 1
+		return super.compile_table(
+			source,
+			layout_result,
+			options
+		)
+
 
 class _ArrayCellLayoutStage extends GFConfigPipelineLayoutStage:
 	func decode_source(

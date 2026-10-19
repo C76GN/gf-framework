@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.reader.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 2
+const IMPLEMENTATION_VERSION: int = 3
 
 ## 非 XLSX 来源文件的默认读取字节预算。
 ## [br]
@@ -65,12 +65,15 @@ const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
 ## [br]
 ## @param options: 读取选项。
 ## [br]
-## @schema options: Dictionary，可包含 max_source_file_bytes 和 max_xlsx_file_bytes；负值表示不限制。
+## @schema options: Dictionary，可包含 work_limits 或共享 work_budget（二者互斥），以及 max_source_file_bytes、max_xlsx_file_bytes；后两项负值仅取消文件局部限额，不能取消总预算。文本只预检输入容量，由解析器记账；XLSX 在本阶段累计归档字节。
 ## [br]
 ## @return: Reader 阶段结果。
 ## [br]
-## @schema return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；source_receipt 绑定本次实际读取的字节数与 SHA-256。
+## @schema return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；预算失败另含 budget_report，source_receipt 绑定本次实际读取的字节数与 SHA-256。
 func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not budget.is_ok():
+		return _make_budget_failure(source, budget)
 	if source == null:
 		return _make_failure(
 			&"",
@@ -132,6 +135,9 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 		)
 
 	var source_size: int = file.get_length()
+	if not budget.check_input_bytes(source_size, "reader.source_bytes"):
+		file.close()
+		return _make_budget_failure(source, budget)
 	var budget_key: String = ("max_xlsx_file_bytes" if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX else "max_source_file_bytes")
 	var default_budget: int = (_DEFAULT_MAX_XLSX_FILE_BYTES if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX else _DEFAULT_MAX_SOURCE_FILE_BYTES)
 	var source_budget: int = GFVariantData.get_option_int(
@@ -160,6 +166,9 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 			}
 		)
 
+	if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX and not budget.consume_input_bytes(source_size, "reader.xlsx_archive"):
+		file.close()
+		return _make_budget_failure(source, budget)
 	var source_bytes: PackedByteArray = file.get_buffer(source_size)
 	var read_error: Error = file.get_error()
 	var final_source_size: int = file.get_length()
@@ -233,8 +242,13 @@ func get_stage_descriptor() -> Dictionary:
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
 		"input_contract": "GFConfigPipelineTableSource@1",
-		"output_contract": "gf.config_pipeline.reader_result@2",
-		"implementation_dependencies": ["res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd", "res://addons/gf/standard/foundation/variant/gf_variant_data.gd",],
+		"output_contract": "gf.config_pipeline.reader_result@3",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_work_budget.gd",
+			"res://addons/gf/standard/common/gf_execution_budget.gd",
+		],
 		"supported_formats": [
 			"csv",
 			"json",
@@ -245,6 +259,26 @@ func get_stage_descriptor() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## 将有限预算的首次失败投影为 Reader 错误；不附带已读取载荷。
+## [br]
+## @api private
+func _make_budget_failure(source: GFConfigPipelineTableSource, budget: GFConfigWorkBudget) -> Dictionary:
+	var report: Dictionary = budget.get_report()
+	var error_kind: String = GFVariantData.get_option_string(report, "error_kind")
+	var error_code: Error = ERR_INVALID_PARAMETER if error_kind.begins_with("config_work_invalid_") else ERR_OUT_OF_MEMORY
+	var result: Dictionary = _make_failure(
+		source.get_table_key() if source != null else &"",
+		source.source_path if source != null else "",
+		error_kind,
+		error_code,
+		GFVariantData.get_option_string(report, "error"),
+		source.get_resolved_format() if source != null else &"",
+		{ "budget_report": report }
+	)
+	result["budget_report"] = report
+	return result
+
 
 ## 判断解析后的来源格式是否属于内置 CSV、JSON、ConfigFile 或 XLSX 格式。
 ## [br]

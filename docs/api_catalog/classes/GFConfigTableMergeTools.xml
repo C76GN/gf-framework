@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableMergeTools" path="addons/gf/standard/utilities/config/gf_config_table_merge_tools.gd" module="standard" extends="RefCounted" classDigest="831f7d62fa39e29965e0687c5a2da6d103f0141f3023dbc242454852daf555b1">
+<class name="GFConfigTableMergeTools" path="addons/gf/standard/utilities/config/gf_config_table_merge_tools.gd" module="standard" extends="RefCounted" classDigest="ed37f3aab3905a23e8504b19219df5b0cadd57924b01aa85d7c09f284d3b095f">
 	<description>GFConfigTableMergeTools: 配置表补丁合并工具。
 提供 Array[Dictionary] 与 Dictionary 表的通用补丁合并，适合导表后处理、
 编辑器工具或项目自己的配置包流程使用。</description>
@@ -14,17 +14,20 @@
 	<properties />
 	<methods>
 		<member kind="method" name="merge_tables">
-			<signature>static func merge_tables( base_table: Variant, patch_table: Variant, policy: GFConfigTableMergePolicy = null ) -&gt; Dictionary:</signature>
+			<signature>static func merge_tables( base_table: Variant, patch_table: Variant, policy: GFConfigTableMergePolicy = null, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>合并 base 表与 patch 表。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_table: Array[Dictionary] 或 Dictionary 形式的基础表。</tag>
 				<tag name="param">patch_table: Array[Dictionary] 或 Dictionary 形式的补丁表。</tag>
 				<tag name="param">policy: 可选合并策略；为空时使用默认策略。</tag>
+				<tag name="param">options: 新预算限额或已有批次预算。</tag>
 				<tag name="return">结果字典，包含 ok、data、issues 与统计信息。</tag>
 				<tag name="schema">base_table: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。</tag>
 				<tag name="schema">patch_table: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。</tag>
-				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary，额外包含 data、dictionary_output、base_count、inserted_count、updated_count 和 deleted_count。</tag>
+				<tag name="schema">options: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。</tag>
+				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary，额外包含 data、dictionary_output、base_count、inserted_count、updated_count、deleted_count、budget_report。任何失败的 data 均为 null；计数仅表示诊断期间已执行的操作。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

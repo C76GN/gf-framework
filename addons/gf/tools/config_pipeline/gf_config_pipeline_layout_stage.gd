@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.layout.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 4
+const IMPLEMENTATION_VERSION: int = 5
 
 ## XLSX 单个 ZIP 条目默认允许的压缩或解压字节数。
 ## [br]
@@ -101,15 +101,15 @@ const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/tools/config_pipeline/g
 ## [br]
 ## @param read_result: Reader 阶段结果。
 ## [br]
-## @schema read_result: Dictionary，符合 gf.config_pipeline.reader_result@1。
+## @schema read_result: Dictionary，符合 gf.config_pipeline.reader_result@3。
 ## [br]
 ## @param options: 布局解析选项。
 ## [br]
-## @schema options: Dictionary，可包含 parse_options；其字段覆盖 source.parse_options。
+## @schema options: Dictionary，可包含 work_limits 或共享 work_budget（二者互斥），以及 parse_options；解析选项覆盖 source.parse_options，但两处解析选项都不能声明 work_limits 或 work_budget。XLSX 展开单元格文本与 Reader 归档字节共同累计输入。
 ## [br]
 ## @return: Layout 阶段结果。
 ## [br]
-## @schema return: Dictionary，包含 success、phase、data、header、header_location、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column；表格返回真实表头位置，XLSX 成功时还包含实际 sheet_name 和 sheet_path。
+## @schema return: Dictionary，包含 success、phase、data、header、header_location、row_locations、source、source_path、format、error_kind、error、error_line 和 error_column；预算失败另含 budget_report。表格返回真实表头位置，XLSX 成功时还包含实际 sheet_name 和 sheet_path。
 func decode_source(
 	source: GFConfigPipelineTableSource,
 	read_result: Dictionary,
@@ -117,6 +117,23 @@ func decode_source(
 ) -> Dictionary:
 	if source == null:
 		return _make_layout_failure("invalid_table_source", "表来源声明为空。")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	var overrides: Dictionary = GFVariantData.get_option_dictionary(options, "parse_options")
+	if (
+		source.parse_options.has("work_limits")
+		or source.parse_options.has("work_budget")
+		or overrides.has("work_limits")
+		or overrides.has("work_budget")
+	):
+		return _make_budget_failure(
+			source,
+			GFConfigWorkBudget.from_options({ "work_budget": null })
+		)
+	if not budget.admit_value(
+		[source.parse_options, overrides],
+		"layout.parse_options"
+	):
+		return _make_budget_failure(source, budget)
 	var resolved_format: StringName = source.get_resolved_format()
 	var source_path: String = source.source_path
 	if not GFVariantData.get_option_bool(read_result, "success"):
@@ -138,10 +155,8 @@ func decode_source(
 		)
 
 	var parse_options: Dictionary = source.parse_options.duplicate(true)
-	var _merge_result: Dictionary = GFVariantData.merge_dictionary(
-		parse_options,
-		GFVariantData.get_option_dictionary(options, "parse_options")
-	)
+	var _merge_result: Dictionary = GFVariantData.merge_dictionary(parse_options, overrides)
+	parse_options["work_budget"] = budget
 	if not source_path.is_empty():
 		parse_options["source"] = source_path
 
@@ -185,6 +200,8 @@ func decode_source(
 				resolved_format,
 				ERR_FILE_UNRECOGNIZED
 			)
+	if not budget.is_ok():
+		return _make_budget_failure(source, budget)
 	var result: Dictionary = _with_stage_result(
 		parse_result,
 		source_path,
@@ -207,12 +224,14 @@ func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
-		"input_contract": "gf.config_pipeline.reader_result@2",
-		"output_contract": "gf.config_pipeline.layout_result@2",
+		"input_contract": "gf.config_pipeline.reader_result@3",
+		"output_contract": "gf.config_pipeline.layout_result@3",
 		"implementation_dependencies": [
 			"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd",
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_work_budget.gd",
+			"res://addons/gf/standard/common/gf_execution_budget.gd",
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
 		],
 		"supported_formats": [
@@ -225,6 +244,23 @@ func get_stage_descriptor() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## 预算失败清空布局载荷，保留首次失败的固定报告。
+## [br]
+## @api private
+func _make_budget_failure(source: GFConfigPipelineTableSource, budget: GFConfigWorkBudget) -> Dictionary:
+	var report: Dictionary = budget.get_report()
+	var result: Dictionary = _make_layout_failure(
+		GFVariantData.get_option_string(report, "error_kind"),
+		GFVariantData.get_option_string(report, "error"),
+		source.source_path,
+		source.get_resolved_format(),
+		ERR_OUT_OF_MEMORY,
+		{ "budget_report": report }
+	)
+	result["budget_report"] = report
+	return result
+
 
 ## 将解析器结果补齐为 Layout 阶段约定的来源、格式和错误字段。
 ## [br]
@@ -445,6 +481,7 @@ func _read_xlsx_shared_strings(
 	files: PackedStringArray,
 	options: Dictionary
 ) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	var result: PackedStringArray = PackedStringArray()
 	var read_result: Dictionary = _zip_read_bytes(
 		archive_session,
@@ -468,7 +505,8 @@ func _read_xlsx_shared_strings(
 	var structure_error: String = _get_xlsx_xml_structure_error(
 		bytes,
 		"sst",
-		"xl/sharedStrings.xml"
+		"xl/sharedStrings.xml",
+		budget
 	)
 	if not structure_error.is_empty():
 		return _make_xlsx_shared_strings_result(
@@ -496,6 +534,15 @@ func _read_xlsx_shared_strings(
 	var in_text: bool = false
 	var read_error: Error = OK
 	while true:
+		if not budget.consume_work(1, "layout.xlsx_shared_strings"):
+			return _make_xlsx_shared_strings_result(
+				false,
+				PackedStringArray(),
+				GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				)
+			)
 		read_error = parser.read()
 		if read_error != OK:
 			break
@@ -521,6 +568,18 @@ func _read_xlsx_shared_strings(
 				in_text = not parser.is_empty()
 		elif node_type == XMLParser.NODE_TEXT or node_type == XMLParser.NODE_CDATA:
 			if in_shared_string and in_text:
+				if not budget.admit_value(
+					parser.get_node_data(),
+					"layout.xlsx_shared_text"
+				):
+					return _make_xlsx_shared_strings_result(
+						false,
+						PackedStringArray(),
+						GFVariantData.get_option_string(
+							budget.get_report(),
+							"error"
+						)
+					)
 				current_text += parser.get_node_data()
 		elif node_type == XMLParser.NODE_ELEMENT_END:
 			var end_name: String = parser.get_node_name()
@@ -573,6 +632,7 @@ func _read_xlsx_workbook_sheets(
 	files: PackedStringArray,
 	options: Dictionary
 ) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	var max_entry_bytes: int = _get_xlsx_limit(
 		options,
 		"max_xlsx_entry_bytes",
@@ -598,7 +658,7 @@ func _read_xlsx_workbook_sheets(
 			"error": "",
 		}
 
-	var sheets_result: Dictionary = _parse_xlsx_workbook_sheet_entries(workbook_bytes)
+	var sheets_result: Dictionary = _parse_xlsx_workbook_sheet_entries(workbook_bytes, budget)
 	if not GFVariantData.get_option_bool(sheets_result, "success"):
 		return {
 			"success": false,
@@ -618,7 +678,10 @@ func _read_xlsx_workbook_sheets(
 			"sheets": [],
 			"error": GFVariantData.get_option_string(relationships_result, "error"),
 		}
-	var parsed_relationships: Dictionary = _parse_xlsx_workbook_relationships(_get_packed_byte_array_value(GFVariantData.get_option_value(relationships_result, "bytes")))
+	var parsed_relationships: Dictionary = _parse_xlsx_workbook_relationships(
+		_get_packed_byte_array_value(GFVariantData.get_option_value(relationships_result, "bytes")),
+		budget
+	)
 	if not GFVariantData.get_option_bool(parsed_relationships, "success"):
 		return {
 			"success": false,
@@ -641,12 +704,13 @@ func _read_xlsx_workbook_sheets(
 ## 验证精确 workbook 根名后按文档顺序收集 sheet 的名称、编号和 r:id 或 id；此处不拒绝空标识或重复标识。
 ## [br]
 ## @api private
-func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Dictionary:
+func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray, budget: GFConfigWorkBudget) -> Dictionary:
 	var result: Array[Dictionary] = []
 	var structure_error: String = _get_xlsx_xml_structure_error(
 		bytes,
 		"workbook",
-		"xl/workbook.xml"
+		"xl/workbook.xml",
+		budget
 	)
 	if not structure_error.is_empty():
 		return {
@@ -665,6 +729,15 @@ func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Dictionary:
 
 	var read_error: Error = OK
 	while true:
+		if not budget.consume_work(1, "layout.xlsx_workbook"):
+			return {
+				"success": false,
+				"sheets": [],
+				"error": GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				),
+			}
 		read_error = parser.read()
 		if read_error != OK:
 			break
@@ -699,7 +772,7 @@ func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Dictionary:
 ## 读取精确 Relationship 元素的 Id 和 Target，跳过空 Id，重复 Id 由后项覆盖；空关系文件作为空映射成功返回。
 ## [br]
 ## @api private
-func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
+func _parse_xlsx_workbook_relationships(bytes: PackedByteArray, budget: GFConfigWorkBudget) -> Dictionary:
 	var result: Dictionary = {}
 	if bytes.size() == 0:
 		return {
@@ -710,7 +783,8 @@ func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
 	var structure_error: String = _get_xlsx_xml_structure_error(
 		bytes,
 		"Relationships",
-		"xl/_rels/workbook.xml.rels"
+		"xl/_rels/workbook.xml.rels",
+		budget
 	)
 	if not structure_error.is_empty():
 		return {
@@ -730,6 +804,15 @@ func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
 
 	var read_error: Error = OK
 	while true:
+		if not budget.consume_work(1, "layout.xlsx_relationships"):
+			return {
+				"success": false,
+				"relationships": {},
+				"error": GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				),
+			}
 		read_error = parser.read()
 		if read_error != OK:
 			break
@@ -799,10 +882,12 @@ func _parse_xlsx_sheet(
 	options: Dictionary,
 	entry_path: String = "xl/worksheets/sheet.xml"
 ) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	var structure_error: String = _get_xlsx_xml_structure_error(
 		bytes,
 		"worksheet",
-		entry_path
+		entry_path,
+		budget
 	)
 	if not structure_error.is_empty():
 		return _make_xlsx_parse_failure(
@@ -840,6 +925,14 @@ func _parse_xlsx_sheet(
 
 	var read_error: Error = OK
 	while true:
+		if not budget.consume_work(1, "layout.xlsx_sheet"):
+			return _make_xlsx_parse_failure(
+				GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				),
+				GFVariantData.get_option_string(options, "source")
+			)
 		read_error = parser.read()
 		if read_error != OK:
 			break
@@ -900,7 +993,16 @@ func _parse_xlsx_sheet(
 							current_row_number,
 							column_index + 1
 						)
-					current_cells[column_index] = GFVariantData.get_option_string(cell_result, "value")
+					var cell_value: String = GFVariantData.get_option_string(cell_result, "value")
+					if not budget.admit_value(cell_value, "layout.xlsx_cell"):
+						return _make_xlsx_parse_failure(
+							GFVariantData.get_option_string(
+								budget.get_report(),
+								"error"
+							),
+							GFVariantData.get_option_string(options, "source")
+						)
+					current_cells[column_index] = cell_value
 				in_cell = false
 				in_value = false
 				in_inline_text = false
@@ -933,6 +1035,7 @@ func _parse_xlsx_sheet(
 ## [br]
 ## @api private
 func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	var trim_cells: bool = GFVariantData.get_option_bool(
 		options,
 		"trim_cells",
@@ -943,6 +1046,20 @@ func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) ->
 	for row_info: Dictionary in rows:
 		var row_number: int = GFVariantData.get_option_int(row_info, "row_number")
 		var cells: Dictionary = GFVariantData.get_option_dictionary(row_info, "cells")
+		var row_width: int = 0
+		for column_value: Variant in cells:
+			row_width = maxi(
+				row_width,
+				GFVariantData.to_int(column_value) + 1
+			)
+		if not budget.consume_work(row_width, "layout.xlsx_row_expansion"):
+			return _make_xlsx_parse_failure(
+				GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				),
+				GFVariantData.get_option_string(options, "source")
+			)
 		parsed_rows.append(_xlsx_cells_to_row(cells, trim_cells))
 		var _row_number_appended: bool = row_numbers.append(row_number)
 
@@ -1168,8 +1285,14 @@ func _get_xml_attribute_any(parser: XMLParser, attribute_names: PackedStringArra
 func _get_xlsx_xml_structure_error(
 	bytes: PackedByteArray,
 	expected_root: String,
-	entry_path: String
+	entry_path: String,
+	budget: GFConfigWorkBudget
 ) -> String:
+	if not budget.admit_value(bytes, "layout.xlsx_xml"):
+		return GFVariantData.get_option_string(
+			budget.get_report(),
+			"error"
+		)
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
 	if open_error != OK:
@@ -1183,6 +1306,11 @@ func _get_xlsx_xml_structure_error(
 	var root_was_empty: bool = false
 	var read_error: Error = OK
 	while true:
+		if not budget.consume_work(1, "layout.xlsx_xml_structure"):
+			return GFVariantData.get_option_string(
+				budget.get_report(),
+				"error"
+			)
 		read_error = parser.read()
 		if read_error != OK:
 			break
@@ -1204,6 +1332,14 @@ func _get_xlsx_xml_structure_error(
 				root_seen = true
 				root_was_empty = parser.is_empty()
 			if not parser.is_empty():
+				if not budget.check_depth(
+					element_stack.size() + 1,
+					"layout.xlsx_xml_depth"
+				):
+					return GFVariantData.get_option_string(
+						budget.get_report(),
+						"error"
+					)
 				var _element_appended: bool = element_stack.append(node_name)
 			elif element_stack.is_empty():
 				root_closed = true

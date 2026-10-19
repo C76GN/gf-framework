@@ -818,6 +818,349 @@ func test_csv_exporter_uses_schema_column_order_and_quotes_cells() -> void:
 	)
 
 
+func test_importer_work_limits_measure_utf8_before_native_parse() -> void:
+	var accepted: Dictionary = GFConfigTableImporter.parse_json_table(
+		"\"猫\"",
+		{
+			"work_limits": { "max_input_bytes": 5 },
+		}
+	)
+	var rejected: Dictionary = GFConfigTableImporter.parse_json_table(
+		"\"猫\"",
+		{
+			"work_limits": { "max_input_bytes": 4 },
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(accepted, "success"))
+	assert_false(GFVariantData.get_option_bool(rejected, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_input_bytes_exceeded"
+	)
+	assert_true(GFVariantData.get_option_value(rejected, "data") == null)
+	var invalid: Dictionary = GFConfigTableImporter.parse_json_table(
+		"[]",
+		{
+			"work_limits": { "max_input_bytes": 0 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "error_kind"),
+		"config_work_invalid_limits"
+	)
+
+
+func test_importer_work_limits_reject_structural_depth_but_ignore_quoted_delimiters() -> void:
+	var at_boundary: Dictionary = GFConfigTableImporter.parse_json_table(
+		"[[]]",
+		{
+			"work_limits": { "max_depth": 1 },
+		}
+	)
+	var above_boundary: Dictionary = GFConfigTableImporter.parse_json_table(
+		"[[[]]]",
+		{
+			"work_limits": { "max_depth": 1 },
+		}
+	)
+	assert_true(
+		GFVariantData.get_option_bool(at_boundary, "success"),
+		"词法预检与值图准入均以根容器深度零计量。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(above_boundary, "error_kind"),
+		"config_work_depth_exceeded"
+	)
+	var deep: Dictionary = GFConfigTableImporter.parse_json_table(
+		"[[[0]]]",
+		{
+			"work_limits": { "max_depth": 2 },
+		}
+	)
+	var quoted: Dictionary = GFConfigTableImporter.parse_json_table(
+		"\"[[[{{{\"",
+		{
+			"work_limits": { "max_depth": 2 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(deep, "error_kind"),
+		"config_work_depth_exceeded"
+	)
+	assert_true(GFVariantData.get_option_value(deep, "data") == null)
+	assert_true(GFVariantData.get_option_bool(quoted, "success"))
+	var config_deep: Dictionary = GFConfigTableImporter.parse_config_file_table(
+		"[item]\nvalues=[[[0]]]\n",
+		{
+			"work_limits": { "max_depth": 2 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(config_deep, "error_kind"),
+		"config_work_depth_exceeded"
+	)
+
+
+func test_importer_work_limits_single_record_keeps_its_input_root_depth() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.id_field = &""
+	var options: Dictionary = {
+		"source": "single-record.json",
+		"work_limits": { "max_depth": 1 },
+	}
+	var parsed: Dictionary = GFConfigTableImporter.parse_json_table("{\"items\":[]}", options)
+	var report: Dictionary = GFConfigTableImporter.validate_json_record(
+		"{\"items\":[]}",
+		schema,
+		null,
+		options
+	)
+	assert_true(GFVariantData.get_option_bool(parsed, "success"))
+	assert_true(
+		GFVariantData.get_option_bool(report, "ok"),
+		"单条记录校验不得因实现内部临时数组增加一层输入深度。"
+	)
+
+
+func test_importer_work_limits_preserve_config_file_variant_values() -> void:
+	var parsed: Dictionary = GFConfigTableImporter.parse_config_file_table("; ((({{{ is a comment\n[item]\nposition=Vector2(2, 3)\ntint=Color(1, 0, 0, 1)\nvalues=PackedInt32Array(1, 2)\n")
+	assert_true(GFVariantData.get_option_bool(parsed, "success"))
+	var rows: Array = GFVariantData.get_option_array(parsed, "data")
+	assert_eq(
+		rows.size(),
+		1
+	)
+	if rows.is_empty():
+		return
+	var row: Dictionary = GFVariantData.as_dictionary(rows[0])
+	var position_value: Variant = row[&"position"]
+	var tint_value: Variant = row[&"tint"]
+	var packed_values: Variant = row[&"values"]
+	var expected_position: Vector2 = Vector2(2, 3)
+	var expected_tint: Color = Color(
+		1,
+		0,
+		0,
+		1
+	)
+	var expected_values: PackedInt32Array = PackedInt32Array([1, 2])
+	var position_matches: bool = position_value is Vector2 and position_value == expected_position
+	var tint_matches: bool = tint_value is Color and tint_value == expected_tint
+	var packed_values_match: bool = packed_values is PackedInt32Array and packed_values == expected_values
+	assert_true(position_matches)
+	assert_true(tint_matches)
+	assert_true(packed_values_match)
+
+
+func test_importer_work_limits_share_csv_parse_mapping_and_validation() -> void:
+	var text: String = "\ufeffid,name,power\n1,猫,2.0\n"
+	var input_bytes: int = text.to_utf8_buffer().size()
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_input_bytes": input_bytes })
+	var schema: GFConfigTableSchema = _make_item_schema()
+	schema.coerce_values = true
+	var report: Dictionary = GFConfigTableImporter.validate_csv_table(
+		text,
+		schema,
+		{ "work_budget": budget }
+	)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	var usage: Dictionary = GFVariantData.get_option_dictionary(
+		budget.get_report(),
+		"usage"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(usage, "input_bytes"),
+		input_bytes,
+		"CSV 到 rows 的映射不重复计量原始输入。"
+	)
+	var later: Dictionary = GFConfigTableImporter.parse_json_table(
+		"[]",
+		{ "work_budget": budget }
+	)
+	assert_eq(
+		GFVariantData.get_option_string(later, "error_kind"),
+		"config_work_input_bytes_exceeded"
+	)
+	var fresh: Dictionary = GFConfigTableImporter.parse_json_table("[]")
+	assert_true(
+		GFVariantData.get_option_bool(fresh, "success"),
+		"独立顶层调用创建新预算。"
+	)
+
+
+func test_importer_work_limits_account_direct_rows_input_and_csv_cells() -> void:
+	var rows: Array[PackedStringArray] = [
+		PackedStringArray(["name"]),
+		PackedStringArray(["猫"]),
+	]
+	var accepted: Dictionary = GFConfigTableImporter.parse_rows_table(
+		rows,
+		{
+			"work_limits": { "max_input_bytes": 7 },
+		}
+	)
+	var rejected: Dictionary = GFConfigTableImporter.parse_rows_table(
+		rows,
+		{
+			"work_limits": { "max_input_bytes": 6 },
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(accepted, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_input_bytes_exceeded"
+	)
+	var many_cells: Dictionary = GFConfigTableImporter.parse_csv_table(
+		"x,".repeat(1000),
+		{
+			"work_limits": { "max_work_units": 128 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(many_cells, "error_kind"),
+		"config_work_limit_exceeded"
+	)
+	assert_true(GFVariantData.get_option_value(many_cells, "data") == null)
+	var long_cell: Dictionary = GFConfigTableImporter.parse_csv_table(
+		"name\n" + "x".repeat(8192),
+		{
+			"work_limits": { "max_work_units": 512 },
+		}
+	)
+	assert_true(
+		GFVariantData.get_option_bool(long_cell, "success"),
+		"扫描按 1024 字符块计费，长字段不退化为逐字符扩容。"
+	)
+
+
+func test_importer_work_limits_csv_fragments_preserve_escaped_quotes_and_physical_rows() -> void:
+	var parsed: Dictionary = GFConfigTableImporter.parse_csv_table("id,name\n1,\"A\"\"B\nC\"\n2,D\r\n")
+	assert_true(GFVariantData.get_option_bool(parsed, "success"))
+	var rows: Array = GFVariantData.get_option_array(parsed, "data")
+	assert_eq(
+		rows.size(),
+		2
+	)
+	if rows.size() != 2:
+		return
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(rows[0]),
+			"name"
+		),
+		"A\"B\nC"
+	)
+	var locations: Array = GFVariantData.get_option_array(parsed, "row_locations")
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.as_dictionary(locations[1]),
+			"line"
+		),
+		4
+	)
+
+
+func test_importer_work_limits_reject_before_schema_callbacks() -> void:
+	var schema: GFConfigTableSchema = _make_item_schema()
+	var rule: CountingRecordTableRule = CountingRecordTableRule.new()
+	schema.record_validation_rules.append(rule)
+	for column_index: int in range(512):
+		var column: GFConfigTableColumn = GFConfigTableColumn.new()
+		column.field_name = StringName("extra_%d" % column_index)
+		schema.columns.append(column)
+	var report: Dictionary = GFConfigTableImporter.validate_json_record(
+		"{\"id\":1,\"name\":\"Potion\",\"power\":2.0}",
+		schema,
+		null,
+		{
+			"work_limits": { "max_work_units": 256 },
+		}
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"config_work_limit_exceeded"
+		)
+	)
+	assert_eq(
+		rule.record_calls,
+		0,
+		"预算在 schema 内置遍历与用户规则回调前准入。"
+	)
+
+
+func test_importer_work_limits_export_checks_escaped_output_and_cyclic_input() -> void:
+	var rows: Array[Dictionary] = [
+		{ "name": "猫,\"" },
+	]
+	var expected: String = "name\n\"猫,\"\"\""
+	var accepted: Dictionary = GFConfigTableImporter.export_csv_table(
+		rows,
+		null,
+		{
+			"work_limits": { "max_output_bytes": expected.to_utf8_buffer().size() },
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(accepted, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(accepted, "text"),
+		expected
+	)
+	var rejected: Dictionary = GFConfigTableImporter.export_csv_table(
+		rows,
+		null,
+		{
+			"work_limits": { "max_output_bytes": expected.to_utf8_buffer().size() - 1 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_output_bytes_exceeded"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "text"),
+		""
+	)
+	var cyclic: Dictionary = {}
+	cyclic["self"] = cyclic
+	var invalid: Dictionary = GFConfigTableImporter.export_csv_table([cyclic])
+	cyclic.clear()
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "error_kind"),
+		"config_work_cycle"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "text"),
+		""
+	)
+
+
+func test_importer_work_limits_export_admits_defaults_before_explicit_coercion() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.coerce_values = false
+	var column: GFConfigTableColumn = GFConfigTableColumn.new()
+	column.field_name = &"value"
+	var cyclic_default: Dictionary = {}
+	cyclic_default["self"] = cyclic_default
+	column.default_value = cyclic_default
+	schema.columns.append(column)
+	var rejected: Dictionary = GFConfigTableImporter.export_csv_table(
+		[{}],
+		schema,
+		{ "coerce_values": true }
+	)
+	cyclic_default.clear()
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_cycle"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "text"),
+		""
+	)
+
+
 func test_schema_infer_from_records_creates_columns() -> void:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.infer_from_records(
 		&"items",

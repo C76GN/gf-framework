@@ -25,9 +25,9 @@
 | 属性 | [`delete_marker_value`](#member-gfconfigtablemergepolicy-properties-delete_marker_value) | `var delete_marker_value: Variant = true` |
 | 属性 | [`preserve_base_order`](#member-gfconfigtablemergepolicy-properties-preserve_base_order) | `var preserve_base_order: bool = true` |
 | 属性 | [`metadata`](#member-gfconfigtablemergepolicy-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`is_delete_record`](#member-gfconfigtablemergepolicy-methods-is_delete_record) | `func is_delete_record(record: Dictionary) -> bool:` |
-| 方法 | [`make_record_key`](#member-gfconfigtablemergepolicy-methods-make_record_key) | `func make_record_key(record: Dictionary, outer_key: Variant = null) -> String:` |
-| 方法 | [`merge_record`](#member-gfconfigtablemergepolicy-methods-merge_record) | `func merge_record(base_record: Dictionary, patch_record: Dictionary) -> Dictionary:` |
+| 方法 | [`is_delete_record`](#member-gfconfigtablemergepolicy-methods-is_delete_record) | `func is_delete_record(record: Dictionary, options: Dictionary = {}) -> bool:` |
+| 方法 | [`make_record_key`](#member-gfconfigtablemergepolicy-methods-make_record_key) | `func make_record_key( record: Dictionary, outer_key: Variant = null, options: Dictionary = {} ) -> String:` |
+| 方法 | [`merge_record`](#member-gfconfigtablemergepolicy-methods-merge_record) | `func merge_record( base_record: Dictionary, patch_record: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`duplicate_policy`](#member-gfconfigtablemergepolicy-methods-duplicate_policy) | `func duplicate_policy() -> GFConfigTableMergePolicy:` |
 | 方法 | [`describe`](#member-gfconfigtablemergepolicy-methods-describe) | `func describe() -> Dictionary:` |
 
@@ -175,9 +175,10 @@ var metadata: Dictionary = {}
 ### `is_delete_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func is_delete_record(record: Dictionary) -> bool:
+func is_delete_record(record: Dictionary, options: Dictionary = {}) -> bool:
 ```
 
 检查记录是否带有删除标记。
@@ -187,21 +188,24 @@ func is_delete_record(record: Dictionary) -> bool:
 | 名称 | 说明 |
 |---|---|
 | `record` | 记录。 |
+| `options` | 与合并操作共享的预算选项。 |
 
-返回：带有删除标记时返回 true。
+返回：带有删除标记时返回 true；未命中或预算失败均返回 false。直接调用时应传入共享 work_budget，并通过句柄的 is_ok()、get_report() 区分预算失败。
 
 结构：
 
 - `record`: Dictionary，用于检查删除标记字段的配置记录。
+- `options`: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。
 
 <a id="member-gfconfigtablemergepolicy-methods-make_record_key"></a>
 
 ### `make_record_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func make_record_key(record: Dictionary, outer_key: Variant = null) -> String:
+func make_record_key( record: Dictionary, outer_key: Variant = null, options: Dictionary = {} ) -> String:
 ```
 
 根据记录生成稳定合并键。
@@ -212,13 +216,15 @@ func make_record_key(record: Dictionary, outer_key: Variant = null) -> String:
 |---|---|
 | `record` | 记录。 |
 | `outer_key` | Dictionary 表外层 key。 |
+| `options` | 与合并操作共享的预算选项。 |
 
-返回：合并键，字段缺失时返回空字符串。
+返回：合并键；字段缺失、不是 String、StringName、int、bool、有限 float 或预算失败时返回空字符串。直接调用时应传入共享 work_budget，并通过句柄的 is_ok()、get_report() 区分预算失败。
 
 结构：
 
 - `record`: Dictionary，用于构建合并键的配置记录。
 - `outer_key`: Variant，key_fields 为空时用于构建合并键的外层 key。
+- `options`: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。
 
 <a id="member-gfconfigtablemergepolicy-methods-merge_record"></a>
 
@@ -228,10 +234,10 @@ func make_record_key(record: Dictionary, outer_key: Variant = null) -> String:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func merge_record(base_record: Dictionary, patch_record: Dictionary) -> Dictionary:
+func merge_record( base_record: Dictionary, patch_record: Dictionary, options: Dictionary = {} ) -> Dictionary:
 ```
 
-合并两条记录。 MERGE_FIELDS 会递归复制并合并嵌套 Dictionary；当前入口不执行深度或节点预算，只应接收已通过项目容量预检的配置记录。
+合并两条记录。 MERGE_FIELDS 递归合并嵌套 Dictionary；输入与最终复制均由同一有限预算准入。
 
 参数：
 
@@ -239,14 +245,16 @@ func merge_record(base_record: Dictionary, patch_record: Dictionary) -> Dictiona
 |---|---|
 | `base_record` | 原始记录。 |
 | `patch_record` | 补丁记录。 |
+| `options` | 新预算限额或已有批次预算。 |
 
-返回：合并后的记录。
+返回：明确区分合法空记录与失败的结果报告。
 
 结构：
 
+- `options`: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。
 - `base_record`: Dictionary，原始记录。
 - `patch_record`: Dictionary，补丁记录。
-- `return`: Dictionary，合并后的记录。
+- `return`: Dictionary，含 ok、data、error_kind、error、context、budget_report；成功 data 为独立记录，失败为 null。
 
 <a id="member-gfconfigtablemergepolicy-methods-duplicate_policy"></a>
 

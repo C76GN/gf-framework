@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1145 | [Kernel](#module-kernel) |
-| Standard | 490 | 7692 | [Standard](#module-standard) |
+| Standard | 491 | 7702 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -484,6 +484,7 @@
 | [`GFBgmStartOperation`](GFBgmStartOperation.md#gfbgmstartoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |
 | [`GFCallableRuntimeTask`](GFCallableRuntimeTask.md#gfcallableruntimetask) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 13 | `addons/gf/standard/sequence/gf_callable_runtime_task.gd` |
 | [`GFConfigTableQuery`](GFConfigTableQuery.md#gfconfigtablequery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 27 | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
+| [`GFConfigWorkBudget`](GFConfigWorkBudget.md#gfconfigworkbudget) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/standard/utilities/config/gf_config_work_budget.gd` |
 | [`GFControlEditSession`](GFControlEditSession.md#gfcontroleditsession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/standard/utilities/ui/gf_control_edit_session.gd` |
 | [`GFDeterministicRandom`](GFDeterministicRandom.md#gfdeterministicrandom) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
 | [`GFDownloadTask`](GFDownloadTask.md#gfdownloadtask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/standard/utilities/io/gf_download_task.gd` |

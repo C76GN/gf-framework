@@ -81,6 +81,18 @@ subject/target 顶层句柄是 `WeakRef`，但 `subject_values`、`target_values
 
 通过 `GFDecisionUtility.register_decision_set(decision_set_id, decision_set)` 注册集合时，外部 ID 必须和资源内 `decision_set.decision_set_id` 一致；如果资源内 ID 为空，则注册入口会写入该 ID。registry key 在注册生命周期内是权威身份：同一 Resource 实例不能再次注册到另一个 key，外部热修改 ID 后，后续 Utility lookup/score/evaluate 会恢复原 key，评价与调试报告也继续使用该身份。若要改名，应先显式注销，再修改并用新 key 注册。
 
+## 单次决策复现
+
+复现的最小单位可以是一次候选选择，不必录制整个游戏。项目在调用前固定有效规则版本或参数、候选稳定 ID 与原始顺序，以及本次实际使用的有限纯数据输入。时钟、网络结果、玩家状态和随机值都应在这个边界显式提供；scorer 不应在评分或诊断时重新读取变化中的全局状态。只复制候选数组不能冻结其 Resource 字段，规则资源也必须在本次评价期间保持只读。
+
+调用一次 `evaluate()` 后，使用同一 `GFDecisionEvaluation` 读取评分、最佳项和报告。复现记录需要包含能够重新构造输入与规则的项目数据，以及预期选中 ID；评分报告用于解释结果，不自动包含完整复现输入。输入被截断、版本不可获得或记录不完整时，应报告不可复现，不用当前默认值悄悄补齐。
+
+核心选择按分数与稳定顺序裁决，不自行抽取随机数。如果项目额外使用随机筛选或同档抽样，应注入独立随机源并保存它在本次计算前的状态与算法身份。`GFSeedUtility.get_full_state()` 保存主 RNG 状态和分支创建计数，不保存已经交给项目的独立子 RNG 后续消耗状态；复用长期分支时还须保存该分支状态。详见 [随机种子与可复现随机流](../../standard/utilities/runtime/debug-observability/runtime-telemetry/seed-utility.md)。
+
+异步候选准备与最终状态提交之间，由项目核对请求身份和取消状态。迟到评价可以保留诊断，但不能覆盖新请求的结果；状态一旦提交，取消表现也不应再次执行或撤销同一决策。决策记录的 schema、保留期限和离线复算入口均属于项目，不是 Decision 的行动执行协议。
+
+[运行时会话轨迹](../../standard/utilities/runtime/debug-observability/runtime-telemetry/build-diagnostics/session-trace.md) 可记录决策 ID、规则版本、终态及关联标识；它经过报告编码、脱敏和容量裁剪，不适合作为完整复现输入的唯一存储。诊断 provider 只读取已有评价，不重跑 scorer。验证接入时，应覆盖相同冻结输入重复计算、稳定同分顺序、配置中途变化、旧请求迟到，以及多次读取报告不增加评分或随机调用次数。
+
 ## Environment Query 组合配方
 
 环境查询不需要新增一套平行运行时，可以把现有 Spatial、Physics、Decision、执行预算和诊断能力组合成项目 Pipeline：

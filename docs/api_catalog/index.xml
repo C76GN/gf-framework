@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="3d56ce482ce5274825bab2dc8b70b955d9f7813760b76fba42832f6a2dd37f4b" classCount="900" methodCount="8062" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="228edad59ce9e1cf66bf95e97f6c7d0e293bf1d84d97929901769c64f7cf729f" classCount="901" methodCount="8072" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="833" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -81,7 +81,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="490" methodCount="4904" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="491" methodCount="4914" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -186,6 +186,7 @@
 		<class name="GFConfigTableSchema" path="classes/GFConfigTableSchema.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_table_schema.gd" extends="Resource" />
 		<class name="GFConfigValidationReport" path="classes/GFConfigValidationReport.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_validation_report.gd" extends="RefCounted" />
 		<class name="GFConfigValidationRule" path="classes/GFConfigValidationRule.xml" sourcePath="addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd" extends="Resource" />
+		<class name="GFConfigWorkBudget" path="classes/GFConfigWorkBudget.xml" sourcePath="addons/gf/standard/utilities/config/gf_config_work_budget.gd" extends="RefCounted" />
 		<class name="GFConsoleCommandDefinition" path="classes/GFConsoleCommandDefinition.xml" sourcePath="addons/gf/standard/utilities/debug/gf_console_command_definition.gd" extends="Resource" />
 		<class name="GFConsoleUtility" path="classes/GFConsoleUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_console_utility.gd" extends="GFUtility" />
 		<class name="GFControlEditSession" path="classes/GFControlEditSession.xml" sourcePath="addons/gf/standard/utilities/ui/gf_control_edit_session.gd" extends="RefCounted" />
