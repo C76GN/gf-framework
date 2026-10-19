@@ -872,7 +872,6 @@ def maintenance_check_graph() -> CheckGraph:
 
 API_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("api")
 DOCS_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("docs")
-EXAMPLES_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("examples")
 LIGHT_BOUNDARY_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("light_boundary")
 MODULE_BOUNDARY_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("module_boundary")
 QUICK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("quick")
@@ -3623,7 +3622,6 @@ def workspace_status(paths: list[str] | None = None) -> dict[str, Any]:
 	categories: dict[str, list[dict[str, str]]] = {
 		"runtime_source": [],
 		"tool_source": [],
-		"examples": [],
 		"tests": [],
 		"manual_docs": [],
 		"generated_docs": [],
@@ -14855,8 +14853,6 @@ def classify_status_path(path: str) -> str:
 	normalized = path.replace("\\", "/")
 	if normalized.startswith("docs/api_catalog/") or normalized.startswith("docs/zh/reference/api/"):
 		return "generated_docs"
-	if normalized.startswith("examples/"):
-		return "examples"
 	if normalized.startswith("tests/"):
 		return "tests"
 	if normalized.startswith("docs/") or normalized in {"README.md", "README.zh.md", "addons/gf/README.md", "mkdocs.yml"}:
@@ -14902,8 +14898,6 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/gf_maintenance.py project-profile-native-acceptance --json",
 			"python tools/gf_maintenance.py check --suite framework-static --json",
 		])
-	if categories["examples"]:
-		recommendations.append("python tools/gf_maintenance.py check --suite examples --json")
 	if categories["tests"]:
 		recommendations.extend([
 			"python tools/gf_maintenance.py gdscript-readability --json",
@@ -19467,11 +19461,6 @@ def completed_command_result(
 	exit_code = process_exit_code
 	notes: list[str] | None = list(process_notes) or None
 	log_output, log_errors = read_command_log_outputs(log_paths)
-	if name == "first_task_smoke":
-		marker_error = first_task_smoke_completion_error(stdout, stderr, log_output)
-		if marker_error:
-			exit_code = 1
-			notes = append_note(notes, marker_error)
 	stdout = append_command_log_output(stdout, log_output)
 	if log_errors:
 		exit_code = 1
@@ -19487,7 +19476,6 @@ def completed_command_result(
 		"gut",
 		"gdscript_warnings",
 		"gdscript_lsp_diagnostics",
-		"first_task_smoke",
 	}
 	if name in godot_checked_names:
 		exit_leak_report = godot_exit_leak_report_from_output(name, stdout, stderr)
@@ -19496,9 +19484,6 @@ def completed_command_result(
 	if name in godot_checked_names and has_script_error:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported script loading or parse errors in output.")
-	if name == "first_task_smoke" and "ERROR:" in f"{stdout}\n{stderr}":
-		exit_code = 1
-		notes = append_note(notes, "The first-task smoke reported a Godot error.")
 	if name in {"godot_import", "gut", "gdscript_warnings", "gdscript_lsp_diagnostics"} and has_reload_warning:
 		exit_code = 1
 		notes = append_note(notes, "Godot reported GDScript reload warnings in output.")
@@ -19509,7 +19494,7 @@ def completed_command_result(
 			and bool(exit_leak_report["has_leaks"])
 		)
 	)
-	if has_exit_leaks and name in {"gut", "first_task_smoke"}:
+	if has_exit_leaks and name == "gut":
 		exit_code = 1
 		notes = append_note(
 			notes,
@@ -19552,42 +19537,6 @@ def completed_command_result(
 		pid=pid,
 		streamed_output=streamed_output,
 	)
-
-
-def first_task_smoke_completion_error(stdout: str, stderr: str, log_output: str) -> str:
-	"""Require one process emission, allowing its single configured-log mirror."""
-	marker_name = "FIRST_TASK_SMOKE"
-	prefix = marker_name + "="
-	for source, raw_output, required in (
-		("process output", f"{stdout}\n{stderr}", True),
-		("configured log", log_output, False),
-	):
-		output = strip_ansi_codes(raw_output)
-		count = output.count(marker_name)
-		if count == 0 and not required:
-			continue
-		if count != 1:
-			return f"First-task completion marker must occur exactly once in {source}."
-		marker_lines = [line for line in output.splitlines() if marker_name in line]
-		if len(marker_lines) != 1 or not marker_lines[0].startswith(prefix):
-			return f"First-task completion marker must occupy its own line in {source}."
-		payload_text = marker_lines[0][len(prefix):]
-		try:
-			# Use the same small structured-result budget as the editor smoke report.
-			if len(payload_text.encode("utf-8")) > 16_384:
-				raise ValueError("Completion payload exceeds its byte budget.")
-			payload = json.loads(
-				payload_text,
-				parse_constant=reject_non_finite_json_constant,
-				object_pairs_hook=reject_duplicate_json_object_keys,
-			)
-			if not isinstance(payload, dict) or set(payload) != {"ok", "failures"}:
-				raise ValueError("Completion payload does not match the closed schema.")
-			if payload["ok"] is not True or payload["failures"] != []:
-				raise ValueError("Completion payload does not prove successful acceptance.")
-		except (ValueError, TypeError, RecursionError, UnicodeError):
-			return f"First-task completion marker is invalid or unsuccessful in {source}."
-	return ""
 
 
 def normalize_maintenance_cli_argv(argv: list[str]) -> list[str]:

@@ -738,21 +738,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			maintenance_command("project-settings-drift"),
 		),
 		subprocess_action("diff", ("git", "diff", "--check")),
-		subprocess_action(
-			"first_task_smoke",
-			(
-				"godot",
-				"--headless",
-				"--log-file",
-				godot_log_path("first_task_smoke"),
-				"--path",
-				".",
-				"--scene",
-				"res://examples/first_task/first_task.tscn",
-				"--",
-				"--first-task-smoke",
-			),
-		),
 		subprocess_action("release_metadata", None),
 	)
 	common_input_implementation_files = (
@@ -800,8 +785,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	timeout_overrides = (
 		# Cold-cache CLI scenarios share a bounded 70-second inner deadline.
 		("code_quality_native_acceptance", 90),
-		# Local sample exercises bounded short work after the shared import.
-		("first_task_smoke", 60),
 		# The unfiltered authoritative suite exceeds the generic ten-minute
 		# budget on clean Windows runs. Keep the same measured floor as the explicit
 		# full-suite observation and qualification control.
@@ -826,12 +809,10 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		("gdscript_warnings", ("godot_import",)),
 		("gdscript_lsp_diagnostics", ("godot_import",)),
 		("mkdocs", ("docs", "public_docs_boundary")),
-		("first_task_smoke", ("godot_import",)),
 	)
 
 	api_checks = ("api", "ai_api", "ai_developer_kit", "public_api_boundary")
 	docs_checks = ("docs", "changelog_policy", "public_docs_boundary", "mkdocs")
-	examples_checks = ("first_task_smoke",)
 	light_boundary_checks = (
 		"resource_boundary",
 		"content_package_boundary",
@@ -886,7 +867,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	framework_gut_checks = ("gut_lifecycle_smoke", "gut", "gdscript_warnings")
 	framework_lsp_checks = ("gdscript_lsp_diagnostics",)
 	framework_integration_checks = (
-		"first_task_smoke",
 		"code_quality_native_acceptance",
 		"project_profile_native_acceptance",
 		"ai_developer_adapter_acceptance",
@@ -942,7 +922,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	check_groups = (
 		("api", api_checks),
 		("docs", docs_checks),
-		("examples", examples_checks),
 		("light_boundary", light_boundary_checks),
 		("module_boundary", module_boundary_checks),
 		("quick", quick_checks),
@@ -958,7 +937,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	suites = (
 		("api", api_checks),
 		("docs", docs_checks),
-		("examples", examples_checks),
 		("framework", framework_checks),
 		("framework-gut", framework_gut_checks),
 		("framework-lsp", framework_lsp_checks),

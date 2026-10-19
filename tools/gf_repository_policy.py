@@ -453,9 +453,6 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	)
 	forbid(release_checks, "check --suite full --json", "obsolete pre-tag full-suite command")
 
-	require(framework_checks, "first_task_smoke", "local examples smoke contract")
-	require(release_checks, "first_task_smoke", "release local examples coverage")
-
 	for marker, label in (
 		("Freeze an audit input manifest", "immutable audit input preparation"),
 		("SHA-256", "audit digest binding"),
@@ -2106,12 +2103,6 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 	if audit_maintenance_skill_contracts(sources):
 		return []
 	mutations = (
-		(
-			".codex/skills/gf-framework-maintenance/references/checks.md",
-			"first_task_smoke",
-			"retired_example",
-			"local examples smoke contract",
-		),
 		(
 			".codex/skills/gf-release-flow/references/release-checks.md",
 			"check --suite release --artifact-manifest",

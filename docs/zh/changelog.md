@@ -9,10 +9,8 @@
 - 新增 [GDScript 代码检查](editor/tools/code-quality.md)：项目显式采用预设或规则后，可在 GF Workspace 中检查当前编辑缓冲或已保存源码，按规则、位置和建议查看问题；配置在检查期间改变或失效时撤销结果。检查不会创建配置、改写源码或执行被检查脚本。
 - [Tween 创作](extensions/action-queue/tween-config.md#在编辑器中创作) 沿用创建时选择的样机用途，支持步骤名称、串并行分组概览、时间块悬停与点击定位、结构化错误字段导航；新增淡入、强调和脉冲配方，以及通过 `duration_scale` 调整完整总时长的原生撤销操作。来源实例或内容变化后，旧时间块仍可查看冻结姿态，但不能误定位较新的步骤。
 - [Flow 图编辑](extensions/flow/editor-model.md) 支持复制、剪切、粘贴和重复节点，并可从已保存的 `GFFlowNode` 资源创建独立副本。插入先准备完整候选，再提交一笔资源历史；只复制内部连接并重映射标识，空图起点遵守显式选择，切图或改图后的旧菜单与模板选择失效。
-- 新增[多目标错峰示例](extensions/action-queue/visual-actions/staggered-targets.md)，用现有等待与动作组组合有序入场，提供可运行的暂停、取消和重播界面，以及明确的目标、工厂和构建预算。
 - 新增[资源服务域](standard/utilities/io/assets-jobs-warmup/resource-service-domain.md)：初始化时统一选择默认稳定绑定、受控排空切换或最多两代的在途切换；请求、取消与资源句柄始终归属原代。原生线程加载器仅支持稳定和受控切换，在途切换由经过准入的独立快照后端提供。
 - [扩展管理器](extensions/editor-manager.md) 提供“保存设置”和“保存并应用”，展示真实的待应用、已应用、部分应用与失败结果；请求绑定设置快照，页面重建保留结果与未保存草稿。
-- 新增[第一个完整任务](overview/quickstart/first-task.md)独立样例，覆盖状态、UI、持久化、受控退出及异步演进；默认 Boot 继续保持为空，不要求小功能先创建全部架构角色。
 - Dialogue 的[项目恢复示例](extensions/dialogue/recovery.md)区分相同内容快照、项目检查点与显式版本迁移；框架不推断内容映射或副作用重放策略。
 - [Tween 数值时间线与自定义预览](extensions/action-queue/tween-numeric-preview.md) 提供只接收显式数值属性的冻结时间线，以及带所有者、容量和释放句柄的预览适配器与资源关联注册。Inspector 共用预览用途和属性目录，打开资源即可准备可定位快照；`gf.action_queue` 的 `extension_version` 升为 `2.9.0`。
 - [Project Layout](editor/tools/project-layout.md) 支持显式声明生成证据和可丢弃目录的排除范围；排除在文件预算前生效，报告标注覆盖边界，必需源码、结构和配置来源不能被排除隐藏。
@@ -158,7 +156,8 @@
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
-- 退役已停止建设的外部 Reference 工程同步流程，移除专用命令、路径配置与外部 smoke；`examples` 改为验证本仓独立样例。外部工程、备份与业务资源不受操作，共用事务、预算和回滚能力继续保留。旧命令会明确失败，不再作为可用工作流宣传。
+- 移除源码仓库的 `examples/` 独立示例及其专属测试、检查和文档入口，保留框架自身的回归测试、按需装配说明与[多目标错峰动画用法](extensions/action-queue/visual-actions/staggered-targets.md)。
+- 退役已停止建设的外部 Reference 工程同步流程及其专属配置与验证。外部工程、备份与业务资源不受操作，共用事务、预算和回滚能力继续保留。
 - 删除 Project Layout 的 Python 规则解释器及 legacy、shadow 迁移模式；维护命令只负责把输入交给同一个 GDScript 会话。
 - 移除同步节点借用、按裸节点归还、`before_add` 回调及池专用节点启停钩子。
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
@@ -206,7 +205,7 @@
 - Project Layout 配置将 `schema_version` 改为 `2` 后，按当前规则闭合字段重新校验；需要排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis，不能只修改旧报告的版本号。
 - AI Developer 通过现有迁移计划与确认流程把 v5 契约升级为 v6：原 required 进入源码必需与采用允许，optional 进入采用允许，forbidden 同时保留源码禁止与采用禁止。重新生成 v10 快照，不手动改旧报告版本号；需要“允许源码存在但禁止项目采用”时再显式调整两组规则。
 - Dialogue 调用方按用途选择结构编译或生产构建，交给内置 Runner 的内容使用 `build_runner_*` 并检查 `success`。行为树仅在项目明确允许恢复的错误原因外包 `RecoverError`；旧工作不会自动重试。对话内容变动后不能强行复用精确快照，应由项目检查点或显式版本映射恢复。
-- 资源消费者在初始化前完成绑定；需要切换时共享同一个服务域入口，旧资源通过原句柄释放。受控切换暂停时拒绝新请求；在途热切换的旧代未退出时拒绝再次切换，超时不会强制销毁仍在使用的后端。移除维护脚本中的 `sync-reference-project` 与外部 Reference 参数，改用本仓 `examples` 验证独立样例；这不提供通用项目升级替代命令。
+- 资源消费者在初始化前完成绑定；需要切换时共享同一个服务域入口，旧资源通过原句柄释放。受控切换暂停时拒绝新请求；在途热切换的旧代未退出时拒绝再次切换，超时不会强制销毁仍在使用的后端。
 - 自定义 Tween 预览先显式注册有限数值 descriptor 和工具自有样机适配器，并持有注册句柄；退出时释放。运行时使用数值时间线时显式传入初值和范围，避免把项目 Node、资源加载或业务逻辑带入纯数值捕获。
 1. 给节点借用与弹幕发射调用增加 `await`；节点借用的第三个参数必须传接收方 `lifetime_owner`（通常是 `self`），初始化数据移到第四个参数。检查结果成功后再使用节点或 Session。不要保留旧 Task 或监听已移除的预热 Operation 信号。
 2. 每次借用保存对应 Lease，用 Lease 归还，不再用节点引用作为回收凭证。归还后立即停止访问此前保存的裸节点引用。
