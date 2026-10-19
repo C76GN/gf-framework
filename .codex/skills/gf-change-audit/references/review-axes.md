@@ -22,9 +22,9 @@ Apply [产品化交付](../../../../AI_MAINTENANCE.md#产品化交付) to change
 
 Check whether the right commands were run for the touched files. Report missing or insufficient checks, failed commands, expected failures, and skipped checks with risk.
 
-## Example Boundary
+## Project Boundary
 
-Check that the repository-owned sample remains independently runnable, the examples suite exercises it through normal process and lifecycle gates, and project business rules stay outside GF runtime. The external Reference workflow is retired.
+Check that reusable framework mechanisms retain focused regression coverage, concise usage belongs in the relevant guide, and project business rules stay outside GF runtime. Do not add standalone sample applications or dedicated sample validation chains. The external Reference workflow is retired.
 
 ## Architecture
 

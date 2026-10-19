@@ -20,7 +20,7 @@ Project Layout 的唯一 GDScript 权威、隔离原生验收与维护传输预�
 - 在大规模理解源码、补正式文档或检查 API 覆盖前，优先生成并阅读 AI 专用 API 文档。日常开工先用轻量 `python tools\gf_maintenance.py summary --json` 和 `workspace-status --json` 定位；长期脏工作区中优先用 `workspace-status --path <file> --json` 为本轮改动生成局部检查计划，避免历史脏改把验证范围放大。
 - Draft PR 运行 repository policy 与纯 Python `quick` suite，并由独立的 `GF draft gate` 汇总；它只提供快速反馈，不具备合并资格。Draft job 不安装文档构建依赖、不启动 Godot，其中 AI Developer Kit 只运行约束、Schema、知识和模板新鲜度检查。Ready 的 `framework-static` 运行纯 Python AI Developer Kit 行为测试，Godot-backed `framework-integration` 独立运行可执行 Adapter 验收；任何需要引擎的验收都不能回流到静态 / 文档 shard。PR 只修改标题、正文等 metadata 时不取消同一源码 SHA 已经运行的验证：它重跑 repository policy，并实际运行精确名称的 `GF merge gate`，但只能复用七天内同一仓库、PR、HEAD 与 BASE 的最新 Full validation epoch。relay 必须按 workflow run 的 `run_started_at`、run id 与 attempt 选择最新 exact Full intent，只接受该 attempt 中由 GitHub Actions 产生、check suite、时间顺序、PR/repository API identity 与 details URL 都绑定该 run 的 frozen-base `GF full validation (<BASE_SHA>)` success；fork 的空 `pull_requests` 数组不能单独否定证据，但非空矛盾关联必须失败。每次观察在读取 marker 后必须重新读取 PR 与最新 Full epoch，成功前还要连续两次观察到同一 fingerprint；新 Full 已开始但 marker 尚未出现时必须等待，不能回退到旧 success。轮询窗口为 30 分钟，全部在途 GitHub API 请求共享最多 30 秒的总宽限；稳定成功提交前仍须处于该总 deadline 内。API、分页、限流、结构、超时或绑定异常一律 fail closed，relay 自身的 `GF merge gate` 不能续期 Full marker。required `GF merge gate` 必须用 `always()` 实际运行，再把 cancelled/skipped/failed 依赖显式判为失败，不能让条件跳过被 GitHub 当作成功。base 变化不属于 metadata-only，必须按 PR 当前 Draft / Ready 状态重跑对应门禁。
 - Ready PR 与 `main` push 必须运行 `python tools\gf_maintenance.py check --suite full` 等价检查。Ready/main 的 framework 检查拆成并行的 `framework-gut`、`framework-lsp`、`framework-static` 与 `framework-integration`，再与 Windows process supervision 汇总到冻结当前 BASE SHA 的非 required `GF full validation (<BASE_SHA>)` marker；当前 Full 运行再由名称稳定的 `GF merge gate` 验证该 marker。顶层 run name 必须在 workflow run 创建时冻结 mode、PR、HEAD 与 BASE，使新 Full intent 在下游 marker 尚未创建时也能取代旧 epoch。`maintenance-self-test` 必须锁定这四个 shard 的并集与 `full` 集合等价。此外，Ready/main 必须在 `windows-latest` 运行聚焦的 `windows-process-supervision` 自测及 stdin staging / startup boundary 单测，并作为 Full marker 依赖，持续验证原生 Job Object 清理。tag release workflow 必须只构建一次完整 framework ZIP、独立 AI Developer Kit ZIP 与 release manifest，再用 `release-status --version <tag> --artifact-manifest <path>` 校验同一不可变产物集；framework 检查与 release metadata 必须全部通过。
-- workflow 外层 deadline 是 Full 等价与发布证据合同的一部分：Ready/main 与 tag release 的四个 framework shard 必须分别精确设为 `framework-gut` 60 分钟、`framework-lsp` 15 分钟、`framework-static` 20 分钟、`framework-integration` 90 分钟；手动 `main` Full 保持 90 分钟。60 分钟的 GUT 上限必须严格高于当前 2820 秒子闭包（600 秒 import + 360 秒 lifecycle + 1200 秒权威 GUT + 600 秒 warnings，再加 60 秒子进程 envelope）。90 分钟的 integration 上限必须严格高于当前 5310 秒子闭包（600 秒本仓 import + 60 秒 first-task smoke + 900 秒 Adapter 验收 + 600 秒根插件 bootstrap + 600 秒 headless Scene Placement/workspace smoke + 600 秒配置工作台 smoke + 1200 秒最小项目 editor/runtime smoke + 600 秒原生 Project Layout 验收 + 90 秒原生代码检查验收，再加 60 秒子进程 envelope）。每个 shard 都必须由维护工具拥有其内部 deadline 并为 setup、teardown 与结构化超时清理留出余量；不得让 GitHub 先于维护工具中止 job，否则结构化超时与清理证据会被截断。
+- workflow 外层 deadline 是 Full 等价与发布证据合同的一部分：Ready/main 与 tag release 的四个 framework shard 必须分别精确设为 `framework-gut` 60 分钟、`framework-lsp` 15 分钟、`framework-static` 20 分钟、`framework-integration` 90 分钟；手动 `main` Full 保持 90 分钟。60 分钟的 GUT 上限必须严格高于当前 2820 秒子闭包（600 秒 import + 360 秒 lifecycle + 1200 秒权威 GUT + 600 秒 warnings，再加 60 秒子进程 envelope）。90 分钟的 integration 上限必须严格高于当前 4650 秒子闭包（900 秒 Adapter 验收 + 600 秒根插件 bootstrap + 600 秒 headless Scene Placement/workspace smoke + 600 秒配置工作台 smoke + 1200 秒最小项目 editor/runtime smoke + 600 秒原生 Project Layout 验收 + 90 秒原生代码检查验收，再加 60 秒子进程 envelope）。每个 shard 都必须由维护工具拥有其内部 deadline 并为 setup、teardown 与结构化超时清理留出余量；不得让 GitHub 先于维护工具中止 job，否则结构化超时与清理证据会被截断。
 - 本地 `check --suite full` 默认把等价检查计划分配到彼此隔离的临时工作区，以 3 个 worker 有界并行；可显式使用 `--jobs 2` 至 `--jobs 6` 调整资源占用，`--jobs 1` 只作为复现次序相关问题或诊断资源争用的串行退路。runner 按稳定计划分批物化工作区，每批并发数不超过 `jobs`，但必须在全局 admission barrier 完成前保留全部计划工作区，并用各自最终 cwd/冻结环境建立全部 action command contract；任一后批解析失败时，Godot 隔离探针、进度 `started` 和所有 shard 派发都必须保持为零。屏障通过后才按稳定 batch 顺序运行、验收并立即逐批清理，因此 Full 峰值磁盘占用按完整计划而不是 `jobs` 个工作区预算。资源密集的 `framework-gut` 在所有本地并行度下必须单独占用一个 batch，且未过滤的权威 `gut` 检查使用与显式全量观测及 qualification control 一致的至少 1200 秒测量下限；singleton 负责消除资源争用，timeout floor 负责覆盖同一权威检查的正常波动，两者不得互相替代。suite deadline 必须覆盖源码捕获、Godot 隔离探测和 shard 运行的完整链路。Windows runner 必须把 clone、staging、data/config/cache 和临时目录投影到本地短路径预算内，并只在通过绝对路径、link/reparse、源码边界与直接本地 fixed-volume 身份校验的根下创建带随机名且身份固定的受管子目录；自动选择失败时可用 `GF_MAINTENANCE_VALIDATION_TEMP_ROOT` 指定这一短路径父目录，UNC/device、映射盘与 SUBST/别名路径必须 fail closed。未跟踪普通文件必须用身份固定句柄分块捕获并逐块遵守 suite deadline，单文件最多 64 MiB、合计最多 256 MiB；未跟踪 symlink 则必须在 `readlink` 前后复核同一 `lstat` 身份，不能把旧 metadata 与新 target 混入同一指纹。隔离副本不能共享 `.godot`、LSP 工作区状态或可写日志根；并行启动前必须用真实 Godot 验证平台原生 data/config/cache 与 `user://` 全部位于 shard 私有根，self-contained 或不支持的布局必须 fail closed。每个 shard 必须由保留至验收结束的 POSIX process group 或 Windows Job Object 拥有，直接子进程无论正常退出、失败、超时或取消，完整后代树都必须在报告读取前清空。父进程还必须校验各 shard 的检查集合、结构化结果、源码指纹与失败日志归属。`full` 必须包含 `ai_developer_kit`、`ai_developer_adapter_acceptance`、`gdscript_warnings` 和 `gdscript_lsp_diagnostics`；Ready/main 的 `framework-lsp` 与 release framework 同样执行完整 LSP 硬门禁，error、warning、诊断超时、连接或传输失败都必须失败。除非维护者明确批准并记录原因，不要削弱 CI 或 release 行为测试、Godot reload warning、路径卫生、API 和文档闸门。
 - 维护套件必须在结束时重新计算工作区指纹；起止不一致即以 `workspace_snapshot_integrity` 失败，不能把混合 revision 的结果当成可信成功。调用期文本缓存只保留每个路径的当前 live identity，避免同一长任务持续积累历史版本；这项 live-view 约束不等同于不可变源码捕获，需要强一致输入的并行 Full 消费者仍必须使用已封存工作区。长驻 MCP 每个请求都必须清空源码 API cache，并以 1 MiB 行上限、严格 UTF-8/JSON、闭合 tool schema、有限数值和结构预算拒绝畸形输入；LSP 客户端必须使用单调绝对 deadline、有界 header/body、唯一 `Content-Length` 与严格 JSON object。机器 JSON 输出先拒绝非有限数值，再通过同目录临时文件原子替换。上述边界由 `python tests/gf_core/tools/test_gf_maintenance_execution.py` 以及 quick、framework、full、release 中的 `maintenance_execution_tests` 持续验证。
 - 自动触发的 PR 与 `main` push 可以生成精确的 `GF repository policy`；只有 Ready PR 与 `main` push 可以生成精确的 `GF merge gate` required context。`workflow_dispatch` 只存在于独立的 `.github/workflows/ci-manual.yml`：其所有 job 都使用 `GF manual ...` 名称，非 `main` 只运行 repository policy 诊断，`main` 才运行 Full 与 Windows 诊断，而且任何手动运行都不能生成、引用或充当 required merge evidence。
@@ -37,8 +37,8 @@ Project Layout 的唯一 GDScript 权威、隔离原生验收与维护传输预�
 - 修改公开、protected 或被测试 mock/子类重写的方法签名后，必须用 `rg "func <method_name>" addons/gf tests/gf_core` 搜索同名实现，更新所有 override、测试替身和反射调用；GDScript 的 override 签名不匹配会直接变成 parse error，不能等到完整套件才发现。
 - Headless GUT 不应直接实例化需要真实编辑器 owner 的 Godot 编辑器专属类，例如 `EditorDebuggerPlugin` 派生类。此类能力优先测试贡献记录、脚本元数据、继承契约和 helper 装配路径；确实需要实例化时必须走真实 editor-context smoke 或插件生命周期。
 - `.codex/skills/` 可以提交 GF 项目专用 Codex skill，用于沉淀维护流程、检查矩阵、发布流程和多子代理审查分工；它只描述“怎么做”，不能替代本文件、`CODING_STYLE.md`、`API_SURFACE.md` 的硬规则。评估 `ai_analysis/skills/` 中的外部候选时只能吸收可验证的工作流和检查点，不要直接复制玩法模板、示例脚本、强人格化话术或单个游戏项目业务规则。
-- 独立样例放在本仓 `examples/first_task`，项目业务逻辑留在 `addons/gf` 外。外部 Reference 工程及专属同步工作流已退役，不恢复或同步外部工程，也不操作其磁盘备份。
-- `check --suite examples` 只运行本仓 `first_task_smoke`，依赖 `godot_import`，执行 `res://examples/first_task/first_task.tscn -- --first-task-smoke`；同项进入 Integration、Full 与 Release，保留 supervisor、资源错误和退出生命周期门禁。公共 manifest、预算、目录比较与 `generated_output_transaction` 能力按实际使用方保留，不因专属同步工具退役而删除。
+- 项目业务逻辑留在 `addons/gf` 外。仓库不维护独立可运行示例或其专属验证链；简短用法留在对应正式文档，通用机制由框架回归测试验证。外部 Reference 工程及专属同步工作流已退役，不恢复或同步外部工程，也不操作其磁盘备份。
+- 公共 manifest、预算、目录比较与 `generated_output_transaction` 能力按实际使用方保留，不因示例或专属同步工具退役而删除。
 
 ## 产品化交付
 
@@ -426,21 +426,21 @@ python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generate
 
 ## API 覆盖矩阵
 
-规划指南、测试和未来示例项目覆盖时，先生成公开 API 覆盖矩阵：
+核对指南与框架测试对公开 API 的引用时，先生成公开 API 覆盖矩阵：
 
 ```powershell
 python tools\generate_api_coverage_matrix.py
 ```
 
-生成结果默认放在 `ai_analysis/api_coverage/`，该目录被 Git 忽略，不作为正式用户文档提交。其他输出根必须显式传 `--allow-unsafe-output-root`，写入统一经过生成树事务。矩阵会从公开 API、非 Reference 正文、`tests/gf_core` 和显式传入的 example 根目录建立对应关系：
+生成结果默认放在 `ai_analysis/api_coverage/`，该目录被 Git 忽略，不作为正式用户文档提交。其他输出根必须显式传 `--allow-unsafe-output-root`，写入统一经过生成树事务。矩阵会从公开 API、非 Reference 正文、`tests/gf_core` 和显式传入的外部或项目自有 example 根目录建立对应关系：
 
 - API Reference 覆盖仍以 `python tools\generate_api_reference.py --check` 为准。
 - Guide docs 证据表示非 Reference 正文中出现完整类标识符，或同一文件同时出现完整类与成员标识符。
 - Test / example 证据表示测试或示例文件中出现完整标识符；它是排查入口，不等同于行为断言，更不能命名为行为覆盖率。
 - 扫描采用文件数、单文件字节数和总字节数上限，严格 UTF-8 且读取失败即整体失败；只有输出中的 `input_complete: true` 才表示证据输入完整。外部 example 只记录稳定逻辑标签，不写入开发机绝对路径；重复根先去重。
-- 当前没有示例项目时，examples 覆盖为 0 是预期状态；后续新增示例项目后，用 `--examples <path>` 纳入矩阵。
+- `--examples <path>` 仅用于显式指定的外部或项目自有目录，可重复传入；未指定时 examples 统计为 0，属于预期状态。GF 仓库不维护独立示例项目。
 
-公开 API 大规模变更、准备补示例项目或审计测试空洞时，应重新生成该矩阵，再按模块查看 `ai_analysis/api_coverage/modules/*.md`。
+公开 API 大规模变更、补充指南或审计测试空洞时，应重新生成该矩阵，再按模块查看 `ai_analysis/api_coverage/modules/*.md`。
 
 ## 项目侧 AI Developer Kit
 

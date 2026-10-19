@@ -6640,7 +6640,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_integration_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 5310
+		) == 4650
 		and resolve_check_timeout_seconds("code_quality_native_acceptance", None) == 90
 		and resolve_check_timeout_seconds("config_workbench_editor_smoke", None) == 600
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", None) == 1200
@@ -6648,8 +6648,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and ci_framework_integration_timeout_value == "90"
 		and release_shard_timeouts["framework-integration"] == "90"
 		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 90
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 5310,
-		"Integration must preserve each native acceptance floor and its 5,310-second child envelope inside exact 90-minute Ready/main and release deadlines.",
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 4650,
+		"Integration must preserve each native acceptance floor and its 4,650-second child envelope inside exact 90-minute Ready/main and release deadlines.",
 	)
 	record_result(
 		"in_process_checks_enforce_return_time_deadlines",
@@ -6717,7 +6717,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			for suite_name in (
 				"api",
 				"docs",
-				"examples",
 				"quick",
 				"framework-gut",
 				"framework-static",

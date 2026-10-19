@@ -991,107 +991,56 @@ class MaintenanceSelfTestModuleTests(unittest.TestCase):
 
 
 class ValidationCatalogContractTests(unittest.TestCase):
-	def test_examples_and_mcp_expose_only_the_local_smoke_contract(self) -> None:
+	def test_mcp_exposes_the_catalog_check_and_suite_contract(self) -> None:
 		catalog = gf_maintenance._VALIDATION_CATALOG
-		self.assertEqual(catalog.suites()["examples"], ["first_task_smoke"])
-		self.assertEqual(catalog.plan("examples").actions, ("godot_import", "first_task_smoke"))
-		self.assertEqual(catalog.timeout_floor_seconds("first_task_smoke"), 60)
-		command = catalog.command_definitions()["first_task_smoke"]
-		self.assertEqual(command[4:6], ["--path", "."])
-		self.assertEqual(command[-4:], ["--scene", "res://examples/first_task/first_task.tscn", "--", "--first-task-smoke"])
-		for suite in ("framework-integration", "framework", "full", "release"):
-			self.assertEqual(catalog.plan(suite).actions.count("first_task_smoke"), 1)
-		for suite in ("quick", "framework-static", "framework-gut", "framework-lsp"):
-			self.assertNotIn("first_task_smoke", catalog.plan(suite).actions)
 		tool = next(item for item in gf_mcp_server.list_tools() if item["name"] == "gf_run_checks")
-		advertised = tool["inputSchema"]["properties"]["checks"]["items"]["enum"]
-		self.assertIn("first_task_smoke", advertised)
-		for retired in ("examples_sync", "examples_sync_write", "examples_scan", "examples_boot", "examples_smoke", "examples_coverage"):
-			self.assertNotIn(retired, advertised)
-			with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
-				catalog.plan("examples", [retired])
+		properties = tool["inputSchema"]["properties"]
+		self.assertEqual(properties["checks"]["items"]["enum"], sorted(catalog.action_names))
+		self.assertEqual(properties["suite"]["enum"], sorted(catalog.suites()))
 
-	def test_first_task_smoke_requires_clean_script_resource_and_lifecycle_output(self) -> None:
-		marker = 'FIRST_TASK_SMOKE={"ok":true,"failures":[]}'
+	def test_gut_requires_clean_script_and_lifecycle_output(self) -> None:
+		success = "\n".join([
+			"= Run Summary", "Tests 1", "Passing Tests 1", "---- All tests passed! ----",
+			gf_maintenance.GUT_LIFECYCLE_GATE_PREFIX
+			+ '{"schema_version":1,"ok":true,"unhandled_warning_count":0,"orphan_count":0,'
+			'"baseline_available":true,"warning_tracking_available":true,'
+			'"warnings":[],"orphans":[],"details_truncated":false,"configuration_error":""}',
+		])
 		for output in (
 			"SCRIPT ERROR: Parse Error: fixture",
-			"ERROR: Failed loading resource: res://missing.tres",
 			"WARNING: ObjectDB instances leaked at exit",
 			"ERROR: 1 resources still in use at exit",
 		):
 			with self.subTest(output=output):
 				result = gf_maintenance.completed_command_result(
-					"first_task_smoke", ["godot"], 0, marker, output, [], 0.1, 60.0, 123,
+					"gut", ["godot"], 0, success, output, [], 0.1, 1200.0, 123,
 				)
 				self.assertNotEqual(result.exit_code, 0)
 		clean = gf_maintenance.completed_command_result(
-			"first_task_smoke", ["godot"], 0, marker, "", [], 0.1, 60.0, 123,
+			"gut", ["godot"], 0, success, "", [], 0.1, 1200.0, 123,
 		)
 		self.assertEqual(clean.exit_code, 0)
 
-	def test_first_task_smoke_requires_one_strict_success_marker(self) -> None:
-		prefix = "FIRST_TASK_SMOKE="
-		valid = prefix + '{"ok":true,"failures":[]}'
-		cases = {
-			"missing": "",
-			"duplicate": valid + "\n" + valid,
-			"malformed": prefix + "{",
-			"wrong_prefix": "noise " + valid,
-			"duplicate_key": prefix + '{"ok":false,"ok":true,"failures":[]}',
-			"nonfinite": prefix + '{"ok":NaN,"failures":[]}',
-			"wrong_root": prefix + "[]",
-			"missing_field": prefix + '{"ok":true}',
-			"extra_field": prefix + '{"ok":true,"failures":[],"extra":1}',
-			"integer_true": prefix + '{"ok":1,"failures":[]}',
-			"false": prefix + '{"ok":false,"failures":[]}',
-			"failure": prefix + '{"ok":true,"failures":["failed"]}',
-			"wrong_failures_type": prefix + '{"ok":true,"failures":""}',
-			"nested": prefix + "[" * 2000 + "]" * 2000,
-			"oversized": prefix + '{"ok":true,"failures":[]}' + " " * 16385,
-		}
-		for label, output in cases.items():
-			with self.subTest(label=label):
-				result = gf_maintenance.completed_command_result(
-					"first_task_smoke", ["godot"], 0, output, "", [], 0.1, 60.0, 123,
-				)
-				self.assertNotEqual(result.exit_code, 0)
-				self.assertTrue(any("completion marker" in note for note in result.notes or []))
-		for stdout, stderr, process_code, expected in (
-			(valid, "", 0, 0), ("", valid, 0, 0),
-			(valid, valid, 0, 1), (valid, "", 3, 3),
-			(valid + " " * (16_384 - len(valid[len(prefix):])), "", 0, 0),
-			(valid + " " * (16_385 - len(valid[len(prefix):])), "", 0, 1),
-		):
-			with self.subTest(stdout=stdout, stderr=stderr, process_code=process_code):
-				result = gf_maintenance.completed_command_result(
-					"first_task_smoke", ["godot"], process_code, stdout, stderr, [], 0.1, 60.0, 123,
-				)
-				self.assertEqual(result.exit_code, expected)
-
-	def test_first_task_smoke_validates_log_mirror_without_counting_it_twice(self) -> None:
-		valid = 'FIRST_TASK_SMOKE={"ok":true,"failures":[]}'
+	def test_godot_import_validates_configured_log_output(self) -> None:
 		with tempfile.TemporaryDirectory() as directory:
-			log = Path(directory) / "smoke.log"
+			log = Path(directory) / "import.log"
 			for stdout, log_text, expected in (
-				(valid, valid, 0),
-				(valid, "engine log without mirrored stdout", 0),
-				("", valid, 1),
-				(valid, valid + "\n" + valid, 1),
-				(valid, 'FIRST_TASK_SMOKE={"ok":false,"failures":["failed"]}', 1),
-				(valid, "FIRST_TASK_SMOKE={", 1),
+				("Import complete", "Import complete", 0),
+				("", "Import complete", 0),
+				("Import complete", "SCRIPT ERROR: Parse Error: fixture", 1),
 			):
 				with self.subTest(stdout=stdout, log_text=log_text):
 					log.write_text(log_text, encoding="utf-8")
 					result = gf_maintenance.completed_command_result(
-						"first_task_smoke", ["godot"], 0, stdout, "", [log], 0.1, 60.0, 123,
+						"godot_import", ["godot"], 0, stdout, "", [log], 0.1, 600.0, 123,
 					)
 					self.assertEqual(result.exit_code, expected)
 
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"feec4ac8ca8271e2b3105867714b3e44e3f6fd385ccba60f35a91f4c6d3d8edb"
+		"def4bfba658454b0aa93b8e537bed10e9335c7addff022a56c977609f36c5bd9"
 	)
 	_EXECUTOR_PROJECTION_SHA256 = (
-		"825f9c4db96b62250898453b2183bcd31cd2d45de5743345a26725df14e0e72c"
+		"c43dc7c48a52f293f25cbc5c94773f66ea07af849cae286d8873731939a505c2"
 	)
 
 	def test_default_catalog_matches_authority_snapshot_exactly(self) -> None:
@@ -1143,7 +1092,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(55, 2, 6, 13, 11, 4),
+			(54, 2, 5, 12, 10, 4),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
@@ -1204,8 +1153,8 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			first_before["mkdocs"][-1],
 			(ROOT / "first" / "ai_analysis/mkdocs_site").as_posix(),
 		)
-		self.assertEqual(first_before["first_task_smoke"][5], ".")
-		self.assertEqual(first_before["first_task_smoke"][-2:], ["--", "--first-task-smoke"])
+		self.assertEqual(first_before["gdscript_warnings"][5], ".")
+		self.assertEqual(first_before["gdscript_warnings"][-2:], ["--editor", "--quit"])
 
 	def test_captured_catalog_projects_only_root_bound_static_commands(self) -> None:
 		source_context = self._context("source")
@@ -1237,7 +1186,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		)
 		expected_overrides = {
 			"code_quality_native_acceptance": 90,
-			"first_task_smoke": 60,
 			"gut": 1200,
 			"gdscript_lsp_diagnostics": 660,
 			"gut_lifecycle_smoke": 360,
@@ -1360,7 +1308,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					gf_maintenance.parallel_shard_timeout_seconds(
 						shard, override, validation_catalog=catalog,
 					),
-					5310,
+					4650,
 				)
 		policy = gf_maintenance.gf_repository_policy
 		self.assertEqual(policy.FRAMEWORK_CI_TIMEOUT_MINUTES, {
@@ -1378,7 +1326,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					policy.extract_matrix_suite_scalar(jobs[job], shard.name, "timeout_minutes"),
 					"90",
 				)
-		self.assertGreater(policy.FRAMEWORK_CI_TIMEOUT_MINUTES[shard.name] * 60, 5310)
+		self.assertGreater(policy.FRAMEWORK_CI_TIMEOUT_MINUTES[shard.name] * 60, 4650)
 
 	def test_catalog_executor_policy_matches_reviewed_runner_values(self) -> None:
 		catalog = gf_validation_catalog.build_validation_catalog(
@@ -1452,7 +1400,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 				for action_name in catalog.action_names
 			),
-			31,
+			30,
 		)
 		self.assertEqual(
 			sum(
@@ -1595,7 +1543,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		legacy_groups = {
 			"api": gf_maintenance.API_CHECKS,
 			"docs": gf_maintenance.DOCS_CHECKS,
-			"examples": gf_maintenance.EXAMPLES_CHECKS,
 			"light_boundary": gf_maintenance.LIGHT_BOUNDARY_CHECKS,
 			"module_boundary": gf_maintenance.MODULE_BOUNDARY_CHECKS,
 			"quick": gf_maintenance.QUICK_CHECKS,
@@ -1675,13 +1622,13 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for action in lane.owned_actions
 		]
 
-		self.assertEqual(len(plan.actions), 52)
+		self.assertEqual(len(plan.actions), 51)
 		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
 		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
 		self.assertEqual(len(owned_actions), len(set(owned_actions)))
 		self.assertEqual(
 			sum(len(lane.execution_actions) for lane in plan.lanes),
-			54,
+			52,
 			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
 		)
 		self.assertEqual(
@@ -1690,7 +1637,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				for lane in plan.lanes
 				if "godot_import" in lane.execution_actions
 			],
-			["framework-integration", "framework-gut", "framework-lsp"],
+			["framework-gut", "framework-lsp"],
 		)
 
 	def test_validation_plan_and_lanes_reject_field_rebinding(self) -> None:
@@ -1712,7 +1659,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 
 	def test_serial_runner_consumes_the_effective_plan_dependencies(self) -> None:
 		plan = gf_maintenance._VALIDATION_CATALOG.plan(
-			"examples",
+			"framework-gut", ["gdscript_warnings"],
 		)
 		workspace_state = {
 			"schema_version": 1,
@@ -1762,7 +1709,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 
 		self.assertTrue(report["ok"])
 		results = {result["name"]: result for result in report["results"]}
-		for consumer in ("first_task_smoke",):
+		for consumer in ("gdscript_warnings",):
 			with self.subTest(consumer=consumer):
 				self.assertEqual(
 					results[consumer]["dependencies"],
@@ -20059,7 +20006,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				(
 					"framework-integration",
 					(
-						"first_task_smoke",
 						"code_quality_native_acceptance",
 						"project_profile_native_acceptance",
 						"ai_developer_adapter_acceptance",

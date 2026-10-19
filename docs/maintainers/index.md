@@ -237,14 +237,14 @@ MCP 暴露的主要工具：
 - `gf_api_search`：按类名、成员名、路径或注释搜索 GF API，避免一次性读取大量源码。
 - `gf_api_class`：返回单个 `class_name` 的路径、摘要、Reference 页面和公开成员。
 - `gf_api_module`：返回单个模块的类清单、路径和成员计数，适合先理解模块边界再打开具体源码。
-- `gf_run_checks`：运行 `api`、`docs`、`examples`、`quick`、`framework`、`framework-gut`、`framework-lsp`、`framework-static`、`framework-integration`、`full` 或 `release` 检查套件。
+- `gf_run_checks`：运行 `api`、`docs`、`quick`、`framework`、`framework-gut`、`framework-lsp`、`framework-static`、`framework-integration`、`full` 或 `release` 检查套件。
 - `gf_release_status`：接收一次构建产生的 artifact manifest，校验 `plugin.cfg`、扩展 manifest、`ASSET_LIBRARY.md`、`ASSET_STORE.md`、changelog、既有发布字节和本地 tag 状态；不会重建发布产物。
 
 接入 MCP 客户端时，将 server 命令指向仓库根目录下的 `python tools/gf_mcp_server.py` 即可。不要把个人客户端配置、会话记录或 MCP 运行日志提交到仓库；需要新增维护能力时，优先扩展 `tools/gf_maintenance.py`，再让 MCP server 调用同一套函数。
 
 维护套件会为每项检查记录耗时、执行方式、依赖、分层 timeout budget、输入指纹和结果指纹。检查先验证 DAG，共享依赖只执行一次；维护边界的纯静态检查在单次 suite 内共享只读工作区快照，API、AI API 与文档检查也通过进程内 adapter 执行。Godot、构建器和其他外部检查在独立进程组中运行，持续转发输出，静默期报告 heartbeat，超时会清理完整后代进程树。直接子进程退出后若后台后代仍持有输出管道，检查会失败并清理剩余后代，避免输出被静默截断。Windows Steam 安装会自动从可能提前返回的 `godot.exe` launcher 切换到同目录真实 tools 可执行文件；其他特殊安装可通过 `GF_GODOT_EXECUTABLE` 显式覆盖。`--timeout` 用于提高最小单项预算，不会压低长检查的专项预算；总墙钟 deadline 使用 `--suite-timeout`。Ready/main 将框架检查拆为并行的 `framework-gut`、`framework-lsp`、`framework-static` 与 Godot-backed `framework-integration`，再与 Windows process supervision 一起汇总；不再维护 package 专用 suite 或 job。
 
-准备补指南、测试或示例项目覆盖时，先运行 `python tools\generate_api_coverage_matrix.py`。生成结果位于 `ai_analysis/api_coverage/`，用于查看公开类和成员在非 Reference 正文、`tests/gf_core` 和未来 example 根目录中的命中情况；它是维护排查清单，不作为正式用户文档提交。
+准备补指南或审计测试空洞时，先运行 `python tools\generate_api_coverage_matrix.py`。生成结果位于 `ai_analysis/api_coverage/`，用于查看公开类和成员在非 Reference 正文与 `tests/gf_core` 中的命中情况；它是维护排查清单，不作为正式用户文档提交。`--examples <path>` 仅用于显式指定的外部或项目自有目录，可重复传入；未指定时 examples 统计为 0。GF 仓库不维护独立示例项目。
 
 ## 发布流程
 

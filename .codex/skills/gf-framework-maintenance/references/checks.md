@@ -15,7 +15,6 @@ python tools\gf_maintenance.py check --suite full --jobs 1 --json
 python tools\gf_maintenance.py check --suite api --json
 python tools\gf_maintenance.py check --check ai_developer_adapter_acceptance --json
 python tools\gf_maintenance.py check --suite docs --json
-python tools\gf_maintenance.py check --suite examples --json
 python tools\gf_maintenance.py summary --json
 python tools\gf_maintenance.py summary --release --artifact-manifest <manifest-path> --json
 python tools\gf_maintenance.py workspace-status --path <file> --path <file> --json
@@ -67,14 +66,13 @@ git diff --cached --check
 - Internal module ownership or focused GUT ownership changes: run `package-focused-gut-mapping`; quick/full/release suites include it. The mapping is maintenance policy only and does not prove a module can be installed or released separately.
 - Project layout/profile changes: run the native Project Layout GUT suite and `project-profile-native-acceptance`. Quick / `framework-static` use `project-profile-artifacts` without Godot; executable acceptance belongs to `framework-integration`. `project-profile-boundary --root <directory>` delegates to the same GDScript Session in a private trusted fixture and never executes the target project. Profiles are optional and project-owned.
 - Code quality tool changes: run `tests/gf_core/tools/code_quality` GUT coverage and `check --check code_quality_native_acceptance`. The native CLI acceptance belongs to `framework-integration`; existing framework documentation and readability gates remain authoritative for GF sources.
-- Local example changes: run `check --suite examples` and focused tests under `tests/gf_core/examples`.
 - Release metadata: use `$gf-release-flow`; build the immutable artifact set once, validate it with `release-status --artifact-manifest`, and keep tag CI set-equivalent to the release suite.
 
 ## Notes
 
 `gdscript-readability` enforces the hard layout rules in `CODING_STYLE.md` across owned source, tests and GDScript templates. Its lexer, source inventory and negative fixtures must fail closed on incomplete input. `gdscript_readability` and the four independent fixture checks (`gdscript_readability_tests`, `gdscript_list_layout_tests`, `gdscript_expression_layout_tests`, `gdscript_layout_integrity_tests`) are mandatory in quick, framework-static, framework, full and release; existing CI and release shards inherit these Catalog actions. Each test module has one named Catalog owner and runs once; direct discovery with the command above also runs the complete fixture set once. Formatting preserves comments, literal bytes, operand order and deferred Callable behavior. Do not use per-file debt baselines or changed-line-only scanning.
 
-`check --suite examples` runs only `first_task_smoke`, preceded by `godot_import`, against `res://examples/first_task/first_task.tscn` with `-- --first-task-smoke`. The same smoke is included in Integration, Full and Release. It has a 60-second supervised process budget and keeps resource-error and exit-lifecycle gates. The external Reference project, sync commands and configuration are retired; this workflow never selects or writes an external project.
+The external Reference project, sync commands and configuration are retired; do not synchronize or restore them. Keep project business rules outside framework runtime and validate shared mechanisms through their framework regression tests.
 
 `check --suite quick` is the lightweight static development loop and deliberately excludes `maintenance-self-test`; its duration depends on the workspace and machine. When maintenance Python, CI, release workflow, or this check matrix changes, run `maintenance-self-test` explicitly; `framework` and `full` also retain it.
 

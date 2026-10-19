@@ -23,7 +23,6 @@ Use this skill as the default project workflow for GF Framework maintenance. It 
 - Generator or generated-tree logic changed: keep generated output roots fail-closed, stage and validate every related tree before replacing any of them, and test rollback behavior. `generate_ai_api.py` may write outside `ai_analysis/generated_api` only with the explicit unsafe-output flag.
 - Maintenance runner or CI topology changed: run `maintenance-self-test` and follow the execution and CI contracts in [核心规则](../../../AI_MAINTENANCE.md#核心规则). That authority defines Full isolation and admission ordering, budgets, process cleanup, required-check eligibility and workflow deadlines. Use [checks.md](references/checks.md) to choose the relevant commands.
 - Release metadata changed: use `$gf-release-flow`.
-- Local examples changed: run `check --suite examples`; the suite runs the repository-owned first-task smoke after import.
 - Broad refactor, layer move, or multi-module behavior change: use `$gf-change-audit`.
 - GDScript warning fixes: prefer real type narrowing and ownership changes over `@warning_ignore`; after edits run focused GUT for the touched scripts plus `python tools\gf_maintenance.py check --check gdscript_warnings --json`. Use `python tools\gf_maintenance.py check --check gdscript_lsp_diagnostics --json` or the focused `tools/gdscript_lsp_diagnostics.py --file` form for early diagnosis; the final full/release suite must also pass its unconditional LSP hard gate. If the change touches shadowed names, GF class casts, or dynamic script instantiation, also run `tests/gf_core/maintenance/test_gdscript_parse_validation.gd`.
 - Project settings drift: if GUT, editor reload checks, or plugin tests appear to modify `project.godot`, run `python tools\gf_maintenance.py project-settings-drift --json` and fix the leaking test or plugin state instead of committing transient settings.
@@ -42,7 +41,7 @@ Prefer tests that verify observable GF behavior through public or documented int
 ## Boundaries
 
 - Keep dependency direction stable: `addons/gf/kernel <- addons/gf/standard <- addons/gf/extensions`.
-- Keep project business rules and sample layout outside `addons/gf`.
+- Keep project business rules and layout outside `addons/gf`; document concise usage in the relevant guide and validate reusable mechanisms with framework regression tests.
 - The external Reference project and sync workflow are retired; do not restore or synchronize them.
 - When reviewing exported plugin sources or design notes, classify each idea before adopting it: stable GF mechanism, editor/tooling pattern, documentation reminder, third-party service adapter, or project business rule. Implement only the stable GF mechanism or clearly reusable tooling pattern.
 - Do not change vendored `addons/gut/**` unless the task explicitly requires GUT maintenance.

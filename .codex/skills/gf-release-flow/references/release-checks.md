@@ -18,7 +18,7 @@ Build the three artifacts once for the final candidate commit. Every later valid
 
 Add `--allow-breaking-api` to the `check --suite release` command only for an evidenced baseline false positive or a historical surface already excluded from the stable compatibility contract, with that evidence recorded in the changelog or release notes. Real stable-contract breaks require a major version; the flag must not turn them into a minor or patch release and does not waive the minor floor for compatible public additions.
 
-The release and framework-integration suites include the repository-owned `first_task_smoke` after `godot_import`. To validate the local sample separately, run `python tools\gf_maintenance.py check --suite examples --json`. The external Reference project and its sync workflow are retired; do not synchronize or restore them.
+The external Reference project and its sync workflow are retired; do not synchronize or restore them. Release verification covers the framework and its regression tests without a standalone sample application requirement.
 
 ## Tag Verification
 

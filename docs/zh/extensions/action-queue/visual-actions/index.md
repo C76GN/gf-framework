@@ -5,7 +5,7 @@
 ## 阅读入口
 
 - [复合动作与并行执行](groups-parallel.md)：`GFVisualActionGroup` 和 `enqueue_parallel()`。
-- [多目标错峰示例](staggered-targets.md)：用等待和并行分支让有序目标依次开始，统一暂停与取消。
+- [多目标错峰动画](staggered-targets.md)：用等待和并行分支让有序目标依次开始，统一暂停与取消。
 - [自定义 Action](custom-action.md)：`GFVisualAction.execute()`、Signal 等待、取消和超时。
 - [入队与 Fire-and-Forget](enqueue-fire-and-forget.md)：普通入队、自动完成模式和非阻塞动作。
 

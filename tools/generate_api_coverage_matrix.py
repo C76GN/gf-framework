@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a planning matrix for GF public API guide, test, and example coverage."""
+"""Generate a GF public API mention matrix with optional project-owned examples."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
 		"--examples",
 		action="append",
 		default=[],
-		help="Example project root. Can be passed multiple times.",
+		help="Explicit external or project-owned example root. Optional; can be passed multiple times.",
 	)
 	parser.add_argument("--output", default="ai_analysis/api_coverage", help="Output directory.")
 	parser.add_argument("--check", action="store_true", help="Fail if existing outputs are stale.")
@@ -418,7 +418,7 @@ def render_index(matrix: dict[str, Any]) -> str:
 	lines = [
 		"# GF API Coverage Matrix",
 		"",
-		"本报告用于规划公开 API 的指南、测试和未来示例覆盖。它是维护清单，不是正式用户文档。",
+		"本报告用于核对公开 API 的指南、测试及显式指定的外部或项目自有示例中的引用。它是维护清单，不是正式用户文档。",
 		"",
 		"## Summary",
 		"",
@@ -439,7 +439,7 @@ def render_index(matrix: dict[str, Any]) -> str:
 		"- Guide docs 证据表示非 Reference 正文中出现了完整类标识符，或同一文件同时出现完整类与成员标识符。",
 		"- Test / example 证据表示测试或示例文件中出现了对应完整标识符；这是排查入口，不等同于行为断言。",
 		"- 输入预算与 UTF-8 解码采用失败关闭；`input_complete: true` 才表示本次扫描完整。",
-		"- 当前没有示例项目时，examples 覆盖为 0 是预期状态。",
+		"- `--examples <path>` 仅用于显式指定的外部或项目自有目录；未指定时 examples 统计为 0，属于预期状态。GF 仓库不维护独立示例项目。",
 		"",
 		"## Modules",
 		"",
