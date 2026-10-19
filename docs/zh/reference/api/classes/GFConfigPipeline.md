@@ -110,7 +110,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
-从文本构建单表资源。
+从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。
 
 参数：
 
@@ -180,7 +180,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。
+- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。
 - `return`: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。
 
 <a id="member-gfconfigpipeline-methods-export_profile"></a>

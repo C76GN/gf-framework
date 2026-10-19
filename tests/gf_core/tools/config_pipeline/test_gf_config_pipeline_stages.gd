@@ -367,6 +367,109 @@ func test_layout_stage_decodes_reader_payload_and_preserves_source_locations() -
 	)
 
 
+func test_xlsx_layout_xml_depth_counts_document_root_as_zero() -> void:
+	var source_path: String = _write_xlsx_budget_fixture(
+		"user://gf_config_pipeline_xlsx_depth_%d.xlsx" % Time.get_ticks_usec(),
+		"<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>name</t></is></c></row><row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>Cat</t></is></c></row></sheetData></worksheet>"
+	)
+	var source: GFConfigPipelineTableSource = _make_source(source_path)
+	var accepted_budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_depth": 5 })
+	var accepted: Dictionary = _decode_xlsx_with_budget(source, accepted_budget)
+	assert_true(
+		GFVariantData.get_option_bool(accepted, "success"),
+		"worksheet 根深度为零，最深的 t 元素深度五应在边界内成功。"
+	)
+	var accepted_usage: Dictionary = GFVariantData.get_option_dictionary(
+		accepted_budget.get_report(),
+		"usage"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(accepted_usage, "peak_depth"),
+		5
+	)
+	var accepted_rows: Array = GFVariantData.get_option_array(accepted, "data")
+	assert_eq(
+		accepted_rows.size(),
+		1
+	)
+	var rejected_budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_depth": 4 })
+	var rejected: Dictionary = _decode_xlsx_with_budget(source, rejected_budget)
+	assert_false(GFVariantData.get_option_bool(rejected, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_depth_exceeded"
+	)
+	var no_partial_rows: bool = GFVariantData.get_option_value(rejected, "data") == null
+	assert_true(no_partial_rows)
+
+
+func test_xlsx_layout_input_budget_counts_resolved_cells_before_trim_or_overwrite() -> void:
+	var repeated_text: String = " 猫 ".repeat(128)
+	var duplicate_count: int = 8
+	var repeated_cell: String = "<c r=\"A2\" t=\"s\"><v>1</v></c>"
+	var worksheet: String = "<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row><row r=\"2\">"
+	worksheet += repeated_cell.repeat(duplicate_count)
+	worksheet += "<c r=\"A2\" t=\"s\"><v>2</v></c></row><row r=\"3\"><c r=\"A3\" t=\"s\"><v>1</v></c></row></sheetData></worksheet>"
+	var shared_strings: String = "<sst><si><t>name</t></si><si><t>%s</t></si><si><t>Cat</t></si></sst>" % repeated_text
+	var source_path: String = _write_xlsx_budget_fixture(
+		"user://gf_config_pipeline_xlsx_input_%d.xlsx" % Time.get_ticks_usec(),
+		worksheet,
+		shared_strings
+	)
+	var source: GFConfigPipelineTableSource = _make_source(source_path)
+	var archive_bytes: int = FileAccess.get_file_as_bytes(source_path).size()
+	var resolved_bytes: int = "name".to_utf8_buffer().size() + "Cat".to_utf8_buffer().size() + repeated_text.to_utf8_buffer().size() * (duplicate_count + 1)
+	assert_gt(
+		resolved_bytes,
+		archive_bytes,
+		"共享字符串重复展开的文本应大于压缩归档，才能覆盖解压后的输入预算。"
+	)
+	var accepted_budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_input_bytes": archive_bytes + resolved_bytes })
+	var accepted: Dictionary = _decode_xlsx_with_budget(source, accepted_budget)
+	assert_true(
+		GFVariantData.get_option_bool(accepted, "success"),
+		"归档与每次实际解析的单元格文本恰好达到上限时应成功，最终行映射不得重复计费。"
+	)
+	var usage: Dictionary = GFVariantData.get_option_dictionary(
+		accepted_budget.get_report(),
+		"usage"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(usage, "input_bytes"),
+		archive_bytes + resolved_bytes,
+		"重复共享字符串引用、被覆盖单元格和裁剪前空白均属于已解析输入。"
+	)
+	var rows: Array = GFVariantData.get_option_array(accepted, "data")
+	assert_eq(
+		rows.size(),
+		2
+	)
+	if rows.size() == 2:
+		assert_eq(
+			GFVariantData.get_option_string(
+				GFVariantData.as_dictionary(rows[0]),
+				"name"
+			),
+			"Cat"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(
+				GFVariantData.as_dictionary(rows[1]),
+				"name"
+			),
+			repeated_text.strip_edges()
+		)
+	var rejected_budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_input_bytes": archive_bytes + resolved_bytes - 1 })
+	var rejected: Dictionary = _decode_xlsx_with_budget(source, rejected_budget)
+	assert_false(GFVariantData.get_option_bool(rejected, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "error_kind"),
+		"config_work_input_bytes_exceeded"
+	)
+	var no_partial_rows: bool = GFVariantData.get_option_value(rejected, "data") == null
+	assert_true(no_partial_rows)
+
+
 func test_validation_stage_compiles_layout_result_into_typed_table_ir() -> void:
 	var source_path: String = _write_text(
 		"user://gf_config_pipeline_validation_stage_%d.csv" % Time.get_ticks_usec(),
@@ -756,6 +859,59 @@ func _make_item_schema() -> GFConfigTableSchema:
 		power_column,
 	]
 	return schema
+
+
+## 通过公开 Reader 与 Layout 入口复用同一个预算，保证归档和展开文本属于同一次操作。
+## [br]
+## @api private
+func _decode_xlsx_with_budget(source: GFConfigPipelineTableSource, budget: GFConfigWorkBudget) -> Dictionary:
+	var options: Dictionary = { "work_budget": budget }
+	var read_result: Dictionary = GFConfigPipelineReaderStage.new().read_source(source, options)
+	assert_true(
+		GFVariantData.get_option_bool(read_result, "success"),
+		"测试预算应足以读取归档，目标失败必须发生在 Layout。"
+	)
+	return GFConfigPipelineLayoutStage.new().decode_source(
+		source,
+		read_result,
+		options
+	)
+
+
+## 创建具有单张工作表和可选共享字符串的 XLSX，使预算边界测试经过真实 ZIP 和 XML 解析。
+## [br]
+## @api private
+func _write_xlsx_budget_fixture(
+	path: String,
+	worksheet: String,
+	shared_strings: String = ""
+) -> String:
+	var entries: Dictionary[String, String] = {
+		"[Content_Types].xml": "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>",
+		"_rels/.rels": "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>",
+		"xl/workbook.xml": "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"items\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>",
+		"xl/_rels/workbook.xml.rels": "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>",
+		"xl/worksheets/sheet1.xml": worksheet,
+	}
+	if not shared_strings.is_empty():
+		entries["xl/sharedStrings.xml"] = shared_strings
+	var _tracked_path: String = _track_path(path)
+	var packer: ZIPPacker = ZIPPacker.new()
+	var open_result: Error = packer.open(path)
+	assert_eq(open_result, OK)
+	if open_result != OK:
+		return path
+	for entry_path: String in entries:
+		var entry_text: String = entries[entry_path]
+		var start_result: Error = packer.start_file(entry_path)
+		assert_eq(start_result, OK)
+		var write_result: Error = packer.write_file(entry_text.to_utf8_buffer())
+		assert_eq(write_result, OK)
+		var close_file_result: Error = packer.close_file()
+		assert_eq(close_file_result, OK)
+	var close_result: Error = packer.close()
+	assert_eq(close_result, OK)
+	return path
 
 
 func _write_text(path: String, content: String) -> String:

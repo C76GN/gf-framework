@@ -850,6 +850,71 @@ func test_importer_work_limits_measure_utf8_before_native_parse() -> void:
 	)
 
 
+func test_importer_budget_failures_preserve_the_resolved_source() -> void:
+	var source: String = "res://配置/关卡.csv"
+	var limits_cases: Array[Dictionary] = [
+		{ "max_input_bytes": 0 },
+		{ "max_input_bytes": 1 },
+		{ "max_value_bytes": 1 },
+		{ "max_depth": 1 },
+		{ "max_work_units": 1 },
+	]
+	for limits: Dictionary in limits_cases:
+		var options: Dictionary = { &"source": source, "work_limits": limits }
+		var rows: Array[PackedStringArray] = [
+			PackedStringArray(["name"]),
+			PackedStringArray(["猫"]),
+		]
+		var results: Array[Dictionary] = [
+			GFConfigTableImporter.parse_json_table("[{\"name\":\"猫\"}]", options),
+			GFConfigTableImporter.parse_csv_table("name\n猫\n", options),
+			GFConfigTableImporter.parse_config_file_table("[item]\nname=\"猫\"\n", options),
+			GFConfigTableImporter.parse_rows_table(rows, options),
+		]
+		for result: Dictionary in results:
+			assert_false(GFVariantData.get_option_bool(result, "success"))
+			assert_eq(
+				GFVariantData.get_option_string(result, "source"),
+				source
+			)
+			var error_kind: String = GFVariantData.get_option_string(result, "error_kind")
+			assert_true(error_kind.begins_with("config_work_"))
+			var data_is_null: bool = GFVariantData.get_option_value(result, "data") == null
+			assert_true(data_is_null)
+
+
+func test_importer_existing_budget_failure_keeps_each_call_source() -> void:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_input_bytes": 1 })
+	assert_false(budget.consume_input_bytes(2, "previous input"))
+	var rows: Array[PackedStringArray] = [
+		PackedStringArray(["name"]),
+	]
+	var options: Dictionary = { "source": "json-source", "work_budget": budget }
+	var json_result: Dictionary = GFConfigTableImporter.parse_json_table("[]", options)
+	options["source"] = "csv-source"
+	var csv_result: Dictionary = GFConfigTableImporter.parse_csv_table("name\n", options)
+	options["source"] = "config-source"
+	var config_result: Dictionary = GFConfigTableImporter.parse_config_file_table("[item]\n", options)
+	options["source"] = "rows-source"
+	var rows_result: Dictionary = GFConfigTableImporter.parse_rows_table(rows, options)
+	assert_eq(
+		GFVariantData.get_option_string(json_result, "source"),
+		"json-source"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(csv_result, "source"),
+		"csv-source"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(config_result, "source"),
+		"config-source"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(rows_result, "source"),
+		"rows-source"
+	)
+
+
 func test_importer_work_limits_reject_structural_depth_but_ignore_quoted_delimiters() -> void:
 	var at_boundary: Dictionary = GFConfigTableImporter.parse_json_table(
 		"[[]]",

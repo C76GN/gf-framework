@@ -81,9 +81,11 @@ Windows / Godot 4.7.2 的一次本地整数表测量中，10×100×20 的 Valida
 
 `build_table()`、`build_table_from_text()` 和 `build_database()` 在每次顶层构建创建新的 `GFConfigWorkBudget`。构建一组表时，全部来源共享累计预算；单表成功不会为下一张表重置额度。Profile 的 `build_options.work_limits` 或构建调用的 `work_limits` 可覆盖[配置工作预算](../../standard/utilities/io/config-remote-outbox/config-provider/validation-importer/json-csv-import.md#工作预算与批次)。顶层构建不接受外部 `work_budget`；句柄只在阶段间传递，避免独立构建意外共用历史计数。
 
-Profile 选项沿用 `make_build_options()` 的覆盖规则：本次 `build_options.work_limits` 按字段合并 Profile 中的同名限额；直接传入的 `work_limits` 优先级最高，整体替换合成后的限额字典，缺省字段重新采用框架默认值。每层显式提供的非法限额都会被拒绝。
+Profile 选项沿用 `make_build_options()` 的覆盖规则：本次 `build_options.work_limits` 按字段合并 Profile 中的同名限额；直接传入的 `work_limits` 优先级最高，整体替换合成后的限额字典，缺省字段重新采用框架默认值。每层显式提供的非法限额都会被拒绝。单独 `build_profile()` 只准入构建需要的选项；`export_profile()` 才会在复制前准入 `save_options` 和 `access_options`，并与该次构建共享累计额度。
 
 预算选项只能由构建入口声明，`source.parse_options` 和构建的 `parse_options` 中不能放 `work_limits` 或 `work_budget`。Reader 在分配载荷前检查剩余输入额度；文本由 Importer 计入原文 UTF-8 字节，XLSX 计入归档字节及展开后实际单元格文本。Validation 在复制 Layout 数据前再次执行数据图准入，因此自定义 Layout 也必须遵守相同数据合同。原有文件、XLSX 和 `max_validation_cells` 限制继续作为额外约束；`max_validation_cells = -1` 不能关闭工作预算。
+
+XLSX 的 XML 根元素深度为零；每个已解析的物理单元格都计入输入字节，包括重复引用的共享字符串、被同坐标后续单元格覆盖的值及裁剪前的空白。交给行解析器的最终文本不重复计量。文本构建入口向自定义 Layout 提供包含 BOM 的真实 UTF-8 `size_bytes`；读取成功后的预算失败仍在表结果中保留该次 `source_receipt`，便于追溯实际参与处理的来源。
 
 构建阶段生成 Resource 与 IR，不消费工作预算中的文本 `output_bytes`。Target 的 JSON 导出继续使用自身选项中的 `max_depth`、`max_nodes` 和 `max_output_bytes`；它们与构建的 `work_limits` 分别约束不同操作。
 

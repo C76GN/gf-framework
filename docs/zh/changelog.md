@@ -56,6 +56,7 @@
 ### 🔄 机制更改 (Changed)
 
 - [配置导入](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/json-csv-import.md#工作预算与批次)、[表合并](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/merge-profile.md)和[配置流水线](editor/tools/config-pipeline.md#构建工作预算)采用有限工作预算，复用通用执行预算并累计输入、遍历、载荷与输出成本。非法限额、循环或超限明确失败，合并与构建失败不交付可用半成品。正式指南补齐配置激活、事务提交、页面会话与决策复现的项目接入边界。
+- 配置预算覆盖 NodePath 载荷及 XLSX 裁剪、覆盖前的单元格文本，XML 根深度统一为零。构建与导出按实际消费的选项准入；失败保留来源与读取收据，自定义合并策略获得隔离的记录容器，文本 Layout 收到真实 UTF-8 大小。
 
 - 精简资源解析、音频会话和编辑器类型索引的缓存处理；统一 Save 的证据校验与 Feedback 的波形采样实现，保留校验预算、状态推进和既有采样结果。
 - [Flow 图编辑器](extensions/flow/editor-model.md) 在原生撤销或重做回调失败后暂停同一历史中的 Flow 写入，并提供“重置撤销历史…”确认入口；清除实际共享范围内的 Undo / Redo 记录，保留当前内存资源值，不自动保存。资源、上下文、可见性或历史变化使旧确认失效；未完成的属性补偿仍须先恢复。

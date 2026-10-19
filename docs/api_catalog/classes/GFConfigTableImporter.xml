@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="c5af82fb54c3b7a794d9578ec1b6a892c9d56db4b629b2bb9d560c88290c7a64">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="a2b49744a90d3a71c66b263da536af125e7b662984c402bb7462082868053806">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 每个顶层操作默认使用有限的 GFConfigWorkBudget；解析、映射和校验共享同一预算。
 输入按 UTF-8 字节计量，文本每扫描 1024 个字符消耗一个工作单元，表格处理另按单元格和比较次数计量。
 JSON 与 ConfigFile 原生解析调用不可硬中断；容量和文本嵌套检查在调用前完成，解析结果随后通过值图准入。
 JSON 根容器深度为零；ConfigFile 另保守限制构造器嵌套，最终深度按映射出的记录数组计量。
-schema 校验前按记录、字段和声明规则访问次数预留工作；自定义规则及原生方法不提供可抢占执行保证。</description>
+schema 校验前按记录、字段和声明规则访问次数预留工作；自定义规则及原生方法不提供可抢占执行保证。
+解析预算失败保留本次调用的 source，便于定位输入；data 为空，不交付部分解析结果。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>

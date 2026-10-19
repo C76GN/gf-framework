@@ -919,6 +919,7 @@ func _parse_xlsx_sheet(
 	var current_cell_ref: String = ""
 	var current_cell_type: String = ""
 	var current_cell_value: String = ""
+	var resolved_input_bytes: int = 0
 	var in_cell: bool = false
 	var in_value: bool = false
 	var in_inline_text: bool = false
@@ -1002,6 +1003,20 @@ func _parse_xlsx_sheet(
 							),
 							GFVariantData.get_option_string(options, "source")
 						)
+					var cell_input_bytes: int = _get_xlsx_text_input_bytes(cell_value, budget)
+					# 预检全部物理单元格；同坐标覆盖与空白裁剪不得减少已经解析的输入。
+					if cell_input_bytes < 0 or not budget.check_input_bytes(
+						resolved_input_bytes + cell_input_bytes,
+						"layout.xlsx_cell_input"
+					):
+						return _make_xlsx_parse_failure(
+							GFVariantData.get_option_string(
+								budget.get_report(),
+								"error"
+							),
+							GFVariantData.get_option_string(options, "source")
+						)
+					resolved_input_bytes += cell_input_bytes
 					current_cells[column_index] = cell_value
 				in_cell = false
 				in_value = false
@@ -1028,13 +1043,21 @@ func _parse_xlsx_sheet(
 			current_row_number,
 			1
 		)
-	return _xlsx_rows_to_parse_result(rows, options)
+	return _xlsx_rows_to_parse_result(
+		rows,
+		options,
+		resolved_input_bytes
+	)
 
 
-## 将稀疏单元格展开为行数组，同时传递物理行号；复制选项后强制要求非空表头，由通用行导入器处理表头位置和跳空行。
+## 将稀疏单元格展开为行数组，同时传递物理行号；补计被覆盖或裁剪的输入字节，保留文本由通用行导入器计量，避免重复收费。
 ## [br]
 ## @api private
-func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) -> Dictionary:
+func _xlsx_rows_to_parse_result(
+	rows: Array[Dictionary],
+	options: Dictionary,
+	resolved_input_bytes: int
+) -> Dictionary:
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	var trim_cells: bool = GFVariantData.get_option_bool(
 		options,
@@ -1043,6 +1066,7 @@ func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) ->
 	)
 	var parsed_rows: Array[PackedStringArray] = []
 	var row_numbers: PackedInt32Array = PackedInt32Array()
+	var retained_input_bytes: int = 0
 	for row_info: Dictionary in rows:
 		var row_number: int = GFVariantData.get_option_int(row_info, "row_number")
 		var cells: Dictionary = GFVariantData.get_option_dictionary(row_info, "cells")
@@ -1060,15 +1084,64 @@ func _xlsx_rows_to_parse_result(rows: Array[Dictionary], options: Dictionary) ->
 				),
 				GFVariantData.get_option_string(options, "source")
 			)
-		parsed_rows.append(_xlsx_cells_to_row(cells, trim_cells))
+		var parsed_row: PackedStringArray = _xlsx_cells_to_row(cells, trim_cells)
+		for cell: String in parsed_row:
+			var cell_input_bytes: int = _get_xlsx_text_input_bytes(cell, budget)
+			if cell_input_bytes < 0:
+				return _make_xlsx_parse_failure(
+					GFVariantData.get_option_string(
+						budget.get_report(),
+						"error"
+					),
+					GFVariantData.get_option_string(options, "source")
+				)
+			retained_input_bytes += cell_input_bytes
+		parsed_rows.append(parsed_row)
 		var _row_number_appended: bool = row_numbers.append(row_number)
 
+	# 填洞只增加空串，覆盖与裁剪只移除字节；完整物理输入不得小于保留文本。
+	if retained_input_bytes > resolved_input_bytes:
+		return _make_xlsx_parse_failure(
+			"XLSX retained cell text exceeds resolved input bytes.",
+			GFVariantData.get_option_string(options, "source")
+		)
+	if not budget.consume_input_bytes(
+		resolved_input_bytes - retained_input_bytes,
+		"layout.xlsx_removed_cell_input"
+	):
+		return _make_xlsx_parse_failure(
+			GFVariantData.get_option_string(
+				budget.get_report(),
+				"error"
+			),
+			GFVariantData.get_option_string(options, "source")
+		)
 	var row_options: Dictionary = options.duplicate(true)
 	row_options["row_numbers"] = row_numbers
 	row_options["require_header"] = true
 	row_options["reject_empty_header"] = true
 	row_options["error_prefix"] = "XLSX"
 	return GFConfigTableImporter.parse_rows_table(parsed_rows, row_options)
+
+
+## 按 Unicode 码点累计 UTF-8 字节，避免创建完整编码副本；每 1024 个字符消耗一个工作单位，失败返回负数。
+## [br]
+## @api private
+func _get_xlsx_text_input_bytes(text: String, budget: GFConfigWorkBudget) -> int:
+	var byte_count: int = 0
+	for index: int in range(text.length()):
+		if index % 1024 == 0 and not budget.consume_work(1, "layout.xlsx_cell_text_scan"):
+			return -1
+		var code: int = text.unicode_at(index)
+		if code <= 0x7f:
+			byte_count += 1
+		elif code <= 0x7ff:
+			byte_count += 2
+		elif code <= 0xffff:
+			byte_count += 3
+		else:
+			byte_count += 4
+	return byte_count
 
 
 ## 将按零起始列索引存储的单元格字典展开为行；缺失列为空串，并可裁剪边缘空白。
@@ -1331,15 +1404,15 @@ func _get_xlsx_xml_structure_error(
 					)
 				root_seen = true
 				root_was_empty = parser.is_empty()
+			if not budget.check_depth(
+				element_stack.size(),
+				"layout.xlsx_xml_depth"
+			):
+				return GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				)
 			if not parser.is_empty():
-				if not budget.check_depth(
-					element_stack.size() + 1,
-					"layout.xlsx_xml_depth"
-				):
-					return GFVariantData.get_option_string(
-						budget.get_report(),
-						"error"
-					)
 				var _element_appended: bool = element_stack.append(node_name)
 			elif element_stack.is_empty():
 				root_closed = true

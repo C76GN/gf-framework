@@ -37,7 +37,7 @@ const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/co
 ## [br]
 ## @schema patch_table: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
 ## [br]
-## @param policy: 可选合并策略；为空时使用默认策略。
+## @param policy: 可选合并策略；为空时使用默认策略。预算准入后，传给策略的记录、outer_key 及其嵌套容器均为隔离副本；Resource 叶仍保留引用。
 ## [br]
 ## @param options: 新预算限额或已有批次预算。
 ## [br]
@@ -122,7 +122,7 @@ static func merge_tables(
 
 # --- 私有/辅助方法 ---
 
-## 将输入表数据规范化为记录条目数组。
+## 将已通过整体预算准入的表规范化为隔离记录；在调用策略前深复制记录与 outer_key 容器，Resource 叶保留引用。
 ## [br]
 ## @api private
 ## [br]
@@ -137,7 +137,7 @@ static func _normalize_table(table_data: Variant, budget: GFConfigWorkBudget) ->
 			if not (row_variant is Dictionary):
 				return null
 			var row: Dictionary = row_variant
-			rows.append({ "outer_key": index, "record": row, })
+			rows.append({ "outer_key": index, "record": row.duplicate(true), })
 		return rows
 	if table_data is Dictionary:
 		var dictionary_table: Dictionary = table_data
@@ -148,7 +148,7 @@ static func _normalize_table(table_data: Variant, budget: GFConfigWorkBudget) ->
 			if not (row_variant is Dictionary):
 				return null
 			var row: Dictionary = row_variant
-			rows.append({ "outer_key": key, "record": row, })
+			rows.append({ "outer_key": GFVariantData.duplicate_variant(key), "record": row.duplicate(true), })
 		return rows
 	return null
 

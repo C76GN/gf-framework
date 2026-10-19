@@ -38,7 +38,7 @@ static func merge_tables( base_table: Variant, patch_table: Variant, policy: GFC
 |---|---|
 | `base_table` | Array[Dictionary] 或 Dictionary 形式的基础表。 |
 | `patch_table` | Array[Dictionary] 或 Dictionary 形式的补丁表。 |
-| `policy` | 可选合并策略；为空时使用默认策略。 |
+| `policy` | 可选合并策略；为空时使用默认策略。预算准入后，传给策略的记录、outer_key 及其嵌套容器均为隔离副本；Resource 叶仍保留引用。 |
 | `options` | 新预算限额或已有批次预算。 |
 
 返回：结果字典，包含 ok、data、issues 与统计信息。

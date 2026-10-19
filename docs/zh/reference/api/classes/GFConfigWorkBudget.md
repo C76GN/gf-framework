@@ -197,7 +197,7 @@ func check_depth(depth: int, context: String = "") -> bool:
 func admit_value(value: Variant, context: String = "") -> bool:
 ```
 
-复制或遍历前准入数据图，重复调用按实际访问量累计，不缓存已检查身份。 Dictionary 键和值及 Array 元素各计一个节点；Packed 元素与祖先身份比较也计工作量。 PackedByteArray 按每 1024 字节一个工作块向上取整，完整字节仍计入载荷。 String/StringName 计 UTF-8 载荷，数值 Packed 数组计保守存储字节。 仅拒绝当前祖先链循环，共享子容器合法。Resource 作为叶引用保留，不读取其属性； 其余 Object、Callable、Signal、RID 不属于可准入的配置值。
+复制或遍历前准入数据图，重复调用按实际访问量累计，不缓存已检查身份。 Dictionary 键和值及 Array 元素各计一个节点；Packed 元素与祖先身份比较也计工作量。 PackedByteArray 按每 1024 字节一个工作块向上取整，完整字节仍计入载荷。 String/StringName 计 UTF-8 载荷；NodePath 按名称、子名称及分隔符计 UTF-8 载荷，并累计组件访问与文字扫描工作。 数值 Packed 数组计保守存储字节。 仅拒绝当前祖先链循环，共享子容器合法。Resource 作为叶引用保留，不读取其属性； 其余 Object、Callable、Signal、RID 不属于可准入的配置值。
 
 参数：
 

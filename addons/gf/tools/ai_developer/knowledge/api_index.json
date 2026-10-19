@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "25486d11fbfed4c5398c46ad0f2ab442cd54b633344b3e23019073dd7e54c263",
+  "source_digest": "91c164018462cef1270e490930df84aac5247ed4063a36f3501a944fb0d806e9",
   "class_count": 876,
   "autoload_count": 1,
   "package_count": 61,
@@ -19451,7 +19451,7 @@
           "kind": "func",
           "name": "build_table_from_text",
           "signature": "func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -> Dictionary",
-          "summary": "从文本构建单表资源。",
+          "summary": "从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。",
           "visibility": "public"
         },
         {

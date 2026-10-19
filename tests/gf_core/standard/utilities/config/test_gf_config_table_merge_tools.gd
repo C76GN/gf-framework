@@ -319,6 +319,215 @@ func test_config_work_budget_counts_binary_blocks_and_exact_payload_bytes() -> v
 	assert_true(rejected_payload_uncharged, "工作分块不能削弱实际载荷上限。")
 
 
+func test_config_work_budget_counts_node_path_utf8_payload_at_exact_boundary() -> void:
+	for fixture: Dictionary in [
+		{ "path": NodePath(""), "bytes": 0 },
+		{ "path": NodePath("/"), "bytes": 1 },
+		{ "path": NodePath("猫"), "bytes": 3 },
+		{ "path": NodePath(":位置"), "bytes": 7 },
+		{ "path": NodePath("../猫:位置"), "bytes": 13 },
+		{ "path": NodePath("猫/🐈:位置"), "bytes": 15 },
+		{ "path": NodePath("/猫/房:位置:x"), "bytes": 17 },
+	]:
+		var path_value: NodePath = fixture["path"]
+		var expected_bytes: int = fixture["bytes"]
+		var budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_value_bytes": maxi(expected_bytes, 1) })
+		assert_true(budget.admit_value(path_value, "node_path.boundary"))
+		var value_bytes: Variant = budget.get_report()["usage"]["value_bytes"]
+		var exact_payload: bool = value_bytes is int and value_bytes == expected_bytes
+		assert_true(exact_payload, "NodePath 的路径分隔符、属性分隔符和多字节文字均计 UTF-8 载荷。")
+		if expected_bytes > 1:
+			var rejected: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_value_bytes": expected_bytes - 1 })
+			assert_false(rejected.admit_value(path_value, "node_path.boundary"))
+			var error_kind: Variant = rejected.get_report()["error_kind"]
+			var payload_limit_reported: bool = error_kind is String and error_kind == "config_work_value_bytes_exceeded"
+			assert_true(payload_limit_reported)
+
+
+func test_merge_tables_preserves_node_path_values_and_bounds_their_payload() -> void:
+	var path_value: NodePath = NodePath("猫".repeat(256) + ":位置")
+	var source: Array = [
+		{ "id": 1, "target": path_value },
+	]
+	var accepted: Dictionary = GFConfigTableMergeTools.merge_tables(source, [])
+	var accepted_ok: bool = accepted["ok"] is bool and accepted["ok"] == true
+	assert_true(accepted_ok)
+	var merged_rows: Array = accepted["data"]
+	var merged_path: Variant = merged_rows[0]["target"]
+	var native_path_preserved: bool = merged_path is NodePath and merged_path == path_value
+	assert_true(native_path_preserved, "载荷计量不能将原生 NodePath 转换为字符串。")
+	var rejected: Dictionary = GFConfigTableMergeTools.merge_tables(
+		source,
+		[],
+		null,
+		{
+			"work_limits": { "max_value_bytes": 64 },
+		}
+	)
+	var rejected_ok: bool = rejected["ok"] is bool and rejected["ok"] == false
+	var no_partial_data: bool = rejected["data"] == null
+	var budget_report: Dictionary = rejected["budget_report"]
+	var error_kind: Variant = budget_report["error_kind"]
+	var error_context: Variant = budget_report["context"]
+	var payload_limit_reported: bool = error_kind is String and error_kind == "config_work_value_bytes_exceeded"
+	var rejected_before_copy: bool = error_context is String and error_context == "merge.base"
+	assert_true(rejected_ok)
+	assert_true(no_partial_data)
+	assert_true(payload_limit_reported)
+	assert_true(rejected_before_copy)
+
+
+func test_merge_tables_isolates_custom_policy_hooks_before_late_failure() -> void:
+	for hook_name: StringName in [
+		&"make_record_key",
+		&"is_delete_record",
+		&"merge_record",
+	]:
+		for dictionary_table: bool in [false, true]:
+			var base_rows: Array = [
+				{
+					"id": 1,
+					"nested": {
+						"values": [10],
+					},
+				},
+			]
+			var patch_rows: Array = [
+				{
+					"id": 1,
+					"nested": {
+						"values": [20],
+					},
+				},
+				{
+					"id": 2,
+					"nested": {
+						"values": [30],
+					},
+				},
+			]
+			var base_table: Variant = base_rows
+			var patch_table: Variant = patch_rows
+			if dictionary_table:
+				base_table = { "one": base_rows[0] }
+				patch_table = { "one": patch_rows[0], "two": patch_rows[1] }
+			var original_base: Variant = GFVariantData.duplicate_variant(base_table)
+			var original_patch: Variant = GFVariantData.duplicate_variant(patch_table)
+			var policy: MutatingRecordPolicy = MutatingRecordPolicy.new()
+			policy.mutation_hook = hook_name
+			policy.allow_insert = false
+			var result: Dictionary = GFConfigTableMergeTools.merge_tables(
+				base_table,
+				patch_table,
+				policy
+			)
+			var merge_failed: bool = result["ok"] is bool and result["ok"] == false
+			var no_partial_data: bool = result["data"] == null
+			var prior_update_succeeded: bool = result["updated_count"] is int and result["updated_count"] == 1
+			var base_unchanged: bool = base_table == original_base
+			var patch_unchanged: bool = patch_table == original_patch
+			var issues: Array = result["issues"]
+			assert_gt(
+				policy.mutation_count,
+				0,
+				"被测钩子必须实际修改收到的记录。"
+			)
+			assert_true(merge_failed)
+			assert_true(no_partial_data)
+			assert_true(prior_update_succeeded)
+			assert_true(_has_issue_kind(issues, "insert_not_allowed"))
+			assert_true(
+				base_unchanged,
+				"钩子不得改写调用方基础表及嵌套容器：%s。" % hook_name
+			)
+			assert_true(
+				patch_unchanged,
+				"钩子不得改写调用方补丁表及嵌套容器：%s。" % hook_name
+			)
+
+
+func test_merge_tables_isolates_container_outer_keys_before_late_failure() -> void:
+	for dictionary_key: bool in [false, true]:
+		var base_key: Variant = [
+			"base",
+			{
+				"values": [10],
+			},
+		]
+		var update_key: Variant = [
+			"update",
+			{
+				"values": [20],
+			},
+		]
+		var insert_key: Variant = [
+			"insert",
+			{
+				"values": [30],
+			},
+		]
+		if dictionary_key:
+			base_key = {
+				"slot": "base",
+				"values": [10],
+			}
+			update_key = {
+				"slot": "update",
+				"values": [20],
+			}
+			insert_key = {
+				"slot": "insert",
+				"values": [30],
+			}
+		var original_base_key: Variant = GFVariantData.duplicate_variant(base_key)
+		var original_update_key: Variant = GFVariantData.duplicate_variant(update_key)
+		var original_insert_key: Variant = GFVariantData.duplicate_variant(insert_key)
+		var base_table: Dictionary = {
+			base_key: { "id": 1, "value": "before", },
+		}
+		var patch_table: Dictionary = {
+			update_key: { "id": 1, "value": "updated", },
+			insert_key: { "id": 2, "value": "inserted", },
+		}
+		var original_base: Dictionary = {
+			original_base_key: { "id": 1, "value": "before", },
+		}
+		var original_patch: Dictionary = {
+			original_update_key: { "id": 1, "value": "updated", },
+			original_insert_key: { "id": 2, "value": "inserted", },
+		}
+		var policy: MutatingOuterKeyPolicy = MutatingOuterKeyPolicy.new()
+		policy.allow_insert = false
+		var result: Dictionary = GFConfigTableMergeTools.merge_tables(
+			base_table,
+			patch_table,
+			policy
+		)
+		var merge_failed: bool = result["ok"] is bool and result["ok"] == false
+		var no_partial_data: bool = result["data"] == null
+		var prior_update_succeeded: bool = result["updated_count"] is int and result["updated_count"] == 1
+		var base_key_unchanged: bool = base_key == original_base_key
+		var update_key_unchanged: bool = update_key == original_update_key
+		var insert_key_unchanged: bool = insert_key == original_insert_key
+		var base_unchanged: bool = base_table == original_base
+		var patch_unchanged: bool = patch_table == original_patch
+		var issues: Array = result["issues"]
+		assert_eq(
+			policy.mutation_count,
+			3,
+			"钩子必须实际修改基础表和两条补丁的外层键。"
+		)
+		assert_true(merge_failed)
+		assert_true(no_partial_data)
+		assert_true(prior_update_succeeded)
+		assert_true(_has_issue_kind(issues, "insert_not_allowed"))
+		assert_true(base_key_unchanged, "基础表外层键及其嵌套容器必须隔离。")
+		assert_true(update_key_unchanged, "更新补丁外层键及其嵌套容器必须隔离。")
+		assert_true(insert_key_unchanged, "插入补丁外层键及其嵌套容器必须隔离。")
+		assert_true(base_unchanged)
+		assert_true(patch_unchanged)
+
+
 func test_merge_tables_shares_work_across_operations_and_returns_no_partial_data() -> void:
 	var measured: GFConfigWorkBudget = GFConfigWorkBudget.new()
 	var first: Dictionary = GFConfigTableMergeTools.merge_tables(
@@ -766,5 +975,83 @@ class RecordResultPolicy extends GFConfigTableMergePolicy:
 		return super.merge_record(
 			base_record,
 			patch_record,
+			options
+		)
+
+
+class MutatingRecordPolicy extends GFConfigTableMergePolicy:
+	var mutation_hook: StringName = &""
+	var mutation_count: int = 0
+
+
+	func make_record_key(
+		record: Dictionary,
+		outer_key: Variant = null,
+		options: Dictionary = {}
+	) -> String:
+		if mutation_hook == &"make_record_key":
+			_mutate_record(record)
+		return super.make_record_key(
+			record,
+			outer_key,
+			options
+		)
+
+
+	func is_delete_record(record: Dictionary, options: Dictionary = {}) -> bool:
+		if mutation_hook == &"is_delete_record":
+			_mutate_record(record)
+		return super.is_delete_record(record, options)
+
+
+	func merge_record(
+		base_record: Dictionary,
+		patch_record: Dictionary,
+		options: Dictionary = {}
+	) -> Dictionary:
+		if mutation_hook == &"merge_record":
+			_mutate_record(base_record)
+			_mutate_record(patch_record)
+		return super.merge_record(
+			base_record,
+			patch_record,
+			options
+		)
+
+
+	func _mutate_record(record: Dictionary) -> void:
+		mutation_count += 1
+		record["hook_marker"] = mutation_hook
+		var nested: Dictionary = record["nested"]
+		nested["hook_marker"] = mutation_hook
+		var values: Array = nested["values"]
+		values.append(mutation_hook)
+
+
+class MutatingOuterKeyPolicy extends GFConfigTableMergePolicy:
+	var mutation_count: int = 0
+
+
+	func make_record_key(
+		record: Dictionary,
+		outer_key: Variant = null,
+		options: Dictionary = {}
+	) -> String:
+		if outer_key is Array:
+			var array_key: Array = outer_key
+			array_key.append("hook_marker")
+			var nested: Dictionary = array_key[1]
+			var values: Array = nested["values"]
+			values.append(99)
+			mutation_count += 1
+		elif outer_key is Dictionary:
+			var dictionary_key: Dictionary = outer_key
+			dictionary_key["hook_marker"] = true
+			var values: Array = dictionary_key["values"]
+			values.append(99)
+			mutation_count += 1
+		return super.make_record_key(
+			record,
+			outer_key,
 			options
 		)

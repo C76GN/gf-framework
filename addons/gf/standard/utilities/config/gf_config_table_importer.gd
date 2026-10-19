@@ -6,6 +6,7 @@
 ## JSON 与 ConfigFile 原生解析调用不可硬中断；容量和文本嵌套检查在调用前完成，解析结果随后通过值图准入。
 ## JSON 根容器深度为零；ConfigFile 另保守限制构造器嵌套，最终深度按映射出的记录数组计量。
 ## schema 校验前按记录、字段和声明规则访问次数预留工作；自定义规则及原生方法不提供可抢占执行保证。
+## 解析预算失败保留本次调用的 source，便于定位输入；data 为空，不交付部分解析结果。
 ## [br]
 ## @api public
 ## [br]
@@ -37,6 +38,7 @@ extends RefCounted
 ## [br]
 ## @schema return: Dictionary，包含 success、data、error、error_line 和 source；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	if not _admit_import_options(options, budget) or not _admit_text(
 		text,
@@ -44,7 +46,7 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 		"JSON",
 		true
 	):
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	var json: JSON = JSON.new()
 	var error: Error = json.parse(text)
 	if error != OK:
@@ -53,16 +55,16 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 			"data": null,
 			"error": "JSON parse failed: %s" % json.get_error_message(),
 			"error_line": json.get_error_line(),
-			"source": GFVariantData.get_option_string(options, "source"),
+			"source": source,
 		}
 	if not budget.admit_value(json.data, "JSON parsed value"):
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	return {
 		"success": true,
 		"data": json.data,
 		"error": "",
 		"error_line": 0,
-		"source": GFVariantData.get_option_string(options, "source"),
+		"source": source,
 	}
 
 
@@ -88,9 +90,10 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ## [br]
 ## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	if not _admit_import_options(options, budget) or not budget.admit_value(rows, "tabular input"):
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	for row: PackedStringArray in rows:
 		for cell: String in row:
 			if not _admit_text(
@@ -98,7 +101,7 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 				budget,
 				"tabular cell"
 			):
-				return _make_budget_parse_failure(budget)
+				return _make_budget_parse_failure(budget, source)
 	return _parse_rows_table(
 		rows,
 		options,
@@ -122,13 +125,14 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 ## [br]
 ## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	if not _admit_import_options(options, budget) or not _admit_text(
 		text,
 		budget,
 		"CSV"
 	):
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	var delimiter: String = GFVariantData.get_option_string(
 		options,
 		"delimiter",
@@ -141,7 +145,6 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		"trim_cells",
 		true
 	)
-	var source: String = GFVariantData.get_option_string(options, "source")
 	var parse_result: Dictionary = _parse_csv_rows(
 		_normalize_csv_text(text),
 		delimiter.substr(0, 1),
@@ -149,7 +152,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 		budget
 	)
 	if not budget.is_ok():
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	if not GFVariantData.get_option_bool(parse_result, "success"):
 		return {
 			"success": false,
@@ -190,6 +193,7 @@ static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @schema return: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	if not _admit_import_options(options, budget) or not _admit_text(
 		text,
@@ -198,8 +202,7 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 		true,
 		true
 	):
-		return _make_budget_parse_failure(budget)
-	var source: String = GFVariantData.get_option_string(options, "source")
+		return _make_budget_parse_failure(budget, source)
 	var config_file: ConfigFile = ConfigFile.new()
 	var parse_error: Error = config_file.parse(_normalize_config_file_text(text))
 	if parse_error != OK:
@@ -229,7 +232,7 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 		sections.size(),
 		"ConfigFile section ordering"
 	):
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	sections.sort()
 	var records: Array[Dictionary] = []
 	var row_locations: Array[Dictionary] = []
@@ -239,7 +242,7 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 			keys.size() * 3 + 1,
 			"ConfigFile record mapping"
 		):
-			return _make_budget_parse_failure(budget)
+			return _make_budget_parse_failure(budget, source)
 		keys.sort()
 		if keys.is_empty() and not include_empty_sections:
 			continue
@@ -257,13 +260,13 @@ static func parse_config_file_table(text: String, options: Dictionary = {}) -> D
 		for key: String in keys:
 			var value: Variant = config_file.get_value(section, key)
 			if not budget.admit_value(value, "ConfigFile value"):
-				return _make_budget_parse_failure(budget)
+				return _make_budget_parse_failure(budget, source)
 			record[StringName(key)] = value
 		records.append(record)
 		row_locations.append(row_location)
 
 	if not budget.admit_value(records, "ConfigFile mapped records"):
-		return _make_budget_parse_failure(budget)
+		return _make_budget_parse_failure(budget, source)
 	return {
 		"success": true,
 		"data": records,
@@ -672,9 +675,9 @@ static func _parse_rows_table(
 	options: Dictionary,
 	budget: GFConfigWorkBudget
 ) -> Dictionary:
-	if not budget.admit_value(rows, "tabular rows"):
-		return _make_budget_parse_failure(budget)
 	var source: String = GFVariantData.get_option_string(options, "source")
+	if not budget.admit_value(rows, "tabular rows"):
+		return _make_budget_parse_failure(budget, source)
 	var trim_cells: bool = GFVariantData.get_option_bool(
 		options,
 		"trim_cells",
@@ -777,7 +780,7 @@ static func _parse_rows_table(
 	for row_array_index: int in range(rows.size()):
 		var row_work: int = rows[row_array_index].size() * (2 + comment_column_prefixes.size()) + header.size() * 2 + comment_row_prefixes.size() + condition_stack.size() + condition_symbols.size() + 1
 		if not budget.consume_work(row_work, "tabular row mapping"):
-			return _make_budget_parse_failure(budget)
+			return _make_budget_parse_failure(budget, source)
 		var row_number: int = _get_tabular_row_number(row_numbers, row_array_index)
 		var row: PackedStringArray = _prepare_tabular_row(
 			rows[row_array_index],
@@ -817,7 +820,7 @@ static func _parse_rows_table(
 				budget
 			)
 			if not budget.is_ok():
-				return _make_budget_parse_failure(budget)
+				return _make_budget_parse_failure(budget, source)
 			var directive_kind: StringName = GFVariantData.get_option_string_name(directive, "kind")
 			if directive_kind == &"invalid":
 				return _make_tabular_parse_failure(
@@ -839,7 +842,7 @@ static func _parse_rows_table(
 					condition_stack.size() + 1,
 					"CSV condition stack"
 				):
-					return _make_budget_parse_failure(budget)
+					return _make_budget_parse_failure(budget, source)
 				condition_stack.append(
 					{
 						"active": _condition_symbols_match(
@@ -851,7 +854,7 @@ static func _parse_rows_table(
 					}
 				)
 				if not budget.is_ok():
-					return _make_budget_parse_failure(budget)
+					return _make_budget_parse_failure(budget, source)
 				continue
 			if directive_kind == &"endif":
 				if condition_stack.is_empty():
@@ -1783,10 +1786,10 @@ static func _format_csv_cell(
 	return "\"%s\"" % text if needs_quotes else text
 
 
-## 预算失败只返回有界诊断，不复制未准入的输入、来源文本或部分结果。
+## 预算失败保留本次调用已解析的来源，不复制输入或交付部分结果。
 ## [br]
 ## @api private
-static func _make_budget_parse_failure(budget: GFConfigWorkBudget) -> Dictionary:
+static func _make_budget_parse_failure(budget: GFConfigWorkBudget, source: String) -> Dictionary:
 	var report: Dictionary = budget.get_report()
 	return {
 		"success": false,
@@ -1798,7 +1801,7 @@ static func _make_budget_parse_failure(budget: GFConfigWorkBudget) -> Dictionary
 		"error": report["error"],
 		"error_line": 0,
 		"error_column": 0,
-		"source": "",
+		"source": source,
 		"budget_report": report,
 	}
 

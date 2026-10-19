@@ -280,7 +280,8 @@ func check_depth(depth: int, context: String = "") -> bool:
 ##
 ## Dictionary 键和值及 Array 元素各计一个节点；Packed 元素与祖先身份比较也计工作量。
 ## PackedByteArray 按每 1024 字节一个工作块向上取整，完整字节仍计入载荷。
-## String/StringName 计 UTF-8 载荷，数值 Packed 数组计保守存储字节。
+## String/StringName 计 UTF-8 载荷；NodePath 按名称、子名称及分隔符计 UTF-8 载荷，并累计组件访问与文字扫描工作。
+## 数值 Packed 数组计保守存储字节。
 ## 仅拒绝当前祖先链循环，共享子容器合法。Resource 作为叶引用保留，不读取其属性；
 ## 其余 Object、Callable、Signal、RID 不属于可准入的配置值。
 ## [br]
@@ -451,6 +452,45 @@ func _admit_string(value: String, context: String) -> bool:
 	)
 
 
+## 按组件准入路径载荷，保留原生值且不先拼接完整路径文本。
+## [br]
+## @api private
+func _admit_node_path(value: NodePath, context: String) -> bool:
+	var name_count: int = value.get_name_count()
+	var subname_count: int = value.get_subname_count()
+	if not consume_work(
+		name_count + subname_count,
+		context
+	):
+		return false
+	var separator_bytes: int = maxi(
+		name_count - 1,
+		0
+	) + subname_count
+	if value.is_absolute():
+		separator_bytes += 1
+	if not _consume_bytes(
+		"value_bytes",
+		"max_value_bytes",
+		separator_bytes,
+		context
+	):
+		return false
+	for index: int in range(name_count):
+		if not _admit_string(
+			String(value.get_name(index)),
+			context
+		):
+			return false
+	for index: int in range(subname_count):
+		if not _admit_string(
+			String(value.get_subname(index)),
+			context
+		):
+			return false
+	return true
+
+
 ## 递归访问前检查深度与节点，避免在准入前复制容器或 keys 数组。
 ## [br]
 ## @api private
@@ -508,6 +548,9 @@ func _admit_value(
 			str(value),
 			context
 		)
+	if value is NodePath:
+		var path_value: NodePath = value
+		return _admit_node_path(path_value, context)
 	if value is PackedStringArray:
 		var string_values: PackedStringArray = value
 		for item: String in string_values:

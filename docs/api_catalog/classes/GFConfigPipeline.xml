@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="8ccf6df4011e2522d27f802f643edc773a7932687883ad2b52892aaedfbb0580">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="b12ce7d39c6c5e146036d6fc4c1fcda7e7d0ae3e8007598cc4ac1ce7022a964a">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -53,7 +53,7 @@
 		</member>
 		<member kind="method" name="build_table_from_text">
 			<signature>func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
-			<description>从文本构建单表资源。</description>
+			<description>从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 单表来源声明。</tag>
@@ -88,7 +88,7 @@
 				<tag name="param">options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
-				<tag name="schema">options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。</tag>
+				<tag name="schema">options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。</tag>
 				<tag name="schema">return: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>

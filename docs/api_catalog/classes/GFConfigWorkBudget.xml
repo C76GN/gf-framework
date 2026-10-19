@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="335cee652934164688e1621f491c3e40da61f3ec47e08550d78e70849579e17f">
+<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="76b3c04971c3210f93ab3abb9a097427ce86447e91c4f06c4e2958d5b5138746">
 	<description>GFConfigWorkBudget: 单次配置操作及批次共享的有限工作预算。
 句柄只累计、不重置；首次失败锁存。它约束受信任配置代码的协作工作量，
 不隔离自定义代码，也不统计 Resource 属性或引擎内部全部内存。</description>
@@ -94,7 +94,8 @@
 			<description>复制或遍历前准入数据图，重复调用按实际访问量累计，不缓存已检查身份。
 Dictionary 键和值及 Array 元素各计一个节点；Packed 元素与祖先身份比较也计工作量。
 PackedByteArray 按每 1024 字节一个工作块向上取整，完整字节仍计入载荷。
-String/StringName 计 UTF-8 载荷，数值 Packed 数组计保守存储字节。
+String/StringName 计 UTF-8 载荷；NodePath 按名称、子名称及分隔符计 UTF-8 载荷，并累计组件访问与文字扫描工作。
+数值 Packed 数组计保守存储字节。
 仅拒绝当前祖先链循环，共享子容器合法。Resource 作为叶引用保留，不读取其属性；
 其余 Object、Callable、Signal、RID 不属于可准入的配置值。</description>
 			<tags>

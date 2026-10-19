@@ -216,7 +216,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 	return result
 
 
-## 从文本构建单表资源。
+## 从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。
 ## [br]
 ## @api public
 ## [br]
@@ -251,6 +251,9 @@ func build_table_from_text(
 	var source_failure: Dictionary = _admit_source_options(source, session_options)
 	if not source_failure.is_empty():
 		return source_failure
+	var size_bytes: int = _measure_text_input_bytes(text, budget)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
 	var resolved_format: StringName = source.get_resolved_format()
 	var read_result: Dictionary = {
 		"success": true,
@@ -259,7 +262,7 @@ func build_table_from_text(
 		"format": resolved_format,
 		"payload_kind": "text",
 		"text": text,
-		"size_bytes": 0,
+		"size_bytes": size_bytes,
 		"error_code": OK,
 		"error_kind": "",
 		"error": "",
@@ -313,33 +316,13 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。
 ## [br]
-## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。
+## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。
 ## [br]
 ## @return: 构建结果。
 ## [br]
 ## @schema return: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。
 func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
-	if profile == null:
-		return _make_profile_failure(
-			&"",
-			"invalid_pipeline_profile",
-			"导表 Profile 为空。"
-		)
-
-	var profile_id: StringName = profile.profile_id
-	if profile.sources.is_empty():
-		return _make_profile_failure(
-			profile_id,
-			"empty_pipeline_sources",
-			"导表 Profile 没有配置表来源。"
-		)
-
-	var build_options: Dictionary = _make_profile_build_session(profile, options)
-	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(build_options)
-	var build_result: Dictionary = (_build_database(profile.sources, build_options) if budget.is_ok() else _make_database_work_failure(budget))
-	build_result["profile_id"] = profile_id
-	build_result["output_path"] = profile.resolve_output_path(options)
-	return build_result
+	return _build_profile(profile, options)
 
 
 ## 从导表 Profile 构建并保存配置数据库资源。
@@ -361,7 +344,11 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	var effective_options: Dictionary = options.duplicate(false)
-	var build_result: Dictionary = build_profile(profile, effective_options)
+	var build_result: Dictionary = _build_profile(
+		profile,
+		effective_options,
+		true
+	)
 	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
 	var output_path: String = GFVariantData.get_option_string(build_result, "output_path")
 	if not GFVariantData.get_option_bool(build_result, "success"):
@@ -1239,10 +1226,76 @@ func _make_build_session(options: Dictionary) -> Dictionary:
 	return session_options
 
 
-## 先解析有限限额并准入 Profile 的可复制字段，再合成选项；嵌套构建复用同一会话。
+## 按 UTF-8 码点宽度分块计算文本大小；只检查输入容量，后续解析器负责实际扣除输入额度。
 ## [br]
 ## @api private
-func _make_profile_build_session(profile: GFConfigPipelineProfile, options: Dictionary) -> Dictionary:
+func _measure_text_input_bytes(text: String, budget: GFConfigWorkBudget) -> int:
+	if not budget.check_input_bytes(
+		text.length(),
+		"pipeline.text_size"
+	):
+		return 0
+	var size_bytes: int = 0
+	for index: int in range(text.length()):
+		if index % 1024 == 0 and not budget.consume_work(1, "pipeline.text_size"):
+			return 0
+		var code: int = text.unicode_at(index)
+		if code <= 0x7f:
+			size_bytes += 1
+		elif code <= 0x7ff:
+			size_bytes += 2
+		elif code <= 0xffff:
+			size_bytes += 3
+		else:
+			size_bytes += 4
+		if index % 1024 == 1023 and not budget.check_input_bytes(size_bytes, "pipeline.text_size"):
+			return 0
+	if not budget.check_input_bytes(size_bytes, "pipeline.text_size"):
+		return 0
+	return size_bytes
+
+
+## 构建与导出共享一个新会话；导出专用选项只在导出路径进入复制前准入。
+## [br]
+## @api private
+func _build_profile(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	include_export_options: bool = false
+) -> Dictionary:
+	if profile == null:
+		return _make_profile_failure(
+			&"",
+			"invalid_pipeline_profile",
+			"导表 Profile 为空。"
+		)
+	var profile_id: StringName = profile.profile_id
+	if profile.sources.is_empty():
+		return _make_profile_failure(
+			profile_id,
+			"empty_pipeline_sources",
+			"导表 Profile 没有配置表来源。"
+		)
+	var build_options: Dictionary = _make_profile_build_session(
+		profile,
+		options,
+		include_export_options
+	)
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(build_options)
+	var build_result: Dictionary = (_build_database(profile.sources, build_options) if budget.is_ok() else _make_database_work_failure(budget))
+	build_result["profile_id"] = profile_id
+	build_result["output_path"] = profile.resolve_output_path(options)
+	return build_result
+
+
+## 先解析有限限额并准入本次操作的可复制字段，再合成选项；嵌套构建复用同一会话。
+## [br]
+## @api private
+func _make_profile_build_session(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	include_export_options: bool
+) -> Dictionary:
 	var limits: Dictionary = {}
 	var option_layers: Array[Dictionary] = [
 		profile.build_options,
@@ -1266,15 +1319,28 @@ func _make_profile_build_session(profile: GFConfigPipelineProfile, options: Dict
 	if options.has("work_limits"):
 		limits = GFVariantData.get_option_dictionary(options, "work_limits")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new(limits)
+	var admitted_options: Dictionary = options
+	if not include_export_options:
+		if not budget.consume_work(
+			options.size(),
+			"pipeline.profile_option_filter"
+		):
+			return { "work_budget": budget }
+		admitted_options = options.duplicate(false)
+		var _save_removed: bool = admitted_options.erase("save_options")
+		var _access_removed: bool = admitted_options.erase("access_options")
 	if not budget.admit_value(
 		[
-			options,
+			admitted_options,
 			profile.build_options,
 			profile.metadata,
-			profile.save_options,
-			profile.access_options,
 		],
 		"pipeline.profile_options"
+	):
+		return { "work_budget": budget }
+	if include_export_options and not budget.admit_value(
+		[profile.save_options, profile.access_options],
+		"pipeline.profile_export_options"
 	):
 		return { "work_budget": budget }
 	var build_options: Dictionary = profile.make_build_options(options)
@@ -1542,12 +1608,16 @@ func _compile_table(
 	if not source_failure.is_empty():
 		return source_failure
 	var read_result: Dictionary = _reader_stage.read_source(source, options)
-	return _compile_table_from_reader_result(
+	var compile_result: Dictionary = _compile_table_from_reader_result(
 		source,
 		read_result,
 		options,
 		validation_budget
 	)
+	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(read_result, "source_receipt")
+	if not source_receipt.is_empty():
+		compile_result["source_receipt"] = source_receipt.duplicate(true)
+	return compile_result
 
 
 ## 在 descriptor 副本缺少 implementation_path 时从 stage Script 路径补入该字段。
@@ -1567,7 +1637,7 @@ func _with_stage_implementation_path(descriptor: Dictionary, stage: Object) -> D
 	return result
 
 
-## 依次执行布局解码和表校验，由各阶段解释前一阶段失败；非空读取收据深复制到最终编译结果，避免共享收据容器。
+## 依次执行布局解码和表校验，由各阶段解释前一阶段失败；来源收据由读取调用方统一附加。
 ## [br]
 ## @api private
 func _compile_table_from_reader_result(
@@ -1604,9 +1674,6 @@ func _compile_table_from_reader_result(
 	)
 	if not budget.is_ok():
 		return _make_work_failure(source, budget)
-	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(read_result, "source_receipt")
-	if not source_receipt.is_empty():
-		compile_result["source_receipt"] = source_receipt.duplicate(true)
 	return compile_result
 
 
@@ -1685,15 +1752,17 @@ func _materialize_table_compile_result(compile_result: Dictionary, options: Dict
 
 	var table_ir: GFConfigPipelineTableIR = _get_table_ir_from_result(compile_result)
 	if table_ir == null:
-		return _make_table_failure(
+		var missing_ir_result: Dictionary = _make_table_failure(
 			&"",
 			"missing_table_ir",
 			"Validation 阶段成功但未返回 Table IR。",
 			{ "source": GFVariantData.get_option_string(compile_result, "source_path") }
 		)
+		missing_ir_result["source_receipt"] = (GFVariantData.get_option_dictionary(compile_result, "source_receipt").duplicate(true))
+		return missing_ir_result
 	var target_result: Dictionary = _target_stage.materialize_table(table_ir, options)
 	if not GFVariantData.get_option_bool(target_result, "success"):
-		return _make_table_failure(
+		var target_failure: Dictionary = _make_table_failure(
 			table_ir.get_table_name(),
 			GFVariantData.get_option_string(
 				target_result,
@@ -1703,6 +1772,8 @@ func _materialize_table_compile_result(compile_result: Dictionary, options: Dict
 			GFVariantData.get_option_string(target_result, "error"),
 			{ "source": table_ir.get_source_path(), "actual_value": table_ir.get_source_format(), }
 		)
+		target_failure["source_receipt"] = (GFVariantData.get_option_dictionary(compile_result, "source_receipt").duplicate(true))
+		return target_failure
 	target_result["report"] = GFVariantData.get_option_dictionary(compile_result, "report")
 	target_result["source_path"] = table_ir.get_source_path()
 	target_result["format"] = table_ir.get_source_format()
