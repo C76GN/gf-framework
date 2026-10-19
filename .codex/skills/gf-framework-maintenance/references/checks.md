@@ -66,6 +66,7 @@ git diff --cached --check
 - Root plugin entry or standard/editor contribution loading changes: run `core-only-smoke`; quick/full/release suites include it. It verifies parse-time layering, not a separately installable core distribution.
 - Internal module ownership or focused GUT ownership changes: run `package-focused-gut-mapping`; quick/full/release suites include it. The mapping is maintenance policy only and does not prove a module can be installed or released separately.
 - Project layout/profile changes: run the native Project Layout GUT suite and `project-profile-native-acceptance`. Quick / `framework-static` use `project-profile-artifacts` without Godot; executable acceptance belongs to `framework-integration`. `project-profile-boundary --root <directory>` delegates to the same GDScript Session in a private trusted fixture and never executes the target project. Profiles are optional and project-owned.
+- Code quality tool changes: run `tests/gf_core/tools/code_quality` GUT coverage and `check --check code_quality_native_acceptance`. The native CLI acceptance belongs to `framework-integration`; existing framework documentation and readability gates remain authoritative for GF sources.
 - Local example changes: run `check --suite examples` and focused tests under `tests/gf_core/examples`.
 - Release metadata: use `$gf-release-flow`; build the immutable artifact set once, validate it with `release-status --artifact-manifest`, and keep tag CI set-equivalent to the release suite.
 

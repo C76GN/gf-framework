@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.code_quality",
+  "kind": "tool",
+  "dependencies": [
+    "gf.kernel"
+  ],
+  "paths": [
+    "addons/gf/tools/code_quality/**"
+  ]
+}

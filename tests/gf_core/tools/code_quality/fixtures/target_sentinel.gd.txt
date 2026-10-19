@@ -1,0 +1,12 @@
+@tool
+extends RefCounted
+
+
+# --- Godot 回调方法 ---
+
+## Records resource loading so a text-only scan cannot silently execute this fixture.
+static func _static_init() -> void:
+	var marker: FileAccess = FileAccess.open("res://target_executed.flag", FileAccess.WRITE)
+	if marker != null:
+		marker.store_string("executed")
+		marker.close()

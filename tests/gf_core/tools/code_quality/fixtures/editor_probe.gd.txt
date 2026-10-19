@@ -1,0 +1,238 @@
+@tool
+extends EditorPlugin
+
+
+# --- 常量 ---
+
+const DOCK_SCRIPT = preload("res://addons/gf/tools/code_quality/editor/gf_code_quality_dock.gd")
+
+
+# --- 私有变量 ---
+
+var _dock: Control
+var _failures: PackedStringArray = []
+var _deadline_msec: int = 0
+
+
+# --- Godot 生命周期方法 ---
+
+func _enter_tree() -> void:
+	_deadline_msec = Time.get_ticks_msec() + 40_000
+	_run.call_deferred()
+
+
+# --- 私有/辅助方法 ---
+
+func _run() -> void:
+	await get_tree().process_frame
+	var source: Script = load("res://scripts/subject.gd")
+	EditorInterface.edit_script(source)
+	for frame: int in range(4):
+		await get_tree().process_frame
+	var script_editor: ScriptEditor = EditorInterface.get_script_editor()
+	var current: ScriptEditorBase = script_editor.get_current_editor()
+	if current == null or not current.get_base_editor() is TextEdit:
+		_failures.append("The real script editor did not provide a text buffer.")
+		_finish()
+		return
+	var buffer: TextEdit = current.get_base_editor()
+	var original: String = buffer.text
+	_dock = DOCK_SCRIPT.new()
+	EditorInterface.get_base_control().add_child(_dock)
+	_dock.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var results: Tree = _dock.find_child(
+		"Results",
+		true,
+		false
+	)
+	var summary: Label = _dock.find_child(
+		"Summary",
+		true,
+		false
+	)
+	var check_buffer: Button = _dock.find_child(
+		"CheckBuffer",
+		true,
+		false
+	)
+	var check_project: Button = _dock.find_child(
+		"CheckProject",
+		true,
+		false
+	)
+	var cancel: Button = _dock.find_child(
+		"Cancel",
+		true,
+		false
+	)
+	_require(
+		not _dock.is_processing(),
+		"Opening the page started an unsolicited scan."
+	)
+	_require(
+		_row_count(results) == 0,
+		"Opening the page created diagnostics without a scan."
+	)
+	buffer.text = original + "\n\nfunc _missing_summary() -> void:\n\tpass\n"
+	check_buffer.pressed.emit()
+	await _wait_idle()
+	_require(
+		_has_rule(results, "doc_private_summary"),
+		"Current-script checking did not inspect the unsaved buffer."
+	)
+	_require(
+		summary.text.contains("编辑缓冲"),
+		"The buffer result did not identify its source."
+	)
+	check_project.pressed.emit()
+	await _wait_idle()
+	_require(
+		_row_count(results) == 0,
+		"Disk checking consumed the unsaved script buffer."
+	)
+	_require(
+		summary.text.contains("已保存文件"),
+		"The project result did not identify its disk source."
+	)
+	check_buffer.pressed.emit()
+	buffer.text = original
+	await _wait_idle()
+	_require(
+		summary.text.contains("脚本缓冲已修改"),
+		"A stale buffer result was published."
+	)
+	_require(
+		_row_count(results) == 0,
+		"Stale buffer diagnostics remained actionable."
+	)
+	var original_config: String = FileAccess.get_file_as_string("res://.gf/code_quality.json")
+	buffer.text = original + "\n\nfunc _missing_summary() -> void:\n\tpass\n"
+	for check_button: Button in [check_buffer, check_project]:
+		for changed_config: String in [original_config.replace("error", "warning"), "{"]:
+			check_button.pressed.emit()
+			_write_configuration(changed_config)
+			await _wait_idle()
+			_require(
+				summary.text.contains("项目规范配置已变化"),
+				"A result was published after its configuration changed or became invalid: " + check_button.name
+			)
+			_require(
+				_row_count(results) == 0,
+				"Diagnostics remained actionable after configuration changed."
+			)
+			_write_configuration(original_config)
+		check_button.pressed.emit()
+		_require(
+			DirAccess.remove_absolute("res://.gf/code_quality.json") == OK,
+			"The in-flight fixture configuration could not be removed."
+		)
+		await _wait_idle()
+		_require(
+			summary.text.contains("项目规范配置已变化"),
+			"A result was published after its configuration was removed: " + check_button.name
+		)
+		_require(
+			_row_count(results) == 0,
+			"Diagnostics remained actionable after configuration was removed."
+		)
+		_require(
+			not FileAccess.file_exists("res://.gf/code_quality.json"),
+			"A scan recreated its removed configuration."
+		)
+		_write_configuration(original_config)
+		check_button.pressed.emit()
+		await _wait_idle()
+		_require(
+			summary.text.contains("检查完整"),
+			"An explicit new request did not recover after valid configuration was restored: " + check_button.name
+		)
+		_require(
+			_has_rule(results, "doc_private_summary") == (check_button == check_buffer),
+			"A recovered request did not retain its buffer or disk source."
+		)
+	buffer.text = original
+	check_project.pressed.emit()
+	cancel.pressed.emit()
+	await _wait_idle()
+	_require(
+		summary.text.contains("已取消"),
+		"Cancellation was reported as a complete result."
+	)
+	_require(
+		_row_count(results) == 0,
+		"Cancelled diagnostics were published."
+	)
+	check_project.pressed.emit()
+	_dock.hide()
+	await _wait_idle()
+	_require(
+		_row_count(results) == 0,
+		"A hidden page published a completed request."
+	)
+	_dock.show()
+	var removed: Error = DirAccess.remove_absolute("res://.gf/code_quality.json")
+	_require(
+		removed == OK,
+		"The fixture configuration could not be removed."
+	)
+	check_project.pressed.emit()
+	_require(
+		summary.text.contains("未配置"),
+		"Missing configuration was reported as clean."
+	)
+	_require(
+		not _dock.is_processing(),
+		"An unconfigured project started a worker."
+	)
+	buffer.text = original
+	_finish()
+
+
+func _write_configuration(text: String) -> void:
+	var output: FileAccess = FileAccess.open("res://.gf/code_quality.json", FileAccess.WRITE)
+	_require(
+		output != null,
+		"The fixture configuration could not be written."
+	)
+	if output != null:
+		var _stored: bool = output.store_string(text)
+		output.close()
+
+
+func _wait_idle() -> void:
+	while Time.get_ticks_msec() < _deadline_msec:
+		await get_tree().process_frame
+		if not _dock.is_processing():
+			return
+	_failures.append("The page did not finish its bounded request.")
+
+
+func _row_count(results: Tree) -> int:
+	var root_item: TreeItem = results.get_root()
+	return root_item.get_child_count() if root_item != null else 0
+
+
+func _has_rule(results: Tree, rule: String) -> bool:
+	var root_item: TreeItem = results.get_root()
+	if root_item == null:
+		return false
+	for item: TreeItem in root_item.get_children():
+		if item.get_text(2) == rule:
+			return true
+	return false
+
+
+func _require(condition: bool, message: String) -> void:
+	if not condition:
+		_failures.append(message)
+
+
+func _finish() -> void:
+	if is_instance_valid(_dock):
+		_dock.get_parent().remove_child(_dock)
+		_dock.free()
+	var output: FileAccess = FileAccess.open("res://ui_result.json", FileAccess.WRITE)
+	if output != null:
+		var _stored: bool = output.store_string(JSON.stringify({ "ok": _failures.is_empty(), "failures": _failures }))
+		output.close()
+	get_tree().quit(0 if _failures.is_empty() else 1)

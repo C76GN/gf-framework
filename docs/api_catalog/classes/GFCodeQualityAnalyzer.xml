@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCodeQualityAnalyzer" path="addons/gf/tools/code_quality/gf_code_quality_analyzer.gd" module="tools" extends="RefCounted" classDigest="36aa1518305eb668e687671a739d8d55a439f729070901ba36209b9de8c3e7a7">
+	<description>项目代码规范的只读检查入口，供编辑器、制作工具与 CI 使用。
+输入只作为文本分析；检查不会执行目标脚本、写入源码或自动启用项目规范。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_rule_ids">
+			<signature>static func get_rule_ids() -&gt; PackedStringArray:</signature>
+			<description>返回可配置的规范规则，读取失败和语法分析失败不能通过规则配置关闭。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按 ID 排序的规范规则集合。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_project_config">
+			<signature>static func load_project_config(root: String) -&gt; Dictionary:</signature>
+			<description>只读加载项目选择的规范；不存在配置时返回 unconfigured。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 本地绝对项目目录，或当前项目的 res:// 目录。</tag>
+				<tag name="return">配置准入结果，不会创建默认配置。</tag>
+				<tag name="schema">return: Dictionary，ok: bool、status: configured/unconfigured/incomplete、config: Dictionary、error: String；成功 config 为 schema_version、preset、include、exclude、rules、layout 的规范值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_source">
+			<signature>func analyze_source( path: String, source: String, config: Dictionary ) -&gt; Dictionary:</signature>
+			<description>按显式项目配置分析一份源码快照；路径仅用于定位，不触发文件读取。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 诊断展示的源码路径。</tag>
+				<tag name="param">source: 调用方捕获的完整 GDScript 文本。</tag>
+				<tag name="param">config: 项目选择的规范配置，空配置返回 unconfigured。</tag>
+				<tag name="return">只读检查结果；警告不阻断 ok，未完成检查始终不通过。</tag>
+				<tag name="schema">config: Dictionary，schema_version: 1，可选 preset: "gf-game@1"、rules: Dictionary[String, off/warning/error]、include/exclude: Array[String]、layout: Dictionary[String, int]。</tag>
+				<tag name="schema">return: Dictionary，schema_version: 1、status: clean/violations/incomplete/unconfigured、complete/ok: bool、diagnostics: Array[Dictionary]、files_checked/files_failed: int、source_hashes: Dictionary[String, String]、coverage: Dictionary；诊断含 path、line/column（从 1 开始的字符坐标）、rule、severity、message、suggestion。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_project">
+			<signature>func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable() ) -&gt; Dictionary:</signature>
+			<description>检查配置范围内的独立 .gd 文件，结束前复核来源，支持文件间取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: 被检查的本地项目目录；不会加载其 project.godot 或执行其脚本。</tag>
+				<tag name="param">config: 显式配置；为空时只读加载项目的 .gf/code_quality.json。</tag>
+				<tag name="param">cancel_probe: 可选无参回调，返回 true 时停止扫描；回调由调用者提供并须适合当前线程。</tag>
+				<tag name="return">项目源码检查报告；失败、取消和读取期变化都返回 incomplete。</tag>
+				<tag name="schema">config: Dictionary，与 analyze_source 的 config 相同；空字典仅表示从项目加载配置。</tag>
+				<tag name="schema">return: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

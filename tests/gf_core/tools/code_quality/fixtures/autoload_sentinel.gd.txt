@@ -1,0 +1,11 @@
+extends Node
+
+
+# --- Godot 回调方法 ---
+
+## Records any loading of the fixture AutoLoad, before scene startup.
+static func _static_init() -> void:
+	var marker: FileAccess = FileAccess.open("res://autoload_executed.flag", FileAccess.WRITE)
+	if marker != null:
+		marker.store_string("executed")
+		marker.close()

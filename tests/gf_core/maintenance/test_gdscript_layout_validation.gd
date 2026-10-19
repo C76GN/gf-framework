@@ -50,6 +50,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_export_end": true,
 	"_export_file": true,
 	"_exit_tree": true,
+	"_finalize": true,
 	"_forward_3d_gui_input": true,
 	"_generate": true,
 	"_get": true,
@@ -377,6 +378,42 @@ func test_initialize_preserves_native_callback_and_framework_hook_sections() -> 
 		_collect_underscore_method_section_issues_from_source(other_callback_source, "other_native_callback.gd").size(),
 		1,
 		"初始化的双重角色不能扩展到其他原生回调名称。",
+	)
+
+
+func test_finalize_uses_native_callback_sections() -> void:
+	var declares_finalize: bool = false
+	for method: Dictionary in ClassDB.class_get_method_list(&"MainLoop", true):
+		var method_name: Variant = method.get("name")
+		if (
+			(
+				method_name is String
+				or method_name is StringName
+			)
+			and method_name == &"_finalize"
+		):
+			declares_finalize = true
+			break
+	assert_true(declares_finalize, "引擎声明的 MainLoop 结束回调应进入维护布局契约。")
+	var source: String = "extends MainLoop\n# --- Godot 回调方法 ---\nfunc _finalize() -> void:\n\tpass\n"
+	assert_eq(
+		_collect_underscore_method_section_issues_from_source(source, "main_loop_finalize.gd"),
+		[],
+		"MainLoop 原生结束回调应能使用 Godot 回调分区。"
+	)
+	var helper_source: String = source.replace("_finalize()", "_finalize_workflow()")
+	var helper_issues: Array[String] = _collect_underscore_method_section_issues_from_source(helper_source, "main_loop_finalize_helper.gd")
+	assert_eq(
+		helper_issues.size(),
+		1,
+		"相似命名的普通结束 helper 仍必须满足原有分区约束。"
+	)
+	assert_true(_join_lines(helper_issues).contains("_finalize_workflow"))
+	var virtual_source: String = source.replace("Godot 回调方法", "可重写钩子 / 虚方法")
+	assert_eq(
+		_collect_underscore_method_section_issues_from_source(virtual_source, "main_loop_finalize_virtual.gd").size(),
+		1,
+		"初始化钩子的双重角色不能扩展到 MainLoop 结束回调。"
 	)
 
 
