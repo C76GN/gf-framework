@@ -432,15 +432,15 @@ python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generate
 python tools\generate_api_coverage_matrix.py
 ```
 
-生成结果默认放在 `ai_analysis/api_coverage/`，该目录被 Git 忽略，不作为正式用户文档提交。其他输出根必须显式传 `--allow-unsafe-output-root`，写入统一经过生成树事务。矩阵会从公开 API、非 Reference 正文、`tests/gf_core` 和显式传入的 example 根目录建立对应关系：
+生成结果默认放在 `ai_analysis/api_coverage/`，该目录被 Git 忽略，不作为正式用户文档提交。其他输出根必须显式传 `--allow-unsafe-output-root`，写入统一经过生成树事务。矩阵会从公开 API、非 Reference 正文、`tests/gf_core` 和显式传入的外部或项目自有 example 根目录建立对应关系：
 
 - API Reference 覆盖仍以 `python tools\generate_api_reference.py --check` 为准。
 - Guide docs 证据表示非 Reference 正文中出现完整类标识符，或同一文件同时出现完整类与成员标识符。
 - Test / example 证据表示测试或示例文件中出现完整标识符；它是排查入口，不等同于行为断言，更不能命名为行为覆盖率。
 - 扫描采用文件数、单文件字节数和总字节数上限，严格 UTF-8 且读取失败即整体失败；只有输出中的 `input_complete: true` 才表示证据输入完整。外部 example 只记录稳定逻辑标签，不写入开发机绝对路径；重复根先去重。
-- 当前没有示例项目时，examples 覆盖为 0 是预期状态；后续新增示例项目后，用 `--examples <path>` 纳入矩阵。
+- `--examples <path>` 仅用于显式指定的外部或项目自有目录，可重复传入；未指定时 examples 统计为 0，属于预期状态。GF 仓库不维护独立示例项目。
 
-公开 API 大规模变更、准备补示例项目或审计测试空洞时，应重新生成该矩阵，再按模块查看 `ai_analysis/api_coverage/modules/*.md`。
+公开 API 大规模变更、补充指南或审计测试空洞时，应重新生成该矩阵，再按模块查看 `ai_analysis/api_coverage/modules/*.md`。
 
 ## 项目侧 AI Developer Kit
 
