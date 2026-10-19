@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "54b9f1e842caf24f88a7143eff40901c48c18dffdd5aef19c28eb70daacd3684",
-  "class_count": 874,
+  "source_digest": "9bd785a17a4f765170e3f86d2751c71ef3aaca817c63cc2a5878e80f2ee61321",
+  "class_count": 875,
   "autoload_count": 1,
-  "package_count": 60,
+  "package_count": 61,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -515,6 +515,14 @@
         "gf.standard.assets"
       ],
       "representative_path": "addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd"
+    },
+    {
+      "id": "gf.tool.code_quality",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel"
+      ],
+      "representative_path": "addons/gf/tools/code_quality/cli/gf_code_quality_cli.gd"
     },
     {
       "id": "gf.tool.config_pipeline",
@@ -16872,6 +16880,47 @@
           "name": "get_unix_time_seconds",
           "signature": "func get_unix_time_seconds() -> int",
           "summary": "获取 Unix epoch 秒时间戳。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFCodeQualityAnalyzer": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.code_quality",
+      "path": "addons/gf/tools/code_quality/gf_code_quality_analyzer.gd",
+      "summary": "项目代码规范的只读检查入口，供编辑器、制作工具与 CI 使用。 输入只作为文本分析；检查不会执行目标脚本、写入源码或自动启用项目规范。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_rule_ids",
+          "signature": "static func get_rule_ids() -> PackedStringArray",
+          "summary": "返回可配置的规范规则，读取失败和语法分析失败不能通过规则配置关闭。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "load_project_config",
+          "signature": "static func load_project_config(root: String) -> Dictionary",
+          "summary": "只读加载项目选择的规范；不存在配置时返回 unconfigured。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "analyze_source",
+          "signature": "func analyze_source( path: String, source: String, config: Dictionary ) -> Dictionary",
+          "summary": "按显式项目配置分析一份源码快照；路径仅用于定位，不触发文件读取。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "analyze_project",
+          "signature": "func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable() ) -> Dictionary",
+          "summary": "检查配置范围内的独立 .gd 文件，结束前复核来源，支持文件间取消。",
           "visibility": "public"
         }
       ]

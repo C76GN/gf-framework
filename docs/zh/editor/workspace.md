@@ -18,7 +18,7 @@
 
 内置页面共享 `GFEditorWorkspaceUI` 提供的页面根、工具栏、摘要、空状态和详情输出构建方式。新增页面应优先复用这些通用控件，再把真正的业务无关编辑逻辑放在页面自身脚本中，这样工作区的密度、状态颜色、空态文案和只读详情区会保持一致。
 
-制作期工具也可以贡献工作区页面。[Project Layout](tools/project-layout.md) 的“结构”页面用于检查项目目录，[Scene Groups](tools/scene-groups.md) 的“组查询”页面用于查找已保存场景中的持久化 Group 声明。它们随完整插件提供，由用户主动启动扫描。
+制作期工具也可以贡献工作区页面。[Project Layout](tools/project-layout.md) 的“结构”页面用于检查项目目录，[GDScript 代码检查](tools/code-quality.md) 的“代码检查”页面按项目显式策略检查源码，[Scene Groups](tools/scene-groups.md) 的“组查询”页面用于查找已保存场景中的持久化 Group 声明。它们随完整插件提供，由用户主动启动扫描。
 
 [3D 场景摆放](tools/scene-placement.md) 的“3D 摆放”页面负责打开或关闭原生 3D 编辑器侧栏；摆放参数、指针预览与确认在侧栏和 Godot 3D 视口中完成。
 

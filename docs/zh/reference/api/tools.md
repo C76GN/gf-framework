@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [值对象](#category-value_object) | 1 | 4 | 4 |
 | [编辑器 API](#category-editor_api) | 2 | 14 | 7 |
-| [工具 API](#category-tool_api) | 22 | 190 | 131 |
+| [工具 API](#category-tool_api) | 23 | 194 | 135 |
 
 ## 类
 
@@ -36,6 +36,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFAssetBrowserModel`](classes/GFAssetBrowserModel.md#gfassetbrowsermodel) | `RefCounted` | `addons/gf/tools/asset_browser/gf_asset_browser_model.gd` |
+| [`GFCodeQualityAnalyzer`](classes/GFCodeQualityAnalyzer.md#gfcodequalityanalyzer) | `RefCounted` | `addons/gf/tools/code_quality/gf_code_quality_analyzer.gd` |
 | [`GFConfigAccessGenerator`](classes/GFConfigAccessGenerator.md#gfconfigaccessgenerator) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
 | [`GFConfigPipeline`](classes/GFConfigPipeline.md#gfconfigpipeline) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
 | [`GFConfigPipelineArtifactManifest`](classes/GFConfigPipelineArtifactManifest.md#gfconfigpipelineartifactmanifest) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd` |

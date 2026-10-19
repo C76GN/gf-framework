@@ -1,0 +1,12 @@
+extends SceneTree
+
+
+# --- 常量 ---
+
+const TARGET_SCRIPT = preload("res://scripts/target.gd")
+
+
+# --- Godot 生命周期方法 ---
+
+func _initialize() -> void:
+	quit()

@@ -26,7 +26,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 659 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tools | 25 | 208 | [Tools](#module-tools) |
+| Tools | 26 | 212 | [Tools](#module-tools) |
 
 ## 模块索引
 
@@ -1054,6 +1054,7 @@
 | [`GFProjectLayoutDock`](GFProjectLayoutDock.md#gfprojectlayoutdock) | 编辑器 API (`editor_api`) | `VBoxContainer` | 11 | `addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd` |
 | [`GFSceneGroupDock`](GFSceneGroupDock.md#gfscenegroupdock) | 编辑器 API (`editor_api`) | `VBoxContainer` | 3 | `addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd` |
 | [`GFAssetBrowserModel`](GFAssetBrowserModel.md#gfassetbrowsermodel) | 工具 API (`tool_api`) | `RefCounted` | 20 | `addons/gf/tools/asset_browser/gf_asset_browser_model.gd` |
+| [`GFCodeQualityAnalyzer`](GFCodeQualityAnalyzer.md#gfcodequalityanalyzer) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/code_quality/gf_code_quality_analyzer.gd` |
 | [`GFConfigAccessGenerator`](GFConfigAccessGenerator.md#gfconfigaccessgenerator) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
 | [`GFConfigPipeline`](GFConfigPipeline.md#gfconfigpipeline) | 工具 API (`tool_api`) | `RefCounted` | 10 | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
 | [`GFConfigPipelineArtifactManifest`](GFConfigPipelineArtifactManifest.md#gfconfigpipelineartifactmanifest) | 工具 API (`tool_api`) | `RefCounted` | 8 | `addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd` |

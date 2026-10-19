@@ -1183,149 +1183,59 @@ func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composit
 	if not catalog_value is Dictionary:
 		return
 	var catalog_data: Dictionary = catalog_value
+	var expected_manifests: Dictionary = {
+		"gf.tool.code_quality": "res://addons/gf/tools/code_quality/editor/gf_editor_contributions.json",
+		"gf.tool.project_layout": GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH,
+		"gf.tool.scene_groups": GF_SCENE_GROUP_EDITOR_CONTRIBUTIONS_PATH,
+		"gf.tool.scene_placement": "res://addons/gf/tools/scene_placement/editor/gf_editor_contributions.json",
+		"gf.tool.asset_browser": "res://addons/gf/tools/asset_browser/editor/gf_editor_contributions.json",
+		"gf.tool.config_pipeline": "res://addons/gf/tools/config_pipeline/editor/gf_editor_contributions.json",
+		"gf.tool.project_bootstrap": "res://addons/gf/tools/project_bootstrap/editor/gf_editor_contributions.json",
+	}
 	var manifest_records: Array = GF_VARIANT_ACCESS.get_option_array(catalog_data, "manifest_records")
+	var actual_manifests: Dictionary = {}
+	for record_value: Variant in manifest_records:
+		assert_true(
+			record_value is Dictionary,
+			"工具 manifest 记录应是对象。"
+		)
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		var package_id: String = GF_VARIANT_ACCESS.get_option_string(record, "package_id")
+		assert_false(
+			actual_manifests.has(package_id),
+			"内置工具 package identity 应唯一：%s。" % package_id
+		)
+		actual_manifests[package_id] = GF_VARIANT_ACCESS.get_option_string(record, "manifest_path")
 	assert_eq(
 		manifest_records.size(),
-		6,
-		"catalog 应列出项目结构、场景组查询、场景摆放、资源工作台、配置导出与项目初始化六个内置工具 manifest。"
-	)
-	if manifest_records.is_empty():
-		return
-	var manifest_record: Dictionary = _dictionary_at(manifest_records, 0)
-	var loader_source: String = _read_text_file("res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd")
-	var plugin_source: String = _read_text_file("res://addons/gf/plugin.gd")
-	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH)
-
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(manifest_record, "package_id"),
-		"gf.tool.project_layout",
-		"Project Layout 的 package identity 只应由 catalog 数据声明。"
+		expected_manifests.size(),
+		"catalog 应完整声明当前内置工具，每项恰好一次。"
 	)
 	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(manifest_record, "manifest_path"),
-		GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH,
-		"Project Layout 的贡献路径只应由 catalog 数据声明。"
-	)
-	var scene_group_record: Dictionary = _dictionary_at(manifest_records, 1)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(scene_group_record, "package_id"),
-		"gf.tool.scene_groups",
-		"Scene Groups 的 package identity 只应由 catalog 数据声明。"
+		actual_manifests,
+		expected_manifests,
+		"工具 package identity 与贡献路径应由根组合数据声明，数组顺序不影响身份。"
 	)
 	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(scene_group_record, "manifest_path"),
-		GF_SCENE_GROUP_EDITOR_CONTRIBUTIONS_PATH,
-		"Scene Groups 的贡献路径只应由 catalog 数据声明。"
-	)
-	var scene_placement_record: Dictionary = _dictionary_at(manifest_records, 2)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(scene_placement_record, "package_id"),
-		"gf.tool.scene_placement",
-		"Scene Placement 的 package identity 只应由 catalog 数据声明。"
-	)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(scene_placement_record, "manifest_path"),
-		"res://addons/gf/tools/scene_placement/editor/gf_editor_contributions.json",
-		"Scene Placement 的贡献路径只应由 catalog 数据声明。"
-	)
-	assert_false(
-		loader_source.contains("gf.tool.project_layout"),
-		"kernel catalog loader 不应硬编码具体工具 package_id。"
-	)
-	var asset_browser_record: Dictionary = _dictionary_at(manifest_records, 3)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(asset_browser_record, "package_id"),
-		"gf.tool.asset_browser"
-	)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(asset_browser_record, "manifest_path"),
-		"res://addons/gf/tools/asset_browser/editor/gf_editor_contributions.json"
-	)
-	assert_false(loader_source.contains("tools/asset_browser"))
-	assert_false(plugin_source.contains("tools/asset_browser"))
-	var config_record: Dictionary = _dictionary_at(manifest_records, 4)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(config_record, "package_id"),
-		"gf.tool.config_pipeline"
-	)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(config_record, "manifest_path"),
-		"res://addons/gf/tools/config_pipeline/editor/gf_editor_contributions.json"
-	)
-	assert_false(loader_source.contains("tools/config_pipeline"))
-	assert_false(plugin_source.contains("tools/config_pipeline"))
-	var bootstrap_record: Dictionary = _dictionary_at(manifest_records, 5)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(bootstrap_record, "package_id"),
-		"gf.tool.project_bootstrap"
-	)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_string(bootstrap_record, "manifest_path"),
-		"res://addons/gf/tools/project_bootstrap/editor/gf_editor_contributions.json"
-	)
-	assert_false(
-		loader_source.contains("gf.tool.project_bootstrap"),
-		"kernel catalog loader 不应硬编码项目初始化工具。"
-	)
-	assert_false(
-		plugin_source.contains("tools/project_bootstrap"),
-		"根插件 GDScript 不应硬编码项目初始化工具路径。"
-	)
-	assert_false(
-		loader_source.contains("tools/project_layout"),
-		"kernel catalog loader 不应硬编码具体工具路径。"
-	)
-	assert_false(
-		plugin_source.contains("gf.tool.project_layout"),
-		"根插件 GDScript 不应硬编码具体工具 package_id。"
-	)
-	assert_false(
-		plugin_source.contains("tools/project_layout"),
-		"根插件 GDScript 不应硬编码具体工具路径。"
-	)
-	assert_false(
-		loader_source.contains("gf.tool.scene_groups"),
-		"kernel catalog loader 不应硬编码场景组工具 package_id。"
-	)
-	assert_false(
-		loader_source.contains("tools/scene_groups"),
-		"kernel catalog loader 不应硬编码场景组工具路径。"
-	)
-	assert_false(
-		plugin_source.contains("gf.tool.scene_groups"),
-		"根插件 GDScript 不应硬编码场景组工具 package_id。"
-	)
-	assert_false(
-		plugin_source.contains("tools/scene_groups"),
-		"根插件 GDScript 不应硬编码场景组工具路径。"
-	)
-	assert_false(
-		loader_source.contains("gf.tool.scene_placement"),
-		"kernel catalog loader 不应硬编码场景摆放工具 package_id。"
-	)
-	assert_false(
-		loader_source.contains("tools/scene_placement"),
-		"kernel catalog loader 不应硬编码场景摆放工具路径。"
-	)
-	assert_false(
-		plugin_source.contains("gf.tool.scene_placement"),
-		"根插件 GDScript 不应硬编码场景摆放工具 package_id。"
-	)
-	assert_false(
-		plugin_source.contains("tools/scene_placement"),
-		"根插件 GDScript 不应硬编码场景摆放工具路径。"
+		GF_VARIANT_ACCESS.get_option_int(catalog_data, "schema_version"),
+		GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.SCHEMA_VERSION,
+		"catalog 应使用通用 loader 支持的 schema。"
 	)
 	assert_false(
 		GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH.contains("/kernel/"),
 		"具体工具 catalog 应归根插件组合层所有，不能放入 kernel。"
 	)
-	assert_true(
-		plugin_source.contains(GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH),
-		"根插件应只引用通用内置工具 catalog。"
-	)
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH)
 	assert_true(
 		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
 		"内置工具 catalog 应可被通用 loader 读取。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "manifest_count"),
+		expected_manifests.size(),
+		"通用 loader 应识别全部内置工具 manifest。"
 	)
 	assert_eq(
 		GF_VARIANT_ACCESS.get_option_int(report, "issue_count"),

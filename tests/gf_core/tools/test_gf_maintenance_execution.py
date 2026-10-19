@@ -979,10 +979,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					self.assertEqual(result.exit_code, expected)
 
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"eee6c3c9c7d248f6c878b6b66ae5a6b741fb5a0b5ee7fc9c45c39ded7209fb7a"
+		"feec4ac8ca8271e2b3105867714b3e44e3f6fd385ccba60f35a91f4c6d3d8edb"
 	)
 	_EXECUTOR_PROJECTION_SHA256 = (
-		"b1de001b42d82df24f5c695ba672ff59f68bb41c274f0e00fe08f6ae1b6153c7"
+		"825f9c4db96b62250898453b2183bcd31cd2d45de5743345a26725df14e0e72c"
 	)
 
 	def test_default_catalog_matches_authority_snapshot_exactly(self) -> None:
@@ -1034,7 +1034,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(54, 2, 6, 13, 11, 4),
+			(55, 2, 6, 13, 11, 4),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
@@ -1127,6 +1127,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			self._snapshot_context()
 		)
 		expected_overrides = {
+			"code_quality_native_acceptance": 90,
 			"first_task_smoke": 60,
 			"gut": 1200,
 			"gdscript_lsp_diagnostics": 660,
@@ -1182,6 +1183,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			self._snapshot_context()
 		)
 		expected_commands = {
+			"code_quality_native_acceptance": [
+				"<python>",
+				"tests/gf_core/tools/code_quality/run_native_acceptance.py",
+			],
 			"config_workbench_editor_smoke": [
 				"<python>",
 				"tests/gf_core/tools/config_pipeline/run_editor_smoke.py",
@@ -1223,6 +1228,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			self._snapshot_context()
 		)
 		for action, floor in {
+			"code_quality_native_acceptance": 90,
 			"scene_placement_editor_smoke": 600,
 			"config_workbench_editor_smoke": 600,
 			"project_bootstrap_editor_smoke": 1200,
@@ -1245,7 +1251,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					gf_maintenance.parallel_shard_timeout_seconds(
 						shard, override, validation_catalog=catalog,
 					),
-					5220,
+					5310,
 				)
 		policy = gf_maintenance.gf_repository_policy
 		self.assertEqual(policy.FRAMEWORK_CI_TIMEOUT_MINUTES, {
@@ -1263,7 +1269,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					policy.extract_matrix_suite_scalar(jobs[job], shard.name, "timeout_minutes"),
 					"90",
 				)
-		self.assertGreater(policy.FRAMEWORK_CI_TIMEOUT_MINUTES[shard.name] * 60, 5220)
+		self.assertGreater(policy.FRAMEWORK_CI_TIMEOUT_MINUTES[shard.name] * 60, 5310)
 
 	def test_catalog_executor_policy_matches_reviewed_runner_values(self) -> None:
 		catalog = gf_validation_catalog.build_validation_catalog(
@@ -1337,7 +1343,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 				for action_name in catalog.action_names
 			),
-			30,
+			31,
 		)
 		self.assertEqual(
 			sum(
@@ -1560,13 +1566,13 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for action in lane.owned_actions
 		]
 
-		self.assertEqual(len(plan.actions), 51)
+		self.assertEqual(len(plan.actions), 52)
 		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
 		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
 		self.assertEqual(len(owned_actions), len(set(owned_actions)))
 		self.assertEqual(
 			sum(len(lane.execution_actions) for lane in plan.lanes),
-			53,
+			54,
 			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
 		)
 		self.assertEqual(
@@ -19945,6 +19951,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					"framework-integration",
 					(
 						"first_task_smoke",
+						"code_quality_native_acceptance",
 						"project_profile_native_acceptance",
 						"ai_developer_adapter_acceptance",
 						"core_plugin_bootstrap_smoke",

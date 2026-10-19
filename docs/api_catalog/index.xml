@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="3d98875591178cbd316c6cec97d937c791368eb8c99091b0acf4559d376d01a3" classCount="899" methodCount="8058" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="3d56ce482ce5274825bab2dc8b70b955d9f7813760b76fba42832f6a2dd37f4b" classCount="900" methodCount="8062" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="833" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -915,8 +915,9 @@
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 		<class name="GFTurnPhaseCompletionHandle" path="classes/GFTurnPhaseCompletionHandle.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" extends="RefCounted" />
 	</module>
-	<module id="tools" label="Tools" classCount="25" methodCount="142" autoloadCount="0" autoloadMethodCount="0">
+	<module id="tools" label="Tools" classCount="26" methodCount="146" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAssetBrowserModel" path="classes/GFAssetBrowserModel.xml" sourcePath="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" extends="RefCounted" />
+		<class name="GFCodeQualityAnalyzer" path="classes/GFCodeQualityAnalyzer.xml" sourcePath="addons/gf/tools/code_quality/gf_code_quality_analyzer.gd" extends="RefCounted" />
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
 		<class name="GFConfigPipelineArtifactManifest" path="classes/GFConfigPipelineArtifactManifest.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" extends="RefCounted" />

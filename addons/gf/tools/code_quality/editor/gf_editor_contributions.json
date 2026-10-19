@@ -1,0 +1,22 @@
+{
+  "schema_version": 4,
+  "package_id": "gf.tool.code_quality",
+  "export_plugin_records": [
+    {
+      "owner_package_id": "gf.tool.code_quality",
+      "source_id": "code_quality.export.development_tools",
+      "path": "res://addons/gf/tools/code_quality/editor/gf_code_quality_export_plugin.gd",
+      "label": "代码检查工具导出过滤"
+    }
+  ],
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.code_quality",
+      "source_id": "code_quality.dock.code_quality",
+      "path": "res://addons/gf/tools/code_quality/editor/gf_code_quality_dock.gd",
+      "label": "GF 代码检查",
+      "short_label": "代码检查",
+      "order": 92
+    }
+  ]
+}

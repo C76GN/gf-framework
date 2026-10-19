@@ -15,6 +15,11 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 显式预加载资源路径规范化工具，支持未建立全局类缓存的命令行宿主。
+## [br]
+## @api private
+const _PATH_TOOLS_SCRIPT = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
+
 ## 默认允许的 JSON UTF-8 字节数。
 ## [br]
 ## @api public
@@ -188,7 +193,7 @@ static func _read_object_report(
 		DEFAULT_MAX_DEPTH,
 		ABSOLUTE_MAX_DEPTH
 	)
-	var normalized_path: String = GFPathTools.normalize_resource_path(path)
+	var normalized_path: String = _PATH_TOOLS_SCRIPT.normalize_resource_path(path)
 	var file: FileAccess = FileAccess.open(normalized_path, FileAccess.READ)
 	if file == null:
 		return _make_report(

@@ -2,6 +2,10 @@
   "schema_version": 1,
   "manifest_records": [
     {
+      "package_id": "gf.tool.code_quality",
+      "manifest_path": "res://addons/gf/tools/code_quality/editor/gf_editor_contributions.json"
+    },
+    {
       "package_id": "gf.tool.project_layout",
       "manifest_path": "res://addons/gf/tools/project_layout/editor/gf_editor_contributions.json"
     },

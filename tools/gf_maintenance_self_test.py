@@ -6146,6 +6146,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"Native editor acceptance must run once through its headless isolated runner in integration/full/release, retaining logs for outer session hygiene without a root-workspace import or a static/Draft owner.",
 	)
 	for native_check, runner in (
+		("code_quality_native_acceptance", "tests/gf_core/tools/code_quality/run_native_acceptance.py"),
 		("config_workbench_editor_smoke", "tests/gf_core/tools/config_pipeline/run_editor_smoke.py"),
 		("project_bootstrap_editor_smoke", "tests/gf_core/tools/project_bootstrap/run_editor_smoke.py"),
 	):
@@ -6639,15 +6640,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_integration_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 5220
+		) == 5310
+		and resolve_check_timeout_seconds("code_quality_native_acceptance", None) == 90
 		and resolve_check_timeout_seconds("config_workbench_editor_smoke", None) == 600
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", None) == 1200
 		and resolve_check_timeout_seconds("project_bootstrap_editor_smoke", 45) == 1200
 		and ci_framework_integration_timeout_value == "90"
 		and release_shard_timeouts["framework-integration"] == "90"
 		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 90
-		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 5220,
-		"Integration must preserve each native smoke floor and its 5,220-second child envelope inside exact 90-minute Ready/main and release deadlines.",
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 5310,
+		"Integration must preserve each native acceptance floor and its 5,310-second child envelope inside exact 90-minute Ready/main and release deadlines.",
 	)
 	record_result(
 		"in_process_checks_enforce_return_time_deadlines",

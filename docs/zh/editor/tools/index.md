@@ -8,6 +8,7 @@ GF 制作期工具用于编辑、导入、构建或 CI 流程。工具可以依�
 - [Config Pipeline 导表工具包](config-pipeline.md)：把通用 CSV / JSON / XLSX 表来源或批量 Profile 构建为 `GFConfigTableResource` / `GFConfigDatabaseResource`，并保存为 Godot `.tres/.res` 或 JSON 导出。
 - [Dialogue Text 对话文本工具包](dialogue-text.md)：把严格 JSON 文本编译为 `GFDialogueResource`，并在制作期报告字段类型、跳转目标和资源结构问题。
 - [Project Layout 项目结构工具包](project-layout.md)：在 GF Workspace 中按需执行只读扫描、问题解释、影响模拟和计划展示；profile 是项目显式选择的策略，Feature Cohesive 只是一份示例。
+- [GDScript 代码检查](code-quality.md)：项目主动采用预设或规则后，检查编辑缓冲或配置范围内的已保存源码，按位置显示注释与结构排版问题。
 - [Scene Groups 场景组查询](scene-groups.md)：从已保存场景查找持久化 Group 声明，按组、场景或节点路径搜索，并打开声明场景定位节点。
 - [3D 场景摆放](scene-placement.md)：显式选择 PackedScene 与父 Node3D，通过视口平面或碰撞命中预览、确认，并使用原生撤销与重做。
 - [LSP WorkspaceEdit 安全提交工具](lsp-workspace-edit.md)：把调用方已取得的闭合文本编辑绑定到工作区、文档版本和来源摘要，并通过一次性计划与文件事务安全提交项目内 GDScript；它不是 LSP 客户端。

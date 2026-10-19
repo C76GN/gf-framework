@@ -665,6 +665,11 @@ PACKAGE_SOURCE_OPTIONAL_REFERENCES = {
     (
         "gf.kernel",
         "addons/gf/gf_builtin_tool_contributions.json",
+        "addons/gf/tools/code_quality/editor/gf_editor_contributions.json",
+    ),
+    (
+        "gf.kernel",
+        "addons/gf/gf_builtin_tool_contributions.json",
         "addons/gf/tools/config_pipeline/editor/gf_editor_contributions.json",
     ),
 	(

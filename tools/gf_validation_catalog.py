@@ -597,6 +597,10 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			"project_profile_native_acceptance",
 			maintenance_command("project-profile-native-acceptance"),
 		),
+		subprocess_action(
+			"code_quality_native_acceptance",
+			python_script("tests/gf_core/tools/code_quality/run_native_acceptance.py"),
+		),
 		in_process_action("package_boundary", maintenance_command("package-boundary")),
 		in_process_action(
 			"package_closure_audit",
@@ -794,6 +798,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	)
 	default_timeout_seconds = 600
 	timeout_overrides = (
+		# Cold-cache CLI scenarios share a bounded 70-second inner deadline.
+		("code_quality_native_acceptance", 90),
 		# Local sample exercises bounded short work after the shared import.
 		("first_task_smoke", 60),
 		# The unfiltered authoritative suite exceeds the generic ten-minute
@@ -881,6 +887,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	framework_lsp_checks = ("gdscript_lsp_diagnostics",)
 	framework_integration_checks = (
 		"first_task_smoke",
+		"code_quality_native_acceptance",
 		"project_profile_native_acceptance",
 		"ai_developer_adapter_acceptance",
 		"core_plugin_bootstrap_smoke",
