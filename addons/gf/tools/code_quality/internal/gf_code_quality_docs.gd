@@ -110,6 +110,8 @@ static func _collect_declarations(view: Dictionary) -> Array[Dictionary]:
 	var native_bases: Dictionary = {}
 	for statement_index: int in statements.size():
 		var statement: Dictionary = _record(statements[statement_index])
+		if statement.get("kind", "") == "lambda":
+			continue
 		var owner: int = _integer(
 			statement,
 			"owner_index",
@@ -369,15 +371,8 @@ static func _signature(
 			if item.x < item.y and item.x < tokens.size():
 				var _append_result: bool = parameters.append(_text(_record(tokens[item.x])))
 	var returns_value: bool = inferred_return
-	for index: int in range(
-		end,
-		mini(
-			_integer(statement, "end_index") - 1,
-			tokens.size() - 1
-		)
-	):
-		if _text(_record(tokens[index])) == "return":
-			returns_value = true
+	if end < _integer(statement, "end_index") and _has_return_value(tokens, end):
+		returns_value = true
 	for index: int in range(
 		closing + 1,
 		mini(
@@ -455,11 +450,7 @@ static func _value_return_owners(statements: Array, tokens: Array) -> Dictionary
 	for value: Variant in statements:
 		var statement: Dictionary = _record(value)
 		var start: int = _integer(statement, "start_index")
-		if (
-			start >= tokens.size()
-			or _text(_record(tokens[start])) != "return"
-			or _integer(statement, "end_index") <= start + 1
-		):
+		if not _has_return_value(tokens, start):
 			continue
 		var owner: int = _integer(
 			statement,
@@ -500,6 +491,21 @@ static func _value_return_owners(statements: Array, tokens: Array) -> Dictionary
 			)
 			remaining -= 1
 	return result
+
+
+## return 的值必须从同一物理行开始；匿名函数值可以另有 statement，但空返回不能吸收后续语句。
+## [br]
+## @api private
+static func _has_return_value(tokens: Array, start: int) -> bool:
+	if start + 1 >= tokens.size():
+		return false
+	var token: Dictionary = _record(tokens[start])
+	var following: Dictionary = _record(tokens[start + 1])
+	return (
+		_text(token) == "return"
+		and _text(following) != ";"
+		and _integer(token, "end_line") == _integer(following, "line")
+	)
 
 
 ## 仅向 ClassDB 查询可信原生基类；不解析或加载目标项目的继承脚本。
@@ -952,14 +958,14 @@ static func _scope_end_line(view: Dictionary, owner: int) -> int:
 	var tokens: Array = _array(view, "tokens")
 	var indent: int = _integer(
 		_record(statements[owner]),
-		"indent"
+		"scope_indent"
 	)
 	for index: int in range(
 		owner + 1,
 		statements.size()
 	):
 		var statement: Dictionary = _record(statements[index])
-		if _integer(statement, "indent") <= indent:
+		if _integer(statement, "scope_indent") <= indent:
 			return _integer(
 				_record(tokens[_integer(statement, "start_index")]),
 				"line"

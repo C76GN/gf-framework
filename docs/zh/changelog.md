@@ -6,7 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
-- 新增 [GDScript 代码检查](editor/tools/code-quality.md)：项目显式采用预设或规则后，可在 GF Workspace 中检查当前编辑缓冲或已保存源码，按规则、位置和建议查看问题；检查不会创建配置、改写源码或执行被检查脚本。
+- 新增 [GDScript 代码检查](editor/tools/code-quality.md)：项目显式采用预设或规则后，可在 GF Workspace 中检查当前编辑缓冲或已保存源码，按规则、位置和建议查看问题；配置在检查期间改变或失效时撤销结果。检查不会创建配置、改写源码或执行被检查脚本。
 - [Tween 创作](extensions/action-queue/tween-config.md#在编辑器中创作) 沿用创建时选择的样机用途，支持步骤名称、串并行分组概览、时间块悬停与点击定位、结构化错误字段导航；新增淡入、强调和脉冲配方，以及通过 `duration_scale` 调整完整总时长的原生撤销操作。来源实例或内容变化后，旧时间块仍可查看冻结姿态，但不能误定位较新的步骤。
 - [Flow 图编辑](extensions/flow/editor-model.md) 支持复制、剪切、粘贴和重复节点，并可从已保存的 `GFFlowNode` 资源创建独立副本。插入先准备完整候选，再提交一笔资源历史；只复制内部连接并重映射标识，空图起点遵守显式选择，切图或改图后的旧菜单与模板选择失效。
 - 新增[多目标错峰示例](extensions/action-queue/visual-actions/staggered-targets.md)，用现有等待与动作组组合有序入场，提供可运行的暂停、取消和重播界面，以及明确的目标、工厂和构建预算。

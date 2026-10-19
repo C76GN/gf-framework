@@ -33,6 +33,11 @@ FAILURE_MARKERS = (
 )
 
 
+def _require(condition: object, message: str) -> None:
+	if not condition:
+		raise RuntimeError(message)
+
+
 def _source_hashes(root: Path) -> dict[str, str]:
 	return {
 		path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -103,7 +108,7 @@ def run_acceptance() -> dict[str, Any]:
 		) -> Any:
 			phase_limit = 40.0 if name == "editor-behavior" else 35.0
 			remaining = min(phase_limit, deadline - time.monotonic())
-			assert remaining > 0.0, "CLI acceptance exceeded its total deadline"
+			_require(remaining > 0.0, "CLI acceptance exceeded its total deadline")
 			log = logs / f"code-quality-cli-{run_id}-{name}.log"
 			command = [engine, "--headless", "--path", str(project), "--log-file", str(log)]
 			command.extend(arguments if editor_mode else ["--script", runner, "--", *arguments])
@@ -116,51 +121,63 @@ def run_acceptance() -> dict[str, Any]:
 				),
 			)
 			cleanup["permitted"] = result.process_boundary_quiescent
-			assert result.process_boundary_quiescent, f"{name}: process cleanup is not proven"
-			assert not result.timed_out and not result.cancelled, f"{name}: interrupted"
-			assert not result.stdout_truncated and not result.stderr_truncated, f"{name}: output truncated"
-			assert log.is_file(), f"{name}: Godot log missing"
+			_require(result.process_boundary_quiescent, f"{name}: process cleanup is not proven")
+			_require(not result.timed_out and not result.cancelled, f"{name}: interrupted")
+			_require(not result.stdout_truncated and not result.stderr_truncated, f"{name}: output truncated")
+			_require(log.is_file(), f"{name}: Godot log missing")
 			output = result.stdout + result.stderr + log.read_text(encoding="utf-8")
-			assert not any(marker in output for marker in FAILURE_MARKERS), f"{name}: native diagnostics:\n{output}"
+			_require(
+				not any(marker in output for marker in FAILURE_MARKERS),
+				f"{name}: native diagnostics:\n{output}",
+			)
 			return result
 
 		def check(name: str, exit_code: int, status: str | None, *extra: str) -> dict[str, Any]:
 			before = _source_hashes(host)
 			result = invoke(name, ["--root", str(host), "--json", *extra])
-			assert result.return_code == exit_code, f"{name}: exit {result.return_code}, expected {exit_code}\n{result.stdout}"
+			_require(
+				result.return_code == exit_code,
+				f"{name}: exit {result.return_code}, expected {exit_code}\n{result.stdout}",
+			)
 			lines = [line[len(PREFIX):] for line in result.stdout.splitlines() if line.startswith(PREFIX)]
-			assert len(lines) == 1, f"{name}: expected exactly one marked JSON report; stdout={result.stdout!r}"
+			_require(len(lines) == 1, f"{name}: expected exactly one marked JSON report; stdout={result.stdout!r}")
 			report = json.loads(lines[0])
-			assert report["schema_version"] == 1, name
+			_require(report["schema_version"] == 1, f"{name}: unsupported report schema")
 			if status is not None:
-				assert report["status"] == status, f"{name}: {report}"
-			assert _source_hashes(host) == before, f"{name}: source or configuration changed"
-			assert not (host / "autoload_executed.flag").exists(), f"{name}: AutoLoad executed"
-			assert not (host / "target_executed.flag").exists(), f"{name}: inspected script executed"
+				_require(report["status"] == status, f"{name}: {report}")
+			_require(_source_hashes(host) == before, f"{name}: source or configuration changed")
+			_require(not (host / "autoload_executed.flag").exists(), f"{name}: AutoLoad executed")
+			_require(not (host / "target_executed.flag").exists(), f"{name}: inspected script executed")
 			cases.append({"name": name, "exit_code": result.return_code, "status": report.get("status", "metadata")})
 			return report
 
 		_write_config(host, {"doc_private_summary": "error"})
 		clean = check("clean", 0, "clean")
-		assert clean["files_checked"] == 2 and clean["complete"] is True
+		_require(
+			clean["files_checked"] == 2 and clean["complete"] is True,
+			f"clean: incomplete source coverage: {clean}",
+		)
 		(host / "scripts/subject.gd").write_text(
 			clean_source + "\n\nfunc _missing_summary() -> void:\n\tpass\n",
 			encoding="utf-8", newline="\n",
 		)
 		blocked = check("blocking-rule", 1, "violations")
-		assert any(issue["rule"] == "doc_private_summary" for issue in blocked["diagnostics"])
+		_require(
+			any(issue["rule"] == "doc_private_summary" for issue in blocked["diagnostics"]),
+			"blocking-rule: expected private summary diagnostic",
+		)
 		_write_config(host, {"doc_private_summary": "warning"})
 		warning = check("warning-only", 0, "violations")
-		assert warning["ok"] is True and warning["diagnostics"]
+		_require(warning["ok"] is True and warning["diagnostics"], "warning-only: expected nonblocking diagnostics")
 		_write_config(host, {"unknown_rule": "error"})
 		check("invalid-configuration", 2, "incomplete")
 		(host / ".gf/code_quality.json").unlink()
 		check("unconfigured", 2, "unconfigured")
 		check("unknown-argument", 2, "incomplete", "--unsupported")
 		rules = check("list-rules", 0, None, "--list-rules")
-		assert "doc_private_summary" in rules["rules"]
+		_require("doc_private_summary" in rules["rules"], "list-rules: private summary rule missing")
 		help_report = check("help", 0, None, "--help")
-		assert "--list-rules" in help_report["usage"]
+		_require("--list-rules" in help_report["usage"], "help: rule discovery usage missing")
 		_write_config(host, {"doc_private_summary": "error"})
 		(host / "scripts/subject.gd").write_text(
 			'extends RefCounted\nvar broken: String = "unterminated\n',
@@ -171,9 +188,9 @@ def run_acceptance() -> dict[str, Any]:
 		# Prove both sentinels are effective with an intentionally executable control.
 		(host / "positive_control.gd").write_bytes((FIXTURES / "positive_control.gd.txt").read_bytes())
 		control = invoke("positive-control", [], runner="res://positive_control.gd")
-		assert control.return_code == 0
-		assert (host / "autoload_executed.flag").is_file(), "AutoLoad sentinel control did not execute"
-		assert (host / "target_executed.flag").is_file(), "target sentinel control did not execute"
+		_require(control.return_code == 0, f"positive-control: exit {control.return_code}")
+		_require((host / "autoload_executed.flag").is_file(), "AutoLoad sentinel control did not execute")
+		_require((host / "target_executed.flag").is_file(), "target sentinel control did not execute")
 
 		# A separate real editor proves the two UI sources and publication revocation.
 		editor_host = owned / "e"
@@ -213,7 +230,7 @@ def run_acceptance() -> dict[str, Any]:
 			"editor-import", ["--editor", "--import"], project=editor_host,
 			private=editor_environment, editor_mode=True,
 		)
-		assert imported.return_code == 0
+		_require(imported.return_code == 0, f"editor-import: exit {imported.return_code}")
 		(editor_host / "project.godot").write_text(
 			editor_project + '[editor_plugins]\nenabled=PackedStringArray("res://addons/cq_probe/plugin.cfg")\n',
 			encoding="utf-8", newline="\n",
@@ -223,13 +240,16 @@ def run_acceptance() -> dict[str, Any]:
 			private=editor_environment, editor_mode=True,
 		)
 		ui_report_path = editor_host / "ui_result.json"
-		assert ui_report_path.is_file(), "The editor probe did not publish its owned report"
+		_require(ui_report_path.is_file(), "The editor probe did not publish its owned report")
 		ui_report = json.loads(ui_report_path.read_text(encoding="utf-8"))
-		assert editor_result.return_code == 0 and ui_report["ok"], ui_report
-		assert (editor_host / "scripts/subject.gd").read_bytes() == clean_source.encode("utf-8")
-		assert not (editor_host / ".gf/code_quality.json").exists(), "The tool recreated removed project configuration"
+		_require(editor_result.return_code == 0 and ui_report["ok"], f"editor-behavior: {ui_report}")
+		_require(
+			(editor_host / "scripts/subject.gd").read_bytes() == clean_source.encode("utf-8"),
+			"editor-behavior: source changed",
+		)
+		_require(not (editor_host / ".gf/code_quality.json").exists(), "The tool recreated removed project configuration")
 
-	assert not cleanup_errors, cleanup_errors
+	_require(not cleanup_errors, f"Acceptance cleanup failed: {cleanup_errors}")
 	return {
 		"ok": True, "cases": cases,
 		"autoload_inert": True, "target_script_inert": True,

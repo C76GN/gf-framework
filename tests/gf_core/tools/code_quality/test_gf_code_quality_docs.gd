@@ -140,6 +140,27 @@ func test_inline_inferred_value_return_needs_description() -> void:
 	)
 
 
+func test_method_returning_a_lambda_still_needs_a_return_description() -> void:
+	for body: String in [" return func(): return 3\n", "\n\treturn func(): return 3\n"]:
+		var source: String = "extends RefCounted\n## Produces a deferred value.\nfunc callback():" + body
+		assert_eq(
+			_count(
+				_analyze(source),
+				"doc_return"
+			),
+			1
+		)
+
+
+func test_inline_bare_return_does_not_inherit_the_next_statement_as_a_value() -> void:
+	for ending: String in ["\n", "; var local = 1\n"]:
+		var source: String = "extends RefCounted\n## Stops processing.\nfunc stop(): return" + ending
+		assert_eq(
+			_analyze(source),
+			[]
+		)
+
+
 func test_void_and_duplicate_return_tags_are_rejected() -> void:
 	var void_source: String = """extends RefCounted
 ## Clears current state.
@@ -524,6 +545,97 @@ func prepare() -> void:
 		),
 		0
 	)
+
+
+func test_untyped_method_does_not_inherit_inline_or_nested_lambda_returns() -> void:
+	for body: String in [
+		"\tvar callback = func(): return 3\n\tcallback.call()\n",
+		"\tvar callback = func():\n\t\treturn 3\n\tcallback.call()\n",
+		"\t[1].map(func(value): return value + 1)\n",
+		"\t[1].map(func(value):\n\t\treturn value + 1\n\t)\n",
+		"\tvar callback = func():\n\t\tvar nested = func(): return 3\n\t\treturn nested.call()\n",
+	]:
+		var source: String = "extends RefCounted\n## Prepares local callbacks.\nfunc prepare():\n" + body
+		assert_eq(
+			_analyze(source),
+			[],
+			body
+		)
+
+
+func test_inline_lambda_in_an_inline_method_does_not_require_an_outer_return_tag() -> void:
+	for body: String in ["var callback = func(): return 3", "[1].map(func(value): return value + 1)"]:
+		var source: String = "extends RefCounted\n## Prepares a local callback.\nfunc prepare(): " + body + "\n"
+		assert_eq(
+			_analyze(source),
+			[]
+		)
+
+
+func test_untyped_method_return_after_a_lambda_still_requires_documentation() -> void:
+	for body: String in [
+		"\tvar callback = func(): return 3\n\treturn callback.call()\n",
+		"\tif true:\n\t\treturn 3\n",
+		"\tvar initial = 1; return initial\n",
+	]:
+		var source: String = "extends RefCounted\n## Produces the requested value.\nfunc value():\n" + body
+		assert_eq(
+			_count(
+				_analyze(source),
+				"doc_return"
+			),
+			1,
+			body
+		)
+
+
+func test_semicolon_separated_members_are_checked_with_only_documentation_rules() -> void:
+	for source: String in ["extends RefCounted\n## Stores the initial amount.\nvar initial = 1; var missing = 2; const LIMIT = 3\n", "extends RefCounted\n## Owns local state.\nclass State:\n\t## Stores the initial amount.\n\tvar initial = 1; var missing = 2; const LIMIT = 3\n"]:
+		assert_eq(
+			_count(
+				_analyze(source),
+				"doc_public_summary"
+			),
+			2
+		)
+
+
+func test_semicolon_separated_locals_are_not_treated_as_members() -> void:
+	for body: String in ["\n\tvar initial = 1; var following = 2\n", " var initial = 1; var following = 2\n"]:
+		var source: String = "extends RefCounted\n## Prepares local amounts.\nfunc prepare():" + body
+		assert_eq(
+			_analyze(source),
+			[]
+		)
+
+
+func test_space_indented_locals_keep_their_real_function_and_class_scope() -> void:
+	for width: int in range(1, 5):
+		var prefix: String = " ".repeat(width)
+		var source: String = (
+			"extends RefCounted\n## Prepares a local value.\nfunc prepare():\n%svar first = 1\n%svar value = first\n"
+			% [prefix, prefix]
+		)
+		assert_eq(
+			_analyze(source),
+			[],
+			"function indentation: %d" % width
+		)
+		source = (
+			"extends RefCounted\n## Owns one counter.\nclass Counter:\n%s## Keeps the current count.\n%svar count = 0\n%s## Prepares local values.\n%sfunc prepare():\n%svar value = 2\n"
+			% [
+				prefix,
+				prefix,
+				prefix,
+				prefix,
+				prefix.repeat(2),
+			]
+		)
+		assert_eq(
+			_analyze(source),
+			[],
+			"inner-class indentation: %d" % width
+		)
 
 
 func test_one_declarations_parameter_findings_respect_rule_selection_and_a_fixed_budget() -> void:

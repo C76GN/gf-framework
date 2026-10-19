@@ -613,6 +613,7 @@ static func _collect_statements(view: Dictionary) -> Array[Dictionary]:
 	var lambda_headers: Dictionary = {}
 	var lambda_limits: Dictionary = {}
 	var lambda_indents: Dictionary = {}
+	var lambda_scope_indents: Dictionary = {}
 	var active_lambdas: Array[int] = []
 	var group_by_open: Dictionary = {}
 	for group: Dictionary in groups:
@@ -639,8 +640,10 @@ static func _collect_statements(view: Dictionary) -> Array[Dictionary]:
 			)
 			lambda_limits[index] = domain_end
 			var lambda_indent: int = _indent(lines[_integer(token["line"]) - 1])
+			var lambda_scope_indent: int = _scope_indent(lines[_integer(token["line"]) - 1])
 			if lambda_end < domain_end and _integer(tokens[lambda_end]["line"]) > _integer(tokens[lambda_end - 1]["end_line"]):
 				var body_indent: int = _indent(lines[_integer(tokens[lambda_end]["line"]) - 1])
+				var body_scope_indent: int = _scope_indent(lines[_integer(tokens[lambda_end]["line"]) - 1])
 				if body_indent >= lambda_indent:
 					lambda_indent = mini(
 						lambda_indent,
@@ -649,18 +652,37 @@ static func _collect_statements(view: Dictionary) -> Array[Dictionary]:
 							body_indent - 1
 						)
 					)
+				lambda_scope_indent = mini(
+					lambda_scope_indent,
+					maxi(
+						0,
+						body_scope_indent - 1
+					)
+				)
 			lambda_indents[index] = lambda_indent
+			lambda_scope_indents[index] = lambda_scope_indent
 			starts.append(index)
 			start_set[index] = true
 			active_lambdas.append(index)
 		var first_on_line: bool = index == 0 or _integer(tokens[index - 1]["end_line"]) < _integer(token["line"])
-		if not first_on_line or token["text"] in [
-			")",
-			"]",
-			"}",
-			".",
-			"as",
-		]:
+		var after_separator: bool = (
+			index > 0
+			and tokens[index - 1]["text"] == ";"
+			and tokens[index - 1]["parent_index"] == token["parent_index"]
+		)
+		if (
+			not (
+				first_on_line
+				or after_separator
+			)
+			or token["text"] in [
+				")",
+				"]",
+				"}",
+				".",
+				"as",
+			]
+		):
 			continue
 		if index > 0 and tokens[index - 1]["text"] == "\\":
 			continue
@@ -675,7 +697,10 @@ static func _collect_statements(view: Dictionary) -> Array[Dictionary]:
 					_integer(lambda_headers[lambda_index]) <= index
 					and index < _integer(lambda_limits[lambda_index])
 					and lambda_token["parent_index"] == token["parent_index"]
-					and _indent(lines[_integer(token["line"]) - 1]) > _integer(lambda_indents[lambda_index])
+					and (
+						_scope_indent(lines[_integer(token["line"]) - 1]) > _integer(lambda_scope_indents[lambda_index])
+						or after_separator
+					)
 				):
 					starts.append(index)
 					start_set[index] = true
@@ -712,12 +737,19 @@ static func _collect_statements(view: Dictionary) -> Array[Dictionary]:
 		if kind == "static" and opening + 1 < ending:
 			kind = tokens[opening + 1]["text"]
 		var indent: int = _indent(lines[_integer(first["line"]) - 1])
+		var scope_indent: int = _scope_indent(lines[_integer(first["line"]) - 1])
 		if lambda_indents.has(opening):
 			indent = lambda_indents[opening]
+			scope_indent = lambda_scope_indents[opening]
 		while not owners.is_empty():
 			var owner: Dictionary = result[owners.back()]
+			var owner_header_end: int = owner["header_end_index"]
+			var inline_body: bool = opening >= owner_header_end and _integer(first["line"]) == _integer(tokens[owner_header_end - 1]["end_line"])
 			if (
-				indent > _integer(owner["indent"])
+				(
+					scope_indent > _integer(owner["scope_indent"])
+					or inline_body
+				)
 				and (
 					_integer(owner["lexical_parent"]) < 0
 					or _inside_group(
@@ -777,6 +809,7 @@ static func _collect_statements(view: Dictionary) -> Array[Dictionary]:
 			"end_index": ending,
 			"header_end_index": header_end,
 			"indent": indent,
+			"scope_indent": scope_indent,
 			"owner_index": owners.back() if not owners.is_empty() else -1,
 			"kind": kind,
 			"block": block,
@@ -903,6 +936,21 @@ static func _indent(line: String) -> int:
 		else:
 			break
 	return result + (spaces >> 2)
+
+
+## 块归属保留每个空格的宽度，避免未启用布局规则时把短空格缩进截断为同级。
+## [br]
+## @api private
+static func _scope_indent(line: String) -> int:
+	var result: int = 0
+	for character: String in line:
+		if character == "\t":
+			result += 4
+		elif character == " ":
+			result += 1
+		else:
+			break
+	return result
 
 
 ## 所有不完整输入都返回稳定失败诊断，而不是空的问题列表。

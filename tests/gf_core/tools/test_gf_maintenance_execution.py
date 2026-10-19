@@ -89,6 +89,115 @@ def _fixture_process_lease_facade(
 	return gf_process_supervisor.SupervisedProcessLease._from_backend(backend)
 
 
+class CodeQualityNativeAcceptanceTests(unittest.TestCase):
+	def _acceptance_result(self, optimization: int, failure: str | None) -> tuple[int, dict]:
+		path = ROOT / "tests/gf_core/tools/code_quality/run_native_acceptance.py"
+		module = ModuleType("code_quality_acceptance_fixture")
+		module.__file__ = str(path)
+		with mock.patch.object(sys, "path", list(sys.path)):
+			exec(compile(path.read_text(encoding="utf-8"), str(path), "exec", optimize=optimization), module.__dict__)
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			owned = root / "validation"
+			owned.mkdir()
+			for relative in (
+				"addons/gf/tools/code_quality/fixture.gd",
+				"addons/gf/kernel/core/gf_bounded_json_object_reader.gd",
+				"addons/gf/kernel/core/gf_path_tools.gd",
+				"addons/gf/kernel/core/gf_variant_access.gd",
+				"addons/gf/kernel/editor/gf_editor_workspace_ui.gd",
+				"addons/gf/kernel/editor/gf_editor_background_request_task.gd",
+			):
+				source = root / relative
+				source.parent.mkdir(parents=True, exist_ok=True)
+				source.write_text("extends RefCounted\n", encoding="utf-8")
+
+			@contextlib.contextmanager
+			def validation_directory(**kwargs):
+				yield owned
+				if failure == "cleanup":
+					kwargs["cleanup_errors"].append("fixture cleanup failed")
+
+			cases = iter((
+				("clean", 0, "clean"),
+				("blocking-rule", 1, "violations"),
+				("warning-only", 0, "violations"),
+				("invalid-configuration", 2, "incomplete"),
+				("unconfigured", 2, "unconfigured"),
+				("unknown-argument", 2, "incomplete"),
+				("list-rules", 0, "metadata"),
+				("help", 0, "metadata"),
+				("incomplete-source", 2, "incomplete"),
+				("positive-control", 0, "metadata"),
+				("editor-import", 0, "metadata"),
+				("editor-behavior", 0, "metadata"),
+			))
+
+			def native_result(command, **kwargs):
+				name, exit_code, status = next(cases)
+				project = kwargs["cwd"]
+				log = Path(command[command.index("--log-file") + 1])
+				log.write_text("", encoding="utf-8")
+				report = {
+					"schema_version": 1, "status": status, "files_checked": 2,
+					"complete": True, "ok": True,
+					"diagnostics": [{"rule": "doc_private_summary"}],
+					"rules": ["doc_private_summary"], "usage": "--list-rules",
+				}
+				if name == "positive-control" and failure != "positive-control":
+					(project / "autoload_executed.flag").touch()
+					(project / "target_executed.flag").touch()
+				if name == "editor-behavior":
+					(project / "ui_result.json").write_text(
+						json.dumps({"ok": failure != "editor"}), encoding="utf-8",
+					)
+					(project / ".gf/code_quality.json").unlink()
+				if name == "clean":
+					if failure == "exit":
+						exit_code = 73
+					elif failure == "incomplete":
+						report["complete"] = False
+					elif failure == "source-write":
+						(project / "scripts/subject.gd").write_text("changed", encoding="utf-8")
+					elif failure == "autoload":
+						(project / "autoload_executed.flag").touch()
+				return mock.Mock(
+					return_code=exit_code, process_boundary_quiescent=failure != "process-boundary",
+					timed_out=False, cancelled=False, stdout_truncated=False, stderr_truncated=False,
+					stdout=module.PREFIX + json.dumps(report) + "\n", stderr="",
+				)
+
+			output = io.StringIO()
+			with mock.patch.multiple(
+				module, ROOT=root, managed_validation_directory=validation_directory,
+				parallel_shard_environment=lambda *_args, **_kwargs: ({}, owned / "private"),
+				resolve_godot_executable=lambda **_kwargs: str(Path(sys.executable).resolve()),
+				run_supervised_process=native_result,
+			), mock.patch.object(sys, "argv", [str(path), "--json"]), contextlib.redirect_stdout(output):
+				exit_code = module.main()
+			return exit_code, json.loads(output.getvalue())
+
+	def test_valid_native_evidence_is_accepted_at_every_optimization_level(self) -> None:
+		for optimization in (0, 1, 2):
+			with self.subTest(optimization=optimization):
+				exit_code, report = self._acceptance_result(optimization, None)
+				self.assertEqual(exit_code, 0, report)
+				self.assertTrue(report["ok"])
+				self.assertEqual(len(report["cases"]), 9)
+
+	def test_failed_native_evidence_is_rejected_at_every_optimization_level(self) -> None:
+		for optimization in (0, 1, 2):
+			for failure in (
+				"exit", "incomplete", "source-write", "autoload", "positive-control",
+				"editor", "process-boundary", "cleanup",
+			):
+				with self.subTest(optimization=optimization, failure=failure):
+					exit_code, report = self._acceptance_result(optimization, failure)
+					self.assertEqual(exit_code, 1, report)
+					self.assertFalse(report["ok"])
+					self.assertIn("error", report)
+
+
 class FrozenProcessAuthorityTests(unittest.TestCase):
 	def test_frozen_environment_owns_source_and_returned_values_by_value(self) -> None:
 		source = {"PATH": "fixture-path", "GF_AUTHORITY_MARKER": "captured"}

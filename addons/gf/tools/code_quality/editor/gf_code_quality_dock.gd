@@ -79,6 +79,16 @@ var _report: Dictionary = {}
 ## @api private
 var _source_kind: String = ""
 
+## 请求捕获时的项目根目录，发布前仍从同一路径复核配置。
+## [br]
+## @api private
+var _request_root: String = ""
+
+## 只保留本次请求实际使用的规范值；复核不会采用扫描期间的新配置。
+## [br]
+## @api private
+var _request_config: Dictionary = {}
+
 ## 只在缓冲请求期间保留其文本，用于发布前检测编辑变化。
 ## [br]
 ## @api private
@@ -163,7 +173,7 @@ func _ready() -> void:
 		_summary.text = "已读取项目配置。请选择当前编辑缓冲或已保存项目开始检查。"
 
 
-## 只有后台任务结束后才回收线程，并在未取消且缓冲未变化时发布结果。
+## 只有后台任务结束后才回收线程，并在配置及来源仍有效时发布未取消的结果。
 ## [br]
 ## @api private
 func _process(_delta: float) -> void:
@@ -176,6 +186,8 @@ func _process(_delta: float) -> void:
 	_set_busy(false)
 	if was_cancelled or not is_visible_in_tree():
 		_summary.text = "检查已取消；本次结果未发布。"
+	elif not _config_is_unchanged():
+		_summary.text = "项目规范配置已变化或不可用；本次结果未发布，请重新检查。"
 	elif _source_kind == "buffer" and not _buffer_is_unchanged():
 		_summary.text = "脚本缓冲已修改或关闭，请重新检查。"
 	elif result_value is Dictionary:
@@ -186,6 +198,8 @@ func _process(_delta: float) -> void:
 		_summary.text = "检查未能取得有效报告，请重新检查。"
 	_buffer_source = ""
 	_buffer_editor_ref = null
+	_request_root = ""
+	_request_config.clear()
 
 
 ## 页面销毁时先撤销发布资格，再归属已启动线程，避免 worker 悬挂。
@@ -198,6 +212,8 @@ func _exit_tree() -> void:
 		_task = null
 	_buffer_source = ""
 	_buffer_editor_ref = null
+	_request_root = ""
+	_request_config.clear()
 	set_process(false)
 
 
@@ -338,6 +354,16 @@ func _start_request(request: Dictionary) -> void:
 		"mode",
 		""
 	)
+	_request_root = _ACCESS_SCRIPT.get_option_string(
+		request,
+		"root",
+		""
+	)
+	_request_config = _ACCESS_SCRIPT.get_option_dictionary(
+		request,
+		"config",
+		{}
+	).duplicate(true)
 	_render_page()
 	var worker: GFCodeQualityScanWorker = _WORKER_SCRIPT.new()
 	_task = _TASK_SCRIPT.new()
@@ -347,11 +373,32 @@ func _start_request(request: Dictionary) -> void:
 		_task = null
 		_buffer_source = ""
 		_buffer_editor_ref = null
+		_request_root = ""
+		_request_config.clear()
 		_summary.text = "无法启动检查：%s。" % error_string(start_error)
 		return
 	_set_busy(true)
 	_summary.text = "正在检查编辑缓冲…" if _source_kind == "buffer" else "正在检查已保存项目…未保存编辑不在本次结果中。"
 	set_process(true)
+
+
+## 配置重读仅验证本次请求的规则与范围仍有效，不更新冻结输入或自动重试。
+## [br]
+## @api private
+func _config_is_unchanged() -> bool:
+	var current: Dictionary = _ANALYZER_SCRIPT.load_project_config(_request_root)
+	return (
+		_ACCESS_SCRIPT.get_option_bool(
+			current,
+			"ok",
+			false
+		)
+		and _ACCESS_SCRIPT.get_option_dictionary(
+			current,
+			"config",
+			{}
+		) == _request_config
+	)
 
 
 ## 发布前复核同一文本控件仍存在且内容等于捕获值。

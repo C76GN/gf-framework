@@ -105,6 +105,52 @@ func _run() -> void:
 		_row_count(results) == 0,
 		"Stale buffer diagnostics remained actionable."
 	)
+	var original_config: String = FileAccess.get_file_as_string("res://.gf/code_quality.json")
+	buffer.text = original + "\n\nfunc _missing_summary() -> void:\n\tpass\n"
+	for check_button: Button in [check_buffer, check_project]:
+		for changed_config: String in [original_config.replace("error", "warning"), "{"]:
+			check_button.pressed.emit()
+			_write_configuration(changed_config)
+			await _wait_idle()
+			_require(
+				summary.text.contains("项目规范配置已变化"),
+				"A result was published after its configuration changed or became invalid: " + check_button.name
+			)
+			_require(
+				_row_count(results) == 0,
+				"Diagnostics remained actionable after configuration changed."
+			)
+			_write_configuration(original_config)
+		check_button.pressed.emit()
+		_require(
+			DirAccess.remove_absolute("res://.gf/code_quality.json") == OK,
+			"The in-flight fixture configuration could not be removed."
+		)
+		await _wait_idle()
+		_require(
+			summary.text.contains("项目规范配置已变化"),
+			"A result was published after its configuration was removed: " + check_button.name
+		)
+		_require(
+			_row_count(results) == 0,
+			"Diagnostics remained actionable after configuration was removed."
+		)
+		_require(
+			not FileAccess.file_exists("res://.gf/code_quality.json"),
+			"A scan recreated its removed configuration."
+		)
+		_write_configuration(original_config)
+		check_button.pressed.emit()
+		await _wait_idle()
+		_require(
+			summary.text.contains("检查完整"),
+			"An explicit new request did not recover after valid configuration was restored: " + check_button.name
+		)
+		_require(
+			_has_rule(results, "doc_private_summary") == (check_button == check_buffer),
+			"A recovered request did not retain its buffer or disk source."
+		)
+	buffer.text = original
 	check_project.pressed.emit()
 	cancel.pressed.emit()
 	await _wait_idle()
@@ -140,6 +186,17 @@ func _run() -> void:
 	)
 	buffer.text = original
 	_finish()
+
+
+func _write_configuration(text: String) -> void:
+	var output: FileAccess = FileAccess.open("res://.gf/code_quality.json", FileAccess.WRITE)
+	_require(
+		output != null,
+		"The fixture configuration could not be written."
+	)
+	if output != null:
+		var _stored: bool = output.store_string(text)
+		output.close()
 
 
 func _wait_idle() -> void:

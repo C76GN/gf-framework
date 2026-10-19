@@ -259,6 +259,46 @@ func test_comments_and_multiline_string_payloads_are_not_layout_code() -> void:
 	assert_false(rules.has("list_layout"))
 
 
+func test_multiline_strings_keep_payload_whitespace_but_check_structural_suffixes() -> void:
+	for delimiter: String in ["\"\"\"", "'''"]:
+		var source: String = "var text = " + delimiter + "first\n  middle \t\n  last" + delimiter
+		assert_false(_rules(source + "\n").has("text_format"))
+		assert_false(_rules(source.replace("first\n", "first \t\n") + "\n").has("text_format"))
+		assert_true(_rules(source + " \t\n").has("text_format"))
+		assert_true(_rules(source + " + suffix \t\n").has("text_format"))
+		assert_false(_rules(source + " + " + delimiter + "next \t\nlast" + delimiter + "\n").has("text_format"))
+		assert_true(_rules("  " + source + "\n").has("text_format"))
+	var view: Dictionary = _SOURCE_SCRIPT.lex_source("fixture.gd", "var text = \"\"\"first\n  last\"\"\" \t\n")
+	var diagnostics: Array[Dictionary] = _LAYOUT_SCRIPT.analyze(view)
+	assert_eq(
+		diagnostics.size(),
+		1
+	)
+	if diagnostics.size() != 1:
+		return
+	assert_eq(
+		_text_field(
+			diagnostics[0],
+			"rule"
+		),
+		"text_format"
+	)
+	assert_eq(
+		_integer_field(
+			diagnostics[0],
+			"line"
+		),
+		2
+	)
+	assert_eq(
+		_integer_field(
+			diagnostics[0],
+			"column"
+		),
+		11
+	)
+
+
 func test_redundant_multiline_argument_wrapper_and_detached_cast_are_reported() -> void:
 	assert_true(_rules("consume(\n\t(\n\t\tbuild(left, right, third)\n\t)\n)\n").has("argument_group_layout"))
 	assert_true(_rules("var value = (\n\tbuild(value)\n)\nas Result\n").has("cast_layout"))

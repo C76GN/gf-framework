@@ -366,23 +366,31 @@ static func _check_text(context: Dictionary, diagnostics: Array[Dictionary]) -> 
 			1,
 			"End source with LF."
 		)
-	var literal_lines: Dictionary = {}
+	var literal_prefix_lines: Dictionary = {}
+	var literal_suffix_lines: Dictionary = {}
 	for token: Dictionary in context["tokens"]:
 		if token["kind"] == "string" and token["line"] != token["end_line"]:
 			for line: int in range(
 				_integer(token["line"]) + 1,
 				_integer(token["end_line"]) + 1
 			):
-				literal_lines[line] = true
+				literal_prefix_lines[line] = true
+			for line: int in range(
+				_integer(token["line"]),
+				_integer(token["end_line"])
+			):
+				literal_suffix_lines[line] = true
 	for index: int in lines.size():
 		var line: String = lines[index]
-		if literal_lines.has(index + 1):
-			continue
 		var prefix: String = line.substr(
 			0,
 			line.length() - line.strip_edges(true, false).length()
 		)
-		if prefix.contains(" ") and not line.strip_edges().is_empty():
+		if (
+			not literal_prefix_lines.has(index + 1)
+			and prefix.contains(" ")
+			and not line.strip_edges().is_empty()
+		):
 			_add(
 				context,
 				diagnostics,
@@ -397,6 +405,7 @@ static func _check_text(context: Dictionary, diagnostics: Array[Dictionary]) -> 
 				or line.ends_with("\t")
 			)
 			and not comment_lines.has(index + 1)
+			and not literal_suffix_lines.has(index + 1)
 		):
 			_add(
 				context,
