@@ -1,7 +1,12 @@
 ## GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 ##
 ## 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
-## 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。
+## 每个顶层操作默认使用有限的 GFConfigWorkBudget；解析、映射和校验共享同一预算。
+## 输入按 UTF-8 字节计量，文本每扫描 1024 个字符消耗一个工作单元，表格处理另按单元格和比较次数计量。
+## JSON 与 ConfigFile 原生解析调用不可硬中断；容量和文本嵌套检查在调用前完成，解析结果随后通过值图准入。
+## JSON 根容器深度为零；ConfigFile 另保守限制构造器嵌套，最终深度按映射出的记录数组计量。
+## schema 校验前按记录、字段和声明规则访问次数预留工作；自定义规则及原生方法不提供可抢占执行保证。
+## 解析预算失败保留本次调用的 source，便于定位输入；data 为空，不交付部分解析结果。
 ## [br]
 ## @api public
 ## [br]
@@ -21,16 +26,27 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param text: JSON 文本。
 ## [br]
-## @param options: 可选参数，支持 source。
+## @param options: 可选参数，支持 source；另支持互斥的 work_limits 或 work_budget。
 ## [br]
-## @schema options: Dictionary，可包含 source。
+## @schema options: Dictionary，可包含 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
 ## [br]
 ## @return 结果字典，包含 success、data、error、error_line 与 source。
 ## [br]
-## @schema return: Dictionary，包含 success、data、error、error_line 和 source。
+## @schema return: Dictionary，包含 success、data、error、error_line 和 source；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 static func parse_json_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget) or not _admit_text(
+		text,
+		budget,
+		"JSON",
+		true
+	):
+		return _make_budget_parse_failure(budget, source)
 	var json: JSON = JSON.new()
 	var error: Error = json.parse(text)
 	if error != OK:
@@ -39,15 +55,16 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 			"data": null,
 			"error": "JSON parse failed: %s" % json.get_error_message(),
 			"error_line": json.get_error_line(),
-			"source": GFVariantData.get_option_string(options, "source"),
+			"source": source,
 		}
-
+	if not budget.admit_value(json.data, "JSON parsed value"):
+		return _make_budget_parse_failure(budget, source)
 	return {
 		"success": true,
 		"data": json.data,
 		"error": "",
 		"error_line": 0,
-		"source": GFVariantData.get_option_string(options, "source"),
+		"source": source,
 	}
 
 
@@ -65,15 +82,602 @@ static func parse_json_table(text: String, options: Dictionary = {}) -> Dictiona
 ## [br]
 ## @schema rows: Array[PackedStringArray]，每个条目是一行单元格文本。
 ## [br]
-## @param options: 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
+## @param options: 可选参数，支持 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix；另支持互斥的 work_limits 或 work_budget。
 ## [br]
-## @schema options: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix。
+## @schema options: Dictionary，可包含 source、row_numbers、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、reject_empty_header、require_header、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 error_prefix；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
 ## [br]
 ## @return 结果字典，包含 success、data、header、row_locations 与 error。
 ## [br]
-## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
+## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
 static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary = {}) -> Dictionary:
 	var source: String = GFVariantData.get_option_string(options, "source")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget) or not budget.admit_value(rows, "tabular input"):
+		return _make_budget_parse_failure(budget, source)
+	for row: PackedStringArray in rows:
+		for cell: String in row:
+			if not _admit_text(
+				cell,
+				budget,
+				"tabular cell"
+			):
+				return _make_budget_parse_failure(budget, source)
+	return _parse_rows_table(
+		rows,
+		options,
+		budget
+	)
+
+
+## 解析 CSV 表文本。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @param text: CSV 文本。
+## [br]
+## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 结果字典，包含 success、data、header、row_locations 与 error。
+## [br]
+## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
+static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget) or not _admit_text(
+		text,
+		budget,
+		"CSV"
+	):
+		return _make_budget_parse_failure(budget, source)
+	var delimiter: String = GFVariantData.get_option_string(
+		options,
+		"delimiter",
+		","
+	)
+	if delimiter.is_empty():
+		delimiter = ","
+	var trim_cells: bool = GFVariantData.get_option_bool(
+		options,
+		"trim_cells",
+		true
+	)
+	var parse_result: Dictionary = _parse_csv_rows(
+		_normalize_csv_text(text),
+		delimiter.substr(0, 1),
+		trim_cells,
+		budget
+	)
+	if not budget.is_ok():
+		return _make_budget_parse_failure(budget, source)
+	if not GFVariantData.get_option_bool(parse_result, "success"):
+		return {
+			"success": false,
+			"data": null,
+			"header": PackedStringArray(),
+			"row_locations": [],
+			"error": GFVariantData.get_option_string(parse_result, "error"),
+			"error_line": GFVariantData.get_option_int(parse_result, "error_line"),
+			"error_column": GFVariantData.get_option_int(parse_result, "error_column"),
+			"source": source,
+		}
+
+	var rows: Array[PackedStringArray] = _get_parse_rows(parse_result)
+	var row_options: Dictionary = _make_budget_options(options, budget)
+	row_options["source"] = source
+	row_options["error_prefix"] = "CSV"
+	row_options["row_numbers"] = _get_parse_row_numbers(parse_result)
+	return _parse_rows_table(
+		rows,
+		row_options,
+		budget
+	)
+
+
+## 解析 Godot ConfigFile 表文本。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param text: ConfigFile 文本。
+## [br]
+## @param options: 可选参数，支持 source、section_field、include_empty_sections；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 结果字典，包含 success、data、sections、row_locations 与 error。
+## [br]
+## @schema return: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
+static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget) or not _admit_text(
+		text,
+		budget,
+		"ConfigFile",
+		true,
+		true
+	):
+		return _make_budget_parse_failure(budget, source)
+	var config_file: ConfigFile = ConfigFile.new()
+	var parse_error: Error = config_file.parse(_normalize_config_file_text(text))
+	if parse_error != OK:
+		return {
+			"success": false,
+			"data": null,
+			"sections": PackedStringArray(),
+			"row_locations": [],
+			"error": "ConfigFile parse failed: %s" % error_string(parse_error),
+			"error_line": 0,
+			"error_column": 0,
+			"source": source,
+		}
+
+	var section_field: StringName = GFVariantData.get_option_string_name(
+		options,
+		"section_field",
+		&"entry_name"
+	)
+	var include_empty_sections: bool = GFVariantData.get_option_bool(
+		options,
+		"include_empty_sections",
+		true
+	)
+	var sections: PackedStringArray = config_file.get_sections()
+	if not budget.admit_value(sections, "ConfigFile sections") or not budget.consume_work(
+		sections.size(),
+		"ConfigFile section ordering"
+	):
+		return _make_budget_parse_failure(budget, source)
+	sections.sort()
+	var records: Array[Dictionary] = []
+	var row_locations: Array[Dictionary] = []
+	for section: String in sections:
+		var keys: PackedStringArray = config_file.get_section_keys(section)
+		if not budget.admit_value(keys, "ConfigFile keys") or not budget.consume_work(
+			keys.size() * 3 + 1,
+			"ConfigFile record mapping"
+		):
+			return _make_budget_parse_failure(budget, source)
+		keys.sort()
+		if keys.is_empty() and not include_empty_sections:
+			continue
+
+		var record: Dictionary = {}
+		var row_location: Dictionary = _make_config_file_row_location(
+			source,
+			records.size(),
+			section,
+			section_field,
+			keys
+		)
+		if section_field != &"":
+			record[section_field] = section
+		for key: String in keys:
+			var value: Variant = config_file.get_value(section, key)
+			if not budget.admit_value(value, "ConfigFile value"):
+				return _make_budget_parse_failure(budget, source)
+			record[StringName(key)] = value
+		records.append(record)
+		row_locations.append(row_location)
+
+	if not budget.admit_value(records, "ConfigFile mapped records"):
+		return _make_budget_parse_failure(budget, source)
+	return {
+		"success": true,
+		"data": records,
+		"sections": sections,
+		"row_locations": row_locations,
+		"error": "",
+		"error_line": 0,
+		"error_column": 0,
+		"source": source,
+	}
+
+
+## 解析并校验 JSON 表文本。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @param text: JSON 文本。
+## [br]
+## @param schema: 表结构声明。
+## [br]
+## @param options: 可选参数，支持 source；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 校验报告；解析失败时返回失败报告。
+## [br]
+## @schema return: GFConfigValidationReport 兼容 Dictionary。
+static func validate_json_table(
+	text: String,
+	schema: GFConfigTableSchema,
+	options: Dictionary = {}
+) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var shared_options: Dictionary = _make_budget_options(options, budget)
+	if schema == null:
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
+
+	var parsed: Dictionary = parse_json_table(text, shared_options)
+	if not budget.is_ok():
+		return _make_budget_validation_failure(budget, schema)
+	if not GFVariantData.get_option_bool(parsed, "success"):
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{ "source": _get_parse_source(parsed), "line": _get_parse_error_line(parsed), }
+		)
+	var data: Variant = _get_parse_data(parsed)
+	var validation_options: Dictionary = _make_validation_options(shared_options, parsed)
+	if not _admit_schema_validation(
+		data,
+		schema,
+		budget
+	) or not _admit_import_options(validation_options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var report: Dictionary = schema.validate_table(data, validation_options)
+	return report if budget.is_ok() else _make_budget_validation_failure(budget, schema)
+
+
+## 解析并校验 JSON 单记录文本。
+## [br]
+## @api public
+## [br]
+## @since 4.4.0
+## [br]
+## @param text: JSON 文本，根节点必须是 Dictionary。
+## [br]
+## @param schema: 表结构声明；当前方法复用其字段声明校验单条记录。
+## [br]
+## @param row_key: 可选行标识；为空且 schema 声明了 id_field 时会尝试从记录字段读取。
+## [br]
+## @schema row_key: Variant，写入校验报告 issue 的行标识。
+## [br]
+## @param options: 可选参数，支持 source；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 校验报告；解析失败或根节点不是 Dictionary 时返回失败报告。
+## [br]
+## @schema return: GFConfigValidationReport 兼容 Dictionary。
+static func validate_json_record(
+	text: String,
+	schema: GFConfigTableSchema,
+	row_key: Variant = null,
+	options: Dictionary = {}
+) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var shared_options: Dictionary = _make_budget_options(options, budget)
+	if schema == null:
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
+
+	var parsed: Dictionary = parse_json_table(text, shared_options)
+	if not budget.is_ok():
+		return _make_budget_validation_failure(budget, schema)
+	if not GFVariantData.get_option_bool(parsed, "success"):
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{ "source": _get_parse_source(parsed), "line": _get_parse_error_line(parsed), }
+		)
+
+	var data: Variant = _get_parse_data(parsed)
+	if not (data is Dictionary):
+		return _make_error_report(
+			schema.get_table_key(),
+			"invalid_json_record",
+			"JSON 记录根节点必须是 Dictionary。",
+			{
+				"source": _get_parse_source(parsed),
+				"value": GFVariantData.duplicate_variant(data),
+				"actual_value": type_string(typeof(data)),
+				"expected_value": "Dictionary",
+				"supported_formats": ["JSON object"],
+			}
+		)
+
+	var record: Dictionary = GFVariantData.as_dictionary(data)
+	var resolved_row_key: Variant = row_key
+	if resolved_row_key == null and schema.id_field != &"":
+		resolved_row_key = GFVariantData.get_option_value(record, schema.id_field)
+	var validation_options: Dictionary = _make_validation_options(shared_options, parsed)
+	if (
+		not budget.admit_value(resolved_row_key, "validation row key")
+		or not budget.admit_value(record, "schema input")
+		or not _admit_schema_definitions(schema, budget)
+		or not _admit_schema_record(
+			record,
+			schema,
+			budget
+		)
+		or not _admit_import_options(validation_options, budget)
+	):
+		return _make_budget_validation_failure(budget, schema)
+	var report: Dictionary = schema.validate_record(
+		record,
+		resolved_row_key,
+		validation_options
+	)
+	return report if budget.is_ok() else _make_budget_validation_failure(budget, schema)
+
+
+## 解析并校验 CSV 表文本。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @param text: CSV 文本。
+## [br]
+## @param schema: 表结构声明。
+## [br]
+## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 校验报告；解析失败时返回失败报告。
+## [br]
+## @schema return: GFConfigValidationReport 兼容 Dictionary。
+static func validate_csv_table(
+	text: String,
+	schema: GFConfigTableSchema,
+	options: Dictionary = {}
+) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var shared_options: Dictionary = _make_budget_options(options, budget)
+	if schema == null:
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
+
+	var parsed: Dictionary = parse_csv_table(text, shared_options)
+	if not budget.is_ok():
+		return _make_budget_validation_failure(budget, schema)
+	if not GFVariantData.get_option_bool(parsed, "success"):
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{
+				"source": _get_parse_source(parsed),
+				"line": _get_parse_error_line(parsed),
+				"column": _get_parse_error_column(parsed),
+			}
+		)
+	var data: Variant = _get_parse_data(parsed)
+	var validation_options: Dictionary = _make_validation_options(shared_options, parsed)
+	if not _admit_schema_validation(
+		data,
+		schema,
+		budget
+	) or not _admit_import_options(validation_options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var report: Dictionary = schema.validate_table(data, validation_options)
+	return report if budget.is_ok() else _make_budget_validation_failure(budget, schema)
+
+
+## 解析并校验 Godot ConfigFile 表文本。
+## [br]
+## @api public
+## [br]
+## @since 7.0.0
+## [br]
+## @param text: ConfigFile 文本。
+## [br]
+## @param schema: 表结构声明。
+## [br]
+## @param options: 可选参数，支持 source、section_field、include_empty_sections；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 source、section_field 和 include_empty_sections 字段；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 校验报告；解析失败时返回失败报告。
+## [br]
+## @schema return: GFConfigValidationReport 兼容 Dictionary。
+static func validate_config_file_table(
+	text: String,
+	schema: GFConfigTableSchema,
+	options: Dictionary = {}
+) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var shared_options: Dictionary = _make_budget_options(options, budget)
+	if schema == null:
+		return _make_error_report(
+			&"",
+			"missing_schema",
+			"schema 为空。"
+		)
+
+	var parsed: Dictionary = parse_config_file_table(text, shared_options)
+	if not budget.is_ok():
+		return _make_budget_validation_failure(budget, schema)
+	if not GFVariantData.get_option_bool(parsed, "success"):
+		return _make_error_report(
+			schema.get_table_key(),
+			"parse_failed",
+			_get_parse_error(parsed),
+			{
+				"source": _get_parse_source(parsed),
+				"line": _get_parse_error_line(parsed),
+				"column": _get_parse_error_column(parsed),
+			}
+		)
+	var data: Variant = _get_parse_data(parsed)
+	var validation_options: Dictionary = _make_validation_options(shared_options, parsed)
+	if not _admit_schema_validation(
+		data,
+		schema,
+		budget
+	) or not _admit_import_options(validation_options, budget):
+		return _make_budget_validation_failure(budget, schema)
+	var report: Dictionary = schema.validate_table(data, validation_options)
+	return report if budget.is_ok() else _make_budget_validation_failure(budget, schema)
+
+
+## 导出 CSV 表文本。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @param table_data: Array[Dictionary] 或 Dictionary 形式的表数据。
+## [br]
+## @schema table_data: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
+## [br]
+## @param schema: 可选 schema；提供时默认按 schema.columns 排列列。
+## [br]
+## @param options: 可选参数，支持 delimiter、columns、include_header、coerce_values；另支持互斥的 work_limits 或 work_budget。
+## [br]
+## @schema options: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
+## [br]
+## @return 结果字典，包含 success、text 与 error。
+## [br]
+## @schema return: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
+static func export_csv_table(
+	table_data: Variant,
+	schema: GFConfigTableSchema = null,
+	options: Dictionary = {}
+) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget) or not budget.admit_value(table_data, "CSV export input"):
+		return _make_budget_export_failure(budget)
+	var normalized_rows: Dictionary = _normalize_table_rows(table_data)
+	if not GFVariantData.get_option_bool(normalized_rows, "success"):
+		return {
+			"success": false,
+			"text": "",
+			"error": "table_data must be Array[Dictionary] or Dictionary.",
+		}
+	var rows: Array[Dictionary] = _copy_dictionary_rows(
+		GFVariantData.get_option_value(
+			normalized_rows,
+			"rows",
+			[]
+		)
+	)
+	var delimiter: String = GFVariantData.get_option_string(
+		options,
+		"delimiter",
+		","
+	)
+	delimiter = "," if delimiter.is_empty() else delimiter.substr(0, 1)
+	var columns: PackedStringArray = _resolve_export_columns(
+		rows,
+		schema,
+		options,
+		budget
+	)
+	if not budget.is_ok():
+		return _make_budget_export_failure(budget)
+	var lines: PackedStringArray = PackedStringArray()
+	if GFVariantData.get_option_bool(
+		options,
+		"include_header",
+		true
+	):
+		var header_line: String = _join_csv_row(
+			columns,
+			delimiter,
+			budget
+		)
+		if not budget.is_ok():
+			return _make_budget_export_failure(budget)
+		var _header_appended: bool = lines.append(header_line)
+
+	var coerce_values: bool = GFVariantData.get_option_bool(
+		options,
+		"coerce_values",
+		schema != null and schema.coerce_values
+	)
+	for row: Dictionary in rows:
+		if not budget.consume_work(
+			columns.size() + 1,
+			"CSV export record"
+		):
+			return _make_budget_export_failure(budget)
+		if (
+			coerce_values
+			and schema != null
+			and not _admit_schema_record(
+				row,
+				schema,
+				budget,
+				true
+			)
+		):
+			return _make_budget_export_failure(budget)
+		var record: Dictionary = schema.coerce_record(row) if coerce_values and schema != null else row
+		if not budget.admit_value(record, "CSV export candidate"):
+			return _make_budget_export_failure(budget)
+		if not lines.is_empty() and not budget.consume_output_bytes(1, "CSV newline"):
+			return _make_budget_export_failure(budget)
+		var cells: PackedStringArray = PackedStringArray()
+		for column_name: String in columns:
+			if not cells.is_empty() and not budget.consume_output_bytes(
+				_utf8_codepoint_bytes(delimiter.unicode_at(0)),
+				"CSV delimiter"
+			):
+				return _make_budget_export_failure(budget)
+			var cell: String = _format_csv_cell(
+				GFVariantData.get_option_value(
+					record,
+					StringName(column_name),
+					""
+				),
+				delimiter,
+				budget
+			)
+			if not budget.is_ok():
+				return _make_budget_export_failure(budget)
+			var _cell_appended: bool = cells.append(cell)
+		var _line_appended: bool = lines.append(delimiter.join(cells))
+	return {
+		"success": true,
+		"text": "\n".join(lines),
+		"error": "",
+	}
+
+
+# --- 私有/辅助方法 ---
+
+## 在共享操作预算内把已准入的文本行映射为记录；CSV 已计量原始文本，不重复计量单元格输入字节。
+## [br]
+## @api private
+static func _parse_rows_table(
+	rows: Array[PackedStringArray],
+	options: Dictionary,
+	budget: GFConfigWorkBudget
+) -> Dictionary:
+	var source: String = GFVariantData.get_option_string(options, "source")
+	if not budget.admit_value(rows, "tabular rows"):
+		return _make_budget_parse_failure(budget, source)
 	var trim_cells: bool = GFVariantData.get_option_bool(
 		options,
 		"trim_cells",
@@ -174,6 +778,9 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 	var source_header_width: int = 0
 
 	for row_array_index: int in range(rows.size()):
+		var row_work: int = rows[row_array_index].size() * (2 + comment_column_prefixes.size()) + header.size() * 2 + comment_row_prefixes.size() + condition_stack.size() + condition_symbols.size() + 1
+		if not budget.consume_work(row_work, "tabular row mapping"):
+			return _make_budget_parse_failure(budget, source)
 		var row_number: int = _get_tabular_row_number(row_numbers, row_array_index)
 		var row: PackedStringArray = _prepare_tabular_row(
 			rows[row_array_index],
@@ -207,7 +814,13 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 
 		var first_cell: String = row[0] if not row.is_empty() else ""
 		if enable_condition_directives:
-			var directive: Dictionary = _parse_condition_directive(first_cell, condition_prefix)
+			var directive: Dictionary = _parse_condition_directive(
+				first_cell,
+				condition_prefix,
+				budget
+			)
+			if not budget.is_ok():
+				return _make_budget_parse_failure(budget, source)
 			var directive_kind: StringName = GFVariantData.get_option_string_name(directive, "kind")
 			if directive_kind == &"invalid":
 				return _make_tabular_parse_failure(
@@ -225,15 +838,23 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 					1
 				)
 			if directive_kind == &"if":
+				if not budget.check_depth(
+					condition_stack.size() + 1,
+					"CSV condition stack"
+				):
+					return _make_budget_parse_failure(budget, source)
 				condition_stack.append(
 					{
 						"active": _condition_symbols_match(
 							GFVariantData.get_option_packed_string_array(directive, "symbols"),
-							condition_symbols
+							condition_symbols,
+							budget
 						),
 						"line": row_number,
 					}
 				)
+				if not budget.is_ok():
+					return _make_budget_parse_failure(budget, source)
 				continue
 			if directive_kind == &"endif":
 				if condition_stack.is_empty():
@@ -317,432 +938,6 @@ static func parse_rows_table(rows: Array[PackedStringArray], options: Dictionary
 	)
 
 
-## 解析 CSV 表文本。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param text: CSV 文本。
-## [br]
-## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix、source。
-## [br]
-## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
-## [br]
-## @return 结果字典，包含 success、data、header、row_locations 与 error。
-## [br]
-## @schema return: Dictionary，包含 success、data、header、header_location、row_locations、error、error_line、error_column 和 source；header_location 记录真实表头行及字段原始列，空表时可为空。
-static func parse_csv_table(text: String, options: Dictionary = {}) -> Dictionary:
-	var delimiter: String = GFVariantData.get_option_string(
-		options,
-		"delimiter",
-		","
-	)
-	if delimiter.is_empty():
-		delimiter = ","
-	var trim_cells: bool = GFVariantData.get_option_bool(
-		options,
-		"trim_cells",
-		true
-	)
-	var source: String = GFVariantData.get_option_string(options, "source")
-	var parse_result: Dictionary = _parse_csv_rows(
-		_normalize_csv_text(text),
-		delimiter.substr(0, 1),
-		trim_cells
-	)
-	if not GFVariantData.get_option_bool(parse_result, "success"):
-		return {
-			"success": false,
-			"data": null,
-			"header": PackedStringArray(),
-			"row_locations": [],
-			"error": GFVariantData.get_option_string(parse_result, "error"),
-			"error_line": GFVariantData.get_option_int(parse_result, "error_line"),
-			"error_column": GFVariantData.get_option_int(parse_result, "error_column"),
-			"source": source,
-		}
-
-	var rows: Array[PackedStringArray] = _get_parse_rows(parse_result)
-	var row_options: Dictionary = options.duplicate(true)
-	row_options["source"] = source
-	row_options["error_prefix"] = "CSV"
-	row_options["row_numbers"] = _get_parse_row_numbers(parse_result)
-	return parse_rows_table(rows, row_options)
-
-
-## 解析 Godot ConfigFile 表文本。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-## [br]
-## @param text: ConfigFile 文本。
-## [br]
-## @param options: 可选参数，支持 source、section_field、include_empty_sections。
-## [br]
-## @schema options: Dictionary，可包含 source、section_field、include_empty_sections 字段；section_field 为空 StringName 时不写入 section 名字段。
-## [br]
-## @return 结果字典，包含 success、data、sections、row_locations 与 error。
-## [br]
-## @schema return: Dictionary，包含 success、data、sections、row_locations、error、error_line、error_column 和 source。
-static func parse_config_file_table(text: String, options: Dictionary = {}) -> Dictionary:
-	var source: String = GFVariantData.get_option_string(options, "source")
-	var config_file: ConfigFile = ConfigFile.new()
-	var parse_error: Error = config_file.parse(_normalize_config_file_text(text))
-	if parse_error != OK:
-		return {
-			"success": false,
-			"data": null,
-			"sections": PackedStringArray(),
-			"row_locations": [],
-			"error": "ConfigFile parse failed: %s" % error_string(parse_error),
-			"error_line": 0,
-			"error_column": 0,
-			"source": source,
-		}
-
-	var section_field: StringName = GFVariantData.get_option_string_name(
-		options,
-		"section_field",
-		&"entry_name"
-	)
-	var include_empty_sections: bool = GFVariantData.get_option_bool(
-		options,
-		"include_empty_sections",
-		true
-	)
-	var sections: PackedStringArray = config_file.get_sections()
-	sections.sort()
-	var records: Array[Dictionary] = []
-	var row_locations: Array[Dictionary] = []
-	for section: String in sections:
-		var keys: PackedStringArray = config_file.get_section_keys(section)
-		keys.sort()
-		if keys.is_empty() and not include_empty_sections:
-			continue
-
-		var record: Dictionary = {}
-		var row_location: Dictionary = _make_config_file_row_location(
-			source,
-			records.size(),
-			section,
-			section_field,
-			keys
-		)
-		if section_field != &"":
-			record[section_field] = section
-		for key: String in keys:
-			record[StringName(key)] = config_file.get_value(section, key)
-		records.append(record)
-		row_locations.append(row_location)
-
-	return {
-		"success": true,
-		"data": records,
-		"sections": sections,
-		"row_locations": row_locations,
-		"error": "",
-		"error_line": 0,
-		"error_column": 0,
-		"source": source,
-	}
-
-
-## 解析并校验 JSON 表文本。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param text: JSON 文本。
-## [br]
-## @param schema: 表结构声明。
-## [br]
-## @param options: 可选参数，支持 source。
-## [br]
-## @schema options: Dictionary，可包含 source。
-## [br]
-## @return 校验报告；解析失败时返回失败报告。
-## [br]
-## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_json_table(
-	text: String,
-	schema: GFConfigTableSchema,
-	options: Dictionary = {}
-) -> Dictionary:
-	if schema == null:
-		return _make_error_report(
-			&"",
-			"missing_schema",
-			"schema 为空。"
-		)
-
-	var parsed: Dictionary = parse_json_table(text, options)
-	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(
-			schema.get_table_key(),
-			"parse_failed",
-			_get_parse_error(parsed),
-			{ "source": _get_parse_source(parsed), "line": _get_parse_error_line(parsed), }
-		)
-	return schema.validate_table(
-		_get_parse_data(parsed),
-		_make_validation_options(options, parsed)
-	)
-
-
-## 解析并校验 JSON 单记录文本。
-## [br]
-## @api public
-## [br]
-## @since 4.4.0
-## [br]
-## @param text: JSON 文本，根节点必须是 Dictionary。
-## [br]
-## @param schema: 表结构声明；当前方法复用其字段声明校验单条记录。
-## [br]
-## @param row_key: 可选行标识；为空且 schema 声明了 id_field 时会尝试从记录字段读取。
-## [br]
-## @schema row_key: Variant，写入校验报告 issue 的行标识。
-## [br]
-## @param options: 可选参数，支持 source。
-## [br]
-## @schema options: Dictionary，可包含 source。
-## [br]
-## @return 校验报告；解析失败或根节点不是 Dictionary 时返回失败报告。
-## [br]
-## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_json_record(
-	text: String,
-	schema: GFConfigTableSchema,
-	row_key: Variant = null,
-	options: Dictionary = {}
-) -> Dictionary:
-	if schema == null:
-		return _make_error_report(
-			&"",
-			"missing_schema",
-			"schema 为空。"
-		)
-
-	var parsed: Dictionary = parse_json_table(text, options)
-	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(
-			schema.get_table_key(),
-			"parse_failed",
-			_get_parse_error(parsed),
-			{ "source": _get_parse_source(parsed), "line": _get_parse_error_line(parsed), }
-		)
-
-	var data: Variant = _get_parse_data(parsed)
-	if not (data is Dictionary):
-		return _make_error_report(
-			schema.get_table_key(),
-			"invalid_json_record",
-			"JSON 记录根节点必须是 Dictionary。",
-			{
-				"source": _get_parse_source(parsed),
-				"value": GFVariantData.duplicate_variant(data),
-				"actual_value": type_string(typeof(data)),
-				"expected_value": "Dictionary",
-				"supported_formats": ["JSON object"],
-			}
-		)
-
-	var record: Dictionary = GFVariantData.as_dictionary(data)
-	var resolved_row_key: Variant = row_key
-	if resolved_row_key == null and schema.id_field != &"":
-		resolved_row_key = GFVariantData.get_option_value(record, schema.id_field)
-	return schema.validate_record(
-		record,
-		resolved_row_key,
-		_make_validation_options(options, parsed)
-	)
-
-
-## 解析并校验 CSV 表文本。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param text: CSV 文本。
-## [br]
-## @param schema: 表结构声明。
-## [br]
-## @param options: 可选参数，支持 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
-## [br]
-## @schema options: Dictionary，可包含 delimiter、trim_cells、skip_empty_lines、reject_duplicate_headers、header_row、comment_prefixes、comment_row_prefixes、comment_column_prefixes、comment_prefix_case_sensitive、enable_condition_directives、condition_symbols、condition_directive_prefix 和 source。
-## [br]
-## @return 校验报告；解析失败时返回失败报告。
-## [br]
-## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_csv_table(
-	text: String,
-	schema: GFConfigTableSchema,
-	options: Dictionary = {}
-) -> Dictionary:
-	if schema == null:
-		return _make_error_report(
-			&"",
-			"missing_schema",
-			"schema 为空。"
-		)
-
-	var parsed: Dictionary = parse_csv_table(text, options)
-	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(
-			schema.get_table_key(),
-			"parse_failed",
-			_get_parse_error(parsed),
-			{
-				"source": _get_parse_source(parsed),
-				"line": _get_parse_error_line(parsed),
-				"column": _get_parse_error_column(parsed),
-			}
-		)
-	return schema.validate_table(
-		_get_parse_data(parsed),
-		_make_validation_options(options, parsed)
-	)
-
-
-## 解析并校验 Godot ConfigFile 表文本。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-## [br]
-## @param text: ConfigFile 文本。
-## [br]
-## @param schema: 表结构声明。
-## [br]
-## @param options: 可选参数，支持 source、section_field、include_empty_sections。
-## [br]
-## @schema options: Dictionary，可包含 source、section_field 和 include_empty_sections 字段。
-## [br]
-## @return 校验报告；解析失败时返回失败报告。
-## [br]
-## @schema return: GFConfigValidationReport 兼容 Dictionary。
-static func validate_config_file_table(
-	text: String,
-	schema: GFConfigTableSchema,
-	options: Dictionary = {}
-) -> Dictionary:
-	if schema == null:
-		return _make_error_report(
-			&"",
-			"missing_schema",
-			"schema 为空。"
-		)
-
-	var parsed: Dictionary = parse_config_file_table(text, options)
-	if not GFVariantData.get_option_bool(parsed, "success"):
-		return _make_error_report(
-			schema.get_table_key(),
-			"parse_failed",
-			_get_parse_error(parsed),
-			{
-				"source": _get_parse_source(parsed),
-				"line": _get_parse_error_line(parsed),
-				"column": _get_parse_error_column(parsed),
-			}
-		)
-	return schema.validate_table(
-		_get_parse_data(parsed),
-		_make_validation_options(options, parsed)
-	)
-
-
-## 导出 CSV 表文本。
-## [br]
-## @api public
-## [br]
-## @param table_data: Array[Dictionary] 或 Dictionary 形式的表数据。
-## [br]
-## @schema table_data: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
-## [br]
-## @param schema: 可选 schema；提供时默认按 schema.columns 排列列。
-## [br]
-## @param options: 可选参数，支持 delimiter、columns、include_header、coerce_values。
-## [br]
-## @schema options: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values。
-## [br]
-## @return 结果字典，包含 success、text 与 error。
-## [br]
-## @schema return: Dictionary，包含 success、text 和 error。
-static func export_csv_table(
-	table_data: Variant,
-	schema: GFConfigTableSchema = null,
-	options: Dictionary = {}
-) -> Dictionary:
-	var normalized_rows: Dictionary = _normalize_table_rows(table_data)
-	if not GFVariantData.get_option_bool(normalized_rows, "success"):
-		return {
-			"success": false,
-			"text": "",
-			"error": "table_data must be Array[Dictionary] or Dictionary.",
-		}
-	var rows: Array[Dictionary] = _copy_dictionary_rows(
-		GFVariantData.get_option_value(
-			normalized_rows,
-			"rows",
-			[]
-		)
-	)
-
-	var delimiter: String = GFVariantData.get_option_string(
-		options,
-		"delimiter",
-		","
-	)
-	if delimiter.is_empty():
-		delimiter = ","
-	delimiter = delimiter.substr(0, 1)
-	var columns: PackedStringArray = _resolve_export_columns(
-		rows,
-		schema,
-		options
-	)
-	var lines: PackedStringArray = PackedStringArray()
-	if GFVariantData.get_option_bool(
-		options,
-		"include_header",
-		true
-	):
-		var _header_appended: bool = lines.append(_join_csv_row(columns, delimiter))
-
-	var coerce_values: bool = GFVariantData.get_option_bool(
-		options,
-		"coerce_values",
-		schema != null and schema.coerce_values
-	)
-	for row: Dictionary in rows:
-		var record: Dictionary = schema.coerce_record(row) if coerce_values and schema != null else row
-		var cells: PackedStringArray = PackedStringArray()
-		for column_name: String in columns:
-			var _cell_appended: bool = cells.append(
-				_format_csv_cell(
-					GFVariantData.get_option_value(
-						record,
-						StringName(column_name),
-						""
-					),
-					delimiter
-				)
-			)
-		var _line_appended: bool = lines.append(delimiter.join(cells))
-
-	return {
-		"success": true,
-		"text": "\n".join(lines),
-		"error": "",
-	}
-
-
-# --- 私有/辅助方法 ---
-
 ## 从解析结果中读取 data。
 ## [br]
 ## @api private
@@ -798,12 +993,14 @@ static func _get_parse_row_locations(parsed: Dictionary) -> Variant:
 static func _parse_csv_rows(
 	text: String,
 	delimiter: String,
-	trim_cells: bool
+	trim_cells: bool,
+	budget: GFConfigWorkBudget
 ) -> Dictionary:
 	var rows: Array[PackedStringArray] = []
 	var row_numbers: PackedInt32Array = PackedInt32Array()
 	var row: PackedStringArray = PackedStringArray()
-	var cell: String = ""
+	var parts: PackedStringArray = PackedStringArray()
+	var segment_start: int = 0
 	var in_quotes: bool = false
 	var quote_closed: bool = false
 	var quote_start_line: int = 1
@@ -812,114 +1009,130 @@ static func _parse_csv_rows(
 	var line: int = 1
 	var column: int = 1
 	var row_start_line: int = 1
+	var delimiter_code: int = delimiter.unicode_at(0)
 
 	while index < text.length():
-		var ch: String = text.substr(index, 1)
+		if index % 1024 == 0 and not budget.consume_work(1, "CSV character scan"):
+			return {}
+		var code: int = text.unicode_at(index)
 		if in_quotes:
-			if ch == "\"":
-				if index + 1 < text.length() and text.substr(
-					index + 1,
-					1
-				) == "\"":
-					cell += "\""
+			if code == 34:
+				if not budget.consume_work(1, "CSV quoted fragment"):
+					return {}
+				var _quoted_span: bool = parts.append(
+					text.substr(
+						segment_start,
+						index - segment_start
+					)
+				)
+				if index + 1 < text.length() and text.unicode_at(index + 1) == 34:
+					var _escaped_quote: bool = parts.append("\"")
 					index += 1
+					column += 1
+					segment_start = index + 1
 				else:
 					in_quotes = false
 					quote_closed = true
-			else:
-				cell += ch
-				if ch == "\n":
-					line += 1
-					column = 0
-		else:
-			if quote_closed:
-				if ch == delimiter:
-					var _closed_delimiter_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
-					cell = ""
-					quote_closed = false
-				elif ch == "\n":
-					var _closed_newline_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
-					rows.append(row)
-					var _closed_row_number_appended: bool = row_numbers.append(row_start_line)
-					row = PackedStringArray()
-					cell = ""
-					quote_closed = false
-					line += 1
-					column = 0
-					row_start_line = line
-				elif (
-					ch == "\r"
-					or (
-						trim_cells
-						and (
-							ch == " "
-							or ch == "\t"
-						)
-					)
-				):
-					pass
-				else:
-					return {
-						"success": false,
-						"rows": rows,
-						"row_numbers": row_numbers,
-						"error": "CSV parse failed: malformed_quote",
-						"error_line": line,
-						"error_column": column,
-					}
-			elif ch == "\"":
-				if (
-					not cell.is_empty()
-					and (
-						not trim_cells
-						or not cell.strip_edges().is_empty()
-					)
-				):
-					return {
-						"success": false,
-						"rows": rows,
-						"row_numbers": row_numbers,
-						"error": "CSV parse failed: malformed_quote",
-						"error_line": line,
-						"error_column": column,
-					}
-				cell = ""
-				in_quotes = true
-				quote_start_line = line
-				quote_start_column = column
-			elif ch == delimiter:
-				var _delimiter_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
-				cell = ""
-				quote_closed = false
-			elif ch == "\n":
-				var _newline_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
+					segment_start = -1
+			elif code == 10:
+				line += 1
+				column = 0
+		elif code == delimiter_code or code == 10:
+			if not budget.consume_work(1, "CSV cell"):
+				return {}
+			var _cell_added: bool = row.append(
+				_collect_csv_cell(
+					parts,
+					text,
+					segment_start,
+					index,
+					trim_cells
+				)
+			)
+			parts = PackedStringArray()
+			segment_start = index + 1
+			quote_closed = false
+			if code == 10:
 				rows.append(row)
-				var _row_number_appended: bool = row_numbers.append(row_start_line)
+				var _row_number_added: bool = row_numbers.append(row_start_line)
 				row = PackedStringArray()
-				cell = ""
-				quote_closed = false
 				line += 1
 				column = 0
 				row_start_line = line
-			elif ch != "\r":
-				cell += ch
+		elif quote_closed:
+			if (
+				code != 13
+				and not (
+					trim_cells
+					and (
+						code == 32
+						or code == 9
+					)
+				)
+			):
+				return _make_csv_syntax_failure(
+					"malformed_quote",
+					line,
+					column
+				)
+		elif code == 34:
+			var prefix: String = _collect_csv_cell(
+				parts,
+				text,
+				segment_start,
+				index,
+				false
+			)
+			if (
+				not prefix.is_empty()
+				and (
+					not trim_cells
+					or not prefix.strip_edges().is_empty()
+				)
+			):
+				return _make_csv_syntax_failure(
+					"malformed_quote",
+					line,
+					column
+				)
+			parts = PackedStringArray()
+			segment_start = index + 1
+			in_quotes = true
+			quote_start_line = line
+			quote_start_column = column
+		elif code == 13:
+			if not budget.consume_work(1, "CSV carriage return"):
+				return {}
+			var _unquoted_span: bool = parts.append(
+				text.substr(
+					segment_start,
+					index - segment_start
+				)
+			)
+			segment_start = index + 1
 		index += 1
 		column += 1
 
 	if in_quotes:
-		return {
-			"success": false,
-			"rows": rows,
-			"row_numbers": row_numbers,
-			"error": "CSV parse failed: unclosed_quote",
-			"error_line": quote_start_line,
-			"error_column": quote_start_column,
-		}
-
-	var _final_cell_appended: bool = row.append(cell.strip_edges() if trim_cells else cell)
+		return _make_csv_syntax_failure(
+			"unclosed_quote",
+			quote_start_line,
+			quote_start_column
+		)
+	if not budget.consume_work(1, "CSV final cell"):
+		return {}
+	var _final_cell_added: bool = row.append(
+		_collect_csv_cell(
+			parts,
+			text,
+			segment_start,
+			text.length(),
+			trim_cells
+		)
+	)
 	if row.size() > 1 or not _csv_row_is_empty(row):
 		rows.append(row)
-		var _final_row_number_appended: bool = row_numbers.append(row_start_line)
+		var _final_row_number_added: bool = row_numbers.append(row_start_line)
 	return {
 		"success": true,
 		"rows": rows,
@@ -927,6 +1140,45 @@ static func _parse_csv_rows(
 		"error": "",
 		"error_line": 0,
 		"error_column": 0,
+	}
+
+
+## 在字段边界一次拼接原文片段，避免长字段逐字符扩容形成二次工作量。
+## [br]
+## @api private
+static func _collect_csv_cell(
+	parts: PackedStringArray,
+	text: String,
+	start: int,
+	end: int,
+	trim_cells: bool
+) -> String:
+	if start >= 0 and end > start:
+		var _span_added: bool = parts.append(
+			text.substr(
+				start,
+				end - start
+			)
+		)
+	var cell: String = "".join(parts)
+	return cell.strip_edges() if trim_cells else cell
+
+
+## CSV 语法失败不携带可被误当作完整输入的部分行。
+## [br]
+## @api private
+static func _make_csv_syntax_failure(
+	kind: String,
+	line: int,
+	column: int
+) -> Dictionary:
+	return {
+		"success": false,
+		"rows": [],
+		"row_numbers": PackedInt32Array(),
+		"error": "CSV parse failed: %s" % kind,
+		"error_line": line,
+		"error_column": column,
 	}
 
 
@@ -1154,7 +1406,11 @@ static func _make_tabular_parse_failure(
 ## [br]
 ## @api private
 ## [br]
-static func _parse_condition_directive(first_cell: String, directive_prefix: String) -> Dictionary:
+static func _parse_condition_directive(
+	first_cell: String,
+	directive_prefix: String,
+	budget: GFConfigWorkBudget
+) -> Dictionary:
 	var text: String = first_cell.strip_edges()
 	if directive_prefix.is_empty() or not text.begins_with(directive_prefix):
 		return { "kind": &"none" }
@@ -1167,6 +1423,11 @@ static func _parse_condition_directive(first_cell: String, directive_prefix: Str
 	if not payload.begins_with("if ") and not payload.begins_with("if\t"):
 		return { "kind": &"none" }
 
+	if not budget.consume_work(
+		payload.length(),
+		"CSV condition symbols"
+	):
+		return { "kind": &"invalid" }
 	var symbols: PackedStringArray = PackedStringArray()
 	var symbol_text: String = payload.substr(2).strip_edges().replace("\t", " ")
 	for token: String in symbol_text.split(" ", false):
@@ -1183,8 +1444,17 @@ static func _parse_condition_directive(first_cell: String, directive_prefix: Str
 ## [br]
 ## @api private
 ## [br]
-static func _condition_symbols_match(required_symbols: PackedStringArray, active_symbols: PackedStringArray) -> bool:
+static func _condition_symbols_match(
+	required_symbols: PackedStringArray,
+	active_symbols: PackedStringArray,
+	budget: GFConfigWorkBudget
+) -> bool:
 	for symbol: String in required_symbols:
+		if not budget.consume_work(
+			active_symbols.size() + 1,
+			"CSV condition comparisons"
+		):
+			return false
 		if not active_symbols.has(symbol):
 			return false
 	return true
@@ -1271,7 +1541,7 @@ static func _make_tabular_row_location(
 	return row_location
 
 
-## 复制并筛选 Variant 中的字典行数组。
+## 创建只读遍历所用的类型化行数组，保留已准入的记录引用，不重复深拷贝整张表。
 ## [br]
 ## @api private
 ## [br]
@@ -1282,7 +1552,7 @@ static func _copy_dictionary_rows(value: Variant) -> Array[Dictionary]:
 	var rows: Array = value
 	for row_value: Variant in rows:
 		if row_value is Dictionary:
-			result.append(GFVariantData.to_dictionary(row_value))
+			result.append(GFVariantData.as_dictionary(row_value))
 	return result
 
 
@@ -1375,7 +1645,7 @@ static func _make_error_report(
 ## @api private
 ## [br]
 static func _make_validation_options(options: Dictionary, parsed: Dictionary) -> Dictionary:
-	var result: Dictionary = options.duplicate(true)
+	var result: Dictionary = options.duplicate(false)
 	if parsed.has("source") and not GFVariantData.get_option_string(parsed, "source").is_empty():
 		result["source"] = _get_parse_source(parsed)
 	if parsed.has("row_locations"):
@@ -1393,17 +1663,17 @@ static func _normalize_table_rows(table_data: Variant) -> Dictionary:
 		for row_variant: Variant in table_data:
 			if not (row_variant is Dictionary):
 				return { "success": false, "rows": rows, }
-			rows.append(GFVariantData.to_dictionary(row_variant))
+			rows.append(GFVariantData.as_dictionary(row_variant))
 		return { "success": true, "rows": rows, }
 	if table_data is Dictionary:
-		var table: Dictionary = GFVariantData.to_dictionary(table_data)
+		var table: Dictionary = GFVariantData.as_dictionary(table_data)
 		var keys: Array = table.keys()
 		keys.sort()
 		for key: Variant in keys:
 			var row_variant: Variant = table[key]
 			if not (row_variant is Dictionary):
 				return { "success": false, "rows": rows, }
-			rows.append(GFVariantData.to_dictionary(row_variant))
+			rows.append(GFVariantData.as_dictionary(row_variant))
 		return { "success": true, "rows": rows, }
 	return { "success": false, "rows": rows, }
 
@@ -1415,20 +1685,33 @@ static func _normalize_table_rows(table_data: Variant) -> Dictionary:
 static func _resolve_export_columns(
 	rows: Array[Dictionary],
 	schema: GFConfigTableSchema,
-	options: Dictionary
+	options: Dictionary,
+	budget: GFConfigWorkBudget
 ) -> PackedStringArray:
 	if options.has("columns"):
 		return GFVariantData.get_option_packed_string_array(options, "columns")
 	if schema != null:
+		if not budget.consume_work(
+			schema.columns.size(),
+			"CSV schema columns"
+		):
+			return PackedStringArray()
 		var schema_columns: PackedStringArray = PackedStringArray()
 		for column: GFConfigTableColumn in schema.columns:
 			if column != null and column.get_field_key() != &"":
 				var _column_appended: bool = schema_columns.append(str(column.get_field_key()))
 		if not schema_columns.is_empty():
+			if not budget.admit_value(schema_columns, "CSV schema column names"):
+				return PackedStringArray()
 			return schema_columns
 
 	var seen: Dictionary = {}
 	for row: Dictionary in rows:
+		if not budget.consume_work(
+			row.size() + 1,
+			"CSV column discovery"
+		):
+			return PackedStringArray()
 		for key: Variant in row.keys():
 			seen[GFVariantData.to_text(key)] = true
 	var result: PackedStringArray = PackedStringArray()
@@ -1442,24 +1725,320 @@ static func _resolve_export_columns(
 ## [br]
 ## @api private
 ## [br]
-static func _join_csv_row(cells: PackedStringArray, delimiter: String) -> String:
+static func _join_csv_row(
+	cells: PackedStringArray,
+	delimiter: String,
+	budget: GFConfigWorkBudget
+) -> String:
 	var escaped: PackedStringArray = PackedStringArray()
 	for cell: String in cells:
-		var _cell_appended: bool = escaped.append(_format_csv_cell(cell, delimiter))
+		if not budget.consume_work(1, "CSV header cell"):
+			return ""
+		if not escaped.is_empty() and not budget.consume_output_bytes(
+			_utf8_codepoint_bytes(delimiter.unicode_at(0)),
+			"CSV delimiter"
+		):
+			return ""
+		var formatted: String = _format_csv_cell(
+			cell,
+			delimiter,
+			budget
+		)
+		if not budget.is_ok():
+			return ""
+		var _cell_appended: bool = escaped.append(formatted)
 	return delimiter.join(escaped)
 
 
-## 按 CSV 转义规则格式化单个单元格。
+## 在 CSV 转义扩容前计量最终 UTF-8 字节；失败由共享预算锁存，不返回部分成功文本。
 ## [br]
 ## @api private
-## [br]
-static func _format_csv_cell(value: Variant, delimiter: String) -> String:
+static func _format_csv_cell(
+	value: Variant,
+	delimiter: String,
+	budget: GFConfigWorkBudget
+) -> String:
 	var text: String = str(value)
-	var needs_quotes: bool = (
-		text.contains(delimiter)
-		or text.contains("\n")
-		or text.contains("\r")
-		or text.contains("\"")
-	)
+	var bytes: int = 0
+	var quotes: int = 0
+	var needs_quotes: bool = false
+	var delimiter_code: int = delimiter.unicode_at(0)
+	for index: int in range(text.length()):
+		if index % 1024 == 0 and not budget.consume_work(1, "CSV escaped output scan"):
+			return ""
+		var code: int = text.unicode_at(index)
+		bytes += _utf8_codepoint_bytes(code)
+		if code == 34:
+			quotes += 1
+		if (
+			code == delimiter_code
+			or code == 10
+			or code == 13
+			or code == 34
+		):
+			needs_quotes = true
+	if not budget.consume_output_bytes(
+		bytes + quotes + (2 if needs_quotes else 0),
+		"CSV escaped output"
+	):
+		return ""
 	text = text.replace("\"", "\"\"")
 	return "\"%s\"" % text if needs_quotes else text
+
+
+## 预算失败保留本次调用已解析的来源，不复制输入或交付部分结果。
+## [br]
+## @api private
+static func _make_budget_parse_failure(budget: GFConfigWorkBudget, source: String) -> Dictionary:
+	var report: Dictionary = budget.get_report()
+	return {
+		"success": false,
+		"data": null,
+		"header": PackedStringArray(),
+		"sections": PackedStringArray(),
+		"row_locations": [],
+		"error_kind": report["error_kind"],
+		"error": report["error"],
+		"error_line": 0,
+		"error_column": 0,
+		"source": source,
+		"budget_report": report,
+	}
+
+
+## 导出预算失败不泄漏已经构建的前缀文本。
+## [br]
+## @api private
+static func _make_budget_export_failure(budget: GFConfigWorkBudget) -> Dictionary:
+	var report: Dictionary = budget.get_report()
+	return {
+		"success": false,
+		"text": "",
+		"error_kind": report["error_kind"],
+		"error": report["error"],
+		"budget_report": report,
+	}
+
+
+## 预算违规使用稳定问题种类，避免被包装成普通格式解析错误。
+## [br]
+## @api private
+static func _make_budget_validation_failure(budget: GFConfigWorkBudget, schema: GFConfigTableSchema) -> Dictionary:
+	var evidence: Dictionary = budget.get_report()
+	var report: Dictionary = _make_error_report(
+		schema.get_table_key() if schema != null else &"",
+		str(evidence["error_kind"]),
+		str(evidence["error"])
+	)
+	report["budget_report"] = evidence
+	return report
+
+
+## 只浅复制已准入的选项，复用原 handle 并移除只用于创建预算的 limits。
+## [br]
+## @api private
+static func _make_budget_options(options: Dictionary, budget: GFConfigWorkBudget) -> Dictionary:
+	var shared: Dictionary = options.duplicate(false)
+	var _limits_removed: bool = shared.erase("work_limits")
+	var _named_limits_removed: bool = shared.erase(&"work_limits")
+	shared["work_budget"] = budget
+	return shared
+
+
+## 选项可包含预算 handle；其余值先准入再进入可能复制集合的读取工具。
+## [br]
+## @api private
+static func _admit_import_options(options: Dictionary, budget: GFConfigWorkBudget) -> bool:
+	if not budget.is_ok() or not budget.consume_work(
+		options.size(),
+		"import options"
+	):
+		return false
+	var values: Dictionary = {}
+	for key: Variant in options:
+		if key == "work_limits" or key == "work_budget":
+			continue
+		values[key] = options[key]
+	return budget.admit_value(values, "import options")
+
+
+## 在复制、规范化和原生解析前扫描 UTF-8 容量及文本嵌套；原生解析本身不受可抢占时间预算保护。
+## [br]
+## @api private
+static func _admit_text(
+	text: String,
+	budget: GFConfigWorkBudget,
+	context: String,
+	structured: bool = false,
+	config_file: bool = false
+) -> bool:
+	if not budget.check_input_bytes(
+		text.length(),
+		context
+	):
+		return false
+	var chunk_bytes: int = 0
+	var depth: int = 0
+	var quoted: bool = false
+	var escaped: bool = false
+	var comment: bool = false
+	for index: int in range(text.length()):
+		if index % 1024 == 0 and not budget.consume_work(1, context):
+			return false
+		var code: int = text.unicode_at(index)
+		chunk_bytes += _utf8_codepoint_bytes(code)
+		if structured:
+			if comment:
+				comment = code != 10
+			elif quoted:
+				if escaped:
+					escaped = false
+				elif code == 92:
+					escaped = true
+				elif code == 34:
+					quoted = false
+			elif code == 34:
+				quoted = true
+			elif (
+				config_file
+				and (
+					code == 59
+					or code == 35
+				)
+			):
+				comment = true
+			elif (
+				code == 91
+				or code == 123
+				or (
+					config_file
+					and code == 40
+				)
+			):
+				depth += 1
+				if not budget.check_depth(
+					depth - 1,
+					context
+				):
+					return false
+			elif (
+				code == 93
+				or code == 125
+				or (
+					config_file
+					and code == 41
+				)
+			):
+				depth = maxi(
+					depth - 1,
+					0
+				)
+		if index % 1024 == 1023:
+			if not budget.consume_input_bytes(chunk_bytes, context):
+				return false
+			chunk_bytes = 0
+	return budget.consume_input_bytes(chunk_bytes, context)
+
+
+## 计量一个 Unicode 码点的 UTF-8 长度，避免为了预检先分配完整字节副本。
+## [br]
+## @api private
+static func _utf8_codepoint_bytes(code: int) -> int:
+	if code <= 0x7f:
+		return 1
+	if code <= 0x7ff:
+		return 2
+	if code <= 0xffff:
+		return 3
+	return 4
+
+
+## 校验入口在 schema 复制与回调前按字段、规则和索引访问预留；逐元素规则继续受 schema 自身预算约束。
+## [br]
+## @api private
+static func _admit_schema_validation(
+	data: Variant,
+	schema: GFConfigTableSchema,
+	budget: GFConfigWorkBudget
+) -> bool:
+	if not budget.admit_value(data, "schema input") or not _admit_schema_definitions(schema, budget):
+		return false
+	if data is Array:
+		var rows: Array = data
+		for row: Variant in rows:
+			if not _admit_schema_record(
+				row,
+				schema,
+				budget
+			):
+				return false
+	elif data is Dictionary:
+		var keyed_rows: Dictionary = data
+		for key: Variant in keyed_rows:
+			if not _admit_schema_record(
+				keyed_rows[key],
+				schema,
+				budget
+			):
+				return false
+	return budget.is_ok()
+
+
+## 为 schema 声明与索引字段预留工作，保持单条记录与整表各自的输入根深度。
+## [br]
+## @api private
+static func _admit_schema_definitions(schema: GFConfigTableSchema, budget: GFConfigWorkBudget) -> bool:
+	if not budget.consume_work(
+		schema.columns.size() + schema.table_validation_rules.size() + schema.indexes.size(),
+		"schema definitions"
+	):
+		return false
+	for index_definition: GFConfigTableIndexDefinition in schema.indexes:
+		if index_definition != null and not budget.admit_value(index_definition.field_names, "schema index fields"):
+			return false
+	return true
+
+
+## 分批扣除每条记录的声明访问数，避免行数乘规则数溢出；缺省值在 coercion 复制前独立准入。
+## [br]
+## @api private
+static func _admit_schema_record(
+	value: Variant,
+	schema: GFConfigTableSchema,
+	budget: GFConfigWorkBudget,
+	force_coerce: bool = false
+) -> bool:
+	if not budget.consume_work(
+		1 + schema.record_validation_rules.size(),
+		"schema record"
+	):
+		return false
+	if not value is Dictionary:
+		return true
+	var record: Dictionary = value
+	for column: GFConfigTableColumn in schema.columns:
+		if not budget.consume_work(1, "schema column"):
+			return false
+		if column == null:
+			continue
+		if not budget.consume_work(
+			column.validation_rules.size() + column.element_validation_rules.size(),
+			"schema rule declarations"
+		):
+			return false
+		if (
+			(
+				schema.coerce_values
+				or force_coerce
+			)
+			and not record.has(column.get_field_key())
+			and not budget.admit_value(column.default_value, "schema default")
+		):
+			return false
+	for index_definition: GFConfigTableIndexDefinition in schema.indexes:
+		if index_definition != null and not budget.consume_work(
+			index_definition.field_names.size(),
+			"schema row index"
+		):
+			return false
+	return true

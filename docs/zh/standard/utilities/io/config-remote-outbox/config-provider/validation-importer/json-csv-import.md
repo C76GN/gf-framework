@@ -6,7 +6,38 @@
 
 `validate_json_record()` 面向 manifest、单条工具配置或内容包元数据这类 Dictionary 根节点。它复用 `GFConfigTableSchema` 的字段声明，但不会把 JSON 根节点当成表格行集合；根节点不是 JSON object 时会返回带 `expected_value` 和 `supported_formats` 的失败报告。
 
-这些直接入口接收已经驻留内存的 `String` / rows，不执行字节、行、列、单元格总数或嵌套深度预算。不要把未预检的网络、模组或其他不受信输入直接交给它们。制作期文件入口可先使用 Config Pipeline Reader 的 `max_source_file_bytes`（默认 64 MiB）限制读取；该文件预算仍不等于解析工作量预算，CSV / JSON / ConfigFile 的直接容量合同尚未确定。XLSX 另有 archive、entry、解压总量、行、列和单元格保护。
+这些直接入口接收已经驻留内存的 `String` / rows，每次调用默认创建有限的 `GFConfigWorkBudget`。文本在解析前检查输入 UTF-8 字节，数据图在复制前检查深度、循环及累计工作量；CSV 导出另外限制转义后的 UTF-8 输出。输入字符串在调用前已经占用的内存不属于这里的分配保证。制作期文件入口还应使用 Config Pipeline Reader 的文件读取预算；XLSX 保留独立的 archive、entry、解压总量、行、列和单元格保护。
+
+## 工作预算与批次
+
+`work_limits` 可以覆盖下列有限默认值。所有值必须为正整数，未知字段、错误类型、零和负数直接失败；`max_depth` 不能大于 256。
+
+| 字段 | 默认值 | 计量对象 |
+| --- | --- | --- |
+| `max_input_bytes` | 64 MiB | 累计原始文本 UTF-8 字节；直接 rows 入口按单元格 UTF-8 载荷计量 |
+| `max_depth` | 64 | 数据图嵌套深度，根值为 0 |
+| `max_work_units` | 1,000,000 | 容器、键、值、Packed 元素访问及入口显式扫描工作；PackedByteArray 每 1024 字节计一个块，向上取整；同一数据再次准入会再次计量 |
+| `max_value_bytes` | 256 MiB | 每次准入所访问 String、StringName、NodePath 的 UTF-8 字节与 Packed 数组的保守载荷字节；NodePath 包含路径及属性分隔符 |
+| `max_output_bytes` | 64 MiB | CSV 导出累计生成文本的实际 UTF-8 字节；纯解析和数据图合并不消费此额度 |
+
+独立调用互不影响。需要多个导入或合并入口共享累计额度时，显式创建句柄并传入 `work_budget`；它与 `work_limits` 互斥。句柄不能重置，首次失败后继续使用仍然失败，新批次应创建新句柄。入口内部的解析、记录转换和校验沿用同一个句柄，不在子阶段重新获得额度。
+
+```gdscript
+var budget := GFConfigWorkBudget.new({ "max_input_bytes": 1024 * 1024 })
+var first := GFConfigTableImporter.parse_json_table(first_text, {
+	"work_budget": budget,
+})
+if first["success"]:
+	var second := GFConfigTableImporter.parse_json_table(second_text, {
+		"work_budget": budget,
+	})
+	if second["success"]:
+		print(budget.get_report())
+```
+
+预算失败保留稳定错误分类与 `budget_report`，解析结果同时保留本次调用的 `source`，不截断数据后报告成功，也不返回可用的部分导入或导出结果。`get_report()` 返回副本，包含限额、使用量、首次错误和位置，不能通过修改报告恢复额度。
+
+这些预算限制可计量的数据与协作式执行，不是硬实时超时或进程内存隔离。原生 JSON / ConfigFile 解析不能被外层计时器中断；自定义规则执行时间也由规则实现负责。原生值保持类型语义，Resource 只作为叶引用准入，不递归其属性；其他 Object、Callable、Signal、RID 和容器循环会被拒绝。
 
 ## 表格预处理
 

@@ -138,52 +138,26 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"id": GFConfigPipelineReaderStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineReaderStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd",
-		"implementation_dependencies": ["res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd", "res://addons/gf/standard/foundation/variant/gf_variant_data.gd",],
 	},
 	{
 		"id": GFConfigPipelineLayoutStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineLayoutStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd",
-		"implementation_dependencies": [
-			"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd",
-			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
-			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
-		],
 	},
 	{
 		"id": GFConfigPipelineValidationStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineValidationStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd",
-		"implementation_dependencies": [
-			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
-			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_table_column.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
-			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
-		],
 	},
 	{
 		"id": GFConfigPipelineTargetStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineTargetStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd",
-		"implementation_dependencies": [
-			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_ir.gd",
-			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_database_resource.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_table_resource.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_reference_resolver.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_table_reference.gd",
-			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
-			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
-		],
 	},
 	{
 		"id": GFConfigPipelineCommitStage.STAGE_ID,
 		"implementation_version": GFConfigPipelineCommitStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd",
-		"implementation_dependencies": ["res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd",],
 	},
 	{
 		"id": "artifact_manifest",
@@ -957,25 +931,36 @@ func _make_compiler_fingerprint(
 	budget_state: Dictionary
 ) -> Dictionary:
 	var stage_definitions: Array[Dictionary] = []
-	var use_configured_stages: bool = not _compiler_stage_descriptors.is_empty()
-	if use_configured_stages and _compiler_stage_descriptors.size() != _PIPELINE_STAGE_IDS.size():
+	var stage_descriptors: Array[Dictionary] = _compiler_stage_descriptors
+	var use_builtin_stages: bool = stage_descriptors.is_empty()
+	if use_builtin_stages:
+		# 默认检查与实际编译使用同一描述器，依赖清单不在 manifest 中维护副本。
+		stage_descriptors = [
+			GFConfigPipelineReaderStage.new().get_stage_descriptor(),
+			GFConfigPipelineLayoutStage.new().get_stage_descriptor(),
+			GFConfigPipelineValidationStage.new().get_stage_descriptor(),
+			GFConfigPipelineTargetStage.new().get_stage_descriptor(),
+			GFConfigPipelineCommitStage.new().get_stage_descriptor(),
+		]
+	var valid_stage_descriptors: bool = true
+	if stage_descriptors.size() != _PIPELINE_STAGE_IDS.size():
 		_set_digest_budget_failure(
 			budget_state,
 			"freshness_compiler_stage_contract_invalid",
 			"配置编译阶段描述数量无效：%d != %d。"
-			% [_compiler_stage_descriptors.size(), _PIPELINE_STAGE_IDS.size(),]
+			% [stage_descriptors.size(), _PIPELINE_STAGE_IDS.size(),]
 		)
-		use_configured_stages = false
+		valid_stage_descriptors = false
 	for definition: Dictionary in _COMPILER_STAGE_DEFINITIONS:
 		var definition_id: String = GFVariantData.get_option_string(definition, "id")
 		var configured_index: int = _PIPELINE_STAGE_IDS.find(definition_id)
-		if use_configured_stages and configured_index >= 0:
-			var descriptor: Dictionary = _compiler_stage_descriptors[configured_index]
+		if valid_stage_descriptors and configured_index >= 0:
+			var descriptor: Dictionary = stage_descriptors[configured_index]
 			stage_definitions.append(
 				{
 					"id": GFVariantData.get_option_string(descriptor, "stage_id"),
 					"implementation_version": GFVariantData.get_option_int(descriptor, "implementation_version"),
-					"path": GFVariantData.get_option_string(descriptor, "implementation_path"),
+					"path": GFVariantData.get_option_string(definition, "path") if use_builtin_stages else GFVariantData.get_option_string(descriptor, "implementation_path"),
 					"implementation_dependencies": GFVariantData.get_option_packed_string_array(descriptor, "implementation_dependencies"),
 				}
 			)

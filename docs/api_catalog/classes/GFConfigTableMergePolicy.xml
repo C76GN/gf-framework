@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableMergePolicy" path="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" module="standard" extends="Resource" classDigest="ca8d97238f61ed34f65408c8fa0e973468ef328afff45da22c0c8ef3d4ae245d">
+<class name="GFConfigTableMergePolicy" path="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" module="standard" extends="Resource" classDigest="40ade4a13013f48e44f84c68f178b916832d19775665ccaf12d6d349d3fe9545">
 	<description>GFConfigTableMergePolicy: 配置表补丁合并策略。
 描述如何识别记录、覆盖记录和处理删除标记。它只定义通用合并规则，
 不绑定热更、模组、DLC 或任意项目业务语义。</description>
@@ -93,39 +93,47 @@
 	</properties>
 	<methods>
 		<member kind="method" name="is_delete_record">
-			<signature>func is_delete_record(record: Dictionary) -&gt; bool:</signature>
+			<signature>func is_delete_record(record: Dictionary, options: Dictionary = {}) -&gt; bool:</signature>
 			<description>检查记录是否带有删除标记。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">record: 记录。</tag>
-				<tag name="return">带有删除标记时返回 true。</tag>
+				<tag name="param">options: 与合并操作共享的预算选项。</tag>
+				<tag name="return">带有删除标记时返回 true；未命中或预算失败均返回 false。直接调用时应传入共享 work_budget，并通过句柄的 is_ok()、get_report() 区分预算失败。</tag>
 				<tag name="schema">record: Dictionary，用于检查删除标记字段的配置记录。</tag>
+				<tag name="schema">options: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_record_key">
-			<signature>func make_record_key(record: Dictionary, outer_key: Variant = null) -&gt; String:</signature>
+			<signature>func make_record_key( record: Dictionary, outer_key: Variant = null, options: Dictionary = {} ) -&gt; String:</signature>
 			<description>根据记录生成稳定合并键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">record: 记录。</tag>
 				<tag name="param">outer_key: Dictionary 表外层 key。</tag>
-				<tag name="return">合并键，字段缺失时返回空字符串。</tag>
+				<tag name="param">options: 与合并操作共享的预算选项。</tag>
+				<tag name="return">合并键；字段缺失、不是 String、StringName、int、bool、有限 float 或预算失败时返回空字符串。直接调用时应传入共享 work_budget，并通过句柄的 is_ok()、get_report() 区分预算失败。</tag>
 				<tag name="schema">record: Dictionary，用于构建合并键的配置记录。</tag>
 				<tag name="schema">outer_key: Variant，key_fields 为空时用于构建合并键的外层 key。</tag>
+				<tag name="schema">options: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge_record">
-			<signature>func merge_record(base_record: Dictionary, patch_record: Dictionary) -&gt; Dictionary:</signature>
+			<signature>func merge_record( base_record: Dictionary, patch_record: Dictionary, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>合并两条记录。
-MERGE_FIELDS 会递归复制并合并嵌套 Dictionary；当前入口不执行深度或节点预算，只应接收已通过项目容量预检的配置记录。</description>
+MERGE_FIELDS 递归合并嵌套 Dictionary；输入与最终复制均由同一有限预算准入。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_record: 原始记录。</tag>
 				<tag name="param">patch_record: 补丁记录。</tag>
-				<tag name="return">合并后的记录。</tag>
+				<tag name="param">options: 新预算限额或已有批次预算。</tag>
+				<tag name="return">明确区分合法空记录与失败的结果报告。</tag>
+				<tag name="schema">options: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。</tag>
 				<tag name="schema">base_record: Dictionary，原始记录。</tag>
 				<tag name="schema">patch_record: Dictionary，补丁记录。</tag>
-				<tag name="schema">return: Dictionary，合并后的记录。</tag>
+				<tag name="schema">return: Dictionary，含 ok、data、error_kind、error、context、budget_report；成功 data 为独立记录，失败为 null。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

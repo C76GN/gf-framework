@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="d73b41b3177f93e0aae432d20406e4f04ba272e7174a1b7e3c505f3bc3c86312">
+<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="4ba233a9bd33abc855cf7659871857da152a633ee012fc5a4f1a401a17c029dc">
 	<description>GFConfigPipelineProfile: 配置导表工具的批量构建声明。
 描述一组表来源、数据库标识、输出路径和构建选项，供编辑器工具、CI 或项目脚本复用。
 该资源属于可选 tool package，只表达制作期或 CI 期通用导表任务，不规定项目目录结构、业务字段语义或发布流程。</description>
@@ -82,7 +82,7 @@
 			<description>传给 GFConfigPipeline.build_database() 的构建选项。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">build_options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
+				<tag name="schema">build_options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes 和 work_limits。work_limits 是 GFConfigWorkBudget 的有限限额；Profile 不持有 work_budget，每次构建创建新会话。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -122,7 +122,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">overrides: 本次构建的覆盖选项；build_options 子字典和直接字段都会覆盖 Profile 默认值。</tag>
 				<tag name="return">传给 GFConfigPipeline.build_database() 的选项。</tag>
-				<tag name="schema">overrides: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；三个预算直接覆盖 Profile 同名构建选项。</tag>
+				<tag name="schema">overrides: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes、max_xlsx_file_bytes 和 work_limits；直接字段覆盖 Profile 同名选项。work_limits 由 Pipeline 在复制前解析为本次新会话，parse_options 不得设置预算。</tag>
 				<tag name="schema">return: Dictionary，包含合成后的构建选项。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>

@@ -96,8 +96,8 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 
 结构：
 
-- `options`: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
-- `return`: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。
+- `options`: Dictionary，可包含 parse_options、rebuild_indexes、work_limits 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次顶层构建新建会话；不接受顶层 work_budget 或解析选项内预算。max_validation_cells 的 -1 只取消附加单元格限额，不取消总预算。
+- `return`: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt、error 和 budget_report；预算失败保留 error_kind，table 和 ir 均为空。
 
 <a id="member-gfconfigpipeline-methods-build_table_from_text"></a>
 
@@ -110,7 +110,7 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -> Dictionary:
 ```
 
-从文本构建单表资源。
+从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。
 
 参数：
 
@@ -124,8 +124,8 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 
 结构：
 
-- `options`: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
-- `return`: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
+- `options`: Dictionary，可包含 parse_options、rebuild_indexes、work_limits 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次顶层构建新建会话；不接受顶层 work_budget 或解析选项内预算。max_validation_cells 的 -1 只取消附加单元格限额，不取消总预算。
+- `return`: Dictionary，包含 success、table、ir、report、source_path、format、error 和 budget_report；预算失败保留 error_kind，table 和 ir 均为空。
 
 <a id="member-gfconfigpipeline-methods-build_database"></a>
 
@@ -152,8 +152,8 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `sources`: Array[GFConfigPipelineTableSource]。
-- `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells；max_validation_cells 默认 -1 不限制，非负整数约束本批实际布局记录的累计字段数，在语义校验前拒绝超限且不截断记录。
-- `return`: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
+- `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次构建新建会话且整批共享；不接受顶层 work_budget 或解析选项内预算。其他局部限额的无限值不取消总预算。
+- `return`: Dictionary，包含 success、database、ir、report、table_results、error 和 budget_report；任一表失败时 database 和 ir 均为空，table_results 只保留诊断和来源收据。预算失败立即终止并保留 error_kind。
 
 <a id="member-gfconfigpipeline-methods-build_profile"></a>
 
@@ -180,8 +180,8 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；自 unreleased 起支持实际布局记录累计字段预算 max_validation_cells，默认 -1 不限制。
-- `return`: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
+- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。
+- `return`: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。
 
 <a id="member-gfconfigpipeline-methods-export_profile"></a>
 

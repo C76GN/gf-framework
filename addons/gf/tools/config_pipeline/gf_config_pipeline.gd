@@ -199,17 +199,24 @@ func get_stage_descriptors() -> Array[Dictionary]:
 ## [br]
 ## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
+## @schema options: Dictionary，可包含 parse_options、rebuild_indexes、work_limits 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次顶层构建新建会话；不接受顶层 work_budget 或解析选项内预算。max_validation_cells 的 -1 只取消附加单元格限额，不取消总预算。
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。
+## @schema return: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt、error 和 budget_report；预算失败保留 error_kind，table 和 ir 均为空。
 func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
-	var compile_result: Dictionary = _compile_table(source, options)
-	return _materialize_table_compile_result(compile_result, options)
+	var session_options: Dictionary = _make_build_session(options)
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(session_options)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
+	var compile_result: Dictionary = _compile_table(source, session_options)
+	var result: Dictionary = _materialize_table_compile_result(compile_result, session_options)
+	if GFVariantData.get_option_dictionary(result, "budget_report").is_empty():
+		result["budget_report"] = budget.get_report()
+	return result
 
 
-## 从文本构建单表资源。
+## 从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。
 ## [br]
 ## @api public
 ## [br]
@@ -221,22 +228,32 @@ func build_table(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 ## [br]
 ## @param options: 可选构建选项，支持 parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 parse_options、rebuild_indexes、max_validation_cells（-1 不限制，非负整数限制实际布局记录的累计字段数；在语义校验前拒绝且不截断）。
+## @schema options: Dictionary，可包含 parse_options、rebuild_indexes、work_limits 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次顶层构建新建会话；不接受顶层 work_budget 或解析选项内预算。max_validation_cells 的 -1 只取消附加单元格限额，不取消总预算。
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、table、ir、report、source_path、format 和 error。
+## @schema return: Dictionary，包含 success、table、ir、report、source_path、format、error 和 budget_report；预算失败保留 error_kind，table 和 ir 均为空。
 func build_table_from_text(
 	source: GFConfigPipelineTableSource,
 	text: String,
 	options: Dictionary = {}
 ) -> Dictionary:
+	var session_options: Dictionary = _make_build_session(options)
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(session_options)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
 	if source == null:
 		return _make_table_failure(
 			&"",
 			"invalid_table_source",
 			"表来源声明为空。"
 		)
+	var source_failure: Dictionary = _admit_source_options(source, session_options)
+	if not source_failure.is_empty():
+		return source_failure
+	var size_bytes: int = _measure_text_input_bytes(text, budget)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
 	var resolved_format: StringName = source.get_resolved_format()
 	var read_result: Dictionary = {
 		"success": true,
@@ -245,7 +262,7 @@ func build_table_from_text(
 		"format": resolved_format,
 		"payload_kind": "text",
 		"text": text,
-		"size_bytes": text.to_utf8_buffer().size(),
+		"size_bytes": size_bytes,
 		"error_code": OK,
 		"error_kind": "",
 		"error": "",
@@ -254,9 +271,12 @@ func build_table_from_text(
 	var compile_result: Dictionary = _compile_table_from_reader_result(
 		source,
 		read_result,
-		options
+		session_options
 	)
-	return _materialize_table_compile_result(compile_result, options)
+	var result: Dictionary = _materialize_table_compile_result(compile_result, session_options)
+	if GFVariantData.get_option_dictionary(result, "budget_report").is_empty():
+		result["budget_report"] = budget.get_report()
+	return result
 
 
 ## 从一组来源文件构建配置数据库资源。
@@ -271,157 +291,17 @@ func build_table_from_text(
 ## [br]
 ## @param options: 可选构建选项，支持 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells；max_validation_cells 默认 -1 不限制，非负整数约束本批实际布局记录的累计字段数，在语义校验前拒绝超限且不截断记录。
+## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次构建新建会话且整批共享；不接受顶层 work_budget 或解析选项内预算。其他局部限额的无限值不取消总预算。
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
+## @schema return: Dictionary，包含 success、database、ir、report、table_results、error 和 budget_report；任一表失败时 database 和 ir 均为空，table_results 只保留诊断和来源收据。预算失败立即终止并保留 error_kind。
 func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
-	var compilation_ir: GFConfigPipelineIR = GFConfigPipelineIR.create(
-		GFVariantData.get_option_string_name(
-			options,
-			"database_id",
-			&""
-		),
-		GFVariantData.get_option_string(options, "version"),
-		GFVariantData.get_option_dictionary(options, "metadata")
-	)
-	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
-	database.database_id = compilation_ir.get_database_id()
-	database.version = compilation_ir.get_version()
-	database.metadata = compilation_ir.get_metadata()
-
-	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
-	var report: Dictionary = report_builder.make_report(database.database_id)
-	var table_results: Array[Dictionary] = []
-	var registered_table_keys: Dictionary = {}
-	var all_tables_succeeded: bool = true
-	var validation_budget: Dictionary = {}
-	if sources.is_empty():
-		var _empty_ir_seal_result: Dictionary = compilation_ir.seal()
-		report_builder.add_issue(
-			report,
-			"error",
-			"empty_table_sources",
-			database.database_id,
-			null,
-			&"sources",
-			"配置数据库没有表来源。",
-			{}
-		)
-		report_builder.finalize_report(report)
-		return {
-			"success": false,
-			"database": database,
-			"ir": compilation_ir,
-			"report": report,
-			"table_results": table_results,
-			"error": "配置数据库没有表来源。",
-		}
-
-	for source_value: Variant in sources:
-		if not (source_value is GFConfigPipelineTableSource):
-			var invalid_source_result: Dictionary = _make_table_failure(
-				&"",
-				"invalid_table_source",
-				"表来源声明必须是 GFConfigPipelineTableSource。"
-			)
-			table_results.append(_duplicate_result_dictionary(invalid_source_result))
-			report_builder.merge_report(
-				report,
-				GFVariantData.get_option_dictionary(invalid_source_result, "report"),
-				true
-			)
-			all_tables_succeeded = false
-			continue
-
-		var source: GFConfigPipelineTableSource = source_value
-		var table_result: Dictionary = _compile_table(
-			source,
-			options,
-			validation_budget
-		)
-		table_results.append(_duplicate_result_dictionary(table_result))
-		report_builder.merge_report(
-			report,
-			GFVariantData.get_option_dictionary(table_result, "report"),
-			true
-		)
-		if GFVariantData.get_option_bool(table_result, "success"):
-			var table_ir: GFConfigPipelineTableIR = _get_table_ir_from_result(table_result)
-			if table_ir == null:
-				all_tables_succeeded = false
-				continue
-			var table_key: StringName = table_ir.get_table_name()
-			if registered_table_keys.has(table_key):
-				report_builder.add_issue(
-					report,
-					"error",
-					"duplicate_table_source",
-					database.database_id,
-					null,
-					&"sources",
-					"配置数据库有重复表来源：%s。" % String(table_key),
-					{ "table_name": table_key }
-				)
-				all_tables_succeeded = false
-				continue
-
-			registered_table_keys[table_key] = true
-			var add_result: Dictionary = compilation_ir.add_table(table_ir)
-			if not GFVariantData.get_option_bool(add_result, "success"):
-				report_builder.add_issue(
-					report,
-					"error",
-					"table_registration_failed",
-					database.database_id,
-					null,
-					&"sources",
-					GFVariantData.get_option_string(add_result, "error"),
-					{ "table_name": table_key }
-				)
-				all_tables_succeeded = false
-		else:
-			all_tables_succeeded = false
-
-	var seal_result: Dictionary = compilation_ir.seal()
-	if not GFVariantData.get_option_bool(seal_result, "success"):
-		report_builder.add_issue(
-			report,
-			"error",
-			"pipeline_ir_seal_failed",
-			database.database_id,
-			null,
-			&"ir",
-			GFVariantData.get_option_string(seal_result, "error"),
-			{}
-		)
-		all_tables_succeeded = false
-	var target_result: Dictionary = _target_stage.materialize_database(compilation_ir, options)
-	var target_database: GFConfigDatabaseResource = _get_database_from_result(target_result)
-	if target_database != null:
-		database = target_database
-	else:
-		all_tables_succeeded = false
-	var database_report: Dictionary = GFVariantData.get_option_dictionary(target_result, "report")
-	if not database_report.is_empty():
-		report_builder.merge_report(
-			report,
-			database_report,
-			false
-		)
-	if not GFVariantData.get_option_bool(target_result, "success"):
-		all_tables_succeeded = false
-
-	report_builder.finalize_report(report)
-	return {
-		"success": all_tables_succeeded and GFVariantData.get_option_bool(report, "ok"),
-		"database": database,
-		"ir": compilation_ir,
-		"report": report,
-		"table_results": table_results,
-		"error": GFVariantData.get_option_string(target_result, "error"),
-	}
+	var session_options: Dictionary = _make_build_session(options)
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(session_options)
+	if not budget.is_ok():
+		return _make_database_work_failure(budget)
+	return _build_database(sources, session_options)
 
 
 ## 从导表 Profile 构建配置数据库资源。
@@ -436,32 +316,13 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。
 ## [br]
-## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；自 unreleased 起支持实际布局记录累计字段预算 max_validation_cells，默认 -1 不限制。
+## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。
+## @schema return: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。
 func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
-	if profile == null:
-		return _make_profile_failure(
-			&"",
-			"invalid_pipeline_profile",
-			"导表 Profile 为空。"
-		)
-
-	var profile_id: StringName = profile.profile_id
-	if profile.sources.is_empty():
-		return _make_profile_failure(
-			profile_id,
-			"empty_pipeline_sources",
-			"导表 Profile 没有配置表来源。"
-		)
-
-	var build_options: Dictionary = profile.make_build_options(options)
-	var build_result: Dictionary = build_database(profile.sources, build_options)
-	build_result["profile_id"] = profile_id
-	build_result["output_path"] = profile.resolve_output_path(options)
-	return build_result
+	return _build_profile(profile, options)
 
 
 ## 从导表 Profile 构建并保存配置数据库资源。
@@ -482,8 +343,12 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
-	var effective_options: Dictionary = options.duplicate(true)
-	var build_result: Dictionary = build_profile(profile, effective_options)
+	var effective_options: Dictionary = options.duplicate(false)
+	var build_result: Dictionary = _build_profile(
+		profile,
+		effective_options,
+		true
+	)
 	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
 	var output_path: String = GFVariantData.get_option_string(build_result, "output_path")
 	if not GFVariantData.get_option_bool(build_result, "success"):
@@ -1346,6 +1211,391 @@ func generate_access(
 
 # --- 私有/辅助方法 ---
 
+## 顶层调用只接受限额，创建新会话并在任何深复制前准入选项；阶段间只传递该句柄。
+## [br]
+## @api private
+func _make_build_session(options: Dictionary) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options if not options.has("work_budget") else { "work_budget": null })
+	if budget.is_ok() and _has_parse_budget_override(options):
+		budget = GFConfigWorkBudget.from_options({ "work_budget": null })
+	if not budget.admit_value(options, "pipeline.options"):
+		return { "work_budget": budget }
+	var session_options: Dictionary = options.duplicate(false)
+	var _limits_removed: bool = session_options.erase("work_limits")
+	session_options["work_budget"] = budget
+	return session_options
+
+
+## 按 UTF-8 码点宽度分块计算文本大小；只检查输入容量，后续解析器负责实际扣除输入额度。
+## [br]
+## @api private
+func _measure_text_input_bytes(text: String, budget: GFConfigWorkBudget) -> int:
+	if not budget.check_input_bytes(
+		text.length(),
+		"pipeline.text_size"
+	):
+		return 0
+	var size_bytes: int = 0
+	for index: int in range(text.length()):
+		if index % 1024 == 0 and not budget.consume_work(1, "pipeline.text_size"):
+			return 0
+		var code: int = text.unicode_at(index)
+		if code <= 0x7f:
+			size_bytes += 1
+		elif code <= 0x7ff:
+			size_bytes += 2
+		elif code <= 0xffff:
+			size_bytes += 3
+		else:
+			size_bytes += 4
+		if index % 1024 == 1023 and not budget.check_input_bytes(size_bytes, "pipeline.text_size"):
+			return 0
+	if not budget.check_input_bytes(size_bytes, "pipeline.text_size"):
+		return 0
+	return size_bytes
+
+
+## 构建与导出共享一个新会话；导出专用选项只在导出路径进入复制前准入。
+## [br]
+## @api private
+func _build_profile(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	include_export_options: bool = false
+) -> Dictionary:
+	if profile == null:
+		return _make_profile_failure(
+			&"",
+			"invalid_pipeline_profile",
+			"导表 Profile 为空。"
+		)
+	var profile_id: StringName = profile.profile_id
+	if profile.sources.is_empty():
+		return _make_profile_failure(
+			profile_id,
+			"empty_pipeline_sources",
+			"导表 Profile 没有配置表来源。"
+		)
+	var build_options: Dictionary = _make_profile_build_session(
+		profile,
+		options,
+		include_export_options
+	)
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(build_options)
+	var build_result: Dictionary = (_build_database(profile.sources, build_options) if budget.is_ok() else _make_database_work_failure(budget))
+	build_result["profile_id"] = profile_id
+	build_result["output_path"] = profile.resolve_output_path(options)
+	return build_result
+
+
+## 先解析有限限额并准入本次操作的可复制字段，再合成选项；嵌套构建复用同一会话。
+## [br]
+## @api private
+func _make_profile_build_session(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	include_export_options: bool
+) -> Dictionary:
+	var limits: Dictionary = {}
+	var option_layers: Array[Dictionary] = [
+		profile.build_options,
+		GFVariantData.get_option_dictionary(options, "build_options"),
+		options,
+	]
+	for layer: Dictionary in option_layers:
+		if layer.has("work_budget") or _has_parse_budget_override(layer):
+			return {
+				"work_budget": GFConfigWorkBudget.from_options({ "work_budget": null }),
+			}
+		if layer.has("work_limits"):
+			var limit_check: GFConfigWorkBudget = GFConfigWorkBudget.from_options({ "work_limits": layer["work_limits"] })
+			if not limit_check.is_ok():
+				return { "work_budget": limit_check }
+			limits.merge(
+				GFVariantData.get_option_dictionary(layer, "work_limits"),
+				true
+			)
+	# 与 make_build_options 一致：嵌套选项按维合并，直接字段整体替换。
+	if options.has("work_limits"):
+		limits = GFVariantData.get_option_dictionary(options, "work_limits")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new(limits)
+	var admitted_options: Dictionary = options
+	if not include_export_options:
+		if not budget.consume_work(
+			options.size(),
+			"pipeline.profile_option_filter"
+		):
+			return { "work_budget": budget }
+		admitted_options = options.duplicate(false)
+		var _save_removed: bool = admitted_options.erase("save_options")
+		var _access_removed: bool = admitted_options.erase("access_options")
+	if not budget.admit_value(
+		[
+			admitted_options,
+			profile.build_options,
+			profile.metadata,
+		],
+		"pipeline.profile_options"
+	):
+		return { "work_budget": budget }
+	if include_export_options and not budget.admit_value(
+		[profile.save_options, profile.access_options],
+		"pipeline.profile_export_options"
+	):
+		return { "work_budget": budget }
+	var build_options: Dictionary = profile.make_build_options(options)
+	var _limits_removed: bool = build_options.erase("work_limits")
+	build_options["work_budget"] = budget
+	return build_options
+
+
+## 来源选项不能另起预算；Resource 值仅作为叶引用准入，不读取其中属性。
+## [br]
+## @api private
+func _admit_source_options(source: GFConfigPipelineTableSource, options: Dictionary) -> Dictionary:
+	if source == null:
+		return _make_table_failure(
+			&"",
+			"invalid_table_source",
+			"表来源声明为空。"
+		)
+	if source.parse_options.has("work_limits") or source.parse_options.has("work_budget"):
+		return _make_work_failure(
+			source,
+			GFConfigWorkBudget.from_options({ "work_budget": null })
+		)
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not budget.admit_value(
+		[
+			source.parse_options,
+			source.schema_options,
+			source.metadata,
+			source.schema,
+		],
+		"pipeline.source_options"
+	):
+		return _make_work_failure(source, budget)
+	return {}
+
+
+## 解析选项只声明格式行为，不允许覆盖流水线总预算。
+## [br]
+## @api private
+func _has_parse_budget_override(options: Dictionary) -> bool:
+	var parse_options: Dictionary = GFVariantData.get_option_dictionary(options, "parse_options")
+	return parse_options.has("work_limits") or parse_options.has("work_budget")
+
+
+## 预算失败只交付固定形状的诊断，不附带尚可消费的表或 IR。
+## [br]
+## @api private
+func _make_work_failure(source: GFConfigPipelineTableSource, budget: GFConfigWorkBudget) -> Dictionary:
+	var budget_report: Dictionary = budget.get_report()
+	var result: Dictionary = _make_table_failure(
+		source.get_table_key() if source != null else &"",
+		GFVariantData.get_option_string(budget_report, "error_kind"),
+		GFVariantData.get_option_string(budget_report, "error"),
+		{ "source": source.source_path if source != null else "", "budget_report": budget_report }
+	)
+	result["ir"] = null
+	result["error_kind"] = GFVariantData.get_option_string(budget_report, "error_kind")
+	result["budget_report"] = budget_report
+	return result
+
+
+## 构建开始前的预算失败没有部分数据库或表结果。
+## [br]
+## @api private
+func _make_database_work_failure(budget: GFConfigWorkBudget) -> Dictionary:
+	var result: Dictionary = _make_work_failure(null, budget)
+	var _table_removed: bool = result.erase("table")
+	result["database"] = null
+	result["table_results"] = []
+	return result
+
+
+## 同批来源共享一个已准入的构建会话，只在整批成功后交付数据库及 IR。
+## [br]
+## @api private
+func _build_database(sources: Array, options: Dictionary) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not budget.admit_value(sources, "pipeline.sources"):
+		return _make_database_work_failure(budget)
+	var compilation_ir: GFConfigPipelineIR = GFConfigPipelineIR.create(
+		GFVariantData.get_option_string_name(
+			options,
+			"database_id",
+			&""
+		),
+		GFVariantData.get_option_string(options, "version"),
+		GFVariantData.get_option_dictionary(options, "metadata")
+	)
+	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
+	database.database_id = compilation_ir.get_database_id()
+	database.version = compilation_ir.get_version()
+	database.metadata = compilation_ir.get_metadata()
+
+	var report_builder: GFConfigValidationReport = GFConfigValidationReport.new()
+	var report: Dictionary = report_builder.make_report(database.database_id)
+	var table_results: Array[Dictionary] = []
+	var registered_table_keys: Dictionary = {}
+	var all_tables_succeeded: bool = true
+	var validation_budget: Dictionary = {}
+	if sources.is_empty():
+		var _empty_ir_seal_result: Dictionary = compilation_ir.seal()
+		report_builder.add_issue(
+			report,
+			"error",
+			"empty_table_sources",
+			database.database_id,
+			null,
+			&"sources",
+			"配置数据库没有表来源。",
+			{}
+		)
+		report_builder.finalize_report(report)
+		return {
+			"success": false,
+			"database": null,
+			"ir": null,
+			"report": report,
+			"table_results": table_results,
+			"error": "配置数据库没有表来源。",
+		}
+
+	for source_value: Variant in sources:
+		if not (source_value is GFConfigPipelineTableSource):
+			var invalid_source_result: Dictionary = _make_table_failure(
+				&"",
+				"invalid_table_source",
+				"表来源声明必须是 GFConfigPipelineTableSource。"
+			)
+			table_results.append(_duplicate_result_dictionary(invalid_source_result))
+			report_builder.merge_report(
+				report,
+				GFVariantData.get_option_dictionary(invalid_source_result, "report"),
+				true
+			)
+			all_tables_succeeded = false
+			continue
+
+		var source: GFConfigPipelineTableSource = source_value
+		var table_result: Dictionary = _compile_table(
+			source,
+			options,
+			validation_budget
+		)
+		table_results.append(_duplicate_result_dictionary(table_result))
+		report_builder.merge_report(
+			report,
+			GFVariantData.get_option_dictionary(table_result, "report"),
+			true
+		)
+		if GFVariantData.get_option_bool(table_result, "success"):
+			var table_ir: GFConfigPipelineTableIR = _get_table_ir_from_result(table_result)
+			if table_ir == null:
+				all_tables_succeeded = false
+				continue
+			var table_key: StringName = table_ir.get_table_name()
+			if registered_table_keys.has(table_key):
+				report_builder.add_issue(
+					report,
+					"error",
+					"duplicate_table_source",
+					database.database_id,
+					null,
+					&"sources",
+					"配置数据库有重复表来源：%s。" % String(table_key),
+					{ "table_name": table_key }
+				)
+				all_tables_succeeded = false
+				continue
+
+			registered_table_keys[table_key] = true
+			var add_result: Dictionary = compilation_ir.add_table(table_ir)
+			if not GFVariantData.get_option_bool(add_result, "success"):
+				report_builder.add_issue(
+					report,
+					"error",
+					"table_registration_failed",
+					database.database_id,
+					null,
+					&"sources",
+					GFVariantData.get_option_string(add_result, "error"),
+					{ "table_name": table_key }
+				)
+				all_tables_succeeded = false
+		else:
+			all_tables_succeeded = false
+		if not budget.is_ok() or GFVariantData.get_option_string(table_result, "error_kind").begins_with("config_work_"):
+			report_builder.finalize_report(report)
+			return {
+				"success": false,
+				"database": null,
+				"ir": null,
+				"report": report,
+				"table_results": table_results,
+				"error_kind": GFVariantData.get_option_string(table_result, "error_kind"),
+				"error": GFVariantData.get_option_string(table_result, "error"),
+				"budget_report": table_result.get(
+					"budget_report",
+					budget.get_report()
+				),
+			}
+
+	if not all_tables_succeeded:
+		report_builder.finalize_report(report)
+		return {
+			"success": false,
+			"database": null,
+			"ir": null,
+			"report": report,
+			"table_results": table_results,
+			"error": "配置数据库有表构建失败。",
+			"budget_report": budget.get_report(),
+		}
+
+	var seal_result: Dictionary = compilation_ir.seal()
+	if not GFVariantData.get_option_bool(seal_result, "success"):
+		report_builder.add_issue(
+			report,
+			"error",
+			"pipeline_ir_seal_failed",
+			database.database_id,
+			null,
+			&"ir",
+			GFVariantData.get_option_string(seal_result, "error"),
+			{}
+		)
+		all_tables_succeeded = false
+	var target_result: Dictionary = _target_stage.materialize_database(compilation_ir, options)
+	var target_database: GFConfigDatabaseResource = _get_database_from_result(target_result)
+	if target_database != null:
+		database = target_database
+	else:
+		all_tables_succeeded = false
+	var database_report: Dictionary = GFVariantData.get_option_dictionary(target_result, "report")
+	if not database_report.is_empty():
+		report_builder.merge_report(
+			report,
+			database_report,
+			false
+		)
+	if not GFVariantData.get_option_bool(target_result, "success"):
+		all_tables_succeeded = false
+
+	report_builder.finalize_report(report)
+	return {
+		"success": all_tables_succeeded and GFVariantData.get_option_bool(report, "ok"),
+		"database": database if all_tables_succeeded and GFVariantData.get_option_bool(report, "ok") else null,
+		"ir": compilation_ir if all_tables_succeeded and GFVariantData.get_option_bool(report, "ok") else null,
+		"report": report,
+		"table_results": table_results,
+		"error": GFVariantData.get_option_string(target_result, "error"),
+		"budget_report": budget.get_report(),
+	}
+
+
 ## 通过 Reader 读取来源，再把原始读取结果交给统一的布局及校验链路，保持来源收据随编译结果传递。
 ## [br]
 ## @api private
@@ -1354,13 +1604,20 @@ func _compile_table(
 	options: Dictionary,
 	validation_budget: Dictionary = {}
 ) -> Dictionary:
+	var source_failure: Dictionary = _admit_source_options(source, options)
+	if not source_failure.is_empty():
+		return source_failure
 	var read_result: Dictionary = _reader_stage.read_source(source, options)
-	return _compile_table_from_reader_result(
+	var compile_result: Dictionary = _compile_table_from_reader_result(
 		source,
 		read_result,
 		options,
 		validation_budget
 	)
+	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(read_result, "source_receipt")
+	if not source_receipt.is_empty():
+		compile_result["source_receipt"] = source_receipt.duplicate(true)
+	return compile_result
 
 
 ## 在 descriptor 副本缺少 implementation_path 时从 stage Script 路径补入该字段。
@@ -1380,7 +1637,7 @@ func _with_stage_implementation_path(descriptor: Dictionary, stage: Object) -> D
 	return result
 
 
-## 依次执行布局解码和表校验，由各阶段解释前一阶段失败；非空读取收据深复制到最终编译结果，避免共享收据容器。
+## 依次执行布局解码和表校验，由各阶段解释前一阶段失败；来源收据由读取调用方统一附加。
 ## [br]
 ## @api private
 func _compile_table_from_reader_result(
@@ -1389,12 +1646,19 @@ func _compile_table_from_reader_result(
 	options: Dictionary,
 	validation_budget: Dictionary = {}
 ) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
 	var layout_result: Dictionary = _layout_stage.decode_source(
 		source,
 		read_result,
 		options
 	)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
 	if GFVariantData.get_option_bool(layout_result, "success"):
+		if not budget.admit_value(layout_result, "pipeline.layout"):
+			return _make_work_failure(source, budget)
 		var budget_failure: Dictionary = _check_validation_cell_budget(
 			source,
 			layout_result,
@@ -1408,9 +1672,8 @@ func _compile_table_from_reader_result(
 		layout_result,
 		options
 	)
-	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(read_result, "source_receipt")
-	if not source_receipt.is_empty():
-		compile_result["source_receipt"] = source_receipt.duplicate(true)
+	if not budget.is_ok():
+		return _make_work_failure(source, budget)
 	return compile_result
 
 
@@ -1483,19 +1746,23 @@ func _materialize_table_compile_result(compile_result: Dictionary, options: Dict
 			),
 			"source_receipt": (GFVariantData.get_option_dictionary(compile_result, "source_receipt").duplicate(true)),
 			"error": GFVariantData.get_option_string(compile_result, "error"),
+			"error_kind": GFVariantData.get_option_string(compile_result, "error_kind"),
+			"budget_report": GFVariantData.get_option_dictionary(compile_result, "budget_report"),
 		}
 
 	var table_ir: GFConfigPipelineTableIR = _get_table_ir_from_result(compile_result)
 	if table_ir == null:
-		return _make_table_failure(
+		var missing_ir_result: Dictionary = _make_table_failure(
 			&"",
 			"missing_table_ir",
 			"Validation 阶段成功但未返回 Table IR。",
 			{ "source": GFVariantData.get_option_string(compile_result, "source_path") }
 		)
+		missing_ir_result["source_receipt"] = (GFVariantData.get_option_dictionary(compile_result, "source_receipt").duplicate(true))
+		return missing_ir_result
 	var target_result: Dictionary = _target_stage.materialize_table(table_ir, options)
 	if not GFVariantData.get_option_bool(target_result, "success"):
-		return _make_table_failure(
+		var target_failure: Dictionary = _make_table_failure(
 			table_ir.get_table_name(),
 			GFVariantData.get_option_string(
 				target_result,
@@ -1505,6 +1772,8 @@ func _materialize_table_compile_result(compile_result: Dictionary, options: Dict
 			GFVariantData.get_option_string(target_result, "error"),
 			{ "source": table_ir.get_source_path(), "actual_value": table_ir.get_source_format(), }
 		)
+		target_failure["source_receipt"] = (GFVariantData.get_option_dictionary(compile_result, "source_receipt").duplicate(true))
+		return target_failure
 	target_result["report"] = GFVariantData.get_option_dictionary(compile_result, "report")
 	target_result["source_path"] = table_ir.get_source_path()
 	target_result["format"] = table_ir.get_source_format()

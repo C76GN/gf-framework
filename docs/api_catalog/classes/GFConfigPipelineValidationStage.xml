@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineValidationStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd" module="tools" extends="RefCounted" classDigest="50ca40238044d46bd5aae209451fab3ecec23a725ab3efcc68e5c0ff6f7058ae">
+<class name="GFConfigPipelineValidationStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd" module="tools" extends="RefCounted" classDigest="d53bf035da6c96841f4932aefe013f7ef2dd7a37ed1cbcfd22972d0d9f4a650c">
 	<description>GFConfigPipelineValidationStage: Config Pipeline 的内置语义校验阶段。
 把 Layout 记录规范化，解析类型化表头，推导或复制 schema，执行类型转换与完整校验。
 只有通过语义校验的数据才会形成 GFConfigPipelineTableIR。</description>
@@ -20,7 +20,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 3</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 4</signature>
 			<description>Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -39,9 +39,9 @@
 				<tag name="param">layout_result: Layout 阶段结果。</tag>
 				<tag name="param">options: 校验选项。</tag>
 				<tag name="return">Validation 阶段结果。</tag>
-				<tag name="schema">layout_result: Dictionary，符合 gf.config_pipeline.layout_result@2。</tag>
-				<tag name="schema">options: Dictionary，可包含 parse_options；其字段覆盖 source.parse_options 并传给 schema 校验上下文。</tag>
-				<tag name="schema">return: Dictionary，包含 success、phase、ir、report、source_path、format、error_kind 和 error。</tag>
+				<tag name="schema">layout_result: Dictionary，符合 gf.config_pipeline.layout_result@3；自定义布局也必须在深复制前完整通过预算准入。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_limits 或共享 work_budget（二者互斥），以及 parse_options；解析字段覆盖 source.parse_options 并传给 schema 校验上下文，但两处解析选项均不能另设预算。</tag>
+				<tag name="schema">return: Dictionary，包含 success、phase、ir、report、source_path、format、error_kind 和 error；预算失败另含 budget_report 且 ir 为 null。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

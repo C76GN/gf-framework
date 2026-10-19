@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "9bd785a17a4f765170e3f86d2751c71ef3aaca817c63cc2a5878e80f2ee61321",
-  "class_count": 875,
+  "source_digest": "91c164018462cef1270e490930df84aac5247ed4063a36f3501a944fb0d806e9",
+  "class_count": 876,
   "autoload_count": 1,
   "package_count": 61,
   "packages": [
@@ -19451,7 +19451,7 @@
           "kind": "func",
           "name": "build_table_from_text",
           "signature": "func build_table_from_text( source: GFConfigPipelineTableSource, text: String, options: Dictionary = {} ) -> Dictionary",
-          "summary": "从文本构建单表资源。",
+          "summary": "从文本构建单表资源；向 Layout 提供原文 UTF-8 字节数，输入额度由解析阶段计量一次。",
           "visibility": "public"
         },
         {
@@ -19788,7 +19788,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 4",
+          "signature": "const IMPLEMENTATION_VERSION: int = 5",
           "summary": "Layout 阶段的实现版本；改变布局解析语义时递增。",
           "visibility": "public"
         },
@@ -19989,7 +19989,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 2",
+          "signature": "const IMPLEMENTATION_VERSION: int = 3",
           "summary": "Reader 阶段的实现版本；改变读取语义时递增。",
           "visibility": "public"
         },
@@ -20369,7 +20369,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 3",
+          "signature": "const IMPLEMENTATION_VERSION: int = 4",
           "summary": "Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。",
           "visibility": "public"
         },
@@ -21204,7 +21204,7 @@
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_config_table_importer.gd",
-      "summary": "GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。 直接接收内存文本/行的入口不执行字节、行、列或累计单元格预算；调用方必须只传受信数据，或在调用前完成容量预检。",
+      "summary": "GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。 每个顶层操作默认使用有限的 GFConfigWorkBudget；解析、映射和校验共享同一预算。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -21441,21 +21441,21 @@
         {
           "kind": "func",
           "name": "is_delete_record",
-          "signature": "func is_delete_record(record: Dictionary) -> bool",
+          "signature": "func is_delete_record(record: Dictionary, options: Dictionary = {}) -> bool",
           "summary": "检查记录是否带有删除标记。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "make_record_key",
-          "signature": "func make_record_key(record: Dictionary, outer_key: Variant = null) -> String",
+          "signature": "func make_record_key( record: Dictionary, outer_key: Variant = null, options: Dictionary = {} ) -> String",
           "summary": "根据记录生成稳定合并键。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "merge_record",
-          "signature": "func merge_record(base_record: Dictionary, patch_record: Dictionary) -> Dictionary",
+          "signature": "func merge_record( base_record: Dictionary, patch_record: Dictionary, options: Dictionary = {} ) -> Dictionary",
           "summary": "合并两条记录。",
           "visibility": "public"
         },
@@ -21489,7 +21489,7 @@
         {
           "kind": "func",
           "name": "merge_tables",
-          "signature": "static func merge_tables( base_table: Variant, patch_table: Variant, policy: GFConfigTableMergePolicy = null ) -> Dictionary",
+          "signature": "static func merge_tables( base_table: Variant, patch_table: Variant, policy: GFConfigTableMergePolicy = null, options: Dictionary = {} ) -> Dictionary",
           "summary": "合并 base 表与 patch 表。",
           "visibility": "public"
         }
@@ -22403,6 +22403,89 @@
           "signature": "func _make_variant_key(value: Variant) -> String",
           "summary": "生成可比较的 Variant 稳定字符串键。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFConfigWorkBudget": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.config",
+      "path": "addons/gf/standard/utilities/config/gf_config_work_budget.gd",
+      "summary": "GFConfigWorkBudget: 单次配置操作及批次共享的有限工作预算。 句柄只累计、不重置；首次失败锁存。它约束受信任配置代码的协作工作量， 不隔离自定义代码，也不统计 Resource 属性或引擎内部全部内存。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "_init",
+          "signature": "func _init(limits: Dictionary = {}) -> void",
+          "summary": "创建不可重置的操作预算；非法限额创建失败句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_options",
+          "signature": "static func from_options(options: Dictionary = {}) -> GFConfigWorkBudget",
+          "summary": "从入口选项取得共享句柄；不得同时声明限额与句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "check_input_bytes",
+          "signature": "func check_input_bytes(amount: int, context: String = \"\") -> bool",
+          "summary": "读取或分配前检查剩余输入字节容量，不扣除额度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "consume_input_bytes",
+          "signature": "func consume_input_bytes(amount: int, context: String = \"\") -> bool",
+          "summary": "累计原始输入字节；一个来源由读取者或解析者中的一方记账。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "consume_output_bytes",
+          "signature": "func consume_output_bytes(amount: int, context: String = \"\") -> bool",
+          "summary": "累计序列化输出的 UTF-8 字节，供构造输出片段前预留容量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "consume_work",
+          "signature": "func consume_work(amount: int = 1, context: String = \"\") -> bool",
+          "summary": "累计显式工作单元，内部复用 GFExecutionBudget。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "check_depth",
+          "signature": "func check_depth(depth: int, context: String = \"\") -> bool",
+          "summary": "检查当前绝对嵌套深度；根值深度为 0。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "admit_value",
+          "signature": "func admit_value(value: Variant, context: String = \"\") -> bool",
+          "summary": "复制或遍历前准入数据图，重复调用按实际访问量累计，不缓存已检查身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_ok",
+          "signature": "func is_ok() -> bool",
+          "summary": "检查句柄是否仍可使用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_report",
+          "signature": "func get_report() -> Dictionary",
+          "summary": "取得独立报告；修改报告不会改变预算状态。",
+          "visibility": "public"
         }
       ]
     },

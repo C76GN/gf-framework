@@ -55,6 +55,9 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [配置导入](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/json-csv-import.md#工作预算与批次)、[表合并](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/merge-profile.md)和[配置流水线](editor/tools/config-pipeline.md#构建工作预算)采用有限工作预算，复用通用执行预算并累计输入、遍历、载荷与输出成本。非法限额、循环或超限明确失败，合并与构建失败不交付可用半成品。正式指南补齐配置激活、事务提交、页面会话与决策复现的项目接入边界。
+- 配置预算覆盖 NodePath 载荷及 XLSX 裁剪、覆盖前的单元格文本，XML 根深度统一为零。构建与导出按实际消费的选项准入；失败保留来源与读取收据，自定义合并策略获得隔离的记录容器，文本 Layout 收到真实 UTF-8 大小。
+
 - 精简资源解析、音频会话和编辑器类型索引的缓存处理；统一 Save 的证据校验与 Feedback 的波形采样实现，保留校验预算、状态推进和既有采样结果。
 - [Flow 图编辑器](extensions/flow/editor-model.md) 在原生撤销或重做回调失败后暂停同一历史中的 Flow 写入，并提供“重置撤销历史…”确认入口；清除实际共享范围内的 Undo / Redo 记录，保留当前内存资源值，不自动保存。资源、上下文、可见性或历史变化使旧确认失效；未完成的属性补偿仍须先恢复。
 - 统一框架源码、测试及生成模板的结构排版：两个简单项保持同行，三个及以上参数、元素、字段或布尔项按层展开；单项及复杂子表达式按内部结构决定布局，不以名称或字符串长度换行。补齐声明、索引、调用链、普通分组、回调正文和成员间隔的一致性，保留必要的优先级括号、注释、字符串内容与执行行为；简单字符串拼接、单值格式化和单层条件选择保持紧凑，嵌套条件按层展开。
@@ -201,6 +204,8 @@
 - `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
 
 ### 📘 升级指南 (Migration Guide)
+
+- 配置入口默认有限；大批次应按实际数据规模显式设置 `work_limits`，不能用零或负数关闭额度。多个直接导入/合并调用需要共享预算时传 `work_budget`，不要同时声明两者；Pipeline 每次构建自行创建批次句柄，只在顶层或 Profile 构建选项中声明 `work_limits`。`GFConfigTableMergePolicy.merge_record()` 现在返回结果报告，检查 `ok` 后读取 `data`；记录键分量改用稳定标量。合并或数据库构建失败时不得继续读取部分结果，修正后重新执行完整操作。
 
 - Project Layout 配置将 `schema_version` 改为 `2` 后，按当前规则闭合字段重新校验；需要排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis，不能只修改旧报告的版本号。
 - AI Developer 通过现有迁移计划与确认流程把 v5 契约升级为 v6：原 required 进入源码必需与采用允许，optional 进入采用允许，forbidden 同时保留源码禁止与采用禁止。重新生成 v10 快照，不手动改旧报告版本号；需要“允许源码存在但禁止项目采用”时再显式调整两组规则。

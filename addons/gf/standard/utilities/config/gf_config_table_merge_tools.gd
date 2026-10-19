@@ -27,6 +27,8 @@ const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/co
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param base_table: Array[Dictionary] 或 Dictionary 形式的基础表。
 ## [br]
 ## @schema base_table: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
@@ -35,23 +37,35 @@ const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/co
 ## [br]
 ## @schema patch_table: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
 ## [br]
-## @param policy: 可选合并策略；为空时使用默认策略。
+## @param policy: 可选合并策略；为空时使用默认策略。预算准入后，传给策略的记录、outer_key 及其嵌套容器均为隔离副本；Resource 叶仍保留引用。
+## [br]
+## @param options: 新预算限额或已有批次预算。
+## [br]
+## @schema options: Dictionary，接受互斥的 work_limits 或 work_budget，语义见 GFConfigWorkBudget.from_options()。
 ## [br]
 ## @return 结果字典，包含 ok、data、issues 与统计信息。
 ## [br]
-## @schema return: GFConfigValidationReport 兼容 Dictionary，额外包含 data、dictionary_output、base_count、inserted_count、updated_count 和 deleted_count。
+## @schema return: GFConfigValidationReport 兼容 Dictionary，额外包含 data、dictionary_output、base_count、inserted_count、updated_count、deleted_count、budget_report。任何失败的 data 均为 null；计数仅表示诊断期间已执行的操作。
 static func merge_tables(
 	base_table: Variant,
 	patch_table: Variant,
-	policy: GFConfigTableMergePolicy = null
+	policy: GFConfigTableMergePolicy = null,
+	options: Dictionary = {}
 ) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
 	var resolved_policy: GFConfigTableMergePolicy = policy if policy != null else GFConfigTableMergePolicy.new()
-	var base_rows_variant: Variant = _normalize_table(base_table)
-	var patch_rows_variant: Variant = _normalize_table(patch_table)
 	var report: Dictionary = _make_result(
 		_is_dictionary_table(base_table),
 		base_table
 	)
+	if not budget.admit_value(base_table, "merge.base") or not budget.admit_value(patch_table, "merge.patch"):
+		_finalize_result(report, budget)
+		return report
+	var base_rows_variant: Variant = _normalize_table(base_table, budget)
+	var patch_rows_variant: Variant = _normalize_table(patch_table, budget)
+	if not budget.is_ok():
+		_finalize_result(report, budget)
+		return report
 	if base_rows_variant == null:
 		_add_issue(
 			report,
@@ -60,7 +74,7 @@ static func merge_tables(
 			null,
 			"base_table 必须是 Array[Dictionary] 或 Dictionary。"
 		)
-		_finalize_result(report)
+		_finalize_result(report, budget)
 		return report
 	if patch_rows_variant == null:
 		_add_issue(
@@ -70,42 +84,55 @@ static func merge_tables(
 			null,
 			"patch_table 必须是 Array[Dictionary] 或 Dictionary。"
 		)
-		_finalize_result(report)
+		_finalize_result(report, budget)
 		return report
 
-	var base_rows: Array[Dictionary] = _collect_row_entries(base_rows_variant)
-	var patch_rows: Array[Dictionary] = _collect_row_entries(patch_rows_variant)
+	var base_rows: Array[Dictionary] = base_rows_variant
+	var patch_rows: Array[Dictionary] = patch_rows_variant
 	var state: Dictionary = _build_base_state(
 		base_rows,
 		resolved_policy,
-		report
+		report,
+		budget
 	)
+	_finalize_result(report, budget)
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return report
 	_apply_patch_rows(
 		state,
 		patch_rows,
 		resolved_policy,
-		report
+		report,
+		budget
 	)
-	report["data"] = _build_output_data(
+	_finalize_result(report, budget)
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return report
+	var output_data: Variant = _build_output_data(
 		state,
 		GFVariantData.get_option_bool(report, "dictionary_output"),
-		resolved_policy
+		resolved_policy,
+		budget
 	)
-	_finalize_result(report)
+	if budget.admit_value(output_data, "merge.output"):
+		report["data"] = GFVariantData.duplicate_variant(output_data)
+	_finalize_result(report, budget)
 	return report
 
 
 # --- 私有/辅助方法 ---
 
-## 将输入表数据规范化为记录条目数组。
+## 将已通过整体预算准入的表规范化为隔离记录；在调用策略前深复制记录与 outer_key 容器，Resource 叶保留引用。
 ## [br]
 ## @api private
 ## [br]
-static func _normalize_table(table_data: Variant) -> Variant:
+static func _normalize_table(table_data: Variant, budget: GFConfigWorkBudget) -> Variant:
 	var rows: Array[Dictionary] = []
 	if table_data is Array:
 		var array_table: Array = table_data
 		for index: int in range(array_table.size()):
+			if not budget.consume_work(1, "merge.normalize_row"):
+				return null
 			var row_variant: Variant = array_table[index]
 			if not (row_variant is Dictionary):
 				return null
@@ -114,12 +141,14 @@ static func _normalize_table(table_data: Variant) -> Variant:
 		return rows
 	if table_data is Dictionary:
 		var dictionary_table: Dictionary = table_data
-		for key: Variant in dictionary_table.keys():
+		for key: Variant in dictionary_table:
+			if not budget.consume_work(1, "merge.normalize_row"):
+				return null
 			var row_variant: Variant = dictionary_table[key]
 			if not (row_variant is Dictionary):
 				return null
 			var row: Dictionary = row_variant
-			rows.append({ "outer_key": key, "record": row.duplicate(true), })
+			rows.append({ "outer_key": GFVariantData.duplicate_variant(key), "record": row.duplicate(true), })
 		return rows
 	return null
 
@@ -132,16 +161,13 @@ static func _is_dictionary_table(table_data: Variant) -> bool:
 	return table_data is Dictionary
 
 
-## 创建合并结果报告，并初始化与输入表相同形状的数据容器。
+## 创建合并结果报告；完整成功前不公开结果数据。
 ## [br]
 ## @api private
 ## [br]
 static func _make_result(dictionary_output: bool, base_table: Variant) -> Dictionary:
 	var result: Dictionary = _CONFIG_VALIDATION_REPORT.new().make_report()
-	if dictionary_output:
-		result["data"] = {}
-	else:
-		result["data"] = []
+	result["data"] = null
 	result["dictionary_output"] = dictionary_output
 	if base_table is Dictionary:
 		var dictionary_table: Dictionary = base_table
@@ -164,7 +190,8 @@ static func _make_result(dictionary_output: bool, base_table: Variant) -> Dictio
 static func _build_base_state(
 	rows: Array[Dictionary],
 	policy: GFConfigTableMergePolicy,
-	report: Dictionary
+	report: Dictionary,
+	budget: GFConfigWorkBudget
 ) -> Dictionary:
 	var state: Dictionary = {
 		"order": [],
@@ -176,9 +203,17 @@ static func _build_base_state(
 	var records: Dictionary = _get_state_dictionary(state, "records")
 	var outer_keys: Dictionary = _get_state_dictionary(state, "outer_keys")
 	for row_entry: Dictionary in rows:
+		if not budget.consume_work(1, "merge.base_row"):
+			break
 		var record: Dictionary = _get_row_record(row_entry)
 		var outer_key: Variant = _get_row_outer_key(row_entry)
-		var key: String = policy.make_record_key(record, outer_key)
+		var key: String = policy.make_record_key(
+			record,
+			outer_key,
+			{ "work_budget": budget }
+		)
+		if not budget.is_ok():
+			break
 		if key.is_empty():
 			_add_issue(
 				report,
@@ -212,13 +247,22 @@ static func _apply_patch_rows(
 	state: Dictionary,
 	rows: Array[Dictionary],
 	policy: GFConfigTableMergePolicy,
-	report: Dictionary
+	report: Dictionary,
+	budget: GFConfigWorkBudget
 ) -> void:
 	var records: Dictionary = _get_state_dictionary(state, "records")
 	for row_entry: Dictionary in rows:
+		if not budget.consume_work(1, "merge.patch_row"):
+			break
 		var record: Dictionary = _get_row_record(row_entry)
 		var outer_key: Variant = _get_row_outer_key(row_entry)
-		var key: String = policy.make_record_key(record, outer_key)
+		var key: String = policy.make_record_key(
+			record,
+			outer_key,
+			{ "work_budget": budget }
+		)
+		if not budget.is_ok():
+			break
 		if key.is_empty():
 			_add_issue(
 				report,
@@ -228,7 +272,13 @@ static func _apply_patch_rows(
 				"补丁记录缺少合并键。"
 			)
 			continue
-		if policy.is_delete_record(record):
+		var is_delete: bool = policy.is_delete_record(
+			record,
+			{ "work_budget": budget }
+		)
+		if not budget.is_ok():
+			break
+		if is_delete:
 			_apply_delete(
 				state,
 				key,
@@ -243,7 +293,8 @@ static func _apply_patch_rows(
 				record,
 				outer_key,
 				policy,
-				report
+				report,
+				budget
 			)
 		else:
 			_apply_insert(
@@ -300,7 +351,8 @@ static func _apply_update(
 	record: Dictionary,
 	row_key: Variant,
 	policy: GFConfigTableMergePolicy,
-	report: Dictionary
+	report: Dictionary,
+	budget: GFConfigWorkBudget
 ) -> void:
 	if not policy.allow_update:
 		_add_issue(
@@ -312,10 +364,37 @@ static func _apply_update(
 		)
 		return
 	var records: Dictionary = _get_state_dictionary(state, "records")
-	records[key] = policy.merge_record(
+	var merged: Dictionary = policy.merge_record(
 		_get_record_by_key(records, key),
-		record
+		record,
+		{ "work_budget": budget }
 	)
+	if not budget.is_ok():
+		return
+	if not GFVariantData.get_option_bool(merged, "ok"):
+		var kind: String = GFVariantData.get_option_string(merged, "error_kind")
+		var message: String = GFVariantData.get_option_string(merged, "error")
+		_add_issue(
+			report,
+			"error",
+			"merge_record_failed" if kind.is_empty() else kind,
+			row_key,
+			"合并策略拒绝更新记录。" if message.is_empty() else message,
+			{ "source": GFVariantData.get_option_string(merged, "context") }
+		)
+		return
+	var merged_data: Variant = GFVariantData.get_option_value(merged, "data")
+	if not (merged_data is Dictionary):
+		_add_issue(
+			report,
+			"error",
+			"invalid_merge_record_result",
+			row_key,
+			"合并策略成功报告的 data 必须是 Dictionary。",
+			{ "source": GFVariantData.get_option_string(merged, "context") }
+		)
+		return
+	records[key] = merged_data
 	_increment_report_count(report, "updated_count")
 
 
@@ -352,12 +431,12 @@ static func _apply_insert(
 				"外层键已属于另一条逻辑记录。"
 			)
 			return
-	_get_state_dictionary(state, "records")[key] = record.duplicate(true)
+	var order: Array = _get_state_array(state, "order")
+	if not _get_state_dictionary(state, "outer_keys").has(key):
+		order.append(key)
+	_get_state_dictionary(state, "records")[key] = record
 	_get_state_dictionary(state, "outer_keys")[key] = row_key
 	outer_key_owners[row_key] = key
-	var order: Array = _get_state_array(state, "order")
-	if not order.has(key):
-		order.append(key)
 	_increment_report_count(report, "inserted_count")
 
 
@@ -368,33 +447,38 @@ static func _apply_insert(
 static func _build_output_data(
 	state: Dictionary,
 	dictionary_output: bool,
-	policy: GFConfigTableMergePolicy
+	policy: GFConfigTableMergePolicy,
+	budget: GFConfigWorkBudget
 ) -> Variant:
 	var records: Dictionary = _get_state_dictionary(state, "records")
 	var order: Array = _get_state_array(state, "order")
 	var outer_keys: Dictionary = _get_state_dictionary(state, "outer_keys")
+	var ordered_keys: PackedStringArray = _ordered_keys(
+		order,
+		records,
+		policy.preserve_base_order,
+		budget
+	)
+	if not budget.is_ok():
+		return null
 	if dictionary_output:
 		var dictionary_result: Dictionary = {}
-		for key: String in _ordered_keys(
-			order,
-			records,
-			policy.preserve_base_order
-		):
+		for key: String in ordered_keys:
+			if not budget.consume_work(1, "merge.output_row"):
+				return null
 			var outer_key: Variant = GFVariantData.get_option_value(
 				outer_keys,
 				key,
 				key
 			)
-			dictionary_result[outer_key] = _get_record_by_key(records, key).duplicate(true)
+			dictionary_result[outer_key] = _get_record_by_key(records, key)
 		return dictionary_result
 
 	var array_result: Array[Dictionary] = []
-	for key: String in _ordered_keys(
-		order,
-		records,
-		policy.preserve_base_order
-	):
-		array_result.append(_get_record_by_key(records, key).duplicate(true))
+	for key: String in ordered_keys:
+		if not budget.consume_work(1, "merge.output_row"):
+			return null
+		array_result.append(_get_record_by_key(records, key))
 	return array_result
 
 
@@ -405,20 +489,32 @@ static func _build_output_data(
 static func _ordered_keys(
 	order: Array,
 	records: Dictionary,
-	preserve_base_order: bool
+	preserve_base_order: bool,
+	budget: GFConfigWorkBudget
 ) -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
+	var included: Dictionary = {}
 	if preserve_base_order:
 		for key_variant: Variant in order:
+			if not budget.consume_work(1, "merge.output_order"):
+				return PackedStringArray()
 			var key: String = GFVariantData.to_text(key_variant)
-			if records.has(key):
+			if records.has(key) and not included.has(key):
 				var _base_key_appended: bool = result.append(key)
-		for key_variant: Variant in records.keys():
+				included[key] = true
+		for key_variant: Variant in records:
+			if not budget.consume_work(1, "merge.output_order"):
+				return PackedStringArray()
 			var key: String = GFVariantData.to_text(key_variant)
-			if not result.has(key):
+			if not included.has(key):
 				var _record_key_appended: bool = result.append(key)
 	else:
-		for key_variant: Variant in records.keys():
+		var sort_work: int = records.size()
+		if records.size() > 1:
+			sort_work *= ceili(log(float(records.size())) / log(2.0))
+		if not budget.consume_work(sort_work, "merge.output_sort"):
+			return PackedStringArray()
+		for key_variant: Variant in records:
 			var _key_appended: bool = result.append(GFVariantData.to_text(key_variant))
 		result.sort()
 	return result
@@ -433,7 +529,8 @@ static func _add_issue(
 	severity: String,
 	kind: String,
 	row_key: Variant,
-	message: String
+	message: String,
+	context: Dictionary = {}
 ) -> void:
 	_CONFIG_VALIDATION_REPORT.new().add_issue(
 		report,
@@ -442,7 +539,8 @@ static func _add_issue(
 		&"",
 		row_key,
 		&"",
-		message
+		message,
+		context
 	)
 
 
@@ -450,23 +548,22 @@ static func _add_issue(
 ## [br]
 ## @api private
 ## [br]
-static func _finalize_result(report: Dictionary) -> void:
+static func _finalize_result(report: Dictionary, budget: GFConfigWorkBudget) -> void:
+	var budget_report: Dictionary = budget.get_report()
+	report["budget_report"] = budget_report
+	if not budget.is_ok():
+		var error_kind: String = budget_report["error_kind"]
+		var error_message: String = budget_report["error"]
+		_add_issue(
+			report,
+			"error",
+			error_kind,
+			null,
+			error_message
+		)
 	_CONFIG_VALIDATION_REPORT.new().finalize_report(report)
-
-
-## 将数组表或字典表转换为统一的行条目。
-## [br]
-## @api private
-## [br]
-static func _collect_row_entries(value: Variant) -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	if value is Array:
-		var array_value: Array = GFVariantData.as_array(value)
-		for row_variant: Variant in array_value:
-			if row_variant is Dictionary:
-				var row: Dictionary = GFVariantData.as_dictionary(row_variant)
-				rows.append(row)
-	return rows
+	if not GFVariantData.get_option_bool(report, "ok"):
+		report["data"] = null
 
 
 ## 从合并状态中读取数组字段。

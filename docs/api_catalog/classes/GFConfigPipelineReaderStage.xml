@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineReaderStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd" module="tools" extends="RefCounted" classDigest="0080cea4ee13a9d67d4eef51ae2f277cf671643015ebd6111f9a234bf10d6124">
+<class name="GFConfigPipelineReaderStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd" module="tools" extends="RefCounted" classDigest="d01aab443516e810008c8047a2c683a5e244aa6172acd26c6fe00e6f2c97b5f1">
 	<description>GFConfigPipelineReaderStage: Config Pipeline 的内置来源读取阶段。
 只负责来源存在性、读取预算和原始载荷取得，不解析表布局或业务字段。
 文本来源返回原文，XLSX 来源返回已完成预算检查的文件载荷描述。</description>
@@ -20,7 +20,7 @@
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 2</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 3</signature>
 			<description>Reader 阶段的实现版本；改变读取语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -38,8 +38,8 @@
 				<tag name="param">source: 单表来源声明。</tag>
 				<tag name="param">options: 读取选项。</tag>
 				<tag name="return">Reader 阶段结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 max_source_file_bytes 和 max_xlsx_file_bytes；负值表示不限制。</tag>
-				<tag name="schema">return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；source_receipt 绑定本次实际读取的字节数与 SHA-256。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_limits 或共享 work_budget（二者互斥），以及 max_source_file_bytes、max_xlsx_file_bytes；后两项负值仅取消文件局部限额，不能取消总预算。文本只预检输入容量，由解析器记账；XLSX 在本阶段累计归档字节。</tag>
+				<tag name="schema">return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；预算失败另含 budget_report，source_receipt 绑定本次实际读取的字节数与 SHA-256。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

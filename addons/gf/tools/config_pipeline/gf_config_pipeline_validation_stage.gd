@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.validation.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 3
+const IMPLEMENTATION_VERSION: int = 4
 
 
 # --- 公共方法 ---
@@ -41,15 +41,15 @@ const IMPLEMENTATION_VERSION: int = 3
 ## [br]
 ## @param layout_result: Layout 阶段结果。
 ## [br]
-## @schema layout_result: Dictionary，符合 gf.config_pipeline.layout_result@2。
+## @schema layout_result: Dictionary，符合 gf.config_pipeline.layout_result@3；自定义布局也必须在深复制前完整通过预算准入。
 ## [br]
 ## @param options: 校验选项。
 ## [br]
-## @schema options: Dictionary，可包含 parse_options；其字段覆盖 source.parse_options 并传给 schema 校验上下文。
+## @schema options: Dictionary，可包含 work_limits 或共享 work_budget（二者互斥），以及 parse_options；解析字段覆盖 source.parse_options 并传给 schema 校验上下文，但两处解析选项均不能另设预算。
 ## [br]
 ## @return: Validation 阶段结果。
 ## [br]
-## @schema return: Dictionary，包含 success、phase、ir、report、source_path、format、error_kind 和 error。
+## @schema return: Dictionary，包含 success、phase、ir、report、source_path、format、error_kind 和 error；预算失败另含 budget_report 且 ir 为 null。
 func compile_table(
 	source: GFConfigPipelineTableSource,
 	layout_result: Dictionary,
@@ -63,6 +63,29 @@ func compile_table(
 		)
 	var table_name: StringName = source.get_table_key()
 	var resolved_format: StringName = source.get_resolved_format()
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	var parse_overrides: Dictionary = GFVariantData.get_option_dictionary(options, "parse_options")
+	if (
+		source.parse_options.has("work_limits")
+		or source.parse_options.has("work_budget")
+		or parse_overrides.has("work_limits")
+		or parse_overrides.has("work_budget")
+	):
+		return _make_budget_failure(
+			source,
+			GFConfigWorkBudget.from_options({ "work_budget": null })
+		)
+	if not budget.admit_value(
+		[
+			layout_result,
+			source.parse_options,
+			source.schema_options,
+			source.metadata,
+			parse_overrides,
+		],
+		"validation.copy_inputs"
+	):
+		return _make_budget_failure(source, budget)
 	if table_name == &"":
 		return _make_compile_failure(
 			&"",
@@ -142,12 +165,21 @@ func compile_table(
 
 	records = _get_result_records(typed_header_result)
 	var declared_schema: GFConfigTableSchema = _get_schema_from_result(typed_header_result)
+	var schema_to_copy: GFConfigTableSchema = source.schema if source.schema != null else declared_schema
+	if not _admit_schema_copy(schema_to_copy, budget):
+		return _make_budget_failure(source, budget)
 	var schema: GFConfigTableSchema = _resolve_schema(
 		source,
 		table_name,
 		records,
 		declared_schema
 	)
+	if schema != null and not _admit_schema_work(
+		records,
+		schema,
+		budget
+	):
+		return _make_budget_failure(source, budget)
 	var report: Dictionary = _validate_table_source(
 		source,
 		table_name,
@@ -173,6 +205,8 @@ func compile_table(
 		and source.coerce_records
 	):
 		records = _coerce_records(records, schema)
+	if not budget.admit_value(records, "validation.final_records"):
+		return _make_budget_failure(source, budget)
 
 	var source_map: Dictionary = _make_source_map(working_layout)
 	var table_ir: GFConfigPipelineTableIR = GFConfigPipelineTableIR.create(
@@ -218,7 +252,7 @@ func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
-		"input_contract": "gf.config_pipeline.layout_result@2",
+		"input_contract": "gf.config_pipeline.layout_result@3",
 		"output_contract": "%s@%d"
 		% [GFConfigPipelineTableIR.FORMAT, GFConfigPipelineTableIR.FORMAT_VERSION],
 		"implementation_dependencies": [
@@ -226,13 +260,181 @@ func get_stage_descriptor() -> Dictionary:
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_column.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_index_definition.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_reference.gd",
+			"res://addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd",
+			"res://addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd",
+			"res://addons/gf/standard/utilities/config/validation/gf_config_not_default_validation_rule.gd",
+			"res://addons/gf/standard/utilities/config/validation/gf_config_localization_key_validation_rule.gd",
+			"res://addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd",
+			"res://addons/gf/standard/utilities/config/validation/gf_config_regex_validation_rule.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_work_budget.gd",
+			"res://addons/gf/standard/common/gf_execution_budget.gd",
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
 		],
 	}
 
 
 # --- 私有/辅助方法 ---
+
+## 在 duplicate_schema 之前准入已知声明载荷；只读取固定协议字段，不反射未知 Resource 属性。
+## [br]
+## @api private
+func _admit_schema_copy(schema: GFConfigTableSchema, budget: GFConfigWorkBudget) -> bool:
+	if schema == null:
+		return true
+	if not budget.admit_value(
+		[
+			schema.table_name,
+			schema.id_field,
+			schema.metadata,
+			schema.columns,
+			schema.indexes,
+			schema.references,
+			schema.record_validation_rules,
+			schema.table_validation_rules,
+		],
+		"validation.schema_clone"
+	):
+		return false
+	for column: GFConfigTableColumn in schema.columns:
+		if column == null:
+			continue
+		if not budget.admit_value(
+			[
+				column.field_name,
+				column.default_value,
+				column.metadata,
+				column.validation_rules,
+				column.element_validation_rules,
+			],
+			"validation.column_clone"
+		):
+			return false
+		if not _admit_rule_copies(column.validation_rules, budget) or not _admit_rule_copies(column.element_validation_rules, budget):
+			return false
+	for index_definition: GFConfigTableIndexDefinition in schema.indexes:
+		if index_definition != null and not budget.admit_value(
+			[
+				index_definition.index_id,
+				index_definition.field_names,
+				index_definition.metadata,
+			],
+			"validation.index_clone"
+		):
+			return false
+	for reference_definition: GFConfigTableReference in schema.references:
+		if reference_definition != null and not budget.admit_value(
+			[
+				reference_definition.reference_id,
+				reference_definition.source_fields,
+				reference_definition.target_table_name,
+				reference_definition.target_fields,
+				reference_definition.metadata,
+			],
+			"validation.reference_clone"
+		):
+			return false
+	return _admit_rule_copies(schema.record_validation_rules, budget) and _admit_rule_copies(schema.table_validation_rules, budget)
+
+
+## 规则复制前准入基类元数据及内置规则的已知容器字段；自定义规则实现仍属于受信任代码。
+## [br]
+## @api private
+func _admit_rule_copies(rules: Array[GFConfigValidationRule], budget: GFConfigWorkBudget) -> bool:
+	for rule: GFConfigValidationRule in rules:
+		if rule == null:
+			continue
+		if not budget.admit_value(
+			[rule.rule_id, rule.metadata],
+			"validation.rule_clone"
+		):
+			return false
+		var payload: Variant = null
+		if rule is GFConfigSetValidationRule:
+			var set_rule: GFConfigSetValidationRule = rule
+			payload = set_rule.allowed_values
+		elif rule is GFConfigNotDefaultValidationRule:
+			var default_rule: GFConfigNotDefaultValidationRule = rule
+			payload = default_rule.default_value
+		elif rule is GFConfigLocalizationKeyValidationRule:
+			var localization_rule: GFConfigLocalizationKeyValidationRule = rule
+			payload = [localization_rule.known_keys, localization_rule.text_map]
+		elif rule is GFConfigResourcePathValidationRule:
+			var path_rule: GFConfigResourcePathValidationRule = rule
+			payload = path_rule.allowed_extensions
+		elif rule is GFConfigRegexValidationRule:
+			var regex_rule: GFConfigRegexValidationRule = rule
+			payload = regex_rule.pattern
+		if not budget.admit_value(payload, "validation.rule_payload_clone"):
+			return false
+	return budget.is_ok()
+
+
+## 逐条预留已声明列、规则和索引访问量；缺省值在校验或 coercion 复制前准入，不执行项目规则。
+## [br]
+## @api private
+func _admit_schema_work(
+	records: Array[Dictionary],
+	schema: GFConfigTableSchema,
+	budget: GFConfigWorkBudget
+) -> bool:
+	if not budget.consume_work(
+		schema.columns.size() + schema.table_validation_rules.size() + schema.indexes.size(),
+		"validation.schema_definitions"
+	):
+		return false
+	for index_definition: GFConfigTableIndexDefinition in schema.indexes:
+		if index_definition != null and not budget.admit_value(index_definition.field_names, "validation.index_fields"):
+			return false
+	for record: Dictionary in records:
+		if not budget.consume_work(
+			1 + schema.record_validation_rules.size(),
+			"validation.schema_record"
+		):
+			return false
+		for column: GFConfigTableColumn in schema.columns:
+			if not budget.consume_work(1, "validation.schema_column"):
+				return false
+			if column == null:
+				continue
+			if not budget.consume_work(
+				column.validation_rules.size() + column.element_validation_rules.size(),
+				"validation.schema_rules"
+			):
+				return false
+			if (
+				schema.coerce_values
+				and not record.has(column.get_field_key())
+				and not budget.admit_value(column.default_value, "validation.schema_default")
+			):
+				return false
+		for index_definition: GFConfigTableIndexDefinition in schema.indexes:
+			if index_definition != null and not budget.consume_work(
+				index_definition.field_names.size(),
+				"validation.schema_index"
+			):
+				return false
+	return budget.is_ok()
+
+
+## 将预算首次失败投影为校验报告，不构造可消费 IR。
+## [br]
+## @api private
+func _make_budget_failure(source: GFConfigPipelineTableSource, budget: GFConfigWorkBudget) -> Dictionary:
+	var report: Dictionary = budget.get_report()
+	var result: Dictionary = _make_compile_failure(
+		source.get_table_key(),
+		GFVariantData.get_option_string(report, "error_kind"),
+		GFVariantData.get_option_string(report, "error"),
+		source.source_path,
+		source.get_resolved_format(),
+		{ "budget_report": report }
+	)
+	result["budget_report"] = report
+	return result
+
 
 ## 数组输入保序，字典输入按排序后的键取行；逐行深复制字典，任一非字典行使整次规范化失败。
 ## [br]
