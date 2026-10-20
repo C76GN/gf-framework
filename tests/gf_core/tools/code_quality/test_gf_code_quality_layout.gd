@@ -577,6 +577,28 @@ func test_only_member_sections_and_complete_decorated_definitions_get_blank_line
 	assert_true(_rules("class Fixture:\n\tfunc first() -> void:\n\t\tpass\n\tfunc second() -> void:\n\t\tpass\n").has("definition_spacing"))
 
 
+func test_inspector_metadata_keeps_following_member_documentation_and_spacing_independent() -> void:
+	for metadata: String in [
+		"export_category",
+		"export_group",
+		"export_subgroup",
+	]:
+		var source: String = "## First field.\n@export var first: int = 1\n\n@" + metadata + "(\"Settings\")\n\n## Second field.\n@export var second: int = 2\n"
+		assert_eq(
+			_rules(source),
+			[],
+			metadata
+		)
+		assert_true(
+			_rules(source + "## Third field needs a blank line.\n@export var third: int = 3\n").has("member_block_spacing"),
+			metadata
+		)
+		assert_true(
+			_rules(source + "\n## A single field annotation must stay attached.\n@export\nvar third: int = 3\n").has("annotation_binding_layout"),
+			metadata
+		)
+
+
 func test_comment_and_continuation_barriers_preserve_spelling_while_structural_errors_still_fail() -> void:
 	assert_eq(
 		_rules("var value = (\n\tmake(a, b) # Context belongs to the operand.\n\tas RefCounted\n)\n"),
