@@ -2920,6 +2920,7 @@ def _read_api_catalog_blobs_from_git(ref: str, paths: Sequence[str]) -> dict[str
 		stdin_bytes=b"".join(request + b"\n" for request in requests.values()),
 		binary_output=True,
 		text_errors="surrogateescape",
+		binary_output_encoding="latin-1",
 		max_stdout_characters=API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES,
 		max_stderr_characters=API_BASELINE_CATALOG_BATCH_STDERR_MAX_CHARS,
 	)
@@ -2934,9 +2935,9 @@ def _read_api_catalog_blobs_from_git(ref: str, paths: Sequence[str]) -> dict[str
 		or result.stderr != ""
 	):
 		raise ValueError("Git did not return a complete successful Catalog batch.")
-	# The supervisor limits captured characters, not bytes. Surrogateescape preserves
-	# byte framing even when a bounded output chunk splits a UTF-8 sequence.
-	output = result.stdout.encode("utf-8", errors="surrogateescape")
+	# Latin-1 maps each raw pipe byte to one captured character, so the supervisor
+	# enforces the byte budget before accumulation. Decode UTF-8 only after framing.
+	output = result.stdout.encode("latin-1")
 	if len(output) > API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES:
 		raise ValueError("Catalog batch response exceeds its byte budget.")
 	files: dict[str, str] = {}
@@ -14728,6 +14729,7 @@ def run_frozen_maintenance_git(
 	stdin_bytes: bytes | None = None,
 	binary_output: bool = False,
 	text_errors: str = "replace",
+	binary_output_encoding: str = "utf-8",
 	max_stdout_characters: int | None = None,
 	max_stderr_characters: int | None = None,
 ) -> Any:
@@ -14743,6 +14745,7 @@ def run_frozen_maintenance_git(
 			stdin_bytes=stdin_bytes,
 			binary_output=binary_output,
 			text_errors=text_errors,
+			binary_output_encoding=binary_output_encoding,
 			max_stdout_characters=max_stdout_characters,
 			max_stderr_characters=max_stderr_characters,
 		)

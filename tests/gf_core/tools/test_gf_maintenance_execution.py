@@ -22375,6 +22375,77 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		self.assertNotIn("--affected-base", shard.command)
 
 
+class BinaryOutputEncodingTests(unittest.TestCase):
+	@staticmethod
+	def _capture(payload: bytes, *, output_stream: str = "stdout", **options: object) -> object:
+		script = (
+			"import sys; "
+			f"data = bytes.fromhex({payload.hex()!r}); "
+			f"sys.{output_stream}.buffer.write(data); sys.{output_stream}.buffer.flush()"
+		)
+		return gf_process_supervisor.run_supervised_process(
+			[sys.executable, "-B", "-c", script],
+			cwd=ROOT, timeout_seconds=5.0, environment=dict(os.environ), **options,
+		)
+
+	def test_latin1_capture_preserves_exact_bytes_and_truncates_both_streams_at_raw_limit(self) -> None:
+		for payload in (
+			b"plain ASCII\n",
+			"🌞".encode("utf-8") * 8,
+			b"\xff\xfe\0\r\n\r" + "雪🌞".encode("utf-8"),
+			b"a" * 4095 + "🌞".encode("utf-8") + b"\r\n\xff",
+		):
+			for limit in (len(payload), len(payload) - 1):
+				for stream in ("stdout", "stderr"):
+					with self.subTest(size=len(payload), limit=limit, stream=stream):
+						result = self._capture(
+							payload, output_stream=stream, binary_output=True,
+							binary_output_encoding="latin-1", text_errors="surrogateescape",
+							max_stdout_characters=limit, max_stderr_characters=limit,
+						)
+						if limit == len(payload):
+							self.assertEqual(result.return_code, 0)
+						self.assertTrue(result.process_boundary_quiescent)
+						self.assertFalse(result.timed_out)
+						self.assertFalse(result.cancelled)
+						retained = getattr(result, stream).encode("latin-1")
+						self.assertEqual(retained, payload[:limit])
+						self.assertLessEqual(len(retained), limit)
+						self.assertEqual(getattr(result, stream + "_truncated"), len(payload) > limit)
+
+	def test_default_utf8_capture_keeps_character_limits_and_existing_newline_behavior(self) -> None:
+		# Keep valid UTF-8 inside one short line: the default mode's existing
+		# per-chunk decode behavior is separate from the byte-preserving mode.
+		payload = "雪🌞\n".encode("utf-8") + b"first\r\nsecond\r\0\xffend"
+		for binary_output in (False, True):
+			for errors in ("replace", "surrogateescape"):
+				expected = payload.decode("utf-8", errors=errors)
+				if not binary_output:
+					expected = expected.replace("\r\n", "\n").replace("\r", "\n")
+				for limit in (len(expected), len(expected) - 1):
+					for stream in ("stdout", "stderr"):
+						with self.subTest(binary_output=binary_output, errors=errors, limit=limit, stream=stream):
+							result = self._capture(
+								payload, output_stream=stream, binary_output=binary_output, text_errors=errors,
+								max_stdout_characters=limit, max_stderr_characters=limit,
+							)
+							if limit == len(expected):
+								self.assertEqual(result.return_code, 0)
+							self.assertTrue(result.process_boundary_quiescent)
+							self.assertFalse(result.timed_out)
+							self.assertEqual(getattr(result, stream), expected[:limit])
+							self.assertEqual(getattr(result, stream + "_truncated"), len(expected) > limit)
+
+	def test_invalid_binary_encoding_is_rejected_before_spawn(self) -> None:
+		for binary_output, encoding in ((False, "latin-1"), (True, "utf-16"), (True, "ascii")):
+			with self.subTest(binary_output=binary_output, encoding=encoding), mock.patch.object(
+				gf_process_supervisor, "_new_process_tree_owner",
+			) as launch:
+				with self.assertRaises(ValueError):
+					self._capture(b"not launched", binary_output=binary_output, binary_output_encoding=encoding)
+				launch.assert_not_called()
+
+
 class ApiCatalogGitBatchTests(unittest.TestCase):
 	REF = "a" * 40
 	CLASS_PATH = "classes/GF Outer 雪.xml"
@@ -22386,7 +22457,7 @@ class ApiCatalogGitBatchTests(unittest.TestCase):
 	@staticmethod
 	def _result(output: bytes = b"", **overrides: object) -> mock.Mock:
 		fields: dict[str, object] = {
-			"stdout": output.decode("utf-8", errors="surrogateescape"),
+			"stdout": output.decode("latin-1"),
 			"stderr": "",
 			"return_code": 0,
 			"cancelled": False,
@@ -22434,6 +22505,37 @@ class ApiCatalogGitBatchTests(unittest.TestCase):
 	def _request(self, path: str, *, ref: str = REF) -> bytes:
 		return f"{ref}:docs/api_catalog/{path}\n".encode("utf-8")
 
+	def test_real_catalog_capture_enforces_byte_limit_before_parser_rejection(self) -> None:
+		frame = self._frame("🌞".encode("utf-8") * 32)
+		limit = len(frame) - 1
+		request = self._request(self.CLASS_PATH)
+		script = (
+			"import sys; "
+			f"assert sys.stdin.buffer.read() == bytes.fromhex({request.hex()!r}); "
+			f"sys.stdout.buffer.write(bytes.fromhex({frame.hex()!r})); "
+			"sys.stdout.buffer.flush()"
+		)
+		captured: list[tuple[object, str]] = []
+		def emit_frame(_command: list[str], **kwargs: object) -> object:
+			result = gf_process_supervisor.run_supervised_process(
+				[sys.executable, "-B", "-c", script], **kwargs,
+			)
+			captured.append((result, str(kwargs.get("binary_output_encoding", "utf-8"))))
+			return result
+		with mock.patch.object(
+			gf_maintenance, "API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES", limit,
+		), mock.patch.object(gf_maintenance, "run_supervised_process", side_effect=emit_frame):
+			with self.assertRaises(ValueError):
+				gf_maintenance._read_api_catalog_blobs_from_git(self.REF, [self.CLASS_PATH])
+		self.assertEqual(len(captured), 1)
+		result, encoding = captured[0]
+		self.assertTrue(result.process_boundary_quiescent)
+		self.assertFalse(result.timed_out)
+		retained = result.stdout.encode(encoding, errors="surrogateescape")
+		self.assertLessEqual(len(retained), limit, "Parser rejection must not conceal oversized retained capture.")
+		self.assertEqual(retained, frame[:limit])
+		self.assertTrue(result.stdout_truncated)
+
 	def test_snapshot_preserves_owner_semantics_with_one_batch_per_catalog_stage(self) -> None:
 		index, owners = self._catalog()
 		expected = gf_maintenance.parse_api_catalog_snapshot(index, owners.get, "baseline")
@@ -22453,6 +22555,7 @@ class ApiCatalogGitBatchTests(unittest.TestCase):
 		for call in run_git.call_args_list:
 			self.assertEqual(call.args, (["cat-file", "--batch"],))
 			self.assertTrue(call.kwargs["binary_output"])
+			self.assertEqual(call.kwargs["binary_output_encoding"], "latin-1")
 			self.assertEqual(call.kwargs["text_errors"], "surrogateescape")
 			self.assertEqual(
 				call.kwargs["max_stdout_characters"],
@@ -22527,7 +22630,7 @@ class ApiCatalogGitBatchTests(unittest.TestCase):
 			for chunk_size in (1, unicode_start + 1, len(frame)):
 				with self.subTest(object_id_length=len(object_id), chunk_size=chunk_size):
 					stdout = "".join(
-						frame[offset:offset + chunk_size].decode("utf-8", errors="surrogateescape")
+						frame[offset:offset + chunk_size].decode("latin-1")
 						for offset in range(0, len(frame), chunk_size)
 					)
 					with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", return_value=self._result(stdout=stdout)):
@@ -23015,6 +23118,7 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 			environment={"PATH": "fixture"},
 			stdin_bytes=b"fixture input",
 			binary_output=False,
+			binary_output_encoding="utf-8",
 			text_errors="replace",
 			max_stdout_characters=123,
 			max_stderr_characters=45,
