@@ -1710,6 +1710,21 @@ static func _check_member_spacing(context: Dictionary, diagnostics: Array[Dictio
 			diagnostics
 		)
 		if kind == "annotation":
+			if (
+				opening + 1 < tokens.size()
+				and tokens[opening + 1]["text"] in [
+					"tool",
+					"icon",
+					"static_unload",
+					"export_category",
+					"export_group",
+					"export_subgroup",
+				]
+			):
+				# 与文档绑定一致：文件和分组元数据不能成为后续成员的注解前缀。
+				annotation_start = 0
+				annotation_count = 0
+				continue
 			if opening + 1 < tokens.size() and tokens[opening + 1]["text"] in _FIELD_ANNOTATIONS:
 				annotation_count += 1
 			if annotation_start == 0:

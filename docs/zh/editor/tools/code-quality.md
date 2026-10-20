@@ -27,6 +27,8 @@
 
 检查能判断已启用规则的结构要求和文档是否存在，不能判断业务注释是否准确解释了所有权、生命周期或设计原因。注释应描述当前约定，函数体中的原因说明仍按实际需要编写。
 
+`@export_category`、`@export_group` 和 `@export_subgroup` 是 Inspector 分组元数据，不属于后续字段的注解链。字段文档应放在分组元数据下方、字段声明或其自身注解之前；分组内的字段仍遵守相同的间距和注解绑定规则。
+
 项目可以用 `rules` 覆盖预设中某项规则的级别，或不选择预设、只启用明确列出的规则。级别为 `error`、`warning` 或 `off`；未知规则和未知配置字段会拒绝检查，不会静默忽略。`doc_public_summary` / `doc_private_summary` 检查成员职责说明；`doc_parameters` / `doc_return` 检查对外入口的完整参数、返回说明，以及私有成员按需写出的标签；`doc_tags` 检查已写出的标签契约；`section_order` 检查已有章节的顺序，不要求每个游戏文件增加空章节。完整规则 ID 使用下述命令查询。
 
 `layout` 可以显式设置 `max_inline_items`、`section_blank_lines_before` 和 `definition_blank_lines`。未覆盖时分别为 `2`、`2`、`2`，没有列宽配置。预设与规则只决定此次检查，不修改项目原有源码。
