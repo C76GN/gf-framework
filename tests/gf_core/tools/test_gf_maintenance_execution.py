@@ -22375,6 +22375,318 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		self.assertNotIn("--affected-base", shard.command)
 
 
+class ApiCatalogGitBatchTests(unittest.TestCase):
+	REF = "a" * 40
+	CLASS_PATH = "classes/GF Outer 雪.xml"
+
+	@staticmethod
+	def _frame(body: bytes, *, object_id: str = "b" * 40) -> bytes:
+		return f"{object_id} blob {len(body)}\n".encode("ascii") + body + b"\n"
+
+	@staticmethod
+	def _result(output: bytes = b"", **overrides: object) -> mock.Mock:
+		fields: dict[str, object] = {
+			"stdout": output.decode("utf-8", errors="surrogateescape"),
+			"stderr": "",
+			"return_code": 0,
+			"cancelled": False,
+			"stdout_truncated": False,
+			"stderr_truncated": False,
+		}
+		fields.update(overrides)
+		return mock.Mock(**fields)
+
+	@classmethod
+	def _catalog(cls) -> tuple[str, dict[str, str]]:
+		index = (
+			'<apiCatalog schemaVersion="3" sourceDigest="fixture" '
+			'classCount="2" methodCount="2" autoloadCount="1" autoloadMethodCount="1">'
+			'<module id="fixture">'
+			f'<class name="GFOuter" path="{cls.CLASS_PATH}" />'
+			f'<class name="GFOuter.Inner" path="{cls.CLASS_PATH}" />'
+			'<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/gf.gd" '
+			'packageId="gf.fixture" extends="Node" />'
+			'</module></apiCatalog>'
+		)
+		owners = {
+			cls.CLASS_PATH: (
+				'<class name="GFOuter" module="fixture"><methods>'
+				'<member kind="method" name="snapshot">'
+				'<signature>func snapshot() -&gt; Dictionary:</signature>'
+				'<tags><tag name="schema">return: outer 雪.</tag></tags>'
+				'</member></methods><innerClasses>'
+				'<class name="Inner" fullName="GFOuter.Inner"><methods>'
+				'<member kind="method" name="snapshot">'
+				'<signature>func snapshot() -&gt; Dictionary:</signature>'
+				'<tags><tag name="schema">return: inner.</tag></tags>'
+				'</member></methods></class></innerClasses></class>'
+			),
+			"autoloads/Gf.xml": (
+				'<autoload name="Gf" path="addons/gf/gf.gd" module="fixture" '
+				'packageId="gf.fixture" extends="Node"><methods>'
+				'<member kind="method" name="get_service">'
+				'<signature>func get_service() -&gt; Object:</signature>'
+				'</member></methods></autoload>'
+			),
+		}
+		return index, owners
+
+	def _request(self, path: str, *, ref: str = REF) -> bytes:
+		return f"{ref}:docs/api_catalog/{path}\n".encode("utf-8")
+
+	def test_snapshot_preserves_owner_semantics_with_one_batch_per_catalog_stage(self) -> None:
+		index, owners = self._catalog()
+		expected = gf_maintenance.parse_api_catalog_snapshot(index, owners.get, "baseline")
+		self.assertEqual(expected["errors"], [])
+		results = [
+			self._result(self._frame(index.encode("utf-8"))),
+			self._result(b"".join(self._frame(text.encode("utf-8")) for text in owners.values())),
+		]
+		with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", side_effect=results) as run_git:
+			actual = gf_maintenance.read_api_catalog_snapshot_from_git(self.REF, label="baseline")
+		self.assertEqual(actual, expected)
+		self.assertEqual(run_git.call_count, 2)
+		self.assertEqual(
+			[call.kwargs["stdin_bytes"] for call in run_git.call_args_list],
+			[self._request("index.xml"), b"".join(self._request(path) for path in owners)],
+		)
+		for call in run_git.call_args_list:
+			self.assertEqual(call.args, (["cat-file", "--batch"],))
+			self.assertTrue(call.kwargs["binary_output"])
+			self.assertEqual(call.kwargs["text_errors"], "surrogateescape")
+			self.assertEqual(
+				call.kwargs["max_stdout_characters"],
+				gf_maintenance.API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES,
+			)
+			self.assertEqual(
+				call.kwargs["max_stderr_characters"],
+				gf_maintenance.API_BASELINE_CATALOG_BATCH_STDERR_MAX_CHARS,
+			)
+
+	def test_shared_missing_empty_or_malformed_xml_keeps_each_owner_diagnostic(self) -> None:
+		index, owners = self._catalog()
+		for body in (None, "", "<class>", '<class name="Other" />'):
+			with self.subTest(body=body):
+				files = dict(owners)
+				files[self.CLASS_PATH] = body or ""
+				expected = gf_maintenance.parse_api_catalog_snapshot(index, files.get, "baseline")
+				class_response = (
+					self._request(self.CLASS_PATH)[:-1] + b" missing\n"
+					if body is None else self._frame(body.encode("utf-8"))
+				)
+				results = [
+					self._result(self._frame(index.encode("utf-8"))),
+					self._result(class_response + self._frame(owners["autoloads/Gf.xml"].encode("utf-8"))),
+				]
+				with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", side_effect=results) as run_git:
+					actual = gf_maintenance.read_api_catalog_snapshot_from_git(self.REF, label="baseline")
+				self.assertEqual(actual, expected)
+				self.assertEqual(len(actual["errors"]), 2)
+				self.assertEqual(run_git.call_count, 2)
+
+	def test_unconsumed_duplicate_autoload_xml_does_not_add_parse_diagnostics(self) -> None:
+		index, owners = self._catalog()
+		index = index.replace('</module>', '<autoload name="Gf" path="autoloads/ignored.xml" /></module>')
+		owners["autoloads/ignored.xml"] = "<broken"
+		expected = gf_maintenance.parse_api_catalog_snapshot(index, owners.get, "baseline")
+		results = [
+			self._result(self._frame(index.encode("utf-8"))),
+			self._result(b"".join(self._frame(text.encode("utf-8")) for text in owners.values())),
+		]
+		with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", side_effect=results):
+			actual = gf_maintenance.read_api_catalog_snapshot_from_git(self.REF, label="baseline")
+		self.assertEqual(actual, expected)
+		self.assertEqual(actual["errors"], ["baseline API Catalog autoload owner is duplicated: Gf."])
+
+	def test_missing_empty_malformed_or_ownerless_index_stops_after_first_batch(self) -> None:
+		for index in (None, "", "<apiCatalog>", '<apiCatalog schemaVersion="1" />'):
+			with self.subTest(index=index):
+				response = (
+					self._request("index.xml")[:-1] + b" missing\n"
+					if index is None else self._frame(index.encode("utf-8"))
+				)
+				expected = (
+					gf_maintenance.parse_api_catalog_snapshot(index, lambda _path: "", "baseline")
+					if index else {
+						"classes": {}, "autoloads": {},
+						"errors": ["baseline:docs/api_catalog/index.xml is missing or unreadable."],
+					}
+				)
+				with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", return_value=self._result(response)) as run_git:
+					actual = gf_maintenance.read_api_catalog_snapshot_from_git(self.REF, label="baseline")
+				self.assertEqual(actual, expected)
+				run_git.assert_called_once()
+
+	def test_batch_restores_split_utf8_bytes_before_replacement_and_newline_conversion(self) -> None:
+		body = b"first\r\nsecond\rthird\n\xff" + "雪🌞".encode("utf-8") + b"\n" + b"c" * 40 + b" blob 0\n\n"
+		with io.TextIOWrapper(io.BytesIO(body), encoding="utf-8", errors="replace", newline=None) as stream:
+			expected = stream.read()
+		for object_id in ("b" * 40, "b" * 64):
+			frame = self._frame(body, object_id=object_id)
+			unicode_start = frame.index("雪".encode("utf-8"))
+			for chunk_size in (1, unicode_start + 1, len(frame)):
+				with self.subTest(object_id_length=len(object_id), chunk_size=chunk_size):
+					stdout = "".join(
+						frame[offset:offset + chunk_size].decode("utf-8", errors="surrogateescape")
+						for offset in range(0, len(frame), chunk_size)
+					)
+					with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", return_value=self._result(stdout=stdout)):
+						actual = gf_maintenance._read_api_catalog_blobs_from_git(self.REF, [self.CLASS_PATH])
+					self.assertEqual(actual, {self.CLASS_PATH: expected})
+
+	def test_batch_rejects_untrusted_results_and_malformed_frames(self) -> None:
+		frame = self._frame(b"abc")
+		header = b"b" * 40
+		failures = {
+			"nonzero exit": self._result(frame, return_code=1),
+			"noninteger exit": self._result(frame, return_code=False),
+			"cancelled": self._result(frame, cancelled=True),
+			"stderr": self._result(frame, stderr="warning"),
+			"stdout truncated": self._result(frame, stdout_truncated=True),
+			"stderr truncated": self._result(frame, stderr_truncated=True),
+			"nontext stdout": self._result(stdout=frame),
+			"nontext stderr": self._result(frame, stderr=b""),
+			"missing row": self._result(),
+			"extra row": self._result(frame + frame),
+			"extra data": self._result(frame + b"x"),
+			"short header": self._result(header + b" blob 3"),
+			"short body": self._result(header + b" blob 3\nab"),
+			"missing delimiter": self._result(frame[:-1]),
+			"wrong delimiter": self._result(frame[:-1] + b"x"),
+			"nonblob": self._result(header + b" tree 3\nabc\n"),
+			"invalid object": self._result(b"z" * 40 + b" blob 3\nabc\n"),
+			"negative size": self._result(header + b" blob -1\n\n"),
+			"nondigit size": self._result(header + b" blob 1x\n\n"),
+			"noncanonical size": self._result(header + b" blob 03\nabc\n"),
+			"excessive size digits": self._result(header + b" blob " + b"9" * 100 + b"\n"),
+			"oversized body": self._result(header + b" blob " + str(gf_maintenance.API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES + 1).encode("ascii") + b"\n"),
+			"wrong missing path": self._result(self._request("other.xml")[:-1] + b" missing\n"),
+		}
+		for name, result in failures.items():
+			with self.subTest(name=name), mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", return_value=result) as run_git:
+				with self.assertRaises(ValueError):
+					gf_maintenance._read_api_catalog_blobs_from_git(self.REF, [self.CLASS_PATH])
+				run_git.assert_called_once()
+
+	def test_batch_request_and_response_limits_use_bytes_and_allow_exact_boundaries(self) -> None:
+		request = self._request(self.CLASS_PATH)
+		frame = self._frame("雪🌞".encode("utf-8"))
+		for budget_name, exact_size in (
+			("API_BASELINE_CATALOG_BATCH_INPUT_MAX_BYTES", len(request)),
+			("API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES", len(frame)),
+		):
+			for limit in (exact_size, exact_size - 1):
+				with self.subTest(budget=budget_name, limit=limit), mock.patch.object(gf_maintenance, budget_name, limit), mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", return_value=self._result(frame)) as run_git:
+					if limit == exact_size:
+						self.assertEqual(
+							gf_maintenance._read_api_catalog_blobs_from_git(self.REF, [self.CLASS_PATH, self.CLASS_PATH]),
+							{self.CLASS_PATH: "雪🌞"},
+						)
+					else:
+						with self.assertRaises(ValueError):
+							gf_maintenance._read_api_catalog_blobs_from_git(self.REF, [self.CLASS_PATH])
+					if budget_name.endswith("INPUT_MAX_BYTES") and limit < exact_size:
+						run_git.assert_not_called()
+					else:
+						run_git.assert_called_once()
+
+	def test_batch_rejects_mutable_refs_and_line_protocol_injection_before_git(self) -> None:
+		for ref, paths in (
+			("HEAD", [self.CLASS_PATH]),
+			("10.0.0", [self.CLASS_PATH]),
+			(self.REF, [""]),
+			(self.REF, ["classes/a\nb.xml"]),
+			(self.REF, ["classes/a\rb.xml"]),
+			(self.REF, ["classes/a\0b.xml"]),
+		):
+			with self.subTest(ref=ref, paths=paths), mock.patch.object(gf_maintenance, "run_frozen_maintenance_git") as run_git:
+				with self.assertRaises(ValueError):
+					gf_maintenance._read_api_catalog_blobs_from_git(ref, paths)
+				run_git.assert_not_called()
+
+	def test_snapshot_reports_transport_failure_without_partial_owners_or_fallback(self) -> None:
+		index, _owners = self._catalog()
+		for stage in ("index", "owners"):
+			results = [] if stage == "index" else [self._result(self._frame(index.encode("utf-8")))]
+			results.append(self._result(b"broken\n", stdout_truncated=True))
+			with self.subTest(stage=stage), mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", side_effect=results) as run_git, mock.patch.object(gf_maintenance, "git_show_text") as legacy_reader:
+				actual = gf_maintenance.read_api_catalog_snapshot_from_git(self.REF, label="baseline")
+				self.assertEqual(actual["classes"], {})
+				self.assertEqual(actual["autoloads"], {})
+				self.assertEqual(len(actual["errors"]), 1)
+				self.assertTrue(actual["errors"][0].startswith("baseline API catalog batch read failed:"))
+				self.assertEqual(run_git.call_count, len(results))
+				legacy_reader.assert_not_called()
+
+	def test_snapshot_preserves_timeout_and_process_boundary_failures(self) -> None:
+		for error in (
+			subprocess.TimeoutExpired(["git", "cat-file", "--batch"], 30.0),
+			gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError("not quiescent"),
+		):
+			with self.subTest(error=type(error).__name__), mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", side_effect=error) as run_git:
+				with self.assertRaises(type(error)) as raised:
+					gf_maintenance.read_api_catalog_snapshot_from_git(self.REF)
+				self.assertIs(raised.exception, error)
+				run_git.assert_called_once()
+
+	def test_real_git_captured_commits_match_legacy_loading_without_cross_call_state(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf_catalog_batch_") as temporary_directory:
+			repository = Path(temporary_directory)
+			authority = gf_process_authority.freeze_process_authority(_frozen_process_environment(), cwd=repository)
+			def run_git(arguments: list[str]) -> str:
+				completed = subprocess.run(
+					list(authority.git.command(arguments).effective), cwd=repository,
+					env=authority.git.environment.values(), capture_output=True,
+					text=True, errors="replace", check=False, timeout=10.0,
+				)
+				self.assertEqual(completed.returncode, 0, completed.stderr)
+				return completed.stdout.strip()
+			run_git(["init", "--quiet"])
+			for key, value in (
+				("user.name", "fixture"), ("user.email", "fixture@example.invalid"),
+				("commit.gpgSign", "false"), ("core.autocrlf", "false"),
+			):
+				run_git(["config", key, value])
+			hooks_directory = repository / "empty-hooks"
+			hooks_directory.mkdir()
+			run_git(["config", "core.hooksPath", hooks_directory.as_posix()])
+			catalog = repository / "docs/api_catalog"
+			(catalog / "classes").mkdir(parents=True)
+			index = '<apiCatalog schemaVersion="1"><module id="fixture">' + f'<class name="GFOuter" path="{self.CLASS_PATH}" />' + '</module></apiCatalog>'
+			(catalog / "index.xml").write_bytes(index.encode("utf-8"))
+			prefix = b'<class name="GFOuter"><methods><member kind="method" name="snapshot"><signature>func snapshot() -&gt; Dictionary:</signature><tags><tag name="schema">'
+			suffix = b'</tag></tags></member></methods></class>'
+			body_a = prefix + b"old\r\n" + b"x" * 4095 + "雪🌞".encode("utf-8") + b"\xff\rvalue" + suffix
+			body_b = prefix + b"new" + suffix
+			commits = []
+			for body in (body_a, body_b):
+				(catalog / self.CLASS_PATH).write_bytes(body)
+				run_git(["add", "docs/api_catalog"])
+				run_git(["commit", "--quiet", "-m", "catalog fixture"])
+				commits.append(run_git(["rev-parse", "HEAD"]))
+			with mock.patch.object(gf_maintenance, "ROOT", repository), gf_process_authority.activate_process_context(authority):
+				def legacy_snapshot(ref: str) -> dict[str, object]:
+					return gf_maintenance.parse_api_catalog_snapshot(
+						gf_maintenance.git_show_text(f"{ref}:docs/api_catalog/index.xml"),
+						lambda path: gf_maintenance.git_show_text(f"{ref}:docs/api_catalog/{path}"),
+						"baseline",
+					)
+				expected_a = legacy_snapshot(commits[0])
+				expected_b = legacy_snapshot(commits[1])
+				self.assertEqual(expected_a["errors"], [])
+				self.assertNotEqual(expected_a, expected_b)
+				with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git", wraps=gf_maintenance.run_frozen_maintenance_git) as reader:
+					first = gf_maintenance.read_api_catalog_snapshot_from_git(commits[0], label="baseline")
+					self.assertEqual(first, expected_a)
+					first["classes"].clear()
+					first["errors"].append("caller mutation")
+					self.assertEqual(gf_maintenance.read_api_catalog_snapshot_from_git(commits[1], label="baseline"), expected_b)
+					self.assertEqual(gf_maintenance.read_api_catalog_snapshot_from_git(commits[0], label="baseline"), expected_a)
+					self.assertEqual(reader.call_count, 6)
+					for call, ref in zip(reader.call_args_list, (commits[0],) * 2 + (commits[1],) * 2 + (commits[0],) * 2):
+						self.assertTrue(call.kwargs["stdin_bytes"].startswith(ref.encode("ascii") + b":"))
+
+
 class ChangelogBaselinePolicyTests(unittest.TestCase):
 	@staticmethod
 	def _git_result(

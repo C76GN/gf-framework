@@ -3,12 +3,31 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from gf_workspace_snapshot import WorkspaceSnapshot
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_API_VISIBILITIES = frozenset({"public", "protected"})
+_ACTIVE_API_PARSE_SNAPSHOT: ContextVar[WorkspaceSnapshot | None] = ContextVar(
+	"api_parse_snapshot", default=None,
+)
+
+
+@contextmanager
+def api_parse_snapshot(snapshot: WorkspaceSnapshot | None) -> Iterator[None]:
+	"""Share pure parses only within explicitly selected invocation consumers."""
+	token = _ACTIVE_API_PARSE_SNAPSHOT.set(snapshot)
+	try:
+		yield
+	finally:
+		_ACTIVE_API_PARSE_SNAPSHOT.reset(token)
 
 
 @dataclass
@@ -109,11 +128,21 @@ def collect_api_classes(source_root: Path, root: Path = ROOT) -> list[ApiClass]:
 def parse_gdscript_file(path: Path, source_root: Path, root: Path = ROOT) -> ApiScript:
 	relative_path = path.relative_to(root).as_posix()
 	source_relative = path.relative_to(source_root)
-	return parse_gdscript_source(
-		path.read_text(encoding="utf-8"),
-		relative_path,
-		module_from_path(source_relative),
+	module = module_from_path(source_relative)
+	# Read every time: size and mtime do not establish parser input identity.
+	source = path.read_text(encoding="utf-8")
+	snapshot = _ACTIVE_API_PARSE_SNAPSHOT.get()
+	if snapshot is None:
+		return parse_gdscript_source(source, relative_path, module)
+	identity = (str(root.absolute()), str(source_root.absolute()), relative_path, module, source)
+	parsed = snapshot.memoize(
+		"api_script_parse",
+		identity,
+		lambda: parse_gdscript_source(source, relative_path, module),
 	)
+	# Owners and generators may mutate nested docs, members and inner classes.
+	# Keep the cached parse private even for the first consumer.
+	return deepcopy(parsed)
 
 
 def parse_gdscript_source(source: str, relative_path: str, module: str = "root") -> ApiScript:

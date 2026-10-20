@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from bisect import bisect_right
 import hashlib
 import json
@@ -220,6 +220,46 @@ class LexedSource:
 	comments: tuple[Token, ...]
 	groups: tuple[Group, ...]
 	issues: tuple[dict[str, Any], ...]
+	_analysis: _SourceAnalysis | None = field(default=None, repr=False, compare=False, kw_only=True)
+
+
+class _SourceAnalysis:
+	"""Own derived views only for one audit; close even when a rule raises."""
+
+	def __init__(self) -> None:
+		self._views: dict[int, tuple[LexedSource, dict[tuple[str, tuple[int, ...]], Any]]] = {}
+		self._closed = False
+
+	def resolve(self, view: LexedSource, key: tuple[str, tuple[int, ...]], build: Callable[[], Any]) -> Any:
+		if self._closed:
+			return build()
+		identity = id(view)
+		entry = self._views.get(identity)
+		if entry is None:
+			# Retain the identity owner until close, so an id cannot be reused.
+			entry = view, {}
+			self._views[identity] = entry
+		values = entry[1]
+		if key not in values:
+			# None is a completed, fail-closed result; exceptions publish nothing.
+			values[key] = build()
+		return values[key]
+
+	def close(self) -> None:
+		self._closed = True
+		# Views and matcher inputs may refer back to this invocation owner.
+		self._views.clear()
+
+
+def _analysis_result(view: LexedSource, name: str, build: Callable[[], Any]) -> Any:
+	analysis = view._analysis
+	if analysis is None:
+		return build()
+	policy = (
+		MAX_INLINE_LIST_ITEMS, MAX_INLINE_DICTIONARY_FIELDS,
+		MAX_INLINE_CONDITION_TERMS, MAX_INLINE_MIXED_CONDITION_TERMS, MAX_GROUP_DEPTH,
+	)
+	return analysis.resolve(view, (name, policy), build)
 
 
 @dataclass(frozen=True)
@@ -700,6 +740,18 @@ def _group_kind(tokens: list[Token] | tuple[Token, ...], opening: int, *, names:
 	return "group"
 
 
+def _atomic_layout_inputs(view: LexedSource) -> tuple[dict[int, Group], tuple[int, ...], tuple[int, ...]]:
+	group_by_open = {group.open_index: group for group in view.groups}
+	comment_starts = tuple(comment.start for comment in view.comments)
+	barrier_prefix = [0]
+	for token in view.tokens:
+		barrier_prefix.append(barrier_prefix[-1] + int(
+			token.value == "\\"
+			or (token.kind == "string" and token.line != token.end_line)
+		))
+	return group_by_open, comment_starts, tuple(barrier_prefix)
+
+
 def _atomic_layout_matcher(view: LexedSource) -> tuple[
 	Callable[[int], bool], Callable[[int, int], int | None], Callable[[int, int], bool],
 ]:
@@ -712,14 +764,9 @@ def _atomic_layout_matcher(view: LexedSource) -> tuple[
 	physical structure. No column or name length participates in this decision.
 	"""
 	tokens = view.tokens
-	group_by_open = {group.open_index: group for group in view.groups}
-	comment_starts = tuple(comment.start for comment in view.comments)
-	barrier_prefix = [0]
-	for token in tokens:
-		barrier_prefix.append(barrier_prefix[-1] + int(
-			token.value == "\\"
-			or (token.kind == "string" and token.line != token.end_line)
-		))
+	group_by_open, comment_starts, barrier_prefix = _analysis_result(
+		view, "atomic_inputs", lambda: _atomic_layout_inputs(view),
+	)
 	reserved = {
 		"func", "if", "elif", "else", "for", "while", "match", "return",
 		"var", "const", "signal", "enum", "class", "class_name", "extends",
@@ -1046,6 +1093,16 @@ def argument_group_layout_spans(view: LexedSource) -> tuple[ArgumentGroupLayoutS
 
 
 def _independent_statement_starts(view: LexedSource) -> tuple[dict[int, int], set[int]]:
+	"""Reuse this exact view's statement proof without exposing mutable cache data."""
+	if view._analysis is None:
+		return _build_independent_statement_starts(view)
+	first_by_line, starts = _analysis_result(
+		view, "statement_starts", lambda: _build_independent_statement_starts(view),
+	)
+	return dict(first_by_line), set(starts)
+
+
+def _build_independent_statement_starts(view: LexedSource) -> tuple[dict[int, int], set[int]]:
 	"""Prove physical statement starts outside delimiters or in a lambda body.
 
 	An anonymous function's parameter owner and header colon establish its body
@@ -1514,6 +1571,19 @@ def _boolean_group_kinds(view: LexedSource, names: set[int]) -> tuple[str, ...]:
 def _boolean_scope_view(view: LexedSource) -> tuple[
 	LexedSource, LexedSource, dict[int, int], set[int], set[int], tuple[str, ...],
 ] | None:
+	"""Reuse the scope closure, keeping each consumer's mutable collections private."""
+	if view._analysis is None:
+		return _build_boolean_scope_view(view)
+	scope = _analysis_result(view, "boolean_scope", lambda: _build_boolean_scope_view(view))
+	if scope is None:
+		return None
+	scoped, proof, first_by_line, starts, names, kinds = scope
+	return scoped, proof, dict(first_by_line), set(starts), set(names), kinds
+
+
+def _build_boolean_scope_view(view: LexedSource) -> tuple[
+	LexedSource, LexedSource, dict[int, int], set[int], set[int], tuple[str, ...],
+] | None:
 	"""Close keyword roles over proven statements in at most two bounded passes.
 
 	A lambda value has the same header/item/indentation proof in an index as in
@@ -1528,7 +1598,10 @@ def _boolean_scope_view(view: LexedSource) -> tuple[
 			"array" if statement_proof and kinds[number] == "index" else kinds[number],
 			group.parent_index, group.items,
 		) for number, group in enumerate(view.groups))
-		return LexedSource(view.source, view.lines, view.tokens, view.comments, groups, view.issues)
+		return LexedSource(
+			view.source, view.lines, view.tokens, view.comments, groups, view.issues,
+			_analysis=view._analysis,
+		)
 
 	_first_by_line, starts = _independent_statement_starts(view)
 	names = _boolean_name_roles(view, starts)
@@ -1544,6 +1617,11 @@ def _boolean_scope_view(view: LexedSource) -> tuple[
 
 
 def boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, ...]:
+	"""Return immutable Boolean spans, shared only inside the owning audit."""
+	return _analysis_result(view, "boolean_spans", lambda: _build_boolean_layout_spans(view))
+
+
+def _build_boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, ...]:
 	"""Index complete three-or-more-term Boolean domains without flattening syntax.
 
 	Ordinary groups are transparent for term counting; calls, containers and
@@ -2316,9 +2394,18 @@ def _call_closing_suffix_allowed(
 def audit_source(path: str, text: str) -> list[dict[str, Any]]:
 	"""Return every observed violation, or a hard failure for incomplete input."""
 	view = lex_source(path, text)
-	issues = list(view.issues)
-	if issues:
-		return issues
+	if view.issues:
+		return list(view.issues)
+	analysis = _SourceAnalysis()
+	try:
+		return _audit_source_view(path, text, replace(view, _analysis=analysis))
+	finally:
+		analysis.close()
+
+
+def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str, Any]]:
+	"""Audit a complete lexical view using its invocation-owned derived inputs."""
+	issues: list[dict[str, Any]] = []
 	tokens, groups = view.tokens, view.groups
 	from gf_gdscript_expression_layout import effective_group_kinds
 	effective_kinds = effective_group_kinds(view)

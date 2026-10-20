@@ -6699,11 +6699,21 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			)
 		)
 		and isinstance(default_changelog_adapter, functools.partial)
-		and default_changelog_adapter.func is changelog_policy
-		and default_changelog_adapter.keywords == {"allow_breaking_api": False}
+		and default_changelog_adapter.func is _run_api_model_check
+		and default_changelog_adapter.keywords == {}
+		and len(default_changelog_adapter.args) == 1
+		and isinstance(default_changelog_adapter.args[0], functools.partial)
+		and default_changelog_adapter.args[0].func is changelog_policy
+		and default_changelog_adapter.args[0].args == ()
+		and default_changelog_adapter.args[0].keywords == {"allow_breaking_api": False}
 		and isinstance(waived_changelog_adapter, functools.partial)
-		and waived_changelog_adapter.func is changelog_policy
-		and waived_changelog_adapter.keywords == {"allow_breaking_api": True},
+		and waived_changelog_adapter.func is _run_api_model_check
+		and waived_changelog_adapter.keywords == {}
+		and len(waived_changelog_adapter.args) == 1
+		and isinstance(waived_changelog_adapter.args[0], functools.partial)
+		and waived_changelog_adapter.args[0].func is changelog_policy
+		and waived_changelog_adapter.args[0].args == ()
+		and waived_changelog_adapter.args[0].keywords == {"allow_breaking_api": True},
 		"the current changelog state must fail before release while preserving the invocation-scoped breaking waiver.",
 	)
 	record_result(

@@ -46,6 +46,11 @@ const _CATALOG_COMMAND_SCRIPT = preload("res://addons/gf/tools/asset_browser/edi
 ## @api private
 const _PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
 
+## 创建一次性批量引用证据任务；报告提交前仍须核对页面选择与上下文。
+## [br]
+## @api private
+const _REFERENCE_REPORT_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_reference_report.gd")
+
 ## 类型选项下标对应的 Godot 类型名；空字符串表示全部类型，顺序必须与界面标题一致。
 ## [br]
 ## @api private
@@ -347,6 +352,31 @@ var _card_cursor: int = 0
 ## @api private
 var _peak_card_step_usec: int = 0
 
+## 每帧最多推进一个同步扫描阶段；取消、选择变化或上下文撤销后丢弃候选报告。
+## [br]
+## @api private
+var _reference_report: _REFERENCE_REPORT_SCRIPT = null
+
+## 创建报告时的有效选择，路径排序后与当前选择比较。
+## [br]
+## @api private
+var _reference_paths: PackedStringArray = PackedStringArray()
+
+## 创建报告时的宿主授权代次；完成前不得使用新上下文展示旧证据。
+## [br]
+## @api private
+var _reference_context_generation: int = -1
+
+## 创建报告时的原始范围输入；未确认的范围编辑也会撤销旧报告资格。
+## [br]
+## @api private
+var _reference_scope: String = ""
+
+## 页面拥有的取消扫描按钮，仅有在途引用任务时启用。
+## [br]
+## @api private
+var _reference_cancel_button: Button = null
+
 
 # --- Godot 生命周期方法 ---
 
@@ -392,6 +422,7 @@ func _ready() -> void:
 ## @api private
 func _process(delta: float) -> void:
 	_reap_queries()
+	_step_reference_report()
 	if not _query_pending:
 		return
 	if not _can_update_view() or _query_context_generation != _context_generation:
@@ -667,11 +698,18 @@ func _build_ui() -> void:
 	)
 	action_row.add_child(
 		_UI_SCRIPT.make_button(
-			"依赖 / 引用",
-			"按需有界扫描，不作为安全删除证明",
+			"检查所选引用",
+			"批量检查所选资源的直接依赖和当前范围入站引用；不作为安全删除证明",
 			_inspect_references
 		)
 	)
+	_reference_cancel_button = _UI_SCRIPT.make_button(
+		"取消引用检查",
+		"撤销当前批次，已开始的同步扫描阶段返回后停止",
+		_cancel_reference_inspection
+	)
+	_reference_cancel_button.disabled = true
+	action_row.add_child(_reference_cancel_button)
 	_resource_actions = MenuButton.new()
 	_resource_actions.name = "ResourceActions"
 	_resource_actions.text = "发送到工具"
@@ -790,6 +828,7 @@ func _is_view_visible() -> bool:
 func _set_stale(value: bool) -> void:
 	_stale = value
 	if value:
+		_cancel_reference_report()
 		_cancel_page_query()
 	_grid.set_resource_actions_enabled(
 		not value
@@ -1297,43 +1336,126 @@ func _open_tables() -> void:
 	_tabs.current_tab = 1
 
 
-## 对唯一有效资源按需执行有界依赖与引用扫描，将证据和覆盖限制写入详情；未发现引用不能作为安全删除证明。
+## 捕获当前有效多选并启动一次批量证据任务；同步阶段按帧推进，未完成结果不展示。
 ## [br]
 ## @api private
 func _inspect_references() -> void:
 	var paths: PackedStringArray = get_selected_resource_paths()
-	if paths.size() != 1 or _stale:
-		_status.text = "请在有效快照中选择一个资源。"
+	if paths.is_empty() or _stale:
+		_status.text = "请在有效快照中选择一个或多个资源。"
 		return
-	var path: String = paths[0]
-	var dependencies: Dictionary = GFResourceRegistryTools.build_dependency_report(
-		path,
-		{ "max_scan_depth": 16, "max_dependency_paths": 1000 }
+	_cancel_reference_report()
+	paths.sort()
+	_reference_paths = paths
+	_reference_context_generation = _context_generation
+	_reference_scope = _scope.text
+	_reference_report = _REFERENCE_REPORT_SCRIPT.new()
+	var _accepted: bool = _reference_report.start(
+		paths,
+		{ "scope": _scope.text, "include_addons": _addons.button_pressed, }
 	)
-	var references: Dictionary = GFProjectReferenceScanner.scan_references(
-		[
-			{ "id": path, "root_path": path },
-		],
+	_reference_cancel_button.disabled = false
+	_details.text = "正在检查所选资源的直接依赖与当前范围入站引用；本次结果尚未完成。"
+	_status.text = "引用检查已开始：%d 个所选资源。" % paths.size()
+
+
+## 只在选择、范围、索引与上下文均未变化时推进和提交；原生同步扫描不能在调用中抢占。
+## [br]
+## @api private
+func _step_reference_report() -> void:
+	if _reference_report == null:
+		return
+	if not _reference_report_current():
+		_cancel_reference_inspection()
+		return
+	var task: _REFERENCE_REPORT_SCRIPT = _reference_report
+	var finished: bool = task.step()
+	if task != _reference_report:
+		return
+	if not _reference_report_current():
+		_cancel_reference_report()
+		return
+	var progress: Dictionary = task.get_progress()
+	_status.text = (
+		"引用检查：%d / %d"
+		% [progress["completed"], progress["total"]]
+	)
+	if not finished:
+		return
+	var report: Dictionary = task.take_result()
+	_cancel_reference_report()
+	if report.is_empty():
+		return
+	var lines: PackedStringArray = PackedStringArray(["直接依赖证据与入站引用；未观察到引用不表示可安全删除。", "动态路径无法静态确定；只覆盖声明的范围、扩展名与预算。",])
+	for item: Variant in GFVariantData.get_option_array(report, "rows"):
+		if item is Dictionary:
+			var row: Dictionary = item
+			var inbound: String = GFVariantData.get_option_string(row, "inbound_status")
+			var label: String = "未观察到引用"
+			if inbound == "observed_static":
+				label = "观察到静态引用"
+			elif inbound == "weak_only":
+				label = "仅观察到弱引用"
+			var _appended: bool = lines.append(
+				"%s | %s | 强缺失 %d | UID 已解析但路径陈旧 %d%s"
+				% [
+					GFVariantData.get_option_string(row, "path").left(180),
+					label,
+					GFVariantData.get_option_int(row, "missing_count"),
+					GFVariantData.get_option_int(row, "stale_path_count"),
+					" | 覆盖不完整" if GFVariantData.get_option_bool(row, "partial_scan") else "",
+				]
+			)
+	_details.text = "\n".join(lines) + "\n\n结构化证据（最多 256 KiB，超限会显示截断标记）：\n" + GFReportValueCodec.stringify_json_compatible(
+		report,
+		"  ",
+		true,
 		{
-			"scan_roots": [_scope.text],
-			"max_scanned_files": 2000,
-			"max_file_bytes": 1_048_576,
-			"max_total_bytes": 8_388_608,
-			"max_references_per_target": 100,
-			"max_weak_references_per_target": 100,
+			"path_redaction": "none",
+			"max_depth": 10,
+			"max_collection_items": 1000,
+			"max_string_length": 4096,
+			"max_total_nodes": 40_000,
+			"max_total_bytes": 262_144,
 		}
 	)
-	_details.text = (
-		"扫描范围：%s\n包含已验证、静态及弱引用证据。动态路径可能无法确定；未发现引用不表示可安全删除。\n\n%s"
-		% [
-			_scope.text,
-			JSON.stringify(
-				{ "dependencies": dependencies, "references": references },
-				"  "
-			),
-		]
-	)
-	_status.text = ("引用检查完成%s；刷新或源文件变化后结果过期。" % ("（覆盖不完整）" if GFVariantData.get_option_bool(references, "partial_scan") else ""))
+	_status.text = "引用检查完成%s；刷新、选择或源文件变化后请重新检查。" % ("（覆盖不完整）" if GFVariantData.get_option_bool(report, "partial_scan") else "")
+
+
+## 使用有效页面选择与捕获快照比对，不允许旧批次覆盖新选择的详情。
+## [br]
+## @api private
+func _reference_report_current() -> bool:
+	if (
+		_stale
+		or not _can_update_view()
+		or _reference_context_generation != _context_generation
+		or _reference_scope != _scope.text
+	):
+		return false
+	var paths: PackedStringArray = get_selected_resource_paths()
+	paths.sort()
+	return paths == _reference_paths
+
+
+## 丢弃任务并禁用取消按钮，保持当前详情由触发失效的页面流程决定。
+## [br]
+## @api private
+func _cancel_reference_report() -> void:
+	if _reference_report != null:
+		_reference_report.cancel()
+	_reference_report = null
+	_reference_paths = PackedStringArray()
+	_reference_cancel_button.disabled = true
+
+
+## 用户取消或范围变化时明确显示结果已撤销，不保留候选数据作为完成报告。
+## [br]
+## @api private
+func _cancel_reference_inspection() -> void:
+	_cancel_reference_report()
+	_status.text = "引用检查已取消；可重新选择后检查。"
+	_details.text = "本次引用检查已撤销，没有发布结果。"
 
 
 ## 以创建模式打开共享目录路径选择，后续仅允许写入不存在的独立项目 .tres 文件。
@@ -1648,10 +1770,16 @@ func _on_search_changed(_text: String) -> void:
 ## [br]
 ## @api private
 func _on_grid_selected(_index: int, _selected: bool) -> void:
+	_cancel_reference_report()
 	_clear_resource_actions()
 	_refresh_resource_actions()
 	var entries: Array[GFAssetCatalogEntry] = _selected_entries()
 	if entries.is_empty():
+		_selected_id = &""
+		_details.text = "未选择资源。"
+		_status.text = "请选择资源后检查引用。"
+		_tags.clear()
+		_notes.clear()
 		return
 	var entry: GFAssetCatalogEntry = entries[0]
 	_selected_id = entry.asset_id

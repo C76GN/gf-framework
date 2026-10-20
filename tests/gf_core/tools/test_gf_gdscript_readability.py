@@ -21,6 +21,46 @@ class ReadabilityTests(unittest.TestCase):
 	def rules(self, source: str, path: str = "addons/gf/fixture.gd") -> set[str]:
 		return {issue["rule"] for issue in readability.audit_source(path, source)}
 
+	def test_independent_audits_keep_same_path_sources_isolated(self) -> None:
+		path = "addons/gf/fixture.gd"
+		boolean_source = "return state.func(a and b and c)\n"
+		arithmetic_source = "return state.name(a + b + c)\n"
+		first = readability.audit_source(path, boolean_source)
+		expected = [dict(issue) for issue in first]
+		self.assertEqual(
+			[(issue["rule"], issue["line"], issue["column"]) for issue in first],
+			[("condition_layout", 1, 19), ("list_layout", 1, 19)],
+		)
+		self.assertEqual(readability.audit_source(path, arithmetic_source), [])
+		self.assertEqual(readability.audit_source(path, boolean_source), expected)
+		self.assertEqual(readability.audit_source(path, arithmetic_source), [])
+
+	def test_audits_observe_current_boolean_policy_and_lexical_budget(self) -> None:
+		path = "addons/gf/fixture.gd"
+		source = "return a and b and c\n"
+		first = readability.audit_source(path, source)
+		expected = [dict(issue) for issue in first]
+		self.assertEqual([issue["rule"] for issue in first], ["condition_layout"])
+		with patch.object(readability, "MAX_INLINE_CONDITION_TERMS", 3):
+			self.assertEqual(readability.audit_source(path, source), [])
+		self.assertEqual(readability.audit_source(path, source), expected)
+		with patch.object(readability, "MAX_TOKENS", 2):
+			limited = readability.audit_source(path, source)
+			self.assertEqual([issue["rule"] for issue in limited], ["source_budget"])
+		self.assertEqual(readability.audit_source(path, source), expected)
+
+	def test_audit_results_are_independent_of_caller_mutations(self) -> None:
+		path = "addons/gf/fixture.gd"
+		source = "return a and b and c\n"
+		issues = readability.audit_source(path, source)
+		expected = [dict(issue) for issue in issues]
+		self.assertTrue(issues)
+		issues[0]["rule"] = "caller_mutated"
+		issues[0]["line"] = 99
+		issues.clear()
+		issues.append({"rule": "caller_added"})
+		self.assertEqual(readability.audit_source(path, source), expected)
+
 	def test_comments_and_literal_payloads_are_not_executable_code(self) -> None:
 		source = '# if a: return; func(): pass\nvar text: String = "if a: return; func(): pass #"\n'
 		self.assertEqual(self.rules(source), set())
