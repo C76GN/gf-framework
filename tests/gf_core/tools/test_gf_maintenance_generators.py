@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import re
 import sys
 import tempfile
@@ -28,6 +29,7 @@ import generated_output_transaction
 import gdscript_api_parser
 import gf_api_owners
 import gf_maintenance
+from gf_workspace_snapshot import WorkspaceSnapshot
 
 
 def api_docs(visibility: str, description: str = "") -> gdscript_api_parser.ApiDocs:
@@ -999,6 +1001,285 @@ class Secret:
 	class Hidden:
 		pass
 '''
+
+
+class ApiParseSnapshotTests(unittest.TestCase):
+	def setUp(self) -> None:
+		temporary_directory = tempfile.TemporaryDirectory()
+		self.addCleanup(temporary_directory.cleanup)
+		self.root = Path(temporary_directory.name)
+		self.source_root = self.root / "addons/gf/extensions/cache"
+		self.path = self.write_source("addons/gf/extensions/cache/nested.gd", NESTED_PUBLIC_API_SOURCE)
+		self.manifest = {
+			"schema_version": 1,
+			"id": "gf.cache",
+			"kind": "extension",
+			"gf_extension_id": "cache",
+			"dependencies": [],
+			"paths": ["addons/gf/extensions/cache/**"],
+		}
+		self.manifest_path = self.write_source("packages/cache.json", json.dumps(self.manifest))
+		for module, name, value in (
+			(gf_api_owners.build_gf_package, "ROOT", self.root),
+			(gf_api_owners.build_gf_package, "PACKAGE_ROOT", self.root / "packages"),
+			(generate_api_reference, "ROOT", self.root),
+			(generate_ai_api, "ROOT", self.root),
+		):
+			patcher = mock.patch.object(module, name, value)
+			patcher.start()
+			self.addCleanup(patcher.stop)
+
+	def write_source(self, relative: str, source: str) -> Path:
+		path = self.root / relative
+		path.parent.mkdir(parents=True, exist_ok=True)
+		path.write_bytes(source.encode("utf-8"))
+		return path
+
+	def parse(self) -> gdscript_api_parser.ApiScript:
+		return gdscript_api_parser.parse_gdscript_file(self.path, self.source_root, self.root)
+
+	def render(self, script: gdscript_api_parser.ApiScript) -> tuple[dict, dict, dict]:
+		owners = [
+			gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.cache")
+			for owner in gf_api_owners.select_api_owners([script], ())
+		]
+		classes = generate_api_reference.api_classes_from_owners(owners)
+		catalog = generate_api_reference.render_catalog_files(classes, self.source_root)
+		return (
+			catalog,
+			generate_api_reference.render_reference_files(classes, catalog["index.xml"]),
+			generate_ai_api.render_outputs(owners, self.source_root),
+		)
+
+	def test_identical_source_is_bound_to_root_source_root_and_path(self) -> None:
+		other_root = self.root / "other"
+		other_path = other_root / self.path.relative_to(self.root)
+		other_path.parent.mkdir(parents=True)
+		other_path.write_bytes(self.path.read_bytes())
+		other_source_root = other_root / self.source_root.relative_to(self.root)
+		snapshot = WorkspaceSnapshot(self.root)
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			gdscript_api_parser.api_parse_snapshot(snapshot),
+		):
+			first = self.parse()
+			other = gdscript_api_parser.parse_gdscript_file(other_path, other_source_root, other_root)
+			self.assertEqual(first, other)
+			self.assertEqual(self.parse(), first)
+			self.assertEqual(parse.call_count, 2)
+			broader = gdscript_api_parser.parse_gdscript_file(self.path, self.root / "addons/gf", self.root)
+			self.assertEqual(broader.module, "extensions/cache")
+			self.assertNotEqual(broader.module, first.module)
+			different_root = gdscript_api_parser.parse_gdscript_file(self.path, self.source_root, self.root / "addons")
+			self.assertEqual(different_root.path, "gf/extensions/cache/nested.gd")
+			renamed = self.write_source("addons/gf/extensions/cache/renamed.gd", NESTED_PUBLIC_API_SOURCE)
+			self.assertEqual(gdscript_api_parser.parse_gdscript_file(renamed, self.source_root, self.root).path, "addons/gf/extensions/cache/renamed.gd")
+			self.assertEqual(parse.call_count, 5)
+
+	def test_same_size_and_mtime_changes_and_missing_files_are_read_live(self) -> None:
+		original_stat = self.path.stat()
+		changed = NESTED_PUBLIC_API_SOURCE.replace("Public owner.", "Public other.")
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)),
+		):
+			first = self.parse()
+			self.path.write_bytes(changed.encode("utf-8"))
+			os.utime(self.path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+			self.assertEqual(self.path.stat().st_size, original_stat.st_size)
+			self.assertEqual(self.path.stat().st_mtime_ns, original_stat.st_mtime_ns)
+			second = self.parse()
+			self.assertEqual(second.docs.description, ["Public other."])
+			self.assertNotEqual(first, second)
+			self.path.unlink()
+			with self.assertRaises(FileNotFoundError):
+				self.parse()
+			self.path.write_bytes(changed.encode("utf-8"))
+			self.assertEqual(self.parse(), second)
+			self.assertEqual(parse.call_count, 2)
+
+	def test_miss_and_hit_results_isolate_nested_consumer_mutations(self) -> None:
+		expected = self.parse()
+		expected_outputs = self.render(expected)
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)),
+		):
+			first = self.parse()
+			first.docs.description.append("Consumer note")
+			first.docs.tags["api"][0] = "private"
+			first.inner_classes[0].methods[0].decorators.append("@rpc")
+			first.inner_classes[0].inner_classes[0].methods[0].signature = "func changed() -> void:"
+			first.inner_classes.pop()
+			second = self.parse()
+			self.assertEqual(second, expected)
+			self.assertEqual(self.render(second), expected_outputs)
+			second.inner_classes[0].inner_classes[0].methods[0].docs.tags["api"].clear()
+			third = self.parse()
+			self.assertEqual(third, expected)
+			self.assertEqual(self.render(third), expected_outputs)
+			self.assertEqual(parse.call_count, 1)
+
+	def test_parse_failures_are_retried_and_read_failures_cannot_reuse_success(self) -> None:
+		invalid = "## @api_owner 9invalid Gf\nextends Node\n"
+		self.path.write_bytes(invalid.encode("utf-8"))
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)),
+		):
+			for _attempt in range(2):
+				with self.assertRaisesRegex(ValueError, "@api_owner kind is invalid"):
+					self.parse()
+			self.assertEqual(parse.call_count, 2)
+			self.path.write_bytes(NESTED_PUBLIC_API_SOURCE.encode("utf-8"))
+			expected = self.parse()
+			self.assertEqual(self.parse(), expected)
+			self.path.write_bytes(b"\xff")
+			with self.assertRaises(UnicodeDecodeError):
+				self.parse()
+			self.path.write_bytes(invalid.encode("utf-8"))
+			with self.assertRaisesRegex(ValueError, "@api_owner kind is invalid"):
+				self.parse()
+			self.assertEqual(parse.call_count, 4)
+
+	def test_nested_scopes_restore_after_exception_and_new_invocations_are_cold(self) -> None:
+		outer = WorkspaceSnapshot(self.root)
+		with mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse:
+			with gdscript_api_parser.api_parse_snapshot(outer):
+				self.parse()
+				self.parse()
+				with self.assertRaisesRegex(RuntimeError, "inner failure"):
+					with gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)):
+						self.parse()
+						self.parse()
+						raise RuntimeError("inner failure")
+				self.parse()
+				self.assertEqual(parse.call_count, 2)
+				with gdscript_api_parser.api_parse_snapshot(None):
+					self.parse()
+					self.parse()
+				self.parse()
+				self.assertEqual(parse.call_count, 4)
+			self.parse()
+			self.parse()
+			self.assertEqual(parse.call_count, 6)
+			with gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)):
+				self.parse()
+				self.parse()
+			self.assertEqual(parse.call_count, 7)
+			with self.assertRaisesRegex(RuntimeError, "outer failure"):
+				with gdscript_api_parser.api_parse_snapshot(outer):
+					self.parse()
+					raise RuntimeError("outer failure")
+			self.parse()
+			self.assertEqual(parse.call_count, 8)
+
+	def test_owner_inventory_and_private_inheritance_are_rechecked(self) -> None:
+		with gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)):
+			self.assertEqual([owner.name for owner in gf_api_owners.collect_api_owners(self.source_root, self.root)], ["GFNested"])
+			added = self.write_source("addons/gf/extensions/cache/added.gd", NESTED_PUBLIC_API_SOURCE.replace("GFNested", "GFAdded"))
+			self.assertEqual({owner.name for owner in gf_api_owners.collect_api_owners(self.source_root, self.root)}, {"GFNested", "GFAdded"})
+			renamed = self.source_root / "moved.gd"
+			added.rename(renamed)
+			owners = gf_api_owners.collect_api_owners(self.source_root, self.root)
+			self.assertEqual(next(owner.script.path for owner in owners if owner.name == "GFAdded"), "addons/gf/extensions/cache/moved.gd")
+			renamed.unlink()
+			self.assertEqual([owner.name for owner in gf_api_owners.collect_api_owners(self.source_root, self.root)], ["GFNested"])
+			base_source = ClasslessProtectedOverrideOwnerTests.BASE.replace("@api public", "@api framework_internal", 1)
+			base = self.write_source("addons/gf/extensions/cache/base.gd", base_source)
+			self.write_source("addons/gf/extensions/cache/child.gd", ClasslessProtectedOverrideOwnerTests.CHILD)
+			self.assertEqual([owner.name for owner in gf_api_owners.collect_api_owners(self.source_root, self.root)], ["GFNested"])
+			base.write_bytes(base_source.replace("func _read(", "func _other(").encode("utf-8"))
+			with self.assertRaisesRegex(ValueError, "classless public API script has no controlled owner"):
+				gf_api_owners.collect_api_owners(self.source_root, self.root)
+
+	def test_package_changes_are_checked_even_when_parses_are_cached(self) -> None:
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)),
+		):
+			self.assertEqual(gf_api_owners.collect_api_owners(self.source_root, self.root)[0].package_id, "gf.cache")
+			for change, error in (
+				({"dependencies": ["gf.missing"]}, "dependency module is not declared"),
+				({"exclude_paths": ["addons/gf/extensions/cache/nested.gd"]}, "exactly one package"),
+			):
+				with self.subTest(change=change):
+					self.manifest_path.write_bytes(json.dumps({**self.manifest, **change}).encode("utf-8"))
+					with self.assertRaisesRegex(ValueError, error):
+						gf_api_owners.collect_api_owners(self.source_root, self.root)
+			self.manifest_path.write_bytes(json.dumps({**self.manifest, "id": "gf.changed"}).encode("utf-8"))
+			self.assertEqual(gf_api_owners.collect_api_owners(self.source_root, self.root)[0].package_id, "gf.changed")
+			self.assertEqual(parse.call_count, 1)
+
+	def test_autoload_support_outside_source_root_remains_live(self) -> None:
+		contract = gf_api_owners.GF_AUTOLOAD_CONTRACT
+		self.write_source(contract.source_path, "## @api public\n## @api_owner autoload Gf\nextends Node\n## @api public\nfunc ping() -> void:\n\tpass\n")
+		registration_source = 'const AUTOLOAD_NAME: String = "Gf"\nconst AUTOLOAD_PATH: String = "res://addons/gf/kernel/core/gf.gd"\nfunc register(plugin):\n\tplugin.add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)\n'
+		registration = self.write_source(contract.registration_script_path, registration_source)
+		resolver_source = 'const AUTOLOAD_NAME: StringName = &"Gf"\n'
+		resolver = self.write_source(contract.runtime_resolver_script_path, resolver_source)
+		self.write_source("packages/kernel.json", json.dumps({
+			"schema_version": 1, "id": "gf.kernel", "kind": "kernel", "dependencies": [], "paths": ["addons/gf/kernel/**"],
+		}))
+		source_root = self.root / "addons/gf/kernel/core"
+		with gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)):
+			self.assertEqual([owner.name for owner in gf_api_owners.collect_api_owners(source_root, self.root)], ["Gf"])
+			registration.write_bytes(registration_source.replace('"Gf"', '"Gx"').encode("utf-8"))
+			with self.assertRaisesRegex(ValueError, "plugin autoload name"):
+				gf_api_owners.collect_api_owners(source_root, self.root)
+			registration.write_bytes(registration_source.replace("plugin.add_autoload_singleton", "# plugin.add_autoload_singleton").encode("utf-8"))
+			with self.assertRaisesRegex(ValueError, "registration must use"):
+				gf_api_owners.collect_api_owners(source_root, self.root)
+			registration.write_bytes(registration_source.encode("utf-8"))
+			resolver.write_bytes(resolver_source.replace('"Gf"', '"Gx"').encode("utf-8"))
+			with self.assertRaisesRegex(ValueError, "runtime autoload resolver name"):
+				gf_api_owners.collect_api_owners(source_root, self.root)
+			resolver.write_bytes(resolver_source.encode("utf-8"))
+			self.assertEqual([owner.name for owner in gf_api_owners.collect_api_owners(source_root, self.root)], ["Gf"])
+
+	def test_registry_adapter_order_reuses_only_parses_and_keeps_other_adapters_cold(self) -> None:
+		calls: list[str] = []
+
+		def consume(name: str, *, allow_breaking_api: bool = False) -> dict:
+			calls.append(name)
+			owners = generate_ai_api.collect_api(self.source_root) if name == "ai_api" else generate_api_reference.collect_api_owner_model(self.source_root)
+			return {"ok": True, "consumer": name, "owners": owners, "allow_breaking_api": allow_breaking_api}
+
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			mock.patch.object(gf_maintenance.gf_maintenance_static_checks, "api_reference_check", side_effect=lambda: consume("api")),
+			mock.patch.object(gf_maintenance.gf_maintenance_static_checks, "ai_api_check", side_effect=lambda: consume("ai_api")),
+			mock.patch.object(gf_maintenance.gf_maintenance_static_checks, "docs_quality_check", side_effect=lambda: consume("docs")),
+			mock.patch.object(gf_maintenance, "changelog_policy", side_effect=lambda **kwargs: consume("changelog_policy", **kwargs)),
+		):
+			registry = gf_maintenance.maintenance_in_process_adapter_registry(allow_breaking_api=True)
+			for order in (("api", "ai_api", "changelog_policy"), ("changelog_policy", "ai_api", "api")):
+				before = parse.call_count
+				with mock.patch.object(gf_maintenance, "_ACTIVE_WORKSPACE_SNAPSHOT", WorkspaceSnapshot(self.root)):
+					results = [registry[name]() for name in order]
+					self.assertEqual([result["consumer"] for result in results], list(order))
+					self.assertTrue(next(result for result in results if result["consumer"] == "changelog_policy")["allow_breaking_api"])
+					self.assertTrue(all(result["owners"] == results[0]["owners"] for result in results))
+					self.assertEqual(parse.call_count, before + 1)
+					registry["docs"]()
+					self.assertEqual(parse.call_count, before + 2)
+			self.assertEqual(calls, ["api", "ai_api", "changelog_policy", "docs", "changelog_policy", "ai_api", "api", "docs"])
+
+	def test_standalone_generator_calls_do_not_activate_maintenance_snapshot(self) -> None:
+		snapshot = WorkspaceSnapshot(self.root)
+		with (
+			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
+			mock.patch.object(gf_maintenance, "_ACTIVE_WORKSPACE_SNAPSHOT", snapshot),
+			mock.patch.object(generate_ai_api, "DEFAULT_OUTPUT_ROOT", self.root / "ai_analysis/generated_api"),
+			mock.patch.object(generate_ai_api, "check_outputs", return_value=0) as check,
+		):
+			with gdscript_api_parser.api_parse_snapshot(snapshot):
+				self.parse()
+			for _invocation in range(2):
+				self.assertEqual(generate_ai_api.main(["--source", "addons/gf/extensions/cache", "--check"]), 0)
+			self.assertEqual(parse.call_count, 3)
+			self.assertEqual(check.call_count, 2)
+			self.assertEqual(check.call_args_list[0], check.call_args_list[1])
 
 
 class NestedPublicApiConsumerTests(unittest.TestCase):

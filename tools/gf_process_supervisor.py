@@ -6061,6 +6061,7 @@ def run_supervised_process(
 	stdin_bytes: bytes | None = None,
 	text_errors: str = "replace",
 	binary_output: bool = False,
+	binary_output_encoding: str = "utf-8",
 ) -> SupervisedProcessResult:
 	if environment is None:
 		raise TypeError("Supervised process requires an explicit environment.")
@@ -6071,6 +6072,10 @@ def run_supervised_process(
 		raise ValueError("text_errors must be 'replace' or 'surrogateescape'.")
 	if not isinstance(binary_output, bool):
 		raise TypeError("binary_output must be a bool.")
+	if binary_output_encoding not in {"utf-8", "latin-1"}:
+		raise ValueError("binary_output_encoding must be 'utf-8' or 'latin-1'.")
+	if binary_output_encoding != "utf-8" and not binary_output:
+		raise ValueError("A non-UTF-8 output encoding requires binary_output=True.")
 	for stream_name, capture_limit in (
 		("stdout", max_stdout_characters),
 		("stderr", max_stderr_characters),
@@ -6501,6 +6506,7 @@ def run_supervised_process(
 									max_stdout_characters,
 									stdout_truncated,
 									text_errors,
+									binary_output_encoding,
 								))
 								output_threads.append(start_output_pump(
 									process.stderr,
@@ -6514,6 +6520,7 @@ def run_supervised_process(
 									max_stderr_characters,
 									stderr_truncated,
 									text_errors,
+									binary_output_encoding,
 								))
 								while not owner.wait_for_direct_exit(process, 0.0):
 									now = time.perf_counter()
@@ -6711,6 +6718,7 @@ def start_output_pump(
 	max_capture_characters: int | None = None,
 	capture_truncated: list[bool] | None = None,
 	decode_errors: str = "replace",
+	decode_encoding: str = "utf-8",
 ) -> threading.Thread:
 	def pump() -> None:
 		if pipe is None:
@@ -6728,7 +6736,7 @@ def start_output_pump(
 				if not output_chunk:
 					break
 				if isinstance(output_chunk, bytes):
-					output_chunk = output_chunk.decode("utf-8", errors=decode_errors)
+					output_chunk = output_chunk.decode(decode_encoding, errors=decode_errors)
 				callback_chunk = output_chunk
 				if max_capture_characters is None:
 					parts.append(output_chunk)

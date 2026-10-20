@@ -8,6 +8,7 @@ const GRID_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset
 const TABLES_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_resource_tables.gd")
 const COMMAND_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_catalog_edit_command.gd")
 const DOCK_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd")
+const REFERENCE_REPORT_SCRIPT = preload("res://addons/gf/tools/asset_browser/editor/gf_asset_reference_report.gd")
 var _saved_test_paths: PackedStringArray = PackedStringArray()
 
 
@@ -399,6 +400,123 @@ func test_project_tag_edit_preserves_full_shared_entry_through_replay_and_save()
 		)
 
 
+func test_reference_button_consumes_multiselection_and_displays_evidence_summary() -> void:
+	var dock: AssetDockProbe = _reference_dock()
+	dock.select_identity(&"first")
+	dock.select_identity(&"second", false)
+	var button: Button = _find_button(dock, "检查所选引用")
+	assert_not_null(button)
+	button.pressed.emit()
+	assert_false(dock._reference_cancel_button.disabled)
+	for index: int in range(4):
+		dock._process(0.0)
+	assert_null(dock._reference_report)
+	assert_true(dock._reference_cancel_button.disabled)
+	assert_true(dock._details.text.contains("强缺失 1"))
+	assert_true(dock._details.text.contains("first_missing.tres"))
+	assert_true(dock._details.text.contains("second_missing.tres"))
+	assert_true(dock._details.text.contains("未观察到引用"))
+	assert_true(dock._details.text.contains("动态路径无法静态确定"))
+
+
+func test_reference_scan_cancel_and_selection_changes_do_not_publish_old_results() -> void:
+	var dock: AssetDockProbe = _reference_dock()
+	dock.select_identity(&"first")
+	dock._inspect_references()
+	dock._process(0.0)
+	dock._reference_cancel_button.pressed.emit()
+	dock._process(0.0)
+	assert_null(dock._reference_report)
+	assert_true(dock._details.text.contains("没有发布结果"))
+	dock._inspect_references()
+	dock._process(0.0)
+	dock.select_identity(&"second")
+	var selected_details: String = dock._details.text
+	dock._process(0.0)
+	assert_null(dock._reference_report)
+	assert_eq(dock._details.text, selected_details)
+
+
+func test_reference_scan_scope_or_context_change_revokes_pending_result() -> void:
+	var dock: AssetDockProbe = _reference_dock()
+	dock.select_identity(&"first")
+	dock._inspect_references()
+	dock._process(0.0)
+	dock._scope.text = "res://tests"
+	dock._process(0.0)
+	assert_null(dock._reference_report)
+	assert_true(dock._details.text.contains("没有发布结果"))
+	dock._scope.text = "res://tests/gf_core/tools/scene_placement/fixtures"
+	dock._inspect_references()
+	dock._process(0.0)
+	dock._release_context()
+	dock._process(0.0)
+	assert_null(dock._reference_report)
+	assert_false(dock._details.text.contains("结构化证据"))
+
+
+func test_deselecting_the_last_resource_clears_pending_and_finished_reports() -> void:
+	for finish_first: bool in [false, true]:
+		var dock: AssetDockProbe = _reference_dock()
+		dock.select_identity(&"first")
+		dock._inspect_references()
+		if finish_first:
+			for index: int in range(3):
+				dock._process(0.0)
+		dock._grid.deselect_all()
+		dock._on_grid_selected(0, false)
+		dock._process(0.0)
+		assert_null(dock._reference_report)
+		assert_eq(dock._details.text, "未选择资源。")
+		assert_eq(dock._status.text, "请选择资源后检查引用。")
+
+
+func test_reentrant_replacement_report_survives_the_old_step_return() -> void:
+	var dock: AssetDockProbe = _reference_dock()
+	dock.select_identity(&"first")
+	dock._inspect_references()
+	dock._reference_report.cancel()
+	var old_task: ReentrantReferenceReport = ReentrantReferenceReport.new()
+	old_task.on_step = dock._inspect_references
+	dock._reference_report = old_task
+	dock._process(0.0)
+	assert_not_null(dock._reference_report)
+	assert_ne(dock._reference_report, old_task)
+	assert_false(dock._reference_cancel_button.disabled)
+	for index: int in range(3):
+		dock._process(0.0)
+	assert_true(dock._details.text.contains("结构化证据"))
+	assert_true(dock._details.text.contains("first_missing.tres"))
+
+
+func _reference_dock() -> AssetDockProbe:
+	var first: GFAssetCatalogEntry = _rich_shared_entry(&"first")
+	first.primary_path = "res://tests/gf_core/tools/asset_browser/first_missing.tres"
+	var second: GFAssetCatalogEntry = _rich_shared_entry(&"second")
+	second.primary_path = "res://tests/gf_core/tools/asset_browser/second_missing.tres"
+	var catalog: GFAssetCatalog = GFAssetCatalog.new()
+	catalog.entries = [first, second]
+	var dock: AssetDockProbe = _new_asset_dock(
+		catalog,
+		catalog,
+		true
+	)
+	dock._scope.text = "res://tests/gf_core/tools/scene_placement/fixtures"
+	return dock
+
+
+func _find_button(node: Node, label: String) -> Button:
+	if node is Button:
+		var button: Button = node
+		if button.text == label:
+			return button
+	for child: Node in node.get_children():
+		var found: Button = _find_button(child, label)
+		if found != null:
+			return found
+	return null
+
+
 func _rich_shared_entry(identity: StringName) -> GFAssetCatalogEntry:
 	var entry: GFAssetCatalogEntry = GFAssetCatalogEntry.new()
 	entry.asset_id = identity
@@ -448,6 +566,16 @@ class CapturingContext:
 	func commit_command(value: GFEditorCommandBase, _use_undo: bool = true) -> Error:
 		command = value
 		return value.execute()
+
+
+class ReentrantReferenceReport:
+	extends REFERENCE_REPORT_SCRIPT
+
+	var on_step: Callable
+
+	func step() -> bool:
+		on_step.call()
+		return true
 
 
 class AssetDockProbe:

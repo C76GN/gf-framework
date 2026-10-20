@@ -354,7 +354,8 @@
     ],
     "gf.tool.asset_browser": [
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_editor.gd",
-      "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
+      "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd",
+      "res://tests/gf_core/tools/asset_browser/test_gf_asset_reference_report.gd"
     ],
     "gf.tool.code_quality": [
       "res://tests/gf_core/tools/code_quality/test_gf_code_quality_analyzer.gd"

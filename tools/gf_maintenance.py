@@ -46,6 +46,7 @@ from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiClass
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
+from gdscript_api_parser import api_parse_snapshot
 from gdscript_api_parser import collect_api_scripts
 from gdscript_api_parser import full_api_class_name
 from gdscript_api_parser import parse_gdscript_source
@@ -130,6 +131,9 @@ SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 GIT_OBJECT_ID_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS = 1_048_576
 API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS = 65_536
+API_BASELINE_CATALOG_BATCH_INPUT_MAX_BYTES = 1_048_576
+API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES = 67_108_864
+API_BASELINE_CATALOG_BATCH_STDERR_MAX_CHARS = 65_536
 SINCE_VERSION_RE = re.compile(
 	r"@since\s+(?P<version>(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))"
 )
@@ -2859,18 +2863,120 @@ def read_api_catalog_snapshot_from_workspace() -> dict[str, Any]:
 
 def read_api_catalog_snapshot_from_git(ref: str, *, label: str = "") -> dict[str, Any]:
 	catalog_label = label or ref
-	index_text = git_show_text(f"{ref}:docs/api_catalog/index.xml")
-	if not index_text:
+	try:
+		catalog_files = _read_api_catalog_blobs_from_git(ref, ["index.xml"])
+		index_text = catalog_files["index.xml"]
+		if not index_text:
+			return {
+				"classes": {},
+				"autoloads": {},
+				"errors": [f"{catalog_label}:docs/api_catalog/index.xml is missing or unreadable."],
+			}
+		try:
+			index_root = ET.fromstring(index_text)
+		except ET.ParseError:
+			return parse_api_catalog_snapshot(index_text, lambda _path: "", catalog_label)
+		paths: list[str] = []
+		for module in index_root.findall("module"):
+			for owner_kind in ("class", "autoload"):
+				for owner_ref in module.findall(owner_kind):
+					path = owner_ref.get("path", "")
+					if owner_ref.get("name", "") and path and path != "index.xml":
+						paths.append(path)
+		catalog_files.update(_read_api_catalog_blobs_from_git(ref, paths))
+	except ValueError as exc:
 		return {
 			"classes": {},
 			"autoloads": {},
-			"errors": [f"{catalog_label}:docs/api_catalog/index.xml is missing or unreadable."],
+			"errors": [f"{catalog_label} API catalog batch read failed: {exc}"],
 		}
 	return parse_api_catalog_snapshot(
 		index_text,
-		lambda class_path: git_show_text(f"{ref}:docs/api_catalog/{class_path}"),
+		lambda class_path: catalog_files.get(class_path, ""),
 		catalog_label,
 	)
+
+
+def _read_api_catalog_blobs_from_git(ref: str, paths: Sequence[str]) -> dict[str, str]:
+	"""Read unique Catalog blobs from one captured commit within one bounded process."""
+	if GIT_OBJECT_ID_RE.fullmatch(ref) is None:
+		raise ValueError("Catalog reads require a captured commit object ID.")
+	requests: dict[str, bytes] = {}
+	payload_size = 0
+	for path in paths:
+		if not path or any(character in path for character in ("\0", "\r", "\n")):
+			raise ValueError("Catalog paths must be nonempty and contain no NUL, CR, or LF.")
+		if path in requests:
+			continue
+		request = f"{ref}:docs/api_catalog/{path}".encode("utf-8")
+		payload_size += len(request) + 1
+		if payload_size > API_BASELINE_CATALOG_BATCH_INPUT_MAX_BYTES:
+			raise ValueError("Catalog batch request exceeds its byte budget.")
+		requests[path] = request
+	if not requests:
+		return {}
+	result = run_frozen_maintenance_git(
+		["cat-file", "--batch"],
+		stdin_bytes=b"".join(request + b"\n" for request in requests.values()),
+		binary_output=True,
+		text_errors="surrogateescape",
+		binary_output_encoding="latin-1",
+		max_stdout_characters=API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES,
+		max_stderr_characters=API_BASELINE_CATALOG_BATCH_STDERR_MAX_CHARS,
+	)
+	if (
+		type(result.return_code) is not int
+		or result.return_code != 0
+		or result.cancelled is not False
+		or result.stdout_truncated is not False
+		or result.stderr_truncated is not False
+		or not isinstance(result.stdout, str)
+		or not isinstance(result.stderr, str)
+		or result.stderr != ""
+	):
+		raise ValueError("Git did not return a complete successful Catalog batch.")
+	# Latin-1 maps each raw pipe byte to one captured character, so the supervisor
+	# enforces the byte budget before accumulation. Decode UTF-8 only after framing.
+	output = result.stdout.encode("latin-1")
+	if len(output) > API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES:
+		raise ValueError("Catalog batch response exceeds its byte budget.")
+	files: dict[str, str] = {}
+	offset = 0
+	max_size_digits = len(str(API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES))
+	for path, request in requests.items():
+		header_end = output.find(b"\n", offset)
+		if header_end < 0:
+			raise ValueError("Catalog batch response header is incomplete.")
+		header = output[offset:header_end]
+		offset = header_end + 1
+		if header == request + b" missing":
+			files[path] = ""
+			continue
+		fields = header.split(b" ")
+		if (
+			len(fields) != 3
+			or GIT_OBJECT_ID_RE.fullmatch(fields[0].decode("ascii", errors="replace")) is None
+			or fields[1] != b"blob"
+			or not 1 <= len(fields[2]) <= max_size_digits
+			or not fields[2].isdigit()
+			or (len(fields[2]) > 1 and fields[2].startswith(b"0"))
+		):
+			raise ValueError("Catalog batch response has an invalid blob header.")
+		size = int(fields[2])
+		body_end = offset + size
+		if (
+			size > API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES
+			or body_end >= len(output)
+			or output[body_end:body_end + 1] != b"\n"
+		):
+			raise ValueError("Catalog batch response has an incomplete blob body.")
+		# Match git_show_text's UTF-8 replacement and universal-newline semantics.
+		text = output[offset:body_end].decode("utf-8", errors="replace")
+		files[path] = text.replace("\r\n", "\n").replace("\r", "\n")
+		offset = body_end + 1
+	if offset != len(output):
+		raise ValueError("Catalog batch response contains unexpected trailing data.")
+	return files
 
 
 def parse_api_catalog_snapshot(
@@ -14622,6 +14728,8 @@ def run_frozen_maintenance_git(
 	*,
 	stdin_bytes: bytes | None = None,
 	binary_output: bool = False,
+	text_errors: str = "replace",
+	binary_output_encoding: str = "utf-8",
 	max_stdout_characters: int | None = None,
 	max_stderr_characters: int | None = None,
 ) -> Any:
@@ -14636,7 +14744,8 @@ def run_frozen_maintenance_git(
 			environment=git_process.environment.values(),
 			stdin_bytes=stdin_bytes,
 			binary_output=binary_output,
-			text_errors="replace",
+			text_errors=text_errors,
+			binary_output_encoding=binary_output_encoding,
 			max_stdout_characters=max_stdout_characters,
 			max_stderr_characters=max_stderr_characters,
 		)
@@ -15138,18 +15247,23 @@ def member_to_dict(member: ApiMember) -> dict[str, Any]:
 	}
 
 
+def _run_api_model_check(callback: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+	with api_parse_snapshot(_ACTIVE_WORKSPACE_SNAPSHOT):
+		return callback()
+
+
 def maintenance_in_process_adapter_registry(
 	*,
 	allow_breaking_api: bool = False,
 ) -> dict[str, Callable[[], dict[str, Any]]]:
 	"""Bind Catalog-selected in-process actions to trusted runtime callables."""
 	return {
-		"api": gf_maintenance_static_checks.api_reference_check,
-		"ai_api": gf_maintenance_static_checks.ai_api_check,
+		"api": functools.partial(_run_api_model_check, gf_maintenance_static_checks.api_reference_check),
+		"ai_api": functools.partial(_run_api_model_check, gf_maintenance_static_checks.ai_api_check),
 		"docs": gf_maintenance_static_checks.docs_quality_check,
 		"changelog_policy": functools.partial(
-			changelog_policy,
-			allow_breaking_api=allow_breaking_api,
+			_run_api_model_check,
+			functools.partial(changelog_policy, allow_breaking_api=allow_breaking_api),
 		),
 		"codeql_suppression_policy": codeql_suppression_policy,
 		"diagnostic_policy": diagnostic_policy,
