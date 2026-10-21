@@ -453,4 +453,4 @@ func duplicate_table() -> GFConfigTableResource:
 
 创建同内容拷贝，避免运行时修改污染共享 Resource。
 
-返回：新配置表资源。
+返回：新配置表资源；原有 schema 无法复制时返回 null，不返回丢失 schema 的表。

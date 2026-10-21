@@ -186,7 +186,7 @@ func get_tables_by_name(duplicate_records: bool = true) -> Dictionary:
 ## [br]
 ## @param duplicate_schemas: 为 true 时返回 schema 深拷贝，避免调用方修改数据库资源内数据。
 ## [br]
-## @return: schema 列表。
+## @return schema 列表；任一所需副本失败时返回空列表，不返回部分结果。
 ## [br]
 ## @schema return: Array[GFConfigTableSchema]，每个元素是一张表的 schema。
 func get_schemas(duplicate_schemas: bool = true) -> Array[GFConfigTableSchema]:
@@ -194,7 +194,10 @@ func get_schemas(duplicate_schemas: bool = true) -> Array[GFConfigTableSchema]:
 	for table_resource: GFConfigTableResource in tables:
 		if table_resource == null or table_resource.schema == null:
 			continue
-		result.append(table_resource.schema.duplicate_schema() if duplicate_schemas else table_resource.schema)
+		var copied: GFConfigTableSchema = table_resource.schema.duplicate_schema() if duplicate_schemas else table_resource.schema
+		if copied == null:
+			return []
+		result.append(copied)
 	return result
 
 
@@ -206,7 +209,7 @@ func get_schemas(duplicate_schemas: bool = true) -> Array[GFConfigTableSchema]:
 ## [br]
 ## @param duplicate_tables: 为 true 时返回资源深拷贝，避免调用方修改数据库资源内数据。
 ## [br]
-## @return: 表资源列表。
+## @return 表资源列表；任一所需副本失败时返回空列表，不返回部分结果。
 ## [br]
 ## @schema return: Array[GFConfigTableResource]，每个元素是一张配置表资源。
 func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableResource]:
@@ -214,7 +217,10 @@ func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableRe
 	for table_resource: GFConfigTableResource in tables:
 		if table_resource == null:
 			continue
-		result.append(table_resource.duplicate_table() if duplicate_tables else table_resource)
+		var copied: GFConfigTableResource = table_resource.duplicate_table() if duplicate_tables else table_resource
+		if copied == null:
+			return []
+		result.append(copied)
 	return result
 
 
@@ -228,7 +234,7 @@ func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableRe
 ## [br]
 ## @param duplicate_table: 为 true 时返回资源深拷贝，避免调用方修改数据库资源内数据。
 ## [br]
-## @return: 配置表资源；未命中时返回 null。
+## @return 配置表资源；未命中或所需副本失败时返回 null。
 func get_table_resource(table_name: StringName, duplicate_table: bool = true) -> GFConfigTableResource:
 	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
 	if table_resource == null:
@@ -293,7 +299,7 @@ func rebuild_table_indexes() -> int:
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: 新配置数据库资源。
+## @return 新配置数据库资源；任一表的 schema 复制失败时返回 null。
 func duplicate_database() -> GFConfigDatabaseResource:
 	var script_value: Variant = get_script()
 	var created_resource: Variant = null
@@ -308,7 +314,10 @@ func duplicate_database() -> GFConfigDatabaseResource:
 	database.version = version
 	var copied_tables: Array[GFConfigTableResource] = []
 	for table_resource: GFConfigTableResource in tables:
-		copied_tables.append(table_resource.duplicate_table() if table_resource != null else null)
+		var copied: GFConfigTableResource = table_resource.duplicate_table() if table_resource != null else null
+		if table_resource != null and copied == null:
+			return null
+		copied_tables.append(copied)
 	database.tables = copied_tables
 	database.metadata = metadata.duplicate(true)
 	return database

@@ -32,6 +32,11 @@ const _OPERATION_EXPORT: StringName = &"export"
 ## [br]
 const _OPERATION_LOAD: StringName = &"load"
 
+## 校验当前输入并只返回生效结构与来源摘要的操作标识。
+## [br]
+## @api private
+const _OPERATION_INSPECT: StringName = &"inspect"
+
 ## 用于校验并规范化生成产物路径的内部策略脚本。
 ## [br]
 ## @api private
@@ -157,6 +162,57 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 	)
 
 
+## 加载并完整校验 Profile，返回本次已封存 IR 的结构与来源摘要，不写入任何产物。
+##
+## 摘要只在整批构建成功后交付，不包含记录值；失败保留原校验报告，不显示部分表为已生效。
+## 来源收据取自本次实际读取，结构取自同一次构建的 IR，不重新推导或重新读取来源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param profile_path: Profile 的 res:// 或 user:// 资源路径。
+## [br]
+## @param options: 与 build_profile_path 相同的加载和构建覆盖选项。
+## [br]
+## @schema options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes 和 work_limits；inspect 强制完整数据库与 Schema 校验。
+## [br]
+## @return: 无数据记录载荷的只读检查报告。
+## [br]
+## @schema return: Dictionary，包含 success、operation、profile_path、profile_id、report、schema_report、error_code 和 error；schema_report 成功时包含 format、format_version、database_id、version、table_count、tables 和 target_capabilities，每表含 table_name、source_path、source_format、record_count、schema、schema_origin、source_receipt 和 header_location；schema_origin 为 explicit、typed_headers、inferred 或 none；失败时 schema_report 为空。
+func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
+	# 只复制需要覆盖的外层；嵌套输入由既有构建链先做循环与预算准入。
+	var inspection_options: Dictionary = options.duplicate()
+	var build_options: Dictionary = GFVariantData.as_dictionary(inspection_options.get("build_options")).duplicate()
+	build_options["validate_database"] = true
+	build_options["validate_schema"] = true
+	inspection_options["build_options"] = build_options
+	inspection_options["validate_database"] = true
+	inspection_options["validate_schema"] = true
+	var run_result: Dictionary = build_profile_path(profile_path, inspection_options)
+	var success: bool = GFVariantData.get_option_bool(run_result, "success")
+	var schema_report: Dictionary = {}
+	if success:
+		schema_report = _describe_validated_build(run_result)
+		success = not schema_report.is_empty()
+	var error_text: String = GFVariantData.get_option_string(run_result, "error")
+	if not success and error_text.is_empty():
+		error_text = "无法完整读取并描述已校验的配置结构。"
+	var error_code: int = GFVariantData.get_option_int(run_result, "error_code")
+	if not success and error_code == OK:
+		error_code = ERR_INVALID_DATA
+	return {
+		"success": success,
+		"operation": _OPERATION_INSPECT,
+		"profile_path": profile_path,
+		"profile_id": GFVariantData.get_option_string_name(run_result, "profile_id"),
+		"report": GFVariantData.get_option_dictionary(run_result, "report").duplicate(true),
+		"schema_report": schema_report,
+		"error_code": OK if success else error_code,
+		"error": error_text,
+	}
+
+
 ## 从 Profile 路径构建并保存配置数据库资源。
 ## [br]
 ## @api public
@@ -279,6 +335,68 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 
 
 # --- 私有/辅助方法 ---
+
+## 仅接受本次成功构建的 sealed IR；从各表实际读取收据补齐来源，不泄漏记录与工作 Resource。
+## [br]
+## @api private
+func _describe_validated_build(run_result: Dictionary) -> Dictionary:
+	var build_result: Dictionary = GFVariantData.get_option_dictionary(run_result, "build_result")
+	var raw_ir: Variant = build_result.get("ir")
+	if not (raw_ir is GFConfigPipelineIR):
+		return {}
+	var pipeline_ir: GFConfigPipelineIR = raw_ir
+	var description: Dictionary = pipeline_ir.describe()
+	if not GFVariantData.get_option_bool(description, "sealed"):
+		return {}
+	var table_results: Array = GFVariantData.get_option_array(run_result, "table_results")
+	var descriptions: Array = GFVariantData.get_option_array(description, "tables")
+	if table_results.size() != descriptions.size():
+		return {}
+	var tables: Array[Dictionary] = []
+	for index: int in range(descriptions.size()):
+		var table_description: Dictionary = GFVariantData.as_dictionary(descriptions[index])
+		var table_result: Dictionary = GFVariantData.as_dictionary(table_results[index])
+		var source_map: Dictionary = GFVariantData.get_option_dictionary(table_description, "source_map")
+		var table_metadata: Dictionary = GFVariantData.get_option_dictionary(table_description, "metadata")
+		var schema_description: Dictionary = GFVariantData.get_option_dictionary(table_description, "schema")
+		if not _is_schema_description_complete(schema_description):
+			return {}
+		tables.append(
+			{
+				"table_name": GFVariantData.get_option_string_name(table_description, "table_name"),
+				"source_path": GFVariantData.get_option_string(table_description, "source_path"),
+				"source_format": GFVariantData.get_option_string_name(table_description, "source_format"),
+				"record_count": GFVariantData.get_option_int(table_description, "record_count"),
+				"schema": schema_description.duplicate(true),
+				"schema_origin": GFVariantData.get_option_string(table_metadata, "schema_origin"),
+				"source_receipt": GFVariantData.get_option_dictionary(table_result, "source_receipt").duplicate(true),
+				"header_location": GFVariantData.get_option_dictionary(source_map, "header_location").duplicate(true),
+			}
+		)
+	return {
+		"format": "gf.config_pipeline.schema_report",
+		"format_version": 1,
+		"database_id": GFVariantData.get_option_string_name(description, "database_id"),
+		"version": GFVariantData.get_option_string(description, "version"),
+		"table_count": tables.size(),
+		"tables": tables,
+		"target_capabilities": GFConfigAccessGenerator.get_capabilities(),
+	}
+
+
+## 描述本身可能耗尽预算；不可把含失败类型报告的摘要当作完整生效结构交付。
+## [br]
+## @api private
+func _is_schema_description_complete(schema: Dictionary) -> bool:
+	for column_value: Variant in GFVariantData.get_option_array(schema, "columns"):
+		var column: Dictionary = GFVariantData.as_dictionary(column_value)
+		var definition: Variant = column.get("type_definition")
+		if definition is Dictionary:
+			var definition_report: Dictionary = definition
+			if not GFVariantData.get_option_bool(definition_report, "ok"):
+				return false
+	return true
+
 
 ## 生成 Profile 加载失败结果，并附带加载操作的验证报告。
 ## [br]

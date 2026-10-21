@@ -61,6 +61,11 @@ var _records: Array[Dictionary] = []
 ## [br]
 var _schema: GFConfigTableSchema = null
 
+## 显式声明复制失败时阻止该 IR 被物化，不能把失败伪装成未提供 schema。
+## [br]
+## @api private
+var _schema_copy_failed: bool = false
+
 ## create() 保存的来源定位字典副本。
 ## [br]
 ## @api private
@@ -118,6 +123,7 @@ static func create(
 	table_ir._source_format = source_format
 	table_ir._records = _duplicate_records(records)
 	table_ir._schema = schema.duplicate_schema() if schema != null else null
+	table_ir._schema_copy_failed = schema != null and table_ir._schema == null
 	table_ir._source_map = source_map.duplicate(true)
 	table_ir._metadata = metadata.duplicate(true)
 	return table_ir
@@ -133,6 +139,8 @@ static func create(
 ## [br]
 ## @schema return: Dictionary，包含 success、error_code、error_kind 和 error。
 func validate_contract() -> Dictionary:
+	if _schema_copy_failed:
+		return _make_contract_failure("schema_copy_failed", "Table IR 无法复制显式 schema。")
 	if _table_name == &"":
 		return _make_contract_failure("empty_table_name", "Table IR 的表名为空。")
 	if _source_format == &"":
@@ -248,7 +256,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @return: 单表 IR 副本。
 func duplicate_ir() -> GFConfigPipelineTableIR:
-	return create(
+	var copied: GFConfigPipelineTableIR = create(
 		_table_name,
 		_source_path,
 		_source_format,
@@ -257,6 +265,8 @@ func duplicate_ir() -> GFConfigPipelineTableIR:
 		_source_map,
 		_metadata
 	)
+	copied._schema_copy_failed = copied._schema_copy_failed or _schema_copy_failed
+	return copied
 
 
 ## 导出不包含完整记录载荷的稳定摘要。

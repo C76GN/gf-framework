@@ -367,6 +367,57 @@ func test_layout_stage_decodes_reader_payload_and_preserves_source_locations() -
 	)
 
 
+## 直接调用 Layout 时，循环或超额解析覆盖必须在深复制前由原共享预算拒绝。
+func test_layout_stage_admits_parse_overrides_before_copying() -> void:
+	var source_path: String = _write_text(
+		"user://gf_config_pipeline_layout_options_%d.csv" % Time.get_ticks_usec(),
+		"id,name\n1,Potion\n"
+	)
+	var source: GFConfigPipelineTableSource = _make_source(source_path)
+	var reader_result: Dictionary = GFConfigPipelineReaderStage.new().read_source(source)
+	assert_true(GFVariantData.get_option_bool(reader_result, "success"))
+	var reader_snapshot: Dictionary = reader_result.duplicate(true)
+	for cyclic: bool in [true, false]:
+		var parse_options: Dictionary = {}
+		if cyclic:
+			parse_options["self"] = parse_options
+		else:
+			parse_options["payload"] = "x".repeat(16384)
+		var budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_value_bytes": 4096 })
+		var result: Dictionary = GFConfigPipelineLayoutStage.new().decode_source(
+			source,
+			reader_result,
+			{ "parse_options": parse_options, "work_budget": budget }
+		)
+		parse_options.clear()
+		assert_false(
+			GFVariantData.get_option_bool(result, "success"),
+			"阶段入口不能先复制未准入的解析选项。"
+		)
+		var expected_kind: String = "config_work_cycle" if cyclic else "config_work_value_bytes_exceeded"
+		assert_eq(
+			GFVariantData.get_option_string(result, "error_kind"),
+			expected_kind
+		)
+		assert_false(
+			budget.is_ok(),
+			"必须锁存调用方传入的同一个预算句柄。"
+		)
+		var budget_report: Dictionary = GFVariantData.get_option_dictionary(result, "budget_report")
+		assert_eq(
+			GFVariantData.get_option_string(budget_report, "context"),
+			"layout.parse_options"
+		)
+		var rejected_data: Variant = result.get("data")
+		assert_true(rejected_data == null)
+		assert_true(GFVariantData.get_option_array(result, "row_locations").is_empty())
+		assert_eq(
+			reader_result,
+			reader_snapshot,
+			"拒绝解析覆盖不得修改已读取的正常载荷。"
+		)
+
+
 func test_xlsx_layout_xml_depth_counts_document_root_as_zero() -> void:
 	var source_path: String = _write_xlsx_budget_fixture(
 		"user://gf_config_pipeline_xlsx_depth_%d.xlsx" % Time.get_ticks_usec(),
@@ -524,6 +575,60 @@ func test_validation_stage_compiles_layout_result_into_typed_table_ir() -> void:
 			),
 			"csv",
 			"IR 应保留通用来源元数据。"
+		)
+
+
+## 直接调用 Validation 时先准入解析覆盖，循环或超额失败不产生 IR，也不改原布局。
+func test_validation_stage_admits_parse_overrides_before_copying() -> void:
+	var source_path: String = _write_text(
+		"user://gf_config_pipeline_validation_options_%d.csv" % Time.get_ticks_usec(),
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var source: GFConfigPipelineTableSource = _make_source(
+		source_path,
+		_make_item_schema()
+	)
+	var reader_result: Dictionary = GFConfigPipelineReaderStage.new().read_source(source)
+	var layout_result: Dictionary = GFConfigPipelineLayoutStage.new().decode_source(source, reader_result)
+	assert_true(GFVariantData.get_option_bool(layout_result, "success"))
+	var layout_snapshot: Dictionary = layout_result.duplicate(true)
+	for cyclic: bool in [true, false]:
+		var parse_options: Dictionary = {}
+		if cyclic:
+			parse_options["self"] = parse_options
+		else:
+			parse_options["payload"] = "x".repeat(16384)
+		var budget: GFConfigWorkBudget = GFConfigWorkBudget.new({ "max_value_bytes": 4096 })
+		var result: Dictionary = GFConfigPipelineValidationStage.new().compile_table(
+			source,
+			layout_result,
+			{ "parse_options": parse_options, "work_budget": budget }
+		)
+		parse_options.clear()
+		assert_false(
+			GFVariantData.get_option_bool(result, "success"),
+			"阶段入口不能先复制未准入的解析选项。"
+		)
+		var expected_kind: String = "config_work_cycle" if cyclic else "config_work_value_bytes_exceeded"
+		assert_eq(
+			GFVariantData.get_option_string(result, "error_kind"),
+			expected_kind
+		)
+		assert_false(
+			budget.is_ok(),
+			"必须锁存调用方传入的同一个预算句柄。"
+		)
+		var budget_report: Dictionary = GFVariantData.get_option_dictionary(result, "budget_report")
+		assert_eq(
+			GFVariantData.get_option_string(budget_report, "context"),
+			"validation.copy_inputs"
+		)
+		var rejected_ir: Variant = result.get("ir")
+		assert_true(rejected_ir == null)
+		assert_eq(
+			layout_result,
+			layout_snapshot,
+			"拒绝解析覆盖不得修改已接纳的正常布局。"
 		)
 
 

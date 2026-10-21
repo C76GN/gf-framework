@@ -186,15 +186,18 @@ func _show_definition(index: int) -> void:
 		_status.text = "当前声明为空，可删除后重新创建。"
 		return
 	if resource is GFConfigTableColumn:
-		for property_name: String in [
-			"field_name",
-			"value_type",
-			"required",
-			"allow_null",
-		]:
+		var column: GFConfigTableColumn = resource
+		_add_property(column, "field_name")
+		if column.type_definition == null:
+			_add_property(column, "value_type")
+		else:
+			var structured_notice: Label = Label.new()
+			structured_notice.name = "StructuredTypeNotice"
+			structured_notice.text = "使用结构化类型声明；可在 Profile Inspector 编辑。"
+			_form.add_child(structured_notice)
+		for property_name: String in ["required", "allow_null",]:
 			_add_property(resource, property_name)
 		_add_json_default(resource)
-		var column: GFConfigTableColumn = resource
 		_button(
 			_form,
 			"AddRangeRule",

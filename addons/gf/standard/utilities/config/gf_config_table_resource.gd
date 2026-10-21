@@ -361,11 +361,13 @@ func validate_records(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: 新配置表资源。
+## @return 新配置表资源；原有 schema 无法复制时返回 null，不返回丢失 schema 的表。
 func duplicate_table() -> GFConfigTableResource:
 	var table: GFConfigTableResource = GFConfigTableResource.new()
 	table.table_name = table_name
 	table.schema = schema.duplicate_schema() if schema != null else null
+	if schema != null and table.schema == null:
+		return null
 	table.records = get_records(true)
 	table.records_by_id = _duplicate_record_index(records_by_id, true)
 	table.records_by_index = _duplicate_records_by_index(records_by_index, true)

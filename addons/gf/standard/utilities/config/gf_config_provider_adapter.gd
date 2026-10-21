@@ -733,6 +733,8 @@ func _normalize_source_schema(table_name: StringName, schema: GFConfigTableSchem
 	if schema_key != &"" and schema_key != table_name:
 		return null
 	var result: GFConfigTableSchema = schema.duplicate_schema()
+	if result == null:
+		return null
 	if result.table_name == &"":
 		result.table_name = table_name
 	return result

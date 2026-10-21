@@ -4,6 +4,8 @@
 ##
 ## 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 ## 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。
+## 结构化字段只接纳正式 Schema/Column/TypeDefinition Resource，经同一类型编译器检查；
+## Dictionary 或自定义 Object 声明仅支持既有非结构化列，不能导入 describe 报告。
 ## [br]
 ## @api public
 ## [br]
@@ -55,6 +57,11 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 ## @api private
 ## [br]
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+
+## 将正式类型编译结果发射为具有独立数据所有权的嵌套包装类。
+## [br]
+## @api private
+const _STRUCTURED_ACCESS_EMITTER_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_structured_access_emitter.gd")
 
 ## 生成 typed record 的基类名。
 ## [br]
@@ -130,6 +137,43 @@ const _VALUE_TYPE_ARRAY: String = "array"
 
 
 # --- 公共方法 ---
+
+## 返回此 GDScript 后端实际支持的源声明与生成表示。
+##
+## 结构包装是已接纳配置数据的类型投影，不代替运行时 schema 校验。
+## 可空标量使用存在性查询及类型默认值；容器使用包装对象而非嵌套泛型声明。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 每次调用新建的能力描述。
+## [br]
+## @schema return: Dictionary，包含 version、backend、structured_source_admission、legacy_dictionary_schemas、descriptor_import、kinds、struct_inheritance、containers、nullable_scalars、enum、polymorphism、ownership 和 runtime_validation。
+static func get_capabilities() -> Dictionary:
+	return {
+		"version": 1,
+		"backend": "gdscript",
+		"structured_source_admission": "GFConfigTableSchema/GFConfigTableColumn/GFConfigTypeDefinition resources through GFConfigTypeCompiler",
+		"legacy_dictionary_schemas": true,
+		"descriptor_import": false,
+		"kinds": [
+			"scalar",
+			"struct",
+			"array",
+			"map",
+			"enum",
+			"polymorphic",
+		],
+		"struct_inheritance": "generated extends",
+		"containers": "named wrappers with typed element/value getters; untyped collection copies",
+		"nullable_scalars": "has_field/is_null or container presence/null queries plus scalar defaults",
+		"enum": "integer getters and named integer constants",
+		"polymorphism": "tagged wrapper with nullable typed branch projections",
+		"ownership": "record and structured wrapper snapshots; collection exports are deep copies; legacy get_value remains borrowed",
+		"runtime_validation": false,
+	}
+
 
 ## 根据 schema 列表生成访问器并写入文件。
 ## [br]
@@ -264,15 +308,22 @@ func build_source_with_report(
 			var _issue_appended: bool = issues.append("Schema %d 缺少非空 table_name/table_key。" % schema_index)
 			continue
 		emitted_schema_count += 1
+	var generation_options: Dictionary = _normalize_generation_options(options)
+	var records: Array[Dictionary] = _collect_schema_records(schemas, generation_options)
+	var emitter: _STRUCTURED_ACCESS_EMITTER_SCRIPT = _STRUCTURED_ACCESS_EMITTER_SCRIPT.new()
+	var preparation: Dictionary = emitter.prepare(records, options)
+	for issue: String in GFVariantData.get_option_packed_string_array(preparation, "issues"):
+		var _structured_issue_appended: bool = issues.append(issue)
 	var success: bool = issues.is_empty()
 	return {
 		"success": success,
 		"source": (
-			build_source(
-				schemas,
+			_emit_source(
+				records,
 				access_class_name,
 				provider_accessor,
-				options
+				generation_options,
+				emitter
 			)
 			if success
 			else ""
@@ -305,7 +356,7 @@ func build_source_with_report(
 ## [br]
 ## @return: GDScript 源码。非空但无法直接转为 ASCII 标识符的表名会使用稳定
 ## SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利方法的结果中。
-## 需要验证完整发射时，使用 build_source_with_report()。
+## 结构化定义无效时返回空字符串；需要验证完整发射及原因时，使用 build_source_with_report()。
 func build_source(
 	schemas: Array,
 	access_class_name: String = DEFAULT_CLASS_NAME,
@@ -314,80 +365,17 @@ func build_source(
 ) -> String:
 	var generation_options: Dictionary = _normalize_generation_options(options)
 	var records: Array[Dictionary] = _collect_schema_records(schemas, generation_options)
-	var safe_access_class_name: String = _sanitize_class_name(access_class_name, DEFAULT_CLASS_NAME)
-	var builder: GFSourceBuilder = GFSourceBuilder.new()
-	builder.doc("%s: 自动生成的静态导表访问器。" % safe_access_class_name)
-	builder.doc()
-	builder.doc("该文件由 GFConfigAccessGenerator 生成，可以提交到版本库；请不要手动编辑。")
-	builder.line("class_name %s" % safe_access_class_name)
-	builder.line("extends RefCounted")
-	builder.blank(2)
-	builder.section("常量")
-	for record: Dictionary in records:
-		builder.line(
-			"const %s: StringName = &\"%s\""
-			% [_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "constant_name"), _escape_string(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "table_name")),]
-		)
-
-	builder.blank(2)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+	var emitter: _STRUCTURED_ACCESS_EMITTER_SCRIPT = _STRUCTURED_ACCESS_EMITTER_SCRIPT.new()
+	var preparation: Dictionary = emitter.prepare(records, options)
+	if not GFVariantData.get_option_bool(preparation, "ok"):
+		return ""
+	return _emit_source(
+		records,
+		access_class_name,
+		provider_accessor,
 		generation_options,
-		"include_typed_records",
-		false
-	):
-		_append_typed_record_classes(builder, records)
-		builder.blank()
-	builder.section("公共方法")
-	var used_methods: Dictionary = {}
-	for record: Dictionary in records:
-		_append_table_accessors(
-			builder,
-			record,
-			used_methods,
-			generation_options
-		)
-
-	builder.blank()
-	builder.section("私有/辅助方法")
-	builder.line("static func _provider_or_null(provider: Variant = null) -> Variant:")
-	builder.indent()
-	builder.line("if provider != null:")
-	builder.indent()
-	builder.line("return provider")
-	builder.dedent()
-	builder.line("return %s" % provider_accessor)
-	builder.dedent()
-	builder.blank(2)
-	builder.line("static func _get_provider_record(provider: Variant, table_name: StringName, id: Variant) -> Variant:")
-	builder.indent()
-	builder.line("var resolved_provider: Variant = _provider_or_null(provider)")
-	builder.line("if not (resolved_provider is Object):")
-	builder.indent()
-	builder.line("return null")
-	builder.dedent()
-	builder.line("var provider_object: Object = resolved_provider")
-	builder.line("if not provider_object.has_method(\"get_record\"):")
-	builder.indent()
-	builder.line("return null")
-	builder.dedent()
-	builder.line("return provider_object.call(\"get_record\", table_name, id)")
-	builder.dedent()
-	builder.blank(2)
-	builder.line("static func _get_provider_table(provider: Variant, table_name: StringName) -> Variant:")
-	builder.indent()
-	builder.line("var resolved_provider: Variant = _provider_or_null(provider)")
-	builder.line("if not (resolved_provider is Object):")
-	builder.indent()
-	builder.line("return null")
-	builder.dedent()
-	builder.line("var provider_object: Object = resolved_provider")
-	builder.line("if not provider_object.has_method(\"get_table\"):")
-	builder.indent()
-	builder.line("return null")
-	builder.dedent()
-	builder.line("return provider_object.call(\"get_table\", table_name)")
-	builder.dedent()
-	return builder.build()
+		emitter
+	)
 
 
 ## 保存生成源码到指定路径。
@@ -449,6 +437,96 @@ func save_source_with_report(
 
 # --- 私有/辅助方法 ---
 
+## 将本次已接纳的列计划发射一次，避免报告入口重新编译类型图。
+## [br]
+## @api private
+func _emit_source(
+	records: Array[Dictionary],
+	access_class_name: String,
+	provider_accessor: String,
+	generation_options: Dictionary,
+	emitter: _STRUCTURED_ACCESS_EMITTER_SCRIPT
+) -> String:
+	var safe_access_class_name: String = _sanitize_class_name(access_class_name, DEFAULT_CLASS_NAME)
+	var builder: GFSourceBuilder = GFSourceBuilder.new()
+	builder.doc("%s: 自动生成的静态导表访问器。" % safe_access_class_name)
+	builder.doc()
+	builder.doc("该文件由 GFConfigAccessGenerator 生成，可以提交到版本库；请不要手动编辑。")
+	builder.line("class_name %s" % safe_access_class_name)
+	builder.line("extends RefCounted")
+	builder.blank(2)
+	builder.section("常量")
+	for record: Dictionary in records:
+		builder.line(
+			"const %s: StringName = &\"%s\""
+			% [_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "constant_name"), _escape_string(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "table_name")),]
+		)
+
+	builder.blank(2)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		generation_options,
+		"include_typed_records",
+		false
+	):
+		_append_typed_record_classes(
+			builder,
+			records,
+			emitter
+		)
+		builder.blank()
+	builder.section("公共方法")
+	var used_methods: Dictionary = {}
+	for record: Dictionary in records:
+		_append_table_accessors(
+			builder,
+			record,
+			used_methods,
+			generation_options
+		)
+
+	builder.blank()
+	builder.section("私有/辅助方法")
+	builder.line("static func _provider_or_null(provider: Variant = null) -> Variant:")
+	builder.indent()
+	builder.line("if provider != null:")
+	builder.indent()
+	builder.line("return provider")
+	builder.dedent()
+	builder.line("return %s" % provider_accessor)
+	builder.dedent()
+	builder.blank(2)
+	builder.line("static func _get_provider_record(provider: Variant, table_name: StringName, id: Variant) -> Variant:")
+	builder.indent()
+	builder.line("var resolved_provider: Variant = _provider_or_null(provider)")
+	builder.line("if not (resolved_provider is Object):")
+	builder.indent()
+	builder.line("return null")
+	builder.dedent()
+	builder.line("var provider_object: Object = resolved_provider")
+	builder.line("if not provider_object.has_method(\"get_record\"):")
+	builder.indent()
+	builder.line("return null")
+	builder.dedent()
+	builder.line("return provider_object.call(\"get_record\", table_name, id)")
+	builder.dedent()
+	builder.blank(2)
+	builder.line("static func _get_provider_table(provider: Variant, table_name: StringName) -> Variant:")
+	builder.indent()
+	builder.line("var resolved_provider: Variant = _provider_or_null(provider)")
+	builder.line("if not (resolved_provider is Object):")
+	builder.indent()
+	builder.line("return null")
+	builder.dedent()
+	builder.line("var provider_object: Object = resolved_provider")
+	builder.line("if not provider_object.has_method(\"get_table\"):")
+	builder.indent()
+	builder.line("return null")
+	builder.dedent()
+	builder.line("return provider_object.call(\"get_table\", table_name)")
+	builder.dedent()
+	return builder.build()
+
+
 ## 已写入报告映射为 OK，否则委托生成产物报告服务解析 Error。
 ## [br]
 ## @api private
@@ -493,6 +571,8 @@ func _collect_schema_records(schemas: Array, options: Dictionary) -> Array[Dicti
 				"table_name": table_name,
 				"table_identifier": table_identifier,
 				"columns": _collect_column_records(schema_variant),
+				"source_schema": schema_variant,
+				"source_columns": _get_schema_columns_value(schema_variant),
 				"comment": _get_schema_comment(metadata),
 			}
 		)
@@ -540,6 +620,8 @@ func _collect_schema_records(schemas: Array, options: Dictionary) -> Array[Dicti
 				"constant_name": constant_name,
 				"typed_record_class_name": record_class_name,
 				"columns": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(raw_record, "columns"),
+				"source_schema": raw_record["source_schema"],
+				"source_columns": raw_record["source_columns"],
 				"comment": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(raw_record, "comment"),
 			}
 		)
@@ -657,11 +739,20 @@ func _append_table_accessors(
 ## 先输出记录包装基类，再按已排序的记录描述输出各表包装类；类名冲突已在收集阶段解决。
 ## [br]
 ## @api private
-func _append_typed_record_classes(builder: GFSourceBuilder, records: Array[Dictionary]) -> void:
+func _append_typed_record_classes(
+	builder: GFSourceBuilder,
+	records: Array[Dictionary],
+	emitter: _STRUCTURED_ACCESS_EMITTER_SCRIPT
+) -> void:
 	builder.section("内部类")
 	_append_typed_record_base_class(builder)
+	emitter.append_classes(builder)
 	for record: Dictionary in records:
-		_append_typed_record_class(builder, record)
+		_append_typed_record_class(
+			builder,
+			record,
+			emitter
+		)
 
 
 ## 输出独立记录基类及带默认值的标量、向量和容器读取帮助方法；容器 getter 深复制容器，通用值读取仍返回存储值引用。
@@ -674,6 +765,16 @@ func _append_typed_record_base_class(builder: GFSourceBuilder) -> void:
 	builder.line("extends RefCounted")
 	builder.blank()
 	builder.line("var data: Dictionary = {}")
+	builder.blank(2)
+	builder.line("func has_field(field_name: StringName) -> bool:")
+	builder.indent()
+	builder.line("return data.has(field_name) or data.has(String(field_name))")
+	builder.dedent()
+	builder.blank(2)
+	builder.line("func is_null(field_name: StringName) -> bool:")
+	builder.indent()
+	builder.line("return get_value(field_name) == null")
+	builder.dedent()
 	builder.blank(2)
 	builder.line("func get_value(field_name: StringName, default_value: Variant = null) -> Variant:")
 	builder.indent()
@@ -995,7 +1096,11 @@ func _append_typed_record_base_class(builder: GFSourceBuilder) -> void:
 ## 输出继承公共包装基类的单表类；from_variant 只接受字典并深复制其容器，再按已准入列描述追加 getter。
 ## [br]
 ## @api private
-func _append_typed_record_class(builder: GFSourceBuilder, record: Dictionary) -> void:
+func _append_typed_record_class(
+	builder: GFSourceBuilder,
+	record: Dictionary,
+	emitter: _STRUCTURED_ACCESS_EMITTER_SCRIPT
+) -> void:
 	var class_name_value: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "typed_record_class_name")
 	builder.doc("%s 表记录包装。" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "table_name"))
 	builder.line("class %s:" % class_name_value)
@@ -1017,7 +1122,10 @@ func _append_typed_record_class(builder: GFSourceBuilder, record: Dictionary) ->
 	builder.line("return record")
 	builder.dedent()
 	for column_record: Dictionary in _get_record_columns(record):
-		_append_typed_record_getter(builder, column_record)
+		if column_record.has("structured_node"):
+			emitter.append_field_getter(builder, column_record)
+		else:
+			_append_typed_record_getter(builder, column_record)
 	builder.dedent()
 	builder.blank(2)
 
@@ -1061,6 +1169,10 @@ func _collect_column_records(schema: Variant) -> Array[Dictionary]:
 			continue
 
 		var field_identifier: String = _sanitize_identifier(String(field_name))
+		if field_identifier.is_empty() and column_value is GFConfigTableColumn:
+			var resource_column: GFConfigTableColumn = column_value
+			if resource_column.type_definition != null:
+				field_identifier = "field_%s" % String(field_name).sha256_text().substr(0, 12)
 		if field_identifier.is_empty():
 			push_warning("[GFConfigAccessGenerator][config_access_generator.invalid_getter_name] Field name cannot produce a valid getter and was skipped: %s." % String(field_name))
 			continue

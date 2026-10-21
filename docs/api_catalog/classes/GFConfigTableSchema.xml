@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableSchema" path="addons/gf/standard/utilities/config/gf_config_table_schema.gd" module="standard" extends="Resource" classDigest="c617135c4787dee83c5ebcfbc19b44e639b471ead33a1411bd37b81990e69d06">
+<class name="GFConfigTableSchema" path="addons/gf/standard/utilities/config/gf_config_table_schema.gd" module="standard" extends="Resource" classDigest="79cede3469eb76bde0526758042004a0241caa97d34182f7af7767e6eec557c1">
 	<description>GFConfigTableSchema: 通用导表结构声明与校验器。
 用于在导入期或运行时校验表数据结构，保持数据工具链可替换且不绑定业务表。</description>
 	<tags>
@@ -16,6 +16,7 @@
 			<description>表名。为空时可由调用方自行决定表标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="id_field" decorators="@export">
@@ -23,6 +24,7 @@
 			<description>记录 ID 字段。为空时不检查记录 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="columns" decorators="@export">
@@ -31,6 +33,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">columns: Array[GFConfigTableColumn]，定义当前表允许的字段和字段级校验规则。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_extra_fields" decorators="@export">
@@ -38,6 +41,7 @@
 			<description>是否允许记录包含 schema 未声明的字段。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="coerce_values" decorators="@export">
@@ -45,6 +49,7 @@
 			<description>是否在校验前按字段声明尝试类型转换。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="fail_on_coerce_error" decorators="@export">
@@ -52,6 +57,7 @@
 			<description>启用 coerce_values 时，转换失败是否作为校验错误。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="require_unique_id" decorators="@export">
@@ -59,6 +65,7 @@
 			<description>校验整表时是否要求 id_field 唯一。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_resource_path_checks_per_validation" decorators="@export_range(1, 65536, 1)">
@@ -97,6 +104,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">indexes: Array[GFConfigTableIndexDefinition]，定义当前表的复合索引和唯一性约束。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="references" decorators="@export">
@@ -105,6 +113,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">references: Array[GFConfigTableReference]，定义当前表到其他表的引用关系。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="record_validation_rules" decorators="@export">
@@ -113,6 +122,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">record_validation_rules: Array[GFConfigValidationRule]，包含作用于单条记录的校验规则。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="table_validation_rules" decorators="@export">
@@ -121,6 +131,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">table_validation_rules: Array[GFConfigValidationRule]，包含作用于整张表的校验规则。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -129,6 +140,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，保存导入器、编辑器或项目层附加到当前 schema 的元数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -144,6 +156,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="return">推导出的 schema；数据无效时返回空 schema。</tag>
 				<tag name="schema">table_data: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。</tag>
 				<tag name="schema">options: Dictionary，可包含 id_field、required_if_present_in_all_rows、allow_extra_fields 和 coerce_values。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_table_key">
@@ -152,6 +165,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">表名。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_column">
@@ -161,6 +175,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="api">public</tag>
 				<tag name="param">field_name: 字段名。</tag>
 				<tag name="return">找到时返回字段声明，否则返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_column">
@@ -170,6 +185,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="api">public</tag>
 				<tag name="param">field_name: 字段名。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_index">
@@ -179,6 +195,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="api">public</tag>
 				<tag name="param">index_id: 索引标识。</tag>
 				<tag name="return">找到时返回索引声明，否则返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_index">
@@ -188,6 +205,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="api">public</tag>
 				<tag name="param">index_id: 索引标识。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reference">
@@ -197,6 +215,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="api">public</tag>
 				<tag name="param">reference_id: 引用标识。</tag>
 				<tag name="return">找到时返回引用声明，否则返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_reference">
@@ -206,6 +225,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="api">public</tag>
 				<tag name="param">reference_id: 引用标识。</tag>
 				<tag name="return">存在返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_column_names">
@@ -214,6 +234,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">字段名列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_definition">
@@ -225,6 +246,7 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="return">校验报告字典。</tag>
 				<tag name="schema">options: Dictionary，可包含 source、line、column、row_index、column_index 和 row_locations。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_record">
@@ -254,17 +276,35 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="schema">table_data: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。</tag>
 				<tag name="schema">options: Dictionary，可包含 source、line、column、row_index、column_index 和 row_locations。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="coerce_record">
-			<signature>func coerce_record(record: Dictionary) -&gt; Dictionary:</signature>
+			<signature>func coerce_record(record: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>按字段声明转换单条记录。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">record: 输入记录。</tag>
-				<tag name="return">转换后的新记录。</tag>
+				<tag name="param">options: 结构化转换的调用期预算与来源选项。</tag>
+				<tag name="return">转换后的新记录；结构化转换失败时为空，可用 try_coerce_record 获取原因。</tag>
 				<tag name="schema">record: Dictionary，待转换的配置记录，键为字段名，值为字段数据。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
 				<tag name="schema">return: Dictionary，转换后的记录副本。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_coerce_record">
+			<signature>func try_coerce_record(record: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>在共享编译会话内转换记录，结构化字段失败时不返回部分结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record: 不会被修改的输入记录。</tag>
+				<tag name="param">options: 预算与来源选项。</tag>
+				<tag name="return">报告附加 data；失败 data 为 null。</tag>
+				<tag name="schema">record: Dictionary，字段名映射到配置值。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits 及来源上下文。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、issues、error_count、warning_count、data。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_empty_record">
@@ -275,22 +315,28 @@ coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则
 				<tag name="param">include_optional: 为 true 时包含非必填字段。</tag>
 				<tag name="return">新记录字典。</tag>
 				<tag name="schema">return: Dictionary，键为字段名，值为字段默认值转换后的结果。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_schema">
-			<signature>func duplicate_schema() -&gt; GFConfigTableSchema:</signature>
+			<signature>func duplicate_schema(options: Dictionary = {}) -&gt; GFConfigTableSchema:</signature>
 			<description>创建同内容拷贝，避免运行时修改污染共享 Resource。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">新 schema。</tag>
+				<tag name="param">options: 调用期复制预算；不执行默认值或业务规则。</tag>
+				<tag name="return">新 schema；字段图循环或复制预算失败时为 null，非循环的无效声明保留。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
-			<signature>func describe() -&gt; Dictionary:</signature>
-			<description>导出 schema 摘要。</description>
+			<signature>func describe(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>导出 schema 摘要；结构列在同一有限会话内描述，不执行默认值或业务规则。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">schema 字典。</tag>
+				<tag name="param">options: 结构化描述的调用期预算与来源选项。</tag>
+				<tag name="return">schema 字典；结构列的失败保留在各列 type_definition 报告中。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
 				<tag name="schema">return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、max_elements_per_validation、max_element_rule_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。</tag>
 				<tag name="since">3.0.0</tag>
 			</tags>

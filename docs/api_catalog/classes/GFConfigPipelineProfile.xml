@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="4ba233a9bd33abc855cf7659871857da152a633ee012fc5a4f1a401a17c029dc">
+<class name="GFConfigPipelineProfile" path="addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd" module="tools" extends="Resource" classDigest="263916b9f923c8c5ca7494351214b05e0e769eab924fa4ae52ed1ce7a5f9c4de">
 	<description>GFConfigPipelineProfile: 配置导表工具的批量构建声明。
 描述一组表来源、数据库标识、输出路径和构建选项，供编辑器工具、CI 或项目脚本复用。
 该资源属于可选 tool package，只表达制作期或 CI 期通用导表任务，不规定项目目录结构、业务字段语义或发布流程。</description>
@@ -197,10 +197,11 @@
 		</member>
 		<member kind="method" name="duplicate_profile">
 			<signature>func duplicate_profile() -&gt; GFConfigPipelineProfile:</signature>
-			<description>创建同内容拷贝。</description>
+			<description>创建同内容拷贝；逐来源确认显式 Schema 可复制后，才采用完整 Profile 副本。
+来源委托 duplicate_source()，嵌套声明遵循各自领域复制方法的扩展契约。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">新 Profile 资源。</tag>
+				<tag name="return">新 Profile 资源；任一非空来源或 Profile 无法复制时返回 null，不交付部分来源列表。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

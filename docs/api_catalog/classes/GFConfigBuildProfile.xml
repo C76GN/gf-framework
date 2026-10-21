@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigBuildProfile" path="addons/gf/standard/utilities/config/gf_config_build_profile.gd" module="standard" extends="Resource" classDigest="e25728f477f4423ae4237d7d8bf20887b35af1bf3fc9572f04a6652a6c0798ff">
+<class name="GFConfigBuildProfile" path="addons/gf/standard/utilities/config/gf_config_build_profile.gd" module="standard" extends="Resource" classDigest="41f84dc1b59375c85b09a533ed16456185345a10a0a50982350564badd622b1e">
 	<description>GFConfigBuildProfile: 配置表构建过滤配置。
 用 groups 与 tags 描述一组通用过滤条件，可用于导出前裁剪 schema 或记录。
 具体分组名称由项目决定，GF 不内置 client、server 或 editor 语义。</description>
@@ -17,6 +17,7 @@
 			<description>Profile 稳定标识。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_groups" decorators="@export">
@@ -24,6 +25,7 @@
 			<description>为空时不限制包含分组；非空时 metadata 至少命中一个分组才通过。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="exclude_groups" decorators="@export">
@@ -31,6 +33,7 @@
 			<description>命中任意排除分组时过滤。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_tags" decorators="@export">
@@ -38,6 +41,7 @@
 			<description>为空时不限制包含标签；非空时 metadata 至少命中一个标签才通过。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="exclude_tags" decorators="@export">
@@ -45,6 +49,7 @@
 			<description>命中任意排除标签时过滤。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_include" decorators="@export">
@@ -52,6 +57,7 @@
 			<description>metadata 缺少 groups/tags 时是否默认保留。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="record_metadata_field" decorators="@export">
@@ -59,6 +65,7 @@
 			<description>记录中存放元数据的字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="groups_key" decorators="@export">
@@ -66,6 +73,7 @@
 			<description>metadata 中表示分组的键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="tags_key" decorators="@export">
@@ -73,6 +81,7 @@
 			<description>metadata 中表示标签的键。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -81,6 +90,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，保存项目工具附加到当前构建 Profile 的元数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -93,6 +103,7 @@
 				<tag name="param">source_metadata: 待检查元数据。</tag>
 				<tag name="return">通过时返回 true。</tag>
 				<tag name="schema">source_metadata: Dictionary，包含可选 groups_key / tags_key 条目，值可为字符串或字符串数组。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="filter_schema">
@@ -102,6 +113,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">schema: 原 schema。</tag>
 				<tag name="return">过滤后的 schema；schema 为空时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="filter_records">
@@ -113,6 +125,7 @@
 				<tag name="return">与输入同形状的过滤结果；输入无效时返回原值副本。</tag>
 				<tag name="schema">table_data: Variant，支持 Array[Dictionary]、Dictionary 表；其他值会按原形复制返回。</tag>
 				<tag name="schema">return: Variant，过滤后的表数据；有效表会保持输入容器形态。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_profile">
@@ -121,6 +134,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新 Profile。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
@@ -130,6 +144,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">Profile 摘要字典。</tag>
 				<tag name="schema">return: Dictionary，包含 profile_id、分组/标签过滤器、元数据键设置和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

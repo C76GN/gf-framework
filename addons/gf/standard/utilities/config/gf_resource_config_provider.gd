@@ -37,7 +37,7 @@ var _tables_by_name: Dictionary = {}
 ## [br]
 ## @param table_resource: 要注册的配置表资源。
 ## [br]
-## @return: 注册成功返回 true。
+## @return 注册成功返回 true；schema 复制失败返回 false 并保留同名旧表。
 func register_table(table_resource: GFConfigTableResource) -> bool:
 	if table_resource == null or table_resource.get_table_key() == &"":
 		push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
@@ -48,12 +48,14 @@ func register_table(table_resource: GFConfigTableResource) -> bool:
 		push_error("[GFResourceConfigProvider][resource_config_provider.schema_table_name_mismatch] Cannot register_table: table_name does not match schema.table_name.")
 		return false
 
+	if table_resource.schema != null:
+		if not register_schema(table_resource.schema):
+			return false
+	else:
+		unregister_schema(table_key)
 	_remove_table_entry(table_key)
-	unregister_schema(table_key)
 	_tables.append(table_resource)
 	_tables_by_name[table_key] = table_resource
-	if table_resource.schema != null:
-		var _schema_registered: bool = register_schema(table_resource.schema)
 	return true
 
 
@@ -111,13 +113,16 @@ func set_table_resources(table_resources: Array[GFConfigTableResource], duplicat
 ## [br]
 ## @param duplicate_tables: 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。
 ## [br]
-## @return: 配置表资源列表。
+## @return 配置表资源列表；任一所需副本失败时返回空列表，不返回部分结果。
 ## [br]
 ## @schema return: Array[GFConfigTableResource]，每个元素是一张配置表资源。
 func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableResource]:
 	var result: Array[GFConfigTableResource] = []
 	for table_resource: GFConfigTableResource in _tables:
-		result.append(table_resource.duplicate_table() if duplicate_tables else table_resource)
+		var copied: GFConfigTableResource = table_resource.duplicate_table() if duplicate_tables else table_resource
+		if copied == null:
+			return []
+		result.append(copied)
 	return result
 
 
@@ -131,17 +136,20 @@ func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableRe
 ## [br]
 ## @param duplicate_tables: 为 true 时把表资源副本注册到 Provider。
 ## [br]
-## @return: 新 Resource Provider；database 为空时返回 null。
+## @return 新 Resource Provider；database 为空、表副本或任一表注册失败时返回 null。
 static func from_database(database: GFConfigDatabaseResource, duplicate_tables: bool = false) -> GFResourceConfigProvider:
 	if database == null:
 		push_error("[GFResourceConfigProvider][resource_config_provider.database_null] Cannot from_database: database is null.")
 		return null
 
+	var source_tables: Array[GFConfigTableResource] = database.get_table_resources(false)
+	var tables: Array[GFConfigTableResource] = database.get_table_resources(duplicate_tables)
+	if tables.size() != source_tables.size():
+		return null
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	var _registered_count: int = provider.set_table_resources(
-		database.get_table_resources(duplicate_tables),
-		false
-	)
+	var registered_count: int = provider.set_table_resources(tables, false)
+	if registered_count != tables.size():
+		return null
 	return provider
 
 

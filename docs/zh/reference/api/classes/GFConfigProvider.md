@@ -33,6 +33,7 @@
 ### `get_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_record(_table_name: StringName, _id: Variant) -> Variant:
@@ -59,6 +60,7 @@ func get_record(_table_name: StringName, _id: Variant) -> Variant:
 ### `get_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_table(_table_name: StringName) -> Variant:
@@ -83,6 +85,7 @@ func get_table(_table_name: StringName) -> Variant:
 ### `register_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func register_schema(schema: GFConfigTableSchema) -> bool:
@@ -96,13 +99,14 @@ func register_schema(schema: GFConfigTableSchema) -> bool:
 |---|---|
 | `schema` | 表结构声明。 |
 
-返回：注册成功返回 true。
+返回：注册成功返回 true；schema 无法复制时返回 false，并保留同名旧声明。
 
 <a id="member-gfconfigprovider-methods-unregister_schema"></a>
 
 ### `unregister_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func unregister_schema(table_name: StringName) -> void:
@@ -121,6 +125,7 @@ func unregister_schema(table_name: StringName) -> void:
 ### `has_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_schema(table_name: StringName) -> bool:
@@ -141,6 +146,7 @@ func has_schema(table_name: StringName) -> bool:
 ### `get_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_schema(table_name: StringName) -> GFConfigTableSchema:
@@ -154,13 +160,14 @@ func get_schema(table_name: StringName) -> GFConfigTableSchema:
 |---|---|
 | `table_name` | 表名。 |
 
-返回：已注册时返回 schema 拷贝，否则返回 null。
+返回：已注册时返回 schema 拷贝；未注册或复制失败时返回 null。
 
 <a id="member-gfconfigprovider-methods-get_schema_ids"></a>
 
 ### `get_schema_ids`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_schema_ids() -> PackedStringArray:
@@ -175,6 +182,7 @@ func get_schema_ids() -> PackedStringArray:
 ### `validate_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_record( table_name: StringName, record: Dictionary, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:
@@ -234,6 +242,7 @@ func validate_table( table_name: StringName, table_data: Variant = null, options
 ### `coerce_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:

@@ -96,13 +96,26 @@ const FORMAT_XLSX: StringName = &"xlsx"
 ## @since 5.2.0
 @export var coerce_records: bool = true
 
-## 传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines、comment_prefixes、condition_symbols，ConfigFile section_field、include_empty_sections，或 XLSX sheet_name、sheet_index、header_row。
+## 传给解析器的选项。CSV/XLSX 可显式使用 layout 把物理单元格映射为嵌套记录；类型转换仍由 schema 统一执行。
+##
+## layout 默认 orientation=rows、header_rows=[1]、blank_rows=reject；columns 缺省时，
+## 各表头行的非空标签原样组成对象路径，不拆分标签内的点号。显式 columns 的每项包含
+## column（一基逻辑列）与 path（String 键或零基 int 数组下标）；数组下标必须顺序填充。
+## collections 每项包含 kind=array|map、path、columns，map 另含 key_column。
+## 集合 columns 的 path 相对元素；唯一空 path 表示标量元素。
+## record_key_column 启用连续记录分组：相同键或空键续行，孤立空键及非连续重复键失败；
+## 同组标量重复值必须一致。集合每个有值的物理行追加一个元素，map 重复键失败。
+## 空单元格是缺失，不生成 null；可用 empty_string_token 显式表达空字符串。
+## ignored_columns 必须明确列出忽略列，未绑定列的非空数据失败。
+## orientation=columns 转置逻辑布局但保留物理来源；header_rows 使用转置后的坐标。
+## 结构化模式不能混用旧 header_row、注释列/行或条件指令选项；XLSX 合并区域只允许表头内，
+## sheet_names 可按明确顺序合并多工作表，不跨工作表续行，也不隐式合并同名记录。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @schema parse_options: Dictionary，可包含 GFConfigTableImporter 支持的 CSV / JSON / ConfigFile 解析选项，以及 XLSX sheet_name、sheet_index、header_row、trim_cells、skip_empty_lines、reject_duplicate_headers、comment_prefixes、comment_row_prefixes、comment_column_prefixes、condition_symbols 和 enable_condition_directives。
+## @schema parse_options: Dictionary，可包含 GFConfigTableImporter 的平表选项；XLSX 另含 sheet_name、sheet_index 或互斥的 sheet_names:Array[String]。CSV/XLSX 的 layout:Dictionary 仅接受 orientation、header_rows、columns、collections、record_key_column、ignored_columns、blank_rows、empty_string_token，详见字段说明；所有嵌套工作量共用入口预算，解析选项不能声明 work_limits/work_budget。
 @export var parse_options: Dictionary = {}
 
 ## schema 推导与表头声明选项，例如 id_field、allow_extra_fields、required_if_present_in_all_rows、typed_headers 或 typed_header_type_row。
@@ -154,32 +167,27 @@ func get_resolved_format() -> StringName:
 	return _format_from_path(source_path)
 
 
-## 创建同内容拷贝。
+## 创建同内容拷贝；显式 Schema 复制失败时拒绝整个来源，不转为自动推断。
+## Schema 委托 duplicate_schema()；扩展 Schema 应覆盖该方法以保留自定义声明。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: 新来源声明资源。
+## @return: 新来源声明资源；Schema 超出复制边界或资源实例创建失败时返回 null。
 func duplicate_source() -> GFConfigPipelineTableSource:
-	var script_value: Variant = get_script()
-	var created_source: Variant = null
-	if script_value is GDScript:
-		var gdscript: GDScript = script_value
-		created_source = gdscript.new()
+	var copied_schema: GFConfigTableSchema = null
+	if schema != null:
+		copied_schema = schema.duplicate_schema()
+		if copied_schema == null:
+			return null
+	# 仅在显式 Schema 准入后复制原生资源，保留子类导出字段及 Resource 元数据。
+	var created_source: Variant = duplicate(true)
 	if not (created_source is GFConfigPipelineTableSource):
-		return GFConfigPipelineTableSource.new()
+		return null
 
 	var source: GFConfigPipelineTableSource = created_source
-	source.table_name = table_name
-	source.source_path = source_path
-	source.source_format = source_format
-	source.schema = schema.duplicate_schema() if schema != null else null
-	source.infer_schema = infer_schema
-	source.coerce_records = coerce_records
-	source.parse_options = parse_options.duplicate(true)
-	source.schema_options = schema_options.duplicate(true)
-	source.metadata = metadata.duplicate(true)
+	source.schema = copied_schema
 	return source
 
 

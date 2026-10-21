@@ -117,6 +117,8 @@ func _run() -> void:
 	):
 		return
 	var config_dock: _CONFIG_DOCK_SCRIPT = _find_config_dock(workspace)
+	if not _run_schema_copy_regressions(config_dock):
+		return
 	var session: RefCounted = config_dock.get("_session")
 	var draft: GFConfigPipelineProfile = session.call("get_profile")
 	var disk_digest: String = FileAccess.get_sha256("res://tests/gf_core/generated/config_workbench/config/build/main.tres")
@@ -305,6 +307,125 @@ func _run_xlsx_wizard(workspace: Control, export_button: Button) -> bool:
 	):
 		return false
 	return true
+
+
+func _run_schema_copy_regressions(dock: _CONFIG_DOCK_SCRIPT) -> bool:
+	var sources: ItemList = dock.find_child(
+		"Sources",
+		true,
+		false
+	)
+	if not _check(
+		sources != null and sources.item_count > 0,
+		"The native source list must contain the exported sample."
+	):
+		return false
+	sources.select(0)
+	sources.item_selected.emit(0)
+	var session: RefCounted = dock.get("_session")
+	var draft: GFConfigPipelineProfile = session.call("get_profile")
+	var state: Dictionary = session.call("get_state")
+	var profile_path: String = GFVariantData.get_option_string(state, "profile_path")
+	var profile_digest: String = FileAccess.get_sha256(profile_path)
+	var result: Dictionary = GFVariantData.get_option_dictionary(state, "result")
+	var runner: Dictionary = GFVariantData.get_option_dictionary(result, "runner_result")
+	var database: GFConfigDatabaseResource = runner.get("database")
+	var source: GFConfigPipelineTableSource = draft.sources[0]
+	var selected_source: GFConfigPipelineTableSource = dock.call("_current_source")
+	if not _check(
+		selected_source == source and source.schema == null,
+		"The native selection must target the sample source without an explicit schema."
+	):
+		return false
+	if not _check(
+		not GFVariantData.get_option_bool(state, "dirty")
+		and not GFVariantData.get_option_bool(state, "stale")
+		and GFVariantData.get_option_bool(runner, "success"),
+		"Schema copy regression requires a clean draft and a fresh successful result."
+	):
+		return false
+	var table: GFConfigTableResource = database.get_table_resource(
+		source.get_table_key(),
+		false
+	)
+	if not _check(
+		table != null
+		and table.schema != null
+		and table == database.get_table_resource(
+			source.get_table_key(),
+			false
+		),
+		"Fault injection must borrow the accepted database table instead of modifying a detached copy."
+	):
+		return false
+	var valid_schema: GFConfigTableSchema = table.schema
+	var definition: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	for _index: int in range(70):
+		var parent: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+		parent.kind = GFConfigTypeDefinition.Kind.ARRAY
+		parent.element_type = definition
+		definition = parent
+	var column: GFConfigTableColumn = GFConfigTableColumn.new()
+	column.field_name = &"payload"
+	column.type_definition = definition
+	var rejected_schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	rejected_schema.columns = [column]
+	var copy_button: Button = dock.find_child(
+		"CopyInferredSchema",
+		true,
+		false
+	)
+	table.schema = rejected_schema
+	copy_button.pressed.emit()
+	table.schema = valid_schema
+	var after_copy: Dictionary = session.call("get_state")
+	var status: Label = dock.get("_status")
+	if not _check(
+		source.schema == null
+		and not GFVariantData.get_option_bool(after_copy, "dirty")
+		and not GFVariantData.get_option_bool(after_copy, "stale")
+		and status.text.contains("无法复制"),
+		"A failed inferred-schema copy must report failure without changing the clean draft or result freshness."
+	):
+		return false
+	copy_button.pressed.emit()
+	var retained_schema: GFConfigTableSchema = source.schema
+	if not _check(
+		retained_schema != null and retained_schema != valid_schema,
+		"A successful inferred-schema copy must install an independent draft."
+	):
+		return false
+	dock.call("_refresh_profile")
+	var picker: EditorResourcePicker = dock.find_child(
+		"ExplicitSchema",
+		true,
+		false
+	)
+	picker.edited_resource = rejected_schema
+	picker.resource_changed.emit(rejected_schema)
+	if not _check(
+		source.schema == retained_schema
+		and picker.edited_resource == retained_schema
+		and status.text.contains("无法复制")
+		and FileAccess.get_sha256(profile_path) == profile_digest,
+		"A rejected native schema selection must restore the picker and retain the prior schema and saved Profile."
+	):
+		return false
+	picker.edited_resource = valid_schema
+	picker.resource_changed.emit(valid_schema)
+	if not _check(
+		source.schema != null
+		and source.schema != valid_schema
+		and picker.edited_resource == source.schema,
+		"A valid native schema selection must bind the picker to the independent accepted copy."
+	):
+		return false
+	picker.edited_resource = null
+	picker.resource_changed.emit(null)
+	return _check(
+		source.schema == null and picker.edited_resource == null,
+		"Explicitly clearing the native schema picker must remain distinct from a failed copy."
+	)
 
 
 func _run_lifecycle_regressions(workspace: Control) -> bool:

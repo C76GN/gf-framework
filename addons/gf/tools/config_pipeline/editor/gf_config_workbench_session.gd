@@ -143,7 +143,7 @@ func create_profile(
 	mark_changed()
 
 
-## 从磁盘加载并深复制来源和 Schema，避免修改共享 ResourceLoader 对象。
+## 从磁盘加载并受控复制 Profile、来源和 Schema；复制失败保留原草稿及保存身份。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -161,15 +161,15 @@ func load_profile(path: String) -> bool:
 	if not editor_error.is_empty():
 		_result = { "success": false, "error": editor_error }
 		return false
-	_profile = original.duplicate(true)
-	_profile.sources.clear()
-	for source: GFConfigPipelineTableSource in original.sources:
-		if source == null:
-			_profile.sources.append(null)
-			continue
-		var copied: GFConfigPipelineTableSource = source.duplicate(true)
-		copied.schema = source.schema.duplicate_schema() if source.schema != null else null
-		_profile.sources.append(copied)
+	var candidate: GFConfigPipelineProfile = original.duplicate_profile()
+	if candidate == null:
+		_result = {
+			"success": false,
+			"error_code": "profile_copy_failed",
+			"error": "Cannot copy the Profile or its source schemas within the type graph limits.",
+		}
+		return false
+	_profile = candidate
 	_profile_path = path
 	_saved_digest = FileAccess.get_sha256(path)
 	_dirty = false
@@ -296,7 +296,7 @@ func save_profile(path: String = "") -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @param operation: build 或 export。
+## @param operation: build、export 或 inspect；inspect 只返回本次校验通过的结构与来源。
 ## [br]
 ## @param options: 本次执行开关。
 ## [br]
@@ -378,6 +378,9 @@ func get_admission_report() -> Dictionary:
 		return { "success": false, "error": "The workbench supports 1–16 sources. Use the CLI for larger batches." }
 	if GFVariantData.get_option_bool(_recovery_result, "recovery_required"):
 		return { "success": false, "error": "A file transaction requires recovery before another operation." }
+	var editor_error: String = _check_editor_resources(_profile)
+	if not editor_error.is_empty():
+		return { "success": false, "error": editor_error }
 	var total: int = 0
 	for source: GFConfigPipelineTableSource in _profile.sources:
 		if source == null:
@@ -482,7 +485,7 @@ func _finalize_profile_save(
 ## [br]
 ## @api private
 func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
-	if not Engine.is_editor_hint():
+	if not _is_editor_context():
 		return ""
 	var resources: Array[Resource] = [profile]
 	for source: GFConfigPipelineTableSource in profile.sources:
@@ -502,6 +505,8 @@ func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 			if column != null:
 				resources.append_array(column.validation_rules)
 				resources.append_array(column.element_validation_rules)
+	if not _append_structured_editor_resources(resources):
+		return "Configuration type resources exceed the editor admission budget. Use the CLI with explicit limits."
 	for resource: Resource in resources:
 		if resource == null:
 			continue
@@ -511,6 +516,47 @@ func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 			if not script.is_tool():
 				return ("Editor execution requires @tool on configuration Resources and custom rules. Use the CLI for: " + script.resource_path)
 	return ""
+
+
+## 保持生产环境使用真实编辑器标志，允许 headless 测试复用同一准入分支。
+## [br]
+## @api private
+func _is_editor_context() -> bool:
+	return Engine.is_editor_hint()
+
+
+## 只读取固定类型字段枚举嵌套资源，先检查脚本再允许编译器调用规则，避免非 tool 规则先被执行。
+## [br]
+## @api private
+func _append_structured_editor_resources(resources: Array[Resource]) -> bool:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new()
+	var seen: Dictionary = {}
+	var index: int = 0
+	while index < resources.size():
+		if not budget.consume_work(1, "workbench.type_resources"):
+			return false
+		var resource: Resource = resources[index]
+		index += 1
+		if resource == null or seen.has(resource.get_instance_id()):
+			continue
+		seen[resource.get_instance_id()] = true
+		var children: Array[Resource] = []
+		if resource is GFConfigTableColumn:
+			var column: GFConfigTableColumn = resource
+			children.append(column.type_definition)
+			children.append_array(column.validation_rules)
+			children.append_array(column.element_validation_rules)
+		elif resource is GFConfigTypeDefinition:
+			var definition: GFConfigTypeDefinition = resource
+			children.append_array(definition.fields)
+			children.append(definition.base_type)
+			children.append(definition.element_type)
+			children.append(definition.map_value_type)
+			children.append_array(definition.variants)
+		if not budget.admit_value(children, "workbench.type_resources"):
+			return false
+		resources.append_array(children)
+	return true
 
 
 ## 为当前已保存任务收集路径到文件摘要的映射，覆盖 Profile 依赖及各数据源；只用于结果新鲜度判断。

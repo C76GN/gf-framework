@@ -57,6 +57,12 @@ class MutatingContextRule extends GFConfigValidationRule:
 			values[0] = "changed by callback"
 
 
+## 在 headless 回归中进入真实工作台编辑器准入分支。
+class EditorAdmissionSession extends _SESSION_SCRIPT:
+	func _is_editor_context() -> bool:
+		return true
+
+
 # --- 私有变量 ---
 
 var _root_path: String
@@ -80,6 +86,403 @@ func after_each() -> void:
 
 
 # --- 测试 ---
+
+## Inspect 使用已保存 Profile 的同一 Command/Runner，返回结构来源且不写产物。
+func test_inspect_operation_uses_saved_profile_and_emits_no_output() -> void:
+	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	session.create_profile(
+		_write("items.csv", "id:int!,name:string\n1,Potion\n"),
+		"items",
+		_root_path.path_join("generated")
+	)
+	var profile_path: String = _root_path.path_join("inspect.tres")
+	assert_true(
+		GFVariantData.get_option_bool(
+			session.save_profile(profile_path),
+			"success"
+		)
+	)
+	var report: Dictionary = session.run_operation("inspect", {})
+	assert_true(
+		GFVariantData.get_option_bool(report, "success"),
+		str(report.get("error"))
+	)
+	var runner: Dictionary = GFVariantData.get_option_dictionary(report, "runner_result")
+	var schema_report: Dictionary = GFVariantData.get_option_dictionary(runner, "schema_report")
+	var report_format: Variant = schema_report.get("format")
+	var table_count: Variant = schema_report.get("table_count")
+	var format_matches: bool = report_format is String and report_format == "gf.config_pipeline.schema_report"
+	var table_count_matches: bool = table_count is int and table_count == 1
+	assert_true(
+		format_matches,
+		str(report_format)
+	)
+	assert_true(
+		table_count_matches,
+		str(table_count)
+	)
+	var tables: Array = GFVariantData.get_option_array(schema_report, "tables")
+	assert_eq(
+		tables.size(),
+		1
+	)
+	if tables.size() == 1:
+		var table: Dictionary = tables[0]
+		var source_path: Variant = table.get("source_path")
+		var source_matches: bool = source_path is String and source_path == session.get_profile().sources[0].source_path
+		assert_true(
+			source_matches,
+			str(source_path)
+		)
+		assert_false(GFVariantData.get_option_dictionary(table, "source_receipt").is_empty())
+	assert_false(FileAccess.file_exists(session.get_profile().output_path))
+	assert_false(FileAccess.file_exists(session.get_profile().access_output_path))
+	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(_root_path.path_join("generated"))))
+	assert_false(
+		GFVariantData.get_option_bool(
+			session.get_state(),
+			"stale"
+		)
+	)
+
+
+## 真实 Inspect 按钮遇已保存的脏草稿只解释保存前置，不改磁盘或排队执行。
+func test_inspect_button_keeps_dirty_profile_bytes_and_draft_unchanged() -> void:
+	var dock: ActiveConfigDock = ActiveConfigDock.new()
+	add_child_autofree(dock)
+	var session: _SESSION_SCRIPT = dock.get("_session")
+	session.create_profile(
+		_write("items.csv", "id:int!\n1\n"),
+		"items",
+		_root_path.path_join("generated")
+	)
+	var profile_path: String = _root_path.path_join("inspect.tres")
+	assert_true(
+		GFVariantData.get_option_bool(
+			session.save_profile(profile_path),
+			"success"
+		)
+	)
+	var saved_bytes: PackedByteArray = FileAccess.get_file_as_bytes(profile_path)
+	var profile: GFConfigPipelineProfile = session.get_profile()
+	profile.version = "unsaved revision"
+	session.mark_changed()
+	dock.call("_refresh_status")
+	var inspect_button: Button = dock.find_child(
+		"InspectSchema",
+		true,
+		false
+	)
+	assert_false(inspect_button.disabled)
+	assert_eq(inspect_button.text, "查看生效结构")
+	inspect_button.pressed.emit()
+	assert_eq(
+		FileAccess.get_file_as_bytes(profile_path),
+		saved_bytes,
+		"只读 Inspect 不得隐式保存已有 Profile。"
+	)
+	assert_same(
+		session.get_profile(),
+		profile
+	)
+	assert_eq(profile.version, "unsaved revision")
+	assert_true(dock.has_unsaved_workspace_changes())
+	var active_task: Variant = dock.get("_task")
+	assert_true(active_task == null)
+	var continuation: Callable = dock.get("_after_save")
+	assert_false(continuation.is_valid())
+	var report: TextEdit = dock.get("_report")
+	assert_true(report.text.contains("请先显式保存"))
+	assert_false(FileAccess.file_exists(profile.output_path))
+	assert_false(FileAccess.file_exists(profile.access_output_path))
+	await get_tree().process_frame
+
+
+## 未保存草稿的 Inspect 不弹保存对话框、不创建 Profile，也不留下保存后续接动作。
+func test_inspect_button_does_not_open_save_dialog_for_an_unsaved_draft() -> void:
+	var dock: ActiveConfigDock = ActiveConfigDock.new()
+	add_child_autofree(dock)
+	var session: _SESSION_SCRIPT = dock.get("_session")
+	session.create_profile(
+		_write("items.csv", "id:int!\n1\n"),
+		"items",
+		_root_path.path_join("generated")
+	)
+	var files_before: PackedStringArray = DirAccess.get_files_at(_root_path)
+	dock.call("_refresh_status")
+	var inspect_button: Button = dock.find_child(
+		"InspectSchema",
+		true,
+		false
+	)
+	assert_false(inspect_button.disabled)
+	inspect_button.pressed.emit()
+	var dialog: FileDialog = dock.get("_file_dialog")
+	assert_false(dialog.visible)
+	assert_eq(
+		DirAccess.get_files_at(_root_path),
+		files_before,
+		"未保存草稿的只读检查不能创建 Profile。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			session.get_state(),
+			"profile_path"
+		),
+		""
+	)
+	assert_true(dock.has_unsaved_workspace_changes())
+	var active_task: Variant = dock.get("_task")
+	assert_true(active_task == null)
+	var continuation: Callable = dock.get("_after_save")
+	assert_false(continuation.is_valid())
+	var report: TextEdit = dock.get("_report")
+	assert_true(report.text.contains("请先显式保存"))
+	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(_root_path.path_join("generated"))))
+	await get_tree().process_frame
+
+
+## 嵌套 array/map/继承/多态分支中的非 tool 规则在保存后执行前仍会被拒绝。
+func test_editor_admission_rechecks_deep_non_tool_rule_before_inspect() -> void:
+	var session: EditorAdmissionSession = EditorAdmissionSession.new()
+	session.create_profile(
+		_write("items.csv", "id:int!\n1\n"),
+		"items",
+		_root_path
+	)
+	var rule_script: GDScript = GDScript.new()
+	rule_script.source_code = "extends GFConfigValidationRule\nvar calls: int = 0\nfunc _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:\n\tcalls += 1\n"
+	assert_eq(
+		rule_script.reload(false),
+		OK
+	)
+	var rule: GFConfigValidationRule = rule_script.new()
+	var leaf: GFConfigTableColumn = GFConfigTableColumn.new()
+	leaf.field_name = &"power"
+	leaf.value_type = GFConfigTableColumn.ValueType.INT
+	leaf.default_value = 1
+	leaf.validation_rules.append(rule)
+	var base_type: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	base_type.kind = GFConfigTypeDefinition.Kind.STRUCT
+	base_type.fields = [leaf]
+	var branch: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	branch.kind = GFConfigTypeDefinition.Kind.STRUCT
+	branch.type_name = &"attack"
+	branch.base_type = base_type
+	var choice: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	choice.kind = GFConfigTypeDefinition.Kind.POLYMORPHIC
+	choice.variants = [branch]
+	var mapping: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	mapping.kind = GFConfigTypeDefinition.Kind.MAP
+	mapping.map_value_type = choice
+	var sequence: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	sequence.kind = GFConfigTypeDefinition.Kind.ARRAY
+	sequence.element_type = mapping
+	session.get_profile().sources[0].schema = _schema_with_type(sequence)
+	assert_true(
+		GFVariantData.get_option_bool(
+			session.save_profile(_root_path.path_join("non_tool.tres")),
+			"success"
+		)
+	)
+	var admission: Dictionary = session.get_admission_report()
+	assert_false(GFVariantData.get_option_bool(admission, "success"))
+	assert_true(GFVariantData.get_option_string(admission, "error").contains("@tool"))
+	var report: Dictionary = session.run_operation("inspect", {})
+	assert_false(GFVariantData.get_option_bool(report, "success"))
+	assert_true(
+		GFVariantData.get_option_string(report, "error").contains("@tool"),
+		"已保存任务也必须在调用 Runner 前重新准入。"
+	)
+	var rule_calls: Variant = rule.get(&"calls")
+	var no_rule_calls: bool = rule_calls is int and rule_calls == 0
+	assert_true(
+		no_rule_calls,
+		str(rule_calls)
+	)
+	leaf.validation_rules.clear()
+	rule = null
+	rule_script.source_code = "extends RefCounted\n"
+	assert_eq(
+		rule_script.reload(false),
+		OK
+	)
+
+
+## 草稿复制保留共享嵌套类型而独立于磁盘资源；复制预算失败保留原草稿身份。
+func test_structured_draft_copy_isolated_and_failed_load_keeps_previous_draft() -> void:
+	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	session.create_profile(
+		_write("items.csv", "id:int!\n1\n"),
+		"items",
+		_root_path
+	)
+	var scalar: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	scalar.scalar_type = GFConfigTableColumn.ValueType.INT
+	var sequence: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	sequence.kind = GFConfigTypeDefinition.Kind.ARRAY
+	sequence.element_type = scalar
+	var original_schema: GFConfigTableSchema = _schema_with_type(sequence)
+	var second_column: GFConfigTableColumn = GFConfigTableColumn.new()
+	second_column.field_name = &"other"
+	second_column.type_definition = sequence
+	original_schema.columns.append(second_column)
+	session.get_profile().sources[0].schema = original_schema
+	var path: String = _root_path.path_join("structured.tres")
+	assert_true(
+		GFVariantData.get_option_bool(
+			session.save_profile(path),
+			"success"
+		)
+	)
+	var reader: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	assert_true(reader.load_profile(path))
+	var draft_schema: GFConfigTableSchema = reader.get_profile().sources[0].schema
+	assert_not_same(draft_schema, original_schema)
+	assert_not_same(
+		draft_schema.columns[0].type_definition,
+		sequence
+	)
+	assert_same(
+		draft_schema.columns[0].type_definition,
+		draft_schema.columns[1].type_definition
+	)
+	var copied_sequence: GFConfigTypeDefinition = draft_schema.columns[0].type_definition
+	copied_sequence.element_type.scalar_type = GFConfigTableColumn.ValueType.FLOAT
+	assert_eq(scalar.scalar_type, GFConfigTableColumn.ValueType.INT)
+	reader.mark_changed()
+	var prior_profile: GFConfigPipelineProfile = reader.get_profile()
+	var prior_state: Dictionary = reader.get_state()
+	var prior_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+	var deep_type: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	deep_type.scalar_type = GFConfigTableColumn.ValueType.INT
+	for _index: int in range(70):
+		var parent: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+		parent.kind = GFConfigTypeDefinition.Kind.ARRAY
+		parent.element_type = deep_type
+		deep_type = parent
+	var excessive: GFConfigPipelineProfile = _PRESET_SCRIPT.make_profile(session.get_profile().sources[0].source_path)
+	excessive.sources[0].schema = _schema_with_type(deep_type)
+	var excessive_path: String = _root_path.path_join("excessive.tres")
+	assert_eq(
+		ResourceSaver.save(excessive, excessive_path),
+		OK
+	)
+	assert_false(reader.load_profile(excessive_path))
+	assert_same(
+		reader.get_profile(),
+		prior_profile
+	)
+	assert_same(
+		reader.get_profile().sources[0].schema,
+		draft_schema
+	)
+	var current_profile_path: Variant = reader.get_state()["profile_path"]
+	var prior_profile_path: Variant = prior_state["profile_path"]
+	var profile_path_matches: bool = (
+		current_profile_path is String
+		and prior_profile_path is String
+		and current_profile_path == prior_profile_path
+	)
+	assert_true(
+		profile_path_matches,
+		str(
+			current_profile_path,
+			" != ",
+			prior_profile_path
+		)
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			reader.get_state(),
+			"dirty"
+		)
+	)
+	var failure: Dictionary = GFVariantData.get_option_dictionary(
+		reader.get_state(),
+		"result"
+	)
+	assert_true(GFVariantData.get_option_string(failure, "error").contains("Cannot copy"))
+	assert_eq(
+		FileAccess.get_file_as_bytes(path),
+		prior_bytes
+	)
+	assert_eq(
+		GFVariantData.get_option_bool(
+			reader.get_state(),
+			"stale"
+		),
+		GFVariantData.get_option_bool(prior_state, "stale")
+	)
+
+
+## 结构字段隐藏不生效的 legacy 类型控件，编辑其余字段不会丢失结构引用。
+func test_schema_form_preserves_structured_definition_and_shows_effective_type_notice() -> void:
+	var profile: GFConfigPipelineProfile = _PRESET_SCRIPT.make_profile("res://items.csv")
+	var definition: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	definition.scalar_type = GFConfigTableColumn.ValueType.INT
+	profile.sources[0].schema = _schema_with_type(definition)
+	var column: GFConfigTableColumn = profile.sources[0].schema.columns[0]
+	var form: _FORM_SCRIPT = _FORM_SCRIPT.new()
+	add_child_autofree(form)
+	form.configure(
+		profile,
+		profile.sources[0]
+	)
+	var list: ItemList = form.find_child(
+		"Definitions",
+		true,
+		false
+	)
+	list.select(0)
+	list.item_selected.emit(0)
+	assert_null(
+		form.find_child(
+			"ValueType",
+			true,
+			false
+		)
+	)
+	var notice: Label = form.find_child(
+		"StructuredTypeNotice",
+		true,
+		false
+	)
+	assert_not_null(notice)
+	if notice != null:
+		assert_true(notice.text.contains("结构化类型声明"))
+		assert_true(notice.text.contains("Profile Inspector"))
+	var field_name: GFEditorValueField = form.find_child(
+		"FieldName",
+		true,
+		false
+	)
+	field_name.value_changed.emit(&"renamed")
+	assert_eq(column.field_name, &"renamed")
+	assert_same(column.type_definition, definition)
+	column.type_definition = null
+	form.configure(
+		profile,
+		profile.sources[0]
+	)
+	list.select(0)
+	list.item_selected.emit(0)
+	assert_not_null(
+		form.find_child(
+			"ValueType",
+			true,
+			false
+		)
+	)
+	assert_null(
+		form.find_child(
+			"StructuredTypeNotice",
+			true,
+			false
+		)
+	)
+	await get_tree().process_frame
+
 
 func test_preset_is_copied_and_has_explicit_unique_id() -> void:
 	var first: GFConfigPipelineProfile = _PRESET_SCRIPT.make_profile("res://items.csv")
@@ -741,8 +1144,86 @@ func test_dry_run_does_not_create_output_directory() -> void:
 	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(_root_path.path_join("absent"))))
 
 
+## Inspect 的真实 warning 只使严格命令失败，页面不能把只读完成描述为已写文件。
+func test_inspect_strict_warning_reports_read_only_completion() -> void:
+	var dock: ActiveConfigDock = ActiveConfigDock.new()
+	add_child_autofree(dock)
+	var session: _SESSION_SCRIPT = dock.get("_session")
+	session.create_profile(
+		_write("items.csv", "id\n1\n"),
+		"items",
+		_root_path.path_join("generated")
+	)
+	var profile: GFConfigPipelineProfile = session.get_profile()
+	var source: GFConfigPipelineTableSource = profile.sources[0]
+	source.schema_options.clear()
+	source.infer_schema = false
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"items"
+	schema.coerce_values = true
+	var column: GFConfigTableColumn = GFConfigTableColumn.new()
+	column.field_name = &"id"
+	column.value_type = GFConfigTableColumn.ValueType.INT
+	var rule: GFConfigRangeValidationRule = GFConfigRangeValidationRule.new()
+	rule.has_minimum = true
+	rule.minimum = 2.0
+	rule.severity = GFConfigValidationRule.IssueSeverity.WARNING
+	column.validation_rules.append(rule)
+	schema.columns.append(column)
+	source.schema = schema
+	var profile_path: String = _root_path.path_join("inspect_warning.tres")
+	assert_true(
+		GFVariantData.get_option_bool(
+			session.save_profile(profile_path),
+			"success"
+		)
+	)
+	var saved_bytes: PackedByteArray = FileAccess.get_file_as_bytes(profile_path)
+	var result: Dictionary = session.run_operation(
+		"inspect",
+		{ "strict": true }
+	)
+	var runner: Dictionary = GFVariantData.get_option_dictionary(result, "runner_result")
+	var validation: Dictionary = GFVariantData.get_option_dictionary(runner, "report")
+	assert_false(GFVariantData.get_option_bool(result, "success"))
+	assert_eq(
+		GFVariantData.get_option_int(result, "exit_code"),
+		1
+	)
+	assert_true(
+		GFVariantData.get_option_bool(runner, "success"),
+		str(result)
+	)
+	assert_gt(
+		GFVariantData.get_option_int(validation, "warning_count"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(validation, "error_count"),
+		0
+	)
+	assert_false(GFVariantData.get_option_dictionary(runner, "schema_report").is_empty())
+	var report: TextEdit = dock.get("_report")
+	report.text = GFConfigPipelineCommand.new().make_output_text(result)
+	dock.call("_show_result", result)
+	assert_true(report.text.begins_with("结构检查已完成；严格质量检查未通过，本次未写入文件。\n"))
+	assert_false(report.text.contains("文件操作已完成"))
+	assert_eq(
+		FileAccess.get_file_as_bytes(profile_path),
+		saved_bytes
+	)
+	assert_false(dock.has_unsaved_workspace_changes())
+	assert_false(FileAccess.file_exists(profile.output_path))
+	assert_false(FileAccess.file_exists(profile.access_output_path))
+	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(_root_path.path_join("generated"))))
+	await get_tree().process_frame
+
+
+## 严格 warning 的预览与真实导出按实际写出状态提示，保留已写文件的既有文案。
 func test_strict_failure_preserves_honest_written_artifact_status() -> void:
-	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
+	var dock: ActiveConfigDock = ActiveConfigDock.new()
+	add_child_autofree(dock)
+	var session: _SESSION_SCRIPT = dock.get("_session")
 	session.create_profile(
 		_write("items.csv", "id,name\n1,Potion\n"),
 		"items",
@@ -759,6 +1240,28 @@ func test_strict_failure_preserves_honest_written_artifact_status() -> void:
 			"success"
 		)
 	)
+	var preview: Dictionary = session.run_operation(
+		"export",
+		{ "strict": true, "dry_run": true }
+	)
+	var preview_runner: Dictionary = GFVariantData.get_option_dictionary(preview, "runner_result")
+	assert_false(GFVariantData.get_option_bool(preview, "success"))
+	assert_true(
+		GFVariantData.get_option_bool(preview_runner, "success"),
+		str(preview)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFVariantData.get_option_dictionary(preview_runner, "save_result"),
+			"written"
+		)
+	)
+	var report: TextEdit = dock.get("_report")
+	report.text = GFConfigPipelineCommand.new().make_output_text(preview)
+	dock.call("_show_result", preview)
+	assert_true(report.text.begins_with("严格质量检查未通过；本次未写入文件。\n"))
+	assert_false(report.text.contains("文件操作已完成"))
+	assert_false(FileAccess.file_exists(profile.output_path))
 	var result: Dictionary = session.run_operation(
 		"export",
 		{ "strict": true }
@@ -785,6 +1288,10 @@ func test_strict_failure_preserves_honest_written_artifact_status() -> void:
 		)
 	)
 	assert_true(FileAccess.file_exists(profile.output_path))
+	report.text = GFConfigPipelineCommand.new().make_output_text(result)
+	dock.call("_show_result", result)
+	assert_true(report.text.begins_with("文件操作已完成；严格质量检查未通过。\n"))
+	await get_tree().process_frame
 
 
 func test_xlsx_preview_sheet_cached_formula_and_typed_header_location() -> void:
@@ -1452,6 +1959,17 @@ func test_source_growth_after_preflight_is_rejected_before_export() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+## 构造显式结构字段 Schema，避免推断路径掩盖类型图复制。
+func _schema_with_type(definition: GFConfigTypeDefinition) -> GFConfigTableSchema:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"items"
+	var column: GFConfigTableColumn = GFConfigTableColumn.new()
+	column.field_name = &"payload"
+	column.type_definition = definition
+	schema.columns = [column]
+	return schema
+
 
 func _make_saved_session() -> _SESSION_SCRIPT:
 	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()

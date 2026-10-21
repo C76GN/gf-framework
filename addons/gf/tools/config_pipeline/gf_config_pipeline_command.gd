@@ -33,6 +33,11 @@ const _OPERATION_EXPORT: StringName = &"export"
 ## [br]
 const _OPERATION_LOAD: StringName = &"load"
 
+## 完整校验并报告生效结构和实际来源，不导出产物。
+## [br]
+## @api private
+const _OPERATION_INSPECT: StringName = &"inspect"
+
 ## 未指定 operation 时使用导出操作。
 ## [br]
 ## @api private
@@ -195,7 +200,8 @@ func get_usage() -> String:
 	_append_line(lines, "")
 	_append_line(lines, "Options:")
 	_append_line(lines, "  --profile <path>             GFConfigPipelineProfile resource path.")
-	_append_line(lines, "  --operation <export|build|load>")
+	_append_line(lines, "  --operation <export|build|load|inspect>")
+	_append_line(lines, "  inspect validates all inputs and reports effective schemas without writing artifacts.")
 	_append_line(lines, "  --output <res://|user://>    Override profile output URI.")
 	_append_line(lines, "  --access-output <URI>        Override profile access output URI.")
 	_append_line(lines, "  --class-name <name>          Override generated access class_name.")
@@ -562,7 +568,7 @@ func _read_option_value(
 	}
 
 
-## 按操作名委托给 runner 的 load_profile、build_profile_path 或 export_profile_path。
+## 按已准入的操作名委托给 Runner；inspect 使用不写产物的完整校验入口。
 ## [br]
 ## @api private
 ## [br]
@@ -574,12 +580,14 @@ func _run_operation(
 ) -> Dictionary:
 	if operation == _OPERATION_LOAD:
 		return runner.load_profile(profile_path, options)
+	if operation == _OPERATION_INSPECT:
+		return runner.inspect_profile_path(profile_path, options)
 	if operation == _OPERATION_BUILD:
 		return runner.build_profile_path(profile_path, options)
 	return runner.export_profile_path(profile_path, options)
 
 
-## 仅接受 export、build 和 load 三种操作。
+## 只接受有明确执行边界的导出、构建、加载和只读结构检查操作。
 ## [br]
 ## @api private
 ## [br]
@@ -588,6 +596,7 @@ func _is_supported_operation(operation: StringName) -> bool:
 		operation == _OPERATION_EXPORT
 		or operation == _OPERATION_BUILD
 		or operation == _OPERATION_LOAD
+		or operation == _OPERATION_INSPECT
 	)
 
 

@@ -284,19 +284,31 @@ func resolve_access_provider_accessor(overrides: Dictionary = {}) -> String:
 	return access_provider_accessor if not access_provider_accessor.is_empty() else "null"
 
 
-## 创建同内容拷贝。
+## 创建同内容拷贝；逐来源确认显式 Schema 可复制后，才采用完整 Profile 副本。
+## 来源委托 duplicate_source()，嵌套声明遵循各自领域复制方法的扩展契约。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: 新 Profile 资源。
+## @return: 新 Profile 资源；任一非空来源或 Profile 无法复制时返回 null，不交付部分来源列表。
 func duplicate_profile() -> GFConfigPipelineProfile:
+	var copied_sources: Array[GFConfigPipelineTableSource] = []
+	for source: GFConfigPipelineTableSource in sources:
+		if source == null:
+			copied_sources.append(null)
+			continue
+		var copied_source: GFConfigPipelineTableSource = source.duplicate_source()
+		if copied_source == null:
+			return null
+		copied_sources.append(copied_source)
+	# 保留 Profile 子类导出字段的深复制语义；受控来源副本只在全部成功后替换。
 	var duplicated: Variant = duplicate(true)
 	if duplicated is GFConfigPipelineProfile:
 		var profile: GFConfigPipelineProfile = duplicated
+		profile.sources = copied_sources
 		return profile
-	return GFConfigPipelineProfile.new()
+	return null
 
 
 ## 导出 Profile 摘要。

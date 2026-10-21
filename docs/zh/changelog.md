@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [配置类型声明](standard/utilities/io/config-remote-outbox/config-provider/provider-schema/schema-declaration.md)新增嵌套结构、结构继承、Array、Map、枚举和多态资源；定义编译、规范化和类型访问器共用声明，循环、类型冲突、未知分支及超预算明确失败。[配置流水线](editor/tools/config-pipeline.md)支持结构列组、多行记录、转置、分层表头和显式多 Sheet 合并，保留嵌套字段与原始单元格定位；工作台和 CLI 可只读查看生效 Schema、来源及生成目标能力。
 - [资源工作台](editor/tools/asset-browser.md#批量引用证据) 支持所选资源的批量直接依赖与入站引用报告，区分强缺失、UID 已解析但路径陈旧、弱引用、未观察到引用及覆盖不完整；整批共享预算，取消或上下文变化后不发布旧结果，不修改或删除资源。
 - 新增 [GDScript 代码检查](editor/tools/code-quality.md)：项目显式采用预设或规则后，可在 GF Workspace 中检查当前编辑缓冲或已保存源码，按规则、位置和建议查看问题；配置在检查期间改变或失效时撤销结果。检查不会创建配置、改写源码或执行被检查脚本。
 - [Tween 创作](extensions/action-queue/tween-config.md#在编辑器中创作) 沿用创建时选择的样机用途，支持步骤名称、串并行分组概览、时间块悬停与点击定位、结构化错误字段导航；新增淡入、强调和脉冲配方，以及通过 `duration_scale` 调整完整总时长的原生撤销操作。来源实例或内容变化后，旧时间块仍可查看冻结姿态，但不能误定位较新的步骤。
@@ -94,6 +95,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 配置类型编译与复制按每条引用路径检查共享子树深度；无效结构声明不会被允许空值掩盖，结构规则定义错误只报告一次。诊断复用统一上下文编码并保留调用方字段前缀；工作台拒绝无法复制的显式 Schema 时保留原草稿，不会退回自动推导。
 - [GDScript 代码检查](editor/tools/code-quality.md) 的成员间距判断与文档绑定统一识别文件和 Inspector 分组元数据，修正分组下方已有字段文档时的间距误报；分组内的间距和字段注解规则保持不变。
 - Tween 错误定位在表单布局后显露目标输入，避免字段获得焦点却仍处于 Inspector 可视区之外；失效请求不滚动新表单或夺回用户焦点。
 - [Tween 创作](extensions/action-queue/tween-config.md#在编辑器中创作) 在新预览计划可用后同步“完整总时长”初值，避免首开资源时误显示为 0.001 秒；同一计划的刷新与定位保留尚未应用的输入。
@@ -169,6 +171,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 配置列新增 `type_definition`，非空时作为复杂字段的类型权威；`GFConfigTypeDefinition` 提供有界定义编译、规范化和隔离复制。Schema 的校验结果新增成功规范化 `data`，失败时为 null；复制声明失败返回 null，不再把失败声明当作未指定 Schema。新增 `inspect_profile_path()`、CLI `inspect` 和访问器目标能力描述。
 - Project Layout 只接受 profile、snapshot 和 analysis 的 schema 2；旧 profile schema 1 和 `--profile-mode` 选项已移除。声明范围、来源根与保护集合进入分析身份，不能把旧报告拼接成新报告。
 - 新增 `GFTweenNumericTimeline` 数值捕获与采样接口，以及 `GFTweenPreviewAdapter`、注册目录和一次性注册句柄；内部播放计划继续作为实现细节。
 - AI Developer 只接受项目契约 schema 6，使用 `framework.package_presence` 与 `framework.package_usage` 两组闭合规则；输出 snapshot v10，工具协议为 `10.0.0`，保留未知来源和未分类政策的统计。
@@ -207,6 +210,7 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+- 复杂配置请将重复的内部字段声明移入 `GFConfigTypeDefinition`，通过列的 `type_definition` 复用；结构布局在来源 `parse_options.layout` 中显式声明，普通平表沿用现有配置。调用 Schema 复制后须检查 null，读取规范化数据前须检查报告 `ok`；覆写增加了 `options` 参数的复制或转换方法时，同步签名并透传选项。自定义工具不能用描述报告替代真实的复杂类型资源。
 - 配置入口默认有限；大批次应按实际数据规模显式设置 `work_limits`，不能用零或负数关闭额度。多个直接导入/合并调用需要共享预算时传 `work_budget`，不要同时声明两者；Pipeline 每次构建自行创建批次句柄，只在顶层或 Profile 构建选项中声明 `work_limits`。`GFConfigTableMergePolicy.merge_record()` 现在返回结果报告，检查 `ok` 后读取 `data`；记录键分量改用稳定标量。合并或数据库构建失败时不得继续读取部分结果，修正后重新执行完整操作。
 
 - Project Layout 配置将 `schema_version` 改为 `2` 后，按当前规则闭合字段重新校验；需要排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis，不能只修改旧报告的版本号。

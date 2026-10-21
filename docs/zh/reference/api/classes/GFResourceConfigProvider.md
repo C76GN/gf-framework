@@ -54,7 +54,7 @@ func register_table(table_resource: GFConfigTableResource) -> bool:
 |---|---|
 | `table_resource` | 要注册的配置表资源。 |
 
-返回：注册成功返回 true。
+返回：注册成功返回 true；schema 复制失败返回 false 并保留同名旧表。
 
 <a id="member-gfresourceconfigprovider-methods-register_tables"></a>
 
@@ -126,7 +126,7 @@ func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableRe
 |---|---|
 | `duplicate_tables` | 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。 |
 
-返回：配置表资源列表。
+返回：配置表资源列表；任一所需副本失败时返回空列表，不返回部分结果。
 
 结构：
 
@@ -152,7 +152,7 @@ static func from_database(database: GFConfigDatabaseResource, duplicate_tables: 
 | `database` | 配置数据库资源。 |
 | `duplicate_tables` | 为 true 时把表资源副本注册到 Provider。 |
 
-返回：新 Resource Provider；database 为空时返回 null。
+返回：新 Resource Provider；database 为空、表副本或任一表注册失败时返回 null。
 
 <a id="member-gfresourceconfigprovider-methods-rebuild_table_registry"></a>
 

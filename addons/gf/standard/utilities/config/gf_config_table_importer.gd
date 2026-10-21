@@ -665,6 +665,57 @@ static func export_csv_table(
 	}
 
 
+# --- 框架内部方法 ---
+
+## 为制作期 Layout 复用 CSV 词法解析；只返回单元格与真实起始行，不解释表头或字段。
+## [br]
+## @api framework_internal
+## [br]
+## @param text: 原始 CSV 文本。
+## [br]
+## @param options: 与 parse_csv_table 共用的 delimiter、trim_cells、source 和工作预算选项。
+## [br]
+## @schema options: Dictionary，预算沿用 work_limits 或 work_budget，二者互斥。
+## [br]
+## @return: 完整物理行或无部分数据的解析失败。
+## [br]
+## @schema return: Dictionary，成功包含 success、rows:Array[PackedStringArray]、row_numbers:PackedInt32Array；失败包含 error、error_line、error_column，预算失败另含 budget_report。
+static func decode_csv_rows(text: String, options: Dictionary = {}) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_import_options(options, budget) or not _admit_text(
+		text,
+		budget,
+		"CSV"
+	):
+		return _make_budget_parse_failure(
+			budget,
+			GFVariantData.get_option_string(options, "source")
+		)
+	var delimiter: String = GFVariantData.get_option_string(
+		options,
+		"delimiter",
+		","
+	)
+	if delimiter.is_empty():
+		delimiter = ","
+	var result: Dictionary = _parse_csv_rows(
+		_normalize_csv_text(text),
+		delimiter.substr(0, 1),
+		GFVariantData.get_option_bool(
+			options,
+			"trim_cells",
+			true
+		),
+		budget
+	)
+	if not budget.is_ok():
+		return _make_budget_parse_failure(
+			budget,
+			GFVariantData.get_option_string(options, "source")
+		)
+	return result
+
+
 # --- 私有/辅助方法 ---
 
 ## 在共享操作预算内把已准入的文本行映射为记录；CSV 已计量原始文本，不重复计量单元格输入字节。

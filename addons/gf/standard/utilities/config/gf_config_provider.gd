@@ -36,6 +36,8 @@ var _schemas: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _table_name: 表名。
 ## [br]
 ## @param _id: 记录的唯一标识符。
@@ -54,6 +56,8 @@ func get_record(_table_name: StringName, _id: Variant) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _table_name: 表名。
 ## [br]
 ## @return 返回整张表的数据，默认返回 null 并报错。
@@ -68,21 +72,28 @@ func get_table(_table_name: StringName) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param schema: 表结构声明。
 ## [br]
-## @return 注册成功返回 true。
+## @return 注册成功返回 true；schema 无法复制时返回 false，并保留同名旧声明。
 func register_schema(schema: GFConfigTableSchema) -> bool:
 	if schema == null or schema.get_table_key() == &"":
 		push_error("[GFConfigProvider][config_provider.schema_registration_invalid] Cannot register_schema: schema is null or table_name is empty.")
 		return false
 
-	_schemas[schema.get_table_key()] = schema.duplicate_schema()
+	var copied: GFConfigTableSchema = schema.duplicate_schema()
+	if copied == null:
+		return false
+	_schemas[schema.get_table_key()] = copied
 	return true
 
 
 ## 注销导表结构声明。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_name: 表名。
 func unregister_schema(table_name: StringName) -> void:
@@ -92,6 +103,8 @@ func unregister_schema(table_name: StringName) -> void:
 ## 检查是否注册了导表结构声明。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -104,9 +117,11 @@ func has_schema(table_name: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param table_name: 表名。
 ## [br]
-## @return 已注册时返回 schema 拷贝，否则返回 null。
+## @return 已注册时返回 schema 拷贝；未注册或复制失败时返回 null。
 func get_schema(table_name: StringName) -> GFConfigTableSchema:
 	var schema: GFConfigTableSchema = _get_schema_reference(table_name)
 	return schema.duplicate_schema() if schema != null else null
@@ -115,6 +130,8 @@ func get_schema(table_name: StringName) -> GFConfigTableSchema:
 ## 获取已注册的导表结构标识。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 表名列表。
 func get_schema_ids() -> PackedStringArray:
@@ -128,6 +145,8 @@ func get_schema_ids() -> PackedStringArray:
 ## 使用已注册 schema 校验单条记录。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -199,6 +218,8 @@ func validate_table(
 ## 使用已注册 schema 转换单条记录。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]

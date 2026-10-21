@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.target.godot_resource"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 3
+const IMPLEMENTATION_VERSION: int = 4
 
 ## JSON 数据库导出的格式标识。
 ## [br]
@@ -441,6 +441,9 @@ func _enrich_issue_source_locations(report: Dictionary, compilation_ir: GFConfig
 			"line",
 			"column",
 			"column_index",
+			"sheet_name",
+			"sheet_path",
+			"cell",
 		]:
 			if not issue.has(key) and location.has(key):
 				issue[key] = location[key]
@@ -464,7 +467,13 @@ func _make_issue_source_location(issue: Dictionary, source_map: Dictionary) -> D
 	_copy_source_location(location, row_location)
 	var field_name: StringName = GFVariantData.get_option_string_name(issue, "field")
 	var fields: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(row_location, "fields"))
-	var field_location: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(fields, field_name))
+	var field_path: String = GFVariantData.get_option_string(issue, "field_path")
+	var field_key: Variant = field_name
+	if not field_path.is_empty():
+		field_key = field_path
+	var field_location: Dictionary = GFVariantData.get_option_dictionary(fields, field_key)
+	if field_location.is_empty():
+		field_location = GFVariantData.get_option_dictionary(fields, field_name)
 	_copy_source_location(location, field_location)
 	return location
 
@@ -490,6 +499,14 @@ func _copy_source_location(target: Dictionary, source: Dictionary) -> void:
 			var minimum: int = 0 if key == "column_index" else 1
 			if position >= minimum:
 				target[key] = position
+	for key: String in [
+		"sheet_name",
+		"sheet_path",
+		"cell",
+	]:
+		var text: String = GFVariantData.get_option_string(source, key)
+		if not text.is_empty():
+			target[key] = text
 
 
 ## 生成单表 JSON 对象；schema 默认包含，两个索引字段仅在 include_indexes 为真时加入。

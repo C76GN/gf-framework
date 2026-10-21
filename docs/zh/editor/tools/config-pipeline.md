@@ -29,9 +29,11 @@
 
 ### Schema、引用与结果
 
-Schema 页可从最近一次成功且未过期的校验复制推导结果，也可创建显式 Schema。支持字段类型、必填、允许 null、JSON 默认值（Enter 应用）、范围规则、索引和跨表引用。引用目标从当前任务的表中选择，显式目标 Schema 提供字段候选；复合字段使用逗号列表。自定义校验器继续保留，可在 Profile Inspector 中编辑。编辑器内执行的自定义 Resource / 校验器须显式标注 `@tool`；工作台会拒绝加载不具备编辑器执行资格的脚本并给出路径，此类任务仍可使用 CLI。
+Schema 页可从最近一次成功且未过期的校验复制推导结果，也可创建显式 Schema。支持字段类型、必填、允许 null、JSON 默认值（Enter 应用）、范围规则、索引和跨表引用。复杂字段通过 Profile Inspector 编辑 `type_definition` 资源；Schema 页会提示该类型声明生效，并隐藏被覆盖的普通类型选择。引用目标从当前任务的表中选择，显式目标 Schema 提供字段候选；复合字段使用逗号列表。自定义校验器继续保留，可在 Profile Inspector 中编辑。编辑器内执行的自定义 Resource / 校验器须显式标注 `@tool`；工作台会拒绝加载不具备编辑器执行资格的脚本并给出路径，此类任务仍可使用 CLI。
 
-校验、预览导出和导出均调用 `GFConfigPipelineCommand` / Runner。结果页保留原始报告、真实来源位置、产物状态和恢复状态。`strict`、`dry_run`、`changed_only`、`write_manifest` 属于本次执行，不随 Profile 保存。严格模式可能在写出文件后因 warning 返回失败，页面会明确显示“文件操作已完成；严格质量检查未通过”。
+选择或复制 Schema 时先准备独立副本；循环或超预算导致复制失败，会显示原因并保留原 Schema、草稿状态和已有结果。打开 Profile 失败时保留原草稿和保存身份，并显示本次加载错误；显式 Schema 复制失败不会退回自动推导。只有明确清空选择才会移除当前显式 Schema。
+
+校验、预览导出和导出均调用 `GFConfigPipelineCommand` / Runner。结果页保留原始报告、真实来源位置、产物状态和恢复状态。`strict`、`dry_run`、`changed_only`、`write_manifest` 属于本次执行，不随 Profile 保存。严格模式可能在写出文件后因 warning 返回失败；页面只在实际写出产物时显示“文件操作已完成；严格质量检查未通过”。只读结构检查和未写出产物的操作会保留各自的检查结果，不宣称文件已写入。
 
 生成数据库、访问器和 manifest 沿用既有所有权与整批提交合同；手写来源和 Profile 是用户文件。`dry_run` 不创建输出文件或输出目录。真实 Resource 保存会创建所需父目录；失败补偿可能留下空目录。若报告要求 `recovery_required`，先使用 **重试报告要求的恢复动作** 完成清理或回滚，工作台会阻止后续写入。
 
@@ -194,7 +196,7 @@ godot --headless --path . -s res://addons/gf/tools/config_pipeline/gf_config_pip
 
 常用参数包括：
 
-- `--operation export|build|load`：默认 `export`，分别对应导出保存、仅构建数据库、仅加载 Profile。
+- `--operation export|build|load|inspect`：默认 `export`，分别对应导出保存、仅构建数据库、仅加载 Profile、完整校验后只读查看生效结构。
 - `--output <URI>`：以 `res://` 或 `user://` URI 覆盖 Profile 的 `output_path`。
 - `--access-output <URI>`、`--class-name <name>`、`--provider-accessor <expr>`：以 resource URI 覆盖访问器输出，并覆盖生成配置。
 - `--dry-run`：执行构建和产物预检，但不写入数据库或访问器文件。
@@ -253,13 +255,27 @@ int!,string,float
 
 显式 schema 可以通过 `GFConfigTableReference.SourceMode.ARRAY_ELEMENTS` 声明[数组元素跨表引用](../../standard/utilities/io/config-remote-outbox/config-provider/relations-builds/indexes-references.md#数组元素引用)。引用问题保留原 `field`，并用从 `0` 开始的 `element_index` 标识数组内的位置。Pipeline 还会从已有来源映射补充 `source` 和可用的单元格行列信息；JSON 来源只有文件位置时，不会生成不存在的行列坐标。原生 JSON、ConfigFile 或内存记录可提供 Array 值；内置 CSV 读取不会自动把单元格中的 JSON 字符串解析为数组，项目需要在自定义布局或转换阶段完成这类适配。
 
+## 结构化表格布局
+
+具有嵌套结构或多行集合的 CSV / XLSX 可通过 `parse_options.layout` 声明字段路径、记录分组和集合列。完整示例、多层与合并表头、横纵布局、多 Sheet 合并及失败边界见[结构化表格布局](config-pipeline-layout.md)。
+
+## 查看生效结构
+
+命令行的 `inspect` 操作执行完整构建校验，然后只返回生效 Schema、来源收据、记录数量和生成目标能力，不保存数据库、访问器或 manifest：
+
+```shell
+godot --headless --path <project> -s res://addons/gf/tools/config_pipeline/gf_config_pipeline_cli.gd -- --profile res://config/import_profile.tres --operation inspect --json
+```
+
+脚本可调用 `GFConfigPipelineRunner.inspect_profile_path()`，工作台也提供“查看生效结构”按钮。该按钮只读取已保存的 Profile；草稿未保存或有修改时，会提示先单独保存，不会隐式写入 Profile。结果中的 `schema_report` 只在整批成功后提供；失败保留原校验问题，不能把部分表描述当成已生效结果。报告不含记录值，来源收据来自本次实际读取，Schema 来自同一次已封存 IR；`schema_origin` 区分显式资源、类型化表头、自动推断或未声明。
+
 ## 使用边界
 
 当前工具包只沉淀稳定通用机制：来源声明、版本化 IR、分阶段编译、Profile 路径执行、CSV / JSON / ConfigFile / XLSX 解析、schema 校验、跨表引用校验、记录转换、索引重建、`.tres/.res` 保存、JSON 目标和文件提交事务。
 
 CSV 与 XLSX 会复用同一套表格预处理选项：`parse_options.comment_prefixes` 可过滤本地备注行和备注列，`comment_row_prefixes` / `comment_column_prefixes` 可分开控制；`condition_symbols` 配合 `enable_condition_directives` 可保留简单 `#if SYMBOL ...` / `#endif` 块内命中的数据行。`#if` 必须至少声明一个 symbol，裸指令会在对应物理行终止导入。这些选项只处理通用表格结构，不表达业务分端规则，复杂表达式或发布矩阵仍应放在项目流水线层。
 
-XLSX 支持定位为通用表格输入适配：默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定表头行。解析结果按表头映射为记录字典，再复用现有 schema 校验和类型转换。解析器会限制 workbook entry 数量、行数、列数和单元格数量，避免把异常或过大的表格文件拖进编辑器或 CI；`sharedStrings.xml`、`workbook.xml`、关系表和 worksheet 任一 XML 非正常结束、根不完整或存在截断尾部都会整表失败。`max_xlsx_file_bytes` 的负值只关闭项目配置的文件预算；进入共享 ZIP 读取边界后仍会收敛到框架绝对 archive 与累计解压硬上限，不会产生真正无界的读取。公式计算、样式日期语义、合并单元格、多表业务拆分、策划提交流程和分端发布策略不属于这一层。
+XLSX 默认读取 workbook 中的第一个 sheet，也可以通过 `parse_options.sheet_name` 或 `parse_options.sheet_index` 选择工作表，通过 `parse_options.header_row` 指定普通布局的表头行。解析器限制 workbook entry 数量、行数、列数和单元格数量；`sharedStrings.xml`、`workbook.xml`、关系表和 worksheet 任一 XML 非正常结束、根不完整或存在截断尾部都会整表失败。`max_xlsx_file_bytes` 的负值只关闭项目配置的文件预算；共享 ZIP 读取边界仍有框架绝对 archive 与累计解压硬上限。结构化布局支持表头合并及显式多 sheet 合并；公式计算、样式日期语义、数据区合并填充、策划提交流程和分端发布策略由项目处理。
 
 CSV / JSON / ConfigFile 的 Reader 默认用 `max_source_file_bytes = 64 MiB` 在读取前限制单文件，并与 Layout、Validation 共用本次构建的有限工作预算。文件局部限额不能替代批次累计额度；两者也不能证明原生解析峰值内存或主线程时间具有相同上界。处理不受信来源时，项目仍应收紧输入容量并执行来源级预检，必要时使用独立进程隔离。
 
@@ -267,4 +283,4 @@ XLSX 的共享字符串按原始索引保留空项。`<si/>`、`<si></si>` 和 `
 
 `GFConfigPipelineProfile` 只表达导表任务 manifest。`GFConfigBuildProfile` 仍负责按 groups / tags 裁剪 schema 或记录，两者可以组合使用，但职责不同。
 
-`GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程；`GFConfigPipelineCommand` 负责命令参数适配，同包工作台负责草稿和交互。复杂 Excel、多 sheet 业务拆分、远程拉取、策划提交流程、分端裁剪、热更新打包和加密压缩仍属于项目流水线策略。
+`GFConfigPipelineRunner` 不解释命令行参数，不创建编辑器 UI，也不调用外部进程；`GFConfigPipelineCommand` 负责命令参数适配，同包工作台负责草稿和交互。远程拉取、策划提交流程、分端裁剪、热更新打包和加密压缩仍属于项目流水线策略。

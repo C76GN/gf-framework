@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.layout.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 5
+const IMPLEMENTATION_VERSION: int = 6
 
 ## XLSX 单个 ZIP 条目默认允许的压缩或解压字节数。
 ## [br]
@@ -118,7 +118,7 @@ func decode_source(
 	if source == null:
 		return _make_layout_failure("invalid_table_source", "表来源声明为空。")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
-	var overrides: Dictionary = GFVariantData.get_option_dictionary(options, "parse_options")
+	var overrides: Dictionary = GFVariantData.as_dictionary(options.get("parse_options"))
 	if (
 		source.parse_options.has("work_limits")
 		or source.parse_options.has("work_budget")
@@ -156,6 +156,26 @@ func decode_source(
 
 	var parse_options: Dictionary = source.parse_options.duplicate(true)
 	var _merge_result: Dictionary = GFVariantData.merge_dictionary(parse_options, overrides)
+	if parse_options.has("layout") and not parse_options["layout"] is Dictionary:
+		return _make_layout_failure(
+			"invalid_structured_layout",
+			"layout must be a dictionary.",
+			source_path,
+			resolved_format
+		)
+	if (
+		parse_options.has("layout")
+		and (
+			resolved_format != GFConfigPipelineTableSource.FORMAT_CSV
+			and resolved_format != GFConfigPipelineTableSource.FORMAT_XLSX
+		)
+	):
+		return _make_layout_failure(
+			"unsupported_structured_layout",
+			"Structured layout requires CSV or XLSX cells.",
+			source_path,
+			resolved_format
+		)
 	parse_options["work_budget"] = budget
 	if not source_path.is_empty():
 		parse_options["source"] = source_path
@@ -187,7 +207,7 @@ func decode_source(
 			)
 		var text: String = GFVariantData.get_option_string(read_result, "text")
 		if resolved_format == GFConfigPipelineTableSource.FORMAT_CSV:
-			parse_result = GFConfigTableImporter.parse_csv_table(text, parse_options)
+			parse_result = _decode_structured_csv(text, parse_options) if parse_options.has("layout") else GFConfigTableImporter.parse_csv_table(text, parse_options)
 		elif resolved_format == GFConfigPipelineTableSource.FORMAT_JSON:
 			parse_result = GFConfigTableImporter.parse_json_table(text, parse_options)
 		elif resolved_format == GFConfigPipelineTableSource.FORMAT_CONFIG_FILE:
@@ -228,6 +248,7 @@ func get_stage_descriptor() -> Dictionary:
 		"output_contract": "gf.config_pipeline.layout_result@3",
 		"implementation_dependencies": [
 			"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_structured_layout.gd",
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_work_budget.gd",
@@ -244,6 +265,31 @@ func get_stage_descriptor() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## CSV 只复用已有词法解析器；结构化映射消费同一次解码的单元格与真实行号。
+## [br]
+## @api private
+func _decode_structured_csv(text: String, options: Dictionary) -> Dictionary:
+	var decoded: Dictionary = GFConfigTableImporter.decode_csv_rows(text, options)
+	if not GFVariantData.get_option_bool(decoded, "success"):
+		return decoded
+	var rows: Array[Dictionary] = []
+	var raw_rows: Array = GFVariantData.get_option_array(decoded, "rows")
+	var row_numbers: PackedInt32Array = decoded["row_numbers"]
+	for index: int in range(raw_rows.size()):
+		var raw_row: PackedStringArray = raw_rows[index]
+		var cells: Dictionary = {}
+		for column: int in range(raw_row.size()):
+			cells[column] = raw_row[column]
+		rows.append(
+			{
+				"row_number": row_numbers[index],
+				"logical_row": index + 1,
+				"cells": cells,
+			}
+		)
+	return GFConfigStructuredLayout.new().decode(rows, options)
+
 
 ## 预算失败清空布局载荷，保留首次失败的固定报告。
 ## [br]
@@ -294,7 +340,7 @@ func _with_stage_result(
 	return result
 
 
-## 按文件及归档预算打开 XLSX，并以可选 Reader 收据约束文件身份；读取共享字符串、工作簿及目标表后关闭会话，清理失败优先于读取结果，成功才解析表内容。
+## 按文件及归档预算打开 XLSX，并以可选 Reader 收据约束文件身份；在同一会话内读取目标表，清理失败优先于任何解析结果。
 ## [br]
 ## @api private
 func _parse_xlsx_file(
@@ -400,52 +446,172 @@ func _parse_xlsx_file(
 			path
 		)
 	var workbook_sheets: Array[Dictionary] = _get_dictionary_array_value(GFVariantData.get_option_value(workbook_result, "sheets"))
-	var worksheet_path: String = _resolve_xlsx_worksheet_path(
-		files,
-		workbook_sheets,
-		options
-	)
-	if worksheet_path.is_empty():
-		if _close_zip_session(archive_session) != OK:
-			return _make_xlsx_parse_failure("XLSX bounded ZIP session cleanup failed.", path)
-		return _make_xlsx_parse_failure("XLSX sheet not found.", path)
-
-	var worksheet_result: Dictionary = _zip_read_bytes(
+	var parsed_sheets: Dictionary = _decode_xlsx_sheets(
 		archive_session,
 		files,
-		worksheet_path,
-		_get_xlsx_limit(
-			options,
-			"max_xlsx_entry_bytes",
-			_DEFAULT_MAX_XLSX_ENTRY_BYTES
-		)
+		workbook_sheets,
+		shared_strings,
+		options,
+		path
 	)
 	var close_error: Error = _close_zip_session(archive_session)
 	if close_error != OK:
 		return _make_xlsx_parse_failure("XLSX bounded ZIP session cleanup failed.", path)
-	if not GFVariantData.get_option_bool(worksheet_result, "success"):
-		return _make_xlsx_parse_failure(
-			GFVariantData.get_option_string(worksheet_result, "error"),
-			path
+	return parsed_sheets
+
+
+## 同一有界归档会话内按显式顺序读取工作表；名称索引与选择共享预算，任一失败撤销整批记录，不跨工作表续行。
+## [br]
+## @api private
+func _decode_xlsx_sheets(
+	session: Dictionary,
+	files: PackedStringArray,
+	sheets: Array[Dictionary],
+	shared_strings: PackedStringArray,
+	options: Dictionary,
+	source_path: String
+) -> Dictionary:
+	var selected: Array[Dictionary] = []
+	if options.has("sheet_names"):
+		if (
+			options.has("sheet_name")
+			or options.has("sheet_index")
+			or not options["sheet_names"] is Array
+		):
+			return _make_layout_failure(
+				"invalid_sheet_selection",
+				"sheet_names must be an array and cannot combine with sheet_name or sheet_index.",
+				source_path
+			)
+		var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+		var sheets_by_name: Dictionary = {}
+		for sheet: Dictionary in sheets:
+			if not budget.consume_work(1, "layout.xlsx_sheet_name_index"):
+				return _make_xlsx_parse_failure(
+					GFVariantData.get_option_string(
+						budget.get_report(),
+						"error"
+					),
+					source_path
+				)
+			var sheet_name: String = GFVariantData.get_option_string(sheet, "name")
+			var matches: Array = sheets_by_name.get(sheet_name, [])
+			matches.append(sheet)
+			sheets_by_name[sheet_name] = matches
+		var names: Array = options["sheet_names"]
+		var seen: Dictionary = {}
+		for value: Variant in names:
+			if not budget.consume_work(1, "layout.xlsx_sheet_selection"):
+				return _make_xlsx_parse_failure(
+					GFVariantData.get_option_string(
+						budget.get_report(),
+						"error"
+					),
+					source_path
+				)
+			if (
+				not value is String
+				or value == ""
+				or seen.has(value)
+			):
+				return _make_layout_failure(
+					"invalid_sheet_selection",
+					"sheet_names must contain unique non-empty strings.",
+					source_path
+				)
+			var sheet_name: String = value
+			seen[sheet_name] = true
+			var matches: Array = sheets_by_name.get(sheet_name, [])
+			if matches.size() != 1:
+				return _make_layout_failure(
+					"invalid_sheet_selection",
+					"A selected sheet is missing or ambiguous: %s." % sheet_name,
+					source_path
+				)
+			selected.append(matches[0])
+		if selected.is_empty():
+			return _make_layout_failure(
+				"invalid_sheet_selection",
+				"sheet_names cannot be empty.",
+				source_path
+			)
+	else:
+		var worksheet_path: String = _resolve_xlsx_worksheet_path(
+			files,
+			sheets,
+			options
 		)
-	var worksheet_bytes: PackedByteArray = _get_packed_byte_array_value(GFVariantData.get_option_value(worksheet_result, "bytes"))
-	if worksheet_bytes.size() == 0:
-		return _make_xlsx_parse_failure(
-			"XLSX worksheet is empty: %s" % worksheet_path,
-			path
+		if worksheet_path.is_empty():
+			return _make_xlsx_parse_failure("XLSX sheet not found.", source_path)
+		var selected_sheet: Dictionary = { "path": worksheet_path, "name": "" }
+		for sheet: Dictionary in sheets:
+			if GFVariantData.get_option_string(sheet, "path") == worksheet_path:
+				selected_sheet = sheet
+				break
+		selected.append(selected_sheet)
+	var result: Dictionary = {}
+	var records: Array[Dictionary] = []
+	var locations: Array[Dictionary] = []
+	var sheet_origins: Array[Dictionary] = []
+	for sheet: Dictionary in selected:
+		var worksheet_path: String = GFVariantData.get_option_string(sheet, "path")
+		var worksheet_result: Dictionary = _zip_read_bytes(
+			session,
+			files,
+			worksheet_path,
+			_get_xlsx_limit(
+				options,
+				"max_xlsx_entry_bytes",
+				_DEFAULT_MAX_XLSX_ENTRY_BYTES
+			)
 		)
-	var parsed_sheet: Dictionary = _parse_xlsx_sheet(
-		worksheet_bytes,
-		shared_strings,
-		options,
-		worksheet_path
-	)
-	parsed_sheet["sheet_path"] = worksheet_path
-	for sheet: Dictionary in workbook_sheets:
-		if GFVariantData.get_option_string(sheet, "path") == worksheet_path:
-			parsed_sheet["sheet_name"] = GFVariantData.get_option_string(sheet, "name")
-			break
-	return parsed_sheet
+		if not GFVariantData.get_option_bool(worksheet_result, "success"):
+			return _make_xlsx_parse_failure(
+				GFVariantData.get_option_string(worksheet_result, "error"),
+				source_path
+			)
+		var bytes: PackedByteArray = _get_packed_byte_array_value(worksheet_result.get("bytes"))
+		if bytes.is_empty():
+			return _make_xlsx_parse_failure(
+				"XLSX worksheet is empty: %s." % worksheet_path,
+				source_path
+			)
+		var sheet_options: Dictionary = options.duplicate()
+		sheet_options["sheet_name"] = GFVariantData.get_option_string(sheet, "name")
+		sheet_options["sheet_path"] = worksheet_path
+		var parsed: Dictionary = _parse_xlsx_sheet(
+			bytes,
+			shared_strings,
+			sheet_options,
+			worksheet_path
+		)
+		if not GFVariantData.get_option_bool(parsed, "success"):
+			return parsed
+		if not result.is_empty() and parsed.get("header") != result.get("header"):
+			return _make_layout_failure(
+				"inconsistent_sheet_headers",
+				"Merged sheets must produce the same root fields.",
+				source_path
+			)
+		result = parsed
+		var sheet_records: Array[Dictionary] = _get_dictionary_array_value(parsed.get("data"))
+		var sheet_locations: Array[Dictionary] = _get_dictionary_array_value(parsed.get("row_locations"))
+		for index: int in range(sheet_records.size()):
+			var location: Dictionary = sheet_locations[index]
+			location["row_index"] = records.size()
+			records.append(sheet_records[index])
+			locations.append(location)
+		sheet_origins.append({ "sheet_name": sheet_options["sheet_name"], "sheet_path": worksheet_path })
+	result["data"] = records
+	result["row_locations"] = locations
+	result["sheets"] = sheet_origins
+	if selected.size() == 1:
+		result["sheet_name"] = selected[0]["name"]
+		result["sheet_path"] = selected[0]["path"]
+	else:
+		var _sheet_name_erased: bool = result.erase("sheet_name")
+		var _sheet_path_erased: bool = result.erase("sheet_path")
+	return result
 
 
 ## 将 XLSX 文件大小限制中的零值解析为 ZIP 支持脚本的绝对归档上限。
@@ -873,7 +1039,7 @@ func _resolve_xlsx_worksheet_path(
 	return fallback_path if _zip_has_file(files, fallback_path) else ""
 
 
-## 把 v 和 inlineStr 文本收集为稀疏单元格并解析共享字符串、布尔值；无效列引用被忽略，行列预算按读取行数和列索引检查，错误附物理行列。
+## 把 v 和 inlineStr 文本收集为稀疏单元格；结构化模式拒绝非法或重复坐标并保留合并区域，平表保持原有读取约定。
 ## [br]
 ## @api private
 func _parse_xlsx_sheet(
@@ -903,6 +1069,8 @@ func _parse_xlsx_sheet(
 		)
 
 	var rows: Array[Dictionary] = []
+	var merged_ranges: Array[Dictionary] = []
+	var structured: bool = options.has("layout")
 	var max_rows: int = _get_xlsx_limit(
 		options,
 		"max_xlsx_rows",
@@ -942,16 +1110,47 @@ func _parse_xlsx_sheet(
 			var node_name: String = parser.get_node_name()
 			if node_name == "row":
 				row_fallback_number += 1
-				current_row_number = _parse_positive_int(
-					_get_xml_attribute(parser, "r"),
-					row_fallback_number
-				)
+				var row_reference: String = _get_xml_attribute(parser, "r")
+				current_row_number = _parse_positive_int(row_reference, row_fallback_number)
 				current_cells = {}
+				if structured:
+					if not row_reference.is_valid_int() or row_reference.to_int() <= 0:
+						return _make_xlsx_parse_failure(
+							"Structured XLSX requires explicit positive row references.",
+							GFVariantData.get_option_string(options, "source")
+						)
+					if parser.is_empty():
+						if _is_xlsx_limit_exceeded(
+							rows.size() + 1,
+							max_rows
+						):
+							return _make_xlsx_parse_failure(
+								"XLSX row count exceeds max_xlsx_rows.",
+								GFVariantData.get_option_string(options, "source")
+							)
+						rows.append({ "row_number": current_row_number, "cells": {} })
 			elif node_name == "c":
 				in_cell = true
 				current_cell_ref = _get_xml_attribute(parser, "r")
 				current_cell_type = _get_xml_attribute(parser, "t")
 				current_cell_value = ""
+				if structured:
+					var coordinate: Vector2i = _parse_xlsx_coordinate(current_cell_ref)
+					if (
+						coordinate.x != current_row_number
+						or coordinate.y <= 0
+						or current_cells.has(coordinate.y - 1)
+						or _is_xlsx_limit_exceeded(coordinate.y, max_columns)
+					):
+						return _make_xlsx_parse_failure(
+							"Structured XLSX requires unique cells within the declared row and column limits.",
+							GFVariantData.get_option_string(options, "source"),
+							current_row_number,
+							coordinate.y
+						)
+					if parser.is_empty():
+						current_cells[coordinate.y - 1] = ""
+						in_cell = false
 			elif in_cell and node_name == "v":
 				in_value = true
 			elif (
@@ -960,6 +1159,15 @@ func _parse_xlsx_sheet(
 				and node_name == "t"
 			):
 				in_inline_text = true
+			elif structured and node_name == "mergeCell":
+				var merge_ref: String = _get_xml_attribute(parser, "ref")
+				var range_result: Dictionary = _parse_xlsx_merge_range(merge_ref)
+				if range_result.is_empty():
+					return _make_xlsx_parse_failure(
+						"Invalid XLSX merged range: %s." % merge_ref,
+						GFVariantData.get_option_string(options, "source")
+					)
+				merged_ranges.append(range_result)
 		elif node_type == XMLParser.NODE_TEXT or node_type == XMLParser.NODE_CDATA:
 			if in_value or in_inline_text:
 				current_cell_value += parser.get_node_data()
@@ -971,6 +1179,19 @@ func _parse_xlsx_sheet(
 				in_inline_text = false
 			elif end_name == "c":
 				var column_index: int = _xlsx_column_index_from_cell_ref(current_cell_ref)
+				if structured:
+					var coordinate: Vector2i = _parse_xlsx_coordinate(current_cell_ref)
+					if (
+						coordinate.x != current_row_number
+						or coordinate.y != column_index + 1
+						or current_cells.has(column_index)
+					):
+						return _make_xlsx_parse_failure(
+							"Structured XLSX requires unique cells with exact row and column references.",
+							GFVariantData.get_option_string(options, "source"),
+							current_row_number,
+							column_index + 1
+						)
 				if column_index >= 0:
 					if _is_xlsx_limit_exceeded(
 						column_index + 1,
@@ -1046,7 +1267,8 @@ func _parse_xlsx_sheet(
 	return _xlsx_rows_to_parse_result(
 		rows,
 		options,
-		resolved_input_bytes
+		resolved_input_bytes,
+		merged_ranges
 	)
 
 
@@ -1056,9 +1278,24 @@ func _parse_xlsx_sheet(
 func _xlsx_rows_to_parse_result(
 	rows: Array[Dictionary],
 	options: Dictionary,
-	resolved_input_bytes: int
+	resolved_input_bytes: int,
+	merged_ranges: Array[Dictionary] = []
 ) -> Dictionary:
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if options.has("layout"):
+		if not budget.consume_input_bytes(resolved_input_bytes, "layout.xlsx_structured_input"):
+			return _make_xlsx_parse_failure(
+				GFVariantData.get_option_string(
+					budget.get_report(),
+					"error"
+				),
+				GFVariantData.get_option_string(options, "source")
+			)
+		return GFConfigStructuredLayout.new().decode(
+			rows,
+			options,
+			merged_ranges
+		)
 	var trim_cells: bool = GFVariantData.get_option_bool(
 		options,
 		"trim_cells",
@@ -1122,6 +1359,57 @@ func _xlsx_rows_to_parse_result(
 	row_options["reject_empty_header"] = true
 	row_options["error_prefix"] = "XLSX"
 	return GFConfigTableImporter.parse_rows_table(parsed_rows, row_options)
+
+
+## 合并坐标只接受明确有限的 A1:B2 形式；不把整行整列或公式当作矩形。
+## [br]
+## @api private
+func _parse_xlsx_merge_range(text: String) -> Dictionary:
+	var parts: PackedStringArray = text.split(":", true)
+	if parts.size() != 2:
+		return {}
+	var first: Vector2i = _parse_xlsx_coordinate(parts[0])
+	var last: Vector2i = _parse_xlsx_coordinate(parts[1])
+	if (
+		first.x <= 0
+		or last.x < first.x
+		or first.y <= 0
+		or last.y < first.y
+	):
+		return {}
+	return {
+		"first_row": first.x,
+		"last_row": last.x,
+		"first_column": first.y,
+		"last_column": last.y,
+	}
+
+
+## 在算术前按 Excel 的物理行列上限检查字符，避免超长地址溢出后别名到已有单元格。
+## [br]
+## @api private
+func _parse_xlsx_coordinate(text: String) -> Vector2i:
+	if text.length() < 2 or text.length() > 10:
+		return Vector2i.ZERO
+	var column: int = 0
+	var index: int = 0
+	while index < text.length():
+		var code: int = text.unicode_at(index)
+		if code < 65 or code > 90:
+			break
+		column = column * 26 + code - 64
+		if column > 16384:
+			return Vector2i.ZERO
+		index += 1
+	if column <= 0 or index == text.length():
+		return Vector2i.ZERO
+	var row_text: String = text.substr(index)
+	if row_text.begins_with("0") or not row_text.is_valid_int():
+		return Vector2i.ZERO
+	var row: int = row_text.to_int()
+	if row <= 0 or row > 1048576:
+		return Vector2i.ZERO
+	return Vector2i(row, column)
 
 
 ## 按 Unicode 码点累计 UTF-8 字节，避免创建完整编码副本；每 1024 个字符消耗一个工作单位，失败返回负数。

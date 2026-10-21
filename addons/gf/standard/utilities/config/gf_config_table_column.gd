@@ -18,6 +18,8 @@ extends Resource
 ## 导表字段值类型，用于导入与运行时校验。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 enum ValueType {
 	## 不做类型约束。
 	ANY,
@@ -49,26 +51,45 @@ enum ValueType {
 ## 字段名。建议和导表列名保持一致。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var field_name: StringName = &""
 
 ## 字段值类型。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var value_type: ValueType = ValueType.ANY
+
+## 可选结构化类型；设置后由该定义决定值形状，value_type 只保留旧资源字段兼容。
+##
+## 字段的 required、allow_null、default_value 及整值规则继续生效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var type_definition: GFConfigTypeDefinition = null
 
 ## 是否必须出现在记录中。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var required: bool = false
 
 ## 是否允许 null 值。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var allow_null: bool = true
 
 ## 字段缺省值。`GFConfigTableSchema.coerce_record()` 会在缺字段时使用。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema default_value: Variant，字段缺失时复制到记录中的默认值。
 @export var default_value: Variant = null
@@ -76,6 +97,8 @@ enum ValueType {
 ## 字段级校验规则。只作用于当前字段值，不绑定具体业务枚举。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema validation_rules: Array，包含作用于当前字段的 GFConfigValidationRule 资源。
 @export var validation_rules: Array[GFConfigValidationRule] = []
@@ -97,6 +120,8 @@ enum ValueType {
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema metadata: Dictionary，保存编辑器、导入器或项目层附加到当前字段的元数据。
 @export var metadata: Dictionary = {}
 
@@ -107,6 +132,8 @@ enum ValueType {
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 字段名。
 func get_field_key() -> StringName:
 	return field_name
@@ -115,6 +142,8 @@ func get_field_key() -> StringName:
 ## 将输入值转换为当前列要求的类型。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 输入值。
 ## [br]
@@ -131,14 +160,40 @@ func coerce_value(value: Variant) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 输入值。
 ## [br]
-## @return 包含 ok、value 与 message 的转换报告。
+## @param options: 结构化类型的调用期预算；旧标量转换忽略此选项。
+## [br]
+## @return 包含 ok、value 与 message 的转换报告；结构化失败时 value 为 null。
 ## [br]
 ## @schema value: Variant，按 value_type 尝试转换的输入字段值。
 ## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits，以及来源字段路径。
+## [br]
 ## @schema return: Dictionary，包含 ok、value 和 message 字段。
-func try_coerce_value(value: Variant) -> Dictionary:
+func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
+	if type_definition != null:
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+		var field: Dictionary = compiler.compile_column(
+			self,
+			[str(field_name)]
+		)
+		compiler.validate_defaults()
+		var definition_report: Dictionary = compiler.get_definition_report()
+		if not definition_report["ok"]:
+			definition_report["value"] = null
+			definition_report["message"] = "配置类型定义无效。"
+			return definition_report
+		var runtime_options: Dictionary = options.duplicate()
+		runtime_options["field"] = field_name
+		runtime_options["coerce_values"] = true
+		return compiler.normalize_column(
+			field,
+			value,
+			runtime_options
+		)
 	if value == null:
 		return _make_coerce_result(true, null)
 
@@ -191,9 +246,11 @@ func try_coerce_value(value: Variant) -> Dictionary:
 			return _make_coerce_result(true, value)
 
 
-## 检查输入值是否符合当前列声明。
+## 检查输入值是否符合当前列声明；结构类型先验证声明及默认值，再应用空值策略。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param value: 待检查值。
 ## [br]
@@ -201,6 +258,21 @@ func try_coerce_value(value: Variant) -> Dictionary:
 ## [br]
 ## @schema value: Variant，按 value_type 与 allow_null 检查的字段值。
 func is_value_valid(value: Variant) -> bool:
+	if type_definition != null:
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.new()
+		var field: Dictionary = compiler.compile_column(
+			self,
+			[str(field_name)]
+		)
+		compiler.validate_defaults()
+		if not compiler.get_definition_report()["ok"]:
+			return false
+		var report: Dictionary = compiler.normalize_column(
+			field,
+			value,
+			{ "coerce_values": false, "field": field_name }
+		)
+		return GFVariantData.get_option_bool(report, "ok")
 	if value == null:
 		return allow_null
 
@@ -235,35 +307,58 @@ func is_value_valid(value: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @return 新字段声明。
-func duplicate_column() -> GFConfigTableColumn:
-	var column: GFConfigTableColumn = GFConfigTableColumn.new()
-	column.field_name = field_name
-	column.value_type = value_type
-	column.required = required
-	column.allow_null = allow_null
-	column.default_value = GFVariantData.duplicate_collection(default_value)
-	for rule: GFConfigValidationRule in validation_rules:
-		column.validation_rules.append(rule.duplicate_rule() if rule != null else null)
-	for rule: GFConfigValidationRule in element_validation_rules:
-		column.element_validation_rules.append(rule.duplicate_rule() if rule != null else null)
-	column.metadata = metadata.duplicate(true)
-	return column
+## @since 3.17.0
+## [br]
+## @param options: 调用期复制预算；不执行默认值或业务规则。
+## [br]
+## @return 新字段声明；循环类型图或复制预算失败时为 null，非循环的无效声明原样保留。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits。
+func duplicate_column(options: Dictionary = {}) -> GFConfigTableColumn:
+	return GFConfigTypeCopier.from_options(options).copy_column(self)
 
 
-## 导出字段声明摘要。
+## 有界导出结构化字段摘要，不执行默认值或业务规则。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @return 字段声明字典。
+## @param options: 结构化描述的调用期预算。
 ## [br]
-## @schema return: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata。
-func describe() -> Dictionary:
+## @return 字段声明字典；结构化描述失败由 type_definition 报告保留，未复制的默认值及元数据为空。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits。
+## [br]
+## @schema return: Dictionary，包含 field_name、value_type、type_definition、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata；type_definition 为 null 或保留 ok/issues/definition 的编译报告。
+func describe(options: Dictionary = {}) -> Dictionary:
+	if type_definition != null:
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+		var field: Dictionary = compiler.compile_column(
+			self,
+			[str(field_name)]
+		)
+		var report: Dictionary = compiler.get_report()
+		var description: Dictionary = compiler.describe_column(field) if report["ok"] else {}
+		report = compiler.get_report()
+		if report["ok"]:
+			return description
+		report["definition"] = {}
+		return {
+			"field_name": field_name,
+			"value_type": value_type,
+			"type_definition": report,
+			"required": required,
+			"allow_null": allow_null,
+			"default_value": null,
+			"validation_rules": [],
+			"element_validation_rules": [],
+			"metadata": {},
+		}
 	return {
 		"field_name": field_name,
 		"value_type": value_type,
+		"type_definition": null,
 		"required": required,
 		"allow_null": allow_null,
 		"default_value": GFVariantData.duplicate_collection(default_value),
