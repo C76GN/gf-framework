@@ -1066,7 +1066,7 @@ func _validate_column_definitions(report: Dictionary, options: Dictionary) -> vo
 		)
 
 
-## 校验列上配置的验证规则及其适用条件。
+## 校验普通列的验证规则；结构列已由共享编译会话检查，避免重复报告同一声明错误。
 ## [br]
 ## @api private
 ## [br]
@@ -1075,6 +1075,8 @@ func _validate_column_rule_definitions(
 	report: Dictionary,
 	context: Dictionary
 ) -> void:
+	if column.type_definition != null:
+		return
 	var _elements_valid: bool = _validate_column_element_definition(
 		column,
 		report,

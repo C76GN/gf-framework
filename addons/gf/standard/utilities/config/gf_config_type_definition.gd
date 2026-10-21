@@ -140,7 +140,7 @@ enum Kind {
 ## [br]
 ## @return 校验报告，错误保留字段路径。
 ## [br]
-## @schema options: Dictionary，可包含 work_budget 或 work_limits，以及 source、field、field_path 和 field_segments。
+## @schema options: Dictionary，可包含 work_budget 或 work_limits，以及 source、field、field_path 和 field_segments。非空 field_segments 为权威根路径；否则 field 为根字段。仅给 field_path 时保留显示前缀，不从文本推导完整 field_segments。
 ## [br]
 ## @schema return: Dictionary，包含 ok、issues、error_count、warning_count。
 func validate_definition(options: Dictionary = {}) -> Dictionary:
@@ -160,7 +160,7 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return 编译报告；失败时 definition 为空字典且 issues 保留原因。
 ## [br]
-## @schema options: Dictionary，可包含 work_budget 或 work_limits，以及来源上下文。
+## @schema options: Dictionary，与 validate_definition 使用相同预算与来源上下文；根路径优先 field_segments，其次 field，仅有 field_path 时保留显示前缀。
 ## [br]
 ## @schema return: Dictionary，校验报告附加 definition；成功描述包含 kind、type_name、allow_null 及当前形状的字段，不含 Resource 引用。
 func compile_definition(options: Dictionary = {}) -> Dictionary:
@@ -190,7 +190,7 @@ func compile_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema value: Variant，符合所声明结构的标量、Array 或 Dictionary；不接受循环集合或对象。
 ## [br]
-## @schema options: Dictionary，可包含 work_budget 或 work_limits、coerce_values（默认 true）及 field_path、field_segments 等来源上下文。
+## @schema options: Dictionary，可包含 work_budget 或 work_limits、coerce_values（默认 true）及与 validate_definition 相同的来源上下文；定义与值失败保留同一根路径。
 ## [br]
 ## @schema return: Dictionary，包含 ok、value、issues、error_count、warning_count 和 message；失败时 value 为 null。
 func try_normalize(value: Variant, options: Dictionary = {}) -> Dictionary:

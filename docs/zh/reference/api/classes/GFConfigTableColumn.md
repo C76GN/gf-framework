@@ -287,7 +287,7 @@ func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
 func is_value_valid(value: Variant) -> bool:
 ```
 
-检查输入值是否符合当前列声明。
+检查输入值是否符合当前列声明；结构类型先验证声明及默认值，再应用空值策略。
 
 参数：
 

@@ -250,7 +250,7 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，可包含 work_budget 或 work_limits，以及 source、field、field_path 和 field_segments。
+- `options`: Dictionary，可包含 work_budget 或 work_limits，以及 source、field、field_path 和 field_segments。非空 field_segments 为权威根路径；否则 field 为根字段。仅给 field_path 时保留显示前缀，不从文本推导完整 field_segments。
 - `return`: Dictionary，包含 ok、issues、error_count、warning_count。
 
 <a id="member-gfconfigtypedefinition-methods-compile_definition"></a>
@@ -276,7 +276,7 @@ func compile_definition(options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `options`: Dictionary，可包含 work_budget 或 work_limits，以及来源上下文。
+- `options`: Dictionary，与 validate_definition 使用相同预算与来源上下文；根路径优先 field_segments，其次 field，仅有 field_path 时保留显示前缀。
 - `return`: Dictionary，校验报告附加 definition；成功描述包含 kind、type_name、allow_null 及当前形状的字段，不含 Resource 引用。
 
 <a id="member-gfconfigtypedefinition-methods-try_normalize"></a>
@@ -304,7 +304,7 @@ func try_normalize(value: Variant, options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `value`: Variant，符合所声明结构的标量、Array 或 Dictionary；不接受循环集合或对象。
-- `options`: Dictionary，可包含 work_budget 或 work_limits、coerce_values（默认 true）及 field_path、field_segments 等来源上下文。
+- `options`: Dictionary，可包含 work_budget 或 work_limits、coerce_values（默认 true）及与 validate_definition 相同的来源上下文；定义与值失败保留同一根路径。
 - `return`: Dictionary，包含 ok、value、issues、error_count、warning_count 和 message；失败时 value 为 null。
 
 <a id="member-gfconfigtypedefinition-methods-describe"></a>

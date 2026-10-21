@@ -251,6 +251,267 @@ func test_cycles_and_depth_budget_fail_closed() -> void:
 	assert_true(definition_normalize_ok_matches)
 
 
+## 同一类型先从浅路径缓存后，较深路径仍检查完整子树；遍历顺序不能改变准入。
+func test_shared_type_depth_is_checked_at_every_path() -> void:
+	for reverse_fields: bool in [false, true]:
+		var shared: GFConfigTypeDefinition = _array(_scalar(GFConfigTableColumn.ValueType.INT))
+		var shallow: GFConfigTableColumn = _column(&"shallow", GFConfigTableColumn.ValueType.ANY)
+		shallow.type_definition = shared
+		var deep: GFConfigTableColumn = _column(&"deep", GFConfigTableColumn.ValueType.ANY)
+		deep.type_definition = _array(shared)
+		var definition: GFConfigTypeDefinition = _structure(&"SharedType")
+		definition.fields = [shallow, deep]
+		if reverse_fields:
+			definition.fields.reverse()
+		_assert_shared_depth_boundary(definition, 4)
+		var copied: GFConfigTypeDefinition = definition.duplicate_definition()
+		assert_not_null(copied)
+		if copied != null:
+			var shallow_copy: GFConfigTypeDefinition = copied.fields[1 if reverse_fields else 0].type_definition
+			var deep_copy: GFConfigTypeDefinition = copied.fields[0 if reverse_fields else 1].type_definition
+			assert_same(shallow_copy, deep_copy.element_type)
+			assert_not_same(shallow_copy, shared)
+
+
+## 共享字段缓存也包含其类型后代深度，不能只检查再次遇到字段时的当前层数。
+func test_shared_column_depth_is_checked_at_every_path() -> void:
+	for reverse_fields: bool in [false, true]:
+		var shared: GFConfigTableColumn = _column(&"shared", GFConfigTableColumn.ValueType.ANY)
+		shared.type_definition = _scalar(GFConfigTableColumn.ValueType.INT)
+		var holder: GFConfigTypeDefinition = _structure(&"Holder")
+		holder.fields = [shared]
+		var nested: GFConfigTableColumn = _column(&"nested", GFConfigTableColumn.ValueType.ANY)
+		nested.type_definition = holder
+		var definition: GFConfigTypeDefinition = _structure(&"SharedColumn")
+		definition.fields = [shared, nested]
+		if reverse_fields:
+			definition.fields.reverse()
+		_assert_shared_depth_boundary(definition, 4)
+		var copied: GFConfigTypeDefinition = definition.duplicate_definition()
+		assert_not_null(copied)
+		if copied != null:
+			var shared_copy: GFConfigTableColumn = copied.fields[1 if reverse_fields else 0]
+			var nested_copy: GFConfigTableColumn = copied.fields[0 if reverse_fields else 1]
+			assert_same(
+				shared_copy,
+				nested_copy.type_definition.fields[0]
+			)
+			assert_not_same(shared_copy, shared)
+
+
+## 结构问题沿用统一报告清洗，包括叶来源替换；报告不保留对象或借用调用者集合。
+func test_structured_issue_context_uses_report_sanitizer() -> void:
+	var diagnostic_object: RefCounted = RefCounted.new()
+	var row_key: Dictionary = {
+		"owner": diagnostic_object,
+		"values": [7],
+		"non_finite": INF,
+	}
+	var location: Dictionary = {
+		"source": [diagnostic_object],
+		"cell": RID(),
+		"line": INF,
+	}
+	var options: Dictionary = {
+		"field": &"amount",
+		"row_key": row_key,
+		"row_index": 0,
+		"row_locations": [
+			{
+				"fields": { "amount": location },
+			},
+		],
+	}
+	var report: Dictionary = _scalar(GFConfigTableColumn.ValueType.INT).try_normalize("bad", options)
+	var issue: Dictionary = _first_issue(report, "coerce_failed")
+	var field: GFConfigTableColumn = _column(&"amount", GFConfigTableColumn.ValueType.INT)
+	var range_rule: GFConfigRangeValidationRule = GFConfigRangeValidationRule.new()
+	range_rule.has_minimum = true
+	range_rule.minimum = 1.0
+	field.validation_rules.append(range_rule)
+	var definition: GFConfigTypeDefinition = _structure(&"Ranged")
+	definition.fields = [field]
+	var rule_options: Dictionary = options.duplicate()
+	rule_options["field"] = &""
+	var rule_report: Dictionary = definition.try_normalize(
+		{ "amount": 0 },
+		rule_options
+	)
+	var rule_issue: Dictionary = _first_issue(rule_report, "range_below_minimum")
+	var expected_context: Dictionary = location.duplicate()
+	expected_context["row_key"] = row_key
+	var builder: GFConfigValidationReport = GFConfigValidationReport.new()
+	var expected_report: Dictionary = builder.make_report()
+	builder.add_issue(
+		expected_report,
+		"error",
+		"expected",
+		&"",
+		row_key,
+		&"amount",
+		"expected",
+		expected_context
+	)
+	var expected_issue: Dictionary = _first_issue(expected_report, "expected")
+	for actual_issue: Dictionary in [issue, rule_issue]:
+		for key: String in [
+			"row_key",
+			"source",
+			"cell",
+			"line",
+		]:
+			var matches: bool = typeof(actual_issue.get(key)) == typeof(expected_issue.get(key)) and actual_issue.get(key) == expected_issue.get(key)
+			assert_true(
+				matches,
+				"Structured context must use the existing report sanitizer: " + key
+			)
+	row_key.clear()
+	location.clear()
+	var isolated: bool = issue.get("row_key") == expected_issue.get("row_key")
+	assert_true(isolated, "Returned issue must not borrow caller context.")
+	var round_trip: Variant = JSON.parse_string(JSON.stringify(report))
+	assert_true(round_trip is Dictionary)
+	var cycle: Array = []
+	cycle.append(cycle)
+	var expected_cycle: Variant = GFReportValueCodec.to_json_compatible(cycle)
+	var cyclic_report: Dictionary = _scalar(GFConfigTableColumn.ValueType.INT).try_normalize(
+		"bad",
+		{ "row_key": cycle }
+	)
+	cycle.clear()
+	var cyclic_issue: Dictionary = _first_issue(cyclic_report, "coerce_failed")
+	var cycle_matches: bool = typeof(cyclic_issue.get("row_key")) == typeof(expected_cycle) and cyclic_issue.get("row_key") == expected_cycle
+	assert_true(cycle_matches)
+
+
+## 定义失败与值失败使用相同根路径；显式片段优先，显示路径不被猜测成结构片段。
+func test_public_definition_entries_preserve_root_issue_path() -> void:
+	var invalid: GFConfigTypeDefinition = _scalar(GFConfigTableColumn.ValueType.ANY)
+	var nested: GFConfigTypeDefinition = _structure(&"Nested")
+	var field: GFConfigTableColumn = _column(&"amount", GFConfigTableColumn.ValueType.ANY)
+	field.type_definition = invalid
+	nested.fields = [field]
+	var contexts: Array[Dictionary] = [
+		{
+			"field_segments": [
+				"payload",
+				"items",
+				2,
+			],
+			"field_path": "ignored",
+		},
+		{ "field": &"payload" },
+		{ "field_path": "payload.items[2]" },
+	]
+	var roots: Array[String] = [
+		"payload.items[2]",
+		"payload",
+		"payload.items[2]",
+	]
+	var root_segments: Array[Array] = [
+		[
+			"payload",
+			"items",
+			2,
+		],
+		["payload"],
+		[],
+	]
+	for index: int in contexts.size():
+		for definition: GFConfigTypeDefinition in [invalid, nested]:
+			var expected_path: String = roots[index]
+			var expected_segments: Array = root_segments[index].duplicate()
+			if definition == nested:
+				expected_path += ".amount"
+				expected_segments.append("amount")
+			var reports: Array[Dictionary] = [
+				definition.validate_definition(contexts[index]),
+				definition.compile_definition(contexts[index]),
+				definition.describe(contexts[index]),
+				definition.try_normalize(
+					{},
+					contexts[index]
+				),
+			]
+			for report: Dictionary in reports:
+				var issue: Dictionary = _first_issue(report, "invalid_scalar_type")
+				var path_matches: bool = issue.get("field_path") == expected_path
+				var segments_match: bool = issue.get("field_segments") == expected_segments
+				assert_true(path_matches)
+				assert_true(segments_match)
+
+
+## 描述阶段耗尽预算时仍保留根上下文，足额预算不能被修复路径提前拒绝。
+func test_description_budget_failures_preserve_root_issue_path() -> void:
+	var definition: GFConfigTypeDefinition = _scalar(GFConfigTableColumn.ValueType.INT)
+	var contexts: Array[Dictionary] = [
+		{
+			"field_segments": ["payload", 2],
+			"field": &"ignored",
+			"field_path": "ignored",
+		},
+		{ "field": &"payload", "field_path": "ignored", },
+		{ "field_path": "payload.items[2]" },
+	]
+	var roots: Array[String] = [
+		"payload[2]",
+		"payload",
+		"payload.items[2]",
+	]
+	var root_segments: Array[Array] = [
+		["payload", 2],
+		["payload"],
+		[],
+	]
+	for index: int in contexts.size():
+		for limit: int in [1, 2]:
+			var options: Dictionary = contexts[index].duplicate()
+			options["work_limits"] = { "max_work_units": limit }
+			var accepted: bool = limit == 2
+			var described: Dictionary = definition.describe(options)
+			var compiled: Dictionary = definition.compile_definition(options)
+			for report: Dictionary in [described, compiled]:
+				var ok_matches: bool = typeof(report.get("ok")) == TYPE_BOOL and report.get("ok") == accepted
+				assert_true(ok_matches)
+				var result_definition: Variant = report.get("definition")
+				assert_true(result_definition is Dictionary)
+				if result_definition is Dictionary:
+					var description: Dictionary = result_definition
+					assert_eq(
+						description.is_empty(),
+						not accepted
+					)
+				assert_eq(
+					_has_kind(report, "config_work_limit_exceeded"),
+					not accepted
+				)
+				if not accepted:
+					var issue: Dictionary = _first_issue(report, "config_work_limit_exceeded")
+					var path_matches: bool = issue.get("field_path") == roots[index]
+					var segments_match: bool = issue.get("field_segments") == root_segments[index]
+					assert_true(path_matches)
+					assert_true(segments_match)
+
+
+## 已有叶路径的预算问题不得被根上下文覆盖。
+func test_budget_failure_preserves_existing_leaf_issue_path() -> void:
+	var definition: GFConfigTypeDefinition = _structure(&"Nested")
+	var field: GFConfigTableColumn = _column(&"amount", GFConfigTableColumn.ValueType.ANY)
+	field.type_definition = _scalar(GFConfigTableColumn.ValueType.INT)
+	definition.fields = [field]
+	var report: Dictionary = definition.validate_definition(
+		{
+			"field": &"payload",
+			"work_limits": { "max_depth": 1 },
+		}
+	)
+	var issue: Dictionary = _first_issue(report, "config_work_depth_exceeded")
+	var path_matches: bool = issue.get("field_path") == "payload.amount"
+	var segments_match: bool = issue.get("field_segments") == ["payload", "amount"]
+	assert_true(path_matches)
+	assert_true(segments_match)
+
+
 ## 复制保留无效默认值但不触发校验，正式准入才拒绝它。
 func test_copy_preserves_invalid_defaults_without_running_rules() -> void:
 	_CountingRule.calls = 0
@@ -1044,6 +1305,29 @@ func _validate_all_shapes(
 			options
 		),
 	]
+
+
+## 校验与复制在相同绝对深度边界作出一致决定，拒绝时不交付部分图。
+func _assert_shared_depth_boundary(definition: GFConfigTypeDefinition, required_depth: int) -> void:
+	for limit: int in [required_depth - 1, required_depth]:
+		var options: Dictionary = {
+			"work_limits": { "max_depth": limit },
+		}
+		var accepted: bool = limit == required_depth
+		var validation: Dictionary = definition.validate_definition(options)
+		var duplication: Dictionary = definition.try_duplicate_definition(options)
+		for report: Dictionary in [validation, duplication]:
+			var ok_matches: bool = typeof(report.get("ok")) == TYPE_BOOL and report.get("ok") == accepted
+			assert_true(ok_matches)
+			assert_eq(
+				_has_kind(report, "config_work_depth_exceeded"),
+				not accepted
+			)
+		if accepted:
+			assert_true(duplication.get("definition") is GFConfigTypeDefinition)
+		else:
+			var absent: bool = duplication.get("definition") == null
+			assert_true(absent)
 
 
 ## 构造两个路径默认值字段，明确只允许一次唯一资源探测。

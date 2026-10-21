@@ -353,6 +353,7 @@ func test_structured_draft_copy_isolated_and_failed_load_keeps_previous_draft() 
 	reader.mark_changed()
 	var prior_profile: GFConfigPipelineProfile = reader.get_profile()
 	var prior_state: Dictionary = reader.get_state()
+	var prior_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
 	var deep_type: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
 	deep_type.scalar_type = GFConfigTableColumn.ValueType.INT
 	for _index: int in range(70):
@@ -402,6 +403,17 @@ func test_structured_draft_copy_isolated_and_failed_load_keeps_previous_draft() 
 		"result"
 	)
 	assert_true(GFVariantData.get_option_string(failure, "error").contains("Cannot copy"))
+	assert_eq(
+		FileAccess.get_file_as_bytes(path),
+		prior_bytes
+	)
+	assert_eq(
+		GFVariantData.get_option_bool(
+			reader.get_state(),
+			"stale"
+		),
+		GFVariantData.get_option_bool(prior_state, "stale")
+	)
 
 
 ## 结构字段隐藏不生效的 legacy 类型控件，编辑其余字段不会丢失结构引用。

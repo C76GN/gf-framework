@@ -143,7 +143,7 @@ func create_profile(
 	mark_changed()
 
 
-## 从磁盘加载并深复制来源和 Schema，避免修改共享 ResourceLoader 对象。
+## 从磁盘加载并受控复制 Profile、来源和 Schema；复制失败保留原草稿及保存身份。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -161,22 +161,14 @@ func load_profile(path: String) -> bool:
 	if not editor_error.is_empty():
 		_result = { "success": false, "error": editor_error }
 		return false
-	var copied_sources: Array[GFConfigPipelineTableSource] = []
-	for source: GFConfigPipelineTableSource in original.sources:
-		if source == null:
-			copied_sources.append(null)
-			continue
-		var copied_schema: GFConfigTableSchema = null
-		if source.schema != null:
-			copied_schema = source.schema.duplicate_schema()
-			if copied_schema == null:
-				_result = { "success": false, "error": "Cannot copy the source schema within the type graph limits: " + source.source_path, }
-				return false
-		var copied: GFConfigPipelineTableSource = source.duplicate(true)
-		copied.schema = copied_schema
-		copied_sources.append(copied)
-	var candidate: GFConfigPipelineProfile = original.duplicate(true)
-	candidate.sources = copied_sources
+	var candidate: GFConfigPipelineProfile = original.duplicate_profile()
+	if candidate == null:
+		_result = {
+			"success": false,
+			"error_code": "profile_copy_failed",
+			"error": "Cannot copy the Profile or its source schemas within the type graph limits.",
+		}
+		return false
 	_profile = candidate
 	_profile_path = path
 	_saved_digest = FileAccess.get_sha256(path)

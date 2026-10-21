@@ -1908,6 +1908,119 @@ func test_pipeline_profile_and_source_duplicate_as_independent_resources() -> vo
 	)
 
 
+func test_source_and_profile_copy_reject_uncopyable_explicit_schema() -> void:
+	var definition: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	for _index: int in range(70):
+		var parent: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+		parent.kind = GFConfigTypeDefinition.Kind.ARRAY
+		parent.element_type = definition
+		definition = parent
+	var column: GFConfigTableColumn = _make_column(&"payload", GFConfigTableColumn.ValueType.ARRAY)
+	column.type_definition = definition
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.columns = [column]
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.schema = schema
+	source.infer_schema = true
+	var valid_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	valid_source.table_name = &"valid"
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.sources = [valid_source, source]
+	assert_null(
+		source.duplicate_source(),
+		"显式 Schema 复制失败不得返回可继续推断的来源。"
+	)
+	assert_null(
+		profile.duplicate_profile(),
+		"任一来源复制失败不得返回部分 Profile。"
+	)
+	assert_same(source.schema, schema)
+	assert_same(
+		profile.sources[0],
+		valid_source
+	)
+	assert_same(
+		profile.sources[1],
+		source
+	)
+	assert_true(source.infer_schema, "失败不能通过修改作者原有推断开关来隐藏。")
+
+
+func test_profile_copy_preserves_custom_resource_and_dictionary_isolation() -> void:
+	var source: _CopyPayloadSource = _CopyPayloadSource.new()
+	source.table_name = &"items"
+	source.schema = _make_item_schema()
+	source.metadata = {
+		"nested": { "label": "source" },
+	}
+	source.extra_resource = _make_column(&"source_custom", GFConfigTableColumn.ValueType.STRING)
+	source.set_meta("editor_label", "retained")
+	var copied_source: GFConfigPipelineTableSource = source.duplicate_source()
+	assert_true(copied_source is _CopyPayloadSource)
+	if not (copied_source is _CopyPayloadSource):
+		return
+	var custom_source: _CopyPayloadSource = copied_source
+	assert_not_same(custom_source.extra_resource, source.extra_resource)
+	assert_eq(custom_source.extra_resource.field_name, &"source_custom")
+	var retained_label: Variant = custom_source.get_meta("editor_label")
+	var label_matches: bool = retained_label is String and retained_label == "retained"
+	assert_true(label_matches)
+	var profile: _CopyPayloadProfile = _CopyPayloadProfile.new()
+	profile.sources = [source, null]
+	profile.extra_resource = _make_column(&"custom", GFConfigTableColumn.ValueType.STRING)
+	profile.extra_resource.metadata = {
+		"nested": { "label": "custom" },
+	}
+	profile.extra_values = {
+		"nested": { "label": "custom" },
+	}
+	profile.metadata = {
+		"nested": { "label": "profile" },
+	}
+	var copied: GFConfigPipelineProfile = profile.duplicate_profile()
+	assert_true(copied is _CopyPayloadProfile)
+	if not (copied is _CopyPayloadProfile):
+		return
+	var custom_copy: _CopyPayloadProfile = copied
+	assert_true(custom_copy.sources[0] is _CopyPayloadSource)
+	if not (custom_copy.sources[0] is _CopyPayloadSource):
+		return
+	var profile_source: _CopyPayloadSource = custom_copy.sources[0]
+	assert_not_same(profile_source.extra_resource, source.extra_resource)
+	profile_source.extra_resource.field_name = &"changed"
+	assert_eq(source.extra_resource.field_name, &"source_custom")
+	assert_not_same(
+		custom_copy.sources[0],
+		source
+	)
+	assert_not_same(
+		custom_copy.sources[0].schema,
+		source.schema
+	)
+	assert_null(
+		custom_copy.sources[1],
+		"原有空来源槽位仍应保留供编辑器修复。"
+	)
+	assert_not_same(custom_copy.extra_resource, profile.extra_resource)
+	custom_copy.sources[0].metadata["nested"]["label"] = "changed"
+	custom_copy.extra_resource.metadata["nested"]["label"] = "changed"
+	custom_copy.extra_values["nested"]["label"] = "changed"
+	custom_copy.metadata["nested"]["label"] = "changed"
+	var source_metadata_unchanged: bool = source.metadata["nested"]["label"] == "source"
+	var custom_metadata_unchanged: bool = profile.extra_resource.metadata["nested"]["label"] == "custom"
+	var custom_values_unchanged: bool = profile.extra_values["nested"]["label"] == "custom"
+	var profile_metadata_unchanged: bool = profile.metadata["nested"]["label"] == "profile"
+	assert_true(source_metadata_unchanged)
+	assert_true(custom_metadata_unchanged)
+	assert_true(custom_values_unchanged)
+	assert_true(profile_metadata_unchanged)
+	var inferred_copy: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new().duplicate_source()
+	assert_not_null(inferred_copy)
+	assert_null(inferred_copy.schema, "真正未声明 Schema 的来源仍允许显式推断。")
+	assert_true(inferred_copy.infer_schema)
+
+
 func test_pipeline_profile_uses_export_output_override() -> void:
 	var csv_path: String = _write_text(
 		"user://gf_config_pipeline_profile_override_%d.csv" % Time.get_ticks_usec(),
@@ -5750,6 +5863,15 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 
 
 # --- 内部类 ---
+
+class _CopyPayloadSource extends GFConfigPipelineTableSource:
+	@export var extra_resource: GFConfigTableColumn = null
+
+
+class _CopyPayloadProfile extends GFConfigPipelineProfile:
+	@export var extra_resource: GFConfigTableColumn = null
+	@export var extra_values: Dictionary = {}
+
 
 class _BudgetExportCopyCountingProfile extends GFConfigPipelineProfile:
 	var save_copy_count: int = 0

@@ -246,7 +246,7 @@ func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
 			return _make_coerce_result(true, value)
 
 
-## 检查输入值是否符合当前列声明。
+## 检查输入值是否符合当前列声明；结构类型先验证声明及默认值，再应用空值策略。
 ## [br]
 ## @api public
 ## [br]
@@ -258,8 +258,6 @@ func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema value: Variant，按 value_type 与 allow_null 检查的字段值。
 func is_value_valid(value: Variant) -> bool:
-	if value == null:
-		return allow_null
 	if type_definition != null:
 		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.new()
 		var field: Dictionary = compiler.compile_column(
@@ -275,6 +273,8 @@ func is_value_valid(value: Variant) -> bool:
 			{ "coerce_values": false, "field": field_name }
 		)
 		return GFVariantData.get_option_bool(report, "ok")
+	if value == null:
+		return allow_null
 
 	match value_type:
 		ValueType.ANY:

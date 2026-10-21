@@ -34,6 +34,16 @@ var _nodes: Dictionary = {}
 ## @api private
 var _columns: Dictionary = {}
 
+## 完成子树相对入口的最大深度，缓存复用不能省略另一条路径的深度准入。
+## [br]
+## @api private
+var _depth_spans: Dictionary = {}
+
+## 当前编译栈每层已经观察到的最深绝对深度，不持有作者资源。
+## [br]
+## @api private
+var _depth_stack: Array[int] = []
+
 ## 当前定义展开路径，用于区别循环和合法共享子类型。
 ## [br]
 ## @api private
@@ -138,6 +148,8 @@ func compile_type(
 	segments: Array = [],
 	depth: int = 0
 ) -> Dictionary:
+	if depth == 0 and segments.is_empty():
+		segments = _segments(_options)
 	if not _step(depth, segments):
 		return {}
 	if definition == null:
@@ -157,8 +169,13 @@ func compile_type(
 		)
 		return {}
 	if _nodes.has(identity):
-		return _nodes[identity]
+		return _nodes[identity] if _admit_cached_depth(
+			identity,
+			depth,
+			segments
+		) else {}
 	_active.append(identity)
+	_depth_stack.append(depth)
 	var start: int = _issues.size()
 	var node: Dictionary = {
 		"identity": identity,
@@ -226,7 +243,13 @@ func compile_type(
 			)
 	_validate_unused_members(definition, segments)
 	var _removed: int = _active.pop_back()
-	if _has_errors(start):
+	var succeeded: bool = not _has_errors(start)
+	_finish_depth(
+		identity,
+		depth,
+		succeeded
+	)
+	if not succeeded:
 		return {}
 	_nodes[identity] = node
 	return node
@@ -263,8 +286,13 @@ func compile_column(
 		return {}
 	var identity: int = column.get_instance_id()
 	if _columns.has(identity):
-		return _columns[identity]
+		return _columns[identity] if _admit_cached_depth(
+			identity,
+			depth,
+			segments
+		) else {}
 	_track_resource(column)
+	_depth_stack.append(depth)
 	var start: int = _issues.size()
 	var node: Dictionary = {
 		"field_name": column.field_name,
@@ -319,7 +347,13 @@ func compile_column(
 		node["metadata"] = column.metadata.duplicate(true)
 	node["validation_rules"] = _copy_rules(column.validation_rules, segments)
 	node["element_validation_rules"] = _copy_rules(column.element_validation_rules, segments)
-	if _has_errors(start):
+	var succeeded: bool = not _has_errors(start)
+	_finish_depth(
+		identity,
+		depth,
+		succeeded
+	)
+	if not succeeded:
 		return {}
 	_default_fields.append(node)
 	_columns[identity] = node
@@ -1275,7 +1309,7 @@ func _run_rules(
 				var issue: Dictionary = source_issue.duplicate(true)
 				issue["field_path"] = _path_text(segments)
 				issue["field_segments"] = segments.duplicate()
-				_enrich_location(issue, segments)
+				_enrich_report_location(issue, segments)
 				_issues.append(issue)
 
 
@@ -1459,6 +1493,49 @@ func _is_plain(value: Variant, segments: Array) -> bool:
 	return true
 
 
+## 缓存命中仍检查完整子树的绝对深度，但不重新计费未执行的编译或复制工作。
+## [br]
+## @api private
+func _admit_cached_depth(
+	identity: int,
+	depth: int,
+	segments: Array
+) -> bool:
+	var span: int = _depth_spans[identity]
+	var deepest: int = depth + span
+	if not _budget.check_depth(
+		deepest,
+		_path_text(segments)
+	):
+		_record_budget_failure(segments)
+		return false
+	if not _depth_stack.is_empty():
+		_depth_stack[-1] = maxi(
+			_depth_stack[-1],
+			deepest
+		)
+	return true
+
+
+## 出栈后只缓存成功子树的跨度，并将其最深位置传给父节点。
+## [br]
+## @api private
+func _finish_depth(
+	identity: int,
+	depth: int,
+	succeeded: bool
+) -> void:
+	var deepest: int = _depth_stack.pop_back()
+	if not succeeded:
+		return
+	_depth_spans[identity] = deepest - depth
+	if not _depth_stack.is_empty():
+		_depth_stack[-1] = maxi(
+			_depth_stack[-1],
+			deepest
+		)
+
+
 ## 每步先检查深度再消费工作预算，失败只保留一个预算问题。
 ## [br]
 ## @api private
@@ -1482,6 +1559,8 @@ func _record_budget_failure(segments: Array) -> void:
 	if _budget.is_ok() or _budget_reported:
 		return
 	_budget_reported = true
+	if segments.is_empty():
+		segments = _segments(_options)
 	var report: Dictionary = _budget.get_report()
 	var error_kind: String = report["error_kind"]
 	var message: String = report["error"]
@@ -1523,7 +1602,45 @@ func _issue(
 		if _options.has(key):
 			issue[key] = _options[key]
 	_enrich_location(issue, segments)
-	_issues.append(issue)
+	_issues.append(_sanitize_issue(issue))
+
+
+## 叶来源覆盖完成后复用统一报告边界，不将对象、非有限值或循环上下文直接复制到报告。
+## [br]
+## @api private
+func _sanitize_issue(issue: Dictionary) -> Dictionary:
+	var builder: GFConfigValidationReport = GFConfigValidationReport.new()
+	var report: Dictionary = builder.make_report()
+	builder.add_issue(
+		report,
+		GFVariantData.get_option_string(
+			issue,
+			"severity",
+			"error"
+		),
+		GFVariantData.get_option_string(issue, "kind"),
+		GFVariantData.get_option_string_name(issue, "table_name"),
+		issue.get("row_key"),
+		GFVariantData.get_option_string_name(issue, "field"),
+		GFVariantData.get_option_string(issue, "message"),
+		issue
+	)
+	var issues: Array = report["issues"]
+	var sanitized: Dictionary = issues[0]
+	return sanitized
+
+
+## 规则报告已经清洗，只清洗之后新增的叶来源，避免重复编码既有诊断标记。
+## [br]
+## @api private
+func _enrich_report_location(issue: Dictionary, segments: Array) -> void:
+	var location: Dictionary = {}
+	_enrich_location(location, segments)
+	if location.is_empty():
+		return
+	var sanitized: Dictionary = _sanitize_issue(location)
+	for key: String in location:
+		issue[key] = sanitized[key]
 
 
 ## 按完整叶路径匹配布局来源，不把嵌套失败错误定位到顶层首列。
@@ -1602,7 +1719,7 @@ func _report_since(start: int) -> Dictionary:
 		"issues": issues,
 		"error_count": errors,
 		"warning_count": warnings,
-		"table_name": _options.get("table_name", &""),
+		"table_name": GFVariantData.get_option_string_name(_options, "table_name"),
 		"row_count": 0,
 	}
 
@@ -1640,11 +1757,11 @@ func _child(segments: Array, segment: Variant) -> Array:
 	return result
 
 
-## 用字段点号与数组下标产生可读路径，特殊名称保留 JSON 引号。
+## 按权威片段渲染路径；仅给显示前缀时原样拼接，不反解析或虚构完整片段。
 ## [br]
 ## @api private
 func _path_text(segments: Array) -> String:
-	var result: String = ""
+	var result: String = GFVariantData.get_option_string(_options, "field_path") if _segments(_options).is_empty() else ""
 	for segment: Variant in segments:
 		if segment is int:
 			result += "[%d]" % segment

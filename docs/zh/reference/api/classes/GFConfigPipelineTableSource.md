@@ -275,9 +275,9 @@ func get_resolved_format() -> StringName:
 func duplicate_source() -> GFConfigPipelineTableSource:
 ```
 
-创建同内容拷贝。
+创建同内容拷贝；显式 Schema 复制失败时拒绝整个来源，不转为自动推断。 Schema 委托 duplicate_schema()；扩展 Schema 应覆盖该方法以保留自定义声明。
 
-返回：新来源声明资源。
+返回：新来源声明资源；Schema 超出复制边界或资源实例创建失败时返回 null。
 
 <a id="member-gfconfigpipelinetablesource-methods-describe"></a>
 

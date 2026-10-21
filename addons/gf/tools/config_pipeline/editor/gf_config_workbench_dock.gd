@@ -1022,10 +1022,20 @@ func _select_source(index: int) -> void:
 		func(resource: Resource) -> void:
 			if not _accept_callback(picker, generation):
 				return
-			source.schema = null
-			if resource is GFConfigTableSchema:
+			var copied_schema: GFConfigTableSchema = null
+			if resource != null:
+				if not (resource is GFConfigTableSchema):
+					picker.edited_resource = source.schema
+					_status.text = "请选择 GFConfigTableSchema；已保留原草稿。"
+					return
 				var selected_schema: GFConfigTableSchema = resource
-				source.schema = selected_schema.duplicate_schema()
+				copied_schema = selected_schema.duplicate_schema()
+				if copied_schema == null:
+					picker.edited_resource = source.schema
+					_status.text = "无法复制 Schema：类型图存在循环或超出复制预算；已保留原草稿。"
+					return
+			source.schema = copied_schema
+			picker.edited_resource = copied_schema
 			_changed()
 			_schema_form.configure(
 				_session.get_profile(),
@@ -1557,9 +1567,16 @@ func _copy_schema() -> void:
 		_status.text = "请先成功校验当前已保存的 Profile。"
 		return
 	var database: GFConfigDatabaseResource = value
-	var table: GFConfigTableResource = database.get_table_resource(source.get_table_key())
+	var table: GFConfigTableResource = database.get_table_resource(
+		source.get_table_key(),
+		false
+	)
 	if table != null and table.schema != null:
-		source.schema = table.schema.duplicate_schema()
+		var copied_schema: GFConfigTableSchema = table.schema.duplicate_schema()
+		if copied_schema == null:
+			_status.text = "无法复制 Schema：类型图存在循环或超出复制预算；已保留原草稿。"
+			return
+		source.schema = copied_schema
 		_changed()
 		_schema_form.configure(
 			_session.get_profile(),

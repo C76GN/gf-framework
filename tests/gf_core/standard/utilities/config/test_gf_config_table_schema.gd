@@ -6,6 +6,78 @@ extends GutTest
 
 # --- 测试 ---
 
+## 空值策略只能在声明有效后应用，不能隐藏缺失子类型、循环或非法默认值。
+func test_structured_nullable_column_rejects_invalid_declarations() -> void:
+	var column: GFConfigTableColumn = _make_column(&"payload", GFConfigTableColumn.ValueType.ANY)
+	column.allow_null = true
+	var definition: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
+	definition.kind = GFConfigTypeDefinition.Kind.ARRAY
+	column.type_definition = definition
+	assert_false(
+		column.is_value_valid(null),
+		"缺少数组元素类型时，null 也必须被拒绝。"
+	)
+	definition.element_type = definition
+	var cyclic_null_valid: bool = column.is_value_valid(null)
+	definition.element_type = null
+	assert_false(cyclic_null_valid, "循环类型不能通过空值策略绕过定义检查。")
+	definition.kind = GFConfigTypeDefinition.Kind.SCALAR
+	definition.scalar_type = GFConfigTableColumn.ValueType.INT
+	column.default_value = "invalid integer"
+	assert_false(
+		column.is_value_valid(null),
+		"非法默认值应使声明失效。"
+	)
+	column.default_value = 3
+	assert_true(
+		column.is_value_valid(null),
+		"有效声明仍应遵守允许空值策略。"
+	)
+	column.allow_null = false
+	assert_false(
+		column.is_value_valid(null),
+		"有效声明不应绕过禁止空值策略。"
+	)
+	column.type_definition = null
+	column.allow_null = true
+	assert_true(
+		column.is_value_valid(null),
+		"普通列保持既有空值策略。"
+	)
+
+
+## 结构列的规则定义由编译阶段检查一次，混合普通列仍各自报告真实缺陷。
+func test_structured_rule_definition_errors_are_reported_once() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	var column: GFConfigTableColumn = _make_column(&"payload", GFConfigTableColumn.ValueType.ANY)
+	column.type_definition = GFConfigTypeDefinition.new()
+	column.validation_rules = [null]
+	schema.columns = [column]
+	var report: Dictionary = schema.validate_definition()
+	assert_eq(
+		GFVariantData.get_option_int(report, "error_count"),
+		1
+	)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_eq(
+		issues.size(),
+		1
+	)
+	assert_true(_has_issue_kind(issues, "null_validation_rule"))
+	var legacy_column: GFConfigTableColumn = _make_column(&"name", GFConfigTableColumn.ValueType.STRING)
+	legacy_column.validation_rules = [null]
+	schema.columns.append(legacy_column)
+	var mixed_report: Dictionary = schema.validate_definition()
+	assert_eq(
+		GFVariantData.get_option_int(mixed_report, "error_count"),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_array(mixed_report, "issues").size(),
+		2
+	)
+
+
 func test_schema_validate_table_reports_missing_type_and_extra_fields() -> void:
 	var schema: GFConfigTableSchema = _make_item_schema()
 	schema.allow_extra_fields = false

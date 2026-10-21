@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "638416eaec91d8df63a05aa250b8c4f38039dc6a79199751e8a561aa403eedfe",
+  "source_digest": "da81a0fab3fe06428ae6de0f6ea10be054d9a61b8d47867afb2a371a626a7ebf",
   "class_count": 877,
   "autoload_count": 1,
   "package_count": 61,
@@ -19963,7 +19963,7 @@
           "kind": "func",
           "name": "duplicate_profile",
           "signature": "func duplicate_profile() -> GFConfigPipelineProfile",
-          "summary": "创建同内容拷贝。",
+          "summary": "创建同内容拷贝；逐来源确认显式 Schema 可复制后，才采用完整 Profile 副本。",
           "visibility": "public"
         },
         {
@@ -20288,7 +20288,7 @@
           "kind": "func",
           "name": "duplicate_source",
           "signature": "func duplicate_source() -> GFConfigPipelineTableSource",
-          "summary": "创建同内容拷贝。",
+          "summary": "创建同内容拷贝；显式 Schema 复制失败时拒绝整个来源，不转为自动推断。",
           "visibility": "public"
         },
         {
@@ -21075,7 +21075,7 @@
           "kind": "func",
           "name": "is_value_valid",
           "signature": "func is_value_valid(value: Variant) -> bool",
-          "summary": "检查输入值是否符合当前列声明。",
+          "summary": "检查输入值是否符合当前列声明；结构类型先验证声明及默认值，再应用空值策略。",
           "visibility": "public"
         },
         {

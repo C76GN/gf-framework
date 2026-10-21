@@ -82,6 +82,8 @@ effects.allow_null = false
 
 定义图允许共享子类型和有限层级嵌套，拒绝循环定义、循环数据、非法类型组合和超预算输入。所有遍历复用 `GFConfigWorkBudget`；同次表校验编译一次类型模型，再用于各行。错误同时保留逻辑 `field_path` 和 `field_segments`，布局提供物理来源时可定位到具体工作表与单元格。规范化失败不会返回部分成功值。
 
+共享子类型的深度按每条引用路径计算，缓存不会放宽较深位置的限制。允许空值只影响合法声明的值校验；声明缺少元素类型、存在循环或包含无效默认值时，输入 `null` 仍会失败。独立类型调用可传入 `field_segments` 作为完整逻辑前缀；只有 `field_path` 时保留其显示文字，不把显示字符串解析成字段片段。诊断上下文沿用报告的安全编码，不持有调用方的活对象或可变集合。
+
 `compile_definition()` 和 `describe()` 返回带 `definition` 的报告；必须检查 `ok`。描述用于检查和文档，不是可重新导入的已验证凭据。结构化访问器要求真实 Schema/Column/TypeDefinition 资源，详见[访问器生成](../access-editor-tools.md)。
 
 ## Schema 副本语义
@@ -89,3 +91,7 @@ effects.allow_null = false
 `register_schema()` 会保存 schema 副本。`get_schema()` 也返回副本，整值规则与 `element_validation_rules` 都随列复制；调用方修改返回值不会污染 Provider 内部校验规则。
 
 这能避免编辑器工具、CI 校验或项目调试代码在读取 schema 后意外改动运行时 Provider 的正式规则。
+
+`duplicate_schema()` 无法复制循环或超预算声明时返回 `null`，调用方必须检查失败。流水线来源与 Profile 的复制同样拒绝不完整的 Schema 副本，不会把显式声明丢失解释成允许自动推导。
+
+Profile 通过来源的 `duplicate_source()` 复制声明，来源再委托 Schema 的 `duplicate_schema()`。扩展 Schema 并增加自定义数据时，应覆盖 `duplicate_schema()` 保留这些数据，不能依赖 Profile 的原生 Resource 深复制绕过领域复制契约。

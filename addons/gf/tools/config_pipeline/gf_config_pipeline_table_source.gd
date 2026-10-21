@@ -167,32 +167,27 @@ func get_resolved_format() -> StringName:
 	return _format_from_path(source_path)
 
 
-## 创建同内容拷贝。
+## 创建同内容拷贝；显式 Schema 复制失败时拒绝整个来源，不转为自动推断。
+## Schema 委托 duplicate_schema()；扩展 Schema 应覆盖该方法以保留自定义声明。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: 新来源声明资源。
+## @return: 新来源声明资源；Schema 超出复制边界或资源实例创建失败时返回 null。
 func duplicate_source() -> GFConfigPipelineTableSource:
-	var script_value: Variant = get_script()
-	var created_source: Variant = null
-	if script_value is GDScript:
-		var gdscript: GDScript = script_value
-		created_source = gdscript.new()
+	var copied_schema: GFConfigTableSchema = null
+	if schema != null:
+		copied_schema = schema.duplicate_schema()
+		if copied_schema == null:
+			return null
+	# 仅在显式 Schema 准入后复制原生资源，保留子类导出字段及 Resource 元数据。
+	var created_source: Variant = duplicate(true)
 	if not (created_source is GFConfigPipelineTableSource):
-		return GFConfigPipelineTableSource.new()
+		return null
 
 	var source: GFConfigPipelineTableSource = created_source
-	source.table_name = table_name
-	source.source_path = source_path
-	source.source_format = source_format
-	source.schema = schema.duplicate_schema() if schema != null else null
-	source.infer_schema = infer_schema
-	source.coerce_records = coerce_records
-	source.parse_options = parse_options.duplicate(true)
-	source.schema_options = schema_options.duplicate(true)
-	source.metadata = metadata.duplicate(true)
+	source.schema = copied_schema
 	return source
 
 

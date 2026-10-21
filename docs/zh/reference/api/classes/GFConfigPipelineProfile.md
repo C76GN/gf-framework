@@ -406,9 +406,9 @@ func resolve_access_provider_accessor(overrides: Dictionary = {}) -> String:
 func duplicate_profile() -> GFConfigPipelineProfile:
 ```
 
-创建同内容拷贝。
+创建同内容拷贝；逐来源确认显式 Schema 可复制后，才采用完整 Profile 副本。 来源委托 duplicate_source()，嵌套声明遵循各自领域复制方法的扩展契约。
 
-返回：新 Profile 资源。
+返回：新 Profile 资源；任一非空来源或 Profile 无法复制时返回 null，不交付部分来源列表。
 
 <a id="member-gfconfigpipelineprofile-methods-describe"></a>
 

@@ -23,6 +23,16 @@ var _budget: GFConfigWorkBudget
 ## @api private
 var _copies: Dictionary = {}
 
+## 完成副本的子树跨度，供相同资源在另一条路径命中时检查总深度。
+## [br]
+## @api private
+var _depth_spans: Dictionary = {}
+
+## 当前复制栈每层观察到的最深绝对深度，包含缓存子树的后代。
+## [br]
+## @api private
+var _depth_stack: Array[int] = []
+
 ## 当前路径上的资源身份用于拒绝循环。
 ## [br]
 ## @api private
@@ -115,7 +125,7 @@ func copy_definition(definition: GFConfigTypeDefinition, depth: int = 0) -> GFCo
 		return null
 	var identity: int = definition.get_instance_id()
 	if _copies.has(identity):
-		var _cached_identity_erased: bool = _active.erase(identity)
+		_leave(identity, depth)
 		return _copies[identity]
 	var result: GFConfigTypeDefinition = GFConfigTypeDefinition.new()
 	result.kind = definition.kind
@@ -126,6 +136,7 @@ func copy_definition(definition: GFConfigTypeDefinition, depth: int = 0) -> GFCo
 	result.discriminator = definition.discriminator
 	if not _budget.admit_value(definition.symbols, "type symbols"):
 		_fail_budget()
+		_leave(identity, depth)
 		return null
 	result.symbols = definition.symbols.duplicate(true)
 	result.base_type = copy_definition(
@@ -174,7 +185,7 @@ func copy_definition(definition: GFConfigTypeDefinition, depth: int = 0) -> GFCo
 				depth + 1
 			)
 		)
-	var _erased: bool = _active.erase(identity)
+	_leave(identity, depth)
 	if not _issues.is_empty():
 		return null
 	_copies[identity] = result
@@ -197,10 +208,11 @@ func copy_column(column: GFConfigTableColumn, depth: int = 0) -> GFConfigTableCo
 		return null
 	var identity: int = column.get_instance_id()
 	if _copies.has(identity):
-		var _cached_identity_erased: bool = _active.erase(identity)
+		_leave(identity, depth)
 		return _copies[identity]
 	if not _budget.admit_value(column.default_value, "column default") or not _budget.admit_value(column.metadata, "column metadata"):
 		_fail_budget()
+		_leave(identity, depth)
 		return null
 	var result: GFConfigTableColumn = GFConfigTableColumn.new()
 	result.field_name = column.field_name
@@ -215,7 +227,7 @@ func copy_column(column: GFConfigTableColumn, depth: int = 0) -> GFConfigTableCo
 	)
 	result.validation_rules = _copy_rules(column.validation_rules)
 	result.element_validation_rules = _copy_rules(column.element_validation_rules)
-	var _erased: bool = _active.erase(identity)
+	_leave(identity, depth)
 	if not _issues.is_empty():
 		return null
 	_copies[identity] = result
@@ -261,8 +273,30 @@ func _enter(resource: Resource, depth: int) -> bool:
 			}
 		)
 		return false
+	var span: int = _depth_spans.get(identity, 0)
+	var deepest: int = depth + span
+	if not _budget.check_depth(deepest, "type copy"):
+		_fail_budget()
+		return false
 	_active[identity] = true
+	_depth_stack.append(deepest)
 	return true
+
+
+## 结束当前路径，成功副本的跨度随父路径传播；失败不缓存未完成的子树。
+## [br]
+## @api private
+func _leave(identity: int, depth: int) -> void:
+	var _erased: bool = _active.erase(identity)
+	var deepest: int = _depth_stack.pop_back()
+	if not _issues.is_empty():
+		return
+	_depth_spans[identity] = deepest - depth
+	if not _depth_stack.is_empty():
+		_depth_stack[-1] = maxi(
+			_depth_stack[-1],
+			deepest
+		)
 
 
 ## 沿用规则的复制契约；不调用任何 validate 方法，空规则保留给正式准入。
