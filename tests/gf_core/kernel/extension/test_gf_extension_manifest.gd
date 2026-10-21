@@ -4242,6 +4242,43 @@ func test_extension_export_plugin_reports_stable_name() -> void:
 	)
 
 
+func test_extension_export_usage_options_preserve_limits_and_isolate_selected_files() -> void:
+	var selected_files: Array[String] = ["res://levels/selected.tscn"]
+	var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files)
+	selected_files[0] = "res://levels/changed.tscn"
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(options, "max_references_per_extension"),
+		8,
+		"分步导出不得放宽原引用配额。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_bool(options, "respect_gdignore"),
+		"导出入口应显式遵守 .gdignore。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_array(options, "additional_ignored_roots"),
+		["res://ai_analysis"],
+		"保留既有项目分析目录排除。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_array(options, "additional_scan_files"),
+		["res://levels/selected.tscn"],
+		"已选文件必须按请求快照，不能借用调用者数组。"
+	)
+	assert_false(
+		options.has("max_scanned_files"),
+		"继续使用公共文件上限，不额外放宽。"
+	)
+	assert_false(
+		options.has("max_file_bytes"),
+		"继续使用公共单文件字节上限。"
+	)
+	assert_false(
+		options.has("max_total_bytes"),
+		"继续使用公共总读取字节上限。"
+	)
+
+
 func test_extension_export_plugin_matches_disabled_roots() -> void:
 	assert_true(
 		GF_EXTENSION_EXPORT_PLUGIN_BASE._should_skip_export_path(
@@ -4352,6 +4389,360 @@ func test_extension_export_plugin_blocks_invalid_manifest_graph() -> void:
 	assert_true(
 		formatted_report.contains("author.missing"),
 		"导出错误信息应包含缺失依赖 ID。"
+	)
+
+
+func test_extension_usage_session_starts_without_io_and_cancels_without_result() -> void:
+	var audit: RefCounted = GFExtensionUsageAudit.new()
+	assert_true(
+		audit.has_method("start"),
+		"扩展审计应提供无 I/O 的会话接纳入口。"
+	)
+	assert_true(
+		audit.has_method("step"),
+		"扩展审计应提供可分步推进的入口。"
+	)
+	assert_true(
+		audit.has_method("cancel"),
+		"class_name 预扫描也必须能够取消。"
+	)
+	assert_true(
+		audit.has_method("get_progress"),
+		"审计必须提供当前阶段与真实工作计数。"
+	)
+	assert_true(
+		audit.has_method("take_result"),
+		"完成报告应有单次领取入口。"
+	)
+	if not audit.has_method("start"):
+		return
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary(
+		{
+			"id": "author.session",
+			"display_name": "Session",
+			"version": "1.0.0",
+			"kind": "extension",
+		},
+		"res://addons/gf/extensions/save",
+		""
+	)
+	var manifests: Array[GFExtensionManifest] = [manifest]
+	var accepted: Variant = audit.call(
+		"start",
+		manifests,
+		{
+			"scan_roots": ["res://"],
+		}
+	)
+	var accepted_once: bool = accepted is bool and accepted == true
+	assert_true(accepted_once, "首个请求应接纳，但不枚举目录或读取文件。")
+	var progress: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("get_progress"))
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(progress, "entries"),
+		0
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(progress, "candidate_files"),
+		0
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(progress, "scanned_files"),
+		0
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(progress, "scanned_bytes"),
+		0
+	)
+	var early_result: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("take_result"))
+	assert_true(
+		early_result.is_empty(),
+		"未完成的请求不得发布部分审计报告。"
+	)
+	var _cancel_result: Variant = audit.call("cancel")
+	var cancelled_progress: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("get_progress"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(cancelled_progress, "finished"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(cancelled_progress, "cancelled"))
+	var cancelled_result: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("take_result"))
+	assert_true(
+		cancelled_result.is_empty(),
+		"取消不能交付可被误当完整扫描的报告。"
+	)
+
+
+func test_extension_usage_session_matches_static_report_and_snapshots_inputs() -> void:
+	var audit: RefCounted = GFExtensionUsageAudit.new()
+	assert_true(
+		audit.has_method("start"),
+		"增量与同步入口必须共享扫描实现。"
+	)
+	if not audit.has_method("start"):
+		return
+	var fixture_root: String = "user://gf_extension_usage_session_snapshot"
+	var extension_root: String = fixture_root.path_join("extension")
+	var nested_root: String = extension_root.path_join("nested")
+	var project_root: String = fixture_root.path_join("project")
+	var first_path: String = extension_root.path_join("first.gd")
+	var second_path: String = nested_root.path_join("second.gd")
+	var project_path: String = project_root.path_join("uses_types.gd")
+	var _make_nested: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(nested_root))
+	var _make_project: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(project_root))
+	_write_text_file(first_path, "class_name AuditSessionFirst\nextends RefCounted\n")
+	_write_text_file(second_path, "class_name AuditSessionSecond\nextends RefCounted\n")
+	_write_text_file(project_path, "var first: AuditSessionFirst\nvar second: AuditSessionSecond\n# AuditSessionFirst\n")
+	var first_manifest: GFExtensionManifest = _make_usage_session_manifest("author.session_first", extension_root)
+	var second_manifest: GFExtensionManifest = _make_usage_session_manifest("author.session_second", extension_root)
+	var manifests: Array[GFExtensionManifest] = [first_manifest, second_manifest]
+	var options: Dictionary = {
+		"scan_roots": [project_root],
+		"ignored_roots": [],
+		"include_weak_references": true,
+		"use_resource_dependencies": false,
+	}
+	var expected: Dictionary = GFExtensionUsageAudit.audit_disabled_extensions(manifests, options)
+	var accepted: Variant = audit.call(
+		"start",
+		manifests,
+		options
+	)
+	var accepted_once: bool = accepted is bool and accepted == true
+	assert_true(accepted_once)
+	var empty_manifests: Array[GFExtensionManifest] = []
+	var rejected: Variant = audit.call(
+		"start",
+		empty_manifests,
+		{}
+	)
+	var rejected_repeat: bool = rejected is bool and rejected == false
+	assert_true(rejected_repeat, "二次 start 必须拒绝且不能清除首个请求。")
+	first_manifest.id = &"author.changed"
+	first_manifest.display_name = "Changed after start"
+	first_manifest.root_path = "user://changed_after_start"
+	manifests.clear()
+	var scan_roots: Array = options["scan_roots"]
+	scan_roots.clear()
+	options["max_scanned_files"] = 1
+	var saw_class_phase: bool = false
+	var saw_reference_phase: bool = false
+	var previous_bytes: int = 0
+	var finished: bool = false
+	for _iteration: int in range(1000):
+		var step_result: Variant = audit.call(
+			"step",
+			1,
+			0
+		)
+		finished = step_result is bool and step_result == true
+		var progress: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("get_progress"))
+		saw_class_phase = saw_class_phase or GF_VARIANT_ACCESS.get_option_string(progress, "audit_phase") == "class_names"
+		saw_reference_phase = saw_reference_phase or GF_VARIANT_ACCESS.get_option_string(progress, "audit_phase") == "references"
+		var scanned_bytes: int = GF_VARIANT_ACCESS.get_option_int(progress, "scanned_bytes")
+		assert_gte(
+			scanned_bytes,
+			previous_bytes,
+			"阶段切换不能令累计读取字节倒退。"
+		)
+		previous_bytes = scanned_bytes
+		if finished:
+			break
+	var actual: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("take_result"))
+	var repeated: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("take_result"))
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(nested_root)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_root)
+	_remove_path_if_exists(fixture_root)
+	assert_true(finished, "单项步长必须有限完成。")
+	assert_true(saw_class_phase, "class_name 发现应有可观察的独立阶段。")
+	assert_true(saw_reference_phase, "项目扫描应暴露真实子阶段。")
+	assert_eq(
+		actual,
+		expected,
+		"步长和调用者后续修改不能改变完整报告或原诊断顺序。"
+	)
+	assert_true(
+		repeated.is_empty(),
+		"完成结果只能领取一次。"
+	)
+	var class_report: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(actual, "class_name_scan")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(class_report, "scanned_file_count"),
+		2,
+		"共享扩展根的 class_name 脚本只读取一次。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(actual, "scanned_file_count"),
+		3,
+		"项目文件只在共同项目扫描中读取一次。"
+	)
+
+
+func test_extension_usage_session_cancels_during_class_discovery_and_project_scan() -> void:
+	var contract: RefCounted = GFExtensionUsageAudit.new()
+	assert_true(
+		contract.has_method("start"),
+		"取消必须覆盖预扫描与项目扫描，而非仅等待同步调用返回。"
+	)
+	if not contract.has_method("start"):
+		return
+	var fixture_root: String = "user://gf_extension_usage_session_cancel"
+	var extension_root: String = fixture_root.path_join("extension")
+	var project_root: String = fixture_root.path_join("project")
+	var first_path: String = extension_root.path_join("first.gd")
+	var second_path: String = extension_root.path_join("second.gd")
+	var project_path: String = project_root.path_join("uses_type.gd")
+	var _make_extension: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(extension_root))
+	var _make_project: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(project_root))
+	_write_text_file(first_path, "class_name AuditCancelFirst\nextends RefCounted\n")
+	_write_text_file(second_path, "class_name AuditCancelSecond\nextends RefCounted\n")
+	_write_text_file(project_path, "var first: AuditCancelFirst\n")
+	var manifests: Array[GFExtensionManifest] = [_make_usage_session_manifest("author.session_cancel", extension_root)]
+	for stop_point: String in [
+		"enumeration",
+		"read",
+		"references",
+	]:
+		var audit: RefCounted = GFExtensionUsageAudit.new()
+		var _accepted: Variant = audit.call(
+			"start",
+			manifests,
+			{
+				"scan_roots": [project_root],
+				"ignored_roots": [],
+				"use_resource_dependencies": false,
+			}
+		)
+		var reached: bool = false
+		for _iteration: int in range(1000):
+			var step_result: Variant = audit.call(
+				"step",
+				1,
+				0
+			)
+			var step_progress: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("get_progress"))
+			var audit_phase: String = GF_VARIANT_ACCESS.get_option_string(step_progress, "audit_phase")
+			if stop_point == "enumeration":
+				reached = (
+					audit_phase == "class_names"
+					and GF_VARIANT_ACCESS.get_option_int(step_progress, "entries") > 0
+					and GF_VARIANT_ACCESS.get_option_int(step_progress, "scanned_files") == 0
+				)
+			elif stop_point == "read":
+				reached = audit_phase == "class_names" and GF_VARIANT_ACCESS.get_option_int(step_progress, "scanned_files") == 1
+			else:
+				reached = audit_phase == "references"
+			if (
+				reached
+				or (
+					step_result is bool
+					and step_result == true
+				)
+			):
+				break
+		assert_true(
+			reached,
+			"指定取消边界必须真实可达：%s。" % stop_point
+		)
+		var _cancelled: Variant = audit.call("cancel")
+		var result: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("take_result"))
+		var progress: Dictionary = GF_VARIANT_ACCESS.as_dictionary(audit.call("get_progress"))
+		var terminal: Variant = audit.call(
+			"step",
+			1,
+			0
+		)
+		var stays_terminal: bool = terminal is bool and terminal == true
+		assert_true(
+			result.is_empty(),
+			"任何取消阶段都不能泄漏部分报告。"
+		)
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(progress, "cancelled"))
+		assert_true(stays_terminal, "取消之后 step 不得重启 I/O。")
+	_remove_path_if_exists(first_path)
+	_remove_path_if_exists(second_path)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_root)
+	_remove_path_if_exists(fixture_root)
+
+
+## 显式导出文件仍遵守禁用扩展自身排除；类名预扫描只计费一次，合法项目引用保持可见。
+func test_extension_usage_audit_explicit_disabled_script_keeps_self_exclusion() -> void:
+	var fixture_root: String = "user://gf_extension_usage_explicit_disabled"
+	var extension_root: String = fixture_root.path_join("extension")
+	var extension_path: String = extension_root.path_join("feature.gd")
+	var project_path: String = fixture_root.path_join("consumer.gd")
+	var extension_source: String = "class_name AuditExplicitDisabled\nextends RefCounted\n"
+	var project_source: String = "var feature: AuditExplicitDisabled\n"
+	var _make_extension: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(extension_root))
+	_write_text_file(extension_path, extension_source)
+	_write_text_file(project_path, project_source)
+	var manifests: Array[GFExtensionManifest] = [_make_usage_session_manifest("author.explicit_disabled", extension_root)]
+	var selected_files: Array[String] = [extension_path]
+	var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files)
+	options["scan_roots"] = [fixture_root]
+	options["ignored_roots"] = []
+	options["use_resource_dependencies"] = false
+	var report: Dictionary = GFExtensionUsageAudit.audit_disabled_extensions(manifests, options)
+	_remove_path_if_exists(extension_path)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(fixture_root)
+	var class_report: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "class_name_scan")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(class_report, "scanned_file_count"),
+		1,
+		"禁用扩展仍需读取自己的脚本以发现类名。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(class_report, "scanned_bytes"),
+		extension_source.to_utf8_buffer().size(),
+		"类名预扫描保持原字节计费。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "candidate_file_count"),
+		2,
+		"显式选择不能让禁用扩展自身重新成为项目扫描候选。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "scanned_file_count"),
+		2,
+		"总读取只能包含一次类名预扫描和一次项目消费方。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "scanned_bytes"),
+		extension_source.to_utf8_buffer().size() + project_source.to_utf8_buffer().size(),
+		"显式选择的禁用脚本不能在项目阶段重复消耗字节预算。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "reference_count"),
+		1,
+		"只保留合法项目消费方，不能把扩展自己的类声明报为项目引用。"
+	)
+	var references: Array = GF_VARIANT_ACCESS.get_option_array(report, "references")
+	assert_eq(
+		references.size(),
+		1
+	)
+	if references.size() == 1:
+		var reference: Dictionary = GF_VARIANT_ACCESS.as_dictionary(references[0])
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string(reference, "path"),
+			project_path,
+			"合法项目引用的真实来源必须保留。"
+		)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+		"项目消费方的强引用仍阻断排除安全结论。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"),
+		"有意排除禁用扩展自身不是覆盖缺失。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"),
+		"显式禁用脚本不能额外占用扫描预算。"
 	)
 
 
@@ -5319,6 +5710,14 @@ func _preset_issue_contains(
 			if error.contains(needle):
 				return true
 	return false
+
+
+func _make_usage_session_manifest(extension_id: String, root_path: String) -> GFExtensionManifest:
+	var manifest: GFExtensionManifest = GFExtensionManifest.new()
+	manifest.id = StringName(extension_id)
+	manifest.display_name = extension_id
+	manifest.root_path = root_path
+	return manifest
 
 
 func _write_text_file(path: String, text: String) -> void:

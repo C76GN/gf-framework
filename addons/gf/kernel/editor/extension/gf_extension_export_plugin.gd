@@ -226,13 +226,24 @@ func _warn_disabled_extension_references() -> void:
 	if _disabled_manifests.is_empty():
 		return
 
-	var report: Dictionary = GFExtensionUsageAuditBase.audit_disabled_extensions(
+	var selected_files: Array[String] = []
+	var preset: EditorExportPreset = get_export_preset()
+	if preset != null:
+		selected_files.assign(preset.get_files_to_export())
+	var audit: GFExtensionUsageAudit = GFExtensionUsageAuditBase.new()
+	var _started: bool = audit.start(
 		_disabled_manifests,
-		{
-			"additional_ignored_roots": ["res://ai_analysis"],
-			"max_references_per_extension": 8,
-		}
+		_make_usage_audit_options(selected_files)
 	)
+	print(_format_scan_progress(audit.get_progress()))
+	var last_progress_usec: int = Time.get_ticks_usec()
+	while not audit.step():
+		var now_usec: int = Time.get_ticks_usec()
+		if now_usec - last_progress_usec >= 1000000:
+			print(_format_scan_progress(audit.get_progress()))
+			last_progress_usec = now_usec
+	print(_format_scan_progress(audit.get_progress()))
+	var report: Dictionary = audit.take_result()
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		report,
 		"ok",
@@ -241,11 +252,52 @@ func _warn_disabled_extension_references() -> void:
 		return
 
 	var formatted_report: String = _format_reference_report(report)
+	var reference_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "reference_count")
+	var reason: String = "Project files still reference disabled extensions." if reference_count > 0 else "Disabled extension reference coverage is incomplete; exclusion safety is unknown."
 	if GFExtensionSettingsBase.should_fail_export_on_disabled_extension_references():
-		push_error("[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_error] Project files still reference disabled extensions; the export policy requires an error.\n%s" % formatted_report)
+		push_error(
+			"[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_error] %s The export policy requires an error.\n%s"
+			% [reason, formatted_report]
+		)
 		return
 
-	push_warning("[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_warning] Project files still reference disabled extensions; export exclusion may leave missing files.\n%s" % formatted_report)
+	push_warning(
+		"[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_warning] %s Export exclusion may leave missing files.\n%s"
+		% [reason, formatted_report]
+	)
+
+
+## 按项目忽略标记扫描，并保留预设显式选择的文件；文件、深度和字节预算沿用审计默认值。
+## [br]
+## @api private
+static func _make_usage_audit_options(additional_scan_files: Array[String] = []) -> Dictionary:
+	return {
+		"additional_ignored_roots": ["res://ai_analysis"],
+		"max_references_per_extension": 8,
+		"respect_gdignore": true,
+		"additional_scan_files": additional_scan_files.duplicate(),
+	}
+
+
+## 格式化已经完成的扫描工作量；枚举阶段不把候选文件数当作已知总量。
+## [br]
+## @api private
+static func _format_scan_progress(progress: Dictionary) -> String:
+	return (
+		"[GFExtensionExportPlugin][extension_export_plugin.reference_audit_progress] Reference audit: %s; entries=%d candidates=%d scanned=%d bytes=%d path=%s."
+		% [
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				progress,
+				"phase",
+				"pending"
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "entries"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "candidate_files"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "scanned_files"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "scanned_bytes"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(progress, "current_path"),
+		]
+	)
 
 
 ## 将引用审计报告按扩展列出，并格式化每条引用的路径和行号。
@@ -253,6 +305,18 @@ func _warn_disabled_extension_references() -> void:
 ## @api private
 func _format_reference_report(report: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "partial_scan"):
+		var _append_coverage_result: Variant = lines.append(
+			"- incomplete coverage: scanned=%d candidates=%d bytes=%d issues=%d"
+			% [
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "scanned_file_count"),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "candidate_file_count"),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "scanned_bytes"),
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "issue_count"),
+			]
+		)
+		for scan_warning: String in _GF_VARIANT_ACCESS_SCRIPT.to_string_array(_GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "scan_warnings")):
+			var _append_warning_result: Variant = lines.append("  " + scan_warning)
 	var extensions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
 			report,

@@ -268,7 +268,20 @@ func test_cancel_discards_candidate_data_before_and_after_inbound_scan() -> void
 			)
 		)
 		if after_scan:
-			assert_false(task.step())
+			for index: int in range(4096):
+				assert_false(task.step(1, 4000))
+				if GFVariantData.get_option_string(
+					task.get_progress(),
+					"phase"
+				) == "selected_dependencies":
+					break
+			assert_eq(
+				GFVariantData.get_option_string(
+					task.get_progress(),
+					"phase"
+				),
+				"selected_dependencies"
+			)
 		task.cancel()
 		assert_true(task.step())
 		assert_true(task.take_result().is_empty())
@@ -315,6 +328,39 @@ func test_rejects_excess_raw_candidates_and_invalid_scope_without_scanning() -> 
 	)
 
 
+func test_gdignore_scope_is_preserved_without_promoting_selected_files_to_inbound_sources() -> void:
+	var path: String = _resource("root.tres")
+	var _marker: String = _write(".gdignore", "")
+	var _source: String = _write(
+		"consumer.gd",
+		"extends RefCounted\nvar asset = load(\"%s\")\n" % path
+	)
+	var report: Dictionary = _run(PackedStringArray([path]))
+	var coverage: Dictionary = GFVariantData.get_option_dictionary(report, "coverage")
+	var scope: Dictionary = GFVariantData.get_option_dictionary(coverage, "scope")
+	assert_true(GFVariantData.get_option_bool(scope, "respect_gdignore"))
+	assert_eq(
+		GFVariantData.get_option_string_array(scope, "ignored_directories"),
+		[_directory]
+	)
+	assert_true(GFVariantData.get_option_array(scope, "additional_scan_files").is_empty())
+	var rows: Array = GFVariantData.get_option_array(report, "rows")
+	assert_eq(
+		rows.size(),
+		1
+	)
+	if rows.size() == 1:
+		var row: Dictionary = GFVariantData.as_dictionary(rows[0])
+		assert_eq(
+			GFVariantData.get_option_string(row, "inbound_status"),
+			"not_observed"
+		)
+		assert_eq(
+			GFVariantData.get_option_string(row, "dependency_issue"),
+			""
+		)
+
+
 func test_completed_report_is_transferred_once() -> void:
 	var task: REPORT_SCRIPT = REPORT_SCRIPT.new()
 	assert_true(
@@ -323,8 +369,7 @@ func test_completed_report_is_transferred_once() -> void:
 			{ "scope": _directory }
 		)
 	)
-	assert_false(task.step())
-	assert_true(task.step())
+	assert_true(_finish(task))
 	assert_false(task.take_result().is_empty())
 	assert_true(task.take_result().is_empty())
 	assert_false(task.start(PackedStringArray(["res://new.tres"])))
@@ -335,11 +380,63 @@ func _run(paths: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 		options["scope"] = _directory
 	var task: REPORT_SCRIPT = REPORT_SCRIPT.new()
 	assert_true(task.start(paths, options))
-	for index: int in range(102):
+	assert_true(
+		_finish(task),
+		"小夹具应在有限分步调用内完成。"
+	)
+	return task.take_result()
+
+
+func test_inbound_progress_is_incremental_and_cancel_does_not_publish() -> void:
+	var path: String = _resource("root.tres")
+	var _source: String = _write(
+		"many_lines.cfg",
+		"unused=1\n".repeat(320) + "asset=\"%s\"\n" % path
+	)
+	var task: REPORT_SCRIPT = REPORT_SCRIPT.new()
+	assert_true(
+		task.start(
+			PackedStringArray([path]),
+			{ "scope": _directory }
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			task.get_progress(),
+			"scanned_bytes"
+		),
+		0
+	)
+	var observed_work: bool = false
+	for index: int in range(4096):
+		assert_false(task.step(1, 4000))
+		var progress: Dictionary = task.get_progress()
+		if GFVariantData.get_option_int(progress, "line_offset") > 0:
+			observed_work = true
+			assert_eq(
+				GFVariantData.get_option_int(progress, "completed"),
+				0
+			)
+			assert_true(task.take_result().is_empty())
+			break
+	assert_true(observed_work, "入站读取/匹配必须能跨步观察真实工作量。")
+	task.cancel()
+	assert_true(task.step())
+	assert_true(task.take_result().is_empty())
+	assert_eq(
+		GFVariantData.get_option_string(
+			task.get_progress(),
+			"phase"
+		),
+		"cancelled"
+	)
+
+
+func _finish(task: REPORT_SCRIPT) -> bool:
+	for index: int in range(4096):
 		if task.step():
-			return task.take_result()
-	fail_test("A bounded batch must finish within one scan and 100 resource steps.")
-	return {}
+			return true
+	return false
 
 
 func _resource(file_name: String) -> String:

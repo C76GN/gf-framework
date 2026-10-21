@@ -158,6 +158,7 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 				"workspace_tween_task_dialog",
 				"workspace_onboarding_tasks",
 				"workspace_context_and_window_lifecycle",
+				"workspace_extension_reference_session",
 				"native_undo_redo_anchor_parent_transform_save_reload",
 				"native_gui_forwarded",
 				"native_pointer_plane_cancel_and_confirm",
@@ -221,6 +222,12 @@ def main() -> int:
 			(project / "asset_browser_material_smoke.tres").write_bytes(path_security.read_pinned_regular_file(
 				project / FIXTURES, "asset_browser_material.tres", max_bytes=MAX_FILE_BYTES,
 			))
+			reference_fixture = (
+				"unused=1\n" * 1600
+				+ 'extension="res://addons/gf/extensions/action_queue/gf_extension.json"\n'
+			).encode("utf-8")
+			(project / "reference_session_smoke.cfg").write_bytes(reference_fixture)
+			report["reference_session_fixture_sha256"] = hashlib.sha256(reference_fixture).hexdigest()
 			plugin_root = project / "addons/scene_placement_smoke"
 			plugin_root.mkdir(parents=True)
 			(plugin_root / "gf_scene_placement_editor_smoke.gd").write_bytes(path_security.read_pinned_regular_file(

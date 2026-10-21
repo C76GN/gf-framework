@@ -203,6 +203,31 @@ var _usage_report_stale: bool = false
 ## @api private
 var _usage_input_generation: int = 0
 
+## 当前分步审计会话；完成前不向详情发布候选证据。
+## [br]
+## @api private
+var _usage_task: GFExtensionUsageAuditBase = null
+
+## 创建当前会话时的输入代次，防止旧结果覆盖新选择。
+## [br]
+## @api private
+var _usage_task_generation: int = 0
+
+## 用户取消或页面隐藏后明确显示未发布结果，与从未扫描区分。
+## [br]
+## @api private
+var _usage_cancelled: bool = false
+
+## 正在执行审计时禁用重复启动，完成或取消后允许重扫。
+## [br]
+## @api private
+var _usage_scan_button: Button = null
+
+## 当前会话存在时可取消；不参与原生导出钩子的同步审计。
+## [br]
+## @api private
+var _usage_cancel_button: Button = null
+
 ## 在编辑器环境中连接文件变更信号的文件系统对象。
 ## [br]
 ## @api private
@@ -253,6 +278,7 @@ func _init() -> void:
 	name = "GF Extensions"
 	GFEditorWorkspaceUI.apply_page_root(self)
 	_build_ui()
+	_connect_signal_checked(visibility_changed, _on_usage_visibility_changed)
 	call_deferred("_refresh_extensions")
 
 
@@ -290,6 +316,11 @@ func _exit_tree() -> void:
 ## [br]
 ## @api private
 func _process(delta: float) -> void:
+	if _usage_task != null:
+		if not _usage_view_visible():
+			_cancel_usage_scan()
+		else:
+			_step_usage_scan()
 	_apply_poll_elapsed += delta
 	if _apply_poll_elapsed < 0.25 or not is_visible_in_tree():
 		return
@@ -307,12 +338,14 @@ func _process(delta: float) -> void:
 ## [br]
 ## @param context: 当前工作区上下文；null 撤销保存和应用权限。
 func set_editor_context(context: GFEditorToolContext) -> void:
+	_invalidate_usage_report()
 	_editor_context = context
 	_context_was_bound = true
 	_save_button.disabled = context == null
 	_save_apply_button.disabled = context == null
 	if context == null and is_instance_valid(_preset_file_dialog):
 		_preset_file_dialog.hide()
+	_update_usage_buttons()
 	_update_apply_status()
 
 
@@ -391,13 +424,19 @@ func _build_ui() -> void:
 			_reload_extensions
 		)
 	)
-	toolbar.add_child(
-		GFEditorWorkspaceUI.make_button(
-			"扫描引用",
-			"检查当前禁用扩展是否仍被项目文件直接引用。",
-			_scan_disabled_extension_references
-		)
+	_usage_scan_button = GFEditorWorkspaceUI.make_button(
+		"扫描引用",
+		"分步检查当前禁用扩展是否仍被项目文件直接引用。",
+		_scan_disabled_extension_references
 	)
+	toolbar.add_child(_usage_scan_button)
+	_usage_cancel_button = GFEditorWorkspaceUI.make_button(
+		"取消扫描",
+		"撤销当前引用审计，不发布未完成证据。",
+		_cancel_usage_scan
+	)
+	_usage_cancel_button.disabled = true
+	toolbar.add_child(_usage_cancel_button)
 	toolbar.add_child(
 		GFEditorWorkspaceUI.make_button(
 			"恢复默认",
@@ -1187,14 +1226,19 @@ func _get_disabled_manifests_from_selection() -> Array[GFExtensionManifest]:
 ## [br]
 ## @api private
 func _make_usage_audit_options() -> Dictionary:
-	return { "ignored_roots": USAGE_AUDIT_IGNORED_ROOTS, "max_references_per_extension": 20, }
+	return {
+		"ignored_roots": USAGE_AUDIT_IGNORED_ROOTS,
+		"max_references_per_extension": 20,
+		"respect_gdignore": true,
+	}
 
 
-## 使用当前禁用清单和审计选项重新计算引用报告。
+## 捕获当前禁用清单与审计选项，创建不执行文件 I/O 的单次会话。
 ## [br]
 ## @api private
 func _refresh_usage_report() -> void:
-	_usage_report = GFExtensionUsageAuditBase.audit_disabled_extensions(
+	_usage_task = GFExtensionUsageAuditBase.new()
+	var _accepted: bool = _usage_task.start(
 		_get_disabled_manifests_from_selection(),
 		_make_usage_audit_options()
 	)
@@ -1205,6 +1249,16 @@ func _refresh_usage_report() -> void:
 ## @api private
 func _invalidate_usage_report() -> void:
 	_usage_input_generation += 1
+	var had_task: bool = _usage_task != null
+	_discard_usage_task()
+	if _usage_task != null:
+		return
+	if had_task:
+		_usage_report_stale = true
+		_usage_cancelled = false
+		_refresh_selected_manifest_details()
+		_set_selection_status()
+		return
 	if _usage_report.is_empty() or _usage_report_stale:
 		return
 	_usage_report_stale = true
@@ -1216,10 +1270,14 @@ func _invalidate_usage_report() -> void:
 ## [br]
 ## @api private
 func _format_usage_status() -> String:
-	if _usage_report.is_empty():
-		return "引用审计未扫描；点击“扫描引用”检查当前选择。"
+	if _usage_task != null:
+		return _format_usage_progress(_usage_task.get_progress())
 	if _usage_report_stale:
 		return "引用审计已失效；选择、设置或项目文件已变化，请重新扫描。"
+	if _usage_cancelled:
+		return "引用审计已取消；本次没有发布结果，可重新扫描。"
+	if _usage_report.is_empty():
+		return "引用审计未扫描；点击“扫描引用”检查当前选择。"
 	var reference_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
 		_usage_report,
 		"reference_count",
@@ -1258,6 +1316,7 @@ func _append_usage_warning_lines(lines: PackedStringArray, manifest: GFExtension
 	if _usage_report.is_empty() or _usage_report_stale:
 		return
 
+	_append_usage_scope_lines(lines)
 	var extensions: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.as_dictionary(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_value(
 			_usage_report,
@@ -1318,6 +1377,46 @@ func _append_usage_warning_lines(lines: PackedStringArray, manifest: GFExtension
 			lines,
 			"- 还有 %d 处未显示。" % (references.size() - 8)
 		)
+
+
+## 显示审计实际覆盖声明；各组只展示前八条路径并明确截断，不把排除目录当作已扫描。
+## [br]
+## @api private
+func _append_usage_scope_lines(lines: PackedStringArray) -> void:
+	var scope: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(_usage_report, "scope")
+	if scope.is_empty():
+		return
+	_append_packed_string(
+		lines,
+		"扫描范围：%s目录 .gdignore；显式排除根目录仍生效。" % ("遵循" if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scope, "respect_gdignore") else "不按")
+	)
+	var labels: Dictionary = {
+		"ignored_directories": "实际跳过目录",
+		"additional_scan_files": "显式补充文件",
+		"dependency_files": "范围内补充依赖",
+	}
+	for key: String in labels:
+		var paths: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(scope, key)
+		_append_packed_string(
+			lines,
+			"%s：%d"
+			% [labels[key], paths.size()]
+		)
+		for index: int in range(
+			mini(
+				paths.size(),
+				8
+			)
+		):
+			_append_packed_string(
+				lines,
+				"- " + paths[index]
+			)
+		if paths.size() > 8:
+			_append_packed_string(
+				lines,
+				"- 还有 %d 项未显示。" % (paths.size() - 8)
+			)
 
 
 ## 将 GF 标准类型和扩展类型映射为界面中文标签。
@@ -1398,15 +1497,135 @@ func _set_status(message: String) -> void:
 	)
 
 
-## 记录扫描前的输入代次并刷新禁用扩展引用报告；扫描期间输入改变时将报告标为过期，随后刷新详情与状态。
+## 显式启动一次分步审计；撤销旧任务后捕获输入代次，输入变化时不发布任何候选结果。
 ## [br]
 ## @api private
 func _scan_disabled_extension_references() -> void:
-	var input_generation: int = _usage_input_generation
+	if _context_was_bound and _editor_context == null:
+		return
+	_discard_usage_task()
+	if _usage_task != null:
+		return
+	_usage_report = {}
+	_usage_report_stale = false
+	_usage_cancelled = false
+	_usage_task_generation = _usage_input_generation
 	_refresh_usage_report()
-	_usage_report_stale = input_generation != _usage_input_generation
+	if _usage_task_generation != _usage_input_generation:
+		_discard_usage_task()
+		_usage_report_stale = true
+	_update_usage_buttons()
 	_refresh_selected_manifest_details()
 	_set_selection_status()
+
+
+## 每帧推进真实会话，调用返回后再次核对任务身份和输入代次，防止同步重入发布旧结果。
+## [br]
+## @api private
+func _step_usage_scan() -> void:
+	var task: GFExtensionUsageAuditBase = _usage_task
+	if task == null:
+		return
+	if _usage_task_generation != _usage_input_generation:
+		_invalidate_usage_report()
+		return
+	var finished: bool = task.step()
+	if task != _usage_task:
+		return
+	if _usage_task_generation != _usage_input_generation:
+		_invalidate_usage_report()
+		return
+	if finished:
+		_usage_report = task.take_result()
+		_usage_task = null
+		_update_usage_buttons()
+		_refresh_selected_manifest_details()
+	_set_selection_status()
+
+
+## 先解除当前任务所有权再取消旧实例，避免取消过程中的重入误清新会话。
+## [br]
+## @api private
+func _discard_usage_task() -> void:
+	var task: GFExtensionUsageAuditBase = _usage_task
+	_usage_task = null
+	_update_usage_buttons()
+	if task != null:
+		task.cancel()
+
+
+## 用户取消或隐藏页面时清除候选证据并允许重新扫描。
+## [br]
+## @api private
+func _cancel_usage_scan() -> void:
+	if _usage_task == null:
+		return
+	_discard_usage_task()
+	if _usage_task != null:
+		return
+	_usage_report = {}
+	_usage_report_stale = false
+	_usage_cancelled = true
+	_refresh_selected_manifest_details()
+	_set_selection_status()
+
+
+## 按实际会话与页面权限更新按钮，取消不改变扩展选择或保存状态。
+## [br]
+## @api private
+func _update_usage_buttons() -> void:
+	_usage_scan_button.disabled = (
+		_usage_task != null
+		or (
+			_context_was_bound
+			and _editor_context == null
+		)
+	)
+	_usage_cancel_button.disabled = _usage_task == null
+
+
+## 隐藏独立工作区 Window 也属于不可见，不能只检查 CanvasItem 祖先。
+## [br]
+## @api private
+func _usage_view_visible() -> bool:
+	if not is_inside_tree() or not is_visible_in_tree():
+		return false
+	var window: Window = get_window()
+	return window == null or window.visible
+
+
+## 阶段文本由页面拥有；展示真实枚举、读取和行计数，不为未知总量推算百分比。
+## [br]
+## @api private
+func _format_usage_progress(progress: Dictionary) -> String:
+	var labels: Dictionary = {
+		"idle": "准备",
+		"class_names": "预检扩展类名",
+		"enumerate": "枚举项目文件",
+		"read": "读取文件",
+		"dependencies": "读取依赖",
+		"preprocess": "准备文本",
+		"match": "匹配引用",
+		"finalize": "整理证据",
+		"finished": "整理证据",
+	}
+	var phase: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(progress, "phase")
+	return (
+		"引用审计进行中：%s；枚举 %d 项，候选 %d，已读 %d 文件 / %d 字节；当前行 %d / %d"
+		% [
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				labels,
+				phase,
+				"扫描"
+			),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "entries"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "candidate_files"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "scanned_files"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "scanned_bytes"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "line_offset"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(progress, "line_count"),
+		]
+	)
 
 
 ## 当前所选 ID 非空且仍在清单中时刷新对应详情文本。
@@ -1423,6 +1642,14 @@ func _refresh_selected_manifest_details() -> void:
 
 
 # --- 信号处理函数 ---
+
+## 页面隐藏即撤销未完成审计，避免隐藏页面持续占用编辑器主线程。
+## [br]
+## @api private
+func _on_usage_visibility_changed() -> void:
+	if not _usage_view_visible():
+		_cancel_usage_scan()
+
 
 ## 将选择的文件路径登记为扩展预设路径。
 ## [br]
