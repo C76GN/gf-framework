@@ -40,7 +40,11 @@ GF 自带的扩展相关编辑器增强会读取同一套启用状态。扩展�
 
 面板提供“扫描引用”，底层由 `GFExtensionUsageAudit` 检查当前禁用扩展是否仍被项目文件直接引用，通用项目文本资源扫描由 `GFProjectReferenceScanner` 承担。打开、保存或应用设置不会自动执行该扫描；导出开始时独立审计。GDScript 加载调用、类型标注、场景/资源依赖字段和 Godot 依赖图确认的引用会作为 strong / verified 引用输出警告并列出文件位置。普通字符串中的路径或类名只会作为 weak 引用进入报告，不会阻止导出。报告条目会保留匹配到的扩展路径或类名 `match`，`preview` 只用于安全展示，不应被项目工具当作源文件原文切片解析。
 
-引用审计默认只跳过 Godot / VCS 隐藏缓存目录和被检查扩展自身，不会默认排除 `docs`、`tests`、`tools` 或其他项目目录；项目自定义入口如果确实要跳过某些目录，应显式传入 `ignored_roots`。引用审计默认限制目录深度、扫描文件数量、单文件字节数和单次扫描总字节数，项目自定义入口可通过 `max_scan_depth`、`max_scanned_files`、`max_file_bytes` 和 `max_total_bytes` 调整。Godot 资源依赖只通过 `ResourceLoader.get_dependencies()` 等无实例化元数据读取和受限头部/文本结构检查确认，不会调用 `ResourceLoader.load()`，因此扫描自定义 `Resource` 不会执行其 `_init()` 或其他加载副作用。任何目录、文件、Godot 文本/二进制资源依赖解析或预算导致的未完成读取都会返回顶层 `ok=false`、`partial=true`，并在顶层及目标结果记录 `truncated` / `truncation_reason` 与稳定 issue；即使资源文件本身可读，元数据 API 无法确认其依赖也不能按“无依赖”成功。导出侧必须按未知结果阻断，不能把未扫描内容降级成 weak 引用。目标 ID 必须唯一，重叠扫描 root 会规范化、去重并稳定排序。
+引用审计的常规枚举跳过隐藏目录，默认排除根包括 `addons/gf`、`build`、`packages` 及被检查扩展自身；不会仅凭名称排除 `docs`、`tests`、`tools` 等项目目录。自定义入口可用 `ignored_roots` 替换默认排除根，或用 `additional_ignored_roots` 追加。同步 API 的 `respect_gdignore` 默认关闭；扩展页面、资源引用检查和导出审计会显式开启，跳过有 `.gdignore` 的目录枚举。范围内资源仍依赖的被忽略文件会按具体路径补查。显式 `additional_scan_files` 可越过目录枚举范围、隐藏目录和 `.gdignore`，但仍遵守明确排除根、支持格式及同一候选和读取预算；两种补查都不扩大成整个目录扫描。例如 PNG 不会因为被导出预设选中而变成文本扫描对象，禁用扩展自身也不会因被预设列出而重新成为项目引用。启用新范围选项时，`scope` 记录规范化请求文件列表、实际跳过的目录及实际追加的必要依赖。
+
+引用审计限制目录深度、候选文件数量、单文件字节数和单次总读取字节数；扩展类名预扫描与项目扫描共享同一预算。开启 `respect_gdignore` 时，类名预扫描同样检查扩展根、祖先与子目录中的标记，不收集被忽略脚本的类名；`scope.ignored_directories` 合并两个阶段实际跳过的目录。Godot 资源依赖只通过 `ResourceLoader.get_dependencies()` 等无实例化元数据读取和受限头部/文本结构检查确认，不会调用 `ResourceLoader.load()`，因此扫描自定义 `Resource` 不会执行其 `_init()` 或其他加载副作用。目录、文件、资源依赖解析或预算导致的未完成读取返回 `ok=false`、`partial_scan=true`，并保留截断原因和稳定 issue；不能把未扫描内容降级成 weak 引用，也不能把不完整的零引用结果当作排除安全。目标 ID 必须唯一，重叠扫描 root 会规范化、去重并稳定排序。
+
+面板分步显示真实阶段与工作量，支持取消；导出仍独立执行同步审计并定期输出阶段与计数。单次原生读取、依赖查询或排序不可中断，导出前置钩子也不能等待界面取消事件。交互状态和取消边界见 [Extensions 页面](../editor/workspace.md#extensions-页面)。
 
 `gf/extensions/export_fail_on_disabled_references` 控制引用禁用扩展时是否阻止导出。保持开启可以避免导出产物缺少被项目脚本或资源仍在引用的扩展文件；只有在排查引用清理流程时才需要临时关闭。
 

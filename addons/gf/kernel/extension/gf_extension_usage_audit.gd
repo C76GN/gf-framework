@@ -1,3 +1,5 @@
+@tool
+
 ## GFExtensionUsageAudit: 检查禁用扩展是否仍被项目文件直接引用。
 ## [br]
 ## @api public
@@ -152,6 +154,161 @@ const TEXT_FILE_EXTENSIONS: Array[String] = [
 ]
 
 
+# --- 私有变量 ---
+
+## 一个实例只接纳一个请求，取消和领取结果都不重置接纳身份。
+## [br]
+## @api private
+var _started: bool = false
+
+## 完成或取消后不再推进文件系统工作。
+## [br]
+## @api private
+var _finished: bool = false
+
+## 取消只交付进度终态，永远不交付部分报告。
+## [br]
+## @api private
+var _cancelled: bool = false
+
+## 已完成且尚未领取的报告；领取时转移给调用者。
+## [br]
+## @api private
+var _result: Dictionary = {}
+
+## 最近一次推进后的独立小型进度快照，结束后保留计数。
+## [br]
+## @api private
+var _progress: Dictionary = {
+	"phase": "idle",
+	"audit_phase": "idle",
+	"finished": false,
+	"cancelled": false,
+	"entries": 0,
+	"candidate_files": 0,
+	"scanned_files": 0,
+	"scanned_bytes": 0,
+	"current_path": "",
+	"line_offset": 0,
+	"line_count": 0,
+}
+
+## 请求期选项副本，不向调用者暴露或保留可变 manifest。
+## [br]
+## @api private
+var _options: Dictionary = {}
+
+## 只保留用于报告的扩展身份标量，保留输入次序。
+## [br]
+## @api private
+var _manifest_records: Array[Dictionary] = []
+
+## class_name 发现完成后交给项目扫描器的目标副本。
+## [br]
+## @api private
+var _targets: Array[Dictionary] = []
+
+## 项目扫描不得反扫本次禁用扩展本身。
+## [br]
+## @api private
+var _additional_ignored_roots: PackedStringArray = PackedStringArray()
+
+## 根目录辅助入口返回 scanner 报告，manifest 入口返回扩展投影。
+## [br]
+## @api private
+var _audit_report: bool = true
+
+## 两阶段合并前保留预扫描计数、问题和原有诊断顺序。
+## [br]
+## @api private
+var _class_state: Dictionary = {}
+
+## 缓存仅属于本次请求，同根目标复用已完成的 class_name 发现。
+## [br]
+## @api private
+var _class_names_by_root: Dictionary = {}
+
+## 目标身份到已排序类名列表的投影。
+## [br]
+## @api private
+var _class_names_by_target: Dictionary = {}
+
+## 本次类名预扫描实际跳过的原生忽略目录，合并到最终范围证据后释放。
+## [br]
+## @api private
+var _class_ignored_directories: Array[String] = []
+
+## 每个 class_name 候选文件只查找首个声明，保持既有发现语义。
+## [br]
+## @api private
+var _class_regex: RegEx = null
+
+## 预扫描内部游标依次经历 prepare、target、enumerate 和 read。
+## [br]
+## @api private
+var _class_phase: String = "prepare"
+
+## 当前目标下标只在根级发现完成后前移。
+## [br]
+## @api private
+var _class_target_index: int = 0
+
+## 当前根的目标身份，不保留 manifest 对象引用。
+## [br]
+## @api private
+var _class_target_id: String = ""
+
+## 当前根的规范路径也是请求期缓存键。
+## [br]
+## @api private
+var _class_root: String = ""
+
+## 当前根先完整枚举候选，再按原目录优先顺序读取。
+## [br]
+## @api private
+var _class_files: Array[String] = []
+
+## 当前根下一个待读取的候选下标。
+## [br]
+## @api private
+var _class_file_index: int = 0
+
+## 当前根发现的去重类名，根完成时排序。
+## [br]
+## @api private
+var _class_names: Array[String] = []
+
+## 显式深度优先栈；每帧保存已排序目录、文件及其处理位置。
+## [br]
+## @api private
+var _class_stack: Array[_ClassDirectoryFrame] = []
+
+## 仅当前目录的枚举句柄跨 step 保留，结束枚举或取消时关闭。
+## [br]
+## @api private
+var _class_directory: DirAccess = null
+
+## 已消费的真实目录项数量，不作为未知总量的百分比分母。
+## [br]
+## @api private
+var _class_entries: int = 0
+
+## 预扫描当前目录或文件；切换到项目阶段后使用子任务路径。
+## [br]
+## @api private
+var _class_current_path: String = ""
+
+## 项目扫描子会话与同步入口使用相同实现。
+## [br]
+## @api private
+var _scanner: GFProjectReferenceScanner = null
+
+## 子会话结束时保留最后进度，以便释放工作数据后仍返回累计计数。
+## [br]
+## @api private
+var _project_progress: Dictionary = {}
+
+
 # --- 公共方法 ---
 
 ## 检查一组禁用扩展是否仍被项目文件直接引用。
@@ -170,75 +327,11 @@ const TEXT_FILE_EXTENSIONS: Array[String] = [
 ## [br]
 ## @schema return: Dictionary containing ok, partial_scan, budget_exceeded, extension_count, reference_count, weak_reference_count, extensions, weak_extensions, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan. references only contains strong or verified blocking references.
 static func audit_disabled_extensions(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> Dictionary:
-	var audited_manifests: Array[GFExtensionManifest] = []
-	var root_paths: Array[String] = []
-	var scan_targets: Array[Dictionary] = []
-	for manifest: GFExtensionManifest in manifests:
-		if manifest == null or manifest.root_path.is_empty():
-			continue
-		var normalized_root: String = _GF_PATH_TOOLS.normalize_root_path(manifest.root_path)
-		if normalized_root.is_empty():
-			continue
-		audited_manifests.append(manifest)
-		root_paths.append(normalized_root)
-		scan_targets.append({ "id": manifest.id, "root_path": normalized_root, })
-
-	var extension_reports: Dictionary = {}
-	var weak_extension_reports: Dictionary = {}
-	var all_references: Array[Dictionary] = []
-	var all_weak_references: Array[Dictionary] = []
-	if audited_manifests.is_empty():
-		return _make_audit_report(
-			true,
-			extension_reports,
-			weak_extension_reports,
-			all_references,
-			all_weak_references,
-			{}
-		)
-
-	var scan_report: Dictionary = _scan_targets_with_class_names(
-		scan_targets,
-		options,
-		PackedStringArray(root_paths)
-	)
-	var target_reports: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "targets")
-	var weak_target_reports: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "weak_targets")
-	for index: int in range(audited_manifests.size()):
-		var manifest: GFExtensionManifest = audited_manifests[index]
-		var root_path: String = root_paths[index]
-		var target_report: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(target_reports, manifest.id)
-		var weak_target_report: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(weak_target_reports, manifest.id)
-		var references: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(target_report, "references")
-		var weak_references: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(weak_target_report, "references")
-
-		if not references.is_empty():
-			extension_reports[manifest.id] = {
-				"id": manifest.id,
-				"display_name": manifest.display_name,
-				"root_path": root_path,
-				"references": references,
-				"reference_count": references.size(),
-			}
-			_append_typed_references(all_references, references)
-		if not weak_references.is_empty():
-			weak_extension_reports[manifest.id] = {
-				"id": manifest.id,
-				"display_name": manifest.display_name,
-				"root_path": root_path,
-				"references": weak_references,
-				"reference_count": weak_references.size(),
-			}
-			_append_typed_references(all_weak_references, weak_references)
-
-	return _make_audit_report(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_report, "ok"),
-		extension_reports,
-		weak_extension_reports,
-		all_references,
-		all_weak_references,
-		scan_report
-	)
+	var audit: GFExtensionUsageAudit = GFExtensionUsageAudit.new()
+	var _accepted: bool = audit.start(manifests, options)
+	while not audit.step(128, 0):
+		pass
+	return audit.take_result()
 
 
 ## 查找项目文件中对指定扩展根目录的直接路径引用。
@@ -306,7 +399,607 @@ static func find_references_to_root_report(root_path: String, options: Dictionar
 	)
 
 
+# --- 框架内部方法 ---
+
+## 接纳一次禁用扩展审计，只复制身份和选项，不枚举目录或读取文件。
+## 同一实例不能重新接纳；调用者在两次 step 之间可以取消。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer kernel/extension
+## [br]
+## @param manifests: 禁用扩展列表；只快照 id、display_name 和规范根路径，不保留资源。
+## [br]
+## @param options: 与 audit_disabled_extensions() 相同的扫描选项，按请求复制。
+## [br]
+## @schema options: Dictionary containing scan roots, ignored roots, reference limits, depth and shared file/byte budgets, weak-reference and native dependency switches, and optional respect_gdignore/additional_scan_files scope.
+## [br]
+## @return: 首次请求返回 true；重复请求返回 false 并保留原请求。
+func start(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> bool:
+	if _started:
+		return false
+	var records: Array[Dictionary] = []
+	var targets: Array[Dictionary] = []
+	var root_paths: Array[String] = []
+	for manifest: GFExtensionManifest in manifests:
+		if manifest == null or manifest.root_path.is_empty():
+			continue
+		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(manifest.root_path)
+		if root_path.is_empty():
+			continue
+		records.append(
+			{
+				"id": manifest.id,
+				"display_name": manifest.display_name,
+				"root_path": root_path,
+			}
+		)
+		targets.append({ "id": manifest.id, "root_path": root_path, })
+		root_paths.append(root_path)
+	return _start_targets(
+		targets,
+		options,
+		PackedStringArray(root_paths),
+		records,
+		true
+	)
+
+
+## 在调用线程有界推进枚举、class_name 预扫描和项目引用扫描。
+## 文件读取、单个正则查询和原生依赖查询不可中断，时间上限是软预算。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer kernel/extension
+## [br]
+## @param max_items: 本次最多推进的工作项数，小于一时按一处理。
+## [br]
+## @param max_usec: 本次软时间预算；不大于零时不限制时间。
+## [br]
+## @return: 完成或取消返回 true，尚有工作或尚未 start 返回 false。
+func step(max_items: int = 128, max_usec: int = 4000) -> bool:
+	if _finished:
+		return true
+	if not _started:
+		return false
+	var started_at: int = Time.get_ticks_usec()
+	var item_limit: int = maxi(max_items, 1)
+	var processed: int = 0
+	while not _finished and processed < item_limit:
+		if _scanner != null:
+			var remaining_usec: int = 0
+			if max_usec > 0:
+				remaining_usec = maxi(
+					max_usec - (Time.get_ticks_usec() - started_at),
+					1
+				)
+			var scanner_finished: bool = _scanner.step(
+				item_limit - processed,
+				remaining_usec
+			)
+			_project_progress = _scanner.get_progress()
+			if scanner_finished:
+				_finish_scan(_scanner.take_result())
+			break
+		_step_class_names()
+		processed += 1
+		if max_usec > 0 and Time.get_ticks_usec() - started_at >= max_usec:
+			break
+	if not _finished:
+		_refresh_progress()
+	return _finished
+
+
+## 取消当前请求并释放目录游标、文本、缓存和子会话；取消后不交付报告。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer kernel/extension
+func cancel() -> void:
+	if _cancelled:
+		return
+	_started = true
+	_cancelled = true
+	_finished = true
+	if _scanner != null:
+		_project_progress = _scanner.get_progress()
+		_scanner.cancel()
+	_refresh_progress()
+	_result = {}
+	_release_work()
+
+
+## 返回不与会话共享容器的进度快照，不宣称未知扫描总量或完成百分比。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer kernel/extension
+## [br]
+## @return: 当前阶段、实际累计计数、当前路径和子扫描当前行进度。
+## [br]
+## @schema return: Dictionary containing phase, audit_phase, finished, cancelled, entries, candidate_files, scanned_files, scanned_bytes, current_path, line_offset, and line_count. phase is class_names during prescanning and otherwise the scanner phase; audit_phase is idle/class_names/references/finished/cancelled. Line counters reset when the current file or scanner phase changes.
+func get_progress() -> Dictionary:
+	return _progress.duplicate(true)
+
+
+## 单次领取完成报告，未完成、已领取或取消时返回空字典。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @layer kernel/extension
+## [br]
+## @return: 与 audit_disabled_extensions() 同形的完整报告，或尚不可领取的空字典。
+## [br]
+## @schema return: Dictionary containing the same completed audit fields as audit_disabled_extensions(); empty when unavailable or cancelled.
+func take_result() -> Dictionary:
+	if not _finished or _cancelled:
+		return {}
+	var result: Dictionary = _result
+	_result = {}
+	return result
+
+
 # --- 私有/辅助方法 ---
+
+## 统一接纳 manifest 投影或根目录辅助请求；接纳阶段只复制数据。
+## [br]
+## @api private
+func _start_targets(
+	targets: Array[Dictionary],
+	options: Dictionary,
+	additional_ignored_roots: PackedStringArray,
+	manifest_records: Array[Dictionary] = [],
+	audit_report: bool = false
+) -> bool:
+	if _started:
+		return false
+	_started = true
+	_targets = targets.duplicate(true)
+	_options = options.duplicate(true)
+	_manifest_records = manifest_records.duplicate(true)
+	_additional_ignored_roots = additional_ignored_roots.duplicate()
+	_audit_report = audit_report
+	_class_state = _make_class_name_scan_state()
+	if _audit_report and _targets.is_empty():
+		_result = _make_audit_report(
+			true,
+			{},
+			{},
+			[],
+			[],
+			{}
+		)
+		_finished = true
+		_refresh_progress()
+		_release_work()
+	else:
+		_refresh_progress()
+	return true
+
+
+## 每次推进一个预扫描动作；根内候选枚举完成之前不读取该根脚本。
+## [br]
+## @api private
+func _step_class_names() -> void:
+	match _class_phase:
+		"prepare":
+			_class_regex = RegEx.new()
+			var compile_error: Error = _class_regex.compile("(?m)^\\s*class_name\\s+([A-Za-z_]\\w*)")
+			if compile_error != OK:
+				_mark_class_scan_partial(_class_state)
+				_append_class_scan_issue(
+					"class_name_pattern_invalid",
+					"",
+					"",
+					"[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.",
+					_class_state
+				)
+				_emit_class_scan_warning("[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.", _class_state)
+				_begin_project_scan()
+			else:
+				_class_phase = "target"
+		"target":
+			_begin_class_root()
+		"enumerate":
+			_step_class_directory()
+		"read":
+			_step_class_file()
+
+
+## 在输入次序中选择下一个根；重复根仅复用本请求已经完成的类名列表。
+## [br]
+## @api private
+func _begin_class_root() -> void:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_class_state, "stop_scan") or _class_target_index >= _targets.size():
+		_begin_project_scan()
+		return
+	var target: Dictionary = _targets[_class_target_index]
+	_class_target_id = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		target,
+		"id",
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
+	)
+	_class_root = _GF_PATH_TOOLS.normalize_root_path(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path"))
+	if _class_names_by_root.has(_class_root):
+		_class_names_by_target[_class_target_id] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(_class_names_by_root, _class_root)
+		_class_target_index += 1
+		return
+	_class_files = []
+	_class_file_index = 0
+	_class_names = []
+	_class_stack = [_make_class_directory_frame(_class_root, 0)]
+	_class_phase = "enumerate"
+
+
+## 创建目录游标帧，枚举完成后分别排序目录与文件以保留既有深度优先顺序。
+## [br]
+## @api private
+static func _make_class_directory_frame(path: String, depth: int) -> _ClassDirectoryFrame:
+	var frame: _ClassDirectoryFrame = _ClassDirectoryFrame.new()
+	frame._path = path
+	frame._depth = depth
+	return frame
+
+
+## 一次消费一个真实目录项或一个已排序候选；文件配额仍按候选准入计数。
+## [br]
+## @api private
+func _step_class_directory() -> void:
+	if _class_stack.is_empty() or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_class_state, "stop_scan"):
+		_close_class_directory()
+		_class_stack = []
+		_class_phase = "read"
+		_class_current_path = ""
+		return
+	var frame: _ClassDirectoryFrame = _class_stack[_class_stack.size() - 1]
+	var path: String = frame._path
+	_class_current_path = path
+	if not frame._listed:
+		_step_class_listing(frame, path)
+		return
+	var directory_index: int = frame._directory_index
+	var depth: int = frame._depth
+	if directory_index < frame._directories.size():
+		frame._directory_index = directory_index + 1
+		var child_path: String = _GF_PATH_TOOLS.normalize_resource_path(path.path_join(frame._directories[directory_index]))
+		var max_depth: int = maxi(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				_options,
+				"max_scan_depth",
+				DEFAULT_MAX_SCAN_DEPTH
+			),
+			0
+		)
+		if max_depth > 0 and depth >= max_depth:
+			_mark_class_depth_limit(
+				child_path,
+				max_depth,
+				_class_state
+			)
+		else:
+			_class_stack.append(
+				_make_class_directory_frame(
+					child_path,
+					depth + 1
+				)
+			)
+		return
+	var file_index: int = frame._file_index
+	if file_index >= frame._files.size():
+		var _removed_frame: Variant = _class_stack.pop_back()
+		return
+	frame._file_index = file_index + 1
+	var file_name: String = frame._files[file_index]
+	if file_name.get_extension().to_lower() != "gd":
+		return
+	var candidate_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_class_state, "candidate_file_count")
+	var max_files: int = maxi(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			_options,
+			"max_scanned_files",
+			DEFAULT_MAX_SCANNED_FILES
+		),
+		0
+	)
+	if max_files > 0 and candidate_count >= max_files:
+		_mark_class_file_count_limit(max_files, _class_state)
+		return
+	_class_files.append(_GF_PATH_TOOLS.normalize_resource_path(path.path_join(file_name)))
+	_class_state["candidate_file_count"] = candidate_count + 1
+
+
+## 目录句柄只用于当前帧；到达末尾立即关闭，排序不改变原目录优先策略。
+## [br]
+## @api private
+func _step_class_listing(frame: _ClassDirectoryFrame, path: String) -> void:
+	if _class_directory == null:
+		var ignored_directory: String = _find_class_ignored_directory(
+			path,
+			frame._depth == 0
+		)
+		if not ignored_directory.is_empty():
+			if not _class_ignored_directories.has(ignored_directory):
+				_class_ignored_directories.append(ignored_directory)
+			var _ignored_frame: Variant = _class_stack.pop_back()
+			return
+		if path.is_empty() or not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(path)):
+			var _missing_frame: Variant = _class_stack.pop_back()
+			return
+		_class_directory = DirAccess.open(path)
+		if _class_directory == null:
+			_fail_class_directory(path)
+			return
+		var begin_error: Error = _class_directory.list_dir_begin()
+		if begin_error != OK:
+			_fail_class_directory(path)
+			return
+		return
+	var entry_name: String = _class_directory.get_next()
+	if entry_name.is_empty():
+		_close_class_directory()
+		frame._directories.sort()
+		frame._files.sort()
+		frame._listed = true
+		return
+	_class_entries += 1
+	if entry_name.begins_with("."):
+		return
+	if _class_directory.current_is_dir():
+		frame._directories.append(entry_name)
+	else:
+		frame._files.append(entry_name)
+
+
+## 启用原生范围时检查当前目录；显式扩展根还检查祖先，避免从忽略目录内部开始预扫描。
+## [br]
+## @api private
+func _find_class_ignored_directory(path: String, include_ancestors: bool) -> String:
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_options, "respect_gdignore"):
+		return ""
+	var current: String = path
+	while not current.is_empty():
+		if FileAccess.file_exists(current.path_join(".gdignore")):
+			return current
+		if not include_ancestors or current.ends_with("://"):
+			break
+		var parent: String = _GF_PATH_TOOLS.normalize_root_path(current.get_base_dir())
+		if parent == current:
+			break
+		current = parent
+	return ""
+
+
+## 目录不可枚举时沿用原有部分扫描诊断，并继续其余目录。
+## [br]
+## @api private
+func _fail_class_directory(path: String) -> void:
+	_close_class_directory()
+	_mark_class_scan_partial(_class_state)
+	_append_class_skipped_file(
+		path,
+		"directory_open_failed",
+		0,
+		"",
+		0,
+		_class_state
+	)
+	_append_class_scan_issue(
+		"class_name_directory_open_failed",
+		path,
+		"",
+		"无法打开扩展 class_name 扫描目录。",
+		_class_state
+	)
+	var _failed_frame: Variant = _class_stack.pop_back()
+
+
+## 每次读取一个有界候选；原有停止标记优先于已收集但尚未读取的文件。
+## [br]
+## @api private
+func _step_class_file() -> void:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_class_state, "stop_scan") or _class_file_index >= _class_files.size():
+		_class_names.sort()
+		_class_names_by_root[_class_root] = _class_names.duplicate()
+		_class_names_by_target[_class_target_id] = _class_names.duplicate()
+		_class_target_index += 1
+		_class_files = []
+		_class_names = []
+		_class_current_path = ""
+		_class_phase = "target"
+		return
+	_class_current_path = _class_files[_class_file_index]
+	_class_file_index += 1
+	var source_report: Dictionary = _read_class_name_source(
+		_class_current_path,
+		_options,
+		_class_state
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source_report, "ok"):
+		return
+	var match_result: RegExMatch = _class_regex.search(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source"))
+	if match_result == null:
+		return
+	var class_name_value: String = match_result.get_string(1)
+	if not _class_names.has(class_name_value):
+		_class_names.append(class_name_value)
+
+
+## 从两阶段共享额度中扣除预扫描消耗，再把增强目标交给同一个项目扫描会话。
+## [br]
+## @api private
+func _begin_project_scan() -> void:
+	_close_class_directory()
+	_class_current_path = ""
+	_class_state["class_names_by_target"] = _class_names_by_target
+	var enriched_targets: Array[Dictionary] = []
+	for target: Dictionary in _targets:
+		var enriched_target: Dictionary = target.duplicate(true)
+		var target_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			target,
+			"id",
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
+		)
+		enriched_target["class_names"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(_class_names_by_target, target_id)
+		enriched_targets.append(enriched_target)
+	var scanner_options: Dictionary = _make_scanner_options(_options, _additional_ignored_roots)
+	if not _apply_remaining_scan_budgets(scanner_options, _class_state):
+		_finish_scan(_make_empty_project_scan_report(enriched_targets, scanner_options))
+		return
+	_scanner = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.new()
+	var _accepted: bool = _scanner.start(enriched_targets, scanner_options)
+	_project_progress = _scanner.get_progress()
+
+
+## 组装完整报告后释放工作态；未完成时从不发布中间结果。
+## [br]
+## @api private
+func _finish_scan(project_report: Dictionary) -> void:
+	var scan_report: Dictionary = _merge_scan_phase_reports(project_report, _class_state)
+	_merge_class_scan_scope(scan_report)
+	_result = _project_audit_report(scan_report) if _audit_report else scan_report
+	_finished = true
+	_refresh_progress()
+	_release_work()
+
+
+## 将类名阶段实际忽略目录合并到项目阶段已完成准入的范围说明，不改其路径诊断。
+## [br]
+## @api private
+func _merge_class_scan_scope(scan_report: Dictionary) -> void:
+	if not scan_report.has("scope"):
+		return
+	var scope: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "scope")
+	var ignored_directories: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(scope, "ignored_directories")
+	for path: String in _class_ignored_directories:
+		if not ignored_directories.has(path):
+			ignored_directories.append(path)
+	ignored_directories.sort()
+	scope["ignored_directories"] = ignored_directories
+	scan_report["scope"] = scope
+
+
+## 只用接纳时保存的身份标量生成 manifest 报告，避免扫描期间资源修改造成串写。
+## [br]
+## @api private
+func _project_audit_report(scan_report: Dictionary) -> Dictionary:
+	var extension_reports: Dictionary = {}
+	var weak_extension_reports: Dictionary = {}
+	var references: Array[Dictionary] = []
+	var weak_references: Array[Dictionary] = []
+	var targets: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "targets")
+	var weak_targets: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "weak_targets")
+	for record: Dictionary in _manifest_records:
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "id")
+		var target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(targets, extension_id)
+		var weak_target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(weak_targets, extension_id)
+		var target_references: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(target, "references")
+		var weak_target_references: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(weak_target, "references")
+		if not target_references.is_empty():
+			extension_reports[extension_id] = {
+				"id": extension_id,
+				"display_name": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "display_name"),
+				"root_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "root_path"),
+				"references": target_references,
+				"reference_count": target_references.size(),
+			}
+			_append_typed_references(references, target_references)
+		if not weak_target_references.is_empty():
+			weak_extension_reports[extension_id] = {
+				"id": extension_id,
+				"display_name": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "display_name"),
+				"root_path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "root_path"),
+				"references": weak_target_references,
+				"reference_count": weak_target_references.size(),
+			}
+			_append_typed_references(weak_references, weak_target_references)
+	return _make_audit_report(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_report, "ok"),
+		extension_reports,
+		weak_extension_reports,
+		references,
+		weak_references,
+		scan_report
+	)
+
+
+## 把真实子阶段与累计计数投影为独立小快照，终态保留计数并清除当前行定位。
+## [br]
+## @api private
+func _refresh_progress() -> void:
+	if not _class_state.is_empty():
+		var phase: String = "class_names"
+		var audit_phase: String = "class_names"
+		var current_path: String = _class_current_path
+		if _scanner != null:
+			phase = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				_project_progress,
+				"phase",
+				"idle"
+			)
+			audit_phase = "references"
+			current_path = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_project_progress, "current_path")
+		_progress = {
+			"phase": phase,
+			"audit_phase": audit_phase,
+			"finished": _finished,
+			"cancelled": _cancelled,
+			"entries": _class_entries + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_project_progress, "entries"),
+			"candidate_files": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_class_state, "candidate_file_count") + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_project_progress, "candidate_files"),
+			"scanned_files": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_class_state, "scanned_file_count") + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_project_progress, "scanned_files"),
+			"scanned_bytes": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_class_state, "scanned_bytes") + _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_project_progress, "scanned_bytes"),
+			"current_path": current_path,
+			"line_offset": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_project_progress, "line_offset"),
+			"line_count": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_project_progress, "line_count"),
+		}
+	if _finished:
+		_progress["phase"] = "cancelled" if _cancelled else "finished"
+		_progress["audit_phase"] = _progress["phase"]
+		_progress["finished"] = true
+		_progress["cancelled"] = _cancelled
+		_progress["current_path"] = ""
+		_progress["line_offset"] = 0
+		_progress["line_count"] = 0
+
+
+## 释放当前目录枚举句柄，幂等供正常末尾、错误和取消复用。
+## [br]
+## @api private
+func _close_class_directory() -> void:
+	if _class_directory != null:
+		_class_directory.list_dir_end()
+		_class_directory = null
+
+
+## 清空调用期工作集合但不改已发布报告或保留的终态进度。
+## [br]
+## @api private
+func _release_work() -> void:
+	_close_class_directory()
+	_options = {}
+	_manifest_records = []
+	_targets = []
+	_additional_ignored_roots = PackedStringArray()
+	_class_state = {}
+	_class_names_by_root = {}
+	_class_names_by_target = {}
+	_class_ignored_directories = []
+	_class_regex = null
+	_class_files = []
+	_class_names = []
+	_class_stack = []
+	_scanner = null
+	_project_progress = {}
+
 
 ## 将引用列表、扫描完整性计数和 class_name 子报告组装为审计报告。
 ## [br]
@@ -319,7 +1012,7 @@ static func _make_audit_report(
 	weak_references: Array[Dictionary],
 	scan_report: Dictionary
 ) -> Dictionary:
-	return {
+	var report: Dictionary = {
 		"ok": ok,
 		"partial_scan": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_report, "partial_scan"),
 		"budget_exceeded": _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_report, "budget_exceeded"),
@@ -339,6 +1032,9 @@ static func _make_audit_report(
 		"issues": _GF_VARIANT_ACCESS_SCRIPT.get_option_array(scan_report, "issues"),
 		"class_name_scan": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "class_name_scan"),
 	}
+	if scan_report.has("scope"):
+		report["scope"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "scope")
+	return report
 
 
 ## 深复制扫描选项，设置 warning 前缀、缺省引用/字节上限并合并额外忽略根。
@@ -423,25 +1119,15 @@ static func _scan_targets_with_class_names(
 	options: Dictionary,
 	additional_ignored_roots: PackedStringArray
 ) -> Dictionary:
-	var class_name_report: Dictionary = _collect_class_name_scan_report(targets, options)
-	var class_names_by_target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(class_name_report, "class_names_by_target")
-	var enriched_targets: Array[Dictionary] = []
-	for target: Dictionary in targets:
-		var enriched_target: Dictionary = target.duplicate(true)
-		var target_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			target,
-			"id",
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
-		)
-		enriched_target["class_names"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(class_names_by_target, target_id)
-		enriched_targets.append(enriched_target)
-
-	var scanner_options: Dictionary = _make_scanner_options(options, additional_ignored_roots)
-	var can_scan_project: bool = _apply_remaining_scan_budgets(scanner_options, class_name_report)
-	var project_report: Dictionary = _make_empty_project_scan_report(enriched_targets)
-	if can_scan_project:
-		project_report = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.scan_references(enriched_targets, scanner_options)
-	return _merge_scan_phase_reports(project_report, class_name_report)
+	var audit: GFExtensionUsageAudit = GFExtensionUsageAudit.new()
+	var _accepted: bool = audit._start_targets(
+		targets,
+		options,
+		additional_ignored_roots
+	)
+	while not audit.step(128, 0):
+		pass
+	return audit.take_result()
 
 
 ## 从共享文件及字节额度中扣除 class_name 阶段消耗，原地更新项目扫描选项；额度已耗尽时记录阶段问题并阻止项目扫描。
@@ -493,164 +1179,6 @@ static func _apply_remaining_scan_budgets(scanner_options: Dictionary, class_nam
 		else:
 			scanner_options["max_total_bytes"] = remaining_bytes
 	return can_scan_project
-
-
-## 按目标根共享预扫描结果，用正则读取每个脚本首个 class_name 并去重排序；这是受预算约束的文本发现，不执行脚本或完整解析语法。
-## [br]
-## @api private
-static func _collect_class_name_scan_report(targets: Array[Dictionary], options: Dictionary) -> Dictionary:
-	var scan_state: Dictionary = _make_class_name_scan_state()
-	var regex: RegEx = RegEx.new()
-	var compile_error: Error = regex.compile("(?m)^\\s*class_name\\s+([A-Za-z_]\\w*)")
-	if compile_error != OK:
-		_mark_class_scan_partial(scan_state)
-		_append_class_scan_issue(
-			"class_name_pattern_invalid",
-			"",
-			"",
-			"[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.",
-			scan_state
-		)
-		_emit_class_scan_warning("[extension_usage_audit.regex_compile_failed] Could not compile the extension class_name prescan regular expression.", scan_state)
-		return scan_state
-
-	var max_scan_depth: int = maxi(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			options,
-			"max_scan_depth",
-			DEFAULT_MAX_SCAN_DEPTH
-		),
-		0
-	)
-	var max_scanned_files: int = maxi(
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-			options,
-			"max_scanned_files",
-			DEFAULT_MAX_SCANNED_FILES
-		),
-		0
-	)
-	var class_names_by_root: Dictionary = {}
-	var class_names_by_target: Dictionary = {}
-	for target: Dictionary in targets:
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "stop_scan"):
-			break
-		var target_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
-			target,
-			"id",
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path")
-		)
-		var root_path: String = _GF_PATH_TOOLS.normalize_root_path(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(target, "root_path"))
-		if class_names_by_root.has(root_path):
-			class_names_by_target[target_id] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(class_names_by_root, root_path)
-			continue
-
-		var files: Array[String] = []
-		_collect_class_source_files(
-			root_path,
-			files,
-			0,
-			max_scan_depth,
-			max_scanned_files,
-			scan_state
-		)
-		var names: Array[String] = []
-		for path: String in files:
-			if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "stop_scan"):
-				break
-			var source_report: Dictionary = _read_class_name_source(
-				path,
-				options,
-				scan_state
-			)
-			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source_report, "ok"):
-				continue
-			var match_result: RegExMatch = regex.search(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source"))
-			if match_result == null:
-				continue
-			var class_name_value: String = match_result.get_string(1)
-			if not names.has(class_name_value):
-				names.append(class_name_value)
-		names.sort()
-		class_names_by_root[root_path] = names
-		class_names_by_target[target_id] = names.duplicate()
-	scan_state["class_names_by_target"] = class_names_by_target
-	return scan_state
-
-
-## 按目录和文件名排序递归收集 gd 候选，隐藏项跳过；累计文件预算跨目标共享，深度或读取问题标记部分扫描。
-## [br]
-## @api private
-static func _collect_class_source_files(
-	root_path: String,
-	result: Array[String],
-	depth: int,
-	max_scan_depth: int,
-	max_scanned_files: int,
-	scan_state: Dictionary
-) -> void:
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "stop_scan"):
-		return
-	if root_path.is_empty():
-		return
-	var global_root: String = ProjectSettings.globalize_path(root_path)
-	if not DirAccess.dir_exists_absolute(global_root):
-		return
-	var dir: DirAccess = DirAccess.open(root_path)
-	if dir == null:
-		_mark_class_scan_partial(scan_state)
-		_append_class_skipped_file(
-			root_path,
-			"directory_open_failed",
-			0,
-			"",
-			0,
-			scan_state
-		)
-		_append_class_scan_issue(
-			"class_name_directory_open_failed",
-			root_path,
-			"",
-			"无法打开扩展 class_name 扫描目录。",
-			scan_state
-		)
-		return
-
-	var directory_names: PackedStringArray = dir.get_directories()
-	var file_names: PackedStringArray = dir.get_files()
-	directory_names.sort()
-	file_names.sort()
-	for directory_name: String in directory_names:
-		if directory_name.begins_with("."):
-			continue
-		var child_path: String = _GF_PATH_TOOLS.normalize_resource_path(root_path.path_join(directory_name))
-		if max_scan_depth > 0 and depth >= max_scan_depth:
-			_mark_class_depth_limit(
-				child_path,
-				max_scan_depth,
-				scan_state
-			)
-			continue
-		_collect_class_source_files(
-			child_path,
-			result,
-			depth + 1,
-			max_scan_depth,
-			max_scanned_files,
-			scan_state
-		)
-		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(scan_state, "stop_scan"):
-			return
-	for file_name: String in file_names:
-		if file_name.begins_with(".") or file_name.get_extension().to_lower() != "gd":
-			continue
-		var candidate_file_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "candidate_file_count")
-		if max_scanned_files > 0 and candidate_file_count >= max_scanned_files:
-			_mark_class_file_count_limit(max_scanned_files, scan_state)
-			return
-		var path: String = _GF_PATH_TOOLS.normalize_resource_path(root_path.path_join(file_name))
-		result.append(path)
-		scan_state["candidate_file_count"] = candidate_file_count + 1
 
 
 ## 在单文件与累计字节额度内读取候选脚本文本，所有打开后的分支关闭句柄；成功才增加读取计数，总预算不足可终止后续扫描。
@@ -965,31 +1493,16 @@ static func _emit_class_scan_warning(message: String, scan_state: Dictionary) ->
 		push_warning(warning_message)
 
 
-## 创建项目引用扫描阶段的空报告，并将输入目标数设为 targets.size()。
+## 通过空目标会话校验项目范围并保留完整诊断，不执行文件 I/O；输入目标数沿用原审计目标数。
 ## [br]
 ## @api private
-static func _make_empty_project_scan_report(targets: Array[Dictionary]) -> Dictionary:
-	return {
-		"ok": true,
-		"partial_scan": false,
-		"budget_exceeded": false,
-		"truncated": false,
-		"input_target_count": targets.size(),
-		"target_count": 0,
-		"reference_count": 0,
-		"weak_reference_count": 0,
-		"targets": {},
-		"weak_targets": {},
-		"references": [],
-		"weak_references": [],
-		"candidate_file_count": 0,
-		"scanned_file_count": 0,
-		"scanned_bytes": 0,
-		"skipped_files": [],
-		"scan_warnings": [],
-		"issue_count": 0,
-		"issues": [],
-	}
+static func _make_empty_project_scan_report(targets: Array[Dictionary], scanner_options: Dictionary) -> Dictionary:
+	var scanner: GFProjectReferenceScanner = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.new()
+	var empty_targets: Array[Dictionary] = []
+	var _accepted: bool = scanner.start(empty_targets, scanner_options)
+	var report: Dictionary = scanner.take_result()
+	report["input_target_count"] = targets.size()
+	return report
 
 
 ## 合并预扫描与项目扫描的消耗、问题和截断标志；仅项目强引用数为零且两个阶段均完整时报告成功，并附预扫描分项详情。
@@ -1085,3 +1598,50 @@ static func _make_invalid_root_scan_report(root_path: String) -> Dictionary:
 			"class_names_by_target": {},
 		},
 	}
+
+
+# --- 内部类 ---
+
+## 单目录的有序枚举帧；字段只在本文件内使用，不复制不断增长的目录项列表。
+## [br]
+## @api private
+class _ClassDirectoryFrame:
+	extends RefCounted
+
+
+	# --- 私有变量 ---
+
+	## 当前目录的规范资源路径。
+	## [br]
+	## @api private
+	var _path: String = ""
+
+	## 根目录深度为零，沿子目录递增。
+	## [br]
+	## @api private
+	var _depth: int = 0
+
+	## 目录枚举关闭后才处理已排序子项。
+	## [br]
+	## @api private
+	var _listed: bool = false
+
+	## 当前目录直接子目录名，枚举完成时排序。
+	## [br]
+	## @api private
+	var _directories: Array[String] = []
+
+	## 当前目录直接文件名，待子目录处理完毕后消费。
+	## [br]
+	## @api private
+	var _files: Array[String] = []
+
+	## 下一待处理子目录位置。
+	## [br]
+	## @api private
+	var _directory_index: int = 0
+
+	## 下一待处理文件位置。
+	## [br]
+	## @api private
+	var _file_index: int = 0

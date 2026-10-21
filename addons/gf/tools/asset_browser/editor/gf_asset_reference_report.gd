@@ -46,6 +46,21 @@ var _cursor: int = 0
 ## @api private
 var _references: Dictionary = {}
 
+## 分步处理入站证据的单次扫描器；结果接收后释放，不重复计入字节预算。
+## [br]
+## @api private
+var _inbound_scanner: GFProjectReferenceScanner = null
+
+## 区分尚未扫描、入站扫描和直接依赖阶段，不以空结果推断工作是否完成。
+## [br]
+## @api private
+var _phase: String = "idle"
+
+## 最后一个入站进度快照；进入直接依赖阶段后仍保留累计文件和字节计数。
+## [br]
+## @api private
+var _inbound_progress: Dictionary = {}
+
 ## 仅含纯数据的候选结果，完成前不能领取。
 ## [br]
 ## @api private
@@ -155,26 +170,42 @@ func start(paths: PackedStringArray, options: Dictionary = {}) -> bool:
 	return true
 
 
-## 首步只扫描一次所有目标的入站引用，之后每步处理一个所选资源；同步原生查询不能在调用中抢占。
+## 分步扫描所有目标的入站引用，之后每步处理一个所选资源；同步原生查询不能在调用中抢占。
 ## [br]
 ## @api framework_internal
 ## [br]
+## @param max_items: 本步入站扫描最多处理的工作项数。
+## [br]
+## @param max_usec: 本步入站扫描的协作式时间预算；不能抢占原生依赖查询。
+## [br]
 ## @return: 任务是否已结束；取消也属于结束，但不会产生可领取结果。
-func step() -> bool:
+func step(max_items: int = 128, max_usec: int = 4000) -> bool:
 	if (
 		not _started
 		or _cancelled
 		or _finished
 	):
 		return true
-	if _references.is_empty():
-		_scan_inbound()
+	if _phase == "idle":
+		_start_inbound()
+	if _phase == "inbound":
+		var scanner: GFProjectReferenceScanner = _inbound_scanner
+		var finished: bool = scanner.step(max_items, max_usec)
+		if _cancelled or scanner != _inbound_scanner:
+			return _cancelled
+		_inbound_progress = scanner.get_progress()
+		if finished:
+			_references = scanner.take_result()
+			_inbound_scanner = null
+			_accept_inbound()
+			_phase = "selected_dependencies"
 		return false
 	_scan_selected(_paths[_cursor])
 	_cursor += 1
 	_finished = _cursor == _paths.size()
 	if _finished:
 		_references = {}
+		_phase = "finished"
 	return _finished
 
 
@@ -183,8 +214,14 @@ func step() -> bool:
 ## @api framework_internal
 func cancel() -> void:
 	_cancelled = true
+	_phase = "cancelled"
+	var scanner: GFProjectReferenceScanner = _inbound_scanner
+	_inbound_scanner = null
+	if scanner != null:
+		scanner.cancel()
 	_references = {}
 	_report = {}
+	_inbound_progress = {}
 
 
 ## 领取完成报告一次；调用方负责检查选择、范围、资源索引及上下文仍然有效。
@@ -206,11 +243,21 @@ func take_result() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @return: 已处理与总选择数量。
+## @return: 已处理选择数量和真实入站扫描阶段、计数；候选文件数在枚举结束前仍可能增长。
 ## [br]
-## @schema return: Dictionary，包含 completed、total。
+## @schema return: Dictionary，包含 completed、total、phase、finished、cancelled、entries、candidate_files、scanned_files、scanned_bytes、current_path、line_offset、line_count。
 func get_progress() -> Dictionary:
-	return { "completed": _cursor, "total": _paths.size() }
+	var progress: Dictionary = _inbound_progress.duplicate()
+	progress["completed"] = _cursor
+	progress["total"] = _paths.size()
+	progress["finished"] = _finished
+	progress["cancelled"] = _cancelled
+	if _phase != "inbound":
+		progress["phase"] = _phase
+		progress["current_path"] = ""
+		progress["line_offset"] = 0
+		progress["line_count"] = 0
+	return progress
 
 
 # --- 私有/辅助方法 ---
@@ -248,20 +295,23 @@ func _reject_input(reason: String) -> bool:
 	_report["input_error"] = reason
 	_report["partial_scan"] = true
 	_finished = true
+	_phase = "finished"
 	return false
 
 
 ## 多目标共用同一文件与字节预算；扫描器的 ok 表示无阻断引用，不能作为扫描成功标志。
 ## [br]
 ## @api private
-func _scan_inbound() -> void:
+func _start_inbound() -> void:
 	var targets: Array[Dictionary] = []
 	for path: String in _paths:
 		targets.append({ "id": path, "root_path": path })
-	_references = GFProjectReferenceScanner.scan_references(
+	_inbound_scanner = GFProjectReferenceScanner.new()
+	var _accepted: bool = _inbound_scanner.start(
 		targets,
 		{
 			"scan_roots": [_scope],
+			"respect_gdignore": true,
 			"ignored_roots": _ignored_roots,
 			"max_scan_depth": 16,
 			"max_scanned_files": _limits["max_files"],
@@ -271,9 +321,18 @@ func _scan_inbound() -> void:
 			"max_weak_references_per_target": _limits["max_evidence_per_target"],
 		}
 	)
+	_phase = "inbound"
+	_inbound_progress = _inbound_scanner.get_progress()
+
+
+## 仅在入站会话结束后接纳一次结果和读取预算；直接依赖继续消费同一剩余预算。
+## [br]
+## @api private
+func _accept_inbound() -> void:
 	_remaining_bytes -= GFVariantData.get_option_int(_references, "scanned_bytes")
 	_report["partial_scan"] = GFVariantData.get_option_bool(_references, "partial_scan")
 	_report["coverage"] = {
+		"scope": GFVariantData.get_option_dictionary(_references, "scope"),
 		"candidate_file_count": GFVariantData.get_option_int(_references, "candidate_file_count"),
 		"scanned_file_count": GFVariantData.get_option_int(_references, "scanned_file_count"),
 		"scanned_bytes": GFVariantData.get_option_int(_references, "scanned_bytes"),

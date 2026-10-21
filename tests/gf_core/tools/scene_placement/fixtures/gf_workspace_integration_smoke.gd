@@ -12,6 +12,7 @@ const _CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contrib
 const _SETTINGS_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const _PREFERENCES_SCRIPT = preload("res://addons/gf/kernel/editor/state/gf_editor_preferences.gd")
 const _CONFIG_SESSION_SCRIPT = preload("res://addons/gf/tools/config_pipeline/editor/gf_config_workbench_session.gd")
+const _EXTENSION_DOCK_SCRIPT = preload("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
 const _HOME: String = "res://addons/gf/kernel/editor/workspace/gf_workspace_home.gd"
 const _ASSETS: String = "res://addons/gf/tools/asset_browser/editor/gf_asset_browser_dock.gd"
 const _PLACEMENT: String = "res://addons/gf/tools/scene_placement/editor/gf_scene_placement_launcher.gd"
@@ -297,6 +298,8 @@ func _run_cases(
 		return
 	if not await _capture(window, "workspace_project_initialization.png"):
 		return
+	if not await _verify_extension_reference_session(plugin, workspace):
+		return
 	var tween_task: Dictionary = _find_task(
 		context.get_workspace_tasks(),
 		_TWEEN,
@@ -341,6 +344,122 @@ func _run_cases(
 	):
 		return
 	_report["workspace_context_and_window_lifecycle"] = true
+
+
+func _verify_extension_reference_session(plugin: EditorPlugin, workspace: Control) -> bool:
+	var settings_digest: String = FileAccess.get_sha256("res://project.godot")
+	var page: Control = _tools.open_workspace_page(_DOCK_TOOLS_SCRIPT.EXTENSION_MANAGER_DOCK_SCRIPT_PATH)
+	await plugin.get_tree().process_frame
+	await plugin.get_tree().process_frame
+	if not _check(
+		page is _EXTENSION_DOCK_SCRIPT and page.is_visible_in_tree(),
+		"The native Workspace did not open the actual extension manager."
+	):
+		return false
+	var dock: _EXTENSION_DOCK_SCRIPT = page
+	dock._set_all_enabled(true)
+	dock._on_extension_toggled(false, "gf.action_queue")
+	var scan: Button = _find_button_text(dock, "扫描引用")
+	var cancel: Button = _find_button_text(dock, "取消扫描")
+	if not _check(
+		scan != null
+		and cancel != null
+		and not scan.disabled
+		and cancel.disabled,
+		"The native extension page lacks usable scan/cancel buttons."
+	):
+		return false
+	scan.pressed.emit()
+	if not _check(
+		dock._usage_task != null
+		and dock._usage_report.is_empty()
+		and not cancel.disabled,
+		"The native scan button did not start an unpublished audit session."
+	):
+		return false
+	var samples: Array[Dictionary] = []
+	var first: Dictionary = dock._usage_task.get_progress()
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < deadline and dock._usage_task != null:
+		await plugin.get_tree().process_frame
+		if dock._usage_task == null:
+			break
+		var progress: Dictionary = dock._usage_task.get_progress()
+		if (
+			GFVariantData.get_option_int(progress, "entries") > GFVariantData.get_option_int(first, "entries")
+			or GFVariantData.get_option_int(progress, "scanned_bytes") > GFVariantData.get_option_int(first, "scanned_bytes")
+			or GFVariantData.get_option_int(progress, "line_offset") > 0
+		):
+			samples.append(progress)
+			break
+	if not _check(
+		not samples.is_empty()
+		and dock._usage_task != null
+		and dock._status_label.text.contains("进行中")
+		and dock._usage_report.is_empty(),
+		"Native frames did not expose real audit progress before completion."
+	):
+		return false
+	cancel.pressed.emit()
+	await plugin.get_tree().process_frame
+	await plugin.get_tree().process_frame
+	if not _check(
+		dock._usage_task == null
+		and dock._usage_report.is_empty()
+		and cancel.disabled
+		and not scan.disabled
+		and dock._status_label.text.contains("已取消"),
+		"Cancelling a native scan published a report or prevented rescan."
+	):
+		return false
+	scan.pressed.emit()
+	var phases: PackedStringArray = PackedStringArray()
+	deadline = Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < deadline and dock._usage_task != null:
+		var progress: Dictionary = dock._usage_task.get_progress()
+		var phase: String = GFVariantData.get_option_string(progress, "phase")
+		if not phases.has(phase):
+			var _appended: bool = phases.append(phase)
+			if samples.size() < 12:
+				samples.append(progress)
+		await plugin.get_tree().process_frame
+	var evidence_found: bool = false
+	for value: Variant in GFVariantData.get_option_array(dock._usage_report, "weak_references"):
+		if value is Dictionary:
+			var evidence: Dictionary = value
+			if GFVariantData.get_option_string(evidence, "path") == "res://reference_session_smoke.cfg":
+				evidence_found = true
+	if not _check(
+		dock._usage_task == null
+		and not dock._usage_report.is_empty()
+		and not GFVariantData.get_option_bool(dock._usage_report, "partial_scan")
+		and evidence_found
+		and phases.size() >= 2
+		and dock._status_label.text.contains("扫描完成")
+		and FileAccess.get_sha256("res://project.godot") == settings_digest,
+		"Native rescan did not finish with real fixture evidence and unchanged saved settings."
+	):
+		return false
+	dock._refresh_extensions()
+	_report["workspace_extension_reference_session"] = true
+	_report["workspace_extension_reference_progress"] = samples
+	_report["workspace_extension_reference_phases"] = phases
+	return _check(
+		_find_page(workspace, _DOCK_TOOLS_SCRIPT.EXTENSION_MANAGER_DOCK_SCRIPT_PATH) == dock,
+		"Audit replaced its native page unexpectedly."
+	)
+
+
+func _find_button_text(root: Node, text: String) -> Button:
+	for child: Node in root.get_children():
+		if child is Button:
+			var button: Button = child
+			if button.text == text:
+				return button
+		var nested: Button = _find_button_text(child, text)
+		if nested != null:
+			return nested
+	return null
 
 
 func _check_onboarding_tasks(context: GFEditorToolContext, workspace: Control) -> bool:

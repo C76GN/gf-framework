@@ -1359,7 +1359,7 @@ func _inspect_references() -> void:
 	_status.text = "引用检查已开始：%d 个所选资源。" % paths.size()
 
 
-## 只在选择、范围、索引与上下文均未变化时推进和提交；原生同步扫描不能在调用中抢占。
+## 只在选择、范围、索引与上下文均未变化时推进和提交；原生依赖查询不能在调用中抢占。
 ## [br]
 ## @api private
 func _step_reference_report() -> void:
@@ -1376,10 +1376,7 @@ func _step_reference_report() -> void:
 		_cancel_reference_report()
 		return
 	var progress: Dictionary = task.get_progress()
-	_status.text = (
-		"引用检查：%d / %d"
-		% [progress["completed"], progress["total"]]
-	)
+	_status.text = _format_reference_progress(progress)
 	if not finished:
 		return
 	var report: Dictionary = task.take_result()
@@ -1422,6 +1419,45 @@ func _step_reference_report() -> void:
 	_status.text = "引用检查完成%s；刷新、选择或源文件变化后请重新检查。" % ("（覆盖不完整）" if GFVariantData.get_option_bool(report, "partial_scan") else "")
 
 
+## 将扫描器的真实工作阶段和累计计数显示为进度，不以仍在增长的候选数计算百分比。
+## [br]
+## @api private
+func _format_reference_progress(progress: Dictionary) -> String:
+	var phase: String = GFVariantData.get_option_string(progress, "phase")
+	if phase == "selected_dependencies":
+		return (
+			"引用检查：直接依赖 %d / %d"
+			% [progress["completed"], progress["total"]]
+		)
+	var labels: Dictionary = {
+		"idle": "准备",
+		"enumerate": "枚举文件",
+		"read": "读取文件",
+		"dependencies": "读取依赖",
+		"preprocess": "准备文本",
+		"match": "匹配引用",
+		"finalize": "整理证据",
+		"finished": "整理证据",
+	}
+	var label: String = GFVariantData.get_option_string(
+		labels,
+		phase,
+		"扫描入站引用"
+	)
+	return (
+		"引用检查：%s；枚举 %d 项，候选 %d，已读 %d 文件 / %d 字节；当前行 %d / %d"
+		% [
+			label,
+			GFVariantData.get_option_int(progress, "entries"),
+			GFVariantData.get_option_int(progress, "candidate_files"),
+			GFVariantData.get_option_int(progress, "scanned_files"),
+			GFVariantData.get_option_int(progress, "scanned_bytes"),
+			GFVariantData.get_option_int(progress, "line_offset"),
+			GFVariantData.get_option_int(progress, "line_count"),
+		]
+	)
+
+
 ## 使用有效页面选择与捕获快照比对，不允许旧批次覆盖新选择的详情。
 ## [br]
 ## @api private
@@ -1442,11 +1478,12 @@ func _reference_report_current() -> bool:
 ## [br]
 ## @api private
 func _cancel_reference_report() -> void:
-	if _reference_report != null:
-		_reference_report.cancel()
+	var task: _REFERENCE_REPORT_SCRIPT = _reference_report
 	_reference_report = null
 	_reference_paths = PackedStringArray()
 	_reference_cancel_button.disabled = true
+	if task != null:
+		task.cancel()
 
 
 ## 用户取消或范围变化时明确显示结果已撤销，不保留候选数据作为完成报告。

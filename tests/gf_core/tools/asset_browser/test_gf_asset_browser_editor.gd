@@ -408,8 +408,7 @@ func test_reference_button_consumes_multiselection_and_displays_evidence_summary
 	assert_not_null(button)
 	button.pressed.emit()
 	assert_false(dock._reference_cancel_button.disabled)
-	for index: int in range(4):
-		dock._process(0.0)
+	_finish_reference_report(dock)
 	assert_null(dock._reference_report)
 	assert_true(dock._reference_cancel_button.disabled)
 	assert_true(dock._details.text.contains("强缺失 1"))
@@ -461,8 +460,7 @@ func test_deselecting_the_last_resource_clears_pending_and_finished_reports() ->
 		dock.select_identity(&"first")
 		dock._inspect_references()
 		if finish_first:
-			for index: int in range(3):
-				dock._process(0.0)
+			_finish_reference_report(dock)
 		dock._grid.deselect_all()
 		dock._on_grid_selected(0, false)
 		dock._process(0.0)
@@ -483,10 +481,17 @@ func test_reentrant_replacement_report_survives_the_old_step_return() -> void:
 	assert_not_null(dock._reference_report)
 	assert_ne(dock._reference_report, old_task)
 	assert_false(dock._reference_cancel_button.disabled)
-	for index: int in range(3):
-		dock._process(0.0)
+	_finish_reference_report(dock)
 	assert_true(dock._details.text.contains("结构化证据"))
 	assert_true(dock._details.text.contains("first_missing.tres"))
+
+
+func _finish_reference_report(dock: AssetDockProbe) -> void:
+	for index: int in range(4096):
+		dock._process(0.0)
+		if dock._reference_report == null:
+			return
+	fail_test("小夹具的真实引用会话应在有限帧步内完成。")
 
 
 func _reference_dock() -> AssetDockProbe:
@@ -573,8 +578,8 @@ class ReentrantReferenceReport:
 
 	var on_step: Callable
 
-	func step() -> bool:
-		on_step.call()
+	func step(_max_items: int = 128, _max_usec: int = 4000) -> bool:
+		var _called: Variant = on_step.call()
 		return true
 
 
