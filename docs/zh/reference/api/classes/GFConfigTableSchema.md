@@ -42,10 +42,11 @@
 | 方法 | [`validate_definition`](#member-gfconfigtableschema-methods-validate_definition) | `func validate_definition(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_record`](#member-gfconfigtableschema-methods-validate_record) | `func validate_record( record: Dictionary, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`validate_table`](#member-gfconfigtableschema-methods-validate_table) | `func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`coerce_record`](#member-gfconfigtableschema-methods-coerce_record) | `func coerce_record(record: Dictionary) -> Dictionary:` |
+| 方法 | [`coerce_record`](#member-gfconfigtableschema-methods-coerce_record) | `func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`try_coerce_record`](#member-gfconfigtableschema-methods-try_coerce_record) | `func try_coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_empty_record`](#member-gfconfigtableschema-methods-build_empty_record) | `func build_empty_record(include_optional: bool = true) -> Dictionary:` |
-| 方法 | [`duplicate_schema`](#member-gfconfigtableschema-methods-duplicate_schema) | `func duplicate_schema() -> GFConfigTableSchema:` |
-| 方法 | [`describe`](#member-gfconfigtableschema-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`duplicate_schema`](#member-gfconfigtableschema-methods-duplicate_schema) | `func duplicate_schema(options: Dictionary = {}) -> GFConfigTableSchema:` |
+| 方法 | [`describe`](#member-gfconfigtableschema-methods-describe) | `func describe(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -54,6 +55,7 @@
 ### `table_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var table_name: StringName = &""
@@ -66,6 +68,7 @@ var table_name: StringName = &""
 ### `id_field`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var id_field: StringName = &"id"
@@ -78,6 +81,7 @@ var id_field: StringName = &"id"
 ### `columns`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var columns: Array[GFConfigTableColumn] = []
@@ -94,6 +98,7 @@ var columns: Array[GFConfigTableColumn] = []
 ### `allow_extra_fields`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var allow_extra_fields: bool = true
@@ -106,6 +111,7 @@ var allow_extra_fields: bool = true
 ### `coerce_values`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var coerce_values: bool = false
@@ -118,6 +124,7 @@ var coerce_values: bool = false
 ### `fail_on_coerce_error`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var fail_on_coerce_error: bool = true
@@ -130,6 +137,7 @@ var fail_on_coerce_error: bool = true
 ### `require_unique_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var require_unique_id: bool = false
@@ -181,6 +189,7 @@ var max_element_rule_checks_per_validation: int = 16384
 ### `indexes`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var indexes: Array[GFConfigTableIndexDefinition] = []
@@ -197,6 +206,7 @@ var indexes: Array[GFConfigTableIndexDefinition] = []
 ### `references`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var references: Array[GFConfigTableReference] = []
@@ -213,6 +223,7 @@ var references: Array[GFConfigTableReference] = []
 ### `record_validation_rules`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var record_validation_rules: Array[GFConfigValidationRule] = []
@@ -229,6 +240,7 @@ var record_validation_rules: Array[GFConfigValidationRule] = []
 ### `table_validation_rules`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var table_validation_rules: Array[GFConfigValidationRule] = []
@@ -245,6 +257,7 @@ var table_validation_rules: Array[GFConfigValidationRule] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -263,6 +276,7 @@ var metadata: Dictionary = {}
 ### `infer_from_records`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func infer_from_records( inferred_table_name: StringName, table_data: Variant, options: Dictionary = {} ) -> GFConfigTableSchema:
@@ -290,6 +304,7 @@ static func infer_from_records( inferred_table_name: StringName, table_data: Var
 ### `get_table_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_table_key() -> StringName:
@@ -304,6 +319,7 @@ func get_table_key() -> StringName:
 ### `get_column`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_column(field_name: StringName) -> GFConfigTableColumn:
@@ -324,6 +340,7 @@ func get_column(field_name: StringName) -> GFConfigTableColumn:
 ### `has_column`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_column(field_name: StringName) -> bool:
@@ -344,6 +361,7 @@ func has_column(field_name: StringName) -> bool:
 ### `get_index`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_index(index_id: StringName) -> GFConfigTableIndexDefinition:
@@ -364,6 +382,7 @@ func get_index(index_id: StringName) -> GFConfigTableIndexDefinition:
 ### `has_index`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_index(index_id: StringName) -> bool:
@@ -384,6 +403,7 @@ func has_index(index_id: StringName) -> bool:
 ### `get_reference`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_reference(reference_id: StringName) -> GFConfigTableReference:
@@ -404,6 +424,7 @@ func get_reference(reference_id: StringName) -> GFConfigTableReference:
 ### `has_reference`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func has_reference(reference_id: StringName) -> bool:
@@ -424,6 +445,7 @@ func has_reference(reference_id: StringName) -> bool:
 ### `get_column_names`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_column_names() -> PackedStringArray:
@@ -438,6 +460,7 @@ func get_column_names() -> PackedStringArray:
 ### `validate_definition`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_definition(options: Dictionary = {}) -> Dictionary:
@@ -493,6 +516,7 @@ func validate_record( record: Dictionary, row_key: Variant = null, options: Dict
 ### `validate_table`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary:
@@ -520,9 +544,10 @@ func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary
 ### `coerce_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func coerce_record(record: Dictionary) -> Dictionary:
+func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
 ```
 
 按字段声明转换单条记录。
@@ -532,19 +557,50 @@ func coerce_record(record: Dictionary) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `record` | 输入记录。 |
+| `options` | 结构化转换的调用期预算与来源选项。 |
 
-返回：转换后的新记录。
+返回：转换后的新记录；结构化转换失败时为空，可用 try_coerce_record 获取原因。
 
 结构：
 
 - `record`: Dictionary，待转换的配置记录，键为字段名，值为字段数据。
+- `options`: Dictionary，可包含 work_budget 或 work_limits。
 - `return`: Dictionary，转换后的记录副本。
+
+<a id="member-gfconfigtableschema-methods-try_coerce_record"></a>
+
+### `try_coerce_record`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func try_coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
+```
+
+在共享编译会话内转换记录，结构化字段失败时不返回部分结果。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `record` | 不会被修改的输入记录。 |
+| `options` | 预算与来源选项。 |
+
+返回：报告附加 data；失败 data 为 null。
+
+结构：
+
+- `record`: Dictionary，字段名映射到配置值。
+- `options`: Dictionary，可包含 work_budget 或 work_limits 及来源上下文。
+- `return`: Dictionary，包含 ok、issues、error_count、warning_count、data。
 
 <a id="member-gfconfigtableschema-methods-build_empty_record"></a>
 
 ### `build_empty_record`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func build_empty_record(include_optional: bool = true) -> Dictionary:
@@ -569,14 +625,25 @@ func build_empty_record(include_optional: bool = true) -> Dictionary:
 ### `duplicate_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func duplicate_schema() -> GFConfigTableSchema:
+func duplicate_schema(options: Dictionary = {}) -> GFConfigTableSchema:
 ```
 
 创建同内容拷贝，避免运行时修改污染共享 Resource。
 
-返回：新 schema。
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 调用期复制预算；不执行默认值或业务规则。 |
+
+返回：新 schema；字段图循环或复制预算失败时为 null，非循环的无效声明保留。
+
+结构：
+
+- `options`: Dictionary，可包含 work_budget 或 work_limits。
 
 <a id="member-gfconfigtableschema-methods-describe"></a>
 
@@ -586,13 +653,20 @@ func duplicate_schema() -> GFConfigTableSchema:
 - 首次版本：`3.0.0`
 
 ```gdscript
-func describe() -> Dictionary:
+func describe(options: Dictionary = {}) -> Dictionary:
 ```
 
-导出 schema 摘要。
+导出 schema 摘要；结构列在同一有限会话内描述，不执行默认值或业务规则。
 
-返回：schema 字典。
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 结构化描述的调用期预算与来源选项。 |
+
+返回：schema 字典；结构列的失败保留在各列 type_definition 报告中。
 
 结构：
 
+- `options`: Dictionary，可包含 work_budget 或 work_limits。
 - `return`: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、max_elements_per_validation、max_element_rule_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。

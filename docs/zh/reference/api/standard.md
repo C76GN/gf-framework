@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 196 | 3520 | 2395 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
-| [资源定义](#category-resource_definition) | 122 | 1580 | 798 |
+| [资源定义](#category-resource_definition) | 123 | 1601 | 805 |
 | [运行时句柄](#category-runtime_handle) | 59 | 986 | 639 |
 | [值对象](#category-value_object) | 63 | 1029 | 670 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
@@ -289,6 +289,7 @@
 | [`GFConfigTableReference`](classes/GFConfigTableReference.md#gfconfigtablereference) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
 | [`GFConfigTableResource`](classes/GFConfigTableResource.md#gfconfigtableresource) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_resource.gd` |
 | [`GFConfigTableSchema`](classes/GFConfigTableSchema.md#gfconfigtableschema) | `Resource` | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
+| [`GFConfigTypeDefinition`](classes/GFConfigTypeDefinition.md#gfconfigtypedefinition) | `Resource` | `addons/gf/standard/utilities/config/gf_config_type_definition.gd` |
 | [`GFConsoleCommandDefinition`](classes/GFConsoleCommandDefinition.md#gfconsolecommanddefinition) | `Resource` | `addons/gf/standard/utilities/debug/gf_console_command_definition.gd` |
 | [`GFDictionarySchema`](classes/GFDictionarySchema.md#gfdictionaryschema) | `Resource` | `addons/gf/standard/foundation/schema/gf_dictionary_schema.gd` |
 | [`GFFormulaSet`](classes/GFFormulaSet.md#gfformulaset) | `Resource` | `addons/gf/standard/foundation/formula/gf_formula_set.gd` |

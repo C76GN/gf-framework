@@ -273,7 +273,7 @@ func get_schemas(duplicate_schemas: bool = true) -> Array[GFConfigTableSchema]:
 |---|---|
 | `duplicate_schemas` | 为 true 时返回 schema 深拷贝，避免调用方修改数据库资源内数据。 |
 
-返回：schema 列表。
+返回：schema 列表；任一所需副本失败时返回空列表，不返回部分结果。
 
 结构：
 
@@ -298,7 +298,7 @@ func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableRe
 |---|---|
 | `duplicate_tables` | 为 true 时返回资源深拷贝，避免调用方修改数据库资源内数据。 |
 
-返回：表资源列表。
+返回：表资源列表；任一所需副本失败时返回空列表，不返回部分结果。
 
 结构：
 
@@ -324,7 +324,7 @@ func get_table_resource(table_name: StringName, duplicate_table: bool = true) ->
 | `table_name` | 表名。 |
 | `duplicate_table` | 为 true 时返回资源深拷贝，避免调用方修改数据库资源内数据。 |
 
-返回：配置表资源；未命中时返回 null。
+返回：配置表资源；未命中或所需副本失败时返回 null。
 
 <a id="member-gfconfigdatabaseresource-methods-validate_database"></a>
 
@@ -380,4 +380,4 @@ func duplicate_database() -> GFConfigDatabaseResource:
 
 创建同内容拷贝，避免运行时修改污染共享 Resource。
 
-返回：新配置数据库资源。
+返回：新配置数据库资源；任一表的 schema 复制失败时返回 null。

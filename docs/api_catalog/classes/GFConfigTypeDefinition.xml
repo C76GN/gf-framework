@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigTypeDefinition" path="addons/gf/standard/utilities/config/gf_config_type_definition.gd" module="standard" extends="Resource" classDigest="64ed2b8fdafb822fcc789743ef7ae9ca2f883e9484cb74d48319b6e261c8b9e0">
+	<description>GFConfigTypeDefinition: 配置值的结构化类型声明。
+同一资源用于导入规范化、校验和生成描述；每次调用建立有限编译会话，
+不缓存调用之间可能改变的资源。结构字段使用 GFConfigTableColumn 的约束。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Kind">
+			<signature>enum Kind {
+	## 沿用字段标量转换。
+	SCALAR,
+	## 具有明确字段及可选基类的字典。
+	STRUCT,
+	## 具有统一元素类型的数组。
+	ARRAY,
+	## 具有受限键类型及统一值类型的字典。
+	MAP,
+	## 具有明确符号及整数值的枚举。
+	ENUM,
+	## 由判别字段选择具名结构分支的字典。
+	POLYMORPHIC,
+}</signature>
+			<description>配置值的可编译形状。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="kind" decorators="@export">
+			<signature>var kind: Kind = Kind.SCALAR</signature>
+			<description>类型形状；只有对应形状的字段可以设置非默认值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="type_name" decorators="@export">
+			<signature>var type_name: StringName = &amp;""</signature>
+			<description>供生成器及多态分支使用的稳定名称；多态分支必须非空且唯一。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="allow_null" decorators="@export">
+			<signature>var allow_null: bool = false</signature>
+			<description>容器元素或直接类型调用是否允许 null；字段位置由 column.allow_null 决定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="scalar_type" decorators="@export">
+			<signature>var scalar_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING</signature>
+			<description>SCALAR 的标量类型；不接受 ANY、ARRAY 或 DICTIONARY。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="fields" decorators="@export">
+			<signature>var fields: Array[GFConfigTableColumn] = []</signature>
+			<description>STRUCT 自己声明的字段；继承字段在前，禁止覆盖任何基类字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="base_type" decorators="@export">
+			<signature>var base_type: GFConfigTypeDefinition = null</signature>
+			<description>STRUCT 的可选基类；只接受 STRUCT，整个定义图不允许循环。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="element_type" decorators="@export">
+			<signature>var element_type: GFConfigTypeDefinition = null</signature>
+			<description>ARRAY 的元素类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="map_key_type" decorators="@export">
+			<signature>var map_key_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING</signature>
+			<description>MAP 的键类型；只允许 STRING、STRING_NAME 和 INT，转换后重复键失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="map_value_type" decorators="@export">
+			<signature>var map_value_type: GFConfigTypeDefinition = null</signature>
+			<description>MAP 的值类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="symbols" decorators="@export">
+			<signature>var symbols: Dictionary = {}</signature>
+			<description>ENUM 的具名整数值；符号及整数值均必须唯一。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">symbols: Dictionary，非空 String 或 StringName 符号映射到唯一 int 值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="discriminator" decorators="@export">
+			<signature>var discriminator: StringName = &amp;"type"</signature>
+			<description>POLYMORPHIC 的必需判别字段；不得与任何分支的结构字段重名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="variants" decorators="@export">
+			<signature>var variants: Array[Resource] = []</signature>
+			<description>POLYMORPHIC 的可选分支；每项必须是具名 GFConfigTypeDefinition STRUCT。
+使用 Resource 数组避免默认值数组持有当前脚本自身，正式编译逐项检查类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="validate_definition">
+			<signature>func validate_definition(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>校验类型图、字段约束和默认值，不修改声明资源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 调用期预算与诊断上下文。</tag>
+				<tag name="return">校验报告，错误保留字段路径。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits，以及 source、field、field_path 和 field_segments。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、issues、error_count、warning_count。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compile_definition">
+			<signature>func compile_definition(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>在同一有限会话内编译类型并返回纯数据描述。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 调用期预算与诊断上下文。</tag>
+				<tag name="return">编译报告；失败时 definition 为空字典且 issues 保留原因。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits，以及来源上下文。</tag>
+				<tag name="schema">return: Dictionary，校验报告附加 definition；成功描述包含 kind、type_name、allow_null 及当前形状的字段，不含 Resource 引用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_normalize">
+			<signature>func try_normalize(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>规范化并校验一个值，始终返回隔离副本。
+任一类型、规则、预算或未知字段失败时 value 为 null，不返回部分成功数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 不会被修改的输入值。</tag>
+				<tag name="param">options: 预算、来源与标量转换选项。</tag>
+				<tag name="return">校验报告及规范化值。</tag>
+				<tag name="schema">value: Variant，符合所声明结构的标量、Array 或 Dictionary；不接受循环集合或对象。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits、coerce_values（默认 true）及 field_path、field_segments 等来源上下文。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、value、issues、error_count、warning_count 和 message；失败时 value 为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe">
+			<signature>func describe(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>有界描述声明结构，不执行默认值及业务值规则。
+ok 只说明结构可描述，不代替 validate_definition 或 compile_definition 的默认值准入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 调用期预算与来源上下文。</tag>
+				<tag name="return">包含 definition 的结构报告；无效结构不会伪装成空的合法定义。</tag>
+				<tag name="schema">options: Dictionary，与 compile_definition 的选项相同。</tag>
+				<tag name="schema">return: Dictionary，与 compile_definition 具有相同报告形状；仅校验声明结构，失败 definition 为空且 ok 为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_duplicate_definition">
+			<signature>func try_duplicate_definition(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>有界复制原始类型图，保留待校验声明且不执行值规则。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 调用期预算。</tag>
+				<tag name="return">校验报告与复制后的 definition；失败时为 null。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、issues、error_count、warning_count、definition；definition 为独立 GFConfigTypeDefinition 或 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_definition">
+			<signature>func duplicate_definition(options: Dictionary = {}) -&gt; GFConfigTypeDefinition:</signature>
+			<description>复制原始声明；循环或超预算时返回 null，详细原因由 try_duplicate_definition 提供。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 调用期预算。</tag>
+				<tag name="return">独立类型资源；失败时为 null。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

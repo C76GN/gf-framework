@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="9565ea6e4ab5d616ea6d5601145ee6c50a755d6d0616510f37f7c44106354d6d">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="02a1fecde71ed02ea38f77c4f69b4fb70f06324ff35b62ec963f7f00b7eda0e0">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
-也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
+也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。
+结构化字段只接纳正式 Schema/Column/TypeDefinition Resource，经同一类型编译器检查；
+Dictionary 或自定义 Object 声明仅支持既有非结构化列，不能导入 describe 报告。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
@@ -38,6 +40,18 @@
 	</constants>
 	<properties />
 	<methods>
+		<member kind="method" name="get_capabilities">
+			<signature>static func get_capabilities() -&gt; Dictionary:</signature>
+			<description>返回此 GDScript 后端实际支持的源声明与生成表示。
+结构包装是已接纳配置数据的类型投影，不代替运行时 schema 校验。
+可空标量使用存在性查询及类型默认值；容器使用包装对象而非嵌套泛型声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">每次调用新建的能力描述。</tag>
+				<tag name="schema">return: Dictionary，包含 version、backend、structured_source_admission、legacy_dictionary_schemas、descriptor_import、kinds、struct_inheritance、containers、nullable_scalars、enum、polymorphism、ownership 和 runtime_validation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="generate">
 			<signature>func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -&gt; Error:</signature>
 			<description>根据 schema 列表生成访问器并写入文件。</description>
@@ -92,7 +106,7 @@
 			<signature>func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -&gt; String:</signature>
 			<description>根据 schema 列表生成访问器源码。
 SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利方法的结果中。
-需要验证完整发射时，使用 build_source_with_report()。</description>
+结构化定义无效时返回空字符串；需要验证完整发射及原因时，使用 build_source_with_report()。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">schemas: 带有 `table_name` 或 `table_key` 属性的 schema 列表。</tag>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableColumn" path="addons/gf/standard/utilities/config/gf_config_table_column.gd" module="standard" extends="Resource" classDigest="045863ccc5e2c3cd59e11d66e04c735502141f8bb0cf8ca225007d26c1a272fa">
+<class name="GFConfigTableColumn" path="addons/gf/standard/utilities/config/gf_config_table_column.gd" module="standard" extends="Resource" classDigest="8df2a8f30fb41b9877a3640cf150a237ed8cb4ef8740aa826af80fdc2a37c04a">
 	<description>GFConfigTableColumn: 导表字段声明。
 只描述字段名、值类型、必填性、空值策略和默认值，不绑定任何具体业务表。</description>
 	<tags>
@@ -37,6 +37,7 @@
 			<description>导表字段值类型，用于导入与运行时校验。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -47,6 +48,7 @@
 			<description>字段名。建议和导表列名保持一致。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="value_type" decorators="@export">
@@ -54,6 +56,16 @@
 			<description>字段值类型。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="type_definition" decorators="@export">
+			<signature>var type_definition: GFConfigTypeDefinition = null</signature>
+			<description>可选结构化类型；设置后由该定义决定值形状，value_type 只保留旧资源字段兼容。
+字段的 required、allow_null、default_value 及整值规则继续生效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required" decorators="@export">
@@ -61,6 +73,7 @@
 			<description>是否必须出现在记录中。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_null" decorators="@export">
@@ -68,6 +81,7 @@
 			<description>是否允许 null 值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_value" decorators="@export">
@@ -76,6 +90,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">default_value: Variant，字段缺失时复制到记录中的默认值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="validation_rules" decorators="@export">
@@ -84,6 +99,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">validation_rules: Array，包含作用于当前字段的 GFConfigValidationRule 资源。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="element_validation_rules" decorators="@export">
@@ -104,6 +120,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">metadata: Dictionary，保存编辑器、导入器或项目层附加到当前字段的元数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -114,6 +131,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">字段名。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="coerce_value">
@@ -125,17 +143,21 @@
 				<tag name="return">转换后的值。</tag>
 				<tag name="schema">value: Variant，按 value_type 转换的输入字段值。</tag>
 				<tag name="schema">return: Variant，按当前 value_type 转换后的值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_coerce_value">
-			<signature>func try_coerce_value(value: Variant) -&gt; Dictionary:</signature>
+			<signature>func try_coerce_value(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>尝试将输入值转换为当前列要求的类型，并返回转换报告。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 输入值。</tag>
-				<tag name="return">包含 ok、value 与 message 的转换报告。</tag>
+				<tag name="param">options: 结构化类型的调用期预算；旧标量转换忽略此选项。</tag>
+				<tag name="return">包含 ok、value 与 message 的转换报告；结构化失败时 value 为 null。</tag>
 				<tag name="schema">value: Variant，按 value_type 尝试转换的输入字段值。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits，以及来源字段路径。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、value 和 message 字段。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_value_valid">
@@ -146,23 +168,29 @@
 				<tag name="param">value: 待检查值。</tag>
 				<tag name="return">符合声明时返回 true。</tag>
 				<tag name="schema">value: Variant，按 value_type 与 allow_null 检查的字段值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_column">
-			<signature>func duplicate_column() -&gt; GFConfigTableColumn:</signature>
+			<signature>func duplicate_column(options: Dictionary = {}) -&gt; GFConfigTableColumn:</signature>
 			<description>创建同内容拷贝，避免运行时修改污染共享 Resource。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">新字段声明。</tag>
+				<tag name="param">options: 调用期复制预算；不执行默认值或业务规则。</tag>
+				<tag name="return">新字段声明；循环类型图或复制预算失败时为 null，非循环的无效声明原样保留。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="describe">
-			<signature>func describe() -&gt; Dictionary:</signature>
-			<description>导出字段声明摘要。</description>
+			<signature>func describe(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>有界导出结构化字段摘要，不执行默认值或业务规则。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">字段声明字典。</tag>
-				<tag name="schema">return: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata。</tag>
+				<tag name="param">options: 结构化描述的调用期预算。</tag>
+				<tag name="return">字段声明字典；结构化描述失败由 type_definition 报告保留，未复制的默认值及元数据为空。</tag>
+				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
+				<tag name="schema">return: Dictionary，包含 field_name、value_type、type_definition、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata；type_definition 为 null 或保留 ok/issues/definition 的编译报告。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

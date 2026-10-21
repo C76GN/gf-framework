@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="4ac8250ef4dc41bed446b7d3a3cd7bec12d306654cd11b3c30dcc0d8338504ba">
+<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="0b217ef0ffe984410cd616d72325cd02ff79ecc9dc04c8bb346a4fc507bdb02e">
 	<description>GFResourceConfigProvider: 读取 GFConfigTableResource 的运行时配置 Provider。
 用于把导表工具生成的 `.tres` / `.res` 表资源接入 `GFConfigProvider` 查询协议。
 它只处理通用表资源注册、表查询和记录查询，不绑定业务字段、构建 profile 或热更新策略。</description>
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">table_resource: 要注册的配置表资源。</tag>
-				<tag name="return">注册成功返回 true。</tag>
+				<tag name="return">注册成功返回 true；schema 复制失败返回 false 并保留同名旧表。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -55,7 +55,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">duplicate_tables: 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。</tag>
-				<tag name="return">配置表资源列表。</tag>
+				<tag name="return">配置表资源列表；任一所需副本失败时返回空列表，不返回部分结果。</tag>
 				<tag name="schema">return: Array[GFConfigTableResource]，每个元素是一张配置表资源。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -67,7 +67,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">database: 配置数据库资源。</tag>
 				<tag name="param">duplicate_tables: 为 true 时把表资源副本注册到 Provider。</tag>
-				<tag name="return">新 Resource Provider；database 为空时返回 null。</tag>
+				<tag name="return">新 Resource Provider；database 为空、表副本或任一表注册失败时返回 null。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

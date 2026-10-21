@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "91c164018462cef1270e490930df84aac5247ed4063a36f3501a944fb0d806e9",
-  "class_count": 876,
+  "source_digest": "638416eaec91d8df63a05aa250b8c4f38039dc6a79199751e8a561aa403eedfe",
+  "class_count": 877,
   "autoload_count": 1,
   "package_count": 61,
   "packages": [
@@ -18999,6 +18999,13 @@
         },
         {
           "kind": "func",
+          "name": "get_capabilities",
+          "signature": "static func get_capabilities() -> Dictionary",
+          "summary": "返回此 GDScript 后端实际支持的源声明与生成表示。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "generate",
           "signature": "func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Error",
           "summary": "根据 schema 列表生成访问器并写入文件。",
@@ -19788,7 +19795,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 5",
+          "signature": "const IMPLEMENTATION_VERSION: int = 6",
           "summary": "Layout 阶段的实现版本；改变布局解析语义时递增。",
           "visibility": "public"
         },
@@ -20036,6 +20043,13 @@
         },
         {
           "kind": "func",
+          "name": "inspect_profile_path",
+          "signature": "func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "加载并完整校验 Profile，返回本次已封存 IR 的结构与来源摘要，不写入任何产物。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "export_profile_path",
           "signature": "func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
           "summary": "从 Profile 路径构建并保存配置数据库资源。",
@@ -20239,7 +20253,7 @@
           "kind": "var",
           "name": "parse_options",
           "signature": "var parse_options: Dictionary = {}",
-          "summary": "传给解析器的选项，例如 CSV delimiter、trim_cells、skip_empty_lines、comment_prefixes、condition_symbols，ConfigFile section_field、include_empty_sections，或 XLSX sheet_name、sheet_index、header_row。",
+          "summary": "传给解析器的选项。CSV/XLSX 可显式使用 layout 把物理单元格映射为嵌套记录；类型转换仍由 schema 统一执行。",
           "visibility": "public"
         },
         {
@@ -20307,7 +20321,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 3",
+          "signature": "const IMPLEMENTATION_VERSION: int = 4",
           "summary": "Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。",
           "visibility": "public"
         },
@@ -20369,7 +20383,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 4",
+          "signature": "const IMPLEMENTATION_VERSION: int = 5",
           "summary": "Validation 阶段的实现版本；改变语义校验或 IR 生成语义时递增。",
           "visibility": "public"
         },
@@ -20989,6 +21003,13 @@
         },
         {
           "kind": "var",
+          "name": "type_definition",
+          "signature": "var type_definition: GFConfigTypeDefinition = null",
+          "summary": "可选结构化类型；设置后由该定义决定值形状，value_type 只保留旧资源字段兼容。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "required",
           "signature": "var required: bool = false",
           "summary": "是否必须出现在记录中。",
@@ -21046,7 +21067,7 @@
         {
           "kind": "func",
           "name": "try_coerce_value",
-          "signature": "func try_coerce_value(value: Variant) -> Dictionary",
+          "signature": "func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary",
           "summary": "尝试将输入值转换为当前列要求的类型，并返回转换报告。",
           "visibility": "public"
         },
@@ -21060,15 +21081,15 @@
         {
           "kind": "func",
           "name": "duplicate_column",
-          "signature": "func duplicate_column() -> GFConfigTableColumn",
+          "signature": "func duplicate_column(options: Dictionary = {}) -> GFConfigTableColumn",
           "summary": "创建同内容拷贝，避免运行时修改污染共享 Resource。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "describe",
-          "signature": "func describe() -> Dictionary",
-          "summary": "导出字段声明摘要。",
+          "signature": "func describe(options: Dictionary = {}) -> Dictionary",
+          "summary": "有界导出结构化字段摘要，不执行默认值或业务规则。",
           "visibility": "public"
         }
       ]
@@ -22185,8 +22206,15 @@
         {
           "kind": "func",
           "name": "coerce_record",
-          "signature": "func coerce_record(record: Dictionary) -> Dictionary",
+          "signature": "func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary",
           "summary": "按字段声明转换单条记录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_coerce_record",
+          "signature": "func try_coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary",
+          "summary": "在共享编译会话内转换记录，结构化字段失败时不返回部分结果。",
           "visibility": "public"
         },
         {
@@ -22199,15 +22227,161 @@
         {
           "kind": "func",
           "name": "duplicate_schema",
-          "signature": "func duplicate_schema() -> GFConfigTableSchema",
+          "signature": "func duplicate_schema(options: Dictionary = {}) -> GFConfigTableSchema",
           "summary": "创建同内容拷贝，避免运行时修改污染共享 Resource。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "describe",
-          "signature": "func describe() -> Dictionary",
-          "summary": "导出 schema 摘要。",
+          "signature": "func describe(options: Dictionary = {}) -> Dictionary",
+          "summary": "导出 schema 摘要；结构列在同一有限会话内描述，不执行默认值或业务规则。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFConfigTypeDefinition": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "standard",
+      "package_id": "gf.standard.config",
+      "path": "addons/gf/standard/utilities/config/gf_config_type_definition.gd",
+      "summary": "GFConfigTypeDefinition: 配置值的结构化类型声明。 同一资源用于导入规范化、校验和生成描述；每次调用建立有限编译会话， 不缓存调用之间可能改变的资源。结构字段使用 GFConfigTableColumn 的约束。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Kind",
+          "signature": "enum Kind {\n\t## 沿用字段标量转换。\n\tSCALAR,\n\t## 具有明确字段及可选基类的字典。\n\tSTRUCT,\n\t## 具有统一元素类型的数组。\n\tARRAY,\n\t## 具有受限键类型及统一值类型的字典。\n\tMAP,\n\t## 具有明确符号及整数值的枚举。\n\tENUM,\n\t## 由判别字段选择具名结构分支的字典。\n\tPOLYMORPHIC,\n}",
+          "summary": "配置值的可编译形状。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "kind",
+          "signature": "var kind: Kind = Kind.SCALAR",
+          "summary": "类型形状；只有对应形状的字段可以设置非默认值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "type_name",
+          "signature": "var type_name: StringName = &\"\"",
+          "summary": "供生成器及多态分支使用的稳定名称；多态分支必须非空且唯一。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "allow_null",
+          "signature": "var allow_null: bool = false",
+          "summary": "容器元素或直接类型调用是否允许 null；字段位置由 column.allow_null 决定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "scalar_type",
+          "signature": "var scalar_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING",
+          "summary": "SCALAR 的标量类型；不接受 ANY、ARRAY 或 DICTIONARY。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "fields",
+          "signature": "var fields: Array[GFConfigTableColumn] = []",
+          "summary": "STRUCT 自己声明的字段；继承字段在前，禁止覆盖任何基类字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "base_type",
+          "signature": "var base_type: GFConfigTypeDefinition = null",
+          "summary": "STRUCT 的可选基类；只接受 STRUCT，整个定义图不允许循环。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "element_type",
+          "signature": "var element_type: GFConfigTypeDefinition = null",
+          "summary": "ARRAY 的元素类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "map_key_type",
+          "signature": "var map_key_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING",
+          "summary": "MAP 的键类型；只允许 STRING、STRING_NAME 和 INT，转换后重复键失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "map_value_type",
+          "signature": "var map_value_type: GFConfigTypeDefinition = null",
+          "summary": "MAP 的值类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "symbols",
+          "signature": "var symbols: Dictionary = {}",
+          "summary": "ENUM 的具名整数值；符号及整数值均必须唯一。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "discriminator",
+          "signature": "var discriminator: StringName = &\"type\"",
+          "summary": "POLYMORPHIC 的必需判别字段；不得与任何分支的结构字段重名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "variants",
+          "signature": "var variants: Array[Resource] = []",
+          "summary": "POLYMORPHIC 的可选分支；每项必须是具名 GFConfigTypeDefinition STRUCT。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_definition",
+          "signature": "func validate_definition(options: Dictionary = {}) -> Dictionary",
+          "summary": "校验类型图、字段约束和默认值，不修改声明资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compile_definition",
+          "signature": "func compile_definition(options: Dictionary = {}) -> Dictionary",
+          "summary": "在同一有限会话内编译类型并返回纯数据描述。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_normalize",
+          "signature": "func try_normalize(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "规范化并校验一个值，始终返回隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "describe",
+          "signature": "func describe(options: Dictionary = {}) -> Dictionary",
+          "summary": "有界描述声明结构，不执行默认值及业务值规则。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_duplicate_definition",
+          "signature": "func try_duplicate_definition(options: Dictionary = {}) -> Dictionary",
+          "summary": "有界复制原始类型图，保留待校验声明且不执行值规则。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_definition",
+          "signature": "func duplicate_definition(options: Dictionary = {}) -> GFConfigTypeDefinition",
+          "summary": "复制原始声明；循环或超预算时返回 null，详细原因由 try_duplicate_definition 提供。",
           "visibility": "public"
         }
       ]
@@ -22226,7 +22400,7 @@
         {
           "kind": "const",
           "name": "CONTEXT_FIELDS",
-          "signature": "const CONTEXT_FIELDS: Array[String] = [\n\t\"row_key\",\n\t\"field\",\n\t\"source\",\n\t\"line\",\n\t\"column\",\n\t\"row_index\",\n\t\"column_index\",\n\t\"element_index\",\n\t\"rule_id\",\n\t\"value\",\n\t\"expected_value\",\n\t\"actual_value\",\n\t\"supported_values\",\n\t\"supported_values_count\",\n\t\"supported_values_sample\",\n\t\"supported_values_preview_hash\",\n\t\"supported_values_truncated\",\n\t\"supported_formats\",\n\t\"supported_content_types\",\n]",
+          "signature": "const CONTEXT_FIELDS: Array[String] = [\n\t\"row_key\",\n\t\"field\",\n\t\"field_path\",\n\t\"field_segments\",\n\t\"source\",\n\t\"line\",\n\t\"column\",\n\t\"row_index\",\n\t\"column_index\",\n\t\"sheet_name\",\n\t\"sheet_path\",\n\t\"cell\",\n\t\"element_index\",\n\t\"rule_id\",\n\t\"value\",\n\t\"expected_value\",\n\t\"actual_value\",\n\t\"supported_values\",\n\t\"supported_values_count\",\n\t\"supported_values_sample\",\n\t\"supported_values_preview_hash\",\n\t\"supported_values_truncated\",\n\t\"supported_formats\",\n\t\"supported_content_types\",\n]",
           "summary": "从校验上下文复制到单条 issue 的字段名。element_index 表示原始字段内从 0 开始的数组元素位置，不替换 field。",
           "visibility": "public"
         },

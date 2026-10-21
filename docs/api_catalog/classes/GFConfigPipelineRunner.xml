@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineRunner" path="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" module="tools" extends="RefCounted" classDigest="32eb72290c9a91bbb3c7adc9219c5b2da48c5190caa6fc5b4a94d012a3e09913">
+<class name="GFConfigPipelineRunner" path="addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd" module="tools" extends="RefCounted" classDigest="416edf869125da5cc281dc7eb825662cb7ed49f8fae5a462a6209d61b9c9a7c4">
 	<description>GFConfigPipelineRunner: 配置导表 Profile 的 Godot 原生运行入口。
 负责从 Godot 资源路径加载 GFConfigPipelineProfile，并调用 GFConfigPipeline 构建或导出。
 Runner 不处理命令行参数、编辑器 UI、外部进程、项目目录约定或发布策略。</description>
@@ -37,6 +37,21 @@ Runner 不处理命令行参数、编辑器 UI、外部进程、项目目录约�
 				<tag name="schema">options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
 				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、error_code 和 error。</tag>
 				<tag name="since">5.2.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="inspect_profile_path">
+			<signature>func inspect_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>加载并完整校验 Profile，返回本次已封存 IR 的结构与来源摘要，不写入任何产物。
+摘要只在整批构建成功后交付，不包含记录值；失败保留原校验报告，不显示部分表为已生效。
+来源收据取自本次实际读取，结构取自同一次构建的 IR，不重新推导或重新读取来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: Profile 的 res:// 或 user:// 资源路径。</tag>
+				<tag name="param">options: 与 build_profile_path 相同的加载和构建覆盖选项。</tag>
+				<tag name="return">无数据记录载荷的只读检查报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes 和 work_limits；inspect 强制完整数据库与 Schema 校验。</tag>
+				<tag name="schema">return: Dictionary，包含 success、operation、profile_path、profile_id、report、schema_report、error_code 和 error；schema_report 成功时包含 format、format_version、database_id、version、table_count、tables 和 target_capabilities，每表含 table_name、source_path、source_format、record_count、schema、schema_origin、source_receipt 和 header_location；schema_origin 为 explicit、typed_headers、inferred 或 none；失败时 schema_report 为空。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="export_profile_path">

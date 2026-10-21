@@ -17,6 +17,7 @@
 |---|---|---|
 | 方法 | [`load_profile`](#member-gfconfigpipelinerunner-methods-load_profile) | `func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`build_profile_path`](#member-gfconfigpipelinerunner-methods-build_profile_path) | `func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`inspect_profile_path`](#member-gfconfigpipelinerunner-methods-inspect_profile_path) | `func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`export_profile_path`](#member-gfconfigpipelinerunner-methods-export_profile_path) | `func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:` |
 
 ## 方法
@@ -74,6 +75,33 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 
 - `options`: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
 - `return`: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、error_code 和 error。
+
+<a id="member-gfconfigpipelinerunner-methods-inspect_profile_path"></a>
+
+### `inspect_profile_path`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
+```
+
+加载并完整校验 Profile，返回本次已封存 IR 的结构与来源摘要，不写入任何产物。 摘要只在整批构建成功后交付，不包含记录值；失败保留原校验报告，不显示部分表为已生效。 来源收据取自本次实际读取，结构取自同一次构建的 IR，不重新推导或重新读取来源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `profile_path` | Profile 的 res:// 或 user:// 资源路径。 |
+| `options` | 与 build_profile_path 相同的加载和构建覆盖选项。 |
+
+返回：无数据记录载荷的只读检查报告。
+
+结构：
+
+- `options`: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes 和 work_limits；inspect 强制完整数据库与 Schema 校验。
+- `return`: Dictionary，包含 success、operation、profile_path、profile_id、report、schema_report、error_code 和 error；schema_report 成功时包含 format、format_version、database_id、version、table_count、tables 和 target_capabilities，每表含 table_name、source_path、source_format、record_count、schema、schema_origin、source_receipt 和 header_location；schema_origin 为 explicit、typed_headers、inferred 或 none；失败时 schema_report 为空。
 
 <a id="member-gfconfigpipelinerunner-methods-export_profile_path"></a>
 

@@ -41,7 +41,24 @@ var source := GFConfigAccessGenerator.new().build_source(
 )
 ```
 
-生成的包装类只包裹 provider 返回的 `Dictionary`，字段 getter 也只做通用类型收窄，不把业务枚举、默认值策略或表间规则写入框架。`columns` 可以来自 `GFConfigTableColumn` 资源，也可以是 `{ "field_name": "id", "value_type": "int" }` 这类外部工具字典；不符合字段声明的数据仍应由导入校验或项目运行时策略处理。
+普通字段的包装类对 provider 返回的 `Dictionary` 提供类型收窄。简单字段仍可使用 `{ "field_name": "id", "value_type": "int" }` 这类外部工具字典；复杂字段必须使用真实的 `GFConfigTableSchema`、`GFConfigTableColumn` 和 `GFConfigTypeDefinition` 资源，复用导入阶段的类型编译与定义校验。描述报告用于查看，不能反向当作类型声明导入。
+
+### 复杂类型访问
+
+开启 `include_typed_records` 后，结构字段生成专用包装类，继承结构保留父类关系，枚举生成整数常量，多态字段提供类型标签和分支访问。Array 和 Map 生成具名容器包装，使用 `get_at()` 或 `get_value()` 访问元素；这样可以表达嵌套容器，同时遵守 GDScript 的类型限制。缺失与 null 有独立查询，调用方应先检查再消费类型 getter 的返回值。
+
+包装对象持有隔离快照；通过 `to_array()`、`to_dictionary()` 取得的数据也不会反向修改包装对象。生成代码不执行运行期 Schema 校验，项目仍须通过构建、加载或自己的激活链接纳数据。
+
+`GFConfigAccessGenerator.get_capabilities()` 返回独立的能力描述，便于工具判断是否支持当前类型：
+
+| 能力 | GDScript 目标 |
+| --- | --- |
+| 标量、结构、结构继承 | 支持 |
+| Array、Map、枚举、多态 | 支持，以具名包装表达嵌套容器 |
+| null 与缺失状态 | 可查询 |
+| 字典描述反向构造复杂类型 | 不支持；使用类型资源 |
+| 运行期自动校验、迁移 | 由数据接纳链负责 |
+| 其他语言目标 | 不支持 |
 
 使用 `gf.tool.config_pipeline` 时，也可以在 `GFConfigPipelineProfile.access_output_path` 中配置访问器输出路径，让一次导表同时保存配置数据库并生成访问器脚本。该串联仍是制作期动作，运行时只依赖生成后的脚本和项目实际安装的 provider。
 

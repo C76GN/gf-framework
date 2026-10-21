@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigValidationReport" path="addons/gf/standard/utilities/config/gf_config_validation_report.gd" module="standard" extends="RefCounted" classDigest="a86ad1bf0c23674cef5ac1bda09ad2401c7ab02bcd5c5fd720904b40194de0ea">
+<class name="GFConfigValidationReport" path="addons/gf/standard/utilities/config/gf_config_validation_report.gd" module="standard" extends="RefCounted" classDigest="c9dc05488239e7d227e7ca4e56fb4c32f149d2b98a18b68f45fc65f16295f8b1">
 	<description>GFConfigValidationReport: 配置表校验报告构建工具。
 统一创建、合并和补全配置表校验报告，保证 schema、导入器、引用解析和补丁合并使用相同问题结构。</description>
 	<tags>
@@ -14,11 +14,16 @@
 			<signature>const CONTEXT_FIELDS: Array[String] = [
 	"row_key",
 	"field",
+	"field_path",
+	"field_segments",
 	"source",
 	"line",
 	"column",
 	"row_index",
 	"column_index",
+	"sheet_name",
+	"sheet_path",
+	"cell",
 	"element_index",
 	"rule_id",
 	"value",

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigProvider" path="addons/gf/standard/utilities/config/gf_config_provider.gd" module="standard" extends="GFUtility" classDigest="272c3bfe85598ff0e50a824c5514b589ca6b5060a7d1e6fffb6b2dfc1be5d8e7">
+<class name="GFConfigProvider" path="addons/gf/standard/utilities/config/gf_config_provider.gd" module="standard" extends="GFUtility" classDigest="7d9b4d2bc091a28846c0aa3eafdf4e81e90cda5be5d0469684dbdb794df2294f">
 	<description>GFConfigProvider: 通用的静态导表数据适配器基类。
 为了让框架无缝衔接不同项目的导表工具（JSON、CSV 或自定义流水线），提供统一的读取接口。
 具体项目应该继承此基类，并实现其数据加载和查询逻辑。</description>
@@ -23,6 +23,7 @@
 				<tag name="return">返回对应的记录数据，默认返回 null 并报错。</tag>
 				<tag name="schema">_id: Variant，项目配置表使用的记录键，通常为 String、StringName 或 int。</tag>
 				<tag name="schema">return: Variant，子类通常返回记录 Dictionary 或项目自定义记录对象；未命中时可返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_table">
@@ -33,6 +34,7 @@
 				<tag name="param">_table_name: 表名。</tag>
 				<tag name="return">返回整张表的数据，默认返回 null 并报错。</tag>
 				<tag name="schema">return: Variant，子类通常返回 Array[Dictionary]、Dictionary 或项目自定义表容器；未命中时可返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_schema">
@@ -41,7 +43,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">schema: 表结构声明。</tag>
-				<tag name="return">注册成功返回 true。</tag>
+				<tag name="return">注册成功返回 true；schema 无法复制时返回 false，并保留同名旧声明。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_schema">
@@ -50,6 +53,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">table_name: 表名。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_schema">
@@ -59,6 +63,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">table_name: 表名。</tag>
 				<tag name="return">已注册返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_schema">
@@ -67,7 +72,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">table_name: 表名。</tag>
-				<tag name="return">已注册时返回 schema 拷贝，否则返回 null。</tag>
+				<tag name="return">已注册时返回 schema 拷贝；未注册或复制失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_schema_ids">
@@ -76,6 +82,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">表名列表。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_record">
@@ -92,6 +99,7 @@
 				<tag name="schema">row_key: Variant，写入校验报告 issue 的行标识。</tag>
 				<tag name="schema">options: Dictionary，可包含 source、line、column、row_index、column_index 和 row_locations。</tag>
 				<tag name="schema">return: GFConfigValidationReport 兼容 Dictionary。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_table">
@@ -119,6 +127,7 @@
 				<tag name="return">转换后的新记录；缺少 schema 时返回记录拷贝。</tag>
 				<tag name="schema">record: Dictionary，待转换的配置记录，键为字段名，值为字段数据。</tag>
 				<tag name="schema">return: Dictionary，转换后的记录副本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

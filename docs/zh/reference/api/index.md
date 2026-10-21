@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`901`
+- 公开类：`902`
 - 公开 AutoLoad：`1`
-- 公开成员：`12934`
-- 公开方法：`8072`
+- 公开成员：`12957`
+- 公开方法：`8081`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -16,7 +16,7 @@
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
 | Kernel | 78 | 1 | 1214 | 898 | [kernel.md](kernel.md) |
-| Standard | 491 | 0 | 7702 | 4914 | [standard.md](standard.md) |
+| Standard | 492 | 0 | 7723 | 4921 | [standard.md](standard.md) |
 | Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -35,7 +35,7 @@
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
 | Save | 52 | 0 | 659 | 418 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |
-| Tools | 26 | 0 | 212 | 146 | [tools.md](tools.md) |
+| Tools | 26 | 0 | 214 | 148 | [tools.md](tools.md) |
 
 ## Owner 索引
 

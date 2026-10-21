@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [值对象](#category-value_object) | 1 | 4 | 4 |
 | [编辑器 API](#category-editor_api) | 2 | 14 | 7 |
-| [工具 API](#category-tool_api) | 23 | 194 | 135 |
+| [工具 API](#category-tool_api) | 23 | 196 | 137 |
 
 ## 类
 

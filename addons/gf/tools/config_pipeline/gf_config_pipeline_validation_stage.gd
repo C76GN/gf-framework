@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.validation.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 4
+const IMPLEMENTATION_VERSION: int = 5
 
 
 # --- 公共方法 ---
@@ -64,7 +64,7 @@ func compile_table(
 	var table_name: StringName = source.get_table_key()
 	var resolved_format: StringName = source.get_resolved_format()
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
-	var parse_overrides: Dictionary = GFVariantData.get_option_dictionary(options, "parse_options")
+	var parse_overrides: Dictionary = GFVariantData.as_dictionary(options.get("parse_options"))
 	if (
 		source.parse_options.has("work_limits")
 		or source.parse_options.has("work_budget")
@@ -168,26 +168,50 @@ func compile_table(
 	var schema_to_copy: GFConfigTableSchema = source.schema if source.schema != null else declared_schema
 	if not _admit_schema_copy(schema_to_copy, budget):
 		return _make_budget_failure(source, budget)
+	var copy_options: Dictionary = { "work_budget": budget }
+	var copier: GFConfigTypeCopier = GFConfigTypeCopier.new(copy_options)
+	copy_options["__gf_config_type_copier"] = copier
 	var schema: GFConfigTableSchema = _resolve_schema(
 		source,
 		table_name,
 		records,
-		declared_schema
+		declared_schema,
+		copy_options
 	)
+	if schema_to_copy != null and schema == null:
+		if not budget.is_ok():
+			return _make_budget_failure(source, budget)
+		return {
+			"success": false,
+			"phase": "validation",
+			"ir": null,
+			"report": copier.get_report(),
+			"source_path": source.source_path,
+			"format": resolved_format,
+			"error_kind": "schema_copy_failed",
+			"error": "无法复制配置类型声明。",
+		}
 	if schema != null and not _admit_schema_work(
 		records,
 		schema,
 		budget
 	):
 		return _make_budget_failure(source, budget)
+	var validation_options: Dictionary = options.duplicate()
+	var _removed_limits: bool = validation_options.erase("work_limits")
+	validation_options["work_budget"] = budget
 	var report: Dictionary = _validate_table_source(
 		source,
 		table_name,
 		records,
 		schema,
 		working_layout,
-		options
+		validation_options
 	)
+	var normalized_data: Variant = report.get("data")
+	var _removed_data: bool = report.erase("data")
+	if not budget.is_ok():
+		return _make_budget_failure(source, budget)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return {
 			"success": false,
@@ -204,7 +228,16 @@ func compile_table(
 		and schema.coerce_values
 		and source.coerce_records
 	):
-		records = _coerce_records(records, schema)
+		if not (normalized_data is Array):
+			return _make_compile_failure(
+				table_name,
+				"missing_normalized_data",
+				"校验成功但缺少规范化记录。",
+				source.source_path,
+				resolved_format
+			)
+		var normalized_records: Array = normalized_data
+		records.assign(normalized_records)
 	if not budget.admit_value(records, "validation.final_records"):
 		return _make_budget_failure(source, budget)
 
@@ -260,6 +293,10 @@ func get_stage_descriptor() -> Dictionary:
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_schema.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_column.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_type_definition.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_type_compiler.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_type_copier.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_element_validation.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_index_definition.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_reference.gd",
 			"res://addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd",
@@ -344,30 +381,7 @@ func _admit_schema_copy(schema: GFConfigTableSchema, budget: GFConfigWorkBudget)
 ## @api private
 func _admit_rule_copies(rules: Array[GFConfigValidationRule], budget: GFConfigWorkBudget) -> bool:
 	for rule: GFConfigValidationRule in rules:
-		if rule == null:
-			continue
-		if not budget.admit_value(
-			[rule.rule_id, rule.metadata],
-			"validation.rule_clone"
-		):
-			return false
-		var payload: Variant = null
-		if rule is GFConfigSetValidationRule:
-			var set_rule: GFConfigSetValidationRule = rule
-			payload = set_rule.allowed_values
-		elif rule is GFConfigNotDefaultValidationRule:
-			var default_rule: GFConfigNotDefaultValidationRule = rule
-			payload = default_rule.default_value
-		elif rule is GFConfigLocalizationKeyValidationRule:
-			var localization_rule: GFConfigLocalizationKeyValidationRule = rule
-			payload = [localization_rule.known_keys, localization_rule.text_map]
-		elif rule is GFConfigResourcePathValidationRule:
-			var path_rule: GFConfigResourcePathValidationRule = rule
-			payload = path_rule.allowed_extensions
-		elif rule is GFConfigRegexValidationRule:
-			var regex_rule: GFConfigRegexValidationRule = rule
-			payload = regex_rule.pattern
-		if not budget.admit_value(payload, "validation.rule_payload_clone"):
+		if not GFConfigTypeCopier.admit_rule_copy(rule, budget):
 			return false
 	return budget.is_ok()
 
@@ -480,13 +494,16 @@ func _resolve_schema(
 	source: GFConfigPipelineTableSource,
 	table_name: StringName,
 	records: Array[Dictionary],
-	declared_schema: GFConfigTableSchema = null
+	declared_schema: GFConfigTableSchema,
+	copy_options: Dictionary
 ) -> GFConfigTableSchema:
 	var source_schema: GFConfigTableSchema = source.schema
-	var schema: GFConfigTableSchema = source_schema.duplicate_schema() if source_schema != null else null
-	if schema == null and declared_schema != null:
-		schema = declared_schema.duplicate_schema()
-	if schema == null and source.infer_schema:
+	var schema: GFConfigTableSchema = null
+	if source_schema != null:
+		schema = source_schema.duplicate_schema(copy_options)
+	elif declared_schema != null:
+		schema = declared_schema.duplicate_schema(copy_options)
+	elif source.infer_schema:
 		schema = GFConfigTableSchema.infer_from_records(
 			table_name,
 			records,
@@ -536,17 +553,27 @@ func _validate_table_source(
 		validation_options["source"] = source.source_path
 	if parse_result.has("row_locations"):
 		validation_options["row_locations"] = GFVariantData.get_option_value(parse_result, "row_locations")
+	validation_options["work_budget"] = GFConfigWorkBudget.from_options(options)
+	for column: GFConfigTableColumn in schema.columns:
+		if column != null and column.type_definition != null:
+			validation_options["__gf_config_type_compiler"] = GFConfigTypeCompiler.new(validation_options)
+			break
 	report_builder.merge_report(
 		report,
 		schema.validate_definition(validation_options),
 		false
 	)
+	if not GFVariantData.get_option_bool(report, "ok"):
+		report_builder.finalize_report(report)
+		return report
+	var table_report: Dictionary = schema.validate_table(records, validation_options)
 	report_builder.merge_report(
 		report,
-		schema.validate_table(records, validation_options),
+		table_report,
 		false
 	)
 	report_builder.finalize_report(report)
+	report["data"] = table_report.get("data") if report["ok"] else null
 	return report
 
 
@@ -1095,17 +1122,6 @@ func _make_typed_header_failure(
 	}
 
 
-## 按输入顺序调用 schema.coerce_record() 转换每条记录并收集结果。
-## [br]
-## @api private
-## [br]
-func _coerce_records(records: Array[Dictionary], schema: GFConfigTableSchema) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for record: Dictionary in records:
-		result.append(schema.coerce_record(record))
-	return result
-
-
 ## 从来源元数据的深拷贝构造表元数据，并写入来源路径与解析格式。
 ## [br]
 ## @api private
@@ -1114,10 +1130,18 @@ func _make_table_metadata(source: GFConfigPipelineTableSource, resolved_format: 
 	var result: Dictionary = source.metadata.duplicate(true)
 	result["source_path"] = source.source_path
 	result["source_format"] = resolved_format
+	var schema_origin: String = "none"
+	if source.schema != null:
+		schema_origin = "explicit"
+	elif GFVariantData.get_option_bool(source.schema_options, "typed_headers"):
+		schema_origin = "typed_headers"
+	elif source.infer_schema:
+		schema_origin = "inferred"
+	result["schema_origin"] = schema_origin
 	return result
 
 
-## 生成来源映射，复制 source 与 row_locations，并附带可选的 header、sections。
+## 生成来源映射，保留物理表头、工作表和逐字段位置；不从转换后的数据重新猜测来源。
 ## [br]
 ## @api private
 ## [br]
@@ -1132,7 +1156,14 @@ func _make_source_map(layout_result: Dictionary) -> Dictionary:
 			)
 		),
 	}
-	for key: String in ["header", "sections"]:
+	for key: String in [
+		"header",
+		"header_location",
+		"sections",
+		"sheet_name",
+		"sheet_path",
+		"sheets",
+	]:
 		if layout_result.has(key):
 			result[key] = GFVariantData.duplicate_variant(layout_result[key])
 	return result

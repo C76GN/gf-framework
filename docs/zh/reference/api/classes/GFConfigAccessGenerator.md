@@ -9,7 +9,7 @@
 - 类别：工具 API (`tool_api`)
 - 首次版本：`3.17.0`
 
-生成静态导表访问器脚本。 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用， 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。
+生成静态导表访问器脚本。 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用， 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。 结构化字段只接纳正式 Schema/Column/TypeDefinition Resource，经同一类型编译器检查； Dictionary 或自定义 Object 声明仅支持既有非结构化列，不能导入 describe 报告。
 
 ## 成员概览
 
@@ -18,6 +18,7 @@
 | 常量 | [`DEFAULT_OUTPUT_PATH`](#member-gfconfigaccessgenerator-constants-default_output_path) | `const DEFAULT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.CONFIG_ACCESS_OUTPUT_PATH` |
 | 常量 | [`DEFAULT_CLASS_NAME`](#member-gfconfigaccessgenerator-constants-default_class_name) | `const DEFAULT_CLASS_NAME: String = "GFConfigAccess"` |
 | 常量 | [`DEFAULT_PROVIDER_ACCESSOR`](#member-gfconfigaccessgenerator-constants-default_provider_accessor) | `const DEFAULT_PROVIDER_ACCESSOR: String = "null"` |
+| 方法 | [`get_capabilities`](#member-gfconfigaccessgenerator-methods-get_capabilities) | `static func get_capabilities() -> Dictionary:` |
 | 方法 | [`generate`](#member-gfconfigaccessgenerator-methods-generate) | `func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`generate_with_report`](#member-gfconfigaccessgenerator-methods-generate_with_report) | `func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`build_source_with_report`](#member-gfconfigaccessgenerator-methods-build_source_with_report) | `func build_source_with_report( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:` |
@@ -67,6 +68,25 @@ const DEFAULT_PROVIDER_ACCESSOR: String = "null"
 默认 provider 获取表达式。
 
 ## 方法
+
+<a id="member-gfconfigaccessgenerator-methods-get_capabilities"></a>
+
+### `get_capabilities`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func get_capabilities() -> Dictionary:
+```
+
+返回此 GDScript 后端实际支持的源声明与生成表示。 结构包装是已接纳配置数据的类型投影，不代替运行时 schema 校验。 可空标量使用存在性查询及类型默认值；容器使用包装对象而非嵌套泛型声明。
+
+返回：每次调用新建的能力描述。
+
+结构：
+
+- `return`: Dictionary，包含 version、backend、structured_source_admission、legacy_dictionary_schemas、descriptor_import、kinds、struct_inheritance、containers、nullable_scalars、enum、polymorphism、ownership 和 runtime_validation。
 
 <a id="member-gfconfigaccessgenerator-methods-generate"></a>
 
@@ -171,7 +191,7 @@ func build_source_with_report( schemas: Array, access_class_name: String = DEFAU
 func build_source( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> String:
 ```
 
-根据 schema 列表生成访问器源码。 SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利方法的结果中。 需要验证完整发射时，使用 build_source_with_report()。
+根据 schema 列表生成访问器源码。 SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利方法的结果中。 结构化定义无效时返回空字符串；需要验证完整发射及原因时，使用 build_source_with_report()。
 
 参数：
 

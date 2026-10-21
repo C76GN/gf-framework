@@ -17,51 +17,71 @@ extends Resource
 ## Profile 稳定标识。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var profile_id: StringName = &""
 
 ## 为空时不限制包含分组；非空时 metadata 至少命中一个分组才通过。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var include_groups: PackedStringArray = PackedStringArray()
 
 ## 命中任意排除分组时过滤。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var exclude_groups: PackedStringArray = PackedStringArray()
 
 ## 为空时不限制包含标签；非空时 metadata 至少命中一个标签才通过。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var include_tags: PackedStringArray = PackedStringArray()
 
 ## 命中任意排除标签时过滤。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var exclude_tags: PackedStringArray = PackedStringArray()
 
 ## metadata 缺少 groups/tags 时是否默认保留。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var default_include: bool = true
 
 ## 记录中存放元数据的字段名。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var record_metadata_field: StringName = &"_metadata"
 
 ## metadata 中表示分组的键。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var groups_key: StringName = &"groups"
 
 ## metadata 中表示标签的键。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var tags_key: StringName = &"tags"
 
 ## 可选元数据，供项目工具扩展使用。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: Dictionary，保存项目工具附加到当前构建 Profile 的元数据。
 @export var metadata: Dictionary = {}
@@ -72,6 +92,8 @@ extends Resource
 ## 判断一份 metadata 是否通过当前 Profile。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param source_metadata: 待检查元数据。
 ## [br]
@@ -108,6 +130,8 @@ func allows_metadata(source_metadata: Dictionary) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param schema: 原 schema。
 ## [br]
 ## @return 过滤后的 schema；schema 为空时返回 null。
@@ -116,6 +140,8 @@ func filter_schema(schema: GFConfigTableSchema) -> GFConfigTableSchema:
 		return null
 
 	var result: GFConfigTableSchema = schema.duplicate_schema()
+	if result == null:
+		return null
 	result.columns = _filter_columns(result.columns)
 	result.indexes = _filter_indexes(
 		result.indexes,
@@ -133,6 +159,8 @@ func filter_schema(schema: GFConfigTableSchema) -> GFConfigTableSchema:
 ## 过滤表记录。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_data: Array[Dictionary] 或 Dictionary 表。
 ## [br]
@@ -170,6 +198,8 @@ func filter_records(table_data: Variant) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 新 Profile。
 func duplicate_profile() -> GFConfigBuildProfile:
 	return _variant_to_build_profile(duplicate(true))
@@ -178,6 +208,8 @@ func duplicate_profile() -> GFConfigBuildProfile:
 ## 导出 Profile 摘要。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return Profile 摘要字典。
 ## [br]

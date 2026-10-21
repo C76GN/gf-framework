@@ -1299,7 +1299,7 @@ func _make_profile_build_session(
 	var limits: Dictionary = {}
 	var option_layers: Array[Dictionary] = [
 		profile.build_options,
-		GFVariantData.get_option_dictionary(options, "build_options"),
+		GFVariantData.as_dictionary(options.get("build_options")),
 		options,
 	]
 	for layer: Dictionary in option_layers:
@@ -1382,7 +1382,7 @@ func _admit_source_options(source: GFConfigPipelineTableSource, options: Diction
 ## [br]
 ## @api private
 func _has_parse_budget_override(options: Dictionary) -> bool:
-	var parse_options: Dictionary = GFVariantData.get_option_dictionary(options, "parse_options")
+	var parse_options: Dictionary = GFVariantData.as_dictionary(options.get("parse_options"))
 	return parse_options.has("work_limits") or parse_options.has("work_budget")
 
 

@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`CONTEXT_FIELDS`](#member-gfconfigvalidationreport-constants-context_fields) | `const CONTEXT_FIELDS: Array[String] = [ 	"row_key", 	"field", 	"source", 	"line", 	"column", 	"row_index", 	"column_index", 	"element_index", 	"rule_id", 	"value", 	"expected_value", 	"actual_value", 	"supported_values", 	"supported_values_count", 	"supported_values_sample", 	"supported_values_preview_hash", 	"supported_values_truncated", 	"supported_formats", 	"supported_content_types", ]` |
+| 常量 | [`CONTEXT_FIELDS`](#member-gfconfigvalidationreport-constants-context_fields) | `const CONTEXT_FIELDS: Array[String] = [ 	"row_key", 	"field", 	"field_path", 	"field_segments", 	"source", 	"line", 	"column", 	"row_index", 	"column_index", 	"sheet_name", 	"sheet_path", 	"cell", 	"element_index", 	"rule_id", 	"value", 	"expected_value", 	"actual_value", 	"supported_values", 	"supported_values_count", 	"supported_values_sample", 	"supported_values_preview_hash", 	"supported_values_truncated", 	"supported_formats", 	"supported_content_types", ]` |
 | 方法 | [`make_report`](#member-gfconfigvalidationreport-methods-make_report) | `func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary:` |
 | 方法 | [`make_error_report`](#member-gfconfigvalidationreport-methods-make_error_report) | `func make_error_report( table_name: StringName, kind: String, message: String, context: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`add_issue`](#member-gfconfigvalidationreport-methods-add_issue) | `func add_issue( report: Dictionary, severity: String, kind: String, table_name: StringName, row_key: Variant, field_name: StringName, message: String, context: Dictionary = {} ) -> void:` |
@@ -35,11 +35,16 @@
 const CONTEXT_FIELDS: Array[String] = [
 	"row_key",
 	"field",
+	"field_path",
+	"field_segments",
 	"source",
 	"line",
 	"column",
 	"row_index",
 	"column_index",
+	"sheet_name",
+	"sheet_path",
+	"cell",
 	"element_index",
 	"rule_id",
 	"value",

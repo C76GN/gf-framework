@@ -4862,8 +4862,8 @@ func test_pipeline_validation_admits_default_depth_in_final_records() -> void:
 	)
 	assert_eq(
 		GFVariantData.get_option_string(budget_report, "context"),
-		"validation.final_records",
-		"默认值嵌入记录后的额外深度必须在 IR 复制前拒绝。"
+		"validation report data",
+		"默认值嵌入记录后的额外深度必须在校验报告及 IR 复制前拒绝。"
 	)
 	assert_true(result.get("ir") == null)
 
@@ -5840,9 +5840,9 @@ class _ReceiptMissingIrValidationStage extends GFConfigPipelineValidationStage:
 class _BudgetCloneCountingSchema extends GFConfigTableSchema:
 	var clone_count: int = 0
 
-	func duplicate_schema() -> GFConfigTableSchema:
+	func duplicate_schema(options: Dictionary = {}) -> GFConfigTableSchema:
 		clone_count += 1
-		return super.duplicate_schema()
+		return super.duplicate_schema(options)
 
 
 class _BudgetTestLayoutStage extends GFConfigPipelineLayoutStage:

@@ -38,6 +38,7 @@
 ### `profile_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var profile_id: StringName = &""
@@ -50,6 +51,7 @@ Profile 稳定标识。
 ### `include_groups`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var include_groups: PackedStringArray = PackedStringArray()
@@ -62,6 +64,7 @@ var include_groups: PackedStringArray = PackedStringArray()
 ### `exclude_groups`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var exclude_groups: PackedStringArray = PackedStringArray()
@@ -74,6 +77,7 @@ var exclude_groups: PackedStringArray = PackedStringArray()
 ### `include_tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var include_tags: PackedStringArray = PackedStringArray()
@@ -86,6 +90,7 @@ var include_tags: PackedStringArray = PackedStringArray()
 ### `exclude_tags`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var exclude_tags: PackedStringArray = PackedStringArray()
@@ -98,6 +103,7 @@ var exclude_tags: PackedStringArray = PackedStringArray()
 ### `default_include`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_include: bool = true
@@ -110,6 +116,7 @@ metadata 缺少 groups/tags 时是否默认保留。
 ### `record_metadata_field`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var record_metadata_field: StringName = &"_metadata"
@@ -122,6 +129,7 @@ var record_metadata_field: StringName = &"_metadata"
 ### `groups_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var groups_key: StringName = &"groups"
@@ -134,6 +142,7 @@ metadata 中表示分组的键。
 ### `tags_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var tags_key: StringName = &"tags"
@@ -146,6 +155,7 @@ metadata 中表示标签的键。
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -164,6 +174,7 @@ var metadata: Dictionary = {}
 ### `allows_metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func allows_metadata(source_metadata: Dictionary) -> bool:
@@ -188,6 +199,7 @@ func allows_metadata(source_metadata: Dictionary) -> bool:
 ### `filter_schema`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func filter_schema(schema: GFConfigTableSchema) -> GFConfigTableSchema:
@@ -208,6 +220,7 @@ func filter_schema(schema: GFConfigTableSchema) -> GFConfigTableSchema:
 ### `filter_records`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func filter_records(table_data: Variant) -> Variant:
@@ -233,6 +246,7 @@ func filter_records(table_data: Variant) -> Variant:
 ### `duplicate_profile`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func duplicate_profile() -> GFConfigBuildProfile:
@@ -247,6 +261,7 @@ func duplicate_profile() -> GFConfigBuildProfile:
 ### `describe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe() -> Dictionary:

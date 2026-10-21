@@ -43,19 +43,13 @@ const _ELEMENT_VALIDATION_SESSION_KEY: StringName = &"__gf_config_element_valida
 ## [br]
 ## @api private
 ## [br]
-const _MAX_ELEMENTS_PER_VALIDATION: int = 65536
+const _MAX_ELEMENTS_PER_VALIDATION: int = GFConfigElementValidation.MAX_ELEMENTS
 
 ## 一次 schema 验证可执行的元素规则检查总数上限。
 ## [br]
 ## @api private
 ## [br]
-const _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION: int = 262144
-
-## 单列可配置的元素验证规则数量上限。
-## [br]
-## @api private
-## [br]
-const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
+const _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION: int = GFConfigElementValidation.MAX_RULE_CHECKS
 
 
 # --- 导出变量 ---
@@ -63,16 +57,22 @@ const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 ## 表名。为空时可由调用方自行决定表标识。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var table_name: StringName = &""
 
 ## 记录 ID 字段。为空时不检查记录 ID。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var id_field: StringName = &"id"
 
 ## 字段声明列表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema columns: Array[GFConfigTableColumn]，定义当前表允许的字段和字段级校验规则。
 @export var columns: Array[GFConfigTableColumn] = []
@@ -80,21 +80,29 @@ const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 ## 是否允许记录包含 schema 未声明的字段。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var allow_extra_fields: bool = true
 
 ## 是否在校验前按字段声明尝试类型转换。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var coerce_values: bool = false
 
 ## 启用 coerce_values 时，转换失败是否作为校验错误。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var fail_on_coerce_error: bool = true
 
 ## 校验整表时是否要求 id_field 唯一。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var require_unique_id: bool = false
 
 ## 单次记录或整表校验最多执行的唯一资源路径存在性探测数。
@@ -131,12 +139,16 @@ const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema indexes: Array[GFConfigTableIndexDefinition]，定义当前表的复合索引和唯一性约束。
 @export var indexes: Array[GFConfigTableIndexDefinition] = []
 
 ## 可选跨表引用声明。引用目标由 `GFConfigReferenceResolver` 在多表上下文中校验。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema references: Array[GFConfigTableReference]，定义当前表到其他表的引用关系。
 @export var references: Array[GFConfigTableReference] = []
@@ -145,6 +157,8 @@ const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema record_validation_rules: Array[GFConfigValidationRule]，包含作用于单条记录的校验规则。
 @export var record_validation_rules: Array[GFConfigValidationRule] = []
 
@@ -152,12 +166,16 @@ const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema table_validation_rules: Array[GFConfigValidationRule]，包含作用于整张表的校验规则。
 @export var table_validation_rules: Array[GFConfigValidationRule] = []
 
 ## 可选元数据，供导入器、编辑器或项目层扩展使用。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @schema metadata: Dictionary，保存导入器、编辑器或项目层附加到当前 schema 的元数据。
 @export var metadata: Dictionary = {}
@@ -168,6 +186,8 @@ const _MAX_ELEMENT_RULES_PER_COLUMN: int = 64
 ## 从记录样本推导通用 schema。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param inferred_table_name: 推导出的表名。
 ## [br]
@@ -260,6 +280,8 @@ static func infer_from_records(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 表名。
 func get_table_key() -> StringName:
 	return table_name
@@ -268,6 +290,8 @@ func get_table_key() -> StringName:
 ## 获取字段声明。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param field_name: 字段名。
 ## [br]
@@ -283,6 +307,8 @@ func get_column(field_name: StringName) -> GFConfigTableColumn:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param field_name: 字段名。
 ## [br]
 ## @return 存在返回 true。
@@ -293,6 +319,8 @@ func has_column(field_name: StringName) -> bool:
 ## 获取索引声明。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param index_id: 索引标识。
 ## [br]
@@ -308,6 +336,8 @@ func get_index(index_id: StringName) -> GFConfigTableIndexDefinition:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param index_id: 索引标识。
 ## [br]
 ## @return 存在返回 true。
@@ -318,6 +348,8 @@ func has_index(index_id: StringName) -> bool:
 ## 获取引用声明。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param reference_id: 引用标识。
 ## [br]
@@ -333,6 +365,8 @@ func get_reference(reference_id: StringName) -> GFConfigTableReference:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param reference_id: 引用标识。
 ## [br]
 ## @return 存在返回 true。
@@ -343,6 +377,8 @@ func has_reference(reference_id: StringName) -> bool:
 ## 获取当前 schema 的字段名列表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @return 字段名列表。
 func get_column_names() -> PackedStringArray:
@@ -361,6 +397,8 @@ func get_column_names() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param options: 可选上下文，支持 source。
 ## [br]
 ## @schema options: Dictionary，可包含 source、line、column、row_index、column_index 和 row_locations。
@@ -370,6 +408,13 @@ func get_column_names() -> PackedStringArray:
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_definition(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report(0)
+	var runtime_options: Dictionary = _with_type_compilation_session(options)
+	if runtime_options.has("__gf_config_type_compiler"):
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(runtime_options)
+		_merge_report(
+			report,
+			compiler.get_definition_report()
+		)
 	var _limits_valid: bool = _validate_element_limits(report, options)
 	_validate_column_definitions(report, options)
 	_validate_index_definitions(report, options)
@@ -406,7 +451,9 @@ func validate_record(
 	options: Dictionary = {}
 ) -> Dictionary:
 	var report: Dictionary = _make_report(1)
-	var runtime_options: Dictionary = _with_element_validation_session(_with_resource_path_validation_session(options))
+	var runtime_options: Dictionary = _with_type_compilation_session(_with_element_validation_session(_with_resource_path_validation_session(options)))
+	if not _admit_type_compilation(report, runtime_options):
+		return report
 	var prepared: _PreparedValidationRecord = _prepare_record_for_validation(
 		record,
 		row_key,
@@ -422,12 +469,19 @@ func validate_record(
 			prepared
 		)
 	_finalize_report(report)
+	report["data"] = _copy_validated_data(
+		prepared._record,
+		report,
+		runtime_options
+	) if report["ok"] and prepared._admitted else null
 	return report
 
 
 ## 校验整张表。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param table_data: Array[Dictionary] 或 Dictionary 形式的表数据。
 ## [br]
@@ -442,10 +496,13 @@ func validate_record(
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report(0)
+	report["data"] = null
 	if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
 		_finalize_report(report)
 		return report
-	var runtime_options: Dictionary = _with_element_validation_session(_with_resource_path_validation_session(options))
+	var runtime_options: Dictionary = _with_type_compilation_session(_with_element_validation_session(_with_resource_path_validation_session(options)))
+	if not _admit_type_compilation(report, runtime_options):
+		return report
 	if table_data is Array:
 		_validate_array_table(
 			GFVariantData.as_array(table_data),
@@ -470,6 +527,14 @@ func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary
 		)
 
 	_finalize_report(report)
+	if report["ok"]:
+		report["data"] = _copy_validated_data(
+			report["data"],
+			report,
+			runtime_options
+		)
+	else:
+		report["data"] = null
 	return report
 
 
@@ -477,14 +542,24 @@ func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param record: 输入记录。
 ## [br]
 ## @schema record: Dictionary，待转换的配置记录，键为字段名，值为字段数据。
 ## [br]
-## @return 转换后的新记录。
+## @param options: 结构化转换的调用期预算与来源选项。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits。
+## [br]
+## @return 转换后的新记录；结构化转换失败时为空，可用 try_coerce_record 获取原因。
 ## [br]
 ## @schema return: Dictionary，转换后的记录副本。
-func coerce_record(record: Dictionary) -> Dictionary:
+func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
+	if _has_structured_columns():
+		var report: Dictionary = try_coerce_record(record, options)
+		var data: Variant = report.get("data")
+		return data if data is Dictionary else {}
 	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(record))
 	for column: GFConfigTableColumn in columns:
 		if column == null or column.get_field_key() == &"":
@@ -498,9 +573,56 @@ func coerce_record(record: Dictionary) -> Dictionary:
 	return result
 
 
+## 在共享编译会话内转换记录，结构化字段失败时不返回部分结果。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param record: 不会被修改的输入记录。
+## [br]
+## @param options: 预算与来源选项。
+## [br]
+## @return 报告附加 data；失败 data 为 null。
+## [br]
+## @schema record: Dictionary，字段名映射到配置值。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits 及来源上下文。
+## [br]
+## @schema return: Dictionary，包含 ok、issues、error_count、warning_count、data。
+func try_coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
+	var report: Dictionary = _make_report(1)
+	report["data"] = null
+	var runtime_options: Dictionary = _with_type_compilation_session(options)
+	if not _admit_type_compilation(report, runtime_options):
+		return report
+	if runtime_options.has("__gf_config_type_compiler"):
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(runtime_options)
+		if not compiler.admit_value(record):
+			_merge_report(
+				report,
+				compiler.get_report()
+			)
+			return report
+	var result: Dictionary = _coerce_record_for_validation(
+		record,
+		null,
+		report,
+		runtime_options,
+		columns
+	)
+	_finalize_report(report)
+	report["data"] = null
+	if report["ok"]:
+		report["data"] = result
+	return report
+
+
 ## 创建空记录模板。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param include_optional: 为 true 时包含非必填字段。
 ## [br]
@@ -521,8 +643,17 @@ func build_empty_record(include_optional: bool = true) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @return 新 schema。
-func duplicate_schema() -> GFConfigTableSchema:
+## @since 3.17.0
+## [br]
+## @param options: 调用期复制预算；不执行默认值或业务规则。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits。
+## [br]
+## @return 新 schema；字段图循环或复制预算失败时为 null，非循环的无效声明保留。
+func duplicate_schema(options: Dictionary = {}) -> GFConfigTableSchema:
+	var copy_options: Dictionary = options.duplicate()
+	var copier: GFConfigTypeCopier = GFConfigTypeCopier.from_options(options)
+	copy_options["__gf_config_type_copier"] = copier
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = table_name
 	schema.id_field = id_field
@@ -543,24 +674,33 @@ func duplicate_schema() -> GFConfigTableSchema:
 		schema.table_validation_rules.append(rule.duplicate_rule() if rule != null else null)
 	schema.metadata = metadata.duplicate(true)
 	for column: GFConfigTableColumn in columns:
-		schema.columns.append(column.duplicate_column() if column != null else null)
+		var copied: GFConfigTableColumn = column.duplicate_column(copy_options) if column != null else null
+		if column != null and copied == null:
+			return null
+		schema.columns.append(copied)
 	return schema
 
 
-## 导出 schema 摘要。
+## 导出 schema 摘要；结构列在同一有限会话内描述，不执行默认值或业务规则。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.0.0
 ## [br]
-## @return schema 字典。
+## @param options: 结构化描述的调用期预算与来源选项。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits。
+## [br]
+## @return schema 字典；结构列的失败保留在各列 type_definition 报告中。
 ## [br]
 ## @schema return: Dictionary，包含 table_name、id_field、columns、allow_extra_fields、coerce_values、fail_on_coerce_error、require_unique_id、max_resource_path_checks_per_validation、max_elements_per_validation、max_element_rule_checks_per_validation、indexes、references、record_validation_rules、table_validation_rules 和 metadata。
-func describe() -> Dictionary:
+func describe(options: Dictionary = {}) -> Dictionary:
+	var description_options: Dictionary = options.duplicate()
+	description_options["__gf_config_type_compiler"] = GFConfigTypeCompiler.from_options(options)
 	var column_descriptions: Array[Dictionary] = []
 	for column: GFConfigTableColumn in columns:
 		if column != null:
-			column_descriptions.append(column.describe())
+			column_descriptions.append(column.describe(description_options))
 	var index_descriptions: Array[Dictionary] = []
 	for index: GFConfigTableIndexDefinition in indexes:
 		if index != null:
@@ -591,6 +731,92 @@ func describe() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## 同次表操作先编译所有结构列，再执行默认值规则，后续各行只消费冻结节点。
+## [br]
+## @api private
+func _with_type_compilation_session(options: Dictionary) -> Dictionary:
+	if not _has_structured_columns():
+		return options
+	var result: Dictionary = _with_resource_path_validation_session(_with_element_validation_session(options))
+	var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+	result["__gf_config_type_compiler"] = compiler
+	compiler.bind_validation_context(result)
+	for column: GFConfigTableColumn in columns:
+		if column != null and column.type_definition != null:
+			var _field: Dictionary = compiler.compile_column(
+				column,
+				[str(column.field_name)]
+			)
+	compiler.validate_defaults()
+	return result
+
+
+## 没有结构类型的旧 schema 保持原有标量处理路径。
+## [br]
+## @api private
+func _has_structured_columns() -> bool:
+	for column: GFConfigTableColumn in columns:
+		if column != null and column.type_definition != null:
+			return true
+	return false
+
+
+## 定义失败直接阻止值复制和项目规则执行。
+## [br]
+## @api private
+func _admit_type_compilation(report: Dictionary, options: Dictionary) -> bool:
+	if not options.has("__gf_config_type_compiler"):
+		return true
+	var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+	var definition_report: Dictionary = compiler.get_definition_report()
+	if definition_report["ok"]:
+		return true
+	_merge_report(report, definition_report)
+	report["data"] = null
+	return false
+
+
+## 仅在既有规则全部通过后准入报告副本；结构列沿用编译会话，旧列按整份结果共享预算。
+##
+## 失败不复制输入，不改变未准入元素与整值规则的既有执行顺序。
+## [br]
+## @api private
+func _copy_validated_data(
+	value: Variant,
+	report: Dictionary,
+	options: Dictionary
+) -> Variant:
+	if options.has("__gf_config_type_compiler"):
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+		if not compiler.admit_value(value):
+			_merge_report(
+				report,
+				compiler.get_report()
+			)
+			_finalize_report(report)
+			return null
+	else:
+		var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+		if not budget.admit_value(value, "validation report data"):
+			var budget_report: Dictionary = budget.get_report()
+			_add_issue(
+				report,
+				"error",
+				str(budget_report["error_kind"]),
+				null,
+				&"",
+				str(budget_report["error"]),
+				_make_record_context(null, options)
+			)
+			_finalize_report(report)
+			return null
+	if value is Dictionary:
+		var record: Dictionary = value
+		return record.duplicate(true)
+	var rows: Array = value
+	return rows.duplicate(true)
+
 
 ## 从记录的 ID 字段读取行键；无 ID 字段时返回默认值。
 ## [br]
@@ -640,6 +866,7 @@ func _validate_array_table(
 	report["row_count"] = rows.size()
 	var seen_ids: Dictionary = {}
 	var valid_rows: Array[Dictionary] = []
+	var normalized_rows: Array[Dictionary] = []
 	for index: int in range(rows.size()):
 		var row: Variant = rows[index]
 		if not (row is Dictionary):
@@ -671,7 +898,8 @@ func _validate_array_table(
 			_finalize_report(row_report)
 			_merge_report(report, row_report)
 			continue
-		var table_record: Dictionary = (GFVariantData.as_dictionary(GFVariantData.duplicate_variant(prepared._record)) if prepared._coerced else record)
+		var table_record: Dictionary = prepared._record.duplicate(true) if prepared._coerced else prepared._record
+		normalized_rows.append(table_record)
 		valid_rows.append(
 			{
 				"row_key": row_key,
@@ -690,6 +918,7 @@ func _validate_array_table(
 		_merge_report(report, row_report)
 		_validate_unique_id(
 			record,
+			table_record,
 			row_key,
 			seen_ids,
 			report,
@@ -701,6 +930,9 @@ func _validate_array_table(
 		report,
 		options
 	)
+	report["data"] = null
+	if report["ok"]:
+		report["data"] = normalized_rows
 
 
 ## 验证字典表中的行记录及其键与 ID 关系。
@@ -715,6 +947,7 @@ func _validate_dictionary_table(
 	report["row_count"] = table.size()
 	var seen_ids: Dictionary = {}
 	var valid_rows: Array[Dictionary] = []
+	var normalized_table: Dictionary = {}
 	for key: Variant in table.keys():
 		var row: Variant = table[key]
 		if not (row is Dictionary):
@@ -742,7 +975,8 @@ func _validate_dictionary_table(
 			_finalize_report(row_report)
 			_merge_report(report, row_report)
 			continue
-		var table_record: Dictionary = (GFVariantData.as_dictionary(GFVariantData.duplicate_variant(prepared._record)) if prepared._coerced else record)
+		var table_record: Dictionary = prepared._record.duplicate(true) if prepared._coerced else prepared._record
+		normalized_table[key] = table_record
 		valid_rows.append({ "row_key": row_key, "record": table_record, })
 		_validate_prepared_record(
 			record,
@@ -755,6 +989,7 @@ func _validate_dictionary_table(
 		_merge_report(report, row_report)
 		_validate_unique_id(
 			record,
+			table_record,
 			row_key,
 			seen_ids,
 			report,
@@ -766,6 +1001,9 @@ func _validate_dictionary_table(
 		report,
 		options
 	)
+	report["data"] = null
+	if report["ok"]:
+		report["data"] = normalized_table
 
 
 ## 创建包含表名和输入行数的验证报告。
@@ -1013,12 +1251,48 @@ func _prepare_record_for_validation(
 	options: Dictionary
 ) -> _PreparedValidationRecord:
 	var prepared: _PreparedValidationRecord = _PreparedValidationRecord.new()
+	if options.has("__gf_config_type_compiler"):
+		var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+		if not compiler.admit_value(record):
+			_merge_report(
+				report,
+				compiler.get_report()
+			)
+			return prepared
 	if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
 		return prepared
 	prepared._columns = columns.duplicate()
 	prepared._coerced = coerce_values
 	if not prepared._coerced:
 		prepared._record = record
+		if options.has("__gf_config_type_compiler"):
+			prepared._record = record.duplicate(true)
+			var compiler: GFConfigTypeCompiler = GFConfigTypeCompiler.from_options(options)
+			for column: GFConfigTableColumn in prepared._columns:
+				if (
+					column == null
+					or column.type_definition == null
+					or not record.has(column.field_name)
+				):
+					continue
+				var field: Dictionary = compiler.compile_column(
+					column,
+					[str(column.field_name)]
+				)
+				var context: Dictionary = _make_field_context(
+					row_key,
+					column.field_name,
+					options
+				)
+				context["coerce_values"] = false
+				context["row_locations"] = options.get("row_locations", [])
+				var value_report: Dictionary = compiler.normalize_column(
+					field,
+					record[column.field_name],
+					context
+				)
+				_merge_report(report, value_report)
+				prepared._record[column.field_name] = value_report["value"]
 		prepared._admitted = true
 		return prepared
 
@@ -1166,6 +1440,8 @@ func _validate_prepared_record(
 			continue
 
 		var field_value: Variant = working_record[field_key]
+		if column.type_definition != null:
+			continue
 		if field_value == null and not column.allow_null:
 			_add_issue(
 				report,
@@ -1261,8 +1537,19 @@ func _coerce_record_for_validation(
 			continue
 
 		var source_value: Variant = result[field_key] if has_value else column.default_value
-		var coerce_result: Dictionary = column.try_coerce_value(source_value)
+		var coerce_options: Dictionary = options.merged(
+			_make_field_context(
+				row_key,
+				field_key,
+				options
+			),
+			true
+		)
+		var coerce_result: Dictionary = column.try_coerce_value(source_value, coerce_options)
 		result[field_key] = GFVariantData.get_option_value(coerce_result, "value")
+		if column.type_definition != null:
+			_merge_report(report, coerce_result)
+			continue
 		if fail_on_coerce_error and not GFVariantData.get_option_bool(
 			coerce_result,
 			"ok",
@@ -1290,12 +1577,13 @@ func _coerce_record_for_validation(
 	return result
 
 
-## 检查记录 ID 是否重复，并在有效时登记供后续行查重。
+## 检查原记录中已存在的 ID，复用本次准备结果，不重新转换或执行字段规则。
 ## [br]
 ## @api private
 ## [br]
 func _validate_unique_id(
 	record: Dictionary,
+	prepared_record: Dictionary,
 	row_key: Variant,
 	seen_ids: Dictionary,
 	report: Dictionary,
@@ -1308,10 +1596,10 @@ func _validate_unique_id(
 	):
 		return
 
-	var id_value: Variant = record[id_field]
-	var id_column: GFConfigTableColumn = get_column(id_field)
-	if coerce_values and id_column != null:
-		id_value = id_column.coerce_value(id_value)
+	var id_value: Variant = prepared_record.get(
+		id_field,
+		record[id_field]
+	)
 
 	var id_key: String = _make_variant_key(id_value)
 	if seen_ids.has(id_key):
@@ -1520,43 +1808,21 @@ func _validate_column_element_definition(
 	report: Dictionary,
 	context: Dictionary
 ) -> bool:
-	if column.element_validation_rules.is_empty():
+	var issue: Dictionary = GFConfigElementValidation.get_definition_issue(column.value_type, column.element_validation_rules)
+	if issue.is_empty():
 		return true
-	if column.value_type != GFConfigTableColumn.ValueType.ARRAY:
-		_add_issue(
-			report,
-			"error",
-			"element_rules_require_array",
-			null,
-			column.get_field_key(),
-			"元素规则仅允许声明在 Array 字段上。",
-			context
-		)
-		return false
-	if column.element_validation_rules.size() > _MAX_ELEMENT_RULES_PER_COLUMN:
-		_add_issue(
-			report,
-			"error",
-			"element_validation_rule_limit_exceeded",
-			null,
-			column.get_field_key(),
-			"单列元素规则不能超过 64 条。",
-			context
-		)
-		return false
-	for rule: GFConfigValidationRule in column.element_validation_rules:
-		if rule == null:
-			_add_issue(
-				report,
-				"error",
-				"null_element_validation_rule",
-				null,
-				column.get_field_key(),
-				"元素校验规则为空。",
-				context
-			)
-			return false
-	return true
+	var issue_kind: String = issue["kind"]
+	var issue_message: String = issue["message"]
+	_add_issue(
+		report,
+		"error",
+		issue_kind,
+		null,
+		column.get_field_key(),
+		issue_message,
+		context
+	)
+	return false
 
 
 ## 复制选项并复用或创建共享元素规则预算会话。
@@ -1565,8 +1831,11 @@ func _validate_column_element_definition(
 ## [br]
 func _with_element_validation_session(options: Dictionary) -> Dictionary:
 	var result: Dictionary = options.duplicate(false)
-	if not GFVariantData.get_option_value(result, _ELEMENT_VALIDATION_SESSION_KEY) is _ElementValidationSession:
-		result[_ELEMENT_VALIDATION_SESSION_KEY] = _ElementValidationSession.new(max_elements_per_validation, max_element_rule_checks_per_validation)
+	result[_ELEMENT_VALIDATION_SESSION_KEY] = GFConfigElementValidation.from_options(
+		options,
+		max_elements_per_validation,
+		max_element_rule_checks_per_validation
+	)
 	return result
 
 
@@ -1597,10 +1866,10 @@ func _prepare_element_batch(
 		return null
 	var elements: Array = value
 	var session_value: Variant = GFVariantData.get_option_value(options, _ELEMENT_VALIDATION_SESSION_KEY)
-	if not session_value is _ElementValidationSession:
+	if not session_value is GFConfigElementValidation:
 		return null
-	var session: _ElementValidationSession = session_value
-	if not session._reserve(
+	var session: GFConfigElementValidation = session_value
+	if not session.reserve(
 		elements.size(),
 		rules.size()
 	):
@@ -1664,16 +1933,7 @@ func _validate_element_batch(
 ## @api private
 ## [br]
 func _is_element_validation_value(value: Variant) -> bool:
-	var value_type: int = typeof(value)
-	return (
-		value_type != TYPE_OBJECT
-		and value_type != TYPE_CALLABLE
-		and value_type != TYPE_SIGNAL
-		and value_type != TYPE_RID
-		and value_type != TYPE_DICTIONARY
-		and value_type != TYPE_ARRAY
-		and value_type < TYPE_PACKED_BYTE_ARRAY
-	)
+	return GFConfigElementValidation.is_value_supported(value)
 
 
 ## 运行全部记录级规则并将结果写入报告。
@@ -1894,6 +2154,11 @@ func _make_value_context(
 func _copy_context_fields(target: Dictionary, source: Dictionary) -> void:
 	for field_name: String in [
 		"source",
+		"field_path",
+		"field_segments",
+		"sheet_name",
+		"sheet_path",
+		"cell",
 		"line",
 		"column",
 		"row_index",
@@ -2104,55 +2369,6 @@ static func _values_allow_null(values: Array) -> bool:
 
 
 # --- 内部类 ---
-
-## 共享元素数量和规则检查次数预算的内部状态对象。
-## [br]
-## @api private
-## [br]
-class _ElementValidationSession:
-	extends RefCounted
-
-
-	# --- 私有变量 ---
-
-	## 本次校验尚可接纳的外层元素数；成功预留后扣减，不按规则数重复计算。
-	## [br]
-	## @api private
-	var _remaining_elements: int
-
-	## 尚可执行的元素与规则组合数；与元素额度共同决定一个批次是否被接纳。
-	## [br]
-	## @api private
-	var _remaining_checks: int
-
-
-	# --- Godot 生命周期方法 ---
-
-	## 接收调用方已规范化的两项限额，建立一次验证共享的剩余额度。
-	## [br]
-	## @api private
-	func _init(element_limit: int, check_limit: int) -> void:
-		_remaining_elements = element_limit
-		_remaining_checks = check_limit
-
-
-	# --- 私有/辅助方法 ---
-
-	## 一次性预留元素数及元素数乘规则数；任一额度不足时两项都保持不变。
-	## 调用方已把元素数和规则数限制在安全范围，本方法不重复归一化。
-	## [br]
-	## @api private
-	func _reserve(element_count: int, rule_count: int) -> bool:
-		if element_count > _remaining_elements:
-			return false
-		# 元素已限制为 65536，规则已限制为 64，乘法不会溢出。
-		var check_count: int = element_count * rule_count
-		if check_count > _remaining_checks:
-			return false
-		_remaining_elements -= element_count
-		_remaining_checks -= check_count
-		return true
-
 
 ## 保存一个字段待校验元素与对应规则的内部批次对象。
 ## [br]

@@ -18,6 +18,7 @@
 | 枚举 | [`ValueType`](#member-gfconfigtablecolumn-enums-valuetype) | `enum ValueType` |
 | 属性 | [`field_name`](#member-gfconfigtablecolumn-properties-field_name) | `var field_name: StringName = &""` |
 | 属性 | [`value_type`](#member-gfconfigtablecolumn-properties-value_type) | `var value_type: ValueType = ValueType.ANY` |
+| 属性 | [`type_definition`](#member-gfconfigtablecolumn-properties-type_definition) | `var type_definition: GFConfigTypeDefinition = null` |
 | 属性 | [`required`](#member-gfconfigtablecolumn-properties-required) | `var required: bool = false` |
 | 属性 | [`allow_null`](#member-gfconfigtablecolumn-properties-allow_null) | `var allow_null: bool = true` |
 | 属性 | [`default_value`](#member-gfconfigtablecolumn-properties-default_value) | `var default_value: Variant = null` |
@@ -26,10 +27,10 @@
 | 属性 | [`metadata`](#member-gfconfigtablecolumn-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_field_key`](#member-gfconfigtablecolumn-methods-get_field_key) | `func get_field_key() -> StringName:` |
 | 方法 | [`coerce_value`](#member-gfconfigtablecolumn-methods-coerce_value) | `func coerce_value(value: Variant) -> Variant:` |
-| 方法 | [`try_coerce_value`](#member-gfconfigtablecolumn-methods-try_coerce_value) | `func try_coerce_value(value: Variant) -> Dictionary:` |
+| 方法 | [`try_coerce_value`](#member-gfconfigtablecolumn-methods-try_coerce_value) | `func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`is_value_valid`](#member-gfconfigtablecolumn-methods-is_value_valid) | `func is_value_valid(value: Variant) -> bool:` |
-| 方法 | [`duplicate_column`](#member-gfconfigtablecolumn-methods-duplicate_column) | `func duplicate_column() -> GFConfigTableColumn:` |
-| 方法 | [`describe`](#member-gfconfigtablecolumn-methods-describe) | `func describe() -> Dictionary:` |
+| 方法 | [`duplicate_column`](#member-gfconfigtablecolumn-methods-duplicate_column) | `func duplicate_column(options: Dictionary = {}) -> GFConfigTableColumn:` |
+| 方法 | [`describe`](#member-gfconfigtablecolumn-methods-describe) | `func describe(options: Dictionary = {}) -> Dictionary:` |
 
 ## 枚举
 
@@ -38,6 +39,7 @@
 ### `ValueType`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 enum ValueType {
@@ -75,6 +77,7 @@ enum ValueType {
 ### `field_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var field_name: StringName = &""
@@ -87,6 +90,7 @@ var field_name: StringName = &""
 ### `value_type`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var value_type: ValueType = ValueType.ANY
@@ -94,11 +98,25 @@ var value_type: ValueType = ValueType.ANY
 
 字段值类型。
 
+<a id="member-gfconfigtablecolumn-properties-type_definition"></a>
+
+### `type_definition`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var type_definition: GFConfigTypeDefinition = null
+```
+
+可选结构化类型；设置后由该定义决定值形状，value_type 只保留旧资源字段兼容。 字段的 required、allow_null、default_value 及整值规则继续生效。
+
 <a id="member-gfconfigtablecolumn-properties-required"></a>
 
 ### `required`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var required: bool = false
@@ -111,6 +129,7 @@ var required: bool = false
 ### `allow_null`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var allow_null: bool = true
@@ -123,6 +142,7 @@ var allow_null: bool = true
 ### `default_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var default_value: Variant = null
@@ -139,6 +159,7 @@ var default_value: Variant = null
 ### `validation_rules`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var validation_rules: Array[GFConfigValidationRule] = []
@@ -172,6 +193,7 @@ var element_validation_rules: Array[GFConfigValidationRule] = []
 ### `metadata`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var metadata: Dictionary = {}
@@ -190,6 +212,7 @@ var metadata: Dictionary = {}
 ### `get_field_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_field_key() -> StringName:
@@ -204,6 +227,7 @@ func get_field_key() -> StringName:
 ### `coerce_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func coerce_value(value: Variant) -> Variant:
@@ -229,9 +253,10 @@ func coerce_value(value: Variant) -> Variant:
 ### `try_coerce_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func try_coerce_value(value: Variant) -> Dictionary:
+func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
 ```
 
 尝试将输入值转换为当前列要求的类型，并返回转换报告。
@@ -241,12 +266,14 @@ func try_coerce_value(value: Variant) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `value` | 输入值。 |
+| `options` | 结构化类型的调用期预算；旧标量转换忽略此选项。 |
 
-返回：包含 ok、value 与 message 的转换报告。
+返回：包含 ok、value 与 message 的转换报告；结构化失败时 value 为 null。
 
 结构：
 
 - `value`: Variant，按 value_type 尝试转换的输入字段值。
+- `options`: Dictionary，可包含 work_budget 或 work_limits，以及来源字段路径。
 - `return`: Dictionary，包含 ok、value 和 message 字段。
 
 <a id="member-gfconfigtablecolumn-methods-is_value_valid"></a>
@@ -254,6 +281,7 @@ func try_coerce_value(value: Variant) -> Dictionary:
 ### `is_value_valid`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func is_value_valid(value: Variant) -> bool:
@@ -278,14 +306,25 @@ func is_value_valid(value: Variant) -> bool:
 ### `duplicate_column`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func duplicate_column() -> GFConfigTableColumn:
+func duplicate_column(options: Dictionary = {}) -> GFConfigTableColumn:
 ```
 
 创建同内容拷贝，避免运行时修改污染共享 Resource。
 
-返回：新字段声明。
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 调用期复制预算；不执行默认值或业务规则。 |
+
+返回：新字段声明；循环类型图或复制预算失败时为 null，非循环的无效声明原样保留。
+
+结构：
+
+- `options`: Dictionary，可包含 work_budget 或 work_limits。
 
 <a id="member-gfconfigtablecolumn-methods-describe"></a>
 
@@ -295,13 +334,20 @@ func duplicate_column() -> GFConfigTableColumn:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func describe() -> Dictionary:
+func describe(options: Dictionary = {}) -> Dictionary:
 ```
 
-导出字段声明摘要。
+有界导出结构化字段摘要，不执行默认值或业务规则。
 
-返回：字段声明字典。
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 结构化描述的调用期预算。 |
+
+返回：字段声明字典；结构化描述失败由 type_definition 报告保留，未复制的默认值及元数据为空。
 
 结构：
 
-- `return`: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata。
+- `options`: Dictionary，可包含 work_budget 或 work_limits。
+- `return`: Dictionary，包含 field_name、value_type、type_definition、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata；type_definition 为 null 或保留 ok/issues/definition 的编译报告。

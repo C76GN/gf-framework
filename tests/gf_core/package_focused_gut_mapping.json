@@ -189,7 +189,8 @@
     "gf.standard.config": [
       "res://tests/gf_core/standard/utilities/config/test_gf_config_provider_adapter.gd",
       "res://tests/gf_core/standard/utilities/config/test_gf_config_provider.gd",
-      "res://tests/gf_core/standard/utilities/config/test_gf_config_table_schema.gd"
+      "res://tests/gf_core/standard/utilities/config/test_gf_config_table_schema.gd",
+      "res://tests/gf_core/standard/utilities/config/test_gf_config_type_definition.gd"
     ],
     "gf.standard.config.editor": [
       "res://tests/gf_core/standard/utilities/config/test_gf_config_table_editor_tools.gd"
@@ -365,7 +366,11 @@
       "res://tests/gf_core/tools/config_pipeline/test_gf_bounded_zip_support.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_stages.gd",
-      "res://tests/gf_core/tools/config_pipeline/test_gf_config_access_generator.gd"
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_access_generator.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_schema_inspection.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_structured_access_generator.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_structured_layout.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_structured_pipeline.gd"
     ],
     "gf.tool.dialogue_text": [
       "res://tests/gf_core/tools/dialogue_text/test_gf_dialogue_text_compiler.gd"

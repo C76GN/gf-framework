@@ -225,8 +225,15 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 const _ACCESS_COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "config_access_generator",
-		"implementation_version": 1,
+		"implementation_version": 2,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_access_generator.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_structured_access_emitter.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_type_definition.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_type_compiler.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_type_copier.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_element_validation.gd",
+		],
 	},
 	{
 		"id": "source_builder",

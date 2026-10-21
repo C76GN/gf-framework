@@ -174,7 +174,7 @@ var _file_dialog: FileDialog
 ## @api private
 var _file_action: Callable
 
-## 最近请求的 build/export 操作，供预检完成后执行及复制等价 CLI 使用。
+## 最近请求的 build/export/inspect 操作，供预检完成后执行及复制等价 CLI 使用。
 ## [br]
 ## @api private
 var _last_operation: String = "export"
@@ -585,6 +585,15 @@ func _build_ui() -> void:
 			"校验",
 			func() -> void:
 				_request_run("build", false),
+		)
+	)
+	_run_buttons.append(
+		_button(
+			actions,
+			"InspectSchema",
+			"查看生效结构",
+			func() -> void:
+				_request_run("inspect", false),
 		)
 	)
 	_run_buttons.append(
@@ -1338,7 +1347,7 @@ func _is_pure_value(value: Variant, depth: int) -> bool:
 	)
 
 
-## 冻结本次执行开关；脏草稿先显式保存，只有保存成功才续接后台预检。
+## Inspect 要求用户先单独保存；其余操作冻结执行开关，必要时先保存再续接后台预检。
 ## [br]
 ## @api private
 func _request_run(operation: String, dry_run: bool) -> void:
@@ -1346,21 +1355,17 @@ func _request_run(operation: String, dry_run: bool) -> void:
 		return
 	if _busy or _task != null:
 		return
+	var state: Dictionary = _session.get_state()
+	var requires_save: bool = (GFVariantData.get_option_bool(state, "dirty") or GFVariantData.get_option_string(state, "profile_path").is_empty())
+	if operation == "inspect" and requires_save:
+		_report.text = "查看生效结构只读取已保存的 Profile。请先显式保存当前草稿，再重试。"
+		return
 	_last_operation = operation
 	_last_options = { "dry_run": dry_run }
 	for option: String in _checks:
 		var checkbox: CheckBox = _checks[option]
 		_last_options[option] = checkbox.button_pressed
-	if (
-		GFVariantData.get_option_bool(
-			_session.get_state(),
-			"dirty"
-		)
-		or GFVariantData.get_option_string(
-			_session.get_state(),
-			"profile_path"
-		).is_empty()
-	):
+	if requires_save:
 		_after_save = _run_saved
 		_save_profile()
 	else:
@@ -1448,7 +1453,7 @@ func _execute_saved() -> void:
 	_refresh_status()
 
 
-## 展示原报告的问题位置与产物状态；Command 因严格质量失败而 runner 成功时明确提示文件操作已完成。
+## 展示原报告的问题位置与产物状态；严格失败区分只读检查、未写产物与实际写出文件。
 ## [br]
 ## @api private
 func _show_result(result: Dictionary) -> void:
@@ -1457,6 +1462,7 @@ func _show_result(result: Dictionary) -> void:
 	var root: TreeItem = _issues.create_item()
 	var runner: Dictionary = GFVariantData.get_option_dictionary(result, "runner_result")
 	var report: Dictionary = GFVariantData.get_option_dictionary(runner, "report")
+	var artifacts_written: bool = false
 	for value: Variant in GFVariantData.get_option_array(report, "issues"):
 		var issue: Dictionary = GFVariantData.as_dictionary(value)
 		var item: TreeItem = _issues.create_item(root)
@@ -1494,6 +1500,12 @@ func _show_result(result: Dictionary) -> void:
 			GFVariantData.get_option_string(artifact, "path")
 		)
 		var artifact_report: Dictionary = GFVariantData.get_option_dictionary(artifact, "artifact_report")
+		if GFVariantData.get_option_bool(
+			artifact,
+			"written",
+			GFVariantData.get_option_bool(artifact_report, "written")
+		):
+			artifacts_written = true
 		var status: String = GFVariantData.get_option_string(
 			artifact,
 			"status",
@@ -1512,7 +1524,12 @@ func _show_result(result: Dictionary) -> void:
 			path
 		)
 	if not GFVariantData.get_option_bool(result, "success") and GFVariantData.get_option_bool(runner, "success"):
-		_report.text = "文件操作已完成；严格质量检查未通过。\n" + _report.text
+		var strict_status: String = "严格质量检查未通过；本次未写入文件。\n"
+		if GFVariantData.get_option_string(result, "operation") == "inspect":
+			strict_status = "结构检查已完成；严格质量检查未通过，本次未写入文件。\n"
+		elif artifacts_written:
+			strict_status = "文件操作已完成；严格质量检查未通过。\n"
+		_report.text = strict_status + _report.text
 
 
 ## 仅从会话仍标为新鲜且成功的数据库结果复制当前表 Schema；副本写入草稿后再次使结果过期。
@@ -1704,11 +1721,15 @@ func _refresh_status() -> void:
 	)
 	var labels: Array[String] = [
 		"校验",
+		"查看生效结构",
 		"预览导出",
 		"导出",
 	]
 	for index: int in range(_run_buttons.size()):
-		_run_buttons[index].text = ("保存并" if dirty else "") + labels[index]
+		var label_prefix: String = "保存并" if dirty else ""
+		if _run_buttons[index].name == &"InspectSchema":
+			label_prefix = ""
+		_run_buttons[index].text = label_prefix + labels[index]
 		_run_buttons[index].disabled = (
 			not _has_active_context()
 			or _session.get_profile() == null

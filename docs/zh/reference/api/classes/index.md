@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1145 | [Kernel](#module-kernel) |
-| Standard | 491 | 7702 | [Standard](#module-standard) |
+| Standard | 492 | 7723 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -26,7 +26,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 659 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tools | 26 | 212 | [Tools](#module-tools) |
+| Tools | 26 | 214 | [Tools](#module-tools) |
 
 ## 模块索引
 
@@ -366,12 +366,13 @@
 | [`GFConfigResourcePathValidationRule`](GFConfigResourcePathValidationRule.md#gfconfigresourcepathvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 9 | `addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd` |
 | [`GFConfigSetValidationRule`](GFConfigSetValidationRule.md#gfconfigsetvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 5 | `addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd` |
 | [`GFConfigSizeValidationRule`](GFConfigSizeValidationRule.md#gfconfigsizevalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 8 | `addons/gf/standard/utilities/config/validation/gf_config_size_validation_rule.gd` |
-| [`GFConfigTableColumn`](GFConfigTableColumn.md#gfconfigtablecolumn) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/config/gf_config_table_column.gd` |
+| [`GFConfigTableColumn`](GFConfigTableColumn.md#gfconfigtablecolumn) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/utilities/config/gf_config_table_column.gd` |
 | [`GFConfigTableIndexDefinition`](GFConfigTableIndexDefinition.md#gfconfigtableindexdefinition) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/utilities/config/gf_config_table_index_definition.gd` |
 | [`GFConfigTableMergePolicy`](GFConfigTableMergePolicy.md#gfconfigtablemergepolicy) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd` |
 | [`GFConfigTableReference`](GFConfigTableReference.md#gfconfigtablereference) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
 | [`GFConfigTableResource`](GFConfigTableResource.md#gfconfigtableresource) | 资源定义 (`resource_definition`) | `Resource` | 21 | `addons/gf/standard/utilities/config/gf_config_table_resource.gd` |
-| [`GFConfigTableSchema`](GFConfigTableSchema.md#gfconfigtableschema) | 资源定义 (`resource_definition`) | `Resource` | 31 | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
+| [`GFConfigTableSchema`](GFConfigTableSchema.md#gfconfigtableschema) | 资源定义 (`resource_definition`) | `Resource` | 32 | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
+| [`GFConfigTypeDefinition`](GFConfigTypeDefinition.md#gfconfigtypedefinition) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/utilities/config/gf_config_type_definition.gd` |
 | [`GFConsoleCommandDefinition`](GFConsoleCommandDefinition.md#gfconsolecommanddefinition) | 资源定义 (`resource_definition`) | `Resource` | 6 | `addons/gf/standard/utilities/debug/gf_console_command_definition.gd` |
 | [`GFDictionarySchema`](GFDictionarySchema.md#gfdictionaryschema) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/foundation/schema/gf_dictionary_schema.gd` |
 | [`GFFormulaSet`](GFFormulaSet.md#gfformulaset) | 资源定义 (`resource_definition`) | `Resource` | 5 | `addons/gf/standard/foundation/formula/gf_formula_set.gd` |
@@ -1056,7 +1057,7 @@
 | [`GFSceneGroupDock`](GFSceneGroupDock.md#gfscenegroupdock) | 编辑器 API (`editor_api`) | `VBoxContainer` | 3 | `addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd` |
 | [`GFAssetBrowserModel`](GFAssetBrowserModel.md#gfassetbrowsermodel) | 工具 API (`tool_api`) | `RefCounted` | 20 | `addons/gf/tools/asset_browser/gf_asset_browser_model.gd` |
 | [`GFCodeQualityAnalyzer`](GFCodeQualityAnalyzer.md#gfcodequalityanalyzer) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/code_quality/gf_code_quality_analyzer.gd` |
-| [`GFConfigAccessGenerator`](GFConfigAccessGenerator.md#gfconfigaccessgenerator) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
+| [`GFConfigAccessGenerator`](GFConfigAccessGenerator.md#gfconfigaccessgenerator) | 工具 API (`tool_api`) | `RefCounted` | 10 | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
 | [`GFConfigPipeline`](GFConfigPipeline.md#gfconfigpipeline) | 工具 API (`tool_api`) | `RefCounted` | 10 | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
 | [`GFConfigPipelineArtifactManifest`](GFConfigPipelineArtifactManifest.md#gfconfigpipelineartifactmanifest) | 工具 API (`tool_api`) | `RefCounted` | 8 | `addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd` |
 | [`GFConfigPipelineCommand`](GFConfigPipelineCommand.md#gfconfigpipelinecommand) | 工具 API (`tool_api`) | `RefCounted` | 3 | `addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd` |
@@ -1065,7 +1066,7 @@
 | [`GFConfigPipelineLayoutStage`](GFConfigPipelineLayoutStage.md#gfconfigpipelinelayoutstage) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd` |
 | [`GFConfigPipelineProfile`](GFConfigPipelineProfile.md#gfconfigpipelineprofile) | 工具 API (`tool_api`) | `Resource` | 21 | `addons/gf/tools/config_pipeline/gf_config_pipeline_profile.gd` |
 | [`GFConfigPipelineReaderStage`](GFConfigPipelineReaderStage.md#gfconfigpipelinereaderstage) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/config_pipeline/gf_config_pipeline_reader_stage.gd` |
-| [`GFConfigPipelineRunner`](GFConfigPipelineRunner.md#gfconfigpipelinerunner) | 工具 API (`tool_api`) | `RefCounted` | 3 | `addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd` |
+| [`GFConfigPipelineRunner`](GFConfigPipelineRunner.md#gfconfigpipelinerunner) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd` |
 | [`GFConfigPipelineTableIR`](GFConfigPipelineTableIR.md#gfconfigpipelinetableir) | 工具 API (`tool_api`) | `RefCounted` | 13 | `addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd` |
 | [`GFConfigPipelineTableSource`](GFConfigPipelineTableSource.md#gfconfigpipelinetablesource) | 工具 API (`tool_api`) | `Resource` | 18 | `addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd` |
 | [`GFConfigPipelineTargetStage`](GFConfigPipelineTargetStage.md#gfconfigpipelinetargetstage) | 工具 API (`tool_api`) | `RefCounted` | 7 | `addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd` |
