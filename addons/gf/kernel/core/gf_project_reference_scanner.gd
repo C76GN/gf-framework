@@ -657,10 +657,10 @@ func start(targets: Array[Dictionary], options: Dictionary = {}) -> bool:
 		_weak_references_by_target.append([])
 		_blocking_truncated.append(false)
 		_weak_truncated.append(false)
+	_prepare_scope()
 	if _scan_targets.is_empty() or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_scan_state, "target_preflight_failed"):
 		_finish_scan()
 		return true
-	_prepare_scope()
 	_phase = "enumerate"
 	return true
 

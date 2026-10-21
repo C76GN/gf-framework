@@ -4244,7 +4244,7 @@ func test_extension_export_plugin_reports_stable_name() -> void:
 
 func test_extension_export_usage_options_preserve_limits_and_isolate_selected_files() -> void:
 	var selected_files: Array[String] = ["res://levels/selected.tscn"]
-	var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files)
+	var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files, EditorExportPreset.EXPORT_SELECTED_RESOURCES)
 	selected_files[0] = "res://levels/changed.tscn"
 	assert_eq(
 		GF_VARIANT_ACCESS.get_option_int(options, "max_references_per_extension"),
@@ -4277,6 +4277,59 @@ func test_extension_export_usage_options_preserve_limits_and_isolate_selected_fi
 		options.has("max_total_bytes"),
 		"继续使用公共总读取字节上限。"
 	)
+
+
+## 预设列表只有在两个选择导出模式中才表示纳入文件，排除模式不得把被排除文件带回扫描。
+func test_extension_export_usage_options_interpret_all_export_filters() -> void:
+	for export_filter: EditorExportPreset.ExportFilter in [
+		EditorExportPreset.EXPORT_ALL_RESOURCES,
+		EditorExportPreset.EXPORT_SELECTED_SCENES,
+		EditorExportPreset.EXPORT_SELECTED_RESOURCES,
+		EditorExportPreset.EXCLUDE_SELECTED_RESOURCES,
+		EditorExportPreset.EXPORT_CUSTOMIZED,
+	]:
+		var selected_files: Array[String] = ["res://ignored/selected.tscn"]
+		var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files, export_filter)
+		var expected_files: Array[String] = []
+		match export_filter:
+			EditorExportPreset.EXPORT_SELECTED_SCENES:
+				expected_files.append("res://ignored/selected.tscn")
+			EditorExportPreset.EXPORT_SELECTED_RESOURCES:
+				expected_files.append("res://ignored/selected.tscn")
+		selected_files[0] = "res://changed.tscn"
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_array(options, "additional_scan_files"),
+			expected_files,
+			"导出模式 %d 必须正确解释选择列表并隔离调用者后续修改。" % export_filter
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(options, "max_references_per_extension"),
+			8
+		)
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(options, "respect_gdignore"))
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_array(options, "additional_ignored_roots"),
+			["res://ai_analysis"]
+		)
+		for budget_key: String in [
+			"max_scanned_files",
+			"max_file_bytes",
+			"max_total_bytes",
+		]:
+			assert_false(
+				options.has(budget_key),
+				"所有导出模式都必须沿用公共文件和字节预算：" + budget_key
+			)
+		var output_files: Variant = options.get("additional_scan_files")
+		assert_true(output_files is Array)
+		if output_files is Array:
+			var mutable_files: Array = output_files
+			mutable_files.clear()
+		assert_eq(
+			selected_files,
+			["res://changed.tscn"],
+			"修改输出列表不得改写预设提供的输入数组。"
+		)
 
 
 func test_extension_export_plugin_matches_disabled_roots() -> void:
@@ -4680,7 +4733,7 @@ func test_extension_usage_audit_explicit_disabled_script_keeps_self_exclusion() 
 	_write_text_file(project_path, project_source)
 	var manifests: Array[GFExtensionManifest] = [_make_usage_session_manifest("author.explicit_disabled", extension_root)]
 	var selected_files: Array[String] = [extension_path]
-	var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files)
+	var options: Dictionary = GF_EXTENSION_EXPORT_PLUGIN_BASE._make_usage_audit_options(selected_files, EditorExportPreset.EXPORT_SELECTED_RESOURCES)
 	options["scan_roots"] = [fixture_root]
 	options["ignored_roots"] = []
 	options["use_resource_dependencies"] = false
@@ -4744,6 +4797,196 @@ func test_extension_usage_audit_explicit_disabled_script_keeps_self_exclusion() 
 		GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"),
 		"显式禁用脚本不能额外占用扫描预算。"
 	)
+
+
+## 扩展根自身的 .gdignore 必须限制启用原生范围的类名预扫描。
+func test_extension_usage_audit_class_prescan_respects_gdignore_at_root() -> void:
+	_assert_usage_class_prescan_gdignore_boundary("root")
+
+
+## 扩展根位于忽略目录内部时，不能绕过祖先的 .gdignore。
+func test_extension_usage_audit_class_prescan_respects_gdignore_at_ancestor() -> void:
+	_assert_usage_class_prescan_gdignore_boundary("ancestor")
+
+
+## 忽略子目录不应发现其中类名，也不能遮蔽仍在范围内的兄弟脚本。
+func test_extension_usage_audit_class_prescan_respects_gdignore_at_child() -> void:
+	_assert_usage_class_prescan_gdignore_boundary("child")
+
+
+## 预扫描耗尽共享额度时仍校验显式路径并交付完整范围，不因忽略开关吞掉请求或诊断。
+func test_extension_usage_audit_class_budget_preserves_complete_scope() -> void:
+	var fixture_root: String = "user://gf_extension_usage_gdignore_budget"
+	var extension_root: String = fixture_root.path_join("extension")
+	var ignored_root: String = extension_root.path_join("ignored")
+	var project_root: String = fixture_root.path_join("project")
+	var visible_path: String = extension_root.path_join("visible.gd")
+	var ignored_path: String = ignored_root.path_join("ignored.gd")
+	var marker_path: String = ignored_root.path_join(".gdignore")
+	var consumer_path: String = project_root.path_join("consumer.gd")
+	var visible_source: String = "class_name AuditBudgetVisible\nextends RefCounted\n"
+	var ignored_source: String = "class_name AuditBudgetIgnored\nextends RefCounted\n"
+	var _make_extension: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(ignored_root))
+	var _make_project: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(project_root))
+	_write_text_file(visible_path, visible_source)
+	_write_text_file(ignored_path, ignored_source)
+	_write_text_file(marker_path, "")
+	_write_text_file(consumer_path, "var visible: AuditBudgetVisible\n")
+	var manifest: GFExtensionManifest = _make_usage_session_manifest("author.gdignore_budget", extension_root)
+	var manifests: Array[GFExtensionManifest] = [manifest]
+	var cases: Array[Dictionary] = [
+		{ "respect_gdignore": false, "valid_additional": true },
+		{ "respect_gdignore": false, "valid_additional": false },
+		{ "respect_gdignore": true, "valid_additional": true },
+		{ "respect_gdignore": true, "valid_additional": false },
+	]
+	for test_case: Dictionary in cases:
+		var respect_gdignore: bool = GF_VARIANT_ACCESS.get_option_bool(test_case, "respect_gdignore")
+		var valid_additional: bool = GF_VARIANT_ACCESS.get_option_bool(test_case, "valid_additional")
+		var max_files: int = 1 if respect_gdignore else 2
+		var requested_path: String = consumer_path if valid_additional else "not_a_resource_path.gd"
+		var report: Dictionary = GFExtensionUsageAudit.audit_disabled_extensions(
+			manifests,
+			{
+				"scan_roots": [project_root],
+				"ignored_roots": [],
+				"use_resource_dependencies": false,
+				"respect_gdignore": respect_gdignore,
+				"max_scanned_files": max_files,
+				"additional_scan_files": [requested_path, requested_path],
+			}
+		)
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"))
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"))
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"))
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(report, "scanned_file_count"),
+			max_files
+		)
+		var expected_classes: Array[String] = ["AuditBudgetVisible"]
+		var expected_bytes: int = visible_source.to_utf8_buffer().size()
+		if not respect_gdignore:
+			expected_classes.push_front("AuditBudgetIgnored")
+			expected_bytes += ignored_source.to_utf8_buffer().size()
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(report, "scanned_bytes"),
+			expected_bytes,
+			"预算早退不得读取项目文件。"
+		)
+		var class_report: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "class_name_scan")
+		var class_names: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(class_report, "class_names_by_target")
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_array(class_names, manifest.id),
+			expected_classes
+		)
+		var scope: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "scope")
+		var expected_additional: Array[String] = []
+		if valid_additional:
+			expected_additional.append(consumer_path)
+		var expected_ignored: Array[String] = []
+		if respect_gdignore:
+			expected_ignored.append(ignored_root)
+		var expected_dependencies: Array[String] = []
+		var expected_scope: Dictionary = {
+			"respect_gdignore": respect_gdignore,
+			"additional_scan_files": expected_additional,
+			"ignored_directories": expected_ignored,
+			"dependency_files": expected_dependencies,
+		}
+		assert_eq(scope, expected_scope)
+		var invalid_paths: Array[String] = []
+		for issue_value: Variant in GF_VARIANT_ACCESS.get_option_array(report, "issues"):
+			var issue: Dictionary = GF_VARIANT_ACCESS.as_dictionary(issue_value)
+			if GF_VARIANT_ACCESS.get_option_string(issue, "code") == "invalid_scan_file":
+				invalid_paths.append(GF_VARIANT_ACCESS.get_option_string(issue, "path"))
+		var expected_invalid_paths: Array[String] = []
+		if not valid_additional:
+			expected_invalid_paths.append(requested_path)
+		assert_eq(
+			invalid_paths,
+			expected_invalid_paths,
+			"显式路径准入诊断必须保留，重复请求仍按核心诊断去重。"
+		)
+		assert_push_warning("[GFExtensionUsageAudit][extension_usage_audit.shared_file_budget_exhausted] Extension class_name prescanning exhausted max_scanned_files=%d shared with project scanning." % max_files)
+	_remove_path_if_exists(visible_path)
+	_remove_path_if_exists(ignored_path)
+	_remove_path_if_exists(marker_path)
+	_remove_path_if_exists(consumer_path)
+	_remove_path_if_exists(ignored_root)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(project_root)
+	_remove_path_if_exists(fixture_root)
+
+
+## 审计报告保留 String 扩展键及 ID，供管理器直接使用 manifest.id 读取强弱证据。
+func test_extension_usage_audit_reports_string_extension_keys() -> void:
+	var fixture_root: String = "user://gf_extension_usage_string_keys"
+	var extension_root: String = fixture_root.path_join("extension")
+	var project_path: String = fixture_root.path_join("consumer.gd")
+	var weak_path: String = fixture_root.path_join("weak_consumer.gd")
+	var target_path: String = extension_root.path_join("feature.gd")
+	var _make_extension: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(extension_root))
+	_write_text_file(
+		project_path,
+		'const FEATURE = preload("%s")\n' % target_path
+	)
+	_write_text_file(
+		weak_path,
+		'var hint: String = "%s"\n' % target_path
+	)
+	var manifest: GFExtensionManifest = _make_usage_session_manifest("author.string_keys", extension_root)
+	var manifests: Array[GFExtensionManifest] = [manifest]
+	var report: Dictionary = GFExtensionUsageAudit.audit_disabled_extensions(
+		manifests,
+		{
+			"scan_roots": [fixture_root],
+			"ignored_roots": [],
+			"use_resource_dependencies": false,
+			"include_weak_references": true,
+		}
+	)
+	_remove_path_if_exists(project_path)
+	_remove_path_if_exists(weak_path)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(fixture_root)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "reference_count"),
+		1
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(report, "weak_reference_count"),
+		1
+	)
+	for report_key: String in ["extensions", "weak_extensions"]:
+		var extension_records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, report_key)
+		assert_eq(
+			extension_records.size(),
+			1
+		)
+		for extension_key: Variant in extension_records.keys():
+			assert_eq(
+				typeof(extension_key),
+				TYPE_STRING,
+				"%s 的实际键必须保留 String 类型，不能依赖 StringName 转换。" % report_key
+			)
+		var entry_value: Variant = extension_records.get(manifest.id)
+		assert_true(
+			entry_value is Dictionary,
+			"管理器应能直接用 manifest.id:String 读取 %s。" % report_key
+		)
+		if entry_value is Dictionary:
+			var entry: Dictionary = entry_value
+			var entry_id: Variant = entry.get("id")
+			assert_eq(
+				typeof(entry_id),
+				TYPE_STRING
+			)
+			var same_id: bool = entry_id is String and entry_id == manifest.id
+			assert_true(same_id, "报告内的 ID 也应保留原 String 身份。")
+			assert_eq(
+				GF_VARIANT_ACCESS.get_option_int(entry, "reference_count"),
+				1
+			)
 
 
 func test_extension_usage_audit_finds_project_reference() -> void:
@@ -5710,6 +5953,134 @@ func _preset_issue_contains(
 			if error.contains(needle):
 				return true
 	return false
+
+
+## 同一真实文件树对照默认、显式关闭和开启范围选项，保留类名、弱引用及共享预算证据。
+func _assert_usage_class_prescan_gdignore_boundary(marker_position: String) -> void:
+	var fixture_root: String = "user://gf_extension_usage_gdignore_" + marker_position
+	var extension_parent: String = fixture_root.path_join("extensions")
+	var extension_root: String = extension_parent.path_join("feature")
+	var ignored_child: String = extension_root.path_join("ignored")
+	var project_root: String = fixture_root.path_join("project")
+	var visible_path: String = extension_root.path_join("visible.gd")
+	var ignored_path: String = ignored_child.path_join("ignored.gd")
+	var consumer_path: String = project_root.path_join("consumer.gd")
+	var weak_path: String = project_root.path_join("weak_consumer.gd")
+	var marker_root: String = ignored_child
+	if marker_position == "root":
+		marker_root = extension_root
+	elif marker_position == "ancestor":
+		marker_root = extension_parent
+	var marker_path: String = marker_root.path_join(".gdignore")
+	var visible_source: String = "class_name AuditScopeVisible\nextends RefCounted\n"
+	var ignored_source: String = "class_name AuditScopeIgnored\nextends RefCounted\n"
+	var consumer_source: String = "var visible: AuditScopeVisible\nvar ignored: AuditScopeIgnored\n"
+	var weak_source: String = 'var hint: String = "AuditScopeIgnored"\n'
+	var _make_extension: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(ignored_child))
+	var _make_project: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(project_root))
+	_write_text_file(visible_path, visible_source)
+	_write_text_file(ignored_path, ignored_source)
+	_write_text_file(consumer_path, consumer_source)
+	_write_text_file(weak_path, weak_source)
+	_write_text_file(marker_path, "")
+	var manifest: GFExtensionManifest = _make_usage_session_manifest("author.gdignore_scope", extension_root)
+	var manifests: Array[GFExtensionManifest] = [manifest]
+	for scope_mode: int in range(3):
+		var options: Dictionary = {
+			"scan_roots": [project_root],
+			"ignored_roots": [],
+			"use_resource_dependencies": false,
+			"include_weak_references": true,
+		}
+		if scope_mode > 0:
+			options["respect_gdignore"] = scope_mode == 2
+		var report: Dictionary = GFExtensionUsageAudit.audit_disabled_extensions(manifests, options)
+		var class_report: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "class_name_scan")
+		var expected_classes: Array[String] = ["AuditScopeIgnored", "AuditScopeVisible"]
+		var expected_class_bytes: int = visible_source.to_utf8_buffer().size() + ignored_source.to_utf8_buffer().size()
+		var expected_weak: int = 1
+		if scope_mode == 2:
+			expected_classes.clear()
+			if marker_position == "child":
+				expected_classes.append("AuditScopeVisible")
+			expected_class_bytes = visible_source.to_utf8_buffer().size() if marker_position == "child" else 0
+			expected_weak = 0
+		var class_names: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(class_report, "class_names_by_target")
+		var label: String = (
+			"%s / scope mode %d"
+			% [marker_position, scope_mode]
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string_array(class_names, manifest.id),
+			expected_classes,
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(class_report, "candidate_file_count"),
+			expected_classes.size(),
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(class_report, "scanned_file_count"),
+			expected_classes.size(),
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(class_report, "scanned_bytes"),
+			expected_class_bytes,
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(report, "reference_count"),
+			expected_classes.size(),
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(report, "weak_reference_count"),
+			expected_weak,
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(report, "scanned_file_count"),
+			expected_classes.size() + 2,
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_int(report, "scanned_bytes"),
+			expected_class_bytes + consumer_source.to_utf8_buffer().size() + weak_source.to_utf8_buffer().size(),
+			label
+		)
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(report, "partial_scan"),
+			label
+		)
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_bool(report, "budget_exceeded"),
+			label
+		)
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_bool(report, "ok"),
+			expected_classes.is_empty(),
+			label
+		)
+		if scope_mode == 2:
+			var scope: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "scope")
+			var expected_ignored: Array[String] = [marker_root]
+			assert_eq(
+				GF_VARIANT_ACCESS.get_option_string_array(scope, "ignored_directories"),
+				expected_ignored,
+				"类名预扫描跳过的目录也必须进入共享范围报告：" + label
+			)
+	_remove_path_if_exists(marker_path)
+	_remove_path_if_exists(visible_path)
+	_remove_path_if_exists(ignored_path)
+	_remove_path_if_exists(consumer_path)
+	_remove_path_if_exists(weak_path)
+	_remove_path_if_exists(ignored_child)
+	_remove_path_if_exists(extension_root)
+	_remove_path_if_exists(extension_parent)
+	_remove_path_if_exists(project_root)
+	_remove_path_if_exists(fixture_root)
 
 
 func _make_usage_session_manifest(extension_id: String, root_path: String) -> GFExtensionManifest:

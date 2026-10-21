@@ -233,6 +233,11 @@ var _class_names_by_root: Dictionary = {}
 ## @api private
 var _class_names_by_target: Dictionary = {}
 
+## 本次类名预扫描实际跳过的原生忽略目录，合并到最终范围证据后释放。
+## [br]
+## @api private
+var _class_ignored_directories: Array[String] = []
+
 ## 每个 class_name 候选文件只查找首个声明，保持既有发现语义。
 ## [br]
 ## @api private
@@ -718,6 +723,15 @@ func _step_class_directory() -> void:
 ## @api private
 func _step_class_listing(frame: _ClassDirectoryFrame, path: String) -> void:
 	if _class_directory == null:
+		var ignored_directory: String = _find_class_ignored_directory(
+			path,
+			frame._depth == 0
+		)
+		if not ignored_directory.is_empty():
+			if not _class_ignored_directories.has(ignored_directory):
+				_class_ignored_directories.append(ignored_directory)
+			var _ignored_frame: Variant = _class_stack.pop_back()
+			return
 		if path.is_empty() or not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(path)):
 			var _missing_frame: Variant = _class_stack.pop_back()
 			return
@@ -744,6 +758,25 @@ func _step_class_listing(frame: _ClassDirectoryFrame, path: String) -> void:
 		frame._directories.append(entry_name)
 	else:
 		frame._files.append(entry_name)
+
+
+## 启用原生范围时检查当前目录；显式扩展根还检查祖先，避免从忽略目录内部开始预扫描。
+## [br]
+## @api private
+func _find_class_ignored_directory(path: String, include_ancestors: bool) -> String:
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(_options, "respect_gdignore"):
+		return ""
+	var current: String = path
+	while not current.is_empty():
+		if FileAccess.file_exists(current.path_join(".gdignore")):
+			return current
+		if not include_ancestors or current.ends_with("://"):
+			break
+		var parent: String = _GF_PATH_TOOLS.normalize_root_path(current.get_base_dir())
+		if parent == current:
+			break
+		current = parent
+	return ""
 
 
 ## 目录不可枚举时沿用原有部分扫描诊断，并继续其余目录。
@@ -820,7 +853,7 @@ func _begin_project_scan() -> void:
 		enriched_targets.append(enriched_target)
 	var scanner_options: Dictionary = _make_scanner_options(_options, _additional_ignored_roots)
 	if not _apply_remaining_scan_budgets(scanner_options, _class_state):
-		_finish_scan(_make_empty_project_scan_report(enriched_targets))
+		_finish_scan(_make_empty_project_scan_report(enriched_targets, scanner_options))
 		return
 	_scanner = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.new()
 	var _accepted: bool = _scanner.start(enriched_targets, scanner_options)
@@ -832,10 +865,27 @@ func _begin_project_scan() -> void:
 ## @api private
 func _finish_scan(project_report: Dictionary) -> void:
 	var scan_report: Dictionary = _merge_scan_phase_reports(project_report, _class_state)
+	_merge_class_scan_scope(scan_report)
 	_result = _project_audit_report(scan_report) if _audit_report else scan_report
 	_finished = true
 	_refresh_progress()
 	_release_work()
+
+
+## 将类名阶段实际忽略目录合并到项目阶段已完成准入的范围说明，不改其路径诊断。
+## [br]
+## @api private
+func _merge_class_scan_scope(scan_report: Dictionary) -> void:
+	if not scan_report.has("scope"):
+		return
+	var scope: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "scope")
+	var ignored_directories: Array[String] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(scope, "ignored_directories")
+	for path: String in _class_ignored_directories:
+		if not ignored_directories.has(path):
+			ignored_directories.append(path)
+	ignored_directories.sort()
+	scope["ignored_directories"] = ignored_directories
+	scan_report["scope"] = scope
 
 
 ## 只用接纳时保存的身份标量生成 manifest 报告，避免扫描期间资源修改造成串写。
@@ -849,7 +899,7 @@ func _project_audit_report(scan_report: Dictionary) -> Dictionary:
 	var targets: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "targets")
 	var weak_targets: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(scan_report, "weak_targets")
 	for record: Dictionary in _manifest_records:
-		var extension_id: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(record, "id")
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "id")
 		var target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(targets, extension_id)
 		var weak_target: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(weak_targets, extension_id)
 		var target_references: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(target, "references")
@@ -942,6 +992,7 @@ func _release_work() -> void:
 	_class_state = {}
 	_class_names_by_root = {}
 	_class_names_by_target = {}
+	_class_ignored_directories = []
 	_class_regex = null
 	_class_files = []
 	_class_names = []
@@ -1442,31 +1493,16 @@ static func _emit_class_scan_warning(message: String, scan_state: Dictionary) ->
 		push_warning(warning_message)
 
 
-## 创建项目引用扫描阶段的空报告，并将输入目标数设为 targets.size()。
+## 通过空目标会话校验项目范围并保留完整诊断，不执行文件 I/O；输入目标数沿用原审计目标数。
 ## [br]
 ## @api private
-static func _make_empty_project_scan_report(targets: Array[Dictionary]) -> Dictionary:
-	return {
-		"ok": true,
-		"partial_scan": false,
-		"budget_exceeded": false,
-		"truncated": false,
-		"input_target_count": targets.size(),
-		"target_count": 0,
-		"reference_count": 0,
-		"weak_reference_count": 0,
-		"targets": {},
-		"weak_targets": {},
-		"references": [],
-		"weak_references": [],
-		"candidate_file_count": 0,
-		"scanned_file_count": 0,
-		"scanned_bytes": 0,
-		"skipped_files": [],
-		"scan_warnings": [],
-		"issue_count": 0,
-		"issues": [],
-	}
+static func _make_empty_project_scan_report(targets: Array[Dictionary], scanner_options: Dictionary) -> Dictionary:
+	var scanner: GFProjectReferenceScanner = _GF_PROJECT_REFERENCE_SCANNER_SCRIPT.new()
+	var empty_targets: Array[Dictionary] = []
+	var _accepted: bool = scanner.start(empty_targets, scanner_options)
+	var report: Dictionary = scanner.take_result()
+	report["input_target_count"] = targets.size()
+	return report
 
 
 ## 合并预扫描与项目扫描的消耗、问题和截断标志；仅项目强引用数为零且两个阶段均完整时报告成功，并附预扫描分项详情。

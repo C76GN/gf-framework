@@ -227,13 +227,15 @@ func _warn_disabled_extension_references() -> void:
 		return
 
 	var selected_files: Array[String] = []
+	var export_filter: EditorExportPreset.ExportFilter = EditorExportPreset.EXPORT_ALL_RESOURCES
 	var preset: EditorExportPreset = get_export_preset()
 	if preset != null:
+		export_filter = preset.get_export_filter()
 		selected_files.assign(preset.get_files_to_export())
 	var audit: GFExtensionUsageAudit = GFExtensionUsageAuditBase.new()
 	var _started: bool = audit.start(
 		_disabled_manifests,
-		_make_usage_audit_options(selected_files)
+		_make_usage_audit_options(selected_files, export_filter)
 	)
 	print(_format_scan_progress(audit.get_progress()))
 	var last_progress_usec: int = Time.get_ticks_usec()
@@ -267,15 +269,18 @@ func _warn_disabled_extension_references() -> void:
 	)
 
 
-## 按项目忽略标记扫描，并保留预设显式选择的文件；文件、深度和字节预算沿用审计默认值。
+## 按项目忽略标记扫描，仅将所选场景或所选资源模式的清单作为额外输入；文件、深度和字节预算沿用审计默认值。
 ## [br]
 ## @api private
-static func _make_usage_audit_options(additional_scan_files: Array[String] = []) -> Dictionary:
+static func _make_usage_audit_options(selected_files: Array[String], export_filter: EditorExportPreset.ExportFilter) -> Dictionary:
+	var additional_scan_files: Array[String] = []
+	if export_filter == EditorExportPreset.EXPORT_SELECTED_SCENES or export_filter == EditorExportPreset.EXPORT_SELECTED_RESOURCES:
+		additional_scan_files = selected_files.duplicate()
 	return {
 		"additional_ignored_roots": ["res://ai_analysis"],
 		"max_references_per_extension": 8,
 		"respect_gdignore": true,
-		"additional_scan_files": additional_scan_files.duplicate(),
+		"additional_scan_files": additional_scan_files,
 	}
 
 

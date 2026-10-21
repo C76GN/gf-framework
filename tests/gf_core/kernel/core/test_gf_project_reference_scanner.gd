@@ -12,6 +12,156 @@ class BinaryReferenceResource:
 
 # --- 测试用例 ---
 
+## 未启用范围选项时，空目标仍保留旧报告形状，不因不存在的来源或极低预算产生读取诊断。
+func test_empty_targets_preserve_scope_disabled_report_shape() -> void:
+	var targets: Array[Dictionary] = []
+	var options: Dictionary = {
+		"scan_roots": ["user://gf_reference_unvisited_empty_root"],
+		"max_scanned_files": 1,
+		"max_file_bytes": 1,
+		"max_total_bytes": 1,
+	}
+	var baseline: Dictionary = _assert_terminal_scan_without_io(targets, options)
+	options["respect_gdignore"] = false
+	options["additional_scan_files"] = []
+	var explicit_defaults: Dictionary = _assert_terminal_scan_without_io(targets, options)
+	assert_eq(explicit_defaults, baseline)
+	assert_false(baseline.has("scope"))
+	assert_true(_option_bool(baseline, "ok"))
+	assert_false(_option_bool(baseline, "partial_scan"))
+	assert_eq(
+		_option_int(baseline, "issue_count"),
+		0
+	)
+
+
+## 空目标仍描述已请求的范围；规范化显式文件只做字符串处理，不探测它们是否存在。
+func test_empty_targets_preserve_enabled_scope_without_io() -> void:
+	var targets: Array[Dictionary] = []
+	var explicit_path: String = "user://gf_reference_unvisited_scope/consumer.gd"
+	var cases: Array[Dictionary] = [
+		{ "respect_gdignore": true },
+		{
+			"additional_scan_files": [explicit_path, "user://gf_reference_unvisited_scope/./consumer.gd"],
+		},
+	]
+	for scope_options: Dictionary in cases:
+		var options: Dictionary = scope_options.duplicate(true)
+		options["scan_roots"] = ["user://gf_reference_unvisited_scope"]
+		options["max_scanned_files"] = 1
+		options["max_file_bytes"] = 1
+		options["max_total_bytes"] = 1
+		var report: Dictionary = _assert_terminal_scan_without_io(targets, options)
+		assert_true(
+			report.has("scope"),
+			"空目标不能省略已启用的范围合同。"
+		)
+		var scope: Dictionary = _option_dictionary(report, "scope")
+		assert_eq(
+			_option_bool(scope, "respect_gdignore"),
+			_option_bool(options, "respect_gdignore")
+		)
+		var expected_files: Array[String] = []
+		if options.has("additional_scan_files"):
+			expected_files.append(explicit_path)
+		assert_eq(
+			_option_array(scope, "additional_scan_files"),
+			expected_files
+		)
+		assert_true(_option_array(scope, "ignored_directories").is_empty())
+		assert_true(_option_array(scope, "dependency_files").is_empty())
+		assert_true(_option_bool(report, "ok"))
+		assert_false(_option_bool(report, "partial_scan"))
+		assert_eq(
+			_option_int(report, "issue_count"),
+			0
+		)
+
+
+## 非法根与重复目标 ID 的预检错误保留，同时报告调用者请求的范围；两种失败均不启动扫描。
+func test_invalid_targets_preserve_scope_and_target_preflight_issues() -> void:
+	var invalid_root: Array[Dictionary] = [
+		{ "id": "invalid.root", "root_path": "", },
+	]
+	var duplicate_ids: Array[Dictionary] = [
+		{ "id": "duplicate", "root_path": "res://author/first" },
+		{ "id": "duplicate", "root_path": "res://author/second" },
+	]
+	var cases: Array[Dictionary] = [
+		{ "targets": invalid_root, "issue": "invalid_target_root" },
+		{ "targets": duplicate_ids, "issue": "duplicate_target_id" },
+	]
+	var explicit_path: String = "user://gf_reference_unvisited_invalid/consumer.gd"
+	for test_case: Dictionary in cases:
+		var targets: Array[Dictionary] = test_case["targets"]
+		var options: Dictionary = {
+			"scan_roots": ["user://gf_reference_unvisited_invalid"],
+			"respect_gdignore": true,
+			"additional_scan_files": [explicit_path],
+		}
+		var report: Dictionary = _assert_terminal_scan_without_io(targets, options)
+		assert_true(
+			report.has("scope"),
+			"目标预检失败不能吞掉有效范围请求。"
+		)
+		var scope: Dictionary = _option_dictionary(report, "scope")
+		assert_true(_option_bool(scope, "respect_gdignore"))
+		assert_eq(
+			_option_array(scope, "additional_scan_files"),
+			[explicit_path]
+		)
+		assert_true(
+			_has_issue_code(
+				report,
+				_option_string(test_case, "issue")
+			)
+		)
+		assert_false(_has_issue_code(report, "scan_root_open_failed"))
+		assert_false(_has_issue_code(report, "invalid_scan_file"))
+		assert_false(_option_bool(report, "ok"))
+		assert_true(_option_bool(report, "partial_scan"))
+		assert_eq(
+			_option_int(report, "input_target_count"),
+			targets.size()
+		)
+
+
+## 显式文件路径的准入错误不依赖有效目标；空目标也不能把无效范围报告为成功。
+func test_empty_and_invalid_targets_reject_invalid_additional_files() -> void:
+	var empty_targets: Array[Dictionary] = []
+	var invalid_targets: Array[Dictionary] = [
+		{ "id": "invalid.root", "root_path": "", },
+	]
+	var cases: Array[Dictionary] = [
+		{ "targets": empty_targets },
+		{ "targets": invalid_targets },
+	]
+	for test_case: Dictionary in cases:
+		var targets: Array[Dictionary] = test_case["targets"]
+		var report: Dictionary = _assert_terminal_scan_without_io(
+			targets,
+			{
+				"scan_roots": ["user://gf_reference_unvisited_invalid_file"],
+				"additional_scan_files": ["not_a_resource_path.gd"],
+			}
+		)
+		assert_true(
+			report.has("scope"),
+			"无效请求仍须说明已启用显式文件范围。"
+		)
+		assert_true(_has_issue_code(report, "invalid_scan_file"))
+		assert_eq(
+			_has_issue_code(report, "invalid_target_root"),
+			not targets.is_empty()
+		)
+		assert_false(_has_issue_code(report, "scan_root_open_failed"))
+		assert_false(_option_bool(report, "ok"))
+		assert_true(_option_bool(report, "partial_scan"))
+		var scope: Dictionary = _option_dictionary(report, "scope")
+		assert_false(_option_bool(scope, "respect_gdignore"))
+		assert_true(_option_array(scope, "additional_scan_files").is_empty())
+
+
 ## 显式选择不会撤销默认排除；调用者明确替换 ignored_roots 时才重新接纳 GF 文件。
 func test_additional_files_preserve_default_ignored_roots_until_replaced() -> void:
 	var path: String = "res://addons/gf/kernel/core/gf_project_reference_scanner.gd"
@@ -2096,6 +2246,40 @@ func test_binary_scn_dependency_is_reported_as_verified_reference() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+## 通过已文档化的会话和同步入口核对同一终态报告，并证明接纳期间未枚举、读取或消耗预算。
+func _assert_terminal_scan_without_io(targets: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var scanner: GFProjectReferenceScanner = GFProjectReferenceScanner.new()
+	assert_true(scanner.start(targets, options))
+	var progress: Dictionary = scanner.get_progress()
+	assert_true(_option_bool(progress, "finished"))
+	for key: String in [
+		"entries",
+		"candidate_files",
+		"scanned_files",
+		"scanned_bytes",
+	]:
+		assert_eq(
+			_option_int(progress, key),
+			0,
+			"start 不得为无可扫描目标的请求执行 I/O：%s" % key
+		)
+	var report: Dictionary = scanner.take_result()
+	var synchronous: Dictionary = GFProjectReferenceScanner.scan_references(targets, options)
+	assert_false(report.is_empty())
+	assert_eq(report, synchronous)
+	assert_false(_option_bool(report, "budget_exceeded"))
+	for key: String in [
+		"candidate_file_count",
+		"scanned_file_count",
+		"scanned_bytes",
+	]:
+		assert_eq(
+			_option_int(report, key),
+			0
+		)
+	return report
+
 
 func _write_text_file(path: String, text: String) -> void:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
