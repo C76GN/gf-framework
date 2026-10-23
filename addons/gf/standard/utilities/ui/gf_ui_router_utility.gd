@@ -2263,14 +2263,12 @@ func _make_public_history_entry(entry: Dictionary) -> Dictionary:
 	}
 
 
-## 先解析缓存弱引用；不可用时从当前架构获取 GFUIUtility。
+## 显式目标失效时返回 null；仅未配置目标时从当前架构解析 UIUtility。
 ## [br]
 ## @api private
 func _get_ui_utility() -> GFUIUtility:
 	if _ui_utility_ref != null:
-		var ui_utility: GFUIUtility = _get_ui_utility_value(_ui_utility_ref.get_ref())
-		if ui_utility != null:
-			return ui_utility
+		return _get_ui_utility_value(_ui_utility_ref.get_ref())
 
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:

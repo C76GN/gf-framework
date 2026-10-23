@@ -1,70 +1,57 @@
 # 异步加载与 LRU 缓存
 
-当项目需要按需加载特效、图标、UI 面板或关卡资源，并希望统一处理缓存、并发请求、取消和调试快照时，可以使用 `GFAssetUtility`。
+`GFAssetUtility.load_async()` 每次返回独立的 `GFAssetLoadOperation`。请求先选择资源 scope，再等待类型化结果；缓存命中也走同一等待接口。
 
 ## 基本用法
 
 ```gdscript
 var assets := Gf.get_utility(GFAssetUtility) as GFAssetUtility
-
-# 异步加载一个带路径的资源。缓存命中时直接返回，
-# 如果已有相同请求，则共用同一次加载；如果没有，则发起新的 threaded request。
-assets.load_async("res://actors/runtime_actor.tscn", func(res: Resource) -> void:
-	var actor_scene := res as PackedScene
-	if actor_scene != null:
-		add_child(actor_scene.instantiate())
+var scope: GFAssetScope = assets.create_scope(self)
+var operation: GFAssetLoadOperation = assets.load_async(
+	"res://actors/runtime_actor.tscn", scope, "PackedScene"
 )
+var result: GFAssetLoadResult = await operation.wait_result_async()
+if result.is_successful():
+	var resource: Resource = result.get_handle().get_resource()
+	if resource is PackedScene:
+		add_child(resource.instantiate())
 ```
 
-架构模式必须同时注册一个共享 `GFResourceBroker`；`GFAssetUtility.ready()` 会从
-Architecture 解析它。独立使用时显式调用
-`setup_standalone_resource_broker()`，或把项目创建的 Broker 传给
-`set_resource_broker()`。未配置 Broker 的异步请求会失败关闭，不会隐式创建
-无法与 Scene / BackgroundWork 协调的私有加载通道；`load_async()` 的回调会
-收到 `null`，调试快照中的 `resource_broker.request_error` 为
-`ERR_UNCONFIGURED`。Utility 开始 `dispose()` 后也会先关闭 admission，释放过程
-中的同步回调重入不会再创建 Lease。
+scope 从入队延续到成功句柄存活。Node owner 退出树时自动关闭；不绑定 owner 时，应将 scope 保存在成员或局部任务中，并在资源使用结束后调用 `scope.close()`。丢弃最后一个 scope 引用也会关闭它。Utility 仅弱跟踪 scope，不会因跟踪本身永久保留资源。
 
-它内置 LRU 上限。当缓存过大时，会自动清理长期未被提取引用的资源。`max_cache_size = 0` 会禁用并清空缓存；`pin_cache(path)` 会用引用计数锁定关键资源，重复 pin 需要对应次数 `unpin_cache(path)` 后才会重新参与 LRU 淘汰。
+`wait_result_async()` 同时处理即时与延迟完成，无需检查状态再连接信号。每次等待观察同一个结果和同一个句柄，不增加租约或引用计数。`completed(result)` 是完成事实通知，owner 失效或 scope 关闭都不会阻止终态提交和等待唤醒。业务写回前仍应检查自己的生命周期与资源句柄资格。
 
-```gdscript
-assets.max_cache_size = 128
-assets.load_async("res://ui/inventory_panel.tscn", _on_panel_loaded, "PackedScene")
+`GFAssetLoadResult` 保存单次请求的终态事实。`get_status()` 返回 `SUCCEEDED`、`FAILED` 或 `CANCELLED`；`get_error_code()` 在成功时为 `OK`，取消时为 `ERR_SKIP`，失败时保留具体错误码。成功结果的 `get_handle()` 返回原 scope 持有的同一个句柄。之后关闭 scope 不会改写成功结果，但句柄会失效，因此延迟使用资源前应检查 `handle.is_valid()`。
 
-assets.pin_cache("res://ui/common_icons.tres")
-```
+架构模式需要共享的 `GFResourceBroker`；`ready()` 从 Architecture 解析它。独立使用时显式调用 `setup_standalone_resource_broker()` 或 `set_resource_broker()`。未配置 Broker 时请求返回失败结果；调试快照保留 `ERR_UNCONFIGURED`，不隐式创建无法与 Scene / BackgroundWork 协调的加载通道。
 
-同一路径的并发加载会合并到同一个 threaded request。如果已存在请求或缓存的资源类型与新的 `type_hint` 明显不兼容，回调会收到 `null`。命中缓存时回调会同步执行。
+同一资源身份的并发请求可共用物理加载，但每次调用都有独立 operation。类型不兼容、路径无效和服务拒绝都返回终态结果，不返回悬空等待。
+
+## 缓存与持有
+
+LRU 只淘汰无保留资格的缓存项。成功请求的句柄会增加引用计数并 pin 资源；scope 关闭或显式释放句柄后才归还保留。`max_cache_size = 0` 禁用并清空缓存；`pin_cache(path)` 的每次 pin 需要对应一次 `unpin_cache(path)`。
+
+关闭 scope 不销毁调用者已经保存到其他对象的 `Resource` 引用；它撤销的是 GF 管理的持有和交付资格。
 
 ## 加载通道与并发上限
 
-GFAssetUtility 自身的 lane 控制同一资产工作流何时向 Broker 提交请求；Broker 再统一仲裁 Asset、Scene 与 BackgroundWork 的底层 admission。当项目需要控制同类资源的并发数量时，可以在 `load_async()`、`load_handle_async()` 或 `preload_group_async()` 的 options 中传入 `serial_lane_id` / `lane_id` 和 `max_concurrent_loads`。
+Asset lane 决定工作何时提交到 Broker，Broker 统一仲裁 Asset、Scene 与 BackgroundWork 的底层 admission。
 
 ```gdscript
-assets.load_async(
+var scope: GFAssetScope = assets.create_scope(self)
+var operation: GFAssetLoadOperation = assets.load_async(
 	"res://levels/chunk_01.tscn",
-	_on_chunk_loaded,
+	scope,
 	"PackedScene",
-	{
-		"lane_id": &"chunk_streaming",
-		"max_concurrent_loads": 1,
-	}
+	{"lane_id": &"chunk_streaming", "max_concurrent_loads": 1}
 )
+var result: GFAssetLoadResult = await operation.wait_result_async()
 ```
 
-非空通道没有显式上限时会按串行处理；`max_concurrent_loads = 0` 表示不限制并发。`default_max_concurrent_loads` 可为未声明上限的请求提供默认值。被通道限制挡住的请求会进入队列并发出 `asset_load_queued(path, lane_id)`，此时 `is_loading(path)` 仍返回 `true`，`get_load_progress(path)` 返回 `0.0`，直到请求真正开始。
+非空 lane 未声明上限时默认串行；`max_concurrent_loads = 0` 不限制并发。`default_max_concurrent_loads` 为未指定的请求提供默认值。排队发出 `asset_load_queued(path, lane_id)`，此时 `is_loading(path)` 为 true，进度为 0。
 
-`preload_group_async()` 如果设置了 `max_concurrent_loads` 但没有显式通道，会用 group id 作为加载通道，适合让一个预热组内部受限，同时不影响其他组或单资源请求。
+`preload_group_async()` 设置并发上限且没有显式 lane 时，以 group id 作为 lane。分组是预热与缓存策略，不能替代请求 scope。
 
 ## 进度反馈
 
-需要把加载状态接到 UI 或诊断面板时，可以监听 `asset_load_progress(path, progress)`，也可以用 `get_load_progress(path)` 主动读取最近一次轮询到的进度。已缓存资源返回 `1.0`，无请求或已取消请求返回 `0.0`。
-
-```gdscript
-assets.asset_load_progress.connect(func(path: String, progress: float) -> void:
-	if path == "res://ui/inventory_panel.tscn":
-		loading_bar.value = progress
-)
-
-assets.load_async("res://ui/inventory_panel.tscn", _on_panel_loaded, "PackedScene")
-```
+`asset_load_progress(path, progress)` 与 `get_load_progress(path)` 反映共享加载进度：已缓存为 1，未请求或已取消为 0。该路径级诊断不能用于取消某个消费者；取消应调用该消费者的 operation。

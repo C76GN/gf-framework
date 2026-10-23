@@ -1,7 +1,7 @@
 ## GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。
 ##
-## `take_ownership()` 不会深复制输入。成功创建后，调用方必须立即且永久放弃
-## document metadata、Provider context、result metadata 及其全部嵌套集合 alias。
+## `create()` 在大小预算内隔离 document metadata、Provider context 和 result
+## metadata。调用方可继续使用源字典；后续修改不会改变已提交请求。
 ## Utility 只允许 claim 一次，且不会公开任何 payload getter。
 ## [br]
 ## @api public
@@ -11,6 +11,15 @@
 ## @since 11.0.0
 class_name GFSaveProfileRequest
 extends RefCounted
+
+
+# --- 常量 ---
+
+## 隔离并限制普通请求元数据的共享边界。
+## [br]
+## @api private
+## [br]
+const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
 
 
 # --- 私有变量 ---
@@ -48,37 +57,44 @@ var _result_metadata: Dictionary = {}
 
 # --- 公共方法 ---
 
-## 创建请求并接收三个 Dictionary 的逻辑唯一所有权。
+## 创建拥有独立元数据快照的请求。
 ##
-## 此方法不会深复制。返回请求后，调用方必须立即且永久放弃三个源 Dictionary
-## 以及所有嵌套 `Dictionary` / `Array` alias；继续访问或修改会破坏请求快照。
+## 输入必须是纯数据；三个字典合计最多 64 层、100000 节点、1 MiB 保守复制
+## 预算。对象、循环、非有限数与超预算输入被拒绝；大型 section 应由 Provider 准备。
 ## [br]
 ## @api public
 ## [br]
-## @since 11.0.0
+## @since unreleased
 ## [br]
 ## @param document_metadata: 写入文档的持久化元数据。
 ## [br]
-## @schema document_metadata: Dictionary whose source and nested aliases are abandoned after a successful ownership transfer.
+## @schema document_metadata: Bounded pure-data Dictionary copied into an isolated snapshot.
 ## [br]
 ## @param context: Provider 保存准备使用的临时上下文。
 ## [br]
-## @schema context: Dictionary whose source and nested aliases are abandoned after a successful ownership transfer.
+## @schema context: Bounded pure-data Dictionary copied into an isolated snapshot.
 ## [br]
 ## @param result_metadata: 只写入当前操作终态的调用方元数据。
 ## [br]
-## @schema result_metadata: Dictionary whose source and nested aliases are abandoned after a successful ownership transfer.
+## @schema result_metadata: Bounded pure-data Dictionary copied into an isolated snapshot.
 ## [br]
-## @return 持有三个请求载荷的新 opaque 句柄。
-static func take_ownership(
+## @return 持有隔离快照的一次性句柄；输入无效或超预算时返回 null。
+static func create(
 	document_metadata: Dictionary,
 	context: Dictionary,
 	result_metadata: Dictionary
 ) -> GFSaveProfileRequest:
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		document_metadata,
+		context,
+		result_metadata
+	)
+	if snapshot.is_empty():
+		return null
 	var request: GFSaveProfileRequest = GFSaveProfileRequest.new()
-	request._document_metadata = document_metadata
-	request._context = context
-	request._result_metadata = result_metadata
+	request._document_metadata = GFVariantData.as_dictionary(snapshot.get("document_metadata"))
+	request._context = GFVariantData.as_dictionary(snapshot.get("context"))
+	request._result_metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
 	request._ready = true
 	return request
 

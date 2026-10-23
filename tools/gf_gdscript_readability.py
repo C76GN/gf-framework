@@ -2760,26 +2760,9 @@ def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str
 
 
 def _check_canonical_layout(path: str, view: LexedSource, issues: list[dict[str, Any]]) -> None:
-	"""Consume the same bounded layout decisions used by source migrations."""
-	from gf_gdscript_list_layout import layout_edits as list_edits
-	from gf_gdscript_expression_layout import layout_edits as expression_edits
-	from gf_gdscript_layout_integrity import audit_issues as integrity_issues
-	starts = [0]
-	starts.extend(index + 1 for index, value in enumerate(view.source) if value == "\n")
-	observed: set[tuple[str, int]] = set()
-	for planner in (list_edits, expression_edits):
-		for edit in planner(view, max_inline_items=MAX_INLINE_LIST_ITEMS):
-			if not 0 <= edit.start <= edit.end <= len(view.source) or edit.rule not in RULES:
-				raise ValueError("Invalid canonical layout decision.")
-			line = bisect_right(starts, edit.start)
-			key = (edit.rule, line)
-			if key in observed:
-				continue
-			observed.add(key)
-			issues.append(_issue(path, edit.rule, line, edit.start - starts[line - 1] + 1,
-				"This syntax structure does not use its canonical layout.",
-				"Apply the structure's item count, child layout and continuation hierarchy; preserve comments and literal payloads."))
-	issues.extend(integrity_issues(path, view))
+	"""Consume the same source-bound plan that supplies concrete preview diffs."""
+	from gf_gdscript_format_plan import FormatPlan
+	issues.extend(FormatPlan.from_view(path, view).diagnostics())
 
 
 def _header_colon(tokens: tuple[Token, ...], start: int,

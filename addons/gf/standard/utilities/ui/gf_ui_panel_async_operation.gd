@@ -169,6 +169,21 @@ func is_completed() -> bool:
 	return _configured and _status != STATUS_PENDING
 
 
+## 等待面板请求完成并返回本句柄；已经完成时立即返回。
+##
+## 句柄继续弱引用面板，等待不会延长面板生命周期或创建新的所有者。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 可查询终态和当前面板的原请求句柄。
+func wait_result_async() -> GFUIPanelAsyncOperation:
+	if not is_completed():
+		await completed
+	return self
+
+
 ## 获取请求状态。
 ## [br]
 ## @api public

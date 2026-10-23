@@ -1,7 +1,7 @@
 ## GFSaveProfileOperation: Save Profile 异步操作句柄。
 ##
-## 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查
-## `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。
+## 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。`wait_result_async()` 同时
+## 支持已经完成和仍在等待的请求，不要求调用方先判断信号是否已经发出。
 ## [br]
 ## @api public
 ## [br]
@@ -25,6 +25,12 @@ signal completed(result: GFSaveProfileResult)
 
 
 # --- 常量 ---
+
+## 隔离 load 与 flush 入口的小型纯数据上下文。
+## [br]
+## @api private
+## [br]
+const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
 
 ## 保存操作。
 ## [br]
@@ -196,6 +202,21 @@ func get_result() -> GFSaveProfileResult:
 	return _result.duplicate_result() if _result != null else null
 
 
+## 等待唯一终态并取得隔离结果；已经完成时立即返回。
+##
+## 多个等待者独立观察同一次操作，等待本身不会启动、取消或重新提交保存。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前操作的终态结果副本。
+func wait_result_async() -> GFSaveProfileResult:
+	if not is_completed():
+		await completed
+	return get_result()
+
+
 # --- 框架内部方法 ---
 
 ## 由 Save Profile Utility 配置 load 或 flush 句柄。
@@ -248,12 +269,19 @@ func configure_for_framework(
 		)
 	):
 		return false
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		{},
+		context,
+		result_metadata
+	)
+	if snapshot.is_empty():
+		return false
 	_operation = operation
 	_profile_id = profile_id
 	_requested_generation = maxi(requested_generation, 0)
 	_started_at_msec = maxi(started_at_msec, 0)
-	_context = context.duplicate(true)
-	_result_metadata = result_metadata.duplicate(true)
+	_context = GFVariantData.as_dictionary(snapshot.get("context"))
+	_result_metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
 	_strict_recovery = strict_recovery
 	_manager_permit = manager_permit
 	return true

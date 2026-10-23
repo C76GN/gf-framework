@@ -1,6 +1,9 @@
 ## 测试 GFAssetUtility 的缓存、异步加载与失败回调行为。
 extends GutTest
 
+const ASSET_REQUEST_DRIVER_SCRIPT = preload("res://tests/gf_core/standard/utilities/assets/asset_request_test_driver.gd")
+const GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+var _asset_requests: ASSET_REQUEST_DRIVER_SCRIPT = ASSET_REQUEST_DRIVER_SCRIPT.new()
 var _utility: GFAssetUtility
 
 
@@ -12,6 +15,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	_asset_requests.close()
 	if _utility != null:
 		_utility.dispose()
 	_utility = null
@@ -218,7 +222,8 @@ func test_remove_cache_removes_path_from_groups() -> void:
 
 func test_remove_cache_releases_handles_for_path() -> void:
 	var held_resource: Resource = Resource.new()
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://held_remove.tres",
 		null,
 		&"",
@@ -248,7 +253,8 @@ func test_remove_cache_releases_handles_for_path() -> void:
 
 
 func test_dispose_releases_tracked_asset_handles() -> void:
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://held_dispose.tres",
 		null,
 		&"",
@@ -372,7 +378,8 @@ func test_pinned_cache_entry_is_not_lru_evicted() -> void:
 func test_asset_handle_pins_cache_until_release() -> void:
 	_utility.max_cache_size = 1
 	var held_resource: Resource = Resource.new()
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://held.tres",
 		null,
 		&"",
@@ -426,7 +433,8 @@ func test_asset_handle_pins_cache_until_release() -> void:
 func test_asset_handle_release_uses_immutable_lease_identity() -> void:
 	var original_path: String = "res://lease_original.tres"
 	var mutated_path: String = "res://lease_mutated.tres"
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		original_path,
 		null,
 		&"",
@@ -455,7 +463,8 @@ func test_asset_handle_release_uses_immutable_lease_identity() -> void:
 
 
 func test_foreign_asset_utility_cannot_release_handle() -> void:
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://owned_by_primary.tres",
 		null,
 		&"",
@@ -486,7 +495,8 @@ func test_foreign_asset_utility_cannot_release_handle() -> void:
 
 func test_release_owner_releases_owned_asset_handles() -> void:
 	var handle_owner: Node = Node.new()
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://owned.tres",
 		handle_owner,
 		&"",
@@ -518,7 +528,8 @@ func test_node_owner_exit_releases_asset_handle_without_engine_error() -> void:
 	var handle_owner: Node = Node.new()
 	add_child(handle_owner)
 	watch_signals(_utility)
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://owned_tree_exit.tres",
 		handle_owner,
 		&"",
@@ -549,7 +560,8 @@ func test_node_owner_exit_releases_asset_handle_without_engine_error() -> void:
 func test_release_owner_then_reacquire_reuses_tree_exit_connection() -> void:
 	var handle_owner: Node = Node.new()
 	add_child(handle_owner)
-	var first_handle: GFAssetHandle = _utility.acquire_handle(
+	var first_handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://owned_reacquire.tres",
 		handle_owner,
 		&"",
@@ -562,7 +574,11 @@ func test_release_owner_then_reacquire_reuses_tree_exit_connection() -> void:
 		1
 	)
 	assert_true(first_handle.is_released())
-	var second_handle: GFAssetHandle = _utility.acquire_handle("res://owned_reacquire.tres", handle_owner)
+	var second_handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
+		"res://owned_reacquire.tres",
+		handle_owner
+	)
 
 	assert_not_null(second_handle, "同一 owner 在显式释放后应能重新获取句柄。")
 	assert_eq(
@@ -588,7 +604,8 @@ func test_release_owner_then_reacquire_reuses_tree_exit_connection() -> void:
 func test_handle_release_then_reacquire_keeps_single_tree_exit_lifecycle() -> void:
 	var handle_owner: Node = Node.new()
 	add_child(handle_owner)
-	var first_handle: GFAssetHandle = _utility.acquire_handle(
+	var first_handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://owned_handle_reacquire.tres",
 		handle_owner,
 		&"",
@@ -600,7 +617,11 @@ func test_handle_release_then_reacquire_keeps_single_tree_exit_lifecycle() -> vo
 		first_handle.release(),
 		"首次句柄应能显式释放。"
 	)
-	var second_handle: GFAssetHandle = _utility.acquire_handle("res://owned_handle_reacquire.tres", handle_owner)
+	var second_handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
+		"res://owned_handle_reacquire.tres",
+		handle_owner
+	)
 
 	assert_not_null(second_handle, "同一 owner 在句柄释放后应能重新获取。")
 	assert_eq(
@@ -626,7 +647,8 @@ func test_handle_release_then_reacquire_keeps_single_tree_exit_lifecycle() -> vo
 func test_node_owner_reentry_reconnects_next_tree_exit_lifecycle() -> void:
 	var handle_owner: Node = Node.new()
 	add_child(handle_owner)
-	var first_handle: GFAssetHandle = _utility.acquire_handle(
+	var first_handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		"res://owned_reentry.tres",
 		handle_owner,
 		&"",
@@ -647,7 +669,11 @@ func test_node_owner_reentry_reconnects_next_tree_exit_lifecycle() -> void:
 	)
 
 	add_child(handle_owner)
-	var second_handle: GFAssetHandle = _utility.acquire_handle("res://owned_reentry.tres", handle_owner)
+	var second_handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
+		"res://owned_reentry.tres",
+		handle_owner
+	)
 	assert_not_null(second_handle)
 	assert_eq(
 		handle_owner.tree_exited.get_connections().size(),
@@ -870,7 +896,8 @@ func test_unload_group_preserves_manual_pin() -> void:
 
 func test_unload_group_preserves_active_handle() -> void:
 	var path: String = "res://group_with_handle.tres"
-	var handle: GFAssetHandle = _utility.acquire_handle(
+	var handle: GFAssetHandle = _asset_requests.acquire(
+		_utility,
 		path,
 		null,
 		&"",
@@ -1120,8 +1147,13 @@ func test_pending_load_keeps_multiple_callbacks() -> void:
 	var callback: Callable = func(_res: Resource) -> void:
 		state.count += 1
 
-	_utility.load_async("res://icon.svg", callback)
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
+		"res://icon.svg",
+		callback
+	)
+	_asset_requests.request(
+		_utility,
 		"res://icon.svg",
 		func(_res: Resource) -> void:
 			state.count += 1
@@ -1143,7 +1175,7 @@ func test_pending_load_keeps_multiple_callbacks() -> void:
 func test_completion_progress_dispose_cancels_delivery_and_does_not_repopulate_cache() -> void:
 	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
 	_replace_utility(completing)
-	var delivered: Array[Resource] = []
+	var scope: GFAssetScope = _utility.create_scope()
 	var _connected: Error = (
 		_utility.asset_load_progress.connect(
 			func(_path: String, progress: float) -> void:
@@ -1151,18 +1183,15 @@ func test_completion_progress_dispose_cancels_delivery_and_does_not_repopulate_c
 					_utility.dispose(),
 		) as Error
 	)
-	_utility.load_async(
-		"res://progress_resource.tres",
-		func(resource: Resource) -> void:
-			delivered.append(resource)
-	)
+	var operation: GFAssetLoadOperation = _utility.load_async("res://progress_resource.tres", scope)
 	completing.complete = true
 	_utility.tick()
+	var result: GFAssetLoadResult = await operation.wait_result_async()
 	assert_eq(
-		delivered.size(),
-		1
+		result.get_status(),
+		GFAssetLoadResult.Status.CANCELLED
 	)
-	assert_null(delivered[0])
+	assert_null(result.get_handle())
 	assert_eq(
 		GFVariantData.get_option_int(
 			_utility.get_debug_snapshot(),
@@ -1179,6 +1208,144 @@ func test_completion_progress_dispose_cancels_delivery_and_does_not_repopulate_c
 	)
 
 
+func test_progress_cancel_retry_waits_for_its_own_lease_result() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var path: String = "res://progress_retry_identity.tres"
+	var first_scope: GFAssetScope = _utility.create_scope()
+	var retry_scope: GFAssetScope = _utility.create_scope()
+	var first_resource: Resource = Resource.new()
+	var retry_resource: Resource = Resource.new()
+	completing.loaded_resource = first_resource
+	var first: GFAssetLoadOperation = _utility.load_async(path, first_scope)
+	var retries: Array[GFAssetLoadOperation] = []
+	var _completed_connected: Error = first.completed.connect(
+		func(_result: GFAssetLoadResult) -> void:
+			completing.complete = false
+			completing.loaded_resource = retry_resource
+			retries.append(_utility.load_async(path, retry_scope))
+	) as Error
+	var _progress_connected: Error = _utility.asset_load_progress.connect(
+		func(progress_path: String, progress: float) -> void:
+			if (
+				progress_path == path
+				and progress >= 1.0
+				and not first.is_completed()
+			):
+				var _cancelled: bool = first.cancel()
+	) as Error
+	completing.complete = true
+	_utility.tick()
+	assert_eq(
+		first.get_result().get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+	assert_eq(
+		retries.size(),
+		1
+	)
+	assert_eq(completing.requested_count, 2)
+	assert_false(_utility.is_cached(path))
+	assert_true(_utility.is_loading(path))
+	if not retries.is_empty():
+		var retry: GFAssetLoadOperation = retries[0]
+		assert_false(
+			retry.is_completed(),
+			"旧 lease 的进度回调不得结算重入创建的新消费者。"
+		)
+		completing.complete = true
+		_utility.tick()
+		assert_true(retry.is_completed())
+		if retry.is_completed():
+			var retry_result: GFAssetLoadResult = await retry.wait_result_async()
+			assert_true(retry_result.is_successful())
+			assert_same(
+				retry_result.get_handle().get_resource(),
+				retry_resource
+			)
+		assert_false(_utility.is_loading(path))
+	first_scope.close()
+	retry_scope.close()
+	assert_eq(
+		_utility.get_asset_reference_count(path),
+		0
+	)
+	assert_false(_utility.is_cache_pinned(path))
+
+
+func test_release_owner_freezes_old_scopes_and_preserves_reentrant_new_scope() -> void:
+	var handle_owner: Node = Node.new()
+	add_child(handle_owner)
+	var path: String = "res://owner_release_reentry.tres"
+	_utility.put_cache(
+		path,
+		Resource.new()
+	)
+	_utility.pin_cache(path)
+	var first_scope: GFAssetScope = _utility.create_scope(handle_owner)
+	var second_scope: GFAssetScope = _utility.create_scope(handle_owner)
+	var first_handle: GFAssetHandle = _utility.acquire_handle(path, first_scope)
+	var second_handle: GFAssetHandle = _utility.acquire_handle(path, second_scope)
+	var rejected: Array[GFAssetLoadOperation] = []
+	var new_scopes: Array[GFAssetScope] = []
+	var new_operations: Array[GFAssetLoadOperation] = []
+	var _connected: Error = _utility.asset_handle_released.connect(
+		func(_path: String, _remaining: int) -> void:
+			if not new_scopes.is_empty():
+				return
+			assert_false(first_scope.is_open())
+			assert_false(second_scope.is_open())
+			assert_true(first_handle.is_released())
+			assert_true(second_handle.is_released())
+			rejected.append(_utility.load_async(path, first_scope))
+			var new_scope: GFAssetScope = _utility.create_scope(handle_owner)
+			new_scopes.append(new_scope)
+			new_operations.append(_utility.load_async(path, new_scope))
+	) as Error
+	assert_eq(
+		_utility.release_owner(handle_owner),
+		2
+	)
+	assert_eq(
+		rejected.size(),
+		1
+	)
+	assert_eq(
+		new_operations.size(),
+		1
+	)
+	if not rejected.is_empty():
+		assert_eq(
+			rejected[0].get_result().get_status(),
+			GFAssetLoadResult.Status.FAILED
+		)
+	if not new_operations.is_empty():
+		var result: GFAssetLoadResult = await new_operations[0].wait_result_async()
+		assert_true(result.is_successful())
+		assert_true(
+			result.get_handle().is_valid(),
+			"释放通知中新建 scope 不属于旧 owner 释放快照。"
+		)
+		assert_eq(
+			_utility.get_asset_reference_count(path),
+			1
+		)
+	for new_scope: GFAssetScope in new_scopes:
+		new_scope.close()
+	assert_eq(
+		_utility.get_asset_reference_count(path),
+		0
+	)
+	assert_true(
+		_utility.is_cache_pinned(path),
+		"owner 释放不得消费独立的手动 pin。"
+	)
+	_utility.unpin_cache(path)
+	assert_false(_utility.is_cache_pinned(path))
+	handle_owner.queue_free()
+	await get_tree().process_frame
+
+
 func test_load_progress_updates_signal_query_and_cache_completion() -> void:
 	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
 	_replace_utility(completing)
@@ -1192,7 +1359,8 @@ func test_load_progress_updates_signal_query_and_cache_completion() -> void:
 	)
 
 	var loaded_resource: Array[Resource] = []
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://progress_resource.tres",
 		func(res: Resource) -> void:
 			loaded_resource.append(res)
@@ -1251,12 +1419,14 @@ func test_pending_load_rejects_same_path_with_different_type_hint() -> void:
 	var second_callback: Callable = func(res: Resource) -> void:
 		results.append(res)
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://same_path.tres",
 		first_callback,
 		"Resource"
 	)
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://same_path.tres",
 		second_callback,
 		"PackedScene"
@@ -1293,14 +1463,16 @@ func test_pending_load_allows_empty_type_hint_with_strong_type_hint() -> void:
 	_replace_utility(completing)
 	var results: Array[Dictionary] = []
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://compatible_path.tres",
 		func(res: Resource) -> void:
 			results.append({ "generic": res })
 	)
 	var packed_callback: Callable = func(res: Resource) -> void:
 		results.append({ "packed": res })
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://compatible_path.tres",
 		packed_callback,
 		"PackedScene"
@@ -1344,7 +1516,8 @@ func test_failed_load_notifies_callback_with_null() -> void:
 
 	var state: CallbackState = CallbackState.new()
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://simulated_failure.tres",
 		func(res: Resource) -> void:
 			state.called = true
@@ -1367,19 +1540,21 @@ func test_cancel_clears_callbacks_but_reuses_underlying_request_for_retry() -> v
 	_replace_utility(completing)
 	var results: Array[Dictionary] = []
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://retry_resource.tres",
 		func(res: Resource) -> void:
 			results.append({ "old": res })
 	)
-	_utility.cancel("res://retry_resource.tres")
+	_asset_requests.cancel(_utility, "res://retry_resource.tres")
 
 	assert_false(
 		_utility.is_loading("res://retry_resource.tres"),
 		"取消后外部查询不应再视为正在加载。"
 	)
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://retry_resource.tres",
 		func(res: Resource) -> void:
 			results.append({ "new": res })
@@ -1419,12 +1594,14 @@ func test_pending_load_coalesces_uid_and_canonical_path() -> void:
 	var uid_path: String = _uid_path_for(script_path)
 	var results: Array[Resource] = []
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		uid_path,
 		func(resource: Resource) -> void:
 			results.append(resource)
 	)
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		script_path,
 		func(resource: Resource) -> void:
 			results.append(resource)
@@ -1467,13 +1644,14 @@ func test_pending_load_coalesces_uid_and_canonical_path() -> void:
 func test_cancelled_load_completion_does_not_populate_cache_without_retry() -> void:
 	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
 	_replace_utility(completing)
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://cancelled_resource.tres",
 		func(_res: Resource) -> void:
 			fail_test("取消后的旧回调不应再触发。")
 	)
 
-	_utility.cancel("res://cancelled_resource.tres")
+	_asset_requests.cancel(_utility, "res://cancelled_resource.tres")
 	completing.complete = true
 	_utility.tick()
 
@@ -1491,7 +1669,8 @@ func test_debug_snapshot_reports_cache_pending_and_pinned_state() -> void:
 		Resource.new()
 	)
 	_utility.pin_cache("res://cached.tres")
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://pending.tres",
 		func(_res: Resource) -> void:
 			pass
@@ -1544,14 +1723,16 @@ func test_serial_load_lane_queues_until_active_request_finishes() -> void:
 		) as Error
 	)
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://lane_a.tres",
 		func(_res: Resource) -> void:
 			results.append("a"),
 		"",
 		{ "serial_lane_id": &"level" }
 	)
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://lane_b.tres",
 		func(_res: Resource) -> void:
 			results.append("b"),
@@ -1614,21 +1795,23 @@ func test_cancel_queued_serial_load_prevents_callback_and_start() -> void:
 	_replace_utility(completing)
 	var state: CallbackState = CallbackState.new()
 
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://active.tres",
 		func(_res: Resource) -> void:
 			state.count += 1,
 		"",
 		{ "serial_lane_id": &"level" }
 	)
-	_utility.load_async(
+	_asset_requests.request(
+		_utility,
 		"res://queued.tres",
 		func(_res: Resource) -> void:
 			state.count += 10,
 		"",
 		{ "serial_lane_id": &"level" }
 	)
-	_utility.cancel("res://queued.tres")
+	_asset_requests.cancel(_utility, "res://queued.tres")
 
 	assert_false(
 		_utility.is_loading("res://queued.tres"),
@@ -1917,6 +2100,290 @@ func test_dispose_aborts_active_preload_session() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func test_scoped_requests_cancel_independently_and_keep_one_physical_load() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var first_scope: GFAssetScope = _utility.create_scope()
+	var second_scope: GFAssetScope = _utility.create_scope()
+	var first: GFAssetLoadOperation = _utility.load_async("res://shared_scope.tres", first_scope)
+	var second: GFAssetLoadOperation = _utility.load_async("res://shared_scope.tres", second_scope)
+	assert_eq(completing.requested_count, 1)
+	assert_true(first.cancel())
+	assert_false(first.cancel())
+	assert_false(second.is_completed())
+	assert_eq(
+		(await first.wait_result_async()).get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+	completing.complete = true
+	_utility.tick()
+	var result: GFAssetLoadResult = await second.wait_result_async()
+	assert_true(result.is_successful())
+	assert_same(
+		result.get_handle().get_resource(),
+		completing.loaded_resource
+	)
+	assert_eq(
+		_utility.get_asset_reference_count("res://shared_scope.tres"),
+		1
+	)
+	first_scope.close()
+	second_scope.close()
+
+
+func test_repeated_wait_observes_same_handle_and_success_cancel_does_not_release() -> void:
+	_utility.put_cache(
+		"res://immediate_scope.tres",
+		Resource.new()
+	)
+	var scope: GFAssetScope = _utility.create_scope()
+	var operation: GFAssetLoadOperation = _utility.load_async("res://immediate_scope.tres", scope)
+	var first: GFAssetLoadResult = await operation.wait_result_async()
+	var second: GFAssetLoadResult = await operation.wait_result_async()
+	assert_same(first, second)
+	assert_same(
+		first.get_handle(),
+		second.get_handle()
+	)
+	assert_eq(
+		_utility.get_asset_reference_count("res://immediate_scope.tres"),
+		1
+	)
+	assert_false(operation.cancel())
+	assert_true(first.get_handle().is_valid())
+	scope.close()
+	assert_true(first.is_successful())
+	assert_false(first.get_handle().is_valid())
+	assert_eq(
+		_utility.get_asset_reference_count("res://immediate_scope.tres"),
+		0
+	)
+
+
+func test_scope_close_unconditionally_wakes_waiters_and_cancels_queued_request() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var active_scope: GFAssetScope = _utility.create_scope()
+	var queued_scope: GFAssetScope = _utility.create_scope()
+	var active: GFAssetLoadOperation = _utility.load_async(
+		"res://scope_active.tres",
+		active_scope,
+		"",
+		{ "serial_lane_id": &"scope_lane" }
+	)
+	var queued: GFAssetLoadOperation = _utility.load_async(
+		"res://scope_queued.tres",
+		queued_scope,
+		"",
+		{ "serial_lane_id": &"scope_lane" }
+	)
+	var observed: Array[GFAssetLoadResult] = []
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_observe_asset_result"),
+		[queued, observed]
+	)
+	queued_scope.close()
+	assert_eq(
+		observed.size(),
+		1
+	)
+	assert_eq(
+		observed[0].get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+	completing.complete = true
+	_utility.tick()
+	assert_true((await active.wait_result_async()).is_successful())
+	assert_eq(completing.requested_count, 1)
+	active_scope.close()
+
+
+func test_dropping_unowned_scope_cancels_pending_operation() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var scope: GFAssetScope = _utility.create_scope()
+	var operation: GFAssetLoadOperation = _utility.load_async("res://abandoned_scope.tres", scope)
+	scope = null
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+	completing.complete = true
+	_utility.tick()
+	assert_false(_utility.is_cached("res://abandoned_scope.tres"))
+
+
+func test_owner_exit_cancels_pending_and_invalidates_success_without_suppressing_completion() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var scope_owner: Node = Node.new()
+	add_child(scope_owner)
+	var scope: GFAssetScope = _utility.create_scope(scope_owner)
+	_utility.put_cache(
+		"res://owned_scope_cached.tres",
+		Resource.new()
+	)
+	var successful: GFAssetLoadOperation = _utility.load_async("res://owned_scope_cached.tres", scope)
+	var pending_operation: GFAssetLoadOperation = _utility.load_async("res://owned_scope_pending.tres", scope)
+	var observed: Array[GFAssetLoadResult] = []
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_observe_asset_result"),
+		[pending_operation, observed]
+	)
+	scope_owner.free()
+	assert_eq(
+		observed.size(),
+		1
+	)
+	assert_true(successful.get_result().is_successful())
+	assert_true(successful.get_result().get_handle().is_released())
+	assert_eq(
+		pending_operation.get_result().get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+
+
+func test_scope_closing_during_handle_acquired_does_not_publish_success() -> void:
+	_utility.put_cache(
+		"res://reentrant_scope.tres",
+		Resource.new()
+	)
+	var scope: GFAssetScope = _utility.create_scope()
+	var _connected: Error = _utility.asset_handle_acquired.connect(
+		func(_handle: GFAssetHandle) -> void:
+			scope.close(),
+		CONNECT_ONE_SHOT
+	) as Error
+	var operation: GFAssetLoadOperation = _utility.load_async("res://reentrant_scope.tres", scope)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+	assert_eq(
+		_utility.get_asset_reference_count("res://reentrant_scope.tres"),
+		0
+	)
+
+
+func test_foreign_and_closed_scopes_return_completed_rejections() -> void:
+	var other: GFAssetUtility = GFAssetUtility.new()
+	var foreign: GFAssetScope = other.create_scope()
+	var rejected: GFAssetLoadOperation = _utility.load_async("res://icon.svg", foreign)
+	assert_eq(
+		(await rejected.wait_result_async()).get_error_code(),
+		ERR_INVALID_PARAMETER
+	)
+	foreign.close()
+	other.dispose()
+	var scope: GFAssetScope = _utility.create_scope()
+	scope.close()
+	assert_true(_utility.load_async("res://icon.svg", scope).is_completed())
+
+
+func test_handle_released_during_acquired_notification_rejects_success() -> void:
+	_utility.put_cache(
+		"res://released_before_delivery.tres",
+		Resource.new()
+	)
+	var scope: GFAssetScope = _utility.create_scope()
+	var _connected: Error = _utility.asset_handle_acquired.connect(
+		func(handle: GFAssetHandle) -> void:
+			var _released: bool = handle.release(),
+		CONNECT_ONE_SHOT
+	) as Error
+	var result: GFAssetLoadResult = await _utility.load_async("res://released_before_delivery.tres", scope).wait_result_async()
+	assert_false(result.is_successful())
+	assert_eq(
+		result.get_error_code(),
+		ERR_CANT_ACQUIRE_RESOURCE
+	)
+	assert_null(result.get_handle())
+	assert_eq(
+		_utility.get_asset_reference_count("res://released_before_delivery.tres"),
+		0
+	)
+	scope.close()
+
+
+func test_remove_cache_during_acquired_notification_rejects_success() -> void:
+	_utility.put_cache(
+		"res://removed_before_delivery.tres",
+		Resource.new()
+	)
+	var scope: GFAssetScope = _utility.create_scope()
+	var _connected: Error = _utility.asset_handle_acquired.connect(
+		func(_handle: GFAssetHandle) -> void:
+			_utility.remove_cache("res://removed_before_delivery.tres"),
+		CONNECT_ONE_SHOT
+	) as Error
+	var result: GFAssetLoadResult = await _utility.load_async("res://removed_before_delivery.tres", scope).wait_result_async()
+	assert_false(result.is_successful())
+	assert_eq(
+		result.get_error_code(),
+		ERR_CANT_ACQUIRE_RESOURCE
+	)
+	assert_false(_utility.is_cached("res://removed_before_delivery.tres"))
+	scope.close()
+
+
+func test_request_result_preserves_unconfigured_and_type_mismatch_errors() -> void:
+	var unconfigured: GFAssetUtility = GFAssetUtility.new()
+	unconfigured.init()
+	var scope: GFAssetScope = unconfigured.create_scope()
+	var result: GFAssetLoadResult = await unconfigured.load_async("res://unconfigured_operation.tres", scope).wait_result_async()
+	assert_push_error("[GFAssetUtility][asset_utility.async_request_failed] Cannot start the asynchronous load request: res://unconfigured_operation.tres (error code: %d)." % ERR_UNCONFIGURED)
+	assert_eq(
+		result.get_error_code(),
+		ERR_UNCONFIGURED
+	)
+	scope.close()
+	unconfigured.dispose()
+	var cached_scope: GFAssetScope = _utility.create_scope()
+	_utility.put_cache(
+		"res://operation_wrong_type.tres",
+		Resource.new()
+	)
+	var mismatch: GFAssetLoadResult = await _utility.load_async(
+		"res://operation_wrong_type.tres",
+		cached_scope,
+		"PackedScene"
+	).wait_result_async()
+	assert_push_warning("[GFAssetUtility][asset_utility.cached_type_mismatch] Cached resource type does not match the requested type_hint: res://operation_wrong_type.tres (PackedScene).")
+	assert_eq(
+		mismatch.get_error_code(),
+		ERR_INVALID_DATA
+	)
+	cached_scope.close()
+
+
+func test_underlying_broker_disposal_completes_consumer_wait() -> void:
+	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
+	_replace_utility(completing)
+	var scope: GFAssetScope = _utility.create_scope()
+	var operation: GFAssetLoadOperation = _utility.load_async("res://broker_cancelled_consumer.tres", scope)
+	var observed: Array[GFAssetLoadResult] = []
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_observe_asset_result"),
+		[operation, observed]
+	)
+	_utility.get_resource_broker().dispose()
+	_utility.tick()
+	assert_eq(
+		observed.size(),
+		1
+	)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFAssetLoadResult.Status.CANCELLED
+	)
+	scope.close()
+
+
+func _observe_asset_result(operation: GFAssetLoadOperation, observed: Array[GFAssetLoadResult]) -> void:
+	observed.append(await operation.wait_result_async())
+
 
 func _replace_utility(utility: GFAssetUtility) -> void:
 	if _utility != null:

@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-场景树上的局部架构上下文。 可选择继承父级架构，或创建带父级回退的 Scoped 架构。 Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback， 适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await owned Architecture 的 shutdown_async()，再移除节点。
+场景树上的局部架构上下文。 可选择继承父级架构，或创建带父级回退的 Scoped 架构。 Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback， 适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await close_async()，确认结果后再移除节点。
 
 ## 成员概览
 
@@ -17,6 +17,7 @@
 |---|---|---|
 | 信号 | [`context_ready`](#member-gfnodecontext-signals-context_ready) | `signal context_ready(architecture: GFArchitecture)` |
 | 信号 | [`context_failed`](#member-gfnodecontext-signals-context_failed) | `signal context_failed(reason: String)` |
+| 信号 | [`context_closing`](#member-gfnodecontext-signals-context_closing) | `signal context_closing()` |
 | 枚举 | [`ScopeMode`](#member-gfnodecontext-enums-scopemode) | `enum ScopeMode` |
 | 属性 | [`scope_mode`](#member-gfnodecontext-properties-scope_mode) | `var scope_mode: ScopeMode = ScopeMode.SCOPED` |
 | 属性 | [`auto_init`](#member-gfnodecontext-properties-auto_init) | `var auto_init: bool = true` |
@@ -25,6 +26,9 @@
 | 属性 | [`module_async_init_timeout_seconds`](#member-gfnodecontext-properties-module_async_init_timeout_seconds) | `var module_async_init_timeout_seconds: float = 0.0` |
 | 属性 | [`context_wait_timeout_seconds`](#member-gfnodecontext-properties-context_wait_timeout_seconds) | `var context_wait_timeout_seconds: float = 30.0` |
 | 属性 | [`architecture`](#member-gfnodecontext-properties-architecture) | `var architecture: GFArchitecture:` |
+| 方法 | [`bind_source_context`](#member-gfnodecontext-methods-bind_source_context) | `func bind_source_context(source: GFNodeContext) -> bool:` |
+| 方法 | [`is_context_available`](#member-gfnodecontext-methods-is_context_available) | `func is_context_available() -> bool:` |
+| 方法 | [`close_async`](#member-gfnodecontext-methods-close_async) | `func close_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFContextCloseResult:` |
 | 方法 | [`install`](#member-gfnodecontext-methods-install) | `func install(_architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:` |
 | 方法 | [`install_bindings`](#member-gfnodecontext-methods-install_bindings) | `func install_bindings(_binder: Variant, _scope: GFAsyncScope) -> void:` |
 | 方法 | [`get_architecture`](#member-gfnodecontext-methods-get_architecture) | `func get_architecture() -> GFArchitecture:` |
@@ -80,6 +84,19 @@ signal context_failed(reason: String)
 | 名称 | 说明 |
 |---|---|
 | `reason` | 失败原因。 |
+
+<a id="member-gfnodecontext-signals-context_closing"></a>
+
+### `context_closing`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal context_closing()
+```
+
+本地绑定停止接受新工作时发出；可用于立即撤销 Controller 事件绑定。
 
 ## 枚举
 
@@ -187,6 +204,64 @@ var architecture: GFArchitecture:
 当前上下文使用的架构实例。
 
 ## 方法
+
+<a id="member-gfnodecontext-methods-bind_source_context"></a>
+
+### `bind_source_context`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func bind_source_context(source: GFNodeContext) -> bool:
+```
+
+在进入树前为 INHERITED Context 指定业务来源。显示父节点不会改变该绑定。 来源必须已经在树中；绑定不拥有来源，来源离树、关闭或重入后本轮绑定失效。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | 要借用架构的来源上下文。 |
+
+返回：配置成功返回 true；在树中、非 INHERITED 或无效来源返回 false。
+
+<a id="member-gfnodecontext-methods-is_context_available"></a>
+
+### `is_context_available`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_context_available() -> bool:
+```
+
+检查本地绑定是否接受新工作。初始化中的绑定可用；关闭、失效及来源失效时不可用。
+
+返回：当前绑定和来源身份都有效时返回 true。
+
+<a id="member-gfnodecontext-methods-close_async"></a>
+
+### `close_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func close_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFContextCloseResult:
+```
+
+先关闭逻辑子 Context，再关闭自有架构；INHERITED 只关闭本地绑定。 首次调用立即停止新工作，并发调用共享结果与首个调用的策略。预算由子关闭共同消耗。 节点不会自动离树；无法关闭的外部依赖返回未关闭结果，保持 CLOSING，允许稍后重试。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `cancellation_token` | 协作关闭的取消 token。 |
+| `timeout_seconds` | 总等待预算，-1 使用自有架构默认值或 30 秒；同步释放不承诺硬时限。 |
+
+返回：同时说明是否关闭和是否正常排空的不可变结果。
 
 <a id="member-gfnodecontext-methods-install"></a>
 

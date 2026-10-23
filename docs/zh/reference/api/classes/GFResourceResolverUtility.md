@@ -33,7 +33,7 @@
 | 方法 | [`resolve`](#member-gfresourceresolverutility-methods-resolve) | `func resolve( resource_key: StringName, type_hint_override: String = "", options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`resolve_path`](#member-gfresourceresolverutility-methods-resolve_path) | `func resolve_path( resource_key: StringName, type_hint_override: String = "", options: Dictionary = {} ) -> String:` |
 | 方法 | [`load`](#member-gfresourceresolverutility-methods-load) | `func load( resource_key: StringName, type_hint_override: String = "", cache_mode: int = ResourceLoader.CACHE_MODE_REUSE, options: Dictionary = {} ) -> Resource:` |
-| 方法 | [`load_async`](#member-gfresourceresolverutility-methods-load_async) | `func load_async( asset_utility: GFAssetUtility, resource_key: StringName, on_loaded: Callable, type_hint_override: String = "", options: Dictionary = {} ) -> void:` |
+| 方法 | [`load_async`](#member-gfresourceresolverutility-methods-load_async) | `func load_async( asset_utility: GFAssetUtility, resource_key: StringName, scope: GFAssetScope, type_hint_override: String = "", options: Dictionary = {} ) -> GFAssetLoadOperation:` |
 | 方法 | [`make_asset_group_entries`](#member-gfresourceresolverutility-methods-make_asset_group_entries) | `func make_asset_group_entries( resource_keys: PackedStringArray, type_hint_override: String = "", options: Dictionary = {} ) -> Array[Dictionary]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfresourceresolverutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -411,22 +411,25 @@ func load( resource_key: StringName, type_hint_override: String = "", cache_mode
 ### `load_async`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func load_async( asset_utility: GFAssetUtility, resource_key: StringName, on_loaded: Callable, type_hint_override: String = "", options: Dictionary = {} ) -> void:
+func load_async( asset_utility: GFAssetUtility, resource_key: StringName, scope: GFAssetScope, type_hint_override: String = "", options: Dictionary = {} ) -> GFAssetLoadOperation:
 ```
 
-通过 GFAssetUtility 异步加载解析结果。
+在指定 scope 中请求解析结果；提供者返回的内存资源同样获得 scope 句柄。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `asset_utility` | 资源加载工具。 |
+| `asset_utility` | 资源服务。 |
 | `resource_key` | 稳定资源键。 |
-| `on_loaded` | 加载完成回调，签名为 func(resource: Resource)。 |
-| `type_hint_override` | 可选 ResourceLoader 类型提示覆盖。 |
-| `options` | 可选参数，见 \`resolve()\`。 |
+| `scope` | 请求和句柄生命周期。 |
+| `type_hint_override` | 可选资源类型覆盖。 |
+| `options` | 解析选项。 |
+
+返回：独立资源操作。
 
 结构：
 

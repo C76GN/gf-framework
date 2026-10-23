@@ -1,6 +1,8 @@
 ## 测试 GFResourceBroker 的共享 admission、复用和 drain 语义。
 extends GutTest
 
+const ASSET_REQUEST_DRIVER_SCRIPT = preload("res://tests/gf_core/standard/utilities/assets/asset_request_test_driver.gd")
+var _asset_requests: ASSET_REQUEST_DRIVER_SCRIPT = ASSET_REQUEST_DRIVER_SCRIPT.new()
 const ASSET_UTILITY_PATH: String = "res://addons/gf/standard/utilities/assets/gf_asset_utility.gd"
 const JOB_UTILITY_PATH: String = "res://addons/gf/standard/utilities/jobs/gf_background_work_utility.gd"
 const SCENE_UTILITY_PATH: String = "res://addons/gf/standard/utilities/scene/gf_scene_utility.gd"
@@ -506,7 +508,8 @@ func test_same_broker_rebind_is_idempotent_while_asset_request_is_active() -> vo
 		assets.set_resource_broker(broker),
 		OK
 	)
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		"res://same_broker.tres",
 		func(_resource: Resource) -> void:
 			pass
@@ -615,7 +618,8 @@ func test_missing_broker_real_requests_fail_closed_with_unconfigured() -> void:
 	jobs.init()
 	var asset_callbacks: Array = []
 
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		ASSET_UTILITY_PATH,
 		func(resource: Resource) -> void:
 			asset_callbacks.append(resource),
@@ -677,31 +681,36 @@ func test_asset_dispose_closes_admission_before_reentrant_callbacks() -> void:
 	assets.init()
 	var bind_error: Error = assets.set_resource_broker(broker)
 	assert_eq(bind_error, OK)
-	var callback_values: Array = []
-
-	assets.load_async(
+	var scope: GFAssetScope = assets.create_scope()
+	var operation: GFAssetLoadOperation = assets.load_async(
 		ASSET_UTILITY_PATH,
-		func(resource: Resource) -> void:
-			callback_values.append(resource)
-			assets.load_async(
-				SCENE_UTILITY_PATH,
-				func(reentrant_resource: Resource) -> void:
-					callback_values.append(reentrant_resource),
-				"Script"
-			),
+		scope,
 		"Script"
 	)
+	var reentrant_results: Array[GFAssetLoadResult] = []
+	var _connected: Error = operation.completed.connect(
+		func(_result: GFAssetLoadResult) -> void:
+			var rejected_scope: GFAssetScope = assets.create_scope()
+			var rejected: GFAssetLoadOperation = assets.load_async(
+				SCENE_UTILITY_PATH,
+				rejected_scope,
+				"Script"
+			)
+			reentrant_results.append(rejected.get_result())
+	) as Error
 	assets.dispose()
-
 	assert_eq(
-		callback_values.size(),
-		2,
-		"dispose 回调重入应立即收到一次失败结果。"
+		operation.get_result().get_status(),
+		GFAssetLoadResult.Status.CANCELLED
 	)
-	var dispose_callback_value: Variant = callback_values[0]
-	var reentrant_callback_value: Variant = callback_values[1]
-	assert_true(dispose_callback_value == null)
-	assert_true(reentrant_callback_value == null)
+	assert_eq(
+		reentrant_results.size(),
+		1
+	)
+	assert_eq(
+		reentrant_results[0].get_status(),
+		GFAssetLoadResult.Status.FAILED
+	)
 	assert_eq(
 		broker.requested_paths,
 		PackedStringArray([ASSET_UTILITY_PATH]),
@@ -1101,3 +1110,7 @@ class ResourceBrokerProbe extends GFResourceBroker:
 			"has_resource": false,
 			"error": "",
 		}
+
+
+func after_each() -> void:
+	_asset_requests.close()

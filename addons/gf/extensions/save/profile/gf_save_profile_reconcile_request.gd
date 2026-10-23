@@ -2,7 +2,7 @@
 ##
 ## 请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease
 ## 身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。
-## `take_ownership()` 成功后，调用方必须放弃两个 Dictionary 及其嵌套 alias。
+## `create()` 隔离两个元数据字典，调用方可继续修改源数据。
 ## [br]
 ## @api public
 ## [br]
@@ -15,17 +15,11 @@ extends RefCounted
 
 # --- 常量 ---
 
-## reconcile request 输入校验允许的最大递归深度。
+## 隔离并限制普通请求元数据的共享边界。
 ## [br]
 ## @api private
 ## [br]
-const _MAX_DEPTH: int = 64
-
-## reconcile request 输入校验允许的最大值数量。
-## [br]
-## @api private
-## [br]
-const _MAX_ITEMS: int = 100_000
+const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
 
 
 # --- 私有变量 ---
@@ -57,30 +51,36 @@ var _result_metadata: Dictionary = {}
 
 # --- 公共方法 ---
 
-## 创建请求并接管 context 与 result_metadata 的逻辑唯一所有权。
+## 创建请求并隔离 context 与 result_metadata 的纯数据快照。
 ##
 ## 输入必须是有界纯 Variant 数据，不能包含 Callable、Object、Signal、RID 或
-## 循环集合。该请求不接受可执行恢复策略或 patch；项目策略应在提交前完成决策。
+## 循环集合或非有限数。两个字典合计最多 64 层、100000 节点、1 MiB 保守复制预算。
+## 该请求不接受可执行恢复策略或 patch；项目策略应在提交前完成决策。
 ## [br]
 ## @api public
 ## [br]
-## @since 11.0.0
+## @since unreleased
 ## [br]
 ## @param context: 对账流程使用的临时纯数据上下文。
 ## [br]
 ## @param result_metadata: 只写入当前对账结果的调用方纯数据元数据。
 ## [br]
-## @schema context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.
+## @schema context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 ## [br]
-## @schema result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.
+## @schema result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 ## [br]
 ## @return 可用请求；输入无效时返回 null。
-static func take_ownership(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest:
-	if not _is_dictionary_supported(context) or not _is_dictionary_supported(result_metadata):
+static func create(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest:
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		{},
+		context,
+		result_metadata
+	)
+	if snapshot.is_empty():
 		return null
 	var request: GFSaveProfileReconcileRequest = GFSaveProfileReconcileRequest.new()
-	request._context = context
-	request._result_metadata = result_metadata
+	request._context = GFVariantData.as_dictionary(snapshot.get("context"))
+	request._result_metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
 	request._ready = true
 	return request
 
@@ -140,96 +140,3 @@ func claim_for_framework() -> Dictionary:
 	_ready = false
 	_claimed = true
 	return claim
-
-
-# --- 私有/辅助方法 ---
-
-## 以新的深度、数量与访问路径状态检查对账输入字典。
-## [br]
-## @api private
-## [br]
-static func _is_dictionary_supported(value: Dictionary) -> bool:
-	var state: Dictionary = { "items": 0, "visited": [], }
-	return _is_value_supported(
-		value,
-		0,
-		state
-	)
-
-
-## 检查值类型、容器内容与递归深度，并拒绝访问路径中的循环容器。
-## [br]
-## @api private
-## [br]
-static func _is_value_supported(
-	value: Variant,
-	depth: int,
-	state: Dictionary
-) -> bool:
-	if depth > _MAX_DEPTH:
-		return false
-	var item_count: int = GFVariantData.get_option_int(state, "items") + 1
-	state["items"] = item_count
-	if item_count > _MAX_ITEMS:
-		return false
-
-	match typeof(value):
-		TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID:
-			return false
-		TYPE_ARRAY:
-			var array_value: Array = value
-			var visited: Array = _get_visited(state)
-			if _contains_collection_identity(visited, array_value):
-				return false
-			visited.append(array_value)
-			for entry: Variant in array_value:
-				if not _is_value_supported(
-					entry,
-					depth + 1,
-					state
-				):
-					var _removed_array_failure: Variant = visited.pop_back()
-					return false
-			var _removed_array: Variant = visited.pop_back()
-		TYPE_DICTIONARY:
-			var dictionary_value: Dictionary = value
-			var visited: Array = _get_visited(state)
-			if _contains_collection_identity(visited, dictionary_value):
-				return false
-			visited.append(dictionary_value)
-			for key: Variant in dictionary_value.keys():
-				if (
-					not _is_value_supported(
-						key,
-						depth + 1,
-						state
-					)
-					or not _is_value_supported(
-						dictionary_value[key],
-						depth + 1,
-						state
-					)
-				):
-					var _removed_dictionary_failure: Variant = visited.pop_back()
-					return false
-			var _removed_dictionary: Variant = visited.pop_back()
-	return true
-
-
-## 从递归检查状态中读取当前容器访问路径。
-## [br]
-## @api private
-## [br]
-static func _get_visited(state: Dictionary) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
-
-
-## 按对象身份检查候选容器是否已在当前递归路径中。
-## [br]
-## @api private
-## [br]
-static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
-	for collection: Variant in collections:
-		if is_same(collection, candidate):
-			return true
-	return false

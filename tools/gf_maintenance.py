@@ -62,6 +62,7 @@ from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 import gf_parallel_validation
 import gf_maintenance_check_graph
+import gf_maintenance_commands
 import gf_validation_contracts
 import gf_validation_catalog
 import gf_validation_evidence
@@ -167,9 +168,6 @@ RESOURCE_LOAD_LITERAL_RE = re.compile(
 RESOURCE_LOAD_CALLEE_RE = re.compile(
 	r"\b(?P<callee>preload|load|ResourceLoader\.(?:load|load_interactive|load_threaded_get|load_threaded_request))"
 	r"\s*\("
-)
-ASSET_HANDLE_CALL_RE = re.compile(
-	r"(?P<callee>(?:[A-Za-z_]\w*\.)?(?:acquire_handle|load_handle_async|request_entry_handle_async))\s*\("
 )
 PLUGIN_REQUIRED_FIELDS = ("name", "description", "author", "version", "script")
 ARCHIVE_EXPORT_IGNORE_RULES = (
@@ -516,22 +514,11 @@ ASSET_LIFECYCLE_EXCLUDED_PREFIXES = (
 	"build/",
 	"tests/",
 )
-ASSET_HANDLE_METHOD_ARGUMENTS = {
-	"acquire_handle": {
-		"owner_index": 1,
-		"group_index": 2,
-		"path_index": 0,
-	},
-	"load_handle_async": {
-		"owner_index": 3,
-		"group_index": 4,
-		"path_index": 0,
-	},
-	"request_entry_handle_async": {
-		"owner_index": 3,
-		"group_index": 4,
-		"path_index": 1,
-	},
+ASSET_SCOPE_METHOD_ARGUMENTS = {
+	("GFAssetUtility", "acquire_handle"): (0, 1),
+	("GFAssetUtility", "load_async"): (0, 1),
+	("GFResourceResolverUtility", "load_async"): (1, 2),
+	("GFResourceRegistry", "request_entry_async"): (1, 2),
 }
 PROJECT_PROFILE_DEFAULT_FILES = gf_project_layout_profile.PROJECT_PROFILE_DEFAULT_FILES
 PACKAGE_MANIFEST_ROOT = ROOT / "packages"
@@ -1565,57 +1552,9 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 	)
 	hotspots_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	path_hygiene_parser = subparsers.add_parser("path-hygiene", help="Check tracked and untracked repository paths for cross-platform hazards.")
-	path_hygiene_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-	diagnostic_policy_parser = subparsers.add_parser(
-		"diagnostic-policy", help="Check framework diagnostic templates and reviewed forwarding boundaries.",
-	)
-	diagnostic_policy_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-	readability_parser = subparsers.add_parser(
-		"gdscript-readability",
-		help="Enforce readable GDScript layout across owned sources and templates.",
-	)
-	readability_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	codeql_suppression_policy_parser = subparsers.add_parser(
-		"codeql-suppression-policy",
-		help="Audit exact test-only CodeQL suppressions and CodeQL configuration escape hatches.",
-	)
-	codeql_suppression_policy_parser.add_argument(
-		"--json",
-		action="store_true",
-		help="Print JSON instead of text.",
-	)
-
-	api_since_touched_parser = subparsers.add_parser(
-		"api-since-touched",
-		help="Check changed public/protected API documentation blocks for @since tags.",
-	)
-	api_since_touched_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	dependency_boundary_parser = subparsers.add_parser(
-		"dependency-boundary",
-		help="Check GF layer, extension manifest, and bundled extension dependency boundaries.",
-	)
-	dependency_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	changelog_policy_parser = subparsers.add_parser(
-		"changelog-policy",
-		help="Check that the current changelog matches the framework development or stable version state.",
-	)
-	changelog_policy_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	public_docs_boundary_parser = subparsers.add_parser(
-		"public-docs-boundary",
-		help="Check public docs for internal planning leaks and optional-extension boundary claims.",
-	)
-	public_docs_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	public_api_boundary_parser = subparsers.add_parser(
-		"public-api-boundary",
-		help="Check public API source and generated references for planning-route names.",
-	)
-	public_api_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+	for descriptor in gf_maintenance_commands.COMMANDS:
+		command_parser = subparsers.add_parser(descriptor.name, help=descriptor.help)
+		command_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	resource_boundary_parser = subparsers.add_parser(
 		"resource-boundary",
@@ -1646,20 +1585,17 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 
 	asset_lifecycle_boundary_parser = subparsers.add_parser(
 		"asset-lifecycle-boundary",
-		help="Report GFAssetHandle acquisition calls without explicit owner or group lifecycle anchors.",
+		help="Report asset requests and handle acquisitions with a missing or null GFAssetScope.",
 	)
 	asset_lifecycle_boundary_parser.add_argument(
 		"--fail-on-warnings",
 		action="store_true",
-		help="Return a failing exit code when ownerless ungrouped asset handle calls are found. Default is report-only.",
+		help="Return a failing exit code when missing asset scopes or incomplete scans are found. Default is report-only.",
 	)
 	asset_lifecycle_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	project_profile_native_acceptance_parser = subparsers.add_parser("project-profile-native-acceptance", help="Prove the shared native authority against an isolated, read-only target fixture.")
 	project_profile_native_acceptance_parser.add_argument("--json", action="store_true")
-
-	project_profile_artifacts_parser = subparsers.add_parser("project-profile-artifacts", help="Check native Layout artifacts without launching Godot.")
-	project_profile_artifacts_parser.add_argument("--json", action="store_true")
 
 	project_profile_boundary_parser = subparsers.add_parser(
 		"project-profile-boundary",
@@ -1678,24 +1614,6 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 	project_profile_boundary_parser.add_argument("--root", default="", help="Read-only project directory; never executed as a Godot project.")
 	project_profile_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	package_boundary_parser = subparsers.add_parser(
-		"package-boundary",
-		help="Check internal GF module descriptors for schema, path ownership, and dependency graph violations.",
-	)
-	package_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	package_closure_audit_parser = subparsers.add_parser(
-		"package-closure-audit",
-		help="Report internal GF module dependency closures, standard fan-in, and oversized extension dependency risk.",
-	)
-	package_closure_audit_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	package_source_boundary_parser = subparsers.add_parser(
-		"package-source-boundary",
-		help="Check GF module-owned source files for undeclared module path and class references.",
-	)
-	package_source_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
 	package_external_command_audit_parser = subparsers.add_parser(
 		"package-external-command-audit",
 		help="Report OS external command calls in module-owned GF source.",
@@ -1707,23 +1625,11 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 	)
 	package_external_command_audit_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	core_only_smoke_parser = subparsers.add_parser(
-		"core-only-smoke",
-		help="Check that the root plugin entry does not require standard modules at parse time.",
-	)
-	core_only_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
 	core_plugin_bootstrap_smoke_parser = subparsers.add_parser(
 		"core-plugin-bootstrap-smoke",
 		help="Run real temp-project editor reload smokes for core plugin bootstrap and partial standard residuals.",
 	)
 	core_plugin_bootstrap_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	package_focused_gut_mapping_parser = subparsers.add_parser(
-		"package-focused-gut-mapping",
-		help="Validate the module-to-focused-GUT coverage mapping used by maintenance gates.",
-	)
-	package_focused_gut_mapping_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	gut_shard_plan_parser = subparsers.add_parser(
 		"gut-shard-plan",
@@ -1788,12 +1694,6 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 	)
 	gut_shard_run_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	maintenance_self_test_parser = subparsers.add_parser(
-		"maintenance-self-test",
-		help="Run self-tests for maintenance rule fixtures.",
-	)
-	maintenance_self_test_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
 	log_hygiene_parser = subparsers.add_parser(
 		"log-hygiene",
 		help="Prune managed maintenance logs using bounded retention, or remove all of them.",
@@ -1848,12 +1748,6 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 		help="Return a failing exit code when any exit leak category is present.",
 	)
 	exit_leak_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	project_settings_drift_parser = subparsers.add_parser(
-		"project-settings-drift",
-		help="Fail when project.godot has staged or unstaged local drift.",
-	)
-	project_settings_drift_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	check_parser = subparsers.add_parser("check", help="Run predefined maintenance checks.")
 	check_parser.add_argument("--suite", choices=sorted(CHECK_SUITES), default="quick")
@@ -2043,47 +1937,11 @@ def main(
 		data = review_hotspots(paths=args.path, limit=args.limit)
 		maintenance_rendering.print_output(data, args.json, gf_review_hotspot_report.render_text)
 		return 0 if data["ok"] else 1
-	if args.command == "path-hygiene":
-		data = path_hygiene()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_path_hygiene_text)
-		return 0 if data["ok"] else 1
-	if args.command == "codeql-suppression-policy":
-		data = codeql_suppression_policy()
-		maintenance_rendering.print_output(
-			data,
-			args.json,
-			maintenance_rendering.render_codeql_suppression_policy_text,
-		)
-		return 0 if data["ok"] else 1
-	if args.command == "diagnostic-policy":
-		data = diagnostic_policy()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_diagnostic_policy_text)
-		return 0 if data["ok"] else 1
-	if args.command == "gdscript-readability":
-		data = gdscript_readability()
-		maintenance_rendering.print_output(
-			data, args.json, maintenance_rendering.render_gdscript_readability_text,
-		)
-		return 0 if data["ok"] else 1
-	if args.command == "api-since-touched":
-		data = api_since_touched()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_api_since_touched_text)
-		return 0 if data["ok"] else 1
-	if args.command == "dependency-boundary":
-		data = dependency_boundary()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_dependency_boundary_text)
-		return 0 if data["ok"] else 1
-	if args.command == "changelog-policy":
-		data = changelog_policy()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_changelog_policy_text)
-		return 0 if data["ok"] else 1
-	if args.command == "public-docs-boundary":
-		data = public_docs_boundary()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_public_docs_boundary_text)
-		return 0 if data["ok"] else 1
-	if args.command == "public-api-boundary":
-		data = public_api_boundary()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_public_api_boundary_text)
+	descriptor = gf_maintenance_commands.BY_NAME.get(args.command)
+	if descriptor is not None:
+		handler, renderer = ordinary_command_bindings()[descriptor.action_id]
+		data = handler()
+		maintenance_rendering.print_output(data, args.json, renderer)
 		return 0 if data["ok"] else 1
 	if args.command == "resource-boundary":
 		data = resource_boundary(
@@ -2104,10 +1962,6 @@ def main(
 		data = project_profile_native_acceptance()
 		maintenance_rendering.print_output(data, args.json, lambda value: json.dumps(value, ensure_ascii=False))
 		return 0 if data["ok"] else 1
-	if args.command == "project-profile-artifacts":
-		data = gf_project_layout_profile.project_profile_artifacts()
-		maintenance_rendering.print_output(data, args.json, lambda value: json.dumps(value, ensure_ascii=False))
-		return 0 if data["ok"] else 1
 	if args.command == "project-profile-boundary":
 		data = project_profile_boundary(
 			profile_path=args.profile,
@@ -2116,33 +1970,13 @@ def main(
 		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_project_profile_boundary_text)
 		return 0 if data["ok"] else 1
-	if args.command == "package-boundary":
-		data = package_boundary()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_boundary_text)
-		return 0 if data["ok"] else 1
-	if args.command == "package-closure-audit":
-		data = package_closure_audit()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_closure_audit_text)
-		return 0 if data["ok"] else 1
-	if args.command == "package-source-boundary":
-		data = package_source_boundary()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_source_boundary_text)
-		return 0 if data["ok"] else 1
 	if args.command == "package-external-command-audit":
 		data = package_external_command_audit(fail_on_warnings=args.fail_on_warnings)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_external_command_audit_text)
 		return 0 if data["ok"] else 1
-	if args.command == "core-only-smoke":
-		data = core_only_smoke()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_core_only_smoke_text)
-		return 0 if data["ok"] else 1
 	if args.command == "core-plugin-bootstrap-smoke":
 		data = core_plugin_bootstrap_smoke()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_core_plugin_bootstrap_smoke_text)
-		return 0 if data["ok"] else 1
-	if args.command == "package-focused-gut-mapping":
-		data = package_focused_gut_mapping()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_focused_gut_mapping_text)
 		return 0 if data["ok"] else 1
 	if args.command == "gut-shard-plan":
 		data = gut_shard_plan(
@@ -2168,10 +2002,6 @@ def main(
 			maintenance_rendering.render_gut_shard_run_text,
 		)
 		return 0 if data["ok"] else 1
-	if args.command == "maintenance-self-test":
-		data = maintenance_self_test()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_maintenance_self_test_text)
-		return 0 if data["ok"] else 1
 	if args.command == "log-hygiene":
 		data = workspace_log_hygiene(
 			remove_all=args.remove_all,
@@ -2190,10 +2020,6 @@ def main(
 		if args.fail_on_leaks and data["has_leaks"]:
 			return 1
 		return 0
-	if args.command == "project-settings-drift":
-		data = project_settings_drift()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_project_settings_drift_text)
-		return 0 if data["ok"] else 1
 	if args.command == "check":
 		data = run_checks(
 			suite=args.suite,
@@ -14004,67 +13830,67 @@ def should_scan_asset_lifecycle_path(path: str) -> bool:
 
 
 def audit_asset_lifecycle_text(source: str, path: str) -> list[dict[str, Any]]:
+	"""Observe explicit scope omissions, without inferring scope lifetime or types.
+
+	The overloaded load_async name requires an unambiguous declared receiver
+	type. This is lexical evidence, not a substitute for runtime scope admission.
+	"""
+	view = gf_gdscript_readability.lex_source(path, source)
+	if view.issues:
+		return [make_boundary_issue(
+			"asset_scope_scan_incomplete", path, "Asset scope calls could not be completely scanned.",
+			line=1, severity="warning",
+		)]
+	tokens = view.tokens
+	declared_types: dict[str, set[str]] = {}
+	self_type = ""
+	for index, token in enumerate(tokens):
+		if token.value == "class_name" and index + 1 < len(tokens):
+			self_type = tokens[index + 1].value
+		if index + 2 < len(tokens) and token.kind == "identifier" and tokens[index + 1].value == ":":
+			declared_types.setdefault(token.value, set()).add(tokens[index + 2].value)
 	issues: list[dict[str, Any]] = []
-	lines = source.splitlines()
-	for line_index, raw_line in enumerate(lines):
-		line = strip_gdscript_line_comment(raw_line)
-		stripped = line.strip()
-		if not stripped or stripped.startswith("func "):
+	for group in view.groups:
+		method_index = group.open_index - 1
+		if tokens[group.open_index].value != "(" or method_index < 0:
 			continue
-		for match in ASSET_HANDLE_CALL_RE.finditer(line):
-			statement = collect_gdscript_call_statement(lines, line_index, match.start())
-			args_text = extract_gdscript_call_arguments(statement)
-			if args_text == "":
-				continue
-			callee = match.group("callee").split(".")[-1]
-			args = split_top_level_arguments(args_text)
-			issue = make_asset_lifecycle_issue(path, line_index + 1, callee, args)
-			if issue:
-				issues.append(issue)
+		method = tokens[method_index]
+		if method_index > 0 and tokens[method_index - 1].value == "func":
+			continue
+		receiver_types = {self_type}
+		if method_index >= 2 and tokens[method_index - 1].value == ".":
+			receiver = tokens[method_index - 2].value
+			receiver_types = {self_type} if receiver == "self" else declared_types.get(receiver, set())
+		if len(receiver_types) != 1:
+			continue
+		receiver_type = next(iter(receiver_types))
+		shape = ASSET_SCOPE_METHOD_ARGUMENTS.get((receiver_type, method.value))
+		if shape is None:
+			continue
+		path_index, scope_index = shape
+		scope_tokens = ()
+		if scope_index < len(group.items):
+			start, end = group.items[scope_index]
+			scope_tokens = tuple(token.value for token in tokens[start:end] if token.value not in {"(", ")"})
+		if scope_tokens and scope_tokens != ("null",):
+			continue
+		target = ""
+		if path_index < len(group.items):
+			start, end = group.items[path_index]
+			target = source[tokens[start].start:tokens[end - 1].end]
+		issues.append(make_boundary_issue(
+			"missing_asset_scope", path,
+			"Asset requests and handles require an explicit GFAssetScope owned by their lifecycle.",
+			line=method.line, severity="warning", callee=method.value,
+			receiver_type=receiver_type, target=trim_text(target, 160),
+		))
 	return issues
-
-
-def make_asset_lifecycle_issue(
-	path: str,
-	line_number: int,
-	callee: str,
-	args: list[str],
-) -> dict[str, Any] | None:
-	method_shape = ASSET_HANDLE_METHOD_ARGUMENTS.get(callee)
-	if method_shape is None:
-		return None
-
-	owner_expr = argument_at(args, int(method_shape["owner_index"]))
-	group_expr = argument_at(args, int(method_shape["group_index"]))
-	if not is_asset_owner_missing(owner_expr) or not is_asset_group_missing(group_expr):
-		return None
-
-	path_expr = argument_at(args, int(method_shape["path_index"]))
-	return make_boundary_issue(
-		"ownerless_ungrouped_asset_handle",
-		path,
-		"GFAssetHandle acquisition should bind an owner or group, or the caller must release the handle manually.",
-		line=line_number,
-		severity="warning",
-		callee=callee,
-		target=trim_text(path_expr, 160),
-	)
 
 
 def argument_at(args: list[str], index: int) -> str:
 	if index < 0 or index >= len(args):
 		return ""
 	return args[index].strip()
-
-
-def is_asset_owner_missing(expression: str) -> bool:
-	stripped = expression.strip()
-	return stripped == "" or stripped == "null"
-
-
-def is_asset_group_missing(expression: str) -> bool:
-	stripped = expression.strip()
-	return stripped in ("", '&""', '""', "StringName()", "StringName(\"\")", "StringName(&\"\")")
 
 
 def collect_gdscript_call_statement(lines: list[str], start_index: int, start_column: int) -> str:
@@ -15286,6 +15112,46 @@ def maintenance_in_process_adapter_registry(
 		"maintenance_self_test": maintenance_self_test,
 		"project_settings_drift": project_settings_drift,
 	}
+
+
+def ordinary_command_bindings() -> dict[
+	str, tuple[Callable[[], dict[str, Any]], Callable[[dict[str, Any]], str]],
+]:
+	"""Pair reviewed CLI renderers with the existing trusted action registry.
+
+	Descriptions cannot introduce execution bindings. Exact renderer membership and
+	callability are checked before selecting a command; Catalog admission remains
+	independently checked by the validation executor.
+	"""
+	renderers = freeze_exact_callable_registry(
+		"Ordinary command renderers",
+		tuple(gf_maintenance_commands.BY_ACTION),
+		{
+			"path_hygiene": maintenance_rendering.render_path_hygiene_text,
+			"diagnostic_policy": maintenance_rendering.render_diagnostic_policy_text,
+			"gdscript_readability": maintenance_rendering.render_gdscript_readability_text,
+			"codeql_suppression_policy": maintenance_rendering.render_codeql_suppression_policy_text,
+			"api_since_touched": maintenance_rendering.render_api_since_touched_text,
+			"dependency_boundary": maintenance_rendering.render_dependency_boundary_text,
+			"changelog_policy": maintenance_rendering.render_changelog_policy_text,
+			"public_docs_boundary": maintenance_rendering.render_public_docs_boundary_text,
+			"public_api_boundary": maintenance_rendering.render_public_api_boundary_text,
+			"project_profile_artifacts": lambda value: json.dumps(value, ensure_ascii=False),
+			"package_boundary": maintenance_rendering.render_package_boundary_text,
+			"package_closure_audit": maintenance_rendering.render_package_closure_audit_text,
+			"package_source_boundary": maintenance_rendering.render_package_source_boundary_text,
+			"core_only_smoke": maintenance_rendering.render_core_only_smoke_text,
+			"package_focused_gut_mapping": maintenance_rendering.render_package_focused_gut_mapping_text,
+			"maintenance_self_test": maintenance_rendering.render_maintenance_self_test_text,
+			"project_settings_drift": maintenance_rendering.render_project_settings_drift_text,
+		},
+	)
+	adapters = maintenance_in_process_adapter_registry()
+	handlers = freeze_exact_callable_registry(
+		"Ordinary command handlers", tuple(gf_maintenance_commands.BY_ACTION),
+		{name: adapters[name] for name in gf_maintenance_commands.BY_ACTION if name in adapters},
+	)
+	return {name: (handlers[name], renderers[name]) for name in handlers}
 
 
 def maintenance_deferred_command_materializer_registry() -> dict[

@@ -1,13 +1,13 @@
 # 异步资源加载与缓存
 
-`GFAssetUtility` 统一处理 `ResourceLoader` 请求、并发加载合并、缓存、取消、资源句柄和资源分组；底层 threaded request 由显式注入的 `GFResourceBroker` admission。需要把一组资源预热清单保存成项目资源时，可以用 `GFAssetPreloadPlan` 描述路径、分组、pin 策略和加载约束，再交给 `GFAssetUtility.preload_plan_async()` 执行。需要把加载状态传给 UI、日志或项目自定义资源流程时，可以用 `GFResourceLoadState` 表达资源键、路径、状态、进度、错误、资源身份和弱/强引用模式。
+`GFAssetUtility` 通过每消费者独立的 `GFAssetLoadOperation` 和贯穿请求/句柄的 `GFAssetScope` 统一处理 `ResourceLoader` 请求、并发加载合并、缓存、取消、资源句柄和资源分组；底层 threaded request 由显式注入的 `GFResourceBroker` admission。需要把一组资源预热清单保存成项目资源时，可以用 `GFAssetPreloadPlan` 描述路径、分组、pin 策略和加载约束，再交给 `GFAssetUtility.preload_plan_async()` 执行。需要把加载状态传给 UI、日志或项目自定义资源流程时，可以用 `GFResourceLoadState` 表达资源键、路径、状态、进度、错误、资源身份和弱/强引用模式。
 
 ## 阅读入口
 
 - [异步加载与 LRU 缓存](async-cache.md)：按需加载资源、缓存命中、并发请求合并、`type_hint` 和 LRU 上限。
 - [共享 Resource Broker](../resource-broker.md)：显式注入、消费者 Lease、有界 admission、跨 Utility 复用和 drain。
 - [取消与诊断](cancel-diagnostics.md)：取消语义、迟到结果处理和 `get_debug_snapshot()`。
-- [资源句柄与分组预热](handles-groups.md)：`GFAssetHandle`、owner 释放、缓存 pin、`GFAssetPreloadPlan` 和资源分组预加载。
+- [资源句柄与分组预热](handles-groups.md)：`GFAssetScope`、`GFAssetHandle`、owner 释放、缓存 pin、`GFAssetPreloadPlan` 和资源分组预加载。
 - [显式 Live Asset Slot](live-asset-slot.md)：`GFAssetSlot`、稳定资源身份、受控替换、generation 与终态释放。
 - [通用资源注册表](resource-registry.md)：`GFResourceRegistry`、稳定资源 ID、字段索引、同步加载和与 `GFAssetUtility` 的显式衔接。
 - [资产目录与素材库底座](asset-catalog.md)：`GFAssetCatalog`、资产条目、source provider 汇聚、标签/分类查询和素材库索引边界。
@@ -36,4 +36,4 @@ var snapshot := state.to_dictionary()
 
 ## 使用边界
 
-`GFAssetUtility` 只管理 `ResourceLoader` 请求、回调分发和内存缓存，不负责实例化节点、引用计数之外的资源生命周期或远程下载。
+`GFAssetUtility` 管理 `ResourceLoader` 请求、消费者终态、scope 句柄与内存缓存；不负责实例化节点或远程下载。请求终态和物理 drain 分离；scope 关闭撤销 GF 资格，但不销毁外部保存的原始 Resource 引用。

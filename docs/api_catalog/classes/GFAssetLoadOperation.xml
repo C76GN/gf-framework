@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetLoadOperation" path="addons/gf/standard/utilities/assets/gf_asset_load_operation.gd" module="standard" extends="RefCounted" classDigest="9d35d86c5be6f6d1700d25bc6e6ca5e6e328870867c387cc6193d6588be428ee">
+	<description>每个消费者独立的资源请求。完成通知无条件发生，取消只影响本请求。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFAssetLoadResult)</signature>
+			<description>终态提交后恰好发出一次，与 owner 是否存活无关。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 稳定的终态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="wait_result_async">
+			<signature>func wait_result_async() -&gt; GFAssetLoadResult:</signature>
+			<description>等待并返回类型化结果，同时覆盖缓存命中的即时完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">同一个结果对象；重复等待不创建新句柄。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFAssetLoadResult:</signature>
+			<description>查看已提交结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">pending 为 null，否则为稳定终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>判断请求是否已完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已进入终态时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>撤销本消费者的 pending 请求。终态后返回 false，不释放成功句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次取消生效时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

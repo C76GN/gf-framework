@@ -1,6 +1,8 @@
 ## 测试 GFScenePreloadMap 与 GFSceneUtility 的图谱预加载流程。
 extends GutTest
 
+const ASSET_REQUEST_DRIVER_SCRIPT = preload("res://tests/gf_core/standard/utilities/assets/asset_request_test_driver.gd")
+var _asset_requests: ASSET_REQUEST_DRIVER_SCRIPT = ASSET_REQUEST_DRIVER_SCRIPT.new()
 const NORMAL_GUI_SCENE: String = "res://addons/gut/gui/NormalGui.tscn"
 const MIN_GUI_SCENE: String = "res://addons/gut/gui/MinGui.tscn"
 const GUT_RUNNER_SCENE: String = "res://addons/gut/gui/GutRunner.tscn"
@@ -388,7 +390,8 @@ func test_auto_neighbor_waits_for_active_asset_warmup_before_broker_admission() 
 		_make_empty_scene()
 	)
 
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		"res://addons/gf/standard/utilities/assets/gf_asset_utility.gd",
 		func(_resource: Resource) -> void:
 			pass,
@@ -788,3 +791,7 @@ class SceneResourceBrokerProbe extends GFResourceBroker:
 			"has_resource": false,
 			"error": "",
 		}
+
+
+func after_each() -> void:
+	_asset_requests.close()

@@ -574,56 +574,65 @@ func load(
 	)
 
 
-## 通过 GFAssetUtility 异步加载解析结果。
+## 在指定 scope 中请求解析结果；提供者返回的内存资源同样获得 scope 句柄。
 ## [br]
 ## @api public
 ## [br]
-## @param asset_utility: 资源加载工具。
+## @since unreleased
+## [br]
+## @param asset_utility: 资源服务。
 ## [br]
 ## @param resource_key: 稳定资源键。
 ## [br]
-## @param on_loaded: 加载完成回调，签名为 func(resource: Resource)。
+## @param scope: 请求和句柄生命周期。
 ## [br]
-## @param type_hint_override: 可选 ResourceLoader 类型提示覆盖。
+## @param type_hint_override: 可选资源类型覆盖。
 ## [br]
-## @param options: 可选参数，见 `resolve()`。
+## @param options: 解析选项。
 ## [br]
 ## @schema options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.
+## [br]
+## @return 独立资源操作。
 func load_async(
 	asset_utility: GFAssetUtility,
 	resource_key: StringName,
-	on_loaded: Callable,
+	scope: GFAssetScope,
 	type_hint_override: String = "",
 	options: Dictionary = {}
-) -> void:
-	if asset_utility == null or not on_loaded.is_valid():
-		push_error("[GFResourceResolverUtility][resource_resolver_utility.load_callback_invalid] Cannot load_async: asset_utility or on_loaded is invalid.")
-		if on_loaded.is_valid():
-			on_loaded.call(null)
-		return
-
+) -> GFAssetLoadOperation:
+	if asset_utility == null:
+		var rejected: GFAssetLoadOperation = GFAssetLoadOperation.new()
+		rejected.complete_for_framework(
+			GFAssetLoadResult.new(
+				GFAssetLoadResult.Status.FAILED,
+				null,
+				ERR_INVALID_PARAMETER
+			)
+		)
+		return rejected
 	var report: Dictionary = resolve(
 		resource_key,
 		type_hint_override,
 		options
 	)
 	if not GFVariantData.get_option_bool(report, "ok"):
-		on_loaded.call(null)
-		return
-
+		return asset_utility.load_async("", scope)
 	var provided_resource: Resource = _get_report_resource(report)
-	if provided_resource != null:
-		on_loaded.call(provided_resource)
-		return
-
 	var path: String = GFVariantData.get_option_string(report, "path")
-	if path.is_empty():
-		on_loaded.call(null)
-		return
-	asset_utility.load_async(
+	var type_hint: String = GFVariantData.get_option_string(report, "type_hint")
+	if provided_resource != null:
+		if path.is_empty():
+			path = "memory://resolver/%s" % String(resource_key)
+		return asset_utility.resolved_resource_for_framework(
+			path,
+			scope,
+			provided_resource,
+			type_hint
+		)
+	return asset_utility.load_async(
 		path,
-		on_loaded,
-		GFVariantData.get_option_string(report, "type_hint")
+		scope,
+		type_hint
 	)
 
 

@@ -38,6 +38,12 @@ signal transaction_completed(result: GFSaveProfileTransactionResult)
 
 # --- 常量 ---
 
+## 在事务进入 domain 前隔离并限制调用方元数据。
+## [br]
+## @api private
+## [br]
+const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
+
 ## Domain 尚未建立活动身份。
 ## [br]
 ## @api public
@@ -593,6 +599,23 @@ func activate_profile(
 	context: Dictionary = {},
 	metadata: Dictionary = {}
 ) -> GFSaveProfileTransactionOperation:
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		{},
+		context,
+		metadata
+	)
+	if snapshot.is_empty():
+		return _reject_transaction(
+			GFSaveProfileTransactionOperation.OPERATION_ACTIVATE,
+			&"",
+			profile_id,
+			GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Request metadata must be bounded pure data.",
+			_STAGE_ACTIVATE_LOAD
+		)
+	context = GFVariantData.as_dictionary(snapshot.get("context"))
+	metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
 	var profile: ManagedProfile = _get_profile(profile_id)
 	var domain: DomainState = _get_domain_for_profile(profile_id)
 	var admission: Dictionary = _get_domain_admission_failure(domain)
@@ -677,6 +700,23 @@ func switch_profile(
 	context: Dictionary = {},
 	metadata: Dictionary = {}
 ) -> GFSaveProfileTransactionOperation:
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		{},
+		context,
+		metadata
+	)
+	if snapshot.is_empty():
+		return _reject_transaction(
+			GFSaveProfileTransactionOperation.OPERATION_SWITCH,
+			&"",
+			target_profile_id,
+			GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Request metadata must be bounded pure data.",
+			_STAGE_SOURCE_FLUSH
+		)
+	context = GFVariantData.as_dictionary(snapshot.get("context"))
+	metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
 	var target: ManagedProfile = _get_profile(target_profile_id)
 	var domain: DomainState = _get_domain_for_profile(target_profile_id)
 	var source_id: StringName = domain.active_profile_id if domain != null else &""
@@ -1023,7 +1063,7 @@ func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfil
 		)
 	var owned_request: GFSaveProfileReconcileRequest = request
 	if owned_request == null:
-		owned_request = GFSaveProfileReconcileRequest.take_ownership({}, {})
+		owned_request = GFSaveProfileReconcileRequest.create({}, {})
 	if owned_request == null or not owned_request.is_available():
 		return _reject_transaction(
 			GFSaveProfileTransactionOperation.OPERATION_RECONCILE,
@@ -1159,6 +1199,9 @@ func _start_save(
 	profile_id: StringName,
 	request: GFSaveProfileRequest
 ) -> void:
+	if request == null or not request.is_available_for_framework():
+		_reject_internal_save_request(domain, transaction)
+		return
 	var profile: ManagedProfile = _get_profile(profile_id)
 	if profile == null or _profile_utility == null:
 		_finish_domain_transaction(
@@ -1182,6 +1225,34 @@ func _start_save(
 		domain,
 		transaction,
 		operation
+	)
+
+
+## 内部请求构建失败不能降级成默认保存；已经应用的 mutation 必须先恢复内存。
+## [br]
+## @api private
+func _reject_internal_save_request(domain: DomainState, transaction: TransactionState) -> void:
+	var error: String = "Request metadata must remain bounded pure data after Provider callbacks."
+	if transaction.operation.get_operation() == GFSaveProfileTransactionOperation.OPERATION_MUTATE_AND_PERSIST:
+		_rollback_failed_mutation(
+			domain,
+			transaction,
+			ERR_INVALID_PARAMETER,
+			error,
+			{
+				"flush": GFVariantData.get_option_dictionary(transaction.stage_evidence, "flush"),
+				"save": { "admitted": false, "status": GFSaveProfileResult.STATUS_INVALID_REQUEST },
+			}
+		)
+		return
+	_finish_domain_transaction(
+		domain,
+		transaction,
+		GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+		ERR_INVALID_PARAMETER,
+		error,
+		transaction.stage,
+		transaction.stage_evidence
 	)
 
 
@@ -1675,15 +1746,18 @@ func _handle_switch_recovery_reset_result(
 ## [br]
 ## @api private
 func _start_switch_recovery_target_save(domain: DomainState, transaction: TransactionState) -> void:
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		transaction.document_metadata,
 		transaction.context,
 		transaction.result_metadata
 	)
+	transaction.stage = _STAGE_RECOVERY_TARGET_SAVE
+	if request == null:
+		_reject_internal_save_request(domain, transaction)
+		return
 	transaction.document_metadata = {}
 	transaction.context = {}
 	transaction.result_metadata = {}
-	transaction.stage = _STAGE_RECOVERY_TARGET_SAVE
 	_start_save(
 		domain,
 		transaction,
@@ -1901,16 +1975,20 @@ func _apply_mutation_candidates(domain: DomainState, transaction: TransactionSta
 	transaction.mutation_provider_ids = provider_ids
 	transaction.mutation_snapshots = snapshots
 	transaction.mutation_candidates = candidates
-	var save_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var save_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		transaction.document_metadata,
-		transaction.context.duplicate(true),
+		transaction.context,
 		{}
 	)
+	transaction.stage = _STAGE_MUTATION_SAVE
+	if save_request == null:
+		_reject_internal_save_request(domain, transaction)
+		_end_processing()
+		return
 	transaction.document_metadata = {}
 	_end_processing()
 	if transaction.operation.is_completed():
 		return
-	transaction.stage = _STAGE_MUTATION_SAVE
 	_start_save(
 		domain,
 		transaction,
@@ -1964,6 +2042,27 @@ func _handle_mutation_save_result(
 			unknown_lease
 		)
 		return
+	_rollback_failed_mutation(
+		domain,
+		transaction,
+		result.get_error_code(),
+		result.get_error(),
+		evidence,
+		result
+	)
+
+
+## 保存尚未准入或已确定未提交时恢复所有候选；回滚失败仍建立可对账 fence。
+## [br]
+## @api private
+func _rollback_failed_mutation(
+	domain: DomainState,
+	transaction: TransactionState,
+	error_code: Error,
+	error: String,
+	evidence: Dictionary,
+	profile_result: GFSaveProfileResult = null
+) -> void:
 	_begin_processing()
 	var profile: ManagedProfile = _get_profile(transaction.target_profile_id)
 	var rollback_errors: Array[GFSaveRollbackFailure] = (
@@ -1986,14 +2085,14 @@ func _handle_mutation_save_result(
 			domain,
 			transaction,
 			transaction.target_profile_id,
-			result,
+			profile_result,
 			true
 		)
 		_finish_domain_transaction(
 			domain,
 			transaction,
 			GFSaveProfileTransactionResult.STATUS_ROLLBACK_FAILED,
-			result.get_error_code(),
+			error_code,
 			"Mutation persistence failed and runtime rollback was incomplete.",
 			_STAGE_MUTATION_SAVE,
 			evidence,
@@ -2007,8 +2106,8 @@ func _handle_mutation_save_result(
 		domain,
 		transaction,
 		GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED,
-		result.get_error_code(),
-		result.get_error(),
+		error_code,
+		error,
 		_STAGE_MUTATION_SAVE,
 		evidence
 	)
@@ -2140,10 +2239,20 @@ func _start_recovery_save(
 		)
 	var owned_request: GFSaveProfileRequest = request
 	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership(
+		owned_request = GFSaveProfileRequest.create(
 			{},
 			{},
 			{}
+		)
+	if owned_request == null:
+		return _reject_transaction(
+			operation_kind,
+			&"",
+			profile_id,
+			GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Recovery save request could not be created.",
+			_STAGE_RECOVERY_SAVE
 		)
 	_begin_processing()
 	var profile_operation: GFSaveProfileOperation = (
@@ -2277,10 +2386,20 @@ func _start_switch_recovery(
 		)
 	var owned_request: GFSaveProfileRequest = request
 	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership(
+		owned_request = GFSaveProfileRequest.create(
 			{},
 			{},
 			{}
+		)
+	if owned_request == null:
+		return _reject_transaction(
+			operation_kind,
+			source_profile_id,
+			target_profile_id,
+			GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Switch recovery save request could not be created.",
+			_STAGE_RECOVERY_SOURCE_FLUSH
 		)
 	domain.admission_reserved = true
 	_update_domain_managed_access(domain)

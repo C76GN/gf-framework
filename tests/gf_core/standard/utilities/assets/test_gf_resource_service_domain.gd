@@ -1,5 +1,7 @@
 extends GutTest
 
+const ASSET_REQUEST_DRIVER_SCRIPT = preload("res://tests/gf_core/standard/utilities/assets/asset_request_test_driver.gd")
+var _asset_requests: ASSET_REQUEST_DRIVER_SCRIPT = ASSET_REQUEST_DRIVER_SCRIPT.new()
 const RESOURCE_PATH: String = "res://service_domain/value.tres"
 const SECOND_PATH: String = "res://service_domain/second.tres"
 
@@ -528,7 +530,8 @@ func test_asset_lane_queue_and_late_handle_preserve_old_generation() -> void:
 	var handles: Array[GFAssetHandle] = []
 	var callback: Callable = func(handle: GFAssetHandle) -> void:
 		handles.append(handle)
-	assets.load_handle_async(
+	_asset_requests.request_handle(
+		assets,
 		RESOURCE_PATH,
 		callback,
 		"",
@@ -536,7 +539,8 @@ func test_asset_lane_queue_and_late_handle_preserve_old_generation() -> void:
 		&"",
 		{ "serial_lane_id": &"lane" }
 	)
-	assets.load_handle_async(
+	_asset_requests.request_handle(
+		assets,
 		SECOND_PATH,
 		callback,
 		"",
@@ -554,7 +558,8 @@ func test_asset_lane_queue_and_late_handle_preserve_old_generation() -> void:
 	var new_resource: Resource = Resource.new()
 	var completion: GFAsyncCompletion = domain.begin_switch(_snapshot(new_resource))
 	var new_handles: Array[GFAssetHandle] = []
-	assets.load_handle_async(
+	_asset_requests.request_handle(
+		assets,
 		RESOURCE_PATH,
 		func(handle: GFAssetHandle) -> void:
 			new_handles.append(handle)
@@ -618,14 +623,15 @@ func test_asset_path_reference_counts_and_release_signals_include_both_generatio
 		var assets: GFAssetUtility = _assets(domain)
 		var alias_path: String = "res://service_domain/./value.tres"
 		var old_handles: Array[GFAssetHandle] = [
-			assets.acquire_handle(
+			_asset_requests.acquire(
+				assets,
 				RESOURCE_PATH,
 				null,
 				&"",
 				"",
 				old_resource
 			),
-			assets.acquire_handle(alias_path),
+			_asset_requests.acquire(assets, alias_path),
 		]
 		assert_eq(
 			assets.get_asset_reference_count(RESOURCE_PATH),
@@ -638,14 +644,15 @@ func test_asset_path_reference_counts_and_release_signals_include_both_generatio
 			"换代后尚未获取新句柄时，公开路径仍须计入旧代的两个句柄。"
 		)
 		var new_handles: Array[GFAssetHandle] = [
-			assets.acquire_handle(
+			_asset_requests.acquire(
+				assets,
 				RESOURCE_PATH,
 				null,
 				&"",
 				"",
 				new_resource
 			),
-			assets.acquire_handle(RESOURCE_PATH),
+			_asset_requests.acquire(assets, RESOURCE_PATH),
 		]
 		assert_eq(
 			assets.get_asset_reference_count(RESOURCE_PATH),
@@ -745,7 +752,8 @@ func test_asset_registered_uid_and_resource_path_share_cross_generation_referenc
 		OK
 	)
 	var assets: GFAssetUtility = _assets(domain)
-	var old_handle: GFAssetHandle = assets.acquire_handle(
+	var old_handle: GFAssetHandle = _asset_requests.acquire(
+		assets,
 		uid_path,
 		null,
 		&"",
@@ -758,7 +766,8 @@ func test_asset_registered_uid_and_resource_path_share_cross_generation_referenc
 		OK
 	)
 	var completion: GFAsyncCompletion = domain.begin_switch(new_broker)
-	var new_handle: GFAssetHandle = assets.acquire_handle(
+	var new_handle: GFAssetHandle = _asset_requests.acquire(
+		assets,
 		resource_path,
 		null,
 		&"",
@@ -825,19 +834,25 @@ func test_asset_owner_release_reports_remaining_path_references_across_generatio
 	var assets: GFAssetUtility = _assets(domain)
 	var handle_owner: RefCounted = RefCounted.new()
 	var owned_handles: Array[GFAssetHandle] = [
-		assets.acquire_handle(
+		_asset_requests.acquire(
+			assets,
 			RESOURCE_PATH,
 			handle_owner,
 			&"",
 			"",
 			old_resource
 		),
-		assets.acquire_handle(RESOURCE_PATH, handle_owner),
+		_asset_requests.acquire(
+			assets,
+			RESOURCE_PATH,
+			handle_owner
+		),
 	]
-	var old_survivor: GFAssetHandle = assets.acquire_handle(RESOURCE_PATH)
+	var old_survivor: GFAssetHandle = _asset_requests.acquire(assets, RESOURCE_PATH)
 	var completion: GFAsyncCompletion = domain.begin_switch(_snapshot(new_resource))
 	owned_handles.append(
-		assets.acquire_handle(
+		_asset_requests.acquire(
+			assets,
 			RESOURCE_PATH,
 			handle_owner,
 			&"",
@@ -845,8 +860,14 @@ func test_asset_owner_release_reports_remaining_path_references_across_generatio
 			new_resource
 		)
 	)
-	owned_handles.append(assets.acquire_handle(RESOURCE_PATH, handle_owner))
-	var new_survivor: GFAssetHandle = assets.acquire_handle(RESOURCE_PATH)
+	owned_handles.append(
+		_asset_requests.acquire(
+			assets,
+			RESOURCE_PATH,
+			handle_owner
+		)
+	)
+	var new_survivor: GFAssetHandle = _asset_requests.acquire(assets, RESOURCE_PATH)
 	assert_eq(
 		assets.get_asset_reference_count(RESOURCE_PATH),
 		6
@@ -914,7 +935,8 @@ func test_controlled_switch_waits_for_asset_handle_and_rejects_cached_new_loads(
 	)
 	var assets: GFAssetUtility = _assets(domain)
 	var handles: Array[GFAssetHandle] = []
-	assets.load_handle_async(
+	_asset_requests.request_handle(
+		assets,
 		RESOURCE_PATH,
 		func(handle: GFAssetHandle) -> void:
 			handles.append(handle)
@@ -926,7 +948,8 @@ func test_controlled_switch_waits_for_asset_handle_and_rejects_cached_new_loads(
 	)
 	var completion: GFAsyncCompletion = domain.begin_switch(_snapshot(Resource.new()))
 	var rejected: Array[Resource] = []
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		RESOURCE_PATH,
 		func(resource: Resource) -> void:
 			rejected.append(resource)
@@ -953,19 +976,22 @@ func test_asset_generation_cancellation_does_not_drop_new_generation_callback() 
 	var assets: GFAssetUtility = _assets(domain)
 	var old_results: Array[Resource] = []
 	var new_results: Array[Resource] = []
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		RESOURCE_PATH,
 		func(resource: Resource) -> void:
 			old_results.append(resource)
 	)
 	var new_resource: Resource = Resource.new()
 	var _completion: GFAsyncCompletion = domain.begin_switch(_snapshot(new_resource))
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		RESOURCE_PATH,
 		func(resource: Resource) -> void:
 			new_results.append(resource)
 	)
-	assets.cancel(
+	_asset_requests.cancel(
+		assets,
 		RESOURCE_PATH,
 		"",
 		1
@@ -1129,7 +1155,8 @@ func test_asset_handle_only_owner_survives_domain_dispose_until_release() -> voi
 	var domain_ref: WeakRef = weakref(domain)
 	var assets: GFAssetUtility = _assets(domain)
 	var handles: Array[GFAssetHandle] = []
-	assets.load_handle_async(
+	_asset_requests.request_handle(
+		assets,
 		RESOURCE_PATH,
 		func(handle: GFAssetHandle) -> void:
 			handles.append(handle)
@@ -1164,7 +1191,8 @@ func test_late_preload_group_pin_targets_old_generation_cache_only() -> void:
 		[RESOURCE_PATH]
 	)
 	var _switching: GFAsyncCompletion = domain.begin_switch(_snapshot(Resource.new()))
-	assets.load_async(
+	_asset_requests.request(
+		assets,
 		RESOURCE_PATH,
 		func(_resource: Resource) -> void:
 			pass
@@ -1333,3 +1361,7 @@ func _wait_past_monotonic_deadline(deadline_msec: int) -> void:
 		deadline_msec,
 		"在有界等待内必须越过真实单调期限后才测试 pump 超时。"
 	)
+
+
+func after_each() -> void:
+	_asset_requests.close()

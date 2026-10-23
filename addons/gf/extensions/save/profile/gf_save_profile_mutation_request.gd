@@ -1,8 +1,8 @@
 ## GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。
 ##
 ## 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim
-## 一次。调用方必须放弃传入的 Dictionary、Array 及其全部嵌套 alias；请求
-## 不公开任何候选 payload getter，也不接受 Callable 或可执行 patch。
+## 一次。普通元数据在创建时隔离，调用方可以继续使用源字典和 mutations 数组；
+## 已被接管的 Mutation 载荷仍不可复用，请求不接受 Callable 或可执行 patch。
 ## [br]
 ## @api public
 ## [br]
@@ -15,23 +15,11 @@ extends RefCounted
 
 # --- 常量 ---
 
-## 校验 MutationRequest 持久化字段的脚本资源。
+## 隔离并限制普通请求元数据的共享边界。
 ## [br]
 ## @api private
 ## [br]
-const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
-
-## 临时 context 与 result metadata 支持检查的最大嵌套深度。
-## [br]
-## @api private
-## [br]
-const _MAX_EPHEMERAL_DEPTH: int = 64
-
-## 临时 context 与 result metadata 支持检查的最大值数量。
-## [br]
-## @api private
-## [br]
-const _MAX_EPHEMERAL_ITEMS: int = 100_000
+const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
 
 
 # --- 私有变量 ---
@@ -75,16 +63,16 @@ var _result_metadata: Dictionary = {}
 
 # --- 公共方法 ---
 
-## 创建请求并接管全部候选 section 与元数据。
+## 创建请求，接管候选 section 并隔离普通元数据。
 ##
 ## Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部预检，再按输入
 ## 顺序 claim，因而校验失败不会部分消费 Mutation。输入顺序只用于所有权收集；
-## 协调器始终按已注册 Profile 的 Provider 顺序 capture/apply。成功返回后，调用方必须永久
-## 放弃 mutations 数组、三个 Dictionary 及其全部嵌套 alias。
+## 协调器始终按已注册 Profile 的 Provider 顺序 capture/apply。三个元数据字典合计
+## 最多 64 层、100000 节点、1 MiB 保守复制预算；失败不消费任何 Mutation。
 ## [br]
 ## @api public
 ## [br]
-## @since 11.0.0
+## @since unreleased
 ## [br]
 ## @param mutations: 待接管的完整候选 sections；输入顺序不定义应用顺序。
 ## [br]
@@ -94,14 +82,14 @@ var _result_metadata: Dictionary = {}
 ## [br]
 ## @param result_metadata: 只写入当前事务结果的调用方纯数据元数据。
 ## [br]
-## @schema document_metadata: Dictionary accepted by the Save persisted-value contract whose source aliases are abandoned after success.
+## @schema document_metadata: Dictionary accepted by the Save persisted-value contract copied into an isolated snapshot.
 ## [br]
-## @schema context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.
+## @schema context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 ## [br]
-## @schema result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.
+## @schema result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 ## [br]
 ## @return 可用请求；输入无效时返回 null，且不消费任何 Mutation。
-static func take_ownership(
+static func create(
 	mutations: Array[GFSaveSectionMutation],
 	document_metadata: Dictionary = {},
 	context: Dictionary = {},
@@ -109,16 +97,12 @@ static func take_ownership(
 ) -> GFSaveProfileMutationRequest:
 	if mutations.is_empty():
 		return null
-	var document_report: Dictionary = _PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(document_metadata)
-	if not GFVariantData.get_option_bool(
-		document_report,
-		"ok",
-		false
-	):
-		return null
-	if not _is_ephemeral_dictionary_supported(context):
-		return null
-	if not _is_ephemeral_dictionary_supported(result_metadata):
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		document_metadata,
+		context,
+		result_metadata
+	)
+	if snapshot.is_empty():
 		return null
 
 	var section_ids: Dictionary = {}
@@ -142,9 +126,9 @@ static func take_ownership(
 
 	var request: GFSaveProfileMutationRequest = GFSaveProfileMutationRequest.new()
 	request._mutation_records = records
-	request._document_metadata = document_metadata
-	request._context = context
-	request._result_metadata = result_metadata
+	request._document_metadata = GFVariantData.as_dictionary(snapshot.get("document_metadata"))
+	request._context = GFVariantData.as_dictionary(snapshot.get("context"))
+	request._result_metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
 	request._ready = true
 	return request
 
@@ -255,94 +239,3 @@ func _get_mutation_descriptors() -> Array[Dictionary]:
 	for record: Dictionary in _mutation_records:
 		descriptors.append({ "section_id": GFVariantData.get_option_string_name(record, "section_id"), "schema_version": GFVariantData.get_option_int(record, "schema_version"), })
 	return descriptors
-
-
-## 以新的计数与访问路径状态检查临时字典中的值。
-## [br]
-## @api private
-## [br]
-static func _is_ephemeral_dictionary_supported(value: Dictionary) -> bool:
-	var state: Dictionary = { "items": 0, "visited": [], }
-	return _is_ephemeral_value_supported(
-		value,
-		0,
-		state
-	)
-
-
-## 限深和限量遍历临时值；拒绝对象类值及当前递归路径中的循环容器。
-## [br]
-## @api private
-## [br]
-static func _is_ephemeral_value_supported(
-	value: Variant,
-	depth: int,
-	state: Dictionary
-) -> bool:
-	if depth > _MAX_EPHEMERAL_DEPTH:
-		return false
-	var item_count: int = GFVariantData.get_option_int(state, "items") + 1
-	state["items"] = item_count
-	if item_count > _MAX_EPHEMERAL_ITEMS:
-		return false
-
-	match typeof(value):
-		TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID:
-			return false
-		TYPE_ARRAY:
-			var array_value: Array = value
-			var visited: Array = _get_visited(state)
-			if _contains_collection_identity(visited, array_value):
-				return false
-			visited.append(array_value)
-			for entry: Variant in array_value:
-				if not _is_ephemeral_value_supported(
-					entry,
-					depth + 1,
-					state
-				):
-					var _removed_array_failure: Variant = visited.pop_back()
-					return false
-			var _removed_array: Variant = visited.pop_back()
-		TYPE_DICTIONARY:
-			var dictionary_value: Dictionary = value
-			var visited: Array = _get_visited(state)
-			if _contains_collection_identity(visited, dictionary_value):
-				return false
-			visited.append(dictionary_value)
-			for key: Variant in dictionary_value.keys():
-				if (
-					not _is_ephemeral_value_supported(
-						key,
-						depth + 1,
-						state
-					)
-					or not _is_ephemeral_value_supported(
-						dictionary_value[key],
-						depth + 1,
-						state
-					)
-				):
-					var _removed_dictionary_failure: Variant = visited.pop_back()
-					return false
-			var _removed_dictionary: Variant = visited.pop_back()
-	return true
-
-
-## 从检查状态中读取当前递归路径容器数组。
-## [br]
-## @api private
-## [br]
-static func _get_visited(state: Dictionary) -> Array:
-	return GFVariantData.as_array(GFVariantData.get_option_value(state, "visited"))
-
-
-## 按对象身份检查候选 Array 或 Dictionary 是否已在当前递归路径中。
-## [br]
-## @api private
-## [br]
-static func _contains_collection_identity(collections: Array, candidate: Variant) -> bool:
-	for collection: Variant in collections:
-		if is_same(collection, candidate):
-			return true
-	return false

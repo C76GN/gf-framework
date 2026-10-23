@@ -4,30 +4,28 @@
 
 当资源会被多个短生命周期对象持有时，可以用 `GFAssetHandle` 表达所有权。句柄会增加路径引用计数并锁定缓存，`release()` 后才允许 LRU 淘汰。创建时解析出的 lease path 与 cache key 会被私有冻结；公开 `path` 只用于展示，之后即使被调用方改写，也不能把释放授权转移到另一缓存身份。句柄也只能由创建它的 `GFAssetUtility` 消费。
 
-如果传入 owner，`release_owner(owner)` 或 Node 退出树时会释放该 owner 的引用。
+句柄属于 `GFAssetScope`。同一 scope 可持有多个请求和成功句柄；`scope.close()` 统一撤销 pending 请求并释放句柄。绑定 Node owner 时，退出树自动关闭；`release_owner(owner)` 关闭该 owner 的 scope 并归还引用。scope 自己的生命周期应覆盖实际资源使用期。
 
-通过[资源服务域](../resource-service-domain.md)绑定时，句柄还保留交付资源所属的
-Broker 代次。`get_service_generation()` 不随入口切换改变；旧句柄释放前旧代不会退出。
-同一路径的新代缓存与旧代句柄分别计数，释放旧句柄不会扣减新代所有权。
-
-`get_asset_reference_count(path)` 返回该规范化路径在全部存活代次中的句柄引用总数。
-`asset_handle_released` 通知中的剩余引用数采用相同范围，包括显式释放句柄及按 owner
-释放；当前代已没有句柄时，旧代仍被持有的引用继续计入总数。
+`release_owner(owner)` 先关闭调用时已有 scope 的准入并结清该批句柄，再发送释放通知。通知回调不能向旧 scope 添加请求；回调中新建的 scope 属于独立生命周期，可以继续请求并在稍后自行关闭。手动 pin 和其他 owner 的引用不由本次调用释放。
 
 ```gdscript
-assets.load_handle_async(
-	"res://ui/inventory_panel.tscn",
-	func(handle: GFAssetHandle) -> void:
-		if handle == null:
-			return
-		var scene := handle.get_resource() as PackedScene
-		add_child(scene.instantiate())
-		handle.release(),
-	"PackedScene",
-	self,
-	&"inventory_ui"
-)
+var scope: GFAssetScope = assets.create_scope(self)
+var result: GFAssetLoadResult = await assets.load_async(
+	"res://ui/inventory_panel.tscn", scope, "PackedScene"
+).wait_result_async()
+if result.is_successful():
+	var resource: Resource = result.get_handle().get_resource()
+	if resource is PackedScene:
+		add_child(resource.instantiate())
+# 完成使用后关闭；Node 退出树也会自动关闭。
+scope.close()
 ```
+
+从缓存获取另一个独立持有者时，使用 `assets.acquire_handle(path, another_scope, type_hint)`。重复等待或读取同一 result 只借用同一个 handle，不增加引用，也不自动跨 scope 转移。若共享方需要更长的生命周期，应独立 request/acquire。
+
+通过[资源服务域](../resource-service-domain.md)绑定时，句柄保留交付资源的 Broker 代次。`get_service_generation()` 不随入口切换改变；旧句柄释放前旧代不会退出。同一路径的新旧代缓存分别计数。`get_asset_reference_count(path)` 与释放通知中的剩余引用数覆盖该规范化路径全部存活代次。
+
+scope 仅管理 GF 持有和交付资格；外部代码保存的原始 `Resource` 引用仍服从 Godot 自身引用语义。
 
 ## 分组预热
 

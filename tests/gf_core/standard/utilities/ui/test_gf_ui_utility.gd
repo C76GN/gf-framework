@@ -10,7 +10,7 @@ var _arch: GFArchitecture = null
 class ManualAssetUtility extends GFAssetUtility:
 	var _callbacks: Dictionary = {}
 
-	func load_async(
+	func _load_resource_async(
 		path: String,
 		on_loaded: Callable,
 		_type_hint: String = "",
@@ -35,7 +35,10 @@ class ManualAssetUtility extends GFAssetUtility:
 			return
 		var callbacks: Array = callbacks_value
 		for callback: Callable in callbacks:
-			callback.call(resource)
+			callback.call(
+				resource,
+				OK if resource != null else ERR_CANT_OPEN
+			)
 
 
 	func resolve_next(path: String, resource: Resource) -> void:
@@ -53,7 +56,55 @@ class ManualAssetUtility extends GFAssetUtility:
 			var _erase_result: bool = _callbacks.erase(path)
 		if callback_value is Callable:
 			var callback: Callable = callback_value
-			callback.call(resource)
+			callback.call(
+				resource,
+				OK if resource != null else ERR_CANT_OPEN
+			)
+
+
+class LocalUIContext extends GFNodeContext:
+	var ui: GFUIUtility = GFUIUtility.new()
+	var assets: ManualAssetUtility = ManualAssetUtility.new()
+	var mount: Node = null
+	var host_configured: bool = false
+
+
+	func install(architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:
+		host_configured = ui.configure_host(self, mount)
+		var _assets_registered: bool = await architecture_instance.register_utility_instance(assets)
+		var _ui_registered: bool = await architecture_instance.register_utility_instance(ui)
+
+
+class ReenteringInstallUIContext extends LocalUIContext:
+	signal release_first_install
+	var install_count: int = 0
+
+
+	func install(architecture_instance: GFArchitecture, scope: GFAsyncScope) -> void:
+		install_count += 1
+		if install_count == 1:
+			var _registered: bool = scope.register_cleanup(_restart_context)
+			await release_first_install
+			return
+		await super.install(architecture_instance, scope)
+
+
+	func _restart_context() -> void:
+		var previous_parent: Node = get_parent()
+		previous_parent.remove_child(self)
+		previous_parent.add_child(self)
+
+
+class SelectableInheritedUIContext extends GFNodeContext:
+	var selected_architecture: GFArchitecture = null
+
+
+	func _init() -> void:
+		scope_mode = ScopeMode.INHERITED
+
+
+	func get_architecture() -> GFArchitecture:
+		return selected_architecture
 
 
 class SampleModalPanel extends Control:
@@ -139,9 +190,9 @@ func test_layer_creation() -> void:
 	assert_not_null(hud_layer, "HUD 层应正确创建。")
 	assert_not_null(popup_layer, "POPUP 层应正确创建。")
 	assert_eq(
-		hud_layer.get_parent(),
+		hud_layer.get_parent().get_parent(),
 		get_tree().root,
-		"CanvasLayer 应挂载到 SceneTree.root。"
+		"全局显示 host 应挂载到 SceneTree.root，CanvasLayer 由该 host 拥有。"
 	)
 	assert_eq(
 		hud_layer.layer,
@@ -153,6 +204,200 @@ func test_layer_creation() -> void:
 		60,
 		"POPUP 层的基础 layer 应为 60。"
 	)
+
+
+func test_local_ui_host_keeps_panel_controller_in_source_context() -> void:
+	var context: LocalUIContext = LocalUIContext.new()
+	add_child(context)
+	var architecture: GFArchitecture = await context.wait_until_ready()
+	var panel: Control = Control.new()
+	var controller: GFController = GFController.new()
+	panel.add_child(controller)
+	context.ui.push_panel_instance(panel)
+	assert_same(
+		controller.get_architecture(),
+		architecture
+	)
+	assert_true(context.is_ancestor_of(context.ui.get_layer_root(GFUIUtility.Layer.POPUP)))
+	var result: GFContextCloseResult = await context.close_async()
+	assert_true(result.is_closed())
+	assert_null(context.ui.get_layer_root(GFUIUtility.Layer.POPUP))
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_local_architecture_rejects_ui_without_source_context_configuration() -> void:
+	var local_architecture: GFArchitecture = GFArchitecture.new()
+	var local_ui: GFUIUtility = GFUIUtility.new()
+	assert_true(await local_architecture.register_utility_instance(local_ui))
+	assert_false(await local_architecture.init())
+	assert_push_error("A local GFUIUtility requires configure_host(source_context) before initialization.")
+	assert_null(local_ui.get_layer_root(GFUIUtility.Layer.POPUP))
+	local_architecture.dispose()
+	await get_tree().process_frame
+
+
+func test_host_configuration_rejects_detached_mount() -> void:
+	var context: GFNodeContext = GFNodeContext.new()
+	add_child(context)
+	var detached_mount: Node = Node.new()
+	var ui: GFUIUtility = GFUIUtility.new()
+	assert_false(ui.configure_host(context, detached_mount))
+	ui.dispose()
+	detached_mount.free()
+	context.free()
+
+
+func test_mount_exit_before_ui_initialization_fails_context() -> void:
+	await _assert_invalidated_mount_fails_initialization(false)
+
+
+func test_mount_free_before_ui_initialization_fails_context() -> void:
+	await _assert_invalidated_mount_fails_initialization(true)
+
+
+func _assert_invalidated_mount_fails_initialization(free_mount: bool) -> void:
+	var mount: Node = Node.new()
+	add_child(mount)
+	var context: LocalUIContext = LocalUIContext.new()
+	context.auto_init = false
+	context.mount = mount
+	add_child(context)
+	assert_true(context.host_configured)
+	var architecture: GFArchitecture = context.get_architecture()
+	if free_mount:
+		mount.free()
+	else:
+		remove_child(mount)
+	var initialized: GFArchitecture = await context.initialize_context()
+	assert_null(initialized)
+	assert_false(architecture.is_inited())
+	assert_true(context.is_context_failed())
+	assert_null(context.ui.get_layer_root(GFUIUtility.Layer.POPUP))
+	assert_push_error("The configured UI mount parent is unavailable.")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nThe configured UI mount parent is unavailable.")
+	context.free()
+	if not free_mount:
+		mount.free()
+	await get_tree().process_frame
+
+
+func test_install_cleanup_reentry_does_not_close_new_ui_generation() -> void:
+	var context: ReenteringInstallUIContext = ReenteringInstallUIContext.new()
+	var closed_architectures: Array[GFArchitecture] = []
+	var _connected: Error = context.context_closing.connect(
+		func() -> void:
+			closed_architectures.append(context.get_architecture())
+	) as Error
+	add_child(context)
+	var old_architecture: GFArchitecture = context.get_architecture()
+	var result: GFContextCloseResult = await context.close_async()
+	assert_true(result.is_closed())
+	assert_false(result.is_drained())
+	assert_eq(context.install_count, 2)
+	assert_true(context.is_context_ready())
+	assert_not_same(
+		context.get_architecture(),
+		old_architecture
+	)
+	assert_eq(
+		closed_architectures,
+		[old_architecture]
+	)
+	var panel: Control = Control.new()
+	context.ui.push_panel_instance(panel)
+	assert_same(
+		context.ui.get_top_panel(),
+		panel
+	)
+	context.release_first_install.emit()
+	if panel.get_parent() == null:
+		panel.free()
+	context.free()
+	await get_tree().process_frame
+
+
+func test_portal_ui_in_another_viewport_preserves_scope_and_cancels_pending_panel_on_close() -> void:
+	var viewport: SubViewport = SubViewport.new()
+	add_child(viewport)
+	var context: LocalUIContext = LocalUIContext.new()
+	context.mount = viewport
+	add_child(context)
+	var architecture: GFArchitecture = await context.wait_until_ready()
+	var panel: Control = Control.new()
+	var controller: GFController = GFController.new()
+	panel.add_child(controller)
+	context.ui.push_panel_instance(panel)
+	assert_same(
+		controller.get_architecture(),
+		architecture
+	)
+	assert_same(
+		panel.get_viewport(),
+		viewport
+	)
+	var path: String = "res://tests/context_pending_panel.tscn"
+	var operation: GFUIPanelAsyncOperation = context.ui.push_panel_async(path)
+	assert_true(operation.is_pending())
+	var result: GFContextCloseResult = await context.close_async()
+	assert_true(result.is_closed())
+	var panel_result: GFUIPanelAsyncOperation = await operation.wait_result_async()
+	assert_eq(
+		panel_result.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+	)
+	context.assets.resolve(
+		path,
+		_make_control_scene()
+	)
+	await get_tree().process_frame
+	assert_eq(
+		viewport.get_child_count(),
+		0
+	)
+	context.queue_free()
+	viewport.queue_free()
+	await get_tree().process_frame
+
+
+func test_inherited_source_failure_cancels_pending_ui_without_disposing_shared_architecture() -> void:
+	_arch = GFArchitecture.new()
+	var assets: ManualAssetUtility = ManualAssetUtility.new()
+	assert_true(await _arch.register_utility_instance(assets))
+	await Gf.set_architecture(_arch)
+	var replacement: GFArchitecture = GFArchitecture.new()
+	assert_true(await replacement.init())
+	var parent: SelectableInheritedUIContext = SelectableInheritedUIContext.new()
+	parent.selected_architecture = _arch
+	add_child(parent)
+	var source: GFNodeContext = GFNodeContext.new()
+	source.scope_mode = GFNodeContext.ScopeMode.INHERITED
+	parent.add_child(source)
+	var _source_ready: GFArchitecture = await source.wait_until_ready()
+	_ui_utility.dispose()
+	_ui_utility = GFUIUtility.new()
+	assert_true(
+		_ui_utility.configure_host(
+			source,
+			get_tree().root
+		)
+	)
+	_ui_utility.init()
+	var operation: GFUIPanelAsyncOperation = _ui_utility.push_panel_async("res://tests/source_failed_panel.tscn")
+	assert_true(operation.is_pending())
+	parent.selected_architecture = replacement
+	assert_true(source.is_context_failed())
+	var result: GFUIPanelAsyncOperation = await operation.wait_result_async()
+	assert_eq(
+		result.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+	)
+	assert_false(_arch.is_disposed())
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nInherited architecture identity changed.")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nSource context failed: Inherited architecture identity changed.")
+	parent.queue_free()
+	replacement.dispose()
+	await get_tree().process_frame
 
 
 func test_repeated_init_does_not_duplicate_layer_roots() -> void:
@@ -1233,6 +1478,83 @@ func test_push_panel_async_ignores_late_callback_after_dispose() -> void:
 	)
 
 
+func test_asset_scope_release_panel_free_finishes_request() -> void:
+	await _assert_panel_scope_release_reentry(&"free", GFUIUtility.AsyncPanelLoadStatus.FAILED)
+
+
+func test_asset_scope_release_layer_clear_cancels_request() -> void:
+	await _assert_panel_scope_release_reentry(&"clear", GFUIUtility.AsyncPanelLoadStatus.CANCELLED)
+
+
+func test_asset_scope_release_ui_dispose_cancels_request() -> void:
+	await _assert_panel_scope_release_reentry(&"dispose", GFUIUtility.AsyncPanelLoadStatus.CANCELLED)
+
+
+func _assert_panel_scope_release_reentry(action: StringName, expected_status: int) -> void:
+	_arch = GFArchitecture.new()
+	var assets: ManualAssetUtility = ManualAssetUtility.new()
+	assert_true(await _arch.register_utility_instance(assets))
+	await Gf.set_architecture(_arch)
+	var path: String = "res://tests/scope_release_panel.tscn"
+	var completed: Array[GFUIPanelAsyncOperation] = []
+	var telemetry: Array[int] = []
+	var on_release: Callable = func(_path: String, _remaining: int) -> void:
+		match action:
+			&"free":
+				_ui_utility.get_top_panel().free()
+			&"clear":
+				_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
+			&"dispose":
+				_ui_utility.dispose()
+	var _release_connected: Error = assets.asset_handle_released.connect(on_release, CONNECT_ONE_SHOT) as Error
+	var _telemetry_connected: Error = _ui_utility.panel_async_load_finished.connect(
+		func(
+			_path: String,
+			_layer: int,
+			_operation: StringName,
+			status: int,
+			_panel: Node
+		) -> void:
+			telemetry.append(status)
+	) as Error
+	var operation: GFUIPanelAsyncOperation = _ui_utility.push_panel_async(
+		path,
+		GFUIUtility.Layer.POPUP,
+		Callable(),
+		func(result: GFUIPanelAsyncOperation) -> void:
+			completed.append(result)
+	)
+	assets.resolve(
+		path,
+		_make_control_scene()
+	)
+	assert_true(operation.is_completed())
+	assert_eq(
+		completed,
+		[operation]
+	)
+	assert_eq(
+		operation.get_status(),
+		expected_status
+	)
+	assert_eq(
+		telemetry,
+		[expected_status]
+	)
+	assert_null(operation.get_panel())
+	assert_false(_ui_utility.has_pending_async_panel(GFUIUtility.Layer.POPUP, path))
+	assert_eq(
+		assets.get_asset_reference_count(path),
+		0
+	)
+	if operation.is_completed():
+		assert_same(
+			await operation.wait_result_async(),
+			operation
+		)
+	await get_tree().process_frame
+
+
 func test_panel_async_operation_rejects_invalid_terminal_payloads() -> void:
 	var operation: GFUIPanelAsyncOperation = GFUIPanelAsyncOperation.new()
 	assert_true(
@@ -1936,6 +2258,7 @@ func test_push_panel_async_reports_failed_when_resource_is_not_scene() -> void:
 		"失败状态不应携带面板。"
 	)
 	assert_push_error("[GFUIUtility][ui_utility.panel_instantiation_failed] Cannot instantiate panel scene: %s." % path)
+	assert_push_warning("[GFAssetUtility][asset_utility.handle_cached_type_mismatch] Cannot acquire_handle: cached resource type does not match type_hint: %s (PackedScene)." % path)
 
 
 func test_push_panel_async_ignores_late_callback_after_layer_clear() -> void:

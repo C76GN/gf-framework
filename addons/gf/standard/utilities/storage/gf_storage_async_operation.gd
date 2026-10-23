@@ -26,8 +26,8 @@ signal completed(result: GFStorageAsyncResult)
 
 ## 当前 consumer 进入 caller 终态时发出一次。
 ##
-## owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_result()` 查询。该信号
-## 不代表物理工作已结束。
+## 该信号表达已经提交的事实，owner 已释放也不会抑制等待者通知。它不代表物理
+## 工作已结束，也不授权已失效界面继续写回；业务交付须遵守自身生命周期。
 ## [br]
 ## @api public
 ## [br]
@@ -204,6 +204,21 @@ func get_result() -> GFStorageAsyncResult:
 	return _result.duplicate_result() if _result != null else null
 
 
+## 等待物理请求终态；已经完成时立即返回隔离结果。
+##
+## caller 的取消或超时不会提前完成此等待，底层工作仍由 Storage 收尾。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前物理请求的终态结果副本。
+func wait_physical_result_async() -> GFStorageAsyncResult:
+	if not is_completed():
+		await completed
+	return get_result()
+
+
 ## 检查当前 consumer 是否仍等待 caller 终态。
 ## [br]
 ## @api public
@@ -235,6 +250,22 @@ func is_caller_completed() -> bool:
 ## @return caller 已完成时返回隔离结果；等待中返回 null。
 func get_caller_result() -> GFStorageAsyncCallerResult:
 	return _caller_result.duplicate_result() if _caller_result != null else null
+
+
+## 等待当前消费者的观察终态；已经完成时立即返回。
+##
+## owner 失效、取消和期限到达都能唤醒等待者。`OUTCOME_UNKNOWN` 仍要求项目
+## 通过物理结果或既有对账流程确认写入，不能解释为写入没有发生。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前消费者的隔离终态结果。
+func wait_caller_result_async() -> GFStorageAsyncCallerResult:
+	if not is_caller_completed():
+		await caller_completed
+	return get_caller_result()
 
 
 ## 显式结束当前 consumer 对物理请求的观察。
@@ -420,14 +451,11 @@ func mark_physical_cancel_requested_for_framework() -> bool:
 ## [br]
 ## @param reason: 最长保留 128 字符的稳定原因。
 ## [br]
-## @param emit_caller_signal: false 时只写入可查询终态，不调用 caller listeners。
-## [br]
-## @return 首次写入合法 caller 终态时返回 true。
+## @return 首次提交并通知 caller 终态时返回 true；通知不受 owner 存活限制。
 func complete_caller_for_framework(
 	status: GFStorageAsyncCallerResult.Status,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
-	reason: StringName = &"",
-	emit_caller_signal: bool = true
+	reason: StringName = &""
 ) -> bool:
 	if not Thread.is_main_thread() or not is_caller_pending():
 		return false
@@ -451,8 +479,7 @@ func complete_caller_for_framework(
 	):
 		return false
 	_caller_result = caller_result_value
-	if emit_caller_signal and _state.can_emit_caller_signal_for_framework():
-		caller_completed.emit(_caller_result.duplicate_result())
+	caller_completed.emit(_caller_result.duplicate_result())
 	_state.finish_caller_notification_for_framework()
 	return true
 
@@ -551,14 +578,11 @@ func is_payload_attempt_ready_for_settlement_for_framework() -> bool:
 ## [br]
 ## @param reason: caller 终态的有界稳定原因。
 ## [br]
-## @param emit_caller_signal: false 时写入 caller 终态但抑制 caller 信号。
-## [br]
 ## @return 首次完成成功返回 true。
 func complete_for_framework(
 	result: GFStorageAsyncResult,
 	end_kind: GFStorageAsyncCallerResult.EndKind = GFStorageAsyncCallerResult.EndKind.PHYSICAL_SETTLEMENT,
-	reason: StringName = &"",
-	emit_caller_signal: bool = true
+	reason: StringName = &""
 ) -> bool:
 	if not is_pending() or result == null:
 		return false
@@ -608,11 +632,7 @@ func complete_for_framework(
 	else:
 		_late_settlement_diagnostic = _make_late_settlement_diagnostic()
 	completed.emit(_result.duplicate_result())
-	if (
-		not caller_was_completed
-		and emit_caller_signal
-		and _state.can_emit_caller_signal_for_framework()
-	):
+	if not caller_was_completed:
 		caller_completed.emit(_caller_result.duplicate_result())
 	if not caller_was_completed:
 		_state.finish_caller_notification_for_framework()

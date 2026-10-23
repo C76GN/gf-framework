@@ -180,6 +180,21 @@ func get_result() -> GFUIRouteResult:
 	return _result.duplicate_result() if _result != null else null
 
 
+## 等待导航终态并取得隔离结果；已经完成时立即返回。
+##
+## 等待不会重新导航或取得额外的面板所有权。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前导航的终态结果。
+func wait_result_async() -> GFUIRouteResult:
+	if not is_completed():
+		await completed
+	return get_result()
+
+
 ## 获取稳定调试快照。
 ## [br]
 ## @api public

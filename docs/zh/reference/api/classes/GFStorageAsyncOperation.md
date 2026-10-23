@@ -28,9 +28,11 @@
 | 方法 | [`is_pending`](#member-gfstorageasyncoperation-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfstorageasyncoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfstorageasyncoperation-methods-get_result) | `func get_result() -> GFStorageAsyncResult:` |
+| 方法 | [`wait_physical_result_async`](#member-gfstorageasyncoperation-methods-wait_physical_result_async) | `func wait_physical_result_async() -> GFStorageAsyncResult:` |
 | 方法 | [`is_caller_pending`](#member-gfstorageasyncoperation-methods-is_caller_pending) | `func is_caller_pending() -> bool:` |
 | 方法 | [`is_caller_completed`](#member-gfstorageasyncoperation-methods-is_caller_completed) | `func is_caller_completed() -> bool:` |
 | 方法 | [`get_caller_result`](#member-gfstorageasyncoperation-methods-get_caller_result) | `func get_caller_result() -> GFStorageAsyncCallerResult:` |
+| 方法 | [`wait_caller_result_async`](#member-gfstorageasyncoperation-methods-wait_caller_result_async) | `func wait_caller_result_async() -> GFStorageAsyncCallerResult:` |
 | 方法 | [`cancel_observation`](#member-gfstorageasyncoperation-methods-cancel_observation) | `func cancel_observation(reason: StringName = &"cancelled") -> bool:` |
 | 方法 | [`get_payload_transfer`](#member-gfstorageasyncoperation-methods-get_payload_transfer) | `func get_payload_transfer() -> GFStoragePayloadTransfer:` |
 | 方法 | [`reclaim_failed_payload`](#member-gfstorageasyncoperation-methods-reclaim_failed_payload) | `func reclaim_failed_payload() -> GFStoragePayloadTransfer:` |
@@ -67,7 +69,7 @@ signal completed(result: GFStorageAsyncResult)
 signal caller_completed(result: GFStorageAsyncCallerResult)
 ```
 
-当前 consumer 进入 caller 终态时发出一次。 owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_result()` 查询。该信号 不代表物理工作已结束。
+当前 consumer 进入 caller 终态时发出一次。 该信号表达已经提交的事实，owner 已释放也不会抑制等待者通知。它不代表物理 工作已结束，也不授权已失效界面继续写回；业务交付须遵守自身生命周期。
 
 参数：
 
@@ -236,6 +238,21 @@ func get_result() -> GFStorageAsyncResult:
 
 返回：已完成结果；等待中返回 null。
 
+<a id="member-gfstorageasyncoperation-methods-wait_physical_result_async"></a>
+
+### `wait_physical_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_physical_result_async() -> GFStorageAsyncResult:
+```
+
+等待物理请求终态；已经完成时立即返回隔离结果。 caller 的取消或超时不会提前完成此等待，底层工作仍由 Storage 收尾。
+
+返回：当前物理请求的终态结果副本。
+
 <a id="member-gfstorageasyncoperation-methods-is_caller_pending"></a>
 
 ### `is_caller_pending`
@@ -280,6 +297,21 @@ func get_caller_result() -> GFStorageAsyncCallerResult:
 获取 caller 终态结果副本。
 
 返回：caller 已完成时返回隔离结果；等待中返回 null。
+
+<a id="member-gfstorageasyncoperation-methods-wait_caller_result_async"></a>
+
+### `wait_caller_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_caller_result_async() -> GFStorageAsyncCallerResult:
+```
+
+等待当前消费者的观察终态；已经完成时立即返回。 owner 失效、取消和期限到达都能唤醒等待者。`OUTCOME_UNKNOWN` 仍要求项目 通过物理结果或既有对账流程确认写入，不能解释为写入没有发生。
+
+返回：当前消费者的隔离终态结果。
 
 <a id="member-gfstorageasyncoperation-methods-cancel_observation"></a>
 

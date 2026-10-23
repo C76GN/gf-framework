@@ -88,8 +88,11 @@ Coordinator 固定本次 provider 顺序，先采集回滚快照，再按请求�
 provider 按逆序恢复；Storage 的已知失败已经证明本次写入没有提交，因此不会再发起一笔
 “补偿保存”。这种额外写入既不能增加正确性，还会扩大新的未知提交窗口。
 
-Mutation Request 是 move-only 边界。成功提交后，调用方必须放弃请求及其候选 payload
-的全部嵌套 alias；无效或 busy 的前置拒绝不消费请求。项目仍负责业务字段含义、跨 section
+`GFSaveProfileMutationRequest.create()` 先隔离普通元数据，再原子接管全部
+`GFSaveSectionMutation`。元数据创建失败不会消费任何 Mutation；元数据源字典可以继续使用。
+候选 section 仍通过 `GFSaveSectionMutation.take_ownership()` 移交，大型 payload 不能继续
+读写或保留嵌套别名。Request 可以保留以查询 claim 状态，但不能重复提交；无效或 busy 的
+前置拒绝不消费请求。项目仍负责业务字段含义、跨 section
 约束和候选生成，框架只保证类型、顺序、所有权与事务终态。
 
 ## 业务意图与确认结果
@@ -102,7 +105,8 @@ mutation。不要在按钮点击时提前生成多个完整替换快照，随后
 例如两次“增加数量”应依次基于当时状态生成候选，而不是都把旧值加一后提交。队列容量、
 重复意图、失效条件和等待期间的 UI 由项目决定；Coordinator 不自动排队、合并或重试业务。
 
-项目应以同一 Transaction Operation 的类型化终态发布确认结果。候选已应用到内存、动画
+项目应以同一 Transaction Operation 的类型化终态发布确认结果，使用
+`await operation.wait_result_async()` 同时处理立即拒绝与异步完成。候选已应用到内存、动画
 播放完成或页面已关闭，都不能证明写入成功。已知失败还须检查是否存在 rollback failure；
 `outcome_unknown` 必须进入下节的对账流程，不能作为“未提交”依据再次执行业务意图。
 页面结束只影响结果展示资格，不撤销已经接纳的存档事务或改变其物理结果。
@@ -128,6 +132,7 @@ generation 证据从 unknown 进入 persisted 或 failed 后，lease 才变为 r
 项目随后用同一 lease 和 Request 再次调用 reconcile。Coordinator 此时才 claim Request，
 严格重读 lease 记录的 reconcile Profile；读取和全部 provider 应用成功后，才解除 fence
 并从该 Profile 重建活动身份。Request 只携带本次严格读取的 context 与 result metadata，
+通过 `GFSaveProfileReconcileRequest.create()` 隔离，预算和拒绝规则与普通 Save Request 相同。
 不接受“已提交/未提交”布尔结论、可执行 patch 或恢复回调。Switch 的源 flush 结果未知时，
 reconcile Profile 固定为源 Profile，原目标不会在迟到成功后自动继续；项目需要重新发起
 一次新的 switch。对账成功前 lease 保持 domain 所有权，错误 domain、过期或重复消费均

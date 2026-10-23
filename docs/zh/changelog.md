@@ -2,9 +2,12 @@
 
 ## [未发布]
 
-**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、规范序列化测量与增量哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。本次为下一主版本的开发变更，尚未正式发布。
+**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、规范序列化测量与增量哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。资源请求改为独立 Operation 与贯穿请求、句柄的 Scope；Context 提供有序关闭，局部 UI 显式绑定业务来源，Save 普通元数据改为有界隔离快照，AI 检查复用同次捕获。对应旧 API 通过文档手动迁移。本次为下一主版本的开发变更，尚未正式发布。
 
 ### 🚀 新增特性 (Added)
+
+- 新增 `GFAssetScope`、`GFAssetLoadOperation` 和 `GFAssetLoadResult`，每个资源调用者可以独立等待与取消，作用域统一回收待完成请求和成功句柄。
+- Context 新增 `close_async()` 与 `GFContextCloseResult`，先关闭逻辑子上下文，再关闭自有 Architecture，分别报告是否关闭与是否正常排空。
 
 - [配置类型声明](standard/utilities/io/config-remote-outbox/config-provider/provider-schema/schema-declaration.md)新增嵌套结构、结构继承、Array、Map、枚举和多态资源；定义编译、规范化和类型访问器共用声明，循环、类型冲突、未知分支及超预算明确失败。[配置流水线](editor/tools/config-pipeline.md)支持结构列组、多行记录、转置、分层表头和显式多 Sheet 合并，保留嵌套字段与原始单元格定位；工作台和 CLI 可只读查看生效 Schema、来源及生成目标能力。
 - [资源工作台](editor/tools/asset-browser.md#批量引用证据) 支持所选资源的批量直接依赖与入站引用报告，区分强缺失、UID 已解析但路径陈旧、弱引用、未观察到引用及覆盖不完整；整批共享预算，取消或上下文变化后不发布旧结果，不修改或删除资源。
@@ -57,6 +60,11 @@
 
 ### 🔄 机制更改 (Changed)
 
+- Save、Scene、BGM 和 UI 操作提供类型化 `wait_result_async()`；Storage 分别提供 caller 与物理等待入口。owner 失效也会发出终态通知，业务展示资格由调用方复核。
+- 局部 UI 在装配时绑定业务 Context，默认显示在该 Context 下；跨显示树使用明确来源绑定，来源失效后拒绝访问，UIUtility 负责清理自己的 host。
+- Save 请求在进入队列前隔离普通元数据并限制复制成本，调用方可继续修改原字典；大型 section 保留协作式准备与明确所有权转移。对应 `gf.save` 的 `extension_version` 升为 `7.0.0`。
+- AI Developer 的一次检查共用同一项目捕获，验证、上下文与快照输出来自同一输入，并相互隔离可变结果。
+
 - [配置导入](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/json-csv-import.md#工作预算与批次)、[表合并](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/merge-profile.md)和[配置流水线](editor/tools/config-pipeline.md#构建工作预算)采用有限工作预算，复用通用执行预算并累计输入、遍历、载荷与输出成本。非法限额、循环或超限明确失败，合并与构建失败不交付可用半成品。正式指南补齐配置激活、事务提交、页面会话与决策复现的项目接入边界。
 - 配置预算覆盖 NodePath 载荷及 XLSX 裁剪、覆盖前的单元格文本，XML 根深度统一为零。构建与导出按实际消费的选项准入；失败保留来源与读取收据，自定义合并策略获得隔离的记录容器，文本 Layout 收到真实 UTF-8 大小。
 
@@ -72,7 +80,7 @@
 - Storage 的业务文件与解析前明文默认分别限制为 64 MiB；字典保存先检查完整明文和最终编码文件，再提交同一份字节，避免保存成功却超出本请求两项字节预算。项目可显式调高正数上限，预算失败不会获得损坏文件的重置授权。
 
 - 项目初始化工具移除默认计数器模板及其全局类型声明，新项目默认目录改为 `res://app/`；README 按需生成，生成后的入口与 Installer 属于项目源码。框架升级不重写项目源码，Model、System 及可选能力继续通过已有模板和所属工具添加。
-- Flow 与 Save 新增工作区公开任务，对应 `extension_version` 分别升为 `4.1.0` 与 `6.4.0`；扩展的框架发行版本仍与 GF Framework 一致。
+- Flow 与 Save 新增工作区公开任务；Flow 的 `extension_version` 升为 `4.1.0`，扩展的框架发行版本仍与 GF Framework 一致。
 - [资源工作台](editor/tools/asset-browser.md) 的默认文字搜索合并连续输入，以单个可取消工作线程完成评分和排序，分批准备候选、解析当前页身份及建立卡片；查询期间旧资源动作失效，隐藏实际工作区窗口、目录变化和上下文撤销均阻止旧结果发布并回收线程。同步浏览模型接口保持兼容。
 - [资产目录](editor/tools/asset-browser.md#目录快照边界) 将完整条目查找表与按需字段索引分开；空白分页只构建当前页，默认文字分页只为当前页解析资源身份，保留完整验证、复制隔离、强制重建与实时 UID 语义。
 - 全面补充框架私有声明及适配器模板的维护说明，明确资源所有权、事务恢复、取消与重入边界，并区分文件私有实现、内部协作入口及受保护重写点；参考文档补充行为树调试子节点重写钩子和节点序列化属性规格校验辅助方法。
@@ -165,6 +173,9 @@
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
+- 移除 Asset 公开的单资源 callback 加载入口、`load_handle_async()` 及按路径取消接口；取消通过调用方持有的独立 Operation 完成。
+- 移除三个 Save Profile 请求的公开 `take_ownership()` 构造入口，改用有界纯数据快照 `create()`。
+
 - 移除源码仓库的 `examples/` 独立示例及其专属测试、检查和文档入口，保留框架自身的回归测试、按需装配说明与[多目标错峰动画用法](extensions/action-queue/visual-actions/staggered-targets.md)。
 - 退役已停止建设的外部 Reference 工程同步流程及其专属配置与验证。外部工程、备份与业务资源不受操作，共用事务、预算和回滚能力继续保留。
 - 删除 Project Layout 的 Python 规则解释器及 legacy、shadow 迁移模式；维护命令只负责把输入交给同一个 GDScript 会话。
@@ -172,6 +183,11 @@
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
 
 ### 🔧 API 变动说明 (API Changes)
+
+- `GFAssetUtility.load_async(path, scope, type_hint, options)` 返回 `GFAssetLoadOperation`；`acquire_handle(path, scope, type_hint, resource_override)` 同样必须绑定 `GFAssetScope`，Registry 与 Resolver 对应入口同步采用 scope。
+- `GFUIUtility.configure_host(source, mount_parent)` 必须在局部 UI 初始化前调用；`GFNodeContext.bind_source_context()` 支持 INHERITED Context 的跨显示树来源绑定。
+- `GFSaveProfileRequest.create()`、`GFSaveProfileMutationRequest.create()` 与 `GFSaveProfileReconcileRequest.create()` 隔离普通元数据，非法或超预算输入返回 `null`；不改变已有磁盘格式。
+- Storage 新增 `wait_caller_result_async()`、`wait_physical_result_async()` 和 OwnedRead 的 `wait_result_async()`，终态通知不再由 owner 存活条件抑制。
 
 - 配置列新增 `type_definition`，非空时作为复杂字段的类型权威；`GFConfigTypeDefinition` 提供有界定义编译、规范化和隔离复制。Schema 的校验结果新增成功规范化 `data`，失败时为 null；复制声明失败返回 null，不再把失败声明当作未指定 Schema。新增 `inspect_profile_path()`、CLI `inspect` 和访问器目标能力描述。
 - Project Layout 只接受 profile、snapshot 和 analysis 的 schema 2；旧 profile schema 1 和 `--profile-mode` 选项已移除。声明范围、来源根与保护集合进入分析身份，不能把旧报告拼接成新报告。
@@ -211,6 +227,10 @@
 - `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
 
 ### 📘 升级指南 (Migration Guide)
+
+- 按[资源与上下文 API 迁移](overview/quickstart/runtime-lifecycle-migration.md)替换旧 callback、取消和 Save 请求构造调用；保存资源 scope，关闭业务生命周期时释放，局部 UI 在初始化前配置来源。迁移以日志与手动文档为准，不新增通用转换器，已有 Save schema 迁移能力保留。
+- 将“检查完成后 await 信号”的重复代码改为类型化等待；Storage 先明确需要 caller 还是物理终态。移除依赖 owner 失效吞掉通知的逻辑，等待后核对接收对象与请求身份再更新界面。
+- Save 元数据 `create()` 返回 `null` 时应明确停止提交，不能把创建失败当作默认空请求。超过元数据预算的大型载荷应迁至 section Provider。
 
 - 复杂配置请将重复的内部字段声明移入 `GFConfigTypeDefinition`，通过列的 `type_definition` 复用；结构布局在来源 `parse_options.layout` 中显式声明，普通平表沿用现有配置。调用 Schema 复制后须检查 null，读取规范化数据前须检查报告 `ok`；覆写增加了 `options` 参数的复制或转换方法时，同步签名并透传选项。自定义工具不能用描述报告替代真实的复杂类型资源。
 - 配置入口默认有限；大批次应按实际数据规模显式设置 `work_limits`，不能用零或负数关闭额度。多个直接导入/合并调用需要共享预算时传 `work_budget`，不要同时声明两者；Pipeline 每次构建自行创建批次句柄，只在顶层或 Profile 构建选项中声明 `work_limits`。`GFConfigTableMergePolicy.merge_record()` 现在返回结果报告，检查 `ok` 后读取 `data`；记录键分量改用稳定标量。合并或数据库构建失败时不得继续读取部分结果，修正后重新执行完整操作。

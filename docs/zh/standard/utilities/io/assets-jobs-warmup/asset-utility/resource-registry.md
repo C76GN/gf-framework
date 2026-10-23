@@ -86,11 +86,14 @@ var by_identity := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_CACH
 ```gdscript
 var assets := Gf.get_utility(GFAssetUtility) as GFAssetUtility
 
-registry.request_entry_async(assets, &"inventory_panel", func(resource: Resource) -> void:
-	var scene := resource as PackedScene
-	if scene != null:
-		add_child(scene.instantiate())
-)
+var scope: GFAssetScope = assets.create_scope(self)
+var result: GFAssetLoadResult = await registry.request_entry_async(
+	assets, &"inventory_panel", scope
+).wait_result_async()
+if result.is_successful():
+	var resource: Resource = result.get_handle().get_resource()
+	if resource is PackedScene:
+		add_child(resource.instantiate())
 ```
 
 成组预热时，用 `make_asset_group_entries()` 转成 `GFAssetUtility.preload_group_async()` 接受的请求列表。每个请求包含 `path`、`type_hint`、`cache_key` 和 `resource_identity`，便于预加载报告、诊断 UI 或项目层校验和缓存身份对齐。

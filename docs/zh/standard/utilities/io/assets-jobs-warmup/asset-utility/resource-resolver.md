@@ -53,11 +53,14 @@ if not replacement["ok"]:
 ```gdscript
 var assets := Gf.get_utility(GFAssetUtility) as GFAssetUtility
 
-resolver.load_async(assets, &"ui.inventory", func(resource: Resource) -> void:
-	var scene := resource as PackedScene
-	if scene != null:
-		add_child(scene.instantiate())
-)
+var scope: GFAssetScope = assets.create_scope(self)
+var result: GFAssetLoadResult = await resolver.load_async(
+	assets, &"ui.inventory", scope
+).wait_result_async()
+if result.is_successful():
+	var resource: Resource = result.get_handle().get_resource()
+	if resource is PackedScene:
+		add_child(resource.instantiate())
 ```
 
 编辑器工具、构建脚本或已确认很小的资源需要同步读取时，可以调用 `load()`；运行时热路径应优先使用 `load_async()` 或 `make_asset_group_entries()` 后交给 `GFAssetUtility` 预加载。

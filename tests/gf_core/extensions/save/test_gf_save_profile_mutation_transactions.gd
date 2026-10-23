@@ -2,6 +2,11 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
+
 # --- 私有变量 ---
 
 var _clock: GFManualClock
@@ -35,6 +40,18 @@ func after_each() -> void:
 
 
 # --- 公共方法 ---
+
+func test_provider_object_context_rejects_save_and_rolls_back() -> void:
+	await _assert_provider_context_rejection(&"object", false)
+
+
+func test_provider_oversized_context_rejects_save_and_rolls_back() -> void:
+	await _assert_provider_context_rejection(&"oversized", false)
+
+
+func test_provider_context_rejection_fences_failed_rollback() -> void:
+	await _assert_provider_context_rejection(&"object", true)
+
 
 func test_mutation_uses_registered_provider_order_and_persists_candidate() -> void:
 	var events: Array[String] = []
@@ -70,7 +87,7 @@ func test_mutation_uses_registered_provider_order_and_persists_candidate() -> vo
 		{ "value": 20 }
 	)
 	var mutations: Array[GFSaveSectionMutation] = [second_mutation, first_mutation]
-	var request: GFSaveProfileMutationRequest = GFSaveProfileMutationRequest.take_ownership(
+	var request: GFSaveProfileMutationRequest = GFSaveProfileMutationRequest.create(
 		mutations,
 		{ "source": "test" },
 		{ "reason": "stable-order" },
@@ -325,7 +342,7 @@ func test_unknown_write_fences_domain_until_late_evidence_is_reloaded() -> void:
 		"fence 拒绝必须发生在 move-only claim 之前。"
 	)
 
-	var reconcile_request: GFSaveProfileReconcileRequest = GFSaveProfileReconcileRequest.take_ownership(
+	var reconcile_request: GFSaveProfileReconcileRequest = GFSaveProfileReconcileRequest.create(
 		{ "evidence": "pending" },
 		{ "trace": 9 }
 	)
@@ -455,7 +472,7 @@ func test_coordinator_dispose_abandons_inflight_write_until_late_settlement() ->
 	)
 	assert_not_null(result.get_reconcile_lease())
 	assert_true(result.get_reconcile_lease().is_terminal())
-	var direct_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var direct_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "after-abandon" }
@@ -810,6 +827,106 @@ func test_mutation_callback_reentry_and_coordinator_dispose_restore_once() -> vo
 
 # --- 私有/辅助方法 ---
 
+func _assert_provider_context_rejection(poison_kind: StringName, fail_rollback: bool) -> void:
+	var events: Array[String] = []
+	var first: GFSaveProfileTransactionTestSupport.MemorySectionProvider = GFSaveProfileTransactionTestSupport.make_provider(
+		&"first",
+		1,
+		events
+	)
+	var second: ContextMutatingProvider = ContextMutatingProvider.new()
+	second.section_id = &"second"
+	second.schema_version = 1
+	second.required_on_load = true
+	second.value = 2
+	second.shared_events = events
+	var providers: Array[GFSaveSectionProvider] = [first, second]
+	var profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(&"mutation.provider_context", providers)
+	assert_true(_register(profile))
+	_activate_existing(
+		profile,
+		{
+			&"first": { "value": 1 },
+			&"second": { "value": 2 },
+		}
+	)
+	events.clear()
+	second.poison_kind = poison_kind
+	second.fail_rollback = fail_rollback
+	var invalid: GFSaveProfileTransactionOperation = _coordinator.mutate_and_persist(
+		profile.profile_id,
+		GFSaveProfileMutationRequest.new()
+	)
+	var rejected: GFSaveProfileTransactionResult = await invalid.wait_result_async()
+	assert_eq(
+		rejected.get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST
+	)
+	var request: GFSaveProfileMutationRequest = _make_request([_make_mutation(&"first", 10), _make_mutation(&"second", 20)])
+	var operation: GFSaveProfileTransactionOperation = _coordinator.mutate_and_persist(profile.profile_id, request)
+	var observed: Array[GFSaveProfileTransactionResult] = []
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_collect_transaction_result"),
+		[operation, observed]
+	)
+	_tick_queued_mutation()
+	assert_eq(
+		_storage.save_calls.size(),
+		0,
+		"Invalid Provider context must never become a default save request."
+	)
+	if not operation.is_completed():
+		_storage.complete_next_save(OK)
+	var result: GFSaveProfileTransactionResult = await operation.wait_result_async()
+	assert_eq(
+		observed.size(),
+		1
+	)
+	assert_eq(
+		result.get_error_code(),
+		ERR_INVALID_PARAMETER
+	)
+	assert_eq(first.value, 1)
+	assert_lt(
+		events.find("rollback:second"),
+		events.find("rollback:first")
+	)
+	assert_true(events.has("rollback:second"))
+	assert_true(events.has("rollback:first"))
+	assert_eq(
+		_storage.get_pending_save_count(),
+		0
+	)
+	if fail_rollback:
+		assert_eq(
+			result.get_status(),
+			GFSaveProfileTransactionResult.STATUS_ROLLBACK_FAILED
+		)
+		assert_eq(second.value, 20)
+		assert_not_null(result.get_reconcile_lease())
+		assert_false(result.get_rollback_errors().is_empty())
+		assert_eq(
+			GFVariantData.get_option_string_name(
+				_coordinator.get_domain_state_snapshot(profile.profile_id),
+				"state"
+			),
+			GFSaveProfileTransactionCoordinator.DOMAIN_STATE_RECONCILIATION_REQUIRED
+		)
+	else:
+		assert_eq(
+			result.get_status(),
+			GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED
+		)
+		assert_eq(second.value, 2)
+		assert_null(result.get_reconcile_lease())
+		assert_true(result.get_rollback_errors().is_empty())
+
+
+func _collect_transaction_result(operation: GFSaveProfileTransactionOperation, results: Array[GFSaveProfileTransactionResult]) -> void:
+	var result: GFSaveProfileTransactionResult = await operation.wait_result_async()
+	results.append(result)
+
+
 func _register(profile: GFSaveProfile) -> bool:
 	return GFVariantData.get_option_bool(
 		_coordinator.register_profile(profile),
@@ -837,7 +954,7 @@ func _make_mutation(section_id: StringName, value: int) -> GFSaveSectionMutation
 
 
 func _make_request(mutations: Array[GFSaveSectionMutation]) -> GFSaveProfileMutationRequest:
-	return GFSaveProfileMutationRequest.take_ownership(
+	return GFSaveProfileMutationRequest.create(
 		mutations,
 		{},
 		{},
@@ -857,3 +974,22 @@ func _tick_queued_mutation() -> void:
 	_profile_utility.tick(0.0)
 	_coordinator.tick(0.0)
 	_profile_utility.tick(0.0)
+
+
+# --- 内部类 ---
+
+class ContextMutatingProvider extends GFSaveProfileTransactionTestSupport.MemorySectionProvider:
+	var poison_kind: StringName = &""
+
+
+	func _apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:
+		var apply_error: Error = super._apply_section(section, context)
+		if apply_error != OK:
+			return apply_error
+		if poison_kind == &"object":
+			context["provider_value"] = RefCounted.new()
+		elif poison_kind == &"oversized":
+			var bytes: PackedByteArray = PackedByteArray()
+			var _resized: Error = bytes.resize(1_048_577) as Error
+			context["provider_value"] = bytes
+		return OK

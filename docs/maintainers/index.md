@@ -203,6 +203,21 @@ python tools\gf_maintenance.py release-status --version 3.19.0 --artifact-manife
 
 `quick` 面向本地开发内环，不包含维护工具自身的契约自测；修改 `tools/gf_maintenance*.py`、CI 或 release workflow 时，需另外运行 `python tools\gf_maintenance.py maintenance-self-test`。正式 `framework` / `full` 质量门仍会执行该自测。
 
+无业务参数、以 `ok` 决定退出码的普通进程内命令由 `tools/gf_maintenance_commands.py` 的只读 `CommandDescriptor` 统一名称、帮助和 JSON 调用参数。CLI 解析与 Catalog 命令投影读取同一描述；处理器仍从受控 runtime registry 绑定，文本 renderer 按精确集合注册。描述本身不含 callable，也不能改变检查准入、依赖、suite 或执行器类型。带报告/严格模式差异、额外参数或外部进程所有权的命令保留显式适配器；Catalog 的数据闭包与执行注册表的精确匹配检查仍独立生效。
+
+### GDScript 格式预览与安全写入
+
+`gdscript-readability` 的规范布局诊断与格式预览共同读取 `FormatPlan`。它捕获原始源码与各布局阶段的具体编辑；预览顺序重新分析阶段结果，直到有界收敛，输出可供审查的 diff。所有现有可读性规则、全量扫描范围和失败关闭条件保持有效。
+
+```powershell
+python tools/gf_gdscript_format.py --path addons/gf/standard/example.gd --json
+python tools/gf_gdscript_format.py --path addons/gf/standard/example.gd --write --json
+```
+
+路径必须指向 `addons/gf` 或 `tests/gf_core` 中一个规范相对路径文件；预览不写入。`--write` 只处理 `.gd` 的水平 token 间空格/Tab，并重新词法分析，证明 token 与注释内容及顺序、物理行边界和每行首缩进均未改变，同时验证幂等。含 `$` 或 `%` 节点简写的行保守排除；涉及换行、缩进、括号载体或其他结构的编辑，以及 `.gd.txt` 模板，都仅提供建议 diff。`suggested_diff` 表示完整建议，`safe_diff` 表示可自动写入部分，两者可能不同。
+
+写入前会重新捕获并比较源码，在同目录暂存、检查身份与内容后原子替换；拒绝符号链接、junction、路径逃逸、超预算或不完整输入。它检测普通并发编辑，不承诺抵抗恶意进程在最终替换瞬间改写文件系统。预览预算为 512 KiB / 10,000 行，不影响仓库检查的原有预算。部分调整后仍有规则未满足时，`complete` / `ok` 为 `false` 且退出码非零；不得把成功写入当作检查通过。复杂布局需人工审查建议并重新运行原有检查。
+
 ### 函数审查热点报告
 
 `review-hotspots` 按当前 GDScript 源码列出函数位置和结构观测，帮助维护者安排审查顺序。默认读取 `addons/gf`；可重复传入 `--path` 合并文件或目录范围。路径按仓库相对字面值匹配，支持 Windows 路径分隔符，不接受绝对路径、上级跳转或 Git pathspec。只纳入 Git 已跟踪和未忽略的文件，不执行 GDScript，也不扫描历史提交。Git 为嵌套仓库返回的目录标记经过路径校验后排除，报告不递归进入这些独立仓库。

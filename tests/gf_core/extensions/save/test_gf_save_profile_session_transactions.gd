@@ -306,7 +306,7 @@ func test_missing_activate_requires_lease_before_bootstrap_can_activate() -> voi
 		"无效 request 必须在 lease claim 与 domain epoch 推进前失败。"
 	)
 
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{ "reason": "bootstrap" },
 		{},
 		{ "trace": 1 }
@@ -427,7 +427,7 @@ func test_recovery_save_rejection_preserves_lease_request_and_domain_epoch() -> 
 	var recovery_lease: GFSaveProfileRecoveryLease = activation.get_result().get_recovery_lease()
 	assert_not_null(recovery_lease)
 	assert_true(recovery_lease.is_available())
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "attempt": "retryable" }
@@ -744,7 +744,7 @@ func test_switch_recovery_leases_bind_source_and_reject_legacy_or_wrong_reason_a
 		corrupt_source.profile_id
 	)
 
-	var legacy_missing_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var legacy_missing_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "api": "legacy_bootstrap" }
@@ -756,7 +756,7 @@ func test_switch_recovery_leases_bind_source_and_reject_legacy_or_wrong_reason_a
 	)
 	assert_false(legacy_missing_request.is_claimed())
 	assert_true(missing_lease.is_available())
-	var wrong_missing_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var wrong_missing_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "api": "wrong_adopt_and_switch" }
@@ -769,7 +769,7 @@ func test_switch_recovery_leases_bind_source_and_reject_legacy_or_wrong_reason_a
 	assert_false(wrong_missing_request.is_claimed())
 	assert_true(missing_lease.is_available())
 
-	var legacy_corrupt_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var legacy_corrupt_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "api": "legacy_adopt" }
@@ -781,7 +781,7 @@ func test_switch_recovery_leases_bind_source_and_reject_legacy_or_wrong_reason_a
 	)
 	assert_false(legacy_corrupt_request.is_claimed())
 	assert_true(corrupt_lease.is_available())
-	var wrong_corrupt_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var wrong_corrupt_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "api": "wrong_bootstrap_and_switch" }
@@ -841,7 +841,7 @@ func test_adopt_and_switch_resets_structural_family_before_target_save() -> void
 	var source: GFSaveProfile = _fixture_profile(fixture, "source")
 	var target: GFSaveProfile = _fixture_profile(fixture, "target")
 	var lease: GFSaveProfileRecoveryLease = _fixture_recovery_lease(fixture)
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "recovery": "structural" }
@@ -1109,7 +1109,7 @@ func test_switch_recovery_reservation_blocks_synchronous_flush_callback_save() -
 		ERR_FILE_NOT_FOUND,
 		GFStorageReadResult.FailureKind.NOT_FOUND
 	)
-	var reentrant_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var reentrant_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "flush_callback" }
@@ -1329,13 +1329,13 @@ func test_bootstrap_and_switch_reflushes_latest_source_before_atomic_commit() ->
 		return
 
 	provider.value = 31
-	var source_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var source_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "generation": "latest_source" }
 	)
 	var source_save: GFSaveProfileOperation = _profile_utility.save_profile(source.profile_id, source_request)
-	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{ "recovery": "missing_switch" },
 		{},
 		{ "trace": 89 }
@@ -1465,7 +1465,7 @@ func test_switch_recovery_stale_and_replayed_leases_do_not_claim_requests() -> v
 	assert_not_null(current_lease)
 	if current_lease == null:
 		return
-	var stale_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var stale_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "lease": "stale" }
@@ -1477,7 +1477,7 @@ func test_switch_recovery_stale_and_replayed_leases_do_not_claim_requests() -> v
 	)
 	assert_false(stale_request.is_claimed())
 
-	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "lease": "accepted" }
@@ -1485,7 +1485,7 @@ func test_switch_recovery_stale_and_replayed_leases_do_not_claim_requests() -> v
 	var accepted: GFSaveProfileTransactionOperation = _coordinator.bootstrap_and_switch_profile(current_lease, accepted_request)
 	assert_true(current_lease.is_claimed())
 	assert_true(accepted_request.is_claimed())
-	var replay_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var replay_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "lease": "replay" }
@@ -1540,7 +1540,7 @@ func test_bootstrap_and_switch_source_flush_failure_preserves_source() -> void:
 
 	provider.value = 12
 	var source_save: GFSaveProfileOperation = _profile_utility.save_profile(source.profile_id)
-	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "failure": "source_flush" }
@@ -1602,7 +1602,7 @@ func test_bootstrap_and_switch_target_save_failure_preserves_source() -> void:
 	assert_not_null(lease)
 	if lease == null:
 		return
-	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "failure": "target_save" }
@@ -1654,7 +1654,7 @@ func test_switch_waits_for_source_generation_before_loading_target() -> void:
 	)
 
 	provider.value = 8
-	var save_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var save_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{}
@@ -1838,7 +1838,7 @@ func test_inactive_managed_profile_rejects_direct_bypass_without_claiming_reques
 	var providers: Array[GFSaveSectionProvider] = [provider]
 	var profile: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(&"session.managed_gate", providers)
 	assert_true(_register(profile))
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{ "document": 1 },
 		{ "context": 2 },
 		{ "result": 3 }
@@ -1879,7 +1879,7 @@ func test_utility_quiesce_rejects_manager_operations_before_claiming_save_reques
 	var permit: RefCounted = _profile_utility.claim_profile_management_for_framework(profile.profile_id, manager_owner)
 	assert_not_null(permit)
 	var _quiesce: GFAsyncCompletion = _profile_utility.begin_quiesce(GFAsyncScope.new())
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{ "document": 1 },
 		{ "context": 2 },
 		{ "result": 3 }
@@ -1946,7 +1946,7 @@ func test_provider_capture_quiesce_revokes_active_direct_save_access_immediately
 	provider.save_snapshot_callback = func() -> void:
 		completions.append(_coordinator.begin_quiesce(GFAsyncScope.new()))
 	provider.value = 2
-	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "accepted" }
@@ -1965,7 +1965,7 @@ func test_provider_capture_quiesce_revokes_active_direct_save_access_immediately
 		_storage.get_pending_save_count(),
 		1
 	)
-	var blocked_during_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var blocked_during_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "during" }
@@ -1985,7 +1985,7 @@ func test_provider_capture_quiesce_revokes_active_direct_save_access_immediately
 
 	assert_true(accepted.get_result().is_successful())
 	assert_true(completions[0].is_successful())
-	var blocked_after_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var blocked_after_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "after" }
@@ -2018,7 +2018,7 @@ func test_coordinator_quiesce_blocks_direct_save_and_waits_for_detached_tail() -
 		}
 	)
 	provider.value = 2
-	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "accepted" }
@@ -2033,7 +2033,7 @@ func test_coordinator_quiesce_blocks_direct_save_and_waits_for_detached_tail() -
 
 	var completion: GFAsyncCompletion = _coordinator.begin_quiesce(GFAsyncScope.new())
 	assert_false(completion.is_completed())
-	var blocked_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var blocked_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{},
 		{},
 		{ "source": "blocked" }

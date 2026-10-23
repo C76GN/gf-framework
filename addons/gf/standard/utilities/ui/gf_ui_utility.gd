@@ -171,6 +171,11 @@ const _DEFAULT_TOP_CANVAS_LAYER: int = 70
 ## @since 8.1.0
 const DEFAULT_LAYER_ID: int = 1
 
+## 分离资源终态等待的内核辅助。
+## [br]
+## @api private
+const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
+
 
 # --- 私有变量 ---
 
@@ -251,6 +256,21 @@ var _pending_async_push_serials: Dictionary = {}
 ## @api private
 var _pending_async_panel_requests: Dictionary = {}
 
+## 配置的业务来源；弱引用不拥有 Context。
+## [br]
+## @api private
+var _host_source_ref: WeakRef = null
+
+## 可选显示挂载节点；弱引用不拥有目标 Viewport 或场景节点。
+## [br]
+## @api private
+var _host_mount_ref: WeakRef = null
+
+## UIUtility 唯一拥有的 UI 子树根；所有 CanvasLayer 都在其下。
+## [br]
+## @api private
+var _host_root: Node = null
+
 
 # --- GF 生命周期方法 ---
 
@@ -259,6 +279,11 @@ var _pending_async_panel_requests: Dictionary = {}
 ## @api public
 func init() -> void:
 	if _is_active:
+		return
+	var architecture: GFArchitecture = _get_architecture_or_null()
+	if not _create_host():
+		if architecture != null and not architecture.has_initialization_failed():
+			architecture.fail_initialization("The UI host could not be initialized.")
 		return
 	_is_active = true
 	_layer_roots.clear()
@@ -288,9 +313,56 @@ func dispose() -> void:
 	_panel_open_serials.clear()
 	_pending_async_push_serials.clear()
 	_pending_async_panel_requests.clear()
+	if is_instance_valid(_host_root):
+		_detach_node_from_tree(_host_root)
+		_host_root.queue_free()
+	_host_root = null
+	var source: GFNodeContext = _get_host_source()
+	if source != null:
+		var callback: Callable = Callable(self, &"_on_host_closing")
+		if source.context_closing.is_connected(callback):
+			source.context_closing.disconnect(callback)
+		var failed_callback: Callable = Callable(self, &"_on_host_source_failed")
+		if source.context_failed.is_connected(failed_callback):
+			source.context_failed.disconnect(failed_callback)
 
 
 # --- 公共方法 ---
+
+## 在初始化前配置 UI 的业务作用域和显示挂载节点。
+## 默认挂在 source 下；跨树显示使用 INHERITED GFNodeContext 绑定 source，Controller 无需单独绑定。
+## 真正的全局架构或独立 UI 可省略配置；局部架构缺配置时明确初始化失败。来源失效不回退全局。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source: 提供业务 Architecture 的上下文。
+## [br]
+## @param mount_parent: 已在树中且未排队删除的显示父节点，空值表示 source；可指定其他 Viewport 下的节点。
+## [br]
+## @return 初始化前且参数有效时返回 true。
+func configure_host(source: GFNodeContext, mount_parent: Node = null) -> bool:
+	if (
+		_is_active
+		or is_instance_valid(_host_root)
+		or source == null
+		or not is_instance_valid(source)
+	):
+		return false
+	if (
+		mount_parent != null
+		and (
+			not is_instance_valid(mount_parent)
+			or not mount_parent.is_inside_tree()
+			or mount_parent.is_queued_for_deletion()
+		)
+	):
+		return false
+	_host_source_ref = weakref(source)
+	_host_mount_ref = weakref(mount_parent) if mount_parent != null else null
+	return true
+
 
 ## 配置 UI 管理器。
 ## [br]
@@ -574,10 +646,11 @@ func push_panel_async_with_options(
 			if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 				panel_instance.queue_free()
 
-	asset_util.load_async(
+	_start_panel_asset_load(
+		asset_util,
 		path,
-		on_loaded,
-		"PackedScene"
+		async_request_key,
+		on_loaded
 	)
 	return operation_handle
 
@@ -859,10 +932,11 @@ func replace_layer_async_with_options(
 			if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 				panel_instance.queue_free()
 
-	asset_util.load_async(
+	_start_panel_asset_load(
+		asset_util,
 		path,
-		on_loaded,
-		"PackedScene"
+		async_request_key,
+		on_loaded
 	)
 	return operation_handle
 
@@ -1572,7 +1646,7 @@ func _connect_async_panel_completion_callback(operation_handle: GFUIPanelAsyncOp
 	return connection_error == OK
 
 
-## 验证成功面板仍在目标层栈中，移除请求记录并完成句柄及结束信号。
+## 释放资源 scope 后重新验收请求与面板；释放回调可以取消请求或销毁面板，终态只提交一次。
 ## [br]
 ## @api private
 func _finish_async_panel_request(
@@ -1584,8 +1658,18 @@ func _finish_async_panel_request(
 		return
 
 	var request: Dictionary = _get_pending_async_panel_request(request_key)
+	var scope_value: Variant = request.get("asset_scope")
+	if scope_value is GFAssetScope:
+		var asset_scope: GFAssetScope = scope_value
+		var _scope_erased: bool = request.erase("asset_scope")
+		asset_scope.close()
+		if not is_same(
+			_pending_async_panel_requests.get(request_key),
+			request
+		):
+			return
 	var terminal_status: int = status
-	var terminal_panel: Node = panel
+	var terminal_panel: Node = _get_valid_panel_from_variant(panel)
 	if terminal_status == AsyncPanelLoadStatus.OPENED:
 		var panel_is_open: bool = _get_valid_panel_from_variant(terminal_panel) != null
 		if panel_is_open:
@@ -1720,6 +1804,129 @@ func _cancel_all_pending_async_panel_requests() -> void:
 		)
 
 
+## 从弱引用读取已配置的来源，绝不重新寻找替代来源。
+## [br]
+## @api private
+func _get_host_source() -> GFNodeContext:
+	if _host_source_ref == null:
+		return null
+	var value: Variant = _host_source_ref.get_ref()
+	return value if value is GFNodeContext else null
+
+
+## 创建显示 host；来源初始化期间只绑定身份，不等待 source READY，避免 activation 死锁。
+## [br]
+## @api private
+func _create_host() -> bool:
+	if is_instance_valid(_host_root):
+		return false
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if not main_loop is SceneTree:
+		return false
+	var scene_tree: SceneTree = main_loop
+	var source: GFNodeContext = _get_host_source()
+	var architecture: GFArchitecture = _get_architecture_or_null()
+	if (
+		_host_source_ref == null
+		and architecture != null
+		and architecture != GFAutoload.get_architecture_or_null()
+	):
+		architecture.fail_initialization("A local GFUIUtility requires configure_host(source_context) before initialization.")
+		return false
+	if (
+		_host_source_ref != null
+		and (
+			source == null
+			or not source.is_context_available()
+		)
+	):
+		if architecture != null:
+			architecture.fail_initialization("The configured UI source context is unavailable.")
+		return false
+	var mount_parent: Node = scene_tree.root
+	if source != null:
+		mount_parent = source
+	if _host_mount_ref != null:
+		mount_parent = _get_live_node(_host_mount_ref.get_ref())
+	if (
+		mount_parent == null
+		or not mount_parent.is_inside_tree()
+		or mount_parent.is_queued_for_deletion()
+	):
+		if architecture != null:
+			architecture.fail_initialization("The configured UI mount parent is unavailable.")
+		return false
+	if source != null and mount_parent != source:
+		var portal: GFNodeContext = GFNodeContext.new()
+		portal.scope_mode = GFNodeContext.ScopeMode.INHERITED
+		if not portal.bind_source_context(source):
+			portal.free()
+			return false
+		_host_root = portal
+	else:
+		_host_root = Node.new()
+	_host_root.name = &"GFUIHost"
+	mount_parent.add_child(_host_root)
+	var callback: Callable = Callable(self, &"_on_host_closing")
+	var _exit_connect_error: Error = _host_root.tree_exiting.connect(callback) as Error
+	if source != null and not source.context_closing.is_connected(callback):
+		var _source_connect_error: Error = source.context_closing.connect(callback) as Error
+	if source != null:
+		var failed_callback: Callable = Callable(self, &"_on_host_source_failed")
+		if not source.context_failed.is_connected(failed_callback):
+			var _failed_connect_error: Error = source.context_failed.connect(failed_callback) as Error
+	return true
+
+
+## 按请求创建独立资源作用域，并启动类型化加载等待。
+## [br]
+## @api private
+func _start_panel_asset_load(
+	assets: GFAssetUtility,
+	path: String,
+	request_key: String,
+	on_loaded: Callable
+) -> void:
+	var scope: GFAssetScope = assets.create_scope()
+	var request: Dictionary = _get_pending_async_panel_request(request_key)
+	request["asset_scope"] = scope
+	_pending_async_panel_requests[request_key] = request
+	var operation: GFAssetLoadOperation = assets.load_async(
+		path,
+		scope,
+		"PackedScene"
+	)
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_await_panel_asset_load"),
+		[
+			operation,
+			request_key,
+			on_loaded,
+		]
+	)
+
+
+## 资源终态只影响仍在等待的同一 UI 请求，已取消请求不会再实例化面板。
+## [br]
+## @api private
+func _await_panel_asset_load(
+	operation: GFAssetLoadOperation,
+	request_key: String,
+	on_loaded: Callable
+) -> void:
+	var result: GFAssetLoadResult = await operation.wait_result_async()
+	if not _pending_async_panel_requests.has(request_key):
+		return
+	if not _get_pending_async_panel_request(request_key).has("asset_scope"):
+		return
+	var resource: Resource = null
+	if result.is_successful():
+		var handle: GFAssetHandle = result.get_handle()
+		resource = handle.get_resource() if handle != null else null
+	if on_loaded.is_valid():
+		on_loaded.call(resource)
+
+
 ## 按已注册层 ID 创建或更新所有 CanvasLayer 根节点。
 ## [br]
 ## @api private
@@ -1728,7 +1935,7 @@ func _create_layers() -> void:
 		var _created: bool = _create_or_update_layer_root(layer_id)
 
 
-## 按层定义更新现有 CanvasLayer，或将新节点加入 SceneTree 根节点。
+## 按层定义更新现有 CanvasLayer，或将新节点加入本工具拥有的 host。
 ## [br]
 ## @api private
 func _create_or_update_layer_root(layer: int) -> bool:
@@ -1742,16 +1949,13 @@ func _create_or_update_layer_root(layer: int) -> bool:
 		canvas.name = _make_layer_node_name(definition)
 		return true
 
-	var main_loop: MainLoop = Engine.get_main_loop()
-	if not main_loop is SceneTree:
-		push_error("[GFUIUtility][ui_utility.scene_tree_missing] SceneTree is unavailable.")
+	if not is_instance_valid(_host_root) or not _host_root.is_inside_tree():
 		return false
 
-	var scene_tree: SceneTree = main_loop
 	canvas = CanvasLayer.new()
 	canvas.layer = definition.canvas_layer
 	canvas.name = _make_layer_node_name(definition)
-	scene_tree.root.add_child(canvas)
+	_host_root.add_child(canvas)
 	_layer_roots[layer] = canvas
 	return true
 
@@ -2478,6 +2682,21 @@ static func _get_weak_ref(value: Variant) -> WeakRef:
 
 
 # --- 信号处理函数 ---
+
+## 来源或显示 host 关闭时停止接受新面板并取消尚未完成的请求。
+## [br]
+## @api private
+func _on_host_closing() -> void:
+	_is_active = false
+	_cancel_all_pending_async_panel_requests()
+
+
+## 来源本地绑定失败时也撤销 UI 准入，哪怕其共享 Architecture 仍然存活。
+## [br]
+## @api private
+func _on_host_source_failed(_reason: String) -> void:
+	_on_host_closing()
+
 
 ## 面板离开场景树时，从对应层栈移除并发出关闭、可见性及导航更新。
 ## [br]

@@ -12,11 +12,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 15 | 312 | 241 |
+| [运行时服务](#category-runtime_service) | 15 | 316 | 244 |
 | [协议与扩展点](#category-protocol) | 20 | 219 | 194 |
 | [资源定义](#category-resource_definition) | 2 | 38 | 15 |
 | [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
-| [值对象](#category-value_object) | 3 | 40 | 34 |
+| [值对象](#category-value_object) | 4 | 46 | 40 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
 | [编辑器 API](#category-editor_api) | 27 | 418 | 261 |
 | [工具 API](#category-tool_api) | 1 | 22 | 8 |
@@ -106,6 +106,7 @@
 | [`GFArchitectureShutdownResult`](classes/GFArchitectureShutdownResult.md#gfarchitectureshutdownresult) | `RefCounted` | `addons/gf/kernel/core/gf_architecture_shutdown_result.gd` |
 | [`GFBindingLifetimes`](classes/GFBindingLifetimes.md#gfbindinglifetimes) | `RefCounted` | `addons/gf/kernel/core/gf_binding_lifetimes.gd` |
 | [`GFBindingPlanResult`](classes/GFBindingPlanResult.md#gfbindingplanresult) | `RefCounted` | `addons/gf/kernel/core/gf_binding_plan_result.gd` |
+| [`GFContextCloseResult`](classes/GFContextCloseResult.md#gfcontextcloseresult) | `RefCounted` | `addons/gf/kernel/core/gf_context_close_result.gd` |
 
 <a id="category-event_contract"></a>
 

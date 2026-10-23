@@ -75,18 +75,17 @@ await architecture.init()
 Asset 自己的 lane 队列同样在接纳时固定代次，不能等到真正加载时再查询当前入口。
 
 成功、失败和取消后都应调用 `lease.release()`。成功租约仍持有资源时，Broker 的
-`is_idle()` 只是释放条件之一，服务域还会等待租约归还。Asset 的异步回调消费完
-内部租约，但通过 `load_handle_async()` 获得的 `GFAssetHandle` 会继续保留原代，
-直到句柄、owner 或缓存所有权被明确释放。
+`is_idle()` 只是释放条件之一，服务域还会等待租约归还。Asset 请求完成后归还内部租约；成功结果中的 `GFAssetHandle` 由请求 scope
+继续保留原代，直到 scope 关闭、owner 退出或句柄明确释放。
 
 Asset 缓存键包含代次，因此新请求不会命中旧代同路径缓存。旧结果仍按原请求
-交付，迟到本身不是错误。取消旧代 Asset 请求可以明确指定代次：
+交付，迟到本身不是错误。取消旧代 Asset 请求直接使用原 operation：
 
 ```gdscript
-assets.cancel("res://theme/panel.tres", "", old_generation)
+var cancelled: bool = old_operation.cancel()
 ```
 
-省略代次只取消当前入口的请求。`handle.get_service_generation()` 可以诊断句柄
+每个 operation 只取消自己的消费资格，不会触碰其他代次或其他消费者。`handle.get_service_generation()` 可以诊断句柄
 所属代次。业务若只接受当前版本，应比较代次并主动释放不需要的句柄；框架不会
 统一丢弃仍符合原合同的旧结果。
 

@@ -39,6 +39,7 @@ import gf_executable_resolution
 import gf_godot_process
 import gf_gut_lifecycle_smoke
 import gf_maintenance
+import gf_maintenance_commands
 import gf_maintenance_rendering
 import gf_mcp_server
 import gf_path_security
@@ -87,6 +88,79 @@ def _fixture_process_lease_facade(
 	backend.operation_deadline = lease_deadline - 1.0
 	backend.pid = 7319
 	return gf_process_supervisor.SupervisedProcessLease._from_backend(backend)
+
+
+class AssetScopeAuditTests(unittest.TestCase):
+	def test_new_asset_requests_require_the_scope_argument(self):
+		source = '''func run(assets: GFAssetUtility, scope: GFAssetScope) -> void:
+	assets.load_async("res://missing.tres", null)
+	assets.acquire_handle("res://missing_scope.tres")
+	assets.acquire_handle("res://scoped.tres", scope)
+	assets.load_async("res://scoped_async.tres", scope)
+'''
+		issues = gf_maintenance.audit_asset_lifecycle_text(source, "addons/gf/fixture.gd")
+		self.assertEqual({item["target"] for item in issues}, {'"res://missing.tres"', '"res://missing_scope.tres"'})
+		self.assertEqual({item["kind"] for item in issues}, {"missing_asset_scope"})
+
+	def test_adapter_scope_positions_are_distinct_and_comments_are_not_calls(self):
+		source = '''func run(assets: GFAssetUtility, resolver: GFResourceResolverUtility, registry: GFResourceRegistry, scope: GFAssetScope, other: OtherLoader) -> void:
+	resolver.load_async(assets, &"good", scope)
+	resolver.load_async(assets, &"bad", null)
+	registry.request_entry_async(assets, &"entry", scope)
+	registry.request_entry_async(assets, &"bad_entry", null)
+	other.load_async("not an asset request")
+	var text = "assets.acquire_handle(\\\"not code\\\")"
+	# assets.acquire_handle("not code")
+'''
+		issues = gf_maintenance.audit_asset_lifecycle_text(source, "addons/gf/fixture.gd")
+		self.assertEqual({item["target"] for item in issues}, {'&"bad"', '&"bad_entry"'})
+
+	def test_multiline_request_and_parenthesized_null_are_checked(self):
+		source = '''func run(assets: GFAssetUtility) -> void:
+	assets.load_async(
+		"res://missing.tres",
+		(null)
+	)
+'''
+		issues = gf_maintenance.audit_asset_lifecycle_text(source, "addons/gf/fixture.gd")
+		self.assertEqual(len(issues), 1)
+		self.assertEqual(issues[0]["line"], 2)
+
+	def test_incomplete_source_is_visible_and_dynamic_types_are_not_guessed(self):
+		issues = gf_maintenance.audit_asset_lifecycle_text('var broken = "unfinished', "addons/gf/fixture.gd")
+		self.assertEqual(issues[0]["kind"], "asset_scope_scan_incomplete")
+		self.assertEqual(gf_maintenance.audit_asset_lifecycle_text('unknown.load_async("path", null)\n', "addons/gf/fixture.gd"), [])
+
+
+class OrdinaryCommandTests(unittest.TestCase):
+	def test_described_commands_preserve_json_and_exit_behavior(self):
+		parser = gf_maintenance.build_maintenance_cli_parser()
+		for descriptor in gf_maintenance_commands.COMMANDS:
+			for ok in (False, True):
+				with self.subTest(command=descriptor.name, ok=ok):
+					payload = {"ok": ok, "fixture": descriptor.action_id}
+					output = io.StringIO()
+					with mock.patch.object(gf_maintenance, "maintenance_in_process_adapter_registry", return_value={
+						item.action_id: (lambda result=payload: result)
+						for item in gf_maintenance_commands.COMMANDS
+					}), contextlib.redirect_stdout(output):
+						status = gf_maintenance.main(parser.parse_args(descriptor.arguments(json_output=True)), parser=parser)
+					self.assertEqual(status, 0 if ok else 1)
+					self.assertEqual(json.loads(output.getvalue()), payload)
+
+	def test_missing_or_non_callable_handler_fails_before_dispatch(self):
+		for adapters in ({}, {item.action_id: None for item in gf_maintenance_commands.COMMANDS}):
+			with self.subTest(adapters=adapters), mock.patch.object(
+				gf_maintenance, "maintenance_in_process_adapter_registry", return_value=adapters,
+			), self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+				gf_maintenance.ordinary_command_bindings()
+
+	def test_descriptions_have_no_execution_authority(self):
+		for descriptor in gf_maintenance_commands.COMMANDS:
+			self.assertEqual(set(vars(descriptor)), {"action_id", "help"})
+			with self.assertRaises(FrozenInstanceError):
+				descriptor.action_id = "untrusted"
+		self.assertNotIn("test-only", gf_maintenance_commands.BY_ACTION["codeql_suppression_policy"].help)
 
 
 class CodeQualityNativeAcceptanceTests(unittest.TestCase):

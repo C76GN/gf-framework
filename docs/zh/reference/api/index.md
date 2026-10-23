@@ -5,18 +5,18 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`902`
+- 公开类：`906`
 - 公开 AutoLoad：`1`
-- 公开成员：`12957`
-- 公开方法：`8081`
+- 公开成员：`12987`
+- 公开方法：`8108`
 - AutoLoad 公开方法：`65`
 
 ## 模块
 
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
-| Kernel | 78 | 1 | 1214 | 898 | [kernel.md](kernel.md) |
-| Standard | 492 | 0 | 7723 | 4921 | [standard.md](standard.md) |
+| Kernel | 79 | 1 | 1224 | 907 | [kernel.md](kernel.md) |
+| Standard | 495 | 0 | 7741 | 4937 | [standard.md](standard.md) |
 | Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -33,7 +33,7 @@
 | Extensions / Layered Sprite | 4 | 0 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
 | Network | 41 | 0 | 637 | 348 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
-| Save | 52 | 0 | 659 | 418 | [extensions-save.md](extensions-save.md) |
+| Save | 52 | 0 | 661 | 420 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |
 | Tools | 26 | 0 | 214 | 148 | [tools.md](tools.md) |
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="15a8c5bb86d3f422545863f76d27bb7bb0139d3b8e92aae06bbc084c01177bf9">
+<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="4a9e520befaca0f21b15a5eca9d305577d1fd757e7fa50e88e49c89f96cb5511">
 	<description>GFUIUtility: 栈式 UI 管理器。
 负责可扩展逻辑层中的入栈、出栈、层内可见性策略与异步加载，
 适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。
@@ -141,6 +141,19 @@
 			<description>释放 UI 层级、面板栈和未完成异步请求。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure_host">
+			<signature>func configure_host(source: GFNodeContext, mount_parent: Node = null) -&gt; bool:</signature>
+			<description>在初始化前配置 UI 的业务作用域和显示挂载节点。
+默认挂在 source 下；跨树显示使用 INHERITED GFNodeContext 绑定 source，Controller 无需单独绑定。
+真正的全局架构或独立 UI 可省略配置；局部架构缺配置时明确初始化失败。来源失效不回退全局。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 提供业务 Architecture 的上下文。</tag>
+				<tag name="param">mount_parent: 已在树中且未排队删除的显示父节点，空值表示 source；可指定其他 Viewport 下的节点。</tag>
+				<tag name="return">初始化前且参数有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure">

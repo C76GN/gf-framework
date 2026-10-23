@@ -22,20 +22,10 @@ extends RefCounted
 ## @api private
 const _GF_ARCHITECTURE_TICK_RECORD_SCRIPT = preload("res://addons/gf/kernel/core/gf_architecture_tick_record.gd")
 
-## 用于读取时间提供器和生命周期阶段字典的 Variant 工具脚本。
+## 用于读取时间提供器属性的 Variant 工具脚本。
 ## [br]
 ## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
-
-## lifecycle READY 阶段的整数值。
-## [br]
-## @api private
-const _LIFECYCLE_STAGE_READY: int = 3
-
-## lifecycle ACTIVE 阶段的整数值。
-## [br]
-## @api private
-const _LIFECYCLE_STAGE_ACTIVE: int = 4
 
 ## lifecycle tick delta 的最大秒数。
 ## [br]
@@ -55,10 +45,15 @@ var _systems: Dictionary = {}
 ## @api private
 var _utilities: Dictionary = {}
 
-## configure 提供的模块生命周期阶段字典引用。
+## 架构授予普通 tick 权限的实例集合；调度器不解释模块生命周期阶段。
 ## [br]
 ## @api private
-var _module_lifecycle_stages: Dictionary = {}
+var _runtime_tick_permissions: Dictionary = {}
+
+## 架构授予事务 tick 权限的实例集合。
+## [br]
+## @api private
+var _lifecycle_tick_permissions: Dictionary = {}
 
 ## 按优先级排序的 System tick 记录。
 ## [br]
@@ -122,21 +117,48 @@ var _tick_caches_dirty: bool = false
 ## [br]
 ## @schema utility_registry: Dictionary keyed by Script, storing GFUtility instances.
 ## [br]
-## @param lifecycle_stages: 当前架构的模块生命周期阶段字典。
-## [br]
-## @schema lifecycle_stages: Dictionary keyed by module Object, storing integer lifecycle stage values.
-## [br]
 ## @return: 当前调度器实例。
-func configure(
-	system_registry: Dictionary,
-	utility_registry: Dictionary,
-	lifecycle_stages: Dictionary
-) -> GFArchitectureTickScheduler:
+func configure(system_registry: Dictionary, utility_registry: Dictionary) -> GFArchitectureTickScheduler:
 	_systems = system_registry
 	_utilities = utility_registry
-	_module_lifecycle_stages = lifecycle_stages
 	refresh()
 	return self
+
+
+## 原子更新模块参与两种 tick 的许可；撤销立即作用于当前迭代的后续项。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param instance: 模块实例。
+## [br]
+## @param runtime_allowed: 是否允许普通和物理 tick。
+## [br]
+## @param lifecycle_allowed: 是否允许事务限定的 tick。
+func set_tick_permission(
+	instance: Object,
+	runtime_allowed: bool,
+	lifecycle_allowed: bool
+) -> void:
+	if runtime_allowed:
+		_runtime_tick_permissions[instance] = true
+	else:
+		var _removed_runtime: bool = _runtime_tick_permissions.erase(instance)
+	if lifecycle_allowed:
+		_lifecycle_tick_permissions[instance] = true
+	else:
+		var _removed_lifecycle: bool = _lifecycle_tick_permissions.erase(instance)
+
+
+## 撤销全部模块的 tick 许可，不改变注册表或记录顺序。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+func clear_tick_permissions() -> void:
+	_runtime_tick_permissions.clear()
+	_lifecycle_tick_permissions.clear()
 
 
 ## 请求刷新 tick 缓存。
@@ -568,22 +590,14 @@ func _is_tick_record_ready_for_lifecycle_tick(record: GFArchitectureTickRecord, 
 ## [br]
 ## @api private
 func _is_module_active_for_tick(instance: Object) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		_module_lifecycle_stages,
-		instance,
-		0
-	) >= _LIFECYCLE_STAGE_ACTIVE
+	return _runtime_tick_permissions.has(instance)
 
 
 ## 实例记录的生命周期阶段不低于 READY 阶段时返回 true。
 ## [br]
 ## @api private
 func _is_module_ready_for_lifecycle_tick(instance: Object) -> bool:
-	return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		_module_lifecycle_stages,
-		instance,
-		0
-	) >= _LIFECYCLE_STAGE_READY
+	return _lifecycle_tick_permissions.has(instance)
 
 
 ## 非有限 delta 归零，其余值限制在 0.0 至 lifecycle 上限之间。

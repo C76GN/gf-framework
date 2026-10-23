@@ -1,13 +1,145 @@
 """Observable formatting contracts for structural whitespace integrity."""
 
 from pathlib import Path
+from dataclasses import replace
+import contextlib
+import io
+import json
+import os
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
 import gf_gdscript_readability as readability
 import gf_gdscript_layout_integrity as integrity
+from gf_gdscript_format_plan import FormatPlan, FormatEdit
+import gf_gdscript_format as formatting
+
+
+class FormatPlanTests(unittest.TestCase):
+	PATH = "addons/gf/fixture.gd"
+
+	def test_checker_and_preview_use_the_same_layout_decisions(self):
+		source = "var values=[1,2,3]\n"
+		plan = FormatPlan.capture(self.PATH, source)
+		self.assertIn("token_spacing", {issue["rule"] for issue in plan.diagnostics()})
+		self.assertIn("list_layout", {issue["rule"] for issue in readability.audit_source(self.PATH, source)})
+		preview = plan.suggested_source()
+		self.assertIn("+\t1,", plan.diff(preview))
+		self.assertEqual(readability.audit_source(self.PATH, preview), [])
+		self.assertEqual(FormatPlan.capture(self.PATH, preview).suggested_source(), preview)
+
+	def test_safe_subset_preserves_literals_comments_lines_indentation_and_node_paths(self):
+		source = 'func run() -> void:\n\tvar value:int=2+3 # a+b\n\tvar text="a+b"\n\tvar node=$ Root/Child\n\t\tuse(value)\n'
+		candidate = FormatPlan.capture(self.PATH, source).safe_source()
+		self.assertIn('\tvar value: int = 2 + 3 # a+b\n', candidate)
+		self.assertIn('\tvar text = "a+b"\n', candidate)
+		self.assertIn('\tvar node=$ Root/Child\n\t\tuse(value)\n', candidate)
+		self.assertEqual(candidate.count("\n"), source.count("\n"))
+		self.assertEqual(FormatPlan.capture(self.PATH, candidate).safe_source(), candidate)
+
+	def test_structure_changes_remain_preview_only(self):
+		source = "func run() -> void:\n\t\tvar values=[1,2,3]\n"
+		plan = FormatPlan.capture(self.PATH, source)
+		safe = plan.safe_source()
+		self.assertEqual(safe, "func run() -> void:\n\t\tvar values = [1, 2, 3]\n")
+		self.assertNotEqual(safe, plan.suggested_source())
+		self.assertIn("suite_indentation", {issue["rule"] for issue in readability.audit_source(self.PATH, safe)})
+
+	def test_incomplete_input_and_templates_cannot_be_written(self):
+		for path, source in ((self.PATH, 'var text = "unfinished\n'), (self.PATH + ".txt", "var value=1\n")):
+			with self.subTest(path=path), self.assertRaises(ValueError):
+				FormatPlan.capture(path, source).safe_source()
+
+	def test_preview_then_write_is_explicit_and_remaining_checks_still_fail(self):
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			target = root / self.PATH
+			target.parent.mkdir(parents=True)
+			target.write_text("var values=[1,2,3]\n", encoding="utf-8", newline="\n")
+			preview = formatting.format_file(root, self.PATH)
+			self.assertFalse(preview["write_applied"])
+			self.assertEqual(target.read_text(), "var values=[1,2,3]\n")
+			written = formatting.format_file(root, self.PATH, write=True)
+			self.assertTrue(written["write_applied"])
+			self.assertFalse(written["ok"])
+			self.assertEqual(target.read_text(), "var values = [1, 2, 3]\n")
+			self.assertTrue(written["remaining_issues"])
+			self.assertFalse(formatting.format_file(root, self.PATH, write=True)["write_applied"])
+
+	def test_stale_plan_and_failed_replacement_preserve_source(self):
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			target = root / self.PATH
+			target.parent.mkdir(parents=True)
+			target.write_text("var value=1\n", encoding="utf-8", newline="\n")
+			plan = formatting.capture_file(root, self.PATH)
+			target.write_text("var value=2\n", encoding="utf-8", newline="\n")
+			with self.assertRaisesRegex(ValueError, "changed"):
+				formatting.apply_safe_plan(root, plan)
+			plan = formatting.capture_file(root, self.PATH)
+			with mock.patch.object(formatting.os, "replace", side_effect=OSError("fixture failure")), self.assertRaises(OSError):
+				formatting.apply_safe_plan(root, plan)
+			self.assertEqual(target.read_text(), "var value=2\n")
+			self.assertEqual(list(target.parent.iterdir()), [target])
+
+	def test_spacing_proof_rejects_token_merging(self):
+		source = "var value = left and right\n"
+		start = source.index(" and")
+		plan = replace(FormatPlan.capture(self.PATH, source), edits=(
+			FormatEdit(start, start + 1, "", "token_spacing", "integrity", 1, start + 1, "fixture"),
+		))
+		with self.assertRaisesRegex(ValueError, "proof failed"):
+			plan.safe_source()
+
+	def test_change_during_staging_preserves_newer_source(self):
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			target = root / self.PATH
+			target.parent.mkdir(parents=True)
+			target.write_text("var value=1\n", encoding="utf-8", newline="\n")
+			plan = formatting.capture_file(root, self.PATH)
+			real_fsync = formatting.os.fsync
+			def change_after_staging(descriptor):
+				real_fsync(descriptor)
+				target.write_text("var value=2\n", encoding="utf-8", newline="\n")
+			with mock.patch.object(formatting.os, "fsync", side_effect=change_after_staging), self.assertRaisesRegex(ValueError, "changed"):
+				formatting.apply_safe_plan(root, plan)
+			self.assertEqual(target.read_text(), "var value=2\n")
+			self.assertEqual(list(target.parent.iterdir()), [target])
+
+	def test_cli_writes_clean_spacing_and_reports_json(self):
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			target = root / self.PATH
+			target.parent.mkdir(parents=True)
+			target.write_text("var value=1\n", encoding="utf-8", newline="\n")
+			output = io.StringIO()
+			with mock.patch.object(formatting, "ROOT", root), contextlib.redirect_stdout(output):
+				status = formatting.main(["--path", self.PATH, "--write", "--json"])
+			self.assertEqual(status, 0)
+			self.assertTrue(json.loads(output.getvalue())["write_applied"])
+			self.assertEqual(target.read_bytes(), b"var value = 1\n")
+
+	def test_path_aliases_and_link_targets_are_rejected(self):
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			for path in ("../outside.gd", "addons/gf/../outside.gd", "project.godot", "addons\\gf\\fixture.gd"):
+				with self.subTest(path=path), self.assertRaises((ValueError, OSError)):
+					formatting.capture_file(root, path)
+			target = root / self.PATH
+			target.parent.mkdir(parents=True)
+			outside = root / "outside.gd"
+			outside.write_text("var value=1\n", encoding="utf-8")
+			try:
+				os.symlink(outside, target)
+			except OSError:
+				return  # Some Windows test accounts cannot create symlinks.
+			with self.assertRaises(OSError):
+				formatting.capture_file(root, self.PATH)
 
 
 class LayoutIntegrityTests(unittest.TestCase):

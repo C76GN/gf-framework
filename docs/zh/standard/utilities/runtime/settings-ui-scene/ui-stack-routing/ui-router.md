@@ -59,10 +59,8 @@ var operation: GFUIRouteOperation = router.push_route_async(
 	{ "tab": "audio" }
 )
 
-if operation.is_completed():
-	_handle_route_result(operation.get_result())
-else:
-	operation.completed.connect(_handle_route_result, CONNECT_ONE_SHOT)
+var result: GFUIRouteResult = await operation.wait_result_async()
+_handle_route_result(result)
 
 
 func _handle_route_result(result: GFUIRouteResult) -> void:

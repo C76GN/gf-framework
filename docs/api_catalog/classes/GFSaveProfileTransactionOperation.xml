@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionOperation" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd" module="extensions/save" extends="RefCounted" classDigest="a2d792edc95b5a0d2536a8659a2e55b69090d39f1dbf875f8ae3a1082c1be286">
+<class name="GFSaveProfileTransactionOperation" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd" module="extensions/save" extends="RefCounted" classDigest="3579386b2109a364cc111534d61f83dfd6df59a433181994101f744b301b1da6">
 	<description>GFSaveProfileTransactionOperation: Profile 身份与持久化事务的异步句柄。
 句柄由 Save Profile 事务协调器完成一次且只完成一次。调用方可在连接信号前
 检查 `is_completed()`，避免同步拒绝或立即终态造成竞态。</description>
@@ -161,6 +161,16 @@ mutate-and-persist 和 reconcile 使用当前受管 Profile 作为来源。</des
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_result_async">
+			<signature>func wait_result_async() -&gt; GFSaveProfileTransactionResult:</signature>
+			<description>等待事务终态并取得隔离结果；已经完成时立即返回。
+等待不会重启事务或消费结果；多个等待者观察同一次提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前事务的终态结果副本。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

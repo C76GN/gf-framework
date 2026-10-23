@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="dad7e471562babadc7f6ce357cc9517037624693414a2197e5ce295fa9846ff2">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="823f238ad97a09b89500d53a850a278c803f66ba783c4f545a44f5e108d8cc44">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -180,45 +180,41 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="load_async">
-			<signature>func load_async( path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {} ) -&gt; void:</signature>
-			<description>发起异步资源加载。</description>
+		<member kind="method" name="create_scope">
+			<signature>func create_scope(owner: Object = null) -&gt; GFAssetScope:</signature>
+			<description>创建贯穿请求与句柄的资源生命周期；调用者应保存 scope 或绑定 Node owner。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">path: 目标资源路径。</tag>
-				<tag name="param">on_loaded: 加载完成后的回调。</tag>
-				<tag name="param">type_hint: 可选资源类型提示。</tag>
-				<tag name="param">options: 可选参数，支持 serial_lane_id、lane_id、max_concurrent_loads。</tag>
-				<tag name="schema">options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.</tag>
-				<tag name="since">6.0.0</tag>
+				<tag name="param">owner: 可选 owner；Node 退出树自动关闭，其余 owner 失效由 tick 检测。</tag>
+				<tag name="return">独立资源 scope。服务释放时一并关闭。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="load_handle_async">
-			<signature>func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &amp;"", options: Dictionary = {} ) -&gt; void:</signature>
-			<description>异步加载资源并在成功后返回所有权句柄。</description>
+		<member kind="method" name="load_async">
+			<signature>func load_async( path: String, scope: GFAssetScope, type_hint: String = "", options: Dictionary = {} ) -&gt; GFAssetLoadOperation:</signature>
+			<description>异步请求资源；每次调用有独立取消资格，即使底层共用同一次加载。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">path: 目标资源路径。</tag>
-				<tag name="param">on_loaded: 加载完成回调，签名为 func(handle: GFAssetHandle)；失败时传入 null。</tag>
+				<tag name="param">path: 资源路径。</tag>
+				<tag name="param">scope: 从入队到成功句柄释放的生命周期。</tag>
 				<tag name="param">type_hint: 可选资源类型提示。</tag>
-				<tag name="param">owner: 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。</tag>
-				<tag name="param">group_id: 可选资源分组。</tag>
-				<tag name="param">options: 传给 load_async() 的加载选项。</tag>
-				<tag name="schema">options: Dictionary with optional serial loading lane fields.</tag>
+				<tag name="param">options: 可选并发队列配置。</tag>
+				<tag name="return">独立操作；拒绝请求也返回已完成操作。</tag>
+				<tag name="schema">options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acquire_handle">
-			<signature>func acquire_handle( path: String, owner: Object = null, group_id: StringName = &amp;"", type_hint: String = "", resource_override: Resource = null ) -&gt; GFAssetHandle:</signature>
-			<description>为已缓存或指定资源创建所有权句柄。</description>
+			<signature>func acquire_handle( path: String, scope: GFAssetScope, type_hint: String = "", resource_override: Resource = null ) -&gt; GFAssetHandle:</signature>
+			<description>在指定 scope 中为缓存或指定资源创建独立句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 资源路径。</tag>
-				<tag name="param">owner: 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。</tag>
-				<tag name="param">group_id: 可选资源分组。</tag>
+				<tag name="param">scope: 持有此句柄的生命周期。</tag>
 				<tag name="param">type_hint: 可选资源类型提示。</tag>
-				<tag name="param">resource_override: 可选资源实例；为空时使用当前缓存。</tag>
-				<tag name="return">成功时返回句柄；资源不可用时返回 null。</tag>
+				<tag name="param">resource_override: 可选资源实例；为空时使用缓存。</tag>
+				<tag name="return">成功句柄；scope 关闭或资源不可用时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_handle">
@@ -370,17 +366,6 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 				<tag name="api">public</tag>
 				<tag name="param">path: 资源路径。</tag>
 				<tag name="return">已缓存时返回 `true`。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="cancel">
-			<signature>func cancel( path: String, type_hint: String = "", generation: int = -1 ) -&gt; void:</signature>
-			<description>取消指定路径的异步加载请求。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">path: 资源路径。</tag>
-				<tag name="param">type_hint: 可选资源类型提示；为空时取消该路径的当前请求。</tag>
-				<tag name="param">generation: 服务域代次；-1 选择当前入口，指定旧代可取消原代请求而不影响新代。</tag>
-				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="put_cache">

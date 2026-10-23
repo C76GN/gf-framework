@@ -25,6 +25,7 @@
 | 方法 | [`is_pending`](#member-gfsceneoperation-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfsceneoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfsceneoperation-methods-get_result) | `func get_result() -> GFSceneOperationResult:` |
+| 方法 | [`wait_result_async`](#member-gfsceneoperation-methods-wait_result_async) | `func wait_result_async() -> GFSceneOperationResult:` |
 | 方法 | [`cancel`](#member-gfsceneoperation-methods-cancel) | `func cancel() -> bool:` |
 
 ## 信号
@@ -59,7 +60,7 @@ signal progressed(progress_ratio: float)
 signal completed(result: GFSceneOperationResult)
 ```
 
-当前 consumer 进入唯一终态时发出一次。 同步 validation、cache hit 或生命周期拒绝可能在 request 方法返回前完成；调用方 必须先查询 `is_completed()`，只在仍 pending 时连接该信号。
+当前 consumer 进入唯一终态时发出一次。 同步 validation、cache hit 或生命周期拒绝可能在 request 方法返回前完成；调用方 可使用 `wait_result_async()` 同时处理立即完成与等待；直接连接信号时先查询终态。
 
 参数：
 
@@ -193,6 +194,21 @@ func get_result() -> GFSceneOperationResult:
 获取 caller 终态结果副本。
 
 返回：已完成时返回隔离结果；等待中返回 null。
+
+<a id="member-gfsceneoperation-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFSceneOperationResult:
+```
+
+等待当前消费者的终态；同步命中或拒绝时立即取得结果。 多次等待不创建新请求，也不改变共享物理加载的所有权。
+
+返回：当前请求的隔离终态结果。
 
 <a id="member-gfsceneoperation-methods-cancel"></a>
 

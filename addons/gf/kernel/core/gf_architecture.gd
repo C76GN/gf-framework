@@ -516,13 +516,7 @@ var _next_child_external_dependency_lease_id: int = 1
 func _init(parent_architecture: GFArchitecture = null) -> void:
 	_runtime = _GF_KERNEL_RUNTIME_SCRIPT.new()
 	_event_system = GFTypeEventSystem.new()
-	_tick_scheduler = (
-		_GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT.new().configure(
-			_systems,
-			_utilities,
-			_module_lifecycle_stages
-		)
-	)
+	_tick_scheduler = _GF_ARCHITECTURE_TICK_SCHEDULER_SCRIPT.new().configure(_systems, _utilities)
 	_snapshot_coordinator = (
 		_GF_ARCHITECTURE_SNAPSHOT_COORDINATOR_SCRIPT.new().configure(
 			_models,
@@ -4518,7 +4512,7 @@ func _clear_failed_initialization_state() -> void:
 	_system_registry._clear()
 	_utility_registry._clear()
 	_factories.clear()
-	_module_lifecycle_stages.clear()
+	_clear_module_lifecycle_stages()
 	_services.clear()
 	_event_system.clear()
 	_time_provider = null
@@ -4970,7 +4964,7 @@ func _register_initialized_module(
 	):
 		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
-	_module_lifecycle_stages[instance] = 0
+	_set_module_lifecycle_stage(instance, 0)
 	var prepared: bool = await _prepare_replacement_module(instance, current_serial)
 	if (
 		not prepared
@@ -4980,7 +4974,7 @@ func _register_initialized_module(
 	):
 		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
-	_module_lifecycle_stages[instance] = 2
+	_set_module_lifecycle_stage(instance, 2)
 	_call_module_ready(instance)
 	if (
 		not _is_lifecycle_current(current_serial)
@@ -4990,7 +4984,7 @@ func _register_initialized_module(
 	):
 		_rollback_topology_candidate(topology_transaction, runtime_transaction)
 		return false
-	_module_lifecycle_stages[instance] = 3
+	_set_module_lifecycle_stage(instance, 3)
 	topology_transaction._phase = TopologyMutation._PHASE_ACTIVATING
 	var activated: bool = await _activate_topology_candidate(
 		instance,
@@ -5096,7 +5090,7 @@ func _activate_topology_candidate(
 	):
 		activated = false
 	if activated:
-		_module_lifecycle_stages[instance] = 4
+		_set_module_lifecycle_stage(instance, 4)
 	return activated
 
 
@@ -6265,7 +6259,7 @@ func _activate_lifecycle_plan(
 				lifecycle_serial
 			)
 			return false
-		_module_lifecycle_stages[instance] = 4
+		_set_module_lifecycle_stage(instance, 4)
 	if _activation_scope != null:
 		_activation_scope.complete()
 		_untrack_async_scope(_activation_scope)
@@ -6917,7 +6911,7 @@ func _force_dispose_internal() -> void:
 	_system_registry._clear()
 	_utility_registry._clear()
 	_factories.clear()
-	_module_lifecycle_stages.clear()
+	_clear_module_lifecycle_stages()
 	_services.clear()
 	_event_system.clear()
 	_time_provider = null
@@ -7056,7 +7050,7 @@ func _advance_module_to_stage(
 		if not _module_registry_contains_instance(module_registry, instance):
 			return false
 
-		_module_lifecycle_stages[instance] = current_stage
+		_set_module_lifecycle_stage(instance, current_stage)
 	return current_stage >= target_stage
 
 
@@ -7181,7 +7175,7 @@ func _track_registered_module(instance: Object) -> void:
 	if instance == null:
 		return
 	if not _module_lifecycle_stages.has(instance):
-		_module_lifecycle_stages[instance] = 0
+		_set_module_lifecycle_stage(instance, 0)
 
 
 ## 通过实例反向索引检查 instance 是否仍有直接注册键。
@@ -7415,7 +7409,7 @@ func _cleanup_required_source_owned_candidate(instance: Object) -> void:
 	disposed_instances[instance] = true
 	_event_system.unregister_owner(instance)
 	_unregister_services_for_owner(instance)
-	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
+	_remove_module_lifecycle_stage(instance)
 	_lifecycle_hook_depth += 1
 	if instance.has_method("dispose"):
 		var _dispose_result: Variant = instance.call("dispose")
@@ -7652,7 +7646,7 @@ func _replace_initialized_module(
 	):
 		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
-	_module_lifecycle_stages[instance] = 0
+	_set_module_lifecycle_stage(instance, 0)
 	var prepared: bool = await _prepare_replacement_module(instance, lifecycle_serial)
 	if (not prepared or not _is_topology_mutation_current(topology_transaction)):
 		_rollback_topology_candidate(topology_transaction, transaction)
@@ -7670,7 +7664,7 @@ func _replace_initialized_module(
 	if module_registry._get_key_for_instance(instance) != null:
 		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
-	_module_lifecycle_stages[instance] = 2
+	_set_module_lifecycle_stage(instance, 2)
 	_call_module_ready(instance)
 	if (
 		not _is_lifecycle_current(lifecycle_serial)
@@ -7680,7 +7674,7 @@ func _replace_initialized_module(
 	):
 		_rollback_topology_candidate(topology_transaction, transaction)
 		return false
-	_module_lifecycle_stages[instance] = 3
+	_set_module_lifecycle_stage(instance, 3)
 	topology_transaction._phase = TopologyMutation._PHASE_ACTIVATING
 	var activated: bool = await _activate_topology_candidate(
 		instance,
@@ -7846,7 +7840,7 @@ func _cleanup_uncommitted_module(instance: Object) -> void:
 		return
 	var disposed_instances: Dictionary = (_module_disposal_claims if _module_disposal_session_depth > 0 else {})
 	_dispose_module_once(instance, disposed_instances)
-	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
+	_remove_module_lifecycle_stage(instance)
 
 
 ## 按注入、init、异步 init 顺序准备候选，各阶段后确认代次仍有效；此处不执行 ready 或提交注册。
@@ -8284,7 +8278,7 @@ func _remove_registered_module(
 		_unregister_services_for_owner(instance)
 		_release_module_dependencies(instance)
 	if instance != null:
-		var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
+		_remove_module_lifecycle_stage(instance)
 	return instance
 
 
@@ -8634,6 +8628,38 @@ func _get_module_label_for_instance(instance: Object) -> String:
 	if instance is GFUtility:
 		return "utility"
 	return "module"
+
+
+## 提交模块阶段，并在同一同步边界更新调度许可；阶段编码仅由架构解释。
+## [br]
+## @api private
+func _set_module_lifecycle_stage(instance: Object, stage: int) -> void:
+	_module_lifecycle_stages[instance] = stage
+	_tick_scheduler.set_tick_permission(
+		instance,
+		stage >= 4,
+		stage >= 3
+	)
+
+
+## 移除模块阶段并立即撤销尚在缓存中的 tick 记录许可。
+## [br]
+## @api private
+func _remove_module_lifecycle_stage(instance: Object) -> void:
+	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
+	_tick_scheduler.set_tick_permission(
+		instance,
+		false,
+		false
+	)
+
+
+## 清空本轮模块阶段与派生的调度许可。
+## [br]
+## @api private
+func _clear_module_lifecycle_stages() -> void:
+	_module_lifecycle_stages.clear()
+	_tick_scheduler.clear_tick_permissions()
 
 
 ## 以 lifecycle stage 3（ready）作为查找可见性的最低阶段。

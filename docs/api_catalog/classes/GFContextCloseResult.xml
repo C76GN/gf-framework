@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFContextCloseResult" path="addons/gf/kernel/core/gf_context_close_result.gd" module="kernel" extends="RefCounted" classDigest="bccedce201d00a3b90848d69c94a05843b480d14f3758634d62372105e871e0b">
+	<description>GFContextCloseResult: 节点上下文一次关闭尝试的不可变结果。
+closed 表示绑定和自有架构均已关闭，drained 表示全部子上下文和架构正常完成静默工作。
+关闭结果不持有 Node；子结果数组在读取边界复制。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="layer">kernel/core</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_closed">
+			<signature>func is_closed() -&gt; bool:</signature>
+			<description>检查本次尝试结束后上下文是否已关闭。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已关闭时返回 true；ERR_BUSY 等拒绝可能仍未关闭。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_drained">
+			<signature>func is_drained() -&gt; bool:</signature>
+			<description>检查全部拥有的工作是否正常完成静默关闭。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">无强制释放、取消、超时或失败时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>读取关闭错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首个子关闭或架构关闭错误；正常完成为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>读取关闭错误说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败说明；正常完成为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_architecture_result">
+			<signature>func get_architecture_result() -&gt; GFArchitectureShutdownResult:</signature>
+			<description>读取自有架构的关闭结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">自有架构结果的副本；INHERITED 或尚未尝试架构关闭时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_child_results">
+			<signature>func get_child_results() -&gt; Array[GFContextCloseResult]:</signature>
+			<description>读取直接逻辑子上下文的关闭结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独立数组，元素为不可变关闭结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

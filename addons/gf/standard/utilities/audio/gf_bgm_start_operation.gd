@@ -108,6 +108,21 @@ func get_result() -> GFBgmStartResult:
 	return _result.duplicate_result() if _result != null else null
 
 
+## 等待本次 BGM 启动请求的终态；已完成时立即返回。
+##
+## 该等待只观察启动结果，不延长播放会话或改变取消状态。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前启动请求的隔离结果。
+func wait_result_async() -> GFBgmStartResult:
+	if not is_completed():
+		await completed
+	return get_result()
+
+
 ## 取消等待中的 start request。
 ##
 ## 返回 true 表示 Audio Utility 首次接受取消 intent；backend dispatch 正在进行时，终态可在

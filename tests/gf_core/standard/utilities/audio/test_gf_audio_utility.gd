@@ -9,7 +9,7 @@ class MockAssetUtility:
 
 	var pending: Dictionary = {}
 
-	func load_async(
+	func _load_resource_async(
 		path: String,
 		on_loaded: Callable,
 		_type_hint: String = "",
@@ -27,7 +27,10 @@ class MockAssetUtility:
 			return
 		var callback: Callable = callback_value
 		var _erase_result_25: Variant = pending.erase(path)
-		callback.call(resource)
+		callback.call(
+			resource,
+			OK if resource != null else ERR_CANT_OPEN
+		)
 
 
 class ImmediateAssetUtility:
@@ -39,13 +42,16 @@ class ImmediateAssetUtility:
 		resource = loaded_resource
 
 
-	func load_async(
+	func _load_resource_async(
 		_path: String,
 		on_loaded: Callable,
 		_type_hint: String = "",
 		_options: Dictionary = {}
 	) -> void:
-		on_loaded.call(resource)
+		on_loaded.call(
+			resource,
+			OK if resource != null else ERR_CANT_OPEN
+		)
 
 
 class AssetBackedAudioUtility:
@@ -6553,7 +6559,8 @@ func test_mix_snapshot_preserves_raw_gain_and_mute_independently() -> void:
 	AudioServer.set_bus_volume_db(bus_idx, -2.0)
 	AudioServer.set_bus_mute(bus_idx, false)
 	var report: Dictionary = _audio.apply_mix_snapshot(snapshot, 0.05)
-	await get_tree().create_timer(0.08).timeout
+	var transition_completed: bool = await _wait_for_bus_volume_target(bus_idx, -12.0)
+	assert_true(transition_completed, "快照过渡应在有界帧预算内完成。")
 	assert_true(
 		GFVariantData.get_option_bool(report, "ok"),
 		"独立增益和 mute 应能作为一个快照事务应用。"
@@ -7666,7 +7673,10 @@ func test_sfx_fade_release_keeps_normal_and_spatial_capacity_reserved_until_comp
 		_audio._play_sfx_stream(AudioStreamGenerator.new()),
 		"普通 SFX 淡出完成前不得提前释放容量。"
 	)
-	await get_tree().create_timer(0.08).timeout
+	assert_true(
+		await _wait_for_sfx_capacity_release(),
+		"普通 SFX 淡出应在有界帧数内完成回收。"
+	)
 	var normal_replacement: AudioStreamPlayer = _audio._play_sfx_stream(AudioStreamGenerator.new())
 	assert_not_null(normal_replacement, "普通 SFX 淡出完成后应释放容量。")
 	_audio.stop_all_sfx()
@@ -7685,7 +7695,10 @@ func test_sfx_fade_release_keeps_normal_and_spatial_capacity_reserved_until_comp
 		_audio._play_sfx_stream(AudioStreamGenerator.new()),
 		"空间 SFX 淡出完成前不得提前释放容量。"
 	)
-	await get_tree().create_timer(0.08).timeout
+	assert_true(
+		await _wait_for_sfx_capacity_release(),
+		"空间 SFX 淡出应在有界帧数内完成回收。"
+	)
 	assert_not_null(
 		_audio._play_sfx_stream(AudioStreamGenerator.new()),
 		"空间 SFX 淡出完成后应释放容量。"
@@ -8388,6 +8401,15 @@ func _make_test_bgm_clip(history_key: String, playback_region: GFAudioPlaybackRe
 	clip.stream = stream
 	clip.playback_region = playback_region
 	return clip
+
+
+func _wait_for_sfx_capacity_release(max_frames: int = 240) -> bool:
+	# 只读取跟踪数量，等待真实回收；不通过播放请求或调试快照触发清理。
+	for _frame_index: int in range(max_frames):
+		if _audio._get_tracked_sfx_count() == 0:
+			return true
+		await get_tree().process_frame
+	return _audio._get_tracked_sfx_count() == 0
 
 
 func _wait_for_bus_volume_target(

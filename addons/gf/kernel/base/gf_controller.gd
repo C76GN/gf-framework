@@ -522,7 +522,7 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 func _get_architecture_or_null() -> GFArchitecture:
 	var context: GFNodeContextBase = _find_nearest_context()
 	if context != null:
-		if context.is_context_failed():
+		if not context.is_context_available():
 			return null
 		var context_architecture: GFArchitecture = context.get_architecture()
 		if context_architecture == null:
@@ -723,10 +723,13 @@ func _connect_event_architecture_observers() -> void:
 		return
 	var ready_callback: Callable = Callable(self, &"_on_observed_context_ready")
 	var failed_callback: Callable = Callable(self, &"_on_observed_context_failed")
+	var closing_callback: Callable = Callable(self, &"_on_observed_context_closing")
 	if not _observed_event_context.context_ready.is_connected(ready_callback):
 		var _ready_connect_error: Error = _observed_event_context.context_ready.connect(ready_callback) as Error
 	if not _observed_event_context.context_failed.is_connected(failed_callback):
 		var _failed_connect_error: Error = _observed_event_context.context_failed.connect(failed_callback) as Error
+	if not _observed_event_context.context_closing.is_connected(closing_callback):
+		var _closing_connect_error: Error = _observed_event_context.context_closing.connect(closing_callback) as Error
 
 
 ## 断开全局单例、上下文与候选架构上的全部观察信号。
@@ -762,10 +765,13 @@ func _disconnect_observed_event_context() -> void:
 		return
 	var ready_callback: Callable = Callable(self, &"_on_observed_context_ready")
 	var failed_callback: Callable = Callable(self, &"_on_observed_context_failed")
+	var closing_callback: Callable = Callable(self, &"_on_observed_context_closing")
 	if _observed_event_context.context_ready.is_connected(ready_callback):
 		_observed_event_context.context_ready.disconnect(ready_callback)
 	if _observed_event_context.context_failed.is_connected(failed_callback):
 		_observed_event_context.context_failed.disconnect(failed_callback)
+	if _observed_event_context.context_closing.is_connected(closing_callback):
+		_observed_event_context.context_closing.disconnect(closing_callback)
 	_observed_event_context = null
 
 
@@ -871,6 +877,13 @@ func _on_observed_context_ready(_architecture: GFArchitecture) -> void:
 ## [br]
 ## @api private
 func _on_observed_context_failed(_reason: String) -> void:
+	_request_event_binding_sync()
+
+
+## 上下文关闭时立即撤销本地事件；最近 Context 仍存在，所以不会回退全局。
+## [br]
+## @api private
+func _on_observed_context_closing() -> void:
 	_request_event_binding_sync()
 
 

@@ -34,6 +34,14 @@ class InheritedContext extends GFNodeContext:
 		context_wait_timeout_seconds = 0.0
 
 
+class SelectableInheritedContext extends InheritedContext:
+	var selected_architecture: GFArchitecture = null
+
+
+	func get_architecture() -> GFArchitecture:
+		return selected_architecture
+
+
 class RetryModel extends GFModel:
 	pass
 
@@ -61,6 +69,108 @@ func after_each() -> void:
 
 
 # --- 测试方法 ---
+
+func test_inherited_close_revokes_controller_bindings_without_disposing_shared_architecture() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	Gf._architecture = architecture
+	assert_true(await architecture.init())
+	var context: InheritedContext = InheritedContext.new()
+	add_child(context)
+	var _ready_architecture: GFArchitecture = await context.wait_until_ready()
+	var controller: EventController = EventController.new()
+	context.add_child(controller)
+	controller.listen(&"inherited_close")
+	architecture.send_simple_event(&"inherited_close", "before")
+	var result: GFContextCloseResult = await context.close_async()
+	architecture.send_simple_event(&"inherited_close", "after")
+	assert_true(result.is_closed())
+	assert_true(result.is_drained())
+	assert_null(result.get_architecture_result())
+	assert_false(architecture.is_disposed())
+	assert_null(controller.get_architecture())
+	assert_eq(
+		controller.payloads,
+		["before"]
+	)
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_explicit_source_context_keeps_portal_local_and_closes_without_global_fallback() -> void:
+	var global_architecture: GFArchitecture = GFArchitecture.new()
+	Gf._architecture = global_architecture
+	assert_true(await global_architecture.init())
+	var source: EmptyScopedContext = EmptyScopedContext.new()
+	add_child(source)
+	var scoped_architecture: GFArchitecture = await source.initialize_context()
+	var portal: InheritedContext = InheritedContext.new()
+	assert_true(portal.bind_source_context(source))
+	get_tree().root.add_child(portal)
+	var _portal_architecture: GFArchitecture = await portal.wait_until_ready()
+	var controller: EventController = EventController.new()
+	portal.add_child(controller)
+	controller.listen(&"portal")
+	global_architecture.send_simple_event(&"portal", "global")
+	scoped_architecture.send_simple_event(&"portal", "local")
+	assert_eq(
+		controller.payloads,
+		["local"]
+	)
+	var result: GFContextCloseResult = await source.close_async()
+	assert_true(result.is_closed())
+	assert_eq(
+		result.get_child_results().size(),
+		1
+	)
+	assert_false(portal.is_context_available())
+	assert_null(controller.get_architecture())
+	global_architecture.send_simple_event(&"portal", "after_close")
+	assert_eq(
+		controller.payloads,
+		["local"]
+	)
+	assert_false(global_architecture.is_disposed())
+	portal.queue_free()
+	source.queue_free()
+	await get_tree().process_frame
+
+
+func test_source_binding_failure_immediately_revokes_portal_events_while_shared_architecture_lives() -> void:
+	var shared: GFArchitecture = GFArchitecture.new()
+	var replacement: GFArchitecture = GFArchitecture.new()
+	Gf._architecture = shared
+	assert_true(await shared.init())
+	assert_true(await replacement.init())
+	var parent: SelectableInheritedContext = SelectableInheritedContext.new()
+	parent.selected_architecture = shared
+	add_child(parent)
+	var source: InheritedContext = InheritedContext.new()
+	parent.add_child(source)
+	var _source_ready: GFArchitecture = await source.wait_until_ready()
+	var portal: InheritedContext = InheritedContext.new()
+	assert_true(portal.bind_source_context(source))
+	add_child(portal)
+	var _portal_ready: GFArchitecture = await portal.wait_until_ready()
+	var controller: EventController = EventController.new()
+	portal.add_child(controller)
+	controller.listen(&"source_failure")
+	shared.send_simple_event(&"source_failure", "before")
+	parent.selected_architecture = replacement
+	assert_true(source.is_context_failed())
+	shared.send_simple_event(&"source_failure", "after")
+	assert_true(portal.is_context_failed())
+	assert_false(shared.is_disposed())
+	assert_eq(
+		controller.payloads,
+		["before"]
+	)
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nInherited architecture identity changed.")
+	assert_push_warning("[GFNodeContext][node_context.failed] Context failed.\nSource context failed: Inherited architecture identity changed.")
+	portal.queue_free()
+	parent.queue_free()
+	replacement.dispose()
+	await get_tree().process_frame
+
 
 func test_tree_reentry_restores_desired_event_bindings() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()

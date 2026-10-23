@@ -40,10 +40,8 @@ func start_exploration_bgm(audio: GFAudioUtility, owner: Node) -> void:
 		},
 		owner
 	)
-	if operation.is_completed():
-		_on_bgm_start_completed(operation.get_result())
-	else:
-		operation.completed.connect(_on_bgm_start_completed, CONNECT_ONE_SHOT)
+	var result: GFBgmStartResult = await operation.wait_result_async()
+	_on_bgm_start_completed(result)
 
 
 func _on_bgm_start_completed(result: GFBgmStartResult) -> void:
@@ -55,7 +53,7 @@ func _on_bgm_start_completed(result: GFBgmStartResult) -> void:
 	print("BGM session started: ", session.get_session_id())
 ```
 
-本地 clip、同步 backend 或同步校验可以在 `start_bgm()` / `start_bgm_clip()` 返回前完成，因此调用方必须先查询 `is_completed()`，只在仍 pending 时连接 `completed`。`GFBgmStartResult.Status` 是闭合终态：`STARTED` 表示 local/backend 已接受并提交会话；`REJECTED` 表示请求未被接纳；`FAILED` 表示已接纳候选在准备或提交阶段失败；`SUPERSEDED` 表示较新的有效请求取代等待中的请求；`CANCELLED` 表示 caller、owner、stop、backend topology 或 Utility 生命周期取消等待。`BackendDisposition` 另行区分没有 backend、backend 未认领、明确拒绝、本次接受和请求身份失效；`INVALIDATED` 也用于 backend 已物理接受候选、但框架无法发布规范 Session 身份的失败收敛。backend 拒绝后本地成功会得到 `STARTED`，并可由 `used_backend_fallback()` 识别。
+本地 clip、同步 backend 或同步校验可以在 `start_bgm()` / `start_bgm_clip()` 返回前完成。推荐使用 `wait_result_async()`，它同时处理立即完成和等待中的操作；直接连接 `completed` 时，调用方仍须先查询 `is_completed()`，只在仍 pending 时连接信号。`GFBgmStartResult.Status` 是闭合终态：`STARTED` 表示 local/backend 已接受并提交会话；`REJECTED` 表示请求未被接纳；`FAILED` 表示已接纳候选在准备或提交阶段失败；`SUPERSEDED` 表示较新的有效请求取代等待中的请求；`CANCELLED` 表示 caller、owner、stop、backend topology 或 Utility 生命周期取消等待。`BackendDisposition` 另行区分没有 backend、backend 未认领、明确拒绝、本次接受和请求身份失效；`INVALIDATED` 也用于 backend 已物理接受候选、但框架无法发布规范 Session 身份的失败收敛。backend 拒绝后本地成功会得到 `STARTED`，并可由 `used_backend_fallback()` 识别。
 
 结果只接受下列 `status/reason/error/backend disposition` 配对：
 

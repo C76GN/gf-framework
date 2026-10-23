@@ -23,11 +23,10 @@ var operation := scene_util.load_scene_request_async(
 
 if operation == null:
 	_handle_scene_request_unavailable()
-elif operation.is_completed():
-	_consume_scene_result(operation.get_result())
 else:
 	operation.progressed.connect(_on_scene_progress)
-	operation.completed.connect(_consume_scene_result, CONNECT_ONE_SHOT)
+	var result: GFSceneOperationResult = await operation.wait_result_async()
+	_consume_scene_result(result)
 ```
 
 `preload_scene_request_async()` 只准备资源和缓存，不切换当前场景：
@@ -42,16 +41,15 @@ var preload_operation := scene_util.preload_scene_request_async(
 
 if preload_operation == null:
 	_handle_scene_request_unavailable()
-elif preload_operation.is_completed():
-	_consume_scene_result(preload_operation.get_result())
 else:
-	preload_operation.completed.connect(_consume_scene_result, CONNECT_ONE_SHOT)
+	var result: GFSceneOperationResult = await preload_operation.wait_result_async()
+	_consume_scene_result(result)
 ```
 
 非 null 的 Operation 可能在 request 方法返回前同步完成。无效路径、已释放的 Utility、不可用
 owner、已经取消的 token、load busy、Broker admission 拒绝，以及 preload cache hit
-都可能走这条路径。因此调用方必须先检查返回值非 null，再检查 `is_completed()` 或
-`get_result()`；只在仍 pending 时连接 `completed`，不能假定连接信号后才会出现终态。
+都可能走这条路径。检查返回值非 null 后，统一使用 `wait_result_async()`；它同时处理
+立即完成和等待，多个等待者可以独立取得结果。需要直接连接 `completed` 时仍应先查询终态。
 
 ## 请求身份与共享加载
 

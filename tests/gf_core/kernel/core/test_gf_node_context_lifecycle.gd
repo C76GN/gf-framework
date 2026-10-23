@@ -233,6 +233,23 @@ class TreeExitShutdownProbeContext extends GFNodeContext:
 		var _registered: bool = await (architecture_instance.register_utility_instance(shutdown_probe))
 
 
+class ParentTickDrainUtility extends GFUtility:
+	var completion_to_release: GFAsyncCompletion = null
+
+
+	func tick(_delta: float) -> void:
+		if completion_to_release != null and completion_to_release.is_pending():
+			var _completed: bool = completion_to_release.succeed()
+
+
+class ParentTickDrainContext extends GFNodeContext:
+	var probe: ParentTickDrainUtility = ParentTickDrainUtility.new()
+
+
+	func install(architecture_instance: GFArchitecture, _scope: GFAsyncScope) -> void:
+		var _registered: bool = await architecture_instance.register_utility_instance(probe)
+
+
 # --- GUT 生命周期方法 ---
 
 func before_each() -> void:
@@ -244,6 +261,197 @@ func after_each() -> void:
 
 
 # --- 测试方法 ---
+
+func test_close_async_closes_logical_children_before_parent() -> void:
+	var parent: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(parent)
+	var parent_architecture: GFArchitecture = await parent.wait_until_ready()
+	var child: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	parent.add_child(child)
+	var child_architecture: GFArchitecture = await child.wait_until_ready()
+	child.shutdown_probe.block_quiesce = true
+	var state: Dictionary = {}
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		_capture_context_close,
+		[parent, state]
+	)
+	assert_false(parent.is_context_available())
+	assert_false(child.is_context_available())
+	assert_eq(child.shutdown_probe.quiesce_call_count, 1)
+	assert_eq(parent.shutdown_probe.quiesce_call_count, 0)
+	assert_false(parent_architecture.is_disposed())
+	var _released: bool = child.shutdown_probe.quiesce_completion.succeed()
+	for _frame: int in range(10):
+		if state.has("result"):
+			break
+		await get_tree().process_frame
+	var result: GFContextCloseResult = state.get("result")
+	assert_not_null(result)
+	if result != null:
+		assert_true(result.is_closed())
+		assert_true(result.is_drained())
+		assert_eq(
+			result.get_child_results().size(),
+			1
+		)
+		assert_same(
+			await parent.close_async(),
+			result
+		)
+	assert_true(child_architecture.is_disposed())
+	assert_true(parent_architecture.is_disposed())
+	parent.queue_free()
+	await get_tree().process_frame
+
+
+func test_close_async_reentry_joins_first_attempt() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var _architecture: GFArchitecture = await context.wait_until_ready()
+	context.shutdown_probe.block_quiesce = true
+	var first: Dictionary = {}
+	var second: Dictionary = {}
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		_capture_context_close,
+		[context, first]
+	)
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		_capture_context_close,
+		[context, second]
+	)
+	assert_eq(context.shutdown_probe.quiesce_call_count, 1)
+	assert_false(context.is_context_failed())
+	var _released: bool = context.shutdown_probe.quiesce_completion.succeed()
+	for _frame: int in range(10):
+		if first.has("result") and second.has("result"):
+			break
+		await get_tree().process_frame
+	var first_value: Variant = first.get("result")
+	var second_value: Variant = second.get("result")
+	assert_true(first_value is GFContextCloseResult)
+	assert_true(second_value is GFContextCloseResult)
+	if first_value is GFContextCloseResult and second_value is GFContextCloseResult:
+		var first_result: GFContextCloseResult = first_value
+		var second_result: GFContextCloseResult = second_value
+		assert_same(first_result, second_result)
+	assert_eq(context.shutdown_probe.dispose_call_count, 1)
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_parent_service_tick_continues_until_child_drain_finishes() -> void:
+	var parent: ParentTickDrainContext = ParentTickDrainContext.new()
+	add_child(parent)
+	var _parent_architecture: GFArchitecture = await parent.wait_until_ready()
+	var child: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	parent.add_child(child)
+	var _child_architecture: GFArchitecture = await child.wait_until_ready()
+	child.shutdown_probe.block_quiesce = true
+	var state: Dictionary = {}
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		_capture_context_close,
+		[parent, state]
+	)
+	parent.probe.completion_to_release = child.shutdown_probe.quiesce_completion
+	for _frame: int in range(10):
+		if state.has("result"):
+			break
+		await get_tree().process_frame
+	var result: GFContextCloseResult = state.get("result")
+	assert_not_null(result, "子关闭依赖的父服务 tick 不能在父 Context 关闭准入时提前停止。")
+	if result != null:
+		assert_true(result.is_drained())
+	parent.queue_free()
+	await get_tree().process_frame
+
+
+func test_close_after_forced_architecture_dispose_does_not_claim_drain() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var architecture: GFArchitecture = await context.wait_until_ready()
+	architecture.dispose()
+	var result: GFContextCloseResult = await context.close_async()
+	assert_true(result.is_closed())
+	assert_false(result.is_drained())
+	assert_eq(
+		result.get_architecture_result().get_status(),
+		GFArchitectureShutdownResult.Status.FORCED
+	)
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_exit_during_close_completes_waiters_once_without_replacing_new_generation() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var _architecture: GFArchitecture = await context.wait_until_ready()
+	context.shutdown_probe.block_quiesce = true
+	var old_probe: TreeExitShutdownProbeUtility = context.shutdown_probe
+	var state: Dictionary = {}
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		_capture_context_close,
+		[context, state]
+	)
+	remove_child(context)
+	add_child(context)
+	var new_architecture: GFArchitecture = await context.wait_until_ready()
+	for _frame: int in range(10):
+		if state.has("result"):
+			break
+		await get_tree().process_frame
+	var result: GFContextCloseResult = state.get("result")
+	assert_not_null(result)
+	if result != null:
+		assert_true(result.is_closed())
+		assert_false(result.is_drained())
+	var _released: bool = old_probe.quiesce_completion.succeed()
+	await get_tree().process_frame
+	assert_true(context.is_context_ready())
+	assert_false(new_architecture.is_disposed())
+	var _closed: GFContextCloseResult = await context.close_async()
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_close_async_during_install_rejects_late_install_completion() -> void:
+	var context: ParentLifecycleBlockingContext = ParentLifecycleBlockingContext.new()
+	add_child(context)
+	assert_true(context.install_started)
+	var architecture: GFArchitecture = context.get_architecture()
+	var result: GFContextCloseResult = await context.close_async()
+	assert_true(result.is_closed())
+	assert_true(architecture.is_disposed())
+	assert_true(context.observed_scope.is_cancel_requested())
+	context.release_install.emit()
+	await get_tree().process_frame
+	assert_eq(context.install_bindings_call_count, 0)
+	assert_false(context.is_context_ready())
+	assert_false(context.is_context_failed())
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func test_close_async_timeout_reports_closed_without_drain() -> void:
+	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()
+	add_child(context)
+	var architecture: GFArchitecture = await context.wait_until_ready()
+	context.shutdown_probe.block_quiesce = true
+	var result: GFContextCloseResult = await context.close_async(null, 0.001)
+	assert_true(result.is_closed())
+	assert_false(result.is_drained())
+	assert_eq(
+		result.get_error_code(),
+		ERR_TIMEOUT
+	)
+	assert_true(architecture.is_disposed())
+	assert_false(context.is_context_failed())
+	context.queue_free()
+	await get_tree().process_frame
+
+
+func _capture_context_close(context: GFNodeContext, state: Dictionary) -> void:
+	state["result"] = await context.close_async(null, 1.0)
+
 
 func test_owned_normal_shutdown_survives_frames_and_context_queries() -> void:
 	var context: TreeExitShutdownProbeContext = TreeExitShutdownProbeContext.new()

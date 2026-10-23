@@ -27,6 +27,7 @@
 | 常量 | [`DEFAULT_LAYER_ID`](#member-gfuiutility-constants-default_layer_id) | `const DEFAULT_LAYER_ID: int = 1` |
 | 方法 | [`init`](#member-gfuiutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfuiutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`configure_host`](#member-gfuiutility-methods-configure_host) | `func configure_host(source: GFNodeContext, mount_parent: Node = null) -> bool:` |
 | 方法 | [`configure`](#member-gfuiutility-methods-configure) | `func configure(auto_hide_under: bool = true) -> void:` |
 | 方法 | [`register_layer`](#member-gfuiutility-methods-register_layer) | `func register_layer(definition: GFUILayerDefinition, replace_existing: bool = false) -> bool:` |
 | 方法 | [`has_layer`](#member-gfuiutility-methods-has_layer) | `func has_layer(layer: int) -> bool:` |
@@ -287,6 +288,28 @@ func dispose() -> void:
 ```
 
 释放 UI 层级、面板栈和未完成异步请求。
+
+<a id="member-gfuiutility-methods-configure_host"></a>
+
+### `configure_host`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func configure_host(source: GFNodeContext, mount_parent: Node = null) -> bool:
+```
+
+在初始化前配置 UI 的业务作用域和显示挂载节点。 默认挂在 source 下；跨树显示使用 INHERITED GFNodeContext 绑定 source，Controller 无需单独绑定。 真正的全局架构或独立 UI 可省略配置；局部架构缺配置时明确初始化失败。来源失效不回退全局。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source` | 提供业务 Architecture 的上下文。 |
+| `mount_parent` | 已在树中且未排队删除的显示父节点，空值表示 source；可指定其他 Viewport 下的节点。 |
+
+返回：初始化前且参数有效时返回 true。
 
 <a id="member-gfuiutility-methods-configure"></a>
 

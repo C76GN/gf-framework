@@ -598,37 +598,33 @@ func test_load_async_uses_asset_utility_for_resolved_path() -> void:
 		"res://async_resource.tres",
 		"Resource"
 	)
-	var loaded: Array[Resource] = []
-
-	_call_resolver(
+	var scope: GFAssetScope = asset_utility.create_scope()
+	var operation_value: Variant = _call_resolver(
 		"load_async",
 		[
 			asset_utility,
 			&"async",
-			func(resource: Resource) -> void:
-				loaded.append(resource),
+			scope,
 			"",
 			{ "check_exists": false },
 		]
 	)
+	assert_true(operation_value is GFAssetLoadOperation)
+	if not operation_value is GFAssetLoadOperation:
+		return
+	var operation: GFAssetLoadOperation = operation_value
 	asset_utility.tick()
-
+	var result: GFAssetLoadResult = await operation.wait_result_async()
 	assert_eq(
 		asset_utility.requested_paths,
-		["res://async_resource.tres"],
-		"路径解析后应交给 GFAssetUtility。"
+		["res://async_resource.tres"]
 	)
-	assert_eq(
-		loaded.size(),
-		1,
-		"异步加载完成后应回调一次。"
+	assert_true(result.is_successful())
+	assert_same(
+		result.get_handle().get_resource(),
+		asset_utility.loaded_resource
 	)
-	assert_eq(
-		loaded[0],
-		asset_utility.loaded_resource,
-		"回调应收到 AssetUtility 加载结果。"
-	)
-
+	scope.close()
 	asset_utility.dispose()
 
 

@@ -33,9 +33,9 @@
 | 方法 | [`set_resource_service_domain`](#member-gfassetutility-methods-set_resource_service_domain) | `func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:` |
 | 方法 | [`setup_standalone_resource_broker`](#member-gfassetutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfassetutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
-| 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async( path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {} ) -> void:` |
-| 方法 | [`load_handle_async`](#member-gfassetutility-methods-load_handle_async) | `func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"", options: Dictionary = {} ) -> void:` |
-| 方法 | [`acquire_handle`](#member-gfassetutility-methods-acquire_handle) | `func acquire_handle( path: String, owner: Object = null, group_id: StringName = &"", type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:` |
+| 方法 | [`create_scope`](#member-gfassetutility-methods-create_scope) | `func create_scope(owner: Object = null) -> GFAssetScope:` |
+| 方法 | [`load_async`](#member-gfassetutility-methods-load_async) | `func load_async( path: String, scope: GFAssetScope, type_hint: String = "", options: Dictionary = {} ) -> GFAssetLoadOperation:` |
+| 方法 | [`acquire_handle`](#member-gfassetutility-methods-acquire_handle) | `func acquire_handle( path: String, scope: GFAssetScope, type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:` |
 | 方法 | [`release_handle`](#member-gfassetutility-methods-release_handle) | `func release_handle(handle: GFAssetHandle) -> bool:` |
 | 方法 | [`release_owner`](#member-gfassetutility-methods-release_owner) | `func release_owner(owner: Object) -> int:` |
 | 方法 | [`get_asset_reference_count`](#member-gfassetutility-methods-get_asset_reference_count) | `func get_asset_reference_count(path: String) -> int:` |
@@ -51,7 +51,6 @@
 | 方法 | [`is_loading`](#member-gfassetutility-methods-is_loading) | `func is_loading(path: String, type_hint: String = "") -> bool:` |
 | 方法 | [`get_load_progress`](#member-gfassetutility-methods-get_load_progress) | `func get_load_progress(path: String) -> float:` |
 | 方法 | [`is_cached`](#member-gfassetutility-methods-is_cached) | `func is_cached(path: String) -> bool:` |
-| 方法 | [`cancel`](#member-gfassetutility-methods-cancel) | `func cancel( path: String, type_hint: String = "", generation: int = -1 ) -> void:` |
 | 方法 | [`put_cache`](#member-gfassetutility-methods-put_cache) | `func put_cache(path: String, resource: Resource) -> void:` |
 | 方法 | [`remove_cache`](#member-gfassetutility-methods-remove_cache) | `func remove_cache(path: String) -> void:` |
 | 方法 | [`clear_cache`](#member-gfassetutility-methods-clear_cache) | `func clear_cache() -> void:` |
@@ -374,6 +373,27 @@ func get_resource_broker() -> GFResourceBroker:
 
 返回：已绑定的 Broker；未配置时返回 null。
 
+<a id="member-gfassetutility-methods-create_scope"></a>
+
+### `create_scope`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func create_scope(owner: Object = null) -> GFAssetScope:
+```
+
+创建贯穿请求与句柄的资源生命周期；调用者应保存 scope 或绑定 Node owner。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `owner` | 可选 owner；Node 退出树自动关闭，其余 owner 失效由 tick 检测。 |
+
+返回：独立资源 scope。服务释放时一并关闭。
+
 <a id="member-gfassetutility-methods-load_async"></a>
 
 ### `load_async`
@@ -382,75 +402,49 @@ func get_resource_broker() -> GFResourceBroker:
 - 首次版本：`6.0.0`
 
 ```gdscript
-func load_async( path: String, on_loaded: Callable, type_hint: String = "", options: Dictionary = {} ) -> void:
+func load_async( path: String, scope: GFAssetScope, type_hint: String = "", options: Dictionary = {} ) -> GFAssetLoadOperation:
 ```
 
-发起异步资源加载。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `path` | 目标资源路径。 |
-| `on_loaded` | 加载完成后的回调。 |
-| `type_hint` | 可选资源类型提示。 |
-| `options` | 可选参数，支持 serial_lane_id、lane_id、max_concurrent_loads。 |
-
-结构：
-
-- `options`: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.
-
-<a id="member-gfassetutility-methods-load_handle_async"></a>
-
-### `load_handle_async`
-
-- API：`public`
-- 首次版本：`6.0.0`
-
-```gdscript
-func load_handle_async( path: String, on_loaded: Callable, type_hint: String = "", owner: Object = null, group_id: StringName = &"", options: Dictionary = {} ) -> void:
-```
-
-异步加载资源并在成功后返回所有权句柄。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `path` | 目标资源路径。 |
-| `on_loaded` | 加载完成回调，签名为 func(handle: GFAssetHandle)；失败时传入 null。 |
-| `type_hint` | 可选资源类型提示。 |
-| `owner` | 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。 |
-| `group_id` | 可选资源分组。 |
-| `options` | 传给 load_async() 的加载选项。 |
-
-结构：
-
-- `options`: Dictionary with optional serial loading lane fields.
-
-<a id="member-gfassetutility-methods-acquire_handle"></a>
-
-### `acquire_handle`
-
-- API：`public`
-
-```gdscript
-func acquire_handle( path: String, owner: Object = null, group_id: StringName = &"", type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:
-```
-
-为已缓存或指定资源创建所有权句柄。
+异步请求资源；每次调用有独立取消资格，即使底层共用同一次加载。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `path` | 资源路径。 |
-| `owner` | 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。 |
-| `group_id` | 可选资源分组。 |
+| `scope` | 从入队到成功句柄释放的生命周期。 |
 | `type_hint` | 可选资源类型提示。 |
-| `resource_override` | 可选资源实例；为空时使用当前缓存。 |
+| `options` | 可选并发队列配置。 |
 
-返回：成功时返回句柄；资源不可用时返回 null。
+返回：独立操作；拒绝请求也返回已完成操作。
+
+结构：
+
+- `options`: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.
+
+<a id="member-gfassetutility-methods-acquire_handle"></a>
+
+### `acquire_handle`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func acquire_handle( path: String, scope: GFAssetScope, type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:
+```
+
+在指定 scope 中为缓存或指定资源创建独立句柄。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 资源路径。 |
+| `scope` | 持有此句柄的生命周期。 |
+| `type_hint` | 可选资源类型提示。 |
+| `resource_override` | 可选资源实例；为空时使用缓存。 |
+
+返回：成功句柄；scope 关闭或资源不可用时返回 null。
 
 <a id="member-gfassetutility-methods-release_handle"></a>
 
@@ -765,27 +759,6 @@ func is_cached(path: String) -> bool:
 | `path` | 资源路径。 |
 
 返回：已缓存时返回 `true`。
-
-<a id="member-gfassetutility-methods-cancel"></a>
-
-### `cancel`
-
-- API：`public`
-- 首次版本：`unreleased`
-
-```gdscript
-func cancel( path: String, type_hint: String = "", generation: int = -1 ) -> void:
-```
-
-取消指定路径的异步加载请求。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `path` | 资源路径。 |
-| `type_hint` | 可选资源类型提示；为空时取消该路径的当前请求。 |
-| `generation` | 服务域代次；-1 选择当前入口，指定旧代可取消原代请求而不影响新代。 |
 
 <a id="member-gfassetutility-methods-put_cache"></a>
 

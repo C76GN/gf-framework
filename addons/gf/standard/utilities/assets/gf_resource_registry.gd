@@ -759,81 +759,41 @@ func load_entry(
 	)
 
 
-## 通过 GFAssetUtility 异步加载条目资源。
+## 通过资源服务为条目创建独立请求，scope 贯穿请求与成功句柄。
 ## [br]
 ## @api public
 ## [br]
-## @param asset_utility: 资源加载工具。
+## @since unreleased
+## [br]
+## @param asset_utility: 资源加载服务。
 ## [br]
 ## @param entry_id: 条目稳定 ID。
 ## [br]
-## @param on_loaded: 加载完成回调，签名为 func(resource: Resource)。
+## @param scope: 资源生命周期。
 ## [br]
-## @param type_hint_override: 可选类型提示覆盖；为空时使用条目自己的 type_hint。
+## @param type_hint_override: 可选类型覆盖。
+## [br]
+## @return 独立操作，条目不存在时返回失败终态。
 func request_entry_async(
 	asset_utility: GFAssetUtility,
 	entry_id: StringName,
-	on_loaded: Callable,
+	scope: GFAssetScope,
 	type_hint_override: String = ""
-) -> void:
-	if asset_utility == null or not on_loaded.is_valid():
-		push_error("[GFResourceRegistry][resource_registry.entry_callback_invalid] Cannot request_entry_async: asset_utility or on_loaded is invalid.")
-		if on_loaded.is_valid():
-			on_loaded.call(null)
-		return
-
-	var path: String = get_entry_path(entry_id)
-	if path.is_empty():
-		on_loaded.call(null)
-		return
-
-	asset_utility.load_async(
-		path,
-		on_loaded,
+) -> GFAssetLoadOperation:
+	if asset_utility == null:
+		var rejected: GFAssetLoadOperation = GFAssetLoadOperation.new()
+		rejected.complete_for_framework(
+			GFAssetLoadResult.new(
+				GFAssetLoadResult.Status.FAILED,
+				null,
+				ERR_INVALID_PARAMETER
+			)
+		)
+		return rejected
+	return asset_utility.load_async(
+		get_entry_path(entry_id),
+		scope,
 		_resolve_type_hint(entry_id, type_hint_override)
-	)
-
-
-## 通过 GFAssetUtility 异步加载条目资源并返回所有权句柄。
-## [br]
-## @api public
-## [br]
-## @param asset_utility: 资源加载工具。
-## [br]
-## @param entry_id: 条目稳定 ID。
-## [br]
-## @param on_loaded: 加载完成回调，签名为 func(handle: GFAssetHandle)。
-## [br]
-## @param owner: 可选拥有者。
-## [br]
-## @param group_id: 可选资源分组。
-## [br]
-## @param type_hint_override: 可选类型提示覆盖；为空时使用条目自己的 type_hint。
-func request_entry_handle_async(
-	asset_utility: GFAssetUtility,
-	entry_id: StringName,
-	on_loaded: Callable,
-	owner: Object = null,
-	group_id: StringName = &"",
-	type_hint_override: String = ""
-) -> void:
-	if asset_utility == null or not on_loaded.is_valid():
-		push_error("[GFResourceRegistry][resource_registry.entry_handle_callback_invalid] Cannot request_entry_handle_async: asset_utility or on_loaded is invalid.")
-		if on_loaded.is_valid():
-			on_loaded.call(null)
-		return
-
-	var path: String = get_entry_path(entry_id)
-	if path.is_empty():
-		on_loaded.call(null)
-		return
-
-	asset_utility.load_handle_async(
-		path,
-		on_loaded,
-		_resolve_type_hint(entry_id, type_hint_override),
-		owner,
-		group_id
 	)
 
 
