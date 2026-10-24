@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="4121514a54fb898dbfbbe42cafe554d80cbe51982fc2acc13e5a2b14f8c4500a">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="2de7fbdb0b6c6c26dd65f5b48c25b8a0d6d985039e5224ab207ba48ff1d92810">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
 句柄同时表达单个 consumer 的 caller 终态与共享物理请求终态。既有
 `completed/is_completed/get_result` 始终表示物理终态；caller 可通过独立查询和
@@ -22,8 +22,8 @@
 		<member kind="signal" name="caller_completed">
 			<signature>signal caller_completed(result: GFStorageAsyncCallerResult)</signature>
 			<description>当前 consumer 进入 caller 终态时发出一次。
-owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_result()` 查询。该信号
-不代表物理工作已结束。</description>
+该信号表达已经提交的事实，owner 已释放也不会抑制等待者通知。它不代表物理
+工作已结束，也不授权已失效界面继续写回；业务交付须遵守自身生命周期。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 与当前 consumer ID 匹配的隔离 caller 结果。</tag>
@@ -131,6 +131,16 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="wait_physical_result_async">
+			<signature>func wait_physical_result_async() -&gt; GFStorageAsyncResult:</signature>
+			<description>等待物理请求终态；已经完成时立即返回隔离结果。
+caller 的取消或超时不会提前完成此等待，底层工作仍由 Storage 收尾。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前物理请求的终态结果副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="is_caller_pending">
 			<signature>func is_caller_pending() -&gt; bool:</signature>
 			<description>检查当前 consumer 是否仍等待 caller 终态。</description>
@@ -156,6 +166,17 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 				<tag name="api">public</tag>
 				<tag name="return">caller 已完成时返回隔离结果；等待中返回 null。</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_caller_result_async">
+			<signature>func wait_caller_result_async() -&gt; GFStorageAsyncCallerResult:</signature>
+			<description>等待当前消费者的观察终态；已经完成时立即返回。
+owner 失效、取消和期限到达都能唤醒等待者。`OUTCOME_UNKNOWN` 仍要求项目
+通过物理结果或既有对账流程确认写入，不能解释为写入没有发生。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前消费者的隔离终态结果。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_observation">

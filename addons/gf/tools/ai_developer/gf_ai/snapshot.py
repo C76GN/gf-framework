@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,12 +25,48 @@ _MAX_CAPABILITY_RECIPE_GROUP_EVIDENCE = 40
 _MAX_CAPABILITY_CLASS_EVIDENCE = 80
 
 
+@dataclass(frozen=True)
+class ProjectInspection:
+	"""One captured contract and its judgments; each projection owns its JSON data.
+
+	Sealed JSON keeps nested analysis or caller mutations from changing another
+	projection. It does not make the observed project tree an atomic snapshot.
+	"""
+
+	_contract_json: str
+	_snapshot_json: str
+
+	def contract_result(self) -> dict[str, Any]:
+		return json.loads(self._contract_json)
+
+	def snapshot_result(self) -> dict[str, Any]:
+		return json.loads(self._snapshot_json)
+
+	def validation_result(self) -> dict[str, Any]:
+		contract = self.contract_result()
+		observed = self.snapshot_result()
+		return {
+			"ok": bool(contract["ok"]) and bool(observed["drift"]["ok"]),
+			"contract": contract,
+			"drift": observed["drift"],
+		}
+
+
+def inspect_project(
+	project_root: Path,
+	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
+) -> ProjectInspection:
+	"""Capture intent once, then derive all project judgments from that generation."""
+	contract_json = json.dumps(load_contract(project_root, contract_relative_path), ensure_ascii=False, allow_nan=False)
+	observed = _build_snapshot_from_contract(project_root, contract_relative_path, json.loads(contract_json))
+	return ProjectInspection(contract_json, json.dumps(observed, ensure_ascii=False, allow_nan=False))
+
+
 def build_snapshot(
 	project_root: Path,
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
-	contract_result = load_contract(project_root, contract_relative_path)
-	return _build_snapshot_from_contract(project_root, contract_relative_path, contract_result)
+	return inspect_project(project_root, contract_relative_path).snapshot_result()
 
 
 def _build_snapshot_from_contract(
@@ -196,8 +234,9 @@ def project_context(
 	project_root: Path,
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
-	contract_result = load_contract(project_root, contract_relative_path)
-	snapshot = _build_snapshot_from_contract(project_root, contract_relative_path, contract_result)
+	inspection = inspect_project(project_root, contract_relative_path)
+	contract_result = inspection.contract_result()
+	snapshot = inspection.snapshot_result()
 	contract_data = contract_result.get("contract", {})
 	capability_requirements: list[dict[str, Any]] = []
 	if contract_result.get("ok") and isinstance(contract_data, dict):

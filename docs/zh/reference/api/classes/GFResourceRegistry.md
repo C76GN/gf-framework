@@ -45,8 +45,7 @@
 | 方法 | [`search_page`](#member-gfresourceregistry-methods-search_page) | `func search_page( query_text: String, page: int = 1, page_size: int = 50, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`group_entry_ids`](#member-gfresourceregistry-methods-group_entry_ids) | `func group_entry_ids(group_source: StringName = GROUP_SOURCE_ID, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`load_entry`](#member-gfresourceregistry-methods-load_entry) | `func load_entry( entry_id: StringName, type_hint_override: String = "", cache_mode: int = ResourceLoader.CACHE_MODE_REUSE ) -> Resource:` |
-| 方法 | [`request_entry_async`](#member-gfresourceregistry-methods-request_entry_async) | `func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, type_hint_override: String = "" ) -> void:` |
-| 方法 | [`request_entry_handle_async`](#member-gfresourceregistry-methods-request_entry_handle_async) | `func request_entry_handle_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, owner: Object = null, group_id: StringName = &"", type_hint_override: String = "" ) -> void:` |
+| 方法 | [`request_entry_async`](#member-gfresourceregistry-methods-request_entry_async) | `func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, scope: GFAssetScope, type_hint_override: String = "" ) -> GFAssetLoadOperation:` |
 | 方法 | [`make_asset_group_entries`](#member-gfresourceregistry-methods-make_asset_group_entries) | `func make_asset_group_entries(entry_ids: PackedStringArray = PackedStringArray()) -> Array:` |
 | 方法 | [`get_debug_snapshot`](#member-gfresourceregistry-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 | 方法 | [`to_dict`](#member-gfresourceregistry-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -644,44 +643,24 @@ func load_entry( entry_id: StringName, type_hint_override: String = "", cache_mo
 ### `request_entry_async`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, type_hint_override: String = "" ) -> void:
+func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, scope: GFAssetScope, type_hint_override: String = "" ) -> GFAssetLoadOperation:
 ```
 
-通过 GFAssetUtility 异步加载条目资源。
+通过资源服务为条目创建独立请求，scope 贯穿请求与成功句柄。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `asset_utility` | 资源加载工具。 |
+| `asset_utility` | 资源加载服务。 |
 | `entry_id` | 条目稳定 ID。 |
-| `on_loaded` | 加载完成回调，签名为 func(resource: Resource)。 |
-| `type_hint_override` | 可选类型提示覆盖；为空时使用条目自己的 type_hint。 |
+| `scope` | 资源生命周期。 |
+| `type_hint_override` | 可选类型覆盖。 |
 
-<a id="member-gfresourceregistry-methods-request_entry_handle_async"></a>
-
-### `request_entry_handle_async`
-
-- API：`public`
-
-```gdscript
-func request_entry_handle_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, owner: Object = null, group_id: StringName = &"", type_hint_override: String = "" ) -> void:
-```
-
-通过 GFAssetUtility 异步加载条目资源并返回所有权句柄。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `asset_utility` | 资源加载工具。 |
-| `entry_id` | 条目稳定 ID。 |
-| `on_loaded` | 加载完成回调，签名为 func(handle: GFAssetHandle)。 |
-| `owner` | 可选拥有者。 |
-| `group_id` | 可选资源分组。 |
-| `type_hint_override` | 可选类型提示覆盖；为空时使用条目自己的 type_hint。 |
+返回：独立操作，条目不存在时返回失败终态。
 
 <a id="member-gfresourceregistry-methods-make_asset_group_entries"></a>
 

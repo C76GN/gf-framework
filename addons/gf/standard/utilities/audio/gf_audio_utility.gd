@@ -287,6 +287,11 @@ var max_bgm_history: int = 16
 
 # --- 私有变量 ---
 
+## 音频仍在等待的资源 scope；dispose 时统一关闭。
+## [br]
+## @api private
+var _asset_scopes: Array[GFAssetScope] = []
+
 ## 本地 BGM 主播放器节点。
 ## [br]
 ## @api private
@@ -2193,7 +2198,11 @@ func play_ambient(
 				1.0,
 				request_fade
 			)
-		asset_util.load_async(request_path, on_loaded)
+		_load_asset_resource(
+			asset_util,
+			request_path,
+			on_loaded
+		)
 
 
 ## 播放资源化环境音配置。每个通道在本地播放器与后端之间只保留一个 owner。
@@ -2298,7 +2307,11 @@ func play_ambient_clip(
 				fade_seconds,
 				playback_region
 			)
-		asset_util.load_async(request_clip.path, on_loaded)
+		_load_asset_resource(
+			asset_util,
+			request_clip.path,
+			on_loaded
+		)
 
 
 ## 从音频集合播放环境音。
@@ -2596,7 +2609,11 @@ func play_sfx_handle(path: String) -> GFAudioEmitterHandle:
 				_get_audio_stream_value(res),
 				handle
 			)
-		asset_util.load_async(request_path, on_loaded)
+		_load_asset_resource(
+			asset_util,
+			request_path,
+			on_loaded
+		)
 	return handle
 
 
@@ -3672,6 +3689,30 @@ func get_last_playback_region_rejection() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 用请求级 scope 持有加载中的音频；播放器接收 Resource 后关闭 GF 保留。
+## [br]
+## @api private
+func _load_asset_resource(
+	asset_util: GFAssetUtility,
+	path: String,
+	on_loaded: Callable
+) -> void:
+	var scope: GFAssetScope = asset_util.create_scope()
+	_asset_scopes.append(scope)
+	var operation: GFAssetLoadOperation = asset_util.load_async(path, scope)
+	var deliver: Callable = func(result: GFAssetLoadResult) -> void:
+		_asset_scopes.erase(scope)
+		var handle: GFAssetHandle = result.get_handle()
+		var resource: Resource = handle.get_resource() if handle != null else null
+		if on_loaded.is_valid():
+			on_loaded.call(resource)
+		scope.close()
+	if operation.is_completed():
+		deliver.call(operation.get_result())
+	else:
+		var _connected: Error = operation.completed.connect(deliver, CONNECT_ONE_SHOT) as Error
+
+
 ## 执行音频工具的立即释放收尾流程。
 ## [br]
 ## @api private
@@ -3717,6 +3758,9 @@ func _dispose_audio_now() -> void:
 	_cancel_bgm_stop_tween()
 	_cancel_bgm_transport_tween()
 	_sfx_lifecycle_serial += 1
+	for scope: GFAssetScope in _asset_scopes.duplicate():
+		scope.close()
+	_asset_scopes.clear()
 	_bgm_paused = false
 	_current_bgm_region.clear()
 	_stop_all_local_bgm_players()
@@ -3867,7 +3911,11 @@ func _play_sfx_clip_handle_for_channel(clip: GFAudioClip, rejection_channel: Str
 				handle,
 				rejection_channel
 			)
-		asset_util.load_async(request_clip.path, on_loaded)
+		_load_asset_resource(
+			asset_util,
+			request_clip.path,
+			on_loaded
+		)
 	return handle
 
 
@@ -8347,7 +8395,11 @@ func _play_spatial_sfx_clip(
 				spatial_settings,
 				playback_region
 			)
-		asset_util.load_async(request_clip.path, on_loaded)
+		_load_asset_resource(
+			asset_util,
+			request_clip.path,
+			on_loaded
+		)
 		if not is_instance_valid(player) or player.is_queued_for_deletion():
 			return null
 	return player
@@ -9385,7 +9437,11 @@ func _load_pending_local_bgm_start(request_id: int, immediate_stream: AudioStrea
 	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(self, &"_on_bgm_start_asset_loaded")
 	var on_loaded: Callable = func(resource: Resource) -> void:
 		var _invoke_result: Dictionary = invocation.invoke([request_id, resource])
-	asset_util.load_async(path, on_loaded)
+	_load_asset_resource(
+		asset_util,
+		path,
+		on_loaded
+	)
 
 
 ## 根据待处理本地 BGM 请求状态确定失败原因。

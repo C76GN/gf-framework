@@ -8,9 +8,9 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 196 | 3520 | 2395 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
-| [资源定义](#category-resource_definition) | 123 | 1601 | 805 |
-| [运行时句柄](#category-runtime_handle) | 59 | 986 | 639 |
-| [值对象](#category-value_object) | 63 | 1029 | 670 |
+| [资源定义](#category-resource_definition) | 123 | 1600 | 804 |
+| [运行时句柄](#category-runtime_handle) | 61 | 1000 | 652 |
+| [值对象](#category-value_object) | 64 | 1034 | 674 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -392,7 +392,9 @@
 |---|---|---|
 | [`GFAssetCatalogMount`](classes/GFAssetCatalogMount.md#gfassetcatalogmount) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_catalog_mount.gd` |
 | [`GFAssetHandle`](classes/GFAssetHandle.md#gfassethandle) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_handle.gd` |
+| [`GFAssetLoadOperation`](classes/GFAssetLoadOperation.md#gfassetloadoperation) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_operation.gd` |
 | [`GFAssetLoadSession`](classes/GFAssetLoadSession.md#gfassetloadsession) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session.gd` |
+| [`GFAssetScope`](classes/GFAssetScope.md#gfassetscope) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_scope.gd` |
 | [`GFAssetSlot`](classes/GFAssetSlot.md#gfassetslot) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_slot.gd` |
 | [`GFAsyncBatch`](classes/GFAsyncBatch.md#gfasyncbatch) | `RefCounted` | `addons/gf/standard/utilities/io/gf_async_batch.gd` |
 | [`GFAsyncChannel`](classes/GFAsyncChannel.md#gfasyncchannel) | `RefCounted` | `addons/gf/standard/common/gf_async_channel.gd` |
@@ -456,6 +458,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFAssetLoadResult`](classes/GFAssetLoadResult.md#gfassetloadresult) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_result.gd` |
 | [`GFAssetLoadSessionResult`](classes/GFAssetLoadSessionResult.md#gfassetloadsessionresult) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
 | [`GFAudioBackendCapability`](classes/GFAudioBackendCapability.md#gfaudiobackendcapability) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
 | [`GFAudioPlaybackRegionResult`](classes/GFAudioPlaybackRegionResult.md#gfaudioplaybackregionresult) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd` |

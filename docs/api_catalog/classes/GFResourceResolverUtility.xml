@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="5abbac2b09d84c333033c91a00fa89021ce5dcff7330f0b321fff5cd8c2d61b7">
+<class name="GFResourceResolverUtility" path="addons/gf/standard/utilities/assets/gf_resource_resolver_utility.gd" module="standard" extends="GFUtility" classDigest="b06ab231073b1d7a66267582a5b062bc07c0f958248233a4d72c2fcd97897090">
 	<description>GFResourceResolverUtility: 通用资源键解析工具。
 将项目稳定资源键解析为路径或已加载 Resource，并支持显式注册表、provider 覆盖链和显式直接路径回退。
 它不扫描目录、不下载资源、不解释业务内容类型，也不负责实例化节点。</description>
@@ -203,16 +203,18 @@ Dictionary 可包含 `ok`、`path`、`resource`、`type_hint`、`cache_key`、`r
 			</tags>
 		</member>
 		<member kind="method" name="load_async">
-			<signature>func load_async( asset_utility: GFAssetUtility, resource_key: StringName, on_loaded: Callable, type_hint_override: String = "", options: Dictionary = {} ) -&gt; void:</signature>
-			<description>通过 GFAssetUtility 异步加载解析结果。</description>
+			<signature>func load_async( asset_utility: GFAssetUtility, resource_key: StringName, scope: GFAssetScope, type_hint_override: String = "", options: Dictionary = {} ) -&gt; GFAssetLoadOperation:</signature>
+			<description>在指定 scope 中请求解析结果；提供者返回的内存资源同样获得 scope 句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">asset_utility: 资源加载工具。</tag>
+				<tag name="param">asset_utility: 资源服务。</tag>
 				<tag name="param">resource_key: 稳定资源键。</tag>
-				<tag name="param">on_loaded: 加载完成回调，签名为 func(resource: Resource)。</tag>
-				<tag name="param">type_hint_override: 可选 ResourceLoader 类型提示覆盖。</tag>
-				<tag name="param">options: 可选参数，见 `resolve()`。</tag>
+				<tag name="param">scope: 请求和句柄生命周期。</tag>
+				<tag name="param">type_hint_override: 可选资源类型覆盖。</tag>
+				<tag name="param">options: 解析选项。</tag>
+				<tag name="return">独立资源操作。</tag>
 				<tag name="schema">options: Dictionary with optional `check_exists: bool` and `allow_direct_path: bool`.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_asset_group_entries">

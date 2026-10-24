@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="63a846aa8095abbb6a0ba3d501a29c1da3f859c5f355ea31a009a6175b2f76f4">
+<class name="GFNodeContext" path="addons/gf/kernel/core/gf_node_context.gd" module="kernel" extends="Node" classDigest="73a1d8a18897620d34c706caace113674e7756aac553973bafaf5085951794a9">
 	<description>GFNodeContext: 场景树上的局部架构上下文。
 可选择继承父级架构，或创建带父级回退的 Scoped 架构。
 Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback，
 适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await
-owned Architecture 的 shutdown_async()，再移除节点。</description>
+close_async()，确认结果后再移除节点。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -27,6 +27,14 @@ owned Architecture 的 shutdown_async()，再移除节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 失败原因。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="context_closing">
+			<signature>signal context_closing()</signature>
+			<description>本地绑定停止接受新工作时发出；可用于立即撤销 Controller 事件绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</signals>
@@ -97,6 +105,39 @@ owned Architecture 的 shutdown_async()，再移除节点。</description>
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="bind_source_context">
+			<signature>func bind_source_context(source: GFNodeContext) -&gt; bool:</signature>
+			<description>在进入树前为 INHERITED Context 指定业务来源。显示父节点不会改变该绑定。
+来源必须已经在树中；绑定不拥有来源，来源离树、关闭或重入后本轮绑定失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">source: 要借用架构的来源上下文。</tag>
+				<tag name="return">配置成功返回 true；在树中、非 INHERITED 或无效来源返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_context_available">
+			<signature>func is_context_available() -&gt; bool:</signature>
+			<description>检查本地绑定是否接受新工作。初始化中的绑定可用；关闭、失效及来源失效时不可用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前绑定和来源身份都有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="close_async">
+			<signature>func close_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -&gt; GFContextCloseResult:</signature>
+			<description>先关闭逻辑子 Context，再关闭自有架构；INHERITED 只关闭本地绑定。
+首次调用立即停止新工作，并发调用共享结果与首个调用的策略。预算由子关闭共同消耗。
+节点不会自动离树；无法关闭的外部依赖返回未关闭结果，保持 CLOSING，允许稍后重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cancellation_token: 协作关闭的取消 token。</tag>
+				<tag name="param">timeout_seconds: 总等待预算，-1 使用自有架构默认值或 30 秒；同步释放不承诺硬时限。</tag>
+				<tag name="return">同时说明是否关闭和是否正常排空的不可变结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="install">
 			<signature>func install(_architecture_instance: GFArchitecture, _scope: GFAsyncScope) -&gt; void:</signature>
 			<description>安装当前上下文的局部模块。仅在 SCOPED 模式下调用。</description>

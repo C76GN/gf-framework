@@ -14,6 +14,7 @@ from typing import Any
 from typing import Mapping
 
 from gf_maintenance_check_graph import CheckGraph
+from gf_maintenance_commands import BY_ACTION as ORDINARY_COMMANDS
 from gf_validation_contracts import CheckInputSpec
 from gf_validation_contracts import PathRule
 
@@ -409,6 +410,9 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	def maintenance_command(*arguments: str) -> tuple[str, ...]:
 		return (python, "tools/gf_maintenance.py", *arguments)
 
+	def ordinary_command(action_id: str, *, json_output: bool = False) -> tuple[str, ...]:
+		return maintenance_command(*ORDINARY_COMMANDS[action_id].arguments(json_output=json_output))
+
 	def python_script(script: str, *arguments: str) -> tuple[str, ...]:
 		return (python, script, *arguments)
 
@@ -519,7 +523,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"changelog_policy",
-			maintenance_command("changelog-policy", "--json"),
+			ordinary_command("changelog_policy", json_output=True),
 		),
 		subprocess_action(
 			"repository_policy",
@@ -535,7 +539,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"codeql_suppression_policy",
-			maintenance_command("codeql-suppression-policy", "--json"),
+			ordinary_command("codeql_suppression_policy", json_output=True),
 		),
 		subprocess_action(
 			"codeql_suppression_policy_tests",
@@ -543,7 +547,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"diagnostic_policy",
-			maintenance_command("diagnostic-policy", "--json"),
+			ordinary_command("diagnostic_policy", json_output=True),
 		),
 		subprocess_action(
 			"diagnostic_policy_tests",
@@ -551,7 +555,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"gdscript_readability",
-			maintenance_command("gdscript-readability", "--json"),
+			ordinary_command("gdscript_readability", json_output=True),
 		),
 		subprocess_action(
 			"gdscript_readability_tests",
@@ -571,11 +575,11 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"public_docs_boundary",
-			maintenance_command("public-docs-boundary"),
+			ordinary_command("public_docs_boundary"),
 		),
 		in_process_action(
 			"public_api_boundary",
-			maintenance_command("public-api-boundary"),
+			ordinary_command("public_api_boundary"),
 		),
 		in_process_action(
 			"resource_boundary",
@@ -591,7 +595,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"project_profile_artifacts",
-			maintenance_command("project-profile-artifacts"),
+			ordinary_command("project_profile_artifacts"),
 		),
 		subprocess_action(
 			"project_profile_native_acceptance",
@@ -601,27 +605,27 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			"code_quality_native_acceptance",
 			python_script("tests/gf_core/tools/code_quality/run_native_acceptance.py"),
 		),
-		in_process_action("package_boundary", maintenance_command("package-boundary")),
+		in_process_action("package_boundary", ordinary_command("package_boundary")),
 		in_process_action(
 			"package_closure_audit",
-			maintenance_command("package-closure-audit"),
+			ordinary_command("package_closure_audit"),
 		),
 		in_process_action(
 			"package_source_boundary",
-			maintenance_command("package-source-boundary"),
+			ordinary_command("package_source_boundary"),
 		),
 		in_process_action(
 			"package_external_command_audit",
 			maintenance_command("package-external-command-audit", "--fail-on-warnings"),
 		),
-		in_process_action("core_only_smoke", maintenance_command("core-only-smoke")),
+		in_process_action("core_only_smoke", ordinary_command("core_only_smoke")),
 		subprocess_action(
 			"core_plugin_bootstrap_smoke",
 			maintenance_command("core-plugin-bootstrap-smoke"),
 		),
 		in_process_action(
 			"package_focused_gut_mapping",
-			maintenance_command("package-focused-gut-mapping"),
+			ordinary_command("package_focused_gut_mapping"),
 		),
 		subprocess_action(
 			"mkdocs",
@@ -637,16 +641,16 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"api_since_touched",
-			maintenance_command("api-since-touched"),
+			ordinary_command("api_since_touched"),
 		),
-		in_process_action("path_hygiene", maintenance_command("path-hygiene")),
+		in_process_action("path_hygiene", ordinary_command("path_hygiene")),
 		in_process_action(
 			"dependency_boundary",
-			maintenance_command("dependency-boundary"),
+			ordinary_command("dependency_boundary"),
 		),
 		in_process_action(
 			"maintenance_self_test",
-			maintenance_command("maintenance-self-test"),
+			ordinary_command("maintenance_self_test"),
 		),
 		subprocess_action(
 			"maintenance_execution_tests",
@@ -735,7 +739,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		in_process_action(
 			"project_settings_drift",
-			maintenance_command("project-settings-drift"),
+			ordinary_command("project_settings_drift"),
 		),
 		subprocess_action("diff", ("git", "diff", "--check")),
 		subprocess_action("release_metadata", None),

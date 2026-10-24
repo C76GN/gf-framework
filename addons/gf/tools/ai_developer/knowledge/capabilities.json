@@ -28,7 +28,7 @@
       "summary": "Async resource handles, stable resource keys, catalogs, preload plans, optional content packages, and auditable generated-artifact export plans.",
       "keywords": ["asset", "resource", "load", "cache", "preload", "catalog", "content package", "dlc", "artifact export", "thumbnail", "screenshot", "atlas"],
       "packages": ["gf.standard.assets", "gf.extension.content_package"],
-      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalogRuntime", "GFAssetCatalogMount", "GFContentPackageQuery", "GFContentPackageAssetCatalogProvider", "GFContentPackageExportPlan"],
+      "primary_classes": ["GFAssetUtility", "GFAssetScope", "GFAssetLoadOperation", "GFAssetLoadResult", "GFAssetHandle", "GFResourceResolverUtility", "GFAssetCatalogRuntime", "GFAssetCatalogMount", "GFContentPackageQuery", "GFContentPackageAssetCatalogProvider", "GFContentPackageExportPlan"],
       "recipes": ["owned-resource-load", "content-package", "external-artifact-export", "asset-catalog-spatial-placement"],
       "boundary": "Projects define content taxonomy, materialization, target adapters, and distribution policy; GF provides identity, lifecycle, plans, and diagnostics."
     },

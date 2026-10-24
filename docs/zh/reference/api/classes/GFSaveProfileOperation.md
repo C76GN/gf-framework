@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`10.0.0`
 
-Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查 `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。
+Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。`wait_result_async()` 同时 支持已经完成和仍在等待的请求，不要求调用方先判断信号是否已经发出。
 
 ## 成员概览
 
@@ -26,6 +26,7 @@ Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次
 | 方法 | [`is_running`](#member-gfsaveprofileoperation-methods-is_running) | `func is_running() -> bool:` |
 | 方法 | [`is_completed`](#member-gfsaveprofileoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfsaveprofileoperation-methods-get_result) | `func get_result() -> GFSaveProfileResult:` |
+| 方法 | [`wait_result_async`](#member-gfsaveprofileoperation-methods-wait_result_async) | `func wait_result_async() -> GFSaveProfileResult:` |
 
 ## 信号
 
@@ -195,3 +196,18 @@ func get_result() -> GFSaveProfileResult:
 获取终态结果副本。
 
 返回：已完成结果；等待中返回 null。
+
+<a id="member-gfsaveprofileoperation-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFSaveProfileResult:
+```
+
+等待唯一终态并取得隔离结果；已经完成时立即返回。 多个等待者独立观察同一次操作，等待本身不会启动、取消或重新提交保存。
+
+返回：当前操作的终态结果副本。

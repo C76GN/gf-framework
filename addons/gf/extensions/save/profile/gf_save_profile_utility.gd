@@ -1599,7 +1599,7 @@ func _request_save_profile(
 		)
 	var owned_request: GFSaveProfileRequest = request
 	if owned_request == null:
-		owned_request = GFSaveProfileRequest.take_ownership(
+		owned_request = GFSaveProfileRequest.create(
 			{},
 			{},
 			{}
@@ -1718,6 +1718,9 @@ func _request_load_profile(
 		strict_recovery,
 		managed_permit
 	)
+	if operation.is_completed():
+		_end_processing()
+		return operation
 	state.load_operations.append(operation)
 	_enqueue_schedule(state)
 	_end_processing()
@@ -1791,6 +1794,9 @@ func _request_flush_profile(
 		{},
 		metadata
 	)
+	if operation.is_completed():
+		_end_processing()
+		return operation
 	state.flush_operations.append(operation)
 	_complete_ready_flushes(state)
 	if not operation.is_completed():
@@ -3093,7 +3099,7 @@ func _make_operation(
 	manager_permit: RefCounted = null
 ) -> GFSaveProfileOperation:
 	var operation: GFSaveProfileOperation = GFSaveProfileOperation.new()
-	var _configured: bool = operation.configure_for_framework(
+	var configured: bool = operation.configure_for_framework(
 		operation_kind,
 		profile_id,
 		generation,
@@ -3103,6 +3109,14 @@ func _make_operation(
 		strict_recovery,
 		manager_permit
 	)
+	if not configured:
+		return _make_rejected_operation(
+			operation_kind,
+			profile_id,
+			GFSaveProfileResult.STATUS_INVALID_REQUEST,
+			ERR_INVALID_PARAMETER,
+			"Request metadata must be bounded pure data."
+		)
 	return operation
 
 

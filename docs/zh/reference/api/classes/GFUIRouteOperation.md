@@ -27,6 +27,7 @@
 | 方法 | [`is_completed`](#member-gfuirouteoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_preload_session`](#member-gfuirouteoperation-methods-get_preload_session) | `func get_preload_session() -> GFAssetLoadSession:` |
 | 方法 | [`get_result`](#member-gfuirouteoperation-methods-get_result) | `func get_result() -> GFUIRouteResult:` |
+| 方法 | [`wait_result_async`](#member-gfuirouteoperation-methods-wait_result_async) | `func wait_result_async() -> GFUIRouteResult:` |
 | 方法 | [`get_debug_snapshot`](#member-gfuirouteoperation-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
 ## 信号
@@ -214,6 +215,21 @@ func get_result() -> GFUIRouteResult:
 获取终态结果副本。
 
 返回：已完成结果；等待中返回 null。
+
+<a id="member-gfuirouteoperation-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFUIRouteResult:
+```
+
+等待导航终态并取得隔离结果；已经完成时立即返回。 等待不会重新导航或取得额外的面板所有权。
+
+返回：当前导航的终态结果。
 
 <a id="member-gfuirouteoperation-methods-get_debug_snapshot"></a>
 

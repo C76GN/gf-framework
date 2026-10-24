@@ -35,7 +35,9 @@ func begin_presentation() -> GFAsyncScope:
 
 `push_panel_async()` 和 `replace_layer_async()` 会优先使用 `GFAssetUtility`，未注册时回退同步加载。同步 fallback 与真正异步路径共享同一 terminal 流程，都会返回 `GFUIPanelAsyncOperation`、清理 pending 请求并发出终态。每个句柄冻结同一 `GFUIUtility` 实例内全局单调且跨 `init()` / `dispose()` 不复用的 UI serial，以及 path、layer 和 `push` / `replace` operation；成功面板仅由句柄弱引用，关闭面板后不会因为观察句柄而延长节点生命周期。
 
-每个 UI 层仍有独立的 operation intent：`pop_panel()`、`clear_layer()`、push、replace 或释放工具后，较旧回调都会被忽略，旧 replace 不会在新 push 已完成后清掉新面板。同一层级同一路径的重复异步压栈请求会在资源返回前合并并返回同一句柄，避免按钮连点时叠出多层相同面板。完成路径会先同时移除请求表和 push 去重索引，再完成精确句柄，最后发送全局 telemetry；因此终态回调内可以安全地提交同层同路径的新请求，旧回调也不能命中新句柄。
+每个 UI 层仍有独立的 operation intent：`pop_panel()`、`clear_layer()`、push、replace 或释放工具后，较旧回调都会被忽略，旧 replace 不会在新 push 已完成后清掉新面板。同一层级同一路径的重复异步压栈请求会在资源返回前合并并返回同一句柄，避免按钮连点时叠出多层相同面板。
+
+完成路径先释放请求自己的资源 scope，并在释放回调后重新确认请求和面板仍有效。释放回调重入 `clear_layer()` 或 `dispose()` 时请求取消；直接释放成功面板时请求失败。随后同时移除请求表和 push 去重索引，再完成精确句柄，最后发送全局 telemetry。因此终态回调内可以安全地提交同层同路径的新请求，旧回调也不能命中新句柄；资源释放回调也不会使请求永久停留在 PENDING 或重复完成。
 
 ## 类型化终态
 
@@ -63,18 +65,15 @@ if operation == null:
 	handle_request_rejected()
 ```
 
-仅在调用返回后临时接入观察者时，采用 connect 后再次检查的 lost-wakeup 防护，并让消费函数按 serial 幂等；同步已完成句柄应直接消费：
+普通请求代码优先使用 `wait_result_async()`，同时处理立即完成与异步完成，省去重复连接和终态检查。
+等待结果仍是同一个弱面板句柄，不延长面板生命期：
 
 ```gdscript
 func observe_panel_operation(operation: GFUIPanelAsyncOperation) -> void:
 	if operation == null:
 		return
-	if operation.is_completed():
-		consume_panel_terminal_once(operation)
-		return
-	operation.completed.connect(consume_panel_terminal_once, CONNECT_ONE_SHOT)
-	if operation.is_completed():
-		consume_panel_terminal_once(operation)
+	var completed_operation: GFUIPanelAsyncOperation = await operation.wait_result_async()
+	consume_panel_terminal_once(completed_operation)
 ```
 
 ## 全局加载 telemetry

@@ -19,7 +19,7 @@ var _arch: GFArchitecture = null
 class ManualAssetUtility extends GFAssetUtility:
 	var _callbacks: Dictionary = {}
 
-	func load_async(
+	func _load_resource_async(
 		path: String,
 		on_loaded: Callable,
 		_type_hint: String = "",
@@ -39,7 +39,10 @@ class ManualAssetUtility extends GFAssetUtility:
 		var callbacks: Array = _callback_list(path)
 		var _erase_result_34: Variant = _callbacks.erase(path)
 		for callback: Callable in callbacks:
-			callback.call(resource)
+			callback.call(
+				resource,
+				OK if resource != null else ERR_CANT_OPEN
+			)
 
 
 	func get_pending_count(path: String) -> int:
@@ -448,6 +451,72 @@ func test_missing_route_emits_failure() -> void:
 	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: missing (missing_route).")
 
 
+func test_missing_async_route_wait_returns_immediate_rejection() -> void:
+	var operation: GFUIRouteOperation = _router.push_route_async(&"missing")
+	var result: GFUIRouteResult = await operation.wait_result_async()
+	assert_eq(
+		result.get_status(),
+		GFUIRouteResult.STATUS_MISSING_ROUTE
+	)
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: missing (missing_route).")
+
+
+func test_shared_route_definition_keeps_router_history_and_hosts_independent() -> void:
+	var second_ui: GFUIUtility = GFUIUtility.new()
+	second_ui.init()
+	var second_router: GFUIRouterUtility = GFUIRouterUtility.new()
+	var route: GFUIRoute = _make_route(&"shared", GFUIUtility.Layer.POPUP)
+	_router.configure(
+		[route],
+		_ui_utility
+	)
+	second_router.configure(
+		[route],
+		second_ui
+	)
+	var panel: Node = _router.push_route(&"shared")
+	assert_not_null(panel)
+	assert_eq(
+		_router.get_route_history().size(),
+		1
+	)
+	assert_eq(
+		second_router.get_route_history().size(),
+		0
+	)
+	assert_eq(
+		second_ui.get_stack_count(GFUIUtility.Layer.POPUP),
+		0
+	)
+	second_router.dispose()
+	second_ui.dispose()
+	await get_tree().process_frame
+
+
+func test_explicit_ui_target_expiry_does_not_fall_back_to_registered_global_ui() -> void:
+	_arch = GFArchitecture.new()
+	assert_true(await _arch.register_utility_instance(_ui_utility))
+	await Gf.set_architecture(_arch)
+	var explicit_ui: GFUIUtility = GFUIUtility.new()
+	explicit_ui.init()
+	_router.set_ui_utility(explicit_ui)
+	assert_true(_router.register_route(_make_route(&"target", GFUIUtility.Layer.POPUP)))
+	explicit_ui.dispose()
+	explicit_ui = null
+	await get_tree().process_frame
+	var operation: GFUIRouteOperation = _router.push_route_async(&"target")
+	var result: GFUIRouteResult = await operation.wait_result_async()
+	assert_eq(
+		result.get_status(),
+		GFUIRouteResult.STATUS_MISSING_UI_UTILITY
+	)
+	assert_eq(
+		_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+		0
+	)
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: target (missing_ui_utility).")
+
+
 func test_duplicate_pending_push_route_async_opens_once() -> void:
 	_arch = GFArchitecture.new()
 	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
@@ -468,6 +537,11 @@ func test_duplicate_pending_push_route_async_opens_once() -> void:
 	asset_util.resolve(
 		"res://tests/pending_route_panel.tscn",
 		_make_control_scene()
+	)
+	var awaited_result: GFUIRouteResult = await first_operation.wait_result_async()
+	assert_eq(
+		awaited_result.get_status(),
+		GFUIRouteResult.STATUS_OPENED
 	)
 	await get_tree().process_frame
 	await get_tree().process_frame

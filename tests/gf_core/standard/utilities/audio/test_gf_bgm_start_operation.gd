@@ -1,6 +1,7 @@
 # 测试 BGM 类型化启动 Operation、Result 与独立 Session Handle 契约。
 extends GutTest
 
+const GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 const _OPERATION_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd"
 const _RESULT_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/audio/gf_bgm_start_result.gd"
 const _SESSION_HANDLE_SCRIPT_PATH: String = "res://addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd"
@@ -11,7 +12,7 @@ class DeferredAssetUtility:
 
 	var pending: Dictionary = {}
 
-	func load_async(
+	func _load_resource_async(
 		path: String,
 		on_loaded: Callable,
 		_type_hint: String = "",
@@ -27,7 +28,10 @@ class DeferredAssetUtility:
 		var _erase_result: Variant = pending.erase(path)
 		if callback_value is Callable:
 			var callback: Callable = callback_value
-			callback.call(resource)
+			callback.call(
+				resource,
+				OK if resource != null else ERR_CANT_OPEN
+			)
 
 
 class ImmediateAssetUtility:
@@ -39,13 +43,16 @@ class ImmediateAssetUtility:
 		resource = value
 
 
-	func load_async(
+	func _load_resource_async(
 		_path: String,
 		on_loaded: Callable,
 		_type_hint: String = "",
 		_options: Dictionary = {}
 	) -> void:
-		on_loaded.call(resource)
+		on_loaded.call(
+			resource,
+			OK if resource != null else ERR_CANT_OPEN
+		)
 
 
 class AssetBackedAudioUtility:
@@ -1340,6 +1347,64 @@ func test_immediate_local_clip_returns_started_result_and_active_session() -> vo
 		)
 	)
 	assert_false(_call_bool(result, &"used_backend_fallback"))
+
+
+func test_wait_result_async_observes_immediate_local_bgm_result() -> void:
+	await _activate_audio(GFAudioUtility.new())
+	var operation: GFBgmStartOperation = _audio.start_bgm_clip(
+		_make_clip("typed-wait-immediate"),
+		0.0
+	)
+	var first: GFBgmStartResult = await operation.wait_result_async()
+	var second: GFBgmStartResult = await operation.wait_result_async()
+	assert_eq(
+		first.get_request_id(),
+		operation.get_result().get_request_id()
+	)
+	assert_same(
+		first.get_session_handle(),
+		second.get_session_handle()
+	)
+	assert_eq(
+		first.get_status(),
+		GFBgmStartResult.Status.STARTED
+	)
+
+
+func test_wait_result_async_wakes_after_deferred_asset_load() -> void:
+	var assets: DeferredAssetUtility = DeferredAssetUtility.new()
+	await _activate_audio(AssetBackedAudioUtility.new(assets))
+	var operation: GFBgmStartOperation = _audio.start_bgm(
+		"res://typed-wait-deferred.ogg",
+		{ "crossfade_seconds": 0.0 }
+	)
+	var observed: Array[GFBgmStartResult] = []
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_observe_bgm_result"),
+		[operation, observed]
+	)
+	assert_true(observed.is_empty())
+	assets.finish(
+		"res://typed-wait-deferred.ogg",
+		_make_clip("typed-wait-deferred").stream
+	)
+	assert_eq(
+		observed.size(),
+		1
+	)
+	assert_eq(
+		observed[0].get_request_id(),
+		operation.get_result().get_request_id()
+	)
+	assert_eq(
+		observed[0].get_status(),
+		GFBgmStartResult.Status.STARTED
+	)
+	assets.dispose()
+
+
+func _observe_bgm_result(operation: GFBgmStartOperation, observed: Array[GFBgmStartResult]) -> void:
+	observed.append(await operation.wait_result_async())
 
 
 func test_started_local_session_owner_release_completes_owner_released_once() -> void:

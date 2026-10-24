@@ -2379,8 +2379,8 @@ func test_extension_manifest_versions_follow_release_policy() -> void:
 	)
 
 
-func test_workspace_task_extensions_record_their_compatible_feature_versions() -> void:
-	var expected_versions: Dictionary = { "gf.flow": "4.1.0", "gf.save": "6.4.0" }
+func test_workspace_task_extensions_record_their_current_contract_versions() -> void:
+	var expected_versions: Dictionary = { "gf.flow": "4.1.0", "gf.save": "7.0.0" }
 	var expected_sources: Dictionary = { "gf.flow": "gf.flow:flow.task.edit", "gf.save": "gf.save:save.task.inspect" }
 	var found: Array[String] = []
 	for manifest: GFExtensionManifest in GFExtensionCatalog.load_extension_manifests():
@@ -2390,7 +2390,7 @@ func test_workspace_task_extensions_record_their_compatible_feature_versions() -
 		assert_eq(
 			manifest.extension_version,
 			GF_VARIANT_ACCESS.get_option_string(expected_versions, manifest.id),
-			"新增工作区公开任务应递增扩展自身 minor 版本。"
+			"工作区任务所属扩展应记录当前公开契约对应的版本。"
 		)
 		assert_eq(
 			manifest.version,

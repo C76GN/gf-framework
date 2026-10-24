@@ -136,6 +136,16 @@ var default_max_concurrent_loads: int = 0
 ## [br]
 var _max_cache_size: int = 64
 
+## 弱跟踪资源 scope；丢弃最后一个 scope 引用会释放其所有权。
+## [br]
+## @api private
+var _scopes: Array[WeakRef] = []
+
+## 按消费者实例 ID 保存私有回调与代次缓存键。
+## [br]
+## @api private
+var _load_consumers: Dictionary = {}
+
 # 正在加载中的请求：`cache_key -> { path: String, identity: Dictionary, type_hint: String, callbacks: Array[Callable], cancelled: bool }`。
 ## 按 cache_key 保存当前在途的异步加载请求。
 ## [br]
@@ -324,6 +334,13 @@ func ready() -> void:
 ## @api public
 func dispose() -> void:
 	_disposed = true
+	for scope_ref: WeakRef in _scopes.duplicate():
+		var scope_value: Object = scope_ref.get_ref()
+		if scope_value is GFAssetScope:
+			var scope: GFAssetScope = scope_value
+			scope.close()
+	_scopes.clear()
+	_load_consumers.clear()
 	_abort_asset_load_sessions(&"asset_utility_disposed")
 	_cancel_pending_requests_for_dispose()
 	_release_all_handles()
@@ -465,236 +482,139 @@ func get_resource_broker() -> GFResourceBroker:
 	return _resource_broker
 
 
-## 发起异步资源加载。
+## 创建贯穿请求与句柄的资源生命周期；调用者应保存 scope 或绑定 Node owner。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 可选 owner；Node 退出树自动关闭，其余 owner 失效由 tick 检测。
+## [br]
+## @return 独立资源 scope。服务释放时一并关闭。
+func create_scope(owner: Object = null) -> GFAssetScope:
+	var scope: GFAssetScope = GFAssetScope.new()
+	scope.bind_for_framework(self, owner)
+	_scopes.append(weakref(scope))
+	if _disposed:
+		scope.close()
+	return scope
+
+
+## 异步请求资源；每次调用有独立取消资格，即使底层共用同一次加载。
 ## [br]
 ## @api public
 ## [br]
 ## @since 6.0.0
-## [br]
-## @param path: 目标资源路径。
-## [br]
-## @param on_loaded: 加载完成后的回调。
-## [br]
-## @param type_hint: 可选资源类型提示。
-## [br]
-## @param options: 可选参数，支持 serial_lane_id、lane_id、max_concurrent_loads。
-## [br]
-## @schema options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`. A non-empty lane defaults to serial loading when no limit is provided.
-func load_async(
-	path: String,
-	on_loaded: Callable,
-	type_hint: String = "",
-	options: Dictionary = {}
-) -> void:
-	if (
-		_disposed
-		or (
-			_resource_service_domain != null
-			and not _resource_service_domain.is_accepting_requests()
-		)
-	):
-		if on_loaded.is_valid():
-			on_loaded.call(null)
-		return
-	if path.is_empty() or not on_loaded.is_valid():
-		push_error("[GFAssetUtility][asset_utility.path_or_callback_invalid] Invalid path or callback.")
-		return
-
-	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
-	if not identity.has_identity():
-		push_error("[GFAssetUtility][asset_utility.resource_identity_invalid] Invalid resource identity: %s." % path)
-		on_loaded.call(null)
-		return
-	_remember_resource_identity(identity)
-	var cache_key: String = identity.cache_key
-	var load_path: String = _get_identity_load_path(identity)
-
-	var cached: Resource = _get_cached_by_key(cache_key)
-	if cached != null:
-		if not _is_resource_compatible(cached, type_hint):
-			push_warning(
-				"[GFAssetUtility][asset_utility.cached_type_mismatch] Cached resource type does not match the requested type_hint: %s (%s)."
-				% [load_path, type_hint]
-			)
-			on_loaded.call(null)
-			return
-
-		on_loaded.call(cached)
-		return
-
-	if _pending.has(cache_key):
-		var pending_request: Dictionary = _get_pending_request(cache_key)
-		var pending_type_hint: String = _get_pending_type_hint(pending_request)
-		if not _pending_type_hints_are_compatible(pending_type_hint, type_hint):
-			push_warning(
-				"[GFAssetUtility][asset_utility.active_type_hint_conflict] An active load request for this resource identity has a different type_hint; new request rejected: %s (%s -> %s)."
-				% [
-					load_path,
-					pending_type_hint,
-					type_hint,
-				]
-			)
-			on_loaded.call(null)
-			return
-
-		var callbacks: Array = _get_pending_callbacks(pending_request)
-		if _is_pending_cancelled(pending_request):
-			callbacks.clear()
-			var retry_operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(load_path, pending_type_hint)
-			var retry_error: Error = (retry_operation.get_request_error() if retry_operation != null else ERR_UNCONFIGURED)
-			if retry_error != OK:
-				on_loaded.call(null)
-				return
-			pending_request["operation"] = retry_operation
-			pending_request["cancelled"] = false
-		if not _callback_entries_have_callable(callbacks, on_loaded):
-			_append_array_value(
-				callbacks,
-				_make_callback_entry(on_loaded, type_hint)
-			)
-		return
-
-	if _queued_by_path.has(cache_key):
-		var queued_request: Dictionary = _get_queued_request(cache_key)
-		var queued_type_hint: String = _get_pending_type_hint(queued_request)
-		if not _pending_type_hints_are_compatible(queued_type_hint, type_hint):
-			push_warning(
-				"[GFAssetUtility][asset_utility.queued_type_hint_conflict] A queued load request for this resource identity has a different type_hint; new request rejected: %s (%s -> %s)."
-				% [
-					load_path,
-					queued_type_hint,
-					type_hint,
-				]
-			)
-			on_loaded.call(null)
-			return
-
-		var queued_callbacks: Array = _get_pending_callbacks(queued_request)
-		if _is_pending_cancelled(queued_request):
-			queued_callbacks.clear()
-			queued_request["cancelled"] = false
-		if not _callback_entries_have_callable(queued_callbacks, on_loaded):
-			_append_array_value(
-				queued_callbacks,
-				_make_callback_entry(on_loaded, type_hint)
-			)
-		return
-
-	var request: Dictionary = {
-		"path": load_path,
-		"cache_key": cache_key,
-		"identity": identity.to_dictionary(),
-		"type_hint": type_hint,
-		"callbacks": [_make_callback_entry(on_loaded, type_hint)],
-		"cancelled": false,
-		"progress": 0.0,
-		"lane_id": _resolve_load_lane_id(options),
-		"max_concurrent_loads": _resolve_load_lane_limit(options),
-	}
-	if _resource_service_domain != null:
-		var reservation: GFResourceServiceReservation = _resource_service_domain.reserve_for_framework(
-			load_path,
-			type_hint,
-			{ "consumer_id": &"asset" }
-		)
-		if reservation == null:
-			on_loaded.call(null)
-			return
-		request["service_reservation"] = reservation
-	_start_or_queue_request(cache_key, request)
-
-
-## 异步加载资源并在成功后返回所有权句柄。
-## [br]
-## @api public
-## [br]
-## @since 6.0.0
-## [br]
-## @param path: 目标资源路径。
-## [br]
-## @param on_loaded: 加载完成回调，签名为 func(handle: GFAssetHandle)；失败时传入 null。
-## [br]
-## @param type_hint: 可选资源类型提示。
-## [br]
-## @param owner: 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。
-## [br]
-## @param group_id: 可选资源分组。
-## [br]
-## @param options: 传给 load_async() 的加载选项。
-## [br]
-## @schema options: Dictionary with optional serial loading lane fields.
-func load_handle_async(
-	path: String,
-	on_loaded: Callable,
-	type_hint: String = "",
-	owner: Object = null,
-	group_id: StringName = &"",
-	options: Dictionary = {}
-) -> void:
-	if path.is_empty() or not on_loaded.is_valid():
-		push_error("[GFAssetUtility][asset_utility.handle_path_or_callback_invalid] Cannot load_handle_async: path or callback is invalid.")
-		return
-
-	var owner_ref: WeakRef = weakref(owner) if owner != null else null
-	var requested_generation: int = _get_service_generation()
-	var on_resource_loaded: Callable = func(resource: Resource) -> void:
-		if resource == null:
-			on_loaded.call(null)
-			return
-		var resolved_owner: Object = _get_live_object_from_ref(owner_ref)
-		if owner_ref != null and resolved_owner == null:
-			on_loaded.call(null)
-			return
-
-		on_loaded.call(
-			_acquire_handle_for_generation(
-				path,
-				resolved_owner,
-				group_id,
-				type_hint,
-				resource,
-				requested_generation
-			)
-		)
-
-	load_async(
-		path,
-		on_resource_loaded,
-		type_hint,
-		options
-	)
-
-
-## 为已缓存或指定资源创建所有权句柄。
-## [br]
-## @api public
 ## [br]
 ## @param path: 资源路径。
 ## [br]
-## @param owner: 可选拥有者。若为 Node，会在退出树时自动释放其持有的句柄引用。
-## [br]
-## @param group_id: 可选资源分组。
+## @param scope: 从入队到成功句柄释放的生命周期。
 ## [br]
 ## @param type_hint: 可选资源类型提示。
 ## [br]
-## @param resource_override: 可选资源实例；为空时使用当前缓存。
+## @param options: 可选并发队列配置。
 ## [br]
-## @return 成功时返回句柄；资源不可用时返回 null。
+## @schema options: Dictionary with optional `serial_lane_id: StringName`, `lane_id: StringName`, and `max_concurrent_loads: int`.
+## [br]
+## @return 独立操作；拒绝请求也返回已完成操作。
+func load_async(
+	path: String,
+	scope: GFAssetScope,
+	type_hint: String = "",
+	options: Dictionary = {}
+) -> GFAssetLoadOperation:
+	var operation: GFAssetLoadOperation = GFAssetLoadOperation.new()
+	operation.bind_for_framework(self, scope)
+	if scope == null or not scope.accepts_for_framework(self):
+		operation.complete_for_framework(
+			GFAssetLoadResult.new(
+				GFAssetLoadResult.Status.FAILED,
+				null,
+				ERR_INVALID_PARAMETER
+			)
+		)
+		return operation
+	scope.track_operation_for_framework(operation)
+	if _disposed or path.is_empty():
+		operation.complete_for_framework(
+			GFAssetLoadResult.new(
+				GFAssetLoadResult.Status.FAILED,
+				null,
+				ERR_INVALID_PARAMETER
+			)
+		)
+		return operation
+	var generation: int = _get_service_generation()
+	var cache_key: String = _get_cache_key_for_path(
+		path,
+		type_hint,
+		generation
+	)
+	var loader_ref: WeakRef = weakref(self)
+	var callback: Callable = func(resource: Resource, error_code: Error) -> void:
+		var loader_value: Object = loader_ref.get_ref()
+		if loader_value is GFAssetUtility:
+			var loader: GFAssetUtility = loader_value
+			loader._complete_asset_request(
+				operation,
+				resource,
+				path,
+				type_hint,
+				generation,
+				error_code
+			)
+		else:
+			var _cancelled: bool = operation.cancel()
+	_load_consumers[operation.get_instance_id()] = { "callable": callback, "cache_key": cache_key }
+	_load_resource_async(
+		path,
+		callback,
+		type_hint,
+		options
+	)
+	return operation
+
+
+## 在指定 scope 中为缓存或指定资源创建独立句柄。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param path: 资源路径。
+## [br]
+## @param scope: 持有此句柄的生命周期。
+## [br]
+## @param type_hint: 可选资源类型提示。
+## [br]
+## @param resource_override: 可选资源实例；为空时使用缓存。
+## [br]
+## @return 成功句柄；scope 关闭或资源不可用时返回 null。
 func acquire_handle(
 	path: String,
-	owner: Object = null,
-	group_id: StringName = &"",
+	scope: GFAssetScope,
 	type_hint: String = "",
 	resource_override: Resource = null
 ) -> GFAssetHandle:
-	return _acquire_handle_for_generation(
+	if scope == null or not scope.accepts_for_framework(self):
+		return null
+	var handle: GFAssetHandle = _acquire_handle_for_generation(
 		path,
-		owner,
-		group_id,
+		scope.get_owner_for_framework(),
+		&"",
 		type_hint,
 		resource_override,
 		_get_service_generation()
 	)
+	if (
+		handle != null
+		and (
+			not handle.is_valid()
+			or not scope.track_handle_for_framework(handle)
+		)
+	):
+		return null
+	return handle
 
 
 ## 释放资源句柄。
@@ -994,9 +914,9 @@ func preload_group_async(
 		var request_path: String = path
 		var request_type_hint: String = type_hint
 		var request_generation: int = _get_service_generation()
-		load_async(
+		_load_resource_async(
 			request_path,
-			func(resource: Resource) -> void:
+			func(resource: Resource, _error_code: Error) -> void:
 				if resource == null:
 					report["ok"] = false
 					_append_report_path(
@@ -1073,6 +993,13 @@ func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false)
 ## [br]
 ## @param _delta: 为兼容统一 tick 签名而保留的参数。
 func tick(_delta: float = 0.0) -> void:
+	for scope_ref: WeakRef in _scopes.duplicate():
+		var scope_value: Object = scope_ref.get_ref()
+		if scope_value is GFAssetScope:
+			var scope: GFAssetScope = scope_value
+			var _open: bool = scope.is_open()
+		else:
+			_scopes.erase(scope_ref)
 	_poll_pending()
 	_drain_cancelled_threaded_operations()
 
@@ -1164,54 +1091,6 @@ func get_load_progress(path: String) -> float:
 func is_cached(path: String) -> bool:
 	var cache_key: String = _get_cache_key_for_path(path)
 	return not cache_key.is_empty() and _cache.has(cache_key)
-
-
-## 取消指定路径的异步加载请求。
-## [br]
-## @api public
-## [br]
-## @since unreleased
-## [br]
-## @param path: 资源路径。
-## [br]
-## @param type_hint: 可选资源类型提示；为空时取消该路径的当前请求。
-## [br]
-## @param generation: 服务域代次；-1 选择当前入口，指定旧代可取消原代请求而不影响新代。
-func cancel(
-	path: String,
-	type_hint: String = "",
-	generation: int = -1
-) -> void:
-	var cache_key: String = _get_cache_key_for_path(
-		path,
-		type_hint,
-		generation
-	)
-	if cache_key.is_empty():
-		return
-	if _queued_by_path.has(cache_key):
-		var queued_request: Dictionary = _get_queued_request(cache_key)
-		var queued_type_hint: String = _get_pending_type_hint(queued_request)
-		if type_hint.is_empty() or queued_type_hint == type_hint:
-			_get_pending_callbacks(queued_request).clear()
-			queued_request["cancelled"] = true
-		return
-
-	if not _pending.has(cache_key):
-		return
-
-	var pending_request: Dictionary = _get_pending_request(cache_key)
-	var pending_type_hint: String = _get_pending_type_hint(pending_request)
-	if not type_hint.is_empty() and pending_type_hint != type_hint:
-		return
-
-	var callbacks: Array = _get_pending_callbacks(pending_request)
-	callbacks.clear()
-	pending_request["cancelled"] = true
-	_cancel_threaded_operation(
-		_get_pending_operation(pending_request),
-		&"asset_load_cancelled"
-	)
 
 
 ## 手动写入缓存。
@@ -1404,6 +1283,88 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 框架内部方法 ---
 
+## 只撤销指定消费者的队列回调；最后消费者离开后释放底层 lease。
+## [br]
+## @api framework_internal
+## [br]
+## @param operation: 尚未完成的消费者操作。
+func cancel_operation_for_framework(operation: GFAssetLoadOperation) -> void:
+	var record: Dictionary = GFVariantData.as_dictionary(
+		_load_consumers.get(
+			operation.get_instance_id(),
+			{}
+		)
+	)
+	var _removed: bool = _load_consumers.erase(operation.get_instance_id())
+	if record.is_empty():
+		return
+	var cache_key: String = GFVariantData.get_option_string(
+		record,
+		"cache_key",
+		""
+	)
+	var callback: Callable = _get_callback_entry_callable(record)
+	var request: Dictionary = _get_pending_request(cache_key) if _pending.has(cache_key) else _get_queued_request(cache_key)
+	if request.is_empty():
+		return
+	var callbacks: Array = _get_pending_callbacks(request)
+	for index: int in range(
+		callbacks.size() - 1,
+		-1,
+		-1
+	):
+		var entry: Dictionary = GFVariantData.as_dictionary(callbacks[index])
+		if _get_callback_entry_callable(entry) == callback:
+			callbacks.remove_at(index)
+	if callbacks.is_empty():
+		request["cancelled"] = true
+		_cancel_threaded_operation(
+			_get_pending_operation(request),
+			&"asset_consumer_cancelled"
+		)
+
+
+## 为解析器提供的内存资源创建同样的 scope 请求结果。
+## [br]
+## @api framework_internal
+## [br]
+## @param path: 资源身份路径。
+## [br]
+## @param scope: 资源生命周期。
+## [br]
+## @param resource: 已解析资源。
+## [br]
+## @param type_hint: 类型约束。
+## [br]
+## @return 即时完成的独立请求。
+func resolved_resource_for_framework(
+	path: String,
+	scope: GFAssetScope,
+	resource: Resource,
+	type_hint: String = ""
+) -> GFAssetLoadOperation:
+	var operation: GFAssetLoadOperation = GFAssetLoadOperation.new()
+	operation.bind_for_framework(self, scope)
+	if scope == null or not scope.accepts_for_framework(self):
+		operation.complete_for_framework(
+			GFAssetLoadResult.new(
+				GFAssetLoadResult.Status.FAILED,
+				null,
+				ERR_INVALID_PARAMETER
+			)
+		)
+		return operation
+	scope.track_operation_for_framework(operation)
+	_complete_asset_request(
+		operation,
+		resource,
+		path,
+		type_hint,
+		_get_service_generation()
+	)
+	return operation
+
+
 ## 将 staging 的确切缓存身份转交目标组，保留迟到旧代路径而不重新解析当前入口。
 ## [br]
 ## @api framework_internal
@@ -1429,6 +1390,189 @@ func commit_preload_group_for_framework(
 
 
 # --- 私有/辅助方法 ---
+
+## 把私有加载结果提交到独立请求；句柄先进入 scope 再提交成功事实。
+## [br]
+## @api private
+func _complete_asset_request(
+	operation: GFAssetLoadOperation,
+	resource: Resource,
+	path: String,
+	type_hint: String,
+	generation: int,
+	error_code: Error = OK
+) -> void:
+	var _removed: bool = _load_consumers.erase(operation.get_instance_id())
+	if operation.is_completed():
+		return
+	var scope: GFAssetScope = operation.get_scope_for_framework()
+	if scope == null or not scope.accepts_for_framework(self):
+		var _cancelled: bool = operation.cancel()
+		return
+	if resource == null:
+		var terminal_status: GFAssetLoadResult.Status = GFAssetLoadResult.Status.CANCELLED if error_code == ERR_SKIP else GFAssetLoadResult.Status.FAILED
+		operation.complete_for_framework(
+			GFAssetLoadResult.new(
+				terminal_status,
+				null,
+				error_code if error_code != OK else ERR_CANT_OPEN
+			)
+		)
+		return
+	var handle: GFAssetHandle = _acquire_handle_for_generation(
+		path,
+		scope.get_owner_for_framework(),
+		&"",
+		type_hint,
+		resource,
+		generation
+	)
+	if handle == null or not handle.is_valid():
+		operation.complete_for_framework(
+			GFAssetLoadResult.new(
+				GFAssetLoadResult.Status.FAILED,
+				null,
+				ERR_CANT_ACQUIRE_RESOURCE
+			)
+		)
+		return
+	if not scope.track_handle_for_framework(handle):
+		var _cancelled: bool = operation.cancel()
+		return
+	if operation.is_completed():
+		var _released: bool = handle.release()
+		return
+	operation.complete_for_framework(
+		GFAssetLoadResult.new(
+			GFAssetLoadResult.Status.SUCCEEDED,
+			handle,
+			OK
+		)
+	)
+
+
+## 私有资源装载队列；公共请求通过独立 operation 观察它。
+## [br]
+## @api private
+func _load_resource_async(
+	path: String,
+	on_loaded: Callable,
+	type_hint: String = "",
+	options: Dictionary = {}
+) -> void:
+	if (
+		_disposed
+		or (
+			_resource_service_domain != null
+			and not _resource_service_domain.is_accepting_requests()
+		)
+	):
+		if on_loaded.is_valid():
+			on_loaded.call(null, ERR_UNAVAILABLE)
+		return
+	if path.is_empty() or not on_loaded.is_valid():
+		push_error("[GFAssetUtility][asset_utility.path_or_callback_invalid] Invalid path or callback.")
+		if on_loaded.is_valid():
+			on_loaded.call(null, ERR_INVALID_PARAMETER)
+		return
+
+	var identity: GFResourceIdentity = _make_resource_identity(path, type_hint)
+	if not identity.has_identity():
+		push_error("[GFAssetUtility][asset_utility.resource_identity_invalid] Invalid resource identity: %s." % path)
+		on_loaded.call(null, ERR_INVALID_PARAMETER)
+		return
+	_remember_resource_identity(identity)
+	var cache_key: String = identity.cache_key
+	var load_path: String = _get_identity_load_path(identity)
+
+	var cached: Resource = _get_cached_by_key(cache_key)
+	if cached != null:
+		if not _is_resource_compatible(cached, type_hint):
+			push_warning(
+				"[GFAssetUtility][asset_utility.cached_type_mismatch] Cached resource type does not match the requested type_hint: %s (%s)."
+				% [load_path, type_hint]
+			)
+			on_loaded.call(null, ERR_INVALID_DATA)
+			return
+
+		on_loaded.call(cached, OK)
+		return
+
+	if _pending.has(cache_key):
+		var pending_request: Dictionary = _get_pending_request(cache_key)
+		var pending_type_hint: String = _get_pending_type_hint(pending_request)
+		if not _pending_type_hints_are_compatible(pending_type_hint, type_hint):
+			push_warning(
+				"[GFAssetUtility][asset_utility.active_type_hint_conflict] An active load request for this resource identity has a different type_hint; new request rejected: %s (%s -> %s)."
+				% [
+					load_path,
+					pending_type_hint,
+					type_hint,
+				]
+			)
+			on_loaded.call(null, ERR_INVALID_PARAMETER)
+			return
+
+		var callbacks: Array = _get_pending_callbacks(pending_request)
+		if _is_pending_cancelled(pending_request):
+			callbacks.clear()
+			var retry_operation: _RESOURCE_LEASE_SCRIPT = _request_threaded_operation(load_path, pending_type_hint)
+			var retry_error: Error = (retry_operation.get_request_error() if retry_operation != null else ERR_UNCONFIGURED)
+			if retry_error != OK:
+				on_loaded.call(null, retry_error)
+				return
+			pending_request["operation"] = retry_operation
+			pending_request["cancelled"] = false
+		if not _callback_entries_have_callable(callbacks, on_loaded):
+			callbacks.append(_make_callback_entry(on_loaded, type_hint))
+		return
+
+	if _queued_by_path.has(cache_key):
+		var queued_request: Dictionary = _get_queued_request(cache_key)
+		var queued_type_hint: String = _get_pending_type_hint(queued_request)
+		if not _pending_type_hints_are_compatible(queued_type_hint, type_hint):
+			push_warning(
+				"[GFAssetUtility][asset_utility.queued_type_hint_conflict] A queued load request for this resource identity has a different type_hint; new request rejected: %s (%s -> %s)."
+				% [
+					load_path,
+					queued_type_hint,
+					type_hint,
+				]
+			)
+			on_loaded.call(null, ERR_INVALID_PARAMETER)
+			return
+
+		var queued_callbacks: Array = _get_pending_callbacks(queued_request)
+		if _is_pending_cancelled(queued_request):
+			queued_callbacks.clear()
+			queued_request["cancelled"] = false
+		if not _callback_entries_have_callable(queued_callbacks, on_loaded):
+			queued_callbacks.append(_make_callback_entry(on_loaded, type_hint))
+		return
+
+	var request: Dictionary = {
+		"path": load_path,
+		"cache_key": cache_key,
+		"identity": identity.to_dictionary(),
+		"type_hint": type_hint,
+		"callbacks": [_make_callback_entry(on_loaded, type_hint)],
+		"cancelled": false,
+		"progress": 0.0,
+		"lane_id": _resolve_load_lane_id(options),
+		"max_concurrent_loads": _resolve_load_lane_limit(options),
+	}
+	if _resource_service_domain != null:
+		var reservation: GFResourceServiceReservation = _resource_service_domain.reserve_for_framework(
+			load_path,
+			type_hint,
+			{ "consumer_id": &"asset" }
+		)
+		if reservation == null:
+			on_loaded.call(null, ERR_UNAVAILABLE)
+			return
+		request["service_reservation"] = reservation
+	_start_or_queue_request(cache_key, request)
+
 
 ## 以请求接纳代次建立分组归属，避免在途热切换的迟到结果锁定新代缓存。
 ## [br]
@@ -1584,14 +1728,6 @@ func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
 	var erased: bool = target.erase(key)
 	if erased:
 		return
-
-
-## 向数组追加一个 Variant 值。
-## [br]
-## @api private
-## [br]
-func _append_array_value(target: Array, value: Variant) -> void:
-	target.append(value)
 
 
 ## 向 PackedStringArray 追加一个字符串。
@@ -2333,7 +2469,8 @@ func _activate_load_request(
 		_release_request_reservation(request)
 		_dispatch_callbacks(
 			_get_pending_callbacks(request),
-			null
+			null,
+			ERR_UNAVAILABLE
 		)
 		return ERR_UNAVAILABLE
 	var lane_id: StringName = _get_pending_lane_id(request)
@@ -2358,7 +2495,8 @@ func _activate_load_request(
 		)
 		_dispatch_callbacks(
 			_get_pending_callbacks(request),
-			null
+			null,
+			error
 		)
 		return error
 
@@ -2571,7 +2709,7 @@ func _get_live_object_from_ref(object_ref: WeakRef) -> Object:
 	return object
 
 
-## 遍历待处理键快照，在进度通知后复查 disposed、记录身份和取消状态，避免结算被重入替换的请求。
+## 遍历待处理键快照，在进度通知后复查记录及 lease 身份，避免旧结果结算重入重试的新请求。
 ## 完成时先移除记录，再按取消状态缓存及通知，最后遗忘底层操作并归还通道额度。
 ## [br]
 ## @api private
@@ -2606,9 +2744,13 @@ func _poll_pending() -> void:
 				pending_request,
 				progress
 			)
-		if _disposed or not is_same(
-			_pending.get(cache_key),
-			pending_request
+		if (
+			_disposed
+			or not is_same(
+				_pending.get(cache_key),
+				pending_request
+			)
+			or _get_pending_operation(pending_request) != operation
 		):
 			continue
 		cancelled = _is_pending_cancelled(pending_request)
@@ -2625,9 +2767,13 @@ func _poll_pending() -> void:
 						pending_request,
 						1.0
 					)
-				if _disposed or not is_same(
-					_pending.get(cache_key),
-					pending_request
+				if (
+					_disposed
+					or not is_same(
+						_pending.get(cache_key),
+						pending_request
+					)
+					or _get_pending_operation(pending_request) != operation
 				):
 					continue
 				cancelled = _is_pending_cancelled(pending_request)
@@ -2647,12 +2793,23 @@ func _poll_pending() -> void:
 				_erase_dictionary_key(_pending, cache_key)
 				if not cancelled:
 					push_error("[GFAssetUtility][asset_utility.async_load_failed] Asynchronous load failed: %s." % path)
-					_dispatch_callbacks(callbacks, null)
+					var failure_code: Error = operation.get_request_error() if operation != null else ERR_UNCONFIGURED
+					_dispatch_callbacks(
+						callbacks,
+						null,
+						failure_code if failure_code != OK else ERR_CANT_OPEN
+					)
 				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
 			_RESOURCE_LEASE_SCRIPT.STATUS_CANCELLED:
 				_erase_dictionary_key(_pending, cache_key)
+				if not cancelled:
+					_dispatch_callbacks(
+						callbacks,
+						null,
+						ERR_SKIP
+					)
 				_forget_threaded_operation(operation)
 				_complete_pending_lane(pending_request)
 
@@ -2716,8 +2873,12 @@ func _complete_pending_lane(pending_request: Dictionary) -> void:
 ## [br]
 ## @api private
 ## [br]
-func _dispatch_callbacks(callbacks: Array, resource: Resource) -> void:
-	for callback_entry: Variant in callbacks:
+func _dispatch_callbacks(
+	callbacks: Array,
+	resource: Resource,
+	error_code: Error = OK
+) -> void:
+	for callback_entry: Variant in callbacks.duplicate():
 		var entry: Dictionary = GFVariantData.as_dictionary(callback_entry)
 		var callback: Callable = Callable()
 		var type_hint: String = ""
@@ -2727,7 +2888,13 @@ func _dispatch_callbacks(callbacks: Array, resource: Resource) -> void:
 		elif callback_entry is Callable:
 			callback = callback_entry
 		if callback.is_valid():
-			callback.call(resource if resource == null or _is_resource_compatible(resource, type_hint) else null)
+			if resource != null and not _is_resource_compatible(resource, type_hint):
+				callback.call(null, ERR_INVALID_DATA)
+			else:
+				callback.call(
+					resource,
+					error_code if resource != null or error_code != OK else ERR_CANT_OPEN
+				)
 
 
 ## 先标记每个请求取消，再取消底层操作并用回调数组快照发送 null；排队请求也收到失败通知。
@@ -2916,10 +3083,7 @@ func _track_owner(owner: Object) -> void:
 ## [br]
 func _track_handle(handle: GFAssetHandle) -> void:
 	if handle != null:
-		_append_array_value(
-			_handle_refs,
-			weakref(handle)
-		)
+		_handle_refs.append(weakref(handle))
 
 
 ## 移除已失效或已释放的句柄弱引用。
@@ -2985,14 +3149,26 @@ func _release_owner_handles(owner_id: int) -> void:
 			_handle_refs.remove_at(index)
 
 
-## 按缓存键快照移除指定所有者的全部引用并逐项通知，再释放其句柄和弱引用记录；返回移除的引用次数总和。
+## 先撤销当前 owner scopes 的准入并提交旧账本与句柄释放，再取消 pending 和通知。
+## 通知中新建的 scope 与引用不属于本次释放快照。
 ## [br]
 ## @api private
 func _release_owner_id(owner_id: int) -> int:
 	if owner_id == 0:
 		return 0
 
+	var scopes: Array[GFAssetScope] = []
+	for scope_ref: WeakRef in _scopes.duplicate():
+		var scope_value: Object = scope_ref.get_ref()
+		if scope_value is GFAssetScope:
+			var scope: GFAssetScope = scope_value
+			var scope_owner: Object = scope.get_owner_for_framework()
+			if scope_owner != null and scope_owner.get_instance_id() == owner_id:
+				scope.stop_accepting_for_framework()
+				scopes.append(scope)
+
 	var released_count: int = 0
+	var released_paths: Array[String] = []
 	var cache_keys: Array = _owner_reference_counts.keys()
 	for cache_key: String in cache_keys:
 		if not _owner_reference_counts.has(cache_key):
@@ -3010,13 +3186,17 @@ func _release_owner_id(owner_id: int) -> int:
 			owner_id,
 			count
 		)
+		released_paths.append(path)
+
+	_release_owner_handles(owner_id)
+	_erase_dictionary_key(_owner_refs, owner_id)
+	for scope: GFAssetScope in scopes:
+		scope.close()
+	for path: String in released_paths:
 		asset_handle_released.emit(
 			path,
 			_get_reference_count_for_public_path(path)
 		)
-
-	_release_owner_handles(owner_id)
-	_erase_dictionary_key(_owner_refs, owner_id)
 	return released_count
 
 

@@ -129,20 +129,23 @@ class ReentrantTimeProvider extends RefCounted:
 func test_nested_drive_is_rejected_without_flushing_outer_cache() -> void:
 	var systems: Dictionary = {}
 	var utilities: Dictionary = {}
-	var lifecycle_stages: Dictionary = {}
 	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new()
 	var order: Array[String] = []
 	var reentrant: ReentrantTickSystem = ReentrantTickSystem.new(scheduler, order)
 	var follower: FollowerTickSystem = FollowerTickSystem.new(order)
 	systems[ReentrantTickSystem] = reentrant
 	systems[FollowerTickSystem] = follower
-	lifecycle_stages[reentrant] = 4
-	lifecycle_stages[follower] = 4
-	var _configured_scheduler: GFArchitectureTickScheduler = scheduler.configure(
-		systems,
-		utilities,
-		lifecycle_stages
+	scheduler.set_tick_permission(
+		reentrant,
+		true,
+		true
 	)
+	scheduler.set_tick_permission(
+		follower,
+		true,
+		true
+	)
+	var _configured_scheduler: GFArchitectureTickScheduler = scheduler.configure(systems, utilities)
 
 	scheduler.drive_tick(0.25, null)
 
@@ -268,12 +271,10 @@ func test_physics_steps_provider_reentry_is_rejected_before_recursion() -> void:
 
 func test_regular_drives_require_committed_lifecycle_stage() -> void:
 	var counter: CountingTickSystem = CountingTickSystem.new()
-	var lifecycle_stages: Dictionary = { counter: 3, }
 	var scheduler: GFArchitectureTickScheduler = (
 		GFArchitectureTickScheduler.new().configure(
 			{ CountingTickSystem: counter },
-			{},
-			lifecycle_stages
+			{}
 		)
 	)
 
@@ -291,7 +292,11 @@ func test_regular_drives_require_committed_lifecycle_stage() -> void:
 		"仅完成 ready 的模块不得进入 physics_tick。"
 	)
 
-	lifecycle_stages[counter] = 4
+	scheduler.set_tick_permission(
+		counter,
+		true,
+		true
+	)
 	scheduler.drive_tick(0.25, null)
 	scheduler.drive_physics_tick(0.25, null)
 
@@ -310,13 +315,21 @@ func test_regular_drives_require_committed_lifecycle_stage() -> void:
 func test_lifecycle_drive_is_bounded_to_ready_allowed_tick_records() -> void:
 	var allowed_counter: CountingTickSystem = CountingTickSystem.new()
 	var unrelated_counter: CountingTickUtility = CountingTickUtility.new()
-	var lifecycle_stages: Dictionary = { allowed_counter: 3, unrelated_counter: 4, }
 	var scheduler: GFArchitectureTickScheduler = (
 		GFArchitectureTickScheduler.new().configure(
 			{ CountingTickSystem: allowed_counter },
-			{ CountingTickUtility: unrelated_counter },
-			lifecycle_stages
+			{ CountingTickUtility: unrelated_counter }
 		)
+	)
+	scheduler.set_tick_permission(
+		allowed_counter,
+		false,
+		true
+	)
+	scheduler.set_tick_permission(
+		unrelated_counter,
+		true,
+		true
 	)
 
 	scheduler.drive_lifecycle_tick(
@@ -351,7 +364,11 @@ func test_lifecycle_drive_is_bounded_to_ready_allowed_tick_records() -> void:
 		"生命周期驱动不得推进集合外物理回调。"
 	)
 
-	lifecycle_stages[allowed_counter] = 2
+	scheduler.set_tick_permission(
+		allowed_counter,
+		false,
+		false
+	)
 	scheduler.drive_lifecycle_tick(
 		0.05,
 		{ allowed_counter: true }
@@ -362,7 +379,7 @@ func test_lifecycle_drive_is_bounded_to_ready_allowed_tick_records() -> void:
 		"尚未 ready 的允许模块也不得被推进。"
 	)
 
-	lifecycle_stages.clear()
+	scheduler.clear_tick_permissions()
 	scheduler.drive_lifecycle_tick(
 		0.05,
 		{ allowed_counter: true }
@@ -425,7 +442,6 @@ func test_lifecycle_drive_normalizes_non_monotonic_delta() -> void:
 
 func test_lifecycle_drive_reuses_reentry_and_deferred_refresh_guard() -> void:
 	var systems: Dictionary = {}
-	var lifecycle_stages: Dictionary = {}
 	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new()
 	var order: Array[String] = []
 	var reentrant: ReentrantTickSystem = ReentrantTickSystem.new(scheduler, order)
@@ -434,13 +450,17 @@ func test_lifecycle_drive_reuses_reentry_and_deferred_refresh_guard() -> void:
 	follower.tick_priority = 10
 	systems[ReentrantTickSystem] = reentrant
 	systems[FollowerTickSystem] = follower
-	lifecycle_stages[reentrant] = 3
-	lifecycle_stages[follower] = 3
-	var _configured_scheduler: GFArchitectureTickScheduler = scheduler.configure(
-		systems,
-		{},
-		lifecycle_stages
+	scheduler.set_tick_permission(
+		reentrant,
+		false,
+		true
 	)
+	scheduler.set_tick_permission(
+		follower,
+		false,
+		true
+	)
+	var _configured_scheduler: GFArchitectureTickScheduler = scheduler.configure(systems, {})
 	var allowed_instances: Dictionary = { reentrant: true, follower: true, }
 
 	scheduler.drive_lifecycle_tick(0.25, allowed_instances)
@@ -462,16 +482,13 @@ func test_lifecycle_drive_reuses_reentry_and_deferred_refresh_guard() -> void:
 
 
 func test_uncommitted_lifecycle_candidate_is_never_exposed_to_regular_tick() -> void:
-	var lifecycle_stages: Dictionary = {}
-	var scheduler: GFArchitectureTickScheduler = (
-		GFArchitectureTickScheduler.new().configure(
-			{},
-			{},
-			lifecycle_stages
-		)
-	)
+	var scheduler: GFArchitectureTickScheduler = (GFArchitectureTickScheduler.new().configure({}, {}))
 	var candidate: CountingTickUtility = CountingTickUtility.new()
-	lifecycle_stages[candidate] = 3
+	scheduler.set_tick_permission(
+		candidate,
+		false,
+		true
+	)
 	assert_true(scheduler.add_lifecycle_candidate(candidate))
 
 	scheduler.drive_tick(0.1, null)
@@ -499,13 +516,13 @@ func test_uncommitted_lifecycle_candidate_is_never_exposed_to_regular_tick() -> 
 
 func _make_counting_scheduler(counter: CountingTickSystem, lifecycle_stage: int = 4) -> GFArchitectureTickScheduler:
 	var systems: Dictionary = { CountingTickSystem: counter, }
-	var lifecycle_stages: Dictionary = { counter: lifecycle_stage, }
 	var scheduler: GFArchitectureTickScheduler = GFArchitectureTickScheduler.new()
-	return scheduler.configure(
-		systems,
-		{},
-		lifecycle_stages
+	scheduler.set_tick_permission(
+		counter,
+		lifecycle_stage >= 4,
+		lifecycle_stage >= 3
 	)
+	return scheduler.configure(systems, {})
 
 
 func _assert_reentry_warning() -> void:

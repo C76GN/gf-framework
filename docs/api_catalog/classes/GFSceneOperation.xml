@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneOperation" path="addons/gf/standard/utilities/scene/gf_scene_operation.gd" module="standard" extends="RefCounted" classDigest="4cc2c636900c1712ce7ed2f9b2fa2484665ebae2acb4eda986d1a7f4cd6c4205">
+<class name="GFSceneOperation" path="addons/gf/standard/utilities/scene/gf_scene_operation.gd" module="standard" extends="RefCounted" classDigest="03e029e40f24d24cca8d7e1125453ed62c69f3c02d971246174b164d4f295c78">
 	<description>GFSceneOperation: 单次类型化场景加载或预加载请求的 caller Operation。
 每个请求持有独立 ID、资源身份快照与取消能力。同一路径请求可以共享 Broker
 的物理加载，但每个 Operation 只观察并终结自己的 consumer Lease。
@@ -28,7 +28,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<signature>signal completed(result: GFSceneOperationResult)</signature>
 			<description>当前 consumer 进入唯一终态时发出一次。
 同步 validation、cache hit 或生命周期拒绝可能在 request 方法返回前完成；调用方
-必须先查询 `is_completed()`，只在仍 pending 时连接该信号。</description>
+可使用 `wait_result_async()` 同时处理立即完成与等待；直接连接信号时先查询终态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 当前请求的隔离终态结果。</tag>
@@ -115,6 +115,16 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回隔离结果；等待中返回 null。</tag>
 				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_result_async">
+			<signature>func wait_result_async() -&gt; GFSceneOperationResult:</signature>
+			<description>等待当前消费者的终态；同步命中或拒绝时立即取得结果。
+多次等待不创建新请求，也不改变共享物理加载的所有权。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前请求的隔离终态结果。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">

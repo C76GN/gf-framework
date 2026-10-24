@@ -769,28 +769,24 @@ func test_request_entry_async_delegates_to_asset_utility() -> void:
 		)
 	)
 	var utility: ManualAssetUtility = ManualAssetUtility.new()
-	var loaded_resources: Array[Resource] = []
-
-	registry.request_entry_async(
+	var scope: GFAssetScope = utility.create_scope()
+	var operation: GFAssetLoadOperation = registry.request_entry_async(
 		utility,
 		&"item",
-		func(resource: Resource) -> void:
-			loaded_resources.append(resource)
+		scope
 	)
-
+	var result: GFAssetLoadResult = await operation.wait_result_async()
 	assert_eq(utility.requested_path, "res://item.tres")
 	assert_eq(utility.requested_type_hint, "Resource")
-	assert_eq(
-		loaded_resources.size(),
-		1
-	)
-	assert_eq(
-		loaded_resources[0],
+	assert_true(result.is_successful())
+	assert_same(
+		result.get_handle().get_resource(),
 		utility.returned_resource
 	)
+	scope.close()
 
 
-func test_request_entry_handle_async_delegates_group_and_owner() -> void:
+func test_request_entry_scope_closes_successful_handle() -> void:
 	var registry: GFResourceRegistry = GFResourceRegistry.new()
 	_set_entry(
 		registry,
@@ -802,35 +798,15 @@ func test_request_entry_handle_async_delegates_group_and_owner() -> void:
 		)
 	)
 	var utility: ManualAssetUtility = ManualAssetUtility.new()
-	var request_owner: Node = Node.new()
-	var loaded_handles: Array[GFAssetHandle] = []
-
-	registry.request_entry_handle_async(
+	var scope: GFAssetScope = utility.create_scope()
+	var result: GFAssetLoadResult = await registry.request_entry_async(
 		utility,
 		&"item",
-		func(handle: GFAssetHandle) -> void:
-			loaded_handles.append(handle),
-		request_owner,
-		&"items"
-	)
-
-	assert_eq(utility.requested_handle_path, "res://item.tres")
-	assert_eq(utility.requested_handle_type_hint, "Resource")
-	assert_eq(utility.requested_group_id, &"items")
-	assert_eq(
-		loaded_handles.size(),
-		1
-	)
-	assert_eq(
-		loaded_handles[0].path,
-		"res://item.tres"
-	)
-	assert_eq(
-		loaded_handles[0].get_owner_id(),
-		request_owner.get_instance_id()
-	)
-
-	request_owner.free()
+		scope
+	).wait_result_async()
+	scope.close()
+	assert_true(result.is_successful())
+	assert_true(result.get_handle().is_released())
 
 
 func test_to_dict_and_from_dict_preserve_entries() -> void:
@@ -918,7 +894,7 @@ class ManualAssetUtility extends GFAssetUtility:
 	var requested_group_id: StringName = &""
 	var returned_resource: Resource = Resource.new()
 
-	func load_async(
+	func _load_resource_async(
 		path: String,
 		on_loaded: Callable,
 		type_hint: String = "",
@@ -926,28 +902,7 @@ class ManualAssetUtility extends GFAssetUtility:
 	) -> void:
 		requested_path = path
 		requested_type_hint = type_hint
-		var _callback_result: Variant = on_loaded.call(returned_resource)
-
-
-	func load_handle_async(
-		path: String,
-		on_loaded: Callable,
-		type_hint: String = "",
-		owner: Object = null,
-		group_id: StringName = &"",
-		_options: Dictionary = {}
-	) -> void:
-		requested_handle_path = path
-		requested_handle_type_hint = type_hint
-		requested_group_id = group_id
-		var handle: GFAssetHandle = GFAssetHandle.new()
-		var owner_id: int = owner.get_instance_id() if owner != null else 0
-		handle.setup_from_utility(
-			self,
-			path,
+		var _callback_result: Variant = on_loaded.call(
 			returned_resource,
-			type_hint,
-			group_id,
-			owner_id
+			OK if returned_resource != null else ERR_CANT_OPEN
 		)
-		var _callback_result: Variant = on_loaded.call(handle)

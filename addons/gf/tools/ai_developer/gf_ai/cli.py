@@ -10,7 +10,7 @@ from typing import Any
 
 from . import adapters, catalog, context_bundle, feedback, migration, snapshot
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH
-from .contract import initialize_contract, load_contract
+from .contract import initialize_contract
 from .paths import read_json_object, resolve_project_path, resolve_project_root, strict_json_loads
 
 
@@ -157,9 +157,7 @@ def _dispatch(args: argparse.Namespace, project_root: Path) -> dict[str, Any]:
 			human_approved=True,
 		)
 	if args.command == "validate":
-		contract_result = load_contract(project_root, args.contract)
-		observed = snapshot.build_snapshot(project_root, args.contract)
-		return {"ok": bool(contract_result["ok"]) and bool(observed["drift"]["ok"]), "contract": contract_result, "drift": observed["drift"]}
+		return snapshot.inspect_project(project_root, args.contract).validation_result()
 	if args.command == "context":
 		return snapshot.project_context(project_root, args.contract)
 	if args.command == "snapshot":

@@ -116,6 +116,25 @@ ui.push_panel_instance_with_options(settings_panel, GFUIUtility.Layer.POPUP, {
 
 ## 节点父链与场景生命周期
 
-所有层根节点都创建在 `SceneTree.root` 下，Panel 会被重挂到对应 `CanvasLayer`，不会随 `SceneTree.current_scene` 自动销毁。场景专属面板应在离场时显式 `pop_panel()`、`clear_layer()` 或 `clear_all()`；`GFUIUtility.dispose()` 会释放全部 Panel 和层根。
+UIUtility 拥有一个 host 子树，所有层的 `CanvasLayer` 和入栈 Panel 都位于其中。全局 UI 默认把 host 挂在 `SceneTree.root`；局部 UI 必须在注册和初始化前明确配置业务 Context：
 
-Panel 重挂后会离开原来的 `GFNodeContext` 子树。必须消费局部战斗 Model/System 的 HUD 应留在该 Context 下的项目 `CanvasLayer`；根级 Panel 只短暂展示局部结果时，通过配置回调传入 DTO 或项目适配器，并在 Context 退出前关闭。
+```gdscript
+func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
+	var ui: GFUIUtility = GFUIUtility.new()
+	if not ui.configure_host(self):
+		architecture.fail_initialization("UI host 配置无效。")
+		return
+	var registered: bool = await architecture.register_utility_instance(ui)
+	if not registered:
+		architecture.fail_initialization("UIUtility 注册失败。")
+```
+
+默认 host 在 `self` Context 下。需要跨树显示时使用 `configure_host(self, mount_parent)`，例如将显示挂到另一个 Viewport 下。UIUtility 会使用显式继承来源的 `GFNodeContext` 维持 Panel 的业务作用域；Controller 仍通过最近 Context 解析依赖。绘制排序使用 `CanvasLayer.layer`，不要求把层移到 root。
+
+显式 `mount_parent` 必须已经在树中且未排队删除，否则配置返回 `false`。初始化会再次检查来源和显示父节点；若它们在配置后离树或被释放，架构初始化明确失败，Context 不会进入 READY。
+
+来源与显示父节点都是借用关系；UIUtility 只释放自己创建的 host、层和 Panel。来源关闭会立即停止新面板请求并取消未完成加载；显示 host 离树也会取消请求。来源失效不会把请求改投到全局 UI。场景正常退出应先等待 `context.close_async()`；`GFUIUtility.dispose()` 释放其全部显示节点。
+
+异步面板加载为每个 UI 请求创建独立 `GFAssetScope`，加载完成或取消后释放该作用域。它不会取消同一路径上其他调用方的加载。调用方可以直接 `await operation.wait_result_async()`：终态已经出现时立即返回，尚未结束时等待一次终态；完成后的面板引用仍是弱句柄，应通过结果查询确认面板仍存在。
+
+Router 可以共享路由定义，各 Router 的导航历史和等待请求仍属于自己的 UIUtility。跨场景全局菜单应明确使用全局 Router；局部导航使用配置到局部 UIUtility 的 Router。显式 UI 目标失效时请求失败，不重新解析成另一个 UIUtility。

@@ -229,6 +229,21 @@ func get_result() -> GFSaveProfileTransactionResult:
 	return _result.duplicate_result() if _result != null else null
 
 
+## 等待事务终态并取得隔离结果；已经完成时立即返回。
+##
+## 等待不会重启事务或消费结果；多个等待者观察同一次提交。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前事务的终态结果副本。
+func wait_result_async() -> GFSaveProfileTransactionResult:
+	if not is_completed():
+		await completed
+	return get_result()
+
+
 # --- 框架内部方法 ---
 
 ## 由 Save Profile 事务协调器一次性配置句柄身份。

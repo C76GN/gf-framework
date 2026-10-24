@@ -47,11 +47,7 @@ var transfer := GFStoragePayloadTransfer.take_ownership(payload)
 payload = {}
 
 var operation := storage.save_payload_request_async("profile.json", transfer)
-var result: GFStorageAsyncResult
-if operation.is_completed():
-	result = operation.get_result()
-else:
-	result = await operation.completed
+var result: GFStorageAsyncResult = await operation.wait_physical_result_async()
 
 if not result.is_successful():
 	var retry_transfer := operation.reclaim_failed_payload()
@@ -148,11 +144,7 @@ family reset 没有全局完成信号，必须分别使用 `delete_file_request_
 
 ```gdscript
 var operation: GFStorageAsyncOperation = storage.load_data_request_async("profile.json")
-var async_result: GFStorageAsyncResult
-if operation.is_completed():
-	async_result = operation.get_result()
-else:
-	async_result = await operation.completed
+var async_result: GFStorageAsyncResult = await operation.wait_physical_result_async()
 
 if not async_result.is_successful():
 	var read_failure := async_result.get_read_result()
@@ -170,11 +162,7 @@ if not async_result.is_successful():
 
 ```gdscript
 var delete_operation := storage.delete_file_request_async("profile.json")
-var delete_async_result: GFStorageAsyncResult
-if delete_operation.is_completed():
-	delete_async_result = delete_operation.get_result()
-else:
-	delete_async_result = await delete_operation.completed
+var delete_async_result: GFStorageAsyncResult = await delete_operation.wait_physical_result_async()
 
 var delete_result: GFStorageDeleteResult = delete_async_result.get_delete_result()
 if not delete_result.is_successful():
@@ -208,8 +196,13 @@ caller 轴，但 caller 终态会跟随物理终态，不增加额外生命周�
 无效配置。Node 仅退出 SceneTree 不等于 owner 已释放；需要离树即取消时，应显式绑定由项目
 生命周期驱动的 cancellation token。
 
-弱 owner 释放时 caller 终态仍可由 Operation 查询，但框架可能抑制发给已失效 consumer 的
-`caller_completed` 信号；不要把信号缺席解释成物理请求没有结算。
+弱 owner 释放也会提交并通知 caller 终态，所有等待者都会恢复。使用
+`await operation.wait_caller_result_async()` 等待观察终态，使用
+`await operation.wait_physical_result_async()` 等待实际结算；两者都支持已完成请求和重复等待。
+`GFStorageOwnedRead.wait_result_async()` 只返回诊断，不领取 payload。
+
+终态通知是请求事实，不保证原页面仍有展示资格。业务回调或等待后的代码应检查目标仍存活、
+作用域仍有效及请求身份仍匹配，再更新 UI；owner 失效不会吞掉信号，也不会证明写入没有发生。
 
 caller 生命周期触发时，框架先区分请求是否已被所选执行器接纳：
 

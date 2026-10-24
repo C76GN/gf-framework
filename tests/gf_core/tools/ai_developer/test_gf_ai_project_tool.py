@@ -301,6 +301,38 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(report["snapshot"]["contract"]["valid"])
 		self.assertEqual(report["contract"]["sha256"], report["snapshot"]["contract"]["sha256"])
 
+	def test_validation_transports_consume_one_contract_generation(self) -> None:
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		original = contract_path.read_bytes()
+		expected = snapshot.project_context(self.project_root)
+		read_json = contract_module.read_json_object
+		for transport in ("cli", "mcp"):
+			with self.subTest(transport=transport):
+				contract_path.write_bytes(original)
+				reads: list[str] = []
+				def capture_then_change(path: Path, **kwargs: Any) -> dict[str, Any]:
+					data = read_json(path, **kwargs)
+					if path == contract_path:
+						reads.append(str(path))
+						contract_path.write_text('{"changed": true}', encoding="utf-8")
+					return data
+				with mock.patch.object(contract_module, "read_json_object", side_effect=capture_then_change):
+					if transport == "cli":
+						output = io.StringIO()
+						with contextlib.redirect_stdout(output):
+							cli.main(["validate", "--project-root", str(self.project_root)])
+						result = json.loads(output.getvalue())
+					else:
+						response = mcp.handle_message({
+							"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+							"params": {"name": "gf_contract_validate", "arguments": {"project_root": str(self.project_root)}},
+						})
+						result = response["result"]["structuredContent"]
+				self.assertEqual(len(reads), 1)
+				self.assertEqual(result["contract"], expected["contract"])
+				self.assertEqual(result["drift"], expected["snapshot"]["drift"])
+				self.assertEqual(result["ok"], expected["ok"])
+
 	def test_prerequisite_unreadable_or_missing_contract_does_not_invent_policy(self) -> None:
 		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
 		(self.project_root / "observed.gd").write_text(
@@ -321,6 +353,18 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				self.assertEqual(analysis["observations"][0]["source_domain"], "unknown")
 				self.assertEqual(report["snapshot"]["framework"]["capability_readiness"], [])
 				self.assertEqual(validate_schema_file(report["snapshot"], SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_inspection_projections_do_not_share_mutable_data(self) -> None:
+		inspection = snapshot.inspect_project(self.project_root)
+		expected = inspection.validation_result()
+		contract = inspection.contract_result()
+		contract["contract"]["framework"].clear()
+		observed = inspection.snapshot_result()
+		observed["drift"]["issues"].append({"code": "caller_edit"})
+		result = inspection.validation_result()
+		result["contract"]["issues"].append({"code": "another_edit"})
+		self.assertEqual(inspection.validation_result(), expected)
+		self.assertEqual(inspection.contract_result()["sha256"], inspection.snapshot_result()["contract"]["sha256"])
 
 	def test_prerequisite_partial_keeps_verified_real_policy_violation(self) -> None:
 		(self.project_root / "a.gd").write_text(

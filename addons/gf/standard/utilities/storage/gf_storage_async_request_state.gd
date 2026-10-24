@@ -581,15 +581,6 @@ func take_late_settlement_diagnostic_for_framework() -> Dictionary:
 	return _late_settlement_diagnostic.duplicate()
 
 
-## 在实际发出 caller 通知前复核等待期 owner。
-## [br]
-## @api framework_internal
-## [br]
-## @return 未绑定 owner 或 owner 仍存活时为 true。
-func can_emit_caller_signal_for_framework() -> bool:
-	return _request_options == null or not _request_options.owner_is_released_for_framework()
-
-
 ## 完成 caller 通知后释放等待期 owner 快照。
 ## [br]
 ## @api framework_internal

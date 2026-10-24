@@ -20,6 +20,7 @@
 | 方法 | [`is_pending`](#member-gfbgmstartoperation-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfbgmstartoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfbgmstartoperation-methods-get_result) | `func get_result() -> GFBgmStartResult:` |
+| 方法 | [`wait_result_async`](#member-gfbgmstartoperation-methods-wait_result_async) | `func wait_result_async() -> GFBgmStartResult:` |
 | 方法 | [`cancel`](#member-gfbgmstartoperation-methods-cancel) | `func cancel() -> bool:` |
 
 ## 信号
@@ -104,6 +105,21 @@ func get_result() -> GFBgmStartResult:
 获取 caller 终态结果副本。
 
 返回：已完成时返回隔离结果；等待中返回 null。
+
+<a id="member-gfbgmstartoperation-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFBgmStartResult:
+```
+
+等待本次 BGM 启动请求的终态；已完成时立即返回。 该等待只观察启动结果，不延长播放会话或改变取消状态。
+
+返回：当前启动请求的隔离结果。
 
 <a id="member-gfbgmstartoperation-methods-cancel"></a>
 

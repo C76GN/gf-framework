@@ -907,7 +907,7 @@ func test_accepted_deadline_uses_manual_clock_and_does_not_turn_late_read_into_s
 	_assert_successful_late_load(ticket)
 
 
-func test_owner_release_suppresses_notification_but_keeps_queryable_terminal() -> void:
+func test_owner_release_notifies_terminal_without_reviving_take_right() -> void:
 	assert_eq(
 		_storage.save_data(
 			"owner.json",
@@ -930,7 +930,16 @@ func test_owner_release_suppresses_notification_but_keeps_queryable_terminal() -
 	_storage.wait_for_async_tasks()
 	assert_eq(
 		notifications[0],
-		0
+		1
+	)
+	var receipt: GFStorageOwnedReadReceipt = await ticket.wait_result_async()
+	assert_eq(
+		receipt.get_end_kind(),
+		GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED
+	)
+	assert_eq(
+		ticket.take().get_status(),
+		GFStorageOwnedReadTakeResult.Status.FAILED
 	)
 	_assert_successful_late_load(ticket)
 

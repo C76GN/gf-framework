@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetLoadResult" path="addons/gf/standard/utilities/assets/gf_asset_load_result.gd" module="standard" extends="RefCounted" classDigest="dd27a2f947103cff6aca79448464e9c4962e47a4be376661e9f9b8edbdf3a5fc">
+	<description>单次资源请求的终态事实；scope 关闭后成功事实保留，但句柄不再可用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 资源已成功交付到请求 scope；之后释放句柄不改变此终态。
+	SUCCEEDED,
+	## 请求未取得可交付句柄，具体原因由错误码表达。
+	FAILED,
+	## 请求已取消，不代表底层共享加载已经停止。
+	CANCELLED,
+}</signature>
+			<description>请求终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>返回请求是否成功；之后关闭 scope 不改写此历史事实。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>返回请求终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_handle">
+			<signature>func get_handle() -&gt; GFAssetHandle:</signature>
+			<description>返回同一 scope 所拥有的句柄。重复调用不增加引用计数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功句柄或 null；scope 已关闭时句柄已释放。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>返回错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功为 OK，取消为 ERR_SKIP，其他错误为失败码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

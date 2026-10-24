@@ -63,15 +63,16 @@
       "id": "owned-resource-load",
       "title": "Load a resource with explicit ownership",
       "package_requirements": {"all_of": ["gf.standard.assets"], "any_of": []},
-      "primary_classes": ["GFAssetUtility", "GFAssetHandle", "GFResourceResolverUtility"],
+      "primary_classes": ["GFAssetUtility", "GFAssetScope", "GFAssetLoadOperation", "GFAssetLoadResult", "GFAssetHandle", "GFResourceResolverUtility"],
       "steps": [
         "Resolve a stable resource key or catalog entry instead of scattering paths.",
-        "Acquire through GFAssetUtility with an owner, group, or explicit release policy.",
-        "Handle cancellation and load failure before exposing the resource.",
-        "Release the handle when the owner ends.",
-        "Test cache and owner-disposal behavior."
+        "Create and retain a GFAssetScope for the business lifetime; optionally bind a Node owner for automatic close when it exits the tree.",
+        "Call load_async(path, scope) and await the returned operation.wait_result_async(); cancel only this operation when its caller loses interest.",
+        "Check the result and handle validity before exposing the resource; repeated reads share the same handle without acquiring another lease.",
+        "Close the scope when the business lifetime ends, cancelling pending operations and releasing successful handles.",
+        "Test independent callers, immediate completion, cancellation, cache behavior, and scope cleanup."
       ],
-      "avoid": ["Unowned long-lived cache pins", "Runtime content identity based only on raw res:// paths"]
+      "avoid": ["Using a group as lifetime ownership", "Cancelling every consumer of a path", "Runtime content identity based only on raw res:// paths"]
     },
     {
       "id": "config-pipeline",

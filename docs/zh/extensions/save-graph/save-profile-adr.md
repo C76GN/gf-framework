@@ -2,7 +2,9 @@
 
 状态：Accepted
 
-适用版本：11.0.0
+原决策始于：11.0.0
+
+普通请求元数据边界修订适用：下一主版本。
 决策范围：`gf.extension.save`
 
 ## 背景
@@ -27,8 +29,9 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
 新增 Save Profile 运行时层，复用既有文档、迁移和存储协议：
 
 - `GFSaveProfile` 声明 profile 身份、文件、文档版本和 section providers。
-- `GFSaveProfileRequest` 以一次性 opaque 句柄分别接管 document metadata、Provider
-  context 和 result metadata；保存接纳只做 O(1) claim，不复制调用方对象图。
+- `GFSaveProfileRequest.create()` 先检查 document metadata、Provider context 和
+  result metadata 的总预算与纯数据类型，再复制为请求私有快照。调用方可继续使用源值；
+  保存接纳只做 O(1) claim，接管构造时已隔离的私有引用。
 - `GFSaveSectionProvider` 是 section 的唯一所有者；保存通过
   `begin_save_snapshot()` / `_begin_save_snapshot()` 创建
   `GFSaveSectionSnapshotOperation`，读取事务回滚则单独使用 `_capture_section()`。
@@ -51,6 +54,12 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
   `GFSaveProfileReconcileLease` 与 `GFSaveProfileReconcileRequest` 负责未知写入的受控重读收敛。
 - `GFSaveSectionMutation` 与一次性 `GFSaveProfileMutationRequest` 提交候选 section，
   不接受可在事务中执行任意副作用的 Callable。
+
+三种 Request 的 `create()` 都对普通元数据执行有界复制：每次构造合计最多 64 层、
+100000 节点、1 MiB 保守计量预算，具体计量见
+[Save Profile 运行时](save-profile-runtime.md)。
+无效或超预算输入返回 `null`；Mutation Request 的元数据创建失败不会消费候选 Mutation。
+大型 section 仍通过 Snapshot / Mutation 显式移交，不能放入普通 metadata 或 context。
 
 Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽位 UI、云同步或平台 SDK。
 
@@ -77,12 +86,12 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 19. 就绪读取和等待保存采用有界轮转：最老就绪读取不会被更新保存饿死，服务一个读取后也必须给等待保存一个轮次。
 20. `save_profile()` 先验证 Profile、能力和生命周期，再一次性 claim `GFSaveProfileRequest`；拒绝的边界不得消费 Request，成功接纳只完成 O(1) 所有权转移、generation 分配和入队。
 21. 保存 Snapshot 只在主线程按全局 work-unit、单 profile slice 和软时间预算推进；软时间预算只能阻止开始下一个 slice，不能抢占已经开始的 Provider 回调。
-22. Snapshot、section payload、metadata 和 Storage transfer 采用逻辑 move；交出所有权后，生产者必须放弃源值及全部嵌套集合 alias。
+22. `GFSaveSectionSnapshot`、`GFSaveSectionMutation` 的 section payload / metadata 与 `GFStoragePayloadTransfer` 采用逻辑 move；交出所有权后，生产者必须放弃这些源值及全部嵌套集合 alias。普通 Request metadata 在 `create()` 时复制，调用方不必放弃其源值。
 23. Storage 首次 claim transfer 时冻结 Storage 实例、规范文件名、canonical target file-family identity 与 codec options；超时 detached attempt 与重试可同时持有同一 Snapshot 的只读 lease，最后一个 lease 结束且所有者释放后才可销毁载荷。
 24. Storage 执行器只能处理已移交的纯 Variant 图；图预算或可持久化性预检失败必须在本次新写入的编码以及 temp、marker、final 事务提交副作用前结束。既有事务 recovery 与目录初始化是独立前置生命周期；该约束不因执行器位于 worker thread 或主线程 lifecycle tick 而改变。
 25. 保存终态不得为了诊断保留完整文档副本；只有读取终态可通过 `get_document()` 返回文档，准备耗时与 Storage attempt 累计耗时必须分开报告；同时活跃的 attempt 分别累计，重叠区间不折叠。
 26. Storage 执行器失败报告只允许携带有界结构索引、Variant 类型和预算计数；Save 只能用文档构造时记录的 entry index 映射 section，不得复制 key/value 或可离线关联的 key 摘要。
-27. Save Operation 只持有对应请求的 result metadata；document metadata 与 Provider context 由最新 generation 状态直接接管，开始准备时通过 assignment 移入当前状态，不得深复制。
+27. Save Operation 只持有对应请求的 result metadata；document metadata 与 Provider context 是 Request 构造时已隔离的私有图，由最新 generation 状态直接接管，开始准备时通过 assignment 移入当前状态，不得再次深复制。
 28. Provider domain 只由完全相同的有序 Provider 对象身份构成；任何部分重叠或顺序不同的拓扑都不得共享活动身份或锁域。
 29. 每个 domain 最多有一个活动 Profile；只有严格加载或显式恢复写入获得确定成功后才可原子发布或切换活动身份。
 30. Coordinator 管理的 Profile 只允许稳定活动身份执行直接 save/flush；直接 load、非活动 Profile 操作和事务/fence 期间的全部直接操作必须失败关闭。
@@ -135,6 +144,7 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 | 阶段/故障 | 默认结果 | 可恢复行为 | 必须保留的证据 |
 | --- | --- | --- | --- |
 | Profile、provider 或规范路径无效 | `invalid_profile` | 无 | 注册报告、profile/schema id、规范路径 |
+| Request `create()` 输入无效或超预算 | 返回 `null`，尚无 Operation | 检查返回值并修正输入；不得将失败的 `null` 作为默认空元数据提交 | 构造返回值 |
 | Request 未初始化、结构无效或已被 claim | `invalid_request` | 创建新的 Request；已 claim 句柄不可复用 | 操作类型、profile id |
 | 当前 Profile 禁止该操作 | `unsupported_operation` | 修改声明后重新注册 | 操作类型、profile id |
 | load/apply/provider 或状态回调期间请求保存或重入 | `busy` | 回调结束后由上层重新请求 | 操作类型、稳定状态快照 |
@@ -193,8 +203,10 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 故障注入测试至少覆盖：
 
 - 在途写入期间多次保存只产生一次后续最新 generation 写入；
-- 大型 document metadata、context 与 result metadata 的 Request 在 `save_profile()`
-  返回前不深复制且不调用 Provider；claim 保留根与嵌套 alias 身份并且只能成功一次；
+- Request `create()` 在复制前完成预算与纯数据预检，创建后修改源字典或嵌套集合不影响
+  私有快照；无效或超预算输入返回 `null`，Mutation Request 创建失败不消费候选 Mutation；
+- `save_profile()` 接纳只通过 O(1) claim 转移已隔离的私有快照引用且只能成功一次，
+  不再复制调用方对象图，也不调用 Provider；
 - 无效 Profile、关闭能力和 busy 拒绝不 claim Request；未初始化或重复提交的 Request
   返回 `invalid_request`，不分配新的 generation；
 - 全局 work budget、单 profile slice budget 和软时间 budget 都能限制一次 tick 启动
@@ -238,12 +250,13 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 ## 后果
 
 项目获得统一、可测试的异步存档入口，业务模块只实现自己的 section provider。
-代价是调用方和 provider 都必须遵循显式所有权协议：Request 成功创建后放弃三个输入
-图的全部 alias，provider 定义稳定 section id、版本、可回滚应用语义和协作式 Snapshot
-协议；旧 `_gather_section()` 契约及其隐式回退不再存在。Provider 必须把每个 work unit
-保持在明确上界，并在逻辑 move 后主动放弃全部源 alias。注册后身份与能力被冻结。无法
-回滚的外部副作用必须留在更高层事务参与者中，不能伪装成普通 section 应用。写入结果
-未知时，上层还必须采用重读、版本戳或业务对账策略，而不能盲目重复提交。
+调用方需控制普通元数据规模并检查 Request 创建结果；成功创建后可继续使用源字典及
+嵌套集合，后续修改不会影响请求。Provider 仍需定义稳定 section id、版本、可回滚应用
+语义和协作式 Snapshot 协议；旧 `_gather_section()` 契约及其隐式回退不再存在。
+大型 section Snapshot / Mutation 和 Storage transfer 继续遵循显式所有权协议，移交后
+主动放弃这些源图的全部 alias。Provider 的每个 work unit 必须有明确上界，注册后身份与
+能力被冻结。无法回滚的外部副作用必须留在更高层事务参与者中，不能伪装成普通 section
+应用。写入结果未知时，上层还必须采用重读、版本戳或业务对账策略，而不能盲目重复提交。
 
 Coordinator 进一步把活动身份和跨 Profile 流程变成框架级可测试契约。代价是 managed
 Profile 必须通过精确 Provider 拓扑共享 domain，并遵循一次性 Recovery/Reconcile Lease

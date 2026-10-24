@@ -27,7 +27,7 @@ await architecture.init()
 不会创建兼容 fallback：`get_resource_broker()` 保持 `null`，资源请求以
 `ERR_UNCONFIGURED` 失败，消费者调试快照的 `resource_broker.configured` 为
 `false`，`error` 为 `resource_broker_not_configured`，`request_error` 为
-`ERR_UNCONFIGURED`。`GFAssetUtility.load_async()` 此时用 `null` 完成失败回调；
+`ERR_UNCONFIGURED`。`GFAssetUtility.load_async()` 此时返回已完成的失败 operation；
 `GFSceneUtility.load_scene_async()` 同步返回 `ERR_UNCONFIGURED` 并沿用场景失败
 信号；`GFBackgroundWorkUtility.submit_resource_load()` 返回 `failed` 任务，其
 `result.request_error` 为同一错误码。headless 也不会绕过 Broker 改走同步

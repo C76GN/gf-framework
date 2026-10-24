@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="348e2e40af5a6d704ff40495be34bdfb407cbc1e835f67048fe468af4b9d8e6c">
+<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="b3ce70038526fda3acc6c77ca702878e16455c16e3a0bd28e4e6b703be35def7">
 	<description>GFResourceRegistry: 通用资源注册表。
 通过稳定 ID 管理资源路径、类型提示和字段索引，便于项目用统一方式查询、
 预加载或加载资源定义。注册表只描述资源位置和通用字段，不规定物品、技能、
@@ -308,27 +308,16 @@
 			</tags>
 		</member>
 		<member kind="method" name="request_entry_async">
-			<signature>func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, type_hint_override: String = "" ) -&gt; void:</signature>
-			<description>通过 GFAssetUtility 异步加载条目资源。</description>
+			<signature>func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, scope: GFAssetScope, type_hint_override: String = "" ) -&gt; GFAssetLoadOperation:</signature>
+			<description>通过资源服务为条目创建独立请求，scope 贯穿请求与成功句柄。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">asset_utility: 资源加载工具。</tag>
+				<tag name="param">asset_utility: 资源加载服务。</tag>
 				<tag name="param">entry_id: 条目稳定 ID。</tag>
-				<tag name="param">on_loaded: 加载完成回调，签名为 func(resource: Resource)。</tag>
-				<tag name="param">type_hint_override: 可选类型提示覆盖；为空时使用条目自己的 type_hint。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="request_entry_handle_async">
-			<signature>func request_entry_handle_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, owner: Object = null, group_id: StringName = &amp;"", type_hint_override: String = "" ) -&gt; void:</signature>
-			<description>通过 GFAssetUtility 异步加载条目资源并返回所有权句柄。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">asset_utility: 资源加载工具。</tag>
-				<tag name="param">entry_id: 条目稳定 ID。</tag>
-				<tag name="param">on_loaded: 加载完成回调，签名为 func(handle: GFAssetHandle)。</tag>
-				<tag name="param">owner: 可选拥有者。</tag>
-				<tag name="param">group_id: 可选资源分组。</tag>
-				<tag name="param">type_hint_override: 可选类型提示覆盖；为空时使用条目自己的 type_hint。</tag>
+				<tag name="param">scope: 资源生命周期。</tag>
+				<tag name="param">type_hint_override: 可选类型覆盖。</tag>
+				<tag name="return">独立操作，条目不存在时返回失败终态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_asset_group_entries">

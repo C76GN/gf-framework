@@ -3,7 +3,7 @@
 ## 可选择继承父级架构，或创建带父级回退的 Scoped 架构。
 ## Scoped 架构会在节点退出树时使用无法等待的 forced/no-drain dispose fallback，
 ## 适合关卡、战斗房间、调试面板等局部模块。可控或数据关键的退出必须先 await
-## owned Architecture 的 shutdown_async()，再移除节点。
+## close_async()，确认结果后再移除节点。
 ## [br]
 ## @api public
 ## [br]
@@ -33,6 +33,13 @@ signal context_ready(architecture: GFArchitecture)
 ## [br]
 ## @param reason: 失败原因。
 signal context_failed(reason: String)
+
+## 本地绑定停止接受新工作时发出；可用于立即撤销 Controller 事件绑定。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+signal context_closing()
 
 
 # --- 枚举 ---
@@ -161,6 +168,36 @@ var _parent_architecture_initial_generation: int = -1
 ## @api private
 var _parent_architecture_ready_generation: int = -1
 
+## 显式来源的弱引用；非空时绝不回退场景父链或全局架构。
+## [br]
+## @api private
+var _explicit_source_ref: WeakRef = null
+
+## 本轮实际来源 Context 的弱引用。
+## [br]
+## @api private
+var _source_context_ref: WeakRef = null
+
+## 本轮来源 Context 的进入树代次。
+## [br]
+## @api private
+var _source_context_serial: int = -1
+
+## 直接逻辑子上下文；包括显示挂载于其他节点的显式绑定。
+## [br]
+## @api private
+var _child_context_refs: Array[WeakRef] = []
+
+## 当前关闭尝试的单次完成源；并发调用复用首个调用的取消和超时策略。
+## [br]
+## @api private
+var _close_completion: GFAsyncCompletion = null
+
+## 最近一次关闭尝试结果。
+## [br]
+## @api private
+var _last_close_result: GFContextCloseResult = null
+
 
 # --- Godot 生命周期方法 ---
 
@@ -172,6 +209,8 @@ func _enter_tree() -> void:
 	var lifecycle_serial: int = _context_lifecycle_serial
 	_context_state = _ContextState.DETACHED
 	_context_failure_reason = ""
+	_close_completion = null
+	_last_close_result = null
 	_setup_architecture()
 	if _owns_architecture:
 		var context_architecture: GFArchitecture = _architecture
@@ -280,10 +319,22 @@ func _physics_process(delta: float) -> void:
 ## [br]
 ## @api private
 func _exit_tree() -> void:
+	_context_state = _ContextState.CLOSING
+	context_closing.emit()
 	_context_lifecycle_serial += 1
 	_cancel_context_install_scope("The context has exited the tree.")
 	if _owns_architecture and _architecture != null:
 		_architecture.dispose()
+	if _close_completion != null and _close_completion.is_pending():
+		var _closed_result: GFContextCloseResult = _publish_context_close_result(
+			GFContextCloseResult.create(
+				true,
+				false,
+				ERR_UNAVAILABLE,
+				"Context exited the tree before cooperative close completed."
+			)
+		)
+	_disconnect_source_context()
 	_architecture = null
 	_owns_architecture = false
 	_context_state = _ContextState.DETACHED
@@ -293,6 +344,196 @@ func _exit_tree() -> void:
 
 
 # --- 公共方法 ---
+
+## 在进入树前为 INHERITED Context 指定业务来源。显示父节点不会改变该绑定。
+## 来源必须已经在树中；绑定不拥有来源，来源离树、关闭或重入后本轮绑定失效。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param source: 要借用架构的来源上下文。
+## [br]
+## @return 配置成功返回 true；在树中、非 INHERITED 或无效来源返回 false。
+func bind_source_context(source: GFNodeContext) -> bool:
+	if is_inside_tree() or scope_mode != ScopeMode.INHERITED:
+		return false
+	if (
+		source == null
+		or not is_instance_valid(source)
+		or not source.is_inside_tree()
+	):
+		return false
+	if (
+		source == self
+		or is_ancestor_of(source)
+		or not source.is_context_available()
+	):
+		return false
+	_explicit_source_ref = weakref(source)
+	return true
+
+
+## 检查本地绑定是否接受新工作。初始化中的绑定可用；关闭、失效及来源失效时不可用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前绑定和来源身份都有效时返回 true。
+func is_context_available() -> bool:
+	_synchronize_context_lifecycle()
+	if (
+		not is_inside_tree()
+		or _context_state == _ContextState.DETACHED
+		or _context_state == _ContextState.FAILED
+		or _is_context_ending()
+	):
+		return false
+	if _source_context_ref != null:
+		var source: GFNodeContext = _get_source_context()
+		if source == null or source._context_lifecycle_serial != _source_context_serial:
+			return false
+		return source.is_context_available()
+	return _explicit_source_ref == null and _architecture != null
+
+
+## 先关闭逻辑子 Context，再关闭自有架构；INHERITED 只关闭本地绑定。
+## 首次调用立即停止新工作，并发调用共享结果与首个调用的策略。预算由子关闭共同消耗。
+## 节点不会自动离树；无法关闭的外部依赖返回未关闭结果，保持 CLOSING，允许稍后重试。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param cancellation_token: 协作关闭的取消 token。
+## [br]
+## @param timeout_seconds: 总等待预算，-1 使用自有架构默认值或 30 秒；同步释放不承诺硬时限。
+## [br]
+## @return 同时说明是否关闭和是否正常排空的不可变结果。
+func close_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFContextCloseResult:
+	if (
+		not is_finite(timeout_seconds)
+		or (
+			timeout_seconds < 0.0
+			and timeout_seconds != -1.0
+		)
+		or timeout_seconds > 86400.0
+	):
+		return GFContextCloseResult.create(
+			false,
+			false,
+			ERR_INVALID_PARAMETER,
+			"Invalid context close timeout."
+		)
+	if _close_completion != null and _close_completion.is_pending():
+		var shared_completion: GFAsyncCompletion = _close_completion
+		await shared_completion.completed
+		var shared_result: Variant = shared_completion.get_result()
+		if shared_result is GFContextCloseResult:
+			return shared_result
+	if _last_close_result != null and _last_close_result.is_closed():
+		return _last_close_result
+	if not is_inside_tree():
+		return GFContextCloseResult.create(
+			true,
+			false,
+			ERR_UNAVAILABLE,
+			"Context is outside the scene tree."
+		)
+	var context_serial: int = _context_lifecycle_serial
+	var context_architecture: GFArchitecture = _architecture
+	var owns_architecture: bool = _owns_architecture
+	var effective_timeout: float = timeout_seconds
+	if effective_timeout < 0.0:
+		effective_timeout = context_architecture.shutdown_timeout_seconds if owns_architecture and context_architecture != null else 30.0
+	var deadline_msec: int = Time.get_ticks_msec() + int(effective_timeout * 1000.0)
+	_close_completion = GFAsyncCompletion.new()
+	var completion: GFAsyncCompletion = _close_completion
+	_context_state = _ContextState.CLOSING
+	_cancel_context_install_scope("Context is closing.")
+	if _context_lifecycle_serial != context_serial or completion.is_completed():
+		return _completed_context_close_result(completion)
+	context_closing.emit()
+	var children: Array[GFContextCloseResult] = []
+	if _context_lifecycle_serial != context_serial or completion.is_completed():
+		return _completed_context_close_result(completion)
+	var drained: bool = true
+	var error_code: Error = OK
+	var error: String = ""
+	for child_ref: WeakRef in _child_context_refs.duplicate():
+		var child_value: Variant = child_ref.get_ref()
+		if not child_value is GFNodeContext:
+			continue
+		var child: GFNodeContext = child_value
+		if child._get_source_context() != self or not child.is_inside_tree():
+			continue
+		var child_result: GFContextCloseResult = await child.close_async(
+			cancellation_token,
+			_remaining_close_seconds(deadline_msec)
+		)
+		if _context_lifecycle_serial != context_serial or completion.is_completed():
+			return _completed_context_close_result(completion)
+		children.append(child_result)
+		drained = drained and child_result.is_drained()
+		if error_code == OK and child_result.get_error_code() != OK:
+			error_code = child_result.get_error_code()
+			error = child_result.get_error()
+		if not child_result.is_closed():
+			return _publish_context_close_result(
+				GFContextCloseResult.create(
+					false,
+					false,
+					error_code,
+					error,
+					null,
+					children
+				)
+			)
+	var architecture_result: GFArchitectureShutdownResult = null
+	if owns_architecture and context_architecture != null:
+		if context_architecture.is_disposed():
+			architecture_result = context_architecture.get_last_shutdown_result()
+			if architecture_result == null:
+				architecture_result = GFArchitectureShutdownResult.forced("Architecture was released before context close.")
+		else:
+			# Architecture 的 0 表示无限等待；耗尽的 Context 预算必须保持有限。
+			architecture_result = await context_architecture.shutdown_async(
+				cancellation_token,
+				maxf(
+					0.000001,
+					_remaining_close_seconds(deadline_msec)
+				)
+			)
+		if _context_lifecycle_serial != context_serial or completion.is_completed():
+			return _completed_context_close_result(completion)
+		drained = drained and architecture_result.is_successful()
+		if error_code == OK and architecture_result.get_error_code() != OK:
+			error_code = architecture_result.get_error_code()
+			error = architecture_result.get_error()
+		if not context_architecture.is_disposed():
+			return _publish_context_close_result(
+				GFContextCloseResult.create(
+					false,
+					false,
+					error_code,
+					error,
+					architecture_result,
+					children
+				)
+			)
+	_context_state = _ContextState.CLOSED
+	return _publish_context_close_result(
+		GFContextCloseResult.create(
+			true,
+			drained,
+			error_code,
+			error,
+			architecture_result,
+			children
+		)
+	)
+
 
 ## 安装当前上下文的局部模块。仅在 SCOPED 模式下调用。
 ## [br]
@@ -338,7 +579,7 @@ func get_architecture() -> GFArchitecture:
 ## @return 已完成初始化返回 true。
 func is_context_ready() -> bool:
 	_synchronize_context_lifecycle()
-	return _context_state == _ContextState.READY
+	return _context_state == _ContextState.READY and is_context_available()
 
 
 ## 检查上下文是否已经进入失败终态。
@@ -478,7 +719,7 @@ func wait_until_ready() -> GFArchitecture:
 ## [br]
 ## @return 模型实例。
 func get_model(model_type: Script, require_ready: bool = false) -> Object:
-	if _architecture == null:
+	if not is_context_available():
 		return null
 	return _architecture.get_model(model_type, require_ready)
 
@@ -493,7 +734,7 @@ func get_model(model_type: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 系统实例。
 func get_system(system_type: Script, require_ready: bool = false) -> Object:
-	if _architecture == null:
+	if not is_context_available():
 		return null
 	return _architecture.get_system(system_type, require_ready)
 
@@ -508,7 +749,7 @@ func get_system(system_type: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 工具实例。
 func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
-	if _architecture == null:
+	if not is_context_available():
 		return null
 	return _architecture.get_utility(utility_type, require_ready)
 
@@ -523,7 +764,7 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 当前上下文架构中的模型实例。
 func get_local_model(model_type: Script, require_ready: bool = false) -> Object:
-	if _architecture == null:
+	if not is_context_available():
 		return null
 	return _architecture.get_local_model(model_type, require_ready)
 
@@ -538,7 +779,7 @@ func get_local_model(model_type: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @return 当前上下文架构中的系统实例。
 func get_local_system(system_type: Script, require_ready: bool = false) -> Object:
-	if _architecture == null:
+	if not is_context_available():
 		return null
 	return _architecture.get_local_system(system_type, require_ready)
 
@@ -553,7 +794,7 @@ func get_local_system(system_type: Script, require_ready: bool = false) -> Objec
 ## [br]
 ## @return 当前上下文架构中的工具实例。
 func get_local_utility(utility_type: Script, require_ready: bool = false) -> Object:
-	if _architecture == null:
+	if not is_context_available():
 		return null
 	return _architecture.get_local_utility(utility_type, require_ready)
 
@@ -564,7 +805,7 @@ func get_local_utility(utility_type: Script, require_ready: bool = false) -> Obj
 ## [br]
 ## @param instance: 要注册、替换或注入的实例。
 func inject_object(instance: Object) -> void:
-	if _architecture != null:
+	if is_context_available():
 		_architecture.inject_object(instance)
 
 
@@ -574,16 +815,115 @@ func inject_object(instance: Object) -> void:
 ## [br]
 ## @param node: 目标节点。
 func inject_node_tree(node: Node) -> void:
-	if _architecture != null:
+	if is_context_available():
 		_architecture.inject_node_tree(node)
 
 
 # --- 私有/辅助方法 ---
 
+## 从弱引用读取来源，不查找任何替代来源。
+## [br]
+## @api private
+func _get_source_context() -> GFNodeContext:
+	if _source_context_ref == null:
+		return null
+	var source_value: Variant = _source_context_ref.get_ref()
+	return source_value if source_value is GFNodeContext else null
+
+
+## 捕获本轮最近父 Context 或显式来源，并登记逻辑子关闭关系。
+## [br]
+## @api private
+func _connect_source_context() -> void:
+	var source: GFNodeContext = null
+	if _explicit_source_ref != null:
+		var explicit_value: Variant = _explicit_source_ref.get_ref()
+		if explicit_value is GFNodeContext:
+			source = explicit_value
+	else:
+		var candidate: Node = get_parent()
+		while candidate != null:
+			if candidate is GFNodeContext:
+				source = candidate
+				break
+			candidate = candidate.get_parent()
+	if source == null:
+		return
+	_source_context_ref = weakref(source)
+	_source_context_serial = source._context_lifecycle_serial
+	source._child_context_refs.append(weakref(self))
+	var callback: Callable = Callable(self, &"_on_source_context_closing")
+	if not source.context_closing.is_connected(callback):
+		var _connect_error: Error = source.context_closing.connect(callback) as Error
+	var failed_callback: Callable = Callable(self, &"_on_source_context_failed")
+	if not source.context_failed.is_connected(failed_callback):
+		var _failed_connect_error: Error = source.context_failed.connect(failed_callback) as Error
+
+
+## 离树时解除借用关系；不释放来源。
+## [br]
+## @api private
+func _disconnect_source_context() -> void:
+	var source: GFNodeContext = _get_source_context()
+	if source != null:
+		var callback: Callable = Callable(self, &"_on_source_context_closing")
+		if source.context_closing.is_connected(callback):
+			source.context_closing.disconnect(callback)
+		var failed_callback: Callable = Callable(self, &"_on_source_context_failed")
+		if source.context_failed.is_connected(failed_callback):
+			source.context_failed.disconnect(failed_callback)
+		for index: int in range(
+			source._child_context_refs.size() - 1,
+			-1,
+			-1
+		):
+			var child_value: Variant = source._child_context_refs[index].get_ref()
+			if child_value == null or child_value == self:
+				source._child_context_refs.remove_at(index)
+	_source_context_ref = null
+	_source_context_serial = -1
+
+
+## 返回总预算剩余秒数。
+## [br]
+## @api private
+func _remaining_close_seconds(deadline_msec: int) -> float:
+	return maxf(
+		0.0,
+		float(deadline_msec - Time.get_ticks_msec()) / 1000.0
+	)
+
+
+## 提交当前关闭尝试一次；未关闭的尝试允许后续重试。
+## [br]
+## @api private
+func _publish_context_close_result(result: GFContextCloseResult) -> GFContextCloseResult:
+	_last_close_result = result
+	if _close_completion != null and _close_completion.is_pending():
+		var _completed: bool = _close_completion.succeed(result)
+	return result
+
+
+## 旧协程被离树打断后读取其完成源，不读取新入树代次的状态。
+## [br]
+## @api private
+func _completed_context_close_result(completion: GFAsyncCompletion) -> GFContextCloseResult:
+	var result_value: Variant = completion.get_result()
+	if result_value is GFContextCloseResult:
+		return result_value
+	return GFContextCloseResult.create(
+		true,
+		false,
+		ERR_UNAVAILABLE,
+		"Context lifecycle ended during close."
+	)
+
+
 ## 捕获最近父架构，并按 scope_mode 选择继承该架构或创建一个 owned child 架构。
 ## [br]
 ## @api private
 func _setup_architecture() -> void:
+	_connect_source_context()
 	var parent_architecture: GFArchitecture = _find_parent_architecture()
 	_capture_parent_architecture(parent_architecture)
 
@@ -734,19 +1074,20 @@ func _wait_for_parent_architecture_ready(
 ## [br]
 ## @api private
 func _find_parent_architecture() -> GFArchitecture:
+	if _explicit_source_ref != null:
+		var source: GFNodeContext = _get_source_context()
+		return source.get_architecture() if source != null and source.is_context_available() else null
 	var current_node: Node = get_parent()
 	while current_node != null:
 		if current_node is GFNodeContext:
 			var parent_context: GFNodeContext = current_node
-			var context_architecture: GFArchitecture = parent_context.get_architecture()
-			if context_architecture != null:
-				return context_architecture
+			return parent_context.get_architecture() if parent_context.is_context_available() else null
 		current_node = current_node.get_parent()
 
 	return GFAutoload.get_architecture_or_null()
 
 
-## 仅当开关开启、上下文拥有已初始化且 READY 的架构时允许驱动 tick。
+## 驱动已就绪的自有架构；关闭等待子 Context 时保留父服务 tick，架构开始 quiesce 后停止。
 ## [br]
 ## @api private
 func _should_tick_owned_architecture() -> bool:
@@ -754,7 +1095,14 @@ func _should_tick_owned_architecture() -> bool:
 		process_scoped_ticks
 		and _owns_architecture
 		and _architecture != null
-		and _context_state == _ContextState.READY
+		and (
+			_context_state == _ContextState.READY
+			or (
+				_context_state == _ContextState.CLOSING
+				and _close_completion != null
+				and _close_completion.is_pending()
+			)
+		)
 		and _architecture.is_inited()
 	)
 
@@ -822,6 +1170,19 @@ func _synchronize_context_lifecycle() -> void:
 		or _architecture == null
 	):
 		return
+	if _close_completion != null and _close_completion.is_pending():
+		return
+	if _source_context_ref != null:
+		var source: GFNodeContext = _get_source_context()
+		if (
+			source == null
+			or not source.is_inside_tree()
+			or source._context_lifecycle_serial != _source_context_serial
+		):
+			_fail_context("Source context lifecycle has ended.", true)
+			return
+		if source._is_context_ending():
+			return
 	var allow_ready_transition: bool = _context_state == _ContextState.READY
 	if _owns_architecture and _architecture.is_disposed():
 		var shutdown_result: GFArchitectureShutdownResult = _architecture.get_last_shutdown_result()
@@ -873,6 +1234,21 @@ func _clear_parent_architecture_tracking() -> void:
 ## [br]
 ## @api private
 func _validate_parent_architecture_lifecycle(allow_pending: bool) -> bool:
+	if _source_context_ref != null:
+		var source: GFNodeContext = _get_source_context()
+		if (
+			source == null
+			or not source.is_inside_tree()
+			or source._context_lifecycle_serial != _source_context_serial
+			or source._context_state == _ContextState.DETACHED
+		):
+			_fail_context("Source context lifecycle has ended.", true)
+			return false
+		if source._context_state == _ContextState.FAILED:
+			_on_source_context_failed(source._context_failure_reason)
+			return false
+		if source._is_context_ending():
+			return false
 	var bound_parent_architecture: GFArchitecture = _get_bound_parent_architecture()
 	var relationship_name: String = "Parent architecture" if _owns_architecture else "Inherited architecture"
 	var allow_ready_transition: bool = _context_state == _ContextState.READY
@@ -966,6 +1342,7 @@ func _get_architecture_failure_reason(architecture_instance: GFArchitecture, fal
 func _is_owned_architecture_current(architecture_instance: GFArchitecture, lifecycle_serial: int = -1) -> bool:
 	return (
 		is_inside_tree()
+		and not _is_context_ending()
 		and _owns_architecture
 		and _architecture == architecture_instance
 		and (
@@ -1007,6 +1384,7 @@ func _validate_owned_architecture_wait_target(
 func _is_inherited_architecture_current(architecture_instance: GFArchitecture, lifecycle_serial: int) -> bool:
 	return (
 		is_inside_tree()
+		and not _is_context_ending()
 		and not _owns_architecture
 		and _architecture == architecture_instance
 		and _context_lifecycle_serial == lifecycle_serial
@@ -1152,3 +1530,23 @@ func _handle_context_install_interruption(
 	else:
 		failure_reason = "Context installation did not complete."
 	_fail_context(failure_reason)
+
+
+# --- 信号处理函数 ---
+
+## 来源停止接收工作时同步撤销本地观察者；关闭工作仍由 child-before-parent 流程负责。
+## [br]
+## @api private
+func _on_source_context_closing() -> void:
+	context_closing.emit()
+
+
+## 来源仅本地绑定失败时也立即撤销子绑定，不等待共享架构发生状态变化。
+## [br]
+## @api private
+func _on_source_context_failed(reason: String) -> void:
+	if not _is_context_ending():
+		_fail_context(
+			"Source context failed: %s" % reason,
+			true
+		)

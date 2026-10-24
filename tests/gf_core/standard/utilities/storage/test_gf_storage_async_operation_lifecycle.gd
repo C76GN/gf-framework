@@ -1,6 +1,7 @@
 # 测试 Storage 异步请求的 caller/physical 双终态与 late-settlement 诊断契约。
 extends GutTest
 
+const GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
 const _OWNED_TEST_TREE_SUPPORT = preload("res://tests/gf_core/support/gf_owned_test_tree_support.gd")
 const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
 const _CALLER_RESULT_SCRIPT_PATH: String = ("res://addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd")
@@ -2187,7 +2188,7 @@ func test_normal_physical_settlement_completes_both_terminals_exactly_once() -> 
 	)
 
 
-func test_physical_listener_releasing_owner_suppresses_following_caller_signal() -> void:
+func test_physical_listener_releasing_owner_preserves_following_caller_fact() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
 	var owner_box: Array[RefCounted] = [RefCounted.new()]
@@ -2241,8 +2242,8 @@ func test_physical_listener_releasing_owner_suppresses_following_caller_signal()
 	)
 	assert_eq(
 		caller_signal_count[0],
-		0,
-		"completed listener 释放 owner 后，后续 caller_completed 必须被抑制。"
+		1,
+		"completed listener 释放 owner 后仍必须交付 caller 终态事实。"
 	)
 	_assert_physical_terminal(
 		operation,
@@ -2772,7 +2773,7 @@ func test_active_save_deadline_uses_injected_manual_clock_without_stopping_physi
 	)
 
 
-func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() -> void:
+func test_owner_release_wakes_all_waiters_before_physical_settlement() -> void:
 	if not _lifecycle_scenarios_ready():
 		return
 	var lifecycle_owner: RefCounted = RefCounted.new()
@@ -2799,6 +2800,21 @@ func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() 
 		caller_signal_count
 	)
 
+	var caller_results: Array[GFStorageAsyncCallerResult] = []
+	var physical_results: Array[GFStorageAsyncResult] = []
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_collect_caller_wait"),
+		[operation, caller_results]
+	)
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_collect_caller_wait"),
+		[operation, caller_results]
+	)
+	GF_ASYNC_CALL_SCRIPT.run_detached(
+		Callable(self, &"_collect_physical_wait"),
+		[operation, physical_results]
+	)
+
 	options = null
 	lifecycle_owner = null
 	assert_true(
@@ -2815,12 +2831,31 @@ func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() 
 	)
 	assert_eq(
 		caller_signal_count[0],
-		0,
-		"owner 已释放时必须抑制 caller callback。"
+		1,
+		"owner 已释放也必须唤醒等待终态的调用方。"
+	)
+	assert_eq(
+		caller_results.size(),
+		2
+	)
+	assert_eq(
+		physical_results.size(),
+		0
+	)
+	var repeated: GFStorageAsyncCallerResult = await operation.wait_caller_result_async()
+	assert_eq(
+		repeated.get_status(),
+		GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN
 	)
 	assert_true(operation.is_pending())
 	_storage.release_for_test()
 	assert_true(await _pump_until_storage_idle())
+	assert_eq(
+		physical_results.size(),
+		1
+	)
+	var physical: GFStorageAsyncResult = await operation.wait_physical_result_async()
+	assert_true(physical.is_successful())
 	_assert_physical_terminal(
 		operation,
 		"DOMAIN_RESULT",
@@ -2833,7 +2868,7 @@ func test_owner_release_suppresses_caller_signal_but_keeps_queryable_terminal() 
 	)
 	assert_eq(
 		caller_signal_count[0],
-		0
+		1
 	)
 
 
@@ -3829,3 +3864,13 @@ func _load_gdscript(path: String) -> GDScript:
 		var gdscript: GDScript = resource_value
 		return gdscript
 	return null
+
+
+func _collect_caller_wait(operation: GFStorageAsyncOperation, results: Array[GFStorageAsyncCallerResult]) -> void:
+	var result: GFStorageAsyncCallerResult = await operation.wait_caller_result_async()
+	results.append(result)
+
+
+func _collect_physical_wait(operation: GFStorageAsyncOperation, results: Array[GFStorageAsyncResult]) -> void:
+	var result: GFStorageAsyncResult = await operation.wait_physical_result_async()
+	results.append(result)

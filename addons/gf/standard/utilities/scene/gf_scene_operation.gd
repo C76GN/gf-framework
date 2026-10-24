@@ -33,7 +33,7 @@ signal progressed(progress_ratio: float)
 ## 当前 consumer 进入唯一终态时发出一次。
 ##
 ## 同步 validation、cache hit 或生命周期拒绝可能在 request 方法返回前完成；调用方
-## 必须先查询 `is_completed()`，只在仍 pending 时连接该信号。
+## 可使用 `wait_result_async()` 同时处理立即完成与等待；直接连接信号时先查询终态。
 ## [br]
 ## @api public
 ## [br]
@@ -192,6 +192,21 @@ func is_completed() -> bool:
 ## @return 已完成时返回隔离结果；等待中返回 null。
 func get_result() -> GFSceneOperationResult:
 	return _result.duplicate_result() if _result != null else null
+
+
+## 等待当前消费者的终态；同步命中或拒绝时立即取得结果。
+##
+## 多次等待不创建新请求，也不改变共享物理加载的所有权。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前请求的隔离终态结果。
+func wait_result_async() -> GFSceneOperationResult:
+	if not is_completed():
+		await completed
+	return get_result()
 
 
 ## 取消当前 caller 仍在等待的请求。

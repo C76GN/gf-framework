@@ -2322,8 +2322,7 @@ func request_async_state_cancel_for_framework(
 			request_state,
 			caller_status,
 			end_kind as GFStorageAsyncCallerResult.EndKind,
-			reason,
-			end_kind != GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED
+			reason
 		)
 	if _async_settling_records.has(record_id):
 		return false
@@ -2336,8 +2335,7 @@ func request_async_state_cancel_for_framework(
 		request_state,
 		queued_task,
 		end_kind as GFStorageAsyncCallerResult.EndKind,
-		reason,
-		end_kind != GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED
+		reason
 	)
 
 
@@ -3626,8 +3624,7 @@ func _complete_request_caller(
 	request_state: GFStorageAsyncRequestState,
 	status: GFStorageAsyncCallerResult.Status,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
-	reason: StringName,
-	emit_caller_signal: bool
+	reason: StringName
 ) -> bool:
 	var observer: Dictionary = _get_async_state_observer(request_state)
 	var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
@@ -3635,8 +3632,7 @@ func _complete_request_caller(
 		return operation.complete_caller_for_framework(
 			status,
 			end_kind,
-			reason,
-			emit_caller_signal
+			reason
 		)
 	if not request_state.commit_caller_for_framework(
 		status,
@@ -3651,11 +3647,7 @@ func _complete_request_caller(
 			null,
 			GFStorageOwnedReadReceipt.FailureKind.CANCELLED
 		)
-		var _completed: bool = ticket.complete_for_framework(
-			receipt,
-			null,
-			emit_caller_signal and request_state.can_emit_caller_signal_for_framework()
-		)
+		var _completed: bool = ticket.complete_for_framework(receipt, null)
 	request_state.finish_caller_notification_for_framework()
 	return true
 
@@ -3804,7 +3796,7 @@ func _complete_owned_read(
 	owned_result = null
 	_finalize_owned_observer(request_state, observer)
 	if receipt != null:
-		ticket.notify_completion_for_framework(request_state.can_emit_caller_signal_for_framework())
+		ticket.notify_completion_for_framework()
 	request_state.finish_caller_notification_for_framework()
 
 
@@ -5038,8 +5030,7 @@ func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 				var _cancelled: bool = _cancel_queued_async_task(
 					task,
 					GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
-					&"request_not_accepted",
-					true
+					&"request_not_accepted"
 				)
 				continue
 
@@ -5469,8 +5460,7 @@ func _cancel_all_queued_async_tasks_for_dispose() -> void:
 				request_state,
 				task,
 				GFStorageAsyncCallerResult.EndKind.UTILITY_DISPOSED,
-				&"utility_disposed",
-				true
+				&"utility_disposed"
 			)
 			continue
 		var queued_index: int = _find_queued_async_task_index(_get_task_record_id(task))
@@ -5508,8 +5498,7 @@ func _complete_legacy_queued_dispose(task: Dictionary) -> void:
 func _cancel_queued_async_task(
 	task: Dictionary,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
-	reason: StringName,
-	emit_caller_signal: bool
+	reason: StringName
 ) -> bool:
 	var request_state: GFStorageAsyncRequestState = _get_task_request_state(task)
 	if request_state == null:
@@ -5518,8 +5507,7 @@ func _cancel_queued_async_task(
 		request_state,
 		task,
 		end_kind,
-		reason,
-		emit_caller_signal
+		reason
 	)
 
 
@@ -5531,8 +5519,7 @@ func _complete_cancelled_before_acceptance(
 	request_state: GFStorageAsyncRequestState,
 	task: Dictionary,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
-	reason: StringName,
-	emit_caller_signal: bool
+	reason: StringName
 ) -> bool:
 	if request_state == null or not request_state.is_caller_pending():
 		return false
@@ -5545,8 +5532,7 @@ func _complete_cancelled_before_acceptance(
 			operation,
 			task,
 			end_kind,
-			reason,
-			emit_caller_signal
+			reason
 		)
 	if not request_state.mark_physical_cancel_requested_for_framework():
 		return false
@@ -5579,7 +5565,7 @@ func _complete_cancelled_before_acceptance(
 		)
 	_finalize_owned_observer(request_state, observer)
 	if ticket != null:
-		ticket.notify_completion_for_framework(emit_caller_signal and request_state.can_emit_caller_signal_for_framework())
+		ticket.notify_completion_for_framework()
 	request_state.finish_caller_notification_for_framework()
 	_request_async_start_only()
 	return true
@@ -5593,8 +5579,7 @@ func _complete_legacy_cancelled_before_acceptance(
 	operation: GFStorageAsyncOperation,
 	task: Dictionary,
 	end_kind: GFStorageAsyncCallerResult.EndKind,
-	reason: StringName,
-	emit_caller_signal: bool
+	reason: StringName
 ) -> bool:
 	if operation == null or not operation.is_caller_pending():
 		return false
@@ -5605,8 +5590,7 @@ func _complete_legacy_cancelled_before_acceptance(
 		var degraded: bool = operation.complete_caller_for_framework(
 			GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN,
 			end_kind,
-			reason,
-			emit_caller_signal
+			reason
 		)
 		if degraded:
 			_request_async_start_only()
@@ -5632,8 +5616,7 @@ func _complete_legacy_cancelled_before_acceptance(
 	var completed: bool = operation.complete_for_framework(
 		cancelled_result,
 		end_kind,
-		reason,
-		emit_caller_signal
+		reason
 	)
 	if not completed:
 		push_error("[GFStorageUtility][storage_utility.pre_admission_commit_failed] Pre-admission cancellation could not commit the guaranteed physical terminal result.")

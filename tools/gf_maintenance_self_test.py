@@ -7924,35 +7924,33 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	)
 
 	asset_lifecycle_source = "\n".join([
-		"func run(asset_util: GFAssetUtility, registry: GFResourceRegistry, owner: Node) -> void:",
-		"\tasset_util.load_handle_async(\"res://hero.tres\", func(_handle: GFAssetHandle) -> void:",
-		"\t\tpass",
-		"\t)",
-		"\tasset_util.load_handle_async(\"res://owned.tres\", Callable(), \"Resource\", owner)",
-		"\tasset_util.acquire_handle(\"res://grouped.tres\", null, &\"ui\", \"Resource\", Resource.new())",
-		"\tregistry.request_entry_handle_async(asset_util, &\"entry\", Callable(), owner, &\"\")",
+		"func run(asset_util: GFAssetUtility, registry: GFResourceRegistry, scope: GFAssetScope) -> void:",
+		"\tasset_util.load_async(\"res://hero.tres\", null)",
+		"\tasset_util.load_async(\"res://owned.tres\", scope, \"Resource\")",
+		"\tasset_util.acquire_handle(\"res://scoped.tres\", scope, \"Resource\", Resource.new())",
+		"\tregistry.request_entry_async(asset_util, &\"entry\", scope)",
 	])
 	asset_lifecycle_issues = audit_asset_lifecycle_text(
 		asset_lifecycle_source,
 		"addons/gf/fixture.gd",
 	)
 	record_result(
-		"asset_lifecycle_boundary_reports_ownerless_ungrouped_handles",
+		"asset_lifecycle_boundary_reports_missing_scope",
 		issue_exists(
 			asset_lifecycle_issues,
-			"ownerless_ungrouped_asset_handle",
-			callee="load_handle_async",
+			"missing_asset_scope",
+			callee="load_async",
 			target='"res://hero.tres"',
 			severity="warning",
 		),
-		f"ownerless ungrouped handle should be reported: {asset_lifecycle_issues}",
+		f"missing scope should be reported: {asset_lifecycle_issues}",
 	)
 	record_result(
-		"asset_lifecycle_boundary_accepts_owner_or_group_anchored_handles",
-		not issue_exists(asset_lifecycle_issues, "ownerless_ungrouped_asset_handle", target='"res://owned.tres"')
-		and not issue_exists(asset_lifecycle_issues, "ownerless_ungrouped_asset_handle", target='"res://grouped.tres"')
-		and not issue_exists(asset_lifecycle_issues, "ownerless_ungrouped_asset_handle", target='&"entry"'),
-		f"owner or group anchored handles should pass: {asset_lifecycle_issues}",
+		"asset_lifecycle_boundary_accepts_scoped_requests_and_handles",
+		not issue_exists(asset_lifecycle_issues, "missing_asset_scope", target='"res://owned.tres"')
+		and not issue_exists(asset_lifecycle_issues, "missing_asset_scope", target='"res://scoped.tres"')
+		and not issue_exists(asset_lifecycle_issues, "missing_asset_scope", target='&"entry"'),
+		f"scoped requests and handles should pass: {asset_lifecycle_issues}",
 	)
 
 	profile_artifacts = gf_project_layout_profile.project_profile_artifacts()

@@ -137,20 +137,31 @@ section 版本落后时必须存在完整迁移链，未来版本始终拒绝读
 
 `save_profile()` 接收一次性 opaque `GFSaveProfileRequest`。Request 把持久化
 document metadata、Provider context 和只进入终态的 result metadata 分开；Utility
-通过 O(1) claim 接管三个引用，不在请求调用栈内深复制、执行 Provider、构造文档或提交
-Storage。`request == null` 表示三个字典均为空。
+在 `GFSaveProfileRequest.create()` 中先检查预算与纯数据类型，再复制为请求快照。
+Utility 通过 O(1) claim 接管隔离后的引用，不在 `save_profile()` 调用栈内执行 Provider、
+构造文档或提交 Storage。`request == null` 表示三个字典均为空。
 
 ```gdscript
-var request := GFSaveProfileRequest.take_ownership(
+var request := GFSaveProfileRequest.create(
 	{"slot_kind": "auto"},
 	{"reason": "checkpoint"},
 	{"request_tag": "autosave-ui"},
 )
+if request == null:
+	push_error("Save request metadata is invalid or exceeds the budget.")
+	return
 var operation := save_profiles.save_profile(&"project.player", request)
 ```
 
-如果不是直接传入字面量，`take_ownership()` 成功后必须立即且永久放弃三个源字典及全部
-嵌套集合 alias。Request 没有 payload getter，只能被成功 claim 一次；重复提交、直接
+创建后可以继续读取或修改源字典与嵌套集合，不会影响请求。三个字典共享 64 层、100000
+节点、1 MiB 保守计量预算；每个普通节点按 128 字节计量，字符串按每字符 4 字节追加，
+Packed 数组按类型及遍历成本计量。这是输入工作量上界，不是编码后的文件大小。
+`Object`、`Callable`、`Signal`、`RID`、循环集合、非有限数和超预算输入返回 `null`；
+调用方必须检查创建结果，不能把失败的 `null` 当成“空元数据”提交。大型数据仍通过
+Provider 的 section Snapshot 分步准备。`load_profile()`、`flush_profile()`、activate 与
+switch 的普通元数据也遵循同一预算，输入无效会返回已完成的拒绝操作。
+
+Request 没有 payload getter，只能被成功 claim 一次；重复提交、直接
 `new()` 得到的未初始化 Request 会以 `STATUS_INVALID_REQUEST` 拒绝。Profile 不存在、
 操作关闭或当前生命周期不允许保存时，Utility 会先拒绝再 claim，因此同一 Request 仍可
 提交到合法边界。
@@ -170,11 +181,7 @@ save_profiles.save_preparation_work_budget_per_tick = 64
 save_profiles.save_preparation_slice_budget = 8
 save_profiles.save_preparation_time_budget_usec = 2000
 
-var result: GFSaveProfileResult
-if operation.is_completed():
-	result = operation.get_result()
-else:
-	result = await operation.completed
+var result: GFSaveProfileResult = await operation.wait_result_async()
 if not result.is_successful():
 	push_warning(result.get_error())
 

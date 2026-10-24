@@ -32,6 +32,7 @@ Profile 身份与持久化事务的异步句柄。 句柄由 Save Profile 事务
 | 方法 | [`is_running`](#member-gfsaveprofiletransactionoperation-methods-is_running) | `func is_running() -> bool:` |
 | 方法 | [`is_completed`](#member-gfsaveprofiletransactionoperation-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfsaveprofiletransactionoperation-methods-get_result) | `func get_result() -> GFSaveProfileTransactionResult:` |
+| 方法 | [`wait_result_async`](#member-gfsaveprofiletransactionoperation-methods-wait_result_async) | `func wait_result_async() -> GFSaveProfileTransactionResult:` |
 
 ## 信号
 
@@ -281,3 +282,18 @@ func get_result() -> GFSaveProfileTransactionResult:
 获取终态结果副本。 结果副本中的 Recovery/Reconcile Lease 保留原始句柄身份，其他集合均隔离复制。
 
 返回：已完成结果；等待中返回 null。
+
+<a id="member-gfsaveprofiletransactionoperation-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFSaveProfileTransactionResult:
+```
+
+等待事务终态并取得隔离结果；已经完成时立即返回。 等待不会重启事务或消费结果；多个等待者观察同一次提交。
+
+返回：当前事务的终态结果副本。

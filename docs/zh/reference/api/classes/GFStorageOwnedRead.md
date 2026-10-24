@@ -25,6 +25,7 @@
 | 方法 | [`is_pending`](#member-gfstorageownedread-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfstorageownedread-methods-is_completed) | `func is_completed() -> bool:` |
 | 方法 | [`get_result`](#member-gfstorageownedread-methods-get_result) | `func get_result() -> GFStorageOwnedReadReceipt:` |
+| 方法 | [`wait_result_async`](#member-gfstorageownedread-methods-wait_result_async) | `func wait_result_async() -> GFStorageOwnedReadReceipt:` |
 | 方法 | [`cancel_observation`](#member-gfstorageownedread-methods-cancel_observation) | `func cancel_observation(reason: StringName = &"cancelled") -> bool:` |
 | 方法 | [`take`](#member-gfstorageownedread-methods-take) | `func take() -> GFStorageOwnedReadTakeResult:` |
 | 方法 | [`release`](#member-gfstorageownedread-methods-release) | `func release() -> bool:` |
@@ -42,7 +43,7 @@
 signal completed(receipt: GFStorageOwnedReadReceipt)
 ```
 
-caller 首次完成时发出不包含载荷的诊断；可在回调内立即调用 `take()`。 请求可能在入口返回前完成，应先检查 `is_completed()`。owner 已释放时可以 抑制通知，但终态仍可通过 `get_result()` 查询；晚到物理结果不会再次通知。
+caller 首次完成时发出不包含载荷的诊断；可在回调内立即调用 `take()`。 请求可能在入口返回前完成，统一使用 `wait_result_async()` 等待。owner 释放也会 通知已冻结的终态；业务调用方仍须检查接收对象有效性，晚到物理结果不会再次通知。
 
 参数：
 
@@ -199,6 +200,21 @@ func get_result() -> GFStorageOwnedReadReceipt:
 获取不包含载荷和领取权限的不可变终态诊断。
 
 返回：已完成时返回同一不可变诊断，等待中或无效句柄返回 null。
+
+<a id="member-gfstorageownedread-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFStorageOwnedReadReceipt:
+```
+
+等待 caller 终态；重复等待只取得诊断，不消费独占领取权。
+
+返回：已冻结的终态诊断；手动构造的无效句柄返回 null。
 
 <a id="member-gfstorageownedread-methods-cancel_observation"></a>
 

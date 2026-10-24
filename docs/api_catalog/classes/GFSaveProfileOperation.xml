@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileOperation" path="addons/gf/extensions/save/profile/gf_save_profile_operation.gd" module="extensions/save" extends="RefCounted" classDigest="cbf9bc9dedeb3a2f7040ba24d8c5c368aa077ad9beeb7fa2b18d9fdbf951fcaa">
+<class name="GFSaveProfileOperation" path="addons/gf/extensions/save/profile/gf_save_profile_operation.gd" module="extensions/save" extends="RefCounted" classDigest="938a3ac30aa74a4b4463071e321247a42f519fb33055ff88135f8f822df28556">
 	<description>GFSaveProfileOperation: Save Profile 异步操作句柄。
-句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查
-`is_completed()`，避免立即拒绝或同步恢复结果造成竞态。</description>
+句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。`wait_result_async()` 同时
+支持已经完成和仍在等待的请求，不要求调用方先判断信号是否已经发出。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -109,6 +109,16 @@
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_result_async">
+			<signature>func wait_result_async() -&gt; GFSaveProfileResult:</signature>
+			<description>等待唯一终态并取得隔离结果；已经完成时立即返回。
+多个等待者独立观察同一次操作，等待本身不会启动、取消或重新提交保存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前操作的终态结果副本。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

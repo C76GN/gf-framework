@@ -18,8 +18,8 @@ extends RefCounted
 
 ## caller 首次完成时发出不包含载荷的诊断；可在回调内立即调用 `take()`。
 ##
-## 请求可能在入口返回前完成，应先检查 `is_completed()`。owner 已释放时可以
-## 抑制通知，但终态仍可通过 `get_result()` 查询；晚到物理结果不会再次通知。
+## 请求可能在入口返回前完成，统一使用 `wait_result_async()` 等待。owner 释放也会
+## 通知已冻结的终态；业务调用方仍须检查接收对象有效性，晚到物理结果不会再次通知。
 ## [br]
 ## @api public
 ## [br]
@@ -177,6 +177,19 @@ func get_result() -> GFStorageOwnedReadReceipt:
 	return _receipt
 
 
+## 等待 caller 终态；重复等待只取得诊断，不消费独占领取权。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已冻结的终态诊断；手动构造的无效句柄返回 null。
+func wait_result_async() -> GFStorageOwnedReadReceipt:
+	if is_pending():
+		await completed
+	return get_result()
+
+
 ## 在主线程显式结束对尚未完成请求的观察。
 ##
 ## 返回 true 表示取消先于成功结算，不保证底层 worker 已经停止。
@@ -331,8 +344,7 @@ func complete_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @param emit_completion_signal: owner 已释放时为 false，消费通知权但保留可查询终态。
-func notify_completion_for_framework(emit_completion_signal: bool = true) -> void:
+func notify_completion_for_framework() -> void:
 	if (
 		not Thread.is_main_thread()
 		or _receipt == null
@@ -340,8 +352,7 @@ func notify_completion_for_framework(emit_completion_signal: bool = true) -> voi
 	):
 		return
 	_completion_notified = true
-	if emit_completion_signal:
-		completed.emit(_receipt)
+	completed.emit(_receipt)
 
 
 # --- 私有/辅助方法 ---

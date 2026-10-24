@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageOwnedRead" path="addons/gf/standard/utilities/storage/gf_storage_owned_read.gd" module="standard" extends="RefCounted" classDigest="27cb6bb102abe34a93b44502ef1925c92be3e4bd2ed3cb2c167f1366d4320145">
+<class name="GFStorageOwnedRead" path="addons/gf/standard/utilities/storage/gf_storage_owned_read.gd" module="standard" extends="RefCounted" classDigest="56adf975820c5353cdf09307fa11e783bb1b40b1a04b5a6883faa9d5f2f854be">
 	<description>GFStorageOwnedRead: 独占异步读取的一次性领取句柄。
 只能由 `GFStorageUtility.load_data_owned_request_async()` 取得有效句柄；手动
 构造的实例不可领取。共享句柄即共享领取权，同一结果仅允许一次成功领取。
@@ -14,8 +14,8 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 		<member kind="signal" name="completed">
 			<signature>signal completed(receipt: GFStorageOwnedReadReceipt)</signature>
 			<description>caller 首次完成时发出不包含载荷的诊断；可在回调内立即调用 `take()`。
-请求可能在入口返回前完成，应先检查 `is_completed()`。owner 已释放时可以
-抑制通知，但终态仍可通过 `get_result()` 查询；晚到物理结果不会再次通知。</description>
+请求可能在入口返回前完成，统一使用 `wait_result_async()` 等待。owner 释放也会
+通知已冻结的终态；业务调用方仍须检查接收对象有效性，晚到物理结果不会再次通知。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receipt: 不含载荷或领取权限的不可变 caller 终态。</tag>
@@ -119,6 +119,15 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回同一不可变诊断，等待中或无效句柄返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_result_async">
+			<signature>func wait_result_async() -&gt; GFStorageOwnedReadReceipt:</signature>
+			<description>等待 caller 终态；重复等待只取得诊断，不消费独占领取权。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已冻结的终态诊断；手动构造的无效句柄返回 null。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

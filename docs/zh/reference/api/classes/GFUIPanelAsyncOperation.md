@@ -25,6 +25,7 @@
 | 方法 | [`get_operation`](#member-gfuipanelasyncoperation-methods-get_operation) | `func get_operation() -> StringName:` |
 | 方法 | [`is_pending`](#member-gfuipanelasyncoperation-methods-is_pending) | `func is_pending() -> bool:` |
 | 方法 | [`is_completed`](#member-gfuipanelasyncoperation-methods-is_completed) | `func is_completed() -> bool:` |
+| 方法 | [`wait_result_async`](#member-gfuipanelasyncoperation-methods-wait_result_async) | `func wait_result_async() -> GFUIPanelAsyncOperation:` |
 | 方法 | [`get_status`](#member-gfuipanelasyncoperation-methods-get_status) | `func get_status() -> int:` |
 | 方法 | [`get_panel`](#member-gfuipanelasyncoperation-methods-get_panel) | `func get_panel() -> Node:` |
 | 方法 | [`get_debug_snapshot`](#member-gfuipanelasyncoperation-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -182,6 +183,21 @@ func is_completed() -> bool:
 检查请求是否已有终态。
 
 返回：已完成时返回 true。
+
+<a id="member-gfuipanelasyncoperation-methods-wait_result_async"></a>
+
+### `wait_result_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func wait_result_async() -> GFUIPanelAsyncOperation:
+```
+
+等待面板请求完成并返回本句柄；已经完成时立即返回。 句柄继续弱引用面板，等待不会延长面板生命周期或创建新的所有者。
+
+返回：可查询终态和当前面板的原请求句柄。
 
 <a id="member-gfuipanelasyncoperation-methods-get_status"></a>
 

@@ -424,7 +424,7 @@ func test_quiesce_rejects_new_admission_but_drains_accepted_profile_work() -> vo
 
 	var completion: GFAsyncCompletion = _utility.begin_quiesce(GFAsyncScope.new())
 	assert_false(completion.is_completed())
-	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		{ "document": 1 },
 		{ "context": 2 },
 		{ "result": 3 }

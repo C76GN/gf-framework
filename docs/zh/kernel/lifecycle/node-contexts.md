@@ -53,9 +53,9 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 2. 将最近且已提交 READY 的父级上下文或全局 `Gf` 架构作为父级依赖来源。
 3. 在 `auto_init == true` 时编译局部依赖 DAG 并完成四阶段初始化。
 4. 只在第四阶段成功、局部架构提交 READY 后发出 `context_ready`。
-5. 可控退出先等待 owned Architecture 的 `shutdown_async()` 完成，再移除节点；直接退出树则同步强制 `dispose()` 局部模块。
+5. 可控退出先等待 `context.close_async()` 完成，再移除节点；直接退出树则同步强制 `dispose()` 局部模块。
 
-owned Architecture 正常关闭期间，Context 停止报告 READY，`wait_until_ready()` 与 `initialize_context()` 返回 `null`，不会把跨帧 quiesce 转成强制释放。正常关闭结束也不会发出 `context_failed`；具体关闭结果由 `shutdown_async()` 返回。直接调用 `dispose()`、父级失效和节点离树仍沿用各自的失效或强制释放规则。
+正常关闭期间，Context 停止报告 READY，`is_context_available()` 返回 `false`，`wait_until_ready()` 与 `initialize_context()` 返回 `null`。`context_closing` 会立即撤销子树 Controller 的事件绑定，不会把跨帧 quiesce 转成强制释放。正常关闭结束不会发出 `context_failed`；`close_async()` 的结果分别说明上下文是否已关闭、工作是否完成静默关闭。直接调用 Architecture 的 `dispose()`、父级失效和节点离树仍沿用各自的失效或强制释放规则。
 
 如果把 `auto_init` 设为 `false`，Context 仍会创建局部架构并执行 `install()` / `install_bindings()`，但不会自动进入四阶段生命周期。需要在合适的业务时机调用 `await context.initialize_context()`；该方法会等待安装完成、统一触发初始化，并在 stage4 成功或任一阶段失败时沿用 `context_ready` / `context_failed` 语义。第三阶段 `ready()` 完成但 activation 仍在等待时，Context 继续保持未 ready，子树不能提前取得运行时准入。
 
@@ -67,9 +67,11 @@ owned Architecture 正常关闭期间，Context 停止报告 READY，`wait_until
 
 局部上下文中的 `GFController` 无需额外传参，会自动沿父节点查找最近的 `GFNodeContext`。注册到局部上下文的 `GFSystem` / `GFModel` / `GFUtility` 也会在注册时获得当前架构引用，因此基类提供的 `get_model()`、`get_system()`、`get_utility()` 会优先使用局部架构，并在本地未命中时回退父架构。
 
-这个解析规则依赖真实节点父链。当前 `GFUIUtility` 会把 HUD、POPUP、TOP 层创建在 `SceneTree.root` 下，并把入栈 Panel 重挂到对应根级 `CanvasLayer`。因此通过 UI 栈打开的 Panel 不再是原局部 Context 的后代；若 Panel 自身未再创建新 Context，其中的 `GFController` 会回退到全局架构。即使 `GFUIUtility` 本身注册在局部架构中，也不会改变 Panel 的父链。
+Controller 仍按当前父链解析最近 Context，普通 `reparent()` 会迁移事件绑定。对于跨树显示，只在 UI host 边界指定业务来源，不需要给每个 Controller 固定架构引用。在局部 Context 的 `install()` 中创建 UIUtility 后调用 `ui.configure_host(self)`，再注册该 Utility；其 host 默认位于此 Context 下。局部架构中的 UIUtility 缺少该配置时会明确初始化失败，避免面板静默进入全局作用域。
 
-必须消费局部 Model / System 的 HUD 应保留在 Context 子树内，例如把场景自己的 `CanvasLayer` 作为 `GFNodeContext` 子节点。全局菜单、跨场景提示和只消费全局模块的 HUD 仍适合 `GFUIUtility`。根级 Panel 若只需短暂展示局部结果，可通过配置回调传入 DTO 或项目适配器，并在 Context 退出前关闭，不应长期缓存局部模块。
+如果显示位置位于 `SceneTree.root` 或另一个 Viewport 下，调用 `ui.configure_host(self, mount_parent)`。UIUtility 创建并拥有 host、CanvasLayer 和面板；host 使用 `INHERITED GFNodeContext` 的显式来源绑定借用业务架构，不拥有来源 Context。绘制层级仍由 `CanvasLayer.layer` 管理，无需为改变绘制顺序而移动业务作用域。
+
+普通节点也可复用同一机制：在进入树前对 `INHERITED` Context 调用 `bind_source_context(source_context)`。来源必须已经在树中；绑定记录 Context 身份和本轮进入树代次。来源关闭、离树、释放或重入后，旧绑定不回退父链或全局架构。`get_architecture()` 保留架构引用供诊断及生命周期协作；业务准入使用 `is_context_available()`，Context 的模块查询和 Controller 会自动检查该准入。
 
 如果 Controller 需要在 `_ready()` 中立刻访问 scoped 架构，而该架构还在异步初始化，可以等待上下文就绪。等待失败、父级架构初始化失败或上下文超时时会返回 `null`，调用方应显式处理：
 
@@ -86,16 +88,27 @@ func _ready() -> void:
 
 ## 正常关闭与离树兜底
 
-`GFNodeContext` 不增加第二个架构关闭入口。项目能控制关闭时机，并且局部 Storage、Save Profile 或后台任务需要 drain，应先取得 owned architecture，直接等待 `shutdown_async()`，确认 typed result 后再让 Context 离树：
+场景关闭使用 `close_async()`。它协调本地绑定和逻辑子 Context 的关闭，架构内部的模块关闭仍由 `GFArchitecture.shutdown_async()` 完成：
 
 ```gdscript
-var local_architecture: GFArchitecture = context.get_architecture()
-var result: GFArchitectureShutdownResult = (
-	await local_architecture.shutdown_async()
-)
-if not result.is_successful():
+var result: GFContextCloseResult = await context.close_async(null, 10.0)
+if not result.is_drained():
 	push_warning(result.get_error())
-context.queue_free()
+if result.is_closed():
+	context.queue_free()
 ```
 
-父级 Architecture 必须 outlive scoped child：先等待并释放所有 child，再关闭提供依赖的 parent。节点 `_exit_tree()` 无法可靠 `await`，因此始终调用同步 `dispose()` 作为 forced fallback。它保证模块最终释放且重复调用幂等，但不保证已接纳异步操作正常完成；数据关键路径不能把 `queue_free()` 当作 flush。
+`SCOPED` 先关闭逻辑子 Context，再静默关闭自有架构。`INHERITED` 关闭本地绑定和自己的逻辑子 Context，不关闭借用的共享架构。显式来源绑定的 UI portal 也计入来源的逻辑子 Context，即使其显示节点位于另一棵父链。关闭立即停止新 Controller 工作，父架构仍保持存活直到子关闭完成。
+
+并发和信号重入的 `close_async()` 共享同一次尝试的结果，以第一个调用的取消 token 和超时为准；重复关闭已结束的 Context 返回原结果。超时预算由子关闭和自有架构共同消耗，最终同步释放不承诺墙钟硬上限。取消、超时或初始化期间的关闭可能得到 `is_closed() == true`、`is_drained() == false`，调用者不能把“已释放”当作数据已落盘。
+
+不在该 Context 所有权树中的架构依赖由其真正所有者管理。若架构因仍有外部子依赖而返回 `ERR_BUSY`，Context 保持 CLOSING，结果的 `is_closed()` 为 `false`；关闭外部依赖后可以重试，不会恢复业务准入。安装中的关闭会取消安装 scope，迟到的安装/初始化结果不能恢复 READY。若 scope 清理回调让同一个节点同步离树并重新入树，旧关闭只结算旧代次，不会向新代次发出关闭通知或关闭其 UI。
+
+节点 `_exit_tree()` 无法可靠 `await`，因此保留同步 `dispose()` 的强制释放兜底。若正常关闭等待尚未结束，离树会使该次等待得到明确的未排空终态，旧协程不能覆盖新入树代次的状态。数据关键路径不能把 `queue_free()` 当作 flush。
+
+## 大版本迁移
+
+- 场景退出代码由 `context.get_architecture().shutdown_async()` 改为 `context.close_async()`，并分别判断 `is_closed()` 与 `is_drained()`。
+- 局部 UI 的安装代码增加 `configure_host(self)`；仅在有跨树显示需求时传入 `mount_parent`。不再要求项目为局部 HUD 绕开 UI 栈。
+- Panel 不保存固定 Controller 架构绑定；显式来源放在 host 的 Context 边界，保留普通节点重挂载的事件迁移行为。
+- 本次变更不重写存档或场景资源字段；已有 `scope_mode` 仍表示 INHERITED/SCOPED。项目若将 UI 目标作为自己的配置或 Resource 字段持久化，应显式迁移该配置，不能依靠旧的根节点挂载推断业务来源。

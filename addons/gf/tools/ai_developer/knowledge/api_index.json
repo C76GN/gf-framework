@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "da81a0fab3fe06428ae6de0f6ea10be054d9a61b8d47867afb2a371a626a7ebf",
-  "class_count": 877,
+  "source_digest": "8eecdf31704eabc1cdc723a4677cee80d6d39c7650abd8d47cbb4d16c80bf631",
+  "class_count": 881,
   "autoload_count": 1,
   "package_count": 61,
   "packages": [
@@ -4459,6 +4459,102 @@
         }
       ]
     },
+    "GFAssetLoadOperation": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_load_operation.gd",
+      "summary": "每个消费者独立的资源请求。完成通知无条件发生，取消只影响本请求。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFAssetLoadResult)",
+          "summary": "终态提交后恰好发出一次，与 owner 是否存活无关。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFAssetLoadResult",
+          "summary": "等待并返回类型化结果，同时覆盖缓存命中的即时完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFAssetLoadResult",
+          "summary": "查看已提交结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "判断请求是否已完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> bool",
+          "summary": "撤销本消费者的 pending 请求。终态后返回 false，不释放成功句柄。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetLoadResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_load_result.gd",
+      "summary": "单次资源请求的终态事实；scope 关闭后成功事实保留，但句柄不再可用。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 资源已成功交付到请求 scope；之后释放句柄不改变此终态。\n\tSUCCEEDED,\n\t## 请求未取得可交付句柄，具体原因由错误码表达。\n\tFAILED,\n\t## 请求已取消，不代表底层共享加载已经停止。\n\tCANCELLED,\n}",
+          "summary": "请求终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "返回请求是否成功；之后关闭 scope 不改写此历史事实。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "返回请求终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_handle",
+          "signature": "func get_handle() -> GFAssetHandle",
+          "summary": "返回同一 scope 所拥有的句柄。重复调用不增加引用计数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "返回错误码。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFAssetLoadSession": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -5090,6 +5186,33 @@
         }
       ]
     },
+    "GFAssetScope": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/assets/gf_asset_scope.gd",
+      "summary": "贯穿资源请求和句柄的生命周期。关闭会取消 pending 请求并释放全部句柄。 Node owner 退出树时自动关闭；其他 owner 失效由资源服务 tick 检测。 scope 只撤销 GF 保留及交付资格，不销毁调用者已经保存的 Resource 引用。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "close",
+          "signature": "func close() -> void",
+          "summary": "关闭生命周期；重复关闭无副作用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_open",
+          "signature": "func is_open() -> bool",
+          "summary": "判断 scope 是否仍允许请求与句柄保留。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFAssetSlot": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -5333,23 +5456,23 @@
         },
         {
           "kind": "func",
-          "name": "load_async",
-          "signature": "func load_async( path: String, on_loaded: Callable, type_hint: String = \"\", options: Dictionary = {} ) -> void",
-          "summary": "发起异步资源加载。",
+          "name": "create_scope",
+          "signature": "func create_scope(owner: Object = null) -> GFAssetScope",
+          "summary": "创建贯穿请求与句柄的资源生命周期；调用者应保存 scope 或绑定 Node owner。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "load_handle_async",
-          "signature": "func load_handle_async( path: String, on_loaded: Callable, type_hint: String = \"\", owner: Object = null, group_id: StringName = &\"\", options: Dictionary = {} ) -> void",
-          "summary": "异步加载资源并在成功后返回所有权句柄。",
+          "name": "load_async",
+          "signature": "func load_async( path: String, scope: GFAssetScope, type_hint: String = \"\", options: Dictionary = {} ) -> GFAssetLoadOperation",
+          "summary": "异步请求资源；每次调用有独立取消资格，即使底层共用同一次加载。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "acquire_handle",
-          "signature": "func acquire_handle( path: String, owner: Object = null, group_id: StringName = &\"\", type_hint: String = \"\", resource_override: Resource = null ) -> GFAssetHandle",
-          "summary": "为已缓存或指定资源创建所有权句柄。",
+          "signature": "func acquire_handle( path: String, scope: GFAssetScope, type_hint: String = \"\", resource_override: Resource = null ) -> GFAssetHandle",
+          "summary": "在指定 scope 中为缓存或指定资源创建独立句柄。",
           "visibility": "public"
         },
         {
@@ -5455,13 +5578,6 @@
           "name": "is_cached",
           "signature": "func is_cached(path: String) -> bool",
           "summary": "检查指定路径是否已缓存。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "cancel",
-          "signature": "func cancel( path: String, type_hint: String = \"\", generation: int = -1 ) -> void",
-          "summary": "取消指定路径的异步加载请求。",
           "visibility": "public"
         },
         {
@@ -11259,6 +11375,13 @@
           "name": "get_result",
           "signature": "func get_result() -> GFBgmStartResult",
           "summary": "获取 caller 终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFBgmStartResult",
+          "summary": "等待本次 BGM 启动请求的终态；已完成时立即返回。",
           "visibility": "public"
         },
         {
@@ -23937,6 +24060,61 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取内容包服务调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFContextCloseResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/core/gf_context_close_result.gd",
+      "summary": "GFContextCloseResult: 节点上下文一次关闭尝试的不可变结果。 closed 表示绑定和自有架构均已关闭，drained 表示全部子上下文和架构正常完成静默工作。 关闭结果不持有 Node；子结果数组在读取边界复制。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_closed",
+          "signature": "func is_closed() -> bool",
+          "summary": "检查本次尝试结束后上下文是否已关闭。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_drained",
+          "signature": "func is_drained() -> bool",
+          "summary": "检查全部拥有的工作是否正常完成静默关闭。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "读取关闭错误码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "读取关闭错误说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_architecture_result",
+          "signature": "func get_architecture_result() -> GFArchitectureShutdownResult",
+          "summary": "读取自有架构的关闭结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_child_results",
+          "signature": "func get_child_results() -> Array[GFContextCloseResult]",
+          "summary": "读取直接逻辑子上下文的关闭结果。",
           "visibility": "public"
         }
       ]
@@ -54507,6 +54685,13 @@
           "visibility": "public"
         },
         {
+          "kind": "signal",
+          "name": "context_closing",
+          "signature": "signal context_closing()",
+          "summary": "本地绑定停止接受新工作时发出；可用于立即撤销 Controller 事件绑定。",
+          "visibility": "public"
+        },
+        {
           "kind": "enum",
           "name": "ScopeMode",
           "signature": "enum ScopeMode {\n\t## 直接复用最近的父级上下文架构；若不存在则回退到全局 Gf 架构。\n\tINHERITED,\n\t## 创建新的局部架构，并将最近的父级或全局架构作为依赖回退来源。\n\tSCOPED,\n}",
@@ -54560,6 +54745,27 @@
           "name": "architecture",
           "signature": "var architecture: GFArchitecture",
           "summary": "当前上下文使用的架构实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_source_context",
+          "signature": "func bind_source_context(source: GFNodeContext) -> bool",
+          "summary": "在进入树前为 INHERITED Context 指定业务来源。显示父节点不会改变该绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_context_available",
+          "signature": "func is_context_available() -> bool",
+          "summary": "检查本地绑定是否接受新工作。初始化中的绑定可用；关闭、失效及来源失效时不可用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "close_async",
+          "signature": "func close_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFContextCloseResult",
+          "summary": "先关闭逻辑子 Context，再关闭自有架构；INHERITED 只关闭本地绑定。",
           "visibility": "public"
         },
         {
@@ -69226,15 +69432,8 @@
         {
           "kind": "func",
           "name": "request_entry_async",
-          "signature": "func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, type_hint_override: String = \"\" ) -> void",
-          "summary": "通过 GFAssetUtility 异步加载条目资源。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "request_entry_handle_async",
-          "signature": "func request_entry_handle_async( asset_utility: GFAssetUtility, entry_id: StringName, on_loaded: Callable, owner: Object = null, group_id: StringName = &\"\", type_hint_override: String = \"\" ) -> void",
-          "summary": "通过 GFAssetUtility 异步加载条目资源并返回所有权句柄。",
+          "signature": "func request_entry_async( asset_utility: GFAssetUtility, entry_id: StringName, scope: GFAssetScope, type_hint_override: String = \"\" ) -> GFAssetLoadOperation",
+          "summary": "通过资源服务为条目创建独立请求，scope 贯穿请求与成功句柄。",
           "visibility": "public"
         },
         {
@@ -69726,8 +69925,8 @@
         {
           "kind": "func",
           "name": "load_async",
-          "signature": "func load_async( asset_utility: GFAssetUtility, resource_key: StringName, on_loaded: Callable, type_hint_override: String = \"\", options: Dictionary = {} ) -> void",
-          "summary": "通过 GFAssetUtility 异步加载解析结果。",
+          "signature": "func load_async( asset_utility: GFAssetUtility, resource_key: StringName, scope: GFAssetScope, type_hint_override: String = \"\", options: Dictionary = {} ) -> GFAssetLoadOperation",
+          "summary": "在指定 scope 中请求解析结果；提供者返回的内存资源同样获得 scope 句柄。",
           "visibility": "public"
         },
         {
@@ -73311,16 +73510,16 @@
       "module": "extensions/save",
       "package_id": "gf.extension.save",
       "path": "addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd",
-      "summary": "GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim 一次。调用方必须放弃传入的 Dictionary、Array 及其全部嵌套 alias；请求",
+      "summary": "GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim 一次。普通元数据在创建时隔离，调用方可以继续使用源字典和 mutations 数组；",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "11.0.0",
       "members": [
         {
           "kind": "func",
-          "name": "take_ownership",
-          "signature": "static func take_ownership( mutations: Array[GFSaveSectionMutation], document_metadata: Dictionary = {}, context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileMutationRequest",
-          "summary": "创建请求并接管全部候选 section 与元数据。",
+          "name": "create",
+          "signature": "static func create( mutations: Array[GFSaveSectionMutation], document_metadata: Dictionary = {}, context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileMutationRequest",
+          "summary": "创建请求，接管候选 section 并隔离普通元数据。",
           "visibility": "public"
         },
         {
@@ -73359,7 +73558,7 @@
       "module": "extensions/save",
       "package_id": "gf.extension.save",
       "path": "addons/gf/extensions/save/profile/gf_save_profile_operation.gd",
-      "summary": "GFSaveProfileOperation: Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。调用方可在连接信号前检查 `is_completed()`，避免立即拒绝或同步恢复结果造成竞态。",
+      "summary": "GFSaveProfileOperation: Save Profile 异步操作句柄。 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。`wait_result_async()` 同时 支持已经完成和仍在等待的请求，不要求调用方先判断信号是否已经发出。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "10.0.0",
@@ -73439,6 +73638,13 @@
           "name": "get_result",
           "signature": "func get_result() -> GFSaveProfileResult",
           "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFSaveProfileResult",
+          "summary": "等待唯一终态并取得隔离结果；已经完成时立即返回。",
           "visibility": "public"
         }
       ]
@@ -73623,9 +73829,9 @@
       "members": [
         {
           "kind": "func",
-          "name": "take_ownership",
-          "signature": "static func take_ownership(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest",
-          "summary": "创建请求并接管 context 与 result_metadata 的逻辑唯一所有权。",
+          "name": "create",
+          "signature": "static func create(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest",
+          "summary": "创建请求并隔离 context 与 result_metadata 的纯数据快照。",
           "visibility": "public"
         },
         {
@@ -73782,16 +73988,16 @@
       "module": "extensions/save",
       "package_id": "gf.extension.save",
       "path": "addons/gf/extensions/save/profile/gf_save_profile_request.gd",
-      "summary": "GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。 `take_ownership()` 不会深复制输入。成功创建后，调用方必须立即且永久放弃 document metadata、Provider context、result metadata 及其全部嵌套集合 alias。",
+      "summary": "GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。 `create()` 在大小预算内隔离 document metadata、Provider context 和 result metadata。调用方可继续使用源字典；后续修改不会改变已提交请求。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "11.0.0",
       "members": [
         {
           "kind": "func",
-          "name": "take_ownership",
-          "signature": "static func take_ownership( document_metadata: Dictionary, context: Dictionary, result_metadata: Dictionary ) -> GFSaveProfileRequest",
-          "summary": "创建请求并接收三个 Dictionary 的逻辑唯一所有权。",
+          "name": "create",
+          "signature": "static func create( document_metadata: Dictionary, context: Dictionary, result_metadata: Dictionary ) -> GFSaveProfileRequest",
+          "summary": "创建拥有独立元数据快照的请求。",
           "visibility": "public"
         },
         {
@@ -74475,6 +74681,13 @@
           "name": "get_result",
           "signature": "func get_result() -> GFSaveProfileTransactionResult",
           "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFSaveProfileTransactionResult",
+          "summary": "等待事务终态并取得隔离结果；已经完成时立即返回。",
           "visibility": "public"
         }
       ]
@@ -76897,6 +77110,13 @@
           "name": "get_result",
           "signature": "func get_result() -> GFSceneOperationResult",
           "summary": "获取 caller 终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFSceneOperationResult",
+          "summary": "等待当前消费者的终态；同步命中或拒绝时立即取得结果。",
           "visibility": "public"
         },
         {
@@ -86480,6 +86700,13 @@
         },
         {
           "kind": "func",
+          "name": "wait_physical_result_async",
+          "signature": "func wait_physical_result_async() -> GFStorageAsyncResult",
+          "summary": "等待物理请求终态；已经完成时立即返回隔离结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "is_caller_pending",
           "signature": "func is_caller_pending() -> bool",
           "summary": "检查当前 consumer 是否仍等待 caller 终态。",
@@ -86497,6 +86724,13 @@
           "name": "get_caller_result",
           "signature": "func get_caller_result() -> GFStorageAsyncCallerResult",
           "summary": "获取 caller 终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_caller_result_async",
+          "signature": "func wait_caller_result_async() -> GFStorageAsyncCallerResult",
+          "summary": "等待当前消费者的观察终态；已经完成时立即返回。",
           "visibility": "public"
         },
         {
@@ -87697,6 +87931,13 @@
           "name": "get_result",
           "signature": "func get_result() -> GFStorageOwnedReadReceipt",
           "summary": "获取不包含载荷和领取权限的不可变终态诊断。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFStorageOwnedReadReceipt",
+          "summary": "等待 caller 终态；重复等待只取得诊断，不消费独占领取权。",
           "visibility": "public"
         },
         {
@@ -95612,6 +95853,13 @@
         },
         {
           "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFUIPanelAsyncOperation",
+          "summary": "等待面板请求完成并返回本句柄；已经完成时立即返回。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_status",
           "signature": "func get_status() -> int",
           "summary": "获取请求状态。",
@@ -95809,6 +96057,13 @@
           "name": "get_result",
           "signature": "func get_result() -> GFUIRouteResult",
           "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFUIRouteResult",
+          "summary": "等待导航终态并取得隔离结果；已经完成时立即返回。",
           "visibility": "public"
         },
         {
@@ -96456,6 +96711,13 @@
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "释放 UI 层级、面板栈和未完成异步请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_host",
+          "signature": "func configure_host(source: GFNodeContext, mount_parent: Node = null) -> bool",
+          "summary": "在初始化前配置 UI 的业务作用域和显示挂载节点。",
           "visibility": "public"
         },
         {
