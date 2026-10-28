@@ -10262,9 +10262,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			)
 			central_size = eocd[5]
 			central_offset = eocd[6]
-			secret = b"api_key=ghp_" + b"Ab9" * 16
-			prefixed = bytearray(secret + archive_payload)
-			cursor = central_offset + len(secret)
+			# Fixed synthetic canary for malformed-archive disclosure checks.
+			synthetic_canary = b"api_key=ghp_" + b"Ab9" * 16
+			prefixed = bytearray(synthetic_canary + archive_payload)
+			cursor = central_offset + len(synthetic_canary)
 			central_end = cursor + central_size
 			while cursor < central_end:
 				self.assertEqual(prefixed[cursor:cursor + 4], b"PK\x01\x02")
@@ -10277,7 +10278,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					"<L",
 					prefixed,
 					cursor + 42,
-					local_offset + len(secret),
+					local_offset + len(synthetic_canary),
 				)
 				name_size, extra_size, comment_size = struct.unpack_from(
 					"<3H",
@@ -10288,8 +10289,8 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			struct.pack_into(
 				"<L",
 				prefixed,
-				eocd_offset + len(secret) + 16,
-				central_offset + len(secret),
+				eocd_offset + len(synthetic_canary) + 16,
+				central_offset + len(synthetic_canary),
 			)
 			archive_path.write_bytes(prefixed)
 
@@ -10307,7 +10308,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				["ai_kit.archive.layout_invalid archive"],
 			)
 			self.assertNotIn(
-				secret.decode("utf-8"),
+				synthetic_canary.decode("utf-8"),
 				json.dumps(result, ensure_ascii=False),
 			)
 			zip_file.assert_not_called()
@@ -10331,17 +10332,18 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				archive_payload,
 				eocd_offset + 16,
 			)[0]
-			secret = b"api_key=ghp_" + b"Ab9" * 16
+			# Fixed synthetic canary for malformed-archive disclosure checks.
+			synthetic_canary = b"api_key=ghp_" + b"Ab9" * 16
 			gapped = bytearray(
 				archive_payload[:central_offset]
-				+ secret
+				+ synthetic_canary
 				+ archive_payload[central_offset:]
 			)
 			struct.pack_into(
 				"<L",
 				gapped,
-				eocd_offset + len(secret) + 16,
-				central_offset + len(secret),
+				eocd_offset + len(synthetic_canary) + 16,
+				central_offset + len(synthetic_canary),
 			)
 			archive_path.write_bytes(gapped)
 
@@ -10359,7 +10361,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				["ai_kit.archive.layout_invalid archive"],
 			)
 			self.assertNotIn(
-				secret.decode("utf-8"),
+				synthetic_canary.decode("utf-8"),
 				json.dumps(result, ensure_ascii=False),
 			)
 			zip_file.assert_not_called()
