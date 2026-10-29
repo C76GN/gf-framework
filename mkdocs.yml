@@ -106,6 +106,7 @@ nav:
       - BehaviorTree: extensions/behavior-tree/index.md
       - Decision: extensions/decision/index.md
       - Content Package: extensions/content-package/index.md
+      - Data Batch: extensions/data-batch/index.md
       - Domain: extensions/domain/index.md
       - Physics: extensions/physics/index.md
       - Save 场景存档图: extensions/save-graph/index.md
@@ -135,6 +136,7 @@ nav:
               - Capability: reference/api/extensions-capability.md
               - Combat: reference/api/extensions-combat.md
               - Content Package: reference/api/extensions-content-package.md
+              - Data Batch: reference/api/extensions-data-batch.md
               - Decision: reference/api/extensions-decision.md
               - Dialogue: reference/api/extensions-dialogue.md
               - Domain: reference/api/extensions-domain.md

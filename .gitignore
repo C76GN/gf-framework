@@ -15,6 +15,9 @@ export_credentials.cfg
 # Mono-specific ignores
 .mono/
 data_*/
+# Framework sources and tests are not Mono export data directories.
+!/addons/gf/extensions/data_batch/
+!/tests/gf_core/extensions/data_batch/
 mono_crash.*.json
 
 # Python maintenance tools

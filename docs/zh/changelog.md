@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增默认关闭的 [Data Batch](extensions/data-batch/index.md) 扩展（`gf.data_batch`，`extension_version` 为 `1.0.0`），提供 Int32 / Int64 列 Schema、带行数与载荷预算的发布者，以及可保留的批次快照。支持复制、显式转交和按索引采集复制；借用列遵守合作只读约定，项目负责业务身份、历史快照和跨线程调度。
 - 新增 `GFAssetScope`、`GFAssetLoadOperation` 和 `GFAssetLoadResult`，每个资源调用者可以独立等待与取消，作用域统一回收待完成请求和成功句柄。
 - Context 新增 `close_async()` 与 `GFContextCloseResult`，先关闭逻辑子上下文，再关闭自有 Architecture，分别报告是否关闭与是否正常排空。
 

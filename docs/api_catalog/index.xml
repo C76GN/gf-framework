@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="ddd3d809a649611b185b673bf8b65202b8fa8c672c3462460b65204439ee8231" classCount="906" methodCount="8108" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="e500e11bafa2234361f577d1937cbff94a95d3f9a972b5d082bfbc6e0a2b89eb" classCount="909" methodCount="8139" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="79" methodCount="842" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -737,6 +737,11 @@
 		<class name="GFContentPackageQuery" path="classes/GFContentPackageQuery.xml" sourcePath="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" extends="Resource" />
 		<class name="GFContentPackageQueryResult" path="classes/GFContentPackageQueryResult.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" extends="RefCounted" />
 		<class name="GFContentPackageUtility" path="classes/GFContentPackageUtility.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" extends="GFUtility" />
+	</module>
+	<module id="extensions/data_batch" label="Data Batch" classCount="3" methodCount="31" autoloadCount="0" autoloadMethodCount="0">
+		<class name="GFDataBatchPublication" path="classes/GFDataBatchPublication.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd" extends="RefCounted" />
+		<class name="GFDataBatchSchema" path="classes/GFDataBatchSchema.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd" extends="RefCounted" />
+		<class name="GFDataBatchSnapshot" path="classes/GFDataBatchSnapshot.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd" extends="RefCounted" />
 	</module>
 	<module id="extensions/decision" label="Decision" classCount="8" methodCount="62" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFDecisionBlackboard" path="classes/GFDecisionBlackboard.xml" sourcePath="addons/gf/extensions/decision/runtime/gf_decision_blackboard.gd" extends="RefCounted" />

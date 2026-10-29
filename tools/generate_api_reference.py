@@ -52,6 +52,7 @@ MODULE_LABELS = {
 	"extensions/camera": "Camera",
 	"extensions/capability": "Capability",
 	"extensions/combat": "Combat",
+	"extensions/data_batch": "Data Batch",
 	"extensions/decision": "Decision",
 	"extensions/dialogue": "Dialogue",
 	"extensions/domain": "Domain",

@@ -1,0 +1,261 @@
+# GFDataBatchPublication
+
+[API Reference](../index.md) / [Data Batch](../extensions-data-batch.md) / [类索引](index.md)
+
+- 路径：`addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd`
+- 模块：`Data Batch`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：运行时服务 (`runtime_service`)
+- 首次版本：`unreleased`
+
+同步验证、复制或合作移交并原子替换当前数值批次。 只持有当前快照；消费者可以自行跨帧保留历史快照。预算限制发布者当前与 待构造批次的 PackedArray payload 峰值，不限制外部保留、读取副本或源数据。 项目负责字段语义、实体身份、权限和结构/值版本，不提供线程同步或异步调度。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 枚举 | [`Failure`](#member-gfdatabatchpublication-enums-failure) | `enum Failure` |
+| 方法 | [`create`](#member-gfdatabatchpublication-methods-create) | `static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int ) -> GFDataBatchPublication:` |
+| 方法 | [`publish_copy`](#member-gfdatabatchpublication-methods-publish_copy) | `func publish_copy( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:` |
+| 方法 | [`publish_transfer`](#member-gfdatabatchpublication-methods-publish_transfer) | `func publish_transfer( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:` |
+| 方法 | [`publish_gather_copy`](#member-gfdatabatchpublication-methods-publish_gather_copy) | `func publish_gather_copy( source_columns: Dictionary, source_count: int, source_capacity: int, row_indices: PackedInt32Array, structural_revision: int, value_revision: int ) -> Error:` |
+| 方法 | [`get_current`](#member-gfdatabatchpublication-methods-get_current) | `func get_current() -> GFDataBatchSnapshot:` |
+| 方法 | [`is_current`](#member-gfdatabatchpublication-methods-is_current) | `func is_current(snapshot: GFDataBatchSnapshot) -> bool:` |
+| 方法 | [`close`](#member-gfdatabatchpublication-methods-close) | `func close() -> void:` |
+| 方法 | [`get_last_failure`](#member-gfdatabatchpublication-methods-get_last_failure) | `func get_last_failure() -> Failure:` |
+| 方法 | [`get_debug_snapshot`](#member-gfdatabatchpublication-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
+
+## 枚举
+
+<a id="member-gfdatabatchpublication-enums-failure"></a>
+
+### `Failure`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum Failure {
+	## 发布成功，或尚未尝试发布。
+	NONE,
+	## 发布者已关闭或未通过 create 构造。
+	CLOSED,
+	## count/capacity 非法。
+	INVALID_SHAPE,
+	## 列集合、PackedArray 类型或长度不符合 schema。
+	INVALID_COLUMN,
+	## 行索引不属于本次调用提供的源有效前缀。
+	INVALID_SELECTION,
+	## 版本为负、倒退、未推进，或形状改变却未推进结构版本。
+	INVALID_REVISION,
+	## 源容量或输出行数超过配置的有限行预算。
+	ROW_BUDGET,
+	## 当前与待构造 payload 之和超过字节预算。
+	BYTE_BUDGET,
+	## 只读字典无法通过清空内容完成合作移交。
+	READ_ONLY_TRANSFER,
+	## 已通过预算验证，但引擎未能构造完整长度的列。
+	ALLOCATION_FAILED,
+}
+```
+
+最近一次发布的结构化拒绝原因；无需解析自然语言日志。
+
+## 方法
+
+<a id="member-gfdatabatchpublication-methods-create"></a>
+
+### `create`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int ) -> GFDataBatchPublication:
+```
+
+构造固定生产者和预算的发布边界。配置无效或布局缓存分配失败返回 null。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `schema` | 通过 GFDataBatchSchema.create 构造的有效 schema。 |
+| `producer_id` | 非空项目生产者标识，不代表业务权限。 |
+| `producer_generation` | 大于零的生命期代次。 |
+| `max_rows` | 大于零且不超过 2147483647 的源容量及输出行数上限。 |
+| `max_owned_bytes` | 正 payload 字节预算，覆盖当前快照加候选批次。 |
+
+返回：开放的发布者；配置无效或布局缓存分配失败返回 null。
+
+<a id="member-gfdatabatchpublication-methods-publish_copy"></a>
+
+### `publish_copy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func publish_copy( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:
+```
+
+全量验证后复制列的完整 capacity，只进行一次 payload 复制并替换当前发布。 输入及其 PackedArray 别名可在返回后继续修改，不影响已发布快照。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `columns` | 与 schema 完全相符的列集合。 |
+| `count` | 有效前缀行数，允许零。 |
+| `capacity` | 每列数组长度，不小于 count。 |
+| `structural_revision` | 非负结构版本，行身份或顺序改变必须由项目递增。 |
+| `value_revision` | 非负数值版本；两版本不得倒退且每次至少推进一种。 |
+
+返回：OK 或拒绝错误；失败保留旧发布，具体原因见 get_last_failure。
+
+结构：
+
+- `columns`: Dictionary[StringName|String, PackedInt32Array|PackedInt64Array]，键是 schema 列名，所有数组长度必须精确等于 capacity。
+
+<a id="member-gfdatabatchpublication-methods-publish_transfer"></a>
+
+### `publish_transfer`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func publish_transfer( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:
+```
+
+全量验证后接收已有隔离列，不再次复制 payload；成功清空输入字典。 调用者必须合作退休全部 PackedArray 别名，后续不能写入或复用它们。 Godot 没有 move 语义，清空字典不能撤销外部别名。只读字典被拒绝；失败不消费输入。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `columns` | 可清空的完整列字典，成功后为空。 |
+| `count` | 有效前缀行数。 |
+| `capacity` | 每列数组长度，不小于 count。 |
+| `structural_revision` | 非负结构版本。 |
+| `value_revision` | 非负数值版本；版本推进规则同 publish_copy。 |
+
+返回：OK 或拒绝错误；失败不改变当前快照和输入字典。
+
+结构：
+
+- `columns`: Dictionary[StringName|String, PackedInt32Array|PackedInt64Array]，精确匹配 schema，各列长度为 capacity，成功后消费全部键值。
+
+<a id="member-gfdatabatchpublication-methods-publish_gather_copy"></a>
+
+### `publish_gather_copy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func publish_gather_copy( source_columns: Dictionary, source_count: int, source_capacity: int, row_indices: PackedInt32Array, structural_revision: int, value_revision: int ) -> Error:
+```
+
+同步验证源列和原始行索引，只为选中行分配紧凑副本。 索引只在本次同步调用内解释，不能作为跨批次身份凭据；顺序和重复索引均保留。 输出 count 和 capacity 都等于索引数量，不复制未选中的历史行或源容量尾部。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `source_columns` | 同一次捕获的完整源列集合。 |
+| `source_count` | 源有效前缀行数。 |
+| `source_capacity` | 每列实际长度，受 max_rows 限制。 |
+| `row_indices` | 每个索引必须位于零至 source_count 减一，数量受 max_rows 限制。 |
+| `structural_revision` | 输出行身份或顺序变化时须推进的非负版本。 |
+| `value_revision` | 非负数值版本；版本推进规则同 publish_copy。 |
+
+返回：OK 或拒绝错误；失败不发布部分结果。
+
+结构：
+
+- `source_columns`: Dictionary[StringName|String, PackedInt32Array|PackedInt64Array]，精确匹配 schema，各列长度为 source_capacity。
+
+<a id="member-gfdatabatchpublication-methods-get_current"></a>
+
+### `get_current`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_current() -> GFDataBatchSnapshot:
+```
+
+取得当前快照的强引用，不复制 payload。调用者可以跨帧保留它。
+
+返回：当前快照；尚未发布或已关闭返回 null。
+
+<a id="member-gfdatabatchpublication-methods-is_current"></a>
+
+### `is_current`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_current(snapshot: GFDataBatchSnapshot) -> bool:
+```
+
+检查精确快照对象是否仍是此发布者的当前发布，不仅比较元数据数值。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `snapshot` | 要检查的快照，可以为历史快照或其他发布者的快照。 |
+
+返回：发布者开放且对象身份匹配时返回 true。
+
+<a id="member-gfdatabatchpublication-methods-close"></a>
+
+### `close`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func close() -> void:
+```
+
+关闭并释放发布者持有的当前引用；已交付快照和独立副本仍可读取。
+
+<a id="member-gfdatabatchpublication-methods-get_last_failure"></a>
+
+### `get_last_failure`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_last_failure() -> Failure:
+```
+
+返回最近一次发布尝试的结构化原因。
+
+返回：成功后为 NONE；失败不改写已有快照的元数据。
+
+<a id="member-gfdatabatchpublication-methods-get_debug_snapshot"></a>
+
+### `get_debug_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_debug_snapshot() -> Dictionary:
+```
+
+返回独立诊断字典。字节指标只计 PackedArray payload，不声称全局内存上界。
+
+返回：发布者预算和最近成功构造的复制/移交字节。
+
+结构：
+
+- `return`: Dictionary，open:bool、max_rows:int、max_owned_bytes:int、current_payload_bytes:int、last_required_payload_bytes:int、last_peak_payload_bytes:int、last_copied_payload_bytes:int、last_transferred_payload_bytes:int、publication_sequence:int、last_failure:int、external_retention_tracked:bool（恒为 false）。

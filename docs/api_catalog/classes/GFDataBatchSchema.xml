@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDataBatchSchema" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd" module="extensions/data_batch" extends="RefCounted" classDigest="ace141d1d11485d0ec8b7634b105a2623d41bc61bb0bb8f368b4e448e49d2ba9">
+	<description>GFDataBatchSchema: 一次构造后固定的数值列布局。
+字段含义和版本迁移属于项目；列索引在此 schema 的整个生命周期内不变。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="NumericType">
+			<signature>enum NumericType {
+	## 查询索引无效时返回，不能用于构造列。
+	INVALID,
+	## PackedInt32Array，每个元素占四个 payload 字节。
+	INT32,
+	## PackedInt64Array，每个元素占八个 payload 字节。
+	INT64,
+}</signature>
+			<description>支持的 PackedArray 数值列类型，不执行隐式数值转换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="MAX_COLUMNS">
+			<signature>const MAX_COLUMNS: int = 256</signature>
+			<description>单个 schema 的最大列数，限制边界验证和每批元数据工作量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( schema_id: StringName, version: int, column_names: Array[StringName], column_types: PackedInt32Array ) -&gt; GFDataBatchSchema:</signature>
+			<description>校验并复制布局定义。无效输入返回 null，不保留输入数组别名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schema_id: 非空的项目布局标识。</tag>
+				<tag name="param">version: 大于零的项目布局版本。</tag>
+				<tag name="param">column_names: 一至 MAX_COLUMNS 个非空、无重复的列名。</tag>
+				<tag name="param">column_types: 与列名等长，只包含 INT32 或 INT64。</tag>
+				<tag name="return">固定布局；验证失败返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查此对象是否通过 create 完整构造。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效布局返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema_id">
+			<signature>func get_schema_id() -&gt; StringName:</signature>
+			<description>返回项目布局标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">构造时固定的标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_version">
+			<signature>func get_version() -&gt; int:</signature>
+			<description>返回项目声明的布局版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正版本号；无效对象为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_column_count">
+			<signature>func get_column_count() -&gt; int:</signature>
+			<description>返回固定列数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">列数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="find_column">
+			<signature>func find_column(column_name: StringName) -&gt; int:</signature>
+			<description>在初始化消费者时将列名绑定到稳定索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_name: 项目定义的列名。</tag>
+				<tag name="return">零起始列索引；不存在返回 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_column_name">
+			<signature>func get_column_name(column_index: int) -&gt; StringName:</signature>
+			<description>按稳定索引返回列名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_index: 零起始列索引。</tag>
+				<tag name="return">列名；越界返回空 StringName。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_column_type">
+			<signature>func get_column_type(column_index: int) -&gt; NumericType:</signature>
+			<description>按稳定索引返回数值类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_index: 零起始列索引。</tag>
+				<tag name="return">列类型；越界返回 INVALID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_bytes_per_row">
+			<signature>func get_bytes_per_row() -&gt; int:</signature>
+			<description>返回全部列每行占用的 payload 字节，不含对象、字典和数组头开销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">每行四或八字节列宽之和。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
