@@ -1,0 +1,12 @@
+{
+  "id": "gf.data_batch",
+  "display_name": "GF Data Batch",
+  "version": "12.0.0-dev.0",
+  "extension_version": "1.0.0",
+  "kind": "extension",
+  "description": "Bounded typed numeric batch publication with explicit copy and transfer ownership.",
+  "dependencies": [],
+  "installer_paths": [],
+  "enabled_by_default": false,
+  "tags": ["data", "batch", "snapshot"]
+}

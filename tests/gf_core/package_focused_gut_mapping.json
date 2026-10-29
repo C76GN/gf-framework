@@ -32,6 +32,9 @@
       "res://tests/gf_core/extensions/content_package/test_gf_content_package.gd",
       "res://tests/gf_core/extensions/content_package/test_gf_content_package_query.gd"
     ],
+    "gf.extension.data_batch": [
+      "res://tests/gf_core/extensions/data_batch/test_gf_data_batch_publication.gd"
+    ],
     "gf.extension.decision": [
       "res://tests/gf_core/extensions/decision/test_gf_decision_utility.gd"
     ],

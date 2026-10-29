@@ -1,7 +1,19 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.10.0",
+  "catalog_version": "1.11.0",
   "catalog_api_requirements": [
+    {
+      "catalog": "recipe",
+      "record_id": "typed-batch-publication",
+      "class_name": "GFDataBatchPublication",
+      "members": [
+        "publish_copy",
+        "publish_transfer",
+        "publish_gather_copy",
+        "is_current",
+        "get_last_failure"
+      ]
+    },
     {
       "catalog": "capability",
       "record_id": "command-history",
@@ -404,6 +416,14 @@
       "expected_id": "command-history"
     },
     {
+      "query": "typed batch column publication",
+      "expected_id": "data-batch"
+    },
+    {
+      "query": "GFDataBatchPublication",
+      "expected_id": "data-batch"
+    },
+    {
       "query": "object pool for reusable nodes",
       "expected_id": "runtime-performance"
     },
@@ -513,6 +533,11 @@
       "recipe_id": "undoable-command-history",
       "expected_class": "GFCommandHistoryUtility",
       "expected_step_fragment": "GFCommandHistoryUtility invalidates redo history"
+    },
+    {
+      "recipe_id": "typed-batch-publication",
+      "expected_class": "GFDataBatchPublication",
+      "expected_step_fragment": "retire every PackedArray alias after success"
     },
     {
       "recipe_id": "bounded-runtime-work",

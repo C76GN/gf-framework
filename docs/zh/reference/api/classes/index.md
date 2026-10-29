@@ -15,6 +15,7 @@
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 71 | 708 | [Combat](#module-extensions-combat) |
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
+| Data Batch | 3 | 34 | [Data Batch](#module-extensions-data_batch) |
 | Decision | 8 | 111 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
 | Domain | 21 | 336 | [Domain](#module-extensions-domain) |
@@ -811,6 +812,16 @@
 | [`GFContentPackageManifest`](GFContentPackageManifest.md#gfcontentpackagemanifest) | 资源定义 (`resource_definition`) | `Resource` | 28 | `addons/gf/extensions/content_package/resources/gf_content_package_manifest.gd` |
 | [`GFContentPackageQuery`](GFContentPackageQuery.md#gfcontentpackagequery) | 值对象 (`value_object`) | `Resource` | 17 | `addons/gf/extensions/content_package/resources/gf_content_package_query.gd` |
 | [`GFContentPackageQueryResult`](GFContentPackageQueryResult.md#gfcontentpackagequeryresult) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd` |
+
+<a id="module-extensions-data_batch"></a>
+
+### Data Batch
+
+| 类 | 类别 | 继承 | 成员 | 源文件 |
+|---|---|---|---:|---|
+| [`GFDataBatchPublication`](GFDataBatchPublication.md#gfdatabatchpublication) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd` |
+| [`GFDataBatchSchema`](GFDataBatchSchema.md#gfdatabatchschema) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd` |
+| [`GFDataBatchSnapshot`](GFDataBatchSnapshot.md#gfdatabatchsnapshot) | 值对象 (`value_object`) | `RefCounted` | 13 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd` |
 
 <a id="module-extensions-decision"></a>
 

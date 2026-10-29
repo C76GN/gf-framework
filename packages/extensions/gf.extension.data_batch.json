@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "gf.extension.data_batch",
+  "kind": "extension",
+  "dependencies": [],
+  "paths": [
+    "addons/gf/extensions/data_batch/**"
+  ],
+  "gf_extension_id": "gf.data_batch"
+}

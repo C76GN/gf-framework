@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "8eecdf31704eabc1cdc723a4677cee80d6d39c7650abd8d47cbb4d16c80bf631",
-  "class_count": 881,
+  "source_digest": "df65bb357622c4cb611e79eb715303f9871cb68705b18753decf367d1f8dcd4f",
+  "class_count": 884,
   "autoload_count": 1,
-  "package_count": 61,
+  "package_count": 62,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -75,6 +75,12 @@
         "gf.standard.assets"
       ],
       "representative_path": "addons/gf/extensions/content_package/extension.gd"
+    },
+    {
+      "id": "gf.extension.data_batch",
+      "kind": "extension",
+      "dependencies": [],
+      "representative_path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd"
     },
     {
       "id": "gf.extension.decision",
@@ -24773,6 +24779,283 @@
           "name": "sample_curve_pose",
           "signature": "static func sample_curve_pose( curve: Curve3D, ratio: float, cubic: bool = false, tangent_sample_distance: float = -1.0, up_hint: Vector3 = Vector3.UP ) -> Dictionary",
           "summary": "按 0 到 1 的比例采样 Curve3D 的 baked 姿态。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDataBatchPublication": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/data_batch",
+      "package_id": "gf.extension.data_batch",
+      "path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd",
+      "summary": "GFDataBatchPublication: 同步验证、复制或合作移交并原子替换当前数值批次。 只持有当前快照；消费者可以自行跨帧保留历史快照。预算限制发布者当前与 待构造批次的 PackedArray payload 峰值，不限制外部保留、读取副本或源数据。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Failure",
+          "signature": "enum Failure {\n\t## 发布成功，或尚未尝试发布。\n\tNONE,\n\t## 发布者已关闭或未通过 create 构造。\n\tCLOSED,\n\t## count/capacity 非法。\n\tINVALID_SHAPE,\n\t## 列集合、PackedArray 类型或长度不符合 schema。\n\tINVALID_COLUMN,\n\t## 行索引不属于本次调用提供的源有效前缀。\n\tINVALID_SELECTION,\n\t## 版本为负、倒退、未推进，或形状改变却未推进结构版本。\n\tINVALID_REVISION,\n\t## 源容量或输出行数超过配置的有限行预算。\n\tROW_BUDGET,\n\t## 当前与待构造 payload 之和超过字节预算。\n\tBYTE_BUDGET,\n\t## 只读字典无法通过清空内容完成合作移交。\n\tREAD_ONLY_TRANSFER,\n\t## 已通过预算验证，但引擎未能构造完整长度的列。\n\tALLOCATION_FAILED,\n}",
+          "summary": "最近一次发布的结构化拒绝原因；无需解析自然语言日志。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int ) -> GFDataBatchPublication",
+          "summary": "构造固定生产者和预算的发布边界。配置无效或布局缓存分配失败返回 null。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "publish_copy",
+          "signature": "func publish_copy( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error",
+          "summary": "全量验证后复制列的完整 capacity，只进行一次 payload 复制并替换当前发布。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "publish_transfer",
+          "signature": "func publish_transfer( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error",
+          "summary": "全量验证后接收已有隔离列，不再次复制 payload；成功清空输入字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "publish_gather_copy",
+          "signature": "func publish_gather_copy( source_columns: Dictionary, source_count: int, source_capacity: int, row_indices: PackedInt32Array, structural_revision: int, value_revision: int ) -> Error",
+          "summary": "同步验证源列和原始行索引，只为选中行分配紧凑副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_current",
+          "signature": "func get_current() -> GFDataBatchSnapshot",
+          "summary": "取得当前快照的强引用，不复制 payload。调用者可以跨帧保留它。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_current",
+          "signature": "func is_current(snapshot: GFDataBatchSnapshot) -> bool",
+          "summary": "检查精确快照对象是否仍是此发布者的当前发布，不仅比较元数据数值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "close",
+          "signature": "func close() -> void",
+          "summary": "关闭并释放发布者持有的当前引用；已交付快照和独立副本仍可读取。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_failure",
+          "signature": "func get_last_failure() -> Failure",
+          "summary": "返回最近一次发布尝试的结构化原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "返回独立诊断字典。字节指标只计 PackedArray payload，不声称全局内存上界。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDataBatchSchema": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/data_batch",
+      "package_id": "gf.extension.data_batch",
+      "path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd",
+      "summary": "GFDataBatchSchema: 一次构造后固定的数值列布局。 字段含义和版本迁移属于项目；列索引在此 schema 的整个生命周期内不变。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "NumericType",
+          "signature": "enum NumericType {\n\t## 查询索引无效时返回，不能用于构造列。\n\tINVALID,\n\t## PackedInt32Array，每个元素占四个 payload 字节。\n\tINT32,\n\t## PackedInt64Array，每个元素占八个 payload 字节。\n\tINT64,\n}",
+          "summary": "支持的 PackedArray 数值列类型，不执行隐式数值转换。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_COLUMNS",
+          "signature": "const MAX_COLUMNS: int = 256",
+          "summary": "单个 schema 的最大列数，限制边界验证和每批元数据工作量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( schema_id: StringName, version: int, column_names: Array[StringName], column_types: PackedInt32Array ) -> GFDataBatchSchema",
+          "summary": "校验并复制布局定义。无效输入返回 null，不保留输入数组别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查此对象是否通过 create 完整构造。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema_id",
+          "signature": "func get_schema_id() -> StringName",
+          "summary": "返回项目布局标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_version",
+          "signature": "func get_version() -> int",
+          "summary": "返回项目声明的布局版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_column_count",
+          "signature": "func get_column_count() -> int",
+          "summary": "返回固定列数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "find_column",
+          "signature": "func find_column(column_name: StringName) -> int",
+          "summary": "在初始化消费者时将列名绑定到稳定索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_column_name",
+          "signature": "func get_column_name(column_index: int) -> StringName",
+          "summary": "按稳定索引返回列名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_column_type",
+          "signature": "func get_column_type(column_index: int) -> NumericType",
+          "summary": "按稳定索引返回数值类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_bytes_per_row",
+          "signature": "func get_bytes_per_row() -> int",
+          "summary": "返回全部列每行占用的 payload 字节，不含对象、字典和数组头开销。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDataBatchSnapshot": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/data_batch",
+      "package_id": "gf.extension.data_batch",
+      "path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd",
+      "summary": "GFDataBatchSnapshot: 固定元数据和数值列的独立发布快照。 发布者替换或关闭后仍可读取。copy 方法提供修改隔离；borrow 方法返回共享 PackedArray，只能按合作约定读取。Godot 不提供此类数组的强制只读或 move 保证。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_schema",
+          "signature": "func get_schema() -> GFDataBatchSchema",
+          "summary": "返回构造此批次时使用的固定 schema。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_producer_id",
+          "signature": "func get_producer_id() -> StringName",
+          "summary": "返回项目生产者标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_producer_generation",
+          "signature": "func get_producer_generation() -> int",
+          "summary": "返回生产者生命期代次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_publication_sequence",
+          "signature": "func get_publication_sequence() -> int",
+          "summary": "返回此发布者内单调递增的成功发布序号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_structural_revision",
+          "signature": "func get_structural_revision() -> int",
+          "summary": "返回项目声明的结构版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_value_revision",
+          "signature": "func get_value_revision() -> int",
+          "summary": "返回项目声明的数值版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_count",
+          "signature": "func get_count() -> int",
+          "summary": "返回有效数据前缀行数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_capacity",
+          "signature": "func get_capacity() -> int",
+          "summary": "返回每列数组的长度，可能大于有效行数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_payload_bytes",
+          "signature": "func get_payload_bytes() -> int",
+          "summary": "返回本批列 payload 字节；不包含元数据、容器头和外部副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "copy_int32_column",
+          "signature": "func copy_int32_column(column_index: int) -> PackedInt32Array",
+          "summary": "复制指定 Int32 列的完整容量，调用者修改副本不会改变快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "copy_int64_column",
+          "signature": "func copy_int64_column(column_index: int) -> PackedInt64Array",
+          "summary": "复制指定 Int64 列的完整容量，调用者修改副本不会改变快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "borrow_int32_column",
+          "signature": "func borrow_int32_column(column_index: int) -> PackedInt32Array",
+          "summary": "借用 Int32 列，调用者必须保持只读；修改会破坏所有共享者的快照契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "borrow_int64_column",
+          "signature": "func borrow_int64_column(column_index: int) -> PackedInt64Array",
+          "summary": "借用 Int64 列，调用者必须保持只读；修改会破坏所有共享者的快照契约。",
           "visibility": "public"
         }
       ]

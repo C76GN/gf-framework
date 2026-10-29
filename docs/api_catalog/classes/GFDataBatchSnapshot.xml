@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDataBatchSnapshot" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd" module="extensions/data_batch" extends="RefCounted" classDigest="a3d451f6b5e18289e8897f65b06f86195423b8d910a6c735112169cb10cef56a">
+	<description>GFDataBatchSnapshot: 固定元数据和数值列的独立发布快照。
+发布者替换或关闭后仍可读取。copy 方法提供修改隔离；borrow 方法返回共享
+PackedArray，只能按合作约定读取。Godot 不提供此类数组的强制只读或 move 保证。
+count 是有效前缀长度，capacity 是列数组长度，容量尾部不属于有效数据。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_schema">
+			<signature>func get_schema() -&gt; GFDataBatchSchema:</signature>
+			<description>返回构造此批次时使用的固定 schema。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">schema；直接 new 的未发布对象为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_producer_id">
+			<signature>func get_producer_id() -&gt; StringName:</signature>
+			<description>返回项目生产者标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">固定的生产者标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_producer_generation">
+			<signature>func get_producer_generation() -&gt; int:</signature>
+			<description>返回生产者生命期代次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">固定的正代次。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_publication_sequence">
+			<signature>func get_publication_sequence() -&gt; int:</signature>
+			<description>返回此发布者内单调递增的成功发布序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正发布序号；不代表此快照仍是当前发布。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_structural_revision">
+			<signature>func get_structural_revision() -&gt; int:</signature>
+			<description>返回项目声明的结构版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">行身份、顺序和布局的版本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value_revision">
+			<signature>func get_value_revision() -&gt; int:</signature>
+			<description>返回项目声明的数值版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">数值版本，不依赖帧或 tick。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_count">
+			<signature>func get_count() -&gt; int:</signature>
+			<description>返回有效数据前缀行数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不超过 capacity 的行数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_capacity">
+			<signature>func get_capacity() -&gt; int:</signature>
+			<description>返回每列数组的长度，可能大于有效行数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">列容量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_payload_bytes">
+			<signature>func get_payload_bytes() -&gt; int:</signature>
+			<description>返回本批列 payload 字节；不包含元数据、容器头和外部副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">capacity 乘以 schema 每行字节数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="copy_int32_column">
+			<signature>func copy_int32_column(column_index: int) -&gt; PackedInt32Array:</signature>
+			<description>复制指定 Int32 列的完整容量，调用者修改副本不会改变快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_index: 初始化时绑定的 Int32 列索引。</tag>
+				<tag name="return">独立 PackedInt32Array；索引或类型不匹配返回空数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="copy_int64_column">
+			<signature>func copy_int64_column(column_index: int) -&gt; PackedInt64Array:</signature>
+			<description>复制指定 Int64 列的完整容量，调用者修改副本不会改变快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_index: 初始化时绑定的 Int64 列索引。</tag>
+				<tag name="return">独立 PackedInt64Array；索引或类型不匹配返回空数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="borrow_int32_column">
+			<signature>func borrow_int32_column(column_index: int) -&gt; PackedInt32Array:</signature>
+			<description>借用 Int32 列，调用者必须保持只读；修改会破坏所有共享者的快照契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_index: 初始化时绑定的 Int32 列索引。</tag>
+				<tag name="return">共享 PackedInt32Array；索引或类型不匹配返回空数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="borrow_int64_column">
+			<signature>func borrow_int64_column(column_index: int) -&gt; PackedInt64Array:</signature>
+			<description>借用 Int64 列，调用者必须保持只读；修改会破坏所有共享者的快照契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">column_index: 初始化时绑定的 Int64 列索引。</tag>
+				<tag name="return">共享 PackedInt64Array；索引或类型不匹配返回空数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

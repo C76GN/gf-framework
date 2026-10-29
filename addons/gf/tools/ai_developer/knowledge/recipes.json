@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.10.0",
+  "catalog_version": "1.11.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -491,6 +491,37 @@
         "Test empty history, capacity trimming, skipped recording, failed synchronous and asynchronous undo and redo transitions, lifecycle disposal, serialization, and restoration."
       ],
       "avoid": ["Recording a command before execution completes", "Using history serialization as authoritative save data without a project compatibility contract", "Undo logic that can leave partially restored domain state"]
+    },
+    {
+      "id": "typed-batch-publication",
+      "title": "Publish bounded typed numeric columns",
+      "package_requirements": {"all_of": ["gf.extension.data_batch"], "any_of": []},
+      "primary_classes": ["GFDataBatchSchema", "GFDataBatchPublication", "GFDataBatchSnapshot"],
+      "required_api_members": [
+        {
+          "class_name": "GFDataBatchSchema",
+          "members": ["create", "find_column", "get_column_type", "get_bytes_per_row"]
+        },
+        {
+          "class_name": "GFDataBatchPublication",
+          "members": ["create", "publish_copy", "publish_transfer", "publish_gather_copy", "get_current", "is_current", "close", "get_last_failure", "get_debug_snapshot"]
+        },
+        {
+          "class_name": "GFDataBatchSnapshot",
+          "members": ["get_count", "get_capacity", "get_producer_id", "get_producer_generation", "get_publication_sequence", "get_structural_revision", "get_value_revision", "copy_int32_column", "copy_int64_column", "borrow_int32_column", "borrow_int64_column"]
+        }
+      ],
+      "steps": [
+        "Enable the bundled gf.data_batch extension locally. Construct a project-owned GFDataBatchSchema with stable names, a positive version, and explicit INT32 or INT64 types; bind consumer column indices once and verify their types.",
+        "Create one GFDataBatchPublication for an explicit producer identity and positive generation, with finite row and PackedArray payload limits. Budget for both its current batch and the next candidate; account for external historical snapshots and consumer copies separately.",
+        "Pass exactly the declared column names as StringName or equal String keys, with matching PackedArray types and a common capacity. Treat count as the valid prefix. Keep both revisions nonnegative and nondecreasing, advance at least one on every later publication, and advance structural_revision whenever count, capacity, row identity, or ordering changes.",
+        "Use publish_copy when the producer retains writable inputs. Use publish_transfer only when the caller can retire every PackedArray alias after success; success clears the supplied writable Dictionary, while rejection must preserve both the input and the previous current snapshot.",
+        "For a selected view, use publish_gather_copy with PackedInt32Array row indices within the source valid prefix; it copies only selected rows and preserves order and duplicates. Both source capacity and selected count must respect max_rows. Keep entity selection, row meaning, and rendering policy in project code.",
+        "Read the current GFDataBatchSnapshot after an OK result, or inspect get_last_failure after rejection, including a detected allocation failure after budget admission. Copy columns before modifying them, or borrow columns only under a cooperative read-only contract, and iterate only get_count rows. Snapshot retention across publications is explicit caller ownership; get_debug_snapshot reports owner payload work, not total process memory.",
+        "Use is_current on the owning publication when accepting asynchronous work; producer identity, generation, and publication sequence describe identity without relying on a frame or tick. Close the publication when its producer ends; retained snapshots remain readable.",
+        "Test type and shape rejection, count versus capacity, exact and exceeded payload budgets, copy isolation, transfer success and non-consuming failure, gathered order, retained history, and closed-owner publication. Serialize access on the project-owned execution context; this API does not supply thread synchronization."
+      ],
+      "avoid": ["Per-row Dictionaries or repeated column-name lookup in hot loops", "Mutating borrowed PackedArrays or retaining writable aliases after successful transfer", "Treating transfer as a Godot native move or borrow as enforced immutability", "Using tick alone as snapshot identity", "Counting external retained snapshots inside the publication owner's payload guarantee", "Adding an ECS, global World, automatic history, or an implicit thread scheduler to the batch boundary"]
     },
     {
       "id": "diagnostic-contribution",

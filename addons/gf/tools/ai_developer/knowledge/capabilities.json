@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.10.0",
+  "catalog_version": "1.11.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -153,6 +153,16 @@
       "primary_classes": ["GFExecutionBudget", "GFObjectPoolUtility"],
       "recipes": ["bounded-runtime-work"],
       "boundary": "GF supplies explicit budget checks and reusable pool lifecycle mechanics; projects must profile first and own capacity, frame priority, exhaustion behavior, reset semantics, and authoritative domain identity."
+    },
+    {
+      "id": "data-batch",
+      "title": "Typed numeric batch publication",
+      "summary": "Bounded Int32 and Int64 column schemas, explicit copy or cooperative transfer publication, gathered subsets, and retained read snapshots.",
+      "keywords": ["data batch", "typed batch", "column", "packed array", "snapshot", "publication", "gather", "numeric", "structure of arrays", "soa"],
+      "packages": ["gf.extension.data_batch"],
+      "primary_classes": ["GFDataBatchSchema", "GFDataBatchPublication", "GFDataBatchSnapshot"],
+      "recipes": ["typed-batch-publication"],
+      "boundary": "GF owns typed column validation and atomic publication under a bounded current-plus-pending PackedArray payload budget. Projects own field meaning, producer generations, revisions, threading, historical snapshot retention, and every alias retired after successful transfer. Borrowed columns are cooperative read-only views, not enforced immutable arrays; there is no ECS, global World, native move guarantee, pool, or lease."
     },
     {
       "id": "diagnostics",
