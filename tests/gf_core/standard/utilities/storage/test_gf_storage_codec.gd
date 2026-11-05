@@ -23,6 +23,106 @@ func test_json_encoding_sorts_dictionary_keys() -> void:
 	)
 
 
+func test_json_projection_is_opt_in_read_only_shared_and_not_serialized() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var prepared: Variant = GFVariantJsonCodec.variant_to_json_compatible(Vector2(3.0, 4.0))
+	var bytes: PackedByteArray = codec.encode(
+		{ "prepared": prepared },
+		{ "obfuscation_key": 0 }
+	)
+	var ordinary: GFStorageReadResult = codec.decode(
+		bytes,
+		{ "obfuscation_key": 0 }
+	)
+	var path: Array = [GFStorageCodec.PAYLOAD_KEY, "prepared"]
+	assert_true(ordinary.get_json_projection_value_for_framework(path).is_empty())
+
+	var result: GFStorageReadResult = codec.decode_with_json_projection_for_framework(
+		bytes,
+		{ "obfuscation_key": 0 }
+	)
+	var projected: Dictionary = result.get_json_projection_value_for_framework(path)
+	var raw_value: Dictionary = GFVariantData.as_dictionary(projected.get("value"))
+	var copied: GFStorageReadResult = result.duplicate_result()
+	var copied_projection: Dictionary = copied.get_json_projection_value_for_framework(path)
+
+	assert_true(result.ok)
+	var restored_prepared: Variant = result.payload.get("prepared")
+	assert_true(restored_prepared is Vector2)
+	if restored_prepared is Vector2:
+		var restored_vector: Vector2 = restored_prepared
+		assert_eq(
+			restored_vector,
+			Vector2(3.0, 4.0)
+		)
+	var expected_raw: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(prepared)))
+	assert_eq(raw_value, expected_raw)
+	assert_true(raw_value.is_read_only())
+	assert_true(GFVariantData.as_dictionary(raw_value.get(GFVariantJsonCodec.JSON_MARKER_KEY)).is_read_only())
+	assert_true(
+		is_same(
+			raw_value,
+			copied_projection.get("value")
+		),
+		"Result 副本应共享只读投影，不能重复深拷。"
+	)
+	assert_true(GFStorageReadResult.from_dict(result.to_dict()).get_json_projection_value_for_framework(path).is_empty())
+	result.migrated = true
+	assert_false(
+		GFResultDictionary.is_ok(result.get_json_projection_value_for_framework(path)),
+		"迁移后的原生载荷不能继续消费旧 JSON 输入。"
+	)
+	assert_true(
+		codec.decode(
+			bytes,
+			{ "obfuscation_key": 0 }
+		).get_json_projection_value_for_framework(path).is_empty()
+	)
+
+
+func test_json_projection_can_traverse_encoded_dictionary_envelopes() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var bytes: PackedByteArray = codec.encode(
+		{ "prepared": Vector2.ONE },
+		{ "obfuscation_key": 0 }
+	)
+	var document: Variant = JSON.parse_string(bytes.get_string_from_utf8())
+	var wrapped: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+		document,
+		{ "encode_dictionary_keys": true }
+	)
+	var result: GFStorageReadResult = codec.decode_with_json_projection_for_framework(
+		JSON.stringify(wrapped).to_utf8_buffer(),
+		{ "obfuscation_key": 0 }
+	)
+	var projected: Dictionary = result.get_json_projection_value_for_framework([GFStorageCodec.PAYLOAD_KEY, "prepared"])
+
+	assert_true(result.ok)
+	assert_true(GFResultDictionary.is_ok(projected))
+	assert_true(projected.get("value") is Dictionary)
+
+
+func test_binary_projection_keeps_original_prepared_payload_without_json_tree() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var prepared: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+	var options: Dictionary = { "format": GFStorageCodec.Format.BINARY, "obfuscation_key": 0 }
+	var result: GFStorageReadResult = codec.decode_with_json_projection_for_framework(
+		codec.encode(
+			{ "prepared": prepared },
+			options
+		),
+		options
+	)
+
+	assert_true(result.ok)
+	var restored_prepared: Variant = result.payload.get("prepared")
+	assert_true(restored_prepared is Dictionary)
+	if restored_prepared is Dictionary:
+		var restored_dictionary: Dictionary = restored_prepared
+		assert_eq(restored_dictionary, prepared)
+	assert_true(result.get_json_projection_value_for_framework([GFStorageCodec.PAYLOAD_KEY, "prepared"]).is_empty())
+
+
 func test_json_encoding_rejects_traversal_limited_document() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 	var deep_payload: Dictionary = _make_nested_dictionary(70, "leaf")

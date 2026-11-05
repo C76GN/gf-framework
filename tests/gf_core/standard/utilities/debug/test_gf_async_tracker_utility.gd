@@ -65,6 +65,36 @@ func test_batch_refresh_skips_record_removed_by_previous_provider() -> void:
 	)
 
 
+## 批量注销信号可移除后续 ID；旧 key 快照必须跳过已删除项。
+func test_batch_untrack_skips_record_removed_by_signal() -> void:
+	for invalid_only: bool in [false, true]:
+		var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
+		tracker.tracking_enabled = true
+		var handle: Node = Node.new()
+		var first: int = tracker.track_handle(handle, &"first")
+		var second: int = tracker.track_handle(handle, &"second")
+		var emitted: Array[int] = []
+		var callback: Callable = func(tracking_id: int, _label: StringName) -> void:
+			emitted.append(tracking_id)
+			if tracking_id == first:
+				var _removed: bool = tracker.untrack_id(second)
+		var _connected: int = tracker.async_handle_untracked.connect(callback)
+		var removed_count: int = 0
+		if invalid_only:
+			handle.free()
+			removed_count = tracker.clear_invalid()
+		else:
+			removed_count = tracker.untrack_handle(handle)
+			handle.free()
+		assert_eq(removed_count, 1)
+		assert_eq(
+			emitted,
+			[first, second]
+		)
+		assert_true(tracker.get_active_records().is_empty())
+		tracker.async_handle_untracked.disconnect(callback)
+
+
 func test_async_tracker_is_disabled_by_default() -> void:
 	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()

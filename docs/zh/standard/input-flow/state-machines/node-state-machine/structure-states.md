@@ -19,14 +19,17 @@ Player
 ## 状态脚本
 
 ```gdscript
+## 项目待机节点状态；场景中须有本例约定的 AnimationPlayer 子节点。
 class_name IdleState
 extends GFNodeState
 
 
+## 每次进入待机时恢复对应动画，不依赖节点只执行一次的 ready。
 func _enter(previous_state: StringName = &"", args: Dictionary = {}) -> void:
 	$AnimationPlayer.play("idle")
 
 
+## 在激活状态的物理更新中将项目移动输入映射为切换请求。
 func _physics_process(_delta: float) -> void:
 	if Input.is_action_pressed("move_right"):
 		transition_to(&"Run")

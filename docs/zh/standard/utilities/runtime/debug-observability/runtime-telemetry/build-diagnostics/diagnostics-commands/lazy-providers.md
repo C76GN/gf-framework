@@ -7,10 +7,14 @@
 项目为每类状态实现独立 Provider，并返回 `GFDiagnosticProviderResult`。Provider 应同步、只读、快速、有界，不应启动网络请求、修改游戏状态或等待下一帧：
 
 ```gdscript
+## 显式请求时才读取的路由诊断；采集须同步、只读且有界。
 class RouteStateProvider extends GFDiagnosticSnapshotProvider:
+	## 由项目导航流程更新的最小诊断状态，不保存面板或账号对象。
 	var current_route_id: StringName = &""
+	## 当前等待数量，由项目维护；采集回调不主动启动路由查询。
 	var pending_route_count: int = 0
 
+	## 投影白名单字段；不在故障采集路径里发起 IO 或修改路由。
 	func _collect_snapshot(request: Dictionary = {}) -> GFDiagnosticProviderResult:
 		return GFDiagnosticProviderResult.succeeded(
 			{
@@ -21,10 +25,12 @@ class RouteStateProvider extends GFDiagnosticSnapshotProvider:
 		)
 
 
+# 注册表弱持有 Provider；项目须将此引用保留到希望停止提供诊断时。
 var provider: RouteStateProvider = RouteStateProvider.new()
 var _configured_provider: GFDiagnosticSnapshotProvider = provider.configure(
 	&"ui.route_state",
 	{
+		# 返回后才验收耗时；预算无法抢占正在执行的同步项目代码。
 		"max_duration_usec": 20_000,
 		"metadata": { "domain": &"ui" },
 	}

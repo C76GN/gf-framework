@@ -43,6 +43,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var query_id: StringName = &""
 ```
 
@@ -56,6 +57,7 @@ var query_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var package_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -69,6 +71,7 @@ var package_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var search_text: String = ""
 ```
 
@@ -82,6 +85,7 @@ var search_text: String = ""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var required_content_types: PackedStringArray = PackedStringArray()
 ```
 
@@ -95,6 +99,7 @@ manifest 必须包含的全部 content type。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var required_dependencies: PackedStringArray = PackedStringArray()
 ```
 
@@ -108,6 +113,7 @@ manifest 必须声明的全部直接依赖 ID。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var required_resource_keys: PackedStringArray = PackedStringArray()
 ```
 
@@ -121,6 +127,7 @@ manifest 必须声明的全部资源键。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var allowed_safety_kinds: PackedStringArray = PackedStringArray()
 ```
 
@@ -134,6 +141,7 @@ var allowed_safety_kinds: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var required_metadata: Dictionary = {}
 ```
 
@@ -151,6 +159,7 @@ manifest metadata 必须精确匹配的键值。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var include_dependencies: bool = false
 ```
 
@@ -164,6 +173,7 @@ var include_dependencies: bool = false
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var max_results: int = 0
 ```
 
@@ -177,6 +187,7 @@ var max_results: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

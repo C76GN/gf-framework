@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var action_id: StringName = &""
 ```
 
@@ -43,6 +44,7 @@ var action_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var max_gap_seconds: float = -1.0:
 ```
 
@@ -55,6 +57,7 @@ var max_gap_seconds: float = -1.0:
 - API：`public`
 
 ```gdscript
+@export
 var min_hold_seconds: float = 0.0:
 ```
 
@@ -67,6 +70,7 @@ var min_hold_seconds: float = 0.0:
 - API：`public`
 
 ```gdscript
+@export
 var trigger_on_release: bool = false
 ```
 

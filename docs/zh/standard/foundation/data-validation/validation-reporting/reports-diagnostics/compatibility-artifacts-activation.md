@@ -61,7 +61,11 @@ var report: Dictionary = artifacts.get_report()
 
 当前实现按本地路径读取文件元数据，不为扫描期间被并发替换的路径提供文件身份锁或不可变 snapshot 保证。需要把检查结果作为安全发布依据时，调用方应先发布到不可变路径、持有项目自己的发布锁，或在后续统一 artifact snapshot 契约落地后使用该契约。
 
+显式要求 `expected_sha256` 或 `expected_size_bytes` 时，路径为空或文件不存在会使 `require_artifact()` 失败并产生 `artifact_file_missing`；不需要另外设置 `require_file_exists`。只检查 artifact 声明存在性的调用保持轻量行为。
+
 ## 激活事务
+
+步骤显式返回 `ok=false` 或 `success=false` 时，事务保留这个失败事实，即使其 `issues` 仅包含 warning。成功步骤附带 warning 则仍可成功。
 
 `GFActivationTransaction` 适合“先验证，再发布一组状态变更”的通用场景，例如切换资源注册表、替换配置快照、挂载本地数据包或刷新工具索引。每个步骤由调用方提供 apply / rollback / validate 回调；GF 只负责顺序、失败报告和回滚编排。
 

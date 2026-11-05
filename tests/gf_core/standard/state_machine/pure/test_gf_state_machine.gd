@@ -1451,6 +1451,32 @@ func test_active_replacement_does_not_overwrite_redirect_enter_registration() ->
 	assert_eq(inner_replacement.dispose_count, 0)
 
 
+## 普通退出中的停止或重启应撤销旧转场，且每个活动实例只退出一次。
+func test_transition_exit_lifecycle_mutation_wins() -> void:
+	for restart: bool in [false, true]:
+		var machine: GFStateMachine = GFStateMachine.new()
+		var first: LifecycleCallbackState = LifecycleCallbackState.new()
+		var stale: TrackingState = TrackingState.new()
+		var replacement: TrackingState = TrackingState.new()
+		machine.add_state(&"First", first)
+		machine.add_state(&"Stale", stale)
+		machine.add_state(&"Replacement", replacement)
+		machine.start(&"First")
+		first.exit_callback = func() -> void:
+			if restart:
+				machine.start(&"Replacement")
+			else:
+				machine.stop()
+		machine.change_state(&"Stale")
+		assert_eq(first.exit_count, 1)
+		assert_eq(stale.enter_count, 0)
+		assert_eq(
+			machine.get_current_state(),
+			replacement if restart else null
+		)
+		machine.dispose()
+
+
 func test_active_replacement_exit_lifecycle_mutation_wins() -> void:
 	for operation: StringName in [
 		&"stop",

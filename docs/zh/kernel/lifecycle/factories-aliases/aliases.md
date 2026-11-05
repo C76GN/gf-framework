@@ -5,11 +5,13 @@
 ## 直接按别名注册
 
 ```gdscript
+## 项目配置实现；消费者通过 GFConfigProvider 抽象解析它。
 class_name JSONConfigProvider
 extends GFConfigProvider
 ```
 
 ```gdscript
+## 在启动装配期同时登记实例和抽象别名，避免多个实现的继承匹配歧义。
 func _ready() -> void:
 	await Gf.register_utility_as(JSONConfigProvider.new(), GFConfigProvider)
 
@@ -19,6 +21,7 @@ func _ready() -> void:
 ## 注册后登记别名
 
 ```gdscript
+## 先完成具体实例注册，再为该注册项建立抽象别名。
 func _ready() -> void:
 	await Gf.register_utility(JSONConfigProvider.new())
 	Gf.register_utility_alias(GFConfigProvider, JSONConfigProvider)

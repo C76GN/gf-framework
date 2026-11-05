@@ -255,6 +255,26 @@ func test_full_state_restores_branch_counters() -> void:
 	)
 
 
+func test_exhausted_branch_counter_preserves_restorable_state() -> void:
+	var snapshot: Dictionary = _seed_util.get_full_state()
+	snapshot[&"branch_counters"] = { "loot": "9223372036854775807" }
+	snapshot[&"deterministic_branch_counters"] = { "loot": "9223372036854775807" }
+	_seed_util.set_full_state(snapshot)
+	assert_null(_seed_util.get_branched_godot_rng("loot"))
+	assert_push_error("[GFSeedUtility][seed_utility.branch_counter_exhausted] Cannot create another branch: the label counter is exhausted.")
+	assert_null(_seed_util.get_branched_deterministic_random("loot"))
+	assert_push_error("[GFSeedUtility][seed_utility.branch_counter_exhausted] Cannot create another branch: the label counter is exhausted.")
+	assert_eq(
+		_seed_util.get_full_state(),
+		snapshot
+	)
+	_seed_util.set_full_state(_seed_util.get_full_state())
+	assert_eq(
+		_seed_util.get_full_state(),
+		snapshot
+	)
+
+
 func test_full_state_restores_deterministic_branch_counters() -> void:
 	_seed_util.set_global_seed(13579)
 	var _first_deterministic_rng: Variant = _seed_util.get_branched_deterministic_random("loot")

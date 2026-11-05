@@ -7,7 +7,7 @@
 ## 阅读入口
 
 - [完整性校验](integrity-checksum.md)：codec 元信息、checksum、旧 checksum 迁移和 JSON 语义归一化。
-- [兼容旧存档](legacy-compatibility.md)：旧版纯 JSON 回退、数字归一、绝对路径、槽位结果和异步收敛。
+- [旧存档离线导入](legacy-compatibility.md)：严格当前格式、版本锁定的旧数据导入、logical identity 和异步收敛。
 - [迁移链](migration-chain.md)：`migrate_data()`、`register_migration()` 和严格 schema 迁移。
 
 ## 使用边界

@@ -251,6 +251,7 @@ const PROJECT_VERSION_SETTING: String = "application/config/version"
 - API：`public`
 
 ```gdscript
+@export
 var project_name: String = ""
 ```
 
@@ -263,6 +264,7 @@ var project_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var project_version: String = ""
 ```
 
@@ -275,6 +277,7 @@ var project_version: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var framework_version: String = ""
 ```
 
@@ -287,6 +290,7 @@ GF Framework 版本。
 - API：`public`
 
 ```gdscript
+@export
 var build_id: String = ""
 ```
 
@@ -299,6 +303,7 @@ var build_id: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var commit_hash: String = ""
 ```
 
@@ -311,6 +316,7 @@ var commit_hash: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var branch: String = ""
 ```
 
@@ -323,6 +329,7 @@ var branch: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var tag: String = ""
 ```
 
@@ -335,6 +342,7 @@ var tag: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var commit_count: int = 0
 ```
 
@@ -347,6 +355,7 @@ var commit_count: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var is_dirty: bool = false
 ```
 
@@ -359,6 +368,7 @@ var is_dirty: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var build_time_utc: String = ""
 ```
 
@@ -371,6 +381,7 @@ var build_time_utc: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var engine_version: String = ""
 ```
 
@@ -383,6 +394,7 @@ var engine_version: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var platform_name: String = ""
 ```
 
@@ -395,6 +407,7 @@ var platform_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var is_debug_build: bool = false
 ```
 
@@ -407,6 +420,7 @@ var is_debug_build: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

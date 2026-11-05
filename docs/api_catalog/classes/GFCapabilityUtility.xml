@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="cf7363b05fc8b38acdf2524298db3cd06c5c7b43967026f0d4ae73228d743cb7">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="07205857a54740c0c60c07d862f6ccee74b4ff5aefbd6428bd79214d575a4029">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
 能力组合是可选扩展，不改变核心分层容器。
@@ -128,10 +128,12 @@ Utility 不接管 receiver 生命周期，也不会在项目直接释放 receive
 		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>注销已索引 receiver 上的能力并清理分组状态。
-由本 Utility 创建或 PackedScene 实例化的能力会随架构销毁释放；外部传入或场景中已有的能力只注销，不抢占其节点所有权。</description>
+			<description>注销本 Utility 登记且身份仍匹配的能力，并清理分组状态。
+由本 Utility 创建或 PackedScene 实例化的能力会随架构销毁释放；外部传入或场景中已有的能力只注销，不抢占其节点所有权。
+其他 Utility 的依赖仍会阻止注销；保留尚未移除的登记，可在依赖者移除后再次调用。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">1.10.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">

@@ -81,6 +81,8 @@ shader_params.apply_profile(weather_material, blended)
 下面的 `ProjectEnvironmentSample` 和 `environment_model` 都属于项目代码。GF 调用只负责读取时钟、组合 Profile、校验契约和应用材质：
 
 ```gdscript
+## 将项目环境样本投影到临时 Profile；依赖须已装配且接口快照已验收。
+## 契约失败时返回 false 并保留 Binder 原先的 Profile。
 func update_environment_appearance() -> bool:
 	var clock: GFClock = time_provider.get_clock()
 	var sample: ProjectEnvironmentSample = environment_model.sample_at(clock)
@@ -103,6 +105,7 @@ func update_environment_appearance() -> bool:
 		push_warning(contract_report.make_summary())
 		return false
 
+	# 校验完成才切换表现引用，不把半成品参数写入共享基准资源。
 	shader_binder.profile = runtime_profile
 	return true
 ```

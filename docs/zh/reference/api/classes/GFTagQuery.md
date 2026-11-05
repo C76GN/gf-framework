@@ -36,6 +36,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var all_tags: Array[StringName] = []
 ```
 
@@ -48,6 +49,7 @@ var all_tags: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var any_tags: Array[StringName] = []
 ```
 
@@ -60,6 +62,7 @@ var any_tags: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var none_tags: Array[StringName] = []
 ```
 
@@ -72,6 +75,7 @@ var none_tags: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var include_child_tags: bool = false
 ```
 

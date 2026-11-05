@@ -5,10 +5,12 @@
 ## 注册与创建
 
 ```gdscript
+# 注册属于初始化前的装配阶段；下方创建与执行必须等架构提交 READY 后进行。
 var registered := architecture.register_factory(DealDamageCommand, func() -> Object:
 	return DealDamageCommand.new()
 )
 
+# 成功返回的 transient 对象由直接调用者接管，不作为架构生命周期模块。
 var command := architecture.create_instance(DealDamageCommand) as DealDamageCommand
 command.execute()
 ```
@@ -36,6 +38,7 @@ var registered_command_factory := architecture.register_factory(
 	GFBindingLifetimes.Lifetime.TRANSIENT
 )
 
+# 外部实例保持调用方所有权；解绑或架构释放不会替调用方 dispose 它。
 var registered_rule_set := architecture.register_factory_instance(BattleRuleSet, BattleRuleSet.new())
 ```
 

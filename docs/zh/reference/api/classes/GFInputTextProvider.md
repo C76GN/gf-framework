@@ -29,6 +29,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var priority: int = 0
 ```
 

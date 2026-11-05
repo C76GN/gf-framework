@@ -424,7 +424,8 @@ func multiply_scalar(
 	)
 
 
-## 计算点积。
+## 计算点积，完整求和后只执行一次结果舍入和 raw 饱和。
+## 分量乘积与部分和使用宽整数，不因中间越界丢失可抵消的值。
 ## [br]
 ## @api public
 ## [br]
@@ -434,9 +435,9 @@ func multiply_scalar(
 ## [br]
 ## @param target_decimal_places: 结果小数位；传 -1 时沿用较高小数位。
 ## [br]
-## @param rounding_mode: 结果降位时的舍入策略。
+## @param rounding_mode: 完整求和后的结果降位策略。
 ## [br]
-## @return 点积定点数。
+## @return 点积定点数；other 为 null 时返回当前向量精度的零。
 func dot(
 	other: GFFixedVector2,
 	target_decimal_places: int = -1,
@@ -445,24 +446,17 @@ func dot(
 	if other == null:
 		return GFFixedDecimal.new(0, decimal_places)
 
-	var x_product: GFFixedDecimal = (
-		get_x_decimal().multiply(
-			other.get_x_decimal(),
-			target_decimal_places,
-			rounding_mode
-		)
+	return GFFixedDecimal.reduce_vector_products(
+		PackedInt64Array([raw_x, raw_y]),
+		PackedInt64Array([other.raw_x, other.raw_y]),
+		decimal_places,
+		other.decimal_places,
+		target_decimal_places,
+		rounding_mode
 	)
-	var y_product: GFFixedDecimal = (
-		get_y_decimal().multiply(
-			other.get_y_decimal(),
-			target_decimal_places,
-			rounding_mode
-		)
-	)
-	return x_product.add(y_product)
 
 
-## 计算长度平方。
+## 计算长度平方；各分量平方完整求和后只舍入、饱和一次。
 ## [br]
 ## @api public
 ## [br]

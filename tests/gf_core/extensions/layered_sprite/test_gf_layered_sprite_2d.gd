@@ -775,6 +775,24 @@ func test_looping_advance_stops_at_cross_frame_budget() -> void:
 	node.free()
 
 
+func test_looping_advance_consumes_partial_frame_at_boundary_budget() -> void:
+	for speed: float in [1.0, -1.0]:
+		var node: GFLayeredSprite2D = GFLayeredSprite2D.new()
+		assert_true(node.configure(_make_single_frame_definition()))
+		assert_true(node.play(&"idle", speed))
+		assert_true(node.advance((float(GFLayeredSprite2D.MAX_FRAME_ADVANCES_PER_TICK) + 0.5) / 2.0))
+		assert_eq(
+			node.get_last_rejection_reason(),
+			&""
+		)
+		assert_almost_eq(
+			node.get_frame_progress(),
+			0.5,
+			0.000001
+		)
+		node.free()
+
+
 func _make_definition() -> GFLayeredSpriteDefinition:
 	var definition: GFLayeredSpriteDefinition = GFLayeredSpriteDefinition.new()
 	definition.timeline_frames = _make_frames()

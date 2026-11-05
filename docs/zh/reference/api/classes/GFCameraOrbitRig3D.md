@@ -66,6 +66,7 @@ signal orbit_changed( yaw_degrees_value: float, pitch_degrees_value: float, dist
 - API：`public`
 
 ```gdscript
+@export
 var yaw_degrees: float = 0.0:
 ```
 
@@ -78,6 +79,7 @@ var yaw_degrees: float = 0.0:
 - API：`public`
 
 ```gdscript
+@export
 var pitch_degrees: float = -20.0:
 ```
 
@@ -90,6 +92,7 @@ var pitch_degrees: float = -20.0:
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 10000.0, 0.01, "or_greater")
 var distance: float = 8.0:
 ```
 
@@ -102,6 +105,7 @@ var distance: float = 8.0:
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 10000.0, 0.01, "or_greater")
 var min_distance: float = 1.0:
 ```
 
@@ -114,6 +118,7 @@ var min_distance: float = 1.0:
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 10000.0, 0.01, "or_greater")
 var max_distance: float = 50.0:
 ```
 
@@ -126,6 +131,7 @@ var max_distance: float = 50.0:
 - API：`public`
 
 ```gdscript
+@export_range(-89.0, 89.0, 0.1)
 var min_pitch_degrees: float = -80.0:
 ```
 
@@ -138,6 +144,7 @@ var min_pitch_degrees: float = -80.0:
 - API：`public`
 
 ```gdscript
+@export_range(-89.0, 89.0, 0.1)
 var max_pitch_degrees: float = 80.0:
 ```
 
@@ -150,6 +157,7 @@ var max_pitch_degrees: float = 80.0:
 - API：`public`
 
 ```gdscript
+@export
 var look_at_focus: bool = true
 ```
 
@@ -162,6 +170,7 @@ var look_at_focus: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var orbit_up_axis: Vector3 = Vector3.UP
 ```
 

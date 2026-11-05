@@ -33,6 +33,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(1, 256, 1)
 var projectile_count: int = 1
 ```
 
@@ -46,6 +47,7 @@ var projectile_count: int = 1
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var spread_degrees: float = 0.0
 ```
 
@@ -59,6 +61,7 @@ var spread_degrees: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var center_angle_degrees: float = 0.0
 ```
 
@@ -72,6 +75,7 @@ var center_angle_degrees: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var radius: float = 0.0
 ```
 
@@ -85,6 +89,7 @@ var radius: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var rotate_to_direction: bool = true
 ```
 
@@ -98,6 +103,7 @@ var rotate_to_direction: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var include_emitter_rotation: bool = true
 ```
 

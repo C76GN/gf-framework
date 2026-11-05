@@ -85,6 +85,59 @@ class OversizedPlanRenderer extends GFThumbnailRenderer:
 		return task
 
 
+func test_catalog_and_query_cancel_callbacks_revoke_old_mutations() -> void:
+	for change_catalog: bool in [false, true]:
+		for dispose_in_callback: bool in [false, true]:
+			var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+			var catalog: GFAssetCatalog = _make_catalog([_make_entry(&"mesh", "Mesh")])
+			var _loaded: Dictionary = model.replace_catalog(catalog)
+			var renderer: PendingRenderer = PendingRenderer.new()
+			var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_mesh_texture(BoxMesh.new())
+			var task: GFThumbnailRenderTask = model.request_preview(
+				&"mesh",
+				renderer,
+				request
+			)
+			var catalog_revision: int = model.get_catalog_revision()
+			var query_generation: int = model.get_query_generation()
+			var nested_tasks: Array[GFThumbnailRenderTask] = []
+			var _connected: Error = task.completed.connect(
+				func(_completed: GFThumbnailRenderTask) -> void:
+					if dispose_in_callback:
+						model.dispose()
+					else:
+						nested_tasks.append(
+							model.request_preview(
+								&"mesh",
+								renderer,
+								request
+							)
+						),
+				CONNECT_ONE_SHOT
+			) as Error
+			var report: Dictionary = model.replace_catalog(catalog) if change_catalog else model.set_query("new query")
+			assert_false(GFVariantData.get_option_bool(report, "ok"))
+			assert_eq(
+				model.get_catalog_revision(),
+				catalog_revision
+			)
+			assert_eq(
+				model.get_query_generation(),
+				query_generation
+			)
+			if not dispose_in_callback:
+				assert_eq(
+					nested_tasks.size(),
+					1
+				)
+				assert_same(
+					model.get_active_preview_task(),
+					nested_tasks[0]
+				)
+			model.dispose()
+			renderer.free()
+
+
 func test_preview_submission_rechecks_owner_after_renderer_callback() -> void:
 	for mutation: String in ["dispose", "query"]:
 		var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
@@ -1035,6 +1088,102 @@ func test_incremental_pages_match_sync_results_and_respect_item_budget() -> void
 				"结果所有权只能交还一次。"
 			)
 			task.join_worker()
+	model.dispose()
+
+
+## 同一搜索文字切换排序预设会撤销旧任务，新任务分页与同步目录保持相同顺序。
+func test_rank_preset_changes_query_generation_and_page_order() -> void:
+	const PAGE_QUERY_SCRIPT = preload("res://addons/gf/tools/asset_browser/gf_asset_browser_page_query.gd")
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var catalog: GFAssetCatalog = _make_catalog(
+		[
+			_make_entry(&"ui", "UI Audio"),
+			_make_entry(&"background", "Background Audio"),
+			_make_entry(&"deep", "Deep Underwater Environment Audio"),
+			_make_entry(&"miss", "A missing sprite"),
+		]
+	)
+	var _replace: Dictionary = model.replace_catalog(catalog)
+	var _exact: Dictionary = model.set_query("audio")
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(
+			model.get_page(1, 2),
+			"asset_ids"
+		),
+		PackedStringArray(["ui", "background"])
+	)
+	var old_task: RefCounted = model.create_page_query(1, 2)
+	assert_true(old_task is PAGE_QUERY_SCRIPT)
+	if not old_task is PAGE_QUERY_SCRIPT:
+		model.dispose()
+		return
+	var stale: PAGE_QUERY_SCRIPT = old_task
+	var _started: bool = stale.step(1, 1)
+	var options: Dictionary = { "sort_preset": "name_browse" }
+	var change: Dictionary = model.set_query(
+		"audio",
+		PackedStringArray(),
+		options
+	)
+	assert_true(GFVariantData.get_option_bool(change, "changed"))
+	assert_true(stale.step())
+	assert_eq(
+		stale.take_result(),
+		{}
+	)
+	stale.join_worker()
+	var expected: Dictionary = model.get_page(1, 2)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(expected, "asset_ids"),
+		PackedStringArray(["background", "ui"])
+	)
+	var current_task: RefCounted = model.create_page_query(1, 2)
+	assert_true(current_task is PAGE_QUERY_SCRIPT)
+	if current_task is PAGE_QUERY_SCRIPT:
+		var current: PAGE_QUERY_SCRIPT = current_task
+		while not current.step():
+			await get_tree().process_frame
+		assert_eq(
+			current.take_result(),
+			expected
+		)
+		current.join_worker()
+	options["include_unmatched"] = true
+	var _with_unmatched: Dictionary = model.set_query(
+		"audio",
+		PackedStringArray(),
+		options
+	)
+	var last_page: Dictionary = model.get_page(2, 2)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(last_page, "asset_ids"),
+		PackedStringArray(["deep", "miss"])
+	)
+	var tail_task: RefCounted = model.create_page_query(2, 2)
+	assert_true(tail_task is PAGE_QUERY_SCRIPT)
+	if tail_task is PAGE_QUERY_SCRIPT:
+		var tail: PAGE_QUERY_SCRIPT = tail_task
+		while not tail.step():
+			await get_tree().process_frame
+		assert_eq(
+			tail.take_result(),
+			last_page
+		)
+		tail.join_worker()
+	options["band_width"] = 25.0
+	var width_change: Dictionary = model.set_query(
+		"audio",
+		PackedStringArray(),
+		options
+	)
+	assert_true(GFVariantData.get_option_bool(width_change, "changed"))
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(
+			model.get_page(1, 2),
+			"asset_ids"
+		),
+		PackedStringArray(["ui", "background"])
+	)
 	model.dispose()
 
 

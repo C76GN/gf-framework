@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`3.17.0`
 
-将 3D 指针事件桥接为 GFInteractionContext。 监听 CollisionObject3D 的 hover、鼠标按钮与滚轮事件，构建通用交互上下文。 节点只传递位置、法线、按钮、标签和元数据，不解释点击对象的业务含义。
+将 3D 指针事件桥接为 GFInteractionContext。 监听 CollisionObject3D 的 hover、鼠标按钮与滚轮事件，构建通用交互上下文。 节点只传递位置、法线、按钮、标签和元数据，不解释点击对象的业务含义。 事件信号回调改变绑定或禁用桥接后，旧事件不再自动发送，也不将旧点击转交给新目标。
 
 ## 成员概览
 
@@ -29,7 +29,7 @@
 | 属性 | [`tags`](#member-gfpointerinteraction3d-properties-tags) | `var tags: PackedStringArray = PackedStringArray()` |
 | 属性 | [`metadata`](#member-gfpointerinteraction3d-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`collision_object_path`](#member-gfpointerinteraction3d-properties-collision_object_path) | `var collision_object_path: NodePath = NodePath("")` |
-| 属性 | [`receiver_path`](#member-gfpointerinteraction3d-properties-receiver_path) | `var receiver_path: NodePath = NodePath("")` |
+| 属性 | [`receiver_path`](#member-gfpointerinteraction3d-properties-receiver_path) | `var receiver_path: NodePath = NodePath(""):` |
 | 属性 | [`sender_path`](#member-gfpointerinteraction3d-properties-sender_path) | `var sender_path: NodePath = NodePath("")` |
 | 属性 | [`send_on_clicked`](#member-gfpointerinteraction3d-properties-send_on_clicked) | `var send_on_clicked: bool = true` |
 | 属性 | [`send_on_pressed`](#member-gfpointerinteraction3d-properties-send_on_pressed) | `var send_on_pressed: bool = false` |
@@ -199,10 +199,11 @@ signal pointer_interaction_sent( context: GFInteractionContext, receiver: Object
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var enabled: bool = true:
 ```
 
-是否启用指针桥接。
+是否启用指针桥接。禁用会撤销未完成配对与当前事件剩余的自动发送，重新启用不恢复旧事件。
 
 <a id="member-gfpointerinteraction3d-properties-interaction_id"></a>
 
@@ -212,6 +213,7 @@ var enabled: bool = true:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var interaction_id: StringName = &""
 ```
 
@@ -225,6 +227,7 @@ var interaction_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var group_name: StringName = &""
 ```
 
@@ -238,6 +241,7 @@ var group_name: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var payload: Dictionary = {}
 ```
 
@@ -255,6 +259,7 @@ var payload: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -268,6 +273,7 @@ var tags: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -285,6 +291,7 @@ var metadata: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_node_path("CollisionObject3D")
 var collision_object_path: NodePath = NodePath("")
 ```
 
@@ -298,10 +305,11 @@ var collision_object_path: NodePath = NodePath("")
 - 首次版本：`3.17.0`
 
 ```gdscript
-var receiver_path: NodePath = NodePath("")
+@export_node_path("Node")
+var receiver_path: NodePath = NodePath(""):
 ```
 
-可选交互接收器路径；为空时从碰撞对象向父级解析 receive_interaction()。
+可选交互接收器路径；为空时从碰撞对象向父级解析 receive_interaction()。 修改路径会撤销旧按压配对和当前事件尚未执行的自动发送。
 
 <a id="member-gfpointerinteraction3d-properties-sender_path"></a>
 
@@ -311,6 +319,7 @@ var receiver_path: NodePath = NodePath("")
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_node_path("Node")
 var sender_path: NodePath = NodePath("")
 ```
 
@@ -324,6 +333,7 @@ var sender_path: NodePath = NodePath("")
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var send_on_clicked: bool = true
 ```
 
@@ -337,6 +347,7 @@ var send_on_clicked: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var send_on_pressed: bool = false
 ```
 
@@ -350,6 +361,7 @@ var send_on_pressed: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var send_on_released: bool = false
 ```
 
@@ -363,6 +375,7 @@ var send_on_released: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var send_on_wheel: bool = false
 ```
 
@@ -376,6 +389,7 @@ var send_on_wheel: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var send_on_hover: bool = false
 ```
 
@@ -389,6 +403,7 @@ var send_on_hover: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var ensure_input_ray_pickable: bool = true:
 ```
 
@@ -402,6 +417,7 @@ var ensure_input_ray_pickable: bool = true:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var change_cursor_on_hover: bool = false
 ```
 
@@ -415,6 +431,7 @@ hover 时是否临时切换鼠标光标。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var cursor_shape: Input.CursorShape = Input.CURSOR_ARROW
 ```
 

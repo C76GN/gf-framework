@@ -117,6 +117,11 @@ var fail_on_missing_level_data: bool = false
 ## @api private
 var _current_level_override: Dictionary = {}
 
+## 记录启动、重开和清理边界，阻止回调返回后的旧操作覆盖当前关卡。
+## [br]
+## @api private
+var _level_generation: int = 0
+
 ## 管理关卡运行时清理回调的作用域。
 ## [br]
 ## @api private
@@ -129,6 +134,7 @@ var _runtime_cleanup_scope: GFRuntimeCleanupScope = GFRuntimeCleanupScope.new()
 ## [br]
 ## @api framework_internal
 func init() -> void:
+	_level_generation += 1
 	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()
@@ -138,6 +144,7 @@ func init() -> void:
 ## [br]
 ## @api framework_internal
 func dispose() -> void:
+	_level_generation += 1
 	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()
@@ -266,11 +273,15 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 		push_error("[GFLevelUtility][level_utility.empty_start_level_id] start_level failed: level ID is empty.")
 		return {}
 	var next_override: Dictionary = level_data_override.duplicate(true)
+	var operation_generation: int = _level_generation
 	var next_data: Dictionary = (next_override.duplicate(true) if not next_override.is_empty() else load_level_data(canonical_level_id))
+	if operation_generation != _level_generation:
+		return {}
 	if fail_on_missing_level_data and next_data.is_empty():
 		push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: %s." % String(canonical_level_id))
 		return {}
 
+	_level_generation += 1
 	current_level_id = canonical_level_id
 	_current_level_override = next_override
 	current_level_data = next_data
@@ -278,7 +289,7 @@ func start_level(level_id: Variant, level_data_override: Dictionary = {}) -> Dic
 		current_level_id,
 		current_level_data.duplicate(true)
 	)
-	return current_level_data.duplicate(true)
+	return next_data.duplicate(true)
 
 
 ## 重开当前关卡，并清理已注册的关卡运行时残留。
@@ -296,20 +307,27 @@ func restart_level(clear_runtime: bool = true) -> Dictionary:
 	if current_level_id == &"":
 		return {}
 
-	var next_data: Dictionary = _resolve_level_data(current_level_id)
+	var operation_generation: int = _level_generation
+	var restarting_level_id: StringName = current_level_id
+	var next_data: Dictionary = _resolve_level_data(restarting_level_id)
+	if operation_generation != _level_generation:
+		return {}
 	if fail_on_missing_level_data and next_data.is_empty():
 		push_error("[GFLevelUtility][level_utility.missing_level_data] Level data was not found: %s." % GFVariantData.to_text(current_level_id))
 		return {}
 
 	if clear_runtime:
 		clear_level_runtime()
+	if operation_generation != _level_generation:
+		return {}
 
+	_level_generation += 1
 	current_level_data = next_data
 	level_restarted.emit(
 		current_level_id,
 		current_level_data.duplicate(true)
 	)
-	return current_level_data.duplicate(true)
+	return next_data.duplicate(true)
 
 
 ## 标记当前关卡胜利。
@@ -354,7 +372,7 @@ func complete_current_level(
 				progress.unlock_level(next_level_id)
 
 	if emit_win_signal:
-		level_won.emit(current_level_id)
+		level_won.emit(level_id)
 
 
 ## 标记当前关卡失败。
@@ -445,6 +463,7 @@ func get_runtime_cleanup_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 func clear_current_level() -> void:
+	_level_generation += 1
 	current_level_id = &""
 	current_level_data.clear()
 	_current_level_override.clear()

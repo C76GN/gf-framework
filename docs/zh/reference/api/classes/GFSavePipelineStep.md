@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var step_id: StringName = &""
 ```
 
@@ -43,6 +44,7 @@ var step_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -136,12 +138,13 @@ func _before_apply_scope( _scope: GFSaveScope, payload: Dictionary, _context: Di
 ### `_after_apply_scope`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _after_apply_scope( _scope: GFSaveScope, _payload: Dictionary, result: Dictionary, _context: Dictionary = {} ) -> Variant:
 ```
 
-应用 Scope 后调用。返回 Dictionary 时会替换当前 result。
+外层应用已完成提交或回滚时，按子 Scope 在先的顺序观察各 Scope 的应用结果。 诊断可写入 Pipeline Context；要否决本次应用，应在提交前登记事务参与者。
 
 参数：
 
@@ -149,14 +152,14 @@ func _after_apply_scope( _scope: GFSaveScope, _payload: Dictionary, result: Dict
 |---|---|
 | `_scope` | 当前 Scope。 |
 | `_payload` | 当前 Scope 载荷。 |
-| `result` | 当前应用结果。 |
+| `result` | 当前 Scope 的结果副本。根 Scope 包含整次事务的回滚结果。 |
 | `_context` | 调用上下文字典。 |
 
-返回：可返回 null 或替换后的 Dictionary。
+返回：调度方忽略返回值；重写可返回 null。
 
 结构：
 
-- `_payload`: Dictionary，当前 Scope 已应用载荷。
-- `result`: Dictionary，当前应用结果，通常包含 ok、errors 与 applied_sources 等字段。
+- `_payload`: Dictionary，交给当前 Scope 应用的载荷副本。
+- `result`: Dictionary，包含 ok、applied、errors、missing 等字段；修改副本只影响当前观察。
 - `_context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
-- `return`: Variant，返回 Dictionary 会替换当前 result；返回 null 或非 Dictionary 表示保持不变。
+- `return`: Variant，保留既有重写签名；返回值不参与事务或结果传递。

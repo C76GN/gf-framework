@@ -7,14 +7,17 @@
 Provider 声明自己支持的 artifact kind，并在 `_evaluate_policy()` 中返回策略结果。返回空字典表示通过；返回非空字典时，注册表会补齐 `provider_id`、`artifact_kind`、`issues`、`data` 和 metadata。
 
 ```gdscript
+## 项目纹理宽度检查，只报告问题，不修改被检查的资源。
 class TextureSizePolicy:
 	extends GFPolicyProvider
 
+	## 声明此策略的稳定身份、适用产物种类和评估优先级。
 	func _init() -> void:
 		provider_id = &"texture_size"
 		supported_artifact_kinds = PackedStringArray(["resource"])
 		priority = 10
 
+	## 空字典表示通过；超出项目宽度限制时返回可汇总的问题。
 	func _evaluate_policy(artifact: Dictionary, _context: Dictionary) -> Dictionary:
 		if int(artifact.get("width", 0)) <= 2048:
 			return {}

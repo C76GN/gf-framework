@@ -106,6 +106,7 @@ const SAFETY_KIND_TRUSTED_DEVELOPER: StringName = &"trusted_developer"
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var schema_version: int = SCHEMA_VERSION
 ```
 
@@ -118,6 +119,7 @@ manifest schema 版本。JSON manifest 必须显式声明当前支持的版本�
 - API：`public`
 
 ```gdscript
+@export
 var package_id: StringName = &""
 ```
 
@@ -130,6 +132,7 @@ var package_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -142,6 +145,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var version: String = ""
 ```
 
@@ -154,6 +158,7 @@ var version: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var content_types: PackedStringArray = PackedStringArray()
 ```
 
@@ -166,6 +171,7 @@ var content_types: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var dependencies: PackedStringArray = PackedStringArray()
 ```
 
@@ -179,6 +185,7 @@ var dependencies: PackedStringArray = PackedStringArray()
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var safety_kind: StringName = SAFETY_KIND_DATA_ONLY
 ```
 
@@ -192,6 +199,7 @@ var safety_kind: StringName = SAFETY_KIND_DATA_ONLY
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var forbidden_resource_extensions: PackedStringArray = PackedStringArray()
 ```
 
@@ -204,6 +212,7 @@ var forbidden_resource_extensions: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var resources: Array[Dictionary] = []
 ```
 
@@ -220,6 +229,7 @@ var resources: Array[Dictionary] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -40,6 +40,7 @@
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var schema_id: StringName = &""
 ```
 
@@ -53,6 +54,7 @@ var schema_id: StringName = &""
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var schema_version: int = 1
 ```
 
@@ -66,6 +68,7 @@ var schema_version: int = 1
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var section_versions: Dictionary = {}
 ```
 
@@ -83,6 +86,7 @@ var section_versions: Dictionary = {}
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var required_sections: PackedStringArray = PackedStringArray()
 ```
 
@@ -96,6 +100,7 @@ var required_sections: PackedStringArray = PackedStringArray()
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var allow_unknown_sections: bool = true
 ```
 

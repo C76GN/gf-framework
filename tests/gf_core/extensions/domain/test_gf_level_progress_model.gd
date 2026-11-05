@@ -106,6 +106,30 @@ func test_set_level_result_merge_true_combines_keys() -> void:
 	)
 
 
+func test_merged_level_result_does_not_borrow_nested_input() -> void:
+	_model.set_level_result(
+		&"level",
+		{ "existing": true }
+	)
+	var incoming: Dictionary = {
+		"stats": { "stars": 3 },
+		"items": [1, 2],
+	}
+	_model.set_level_result(&"level", incoming)
+	var nested_stats: Dictionary = incoming["stats"]
+	nested_stats["stars"] = 0
+	var nested_items: Array = incoming["items"]
+	nested_items.clear()
+	assert_eq(
+		_model.get_level_result(&"level"),
+		{
+			"existing": true,
+			"stats": { "stars": 3 },
+			"items": [1, 2],
+		}
+	)
+
+
 func test_get_level_result_returns_copy() -> void:
 	_model.set_level_result(
 		&"f",

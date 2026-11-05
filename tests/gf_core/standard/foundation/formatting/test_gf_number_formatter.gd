@@ -2,6 +2,17 @@
 extends GutTest
 
 
+func test_full_zero_decimals_does_not_narrow_large_float() -> void:
+	assert_eq(
+		GFNumberFormatter.format_full(1.0e20, 0),
+		"100000000000000000000"
+	)
+	assert_eq(
+		GFNumberFormatter.format_full(-1.0e20, 0),
+		"-100000000000000000000"
+	)
+
+
 func test_format_compact_supports_k_suffix() -> void:
 	var text: String = GFNumberFormatter.format_compact(1_000, 0)
 

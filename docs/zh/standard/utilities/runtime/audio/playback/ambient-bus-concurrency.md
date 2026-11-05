@@ -13,6 +13,8 @@ audio.stop_ambient(&"rain", 0.25)
 
 本地 channel 停止后最多缓存 `max_idle_ambient_players` 个空闲播放器，默认 16；设为 0 会立即释放所有 stopped idle player。缓存按最近空闲顺序淘汰，只处理 `stopped/none` 的本地对象，不会因 cache 压力停止活跃 local session 或改写 backend-owned channel。调试快照通过 `cached_ambient_player_count`、`idle_ambient_player_count` 和 `max_idle_ambient_players` 公开该容量。
 
+首次挂载环境音播放器时也遵守生命周期边界。节点入树回调若释放服务，旧请求不会继续播放或恢复旧会话；回调重新初始化服务并发起的新请求保留自己的播放器和会话。
+
 ## 总线音量
 
 ```gdscript

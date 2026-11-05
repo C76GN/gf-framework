@@ -42,6 +42,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFWeightedEntry] = []
 ```
 
@@ -54,6 +55,7 @@ var entries: Array[GFWeightedEntry] = []
 - API：`public`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -71,6 +73,7 @@ var default_value: Variant = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var deterministic_seed: int = 0
 ```
 

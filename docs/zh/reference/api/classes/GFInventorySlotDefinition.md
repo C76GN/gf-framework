@@ -36,6 +36,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -48,6 +49,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var accepted_item_ids: Array[StringName] = []
 ```
 
@@ -64,6 +66,7 @@ var accepted_item_ids: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var rejected_item_ids: Array[StringName] = []
 ```
 
@@ -80,6 +83,7 @@ var rejected_item_ids: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var accepted_categories: Array[StringName] = []
 ```
 
@@ -96,6 +100,7 @@ var accepted_categories: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var require_all_categories: bool = false
 ```
 
@@ -108,6 +113,7 @@ var require_all_categories: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

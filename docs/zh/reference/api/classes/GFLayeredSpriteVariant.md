@@ -28,6 +28,7 @@ GFLayeredSpriteVariant：分层精灵单层的帧资源变体。 变体只以稳
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var variant_id: StringName = &""
 ```
 
@@ -41,6 +42,7 @@ var variant_id: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var sprite_frames: SpriteFrames = null
 ```
 

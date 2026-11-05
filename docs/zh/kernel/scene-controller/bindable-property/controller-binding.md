@@ -5,10 +5,13 @@ UI 不需要订阅全局业务事件，只需处理当前字段变化的回调�
 ## 绑定到 Controller 生命周期
 
 ```gdscript
+## 将当前上下文的玩家等级绑定到 HUD，节点离树时撤销本次绑定。
 class_name PlayerHUDController extends GFController
 
+## 场景拥有的表现节点，不保存玩家等级的业务状态。
 @onready var lvl_label: Label = $LvlLabel
 
+## 等待上下文准入并确认模型存在，然后建立绑定和初始显示。
 func _ready() -> void:
 	var architecture := await wait_for_context_ready()
 	if architecture == null:
@@ -20,9 +23,10 @@ func _ready() -> void:
 	# 绑定到自身，节点退出树时自动断开，不经过全局 Event System
 	player_model.level.bind_to(self, _on_level_changed)
 
-	# 立即刷新一次初始状态
+	# bind_to 不立即回放当前值，首次显示需要主动刷新。
 	_on_level_changed(null, player_model.level.get_value())
 
+## 仅将新等级格式化到标签，不反向修改模型。
 func _on_level_changed(_old_level: Variant, new_level: Variant) -> void:
 	lvl_label.text = "Lv: " + str(new_level)
 ```
@@ -38,8 +42,10 @@ Controller 中优先使用实例级 `get_model()`。它会沿父节点查找最�
 没有 Node 生命周期可以绑定时，可以使用 `subscribe()` 获取取消订阅函数，并由持有方在自己的释放流程中调用。`emit_current` 为 `true` 时会立即以当前值调用一次回调：
 
 ```gdscript
+# 无 Node owner 的订阅由持有者保存取消句柄；true 会立即回放当前值。
 var unsubscribe_level := player_model.level.subscribe(_on_level_changed, true)
 
+## 在持有者释放时撤销自己建立的订阅，不清理其他订阅者。
 func dispose() -> void:
 	if unsubscribe_level.is_valid():
 		unsubscribe_level.call()

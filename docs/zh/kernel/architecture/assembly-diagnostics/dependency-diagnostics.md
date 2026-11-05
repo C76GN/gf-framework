@@ -24,15 +24,19 @@ required/optional 是每个消费点的语义，不能固化到全局类型注�
 模块可按需实现这些 hook：
 
 ```gdscript
+## 将玩家数据纳入生命周期计划的必需依赖，而不是在运行时碰巧查找。
 func get_required_models() -> Array[Script]:
 	return [PlayerModel]
 
+## 配置服务必须随本模块启动计划被满足。
 func get_required_utilities() -> Array[Script]:
 	return [InventoryConfigUtility]
 
+## 战斗系统参与本地依赖 DAG，决定初始化和逆序关闭关系。
 func get_required_systems() -> Array[Script]:
 	return [BattleSystem]
 
+## 只要求命令绑定存在；计划检查不会提前创建命令实例。
 func get_required_factories() -> Array[Script]:
 	return [DealDamageCommand]
 ```

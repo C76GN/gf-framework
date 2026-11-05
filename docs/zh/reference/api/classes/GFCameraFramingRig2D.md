@@ -34,6 +34,7 @@
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var target_paths: Array[NodePath] = []
 ```
 
@@ -51,6 +52,7 @@ var target_paths: Array[NodePath] = []
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var viewport_margin: Vector2 = Vector2(16.0, 16.0)
 ```
 
@@ -64,6 +66,7 @@ var viewport_margin: Vector2 = Vector2(16.0, 16.0)
 - 首次版本：`unreleased`
 
 ```gdscript
+@export_range(0.0001, 1000000.0, 0.001)
 var min_zoom: float = 0.1
 ```
 
@@ -77,6 +80,7 @@ var min_zoom: float = 0.1
 - 首次版本：`unreleased`
 
 ```gdscript
+@export_range(0.0001, 1000000.0, 0.001)
 var max_zoom: float = 10.0
 ```
 
@@ -90,6 +94,7 @@ var max_zoom: float = 10.0
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var min_extent: Vector2 = Vector2.ONE
 ```
 

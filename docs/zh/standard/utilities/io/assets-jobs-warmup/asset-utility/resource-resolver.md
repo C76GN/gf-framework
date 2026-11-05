@@ -53,6 +53,7 @@ if not replacement["ok"]:
 ```gdscript
 var assets := Gf.get_utility(GFAssetUtility) as GFAssetUtility
 
+# scope 归属于当前节点；加载句柄的存活由该 scope 约束。
 var scope: GFAssetScope = assets.create_scope(self)
 var result: GFAssetLoadResult = await resolver.load_async(
 	assets, &"ui.inventory", scope
@@ -70,9 +71,11 @@ if result.is_successful():
 provider 是实现 `resolve_resource(request: Dictionary) -> Variant` 的对象。返回值可以是路径字符串、`Resource`，或包含 `path`、`resource`、`type_hint`、`cache_key`、`resource_identity`、`metadata`、`provider_id` 的 Dictionary。注册时的 `priority` 越高越优先；高优先级候选缺失或类型不匹配时，解析器会继续尝试低优先级候选。
 
 ```gdscript
+## 项目资源覆盖层；只贡献定位结果，加载与实例化交给调用方。
 class ProjectResourceProvider:
 	extends RefCounted
 
+	## 未识别的键返回 not_found，让解析器继续尝试其他候选。
 	func resolve_resource(request: Dictionary) -> Dictionary:
 		if request["key"] != &"ui.inventory":
 			return { "ok": false, "reason": "not_found" }

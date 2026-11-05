@@ -45,3 +45,80 @@ rig.add_child(input)
 ```
 
 启用输入映射后，可通过 `get_debug_snapshot()` 检查 `input_mapping_missing`、`missing_actions` 和 `ready`。这只报告当前输入桥接是否具备运行条件，不会创建 InputMap action，也不会替项目决定动作命名。
+
+## 禁用与本次输入收尾
+
+`enabled = false` 会取消鼠标捕获，并终止当前 `process_input()` 中尚未应用的映射输入。映射修饰器、项目覆盖的映射读取方法或 Rig 的 `orbit_changed` 同步回调都可能触发禁用；即使同一回调又设置 `enabled = true`，旧调用也不会恢复。重新启用后的下一次调用仍可正常处理。
+
+已提交的 Rig 参数不会回滚。例如 orbit 已应用、其变化回调禁用输入时，本次不再读取或应用后续 zoom，`process_input()` 仍返回 `true`。如果修饰器在任何参数提交前禁用，返回 `false`。直接调用 `apply_orbit_vector()` / `apply_zoom_value()` 仍由调用方显式控制，不受这个映射调用准入限制。
+
+如果项目需要“本次完整处理后再停止”，使用 `MANUAL`，让回调只登记停止请求，统一驱动者等 `process_input()` 返回后再禁用。下面的项目脚本挂在包含 `OrbitRig/OrbitInput` 的普通 Node 上；先准备已启用的 `camera_orbit` 二维动作和 `camera_zoom` 一维动作，并在架构就绪后进入该场景。示例在本次参数首次变化时请求收尾，实际项目可替换这个业务条件。
+
+```gdscript
+# 项目统一驱动相机映射；回调不递归处理输入，也不在调用中途禁用。
+extends Node
+
+
+## 场景拥有的输入桥接，MANUAL 模式下仅由本脚本调用。
+@onready var _orbit_input: GFCameraOrbitInput3D = $OrbitRig/OrbitInput
+
+## 场景拥有的 Rig；这里只监听其参数变化，不接管释放。
+@onready var _rig: GFCameraOrbitRig3D = $OrbitRig
+
+## 单次同步调用期间保持 true，阻止驱动者重入自己的处理入口。
+var _processing_input: bool = false
+
+## 本次调用结束后消费的停止意图，回调只写这个标记。
+var _stop_after_input: bool = false
+
+## 接线成功后才驱动输入；离树或完成停止后不再调度。
+var _active: bool = false
+
+
+## 在首帧前关闭桥接器的自动调度，并接入已经就绪的项目映射。
+func _ready() -> void:
+	_orbit_input.update_mode = GFCameraOrbitInput3D.UpdateMode.MANUAL
+	var mapping: GFInputMappingUtility = Gf.get_utility(GFInputMappingUtility) as GFInputMappingUtility
+	if mapping == null:
+		push_error("相机输入映射不可用。")
+		return
+	_orbit_input.set_input_mapping_utility(mapping)
+	_orbit_input.use_input_mapping = true
+	var connected: int = _rig.orbit_changed.connect(_on_orbit_changed)
+	if connected != OK:
+		push_error("相机变化监听连接失败。")
+		return
+	_active = true
+
+
+## 完整调用原有映射算法，返回后才提交停止请求，不复制 orbit/zoom 计算。
+func _process(delta: float) -> void:
+	if not _active or _processing_input:
+		return
+	_processing_input = true
+	var _applied: bool = _orbit_input.process_input(delta)
+	_processing_input = false
+	if not _active:
+		return
+	if _stop_after_input:
+		_stop_after_input = false
+		_orbit_input.enabled = false
+		_active = false
+
+
+## 示例业务条件：由本次输入引起的参数变化只登记收尾，不再次调用输入入口。
+func _on_orbit_changed(_yaw: float, _pitch: float, _distance: float) -> void:
+	if _processing_input:
+		_stop_after_input = true
+
+
+## 离树时撤销本脚本的调度和监听，避免退出后继续控制借用节点。
+func _exit_tree() -> void:
+	_active = false
+	if is_instance_valid(_rig) and _rig.orbit_changed.is_connected(_on_orbit_changed):
+		_rig.orbit_changed.disconnect(_on_orbit_changed)
+	if is_instance_valid(_orbit_input):
+		_orbit_input.enabled = false
+```
+
+场景中不要再用其他脚本或自动模式重复调用同一个输入桥接。`_processing_input` 只保护此驱动者，不能拦截外部代码直接调用桥接器；所有相机映射处理应经过同一入口。回调若直接禁用，仍采用立即取消剩余映射的合同；这个配方通过延后执行禁用来表达另一种停止时机，没有新增框架模式。

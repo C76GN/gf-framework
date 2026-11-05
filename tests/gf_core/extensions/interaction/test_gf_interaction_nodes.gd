@@ -1241,6 +1241,35 @@ func test_sensor_broadcast_to_candidates_uses_candidate_provider() -> void:
 	)
 
 
+func test_sensor_group_broadcast_skips_receiver_freed_by_earlier_callback() -> void:
+	var root: Node = Node.new()
+	var sensor: GFInteractionSensor = GFInteractionSensor.new()
+	var first: FreeingInteractionReceiver = FreeingInteractionReceiver.new()
+	var second: RecordingReceiver = RecordingReceiver.new()
+	var third: FreeingInteractionReceiver = FreeingInteractionReceiver.new()
+	add_child_autofree(root)
+	root.add_child(sensor)
+	root.add_child(first)
+	root.add_child(second)
+	root.add_child(third)
+	for receiver: Node in [
+		first,
+		second,
+		third,
+	]:
+		receiver.add_to_group(&"callback_broadcast")
+	first.receiver_to_free = second
+
+	var reports: Array[Dictionary] = sensor.broadcast_to_group(&"callback_broadcast")
+
+	assert_eq(first.receive_count, 1)
+	assert_eq(third.receive_count, 1)
+	assert_eq(
+		reports.size(),
+		2
+	)
+
+
 func test_sensor_candidate_broadcast_revalidates_receiver_before_dispatch() -> void:
 	var root: Node = Node.new()
 	var sensor: GFInteractionSensor = GFInteractionSensor.new()
@@ -2258,8 +2287,11 @@ func test_pointer_interaction_3d_sends_click_context_to_receiver() -> void:
 
 
 func test_pointer_interaction_3d_tracks_pressed_state_per_button() -> void:
+	var collision_object: StaticBody3D = StaticBody3D.new()
+	add_child_autofree(collision_object)
 	var pointer: GFPointerInteraction3D = GFPointerInteraction3D.new()
 	add_child_autofree(pointer)
+	pointer.bind_collision_object(collision_object)
 	pointer.send_on_clicked = false
 	watch_signals(pointer)
 

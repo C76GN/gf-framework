@@ -39,6 +39,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var slot_index: int = -1
 ```
 
@@ -51,6 +52,7 @@ var slot_index: int = -1
 - API：`public`
 
 ```gdscript
+@export
 var slot_id: StringName = &""
 ```
 
@@ -63,6 +65,7 @@ var slot_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -75,6 +78,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -87,6 +91,7 @@ var description: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var is_empty: bool = true
 ```
 
@@ -99,6 +104,7 @@ var is_empty: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var is_active: bool = false
 ```
 
@@ -111,6 +117,7 @@ var is_active: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var is_compatible: bool = true
 ```
 
@@ -123,6 +130,7 @@ var is_compatible: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var modified_time: int = 0
 ```
 
@@ -136,6 +144,7 @@ var modified_time: int = 0
 - 首次版本：`3.6.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -152,6 +161,7 @@ var metadata: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var compatibility_errors: PackedStringArray = PackedStringArray()
 ```
 

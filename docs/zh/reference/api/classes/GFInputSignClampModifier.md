@@ -52,6 +52,7 @@ enum AllowedSign {
 - API：`public`
 
 ```gdscript
+@export
 var allowed_sign: AllowedSign = AllowedSign.POSITIVE
 ```
 
@@ -64,6 +65,7 @@ var allowed_sign: AllowedSign = AllowedSign.POSITIVE
 - API：`public`
 
 ```gdscript
+@export
 var apply_x: bool = true
 ```
 
@@ -76,6 +78,7 @@ var apply_x: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var apply_y: bool = true
 ```
 
@@ -88,6 +91,7 @@ var apply_y: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var apply_z: bool = true
 ```
 
@@ -100,6 +104,7 @@ var apply_z: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var remap_to_positive: bool = false
 ```
 

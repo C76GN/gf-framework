@@ -5,17 +5,21 @@
 它适合技能筛选、结算策略、AI 条件、关卡评分、掉落规则这类需要在编辑器中配置、在运行时由系统执行的逻辑片段。
 
 ```gdscript
+## 无状态的伤害减免配置；同一资源可以被多个对象共享。
 class_name DamageReductionRule
 extends GFRule
 
+## 规则输出的下限，由项目在使用前主动 validate 配置。
 @export var min_damage: int = 1
 
+## 只读取调用方提供的上下文，不在共享 Resource 上积累本次结算状态。
 func execute(context: Object = null) -> Variant:
 	var payload := context as DamagePayload
 	if payload == null:
 		return min_damage
 	return maxi(payload.raw_damage - payload.defense, min_damage)
 
+## 检查配置是否允许执行；框架不会自动调用此校验。
 func validate() -> bool:
 	return min_damage >= 0
 ```

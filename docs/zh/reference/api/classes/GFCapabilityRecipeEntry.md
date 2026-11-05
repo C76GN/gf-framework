@@ -32,6 +32,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var capability_type: Script = null
 ```
 
@@ -44,6 +45,7 @@ var capability_type: Script = null
 - API：`public`
 
 ```gdscript
+@export
 var scene: PackedScene = null
 ```
 
@@ -56,6 +58,7 @@ var scene: PackedScene = null
 - API：`public`
 
 ```gdscript
+@export
 var active: bool = true
 ```
 
@@ -68,6 +71,7 @@ var active: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

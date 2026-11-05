@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var formulas: Dictionary = {}
 ```
 

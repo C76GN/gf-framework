@@ -42,10 +42,7 @@
 | 方法 | [`set_node_editor_layout`](#member-gfflowgraph-methods-set_node_editor_layout) | `func set_node_editor_layout( node_id: StringName, position: Vector2, size: Vector2 = Vector2.ZERO, collapsed: bool = false ) -> bool:` |
 | 方法 | [`get_editor_catalog`](#member-gfflowgraph-methods-get_editor_catalog) | `func get_editor_catalog() -> Dictionary:` |
 | 方法 | [`describe_graph`](#member-gfflowgraph-methods-describe_graph) | `func describe_graph() -> Dictionary:` |
-| 方法 | [`instantiate_graph`](#member-gfflowgraph-methods-instantiate_graph) | `func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph:` |
-| 方法 | [`serialize_runtime_state`](#member-gfflowgraph-methods-serialize_runtime_state) | `func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:` |
-| 方法 | [`deserialize_runtime_state`](#member-gfflowgraph-methods-deserialize_runtime_state) | `func deserialize_runtime_state(data: Dictionary) -> void:` |
-| 方法 | [`clear_runtime_state`](#member-gfflowgraph-methods-clear_runtime_state) | `func clear_runtime_state() -> void:` |
+| 方法 | [`instantiate_graph`](#member-gfflowgraph-methods-instantiate_graph) | `func instantiate_graph() -> GFFlowGraph:` |
 | 方法 | [`validate_metadata`](#member-gfflowgraph-methods-validate_metadata) | `func validate_metadata(target_metadata: Dictionary, schema: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`validate_graph_metadata`](#member-gfflowgraph-methods-validate_graph_metadata) | `func validate_graph_metadata() -> Dictionary:` |
 | 方法 | [`validate_graph`](#member-gfflowgraph-methods-validate_graph) | `func validate_graph() -> Dictionary:` |
@@ -61,6 +58,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var start_node_id: StringName = &""
 ```
 
@@ -74,6 +72,7 @@ var start_node_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var nodes: Array[GFFlowNode] = []
 ```
 
@@ -87,6 +86,7 @@ var nodes: Array[GFFlowNode] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var connections: Array[Dictionary] = []
 ```
 
@@ -104,6 +104,7 @@ var connections: Array[Dictionary] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var validate_port_compatibility: bool = true
 ```
 
@@ -117,6 +118,7 @@ var validate_port_compatibility: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var warn_unreachable_nodes: bool = true
 ```
 
@@ -130,6 +132,7 @@ var warn_unreachable_nodes: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var warn_cycles: bool = true
 ```
 
@@ -143,6 +146,7 @@ var warn_cycles: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var warn_terminal_nodes: bool = false
 ```
 
@@ -156,6 +160,7 @@ var warn_terminal_nodes: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var editor_groups: Array[Dictionary] = []
 ```
 
@@ -173,6 +178,7 @@ var editor_groups: Array[Dictionary] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var editor_metadata: Dictionary = {}
 ```
 
@@ -190,6 +196,7 @@ var editor_metadata: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata_schema: Dictionary = {}
 ```
 
@@ -590,83 +597,12 @@ func describe_graph() -> Dictionary:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph:
+func instantiate_graph() -> GFFlowGraph:
 ```
 
-创建可运行的流程图副本。
+复制可编辑的流程定义。每轮运行的数据由 Runner 独立管理。
 
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `options` | 可选参数，支持 clear_runtime_state。 |
-
-返回：流程图副本；复制失败时返回 null。
-
-结构：
-
-- `options`: 可选项 Dictionary；支持 clear_runtime_state: bool。
-
-<a id="member-gfflowgraph-methods-serialize_runtime_state"></a>
-
-### `serialize_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-```
-
-序列化图内节点运行态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `json_compatible` | 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。 |
-
-返回：运行态快照。
-
-结构：
-
-- `return`: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
-
-<a id="member-gfflowgraph-methods-deserialize_runtime_state"></a>
-
-### `deserialize_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func deserialize_runtime_state(data: Dictionary) -> void:
-```
-
-反序列化图内节点运行态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `data` | 运行态快照。 |
-
-结构：
-
-- `data`: serialize_runtime_state() 返回的运行态快照 Dictionary。
-
-<a id="member-gfflowgraph-methods-clear_runtime_state"></a>
-
-### `clear_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func clear_runtime_state() -> void:
-```
-
-清空图内所有节点运行态。
+返回：图资源副本，复制失败时返回 null。
 
 <a id="member-gfflowgraph-methods-validate_metadata"></a>
 

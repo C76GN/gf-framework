@@ -82,6 +82,34 @@ func test_workflow_queues_when_transport_is_missing_and_replays_later() -> void:
 	outbox.dispose()
 
 
+## 外部提交回执保留，但已释放工作流不能恢复计数或发布旧完成通知。
+func test_direct_transport_dispose_preserves_receipt_without_workflow_commit() -> void:
+	var workflow: GFSupportReportWorkflow = GFSupportReportWorkflow.new()
+	var _configured: GFSupportReportWorkflow = workflow.set_transport(
+		func(_report: Dictionary, _options: Dictionary) -> Dictionary:
+			workflow.dispose()
+			return { "ok": true, "receipt": "accepted" }
+	)
+	watch_signals(workflow)
+	var result: Dictionary = workflow.submit_built_report({ "title": "Closed page" })
+	assert_true(GFVariantData.get_option_bool(result, "workflow_stale"))
+	assert_false(GFVariantData.get_option_bool(result, "workflow_commit_applied"))
+	assert_true(
+		GFVariantData.get_option_bool(
+			GFVariantData.get_option_dictionary(result, "submit_result"),
+			"ok"
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			workflow.get_debug_snapshot(),
+			"reports_submitted_count"
+		),
+		0
+	)
+	assert_signal_not_emitted(workflow, "workflow_report_submitted")
+
+
 func test_workflow_queues_failed_direct_submit() -> void:
 	var outbox: GFRequestOutboxUtility = _make_outbox()
 	var workflow: GFSupportReportWorkflow = GFSupportReportWorkflow.new().setup(

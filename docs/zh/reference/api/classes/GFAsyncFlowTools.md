@@ -133,7 +133,7 @@ static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictio
 static func each_async( items: Array, operation: Callable, options: Dictionary = {} ) -> Dictionary:
 ```
 
-顺序处理数组项。
+顺序处理数组项；真实的 null 项仍作为第一个参数传入，启用 pass_index 时索引位于其后。
 
 参数：
 

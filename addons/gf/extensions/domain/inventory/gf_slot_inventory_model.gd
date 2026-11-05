@@ -790,7 +790,8 @@ func remove_item(
 			&"invalid_request"
 		)
 	var normalized_data: Dictionary = _normalize_instance_data(item_id, instance_data)
-	if not partial_remove and get_item_total(item_id, normalized_data) < amount:
+	var filter_by_instance: bool = not instance_data.is_empty()
+	if not partial_remove and get_item_total(item_id, instance_data) < amount:
 		return GFInventoryOperationResult.partial(
 			item_id,
 			amount,
@@ -808,7 +809,9 @@ func remove_item(
 	var remaining: int = amount
 	for slot_index: int in _ordered_slot_indices(start_slot):
 		var stack: GFInventoryStack = _get_stack_ref(slot_index)
-		if stack == null or not stack.can_merge(
+		if stack == null or stack.item_id != item_id:
+			continue
+		if filter_by_instance and not stack.can_merge(
 			item_id,
 			normalized_data,
 			registry

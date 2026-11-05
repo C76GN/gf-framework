@@ -1227,6 +1227,46 @@ func test_importer_work_limits_reject_before_schema_callbacks() -> void:
 	)
 
 
+## CSV 必须保留结构化转换失败，而不是把整行降级成成功的空单元格。
+func test_csv_export_rejects_structured_conversion_without_partial_text() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	var id_column: GFConfigTableColumn = _make_column(&"id", GFConfigTableColumn.ValueType.INT)
+	var effects: GFConfigTableColumn = _make_column(&"effects", GFConfigTableColumn.ValueType.ANY)
+	effects.type_definition = GFConfigTypeDefinition.new()
+	effects.type_definition.kind = GFConfigTypeDefinition.Kind.ARRAY
+	effects.type_definition.element_type = GFConfigTypeDefinition.new()
+	effects.type_definition.element_type.scalar_type = GFConfigTableColumn.ValueType.INT
+	schema.columns.assign([id_column, effects])
+	var rejected: Dictionary = GFConfigTableImporter.export_csv_table(
+		[
+			{ "id": 7, "effects": "bad" },
+		],
+		schema,
+		{ "coerce_values": true }
+	)
+	assert_false(GFVariantData.get_option_bool(rejected, "success"))
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "text"),
+		""
+	)
+	assert_false(GFVariantData.get_option_string(rejected, "error").is_empty())
+	var accepted: Dictionary = GFConfigTableImporter.export_csv_table(
+		[
+			{
+				"id": 7,
+				"effects": [1],
+			},
+		],
+		schema,
+		{ "coerce_values": true }
+	)
+	assert_true(GFVariantData.get_option_bool(accepted, "success"))
+	assert_string_contains(
+		GFVariantData.get_option_string(accepted, "text"),
+		"7"
+	)
+
+
 func test_importer_work_limits_export_checks_escaped_output_and_cyclic_input() -> void:
 	var rows: Array[Dictionary] = [
 		{ "name": "猫,\"" },

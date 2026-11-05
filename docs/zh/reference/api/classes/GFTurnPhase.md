@@ -46,6 +46,7 @@ signal finished
 - API：`public`
 
 ```gdscript
+@export
 var phase_id: StringName = &""
 ```
 
@@ -58,6 +59,7 @@ var phase_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var auto_finish: bool = true
 ```
 

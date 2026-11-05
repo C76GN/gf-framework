@@ -30,6 +30,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var duration: float = 0.0:
 ```
 
@@ -42,6 +43,7 @@ var duration: float = 0.0:
 - API：`public`
 
 ```gdscript
+@export
 var respect_engine_time_scale: bool = true
 ```
 

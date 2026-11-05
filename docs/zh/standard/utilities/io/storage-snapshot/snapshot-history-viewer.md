@@ -17,6 +17,8 @@ snapshots.step_back()
 
 `push_snapshot(data, metadata)` 可把外部已经生成的状态压入历史；`restore_index()` / `restore_snapshot_id()` 可按位置或稳定 ID 恢复；`get_debug_snapshot()` 会报告当前索引、可前进/后退状态和保留的 ID 列表。
 
+缩小容量淘汰当前快照时，会尝试恢复剩余的当前位置。恢复回调如果清空或替换历史，旧裁剪过程不再发布已失效记录的恢复通知，也不会把新记录的游标重置为失败位置。
+
 该工具只管理快照栈和深拷贝，不替代 `GFCommandHistoryUtility` 的逐命令 undo/redo，也不替代 `GFStorageUtility` 的持久化写盘。恢复快照涉及业务对象重建、命令反序列化或远端同步时，仍应由项目层提供对应 builder 或回调。
 
 ## Storage Viewer

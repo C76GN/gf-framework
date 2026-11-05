@@ -86,6 +86,7 @@ var by_identity := registry.group_entry_ids(GFResourceRegistry.GROUP_SOURCE_CACH
 ```gdscript
 var assets := Gf.get_utility(GFAssetUtility) as GFAssetUtility
 
+# 当前节点拥有本次资源持有期；提前结束使用时关闭 scope，离树也会关闭。
 var scope: GFAssetScope = assets.create_scope(self)
 var result: GFAssetLoadResult = await registry.request_entry_async(
 	assets, &"inventory_panel", scope

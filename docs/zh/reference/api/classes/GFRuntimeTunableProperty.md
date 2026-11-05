@@ -83,6 +83,7 @@ enum ValueKind {
 - API：`public`
 
 ```gdscript
+@export
 var property_id: StringName = &""
 ```
 
@@ -95,6 +96,7 @@ var property_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var label: String = ""
 ```
 
@@ -107,6 +109,7 @@ var label: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var group: String = "Runtime"
 ```
 
@@ -119,6 +122,7 @@ var group: String = "Runtime"
 - API：`public`
 
 ```gdscript
+@export
 var property_name: NodePath = NodePath("")
 ```
 
@@ -131,6 +135,7 @@ var property_name: NodePath = NodePath("")
 - API：`public`
 
 ```gdscript
+@export
 var value_kind: ValueKind = ValueKind.ANY
 ```
 
@@ -143,6 +148,7 @@ var value_kind: ValueKind = ValueKind.ANY
 - API：`public`
 
 ```gdscript
+@export
 var read_only: bool = false
 ```
 
@@ -155,6 +161,7 @@ var read_only: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var visible: bool = true
 ```
 
@@ -167,6 +174,7 @@ var visible: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var has_min_value: bool = false
 ```
 
@@ -179,6 +187,7 @@ var has_min_value: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var min_value: float = 0.0
 ```
 
@@ -191,6 +200,7 @@ var min_value: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var has_max_value: bool = false
 ```
 
@@ -203,6 +213,7 @@ var has_max_value: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var max_value: float = 0.0
 ```
 
@@ -215,6 +226,7 @@ var max_value: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var step: float = 1.0
 ```
 
@@ -227,6 +239,7 @@ var step: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var options: Array = []
 ```
 
@@ -243,6 +256,7 @@ var options: Array = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

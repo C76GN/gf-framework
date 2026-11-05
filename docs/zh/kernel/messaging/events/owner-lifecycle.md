@@ -9,19 +9,23 @@
 `GFSystem`、`GFUtility`、`GFController` 与 `GFState` 基类提供的 `register_event()` / `register_simple_event()` 已经默认使用当前实例作为 owner；模块被注销或状态被释放时，框架会自动清理这些监听。若 `GFState` 的监听只应在当前状态激活期间生效，应在 `exit()` 中调用 `unregister_owner_events()`。
 
 ```gdscript
+## 将任务事件投影到 HUD；GFController 管理当前上下文中的 owner 绑定。
 class_name QuestHudController
 extends GFController
 
 
+## 在节点就绪后声明期望监听，避免在构造阶段依赖尚未就绪的事件总线。
 func _ready() -> void:
 	register_simple_event(&"EVENT_QUEST_UPDATED", GFEventListener.from_method(self, &"_on_quest_updated", 1))
 	register_event(QuestCompletedPayload, GFEventListener.from_method(self, &"_on_quest_completed", 1), 100)
 
 
+## 轻量通知只触发重绘，具体任务数据仍从业务模型读取。
 func _on_quest_updated(_payload: Variant) -> void:
 	_refresh()
 
 
+## 使用已注册的具体任务事件数据更新完成提示。
 func _on_quest_completed(payload: GFPayload) -> void:
 	var completed := payload as QuestCompletedPayload
 	_show_completed(completed.quest_id)
@@ -32,11 +36,13 @@ func _on_quest_completed(payload: GFPayload) -> void:
 如果监听者不是 GF 基类实例，可以使用全局门面的 owner 版本：
 
 ```gdscript
+## 普通 Node 显式以自身作为 owner，避免监听超出节点生命周期。
 func _ready() -> void:
 	Gf.listen_simple_owned(self, &"EVENT_PLAYER_JUMPED", GFEventListener.from_method(self, &"_on_player_jumped", 1))
 	Gf.listen_owned(self, DamagePayload, GFEventListener.from_method(self, &"_on_damage_taken", 1), 100)
 
 
+## 离树即撤销该 owner 的全部监听，防止动态场景遗留回调。
 func _exit_tree() -> void:
 	Gf.unlisten_owner(self)
 ```
@@ -48,9 +54,11 @@ func _exit_tree() -> void:
 需要由调用方持有取消权，或只处理首个匹配事件时，使用返回 `GFSubscriptionToken` 的 `Gf.subscribe()`、`Gf.subscribe_assignable()` 和 `Gf.subscribe_simple()`。每次调用都会建立独立订阅身份；即使多个订阅复用同一个 Callable，取消其中一个 token 也不会移除其余订阅。
 
 ```gdscript
+## 只保存这一次订阅的取消权，不影响复用相同回调的其他订阅。
 var _damage_subscription: GFSubscriptionToken
 
 
+## 处理首个伤害事件；一次性订阅会在进入回调前退休以防重入。
 func _ready() -> void:
 	_damage_subscription = Gf.subscribe(
 		DamagePayload,
@@ -60,6 +68,7 @@ func _ready() -> void:
 	)
 
 
+## 提前关面板时主动取消；已经派发或取消过的 token 可安全重复取消。
 func close_panel() -> void:
 	if _damage_subscription != null:
 		_damage_subscription.cancel()

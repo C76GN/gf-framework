@@ -31,6 +31,11 @@ const _COMPUTED_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_
 ## @api private
 var _effect: GFReactiveEffect = null
 
+## stop 或重新绑定时递增，使同步 compute 返回后只能提交当前绑定的结果。
+## [br]
+## @api private
+var _binding_generation: int = 0
+
 
 # --- Godot 生命周期方法 ---
 
@@ -104,11 +109,19 @@ func bind_sources(
 	if not compute.is_valid():
 		return
 
-	_effect = GFReactiveEffect.new(
+	var binding_generation: int = _binding_generation
+	var effect: GFReactiveEffect = GFReactiveEffect.new()
+	_effect = effect
+	effect.configure(
 		sources,
 		func() -> Variant:
 			var next_value: Variant = compute.call()
-			_set_value_from_compute(next_value)
+			if (
+				binding_generation == _binding_generation
+				and _effect != null
+				and _effect.is_active()
+			):
+				_set_value_from_compute(next_value)
 			return next_value,
 		owner,
 		run_immediately
@@ -119,6 +132,7 @@ func bind_sources(
 ## [br]
 ## @api public
 func stop() -> void:
+	_binding_generation += 1
 	if _effect != null:
 		_effect.stop()
 		_effect = null

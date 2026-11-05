@@ -354,21 +354,7 @@ func _capture_extension_settings() -> Dictionary:
 ## [br]
 ## @api private
 func _collect_editor_apply_issues() -> Array[String]:
-	var issues: Array[String] = []
-	for report: Dictionary in [_standard_editor_contribution_report, _builtin_tool_editor_contribution_report]:
-		if (
-			not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				report,
-				"ok",
-				false
-			)
-			or _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-				report,
-				"partial",
-				false
-			)
-		):
-			issues.append("contribution_records_incomplete")
+	var issues: Array[String] = _GF_PLUGIN_APPLY_REPORT_SCRIPT.collect_discovery_issues([_standard_editor_contribution_report, _builtin_tool_editor_contribution_report])
 	var selection_report: Dictionary = GFExtensionSettingsBase.get_extension_selection_report()
 	if (
 		not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(

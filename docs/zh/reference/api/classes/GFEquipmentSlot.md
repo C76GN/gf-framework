@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var slot_id: StringName = &""
 ```
 
@@ -45,6 +46,7 @@ var slot_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var item_id: StringName = &""
 ```
 
@@ -57,6 +59,7 @@ var item_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var accepted_tags: Array[StringName] = []
 ```
 
@@ -73,6 +76,7 @@ var accepted_tags: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var require_all_tags: bool = false
 ```
 
@@ -85,6 +89,7 @@ var require_all_tags: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

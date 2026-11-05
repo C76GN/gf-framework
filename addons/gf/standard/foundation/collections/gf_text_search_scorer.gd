@@ -29,6 +29,13 @@ const DEFAULT_FIELDS: Array[Dictionary] = [
 	{ "key": "path", "weight": 1.0 },
 ]
 
+## 名称浏览预设的分档宽度，分档从零开始，包含左边界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const NAME_BROWSE_BAND_WIDTH: float = 100.0
+
 ## 规范化查询文本时替换为空格的分隔字符集合。
 ## [br]
 ## @api private
@@ -222,7 +229,7 @@ static func score_candidate(
 ## [br]
 ## @param options: 可选项；include_unmatched 默认为 false，limit 小于等于 0 表示不限制，case_sensitive 默认为 false。
 ## [br]
-## @schema options: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit。
+## @schema options: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit、sort_preset（默认 relevance，可选 name_browse）及正有限 band_width。命中优先，分档内按名称和原始索引排序。
 ## [br]
 ## @return 排序后的匹配报告数组。
 ## [br]
@@ -258,7 +265,7 @@ static func rank_candidates(
 		) or include_unmatched:
 			reports.append(report)
 
-	reports.sort_custom(_sort_reports_descending)
+	sort_ranking_reports(reports, options)
 	if limit <= 0 or reports.size() <= limit:
 		return reports
 	return reports.slice(0, limit)
@@ -276,13 +283,15 @@ static func rank_candidates(
 ## [br]
 ## @param options: 与 rank_candidates 相同的评分选项。
 ## [br]
-## @schema options: Dictionary with optional fields, require_all_tokens, case_sensitive and duplicate_candidate.
+## @schema options: Dictionary with optional fields, require_all_tokens, case_sensitive, duplicate_candidate, sort_preset, band_width and include_unmatched.
 ## [br]
 ## @return 本次查询独占的上下文；调用方不得在评分中修改它。
 ## [br]
-## @schema return: Dictionary with case_sensitive: bool, tokens: PackedStringArray, normalized_query: String, require_all_tokens: bool, duplicate_candidate: bool and fields: Array[Dictionary].
+## @schema return: Dictionary with case_sensitive, tokens, normalized_query, require_all_tokens, duplicate_candidate, fields and normalized ranking options.
 static func create_ranking_context(query: String, options: Dictionary = {}) -> Dictionary:
-	return _make_query_context(query, options)
+	var context: Dictionary = _make_query_context(query, options)
+	context.merge(normalize_ranking_options(options))
+	return context
 
 
 ## 使用已经规范化的上下文评分一个候选，并保留过滤后全局位置。
@@ -328,9 +337,29 @@ static func score_ranking_candidate(
 ## [br]
 ## @schema right: Dictionary returned by score_ranking_candidate or rank_candidates.
 ## [br]
+## @param options: 与 rank_candidates 相同的排序选项。
+## [br]
+## @schema options: Dictionary with optional sort_preset and band_width.
+## [br]
 ## @return 左侧应排在右侧之前时为 true。
-static func is_ranked_report_before(left: Dictionary, right: Dictionary) -> bool:
-	return _sort_reports_descending(left, right)
+static func is_ranked_report_before(
+	left: Dictionary,
+	right: Dictionary,
+	options: Dictionary = {}
+) -> bool:
+	var width: float = _ranking_width(options)
+	var left_score: float = _matched_score(left)
+	var right_score: float = _matched_score(right)
+	return _compare_rank_values(
+		left_score,
+		right_score,
+		_score_band(left_score, width),
+		_score_band(right_score, width),
+		_get_report_sort_title(left),
+		_get_report_sort_title(right),
+		GFVariantData.get_option_int(left, "index"),
+		GFVariantData.get_option_int(right, "index")
+	)
 
 
 ## 就地排列调用方独占的纯数据报告；私有排序键不写入报告，仍使用原生 sort_custom。
@@ -341,21 +370,23 @@ static func is_ranked_report_before(left: Dictionary, right: Dictionary) -> bool
 ## [br]
 ## @param reports: 本次排名独占的报告数组；只改变顺序，不复制或修改报告内容。
 ## [br]
-## @schema reports: Array[Dictionary] returned by score_ranking_candidate, with score, candidate and index.
-static func sort_ranking_reports(reports: Array[Dictionary]) -> void:
+## @schema reports: Array[Dictionary]，每项包含 matched、score、candidate 和 index。未命中或缺少合法有限非负分数的报告排在命中之后。
+## [br]
+## @param options: 与 rank_candidates 相同的排序选项。
+## [br]
+## @schema options: Dictionary with optional sort_preset and band_width.
+static func sort_ranking_reports(reports: Array[Dictionary], options: Dictionary = {}) -> void:
+	var width: float = _ranking_width(options)
 	var scores: PackedFloat64Array = PackedFloat64Array()
+	var bands: PackedFloat64Array = PackedFloat64Array()
 	var titles: PackedStringArray = PackedStringArray()
 	var indices: PackedInt64Array = PackedInt64Array()
 	var order: Array[int] = []
 	for position: int in range(reports.size()):
 		var report: Dictionary = reports[position]
-		var _score_appended: bool = scores.append(
-			GFVariantData.get_option_float(
-				report,
-				"score",
-				0.0
-			)
-		)
+		var score: float = _matched_score(report)
+		var _score_appended: bool = scores.append(score)
+		var _band_appended: bool = bands.append(_score_band(score, width))
 		var _title_appended: bool = titles.append(_get_report_sort_title(report))
 		var _index_appended: bool = indices.append(
 			GFVariantData.get_option_int(
@@ -368,6 +399,7 @@ static func sort_ranking_reports(reports: Array[Dictionary]) -> void:
 	order.sort_custom(
 		_sort_ranking_indices.bind(
 			scores,
+			bands,
 			titles,
 			indices
 		)
@@ -375,6 +407,30 @@ static func sort_ranking_reports(reports: Array[Dictionary]) -> void:
 	var original: Array[Dictionary] = reports.duplicate()
 	for position: int in range(order.size()):
 		reports[position] = original[order[position]]
+
+
+## 捕获有效排序策略，供模型判断查询变化并将同一配置传给工作线程。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param options: 调用方提供的排序选项。
+## [br]
+## @schema options: Dictionary with optional sort_preset, band_width and include_unmatched.
+## [br]
+## @return 默认行为以空配置表示，仅保存影响排序或展示范围的选项。
+## [br]
+## @schema return: Dictionary with optional sort_preset: String, band_width: float and include_unmatched: bool.
+static func normalize_ranking_options(options: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var width: float = _ranking_width(options)
+	if width > 0.0:
+		result["sort_preset"] = "name_browse"
+		result["band_width"] = width
+	if GFVariantData.get_option_bool(options, "include_unmatched"):
+		result["include_unmatched"] = true
+	return result
 
 
 # --- 私有/辅助方法 ---
@@ -882,56 +938,62 @@ static func _collect_tokens_in_query_order(tokens: PackedStringArray, matched_lo
 	return result
 
 
-## 依次按分数降序、标题升序和原始候选索引升序排列报告。
+## 未知预设采用精确排序；名称浏览的缺失或非法档宽回退到预设值。
 ## [br]
 ## @api private
-static func _sort_reports_descending(left: Dictionary, right: Dictionary) -> bool:
-	var left_score: float = GFVariantData.get_option_float(
-		left,
-		"score",
-		0.0
-	)
-	var right_score: float = GFVariantData.get_option_float(
-		right,
-		"score",
-		0.0
-	)
-	if not is_equal_approx(left_score, right_score):
-		return left_score > right_score
-
-	var left_title: String = _get_report_sort_title(left)
-	var right_title: String = _get_report_sort_title(right)
-	return _compare_rank_values(
-		left_score,
-		right_score,
-		left_title,
-		right_title,
-		GFVariantData.get_option_int(
-			left,
-			"index",
-			0
-		),
-		GFVariantData.get_option_int(
-			right,
-			"index",
-			0
-		)
-	)
+static func _ranking_width(options: Dictionary) -> float:
+	if GFVariantData.get_option_string(options, "sort_preset") != "name_browse":
+		return 0.0
+	var value: Variant = GFVariantData.get_option_value(options, "band_width")
+	if value is float or value is int:
+		var width: float = GFVariantData.to_float(value, -1.0)
+		if is_finite(width) and width > 0.0:
+			return width
+	return NAME_BROWSE_BAND_WIDTH
 
 
-## 私有独立排序键只读引用；索引数组与报告数组使用相同的原生排序算法和初始顺序。
+## 命中分数为有限非负数；未命中或损坏报告采用负哨兵，统一放在最后并按名称排序。
+## [br]
+## @api private
+static func _matched_score(report: Dictionary) -> float:
+	if not GFVariantData.get_option_bool(report, "matched"):
+		return -1.0
+	var value: Variant = GFVariantData.get_option_value(report, "score")
+	if value is float or value is int:
+		var score: float = GFVariantData.to_float(value, -1.0)
+		if is_finite(score) and score >= 0.0:
+			return score
+	return -1.0
+
+
+## 商达到 2^53 时相邻可表示分数已至少相隔一档，改用原分数，避免桶编号溢出或舍入重合。
+## [br]
+## @api private
+static func _score_band(score: float, width: float) -> float:
+	if score < 0.0:
+		return -1.0
+	if width == 0.0:
+		return INF
+	var quotient: float = score / width
+	return INF if quotient >= 9007199254740992.0 else floorf(quotient)
+
+
+## 使用独立于候选顺序的预计算键，排序过程中不修改输入报告。
 ## [br]
 ## @api private
 static func _sort_ranking_indices(
 	left: int,
 	right: int,
 	scores: PackedFloat64Array,
+	bands: PackedFloat64Array,
 	titles: PackedStringArray,
 	indices: PackedInt64Array
 ) -> bool:
 	return _compare_rank_values(
 		scores[left],
 		scores[right],
+		bands[left],
+		bands[right],
 		titles[left],
 		titles[right],
 		indices[left],
@@ -939,18 +1001,22 @@ static func _sort_ranking_indices(
 	)
 
 
-## 共享近似分数、标题和全局索引比较规则；不修改近似相等关系。
+## 普通档内直接比较标题；精确排序及超大档号用原分数区分不同候选。
 ## [br]
 ## @api private
 static func _compare_rank_values(
 	left_score: float,
 	right_score: float,
+	left_band: float,
+	right_band: float,
 	left_title: String,
 	right_title: String,
 	left_index: int,
 	right_index: int
 ) -> bool:
-	if not is_equal_approx(left_score, right_score):
+	if left_band != right_band:
+		return left_band > right_band
+	if left_band == INF and left_score != right_score:
 		return left_score > right_score
 	if left_title != right_title:
 		return left_title < right_title

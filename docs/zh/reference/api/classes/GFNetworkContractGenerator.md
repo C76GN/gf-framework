@@ -94,7 +94,7 @@ func generate_with_report( contract: GFNetworkContract, output_path: String = ""
 结构：
 
 - `options`: Dictionary，可包含 class_name、overwrite_existing、dry_run、scan_filesystem 和 metadata。
-- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+- `return`: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata；定义校验失败时另有 validation_issues（最多 16 条，含 resource_path）和 validation_issue_count。
 
 <a id="member-gfnetworkcontractgenerator-methods-generate_many"></a>
 

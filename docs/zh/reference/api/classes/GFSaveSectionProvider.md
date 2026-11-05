@@ -43,6 +43,7 @@ Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 se
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var section_id: StringName = &"":
 ```
 
@@ -56,6 +57,7 @@ var section_id: StringName = &"":
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(1, 2_147_483_647, 1)
 var schema_version: int = 1:
 ```
 
@@ -69,6 +71,7 @@ var schema_version: int = 1:
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var save_enabled: bool = true:
 ```
 
@@ -82,6 +85,7 @@ var save_enabled: bool = true:
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var load_enabled: bool = true:
 ```
 
@@ -95,6 +99,7 @@ var load_enabled: bool = true:
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var required_on_load: bool = true:
 ```
 

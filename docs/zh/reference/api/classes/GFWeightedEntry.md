@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var value: Variant = null
 ```
 
@@ -50,6 +51,7 @@ var value: Variant = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(0.0, 1000000000000.0, 0.001, "or_greater")
 var weight: float = 1.0:
 ```
 
@@ -62,6 +64,7 @@ var weight: float = 1.0:
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

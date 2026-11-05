@@ -29,8 +29,10 @@
 ### `traits`
 
 - API：`public`
+- 首次版本：`1.15.0`
 
 ```gdscript
+@export
 var traits: Array[GFTrait] = []
 ```
 
@@ -38,7 +40,7 @@ var traits: Array[GFTrait] = []
 
 结构：
 
-- `traits`: Array[GFTrait]，按 priority 排序保存的特征资源列表。
+- `traits`: Array[GFTrait]，特征资源列表；查询和计算按当时的 priority 排序。
 
 ## 方法
 

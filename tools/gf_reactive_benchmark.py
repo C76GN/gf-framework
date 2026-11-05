@@ -301,10 +301,16 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 		log_root.mkdir(parents=True)
 		report["fixture_sha256"] = _sha256(project / "benchmark.gd")
 		report["runner_sha256"] = _sha256(Path(__file__))
-		inputs_manifest = [
-			{"path": str(path.relative_to(ROOT)), "sha256": _sha256(path)}
-			for path in (Path(__file__).resolve(), FIXTURE / "project.godot.fixture", FIXTURE / "reactive_pull_benchmark.gd")
-		]
+		# Bind fixture identity to the bytes the private Godot project consumes.
+		# A source edit after copying must be detected, not adopted as the identity
+		# of an older staged fixture.
+		inputs_manifest = [{"path": str(Path(__file__).resolve().relative_to(ROOT)), "sha256": report["runner_sha256"]}]
+		for source_name, staged_name in (("project.godot.fixture", "project.godot"), ("reactive_pull_benchmark.gd", "benchmark.gd")):
+			inputs_manifest.append({
+				"path": str((FIXTURE / source_name).relative_to(ROOT)),
+				"staged_path": staged_name,
+				"sha256": _sha256(project / staged_name),
+			})
 		report["harness_manifest"] = inputs_manifest
 		execute("import", ["--headless", "--path", str(project), "--editor", "--import", "--quit", "--log-file", str(log_root / "import_engine.log")])
 		correctness = execute("correctness", ["--headless", "--path", str(project), "--script", "res://benchmark.gd", "--log-file", str(log_root / "correctness_engine.log"), "--", "correctness", "static_pull"], record=True)
@@ -321,7 +327,10 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 			if _sha256(ROOT / item["path"]) != item["sha256"] or _sha256(project / item["path"]) != item["sha256"]:
 				raise ValueError(f"Kernel closure drifted: {item['path']}")
 		for item in inputs_manifest:
-			if _sha256(ROOT / item["path"]) != item["sha256"]:
+			if (
+				_sha256(ROOT / item["path"]) != item["sha256"]
+				or (item.get("staged_path") and _sha256(project / item["staged_path"]) != item["sha256"])
+			):
 				raise ValueError(f"Benchmark harness input drifted: {item['path']}")
 		report["kernel_integrity"] = "live inputs and frozen copies match the captured SHA256 manifest"
 		report["valid"] = True

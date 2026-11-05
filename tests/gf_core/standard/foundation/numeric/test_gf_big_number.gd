@@ -2,6 +2,47 @@
 extends GutTest
 
 
+func test_to_float_keeps_representable_subnormal() -> void:
+	var bits: PackedByteArray = PackedByteArray()
+	var _resize_error: int = bits.resize(8)
+	bits[0] = 1
+	var smallest: float = bits.decode_double(0)
+	assert_gt(
+		smallest,
+		0.0,
+		"此宿主应保留 binary64 次正规数。"
+	)
+	assert_eq(
+		GFBigNumber.new(5.0, -324).to_float(),
+		smallest
+	)
+	assert_eq(
+		GFBigNumber.new(-5.0, -324).to_float(),
+		-smallest
+	)
+	assert_gt(
+		GFBigNumber.from_float(smallest).to_float(),
+		0.0
+	)
+
+
+func test_arithmetic_checks_normalized_exponent() -> void:
+	var product: GFBigNumber = GFBigNumber.new(9.0, -1000000).multiply(GFBigNumber.new(9.0, -1))
+	assert_eq(product.exponent, -1000000)
+	assert_almost_eq(
+		product.mantissa,
+		8.1,
+		0.000001
+	)
+	var quotient: GFBigNumber = GFBigNumber.new(1.0, 1000000).divide(GFBigNumber.new(9.0, -1))
+	assert_eq(quotient.exponent, 1000000)
+	assert_almost_eq(
+		quotient.mantissa,
+		10.0 / 9.0,
+		0.000001
+	)
+
+
 func test_from_string_normalizes_plain_number() -> void:
 	var value: GFBigNumber = GFBigNumber.from_string("123450000")
 

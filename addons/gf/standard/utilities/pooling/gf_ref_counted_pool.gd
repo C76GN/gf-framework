@@ -192,7 +192,7 @@ func release(item: RefCounted) -> bool:
 	var _erase_result_152: Variant = _active_ids.erase(item_id)
 	var release_token: RefCounted = RefCounted.new()
 	_transition_tokens[item_id] = release_token
-	_prepare_item_for_reuse(item)
+	_prepare_item_for_reuse(item, release_token)
 	if not _token_matches(
 		_transition_tokens,
 		item_id,
@@ -229,7 +229,7 @@ func prewarm(count: int) -> int:
 		var item_id: int = item.get_instance_id()
 		var prepare_token: RefCounted = RefCounted.new()
 		_transition_tokens[item_id] = prepare_token
-		_prepare_item_for_reuse(item)
+		_prepare_item_for_reuse(item, prepare_token)
 		if not _token_matches(
 			_transition_tokens,
 			item_id,
@@ -369,14 +369,27 @@ func _token_matches(
 	return false
 
 
-## 按释放 hook、重置回调、reset hook 的顺序清理对象。
+## 按释放 hook、重置回调、reset hook 的顺序清理对象；每次回调后复查归还令牌，避免清理新借用。
 ## [br]
 ## @api private
 ## [br]
-func _prepare_item_for_reuse(item: RefCounted) -> void:
+func _prepare_item_for_reuse(item: RefCounted, transition_token: RefCounted) -> void:
+	var item_id: int = item.get_instance_id()
 	_call_optional_hook(item, HOOK_ON_RELEASE)
+	if not _token_matches(
+		_transition_tokens,
+		item_id,
+		transition_token
+	):
+		return
 	if reset_callback.is_valid():
 		reset_callback.call(item)
+		if not _token_matches(
+			_transition_tokens,
+			item_id,
+			transition_token
+		):
+			return
 	_call_optional_hook(item, HOOK_RESET)
 
 

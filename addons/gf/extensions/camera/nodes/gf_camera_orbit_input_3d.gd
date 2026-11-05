@@ -37,7 +37,8 @@ const _GF_CAMERA_FINITE_MATH := preload("res://addons/gf/extensions/camera/core/
 
 # --- 导出变量 ---
 
-## 是否启用输入桥接。
+## 是否启用输入桥接。禁用会取消鼠标捕获，并终止在途映射调用中尚未应用的输入。
+## 同步回调中禁用后再启用也不会恢复旧映射调用；已提交的 Rig 参数不回滚。
 ## [br]
 ## @api public
 ## [br]
@@ -46,6 +47,7 @@ const _GF_CAMERA_FINITE_MATH := preload("res://addons/gf/extensions/camera/core/
 	set(value):
 		enabled = value
 		if not enabled:
+			_mapped_input_generation += 1
 			_clear_mouse_orbit_capture()
 
 ## 要控制的环绕 Rig。为空时使用父节点中的 GFCameraOrbitRig3D。
@@ -146,6 +148,11 @@ var input_mapping_utility: GFInputMappingUtility = null
 
 
 # --- 私有变量 ---
+
+## 每次禁用递增，使已进入项目映射或 Rig 回调的旧调用永久失去后续应用资格。
+## [br]
+## @api private
+var _mapped_input_generation: int = 0
 
 ## 是否处于鼠标环绕捕获状态。
 ## [br]
@@ -254,19 +261,23 @@ func set_input_mapping_utility(utility: GFInputMappingUtility) -> void:
 	input_mapping_utility = utility
 
 
-## 读取输入映射并推进环绕 Rig。
+## 读取输入映射并推进环绕 Rig。映射读取或 Rig 信号回调中禁用时，停止本次剩余输入。
+## 重新启用只允许新的调用；已应用的 orbit 或 zoom 不回滚。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.23.0
+## [br]
 ## @param delta: 本帧时间增量（秒）。
 ## [br]
-## @return 应用了任意输入时返回 true。
+## @return 本次已应用任意输入时返回 true，即使后续输入因禁用被取消。
 func process_input(delta: float) -> bool:
 	if not enabled or not use_input_mapping:
 		return false
 
+	var input_generation: int = _mapped_input_generation
 	var input_mapping: GFInputMappingUtility = _get_input_mapping_utility()
-	if input_mapping == null:
+	if input_mapping == null or not _is_mapped_input_current(input_generation):
 		return false
 
 	var safe_delta: float = maxf(
@@ -275,13 +286,19 @@ func process_input(delta: float) -> bool:
 	)
 	var applied: bool = false
 	var orbit_value: Vector2 = input_mapping.get_action_vector(orbit_action_id)
+	if not _is_mapped_input_current(input_generation):
+		return applied
 	if orbit_value != Vector2.ZERO:
 		applied = apply_orbit_vector(
 			orbit_value,
 			orbit_degrees_per_second * safe_delta
 		) or applied
+		if not _is_mapped_input_current(input_generation):
+			return applied
 
 	var zoom_value: float = _coerce_zoom_value(input_mapping.get_action_value(zoom_action_id))
+	if not _is_mapped_input_current(input_generation):
+		return applied
 	if not is_zero_approx(zoom_value):
 		applied = apply_zoom_value(
 			zoom_value,
@@ -383,6 +400,13 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## 只检查 enabled 的连续资格，不将 Rig 或映射重绑隐式定义为取消事件。
+## [br]
+## @api private
+func _is_mapped_input_current(input_generation: int) -> bool:
+	return enabled and input_generation == _mapped_input_generation
+
 
 ## 将捕获状态下的鼠标位移转换为 Rig 环绕增量。
 ## [br]

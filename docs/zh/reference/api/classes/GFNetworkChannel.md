@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var channel_id: StringName = &""
 ```
 
@@ -46,6 +47,7 @@ var channel_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -58,6 +60,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export_range(0, 255, 1)
 var transfer_channel: int = 0
 ```
 
@@ -70,6 +73,7 @@ var transfer_channel: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var reliable: bool = true
 ```
 
@@ -82,6 +86,7 @@ var reliable: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var max_packet_size: int = 0
 ```
 
@@ -94,6 +99,7 @@ var max_packet_size: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

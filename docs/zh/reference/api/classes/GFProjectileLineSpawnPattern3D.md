@@ -31,6 +31,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(1, 256, 1)
 var point_count: int = 1
 ```
 
@@ -44,6 +45,7 @@ var point_count: int = 1
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var local_start: Vector3 = Vector3.ZERO
 ```
 
@@ -57,6 +59,7 @@ var local_start: Vector3 = Vector3.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var local_end: Vector3 = Vector3.ZERO
 ```
 
@@ -70,6 +73,7 @@ var local_end: Vector3 = Vector3.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var rotate_to_line: bool = false
 ```
 

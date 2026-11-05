@@ -205,6 +205,16 @@ var _values: Dictionary = {}
 ## [br]
 var _staged_values: Dictionary = {}
 
+## 为每次新草稿保留独立身份；提交只能移除捕获时的同一份草稿。
+## [br]
+## @api private
+var _staged_revisions: Dictionary = {}
+
+## 草稿修改的单调序号，清空暂存值时也不复用旧身份。
+## [br]
+## @api private
+var _next_staged_revision: int = 1
+
 ## 已冻结并等待写入的保存记录。
 ## [br]
 ## @api private
@@ -853,6 +863,7 @@ func apply_staged_values(options: Dictionary = {}) -> Dictionary:
 		)
 	)
 	var selected_values: Dictionary = {}
+	var selected_revisions: Dictionary = {}
 	for key_variant: Variant in _staged_values.keys():
 		var key: StringName = GFVariantData.to_string_name(key_variant)
 		if key == &"":
@@ -860,6 +871,7 @@ func apply_staged_values(options: Dictionary = {}) -> Dictionary:
 		if not scope.is_empty() and not scope.has(key):
 			continue
 		selected_values[key] = GFVariantData.duplicate_variant(_staged_values[key_variant])
+		selected_revisions[key] = _staged_revisions.get(key)
 
 	var apply_options: Dictionary = {
 		"save_after_change": GFVariantData.get_option_bool(
@@ -877,9 +889,9 @@ func apply_staged_values(options: Dictionary = {}) -> Dictionary:
 	var applied_keys: PackedStringArray = PackedStringArray()
 	if GFVariantData.get_option_bool(report, "ok"):
 		for key: StringName in selected_values.keys():
-			var discarded: bool = _discard_staged_value_internal(key, true)
-			if discarded:
-				var _key_appended: bool = applied_keys.append(String(key))
+			if _staged_revisions.get(key) == selected_revisions[key]:
+				var _discarded: bool = _discard_staged_value_internal(key, true)
+			var _key_appended: bool = applied_keys.append(String(key))
 		applied_keys.sort()
 
 	report["staged_applied_count"] = applied_keys.size()
@@ -1347,6 +1359,7 @@ func _dispose_now() -> void:
 	_definitions.clear()
 	_values.clear()
 	_staged_values.clear()
+	_staged_revisions.clear()
 	_pending_save_records.clear()
 	_batch_save_records.clear()
 	_batch_depth = 0
@@ -1536,6 +1549,7 @@ func _replace_from_dict_internal(data: Dictionary, emit_changes: bool = true) ->
 		var _discarded_staged_keys: PackedStringArray = _discard_staged_values_internal()
 	else:
 		_staged_values.clear()
+		_staged_revisions.clear()
 
 
 ## 验证恢复策略、清除旧保存请求并读取存储，再按读取证据构造加载、恢复或失败结果。
@@ -2044,6 +2058,8 @@ func _stage_value_internal(
 		return
 
 	_staged_values[key] = GFVariantData.duplicate_variant(next_value)
+	_staged_revisions[key] = _next_staged_revision
+	_next_staged_revision += 1
 	if emit_change:
 		staged_setting_changed.emit(key)
 
@@ -2057,6 +2073,7 @@ func _discard_staged_value_internal(key: StringName, emit_change: bool) -> bool:
 		return false
 
 	var _erased: bool = _staged_values.erase(key)
+	var _revision_erased: bool = _staged_revisions.erase(key)
 	if emit_change:
 		staged_setting_changed.emit(key)
 	return true

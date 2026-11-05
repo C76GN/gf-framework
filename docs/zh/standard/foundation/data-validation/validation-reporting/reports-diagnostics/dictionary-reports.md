@@ -38,6 +38,8 @@ GFValidationReportDictionary.finalize_report(registration_report, "Registration"
 
 ## 过滤与基线
 
+基线过滤只匹配完整、稳定的内容指纹。参与指纹的字段超出编码预算或包含无法稳定编码的值时，`make_issue_fingerprint()` 返回空字符串，该问题不会因为相同的截断标记而被过滤。
+
 项目工具或 CI 需要保留历史基线、忽略已接受问题或按目录排除生成物时，可以先生成问题指纹，再对报告副本做过滤：
 
 ```gdscript

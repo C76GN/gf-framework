@@ -3,6 +3,7 @@
 `GFLogUtility` 是标准库通用工具，不会自动注册到架构。项目需要日志时，应在项目 Installer 中显式装配；如果同一项目可能由不同 Installer 组合装配，先用 `get_local_utility()` 做保护，避免重复注册 warning。
 
 ```gdscript
+## 仅在当前架构未装配日志工具时补入，避免覆盖项目已有配置。
 func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	if architecture.get_local_utility(GFLogUtility) == null:
 		await architecture.register_utility_instance(GFLogUtility.new())

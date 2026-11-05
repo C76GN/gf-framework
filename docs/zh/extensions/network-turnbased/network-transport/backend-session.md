@@ -5,10 +5,12 @@
 Backend 是平台中立传输适配点，不要求远端也运行 Godot。项目可以接入 Godot ENet/WebSocket 服务端、其他语言实现的兼容服务、自定义原生 SDK 或平台 peer；边界只要求连接状态、peer 身份和 bytes 收发语义可被可靠映射。
 
 ```gdscript
+## 项目传输适配点的骨架；接入实际 SDK 后才能提供真实发送能力。
 class_name GameNetworkBackend
 extends GFNetworkBackend
 
 
+## 将目标、字节与发送选项映射到底层传输，并返回实际发送错误。
 func send_bytes(peer_id: int, bytes: PackedByteArray, options: Dictionary = {}) -> Error:
 	# 交给项目选择的底层传输实现。
 	return OK
@@ -27,6 +29,7 @@ network.send_message(-1, message)
 
 ```gdscript
 var backend := GFMultiplayerPeerNetworkBackend.new()
+# OWNED 接管成功后由 Backend 关闭 Peer；接管失败时仍由调用方负责。
 var error := backend.adopt_peer(provider_peer, {
 	"ownership": GFMultiplayerPeerNetworkBackend.Ownership.OWNED,
 	"role": GFMultiplayerPeerNetworkBackend.Role.CLIENT,
@@ -45,6 +48,8 @@ if error == OK:
 `GFNetworkSession` 只记录后端连接意图和状态快照。`host()` 会在后端真正返回成功或报告 connected 后再标记 `has_connection`；如果后端启动失败，会关闭本次会话而不会短暂发出 connected 状态。接管已连接 Peer 时，Backend 的显式 `role`、endpoint 和本地 peer ID 会通过 `get_session_bootstrap()` 初始化 Session；因此先 `adopt_peer()` 再 `set_backend()` 也不会丢失早到的 connected 事件。
 
 `options.metadata` 必须是 `Dictionary`，传入其他类型会被忽略并输出 warning，避免把错误配置静默保存到会话快照里。替换或清空 backend 时，`GFNetworkUtility` 会关闭旧后端并清理旧会话，避免把底层连接资源留给已失效的 backend。
+
+`session_started` 回调中重复调用 `network.set_backend(network.backend)` 是幂等操作，正在执行的 `host()` 或 `connect_to_endpoint()` 会继续使用同一后端启动。如果同步回调取消连接或换用其他后端，旧调用在回调返回后以 `ERR_UNAVAILABLE` 结束，不会启动替换后的 backend 或补发旧连接成功通知。ENet 的关闭同样先提交释放状态；`peer_disconnected` 回调内成功建立的新主机保留自己的端点、角色和连接状态，旧关闭不再继续派发后续旧 peer 或总断开通知。
 
 需要等待指定 peer 的回复时，可在项目侧接入[有界请求与回复关联](request-correlation.md)。Tracker 独立于 Network Utility；监听 Session 的开始和关闭信号，才能在 backend 替换时同时结束旧等待项。
 
@@ -65,9 +70,12 @@ Headless 服务可以把网络会话和当前传输指标作为健康判断的�
 下面的项目 Provider 只公开后端、会话和一个可选队列指标。它捕获当前 backend 和 session 引用，只读取固定数量的类型化字段，并只消费受绝对容量和 Backend 协作预算保护的当前指标；不会调用会遍历 channels、validator 和自定义后端调试数据的完整 `get_debug_snapshot()`，也不会调用会追加采样历史并发出信号的 `capture_transport_metrics()`：
 
 ```gdscript
+## 按需读取有限的只读网络证据；服务健康策略由外部探针 Adapter 决定。
 class HeadlessNetworkHealthProvider extends GFDiagnosticSnapshotProvider:
+	## 借用架构中的 Utility；Provider 不推进网络、不关闭连接。
 	var network: GFNetworkUtility
 
+	## 同步返回固定白名单字段，不枚举完整 debug snapshot 或追加指标历史。
 	func _collect_snapshot(_request: Dictionary = {}) -> GFDiagnosticProviderResult:
 		if network == null:
 			return GFDiagnosticProviderResult.failed(
@@ -91,6 +99,7 @@ class HeadlessNetworkHealthProvider extends GFDiagnosticSnapshotProvider:
 		var queue_metric: StringName = (
 			GFNetworkTransportMetrics.SEND_QUEUE_PACKETS
 		)
+		# 缺失表示本次未提供该指标，不能用零伪造健康或故障结论。
 		if metrics != null and metrics.has_metric(queue_metric):
 			evidence[String(queue_metric)] = metrics.get_metric(queue_metric)
 		return GFDiagnosticProviderResult.succeeded(evidence)
@@ -116,6 +125,7 @@ GF 不提供探针 HTTP 路径、状态码、端口、TLS、鉴权、缓存、�
 GF 网络层不会规定房间、实体归属或玩法权限；这些规则应留在项目服务器或项目后端中。但入站消息进入 `message_received` 前，`GFNetworkUtility` 会用底层 backend 报告的 `peer_id` 覆盖 `GFNetworkMessage.sender_id`，项目不要信任客户端 payload 中自报的身份字段。
 
 ```gdscript
+## 服务端先做结构校验，再按真实传输 peer 检查项目权限，最后提交状态变化。
 func _on_message_received(peer_id: int, message: GFNetworkMessage) -> void:
 	if message.message_type != &"request_state_change":
 		return

@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var fallback_neighbor_value: Variant = 0
 ```
 
@@ -49,6 +50,7 @@ var fallback_neighbor_value: Variant = 0
 - API：`public`
 
 ```gdscript
+@export
 var default_result: Variant = null
 ```
 
@@ -65,6 +67,7 @@ var default_result: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var deterministic_seed: int = 0
 ```
 

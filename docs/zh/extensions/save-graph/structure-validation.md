@@ -16,6 +16,8 @@
 
 默认 `transactional_apply = true` 时，本次应用中新建的工厂实体会在后续 Source 或子 Scope 应用失败时回滚释放，避免读档一半失败后留下半恢复场景。
 
+既有 Source 在修改前必须成功采集回滚快照。采集新增流程错误或返回非 Dictionary 时，本次应用立即失败并恢复此前已经修改的 Source，不会把失败空值交给 `from_dict()` 当作旧状态。子 Scope 的捕获失败逐层传播，后续兄弟 Scope 不再进入修改；普通 apply 失败仍沿用既有错误收集策略。合法的空 Dictionary 快照仍可使用；应用或回滚方法显式返回失败时，结果保留 `rollback_failures` 与真实的 `atomicity_restored`，项目适配器仍须负责其外部副作用的可逆性。
+
 `gather_scope()` 遇到重复 Source key、重复子 Scope key 或子 Scope 采集失败时会整体返回空载荷，并把错误写入共享的 `GFSavePipelineContext`，避免生成缺失子树的部分存档。
 
 ## 编辑器诊断

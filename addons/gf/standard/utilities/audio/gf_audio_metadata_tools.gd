@@ -1326,7 +1326,8 @@ static func _find_id3_text_value_start(
 
 	for index: int in range(
 		description_start,
-		frame_data.size() - 1
+		frame_data.size() - 1,
+		2
 	):
 		if frame_data[index] == 0 and frame_data[index + 1] == 0:
 			return index + 2

@@ -2,6 +2,15 @@
   "schema_version": 1,
   "forwarders": [
     {
+      "path": "addons/gf/extensions/save/serializers/gf_node_property_serializer.gd",
+      "function": "_record_gather_error",
+      "callee": "push_error",
+      "argument": "message",
+      "count": 1,
+      "kind": "framework_message",
+      "reason": "The local producer constructs the coded incomplete-property message, shared unchanged with pipeline errors and emitted natively only without a pipeline context."
+    },
+    {
       "path": "addons/gf/extensions/save/graph/gf_save_graph_utility.gd",
       "function": "gather_scope",
       "callee": "push_error",

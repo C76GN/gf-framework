@@ -17,13 +17,15 @@ Gf.send_simple_event(&"EVENT_SCORE_CHANGED", { "score": 1200 })
 ## 接收事件
 
 ```gdscript
+## 在模块 ready 后建立 owner 监听，监听的生命周期跟随当前模块。
 func ready() -> void:
-	# 注册监听，并绑定到自身的回调函数
 	register_simple_event(&"EVENT_PLAYER_JUMPED", GFEventListener.from_method(self, &"_on_player_jumped", 1))
 
+## 简单事件仍接收一个 payload 参数，本例只使用事件本身表达的通知。
 func _on_player_jumped(_payload: Variant) -> void:
 	print("UI 显示：成功跳跃！")
 
+## 仅撤销当前 owner 的这条监听，不移除其他 owner 的同类监听。
 func dispose() -> void:
 	unregister_simple_event(&"EVENT_PLAYER_JUMPED", GFEventListener.from_method(self, &"_on_player_jumped", 1))
 ```
@@ -37,6 +39,7 @@ Simple Event 不直接接受整数 key。这是有意的契约：`StringName` �
 项目确实需要把固定协议号映射为事件时，应在协议适配层集中规范化，并保证发送与监听复用同一个函数：
 
 ```gdscript
+## 固定协议号的命名规范化入口；发送和监听必须复用相同映射。
 static func protocol_event_id(message_code: int) -> StringName:
 	return StringName("protocol.message:%d" % message_code)
 

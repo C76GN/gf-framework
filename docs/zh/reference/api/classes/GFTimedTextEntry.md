@@ -35,6 +35,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var start_time: float = 0.0:
 ```
 
@@ -48,6 +49,7 @@ var start_time: float = 0.0:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var end_time: float = 0.0:
 ```
 
@@ -60,6 +62,7 @@ var end_time: float = 0.0:
 - API：`public`
 
 ```gdscript
+@export_multiline
 var text: String = ""
 ```
 
@@ -72,6 +75,7 @@ var text: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

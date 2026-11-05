@@ -32,6 +32,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(0.0, 60.0, 0.001, "or_greater")
 var duration_seconds: float:
 ```
 
@@ -45,6 +46,7 @@ var duration_seconds: float:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var transition_type: Tween.TransitionType:
 ```
 
@@ -58,6 +60,7 @@ Tween 过渡类型。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var ease_type: Tween.EaseType:
 ```
 

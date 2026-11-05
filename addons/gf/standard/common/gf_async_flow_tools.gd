@@ -148,7 +148,7 @@ static func retry_async(operation: Callable, options: Dictionary = {}) -> Dictio
 	)
 
 
-## 顺序处理数组项。
+## 顺序处理数组项；真实的 null 项仍作为第一个参数传入，启用 pass_index 时索引位于其后。
 ## [br]
 ## @api public
 ## [br]
@@ -204,7 +204,8 @@ static func each_async(
 			_make_operation_args(
 				options,
 				index,
-				items[index]
+				items[index],
+				true
 			)
 		)
 		var normalized: Dictionary = await _normalize_async_result(raw_result, options)
@@ -633,13 +634,18 @@ static func _normalize_async_result(raw_result: Variant, options: Dictionary) ->
 static func _make_operation_args(
 	options: Dictionary,
 	index: int,
-	item: Variant
+	item: Variant,
+	has_item: bool = false
 ) -> Array:
 	var args: Array = []
-	if item != null or GFVariantData.get_option_bool(
-		options,
-		"pass_null_item",
-		false
+	if (
+		has_item
+		or item != null
+		or GFVariantData.get_option_bool(
+			options,
+			"pass_null_item",
+			false
+		)
 	):
 		args.append(item)
 	if (

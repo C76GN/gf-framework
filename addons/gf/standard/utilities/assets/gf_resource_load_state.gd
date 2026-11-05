@@ -534,10 +534,8 @@ func duplicate_state() -> GFResourceLoadState:
 	var state: GFResourceLoadState = from_dictionary(to_dictionary())
 	var resource: Resource = get_resource()
 	if resource != null and state != null:
-		var _copied: Variant = state.set_resource(
-			resource,
-			{ "reference_mode": reference_mode }
-		)
+		state._resource_ref = weakref(resource)
+		state._resource_value = resource if reference_mode == REFERENCE_STRONG else null
 	return state
 
 

@@ -868,6 +868,84 @@ func test_editor_pick_operation_tracks_preview_and_apply_result() -> void:
 	)
 
 
+func test_pick_hooks_cannot_revive_cancelled_operation() -> void:
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var operation: ReentrantPickOperation = ReentrantPickOperation.new()
+	assert_true(operation.begin(context))
+	operation.pick_callback = operation.cancel
+	assert_eq(
+		operation.pick({}),
+		GFEditorPickOperation.State.CANCELLED
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(
+			operation.apply(),
+			"ok"
+		)
+	)
+	assert_eq(operation.apply_count, 0)
+	operation.pick_callback = Callable()
+	assert_true(operation.begin(context))
+	var _state: int = operation.pick({})
+	operation.can_apply_callback = operation.cancel
+	assert_false(
+		GF_VARIANT_ACCESS.get_option_bool(
+			operation.apply(),
+			"ok"
+		)
+	)
+	assert_eq(operation.apply_count, 0)
+	operation.can_apply_callback = Callable()
+
+
+func test_tool_does_not_retain_operation_deactivated_during_begin() -> void:
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var tool: RecordingTool = RecordingTool.new()
+	tool.activate(context)
+	var operation: ReentrantPickOperation = ReentrantPickOperation.new()
+	operation.begin_callback = tool.deactivate
+	assert_false(tool.begin_pick_operation(operation))
+	assert_null(tool.get_pick_operation())
+	assert_eq(
+		operation.get_state(),
+		GFEditorPickOperation.State.CANCELLED
+	)
+	operation.begin_callback = Callable()
+
+
+func test_tool_preserves_replacement_started_during_apply() -> void:
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var tool: RecordingTool = RecordingTool.new()
+	tool.activate(context)
+	var operation: ReentrantPickOperation = ReentrantPickOperation.new()
+	var replacement: ReentrantPickOperation = ReentrantPickOperation.new()
+	assert_true(tool.begin_pick_operation(operation))
+	var _state: int = tool.pick({})
+	operation.apply_callback = func() -> void:
+		var _began: bool = tool.begin_pick_operation(replacement)
+	var _result: Dictionary = tool.apply_pick_operation()
+	assert_same(
+		tool.get_pick_operation(),
+		replacement
+	)
+	assert_eq(
+		replacement.get_state(),
+		GFEditorPickOperation.State.PICKING
+	)
+	operation.apply_callback = Callable()
+	tool.deactivate()
+
+
+func test_pick_begin_hook_can_produce_ready_state() -> void:
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var operation: ReentrantPickOperation = ReentrantPickOperation.new()
+	operation.begin_callback = func() -> void:
+		var _state: int = operation.pick({})
+	assert_true(operation.begin(context))
+	assert_true(operation.can_apply())
+	operation.begin_callback = Callable()
+
+
 func test_editor_tool_does_not_retain_pick_operation_when_begin_fails() -> void:
 	var tool: RecordingTool = RecordingTool.new()
 	var context: GFEditorToolContext = GFEditorToolContext.new()
@@ -1129,6 +1207,37 @@ class RecordingPickOperation extends GFEditorPickOperation:
 			"result": input_data.duplicate(true),
 			"ready": input_data.has("position"),
 		}
+
+
+class ReentrantPickOperation extends GFEditorPickOperation:
+	var begin_callback: Callable
+	var pick_callback: Callable
+	var can_apply_callback: Callable
+	var apply_callback: Callable
+	var apply_count: int = 0
+
+	func _on_begin(_tool_context: GFEditorToolContext) -> void:
+		if begin_callback.is_valid():
+			begin_callback.call()
+
+
+	func _on_pick(_input_data: Dictionary) -> Dictionary:
+		if pick_callback.is_valid():
+			pick_callback.call()
+		return { "ready": true }
+
+
+	func _on_can_apply() -> bool:
+		if can_apply_callback.is_valid():
+			can_apply_callback.call()
+		return true
+
+
+	func _on_apply(_tool_context: GFEditorToolContext, _pick_result: Dictionary) -> Dictionary:
+		apply_count += 1
+		if apply_callback.is_valid():
+			apply_callback.call()
+		return { "ok": true }
 
 
 class RejectingBeginPickOperation extends GFEditorPickOperation:

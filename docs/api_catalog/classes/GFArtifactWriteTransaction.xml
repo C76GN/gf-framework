@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArtifactWriteTransaction" path="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" module="kernel" extends="RefCounted" classDigest="53042cc91d6c4a84895e74558fb4b13b7140393fc0f5b5add37a8550924fe0b4">
-	<description>GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。
+<class name="GFArtifactWriteTransaction" path="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" module="kernel" extends="RefCounted" classDigest="2a9740355a0c4c3fdea08b91ce848206065e320b28b92678c0bdf05a6a4ba8fa">
+	<description>GFArtifactWriteTransaction: 运行时与制作工具共用的多产物文件提交事务。
 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物，
 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交
 失败时逆序恢复已有目标并删除本次新增目标。该类不解释产物格式、生成器
@@ -8,10 +8,11 @@
 持久化误称为 crash-atomic。GDScript 文件 API 无法固定父目录句柄，因此
 allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交换 junction
 的目录；实现会在 rename、删除和恢复前后复核可观察的路径、内容与 sidecar
-身份，并在漂移时 fail closed，而不是盲目破坏未知文件。</description>
+身份，并在漂移时 fail closed，而不是盲目破坏未知文件。文件提交与恢复
+可在普通运行时使用；可选的资源文件系统刷新仅在编辑器中执行。</description>
 	<tags>
 		<tag name="api">public</tag>
-		<tag name="category">tool_api</tag>
+		<tag name="category">runtime_service</tag>
 		<tag name="since">10.0.0</tag>
 	</tags>
 	<signals />

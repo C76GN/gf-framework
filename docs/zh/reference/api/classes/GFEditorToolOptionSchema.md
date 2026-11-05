@@ -38,6 +38,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var options: Array[GFEditorToolOption] = []
 ```
 
@@ -50,6 +51,7 @@ var options: Array[GFEditorToolOption] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

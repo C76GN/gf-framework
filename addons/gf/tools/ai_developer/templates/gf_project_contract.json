@@ -24,20 +24,7 @@
       ],
       "forbidden": []
     },
-    "capability_requirements": [
-      {
-        "id": "architecture",
-        "decision_state": "confirmed",
-        "owner": "project",
-        "recipes": [
-          "composition-root"
-        ],
-        "acceptance": [
-          "Long-lived GF architecture services are registered by the project composition root and disposed with their declared owner."
-        ],
-        "notes": ""
-      }
-    ],
+    "capability_requirements": [],
     "adapter_boundaries": []
   },
   "architecture": {

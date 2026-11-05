@@ -65,6 +65,7 @@ enum Operation {
 - API：`public`
 
 ```gdscript
+@export
 var action_id: StringName = &""
 ```
 
@@ -77,6 +78,7 @@ var action_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var action_kind: StringName = &""
 ```
 
@@ -89,6 +91,7 @@ var action_kind: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var operation: Operation = Operation.SUBTRACT
 ```
 
@@ -102,6 +105,7 @@ var operation: Operation = Operation.SUBTRACT
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var amount: float:
 ```
 
@@ -114,6 +118,7 @@ var amount: float:
 - API：`public`
 
 ```gdscript
+@export
 var tags: Array[StringName] = []
 ```
 
@@ -126,6 +131,7 @@ var tags: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var payload: Variant = null
 ```
 
@@ -142,6 +148,7 @@ var payload: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -41,6 +41,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var profiles: Dictionary = {}
 ```
 
@@ -57,6 +58,7 @@ var profiles: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var active_profile_id: StringName = &""
 ```
 
@@ -69,6 +71,7 @@ var active_profile_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var custom_data: Dictionary = {}
 ```
 

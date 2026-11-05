@@ -37,6 +37,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var peer_id: int = -1
 ```
 
@@ -50,6 +51,7 @@ var peer_id: int = -1
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var identity: GFNetworkPeerIdentity = null
 ```
 
@@ -63,6 +65,7 @@ var identity: GFNetworkPeerIdentity = null
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var is_owner: bool = false
 ```
 
@@ -76,6 +79,7 @@ var is_owner: bool = false
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var is_local: bool = false
 ```
 
@@ -89,6 +93,7 @@ var is_local: bool = false
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

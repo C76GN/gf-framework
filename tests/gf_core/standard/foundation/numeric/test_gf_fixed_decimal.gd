@@ -2,6 +2,15 @@
 extends GutTest
 
 
+func test_half_up_keeps_exact_large_integers() -> void:
+	for value: float in [4503599627370497.0, -4503599627370497.0]:
+		var fixed: GFFixedDecimal = GFFixedDecimal.from_float(value, 0)
+		assert_eq(
+			fixed.raw_value,
+			int(value)
+		)
+
+
 func test_from_string_and_to_string_roundtrip() -> void:
 	var value: GFFixedDecimal = GFFixedDecimal.from_string("12.345", 3)
 

@@ -29,6 +29,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var initial_state: StringName = &""
 ```
 
@@ -41,6 +42,7 @@ var initial_state: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var initial_args: Dictionary = {}
 ```
 
@@ -57,6 +59,7 @@ var initial_args: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export_range(1, 256, 1)
 var history_max_size: int = 32:
 ```
 
@@ -69,6 +72,7 @@ var history_max_size: int = 32:
 - API：`public`
 
 ```gdscript
+@export_range(1, 64, 1)
 var max_stack_depth: int = 8:
 ```
 

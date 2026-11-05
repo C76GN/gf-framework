@@ -35,6 +35,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var speed: float = 0.0
 ```
 
@@ -48,6 +49,7 @@ world-space 运动速度。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var direction_2d: Vector2 = Vector2.RIGHT
 ```
 
@@ -61,6 +63,7 @@ var direction_2d: Vector2 = Vector2.RIGHT
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var direction_3d: Vector3 = Vector3.FORWARD
 ```
 
@@ -74,6 +77,7 @@ var direction_3d: Vector3 = Vector3.FORWARD
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var use_local_direction: bool = true
 ```
 
@@ -87,6 +91,7 @@ var use_local_direction: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var normalize_direction: bool = true
 ```
 

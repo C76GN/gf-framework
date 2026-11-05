@@ -101,6 +101,7 @@ enum FalloffMode {
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var enabled: bool = true:
 ```
 
@@ -114,6 +115,7 @@ var enabled: bool = true:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var priority: int = 0:
 ```
 
@@ -127,6 +129,7 @@ var priority: int = 0:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var acceleration: float = 9.8:
 ```
 
@@ -140,6 +143,7 @@ var acceleration: float = 9.8:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var radius: float = 0.0:
 ```
 
@@ -153,6 +157,7 @@ var radius: float = 0.0:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var min_distance: float = 1.0:
 ```
 
@@ -166,6 +171,7 @@ var min_distance: float = 1.0:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var direction_mode: DirectionMode = DirectionMode.TOWARD_ORIGIN:
 ```
 
@@ -179,6 +185,7 @@ var direction_mode: DirectionMode = DirectionMode.TOWARD_ORIGIN:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var constant_direction: Vector3 = Vector3.DOWN:
 ```
 
@@ -192,6 +199,7 @@ var constant_direction: Vector3 = Vector3.DOWN:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var falloff_mode: FalloffMode = FalloffMode.CONSTANT:
 ```
 
@@ -205,6 +213,7 @@ var falloff_mode: FalloffMode = FalloffMode.CONSTANT:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var falloff_curve: Curve = null:
 ```
 

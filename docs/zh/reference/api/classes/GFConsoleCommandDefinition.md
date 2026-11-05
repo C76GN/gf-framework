@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var command_name: String = ""
 ```
 
@@ -43,6 +44,7 @@ var command_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var aliases: PackedStringArray = PackedStringArray()
 ```
 
@@ -55,6 +57,7 @@ var aliases: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var description: String = ""
 ```
 
@@ -67,6 +70,7 @@ var description: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

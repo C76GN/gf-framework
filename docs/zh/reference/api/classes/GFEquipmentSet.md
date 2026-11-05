@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var slots: Dictionary = {}
 ```
 

@@ -225,8 +225,9 @@ func dismiss_active(reason: String = "dismissed") -> void:
 ## [br]
 ## @param reason: 结束原因。
 func clear_notifications(reason: String = "cleared") -> void:
-	if not _active_notification.is_empty():
-		var finished: Dictionary = _active_notification.duplicate(true)
+	var finished: Dictionary = _active_notification.duplicate(true)
+	_active_notification.clear()
+	if not finished.is_empty():
 		notification_finished.emit(finished, reason)
 	_active_notification.clear()
 	_active_remaining_seconds = 0.0

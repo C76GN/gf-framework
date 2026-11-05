@@ -35,6 +35,7 @@
 - API：`public`
 
 ```gdscript
+@export_range(0, 16, 1, "or_greater")
 var default_radius: int = 1:
 ```
 
@@ -47,6 +48,7 @@ var default_radius: int = 1:
 - API：`public`
 
 ```gdscript
+@export_range(0, 256, 1, "or_greater")
 var max_scheduled_scenes: int = 0:
 ```
 
@@ -59,6 +61,7 @@ var max_scheduled_scenes: int = 0:
 - API：`public`
 
 ```gdscript
+@export
 var fixed_scene_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -71,6 +74,7 @@ var fixed_scene_paths: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFScenePreloadEntry] = []
 ```
 
@@ -83,6 +87,7 @@ var entries: Array[GFScenePreloadEntry] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

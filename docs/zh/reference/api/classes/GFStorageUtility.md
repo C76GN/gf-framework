@@ -325,12 +325,13 @@ var strict_integrity: bool = true
 ### `require_integrity_checksum`
 
 - API：`public`
+- 首次版本：`1.24.0`
 
 ```gdscript
 var require_integrity_checksum: bool = true
 ```
 
-启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。
+启用完整性校验时，是否要求文档包含 `__gf_storage_document.integrity.digest`。
 
 <a id="member-gfstorageutility-properties-include_storage_metadata"></a>
 

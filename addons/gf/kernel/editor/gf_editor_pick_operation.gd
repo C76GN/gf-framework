@@ -76,6 +76,11 @@ var metadata: Dictionary = {}
 ## @api private
 var _state: State = State.IDLE
 
+## 开始或取消时递增，使旧钩子返回值不能覆盖新的操作状态。
+## [br]
+## @api private
+var _operation_generation: int = 0
+
 ## 当前或最近一次操作使用的工具上下文；结束状态下会保留到下一次 begin。
 ## [br]
 ## @api private
@@ -109,11 +114,19 @@ func begin(context: GFEditorToolContextBase) -> bool:
 	):
 		return false
 	_context = context
+	_operation_generation += 1
+	var generation: int = _operation_generation
 	_state = State.PICKING
 	_preview.clear()
 	_result.clear()
 	_on_begin(context)
-	return true
+	return (
+		generation == _operation_generation
+		and (
+			_state == State.PICKING
+			or _state == State.READY
+		)
+	)
 
 
 ## 输入一次拾取数据。
@@ -129,7 +142,10 @@ func pick(input_data: Dictionary) -> State:
 	if _state != State.PICKING and _state != State.READY:
 		return _state
 
+	var generation: int = _operation_generation
 	var response: Dictionary = _on_pick(input_data)
+	if generation != _operation_generation:
+		return _state
 	if response.has("preview") and response["preview"] is Dictionary:
 		_preview = _GF_VARIANT_ACCESS_SCRIPT.to_dictionary(
 			response["preview"],
@@ -146,6 +162,8 @@ func pick(input_data: Dictionary) -> State:
 		"ready",
 		_on_can_apply()
 	)
+	if generation != _operation_generation:
+		return _state
 	_state = State.READY if ready else State.PICKING
 	return _state
 
@@ -156,7 +174,15 @@ func pick(input_data: Dictionary) -> State:
 ## [br]
 ## @return 可应用返回 true。
 func can_apply() -> bool:
-	return _state == State.READY and _on_can_apply()
+	if _state != State.READY:
+		return false
+	var generation: int = _operation_generation
+	var allowed: bool = _on_can_apply()
+	return (
+		allowed
+		and generation == _operation_generation
+		and _state == State.READY
+	)
 
 
 ## 应用拾取结果。
@@ -169,10 +195,13 @@ func can_apply() -> bool:
 func apply() -> Dictionary:
 	if not can_apply():
 		return { "ok": false, "reason": &"not_ready", }
+	var generation: int = _operation_generation
 	var result: Dictionary = _on_apply(
 		_context,
 		_result.duplicate(true)
 	)
+	if generation != _operation_generation:
+		return { "ok": false, "reason": &"operation_replaced", }
 	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		result,
 		"ok",
@@ -188,8 +217,9 @@ func apply() -> Dictionary:
 func cancel() -> void:
 	if _state == State.APPLIED or _state == State.CANCELLED:
 		return
-	_on_cancel(_context)
+	_operation_generation += 1
 	_state = State.CANCELLED
+	_on_cancel(_context)
 
 
 ## 获取当前状态。

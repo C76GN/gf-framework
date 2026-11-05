@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var has_minimum_size: bool = false
 ```
 
@@ -45,6 +46,7 @@ var has_minimum_size: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var minimum_size: int = 0
 ```
 
@@ -57,6 +59,7 @@ var minimum_size: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var has_maximum_size: bool = false
 ```
 
@@ -69,6 +72,7 @@ var has_maximum_size: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var maximum_size: int = 0
 ```
 

@@ -63,6 +63,7 @@ if read == null or not read.ok:
 	return
 var source_revision := read.get_committed_revision()
 if source_revision.is_successful():
+	# 摘要与实际读到的版本配对，不能复用先前查询时的 token。
 	cached_summary = _build_summary(read.payload)
 	cached_revision = source_revision.get_revision()
 ```

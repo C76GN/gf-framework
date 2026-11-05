@@ -224,6 +224,11 @@ var _catalog_revision: int = 0
 ## [br]
 var _query_generation: int = 0
 
+## 仅保存有效排序选项，比较变化和交付异步任务时均使用同一份值。
+## [br]
+## @api private
+var _sort_options: Dictionary = {}
+
 ## 当前文本查询条件。
 ## [br]
 ## @api private
@@ -333,7 +338,16 @@ func replace_catalog(catalog: GFAssetCatalog) -> Dictionary:
 		return report
 	var candidate_catalog: GFAssetCatalog = candidate_value
 
-	_invalidate_active_preview(&"catalog_replaced")
+	var catalog_revision: int = _catalog_revision
+	var query_generation: int = _query_generation
+	var preview_generation: int = _invalidate_active_preview(&"catalog_replaced")
+	if not _is_preview_request_current(
+		preview_generation,
+		catalog_revision,
+		query_generation
+	):
+		report["error"] = "disposed" if _disposed else "superseded"
+		return report
 	_catalog = candidate_catalog
 	_catalog_revision += 1
 	_query_generation += 1
@@ -412,10 +426,18 @@ func select_asset(asset_id: StringName) -> bool:
 ## [br]
 ## @param asset_ids: 可选查询闭集；为空时查询整个目录。
 ## [br]
+## @param sort_options: 排序预设和名称浏览档宽；缺省按精确相关度。
+## [br]
+## @schema sort_options: Dictionary with optional sort_preset, band_width and include_unmatched.
+## [br]
 ## @return: 查询更新报告。
 ## [br]
 ## @schema return: Dictionary with ok, changed, error, query_generation, query, and filter_count.
-func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -> Dictionary:
+func set_query(
+	query_text: String,
+	asset_ids: PackedStringArray = PackedStringArray(),
+	sort_options: Dictionary = {}
+) -> Dictionary:
 	var report: Dictionary = {
 		"ok": false,
 		"changed": false,
@@ -437,13 +459,28 @@ func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringAr
 		report["error"] = "invalid_asset_id"
 		return report
 	var normalized_ids: PackedStringArray = _normalize_asset_ids(asset_ids)
-	if _query_text == query_text and _query_asset_ids == normalized_ids:
+	var normalized_sort: Dictionary = GFTextSearchScorer.normalize_ranking_options(sort_options)
+	if (
+		_query_text == query_text
+		and _query_asset_ids == normalized_ids
+		and _sort_options == normalized_sort
+	):
 		report["ok"] = true
 		return report
 
-	_invalidate_active_preview(&"query_changed")
+	var catalog_revision: int = _catalog_revision
+	var query_generation: int = _query_generation
+	var preview_generation: int = _invalidate_active_preview(&"query_changed")
+	if not _is_preview_request_current(
+		preview_generation,
+		catalog_revision,
+		query_generation
+	):
+		report["error"] = "disposed" if _disposed else "superseded"
+		return report
 	_query_text = query_text
 	_query_asset_ids = normalized_ids
+	_sort_options = normalized_sort
 	_query_generation += 1
 	report["ok"] = true
 	report["changed"] = true
@@ -638,7 +675,7 @@ func dispose() -> void:
 		return
 	_disposed = true
 	_pending_notifications.clear()
-	_invalidate_active_preview(&"disposed")
+	var _invalidated_generation: int = _invalidate_active_preview(&"disposed")
 
 
 ## 获取当前目录的分页摘要。
@@ -660,16 +697,16 @@ func get_page(page: int = 1, page_size: int = 50) -> Dictionary:
 		1,
 		MAX_PAGE_SIZE
 	)
+	var options: Dictionary = _sort_options.duplicate()
+	options["asset_ids"] = _query_asset_ids
+	options["limit"] = MAX_RESULT_COUNT
+	options["include_summaries"] = true
+	options["summary_options"] = { "include_metadata": true }
 	var catalog_page: Dictionary = _catalog.search_page(
 		_query_text,
 		page,
 		bounded_page_size,
-		{
-			"asset_ids": _query_asset_ids,
-			"limit": MAX_RESULT_COUNT,
-			"include_summaries": true,
-			"summary_options": { "include_metadata": true },
-		}
+		options
 	)
 	return {
 		"catalog_revision": _catalog_revision,
@@ -719,6 +756,7 @@ func create_page_query(page: int = 1, page_size: int = 50) -> RefCounted:
 			"query_generation": _query_generation,
 			"query": _query_text,
 			"asset_ids": _query_asset_ids,
+			"sort_options": _sort_options,
 			"page": maxi(page, 1),
 			"page_size": clampi(
 				page_size,
@@ -1233,14 +1271,16 @@ static func _make_page_items(raw_items: Array) -> Array[Dictionary]:
 	return result
 
 
-## 存在活动预览时先推进预览代次，再撤销任务，使晚到完成通知失去写回资格。
+## 存在活动预览时先推进代次再撤销；返回回调前的代次，使调用方能识别同步回调中的替换或释放。
 ## [br]
 ## @api private
-func _invalidate_active_preview(reason: StringName) -> void:
+func _invalidate_active_preview(reason: StringName) -> int:
 	if _active_preview_task == null:
-		return
+		return _preview_generation
 	_preview_generation += 1
+	var preview_generation: int = _preview_generation
 	_cancel_active_preview(reason)
+	return preview_generation
 
 
 ## 在调用任务 cancel 前清空活动任务及其目录、查询身份，避免同步取消回调再次解析同一任务。

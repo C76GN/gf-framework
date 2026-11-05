@@ -253,12 +253,13 @@ func init() -> void:
 ### `dispose`
 
 - API：`public`
+- 首次版本：`1.10.0`
 
 ```gdscript
 func dispose() -> void:
 ```
 
-注销已索引 receiver 上的能力并清理分组状态。 由本 Utility 创建或 PackedScene 实例化的能力会随架构销毁释放；外部传入或场景中已有的能力只注销，不抢占其节点所有权。
+注销本 Utility 登记且身份仍匹配的能力，并清理分组状态。 由本 Utility 创建或 PackedScene 实例化的能力会随架构销毁释放；外部传入或场景中已有的能力只注销，不抢占其节点所有权。 其他 Utility 的依赖仍会阻止注销；保留尚未移除的登记，可在依赖者移除后再次调用。
 
 <a id="member-gfcapabilityutility-methods-tick"></a>
 

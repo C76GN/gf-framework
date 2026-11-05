@@ -5,18 +5,23 @@
 它不会读取全局 `Input`，也不会消费事件；项目在 `_input(event)` 中显式转发即可。
 
 ```gdscript
+# 接入片段：对应 Utility 须已注册且架构已就绪。
 var pointer := Gf.get_utility(GFPointerActivityUtility) as GFPointerActivityUtility
 pointer.drag_threshold_pixels = 8.0
 pointer.idle_threshold_seconds = 0.5
 
+## 只采集指针活动，不消费事件或决定拖拽业务。
 func _input(event: InputEvent) -> void:
 	pointer.handle_input_event(event)
 
+## 用项目帧时钟推进空闲判断；只转发事件无法发现持续无输入。
 func _process(delta: float) -> void:
 	pointer.tick(delta)
 ```
 
 `GFPointerActivityUtility` 发出 `pointer_pressed`、`pointer_moved`、`pointer_drag_started`、`pointer_dragged`、`pointer_drag_ended`、`pointer_released` 和空闲相关信号，只描述输入活动本身。
+
+信号回调中开始新按压或调用 `reset_activity()` 会使旧事件尚未执行的通知失效。例如 `pointer_drag_ended` 回调开始新按压后，旧 release 不再清除新状态，也不再补发可能被误认为新手势结束的 `pointer_released`；新按压由后续对应释放事件结束。
 
 是否把拖拽解释成地图平移、物品拖放、框选、UI 滚动或编辑器画刷，应继续留在项目层或具体工具层。
 
@@ -25,11 +30,14 @@ func _process(delta: float) -> void:
 需要把单指移动、双指缩放、双指旋转、触控板 pan / magnify 或鼠标滚轮统一为数据时，可以使用 `GFPointerGestureUtility`。它输出 `Dictionary` 摘要，不直接修改 Camera、Control、Node2D 或业务对象。
 
 ```gdscript
+# 接入片段：手势 Utility 只生成数据，视图变换仍由项目负责。
 var gesture := Gf.get_utility(GFPointerGestureUtility) as GFPointerGestureUtility
 
+## 将原始输入交给摘要器；不在这里绑定相机或控件行为。
 func _input(event: InputEvent) -> void:
 	gesture.handle_input_event(event)
 
+## 在视图接入时订阅摘要；回调中的数值供项目映射到具体交互。
 func _ready() -> void:
 	gesture.gesture_updated.connect(func(snapshot: Dictionary, _event: InputEvent) -> void:
 		var pan_delta := snapshot["pan_delta"] as Vector2

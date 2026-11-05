@@ -32,6 +32,75 @@ func test_normalize_metadata_merges_common_key_shapes() -> void:
 	assert_false(normalized.has(""))
 
 
+## UTF-16 描述终止符只在 code unit 边界识别；覆盖大小端、空描述和非 ASCII。
+func test_utf16_description_terminators_preserve_text_and_picture_alignment() -> void:
+	for big_endian: bool in [false, true]:
+		for description_code: int in [
+			0,
+			65,
+			0x4e2d,
+		]:
+			var description: PackedByteArray = PackedByteArray([0xfe, 0xff] if big_endian else [0xff, 0xfe])
+			if description_code != 0:
+				var _first_byte_added: bool = description.append(description_code >> 8 if big_endian else description_code & 0xff)
+				var _second_byte_added: bool = description.append(description_code & 0xff if big_endian else description_code >> 8)
+			description.append_array(PackedByteArray([0, 0]))
+			var value: PackedByteArray = PackedByteArray(
+				[
+					0xfe,
+					0xff,
+					0,
+					66,
+				] if big_endian else [
+					0xff,
+					0xfe,
+					66,
+					0,
+				]
+			)
+			var text_payload: PackedByteArray = PackedByteArray([1]) + description + value
+			var comment_payload: PackedByteArray = PackedByteArray(
+				[
+					1,
+					101,
+					110,
+					103,
+				]
+			) + description + value
+			var image: PackedByteArray = PackedByteArray(
+				[
+					1,
+					2,
+					3,
+					4,
+				]
+			)
+			var picture_payload: PackedByteArray = PackedByteArray([1]) + "image/png".to_ascii_buffer() + PackedByteArray([0, 3]) + description + image
+			var report: Dictionary = GFAudioMetadataToolsScript.parse_id3v2_metadata(
+				_make_id3_bytes(
+					[
+						_make_frame("TXXX", text_payload),
+						_make_frame("COMM", comment_payload),
+						_make_frame("APIC", picture_payload),
+					]
+				)
+			)
+			var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+			assert_true(GFVariantData.get_option_bool(report, "ok"))
+			assert_eq(
+				GFVariantData.get_option_array(metadata, "user_defined_texts"),
+				["B"]
+			)
+			assert_eq(
+				GFVariantData.get_option_string(metadata, "comments"),
+				"B"
+			)
+			assert_eq(
+				GFVariantData.get_option_int(metadata, "cover_byte_size"),
+				4
+			)
+
+
 func test_parse_id3v2_metadata_reads_common_text_frames() -> void:
 	var id3_bytes: PackedByteArray = _make_id3_bytes(
 		[

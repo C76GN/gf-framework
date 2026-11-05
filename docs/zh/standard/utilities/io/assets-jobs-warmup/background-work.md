@@ -31,6 +31,8 @@ background.submit_cpu_work(
 
 ## 调度、取消与诊断
 
+资源任务可以在 `work_queued` 回调中取消；取消后不会再启动底层请求。进度回调清空工作并提交同路径新任务时，旧轮询只结束原请求的处理，新请求仍会由后续 tick 推进。
+
 资源加载使用 `submit_resource_load(path, type_hint, apply_callback)`。Utility 内相同路径、兼容 `type_hint` 的任务会合并兴趣；共享 Broker 还会让 Asset、Scene 和 BackgroundWork 的相同资源身份复用一个底层 threaded request。取消某个任务只移除该任务兴趣并阻止 GF 侧应用和完成回调；最后一个兴趣离开后才取消当前 Utility 的 Lease，若它也是 Broker 最后一个消费者，已发起请求会进入 drain。若同路径新任务在本地取消记录尚未完成下一次轮询前到达，Utility 会重新取得 live Lease，而不会让新任务继承旧 Lease 的取消终态。
 
 未注入 Broker 时，`submit_resource_load()` 不会建立私有加载通道，而是立即返回

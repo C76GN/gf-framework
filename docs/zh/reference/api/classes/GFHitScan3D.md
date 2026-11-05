@@ -140,6 +140,7 @@ signal hit_rejected( context: GFCombatHitContext, receiver: Object, report: Dict
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var hit_enabled: bool = true
 ```
 
@@ -153,6 +154,7 @@ var hit_enabled: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var force_update_before_scan: bool = true
 ```
 
@@ -166,6 +168,7 @@ var force_update_before_scan: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var hit_id: StringName = &""
 ```
 
@@ -179,6 +182,7 @@ var hit_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var payload: Dictionary = {}
 ```
 
@@ -196,6 +200,7 @@ var payload: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var magnitude: float = 0.0
 ```
 
@@ -209,6 +214,7 @@ var magnitude: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var tags: Array[StringName] = []
 ```
 
@@ -222,6 +228,7 @@ var tags: Array[StringName] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -239,6 +246,7 @@ var metadata: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_node_path("Node")
 var sender_path: NodePath = NodePath("")
 ```
 

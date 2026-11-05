@@ -63,7 +63,9 @@ if report["ok"]:
 - `GFTableViewRebuildResult` 描述候选投影是否成功、是否提交、对应 revision、扫描/求值计数和失败位置。
 
 ```gdscript
+## 项目行筛选策略；只决定是否纳入视图，不修改源表。
 class HighScorePredicate extends GFTableRowPredicate:
+	## 以项目分数门槛筛选；缺失分数按零处理。
 	func _evaluate(row_view: GFTableRowView) -> GFTableRowPredicateResult:
 		var score := int(row_view.get_value(&"score", 0))
 		return (

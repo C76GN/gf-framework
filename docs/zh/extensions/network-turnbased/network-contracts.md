@@ -60,6 +60,8 @@ var report := contract.validate_peer_contract_version(peer_version, {
 
 有限浮点默认值使用可精确往返的数字常量，构造参数和 getter 回退保留资源中的原始位型，极小值不会按显示格式舍入为零。无法用十进制字面量准确表示时，生成等价的二进制幂常量表达式。标量与 Vector/Color 分量共用这一规则；非有限默认值仍在契约校验阶段拒绝。
 
+可空字段的 getter 可以显式传入 `null` 作为回退：payload 中符合字段类型的值照常返回，显式空值、缺失值或类型不符的值返回 `null`。FLOAT 字段按契约接受 int 与 float 载荷，其中整数转换为 float 返回；INT 字段仍只接受整数。这同样适用于 Color、整数向量和 NodePath，不会把空回退传给要求具体值类型的转换函数。
+
 ```gdscript
 var generator := GFNetworkContractGenerator.new()
 generator.generate(contract, "res://generated/network/lobby_network_messages.gd", true, {
@@ -80,6 +82,8 @@ LobbyNetworkMessages.send_player_ready(network, -1, 1)
 需要批量生成、dry-run 或编辑器诊断时，优先使用 `generate_with_report()`、`save_source_with_report()` 或 `generate_many()` 返回的产物报告。`generate_many()` 会先加载并校验整个输入批次、分配唯一的大小写不敏感 canonical 输出路径、构建全部源码，再进入任何写入；共享 `class_name`、清洗后同名、任一无效契约或生成预算超限都会使批次保持零写入。dry-run 与真实提交共享同一个计划，报告中的 `plan_fingerprint` 可用于确认两次输入、路径和内容一致。调用方可以用 `max_contracts`、`max_messages_per_contract`、`max_fields_per_message`、`max_identifier_length`、`max_source_bytes` 和 `max_total_source_bytes` 收紧默认预算，所有值必须是正整数且不能突破框架硬上限。
 
 `overwrite_existing=false` 且目标文件已有不同内容时仍会得到 `skipped` 状态；这不是生成器失败，但报告保留 `ERR_ALREADY_EXISTS`，调用方可按项目策略决定是否阻断流水线。`generate_many()` 还会返回 `artifact_summary` 和 `artifact_reports`，用于统计实际写入、跳过、失败和路径列表。当前批次只保证“进入写入前的计划完整性”，多个文件的保存仍是逐项原子替换，不承诺整个批次在不可预期 I/O 故障下自动回滚；要求 all-or-nothing 的项目流水线应在外层使用受控事务根并把失败视为需要恢复的终态。
+
+定义验证失败时，单项报告的 `validation_issues` 保留前 16 条具体问题与 `resource_path`，`validation_issue_count` 保留完整问题数；批次报告也保留每个非法契约的首批字段问题。生成菜单直接展示资源和字段位置、每项 `written` / `changed` 以及下一步建议。即使 `status=failed`，`written=true` 仍表示文件已经提交，不能按“失败即未写入”处理。
 
 ## 契约审计
 

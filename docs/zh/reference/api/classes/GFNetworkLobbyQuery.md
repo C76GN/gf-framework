@@ -39,6 +39,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var query_id: StringName = &""
 ```
 
@@ -52,6 +53,7 @@ var query_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var search_text: String = ""
 ```
 
@@ -65,6 +67,7 @@ var search_text: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var required_tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -78,6 +81,7 @@ var required_tags: PackedStringArray = PackedStringArray()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var required_metadata: Dictionary = {}
 ```
 
@@ -95,6 +99,7 @@ var required_metadata: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_results: int = 0
 ```
 
@@ -108,6 +113,7 @@ var max_results: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var include_full_lobbies: bool = false
 ```
 
@@ -121,6 +127,7 @@ var include_full_lobbies: bool = false
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var include_unjoinable_lobbies: bool = false
 ```
 
@@ -134,6 +141,7 @@ var include_unjoinable_lobbies: bool = false
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

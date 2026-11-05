@@ -3,12 +3,15 @@
 能力可以声明依赖，`GFCapabilityUtility` 会在挂载当前能力前先补齐依赖能力。
 
 ```gdscript
+## 通过同一 receiver 上的 HealthCapability 实现项目承伤接口。
 class_name DamageableCapability
 extends GFCapability
 
+## 声明挂载前必须补齐的依赖，不通过隐式构造参数注入。
 func _init() -> void:
 	required_capabilities = [HealthCapability]
 
+## 修改已挂载 receiver 的生命状态；仅在本能力成功挂载、依赖仍有效时调用。
 func take_damage(amount: int) -> void:
 	var health := get_capability(HealthCapability) as HealthCapability
 	health.health = maxi(health.health - amount, 0)
@@ -31,6 +34,7 @@ GF 不使用隐式构造函数参数注入，依赖关系应优先通过 `requir
 若某个能力希望依赖在主能力移除后继续保留，可重写：
 
 ```gdscript
+## 主能力移除后保留自动补齐的依赖；这是项目主动选择的生命周期策略。
 func get_dependency_removal_policy() -> int:
 	return GFCapabilityUtility.DependencyRemovalPolicy.KEEP_DEPENDENCIES
 ```

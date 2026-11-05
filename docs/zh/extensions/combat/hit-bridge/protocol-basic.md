@@ -33,12 +33,16 @@ print(report["ok"])
 ## 2D 接入示例
 
 ```gdscript
+# 挂在提供 HitBox 子节点的项目节点上；监听重叠后显式发送项目伤害载荷。
+## 本脚本使用的命中发送区域；damage 的业务含义由接收器解释。
 @onready var hit_box: GFHitBox2D = $HitBox
 
+## 在场景就绪后接入重叠通知，不把任意 Area2D 都视为可受击对象。
 func _ready() -> void:
 	hit_box.area_entered.connect(_on_hit_box_area_entered)
 
 
+## 只向 GFHurtBox2D 发送；命中是否被接受仍由接收方协议判断。
 func _on_hit_box_area_entered(area: Area2D) -> void:
 	var hurt_box := area as GFHurtBox2D
 	if hurt_box == null:

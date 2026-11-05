@@ -22,9 +22,12 @@ GF 的平台层只定义稳定、平台无关的契约和运行时编排，不�
 
 Adapter 首次注册时冻结身份、平台和契约集合，即使仍处于 `CREATED` 或随后注销，也不能重新 `configure()`。需要不同配置时创建新 Adapter 实例；未注册且仍为 `CREATED` 的实例可以修正配置后重试。
 
+注销会先摘除旧 Adapter 的注册、候选和路由，再取消回调前捕获的旧请求句柄。取消通知的回调可以注册同 ID 的新 Adapter；旧注销流程不会随后删除新实例或它新设置的路由。回调取消另一个旧请求后，可以在新 Adapter 上复用已经结束的请求 ID；旧取消遍历不会因 ID 相同而取消新句柄，也不会影响其他 Adapter 的请求。
+
 请求、契约、方法、Adapter 与 Intent 的稳定 ID 都在进入路由、去重、契约查找和并发账本前移除首尾空白。描述符资源本身则必须已经使用规范 ID；直接创作的首尾空白和负载荷/结果/并发限制会让定义校验失败，负限制不会被降级成代表“无限制”的 `0`。
 
 ```gdscript
+# 独立运行片段：宿主须持续调用 runtime.tick()，推进 SDK 回调和超时。
 var runtime := GFPlatformRuntime.new()
 var adapter := ProjectPlatformAdapter.new() # 项目或独立插件实现 GFPlatformAdapter。
 adapter.configure(
@@ -39,6 +42,7 @@ runtime.register_adapter(adapter)
 runtime.set_contract_route(&"platform.auth", adapter.get_adapter_id())
 
 var initialization := runtime.initialize_adapter(adapter.get_adapter_id())
+# 同步校验或 Adapter 可能已完成，先查询再等待，避免错过信号。
 if initialization.is_pending():
 	await initialization.completed
 if not initialization.is_successful():

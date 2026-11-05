@@ -868,6 +868,7 @@ func _compile_line(
 				response_data,
 				response_path,
 				line.line_id,
+				resource_index,
 				line.responses.size(),
 				report,
 				source_path,
@@ -884,6 +885,7 @@ func _compile_response(
 	data: Dictionary,
 	path: String,
 	line_id: StringName,
+	line_resource_index: int,
 	resource_index: int,
 	report: GFValidationReport,
 	source_path: String,
@@ -961,6 +963,7 @@ func _compile_response(
 		response,
 		line_id,
 		path,
+		line_resource_index,
 		resource_index,
 		source_path,
 		provenance
@@ -1298,6 +1301,13 @@ func _resolve_limits(
 			"hard": _HARD_MAX_DIAGNOSTICS,
 		},
 	]
+	# 选项自身的错误也使用最终诊断上限；无效的诊断上限回退默认值。
+	var diagnostic_limit: int = _DEFAULT_MAX_DIAGNOSTICS
+	var raw_diagnostic_limit: Variant = options.get("max_diagnostics", diagnostic_limit)
+	if raw_diagnostic_limit is int:
+		if raw_diagnostic_limit > 0 and raw_diagnostic_limit <= _HARD_MAX_DIAGNOSTICS:
+			diagnostic_limit = raw_diagnostic_limit
+	var budget: Dictionary = { "max_diagnostics": diagnostic_limit, "diagnostic_budget_reported": false, }
 	var result: Dictionary = {}
 	for definition: Dictionary in definitions:
 		var key: String = GFVariantData.get_option_string(definition, "key")
@@ -1308,26 +1318,36 @@ func _resolve_limits(
 			continue
 		var raw_limit: Variant = options[key]
 		if not (raw_limit is int):
-			_add_unlocated_error(
+			if _reserve_diagnostic_slot(
 				report,
-				&"invalid_compile_option",
-				"Dialogue compiler limits must be strict integers.",
 				source_path,
-				"#",
-				{ "option": key, "hard_max": hard_limit }
-			)
+				budget
+			):
+				_add_unlocated_error(
+					report,
+					&"invalid_compile_option",
+					"Dialogue compiler limits must be strict integers.",
+					source_path,
+					"#",
+					{ "option": key, "hard_max": hard_limit }
+				)
 			result[key] = default_limit
 			continue
 		var requested_limit: int = raw_limit
 		if requested_limit <= 0 or requested_limit > hard_limit:
-			_add_unlocated_error(
+			if _reserve_diagnostic_slot(
 				report,
-				&"invalid_compile_option",
-				"Dialogue compiler limits must be positive and no larger than the framework hard maximum.",
 				source_path,
-				"#",
-				{ "option": key, "hard_max": hard_limit }
-			)
+				budget
+			):
+				_add_unlocated_error(
+					report,
+					&"invalid_compile_option",
+					"Dialogue compiler limits must be positive and no larger than the framework hard maximum.",
+					source_path,
+					"#",
+					{ "option": key, "hard_max": hard_limit }
+				)
 			result[key] = default_limit
 			continue
 		result[key] = requested_limit
@@ -1487,6 +1507,7 @@ func _record_response_provenance(
 	response: GFDialogueResponse,
 	line_id: StringName,
 	path: String,
+	line_resource_index: int,
 	resource_index: int,
 	_source_path: String,
 	provenance: Dictionary
@@ -1506,8 +1527,7 @@ func _record_response_provenance(
 		_record_occurrence(
 			provenance,
 			"response_occurrences",
-			"%s.responses.%s"
-			% [line_id, response.response_id],
+			JSON.stringify([line_resource_index, String(response.response_id)]),
 			response_id_pointer
 		)
 	_record_transition_provenance(
@@ -1585,16 +1605,30 @@ func _merge_resource_report(
 			"path",
 			GFVariantData.get_option_string(issue, "subject")
 		)
+		# subject 仅供展示；来源索引用结构化身份，避免合法 ID 中的分隔符串项。
+		var identity: String = subject
+		if kind == &"duplicate_response_id":
+			var identity_metadata: Dictionary = GFVariantData.get_option_dictionary(issue, "metadata")
+			identity = JSON.stringify(
+				[
+					GFVariantData.get_option_int(
+						identity_metadata,
+						"line_index",
+						-1
+					),
+					GFVariantData.get_option_string(identity_metadata, "response_id"),
+				]
+			)
 		var pointers: Array = _resolve_resource_issue_pointers(
 			kind,
-			subject,
+			identity,
 			provenance
 		)
 		var primary_pointer: String = ""
 		if not pointers.is_empty():
 			var primary_index: int = _consume_primary_pointer_index(
 				kind,
-				subject,
+				identity,
 				pointers.size(),
 				pointer_offsets
 			)

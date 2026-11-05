@@ -66,7 +66,7 @@ func save_data(
 	)
 
 
-## 读取纯字典数据。
+## 读取纯字典数据。不存在时须明确返回 ERR_DOES_NOT_EXIST 或 ERR_FILE_NOT_FOUND；其他失败不得用不存在错误代替。
 ## [br]
 ## @api public
 ## [br]

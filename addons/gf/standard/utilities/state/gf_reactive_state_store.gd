@@ -1157,7 +1157,7 @@ func _copy_changes(changes: Array[Dictionary]) -> Array[Dictionary]:
 	return result
 
 
-## 遍历订阅快照并派发匹配变更；已移除订阅会跳过，无效回调会先取消订阅。
+## 遍历订阅快照；每次交付前复核回调与弱 owner，防止前一同步回调释放 owner 后继续通知。
 ## [br]
 ## @api private
 ## [br]
@@ -1178,6 +1178,15 @@ func _notify_subscribers(changes: Array[Dictionary]) -> void:
 			continue
 		for change: Dictionary in changes:
 			if _find_subscription_index(subscription_id) == -1:
+				break
+			if (
+				not callback.is_valid()
+				or (
+					GFVariantData.get_option_value(subscription, "owner_ref") is WeakRef
+					and _get_subscription_owner(subscription) == null
+				)
+			):
+				var _invalid_owner_unsubscribed: bool = unsubscribe(subscription_id)
 				break
 			if _subscription_matches_change(subscription, change):
 				callback.call(

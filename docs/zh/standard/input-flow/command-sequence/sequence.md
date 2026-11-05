@@ -7,12 +7,15 @@
 ## 自定义步骤
 
 ```gdscript
+## 淡出目标节点的序列步骤；运行前须由项目赋予有效的 target。
 class_name WaitForTweenStep
 extends GFSequenceStep
 
+## 借用的场景节点；项目负责保证其在 Tween 执行期间有效。
 var target: Node2D
 
 
+## 返回完成信号供序列等待；本片段未实现 Tween 的取消补偿。
 func execute(_context: GFSequenceContext) -> Variant:
 	var tween := target.create_tween()
 	tween.tween_property(target, "modulate:a", 0.0, 0.2)

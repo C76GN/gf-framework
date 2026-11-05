@@ -97,6 +97,7 @@ enum BlendMode {
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -110,6 +111,7 @@ var enabled: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var blend_mode: BlendMode = BlendMode.ADD
 ```
 
@@ -123,6 +125,7 @@ var blend_mode: BlendMode = BlendMode.ADD
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var waveform: Waveform = Waveform.NOISE
 ```
 
@@ -136,6 +139,7 @@ var waveform: Waveform = Waveform.NOISE
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var start_progress: float = 0.0
 ```
 
@@ -149,6 +153,7 @@ var start_progress: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var end_progress: float = 1.0
 ```
 
@@ -162,6 +167,7 @@ var end_progress: float = 1.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(0.0, 1000.0, 0.001, "or_greater")
 var amplitude: float = 1.0
 ```
 
@@ -175,6 +181,7 @@ var amplitude: float = 1.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(0.0, 240.0, 0.001, "or_greater")
 var frequency: float = 24.0
 ```
 
@@ -188,6 +195,7 @@ var frequency: float = 24.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var position_axis: Vector3 = Vector3.ONE
 ```
 
@@ -201,6 +209,7 @@ var position_axis: Vector3 = Vector3.ONE
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var rotation_axis_degrees: Vector3 = Vector3.ZERO
 ```
 
@@ -214,6 +223,7 @@ var rotation_axis_degrees: Vector3 = Vector3.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var scale_axis: Vector3 = Vector3.ZERO
 ```
 
@@ -227,6 +237,7 @@ var scale_axis: Vector3 = Vector3.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var envelope_curve: Curve = null
 ```
 
@@ -240,6 +251,7 @@ var envelope_curve: Curve = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var wave_curve: Curve = null
 ```
 
@@ -253,6 +265,7 @@ var wave_curve: Curve = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var sample_seed: int = 1
 ```
 
@@ -266,6 +279,7 @@ var sample_seed: int = 1
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

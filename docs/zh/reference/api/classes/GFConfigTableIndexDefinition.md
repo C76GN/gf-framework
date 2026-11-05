@@ -35,6 +35,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var index_id: StringName = &""
 ```
 
@@ -47,6 +48,7 @@ var index_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var field_names: PackedStringArray = PackedStringArray()
 ```
 
@@ -59,6 +61,7 @@ var field_names: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var unique: bool = false
 ```
 
@@ -71,6 +74,7 @@ var unique: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var allow_null_values: bool = true
 ```
 
@@ -83,6 +87,7 @@ var allow_null_values: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

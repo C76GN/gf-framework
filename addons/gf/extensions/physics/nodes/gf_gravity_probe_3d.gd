@@ -142,6 +142,11 @@ var _cached_acceleration: Vector3 = Vector3.ZERO
 ## [br]
 var _sample_operation_active: bool = false
 
+## 公开失效调用的代次；在途采样只能在入口代次仍有效时发布缓存。
+## [br]
+## @api private
+var _cache_generation: int = 0
+
 
 # --- 公共方法 ---
 
@@ -159,6 +164,7 @@ func sample() -> Vector3:
 	if _sample_operation_active:
 		return Vector3.ZERO
 	_sample_operation_active = true
+	var query_cache_generation: int = _cache_generation
 	var query_cache_samples_per_frame: bool = cache_samples_per_frame
 	var query_position: Vector3 = global_position
 	var query_field_group: StringName = field_group
@@ -187,7 +193,7 @@ func sample() -> Vector3:
 			query_use_fallback_when_empty,
 			query_fallback_acceleration
 		)
-		if query_cache_samples_per_frame:
+		if query_cache_samples_per_frame and query_cache_generation == _cache_generation:
 			_store_sample_cache(
 				field_signature,
 				query_position,
@@ -296,6 +302,7 @@ func get_up_direction() -> Vector3:
 ## [br]
 ## @since 7.0.0
 func invalidate_cache() -> void:
+	_cache_generation += 1
 	_cached_process_frame = -1
 	_cached_physics_frame = -1
 	_cached_field_signature = ""

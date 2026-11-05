@@ -40,6 +40,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var intent_id: StringName = &""
 ```
 
@@ -53,6 +54,7 @@ var intent_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var intent_type: StringName = &""
 ```
 
@@ -66,6 +68,7 @@ Provider-neutral 意图类型。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var platform_id: StringName = &""
 ```
 
@@ -79,6 +82,7 @@ var platform_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var adapter_id: StringName = &""
 ```
 
@@ -92,6 +96,7 @@ var adapter_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var source: StringName = &""
 ```
 
@@ -105,6 +110,7 @@ var source: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var timestamp_msec: int = 0
 ```
 
@@ -118,6 +124,7 @@ var timestamp_msec: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var payload: Dictionary = {}
 ```
 
@@ -135,6 +142,7 @@ Provider-neutral 入口载荷。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

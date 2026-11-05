@@ -52,6 +52,7 @@
     ],
     "gf.extension.flow": [
       "res://tests/gf_core/extensions/flow/test_gf_flow_graph.gd",
+      "res://tests/gf_core/extensions/flow/test_gf_flow_run_state.gd",
       "res://tests/gf_core/extensions/flow/test_gf_flow_graph_editor_undo.gd",
       "res://tests/gf_core/extensions/flow/test_gf_flow_clipboard.gd"
     ],

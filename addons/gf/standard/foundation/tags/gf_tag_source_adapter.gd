@@ -531,7 +531,7 @@ static func _call_has_tag(
 				minimum_count
 			)
 		)
-	if argument_count >= 1:
+	if argument_count >= 1 and minimum_count <= 1:
 		return GFVariantData.to_bool(source.call("has_tag", tag))
 	return false
 

@@ -289,6 +289,185 @@ func after_each() -> void:
 
 # --- 测试用例 ---
 
+func test_same_instance_cannot_create_second_declared_type_record() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var capability: ConcreteCapabilityA = ConcreteCapabilityA.new()
+	assert_same(
+		_utility.add_capability_instance(
+			receiver,
+			capability,
+			BaseCapability
+		),
+		capability
+	)
+	assert_null(
+		_utility.add_capability_instance(
+			receiver,
+			capability,
+			ConcreteCapabilityA
+		)
+	)
+	assert_push_error("capability_utility.instance_already_registered")
+	assert_eq(
+		_utility.get_capability_types(receiver).size(),
+		1
+	)
+	_utility.remove_capability(receiver, BaseCapability)
+	assert_null(capability.receiver)
+	assert_false(_utility.has_capability(receiver, ConcreteCapabilityA))
+	assert_same(
+		_utility.add_capability_instance(
+			receiver,
+			capability,
+			ConcreteCapabilityA
+		),
+		capability
+	)
+	assert_same(
+		_utility.add_capability_instance(
+			receiver,
+			capability,
+			BaseCapability
+		),
+		capability
+	)
+	assert_eq(
+		_utility.get_capability_types(receiver).size(),
+		1
+	)
+	_utility.dispose()
+
+
+func test_two_utilities_dispose_only_their_independent_records() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var first: HealthCapability = _utility.add_capability(receiver, HealthCapability)
+	var second: ConcreteCapabilityA = other.add_capability(receiver, ConcreteCapabilityA)
+	other.dispose()
+	assert_null(second.receiver)
+	assert_same(first.receiver, receiver)
+	assert_same(
+		_utility.get_capability(receiver, HealthCapability),
+		first
+	)
+	_utility.dispose()
+	assert_null(first.receiver)
+
+
+func test_query_only_utility_dispose_preserves_shared_records() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var capability: HealthCapability = _utility.add_capability(receiver, HealthCapability)
+	other.add_receiver_to_group(receiver, &"observed")
+	assert_same(
+		other.get_capability(receiver, HealthCapability),
+		capability
+	)
+	other.dispose()
+	assert_same(capability.receiver, receiver)
+	assert_same(
+		_utility.get_capability(receiver, HealthCapability),
+		capability
+	)
+	_utility.dispose()
+
+
+func test_cross_utility_dependency_blocks_dispose_until_retry() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var health: HealthCapability = _utility.add_capability(receiver, HealthCapability)
+	var damage: DamageCapability = other.add_capability(receiver, DamageCapability)
+	_utility.dispose()
+	assert_push_error("capability_utility.cyclic_disposal_dependencies")
+	assert_same(health.receiver, receiver)
+	assert_same(damage.receiver, receiver)
+	other.dispose()
+	assert_null(damage.receiver)
+	assert_same(health.receiver, receiver)
+	_utility.dispose()
+	assert_null(health.receiver)
+
+
+func test_dispose_does_not_remove_other_utility_replacement() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var original: HealthCapability = _utility.add_capability(receiver, HealthCapability)
+	other.remove_capability(receiver, HealthCapability)
+	var replacement: HealthCapability = other.add_capability(receiver, HealthCapability)
+	assert_null(original.receiver)
+	_utility.dispose()
+	assert_same(replacement.receiver, receiver)
+	other.dispose()
+	assert_null(replacement.receiver)
+
+
+func test_dispose_does_not_remove_same_instance_reregistered_by_other_utility() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var capability: HealthCapability = HealthCapability.new()
+	var _first: Object = _utility.add_capability_instance(
+		receiver,
+		capability,
+		HealthCapability
+	)
+	other.remove_capability(receiver, HealthCapability)
+	assert_null(capability.receiver)
+	var _replacement: Object = other.add_capability_instance(
+		receiver,
+		capability,
+		HealthCapability
+	)
+	_utility.dispose()
+	assert_same(
+		other.get_capability(receiver, HealthCapability),
+		capability
+	)
+	assert_same(capability.receiver, receiver)
+	other.dispose()
+	assert_null(capability.receiver)
+	assert_true(other.get_capability_types(receiver).is_empty())
+
+
+func test_two_utilities_release_only_their_owned_node_instances() -> void:
+	var receiver: Node = Node.new()
+	add_child(receiver)
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var first: ConcreteNodeCapabilityA = _utility.add_capability(receiver, ConcreteNodeCapabilityA)
+	var second: ConcreteNodeCapabilityB = other.add_capability(receiver, ConcreteNodeCapabilityB)
+	other.dispose()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(second))
+	assert_true(is_instance_valid(first))
+	assert_same(first.receiver, receiver)
+	_utility.dispose()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(first))
+	receiver.queue_free()
+	await get_tree().process_frame
+
+
+func test_other_utility_does_not_reclaim_foreign_auto_dependency() -> void:
+	var receiver: RefCounted = RefCounted.new()
+	var other: GFCapabilityUtility = GFCapabilityUtility.new()
+	var _owner: Object = _utility.add_capability(receiver, KeepDependencyDamageCapability)
+	var health: HealthCapability = _utility.get_capability(receiver, HealthCapability)
+	_utility.remove_capability(receiver, KeepDependencyDamageCapability)
+	var _consumer: Object = other.add_capability(receiver, DamageCapability)
+	other.dispose()
+	assert_same(health.receiver, receiver)
+	_utility.dispose()
+	assert_null(health.receiver)
+
+
+func test_dispose_stops_identity_checks_after_removed_hook_frees_receiver() -> void:
+	var receiver: Node = Node.new()
+	var _releasing: Object = _utility.add_capability(receiver, FreesReceiverOnRemovedCapability)
+	var _other: Object = _utility.add_capability(receiver, HealthCapability)
+	_utility.dispose()
+	assert_false(is_instance_valid(receiver))
+	assert_true(_utility._registered_capability_instances.is_empty())
+
+
 func test_add_and_get_capability() -> void:
 	var receiver: RefCounted = RefCounted.new()
 
@@ -2708,6 +2887,62 @@ func test_capability_inspector_active_tree_budget_failure_is_atomic() -> void:
 	assert_ne(second_child.process_mode, Node.PROCESS_MODE_DISABLED)
 	assert_push_error("[GFCapabilityInspector][capability_inspector.node_tree_limit_exceeded] set active state failed: the node tree exceeds the maximum node count 2.")
 	capability.free()
+
+
+func test_capability_inspector_recipe_does_not_plan_failed_active_state() -> void:
+	var inspector_script: Script = _load_capability_inspector_plugin()
+	var target: Node = Node.new()
+	var capability: ActiveNodeCapability = ActiveNodeCapability.new()
+	capability.add_child(Node.new())
+	var entry: GFCapabilityRecipeEntry = GFCapabilityRecipeEntry.new()
+	entry.active = false
+	var report: GFValidationReport = GFValidationReport.new("Recipe prepare")
+	var planned: Array[Dictionary] = []
+	var rejected: Dictionary = inspector_script.call(
+		&"_prepare_recipe_add_plan",
+		target,
+		capability,
+		entry,
+		0,
+		planned,
+		report,
+		1
+	)
+	assert_true(rejected.is_empty())
+	assert_true(
+		_has_issue(
+			report.to_dict(),
+			"active_state_failed"
+		)
+	)
+	assert_true(capability.active)
+	assert_null(capability.get_parent())
+	assert_push_error("capability_inspector.node_tree_limit_exceeded")
+	var accepted: Dictionary = inspector_script.call(
+		&"_prepare_recipe_add_plan",
+		target,
+		capability,
+		entry,
+		0,
+		planned,
+		GFValidationReport.new("Recipe control"),
+		2
+	)
+	assert_false(accepted.is_empty())
+	assert_false(capability.active)
+	var accepted_active: Variant = accepted.get("active")
+	assert_true(accepted_active is bool)
+	if accepted_active is bool:
+		var accepted_is_active: bool = accepted_active
+		assert_false(accepted_is_active)
+	var accepted_container: Node = accepted.get("container")
+	if accepted_container != null:
+		accepted_container.free()
+	var rejected_container: Node = rejected.get("container")
+	if rejected_container != null:
+		rejected_container.free()
+	capability.free()
+	target.free()
 
 
 func test_capability_inspector_add_plan_reuses_pending_container_and_names() -> void:

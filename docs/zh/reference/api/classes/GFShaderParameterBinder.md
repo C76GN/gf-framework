@@ -59,6 +59,7 @@ Profile 应用完成时发出。
 - API：`public`
 
 ```gdscript
+@export
 var profile: GFShaderParameterProfile = null:
 ```
 
@@ -71,6 +72,7 @@ var profile: GFShaderParameterProfile = null:
 - API：`public`
 
 ```gdscript
+@export
 var target_path: NodePath = ^".."
 ```
 
@@ -83,6 +85,7 @@ var target_path: NodePath = ^".."
 - API：`public`
 
 ```gdscript
+@export
 var material_property: NodePath = ^"material"
 ```
 
@@ -95,6 +98,7 @@ var material_property: NodePath = ^"material"
 - API：`public`
 
 ```gdscript
+@export
 var apply_on_ready: bool = true
 ```
 
@@ -107,6 +111,7 @@ var apply_on_ready: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var apply_each_process: bool = false:
 ```
 
@@ -119,6 +124,7 @@ var apply_each_process: bool = false:
 - API：`public`
 
 ```gdscript
+@export
 var auto_apply_on_profile_changed: bool = true
 ```
 
@@ -131,6 +137,7 @@ Profile 通过公开方法发出 changed 信号时是否自动应用。
 - API：`public`
 
 ```gdscript
+@export
 var duplicate_material_on_apply: bool = false
 ```
 
@@ -143,6 +150,7 @@ var duplicate_material_on_apply: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var require_declared_parameters: bool = true
 ```
 
@@ -155,6 +163,7 @@ var require_declared_parameters: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var warn_on_invalid_target: bool = true
 ```
 
@@ -167,6 +176,7 @@ var warn_on_invalid_target: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var warn_on_missing_parameters: bool = true
 ```
 
@@ -179,6 +189,7 @@ profile 中存在 shader 未声明参数时是否输出 warning。
 - API：`public`
 
 ```gdscript
+@export
 var copy_values: bool = true
 ```
 

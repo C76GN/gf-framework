@@ -169,11 +169,21 @@ func apply_node(
 			continue
 
 		var data: Dictionary = GFVariantData.as_dictionary(payload_data)
-		var result: Dictionary = serializer.apply(
-			node,
-			data,
-			context
-		)
+		var result: Dictionary
+		if serializer is GFNodePropertySerializer:
+			var property_serializer: GFNodePropertySerializer = serializer
+			result = property_serializer.apply_prepared_for_framework(
+				node,
+				data,
+				context,
+				payload_index
+			)
+		else:
+			result = serializer.apply(
+				node,
+				data,
+				context
+			)
 		if GFVariantData.get_option_bool(
 			result,
 			"ok",

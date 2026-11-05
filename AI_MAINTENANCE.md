@@ -66,7 +66,7 @@ Project Layout 的唯一 GDScript 权威、隔离原生验收与维护传输预�
 
 新增或调整原生诊断后运行 `python tools\gf_maintenance.py diagnostic-policy --json`；检查器变更还应运行 `python tests\gf_core\tools\test_gf_diagnostic_policy.py`。`diagnostic_policy` 与 `diagnostic_policy_tests` 已进入 `quick`、`framework-static`、`full` 和 `release` 的自动检查，不得跳过。词法门禁校验静态模板、可解析的格式占位符及同一 ID 的 owner、模板和严重级别一致性；它不构成完整的数据流证明，动态详情仍需沿生产者人工审查。
 
-动态输出由 `tools/gf_diagnostic_forwarders.json` 精确登记，目前有 21 条经审查的转发记录。每条记录绑定 `path`、`function`、`callee`、`argument` 和 `count`，并注明 `kind` 与具体 `reason`；禁止通配放行或永久违规 baseline。`framework_message` 必须审查完整的框架模板和详情来源；`project_message` 保留项目提供的语言和内容，不翻译调用方文本。调用表达式、次数或生产者改变时重新核对记录，移除已失效的绑定，不把新增动态输出默认归入既有例外。
+动态输出由 `tools/gf_diagnostic_forwarders.json` 精确登记，目前有 22 条经审查的转发记录。每条记录绑定 `path`、`function`、`callee`、`argument` 和 `count`，并注明 `kind` 与具体 `reason`；禁止通配放行或永久违规 baseline。`framework_message` 必须审查完整的框架模板和详情来源；`project_message` 保留项目提供的语言和内容，不翻译调用方文本。调用表达式、次数或生产者改变时重新核对记录，移除已失效的绑定，不把新增动态输出默认归入既有例外。
 
 诊断 ID 与 `error_kind` 等结果字段分别维护，不能把自然语言文案当作协议。先查找并复用语义相同的 ID，语义不变的措辞修正保留 ID。同步修改测试时保留 ID、关键路径或参数等断言，不用统一次数断言掩盖上下文丢失；涉及通用日志转发时继续验证项目中文消息与 Unicode 路径原样保留。
 
@@ -285,9 +285,10 @@ python tools\gf_maintenance.py log-hygiene --dry-run --json
 层级边界变更后至少额外运行：
 
 ```powershell
-godot --headless --path . --import
-godot --headless --path . -s res://tests/gf_core/support/gf_gut_cli.gd -gtest=res://tests/gf_core/maintenance/test_layer_boundary_validation.gd -gexit
+python tools\gf_maintenance.py check --check dependency_boundary --check gut --json
 ```
+
+该入口会运行受监督的导入和 GUT 检查，包含 `test_layer_boundary_validation.gd`，并验证测试汇总、诊断与生命周期证据。它执行完整 GUT 集合；当前 `check` 不提供任意脚本过滤参数。
 
 ## 文档维护标准
 
@@ -312,6 +313,8 @@ godot --headless --path . -s res://tests/gf_core/support/gf_gut_cli.gd -gtest=re
 - `迁移与兼容`
 
 示例要短，并尽量保持 Godot 4.7 / GDScript 风格可用。除非页面就是示例页，否则不要把具体项目玩法规则写成框架规则。
+
+手写代码示例遵循 `CODING_STYLE.md` 的“文档中的代码示例”。维护时逐块区分完整脚本、成员/重写示例和短调用片段：完整示例的职责、运行前提及关键成员约束必须随代码保留；异步返回资格、取消、借用与释放、重入、失败结果等非显然语义应在相关位置简洁说明。不要给所有代码块统一补注释模板或 GF API 标签，也不要用注释掩盖缺失的失败处理。仅补注释时核对非注释内容未变，再运行文档检查；注释是否准确、有用仍需人工语义审查，现有格式与构建检查不能证明这一点。
 
 MkDocs 页面拆分约定：
 
@@ -453,7 +456,7 @@ python tools\generate_api_coverage_matrix.py
 - 项目契约 schema v5 的 `architecture.path_roles` 只接受精确 `res://` 可移植身份与闭合集合 `scan_root`、`test_fixture`、`optional_input`，不得扩张为 glob、ignore 或任意 metadata：`scan_root` 只有在现存安全目录的全部有界后代都能证明归属时才完整，全部角色声明必须共享一次调用的条目/字节预算并在固定普通目录身份下枚举；覆盖还必须包含根下尚未生成的 declared generated ownership root。每个引用来源只能覆盖自身或其 `allowed_dependencies` 在共享依赖命名空间中已声明的 Module/Adapter；兼容字段 `covered_modules` 必须按稳定顺序保留两类 owner ID。越权覆盖必须保留有界证据并阻断 clean，但不能伪装成 load/resource edge。角色匹配只能消费未经修剪或分隔符修复的原始 canonical 字面量；`test_fixture` 只解释 test source domain 的普通字符串，`optional_input` 只解释精确文件且允许缺失。相对 Shader include 必须相对来源目录解析，raw `load` / `preload` 仍是高置信边并保留原始反斜杠供路径规范化；普通字符串的既有转义语义不得改变。依赖分析首遍仍须稳定读取并固定全部支持文件的身份，但只对 GDScript 提取 class，资源与 Shader 只在边分析阶段词法分析一次，且不得跨全部来源保留完整文本/token；Shader 的 exact `#include` 行前缀必须用单遍有穷状态识别，不得为每个字符串回扫或复制增长中的整行。角色自身或后代出现 link/reparse、角色遍历预算截断，或依赖扫描文本出现非法 UTF-8、身份漂移时，分析必须保持 partial，不能产生 clean 结论。
 - 项目快照 schema v9 的模块依赖分析只把裸 `load` / `preload`、已知 `ResourceLoader` 调用、Godot 文本资源 `path` 字段、注释外且同一行双引号前缀精确为 `#include` 的 Shader include、`class_name` 与显式声明 generated output ownership 作为高置信边。其他 `res://` 字符串只记录为 advisory、既有显式 `owned_resources` evidence 或闭合 path-role evidence，不得进入依赖闭包或单独改变 clean verdict；任何输入不完整状态统一输出 `partial` 并阻断 clean。
 - 有效项目契约的 `architecture.source_domains` 是 runtime/test/tool/editor 的唯一权威源码域声明：最深 canonical `res://` 路径段匹配优先，未匹配脚本 fail-safe 归入 runtime，旧 tests 目录或 `test_` 文件名启发式不得继续参与判定。声明不能位于大小写等价的 `addons/gf`、任意层级的 scanner-excluded segment 或 target-only generated root 内；缺失、非目录、link/reparse、`.gdignore` 不安全或输入身份漂移必须使 API policy 分析 partial。安全 `.gdignore` 必须在枚举或计费当前目录后代前剪枝，同时保留 marker 与目录的末次身份复核；非 `.gd` 的 FIFO/socket/device 可忽略，但 `.gd` 形状 special entry、link/reparse 与 metadata 失败仍须 fail closed。扫描仅保留 exact reserved `addons/gf` 排除，项目自有其他 addons 必须可观察。
-- `api_package_policy_analysis` 只把注释外精确命中 API index public class/AutoLoad 的 identifier 映射到 exact `package_id`；owner visibility 必须闭合且精确为 `public`，不能把缺失/未知 visibility 静默排除。允许集合只能来自 required∪optional 的传递 package 闭包，任何域的观测、完整 vendoring 或 lockfile 有无都不能扩张它，forbidden 必须优先且永远 actionable。known/unknown GF-shaped dynamic strings只可 advisory。普通 observation、actionable 与 advisory 必须在扫描期独立累计并只保留各自有界证据；每次读取尝试必须在读取前按固定文件大小预留累计字节，并让单次读取器受同一大小约束，失败或非法 UTF-8 都不回滚预算。test/domain 发现必须发生在读取前，目录项预算必须独立于脚本数，且成功读取的脚本在 clean 前必须再次复核身份。catalog schema/version/source digest、未知/循环包图、public owner 缺 package、严格 UTF-8、文件/目录/marker 身份或预算不完整时不得输出 clean。
+- `api_package_policy_analysis` 只把注释外精确命中 API index public class/AutoLoad 的 identifier 映射到 exact `package_id`；owner visibility 必须闭合且精确为 `public`，不能把缺失/未知 visibility 静默排除。允许集合只能来自 `framework.package_usage.allowed` 的传递 package 闭包，任何域的观测、完整 vendoring 或 lockfile 有无都不能扩张它，`framework.package_usage.forbidden` 必须优先且永远 actionable。`framework.package_presence.required/forbidden` 独立描述载荷存在政策，不授权源码采用。known/unknown GF-shaped dynamic strings只可 advisory。普通 observation、actionable 与 advisory 必须在扫描期独立累计并只保留各自有界证据；每次读取尝试必须在读取前按固定文件大小预留累计字节，并让单次读取器受同一大小约束，失败或非法 UTF-8 都不回滚预算。test/domain 发现必须发生在读取前，目录项预算必须独立于脚本数，且成功读取的脚本在 clean 前必须再次复核身份。catalog schema/version/source digest、未知/循环包图、public owner 缺 package、严格 UTF-8、文件/目录/marker 身份或预算不完整时不得输出 clean。
 - 项目契约 schema v5 的 `architecture.documentation_roots` 是 stale GF API 文档检查的唯一 opt-in 边界：只接受 canonical、互不重复/包含、不位于 `addons/gf` 或 scanner-excluded segment 内且不与 generated module root 形成祖先/后代重叠的非根 `res://` 目录；根内后来出现的 scanner-excluded 子目录必须安全跳过并使分析 partial，不能静默得到 clean。Godot `.gdignore` 只控制 import/source discovery，不得隐式收窄已显式声明的 Markdown 根。只有 Markdown fenced code（包括显式 CommonMark blockquote/list container）与同一物理行内闭合、未转义的 inline code span 中的保守 `GF...` / `Gf` owner 或 `Owner.member` 形状可形成高置信 current/unknown owner/member 证据；container 结束必须同时结束其中未闭合的 fence，HTML comment 内的 fence、backtick 与 token 全部忽略，而真实 code span/block 中形似 comment 的文本仍是代码。已知 GF class 的 current member 集合包含 catalog 可证明的 public/protected 继承成员以及仅限 class owner 的内建构造器 `new`；AutoLoad 的 `new` 仍是 unknown member。prose、跨行/转义/未闭合 backtick 和其他不确定形态只能 advisory。扫描只保留可严格 UTF-8 编码的 canonical path、行列、token、context 与 catalog 分类，不复制周围正文；契约 JSON 字符串中的 lone surrogate 必须在读取边界拒绝，POSIX surrogateescaped 文件名必须记为 unsafe 并使分析 partial，all/actionable/advisory 各自独立有界。空 roots 记录 `not_configured` 而不声称 clean；已配置根的缺失、非目录、任意路径组件 link/reparse、严格 UTF-8、文件/目录身份、目录项总数/Markdown 文件数/单文件/总字节预算，或 API index schema/catalog/framework/source digest、owner/member/inheritance 与项目 GF 版本不闭合时必须 partial/catalog-invalid 并阻断 clean。
 - `knowledge/api_index.json` schema v2、catalog version `2.0.0` 必须复用 `tools/gdscript_api_parser.py` 和 package ownership 规则生成，在既有 `classes` / `class_count` 外以独立 `autoloads` / `autoload_count` 收录受控 public/protected owner；能力目录与 Recipe 引用的 class/package/id 必须被生成器验证。消费者不得把 `classes` 当成全部 API owner，也不得把 AutoLoad 伪装成 `class_name`。
 - `.gf/packages.lock.json` 只作为 GF 10 模块化安装的只读遗留证据；GF 11 工具不得创建、更新或删除它。遗留文件存在时只接受旧版闭合根/entry/file-metadata 结构与精确 JSON 类型；无效状态只产生诊断，不能退回目录猜测。无遗留 lockfile 的完整 GF 11 安装必须从当前文件系统与同版知识目录建立事实；能力、Recipe、模块和 API 查询仍要求知识目录版本与项目 `addons/gf/plugin.cfg` 精确一致。

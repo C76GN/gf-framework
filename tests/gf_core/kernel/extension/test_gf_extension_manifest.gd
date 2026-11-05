@@ -35,6 +35,25 @@ class BinaryReferenceResource:
 
 # --- 测试方法 ---
 
+func test_manifest_and_preset_reject_noncanonical_raw_field_names() -> void:
+	for field_name: String in [
+		"",
+		"  ",
+		"tags ",
+	]:
+		var data: Dictionary = {
+			"id": "project.valid",
+			"display_name": "Valid",
+			"version": "1.0.0",
+		}
+		data[field_name] = true
+		var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary(data)
+		assert_true(manifest.get_validation_errors().has("unsupported manifest field: %s" % field_name))
+		var preset: Object = GF_EXTENSION_PRESET_BASE.from_dictionary(data)
+		var errors: Array = GF_VARIANT_ACCESS.to_array(preset.call("get_validation_errors"))
+		assert_true(errors.has("unsupported preset field: %s" % field_name))
+
+
 func test_manifest_from_dictionary_normalizes_fields() -> void:
 	var fixture_root: String = "res://tests/gf_core/tmp_manifest_normalization/terrain_tools"
 	var fixture_paths: Array[String] = [fixture_root.path_join("extension.gd"),]
@@ -2380,7 +2399,7 @@ func test_extension_manifest_versions_follow_release_policy() -> void:
 
 
 func test_workspace_task_extensions_record_their_current_contract_versions() -> void:
-	var expected_versions: Dictionary = { "gf.flow": "4.1.0", "gf.save": "7.0.0" }
+	var expected_versions: Dictionary = { "gf.flow": "5.0.0", "gf.save": "8.0.0" }
 	var expected_sources: Dictionary = { "gf.flow": "gf.flow:flow.task.edit", "gf.save": "gf.save:save.task.inspect" }
 	var found: Array[String] = []
 	for manifest: GFExtensionManifest in GFExtensionCatalog.load_extension_manifests():
@@ -5378,6 +5397,49 @@ func test_extension_usage_audit_does_not_block_comments_or_plain_strings() -> vo
 		2,
 		"弱引用应单独计数。"
 	)
+
+
+## 模板字符串中的声明不是全局类型；真正声明仍参与公开审计。
+func test_extension_class_inventory_ignores_multiline_template_declarations() -> void:
+	var directory: String = "user://gf_extension_class_inventory"
+	var extension_root: String = directory.path_join("extension")
+	var project_root: String = directory.path_join("project")
+	var _extension_made: Error = DirAccess.make_dir_recursive_absolute(extension_root)
+	var _project_made: Error = DirAccess.make_dir_recursive_absolute(project_root)
+	var template_path: String = extension_root.path_join("template.gd")
+	var genuine_path: String = extension_root.path_join("genuine.gd")
+	var project_path: String = project_root.path_join("consumer.gd")
+	_write_text_file(template_path, "extends RefCounted\nconst TEMPLATE = \"\"\"\nclass_name AuditTemplateFake\n\"\"\"\nconst OTHER = '''\nclass_name AuditOtherFake\n'''\n")
+	_write_text_file(genuine_path, "# class_name AuditCommentFake\nclass_name AuditGenuineType\nextends RefCounted\n")
+	_write_text_file(project_path, "var first: AuditTemplateFake\nvar second: AuditOtherFake\nvar third: AuditGenuineType\n")
+	var report: Dictionary = GFExtensionUsageAudit.find_references_to_root_report(
+		extension_root,
+		{
+			"scan_roots": [project_root],
+			"ignored_roots": [],
+			"use_resource_dependencies": false,
+		}
+	)
+	var references: Array = GF_VARIANT_ACCESS.get_option_array(report, "references")
+	assert_eq(
+		references.size(),
+		1
+	)
+	if not references.is_empty():
+		var reference: Dictionary = references[0]
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_string(reference, "symbol"),
+			"AuditGenuineType"
+		)
+	for path: String in [
+		project_path,
+		genuine_path,
+		template_path,
+		project_root,
+		extension_root,
+		directory,
+	]:
+		_remove_path_if_exists(path)
 
 
 func test_extension_usage_audit_exposes_partial_budget_report() -> void:

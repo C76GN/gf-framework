@@ -733,6 +733,55 @@ func test_owner_tree_exit_auto_unsubscribes() -> void:
 	subscription_owner.free()
 
 
+## 派发信号或前一订阅释放 owner 后，后续交付必须重新确认弱引用。
+func test_ref_counted_owner_released_during_flush_is_not_notified() -> void:
+	for release_in_signal: bool in [false, true]:
+		var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({ "count": 0 })
+		var holder: Array[RefCounted] = _make_flush_owner_holder()
+		var received: Counter = Counter.new()
+		if release_in_signal:
+			var _connected: int = store.state_changed.connect(
+				func(_changes: Array[Dictionary], _snapshot: Dictionary) -> void:
+					holder.clear()
+			)
+		else:
+			var _first: Callable = store.subscribe(
+				"count",
+				func(_change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+					holder.clear()
+			)
+		_subscribe_flush_owner(
+			store,
+			holder,
+			received
+		)
+		var _changed: Variant = store.set_value("count", 1)
+		assert_eq(received.value, 0)
+		assert_eq(
+			store.get_subscription_count(),
+			0 if release_in_signal else 1
+		)
+		store.dispose()
+
+
+## 让创建与订阅 owner 的临时寄存器随辅助调用返回释放，仅由 holder 持有它。
+func _make_flush_owner_holder() -> Array[RefCounted]:
+	return [RefCounted.new()]
+
+
+func _subscribe_flush_owner(
+	store: GFReactiveStateStoreBase,
+	holder: Array[RefCounted],
+	received: Counter
+) -> void:
+	var _owned: Callable = store.subscribe(
+		"count",
+		func(_change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+			received.value += 1,
+		{ "owner": holder[0] }
+	)
+
+
 func test_ref_counted_owner_is_pruned_when_released() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({ "count": 0, })
 	var subscription_owner: RefCounted = RefCounted.new()

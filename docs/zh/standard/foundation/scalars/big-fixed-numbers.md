@@ -19,6 +19,8 @@ print(total.to_scientific_string()) # 1.45e18
 
 `GFBigNumber` 是显示和量级计算用的近似大数。它适合挂机资源、战力、收益预估和跨数量级比较，不适合作为付费货币、强精度经济结算、竞技排行榜最终判定或任何要求逐分逐厘精确的权威数据源。
 
+乘除的指数上限按归一化后的结果判断；尾数进位能将中间指数带回支持范围时，结果仍有效。`to_float()` 保留宿主可表达的次正规非零值，真正低于浮点表示范围的值仍会下溢为零。
+
 零值只由规范尾数精确为 `0.0` 表示；`from_float()` 不会用固定绝对 epsilon 吞掉很小但有限的非零值。需要把运算噪声视作零时，应由业务在比较边界显式选择相对或绝对容差，而不是改变大数可表达的最小量级。
 
 ## `GFFixedDecimal`
@@ -55,6 +57,12 @@ var dot := a.dot(b, 3)
 print(dot.to_decimal_string()) # 1.420
 ```
 
-定点向量的加减、标量乘、点积和长度平方都通过 `GFFixedDecimal` 执行缩放、舍入和溢出处理。需要与 Godot API 交互时可以显式调用 `from_vector2()`、`from_vector3()`、`to_vector2()` 或 `to_vector3()`，但这些入口会经过 `float`，不应作为 deterministic 真值来源。
+从 GF 12 起，`dot()` 与 `length_squared()` 先计算完整宽整数乘积和，再按目标精度舍入一次、对最终 raw 饱和一次。中间乘积或部分和超出 int64、但最终可表示时，不会提前丢失抵消项。例如 `(0.4, 0.4)` 的长度平方精确为 `0.32`，保留一位小数得到 `0.3`，不再得到逐项舍入后的 `0.4`。
+
+`dot()` 的目标精度默认取两个输入较高的小数位，`length_squared()` 默认沿用自身小数位，默认舍入为 `HALF_UP`。`dot(null, ...)` 保留原有约定：返回当前向量精度的零，不应用指定的目标精度。结果溢出的钳制诊断只在最终 raw 超界时发出一次；显式目标精度越界仍沿用原有规范化诊断。
+
+旧项目若需要逐分量舍入、逐步饱和的历史结果，可使用[定点向量逐项运算兼容配方](fixed-vector-component-recipe.md)。锁步、回放和运算结果 golden 必须显式选择运算版本；序列化格式未改变，不会自动替项目选回旧算法。
+
+定点向量与 Godot API 交互时可以显式调用 `from_vector2()`、`from_vector3()`、`to_vector2()` 或 `to_vector3()`，但这些入口会经过 `float`，不应作为 deterministic 真值来源。
 
 `to_dict()` / `from_dict()` 使用 JSON 安全状态字典，raw 分量固定为字符串。`to_bytes()` / `from_bytes()` 使用固定二进制格式：`GFF2` 或 `GFF3` magic、版本、小数位，以及每个分量的符号位和 8 字节大端绝对 raw 值。定点向量分量和 `GFFixedDecimal.raw_value` 使用同一套 raw 范围、文本校验和 signed magnitude 编码规则。

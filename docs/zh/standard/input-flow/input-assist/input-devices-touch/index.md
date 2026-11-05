@@ -14,6 +14,8 @@
 
 ## 触屏控件
 
+项目自定义触屏控件可继承 `GFTouchControl2D`，调用受保护的 `_try_capture_touch_index()`、`_release_touch_capture()`、`_touch_matches()` 管理捕获，通过 `_screen_to_global_position()` 转换位置，并用 `_mark_input_as_handled()` 阻止事件继续传播。子类负责重写 `release()` 清理自己的输出；底座内部捕获字段继续属于私有状态。
+
 `GFInputBinding` 的触屏事件默认表示“任意触摸”，适合简单确认或由 `GFTouchButton` / `GFTouchJoystick` 承担区域判断的场景。需要区分多指触点时可启用 `match_touch_index`，让 `InputEventScreenTouch.index` 参与匹配。
 
 `GFTouchJoystick` 是一个可直接放进场景树的 `Node2D`。它会发出 `direction_changed(direction)`，输出会应用死区并保留 0..1 的模拟强度，也可以把方向映射到项目自己的 InputMap 动作名。相对模式适合移动端虚拟摇杆；FOLLOW 模式会在拖动超过半径后让摇杆中心跟随触点，适合需要连续大幅拖动的虚拟摇杆。`emit_joypad_motion` 可把触屏输入桥接为虚拟手柄轴事件。`GFTouchButton` 提供通用触屏按钮，并同样支持 InputMap 动作或虚拟手柄按钮事件。

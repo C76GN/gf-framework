@@ -3,11 +3,14 @@
 耗时动作应在 `execute()` 中返回可等待的 `Signal`；立即完成或 fire-and-forget 动作可以返回 `null`。
 
 ```gdscript
+## 播放卡牌位移的最小动作；这里只演示等待协议，取消清理需按正文另行实现。
 class_name PlayCardVisualAction
 extends GFVisualAction
 
+## 借用的项目卡牌节点；执行前由调用方保证目标仍有效。
 var target_card: CardNode
 
+## 将项目表现接入动作队列；返回等待信号，让队列在本次表现完成后继续。
 func execute() -> Variant:
 	var tween := target_card.create_tween()
 	tween.tween_property(target_card, "position", Vector2(400, 300), 2.0)

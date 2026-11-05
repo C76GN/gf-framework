@@ -35,6 +35,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var contract_id: StringName = &""
 ```
 
@@ -48,6 +49,7 @@ var contract_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var contract_version: String = "1.0.0"
 ```
 
@@ -61,6 +63,7 @@ var contract_version: String = "1.0.0"
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var methods: Array[GFPlatformContractMethodDescriptor] = []
 ```
 
@@ -78,6 +81,7 @@ var methods: Array[GFPlatformContractMethodDescriptor] = []
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

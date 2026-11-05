@@ -5,6 +5,10 @@ extends GutTest
 class MemoryStorageBackend extends GFStorageBackend:
 	var records: Dictionary = {}
 	var fail_on_save: bool = false
+	var load_error: Error = OK
+	var save_count: int = 0
+	var legacy_missing_result: bool = false
+	var hide_records_from_probe: bool = false
 
 	func set_record(
 		file_name: String,
@@ -19,6 +23,7 @@ class MemoryStorageBackend extends GFStorageBackend:
 		data: Dictionary,
 		metadata: Dictionary
 	) -> Error:
+		save_count += 1
 		if fail_on_save:
 			return ERR_FILE_CANT_WRITE
 		set_record(
@@ -30,13 +35,22 @@ class MemoryStorageBackend extends GFStorageBackend:
 
 
 	func _load_data(file_name: String) -> Dictionary:
-		if not records.has(file_name):
+		if load_error != OK:
 			return {
+				"ok": false,
+				"error": "read failed",
+				"error_code": int(load_error),
+			}
+		if not records.has(file_name):
+			var result: Dictionary = {
 				"ok": false,
 				"data": {},
 				"metadata": {},
 				"error": "missing",
 			}
+			if not legacy_missing_result:
+				result["error_code"] = int(ERR_DOES_NOT_EXIST)
+			return result
 
 		var record: Dictionary = GFVariantData.get_option_dictionary(records, file_name)
 		return {
@@ -48,7 +62,7 @@ class MemoryStorageBackend extends GFStorageBackend:
 
 
 	func _has_data(file_name: String) -> bool:
-		return records.has(file_name)
+		return not hide_records_from_probe and records.has(file_name)
 
 
 	func _list_data() -> Array[Dictionary]:
@@ -82,6 +96,8 @@ class FailoverTestClock extends GFClock:
 
 class FailoverTestBackend extends GFStorageBackend:
 	var records: Dictionary = {}
+	var can_read: bool = true
+	var raw_failed_error_code: Variant = null
 	var load_error: Error = OK
 	var save_error: Error = OK
 	var delete_error: Error = OK
@@ -106,6 +122,14 @@ class FailoverTestBackend extends GFStorageBackend:
 
 	func _load_data(file_name: String) -> Dictionary:
 		load_calls += 1
+		if raw_failed_error_code != null:
+			return {
+				"ok": false,
+				"data": {},
+				"metadata": {},
+				"error": "Ambiguous failure code.",
+				"error_code": raw_failed_error_code,
+			}
 		if load_error != OK:
 			return {
 				"ok": false,
@@ -153,7 +177,7 @@ class FailoverTestBackend extends GFStorageBackend:
 
 	func _get_capabilities() -> Dictionary:
 		return {
-			"read": true,
+			"read": can_read,
 			"write": true,
 			"delete": true,
 			"list": true,
@@ -202,6 +226,7 @@ func test_missing_remote_is_filled_from_local() -> void:
 
 func test_storage_backend_normalizes_legacy_load_error_codes() -> void:
 	var backend: MemoryStorageBackend = MemoryStorageBackend.new()
+	backend.legacy_missing_result = true
 
 	var missing_result: Dictionary = backend.load_data("missing.json")
 	backend.set_record(
@@ -217,6 +242,90 @@ func test_storage_backend_normalizes_legacy_load_error_codes() -> void:
 	assert_eq(
 		GFVariantData.get_option_int(present_result, "error_code"),
 		OK
+	)
+
+
+func test_read_failure_never_authorizes_overwriting_unread_data() -> void:
+	var read_errors: Array[Error] = [
+		ERR_TIMEOUT,
+		ERR_UNAUTHORIZED,
+		ERR_CANT_OPEN,
+		ERR_INVALID_DATA,
+	]
+	for read_error: Error in read_errors:
+		for failed_side: String in ["local", "remote"]:
+			var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
+			var local: MemoryStorageBackend = MemoryStorageBackend.new()
+			var remote: MemoryStorageBackend = MemoryStorageBackend.new()
+			local.set_record(
+				"profile.json",
+				{ "coins": 10 }
+			)
+			remote.set_record(
+				"profile.json",
+				{ "coins": 99 }
+			)
+			var failed_backend: MemoryStorageBackend = local if failed_side == "local" else remote
+			failed_backend.load_error = read_error
+			failed_backend.hide_records_from_probe = true
+
+			var result: Dictionary = sync.sync_data(
+				"profile.json",
+				local,
+				remote
+			)
+
+			assert_false(
+				GFResultDictionary.is_ok(result),
+				"读取故障必须保留为同步失败。"
+			)
+			assert_eq(
+				GFVariantData.get_option_int(result, "status"),
+				GFStorageSyncUtility.SyncStatus.FAILED
+			)
+			assert_eq(
+				local.save_count + remote.save_count,
+				0,
+				"读取失败且存在探针为 false 仍不得写回。"
+			)
+			failed_backend.load_error = OK
+			assert_eq(
+				GFVariantData.get_option_dictionary(
+					local.load_data("profile.json"),
+					"data"
+				),
+				{ "coins": 10 }
+			)
+			assert_eq(
+				GFVariantData.get_option_dictionary(
+					remote.load_data("profile.json"),
+					"data"
+				),
+				{ "coins": 99 }
+			)
+
+
+func test_legacy_ambiguous_read_failure_is_not_treated_as_missing() -> void:
+	var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
+	var local: MemoryStorageBackend = MemoryStorageBackend.new()
+	var remote: MemoryStorageBackend = MemoryStorageBackend.new()
+	local.set_record(
+		"profile.json",
+		{ "coins": 10 }
+	)
+	remote.legacy_missing_result = true
+
+	var result: Dictionary = sync.sync_data(
+		"profile.json",
+		local,
+		remote
+	)
+
+	assert_false(GFResultDictionary.is_ok(result))
+	assert_eq(
+		remote.save_count,
+		0,
+		"没有精确 missing 分类的旧 adapter 必须失败关闭。"
 	)
 
 
@@ -262,6 +371,54 @@ func test_newer_remote_metadata_wins_default_strategy() -> void:
 		20,
 		"本地应被更新为远端数据。"
 	)
+
+
+## 大于 float 精确范围的相邻 Int64 revision 仍须优先于相反方向的时间戳。
+func test_adjacent_int64_revisions_select_exact_newer_record() -> void:
+	for remote_newer: bool in [false, true]:
+		for with_timestamps: bool in [false, true]:
+			var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
+			var local: MemoryStorageBackend = MemoryStorageBackend.new()
+			var remote: MemoryStorageBackend = MemoryStorageBackend.new()
+			var local_metadata: Dictionary = { "revision": 9007199254740992 if remote_newer else 9007199254740993 }
+			var remote_metadata: Dictionary = { "revision": 9007199254740993 if remote_newer else 9007199254740992 }
+			if with_timestamps:
+				local_metadata["timestamp_unix"] = 200 if remote_newer else 100
+				remote_metadata["timestamp_unix"] = 100 if remote_newer else 200
+			local.set_record(
+				"profile.json",
+				{ "side": "local" },
+				local_metadata
+			)
+			remote.set_record(
+				"profile.json",
+				{ "side": "remote" },
+				remote_metadata
+			)
+			var result: Dictionary = sync.sync_data(
+				"profile.json",
+				local,
+				remote
+			)
+			var expected_side: String = "remote" if remote_newer else "local"
+			assert_true(GFResultDictionary.is_ok(result))
+			assert_eq(
+				GFVariantData.get_option_string(result, "selected_source"),
+				expected_side
+			)
+			for backend: MemoryStorageBackend in [local, remote]:
+				var record: Dictionary = backend.load_data("profile.json")
+				assert_eq(
+					GFVariantData.get_option_dictionary(record, "data"),
+					{ "side": expected_side }
+				)
+				assert_eq(
+					GFVariantData.get_option_int(
+						GFVariantData.get_option_dictionary(record, "metadata"),
+						"revision"
+					),
+					9007199254740993
+				)
 
 
 func test_non_finite_newest_metadata_is_unresolved_without_writeback() -> void:
@@ -797,6 +954,234 @@ func test_failover_backend_reads_first_available_backend_with_structured_report(
 		),
 		"succeeded"
 	)
+
+
+func test_failover_failed_reads_preserve_unknown_and_copy_only_all_missing() -> void:
+	var cases: Array[Dictionary] = [
+		{
+			"primary": ERR_TIMEOUT,
+			"secondary": ERR_FILE_NOT_FOUND,
+			"expected": ERR_TIMEOUT,
+			"copy": false,
+		},
+		{
+			"primary": ERR_FILE_NOT_FOUND,
+			"secondary": ERR_TIMEOUT,
+			"expected": ERR_TIMEOUT,
+			"copy": false,
+		},
+		{
+			"primary": ERR_TIMEOUT,
+			"secondary": ERR_UNAUTHORIZED,
+			"expected": ERR_UNAUTHORIZED,
+			"copy": false,
+		},
+		{
+			"primary": ERR_FILE_NOT_FOUND,
+			"secondary": ERR_DOES_NOT_EXIST,
+			"expected": ERR_DOES_NOT_EXIST,
+			"copy": true,
+		},
+	]
+	for raw_code: Variant in [
+		OK,
+		str(int(ERR_FILE_NOT_FOUND)),
+		float(ERR_FILE_NOT_FOUND),
+	]:
+		for raw_first: bool in [true, false]:
+			var ambiguous_case: Dictionary = {
+				"primary": ERR_TIMEOUT if raw_first else ERR_FILE_NOT_FOUND,
+				"secondary": ERR_FILE_NOT_FOUND if raw_first else ERR_TIMEOUT,
+				"expected": ERR_CANT_OPEN,
+				"copy": false,
+			}
+			ambiguous_case["primary_raw" if raw_first else "secondary_raw"] = raw_code
+			ambiguous_case["primary_attempt" if raw_first else "secondary_attempt"] = ERR_CANT_OPEN
+			cases.append(ambiguous_case)
+	for case: Dictionary in cases:
+		var primary: FailoverTestBackend = FailoverTestBackend.new()
+		var secondary: FailoverTestBackend = FailoverTestBackend.new()
+		primary.load_error = case.get("primary")
+		secondary.load_error = case.get("secondary")
+		primary.raw_failed_error_code = case.get("primary_raw")
+		secondary.raw_failed_error_code = case.get("secondary_raw")
+		if primary.load_error not in [ERR_FILE_NOT_FOUND, ERR_DOES_NOT_EXIST]:
+			primary.set_record(
+				"profile.json",
+				{ "value": "primary-unread" }
+			)
+		if secondary.load_error not in [ERR_FILE_NOT_FOUND, ERR_DOES_NOT_EXIST]:
+			secondary.set_record(
+				"profile.json",
+				{ "value": "secondary-unread" }
+			)
+		var primary_before: Dictionary = primary.records.duplicate(true)
+		var secondary_before: Dictionary = secondary.records.duplicate(true)
+		var backend: GFStorageFailoverBackend = GFStorageFailoverBackend.new()
+		var configured_backends: Array[GFStorageBackend] = [primary, secondary]
+		assert_true(
+			backend.configure_backends(
+				configured_backends,
+				PackedStringArray(["primary", "secondary"]),
+				{ "failure_threshold": 0 }
+			)
+		)
+		var load_result: Dictionary = backend.load_data("profile.json")
+		var report: Dictionary = backend.get_last_operation_report()
+		var attempts: Array = GFVariantData.get_option_array(report, "attempts")
+		var load_error_value: Variant = load_result.get("error_code")
+		var report_error_value: Variant = report.get("error_code")
+		var expected_error: int = GFVariantData.get_option_int(case, "expected")
+		assert_true(load_error_value is int)
+		if load_error_value is int:
+			var load_error_code: int = load_error_value
+			assert_eq(load_error_code, expected_error)
+		assert_true(report_error_value is int)
+		if report_error_value is int:
+			var report_error_code: int = report_error_value
+			assert_eq(report_error_code, expected_error)
+		assert_eq(
+			attempts.size(),
+			2
+		)
+		var primary_error_value: Variant = GFVariantData.as_dictionary(attempts[0]).get("error_code")
+		var secondary_error_value: Variant = GFVariantData.as_dictionary(attempts[1]).get("error_code")
+		var expected_primary_error: int = GFVariantData.get_option_int(
+			case,
+			"primary_attempt",
+			GFVariantData.get_option_int(case, "primary")
+		)
+		var expected_secondary_error: int = GFVariantData.get_option_int(
+			case,
+			"secondary_attempt",
+			GFVariantData.get_option_int(case, "secondary")
+		)
+		assert_true(primary_error_value is int)
+		if primary_error_value is int:
+			var primary_error_code: int = primary_error_value
+			assert_eq(primary_error_code, expected_primary_error)
+		assert_true(secondary_error_value is int)
+		if secondary_error_value is int:
+			var secondary_error_code: int = secondary_error_value
+			assert_eq(secondary_error_code, expected_secondary_error)
+		var local: MemoryStorageBackend = MemoryStorageBackend.new()
+		local.set_record(
+			"profile.json",
+			{ "value": "local-healthy" }
+		)
+		var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
+		var result: Dictionary = sync.sync_data(
+			"profile.json",
+			local,
+			backend
+		)
+		var should_copy: bool = GFVariantData.get_option_bool(case, "copy")
+		assert_eq(
+			GFResultDictionary.is_ok(result),
+			should_copy
+		)
+		assert_eq(
+			primary.save_calls,
+			1 if should_copy else 0
+		)
+		assert_eq(secondary.save_calls, 0)
+		assert_eq(local.save_count, 0)
+		if should_copy:
+			var copied_record: Variant = primary.records.get("profile.json")
+			assert_true(copied_record is Dictionary)
+			if copied_record is Dictionary:
+				var copied_dictionary: Dictionary = copied_record
+				assert_eq(
+					copied_dictionary,
+					{ "value": "local-healthy" }
+				)
+		else:
+			assert_eq(
+				primary.records,
+				primary_before,
+				"后续 missing 不能授权覆盖未读 primary。"
+			)
+			assert_eq(secondary.records, secondary_before)
+
+
+func test_failover_skipped_reads_do_not_authorize_missing_sync_copy() -> void:
+	for use_cooldown: bool in [true, false]:
+		var primary: FailoverTestBackend = FailoverTestBackend.new()
+		var secondary: FailoverTestBackend = FailoverTestBackend.new()
+		primary.set_record(
+			"profile.json",
+			{ "value": "primary-unread" }
+		)
+		var backend: GFStorageFailoverBackend = GFStorageFailoverBackend.new()
+		var configured_backends: Array[GFStorageBackend] = [primary, secondary]
+		assert_true(
+			backend.configure_backends(
+				configured_backends,
+				PackedStringArray(["primary", "secondary"]),
+				{ "failure_threshold": 1, "cooldown_msec": 1000 }
+			)
+		)
+		var clock: FailoverTestClock = FailoverTestClock.new()
+		assert_true(backend.set_clock(clock))
+		if use_cooldown:
+			primary.load_error = ERR_TIMEOUT
+			var _warmup: Dictionary = backend.load_data("profile.json")
+			primary.load_error = OK
+		else:
+			primary.can_read = false
+		var local: MemoryStorageBackend = MemoryStorageBackend.new()
+		local.set_record(
+			"profile.json",
+			{ "value": "local-healthy" }
+		)
+		var sync: GFStorageSyncUtility = GFStorageSyncUtility.new()
+
+		var result: Dictionary = sync.sync_data(
+			"profile.json",
+			local,
+			backend
+		)
+		var report: Dictionary = backend.get_last_operation_report()
+		var attempts: Array = GFVariantData.get_option_array(report, "attempts")
+
+		assert_false(
+			GFResultDictionary.is_ok(result),
+			"未读后端仍是 unknown，后续 missing 不能证明逻辑记录不存在。"
+		)
+		var remote_error_value: Variant = GFVariantData.as_dictionary(result.get("remote")).get("error_code")
+		assert_true(remote_error_value is int)
+		if remote_error_value is int:
+			var remote_error_code: int = remote_error_value
+			assert_eq(remote_error_code, ERR_UNAVAILABLE)
+		var operation_value: Variant = report.get("operation")
+		assert_true(operation_value is StringName)
+		if operation_value is StringName:
+			var operation: StringName = operation_value
+			assert_eq(operation, &"load")
+		var reason_value: Variant = GFVariantData.as_dictionary(attempts[0]).get("reason")
+		assert_true(reason_value is String)
+		if reason_value is String:
+			var reason: String = reason_value
+			assert_eq(
+				reason,
+				"cooldown" if use_cooldown else "unsupported"
+			)
+		assert_eq(
+			primary.load_calls,
+			1 if use_cooldown else 0
+		)
+		assert_eq(primary.save_calls, 0)
+		assert_eq(secondary.save_calls, 0)
+		assert_eq(local.save_count, 0)
+		var retained_record: Variant = primary.records.get("profile.json")
+		assert_true(retained_record is Dictionary)
+		if retained_record is Dictionary:
+			var retained_dictionary: Dictionary = retained_record
+			assert_eq(
+				retained_dictionary,
+				{ "value": "primary-unread" }
+			)
+		assert_false(secondary.records.has("profile.json"))
 
 
 func test_failover_backend_cooldown_skips_unhealthy_primary_then_allows_probe() -> void:

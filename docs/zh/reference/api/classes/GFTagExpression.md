@@ -63,6 +63,7 @@ enum Operator {
 - API：`public`
 
 ```gdscript
+@export
 var operator: Operator = Operator.QUERY
 ```
 
@@ -75,6 +76,7 @@ var operator: Operator = Operator.QUERY
 - API：`public`
 
 ```gdscript
+@export
 var query: GFTagQuery = null
 ```
 
@@ -88,6 +90,7 @@ var query: GFTagQuery = null
 - 首次版本：`3.18.0`
 
 ```gdscript
+@export
 var expressions: Array[Resource] = []
 ```
 

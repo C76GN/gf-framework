@@ -138,6 +138,16 @@ var report := artifact.materialize_temp({
 
 物化默认只允许写入 `user://`。需要写入 `res://` 的编辑器或构建工具必须显式传 `allow_res_path = true`，这样路径副作用不会在普通运行时被隐式打开。`materialize_temp()` 的 `file_name` 是严格 ASCII portable leaf；空名、`.`、`..`、路径分隔符、控制字符、Windows 保留字符或设备名会在 `path_join` 前以 `invalid_file_name` 失败，不会被静默改写成另一个文件名。写入复用有界产物事务；若报告中的 `recovery_required = true`，调用方必须保留 `recovery_transaction`，并原样交给 `GFArtifactWriteTransaction.rollback()` 或 `complete()` 终结事务，不能把它当作普通 `write_failed` 丢弃。
 
+| 能力 | 普通运行时 | 编辑器与制作工具 |
+| --- | --- | --- |
+| 保存字节载荷、源路径及 metadata | 支持，不自动写文件 | 同一资源格式 |
+| 物化到 `user://` | 默认允许，适合运行时产生或交付给原生库的文件 | 默认允许 |
+| 物化到 `res://` | 默认拒绝；显式授权仍须目标位置实际可写 | 通过 `allow_res_path = true` 显式授权 |
+| 有界提交与失败恢复 | 使用同一 `GFArtifactWriteTransaction` 契约 | 同一提交与恢复契约 |
+| `scan_filesystem` 资源刷新 | 不触发编辑器扫描 | 默认请求刷新，可设为 `false` 关闭 |
+
+文件事务同时服务运行时和制作工具，不以启用 GF 编辑器插件为前提。`allow_res_path` 只授权路径，不会让只读位置变成可写；导出游戏应把运行时生成的文件放在 `user://`，不能依赖源码项目中 `res://` 可写的表现。实际可写位置及文件 API 能力仍受目标平台约束，源文件运行成功也不能代替对应导出模板的验证。
+
 ## 导入计划
 
 `GFImportPlan` 只描述导入条目，不执行复制、转换或删除。每个条目包含 `source_path`、`target_path`、`operation`、`options` 和归一化后的来源 trace，适合编辑器导入器、资源整理工具、CI 预检或项目自己的批处理 UI 在真正写入文件前做审查。

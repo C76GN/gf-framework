@@ -618,6 +618,76 @@ func test_previous_crash_marker_is_reported_on_init() -> void:
 	)
 
 
+func test_disabled_logger_does_not_remove_other_live_marker() -> void:
+	var marker_path: String = _LOG_DIR + "gf_log_running.marker"
+	var before: String = FileAccess.get_file_as_string(marker_path)
+	var disabled: GFLogUtility = GFLogUtility.new()
+	disabled.crash_marker_enabled = false
+	disabled.init()
+	disabled.dispose()
+	assert_true(FileAccess.file_exists(marker_path))
+	assert_eq(
+		FileAccess.get_file_as_string(marker_path),
+		before
+	)
+
+
+func test_multiple_enabled_loggers_keep_marker_until_last_owner_closes() -> void:
+	var marker_path: String = _LOG_DIR + "gf_log_running.marker"
+	var second: GFLogUtility = GFLogUtility.new()
+	second.init()
+	second.dispose()
+	assert_true(FileAccess.file_exists(marker_path))
+	_log_util.dispose()
+	assert_false(FileAccess.file_exists(marker_path))
+
+
+func test_crash_notification_dispose_does_not_reopen_sink() -> void:
+	_log_util.dispose()
+	var marker_file: FileAccess = FileAccess.open(
+		_LOG_DIR + "gf_log_running.marker",
+		FileAccess.WRITE
+	)
+	var _stored: bool = marker_file.store_string("{}")
+	marker_file.close()
+	var sink: GFJsonLineLogSink = GFJsonLineLogSink.new()
+	sink.file_path = _LOG_DIR + "cancelled_init.jsonl"
+	_log_util.add_sink(sink)
+	var handler: Callable = func(_marker: Dictionary) -> void:
+		_log_util.dispose()
+	var _connected: Error = _log_util.previous_crash_detected.connect(handler) as Error
+	_log_util.init()
+	assert_false(
+		GFVariantData.get_option_bool(
+			sink.get_debug_snapshot(),
+			"is_open"
+		)
+	)
+	_log_util.previous_crash_detected.disconnect(handler)
+	sink.shutdown()
+
+
+func test_crash_notification_reinit_initializes_new_lifecycle_only_once() -> void:
+	_log_util.dispose()
+	var marker_file: FileAccess = FileAccess.open(
+		_LOG_DIR + "gf_log_running.marker",
+		FileAccess.WRITE
+	)
+	var _stored: bool = marker_file.store_string("{}")
+	marker_file.close()
+	var sink: CapturingLogSink = CapturingLogSink.new()
+	_log_util.add_sink(sink)
+	var handler: Callable = func(_report: Dictionary) -> void:
+		_log_util.dispose()
+		_log_util.init()
+	var _connected: Error = _log_util.previous_crash_detected.connect(handler) as Error
+	_log_util.init()
+	assert_eq(sink.init_count, 1)
+	_log_util.previous_crash_detected.disconnect(handler)
+	_log_util.remove_sink(sink)
+	sink.owner_instance = null
+
+
 func test_sink_receives_structured_entries_and_lifecycle() -> void:
 	var sink: CapturingLogSink = CapturingLogSink.new()
 

@@ -2,6 +2,34 @@
 extends GutTest
 
 
+func test_explicit_parent_owner_overrides_inherited_scene_owner() -> void:
+	var root: Node = Node.new()
+	add_child_autofree(root)
+	var parent: Node = Node.new()
+	root.add_child(parent)
+	parent.owner = root
+	var child: Node = Node.new()
+	assert_true(
+		GFNodeTreeOps.add_child_with_owner(
+			parent,
+			child,
+			parent
+		)
+	)
+	assert_same(child.owner, parent)
+	assert_true(GFNodeTreeOps.reparent_node(child, parent))
+	assert_same(child.owner, root)
+	assert_true(
+		GFNodeTreeOps.reparent_node(
+			child,
+			parent,
+			true,
+			parent
+		)
+	)
+	assert_same(child.owner, parent)
+
+
 func test_add_child_with_owner_sets_scene_owner() -> void:
 	var root: Node = Node.new()
 	add_child_autofree(root)

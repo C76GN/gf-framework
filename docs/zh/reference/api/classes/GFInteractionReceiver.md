@@ -111,6 +111,7 @@ signal interaction_rejected(context: GFInteractionContext, report: Dictionary)
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -124,6 +125,7 @@ var enabled: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var accepted_interaction_ids: Array[StringName] = []
 ```
 
@@ -137,6 +139,7 @@ var accepted_interaction_ids: Array[StringName] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var rejected_interaction_ids: Array[StringName] = []
 ```
 
@@ -150,6 +153,7 @@ var rejected_interaction_ids: Array[StringName] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -167,6 +171,7 @@ var metadata: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_node_path("Node")
 var receiver_path: NodePath = NodePath("")
 ```
 

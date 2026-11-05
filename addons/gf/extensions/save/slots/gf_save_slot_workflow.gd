@@ -271,11 +271,13 @@ func build_card_for_index(
 	summary: Dictionary = {},
 	p_active_slot_index: int = -1
 ) -> GFSaveSlotCard:
+	var selected_index: int = active_slot_index if p_active_slot_index < 0 else p_active_slot_index
 	if summary.is_empty():
-		return build_empty_card(index)
+		var empty_card: GFSaveSlotCard = build_empty_card(index)
+		empty_card.is_active = index == selected_index
+		return empty_card
 
 	var card: GFSaveSlotCard = _new_card()
-	var selected_index: int = active_slot_index if p_active_slot_index < 0 else p_active_slot_index
 	var _configure_from_slot_summary_result_227: Variant = card.configure_from_slot_summary(
 		summary,
 		get_slot_id_for_index(index),

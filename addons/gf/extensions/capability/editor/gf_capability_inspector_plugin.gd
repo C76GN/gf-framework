@@ -2028,26 +2028,30 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 			)
 			continue
 
-		var active: bool = GFVariantData.to_bool(
-			_read_property(
-				entry,
-				"active",
-				true
-			),
-			true
-		)
-		_set_editor_capability_active(node, active)
-		var plan: Dictionary = _make_capability_add_plan(
+		var plan: Dictionary = _prepare_recipe_add_plan(
 			target,
 			node,
-			_get_recipe_entry_node_name(
-				entry,
-				node,
-				index
-			),
-			add_plans
+			entry,
+			index,
+			add_plans,
+			report,
+			_MAX_EDITOR_NODE_TREE_NODES
 		)
-		plan["active"] = active
+		if plan.is_empty():
+			node.queue_free()
+			skipped.append(
+				{
+					"index": index,
+					"kind": "active_state_failed",
+					"type": capability_key,
+				}
+			)
+			continue
+		var active: bool = GFVariantData.get_option_bool(
+			plan,
+			"active",
+			true
+		)
 		add_plans.append(plan)
 		if capability_script != null:
 			planned_capability_keys[capability_key] = true
@@ -2077,6 +2081,52 @@ func _apply_recipe_to_target(target: Node, recipe: Resource) -> Dictionary:
 	_select_editor_node(target)
 	EditorInterface.inspect_object(target)
 	return result
+
+
+## 应用条目启用状态并构造编辑器添加计划；失败时保留报告且不发布计划。
+## [br]
+## @api private
+static func _prepare_recipe_add_plan(
+	target: Node,
+	node: Node,
+	entry: Resource,
+	index: int,
+	add_plans: Array[Dictionary],
+	report: GFValidationReport,
+	max_tree_nodes: int
+) -> Dictionary:
+	var active: bool = GFVariantData.to_bool(
+		_read_property(
+			entry,
+			"active",
+			true
+		),
+		true
+	)
+	if not _apply_editor_capability_active_state(
+		node,
+		active,
+		max_tree_nodes
+	):
+		_report_add_error(
+			report,
+			&"active_state_failed",
+			"Recipe active state could not be applied.",
+			str(index)
+		)
+		return {}
+	var plan: Dictionary = _make_capability_add_plan(
+		target,
+		node,
+		_get_recipe_entry_node_name(
+			entry,
+			node,
+			index
+		),
+		add_plans
+	)
+	plan["active"] = active
+	return plan
 
 
 ## 从 Recipe 条目的场景或脚本创建有效节点能力实例。
@@ -2190,7 +2240,7 @@ func _recipe_apply_report_to_dict(
 ## 按脚本全局名、节点名或条目序号生成节点名称。
 ## [br]
 ## @api private
-func _get_recipe_entry_node_name(
+static func _get_recipe_entry_node_name(
 	entry: Resource,
 	node: Node,
 	index: int

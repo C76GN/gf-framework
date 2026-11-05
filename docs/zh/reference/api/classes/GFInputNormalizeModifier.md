@@ -28,6 +28,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var only_when_over_one: bool = true
 ```
 

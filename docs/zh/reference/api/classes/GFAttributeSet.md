@@ -119,6 +119,7 @@ const DEFAULT_MAX_VALUE: float = 1.0e20
 - API：`public`
 
 ```gdscript
+@export
 var attributes: Dictionary = {}
 ```
 
@@ -135,6 +136,7 @@ var attributes: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var derived_rules: Array[GFDerivedAttributeRule] = []
 ```
 

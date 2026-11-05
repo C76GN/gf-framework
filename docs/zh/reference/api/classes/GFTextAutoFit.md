@@ -39,6 +39,7 @@
 - API：`public`
 
 ```gdscript
+@export_node_path("Control")
 var target_path: NodePath
 ```
 
@@ -51,6 +52,7 @@ var target_path: NodePath
 - API：`public`
 
 ```gdscript
+@export
 var min_font_size: int = GFTextFitter.DEFAULT_MIN_FONT_SIZE:
 ```
 
@@ -63,6 +65,7 @@ var min_font_size: int = GFTextFitter.DEFAULT_MIN_FONT_SIZE:
 - API：`public`
 
 ```gdscript
+@export
 var max_font_size: int = GFTextFitter.DEFAULT_MAX_FONT_SIZE:
 ```
 
@@ -75,6 +78,7 @@ var max_font_size: int = GFTextFitter.DEFAULT_MAX_FONT_SIZE:
 - API：`public`
 
 ```gdscript
+@export
 var fit_width: bool = true:
 ```
 
@@ -87,6 +91,7 @@ var fit_width: bool = true:
 - API：`public`
 
 ```gdscript
+@export
 var fit_height: bool = true:
 ```
 
@@ -99,6 +104,7 @@ var fit_height: bool = true:
 - API：`public`
 
 ```gdscript
+@export
 var fit_on_ready: bool = true
 ```
 
@@ -111,6 +117,7 @@ var fit_on_ready: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var refresh_on_resize: bool = true
 ```
 
@@ -123,6 +130,7 @@ var refresh_on_resize: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var refresh_on_translation_changed: bool = true
 ```
 
@@ -135,6 +143,7 @@ var refresh_on_translation_changed: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var deferred_refresh: bool = true
 ```
 
@@ -147,6 +156,7 @@ var deferred_refresh: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var options: Dictionary = {}
 ```
 

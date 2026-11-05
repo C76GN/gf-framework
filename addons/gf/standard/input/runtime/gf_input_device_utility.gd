@@ -481,7 +481,7 @@ func handle_input_event(event: InputEvent) -> int:
 	if player_index != -1 and _is_event_active_enough_for_active_player(event):
 		_set_active_player(player_index, event)
 
-	return player_index
+	return get_player_for_device(device_type, device_id)
 
 
 ## 处理本地玩家加入输入。只有匹配 join_events 的输入会触发。

@@ -349,6 +349,15 @@ func set_property_value(
 
 	var write_generation: int = _registry_generation
 	var old_value: Variant = property.read_value(target)
+	if (
+		write_generation != _registry_generation
+		or not _writes_are_allowed()
+		or not is_instance_valid(target)
+		or _resolve_target(target_id) != target
+		or _resolve_property(target_id, property_id) != property
+	):
+		_end_write(target_id, property_id)
+		return false
 	if not property.write_value(target, value):
 		_end_write(target_id, property_id)
 		return false

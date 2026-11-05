@@ -633,101 +633,15 @@ func describe_graph() -> Dictionary:
 	}
 
 
-## 创建可运行的流程图副本。
+## 复制可编辑的流程定义。每轮运行的数据由 Runner 独立管理。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param options: 可选参数，支持 clear_runtime_state。
-## [br]
-## @return: 流程图副本；复制失败时返回 null。
-## [br]
-## @schema options: 可选项 Dictionary；支持 clear_runtime_state: bool。
-func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph:
-	var graph: GFFlowGraph = _get_flow_graph_value(duplicate(true))
-	if graph != null and GFVariantData.get_option_bool(
-		options,
-		"clear_runtime_state",
-		true
-	):
-		graph.clear_runtime_state()
-	return graph
-
-
-## 序列化图内节点运行态。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。
-## [br]
-## @return: 运行态快照。
-## [br]
-## @schema return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
-func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-	var node_states: Dictionary = {}
-	for node: GFFlowNode in nodes:
-		if node == null or node.node_id == &"":
-			continue
-		var state: Dictionary = node.serialize_runtime_state(json_compatible)
-		if not state.is_empty():
-			var state_key: Variant = node.node_id
-			if json_compatible:
-				state_key = String(node.node_id)
-			node_states[state_key] = state
-	var snapshot: Dictionary = { "nodes": node_states, }
-	return snapshot
-
-
-## 反序列化图内节点运行态。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param data: 运行态快照。
-## [br]
-## @schema data: serialize_runtime_state() 返回的运行态快照 Dictionary。
-func deserialize_runtime_state(data: Dictionary) -> void:
-	if not data.has("nodes"):
-		push_error("[GFFlowGraph][flow_graph.missing_runtime_nodes] deserialize_runtime_state failed: the nodes field is missing.")
-		return
-	var node_states_value: Variant = data["nodes"]
-	if not (node_states_value is Dictionary):
-		push_error("[GFFlowGraph][flow_graph.invalid_runtime_nodes] deserialize_runtime_state failed: nodes must be a Dictionary.")
-		return
-
-	var node_states: Dictionary = node_states_value
-	for state_value: Variant in node_states.values():
-		if not (state_value is Dictionary):
-			push_error("[GFFlowGraph][flow_graph.invalid_node_runtime_state] deserialize_runtime_state failed: each node state must be a Dictionary.")
-			return
-	var leased_node_id: StringName = _get_leased_runtime_state_node_id()
-	if leased_node_id != &"":
-		push_error("[GFFlowGraph][flow_graph.deserialize_runtime_lease_active] deserialize_runtime_state failed: node runtime state is held by an execution lease: %s." % String(leased_node_id))
-		return
-	_clear_runtime_state_unchecked()
-	for node_id_variant: Variant in node_states.keys():
-		var node: GFFlowNode = get_node(_get_string_name_value(node_id_variant))
-		var state_value: Variant = node_states[node_id_variant]
-		var state: Dictionary = state_value
-		if node != null:
-			node.deserialize_runtime_state(state)
-
-
-## 清空图内所有节点运行态。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-func clear_runtime_state() -> void:
-	var leased_node_id: StringName = _get_leased_runtime_state_node_id()
-	if leased_node_id != &"":
-		push_error("[GFFlowGraph][flow_graph.clear_runtime_lease_active] clear_runtime_state failed: node runtime state is held by an execution lease: %s." % String(leased_node_id))
-		return
-	_clear_runtime_state_unchecked()
+## @return: 图资源副本，复制失败时返回 null。
+func instantiate_graph() -> GFFlowGraph:
+	return _get_flow_graph_value(duplicate(true))
 
 
 ## 校验元数据是否符合轻量 Schema。
@@ -2129,25 +2043,6 @@ func _get_identity_key(parts: PackedStringArray) -> String:
 			% [part.length(), part]
 		)
 	return result
-
-
-## 查找当前持有运行时状态租约的节点 ID。
-## [br]
-## @api private
-func _get_leased_runtime_state_node_id() -> StringName:
-	for node: GFFlowNode in nodes:
-		if node != null and node.is_runtime_state_leased():
-			return node.node_id
-	return &""
-
-
-## 清除图中各节点的运行时状态。
-## [br]
-## @api private
-func _clear_runtime_state_unchecked() -> void:
-	for node: GFFlowNode in nodes:
-		if node != null:
-			node.clear_runtime_state()
 
 
 ## 复制连接列表用于报告或目录描述。

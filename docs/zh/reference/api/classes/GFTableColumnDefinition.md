@@ -75,6 +75,7 @@ enum SortMode {
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var column_id: StringName = &""
 ```
 
@@ -88,6 +89,7 @@ var column_id: StringName = &""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var value_key: StringName = &""
 ```
 
@@ -101,6 +103,7 @@ var value_key: StringName = &""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var display_label: String = ""
 ```
 
@@ -114,6 +117,7 @@ var display_label: String = ""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var visible: bool = true
 ```
 
@@ -127,6 +131,7 @@ var visible: bool = true
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var sortable: bool = true
 ```
 
@@ -140,6 +145,7 @@ var sortable: bool = true
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var filterable: bool = true
 ```
 
@@ -153,6 +159,7 @@ var filterable: bool = true
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var editable: bool = false
 ```
 
@@ -166,6 +173,7 @@ var editable: bool = false
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var sort_mode: SortMode = SortMode.AUTO
 ```
 
@@ -179,6 +187,7 @@ var sort_mode: SortMode = SortMode.AUTO
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

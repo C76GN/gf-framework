@@ -15,19 +15,23 @@
 ## 资源示例
 
 ```gdscript
+## 可复用的目标存在条件；黑板字段含义由项目定义。
 class_name HasTargetCondition
 extends GFNodeStateCondition
 
 
+## 只判断键是否存在，不保证目标对象仍有效，也不修改黑板。
 func _evaluate(state: GFNodeState, _phase: StringName, _peer_state: StringName = &"", _args: Dictionary = {}) -> bool:
 	return state.get_blackboard().has("target")
 ```
 
 ```gdscript
+## 将状态进入通知适配到项目宿主的音频方法。
 class_name PlayStateAudioBehavior
 extends GFNodeStateBehavior
 
 
+## 仅在宿主提供约定方法时触发音频；行为资源不持有宿主生命周期。
 func _enter(state: GFNodeState, _previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 	var host := state.get_host()
 	if host != null and host.has_method("play_state_audio"):

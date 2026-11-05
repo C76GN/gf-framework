@@ -19,6 +19,8 @@ var restored := GFDeterministicRandom.from_dict(snapshot)
 
 `to_dict()` 会保存算法名、状态版本、初始种子和当前状态。状态为非零 u32；传入 0 种子时会映射到稳定默认种子，避免 xorshift32 零状态锁死。`apply_dict()` 要求 `algorithm`、`version`、`seed` 和 `state` 四个字段全部显式存在；缺失身份不会被默认解释成当前算法或版本。任一字段缺失、类型/范围非法或 `state = 0` 时，入口返回 `false` 并重置为默认随机源。
 
+算法身份必须是 `String` / `StringName` 的 `xorshift32`，版本必须是整数 `1`；`null`、字符串版本或浮点版本不会自动转换成当前身份。`seed` / `state` 仍允许合法的 u32 整数或十进制文本，便于恢复 JSON 等来源的状态。
+
 ## 与 GFSeedUtility 的关系
 
 `GFSeedUtility` 是运行时 Utility，负责项目级主 RNG、状态恢复和按标签派生 Godot `RandomNumberGenerator`。它适合普通项目随机流管理、调试复现和运行时服务注入。

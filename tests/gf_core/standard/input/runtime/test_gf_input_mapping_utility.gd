@@ -335,6 +335,287 @@ func test_higher_priority_context_blocks_lower_priority_same_input() -> void:
 	)
 
 
+func test_device_assignment_removed_during_active_player_callback_cannot_drive_input() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	devices.auto_assign_joypads_on_input = false
+	devices.max_players = 2
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	devices.set_assignment(
+		devices.create_assignment(
+			0,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			6
+		)
+	)
+	devices.set_assignment(
+		devices.create_assignment(
+			1,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			7
+		)
+	)
+	devices.set_active_player(0)
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"jump"),
+					[_make_joy_button_binding(JOY_BUTTON_A)]
+				),
+			]
+		)
+	)
+	var changed_callback: Callable = func(player_index: int) -> void:
+		if player_index == 1:
+			devices.remove_assignment(1)
+	var _connect_error: int = devices.active_player_changed.connect(changed_callback)
+	_utility.handle_input_event(
+		_make_joy_button_event(
+			7,
+			JOY_BUTTON_A,
+			true
+		)
+	)
+	assert_null(devices.get_assignment(1))
+	assert_false(_utility.is_action_active(&"jump"))
+	assert_false(_utility.is_action_active_for_player(1, &"jump"))
+	devices.active_player_changed.disconnect(changed_callback)
+	arch.dispose()
+	_utility = null
+	await get_tree().process_frame
+
+
+func test_nested_physical_release_suppresses_old_started_edge() -> void:
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"jump"),
+					[_make_key_binding(KEY_SPACE)]
+				),
+			]
+		)
+	)
+	var callback_state: Dictionary = { "released": false }
+	var changed_callback: Callable = func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"jump" and not callback_state["released"]:
+			callback_state["released"] = true
+			_utility.handle_input_event(_make_key_event(KEY_SPACE, false))
+	var _connect_error: int = _utility.action_value_changed.connect(changed_callback)
+	watch_signals(_utility)
+	_utility.handle_input_event(_make_key_event(KEY_SPACE, true))
+	assert_false(_utility.is_action_active(&"jump"))
+	assert_false(_utility.was_action_just_started(&"jump"))
+	assert_signal_not_emitted(_utility, "action_started")
+	assert_signal_emit_count(
+		_utility,
+		"action_completed",
+		1
+	)
+	_utility.action_value_changed.disconnect(changed_callback)
+
+
+func test_player_nested_physical_release_suppresses_old_started_edge() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	devices.set_assignment(
+		devices.create_assignment(
+			0,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			7
+		)
+	)
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"jump"),
+					[_make_joy_button_binding(JOY_BUTTON_A)]
+				),
+			]
+		)
+	)
+	var callback_state: Dictionary = { "released": false }
+	var changed_callback: Callable = func(
+		_player_index: int,
+		_action_id: StringName,
+		_value: Variant
+	) -> void:
+		if not callback_state["released"]:
+			callback_state["released"] = true
+			_utility.handle_input_event(
+				_make_joy_button_event(
+					7,
+					JOY_BUTTON_A,
+					false
+				)
+			)
+	var _connect_error: int = _utility.player_action_value_changed.connect(changed_callback)
+	watch_signals(_utility)
+	_utility.handle_input_event(
+		_make_joy_button_event(
+			7,
+			JOY_BUTTON_A,
+			true
+		)
+	)
+	assert_false(_utility.is_action_active_for_player(0, &"jump"))
+	assert_false(_utility.was_action_just_started_for_player(0, &"jump"))
+	assert_signal_not_emitted(_utility, "player_action_started")
+	assert_signal_emit_count(
+		_utility,
+		"player_action_completed",
+		1
+	)
+	_utility.player_action_value_changed.disconnect(changed_callback)
+	arch.dispose()
+	_utility = null
+	await get_tree().process_frame
+
+
+func test_nested_same_action_aba_keeps_only_new_start_and_other_action_keeps_outer_start() -> void:
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"jump"),
+					[_make_key_binding(KEY_SPACE)]
+				),
+				_make_mapping(
+					_make_action(&"other"),
+					[_make_key_binding(KEY_E)]
+				),
+			]
+		)
+	)
+	for same_action: bool in [true, false]:
+		_utility.clear_input_state()
+		var callback_state: Dictionary = { "nested": false }
+		var started_actions: Array[StringName] = []
+		var changed_callback: Callable = func(action_id: StringName, _value: Variant) -> void:
+			if action_id != &"jump" or callback_state["nested"]:
+				return
+			callback_state["nested"] = true
+			if same_action:
+				_utility.handle_input_event(_make_key_event(KEY_SPACE, false))
+				_utility.handle_input_event(_make_key_event(KEY_SPACE, true))
+			else:
+				_utility.handle_input_event(_make_key_event(KEY_E, true))
+		var started_callback: Callable = func(action_id: StringName, _value: Variant) -> void:
+			started_actions.append(action_id)
+		var _changed_connect_error: int = _utility.action_value_changed.connect(changed_callback)
+		var _started_connect_error: int = _utility.action_started.connect(started_callback)
+		_utility.handle_input_event(_make_key_event(KEY_SPACE, true))
+		assert_eq(
+			started_actions.count(&"jump"),
+			1
+		)
+		assert_eq(
+			started_actions.count(&"other"),
+			0 if same_action else 1
+		)
+		assert_true(_utility.is_action_active(&"jump"))
+		_utility.action_value_changed.disconnect(changed_callback)
+		_utility.action_started.disconnect(started_callback)
+
+
+func test_source_first_write_invalidation_preserves_other_source_contribution() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"jump"),
+					bindings
+				),
+			]
+		)
+	)
+	var other: GFVirtualInputSource = _utility.create_virtual_source(&"other_source", 1)
+	assert_true(other.press(&"jump"))
+	for clear_all: bool in [false, true]:
+		var source: GFVirtualInputSource = _utility.create_virtual_source(&"old_source", 0)
+		var changed_callback: Callable = func(
+			player_index: int,
+			_action_id: StringName,
+			_value: Variant
+		) -> void:
+			if player_index != 0:
+				return
+			if clear_all:
+				source.clear_all()
+			else:
+				source.source_id = &"temporary"
+				source.source_id = &"old_source"
+		var _connect_error: int = _utility.player_action_started.connect(changed_callback)
+		assert_false(
+			source.set_action_value_for_player(
+				&"jump",
+				true,
+				0
+			)
+		)
+		assert_false(_utility.is_action_active_for_player(0, &"jump"))
+		assert_true(_utility.is_action_active_for_player(1, &"jump"))
+		assert_true(_utility.is_action_active(&"jump"))
+		_utility.player_action_started.disconnect(changed_callback)
+		source.dispose()
+	other.dispose()
+
+
+func test_source_first_write_callback_disposal_or_reconfigure_releases_old_identity() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"jump"),
+					bindings
+				),
+			]
+		)
+	)
+	for reconfigure: bool in [false, true]:
+		var source: GFVirtualInputSource = _utility.create_virtual_source(&"old_source", 0)
+		var started_callback: Callable = func(_action_id: StringName, _value: Variant) -> void:
+			if reconfigure:
+				var _configured: GFVirtualInputSource = source.configure(
+					_utility,
+					&"new_source",
+					1
+				)
+			else:
+				source.dispose()
+		var _connect_error: int = _utility.action_started.connect(started_callback)
+		var _pressed: bool = source.press(&"jump")
+		assert_false(_utility.is_action_active_for_player(0, &"jump"))
+		assert_false(_utility.is_action_active(&"jump"))
+		var old_actions: Array[Dictionary] = _utility.get_virtual_source_snapshot(&"old_source")["actions"]
+		assert_eq(
+			old_actions.size(),
+			0
+		)
+		_utility.action_started.disconnect(started_callback)
+		if reconfigure:
+			assert_true(source.press(&"jump"))
+			assert_true(_utility.is_action_active_for_player(1, &"jump"))
+			source.dispose()
+
+
 func test_input_dispatch_stops_when_signal_callback_replaces_context_epoch() -> void:
 	var initial_context: GFInputContext = _make_context(
 		&"initial",
@@ -780,6 +1061,7 @@ func test_runtime_modifier_duplicates_isolate_state_between_mappings() -> void:
 
 	assert_true(source.set_axis_2d(&"first_cursor", Vector2.RIGHT))
 	assert_true(source.set_axis_2d(&"second_cursor", Vector2.RIGHT))
+	_utility.tick(0.1)
 
 	assert_eq(
 		_action_vector2(&"first_cursor"),
@@ -790,6 +1072,384 @@ func test_runtime_modifier_duplicates_isolate_state_between_mappings() -> void:
 		_action_vector2(&"second_cursor"),
 		Vector2(0.25, 0.0),
 		"同一 Resource 配置的第二份运行时副本不得继承第一份位置。"
+	)
+
+
+## 同一动作的全局和玩家光标分别积分；多个观察者读取相同样本。
+func test_stateful_mapping_step_owns_held_input_player_state_and_all_vector_reads() -> void:
+	var cursor: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	cursor.initial_position = Vector2.ZERO
+	cursor.speed = Vector2.ONE
+	cursor.clamp_to_rect = false
+	var mapping: GFInputMapping = _make_mapping(
+		_make_action(&"cursor", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	mapping.modifiers = [cursor]
+	_utility.enable_context(
+		_make_context(
+			&"players",
+			[mapping]
+		)
+	)
+	var first: GFVirtualInputSource = _utility.create_virtual_source(&"pad", 0)
+	var second: GFVirtualInputSource = _utility.create_virtual_source(&"pad", 1)
+	assert_true(first.set_axis_2d(&"cursor", Vector2.RIGHT))
+	assert_true(second.set_axis_2d(&"cursor", Vector2.LEFT))
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"cursor"),
+		Vector2.ZERO
+	)
+	_utility.tick(0.25)
+	assert_eq(
+		_utility.get_action_vector(&"cursor"),
+		Vector2.ZERO
+	)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"cursor"),
+		Vector2(0.25, 0.0)
+	)
+	assert_eq(
+		_utility.get_action_vector3_for_player(0, &"cursor"),
+		Vector3(
+			0.25,
+			0.0,
+			0.0
+		)
+	)
+	var sample: Variant = _utility.get_action_value_for_player(0, &"cursor")
+	var matches_vector: bool = sample is Vector2 and sample == Vector2(0.25, 0.0)
+	assert_true(matches_vector)
+	assert_eq(
+		_utility.get_action_vector_for_player(1, &"cursor"),
+		Vector2(-0.25, 0.0)
+	)
+	# 没有新的输入事件；手动推进仍使用此次 delta，查询个数不参与积分。
+	_utility.tick(0.5)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"cursor"),
+		Vector2(0.75, 0.0)
+	)
+	_utility.clear_player_input_state(1)
+	assert_true(second.set_axis_2d(&"cursor", Vector2.LEFT))
+	_utility.tick(0.25)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"cursor"),
+		Vector2.RIGHT
+	)
+	assert_eq(
+		_utility.get_action_vector_for_player(1, &"cursor"),
+		Vector2(-0.25, 0.0)
+	)
+
+
+## 一步中先交付的全局回调改写玩家和另一动作的贡献，只能影响下一步。
+## 等值重写也不得吞掉刚提交样本的开始、完成边沿。
+func test_stepped_writes_from_callbacks_preserve_samples_and_edges() -> void:
+	var cursor: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	cursor.initial_position = Vector2.ZERO
+	cursor.clamp_to_rect = false
+	var main: GFInputMapping = _make_mapping(
+		_make_action(&"main", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	var other: GFInputMapping = _make_mapping(
+		_make_action(&"other", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	main.action.activation_threshold = 0.125
+	main.action.release_threshold = 0.125
+	other.action.activation_threshold = 0.125
+	other.action.release_threshold = 0.125
+	main.modifiers = [cursor]
+	other.modifiers = [cursor]
+	_utility.enable_context(
+		_make_context(
+			&"step",
+			[main, other]
+		)
+	)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"player", 0)
+	assert_true(source.set_axis_2d(&"main", Vector2.RIGHT))
+	assert_true(_utility.set_virtual_action_value(&"other", Vector2.RIGHT))
+	var redirect: Callable = func(action: StringName, _value: Variant) -> void:
+		if action == &"main":
+			assert_true(source.set_axis_2d(&"main", Vector2.LEFT))
+			assert_true(_utility.set_virtual_action_value(&"other", Vector2.LEFT))
+	var repeat: Callable = func(
+		_index: int,
+		_action: StringName,
+		_value: Variant
+	) -> void:
+		assert_true(source.set_axis_2d(&"main", Vector2.LEFT))
+	var _global_connected: int = _utility.action_value_changed.connect(redirect)
+	var _player_connected: int = _utility.player_action_value_changed.connect(repeat)
+	watch_signals(_utility)
+	_utility.tick(0.25)
+	assert_eq(
+		_utility.get_action_vector(&"main"),
+		Vector2(0.25, 0.0)
+	)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"main"),
+		Vector2(0.25, 0.0)
+	)
+	assert_eq(
+		_utility.get_action_vector(&"other"),
+		Vector2(0.25, 0.0)
+	)
+	assert_true(_utility.was_action_just_started(&"main"))
+	assert_true(_utility.was_action_just_started_for_player(0, &"main"))
+	assert_signal_emit_count(
+		_utility,
+		"action_started",
+		2
+	)
+	assert_signal_emit_count(
+		_utility,
+		"player_action_started",
+		1
+	)
+	_utility.tick(0.25)
+	assert_eq(
+		_utility.get_action_vector(&"main"),
+		Vector2.ZERO
+	)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"main"),
+		Vector2.ZERO
+	)
+	assert_eq(
+		_utility.get_action_vector(&"other"),
+		Vector2.ZERO
+	)
+	assert_true(_utility.was_action_just_completed(&"main"))
+	assert_true(_utility.was_action_just_completed_for_player(0, &"main"))
+	assert_signal_emit_count(
+		_utility,
+		"action_completed",
+		2
+	)
+	assert_signal_emit_count(
+		_utility,
+		"player_action_completed",
+		1
+	)
+	_utility.action_value_changed.disconnect(redirect)
+	_utility.player_action_value_changed.disconnect(repeat)
+
+
+## 时钟和变换都是项目回调；清空或替换映射后不能再调用失效链中的项目代码。
+func test_stepped_clock_and_modifier_callbacks_cancel_remaining_chain() -> void:
+	for cancel_at: String in [
+		"first:clock",
+		"first:modify",
+		"none",
+	]:
+		var calls: Array[String] = []
+		var first: StepProbe = StepProbe.new()
+		var second: StepProbe = StepProbe.new()
+		first.label = "first"
+		second.label = "second"
+		var mapping: GFInputMapping = _make_mapping(
+			_make_action(&"axis", GFInputAction.ValueType.AXIS_2D),
+			[]
+		)
+		var context: GFInputContext = _make_context(
+			&"cancel",
+			[mapping]
+		)
+		var record: Callable = func(phase: String) -> void:
+			calls.append(phase)
+			if phase == cancel_at:
+				if phase == "first:clock":
+					_utility.clear_input_state()
+				else:
+					_utility.disable_context(context)
+		first.record = record
+		second.record = record
+		mapping.modifiers = [first, second]
+		_utility.enable_context(context)
+		assert_true(_utility.set_virtual_action_value(&"axis", Vector2.RIGHT))
+		_utility.tick(0.25)
+		match cancel_at:
+			"first:clock":
+				assert_eq(
+					calls,
+					["first:clock"]
+				)
+			"first:modify":
+				assert_eq(
+					calls,
+					["first:clock", "first:modify"]
+				)
+			_:
+				assert_eq(
+					calls,
+					[
+						"first:clock",
+						"first:modify",
+						"second:clock",
+						"second:modify",
+					]
+				)
+		first.record = Callable()
+		second.record = Callable()
+		_utility.disable_context(context)
+
+
+## 修饰器报告能力时重建上下文，同名新动作立即使用自己的无状态时机。
+func test_reentrant_modifier_classification_cannot_reschedule_replacement_context() -> void:
+	var action: GFInputAction = _make_action(&"axis", GFInputAction.ValueType.AXIS_2D)
+	var old_mapping: GFInputMapping = _make_mapping(action, [])
+	var old_context: GFInputContext = _make_context(
+		&"old",
+		[old_mapping]
+	)
+	var next_context: GFInputContext = _make_context(
+		&"next",
+		[_make_mapping(action, [])]
+	)
+	var modifier: RebindingClassifier = RebindingClassifier.new()
+	modifier.on_classify = func() -> void:
+		_utility.disable_context(old_context)
+		_utility.enable_context(next_context)
+	old_mapping.modifiers = [modifier]
+	_utility.enable_context(old_context)
+	modifier.on_classify = Callable()
+	assert_true(_utility.set_virtual_action_value(&"axis", Vector2.UP))
+	assert_eq(
+		_utility.get_action_vector(&"axis"),
+		Vector2.UP
+	)
+
+
+## 混合链按顺序各执行一次，信号监听者读取及嵌套 tick 不得多推进一步。
+func test_stateful_mapping_mixed_chain_runs_once_per_step() -> void:
+	var first: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	first.initial_position = Vector2.ZERO
+	first.clamp_to_rect = false
+	first.apply_delta_time = false
+	first.speed = Vector2(0.25, 0.0)
+	var scale: GFInputScaleModifier = GFInputScaleModifier.new()
+	scale.scale_x = 2.0
+	var second: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	second.initial_position = Vector2.ZERO
+	second.clamp_to_rect = false
+	second.apply_delta_time = false
+	var mapping: GFInputMapping = _make_mapping(
+		_make_action(&"cursor", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	mapping.modifiers = [
+		first,
+		scale,
+		second,
+	]
+	_utility.enable_context(
+		_make_context(
+			&"cursor_chain",
+			[mapping]
+		)
+	)
+	var samples: Array[Vector2] = []
+	var observe: Callable = func(action_id: StringName, _value: Variant) -> void:
+		samples.append(_utility.get_action_vector(action_id))
+		if samples.size() == 1:
+			_utility.tick(0.1)
+	var _connected: int = _utility.action_value_changed.connect(observe)
+	assert_true(_utility.set_virtual_action_value(&"cursor", Vector2.RIGHT))
+	assert_true(_utility.set_virtual_action_value(&"cursor", Vector2.RIGHT))
+	assert_true(samples.is_empty())
+	_utility.tick(0.1)
+	_utility.tick(0.1)
+	assert_eq(
+		samples,
+		[Vector2(0.5, 0.0), Vector2(1.5, 0.0)]
+	)
+	_utility.action_value_changed.disconnect(observe)
+
+
+## 全局样本回调移除设备并重建同名玩家动作时，旧步不能提前推进新玩家链。
+func test_device_removal_during_step_keeps_reentered_player_input_for_next_tick() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var devices: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	devices.include_keyboard_mouse = false
+	devices.include_touch = false
+	await arch.register_utility_instance(devices)
+	await arch.register_utility_instance(_utility)
+	await arch.init()
+	devices.set_assignment(
+		devices.create_assignment(
+			0,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			7
+		)
+	)
+	var cursor: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()
+	cursor.initial_position = Vector2.ZERO
+	cursor.clamp_to_rect = false
+	var mapping: GFInputMapping = _make_mapping(
+		_make_action(&"cursor", GFInputAction.ValueType.AXIS_2D),
+		[]
+	)
+	mapping.modifiers = [cursor]
+	_utility.enable_context(
+		_make_context(
+			&"device_rebind",
+			[mapping]
+		)
+	)
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"device", 0)
+	assert_true(source.set_axis_2d(&"cursor", Vector2.RIGHT))
+	var replace_player: Callable = func(_action_id: StringName, _value: Variant) -> void:
+		devices.remove_assignment(0)
+		assert_true(source.set_axis_2d(&"cursor", Vector2.LEFT))
+	var _connected: int = _utility.action_value_changed.connect(replace_player, CONNECT_ONE_SHOT)
+	_utility.tick(0.25)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"cursor"),
+		Vector2.ZERO
+	)
+	_utility.tick(0.25)
+	assert_eq(
+		_utility.get_action_vector_for_player(0, &"cursor"),
+		Vector2(-0.25, 0.0)
+	)
+	arch.dispose()
+	_utility = null
+	await get_tree().process_frame
+
+
+## 向量样本保留 BOOL 和单轴公开值舍去的分量。
+func test_committed_vector_keeps_components_lost_in_typed_value() -> void:
+	var target: GFInputBinding.ValueTarget = GFInputBinding.ValueTarget.AXIS_2D_Y_NEGATIVE
+	var mappings: Array[GFInputMapping] = [
+		_make_mapping(
+			_make_action(&"button"),
+			[_make_key_binding(KEY_F, target)]
+		),
+		_make_mapping(
+			_make_action(&"axis", GFInputAction.ValueType.AXIS_1D),
+			[_make_key_binding(KEY_R, target)]
+		),
+	]
+	_utility.enable_context(_make_context(&"full_vectors", mappings))
+	_utility.handle_input_event(_make_key_event(KEY_F, true))
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	var button: Variant = _utility.get_action_value(&"button")
+	var axis: Variant = _utility.get_action_value(&"axis")
+	var matches_button: bool = button is bool and button == true
+	var matches_axis: bool = axis is float and axis == 0.0
+	assert_true(matches_button)
+	assert_true(matches_axis)
+	assert_eq(
+		_utility.get_action_vector(&"button"),
+		Vector2.UP
+	)
+	assert_eq(
+		_utility.get_action_vector3(&"axis"),
+		Vector3.DOWN
 	)
 
 
@@ -4701,6 +5361,57 @@ func test_sequence_consumes_each_started_edge_once() -> void:
 	)
 
 
+func test_sequence_rejects_reverse_cross_action_edges() -> void:
+	_utility.enable_context(
+		_make_context(
+			&"gameplay",
+			[
+				_make_mapping(
+					_make_action(&"first"),
+					[]
+				),
+				_make_mapping(
+					_make_action(&"second"),
+					[]
+				),
+			]
+		)
+	)
+	var trigger: GFInputSequenceTrigger = GFInputSequenceTrigger.new()
+	trigger.required_action_ids = [&"first", &"second"]
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	trigger.prepare_runtime(
+		&"special",
+		_utility,
+		-1,
+		state
+	)
+	assert_true(_utility.set_virtual_action_value(&"second", true))
+	assert_true(_utility.set_virtual_action_value(&"first", true))
+	for _index: int in range(2):
+		assert_ne(
+			trigger.update(
+				true,
+				true,
+				0.0,
+				state
+			),
+			GFInputTrigger.TriggerState.TRIGGERED
+		)
+	assert_true(_utility.clear_virtual_action(&"second"))
+	assert_true(_utility.set_virtual_action_value(&"second", true))
+	assert_eq(
+		trigger.update(
+			true,
+			true,
+			0.0,
+			state
+		),
+		GFInputTrigger.TriggerState.TRIGGERED
+	)
+
+
 func test_sequence_consumes_each_completed_edge_once() -> void:
 	_utility.enable_context(
 		_make_context(
@@ -7013,6 +7724,61 @@ func _find_router_node() -> Node:
 
 
 # --- 内部类 ---
+
+## 记录 Mapping 推进的各个项目回调，验证在它们之间失效的边界。
+## [br]
+## @api private
+class StepProbe extends GFInputModifier:
+	var label: String = ""
+	var record: Callable = Callable()
+
+
+	func supports_runtime_state() -> bool:
+		return true
+
+
+	func set_runtime_delta_seconds(_delta_seconds: float) -> GFInputModifier:
+		var _result: Variant = record.call(label + ":clock")
+		return self
+
+
+	func modify(
+		value: Vector2,
+		_event: InputEvent = null,
+		_action: GFInputAction = null
+	) -> Vector2:
+		var _result: Variant = record.call(label + ":modify")
+		return value
+
+
+	func duplicate_modifier() -> GFInputModifier:
+		var modifier: StepProbe = StepProbe.new()
+		modifier.label = label
+		modifier.record = record
+		return modifier
+
+
+## 为分类期间替换上下文提供同步回调，每个运行副本仅共享业务回调。
+## [br]
+## @api private
+class RebindingClassifier extends GFInputModifier:
+	## 测试拥有者负责在回调取消注册后清理捕获的上下文。
+	## [br]
+	## @api private
+	var on_classify: Callable = Callable()
+
+
+	func supports_runtime_state() -> bool:
+		if on_classify.is_valid():
+			var _result: Variant = on_classify.call()
+		return true
+
+
+	func duplicate_modifier() -> GFInputModifier:
+		var modifier: RebindingClassifier = RebindingClassifier.new()
+		modifier.on_classify = on_classify
+		return modifier
+
 
 class CompositionSource extends RefCounted:
 	var source: GFVirtualInputSource

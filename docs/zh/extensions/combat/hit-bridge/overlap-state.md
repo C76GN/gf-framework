@@ -19,12 +19,15 @@ HurtBox 支持 `accepted_hit_ids`、`rejected_hit_ids` 和 `validation_callback`
 需要随状态统一开关一组命中区域时，可以把 `GFHitBoxState2D` 或 `GFHitBoxState3D` 放在区域节点上层。它会递归管理子树内的 `GFHitBox*`、`GFHurtBox*` 和 `Area*`，可选择同步 `enabled`、`monitoring` / `monitorable` 和可见性：
 
 ```gdscript
+## 当前攻击窗口控制的区域组；具体开关时机由项目动画或技能事件决定。
 @onready var attack_state: GFHitBoxState2D = $AttackHitBoxes
 
+## 项目攻击窗口开始时允许区域参与收发命中。
 func _on_attack_started() -> void:
 	attack_state.activate()
 
 
+## 项目攻击窗口结束时关闭区域；不在此计算伤害或判定攻击结果。
 func _on_attack_finished() -> void:
 	attack_state.deactivate()
 ```
@@ -34,16 +37,20 @@ func _on_attack_finished() -> void:
 和节点状态机配合时，推荐在具体 `GFNodeState` 的 `_enter()` / `_exit()` 中控制攻击窗口，这样命中盒开关和角色状态生命周期保持一致：
 
 ```gdscript
+## 将命中区域启停绑定到项目攻击状态，离开状态时关闭攻击窗口。
 class_name AttackState
 extends GFNodeState
 
+## 本状态控制的区域组；场景结构须提供此子节点。
 @onready var attack_state: GFHitBoxState2D = $AttackHitBoxes
 
 
+## 状态进入时打开命中窗口；区域组不自行决定攻击时机。
 func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 	attack_state.activate()
 
 
+## 无论转向哪个状态，都关闭当前攻击窗口。
 func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
 	attack_state.deactivate()
 ```

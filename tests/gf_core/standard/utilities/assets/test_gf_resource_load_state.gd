@@ -5,6 +5,38 @@ const GF_RESOURCE_IDENTITY_SCRIPT = preload("res://addons/gf/standard/utilities/
 const GF_THREADED_RESOURCE_LOAD_ADAPTER_SCRIPT = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
 
 
+func test_duplicate_preserves_non_success_status_with_live_resource() -> void:
+	var resource: Resource = Resource.new()
+	for mode: StringName in [GFResourceLoadState.REFERENCE_STRONG, GFResourceLoadState.REFERENCE_WEAK]:
+		for status: StringName in [
+			GFResourceLoadState.STATUS_STALE,
+			GFResourceLoadState.STATUS_FAILED,
+			GFResourceLoadState.STATUS_LOADING,
+		]:
+			var state: GFResourceLoadState = GFResourceLoadState.new()
+			var _loaded: GFResourceLoadState = state.set_resource(
+				resource,
+				{ "reference_mode": mode }
+			)
+			match status:
+				GFResourceLoadState.STATUS_STALE:
+					var _stale: GFResourceLoadState = state.mark_stale()
+				GFResourceLoadState.STATUS_FAILED:
+					var _failed: GFResourceLoadState = state.mark_failed("broken")
+				GFResourceLoadState.STATUS_LOADING:
+					var _loading: GFResourceLoadState = state.mark_loading(0.4)
+			var copy: GFResourceLoadState = state.duplicate_state()
+			assert_eq(
+				copy.to_dictionary(),
+				state.to_dictionary()
+			)
+			assert_same(
+				copy.get_resource(),
+				resource
+			)
+			assert_false(copy.is_success())
+
+
 func test_resource_load_state_tracks_progress_resource_and_release() -> void:
 	var state: GF_RESOURCE_LOAD_STATE_SCRIPT = GF_RESOURCE_LOAD_STATE_SCRIPT.new()
 	var _configured: GF_RESOURCE_LOAD_STATE_SCRIPT = state.configure(

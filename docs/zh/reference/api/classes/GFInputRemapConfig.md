@@ -38,6 +38,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var remapped_events: Dictionary = {}
 ```
 
@@ -54,6 +55,7 @@ var remapped_events: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var custom_data: Dictionary = {}
 ```
 

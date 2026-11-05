@@ -2016,6 +2016,68 @@ func test_spatial_sfx_rejects_disposed_service_and_insertion_dispose() -> void:
 	)
 
 
+## 环境音首次挂载触发释放时，候选必须受释放清理且旧请求不得恢复会话。
+func test_ambient_insertion_dispose_reentry_does_not_publish_player() -> void:
+	var candidate: Array[Node] = []
+	var callback: Callable = func(child: Node) -> void:
+		if child is AudioStreamPlayer and String(child.name).begins_with("GFAmbientPlayer_"):
+			candidate.append(child)
+			_audio.dispose()
+	var root: Node = _audio._root
+	var _connected: int = root.child_entered_tree.connect(callback)
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	_audio.play_ambient_clip(clip, &"reentrant")
+	root.child_entered_tree.disconnect(callback)
+	assert_false(_audio._is_initialized)
+	assert_true(_audio._ambient_players.is_empty())
+	assert_true(_audio._ambient_sessions.is_empty())
+	await get_tree().process_frame
+	assert_eq(
+		candidate.size(),
+		1
+	)
+	assert_false(is_instance_valid(candidate[0]))
+
+
+## 同一挂载回调释放并重启服务时，新代次播放器不能被旧请求覆盖或清理。
+func test_ambient_insertion_restart_preserves_new_generation() -> void:
+	var candidates: Array[Node] = []
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var callback: Callable = func(child: Node) -> void:
+		if (
+			candidates.is_empty()
+			and child is AudioStreamPlayer
+			and String(child.name).begins_with("GFAmbientPlayer_")
+		):
+			candidates.append(child)
+			if candidates.size() == 1:
+				_audio.dispose()
+				_audio.init()
+				_audio.play_ambient_clip(clip, &"reentrant")
+	var root: Node = _audio._root
+	var _connected: int = root.child_entered_tree.connect(callback)
+	_audio.play_ambient_clip(clip, &"reentrant")
+	root.child_entered_tree.disconnect(callback)
+	assert_true(_audio._is_initialized)
+	assert_eq(
+		candidates.size(),
+		1
+	)
+	var new_player: Variant = _audio._ambient_players.get(&"reentrant")
+	assert_true(new_player is AudioStreamPlayer)
+	if new_player is AudioStreamPlayer:
+		var typed_player: AudioStreamPlayer = new_player
+		assert_ne(
+			typed_player,
+			candidates[0]
+		)
+	await get_tree().process_frame
+	assert_false(is_instance_valid(candidates[0]))
+	assert_true(is_instance_valid(new_player))
+
+
 func test_sfx_insertion_dispose_reentry_does_not_publish_player() -> void:
 	var callback: Callable = func(child: Node) -> void:
 		if child is AudioStreamPlayer and child.name == &"GFSFXPlayer":

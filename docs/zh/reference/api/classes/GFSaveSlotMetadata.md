@@ -44,6 +44,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var slot_id: StringName = &""
 ```
 
@@ -56,6 +57,7 @@ var slot_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -68,6 +70,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -80,6 +83,7 @@ var description: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var schema_id: StringName = &""
 ```
 
@@ -92,6 +96,7 @@ var schema_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_range(1, 999999, 1)
 var schema_version: int = 1
 ```
 
@@ -104,6 +109,7 @@ var schema_version: int = 1
 - API：`public`
 
 ```gdscript
+@export
 var app_version: String = ""
 ```
 
@@ -116,6 +122,7 @@ var app_version: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var created_at_unix: int = 0
 ```
 
@@ -128,6 +135,7 @@ var created_at_unix: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var updated_at_unix: int = 0
 ```
 
@@ -140,6 +148,7 @@ var updated_at_unix: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var elapsed_seconds: float = 0.0
 ```
 
@@ -152,6 +161,7 @@ var elapsed_seconds: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -164,6 +174,7 @@ var tags: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var custom_metadata: Dictionary = {}
 ```
 

@@ -17,6 +17,38 @@ class MetadataPipelineStep extends GFSavePipelineStep:
 		return payload
 
 
+class ApplyObserver extends GFSavePipelineStep:
+	var order: Array[String] = []
+	var seen: Dictionary = {}
+	var rewrite_result: bool = false
+
+	func _after_apply_scope(
+		scope: GFSaveScope,
+		_payload: Dictionary,
+		result: Dictionary,
+		context: Dictionary = {}
+	) -> Variant:
+		var key: String = String(scope.get_scope_key())
+		order.append("observe:" + key)
+		seen[key] = result.duplicate(true)
+		if not rewrite_result:
+			return null
+		var pipeline_value: Variant = context.get("pipeline_context")
+		if pipeline_value is GFSavePipelineContext:
+			var pipeline: GFSavePipelineContext = pipeline_value
+			pipeline.add_warning("diagnostic:" + key)
+			pipeline.clear_transaction_participants()
+		var errors: Array = GFVariantData.get_option_array(result, "errors")
+		errors.clear()
+		errors.append("forged")
+		result["applied"] = 99
+		return {
+			"ok": not GFResultDictionary.is_ok(result),
+			"errors": errors,
+			"applied": 99,
+		}
+
+
 class PlainEntityFactory extends GFSaveEntityFactory:
 	var created_entity: Node = null
 
@@ -179,6 +211,89 @@ class NodeReferencePropertyNode extends Node:
 		return false
 
 
+class StoredPropertyNode extends Node2D:
+	var value: Variant = "healthy"
+	var literal_value: Variant = null
+	var resource_value: Resource = null
+
+
+class SnapshotAdmissionSource extends GFSaveSource:
+	var value: int = 7
+	var apply_count: int = 0
+	var fail_capture: bool = false
+	var fail_apply: bool = false
+
+	func _gather_save_data(_context: Dictionary = {}, _registry: GFNodeSerializerRegistry = null) -> Variant:
+		if fail_capture:
+			return null
+		return { "value": value }
+
+
+	func _apply_save_data(
+		data: Variant,
+		_context: Dictionary = {},
+		_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		value = GFVariantData.get_option_int(
+			GFVariantData.as_dictionary(data),
+			"value"
+		)
+		apply_count += 1
+		return make_result(
+			not fail_apply or value == 7,
+			"Injected apply failure."
+		)
+
+
+class NativeValueSource extends GFSaveSource:
+	var value: Vector2 = Vector2(31.0, 32.0)
+
+	func _gather_save_data(_context: Dictionary = {}, _registry: GFNodeSerializerRegistry = null) -> Variant:
+		return { "value": value }
+
+
+	func _apply_save_data(
+		data: Variant,
+		_context: Dictionary = {},
+		_registry: GFNodeSerializerRegistry = null
+	) -> Dictionary:
+		var dictionary: Dictionary = GFVariantData.as_dictionary(data)
+		var restored: Variant = dictionary.get("value")
+		if not restored is Vector2:
+			return make_result(false, "Non-Property Source requires its native Vector2.")
+		value = restored
+		return make_result(true)
+
+
+class RebuildPropertyDocumentStep extends GFSaveMigrationStep:
+	@export var complete_prepared: bool = true
+
+	func _init() -> void:
+		step_id = &"rebuild_property"
+		schema_id = &"project.property"
+		from_version = 1
+		to_version = 2
+
+
+	func _migrate_document(document: GFSaveDocument, _context: Dictionary = {}) -> GFSaveDocument:
+		var section: GFSaveSection = document.get_section(&"project.graph")
+		var payload: Dictionary = GFVariantData.as_dictionary(section.get_payload())
+		var sources: Dictionary = GFVariantData.as_dictionary(payload.get("sources"))
+		var source: Dictionary = GFVariantData.as_dictionary(sources.get("property"))
+		var data: Dictionary = GFVariantData.as_dictionary(source.get("data"))
+		var serializers: Array = GFVariantData.as_array(data.get("serializers"))
+		var entry: Dictionary = GFVariantData.as_dictionary(serializers[0])
+		entry["data"] = { "position": (GFVariantJsonCodec.variant_to_json_compatible(Vector2(21.0, 22.0)) if complete_prepared else Vector2(21.0, 22.0)), }
+		var rebuilt: GFSaveSection = GFSaveSection.new().configure(
+			section.get_section_id(),
+			section.get_schema_version(),
+			payload,
+			section.get_metadata()
+		)
+		var _stored: bool = document.set_section(rebuilt)
+		return document
+
+
 class RecordingApplySource extends GFSaveSource:
 	var order: Array[String] = []
 
@@ -230,6 +345,14 @@ class RecordingTransactionParticipant extends GFSaveTransactionParticipant:
 		if not rollback_ok:
 			errors.append("rollback_failed")
 		return make_result(rollback_ok, errors)
+
+
+class ReleasingScopeParticipant extends GFSaveTransactionParticipant:
+	var target: GFSaveScope
+
+	func _commit_transaction(_context: Dictionary = {}) -> Dictionary:
+		target.free()
+		return make_result(true)
 
 
 class TransactionParticipantSource extends GFSaveSource:
@@ -466,6 +589,263 @@ func test_save_scope_persists_canonical_document_and_loads_it() -> void:
 	var _delete_result: Error = storage.delete_file("graph_document.sav")
 	_utility.release_dependencies()
 	architecture.dispose()
+
+
+func test_property_source_rejects_oversized_values_before_replacing_healthy_storage() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_property_source_incomplete_save"
+	storage.init()
+	assert_true(await architecture.register_utility(GFStorageUtility, storage))
+	_utility.inject_dependencies(architecture)
+	var target: StoredPropertyNode = StoredPropertyNode.new()
+	target.name = "PropertyTarget"
+	_scope.add_child(target)
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["value"])
+	_add_property_source(serializer)
+	assert_eq(
+		_utility.save_scope("property.sav", _scope),
+		OK
+	)
+	var healthy: GFStorageReadResult = storage.load_data("property.sav")
+	assert_true(healthy.ok)
+	var expected: Dictionary = healthy.payload.duplicate(true)
+	var oversized: Array = []
+	assert_eq(
+		oversized.resize(20_000),
+		OK
+	)
+	oversized.fill(1)
+	target.value = oversized
+	var pipeline_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope)
+
+	var failed_save: Error = _utility.save_scope(
+		"property.sav",
+		_scope,
+		{},
+		{ "pipeline_context": pipeline_context }
+	)
+	var retained: GFStorageReadResult = storage.load_data("property.sav")
+
+	assert_eq(
+		failed_save,
+		ERR_INVALID_DATA,
+		"完整采集失败不能被转换成可提交的小诊断字典。"
+	)
+	assert_false(
+		pipeline_context.errors.is_empty(),
+		"属性失败必须传播至真实 Source/Graph 流程。"
+	)
+	assert_true(retained.ok)
+	assert_eq(
+		retained.payload,
+		expected,
+		"失败采集必须保留最后一份健康存档。"
+	)
+	target.value = INF
+	var non_finite_context: GFSavePipelineContext = _utility.create_pipeline_context(&"gather", _scope)
+	assert_eq(
+		_utility.save_scope(
+			"property.sav",
+			_scope,
+			{},
+			{ "pipeline_context": non_finite_context }
+		),
+		ERR_INVALID_DATA,
+		"JSON Float marker 不能隐藏 Save 禁止的原始非有限数。"
+	)
+	assert_false(non_finite_context.errors.is_empty())
+	assert_eq(
+		storage.load_data("property.sav").payload,
+		expected
+	)
+	var _deleted: Error = storage.delete_file("property.sav")
+	_utility.release_dependencies()
+	architecture.dispose()
+
+
+func test_property_source_roundtrips_typed_values_through_default_json_storage() -> void:
+	await _assert_property_storage_roundtrip(GFStorageCodec.Format.JSON)
+
+
+func test_property_source_roundtrips_typed_values_through_binary_storage() -> void:
+	await _assert_property_storage_roundtrip(GFStorageCodec.Format.BINARY)
+
+
+func test_property_source_roundtrips_through_slot_document_clones() -> void:
+	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
+		await _assert_property_storage_roundtrip(active_format, &"document")
+
+
+func test_property_source_roundtrips_through_slot_section_clones() -> void:
+	for active_format: GFStorageCodec.Format in [GFStorageCodec.Format.JSON, GFStorageCodec.Format.BINARY]:
+		await _assert_property_storage_roundtrip(active_format, &"section")
+
+
+func test_property_slot_migration_uses_new_prepared_data_and_rejects_unencoded_native_data() -> void:
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_property_slot_migration"
+	storage.init()
+	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(storage)
+	var target: StoredPropertyNode = StoredPropertyNode.new()
+	target.name = "PropertyTarget"
+	target.position = Vector2(11.0, 12.0)
+	_scope.add_child(target)
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["position"])
+	_add_property_source(serializer)
+	var section: GFSaveSection = _utility.gather_section(_scope, &"project.graph")
+	var document: GFSaveDocument = GFSaveDocument.new().configure(
+		&"project.property",
+		1,
+		[section],
+		{ "native": Vector2(41.0, 42.0) }
+	)
+	assert_eq(
+		adapter.save_slot(0, document),
+		OK
+	)
+	var schema: GFSaveDocumentSchema = GFSaveDocumentSchema.new().configure(
+		&"project.property",
+		2,
+		{ &"project.graph": 1 }
+	)
+	for complete_prepared: bool in [true, false]:
+		var migrations: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
+		var step: RebuildPropertyDocumentStep = RebuildPropertyDocumentStep.new()
+		step.complete_prepared = complete_prepared
+		assert_true(migrations.register_step(step))
+		var loaded: GFSaveDocumentReadResult = adapter.load_slot(
+			0,
+			schema,
+			migrations
+		)
+		assert_true(
+			loaded.is_successful(),
+			loaded.get_error()
+		)
+		assert_true(loaded.was_migrated())
+		var migrated: GFSaveDocument = loaded.get_document()
+		var migrated_native: Variant = migrated.get_metadata().get("native")
+		assert_true(migrated_native is Vector2)
+		if migrated_native is Vector2:
+			var migrated_vector: Vector2 = migrated_native
+			assert_eq(
+				migrated_vector,
+				Vector2(41.0, 42.0)
+			)
+		target.position = Vector2.ZERO
+		var result: Dictionary = _utility.apply_section(
+			_scope,
+			migrated.get_section(&"project.graph")
+		)
+		assert_eq(
+			GFResultDictionary.is_ok(result),
+			complete_prepared,
+			"迁移必须使用新载荷的完整编码，不能回用旧 JSON 投影。"
+		)
+		assert_eq(
+			target.position,
+			Vector2(21.0, 22.0) if complete_prepared else Vector2.ZERO
+		)
+	var _deleted: Error = adapter.delete_slot(0)
+	storage.dispose()
+
+
+func test_property_projection_follows_actual_registry_type_and_nested_persist_source() -> void:
+	for use_registry: bool in [true, false]:
+		var architecture: GFArchitecture = GFArchitecture.new()
+		var storage: GFStorageUtility = GFStorageUtility.new()
+		storage.save_dir_name = "test_property_dispatch_%d" % int(use_registry)
+		storage.init()
+		assert_true(await architecture.register_utility(GFStorageUtility, storage))
+		_utility.inject_dependencies(architecture)
+		_utility.serializer_registry.clear()
+		var owner_scope: GFSaveScope = _scope
+		var child_scope: GFSaveScope = null
+		if not use_registry:
+			child_scope = GFSaveScope.new()
+			child_scope.scope_key = &"child"
+			_scope.add_child(child_scope)
+			owner_scope = child_scope
+		var target: Node2D = Node2D.new()
+		target.name = "DispatchTarget"
+		target.position = Vector2(11.0, 12.0)
+		owner_scope.add_child(target)
+		var source: GFSaveSource
+		if use_registry:
+			var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+			serializer.serializer_id = &"project.custom_property"
+			serializer.properties = PackedStringArray(["position"])
+			_utility.serializer_registry.register_serializer(serializer)
+			source = _make_source(
+				&"property",
+				NodePath("../DispatchTarget")
+			)
+		else:
+			var property_source: GFPersistPropertiesSource = GFPersistPropertiesSource.new()
+			property_source.source_key = &"property"
+			property_source.target_node_path = NodePath("../DispatchTarget")
+			property_source.properties = PackedStringArray(["position"])
+			source = property_source
+		owner_scope.add_child(source)
+		assert_eq(
+			_utility.save_scope("property.sav", _scope),
+			OK
+		)
+		target.position = Vector2.ZERO
+
+		var result: Dictionary = _utility.load_scope("property.sav", _scope)
+
+		assert_true(
+			GFResultDictionary.is_ok(result),
+			"Property dispatch mode %s failed: %s"
+			% [use_registry, result]
+		)
+		assert_eq(
+			target.position,
+			Vector2(11.0, 12.0)
+		)
+		var _deleted: Error = storage.delete_file("property.sav")
+		_utility.release_dependencies()
+		architecture.dispose()
+		if child_scope != null:
+			child_scope.free()
+		else:
+			source.free()
+			target.free()
+
+
+func test_property_source_rejects_bad_marker_mixed_with_native_values_before_writing() -> void:
+	var target: StoredPropertyNode = StoredPropertyNode.new()
+	target.name = "PropertyTarget"
+	_scope.add_child(target)
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(["value"])
+	_add_property_source(serializer)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	var bad_marker: Dictionary = GFVariantData.as_dictionary(GFVariantJsonCodec.variant_to_json_compatible(Vector2.ONE))
+	var marker_body: Dictionary = GFVariantData.as_dictionary(bad_marker.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+	marker_body[GFVariantJsonCodec.JSON_VALUE_KEY] = [1.0]
+	var sources: Dictionary = GFVariantData.as_dictionary(payload.get("sources"))
+	var source_payload: Dictionary = GFVariantData.as_dictionary(sources.get("property"))
+	source_payload["data"] = {
+		"serializers": [
+			{
+				"id": &"gf.property",
+				"data": {
+					"value": [Vector2.ONE, bad_marker],
+				},
+			},
+		],
+	}
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFResultDictionary.is_ok(result))
+	var original_preserved: bool = target.value == "healthy"
+	assert_true(original_preserved, "混入未编码原生值或坏 marker 都不得写入属性。")
 
 
 func test_load_scope_rejects_legacy_bare_graph_payload() -> void:
@@ -1680,6 +2060,134 @@ func test_apply_scope_orders_same_phase_sources_by_stable_key() -> void:
 	)
 
 
+func test_after_apply_observers_cannot_veto_nested_commit_or_change_the_next_observation() -> void:
+	var order: Array[String] = []
+	var child: RecordingAfterLoadScope = RecordingAfterLoadScope.new(&"child", order)
+	_scope.add_child(child)
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"inventory", order)
+	child.add_child(
+		RecordingAfterLoadSource.new(
+			&"items",
+			order,
+			participant
+		)
+	)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	var writer: ApplyObserver = ApplyObserver.new()
+	writer.order = order
+	writer.rewrite_result = true
+	var reader: ApplyObserver = ApplyObserver.new()
+	_utility.pipeline_steps.assign([writer, reader])
+	var pipeline: GFSavePipelineContext = _utility.create_pipeline_context(&"apply", _scope)
+
+	var result: Dictionary = _utility.apply_scope(
+		_scope,
+		payload,
+		{ "pipeline_context": pipeline }
+	)
+	var expected: Array[String] = [
+		"apply:items",
+		"prepare:inventory",
+		"commit:inventory",
+		"after_source:items",
+		"after_scope:child",
+		"observe:child",
+		"observe:root",
+	]
+	assert_eq(order, expected)
+	assert_true(GFResultDictionary.is_ok(result))
+	assert_eq(
+		GFVariantData.get_option_int(result, "applied"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_array(result, "errors"),
+		[]
+	)
+	assert_eq(reader.seen, writer.seen)
+	assert_eq(
+		GFVariantData.get_option_dictionary(reader.seen, "root"),
+		result
+	)
+	assert_eq(
+		pipeline.warnings,
+		PackedStringArray(["diagnostic:child", "diagnostic:root"])
+	)
+
+
+func test_after_apply_skips_a_scope_released_by_a_committing_participant() -> void:
+	var order: Array[String] = []
+	_scope.add_child(RecordingAfterLoadSource.new(&"root_items", order))
+	for release_root: bool in [false, true]:
+		var child: GFSaveScope = GFSaveScope.new()
+		child.scope_key = &"child"
+		_scope.add_child(child)
+		var participant: ReleasingScopeParticipant = ReleasingScopeParticipant.new()
+		participant.target = _scope if release_root else child
+		child.add_child(TransactionParticipantSource.new(&"items", participant))
+		var payload: Dictionary = _utility.gather_scope(_scope)
+		var observer: ApplyObserver = ApplyObserver.new()
+		_utility.pipeline_steps.assign([observer])
+
+		var result: Dictionary = _utility.apply_scope(_scope, payload)
+		assert_true(GFResultDictionary.is_ok(result))
+		assert_false(observer.seen.has("child"))
+		assert_eq(
+			observer.seen.has("root"),
+			not release_root
+		)
+		assert_eq(
+			order.count("after_source:root_items"),
+			1
+		)
+
+
+func test_after_apply_reports_real_rollback_failures_even_if_a_step_returns_success() -> void:
+	var order: Array[String] = []
+	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"inventory", order)
+	participant.prepare_ok = false
+	participant.rollback_ok = false
+	_scope.add_child(
+		RecordingAfterLoadSource.new(
+			&"items",
+			order,
+			participant
+		)
+	)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	var observer: ApplyObserver = ApplyObserver.new()
+	observer.rewrite_result = true
+	_utility.pipeline_steps.append(observer)
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+	assert_false(GFResultDictionary.is_ok(result))
+	assert_true(GFVariantData.to_text(result.get("errors")).contains("prepare_failed"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			result,
+			"atomicity_restored",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_array(result, "rollback_failures").size(),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(observer.seen, "root"),
+		result
+	)
+	assert_eq(
+		order,
+		[
+			"apply:items",
+			"prepare:inventory",
+			"rollback:inventory",
+			"apply:items",
+		]
+	)
+
+
 func test_apply_scope_commits_registered_transaction_participants() -> void:
 	var order: Array[String] = []
 	var participant: RecordingTransactionParticipant = RecordingTransactionParticipant.new(&"external", order)
@@ -1840,6 +2348,18 @@ func test_apply_scope_exposes_source_snapshot_rollback_failure() -> void:
 		8,
 		"回滚失败后残留状态必须与 atomicity 证据一致。"
 	)
+
+
+func test_child_snapshot_failure_stops_later_sibling_mutation_and_restores_prior_source() -> void:
+	_assert_failed_child_scope_behavior(true, false)
+
+
+func test_nested_snapshot_failure_stops_siblings_at_every_parent_and_restores_prior_sources() -> void:
+	_assert_failed_child_scope_behavior(true, true)
+
+
+func test_ordinary_child_apply_failure_keeps_later_sibling_error_collection() -> void:
+	_assert_failed_child_scope_behavior(false, false)
 
 
 func test_apply_scope_internal_state_cannot_be_forged_by_context_keys() -> void:
@@ -2445,6 +2965,282 @@ func test_apply_scope_rejects_factory_source_deleted_by_after_hook() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _assert_failed_child_scope_behavior(snapshot_failure: bool, nested: bool) -> void:
+	var prior: SnapshotAdmissionSource = SnapshotAdmissionSource.new()
+	prior.source_key = &"prior"
+	prior.value = 90
+	_scope.add_child(prior)
+	var first_scope: GFSaveScope = GFSaveScope.new()
+	first_scope.scope_key = &"a"
+	_scope.add_child(first_scope)
+	var failing_scope: GFSaveScope = first_scope
+	var nested_prior: SnapshotAdmissionSource = null
+	var inner_later: SnapshotAdmissionSource = null
+	if nested:
+		nested_prior = SnapshotAdmissionSource.new()
+		nested_prior.source_key = &"prior"
+		nested_prior.value = 93
+		first_scope.add_child(nested_prior)
+		failing_scope = GFSaveScope.new()
+		failing_scope.scope_key = &"a_inner"
+		first_scope.add_child(failing_scope)
+		var inner_later_scope: GFSaveScope = GFSaveScope.new()
+		inner_later_scope.scope_key = &"b_inner"
+		first_scope.add_child(inner_later_scope)
+		inner_later = SnapshotAdmissionSource.new()
+		inner_later.source_key = &"later"
+		inner_later.value = 94
+		inner_later_scope.add_child(inner_later)
+	var failing: SnapshotAdmissionSource = SnapshotAdmissionSource.new()
+	failing.source_key = &"failing"
+	failing.value = 91
+	failing_scope.add_child(failing)
+	var later_scope: GFSaveScope = GFSaveScope.new()
+	later_scope.scope_key = &"b"
+	_scope.add_child(later_scope)
+	var later: SnapshotAdmissionSource = SnapshotAdmissionSource.new()
+	later.source_key = &"later"
+	later.value = 92
+	later_scope.add_child(later)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	prior.value = 7
+	failing.value = 7
+	later.value = 7
+	if nested:
+		nested_prior.value = 7
+		inner_later.value = 7
+	failing.fail_capture = snapshot_failure
+	failing.fail_apply = not snapshot_failure
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFResultDictionary.is_ok(result))
+	assert_true(GFVariantData.get_option_bool(result, "atomicity_restored"))
+	assert_eq(prior.value, 7)
+	assert_eq(
+		prior.apply_count,
+		2,
+		"捕获失败前成功应用的 Source 必须恢复旧值。"
+	)
+	assert_eq(
+		failing.apply_count,
+		0 if snapshot_failure else 2
+	)
+	assert_eq(later.value, 7)
+	assert_eq(
+		later.apply_count,
+		0 if snapshot_failure else 2,
+		"只有 snapshot 捕获失败应阻止后续兄弟 mutation。"
+	)
+	if nested:
+		assert_eq(nested_prior.value, 7)
+		assert_eq(nested_prior.apply_count, 2)
+		assert_eq(inner_later.value, 7)
+		assert_eq(
+			inner_later.apply_count,
+			0,
+			"fatal 捕获失败必须逐层传播，内层兄弟也不能先写再回滚。"
+		)
+
+
+func _add_property_source(serializer: GFNodePropertySerializer) -> void:
+	var source: GFSaveSource = GFSaveSource.new()
+	source.source_key = &"property"
+	source.target_node_path = NodePath("../PropertyTarget")
+	source.serializers = [serializer]
+	_scope.add_child(source)
+
+
+func _assert_property_storage_roundtrip(active_format: GFStorageCodec.Format, document_route: StringName = &"") -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var storage: GFStorageUtility = GFStorageUtility.new()
+	storage.save_dir_name = "test_property_source_roundtrip_%d" % active_format
+	storage.codec.format = active_format
+	storage.file_format = active_format
+	storage.init()
+	assert_true(await architecture.register_utility(GFStorageUtility, storage))
+	_utility.inject_dependencies(architecture)
+	var resource_path: String = "user://gf_property_source_roundtrip_%d.tres" % active_format
+	var saved_resource: Resource = Resource.new()
+	saved_resource.resource_name = "RoundtripProperty"
+	assert_eq(
+		ResourceSaver.save(saved_resource, resource_path),
+		OK
+	)
+	var target: StoredPropertyNode = StoredPropertyNode.new()
+	target.name = "PropertyTarget"
+	target.position = Vector2(8.0, -2.5)
+	target.visible = false
+	target.value = {
+		"nested": [
+			Vector3(
+				1.0,
+				2.0,
+				3.0
+			),
+			Color.CORNFLOWER_BLUE,
+		],
+		Vector2(4.0, 5.0): PackedInt32Array([1, 2]),
+		"literal_variant": GFVariantJsonCodec.variant_to_json_compatible(Vector2(6.0, 7.0)),
+	}
+	_scope.add_child(target)
+	target.literal_value = GFVariantReferenceCodec.encode_reference(
+		target,
+		{ GFVariantReferenceCodec.OPTION_ROOT_NODE: _scope }
+	)
+	target.resource_value = ResourceLoader.load(resource_path)
+	var expected: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(target.value))
+	var expected_literal: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(target.literal_value))
+	if active_format == GFStorageCodec.Format.JSON:
+		# 字面 Dictionary 中的 JSON 数字沿用 Storage 默认 float 语义；类型标记不能被再次解释。
+		expected["literal_variant"] = JSON.parse_string(JSON.stringify(expected["literal_variant"]))
+		expected_literal = GFVariantData.as_dictionary(JSON.parse_string(JSON.stringify(expected_literal)))
+	var serializer: GFNodePropertySerializer = GFNodePropertySerializer.new()
+	serializer.properties = PackedStringArray(
+		[
+			"position",
+			"visible",
+			"value",
+			"literal_value",
+			"resource_value",
+		]
+	)
+	_add_property_source(serializer)
+	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(storage)
+	var loaded_document: GFSaveDocument = null
+	var native_source: NativeValueSource = null
+	if document_route == &"":
+		assert_eq(
+			_utility.save_scope("property.sav", _scope),
+			OK
+		)
+	else:
+		native_source = NativeValueSource.new()
+		native_source.source_key = &"native"
+		_scope.add_child(native_source)
+		var document: GFSaveDocument = _utility.gather_document(
+			_scope,
+			{ "native": Vector2(41.0, 42.0) }
+		)
+		if document_route == &"section":
+			var section: GFSaveSection = _utility.gather_section(_scope, &"project.graph")
+			document = GFSaveDocument.new().configure(
+				&"project.property",
+				1,
+				[section],
+				{ "native": Vector2(41.0, 42.0) }
+			)
+		assert_eq(
+			adapter.save_slot(0, document),
+			OK
+		)
+		var loaded: GFSaveDocumentReadResult = adapter.load_slot(0)
+		assert_true(
+			loaded.is_successful(),
+			loaded.get_error()
+		)
+		loaded_document = loaded.duplicate_result().get_document().duplicate_document()
+		var loaded_native: Variant = loaded_document.get_metadata().get("native")
+		assert_true(loaded_native is Vector2)
+		if loaded_native is Vector2:
+			var loaded_vector: Vector2 = loaded_native
+			assert_eq(
+				loaded_vector,
+				Vector2(41.0, 42.0)
+			)
+		var section_id: StringName = &"project.graph" if document_route == &"section" else GFSaveGraphUtility.DOCUMENT_SECTION_ID
+		var projected_section: GFSaveSection = loaded_document.get_section(section_id)
+		var projection: Dictionary = projected_section.get_storage_json_projection_for_framework()
+		assert_eq(
+			projection.is_empty(),
+			active_format != GFStorageCodec.Format.JSON
+		)
+		assert_true(GFSaveSection.from_dict(projected_section.to_dict()).get_storage_json_projection_for_framework().is_empty())
+		assert_true(GFSaveDocument.from_dict(loaded_document.to_dict()).get_section(section_id).get_storage_json_projection_for_framework().is_empty())
+		if not projection.is_empty():
+			var clone_projection: Dictionary = projected_section.duplicate_section().get_storage_json_projection_for_framework()
+			assert_true(
+				is_same(
+					projection.get("result"),
+					clone_projection.get("result")
+				),
+				"Section clone 必须共享同次只读来源。"
+			)
+		native_source.value = Vector2.ZERO
+	target.position = Vector2.ZERO
+	target.visible = true
+	target.value = "reset"
+	target.literal_value = "reset"
+	target.resource_value = null
+
+	var denied: Dictionary = _apply_property_document_route(document_route, loaded_document)
+
+	assert_false(
+		GFResultDictionary.is_ok(denied),
+		"Resource 引用仍必须有恢复白名单。"
+	)
+	assert_eq(target.position, Vector2.ZERO)
+	var denied_value_preserved: bool = target.value == "reset"
+	assert_true(denied_value_preserved)
+	assert_null(target.resource_value)
+	serializer.allowed_resource_patterns = PackedStringArray([resource_path])
+
+	var restored: Dictionary = _apply_property_document_route(document_route, loaded_document)
+
+	assert_true(
+		GFResultDictionary.is_ok(restored),
+		"真实 Source/Graph/Storage 往返应恢复合法类型值：%s" % restored
+	)
+	assert_eq(
+		target.position,
+		Vector2(8.0, -2.5)
+	)
+	assert_false(target.visible)
+	var restored_value: Variant = target.value
+	assert_true(restored_value is Dictionary)
+	if restored_value is Dictionary:
+		var restored_dictionary: Dictionary = restored_value
+		assert_eq(restored_dictionary, expected)
+	var restored_literal: Variant = target.literal_value
+	assert_true(restored_literal is Dictionary)
+	if restored_literal is Dictionary:
+		var restored_literal_dictionary: Dictionary = restored_literal
+		assert_eq(
+			restored_literal_dictionary,
+			expected_literal,
+			"形似 Reference marker 的原始 Dictionary 必须仍是字面数据。"
+		)
+	assert_not_null(target.resource_value)
+	if target.resource_value != null:
+		assert_eq(target.resource_value.resource_path, resource_path)
+	if native_source != null:
+		assert_eq(
+			native_source.value,
+			Vector2(31.0, 32.0),
+			"非 Property Source 必须继续接收 native Variant。"
+		)
+	var _deleted: Error = (storage.delete_file("property.sav") if document_route == &"" else adapter.delete_slot(0))
+	var _removed: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(resource_path))
+	_utility.release_dependencies()
+	architecture.dispose()
+	for owned_node: Node in _scope.get_children():
+		owned_node.free()
+
+
+func _apply_property_document_route(route: StringName, document: GFSaveDocument) -> Dictionary:
+	if route == &"document":
+		return _utility.apply_document(
+			_scope,
+			document.duplicate_document()
+		)
+	if route == &"section":
+		return _utility.apply_section(
+			_scope,
+			document.get_section(&"project.graph").duplicate_section()
+		)
+	return _utility.load_scope("property.sav", _scope)
+
 
 func _make_source(source_key: StringName, target_path: NodePath) -> GFSaveSource:
 	var source: GFSaveSource = GFSaveSource.new()

@@ -4,6 +4,74 @@ extends GutTest
 
 # --- 测试方法 ---
 
+## 完成或条目信号重新排队时，旧任务不得删除新的队首。
+func test_warmup_callback_replaces_queue_without_losing_new_task() -> void:
+	for replace_on_entry: bool in [false, true]:
+		var first: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+		var second: GFRenderWarmupManifest = GFRenderWarmupManifest.new()
+		var _first_added: Variant = first.add_resource(
+			StandardMaterial3D.new(),
+			&"material"
+		)
+		var _second_added: Variant = second.add_resource(
+			StandardMaterial3D.new(),
+			&"material"
+		)
+		var utility: GFRenderWarmupUtility = GFRenderWarmupUtility.new()
+		var first_id: int = utility.queue_manifest(first)
+		var completed: Array[int] = []
+		var replacement_ids: Array[int] = []
+		var replace_queue: Callable = func() -> void:
+			utility.clear_queue()
+			replacement_ids.append(utility.queue_manifest(second))
+		var _completed_connected: int = utility.warmup_completed.connect(
+			func(queue_id: int, _completion_summary: Dictionary) -> void:
+				completed.append(queue_id)
+				if queue_id == first_id and not replace_on_entry:
+					replace_queue.call()
+		)
+		if replace_on_entry:
+			var _entry_connected: int = utility.warmup_entry_processed.connect(
+				func(
+					queue_id: int,
+					_index: int,
+					_result: Dictionary
+				) -> void:
+					if queue_id == first_id:
+						replace_queue.call()
+			)
+		assert_eq(
+			utility.process_queue(1),
+			1
+		)
+		assert_eq(
+			utility.get_queue_size(),
+			1
+		)
+		assert_eq(
+			utility.process_queue(1),
+			1
+		)
+		assert_eq(
+			utility.get_queue_size(),
+			0
+		)
+		assert_eq(
+			completed.count(replacement_ids[0]),
+			1
+		)
+		assert_eq(
+			completed.count(first_id),
+			0 if replace_on_entry else 1
+		)
+		for connection: Dictionary in utility.warmup_completed.get_connections():
+			var callback: Callable = connection["callable"]
+			utility.warmup_completed.disconnect(callback)
+		for connection: Dictionary in utility.warmup_entry_processed.get_connections():
+			var callback: Callable = connection["callable"]
+			utility.warmup_entry_processed.disconnect(callback)
+
+
 ## 验证预热清单可以立即处理材质资源，默认不保留缓存。
 func test_render_warmup_manifest_processes_material_resource() -> void:
 	var manifest: GFRenderWarmupManifest = GFRenderWarmupManifest.new()

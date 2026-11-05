@@ -287,12 +287,18 @@ func broadcast_to_group(target_group_name: StringName = &"", max_count: int = 0)
 	if effective_group == &"" or get_tree() == null:
 		return reports
 
-	var receivers: Array[Node] = get_tree().get_nodes_in_group(String(effective_group))
+	var receiver_refs: Array[WeakRef] = []
+	for receiver: Node in get_tree().get_nodes_in_group(String(effective_group)):
+		receiver_refs.append(weakref(receiver))
 	var dispatch_host: Object = _resolve_collision_dispatch_host()
 	var accepted_count: int = 0
-	for receiver: Node in receivers:
+	for receiver_ref: WeakRef in receiver_refs:
 		if max_count > 0 and accepted_count >= max_count:
 			break
+		var receiver_value: Variant = receiver_ref.get_ref()
+		if not receiver_value is Node:
+			continue
+		var receiver: Node = receiver_value
 		var report: Dictionary = _get_report_value(
 			_send_to_with_dispatch_host(
 				dispatch_host,

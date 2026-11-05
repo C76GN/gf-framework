@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var steps: Array[GFInputSequenceStep] = []
 ```
 
@@ -42,6 +43,7 @@ var steps: Array[GFInputSequenceStep] = []
 - API：`public`
 
 ```gdscript
+@export
 var max_gap_seconds: float = -1.0:
 ```
 

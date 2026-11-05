@@ -36,6 +36,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var required_capability_types: Array[Script] = []
 ```
 
@@ -53,6 +54,7 @@ var required_capability_types: Array[Script] = []
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var rejected_capability_types: Array[Script] = []
 ```
 
@@ -70,6 +72,7 @@ var rejected_capability_types: Array[Script] = []
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var include_subclasses: bool = true
 ```
 
@@ -83,6 +86,7 @@ var include_subclasses: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var group_name: StringName = &""
 ```
 
@@ -96,6 +100,7 @@ var group_name: StringName = &""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

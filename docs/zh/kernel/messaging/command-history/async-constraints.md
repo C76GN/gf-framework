@@ -5,6 +5,7 @@
 ```gdscript
 var history := Gf.get_utility(GFCommandHistoryUtility) as GFCommandHistoryUtility
 
+# 顺序等待真实终态；等待期间历史工具持有处理锁，不接纳并发历史写操作。
 await history.undo_last_async()
 await history.redo_async()
 ```

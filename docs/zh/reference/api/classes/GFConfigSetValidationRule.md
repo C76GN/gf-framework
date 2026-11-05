@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var allowed_values: Array = []
 ```
 
@@ -46,6 +47,7 @@ var allowed_values: Array = []
 - API：`public`
 
 ```gdscript
+@export
 var case_sensitive: bool = true
 ```
 

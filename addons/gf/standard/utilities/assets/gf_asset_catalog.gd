@@ -823,14 +823,18 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 ## [br]
 ## @param query_text: 查询文本。
 ## [br]
+## @param sort_options: 与同步分页相同的预设与自定义档宽。
+## [br]
+## @schema sort_options: Dictionary with optional sort_preset, band_width and include_unmatched.
+## [br]
 ## @return 使用资产默认字段权重的评分上下文。
 ## [br]
 ## @schema return: Dictionary from GFTextSearchScorer.create_ranking_context with default asset fields and duplicate_candidate: false.
-static func make_default_search_context(query_text: String) -> Dictionary:
-	return GFTextSearchScorer.create_ranking_context(
-		query_text,
-		{ "fields": _DEFAULT_SEARCH_FIELDS.duplicate(true), "duplicate_candidate": false, }
-	)
+static func make_default_search_context(query_text: String, sort_options: Dictionary = {}) -> Dictionary:
+	var options: Dictionary = GFTextSearchScorer.normalize_ranking_options(sort_options)
+	options["fields"] = _DEFAULT_SEARCH_FIELDS.duplicate(true)
+	options["duplicate_candidate"] = false
+	return GFTextSearchScorer.create_ranking_context(query_text, options)
 
 
 ## 按单个稳定 ID 构建独立默认评分数据，不提前解析资源身份。

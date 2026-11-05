@@ -29,6 +29,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var step_id: StringName = &""
 ```
 
@@ -41,6 +42,7 @@ var step_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var wait_for_result: bool = true
 ```
 

@@ -94,27 +94,30 @@ func _before_apply_scope(
 	return payload
 
 
-## 应用 Scope 后调用。返回 Dictionary 时会替换当前 result。
+## 外层应用已完成提交或回滚时，按子 Scope 在先的顺序观察各 Scope 的应用结果。
+## 诊断可写入 Pipeline Context；要否决本次应用，应在提交前登记事务参与者。
 ## [br]
 ## @api protected
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _scope: 当前 Scope。
 ## [br]
 ## @param _payload: 当前 Scope 载荷。
 ## [br]
-## @param result: 当前应用结果。
+## @param result: 当前 Scope 的结果副本。根 Scope 包含整次事务的回滚结果。
 ## [br]
 ## @param _context: 调用上下文字典。
 ## [br]
-## @return 可返回 null 或替换后的 Dictionary。
+## @return 调度方忽略返回值；重写可返回 null。
 ## [br]
-## @schema _payload: Dictionary，当前 Scope 已应用载荷。
+## @schema _payload: Dictionary，交给当前 Scope 应用的载荷副本。
 ## [br]
-## @schema result: Dictionary，当前应用结果，通常包含 ok、errors 与 applied_sources 等字段。
+## @schema result: Dictionary，包含 ok、applied、errors、missing 等字段；修改副本只影响当前观察。
 ## [br]
 ## @schema _context: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace 等流程字段。
 ## [br]
-## @schema return: Variant，返回 Dictionary 会替换当前 result；返回 null 或非 Dictionary 表示保持不变。
+## @schema return: Variant，保留既有重写签名；返回值不参与事务或结果传递。
 func _after_apply_scope(
 	_scope: GFSaveScope,
 	_payload: Dictionary,

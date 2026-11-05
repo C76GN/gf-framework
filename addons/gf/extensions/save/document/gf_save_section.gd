@@ -70,6 +70,11 @@ var _payload_admission_failure: Dictionary = {}
 ## [br]
 var _metadata_admission_failure: Dictionary = {}
 
+## 由同次 Storage 读取签发的私有来源；只读输入树由 Result 共享，不进入持久化或 worker 协议。
+## [br]
+## @api private
+var _storage_json_projection: Dictionary = {}
+
 
 # --- 公共方法 ---
 
@@ -98,6 +103,7 @@ func configure(
 	payload: Variant,
 	metadata: Dictionary = {}
 ) -> GFSaveSection:
+	_storage_json_projection = {}
 	_section_id = section_id
 	_schema_version = schema_version
 	_payload_admission_failure = _get_persisted_admission_failure(payload)
@@ -234,17 +240,58 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @return 分区副本。
 func duplicate_section() -> GFSaveSection:
-	return (
-		GFSaveSection.new().configure(
-			_section_id,
-			_schema_version,
-			_payload,
-			_metadata
-		)
+	var copy: GFSaveSection = GFSaveSection.new().configure(
+		_section_id,
+		_schema_version,
+		_payload,
+		_metadata
 	)
+	copy._storage_json_projection = _storage_json_projection.duplicate()
+	return copy
 
 
 # --- 框架内部方法 ---
+
+## 绑定已证明与当前 payload 一致的同次 Storage 输入；重新 configure 会清除来源，普通字典转换不保存它。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param read_result: 同次已验证读取；为空或已迁移时清除来源。
+## [br]
+## @param path: 从物理 Storage 文档到当前 section payload 的路径。
+## [br]
+## @schema path: Array，元素为 String、StringName 或 int；仅保存只读的小路径副本。
+func bind_storage_json_projection_for_framework(read_result: GFStorageReadResult, path: Array) -> void:
+	_storage_json_projection = {}
+	if (
+		read_result == null
+		or not read_result.ok
+		or read_result.migrated
+	):
+		return
+	if not read_result.is_integrity_accepted():
+		return
+	if not GFResultDictionary.is_ok(read_result.get_json_projection_value_for_framework(path)):
+		return
+	var immutable_path: Array = path.duplicate()
+	immutable_path.make_read_only()
+	_storage_json_projection = { "result": read_result, "path": immutable_path }
+
+
+## 提供只读来源的浅副本；框架消费者只能定位输入，不得修改 Result 或其来源。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 内部来源记录或无来源时的空字典；不复制共享的原始 JSON 树。
+## [br]
+## @schema return: Dictionary，可包含 result: GFStorageReadResult、path: Array。
+func get_storage_json_projection_for_framework() -> Dictionary:
+	return _storage_json_projection.duplicate()
+
 
 ## 为受控 Storage 交接创建只读 section 记录。
 ##

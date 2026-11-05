@@ -7,40 +7,35 @@
 ```gdscript
 var save_graph := Gf.get_utility(GFSaveGraphUtility) as GFSaveGraphUtility
 var storage := Gf.get_utility(GFStorageUtility) as GFStorageUtility
+var slot_store := GFSaveSlotStorageAdapter.new().setup(storage)
+var active_slot := 0
 
 var report := save_graph.inspect_scope(%SaveScope)
 if not bool(report.get("ok", false)):
 	push_warning(String(report.get("summary", "")))
 	return
 
-var document := save_graph.gather_document(%SaveScope, {
+var captured_document := save_graph.gather_document(%SaveScope, {
 	"slot_kind": "manual",
 })
-if document == null:
+if captured_document == null:
 	return
 
-storage.save_data_async("hero_save.sav", document.to_dict())
+var save_error := slot_store.save_slot(active_slot, captured_document)
+if save_error != OK:
+	push_warning("Save failed: %s" % error_string(save_error))
+	return
 ```
 
-`gather_scope()` 会在主线程遍历当前场景节点。任一 Pipeline Step、Scope 或 Source 在本轮新增 error 时，整次采集都会失败关闭；`save_scope()` 返回 `ERR_INVALID_DATA`，不会用部分或空 Source 载荷覆盖现有文件。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 由所选 Storage 执行器编码和落盘。无论执行器是 threaded 还是 cooperative，移交给 Storage 的载荷都必须是纯 Variant 图；不要把 Node、Resource 或 `GFSaveSource` 实例带入执行边界，也不要依赖 cooperative 当前位于主线程来放宽这一契约。模式选择与无线程 Web 调度见 [本地存档管理器：异步执行模式](../../standard/utilities/io/storage-snapshot/storage-utility.md#async-execution-mode)。
+`gather_scope()` 会在主线程遍历当前场景节点。任一 Pipeline Step、Scope 或 Source 在本轮新增 error 时，整次采集都会失败关闭；`save_scope()` 返回 `ERR_INVALID_DATA`，不会用部分或空 Source 载荷覆盖现有文件。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 由所选 Storage 执行器编码和落盘。异步保存必须等操作的强类型终态成功后才算物理提交完成；Storage 的物理读取终态也不代表主线程 Scene 应用已完成。无论执行器是 threaded 还是 cooperative，移交给 Storage 的载荷都必须是纯 Variant 图；不要把 Node、Resource 或 `GFSaveSource` 实例带入执行边界，也不要依赖 cooperative 当前位于主线程来放宽这一契约。模式选择与无线程 Web 调度见 [本地存档管理器：异步执行模式](../../standard/utilities/io/storage-snapshot/storage-utility.md#async-execution-mode)。
 
 ```gdscript
-var read_result := storage.load_data("hero_save.sav")
-if not read_result.ok or not read_result.is_integrity_accepted():
-	push_warning(read_result.error)
+var read_result := slot_store.load_slot(active_slot, save_graph.create_document_schema())
+if not read_result.is_successful():
+	push_warning(read_result.get_error())
 	return
 
-var inspection := GFSaveDocument.inspect_dict(read_result.payload)
-if not bool(inspection.get("ok", false)):
-	push_warning(String(inspection.get("summary", "")))
-	return
-
-var document := GFSaveDocument.from_dict(read_result.payload)
-var schema_report := save_graph.create_document_schema().validate_document(document, true)
-if not bool(schema_report.get("ok", false)):
-	push_warning(String(schema_report.get("summary", "")))
-	return
-
+var document := read_result.get_document()
 var result := save_graph.apply_document(%SaveScope, document, {}, true)
 if not bool(result.get("ok", false)):
 	push_warning("Load failed: %s" % str(result.get("errors", [])))
@@ -49,6 +44,8 @@ if not bool(result.get("ok", false)):
 ```
 
 内部 graph payload 的 `format_version` 必须是精确的当前整数版本；缺失、旧版、字符串或未来版本都不会进入 Source mutation。通过版本化 Save Document 从 JSON Storage 读取时，Document adapter 只把 JSON 对当前整数的无损浮点表示规范化为当前版本；旧版本仍必须走显式迁移。
+
+`load_slot()` 的 Document/Section 副本私有保留同次 JSON 输入来源，供 Graph 的属性派发解释 prepared 类型和引用片段；文档 metadata 与其他 Source 仍使用 Storage 的原生值。`to_dict()` / `from_dict()` 只表达持久化数据，不序列化这项来源。需要从文件恢复 Property 时，使用上述 `load_slot()`→`get_document()`→`apply_document()`（组合文档可取 section 交 `apply_section()`），或下面的 `load_scope()`；普通 Storage JSON payload 经手工 `from_dict()` 后不带原始编码来源。
 
 如果 `GFSaveGraphUtility` 是通过 `Gf.get_utility()` 取得，并且 `GFStorageUtility` 已注册到同一个 `GFArchitecture`，也可以直接使用封装方法：
 

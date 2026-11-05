@@ -396,7 +396,6 @@ func unregister_adapter(adapter_id: StringName, shutdown_adapter: bool = true) -
 	var adapter: GFPlatformAdapter = _get_adapter(adapter_id)
 	if adapter == null:
 		return false
-	_cancel_adapter_requests(adapter_id, &"adapter_unregistered")
 	_disconnect_adapter(adapter)
 	var _erased: bool = _adapters.erase(String(adapter_id))
 	for contract_id: String in adapter.get_contract_ids():
@@ -409,6 +408,7 @@ func unregister_adapter(adapter_id: StringName, shutdown_adapter: bool = true) -
 			_contract_candidates[contract_id] = candidates
 		if GFVariantData.get_option_string_name(_contract_routes, contract_id) == adapter_id:
 			var _route_erased: bool = _contract_routes.erase(contract_id)
+	_cancel_adapter_requests(adapter_id, &"adapter_unregistered")
 	if shutdown_adapter:
 		adapter.shutdown()
 	adapter_unregistered.emit(adapter_id)
@@ -991,11 +991,12 @@ func _apply_clock(clock: GFClock, explicit: bool) -> bool:
 	return true
 
 
-## 遍历等待请求并取消属于指定 Adapter 的句柄。
+## 在回调前捕获指定 Adapter 的等待句柄，避免请求 ID 复用后误取消新请求。
 ## [br]
 ## @api private
 ## [br]
 func _cancel_adapter_requests(adapter_id: StringName, reason: StringName) -> void:
+	var handles: Array[GFPlatformRequestHandle] = []
 	for request_key: Variant in _pending_requests.keys().duplicate():
 		if not _pending_requests.has(request_key):
 			continue
@@ -1008,7 +1009,9 @@ func _cancel_adapter_requests(adapter_id: StringName, reason: StringName) -> voi
 		var handle_value: Variant = GFVariantData.get_option_value(record, "handle")
 		if handle_value is GFPlatformRequestHandle:
 			var handle: GFPlatformRequestHandle = handle_value
-			var _cancelled: bool = handle.cancel(reason)
+			handles.append(handle)
+	for handle: GFPlatformRequestHandle in handles:
+		var _cancelled: bool = handle.cancel(reason)
 
 
 ## 将 Adapter 状态、上下文、生命周期和激活意图信号绑定到 Runtime 转发回调。

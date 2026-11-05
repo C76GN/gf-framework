@@ -11,6 +11,7 @@
 `change_state()` 只负责请求状态机切换，不能替调用它的 `update()` 自动结束后续代码。一个状态内同时判断移动、攻击、受击等条件时，应按优先级使用 `return` 或 `elif`，避免同一帧连续触发多个切换：
 
 ```gdscript
+## 同一帧优先响应攻击；提交切换后立即结束本状态的后续判断。
 func update(_delta: float) -> void:
 	if _input_map_util.consume_action(&"light_attack"):
 		change_state(&"Attack")
@@ -28,14 +29,17 @@ func update(_delta: float) -> void:
 若监听只在该状态激活期间有效，应在 `exit()` 里调用 `unregister_owner_events()`：
 
 ```gdscript
+## 将动画监听绑定到本次激活期间，owner 为当前状态实例。
 func enter(_msg: Dictionary = {}) -> void:
 	register_event(AnimFinishedPayload, GFEventListener.from_method(self, &"_on_anim_finished", 1))
 
 
+## 退出即撤销监听，防止非激活状态响应后续动画事件。
 func exit() -> void:
 	unregister_owner_events()
 
 
+## 只把本次攻击动画的结束解释为返回待机。
 func _on_anim_finished(payload: AnimFinishedPayload) -> void:
 	if payload.animation_name == &"attack":
 		change_state(&"Idle")

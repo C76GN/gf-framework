@@ -56,6 +56,7 @@ enum SwizzleOrder {
 - API：`public`
 
 ```gdscript
+@export
 var order: SwizzleOrder = SwizzleOrder.XYZ
 ```
 

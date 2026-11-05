@@ -138,9 +138,11 @@ var _failed_count: int = 0
 
 # --- 公共方法 ---
 
-## 同步一个逻辑文件。
+## 同步一个逻辑文件。仅当读取结果明确为不存在时填充缺失端；任一其他读取失败都会在写回前终止。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -182,6 +184,10 @@ func sync_data(
 
 	var local_ok: bool = GFResultDictionary.is_ok(local_record)
 	var remote_ok: bool = GFResultDictionary.is_ok(remote_record)
+	if not local_ok and not _is_missing_record(local_record):
+		return _finish_failed(result, "Local backend data could not be read; synchronization was not written.")
+	if not remote_ok and not _is_missing_record(remote_record):
+		return _finish_failed(result, "Remote backend data could not be read; synchronization was not written.")
 	if not local_ok and not remote_ok:
 		return _finish_failed(result, "No readable data in either backend.")
 	if local_ok and not remote_ok:
@@ -310,6 +316,8 @@ func _load_record(
 		{}
 	)
 	var ok: bool = GFResultDictionary.is_ok(load_result)
+	var error_code_value: Variant = load_result.get("error_code")
+	var error_code: int = error_code_value if error_code_value is int else ERR_CANT_OPEN
 	var error: String = GFVariantData.get_option_string(
 		load_result,
 		GFResultDictionary.KEY_ERROR,
@@ -317,13 +325,31 @@ func _load_record(
 	)
 	if ok and not (data_value is Dictionary):
 		ok = false
+		error_code = ERR_INVALID_DATA
 		error = "Backend returned non-Dictionary data."
+	if not ok and error_code == OK:
+		error_code = ERR_CANT_OPEN
 
 	var record: Dictionary = { "source": source, }
+	record["error_code"] = error_code
 	record[GFResultDictionary.KEY_DATA] = GFVariantData.to_dictionary(data_value)
 	record[GFResultDictionary.KEY_METADATA] = GFVariantData.to_dictionary(metadata_value)
 	record[GFResultDictionary.KEY_ERROR] = error
 	return GFResultDictionary.make(ok, record)
+
+
+## 只接受后端读取明确给出的不存在错误；探针布尔值和错误文本不能授权覆盖。
+## [br]
+## @api private
+func _is_missing_record(record: Dictionary) -> bool:
+	return (
+		not GFResultDictionary.is_ok(record)
+		and GFVariantData.get_option_int(
+			record,
+			"error_code",
+			ERR_CANT_OPEN
+		) in [ERR_DOES_NOT_EXIST, ERR_FILE_NOT_FOUND]
+	)
 
 
 ## 生成不含数据正文的记录摘要供同步结果返回。
@@ -333,6 +359,11 @@ func _load_record(
 func _summarize_record(record: Dictionary) -> Dictionary:
 	var summary: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), }
 	summary[GFResultDictionary.KEY_OK] = GFResultDictionary.is_ok(record)
+	summary["error_code"] = GFVariantData.get_option_int(
+		record,
+		"error_code",
+		ERR_CANT_OPEN
+	)
 	summary[GFResultDictionary.KEY_METADATA] = _get_record_metadata(record)
 	summary[GFResultDictionary.KEY_ERROR] = GFVariantData.get_option_string(
 		record,
@@ -781,6 +812,10 @@ func _compare_metadata_by_keys(
 ## @api private
 ## [br]
 func _compare_metadata_values(left: Variant, right: Variant) -> int:
+	if left is int and right is int:
+		if left == right:
+			return 0
+		return 1 if left > right else -1
 	if _is_numeric_value(left) and _is_numeric_value(right):
 		var left_number: float = GFVariantData.to_float(left)
 		var right_number: float = GFVariantData.to_float(right)

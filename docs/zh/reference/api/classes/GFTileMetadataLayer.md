@@ -40,6 +40,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var schema: Dictionary = {}
 ```
 

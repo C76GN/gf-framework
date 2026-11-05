@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="058890145ad05bb992176f4c3d2f3bb0ba7965f9964c341dca511d95a0427248">
+<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="fa91774ad1dcad6678d151be5c5da738d69acacb478cee1d3d87a059b3e80f80">
 	<description>GFNetworkContractGenerator: 根据 GFNetworkContract 生成强类型消息辅助脚本。
 生成结果保持为 GDScript 轻量封装，围绕 GFNetworkMessage / GFNetworkUtility
 提供构造、发送、匹配和 payload 读取函数，不绑定任何具体业务协议。</description>
@@ -46,7 +46,7 @@
 				<tag name="param">options: 可选项，支持 class_name、overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
 				<tag name="return">生成产物报告。</tag>
 				<tag name="schema">options: Dictionary，可包含 class_name、overwrite_existing、dry_run、scan_filesystem 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata；定义校验失败时另有 validation_issues（最多 16 条，含 resource_path）和 validation_issue_count。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

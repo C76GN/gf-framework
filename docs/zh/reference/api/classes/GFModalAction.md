@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var action_id: StringName = &""
 ```
 
@@ -46,6 +47,7 @@ var action_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var label: String = ""
 ```
 
@@ -58,6 +60,7 @@ var label: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var result_status: StringName = GFModalResult.STATUS_DISMISSED
 ```
 
@@ -70,6 +73,7 @@ var result_status: StringName = GFModalResult.STATUS_DISMISSED
 - API：`public`
 
 ```gdscript
+@export
 var payload: Variant = null
 ```
 
@@ -86,6 +90,7 @@ var payload: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var grab_focus: bool = false
 ```
 
@@ -98,6 +103,7 @@ var grab_focus: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var close_on_pressed: bool = true
 ```
 
@@ -110,6 +116,7 @@ var close_on_pressed: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

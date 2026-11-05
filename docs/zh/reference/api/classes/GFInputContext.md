@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var context_id: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ var context_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -54,6 +56,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var mappings: Array[GFInputMapping] = []
 ```
 

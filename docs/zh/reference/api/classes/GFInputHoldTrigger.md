@@ -28,6 +28,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var hold_seconds: float = 0.25:
 ```
 

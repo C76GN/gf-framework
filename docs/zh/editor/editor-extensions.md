@@ -12,6 +12,8 @@
 - Signal Diagnostics 页面，用于查看当前编辑场景的信号连接、未连接信号和显式开启后的发射记录。
 - Diagnostics 页面，用于采集通用性能、架构、工具监控与可选场景树快照。
 
+Input Mapping 拒绝超预算资源后只显示概览和错误，不继续展开映射及绑定明细。加载失败会保留到下一次显式加载或刷新；先前排队的自动刷新和资源变更通知不会覆盖这次失败信息。
+
 Inspector、Debugger 与导出插件仍按对应类型装载，例如 Node State Machine Inspector、Pattern2D Inspector、AudioBank Inspector、Runtime Debugger 和 BuildInfo 导出插件。
 
 ## 资源预览与路径字段

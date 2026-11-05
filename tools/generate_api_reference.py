@@ -931,8 +931,9 @@ def append_member_group_markdown(
 		append_tag_line(lines, "首次版本", first_tag(member.docs, "since"))
 		append_tag_line(lines, "弃用", "; ".join(member.docs.tags.get("deprecated", [])))
 		lines.append("")
-		fence = markdown_code_fence(member.signature)
-		lines.extend([f"{fence}gdscript", member.signature, fence, ""])
+		declaration = "\n".join([*member.decorators, member.signature])
+		fence = markdown_code_fence(declaration)
+		lines.extend([f"{fence}gdscript", declaration, fence, ""])
 		append_description(lines, member.docs.description)
 		append_params(lines, member.docs)
 		append_return(lines, member.docs)
@@ -1379,7 +1380,7 @@ def check_class_reference_coverage(
 	members = api_class_members(api_class)
 	for member in members:
 		anchor_line = f'<a id="{member_anchor_id(api_class, member_group_name(member), member)}"></a>'
-		anchor_count = sum(line == anchor_line for line in section.splitlines())
+		anchor_count = sum(line == anchor_line for _, line in visible_generated_markdown_lines(section))
 		if anchor_count == 0:
 			errors.append(f"{full_name}.{member.name}: missing owner-qualified member anchor in {file_name}")
 			continue
@@ -1416,7 +1417,7 @@ def check_autoload_reference_coverage(
 		anchor_line = (
 			f'<a id="{member_anchor_id_from_name(owner.name, member_group_name(member), member)}"></a>'
 		)
-		anchor_count = sum(line == anchor_line for line in section.splitlines())
+		anchor_count = sum(line == anchor_line for _, line in visible_generated_markdown_lines(section))
 		if anchor_count == 0:
 			errors.append(
 				f"{owner.name}.{member.name}: missing owner-qualified member anchor in {file_name}"
@@ -1441,33 +1442,35 @@ def find_heading_section(text: str, level: int, title: str) -> str | None:
 	lines = text.splitlines()
 	start_index = -1
 	target = f"{'#' * level} {title}"
-	for index, line in enumerate(lines):
+	visible_lines = visible_generated_markdown_lines(text)
+	for line_number, line in visible_lines:
 		if line == target:
-			start_index = index
+			start_index = line_number - 1
 			break
 	if start_index == -1:
 		return None
 
 	heading_pattern = re.compile(r"^(#{1,%d})\s+" % level)
 	end_index = len(lines)
-	for index in range(start_index + 1, len(lines)):
-		if heading_pattern.match(lines[index]):
-			end_index = index
+	for line_number, line in visible_lines:
+		if line_number > start_index + 1 and heading_pattern.match(line):
+			end_index = line_number - 1
 			break
 	return "\n".join(lines[start_index:end_index]) + "\n"
 
 
 def has_markdown_line(text: str, expected_line: str) -> bool:
-	return any(line == expected_line for line in text.splitlines())
+	return any(line == expected_line for _, line in visible_generated_markdown_lines(text))
 
 
 def find_explicit_anchor_section(text: str, anchor_line: str) -> str:
 	lines = text.splitlines()
-	start_index = lines.index(anchor_line)
+	visible_lines = visible_generated_markdown_lines(text)
+	start_index = next(number - 1 for number, line in visible_lines if line == anchor_line)
 	end_index = len(lines)
-	for index in range(start_index + 1, len(lines)):
-		if lines[index].startswith('<a id="member-'):
-			end_index = index
+	for line_number, line in visible_lines:
+		if line_number > start_index + 1 and line.startswith('<a id="member-'):
+			end_index = line_number - 1
 			break
 	return "\n".join(lines[start_index:end_index]) + "\n"
 

@@ -152,6 +152,7 @@ const TYPE_MEMORY_WARNING: StringName = &"memory_warning"
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var event_type: StringName = &""
 ```
 
@@ -165,6 +166,7 @@ var event_type: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var platform_id: StringName = &""
 ```
 
@@ -178,6 +180,7 @@ var platform_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var sequence: int = 0
 ```
 
@@ -191,6 +194,7 @@ var sequence: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var timestamp_msec: int = 0
 ```
 
@@ -204,6 +208,7 @@ var timestamp_msec: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var payload: Dictionary = {}
 ```
 
@@ -221,6 +226,7 @@ var payload: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

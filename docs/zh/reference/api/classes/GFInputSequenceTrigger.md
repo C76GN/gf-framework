@@ -32,6 +32,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var required_action_ids: Array[StringName] = []
 ```
 
@@ -48,6 +49,7 @@ var required_action_ids: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var branches: Array[GFInputSequenceBranch] = []
 ```
 
@@ -60,6 +62,7 @@ var branches: Array[GFInputSequenceBranch] = []
 - API：`public`
 
 ```gdscript
+@export
 var max_gap_seconds: float = 0.4:
 ```
 
@@ -73,6 +76,7 @@ var max_gap_seconds: float = 0.4:
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var player_scoped: bool = true
 ```
 

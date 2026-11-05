@@ -3,6 +3,42 @@ extends GutTest
 const GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = preload("res://addons/gf/standard/utilities/config/gf_config_provider_adapter.gd")
 
 
+## loader 重新注册同名源时，旧返回值不得回写新注册的缓存或加载报告。
+func test_loader_replacement_does_not_publish_stale_cache() -> void:
+	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
+	var loader: Callable = func(table_name: StringName, _metadata: Dictionary) -> Array:
+		var _replaced: bool = provider.register_table_source(
+			table_name,
+			[
+				{ "id": 2 },
+			]
+		)
+		return [
+			{ "id": 1 },
+		]
+	assert_true(provider.register_table_source(&"items", loader))
+	var first: Variant = provider.get_table(&"items")
+	assert_true(first == null)
+	assert_eq(
+		GFVariantData.get_option_string(
+			provider.get_load_report(&"items"),
+			"status"
+		),
+		"registered"
+	)
+	var current: Variant = provider.get_table(&"items")
+	assert_true(current is Array)
+	if current is Array:
+		var current_rows: Array = current
+		assert_eq(
+			current_rows,
+			[
+				{ "id": 2 },
+			]
+		)
+	provider.clear_table_sources()
+
+
 func test_config_provider_adapter_lazily_loads_array_tables() -> void:
 	var provider: GF_CONFIG_PROVIDER_ADAPTER_SCRIPT = GF_CONFIG_PROVIDER_ADAPTER_SCRIPT.new()
 	var load_count: Array[int] = [0]

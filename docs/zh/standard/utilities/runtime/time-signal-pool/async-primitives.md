@@ -27,6 +27,7 @@
 
 ```gdscript
 var source := GFCancellationSource.new()
+# 取消只结束观察资格；底层请求的停止或补偿仍由项目明确实现。
 source.cancel_after_seconds(5.0, get_tree())
 source.cancel_when_node_exits(self)
 
@@ -56,6 +57,7 @@ var token := timeout.start_seconds(3.0, get_tree(), &"load_timeout", {
 })
 
 var wait_result := await GFAsyncWaitUtility.wait_until(func() -> bool:
+	# 轮询谓词须轻量且无副作用，guard/token 只约束等待本身。
 	return loader.is_ready()
 , {
 	"cancel_token": token,
@@ -81,6 +83,7 @@ var changed := await GFAsyncWaitUtility.wait_until_value_changed(func() -> int:
 `GFAsyncChannel` 适合把多个回调源合并给一个消费者，不要求生产者知道消费者何时读取：
 
 ```gdscript
+# 下列生产回调须在主线程执行；回调可能晚于本次 read_async 的超时。
 var channel := GFAsyncChannel.new()
 download.finished.connect(func(data: PackedByteArray) -> void:
 	channel.try_write({ "type": &"finished", "data": data })
@@ -128,6 +131,7 @@ total_progress.set_task_fraction(resources_task, loaded_count, total_count, "res
 需要把一小段流程串起来时，可以用 `GFAsyncFlowTools` 保持结果字典协议一致：
 
 ```gdscript
+# 项目先确认单次请求可安全重试；helper 不保证副作用幂等或自动回滚。
 var retry_result := await GFAsyncFlowTools.retry_async(func() -> Dictionary:
 	return await request_profile_once()
 , {

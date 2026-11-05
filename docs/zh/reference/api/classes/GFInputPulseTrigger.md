@@ -31,6 +31,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var interval_seconds: float = 0.1:
 ```
 
@@ -44,6 +45,7 @@ var interval_seconds: float = 0.1:
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var initial_delay_seconds: float = -1.0:
 ```
 
@@ -57,6 +59,7 @@ var initial_delay_seconds: float = -1.0:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var trigger_immediately: bool = true
 ```
 

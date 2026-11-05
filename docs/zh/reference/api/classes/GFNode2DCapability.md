@@ -37,6 +37,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var required_capabilities: Array[Script] = []
 ```
 

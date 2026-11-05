@@ -35,6 +35,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var included_cells: Array[Vector2i] = []
 ```
 
@@ -47,6 +48,7 @@ var included_cells: Array[Vector2i] = []
 - API：`public`
 
 ```gdscript
+@export
 var excluded_cells: Array[Vector2i] = []
 ```
 
@@ -59,6 +61,7 @@ var excluded_cells: Array[Vector2i] = []
 - API：`public`
 
 ```gdscript
+@export
 var use_bounds: bool = false
 ```
 
@@ -71,6 +74,7 @@ var use_bounds: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var bounds_position: Vector2i = Vector2i.ZERO
 ```
 
@@ -83,6 +87,7 @@ var bounds_position: Vector2i = Vector2i.ZERO
 - API：`public`
 
 ```gdscript
+@export
 var bounds_size: Vector2i = Vector2i.ZERO
 ```
 
@@ -95,6 +100,7 @@ var bounds_size: Vector2i = Vector2i.ZERO
 - API：`public`
 
 ```gdscript
+@export
 var invert: bool = false
 ```
 

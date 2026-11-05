@@ -807,8 +807,6 @@ def main() -> int:
 				"error": str(operation_error),
 			})
 		result_code = _print_tool_error(str(operation_error), audit_path or temp_log_path)
-		if temp_log_path is not None and not args.keep_log:
-			_remove_file(temp_log_path)
 		return result_code
 
 	if report is None:
@@ -857,15 +855,18 @@ def main() -> int:
 			_print_text_report(report, args.limit)
 	except Exception as error:
 		return _print_tool_error(str(error), temp_log_path)
-	finally:
-		if temp_log_path is not None and not args.keep_log:
-			_remove_file(temp_log_path)
 
+	result_code = 0
 	if report["summary"]["timeout_count"] > 0:
-		return 2
-	if not args.allow_diagnostics and report["summary"]["failing_diagnostic_count"] > 0:
-		return 1
-	return 0
+		result_code = 2
+	elif not args.allow_diagnostics and report["summary"]["failing_diagnostic_count"] > 0:
+		result_code = 1
+	if result_code:
+		if temp_log_path is not None and temp_log_path.exists():
+			print("Godot log: %s" % temp_log_path, file=sys.stderr)
+	elif temp_log_path is not None and not args.keep_log:
+		_remove_file(temp_log_path)
+	return result_code
 
 
 def _parse_args() -> argparse.Namespace:

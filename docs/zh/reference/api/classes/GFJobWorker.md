@@ -102,6 +102,7 @@ signal worker_idle
 - API：`public`
 
 ```gdscript
+@export
 var queue_name: StringName = &"default"
 ```
 
@@ -114,6 +115,7 @@ var queue_name: StringName = &"default"
 - API：`public`
 
 ```gdscript
+@export_range(1, 1024, 1, "or_greater")
 var batch_size: int = 1
 ```
 
@@ -126,6 +128,7 @@ var batch_size: int = 1
 - API：`public`
 
 ```gdscript
+@export
 var auto_start: bool = true
 ```
 
@@ -138,6 +141,7 @@ ready 后是否自动开始。
 - API：`public`
 
 ```gdscript
+@export
 var process_in_physics: bool = false
 ```
 
@@ -150,6 +154,7 @@ var process_in_physics: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var process_while_paused: bool = false
 ```
 
@@ -162,6 +167,7 @@ SceneTree 暂停时是否继续处理。
 - API：`public`
 
 ```gdscript
+@export
 var signal_timeout_seconds: float = 30.0
 ```
 
@@ -174,6 +180,7 @@ var signal_timeout_seconds: float = 30.0
 - API：`public`
 
 ```gdscript
+@export
 var signal_timeout_respects_time_scale: bool = true
 ```
 

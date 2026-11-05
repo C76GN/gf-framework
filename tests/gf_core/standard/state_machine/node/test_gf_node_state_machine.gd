@@ -49,6 +49,19 @@ class TrackingNodeState:
 		last_args = args
 
 
+class ExitCallbackNodeState:
+	extends TrackingNodeState
+
+	var exit_callback: Callable
+
+	func _exit(next_state: StringName = &"", args: Dictionary = {}) -> void:
+		super._exit(next_state, args)
+		if exit_callback.is_valid():
+			var callback: Callable = exit_callback
+			exit_callback = Callable()
+			callback.call()
+
+
 class ExitRedirectNodeState:
 	extends TrackingNodeState
 
@@ -930,6 +943,26 @@ func test_state_can_request_cross_group_transition() -> void:
 		1,
 		"跨组切换应进入目标状态。"
 	)
+
+
+## 停止在退出回调中生效，旧目标不得在回调返回后重新进入。
+func test_transition_exit_stop_cancels_old_target() -> void:
+	var machine: GFNodeStateMachine = GFNodeStateMachine.new()
+	var first: ExitCallbackNodeState = ExitCallbackNodeState.new()
+	var stale: TrackingNodeState = TrackingNodeState.new()
+	first.name = "First"
+	stale.name = "Stale"
+	machine.initial_state = &"First"
+	add_child_autofree(machine)
+	machine.add_child(first)
+	machine.add_child(stale)
+	await get_tree().process_frame
+	first.exit_callback = func() -> void:
+		machine.get_state_group(GFNodeStateMachine.INTERNAL_GROUP_NAME).stop()
+	machine.transition_to(&"Stale")
+	assert_eq(first.exit_count, 1)
+	assert_eq(stale.enter_count, 0)
+	assert_null(machine.get_current_state())
 
 
 func test_transition_requested_during_exit_replaces_outer_target() -> void:

@@ -43,6 +43,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var contract_id: StringName = &""
 ```
 
@@ -55,6 +56,7 @@ var contract_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -68,6 +70,7 @@ var display_name: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var contract_version_major: int = 0
 ```
 
@@ -81,6 +84,7 @@ var contract_version_major: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var contract_version_minor: int = 0
 ```
 
@@ -93,6 +97,7 @@ var contract_version_minor: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var messages: Array[GFNetworkContractMessage] = []
 ```
 
@@ -109,6 +114,7 @@ var messages: Array[GFNetworkContractMessage] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

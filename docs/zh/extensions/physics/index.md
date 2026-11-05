@@ -24,6 +24,7 @@ add_child(field)
 var probe := GFGravityProbe3D.new()
 add_child(probe)
 
+## 项目物理帧将采样加速度积分到角色速度；实际移动和碰撞仍由控制器执行。
 func _physics_process(delta: float) -> void:
 	var acceleration := probe.sample()
 	velocity += acceleration * delta
@@ -91,6 +92,7 @@ if GFVariantData.get_option_bool(sample, "active"):
 - 项目也可以用 `GFObjectCandidateRegistry` 或自定义 provider 提供候选力场，再调用 `sample_field_provider(provider, options)` 采样。provider 适合把空间分区、可见性、LOD 或编辑器工具选集先收敛成候选对象；Probe 仍只读取 `get_acceleration_at()` 和可选 `get_gravity_priority()`。
 - Probe 只会采样同一 `World3D` 中的分组对象；自定义 field 的 `get_acceleration_at(world_position)` 必须能接收一个位置参数并返回有限 `Vector3`。
 - 同一帧重复采样默认会缓存结果；缓存键包含精确对象实例身份、位置、分组、组合策略、fallback 配置和内置 field revision。同路径替换对象不会复用旧结果。框架无法自动观察任意 duck provider 的私有状态；项目同帧修改这类状态后应调用 `invalidate_cache()` 或关闭 `cache_samples_per_frame`。
+- 在力场采样或优先级回调中调用 `invalidate_cache()`，会阻止当前在途结果重新写成有效缓存；当前调用仍返回自己的采样结果，下一次调用重新采样。
 - `STRONGEST` 模式在加速度长度相同时使用稳定顺序打破平局，避免场景树分组枚举顺序影响结果。
 - `SUM` / `HIGHEST_PRIORITY` 按候选快照顺序执行浮点相加；当前 API 不承诺排列无关或跨平台 bitwise lockstep。需要确定性回放的项目应先生成稳定候选顺序，并使用项目已选定的确定性数值方案。
 - `sample_fields()` 与自定义 provider 当前不内置候选数量或反射工作预算。候选来自远端数据、模组或其他非受信来源时，项目必须在调用前限制数量、去重策略和单帧调用频率；不要把任意大数组直接送入物理帧。

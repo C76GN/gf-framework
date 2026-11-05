@@ -163,6 +163,7 @@ const GROUP_SOURCE_RESOURCE_ENTRY_ID: StringName = &"resource_entry_id"
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var entries: Array[GFAssetCatalogEntry] = []
 ```
 

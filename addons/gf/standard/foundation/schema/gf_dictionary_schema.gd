@@ -339,6 +339,7 @@ func validate_dictionary(values: Dictionary, options: Dictionary = {}) -> GFVali
 
 
 ## 批量规范化 Dictionary 数组，并汇总行级校验报告。
+## 定义无效时不规范化或校验字典行，计入 skipped_row_count；非 Dictionary 行仍报告形状错误。
 ## [br]
 ## @api public
 ## [br]
@@ -407,6 +408,10 @@ func normalize_dictionary_array(values: Array, options: Dictionary = {}) -> Dict
 				normalized_rows.append({})
 			else:
 				skipped_row_count += 1
+			continue
+
+		if not definition_report.is_ok():
+			skipped_row_count += 1
 			continue
 
 		var source_row: Dictionary = raw_row

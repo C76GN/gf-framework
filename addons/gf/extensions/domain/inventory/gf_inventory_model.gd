@@ -43,7 +43,10 @@ func add_item(
 		return
 
 	var stack: Dictionary = _get_stack_record(item_id)
-	stack["amount"] = GFVariantData.get_option_int(stack, "amount") + amount
+	var current_amount: int = GFVariantData.get_option_int(stack, "amount")
+	if current_amount > 9223372036854775807 - amount:
+		return
+	stack["amount"] = current_amount + amount
 	if not stack.has("metadata"):
 		stack["metadata"] = metadata.duplicate(true)
 	_stacks[item_id] = stack

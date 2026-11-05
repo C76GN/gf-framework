@@ -914,7 +914,7 @@ func _transition_to_state(
 
 	_activation_epoch += 1
 
-	if not _exit_active_path_to(common_count):
+	if not _exit_active_path_to(common_count) or current_serial != _transition_serial:
 		return
 
 	for index: int in range(
@@ -940,7 +940,7 @@ func _transition_to_state(
 		state_changed.emit(from_name, state_name)
 
 
-## 从叶到根退出共同前缀外的状态并注销事件，随后更新当前路径；可在首次排队重定向处停止继续退出。
+## 从叶到根先撤下当前叶子再调用退出；停止或重启使旧退出链失效，普通重定向仍排队处理。
 ## 若处理排队请求，会取走该请求并执行新切换后返回 false，令原切换停止；禁用处理时丢弃队列并返回 true。
 ## [br]
 ## @api private
@@ -952,25 +952,31 @@ func _exit_active_path_to(
 	if _active_path.size() <= common_count:
 		return true
 
+	var exit_serial: int = _transition_serial
+	var exit_epoch: int = _activation_epoch
+	var was_exiting: bool = _is_exiting_current_state
 	_is_exiting_current_state = true
-	var keep_count: int = common_count
-	for index: int in range(
-		_active_path.size() - 1,
-		common_count - 1,
-		-1
-	):
+	while _active_path.size() > common_count:
+		var index: int = _active_path.size() - 1
 		var exiting_state_name: StringName = _active_path[index]
 		var exiting_state: GFState = _get_registered_state(exiting_state_name)
+		_active_path.remove_at(index)
+		_set_current_from_active_path()
 		if exiting_state != null:
 			exiting_state.exit()
 			exiting_state.unregister_owner_events()
+		if (
+			exit_epoch != _activation_epoch
+			or (
+				exit_serial != _transition_serial
+				and not _has_queued_exit_transition
+			)
+		):
+			_is_exiting_current_state = was_exiting
+			return false
 		if _has_queued_exit_transition and stop_on_queued_transition:
-			keep_count = index
 			break
-	_is_exiting_current_state = false
-
-	_active_path = _copy_path_prefix(_active_path, keep_count)
-	_set_current_from_active_path()
+	_is_exiting_current_state = was_exiting
 
 	if not _has_queued_exit_transition:
 		return true

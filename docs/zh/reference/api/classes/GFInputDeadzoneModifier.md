@@ -31,6 +31,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.01)
 var lower_threshold: float = 0.2:
 ```
 
@@ -44,6 +45,7 @@ var lower_threshold: float = 0.2:
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.01)
 var upper_threshold: float = 1.0:
 ```
 
@@ -56,6 +58,7 @@ var upper_threshold: float = 1.0:
 - API：`public`
 
 ```gdscript
+@export
 var rescale_after_deadzone: bool = true
 ```
 

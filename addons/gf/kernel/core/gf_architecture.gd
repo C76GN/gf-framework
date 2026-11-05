@@ -3099,7 +3099,7 @@ func run_required_binding_attempt_for_framework(attempt: Callable) -> Variant:
 	return attempt_result
 
 
-## 为 required binding plan 注册 Model 查询别名并返回精确结果。
+## 为 Binder 或 required binding plan 注册 Model 查询别名并返回精确结果。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -3109,8 +3109,20 @@ func run_required_binding_attempt_for_framework(attempt: Callable) -> Variant:
 ## [br]
 ## @param target_cls: 已注册 Model 的实际脚本。
 ## [br]
+## @param replace_existing: true 使用普通注册的替换与诊断规则；false 保持 required plan 的相同关系幂等、冲突拒绝规则。
+## [br]
 ## @return 别名写入成功时返回 true。
-func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
+func register_model_alias_for_framework(
+	alias_cls: Script,
+	target_cls: Script,
+	replace_existing: bool = false
+) -> bool:
+	if replace_existing:
+		return _register_module_alias(
+			_model_registry,
+			alias_cls,
+			target_cls
+		)
 	return _register_required_plan_alias(
 		_model_registry,
 		alias_cls,
@@ -3118,7 +3130,7 @@ func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -
 	)
 
 
-## 为 required binding plan 注册 System 查询别名并返回精确结果。
+## 为 Binder 或 required binding plan 注册 System 查询别名并返回精确结果。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -3128,8 +3140,20 @@ func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -
 ## [br]
 ## @param target_cls: 已注册 System 的实际脚本。
 ## [br]
+## @param replace_existing: true 使用普通注册的替换与诊断规则；false 保持 required plan 的相同关系幂等、冲突拒绝规则。
+## [br]
 ## @return 别名写入成功时返回 true。
-func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
+func register_system_alias_for_framework(
+	alias_cls: Script,
+	target_cls: Script,
+	replace_existing: bool = false
+) -> bool:
+	if replace_existing:
+		return _register_module_alias(
+			_system_registry,
+			alias_cls,
+			target_cls
+		)
 	return _register_required_plan_alias(
 		_system_registry,
 		alias_cls,
@@ -3137,7 +3161,7 @@ func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) 
 	)
 
 
-## 为 required binding plan 注册 Utility 查询别名并返回精确结果。
+## 为 Binder 或 required binding plan 注册 Utility 查询别名并返回精确结果。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -3147,8 +3171,20 @@ func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) 
 ## [br]
 ## @param target_cls: 已注册 Utility 的实际脚本。
 ## [br]
+## @param replace_existing: true 使用普通注册的替换与诊断规则；false 保持 required plan 的相同关系幂等、冲突拒绝规则。
+## [br]
 ## @return 别名写入成功时返回 true。
-func register_utility_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
+func register_utility_alias_for_framework(
+	alias_cls: Script,
+	target_cls: Script,
+	replace_existing: bool = false
+) -> bool:
+	if replace_existing:
+		return _register_module_alias(
+			_utility_registry,
+			alias_cls,
+			target_cls
+		)
 	return _register_required_plan_alias(
 		_utility_registry,
 		alias_cls,

@@ -29,6 +29,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var min_tap_seconds: float = 0.0:
 ```
 
@@ -41,6 +42,7 @@ var min_tap_seconds: float = 0.0:
 - API：`public`
 
 ```gdscript
+@export
 var max_tap_seconds: float = 0.25:
 ```
 

@@ -61,6 +61,7 @@ enum CombinationMode {
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var field_group: StringName = &"gf_gravity_field_3d"
 ```
 
@@ -74,6 +75,7 @@ var field_group: StringName = &"gf_gravity_field_3d"
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var combination_mode: CombinationMode = CombinationMode.SUM
 ```
 
@@ -87,6 +89,7 @@ var combination_mode: CombinationMode = CombinationMode.SUM
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var use_fallback_when_empty: bool = true
 ```
 
@@ -100,6 +103,7 @@ var use_fallback_when_empty: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 ```
 
@@ -113,6 +117,7 @@ var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var cache_samples_per_frame: bool = true
 ```
 

@@ -3,6 +3,7 @@
 发送事件时，把包含数据的实例发送至系统总线。
 
 ```gdscript
+## 发送一次带来源、目标和伤害值的全局通知，事件派发本身不等待异步工作。
 func attack_enemy(enemy: Node) -> void:
 	var payload := DamagePayload.new()
 	payload.attacker = self
@@ -15,13 +16,15 @@ func attack_enemy(enemy: Node) -> void:
 监听方法必须至少接收一个事件实例参数。事件注册 API 接收 `GFEventListener`，用它显式声明事件系统会传入的派发参数数量；类型事件当前为 1。推荐把回调参数声明为具体 Payload 类型，或声明为 `GFPayload` 后再恢复强类型。
 
 ```gdscript
+## 在模块 ready 后登记精确类型监听；优先级 100 决定同轨道的处理顺序。
 func ready() -> void:
-	# 可以通过第三个可选参数 priority 控制监听顺序，默认优先级为 0
 	register_event(DamagePayload, GFEventListener.from_method(self, &"_on_damage_taken", 1), 100)
 
+## 同步消费当前事件载荷；若需要跨帧保存，应自行处理 Node 引用有效期。
 func _on_damage_taken(payload: DamagePayload) -> void:
 	print(payload.attacker.name, " 造成了 ", payload.amount, " 点伤害")
 
+## 按相同 owner 和 listener 身份撤销注册，不影响其他实例的监听。
 func dispose() -> void:
 	unregister_event(DamagePayload, GFEventListener.from_method(self, &"_on_damage_taken", 1))
 ```

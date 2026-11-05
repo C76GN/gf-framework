@@ -22,6 +22,7 @@ network.register_channel(sync_channel)
 # validator 必须保留，并在 serializer 解码前限制 raw bytes。
 network.validator.max_packet_size = 80 * 1024
 network.message_received.connect(func(peer_id: int, message: GFNetworkMessage) -> void:
+	# 使用底层报告的实际 peer；payload 中自报的身份不能作为授权依据。
 	var _report := coordinator.handle_message(peer_id, message)
 )
 ```
@@ -35,22 +36,28 @@ network.message_received.connect(func(peer_id: int, message: GFNetworkMessage) -
 Adapter 是受信项目代码。所有钩子必须同步完成，不能 `await`、发送网络消息或重入协调器。`_validate_state()`、`_validate_input()` 与 `_states_equal()` 必须是无副作用纯校验。Authority 会在输入收包排队时和目标 tick 模拟前分别调用 `_validate_input()`；因此控制权在排队后被撤销时，该输入会在最终模拟前裁决为拒绝。
 
 ```gdscript
+## 项目模拟的同步翻译边界；所有钩子同步完成，不发送消息或重入协调器。
 class_name ProjectSimulationAdapter
 extends GFNetworkSimulationAdapter
 
+## 示例权威状态；实际项目须纳入全部需要回放的状态并严格校验 Schema。
 var state: Dictionary = {"position": Vector2.ZERO}
 
+## 返回独立状态快照，避免后续模拟修改已捕获的快照。
 func _capture_state(_tick: int, _context: Dictionary) -> Dictionary:
 	return {"ok": true, "state": state.duplicate(true)}
 
+## 无副作用检查示例字段类型；正式项目还须校验完整字段、范围和实体关系。
 func _validate_state(candidate: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
 	var position: Variant = candidate.get("position")
 	return {"ok": position is Vector2}
 
+## 将候选快照隔离后恢复到项目状态，不保留调用方字典的可变别名。
 func _restore_state(next_state: Dictionary, _tick: int, _context: Dictionary) -> Dictionary:
 	state = next_state.duplicate(true)
 	return {"ok": true}
 
+## 入队与模拟前都会校验；只检查当前权限，不在此改变项目状态。
 func _validate_input(
 	frame: GFNetworkInputFrame,
 	actual_peer_id: int,
@@ -61,6 +68,7 @@ func _validate_input(
 		"ok": project_session_can_control(actual_peer_id, frame.payload.get("entity_id"))
 	}
 
+## 消费本 tick 的已验证输入并推进一次项目模拟；不得再推进协调器时钟。
 func _simulate_tick(
 	_tick: int,
 	inputs: Array[GFNetworkInputFrame],

@@ -18,6 +18,8 @@ var speed := attributes.get_value_with_traits(&"speed", traits)
 
 `GFTrait` 描述一项带目标、分类、优先级和有限数值的修饰记录；`GFTraitSet` 按 `target_id` 和可选 `category` 收集这些记录，并按优先级合并。`GFAttributeSet` 按 `attribute_id` 管理基础值、当前值、上下限和元数据，支持快照恢复，也可以接入 `GFTraitSet` 计算修饰后数值。
 
+查询和计算使用当时的 `priority` 从小到大排序。直接配置导出的 `traits` 列表、加载 Resource 或修改已有特征的优先级，都不要求重新调用 `add_trait()`；查询排序不会改写作者配置的列表顺序。
+
 ## 派生属性
 
 `GFDerivedAttributeRule` 描述一个目标属性如何由其他属性按权重或回调派生，适合把“最大值、评分、容量、派生速度”等通用依赖关系留在数据层。

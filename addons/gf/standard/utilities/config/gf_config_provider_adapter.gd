@@ -387,13 +387,19 @@ func _load_table(table_name: StringName) -> Variant:
 	if cache_enabled and _loaded_tables.has(table_name):
 		var cached_table: Variant = _loaded_tables[table_name]
 		if _is_live_table_value(cached_table):
+			var cached_count: int = _estimate_record_count(cached_table)
+			if not is_same(
+				_sources.get(table_name),
+				source_record
+			):
+				return null
 			_load_reports[table_name] = _make_report(
 				table_name,
 				STATUS_LOADED,
 				true,
 				"",
 				true,
-				_estimate_record_count(cached_table)
+				cached_count
 			)
 			return cached_table
 		var _removed_invalid_cache: bool = _loaded_tables.erase(table_name)
@@ -410,6 +416,12 @@ func _load_table(table_name: StringName) -> Variant:
 		source
 	)
 	_loading_table_stack.pop_back()
+	if not is_same(
+		_sources.get(table_name),
+		source_record
+	):
+		var _stale_failure_removed: bool = _active_load_failures.erase(table_name)
+		return null
 	if _active_load_failures.has(table_name):
 		var load_error: String = GFVariantData.get_option_string(_active_load_failures, table_name)
 		var _removed_failure: bool = _active_load_failures.erase(table_name)
@@ -429,6 +441,12 @@ func _load_table(table_name: StringName) -> Variant:
 		)
 		return null
 
+	var record_count: int = _estimate_record_count(loaded)
+	if not is_same(
+		_sources.get(table_name),
+		source_record
+	):
+		return null
 	if cache_enabled:
 		_loaded_tables[table_name] = loaded
 	_load_reports[table_name] = _make_report(
@@ -437,7 +455,7 @@ func _load_table(table_name: StringName) -> Variant:
 		true,
 		"",
 		cache_enabled,
-		_estimate_record_count(loaded)
+		record_count
 	)
 	return loaded
 

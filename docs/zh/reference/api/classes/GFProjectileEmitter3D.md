@@ -87,6 +87,7 @@ signal projectile_emit_failed(reason: StringName, details: Dictionary)
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var projectile_definition: GFProjectileDefinition3D = null
 ```
 
@@ -100,6 +101,7 @@ var projectile_definition: GFProjectileDefinition3D = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var projectile_catalog: GFProjectileCatalog = null
 ```
 
@@ -113,6 +115,7 @@ var projectile_catalog: GFProjectileCatalog = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var default_projectile_id: StringName = &""
 ```
 
@@ -126,6 +129,7 @@ var default_projectile_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var spawn_pattern: GFProjectileSpawnPattern3D = null
 ```
 
@@ -139,6 +143,7 @@ var spawn_pattern: GFProjectileSpawnPattern3D = null
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var emission_policy: GFProjectileEmissionPolicy = null
 ```
 
@@ -152,6 +157,7 @@ var emission_policy: GFProjectileEmissionPolicy = null
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 65536, 1)
 var hard_projectile_limit_per_request: int = 4096:
 ```
 
@@ -165,6 +171,7 @@ var hard_projectile_limit_per_request: int = 4096:
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var default_launch_input: GFProjectileLaunchInput3D = null
 ```
 
@@ -178,6 +185,7 @@ null 调用输入的默认值；每次请求和候选均深复制。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_node_path("Node")
 var spawn_parent_path: NodePath = NodePath("")
 ```
 

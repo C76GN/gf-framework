@@ -17,6 +17,7 @@ model.overscan_items = 2
 model.trailing_padding = 24.0
 model.set_item_count(entries.size())
 
+## 用布局范围驱动项目行呈现；本片段不负责节点池和图片资源生命周期。
 func refresh_visible_rows(scroll_y: float, viewport_height: float) -> void:
 	var viewport_range := model.get_viewport_range(scroll_y, viewport_height)
 	var visible_range := model.get_visible_range(scroll_y, viewport_height)
@@ -42,6 +43,7 @@ if report["changed"] and report["scroll_adjustment"] != 0.0:
 
 ```gdscript
 var binder := GFVirtualListBinder.new()
+# Binder 拥有创建和复用的行节点；项目只在回调中绑定、解绑表现。
 binder.max_materialized_items = 128
 binder.max_pooled_items = 24
 
@@ -84,6 +86,9 @@ if bound:
 稳定 ID 表示“哪一条数据”，复用 key 表示“哪些 Control 可以互换”。例如每条消息都有不同 ID，但所有文字消息可返回 `&"text"`，图片消息返回 `&"image"`。相同 key 必须始终对应兼容的节点结构与 bind/unbind 契约；不要把条目 ID 当作模板分类，也不要在同一个 key 下切换不兼容的场景结构。
 
 ```gdscript
+# 回调接入片段：entries、model、binder、focus 须已由当前列表视图准备。
+# entries 使用稳定 id 与 kind；图片资源由项目预先加载并保持有效。
+## 创建指定模板的未入树行；成功交给 Binder 后由它管理节点所有权。
 func make_mixed_row(reuse_key: StringName) -> Control:
 	if reuse_key == &"text":
 		var label: Label = Label.new()
@@ -98,6 +103,7 @@ func make_mixed_row(reuse_key: StringName) -> Control:
 	return null
 
 
+## 每次复用都完整刷新行内容；数据不匹配时返回 false 拒绝本次绑定。
 func bind_mixed_row(row: Control, index: int, _item_id: Variant) -> bool:
 	var entry: Dictionary = entries[index]
 	if row is Label:
@@ -113,6 +119,7 @@ func bind_mixed_row(row: Control, index: int, _item_id: Variant) -> bool:
 	return false
 
 
+## 清除上次绑定的内容和资源引用；不要在此释放或重挂载 Binder 的行节点。
 func unbind_mixed_row(row: Control, _index: int, _item_id: Variant) -> void:
 	if row is Label:
 		var label: Label = row
@@ -122,10 +129,12 @@ func unbind_mixed_row(row: Control, _index: int, _item_id: Variant) -> void:
 		image.texture = null
 
 
+## 绑定当前列表的回调与滚动节点；owner 或承载 UI 离树后 Binder 不可复用。
 func connect_mixed_rows() -> bool:
 	return binder.bind_with_reuse_keys(
 		self, $ScrollContainer, $ScrollContainer/Content, model,
 		make_mixed_row, bind_mixed_row, unbind_mixed_row,
+		# identity 表示条目身份，reuse key 表示可兼容的节点模板，两者不可互换。
 		func(index: int) -> Variant:
 			return entries[index]["id"],
 		func(index: int, _item_id: Variant) -> StringName:

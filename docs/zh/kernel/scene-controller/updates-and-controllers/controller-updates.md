@@ -5,16 +5,20 @@
 继承自 `Node` 的 `GFController` 通常承担特效表现、玩家输入转发和 UI 动画插值等渲染职责。它们仍依附于 Godot 原生 `_process()` 与 `_physics_process()`。
 
 ```gdscript
+## 将场景输入转换为当前上下文的命令，核心位置状态留在业务模型中。
 class_name PlayerInputController extends GFController
 
+## 本次初始化等待的结果，仅用于阻止初始就绪前的输入转发。
 var _architecture_ready: bool = false
 
 
+## 等待最近 Context；没有局部 Context 时，全局启动仍由 Boot 负责。
 func _ready() -> void:
 	var architecture := await wait_for_context_ready()
 	_architecture_ready = architecture != null and architecture.is_inited()
 
 
+## 通过实例代理发送命令，使局部 Context 的依赖作用域得到保留。
 func _process(_delta: float) -> void:
 	if not _architecture_ready:
 		return

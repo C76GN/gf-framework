@@ -11,11 +11,13 @@
 本地多人大厅可以显式配置 join 输入模板，再把匹配事件交给 `handle_join_input_event()`。该接口只发出“某个设备请求加入”的通用信号，不决定队伍、角色、出生点或 UI 流程。
 
 ```gdscript
+# 大厅接入片段：devices 为已就绪的设备 Utility，项目自行响应加入请求。
 devices.configure_default_join_events(true, true)
 devices.player_join_requested.connect(func(player_index: int, assignment: GFInputDeviceAssignment, _event: InputEvent) -> void:
 	print("join requested: ", player_index, assignment.device_type)
 )
 
+## 转发加入候选事件；识别请求本身不创建角色或决定队伍。
 func _input(event: InputEvent) -> void:
 	devices.handle_join_input_event(event)
 ```

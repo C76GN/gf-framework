@@ -360,11 +360,12 @@ func apply_section(
 			[]
 		)
 	var payload: Dictionary = _normalize_persisted_graph_payload(GFVariantData.as_dictionary(payload_value))
-	return apply_scope(
+	return _apply_scope_with_projection(
 		scope,
 		payload,
 		context,
-		strict
+		strict,
+		section.get_storage_json_projection_for_framework()
 	)
 
 
@@ -826,25 +827,13 @@ func apply_scope(
 	context: Dictionary = {},
 	strict: bool = false
 ) -> Dictionary:
-	if _apply_in_progress:
-		return _make_apply_result(
-			false,
-			0,
-			["GFSaveGraphUtility apply_scope is reentrant."],
-			[]
-		)
-	_apply_in_progress = true
-	var state: ApplyOperationState = ApplyOperationState.new()
-	var result: Dictionary = _apply_scope_recursive(
+	return _apply_scope_with_projection(
 		scope,
 		payload,
 		context,
 		strict,
-		state,
-		true
+		{}
 	)
-	_apply_in_progress = false
-	return result
 
 
 ## 采集并保存 Scope。
@@ -937,7 +926,7 @@ func load_scope(
 			[]
 		)
 
-	var read_result: GFStorageReadResult = storage.load_data(file_name)
+	var read_result: GFStorageReadResult = storage.load_data_with_json_projection_for_framework(file_name)
 	if not read_result.ok or read_result.payload.is_empty():
 		return _make_apply_result(
 			false,
@@ -1023,6 +1012,7 @@ func load_scope(
 				)
 			)
 		)
+	document.bind_storage_json_projection_for_framework(read_result)
 	return apply_document(
 		scope,
 		document,
@@ -1033,6 +1023,83 @@ func load_scope(
 
 # --- 私有/辅助方法 ---
 
+## 操作状态独占可选读取投影，清除调用方伪造的片段上下文；普通 apply 不取得 Storage 来源资格。
+## [br]
+## @api private
+func _apply_scope_with_projection(
+	scope: GFSaveScope,
+	payload: Dictionary,
+	context: Dictionary,
+	strict: bool,
+	projection: Dictionary
+) -> Dictionary:
+	if _apply_in_progress:
+		return _make_apply_result(
+			false,
+			0,
+			["GFSaveGraphUtility apply_scope is reentrant."],
+			[]
+		)
+	_apply_in_progress = true
+	var state: ApplyOperationState = ApplyOperationState.new()
+	var projection_result: Variant = projection.get("result")
+	if projection_result is GFStorageReadResult:
+		state.json_projection = projection_result
+	var apply_context: Dictionary = context.duplicate()
+	var _erased: bool = apply_context.erase(GFNodePropertySerializer.PREPARED_PAYLOADS_CONTEXT_KEY)
+	var projection_path: Array = GFVariantData.get_option_array(projection, "path")
+	var result: Dictionary = _apply_scope_recursive(
+		scope,
+		payload,
+		apply_context,
+		strict,
+		state,
+		true,
+		projection_path
+	)
+	_apply_in_progress = false
+	return result
+
+
+## 从同次读取的原始输入定位当前 Source 的 serializers；只展开结构外壳，属性 value 不提前解码。
+## [br]
+## @api private
+func _get_prepared_serializer_payloads(
+	state: ApplyOperationState,
+	projection_path: Array,
+	source_key: String,
+	source_data: Variant
+) -> Dictionary:
+	if state.json_projection == null or not source_data is Dictionary:
+		return {}
+	var source_dictionary: Dictionary = source_data
+	var native_payloads: Array = GFVariantData.as_array(source_dictionary.get("serializers"))
+	var prepared: Array[Dictionary] = []
+	for index: int in range(native_payloads.size()):
+		var entry_path: Array = projection_path + [
+			"sources",
+			source_key,
+			"data",
+			"serializers",
+			index,
+		]
+		var raw_id: Dictionary = state.json_projection.get_json_projection_value_for_framework(entry_path + ["id"])
+		if raw_id.has("error"):
+			return { "error": raw_id.get("error") }
+		var raw_data: Dictionary = state.json_projection.get_json_projection_value_for_framework(
+			entry_path + ["data"],
+			true
+		)
+		if raw_data.has("error"):
+			return { "error": raw_data.get("error") }
+		if not GFResultDictionary.is_ok(raw_id) or not GFResultDictionary.is_ok(raw_data):
+			prepared.append({})
+			continue
+		var decoded_id: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(raw_id.get("value"))
+		prepared.append({ "id": decoded_id.get("value"), "data": raw_data.get("value") })
+	return { "payloads": prepared }
+
+
 ## 在共享操作状态中预检并按稳定顺序应用当前 scope 的 source 与子 scope，累计缺项和错误；事务根成功时运行参与者 prepare/commit，再由根统一派发完成回调或执行回滚。
 ## [br]
 ## @api private
@@ -1042,7 +1109,8 @@ func _apply_scope_recursive(
 	context: Dictionary,
 	strict: bool,
 	state: ApplyOperationState,
-	is_transaction_root: bool
+	is_transaction_root: bool,
+	projection_path: Array = []
 ) -> Dictionary:
 	if scope == null:
 		return _make_apply_result(
@@ -1240,11 +1308,35 @@ func _apply_scope_recursive(
 			_pop_reference_root_context(context, reference_root_state)
 			continue
 
-		_track_source_snapshot(
+		var snapshot_captured: bool = _track_source_snapshot(
 			context,
 			source,
 			state
 		)
+		if not snapshot_captured:
+			state.snapshot_capture_failed = true
+			var snapshot_error: String = "Rollback snapshot could not be captured: %s" % source_key
+			errors.append(snapshot_error)
+			pipeline_context.add_error(
+				snapshot_error,
+				{ "source_key": source_key }
+			)
+			_pop_reference_root_context(context, reference_root_state)
+			return _finalize_apply_scope(
+				scope,
+				payload,
+				_make_apply_result(
+					false,
+					applied,
+					errors,
+					missing
+				),
+				context,
+				pipeline_context,
+				owns_pipeline_context,
+				state,
+				is_transaction_root
+			)
 		_record_pipeline_event(
 			pipeline_context,
 			&"apply_source_started",
@@ -1254,10 +1346,17 @@ func _apply_scope_recursive(
 			{ "source_key": source_key, }
 		)
 		var source_data: Variant = GFVariantData.get_option_value(source_payload, "data")
+		var source_context: Dictionary = context.duplicate()
+		source_context[GFNodePropertySerializer.PREPARED_PAYLOADS_CONTEXT_KEY] = _get_prepared_serializer_payloads(
+			state,
+			projection_path,
+			source_key,
+			source_data
+		)
 		var result: Dictionary = GFVariantData.as_dictionary(
 			source._apply_save_data(
 				source_data,
-				context,
+				source_context,
 				serializer_registry
 			)
 		)
@@ -1354,7 +1453,8 @@ func _apply_scope_recursive(
 			context,
 			strict,
 			state,
-			false
+			false,
+			projection_path + ["scopes", child_key]
 		)
 		applied += GFVariantData.get_option_int(child_result, "applied")
 		for error: String in GFVariantData.to_string_array(
@@ -1376,6 +1476,8 @@ func _apply_scope_recursive(
 				"%s/%s"
 				% [child_key, missing_key]
 			)
+		if state.snapshot_capture_failed:
+			break
 
 	if errors.is_empty() and is_transaction_root:
 		_append_transaction_participant_errors(
@@ -1391,15 +1493,17 @@ func _apply_scope_recursive(
 			&"commit",
 			errors
 		)
+	# 参与者可能在 commit 中释放本 Scope；事务仍须交付真实结果和有效目标的通知。
+	var remaining_scope: GFSaveScope = scope if is_instance_valid(scope) else null
 	if errors.is_empty():
 		_queue_after_load_callbacks(
 			state,
 			loaded_sources,
-			scope,
+			remaining_scope,
 			payload
 		)
 	return _finalize_apply_scope(
-		scope,
+		remaining_scope,
 		payload,
 		_make_apply_result(
 			errors.is_empty(),
@@ -1415,16 +1519,35 @@ func _apply_scope_recursive(
 	)
 
 
-## 将旧式浮点格式版本规范为当前整数版本，其余载荷原样返回。
+## 在已验证的持久化图外壳中规范 JSON 浮点格式版本；属性值及 source 数据保持原样。
 ## [br]
 ## @api private
 ## [br]
 func _normalize_persisted_graph_payload(payload: Dictionary) -> Dictionary:
-	var version_value: Variant = GFVariantData.get_option_value(payload, "format_version")
-	if typeof(version_value) != TYPE_FLOAT or version_value != float(FORMAT_VERSION):
-		return payload
+	var validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(payload)
+	if not GFResultDictionary.is_ok(validation):
+		return {}
+	return _normalize_persisted_scope_versions(payload)
+
+
+## 输入已通过纯数据遍历预算，故可安全递归 scopes；不进入 source 内容，也不改变直接 apply_scope 的严格契约。
+## [br]
+## @api private
+func _normalize_persisted_scope_versions(payload: Dictionary) -> Dictionary:
 	var normalized: Dictionary = payload.duplicate()
-	normalized["format_version"] = FORMAT_VERSION
+	var version_value: Variant = GFVariantData.get_option_value(payload, "format_version")
+	if typeof(version_value) == TYPE_FLOAT and version_value == float(FORMAT_VERSION):
+		normalized["format_version"] = FORMAT_VERSION
+	var child_values: Variant = payload.get("scopes")
+	if child_values is Dictionary:
+		var children: Dictionary = child_values
+		var normalized_children: Dictionary = children.duplicate()
+		for child_key: Variant in children:
+			var child: Variant = children[child_key]
+			if child is Dictionary:
+				var child_scope: Dictionary = child
+				normalized_children[child_key] = _normalize_persisted_scope_versions(child_scope)
+		normalized["scopes"] = normalized_children
 	return normalized
 
 
@@ -1492,6 +1615,8 @@ func _get_script_value(value: Variant) -> Script:
 ## @api private
 ## [br]
 func _get_save_source_value(value: Variant) -> GFSaveSource:
+	if typeof(value) != TYPE_OBJECT or not is_instance_valid(value):
+		return null
 	if value is GFSaveSource:
 		return value
 	return null
@@ -3131,24 +3256,17 @@ func _get_payload_dictionary_field(
 	return {}
 
 
-## 执行 after-apply steps、记录完成事件并结束本函数创建的 pipeline context。
+## 记录已完成的 Scope，并按需把本次拥有的 Pipeline Context 导出到根结果。
 ## [br]
 ## @api private
 ## [br]
 func _finish_apply_scope(
 	scope: GFSaveScope,
-	payload: Dictionary,
 	result: Dictionary,
 	context: Dictionary,
 	pipeline_context: GFSavePipelineContext,
 	owns_pipeline_context: bool
 ) -> Dictionary:
-	var final_result: Dictionary = _run_after_apply_steps(
-		scope,
-		payload,
-		result,
-		context
-	)
 	_record_pipeline_event(
 		pipeline_context,
 		&"apply_scope_finished",
@@ -3156,9 +3274,9 @@ func _finish_apply_scope(
 		null,
 		"",
 		{
-			"applied": GFVariantData.get_option_int(final_result, "applied"),
-			"error_count": GFVariantData.get_option_array(final_result, "errors").size(),
-			"missing_count": GFVariantData.get_option_array(final_result, "missing").size(),
+			"applied": GFVariantData.get_option_int(result, "applied"),
+			"error_count": GFVariantData.get_option_array(result, "errors").size(),
+			"missing_count": GFVariantData.get_option_array(result, "missing").size(),
 		}
 	)
 	if owns_pipeline_context:
@@ -3168,8 +3286,8 @@ func _finish_apply_scope(
 			"include_pipeline_trace",
 			false
 		):
-			final_result["pipeline_trace"] = pipeline_context.to_dict(true)
-	return final_result
+			result["pipeline_trace"] = pipeline_context.to_dict(true)
+	return result
 
 
 ## 仅由事务根按结果执行回滚或派发已排队的 after-load 回调；失败回滚顺序为参与者、既有 source、新建实体，回滚失败单独附在最终报告中。
@@ -3185,6 +3303,15 @@ func _finalize_apply_scope(
 	state: ApplyOperationState,
 	is_transaction_root: bool
 ) -> Dictionary:
+	if not pipeline_steps.is_empty() and is_instance_valid(scope):
+		state.after_apply_observers.append(
+			_run_after_apply_steps.bind(
+				weakref(scope),
+				payload,
+				result,
+				context
+			)
+		)
 	var should_rollback: bool = (
 		GFVariantData.get_option_bool(
 			context,
@@ -3218,20 +3345,19 @@ func _finalize_apply_scope(
 			_dispatch_after_load_callbacks(state, context)
 		else:
 			_clear_after_load_callbacks(state)
+		result["rollback_failures"] = state.rollback_failures.duplicate(true)
+		result["atomicity_restored"] = state.rollback_failures.is_empty()
+		for observer: Callable in state.after_apply_observers:
+			var _ignored: Variant = observer.call()
+		pipeline_context.clear_transaction_participants()
 
-	var final_result: Dictionary = _finish_apply_scope(
-		scope,
-		payload,
+	return _finish_apply_scope(
+		scope if is_instance_valid(scope) else null,
 		result,
 		context,
 		pipeline_context,
 		owns_pipeline_context
 	)
-	if is_transaction_root:
-		final_result["rollback_failures"] = state.rollback_failures.duplicate(true)
-		final_result["atomicity_restored"] = state.rollback_failures.is_empty()
-		pipeline_context.clear_transaction_participants()
-	return final_result
 
 
 ## 将已加载 Source 与当前 Scope 的 after-load 调用数据加入事务状态。
@@ -3273,11 +3399,9 @@ func _dispatch_after_load_callbacks(state: ApplyOperationState, context: Diction
 	state.after_load_callbacks.clear()
 	for callback: Dictionary in callbacks:
 		var target_value: Variant = GFVariantData.get_option_value(callback, "target")
-		if not target_value is Object:
+		if typeof(target_value) != TYPE_OBJECT or not is_instance_valid(target_value):
 			continue
 		var target: Object = target_value
-		if not is_instance_valid(target):
-			continue
 		var data: Variant = GFVariantData.get_option_value(callback, "data")
 		match GFVariantData.get_option_string_name(callback, "kind"):
 			&"source":
@@ -3472,14 +3596,14 @@ func _get_transaction_participant_label(participant: GFSaveTransactionParticipan
 	return "Save transaction participant"
 
 
-## 仅为启用事务且尚未记录的既有 source 捕获回滚数据和引用根；本轮新建实体及其子节点由实体回滚负责。
+## 为既有 Source 捕获可恢复旧值和引用根；新增流程错误或非字典结果必须在 mutation 前失败，合法空字典仍可作为快照。
 ## [br]
 ## @api private
 func _track_source_snapshot(
 	context: Dictionary,
 	source: GFSaveSource,
 	state: ApplyOperationState
-) -> void:
+) -> bool:
 	if (
 		not GFVariantData.get_option_bool(
 			context,
@@ -3491,9 +3615,15 @@ func _track_source_snapshot(
 		or _source_snapshot_exists(state, source)
 		or _is_created_entity_or_descendant(state, source)
 	):
-		return
+		return true
 
+	var pipeline_context: GFSavePipelineContext = _get_pipeline_context(context)
+	var preceding_error_count: int = pipeline_context.errors.size() if pipeline_context != null else 0
 	var snapshot_data: Variant = source._gather_save_data(context, serializer_registry)
+	if not snapshot_data is Dictionary:
+		return false
+	if pipeline_context != null and pipeline_context.errors.size() > preceding_error_count:
+		return false
 	state.source_snapshots.append(
 		{
 			"source": source,
@@ -3502,6 +3632,7 @@ func _track_source_snapshot(
 			"reference_root": context.get(GFVariantReferenceCodec.OPTION_ROOT_NODE),
 		}
 	)
+	return true
 
 
 ## 检查事务状态是否已包含指定 Source 对象的快照。
@@ -3743,18 +3874,21 @@ func _run_before_apply_steps(
 	return result
 
 
-## 按 pipeline_steps 顺序执行 after-apply 钩子并传递 Dictionary 结果。
+## 根事务收尾后通知仍然存在的 Scope。每步读取独立的结果和载荷副本，诊断写入共享 Pipeline Context。
 ## [br]
 ## @api private
 ## [br]
 func _run_after_apply_steps(
-	scope: GFSaveScope,
+	scope_ref: WeakRef,
 	payload: Dictionary,
 	result: Dictionary,
 	context: Dictionary
-) -> Dictionary:
-	var final_result: Dictionary = result
+) -> void:
 	for step: GFSavePipelineStep in pipeline_steps:
+		var scope_value: Variant = scope_ref.get_ref()
+		if not scope_value is GFSaveScope:
+			return
+		var scope: GFSaveScope = scope_value
 		if step == null or not step.enabled:
 			continue
 		_record_pipeline_step_event(
@@ -3763,15 +3897,12 @@ func _run_after_apply_steps(
 			scope,
 			step
 		)
-		var next_result: Variant = step._after_apply_scope(
+		var _ignored: Variant = step._after_apply_scope(
 			scope,
-			payload,
-			final_result,
-			context
+			payload.duplicate(true),
+			result.duplicate(true),
+			context.duplicate()
 		)
-		if next_result is Dictionary:
-			final_result = GFVariantData.as_dictionary(next_result)
-	return final_result
 
 
 ## 读取 pipeline step 脚本路径并记录该步骤阶段事件。
@@ -3910,6 +4041,16 @@ func _get_node_debug_path(node: Node) -> String:
 ## [br]
 ## @api framework_internal
 class ApplyOperationState extends RefCounted:
+	## 同次同步读取保留的只读输入投影；未从 Storage 加载的 apply 不持有该结果。
+	## [br]
+	## @api framework_internal
+	var json_projection: GFStorageReadResult = null
+
+	## 回滚捕获失败后逐层停止后续兄弟 Scope mutation；普通 apply 失败不设置此状态。
+	## [br]
+	## @api framework_internal
+	var snapshot_capture_failed: bool = false
+
 	## 本次事务创建、失败时需要释放的实体。
 	## [br]
 	## @api framework_internal
@@ -3930,6 +4071,11 @@ class ApplyOperationState extends RefCounted:
 	## [br]
 	## @schema after_load_callbacks: Array[Dictionary] with callback owner and invocation data.
 	var after_load_callbacks: Array[Dictionary] = []
+
+	## 按子 Scope 在先的顺序登记观察回调，直到根事务完成提交或回滚才派发。
+	## [br]
+	## @api framework_internal
+	var after_apply_observers: Array[Callable] = []
 
 	## 回滚阶段产生的结构化失败记录。
 	## [br]

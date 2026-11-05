@@ -974,7 +974,7 @@ static func _fail(
 	)
 
 
-## ��ȡ���ʷ������ɵ�����������λ�ã�ȱʧ�������Ԫ����ʹ����ֵ��
+## 只接受词法分析产生的整数索引；缺失或类型不符时返回零。
 ## [br]
 ## @api private
 static func _integer(value: Variant) -> int:

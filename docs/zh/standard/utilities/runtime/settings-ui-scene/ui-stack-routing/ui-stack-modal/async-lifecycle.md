@@ -13,15 +13,19 @@
 下面是项目 Controller 的局部用法，不要求新增页面基类。先发布新 scope，再取消旧 scope，并在清理回调返回后复核身份，避免旧清理重入开启另一会话时被外层流程覆盖：
 
 ```gdscript
+## 当前页面业务会话的身份；页面节点存在不代表旧会话仍有效。
 var _presentation_scope: GFAsyncScope = null
 
 
+## 开启新会话并取消旧会话；清理重入使新会话失效时返回 null。
 func begin_presentation() -> GFAsyncScope:
 	var previous_scope: GFAsyncScope = _presentation_scope
 	var next_scope: GFAsyncScope = GFAsyncScope.new()
+	# 先发布新身份，旧清理回调才能识别自身已过时。
 	_presentation_scope = next_scope
 	if previous_scope != null:
 		var _cancelled: bool = previous_scope.cancel("presentation_replaced")
+	# 取消回调可以同步重入并再次开启会话，返回前必须复核精确身份。
 	if _presentation_scope != next_scope or not next_scope.is_active():
 		return null
 	return next_scope
@@ -37,6 +41,10 @@ func begin_presentation() -> GFAsyncScope:
 
 每个 UI 层仍有独立的 operation intent：`pop_panel()`、`clear_layer()`、push、replace 或释放工具后，较旧回调都会被忽略，旧 replace 不会在新 push 已完成后清掉新面板。同一层级同一路径的重复异步压栈请求会在资源返回前合并并返回同一句柄，避免按钮连点时叠出多层相同面板。
 
+挂载候选也属于提交前阶段：从旧父节点移出或加入层根时触发的同步回调可以取消请求。`push` / `replace` 的资源回调和同步 fallback 都会在回调返回后复核请求、候选与层根身份；已取消候选不会再入栈或发出 `panel_opened`。若回调显式重新打开同一实例或启动新请求，旧调用只丢弃自己仍持有的候选，不重复登记或释放已经被新打开接纳的实例。
+
+关闭恢复焦点仍在候选入树前捕获原焦点，只有成功入栈后才登记恢复记录。取消候选不会留下记录；同实例被回调重新接纳时，后续关闭使用新打开自己的焦点记录。
+
 完成路径先释放请求自己的资源 scope，并在释放回调后重新确认请求和面板仍有效。释放回调重入 `clear_layer()` 或 `dispose()` 时请求取消；直接释放成功面板时请求失败。随后同时移除请求表和 push 去重索引，再完成精确句柄，最后发送全局 telemetry。因此终态回调内可以安全地提交同层同路径的新请求，旧回调也不能命中新句柄；资源释放回调也不会使请求永久停留在 PENDING 或重复完成。
 
 ## 类型化终态
@@ -46,10 +54,12 @@ func begin_presentation() -> GFAsyncScope:
 由于未注册 `GFAssetUtility` 时同步 fallback 可能在 async 方法返回前完成，请把必须可靠接收的回调作为最后一个 `completion_callback` 参数传入。UI 会在 started telemetry 和任何完成路径之前连接该回调；回调参数就是当前句柄，不要在回调中读取尚未完成赋值的外部局部变量：
 
 ```gdscript
+## 使用回调参数中的精确句柄；同步 fallback 时外部 operation 可能尚未赋值。
 func _on_settings_loaded(operation: GFUIPanelAsyncOperation) -> void:
 	match operation.get_status():
 		GFUIUtility.AsyncPanelLoadStatus.OPENED:
 			var panel: Node = operation.get_panel()
+			# 句柄弱持有面板，成功后仍可能因其他回调关闭而取不到节点。
 			if panel != null:
 				configure_opened_settings(panel)
 		GFUIUtility.AsyncPanelLoadStatus.CANCELLED:
@@ -69,6 +79,7 @@ if operation == null:
 等待结果仍是同一个弱面板句柄，不延长面板生命期：
 
 ```gdscript
+## 统一观察立即完成或仍在等待的操作；不通过等待取得面板所有权。
 func observe_panel_operation(operation: GFUIPanelAsyncOperation) -> void:
 	if operation == null:
 		return

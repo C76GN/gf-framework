@@ -151,8 +151,11 @@ class FeedbackInstallerProbeArchitecture extends GFArchitecture:
 
 class StubShakeUtility extends GFShakeUtility:
 	var current_sample: Dictionary = GFShakePreset.zero_sample()
+	var sample_callback: Callable = Callable()
 
 	func sample_channel(_channel: StringName = &"") -> Dictionary:
+		if sample_callback.is_valid():
+			var _callback_result: Variant = sample_callback.call()
 		return current_sample
 
 
@@ -404,6 +407,85 @@ func test_shake_receiver_2d_applies_sample_to_target() -> void:
 	)
 
 
+func test_shake_receivers_rebind_after_detached_path_changes() -> void:
+	for is_3d: bool in [false, true]:
+		var root: Node = Node.new()
+		var first: Node
+		var second: Node
+		var receiver: Node
+		if is_3d:
+			first = Node3D.new()
+			second = Node3D.new()
+			receiver = GFShakeReceiver3D.new()
+		else:
+			first = Node2D.new()
+			second = Node2D.new()
+			receiver = GFShakeReceiver2D.new()
+		first.name = "First"
+		second.name = "Second"
+		var utility: StubShakeUtility = StubShakeUtility.new()
+		utility.current_sample["position"] = Vector3(
+			5.0,
+			0.0,
+			0.0
+		)
+		receiver.set("utility", utility)
+		receiver.set(
+			"target_path",
+			NodePath("../First")
+		)
+		root.add_child(first)
+		root.add_child(second)
+		root.add_child(receiver)
+		add_child_autofree(root)
+		var _initial_sample: Variant = receiver.call("apply_current_sample")
+		root.remove_child(receiver)
+		receiver.set(
+			"target_path",
+			NodePath("../Second")
+		)
+		root.add_child(receiver)
+		await get_tree().process_frame
+		var _replacement_sample: Variant = receiver.call("apply_current_sample")
+
+		if (
+			first is Node3D
+			and second is Node3D
+			and receiver is GFShakeReceiver3D
+		):
+			var first_3d: Node3D = first
+			var second_3d: Node3D = second
+			var receiver_3d: GFShakeReceiver3D = receiver
+			assert_same(
+				receiver_3d.get_target(),
+				second_3d
+			)
+			assert_eq(first_3d.position, Vector3.ZERO)
+			assert_eq(
+				second_3d.position,
+				Vector3.RIGHT * 5.0
+			)
+		elif (
+			first is Node2D
+			and second is Node2D
+			and receiver is GFShakeReceiver2D
+		):
+			var first_2d: Node2D = first
+			var second_2d: Node2D = second
+			var receiver_2d: GFShakeReceiver2D = receiver
+			assert_same(
+				receiver_2d.get_target(),
+				second_2d
+			)
+			assert_eq(first_2d.position, Vector2.ZERO)
+			assert_eq(
+				second_2d.position,
+				Vector2.RIGHT * 5.0
+			)
+		else:
+			fail_test("接收器测试夹具的维度必须匹配。")
+
+
 func test_shake_receiver_2d_rebinds_target_path_and_resets_previous_target() -> void:
 	var utility: GFShakeUtility = GFShakeUtility.new()
 	utility.init()
@@ -458,6 +540,120 @@ func test_shake_receiver_2d_rebinds_target_path_and_resets_previous_target() -> 
 		0.5,
 		"重绑后采样应应用到新目标。"
 	)
+
+
+func test_shake_receiver_2d_discards_sample_after_target_binding_changes() -> void:
+	for bind_back: bool in [false, true]:
+		var utility: StubShakeUtility = StubShakeUtility.new()
+		utility.current_sample["position"] = Vector3(
+			5.0,
+			0.0,
+			0.0
+		)
+		var root: Node2D = Node2D.new()
+		var first: Node2D = Node2D.new()
+		first.name = "First"
+		var second: Node2D = Node2D.new()
+		second.name = "Second"
+		second.position = Vector2(100.0, 0.0)
+		var receiver: GFShakeReceiver2D = GFShakeReceiver2D.new()
+		receiver.utility = utility
+		receiver.target_path = NodePath("../First")
+		root.add_child(first)
+		root.add_child(second)
+		root.add_child(receiver)
+		add_child_autofree(root)
+		receiver.set_process(false)
+		utility.sample_callback = func() -> void:
+			receiver.target_path = NodePath("../Second")
+			if bind_back:
+				receiver.target_path = NodePath("../First")
+			utility.sample_callback = Callable()
+
+		assert_false(
+			receiver.apply_current_sample(),
+			"换绑或换回同一目标都应作废旧采样。"
+		)
+		assert_eq(first.position, Vector2.ZERO)
+		assert_eq(
+			second.position,
+			Vector2(100.0, 0.0)
+		)
+		assert_eq(
+			receiver.get_target(),
+			first if bind_back else second
+		)
+		utility.current_sample = GFShakePreset.zero_sample()
+		assert_true(receiver.apply_current_sample())
+		assert_eq(first.position, Vector2.ZERO)
+		assert_eq(
+			second.position,
+			Vector2(100.0, 0.0),
+			"新目标不得扣除未施加过的旧偏移。"
+		)
+
+
+func test_shake_receiver_3d_discards_sample_after_target_binding_changes() -> void:
+	for bind_back: bool in [false, true]:
+		var utility: StubShakeUtility = StubShakeUtility.new()
+		utility.current_sample["position"] = Vector3(
+			5.0,
+			0.0,
+			0.0
+		)
+		var root: Node3D = Node3D.new()
+		var first: Node3D = Node3D.new()
+		first.name = "First"
+		var second: Node3D = Node3D.new()
+		second.name = "Second"
+		second.position = Vector3(
+			100.0,
+			0.0,
+			0.0
+		)
+		var receiver: GFShakeReceiver3D = GFShakeReceiver3D.new()
+		receiver.utility = utility
+		receiver.target_path = NodePath("../First")
+		root.add_child(first)
+		root.add_child(second)
+		root.add_child(receiver)
+		add_child_autofree(root)
+		receiver.set_process(false)
+		utility.sample_callback = func() -> void:
+			receiver.target_path = NodePath("../Second")
+			if bind_back:
+				receiver.target_path = NodePath("../First")
+			utility.sample_callback = Callable()
+
+		assert_false(
+			receiver.apply_current_sample(),
+			"换绑或换回同一目标都应作废旧采样。"
+		)
+		assert_eq(first.position, Vector3.ZERO)
+		assert_eq(
+			second.position,
+			Vector3(
+				100.0,
+				0.0,
+				0.0
+			)
+		)
+		assert_eq(
+			receiver.get_target(),
+			first if bind_back else second
+		)
+		utility.current_sample = GFShakePreset.zero_sample()
+		assert_true(receiver.apply_current_sample())
+		assert_eq(first.position, Vector3.ZERO)
+		assert_eq(
+			second.position,
+			Vector3(
+				100.0,
+				0.0,
+				0.0
+			),
+			"新目标不得扣除未施加过的旧偏移。"
+		)
 
 
 func test_shake_receiver_2d_preserves_external_motion_between_samples() -> void:

@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var action: GFInputAction
 ```
 
@@ -46,6 +47,7 @@ var action: GFInputAction
 - API：`public`
 
 ```gdscript
+@export
 var bindings: Array[GFInputBinding] = []
 ```
 
@@ -58,6 +60,7 @@ var bindings: Array[GFInputBinding] = []
 - API：`public`
 
 ```gdscript
+@export
 var modifiers: Array[GFInputModifier] = []
 ```
 
@@ -70,6 +73,7 @@ var modifiers: Array[GFInputModifier] = []
 - API：`public`
 
 ```gdscript
+@export
 var triggers: Array[GFInputTrigger] = []
 ```
 
@@ -82,6 +86,7 @@ var triggers: Array[GFInputTrigger] = []
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -94,6 +99,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var display_category: String = ""
 ```
 

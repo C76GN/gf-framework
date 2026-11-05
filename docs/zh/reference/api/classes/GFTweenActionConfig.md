@@ -44,6 +44,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var steps: Array[GFTweenActionStep] = []
 ```
 
@@ -61,6 +62,7 @@ Tween 步骤列表。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var duration_scale: float = 1.0:
 ```
 
@@ -74,6 +76,7 @@ var duration_scale: float = 1.0:
 - 首次版本：`3.6.0`
 
 ```gdscript
+@export_range(0, 999, 1)
 var loop_count: int = 1
 ```
 
@@ -87,6 +90,7 @@ var loop_count: int = 1
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var enable_playback_control: bool = false
 ```
 
@@ -100,6 +104,7 @@ var enable_playback_control: bool = false
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var ping_pong: bool = false
 ```
 
@@ -112,6 +117,7 @@ var ping_pong: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var ignore_time_scale: bool = false
 ```
 
@@ -124,6 +130,7 @@ var ignore_time_scale: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var process_mode: Tween.TweenProcessMode = Tween.TWEEN_PROCESS_IDLE
 ```
 
@@ -136,6 +143,7 @@ Tween 处理模式。
 - API：`public`
 
 ```gdscript
+@export
 var pause_mode: Tween.TweenPauseMode = Tween.TWEEN_PAUSE_BOUND
 ```
 
@@ -148,6 +156,7 @@ Tween 暂停模式。
 - API：`public`
 
 ```gdscript
+@export
 var restore_initial_values_on_cancel: bool = false
 ```
 
@@ -160,6 +169,7 @@ var restore_initial_values_on_cancel: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var restore_initial_values_on_finish: bool = false
 ```
 

@@ -97,6 +97,8 @@ tracker.untrack_id(tracking_id)
 
 成功刷新会更新 `snapshot_refreshed_msec` 并清除 `snapshot_stale` / `snapshot_error`。后续 provider 不可用、句柄失效或发生重入时，tracker 保留 last-good snapshot，但写入最近的 `snapshot_attempted_msec`、稳定 `snapshot_error`，并把已有 last-good 标记为 `snapshot_stale=true`；失败不会伪造新的成功刷新时间。批量刷新也会把已经登记但后来不可用的 provider 计入 `failed_count` 和逐项 `reports`。
 
+批量注销和失效清理允许注销信号回调移除后续记录，后续遍历会跳过这些 ID；返回数量只统计本次调用实际完成的移除。
+
 ## 常用 API
 
 - `begin_operation(operation_type, options)`：创建运行中的操作记录并返回 `operation_id`。
@@ -105,6 +107,8 @@ tracker.untrack_id(tracking_id)
 - `finish_operation(operation_id, success, options)`：写入成功或失败状态、最终耗时和 metadata。
 - `record_incident(severity, code, message, options)`：记录可聚合异常事件。
 - `record_async_snapshot(operation_type, snapshot, options)`：把异步对象的普通字典快照记录为 running、completed、cancelled 或 failed 操作，并把失败、取消或超时转为 `async` 分类 incident；取消会保留 `STATE_CANCELLED` 语义，不计入 failed operation。
+
+完成快照显式携带 `success=false` 或 `successful=false` 时按失败记录，并产生失败 incident。仅有 `completed=true`、未提供成功字段的旧快照继续按成功解释；取消与超时标志仍优先。
 - `record_sample()` / `record_sample_from_ticks()`：记录命名耗时采样，并按 `sample_id` 聚合调用次数、耗时和慢采样数量。
 - `get_sample_stat()` / `get_sample_stats()` / `clear_sample_stats()`：读取或清理命名采样统计。
 - `get_operations()` / `get_incidents()` / `get_timeline()`：按最近更新倒序读取历史，并支持基础过滤。
@@ -119,3 +123,5 @@ tracker.untrack_id(tracking_id)
 耗时和采样入口只接受有限数值。`max_metadata_keys` 限制单份 metadata 的唯一业务键数，超额键会被丢弃并计入 `__gf_dropped_key_count`，避免长期采样通过不断制造新键绕过历史容量。当前 raw metadata 仍未承诺嵌套节点或总字节硬上限；不要把资源图、巨大集合或递归业务快照写入该字段，跨信任边界时必须使用 JSON-safe 导出并配置 codec 预算。`slow_operation_threshold_ms` 只影响健康快照中的慢操作和慢采样统计，不会自动把慢记录写成错误事件。
 
 记录中的 `metadata` 是项目自定义字典，GF 不解释其中字段。面向玩家、线上调试或远程工具暴露这些数据前，应在项目层做权限、脱敏和字段白名单。异步追踪同样应保持默认关闭，只在明确需要诊断活动句柄时启用。
+
+`__gf_dropped_key_count` 是框架保留的累计值：再次设置或扩大 `max_metadata_keys` 不会清零，缩小容量带来的新增丢弃继续累加。外部输入同名保留键不能伪造这一计数。

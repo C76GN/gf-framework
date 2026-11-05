@@ -52,6 +52,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var platform_id: StringName = &""
 ```
 
@@ -65,6 +66,7 @@ var platform_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var adapter_id: StringName = &""
 ```
 
@@ -78,6 +80,7 @@ Adapter 标识。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -91,6 +94,7 @@ var display_name: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new()
 ```
 
@@ -104,6 +108,7 @@ var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var locale: String = ""
 ```
 
@@ -117,6 +122,7 @@ Godot locale。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var fallback_locale: String = ""
 ```
 
@@ -130,6 +136,7 @@ fallback Godot locale。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var pixel_ratio: float = 1.0
 ```
 
@@ -143,6 +150,7 @@ var pixel_ratio: float = 1.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var window_size: Vector2i = Vector2i.ZERO
 ```
 
@@ -156,6 +164,7 @@ var window_size: Vector2i = Vector2i.ZERO
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var screen_size: Vector2i = Vector2i.ZERO
 ```
 
@@ -169,6 +178,7 @@ var screen_size: Vector2i = Vector2i.ZERO
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var safe_area: Rect2i = Rect2i()
 ```
 
@@ -182,6 +192,7 @@ var safe_area: Rect2i = Rect2i()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var storage_roots: Dictionary = {}
 ```
 
@@ -199,6 +210,7 @@ var storage_roots: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var launch_options: Dictionary = {}
 ```
 
@@ -216,6 +228,7 @@ var launch_options: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -7,6 +7,8 @@
 ### 🚀 新增特性 (Added)
 
 - 新增默认关闭的 [Data Batch](extensions/data-batch/index.md) 扩展（`gf.data_batch`，`extension_version` 为 `1.0.0`），提供 Int32 / Int64 列 Schema、带行数与载荷预算的发布者，以及可保留的批次快照。支持复制、显式转交和按索引采集复制；借用列遵守合作只读约定，项目负责业务身份、历史快照和跨线程调度。
+- [文本检索](standard/foundation/data-validation/budget-collections-timeline/text-search-scorer.md#搜索排序)默认按精确相关度排列，名称浏览预设支持固定分档和自定义档宽；近分结果不再两两近似比较。资产浏览模型的同步、异步分页使用同一规则，切换排序会撤销旧查询结果。
+
 - 新增 `GFAssetScope`、`GFAssetLoadOperation` 和 `GFAssetLoadResult`，每个资源调用者可以独立等待与取消，作用域统一回收待完成请求和成功句柄。
 - Context 新增 `close_async()` 与 `GFContextCloseResult`，先关闭逻辑子上下文，再关闭自有 Architecture，分别报告是否关闭与是否正常排空。
 
@@ -61,9 +63,16 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [定点向量](standard/foundation/scalars/big-fixed-numbers.md)的点积与长度平方改为完整宽整数归约，全部乘积求和后只舍入、饱和一次；中间乘积或部分和越界不再丢失可抵消的值。基础 `multiply()` / `add()` 与保存格式保持原合同，历史算法可使用[逐项兼容配方](standard/foundation/scalars/fixed-vector-component-recipe.md)。
+- [环绕相机输入](extensions/camera/camera-3d.md)在映射或 Rig 回调禁用桥接后停止该次剩余输入，即使立即重新启用也不恢复旧调用；已提交参数不回滚。需要完成本次再停止的项目可用现有 `MANUAL` 驱动。
+- [3D Pointer](extensions/interaction/pointer-3d.md)重绑碰撞对象、修改接收路径、禁用或失去目标资格后，取消旧事件剩余自动发送及旧点击。同路径的新实例不继承旧事件，项目仍可明确向新目标发送一次新交互。
+
+- [最小启动示例](overview/quickstart/counter-save-exit.md)串起原生界面、真实保存、读回和退出；局部 UI 指引同步来源绑定与有序关闭。AI 开发指引按采用允许闭包检查 API，源码存在规则不再被当成采用授权。
+- RawArtifact 写入事务按运行期服务分类，文档区分源码运行、编辑器和真实导出验证范围，并说明写入失败后的恢复入口。
+
 - Save、Scene、BGM 和 UI 操作提供类型化 `wait_result_async()`；Storage 分别提供 caller 与物理等待入口。owner 失效也会发出终态通知，业务展示资格由调用方复核。
 - 局部 UI 在装配时绑定业务 Context，默认显示在该 Context 下；跨显示树使用明确来源绑定，来源失效后拒绝访问，UIUtility 负责清理自己的 host。
-- Save 请求在进入队列前隔离普通元数据并限制复制成本，调用方可继续修改原字典；大型 section 保留协作式准备与明确所有权转移。对应 `gf.save` 的 `extension_version` 升为 `7.0.0`。
+- Save 请求在进入队列前隔离普通元数据并限制复制成本，调用方可继续修改原字典。大型 section 保留协作式准备与明确所有权转移。
 - AI Developer 的一次检查共用同一项目捕获，验证、上下文与快照输出来自同一输入，并相互隔离可变结果。
 
 - [配置导入](standard/utilities/io/config-remote-outbox/config-provider/validation-importer/json-csv-import.md#工作预算与批次)、[表合并](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/merge-profile.md)和[配置流水线](editor/tools/config-pipeline.md#构建工作预算)采用有限工作预算，复用通用执行预算并累计输入、遍历、载荷与输出成本。非法限额、循环或超限明确失败，合并与构建失败不交付可用半成品。正式指南补齐配置激活、事务提交、页面会话与决策复现的项目接入边界。
@@ -81,7 +90,7 @@
 - Storage 的业务文件与解析前明文默认分别限制为 64 MiB；字典保存先检查完整明文和最终编码文件，再提交同一份字节，避免保存成功却超出本请求两项字节预算。项目可显式调高正数上限，预算失败不会获得损坏文件的重置授权。
 
 - 项目初始化工具移除默认计数器模板及其全局类型声明，新项目默认目录改为 `res://app/`；README 按需生成，生成后的入口与 Installer 属于项目源码。框架升级不重写项目源码，Model、System 及可选能力继续通过已有模板和所属工具添加。
-- Flow 与 Save 新增工作区公开任务；Flow 的 `extension_version` 升为 `4.1.0`，扩展的框架发行版本仍与 GF Framework 一致。
+- Flow 与 Save 在工作区提供公开任务入口。
 - [资源工作台](editor/tools/asset-browser.md) 的默认文字搜索合并连续输入，以单个可取消工作线程完成评分和排序，分批准备候选、解析当前页身份及建立卡片；查询期间旧资源动作失效，隐藏实际工作区窗口、目录变化和上下文撤销均阻止旧结果发布并回收线程。同步浏览模型接口保持兼容。
 - [资产目录](editor/tools/asset-browser.md#目录快照边界) 将完整条目查找表与按需字段索引分开；空白分页只构建当前页，默认文字分页只为当前页解析资源身份，保留完整验证、复制隔离、强制重建与实时 UID 语义。
 - 全面补充框架私有声明及适配器模板的维护说明，明确资源所有权、事务恢复、取消与重入边界，并区分文件私有实现、内部协作入口及受保护重写点；参考文档补充行为树调试子节点重写钩子和节点序列化属性规格校验辅助方法。
@@ -103,6 +112,26 @@
 - Workspace 向需要编辑的贡献页面注入通用编辑器上下文，并在页面移除时撤销。独立创建的 Flow 面板须显式提供上下文后才能修改图资源。
 
 ### 🐛 Bug 修复 (Fixed)
+
+- 同步回调中取消、释放或重绑后，Common、Sequence、State、UI、Input、Assets、Audio、Action Queue 与 Behavior Tree 不再继续发布旧操作结果；嵌套新操作的输入、节点、任务及焦点状态保留各自归属。正常完成路径与手动驱动入口保持。
+- [定点与大数](standard/foundation/scalars/big-fixed-numbers.md)修正精确整数 HALF_UP、大数可表达结果提前下溢、归一化前指数判断及整数显示窄化；随机分支计数耗尽时明确拒绝继续，空间哈希保留实际跨格的薄片候选。
+- 配置 Provider 在加载回调后复核当前注册身份，表合并删除后释放源槽映射，CSV 导出执行 Schema 转换并共享工作预算；失败保留行位置与原验证报告。Storage 修正大整数 revision 比较、隐藏 catalog 证据枚举和历史裁剪恢复的重入状态，迁移教程改用当前入口与封装字段。
+- Capability 按 Utility 实际登记的实例身份管理生命周期，查询分组不取得他方能力的释放权；跨 Utility 依赖阻止清理时保留可重试记录，Editor Recipe 不把启停失败记为已应用。Logging 不再删除其他实例拥有的 marker，初始化回调释放后不重新打开 sink；Platform 注销回调新注册的 Adapter 不被旧栈移除。
+- Combat、Interaction、Physics、Network 与 Save 在回调后复核执行资格。网络会话启动回调重复设置同一后端时，主机或客户端继续启动。Flow 空节点 ID 不再兼任无租约标记。Domain 修正通配移除、嵌套数据隔离、关卡完成归属、库存溢出及 Trait priority 顺序；Feedback 出树改绑后重新解析目标。
+- 内容包递归资源验证要求完整扫描证据；Dialogue 身份编码不完整时拒绝生成恢复指纹。Activation 保留显式失败，Random 导入严格检查算法与版本原始类型；失败继续沿既有默认重置策略。
+- 扩展 Manifest/Preset 拒绝非规范字段名，Binder 如实报告别名注册失败，插件贡献降级状态传递到总报告；编辑器拾取取消后不恢复旧应用资格。引用扫描按已准入长度有界读取，文件增长或短读不再冒充完整结果；类型清单排除多行模板中的假声明。
+- [配置工作台](editor/tools/config-pipeline.md)清空来源时解除旧 Schema 编辑绑定；输入映射预算拒绝后停止明细渲染并保留后发生的加载错误；[资源工作台](editor/tools/asset-browser.md)取消回调产生新请求后拒绝旧目录与查询提交。[对话文本](editor/tools/dialogue-text.md)使用无歧义响应身份定位，选项错误也遵守诊断数量上限；网络生成器支持可空 getter 的显式 null 回退并保留字段级失败与逐项写出证据。
+- 诊断工具补齐 getter 与 transport 回调后的生命周期检查，批量清理不访问已被回调删除的记录；树深度截断不遗漏浅层兄弟，容量调整保留累计丢弃数量，失败的已完成任务不再记为成功。
+- [代码检查](editor/tools/code-quality.md)按前一个同属成员计算间距，内部类不覆盖外部类的依据。API Reference 保留导出注解，生成覆盖检查正确识别 Markdown 围栏；[AI 开发工具](editor/tools/ai-developer.md)按实际发现的包判断就绪，初始化不代替项目确认架构，快照写入前复核目标内容。
+- 维护执行器将输出读取异常判为不完整采集，LSP 失败保留所指向的日志，Benchmark 清单绑定实际运行副本；独立 ZIP 校验在读取载荷前拒绝非规范归档路径。安装与维护指南清除已退役的标签、职责和绕过受管执行的命令。
+
+- [内容包导出计划](extensions/content-package/index.md)最终校验完整复验本次捕获的条目副本，拒绝缺失或错误类型字段、空源路径、非法归档路径及规范化后的重复路径；报告返回同份规范化投影。保留公开集合编辑、可选默认、跨包来源和历史构建诊断，修复条目后当前派生错误不再残留。
+
+- Storage 同步在任一侧逻辑读取失败时停止写入；只有明确的缺失结果允许补齐，不再把 IO、超限或含糊的旧后端错误当作空存档。Failover 全部读取失败时，末次缺失不会再掩盖此前的未知读取结果；成功回退策略保持。
+- Save 在回滚快照采集失败时停止修改，在属性采集超预算或编解码不完整时保留原存档；属性存档经真实 Storage JSON 或 Binary 往返后恢复类型，同时保留字面标记字典与引用授权。
+- DictionarySchema 批量入口先拒绝非法定义，再处理字典行；关闭行校验也不能绕过循环定义检查，非字典行仍提供形状诊断。
+- Computed 的立即计算被释放或重绑后不再提交旧值。Flow 的独立运行各自保存选定的后继。Dialogue 拦截条件失败的 fallback 回环，并在会话替换后停止旧响应条件。
+- Shake 在采样回调改变绑定后丢弃旧目标变换，行为树叶节点在回调重置自身后中止旧 tick。UI 创建 host 或层期间被释放后停止发布旧对象，之后仍可显式重新初始化。
 
 - 配置类型编译与复制按每条引用路径检查共享子树深度；无效结构声明不会被允许空值掩盖，结构规则定义错误只报告一次。诊断复用统一上下文编码并保留调用方字段前缀；工作台拒绝无法复制的显式 Schema 时保留原草稿，不会退回自动推导。
 - [扩展引用审计](editor/workspace.md#extensions-页面) 与[资源引用检查](editor/tools/asset-browser.md#批量引用证据) 按目录条目和文本行推进，显示实际工作量并支持取消；输入变化后不再发布旧结果。扫描复用目标匹配上下文，先筛除整份文本不可能命中的目标，保持证据规则与原有预算；遵循 `.gdignore` 并补查范围内必要依赖及显式选择文件。导出独立审计持续输出进度，覆盖不完整时不再误报为已经发现引用。
@@ -146,7 +175,7 @@
 - 修复状态机、任务组、输入序列、触控、拖放、平台初始化、UI、音频、行为树、Buff 与网络接管在同步回调重入后继续使用旧状态的问题；旧注册 token、句柄和绑定不能影响新一轮实例。
 - 修复 Asset、HTTP、Job 和 Storage 通知中的取消与结果归属，以及日志批次确认、活跃日志保留、诊断 provider 和调试观察器的生命周期处理。
 - Save 与 Dialogue 的可恢复数据使用明确的编解码完整性结果，预算耗尽、循环或不支持的值不会作为成功快照提交；Save 属性恢复先检查完整白名单，回滚保留采集时的引用根。
-- Flow 的节点与 Context 在同步执行中共享当前运行态，交替写入、清空和恢复不会被旧快照覆盖；有向图连接拒绝方向反转的端口。Inventory 的全量添加失败保持原槽位，Feedback 的容量淘汰不会追逐回调中新建的播放。
+- Flow 有向图连接拒绝方向反转的端口。Inventory 的全量添加失败保持原槽位，Feedback 的容量淘汰不会追逐回调中新建的播放。
 - 修复循环单字段 schema、超大 Deque 请求、字幕空结束时间、标签恢复与层级计数、投影键和默认值，以及大额定点加减和显示精度边界。
 - 修复四叉树无进展分裂、空间查询预算回退与闭边界候选、RegionMap 删除标记、单 tile WFC 邻接验证，以及浮力法线在剪切变换下的计算。
 - 修复配置合并覆盖原键、验证预算丢失错误、Config Pipeline 跳过 warning、嵌套目录约束、LSP 编辑的读取预算和精确路径大小写、生成脚本符号冲突，以及工具报告来源和取消提示。
@@ -184,6 +213,14 @@
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
 
 ### 🔧 API 变动说明 (API Changes)
+
+- Flow 节点通过 `execute(context, execution)` 获取本次执行专属的分支、临时进度和子图入口。不同 Runner 可共用业务 Context，每轮有独立的 `GFFlowRunState`；`gf.flow` 的 `extension_version` 升为 `5.0.0`。
+- Save 的 `_after_apply_scope()` 在根事务决定结果后观察各作用域的独立结果副本；返回值及就地修改均不能替换事务成败。`gf.save` 的 `extension_version` 升为 `8.0.0`。
+- 输入动作向量查询读取最近提交的样本；包含有状态修饰器的 Mapping 链按 `tick(delta)` 更新，局部玩家与全局采样各自持有状态。
+
+- `GFFixedVector2` / `GFFixedVector3.dot()` 与 `length_squared()` 的签名不变，默认数值语义改为最终一次舍入和饱和；旧数值结果及钳制错误数量可能改变。
+- `GFCameraOrbitInput3D.enabled` 的禁用会撤销在途映射调用的后续应用；`GFPointerInteraction3D.receiver_path` 修改会撤销旧配对与事件，自动发送不再把旧事件改投新接收器。
+- `GFContentPackageExportPlan.get_validation_report()` 返回规范化的当前条目集合副本并复验已知字段；直接编辑 `entries` 仍有效，校验后继续修改需要重新获取报告。此副本不冻结文件字节或元数据对象。
 
 - `GFAssetUtility.load_async(path, scope, type_hint, options)` 返回 `GFAssetLoadOperation`；`acquire_handle(path, scope, type_hint, resource_override)` 同样必须绑定 `GFAssetScope`，Registry 与 Resolver 对应入口同步采用 scope。
 - `GFUIUtility.configure_host(source, mount_parent)` 必须在局部 UI 初始化前调用；`GFNodeContext.bind_source_context()` 支持 INHERITED Context 的跨显示树来源绑定。
@@ -223,11 +260,19 @@
 - 删除弹幕旧同步单发/多发入口与直接节点返回值，统一使用 `await emit_pattern()` 返回 `GFProjectileEmissionResult`。移除 `use_object_pool` 开关和 Emitter 预热包装；需要复用时设置 `object_pool_utility`，预热直接调用池。
 - `dispose()` 立即拒绝新借用并撤销所有 Lease，清理在安全点执行；需要等待时调用 `await pool.wait_disposed()`。该等待包含已接纳请求与 Lease 的终态通知，不保证引擎已完成 `queue_free()`。注册到架构的池参与正常异步关停与替换的静默期等待。
 - 保留已有接口的首次发布 `@since` 版本，不因本次签名或语义重做而改为 `unreleased`。
-- Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交仍复用既有命令与资源历史；不改变 Flow 图的持久化格式或运行时执行协议。
+- Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交复用既有命令与资源历史。
 - `GFConfigTableReference` 新增 `SourceMode` 与 `source_mode`，默认 `FIELDS` 保持原有字段引用行为；`ARRAY_ELEMENTS` 校验单个数组字段到目标单字段键的引用。元素问题增加零基 `element_index`；`resolve_record_references()` 仍只解析 `FIELDS` 引用。
 - `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
 
 ### 📘 升级指南 (Migration Guide)
+
+- Flow 自定义节点将旧 Context 或节点 Resource 上的分支与临时状态访问迁到节点执行句柄；跨运行进度归业务模型，需要初值时显式传入 `run()`。同一次运行的子图使用 `execution.call_subgraph()`。见[运行语义与迁移](extensions/flow/runtime-semantics.md)。
+- 依赖 Save 收尾钩子改写 `ok` 或 `errors` 的项目，将必需校验及其补偿迁入[事务参与者](extensions/save-graph/pipeline-trace.md)。界面刷新等收尾问题使用独立诊断。
+- 靠查询推进光标的项目，将输入更新交给单一时钟。在手动回放中先交付事件并调用 `tick(delta)`，再让各组件读同一样本。见[输入修饰器](standard/input-flow/input-assist/input-modifiers-triggers.md)。
+
+- 使用定点向量锁步、回放或历史 golden 的项目，应固定运算版本并选择新归约或[旧逐项配方](standard/foundation/scalars/fixed-vector-component-recipe.md)。旧 raw 分量和字节格式可继续读取，但加载旧数据不会自动恢复旧演算。
+- 相机回调需要“本次处理完再停”时，按[MANUAL 收尾示例](extensions/camera/camera-3d.md)统一调度，回调只登记停止意图，等 `process_input()` 返回后再禁用；直接 `apply_*()` 不受映射调用取消策略限制。
+- Pointer 需要把业务交给新目标时，预先关闭对应 `send_on_*`，再显式构建一次新交互；不要依赖旧信号回调中的隐式改投。消费导出计划时使用当次通过校验的报告条目，修改计划后重新校验，实际读取与打包仍由项目工具负责。
 
 - 按[资源与上下文 API 迁移](overview/quickstart/runtime-lifecycle-migration.md)替换旧 callback、取消和 Save 请求构造调用；保存资源 scope，关闭业务生命周期时释放，局部 UI 在初始化前配置来源。迁移以日志与手动文档为准，不新增通用转换器，已有 Save schema 迁移能力保留。
 - 将“检查完成后 await 信号”的重复代码改为类型化等待；Storage 先明确需要 caller 还是物理终态。移除依赖 owner 失效吞掉通知的逻辑，等待后核对接收对象与请求身份再更新界面。

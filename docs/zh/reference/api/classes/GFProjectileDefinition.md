@@ -31,6 +31,7 @@ projectile 场景、runtime 与策略的 typed 定义基类。
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var scene: PackedScene = null
 ```
 
@@ -44,6 +45,7 @@ var scene: PackedScene = null
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var runtime_path: NodePath = NodePath("ProjectileRuntime")
 ```
 
@@ -57,6 +59,7 @@ scene root 到唯一 runtime 的显式路径。
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var impact_source_paths: Array[NodePath] = []
 ```
 
@@ -74,6 +77,7 @@ scene root 到 0..N impact source 的显式有序路径。
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var motion: GFProjectileMotion = null
 ```
 
@@ -87,6 +91,7 @@ var motion: GFProjectileMotion = null
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var lifetime_policy: GFProjectileLifetimePolicy = null
 ```
 

@@ -12,14 +12,13 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 15 | 316 | 244 |
+| [运行时服务](#category-runtime_service) | 16 | 338 | 252 |
 | [协议与扩展点](#category-protocol) | 20 | 219 | 194 |
 | [资源定义](#category-resource_definition) | 2 | 38 | 15 |
 | [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
 | [值对象](#category-value_object) | 4 | 46 | 40 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
 | [编辑器 API](#category-editor_api) | 27 | 418 | 261 |
-| [工具 API](#category-tool_api) | 1 | 22 | 8 |
 
 ## 类
 
@@ -30,6 +29,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFArchitecture`](classes/GFArchitecture.md#gfarchitecture) | `Object` | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFArtifactWriteTransaction`](classes/GFArtifactWriteTransaction.md#gfartifactwritetransaction) | `RefCounted` | `addons/gf/kernel/editor/gf_artifact_write_transaction.gd` |
 | [`GFBoundedJsonObjectReader`](classes/GFBoundedJsonObjectReader.md#gfboundedjsonobjectreader) | `RefCounted` | `addons/gf/kernel/core/gf_bounded_json_object_reader.gd` |
 | [`GFDependencyGraphTools`](classes/GFDependencyGraphTools.md#gfdependencygraphtools) | `RefCounted` | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](classes/GFExtensionCatalog.md#gfextensioncatalog) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
@@ -149,11 +149,3 @@
 | [`GFTemplateGenerationManifest`](classes/GFTemplateGenerationManifest.md#gftemplategenerationmanifest) | `RefCounted` | `addons/gf/kernel/editor/gf_template_generation_manifest.gd` |
 | [`GFThumbnailRenderRequest`](classes/GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | `RefCounted` | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
 | [`GFThumbnailRenderer`](classes/GFThumbnailRenderer.md#gfthumbnailrenderer) | `Node` | `addons/gf/kernel/editor/gf_thumbnail_renderer.gd` |
-
-<a id="category-tool_api"></a>
-
-### 工具 API
-
-| 类 | 继承 | 源文件 |
-|---|---|---|
-| [`GFArtifactWriteTransaction`](classes/GFArtifactWriteTransaction.md#gfartifactwritetransaction) | `RefCounted` | `addons/gf/kernel/editor/gf_artifact_write_transaction.gd` |

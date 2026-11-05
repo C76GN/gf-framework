@@ -85,6 +85,7 @@ Rig 优先级变化后发出。
 - API：`public`
 
 ```gdscript
+@export
 var active: bool = true:
 ```
 
@@ -97,6 +98,7 @@ var active: bool = true:
 - API：`public`
 
 ```gdscript
+@export
 var priority: int = 0:
 ```
 
@@ -109,6 +111,7 @@ var priority: int = 0:
 - API：`public`
 
 ```gdscript
+@export_node_path("Node3D")
 var target_path: NodePath = NodePath("")
 ```
 
@@ -121,6 +124,7 @@ var target_path: NodePath = NodePath("")
 - API：`public`
 
 ```gdscript
+@export_node_path("Node3D")
 var look_at_target_path: NodePath = NodePath("")
 ```
 
@@ -134,6 +138,7 @@ var look_at_target_path: NodePath = NodePath("")
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var offset: Vector3 = Vector3.ZERO
 ```
 
@@ -147,6 +152,7 @@ var offset: Vector3 = Vector3.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var offset_follows_rotation: bool = false
 ```
 
@@ -160,6 +166,7 @@ var offset_follows_rotation: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var use_target_rotation: bool = true
 ```
 
@@ -172,6 +179,7 @@ var use_target_rotation: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var look_at_enabled: bool = false
 ```
 
@@ -184,6 +192,7 @@ var look_at_enabled: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var up_axis: Vector3 = Vector3.UP
 ```
 
@@ -196,6 +205,7 @@ look_at 使用的上方向。为零向量时会回退到 Vector3.UP。
 - API：`public`
 
 ```gdscript
+@export
 var rotation_degrees_offset: Vector3 = Vector3.ZERO
 ```
 
@@ -208,6 +218,7 @@ var rotation_degrees_offset: Vector3 = Vector3.ZERO
 - API：`public`
 
 ```gdscript
+@export
 var blend: GFCameraBlend = null
 ```
 
@@ -221,6 +232,7 @@ var blend: GFCameraBlend = null
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var group_name: StringName = &"gf_camera_rig_3d":
 ```
 
@@ -234,6 +246,7 @@ var group_name: StringName = &"gf_camera_rig_3d":
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_node_path("Node")
 var camera_scope_path: NodePath = NodePath("")
 ```
 
@@ -247,6 +260,7 @@ var camera_scope_path: NodePath = NodePath("")
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var camera_channel: StringName = &""
 ```
 
@@ -259,6 +273,7 @@ var camera_channel: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

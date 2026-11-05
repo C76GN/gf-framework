@@ -2319,6 +2319,8 @@ static func _read_directory_entries(path: String) -> Dictionary:
 	var dir: DirAccess = DirAccess.open(path)
 	if dir == null:
 		return { "error": ERR_FILE_CANT_OPEN, "names": [] }
+	# Catalog 库存必须包含全部物理证据，再由调用方校验形状和归属。
+	dir.include_hidden = true
 	var begin_error: Error = dir.list_dir_begin()
 	if begin_error != OK:
 		return { "error": begin_error, "names": [] }

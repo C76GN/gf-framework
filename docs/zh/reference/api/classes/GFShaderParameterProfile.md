@@ -40,6 +40,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var parameters: Dictionary = {}
 ```
 
@@ -56,6 +57,7 @@ Shader 参数字典。键应为 StringName 或 String，值为项目 shader unif
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

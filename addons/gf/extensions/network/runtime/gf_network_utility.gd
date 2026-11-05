@@ -146,6 +146,21 @@ var _channels: Dictionary = {}
 ## [br]
 var _backend: GFNetworkBackend = null
 
+## 旧后端正在断开或通知会话关闭，此时 backend 为空，回调仍可取消待安装的后端。
+## [br]
+## @api private
+var _backend_detach_in_progress: bool = false
+
+## 旧后端执行断开回调时仍待关闭的会话。重入的替换操作可接手，并在关闭通知前取走它。
+## [br]
+## @api private
+var _session_pending_close: GFNetworkSession = null
+
+## 连接或替换操作的代次，用于终止同步回调已取消的旧操作。
+## [br]
+## @api private
+var _connection_generation: int = 0
+
 ## 传输指标历史记录允许保留的样本数。
 ## [br]
 ## @api private
@@ -293,10 +308,26 @@ func host(options: Dictionary = {}) -> Error:
 	if backend == null:
 		return ERR_UNCONFIGURED
 
+	_connection_generation += 1
+	var operation_generation: int = _connection_generation
+	var operation_backend: GFNetworkBackend = backend
+	var operation_session: GFNetworkSession = session
 	_end_connect_timeout()
 	if session != null:
 		session.start_host(options)
-	var error: Error = backend.host(options)
+	if not _is_connection_operation_current(
+		operation_generation,
+		operation_backend,
+		operation_session
+	):
+		return ERR_UNAVAILABLE
+	var error: Error = operation_backend.host(options)
+	if not _is_connection_operation_current(
+		operation_generation,
+		operation_backend,
+		operation_session
+	):
+		return ERR_UNAVAILABLE
 	if error != OK and session != null:
 		session.close("host_failed")
 	elif session != null and not session.has_connection:
@@ -320,10 +351,26 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 	if backend == null:
 		return ERR_UNCONFIGURED
 
+	_connection_generation += 1
+	var operation_generation: int = _connection_generation
+	var operation_backend: GFNetworkBackend = backend
+	var operation_session: GFNetworkSession = session
 	if session != null:
 		session.start_client(endpoint, options)
+	if not _is_connection_operation_current(
+		operation_generation,
+		operation_backend,
+		operation_session
+	):
+		return ERR_UNAVAILABLE
 	_begin_connect_timeout()
-	var error: Error = backend.connect_to_endpoint(endpoint, options)
+	var error: Error = operation_backend.connect_to_endpoint(endpoint, options)
+	if not _is_connection_operation_current(
+		operation_generation,
+		operation_backend,
+		operation_session
+	):
+		return ERR_UNAVAILABLE
 	if error != OK and session != null:
 		_end_connect_timeout()
 		session.close("connect_failed")
@@ -335,6 +382,10 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 ## [br]
 ## @api public
 func disconnect_network() -> void:
+	if _backend_detach_in_progress:
+		_replace_backend(null, "closed")
+		return
+	_connection_generation += 1
 	_end_connect_timeout()
 	if backend != null:
 		backend.disconnect_backend()
@@ -595,26 +646,69 @@ func _disconnect_backend_signals(target_backend: GFNetworkBackend) -> void:
 ## @api private
 ## [br]
 func _replace_backend(next_backend: GFNetworkBackend, close_reason: String) -> void:
-	if _backend == next_backend:
+	if next_backend == _backend and not _backend_detach_in_progress:
 		return
-
+	_connection_generation += 1
+	var operation_generation: int = _connection_generation
+	var operation_session: GFNetworkSession = session
 	_end_connect_timeout()
 	var previous_backend: GFNetworkBackend = _backend
-	if previous_backend != null:
-		_disconnect_backend_signals(previous_backend)
-		previous_backend.disconnect_backend()
-		if session != null:
-			session.close(close_reason)
-
-	_backend = next_backend
+	_backend = null
 	_transport_metric_samples.clear()
 	_transport_metric_elapsed_msec = 0
+	if previous_backend != null:
+		_backend_detach_in_progress = true
+		_session_pending_close = operation_session
+		_disconnect_backend_signals(previous_backend)
+		previous_backend.disconnect_backend()
+	if _backend_detach_in_progress:
+		var closing_session: GFNetworkSession = _session_pending_close
+		_session_pending_close = null
+		if closing_session != null:
+			closing_session.close(close_reason)
+		_backend_detach_in_progress = false
+	if not _is_connection_operation_current(
+		operation_generation,
+		null,
+		operation_session
+	):
+		return
+
+	_backend = next_backend
 	if _backend != null:
 		_connect_backend_signals(_backend)
 		_apply_backend_session_bootstrap(_backend)
-		if _backend.is_backend_connected():
+		if not _is_connection_operation_current(
+			operation_generation,
+			next_backend,
+			operation_session
+		):
+			return
+		var backend_connected: bool = next_backend.is_backend_connected()
+		if not _is_connection_operation_current(
+			operation_generation,
+			next_backend,
+			operation_session
+		):
+			return
+		if backend_connected:
 			_on_backend_connected()
 	_publish_diagnostics_contribution()
+
+
+## 同时检查操作代次、后端和会话，避免回调后的旧操作作用到替换对象。
+## [br]
+## @api private
+func _is_connection_operation_current(
+	operation_generation: int,
+	operation_backend: GFNetworkBackend,
+	operation_session: GFNetworkSession
+) -> bool:
+	return (
+		operation_generation == _connection_generation
+		and operation_backend == _backend
+		and operation_session == session
+	)
 
 
 ## 按配置的样本上限从最旧端移除过量指标快照。
@@ -640,7 +734,15 @@ func _apply_backend_session_bootstrap(target_backend: GFNetworkBackend) -> void:
 		or session.is_active
 	):
 		return
+	var operation_generation: int = _connection_generation
+	var operation_session: GFNetworkSession = session
 	var bootstrap: Dictionary = target_backend.get_session_bootstrap()
+	if not _is_connection_operation_current(
+		operation_generation,
+		target_backend,
+		operation_session
+	):
+		return
 	var mode: int = GFVariantData.get_option_int(
 		bootstrap,
 		"mode",

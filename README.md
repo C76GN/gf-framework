@@ -53,6 +53,10 @@ Bundled GF extensions are atomic: they depend only on the GF kernel/standard sur
 
 ## Quick Start
 
+For a complete first task, follow [Count, save, load, and exit](docs/zh/overview/quickstart/counter-save-exit.md). It uses native controls and local state; add Model/System roles when the project needs separate state or shared rules. [Minimal startup and Installer](docs/zh/overview/quickstart/minimal-installer.md) explains their lifetime and composition.
+
+The registration example below assumes project-defined `PlayerModel` and `BattleSystem` classes. These names are examples, not built-in GF types.
+
 ```gdscript
 extends Node
 

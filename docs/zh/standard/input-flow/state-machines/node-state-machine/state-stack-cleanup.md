@@ -23,6 +23,8 @@ machine.pop_state()
 
 `GFNodeStateGroup.stop()` 会退出当前状态和暂停栈，但保留已注册状态节点。
 
+普通 `transition_to()` 会在调用旧状态 `_exit()` 前先撤下当前实例；若退出回调调用组的 `stop()`，该实例只退出一次，旧转场不会再进入原定目标。
+
 `GFNodeStateMachine.clear_state_groups()` 会先停止外部状态组再从状态机解绑，避免旧组被清理后仍保持 active state。`remove_state()`、`clear_states()`、`remove_state_group()` 与 `clear_state_groups()` 都会解除 state/group 持有的 machine 和 group 引用；项目即使保留被移除对象，也不能再通过它访问旧状态机上下文。
 
 `clear_states(true)` 与 `clear_state_groups(true)` 会先把被释放的状态或状态组从场景树移除，再进入释放队列，便于运行时重建结构时同一帧拿到干净的子节点列表。

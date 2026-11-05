@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 1 | 19 | 4 |
-| [资源定义](#category-resource_definition) | 3 | 80 | 46 |
-| [运行时句柄](#category-runtime_handle) | 1 | 22 | 19 |
+| [运行时服务](#category-runtime_service) | 1 | 19 | 5 |
+| [资源定义](#category-resource_definition) | 3 | 71 | 38 |
+| [运行时句柄](#category-runtime_handle) | 3 | 21 | 20 |
 | [编辑器 API](#category-editor_api) | 2 | 18 | 16 |
 
 ## 类
@@ -38,6 +38,8 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFFlowContext`](classes/GFFlowContext.md#gfflowcontext) | `RefCounted` | `addons/gf/extensions/flow/runtime/gf_flow_context.gd` |
+| [`GFFlowNodeExecution`](classes/GFFlowNodeExecution.md#gfflownodeexecution) | `RefCounted` | `addons/gf/extensions/flow/runtime/gf_flow_node_execution.gd` |
+| [`GFFlowRunState`](classes/GFFlowRunState.md#gfflowrunstate) | `RefCounted` | `addons/gf/extensions/flow/runtime/gf_flow_run_state.gd` |
 
 <a id="category-editor_api"></a>
 

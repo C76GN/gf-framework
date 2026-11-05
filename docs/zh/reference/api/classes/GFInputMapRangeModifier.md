@@ -32,6 +32,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var input_min: float = 0.0
 ```
 
@@ -44,6 +45,7 @@ var input_min: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var input_max: float = 1.0
 ```
 
@@ -56,6 +58,7 @@ var input_max: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var output_min: float = 0.0
 ```
 
@@ -68,6 +71,7 @@ var output_min: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var output_max: float = 1.0
 ```
 
@@ -80,6 +84,7 @@ var output_max: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var clamp_output: bool = true
 ```
 

@@ -29,6 +29,37 @@ class ErrorPayloadResource extends Resource:
 		return ERR_INVALID_DATA
 
 
+class EmptyPayloadResource extends Resource:
+	var value: int = 7
+	var apply_count: int = 0
+
+	func to_dict() -> Dictionary:
+		return {}
+
+
+	func from_dict(data: Dictionary) -> void:
+		value = GFVariantData.get_option_int(
+			data,
+			"value",
+			7
+		)
+		apply_count += 1
+
+
+class MutatingFailurePayloadResource extends Resource:
+	var value: int = 7
+	var apply_count: int = 0
+
+	func to_dict() -> Dictionary:
+		return { "value": value }
+
+
+	func from_dict(data: Dictionary) -> Error:
+		value = GFVariantData.get_option_int(data, "value")
+		apply_count += 1
+		return ERR_INVALID_DATA if value == 99 else OK
+
+
 class PayloadHolder extends Node:
 	@export var payload: Resource = null
 
@@ -299,7 +330,114 @@ func test_apply_treats_error_code_result_as_failure() -> void:
 	source.free()
 
 
+func test_failed_rollback_capture_stops_before_source_mutation() -> void:
+	var model: PayloadResource = PayloadResource.new()
+	model.value = 7
+	var first: GFSaveDataSource = _make_data_source(&"a_state")
+	first.data = model
+	_scope.add_child(first)
+	var later_model: MutatingFailurePayloadResource = MutatingFailurePayloadResource.new()
+	var second: GFSaveDataSource = _make_data_source(&"b_state")
+	second.data = later_model
+	_scope.add_child(second)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	_replace_source_data(
+		payload,
+		"a_state",
+		{ "value": 42 }
+	)
+	_replace_source_data(
+		payload,
+		"b_state",
+		{ "value": 99 }
+	)
+	first.gather_method = &"missing_to_dict"
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFResultDictionary.is_ok(result))
+	assert_eq(
+		model.value,
+		7,
+		"捕获旧状态失败时不能先应用，再把空快照当旧值。"
+	)
+	assert_eq(model.apply_count, 0)
+	assert_eq(
+		later_model.apply_count,
+		0,
+		"捕获失败必须停止后续 Source mutation。"
+	)
+	assert_false(GFVariantData.get_option_array(result, "errors").is_empty())
+	assert_true(GFVariantData.get_option_bool(result, "atomicity_restored"))
+
+
+func test_legitimate_empty_rollback_snapshot_remains_restorable() -> void:
+	var model: EmptyPayloadResource = EmptyPayloadResource.new()
+	var first: GFSaveDataSource = _make_data_source(&"a_state")
+	first.data = model
+	_scope.add_child(first)
+	var later_model: MutatingFailurePayloadResource = MutatingFailurePayloadResource.new()
+	var second: GFSaveDataSource = _make_data_source(&"b_state")
+	second.data = later_model
+	_scope.add_child(second)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	_replace_source_data(
+		payload,
+		"a_state",
+		{ "value": 42 }
+	)
+	_replace_source_data(
+		payload,
+		"b_state",
+		{ "value": 99 }
+	)
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFResultDictionary.is_ok(result))
+	assert_eq(model.value, 7)
+	assert_eq(
+		model.apply_count,
+		2,
+		"合法空字典快照应在后续失败时参与回滚。"
+	)
+	assert_eq(later_model.value, 7)
+	assert_true(GFVariantData.get_option_bool(result, "atomicity_restored"))
+
+
+func test_from_dict_failure_after_mutation_restores_captured_value() -> void:
+	var model: MutatingFailurePayloadResource = MutatingFailurePayloadResource.new()
+	var source: GFSaveDataSource = _make_data_source(&"model")
+	source.data = model
+	_scope.add_child(source)
+	var payload: Dictionary = _utility.gather_scope(_scope)
+	_replace_source_data(
+		payload,
+		"model",
+		{ "value": 99 }
+	)
+
+	var result: Dictionary = _utility.apply_scope(_scope, payload)
+
+	assert_false(GFResultDictionary.is_ok(result))
+	assert_eq(model.value, 7)
+	assert_eq(model.apply_count, 2)
+	assert_true(GFVariantData.get_option_bool(result, "atomicity_restored"))
+
+
 # --- 私有/辅助方法 ---
+
+func _replace_source_data(
+	payload: Dictionary,
+	source_key: String,
+	data: Dictionary
+) -> void:
+	var sources: Dictionary = GFVariantData.get_option_dictionary(payload, "sources")
+	var source_payload: Dictionary = GFVariantData.get_option_dictionary(sources, source_key)
+	source_payload["data"] = data
+	sources[source_key] = source_payload
+	payload["sources"] = sources
+
 
 func _make_data_source(source_key: StringName) -> GFSaveDataSource:
 	var source: GFSaveDataSource = GFSaveDataSource.new()

@@ -38,11 +38,14 @@ if timeline.get_error().is_empty():
 项目 EditorPlugin 实现 `GFTweenPreviewAdapter`，通过 `GFTweenPreviewRegistry` 向共享目录注册 ID、revision、label 和数值属性，并持有 `GFTweenPreviewRegistration` 管理注册生命周期。登记本身不执行钩子。打开资源后按已声明用途解析；未声明时只自动选择唯一兼容候选，歧义需要明确选择。首次接纳后，本次编辑保留该用途，源编辑只重新检查新配置的准备条件。Inspector 与 Steps 共用同一个目标及初值目录。
 
 ```gdscript
+# 项目编辑器插件；仅注册隔离样机，不把真实场景节点交给预览工具。
 @tool
 extends EditorPlugin
 
+## 本插件持有的注册租约；退出插件时必须显式释放。
 var _registration: GFTweenPreviewRegistration = null
 
+## 注册有限数值属性和样机适配器；登记本身不执行钩子。
 func _enter_tree() -> void:
 	_registration = GFTweenPreviewRegistry.get_shared().register_adapter(self, {
 		"id": "progress_sample", "revision": 1, "label": "Progress 色块",
@@ -50,17 +53,21 @@ func _enter_tree() -> void:
 			"initial": 0.0, "minimum": 0.0, "maximum": 1.0}],
 	}, ProgressSample.new())
 
+## 撤销本次租约，使旧预览会话失去继续提交的资格。
 func _exit_tree() -> void:
 	if _registration != null:
 		_registration.release()
 		_registration = null
 
+## 只将冻结数值映射到工具样机，不读取项目业务或来源资源。
 class ProgressSample extends GFTweenPreviewAdapter:
+	## 创建未入树、无父节点的新样机；GF 接纳后负责挂载和释放。
 	func _create_sample() -> Control:
 		var color: ColorRect = ColorRect.new()
 		color.size = Vector2(48, 48)
 		return color
 
+	## 将本次采样副本映射为位置与透明度；不触发业务事件。
 	func _apply_sample(sample: Control, values: Dictionary) -> void:
 		var progress: float = GFVariantData.get_option_float(values, "progress")
 		sample.position = Vector2(48 + progress * 280, 120)

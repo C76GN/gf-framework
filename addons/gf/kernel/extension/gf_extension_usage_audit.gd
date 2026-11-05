@@ -826,12 +826,45 @@ func _step_class_file() -> void:
 	)
 	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(source_report, "ok"):
 		return
-	var match_result: RegExMatch = _class_regex.search(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source"))
-	if match_result == null:
+	var class_name_value: String = _find_declared_class_name(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_report, "source"))
+	if class_name_value.is_empty():
 		return
-	var class_name_value: String = match_result.get_string(1)
 	if not _class_names.has(class_name_value):
 		_class_names.append(class_name_value)
+
+
+## 跳过注释及带转义的普通、多行字符串，只从代码行首取得 class_name；不加载或执行被审计脚本。
+## [br]
+## @api private
+func _find_declared_class_name(source: String) -> String:
+	var delimiter: String = ""
+	for line: String in source.trim_prefix("\uFEFF").split("\n"):
+		if delimiter.is_empty():
+			var declaration: RegExMatch = _class_regex.search(line)
+			if declaration != null:
+				return declaration.get_string(1)
+		var offset: int = 0
+		while offset < line.length():
+			var character: String = line.substr(offset, 1)
+			if not delimiter.is_empty():
+				if character == "\\":
+					offset += 2
+					continue
+				if line.substr(
+					offset,
+					delimiter.length()
+				) == delimiter:
+					offset += delimiter.length()
+					delimiter = ""
+					continue
+			elif character == "#":
+				break
+			elif character == "\"" or character == "'":
+				delimiter = character.repeat(3) if line.substr(offset, 3) == character.repeat(3) else character
+				offset += delimiter.length()
+				continue
+			offset += 1
+	return ""
 
 
 ## 从两阶段共享额度中扣除预扫描消耗，再把增强目标交给同一个项目扫描会话。

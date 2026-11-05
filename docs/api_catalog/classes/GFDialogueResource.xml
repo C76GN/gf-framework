@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueResource" path="addons/gf/extensions/dialogue/resources/gf_dialogue_resource.gd" module="extensions/dialogue" extends="Resource" classDigest="137c485d74120eb2f8707b661143f86452d1cacdf9673fcc41381baa49f2c2aa">
+<class name="GFDialogueResource" path="addons/gf/extensions/dialogue/resources/gf_dialogue_resource.gd" module="extensions/dialogue" extends="Resource" classDigest="bb1afd682275a9022a97c3bba75ea06e8b94930e10d968a11b52a58050f76a86">
 	<description>GFDialogueResource: 通用对话资源。
 资源只保存对话行集合、起始行和自定义元数据。导入格式、剧本 DSL、
 本地化表和编辑器 UI 均由项目或独立插件决定。</description>
@@ -76,7 +76,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">兼容 GFValidationReportDictionary 的报告字典。</tag>
-				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。</tag>
+				<tag name="schema">return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。duplicate_response_id 问题的 metadata 包含从零开始的 line_index 与完整 response_id，subject 只用于展示。</tag>
+				<tag name="since">3.9.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_dialogue">

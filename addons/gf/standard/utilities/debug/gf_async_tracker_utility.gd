@@ -217,16 +217,19 @@ func untrack_id(tracking_id: int) -> bool:
 ## [br]
 ## @return 移除数量。
 func untrack_handle(handle: Object) -> int:
-	if handle == null:
+	if not is_instance_valid(handle):
 		return 0
+	var handle_instance_id: int = handle.get_instance_id()
 	var removed_count: int = 0
 	for tracking_id: int in _records.keys():
+		if not _records.has(tracking_id):
+			continue
 		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
 		if GFVariantData.get_option_int(
 			record,
 			"handle_instance_id",
 			-1
-		) != handle.get_instance_id():
+		) != handle_instance_id:
 			continue
 		if untrack_id(tracking_id):
 			removed_count += 1
@@ -243,11 +246,13 @@ func untrack_handle(handle: Object) -> int:
 func clear_invalid() -> int:
 	var removed_count: int = 0
 	for tracking_id: int in _records.keys():
+		if not _records.has(tracking_id):
+			continue
 		var record: Dictionary = GFVariantData.as_dictionary(_records[tracking_id])
 		if _record_handle_is_valid(record):
 			continue
-		var _removed: bool = untrack_id(tracking_id)
-		removed_count += 1
+		if untrack_id(tracking_id):
+			removed_count += 1
 	return removed_count
 
 

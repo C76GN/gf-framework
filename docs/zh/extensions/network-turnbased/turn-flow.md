@@ -9,10 +9,12 @@
 `GFTurnPhase` 是可扩展的阶段协议，每次运行态归属当前 context；`GFTurnAction` 是一次性行动请求，首次入队后配置冻结，离队后保持 sealed，重试需要创建新实例。
 
 ```gdscript
+## 在当前阶段启动行动解析；行动效果和目标规则仍由项目实现。
 class_name ResolvePhase
 extends GFTurnPhase
 
 
+## 同一 Flow 的阶段允许驱动其行动解析；返回 null，不额外等待外部信号。
 func _execute(
 	context: GFTurnContext,
 	_completion: GFTurnPhaseCompletionHandle
@@ -40,23 +42,28 @@ flow.advance_phase()
 `auto_finish=false` 的手工阶段必须保存本次 `_execute()` 收到的精确 completion handle；timer、动画、网络或自定义 Signal 回调只调用这个句柄：
 
 ```gdscript
+## 通过本次精确 completion handle 完成动画阶段，旧回调不能完成新代次。
 class_name AnimationPhase
 extends GFTurnPhase
 
 
+## 借用场景中的播放器；项目负责赋值、保证有效并清理不再需要的回调。
 @export var animation_player: AnimationPlayer
 
 
+## 禁用自动完成，改由本次动画回调提交阶段完成。
 func _init() -> void:
 	auto_finish = false
 
 
+## 先建立单次监听再播放；连接失败时结束本阶段，不能把结束理解为动画成功。
 func _execute(
 	_context: GFTurnContext,
 	completion: GFTurnPhaseCompletionHandle
 ) -> Variant:
 	var connection_error: Error = animation_player.animation_finished.connect(
 		func(_animation_name: StringName) -> void:
+			# 捕获本次 handle，避免 stop、超时或重启后的旧通知作用于新阶段。
 			if completion.try_complete():
 				print("本次阶段已提交完成")
 		,

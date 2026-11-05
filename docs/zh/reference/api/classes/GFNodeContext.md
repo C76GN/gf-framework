@@ -126,6 +126,7 @@ enum ScopeMode {
 - API：`public`
 
 ```gdscript
+@export
 var scope_mode: ScopeMode = ScopeMode.SCOPED
 ```
 
@@ -138,6 +139,7 @@ var scope_mode: ScopeMode = ScopeMode.SCOPED
 - API：`public`
 
 ```gdscript
+@export
 var auto_init: bool = true
 ```
 
@@ -150,6 +152,7 @@ var auto_init: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var process_scoped_ticks: bool = true
 ```
 
@@ -162,6 +165,7 @@ var process_scoped_ticks: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var strict_dependency_lookup: bool = false
 ```
 
@@ -174,6 +178,7 @@ Scoped 架构是否启用严格依赖查询。开启后本地未注册的依赖�
 - API：`public`
 
 ```gdscript
+@export
 var module_async_init_timeout_seconds: float = 0.0
 ```
 
@@ -186,6 +191,7 @@ Scoped 架构中单个模块 async_init() 的最长等待时间。小于等于 0
 - API：`public`
 
 ```gdscript
+@export
 var context_wait_timeout_seconds: float = 30.0
 ```
 

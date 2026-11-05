@@ -86,6 +86,7 @@ enum ValueType {
 - API：`public`
 
 ```gdscript
+@export
 var field_name: StringName = &""
 ```
 
@@ -98,6 +99,7 @@ var field_name: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -110,6 +112,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.VARIANT
 ```
 
@@ -122,6 +125,7 @@ var value_type: ValueType = ValueType.VARIANT
 - API：`public`
 
 ```gdscript
+@export
 var required: bool = true
 ```
 
@@ -134,6 +138,7 @@ var required: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var allow_null: bool = false
 ```
 
@@ -147,6 +152,7 @@ var allow_null: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -163,6 +169,7 @@ var default_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var class_name_hint: StringName = &""
 ```
 
@@ -175,6 +182,7 @@ Object / Resource 字段的类名提示，仅用于工具校验。
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

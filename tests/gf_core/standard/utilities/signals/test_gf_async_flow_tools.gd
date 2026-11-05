@@ -2,6 +2,27 @@
 extends GutTest
 
 
+func test_async_flow_each_preserves_null_and_index() -> void:
+	var received: Array = []
+	var result: Dictionary = await GFAsyncFlowTools.each_async(
+		[null],
+		func(item: Variant = "missing", index: int = -1) -> Variant:
+			received.append([item, index])
+			return item,
+		{ "pass_index": true }
+	)
+	assert_eq(
+		received,
+		[
+			[null, 0],
+		]
+	)
+	assert_eq(
+		GFVariantData.get_option_array(result, "value"),
+		[null]
+	)
+
+
 func test_async_flow_retry_stops_after_successful_attempt() -> void:
 	var state: Dictionary = { "calls": 0 }
 

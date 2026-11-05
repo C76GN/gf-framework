@@ -362,9 +362,11 @@ var use_integrity_checksum: bool = false
 ## @api public
 var strict_integrity: bool = true
 
-## 启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。
+## 启用完整性校验时，是否要求文档包含 `__gf_storage_document.integrity.digest`。
 ## [br]
 ## @api public
+## [br]
+## @since 1.24.0
 var require_integrity_checksum: bool = true
 
 ## 是否写入时间戳、编码格式和压缩方式等诊断元数据。
@@ -598,6 +600,11 @@ var _is_disposing: bool = false
 ## @api private
 ## [br]
 var _io_admission_open: bool = true
+
+## 内部同步读取对下一次 load_data 的一次性投影请求；入口先消费，等待与回调中的普通重入不会继承。
+## [br]
+## @api private
+var _json_projection_requested: bool = false
 
 ## 当前待完成的静默等待结果；非 null 时表示已请求 quiesce。
 ## [br]
@@ -1620,6 +1627,8 @@ func save_data_group(files: Dictionary) -> Error:
 ## [br]
 ## @return 强类型读取结果；调用方必须先检查 ok，再读取 payload。
 func load_data(file_name: String) -> GFStorageReadResult:
+	var preserve_json_projection: bool = _json_projection_requested
+	_json_projection_requested = false
 	if not _io_admission_open:
 		last_load_result = _make_load_failure(
 			"Storage I/O admission is closed.",
@@ -1669,7 +1678,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 		)
 		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
-	return _read_json(file_name)
+	return _read_json(file_name, preserve_json_projection)
 
 
 ## 校验一个已经 canonical 的 portable logical 数据文件名。
@@ -2104,6 +2113,23 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 
 # --- 框架内部方法 ---
+
+## 同一次同步读取额外保留只读 JSON 输入投影；不扩展文件格式、公开 Dictionary 结果或异步 worker 协议。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 目标逻辑文件名。
+## [br]
+## @return: 沿用 load_data 的结果及实际重写；投影只在 JSON 成功读取且未迁移时可用。
+func load_data_with_json_projection_for_framework(file_name: String) -> GFStorageReadResult:
+	var previous_request: bool = _json_projection_requested
+	_json_projection_requested = true
+	var result: GFStorageReadResult = load_data(file_name)
+	_json_projection_requested = previous_request
+	return result
+
 
 ## 离线 revision 迁移器的准备入口；调用方必须独占整个存储 root。
 ## [br]
@@ -10504,7 +10530,7 @@ func _ensure_parent_directory(path: String) -> Error:
 ## [br]
 ## @api private
 ## [br]
-func _read_json(file_name: String) -> GFStorageReadResult:
+func _read_json(file_name: String, preserve_json_projection: bool = false) -> GFStorageReadResult:
 	var path: String = _get_full_path(file_name)
 	if not FileAccess.file_exists(path):
 		last_load_result = _make_load_failure(
@@ -10581,10 +10607,9 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 		)
 		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
-	var result: GFStorageReadResult = _get_codec().decode(
-		bytes,
-		_get_codec_options()
-	)
+	var active_codec: GFStorageCodec = _get_codec()
+	var codec_options: Dictionary = _get_codec_options()
+	var result: GFStorageReadResult = (active_codec.decode_with_json_projection_for_framework(bytes, codec_options) if preserve_json_projection else active_codec.decode(bytes, codec_options))
 	result = _apply_schema_migrations(file_name, result)
 	result.capture_revision_for_framework(revision)
 	_bind_read_result_origin(result, file_name)

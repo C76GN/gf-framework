@@ -15,9 +15,13 @@ SaveGraph 的默认节点序列化器按节点类型拆分，覆盖常见场景�
 
 属性序列化器采集时会把常见 Godot 值类型转成可 JSON 落盘的类型化值，并用 `GFVariantReferenceCodec` 保存显式引用。Resource 引用会记录路径、可用时的 `ResourceUID` 和类型提示；同一 SaveGraph Scope 内的 Node 引用会记录相对 Scope 的 `NodePath`。没有路径的内嵌资源、Scope 外节点引用或其他裸 `Object` 会被跳过并输出 warning。应用数据时会先恢复类型化值或引用，再检查属性存在、可写性和基础 Variant 类型兼容性。Resource 引用恢复默认拒绝加载；项目需要在调用 context 中传入 `allowed_resource_roots` / `allowed_resource_patterns`，或在 `GFNodePropertySerializer`、`GFPersistPropertiesSource` 上配置同名 allowlist。
 
+通过 `GFSaveGraphUtility.save_scope()` / `load_scope()`，或 `GFSaveSlotStorageAdapter.save_slot()` / `load_slot()` 后把 Document/Section 交给 Graph 应用时，默认 JSON 属性片段仍只解释一次类型与引用编码；嵌套 Godot 值、类型化字典键，以及形似 `__gf_variant__` / `__gf_reference__` 的字面 Dictionary 都保留原义。Binary 与直接应用编码片段使用相同的属性白名单和引用恢复策略，不会因为兼容已解码值而接受任意原生对象。
+
+槽位读取保留的原始输入来源只随 Document/Section 对象副本共享，不进入 `to_dict()` / `from_dict()` 或异步 worker 协议。迁移后 payload 已改变的 section 不消费旧输入；迁移应为属性重新构建完整编码，随后按严格 apply 合同恢复。metadata 及其他 Source 的原生类型不受此属性兼容路径影响。完整文档读取示例见 [采集、应用与存储闭环](runtime-flow.md)。
+
 如果只需要在场景树里声明属性白名单，可以直接使用 `GFPersistPropertiesSource`。它是 `GFSaveSource` 的薄封装，内部仍使用 `GFNodePropertySerializer`，默认目标是父节点，也可以通过继承的 `target_node_path` 指向其他节点。
 
-恢复白名单与采集白名单相同：载荷包含未声明属性时会在写入前失败。JSON codec 的遍历失败标记也不能作为普通属性值恢复；调用方应检查应用结果。事务回滚会使用每个 Source 采集旧状态时的引用根，因此嵌套 Scope 内的 Node 引用仍按原 Scope 解析。
+恢复白名单与采集白名单相同：载荷包含未声明属性时会在写入前失败。属性采集要求完整编码；循环、可执行值、非有限数或遍历预算超限会写入流程错误并使整次保存失败，保留现有存档，不会将诊断替代值写入文件。JSON codec 的遍历失败标记也不能作为普通属性值恢复；调用方应检查应用结果。事务回滚会使用每个 Source 采集旧状态时的引用根，因此嵌套 Scope 内的 Node 引用仍按原 Scope 解析。
 
 ```gdscript
 var source := GFPersistPropertiesSource.new()
@@ -110,5 +114,7 @@ var sync_result := bridge.sync_slot(active_slot, slot_store, local_backend, remo
 如果项目只想同步槽位元数据列表，可以传入 `{ "sync_data_file": false }`；只同步数据文件则传入 `{ "sync_metadata_file": false }`。桥接器不会枚举所有槽位，也不会自动保存当前场景，它只同步调用方明确传入的槽位索引。
 
 槽位工作流内部使用 `GFSaveSlotMetadata` 描述槽位 ID、展示名、schema、版本、标签、耗时和自定义元数据；`validate_metadata()` 返回标准校验报告字典，用 `kind`、统计、摘要和下一步建议描述元数据结构问题。空槽不会默认生成 `Slot N` 这类展示名；如果项目需要统一占位名，可以显式设置 `empty_display_name_template`，或在 UI 渲染层自行映射。
+
+`build_card_for_index()` 的 `active_index` 参数对空槽和已有存档槽均生效；未指定时使用工作流当前选中的槽位。
 
 `GFSaveSlotCard` 是给项目读档 UI 消费的轻量 DTO，包含空槽、当前选中、兼容性、非本地化 `status_id`、修改时间和原始 metadata 副本。`GFSaveSlotStorageAdapter.list_slots()` 的 `modified_time` 来自 metadata 的 `updated_at_unix`，表示领域层最后更新时间，不是 Storage family payload 的文件系统 mtime；缺失时为 `0`。卡片会从整数 `slot_index`、整数/字符串 `slot_id`、metadata 里的 `slot_id` 或兜底逻辑 ID 中反推整数索引，兼容默认 `slot_3` 这类逻辑标识。它们都不绑定具体 UI 卡片布局，也不定义项目的存档字段、状态文案或按钮行为。

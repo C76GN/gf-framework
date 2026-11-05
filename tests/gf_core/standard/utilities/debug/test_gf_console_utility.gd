@@ -321,6 +321,24 @@ func test_scene_tree_accepts_integer_forms_through_int64_maximum() -> void:
 		)
 
 
+## 一个深分支被截断不应隐藏仍在深度预算内的后续兄弟。
+func test_scene_tree_depth_truncation_preserves_shallow_sibling() -> void:
+	_create_console_test_scene()
+	var first: Node = _console_test_scene.get_child(0)
+	var deep: Node = Node.new()
+	deep.name = "OmittedDeepChild"
+	first.add_child(deep)
+	var sibling: Node = Node.new()
+	sibling.name = "VisibleSibling"
+	_console_test_scene.add_child(sibling)
+	assert_true(_console.execute_command("scene.tree 1 80"))
+	_console.flush_output()
+	var output: String = "\n".join(_get_console_output_lines())
+	assert_true(output.contains("VisibleSibling"))
+	assert_false(output.contains("OmittedDeepChild"))
+	assert_true(output.contains("truncated"))
+
+
 func test_scene_tree_preserves_explicit_depth_and_node_budgets() -> void:
 	_create_console_test_scene()
 	for limit_arguments: String in PackedStringArray(

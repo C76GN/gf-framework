@@ -1587,6 +1587,9 @@ func _append_scene_tree_lines(
 		return
 
 	for child: Node in node.get_children():
+		if GFVariantData.get_option_int(counter, "count") >= max_nodes:
+			counter["truncated"] = true
+			return
 		_append_scene_tree_lines(
 			child,
 			depth + 1,
@@ -1595,8 +1598,6 @@ func _append_scene_tree_lines(
 			counter,
 			lines
 		)
-		if GFVariantData.get_option_bool(counter, "truncated"):
-			return
 
 
 ## 将每一行纯文本转成 BBCode 安全文本。

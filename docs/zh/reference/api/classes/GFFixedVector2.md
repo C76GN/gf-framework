@@ -388,7 +388,7 @@ func multiply_scalar( scalar: GFFixedDecimal, target_decimal_places: int = -1, r
 func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal:
 ```
 
-计算点积。
+计算点积，完整求和后只执行一次结果舍入和 raw 饱和。 分量乘积与部分和使用宽整数，不因中间越界丢失可抵消的值。
 
 参数：
 
@@ -396,9 +396,9 @@ func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode:
 |---|---|
 | `other` | 另一个定点二维向量。 |
 | `target_decimal_places` | 结果小数位；传 -1 时沿用较高小数位。 |
-| `rounding_mode` | 结果降位时的舍入策略。 |
+| `rounding_mode` | 完整求和后的结果降位策略。 |
 
-返回：点积定点数。
+返回：点积定点数；other 为 null 时返回当前向量精度的零。
 
 <a id="member-gffixedvector2-methods-length_squared"></a>
 
@@ -411,7 +411,7 @@ func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode:
 func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal:
 ```
 
-计算长度平方。
+计算长度平方；各分量平方完整求和后只舍入、饱和一次。
 
 参数：
 

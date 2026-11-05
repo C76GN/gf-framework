@@ -30,6 +30,7 @@ Buff 应用检查基类。 为数据化 Buff 提供通用可组合检查入口�
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var check_id: StringName = &""
 ```
 
@@ -43,6 +44,7 @@ var check_id: StringName = &""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

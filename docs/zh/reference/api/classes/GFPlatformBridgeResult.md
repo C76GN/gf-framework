@@ -43,6 +43,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var request_id: StringName = &""
 ```
 
@@ -56,6 +57,7 @@ var request_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var contract_id: StringName = &""
 ```
 
@@ -69,6 +71,7 @@ var contract_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var method_id: StringName = &""
 ```
 
@@ -82,6 +85,7 @@ var method_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var ok: bool = false
 ```
 
@@ -95,6 +99,7 @@ var ok: bool = false
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var status: StringName = &""
 ```
 
@@ -108,6 +113,7 @@ var status: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var value: Variant = null
 ```
 
@@ -125,6 +131,7 @@ var value: Variant = null
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var error: String = ""
 ```
 
@@ -138,6 +145,7 @@ var error: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var started_at_msec: int = -1
 ```
 
@@ -151,6 +159,7 @@ var started_at_msec: int = -1
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var completed_at_msec: int = -1
 ```
 
@@ -164,6 +173,7 @@ var completed_at_msec: int = -1
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

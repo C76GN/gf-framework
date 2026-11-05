@@ -63,6 +63,7 @@ JSONL 文件打开策略。
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var file_path: String = ""
 ```
 
@@ -75,6 +76,7 @@ var file_path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var omit_formatted_text: bool = false
 ```
 
@@ -87,6 +89,7 @@ var omit_formatted_text: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var flush_interval_msec: int = 250
 ```
 
@@ -99,6 +102,7 @@ var flush_interval_msec: int = 250
 - API：`public`
 
 ```gdscript
+@export
 var flush_immediately: bool = false
 ```
 
@@ -111,6 +115,7 @@ var flush_immediately: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var max_jsonl_files: int = 10:
 ```
 
@@ -124,6 +129,7 @@ var max_jsonl_files: int = 10:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var file_open_mode: FileOpenMode = FileOpenMode.TRUNCATE
 ```
 

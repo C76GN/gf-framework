@@ -10,7 +10,7 @@ The code required while a game is running or exported. It owns framework lifecyc
 
 ### Authoring Track
 
-The code used while creating and maintaining a game project. It owns the GF editor host, package-management user experience, Project Layout, import/build assistance, and other development-time tools. It may depend on the Runtime Track.
+The code used while creating and maintaining a game project. It owns the GF editor host, extension configuration, Project Layout, import/build assistance, and other development-time tools. It may depend on the Runtime Track. The former Package Manager was retired in GF 11; see [Runtime and Authoring tracks](docs/adr/0001-runtime-authoring-tracks.md).
 
 ### Maintenance Toolchain
 

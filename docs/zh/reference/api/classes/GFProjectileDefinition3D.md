@@ -28,6 +28,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var body_adapter: GFProjectileBodyAdapter3D = null
 ```
 

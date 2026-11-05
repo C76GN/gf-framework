@@ -490,10 +490,13 @@ static func make_issue_fingerprint(issue: Variant, fields: PackedStringArray = P
 			fingerprint_state
 		):
 			return ""
+		var encoded_field: String = _fingerprint_value(field_value)
+		if encoded_field.is_empty():
+			return ""
 		_append_packed_string(
 			parts,
 			"%s=%s"
-			% [field_name, _fingerprint_value(field_value),]
+			% [field_name, encoded_field,]
 		)
 	return "|".join(parts)
 
@@ -961,17 +964,19 @@ static func _glob_to_regex(pattern: String) -> String:
 	return result
 
 
-## 把值转换为 JSON 兼容形式（不支持类型写为 null）后序列化为文本。
+## 仅序列化完整的 JSON 兼容编码；预算或类型失败返回空，不能用降级标记匹配基线。
 ## [br]
 ## @api private
 ## [br]
 static func _fingerprint_value(value: Variant) -> String:
-	var compatible: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+	var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(
 		value,
 		{ "unsupported": "null", }
 	)
+	if not GFVariantData.get_option_bool(encoded, "ok"):
+		return ""
 	return JSON.stringify(
-		compatible,
+		GFVariantData.get_option_value(encoded, "value"),
 		"",
 		true
 	)

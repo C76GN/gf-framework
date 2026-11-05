@@ -34,6 +34,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var participant_id: StringName = &""
 ```
 

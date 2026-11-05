@@ -492,7 +492,8 @@ func multiply_scalar(
 	)
 
 
-## 计算点积。
+## 计算点积，三个宽整数乘积完整求和后只舍入、饱和一次。
+## 中间乘积或 X+Y 越界不会在与剩余分量抵消前提前钳制。
 ## [br]
 ## @api public
 ## [br]
@@ -502,9 +503,9 @@ func multiply_scalar(
 ## [br]
 ## @param target_decimal_places: 结果小数位；传 -1 时沿用较高小数位。
 ## [br]
-## @param rounding_mode: 结果降位时的舍入策略。
+## @param rounding_mode: 完整求和后的结果降位策略。
 ## [br]
-## @return 点积定点数。
+## @return 点积定点数；other 为 null 时返回当前向量精度的零。
 func dot(
 	other: GFFixedVector3,
 	target_decimal_places: int = -1,
@@ -513,31 +514,29 @@ func dot(
 	if other == null:
 		return GFFixedDecimal.new(0, decimal_places)
 
-	var x_product: GFFixedDecimal = (
-		get_x_decimal().multiply(
-			other.get_x_decimal(),
-			target_decimal_places,
-			rounding_mode
-		)
+	return GFFixedDecimal.reduce_vector_products(
+		PackedInt64Array(
+			[
+				raw_x,
+				raw_y,
+				raw_z,
+			]
+		),
+		PackedInt64Array(
+			[
+				other.raw_x,
+				other.raw_y,
+				other.raw_z,
+			]
+		),
+		decimal_places,
+		other.decimal_places,
+		target_decimal_places,
+		rounding_mode
 	)
-	var y_product: GFFixedDecimal = (
-		get_y_decimal().multiply(
-			other.get_y_decimal(),
-			target_decimal_places,
-			rounding_mode
-		)
-	)
-	var z_product: GFFixedDecimal = (
-		get_z_decimal().multiply(
-			other.get_z_decimal(),
-			target_decimal_places,
-			rounding_mode
-		)
-	)
-	return x_product.add(y_product).add(z_product)
 
 
-## 计算长度平方。
+## 计算长度平方；三个平方完整求和后只舍入、饱和一次。
 ## [br]
 ## @api public
 ## [br]

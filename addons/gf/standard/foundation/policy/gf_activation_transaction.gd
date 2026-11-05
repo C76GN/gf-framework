@@ -643,15 +643,12 @@ func _normalize_callback_result(
 				"ok",
 				true
 			)
-			and GFVariantData.get_option_array(result, "issues").is_empty()
+			and not GFValidationReportDictionary.has_error_issues(result)
 		):
+			# 操作失败与诊断级别独立；警告不能把明确失败重新汇总成成功。
 			var _issue: Dictionary = GFValidationReportDictionary.append_issue(
 				result,
-				GFVariantData.get_option_string_name(
-					result,
-					"severity",
-					&"error"
-				),
+				&"error",
 				GFVariantData.get_option_string_name(
 					result,
 					"kind",

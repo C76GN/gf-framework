@@ -44,6 +44,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var catalog_id: StringName = &""
 ```
 
@@ -57,6 +58,7 @@ var catalog_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var tag_definitions: Array[Dictionary] = []
 ```
 
@@ -74,6 +76,7 @@ var tag_definitions: Array[Dictionary] = []
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var allow_undefined_tags: bool = true
 ```
 
@@ -87,6 +90,7 @@ var allow_undefined_tags: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

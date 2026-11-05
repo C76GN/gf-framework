@@ -44,6 +44,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -56,6 +57,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var endpoint_url: String = ""
 ```
 
@@ -68,6 +70,7 @@ HTTP 上报地址。为空时不会发起网络请求。
 - API：`public`
 
 ```gdscript
+@export
 var flush_interval_seconds: float = 5.0:
 ```
 
@@ -81,6 +84,7 @@ var flush_interval_seconds: float = 5.0:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 500, 1)
 var batch_size: int = 20:
 ```
 
@@ -94,6 +98,7 @@ var batch_size: int = 20:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 100000, 1)
 var max_queue_size: int = 1000:
 ```
 
@@ -107,6 +112,7 @@ var max_queue_size: int = 1000:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 4096, 1)
 var max_event_name_length: int = 128:
 ```
 
@@ -120,6 +126,7 @@ var max_event_name_length: int = 128:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 4096, 1)
 var max_property_count: int = 128:
 ```
 
@@ -133,6 +140,7 @@ var max_property_count: int = 128:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 65536, 1)
 var max_string_length: int = 4096:
 ```
 
@@ -146,6 +154,7 @@ var max_string_length: int = 4096:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 4096, 1)
 var max_collection_items: int = 256:
 ```
 
@@ -159,6 +168,7 @@ var max_collection_items: int = 256:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 1000000, 1)
 var max_total_nodes: int = 8192:
 ```
 
@@ -172,6 +182,7 @@ var max_total_nodes: int = 8192:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1024, 16777216, 1024)
 var max_payload_bytes: int = 256 * 1024:
 ```
 
@@ -184,6 +195,7 @@ transport 接收的单批 JSON 最大字节数。
 - API：`public`
 
 ```gdscript
+@export
 var auto_capture_context: bool = true
 ```
 
@@ -196,6 +208,7 @@ var auto_capture_context: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var app_version: String = ""
 ```
 
@@ -208,6 +221,7 @@ var app_version: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var persist_client_id: bool = true
 ```
 
@@ -220,6 +234,7 @@ var persist_client_id: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var client_id_storage_path: String = "user://gf_analytics_client.cfg"
 ```
 
@@ -232,6 +247,7 @@ client id 持久化文件路径。
 - API：`public`
 
 ```gdscript
+@export
 var flush_on_shutdown: bool = true
 ```
 
@@ -245,6 +261,7 @@ var flush_on_shutdown: bool = true
 - 首次版本：`3.20.0`
 
 ```gdscript
+@export
 var compress_payload: bool = false
 ```
 
@@ -258,6 +275,7 @@ var compress_payload: bool = false
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var headers: Dictionary = {}
 ```
 

@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var parameter_id: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ var parameter_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var value: float = 0.0
 ```
 
@@ -54,6 +56,7 @@ var value: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var scope_id: StringName = &""
 ```
 
@@ -66,6 +69,7 @@ var scope_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

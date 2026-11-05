@@ -2145,7 +2145,14 @@ class Action extends BTNode:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if _action_func.is_valid():
+			var generation: int = _runtime_generation
 			var status_value: Variant = _action_func.call(blackboard)
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			var status: int = GFBehaviorTree._variant_to_status(status_value)
 			var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
 			return _record_tick(
@@ -2222,7 +2229,14 @@ class Condition extends BTNode:
 				started
 			)
 
+		var generation: int = _runtime_generation
 		var condition_value: Variant = _condition_func.call(blackboard)
+		if generation != _runtime_generation:
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		var reason: StringName = GFBehaviorTree._condition_reason_from_value(condition_value)
 		if reason != &"":
 			return _record_tick(
@@ -2390,13 +2404,13 @@ class Inverter extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
 				&"missing_child",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -2412,6 +2426,12 @@ class Inverter extends Decorator:
 		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				status,
 				reason,
@@ -2419,6 +2439,12 @@ class Inverter extends Decorator:
 			)
 		if GFBehaviorTree._is_success(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.FAILURE,
 				&"",
@@ -2426,6 +2452,12 @@ class Inverter extends Decorator:
 			)
 		if GFBehaviorTree._is_failure(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.SUCCESS,
 				&"",
@@ -2485,13 +2517,13 @@ class AlwaysSucceed extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
 				&"missing_child",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -2507,6 +2539,12 @@ class AlwaysSucceed extends Decorator:
 		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				status,
 				reason,
@@ -2519,6 +2557,12 @@ class AlwaysSucceed extends Decorator:
 				started
 			)
 		_child.reset()
+		if generation != _runtime_generation:
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		return _record_tick(
 			Status.SUCCESS,
 			&"",
@@ -2573,13 +2617,13 @@ class AlwaysFail extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
 				&"missing_child",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -2595,6 +2639,12 @@ class AlwaysFail extends Decorator:
 		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				status,
 				reason,
@@ -2607,6 +2657,12 @@ class AlwaysFail extends Decorator:
 				started
 			)
 		_child.reset()
+		if generation != _runtime_generation:
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		return _record_tick(
 			Status.FAILURE,
 			&"",
@@ -2692,6 +2748,7 @@ class Probability extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；可提供 rng: RandomNumberGenerator，其余字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
@@ -2705,13 +2762,18 @@ class Probability extends Decorator:
 			_decision_made = true
 		if not _allowed_this_run:
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.FAILURE,
 				&"probability_miss",
 				started
 			)
 
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -2727,6 +2789,12 @@ class Probability extends Decorator:
 		)
 		if not GFBehaviorTree._is_running(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 		return _record_tick(
 			status,
 			reason,
@@ -2845,6 +2913,7 @@ class Cooldown extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
@@ -2852,13 +2921,18 @@ class Cooldown extends Decorator:
 				started
 			)
 		var now: int = _resolve_time_msec()
+		if generation != _runtime_generation:
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		if _last_finish_msec >= 0 and now - _last_finish_msec < GFBehaviorTree._seconds_to_msec(cooldown_seconds):
 			return _record_tick(
 				Status.FAILURE,
 				&"cooldown_active",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -2874,8 +2948,21 @@ class Cooldown extends Decorator:
 		)
 		if not GFBehaviorTree._is_running(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 		if GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status):
-			_last_finish_msec = _resolve_time_msec()
+			var finish_msec: int = _resolve_time_msec()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
+			_last_finish_msec = finish_msec
 		return _record_tick(
 			status,
 			reason,
@@ -2918,8 +3005,11 @@ class Cooldown extends Decorator:
 	## [br]
 	## @api private
 	func _resolve_time_msec() -> int:
-		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(clock_msec, _last_observed_msec)
-		return _last_observed_msec
+		var generation: int = _runtime_generation
+		var observed_msec: int = GFBehaviorTree._resolve_monotonic_time_msec(clock_msec, _last_observed_msec)
+		if generation == _runtime_generation:
+			_last_observed_msec = observed_msec
+		return observed_msec
 
 
 ## 时间限制装饰节点。
@@ -3001,6 +3091,7 @@ class TimeLimit extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
@@ -3008,16 +3099,27 @@ class TimeLimit extends Decorator:
 				started
 			)
 		var now: int = _resolve_time_msec()
+		if generation != _runtime_generation:
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		if _started_msec < 0:
 			_started_msec = now
 		if limit_seconds <= 0.0 or now - _started_msec >= GFBehaviorTree._seconds_to_msec(limit_seconds):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.FAILURE,
 				&"time_limit_exceeded",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -3033,6 +3135,12 @@ class TimeLimit extends Decorator:
 		)
 		if not GFBehaviorTree._is_running(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 		return _record_tick(
 			status,
 			reason,
@@ -3069,8 +3177,11 @@ class TimeLimit extends Decorator:
 	## [br]
 	## @api private
 	func _resolve_time_msec() -> int:
-		_last_observed_msec = GFBehaviorTree._resolve_monotonic_time_msec(clock_msec, _last_observed_msec)
-		return _last_observed_msec
+		var generation: int = _runtime_generation
+		var observed_msec: int = GFBehaviorTree._resolve_monotonic_time_msec(clock_msec, _last_observed_msec)
+		if generation == _runtime_generation:
+			_last_observed_msec = observed_msec
+		return observed_msec
 
 
 ## 次数限制装饰节点。
@@ -3121,6 +3232,7 @@ class Limit extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
@@ -3135,6 +3247,12 @@ class Limit extends Decorator:
 			)
 		if _tick_count >= max_ticks:
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.FAILURE,
 				&"limit_exceeded",
@@ -3142,7 +3260,6 @@ class Limit extends Decorator:
 			)
 
 		_tick_count += 1
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -3233,6 +3350,7 @@ class Repeat extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
@@ -3240,7 +3358,6 @@ class Repeat extends Decorator:
 				started
 			)
 
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -3262,6 +3379,12 @@ class Repeat extends Decorator:
 			)
 		if GFBehaviorTree._is_failure(status) or GFBehaviorTree._is_error(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				status,
 				reason,
@@ -3269,6 +3392,12 @@ class Repeat extends Decorator:
 			)
 		if GFBehaviorTree._is_aborted(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.ABORTED,
 				reason,
@@ -3277,8 +3406,20 @@ class Repeat extends Decorator:
 
 		_success_count += 1
 		_child.reset()
+		if generation != _runtime_generation:
+			return _record_tick(
+				Status.ABORTED,
+				&"runtime_reset",
+				started
+			)
 		if repeat_count > 0 and _success_count >= repeat_count:
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.SUCCESS,
 				&"",
@@ -3348,13 +3489,13 @@ class UntilSuccess extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
 				&"missing_child",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -3370,6 +3511,12 @@ class UntilSuccess extends Decorator:
 		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				status,
 				reason,
@@ -3377,6 +3524,12 @@ class UntilSuccess extends Decorator:
 			)
 		if GFBehaviorTree._is_success(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.SUCCESS,
 				&"",
@@ -3384,6 +3537,12 @@ class UntilSuccess extends Decorator:
 			)
 		if GFBehaviorTree._is_failure(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 		return _record_tick(
 			Status.RUNNING,
 			&"",
@@ -3437,13 +3596,13 @@ class UntilFail extends Decorator:
 	## @schema blackboard: Dictionary 形式黑板；字段由项目自定义。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _child == null:
 			return _record_tick(
 				Status.ERROR,
 				&"missing_child",
 				started
 			)
-		var generation: int = _runtime_generation
 		var status_value: int = _child.tick(blackboard)
 		if generation != _runtime_generation:
 			return _record_tick(
@@ -3459,6 +3618,12 @@ class UntilFail extends Decorator:
 		)
 		if GFBehaviorTree._is_error(status) or GFBehaviorTree._is_aborted(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				status,
 				reason,
@@ -3466,6 +3631,12 @@ class UntilFail extends Decorator:
 			)
 		if GFBehaviorTree._is_failure(status):
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			return _record_tick(
 				Status.SUCCESS,
 				&"",
@@ -3473,6 +3644,12 @@ class UntilFail extends Decorator:
 			)
 		if GFBehaviorTree._is_success(status):
 			_child.reset()
+			if generation != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 		return _record_tick(
 			Status.RUNNING,
 			&"",
@@ -3605,6 +3782,7 @@ class RecoverError extends BTNode:
 	## @return: Status；未允许的 ERROR 与恢复 ERROR 保持错误原因，ABORTED 保持中止状态。
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
+		var generation: int = _runtime_generation
 		if _resetting:
 			return _record_tick(
 				Status.ABORTED,
@@ -3613,6 +3791,12 @@ class RecoverError extends BTNode:
 			)
 		if _tick_in_progress:
 			reset()
+			if generation + 1 != _runtime_generation:
+				return _record_tick(
+					Status.ABORTED,
+					&"runtime_reset",
+					started
+				)
 			_terminal_status = Status.ABORTED
 			_terminal_reason = &"reentrant_tick"
 			return _record_tick(

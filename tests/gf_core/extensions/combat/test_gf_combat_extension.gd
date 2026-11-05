@@ -119,9 +119,15 @@ class UnregisterApplyEffect extends GFBuffEffect:
 
 class SelfRemovingTickBuff extends GFBuff:
 	var system: GFCombatSystem
+	var tick_count: int = 0
+	var remount_once: bool = false
 
 	func on_tick(_delta: float) -> void:
+		tick_count += 1
 		var _removed: bool = system.remove_buff(owner, id)
+		if remount_once:
+			remount_once = false
+			system.add_buff(owner, self)
 
 
 func test_buff_apply_cleans_effects_if_entity_is_unregistered_by_hook() -> void:
@@ -144,6 +150,44 @@ func test_buff_apply_cleans_effects_if_entity_is_unregistered_by_hook() -> void:
 	assert_false(entity.tag_component.has_tag(&"uncommitted"))
 	system.dispose()
 	effect.system = null
+
+
+func test_removed_periodic_buff_stops_old_catchup_after_remount() -> void:
+	for remount: bool in [false, true]:
+		var system: GFCombatSystem = GFCombatSystem.new()
+		var entity: MockEntity = MockEntity.new()
+		system.register_entity(entity)
+		var buff: SelfRemovingTickBuff = SelfRemovingTickBuff.new()
+		buff.system = system
+		buff.remount_once = remount
+		buff.setup(
+			&"periodic_remove",
+			-1.0,
+			entity
+		)
+		buff.tick_interval_seconds = 1.0
+		buff.tags.append(&"periodic")
+		system.add_buff(entity, buff)
+		watch_signals(system)
+
+		system.tick(3.0)
+
+		assert_eq(buff.tick_count, 1)
+		assert_eq(
+			system.has_buff(entity, buff.id),
+			remount
+		)
+		assert_eq(
+			entity.tag_component.has_tag(&"periodic"),
+			remount
+		)
+		assert_signal_emit_count(
+			system,
+			"buff_removal_reported",
+			1
+		)
+		system.dispose()
+		buff.system = null
 
 
 func test_buff_removed_during_final_tick_is_finalized_once() -> void:
@@ -719,6 +763,44 @@ func test_skill_commit_failure_blocks_activation_side_effects() -> void:
 		"提交失败应发出激活失败信号。"
 	)
 	step.applied_context = null
+
+
+func test_skill_warning_diagnostics_do_not_override_explicit_commit_failure() -> void:
+	for apply_succeeds: bool in [false, true]:
+		var entity: MockEntity = MockEntity.new()
+		var skill: ContextRecordingSkill = ContextRecordingSkill.new(entity)
+		skill.cooldown_max = 5.0
+		var step: RecordingActivationStep = RecordingActivationStep.new()
+		var _configured: _GF_SKILL_ACTIVATION_STEP_SCRIPT = step.configure(&"resource_cost")
+		step.apply_result = {
+			"ok": apply_succeeds,
+			"severity": &"warning",
+			"issues": [
+				{ "severity": &"warning", "kind": &"budget_notice" },
+			],
+		}
+		skill.activation_steps.append(step)
+		watch_signals(skill)
+
+		assert_eq(
+			skill.execute(),
+			apply_succeeds
+		)
+		assert_eq(
+			skill.execute_count,
+			1 if apply_succeeds else 0
+		)
+		assert_eq(
+			skill.cooldown_left,
+			5.0 if apply_succeeds else 0.0
+		)
+		if apply_succeeds:
+			assert_signal_emitted(skill, "activation_committed")
+		else:
+			assert_signal_emitted(skill, "activation_failed")
+			assert_signal_not_emitted(skill, "activation_committed")
+		step.applied_context = null
+		skill.activation_context = null
 
 
 func test_skill_activation_context_commit_and_cooldown_flow() -> void:

@@ -24,6 +24,29 @@ var _installed_settings: Dictionary = {}
 
 # --- 框架内部方法 ---
 
+## 将贡献发现报告中的失败或降级转换为应用问题；可选贡献正常缺席不算降级。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param reports: standard 与工具贡献发现报告。
+## [br]
+## @schema reports: Array[Dictionary]，每项包含 ok、可选 partial 与 state。
+## [br]
+## @return: 每份不完整报告对应一个 contribution_records_incomplete 原因。
+static func collect_discovery_issues(reports: Array[Dictionary]) -> Array[String]:
+	var issues: Array[String] = []
+	for report: Dictionary in reports:
+		if (
+			report.get("ok", false) != true
+			or report.get("partial", false) == true
+			or report.get("state", "") == "degraded"
+		):
+			issues.append("contribution_records_incomplete")
+	return issues
+
+
 ## 登记最新请求；旧代完成不能覆盖新请求。
 ## [br]
 ## @api framework_internal

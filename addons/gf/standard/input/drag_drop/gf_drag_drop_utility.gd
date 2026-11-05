@@ -406,7 +406,11 @@ func drop(session_id: int, position: Vector2) -> Dictionary:
 		)
 
 	var zone_id: StringName = _find_registered_zone_id(zone)
-	if zone_id == &"" or not _is_registered_zone(zone_id, zone):
+	if (
+		zone_id == &""
+		or not _is_registered_zone(zone_id, zone)
+		or not zone.enabled
+	):
 		_release_resolving_session(session_id, session)
 		var changed_result: Dictionary = _make_result(
 			false,

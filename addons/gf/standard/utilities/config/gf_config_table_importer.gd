@@ -559,7 +559,7 @@ static func validate_config_file_table(
 ## [br]
 ## @return 结果字典，包含 success、text 与 error。
 ## [br]
-## @schema return: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
+## @schema return: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report；转换失败另含 error_kind=record_conversion_failed、row_index 与 validation_report，且不返回部分 data 或 text。
 static func export_csv_table(
 	table_data: Variant,
 	schema: GFConfigTableSchema = null,
@@ -616,7 +616,9 @@ static func export_csv_table(
 		"coerce_values",
 		schema != null and schema.coerce_values
 	)
+	var row_index: int = -1
 	for row: Dictionary in rows:
+		row_index += 1
 		if not budget.consume_work(
 			columns.size() + 1,
 			"CSV export record"
@@ -633,7 +635,23 @@ static func export_csv_table(
 			)
 		):
 			return _make_budget_export_failure(budget)
-		var record: Dictionary = schema.coerce_record(row) if coerce_values and schema != null else row
+		var record: Dictionary = row
+		if coerce_values and schema != null:
+			var coercion_options: Dictionary = _make_budget_options(options, budget)
+			coercion_options["row_index"] = row_index
+			var coercion: Dictionary = schema.try_coerce_record(row, coercion_options)
+			if not budget.is_ok():
+				return _make_budget_export_failure(budget)
+			if not GFVariantData.get_option_bool(coercion, "ok"):
+				return {
+					"success": false,
+					"text": "",
+					"error": "CSV record %d conversion failed." % row_index,
+					"error_kind": "record_conversion_failed",
+					"row_index": row_index,
+					"validation_report": coercion,
+				}
+			record = GFVariantData.as_dictionary(coercion["data"])
 		if not budget.admit_value(record, "CSV export candidate"):
 			return _make_budget_export_failure(budget)
 		if not lines.is_empty() and not budget.consume_output_bytes(1, "CSV newline"):

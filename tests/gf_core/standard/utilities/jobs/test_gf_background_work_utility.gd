@@ -19,6 +19,71 @@ func before_each() -> void:
 
 # --- 测试用例 ---
 
+func test_resource_queued_cancellation_never_starts_backend_request() -> void:
+	var utility: SimulatedResourceBackgroundWorkUtility = SimulatedResourceBackgroundWorkUtility.new()
+	utility.init()
+	watch_signals(utility)
+	var queued_callback: Callable = func(queued_task: GFBackgroundWorkTask) -> void:
+		var _cancelled: bool = utility.cancel_work(queued_task.work_id)
+	var _queued_connected: int = utility.work_queued.connect(queued_callback)
+	var task: GFBackgroundWorkTask = utility.submit_resource_load("res://simulated_resource.tres")
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(utility.lease_request_count, 0)
+	assert_signal_emit_count(
+		utility,
+		"work_cancelled",
+		1
+	)
+	assert_signal_not_emitted(utility, "work_started")
+	utility.work_queued.disconnect(queued_callback)
+	utility.dispose()
+
+
+func test_resource_progress_replacement_preserves_new_same_path_request() -> void:
+	var utility: SimulatedResourceBackgroundWorkUtility = SimulatedResourceBackgroundWorkUtility.new()
+	utility.init()
+	var original: GFBackgroundWorkTask = utility.submit_resource_load("res://simulated_resource.tres")
+	var replacements: Array[GFBackgroundWorkTask] = []
+	var progressed_callback: Callable = func(
+		task: GFBackgroundWorkTask,
+		_progress: float,
+		_message: String
+	) -> void:
+		if task != original or not replacements.is_empty():
+			return
+		utility.clear_all()
+		replacements.append(utility.submit_resource_load("res://simulated_resource.tres"))
+	var _progress_connected: int = utility.work_progressed.connect(progressed_callback)
+	utility.complete = true
+	utility.tick()
+	assert_eq(
+		replacements.size(),
+		1
+	)
+	assert_eq(
+		replacements[0].status,
+		GFBackgroundWorkTask.Status.RUNNING
+	)
+	var request_count: Variant = utility.get_debug_snapshot()["resource_request_count"]
+	assert_true(request_count is int)
+	if request_count is int:
+		var count: int = request_count
+		assert_eq(count, 1)
+	utility.tick()
+	utility.tick()
+	assert_eq(
+		replacements[0].status,
+		GFBackgroundWorkTask.Status.COMPLETED
+	)
+	var loaded_result: Variant = replacements[0].result
+	assert_true(loaded_result is Resource)
+	if loaded_result is Resource:
+		var loaded_resource: Resource = loaded_result
+		assert_same(loaded_resource, utility.loaded_resource)
+	utility.work_progressed.disconnect(progressed_callback)
+	utility.dispose()
+
+
 func test_cpu_work_runs_on_thread_and_applies_on_tick() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()

@@ -59,6 +59,7 @@ enum ValueType {
 - API：`public`
 
 ```gdscript
+@export
 var action_id: StringName = &""
 ```
 
@@ -71,6 +72,7 @@ var action_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -83,6 +85,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var display_category: String = ""
 ```
 
@@ -95,6 +98,7 @@ var display_category: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.BOOL
 ```
 
@@ -107,6 +111,7 @@ var value_type: ValueType = ValueType.BOOL
 - API：`public`
 
 ```gdscript
+@export
 var remappable: bool = true
 ```
 
@@ -119,6 +124,7 @@ var remappable: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var block_lower_priority_actions: bool = true
 ```
 
@@ -131,6 +137,7 @@ var block_lower_priority_actions: bool = true
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.01)
 var activation_threshold: float = 0.5
 ```
 
@@ -144,6 +151,7 @@ var activation_threshold: float = 0.5
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.01)
 var release_threshold: float = 0.5
 ```
 

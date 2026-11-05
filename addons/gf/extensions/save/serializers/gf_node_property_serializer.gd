@@ -11,6 +11,21 @@ class_name GFNodePropertySerializer
 extends GFNodeSerializer
 
 
+# --- 常量 ---
+
+## 当前 Source 派发期间使用的 prepared 属性片段；仅由 SaveGraph 的同次读取状态填充，普通 apply 会清除外部伪造值。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+const PREPARED_PAYLOADS_CONTEXT_KEY: StringName = &"_gf_save_prepared_property_payloads"
+
+## 编码预算通过后验证原始纯数据值，避免 Float/Vector 等类型标记隐藏 Save 禁止的非有限分量。
+## [br]
+## @api private
+const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
+
+
 # --- 导出变量 ---
 
 ## 需要保存的属性名。
@@ -72,7 +87,19 @@ func gather(node: Node, context: Dictionary = {}) -> Dictionary:
 			node,
 			NodePath(property_name)
 		)
-		var encoded_value: Variant = _encode_payload_property_value(property_value, context)
+		var encoding: Dictionary = _encode_payload_property_value(property_value, context)
+		if not GFResultDictionary.is_ok(encoding):
+			_record_gather_error(
+				context,
+				property_name,
+				GFVariantData.get_option_string(
+					encoding,
+					"error",
+					"incomplete_property_value"
+				)
+			)
+			return {}
+		var encoded_value: Variant = encoding.get("value")
 		if _is_unsupported_property_marker(encoded_value):
 			push_warning("[GFNodePropertySerializer][node_property_serializer.unsupported_property_value] Unsupported property value skipped: %s." % property_name)
 			continue
@@ -162,19 +189,125 @@ func apply(
 	return make_result(true)
 
 
+# --- 框架内部方法 ---
+
+## 只在实际 Property 类型派发时选择同次 JSON 读取的 prepared 片段；原生数据被步骤修改后沿用显式调用载荷，不消费过期投影。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param node: 目标节点。
+## [br]
+## @param payload: Source 当前持有的原生或显式编码片段。
+## [br]
+## @param context: 当前 Source 的内部派发上下文。
+## [br]
+## @param payload_index: serializers 数组中的原始索引。
+## [br]
+## @schema payload: Dictionary，键为属性白名单中的名称。
+## [br]
+## @schema context: Dictionary，可含由 Graph 同次读取投影签发的内部 prepared payload 记录，其他选项沿用 apply。
+## [br]
+## @return: 与 apply 相同的结果；投影失效或其表示不完整时失败且不写属性。
+## [br]
+## @schema return: Dictionary，包含 ok: bool 与 error: String。
+func apply_prepared_for_framework(
+	node: Node,
+	payload: Dictionary,
+	context: Dictionary,
+	payload_index: int
+) -> Dictionary:
+	var projection: Dictionary = GFVariantData.as_dictionary(context.get(PREPARED_PAYLOADS_CONTEXT_KEY))
+	if projection.has("error"):
+		return make_result(
+			false,
+			GFVariantData.get_option_string(projection, "error")
+		)
+	var entries: Array = GFVariantData.as_array(projection.get("payloads"))
+	if payload_index < 0 or payload_index >= entries.size():
+		return apply(
+			node,
+			payload,
+			context
+		)
+	var entry: Dictionary = GFVariantData.as_dictionary(entries[payload_index])
+	if GFVariantData.get_option_string_name(entry, "id") != get_serializer_id():
+		return apply(
+			node,
+			payload,
+			context
+		)
+	var prepared_value: Variant = entry.get("data")
+	if not prepared_value is Dictionary:
+		return apply(
+			node,
+			payload,
+			context
+		)
+	var prepared: Dictionary = prepared_value
+	var decoded: Dictionary = {}
+	for property_name: Variant in prepared:
+		var value_result: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(prepared[property_name])
+		if not GFResultDictionary.is_ok(value_result):
+			return make_result(
+				false,
+				GFVariantData.get_option_string(value_result, "error")
+			)
+		decoded[property_name] = value_result.get("value")
+	if decoded != payload:
+		return apply(
+			node,
+			payload,
+			context
+		)
+	return apply(
+		node,
+		prepared,
+		context
+	)
+
+
 # --- 私有/辅助方法 ---
 
-## Object 值编码为引用标记，其余值转换为 JSON 兼容 Variant。
+## Object 值沿用引用标记协议，其余值必须完整编码；失败不返回诊断替代值。
 ## [br]
 ## @api private
 ## [br]
-func _encode_payload_property_value(value: Variant, context: Dictionary) -> Variant:
+func _encode_payload_property_value(value: Variant, context: Dictionary) -> Dictionary:
 	if value is Object:
-		return GFVariantReferenceCodec.encode_reference(value, context)
-	return GFVariantJsonCodec.variant_to_json_compatible(
+		return { "ok": true, "value": GFVariantReferenceCodec.encode_reference(value, context) }
+	var encoded: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(
 		value,
 		{ "encode_dictionary_keys": true }
 	)
+	if not GFResultDictionary.is_ok(encoded):
+		return encoded
+	var validation: Dictionary = _PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(value)
+	return encoded if GFResultDictionary.is_ok(validation) else validation
+
+
+## 采集失败写入共享流程，使 Source/Graph 在替换旧存档前终止；独立调用仍提供明确错误。
+## [br]
+## @api private
+func _record_gather_error(
+	context: Dictionary,
+	property_name: String,
+	error: String
+) -> void:
+	var message: String = (
+		"[GFNodePropertySerializer][node_property_serializer.incomplete_property_value] Property could not be completely encoded: %s (%s)."
+		% [property_name, error]
+	)
+	var pipeline_value: Variant = context.get("pipeline_context")
+	if pipeline_value is GFSavePipelineContext:
+		var pipeline_context: GFSavePipelineContext = pipeline_value
+		pipeline_context.add_error(
+			message,
+			{ "property": property_name }
+		)
+	else:
+		push_error(message)
 
 
 ## 引用标记通过 ReferenceCodec 解码，其余值交给 JSON codec 转换。

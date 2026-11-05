@@ -429,13 +429,14 @@ def visible_markdown_text(text: str) -> str:
 	visible_lines: list[str] = []
 	fence_marker = ""
 	for line in without_comments.splitlines():
+		if fence_marker:
+			stripped = line.lstrip()
+			if stripped.startswith(fence_marker) and stripped.strip(fence_marker[0]).strip() == "":
+				fence_marker = ""
+			continue
 		fence_match = FENCE_START_PATTERN.match(line)
 		if fence_match is not None:
-			marker = fence_match.group(1)
-			if not fence_marker:
-				fence_marker = marker[0]
-			elif marker[0] == fence_marker:
-				fence_marker = ""
+			fence_marker = fence_match.group(1)
 			continue
 		if fence_marker or REFERENCE_DEFINITION_PATTERN.match(line):
 			continue

@@ -16,6 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`DEFAULT_FIELDS`](#member-gftextsearchscorer-constants-default_fields) | `const DEFAULT_FIELDS: Array[Dictionary] = [ 	{ "key": "title", "weight": 4.0 }, 	{ "key": "name", "weight": 3.0 }, 	{ "key": "keywords", "weight": 2.0 }, 	{ "key": "detail", "weight": 1.0 }, 	{ "key": "path", "weight": 1.0 }, ]` |
+| 常量 | [`NAME_BROWSE_BAND_WIDTH`](#member-gftextsearchscorer-constants-name_browse_band_width) | `const NAME_BROWSE_BAND_WIDTH: float = 100.0` |
 | 方法 | [`tokenize`](#member-gftextsearchscorer-methods-tokenize) | `static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArray:` |
 | 方法 | [`score_text`](#member-gftextsearchscorer-methods-score_text) | `static func score_text( query: String, text: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`score_candidate`](#member-gftextsearchscorer-methods-score_candidate) | `static func score_candidate( query: String, candidate: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
@@ -45,6 +46,19 @@ const DEFAULT_FIELDS: Array[Dictionary] = [
 结构：
 
 - `DEFAULT_FIELDS`: Array[Dictionary]，每个条目包含 key 和 weight 字段。
+
+<a id="member-gftextsearchscorer-constants-name_browse_band_width"></a>
+
+### `NAME_BROWSE_BAND_WIDTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const NAME_BROWSE_BAND_WIDTH: float = 100.0
+```
+
+名称浏览预设的分档宽度，分档从零开始，包含左边界。
 
 ## 方法
 
@@ -157,5 +171,5 @@ static func rank_candidates( query: String, candidates: Array[Dictionary], optio
 结构：
 
 - `candidates`: Array[Dictionary]，每个候选字段由 options.fields 指定。
-- `options`: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit。
+- `options`: Dictionary，支持 fields、require_all_tokens、case_sensitive、duplicate_candidate、include_unmatched、limit、sort_preset（默认 relevance，可选 name_browse）及正有限 band_width。命中优先，分档内按名称和原始索引排序。
 - `return`: Array[Dictionary]，每项包含 matched、score、matched_tokens、field_scores、candidate 和 index。

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="46d5a3900127c5340fef8d6a590296b7ad37fc2aa8e3f49891c616178347dad8">
-	<description>GFFlowContext: 通用流程图执行上下文。
+<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="28a4ddfdaee13c17c2cf48fbb37d242eb0198be01f17df8479a71180de71ed37">
+	<description>GFFlowContext: 各次流程运行共享的业务上下文。
 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -17,22 +17,6 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">values: 流程执行期间共享的项目自定义 Dictionary；键通常为 StringName，值由项目决定。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="next_node_ids">
-			<signature>var next_node_ids: PackedStringArray = PackedStringArray()</signature>
-			<description>下一个节点覆盖。流程节点可写入该列表动态控制分支。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="has_next_node_override">
-			<signature>var has_next_node_override: bool = false</signature>
-			<description>是否显式覆盖了下一个节点。允许节点用空列表表达“停止继续推进”。</description>
-			<tags>
-				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -78,32 +62,6 @@
 				<tag name="return">共享值或默认值。</tag>
 				<tag name="schema">default_value: key 缺失时返回的任意默认值。</tag>
 				<tag name="schema">return: values 中的项目值，或传入的 default_value。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="set_next_nodes">
-			<signature>func set_next_nodes(node_ids: PackedStringArray) -&gt; void:</signature>
-			<description>覆盖当前节点执行后的下一个节点列表。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">node_ids: 节点标识列表。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="has_next_nodes_override">
-			<signature>func has_next_nodes_override() -&gt; bool:</signature>
-			<description>检查当前节点是否显式覆盖了后继节点。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="return">已覆盖返回 true。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="clear_next_nodes">
-			<signature>func clear_next_nodes() -&gt; void:</signature>
-			<description>清空下一个节点覆盖。</description>
-			<tags>
-				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -160,86 +118,16 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="set_node_runtime_value">
-			<signature>func set_node_runtime_value( node_id: StringName, key: StringName, value: Variant ) -&gt; void:</signature>
-			<description>写入指定流程节点的运行态值。</description>
+		<member kind="method" name="create_data_snapshot">
+			<signature>func create_data_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>捕获业务值和可选条件处理器标识。JSON 投影供日志使用，原始值副本供项目保存。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">node_id: 节点标识。</tag>
-				<tag name="param">key: 运行态键。</tag>
-				<tag name="param">value: 运行态值。</tag>
-				<tag name="schema">value: 要写入指定节点运行态的任意项目值。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_node_runtime_value">
-			<signature>func get_node_runtime_value( node_id: StringName, key: StringName, default_value: Variant = null ) -&gt; Variant:</signature>
-			<description>读取指定流程节点的运行态值。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">node_id: 节点标识。</tag>
-				<tag name="param">key: 运行态键。</tag>
-				<tag name="param">default_value: 缺失时返回的默认值。</tag>
-				<tag name="return">运行态值或默认值。</tag>
-				<tag name="schema">default_value: 运行态缺失时返回的任意默认值。</tag>
-				<tag name="schema">return: 节点运行态中的项目值，或传入的 default_value。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="clear_node_runtime_state">
-			<signature>func clear_node_runtime_state(node_id: StringName = &amp;"") -&gt; void:</signature>
-			<description>清空节点运行态。node_id 为空时清空全部节点运行态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">node_id: 节点标识。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="create_runtime_snapshot">
-			<signature>func create_runtime_snapshot(options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>创建 Flow 上下文运行快照。
-快照包含共享 values、下一个节点覆盖和节点运行态。条件处理器是运行时 Callable，
-不会被序列化；恢复快照时也不会修改当前已注册的条件处理器。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">options: 快照选项，支持 metadata、include_condition_handler_ids 和 json_compatible。</tag>
-				<tag name="return">运行快照。</tag>
-				<tag name="schema">options: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。</tag>
-				<tag name="schema">return: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。</tag>
-				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="restore_runtime_snapshot">
-			<signature>func restore_runtime_snapshot(snapshot: Dictionary) -&gt; bool:</signature>
-			<description>恢复 Flow 上下文运行快照。
-只恢复可序列化运行数据，不覆盖 architecture 或条件处理器。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">snapshot: create_runtime_snapshot() 生成的快照。</tag>
-				<tag name="return">快照有效并完成恢复时返回 true。</tag>
-				<tag name="schema">snapshot: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。</tag>
-				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="serialize_runtime_state">
-			<signature>func serialize_runtime_state(json_compatible: bool = false) -&gt; Dictionary:</signature>
-			<description>序列化上下文持有的节点运行态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。</tag>
-				<tag name="return">运行态快照。</tag>
-				<tag name="schema">return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="deserialize_runtime_state">
-			<signature>func deserialize_runtime_state(data: Dictionary) -&gt; void:</signature>
-			<description>反序列化节点运行态到当前上下文。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">data: 运行态快照。</tag>
-				<tag name="schema">data: serialize_runtime_state() 返回的运行态 Dictionary。</tag>
-				<tag name="since">3.17.0</tag>
+				<tag name="param">options: 可提供 json_compatible、include_condition_handler_ids 和 metadata。</tag>
+				<tag name="return">独立业务数据快照。</tag>
+				<tag name="schema">options: 可选布尔开关与项目附加的 metadata 字典。</tag>
+				<tag name="schema">return: 包含 values、metadata 以及可选 condition_handler_ids。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

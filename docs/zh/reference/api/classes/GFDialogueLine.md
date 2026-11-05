@@ -70,6 +70,7 @@ enum LineKind {
 - API：`public`
 
 ```gdscript
+@export
 var line_id: StringName = &""
 ```
 
@@ -82,6 +83,7 @@ var line_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var kind: LineKind = LineKind.TEXT
 ```
 
@@ -94,6 +96,7 @@ var kind: LineKind = LineKind.TEXT
 - API：`public`
 
 ```gdscript
+@export
 var speaker_id: StringName = &""
 ```
 
@@ -106,6 +109,7 @@ var speaker_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var text: String = ""
 ```
 
@@ -118,6 +122,7 @@ var text: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var next_line_id: StringName = &""
 ```
 
@@ -130,6 +135,7 @@ var next_line_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var jump_line_id: StringName = &""
 ```
 
@@ -142,6 +148,7 @@ var jump_line_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var condition_id: StringName = &""
 ```
 
@@ -154,6 +161,7 @@ var condition_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var condition_payload: Variant = null
 ```
 
@@ -170,6 +178,7 @@ var condition_payload: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var fallback_line_id: StringName = &""
 ```
 
@@ -182,6 +191,7 @@ var fallback_line_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var mutation_id: StringName = &""
 ```
 
@@ -194,6 +204,7 @@ mutation ID。`kind == MUTATION` 时由 Runner 请求上下文处理。
 - API：`public`
 
 ```gdscript
+@export
 var mutation_payload: Variant = null
 ```
 
@@ -210,6 +221,7 @@ mutation 载荷。框架只透传给上下文处理器。
 - API：`public`
 
 ```gdscript
+@export
 var responses: Array[GFDialogueResponse] = []
 ```
 
@@ -222,6 +234,7 @@ var responses: Array[GFDialogueResponse] = []
 - API：`public`
 
 ```gdscript
+@export
 var tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -234,6 +247,7 @@ var tags: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

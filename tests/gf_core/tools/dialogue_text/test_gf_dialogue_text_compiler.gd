@@ -9,6 +9,56 @@ const GF_DIALOGUE_TEXT_COMPILER_SCRIPT = preload("res://addons/gf/tools/dialogue
 
 # --- 测试方法 ---
 
+func test_response_diagnostic_identity_does_not_join_display_ids() -> void:
+	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
+	var source: String = '{"format":"gf.dialogue","schema_version":1,"lines":[{"line_id":"a","responses":[{"response_id":"b.responses.c"}]},{"line_id":"a.responses.b","responses":[{"response_id":"c"},{"response_id":"c"}]}]}'
+	var result: Dictionary = compiler.compile_structure_text(source)
+	var issue: Dictionary = _find_issue(
+		_get_issues(result),
+		&"duplicate_response_id"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "path"),
+		"#/lines/1/responses/1/response_id"
+	)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(issue, "metadata")
+	assert_eq(
+		GFVariantData.get_option_array(metadata, "related_source_spans").size(),
+		2
+	)
+
+
+func test_invalid_options_obey_diagnostic_budget_before_parsing() -> void:
+	var compiler: GF_DIALOGUE_TEXT_COMPILER_SCRIPT = GF_DIALOGUE_TEXT_COMPILER_SCRIPT.new()
+	var source: String = '{"format":"gf.dialogue","schema_version":1,"lines":[{"line_id":"end","kind":"end"}]}'
+	for maximum: int in [1, 2]:
+		var options: Dictionary = {
+			"max_diagnostics": maximum,
+			"max_text_bytes": 0,
+			"max_depth": false,
+			"max_nodes": -1,
+			"max_lines": 0,
+		}
+		var result: Dictionary = compiler.compile_structure_text(source, options)
+		var issues: Array = _get_issues(result)
+		assert_false(GFVariantData.get_option_bool(result, "success"))
+		assert_eq(
+			issues.size(),
+			maximum
+		)
+		assert_true(_has_issue_kind(issues, &"diagnostic_budget_exceeded"))
+	var invalid_budget: Dictionary = compiler.compile_structure_text(
+		source,
+		{ "max_diagnostics": 0 }
+	)
+	assert_true(
+		_has_issue_kind(
+			_get_issues(invalid_budget),
+			&"invalid_compile_option"
+		)
+	)
+
+
 func test_runner_build_rejects_expanded_identity_accepted_by_structure_contract() -> void:
 	var responses: Array[Dictionary] = []
 	for index: int in range(16_384):

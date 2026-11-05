@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var pattern: String = ""
 ```
 
@@ -43,6 +44,7 @@ var pattern: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var require_full_match: bool = false
 ```
 
@@ -55,6 +57,7 @@ var require_full_match: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var allow_empty: bool = true
 ```
 

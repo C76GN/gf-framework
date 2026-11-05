@@ -290,7 +290,7 @@ func load_slot(
 ) -> GFSaveDocumentReadResult:
 	if not _can_access_slot(slot_index, "load_slot"):
 		return _make_document_read_failure(ERR_INVALID_PARAMETER, "Slot cannot be accessed.")
-	var read_result: GFStorageReadResult = _storage.load_data(get_data_file_name(slot_index))
+	var read_result: GFStorageReadResult = _storage.load_data_with_json_projection_for_framework(get_data_file_name(slot_index))
 	if not read_result.ok:
 		return _make_document_read_failure(
 			read_result.error_code,
@@ -324,6 +324,7 @@ func load_slot(
 			inspection
 		)
 	if target_schema == null:
+		document.bind_storage_json_projection_for_framework(read_result)
 		return _make_document_read_success(
 			document,
 			read_result,
@@ -359,6 +360,7 @@ func load_slot(
 			validation,
 			migration_result
 		)
+	document.bind_storage_json_projection_for_framework(read_result)
 	return _make_document_read_success(
 		document,
 		read_result,

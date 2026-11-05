@@ -338,7 +338,7 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 					f"$.framework.capability_requirements[{index}].recipes",
 					f"Recipe {recipe_id} is not advertised for capability {capability_id}.",
 				))
-		recipe_readiness = catalog.recipe_package_readiness(selected_recipes, required)
+		recipe_readiness = catalog.recipe_package_readiness(selected_recipes, catalog.package_dependency_closure(required))
 		for package_id in recipe_readiness["missing_all_of"]:
 			issues.append(_issue(
 				"error",

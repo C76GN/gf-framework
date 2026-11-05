@@ -969,6 +969,29 @@ func test_adopted_rollback_restores_artifact_without_finalizing_profile_save() -
 	assert_eq(saved_digest, "")
 
 
+func test_dock_null_source_clears_previous_schema_editor() -> void:
+	var dock: _DOCK_SCRIPT = _DOCK_SCRIPT.new()
+	add_child_autofree(dock)
+	var profile: GFConfigPipelineProfile = _PRESET_SCRIPT.make_profile("res://items.csv")
+	var form: _FORM_SCRIPT = dock.get("_schema_form")
+	form.configure(
+		profile,
+		profile.sources[0]
+	)
+	var create: Button = form.find_child(
+		"CreateSchema",
+		true,
+		false
+	)
+	assert_false(create.disabled)
+	# A missing selection must revoke the old form even when no picker is built.
+	dock.call("_select_source", -1)
+	var selected_source: Variant = form.get("_source")
+	assert_true(selected_source == null)
+	create.pressed.emit()
+	assert_null(profile.sources[0].schema)
+
+
 func test_dock_can_remove_loaded_null_source_without_saving() -> void:
 	var path: String = _root_path.path_join("invalid.tres")
 	var original: GFConfigPipelineProfile = _PRESET_SCRIPT.make_profile(_write("items.csv", "id:int!\n1\n"))

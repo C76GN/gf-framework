@@ -54,6 +54,30 @@ func test_eager_snapshot_rebinding_preserves_latest_slot_values() -> void:
 		old.context = null
 
 
+class DestructiveReflectionSubject extends Node:
+	var on_read: Callable
+	var first: float:
+		get:
+			on_read.call()
+			return 1.0
+	var second: float = 2.0
+
+
+func test_eager_reflection_capture_stops_after_provider_is_freed() -> void:
+	for slot: StringName in [&"subject", &"target"]:
+		var context: GFDecisionContext = GFDecisionContext.new()
+		var provider: DestructiveReflectionSubject = DestructiveReflectionSubject.new()
+		provider.on_read = func() -> void:
+			provider.free()
+
+		context.set(slot, provider)
+
+		var values: Dictionary = context.subject_values if slot == &"subject" else context.target_values
+		assert_true(values.is_empty())
+		var provider_was_cleared: bool = context.get(slot) == null
+		assert_true(provider_was_cleared)
+
+
 class SnapshotOnlySubject extends RefCounted:
 	var secret: float = 1.0
 	var exposed: float = 0.5

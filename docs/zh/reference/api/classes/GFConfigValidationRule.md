@@ -62,6 +62,7 @@ enum IssueSeverity {
 - API：`public`
 
 ```gdscript
+@export
 var rule_id: StringName = &""
 ```
 
@@ -74,6 +75,7 @@ var rule_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -86,6 +88,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var severity: IssueSeverity = IssueSeverity.ERROR
 ```
 
@@ -98,6 +101,7 @@ var severity: IssueSeverity = IssueSeverity.ERROR
 - API：`public`
 
 ```gdscript
+@export
 var allow_null: bool = true
 ```
 
@@ -110,6 +114,7 @@ var allow_null: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

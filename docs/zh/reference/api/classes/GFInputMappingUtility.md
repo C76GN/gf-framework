@@ -356,12 +356,13 @@ func dispose() -> void:
 ### `tick`
 
 - API：`public`
+- 首次版本：`2.1.0`
 
 ```gdscript
 func tick(delta: float) -> void:
 ```
 
-推进运行时逻辑。
+按本步 delta 推进已接收输入的有状态 Mapping 链、动作计时和触发器；同步嵌套调用不重复推进。
 
 参数：
 
@@ -705,12 +706,13 @@ func get_action_value(action_id: StringName) -> Variant:
 ### `get_action_vector`
 
 - API：`public`
+- 首次版本：`1.17.0`
 
 ```gdscript
 func get_action_vector(action_id: StringName) -> Vector2:
 ```
 
-获取动作当前二维向量值。
+读取最近一次提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。
 
 参数：
 
@@ -725,12 +727,13 @@ func get_action_vector(action_id: StringName) -> Vector2:
 ### `get_action_vector3`
 
 - API：`public`
+- 首次版本：`1.21.0`
 
 ```gdscript
 func get_action_vector3(action_id: StringName) -> Vector3:
 ```
 
-获取动作当前三维向量值。
+读取最近一次提交的动作样本的完整向量，保留类型值转换前的各个分量。
 
 参数：
 
@@ -738,7 +741,7 @@ func get_action_vector3(action_id: StringName) -> Vector3:
 |---|---|
 | `action_id` | 动作标识。 |
 
-返回：三维向量值；非三维动作的 z 分量为 0。
+返回：三维向量值；尚无已提交样本时返回零向量。
 
 <a id="member-gfinputmappingutility-methods-is_action_active"></a>
 
@@ -870,12 +873,13 @@ func get_action_value_for_player(player_index: int, action_id: StringName) -> Va
 ### `get_action_vector_for_player`
 
 - API：`public`
+- 首次版本：`1.18.0`
 
 ```gdscript
 func get_action_vector_for_player(player_index: int, action_id: StringName) -> Vector2:
 ```
 
-获取指定玩家动作当前二维向量值。
+读取指定玩家最近提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。
 
 参数：
 
@@ -891,12 +895,13 @@ func get_action_vector_for_player(player_index: int, action_id: StringName) -> V
 ### `get_action_vector3_for_player`
 
 - API：`public`
+- 首次版本：`1.21.0`
 
 ```gdscript
 func get_action_vector3_for_player(player_index: int, action_id: StringName) -> Vector3:
 ```
 
-获取指定玩家动作当前三维向量值。
+读取指定玩家最近提交的完整动作向量，保留类型值转换前的各个分量。
 
 参数：
 
@@ -905,7 +910,7 @@ func get_action_vector3_for_player(player_index: int, action_id: StringName) -> 
 | `player_index` | 玩家索引。 |
 | `action_id` | 动作标识。 |
 
-返回：三维向量值；非三维动作的 z 分量为 0。
+返回：三维向量值；尚无已提交样本时返回零向量。
 
 <a id="member-gfinputmappingutility-methods-is_action_active_for_player"></a>
 

@@ -330,7 +330,7 @@ func build_report(description: String = "", options: Dictionary = {}) -> Diction
 ## [br]
 ## @schema options: Dictionary，包含构建选项以及 transport、transport_options、queue_on_failure、queue_when_missing_transport、request_url、headers、request_metadata、max_attempts。
 ## [br]
-## @schema return: Dictionary，包含 ok、status、report、submit_result、queue_result、error。
+## @schema return: Dictionary，包含 ok、status、report、submit_result、queue_result、error；提交回调内生命周期变化时，status=stale、workflow_stale=true、workflow_commit_applied=false，submit_result 保留底层回执。
 func submit_report(description: String = "", options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = build_report(description, options)
 	return submit_built_report(report, options)
@@ -352,7 +352,7 @@ func submit_report(description: String = "", options: Dictionary = {}) -> Dictio
 ## [br]
 ## @schema options: Dictionary，包含 transport、transport_options、queue_on_failure、queue_when_missing_transport、request_url、headers、request_metadata、max_attempts。
 ## [br]
-## @schema return: Dictionary，包含 ok、status、report、submit_result、queue_result、error。
+## @schema return: Dictionary，包含 ok、status、report、submit_result、queue_result、error；提交回调内生命周期变化时，status=stale、workflow_stale=true、workflow_commit_applied=false，submit_result 保留底层回执。
 func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 	if report.is_empty():
 		return _make_workflow_result(
@@ -366,6 +366,7 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 
 	var transport: Callable = _get_transport_from_options(options)
 	if transport.is_valid():
+		var submit_generation: int = _lifecycle_generation
 		var submit_result: Dictionary = (
 			_get_support_report_utility().submit_report(
 				report,
@@ -373,6 +374,18 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 				GFVariantData.get_option_dictionary(options, "transport_options")
 			)
 		)
+		if submit_generation != _lifecycle_generation:
+			var stale_result: Dictionary = _make_workflow_result(
+				false,
+				&"stale",
+				report,
+				submit_result,
+				{},
+				"workflow_lifecycle_changed"
+			)
+			stale_result["workflow_stale"] = true
+			stale_result["workflow_commit_applied"] = false
+			return stale_result
 		if GFVariantData.get_option_bool(submit_result, "ok"):
 			_reports_submitted_count += 1
 			workflow_report_submitted.emit(

@@ -34,6 +34,7 @@ Godot 资源路径校验规则。 用于检查配置字段中的 `res://` 或 `u
 - API：`public`
 
 ```gdscript
+@export
 var allow_empty: bool = true
 ```
 
@@ -47,6 +48,7 @@ var allow_empty: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var require_resource_prefix: bool = true
 ```
 
@@ -60,6 +62,7 @@ var require_resource_prefix: bool = true
 - 首次版本：`5.1.0`
 
 ```gdscript
+@export
 var allow_uid_paths: bool = true
 ```
 
@@ -72,6 +75,7 @@ var allow_uid_paths: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var allowed_extensions: PackedStringArray = PackedStringArray()
 ```
 
@@ -84,6 +88,7 @@ var allowed_extensions: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var use_resource_loader: bool = true
 ```
 
@@ -96,6 +101,7 @@ var use_resource_loader: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var use_file_access_fallback: bool = true
 ```
 

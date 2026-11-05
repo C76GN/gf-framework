@@ -215,6 +215,14 @@ const _METADATA_FIELDS: Array = [
 @export var normalize_json_numbers: bool = false
 
 
+# --- 私有变量 ---
+
+## 框架同步读取可为下一次 decode 领取同次 JSON parse 投影；decode 入口先消费，重入调用不会继承。
+## [br]
+## @api private
+var _json_projection_requested: bool = false
+
+
 # --- 公共方法 ---
 
 ## 将字典编码为可写入文件的 bytes。
@@ -328,6 +336,8 @@ func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、strict_integrity、normalize_json_numbers、require_integrity_checksum 和 max_decode_bytes；字节上限必须是正 int，默认 64 MiB，同时约束解压输出和明文解析。已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。JSON 解码还受 GFVariantJsonCodec 默认遍历预算约束，超限不返回部分载荷。无法区分损坏流与输出预算耗尽的解压失败保守返回 LIMIT_EXCEEDED。
 func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadResult:
+	var preserve_json_projection: bool = _json_projection_requested
+	_json_projection_requested = false
 	var active_format: Format = _get_format(options)
 	var should_compress: bool = GFVariantData.get_option_bool(
 		options,
@@ -389,7 +399,8 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 		payload_bytes,
 		active_format,
 		should_normalize_json_numbers,
-		decode_limit
+		decode_limit,
+		preserve_json_projection
 	)
 	if not GFVariantData.get_option_bool(deserialize_result, "ok"):
 		if GFVariantData.get_option_bool(deserialize_result, "limit_exceeded"):
@@ -451,14 +462,15 @@ func decode(bytes: PackedByteArray, options: Dictionary = {}) -> GFStorageReadRe
 			document_schema_version
 		)
 
-	return (
-		GFStorageReadResult.new().configure_success(
-			payload,
-			metadata,
-			integrity_status,
-			document_schema_version
-		)
+	var result: GFStorageReadResult = GFStorageReadResult.new().configure_success(
+		payload,
+		metadata,
+		integrity_status,
+		document_schema_version
 	)
+	if preserve_json_projection and deserialize_result.has("json_projection"):
+		result.capture_json_projection_for_framework(deserialize_result.get("json_projection"))
+	return result
 
 
 ## 序列化字典。JSON 格式会递归排序字典键，并把 Godot 值类型转为 JSON 安全标记。
@@ -520,6 +532,29 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 	var _start_error: Error = hashing.start(HashingContext.HASH_SHA256)
 	var _update_error: Error = hashing.update(bytes)
 	return hashing.finish().hex_encode()
+
+
+# --- 框架内部方法 ---
+
+## 为框架同步消费者保留同次有界 parse 的只读 JSON 投影；Binary 不创建投影，普通 decode 不承担保留成本。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param bytes: 本次物理读取的字节。
+## [br]
+## @param options: 与 decode 相同的 codec 选项。
+## [br]
+## @schema options: Dictionary，沿用 decode 的格式、完整性及字节预算选项。
+## [br]
+## @return: 正常读取结果；投影只在原生结果内共享，不进入公开 Dictionary 协议。
+func decode_with_json_projection_for_framework(bytes: PackedByteArray, options: Dictionary) -> GFStorageReadResult:
+	var previous_request: bool = _json_projection_requested
+	_json_projection_requested = true
+	var result: GFStorageReadResult = decode(bytes, options)
+	_json_projection_requested = previous_request
+	return result
 
 
 # --- 私有/辅助方法 ---
@@ -785,7 +820,8 @@ func _try_deserialize_dictionary(
 	bytes: PackedByteArray,
 	p_format: Format,
 	should_normalize_json_numbers: bool,
-	byte_limit: int
+	byte_limit: int,
+	preserve_json_projection: bool = false
 ) -> Dictionary:
 	if bytes.size() > byte_limit:
 		return {
@@ -819,7 +855,10 @@ func _try_deserialize_dictionary(
 				var data: Dictionary = restored
 				if should_normalize_json_numbers:
 					data = _normalize_dictionary_numbers(data)
-				return { "ok": true, "data": data }
+				var result: Dictionary = { "ok": true, "data": data }
+				if preserve_json_projection:
+					result["json_projection"] = parsed
+				return result
 			return { "ok": false, "data": {} }
 
 

@@ -40,6 +40,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var supports_bgm: bool = false
 ```
 
@@ -52,6 +53,7 @@ var supports_bgm: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_sfx: bool = false
 ```
 
@@ -64,6 +66,7 @@ var supports_sfx: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_ambient: bool = false
 ```
 
@@ -76,6 +79,7 @@ var supports_ambient: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_spatial_sfx: bool = false
 ```
 
@@ -88,6 +92,7 @@ var supports_spatial_sfx: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_events: bool = false
 ```
 
@@ -100,6 +105,7 @@ var supports_events: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_parameters: bool = false
 ```
 
@@ -112,6 +118,7 @@ var supports_parameters: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_states: bool = false
 ```
 
@@ -124,6 +131,7 @@ var supports_states: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_switches: bool = false
 ```
 
@@ -136,6 +144,7 @@ var supports_switches: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_listeners: bool = false
 ```
 
@@ -148,6 +157,7 @@ var supports_listeners: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var supports_async_loading: bool = false
 ```
 
@@ -161,6 +171,7 @@ var supports_async_loading: bool = false
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var supports_playback_region_contract: bool = false
 ```
 
@@ -173,6 +184,7 @@ var supports_playback_region_contract: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

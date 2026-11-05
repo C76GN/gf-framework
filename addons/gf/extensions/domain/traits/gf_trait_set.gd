@@ -17,7 +17,9 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @schema traits: Array[GFTrait]，按 priority 排序保存的特征资源列表。
+## @since 1.15.0
+## [br]
+## @schema traits: Array[GFTrait]，特征资源列表；查询和计算按当时的 priority 排序。
 @export var traits: Array[GFTrait] = []
 
 
@@ -72,6 +74,10 @@ func get_traits(target_id: StringName, category: StringName = &"") -> Array[GFTr
 		if category != &"" and current_trait.category != category:
 			continue
 		result.append(current_trait)
+	result.sort_custom(
+		func(a: GFTrait, b: GFTrait) -> bool:
+			return a.priority < b.priority
+	)
 	return result
 
 

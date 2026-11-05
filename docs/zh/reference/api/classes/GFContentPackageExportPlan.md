@@ -85,11 +85,11 @@ var root_path: String = ""
 var entries: Array[Dictionary] = []
 ```
 
-导出条目列表。
+可直接编辑的导出条目列表；修改后应重新获取校验报告。 报告规范化自己的集合副本，不回写本列表，也不冻结条目中的 Object 或 Resource。
 
 结构：
 
-- `entries`: Array[Dictionary]，每项包含 source_path、archive_path、role、resource_key、package_id、type_hint 和 metadata。
+- `entries`: Array[Dictionary]，source_path 与 archive_path 为必需文本（String 或 StringName）；role、resource_key、package_id、type_hint 为可选文本，metadata 为可选 Dictionary。缺省值沿用 add_entry()，未知项目字段保留。
 
 <a id="member-gfcontentpackageexportplan-properties-issues"></a>
 
@@ -151,7 +151,7 @@ func clear() -> void:
 func add_entry( source_path: String, archive_path: String = "", role: StringName = &"resource", entry_metadata: Dictionary = {} ) -> bool:
 ```
 
-添加导出条目。
+添加导出条目，并按与最终复验相同的规则检查归档路径和规范化后的重复项。 源路径只作非空文本规范化，不在此声明 scheme、包根、文件存在性或读取权限。
 
 参数：
 
@@ -231,13 +231,13 @@ func build_from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = 
 func get_validation_report() -> Dictionary:
 ```
 
-获取导出计划诊断报告。
+捕获一次条目集合副本，规范化并完整复验该副本，返回同一份条目投影与诊断。 当前条目错误仅写入本次报告；构建、失败添加和调用方保留的历史 issues 仍会合并。 集合副本不改变公开 entries；Object/Resource 仍保持身份，不承诺线程或文件系统快照。
 
 返回：GFValidationReportDictionary 兼容报告。
 
 结构：
 
-- `return`: Dictionary with ok, healthy, entries, entry_count, issues, summary, and next_action.
+- `return`: Dictionary with ok, healthy, entries (normalized collection snapshot), entry_count, issues, summary, and next_action. Current entry issues include row_index and field; missing optional fields use add_entry() defaults.
 
 <a id="member-gfcontentpackageexportplan-methods-get_artifact_report"></a>
 

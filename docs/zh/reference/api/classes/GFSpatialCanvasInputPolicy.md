@@ -167,6 +167,7 @@ const ABSOLUTE_MAX_ACTION_EVENTS: int = 64
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE
 ```
 
@@ -180,6 +181,7 @@ var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var pan_action: StringName = &""
 ```
 
@@ -193,6 +195,7 @@ var pan_action: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_flags("Shift:1", "Ctrl:2", "Alt:4", "Meta:8")
 var pan_modifier_mask: int = ModifierMask.NONE
 ```
 
@@ -206,6 +209,7 @@ var pan_modifier_mask: int = ModifierMask.NONE
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT
 ```
 
@@ -219,6 +223,7 @@ var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var selection_action: StringName = &""
 ```
 
@@ -232,6 +237,7 @@ var selection_action: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var selection_default_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE
 ```
 
@@ -245,6 +251,7 @@ var selection_default_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []
 ```
 
@@ -258,6 +265,7 @@ var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var drag_threshold: float = 4.0
 ```
 
@@ -271,6 +279,7 @@ var drag_threshold: float = 4.0
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var wheel_axis: WheelAxis = WheelAxis.VERTICAL
 ```
 
@@ -284,6 +293,7 @@ var wheel_axis: WheelAxis = WheelAxis.VERTICAL
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var wheel_routing: WheelRouting = WheelRouting.CANVAS
 ```
 
@@ -297,6 +307,7 @@ var wheel_routing: WheelRouting = WheelRouting.CANVAS
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_flags("Shift:1", "Ctrl:2", "Alt:4", "Meta:8")
 var wheel_modifier_mask: int = ModifierMask.NONE
 ```
 
@@ -310,6 +321,7 @@ var wheel_modifier_mask: int = ModifierMask.NONE
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var wheel_zoom_factor: float = 1.1
 ```
 
@@ -323,6 +335,7 @@ var wheel_zoom_factor: float = 1.1
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var touch_enabled: bool = true
 ```
 
@@ -336,6 +349,7 @@ var touch_enabled: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN
 ```
 
@@ -349,6 +363,7 @@ var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var touch_multi_pan_enabled: bool = true
 ```
 
@@ -362,6 +377,7 @@ var touch_multi_pan_enabled: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var touch_multi_zoom_enabled: bool = true
 ```
 
@@ -375,6 +391,7 @@ var touch_multi_zoom_enabled: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var system_pan_gesture_enabled: bool = true
 ```
 
@@ -388,6 +405,7 @@ var system_pan_gesture_enabled: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var system_magnify_gesture_enabled: bool = true
 ```
 
@@ -401,6 +419,7 @@ var system_magnify_gesture_enabled: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var placement_cancel_action: StringName = &"ui_cancel"
 ```
 
@@ -414,6 +433,7 @@ var placement_cancel_action: StringName = &"ui_cancel"
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var consume_handled_events: bool = true
 ```
 
@@ -427,6 +447,7 @@ var consume_handled_events: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var consume_wheel_events: bool = true
 ```
 

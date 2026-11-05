@@ -19320,7 +19320,7 @@ def run_command(
 				stderr=process_result.stderr,
 				timed_out=process_result.timed_out,
 				process_exit_code=process_result.return_code,
-				notes=[*process_result.notes, *log_errors, "Command output exceeded its capture budget; incomplete evidence cannot pass."],
+				notes=[*process_result.notes, *log_errors, "Command output capture is incomplete; truncated or unreadable evidence cannot pass."],
 				duration_seconds=process_result.duration_seconds, timeout_seconds=timeout_seconds,
 				pid=process_result.pid, streamed_output=output_callback is not None,
 				stdout_capture_truncated=process_result.stdout_truncated is True,

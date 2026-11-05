@@ -4,6 +4,41 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_aabb_query_keeps_thin_cross_cell_overlap() -> void:
+	for offset: float in [0.0, -2.0]:
+		var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(1.0)
+		var bounds: AABB = AABB(
+			Vector3(
+				offset,
+				0.0,
+				0.0
+			),
+			Vector3(
+				1.0 + pow(2.0, -21),
+				0.5,
+				0.5
+			)
+		)
+		var query: AABB = AABB(
+			Vector3(
+				offset + 1.0,
+				0.125,
+				0.125
+			),
+			Vector3(
+				0.25,
+				0.125,
+				0.125
+			)
+		)
+		assert_true(spatial_hash.insert("thin", bounds))
+		assert_true(spatial_hash.can_query_aabb(query))
+		assert_eq(
+			spatial_hash.query_aabb(query),
+			["thin"]
+		)
+
+
 ## 验证 AABB 查询只返回相交实体。
 func test_query_aabb_returns_intersecting_entities() -> void:
 	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(2.0)

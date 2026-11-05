@@ -25,6 +25,7 @@ if operation == null:
 	_handle_scene_request_unavailable()
 else:
 	operation.progressed.connect(_on_scene_progress)
+	# 请求可能已同步终结，统一等待入口会直接返回已保存的结果。
 	var result: GFSceneOperationResult = await operation.wait_result_async()
 	_consume_scene_result(result)
 ```
@@ -32,6 +33,7 @@ else:
 `preload_scene_request_async()` 只准备资源和缓存，不切换当前场景：
 
 ```gdscript
+# 只准备资源；owner/token 结束只撤销本消费者，不切换或关闭当前场景。
 var preload_operation := scene_util.preload_scene_request_async(
 	"res://levels/level_3.tscn",
 	true,

@@ -641,6 +641,123 @@ func test_catalog_identity_mismatch_never_adopts_the_family_owner() -> void:
 	)
 
 
+## 隐藏的未知物理条目也必须参加 catalog 完整性检查，不得发布部分列表。
+func test_hidden_unknown_catalog_entries_fail_closed_at_each_level() -> void:
+	var descriptor: Dictionary = _descriptor("slots/hidden-evidence.json")
+	assert_eq(
+		_claim_family(descriptor),
+		OK
+	)
+	assert_eq(
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "payload_path"),
+			"payload"
+		),
+		OK
+	)
+	var leaf_directory: String = GFVariantData.get_option_string(descriptor, "catalog_path").get_base_dir()
+	for directory_path: String in [
+		leaf_directory,
+		leaf_directory.get_base_dir(),
+		leaf_directory.get_base_dir().get_base_dir(),
+	]:
+		var evidence_path: String = directory_path.path_join(".unknown-catalog-evidence")
+		assert_eq(
+			_write_text(evidence_path, "{}"),
+			OK
+		)
+		if OS.get_name() == "Windows":
+			assert_eq(
+				FileAccess.set_hidden_attribute(evidence_path, true),
+				OK
+			)
+		var result: Dictionary = _list_files(
+			"",
+			"",
+			true,
+			0,
+			0
+		)
+		assert_eq(
+			GFVariantData.get_option_int(
+				result,
+				"error",
+				OK
+			),
+			ERR_FILE_CORRUPT
+		)
+		assert_true(GFVariantData.get_option_packed_string_array(result, "files").is_empty())
+		if OS.get_name() == "Windows":
+			assert_eq(
+				FileAccess.set_hidden_attribute(evidence_path, false),
+				OK
+			)
+		assert_eq(
+			DirAccess.remove_absolute(evidence_path),
+			OK
+		)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_list_files(
+				"",
+				"",
+				true,
+				0,
+				0
+			),
+			"error",
+			OK
+		),
+		OK
+	)
+
+
+## Windows 的隐藏属性不能使合法 catalog 叶子从成功列表中消失。
+func test_hidden_valid_catalog_leaf_remains_in_complete_inventory() -> void:
+	if OS.get_name() != "Windows":
+		return
+	var descriptor: Dictionary = _descriptor("slots/hidden-valid.json")
+	assert_eq(
+		_claim_family(descriptor),
+		OK
+	)
+	assert_eq(
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "payload_path"),
+			"payload"
+		),
+		OK
+	)
+	var catalog_path: String = GFVariantData.get_option_string(descriptor, "catalog_path")
+	assert_eq(
+		FileAccess.set_hidden_attribute(catalog_path, true),
+		OK
+	)
+	var result: Dictionary = _list_files(
+		"",
+		"",
+		true,
+		0,
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			result,
+			"error",
+			OK
+		),
+		OK
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(result, "files"),
+		PackedStringArray(["slots/hidden-valid.json"])
+	)
+	assert_eq(
+		FileAccess.set_hidden_attribute(catalog_path, false),
+		OK
+	)
+
+
 func test_wrong_catalog_shard_and_unknown_catalog_entry_fail_closed() -> void:
 	var descriptor: Dictionary = _descriptor("slots/wrong-shard.json")
 	assert_eq(

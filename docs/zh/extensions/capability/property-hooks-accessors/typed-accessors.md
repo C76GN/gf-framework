@@ -27,6 +27,7 @@ var health := GFAccess.get_health_capability(enemy) as HealthCapability
 
 ```gdscript
 var architecture := await wait_for_context_ready()
+# 此片段只展示参数传递；实际调用方须先排除等待失败或上下文过期，避免 null 回退全局架构。
 var player := GFAccess.get_player_model(architecture) as PlayerModel
 var command := GFAccess.create_deal_damage_command(architecture)
 ```

@@ -209,6 +209,16 @@ var _auto_hide_under: bool = true
 ## @api private
 var _is_active: bool = false
 
+## init 尚未收尾时拒绝同步重入，避免宿主入树回调启动第二次初始化。
+## [br]
+## @api private
+var _is_initializing: bool = false
+
+## dispose 递增以撤销正在创建的 host 和层节点提交，不阻止后续显式 init。
+## [br]
+## @api private
+var _lifecycle_generation: int = 0
+
 # 面板实例 id 到策略选项的映射。
 ## 以面板实例 ID 为键保存入栈时规范化的交互选项。
 ## [br]
@@ -278,10 +288,17 @@ var _host_root: Node = null
 ## [br]
 ## @api public
 func init() -> void:
-	if _is_active:
+	if _is_active or _is_initializing:
 		return
+	_is_initializing = true
+	var lifecycle_generation: int = _lifecycle_generation
 	var architecture: GFArchitecture = _get_architecture_or_null()
-	if not _create_host():
+	var created_host: bool = _create_host()
+	if lifecycle_generation != _lifecycle_generation:
+		_is_initializing = false
+		return
+	if not created_host:
+		_is_initializing = false
 		if architecture != null and not architecture.has_initialization_failed():
 			architecture.fail_initialization("The UI host could not be initialized.")
 		return
@@ -292,12 +309,14 @@ func init() -> void:
 	for layer_id: int in _layer_definitions.keys():
 		_panel_stacks[layer_id] = []
 	_create_layers()
+	_is_initializing = false
 
 
 ## 释放 UI 层级、面板栈和未完成异步请求。
 ## [br]
 ## @api public
 func dispose() -> void:
+	_lifecycle_generation += 1
 	_is_active = false
 	_cancel_all_pending_async_panel_requests()
 	for canvas: CanvasLayer in _layer_roots.values():
@@ -596,11 +615,12 @@ func push_panel_async_with_options(
 	var asset_util: GFAssetUtility = _get_asset_util()
 	if asset_util == null:
 		push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
-		var fallback_panel: Node = push_panel_with_options(
+		var fallback_panel: Node = _push_panel_synchronously(
 			path,
 			layer,
 			options,
-			config_callback
+			config_callback,
+			async_request_key
 		)
 		_clear_pending_async_push(request_key, request_serial)
 		_finish_async_panel_request(
@@ -630,7 +650,8 @@ func push_panel_async_with_options(
 			panel_instance,
 			layer,
 			config_callback,
-			options
+			options,
+			async_request_key
 		):
 			_finish_async_panel_request(
 				async_request_key,
@@ -704,23 +725,12 @@ func push_panel_with_options(
 	options: Dictionary = {},
 	config_callback: Callable = Callable()
 ) -> Node:
-	var scene: PackedScene = _load_packed_scene(path)
-	if scene == null:
-		push_error("[GFUIUtility][ui_utility.panel_load_failed] Cannot load panel scene: %s." % path)
-		return null
-
-	var panel_instance: Node = scene.instantiate()
-	if not _add_panel_instance(
-		panel_instance,
+	return _push_panel_synchronously(
+		path,
 		layer,
-		config_callback,
-		options
-	):
-		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
-			panel_instance.queue_free()
-		return null
-
-	return panel_instance
+		options,
+		config_callback
+	)
 
 
 ## 同步替换指定逻辑层的面板栈，不改变其他逻辑层。
@@ -887,7 +897,8 @@ func replace_layer_async_with_options(
 			layer,
 			options,
 			config_callback,
-			false
+			false,
+			async_request_key
 		)
 		_finish_async_panel_request(
 			async_request_key,
@@ -897,7 +908,7 @@ func replace_layer_async_with_options(
 		return operation_handle
 
 	var on_loaded: Callable = func(res: Resource) -> void:
-		if not _is_active or not _is_layer_request_serial_current(layer, request_serial):
+		if not _is_panel_request_active(async_request_key) or not _is_layer_request_serial_current(layer, request_serial):
 			return
 
 		var scene: PackedScene = _get_packed_scene(res)
@@ -911,12 +922,16 @@ func replace_layer_async_with_options(
 			return
 
 		var panel_instance: Node = scene.instantiate()
-		_clear_layer_without_invalidating_requests(layer)
+		if not _is_panel_request_active(async_request_key):
+			panel_instance.queue_free()
+			return
+		_clear_layer_without_invalidating_requests(layer, async_request_key)
 		if _add_panel_instance(
 			panel_instance,
 			layer,
 			config_callback,
-			options
+			options,
+			async_request_key
 		):
 			_finish_async_panel_request(
 				async_request_key,
@@ -1111,7 +1126,13 @@ func pop_to_panel(
 		return false
 
 	while get_top_panel(layer) != panel:
+		stack = _get_layer_stack(layer)
+		if not is_instance_valid(panel) or not stack.has(panel):
+			return false
+		var previous_count: int = stack.size()
 		pop_panel(layer, do_free)
+		if _get_layer_stack(layer).size() >= previous_count:
+			return false
 	return true
 
 
@@ -1452,6 +1473,34 @@ func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 同步实例化并压入候选；异步 fallback 保留原请求身份，失败时只释放未被重新接纳的候选。
+## [br]
+## @api private
+func _push_panel_synchronously(
+	path: String,
+	layer: int,
+	options: Dictionary,
+	config_callback: Callable,
+	async_request_key: String = ""
+) -> Node:
+	var scene: PackedScene = _load_packed_scene(path)
+	if scene == null:
+		push_error("[GFUIUtility][ui_utility.panel_load_failed] Cannot load panel scene: %s." % path)
+		return null
+	var panel_instance: Node = scene.instantiate()
+	if not _add_panel_instance(
+		panel_instance,
+		layer,
+		config_callback,
+		options,
+		async_request_key
+	):
+		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
+			panel_instance.queue_free()
+		return null
+	return panel_instance
+
+
 ## 同步加载并实例化场景，按参数选择是否使该层 pending 请求失效后再入栈。
 ## [br]
 ## @api private
@@ -1460,7 +1509,8 @@ func _replace_layer_synchronously(
 	layer: int,
 	options: Dictionary,
 	config_callback: Callable,
-	invalidate_pending_requests: bool
+	invalidate_pending_requests: bool,
+	async_request_key: String = ""
 ) -> Node:
 	var scene: PackedScene = _load_packed_scene(path)
 	if scene == null:
@@ -1468,15 +1518,19 @@ func _replace_layer_synchronously(
 		return null
 
 	var panel_instance: Node = scene.instantiate()
+	if not _is_panel_request_active(async_request_key):
+		panel_instance.queue_free()
+		return null
 	if invalidate_pending_requests:
 		clear_layer(layer)
 	else:
-		_clear_layer_without_invalidating_requests(layer)
+		_clear_layer_without_invalidating_requests(layer, async_request_key)
 	if not _add_panel_instance(
 		panel_instance,
 		layer,
 		config_callback,
-		options
+		options,
+		async_request_key
 	):
 		if is_instance_valid(panel_instance) and not _is_panel_in_any_stack(panel_instance):
 			panel_instance.queue_free()
@@ -1488,10 +1542,12 @@ func _replace_layer_synchronously(
 ## 清空指定层的面板栈，但不取消该层正在等待的异步请求。
 ## [br]
 ## @api private
-func _clear_layer_without_invalidating_requests(layer: int) -> void:
+func _clear_layer_without_invalidating_requests(layer: int, async_request_key: String = "") -> void:
 	_prune_layer_stack(layer)
 	var stack: Array = _get_layer_stack(layer)
 	while not stack.is_empty():
+		if not async_request_key.is_empty() and not _is_panel_request_active(async_request_key):
+			break
 		var panel: Node = _get_valid_panel_from_variant(stack.pop_back())
 		if panel != null:
 			_detach_node_from_tree(panel)
@@ -1856,19 +1912,34 @@ func _create_host() -> bool:
 		if architecture != null:
 			architecture.fail_initialization("The configured UI mount parent is unavailable.")
 		return false
+	var lifecycle_generation: int = _lifecycle_generation
+	var created_host: Node = null
 	if source != null and mount_parent != source:
 		var portal: GFNodeContext = GFNodeContext.new()
 		portal.scope_mode = GFNodeContext.ScopeMode.INHERITED
 		if not portal.bind_source_context(source):
 			portal.free()
 			return false
-		_host_root = portal
+		created_host = portal
 	else:
-		_host_root = Node.new()
-	_host_root.name = &"GFUIHost"
-	mount_parent.add_child(_host_root)
+		created_host = Node.new()
+	_host_root = created_host
+	created_host.name = &"GFUIHost"
+	mount_parent.add_child(created_host)
+	if (
+		lifecycle_generation != _lifecycle_generation
+		or _host_root != created_host
+		or not is_instance_valid(created_host)
+		or created_host.is_queued_for_deletion()
+		or not created_host.is_inside_tree()
+	):
+		if _host_root == created_host:
+			_host_root = null
+		if is_instance_valid(created_host) and not created_host.is_queued_for_deletion():
+			created_host.queue_free()
+		return false
 	var callback: Callable = Callable(self, &"_on_host_closing")
-	var _exit_connect_error: Error = _host_root.tree_exiting.connect(callback) as Error
+	var _exit_connect_error: Error = created_host.tree_exiting.connect(callback) as Error
 	if source != null and not source.context_closing.is_connected(callback):
 		var _source_connect_error: Error = source.context_closing.connect(callback) as Error
 	if source != null:
@@ -1932,6 +2003,8 @@ func _await_panel_asset_load(
 ## @api private
 func _create_layers() -> void:
 	for layer_id: int in get_layer_ids():
+		if not _is_active:
+			return
 		var _created: bool = _create_or_update_layer_root(layer_id)
 
 
@@ -1949,13 +2022,31 @@ func _create_or_update_layer_root(layer: int) -> bool:
 		canvas.name = _make_layer_node_name(definition)
 		return true
 
-	if not is_instance_valid(_host_root) or not _host_root.is_inside_tree():
+	var host: Node = _host_root
+	if (
+		not _is_active
+		or not is_instance_valid(host)
+		or not host.is_inside_tree()
+	):
 		return false
 
+	var lifecycle_generation: int = _lifecycle_generation
 	canvas = CanvasLayer.new()
 	canvas.layer = definition.canvas_layer
 	canvas.name = _make_layer_node_name(definition)
-	_host_root.add_child(canvas)
+	host.add_child(canvas)
+	if (
+		lifecycle_generation != _lifecycle_generation
+		or not _is_active
+		or _host_root != host
+		or not is_instance_valid(canvas)
+		or not is_instance_valid(host)
+		or host.is_queued_for_deletion()
+		or not host.is_inside_tree()
+	):
+		if is_instance_valid(canvas) and not canvas.is_queued_for_deletion():
+			canvas.queue_free()
+		return false
 	_layer_roots[layer] = canvas
 	return true
 
@@ -2012,6 +2103,19 @@ func _make_layer_node_name(definition: GFUILayerDefinition) -> StringName:
 	return StringName("GFUILayer_%s" % suffix)
 
 
+## 确认异步请求尚未终止；空标识表示普通同步导航，只检查工具存活。
+## [br]
+## @api private
+func _is_panel_request_active(async_request_key: String) -> bool:
+	return (
+		_is_active
+		and (
+			async_request_key.is_empty()
+			or _pending_async_panel_requests.has(async_request_key)
+		)
+	)
+
+
 ## 校验层根节点和面板身份，配置并入栈后同步可见性、焦点及导航通知。
 ## 每个用户回调或信号后再次确认面板仍为本次打开身份，避免继续处理被替换的节点。
 ## [br]
@@ -2020,8 +2124,11 @@ func _add_panel_instance(
 	panel: Node,
 	layer: int,
 	config_callback: Callable,
-	options: Dictionary = {}
+	options: Dictionary = {},
+	async_request_key: String = ""
 ) -> bool:
+	if not async_request_key.is_empty() and not _is_panel_request_active(async_request_key):
+		return false
 	if not _is_active:
 		push_warning("[GFUIUtility][ui_utility.push_after_destruction] The current UI manager was destroyed; panel push ignored.")
 		return false
@@ -2046,7 +2153,7 @@ func _add_panel_instance(
 			push_warning("[GFUIUtility][ui_utility.panel_destroyed_by_callback] config_callback destroyed the panel instance; this push was cancelled.")
 			return false
 		if (
-			not _is_active
+			not _is_panel_request_active(async_request_key)
 			or not is_instance_valid(canvas)
 			or get_layer_root(layer) != canvas
 		):
@@ -2054,21 +2161,41 @@ func _add_panel_instance(
 		if _is_panel_in_any_stack(panel):
 			return false
 
-	_capture_previous_focus(
-		panel,
+	var previous_focus: WeakRef = _capture_previous_focus(
 		normalized_options,
 		canvas.get_viewport()
 	)
 	if panel.get_parent() != null and panel.get_parent() != canvas:
 		panel.get_parent().remove_child(panel)
+		if (
+			not _is_panel_request_active(async_request_key)
+			or _get_valid_panel_from_variant(panel) == null
+			or _get_valid_panel_from_variant(canvas) == null
+			or get_layer_root(layer) != canvas
+			or _is_panel_in_any_stack(panel)
+		):
+			return false
+		if panel.get_parent() != null and panel.get_parent() != canvas:
+			return false
 	if panel.get_parent() != canvas:
 		canvas.add_child(panel)
+	if (
+		not _is_panel_request_active(async_request_key)
+		or _get_valid_panel_from_variant(panel) == null
+		or _get_valid_panel_from_variant(canvas) == null
+		or get_layer_root(layer) != canvas
+		or panel.get_parent() != canvas
+		or _is_panel_in_any_stack(panel)
+	):
+		return false
 
 	stack.push_back(panel)
 	var open_serial: int = _next_panel_open_serial
 	_next_panel_open_serial += 1
 	_panel_open_serials[panel.get_instance_id()] = open_serial
 	_panel_options[panel.get_instance_id()] = normalized_options
+	if previous_focus != null:
+		_previous_focus_by_panel_id[panel.get_instance_id()] = previous_focus
 	var _tree_exited_connected: Error = panel.tree_exited.connect(
 		_on_panel_tree_exited.bind(panel, layer),
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -2283,25 +2410,20 @@ func _normalize_panel_options(options: Dictionary, layer: int) -> Dictionary:
 	}
 
 
-## 启用关闭还原焦点时，将当前焦点控件以弱引用关联到新面板。
+## 在候选入树前捕获当前焦点的弱引用；调用方确认入栈后才登记到面板身份。
 ## [br]
 ## @api private
-func _capture_previous_focus(
-	panel: Node,
-	options: Dictionary,
-	viewport: Viewport
-) -> void:
+func _capture_previous_focus(options: Dictionary, viewport: Viewport) -> WeakRef:
 	if not GFVariantData.get_option_bool(
 		options,
 		"restore_focus_on_close",
 		false
 	):
-		return
+		return null
 	if viewport == null:
-		return
+		return null
 	var focused: Control = viewport.gui_get_focus_owner()
-	if focused != null:
-		_previous_focus_by_panel_id[panel.get_instance_id()] = weakref(focused)
+	return weakref(focused) if focused != null else null
 
 
 ## 选项启用 focus_on_open 时尝试聚焦面板内第一个可聚焦控件。

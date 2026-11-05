@@ -35,6 +35,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var start_line_id: StringName = &""
 ```
 
@@ -47,6 +48,7 @@ var start_line_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var lines: Array[GFDialogueLine] = []
 ```
 
@@ -59,6 +61,7 @@ var lines: Array[GFDialogueLine] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -147,6 +150,7 @@ func get_line_ids() -> PackedStringArray:
 ### `validate_resource`
 
 - API：`public`
+- 首次版本：`3.9.0`
 
 ```gdscript
 func validate_resource() -> Dictionary:
@@ -158,7 +162,7 @@ func validate_resource() -> Dictionary:
 
 结构：
 
-- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。
+- `return`: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。duplicate_response_id 问题的 metadata 包含从零开始的 line_index 与完整 response_id，subject 只用于展示。
 
 <a id="member-gfdialogueresource-methods-duplicate_dialogue"></a>
 

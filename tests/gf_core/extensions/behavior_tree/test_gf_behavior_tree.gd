@@ -1,6 +1,198 @@
 extends GutTest
 
 
+func test_decorator_reset_replacement_aborts_old_terminal_result() -> void:
+	for terminal_status: int in [
+		GFBehaviorTree.Status.SUCCESS,
+		GFBehaviorTree.Status.FAILURE,
+		GFBehaviorTree.Status.ERROR,
+	]:
+		var leaves: Array[ResetReplacingNode] = []
+		for index: int in range(9):
+			var leaf: ResetReplacingNode = ResetReplacingNode.new()
+			leaf.status = terminal_status
+			leaves.append(leaf)
+		var decorators: Array[GFBehaviorTree.BTNode] = _nodes(
+			[
+				GFBehaviorTree.Inverter.new(leaves[0]),
+				GFBehaviorTree.AlwaysSucceed.new(leaves[1]),
+				GFBehaviorTree.AlwaysFail.new(leaves[2]),
+				GFBehaviorTree.Probability.new(
+					leaves[3],
+					1.0
+				),
+				GFBehaviorTree.Cooldown.new(leaves[4]),
+				GFBehaviorTree.TimeLimit.new(
+					leaves[5],
+					100.0
+				),
+				GFBehaviorTree.Repeat.new(
+					leaves[6],
+					2
+				),
+				GFBehaviorTree.UntilSuccess.new(leaves[7]),
+				GFBehaviorTree.UntilFail.new(leaves[8]),
+			]
+		)
+		for index: int in range(decorators.size()):
+			var decorator: GFBehaviorTree.Decorator = decorators[index]
+			var leaf: ResetReplacingNode = leaves[index]
+			leaf.owner_ref = weakref(decorator)
+			leaf.replacement = StatusSequenceNode.new([GFBehaviorTree.Status.RUNNING])
+			assert_eq(
+				decorator.tick({}),
+				GFBehaviorTree.Status.ABORTED,
+				decorator.name
+			)
+			assert_eq(
+				decorator.last_reason,
+				&"aborted",
+				decorator.name
+			)
+			assert_eq(
+				leaf.replacement.tick_count_value,
+				0,
+				decorator.name
+			)
+
+
+func test_inverter_reset_replacement_does_not_advance_parent_sequence() -> void:
+	var leaf: ResetReplacingNode = ResetReplacingNode.new()
+	leaf.status = GFBehaviorTree.Status.FAILURE
+	var inverter: GFBehaviorTree.Inverter = GFBehaviorTree.Inverter.new(leaf)
+	leaf.owner_ref = weakref(inverter)
+	leaf.replacement = StatusSequenceNode.new([GFBehaviorTree.Status.FAILURE])
+	var later: StatusSequenceNode = StatusSequenceNode.new([GFBehaviorTree.Status.SUCCESS])
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([inverter, later]))
+	assert_eq(
+		sequence.tick({}),
+		GFBehaviorTree.Status.ABORTED
+	)
+	assert_eq(later.tick_count_value, 0)
+	assert_eq(leaf.replacement.tick_count_value, 0)
+	assert_eq(
+		sequence.tick({}),
+		GFBehaviorTree.Status.SUCCESS
+	)
+	assert_eq(later.tick_count_value, 1)
+
+
+func test_decorator_clock_replacement_aborts_before_using_new_child() -> void:
+	for time_limit: bool in [false, true]:
+		for clear_child: bool in [false, true]:
+			var original: StatusSequenceNode = StatusSequenceNode.new([GFBehaviorTree.Status.SUCCESS])
+			var replacement: StatusSequenceNode = StatusSequenceNode.new([GFBehaviorTree.Status.RUNNING])
+			var owner_refs: Array[WeakRef] = []
+			var clock_callback: Callable = func() -> int:
+				var decorator_owner: GFBehaviorTree.Decorator = owner_refs[0].get_ref()
+				var _updated: GFBehaviorTree.Decorator = decorator_owner.set_child(null if clear_child else replacement)
+				return 100
+			var decorator: GFBehaviorTree.Decorator
+			if time_limit:
+				decorator = GFBehaviorTree.TimeLimit.new(
+					original,
+					1.0,
+					clock_callback
+				)
+			else:
+				decorator = GFBehaviorTree.Cooldown.new(
+					original,
+					1.0,
+					clock_callback
+				)
+			owner_refs.append(weakref(decorator))
+			assert_eq(
+				decorator.tick({}),
+				GFBehaviorTree.Status.ABORTED
+			)
+			assert_eq(original.tick_count_value, 0)
+			assert_eq(replacement.tick_count_value, 0)
+
+
+func test_decorator_reset_before_child_tick_aborts_on_replacement() -> void:
+	var leaves: Array[ResetReplacingNode] = []
+	for index: int in range(3):
+		leaves.append(ResetReplacingNode.new())
+	var decorators: Array[GFBehaviorTree.BTNode] = _nodes(
+		[
+			GFBehaviorTree.Probability.new(
+				leaves[0],
+				0.0
+			),
+			GFBehaviorTree.TimeLimit.new(
+				leaves[1],
+				0.0
+			),
+			GFBehaviorTree.Limit.new(
+				leaves[2],
+				1
+			),
+		]
+	)
+	# Limit 先耗尽一次准入，再让下一次调用触发终态清理。
+	var _initial_status: int = decorators[2].tick({})
+	for index: int in range(decorators.size()):
+		leaves[index].owner_ref = weakref(decorators[index])
+		leaves[index].replacement = StatusSequenceNode.new([GFBehaviorTree.Status.RUNNING])
+		assert_eq(
+			decorators[index].tick({}),
+			GFBehaviorTree.Status.ABORTED
+		)
+		assert_eq(
+			leaves[index].replacement.tick_count_value,
+			0
+		)
+
+
+func test_cooldown_finish_clock_replacement_does_not_commit_old_cooldown() -> void:
+	var state: Dictionary = { "calls": 0 }
+	var owner_refs: Array[WeakRef] = []
+	var original: StatusSequenceNode = StatusSequenceNode.new([GFBehaviorTree.Status.SUCCESS])
+	var replacement: StatusSequenceNode = StatusSequenceNode.new([GFBehaviorTree.Status.RUNNING])
+	var clock_callback: Callable = func() -> int:
+		state["calls"] += 1
+		if state["calls"] == 2:
+			var decorator_owner: GFBehaviorTree.Decorator = owner_refs[0].get_ref()
+			var _updated: GFBehaviorTree.Decorator = decorator_owner.set_child(replacement)
+		return 100
+	var decorator: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(
+		original,
+		10.0,
+		clock_callback
+	)
+	owner_refs.append(weakref(decorator))
+	assert_eq(
+		decorator.tick({}),
+		GFBehaviorTree.Status.ABORTED
+	)
+	assert_eq(replacement.tick_count_value, 0)
+	assert_eq(
+		decorator.tick({}),
+		GFBehaviorTree.Status.RUNNING
+	)
+	assert_eq(replacement.tick_count_value, 1)
+
+
+class ResetReplacingNode extends GFBehaviorTree.BTNode:
+	var status: int = GFBehaviorTree.Status.FAILURE
+	var owner_ref: WeakRef
+	var replacement: StatusSequenceNode
+	var replaced: bool = false
+
+	func tick(_blackboard: Dictionary) -> int:
+		return record_status(status)
+
+
+	func reset() -> void:
+		super.reset()
+		if replaced or owner_ref == null:
+			return
+		replaced = true
+		var owner: GFBehaviorTree.Decorator = owner_ref.get_ref()
+		if owner != null:
+			var _updated: GFBehaviorTree.Decorator = owner.set_child(replacement)
+
+
 func test_missing_required_decorator_child_is_an_execution_error() -> void:
 	var decorators: Array[GFBehaviorTree.BTNode] = _nodes(
 		[
@@ -491,6 +683,66 @@ func test_error_recovery_bounds_reason_policy_and_requires_both_branches() -> vo
 		assert_eq(node.last_reason, &"invalid_recovery_children")
 	assert_eq(source.tick_count, 0)
 	assert_eq(recovery.tick_count, 0)
+
+
+func test_action_discards_result_after_resetting_itself() -> void:
+	for use_runner: bool in [false, true]:
+		var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(
+			func(bb: Dictionary) -> int:
+				if GFVariantData.get_option_bool(
+					bb,
+					"reset",
+					false
+				):
+					bb["reset"] = false
+					var node_value: Variant = bb.get("node")
+					if node_value is GFBehaviorTree.BTNode:
+						var active_node: GFBehaviorTree.BTNode = node_value
+						active_node.reset()
+				return GFBehaviorTree.Status.SUCCESS
+		)
+		var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(action, false)
+		runner.blackboard = { "node": action, "reset": true }
+		var first_status: int = runner.tick() if use_runner else action.tick(runner.blackboard)
+		assert_eq(first_status, GFBehaviorTree.Status.ABORTED)
+		assert_eq(action.last_reason, &"aborted")
+		var next_status: int = runner.tick() if use_runner else action.tick(runner.blackboard)
+		assert_eq(
+			next_status,
+			GFBehaviorTree.Status.SUCCESS,
+			"下一次 tick 应使用重置后的新状态。"
+		)
+		runner.blackboard.clear()
+
+
+func test_condition_discards_result_after_resetting_itself() -> void:
+	for use_runner: bool in [false, true]:
+		var condition: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(
+			func(bb: Dictionary) -> bool:
+				if GFVariantData.get_option_bool(
+					bb,
+					"reset",
+					false
+				):
+					bb["reset"] = false
+					var node_value: Variant = bb.get("node")
+					if node_value is GFBehaviorTree.BTNode:
+						var active_node: GFBehaviorTree.BTNode = node_value
+						active_node.reset()
+				return true
+		)
+		var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(condition, false)
+		runner.blackboard = { "node": condition, "reset": true }
+		var first_status: int = runner.tick() if use_runner else condition.tick(runner.blackboard)
+		assert_eq(first_status, GFBehaviorTree.Status.ABORTED)
+		assert_eq(condition.last_reason, &"aborted")
+		var next_status: int = runner.tick() if use_runner else condition.tick(runner.blackboard)
+		assert_eq(
+			next_status,
+			GFBehaviorTree.Status.SUCCESS,
+			"下一次 tick 应使用重置后的新状态。"
+		)
+		runner.blackboard.clear()
 
 
 func test_parallel_discards_tick_cancelled_by_runner_reset() -> void:

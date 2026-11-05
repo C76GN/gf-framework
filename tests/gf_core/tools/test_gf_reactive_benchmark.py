@@ -24,6 +24,25 @@ from gf_process_supervisor import (
 
 
 class ReactiveBenchmarkBoundaryTests(unittest.TestCase):
+	def test_harness_edit_after_copy_cannot_relabel_executed_bytes(self) -> None:
+		for filename in ("project.godot.fixture", "reactive_pull_benchmark.gd"):
+			with self.subTest(filename=filename), self._private_run() as (args, _stages, _neighbor, _cpu):
+				original_copy = benchmark.shutil.copyfile
+
+				def copy_then_edit(source, target, *arguments, **keywords):
+					result = original_copy(source, target, *arguments, **keywords)
+					if Path(source).name == filename:
+						Path(source).write_bytes(b"new live fixture after copy")
+					return result
+
+				with (
+					mock.patch.object(benchmark.shutil, "copyfile", side_effect=copy_then_edit),
+					mock.patch.object(benchmark, "run_supervised_process", side_effect=self._quiet_result),
+				):
+					with self.assertRaisesRegex(ValueError, "harness input drifted"):
+						benchmark.run_benchmark(args)
+				self.assertFalse(json.loads(args.output.read_text(encoding="utf-8"))["valid"])
+
 	@contextlib.contextmanager
 	def _private_run(self):
 		"""Use real private staging files and a fake executable fixture, without Godot."""

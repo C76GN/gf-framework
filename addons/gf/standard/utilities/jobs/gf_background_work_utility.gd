@@ -951,6 +951,8 @@ func _run_threaded_task(
 ## @api private
 ## [br]
 func _start_resource_task(task: GFBackgroundWorkTask) -> void:
+	if (task.status != GFBackgroundWorkTask.Status.QUEUED or _tasks.get(task.work_id) != task):
+		return
 	var path: String = task.resource_path
 	if _resource_requests.has(path):
 		var request: Dictionary = _get_resource_request(path)
@@ -985,6 +987,10 @@ func _start_resource_task(task: GFBackgroundWorkTask) -> void:
 			task.resource_type_hint,
 			{ "consumer_id": &"background_work" }
 		)
+	if (task.status != GFBackgroundWorkTask.Status.QUEUED or _tasks.get(task.work_id) != task):
+		if operation != null:
+			operation.release()
+		return
 	var error: Error = operation.get_request_error() if operation != null else ERR_UNCONFIGURED
 	if error != OK:
 		_fail_task(
@@ -1029,6 +1035,11 @@ func _poll_resource_requests() -> void:
 		var request: Dictionary = _get_resource_request(path)
 		var operation: _RESOURCE_LEASE_SCRIPT = _get_resource_request_operation(request)
 		var load_result: Dictionary = (_resource_broker.poll_lease(operation) if _resource_broker != null else _make_missing_resource_broker_result())
+		if not is_same(
+			_resource_requests.get(path),
+			request
+		):
+			continue
 		var status: StringName = GFVariantData.get_option_string_name(
 			load_result,
 			"status",
@@ -1042,14 +1053,25 @@ func _poll_resource_requests() -> void:
 		request["progress"] = ratio
 		var tasks: Array = _get_resource_request_tasks(request)
 		for task_variant: Variant in tasks:
+			if not is_same(
+				_resource_requests.get(path),
+				request
+			):
+				break
 			var task: GFBackgroundWorkTask = _as_task(task_variant)
 			if (
 				task != null
+				and _tasks.get(task.work_id) == task
 				and not task.cancel_requested
 				and not task.is_finished()
 			):
 				var _progress_updated: bool = update_work_progress(task.work_id, ratio)
 
+		if not is_same(
+			_resource_requests.get(path),
+			request
+		):
+			continue
 		match status:
 			_RESOURCE_LEASE_SCRIPT.STATUS_QUEUED, _RESOURCE_LEASE_SCRIPT.STATUS_LOADING:
 				pass

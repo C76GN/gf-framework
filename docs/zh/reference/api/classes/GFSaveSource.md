@@ -44,6 +44,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var source_key: StringName = &""
 ```
 
@@ -56,6 +57,7 @@ Source 稳定标识。留空时回退到节点名。
 - API：`public`
 
 ```gdscript
+@export
 var target_node_path: NodePath
 ```
 
@@ -68,6 +70,7 @@ var target_node_path: NodePath
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -80,6 +83,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var save_enabled: bool = true
 ```
 
@@ -92,6 +96,7 @@ var save_enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var load_enabled: bool = true
 ```
 
@@ -104,6 +109,7 @@ var load_enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var phase: int = GFSaveScope.Phase.NORMAL
 ```
 
@@ -116,6 +122,7 @@ var phase: int = GFSaveScope.Phase.NORMAL
 - API：`public`
 
 ```gdscript
+@export
 var serializers: Array[GFNodeSerializer] = []
 ```
 
@@ -128,6 +135,7 @@ Source 局部序列化器。为空时可使用注册表中的默认序列化器�
 - API：`public`
 
 ```gdscript
+@export
 var use_registry_serializers: bool = false
 ```
 
@@ -140,6 +148,7 @@ var use_registry_serializers: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var descriptor_extra: Dictionary = {}
 ```
 

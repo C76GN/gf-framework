@@ -82,6 +82,7 @@ enum ValueTarget {
 - API：`public`
 
 ```gdscript
+@export
 var input_event: InputEvent
 ```
 
@@ -94,6 +95,7 @@ Godot 原生输入事件模板。
 - API：`public`
 
 ```gdscript
+@export
 var value_target: ValueTarget = ValueTarget.AUTO
 ```
 
@@ -106,6 +108,7 @@ var value_target: ValueTarget = ValueTarget.AUTO
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.01)
 var deadzone: float = 0.2
 ```
 
@@ -118,6 +121,7 @@ var deadzone: float = 0.2
 - API：`public`
 
 ```gdscript
+@export
 var scale: float = 1.0
 ```
 
@@ -130,6 +134,7 @@ var scale: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var modifiers: Array[GFInputModifier] = []
 ```
 
@@ -143,6 +148,7 @@ var modifiers: Array[GFInputModifier] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var match_device: bool = false
 ```
 
@@ -155,6 +161,7 @@ var match_device: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var match_touch_index: bool = false
 ```
 
@@ -167,6 +174,7 @@ var match_touch_index: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -179,6 +187,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var remappable: bool = true
 ```
 

@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFLevelEntry] = []
 ```
 

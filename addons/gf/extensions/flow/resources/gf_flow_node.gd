@@ -11,14 +11,6 @@ class_name GFFlowNode
 extends Resource
 
 
-# --- 常量 ---
-
-## 为节点运行时状态报告提供 schema 投影工具。
-## [br]
-## @api private
-const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report_schema_projection.gd")
-
-
 # --- 导出变量 ---
 
 ## 节点稳定标识。
@@ -101,31 +93,7 @@ const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report
 @export var editor_collapsed: bool = false
 
 
-# --- 公共变量 ---
-
-## 节点运行态数据的只读副本。项目应通过 set_runtime_value() 等方法修改，
-## 以便执行器在异步隔离期间拒绝写入共享 Resource。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @schema runtime_state: 项目自定义运行态 Dictionary；键和值由节点实现维护。
-var runtime_state: Dictionary:
-	get:
-		return _runtime_state.duplicate(true)
-	set(value):
-		if _reject_runtime_state_write("runtime_state"):
-			return
-		_runtime_state = value.duplicate(true)
-
-
 # --- 私有变量 ---
-
-## 保存节点运行时状态租约的运行时状态。
-## [br]
-## @api private
-var _runtime_state: Dictionary = {}
 
 ## 保存节点运行时状态租约的运行时状态租约序号。
 ## [br]
@@ -137,11 +105,6 @@ var _runtime_state_lease_serial: int = 0
 ## @api private
 var _runtime_state_lease_id: int = 0
 
-## 保存节点运行时状态租约的运行时状态租约写入深度。
-## [br]
-## @api private
-var _runtime_state_lease_write_depth: int = 0
-
 
 # --- 公共方法 ---
 
@@ -151,12 +114,14 @@ var _runtime_state_lease_write_depth: int = 0
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param _context: 流程上下文。
+## @param _context: 各次流程运行可共享的业务上下文。
+## [br]
+## @param _execution: 当前帧本次节点调用独有的运行状态写入句柄。
 ## [br]
 ## @return: 可返回 null 或 Signal。
 ## [br]
 ## @schema return: null、Signal 或项目节点实现约定的结果值。
-func execute(_context: GFFlowContext) -> Variant:
+func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -> Variant:
 	return null
 
 
@@ -166,12 +131,10 @@ func execute(_context: GFFlowContext) -> Variant:
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param context: 流程上下文。
+## @param _context: 调度默认后继时可读取的业务上下文。
 ## [br]
 ## @return: 后继节点标识列表。
-func get_next_nodes(context: GFFlowContext) -> PackedStringArray:
-	if context != null and context.has_next_nodes_override():
-		return context.next_node_ids.duplicate()
+func get_next_nodes(_context: GFFlowContext) -> PackedStringArray:
 	return next_node_ids.duplicate()
 
 
@@ -292,95 +255,7 @@ func describe_node() -> Dictionary:
 	}
 
 
-## 写入节点运行态值。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param key: 键。
-## [br]
-## @param value: 值。
-## [br]
-## @schema value: 任意可写入 runtime_state 的项目值。
-func set_runtime_value(key: StringName, value: Variant) -> void:
-	if _reject_runtime_state_write("set_runtime_value"):
-		return
-	if key == &"":
-		return
-	_runtime_state[key] = GFVariantData.duplicate_variant(value)
-
-
-## 读取节点运行态值。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param key: 键。
-## [br]
-## @param default_value: 默认值。
-## [br]
-## @return: 运行态值或默认值。
-## [br]
-## @schema default_value: 缺失时返回的任意项目值。
-## [br]
-## @schema return: 找到的运行态值，或传入的 default_value。
-func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:
-	return GFVariantData.duplicate_variant(
-		GFVariantData.get_option_value(
-			_runtime_state,
-			key,
-			default_value
-		)
-	)
-
-
-## 清空节点运行态数据。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-func clear_runtime_state() -> void:
-	if _reject_runtime_state_write("clear_runtime_state"):
-		return
-	_runtime_state.clear()
-
-
-## 序列化节点运行态数据。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。
-## [br]
-## @return: 运行态数据副本。
-## [br]
-## @schema return: runtime_state 的深拷贝 Dictionary。
-func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-	if json_compatible:
-		return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(
-			_runtime_state,
-			{ "path_redaction": "basename", }
-		)
-	return _runtime_state.duplicate(true)
-
-
-## 反序列化节点运行态数据。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param data: 运行态数据。
-## [br]
-## @schema data: serialize_runtime_state() 返回的运行态 Dictionary。
-func deserialize_runtime_state(data: Dictionary) -> void:
-	if _reject_runtime_state_write("deserialize_runtime_state"):
-		return
-	_runtime_state = data.duplicate(true)
-
+# --- 框架内部方法 ---
 
 ## 原子取得共享节点运行态的独占租约。
 ##
@@ -398,44 +273,7 @@ func acquire_runtime_state_lease() -> int:
 	if _runtime_state_lease_serial <= 0:
 		_runtime_state_lease_serial = 1
 	_runtime_state_lease_id = _runtime_state_lease_serial
-	_runtime_state_lease_write_depth = 0
 	return _runtime_state_lease_id
-
-
-## 为租约持有者开启同步写阶段。
-## [br]
-## @api framework_internal
-## [br]
-## @since 8.0.0
-## [br]
-## @param lease_id: acquire_runtime_state_lease() 返回的租约 ID。
-## [br]
-## @return: 租约有效时返回 true。
-func begin_runtime_state_lease_write(lease_id: int) -> bool:
-	if lease_id <= 0 or lease_id != _runtime_state_lease_id:
-		return false
-	_runtime_state_lease_write_depth += 1
-	return true
-
-
-## 结束租约持有者的同步写阶段。
-## [br]
-## @api framework_internal
-## [br]
-## @since 8.0.0
-## [br]
-## @param lease_id: 当前租约 ID。
-## [br]
-## @return: 写阶段有效时返回 true。
-func end_runtime_state_lease_write(lease_id: int) -> bool:
-	if (
-		lease_id <= 0
-		or lease_id != _runtime_state_lease_id
-		or _runtime_state_lease_write_depth <= 0
-	):
-		return false
-	_runtime_state_lease_write_depth -= 1
-	return true
 
 
 ## 释放共享节点运行态租约。
@@ -450,7 +288,6 @@ func end_runtime_state_lease_write(lease_id: int) -> bool:
 func release_runtime_state_lease(lease_id: int) -> bool:
 	if lease_id <= 0 or lease_id != _runtime_state_lease_id:
 		return false
-	_runtime_state_lease_write_depth = 0
 	_runtime_state_lease_id = 0
 	return true
 
@@ -467,16 +304,6 @@ func is_runtime_state_leased() -> bool:
 
 
 # --- 私有/辅助方法 ---
-
-## 运行时状态处于租约保护时拒绝外部写入并记录错误。
-## [br]
-## @api private
-func _reject_runtime_state_write(operation: String) -> bool:
-	if not is_runtime_state_leased() or _runtime_state_lease_write_depth > 0:
-		return false
-	push_error("[GFFlowNode][flow_node.runtime_lease_protected] %s failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext." % operation)
-	return true
-
 
 ## 按端口 ID 在指定端口数组中查找端口。
 ## [br]

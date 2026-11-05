@@ -102,6 +102,11 @@ var _option_values: Dictionary = {}
 ## @api private
 var _pick_operation: GFEditorPickOperationBase = null
 
+## 拾取托管请求的代次，取消或替换后旧回调不能接管或清空新操作。
+## [br]
+## @api private
+var _pick_generation: int = 0
+
 
 # --- 公共方法 ---
 
@@ -126,11 +131,10 @@ func deactivate() -> void:
 		return
 	var previous_context: GFEditorToolContextBase = _context
 	_active = false
-	if _pick_operation != null:
-		_pick_operation.cancel()
-		_pick_operation = null
+	cancel_pick_operation()
 	_on_deactivated(previous_context)
-	_context = null
+	if not _active:
+		_context = null
 
 
 ## 工具是否处于激活状态。
@@ -241,13 +245,21 @@ func can_handle(context: GFEditorToolContextBase) -> bool:
 func begin_pick_operation(operation: GFEditorPickOperationBase) -> bool:
 	if not _active or operation == null:
 		return false
-	if _pick_operation != null:
-		_pick_operation.cancel()
-		_pick_operation = null
-	if not operation.begin(_context):
+	_pick_generation += 1
+	var generation: int = _pick_generation
+	var previous: GFEditorPickOperationBase = _pick_operation
+	_pick_operation = null
+	if previous != null:
+		previous.cancel()
+	if generation != _pick_generation or not _active:
 		return false
 	_pick_operation = operation
-	return true
+	var began: bool = operation.begin(_context)
+	if generation != _pick_generation or not _active:
+		return false
+	if not began:
+		_pick_operation = null
+	return began
 
 
 ## 向当前拾取操作输入数据。
@@ -277,8 +289,9 @@ func apply_pick_operation() -> Dictionary:
 		return { "ok": false, "reason": &"tool_inactive", }
 	if _pick_operation == null:
 		return { "ok": false, "reason": &"missing_operation", }
+	var generation: int = _pick_generation
 	var result: Dictionary = _pick_operation.apply()
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+	if generation == _pick_generation and _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		result,
 		"ok",
 		false
@@ -291,10 +304,12 @@ func apply_pick_operation() -> Dictionary:
 ## [br]
 ## @api public
 func cancel_pick_operation() -> void:
+	_pick_generation += 1
 	if _pick_operation == null:
 		return
-	_pick_operation.cancel()
+	var previous: GFEditorPickOperationBase = _pick_operation
 	_pick_operation = null
+	previous.cancel()
 
 
 ## 获取当前拾取操作。

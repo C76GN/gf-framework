@@ -34,4 +34,6 @@ if not catalog.is_complete():
 
 catalog 成功只证明本次可观察的 catalog/owner 与 committed 文件存在关系，不验证 payload 可解码、checksum 或项目 schema。加载列表项时仍须检查实际读取结果；项目摘要缓存的解释版本和刷新策略由项目维护。[本地存档管理器](storage-utility.md) 说明逻辑身份、事务和 single-writer 边界。
 
+隐藏物理条目也参与 catalog 枚举和归属校验。合法 catalog 的隐藏属性不会让对应 logical 文件消失；隐藏未知条目则与其他未知证据一样使查询失败，不会被静默跳过后声称列表完整。离线 revision 升级使用同一库存规则。
+
 显式 schema 2 存储沿用相同查询合同：查询先收敛已提交事务及其 revision，删除后留下的历史 state 不会让文件重新出现在列表中。列表结果不携带 token；摘要应绑定实际读取结果的 `get_committed_revision()`，避免把先前查询的版本与随后读到的新内容混配。详见[已提交版本与摘要缓存](committed-revisions.md)。

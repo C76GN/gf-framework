@@ -32,6 +32,7 @@ analytics.flush()
 Schema 校验的输入只包含调用方提交的 `properties`。`event`、`event_id`、`schema_version`、`client_id`、`session_id`、`timestamp` 和 `context` 等最终事件信封字段由 `GFAnalyticsUtility` 生成，不应重复写入属性 Schema，也不能借属性覆盖。项目可以用既有 `GFDictionarySchema` / `GFSchemaField` 声明必需字段、值类型和是否允许额外字段：
 
 ```gdscript
+# 版本化事件先验收属性结构；业务身份与是否允许采集由项目决定。
 var properties_schema := GFDictionarySchema.new().configure(
 	&"checkout_completed.properties.v1",
 	[
@@ -112,6 +113,7 @@ outbox.transport_callback = Callable(self, "_send_analytics_request")
 outbox.replay_filter = Callable(self, "_allow_analytics_replay")
 outbox.init()
 
+# adapter 将批次交给独立 outbox；实际发送与晚些时候的重放仍走项目 transport。
 var adapter := GFAnalyticsOutboxAdapter.new().configure(
 	outbox,
 	{

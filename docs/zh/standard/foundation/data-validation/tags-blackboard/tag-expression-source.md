@@ -23,6 +23,8 @@ if target_rule.matches(tags):
 
 `GFTagSourceAdapter` 可读取 `GFTagSet`、`Array`、`PackedStringArray`、`Dictionary`，也可读取实现了 `has_tag()`、`get_tag_count()`、`get_tags()` 的对象。需要把不同来源汇入同一套规则时，先通过 `get_tag_counts()`、`to_tag_set()` 或 `merge_sources()` 规范化，再交给查询或表达式执行匹配。
 
+一参数 `has_tag(tag)` 只能证明标签存在，不能证明两层或更多计数。`minimum_count > 1` 时，需要实际计数来源或接收 `minimum_count` 的二参数协议；已有不足计数不会被一参数布尔结果覆盖。
+
 ```gdscript
 var merged := GFTagSourceAdapter.merge_sources([
 	unit_tags,

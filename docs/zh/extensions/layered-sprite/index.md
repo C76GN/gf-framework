@@ -6,6 +6,8 @@ Layered Sprite 扩展把多张同步变化的 2D 纹理组织为“时间轴 + �
 
 ## 核心模型
 
+`advance()` 的跨帧预算只计算帧边界，达到上限后仍可消费留在当前帧内的余量。返回 `true` 表示本次推进正常处理；回调切换播放状态或非循环动画结束时会舍弃旧余量，不表示所有传入时间都已消费。
+
 - `GFLayeredSpriteDefinition` 持有唯一 `SpriteFrames` 时间轴和层集合。时间轴拥有动画名称、循环、速度和相对帧时长。
 - `GFLayeredSpriteLayerDefinition` 用稳定 `layer_id` 描述绘制顺序、偏移、初始可见性和初始调制色。
 - `GFLayeredSpriteVariant` 用稳定 `variant_id` 关联该层的一组 `SpriteFrames`。每个变体的动画名称集合和各动画帧数必须与时间轴完全一致；变体自身的速度和循环配置不会成为第二个时钟。

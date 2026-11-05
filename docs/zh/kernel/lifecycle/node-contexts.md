@@ -7,16 +7,20 @@
 对于关卡、战斗房间、测试场景或调试面板，可以使用 `GFNodeContext` 创建随场景存在的局部架构：
 
 ```gdscript
+## 战斗场景的局部装配入口；仅拥有自己创建的 scoped 架构，不接管父架构。
 class_name BattleContext
 extends GFNodeContext
 
 
+## 为本场景创建独立架构，并在局部未命中时借用父级依赖。
 func _init() -> void:
 	scope_mode = GFNodeContext.ScopeMode.SCOPED
 
 
+## 只向收到的候选架构注册模块；每次等待后先确认本轮安装仍有效。
 func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	var model_registered: bool = await architecture.register_model_instance(BattleModel.new())
+	# 离树或父级失效可能发生在等待期间，旧安装不能继续产生副作用。
 	if scope.is_cancel_requested():
 		return
 	if not model_registered:
@@ -38,6 +42,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 		return
 
 
+## 声明一次性战斗命令工厂，不在装配期提前执行命令。
 func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	if not binder is GFBinder:
 		push_error("BattleContext 收到无效 Binder。")
@@ -76,6 +81,7 @@ Controller 仍按当前父链解析最近 Context，普通 `reparent()` 会迁�
 如果 Controller 需要在 `_ready()` 中立刻访问 scoped 架构，而该架构还在异步初始化，可以等待上下文就绪。等待失败、父级架构初始化失败或上下文超时时会返回 `null`，调用方应显式处理：
 
 ```gdscript
+## 上下文失败或关闭时停止初始化表现层，不继续访问不可用架构。
 func _ready() -> void:
 	var architecture := await wait_for_context_ready()
 	if architecture == null:
@@ -91,6 +97,7 @@ func _ready() -> void:
 场景关闭使用 `close_async()`。它协调本地绑定和逻辑子 Context 的关闭，架构内部的模块关闭仍由 `GFArchitecture.shutdown_async()` 完成：
 
 ```gdscript
+# 关闭完成与工作排空是两个结果；数据关键路径必须同时关注排空失败。
 var result: GFContextCloseResult = await context.close_async(null, 10.0)
 if not result.is_drained():
 	push_warning(result.get_error())

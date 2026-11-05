@@ -41,6 +41,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var profile_id: StringName = &""
 ```
 
@@ -54,6 +55,7 @@ Profile 稳定标识。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var include_groups: PackedStringArray = PackedStringArray()
 ```
 
@@ -67,6 +69,7 @@ var include_groups: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var exclude_groups: PackedStringArray = PackedStringArray()
 ```
 
@@ -80,6 +83,7 @@ var exclude_groups: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var include_tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -93,6 +97,7 @@ var include_tags: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var exclude_tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -106,6 +111,7 @@ var exclude_tags: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var default_include: bool = true
 ```
 
@@ -119,6 +125,7 @@ metadata 缺少 groups/tags 时是否默认保留。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var record_metadata_field: StringName = &"_metadata"
 ```
 
@@ -132,6 +139,7 @@ var record_metadata_field: StringName = &"_metadata"
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var groups_key: StringName = &"groups"
 ```
 
@@ -145,6 +153,7 @@ metadata 中表示分组的键。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var tags_key: StringName = &"tags"
 ```
 
@@ -158,6 +167,7 @@ metadata 中表示标签的键。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

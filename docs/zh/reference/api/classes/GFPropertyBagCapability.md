@@ -91,6 +91,7 @@ signal property_removed(key: StringName, old_value: Variant)
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var values: Dictionary:
 ```
 

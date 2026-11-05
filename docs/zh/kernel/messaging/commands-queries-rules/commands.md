@@ -9,17 +9,20 @@ Command 应被设计成业务上的最小写操作单元。框架负责依赖注
 继承并重写 `execute()` 抽象方法：
 
 ```gdscript
+## 一次伤害结算的写命令；通过架构发送以取得当前上下文依赖。
 class_name TakeDamageCommand extends GFCommand
 
-# 这通常可以视为命令实例携带的参数上下文
+## 本次结算的目标标识，由发送方在执行前设置。
 var target_id: String
+
+## 本次输入伤害，不与其他命令实例共享执行参数。
 var raw_damage: int
 
+## 在注入的架构中查找目标并写入生命值；不提供自动回滚。
 func execute() -> Variant:
-	# 框架基类中提供了方便的 getter 可以取用全局组件
+	# 实例代理使用注入的架构；局部命令不应绕过它查询全局模块。
 	var battle_model := get_model(BattleModel) as BattleModel
 
-	# 从状态中找到受击人并结算伤害
 	var ent := battle_model.get_entity(target_id)
 	if ent:
 		var final_dmg = raw_damage - ent.defense

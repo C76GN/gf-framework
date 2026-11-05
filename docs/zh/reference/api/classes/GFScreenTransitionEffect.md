@@ -66,6 +66,7 @@ enum EasingMode {
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 30.0, 0.01, "or_greater")
 var duration_seconds: float = 0.25
 ```
 
@@ -78,6 +79,7 @@ var duration_seconds: float = 0.25
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var from_alpha: float = 0.0
 ```
 
@@ -90,6 +92,7 @@ var from_alpha: float = 0.0
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var to_alpha: float = 1.0
 ```
 
@@ -102,6 +105,7 @@ var to_alpha: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var color: Color = Color.BLACK
 ```
 
@@ -114,6 +118,7 @@ var color: Color = Color.BLACK
 - API：`public`
 
 ```gdscript
+@export
 var layer: int = 120
 ```
 
@@ -126,6 +131,7 @@ CanvasLayer 层级。
 - API：`public`
 
 ```gdscript
+@export
 var block_input: bool = true
 ```
 
@@ -138,6 +144,7 @@ var block_input: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var easing_mode: EasingMode = EasingMode.SMOOTH_STEP
 ```
 
@@ -150,6 +157,7 @@ var easing_mode: EasingMode = EasingMode.SMOOTH_STEP
 - API：`public`
 
 ```gdscript
+@export
 var shader_material: ShaderMaterial = null
 ```
 
@@ -162,6 +170,7 @@ var shader_material: ShaderMaterial = null
 - API：`public`
 
 ```gdscript
+@export
 var progress_parameter: StringName = &"progress"
 ```
 
@@ -174,6 +183,7 @@ shader_material 中表示进度的参数名。为空时不写入 shader 参数�
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -961,6 +961,7 @@ func _select_source(index: int) -> void:
 	_clear(_source_form)
 	var source: GFConfigPipelineTableSource = _current_source()
 	if source == null:
+		_schema_form.configure(null, null)
 		return
 	for property_name: String in [
 		"table_name",

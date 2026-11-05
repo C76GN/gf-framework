@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var group_id: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ var group_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var switch_id: StringName = &""
 ```
 
@@ -54,6 +56,7 @@ var switch_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var scope_id: StringName = &""
 ```
 
@@ -66,6 +69,7 @@ var scope_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

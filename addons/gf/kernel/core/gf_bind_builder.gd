@@ -147,7 +147,7 @@ func with_alias(alias_cls: Script) -> GFBindBuilder:
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @return 绑定成功时返回 true。
+## @return 模块与请求的别名都成功登记时返回 true；别名失败时返回 false，已登记模块仍由架构持有。
 func as_singleton() -> bool:
 	if _architecture == null:
 		push_error("[GFBindBuilder][bind_builder.architecture_null] The architecture is null; binding cannot complete.")
@@ -449,16 +449,25 @@ func _register_alias_if_needed(instance: Object) -> bool:
 
 	match _target_kind:
 		TargetKind.MODEL:
-			_architecture.register_model_alias(_alias_cls, script)
-			return true
+			return _architecture.register_model_alias_for_framework(
+				_alias_cls,
+				script,
+				true
+			)
 
 		TargetKind.SYSTEM:
-			_architecture.register_system_alias(_alias_cls, script)
-			return true
+			return _architecture.register_system_alias_for_framework(
+				_alias_cls,
+				script,
+				true
+			)
 
 		TargetKind.UTILITY:
-			_architecture.register_utility_alias(_alias_cls, script)
-			return true
+			return _architecture.register_utility_alias_for_framework(
+				_alias_cls,
+				script,
+				true
+			)
 	return false
 
 

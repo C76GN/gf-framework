@@ -5,9 +5,11 @@
 ## Inspector 属性
 
 ```gdscript
+# 项目 Control 的 Inspector 扩展；同一份定义同时服务属性展示与恢复默认值。
 @tool
 extends Control
 
+## 仅声明本控件希望暴露的覆盖项，不定义整个项目的主题默认值。
 const THEME_OVERRIDES := [
 	GFThemeOverridePropertyList.make_definition(&"accent", Theme.DATA_TYPE_COLOR),
 	GFThemeOverridePropertyList.make_definition(&"gap", Theme.DATA_TYPE_CONSTANT, {
@@ -16,12 +18,15 @@ const THEME_OVERRIDES := [
 	}),
 ]
 
+## 生成 Godot 可检查、编辑并按覆盖状态保存的主题属性描述。
 func _get_property_list() -> Array:
 	return GFThemeOverridePropertyList.make_property_list(self, THEME_OVERRIDES)
 
+## 仅为声明范围内的主题覆盖项启用 Inspector 恢复入口。
 func _property_can_revert(property: StringName) -> bool:
 	return GFThemeOverridePropertyList.can_revert(property, THEME_OVERRIDES)
 
+## 返回 null 清除对应覆盖，使该属性重新使用主题继承值。
 func _property_get_revert(property: StringName) -> Variant:
 	return GFThemeOverridePropertyList.get_revert_value(property)
 ```

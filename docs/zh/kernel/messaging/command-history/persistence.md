@@ -17,6 +17,7 @@ var saved_data_array: Array = history.serialize_history()
 ```gdscript
 var history := Gf.get_utility(GFCommandHistoryUtility) as GFCommandHistoryUtility
 
+# 仅重建项目认可的命令类型及其快照，不在恢复构建器中再次执行业务操作。
 var command_builder = func(data: Dictionary) -> GFUndoableCommand:
 	var cmd_type = data.get("type", "")
 	if cmd_type == "TakeDamage":

@@ -1428,6 +1428,33 @@ func test_register_utility_alias_rejects_unrelated_target_type() -> void:
 	arch.dispose()
 
 
+func test_binder_reports_alias_rejection_without_disowning_registered_module() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var concrete: ConcreteUtility = ConcreteUtility.new()
+	var result: bool = await arch.create_binder().bind_utility(ConcreteUtility).from_instance(concrete).with_alias(NotUtility).as_singleton()
+	assert_false(result)
+	assert_push_error("[GFArchitecture][architecture.alias_target_type_invalid] register_utility_alias failed: target must extend or equal alias.")
+	assert_null(arch.get_utility(NotUtility))
+	assert_same(
+		arch.get_utility(ConcreteUtility),
+		concrete
+	)
+	arch.dispose()
+
+
+func test_binder_preserves_cold_alias_replacement() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var concrete: ConcreteUtility = ConcreteUtility.new()
+	var replacement: AlternateConcreteUtility = AlternateConcreteUtility.new()
+	assert_true(await arch.create_binder().bind_utility(ConcreteUtility).from_instance(concrete).with_alias(UtilityBase).as_singleton())
+	assert_true(await arch.create_binder().bind_utility(AlternateConcreteUtility).from_instance(replacement).with_alias(UtilityBase).as_singleton())
+	assert_same(
+		arch.get_utility(UtilityBase),
+		replacement
+	)
+	arch.dispose()
+
+
 ## 验证 alias 注销与目标模块注销保持分离。
 func test_module_registry_alias_unregister_does_not_remove_targets() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()

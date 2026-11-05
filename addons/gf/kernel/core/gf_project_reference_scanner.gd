@@ -1665,7 +1665,7 @@ static func _common_class_name_prefix(class_names: Array[String]) -> String:
 	return prefix
 
 
-## 在单文件和总字节预算内读取文本，二进制资源仅验证头和可加载性；成功才累加扫描数及声明大小，总预算超限要求停止扫描。
+## 按已准入的字节数有界读取文本并复核长度；文件增长、短读或读取失败均不接纳正文。二进制资源仅验证头和可加载性，总预算超限要求停止扫描。
 ## [br]
 ## @api private
 static func _read_scan_source(
@@ -1767,27 +1767,53 @@ static func _read_scan_source(
 			return result
 
 	if not _is_binary_resource_file(path):
-		result["source"] = file.get_as_text()
+		# 不让文件增长扩大本次读取分配；读取后再拒绝变化中的来源。
+		var source_bytes: PackedByteArray = file.get_buffer(size_bytes)
 		var read_error: Error = file.get_error()
-		if read_error != OK:
+		var final_size: int = file.get_length()
+		if max_file_bytes > 0 and final_size > max_file_bytes:
+			file.close()
+			_mark_budget_exceeded(
+				path,
+				"max_file_bytes",
+				final_size,
+				max_file_bytes,
+				scan_state
+			)
+			return result
+		if max_total_bytes > 0 and final_size > max_total_bytes - scanned_bytes:
+			file.close()
+			_mark_budget_exceeded(
+				path,
+				"max_total_bytes",
+				scanned_bytes + final_size,
+				max_total_bytes,
+				scan_state
+			)
+			scan_state["stop_scan"] = true
+			return result
+		var source_changed: bool = final_size != size_bytes or source_bytes.size() != size_bytes
+		if read_error != OK or source_changed:
 			file.close()
 			_mark_scan_partial(scan_state)
 			_append_skipped_file(
 				path,
-				"read_failed",
+				"source_changed" if source_changed else "read_failed",
 				size_bytes,
 				"",
 				0,
 				scan_state
 			)
 			_append_scan_issue(
-				"scan_file_read_failed",
+				"scan_file_changed" if source_changed else "scan_file_read_failed",
 				path,
 				"",
-				"读取候选扫描文件失败。",
+				"读取期间候选扫描文件长度发生变化。" if source_changed else "读取候选扫描文件失败。",
 				scan_state
 			)
 			return result
+		result["source"] = source_bytes.get_string_from_utf8()
+		size_bytes = source_bytes.size()
 	result["ok"] = true
 	file.close()
 	scan_state["scanned_file_count"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(scan_state, "scanned_file_count") + 1

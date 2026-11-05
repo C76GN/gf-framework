@@ -13,6 +13,68 @@ class RefreshCountingInputMappingDock extends GFInputMappingDock:
 
 # --- 测试方法 ---
 
+func test_budget_rejection_renders_only_overview_and_issue() -> void:
+	for oversized_bindings: bool in [false, true]:
+		var dock: GFInputMappingDock = GFInputMappingDock.new()
+		var context: GFInputContext = _make_context(false)
+		if oversized_bindings:
+			var _resized: int = context.mappings[0].bindings.resize(8193)
+		else:
+			var _resized: int = context.mappings.resize(513)
+		dock.set_input_context(context)
+		assert_false(
+			GFVariantData.get_option_bool(
+				dock.get_last_report(),
+				"ok"
+			)
+		)
+		var root_item: TreeItem = dock._tree.get_root()
+		var child: TreeItem = root_item.get_first_child()
+		var action_rows: int = 0
+		while child != null:
+			if child.get_text(0) == "动作":
+				action_rows += 1
+			child = child.get_next()
+		assert_eq(action_rows, 0)
+		dock.free()
+
+
+func test_queued_source_refresh_preserves_latest_load_failure() -> void:
+	var dock: GFInputMappingDock = GFInputMappingDock.new()
+	var context: GFInputContext = _make_context(false)
+	dock.set_input_context(context)
+	add_child_autofree(dock)
+	assert_eq(
+		dock.load_context_path("res://not_context.txt"),
+		ERR_INVALID_PARAMETER
+	)
+	await get_tree().process_frame
+	assert_eq(
+		GFVariantData.get_option_string(
+			dock._make_copy_payload(),
+			"kind"
+		),
+		"input_mapping_load_failure"
+	)
+	context.emit_changed()
+	await get_tree().process_frame
+	assert_eq(
+		GFVariantData.get_option_string(
+			dock._make_copy_payload(),
+			"kind"
+		),
+		"input_mapping_load_failure"
+	)
+	dock.refresh()
+	assert_ne(
+		GFVariantData.get_option_string(
+			dock._make_copy_payload(),
+			"kind"
+		),
+		"input_mapping_load_failure"
+	)
+
+
 func test_input_mapping_dock_uses_compact_empty_state() -> void:
 	var dock: GFInputMappingDock = GFInputMappingDock.new()
 

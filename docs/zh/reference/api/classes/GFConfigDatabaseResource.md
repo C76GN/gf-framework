@@ -44,6 +44,7 @@
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var database_id: StringName = &""
 ```
 
@@ -57,6 +58,7 @@ var database_id: StringName = &""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var version: String = ""
 ```
 
@@ -70,6 +72,7 @@ var version: String = ""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var tables: Array[GFConfigTableResource] = []
 ```
 
@@ -87,6 +90,7 @@ var tables: Array[GFConfigTableResource] = []
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

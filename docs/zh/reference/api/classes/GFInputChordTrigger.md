@@ -29,6 +29,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var required_action_id: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ var required_action_id: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var player_scoped: bool = true
 ```
 

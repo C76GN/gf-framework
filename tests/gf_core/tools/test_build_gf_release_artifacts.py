@@ -286,6 +286,24 @@ class ReleaseBuilderProcessAuthorityTests(unittest.TestCase):
 		print_result.assert_not_called()
 
 class ReleaseArtifactTests(unittest.TestCase):
+	def test_standalone_archive_rejects_noncanonical_paths_before_payload_reads(self) -> None:
+		builder = release_builder.build_asset_store_package
+		for entry in ("addons/gf/../escape.txt", "addons/gf/./same.txt", "addons/gf//empty.txt", "addons/gf/back\\slash.txt", "addons/gf/../outside/"):
+			with self.subTest(entry=entry), tempfile.TemporaryDirectory() as directory:
+				archive_path = Path(directory) / "framework.zip"
+				with zipfile.ZipFile(archive_path, "w") as archive:
+					for name in builder.REQUIRED_PACKAGE_PATHS:
+						archive.writestr(name, f'[plugin]\nversion="{VERSION}"\n' if name.endswith("plugin.cfg") else "fixture")
+					entry_info = zipfile.ZipInfo(entry)
+					# ZipInfo's Windows constructor normalizes separators; preserve
+					# the literal central-directory spelling of an external archive.
+					entry_info.filename = entry
+					archive.writestr(entry_info, "fixture")
+				with mock.patch.object(zipfile.ZipFile, "open", side_effect=AssertionError("unsafe archive payload read")):
+					result = builder.audit_package(archive_path, expected_version=VERSION)
+				self.assertFalse(result["ok"])
+				self.assertTrue(any("canonical" in issue for issue in result["issues"]), result)
+
 	def test_asset_store_validate_only_checks_the_archived_version(self) -> None:
 		builder = release_builder.build_asset_store_package
 		for archived_version in ("10.0.0", VERSION):

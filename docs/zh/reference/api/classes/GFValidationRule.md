@@ -68,6 +68,7 @@ enum TargetKind {
 - API：`public`
 
 ```gdscript
+@export
 var rule_id: StringName = &""
 ```
 
@@ -80,6 +81,7 @@ var rule_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -92,6 +94,7 @@ var description: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var target_kind: TargetKind = TargetKind.ANY
 ```
 
@@ -104,6 +107,7 @@ var target_kind: TargetKind = TargetKind.ANY
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -116,6 +120,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var severity: GFValidationIssue.Severity = GFValidationIssue.Severity.ERROR
 ```
 
@@ -128,6 +133,7 @@ var severity: GFValidationIssue.Severity = GFValidationIssue.Severity.ERROR
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

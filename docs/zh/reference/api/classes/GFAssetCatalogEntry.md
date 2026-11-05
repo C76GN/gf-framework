@@ -46,6 +46,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var asset_id: StringName = &""
 ```
 
@@ -59,6 +60,7 @@ var asset_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var title: String = ""
 ```
 
@@ -72,6 +74,7 @@ var title: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -85,6 +88,7 @@ var description: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -98,6 +102,7 @@ var tags: PackedStringArray = PackedStringArray()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var category: StringName = &""
 ```
 
@@ -111,6 +116,7 @@ var category: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var primary_path: String = ""
 ```
 
@@ -124,6 +130,7 @@ var primary_path: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var type_hint: String = ""
 ```
 
@@ -137,6 +144,7 @@ var type_hint: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var preview_path: String = ""
 ```
 
@@ -150,6 +158,7 @@ var preview_path: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var resource_entry_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -163,6 +172,7 @@ var resource_entry_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var source_id: StringName = &""
 ```
 
@@ -176,6 +186,7 @@ var source_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

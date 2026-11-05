@@ -54,6 +54,7 @@ enum CompositionMode {
 - API：`public`
 
 ```gdscript
+@export
 var mode: CompositionMode = CompositionMode.BLEND
 ```
 
@@ -66,6 +67,7 @@ var mode: CompositionMode = CompositionMode.BLEND
 - API：`public`
 
 ```gdscript
+@export
 var behaviors: Array[GFSteeringBehaviorResource] = []
 ```
 
@@ -78,6 +80,7 @@ var behaviors: Array[GFSteeringBehaviorResource] = []
 - API：`public`
 
 ```gdscript
+@export
 var max_linear: float = -1.0
 ```
 
@@ -90,6 +93,7 @@ var max_linear: float = -1.0
 - API：`public`
 
 ```gdscript
+@export
 var max_angular: float = -1.0
 ```
 
@@ -102,6 +106,7 @@ var max_angular: float = -1.0
 - API：`public`
 
 ```gdscript
+@export
 var priority_threshold: float = 0.001
 ```
 

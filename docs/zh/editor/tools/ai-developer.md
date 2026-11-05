@@ -34,18 +34,16 @@ python addons/gf/tools/ai_developer/gf_ai_project.py validate --project-root .
 
 初始化不会覆盖已有文件。契约使用严格 JSON Schema，未知字段、错误类型、重复声明、同一政策轴内互相冲突的必需或允许与禁止 package，以及不存在的能力 ID 都会失败。模板中的 `unknowns` 不是待办装饰；会影响当前架构决策的未知项应标记为 blocking，并在确认后从契约中解决。
 
+新契约的 `capability_requirements` 默认为空；初始化不代表项目已经选择 composition root 或其他 Recipe。先按当前任务选择需要的能力，再填写经过确认的 owner 和验收条件。已有契约中的确认记录保持原样。
+
 验证目录保持平面稳定 ID，最多 256 条 checks、合计 4096 个 `argv` 元素；整个 `verification` 按键排序、无额外空白的 UTF-8 JSON 计费，最多 256 KiB。每条检查仍最多 64 个参数，每个参数最多 300 字符。整份契约的物理文件读取上限仍为 1 MiB，格式空白也计入这个上限。检查声明不授权执行，`review_required`、联网与写入声明保持独立审阅。
 
 契约解析后的验证另有 32 层深度、50000 个值节点、100000 步遍历/比较与最多 100 条诊断的预算；根值深度为 0，容器和值均计节点。超限或诊断截断始终失败，不会把未验证部分当作有效意图。这些限制约束解析后的工作，不能保证 JSON 解析器在分配前就受结构预算保护。超限诊断给出 `actual` 与 `limit`；每条 `global_rules` 的 400 字符上限保持不变，较长解释应拆成独立简短规则，或由短规则引用项目文档。
 
 GF 11 不生成或更新 `.gf/packages.lock.json`，正常完整安装会根据当前版本目录中的代表文件生成 `filesystem` 观测。项目如果仍保留 GF 10 的旧 lockfile，快照会把它当作迁移保护证据并执行只读、失败关闭的完整校验；任一字段无效时可信 `packages` 集合固定为空，也不会静默退回目录猜测。完成[从 GF 10 模块化安装迁移](../../overview/quickstart/package-manager-migration.md)并归档旧 lockfile 后，快照恢复以完整插件目录为当前事实源。两种过渡来源都会明确记录在 `framework.package_state`。
 
-项目契约和 API Catalog 中的 package ID 用于表达能力与公开 API 的源码归属，不是安装、下载或更新命令。
-
-重点字段包括：
-
 - `project`：产品阶段、质量优先级和明确不做的内容。
-- `framework`：独立的源码载荷政策 `package_presence` 与项目采用政策 `package_usage`，带项目/模块/Adapter owner、Recipe 和验收条件的 `capability_requirements`，以及外部 Adapter 边界。每项必需能力必须在 `package_presence.required` 中明确选择至少一个目录声明的 provider package。
+- `framework`：独立的源码载荷政策 `package_presence` 与项目采用政策 `package_usage`，带项目/模块/Adapter owner、Recipe 和验收条件的 `capability_requirements`，以及外部 Adapter 边界。每项必需能力必须在 `package_presence.required` 中明确选择至少一个目录声明的 provider package。契约和 API Catalog 的 package ID 表达源码归属，不是安装、下载或更新命令。
 - `architecture.modules`：项目模块职责、根目录、允许与禁止依赖、所有权类型；`generated` 用于声明可缺失且不参与来源扫描的生成输出目标根。
 - `architecture.owned_resources`：不属于任何业务模块、但会被模块源码引用的项目级治理文件精确路径。
 - `architecture.path_roles`：依赖分析可识别、但不会降低高置信资源引用强度的闭合路径角色；只接受 `scan_root`、`test_fixture` 与 `optional_input`。
@@ -187,6 +185,8 @@ Snapshot v10 的 `project.documentation_reference_analysis` 只递归读取 `arc
 目录项总数、Markdown 文件数、单文件字节数、累计字节数、strict UTF-8、普通文件/目录身份与 catalog 完整性都有不可关闭上限；目录项预算在排序或读取后代前消费，为证明超限只额外枚举一个不会 stat、排序或读取的 sentinel，超限以 `entry_count` 截断并保持 `partial`；`.md` 形状的 link/reparse 同样先消耗文件数预算再记为不安全。API index 的 schema、catalog version、framework version、source digest、bounded owner/member 记录与 GF class 继承图必须闭合，且 framework version 必须与项目 `addons/gf/plugin.cfg` 精确一致；任何不完整状态都不能报告 clean。全部 reference、actionable 与 advisory 各自维护独立总计数、证据上限和截断标记，所以大量 current 引用或 prose 不会挤掉 stale 证据。旧 Snapshot 必须直接重新生成，不能通过复制字段伪造分析完成。
 
 `framework.capability_readiness` 会逐项记录目录候选包、实际安装包、选定 Recipe 的显式 `all_of/any_of` 包表达式、缺失包或未满足的替代组、有限生产源码命中和扫描完整性。源码扫描同时受脚本数、单文件大小和累计 128 MiB 读取预算约束，并记录实际读取字节与截断原因；测试源码命中单独记录，不能证明生产采用。`unavailable` 与 `incomplete` 是可执行漂移；`available_unobserved` 只表示包可用且完整扫描没有命中主要类，不能据此宣称功能未采用；任何截断、超大、不可读或不安全来源都会得到 `evidence_incomplete`，更不能支持否定结论。资源驱动与动态加载也可能没有类引用证据，工具不会用观测反写契约。
+
+包声明的依赖关系不会补充实际可用包集合；某个扩展存在而它需要的载荷缺失时，Recipe 仍报告缺项。写入 Snapshot 前也会重新比较扫描开始时的目标内容；扫描期间新建、删除或修改目标会拒绝覆盖，保留项目的编辑。
 
 `project.godot`、`export_presets.cfg` 或项目自己的布局 profile 往往由整个项目共同治理，不应为了消除告警而塞进某个业务模块，也不能把模块根放宽成裸 `res://`。这类文件可按精确路径声明：
 

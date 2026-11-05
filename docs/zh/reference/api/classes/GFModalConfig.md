@@ -36,6 +36,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var title: String = ""
 ```
 
@@ -48,6 +49,7 @@ var title: String = ""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var message: String = ""
 ```
 
@@ -60,6 +62,7 @@ var message: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var actions: Array[GFModalAction] = []
 ```
 
@@ -76,6 +79,7 @@ var actions: Array[GFModalAction] = []
 - API：`public`
 
 ```gdscript
+@export
 var dismiss_on_backdrop: bool = false
 ```
 
@@ -88,6 +92,7 @@ var dismiss_on_backdrop: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var dismiss_on_cancel: bool = true
 ```
 
@@ -100,6 +105,7 @@ var dismiss_on_cancel: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var auto_focus: bool = true
 ```
 
@@ -112,6 +118,7 @@ var auto_focus: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var restore_focus_on_close: bool = true
 ```
 
@@ -124,6 +131,7 @@ var restore_focus_on_close: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
