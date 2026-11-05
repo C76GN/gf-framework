@@ -1970,6 +1970,36 @@ func _read(position: int = 1) -> int:
 
 
 class MarkdownGenerationTests(unittest.TestCase):
+	def test_reference_coverage_ignores_heading_and_anchor_inside_signature(self) -> None:
+		member = gdscript_api_parser.ApiMember(
+			kind="const", name="MARKDOWN", line=1, docs=api_docs("public"),
+			signature='const MARKDOWN = """\n# Guide\n<a id="member-fake"></a>\n"""',
+		)
+		owner = gdscript_api_parser.ApiClass(
+			name="PayloadOwner", path="addons/gf/payload_owner.gd", module="kernel",
+			extends="RefCounted", line=1, docs=api_docs("public"), constants=[member],
+		)
+		catalog = generate_api_reference.render_catalog_files([owner], ROOT / "addons/gf")
+		reference = generate_api_reference.render_reference_files([owner], catalog["index.xml"])
+		with contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(generate_api_reference.check_reference_coverage([owner], reference, report_success=False), 0)
+
+	def test_reference_member_keeps_export_hints(self) -> None:
+		member = gdscript_api_parser.ApiMember(
+			kind="property", name="gain", signature="var gain: float = 0.0", line=1,
+			docs=api_docs("public"), decorators=["@export_range(-80.0, 24.0, 0.1)"],
+		)
+		lines: list[str] = []
+		generate_api_reference.append_member_group_markdown(lines, "properties", [member])
+		self.assertIn("@export_range(-80.0, 24.0, 0.1)\nvar gain: float = 0.0", "\n".join(lines))
+
+	def test_ai_coverage_keeps_prose_after_long_fence_and_ignores_fake_close(self) -> None:
+		text = "````gdscript\n```\nHiddenOwner\n````still_code\nStillHiddenOwner\n````\nVisibleOwner\n"
+		visible = generate_ai_api.visible_markdown_text(text)
+		self.assertIn("VisibleOwner", visible)
+		self.assertNotIn("HiddenOwner", visible)
+		self.assertNotIn("StillHiddenOwner", visible)
+
 	def test_partial_source_collection_only_requires_contained_autoload_contracts(self) -> None:
 		extension_owners = gf_api_owners.collect_api_owners(
 			ROOT / "addons/gf/extensions",

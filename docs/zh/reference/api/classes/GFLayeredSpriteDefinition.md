@@ -29,6 +29,7 @@ GFLayeredSpriteDefinition：分层精灵的时间轴和层集合。 时间轴唯
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var timeline_frames: SpriteFrames = null
 ```
 
@@ -42,6 +43,7 @@ var timeline_frames: SpriteFrames = null
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var default_animation: StringName = &""
 ```
 
@@ -55,6 +57,7 @@ var default_animation: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var layers: Array[GFLayeredSpriteLayerDefinition] = []
 ```
 

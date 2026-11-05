@@ -48,6 +48,7 @@ if configured != OK:
 	push_error("资源快照配置失败：%s" % error_string(configured))
 	return
 
+# 域接管 Broker 后只注册域，不能再把该 Broker 单独注册到架构。
 var domain := GFResourceServiceDomain.new()
 var domain_configured := domain.configure(broker, GFResourceServiceDomain.Mode.IN_FLIGHT)
 if domain_configured != OK:

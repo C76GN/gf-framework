@@ -47,6 +47,7 @@
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var table_name: StringName = &""
 ```
 
@@ -60,6 +61,7 @@ var table_name: StringName = &""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var schema: GFConfigTableSchema = null
 ```
 
@@ -73,6 +75,7 @@ var schema: GFConfigTableSchema = null
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var records: Array[Dictionary] = []
 ```
 
@@ -90,6 +93,7 @@ var records: Array[Dictionary] = []
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var records_by_id: Dictionary = {}
 ```
 
@@ -107,6 +111,7 @@ var records_by_id: Dictionary = {}
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var records_by_index: Dictionary = {}
 ```
 
@@ -124,6 +129,7 @@ var records_by_index: Dictionary = {}
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

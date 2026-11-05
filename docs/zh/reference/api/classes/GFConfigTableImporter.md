@@ -277,4 +277,4 @@ static func export_csv_table( table_data: Variant, schema: GFConfigTableSchema =
 
 - `table_data`: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。
 - `options`: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。
-- `return`: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。
+- `return`: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report；转换失败另含 error_kind=record_conversion_failed、row_index 与 validation_report，且不返回部分 data 或 text。

@@ -181,6 +181,7 @@ class ReentrantQueueControlAction:
 	var resume_count: int = 0
 	var finish_count: int = 0
 	var reenter_cancel: bool = false
+	var clear_on_cancel: bool = false
 	var reenter_pause: bool = false
 	var reenter_resume: bool = false
 	var reenter_finish: bool = false
@@ -207,6 +208,8 @@ class ReentrantQueueControlAction:
 		event_log.append("%s:cancel" % event_label)
 		if reenter_cancel and cancel_count == 1:
 			var _skip_result: Variant = queue.call(&"skip_current_action")
+		if clear_on_cancel and cancel_count == 1:
+			var _clear_result: Variant = queue.call(&"clear_queue", true)
 
 
 	func pause() -> void:
@@ -607,6 +610,30 @@ func test_clear_current_reschedules_work_accepted_by_cancel_callback() -> void:
 	)
 	assert_false(_is_queue_processing(_system))
 	action.queue_system = null
+
+
+## cancel 内的嵌套清理取得新代次；同一队列消费只发布一次 drained。
+func test_nested_clear_from_cancel_drains_once() -> void:
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
+	action.clear_on_cancel = true
+	_enqueue(_system, action)
+	await get_tree().process_frame
+	watch_signals(_system)
+	_clear_queue(_system, true)
+	assert_eq(action.cancel_count, 1)
+	assert_signal_emit_count(
+		_system,
+		"queue_drained",
+		1
+	)
+	assert_null(_get_current_action(_system))
+	assert_false(_is_queue_processing(_system))
+	action.queue = null
 
 
 func test_cancel_current_action_detaches_before_reentrant_cancel_hook() -> void:
@@ -1233,7 +1260,14 @@ func test_action_interceptor_can_skip_and_replace_actions() -> void:
 func test_before_interceptor_clear_invalidates_dequeued_action() -> void:
 	var order: Array = []
 	var interceptor: Object = _get_object_value(_call_object(_interceptor_fixtures, &"make_clear_queue_before_interceptor"))
+	interceptor.set(&"priority", 10)
 	_add_interceptor(_system, interceptor)
+	var observer: Object = _make_priority_interceptor(
+		order,
+		"STALE_HOOK",
+		0
+	)
+	_add_interceptor(_system, observer)
 	_enqueue(
 		_system,
 		OrderAction.new(order, "STALE")

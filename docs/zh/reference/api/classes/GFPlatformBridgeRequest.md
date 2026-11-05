@@ -38,6 +38,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var request_id: StringName = &""
 ```
 
@@ -51,6 +52,7 @@ var request_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var contract_id: StringName = &""
 ```
 
@@ -64,6 +66,7 @@ var contract_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var method_id: StringName = &""
 ```
 
@@ -77,6 +80,7 @@ var method_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var payload: Dictionary = {}
 ```
 
@@ -94,6 +98,7 @@ var payload: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var timeout_msec: int = 0
 ```
 
@@ -107,6 +112,7 @@ var timeout_msec: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

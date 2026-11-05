@@ -2397,7 +2397,7 @@ func _process_loaded_document(state: ProfileState, storage_result: GFStorageRead
 			state,
 			GFSaveProfileResult.STATUS_DISPOSED,
 			ERR_UNAVAILABLE,
-			"Managed load capability was revoked before document apply."
+			"Load authorization ended before document apply."
 		)
 		return
 	var inspection: Dictionary = GFSaveDocument.inspect_dict(storage_result.payload)
@@ -2624,7 +2624,7 @@ func _apply_document_transactionally(
 		return {
 			"ok": false,
 			"error_code": ERR_UNAVAILABLE if authorization_revoked else apply_error,
-			"error": ("Managed load capability was revoked during Provider apply." if authorization_revoked else "Save section provider failed to apply its section."),
+			"error": ("Load authorization ended during Provider apply." if authorization_revoked else "Save section provider failed to apply its section."),
 			"failed_section_id": provider.section_id,
 			"rollback_errors": rollback_errors,
 			"failure_stage": &"disposed" if authorization_revoked else &"apply",
@@ -2640,7 +2640,7 @@ func _make_revoked_load_failure(section_id: StringName) -> Dictionary:
 	return {
 		"ok": false,
 		"error_code": ERR_UNAVAILABLE,
-		"error": "Managed load capability was revoked before Provider apply.",
+		"error": "Load authorization ended before Provider apply.",
 		"failed_section_id": section_id,
 		"rollback_errors": [],
 		"failure_stage": &"disposed",
@@ -3298,12 +3298,17 @@ func _current_load_requires_strict_recovery(state: ProfileState) -> bool:
 	)
 
 
-## 当前 load 未携带 manager permit 时返回 true，否则校验该 permit。
+## 先拒绝 Utility 释放后的加载续执行，再校验可选 manager permit；quiesce 仍允许在途操作排空。
 ## [br]
 ## @api private
 ## [br]
 func _is_current_managed_load_authorized(state: ProfileState) -> bool:
-	if state == null or state.current_load_operation == null:
+	if (
+		_disposed
+		or _dispose_requested
+		or state == null
+		or state.current_load_operation == null
+	):
 		return false
 	var permit: RefCounted = state.current_load_operation.get_manager_permit_for_framework()
 	if permit == null:
@@ -4502,7 +4507,7 @@ func _on_storage_operation_completed(
 				state,
 				GFSaveProfileResult.STATUS_DISPOSED,
 				ERR_UNAVAILABLE,
-				"Managed load capability was revoked before Provider apply."
+				"Load authorization ended before Provider apply."
 			)
 		elif read_result == null:
 			_handle_load_failure(

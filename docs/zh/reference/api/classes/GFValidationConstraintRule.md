@@ -75,6 +75,7 @@ enum ConstraintKind {
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var constraint_kind: ConstraintKind = ConstraintKind.RANGE
 ```
 
@@ -88,6 +89,7 @@ var constraint_kind: ConstraintKind = ConstraintKind.RANGE
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var has_minimum: bool = false
 ```
 
@@ -101,6 +103,7 @@ var has_minimum: bool = false
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var minimum: float = 0.0
 ```
 
@@ -114,6 +117,7 @@ var minimum: float = 0.0
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var inclusive_minimum: bool = true
 ```
 
@@ -127,6 +131,7 @@ var inclusive_minimum: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var has_maximum: bool = false
 ```
 
@@ -140,6 +145,7 @@ var has_maximum: bool = false
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var maximum: float = 0.0
 ```
 
@@ -153,6 +159,7 @@ var maximum: float = 0.0
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var inclusive_maximum: bool = true
 ```
 
@@ -166,6 +173,7 @@ var inclusive_maximum: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allowed_values: Array = []
 ```
 
@@ -183,6 +191,7 @@ var allowed_values: Array = []
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var case_sensitive: bool = true
 ```
 
@@ -196,6 +205,7 @@ var case_sensitive: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var pattern: String = ""
 ```
 
@@ -209,6 +219,7 @@ var pattern: String = ""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var require_full_match: bool = false
 ```
 
@@ -222,6 +233,7 @@ var require_full_match: bool = false
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allow_empty: bool = true
 ```
 
@@ -235,6 +247,7 @@ var allow_empty: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var has_minimum_size: bool = false
 ```
 
@@ -248,6 +261,7 @@ var has_minimum_size: bool = false
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var minimum_size: int = 0
 ```
 
@@ -261,6 +275,7 @@ var minimum_size: int = 0
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var has_maximum_size: bool = false
 ```
 
@@ -274,6 +289,7 @@ var has_maximum_size: bool = false
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var maximum_size: int = 0
 ```
 

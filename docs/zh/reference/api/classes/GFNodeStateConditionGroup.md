@@ -54,6 +54,7 @@ enum MatchMode {
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var mode: MatchMode = MatchMode.ALL
 ```
 
@@ -67,6 +68,7 @@ var mode: MatchMode = MatchMode.ALL
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var conditions: Array[Resource] = []
 ```
 
@@ -84,6 +86,7 @@ var conditions: Array[Resource] = []
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var empty_result: bool = true
 ```
 

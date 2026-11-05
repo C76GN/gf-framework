@@ -53,7 +53,7 @@ var runner := GFBehaviorTree.Runner.new(recovered)
 
 `Runner` 默认通过 `duplicate_runtime()` 复制运行树，让同一棵配置树可以安全交给多个 agent。自定义节点必须在需要复制运行树时重写 `duplicate_runtime()` 并返回保持相同动态脚本类型的新实例；这也适用于继承 `Sequence`、`Decorator` 等具体内置节点的子类。默认实现、返回自身或发生类型切片都会生成显式失败节点并记录错误。确实需要共享实例的高级场景，应显式使用 `GFBehaviorTree.Runner.new(root, false)`。
 
-同一个 `Runner` 的 `tick()` 不支持同步重入。Action 回调或同步 Signal 链再次调用同一 Runner 时，内层调用会记录错误并返回 `ABORTED`，不会第二次推进根节点游标。`Cooldown` 从子节点返回终态并完成 `reset()` 后重新采样单调时钟，子节点自身耗时不会抵扣冷却窗口。
+同一个 `Runner` 的 `tick()` 不支持同步重入。Action 回调或同步 Signal 链再次调用同一 Runner 时，内层调用会记录错误并返回 `ABORTED`，不会第二次推进根节点游标。`Cooldown` 从子节点返回终态并完成 `reset()` 后重新采样单调时钟，子节点自身耗时不会抵扣冷却窗口。装饰器在子节点清理或注入时钟回调中被重置、替换子节点时，本次调用同样返回 `ABORTED`；不把旧结果交给父节点继续遍历，也不为新子节点提交旧冷却时间。新子节点从后续显式 tick 开始运行。
 
 `BlackboardScope` 可通过 `set_parent()` 组合父级读取链。该入口会拒绝形成循环的父级关系，避免 `get_value()`、`has_value()` 或调试导出在错误黑板图中递归失控。构造、`set_value()`、`get_value()` 与 `to_dictionary()` 使用循环安全的集合副本；公开 `values` 字段则是当前作用域的 live mutable storage，直接写入会绕过这些复制边界。
 

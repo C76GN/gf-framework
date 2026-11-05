@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var condition_id: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ var condition_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var invert: bool = false
 ```
 
@@ -54,6 +56,7 @@ var invert: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

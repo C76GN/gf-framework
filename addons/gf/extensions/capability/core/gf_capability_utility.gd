@@ -126,6 +126,11 @@ const _META_CAPABILITY_TOP_LEVEL_TYPES: StringName = &"_gf_capability_top_level_
 ## @api private
 const _META_CAPABILITY_OWNED_TYPES: StringName = &"_gf_capability_owned_types"
 
+## 每次实际登记的独立弱引用令牌；同一实例重新登记也使用新令牌。
+## [br]
+## @api private
+const _META_CAPABILITY_REGISTRATION_TOKENS: StringName = &"_gf_capability_registration_tokens"
+
 ## 记录已忽略场景能力类型的元数据键。
 ## [br]
 ## @api private
@@ -223,6 +228,11 @@ var _creation_stack: Array[String] = []
 ## @api private
 var _receiver_refs: Dictionary = {}
 
+## 仅记录本 Utility 实际登记的弱引用令牌；查询共享元数据不取得注销权。
+## [br]
+## @api private
+var _registered_capability_instances: Dictionary = {}
+
 ## 按能力脚本类型索引 receiver 实例 ID。
 ## [br]
 ## @api private
@@ -269,15 +279,17 @@ func init() -> void:
 	_prune_receiver_cursor = 0
 
 
-## 注销已索引 receiver 上的能力并清理分组状态。
+## 注销本 Utility 登记且身份仍匹配的能力，并清理分组状态。
 ##
 ## 由本 Utility 创建或 PackedScene 实例化的能力会随架构销毁释放；外部传入或场景中已有的能力只注销，不抢占其节点所有权。
+## 其他 Utility 的依赖仍会阻止注销；保留尚未移除的登记，可在依赖者移除后再次调用。
 ## [br]
 ## @api public
+## [br]
+## @since 1.10.0
 func dispose() -> void:
 	_dispose_registered_capabilities()
 	_creation_stack.clear()
-	_receiver_refs.clear()
 	_capability_receivers.clear()
 	_receiver_groups.clear()
 	_receiver_group_names.clear()
@@ -285,6 +297,15 @@ func dispose() -> void:
 	_registration_states.clear()
 	_elapsed_since_prune = 0.0
 	_prune_receiver_cursor = 0
+	for receiver_id: int in _receiver_refs.keys():
+		if not _registered_capability_instances.has(receiver_id):
+			var _receiver_erased: bool = _receiver_refs.erase(receiver_id)
+			continue
+		var receiver: Object = _get_receiver_from_id(receiver_id)
+		if receiver == null:
+			continue
+		for capability_type: Script in _registered_capability_instances[receiver_id]:
+			_track_capability_index(receiver, capability_type)
 
 
 ## 推进运行时逻辑。
@@ -1493,7 +1514,7 @@ func _get_live_node_from_instance_id(instance_id: int) -> Node:
 ## [br]
 ## @api private
 func _dispose_registered_capabilities() -> void:
-	var receiver_ids: Array = _receiver_refs.keys()
+	var receiver_ids: Array = _registered_capability_instances.keys()
 	for receiver_id_variant: Variant in receiver_ids:
 		var receiver_id: int = GFVariantData.to_int(receiver_id_variant)
 		var receiver: Object = _get_receiver_from_id(receiver_id)
@@ -1502,32 +1523,67 @@ func _dispose_registered_capabilities() -> void:
 		_dispose_receiver_capabilities(receiver)
 
 
-## 按依赖叶端顺序移除 receiver 能力并清理空元数据。
+## 检查共享记录的登记令牌和实例均匹配，避免同一实例重新登记后复活旧注销权。
+## [br]
+## @api private
+func _owns_capability_registration(receiver: Object, capability_type: Script) -> bool:
+	if not is_instance_valid(receiver):
+		return false
+	var registrations: Dictionary = _registered_capability_instances.get(
+		receiver.get_instance_id(),
+		{}
+	)
+	var instance_ref: WeakRef = _get_weak_ref_value(registrations.get(capability_type))
+	if instance_ref == null:
+		return false
+	var tokens: Dictionary = GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_REGISTRATION_TOKENS, {}))
+	if tokens.get(capability_type) != instance_ref:
+		return false
+	var instance: Object = instance_ref.get_ref()
+	var meta_name: StringName = _get_capability_meta_name(capability_type)
+	return instance != null and receiver.get_meta(meta_name, null) == instance
+
+
+## 按依赖叶端顺序移除本 Utility 登记的能力并清理空元数据。
 ## [br]
 ## @api private
 func _dispose_receiver_capabilities(receiver: Object) -> void:
 	if not is_instance_valid(receiver):
 		return
 
-	var capability_types: Array[Script] = _read_capability_type_list(receiver).duplicate()
+	var capability_types: Array[Script] = []
+	var receiver_id: int = receiver.get_instance_id()
+	var registrations: Dictionary = _registered_capability_instances.get(receiver_id, {})
+	for registered_type: Script in registrations.keys():
+		if _owns_capability_registration(receiver, registered_type):
+			capability_types.append(registered_type)
+		else:
+			var _registration_erased: bool = registrations.erase(registered_type)
+	if registrations.is_empty():
+		var _registrations_erased: bool = _registered_capability_instances.erase(receiver_id)
 	while not capability_types.is_empty():
 		var removed_any: bool = false
 		for capability_type: Script in capability_types.duplicate():
-			if capability_type == null:
+			if capability_type == null or not _owns_capability_registration(receiver, capability_type):
 				capability_types.erase(capability_type)
+				removed_any = true
 				continue
 			if not _get_dependency_owner_types(receiver, capability_type).is_empty():
 				continue
-			var _removed: bool = _remove_capability(
+			var removed: bool = _remove_capability(
 				receiver,
 				capability_type,
 				true
 			)
-			capability_types.erase(capability_type)
-			removed_any = true
+			if not is_instance_valid(receiver):
+				_remove_receiver_index(receiver_id)
+				return
+			if removed:
+				capability_types.erase(capability_type)
+				removed_any = true
 		if removed_any:
 			continue
-		push_error("[GFCapabilityUtility][capability_utility.cyclic_disposal_dependencies] dispose found a capability dependency cycle that prevents topological cleanup.")
+		push_error("[GFCapabilityUtility][capability_utility.cyclic_disposal_dependencies] dispose cannot remove registrations still required by a dependency or active transition; retained registrations can be retried.")
 		break
 
 	_clear_empty_capability_metadata(receiver)
@@ -2005,6 +2061,10 @@ func _add_capability_instance(
 			is_top_level
 		)
 		return existing
+	for registered_type: Script in _read_capability_type_list(receiver):
+		if _get_capability_instance(receiver, registered_type) == capability:
+			push_error("[GFCapabilityUtility][capability_utility.instance_already_registered] %s failed: the same instance is already registered under another type." % context)
+			return null
 	if capability is Node:
 		var capability_node: Node = capability
 		if (
@@ -2276,6 +2336,14 @@ func _commit_capability_registration(
 		capability
 	)
 	_track_capability_index(receiver, capability_type)
+	var receiver_id: int = receiver.get_instance_id()
+	if not _registered_capability_instances.has(receiver_id):
+		_registered_capability_instances[receiver_id] = {}
+	var registration_token: WeakRef = weakref(capability)
+	_registered_capability_instances[receiver_id][capability_type] = registration_token
+	var tokens: Dictionary = GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_REGISTRATION_TOKENS, {}))
+	tokens[capability_type] = registration_token
+	receiver.set_meta(_META_CAPABILITY_REGISTRATION_TOKENS, tokens)
 	for dependency_type: Script in dependency_types:
 		_record_dependency(
 			receiver,
@@ -2595,6 +2663,8 @@ func _remove_unused_auto_dependencies(receiver: Object, dependency_types: Array[
 		return
 
 	for dependency_type: Script in dependency_types:
+		if not _owns_capability_registration(receiver, dependency_type):
+			continue
 		if not has_capability(receiver, dependency_type):
 			continue
 		if _is_capability_top_level(receiver, dependency_type):
@@ -2755,6 +2825,15 @@ func _get_capability_instance(receiver: Object, capability_type: Script) -> Obje
 ## [br]
 ## @api private
 func _remove_capability_record(receiver: Object, capability_type: Script) -> void:
+	var receiver_id: int = receiver.get_instance_id()
+	var tokens: Dictionary = GFVariantData.as_dictionary(receiver.get_meta(_META_CAPABILITY_REGISTRATION_TOKENS, {}))
+	var _token_erased: bool = tokens.erase(capability_type)
+	if tokens.is_empty() and receiver.has_meta(_META_CAPABILITY_REGISTRATION_TOKENS):
+		receiver.remove_meta(_META_CAPABILITY_REGISTRATION_TOKENS)
+	var registrations: Dictionary = _registered_capability_instances.get(receiver_id, {})
+	var _registration_erased: bool = registrations.erase(capability_type)
+	if registrations.is_empty():
+		var _registrations_erased: bool = _registered_capability_instances.erase(receiver_id)
 	_remove_capability_type_from_meta(receiver, capability_type)
 	_mark_capability_top_level(
 		receiver,
@@ -3371,6 +3450,7 @@ func _prune_invalid_receivers_step(max_count: int) -> void:
 ## @api private
 func _remove_receiver_index(receiver_id: int) -> void:
 	_erase_dictionary_key(_receiver_refs, receiver_id)
+	_erase_dictionary_key(_registered_capability_instances, receiver_id)
 
 	for capability_type: Script in _capability_receivers.keys():
 		var receiver_ids: Dictionary = GFVariantData.as_dictionary(_capability_receivers[capability_type])

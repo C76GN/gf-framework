@@ -38,6 +38,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var track_id: StringName = &""
 ```
 
@@ -50,6 +51,7 @@ var track_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFTimedTextEntry] = []
 ```
 
@@ -62,6 +64,7 @@ var entries: Array[GFTimedTextEntry] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

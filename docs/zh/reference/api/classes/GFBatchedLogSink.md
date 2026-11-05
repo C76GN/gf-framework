@@ -65,6 +65,7 @@ signal batch_ready(batch: Array[Dictionary])
 - API：`public`
 
 ```gdscript
+@export
 var batch_size: int = 20:
 ```
 
@@ -77,6 +78,7 @@ var batch_size: int = 20:
 - API：`public`
 
 ```gdscript
+@export
 var max_queue_size: int = 500:
 ```
 
@@ -89,6 +91,7 @@ var max_queue_size: int = 500:
 - API：`public`
 
 ```gdscript
+@export
 var flush_interval_msec: int = 1000:
 ```
 
@@ -101,6 +104,7 @@ var flush_interval_msec: int = 1000:
 - API：`public`
 
 ```gdscript
+@export
 var omit_formatted_text: bool = false
 ```
 
@@ -113,6 +117,7 @@ var omit_formatted_text: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

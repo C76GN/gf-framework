@@ -68,7 +68,7 @@ var unsubscribe := store.subscribe("filters", _on_filters_changed, {
 })
 ```
 
-`options.owner` 也可以是普通 `Object` / `RefCounted`。这类 owner 没有场景树退出信号，store 会通过 `WeakRef` 在 `flush()`、`get_subscription_count()` 或后续清理点懒移除失效订阅。
+`options.owner` 也可以是普通 `Object` / `RefCounted`。这类 owner 没有场景树退出信号，store 会通过 `WeakRef` 在 `flush()`、`get_subscription_count()` 或后续清理点懒移除失效订阅。每次实际交付前也会复核 owner：即使 `state_changed` 或同批前一订阅刚刚释放了 owner，后续回调也不会再交付给该订阅。
 
 订阅模式：
 

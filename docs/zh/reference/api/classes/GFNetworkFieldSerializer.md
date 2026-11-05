@@ -74,6 +74,7 @@ enum ValueType {
 - API：`public`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.VARIANT
 ```
 
@@ -86,6 +87,7 @@ var value_type: ValueType = ValueType.VARIANT
 - API：`public`
 
 ```gdscript
+@export_range(-1, 8, 1)
 var quantize_decimals: int = -1
 ```
 
@@ -98,6 +100,7 @@ var quantize_decimals: int = -1
 - API：`public`
 
 ```gdscript
+@export
 var clamp_enabled: bool = false
 ```
 
@@ -110,6 +113,7 @@ var clamp_enabled: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var min_value: float = 0.0
 ```
 
@@ -122,6 +126,7 @@ var min_value: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var max_value: float = 1.0
 ```
 

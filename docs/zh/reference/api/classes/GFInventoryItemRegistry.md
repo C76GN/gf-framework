@@ -42,6 +42,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var definitions: Dictionary = {}
 ```
 
@@ -58,6 +59,7 @@ var definitions: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var default_max_stack_amount: int:
 ```
 
@@ -70,6 +72,7 @@ var default_max_stack_amount: int:
 - API：`public`
 
 ```gdscript
+@export
 var default_max_stack_count: int:
 ```
 
@@ -82,6 +85,7 @@ var default_max_stack_count: int:
 - API：`public`
 
 ```gdscript
+@export
 var allow_unregistered_items: bool = true
 ```
 

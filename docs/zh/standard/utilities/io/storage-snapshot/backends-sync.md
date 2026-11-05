@@ -34,7 +34,11 @@ var result := failover.load_data("profile.json")
 var operation_report := failover.get_last_operation_report()
 ```
 
-读取始终按优先级尝试到首个成功后端。写入和删除有两种明确语义：
+读取始终按优先级尝试到首个成功后端。
+
+若全部读取失败，逻辑读取结果保留最后一个非 missing 错误，后续不存在结果不能掩盖先前的超时、权限或损坏故障；cooldown / unsupported 等未读后端也按未知状态处理。只有所有已配置后端都实际读取且明确不存在时，总结果才报告 missing，使同步器能够安全区分逻辑记录缺失与读取故障。逐后端尝试报告保持完整；此分类不提供副本一致性或多后端事务保证。
+
+写入和删除有两种明确语义：
 
 - `PRIMARY_ONLY`：只访问第一个后端，适合不允许离线分叉的权威数据；失败会原样返回。
 - `FIRST_SUCCESS`：失败后访问下一个后端，适合平台 SDK 暂时不可用时保存到本地等可接受离线分叉的场景；首次成功后停止。
@@ -48,6 +52,8 @@ var operation_report := failover.get_last_operation_report()
 ## 字典同步
 
 需要把两个后端做一次通用字典同步时，可以注册或直接创建 `GFStorageSyncUtility`。它只读取 `GFStorageBackend.load_data()`、调用 `save_data()` 写回，并按策略处理文件级冲突。
+
+只有后端读取明确返回 `ERR_DOES_NOT_EXIST` 或 `ERR_FILE_NOT_FOUND`，同步器才把该端视为缺失并从可读端填充。超时、权限、损坏、无法打开或缺少精确错误码的旧式失败都会返回 `failed`，不会向任一后端写回；`has_data()` 的布尔值和错误文本不作为覆盖依据。结果中的 `local` / `remote` 摘要保留各自 `error_code`，便于项目区分故障与缺失。
 
 默认策略会根据元数据中的 revision 或 timestamp 判断较新记录，无法判断时保留冲突并返回结构化报告。参与排序的数值必须有限；任一实际参与比较的值是 `NaN`、`INF` 或 `-INF` 时，本次冲突保持 unresolved，且不会写回任一后端。项目可以显式选择本地优先、远端优先、手动处理，或提供 resolver 回调生成合并结果：
 
@@ -72,6 +78,8 @@ var merged := sync.sync_data("profile.json", local_backend, remote_backend, {
 ```
 
 同步器不枚举账号、不自动触发保存、不接入平台云服务，也不理解业务字段。后端元数据的 revision/timestamp 由项目写入；若没有可比较的元数据，应显式选择策略或使用自定义 resolver，避免框架替项目猜测数据所有权。
+
+两端对应元数据均为 `int` 时使用精确 Int64 比较，不先转为 float；相邻的大整数 revision 仍能决定新旧，不会因精度损失落到相反方向的 timestamp。项目应保持两端版本字段类型一致；此规则不改变混合数值、数值字符串或浮点数的既有比较策略。
 
 未解决冲突是独立的终止状态：同步器会发出 `sync_conflict_detected` 和 `sync_conflict_unresolved`，结果中的 `status_name` 为 `conflict`，不会再发出 `sync_completed` 或 `sync_failed`。这样调用方可以明确区分“需要人工或项目策略处理的数据冲突”和“后端读写失败”。
 

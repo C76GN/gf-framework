@@ -46,6 +46,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var platform_id: StringName = &""
 ```
 
@@ -59,6 +60,7 @@ var platform_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var adapter_id: StringName = &""
 ```
 
@@ -72,6 +74,7 @@ Adapter 标识。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var capabilities: PackedStringArray = PackedStringArray()
 ```
 
@@ -85,6 +88,7 @@ var capabilities: PackedStringArray = PackedStringArray()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var limits: Dictionary = {}
 ```
 
@@ -102,6 +106,7 @@ var limits: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

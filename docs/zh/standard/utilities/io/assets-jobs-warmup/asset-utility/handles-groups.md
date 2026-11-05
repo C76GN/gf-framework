@@ -9,6 +9,7 @@
 `release_owner(owner)` 先关闭调用时已有 scope 的准入并结清该批句柄，再发送释放通知。通知回调不能向旧 scope 添加请求；回调中新建的 scope 属于独立生命周期，可以继续请求并在稍后自行关闭。手动 pin 和其他 owner 的引用不由本次调用释放。
 
 ```gdscript
+# scope 应覆盖使用期；重复读取 result 只借用同一 handle，不新增持有者。
 var scope: GFAssetScope = assets.create_scope(self)
 var result: GFAssetLoadResult = await assets.load_async(
 	"res://ui/inventory_panel.tscn", scope, "PackedScene"

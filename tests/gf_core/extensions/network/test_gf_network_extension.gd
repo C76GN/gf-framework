@@ -182,6 +182,8 @@ const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload("res://tests/gf_core/support/
 # --- 辅助类 ---
 
 class FakeBackend extends GFNetworkBackend:
+	var host_call_count: int = 0
+	var connect_call_count: int = 0
 	var sent_peer_id: int = 0
 	var sent_bytes: PackedByteArray = PackedByteArray()
 	var sent_options: Dictionary = {}
@@ -200,10 +202,12 @@ class FakeBackend extends GFNetworkBackend:
 
 
 	func host(_options: Dictionary = {}) -> Error:
+		host_call_count += 1
 		return OK
 
 
 	func connect_to_endpoint(_endpoint: String, _options: Dictionary = {}) -> Error:
+		connect_call_count += 1
 		return OK
 
 
@@ -219,6 +223,27 @@ class FakeBackend extends GFNetworkBackend:
 	func mark_connected_at_zero_for_test() -> void:
 		_transport_connected = true
 		_transport_connected_at_msec = 0
+
+
+class ReentrantBootstrapBackend extends FakeBackend:
+	var bootstrap_callback: Callable
+	var connected_probe_callback: Callable
+
+	func get_session_bootstrap() -> Dictionary:
+		if bootstrap_callback.is_valid():
+			var callback: Callable = bootstrap_callback
+			bootstrap_callback = Callable()
+			var _callback_result: Variant = callback.call()
+		return { "mode": GFNetworkSession.Mode.HOST, "endpoint": "old-bootstrap" }
+
+
+	func is_backend_connected() -> bool:
+		if not connected_probe_callback.is_valid():
+			return super.is_backend_connected()
+		var callback: Callable = connected_probe_callback
+		connected_probe_callback = Callable()
+		var _callback_result: Variant = callback.call()
+		return true
 
 
 class BoundedMetricsBackend extends FakeBackend:
@@ -5320,6 +5345,60 @@ func test_websocket_backend_expires_slow_handshakes_within_peer_budget() -> void
 	backend.disconnect_backend()
 
 
+## 断开通知内成功创建的新主机必须保留端点、角色和连接状态。
+func test_enet_close_preserves_host_started_by_peer_disconnect_callback() -> void:
+	for restart_from_host: bool in [false, true]:
+		var backend: GFENetNetworkBackend = GFENetNetworkBackend.new()
+		var opened_port: int = 0
+		for offset: int in range(20):
+			var candidate_port: int = 19820 + offset
+			if backend.host({ "port": candidate_port }) == OK:
+				opened_port = candidate_port
+				break
+		assert_gt(
+			opened_port,
+			0,
+			"必须实际创建 ENet 主机，避免端口占用掩盖重入缺陷。"
+		)
+		if opened_port == 0:
+			return
+		backend._on_peer_connected(2)
+		backend._on_peer_connected(3)
+		var restart_errors: Array[int] = []
+		var _disconnected_connection: int = backend.peer_disconnected.connect(
+			func(_peer_id: int) -> void:
+				restart_errors.append(backend.host({ "port": opened_port })),
+			CONNECT_ONE_SHOT
+		)
+		watch_signals(backend)
+		if restart_from_host:
+			assert_eq(
+				backend.host({ "port": opened_port }),
+				ERR_UNAVAILABLE
+			)
+		else:
+			backend.disconnect_backend()
+		assert_eq(
+			restart_errors,
+			[OK]
+		)
+		var snapshot: Dictionary = backend.get_debug_snapshot()
+		assert_true(GFVariantData.get_option_bool(snapshot, "available"))
+		assert_true(GFVariantData.get_option_bool(snapshot, "is_server"))
+		assert_eq(
+			GFVariantData.get_option_string(snapshot, "endpoint"),
+			"0.0.0.0:%d" % opened_port
+		)
+		assert_true(backend.is_backend_connected())
+		assert_signal_not_emitted(backend, "disconnected")
+		assert_signal_emit_count(
+			backend,
+			"peer_disconnected",
+			1
+		)
+		backend.disconnect_backend()
+
+
 func test_enet_close_emits_disconnect_for_each_tracked_peer() -> void:
 	var backend: GFENetNetworkBackend = GFENetNetworkBackend.new()
 	var disconnected_peer_ids: Array[int] = []
@@ -5333,7 +5412,7 @@ func test_enet_close_emits_disconnect_for_each_tracked_peer() -> void:
 	backend._on_peer_connected(4)
 	backend._on_peer_connected(2)
 
-	backend._close_peer(true)
+	var _closed_peer: bool = backend._close_peer(true)
 	disconnected_peer_ids.sort()
 
 	assert_eq(
@@ -6369,6 +6448,194 @@ func test_network_utility_host_session_is_ready_before_eager_backend_connected()
 		9,
 		"会话应保留配置的本地 peer。"
 	)
+
+
+## 启动通知中清除或替换后端后，旧请求不能调用新后端，也不能补发 connected。
+func test_network_utility_start_notification_cancels_stale_backend_request() -> void:
+	for use_client: bool in [false, true]:
+		for replace_backend: bool in [false, true]:
+			var utility: GFNetworkUtility = GFNetworkUtility.new()
+			var original: FakeBackend = FakeBackend.new()
+			var replacement: FakeBackend = FakeBackend.new()
+			utility.set_backend(original)
+			var _started_connection: int = utility.session.session_started.connect(
+				func(_mode: int, _endpoint: String) -> void:
+					utility.set_backend(replacement if replace_backend else null),
+				CONNECT_ONE_SHOT
+			)
+			watch_signals(utility.session)
+			var error: Error = utility.connect_to_endpoint("localhost:9000") if use_client else utility.host()
+			assert_eq(error, ERR_UNAVAILABLE)
+			assert_eq(
+				original.host_call_count + original.connect_call_count,
+				0
+			)
+			assert_eq(
+				replacement.host_call_count + replacement.connect_call_count,
+				0
+			)
+			assert_false(utility.session.is_active)
+			assert_signal_not_emitted(utility.session, "session_connected")
+			utility.dispose()
+
+
+func test_network_utility_start_notification_can_reassign_current_backend() -> void:
+	for use_client: bool in [false, true]:
+		var utility: GFNetworkUtility = GFNetworkUtility.new()
+		var current: FakeBackend = FakeBackend.new()
+		utility.set_backend(current)
+		var _started_connection: int = utility.session.session_started.connect(
+			func(_mode: int, _endpoint: String) -> void:
+				utility.set_backend(current),
+			CONNECT_ONE_SHOT
+		)
+		var error: Error = utility.connect_to_endpoint("localhost:9000") if use_client else utility.host()
+		assert_eq(error, OK)
+		assert_same(utility.backend, current)
+		assert_eq(
+			current.host_call_count,
+			0 if use_client else 1
+		)
+		assert_eq(
+			current.connect_call_count,
+			1 if use_client else 0
+		)
+		assert_true(utility.session.is_active)
+		assert_eq(
+			utility.session.mode,
+			GFNetworkSession.Mode.CLIENT if use_client else GFNetworkSession.Mode.HOST
+		)
+		assert_eq(utility.session.has_connection, not use_client)
+		utility.dispose()
+
+
+func test_network_utility_clear_from_session_closed_cancels_pending_backend() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	utility.set_backend(FakeBackend.new())
+	assert_eq(
+		utility.host(),
+		OK
+	)
+	assert_not_null(utility.capture_transport_metrics())
+	var _closed_connection: int = utility.session.session_closed.connect(
+		func(_reason: String) -> void:
+			utility.set_backend(null),
+		CONNECT_ONE_SHOT
+	)
+	watch_signals(utility.session)
+	utility.set_backend(FakeBackend.new())
+	assert_null(utility.backend)
+	assert_false(utility.session.is_active)
+	assert_true(utility.get_transport_metric_samples().is_empty())
+	assert_signal_emit_count(
+		utility.session,
+		"session_closed",
+		1
+	)
+	utility.dispose()
+
+
+func test_network_utility_backend_disconnect_listener_replaces_pending_backend() -> void:
+	for callback_action: String in [
+		"clear",
+		"disconnect",
+		"replace",
+		"replace_session",
+	]:
+		var utility: GFNetworkUtility = GFNetworkUtility.new()
+		var original_session: GFNetworkSession = utility.session
+		var original: FakeBackend = FakeBackend.new()
+		var replacement: ReentrantBootstrapBackend = null
+		if callback_action in ["replace", "replace_session"]:
+			replacement = ReentrantBootstrapBackend.new()
+		utility.set_backend(original)
+		assert_eq(
+			utility.connect_to_endpoint("original-client"),
+			OK
+		)
+		assert_not_null(utility.capture_transport_metrics())
+		var _disconnected_connection: int = original.disconnected.connect(
+			func(_reason: String) -> void:
+				if callback_action == "disconnect":
+					utility.disconnect_network()
+				else:
+					if callback_action == "replace_session":
+						utility.session = GFNetworkSession.new()
+					utility.set_backend(replacement),
+			CONNECT_ONE_SHOT
+		)
+		watch_signals(original_session)
+		utility.set_backend(FakeBackend.new())
+		assert_signal_emit_count(
+			original_session,
+			"session_closed",
+			1
+		)
+		assert_true(utility.get_transport_metric_samples().is_empty())
+		if callback_action == "replace_session":
+			assert_false(original_session.is_active)
+			assert_not_same(utility.session, original_session)
+		if replacement != null:
+			assert_same(utility.backend, replacement)
+			assert_true(utility.session.is_active)
+			assert_eq(utility.session.mode, GFNetworkSession.Mode.HOST)
+			assert_eq(utility.session.endpoint, "old-bootstrap")
+		else:
+			assert_null(utility.backend)
+			assert_false(utility.session.is_active)
+		utility.dispose()
+
+
+## 旧会话关闭回调安装第三个后端时，外层替换不能再把它覆盖成第二个。
+func test_network_utility_backend_replacement_preserves_callback_replacement() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var first: FakeBackend = FakeBackend.new()
+	var second: FakeBackend = FakeBackend.new()
+	var third: FakeBackend = FakeBackend.new()
+	utility.set_backend(first)
+	assert_eq(
+		utility.host(),
+		OK
+	)
+	var _closed_connection: int = utility.session.session_closed.connect(
+		func(_reason: String) -> void:
+			utility.set_backend(third),
+		CONNECT_ONE_SHOT
+	)
+	utility.set_backend(second)
+	assert_same(utility.backend, third)
+	utility.dispose()
+
+
+## 自定义接管信息读取也会执行项目代码；替换后不得应用旧后端的会话信息。
+func test_network_utility_bootstrap_callback_cannot_start_stale_session() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var original: ReentrantBootstrapBackend = ReentrantBootstrapBackend.new()
+	var replacement: FakeBackend = FakeBackend.new()
+	original.bootstrap_callback = func() -> void:
+		utility.set_backend(replacement)
+	watch_signals(utility.session)
+	utility.set_backend(original)
+	assert_same(utility.backend, replacement)
+	assert_false(utility.session.is_active)
+	assert_signal_not_emitted(utility.session, "session_started")
+	utility.dispose()
+
+
+func test_network_utility_connected_probe_cannot_publish_after_backend_clear() -> void:
+	var utility: GFNetworkUtility = GFNetworkUtility.new()
+	var original: ReentrantBootstrapBackend = ReentrantBootstrapBackend.new()
+	original.connected_probe_callback = func() -> void:
+		utility.set_backend(null)
+	watch_signals(utility)
+	watch_signals(utility.session)
+	utility.set_backend(original)
+	assert_null(utility.backend)
+	assert_false(utility.session.is_active)
+	assert_false(utility.session.has_connection)
+	assert_signal_not_emitted(utility, "connected")
+	assert_signal_not_emitted(utility.session, "session_connected")
+	utility.dispose()
 
 
 func test_network_utility_host_failure_does_not_emit_session_connected() -> void:

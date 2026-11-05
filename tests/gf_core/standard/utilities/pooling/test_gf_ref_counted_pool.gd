@@ -4,6 +4,25 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_release_reset_callback_cannot_reset_reborrowed_item() -> void:
+	var item: PooledItem = PooledItem.new()
+	var pool: GFRefCountedPool = GFRefCountedPool.new(
+		func() -> RefCounted:
+			return item
+	)
+	pool.reset_callback = func(_released_item: RefCounted) -> void:
+		pool.reset_pool()
+		var borrowed: PooledItem = _to_pooled_item(pool.acquire())
+		borrowed.value = 42
+	var original: RefCounted = pool.acquire()
+	assert_true(pool.release(original))
+	assert_eq(item.value, 42)
+	assert_eq(pool.active_count, 1)
+	assert_eq(pool.available_count, 0)
+	pool.reset_callback = Callable()
+	pool.reset_pool()
+
+
 func test_ref_counted_pool_reuses_released_item() -> void:
 	var pool: GFRefCountedPool = GFRefCountedPool.new(
 		func() -> RefCounted:

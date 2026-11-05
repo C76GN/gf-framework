@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var properties: PackedStringArray = PackedStringArray()
 ```
 
@@ -43,6 +44,7 @@ var properties: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var skip_missing_properties: bool = true
 ```
 
@@ -56,6 +58,7 @@ var skip_missing_properties: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allowed_resource_roots: PackedStringArray = PackedStringArray()
 ```
 
@@ -69,6 +72,7 @@ Resource 引用恢复时允许加载的资源根目录。为空时使用 context
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allowed_resource_patterns: PackedStringArray = PackedStringArray()
 ```
 

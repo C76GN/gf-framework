@@ -13,13 +13,17 @@
 只记录稳定标识和恢复所需元数据。
 
 ```gdscript
+## 用位置值快照支持撤销；执行环境须已注册项目的 GridModel。
 class_name MoveTileUndoableCommand extends GFUndoableCommand
 
+## 本条命令的目标位置；撤销依据独立保存的执行前快照。
 var new_pos: Vector2
 
+## 固定本次移动目标，供首次执行与重做使用。
 func _init(n_pos):
 	new_pos = n_pos
 
+## 先保存当前位置再移动；缺少模型时不产生移动副作用。
 func execute() -> Variant:
 	var grid_model := get_model(GridModel) as GridModel
 	if grid_model == null:
@@ -29,6 +33,7 @@ func execute() -> Variant:
 	grid_model.current_pos = new_pos
 	return null
 
+## 将模型恢复到该命令执行前的位置；缺少模型时保持原状。
 func undo() -> Variant:
 	var grid_model := get_model(GridModel) as GridModel
 	if grid_model == null:

@@ -395,11 +395,13 @@ func transition_to(
 		return
 	_activation_epoch += 1
 	if previous_state != null:
+		_current_state = null
 		_is_exiting_current_state = true
 		previous_state.exit(next_state_name, args)
 		previous_state.unregister_owner_events()
 		_is_exiting_current_state = false
-		_current_state = null
+		if current_serial != _transition_serial and not _has_queued_exit_transition:
+			return
 		var had_queued_transition: bool = _has_queued_exit_transition
 		if had_queued_transition:
 			var queued_transition: _QueuedExitTransition = _take_queued_exit_transition(
@@ -480,6 +482,8 @@ func transition_to(
 				current_state_changed.emit(previous_state, _current_state)
 				return
 
+	if current_serial != _transition_serial:
+		return
 	_current_state = next_state
 	_current_state.enter(previous_name, args)
 	if current_serial != _transition_serial or _current_state != next_state:

@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var level_id: StringName = &""
 ```
 
@@ -45,6 +46,7 @@ var level_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var pack_id: StringName = &""
 ```
 
@@ -57,6 +59,7 @@ var pack_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_file("*.tscn")
 var scene_path: String = ""
 ```
 
@@ -69,6 +72,7 @@ var scene_path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var sort_order: int = 0
 ```
 
@@ -81,6 +85,7 @@ var sort_order: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -97,6 +102,7 @@ var metadata: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var unlocks_on_complete: Array[StringName] = []
 ```
 

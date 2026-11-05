@@ -659,6 +659,7 @@ func _make_budget_report(context: GFInputContext, issue: Dictionary) -> Dictiona
 		"remap_configured": _remap_config != null,
 		"issues": [issue],
 		"resource_summary": "上下文诊断已在安全预算边界停止。",
+		"scan_stopped": true,
 	}
 	var next_actions: Dictionary = _GFInputContextDiagnostics.get_next_actions()
 	next_actions["mapping_budget_exceeded"] = "拆分输入上下文，或减少单次编辑器诊断包含的映射。"
@@ -787,7 +788,8 @@ func _render_context() -> void:
 		_make_context_details(_context)
 	)
 
-	for mapping_index: int in range(_context.mappings.size()):
+	var mapping_count: int = 0 if GFVariantData.get_option_bool(_last_report, "scan_stopped") else _context.mappings.size()
+	for mapping_index: int in range(mapping_count):
 		if _tree_render_truncated:
 			break
 		var mapping: GFInputMapping = _context.mappings[mapping_index]
@@ -1563,7 +1565,7 @@ func _queue_source_refresh() -> void:
 	call_deferred("_flush_source_refresh")
 
 
-## 仅在观察仍开启且刷新仍排队时清除标志并调用 refresh。
+## 自动刷新保留最近的加载失败；只有显式加载或手动 refresh 才能撤销失败状态。
 ## [br]
 ## @api private
 ## [br]
@@ -1571,7 +1573,21 @@ func _flush_source_refresh() -> void:
 	if not _source_observation_enabled or not _source_refresh_queued:
 		return
 	_source_refresh_queued = false
-	refresh()
+	if _last_load_failure.is_empty():
+		refresh()
+		return
+	if _refresh_in_progress:
+		_queue_source_refresh()
+		return
+	_refresh_in_progress = true
+	_connect_context_changed()
+	_refresh_current_context()
+	var _preserved_error: Error = _render_load_failure(
+		GFVariantData.get_option_string(_last_load_failure, "status"),
+		GFVariantData.get_option_string(_last_load_failure, "hint"),
+		GFVariantData.get_option_int(_last_load_failure, "error_code") as Error
+	)
+	_refresh_in_progress = false
 
 
 ## 将 Variant 收窄为 GFInputContext，类型不符时返回 null。

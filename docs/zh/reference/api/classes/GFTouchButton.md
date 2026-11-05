@@ -63,6 +63,8 @@ signal button_released
 - API：`public`
 
 ```gdscript
+@export_group("Shape")
+@export
 var radius: float = 48.0:
 ```
 
@@ -76,6 +78,7 @@ var radius: float = 48.0:
 - 首次版本：`1.17.0`
 
 ```gdscript
+@export
 var color: Color = Color(
 	1.0,
 	1.0,
@@ -94,6 +97,7 @@ var color: Color = Color(
 - 首次版本：`1.17.0`
 
 ```gdscript
+@export
 var pressed_color: Color = Color(
 	1.0,
 	1.0,
@@ -112,6 +116,8 @@ var pressed_color: Color = Color(
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_group("Input")
+@export
 var accept_mouse_input: bool = false:
 ```
 
@@ -124,6 +130,7 @@ var accept_mouse_input: bool = false:
 - API：`public`
 
 ```gdscript
+@export
 var action_name: StringName = &""
 ```
 
@@ -136,6 +143,8 @@ var action_name: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_group("Joypad Event")
+@export
 var emit_joypad_button: bool = false
 ```
 
@@ -148,6 +157,7 @@ var emit_joypad_button: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var joypad_device_id: int = -2
 ```
 
@@ -160,6 +170,7 @@ var joypad_device_id: int = -2
 - API：`public`
 
 ```gdscript
+@export
 var joy_button: JoyButton = JOY_BUTTON_A
 ```
 

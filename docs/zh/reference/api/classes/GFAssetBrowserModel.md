@@ -25,7 +25,7 @@
 | 常量 | [`MAX_RESULT_COUNT`](#member-gfassetbrowsermodel-constants-max_result_count) | `const MAX_RESULT_COUNT: int = 10_000` |
 | 方法 | [`replace_catalog`](#member-gfassetbrowsermodel-methods-replace_catalog) | `func replace_catalog(catalog: GFAssetCatalog) -> Dictionary:` |
 | 方法 | [`select_asset`](#member-gfassetbrowsermodel-methods-select_asset) | `func select_asset(asset_id: StringName) -> bool:` |
-| 方法 | [`set_query`](#member-gfassetbrowsermodel-methods-set_query) | `func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -> Dictionary:` |
+| 方法 | [`set_query`](#member-gfassetbrowsermodel-methods-set_query) | `func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray(), sort_options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`get_selected_asset_id`](#member-gfassetbrowsermodel-methods-get_selected_asset_id) | `func get_selected_asset_id() -> StringName:` |
 | 方法 | [`get_catalog_revision`](#member-gfassetbrowsermodel-methods-get_catalog_revision) | `func get_catalog_revision() -> int:` |
 | 方法 | [`get_query_generation`](#member-gfassetbrowsermodel-methods-get_query_generation) | `func get_query_generation() -> int:` |
@@ -229,7 +229,7 @@ func select_asset(asset_id: StringName) -> bool:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -> Dictionary:
+func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray(), sort_options: Dictionary = {} ) -> Dictionary:
 ```
 
 设置浏览查询和可选资产 ID 闭集。 资产 ID 会去重并排序。超长查询、超量过滤 ID 或超长 ID 会整体拒绝， 被拒绝的输入不会推进 generation。
@@ -240,11 +240,13 @@ func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringAr
 |---|---|
 | `query_text` | 交给 GFAssetCatalog 的文本查询。 |
 | `asset_ids` | 可选查询闭集；为空时查询整个目录。 |
+| `sort_options` | 排序预设和名称浏览档宽；缺省按精确相关度。 |
 
 返回：查询更新报告。
 
 结构：
 
+- `sort_options`: Dictionary with optional sort_preset, band_width and include_unmatched.
 - `return`: Dictionary with ok, changed, error, query_generation, query, and filter_count.
 
 <a id="member-gfassetbrowsermodel-methods-get_selected_asset_id"></a>

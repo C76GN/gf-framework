@@ -20,6 +20,8 @@ if active != null:
 
 ## Worker 消费
 
+`run_next_job()` 只会用处理器返回值终结它领取的原任务。回调已取消任务、清空队列或创建了复用同一 ID 的新任务时，旧调用返回原任务，不会把旧结果写入新任务。
+
 当任务需要由场景节点持续消费时，可以挂一个 `GFJobWorker`。它通过 `queue_utility` 或全局架构找到 `GFJobQueueUtility`，按 `batch_size` 调用项目提供的 `processor`，并把返回值写回完成或失败状态：
 
 ```gdscript

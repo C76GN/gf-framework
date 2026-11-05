@@ -322,20 +322,17 @@ func apply_dict(data: Dictionary) -> bool:
 		set_seed(_DEFAULT_SEED)
 		return false
 
-	var algorithm: String = GFVariantData.get_option_string(
-		data,
-		"algorithm",
-		_ALGORITHM
-	)
-	var version: int = GFVariantData.get_option_int(
-		data,
-		"version",
-		_STATE_VERSION
-	)
+	var algorithm: Variant = GFVariantData.get_option_value(data, "algorithm")
+	var version: Variant = GFVariantData.get_option_value(data, "version")
 	var seed_data: Variant = GFVariantData.get_option_value(data, "seed")
 	var state_data: Variant = GFVariantData.get_option_value(data, "state")
 	if (
-		algorithm != _ALGORITHM
+		not (
+			algorithm is String
+			or algorithm is StringName
+		)
+		or algorithm != _ALGORITHM
+		or not version is int
 		or version != _STATE_VERSION
 		or not _state_value_is_u32(seed_data)
 		or not _state_value_is_u32(state_data)

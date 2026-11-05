@@ -66,6 +66,7 @@ enum LifecycleState {
 - API：`public`
 
 ```gdscript
+@export
 var clips: Dictionary = {}
 ```
 
@@ -82,6 +83,7 @@ var clips: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var fallback_separator: String = "+"
 ```
 
@@ -94,6 +96,7 @@ var fallback_separator: String = "+"
 - API：`public`
 
 ```gdscript
+@export
 var lifecycle_state: LifecycleState = LifecycleState.UNLOADED
 ```
 
@@ -106,6 +109,7 @@ var lifecycle_state: LifecycleState = LifecycleState.UNLOADED
 - API：`public`
 
 ```gdscript
+@export
 var lifecycle_reason: StringName = &""
 ```
 

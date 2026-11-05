@@ -379,6 +379,48 @@ func test_runtime_inspector_rejects_commit_after_reentrant_registration_change()
 	property.setter = Callable()
 
 
+## 首次 getter 撤销注册后，未开始的 setter 不得继续执行。
+func test_pre_write_getter_unregister_prevents_setter() -> void:
+	var target: TunableTarget = TunableTarget.new()
+	var previous_health: int = target.health
+	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(
+		&"health",
+		^"health",
+		GFRuntimeTunableProperty.ValueKind.INT
+	)
+	var writes: Array[int] = []
+	property.getter = func(callback_target: Object, _property: GFRuntimeTunableProperty) -> Variant:
+		var _removed: bool = _inspector.unregister_target(&"pre_read")
+		return callback_target.get("health")
+	property.setter = func(
+		callback_target: Object,
+		_property: GFRuntimeTunableProperty,
+		value: Variant
+	) -> void:
+		writes.append(1)
+		callback_target.set("health", value)
+	assert_true(
+		_inspector.register_target(
+			&"pre_read",
+			target,
+			[property]
+		)
+	)
+	watch_signals(_inspector)
+	assert_false(
+		_inspector.set_property_value(
+			&"pre_read",
+			&"health",
+			20
+		)
+	)
+	assert_true(writes.is_empty())
+	assert_eq(target.health, previous_health)
+	assert_signal_not_emitted(_inspector, "property_changed")
+	property.getter = Callable()
+	property.setter = Callable()
+
+
 func test_post_write_getter_registration_change_rejects_old_commit() -> void:
 	var target: TunableTarget = TunableTarget.new()
 	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(

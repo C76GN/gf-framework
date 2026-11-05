@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="2532787f290f0a1b2dac7b89738cc7464a5ce25f00766996e4e19b424f76130d">
+<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="28c5f7fe009d237191da5b21e11019c552d9d07d9b4f860734d2d57c757de741">
 	<description>GFDictionarySchema: 通用 Dictionary 结构声明与校验器。
 为任意 Dictionary 提供字段声明、默认值补齐、类型转换、嵌套结构校验和定义自检。
 它只描述数据形态，不包含配置表索引、跨表引用、内容包启用策略或游戏业务规则。</description>
@@ -170,7 +170,8 @@ non-nullable 字段保持缺失，不会被注入一个随后无法通过 schema
 		</member>
 		<member kind="method" name="normalize_dictionary_array">
 			<signature>func normalize_dictionary_array(values: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>批量规范化 Dictionary 数组，并汇总行级校验报告。</description>
+			<description>批量规范化 Dictionary 数组，并汇总行级校验报告。
+定义无效时不规范化或校验字典行，计入 skipped_row_count；非 Dictionary 行仍报告形状错误。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">values: 输入数组。</tag>

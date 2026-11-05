@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`909`
+- 公开类：`911`
 - 公开 AutoLoad：`1`
-- 公开成员：`13021`
-- 公开方法：`8139`
+- 公开成员：`13017`
+- 公开方法：`8138`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -16,7 +16,7 @@
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
 | Kernel | 79 | 1 | 1224 | 907 | [kernel.md](kernel.md) |
-| Standard | 495 | 0 | 7741 | 4937 | [standard.md](standard.md) |
+| Standard | 495 | 0 | 7747 | 4942 | [standard.md](standard.md) |
 | Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -29,7 +29,7 @@
 | Dialogue | 5 | 0 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
 | Domain | 21 | 0 | 336 | 216 | [extensions-domain.md](extensions-domain.md) |
 | Feedback | 8 | 0 | 141 | 65 | [extensions-feedback.md](extensions-feedback.md) |
-| Flow | 7 | 0 | 139 | 85 | [extensions-flow.md](extensions-flow.md) |
+| Flow | 9 | 0 | 129 | 79 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 0 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
 | Extensions / Layered Sprite | 4 | 0 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
 | Network | 41 | 0 | 637 | 348 | [extensions-network.md](extensions-network.md) |

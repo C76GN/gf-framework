@@ -37,6 +37,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export_range(0.0, 60.0, 0.001, "or_greater")
 var duration_seconds: float = 0.25
 ```
 
@@ -50,6 +51,7 @@ var duration_seconds: float = 0.25
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var weak_magnitude: float = 0.5
 ```
 
@@ -63,6 +65,7 @@ var weak_magnitude: float = 0.5
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var strong_magnitude: float = 0.5
 ```
 
@@ -76,6 +79,7 @@ var strong_magnitude: float = 0.5
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export_range(0.0, 4.0, 0.001, "or_greater")
 var intensity: float = 1.0
 ```
 
@@ -89,6 +93,7 @@ var intensity: float = 1.0
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var weak_curve: Curve = null
 ```
 
@@ -102,6 +107,7 @@ var weak_curve: Curve = null
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var strong_curve: Curve = null
 ```
 

@@ -40,6 +40,7 @@ Buff 可组合效果基类。 作为数据化 Buff 的通用效果扩展点，�
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var effect_id: StringName = &""
 ```
 
@@ -53,6 +54,7 @@ var effect_id: StringName = &""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

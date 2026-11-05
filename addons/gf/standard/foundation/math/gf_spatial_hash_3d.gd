@@ -755,8 +755,11 @@ func _get_cells_for_span(span: Array[Vector3i]) -> Array[Vector3i]:
 ## [br]
 func _get_cell_span_for_aabb(bounds: AABB) -> Array[Vector3i]:
 	var min_cell: Vector3i = _world_to_cell(bounds.position)
-	var max_corner: Vector3 = _get_half_open_max_corner(bounds)
-	var max_cell: Vector3i = _world_to_cell(max_corner)
+	var max_cell: Vector3i = Vector3i(
+		int(_get_half_open_axis_max_cell(bounds.position.x, bounds.size.x)),
+		int(_get_half_open_axis_max_cell(bounds.position.y, bounds.size.y)),
+		int(_get_half_open_axis_max_cell(bounds.position.z, bounds.size.z))
+	)
 	return [min_cell, max_cell]
 
 
@@ -862,7 +865,16 @@ func _divide_truncated(numerator: int, denominator: int) -> int:
 ## @api private
 ## [br]
 func _aabb_can_map_to_cells(bounds: AABB) -> bool:
-	return _position_can_map_to_cell(bounds.position) and _position_can_map_to_cell(_get_half_open_max_corner(bounds))
+	if not _position_can_map_to_cell(bounds.position):
+		return false
+	for axis: int in range(3):
+		var max_cell: float = _get_half_open_axis_max_cell(
+			bounds.position[axis],
+			bounds.size[axis]
+		)
+		if not is_finite(max_cell) or absf(max_cell) > _MAX_SAFE_CELL_COORDINATE:
+			return false
+	return true
 
 
 ## 验证位置有限且缩放后的各轴绝对值处于安全格坐标范围。
@@ -992,34 +1004,17 @@ func _normalize_aabb(bounds: AABB) -> AABB:
 	return _SPATIAL_BOUNDS_MATH.normalize_aabb(bounds)
 
 
-## 逐轴收缩正尺寸边界的最大角点，使占格范围按半开最大端计算。
+## 直接计算半开最大格；仅排除恰好落在格线上的最大端，不擦除跨格薄片。
 ## [br]
 ## @api private
 ## [br]
-func _get_half_open_max_corner(bounds: AABB) -> Vector3:
-	var max_corner: Vector3 = bounds.position + bounds.size
-	if bounds.size.x > 0.0:
-		max_corner.x = _get_half_open_axis_max(bounds.position.x, bounds.size.x)
-	if bounds.size.y > 0.0:
-		max_corner.y = _get_half_open_axis_max(bounds.position.y, bounds.size.y)
-	if bounds.size.z > 0.0:
-		max_corner.z = _get_half_open_axis_max(bounds.position.z, bounds.size.z)
-	return max_corner
-
-
-## 将轴向最大端向内缩 epsilon，但不允许缩到最小端之外。
-## [br]
-## @api private
-## [br]
-func _get_half_open_axis_max(axis_min: float, axis_size: float) -> float:
-	var axis_max: float = axis_min + axis_size
-	var epsilon: float = minf(
-		axis_size * 0.5,
-		_cell_size * _CELL_BOUNDARY_EPSILON_RATIO
-	)
+func _get_half_open_axis_max_cell(axis_min: float, axis_size: float) -> float:
+	var min_cell: float = floor(axis_min / _cell_size)
+	if axis_size <= 0.0:
+		return min_cell
 	return maxf(
-		axis_min,
-		axis_max - maxf(epsilon, 0.000000001)
+		min_cell,
+		ceilf((axis_min + axis_size) / _cell_size) - 1.0
 	)
 
 

@@ -43,6 +43,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var cells: Dictionary = {}
 ```
 

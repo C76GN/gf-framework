@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="eccd3eb7986e9565f452b602ff835ad83c79fc09219ed40ec517f6cf56e0a3f1">
+<class name="GFFixedVector2" path="addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd" module="standard" extends="RefCounted" classDigest="5e8ba16d2057a672920785abb1d70c1f7166f1bef033b5d8c86309681c6782d0">
 	<description>GFFixedVector2: 基于统一整数缩放的二维定点向量值对象。
 它适合锁步、回放、黄金测试和需要稳定序列化的二维坐标或方向值。
 该类型不替代 Vector2i 格子坐标，也不替代 Godot Vector2 在渲染和物理中的浮点表达。</description>
@@ -197,19 +197,20 @@
 		</member>
 		<member kind="method" name="dot">
 			<signature>func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -&gt; GFFixedDecimal:</signature>
-			<description>计算点积。</description>
+			<description>计算点积，完整求和后只执行一次结果舍入和 raw 饱和。
+分量乘积与部分和使用宽整数，不因中间越界丢失可抵消的值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">other: 另一个定点二维向量。</tag>
 				<tag name="param">target_decimal_places: 结果小数位；传 -1 时沿用较高小数位。</tag>
-				<tag name="param">rounding_mode: 结果降位时的舍入策略。</tag>
-				<tag name="return">点积定点数。</tag>
+				<tag name="param">rounding_mode: 完整求和后的结果降位策略。</tag>
+				<tag name="return">点积定点数；other 为 null 时返回当前向量精度的零。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="length_squared">
 			<signature>func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -&gt; GFFixedDecimal:</signature>
-			<description>计算长度平方。</description>
+			<description>计算长度平方；各分量平方完整求和后只舍入、饱和一次。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">target_decimal_places: 结果小数位；传 -1 时沿用当前小数位。</tag>

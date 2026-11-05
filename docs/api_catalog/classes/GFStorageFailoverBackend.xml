@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="91f0afc6bd73a1e0ca7d7142aa77c65e1b8917012e0f9fef7d29e6479008e9c0">
+<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="316bfb9e088dbc89b6c798c1cc1a7f9413ac2812c3a6085ec1823bd5f3b57c84">
 	<description>GFStorageFailoverBackend: 有序存储故障转移后端。
 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序
 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、
@@ -140,7 +140,7 @@
 		</member>
 		<member kind="method" name="_load_data">
 			<signature>func _load_data(file_name: String) -&gt; Dictionary:</signature>
-			<description>按顺序读取首个成功结果。</description>
+			<description>按顺序读取首个成功结果。全部失败时保留最后一个非 missing 错误；未读后端也不能作为逻辑记录不存在的证据。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">file_name: 逻辑文件名。</tag>

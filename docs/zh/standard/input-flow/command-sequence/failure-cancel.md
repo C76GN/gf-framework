@@ -6,6 +6,8 @@
 
 `cancel()` 会先通知当前步骤的 `cancel(context)` 钩子；普通对象步骤如果提供无参 `cancel()` 也会被调用。随后序列会停止当前等待、不再执行后续步骤，并发出 `sequence_cancelled`。
 
+依赖注入回调也是执行前的取消边界：`inject_dependencies()` 或 `inject()` 内取消后，不再启动该步骤尚未开始的 `execute()`、`resolve()` 或 `undo()`，也不继续剩余注入回调。已经发生的注入副作用不会自动撤销。
+
 `step_started` 是 execute 前的可否决边界：监听器在该信号中取消时，步骤尚未开始，因此不会调用
 该步骤的 execute 或 cancel hook。Signal 等待默认有 30 秒超时。
 `with_signal_timeout(seconds, respect_time_scale)` 可配置有限数值的等待上限，并默认跟随
@@ -36,6 +38,7 @@
 更具体的错误文本。
 
 ```gdscript
+# 项目步骤须实现自己的补偿；序列回滚不会自动撤销任意外部副作用。
 var sequence := GFCommandSequence.new([
 	PrepareStep.new(),
 	ApplyStep.new(),

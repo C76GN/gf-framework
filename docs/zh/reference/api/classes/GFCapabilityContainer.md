@@ -29,6 +29,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var auto_register_children: bool = true
 ```
 
@@ -41,6 +42,7 @@ var auto_register_children: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var watch_child_changes: bool = true
 ```
 

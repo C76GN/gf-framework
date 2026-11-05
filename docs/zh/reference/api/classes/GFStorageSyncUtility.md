@@ -199,12 +199,13 @@ var write_resolved_by_default: bool = true
 ### `sync_data`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func sync_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:
 ```
 
-同步一个逻辑文件。
+同步一个逻辑文件。仅当读取结果明确为不存在时填充缺失端；任一其他读取失败都会在写回前终止。
 
 参数：
 

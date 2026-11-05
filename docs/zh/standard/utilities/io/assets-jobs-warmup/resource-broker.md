@@ -11,6 +11,7 @@ Broker，独立模式应显式创建并注入。
 解析同一实例：
 
 ```gdscript
+# 装配顺序片段：消费者共享同一 Broker，激活后由架构 tick 推进工作。
 var broker := GFResourceBroker.new()
 var assets := GFAssetUtility.new()
 var scenes := GFSceneUtility.new()

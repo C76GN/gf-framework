@@ -37,6 +37,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var tag_counts: Dictionary = {}
 ```
 

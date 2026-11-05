@@ -52,6 +52,7 @@ const DEFAULT_MATERIALIZE_DIR: String = "user://gf/artifacts"
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var source_path: String = ""
 ```
 
@@ -65,6 +66,7 @@ var source_path: String = ""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var data: PackedByteArray = PackedByteArray()
 ```
 
@@ -78,6 +80,7 @@ var data: PackedByteArray = PackedByteArray()
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var type_hint: String = ""
 ```
 
@@ -91,6 +94,7 @@ var type_hint: String = ""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

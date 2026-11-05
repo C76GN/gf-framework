@@ -382,18 +382,13 @@ func multiply(other: GFBigNumber) -> GFBigNumber:
 	if is_zero() or other.is_zero():
 		return GFBigNumber.zero()
 
-	var exponent_result: Dictionary = _try_add_exponents(exponent, other.exponent)
-	if not GFVariantData.get_option_bool(
-		exponent_result,
-		&"ok",
-		false
-	):
+	if not _exponent_is_supported(exponent) or not _exponent_is_supported(other.exponent):
 		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
 	return GFBigNumber.new(
 		mantissa * other.mantissa,
-		GFVariantData.get_option_int(exponent_result, &"value")
+		exponent + other.exponent
 	)
 
 
@@ -412,18 +407,13 @@ func divide(other: GFBigNumber) -> GFBigNumber:
 	if is_zero():
 		return GFBigNumber.zero()
 
-	var exponent_result: Dictionary = _try_add_exponents(exponent, -other.exponent)
-	if not GFVariantData.get_option_bool(
-		exponent_result,
-		&"ok",
-		false
-	):
+	if not _exponent_is_supported(exponent) or not _exponent_is_supported(other.exponent):
 		push_error("[GFBigNumber][big_number.exponent_out_of_range] Exponent exceeds the supported range.")
 		return GFBigNumber.zero()
 
 	return GFBigNumber.new(
 		mantissa / other.mantissa,
-		GFVariantData.get_option_int(exponent_result, &"value")
+		exponent - other.exponent
 	)
 
 
@@ -496,6 +486,13 @@ func to_float() -> float:
 	if is_zero():
 		return 0.0
 
+	if exponent < -308:
+		return (
+			mantissa * pow(
+				10.0,
+				exponent + 308
+			)
+		) * pow(10.0, -308)
 	return mantissa * pow(10.0, exponent)
 
 

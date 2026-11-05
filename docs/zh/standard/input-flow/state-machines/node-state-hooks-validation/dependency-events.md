@@ -23,22 +23,27 @@
 监听只在状态激活期间有效时，应在 `_exit()` 中调用 `unregister_owner_events()`。
 
 ```gdscript
+## 仅在攻击状态激活期间接收动画完成事件。
 class_name AttackState
 extends GFNodeState
 
 
+## 从当前上下文借用的模型；每次进入时重新解析依赖。
 var _combat_model: CombatModel
 
 
+## 刷新上下文依赖，并以本状态为 owner 绑定临时监听。
 func _enter(_previous_state: StringName = &"", _args: Dictionary = {}) -> void:
 	_combat_model = get_model(CombatModel) as CombatModel
 	register_event(AnimFinishedPayload, GFEventListener.from_method(self, &"_on_anim_finished", 1))
 
 
+## 退出即撤销本状态监听，不等待节点销毁才清理。
 func _exit(_next_state: StringName = &"", _args: Dictionary = {}) -> void:
 	unregister_owner_events()
 
 
+## 只响应攻击动画，避免其他动画完成误触发状态切换。
 func _on_anim_finished(payload: AnimFinishedPayload) -> void:
 	if payload.animation_name == &"attack":
 		transition_to(&"Idle")

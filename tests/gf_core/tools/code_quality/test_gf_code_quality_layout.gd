@@ -16,6 +16,15 @@ const _LAYOUT_SCRIPT = preload("res://addons/gf/tools/code_quality/internal/gf_c
 
 # --- 公共方法 ---
 
+func test_member_spacing_follows_previous_documentation_and_owner() -> void:
+	assert_false(_rules("## First.\nvar one: int = 1\n\nvar two: int = 2\n").has("member_block_spacing"))
+	assert_true(_rules("## First.\nvar one: int = 1\nvar two: int = 2\n").has("member_block_spacing"))
+	assert_false(_rules("var one: int = 1\n## Second.\nvar two: int = 2\n").has("member_block_spacing"))
+	assert_true(_rules("var one: int = 1\n\n## Second.\nvar two: int = 2\n").has("member_block_spacing"))
+	assert_true(_rules("class Inner:\n\tfunc work() -> void:\n\t\tpass\nfunc outer() -> void:\n\tpass\n").has("definition_spacing"))
+	assert_false(_rules("class Inner:\n\tfunc work() -> void:\n\t\tpass\n\n\nfunc outer() -> void:\n\tpass\n").has("definition_spacing"))
+
+
 func test_source_keeps_unicode_coordinates_literal_payloads_and_comments() -> void:
 	var source: String = "var 名称 = r\"# and ( )\" # only comment\n"
 	var view: Dictionary = _SOURCE_SCRIPT.lex_source("fixture.gd", source)

@@ -26,9 +26,8 @@
 | 属性 | [`editor_position`](#member-gfflownode-properties-editor_position) | `var editor_position: Vector2 = Vector2.ZERO` |
 | 属性 | [`editor_size`](#member-gfflownode-properties-editor_size) | `var editor_size: Vector2 = Vector2.ZERO` |
 | 属性 | [`editor_collapsed`](#member-gfflownode-properties-editor_collapsed) | `var editor_collapsed: bool = false` |
-| 属性 | [`runtime_state`](#member-gfflownode-properties-runtime_state) | `var runtime_state: Dictionary:` |
-| 方法 | [`execute`](#member-gfflownode-methods-execute) | `func execute(_context: GFFlowContext) -> Variant:` |
-| 方法 | [`get_next_nodes`](#member-gfflownode-methods-get_next_nodes) | `func get_next_nodes(context: GFFlowContext) -> PackedStringArray:` |
+| 方法 | [`execute`](#member-gfflownode-methods-execute) | `func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -> Variant:` |
+| 方法 | [`get_next_nodes`](#member-gfflownode-methods-get_next_nodes) | `func get_next_nodes(_context: GFFlowContext) -> PackedStringArray:` |
 | 方法 | [`get_display_name`](#member-gfflownode-methods-get_display_name) | `func get_display_name() -> String:` |
 | 方法 | [`get_input_ports`](#member-gfflownode-methods-get_input_ports) | `func get_input_ports() -> Array[GFFlowPort]:` |
 | 方法 | [`get_output_ports`](#member-gfflownode-methods-get_output_ports) | `func get_output_ports() -> Array[GFFlowPort]:` |
@@ -37,11 +36,6 @@
 | 方法 | [`describe_ports`](#member-gfflownode-methods-describe_ports) | `func describe_ports() -> Dictionary:` |
 | 方法 | [`describe_editor`](#member-gfflownode-methods-describe_editor) | `func describe_editor() -> Dictionary:` |
 | 方法 | [`describe_node`](#member-gfflownode-methods-describe_node) | `func describe_node() -> Dictionary:` |
-| 方法 | [`set_runtime_value`](#member-gfflownode-methods-set_runtime_value) | `func set_runtime_value(key: StringName, value: Variant) -> void:` |
-| 方法 | [`get_runtime_value`](#member-gfflownode-methods-get_runtime_value) | `func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:` |
-| 方法 | [`clear_runtime_state`](#member-gfflownode-methods-clear_runtime_state) | `func clear_runtime_state() -> void:` |
-| 方法 | [`serialize_runtime_state`](#member-gfflownode-methods-serialize_runtime_state) | `func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:` |
-| 方法 | [`deserialize_runtime_state`](#member-gfflownode-methods-deserialize_runtime_state) | `func deserialize_runtime_state(data: Dictionary) -> void:` |
 
 ## 属性
 
@@ -53,6 +47,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var node_id: StringName = &""
 ```
 
@@ -66,6 +61,7 @@ var node_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -79,6 +75,7 @@ var display_name: String = ""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var category: StringName = &""
 ```
 
@@ -92,6 +89,7 @@ var category: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var next_node_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -105,6 +103,7 @@ var next_node_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var wait_for_result: bool = true
 ```
 
@@ -118,6 +117,7 @@ var wait_for_result: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var input_ports: Array[GFFlowPort] = []
 ```
 
@@ -131,6 +131,7 @@ var input_ports: Array[GFFlowPort] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var output_ports: Array[GFFlowPort] = []
 ```
 
@@ -144,6 +145,7 @@ var output_ports: Array[GFFlowPort] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -161,6 +163,7 @@ var metadata: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var editor_position: Vector2 = Vector2.ZERO
 ```
 
@@ -174,6 +177,7 @@ var editor_position: Vector2 = Vector2.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var editor_size: Vector2 = Vector2.ZERO
 ```
 
@@ -187,27 +191,11 @@ var editor_size: Vector2 = Vector2.ZERO
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var editor_collapsed: bool = false
 ```
 
 编辑器中是否折叠显示。
-
-<a id="member-gfflownode-properties-runtime_state"></a>
-
-### `runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-var runtime_state: Dictionary:
-```
-
-节点运行态数据的只读副本。项目应通过 set_runtime_value() 等方法修改， 以便执行器在异步隔离期间拒绝写入共享 Resource。
-
-结构：
-
-- `runtime_state`: 项目自定义运行态 Dictionary；键和值由节点实现维护。
 
 ## 方法
 
@@ -219,7 +207,7 @@ var runtime_state: Dictionary:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func execute(_context: GFFlowContext) -> Variant:
+func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -> Variant:
 ```
 
 执行节点。
@@ -228,7 +216,8 @@ func execute(_context: GFFlowContext) -> Variant:
 
 | 名称 | 说明 |
 |---|---|
-| `_context` | 流程上下文。 |
+| `_context` | 各次流程运行可共享的业务上下文。 |
+| `_execution` | 当前帧本次节点调用独有的运行状态写入句柄。 |
 
 返回：可返回 null 或 Signal。
 
@@ -244,7 +233,7 @@ func execute(_context: GFFlowContext) -> Variant:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func get_next_nodes(context: GFFlowContext) -> PackedStringArray:
+func get_next_nodes(_context: GFFlowContext) -> PackedStringArray:
 ```
 
 获取执行完成后的后继节点。
@@ -253,7 +242,7 @@ func get_next_nodes(context: GFFlowContext) -> PackedStringArray:
 
 | 名称 | 说明 |
 |---|---|
-| `context` | 流程上下文。 |
+| `_context` | 调度默认后继时可读取的业务上下文。 |
 
 返回：后继节点标识列表。
 
@@ -400,115 +389,3 @@ func describe_node() -> Dictionary:
 结构：
 
 - `return`: 包含 node_id、display_name、category、next_node_ids、wait_for_result、ports、editor 和 metadata 字段的 Dictionary。
-
-<a id="member-gfflownode-methods-set_runtime_value"></a>
-
-### `set_runtime_value`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func set_runtime_value(key: StringName, value: Variant) -> void:
-```
-
-写入节点运行态值。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `key` | 键。 |
-| `value` | 值。 |
-
-结构：
-
-- `value`: 任意可写入 runtime_state 的项目值。
-
-<a id="member-gfflownode-methods-get_runtime_value"></a>
-
-### `get_runtime_value`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:
-```
-
-读取节点运行态值。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `key` | 键。 |
-| `default_value` | 默认值。 |
-
-返回：运行态值或默认值。
-
-结构：
-
-- `default_value`: 缺失时返回的任意项目值。
-- `return`: 找到的运行态值，或传入的 default_value。
-
-<a id="member-gfflownode-methods-clear_runtime_state"></a>
-
-### `clear_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func clear_runtime_state() -> void:
-```
-
-清空节点运行态数据。
-
-<a id="member-gfflownode-methods-serialize_runtime_state"></a>
-
-### `serialize_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-```
-
-序列化节点运行态数据。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `json_compatible` | 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。 |
-
-返回：运行态数据副本。
-
-结构：
-
-- `return`: runtime_state 的深拷贝 Dictionary。
-
-<a id="member-gfflownode-methods-deserialize_runtime_state"></a>
-
-### `deserialize_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func deserialize_runtime_state(data: Dictionary) -> void:
-```
-
-反序列化节点运行态数据。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `data` | 运行态数据。 |
-
-结构：
-
-- `data`: serialize_runtime_state() 返回的运行态 Dictionary。

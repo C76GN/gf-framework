@@ -343,7 +343,7 @@ static func make_stable_grid_seed(
 ## [br]
 ## @param string_seed: 用于标识子随机流用途的字符串（如 "loot_table"、"enemy_ai"）。
 ## [br]
-## @return 一个已完成种子初始化的独立 RandomNumberGenerator 实例。
+## @return 一个已完成种子初始化的独立 RandomNumberGenerator 实例；标签计数耗尽时报告错误并返回 null，状态不变。
 func get_branched_rng(string_seed: String) -> RandomNumberGenerator:
 	return get_branched_godot_rng(string_seed)
 
@@ -358,11 +358,13 @@ func get_branched_rng(string_seed: String) -> RandomNumberGenerator:
 ## [br]
 ## @param string_seed: 用于标识子随机流用途的字符串。
 ## [br]
-## @return 一个已完成种子初始化的独立 RandomNumberGenerator 实例。
+## @return 一个已完成种子初始化的独立 RandomNumberGenerator 实例；标签计数耗尽时报告错误并返回 null，状态不变。
 func get_branched_godot_rng(string_seed: String) -> RandomNumberGenerator:
 	_ensure_rng()
-	var branched: RandomNumberGenerator = RandomNumberGenerator.new()
 	var branch_index: int = _next_branch_index(_branch_counters, string_seed)
+	if branch_index < 0:
+		return null
+	var branched: RandomNumberGenerator = RandomNumberGenerator.new()
 
 	var branch_seed: int = _stable_hash(
 		"%d:%d:%s:%d"
@@ -387,10 +389,12 @@ func get_branched_godot_rng(string_seed: String) -> RandomNumberGenerator:
 ## [br]
 ## @param string_seed: 用于标识确定性子随机流用途的字符串。
 ## [br]
-## @return 一个已完成种子初始化的独立 GFDeterministicRandom 实例。
+## @return 一个已完成种子初始化的独立 GFDeterministicRandom 实例；标签计数耗尽时报告错误并返回 null，状态不变。
 func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom:
 	_ensure_rng()
 	var branch_index: int = _next_branch_index(_deterministic_branch_counters, string_seed)
+	if branch_index < 0:
+		return null
 	var branch_seed: int = _stable_hash(
 		"%d:deterministic:%s:%d"
 		% [
@@ -416,12 +420,15 @@ static func _stable_hash(text: String) -> int:
 	return hash_value
 
 
-## 读取标签当前分支序号并将对应计数加一。
+## 读取并推进标签分支序号；int64 计数耗尽时保留原状态并返回 -1，避免重用身份。
 ## [br]
 ## @api private
 ## [br]
 func _next_branch_index(counter_map: Dictionary, string_seed: String) -> int:
 	var branch_index: int = GFVariantData.get_option_int(counter_map, string_seed)
+	if branch_index == 9223372036854775807:
+		push_error("[GFSeedUtility][seed_utility.branch_counter_exhausted] Cannot create another branch: the label counter is exhausted.")
+		return -1
 	counter_map[string_seed] = branch_index + 1
 	return branch_index
 

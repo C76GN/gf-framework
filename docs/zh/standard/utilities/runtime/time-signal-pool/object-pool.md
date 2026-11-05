@@ -7,10 +7,13 @@
 `GFObjectPoolAcquireResult` 记录本次借用是否成功及失败原因。成功时交付的是 `GFObjectPoolLease`，而不是永久有效的节点引用。
 
 ```gdscript
+# 借用流程示例；场景和 parent 须有效且 parent 已入树。
 extends Node
 
+## 本节点持有独立池；最终所有者须调用 dispose() 并等待清理完成。
 var pool: GFObjectPoolUtility = GFObjectPoolUtility.new()
 
+## 以 self 约束等待中的借用；成功后仍须显式保存并归还 Lease。
 func spawn_effect(scene: PackedScene, parent: Node) -> void:
 	var result: GFObjectPoolAcquireResult = await pool.acquire(
 		scene, parent, self, { "position": Vector2(120, 80) }
@@ -21,8 +24,10 @@ func spawn_effect(scene: PackedScene, parent: Node) -> void:
 	var lease: GFObjectPoolLease = result.get_lease()
 	var effect: Node = lease.get_node()
 	# 在这里使用 effect，并把 lease 保留到本轮使用结束。
+	# release 一旦接受就立即撤销使用权，不能继续访问缓存的 effect。
 	var accepted: bool = lease.release()
 	if accepted:
+		# 安全点回收可能尚未执行；统一入口也能返回已发生的终态。
 		var reason: StringName = await lease.wait_settled()
 		print("本次借用结束：", reason)
 ```
@@ -42,8 +47,10 @@ func spawn_effect(scene: PackedScene, parent: Node) -> void:
 根节点可实现一个同步准备方法。它在每次入树前运行，包括首次实例化与后续复用：
 
 ```gdscript
+# 池内节点示例：每次借用都要重置，不能依赖只运行一次的 _ready()。
 extends Node2D
 
+## 同步验收并应用本轮初始化数据；不得 await、释放自身或改变父节点。
 func on_gf_pool_prepare(context: Dictionary) -> Error:
 	var next_position: Variant = context.get("position", Vector2.ZERO)
 	if not next_position is Vector2:
@@ -51,10 +58,12 @@ func on_gf_pool_prepare(context: Dictionary) -> Error:
 	position = next_position
 	return OK
 
+## 每轮入树建立当前借用需要的监听和活动状态。
 func _enter_tree() -> void:
 	# 每次进入场景树时建立本轮监听或运行状态。
 	pass
 
+## 回池前收束本轮外部工作；池不会自动取消项目 Timer、Tween 或协程。
 func _exit_tree() -> void:
 	# 每次离树时解除外部监听，取消本轮异步工作。
 	pass
@@ -114,6 +123,8 @@ print("实际新增：", result.get_created_count())
 ## RefCounted 池
 
 纯数据临时对象不进入场景树，仍使用独立的 `GFRefCountedPool`。它保留同步工厂、`acquire()`、`release()` 与 `max_available` 容量控制；本次节点池迁移不改变这套接口。
+
+归还过程在每个释放或重置回调后复查本次归还的身份。回调通过 `reset_pool()` 结束旧追踪并重新借出同一对象后，旧归还不会继续调用 reset hook 或清理新借用的状态。
 
 ```gdscript
 var data_pool: GFRefCountedPool = GFRefCountedPool.new(func() -> RefCounted:

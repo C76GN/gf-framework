@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var shape: Shape3D = null
 ```
 
@@ -45,6 +46,7 @@ var shape: Shape3D = null
 - API：`public`
 
 ```gdscript
+@export
 var position: Vector3 = Vector3.ZERO
 ```
 
@@ -57,6 +59,7 @@ var position: Vector3 = Vector3.ZERO
 - API：`public`
 
 ```gdscript
+@export
 var rotation_degrees: Vector3 = Vector3.ZERO
 ```
 
@@ -69,6 +72,7 @@ var rotation_degrees: Vector3 = Vector3.ZERO
 - API：`public`
 
 ```gdscript
+@export
 var scale: Vector3 = Vector3.ONE
 ```
 
@@ -82,6 +86,7 @@ var scale: Vector3 = Vector3.ONE
 - 首次版本：`3.2.0`
 
 ```gdscript
+@export
 var debug_color: Color = Color(
 	0.0,
 	0.0,
@@ -99,6 +104,7 @@ var debug_color: Color = Color(
 - API：`public`
 
 ```gdscript
+@export
 var disabled: bool = false
 ```
 

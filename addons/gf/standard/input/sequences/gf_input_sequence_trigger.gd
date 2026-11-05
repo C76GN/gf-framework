@@ -488,7 +488,7 @@ func _advance_step(
 	return false
 
 
-## 读取动作边沿修订号，并仅在其高于分支状态已消费修订时保存并返回 true。
+## 读取运行时全局单调边沿修订号，拒绝重复边沿及早于本分支前一步的边沿。
 ## [br]
 ## @api private
 ## [br]
@@ -511,8 +511,11 @@ func _consume_action_edge(
 	var consumed_edges: Dictionary = GFVariantData.get_option_dictionary(branch_state, key)
 	if revision <= GFVariantData.get_option_int(consumed_edges, action_id):
 		return false
+	if revision <= GFVariantData.get_option_int(branch_state, "last_consumed_edge_revision"):
+		return false
 	consumed_edges[action_id] = revision
 	branch_state[key] = consumed_edges
+	branch_state["last_consumed_edge_revision"] = revision
 	return true
 
 

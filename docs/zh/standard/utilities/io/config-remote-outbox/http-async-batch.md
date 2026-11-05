@@ -30,6 +30,7 @@ response.completed.connect(func(result: GFHttpResponse) -> void:
 在 Installer 中先配置再注册，架构会在后续生命周期激活它：
 
 ```gdscript
+## 配置活动请求和等待队列上限后交给架构管理生命周期。
 func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	var http := GFHttpClientUtility.new()
 	http.configure(4, 128)
@@ -47,6 +48,7 @@ if http == null:
 
 var response := http.execute(builder)
 response.completed.connect(_on_request_completed)
+# 退出请求所属流程时可主动取消；共享客户端本身仍由架构持有。
 # response.cancel("screen_closed")
 ```
 

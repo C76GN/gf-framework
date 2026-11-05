@@ -58,6 +58,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var table_name: StringName = &""
 ```
 
@@ -71,6 +72,7 @@ var table_name: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var id_field: StringName = &"id"
 ```
 
@@ -84,6 +86,7 @@ var id_field: StringName = &"id"
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var columns: Array[GFConfigTableColumn] = []
 ```
 
@@ -101,6 +104,7 @@ var columns: Array[GFConfigTableColumn] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var allow_extra_fields: bool = true
 ```
 
@@ -114,6 +118,7 @@ var allow_extra_fields: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var coerce_values: bool = false
 ```
 
@@ -127,6 +132,7 @@ var coerce_values: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var fail_on_coerce_error: bool = true
 ```
 
@@ -140,6 +146,7 @@ var fail_on_coerce_error: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var require_unique_id: bool = false
 ```
 
@@ -153,6 +160,7 @@ var require_unique_id: bool = false
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(1, 65536, 1)
 var max_resource_path_checks_per_validation: int = 1024
 ```
 
@@ -166,6 +174,7 @@ var max_resource_path_checks_per_validation: int = 1024
 - 首次版本：`unreleased`
 
 ```gdscript
+@export_range(1, 65536, 1)
 var max_elements_per_validation: int = 4096
 ```
 
@@ -179,6 +188,7 @@ var max_elements_per_validation: int = 4096
 - 首次版本：`unreleased`
 
 ```gdscript
+@export_range(1, 262144, 1)
 var max_element_rule_checks_per_validation: int = 16384
 ```
 
@@ -192,6 +202,7 @@ var max_element_rule_checks_per_validation: int = 16384
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var indexes: Array[GFConfigTableIndexDefinition] = []
 ```
 
@@ -209,6 +220,7 @@ var indexes: Array[GFConfigTableIndexDefinition] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var references: Array[GFConfigTableReference] = []
 ```
 
@@ -226,6 +238,7 @@ var references: Array[GFConfigTableReference] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var record_validation_rules: Array[GFConfigValidationRule] = []
 ```
 
@@ -243,6 +256,7 @@ var record_validation_rules: Array[GFConfigValidationRule] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var table_validation_rules: Array[GFConfigValidationRule] = []
 ```
 
@@ -260,6 +274,7 @@ var table_validation_rules: Array[GFConfigValidationRule] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

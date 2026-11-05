@@ -174,6 +174,8 @@ if settings.has_staged_values():
 
 如果一个设置页只想提交当前页负责的键，可以通过 `scope` 限制提交范围；未在 scope 中的暂存值会继续保留，供其他页面或后续流程处理。
 
+提交只消费调用开始时选中的草稿。`setting_changed` 回调再次暂存同一个键时，新草稿保留到下次提交；`staged_applied_count` 统计本次成功提交的旧草稿，`staged_remaining_count` 包含这些回调产生的新草稿。
+
 ```gdscript
 var report: Dictionary = settings.apply_staged_values({
 	"scope": PackedStringArray([

@@ -45,6 +45,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var policy_id: StringName = &""
 ```
 
@@ -58,6 +59,7 @@ var policy_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -71,6 +73,7 @@ var enabled: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var cooldown_seconds: float = 0.0
 ```
 
@@ -84,6 +87,7 @@ var cooldown_seconds: float = 0.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_projectiles_per_request: int = 0
 ```
 
@@ -97,6 +101,7 @@ var max_projectiles_per_request: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_emission_count: int = 0
 ```
 
@@ -110,6 +115,7 @@ var max_emission_count: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var charge_capacity: float = 0.0
 ```
 
@@ -123,6 +129,7 @@ var charge_capacity: float = 0.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var charge_cost_per_request: float = 0.0
 ```
 
@@ -136,6 +143,7 @@ var charge_cost_per_request: float = 0.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var charge_cost_per_projectile: float = 0.0
 ```
 
@@ -149,6 +157,7 @@ var charge_cost_per_projectile: float = 0.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var charge_recovery_seconds: float = 0.0
 ```
 

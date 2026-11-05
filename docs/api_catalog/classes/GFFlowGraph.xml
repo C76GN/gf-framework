@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraph" path="addons/gf/extensions/flow/resources/gf_flow_graph.gd" module="extensions/flow" extends="Resource" classDigest="23a198953a31a4e862c79ccab052b9de5a17383b8721b7a7c1c66d443321fc52">
+<class name="GFFlowGraph" path="addons/gf/extensions/flow/resources/gf_flow_graph.gd" module="extensions/flow" extends="Resource" classDigest="72d008e95d3215415ea5c7009003968ab8221d66e1a06e58a37b783db06bfa2c">
 	<description>GFFlowGraph: 资源化通用流程图。
 只维护节点集合与起始节点，不规定具体编辑器表现或业务语义。</description>
 	<tags>
@@ -289,42 +289,11 @@
 			</tags>
 		</member>
 		<member kind="method" name="instantiate_graph">
-			<signature>func instantiate_graph(options: Dictionary = {}) -&gt; GFFlowGraph:</signature>
-			<description>创建可运行的流程图副本。</description>
+			<signature>func instantiate_graph() -&gt; GFFlowGraph:</signature>
+			<description>复制可编辑的流程定义。每轮运行的数据由 Runner 独立管理。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 可选参数，支持 clear_runtime_state。</tag>
-				<tag name="return">流程图副本；复制失败时返回 null。</tag>
-				<tag name="schema">options: 可选项 Dictionary；支持 clear_runtime_state: bool。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="serialize_runtime_state">
-			<signature>func serialize_runtime_state(json_compatible: bool = false) -&gt; Dictionary:</signature>
-			<description>序列化图内节点运行态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。</tag>
-				<tag name="return">运行态快照。</tag>
-				<tag name="schema">return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="deserialize_runtime_state">
-			<signature>func deserialize_runtime_state(data: Dictionary) -&gt; void:</signature>
-			<description>反序列化图内节点运行态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">data: 运行态快照。</tag>
-				<tag name="schema">data: serialize_runtime_state() 返回的运行态快照 Dictionary。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="clear_runtime_state">
-			<signature>func clear_runtime_state() -&gt; void:</signature>
-			<description>清空图内所有节点运行态。</description>
-			<tags>
-				<tag name="api">public</tag>
+				<tag name="return">图资源副本，复制失败时返回 null。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

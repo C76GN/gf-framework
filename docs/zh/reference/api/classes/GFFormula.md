@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var fallback_value: Variant = 0.0
 ```
 

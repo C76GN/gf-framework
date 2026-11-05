@@ -46,6 +46,31 @@ class CountingField extends Node3D:
 		return priority_value
 
 
+class InvalidatingField extends CountingField:
+	var probe: GFGravityProbe3D
+	var target_field: CountingField
+	var invalidate_on_priority: bool = false
+	var invalidated: bool = false
+
+	func get_acceleration_at(world_position: Vector3) -> Vector3:
+		if not invalidate_on_priority:
+			_invalidate_once()
+		return super.get_acceleration_at(world_position)
+
+
+	func get_gravity_priority() -> Variant:
+		if invalidate_on_priority:
+			_invalidate_once()
+		return super.get_gravity_priority()
+
+
+	func _invalidate_once() -> void:
+		if not invalidated:
+			invalidated = true
+			target_field.acceleration_value = Vector3.LEFT
+			probe.invalidate_cache()
+
+
 class AppendingField extends Node3D:
 	var source_fields: Array = []
 	var appended_field: Object = null
@@ -1023,6 +1048,34 @@ func test_gravity_probe_uses_one_query_snapshot_per_sampling_transaction() -> vo
 		],
 		"同一事务的所有 field 必须收到同一位置。"
 	)
+
+
+func test_gravity_probe_inflight_invalidation_survives_cache_publication() -> void:
+	for from_priority: bool in [false, true]:
+		var first: CountingField = CountingField.new()
+		var second: InvalidatingField = InvalidatingField.new()
+		var probe: GFGravityProbe3D = GFGravityProbe3D.new()
+		add_child_autofree(first)
+		add_child_autofree(second)
+		add_child_autofree(probe)
+		probe.field_group = StringName("invalidate_%s" % from_priority)
+		probe.use_fallback_when_empty = false
+		first.acceleration_value = Vector3.RIGHT
+		second.acceleration_value = Vector3.ZERO
+		second.probe = probe
+		second.target_field = first
+		second.invalidate_on_priority = from_priority
+		first.add_to_group(probe.field_group)
+		second.add_to_group(probe.field_group)
+
+		var initial_sample: Vector3 = probe.sample()
+		var refreshed_sample: Vector3 = probe.sample()
+		var cached_sample: Vector3 = probe.sample()
+
+		assert_eq(initial_sample, Vector3.RIGHT)
+		assert_eq(refreshed_sample, Vector3.LEFT)
+		assert_eq(cached_sample, Vector3.LEFT)
+		assert_eq(first.call_count, 2)
 
 
 func test_gravity_probe_cache_uses_entry_state_when_callback_mutates_probe() -> void:

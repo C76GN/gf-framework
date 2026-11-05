@@ -2,6 +2,8 @@
 
 表现层 Controller 依附于 Godot 原生场景树，继承自 `Node`。它们的初始化仍由 Godot `_ready()` 触发，不属于 `GFModel`、`GFSystem`、`GFUtility` 的四阶段生命周期。
 
+## 初始化与绑定
+
 Controller 的 `_ready()` 中通常执行以下操作：
 
 1. 获取场景节点引用。
@@ -11,10 +13,13 @@ Controller 的 `_ready()` 中通常执行以下操作：
 5. 更新初始显示状态。
 
 ```gdscript
+## 在上下文就绪后将玩家生命值投影到场景内的进度条。
 class_name HUDController extends GFController
 
+## 由 HUD 场景拥有的显示节点，不属于架构生命周期模块。
 @onready var hp_bar: ProgressBar = $HealthBar
 
+## 失败等待直接停止初始化，避免从未激活的上下文读取模型。
 func _ready() -> void:
 	var architecture: GFArchitecture = await wait_for_context_ready()
 	if architecture == null:
@@ -24,6 +29,7 @@ func _ready() -> void:
 	user_model.health.value_changed.connect(_on_health_changed)
 	_on_health_changed(null, user_model.health.get_value())
 
+## 只刷新表现层；绑定后的首次调用用于显示当前值。
 func _on_health_changed(_old_value: Variant, new_val: Variant) -> void:
 	hp_bar.value = new_val
 ```

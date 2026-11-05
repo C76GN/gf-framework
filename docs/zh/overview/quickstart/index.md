@@ -6,7 +6,8 @@
 
 - [安装与 AutoLoad](install-autoload.md)：复制 `addons/gf`、启用插件和确认 `Gf` 全局入口。
 - [项目初始化](../../editor/tools/project-bootstrap.md)：从工作区创建空项目启动入口，或保留现有主场景并复制接入片段。
-- [最小启动与 Installer](minimal-installer.md)：注册 Model / Utility / System，调用 `Gf.init()`，并迁移到项目 Installer。
+- [计数、保存、读回与退出](counter-save-exit.md)：用原生控件完成局部状态、Storage 存取与受控退出。
+- [最小启动与 Installer](minimal-installer.md)：按需添加 Model、System，集中装配并区分应用与局部 Context 的生命周期。
 - [资源与上下文 API 迁移](runtime-lifecycle-migration.md)：迁移独立资源请求、作用域关闭、局部 UI 与 Save 元数据快照。
 - [从 GF 10 模块化安装迁移](package-manager-migration.md)：先用原 GF 10 工具收敛旧事务，再整体替换为 GF 11 完整插件。
 - [卸载、清理与恢复](uninstall.md)：先撤销项目引用和插件注册，再移除完整插件与确认无用的遗留状态。

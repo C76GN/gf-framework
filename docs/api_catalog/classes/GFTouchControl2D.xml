@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTouchControl2D" path="addons/gf/standard/input/touch/gf_touch_control_2d.gd" module="standard" extends="Node2D" classDigest="5c96a9fc2df64e3ea6dbb32623f32e18f550a33db54b77adc675df634d19156f">
+<class name="GFTouchControl2D" path="addons/gf/standard/input/touch/gf_touch_control_2d.gd" module="standard" extends="Node2D" classDigest="77a7615a42c73242b0c11c8ddb02bd59a6ccc0ac6c598e9c9dcf6fa3fb6221ea">
 	<description>GFTouchControl2D: 触屏 Node2D 控件共享底座。
 提供触点捕获、隐藏/离树/process mode 禁用释放、屏幕坐标到画布坐标转换和输入 handled 标记。
 具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。
@@ -39,6 +39,54 @@
 				<tag name="api">public</tag>
 				<tag name="return">当前活动触点 index；没有捕获时返回 -1。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_try_capture_touch_index">
+			<signature>func _try_capture_touch_index(touch_index: int) -&gt; bool:</signature>
+			<description>捕获指定触点；拒绝哨兵索引，已有捕获时仅允许同一触点继续匹配。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">touch_index: 输入事件的触点索引；-1 为未捕获哨兵，不可接纳。</tag>
+				<tag name="return">成功捕获或已由同一触点持有时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_release_touch_capture">
+			<signature>func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -&gt; bool:</signature>
+			<description>释放触点捕获；可选索引必须匹配当前捕获，省略或传哨兵值时释放任意当前捕获。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">touch_index: 要释放的触点索引；-1 表示释放当前任意触点。</tag>
+				<tag name="return">实际解除捕获时返回 true；未捕获或索引不匹配返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_touch_matches">
+			<signature>func _touch_matches(touch_index: int) -&gt; bool:</signature>
+			<description>检查给定触点索引是否等于当前捕获索引。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">touch_index: 要与当前捕获状态比较的索引。</tag>
+				<tag name="return">索引与当前保存值相同时返回 true，包含未捕获时的 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_screen_to_global_position">
+			<signature>func _screen_to_global_position(screen_position: Vector2) -&gt; Vector2:</signature>
+			<description>将屏幕位置经当前 Viewport 的 canvas 逆变换换算到画布坐标；无 Viewport 时原样返回。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">screen_position: 输入事件在 Viewport 中的屏幕坐标。</tag>
+				<tag name="return">当前画布坐标；尚未取得 Viewport 时返回原坐标。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_mark_input_as_handled">
+			<signature>func _mark_input_as_handled() -&gt; void:</signature>
+			<description>若存在当前 Viewport，将本次输入标记为已处理。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

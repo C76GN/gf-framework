@@ -11,6 +11,7 @@
 @onready var state_machine: GFNodeStateMachine = $StateMachine
 
 
+## MANUAL 模式下由宿主在依赖准备完成后显式启动。
 func _ready() -> void:
 	# 完成宿主节点自己的初始化后再启动状态机。
 	state_machine.start()

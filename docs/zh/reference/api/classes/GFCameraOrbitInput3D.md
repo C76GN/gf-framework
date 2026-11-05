@@ -71,10 +71,11 @@ enum UpdateMode {
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var enabled: bool = true:
 ```
 
-是否启用输入桥接。
+是否启用输入桥接。禁用会取消鼠标捕获，并终止在途映射调用中尚未应用的输入。 同步回调中禁用后再启用也不会恢复旧映射调用；已提交的 Rig 参数不回滚。
 
 <a id="member-gfcameraorbitinput3d-properties-orbit_rig_path"></a>
 
@@ -83,6 +84,7 @@ var enabled: bool = true:
 - API：`public`
 
 ```gdscript
+@export_node_path("GFCameraOrbitRig3D")
 var orbit_rig_path: NodePath = NodePath("")
 ```
 
@@ -95,6 +97,7 @@ var orbit_rig_path: NodePath = NodePath("")
 - API：`public`
 
 ```gdscript
+@export
 var update_mode: UpdateMode = UpdateMode.IDLE
 ```
 
@@ -107,6 +110,7 @@ var update_mode: UpdateMode = UpdateMode.IDLE
 - API：`public`
 
 ```gdscript
+@export
 var use_input_mapping: bool = false
 ```
 
@@ -119,6 +123,7 @@ var use_input_mapping: bool = false
 - API：`public`
 
 ```gdscript
+@export_node_path("GFNodeContext")
 var node_context_path: NodePath = NodePath("")
 ```
 
@@ -131,6 +136,7 @@ var node_context_path: NodePath = NodePath("")
 - API：`public`
 
 ```gdscript
+@export
 var orbit_action_id: StringName = &"camera_orbit"
 ```
 
@@ -143,6 +149,7 @@ var orbit_action_id: StringName = &"camera_orbit"
 - API：`public`
 
 ```gdscript
+@export
 var zoom_action_id: StringName = &"camera_zoom"
 ```
 
@@ -155,6 +162,7 @@ var zoom_action_id: StringName = &"camera_zoom"
 - API：`public`
 
 ```gdscript
+@export
 var orbit_degrees_per_second: float = 120.0
 ```
 
@@ -167,6 +175,7 @@ var orbit_degrees_per_second: float = 120.0
 - API：`public`
 
 ```gdscript
+@export
 var zoom_units_per_second: float = 8.0
 ```
 
@@ -179,6 +188,7 @@ var zoom_units_per_second: float = 8.0
 - API：`public`
 
 ```gdscript
+@export
 var invert_y: bool = false
 ```
 
@@ -192,6 +202,7 @@ var invert_y: bool = false
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var mouse_orbit_enabled: bool = false:
 ```
 
@@ -205,6 +216,7 @@ var mouse_orbit_enabled: bool = false:
 - 首次版本：`3.23.0`
 
 ```gdscript
+@export
 var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT:
 ```
 
@@ -217,6 +229,7 @@ var mouse_button: MouseButton = MOUSE_BUTTON_RIGHT:
 - API：`public`
 
 ```gdscript
+@export
 var mouse_degrees_per_pixel: float = 0.15
 ```
 
@@ -229,6 +242,7 @@ var mouse_degrees_per_pixel: float = 0.15
 - API：`public`
 
 ```gdscript
+@export
 var mouse_zoom_enabled: bool = false
 ```
 
@@ -241,6 +255,7 @@ var mouse_zoom_enabled: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var mouse_wheel_step: float = 1.0
 ```
 
@@ -253,6 +268,7 @@ var mouse_wheel_step: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var consume_mouse_input: bool = true
 ```
 
@@ -309,12 +325,13 @@ func set_input_mapping_utility(utility: GFInputMappingUtility) -> void:
 ### `process_input`
 
 - API：`public`
+- 首次版本：`3.23.0`
 
 ```gdscript
 func process_input(delta: float) -> bool:
 ```
 
-读取输入映射并推进环绕 Rig。
+读取输入映射并推进环绕 Rig。映射读取或 Rig 信号回调中禁用时，停止本次剩余输入。 重新启用只允许新的调用；已应用的 orbit 或 zoom 不回滚。
 
 参数：
 
@@ -322,7 +339,7 @@ func process_input(delta: float) -> bool:
 |---|---|
 | `delta` | 本帧时间增量（秒）。 |
 
-返回：应用了任意输入时返回 true。
+返回：本次已应用任意输入时返回 true，即使后续输入因禁用被取消。
 
 <a id="member-gfcameraorbitinput3d-methods-apply_orbit_vector"></a>
 

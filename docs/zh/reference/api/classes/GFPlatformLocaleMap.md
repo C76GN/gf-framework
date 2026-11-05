@@ -38,6 +38,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var entries: Array[Dictionary] = []
 ```
 
@@ -55,6 +56,7 @@ var entries: Array[Dictionary] = []
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var default_locale: String = ""
 ```
 

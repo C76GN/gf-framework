@@ -35,6 +35,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var data: Resource = null
 ```
 
@@ -47,6 +48,7 @@ var data: Resource = null
 - API：`public`
 
 ```gdscript
+@export
 var provider_property: StringName = &""
 ```
 
@@ -59,6 +61,7 @@ var provider_property: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var gather_method: StringName = &"to_dict"
 ```
 
@@ -71,6 +74,7 @@ var gather_method: StringName = &"to_dict"
 - API：`public`
 
 ```gdscript
+@export
 var apply_method: StringName = &"from_dict"
 ```
 
@@ -83,6 +87,7 @@ var apply_method: StringName = &"from_dict"
 - API：`public`
 
 ```gdscript
+@export
 var duplicate_payload: bool = true
 ```
 

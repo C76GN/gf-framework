@@ -66,6 +66,7 @@ enum Aggregation {
 - API：`public`
 
 ```gdscript
+@export
 var decision_id: StringName = &""
 ```
 
@@ -78,6 +79,7 @@ var decision_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -90,6 +92,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -102,6 +105,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var base_score: float = 1.0
 ```
 
@@ -114,6 +118,7 @@ var base_score: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var aggregation: Aggregation = Aggregation.MULTIPLY
 ```
 
@@ -126,6 +131,7 @@ var aggregation: Aggregation = Aggregation.MULTIPLY
 - API：`public`
 
 ```gdscript
+@export
 var considerations: Array[GFDecisionConsideration] = []
 ```
 
@@ -142,6 +148,7 @@ var considerations: Array[GFDecisionConsideration] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

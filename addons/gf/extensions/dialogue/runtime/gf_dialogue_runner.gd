@@ -465,7 +465,7 @@ func _advance_for_current_session(response_id: StringName) -> GFDialogueLine:
 	elif _current_line != null:
 		if _current_line.has_responses():
 			var session_lease: _DialogueSessionLease = _capture_session_lease()
-			var available_responses: Array[GFDialogueResponse] = session_lease._line.get_available_responses(session_lease._context)
+			var available_responses: Array[GFDialogueResponse] = get_available_responses()
 			if not _is_session_lease_current(session_lease):
 				return null
 			var reason: StringName = (&"response_required" if not available_responses.is_empty() else &"no_available_response")
@@ -490,6 +490,7 @@ func _advance_for_current_session(response_id: StringName) -> GFDialogueLine:
 func _advance_to_next_text() -> GFDialogueLine:
 	var steps: int = 0
 	var visited_line_ids: Dictionary = {}
+	var blocked_line_ids: Dictionary = {}
 	while _is_running:
 		var session_lease: _DialogueSessionLease = _capture_session_lease()
 		var line: GFDialogueLine = session_lease._resource.get_line(session_lease._line_id)
@@ -504,6 +505,14 @@ func _advance_to_next_text() -> GFDialogueLine:
 		if not _is_session_lease_current(session_lease):
 			return null
 		if not can_enter:
+			if blocked_line_ids.has(session_lease._line_id):
+				_end_session_after_block(
+					session_lease,
+					session_lease._line_id,
+					&"automatic_cycle_detected"
+				)
+				return null
+			blocked_line_ids[session_lease._line_id] = true
 			if not _try_begin_non_display_step(
 				steps,
 				session_lease,
@@ -963,7 +972,7 @@ func _get_resource_fingerprint(resource: GFDialogueResource, report_errors: bool
 			)
 		return ""
 	var identity_value: Variant = identity_report.get("value")
-	var encoded_identity_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(
+	var encoding_report: Dictionary = GFVariantJsonCodec.variant_to_json_compatible_result(
 		identity_value,
 		{
 			"encode_dictionary_keys": true,
@@ -973,7 +982,11 @@ func _get_resource_fingerprint(resource: GFDialogueResource, report_errors: bool
 			"max_collection_items": 0,
 		}
 	)
-	var canonical_identity: Variant = _canonicalize_identity_json(encoded_identity_value)
+	if not GFVariantData.get_option_bool(encoding_report, "ok"):
+		if report_errors:
+			push_error("[GFDialogueRunner][dialogue_runner.resource_identity_encoding_failed] Could not encode the complete resource identity.")
+		return ""
+	var canonical_identity: Variant = _canonicalize_identity_json(encoding_report.get("value"))
 	var encoded_identity: String = JSON.stringify(
 		canonical_identity,
 		"",

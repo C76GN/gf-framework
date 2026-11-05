@@ -327,6 +327,46 @@ func test_apply_dict_requires_every_state_identity_and_payload_field() -> void:
 		)
 
 
+func test_apply_dict_rejects_null_or_coerced_identity_and_resets_default() -> void:
+	for field_name: String in ["algorithm", "version"]:
+		var invalid_values: Array = [
+			null,
+			1,
+			true,
+		] if field_name == "algorithm" else [
+			null,
+			"1",
+			1.0,
+			true,
+		]
+		for invalid_value: Variant in invalid_values:
+			var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
+			var state_data: Dictionary = rng.to_dict()
+			state_data[field_name] = invalid_value
+			assert_false(rng.apply_dict(state_data))
+			assert_push_error("[GFDeterministicRandom][deterministic_random.state_format_unsupported] Unsupported state dictionary format.")
+			assert_eq(
+				rng.to_dict(),
+				GF_DETERMINISTIC_RANDOM.new().to_dict()
+			)
+
+
+func test_apply_dict_preserves_numeric_text_state_payload() -> void:
+	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.new()
+	var state_data: Dictionary = GF_DETERMINISTIC_RANDOM.from_seed(42).to_dict()
+	state_data["seed"] = "42"
+	state_data["state"] = &"42"
+	assert_true(rng.apply_dict(state_data))
+	assert_eq(
+		rng.get_state(),
+		42
+	)
+	assert_eq(
+		rng.get_initial_seed(),
+		42
+	)
+
+
 func test_apply_dict_rejects_zero_state() -> void:
 	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 

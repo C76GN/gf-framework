@@ -48,6 +48,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var plan_id: StringName = &""
 ```
 
@@ -61,6 +62,7 @@ var plan_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var group_id: StringName = &""
 ```
 
@@ -74,6 +76,7 @@ var group_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var entries: Array[Dictionary] = []
 ```
 
@@ -91,6 +94,7 @@ var entries: Array[Dictionary] = []
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var pin_cache: bool = true
 ```
 
@@ -104,6 +108,7 @@ var pin_cache: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var lane_id: StringName = &""
 ```
 
@@ -117,6 +122,7 @@ var lane_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_concurrent_loads: int = 0:
 ```
 
@@ -130,6 +136,7 @@ var max_concurrent_loads: int = 0:
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

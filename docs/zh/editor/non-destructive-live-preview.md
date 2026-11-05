@@ -21,6 +21,7 @@ GF 已有的属性补丁、显式资产槽位、缩略图渲染和编辑器命�
 不要连续改写上一帧的临时资源。每次参数变化都从稳定基准重新构建副本，这样撤回某个字段、重排补丁或丢弃过期请求不会累积隐式状态。
 
 ```gdscript
+# 每次从只读基准生成副本，不让连续调参累积到共享的原始资源。
 var build_report: Dictionary = patch.build(base_resource, {
 	"duplicate_base": true,
 	"require_existing_property": true,
@@ -37,6 +38,7 @@ if not candidate_value is Resource:
 	return
 var candidate: Resource = candidate_value
 
+# 槽位只发布本轮副本；异步渲染的旧结果仍需由调用方按 generation 拦截。
 if not preview_slot.is_configured():
 	var identity: GFResourceIdentity = GFResourceIdentity.new().configure(
 		&"project_tool/live_preview",
@@ -74,6 +76,7 @@ MeshLibrary 批量预览只为本次需要生成的条目构建计划；任一�
 需要 `_draw()`、粒子或脚本驱动外观时，由工具提供可信的预览专用节点，并显式选择 `TRUSTED_DYNAMIC`。四个 Node3D / CanvasItem 请求工厂和对应渲染入口都通过末尾的 `preview_mode` 参数选择模式；Mesh 和 MeshLibrary 请求固定使用静态模式。
 
 ```gdscript
+# 仅对工具提供的可信预览节点启用动态模式；它会执行脚本，不是沙箱。
 var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_canvas_item_image(
 	preview_node,
 	Vector2i(256, 256),

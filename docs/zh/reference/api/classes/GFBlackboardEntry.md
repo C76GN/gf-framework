@@ -82,6 +82,7 @@ enum ValueType {
 - API：`public`
 
 ```gdscript
+@export
 var key: StringName = &""
 ```
 
@@ -94,6 +95,7 @@ var key: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.ANY
 ```
 
@@ -106,6 +108,7 @@ var value_type: ValueType = ValueType.ANY
 - API：`public`
 
 ```gdscript
+@export
 var required: bool = false
 ```
 
@@ -118,6 +121,7 @@ var required: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var allow_null: bool = true
 ```
 
@@ -130,6 +134,7 @@ var allow_null: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -146,6 +151,7 @@ var default_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

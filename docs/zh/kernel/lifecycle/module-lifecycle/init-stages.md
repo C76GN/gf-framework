@@ -20,6 +20,7 @@
 ## 第一阶段：同步初始化
 
 ```gdscript
+## 建立本模块同步不变量，不在第一阶段启动跨模块运行时工作。
 func init() -> void:
 	# 只建立当前模块自己的同步状态。
 ```
@@ -29,6 +30,7 @@ func init() -> void:
 ## 第二阶段：异步准备
 
 ```gdscript
+## 分帧准备本模块资源；取消后停止等待，避免继续推进旧初始化。
 func async_init(scope: GFAsyncScope) -> void:
 	while not _local_preparation_finished:
 		if scope.is_cancel_requested():
@@ -43,6 +45,7 @@ func async_init(scope: GFAsyncScope) -> void:
 ## 第三阶段：装配完成
 
 ```gdscript
+## 缓存已完成第三阶段的声明依赖；此时整个架构还未开放运行时准入。
 func ready() -> void:
 	var value: Variant = get_utility(ProjectConfigUtility, true)
 	if value is ProjectConfigUtility:
@@ -54,6 +57,7 @@ func ready() -> void:
 ## 第四阶段：显式激活
 
 ```gdscript
+## 立即返回本轮激活完成源；仅成功终态有资格参与架构 READY 提交。
 func begin_activation(scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	var _bound: bool = completion.bind_cancel_token(scope)
@@ -89,15 +93,18 @@ if not result.is_successful():
 `dispose()` 则是 SceneTree 退出等无法等待场景的同步强制兜底：它会取消活动作用域并立即释放，也不会被 child 租约阻挡。调用方必须把这视为打破父子 outlive 契约的灾难收敛路径。强制释放、中断 activation 或无法进入正常 quiesce 时，类型化关闭结果会在清理前快照所有已经进入任一生命周期阶段的模块与未提交拓扑候选，并把它们记录到 `unfinished_modules`；它提供审计证据，但不承诺排空已接纳工作。
 
 ```gdscript
+## 先停止新工作，再让已接纳工作通过完成源报告真实终态。
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 	_close_runtime_admission()
 	return _drain_accepted_work(scope)
 
 
+## 同步释放本模块拥有的资源；此入口本身不保证异步工作已排空。
 func dispose() -> void:
 	_release_owned_runtime_state()
 
 
+## 撤销借用的外部模块引用；外部模块的释放由其架构所有者负责。
 func release_dependencies() -> void:
 	_cached_utility = null
 	super.release_dependencies()

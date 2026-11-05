@@ -42,6 +42,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var collection_id: StringName = &""
 ```
 
@@ -55,6 +56,7 @@ var collection_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var title: String = ""
 ```
 
@@ -68,6 +70,7 @@ var title: String = ""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -81,6 +84,7 @@ var description: String = ""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var asset_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -94,6 +98,7 @@ var asset_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

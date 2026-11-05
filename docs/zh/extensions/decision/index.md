@@ -67,6 +67,8 @@ Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎�
 
 默认主动快照最多 `DEFAULT_MAX_SNAPSHOT_ENTRIES` 条，反射捕获最多 `DEFAULT_MAX_REFLECTION_PROPERTIES` 条；构造 `GFDecisionContext` 时可通过第五个 `capture_options` 参数收紧预算。命中、miss 与正在执行的每个不同懒 key 都会先占用同一帧账本；miss 被负缓存，重复读取使用本次调用的 fallback 而不再执行 provider，不同 key 到达预算后也停止调用。重新绑定 subject/target 会原子清空对应账本。`get_debug_snapshot().capture_diagnostics` 以 `captured_count`、`attempted_count`、`limit` 和 `truncated` 区分成功捕获与已消费尝试。
 
+反射属性 getter 若同步释放被捕获的节点，本次捕获返回空快照，不再访问它的后续属性；已释放节点也不会继续作为主体或目标返回。
+
 调试快照的 `subject_values`、`target_values` 与 `capture_diagnostics` 保持可直接按字符串键遍历的固定 JSON object 外壳，叶值再由 `GFReportValueCodec` 编码；遇到非字符串键、键规范化冲突、循环集合或报告预算超限时会失败闭合为保真 marker。进程内黑板、上下文、评分与评价副本改用循环安全 Variant 复制，不会因项目 metadata 自引用而递归失败。
 
 subject/target 顶层句柄是 `WeakRef`，但 `subject_values`、`target_values` 和 metadata 是公开的项目 Variant 图，其中的 Object/Resource 身份仍保持共享。provider 返回 `self`、把 `self` 放入嵌套集合，或调用方直接写入当前对象时，快照会形成强引用；因此当前保证是“顶层句柄弱引用”，不是任意可达对象图的深度弱所有权。需要严格释放时不要在值图中放入 subject/target；是否改为 data-only、自动 WeakRef 或显式强引用模式属于待定产品合同。

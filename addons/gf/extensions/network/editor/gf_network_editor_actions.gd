@@ -201,6 +201,16 @@ func _generate_contract_accessors() -> void:
 
 	var generator: GFNetworkContractGenerator = _GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
 	var report: Dictionary = generator.generate_many(contract_paths, output_dir)
+	_show_diagnostic_dialog(
+		"GF Network Contracts",
+		_format_generation_report(report, output_dir)
+	)
+
+
+## 展示生成来源、字段问题和每项实际写入事实，保留提交后失败的区别。
+## [br]
+## @api private
+func _format_generation_report(report: Dictionary, output_dir: String) -> String:
 	var artifact_summary: Dictionary = GFVariantData.get_option_dictionary(report, "artifact_summary")
 	var lines: PackedStringArray = PackedStringArray()
 	var _append_result_88: Variant = lines.append("Output: %s" % output_dir)
@@ -213,30 +223,39 @@ func _generate_contract_accessors() -> void:
 			continue
 		var item: Dictionary = GFVariantData.as_dictionary(item_variant)
 		var _append_result_98: Variant = lines.append(
-			"- %s -> %s (%s, %s)"
+			"- %s -> %s (%s, %s, written=%s, changed=%s)"
 			% [
 				GFVariantData.get_option_string(item, "contract_path"),
 				GFVariantData.get_option_string(item, "output_path"),
 				GFVariantData.get_option_string(item, "status"),
 				GFVariantData.get_option_string(item, "error_name"),
+				str(GFVariantData.get_option_bool(item, "written")),
+				str(GFVariantData.get_option_bool(item, "changed")),
 			]
 		)
 	for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):
 		if not (issue_variant is Dictionary):
 			continue
 		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
+		var resource_path: String = GFVariantData.get_option_string(issue, "resource_path")
+		var location: String = GFVariantData.get_option_string(issue, "path")
+		if not resource_path.is_empty() and resource_path != location:
+			location = resource_path if location.is_empty() else (
+				"%s :: %s"
+				% [resource_path, location]
+			)
 		var _append_result_108: Variant = lines.append(
 			"! %s %s: %s"
 			% [
 				GFVariantData.get_option_string(issue, "kind"),
-				GFVariantData.get_option_string(issue, "path"),
+				location,
 				GFVariantData.get_option_string(issue, "message"),
 			]
 		)
-	_show_diagnostic_dialog(
-		"GF Network Contracts",
-		"\n".join(lines)
-	)
+	var next_action: String = GFVariantData.get_option_string(report, "next_action")
+	if not next_action.is_empty():
+		var _action_appended: bool = lines.append("Next: %s" % next_action)
+	return "\n".join(lines)
 
 
 ## 审计项目设置的契约路径并将审计结果显示在诊断窗口。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="92d1f9c8565cebe36f7bbb8c8c9e37aa5edddaa6bebab11f92f1770d3494f5bd">
+<class name="GFContentPackageExportPlan" path="addons/gf/extensions/content_package/runtime/gf_content_package_export_plan.gd" module="extensions/content_package" extends="RefCounted" classDigest="3d04546b04ab34d580fcf662dbd265e1c0b6978f8bd54717807b18ceb15f6145">
 	<description>GFContentPackageExportPlan: 内容包导出计划。
 从 GFContentPackageManifest 或 GFContentPackageCatalog 构建可审计的资源条目列表，
 供编辑器工具、构建脚本或项目安装器决定后续打包方式。本类只生成计划和诊断，不写 zip、不改 remap、
@@ -39,10 +39,11 @@
 		</member>
 		<member kind="property" name="entries">
 			<signature>var entries: Array[Dictionary] = []</signature>
-			<description>导出条目列表。</description>
+			<description>可直接编辑的导出条目列表；修改后应重新获取校验报告。
+报告规范化自己的集合副本，不回写本列表，也不冻结条目中的 Object 或 Resource。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">entries: Array[Dictionary]，每项包含 source_path、archive_path、role、resource_key、package_id、type_hint 和 metadata。</tag>
+				<tag name="schema">entries: Array[Dictionary]，source_path 与 archive_path 为必需文本（String 或 StringName）；role、resource_key、package_id、type_hint 为可选文本，metadata 为可选 Dictionary。缺省值沿用 add_entry()，未知项目字段保留。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -76,7 +77,8 @@
 		</member>
 		<member kind="method" name="add_entry">
 			<signature>func add_entry( source_path: String, archive_path: String = "", role: StringName = &amp;"resource", entry_metadata: Dictionary = {} ) -&gt; bool:</signature>
-			<description>添加导出条目。</description>
+			<description>添加导出条目，并按与最终复验相同的规则检查归档路径和规范化后的重复项。
+源路径只作非空文本规范化，不在此声明 scheme、包根、文件存在性或读取权限。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source_path: 源资源路径。</tag>
@@ -114,11 +116,13 @@
 		</member>
 		<member kind="method" name="get_validation_report">
 			<signature>func get_validation_report() -&gt; Dictionary:</signature>
-			<description>获取导出计划诊断报告。</description>
+			<description>捕获一次条目集合副本，规范化并完整复验该副本，返回同一份条目投影与诊断。
+当前条目错误仅写入本次报告；构建、失败添加和调用方保留的历史 issues 仍会合并。
+集合副本不改变公开 entries；Object/Resource 仍保持身份，不承诺线程或文件系统快照。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
-				<tag name="schema">return: Dictionary with ok, healthy, entries, entry_count, issues, summary, and next_action.</tag>
+				<tag name="schema">return: Dictionary with ok, healthy, entries (normalized collection snapshot), entry_count, issues, summary, and next_action. Current entry issues include row_index and field; missing optional fields use add_entry() defaults.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

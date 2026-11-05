@@ -75,6 +75,7 @@ signal bank_unmounted(bank_id: StringName)
 - API：`public`
 
 ```gdscript
+@export
 var bank_id: StringName = &""
 ```
 
@@ -87,6 +88,7 @@ var bank_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var bank: GFAudioBank = null
 ```
 
@@ -99,6 +101,7 @@ var bank: GFAudioBank = null
 - API：`public`
 
 ```gdscript
+@export
 var mount_on_ready: bool = true
 ```
 
@@ -111,6 +114,7 @@ ready 后是否自动挂载。
 - API：`public`
 
 ```gdscript
+@export
 var unmount_on_exit: bool = true
 ```
 
@@ -123,6 +127,7 @@ var unmount_on_exit: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var restore_previous_bank: bool = true
 ```
 

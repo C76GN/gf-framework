@@ -32,6 +32,8 @@ var bank := GFAudioBankTools.create_bank_from_paths(paths, {
 
 需要从已有音频文件或 `AudioStream` 提取常见标题、艺人、专辑、时长和 ID3v2 文本帧时，可先用 `GFAudioMetadataTools` 生成纯字典报告，再把结果写入 `metadata_by_path` 或项目自己的导表数据。该工具只做规范化与摘要，不接管导入器、封面资源生成或播放策略。
 
+TXXX、COMM 与 APIC 的 UTF-16 描述按两字节字符单元定位终止符，支持带 BOM 的大小端描述。描述后的正文和封面大小从完整终止符之后计算，不把字符中的零字节误认作边界。
+
 ```gdscript
 var report := GFAudioMetadataTools.read_path_metadata("res://audio/ui/click.mp3")
 var metadata := GFVariantData.get_option_dictionary(report, "metadata")

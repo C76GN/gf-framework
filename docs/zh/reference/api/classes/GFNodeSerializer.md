@@ -42,6 +42,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var serializer_id: StringName = &""
 ```
 
@@ -55,6 +56,7 @@ var serializer_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -68,6 +70,7 @@ var display_name: String = ""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var supported_class_name: String = ""
 ```
 

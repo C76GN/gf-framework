@@ -114,8 +114,10 @@ Projectile 不再继承 impact source。命中 payload、sender 分发、阵营�
 手写或反序列化的 Catalog 可以暂时包含 null definition 或重复 ID。查找、`has_definition()`、ID 枚举和 Emitter 解析都会跳过无效条目并采用同 ID 的首个有效 Definition；`prune_invalid_entries()` 保留同一首个有效条目，`set_definition()` 规范为一条，`remove_definition()` 则移除该 ID 的全部条目。
 
 ```gdscript
+## 借用场景中的发射器；Emitter 独占本次发射的实例回收责任。
 @onready var emitter: GFProjectileEmitter2D = $ProjectileEmitter2D
 
+## 提交一次五连发并读取整体结果；承载此协程的节点应活到等待结束。
 func fire(target: Node2D) -> void:
     var launch_input := GFProjectileLaunchInput2D.new()
     launch_input.set_target_node(target)
@@ -132,6 +134,7 @@ func fire(target: Node2D) -> void:
     if not result.is_successful():
         push_warning("发射失败：%s / %s" % [result.get_stage(), result.get_reason()])
         return
+    # 这里只观察结果；通知回调可能已结束 Session，不能据成功结果延长 root 的生命期。
     for session: GFProjectileSession in result.get_sessions():
         print(session.get_instance_root())
 ```

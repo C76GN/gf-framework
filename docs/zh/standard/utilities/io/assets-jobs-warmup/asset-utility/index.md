@@ -16,7 +16,7 @@
 
 ## 资源状态快照
 
-`GFResourceLoadState` 不发起加载请求，也不替代 `GFAssetHandle`。它只是一个可复制的状态对象，适合把“请求中、加载中、已加载、失败、释放、过期”这些状态交给 UI、诊断面板或项目侧资源队列：
+`GFResourceLoadState` 不发起加载请求，也不替代 `GFAssetHandle`。它只是一个可复制的状态对象，适合把“请求中、加载中、已加载、失败、释放、过期”这些状态交给 UI、诊断面板或项目侧资源队列。`duplicate_state()` 保留状态、进度、错误与引用模式；即使仍持有旧资源，也不会把失败、过期或加载中的副本改成加载成功：
 
 ```gdscript
 var state := GFResourceLoadState.new()

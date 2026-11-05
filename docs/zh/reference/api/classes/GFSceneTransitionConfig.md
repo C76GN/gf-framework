@@ -36,6 +36,7 @@
 - API：`public`
 
 ```gdscript
+@export_file("*.tscn", "*.scn")
 var target_scene_path: String = ""
 ```
 
@@ -48,6 +49,7 @@ var target_scene_path: String = ""
 - API：`public`
 
 ```gdscript
+@export_file("*.tscn", "*.scn")
 var loading_scene_path: String = ""
 ```
 
@@ -60,6 +62,7 @@ var loading_scene_path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var preload_before_change: bool = false
 ```
 
@@ -72,6 +75,7 @@ var preload_before_change: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var preload_as_fixed_cache: bool = false
 ```
 
@@ -84,6 +88,7 @@ preload_before_change 为 true 时，是否把预加载结果写入固定缓存�
 - API：`public`
 
 ```gdscript
+@export
 var cache_loaded_scene: bool = true
 ```
 
@@ -96,6 +101,7 @@ var cache_loaded_scene: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var params: Dictionary = {}
 ```
 
@@ -112,6 +118,7 @@ var params: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 30.0, 0.01, "or_greater")
 var minimum_duration_seconds: float = 0.0
 ```
 
@@ -124,6 +131,7 @@ loading scene 最短保留秒数；为 0 时不额外等待。
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

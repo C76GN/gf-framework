@@ -199,6 +199,7 @@ const INTERNAL_GROUP_NAME: StringName = &"_internal"
 - API：`public`
 
 ```gdscript
+@export
 var config: GFNodeStateMachineConfig = null:
 ```
 
@@ -211,6 +212,7 @@ var config: GFNodeStateMachineConfig = null:
 - API：`public`
 
 ```gdscript
+@export
 var initial_state: StringName = &"":
 ```
 
@@ -223,6 +225,7 @@ var initial_state: StringName = &"":
 - API：`public`
 
 ```gdscript
+@export
 var initial_args: Dictionary = {}
 ```
 
@@ -239,6 +242,7 @@ var initial_args: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var reload_on_ready: bool = true
 ```
 
@@ -251,6 +255,7 @@ ready 时是否自动从子节点加载状态与状态组。
 - API：`public`
 
 ```gdscript
+@export
 var start_mode: StartMode = StartMode.AFTER_HOST_READY:
 ```
 
@@ -263,6 +268,7 @@ var start_mode: StartMode = StartMode.AFTER_HOST_READY:
 - API：`public`
 
 ```gdscript
+@export
 var preserve_current_state_on_reload: bool = true
 ```
 

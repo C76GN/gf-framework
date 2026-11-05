@@ -21,6 +21,7 @@ config.title = "Confirm"
 config.message = "Continue?"
 config.actions = [action]
 
+# 项目面板须实现 configure/resolved，并保证 resolved 时本面板仍是该层栈顶。
 var panel := ui_util.push_panel_with_options("res://ui/confirm_modal.tscn", GFUIUtility.Layer.POPUP, {
 	"mode": GFUIUtility.PanelMode.MODAL,
 	"dismiss_on_cancel": config.dismiss_on_cancel,
@@ -29,6 +30,7 @@ var panel := ui_util.push_panel_with_options("res://ui/confirm_modal.tscn", GFUI
 	"metadata": config.metadata,
 }, func(instance: Node) -> void:
 	instance.call("configure", config, { "source": "settings" })
+	# 只观察一次结果；关闭策略仍由项目决定，Modal 标记不替代这段业务处理。
 	var on_resolved := func(result: GFModalResult) -> void:
 		ui_util.pop_panel(GFUIUtility.Layer.POPUP)
 		if result.status == GFModalResult.STATUS_CONFIRMED:

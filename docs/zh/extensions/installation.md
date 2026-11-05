@@ -66,7 +66,7 @@ Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExten
 
 扩展 manifest 的 `dependencies` 只描述启用当前扩展必须同时启用的基础能力。GF 内置扩展保持原子化，只声明 `gf.kernel` 与 `gf.standard`；跨扩展项目流程应放在项目 Installer 或 `addons/gf` 外的独立插件中。
 
-Domain、Combat 这类业务型内置扩展按外置候选治理：随 GF 包分发时必须默认关闭、只依赖基础层，并通过 manifest `tags` 标记 `externalization-candidate`。它们不升级为默认基础能力；需要 RPG、ARPG、卡牌或关卡流程组合时，用项目 preset、项目 Installer 或 `addons/gf` 外的独立插件显式启用。
+Domain、Combat 随完整 GF 包分发，默认关闭，只依赖 kernel/standard 基础层。项目需要背包、战斗或关卡流程等能力时，按实际需求显式启用，并用项目 preset、项目 Installer 或 `addons/gf` 外的独立插件组织组合。manifest 的 `tags` 用于描述能力，不代表未来发行或迁移承诺。
 
 ## 启用状态解析
 

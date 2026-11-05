@@ -18,12 +18,15 @@ Provider 必须拥有稳定 `section_id` 和正数 `schema_version`。保存入�
 provider 和此前已尝试 provider 按逆序恢复到应用前快照。
 
 ```gdscript
+## 将项目进度接入一个存档 section；保存 Snapshot 与读取回滚快照分别实现。
 class_name ProjectProgressSectionProvider
 extends GFSaveSectionProvider
 
+## 借用的项目状态根；Provider 不接管其生命周期，使用前须配置。
 var progress: ProjectProgress
 
 
+## 为固定小型载荷创建完成态 Snapshot；大型数据须用协作分片 Operation。
 func _begin_save_snapshot(
 	_context: Dictionary = {}
 ) -> GFSaveSectionSnapshotOperation:
@@ -32,15 +35,18 @@ func _begin_save_snapshot(
 	# 仅适用于固定且很小的载荷。大型载荷必须返回自定义 Operation，
 	# 在 _advance_snapshot(step_budget) 中分片构造。
 	var owned_payload: Dictionary = progress.to_small_dict()
+	# 成功移交后不得再读写 payload 或任何嵌套集合别名。
 	return make_completed_snapshot(owned_payload)
 
 
+## 在读取事务应用前捕获回滚状态，不能用保存 Operation 替代此同步入口。
 func _capture_section(_context: Dictionary = {}) -> GFSaveSection:
 	if progress == null:
 		return null
 	return make_section(progress.to_dict())
 
 
+## 同步应用项目进度；默认回滚也调用此入口，不能放入不可撤销的外部副作用。
 func _apply_section(section: GFSaveSection, _context: Dictionary = {}) -> Error:
 	if progress == null:
 		return ERR_UNCONFIGURED
@@ -181,6 +187,7 @@ save_profiles.save_preparation_work_budget_per_tick = 64
 save_profiles.save_preparation_slice_budget = 8
 save_profiles.save_preparation_time_budget_usec = 2000
 
+# 等待 Operation 终态；outcome_unknown 不能按“磁盘未写入”处理。
 var result: GFSaveProfileResult = await operation.wait_result_async()
 if not result.is_successful():
 	push_warning(result.get_error())
@@ -219,6 +226,11 @@ result metadata，不保留 document metadata 或 Provider context。
 Profile 层使用 `GFStorageAsyncOperation` 的 request ID 观察自己的底层请求，不依赖
 “文件名相同”的全局完成信号。因此其他调用方同时读写同一文件也不会完成错误句柄。
 完成信号只在状态机恢复稳定状态后发出，回调可以安全查询快照或释放 Utility。
+
+普通和受管读取都会在进入文档应用及每次 Provider 回调后检查释放状态。在 `APPLYING`
+通知、恢复快照捕获或 Provider 应用回调中调用 `dispose()`，会取消尚未执行的应用，
+已应用的 section 按逆序恢复；恢复失败仍会明确报告。`begin_quiesce()` 则保留已接纳操作的
+收敛过程，不等同于强制释放。
 
 ## 恢复政策
 

@@ -3,10 +3,12 @@
 资源化公式适合把可替换的计算策略从 System、Command 或配置驱动流程中抽离出来。GF 只提供抽象容器，不规定伤害、命中、价格、评分等具体语义。
 
 ```gdscript
+## 项目评分公式；只读取传入参数，不持有模型或场景节点。
 class_name ScoreFormula
 extends GFFormula
 
 
+## 计算基础分乘倍率；缺少参数对象时沿用公式资源的 fallback_value。
 func calculate(parameter: GFFormulaParameter = null) -> Variant:
 	if parameter == null:
 		return fallback_value

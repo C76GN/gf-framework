@@ -18,3 +18,5 @@ notifications.push_notification("配置已保存", "设置", GFNotificationUtili
 `pause_active()` / `resume_active()` 可暂停当前通知的时长推进，`invoke_active_action(action_id)` 会广播 `notification_action_invoked`，并在 action 配置 `dismiss = true` 时关闭当前通知。
 
 通知系统只维护数据、优先级、暂停和动作意图；按钮样式、焦点、快捷键、Toast 动画和多端适配仍由项目 UI 层决定。
+
+`clear_notifications()` 和 `dispose()` 都会在通知完成回调前撤下当前通知；回调再次调用 `dismiss_active()` 不会为同一个通知 ID 重复发布 `notification_finished`。

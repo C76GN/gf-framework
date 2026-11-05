@@ -5,6 +5,7 @@
 ## 路径与范围
 
 ```gdscript
+# 项目回调只查询通行性与代价，不在搜索中修改地图或单位状态。
 var path := GFHexGridMath.find_path_a_star(
 	Vector2i(32, 32),
 	unit_cell,
@@ -49,6 +50,7 @@ var search := GFHexGridMath.begin_path_a_star_search(
 )
 
 var report := {}
+# 此处同步推进至结束；跨帧使用时应由宿主每帧推进一次，而非连续循环。
 while not report.get("finished", false):
 	report = GFGraphMath.advance_path_search(search, 48)
 ```

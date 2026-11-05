@@ -39,6 +39,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var item_id: StringName = &""
 ```
 
@@ -51,6 +52,7 @@ var item_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var amount: int:
 ```
 
@@ -63,6 +65,7 @@ var amount: int:
 - API：`public`
 
 ```gdscript
+@export
 var instance_data: Dictionary = {}
 ```
 

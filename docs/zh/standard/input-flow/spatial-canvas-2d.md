@@ -124,6 +124,7 @@ canvas.set_selected_item_outlines_visible(false)
 放置会话保存稳定类型 ID、局部边界、世界位置、旋转和吸附选项。项目可以提供同步校验器与历史 Hook；只有校验和历史 Hook 都接受后，`commit_placement()` 才返回成功并结束会话。
 
 ```gdscript
+# 校验与历史 Hook 均同步执行；项目负责最终模型提交和副作用补偿。
 canvas.set_placement_validator(
 	func(candidate: Dictionary) -> Dictionary:
 		return project_occupancy.validate_candidate(candidate)

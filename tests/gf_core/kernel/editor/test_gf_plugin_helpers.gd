@@ -4,6 +4,7 @@ extends GutTest
 # --- 常量 ---
 
 const GF_PLUGIN_SCRIPT = preload("res://addons/gf/plugin.gd")
+const GF_PLUGIN_APPLY_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_apply_report.gd")
 const GF_PLUGIN_ACTIONS = preload("res://addons/gf/kernel/editor/gf_plugin_actions.gd")
 const GF_PLUGIN_AUTOLOAD = preload("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
 const GF_PLUGIN_DEBUGGER_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_debugger_tools.gd")
@@ -1263,6 +1264,7 @@ func test_builtin_tool_contribution_catalog_keeps_absent_manifest_silent() -> vo
 
 	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(catalog_path)
 	var manifest_reports: Array = GF_VARIANT_ACCESS.get_option_array(report, "manifest_reports")
+	assert_true(GF_PLUGIN_APPLY_REPORT_SCRIPT.collect_discovery_issues([report]).is_empty())
 	_remove_path_if_exists(catalog_path)
 
 	assert_true(
@@ -1412,6 +1414,19 @@ func test_builtin_tool_contribution_catalog_rejects_present_manifest_package_mis
 	)
 
 	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(catalog_path)
+	var apply_report: GF_PLUGIN_APPLY_REPORT_SCRIPT = GF_PLUGIN_APPLY_REPORT_SCRIPT.new()
+	var issues: Array[String] = GF_PLUGIN_APPLY_REPORT_SCRIPT.collect_discovery_issues([report])
+	apply_report.request(1, {})
+	apply_report.complete(
+		1,
+		{},
+		issues
+	)
+	var application: Dictionary = apply_report.get_report({})
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(application, "status"),
+		"partial"
+	)
 	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
 	_remove_path_if_exists(catalog_path)
 	_remove_path_if_exists(manifest_path)

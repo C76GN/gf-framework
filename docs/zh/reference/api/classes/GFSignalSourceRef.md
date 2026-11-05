@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var source_path: NodePath = NodePath("")
 ```
 
@@ -45,6 +46,7 @@ var source_path: NodePath = NodePath("")
 - API：`public`
 
 ```gdscript
+@export
 var signal_name: StringName = &""
 ```
 
@@ -57,6 +59,7 @@ var signal_name: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

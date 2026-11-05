@@ -10,6 +10,18 @@
 
 同一 Binding 或 Mapping 上的 modifier 严格按资源数组顺序执行，非交换变换不会被重排。运行时会为每个 binding/mapping 复制 modifier；虚拟光标等有状态 modifier 即使复用同一配置 Resource，也不会在两个动作之间共享 position/ticks。`GFInputDeadzoneModifier` 允许 lower 与 upper 相等并把它解释为硬阈值：低于共同阈值输出 0，达到或超过阈值时在 rescale 模式输出满幅。
 
+**动作查询读取最近一次提交的样本。** `get_action_value()` 返回动作声明类型的值，`get_action_vector()` 和 `get_action_vector3()` 读取同一次计算保留的向量。全局动作和各玩家分别保存样本，角色、相机及调试界面可在两次更新之间重复读取。
+
+Binding 修饰器在匹配物理事件时处理该事件的数值贡献，可以读取原始 `InputEvent`。Mapping 修饰器作用于聚合后的贡献，收到的 event 是 `null`。Mapping 链全部无状态时，物理事件或虚拟输入写入会立即提交动作值，读者能在同一次输入分发中看到变化。
+
+若链中有任一修饰器的 `supports_runtime_state()` 返回 `true`，整个 Mapping 链按数组顺序在 `GFInputMappingUtility.tick(delta)` 中推进。第一次输入到下一次 tick 之间，读者看到该动作的默认值。后续写入只更新本步待处理的贡献，下一步使用最新贡献并提交样本。输入持续按住时，每步仍继续使用它。全局聚合与每位参与玩家拥有各自的运行链。清理玩家会重置该玩家的积分位置。
+
+每步先收集所有已参与动作及玩家的输入，再运行修饰器并分发动作信号。一个动作的监听者可以立即写入另一动作的新输入，已经收集的本步样本和它对应的开始、完成通知照常交付，新贡献由下一步读取。若回调清空输入、移除设备或重建上下文，已经失效的运行链会停止。
+
+注册到架构的 Mapping 由普通 tick 驱动。物理循环中的消费者可以读最近的样本。需要物理步或录制步严格控制时间的项目，可独立持有 Mapping，在自己的唯一驱动点每步调用一次 `tick(delta)`。同一 Mapping 若同时由两个时钟驱动，会按两次调用推进。Mapping 调用链前会给运行副本设置本步 delta。独立使用 `GFInputVirtualCursorModifier` 时，仍可直接调用 `modify()` 并选择手动或系统时间。
+
+**迁移自定义修饰器。** 基类的 `supports_runtime_state()` 默认返回 `false`。原来利用向量 getter 的调用次数移动光标或执行回调的项目，应让有状态修饰器声明运行状态、提供独立的 `duplicate_modifier()` 副本，并在需要时通过 `set_runtime_delta_seconds()` 接收步长。使用输入信号或采样后的项目逻辑触发副作用。若需要持续积分与多玩家独立位置，应把修饰器挂到 Mapping 上。
+
 简单序列可继续使用 `GFInputSequenceTrigger.required_action_ids`。需要多条可替代路径、单步最大间隔、按住时间或释放完成条件时，使用 `GFInputSequenceBranch` 和 `GFInputSequenceStep` 描述资源化序列：
 
 ```gdscript

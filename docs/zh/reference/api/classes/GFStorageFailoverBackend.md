@@ -268,7 +268,7 @@ func _save_data( file_name: String, data: Dictionary, metadata: Dictionary ) -> 
 func _load_data(file_name: String) -> Dictionary:
 ```
 
-按顺序读取首个成功结果。
+按顺序读取首个成功结果。全部失败时保留最后一个非 missing 错误；未读后端也不能作为逻辑记录不存在的证据。
 
 参数：
 

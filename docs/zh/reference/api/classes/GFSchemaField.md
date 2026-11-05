@@ -93,6 +93,7 @@ enum ValueType {
 - API：`public`
 
 ```gdscript
+@export
 var field_name: StringName = &""
 ```
 
@@ -105,6 +106,7 @@ var field_name: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.ANY
 ```
 
@@ -117,6 +119,7 @@ var value_type: ValueType = ValueType.ANY
 - API：`public`
 
 ```gdscript
+@export
 var required: bool = false
 ```
 
@@ -129,6 +132,7 @@ var required: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var allow_null: bool = true
 ```
 
@@ -142,6 +146,7 @@ var allow_null: bool = true
 - 首次版本：`4.4.0`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -158,6 +163,7 @@ var default_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var dictionary_schema: GFDictionarySchema = null
 ```
 
@@ -170,6 +176,7 @@ var dictionary_schema: GFDictionarySchema = null
 - API：`public`
 
 ```gdscript
+@export
 var array_item_schema: GFSchemaField = null
 ```
 
@@ -182,6 +189,7 @@ var array_item_schema: GFSchemaField = null
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -199,6 +207,7 @@ var metadata: Dictionary = {}
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var validation_rules: Array[GFValidationRule] = []
 ```
 

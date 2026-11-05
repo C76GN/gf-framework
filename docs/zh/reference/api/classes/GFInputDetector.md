@@ -148,6 +148,7 @@ enum DetectionState {
 - API：`public`
 
 ```gdscript
+@export
 var ignore_echo: bool = true
 ```
 
@@ -160,6 +161,7 @@ var ignore_echo: bool = true
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.01)
 var minimum_axis_amplitude: float = 0.25
 ```
 
@@ -172,6 +174,7 @@ var minimum_axis_amplitude: float = 0.25
 - API：`public`
 
 ```gdscript
+@export
 var countdown_seconds: float = 0.0
 ```
 
@@ -185,6 +188,7 @@ var countdown_seconds: float = 0.0
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var timeout_seconds: float = 0.0
 ```
 
@@ -197,6 +201,7 @@ var timeout_seconds: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var abort_events: Array[InputEvent] = []
 ```
 
@@ -213,6 +218,7 @@ var abort_events: Array[InputEvent] = []
 - API：`public`
 
 ```gdscript
+@export
 var wait_for_clear_before_detection: bool = true
 ```
 
@@ -225,6 +231,7 @@ var wait_for_clear_before_detection: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var wait_for_clear_after_detection: bool = false
 ```
 

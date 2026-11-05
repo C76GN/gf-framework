@@ -53,6 +53,10 @@ GF 内置扩展保持原子化：只依赖 GF 的 kernel/standard 表面，不�
 
 ## 快速开始
 
+第一个完整任务可按[计数、保存、读回与退出](docs/zh/overview/quickstart/counter-save-exit.md)操作，使用原生控件和局部状态。需要独立状态或共享规则时，再添加 Model/System；其生命周期和装配见[最小启动与 Installer](docs/zh/overview/quickstart/minimal-installer.md)。
+
+下面的注册示例假设项目已定义 `PlayerModel` 和 `BattleSystem`；它们是项目类型示例，并非 GF 内置类。
+
 ```gdscript
 extends Node
 

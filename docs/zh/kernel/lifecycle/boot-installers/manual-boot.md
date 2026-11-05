@@ -3,7 +3,8 @@
 在游戏启动之初，通常在根节点的首个场景或 AutoLoad 执行，项目可以手动向 `GFArchitecture` 注册模块。按 Model、Utility、System 分组能提高可读性，但真正的生命周期顺序来自模块声明依赖 DAG，不由注册顺序隐式表达。
 
 ```gdscript
-# boot.gd
+# boot.gd：用于项目根场景或 AutoLoad，在进入业务场景前完成全局启动。
+## 注册固定模块，并以四阶段初始化的成功结果作为切换场景的前提。
 func _ready():
 	# 1. 注册核心数据
 	await Gf.register_model(PlayerModel.new())

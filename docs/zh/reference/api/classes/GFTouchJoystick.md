@@ -136,6 +136,8 @@ enum OutputMode {
 - API：`public`
 
 ```gdscript
+@export_group("Shape")
+@export
 var radius: float = 64.0:
 ```
 
@@ -148,6 +150,7 @@ var radius: float = 64.0:
 - API：`public`
 
 ```gdscript
+@export_range(2.0, 8.0, 0.1)
 var knob_radius_ratio: float = 3.0:
 ```
 
@@ -161,6 +164,7 @@ var knob_radius_ratio: float = 3.0:
 - 首次版本：`1.15.0`
 
 ```gdscript
+@export
 var color: Color = Color(
 	1.0,
 	1.0,
@@ -178,6 +182,7 @@ var color: Color = Color(
 - API：`public`
 
 ```gdscript
+@export
 var draw_interaction_zone: bool = false:
 ```
 
@@ -190,6 +195,8 @@ var draw_interaction_zone: bool = false:
 - API：`public`
 
 ```gdscript
+@export_group("Input")
+@export_range(0.0, 0.95, 0.01)
 var deadzone: float = 0.1
 ```
 
@@ -203,6 +210,7 @@ var deadzone: float = 0.1
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var output_mode: OutputMode = OutputMode.ANALOG
 ```
 
@@ -215,6 +223,7 @@ var output_mode: OutputMode = OutputMode.ANALOG
 - API：`public`
 
 ```gdscript
+@export
 var position_mode: PositionMode = PositionMode.FIXED:
 ```
 
@@ -227,6 +236,7 @@ var position_mode: PositionMode = PositionMode.FIXED:
 - API：`public`
 
 ```gdscript
+@export
 var interaction_radius: float = 160.0:
 ```
 
@@ -240,6 +250,7 @@ var interaction_radius: float = 160.0:
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var use_active_region: bool = false
 ```
 
@@ -253,6 +264,7 @@ var use_active_region: bool = false
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var active_region: Rect2 = Rect2()
 ```
 
@@ -266,6 +278,7 @@ var active_region: Rect2 = Rect2()
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var release_outside_active_region: bool = true
 ```
 
@@ -278,6 +291,7 @@ var release_outside_active_region: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var action_left: StringName = &""
 ```
 
@@ -290,6 +304,7 @@ var action_left: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var action_right: StringName = &""
 ```
 
@@ -302,6 +317,7 @@ var action_right: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var action_up: StringName = &""
 ```
 
@@ -314,6 +330,7 @@ var action_up: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var action_down: StringName = &""
 ```
 
@@ -326,6 +343,8 @@ var action_down: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_group("Joypad Event")
+@export
 var emit_joypad_motion: bool = false
 ```
 
@@ -338,6 +357,7 @@ var emit_joypad_motion: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var joypad_device_id: int = -2
 ```
 
@@ -350,6 +370,7 @@ var joypad_device_id: int = -2
 - API：`public`
 
 ```gdscript
+@export
 var joy_axis_x: JoyAxis = JOY_AXIS_LEFT_X
 ```
 
@@ -362,6 +383,7 @@ X 轴对应的手柄轴。
 - API：`public`
 
 ```gdscript
+@export
 var joy_axis_y: JoyAxis = JOY_AXIS_LEFT_Y
 ```
 

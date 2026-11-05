@@ -165,6 +165,7 @@ signal maximum_reached(current_value: float)
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var min_value: float:
 ```
 
@@ -178,6 +179,7 @@ var min_value: float:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var max_value: float:
 ```
 
@@ -191,6 +193,7 @@ var max_value: float:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var current_value: float:
 ```
 
@@ -203,6 +206,7 @@ var current_value: float:
 - API：`public`
 
 ```gdscript
+@export
 var accepted_action_kinds: Array[StringName] = []
 ```
 
@@ -215,6 +219,7 @@ var accepted_action_kinds: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var rejected_action_kinds: Array[StringName] = []
 ```
 
@@ -227,6 +232,7 @@ var rejected_action_kinds: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var modifiers: Array[GFCombatActionModifier] = []
 ```
 
@@ -239,6 +245,7 @@ var modifiers: Array[GFCombatActionModifier] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

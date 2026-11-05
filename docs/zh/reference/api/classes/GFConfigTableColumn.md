@@ -80,6 +80,7 @@ enum ValueType {
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var field_name: StringName = &""
 ```
 
@@ -93,6 +94,7 @@ var field_name: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.ANY
 ```
 
@@ -106,6 +108,7 @@ var value_type: ValueType = ValueType.ANY
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var type_definition: GFConfigTypeDefinition = null
 ```
 
@@ -119,6 +122,7 @@ var type_definition: GFConfigTypeDefinition = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var required: bool = false
 ```
 
@@ -132,6 +136,7 @@ var required: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var allow_null: bool = true
 ```
 
@@ -145,6 +150,7 @@ var allow_null: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -162,6 +168,7 @@ var default_value: Variant = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var validation_rules: Array[GFConfigValidationRule] = []
 ```
 
@@ -179,6 +186,7 @@ var validation_rules: Array[GFConfigValidationRule] = []
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var element_validation_rules: Array[GFConfigValidationRule] = []
 ```
 
@@ -196,6 +204,7 @@ var element_validation_rules: Array[GFConfigValidationRule] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

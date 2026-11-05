@@ -18,14 +18,12 @@ storage.data_integrity_failed.connect(func(file_name: String, error: String) -> 
 )
 ```
 
-`use_integrity_checksum` 会在新写入载荷中写入 `_meta.checksum` 并在读取时校验。
+`use_integrity_checksum` 会在 `__gf_storage_document.integrity` 中写入 `algorithm` 与 `digest`，并在读取时校验。业务载荷仍位于独立的 `payload` 字段，框架不会向业务字典注入 `_meta`。
 
 从 `2.0.0` 起，启用完整性校验时默认要求载荷必须包含 checksum，缺失 checksum 会被视为读取失败。
 
-迁移旧存档时可临时把 `GFStorageUtility.require_integrity_checksum` 或 `GFStorageCodec.require_integrity_checksum` 设为 `false`，读出旧数据后再用新设置写回。
+对已经符合当前文档结构、但没有 checksum 的数据，可显式把 `GFStorageUtility.require_integrity_checksum` 或 `GFStorageCodec.require_integrity_checksum` 设为 `false`，验证后按新设置写回。这个选项不放宽文档结构校验；旧纯 JSON 和旧 envelope 须走[离线导入](legacy-compatibility.md)。
 
-JSON checksum 输入会按写盘后的 JSON 语义归一化，避免 64 位整数或 `StringName` 键经过 Godot JSON 往返后把合法载荷误判为损坏。
+JSON checksum 输入会按 codec 的 JSON 表示归一化。当前 codec 默认通过 `GFVariantJsonCodec` 为超出 JSON 安全整数范围的 Int64 和其他受支持的 Godot 值生成类型标记，读取时恢复；不要绕过 codec，直接用普通 `JSON.stringify()` / `JSON.parse_string()` 替代这一往返。
 
-这不会改变 `decode()` 或 `load_data()` 返回的数据类型，也不会让 JSON 自动精确保留任意 64 位整数。
-
-需要精确保存大整数时，应在业务 schema 中使用字符串、使用 `GFVariantJsonCodec` 的类型化 JSON 值，或改用 Binary 格式。
+Checksum 用于检测意外损坏，不提供来源认证。校验选项不改变业务版本迁移政策，也不能代替对业务字段的验证。

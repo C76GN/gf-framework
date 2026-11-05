@@ -464,6 +464,8 @@ func _snapshot_decision_object(object_ref: Object, capture_slot: StringName) -> 
 			return values_result
 
 	var snapshot: Dictionary = _snapshot_object_properties(object_ref, capture_slot)
+	if not is_instance_valid(object_ref):
+		return {}
 	_apply_decision_value_overrides(object_ref, snapshot)
 	return snapshot
 
@@ -510,6 +512,8 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 	var limit: int = _get_capture_limit("max_reflection_properties", DEFAULT_MAX_REFLECTION_PROPERTIES)
 	var eligible_count: int = 0
 	for property_info: Dictionary in object_ref.get_property_list():
+		if not is_instance_valid(object_ref):
+			return {}
 		var usage: int = GFVariantData.get_option_int(property_info, "usage")
 		if usage & PROPERTY_USAGE_STORAGE == 0 and usage & PROPERTY_USAGE_SCRIPT_VARIABLE == 0:
 			continue
@@ -520,9 +524,12 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 		if snapshot.size() >= limit:
 			continue
 		var value: Variant = object_ref.get(property_name)
-		if not is_same(
-			entries,
-			_get_capture_entries(capture_slot)
+		if (
+			not is_instance_valid(object_ref)
+			or not is_same(
+				entries,
+				_get_capture_entries(capture_slot)
+			)
 		):
 			return {}
 		snapshot[StringName(property_name)] = GFVariantData.duplicate_variant(value)

@@ -34,6 +34,7 @@ downloads.enqueue_download(
 下载列表来自远程 manifest、补丁目录或项目侧资源索引时，可先用 `parse_manifest_entries()` 把数组、JSON 字符串，或包含 `files` / `entries` / `downloads` 的字典解析为标准条目，再用 `enqueue_manifest()` 或 `enqueue_manifest_entries()` 批量加入同一个顺序下载队列。清单条目支持 `url`、`source`、`href`、`target_path`、`path`、`file`、`sha256` / `expected_sha256`、`size` / `expected_size`、`headers` 和 `metadata`；相对 URL 可通过 `base_url` 补全。`target_root` 必须是没有 `..` 的 `res://` 或 `user://` 根，条目目标必须是该根下的安全相对路径；清单中的绝对 `target_path` 即使自身是 `res://` / `user://` 也会被拒绝，不能绕过批次授权根。批量入队仍然复用 `enqueue_download()` 的临时文件、续传、校验、覆盖和重试语义，不引入额外线程池或资源包业务规则。
 
 ```gdscript
+# 入队返回任务身份，不代表下载完成；后续用这些 ID 查询本批进度。
 var ids := downloads.enqueue_manifest(
 	{
 		"base_url": "https://example.com/patches",

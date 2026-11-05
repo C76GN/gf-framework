@@ -14,6 +14,7 @@ capabilities.set_capability_active(enemy, HitboxCapability, false)
 停用 Node 能力时，框架会临时禁用该能力节点树的 `process_mode`，重新启用时恢复原状态。若停用期间项目层主动把某个子节点的 `process_mode` 改成其他值，重新启用时会保留这次运行时修改，避免覆盖项目层控制。能力可实现 Hook 响应状态变化：
 
 ```gdscript
+## 启停事务成功提交后同步局部行为；预算拒绝不会调用此 Hook。
 func on_gf_capability_active_changed(receiver: Object, active: bool) -> void:
 	pass
 ```

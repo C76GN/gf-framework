@@ -21,6 +21,60 @@ func after_each() -> void:
 
 # --- 测试 ---
 
+func test_nonpositive_take_disconnects_without_delivering_values() -> void:
+	for count: int in [0, -1]:
+		var emitter: SampleEmitter = SampleEmitter.new()
+		var received: Array[int] = []
+		var connection: GFSignalConnection = _utility.connect_signal(
+			emitter.changed,
+			func(value: int) -> void:
+				received.append(value)
+		).take(count)
+		emitter.emit_changed(1)
+		emitter.emit_changed(2)
+		assert_true(received.is_empty())
+		assert_false(connection.is_active())
+		assert_eq(
+			_utility.get_connection_count(),
+			0
+		)
+
+
+func test_take_before_delay_drains_accepted_events() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var received: Array[int] = []
+	var connection: GFSignalConnection = _utility.connect_signal(
+		emitter.changed,
+		func(value: int) -> void:
+			received.append(value)
+	).take(2).delay(0.01)
+	emitter.emit_changed(1)
+	emitter.emit_changed(2)
+	emitter.emit_changed(3)
+	await get_tree().create_timer(0.05).timeout
+	assert_eq(
+		received,
+		[1, 2]
+	)
+	assert_false(connection.is_active())
+
+
+func test_first_with_rejecting_filter_still_disconnects() -> void:
+	var emitter: SampleEmitter = SampleEmitter.new()
+	var received: Array[int] = []
+	var connection: GFSignalConnection = _utility.connect_signal(
+		emitter.changed,
+		func(value: int) -> void:
+			received.append(value)
+	).first().filter(
+		func(_value: int) -> bool:
+			return false
+	)
+	emitter.emit_changed(1)
+	assert_true(received.is_empty())
+	assert_false(connection.is_active())
+
+
 func test_connect_once_consumes_connection_before_reentrant_emission() -> void:
 	var emitter: SampleEmitter = SampleEmitter.new()
 	var received: Array[int] = []

@@ -46,6 +46,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var root_path: String = ""
 ```
 
@@ -58,6 +59,7 @@ var root_path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var style: StringName = &"default"
 ```
 
@@ -70,6 +72,7 @@ var style: StringName = &"default"
 - API：`public`
 
 ```gdscript
+@export
 var platform: StringName = &""
 ```
 
@@ -82,6 +85,7 @@ var platform: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var fallback_platform: StringName = &"generic"
 ```
 
@@ -94,6 +98,7 @@ var fallback_platform: StringName = &"generic"
 - API：`public`
 
 ```gdscript
+@export
 var path_pattern: String = "{root}/{style}/{platform}/{icon}.png"
 ```
 
@@ -106,6 +111,7 @@ var path_pattern: String = "{root}/{style}/{platform}/{icon}.png"
 - API：`public`
 
 ```gdscript
+@export
 var icon_paths: Dictionary = {}
 ```
 
@@ -122,6 +128,7 @@ var icon_paths: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var icon_textures: Dictionary = {}
 ```
 
@@ -138,6 +145,7 @@ var icon_textures: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var rich_text_separator: String = " "
 ```
 
@@ -150,6 +158,7 @@ RichText 输出多个图标时使用的分隔文本。
 - API：`public`
 
 ```gdscript
+@export
 var split_key_modifiers: bool = true
 ```
 
@@ -163,6 +172,7 @@ var split_key_modifiers: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var cache_missing_paths: bool = true
 ```
 
@@ -176,6 +186,7 @@ var cache_missing_paths: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_cached_textures: int = 128
 ```
 
@@ -189,6 +200,7 @@ var max_cached_textures: int = 128
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_cached_missing_paths: int = 256
 ```
 

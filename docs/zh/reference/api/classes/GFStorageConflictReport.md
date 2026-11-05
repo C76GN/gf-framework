@@ -64,6 +64,7 @@ enum Resolution {
 - API：`public`
 
 ```gdscript
+@export
 var file_name: String = ""
 ```
 
@@ -76,6 +77,7 @@ var file_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var key: String = ""
 ```
 
@@ -88,6 +90,7 @@ var key: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var local_value: Variant = null
 ```
 
@@ -104,6 +107,7 @@ var local_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var remote_value: Variant = null
 ```
 
@@ -120,6 +124,7 @@ var remote_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var resolved_value: Variant = null
 ```
 
@@ -136,6 +141,7 @@ var resolved_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var resolution: Resolution = Resolution.UNRESOLVED
 ```
 
@@ -148,6 +154,7 @@ var resolution: Resolution = Resolution.UNRESOLVED
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

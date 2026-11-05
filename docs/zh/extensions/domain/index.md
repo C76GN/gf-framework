@@ -4,7 +4,7 @@ Domain 扩展提供背包、槽位库存、属性、特征、装备、关卡和�
 
 它适合项目希望复用稳定领域容器，但仍由项目自己定义 ID、规则、UI、存档聚合和服务器校验的场景。
 
-Domain 属于业务型扩展外置候选：当前随 GF 包分发以便统一测试和文档，但保持默认关闭、原子依赖和无跨扩展硬引用。项目应通过 preset、项目 Installer 或 `addons/gf` 外的独立插件组合它，而不是让 kernel、standard 或其他内置扩展主动依赖 Domain。
+Domain 随完整 GF 包分发，保持默认关闭，只依赖 kernel/standard，不引用其他内置扩展。项目可通过 preset、项目 Installer 或 `addons/gf` 外的独立插件组合它；业务规则和跨扩展协作由项目负责。
 
 ## 阅读入口
 

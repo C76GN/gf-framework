@@ -157,6 +157,7 @@ const OPERATION_REPLACE: StringName = &"replace"
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var entries: Dictionary = {}
 ```
 
@@ -174,6 +175,7 @@ var entries: Dictionary = {}
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

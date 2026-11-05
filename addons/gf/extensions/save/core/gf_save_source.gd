@@ -339,11 +339,21 @@ func _apply_local_serializers(
 			continue
 
 		var data: Dictionary = GFVariantData.as_dictionary(payload_data)
-		var result: Dictionary = serializer.apply(
-			target,
-			data,
-			context
-		)
+		var result: Dictionary
+		if serializer is GFNodePropertySerializer:
+			var property_serializer: GFNodePropertySerializer = serializer
+			result = property_serializer.apply_prepared_for_framework(
+				target,
+				data,
+				context,
+				payload_index
+			)
+		else:
+			result = serializer.apply(
+				target,
+				data,
+				context
+			)
 		if GFVariantData.get_option_bool(
 			result,
 			"ok",

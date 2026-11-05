@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var priority: int = 0
 ```
 
@@ -43,6 +44,7 @@ var priority: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var icon_size: int = 24
 ```
 

@@ -43,6 +43,7 @@ if read_result != null and read_result.ok:
 ```gdscript
 var ticket: GFStorageOwnedRead = storage.load_data_owned_request_async("world.json")
 var receipt: GFStorageOwnedReadReceipt
+# 即时失败也有终态，先查询避免等待已发出的信号。
 if ticket.is_completed():
 	receipt = ticket.get_result()
 else:
@@ -50,6 +51,7 @@ else:
 if not receipt.is_ok():
 	_show_load_error(receipt.get_error_code())
 	return
+# 共享 ticket 就共享领取权，take() 只允许一名消费者成功。
 var claimed: GFStorageOwnedReadTakeResult = ticket.take()
 if claimed.is_ok():
 	var read_result: GFStorageReadResult = claimed.get_read_result()

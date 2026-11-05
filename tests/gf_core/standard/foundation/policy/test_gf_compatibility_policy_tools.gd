@@ -215,6 +215,26 @@ func test_preflight_reports_artifact_presence_and_path_mismatches() -> void:
 	)
 
 
+func test_preflight_requires_file_for_explicit_metadata() -> void:
+	var profile: GFCompatibilityProfile = GFCompatibilityProfile.new()
+	var _artifact: Dictionary = profile.add_artifact(&"generated_manifest")
+	var preflight: GFCompatibilityPreflight = GFCompatibilityPreflight.new().configure("Metadata", profile)
+	var presence: Dictionary = preflight.require_artifact(&"generated_manifest")
+	assert_true(GFVariantData.get_option_bool(presence, "ok"))
+	for options: Dictionary in [
+		{ "expected_size_bytes": 1 },
+		{ "expected_sha256": "abc" },
+	]:
+		var check: Dictionary = preflight.require_artifact(&"generated_manifest", options)
+		assert_false(GFVariantData.get_option_bool(check, "ok"))
+	assert_false(
+		_find_issue(
+			preflight.get_report(),
+			"artifact_file_missing"
+		).is_empty()
+	)
+
+
 func test_preflight_compares_canonical_artifact_paths() -> void:
 	var profile: GFCompatibilityProfile = GFCompatibilityProfile.new()
 	var _declared_artifact: Dictionary = profile.add_artifact(&"native_bridge", "res://native/../native\\bridge.gdip")

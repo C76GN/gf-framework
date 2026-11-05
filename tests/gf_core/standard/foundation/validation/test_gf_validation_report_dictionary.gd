@@ -560,6 +560,38 @@ func test_issue_fingerprint_rejects_runtime_identity_values() -> void:
 	)
 
 
+func test_baseline_does_not_match_incomplete_fingerprint() -> void:
+	var bytes: PackedByteArray = PackedByteArray()
+	var _resize_error: int = bytes.resize(65537)
+	var old_issue: Dictionary = {
+		"severity": "error",
+		"kind": "payload",
+		"metadata": { "payload": bytes },
+	}
+	var new_issue: Dictionary = old_issue.duplicate(true)
+	bytes[65536] = 1
+	new_issue["metadata"] = { "payload": bytes }
+	var fields: PackedStringArray = PackedStringArray(["metadata"])
+	assert_eq(
+		GFValidationReportDictionary.make_issue_fingerprint(new_issue, fields),
+		""
+	)
+	var filtered: Dictionary = GFValidationReportDictionary.filter_issues(
+		{
+			"issues": [new_issue],
+		},
+		{
+			"baseline_issues": [old_issue],
+			"fingerprint_fields": fields,
+		}
+	)
+	assert_false(GFVariantData.get_option_bool(filtered, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(filtered, "error_count"),
+		1
+	)
+
+
 func test_validation_report_exports_json_compatible_dict() -> void:
 	var report: GFValidationReport = GFValidationReport.new("Runtime report")
 	var _error: RefCounted = report.add_error(

@@ -34,6 +34,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var providers: Array[GFPolicyProvider] = []
 ```
 

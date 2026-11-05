@@ -49,6 +49,7 @@ tool.set_tool_option(&"radius", 8)
 var session := GFEditorCommandSession.new()
 session.configure(&"paint_tiles", "Paint Tiles", { "tool": "tile_painter" })
 
+# preview_command 应只修改可撤回的预览状态，最终命令在确认后另行提交。
 session.preview_command(preview_command, context)
 
 if accepted:
@@ -161,6 +162,7 @@ JSON 文本和 sidecar 在解析前都受 1 MiB UTF-8 字节上限与 64 层嵌�
 单个文本产物继续使用 `GFGeneratedArtifactReport.save_text()`。当一次编辑器操作必须同时交付多个文本、二进制文件或已生成的临时文件时，使用 `GFArtifactWriteTransaction` 在零写入预检通过后统一 staging 和 commit：
 
 ```gdscript
+# 两个摘要分别约束已审阅的旧内容和本次输出，不代表跨进程原子锁。
 var entries: Array[Dictionary] = [
 	GFArtifactWriteTransaction.make_text_entry(
 		"res://generated/catalog.json",
@@ -185,6 +187,7 @@ var options := {
 }
 var preview := GFArtifactWriteTransaction.get_preflight_report(entries, options)
 if preview.ok:
+	# 预检不写盘；实际提交仍会复核来源，不能将 preview.ok 当作写入成功。
 	options.dry_run = false
 	var committed := GFArtifactWriteTransaction.commit(entries, options)
 ```
@@ -196,6 +199,7 @@ if preview.ok:
 某些产物必须由 `ResourceSaver` 或专用 importer 直接写到最终路径，不能先变成文本或字节 entry。此时先调用 `begin(paths, options)`，成功后执行专用写入，并且恰好调用一次 `complete(transaction)` 或 `rollback(transaction)`：
 
 ```gdscript
+# 在 begin 到终态之间独占全部声明目标，并包含 writer 可能生成的 sidecar。
 var transaction := GFArtifactWriteTransaction.begin(
 	PackedStringArray([resource_path, manifest_path]),
 	{ "allowed_roots": ["res://generated"] }

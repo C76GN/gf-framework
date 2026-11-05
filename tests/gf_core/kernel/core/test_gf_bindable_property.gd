@@ -1133,6 +1133,87 @@ func test_computed_property_dispose_stops_auto_refresh() -> void:
 	)
 
 
+func test_computed_property_dispose_during_immediate_compute_cancels_binding_and_value() -> void:
+	var source: GFBindableProperty = GFBindableProperty.new(1)
+	var computed: GFComputedProperty = GFComputedProperty.new(
+		[],
+		Callable(),
+		-1
+	)
+	var calls: Array[int] = [0]
+	computed.bind_sources(
+		[source],
+		func() -> int:
+			calls[0] += 1
+			computed.dispose()
+			return 10
+	)
+
+	assert_false(computed.is_computing())
+	assert_eq(
+		_value_int(computed),
+		-1,
+		"已取消的立即计算不得提交派生值。"
+	)
+	source.value = 2
+	assert_eq(
+		calls[0],
+		1,
+		"dispose 后不得复活尚未返回的来源绑定。"
+	)
+	computed.dispose()
+	source.disconnect_all_subscribers()
+
+
+func test_computed_property_rebind_during_compute_preserves_replacement_value_and_sources() -> void:
+	var old_source: GFBindableProperty = GFBindableProperty.new(1)
+	var new_source: GFBindableProperty = GFBindableProperty.new(20)
+	var computed: GFComputedProperty = GFComputedProperty.new(
+		[],
+		Callable(),
+		-1
+	)
+	var old_calls: Array[int] = [0]
+	computed.bind_sources(
+		[old_source],
+		func() -> int:
+			old_calls[0] += 1
+			computed.bind_sources(
+				[new_source],
+				func() -> int:
+					return _value_int(new_source)
+			)
+			return 10
+	)
+
+	assert_eq(
+		_value_int(computed),
+		20,
+		"旧 compute 返回后不得覆盖新绑定发布的值。"
+	)
+	old_source.value = 2
+	assert_eq(
+		old_calls[0],
+		1,
+		"新绑定必须释放旧来源。"
+	)
+	new_source.value = 30
+	assert_eq(
+		_value_int(computed),
+		30,
+		"新绑定必须继续响应自己的来源。"
+	)
+	computed.dispose()
+	new_source.value = 40
+	assert_eq(
+		_value_int(computed),
+		30,
+		"dispose 必须持有并停止真正的新绑定。"
+	)
+	old_source.disconnect_all_subscribers()
+	new_source.disconnect_all_subscribers()
+
+
 func test_computed_property_rejects_external_set() -> void:
 	var source: GFBindableProperty = GFBindableProperty.new(1)
 	var computed: GFComputedProperty = GFComputedProperty.new(

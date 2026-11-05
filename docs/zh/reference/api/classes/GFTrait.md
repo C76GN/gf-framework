@@ -59,6 +59,7 @@ enum CombineMode {
 - API：`public`
 
 ```gdscript
+@export
 var trait_id: StringName = &""
 ```
 
@@ -71,6 +72,7 @@ var trait_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var target_id: StringName = &""
 ```
 
@@ -83,6 +85,7 @@ var target_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var category: StringName = &""
 ```
 
@@ -95,6 +98,7 @@ var category: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var value: float = 0.0
 ```
 
@@ -107,6 +111,7 @@ var value: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var combine_mode: CombineMode = CombineMode.ADD
 ```
 
@@ -119,6 +124,7 @@ var combine_mode: CombineMode = CombineMode.ADD
 - API：`public`
 
 ```gdscript
+@export
 var priority: int = 0
 ```
 
@@ -131,6 +137,7 @@ var priority: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

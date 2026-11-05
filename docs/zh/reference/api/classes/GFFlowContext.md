@@ -9,34 +9,23 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`3.17.0`
 
-通用流程图执行上下文。 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。
+各次流程运行共享的业务上下文。 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`values`](#member-gfflowcontext-properties-values) | `var values: Dictionary = {}` |
-| 属性 | [`next_node_ids`](#member-gfflowcontext-properties-next_node_ids) | `var next_node_ids: PackedStringArray = PackedStringArray()` |
-| 属性 | [`has_next_node_override`](#member-gfflowcontext-properties-has_next_node_override) | `var has_next_node_override: bool = false` |
 | 方法 | [`set_architecture`](#member-gfflowcontext-methods-set_architecture) | `func set_architecture(architecture: GFArchitecture) -> void:` |
 | 方法 | [`get_architecture`](#member-gfflowcontext-methods-get_architecture) | `func get_architecture() -> GFArchitecture:` |
 | 方法 | [`set_value`](#member-gfflowcontext-methods-set_value) | `func set_value(key: StringName, value: Variant) -> GFFlowContext:` |
 | 方法 | [`get_value`](#member-gfflowcontext-methods-get_value) | `func get_value(key: StringName, default_value: Variant = null) -> Variant:` |
-| 方法 | [`set_next_nodes`](#member-gfflowcontext-methods-set_next_nodes) | `func set_next_nodes(node_ids: PackedStringArray) -> void:` |
-| 方法 | [`has_next_nodes_override`](#member-gfflowcontext-methods-has_next_nodes_override) | `func has_next_nodes_override() -> bool:` |
-| 方法 | [`clear_next_nodes`](#member-gfflowcontext-methods-clear_next_nodes) | `func clear_next_nodes() -> void:` |
 | 方法 | [`register_condition_handler`](#member-gfflowcontext-methods-register_condition_handler) | `func register_condition_handler(condition_id: StringName, handler: Callable) -> bool:` |
 | 方法 | [`unregister_condition_handler`](#member-gfflowcontext-methods-unregister_condition_handler) | `func unregister_condition_handler(condition_id: StringName) -> void:` |
 | 方法 | [`has_condition_handler`](#member-gfflowcontext-methods-has_condition_handler) | `func has_condition_handler(condition_id: StringName) -> bool:` |
 | 方法 | [`clear_condition_handlers`](#member-gfflowcontext-methods-clear_condition_handlers) | `func clear_condition_handlers() -> void:` |
 | 方法 | [`query_condition`](#member-gfflowcontext-methods-query_condition) | `func query_condition( condition_id: StringName, payload: Variant = null, default_value: Variant = false ) -> Dictionary:` |
-| 方法 | [`set_node_runtime_value`](#member-gfflowcontext-methods-set_node_runtime_value) | `func set_node_runtime_value( node_id: StringName, key: StringName, value: Variant ) -> void:` |
-| 方法 | [`get_node_runtime_value`](#member-gfflowcontext-methods-get_node_runtime_value) | `func get_node_runtime_value( node_id: StringName, key: StringName, default_value: Variant = null ) -> Variant:` |
-| 方法 | [`clear_node_runtime_state`](#member-gfflowcontext-methods-clear_node_runtime_state) | `func clear_node_runtime_state(node_id: StringName = &"") -> void:` |
-| 方法 | [`create_runtime_snapshot`](#member-gfflowcontext-methods-create_runtime_snapshot) | `func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:` |
-| 方法 | [`restore_runtime_snapshot`](#member-gfflowcontext-methods-restore_runtime_snapshot) | `func restore_runtime_snapshot(snapshot: Dictionary) -> bool:` |
-| 方法 | [`serialize_runtime_state`](#member-gfflowcontext-methods-serialize_runtime_state) | `func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:` |
-| 方法 | [`deserialize_runtime_state`](#member-gfflowcontext-methods-deserialize_runtime_state) | `func deserialize_runtime_state(data: Dictionary) -> void:` |
+| 方法 | [`create_data_snapshot`](#member-gfflowcontext-methods-create_data_snapshot) | `func create_data_snapshot(options: Dictionary = {}) -> Dictionary:` |
 
 ## 属性
 
@@ -56,32 +45,6 @@ var values: Dictionary = {}
 结构：
 
 - `values`: 流程执行期间共享的项目自定义 Dictionary；键通常为 StringName，值由项目决定。
-
-<a id="member-gfflowcontext-properties-next_node_ids"></a>
-
-### `next_node_ids`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-var next_node_ids: PackedStringArray = PackedStringArray()
-```
-
-下一个节点覆盖。流程节点可写入该列表动态控制分支。
-
-<a id="member-gfflowcontext-properties-has_next_node_override"></a>
-
-### `has_next_node_override`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-var has_next_node_override: bool = false
-```
-
-是否显式覆盖了下一个节点。允许节点用空列表表达“停止继续推进”。
 
 ## 方法
 
@@ -171,53 +134,6 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 
 - `default_value`: key 缺失时返回的任意默认值。
 - `return`: values 中的项目值，或传入的 default_value。
-
-<a id="member-gfflowcontext-methods-set_next_nodes"></a>
-
-### `set_next_nodes`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func set_next_nodes(node_ids: PackedStringArray) -> void:
-```
-
-覆盖当前节点执行后的下一个节点列表。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `node_ids` | 节点标识列表。 |
-
-<a id="member-gfflowcontext-methods-has_next_nodes_override"></a>
-
-### `has_next_nodes_override`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func has_next_nodes_override() -> bool:
-```
-
-检查当前节点是否显式覆盖了后继节点。
-
-返回：已覆盖返回 true。
-
-<a id="member-gfflowcontext-methods-clear_next_nodes"></a>
-
-### `clear_next_nodes`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func clear_next_nodes() -> void:
-```
-
-清空下一个节点覆盖。
 
 <a id="member-gfflowcontext-methods-register_condition_handler"></a>
 
@@ -323,173 +239,28 @@ func query_condition( condition_id: StringName, payload: Variant = null, default
 - `default_value`: 缺失处理器或处理器未返回值时使用的任意默认值。
 - `return`: 包含 ok、condition_id、value、reason 和 metadata 字段的 Dictionary。
 
-<a id="member-gfflowcontext-methods-set_node_runtime_value"></a>
+<a id="member-gfflowcontext-methods-create_data_snapshot"></a>
 
-### `set_node_runtime_value`
+### `create_data_snapshot`
 
 - API：`public`
-- 首次版本：`3.17.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func set_node_runtime_value( node_id: StringName, key: StringName, value: Variant ) -> void:
+func create_data_snapshot(options: Dictionary = {}) -> Dictionary:
 ```
 
-写入指定流程节点的运行态值。
+捕获业务值和可选条件处理器标识。JSON 投影供日志使用，原始值副本供项目保存。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `node_id` | 节点标识。 |
-| `key` | 运行态键。 |
-| `value` | 运行态值。 |
+| `options` | 可提供 json_compatible、include_condition_handler_ids 和 metadata。 |
+
+返回：独立业务数据快照。
 
 结构：
 
-- `value`: 要写入指定节点运行态的任意项目值。
-
-<a id="member-gfflowcontext-methods-get_node_runtime_value"></a>
-
-### `get_node_runtime_value`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func get_node_runtime_value( node_id: StringName, key: StringName, default_value: Variant = null ) -> Variant:
-```
-
-读取指定流程节点的运行态值。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `node_id` | 节点标识。 |
-| `key` | 运行态键。 |
-| `default_value` | 缺失时返回的默认值。 |
-
-返回：运行态值或默认值。
-
-结构：
-
-- `default_value`: 运行态缺失时返回的任意默认值。
-- `return`: 节点运行态中的项目值，或传入的 default_value。
-
-<a id="member-gfflowcontext-methods-clear_node_runtime_state"></a>
-
-### `clear_node_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func clear_node_runtime_state(node_id: StringName = &"") -> void:
-```
-
-清空节点运行态。node_id 为空时清空全部节点运行态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `node_id` | 节点标识。 |
-
-<a id="member-gfflowcontext-methods-create_runtime_snapshot"></a>
-
-### `create_runtime_snapshot`
-
-- API：`public`
-- 首次版本：`8.0.0`
-
-```gdscript
-func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
-```
-
-创建 Flow 上下文运行快照。 快照包含共享 values、下一个节点覆盖和节点运行态。条件处理器是运行时 Callable， 不会被序列化；恢复快照时也不会修改当前已注册的条件处理器。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `options` | 快照选项，支持 metadata、include_condition_handler_ids 和 json_compatible。 |
-
-返回：运行快照。
-
-结构：
-
-- `options`: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。
-- `return`: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。
-
-<a id="member-gfflowcontext-methods-restore_runtime_snapshot"></a>
-
-### `restore_runtime_snapshot`
-
-- API：`public`
-- 首次版本：`8.0.0`
-
-```gdscript
-func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
-```
-
-恢复 Flow 上下文运行快照。 只恢复可序列化运行数据，不覆盖 architecture 或条件处理器。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `snapshot` | create_runtime_snapshot() 生成的快照。 |
-
-返回：快照有效并完成恢复时返回 true。
-
-结构：
-
-- `snapshot`: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。
-
-<a id="member-gfflowcontext-methods-serialize_runtime_state"></a>
-
-### `serialize_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-```
-
-序列化上下文持有的节点运行态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `json_compatible` | 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。 |
-
-返回：运行态快照。
-
-结构：
-
-- `return`: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
-
-<a id="member-gfflowcontext-methods-deserialize_runtime_state"></a>
-
-### `deserialize_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func deserialize_runtime_state(data: Dictionary) -> void:
-```
-
-反序列化节点运行态到当前上下文。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `data` | 运行态快照。 |
-
-结构：
-
-- `data`: serialize_runtime_state() 返回的运行态 Dictionary。
+- `options`: 可选布尔开关与项目附加的 metadata 字典。
+- `return`: 包含 values、metadata 以及可选 condition_handler_ids。

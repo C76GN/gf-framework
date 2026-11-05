@@ -1,4 +1,4 @@
-## GFFlowContext: 通用流程图执行上下文。
+## GFFlowContext: 各次流程运行共享的业务上下文。
 ##
 ## 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。
 ## [br]
@@ -30,20 +30,6 @@ const _REPORT_SCHEMA_PROJECTION = preload("res://addons/gf/kernel/core/gf_report
 ## @schema values: 流程执行期间共享的项目自定义 Dictionary；键通常为 StringName，值由项目决定。
 var values: Dictionary = {}
 
-## 下一个节点覆盖。流程节点可写入该列表动态控制分支。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-var next_node_ids: PackedStringArray = PackedStringArray()
-
-## 是否显式覆盖了下一个节点。允许节点用空列表表达“停止继续推进”。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-var has_next_node_override: bool = false
-
 
 # --- 私有变量 ---
 
@@ -56,16 +42,6 @@ var _architecture_ref: WeakRef = null
 ## [br]
 ## @api private
 var _condition_handlers: Dictionary = {}
-
-## 按节点 ID 保存隔离的运行时状态字典。
-## [br]
-## @api private
-var _node_runtime_states: Dictionary = {}
-
-## 记录当前同步执行中的节点实例，防止重复重入。
-## [br]
-## @api private
-var _executing_runtime_nodes: Dictionary[StringName, GFFlowNode] = {}
 
 
 # --- Godot 生命周期方法 ---
@@ -143,39 +119,6 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 		key,
 		default_value
 	)
-
-
-## 覆盖当前节点执行后的下一个节点列表。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param node_ids: 节点标识列表。
-func set_next_nodes(node_ids: PackedStringArray) -> void:
-	next_node_ids = node_ids.duplicate()
-	has_next_node_override = true
-
-
-## 检查当前节点是否显式覆盖了后继节点。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @return: 已覆盖返回 true。
-func has_next_nodes_override() -> bool:
-	return has_next_node_override
-
-
-## 清空下一个节点覆盖。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-func clear_next_nodes() -> void:
-	next_node_ids.clear()
-	has_next_node_override = false
 
 
 ## 注册条件查询处理器。
@@ -295,126 +238,23 @@ func query_condition(
 	)
 
 
-## 写入指定流程节点的运行态值。
+## 捕获业务值和可选条件处理器标识。JSON 投影供日志使用，原始值副本供项目保存。
 ## [br]
 ## @api public
 ## [br]
-## @since 3.17.0
+## @since unreleased
 ## [br]
-## @param node_id: 节点标识。
+## @param options: 可提供 json_compatible、include_condition_handler_ids 和 metadata。
 ## [br]
-## @param key: 运行态键。
+## @schema options: 可选布尔开关与项目附加的 metadata 字典。
 ## [br]
-## @param value: 运行态值。
+## @return: 独立业务数据快照。
 ## [br]
-## @schema value: 要写入指定节点运行态的任意项目值。
-func set_node_runtime_value(
-	node_id: StringName,
-	key: StringName,
-	value: Variant
-) -> void:
-	if node_id == &"" or key == &"":
-		return
-	if _executing_runtime_nodes.has(node_id):
-		_executing_runtime_nodes[node_id].set_runtime_value(key, value)
-		return
-	if not _node_runtime_states.has(node_id):
-		_node_runtime_states[node_id] = {}
-	var state: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(
-			_node_runtime_states,
-			node_id,
-			{}
-		)
-	)
-	state[key] = value
-
-
-## 读取指定流程节点的运行态值。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param node_id: 节点标识。
-## [br]
-## @param key: 运行态键。
-## [br]
-## @param default_value: 缺失时返回的默认值。
-## [br]
-## @schema default_value: 运行态缺失时返回的任意默认值。
-## [br]
-## @return: 运行态值或默认值。
-## [br]
-## @schema return: 节点运行态中的项目值，或传入的 default_value。
-func get_node_runtime_value(
-	node_id: StringName,
-	key: StringName,
-	default_value: Variant = null
-) -> Variant:
-	if _executing_runtime_nodes.has(node_id):
-		return _executing_runtime_nodes[node_id].get_runtime_value(key, default_value)
-	var state: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(
-			_node_runtime_states,
-			node_id,
-			{}
-		)
-	)
-	if state.is_empty():
-		return default_value
-	return GFVariantData.get_option_value(
-		state,
-		key,
-		default_value
-	)
-
-
-## 清空节点运行态。node_id 为空时清空全部节点运行态。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param node_id: 节点标识。
-func clear_node_runtime_state(node_id: StringName = &"") -> void:
-	if node_id == &"":
-		_node_runtime_states.clear()
-		for node: GFFlowNode in _executing_runtime_nodes.values():
-			node.clear_runtime_state()
-		return
-	if _executing_runtime_nodes.has(node_id):
-		_executing_runtime_nodes[node_id].clear_runtime_state()
-	_erase_dictionary_key(_node_runtime_states, node_id)
-
-
-## 创建 Flow 上下文运行快照。
-##
-## 快照包含共享 values、下一个节点覆盖和节点运行态。条件处理器是运行时 Callable，
-## 不会被序列化；恢复快照时也不会修改当前已注册的条件处理器。
-## [br]
-## @api public
-## [br]
-## @since 8.0.0
-## [br]
-## @param options: 快照选项，支持 metadata、include_condition_handler_ids 和 json_compatible。
-## [br]
-## @schema options: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。
-## [br]
-## @return: 运行快照。
-## [br]
-## @schema return: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。
-func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
-	var json_compatible: bool = GFVariantData.get_option_bool(
-		options,
-		"json_compatible",
-		false
-	)
-	var snapshot: Dictionary = {
+## @schema return: 包含 values、metadata 以及可选 condition_handler_ids。
+func create_data_snapshot(options: Dictionary = {}) -> Dictionary:
+	var json_compatible: bool = GFVariantData.get_option_bool(options, "json_compatible")
+	var result: Dictionary = {
 		"values": _to_snapshot_dictionary(values, json_compatible),
-		"next_node_ids": _to_snapshot_value(next_node_ids, json_compatible),
-		"has_next_node_override": has_next_node_override,
-		"runtime_state": serialize_runtime_state(json_compatible),
 		"metadata": _to_snapshot_dictionary(
 			GFVariantData.get_option_dictionary(options, "metadata"),
 			json_compatible
@@ -425,267 +265,14 @@ func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
 		"include_condition_handler_ids",
 		true
 	):
-		snapshot["condition_handler_ids"] = _to_snapshot_value(
+		result["condition_handler_ids"] = _to_snapshot_value(
 			_get_condition_handler_ids(),
 			json_compatible
 		)
-	return snapshot
-
-
-## 恢复 Flow 上下文运行快照。
-##
-## 只恢复可序列化运行数据，不覆盖 architecture 或条件处理器。
-## [br]
-## @api public
-## [br]
-## @since 8.0.0
-## [br]
-## @param snapshot: create_runtime_snapshot() 生成的快照。
-## [br]
-## @schema snapshot: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。
-## [br]
-## @return: 快照有效并完成恢复时返回 true。
-func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
-	var parsed: Dictionary = _parse_runtime_snapshot(snapshot)
-	if not GFVariantData.get_option_bool(
-		parsed,
-		"valid",
-		false
-	):
-		return false
-
-	values = GFVariantData.get_option_dictionary(parsed, "values").duplicate(true)
-	next_node_ids = GFVariantData.get_option_packed_string_array(parsed, "next_node_ids")
-	has_next_node_override = GFVariantData.get_option_bool(parsed, "has_next_node_override")
-	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
-	_synchronize_executing_runtime_nodes()
-	return true
-
-
-## 序列化上下文持有的节点运行态。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。
-## [br]
-## @return: 运行态快照。
-## [br]
-## @schema return: 包含 nodes 字段的 Dictionary；nodes 按 node_id 保存节点运行态 Dictionary。
-func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-	var node_states: Dictionary = {}
-	var node_ids: Dictionary = _node_runtime_states.duplicate(false)
-	for executing_node_id: StringName in _executing_runtime_nodes:
-		node_ids[executing_node_id] = true
-	for node_id: Variant in node_ids.keys():
-		var runtime_state: Dictionary = get_node_runtime_state_snapshot(GFVariantData.to_string_name(node_id))
-		if runtime_state.is_empty():
-			continue
-		var state_key: Variant = node_id
-		if json_compatible:
-			state_key = GFVariantData.to_text(node_id)
-		node_states[state_key] = _to_snapshot_dictionary(runtime_state, json_compatible)
-	var state: Dictionary = { "nodes": node_states, }
-	return state
-
-
-## 反序列化节点运行态到当前上下文。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param data: 运行态快照。
-## [br]
-## @schema data: serialize_runtime_state() 返回的运行态 Dictionary。
-func deserialize_runtime_state(data: Dictionary) -> void:
-	var parsed: Dictionary = _parse_node_runtime_states(data)
-	if not GFVariantData.get_option_bool(
-		parsed,
-		"valid",
-		false
-	):
-		push_error("[GFFlowContext][flow_context.invalid_runtime_nodes] deserialize_runtime_state failed: nodes must map node IDs to Dictionary values.")
-		return
-	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
-	_synchronize_executing_runtime_nodes()
-
-
-# --- 框架内部方法 ---
-
-## 获取单个节点运行态的隔离副本，供 Flow Runner 避免复制完整 Context。
-## [br]
-## @api framework_internal
-## [br]
-## @since 11.0.0
-## [br]
-## @param node_id: 节点标识。
-## [br]
-## @return: 节点运行态的深拷贝；不存在时为空字典。
-## [br]
-## @schema return: 指定节点的项目运行态 Dictionary。
-func get_node_runtime_state_snapshot(node_id: StringName) -> Dictionary:
-	if _executing_runtime_nodes.has(node_id):
-		return _executing_runtime_nodes[node_id].serialize_runtime_state()
-	var state_value: Variant = GFVariantData.get_option_value(
-		_node_runtime_states,
-		node_id,
-		{}
-	)
-	if not (state_value is Dictionary):
-		return {}
-	var state: Dictionary = state_value
-	return state.duplicate(true)
-
-
-## 原子替换单个节点运行态，供 Flow Runner 写回隔离执行结果。
-## [br]
-## @api framework_internal
-## [br]
-## @since 11.0.0
-## [br]
-## @param node_id: 节点标识。
-## [br]
-## @param state: 新运行态；空字典表示删除该节点状态。
-## [br]
-## @schema state: 指定节点的项目运行态 Dictionary。
-func replace_node_runtime_state(node_id: StringName, state: Dictionary) -> void:
-	if node_id == &"":
-		return
-	if _executing_runtime_nodes.has(node_id):
-		_executing_runtime_nodes[node_id].clear_runtime_state()
-		_executing_runtime_nodes[node_id].deserialize_runtime_state(state)
-		return
-	if state.is_empty():
-		_erase_dictionary_key(_node_runtime_states, node_id)
-		return
-	_node_runtime_states[node_id] = state.duplicate(true)
-
-
-## 在 Runner 同步执行期间，将节点与 Context 的运行态入口绑定到同一节点。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param node_id: 当前执行的节点标识。
-## [br]
-## @param node: 已载入 Context 状态且持有可写租约的节点。
-## [br]
-## @return: 同一 Context 中该标识未被执行占用时返回 true。
-func begin_node_runtime_execution(node_id: StringName, node: GFFlowNode) -> bool:
-	if (
-		node_id == &""
-		or node == null
-		or _executing_runtime_nodes.has(node_id)
-	):
-		return false
-	_executing_runtime_nodes[node_id] = node
-	return true
-
-
-## 结束同步执行，保存节点状态并解除临时绑定。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param node_id: begin_node_runtime_execution() 使用的节点标识。
-func end_node_runtime_execution(node_id: StringName) -> void:
-	if not _executing_runtime_nodes.has(node_id):
-		return
-	var node: GFFlowNode = _executing_runtime_nodes[node_id]
-	var state: Dictionary = node.serialize_runtime_state()
-	var _erased: bool = _executing_runtime_nodes.erase(node_id)
-	replace_node_runtime_state(node_id, state)
+	return result
 
 
 # --- 私有/辅助方法 ---
-
-## 将同步执行节点当前状态复制回上下文保存的节点状态。
-## [br]
-## @api private
-func _synchronize_executing_runtime_nodes() -> void:
-	for node_id: StringName in _executing_runtime_nodes:
-		var node: GFFlowNode = _executing_runtime_nodes[node_id]
-		node.clear_runtime_state()
-		node.deserialize_runtime_state(GFVariantData.get_option_dictionary(_node_runtime_states, node_id))
-
-
-## 验证并复制上下文快照字段，兼容旧版 nodes 状态字段。
-## [br]
-## @api private
-func _parse_runtime_snapshot(snapshot: Dictionary) -> Dictionary:
-	if (
-		not snapshot.has("values")
-		or not snapshot.has("next_node_ids")
-		or not snapshot.has("has_next_node_override")
-	):
-		return {}
-	var values_value: Variant = snapshot["values"]
-	var next_node_ids_value: Variant = snapshot["next_node_ids"]
-	var override_value: Variant = snapshot["has_next_node_override"]
-	if (
-		not (values_value is Dictionary)
-		or not (next_node_ids_value is PackedStringArray)
-		or typeof(override_value) != TYPE_BOOL
-	):
-		return {}
-
-	var runtime_state: Dictionary = {}
-	if snapshot.has("runtime_state"):
-		var runtime_state_value: Variant = snapshot["runtime_state"]
-		if not (runtime_state_value is Dictionary):
-			return {}
-		runtime_state = runtime_state_value
-	elif snapshot.has("nodes"):
-		var legacy_nodes_value: Variant = snapshot["nodes"]
-		if not (legacy_nodes_value is Dictionary):
-			return {}
-		runtime_state = { "nodes": legacy_nodes_value }
-	else:
-		return {}
-
-	var parsed_runtime_state: Dictionary = _parse_node_runtime_states(runtime_state)
-	if not GFVariantData.get_option_bool(
-		parsed_runtime_state,
-		"valid",
-		false
-	):
-		return {}
-	var parsed_values: Dictionary = values_value
-	var parsed_next_node_ids: PackedStringArray = next_node_ids_value
-	return {
-		"valid": true,
-		"values": parsed_values.duplicate(true),
-		"next_node_ids": parsed_next_node_ids.duplicate(),
-		"has_next_node_override": override_value,
-		"node_states": GFVariantData.get_option_dictionary(parsed_runtime_state, "node_states"),
-	}
-
-
-## 校验节点状态映射并按节点 ID 归一化非空状态。
-## [br]
-## @api private
-func _parse_node_runtime_states(data: Dictionary) -> Dictionary:
-	if not data.has("nodes"):
-		return {}
-	var node_states_value: Variant = data["nodes"]
-	if not (node_states_value is Dictionary):
-		return {}
-	var node_states: Dictionary = node_states_value
-	var normalized: Dictionary = {}
-	for node_id_variant: Variant in node_states.keys():
-		var node_id: StringName = GFVariantData.to_string_name(node_id_variant)
-		var state_value: Variant = node_states[node_id_variant]
-		if node_id == &"" or not (state_value is Dictionary):
-			return {}
-		var state: Dictionary = state_value
-		if not state.is_empty():
-			normalized[node_id] = state.duplicate(true)
-	return { "valid": true, "node_states": normalized, }
-
 
 ## 将条件处理器的多种返回值转换为统一结果字典。
 ## [br]

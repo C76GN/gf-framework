@@ -1874,6 +1874,65 @@ func test_candidate_queries_stop_after_callback_cancels_session() -> void:
 
 
 ## 验证候选回调注销自身后，outer drop 不会调用已失去 authority 的落点。
+## 后续候选回调禁用已选落点时，不得执行旧选择；无禁用时仍正常接收。
+func test_later_candidate_disabling_selected_zone_rejects_drop() -> void:
+	for disable_selected: bool in [false, true]:
+		var utility: GFDragDropUtility = GFDragDropUtility.new()
+		var calls: Array[int] = []
+		var first: GFDropZone = utility.register_rect_zone(
+			&"first",
+			Rect2(
+				Vector2.ZERO,
+				Vector2(100.0, 100.0)
+			),
+			PackedStringArray(["item"]),
+			{
+				"priority": 10,
+				"drop": func(
+					_session: GFDragSession,
+					_zone: GFDropZone,
+					_position: Variant
+				) -> bool:
+					calls.append(1)
+					return true,
+			}
+		)
+		var _second: GFDropZone = utility.register_rect_zone(
+			&"second",
+			Rect2(
+				Vector2.ZERO,
+				Vector2(100.0, 100.0)
+			),
+			PackedStringArray(["item"]),
+			{
+				"can_accept": func(_session: GFDragSession, _zone: GFDropZone) -> bool:
+					if disable_selected:
+						first.enabled = false
+					return false,
+			}
+		)
+		var session_id: int = utility.start_drag(
+			&"item",
+			null,
+			Vector2.ZERO
+		)
+		var result: Dictionary = utility.drop(session_id, Vector2.ONE)
+		assert_eq(
+			GFVariantData.get_option_bool(result, "ok"),
+			not disable_selected
+		)
+		assert_eq(
+			calls.size(),
+			0 if disable_selected else 1
+		)
+		assert_eq(
+			utility.has_active_session(session_id),
+			disable_selected
+		)
+		utility.clear_zones()
+		utility.dispose()
+
+
 func test_can_accept_unregistering_zone_rejects_before_drop_callback() -> void:
 	var utility: GFDragDropUtility = GFDragDropUtility.new()
 	var state: Dictionary = { "drop_calls": 0 }

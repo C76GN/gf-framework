@@ -141,6 +141,7 @@ const GROUP_SOURCE_FIELD: StringName = &"field"
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFResourceRegistryEntry] = []
 ```
 

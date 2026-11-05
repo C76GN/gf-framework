@@ -1681,7 +1681,7 @@ static func _check_member_spacing(context: Dictionary, diagnostics: Array[Dictio
 				"Keep one blank line after a member section."
 			)
 	var statements: Array[Dictionary] = view["statements"]
-	var previous_member: Dictionary = {}
+	var previous_members: Dictionary[int, Dictionary] = {}
 	var comment_lines: Dictionary = context["comment_lines"]
 	var annotation_start: int = 0
 	var annotation_count: int = 0
@@ -1691,6 +1691,7 @@ static func _check_member_spacing(context: Dictionary, diagnostics: Array[Dictio
 		var owner: int = statement["owner_index"]
 		if owner >= 0 and statements[owner]["kind"] != "class":
 			continue
+		var previous_member: Dictionary = previous_members.get(owner, {})
 		var opening: int = statement["start_index"]
 		var token: Dictionary = tokens[opening]
 		var line: int = token["line"]
@@ -1789,7 +1790,7 @@ static func _check_member_spacing(context: Dictionary, diagnostics: Array[Dictio
 					doc_start - 1
 				):
 					only_blanks = only_blanks and lines[between].strip_edges().is_empty()
-				var expected: int = 1 if documented else 0
+				var expected: int = 1 if _boolean(previous_member.get("documented", false)) else 0
 				var single_line_members: bool = tokens[_integer(previous_member["start_index"])]["line"] == tokens[_integer(previous_member["end_index"]) - 1]["end_line"] and token["line"] == tokens[_integer(statement["end_index"]) - 1]["end_line"]
 				if (
 					only_blanks
@@ -1810,6 +1811,7 @@ static func _check_member_spacing(context: Dictionary, diagnostics: Array[Dictio
 		previous_member = statement.duplicate()
 		previous_member["kind"] = kind
 		previous_member["documented"] = documented
+		previous_members[owner] = previous_member
 
 
 ## 一个字段注解可以与声明直接绑定，多注解和真实注释屏障保留原关联。

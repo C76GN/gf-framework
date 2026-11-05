@@ -35,6 +35,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var recipe_id: StringName = &""
 ```
 
@@ -47,6 +48,7 @@ Recipe 稳定标识。为空时可由项目层按资源路径管理。
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -59,6 +61,7 @@ Recipe 展示名，仅供编辑器和项目工具显示。
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFCapabilityRecipeEntry] = []
 ```
 
@@ -71,6 +74,7 @@ var entries: Array[GFCapabilityRecipeEntry] = []
 - API：`public`
 
 ```gdscript
+@export
 var groups: Array[StringName] = []
 ```
 
@@ -83,6 +87,7 @@ var groups: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

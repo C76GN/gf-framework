@@ -112,9 +112,11 @@ func get_line_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.9.0
+## [br]
 ## @return: 兼容 GFValidationReportDictionary 的报告字典。
 ## [br]
-## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。
+## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，包含 ok、healthy、summary、issues、next_action、error_count、warning_count 和 issue_count 等字段。duplicate_response_id 问题的 metadata 包含从零开始的 line_index 与完整 response_id，subject 只用于展示。
 func validate_resource() -> Dictionary:
 	var report: Dictionary = { "subject": "Dialogue resource", "issues": [], }
 	var line_index: Dictionary = _build_line_index()
@@ -201,7 +203,8 @@ func validate_resource() -> Dictionary:
 					&"duplicate_response_id",
 					"%s.responses.%s"
 					% [line.line_id, response.response_id],
-					"Dialogue response_id is duplicated within the line."
+					"Dialogue response_id is duplicated within the line.",
+					{ "line_index": index, "response_id": String(response.response_id), }
 				)
 			seen_response_ids[response.response_id] = true
 			if response.next_line_id != &"":
@@ -297,21 +300,26 @@ func build_identity_report(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-## 以 subject 和 path 字段为同一标识追加一条资源级错误。
+## 以 subject 和 path 字段为同一展示标识追加资源级错误，issue_metadata 保留需要无歧义定位的结构化身份。
 ## [br]
 ## @api private
 func _append_issue(
 	report: Dictionary,
 	kind: StringName,
 	subject: String,
-	message: String
+	message: String,
+	issue_metadata: Dictionary = {}
 ) -> void:
 	var _append_issue_result_198: Variant = _GF_VALIDATION_REPORT_DICTIONARY_SCRIPT.append_issue(
 		report,
 		"error",
 		kind,
 		message,
-		{ "subject": subject, "path": subject, }
+		{
+			"subject": subject,
+			"path": subject,
+			"metadata": issue_metadata,
+		}
 	)
 
 

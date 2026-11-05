@@ -32,7 +32,8 @@ end.kind = GFDialogueLine.LineKind.END
 resource.set_line(end)
 
 var context := GFDialogueContext.new()
-context.text_resolver = func(text_key: String, _line: GFDialogueLine) -> String:
+# subject 可以是当前行或响应；第三个参数是调用解析器的上下文。
+context.text_resolver = func(text_key: String, _subject: Variant, _context: GFDialogueContext) -> String:
 	return tr(text_key)
 
 var runner := GFDialogueRunner.new()
@@ -59,10 +60,12 @@ runner.advance()
 
 Runner 在 `start()` 前同步计算完整资源指纹，恢复时要求指纹精确一致；每次创建快照前还会重新计算并核对当前资源身份，因此会话运行中、停止后或恢复停止快照后发生内容漂移都会失败关闭为空字典。字典插入顺序不会改变指纹，但文本、metadata、payload、行或响应内容的变化都会改变指纹。身份输入必须无循环、不含运行时 Object/Callable/Signal/RID，并受完整复制预算约束；身份不完整或超限时 `start()` 会返回 `null`。因此，当前实现适合对内容完全一致的资源做严格恢复，不应把它当作跨内容修订的存档迁移协议。
 
+身份还必须能被 JSON codec 完整编码。可复制但当前 codec 不支持的值（例如 `Projection`）会被拒绝，不能退化成 `null` 后继续计算指纹；项目可先把这类值转换为自己约定的稳定纯数据。
+
 ## 资源校验与推进边界
 
 - `validate_resource()` 会拒绝空图、空或重复行 ID、非法 `LineKind`、缺失后继和无条件自动循环；它仍不判断剧情设计是否合理。
-- `max_steps_per_advance` 只计算被跳过的条件行以及实际执行的 JUMP/MUTATION 等非展示转换；到达 TEXT 本身不消耗预算。小于等于 `0` 表示不启用步数上限，循环检测仍然生效。
+- `max_steps_per_advance` 只计算被跳过的条件行以及实际执行的 JUMP/MUTATION 等非展示转换；到达 TEXT 本身不消耗预算。小于等于 `0` 表示不启用步数上限，循环检测仍然生效，包括条件持续失败的 fallback 回环。回边会先重新评估条件，允许条件变化后进入或退出该行。
 - 条件、mutation 和 Runner 信号都是同步项目代码边界。回调可以停止或替换当前会话；一旦会话改变，旧推进栈会作废并返回 `null`，不会覆盖新会话。
 - mutation 处理器返回失败时，Runner 只阻止推进，不可能自动回滚项目已经产生的外部副作用。处理器应在成功前自行保持原子性或幂等性；项目检查点应显式记录已提交效果，框架不提供隐式事务或 once 承诺。
 

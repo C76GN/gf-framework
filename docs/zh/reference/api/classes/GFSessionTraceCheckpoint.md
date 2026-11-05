@@ -32,6 +32,7 @@ Session Trace 配方中的显式 Provider 采集点。 检查点只引用已经�
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var checkpoint_id: StringName = &""
 ```
 
@@ -45,6 +46,7 @@ var checkpoint_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var provider_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -58,6 +60,7 @@ var provider_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var optional_provider_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -71,6 +74,7 @@ var optional_provider_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

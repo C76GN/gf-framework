@@ -561,14 +561,14 @@ static func _is_integer_value(value: Variant) -> bool:
 	return false
 
 
-## 将源字典键转成去首尾空格的字符串，并按首次出现顺序去重。
+## 保留源字典键的原始拼写供白名单校验；空键和带空白的键也必须保留为错误证据。
 ## [br]
 ## @api private
 static func _normalize_field_name_list(values: Array) -> Array[String]:
 	var result: Array[String] = []
 	for value: Variant in values:
-		var field_name: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(value).strip_edges()
-		if field_name.is_empty() or result.has(field_name):
+		var field_name: String = _GF_VARIANT_ACCESS_SCRIPT.to_text(value)
+		if result.has(field_name):
 			continue
 		result.append(field_name)
 	return result

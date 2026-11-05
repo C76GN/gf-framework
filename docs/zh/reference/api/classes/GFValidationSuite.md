@@ -86,6 +86,7 @@ const DEFAULT_MAX_COLLECTED_PATHS: int = 10_000
 - API：`public`
 
 ```gdscript
+@export
 var suite_id: StringName = &""
 ```
 
@@ -98,6 +99,7 @@ var suite_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -110,6 +112,7 @@ var description: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -122,6 +125,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var treat_warnings_as_errors: bool = false
 ```
 
@@ -134,6 +138,7 @@ var treat_warnings_as_errors: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var rules: Array[GFValidationRuleBase] = []
 ```
 
@@ -146,6 +151,7 @@ var rules: Array[GFValidationRuleBase] = []
 - API：`public`
 
 ```gdscript
+@export
 var include_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -158,6 +164,7 @@ var include_paths: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var exclude_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -170,6 +177,7 @@ var exclude_paths: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var resource_extensions: PackedStringArray = PackedStringArray(["tres", "res"])
 ```
 
@@ -182,6 +190,7 @@ var resource_extensions: PackedStringArray = PackedStringArray(["tres", "res"])
 - API：`public`
 
 ```gdscript
+@export
 var scene_extensions: PackedStringArray = PackedStringArray(["tscn", "scn"])
 ```
 
@@ -194,6 +203,7 @@ var scene_extensions: PackedStringArray = PackedStringArray(["tscn", "scn"])
 - API：`public`
 
 ```gdscript
+@export
 var recursive: bool = true
 ```
 
@@ -206,6 +216,7 @@ var recursive: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var include_hidden: bool = false
 ```
 
@@ -218,6 +229,7 @@ var include_hidden: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var max_scan_depth: int = DEFAULT_MAX_SCAN_DEPTH:
 ```
 
@@ -230,6 +242,7 @@ var max_scan_depth: int = DEFAULT_MAX_SCAN_DEPTH:
 - API：`public`
 
 ```gdscript
+@export
 var max_collected_paths: int = DEFAULT_MAX_COLLECTED_PATHS:
 ```
 
@@ -242,6 +255,7 @@ var max_collected_paths: int = DEFAULT_MAX_COLLECTED_PATHS:
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

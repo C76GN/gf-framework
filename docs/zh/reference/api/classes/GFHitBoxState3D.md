@@ -58,6 +58,7 @@ signal active_changed(active: bool)
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var active: bool:
 ```
 
@@ -70,6 +71,7 @@ var active: bool:
 - API：`public`
 
 ```gdscript
+@export
 var apply_on_ready: bool = true
 ```
 
@@ -82,6 +84,7 @@ var apply_on_ready: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var recursive: bool = true
 ```
 
@@ -94,6 +97,7 @@ var recursive: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var manage_enabled: bool = true
 ```
 
@@ -106,6 +110,7 @@ var manage_enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var manage_monitoring: bool = true
 ```
 
@@ -118,6 +123,7 @@ var manage_monitoring: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var manage_visibility: bool = false
 ```
 

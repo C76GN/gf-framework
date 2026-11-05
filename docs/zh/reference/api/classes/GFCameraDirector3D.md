@@ -105,6 +105,7 @@ Director 自动更新模式。
 - API：`public`
 
 ```gdscript
+@export_node_path("Camera3D")
 var camera_path: NodePath = NodePath("")
 ```
 
@@ -117,6 +118,7 @@ var camera_path: NodePath = NodePath("")
 - API：`public`
 
 ```gdscript
+@export
 var rig_paths: Array[NodePath] = []
 ```
 
@@ -133,6 +135,7 @@ var rig_paths: Array[NodePath] = []
 - API：`public`
 
 ```gdscript
+@export
 var collect_group_rigs: bool = true
 ```
 
@@ -145,6 +148,7 @@ var collect_group_rigs: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var rig_group_name: StringName = &"gf_camera_rig_3d"
 ```
 
@@ -158,6 +162,7 @@ var rig_group_name: StringName = &"gf_camera_rig_3d"
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_node_path("Node")
 var camera_scope_path: NodePath = NodePath("")
 ```
 
@@ -171,6 +176,7 @@ var camera_scope_path: NodePath = NodePath("")
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var camera_channel: StringName = &""
 ```
 
@@ -183,6 +189,7 @@ var camera_channel: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var update_mode: UpdateMode = UpdateMode.IDLE
 ```
 
@@ -196,6 +203,7 @@ var update_mode: UpdateMode = UpdateMode.IDLE
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var default_blend: GFCameraBlend = null
 ```
 
@@ -209,6 +217,7 @@ var default_blend: GFCameraBlend = null
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var make_current_on_apply: bool = false
 ```
 

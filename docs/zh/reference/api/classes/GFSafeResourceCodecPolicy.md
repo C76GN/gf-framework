@@ -41,6 +41,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allowed_classes: PackedStringArray = PackedStringArray()
 ```
 
@@ -58,6 +59,7 @@ var allowed_classes: PackedStringArray = PackedStringArray()
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allowed_script_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -75,6 +77,7 @@ var allowed_script_paths: PackedStringArray = PackedStringArray()
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allowed_resource_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -92,6 +95,7 @@ var allowed_resource_paths: PackedStringArray = PackedStringArray()
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var max_depth: int = 32:
 ```
 
@@ -105,6 +109,7 @@ var max_depth: int = 32:
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var max_items: int = 4096:
 ```
 
@@ -118,6 +123,7 @@ var max_items: int = 4096:
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allow_external_resource_paths: bool = true
 ```
 
@@ -131,6 +137,7 @@ var allow_external_resource_paths: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var allow_object_identity_references: bool = true
 ```
 

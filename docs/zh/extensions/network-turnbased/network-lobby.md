@@ -22,6 +22,7 @@ var handle := lobby_service.create_lobby({
 	"metadata": {"mode": "duel"},
 	"timeout_msec": 15_000,
 })
+# Provider 可能同步完成；仅等待仍 pending 的句柄，避免错过 completed 信号。
 if handle.is_pending():
 	await handle.completed
 
@@ -51,6 +52,7 @@ var query_handle := lobby_service.query_lobbies(query, {
 Adapter 只重写 `_dispatch_operation()`、`_cancel_operation()`、`_poll()` 和 `_close()`。必须先保存 Provider call ID 与 Handle 的关联，再发起可能同步回调的 SDK 调用：
 
 ```gdscript
+## 在可能同步回调的 SDK 调用前登记关联；此返回值不代表远端操作已成功。
 func _dispatch_operation(
 	request: GFNetworkLobbyOperationRequest,
 	handle: GFNetworkLobbyOperationHandle
@@ -61,6 +63,7 @@ func _dispatch_operation(
 	return true
 
 
+## 消费精确调用关联；迟到或重复通知不能覆盖已经结算的句柄终态。
 func _on_provider_completed(provider_call_id: String, lobby: GFNetworkLobbyDescriptor) -> void:
 	var handle: GFNetworkLobbyOperationHandle = _take_handle(provider_call_id)
 	if handle != null:

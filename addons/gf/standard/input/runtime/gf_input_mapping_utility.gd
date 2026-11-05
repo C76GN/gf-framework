@@ -253,6 +253,36 @@ var _actions: Dictionary = {}
 ## [br]
 var _action_modifiers: Dictionary = {}
 
+## 需要在 tick 内推进的动作。配置副本保留为原型；每个观测到的作用域另有运行副本。
+## [br]
+## @api private
+var _stepped_actions: Dictionary = {}
+
+## 已接收贡献的全局动作和玩家动作分别持有独立的有状态修饰链。
+## [br]
+## @api private
+var _global_step_chains: Dictionary = {}
+
+## 玩家动作键对应的独立运行链，随玩家状态一起失效。
+## [br]
+## @api private
+var _player_step_chains: Dictionary = {}
+
+## 最后一次成功刷新提交的完整向量，保留 BOOL 和单轴类型值无法表达的分量。
+## [br]
+## @api private
+var _action_vectors: Dictionary = {}
+
+## 已提交的玩家动作向量，读取不会再次执行修饰器。
+## [br]
+## @api private
+var _player_action_vectors: Dictionary = {}
+
+## tick 期间的同步回调不能嵌套推进同一个输入时钟。
+## [br]
+## @api private
+var _ticking: bool = false
+
 ## 当前有效动作的触发器列表。
 ## [br]
 ## @api private
@@ -312,6 +342,21 @@ var _player_action_edge_revisions: Dictionary = {}
 ## @api private
 ## [br]
 var _next_action_edge_revision: int = 0
+
+## 每次动作刷新分配独立版本，识别同一分发代际内的同步重入。
+## [br]
+## @api private
+var _next_action_refresh_revision: int = 0
+
+## 全局动作最近一次刷新的版本。
+## [br]
+## @api private
+var _action_refresh_revisions: Dictionary = {}
+
+## 玩家动作最近一次刷新的版本，以玩家动作复合键索引。
+## [br]
+## @api private
+var _player_action_refresh_revisions: Dictionary = {}
 
 ## 全局动作当前连续活跃时长。
 ## [br]
@@ -490,17 +535,26 @@ func dispose() -> void:
 	_clear_runtime_state(false, &"mapping_disposed")
 
 
-## 推进运行时逻辑。
+## 按本步 delta 推进已接收输入的有状态 Mapping 链、动作计时和触发器；同步嵌套调用不重复推进。
 ## [br]
 ## @api public
 ## [br]
+## @since 2.1.0
+## [br]
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
+	if _ticking:
+		return
+	_ticking = true
 	_bind_input_device_utility()
 	_prune_virtual_pulse_leases()
 	_clear_transient_input_state_if_queued()
 	_advance_active_durations(delta)
-	_refresh_triggered_action_states(delta)
+	var epoch: int = _dispatch_epoch
+	_advance_stepped_actions(delta)
+	if epoch == _dispatch_epoch:
+		_refresh_triggered_action_states(delta)
+	_ticking = false
 
 
 # --- 公共方法 ---
@@ -929,27 +983,31 @@ func get_action_value(action_id: StringName) -> Variant:
 	return _default_value_for_type(action.value_type)
 
 
-## 获取动作当前二维向量值。
+## 读取最近一次提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。
 ## [br]
 ## @api public
+## [br]
+## @since 1.17.0
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @return 二维向量值；三维轴会返回 x/y 分量。
 func get_action_vector(action_id: StringName) -> Vector2:
-	var vector: Vector3 = _calculate_action_vector3(action_id)
+	var vector: Vector3 = GFVariantData.get_option_vector3(_action_vectors, action_id)
 	return Vector2(vector.x, vector.y)
 
 
-## 获取动作当前三维向量值。
+## 读取最近一次提交的动作样本的完整向量，保留类型值转换前的各个分量。
 ## [br]
 ## @api public
 ## [br]
+## @since 1.21.0
+## [br]
 ## @param action_id: 动作标识。
 ## [br]
-## @return 三维向量值；非三维动作的 z 分量为 0。
+## @return 三维向量值；尚无已提交样本时返回零向量。
 func get_action_vector3(action_id: StringName) -> Vector3:
-	return _calculate_action_vector3(action_id)
+	return GFVariantData.get_option_vector3(_action_vectors, action_id)
 
 
 ## 检查动作是否活跃。
@@ -1032,9 +1090,11 @@ func get_action_value_for_player(player_index: int, action_id: StringName) -> Va
 	return _default_value_for_type(action.value_type)
 
 
-## 获取指定玩家动作当前二维向量值。
+## 读取指定玩家最近提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。
 ## [br]
 ## @api public
+## [br]
+## @since 1.18.0
 ## [br]
 ## @param player_index: 玩家索引。
 ## [br]
@@ -1042,21 +1102,29 @@ func get_action_value_for_player(player_index: int, action_id: StringName) -> Va
 ## [br]
 ## @return 二维向量值；三维轴会返回 x/y 分量。
 func get_action_vector_for_player(player_index: int, action_id: StringName) -> Vector2:
-	var vector: Vector3 = _calculate_player_action_vector3(player_index, action_id)
+	var vector: Vector3 = GFVariantData.get_option_vector3(
+		_player_action_vectors,
+		_make_player_action_key(player_index, action_id)
+	)
 	return Vector2(vector.x, vector.y)
 
 
-## 获取指定玩家动作当前三维向量值。
+## 读取指定玩家最近提交的完整动作向量，保留类型值转换前的各个分量。
 ## [br]
 ## @api public
+## [br]
+## @since 1.21.0
 ## [br]
 ## @param player_index: 玩家索引。
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
-## @return 三维向量值；非三维动作的 z 分量为 0。
+## @return 三维向量值；尚无已提交样本时返回零向量。
 func get_action_vector3_for_player(player_index: int, action_id: StringName) -> Vector3:
-	return _calculate_player_action_vector3(player_index, action_id)
+	return GFVariantData.get_option_vector3(
+		_player_action_vectors,
+		_make_player_action_key(player_index, action_id)
+	)
 
 
 ## 检查指定玩家动作是否活跃。
@@ -2315,6 +2383,7 @@ func _rebuild_effective_entries() -> void:
 	_effective_entries.clear()
 	_actions.clear()
 	_action_modifiers.clear()
+	_stepped_actions.clear()
 	_action_triggers.clear()
 
 	for context: GFInputContext in _get_sorted_contexts():
@@ -2371,8 +2440,18 @@ func _rebuild_effective_entries() -> void:
 				)
 
 			if not _actions.has(action_id):
+				var modifiers: Array[GFInputModifier] = _duplicate_modifiers(mapping.modifiers)
+				if rebuild_epoch != _dispatch_epoch:
+					return
+				for modifier: GFInputModifier in modifiers:
+					var stepped: bool = modifier.supports_runtime_state()
+					if rebuild_epoch != _dispatch_epoch:
+						return
+					if stepped:
+						_stepped_actions[action_id] = true
+						break
 				_actions[action_id] = mapping.action
-				_action_modifiers[action_id] = _duplicate_modifiers(mapping.modifiers)
+				_action_modifiers[action_id] = modifiers
 				_action_triggers[action_id] = _duplicate_triggers(mapping.triggers)
 			_append_array_value(
 				_effective_entries,
@@ -2479,15 +2558,42 @@ func _apply_entry_event(
 ## [br]
 ## @api private
 ## [br]
-func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void:
+func _refresh_action_state(
+	action_id: StringName,
+	action: GFInputAction,
+	step: _SteppedAction = null,
+	delta: float = 0.0
+) -> void:
+	if step == null and _stepped_actions.has(action_id):
+		_schedule_stepped_action(
+			_global_step_chains,
+			action_id,
+			action_id,
+			-1
+		)
+		return
 	var dispatch_epoch: int = _dispatch_epoch
+	_next_action_refresh_revision += 1
+	var refresh_revision: int = _next_action_refresh_revision
+	_action_refresh_revisions[action_id] = refresh_revision
 	var previous_value: Variant = GFVariantData.get_option_value(
 		_action_values,
 		action_id,
 		_default_value_for_type(action.value_type)
 	)
 	var previous_active: bool = _get_action_active(action_id)
-	var next_value: Variant = _calculate_action_value(action_id, action.value_type)
+	var vector: Vector3 = _apply_mapping_modifiers(
+		action,
+		step._input if step != null else _calculate_action_vector3(action_id),
+		step._chain if step != null else _get_action_modifiers(action_id),
+		delta if step != null else -1.0,
+		_action_refresh_revisions,
+		action_id,
+		refresh_revision
+	)
+	var next_value: Variant = _calculate_value_from_vector(vector, action.value_type)
+	if dispatch_epoch != _dispatch_epoch or _action_refresh_revisions.get(action_id) != refresh_revision:
+		return
 	var raw_active: bool = _is_value_active(
 		next_value,
 		action,
@@ -2497,16 +2603,19 @@ func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void
 		action_id,
 		raw_active,
 		next_value,
-		0.0
+		delta
 	)
+	if dispatch_epoch != _dispatch_epoch or _action_refresh_revisions.get(action_id) != refresh_revision:
+		return
 
 	_action_values[action_id] = next_value
+	_action_vectors[action_id] = vector
 	_action_active[action_id] = next_active
 	_raw_action_active[action_id] = raw_active
 
 	if not _values_equal(previous_value, next_value):
 		action_value_changed.emit(action_id, next_value)
-		if dispatch_epoch != _dispatch_epoch:
+		if dispatch_epoch != _dispatch_epoch or _action_refresh_revisions.get(action_id) != refresh_revision:
 			return
 
 	if not previous_active and next_active:
@@ -2520,7 +2629,7 @@ func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void
 		action_completed.emit(action_id, next_value)
 
 
-## 汇总动作的全局绑定贡献，长度超过 1 时归一化，再应用动作修饰器。
+## 汇总动作的全局绑定贡献，长度超过 1 时归一化。
 ## [br]
 ## @api private
 ## [br]
@@ -2531,10 +2640,10 @@ func _calculate_action_vector3(action_id: StringName) -> Vector3:
 			total += GFVariantData.to_vector3(_binding_values[key])
 	if total.length() > 1.0:
 		total = total.normalized()
-	return _apply_mapping_modifiers(action_id, total)
+	return total
 
 
-## 汇总指定玩家和动作的绑定贡献，长度超过 1 时归一化，再应用动作修饰器。
+## 汇总指定玩家和动作的绑定贡献，长度超过 1 时归一化。
 ## [br]
 ## @api private
 ## [br]
@@ -2547,29 +2656,7 @@ func _calculate_player_action_vector3(player_index: int, action_id: StringName) 
 			total += GFVariantData.to_vector3(_player_binding_values[key])
 	if total.length() > 1.0:
 		total = total.normalized()
-	return _apply_mapping_modifiers(action_id, total)
-
-
-## 计算全局动作向量并按动作值类型转换为公开动作值。
-## [br]
-## @api private
-## [br]
-func _calculate_action_value(action_id: StringName, value_type: GFInputAction.ValueType) -> Variant:
-	var vector: Vector3 = _calculate_action_vector3(action_id)
-	return _calculate_value_from_vector(vector, value_type)
-
-
-## 计算指定玩家的动作向量并按动作值类型转换为动作值。
-## [br]
-## @api private
-## [br]
-func _calculate_player_action_value(
-	player_index: int,
-	action_id: StringName,
-	value_type: GFInputAction.ValueType
-) -> Variant:
-	var vector: Vector3 = _calculate_player_action_vector3(player_index, action_id)
-	return _calculate_value_from_vector(vector, value_type)
+	return total
 
 
 ## 将 Vector3 按值类型转换为 bool、限幅 float、Vector2、Vector3 或不支持时的 null。
@@ -2830,12 +2917,18 @@ func _clear_runtime_state(emit_completed: bool = false, pulse_reason: StringName
 	_player_binding_to_action.clear()
 	_player_binding_metadata.clear()
 	_action_values.clear()
+	_action_vectors.clear()
+	_global_step_chains.clear()
+	_player_action_vectors.clear()
+	_player_step_chains.clear()
 	_action_active.clear()
 	_raw_action_active.clear()
 	_just_started.clear()
 	_just_completed.clear()
 	_action_edge_revisions.clear()
 	_player_action_edge_revisions.clear()
+	_action_refresh_revisions.clear()
+	_player_action_refresh_revisions.clear()
 	_action_active_elapsed.clear()
 	_last_completed_duration.clear()
 	_player_action_values.clear()
@@ -2921,9 +3014,11 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		_erase_dictionary_key(_player_binding_values, key)
 		_erase_dictionary_key(_player_binding_to_action, key)
 		_erase_dictionary_key(_player_binding_metadata, key)
-	for key: String in _player_action_values.keys():
+	for key: String in _player_action_metadata.keys():
 		if _get_player_index_from_action_key(key) != player_index:
 			continue
+		_erase_dictionary_key(_player_action_vectors, key)
+		_erase_dictionary_key(_player_step_chains, key)
 		_erase_dictionary_key(_player_action_values, key)
 		_erase_dictionary_key(_player_action_active, key)
 		_erase_dictionary_key(_player_raw_action_active, key)
@@ -2932,6 +3027,7 @@ func _clear_player_runtime_state(player_index: int, emit_completed: bool = false
 		_erase_dictionary_key(_player_just_started, key)
 		_erase_dictionary_key(_player_just_completed, key)
 		_erase_dictionary_key(_player_action_edge_revisions, key)
+		_erase_dictionary_key(_player_action_refresh_revisions, key)
 		_erase_dictionary_key(_player_action_active_elapsed, key)
 		_erase_dictionary_key(_player_last_completed_duration, key)
 
@@ -3493,7 +3589,9 @@ func _make_event_source_key(event: InputEvent) -> String:
 func _refresh_player_action_state(
 	player_index: int,
 	action_id: StringName,
-	action: GFInputAction
+	action: GFInputAction,
+	step: _SteppedAction = null,
+	delta: float = 0.0
 ) -> void:
 	var dispatch_epoch: int = _dispatch_epoch
 	var key: String = _make_player_action_key(player_index, action_id)
@@ -3502,13 +3600,31 @@ func _refresh_player_action_state(
 		player_index,
 		action_id
 	)
+	if step == null and _stepped_actions.has(action_id):
+		_schedule_stepped_action(
+			_player_step_chains,
+			key,
+			action_id,
+			player_index
+		)
+		return
+	_next_action_refresh_revision += 1
+	var refresh_revision: int = _next_action_refresh_revision
+	_player_action_refresh_revisions[key] = refresh_revision
 	var previous_value: Variant = _get_player_action_value_or_default(key, action.value_type)
 	var previous_active: bool = _get_player_action_active_by_key(key)
-	var next_value: Variant = _calculate_player_action_value(
-		player_index,
-		action_id,
-		action.value_type
+	var vector: Vector3 = _apply_mapping_modifiers(
+		action,
+		step._input if step != null else _calculate_player_action_vector3(player_index, action_id),
+		step._chain if step != null else _get_action_modifiers(action_id),
+		delta if step != null else -1.0,
+		_player_action_refresh_revisions,
+		key,
+		refresh_revision
 	)
+	var next_value: Variant = _calculate_value_from_vector(vector, action.value_type)
+	if dispatch_epoch != _dispatch_epoch or _player_action_refresh_revisions.get(key) != refresh_revision:
+		return
 	var raw_active: bool = _is_value_active(
 		next_value,
 		action,
@@ -3519,10 +3635,13 @@ func _refresh_player_action_state(
 		action_id,
 		raw_active,
 		next_value,
-		0.0
+		delta
 	)
+	if dispatch_epoch != _dispatch_epoch or _player_action_refresh_revisions.get(key) != refresh_revision:
+		return
 
 	_player_action_values[key] = next_value
+	_player_action_vectors[key] = vector
 	_player_action_active[key] = next_active
 	_player_raw_action_active[key] = raw_active
 
@@ -3532,7 +3651,7 @@ func _refresh_player_action_state(
 			action_id,
 			next_value
 		)
-		if dispatch_epoch != _dispatch_epoch:
+		if dispatch_epoch != _dispatch_epoch or _player_action_refresh_revisions.get(key) != refresh_revision:
 			return
 
 	if not previous_active and next_active:
@@ -3596,7 +3715,75 @@ func _get_player_deadzone(player_index: int) -> float:
 	return devices.get_player_deadzone(player_index, -1.0)
 
 
-## 用本帧 delta 重评所有已配置全局及玩家触发器的动作活跃状态。
+## 首次写入创建作用域。复制用户修饰器时可发生重入；已移除的旧记录不会被重新登记。
+## [br]
+## @api private
+func _schedule_stepped_action(
+	scopes: Dictionary,
+	key: Variant,
+	action_id: StringName,
+	player_index: int
+) -> void:
+	if scopes.has(key):
+		return
+	var step: _SteppedAction = _SteppedAction.new()
+	step._action_id = action_id
+	step._player_index = player_index
+	scopes[key] = step
+	step._chain = _duplicate_modifiers(_get_action_modifiers(action_id))
+	step._ready = true
+
+
+## 先捕获全部运行链的身份与输入，再执行任何链的项目回调；本次回调写入的贡献留到下一步。
+## [br]
+## @api private
+func _advance_stepped_actions(delta: float) -> void:
+	if _stepped_actions.is_empty():
+		return
+	var epoch: int = _dispatch_epoch
+	var samples: Array[_SteppedAction] = []
+	var step_delta: float = maxf(delta, 0.0) if is_finite(delta) else 0.0
+	for step: _SteppedAction in _global_step_chains.values():
+		if step._ready:
+			step._input = _calculate_action_vector3(step._action_id)
+			samples.append(step)
+	for step: _SteppedAction in _player_step_chains.values():
+		if step._ready:
+			step._input = _calculate_player_action_vector3(step._player_index, step._action_id)
+			samples.append(step)
+	for step: _SteppedAction in samples:
+		if epoch != _dispatch_epoch:
+			return
+		var action: GFInputAction = _get_registered_action(step._action_id)
+		if action == null:
+			continue
+		if step._player_index < 0:
+			if is_same(
+				_global_step_chains.get(step._action_id),
+				step
+			):
+				_refresh_action_state(
+					step._action_id,
+					action,
+					step,
+					step_delta
+				)
+		else:
+			var key: String = _make_player_action_key(step._player_index, step._action_id)
+			if is_same(
+				_player_step_chains.get(key),
+				step
+			):
+				_refresh_player_action_state(
+					step._player_index,
+					step._action_id,
+					action,
+					step,
+					step_delta
+				)
+
+
+## 用本帧 delta 重评事件驱动动作的触发器；已随运行链推进的触发器不重复评估。
 ## [br]
 ## @api private
 ## [br]
@@ -3606,6 +3793,8 @@ func _refresh_triggered_action_states(delta: float) -> void:
 
 	for action_id_variant: Variant in _action_triggers.keys():
 		var action_id: StringName = GFVariantData.to_string_name(action_id_variant)
+		if _stepped_actions.has(action_id):
+			continue
 		var triggers: Array = _get_action_triggers(action_id)
 		if triggers.is_empty():
 			continue
@@ -3626,7 +3815,11 @@ func _refresh_triggered_action_states(delta: float) -> void:
 		var player_key: String = GFVariantData.to_text(player_key_variant)
 		var player_index: int = _get_player_index_from_action_key(player_key)
 		var action_id: StringName = _get_player_action_id_from_key(player_key)
-		if player_index < 0 or action_id == &"":
+		if (
+			player_index < 0
+			or action_id == &""
+			or _stepped_actions.has(action_id)
+		):
 			continue
 		var action: GFInputAction = _get_registered_action(action_id)
 		if action == null:
@@ -3850,12 +4043,23 @@ func _reset_all_trigger_states() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _apply_mapping_modifiers(action_id: StringName, value: Vector3) -> Vector3:
-	var modifiers: Array = _get_action_modifiers(action_id)
-	var action: GFInputAction = _get_registered_action(action_id)
+func _apply_mapping_modifiers(
+	action: GFInputAction,
+	value: Vector3,
+	modifiers: Array,
+	step_delta: float,
+	revisions: Dictionary,
+	key: Variant,
+	refresh_revision: int
+) -> Vector3:
+	var epoch: int = _dispatch_epoch
 	var result: Vector3 = value
 	for modifier: GFInputModifier in modifiers:
 		if modifier != null:
+			if step_delta >= 0.0:
+				var _clock: GFInputModifier = modifier.set_runtime_delta_seconds(step_delta)
+				if epoch != _dispatch_epoch or revisions.get(key) != refresh_revision:
+					return result
 			if action != null and action.value_type == GFInputAction.ValueType.AXIS_3D:
 				result = modifier.modify_3d(
 					result,
@@ -3873,6 +4077,8 @@ func _apply_mapping_modifiers(action_id: StringName, value: Vector3) -> Vector3:
 					modified.y,
 					result.z
 				)
+			if epoch != _dispatch_epoch or revisions.get(key) != refresh_revision:
+				return result
 	return result
 
 
@@ -3880,7 +4086,7 @@ func _apply_mapping_modifiers(action_id: StringName, value: Vector3) -> Vector3:
 ## [br]
 ## @api private
 ## [br]
-func _duplicate_modifiers(modifiers: Array[GFInputModifier]) -> Array[GFInputModifier]:
+func _duplicate_modifiers(modifiers: Array) -> Array[GFInputModifier]:
 	var result: Array[GFInputModifier] = []
 	for modifier: GFInputModifier in modifiers:
 		if modifier == null:
@@ -4002,6 +4208,40 @@ func _on_input_assignment_event_recorded(event_record: Dictionary) -> void:
 
 
 # --- 内部类 ---
+
+## 每个已参与的全局或玩家动作持有一个记录。运行链和本步原始输入在同一记录内按身份校验。
+## [br]
+## @api private
+class _SteppedAction extends RefCounted:
+
+
+	# --- 私有变量 ---
+
+	## 此运行链绑定的动作标识。
+	## [br]
+	## @api private
+	var _action_id: StringName
+
+	## 负值代表全局聚合，其余值指定对应玩家。
+	## [br]
+	## @api private
+	var _player_index: int
+
+	## 在派发任何本步采样回调之前写入的聚合输入。
+	## [br]
+	## @api private
+	var _input: Vector3
+
+	## 按声明顺序执行的作用域私有修饰器副本。
+	## [br]
+	## @api private
+	var _chain: Array[GFInputModifier] = []
+
+	## 所有修饰器副本已经构造；构造回调内的 tick 不读取未完成的链。
+	## [br]
+	## @api private
+	var _ready: bool = false
+
 
 ## 随主循环接收输入并在应用失焦时转发回调的内部路由节点。
 ## [br]

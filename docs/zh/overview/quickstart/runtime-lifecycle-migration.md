@@ -10,6 +10,7 @@
 的操作和成功句柄；关闭后取消尚未完成的请求并释放句柄。底层已经开始的共享加载由框架排空。
 
 ```gdscript
+# 请求和成功句柄共同归 scope 管理；业务对象需在使用期间保留 scope。
 var assets: GFAssetUtility = get_assets_for_this_context()
 var scope: GFAssetScope = assets.create_scope(self)
 var operation: GFAssetLoadOperation = assets.load_async(
@@ -21,6 +22,7 @@ var result: GFAssetLoadResult = await operation.wait_result_async()
 if not result.is_successful():
 	return
 var handle: GFAssetHandle = result.get_handle()
+# 成功是历史结果；等待期间 owner 可能离树并关闭 scope，句柄仍须重新校验。
 if not handle.is_valid():
 	return
 var resource: Resource = handle.get_resource()
@@ -90,12 +92,14 @@ SCOPED Context 关闭自有 Architecture；INHERITED Context 仅撤销自己的�
 使用和修改源字典。仍需保存请求对象以便一次性提交，不能重复 claim。
 
 ```gdscript
+# 普通元数据在 create() 时复制；请求对象本身仍只能提交一次。
 var request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 	{"slot_kind": "auto"},
 	{"reason": "checkpoint"},
 	{"request_tag": "autosave"}
 )
 if request == null:
+	# 保存入口的 null 表示空元数据，不能用它代替创建失败的请求。
 	push_error("Save metadata is invalid or exceeds the budget.")
 	return
 var operation: GFSaveProfileOperation = save_profiles.save_profile(&"project.player", request)

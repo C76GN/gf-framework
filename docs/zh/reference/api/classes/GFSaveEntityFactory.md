@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var type_key: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ var type_key: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var packed_scene: PackedScene
 ```
 

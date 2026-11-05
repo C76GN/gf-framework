@@ -49,6 +49,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var host_node_path: NodePath = NodePath("..")
 ```
 

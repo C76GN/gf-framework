@@ -23,7 +23,7 @@ class RecordingFlowNode extends GFFlowNode:
 		next_node_ids = p_next
 
 
-	func execute(_context: GFFlowContext) -> Variant:
+	func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -> Variant:
 		order.append(String(node_id))
 		return null
 
@@ -33,8 +33,8 @@ class BranchFlowNode extends GFFlowNode:
 		node_id = &"branch"
 
 
-	func execute(context: GFFlowContext) -> Variant:
-		context.set_next_nodes(PackedStringArray(["right"]))
+	func execute(_context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		var _chosen: bool = execution.set_next_nodes(PackedStringArray(["right"]))
 		return null
 
 
@@ -43,8 +43,8 @@ class StopFlowNode extends GFFlowNode:
 		node_id = &"stop"
 
 
-	func execute(context: GFFlowContext) -> Variant:
-		context.set_next_nodes(PackedStringArray())
+	func execute(_context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		var _chosen: bool = execution.set_next_nodes(PackedStringArray())
 		return null
 
 
@@ -63,7 +63,7 @@ class ManualWaitFlowNode extends GFFlowNode:
 		wait_for_result = true
 
 
-	func execute(_context: GFFlowContext) -> Variant:
+	func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -> Variant:
 		order.append(String(node_id))
 		return completed
 
@@ -77,27 +77,29 @@ class RuntimeStateFlowNode extends GFFlowNode:
 		node_id = &"runtime"
 
 
-	func execute(_context: GFFlowContext) -> Variant:
-		set_runtime_value(
+	func execute(_context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		var _updated: bool = execution.set_runtime_value(
 			&"count",
-			GFVariantData.to_int(get_runtime_value(&"count", 0)) + 1
+			GFVariantData.to_int(execution.get_runtime_value(&"count", 0)) + 1
 		)
 		return null
 
 
 class RuntimeStateWaitFlowNode extends GFFlowNode:
 	signal completed
+	var current: GFFlowNodeExecution
 
 	func _init() -> void:
 		node_id = &"runtime_wait"
 		wait_for_result = true
 
 
-	func execute(_context: GFFlowContext) -> Variant:
-		set_runtime_value(
+	func execute(_context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		var _updated: bool = execution.set_runtime_value(
 			&"count",
-			GFVariantData.to_int(get_runtime_value(&"count", 0)) + 1
+			GFVariantData.to_int(execution.get_runtime_value(&"count", 0)) + 1
 		)
+		current = execution
 		return completed
 
 
@@ -105,85 +107,62 @@ class RuntimeStateWaitFlowNode extends GFFlowNode:
 		completed.emit()
 
 
+class ReentrantContextBranchFlowNode extends GFFlowNode:
+	var callback: Callable = Callable()
+	var order: Array[String] = []
+
+	func execute(context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		order.append(String(node_id))
+		var _chosen: bool = execution.set_next_nodes(PackedStringArray(["expected"]))
+		var _callback_result: Variant = callback.call(context)
+		return null
+
+
 class ContextRuntimeStateFlowNode extends GFFlowNode:
-	var operation: StringName = &"write"
+	var clear_count: bool = false
 	var observations: Array[int] = []
-	var snapshot: Dictionary = {}
 
 	func _init() -> void:
 		node_id = &"context_runtime"
 
 
-	func execute(context: GFFlowContext) -> Variant:
-		context.set_node_runtime_value(
-			node_id,
-			&"count",
-			5
-		)
-		observations.append(GFVariantData.to_int(get_runtime_value(&"count", -1)))
-		set_runtime_value(&"count", 6)
-		observations.append(
-			GFVariantData.to_int(
-				context.get_node_runtime_value(
-					node_id,
-					&"count",
-					-1
-				)
-			)
-		)
-		context.set_node_runtime_value(
-			node_id,
-			&"count",
-			7
-		)
-		match operation:
-			&"clear":
-				context.clear_node_runtime_state(node_id)
-			&"clear_all":
-				context.clear_node_runtime_state()
-			&"restore":
-				context.deserialize_runtime_state(
-					{
-						"nodes": {
-							node_id: { &"count": 11 },
-						},
-					}
-				)
-		observations.append(GFVariantData.to_int(get_runtime_value(&"count", -1)))
-		snapshot = context.create_runtime_snapshot()
+	func execute(_context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		for count: int in [
+			5,
+			6,
+			7,
+		]:
+			var _written: bool = execution.set_runtime_value(&"count", count)
+			observations.append(GFVariantData.to_int(execution.get_runtime_value(&"count", -1)))
+		if clear_count:
+			var _cleared: bool = execution.clear_runtime_state()
+			observations.append(GFVariantData.to_int(execution.get_runtime_value(&"count", -1)))
 		return null
 
 
-class AsyncRuntimeMutationFlowNode extends GFFlowNode:
-	signal completed
-
+class AsyncRuntimeMutationFlowNode extends RuntimeStateWaitFlowNode:
 	func _init() -> void:
 		node_id = &"async_runtime"
 		wait_for_result = true
 
 
-	func execute(_context: GFFlowContext) -> Variant:
-		set_runtime_value(
-			&"count",
-			GFVariantData.to_int(get_runtime_value(&"count", 0)) + 1
-		)
-		return completed
-
-
-	func mutate_and_complete() -> void:
-		set_runtime_value(&"count", 99)
+	func mutate_and_complete() -> bool:
+		var accepted: bool = current.set_runtime_value(&"count", 99)
 		completed.emit()
+		return accepted
 
 
 class NonWaitingSignalFlowNode extends GFFlowNode:
 	signal completed
+	var current: GFFlowNodeExecution
 
 	func _init() -> void:
 		node_id = &"non_waiting_signal"
 		wait_for_result = false
 
 
-	func execute(_context: GFFlowContext) -> Variant:
+	func execute(_context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
+		current = execution
 		return completed
 
 
@@ -192,17 +171,11 @@ class NonWaitingSignalFlowNode extends GFFlowNode:
 
 
 class CountingFlowContext extends GFFlowContext:
-	var full_serialize_count: int = 0
-	var full_deserialize_count: int = 0
+	var captures: int = 0
 
-	func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
-		full_serialize_count += 1
-		return super.serialize_runtime_state(json_compatible)
-
-
-	func deserialize_runtime_state(data: Dictionary) -> void:
-		full_deserialize_count += 1
-		super.deserialize_runtime_state(data)
+	func create_data_snapshot(options: Dictionary = {}) -> Dictionary:
+		captures += 1
+		return super.create_data_snapshot(options)
 
 
 class CountingFlowGraph extends GFFlowGraph:
@@ -1113,8 +1086,8 @@ func test_flow_runner_holds_non_waiting_signal_lease_until_signal_emits() -> voi
 		node.is_runtime_state_leased(),
 		"异步工作发出完成 Signal 前仍应保护共享节点运行态。"
 	)
-	node.set_runtime_value(&"late", true)
-	assert_push_error("[GFFlowNode][flow_node.runtime_lease_protected] set_runtime_value failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext.")
+	assert_false(node.current.is_active())
+	assert_false(node.current.set_runtime_value(&"late", true))
 
 	node.complete()
 	await get_tree().process_frame
@@ -1134,49 +1107,40 @@ func test_flow_runner_holds_non_waiting_signal_lease_until_signal_emits() -> voi
 	)
 
 
-func test_flow_runner_restores_graph_runtime_state_during_signal_wait() -> void:
+func test_flow_runner_retains_its_run_state_during_signal_wait() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
 	var node: RuntimeStateWaitFlowNode = RuntimeStateWaitFlowNode.new()
-	node.set_runtime_value(&"count", 7)
-	graph.start_node_id = &"runtime_wait"
+	graph.start_node_id = node.node_id
 	graph.nodes = [node]
 	var context: GFFlowContext = GFFlowContext.new()
-	context.set_node_runtime_value(
-		&"runtime_wait",
-		&"count",
-		2
-	)
 	var runner: GFFlowRunner = GFFlowRunner.new()
-	@warning_ignore("missing_await")
-	@warning_ignore("return_value_discarded")
-	runner.run(graph, context)
-
+	runner.call_deferred(
+		"run",
+		graph,
+		context,
+		{
+			node.node_id: { &"count": 2 },
+		}
+	)
 	await get_tree().process_frame
-	var graph_state_during_wait: int = GFVariantData.to_int(node.get_runtime_value(&"count", 0))
+	assert_true(node.current.is_active())
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
+		),
+		3
+	)
+	assert_false(context.create_data_snapshot().has("nodes"))
 	node.complete()
 	await get_tree().process_frame
-	await get_tree().process_frame
-
+	assert_false(node.current.is_active())
 	assert_eq(
-		graph_state_during_wait,
-		7,
-		"等待 Signal 期间共享图资源不应暴露本次运行态。"
-	)
-	assert_eq(
-		GFVariantData.to_int(node.get_runtime_value(&"count", 0)),
-		7,
-		"运行结束后共享图资源应恢复原始运行态。"
-	)
-	assert_eq(
-		GFVariantData.to_int(
-			context.get_node_runtime_value(
-				&"runtime_wait",
-				&"count",
-				0
-			)
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
 		),
-		3,
-		"本次运行态应写回 FlowContext。"
+		3
 	)
 
 
@@ -1227,16 +1191,101 @@ func test_flow_runner_acquires_shared_node_lease_before_node_started_signal() ->
 	assert_push_error("[GFFlowRunner][flow_runner.runtime_lease_active] Node runtime state is held by another execution lease: runtime_wait.")
 
 
+func test_flow_shared_context_preserves_outer_successor_during_nested_runner() -> void:
+	var order: Array[String] = []
+	var outer_node: ReentrantContextBranchFlowNode = ReentrantContextBranchFlowNode.new()
+	outer_node.node_id = &"shared"
+	outer_node.next_node_ids = PackedStringArray(["wrong"])
+	outer_node.order = order
+	var outer_graph: GFFlowGraph = GFFlowGraph.new()
+	outer_graph.start_node_id = &"shared"
+	outer_graph.nodes = [
+		outer_node,
+		RecordingFlowNode.new(&"expected", order),
+		RecordingFlowNode.new(&"wrong", order),
+	]
+	var inner_order: Array[String] = []
+	var inner_graph: GFFlowGraph = GFFlowGraph.new()
+	inner_graph.start_node_id = &"shared"
+	inner_graph.nodes = [RecordingFlowNode.new(&"shared", inner_order)]
+	var inner_runner: GFFlowRunner = GFFlowRunner.new()
+	var inner_reports: Array[Dictionary] = []
+	var _completed_connected: Error = inner_runner.flow_completed.connect(
+		func(completed_report: Dictionary) -> void:
+			inner_reports.append(completed_report)
+	) as Error
+	watch_signals(inner_runner)
+	outer_node.callback = func(context: GFFlowContext) -> void:
+		@warning_ignore("missing_await")
+		@warning_ignore("return_value_discarded")
+		inner_runner.run(inner_graph, context)
+	var report: Dictionary = await GFFlowRunner.new().run(
+		outer_graph,
+		GFFlowContext.new()
+	)
+	outer_node.callback = Callable()
+
+	assert_eq(
+		GFVariantData.get_option_string(report, "outcome"),
+		"completed"
+	)
+	assert_eq(
+		order,
+		["shared", "expected"],
+		"内层执行结束后外层仍采用自己的后继。"
+	)
+	assert_eq(
+		inner_order,
+		["shared"]
+	)
+	assert_signal_emitted(
+		inner_runner,
+		"node_started",
+		"独立节点资源应当允许内层 Runner 执行。"
+	)
+	assert_eq(
+		inner_reports.size(),
+		1
+	)
+	if inner_reports.size() == 1:
+		assert_eq(
+			GFVariantData.get_option_string(
+				inner_reports[0],
+				"outcome"
+			),
+			"completed"
+		)
+	var subsequent_report: Dictionary = await inner_runner.run(
+		inner_graph,
+		GFFlowContext.new()
+	)
+	assert_eq(
+		GFVariantData.get_option_string(subsequent_report, "outcome"),
+		"completed",
+		"再次执行同一内层图应正常完成。"
+	)
+	assert_eq(
+		inner_order,
+		["shared", "shared"]
+	)
+
+
 func test_flow_node_runtime_value_does_not_leak_mutable_aliases() -> void:
-	var node: GFFlowNode = GFFlowNode.new()
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: RuntimeStateWaitFlowNode = RuntimeStateWaitFlowNode.new()
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	runner.call_deferred("run", graph)
+	await get_tree().process_frame
 	var source: Dictionary = {
 		"nested": { "value": 1, },
 	}
-	node.set_runtime_value(&"payload", source)
+	assert_true(node.current.set_runtime_value(&"payload", source))
 	GFVariantData.get_option_dictionary(source, "nested")["value"] = 2
-	var first_read: Dictionary = GFVariantData.as_dictionary(node.get_runtime_value(&"payload"))
+	var first_read: Dictionary = GFVariantData.as_dictionary(node.current.get_runtime_value(&"payload"))
 	GFVariantData.get_option_dictionary(first_read, "nested")["value"] = 3
-	var second_read: Dictionary = GFVariantData.as_dictionary(node.get_runtime_value(&"payload"))
+	var second_read: Dictionary = GFVariantData.as_dictionary(node.current.get_runtime_value(&"payload"))
 
 	assert_eq(
 		GFVariantData.get_option_int(
@@ -1246,46 +1295,41 @@ func test_flow_node_runtime_value_does_not_leak_mutable_aliases() -> void:
 		1,
 		"setter 输入与 getter 返回值都不得保留可变 Dictionary 别名。"
 	)
+	node.complete()
+	await get_tree().process_frame
 
 
-func test_flow_runner_rejects_async_node_state_mutation_after_signal_return() -> void:
+func test_flow_waiting_node_may_update_until_completion_but_late_writes_are_rejected() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
 	var node: AsyncRuntimeMutationFlowNode = AsyncRuntimeMutationFlowNode.new()
-	node.set_runtime_value(&"count", 7)
 	graph.start_node_id = node.node_id
 	graph.nodes = [node]
-	var context: GFFlowContext = GFFlowContext.new()
-	context.set_node_runtime_value(
-		node.node_id,
-		&"count",
-		2
-	)
 	var runner: GFFlowRunner = GFFlowRunner.new()
-	@warning_ignore("missing_await")
-	@warning_ignore("return_value_discarded")
-	runner.run(graph, context)
-
-	await get_tree().process_frame
-	node.mutate_and_complete()
-	await get_tree().process_frame
-	await get_tree().process_frame
-
-	assert_push_error("[GFFlowNode][flow_node.runtime_lease_protected] set_runtime_value failed: node runtime state is protected by an isolated execution lease; write runtime state through the current GFFlowContext.")
-	assert_eq(
-		GFVariantData.to_int(node.get_runtime_value(&"count", 0)),
-		7,
-		"异步回调不得污染共享 graph Resource。"
+	runner.call_deferred(
+		"run",
+		graph,
+		GFFlowContext.new(),
+		{
+			node.node_id: { &"count": 2 },
+		}
 	)
+	await get_tree().process_frame
 	assert_eq(
-		GFVariantData.to_int(
-			context.get_node_runtime_value(
-				node.node_id,
-				&"count",
-				0
-			)
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
 		),
-		3,
-		"Signal 返回前的同步运行态仍应写回 context。"
+		3
+	)
+	assert_true(node.mutate_and_complete())
+	await get_tree().process_frame
+	assert_false(node.current.set_runtime_value(&"count", 101))
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
+		),
+		99
 	)
 
 
@@ -2224,380 +2268,279 @@ func test_flow_context_null_condition_result_uses_default_value() -> void:
 
 
 ## 验证流程图可保存、恢复和清空节点运行态。
-func test_flow_graph_serializes_runtime_state() -> void:
+func test_flow_root_progress_can_seed_a_new_run_or_an_instantiated_graph() -> void:
+	var node: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
 	var graph: GFFlowGraph = GFFlowGraph.new()
-	var node: GFFlowNode = GFFlowNode.new()
-	node.node_id = &"node"
-	node.set_runtime_value(&"cursor", 3)
+	graph.start_node_id = node.node_id
 	graph.nodes = [node]
-
-	var snapshot: Dictionary = graph.serialize_runtime_state()
-	graph.clear_runtime_state()
-	assert_eq(
-		GFVariantData.to_int(node.get_runtime_value(&"cursor", 0)),
-		0,
-		"清空运行态后应回到默认值。"
-	)
-
-	graph.deserialize_runtime_state(snapshot)
-	assert_eq(
-		GFVariantData.to_int(node.get_runtime_value(&"cursor", 0)),
-		3,
-		"反序列化应恢复节点运行态。"
-	)
-
-	var runtime_graph: GFFlowGraph = graph.instantiate_graph()
-	var runtime_node: GFFlowNode = runtime_graph.get_node(&"node")
-	assert_eq(
-		GFVariantData.to_int(runtime_node.get_runtime_value(&"cursor", 0)),
-		0,
-		"实例化运行副本默认应清理运行态。"
-	)
-
-
-func test_flow_graph_runtime_state_restore_is_exact_for_missing_nodes() -> void:
-	var graph: GFFlowGraph = GFFlowGraph.new()
-	var retained_node: GFFlowNode = GFFlowNode.new()
-	retained_node.node_id = &"retained"
-	retained_node.set_runtime_value(&"cursor", 9)
-	var omitted_node: GFFlowNode = GFFlowNode.new()
-	omitted_node.node_id = &"omitted"
-	omitted_node.set_runtime_value(&"cursor", 7)
-	graph.nodes = [retained_node, omitted_node]
-
-	graph.deserialize_runtime_state(
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	var _first: Dictionary = await runner.run(
+		graph,
+		null,
 		{
-			"nodes": {
-				&"retained": { "cursor": 2 },
-			},
+			node.node_id: { "count": 2 },
 		}
 	)
-
+	var snapshot: Dictionary = runner.get_run_state().create_data_snapshot()
+	var saved_nodes: Dictionary = GFVariantData.get_option_dictionary(snapshot, "nodes")
+	var instance: GFFlowGraph = graph.instantiate_graph()
+	assert_ne(
+		instance.get_node(node.node_id),
+		node
+	)
+	var _fresh: Dictionary = await runner.run(instance)
 	assert_eq(
-		GFVariantData.to_int(retained_node.get_runtime_value(&"cursor", 0)),
-		2,
-		"快照中存在的节点应恢复指定状态。"
-	)
-	assert_eq(
-		GFVariantData.to_int(omitted_node.get_runtime_value(&"cursor", 0)),
-		0,
-		"快照中缺失的节点必须清空旧状态。"
-	)
-
-
-func test_flow_runtime_snapshot_can_be_json_safe() -> void:
-	var graph: GFFlowGraph = GFFlowGraph.new()
-	var node: GFFlowNode = GFFlowNode.new()
-	node.node_id = &"runtime"
-	node.set_runtime_value(&"owner", self)
-	graph.nodes = [node]
-	var context: GFFlowContext = GFFlowContext.new()
-	var _set_owner_value_result: GFFlowContext = context.set_value(&"owner", self)
-	context.set_node_runtime_value(
-		&"runtime",
-		&"owner",
-		self
-	)
-
-	var graph_snapshot: Dictionary = graph.serialize_runtime_state(true)
-	var context_snapshot: Dictionary = context.create_runtime_snapshot({ "json_compatible": true })
-	var graph_json: String = JSON.stringify(graph_snapshot)
-	var context_json: String = JSON.stringify(context_snapshot)
-	var graph_owner: Dictionary = GFVariantData.get_option_dictionary(
-		GFVariantData.get_option_dictionary(
-			GFVariantData.get_option_dictionary(graph_snapshot, "nodes"),
-			"runtime"
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
 		),
-		"owner"
+		1
 	)
-	var context_owner: Dictionary = GFVariantData.get_option_dictionary(
-		GFVariantData.get_option_dictionary(context_snapshot, "values"),
-		"owner"
-	)
-	var next_node_ids_marker: Dictionary = GFVariantData.get_option_dictionary(
-		GFVariantData.get_option_dictionary(context_snapshot, "next_node_ids"),
-		"__gf_report_value__"
-	)
-
-	assert_false(
-		graph_json.is_empty(),
-		"FlowGraph JSON-safe 运行态应可直接 JSON.stringify。"
-	)
-	assert_false(
-		context_json.is_empty(),
-		"FlowContext JSON-safe 快照应可直接 JSON.stringify。"
-	)
-	assert_true(
-		GFVariantData.get_option_dictionary(graph_snapshot, "nodes").has("runtime"),
-		"nodes 固定 schema 应保持可直接遍历。"
-	)
-	assert_true(
-		graph_owner.has("__gf_report_value__"),
-		"图运行态中的 Object 应转换为报告 marker。"
-	)
-	assert_true(
-		context_owner.has("__gf_report_value__"),
-		"上下文 values 中的 Object 应转换为报告 marker。"
+	var _seeded: Dictionary = await runner.run(
+		instance,
+		null,
+		saved_nodes
 	)
 	assert_eq(
-		GFVariantData.get_option_string(next_node_ids_marker, "type"),
-		"PackedArray",
-		"PackedArray 应使用当前报告 marker schema。"
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
+		),
+		4
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.get_option_dictionary(saved_nodes, node.node_id),
+			"count"
+		),
+		3
 	)
 
 
-func test_flow_runner_isolates_node_runtime_state_into_context() -> void:
+func test_flow_root_progress_seed_does_not_restore_omitted_nodes() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
 	var node: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
-	node.set_runtime_value(&"count", 7)
-	graph.start_node_id = &"runtime"
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	var _initial: Dictionary = await runner.run(
+		graph,
+		null,
+		{
+			node.node_id: { "count": 9 },
+			&"omitted": { "cursor": 7 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(runner, &"omitted"),
+			"cursor"
+		),
+		7
+	)
+	var _restored: Dictionary = await runner.run(
+		graph,
+		null,
+		{
+			node.node_id: { "count": 2 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
+		),
+		3
+	)
+	assert_true(_run_node_data(runner, &"omitted").is_empty())
+
+
+func test_flow_business_snapshot_can_be_json_safe() -> void:
+	var context: GFFlowContext = GFFlowContext.new()
+	var _configured: GFFlowContext = context.set_value(&"owner", self)
+	var snapshot: Dictionary = context.create_data_snapshot({ "json_compatible": true })
+	var owner_marker: Dictionary = GFVariantData.get_option_dictionary(
+		GFVariantData.get_option_dictionary(snapshot, "values"),
+		"owner"
+	)
+	assert_false(JSON.stringify(snapshot).is_empty())
+	assert_true(owner_marker.has("__gf_report_value__"))
+	assert_false(snapshot.has("next_node_ids"))
+	assert_false(snapshot.has("runtime_state"))
+
+
+func test_flow_runner_isolates_node_progress_from_shared_context_and_other_runs() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
+	graph.start_node_id = node.node_id
 	graph.nodes = [node]
 	var context: GFFlowContext = GFFlowContext.new()
+	var _configured: GFFlowContext = context.set_value(&"chapter", 7)
 	var runner: GFFlowRunner = GFFlowRunner.new()
-
-	await runner.run(graph, context)
-
-	assert_eq(
-		GFVariantData.to_int(node.get_runtime_value(&"count", 0)),
-		7,
-		"Runner 默认不应把本次运行态写回共享图资源。"
+	var _first: Dictionary = await runner.run(graph, context)
+	var first_state: GFFlowRunState = runner.get_run_state()
+	var second_runner: GFFlowRunner = GFFlowRunner.new()
+	var _second: Dictionary = await second_runner.run(
+		graph,
+		context,
+		{
+			node.node_id: { "count": 8 },
+		}
+	)
+	assert_ne(
+		first_state,
+		second_runner.get_run_state()
 	)
 	assert_eq(
-		GFVariantData.to_int(
-			context.get_node_runtime_value(
-				&"runtime",
-				&"count",
-				0
-			)
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
 		),
-		1,
-		"本次运行态应沉淀到 FlowContext。"
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(second_runner, node.node_id),
+			"count"
+		),
+		9
+	)
+	assert_eq(
+		GFVariantData.to_int(context.get_value(&"chapter")),
+		7
 	)
 
 
-func test_flow_runner_updates_only_the_current_context_node_state() -> void:
+func test_flow_runner_updates_only_the_current_node_state() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
 	var node: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
 	graph.start_node_id = node.node_id
 	graph.nodes = [node]
 	var context: CountingFlowContext = CountingFlowContext.new()
-	context.set_node_runtime_value(
-		node.node_id,
-		&"count",
-		4
-	)
-	context.set_node_runtime_value(
-		&"unrelated",
-		&"payload",
-		{ "value": 9 }
-	)
 	var runner: GFFlowRunner = GFFlowRunner.new()
-
-	var report: Dictionary = await runner.run(graph, context)
-
+	var report: Dictionary = await runner.run(
+		graph,
+		context,
+		{
+			node.node_id: { "count": 4 },
+			&"unrelated": {
+				"payload": { "value": 9 },
+			},
+		}
+	)
 	assert_eq(
 		GFVariantData.get_option_string(report, "outcome"),
-		"completed",
-		"单节点状态更新应正常完成。"
+		"completed"
 	)
-	assert_eq(
-		context.full_serialize_count,
-		0,
-		"单节点执行不应深复制完整 Context 状态。"
-	)
-	assert_eq(
-		context.full_deserialize_count,
-		0,
-		"单节点写回不应重建完整 Context 状态。"
-	)
-	assert_eq(
-		GFVariantData.to_int(
-			context.get_node_runtime_value(
-				node.node_id,
-				&"count",
-				0
-			)
-		),
-		5,
-		"目标节点状态应正确写回。"
-	)
+	assert_eq(context.captures, 0)
 	assert_eq(
 		GFVariantData.get_option_int(
-			GFVariantData.as_dictionary(
-				context.get_node_runtime_value(
-					&"unrelated",
-					&"payload",
-					{}
-				)
-			),
-			"value"
+			_run_node_data(runner, node.node_id),
+			"count"
 		),
-		9,
-		"单节点写回不得影响无关节点状态。"
+		5
+	)
+	var unrelated: Dictionary = GFVariantData.get_option_dictionary(
+		_run_node_data(runner, &"unrelated"),
+		"payload"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(unrelated, "value"),
+		9
 	)
 
 
-func test_flow_runner_context_and_node_runtime_writes_share_execution_order() -> void:
-	for operation: StringName in [
-		&"write",
-		&"clear",
-		&"clear_all",
-		&"restore",
-	]:
+func test_flow_node_progress_reads_writes_and_clears_in_execution_order() -> void:
+	for clear_count: bool in [false, true]:
 		var graph: GFFlowGraph = GFFlowGraph.new()
 		var node: ContextRuntimeStateFlowNode = ContextRuntimeStateFlowNode.new()
-		node.operation = operation
-		node.set_runtime_value(&"count", 99)
+		node.clear_count = clear_count
 		graph.start_node_id = node.node_id
 		graph.nodes = [node]
-		var context: GFFlowContext = GFFlowContext.new()
-		context.set_node_runtime_value(
-			&"unrelated",
-			&"keep",
-			1
+		var runner: GFFlowRunner = GFFlowRunner.new()
+		var report: Dictionary = await runner.run(
+			graph,
+			null,
+			{
+				&"unrelated": { "keep": 1 },
+			}
 		)
-		var report: Dictionary = await GFFlowRunner.new().run(graph, context)
-		var expected: int = (
-			7
-			if operation == &"write"
-			else (
-				11
-				if operation == &"restore"
-				else -1
-			)
-		)
-
 		assert_eq(
 			GFVariantData.get_option_string(report, "outcome"),
 			"completed"
 		)
+		var expected: Array[int] = [
+			5,
+			6,
+			7,
+		]
+		if clear_count:
+			expected.append(-1)
+		assert_eq(node.observations, expected)
 		assert_eq(
-			node.observations,
-			[
-				5,
-				6,
-				expected,
-			],
-			"两种入口必须即时读取同一状态，含清空和整体恢复。"
-		)
-		assert_eq(
-			GFVariantData.to_int(
-				context.get_node_runtime_value(
-					node.node_id,
-					&"count",
-					-1
-				)
+			GFVariantData.get_option_int(
+				_run_node_data(runner, node.node_id),
+				"count",
+				-1
 			),
-			expected,
-			"执行结束不得用旧节点状态覆盖 Context。"
+			expected[-1]
 		)
 		assert_eq(
-			GFVariantData.to_int(node.get_runtime_value(&"count", -1)),
-			99,
-			"共享 Resource 必须恢复原状态。"
-		)
-		var captured: GFFlowContext = GFFlowContext.new()
-		assert_true(captured.restore_runtime_snapshot(node.snapshot))
-		assert_eq(
-			GFVariantData.to_int(
-				captured.get_node_runtime_value(
-					node.node_id,
-					&"count",
-					-1
-				)
+			GFVariantData.get_option_int(
+				_run_node_data(runner, &"unrelated"),
+				"keep"
 			),
-			expected,
-			"execute 内的快照必须反映当前写入。"
-		)
-		var unrelated_expected: int = -1 if operation in [&"clear_all", &"restore"] else 1
-		assert_eq(
-			GFVariantData.to_int(
-				context.get_node_runtime_value(
-					&"unrelated",
-					&"keep",
-					-1
-				)
-			),
-			unrelated_expected,
-			"清空与恢复的作用域必须一致。"
+			1
 		)
 
 
-func test_flow_context_runtime_snapshot_restores_values_and_node_state() -> void:
+func test_flow_business_snapshot_carries_values_metadata_and_condition_ids() -> void:
 	var context: GFFlowContext = GFFlowContext.new()
-	var configured_context: GFFlowContext = context.set_value(&"chapter", 2)
 	assert_eq(
-		configured_context,
-		context,
-		"set_value 应返回当前上下文以支持链式构造。"
+		context.set_value(&"chapter", 2),
+		context
 	)
-	context.set_next_nodes(PackedStringArray(["branch_a"]))
-	context.set_node_runtime_value(
-		&"node",
-		&"cursor",
-		4
-	)
-	var _registered: bool = context.register_condition_handler(
+	var registered: bool = context.register_condition_handler(
 		&"ready",
 		func(
-			_condition_id: StringName,
+			_id: StringName,
 			_payload: Variant,
-			_flow_context: GFFlowContext
+			_context: GFFlowContext
 		) -> bool:
 			return true
 	)
-
-	var snapshot: Dictionary = context.create_runtime_snapshot(
+	assert_true(registered)
+	var snapshot: Dictionary = context.create_data_snapshot(
 		{
-			"metadata": { "save_slot": "slot_1", },
+			"metadata": { "save_slot": "slot_1" },
 		}
 	)
-	var updated_context: GFFlowContext = context.set_value(&"chapter", 9)
 	assert_eq(
-		updated_context,
-		context,
-		"set_value 覆盖值时仍应返回当前上下文。"
+		context.set_value(&"chapter", 9),
+		context
 	)
-	context.clear_next_nodes()
-	context.clear_node_runtime_state()
-
-	assert_true(
-		context.restore_runtime_snapshot(snapshot),
-		"有效 FlowContext 快照应可恢复。"
-	)
+	var values: Dictionary = GFVariantData.get_option_dictionary(snapshot, "values")
 	assert_eq(
-		GFVariantData.to_int(context.get_value(&"chapter", 0)),
-		2,
-		"恢复后 values 应回到快照值。"
+		GFVariantData.get_option_int(values, "chapter"),
+		2
 	)
-	assert_true(
-		context.has_next_nodes_override(),
-		"恢复后应保留下一个节点覆盖状态。"
-	)
+	var restored: GFFlowContext = GFFlowContext.new(null, values)
 	assert_eq(
-		context.next_node_ids,
-		PackedStringArray(["branch_a"]),
-		"恢复后应保留下一个节点列表。"
+		GFVariantData.to_int(restored.get_value(&"chapter")),
+		2
 	)
-	assert_eq(
-		GFVariantData.to_int(
-			context.get_node_runtime_value(
-				&"node",
-				&"cursor",
-				0
-			)
-		),
-		4,
-		"恢复后应保留节点运行态。"
-	)
-	assert_true(
-		context.has_condition_handler(&"ready"),
-		"恢复运行数据不应清空已有条件处理器。"
-	)
+	assert_true(context.has_condition_handler(&"ready"))
+	assert_false(restored.has_condition_handler(&"ready"))
 	assert_eq(
 		GFVariantData.get_option_packed_string_array(snapshot, "condition_handler_ids"),
-		PackedStringArray(["ready"]),
-		"快照可记录条件处理器 ID 供诊断展示。"
+		PackedStringArray(["ready"])
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(snapshot, "metadata"),
+			"save_slot"
+		),
+		"slot_1"
 	)
 
 
@@ -3029,105 +2972,129 @@ func test_flow_runner_signal_timeout_respects_time_utility() -> void:
 	arch.dispose()
 
 
-func test_flow_context_restore_rejects_malformed_snapshots_atomically() -> void:
-	var context: GFFlowContext = GFFlowContext.new()
-	context.values = {
-		"chapter": 2,
-		"nested": { "value": 7 },
-	}
-	context.set_next_nodes(PackedStringArray(["branch_a"]))
-	context.set_node_runtime_value(
-		&"node",
-		&"cursor",
-		4
-	)
-	var before: Dictionary = context.create_runtime_snapshot({ "include_condition_handler_ids": false, })
-	var invalid_snapshots: Array[Dictionary] = [
-		{ "garbage": true },
-		{
-			"values": [],
-			"next_node_ids": PackedStringArray(["branch_b"]),
-			"has_next_node_override": true,
-			"runtime_state": { "nodes": {} },
-		},
-		{
-			"values": {},
-			"next_node_ids": ["branch_b"],
-			"has_next_node_override": true,
-			"runtime_state": { "nodes": {} },
-		},
-		{
-			"values": {},
-			"next_node_ids": PackedStringArray(),
-			"has_next_node_override": "yes",
-			"runtime_state": { "nodes": {} },
-		},
-		{
-			"values": {},
-			"next_node_ids": PackedStringArray(),
-			"has_next_node_override": false,
-			"runtime_state": {
-				"nodes": { "node": [] },
-			},
-		},
-	]
-
-	for invalid_snapshot: Dictionary in invalid_snapshots:
-		assert_false(
-			context.restore_runtime_snapshot(invalid_snapshot),
-			"坏快照必须稳定返回 false。"
-		)
-		assert_eq(
-			context.create_runtime_snapshot({ "include_condition_handler_ids": false }),
-			before,
-			"坏快照失败不得修改任何 Context 运行状态。"
-		)
-		assert_true(
-			context.restore_runtime_snapshot(before),
-			"测试基线快照本身应始终可恢复。"
-		)
-
-
-func test_flow_graph_restore_rejects_active_lease_without_partial_writes() -> void:
-	var first: GFFlowNode = GFFlowNode.new()
-	first.node_id = &"first"
-	first.set_runtime_value(&"value", 1)
-	var second: GFFlowNode = GFFlowNode.new()
-	second.node_id = &"second"
-	second.set_runtime_value(&"value", 2)
+func test_flow_runner_rejects_invalid_initial_progress_without_mutating_business_data() -> void:
 	var graph: GFFlowGraph = GFFlowGraph.new()
-	graph.nodes = [first, second]
-	var lease_id: int = first.acquire_runtime_state_lease()
-	assert_gt(
-		lease_id,
-		0,
-		"测试必须先取得活动租约。"
-	)
-
-	graph.deserialize_runtime_state(
+	var node: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var context: GFFlowContext = GFFlowContext.new(
+		null,
 		{
-			"nodes": {
-				"first": { "value": 10 },
-				"second": { "value": 20 },
-			},
+			"chapter": 2,
+			"nested": { "value": 7 },
 		}
 	)
+	var before: Dictionary = context.create_data_snapshot()
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	for invalid_nodes: Dictionary in [
+		{ &"": {} },
+		{ 5: {} },
+		{ node.node_id: [] },
+	]:
+		var rejected: Dictionary = await runner.run(
+			graph,
+			context,
+			invalid_nodes
+		)
+		assert_eq(
+			GFVariantData.get_option_string(rejected, "reason"),
+			"invalid_initial_nodes"
+		)
+		assert_eq(
+			context.create_data_snapshot(),
+			before
+		)
+	var report: Dictionary = await runner.run(
+		graph,
+		context,
+		{
+			node.node_id: { "count": 2 },
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "outcome"),
+		"completed"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(runner, node.node_id),
+			"count"
+		),
+		3
+	)
 
-	assert_push_error("[GFFlowGraph][flow_graph.deserialize_runtime_lease_active] deserialize_runtime_state failed: node runtime state is held by an execution lease: first.")
-	assert_eq(
-		GFVariantData.to_int(first.get_runtime_value(&"value", 0)),
-		1,
-		"leased 节点必须保持旧状态。"
+
+func test_flow_node_lease_and_state_survive_temporary_id_change_while_waiting() -> void:
+	var first: RuntimeStateWaitFlowNode = RuntimeStateWaitFlowNode.new()
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = first.node_id
+	graph.nodes = [first]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	runner.call_deferred(
+		"run",
+		graph,
+		null,
+		{
+			&"unrelated": { "value": 2 },
+		}
+	)
+	await get_tree().process_frame
+	assert_true(first.is_runtime_state_leased())
+	first.node_id = &""
+	assert_lt(
+		first.acquire_runtime_state_lease(),
+		0
 	)
 	assert_eq(
-		GFVariantData.to_int(second.get_runtime_value(&"value", 0)),
-		2,
-		"任一租约冲突时其他节点也不得部分写入。"
+		GFVariantData.get_option_int(
+			_run_node_data(runner, &"unrelated"),
+			"value"
+		),
+		2
 	)
-	assert_true(
-		first.release_runtime_state_lease(lease_id),
-		"测试租约应正常释放。"
+	first.node_id = &"runtime_wait"
+	first.complete()
+	await get_tree().process_frame
+	assert_false(first.is_runtime_state_leased())
+	assert_eq(
+		GFVariantData.get_option_int(
+			_run_node_data(runner, first.node_id),
+			"count"
+		),
+		1
 	)
+
+
+func test_flow_runner_rejects_busy_node_without_mutating_initial_progress() -> void:
+	var first: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = first.node_id
+	graph.nodes = [first]
+	var lease: int = first.acquire_runtime_state_lease()
+	assert_gt(lease, 0)
+	var initial: Dictionary = {
+		first.node_id: { "count": 10 },
+		&"second": { "value": 20 },
+	}
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	var report: Dictionary = await runner.run(
+		graph,
+		null,
+		initial
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "reason"),
+		"node_runtime_state_busy"
+	)
+	assert_push_error("[GFFlowRunner][flow_runner.runtime_lease_active]")
+	assert_eq(
+		GFVariantData.get_option_dictionary(
+			runner.get_run_state().create_data_snapshot(),
+			"nodes"
+		),
+		initial
+	)
+	assert_true(first.release_runtime_state_lease(lease))
 
 
 func test_flow_runtime_and_editor_keep_empty_connection_evidence() -> void:
@@ -3413,7 +3380,7 @@ func test_flow_json_snapshot_bounds_cycles_depth_and_non_finite_values() -> void
 		"infinity": INF,
 	}
 
-	var snapshot: Dictionary = context.create_runtime_snapshot({ "json_compatible": true })
+	var snapshot: Dictionary = context.create_data_snapshot({ "json_compatible": true })
 	var json_text: String = JSON.stringify(snapshot)
 
 	assert_false(
@@ -3435,6 +3402,14 @@ func test_flow_json_snapshot_bounds_cycles_depth_and_non_finite_values() -> void
 
 
 # --- 私有/辅助方法 ---
+
+func _run_node_data(runner: GFFlowRunner, node_id: StringName) -> Dictionary:
+	var nodes: Dictionary = GFVariantData.get_option_dictionary(
+		runner.get_run_state().create_data_snapshot(),
+		"nodes"
+	)
+	return GFVariantData.get_option_dictionary(nodes, node_id)
+
 
 func _has_issue(report: Dictionary, kind: String) -> bool:
 	for issue_variant: Variant in GFVariantData.get_option_array(report, "issues"):

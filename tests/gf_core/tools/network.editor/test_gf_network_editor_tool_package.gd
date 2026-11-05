@@ -48,6 +48,101 @@ func test_network_audit_menu_preserves_resource_provenance() -> void:
 	actions.cleanup()
 
 
+## 生成入口直接保留来源与非法字段，且单个契约的详细诊断数量有界。
+func test_network_generation_reports_preserve_bounded_definition_details() -> void:
+	var paths: PackedStringArray = PackedStringArray()
+	for index: int in 2:
+		var path: String = (
+			"user://gf_generation_origin_%d_%d.tres"
+			% [Time.get_ticks_usec(), index]
+		)
+		var contract: GFNetworkContract = _make_contract(&"same_id")
+		contract.messages[0].fields.clear()
+		for field_index: int in 20:
+			var field: GFNetworkContractField = GFNetworkContractField.new()
+			field.field_name = StringName(
+				"invalid_%d_%d"
+				% [index, field_index]
+			)
+			field.value_type = GFNetworkContractField.ValueType.INT
+			field.required = false
+			field.default_value = "bad integer"
+			contract.messages[0].fields.append(field)
+		assert_eq(
+			ResourceSaver.save(contract, path),
+			OK
+		)
+		var _appended: bool = paths.append(path)
+	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
+	var report: Dictionary = generator.generate_many(paths, "user://gf_generation_unused")
+	var actions: CapturingActions = CapturingActions.new()
+	assert_true(actions.has_method("_format_generation_report"))
+	if actions.has_method("_format_generation_report"):
+		var text: String = actions._format_generation_report(report, "user://gf_generation_unused")
+		for index: int in paths.size():
+			assert_true(text.contains(paths[index]))
+			assert_true(text.contains("invalid_%d_0" % index))
+	for path: String in paths:
+		var loaded_contract: Resource = load(path)
+		assert_true(loaded_contract is GFNetworkContract)
+		if not loaded_contract is GFNetworkContract:
+			_remove_file_if_present(path)
+			continue
+		var contract: GFNetworkContract = loaded_contract
+		var single: Dictionary = generator.generate_with_report(contract)
+		var details: Array = GFVariantData.get_option_array(single, "validation_issues")
+		assert_eq(
+			details.size(),
+			16
+		)
+		assert_eq(
+			GFVariantData.get_option_int(single, "validation_issue_count"),
+			20
+		)
+		for detail: Dictionary in details:
+			assert_eq(
+				GFVariantData.get_option_string(detail, "resource_path"),
+				path
+			)
+		_remove_file_if_present(path)
+	actions.cleanup()
+
+
+## 已提交但后置失败的产物必须与写入前失败区分，避免用户误以为文件未变化。
+func test_network_generation_menu_displays_each_artifact_commit_fact() -> void:
+	var actions: CapturingActions = CapturingActions.new()
+	assert_true(actions.has_method("_format_generation_report"))
+	if actions.has_method("_format_generation_report"):
+		var text: String = actions._format_generation_report(
+			{
+				"generated": [
+					{
+						"contract_path": "res://a.tres",
+						"output_path": "res://a.gd",
+						"status": "failed",
+						"written": true,
+						"changed": true,
+						"error_name": "File corrupt",
+					},
+					{
+						"contract_path": "res://b.tres",
+						"output_path": "res://b.gd",
+						"status": "failed",
+						"written": false,
+						"changed": false,
+						"error_name": "File corrupt",
+					},
+				],
+				"next_action": "Review generated files.",
+			},
+			"res://"
+		)
+		assert_true(text.contains("res://a.gd (failed, File corrupt, written=true, changed=true)"))
+		assert_true(text.contains("res://b.gd (failed, File corrupt, written=false, changed=false)"))
+		assert_true(text.contains("Review generated files."))
+	actions.cleanup()
+
+
 func test_network_editor_actions_contribute_menu_entries_settings_and_sections() -> void:
 	var actions: RefCounted = GF_NETWORK_EDITOR_ACTIONS_SCRIPT.new()
 
@@ -178,6 +273,202 @@ func test_network_contract_generator_allocates_complete_symbol_scopes() -> void:
 			assert_true(payload_matches)
 			assert_true(message_field_matches)
 			assert_true(channel_id_matches)
+	var _release_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+
+
+func test_network_nullable_getters_accept_null_fallback_with_typed_payloads() -> void:
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"nullable_values"
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"update"
+	var cases: Array[Array] = [
+		[GFNetworkContractField.ValueType.COLOR, Color.RED],
+		[GFNetworkContractField.ValueType.VECTOR2I, Vector2i(2, 3)],
+		[
+			GFNetworkContractField.ValueType.VECTOR3I,
+			Vector3i(
+				2,
+				3,
+				4
+			),
+		],
+		[GFNetworkContractField.ValueType.VECTOR2, Vector2(2.0, 3.0)],
+		[
+			GFNetworkContractField.ValueType.VECTOR3,
+			Vector3(
+				2.0,
+				3.0,
+				4.0
+			),
+		],
+		[GFNetworkContractField.ValueType.NODE_PATH, NodePath("Target")],
+	]
+	for index: int in range(cases.size()):
+		var field: GFNetworkContractField = GFNetworkContractField.new()
+		field.field_name = StringName("field_%d" % index)
+		var field_type_value: Variant = cases[index][0]
+		assert_true(field_type_value is int)
+		if not field_type_value is int:
+			return
+		var field_type: int = field_type_value
+		field.value_type = field_type as GFNetworkContractField.ValueType
+		field.allow_null = true
+		message_contract.fields.append(field)
+	contract.messages.append(message_contract)
+	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
+	var runtime_script: GDScript = GDScript.new()
+	runtime_script.source_code = generator.build_source(
+		contract,
+		{ "class_name": "NullableGetterFixture" }
+	).replace("class_name NullableGetterFixture\n", "")
+	var compile_error: Error = runtime_script.reload(false)
+	assert_eq(compile_error, OK)
+	if compile_error == OK:
+		var message: GFNetworkMessage = GFNetworkMessage.new()
+		for index: int in range(cases.size()):
+			var field_name: StringName = StringName("field_%d" % index)
+			var getter_name: String = "get_update_field_%d" % index
+			message.payload[field_name] = cases[index][1]
+			var value: Variant = runtime_script.call(
+				getter_name,
+				message,
+				null
+			)
+			var payload_matches: bool = value == cases[index][1]
+			assert_true(payload_matches)
+			assert_eq(
+				typeof(value),
+				typeof(cases[index][1])
+			)
+			message.payload[field_name] = null
+			var explicit_null_returned: bool = runtime_script.call(getter_name, message) == null
+			assert_true(explicit_null_returned)
+			var _erased: bool = message.payload.erase(field_name)
+			var missing_returns_null: bool = (
+				runtime_script.call(
+					getter_name,
+					message,
+					null
+				)
+				== null
+			)
+			assert_true(missing_returns_null)
+	var _release_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
+
+
+## FLOAT 契约允许整数载荷；null 回退不能将合法数字变为空值，也不能放宽 INT 的类型范围。
+func test_network_nullable_numeric_getters_preserve_contract_types_with_null_fallback() -> void:
+	var contract: GFNetworkContract = GFNetworkContract.new()
+	contract.contract_id = &"nullable_numbers"
+	var message_contract: GFNetworkContractMessage = GFNetworkContractMessage.new()
+	message_contract.message_type = &"update"
+	var amount_field: GFNetworkContractField = GFNetworkContractField.new()
+	amount_field.field_name = &"amount"
+	amount_field.value_type = GFNetworkContractField.ValueType.FLOAT
+	amount_field.allow_null = true
+	var count_field: GFNetworkContractField = GFNetworkContractField.new()
+	count_field.field_name = &"count"
+	count_field.value_type = GFNetworkContractField.ValueType.INT
+	count_field.allow_null = true
+	message_contract.fields = [amount_field, count_field]
+	contract.messages = [message_contract]
+	assert_true(
+		GFVariantData.get_option_bool(
+			amount_field.validate_value(1),
+			"ok"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			count_field.validate_value(1.5),
+			"ok"
+		)
+	)
+	var generator: GFNetworkContractGenerator = GF_NETWORK_CONTRACT_GENERATOR_SCRIPT.new()
+	var runtime_script: GDScript = GDScript.new()
+	runtime_script.source_code = generator.build_source(
+		contract,
+		{ "class_name": "NullableNumericGetterFixture" }
+	).replace("class_name NullableNumericGetterFixture\n", "")
+	var compile_error: Error = runtime_script.reload(false)
+	assert_eq(compile_error, OK)
+	if compile_error == OK:
+		var cases: Array[Dictionary] = [
+			{
+				"field": &"amount",
+				"payload": 1,
+				"expected": 1.0,
+			},
+			{
+				"field": &"amount",
+				"payload": 1.5,
+				"expected": 1.5,
+			},
+			{
+				"field": &"count",
+				"payload": 1,
+				"expected": 1,
+			},
+			{
+				"field": &"count",
+				"payload": 1.5,
+				"expected": null,
+			},
+		]
+		var message: GFNetworkMessage = GFNetworkMessage.new()
+		for test_case: Dictionary in cases:
+			var field_name: StringName = GFVariantData.get_option_string_name(test_case, "field")
+			message.payload[field_name] = test_case["payload"]
+			var actual: Variant = runtime_script.call(
+				"get_update_%s" % field_name,
+				message,
+				null
+			)
+			var expected: Variant = test_case["expected"]
+			var numeric_value_matches: bool = actual == expected
+			assert_true(numeric_value_matches)
+			assert_eq(
+				typeof(actual),
+				typeof(expected)
+			)
+		for field_name: StringName in [&"amount", &"count"]:
+			var getter_name: String = "get_update_%s" % field_name
+			for invalid_or_null: Variant in [
+				null,
+				"1",
+				true,
+				Vector2.ONE,
+			]:
+				message.payload[field_name] = invalid_or_null
+				var invalid_returns_null: bool = (
+					runtime_script.call(
+						getter_name,
+						message,
+						null
+					)
+					== null
+				)
+				assert_true(invalid_returns_null)
+			var _erased: bool = message.payload.erase(field_name)
+			var missing_returns_null: bool = (
+				runtime_script.call(
+					getter_name,
+					message,
+					null
+				)
+				== null
+			)
+			assert_true(missing_returns_null)
+		message.payload[&"amount"] = 1
+		var numeric_with_fallback: Variant = runtime_script.call(
+			"get_update_amount",
+			message,
+			2.5
+		)
+		assert_true(numeric_with_fallback is float)
+		if numeric_with_fallback is float:
+			var numeric_value: float = numeric_with_fallback
+			assert_eq(numeric_value, 1.0)
 	var _release_errors: Array[int] = GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT.release(runtime_script)
 
 

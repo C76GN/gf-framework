@@ -3,11 +3,15 @@
 `GFConfigProvider` 是抽象适配器，本身不存数据；默认实现会报错并返回 `null`。
 
 ```gdscript
+## 项目异步表加载适配器；load_config_tables_async() 须由项目实现。
+## 本例允许加载失败后保留空 Provider，必需配置应改由 Installer 判定启动失败。
 class_name JSONConfigProvider
 extends GFConfigProvider
 
+## Provider 自有的表容器；查询返回副本，避免调用方修改缓存。
 var _configs: Dictionary = {}
 
+## 加载并接收本代配置；取消后不得把迟到结果提交到缓存。
 func async_init(scope: GFAsyncScope) -> void:
 	# 由项目实现这个异步加载入口。
 	var loaded_value: Variant = await load_config_tables_async()
@@ -26,6 +30,7 @@ func async_init(scope: GFAsyncScope) -> void:
 			loaded_configs[raw_table_name]
 		)
 
+## 返回记录副本；表不存在、类型不符或记录缺失时返回 null。
 func get_record(table_name: StringName, id: Variant) -> Variant:
 	var table_value: Variant = _configs.get(table_name)
 	if not table_value is Dictionary:
@@ -33,6 +38,7 @@ func get_record(table_name: StringName, id: Variant) -> Variant:
 	var table: Dictionary = table_value as Dictionary
 	return GFVariantData.duplicate_variant(table.get(id))
 
+## 返回整表副本；缺失表返回 null，Object 内容仍须遵守只读约定。
 func get_table(table_name: StringName) -> Variant:
 	return GFVariantData.duplicate_variant(_configs.get(table_name))
 ```
@@ -155,11 +161,13 @@ if item == null:
 无论选择 Adapter、自定义 Provider 还是 Resource Provider，运行时通常都应以抽象 `GFConfigProvider` 作为稳定查询键。GF 8 的注册入口是可等待操作；在 Installer 中应检查结果与取消状态：
 
 ```gdscript
+## 已导出的配置基线；运行时 Provider 使用副本，不原地修改共享 Resource。
 const DATABASE: GFConfigDatabaseResource = preload(
 	"res://generated/config/main_config.tres"
 )
 
 
+## 验收必需配置后以抽象协议键注册，避免多实现查询歧义。
 func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	var validation: Dictionary = DATABASE.validate_database()
 	if not bool(validation.get("ok", false)):
@@ -175,6 +183,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 		provider,
 		GFConfigProvider
 	)
+	# 等待期间可能已取消本次初始化，旧流程不能继续报告或提交。
 	if scope.is_cancel_requested():
 		return
 	if not registered:
@@ -185,3 +194,5 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 只调用 `register_utility_instance(provider)` 会按具体实现类型注册。当当前架构中只有一个可赋值的 Provider 实现时，`get_utility(GFConfigProvider)` 仍可自动解析；存在多个实现时，抽象类型查询会因歧义返回 `null`。显式使用 `register_utility_instance_as()` 可以固定抽象查询键并消除歧义。
 
 `GFConfigProviderAdapter` 的 Callable 表源会在首次查询时同步调用，不会被框架自动 `await`；需要异步加载时，应在项目自定义 `GFConfigProvider.async_init(scope)` 中完成。
+
+loader 或表对象的记录计数回调若注销、清空或重新注册当前表源，在途查询返回 `null`，不再发布旧缓存或加载报告。新注册保留自己的状态，后续查询使用新表源；已完成的普通缓存读取不受影响。

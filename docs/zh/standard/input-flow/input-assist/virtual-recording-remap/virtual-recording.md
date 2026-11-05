@@ -4,6 +4,7 @@
 
 ```gdscript
 var input_map := Gf.get_utility(GFInputMappingUtility) as GFInputMappingUtility
+# source_id 是输入贡献的归属；代理停用时还须 clear_all() 清除持续轴值。
 var ai_input := input_map.create_virtual_source(&"ai_agent", 0)
 
 ai_input.press(&"confirm")
@@ -16,6 +17,8 @@ ai_input.release(&"confirm")
 `GFVirtualInputSource` 会追踪自己成功写入的 action。调用 `configure()` 改变 mapping、`source_id` 或 `player_index`，以及直接给后两个属性赋新值时，会先释放旧身份下由该 handle 写入的贡献；完全相同的重复配置保持当前状态。`get_snapshot()` 始终返回 `source_id`、`player_index` 和当前玩家作用域的 `actions`，mapping 已释放时字段集不变、`actions` 为空。当前 `clear_all()` / `clear_virtual_source()` 是 source-wide 清理，会清除同一 `source_id` 的所有玩家贡献；需要只清一个玩家时应逐项调用 `clear_action()` / `clear_action_for_player()`。
 
 ## 有界动作脉冲
+
+首次手动写入触发的同步回调也可以释放、清空或重配置 Source。该写入返回前会按原 mapping、source 和玩家身份撤销失效贡献，并返回 `false`；不会把旧贡献登记到新身份，也不会清除其他 source 的贡献。已经通知的输入边沿不回滚，撤销会通过正常完成边沿收尾。
 
 按钮、触摸手势或自动化驱动需要“立即写入、短暂保持、恰好释放一次”时，可在创建 `GFVirtualInputSource` 时注入 `GFTimerUtility`，再调用 `pulse_action()`。计时由框架 `tick()` 驱动，因此测试可以显式推进时间，不依赖场景树 `Timer` 或真实等待。
 

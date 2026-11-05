@@ -84,6 +84,7 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var profile_id: StringName = &""
 ```
 
@@ -97,6 +98,7 @@ var profile_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var schema_id: StringName = &""
 ```
 
@@ -110,6 +112,7 @@ var schema_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var file_name: String = ""
 ```
 
@@ -123,6 +126,7 @@ var file_name: String = ""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(1, 2_147_483_647, 1)
 var schema_version: int = 1
 ```
 
@@ -136,6 +140,7 @@ var schema_version: int = 1
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var providers: Array[GFSaveSectionProvider] = []
 ```
 
@@ -149,6 +154,7 @@ var providers: Array[GFSaveSectionProvider] = []
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
 ```
 
@@ -162,6 +168,7 @@ var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var save_enabled: bool = true
 ```
 
@@ -175,6 +182,7 @@ Profile 是否接受保存和 flush 请求。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var load_enabled: bool = true
 ```
 
@@ -188,6 +196,7 @@ Profile 是否接受读取请求。
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT
 ```
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="45d1d1c071859747069ee960f5ef968f783f915f5cadad40d8f2fa9aabb6a6b8">
+<class name="GFInputMappingUtility" path="addons/gf/standard/input/runtime/gf_input_mapping_utility.gd" module="standard" extends="GFUtility" classDigest="e26ac19a11f5e1a0191659d96ff1bc291538bcf7316a0a30d6982734ac519ead">
 	<description>GFInputMappingUtility: 资源化输入上下文与动作映射运行时。
 负责把 Godot InputEvent 转换为项目定义的抽象动作状态，并支持上下文优先级、
 运行时重绑定、动作值查询和一次性触发消费。</description>
@@ -154,10 +154,11 @@
 		</member>
 		<member kind="method" name="tick">
 			<signature>func tick(delta: float) -&gt; void:</signature>
-			<description>推进运行时逻辑。</description>
+			<description>按本步 delta 推进已接收输入的有状态 Mapping 链、动作计时和触发器；同步嵌套调用不重复推进。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 本帧时间增量（秒）。</tag>
+				<tag name="since">2.1.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_remap_config">
@@ -316,20 +317,22 @@
 		</member>
 		<member kind="method" name="get_action_vector">
 			<signature>func get_action_vector(action_id: StringName) -&gt; Vector2:</signature>
-			<description>获取动作当前二维向量值。</description>
+			<description>读取最近一次提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="return">二维向量值；三维轴会返回 x/y 分量。</tag>
+				<tag name="since">1.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_action_vector3">
 			<signature>func get_action_vector3(action_id: StringName) -&gt; Vector3:</signature>
-			<description>获取动作当前三维向量值。</description>
+			<description>读取最近一次提交的动作样本的完整向量，保留类型值转换前的各个分量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">action_id: 动作标识。</tag>
-				<tag name="return">三维向量值；非三维动作的 z 分量为 0。</tag>
+				<tag name="return">三维向量值；尚无已提交样本时返回零向量。</tag>
+				<tag name="since">1.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_action_active">
@@ -390,22 +393,24 @@
 		</member>
 		<member kind="method" name="get_action_vector_for_player">
 			<signature>func get_action_vector_for_player(player_index: int, action_id: StringName) -&gt; Vector2:</signature>
-			<description>获取指定玩家动作当前二维向量值。</description>
+			<description>读取指定玩家最近提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">player_index: 玩家索引。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="return">二维向量值；三维轴会返回 x/y 分量。</tag>
+				<tag name="since">1.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_action_vector3_for_player">
 			<signature>func get_action_vector3_for_player(player_index: int, action_id: StringName) -&gt; Vector3:</signature>
-			<description>获取指定玩家动作当前三维向量值。</description>
+			<description>读取指定玩家最近提交的完整动作向量，保留类型值转换前的各个分量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">player_index: 玩家索引。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
-				<tag name="return">三维向量值；非三维动作的 z 分量为 0。</tag>
+				<tag name="return">三维向量值；尚无已提交样本时返回零向量。</tag>
+				<tag name="since">1.21.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_action_active_for_player">

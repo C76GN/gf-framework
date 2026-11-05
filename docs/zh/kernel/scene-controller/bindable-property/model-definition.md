@@ -15,13 +15,16 @@ Model (Hold Property) -> Controller (Subscribe)
 普通 `GFBindableProperty` 本身不阻止外部调用 `set_value()`。如果某个值只应该由 Model 内部修改，应在 Model 上封装业务方法，或对外暴露 `GFReadOnlyBindableProperty` 只读视图。
 
 ```gdscript
+## 玩家可观察数据的归属模型；业务修改通过模型方法表达。
 class_name PlayerModel extends GFModel
 
-# 定义属性，初始化值为 1
+## 等级的可观察槽体；普通 GFBindableProperty 本身不限制外部写入。
 var level := GFBindableProperty.new(1)
+
+## 玩家名称的可观察槽体，供表现层读取和订阅。
 var player_name := GFBindableProperty.new("Guest")
 
+## 提交一次等级提升，并由属性槽体通知订阅者。
 func level_up() -> void:
-	# 修改值会向订阅者触发原生 signal
 	level.set_value(level.get_value() + 1)
 ```

@@ -31,6 +31,7 @@ audio.bgm_finished.connect(func(history_key: String) -> void:
 现有 `play_bgm*()` 方法仍是 fire-and-forget 兼容入口。需要区分校验拒绝、准备失败、被新请求取代、取消和真正开始播放时，使用类型化入口：
 
 ```gdscript
+## 观察本次播放是否提交；owner 须在树内，其离树会约束本次操作或精确会话。
 func start_exploration_bgm(audio: GFAudioUtility, owner: Node) -> void:
 	var operation := audio.start_bgm(
 		"res://audio/bgm/explore.ogg",
@@ -40,10 +41,12 @@ func start_exploration_bgm(audio: GFAudioUtility, owner: Node) -> void:
 		},
 		owner
 	)
+	# 同一入口同时处理立即完成和异步加载，避免错过已发出的 completed 信号。
 	var result: GFBgmStartResult = await operation.wait_result_async()
 	_on_bgm_start_completed(result)
 
 
+## 仅成功提交的结果提供会话句柄；请求完成不等于曲目已自然播放完。
 func _on_bgm_start_completed(result: GFBgmStartResult) -> void:
 	if result.get_status() != GFBgmStartResult.Status.STARTED:
 		push_warning("BGM start failed: %s" % result.get_reason())

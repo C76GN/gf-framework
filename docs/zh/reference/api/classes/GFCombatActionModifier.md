@@ -40,6 +40,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var modifier_id: StringName = &""
 ```
 
@@ -52,6 +53,7 @@ var modifier_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var accepted_action_kinds: Array[StringName] = []
 ```
 
@@ -64,6 +66,7 @@ var accepted_action_kinds: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var rejected_action_kinds: Array[StringName] = []
 ```
 
@@ -76,6 +79,7 @@ var rejected_action_kinds: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var required_tags: Array[StringName] = []
 ```
 
@@ -89,6 +93,7 @@ var required_tags: Array[StringName] = []
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var amount_add: float:
 ```
 
@@ -102,6 +107,7 @@ var amount_add: float:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var amount_multiplier: float:
 ```
 
@@ -114,6 +120,7 @@ var amount_multiplier: float:
 - API：`public`
 
 ```gdscript
+@export
 var override_operation: bool = false
 ```
 
@@ -126,6 +133,7 @@ var override_operation: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var operation: GFCombatAction.Operation = GFCombatAction.Operation.SUBTRACT
 ```
 
@@ -138,6 +146,7 @@ var operation: GFCombatAction.Operation = GFCombatAction.Operation.SUBTRACT
 - API：`public`
 
 ```gdscript
+@export
 var override_action_kind: bool = false
 ```
 
@@ -150,6 +159,7 @@ var override_action_kind: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var action_kind: StringName = &""
 ```
 
@@ -162,6 +172,7 @@ var action_kind: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

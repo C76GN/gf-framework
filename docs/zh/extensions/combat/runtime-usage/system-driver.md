@@ -5,6 +5,7 @@
 只有在禁用自动装配或需要替换默认实现时，才手动装配：
 
 ```gdscript
+## 仅在禁用自动装配或替换默认实现时使用；架构内只注册一次 Combat System。
 func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	var combat_sys := GFCombatSystem.new()
 	await architecture.register_system_instance(combat_sys)

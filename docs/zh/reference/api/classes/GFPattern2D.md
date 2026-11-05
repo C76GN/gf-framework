@@ -36,6 +36,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var pattern_dimensions: Vector2i = Vector2i(7, 7):
 ```
 
@@ -48,6 +49,7 @@ var pattern_dimensions: Vector2i = Vector2i(7, 7):
 - API：`public`
 
 ```gdscript
+@export
 var cells: Array[Vector2i] = []:
 ```
 

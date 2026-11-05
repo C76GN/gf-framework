@@ -47,6 +47,7 @@
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var profile_id: StringName = &""
 ```
 
@@ -60,6 +61,7 @@ Profile 稳定标识。
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var database_id: StringName = &""
 ```
 
@@ -73,6 +75,7 @@ var database_id: StringName = &""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var version: String = ""
 ```
 
@@ -86,6 +89,7 @@ var version: String = ""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var output_path: String = ""
 ```
 
@@ -99,6 +103,7 @@ var output_path: String = ""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var access_output_path: String = ""
 ```
 
@@ -112,6 +117,7 @@ var access_output_path: String = ""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var access_class_name: String = "GFConfigAccess"
 ```
 
@@ -125,6 +131,7 @@ var access_class_name: String = "GFConfigAccess"
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var access_provider_accessor: String = "null"
 ```
 
@@ -138,6 +145,7 @@ var access_provider_accessor: String = "null"
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var sources: Array[GFConfigPipelineTableSource] = []
 ```
 
@@ -155,6 +163,7 @@ var sources: Array[GFConfigPipelineTableSource] = []
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var build_options: Dictionary = {}
 ```
 
@@ -172,6 +181,7 @@ var build_options: Dictionary = {}
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var save_options: Dictionary = {}
 ```
 
@@ -189,6 +199,7 @@ var save_options: Dictionary = {}
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var access_options: Dictionary = {}
 ```
 
@@ -206,6 +217,7 @@ var access_options: Dictionary = {}
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

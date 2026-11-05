@@ -39,6 +39,7 @@ var registration := registry.register_icon_provider(icons, settings_panel)
 var rich_text := GFInputFormatter.input_event_as_rich_text(jump_binding.input_event, {
 	"formatter_registry": registry,
 })
+# 只撤销本次注册，不移除其他面板或全局 registry 的 provider。
 registration.release()
 ```
 

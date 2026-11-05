@@ -2,18 +2,20 @@
 
 ## 节点与图
 
-`GFFlowNode` 是项目节点的继承点。节点在 `execute(context)` 中读取上下文、写入后继节点，或返回一个需要等待的结果。
+`GFFlowNode` 是项目节点的继承点。节点在 `execute(context, execution)` 中读取项目业务数据，用本次执行的句柄选择后继，异步工作可返回所属任务的完成 Signal。
 
 ```gdscript
+## 根据项目上下文选择开门分支；分支节点 ID 必须与项目图定义一致。
 class_name CheckDoorNode
 extends GFFlowNode
 
 
-func execute(context: GFFlowContext) -> Variant:
+## 本节点同步完成分支选择，返回 null 表示没有额外等待任务。
+func execute(context: GFFlowContext, execution: GFFlowNodeExecution) -> Variant:
 	if context.get_value(&"has_key", false):
-		context.set_next_nodes(PackedStringArray(["open"]))
+		var _selected: bool = execution.set_next_nodes(PackedStringArray(["open"]))
 	else:
-		context.set_next_nodes(PackedStringArray(["locked"]))
+		var _selected: bool = execution.set_next_nodes(PackedStringArray(["locked"]))
 	return null
 ```
 
@@ -24,13 +26,21 @@ func execute(context: GFFlowContext) -> Variant:
 ```gdscript
 var graph := GFFlowGraph.new()
 graph.start_node_id = &"check_door"
+# 每个节点的 ID 都显式对应图起点和分支选择；框架不会从类名推导 ID。
+var check_door := CheckDoorNode.new()
+check_door.node_id = &"check_door"
+var open_door := OpenDoorNode.new()
+open_door.node_id = &"open"
+var locked_hint := ShowLockedHintNode.new()
+locked_hint.node_id = &"locked"
 graph.nodes = [
-	CheckDoorNode.new(),
-	OpenDoorNode.new(),
-	ShowLockedHintNode.new(),
+	check_door,
+	open_door,
+	locked_hint,
 ]
 
 var runner := GFFlowRunner.new()
+# 即使各节点都同步完成，也等待运行器的最终报告，不能从启动推断成功。
 var report := await runner.run(
 	graph,
 	GFFlowContext.new(Gf.architecture, { &"has_key": true })

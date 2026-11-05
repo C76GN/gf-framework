@@ -76,6 +76,7 @@ Lobby 可见性。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var lobby_id: String = ""
 ```
 
@@ -89,6 +90,7 @@ Lobby 外部稳定 ID。动态平台 ID 使用 String 保存。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var backend_id: StringName = &""
 ```
 
@@ -102,6 +104,7 @@ var backend_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -115,6 +118,7 @@ var display_name: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var owner_peer_id: int = -1
 ```
 
@@ -128,6 +132,7 @@ owner 的传输 peer 标识。未知时为 -1。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var owner_platform_user_id: String = ""
 ```
 
@@ -141,6 +146,7 @@ owner 的平台用户 ID。用于尚未建立传输连接但平台已返回 owne
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_members: int = 0
 ```
 
@@ -154,6 +160,7 @@ var max_members: int = 0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var joinable: bool = true
 ```
 
@@ -167,6 +174,7 @@ var joinable: bool = true
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var visibility: Visibility = Visibility.DEFAULT
 ```
 
@@ -180,6 +188,7 @@ Lobby 可见性。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var members: Array[GFNetworkLobbyMember] = []
 ```
 
@@ -197,6 +206,7 @@ var members: Array[GFNetworkLobbyMember] = []
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -210,6 +220,7 @@ Lobby 标签，用于轻量查询或展示。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

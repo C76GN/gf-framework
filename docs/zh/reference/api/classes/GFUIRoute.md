@@ -35,6 +35,7 @@ UI 路由资源描述。 只描述路由标识、面板场景、目标层级和�
 - API：`public`
 
 ```gdscript
+@export
 var route_id: StringName = &""
 ```
 
@@ -47,6 +48,7 @@ var route_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_file("*.tscn")
 var scene_path: String = ""
 ```
 
@@ -60,6 +62,7 @@ var scene_path: String = ""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var layer: int = GFUIUtility.Layer.POPUP
 ```
 
@@ -73,6 +76,7 @@ var layer: int = GFUIUtility.Layer.POPUP
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var default_options: Dictionary = {}
 ```
 
@@ -90,6 +94,7 @@ var default_options: Dictionary = {}
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -107,6 +112,7 @@ var metadata: Dictionary = {}
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var adjacent_route_ids: PackedStringArray = PackedStringArray()
 ```
 

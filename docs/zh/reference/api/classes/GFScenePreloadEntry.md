@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export_file("*.tscn", "*.scn")
 var scene_path: String = ""
 ```
 
@@ -46,6 +47,7 @@ var scene_path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var adjacent_scene_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -58,6 +60,7 @@ var adjacent_scene_paths: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var fixed: bool = false
 ```
 
@@ -70,6 +73,7 @@ var fixed: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

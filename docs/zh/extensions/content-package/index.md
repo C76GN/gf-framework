@@ -53,6 +53,8 @@ JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源�
 
 默认校验只检查 manifest 直接声明的路径。对不可信或外部导入的 `data_only` 内容，应启用 `{ "check_resource_dependencies": true }`；校验器会通过资源依赖图检查场景、资源等文件传递引用的脚本、shader 或动态库，并在扫描不完整时 fail closed。`dependency_options` 可继续传入扫描预算。这个预检不下载文件、不加载脚本，也不声明某个包可以被普通用户信任执行；完整性校验、解包、隔离和启用策略仍属于项目安装器或独立工具。
 
+闭包预检要求递归扫描；`recursive=false`、触及数量或深度预算、以及被扩展名或路径过滤排除的依赖，都会产生 `resource_dependency_scan_failed`。循环引用本身不等于遗漏依赖，已完整遍历的循环可以通过此项检查。通用依赖扫描器仍可为浏览和诊断返回部分结果；只有 Content Package 的完整闭包校验采用上述准入条件。
+
 ## 诊断报告
 
 `GFContentPackageManifest.get_validation_report()`、`GFContentPackageCatalog.get_graph_report()`、`GFContentPackageCatalog.register_resources()` 和 `GFContentPackageUtility.rebuild_catalog()` 返回 `GFValidationReportDictionary` 形态的通用报告，包含 `ok`、`healthy`、`summary`、`issues`、`next_action`、计数字段和内容包上下文。
@@ -122,6 +124,18 @@ var plan := GFContentPackageExportPlan.from_manifest(manifest, {
 
 var report := plan.get_validation_report()
 ```
+
+`entries` 保持公开可编辑。每个条目必须提供非空的 `source_path` 与 `archive_path` 文本（`String` 或 `StringName`）；`role`、`resource_key`、`package_id`、`type_hint` 和 `metadata` 可省略，分别沿用 `add_entry()` 的默认值。已提供的文本字段必须是文本，`metadata` 必须是字典；其中的项目字段和值保持原有语义。
+
+`get_validation_report()` 每次先捕获条目集合副本，再规范化并校验这份副本；报告的 `entries` 就是此次受检的规范化投影，原计划不会被回写。归档路径统一空白与斜杠后检查重复，拒绝绝对路径、冒号、重复分隔符及空、`.`、`..` 片段。校验不推断大小写或平台文件名等价关系。缺失字段、类型或路径错误带有 `row_index` 和 `field`，便于编辑器定位。
+
+源路径只沿用已有的文本规范化，不增加 scheme 或计划根限制。manifest 资源仍在各自包根内收集，多包计划的 `root_path` 只保留首包根；手工追加的生成产物可以来自其他目录。文件存在性、可读性与完整性继续由 artifact 报告检查，项目 Adapter 自行规定允许的读取根和平台路径策略。
+
+artifact 报告先取得经过相同规则复验的条目副本，再检查文件；结构校验与文件预检因此使用一致的 source/archive 路径和默认 role。原始 `entries` 仍保持可编辑内容，不会被报告写回。
+
+当前条目的派生错误只存在于此次报告，修复或删除条目后重新校验即可消除；构建失败、失败 `add_entry()` 和调用方追加到 `issues` 的历史问题仍会保留。修改条目不会自动清除这些历史问题。
+
+集合副本隔离嵌套数组和字典，`Object` / `Resource` 元数据保持原有身份。报告不提供深度对象冻结、线程同步或文件系统快照。项目 Adapter 应消费已通过校验的报告条目，并在自己的提交边界固定文件和读取策略；继续编辑计划后应重新获取报告。
 
 需要构建、安装或缓存预检查时，可以额外调用 `get_artifact_report()`。该报告会按导出条目读取本地源文件，输出 `size_bytes`、可选 `sha256`、总大小、缺失/不可读计数，并可校验条目 metadata 中的 `expected_sha256`、`expected_size` 或 `expected_size_bytes`。它仍然只生成报告，不联网、不下载、不签名，也不决定内容启用策略。
 

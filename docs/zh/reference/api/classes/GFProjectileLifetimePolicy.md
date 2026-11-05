@@ -31,6 +31,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var max_seconds: float = 0.0
 ```
 
@@ -44,6 +45,7 @@ var max_seconds: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var max_distance: float = 0.0
 ```
 
@@ -57,6 +59,7 @@ var max_distance: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var max_impacts: int = 0
 ```
 

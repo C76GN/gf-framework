@@ -71,6 +71,7 @@ const DEFAULT_METADATA_FILE_TEMPLATE: String = "slot_{index}_meta.sav"
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var data_file_template: String = DEFAULT_DATA_FILE_TEMPLATE
 ```
 
@@ -84,6 +85,7 @@ var data_file_template: String = DEFAULT_DATA_FILE_TEMPLATE
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata_file_template: String = DEFAULT_METADATA_FILE_TEMPLATE
 ```
 

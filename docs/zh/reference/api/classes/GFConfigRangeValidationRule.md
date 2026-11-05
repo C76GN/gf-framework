@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var has_minimum: bool = false
 ```
 
@@ -46,6 +47,7 @@ var has_minimum: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var minimum: float = 0.0
 ```
 
@@ -58,6 +60,7 @@ var minimum: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var inclusive_minimum: bool = true
 ```
 
@@ -70,6 +73,7 @@ var inclusive_minimum: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var has_maximum: bool = false
 ```
 
@@ -82,6 +86,7 @@ var has_maximum: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var maximum: float = 0.0
 ```
 
@@ -94,6 +99,7 @@ var maximum: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var inclusive_maximum: bool = true
 ```
 

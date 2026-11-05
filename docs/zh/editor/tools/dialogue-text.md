@@ -79,6 +79,8 @@
 | `max_responses` | 16,384 | 65,536 | 全部 line 的 response 总数 |
 | `max_diagnostics` | 256 | 1,024 | 返回 issue 总数；最后一个槽说明诊断被截断 |
 
+诊断上限也覆盖编译选项本身的错误。无效的 `max_diagnostics` 使用默认上限并报告选项错误，不会关闭预算。响应 ID 可以包含点号等普通文本；重复响应的定位按所属行和完整 ID 区分，不从展示用主题字符串拆分身份。
+
 文本、结构、line 与 response 预算会在构造 `GFDialogueResource` 前拒绝；资源图校验复用一次建立的 ID 索引和全局 cycle traversal。生产入口随后调用 `build_identity_report()`；身份准入失败产生 `runner_identity_rejected` 及预算计数，不返回半成品。调高结构预算不会放宽 Runner 的身份政策。
 
 ### 来源定位与报告边界

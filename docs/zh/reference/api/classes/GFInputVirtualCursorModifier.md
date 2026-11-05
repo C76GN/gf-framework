@@ -48,6 +48,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var initial_position: Vector2 = Vector2(0.5, 0.5)
 ```
 
@@ -60,6 +61,7 @@ var initial_position: Vector2 = Vector2(0.5, 0.5)
 - API：`public`
 
 ```gdscript
+@export
 var speed: Vector2 = Vector2.ONE
 ```
 
@@ -72,6 +74,7 @@ var speed: Vector2 = Vector2.ONE
 - API：`public`
 
 ```gdscript
+@export
 var apply_delta_time: bool = true
 ```
 
@@ -85,6 +88,7 @@ var apply_delta_time: bool = true
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var use_manual_delta_time: bool = false
 ```
 
@@ -98,6 +102,7 @@ var use_manual_delta_time: bool = false
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export_range(0.0, 10.0, 0.0001)
 var manual_delta_seconds: float = 0.0
 ```
 
@@ -110,6 +115,7 @@ var manual_delta_seconds: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var clamp_to_rect: bool = true
 ```
 
@@ -122,6 +128,7 @@ var clamp_to_rect: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var clamp_rect: Rect2 = Rect2(Vector2.ZERO, Vector2.ONE)
 ```
 
@@ -134,6 +141,7 @@ var clamp_rect: Rect2 = Rect2(Vector2.ZERO, Vector2.ONE)
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var idle_threshold: float = 0.0
 ```
 
@@ -146,6 +154,7 @@ var idle_threshold: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var reset_when_idle: bool = false
 ```
 

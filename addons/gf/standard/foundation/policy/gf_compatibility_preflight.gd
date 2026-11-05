@@ -490,10 +490,17 @@ func require_artifact(artifact_id: StringName, options: Dictionary = {}) -> Dict
 				}
 			)
 		)
-	if require_file_exists and not GFVariantData.get_option_bool(
-		file_metadata,
-		"exists",
-		false
+	if (
+		(
+			require_file_exists
+			or expected_size_bytes >= 0
+			or not expected_sha256.is_empty()
+		)
+		and not GFVariantData.get_option_bool(
+			file_metadata,
+			"exists",
+			false
+		)
 	):
 		ok = false
 		pending_issues.append(

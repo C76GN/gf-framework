@@ -382,7 +382,7 @@ func submit_report(description: String = "", options: Dictionary = {}) -> Dictio
 结构：
 
 - `options`: Dictionary，包含构建选项以及 transport、transport_options、queue_on_failure、queue_when_missing_transport、request_url、headers、request_metadata、max_attempts。
-- `return`: Dictionary，包含 ok、status、report、submit_result、queue_result、error。
+- `return`: Dictionary，包含 ok、status、report、submit_result、queue_result、error；提交回调内生命周期变化时，status=stale、workflow_stale=true、workflow_commit_applied=false，submit_result 保留底层回执。
 
 <a id="member-gfsupportreportworkflow-methods-submit_built_report"></a>
 
@@ -410,7 +410,7 @@ func submit_built_report(report: Dictionary, options: Dictionary = {}) -> Dictio
 
 - `report`: Dictionary，GFSupportReportUtility.build_report() 返回结构。
 - `options`: Dictionary，包含 transport、transport_options、queue_on_failure、queue_when_missing_transport、request_url、headers、request_metadata、max_attempts。
-- `return`: Dictionary，包含 ok、status、report、submit_result、queue_result、error。
+- `return`: Dictionary，包含 ok、status、report、submit_result、queue_result、error；提交回调内生命周期变化时，status=stale、workflow_stale=true、workflow_commit_applied=false，submit_result 保留底层回执。
 
 <a id="member-gfsupportreportworkflow-methods-queue_report"></a>
 

@@ -5,6 +5,7 @@
 ## 阅读入口
 
 - [大数、定点数与定点向量](big-fixed-numbers.md)：`GFBigNumber`、`GFFixedDecimal`、`GFFixedVector2` 与 `GFFixedVector3`。
+- [定点向量逐项运算兼容配方](fixed-vector-component-recipe.md)：组合已有标量运算保留逐项舍入、饱和与历史结果。
 - [确定性随机源](deterministic-random.md)：`GFDeterministicRandom` 的固定 xorshift32 序列、状态恢复和适用边界。
 - [确定性序列化](deterministic-serialization.md)：`GFDeterministicVariantSerializer` 的 canonical value、JSON、bytes 和 SHA-256。
 - [字节游标](byte-cursor.md)：`GFByteCursor` 的边界检查、显式端序、varuint 和 UTF-8 片段读写。

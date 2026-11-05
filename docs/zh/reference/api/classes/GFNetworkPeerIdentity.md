@@ -42,6 +42,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var peer_id: int = -1
 ```
 
@@ -55,6 +56,7 @@ var peer_id: int = -1
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var platform_id: StringName = &""
 ```
 
@@ -68,6 +70,7 @@ var platform_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var platform_user_id: String = ""
 ```
 
@@ -81,6 +84,7 @@ var platform_user_id: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -94,6 +98,7 @@ var display_name: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var avatar_uri: String = ""
 ```
 
@@ -107,6 +112,7 @@ var avatar_uri: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var capabilities: PackedStringArray = PackedStringArray()
 ```
 
@@ -120,6 +126,7 @@ var capabilities: PackedStringArray = PackedStringArray()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

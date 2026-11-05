@@ -5,10 +5,12 @@
 ## 基础装配
 
 ```gdscript
+## 项目启动装配入口；接收尚未通过全局门面发布的候选架构。
 class_name GameInstaller
 extends GFInstaller
 
 
+## 在初始化前注册固定模块；scope 表示当前候选安装的取消边界。
 func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	await architecture.register_model_instance(PlayerModel.new())
 	if scope.is_cancel_requested():
@@ -20,6 +22,7 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 从 `1.9.1` 起，也可以把绑定来源、别名和短生命周期工厂写到声明式装配入口。
 
 ```gdscript
+## 描述模块单例与命令工厂；binder 指向当前候选，而不是旧的全局架构。
 func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	binder.bind_model(PlayerModel).as_singleton()
 	binder.bind_utility(JSONConfigProvider).with_alias(GFConfigProvider).as_singleton()
@@ -68,6 +71,7 @@ Installer 是固定启动拓扑的最后注册边界。依赖 DAG 开始编译�
 应用正常退出、切换主运行域或测试需要保留已接纳异步工作时，应直接等待架构：
 
 ```gdscript
+# 正常退出先等待已接纳工作；SceneTree 离树时的同步释放不能代替排空。
 var architecture: GFArchitecture = Gf.get_architecture()
 var shutdown_result: GFArchitectureShutdownResult = (
 	await architecture.shutdown_async()

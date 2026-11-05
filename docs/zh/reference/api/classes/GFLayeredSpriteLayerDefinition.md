@@ -33,6 +33,7 @@ GFLayeredSpriteLayerDefinition：分层精灵的单层定义。 层定义只描�
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var layer_id: StringName = &""
 ```
 
@@ -46,6 +47,7 @@ var layer_id: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var default_variant_id: StringName = &""
 ```
 
@@ -59,6 +61,7 @@ var default_variant_id: StringName = &""
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var variants: Array[GFLayeredSpriteVariant] = []
 ```
 
@@ -72,6 +75,7 @@ var variants: Array[GFLayeredSpriteVariant] = []
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var offset: Vector2 = Vector2.ZERO
 ```
 
@@ -85,6 +89,7 @@ var offset: Vector2 = Vector2.ZERO
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var modulate: Color = Color.WHITE
 ```
 
@@ -98,6 +103,7 @@ var modulate: Color = Color.WHITE
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var visible: bool = true
 ```
 
@@ -111,6 +117,7 @@ var visible: bool = true
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(-4096, 4096, 1)
 var draw_order: int = 0
 ```
 

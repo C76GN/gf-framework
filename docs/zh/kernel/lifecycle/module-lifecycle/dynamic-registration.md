@@ -7,6 +7,7 @@ Factory 和 alias 属于依赖解析拓扑，首次 activation 后保持不可�
 ## 注册
 
 ```gdscript
+# 仅在 READY 后执行热注册；候选完成第四阶段前不会进入活动注册表。
 var architecture: GFArchitecture = Gf.get_architecture()
 var registered: bool = await architecture.register_system_instance(
 	RuntimeFeatureSystem.new()
@@ -24,6 +25,7 @@ var registered: bool = await architecture.register_system_instance(
 ## 替换
 
 ```gdscript
+# 进入事务的失败候选由架构清理；false 本身不能用于判断 replacement 的归属或能否复用。
 var replaced: bool = await architecture.replace_utility(
 	RuntimeConfigUtility,
 	replacement
@@ -37,6 +39,7 @@ var replaced: bool = await architecture.replace_utility(
 ## 注销
 
 ```gdscript
+# 注销等待 quiesce 与拓扑提交；返回前不能按同步通知理解其效果。
 var removed: bool = await architecture.unregister_system(RuntimeFeatureSystem)
 ```
 

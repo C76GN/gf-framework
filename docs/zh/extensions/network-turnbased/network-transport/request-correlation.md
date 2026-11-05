@@ -12,6 +12,7 @@
 
 ```gdscript
 var handle: GFNetworkRequestHandle = tracker.request(peer_id, send_request)
+# 主线程请求可能在返回前已完成；先检查，避免错过同步回复后继续等待。
 if not handle.is_completed():
 	var _completed_result: GFNetworkRequestResult = await handle.completed
 var result: GFNetworkRequestResult = handle.get_result()
@@ -29,19 +30,28 @@ else:
 下面的项目脚本可挂到一个 Node 上。节点入树后调用一次 `setup(network)`，并让节点持续处理帧；网络 Utility 仍由原有架构驱动。`status_request`、`status_reply`、`request_id` 和 `response` 都是示例项目协议，需要远端实现相同约定，GF 不保留这些字段名。
 
 ```gdscript
+## 将项目请求协议接入网络会话；入树后仅 setup 一次，所有入口只在主线程调用。
+## 离树会不可逆释放 Tracker；换网络、换 Session 或重新入树时创建新的桥接节点。
 class_name ProjectRequestBridge
 extends Node
 
 
+## 借用架构驱动的网络 Utility；桥接节点不负责关闭它。
 var _network: GFNetworkUtility = null
+
+## setup 时绑定的精确 Session；替换 Session 对象需要重新接线。
 var _session: GFNetworkSession = null
+
+## 本节点独占的等待项管理器，不会自行连接网络信号或启动计时器。
 var _tracker: GFNetworkRequestTracker = GFNetworkRequestTracker.new()
 
 
+## 在持续处理帧时推进超时通知；这不是后台或硬实时计时器。
 func _process(_delta: float) -> void:
 	_tracker.tick()
 
 
+## 只解绑本节点建立的信号，再结算等待项并永久关闭 Tracker。
 func _exit_tree() -> void:
 	if _session != null:
 		if _session.session_started.is_connected(_on_session_started):
@@ -58,6 +68,7 @@ func _exit_tree() -> void:
 	_tracker.dispose()
 
 
+## 借用已有网络与 Session 并建立接线；调用方须检查返回的 Error。
 func setup(network: GFNetworkUtility) -> Error:
 	if not is_inside_tree() or _network != null:
 		return ERR_ALREADY_IN_USE
@@ -74,7 +85,9 @@ func setup(network: GFNetworkUtility) -> Error:
 	return OK
 
 
+## 请求指定传输 peer 的状态；成功关联回复不代表远端业务操作成功。
 func request_status(peer_id: int) -> GFNetworkRequestHandle:
+	# Tracker 先登记等待项再调用发送函数；发送必须同步、快速返回，不能 await 回复。
 	var send_request: Callable = func(request_id: String) -> Error:
 		if _network == null:
 			return ERR_UNCONFIGURED
@@ -85,20 +98,24 @@ func request_status(peer_id: int) -> GFNetworkRequestHandle:
 	return _tracker.request(peer_id, send_request, 10_000)
 
 
+## 开始新的关联生命周期，旧会话的请求 ID 不再匹配新回复。
 func _on_session_started(_mode: int, _endpoint: String) -> void:
 	var error: Error = _tracker.begin_session()
 	if error != OK:
 		push_error("Request session could not start: %s" % error_string(error))
 
 
+## 包括 backend 替换导致的关闭；不能仅监听普通 disconnected 通知。
 func _on_session_closed(_reason: String) -> void:
 	_tracker.end_session()
 
 
+## 只结算离开 peer 的等待项，不影响其他 peer 的请求。
 func _on_peer_disconnected(peer_id: int) -> void:
 	_tracker.disconnect_peer(peer_id)
 
 
+## 以真实传输 peer 和原样回显的请求 ID 关联回复；不信任 payload 自报身份。
 func _on_message_received(peer_id: int, message: GFNetworkMessage) -> void:
 	if message.message_type != &"status_reply":
 		return

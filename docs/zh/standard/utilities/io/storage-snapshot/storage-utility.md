@@ -47,9 +47,11 @@ var transfer := GFStoragePayloadTransfer.take_ownership(payload)
 payload = {}
 
 var operation := storage.save_payload_request_async("profile.json", transfer)
+# 等待物理收尾再决定重试或释放；调用方停止观察不等于写入已停止。
 var result: GFStorageAsyncResult = await operation.wait_physical_result_async()
 
 if not result.is_successful():
+	# 仅在句柄允许领取失败载荷时复用所有权，不从已转交的 payload 重建别名。
 	var retry_transfer := operation.reclaim_failed_payload()
 	if retry_transfer != null:
 		_schedule_bounded_retry(retry_transfer)
@@ -144,6 +146,7 @@ family reset 没有全局完成信号，必须分别使用 `delete_file_request_
 
 ```gdscript
 var operation: GFStorageAsyncOperation = storage.load_data_request_async("profile.json")
+# 分类恢复政策须在物理结果上判断，不能把所有失败都当作存档损坏。
 var async_result: GFStorageAsyncResult = await operation.wait_physical_result_async()
 
 if not async_result.is_successful():

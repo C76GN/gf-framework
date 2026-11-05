@@ -7,6 +7,7 @@
 ## 注册工厂
 
 ```gdscript
+## 在候选架构的装配期登记 transient 工厂，执行参数不跨命令实例共享。
 func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	binder.bind_factory(TakeDamageCommand).as_transient()
 	binder.bind_factory(GetPlayerTotalAttackPowerQuery).as_transient()

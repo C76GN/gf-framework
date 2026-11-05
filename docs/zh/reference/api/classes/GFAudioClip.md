@@ -43,6 +43,7 @@
 - API：`public`
 
 ```gdscript
+@export_file("*.wav", "*.ogg", "*.mp3", "*.opus")
 var path: String = ""
 ```
 
@@ -55,6 +56,7 @@ var path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var stream: AudioStream
 ```
 
@@ -67,6 +69,7 @@ var stream: AudioStream
 - API：`public`
 
 ```gdscript
+@export
 var bus_name: String = ""
 ```
 
@@ -79,6 +82,7 @@ var bus_name: String = ""
 - API：`public`
 
 ```gdscript
+@export_range(-80.0, 24.0, 0.1)
 var volume_db: float = 0.0
 ```
 
@@ -91,6 +95,7 @@ var volume_db: float = 0.0
 - API：`public`
 
 ```gdscript
+@export_range(0.01, 4.0, 0.01)
 var pitch_scale: float = 1.0
 ```
 
@@ -103,6 +108,7 @@ var pitch_scale: float = 1.0
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1000.0, 0.01)
 var weight: float = 1.0
 ```
 
@@ -115,6 +121,7 @@ var weight: float = 1.0
 - API：`public`
 
 ```gdscript
+@export_range(0.01, 4.0, 0.01)
 var pitch_random_min: float = 1.0
 ```
 
@@ -127,6 +134,7 @@ var pitch_random_min: float = 1.0
 - API：`public`
 
 ```gdscript
+@export_range(0.01, 4.0, 0.01)
 var pitch_random_max: float = 1.0
 ```
 
@@ -140,6 +148,7 @@ var pitch_random_max: float = 1.0
 - 首次版本：`3.19.0`
 
 ```gdscript
+@export
 var spatial_settings: Resource = null
 ```
 
@@ -157,6 +166,7 @@ var spatial_settings: Resource = null
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var playback_region: GFAudioPlaybackRegion = null
 ```
 
@@ -170,6 +180,7 @@ var playback_region: GFAudioPlaybackRegion = null
 - 首次版本：`5.1.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

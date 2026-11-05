@@ -33,9 +33,11 @@ preset.add_track(track)
 
 ## 场景接收器
 
-`GFShakeReceiver2D` / `GFShakeReceiver3D` 可把 channel 采样叠加到场景节点。配置 `target_path` 后，目标节点暂时删除不会让路径绑定永久失效；同一路径重新创建兼容节点时，receiver 会自动重绑、清除旧目标偏移记录，并按 `capture_on_ready` 为新目标捕获基准。
+`GFShakeReceiver2D` / `GFShakeReceiver3D` 可把 channel 采样叠加到场景节点。配置 `target_path` 后，目标节点暂时删除不会让路径绑定永久失效；同一路径重新创建兼容节点时，receiver 会自动重绑、清除旧目标偏移记录，并按 `capture_on_ready` 为新目标捕获基准。采样回调中换绑目标、换回原目标或让 receiver 离树，会使该次 `apply_current_sample()` 返回 `false`，不提交旧采样的变换和偏移记录；换绑后的后续调用使用新绑定。
 
 正常采样使用差量偏移，可保留两帧之间的外部 transform 变化；但已捕获基准的 `reset_to_base()` 会恢复完整快照。多个 transform producer 应通过父子节点或项目合成器分层，不要让多个 receiver 同时拥有同一节点的完整基准恢复权。
+
+receiver 离树时先按 `restore_on_exit` 处理旧目标，再释放路径绑定缓存。再次挂载后的处理帧会重新解析当前 `target_path`，因此树外改路径不需要额外调用 `request_ready()`。
 
 ## 查询与报告
 

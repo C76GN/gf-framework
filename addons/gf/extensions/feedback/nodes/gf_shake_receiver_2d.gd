@@ -95,6 +95,11 @@ var utility: GFShakeUtility = null
 ## @api private
 var _target_ref: WeakRef = null
 
+## 每次换绑或离树时递增，拒绝采样回调返回后的旧绑定提交，包括换回同一目标。
+## [br]
+## @api private
+var _target_generation: int = 0
+
 ## 捕获的目标基础位置。
 ## [br]
 ## @api private
@@ -144,8 +149,10 @@ func _process(_delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	_target_generation += 1
 	if restore_on_exit:
 		var _reset_to_base_result_88: Variant = reset_to_base()
+	_target_ref = null
 
 
 # --- 公共方法 ---
@@ -211,7 +218,14 @@ func apply_current_sample() -> bool:
 	if target == null or shake_utility == null:
 		return false
 
+	var target_generation: int = _target_generation
 	var sample: Dictionary = shake_utility.sample_channel(channel)
+	if (
+		target_generation != _target_generation
+		or not is_instance_valid(target)
+		or get_target() != target
+	):
+		return false
 	var position: Vector3 = GFVariantData.get_option_vector3(sample, "position")
 	var rotation_degrees: Vector3 = GFVariantData.get_option_vector3(sample, "rotation_degrees")
 	var scale: Vector3 = GFVariantData.get_option_vector3(sample, "scale")
@@ -317,6 +331,7 @@ func _resolve_target() -> Node2D:
 ## [br]
 ## @api private
 func _rebind_target(should_capture_base: bool) -> void:
+	_target_generation += 1
 	_clear_last_offsets()
 	_has_captured_base = false
 	var target: Node2D = _resolve_target()

@@ -66,6 +66,7 @@ const DEFAULT_MAX_VALUE: float = 1.0e20
 - API：`public`
 
 ```gdscript
+@export
 var attribute_id: StringName = &""
 ```
 
@@ -78,6 +79,7 @@ var attribute_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var source_attribute_ids: Array[StringName] = []
 ```
 
@@ -94,6 +96,7 @@ var source_attribute_ids: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var source_weights: Dictionary = {}
 ```
 
@@ -110,6 +113,7 @@ var source_weights: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var flat_bonus: float = 0.0
 ```
 
@@ -122,6 +126,7 @@ var flat_bonus: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var min_value: float = DEFAULT_MIN_VALUE
 ```
 
@@ -134,6 +139,7 @@ var min_value: float = DEFAULT_MIN_VALUE
 - API：`public`
 
 ```gdscript
+@export
 var max_value: float = DEFAULT_MAX_VALUE
 ```
 
@@ -146,6 +152,7 @@ var max_value: float = DEFAULT_MAX_VALUE
 - API：`public`
 
 ```gdscript
+@export
 var sync_base_value: bool = false
 ```
 

@@ -4,6 +4,121 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_unregister_completion_preserves_same_id_replacement() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: PlatformAdapterFixture = _make_adapter(
+		&"primary",
+		&"sample",
+		false
+	)
+	var replacement: PlatformAdapterFixture = _make_adapter(
+		&"primary",
+		&"sample",
+		true
+	)
+	assert_true(runtime.register_adapter(adapter))
+	var _initialization: GFAsyncCompletion = runtime.initialize_adapter(&"primary")
+	var handle: GFPlatformRequestHandle = runtime.invoke_contract(&"platform.share", &"hold")
+	var handler: Callable = func(_adapter_id: StringName, _result: GFPlatformBridgeResult) -> void:
+		var _nested_unregistered: bool = runtime.unregister_adapter(&"primary", false)
+		assert_true(runtime.register_adapter(replacement))
+		var _replacement_initialized: GFAsyncCompletion = runtime.initialize_adapter(&"primary")
+		assert_true(runtime.set_contract_route(&"platform.share", &"primary"))
+	var _connected: Error = runtime.request_completed.connect(handler) as Error
+	assert_true(runtime.unregister_adapter(&"primary", false))
+	runtime.request_completed.disconnect(handler)
+	assert_false(handle.is_pending())
+	assert_true(runtime.get_adapter_ids().has("primary"))
+	assert_eq(
+		runtime.get_contract_route(&"platform.share"),
+		&"primary"
+	)
+	assert_eq(replacement.shutdown_count, 0)
+	adapter.shutdown()
+	runtime.dispose()
+	assert_eq(replacement.shutdown_count, 1)
+
+
+func test_unregister_cancels_captured_handles_not_reused_request_ids() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: PlatformAdapterFixture = _make_adapter(
+		&"primary",
+		&"sample",
+		false
+	)
+	var replacement: PlatformAdapterFixture = _make_adapter(
+		&"primary",
+		&"sample",
+		false
+	)
+	var unrelated: PlatformAdapterFixture = _make_adapter(
+		&"other",
+		&"sample",
+		false
+	)
+	assert_true(runtime.register_adapter(adapter))
+	assert_true(runtime.register_adapter(unrelated))
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"primary")
+	var _other_initialized: GFAsyncCompletion = runtime.initialize_adapter(&"other")
+	var first: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"hold",
+		{},
+		{ "adapter_id": &"primary", "request_id": &"a" }
+	)
+	var second: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"hold",
+		{},
+		{ "adapter_id": &"primary", "request_id": &"b" }
+	)
+	var foreign: GFPlatformRequestHandle = runtime.invoke_contract(
+		&"platform.share",
+		&"hold",
+		{},
+		{ "adapter_id": &"other", "request_id": &"foreign" }
+	)
+	var handled: Array[bool] = [false]
+	var new_handles: Array[GFPlatformRequestHandle] = []
+	var handler: Callable = func(_adapter_id: StringName, result: GFPlatformBridgeResult) -> void:
+		if handled[0]:
+			return
+		handled[0] = true
+		assert_true(runtime.register_adapter(replacement))
+		var _replacement_initialized: GFAsyncCompletion = runtime.initialize_adapter(&"primary")
+		assert_true(runtime.set_contract_route(&"platform.share", &"primary"))
+		var reused_id: StringName = &"b" if result.request_id == &"a" else &"a"
+		assert_true(runtime.cancel_request(reused_id))
+		new_handles.append(
+			runtime.invoke_contract(
+				&"platform.share",
+				&"hold",
+				{},
+				{ "request_id": reused_id }
+			)
+		)
+	var _connected: Error = runtime.request_completed.connect(handler) as Error
+	assert_true(runtime.unregister_adapter(&"primary", false))
+	runtime.request_completed.disconnect(handler)
+	assert_false(first.is_pending())
+	assert_false(second.is_pending())
+	assert_eq(
+		new_handles.size(),
+		1
+	)
+	if not new_handles.is_empty():
+		assert_true(new_handles[0].is_pending())
+	assert_true(foreign.is_pending())
+	assert_true(runtime.get_adapter_ids().has("primary"))
+	assert_eq(
+		runtime.get_contract_route(&"platform.share"),
+		&"primary"
+	)
+	adapter.shutdown()
+	runtime.dispose()
+	assert_eq(replacement.shutdown_count, 1)
+
+
 func test_unregister_canonicalizes_identity_before_all_cleanup() -> void:
 	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
 	var adapter: PlatformAdapterFixture = _make_adapter(

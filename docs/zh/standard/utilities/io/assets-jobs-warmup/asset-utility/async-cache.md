@@ -6,6 +6,7 @@
 
 ```gdscript
 var assets := Gf.get_utility(GFAssetUtility) as GFAssetUtility
+# 当前节点须已入树；离树关闭 scope，取消待交付请求并释放成功句柄。
 var scope: GFAssetScope = assets.create_scope(self)
 var operation: GFAssetLoadOperation = assets.load_async(
 	"res://actors/runtime_actor.tscn", scope, "PackedScene"
@@ -38,6 +39,7 @@ LRU 只淘汰无保留资格的缓存项。成功请求的句柄会增加引用�
 Asset lane 决定工作何时提交到 Broker，Broker 统一仲裁 Asset、Scene 与 BackgroundWork 的底层 admission。
 
 ```gdscript
+# scope 覆盖本次分块资源的实际使用期；提前结束使用时由项目主动 close()。
 var scope: GFAssetScope = assets.create_scope(self)
 var operation: GFAssetLoadOperation = assets.load_async(
 	"res://levels/chunk_01.tscn",

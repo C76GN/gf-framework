@@ -26,19 +26,23 @@ if inventory == null:
 `GFModel` 不应只剩字段。它至少应封装状态修改入口、快照恢复和必要的校验边界。
 
 ```gdscript
+## 项目的钱包状态与余额约束；跨模块业务编排仍交给 System。
 class_name WalletModel
 extends GFModel
 
 
+## 当前余额；业务方通过修改入口维护非负约束。
 var coins: int = 0
 
 
+## 仅接受正数入账，忽略无效金额，避免奖励入口反向扣款。
 func add_coins(amount: int) -> void:
 	if amount <= 0:
 		return
 	coins += amount
 
 
+## 余额足够且金额为正才扣款；返回 false 时余额保持不变。
 func spend_coins(amount: int) -> bool:
 	if amount <= 0 or coins < amount:
 		return false

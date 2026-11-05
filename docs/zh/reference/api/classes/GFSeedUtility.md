@@ -346,7 +346,7 @@ func get_branched_rng(string_seed: String) -> RandomNumberGenerator:
 |---|---|
 | `string_seed` | 用于标识子随机流用途的字符串（如 "loot_table"、"enemy_ai"）。 |
 
-返回：一个已完成种子初始化的独立 RandomNumberGenerator 实例。
+返回：一个已完成种子初始化的独立 RandomNumberGenerator 实例；标签计数耗尽时报告错误并返回 null，状态不变。
 
 <a id="member-gfseedutility-methods-get_branched_godot_rng"></a>
 
@@ -367,7 +367,7 @@ func get_branched_godot_rng(string_seed: String) -> RandomNumberGenerator:
 |---|---|
 | `string_seed` | 用于标识子随机流用途的字符串。 |
 
-返回：一个已完成种子初始化的独立 RandomNumberGenerator 实例。
+返回：一个已完成种子初始化的独立 RandomNumberGenerator 实例；标签计数耗尽时报告错误并返回 null，状态不变。
 
 <a id="member-gfseedutility-methods-get_branched_deterministic_random"></a>
 
@@ -388,4 +388,4 @@ func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRa
 |---|---|
 | `string_seed` | 用于标识确定性子随机流用途的字符串。 |
 
-返回：一个已完成种子初始化的独立 GFDeterministicRandom 实例。
+返回：一个已完成种子初始化的独立 GFDeterministicRandom 实例；标签计数耗尽时报告错误并返回 null，状态不变。

@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var use_type_default: bool = true
 ```
 
@@ -42,6 +43,7 @@ var use_type_default: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 

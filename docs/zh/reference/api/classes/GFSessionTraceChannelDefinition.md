@@ -34,6 +34,7 @@ Session Trace 配方中的通道定义。 该资源只描述稳定通道 ID、�
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var channel_id: StringName = &""
 ```
 
@@ -47,6 +48,7 @@ var channel_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -60,6 +62,7 @@ var enabled: bool = true
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var include_in_snapshot: bool = true
 ```
 
@@ -73,6 +76,7 @@ var include_in_snapshot: bool = true
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(0, 1_000_000, 1)
 var max_events: int = 0
 ```
 
@@ -86,6 +90,7 @@ var max_events: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(0, 16_777_216, 1)
 var max_event_bytes: int = 0
 ```
 
@@ -99,6 +104,7 @@ var max_event_bytes: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

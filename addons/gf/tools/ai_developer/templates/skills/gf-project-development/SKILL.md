@@ -51,7 +51,7 @@ python <gf-ai-cli> api-class GFSaveGraphUtility --project-root .
 python <gf-ai-cli> recipe project-feature --project-root .
 ```
 
-Prefer the smallest declared capability that owns the needed mechanism. Verify signatures from the installed catalog; source remains the final authority for behavior, side effects, and lifecycle details. For API package policy, use the contract's required-plus-optional transitive closure, never vendored files or lockfile presence as implicit authorization. A forbidden package remains forbidden even when another declared package depends on it.
+Prefer the smallest declared capability that owns the needed mechanism. Verify signatures from the installed catalog; source remains the final authority for behavior, side effects, and lifecycle details. For API adoption, use only the transitive package closure of `framework.package_usage.allowed`; `framework.package_usage.forbidden` takes precedence even when an allowed package depends on it. Independently, `framework.package_presence.required` and `framework.package_presence.forbidden` control source payload presence. Payload presence, complete vendoring, and lockfile presence never authorize API adoption; forbidden usage does not require deleting payload.
 
 For every applicable `framework.capability_requirements` record, require `decision_state: confirmed`, then honor its project/module/adapter owner, selected Recipe ids, package policy, and project-owned acceptance conditions. A migrated `pending_review` requirement blocks implementation. Treat `capability_readiness` as bounded evidence: `available_unobserved` is not a defect and `evidence_incomplete` cannot support a negative conclusion.
 

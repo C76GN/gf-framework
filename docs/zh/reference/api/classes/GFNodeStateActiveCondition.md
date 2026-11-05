@@ -53,6 +53,7 @@ enum MatchMode {
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var state_paths: PackedStringArray = PackedStringArray()
 ```
 
@@ -66,6 +67,7 @@ var state_paths: PackedStringArray = PackedStringArray()
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var mode: MatchMode = MatchMode.ANY
 ```
 
@@ -79,6 +81,7 @@ var mode: MatchMode = MatchMode.ANY
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var empty_result: bool = false
 ```
 

@@ -23,6 +23,48 @@ func test_restore_callback_clear_does_not_commit_deleted_snapshot() -> void:
 	)
 
 
+## 缩容恢复回调清空或换入新记录后，旧恢复不能发布事件或覆盖新游标。
+func test_trim_restore_callback_preserves_reentrant_history_changes() -> void:
+	for push_replacement: bool in [false, true]:
+		var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()
+		history.configure(
+			Callable(),
+			func(_data: Variant) -> bool:
+				return true
+		)
+		for value: int in [
+			1,
+			2,
+			3,
+		]:
+			var _snapshot_id: int = history.push_snapshot({ "value": value })
+		assert_true(history.restore_index(1))
+		history.configure(
+			Callable(),
+			func(_data: Variant) -> bool:
+				history.clear()
+				if push_replacement:
+					var _replacement_id: int = history.push_snapshot({ "value": 4 })
+				return not push_replacement
+		)
+		watch_signals(history)
+		history.max_history_size = 1
+		assert_signal_not_emitted(history, "snapshot_restored")
+		assert_eq(
+			history.current_index,
+			0 if push_replacement else -1
+		)
+		if push_replacement:
+			assert_eq(
+				_snapshot_data(history.get_current_snapshot()),
+				{ "value": 4 }
+			)
+		history.configure(
+			Callable(),
+			Callable()
+		)
+
+
 func test_custom_callbacks_step_and_prune_future_branch() -> void:
 	var state: Dictionary = { "value": 1 }
 	var history: GFSnapshotHistoryUtility = GFSnapshotHistoryUtility.new()

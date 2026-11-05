@@ -7,11 +7,13 @@
 默认没有拦截器时，`GFActionQueueSystem` 行为保持不变。
 
 ```gdscript
+## 按项目动作协议跳过已失去目标的表现；不负责撤销已经提交的玩法状态。
 class_name SkipInvalidTargetVisuals
 extends GFActionInterceptor
 
 
-func before_execute(action: GFVisualAction, _queue: GFActionQueueSystem) -> GFActionInterceptionResult:
+## 在动作执行前检查可选的 has_target()；未提供该协议的动作正常继续。
+func _before_execute(action: Object, _queue: GFActionQueueSystem) -> GFActionInterceptionResult:
 	if action.has_method("has_target") and not action.call("has_target"):
 		return GFActionInterceptionResult.skip_action()
 	return GFActionInterceptionResult.continue_action()
@@ -22,5 +24,7 @@ q_sys.add_interceptor(SkipInvalidTargetVisuals.new())
 ```
 
 队列在执行前、执行后分别构建拦截器阶段快照，并按当时观察到的 `priority` 从高到低执行；注册后修改优先级会影响下一次阶段快照。相同优先级按注册顺序稳定执行。`set_interceptors()` 会先完成过滤、去重和注入，再统一排序并发布一次最终状态。
+
+阶段快照固定的是名单和顺序，不延长已取消动作的生命周期。前置拦截器或替换动作的依赖注入若调用 `clear_queue(true)` 或释放队列，剩余前置拦截器不再收到旧动作，旧动作也不会执行。
 
 它不提供卡牌、Buff、剧情或回合规则；这些规则应留在项目自己的 System、Command 或 Action 子类中。

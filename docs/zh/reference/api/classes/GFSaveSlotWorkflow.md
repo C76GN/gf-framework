@@ -46,6 +46,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var active_slot_index: int = 0
 ```
 
@@ -58,6 +59,7 @@ var active_slot_index: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var slot_id_template: String = "slot_{index}"
 ```
 
@@ -70,6 +72,7 @@ var slot_id_template: String = "slot_{index}"
 - API：`public`
 
 ```gdscript
+@export
 var empty_display_name_template: String = ""
 ```
 
@@ -83,6 +86,7 @@ var empty_display_name_template: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata_script: Script = GFSaveSlotMetadata
 ```
 
@@ -96,6 +100,7 @@ var metadata_script: Script = GFSaveSlotMetadata
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var card_script: Script = GFSaveSlotCard
 ```
 
@@ -108,6 +113,7 @@ var card_script: Script = GFSaveSlotCard
 - API：`public`
 
 ```gdscript
+@export
 var slot_role: StringName = &""
 ```
 

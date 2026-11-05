@@ -114,6 +114,16 @@ var _is_connected: bool = false
 ## [br]
 var _lifecycle_serial: int = 0
 
+## 尚未退出操作链的触发数量；take 耗尽后须等待这些处理排空。
+## [br]
+## @api private
+var _pending_process_count: int = 0
+
+## take 已停止接纳新触发，但不取消已接纳的异步处理。
+## [br]
+## @api private
+var _take_exhausted: bool = false
+
 
 # --- Godot 生命周期方法 ---
 
@@ -464,6 +474,9 @@ func _matches_configuration(
 ## @api private
 ## [br]
 func _start_process_async(args: Array, lifecycle_serial: int) -> void:
+	if _take_exhausted:
+		return
+	_pending_process_count += 1
 	_GF_ASYNC_CALL_SCRIPT.run_detached(
 		Callable(self, &"_process_async"),
 		[args, lifecycle_serial]
@@ -485,8 +498,21 @@ func _owner_matches_exact(owner: Object) -> bool:
 ## @api private
 ## [br]
 func _process_async(args: Array, lifecycle_serial: int) -> void:
+	await _process_operations(args, lifecycle_serial)
+	_pending_process_count -= 1
+	if (
+		lifecycle_serial == _lifecycle_serial
+		and _take_exhausted
+		and _pending_process_count == 0
+	):
+		disconnect_signal()
+
+
+## 执行已接纳触发的操作链；提前过滤退出仍由外层统一结算排空。
+## [br]
+## @api private
+func _process_operations(args: Array, lifecycle_serial: int) -> void:
 	var current_args: Array = args.duplicate()
-	var should_disconnect_after_callback: bool = false
 	for operation: Dictionary in _operations:
 		if lifecycle_serial != _lifecycle_serial or prune_if_invalid():
 			return
@@ -543,11 +569,11 @@ func _process_async(args: Array, lifecycle_serial: int) -> void:
 			OperationType.TAKE:
 				var take_remaining: int = _get_operation_remaining(operation)
 				if take_remaining <= 0:
-					disconnect_signal()
-					_unregister_from_utility()
+					_take_exhausted = true
 					return
 				operation["remaining"] = take_remaining - 1
-				should_disconnect_after_callback = _get_operation_remaining(operation) <= 0
+				if take_remaining == 1:
+					_take_exhausted = true
 
 			OperationType.SCAN:
 				var reducer: Callable = _get_operation_callable(operation)
@@ -562,7 +588,13 @@ func _process_async(args: Array, lifecycle_serial: int) -> void:
 
 	var final_args: Array = _default_args.duplicate()
 	final_args.append_array(current_args)
-	if _is_once or should_disconnect_after_callback:
+	if (
+		_is_once
+		or (
+			_take_exhausted
+			and _pending_process_count == 1
+		)
+	):
 		disconnect_signal()
 		_unregister_from_utility()
 	var _callback_result: Variant = _callback.callv(final_args)

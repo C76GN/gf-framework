@@ -264,6 +264,21 @@ var _sinks: Array[GFLogSink] = []
 ## [br]
 var _is_initialized: bool = false
 
+## 每次初始化或释放递增，阻止旧初始化通知恢复后重新打开 sink。
+## [br]
+## @api private
+var _lifecycle_generation: int = 0
+
+## 本实例最近成功写入的运行标记身份；未写入的实例没有删除权。
+## [br]
+## @api private
+var _owned_marker_token: String = ""
+
+## 同进程仍未干净关闭的 logger 标记；只保存数据，最后一个 owner 关闭后才能删除文件。
+## [br]
+## @api private
+static var _active_crash_markers: Dictionary = {}
+
 ## 每条日志默认合并的全局上下文。
 ## [br]
 ## @api private
@@ -303,6 +318,8 @@ var _is_dispatching_sinks: bool = false
 func init() -> void:
 	if _is_initialized:
 		return
+	_lifecycle_generation += 1
+	var generation: int = _lifecycle_generation
 	ignore_pause = true
 	clear_memory_entries()
 	if not DirAccess.dir_exists_absolute(_LOG_DIR):
@@ -350,7 +367,9 @@ func init() -> void:
 	if not _last_shutdown_was_clean:
 		previous_crash_detected.emit(_previous_crash_marker.duplicate(true))
 	for sink: GFLogSink in _get_sink_snapshot():
-		if sink != null:
+		if generation != _lifecycle_generation or not _is_initialized:
+			return
+		if sink != null and _sinks.has(sink):
 			sink.init(self)
 
 
@@ -360,6 +379,7 @@ func init() -> void:
 func dispose() -> void:
 	if not _is_initialized:
 		return
+	_lifecycle_generation += 1
 	flush_sinks()
 	for sink: GFLogSink in _get_sink_snapshot():
 		if sink != null:
@@ -1581,6 +1601,9 @@ func _check_previous_crash_marker() -> void:
 	var parsed: Variant = JSON.parse_string(content)
 	if parsed is Dictionary:
 		_previous_crash_marker = _sanitize_dictionary_variant(parsed)
+		if _active_crash_markers.has(GFVariantData.get_option_string(_previous_crash_marker, "owner_token")):
+			_last_shutdown_was_clean = true
+			_previous_crash_marker.clear()
 
 
 ## 启用标记时写入 trace_id、系统启动时间和单调 tick 的 JSON 文件。
@@ -1590,31 +1613,55 @@ func _check_previous_crash_marker() -> void:
 func _write_crash_marker() -> void:
 	if not crash_marker_enabled:
 		return
+	var token: String = (
+		"%s:%s"
+		% [get_instance_id(), _lifecycle_generation]
+	)
+	var payload: Dictionary = {
+		"trace_id": get_trace_id(),
+		"started_at": Time.get_datetime_string_from_system(true, true),
+		"ticks_msec": Time.get_ticks_msec(),
+		"owner_token": token,
+	}
+	if _store_crash_marker(payload):
+		_owned_marker_token = token
+		_active_crash_markers[token] = payload
 
+
+## 写入一份完整运行标记；仅成功写入后调用者才取得该标记的所有权。
+## [br]
+## @api private
+func _store_crash_marker(payload: Dictionary) -> bool:
 	var file: FileAccess = FileAccess.open(_CRASH_MARKER_PATH, FileAccess.WRITE)
 	if file == null:
-		return
-	var stored: bool = file.store_string(
-		JSON.stringify(
-			{
-				"trace_id": get_trace_id(),
-				"started_at": Time.get_datetime_string_from_system(true, true),
-				"ticks_msec": Time.get_ticks_msec(),
-			}
-		)
-	)
+		return false
+	var stored: bool = file.store_string(JSON.stringify(payload))
 	if not stored:
 		push_warning("[GFLogUtility][log_utility.running_marker_write_failed] Cannot write the running marker: %s." % _CRASH_MARKER_PATH)
 	file.close()
+	return stored
 
 
-## 若运行中标记文件存在则尝试删除，以记录本次正常关闭。
+## 只释放本实例登记的标记；保留其他 logger 的运行证据，不删除外部替换的文件。
 ## [br]
 ## @api private
 ## [br]
 func _mark_shutdown_clean() -> void:
-	if FileAccess.file_exists(_CRASH_MARKER_PATH):
+	if _owned_marker_token.is_empty():
+		return
+	var token: String = _owned_marker_token
+	_owned_marker_token = ""
+	var _removed: bool = _active_crash_markers.erase(token)
+	if not FileAccess.file_exists(_CRASH_MARKER_PATH):
+		return
+	var marker: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(FileAccess.get_file_as_string(_CRASH_MARKER_PATH)))
+	if GFVariantData.get_option_string(marker, "owner_token") != token:
+		return
+	if _active_crash_markers.is_empty():
 		_remove_absolute(_CRASH_MARKER_PATH)
+	else:
+		var remaining: Dictionary = GFVariantData.as_dictionary(_active_crash_markers.values()[0])
+		var _stored: bool = _store_crash_marker(remaining)
 
 
 ## 哈希 Unix 时间、单调微秒和随机整数，取前 16 个字符作为 trace id。

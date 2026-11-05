@@ -56,6 +56,7 @@ enum DeviceType {
 - API：`public`
 
 ```gdscript
+@export
 var player_index: int = 0
 ```
 
@@ -68,6 +69,7 @@ var player_index: int = 0
 - API：`public`
 
 ```gdscript
+@export
 var device_type: DeviceType = DeviceType.KEYBOARD_MOUSE
 ```
 
@@ -80,6 +82,7 @@ var device_type: DeviceType = DeviceType.KEYBOARD_MOUSE
 - API：`public`
 
 ```gdscript
+@export
 var device_id: int = 0
 ```
 
@@ -92,6 +95,7 @@ Godot 输入设备 ID。键鼠通常为 0，虚拟/AI 可使用 -1。
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

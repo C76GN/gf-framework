@@ -79,6 +79,7 @@ enum ValueType {
 - API：`public`
 
 ```gdscript
+@export
 var option_id: StringName = &""
 ```
 
@@ -91,6 +92,7 @@ var option_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var label: String = ""
 ```
 
@@ -103,6 +105,7 @@ var label: String = ""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var tooltip: String = ""
 ```
 
@@ -115,6 +118,7 @@ var tooltip: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.ANY
 ```
 
@@ -127,6 +131,7 @@ var value_type: ValueType = ValueType.ANY
 - API：`public`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -143,6 +148,7 @@ var default_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var min_value: float = 0.0
 ```
 
@@ -155,6 +161,7 @@ var min_value: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var max_value: float = 1.0
 ```
 
@@ -167,6 +174,7 @@ var max_value: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var step: float = 0.01
 ```
 
@@ -179,6 +187,7 @@ var step: float = 0.01
 - API：`public`
 
 ```gdscript
+@export
 var choices: Array = []
 ```
 
@@ -195,6 +204,7 @@ var choices: Array = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -504,7 +504,7 @@ func seek(frame: int, frame_progress: float = 0.0) -> bool:
 ## [br]
 ## @param delta_seconds: 非负、有限的推进时间。
 ## [br]
-## @return: 完整消费本次推进量时返回 true；参数非法或跨帧预算耗尽时返回 false。
+## @return: 本次推进成功处理时返回 true；回调替换播放状态或动画结束时舍弃旧余量。参数非法或需要跨越更多帧边界而预算耗尽时返回 false。
 ## [br]
 ## @since 11.0.0
 func advance(delta_seconds: float) -> bool:
@@ -524,8 +524,6 @@ func advance(delta_seconds: float) -> bool:
 	var advances: int = 0
 	var playback_generation: int = _state_generation
 	while remaining_units > 0.0 and _playing:
-		if advances >= MAX_FRAME_ADVANCES_PER_TICK:
-			return _reject(&"frame_advance_limit")
 		var frame_duration: float = _timeline_frames.get_frame_duration(_current_animation, _current_frame)
 		if not _is_finite_float(frame_duration) or frame_duration <= 0.0:
 			return _reject(&"invalid_frame_duration")
@@ -535,6 +533,8 @@ func advance(delta_seconds: float) -> bool:
 			_frame_progress += progress_delta if _speed_scale > 0.0 else -progress_delta
 			remaining_units = 0.0
 			break
+		if advances >= MAX_FRAME_ADVANCES_PER_TICK:
+			return _reject(&"frame_advance_limit")
 		remaining_units = maxf(
 			remaining_units - distance,
 			0.0

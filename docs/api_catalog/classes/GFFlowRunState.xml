@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFFlowRunState" path="addons/gf/extensions/flow/runtime/gf_flow_run_state.gd" module="extensions/flow" extends="RefCounted" classDigest="dac228516efe81a2a5dc27e67909bb38eb3b962ccfa7fd52ade18ac9948242d9">
+	<description>GFFlowRunState: 一轮 Flow 的调度和节点进度。不同 Runner 各自持有独立状态，即使它们共用业务 Context。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create_data_snapshot">
+			<signature>func create_data_snapshot() -&gt; Dictionary:</signature>
+			<description>读取根图的节点进度副本。可将 nodes 显式传给另一次运行作为初始进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">根图数据，不包含等待、调用帧或运行位置。</tag>
+				<tag name="schema">return: nodes 按节点 ID 保存进度字典。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="describe_frames">
+			<signature>func describe_frames() -&gt; Array[Dictionary]:</signature>
+			<description>列出当前调用帧与各自的待执行节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按根至子图的顺序返回帧报告。</tag>
+				<tag name="schema">return: 每项含 frame_id 和 pending 节点 ID 列表。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; Dictionary:</signature>
+			<description>读取此轮运行的进展或终态。Runner 被重用后，旧状态仍返回自己的报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前运行报告副本。</tag>
+				<tag name="schema">return: 与 Runner 报告相同，waiting_node_id 记录活动等待的节点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>只对这一次运行请求取消，立即封闭在途节点写权限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次接纳取消时返回 true；结束后或已取消时返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

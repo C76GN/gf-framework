@@ -149,6 +149,7 @@ const KEY_ALLOW_NULL: String = "allow_null"
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var definitions: Array = []
 ```
 
@@ -166,6 +167,7 @@ var definitions: Array = []
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var values: Dictionary = {}
 ```
 
@@ -183,6 +185,7 @@ var values: Dictionary = {}
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

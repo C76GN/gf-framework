@@ -41,6 +41,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var property_name: NodePath = ^"position"
 ```
 
@@ -53,6 +54,7 @@ var property_name: NodePath = ^"position"
 - API：`public`
 
 ```gdscript
+@export
 var target_value: Variant = null
 ```
 
@@ -70,6 +72,7 @@ var target_value: Variant = null
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var duration: float = 0.2:
 ```
 
@@ -83,6 +86,7 @@ var duration: float = 0.2:
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var delay: float = 0.0:
 ```
 
@@ -95,6 +99,7 @@ var delay: float = 0.0:
 - API：`public`
 
 ```gdscript
+@export
 var as_relative: bool = false
 ```
 
@@ -107,6 +112,7 @@ var as_relative: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var parallel: bool = false
 ```
 
@@ -119,6 +125,7 @@ var parallel: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC
 ```
 
@@ -131,6 +138,7 @@ Tween 过渡类型。
 - API：`public`
 
 ```gdscript
+@export
 var ease_type: Tween.EaseType = Tween.EASE_OUT
 ```
 
@@ -144,6 +152,7 @@ Tween 缓动类型。
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var easing_curve: Curve = null
 ```
 
@@ -157,6 +166,7 @@ var easing_curve: Curve = null
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var marker_id: StringName = &""
 ```
 

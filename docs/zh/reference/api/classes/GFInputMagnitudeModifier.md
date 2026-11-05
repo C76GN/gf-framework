@@ -32,6 +32,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var output_x: bool = true
 ```
 
@@ -44,6 +45,7 @@ var output_x: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var output_y: bool = false
 ```
 
@@ -56,6 +58,7 @@ var output_y: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var output_z: bool = false
 ```
 
@@ -68,6 +71,7 @@ var output_z: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var absolute_value: bool = true
 ```
 
@@ -80,6 +84,7 @@ var absolute_value: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var preserve_unselected_components: bool = false
 ```
 

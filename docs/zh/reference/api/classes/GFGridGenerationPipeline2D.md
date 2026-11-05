@@ -37,6 +37,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var steps: Array[GFGridGenerationStep2D] = []
 ```
 
@@ -49,6 +50,7 @@ var steps: Array[GFGridGenerationStep2D] = []
 - API：`public`
 
 ```gdscript
+@export
 var fill_default_value: bool = false
 ```
 
@@ -61,6 +63,7 @@ var fill_default_value: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var default_value: Variant = null
 ```
 
@@ -77,6 +80,7 @@ var default_value: Variant = null
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

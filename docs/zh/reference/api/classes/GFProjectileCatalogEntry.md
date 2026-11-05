@@ -29,6 +29,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var projectile_id: StringName = &""
 ```
 
@@ -42,6 +43,7 @@ definition 的稳定目录 ID。
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var definition: GFProjectileDefinition = null
 ```
 

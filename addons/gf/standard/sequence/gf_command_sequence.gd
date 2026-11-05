@@ -456,14 +456,17 @@ func _execute_step(step: Variant) -> Variant:
 	var step_object: Object = _get_valid_step_object(step)
 	if step_object != null:
 		if step_object is GFSequenceStep:
-			_inject_step(step_object)
+			if not _inject_step(step_object):
+				return null
 			var sequence_step: GFSequenceStep = step_object
 			return sequence_step.execute(context)
 		if step_object.has_method("execute"):
-			_inject_step(step_object)
+			if not _inject_step(step_object):
+				return null
 			return step_object.call("execute")
 		if step_object.has_method("resolve"):
-			_inject_step(step_object)
+			if not _inject_step(step_object):
+				return null
 			return step_object.call("resolve")
 	if step is Callable:
 		var callable: Callable = step
@@ -637,9 +640,14 @@ func _rollback_steps(completed_steps: Array) -> Dictionary:
 		var step: Object = _get_valid_step_object(step_value)
 		if step == null or not step.has_method("undo"):
 			continue
-		attempted_count += 1
-		_inject_step(step)
 		_current_rollback_step = step_value
+		if not _inject_step(step):
+			if _cancel_requested:
+				rollback_status = ROLLBACK_STATUS_CANCELLED
+				rollback_cancelled = true
+				break
+			continue
+		attempted_count += 1
 		_last_wait_result.clear()
 		var result: Variant = step.call("undo")
 		if result is Signal:
@@ -699,18 +707,21 @@ func _get_rollback_step_error(step: Object, result: Variant) -> String:
 	return "" if undo_successful else "undo_failed"
 
 
-## 取得架构后，按对象支持情况调用 inject_dependencies() 与 inject()。
+## 取得架构后注入依赖，每个回调后检查取消和对象存活；返回是否仍可开始执行或回滚。
 ## [br]
 ## @api private
 ## [br]
-func _inject_step(step: Object) -> void:
+func _inject_step(step: Object) -> bool:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture == null:
-		return
+		return not _cancel_requested and is_instance_valid(step)
 	if step.has_method("inject_dependencies"):
 		var _dependencies_injected: Variant = step.call("inject_dependencies", architecture)
+		if _cancel_requested or not is_instance_valid(step):
+			return false
 	if step.has_method("inject"):
 		var _injected: Variant = step.call("inject", architecture)
+	return not _cancel_requested and is_instance_valid(step)
 
 
 ## 判断结果是否为等待信号；GFSequenceStep 可通过 wait_for_result 关闭该等待。

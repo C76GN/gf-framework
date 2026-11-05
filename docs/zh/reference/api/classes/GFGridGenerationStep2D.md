@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var step_id: StringName = &""
 ```
 
@@ -45,6 +46,7 @@ var step_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var selection: GFGridSelection2D = null
 ```
 
@@ -57,6 +59,7 @@ var selection: GFGridSelection2D = null
 - API：`public`
 
 ```gdscript
+@export
 var value: Variant = true
 ```
 
@@ -73,6 +76,7 @@ var value: Variant = true
 - API：`public`
 
 ```gdscript
+@export
 var erase_cells: bool = false
 ```
 
@@ -85,6 +89,7 @@ var erase_cells: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="818df597f70ec834a47a915b03988f1ebd91cabc749345e2c90012a089011e6a">
+<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="bc94d2382d52d37de648748bf94b4a8777ccf54a511cde6b3d9a681078dea187">
 	<description>GFAssetBrowserModel: 资产浏览器的无界面状态模型。
 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器
 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、
@@ -116,7 +116,7 @@ listener 按只读引用使用。</description>
 			</tags>
 		</member>
 		<member kind="method" name="set_query">
-			<signature>func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -&gt; Dictionary:</signature>
+			<signature>func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray(), sort_options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>设置浏览查询和可选资产 ID 闭集。
 资产 ID 会去重并排序。超长查询、超量过滤 ID 或超长 ID 会整体拒绝，
 被拒绝的输入不会推进 generation。</description>
@@ -124,7 +124,9 @@ listener 按只读引用使用。</description>
 				<tag name="api">public</tag>
 				<tag name="param">query_text: 交给 GFAssetCatalog 的文本查询。</tag>
 				<tag name="param">asset_ids: 可选查询闭集；为空时查询整个目录。</tag>
+				<tag name="param">sort_options: 排序预设和名称浏览档宽；缺省按精确相关度。</tag>
 				<tag name="return">查询更新报告。</tag>
+				<tag name="schema">sort_options: Dictionary with optional sort_preset, band_width and include_unmatched.</tag>
 				<tag name="schema">return: Dictionary with ok, changed, error, query_generation, query, and filter_count.</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>

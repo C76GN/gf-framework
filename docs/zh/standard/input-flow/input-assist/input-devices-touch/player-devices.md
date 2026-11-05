@@ -19,7 +19,9 @@ for assignment in devices.get_assignments():
 
 Godot 4.7 下键盘和鼠标事件使用引擎提供的键盘/鼠标设备 ID；GF 会把旧资源中的键鼠 `device = 0` 视为兼容占位。AI、虚拟触屏或自定义席位可以继续使用项目约定的 ID。
 
-`GFInputDeviceUtility` 会把输入事件解析到玩家席位；`GFInputMappingUtility` 在存在该工具时会同步维护玩家级动作状态。
+`GFInputDeviceUtility` 会把输入事件解析到玩家席位；`GFInputMappingUtility` 在存在该工具时会同步维护玩家级动作状态。活动玩家通知回调撤销或改派设备时，本次事件按通知返回后的当前归属解析；未分配设备不会重新写入已撤销玩家的动作。
+
+动作值通知中同步转发同一动作的新事件时，旧刷新不再补发 started/completed 边沿；全局与玩家域分别复核该动作的刷新版本。转发其他动作不使当前动作的边沿失效。
 
 ## 触屏摇杆
 

@@ -14,6 +14,7 @@
 - 生命周期报告：`on_apply()` / `on_remove()` / `on_refresh()` / `refresh_from()` 返回结构化报告；应用或刷新失败会回滚本次内置 tag / modifier 变更。
 - 可配置策略：`stack_mode` 可选择只刷新、叠层或忽略重复添加；`duration_refresh_policy` 可选择保持、重置、追加或保留更长剩余时间。
 - 周期 Tick：`tick_interval_seconds <= 0` 时保持每帧调用 `on_tick(delta)`；大于 0 时按固定间隔触发。
+- 周期回调中显式移除 Buff 会停止旧更新剩余的补帧；回调重新挂载同一实例也不会恢复旧更新。正常补帧预算和自然到期时的最后一次更新保持原有行为。
 - 数据化扩展：`GFBuffRecipe` 可创建通用运行时 Buff，`GFBuffCheck` 可组合应用检查，`GFBuffEffect` 可响应 apply、remove、refresh 和 tick。
 - 状态快照：`get_state_snapshot()` / `restore_state_snapshot()` 保存持续时间、层数、标签、修饰器、metadata 和 effect 状态。
 
@@ -53,3 +54,5 @@ combat_system.add_buff(entity, recipe.create_buff(entity))
 - 执行结果：`execute()` 返回是否真正施放成功。
 
 需要在子类中拒绝施放或等待项目校验时，可继续重写 `_try_execute(targets) -> bool`，也可重写 `_try_activate(context) -> bool` 读取完整上下文。只有最终返回 `true`，技能事务才提交、发出 `activation_committed` 并进入冷却；检查、步骤应用或执行失败会回滚事务并发出 `activation_failed`。同一 `GFSkill` 在任意同步检查、步骤、执行钩子或信号内再次调用 `execute()` 时，会以 `activation_in_progress` 失败关闭，防止同一事务重复扣费或执行；连锁技能应延迟调用或使用独立实例。`GFSkillActivationStep` 钩子必须同步完成，异步成本流程应在项目层先完成预留，再进入技能激活事务。
+
+步骤字典明确返回 `ok=false`（或缺少 `ok` 时返回 `success=false`）就表示操作失败，即使附带的 `issues` 只有警告，事务报告也保持失败。警告会保留，并在没有错误项时补充失败错误；成功结果附带警告仍可继续激活。

@@ -353,7 +353,188 @@ func test_prepared_context_preserves_full_reports_and_duplicate_field_accumulati
 	assert_false(GFVariantData.as_dictionary(candidate.get("metadata")).has("mutated"))
 
 
-func test_rank_comparator_keeps_approximate_score_title_fallback_and_global_index() -> void:
+## 使用公开字段权重产生曾使两两近似比较形成环的三个候选。
+func test_rank_orders_near_scores_across_permutations_and_limits() -> void:
+	var candidates: Array[Dictionary] = [
+		{ "title": "a", "ka": "needle" },
+		{ "title": "b", "kb": "needle" },
+		{ "title": "c", "kc": "needle" },
+	]
+	var options: Dictionary = {
+		"fields": [
+			{ "key": "ka", "weight": 1.0 },
+			{ "key": "kb", "weight": 1.0000075 },
+			{ "key": "kc", "weight": 1.000015 },
+		],
+		"limit": 2,
+	}
+	for rotation: int in range(3):
+		for reversed_order: bool in [false, true]:
+			var ordered: Array[Dictionary] = candidates.duplicate()
+			if reversed_order:
+				ordered.reverse()
+			var _removed: bool = options.erase("sort_preset")
+			assert_eq(
+				_rank_titles(
+					"needle",
+					ordered,
+					options
+				),
+				PackedStringArray(["c", "b"])
+			)
+			options["sort_preset"] = "name_browse"
+			assert_eq(
+				_rank_titles(
+					"needle",
+					ordered,
+					options
+				),
+				PackedStringArray(["a", "b"])
+			)
+		var first: Dictionary = candidates[0]
+		candidates.remove_at(0)
+		candidates.append(first)
+
+
+## 指定档宽时，相隔一个边界的两个命中仍分档；无效分数与未命中项最后按名称排列。
+func test_bands_boundaries_unmatched_and_extreme_values() -> void:
+	var reports: Array[Dictionary] = []
+	for row: Array in [
+		[
+			"Zulu",
+			10.0,
+			true,
+		],
+		[
+			"Alpha",
+			9.9999999,
+			true,
+		],
+		[
+			"Beta",
+			19.0,
+			true,
+		],
+		[
+			"A missed",
+			500.0,
+			false,
+		],
+		[
+			"Broken",
+			NAN,
+			true,
+		],
+		[
+			"Huge",
+			1.6e308,
+			true,
+		],
+		[
+			"Vast",
+			1.7e308,
+			true,
+		],
+	]:
+		reports.append(
+			{
+				"candidate": { "title": row[0] },
+				"score": row[1],
+				"matched": row[2],
+				"index": reports.size(),
+			}
+		)
+	var options: Dictionary = { "sort_preset": "name_browse", "band_width": 10.0 }
+	GFTextSearchScorerBase.sort_ranking_reports(reports, options)
+	assert_eq(
+		_report_titles(reports),
+		PackedStringArray(
+			[
+				"Vast",
+				"Huge",
+				"Beta",
+				"Zulu",
+				"Alpha",
+				"A missed",
+				"Broken",
+			]
+		)
+	)
+	options["band_width"] = 1.0e-300
+	GFTextSearchScorerBase.sort_ranking_reports(reports, options)
+	assert_eq(
+		_report_titles(reports),
+		PackedStringArray(
+			[
+				"Vast",
+				"Huge",
+				"Beta",
+				"Zulu",
+				"Alpha",
+				"A missed",
+				"Broken",
+			]
+		)
+	)
+	for invalid_width: Variant in [
+		0,
+		-1.0,
+		INF,
+		NAN,
+		"50",
+	]:
+		options["band_width"] = invalid_width
+		GFTextSearchScorerBase.sort_ranking_reports(reports, options)
+		assert_eq(
+			_report_titles(reports),
+			PackedStringArray(
+				[
+					"Vast",
+					"Huge",
+					"Alpha",
+					"Beta",
+					"Zulu",
+					"A missed",
+					"Broken",
+				]
+			)
+		)
+
+
+## 零 token 时所有候选未命中；显式包含未命中时两个预设均按名称再按原索引。
+func test_empty_query_and_name_fallback() -> void:
+	var candidates: Array[Dictionary] = [
+		{ "title": "Zulu" },
+		{ "title": "Alpha" },
+		{ "title": "ALPHA" },
+	]
+	for preset: String in ["relevance", "name_browse"]:
+		var options: Dictionary = { "sort_preset": preset }
+		assert_true(
+			_rank_titles(
+				"",
+				candidates,
+				options
+			).is_empty()
+		)
+		options["include_unmatched"] = true
+		assert_eq(
+			_rank_titles(
+				"",
+				candidates,
+				options
+			),
+			PackedStringArray(
+				[
+					"Alpha",
+					"ALPHA",
+					"Zulu",
+				]
+			)
+		)
+
+
+func test_rank_comparator_uses_exact_score_then_title_and_global_index() -> void:
 	var payload: Dictionary = {
 		"nested": [
 			{ "license": "CC0" },
@@ -361,11 +542,13 @@ func test_rank_comparator_keeps_approximate_score_title_fallback_and_global_inde
 	}
 	var reports: Array[Dictionary] = [
 		{
+			"matched": true,
 			"score": 1.0,
 			"candidate": { "title": "Beta", "metadata": payload },
 			"index": 0,
 		},
 		{
+			"matched": true,
 			"score": 1.00000001,
 			"candidate": {
 				"title": "",
@@ -375,11 +558,13 @@ func test_rank_comparator_keeps_approximate_score_title_fallback_and_global_inde
 			"index": 3,
 		},
 		{
+			"matched": true,
 			"score": 1.0,
 			"candidate": { "title": "ALPHA", "metadata": payload },
 			"index": 1,
 		},
 		{
+			"matched": true,
 			"score": 2.0,
 			"candidate": { "title": "zulu", "metadata": payload },
 			"index": 2,
@@ -391,8 +576,8 @@ func test_rank_comparator_keeps_approximate_score_title_fallback_and_global_inde
 		reports,
 		[
 			before[3],
-			before[2],
 			before[1],
+			before[2],
 			before[0],
 		]
 	)
@@ -407,7 +592,7 @@ func test_rank_comparator_keeps_approximate_score_title_fallback_and_global_inde
 	)
 
 
-func test_cached_sort_keys_match_original_sort_full_reports_at_approximate_score_edges() -> void:
+func test_cached_keys_match_pair_comparator_for_close_scores_and_equal_titles() -> void:
 	var scores: Array[float] = [
 		1.0,
 		1.000005,
@@ -452,7 +637,7 @@ func test_cached_sort_keys_match_original_sort_full_reports_at_approximate_score
 		assert_eq(
 			reports,
 			expected,
-			"缓存排序键必须保留原生算法在近似比较、相同标题和相同索引下的完整排列。"
+			"缓存排序键与成对比较须对相近分数、同标题和同索引给出相同次序。"
 		)
 		for report: Dictionary in reports:
 			assert_eq(
@@ -463,6 +648,29 @@ func test_cached_sort_keys_match_original_sort_full_reports_at_approximate_score
 
 
 # --- 私有/辅助方法 ---
+
+## 提取排名的可见名称，使用与项目调用方相同的搜索入口。
+func _rank_titles(
+	query: String,
+	candidates: Array[Dictionary],
+	options: Dictionary
+) -> PackedStringArray:
+	return _report_titles(
+		GFTextSearchScorerBase.rank_candidates(
+			query,
+			candidates,
+			options
+		)
+	)
+
+
+func _report_titles(reports: Array[Dictionary]) -> PackedStringArray:
+	var titles: PackedStringArray = PackedStringArray()
+	for report: Dictionary in reports:
+		var candidate: Dictionary = GFVariantData.get_option_dictionary(report, "candidate")
+		var _appended: bool = titles.append(GFVariantData.get_option_string(candidate, "title"))
+	return titles
+
 
 func _get_matched_tokens(report: Dictionary) -> PackedStringArray:
 	var value: Variant = GFVariantData.get_option_value(

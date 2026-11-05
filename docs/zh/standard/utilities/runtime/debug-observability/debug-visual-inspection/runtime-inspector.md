@@ -24,7 +24,7 @@ inspector.set_property_value(&"player", &"move_speed", 480.0)
 print(inspector.get_target_snapshot())
 ```
 
-`GFRuntimeTunableProperty` 可声明 bool、int、float、String、StringName、Vector2、Vector3、Color 或任意值，也可以设置范围、可选值、只读、显示分组和自定义 getter/setter/validator。回调是受信同步 hook；同一属性递归调用 `write_value()` 会失败关闭。Inspector 在回调返回后还会复核目标、属性和注册代际：回调若注销、替换或重新注册当前目标/属性，旧写操作返回 `false` 且不向新代际发 `property_changed`。
+`GFRuntimeTunableProperty` 可声明 bool、int、float、String、StringName、Vector2、Vector3、Color 或任意值，也可以设置范围、可选值、只读、显示分组和自定义 getter/setter/validator。回调是受信同步 hook；同一属性递归调用 `write_value()` 会失败关闭。Inspector 在回调返回后还会复核目标、属性和注册代际：回调若注销、替换或重新注册当前目标/属性，旧写操作返回 `false` 且不向新代际发 `property_changed`。首次 getter 撤销注册或关闭写入开关时，尚未开始的 setter 也不会执行；已发生的 setter 副作用则不会被伪装成回滚。
 
 当前 custom setter 的签名返回 `void`。`GFRuntimeTunableProperty.write_value()` 的 `true` 只表示值已通过 schema/validator 且 setter 已被调用，无法证明项目外部存储真的接受了值，也不能回滚 setter 已产生的副作用。需要“接受/拒绝/规范化后实际值”回执时，应暂时在项目 setter/validator 中自行维护状态；是否升级为结构化 setter 结果属于后续公开契约决策。
 

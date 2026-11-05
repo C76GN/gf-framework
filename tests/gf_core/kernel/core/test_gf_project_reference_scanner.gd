@@ -12,6 +12,84 @@ class BinaryReferenceResource:
 
 # --- 测试用例 ---
 
+## 在真实 FileAccess 长度采样之后同步追加字节，确定性复现读取窗口变化。
+## 插桩只加入文件写入，不替换扫描算法；会话仍走公开 start/step/take_result。
+func test_text_growth_after_length_sample_is_bounded_and_incomplete() -> void:
+	var original: String = FileAccess.get_file_as_string("res://addons/gf/kernel/core/gf_project_reference_scanner.gd")
+	var anchor: String = "\tvar size_bytes: int = file.get_length()"
+	assert_eq(
+		original.count(anchor),
+		1
+	)
+	var injection: String = "\n".join(
+		[
+			anchor,
+			"\tvar writer: FileAccess = FileAccess.open(path, FileAccess.READ_WRITE)",
+			"\twriter.seek_end()",
+			"\twriter.store_string('\\nvar value: GrowingAuditType\\n' + 'x'.repeat(80))",
+			"\twriter.close()",
+		]
+	)
+	var instrumented: GDScript = GDScript.new()
+	instrumented.source_code = original.replace("class_name GFProjectReferenceScanner", "").replace(anchor, injection)
+	assert_eq(
+		instrumented.reload(),
+		OK
+	)
+	for budget_key: String in ["max_file_bytes", "max_total_bytes"]:
+		var directory: String = "user://gf_reference_growing"
+		var path: String = directory.path_join("growing.gd")
+		var _made: Error = DirAccess.make_dir_recursive_absolute(directory)
+		_write_text_file(path, "# initial\n")
+		var options: Dictionary = {
+			"scan_roots": [directory],
+			"ignored_roots": [],
+			"max_file_bytes": 0,
+			"max_total_bytes": 0,
+			"use_resource_dependencies": false,
+		}
+		options[budget_key] = 24
+		var targets: Array[Dictionary] = [
+			{
+				"id": "growing",
+				"root_path": "res://growing",
+				"class_names": ["GrowingAuditType"],
+			},
+		]
+		var scanner: RefCounted = instrumented.new()
+		var accepted: bool = scanner.call(
+			"start",
+			targets,
+			options
+		)
+		assert_true(accepted)
+		var completed: bool = false
+		while not completed:
+			completed = scanner.call(
+				"step",
+				128,
+				0
+			)
+		var report: Dictionary = scanner.call("take_result")
+		assert_false(_option_bool(report, "ok"))
+		assert_true(_option_bool(report, "partial_scan"))
+		assert_true(_option_bool(report, "budget_exceeded"))
+		assert_eq(
+			_option_int(report, "scanned_bytes"),
+			0
+		)
+		assert_eq(
+			_option_int(report, "reference_count"),
+			0
+		)
+		assert_push_warning(
+			"[GFProjectReferenceScanner][project_reference_scanner.byte_budget_reached] Reference scanning reached the %s=24 byte budget; subsequent results are treated as partial_scan: %s."
+			% [budget_key, path]
+		)
+		_remove_path_if_exists(path)
+		_remove_path_if_exists(directory)
+
+
 ## 未启用范围选项时，空目标仍保留旧报告形状，不因不存在的来源或极低预算产生读取诊断。
 func test_empty_targets_preserve_scope_disabled_report_shape() -> void:
 	var targets: Array[Dictionary] = []

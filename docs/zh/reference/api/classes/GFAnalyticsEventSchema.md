@@ -34,6 +34,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var event_name: StringName = &""
 ```
 
@@ -47,6 +48,7 @@ var event_name: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var schema_version: int = 1
 ```
 
@@ -60,6 +62,7 @@ var schema_version: int = 1
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var properties_schema: GFDictionarySchema = null
 ```
 

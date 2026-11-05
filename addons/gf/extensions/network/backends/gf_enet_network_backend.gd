@@ -60,6 +60,11 @@ var _is_server: bool = false
 ## [br]
 var _connected_peer_ids: Dictionary = {}
 
+## 当前 Peer 的生命周期代次；回调建立新连接后，旧关闭立即停止。
+## [br]
+## @api private
+var _peer_generation: int = 0
+
 
 # --- 公共方法 ---
 
@@ -78,7 +83,8 @@ func host(options: Dictionary = {}) -> Error:
 	if port <= 0:
 		return ERR_INVALID_PARAMETER
 
-	_close_peer(false)
+	if not _close_peer(false):
+		return ERR_UNAVAILABLE
 	_peer = ENetMultiplayerPeer.new()
 	var error: Error = _peer.create_server(
 		port,
@@ -123,7 +129,8 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 	if address.is_empty() or port <= 0:
 		return ERR_INVALID_PARAMETER
 
-	_close_peer(false)
+	if not _close_peer(false):
+		return ERR_UNAVAILABLE
 	_peer = ENetMultiplayerPeer.new()
 	var error: Error = _peer.create_client(
 		address,
@@ -150,7 +157,7 @@ func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:
 ## [br]
 ## @api public
 func disconnect_backend() -> void:
-	_close_peer(true)
+	var _closed_current_peer: bool = _close_peer(true)
 
 
 ## 发送 bytes。
@@ -270,20 +277,24 @@ func _disconnect_peer_signals() -> void:
 ## [br]
 ## @api private
 ## [br]
-func _close_peer(should_emit_signal: bool) -> void:
-	if _peer == null:
-		_emit_tracked_peer_disconnections()
-		return
-
+func _close_peer(should_emit_signal: bool) -> bool:
+	_peer_generation += 1
+	var closing_generation: int = _peer_generation
+	var previous_peer: ENetMultiplayerPeer = _peer
 	_disconnect_peer_signals()
-	_peer.close()
 	_peer = null
-	_emit_tracked_peer_disconnections()
 	_last_status = MultiplayerPeer.CONNECTION_DISCONNECTED
 	_endpoint = ""
 	_is_server = false
-	if should_emit_signal:
+	_reset_transport_connection()
+	if previous_peer != null:
+		previous_peer.close()
+	_emit_tracked_peer_disconnections(closing_generation)
+	if _peer_generation != closing_generation:
+		return false
+	if should_emit_signal and previous_peer != null:
 		_emit_disconnected("closed")
+	return _peer_generation == closing_generation
 
 
 ## 从端点和选项解析主机地址与端口。
@@ -375,8 +386,8 @@ func _update_connection_status() -> void:
 		MultiplayerPeer.CONNECTION_CONNECTED:
 			_emit_connected()
 		MultiplayerPeer.CONNECTION_DISCONNECTED:
-			_close_peer(false)
-			_emit_disconnected("connection_status_disconnected")
+			if _close_peer(false):
+				_emit_disconnected("connection_status_disconnected")
 
 
 ## 将 MultiplayerPeer 连接状态转换为调试名称。
@@ -399,13 +410,15 @@ func _get_status_name(status: int) -> String:
 ## [br]
 ## @api private
 ## [br]
-func _emit_tracked_peer_disconnections() -> void:
+func _emit_tracked_peer_disconnections(closing_generation: int) -> void:
 	var peer_ids: Array[int] = []
 	for peer_id_value: Variant in _connected_peer_ids.keys():
 		peer_ids.append(GFVariantData.to_int(peer_id_value))
 	peer_ids.sort()
 	_connected_peer_ids.clear()
 	for peer_id: int in peer_ids:
+		if closing_generation != _peer_generation:
+			return
 		_emit_peer_disconnected(peer_id)
 
 

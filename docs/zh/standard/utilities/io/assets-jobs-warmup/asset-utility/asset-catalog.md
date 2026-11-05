@@ -98,8 +98,10 @@ var plan := catalog.make_preload_plan(
 	&"gameplay.required",
 	{"pin_cache": true}
 )
+# 会话独占 staging group；成功后目标 group 的保留与卸载由项目管理。
 var session := asset_utility.start_preload_session(plan)
 
+# 校验失败可能已经同步完成，不能无条件等待一次性 completed 信号。
 if not session.is_completed():
 	await session.completed
 var result := session.get_result()

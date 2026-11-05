@@ -106,6 +106,11 @@ var _player_index: int = -1
 ## [br]
 var _owned_actions_by_player: Dictionary = {}
 
+## 手动贡献被清理或身份变更时递增，使在途写入能够撤销旧身份贡献。
+## [br]
+## @api private
+var _manual_write_generation: int = 0
+
 
 # --- Godot 生命周期方法 ---
 
@@ -325,21 +330,11 @@ func pulse_action(
 ## [br]
 ## @return: 写入成功返回 true；非有限数值会被拒绝并保持旧贡献不变。
 func set_action_value(action_id: StringName, value: Variant) -> bool:
-	var input_mapping: GFInputMappingUtility = _get_input_mapping()
-	if input_mapping == null:
-		return false
-	var written: bool = GFVariantData.to_bool(
-		input_mapping.call(
-			"set_virtual_action_value",
-			action_id,
-			value,
-			_source_id,
-			_player_index
-		)
+	return _write_action_value(
+		action_id,
+		value,
+		_player_index
 	)
-	if written:
-		_remember_owned_action(action_id, _player_index)
-	return written
 
 
 ## 为指定玩家写入动作值。
@@ -362,21 +357,11 @@ func set_action_value_for_player(
 	value: Variant,
 	next_player_index: int
 ) -> bool:
-	var input_mapping: GFInputMappingUtility = _get_input_mapping()
-	if input_mapping == null:
-		return false
-	var written: bool = GFVariantData.to_bool(
-		input_mapping.call(
-			"set_virtual_action_value",
-			action_id,
-			value,
-			_source_id,
-			next_player_index
-		)
+	return _write_action_value(
+		action_id,
+		value,
+		next_player_index
 	)
-	if written:
-		_remember_owned_action(action_id, next_player_index)
-	return written
 
 
 ## 按下布尔动作。
@@ -501,6 +486,7 @@ func clear_action_for_player(action_id: StringName, next_player_index: int) -> b
 ## [br]
 ## @since 11.0.0
 func clear_all() -> void:
+	_manual_write_generation += 1
 	_cancel_active_pulses(&"source_cleared")
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping != null:
@@ -675,6 +661,38 @@ func _remember_owned_action(action_id: StringName, target_player_index: int) -> 
 	_owned_actions_by_player[target_player_index] = actions
 
 
+## 冻结本次写入身份；Mapping 解除同键写入保护后，清理已被回调撤销的旧贡献。
+## [br]
+## @api private
+func _write_action_value(
+	action_id: StringName,
+	value: Variant,
+	target_player_index: int
+) -> bool:
+	var input_mapping: GFInputMappingUtility = _get_input_mapping()
+	if _disposed or input_mapping == null:
+		return false
+	var generation: int = _manual_write_generation
+	var target_source_id: StringName = _source_id
+	var written: bool = input_mapping.set_virtual_action_value(
+		action_id,
+		value,
+		target_source_id,
+		target_player_index
+	)
+	if generation != _manual_write_generation:
+		if written:
+			var _cleared: bool = input_mapping.clear_virtual_action(
+				action_id,
+				target_source_id,
+				target_player_index
+			)
+		return false
+	if written:
+		_remember_owned_action(action_id, target_player_index)
+	return written
+
+
 ## 从玩家动作表移除动作；玩家下无剩余动作时同时删除该玩家项。
 ## [br]
 ## @api private
@@ -695,6 +713,7 @@ func _forget_owned_action(action_id: StringName, target_player_index: int) -> vo
 ## @api private
 ## [br]
 func _clear_owned_contributions() -> void:
+	_manual_write_generation += 1
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping != null:
 		for player_value: Variant in _owned_actions_by_player.keys():

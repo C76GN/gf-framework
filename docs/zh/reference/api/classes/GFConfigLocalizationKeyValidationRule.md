@@ -33,6 +33,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var allow_empty: bool = true
 ```
 
@@ -45,6 +46,7 @@ var allow_empty: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var known_keys: PackedStringArray = PackedStringArray()
 ```
 
@@ -57,6 +59,7 @@ var known_keys: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var text_map: Dictionary = {}
 ```
 
@@ -74,6 +77,7 @@ var text_map: Dictionary = {}
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var require_explicit_key_source: bool = true
 ```
 
@@ -87,6 +91,7 @@ var require_explicit_key_source: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var use_translation_server: bool = true
 ```
 

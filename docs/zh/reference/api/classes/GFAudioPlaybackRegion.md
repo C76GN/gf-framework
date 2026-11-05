@@ -59,6 +59,7 @@ enum LoopMode {
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(0.0, 86_400.0, 0.001, "or_greater")
 var start_seconds: float = 0.0
 ```
 
@@ -72,6 +73,7 @@ var start_seconds: float = 0.0
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(-1.0, 86_400.0, 0.001, "or_greater")
 var end_seconds: float = -1.0
 ```
 
@@ -85,6 +87,7 @@ var end_seconds: float = -1.0
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var loop_mode: LoopMode = LoopMode.DISABLED
 ```
 
@@ -98,6 +101,7 @@ var loop_mode: LoopMode = LoopMode.DISABLED
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_range(-1.0, 86_400.0, 0.001, "or_greater")
 var loop_start_seconds: float = -1.0
 ```
 

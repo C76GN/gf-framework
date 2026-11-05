@@ -96,7 +96,7 @@ func as_singleton() -> bool:
 
 以单例语义完成绑定。
 
-返回：绑定成功时返回 true。
+返回：模块与请求的别名都成功登记时返回 true；别名失败时返回 false，已登记模块仍由架构持有。
 
 <a id="member-gfbindbuilder-methods-as_transient"></a>
 

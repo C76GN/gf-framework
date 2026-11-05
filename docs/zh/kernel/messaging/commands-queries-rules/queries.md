@@ -9,10 +9,11 @@
 Query 代表读操作。它的返回值应当是安全的，不应在 `execute()` 内部修改状态或数据。框架不会强制只读隔离；是否修改 Model、发送事件或调用 System，仍由项目代码规范保证。
 
 ```gdscript
+## 汇总多个模型的攻击力，只派生读取结果，不修改来源状态。
 class_name GetPlayerTotalAttackPowerQuery extends GFQuery
 
+## 返回基础、装备和增益共同决定的攻击力；所需模型由调用架构提供。
 func execute() -> Variant:
-	# 从三处采集数据
 	var raw_atk = (get_model(PlayerModel) as PlayerModel).base_atk
 	var wpn_atk = (get_model(EquipmentModel) as EquipmentModel).get_equipped_weapon_atk()
 	var buff_atk_pct = (get_model(BuffModel) as BuffModel).get_global_atk_buff()
@@ -25,6 +26,7 @@ func execute() -> Variant:
 通常控制器表现层会发出查询获取数据再做展示：
 
 ```gdscript
+## 此写法明确读取全局架构；局部 Controller 应改用自身的 send_query 代理。
 func update_attack_power_ui() -> void:
 	var final_atk = Gf.send_query(GetPlayerTotalAttackPowerQuery.new()) as float
 	$UI/AttackLabel.text = str(final_atk)

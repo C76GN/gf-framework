@@ -143,6 +143,26 @@ func test_build_empty_card_marks_active_slot() -> void:
 	assert_eq(card.slot_index, 2)
 
 
+func test_empty_card_respects_explicit_selection_override() -> void:
+	var workflow: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
+	workflow.active_slot_index = 0
+	assert_true(
+		workflow.build_card_for_index(
+			2,
+			{},
+			2
+		).is_active
+	)
+	assert_false(
+		workflow.build_card_for_index(
+			0,
+			{},
+			2
+		).is_active
+	)
+	assert_true(workflow.build_card_for_index(0).is_active)
+
+
 func test_empty_display_name_template_is_opt_in() -> void:
 	var wf: GFSaveSlotWorkflow = GFSaveSlotWorkflow.new()
 	var default_card: GFSaveSlotCard = wf.build_empty_card(2)
@@ -850,6 +870,7 @@ class MemoryStorageBackend:
 				"data": {},
 				"metadata": {},
 				"error": "missing",
+				"error_code": ERR_DOES_NOT_EXIST,
 			}
 		var record: Dictionary = GFVariantData.get_option_dictionary(records, file_name)
 		return {

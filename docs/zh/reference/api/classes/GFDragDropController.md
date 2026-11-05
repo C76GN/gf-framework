@@ -199,6 +199,7 @@ signal drop_zone_unregistered(zone_id: StringName)
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var cancel_when_source_exits_tree: bool = true
 ```
 
@@ -212,6 +213,7 @@ source 离开场景树时是否自动取消当前拖拽。
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var cancel_when_source_freed: bool = true
 ```
 

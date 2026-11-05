@@ -65,6 +65,7 @@ enum InputSource {
 - API：`public`
 
 ```gdscript
+@export
 var consideration_id: StringName = &""
 ```
 
@@ -77,6 +78,7 @@ var consideration_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -89,6 +91,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 100.0, 0.001, "or_greater")
 var weight: float = 1.0
 ```
 
@@ -101,6 +104,7 @@ var weight: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var input_source: InputSource = InputSource.BLACKBOARD
 ```
 
@@ -113,6 +117,7 @@ var input_source: InputSource = InputSource.BLACKBOARD
 - API：`public`
 
 ```gdscript
+@export
 var input_key: StringName = &""
 ```
 
@@ -125,6 +130,7 @@ var input_key: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var default_input: float = 0.0
 ```
 
@@ -137,6 +143,7 @@ var default_input: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var input_min: float = 0.0
 ```
 
@@ -149,6 +156,7 @@ var input_min: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var input_max: float = 1.0
 ```
 
@@ -161,6 +169,7 @@ var input_max: float = 1.0
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var missing_score: float = 0.0
 ```
 
@@ -173,6 +182,7 @@ var missing_score: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var response_curve: Curve = null
 ```
 
@@ -185,6 +195,7 @@ var response_curve: Curve = null
 - API：`public`
 
 ```gdscript
+@export
 var invert: bool = false
 ```
 

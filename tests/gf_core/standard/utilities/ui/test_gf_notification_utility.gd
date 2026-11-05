@@ -4,6 +4,33 @@ extends GutTest
 
 # --- 测试方法 ---
 
+## 清空和释放都先结束活动通知，再交付回调，避免嵌套 dismiss 重复完成。
+func test_clear_notification_finishes_active_only_once_under_reentry() -> void:
+	for disposing: bool in [false, true]:
+		var notifications: GFNotificationUtility = GFNotificationUtility.new()
+		var finished_ids: Array[int] = []
+		var _connected: int = notifications.notification_finished.connect(
+			func(notification_entry: Dictionary, _reason: String) -> void:
+				finished_ids.append(GFVariantData.get_option_int(notification_entry, "id"))
+				if finished_ids.size() == 1:
+					notifications.dismiss_active()
+		)
+		var notification_id: int = notifications.push_notification("Saved", "System")
+		if disposing:
+			notifications.dispose()
+		else:
+			notifications.clear_notifications()
+		assert_eq(
+			finished_ids.count(notification_id),
+			1
+		)
+		assert_true(notifications.get_active_notification().is_empty())
+		assert_true(notifications.get_queue().is_empty())
+		for connection: Dictionary in notifications.notification_finished.get_connections():
+			var callback: Callable = connection["callable"]
+			notifications.notification_finished.disconnect(callback)
+
+
 ## 验证通知入队后会立即成为当前通知。
 func test_notification_push_starts_active_notification() -> void:
 	var notifications: GFNotificationUtility = GFNotificationUtility.new()

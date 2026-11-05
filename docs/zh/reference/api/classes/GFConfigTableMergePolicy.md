@@ -59,6 +59,7 @@ enum UpdateMode {
 - API：`public`
 
 ```gdscript
+@export
 var key_fields: PackedStringArray = PackedStringArray(["id"])
 ```
 
@@ -71,6 +72,7 @@ var key_fields: PackedStringArray = PackedStringArray(["id"])
 - API：`public`
 
 ```gdscript
+@export
 var update_mode: UpdateMode = UpdateMode.MERGE_FIELDS
 ```
 
@@ -83,6 +85,7 @@ var update_mode: UpdateMode = UpdateMode.MERGE_FIELDS
 - API：`public`
 
 ```gdscript
+@export
 var allow_insert: bool = true
 ```
 
@@ -95,6 +98,7 @@ var allow_insert: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var allow_update: bool = true
 ```
 
@@ -107,6 +111,7 @@ var allow_update: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var allow_delete: bool = true
 ```
 
@@ -119,6 +124,7 @@ var allow_delete: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var delete_marker_field: StringName = &"_delete"
 ```
 
@@ -131,6 +137,7 @@ var delete_marker_field: StringName = &"_delete"
 - API：`public`
 
 ```gdscript
+@export
 var delete_marker_value: Variant = true
 ```
 
@@ -147,6 +154,7 @@ var delete_marker_value: Variant = true
 - API：`public`
 
 ```gdscript
+@export
 var preserve_base_order: bool = true
 ```
 
@@ -159,6 +167,7 @@ Array 表输出时是否保留 base 原有顺序，并把新增记录追加到�
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

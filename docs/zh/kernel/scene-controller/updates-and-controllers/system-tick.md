@@ -7,13 +7,17 @@
 `Gf` 会把自身 `process_mode` 设置为 `PROCESS_MODE_ALWAYS`，因此即使项目临时使用 Godot 原生 `SceneTree.paused`，框架层的时间工具、暂停逻辑和明确声明忽略暂停的模块仍有机会继续收敛状态。
 
 ```gdscript
+## 由架构调度的冷却更新服务，不需要加入 Godot 场景树。
 class_name CooldownSystem extends GFSystem
 
+## 缓存架构拥有的战斗模型，避免热路径反复解析依赖。
 var _combat_model: CombatModel
 
+## 在依赖装配阶段取得模型；动态替换模型后应由项目刷新缓存。
 func ready() -> void:
 	_combat_model = get_model(CombatModel) as CombatModel
 
+## 使用架构提供的帧步长推进冷却，并保留业务层战斗暂停条件。
 func tick(delta: float) -> void:
 	if _combat_model != null and not _combat_model.is_combat_paused:
 		_combat_model.decrease_cooldown_timers(delta)

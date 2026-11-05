@@ -29,6 +29,7 @@
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export_flags("Shift:1", "Ctrl:2", "Alt:4", "Meta:8")
 var modifier_mask: int = 0
 ```
 
@@ -42,6 +43,7 @@ var modifier_mask: int = 0
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var selection_mode: GFSpatialCanvas2D.SelectionMode = GFSpatialCanvas2D.SelectionMode.REPLACE
 ```
 

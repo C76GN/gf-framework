@@ -495,7 +495,8 @@ def recipe_package_readiness(
 			values = tuple(sorted(_string_items(group)))
 			if values:
 				any_of_groups.add(values)
-	available = package_dependency_closure(available_packages)
+	# Availability is observed payload, not the dependencies it ought to contain.
+	available = set(available_packages)
 	missing_all_of = sorted(all_of - available)
 	ordered_groups = sorted(any_of_groups)
 	unsatisfied_groups = [group for group in ordered_groups if not available.intersection(group)]

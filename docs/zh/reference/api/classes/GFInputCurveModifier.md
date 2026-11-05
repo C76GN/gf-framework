@@ -32,6 +32,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var curve: Curve = null
 ```
 
@@ -44,6 +45,7 @@ var curve: Curve = null
 - API：`public`
 
 ```gdscript
+@export
 var preserve_sign: bool = true
 ```
 
@@ -56,6 +58,7 @@ var preserve_sign: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var apply_x: bool = true
 ```
 
@@ -68,6 +71,7 @@ var apply_x: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var apply_y: bool = true
 ```
 
@@ -80,6 +84,7 @@ var apply_y: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var apply_z: bool = true
 ```
 

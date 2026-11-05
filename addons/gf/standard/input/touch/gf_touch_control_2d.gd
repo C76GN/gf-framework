@@ -89,11 +89,17 @@ func get_active_touch_index() -> int:
 	return _active_touch_index
 
 
-# --- 私有/辅助方法 ---
+# --- 可重写钩子 / 虚方法 ---
 
 ## 捕获指定触点；拒绝哨兵索引，已有捕获时仅允许同一触点继续匹配。
 ## [br]
-## @api private
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param touch_index: 输入事件的触点索引；-1 为未捕获哨兵，不可接纳。
+## [br]
+## @return 成功捕获或已由同一触点持有时返回 true。
 ## [br]
 func _try_capture_touch_index(touch_index: int) -> bool:
 	if touch_index == _NO_POINTER_ID:
@@ -106,7 +112,13 @@ func _try_capture_touch_index(touch_index: int) -> bool:
 
 ## 释放触点捕获；可选索引必须匹配当前捕获，省略或传哨兵值时释放任意当前捕获。
 ## [br]
-## @api private
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param touch_index: 要释放的触点索引；-1 表示释放当前任意触点。
+## [br]
+## @return 实际解除捕获时返回 true；未捕获或索引不匹配返回 false。
 ## [br]
 func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
 	if _active_touch_index == _NO_POINTER_ID:
@@ -119,7 +131,13 @@ func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
 
 ## 检查给定触点索引是否等于当前捕获索引。
 ## [br]
-## @api private
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param touch_index: 要与当前捕获状态比较的索引。
+## [br]
+## @return 索引与当前保存值相同时返回 true，包含未捕获时的 -1。
 ## [br]
 func _touch_matches(touch_index: int) -> bool:
 	return _active_touch_index == touch_index
@@ -127,7 +145,13 @@ func _touch_matches(touch_index: int) -> bool:
 
 ## 将屏幕位置经当前 Viewport 的 canvas 逆变换换算到画布坐标；无 Viewport 时原样返回。
 ## [br]
-## @api private
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @param screen_position: 输入事件在 Viewport 中的屏幕坐标。
+## [br]
+## @return 当前画布坐标；尚未取得 Viewport 时返回原坐标。
 ## [br]
 func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 	var viewport: Viewport = get_viewport()
@@ -138,7 +162,9 @@ func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 
 ## 若存在当前 Viewport，将本次输入标记为已处理。
 ## [br]
-## @api private
+## @api protected
+## [br]
+## @since unreleased
 ## [br]
 func _mark_input_as_handled() -> void:
 	var viewport: Viewport = get_viewport()

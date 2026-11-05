@@ -96,6 +96,7 @@ enum ValueType {
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var port_id: StringName = &""
 ```
 
@@ -109,6 +110,7 @@ var port_id: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -122,6 +124,7 @@ var display_name: String = ""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var direction: Direction = Direction.OUTPUT
 ```
 
@@ -135,6 +138,7 @@ var direction: Direction = Direction.OUTPUT
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var value_type: ValueType = ValueType.ANY
 ```
 
@@ -148,6 +152,7 @@ var value_type: ValueType = ValueType.ANY
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var allow_multiple: bool = false
 ```
 
@@ -161,6 +166,7 @@ var allow_multiple: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var editor_color: Color = Color.TRANSPARENT
 ```
 
@@ -174,6 +180,7 @@ var editor_color: Color = Color.TRANSPARENT
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var type_hint: StringName = &""
 ```
 
@@ -187,6 +194,7 @@ var type_hint: StringName = &""
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var class_name_hint: StringName = &""
 ```
 
@@ -200,6 +208,7 @@ Object / Resource 端口的类名提示。仅在项目或校验器显式使用�
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var semantic_tags: PackedStringArray = PackedStringArray()
 ```
 
@@ -213,6 +222,7 @@ var semantic_tags: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

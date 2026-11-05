@@ -27,6 +27,10 @@ signals.disconnect_owner(self)
 
 `first()` 是 `take(1)` 的语义糖，`start_with(value)` 可立即向链路注入一次初始值。
 
+`take()` 耗尽后停止接纳新触发，但已接纳并停在 `delay()` 等待中的触发会继续排空；最后一项被后续 `filter()` 拒绝时也会完成解绑。主动调用 `disconnect_signal()` 则会取消尚未完成的处理。
+
+`take(0)` 以及规范化为零的负次数不会交付任何值；首次触发到达该步骤后即耗尽并自动解绑，从 Utility 的连接追踪中移除。
+
 `connect_any()` 可把多个 Signal 接到同一个回调，返回的连接列表可交给 `disconnect_connections()` 批量断开。
 
 `connect_once()` 或 `once()` 在首次通过操作链的回调开始前断开并从工具追踪中移除；回调内同步再次发出源信号不会重复执行。`take()` 的最后一次交付也遵循这个顺序。

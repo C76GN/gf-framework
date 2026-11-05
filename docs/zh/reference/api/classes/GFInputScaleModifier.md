@@ -30,6 +30,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var scale_x: float = 1.0
 ```
 
@@ -42,6 +43,7 @@ X 分量缩放。
 - API：`public`
 
 ```gdscript
+@export
 var scale_y: float = 1.0
 ```
 
@@ -54,6 +56,7 @@ Y 分量缩放。
 - API：`public`
 
 ```gdscript
+@export
 var scale_z: float = 1.0
 ```
 

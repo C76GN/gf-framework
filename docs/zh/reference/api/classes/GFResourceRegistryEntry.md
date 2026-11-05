@@ -36,6 +36,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var id: StringName = &""
 ```
 
@@ -48,6 +49,7 @@ var id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var path: String = ""
 ```
 
@@ -60,6 +62,7 @@ var path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var type_hint: String = ""
 ```
 
@@ -72,6 +75,7 @@ var type_hint: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var fields: Dictionary = {}
 ```
 

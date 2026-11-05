@@ -44,6 +44,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var id: StringName = &""
 ```
 
@@ -57,6 +58,7 @@ var id: StringName = &""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var duration: float = 0.0
 ```
 
@@ -70,6 +72,7 @@ var duration: float = 0.0
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var stacks: int = 1
 ```
 
@@ -83,6 +86,7 @@ var stacks: int = 1
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var max_stacks: int = 1
 ```
 
@@ -96,6 +100,7 @@ var max_stacks: int = 1
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var stack_mode: GFBuff.StackMode = GFBuff.StackMode.ADD_STACK
 ```
 
@@ -109,6 +114,7 @@ var stack_mode: GFBuff.StackMode = GFBuff.StackMode.ADD_STACK
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var duration_refresh_policy: GFBuff.DurationRefreshPolicy = GFBuff.DurationRefreshPolicy.RESET_TO_NEW_DURATION
 ```
 
@@ -122,6 +128,7 @@ var duration_refresh_policy: GFBuff.DurationRefreshPolicy = GFBuff.DurationRefre
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var tick_interval_seconds: float = 0.0
 ```
 
@@ -135,6 +142,7 @@ var tick_interval_seconds: float = 0.0
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var max_periodic_ticks_per_update: int = 8
 ```
 
@@ -148,6 +156,7 @@ var max_periodic_ticks_per_update: int = 8
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var remove_on_expire: bool = true
 ```
 
@@ -161,6 +170,7 @@ var remove_on_expire: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var buff_script: Script = null
 ```
 
@@ -174,6 +184,7 @@ var buff_script: Script = null
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var tags: Array[StringName] = []
 ```
 
@@ -187,6 +198,7 @@ Buff 附带的标签。
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var modifier_entries: Array[Dictionary] = []
 ```
 
@@ -204,6 +216,7 @@ Buff 附带的属性修饰器字典。
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var checks: Array[GFBuffCheck] = []
 ```
 
@@ -217,6 +230,7 @@ Buff 应用前检查。
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var effects: Array[GFBuffEffect] = []
 ```
 
@@ -230,6 +244,7 @@ Buff 生命周期效果。
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

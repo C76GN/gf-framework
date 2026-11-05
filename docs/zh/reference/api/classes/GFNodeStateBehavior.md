@@ -40,6 +40,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var behavior_id: StringName = &""
 ```
 
@@ -52,6 +53,7 @@ var behavior_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -64,6 +66,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

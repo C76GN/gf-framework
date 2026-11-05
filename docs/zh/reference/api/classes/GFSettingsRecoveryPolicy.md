@@ -73,6 +73,7 @@ const ACTION_RESET_TO_DEFAULTS: StringName = &"reset_to_defaults"
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var missing_file_action: StringName = ACTION_FAIL
 ```
 
@@ -86,6 +87,7 @@ var missing_file_action: StringName = ACTION_FAIL
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var corrupt_file_action: StringName = ACTION_FAIL
 ```
 

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import gf_path_security
+from gf_package_paths import portable_literal_path_identity
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -198,6 +199,25 @@ def audit_package(output: Path, *, expected_version: str = "") -> dict[str, Any]
 	archive_plugin_version = ""
 	with zipfile.ZipFile(output, "r") as archive:
 		names = sorted(name for name in archive.namelist() if name and not name.endswith("/"))
+		for entry in archive.infolist():
+			# ZipInfo.filename can normalize Windows separators or truncate NUL.
+			# Validate the original archive spelling before trusting that projection.
+			raw_name = entry.orig_filename
+			canonical = raw_name.removesuffix("/") if entry.is_dir() else raw_name
+			if not portable_literal_path_identity(canonical):
+				issues.append(f"Package entry must use a canonical portable relative path: {entry.filename}")
+			elif not canonical.startswith("addons/gf/") and not (entry.is_dir() and canonical in {"addons", "addons/gf"}):
+				issues.append(f"Package entry is outside addons/gf: {entry.filename}")
+		if issues:
+			return {
+				"ok": False,
+				"output": output.relative_to(ROOT).as_posix() if output.is_relative_to(ROOT) else output.as_posix(),
+				"file_count": len(names),
+				"size_bytes": output.stat().st_size,
+				"top_level_entries": sorted({name.split("/", 1)[0] for name in names}),
+				"archive_plugin_version": "",
+				"issues": issues,
+			}
 		plugin_path = "addons/gf/plugin.cfg"
 		if names.count(plugin_path) != 1:
 			issues.append("Package must contain exactly one addons/gf/plugin.cfg.")

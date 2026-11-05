@@ -7,6 +7,21 @@ var _ui_utility: GFUIUtility
 var _arch: GFArchitecture = null
 
 
+## 旧实现空栈循环时提供有界救援；正常路径不得调用到救援分支。
+class BoundedPopUI extends GFUIUtility:
+	var target: Node
+	var pop_count: int = 0
+	var rescued: bool = false
+
+	func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:
+		pop_count += 1
+		if pop_count > 3:
+			rescued = true
+			push_panel_instance(target, layer)
+			return
+		super.pop_panel(layer, do_free)
+
+
 class ManualAssetUtility extends GFAssetUtility:
 	var _callbacks: Dictionary = {}
 
@@ -246,6 +261,70 @@ func test_host_configuration_rejects_detached_mount() -> void:
 	ui.dispose()
 	detached_mount.free()
 	context.free()
+
+
+func test_dispose_during_host_tree_entry_cancels_initialization_and_allows_reinit() -> void:
+	await _assert_ui_creation_dispose_stays_stopped(false)
+
+
+func test_dispose_during_first_layer_tree_entry_cannot_publish_stale_layer() -> void:
+	await _assert_ui_creation_dispose_stays_stopped(true)
+
+
+func _assert_ui_creation_dispose_stays_stopped(dispose_on_canvas: bool) -> void:
+	var mount: Node = Node.new()
+	add_child(mount)
+	var context: GFNodeContext = GFNodeContext.new()
+	add_child(context)
+	var _source_architecture: GFArchitecture = await context.wait_until_ready()
+	var ui: GFUIUtility = GFUIUtility.new()
+	assert_true(ui.configure_host(context, mount))
+	var disposals: Array[int] = [0]
+	var on_layer_entered: Callable = func(child: Node) -> void:
+		if child is CanvasLayer and disposals[0] == 0:
+			disposals[0] += 1
+			ui.dispose()
+	var on_host_entered: Callable = func(child: Node) -> void:
+		if child.name != &"GFUIHost":
+			return
+		if dispose_on_canvas:
+			var _layer_connected: Error = child.child_entered_tree.connect(on_layer_entered) as Error
+		elif disposals[0] == 0:
+			disposals[0] += 1
+			ui.dispose()
+	var _host_connected: Error = mount.child_entered_tree.connect(on_host_entered) as Error
+
+	ui.init()
+	mount.child_entered_tree.disconnect(on_host_entered)
+	assert_eq(
+		disposals[0],
+		1
+	)
+	assert_null(ui.get_layer_root(GFUIUtility.Layer.HUD))
+	assert_null(ui.get_layer_root(GFUIUtility.Layer.POPUP))
+	var panel: Control = Control.new()
+	ui.push_panel_instance(panel)
+	assert_push_warning("[GFUIUtility][ui_utility.push_after_destruction] The current UI manager was destroyed; panel push ignored.")
+	assert_eq(
+		ui.get_stack_count(),
+		0
+	)
+	assert_null(panel.get_parent())
+	panel.free()
+	await get_tree().process_frame
+	assert_eq(
+		mount.get_child_count(),
+		0,
+		"取消的 host 不得留在显示树中。"
+	)
+
+	ui.init()
+	assert_not_null(ui.get_layer_root(GFUIUtility.Layer.HUD))
+	assert_not_null(ui.get_layer_root(GFUIUtility.Layer.POPUP))
+	ui.dispose()
+	context.queue_free()
+	mount.queue_free()
+	await get_tree().process_frame
 
 
 func test_mount_exit_before_ui_initialization_fails_context() -> void:
@@ -995,6 +1074,99 @@ func test_keep_focus_inside_top_modal() -> void:
 	outside.queue_free()
 
 
+func test_cancelled_panel_mount_does_not_retain_focus_records() -> void:
+	_arch = GFArchitecture.new()
+	var assets: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(assets)
+	await Gf.set_architecture(_arch)
+	var outside: Button = Button.new()
+	add_child(outside)
+	outside.grab_focus()
+	assert_same(
+		get_viewport().gui_get_focus_owner(),
+		outside
+	)
+	var baseline_count: int = _ui_utility._previous_focus_by_panel_id.size()
+	var canvas: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
+	var cancel_mount: Callable = func(_panel: Node) -> void:
+		_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
+	var _connected: int = canvas.child_entered_tree.connect(cancel_mount)
+	for index: int in range(3):
+		var path: String = "res://tests/cancelled_focus_%d.tscn" % index
+		var operation: GFUIPanelAsyncOperation = _ui_utility.replace_layer_async_with_options(
+			path,
+			GFUIUtility.Layer.POPUP,
+			{ "restore_focus_on_close": true, "focus_on_open": false }
+		)
+		assets.resolve(
+			path,
+			_make_control_scene()
+		)
+		await get_tree().process_frame
+		assert_eq(
+			operation.get_status(),
+			GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+		)
+		assert_eq(
+			_ui_utility._previous_focus_by_panel_id.size(),
+			baseline_count
+		)
+	canvas.child_entered_tree.disconnect(cancel_mount)
+	outside.free()
+
+
+func test_re_adopted_panel_keeps_new_open_focus_record() -> void:
+	_arch = GFArchitecture.new()
+	var assets: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(assets)
+	await Gf.set_architecture(_arch)
+	var old_focus: Button = Button.new()
+	var new_focus: Button = Button.new()
+	add_child(old_focus)
+	add_child(new_focus)
+	old_focus.grab_focus()
+	var canvas: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
+	var readopt: Callable = func(panel: Node) -> void:
+		_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
+		new_focus.grab_focus()
+		_ui_utility.push_panel_instance_with_options(
+			panel,
+			GFUIUtility.Layer.POPUP,
+			{ "restore_focus_on_close": true, "focus_on_open": false }
+		)
+	var _connected: int = canvas.child_entered_tree.connect(readopt, CONNECT_ONE_SHOT)
+	var path: String = "res://tests/re_adopted_focus.tscn"
+	var operation: GFUIPanelAsyncOperation = _ui_utility.replace_layer_async_with_options(
+		path,
+		GFUIUtility.Layer.POPUP,
+		{ "restore_focus_on_close": true, "focus_on_open": false }
+	)
+	assets.resolve(
+		path,
+		_make_control_scene()
+	)
+	assert_eq(
+		operation.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+	)
+	assert_eq(
+		_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+		1
+	)
+	old_focus.grab_focus()
+	_ui_utility.pop_panel(GFUIUtility.Layer.POPUP)
+	assert_same(
+		get_viewport().gui_get_focus_owner(),
+		new_focus
+	)
+	assert_eq(
+		_ui_utility._previous_focus_by_panel_id.size(),
+		0
+	)
+	old_focus.free()
+	new_focus.free()
+
+
 func test_modal_restores_focus_captured_before_panel_ready() -> void:
 	var outside: Button = Button.new()
 	outside.focus_mode = Control.FOCUS_ALL
@@ -1160,6 +1332,308 @@ func test_replace_layer_instance_clears_old_stack() -> void:
 		_ui_utility.get_layer_root(GFUIUtility.Layer.POPUP),
 		"替换后层级下应只挂载新面板。"
 	)
+
+
+## 回调移除回退目标时必须结束；测试救援限制旧实现的无进展循环。
+func test_pop_to_panel_stops_when_close_callback_removes_target() -> void:
+	_ui_utility.dispose()
+	var bounded: BoundedPopUI = BoundedPopUI.new()
+	_ui_utility = bounded
+	bounded.init()
+	var target: Control = Control.new()
+	var top: Control = Control.new()
+	bounded.target = target
+	bounded.push_panel_instance(target, GFUIUtility.Layer.POPUP)
+	bounded.push_panel_instance(top, GFUIUtility.Layer.POPUP)
+	var _connected: int = bounded.panel_closed.connect(
+		func(panel: Node, layer: int) -> void:
+			if panel == top:
+				bounded.pop_panel(layer, false)
+	)
+	var did_pop: bool = bounded.pop_to_panel(
+		target,
+		GFUIUtility.Layer.POPUP,
+		false
+	)
+	assert_false(did_pop)
+	assert_false(bounded.rescued)
+	assert_eq(
+		bounded.get_stack_count(GFUIUtility.Layer.POPUP),
+		0
+	)
+	if target.get_parent() == null:
+		target.free()
+	top.free()
+	bounded.target = null
+	for connection: Dictionary in bounded.panel_closed.get_connections():
+		var callback: Callable = connection["callable"]
+		bounded.panel_closed.disconnect(callback)
+
+
+## 加载结束后的关闭回调仍可取消请求；旧候选不得越过该取消挂载。
+func test_async_replace_close_callback_cancels_loaded_request() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var old_panel: Control = Control.new()
+	_ui_utility.push_panel_instance(old_panel, GFUIUtility.Layer.POPUP)
+	var _connected: int = _ui_utility.panel_closed.connect(
+		func(panel: Node, layer: int) -> void:
+			if panel == old_panel:
+				_ui_utility.clear_layer(layer)
+	)
+	var path: String = "res://tests/reentrant_replace.tscn"
+	var operation: GFUIPanelAsyncOperation = _ui_utility.replace_layer_async(path, GFUIUtility.Layer.POPUP)
+	asset_util.resolve(
+		path,
+		_make_control_scene()
+	)
+	await get_tree().process_frame
+	assert_eq(
+		operation.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+	)
+	assert_eq(
+		_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+		0
+	)
+
+
+## 从配置回调指定的父节点移出候选时，也允许旧请求被同步取消。
+func test_async_replace_tree_exit_cancellation_does_not_mount_candidate() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var external_parent: Node = Node.new()
+	add_child(external_parent)
+	var _exiting_connected: int = external_parent.child_exiting_tree.connect(
+		func(_panel: Node) -> void:
+			_ui_utility.clear_layer(GFUIUtility.Layer.POPUP),
+		CONNECT_ONE_SHOT
+	)
+	var candidates: Array[WeakRef] = []
+	var configure: Callable = func(panel: Node) -> void:
+		candidates.append(weakref(panel))
+		external_parent.add_child(panel)
+	watch_signals(_ui_utility)
+	var path: String = "res://tests/tree_exit_cancelled_panel.tscn"
+	var operation: GFUIPanelAsyncOperation = _ui_utility.replace_layer_async(
+		path,
+		GFUIUtility.Layer.POPUP,
+		configure
+	)
+	asset_util.resolve(
+		path,
+		_make_control_scene()
+	)
+	assert_eq(
+		operation.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+	)
+	assert_eq(
+		_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+		0
+	)
+	assert_signal_not_emitted(_ui_utility, "panel_opened")
+	await get_tree().process_frame
+	assert_true(candidates[0].get_ref() == null)
+	external_parent.free()
+
+
+func test_async_replace_loaded_tree_entry_cancel() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		true,
+		true,
+		&"cancel"
+	)
+
+
+func test_async_replace_loaded_tree_entry_readopt() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		true,
+		true,
+		&"readopt"
+	)
+
+
+func test_async_replace_loaded_tree_entry_new_request() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		true,
+		true,
+		&"new_request"
+	)
+
+
+func test_async_push_loaded_tree_entry_cancel() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		true,
+		false,
+		&"cancel"
+	)
+
+
+func test_async_push_loaded_tree_entry_readopt() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		true,
+		false,
+		&"readopt"
+	)
+
+
+func test_async_push_loaded_tree_entry_new_request() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		true,
+		false,
+		&"new_request"
+	)
+
+
+func test_async_replace_fallback_tree_entry_cancel() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		false,
+		true,
+		&"cancel"
+	)
+
+
+func test_async_replace_fallback_tree_entry_readopt() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		false,
+		true,
+		&"readopt"
+	)
+
+
+func test_async_replace_fallback_tree_entry_new_request() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		false,
+		true,
+		&"new_request"
+	)
+
+
+func test_async_push_fallback_tree_entry_cancel() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		false,
+		false,
+		&"cancel"
+	)
+
+
+func test_async_push_fallback_tree_entry_readopt() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		false,
+		false,
+		&"readopt"
+	)
+
+
+func test_async_push_fallback_tree_entry_new_request() -> void:
+	await _assert_async_panel_tree_entry_transition(
+		false,
+		false,
+		&"new_request"
+	)
+
+
+## 相同挂载边界覆盖加载路径、导航类型和取消回调后的新身份。
+func _assert_async_panel_tree_entry_transition(
+	use_asset: bool,
+	replace: bool,
+	outcome: StringName
+) -> void:
+	var asset_util: ManualAssetUtility = null
+	if use_asset:
+		_arch = GFArchitecture.new()
+		asset_util = ManualAssetUtility.new()
+		await _arch.register_utility_instance(asset_util)
+		await Gf.set_architecture(_arch)
+	var candidates: Array[WeakRef] = []
+	var replacements: Array[GFUIPanelAsyncOperation] = []
+	var canvas: CanvasLayer = _ui_utility.get_layer_root(GFUIUtility.Layer.POPUP)
+	var changed: Array[bool] = [false]
+	var entered_callback: Callable = func(panel: Node) -> void:
+		if changed[0]:
+			return
+		changed[0] = true
+		candidates.append(weakref(panel))
+		_ui_utility.clear_layer(GFUIUtility.Layer.POPUP)
+		if outcome == &"readopt":
+			_ui_utility.push_panel_instance(panel, GFUIUtility.Layer.POPUP)
+		elif outcome == &"new_request":
+			replacements.append(_start_tree_entry_operation(replace))
+	var _entered_connected: int = canvas.child_entered_tree.connect(entered_callback)
+	watch_signals(_ui_utility)
+	var operation: GFUIPanelAsyncOperation = _start_tree_entry_operation(replace)
+	if use_asset:
+		asset_util.resolve(
+			_PANEL_SCENE_PATH,
+			_make_control_scene()
+		)
+	else:
+		assert_push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
+		if outcome == &"new_request":
+			assert_push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
+	canvas.child_entered_tree.disconnect(entered_callback)
+	assert_eq(
+		operation.get_status(),
+		GFUIUtility.AsyncPanelLoadStatus.CANCELLED
+	)
+	if outcome == &"new_request" and use_asset:
+		assert_eq(
+			_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+			0
+		)
+		assert_true(replacements[0].is_pending())
+		asset_util.resolve(
+			_PANEL_SCENE_PATH,
+			_make_control_scene()
+		)
+	await get_tree().process_frame
+	assert_eq(
+		candidates.size(),
+		1
+	)
+	if outcome == &"cancel":
+		assert_eq(
+			_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+			0
+		)
+		assert_signal_not_emitted(_ui_utility, "panel_opened")
+		assert_true(candidates[0].get_ref() == null)
+	else:
+		assert_eq(
+			_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+			1
+		)
+		assert_signal_emit_count(
+			_ui_utility,
+			"panel_opened",
+			1
+		)
+		if outcome == &"readopt":
+			var readopted: Variant = candidates[0].get_ref()
+			assert_true(readopted is Node)
+			if readopted is Node:
+				var readopted_panel: Node = readopted
+				assert_same(
+					_ui_utility.get_top_panel(GFUIUtility.Layer.POPUP),
+					readopted_panel
+				)
+		else:
+			assert_eq(
+				replacements[0].get_status(),
+				GFUIUtility.AsyncPanelLoadStatus.OPENED
+			)
+			assert_true(candidates[0].get_ref() == null)
+
+
+func _start_tree_entry_operation(replace: bool) -> GFUIPanelAsyncOperation:
+	if replace:
+		return _ui_utility.replace_layer_async(_PANEL_SCENE_PATH, GFUIUtility.Layer.POPUP)
+	return _ui_utility.push_panel_async(_PANEL_SCENE_PATH, GFUIUtility.Layer.POPUP)
 
 
 func test_pop_to_panel_returns_to_existing_panel() -> void:

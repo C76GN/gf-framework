@@ -25,6 +25,7 @@ level.win_current_level()
 
 ```gdscript
 var actions := Gf.get_system(GFActionQueueSystem) as GFActionQueueSystem
+# 项目显式声明重开时需要清理的可选系统；Domain 不会自动探测表现队列。
 level.register_runtime_cleanup(&"action_queue", func() -> void:
 	actions.clear_queue(true)
 	actions.clear_all_named_queues(true)
@@ -32,6 +33,8 @@ level.register_runtime_cleanup(&"action_queue", func() -> void:
 ```
 
 清理回调由 `GFRuntimeCleanupScope` 按 `priority` 从高到低执行。同一个 `cleanup_id` 重新注册会替换旧回调，`unregister_runtime_cleanup()` 返回是否实际移除了对应项。项目如果使用命令历史，也应像其他系统一样注册自己的清理回调，而不是依赖 Domain 默认认识某个具体工具。
+
+解析或清理回调启动、清空或释放了关卡服务时，原来的启动/重开操作会停止写回；被中止的重开返回空字典且不发 `level_restarted`。完成通知始终使用本次完成的关卡 ID，即使进度监听器已切换到另一关卡，也不会把新关卡标为胜利。
 
 ## 关卡目录
 
@@ -51,6 +54,8 @@ level.start_next_level()
 ```
 
 注册 `GFLevelProgressModel` 后，`complete_current_level()` 会写入完成状态、保存项目层结果字典，并执行条目 `unlocks_on_complete` 声明的解锁规则；`unlock_next = true` 还会额外解锁目录顺序中的相邻后续关卡。设置 `unlock_next = false` 只关闭顺序相邻解锁，不会关闭条目声明。进度模型可直接进入 `GFArchitecture` 的模型快照流程。
+
+关卡结果首次写入、替换和合并都会复制输入的嵌套数组与字典；调用方随后修改自己的容器不会无通知地改变已保存结果。
 
 未注册 `GFLevelProgressModel` 时，`is_level_unlocked()` 会返回 `true`，方便没有关卡锁的项目继续使用流程信号。
 

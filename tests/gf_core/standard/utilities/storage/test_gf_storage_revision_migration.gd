@@ -113,6 +113,39 @@ func test_upgrade_preserves_payload_claims_and_existing_empty_families() -> void
 	)
 
 
+## 离线升级必须为隐藏合法 catalog 对应的 payload 安装 revision state。
+func test_upgrade_includes_hidden_catalog_leaf_in_revision_inventory() -> void:
+	if OS.get_name() != "Windows":
+		return
+	assert_eq(
+		_storage.save_data(
+			"hidden.json",
+			{ "value": 1 }
+		),
+		OK
+	)
+	_storage.dispose()
+	var catalog_path: String = GFVariantData.get_option_string(
+		_descriptor("hidden.json"),
+		"catalog_path"
+	)
+	assert_eq(
+		FileAccess.set_hidden_attribute(catalog_path, true),
+		OK
+	)
+	var migration: GFStorageRevisionMigration = GFStorageRevisionMigration.new()
+	assert_eq(
+		migration.upgrade(_save_dir_name),
+		OK
+	)
+	assert_true(FileAccess.file_exists(_state_path("hidden.json")))
+	assert_true(_revision("hidden.json").is_successful())
+	assert_eq(
+		FileAccess.set_hidden_attribute(catalog_path, false),
+		OK
+	)
+
+
 func test_missing_or_invalid_root_is_not_created() -> void:
 	var migration: GFStorageRevisionMigration = GFStorageRevisionMigration.new()
 	assert_eq(

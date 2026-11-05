@@ -703,6 +703,107 @@ func test_dictionary_schema_validate_dictionary_short_circuits_recursive_schema(
 	child_field.dictionary_schema = null
 
 
+func test_batch_normalization_rejects_recursive_definition_before_normalizing_rows() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+	field.array_item_schema = field
+	var _field_added: bool = schema.add_field(field)
+	var result: Dictionary = schema.normalize_dictionary_array(
+		[
+			{
+				"items": [[]],
+			},
+		],
+		{ "coerce": false }
+	)
+	field.array_item_schema = null
+	var report: GFValidationReport = _as_report(result.get("report"))
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(
+		_find_issue_kind(report, "circular_field_schema"),
+		"circular_field_schema"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(result, "rows").size(),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "normalized_count"),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "skipped_row_count"),
+		1
+	)
+
+
+func test_batch_normalization_skips_cyclic_values_even_when_row_validation_is_disabled() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+	field.array_item_schema = field
+	var _field_added: bool = schema.add_field(field)
+	var items: Array = []
+	items.append(items)
+	var result: Dictionary = schema.normalize_dictionary_array(
+		[
+			{ "items": items },
+		],
+		{ "validate_rows": false }
+	)
+	field.array_item_schema = null
+	items.clear()
+	var report: GFValidationReport = _as_report(result.get("report"))
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(
+		_find_issue_kind(report, "circular_field_schema"),
+		"circular_field_schema"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(result, "rows").size(),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "skipped_row_count"),
+		1
+	)
+
+
+func test_batch_normalization_keeps_row_shape_diagnostics_when_definition_is_invalid() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
+	field.array_item_schema = field
+	var _field_added: bool = schema.add_field(field)
+	var result: Dictionary = schema.normalize_dictionary_array(
+		[
+			{ "items": [] },
+			"invalid",
+		],
+		{ "keep_invalid_rows": false }
+	)
+	field.array_item_schema = null
+	var report: GFValidationReport = _as_report(result.get("report"))
+	assert_eq(
+		_find_issue_kind(report, "circular_field_schema"),
+		"circular_field_schema"
+	)
+	assert_eq(
+		_find_issue_kind(report, "invalid_row"),
+		"invalid_row"
+	)
+	assert_eq(
+		GFVariantData.get_option_array(result, "rows").size(),
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "invalid_row_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(result, "skipped_row_count"),
+		2
+	)
+
+
 func test_direct_array_field_validation_rejects_recursive_definition() -> void:
 	var field: GFSchemaField = _make_field(&"items", GFSchemaField.ValueType.ARRAY)
 	field.array_item_schema = field

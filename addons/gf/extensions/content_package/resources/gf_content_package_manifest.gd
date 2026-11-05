@@ -1142,10 +1142,20 @@ func _validate_resource_dependencies(
 	var dependency_options: Dictionary = GFVariantData.get_option_dictionary(options, "dependency_options")
 	dependency_options["include_root"] = false
 	var dependency_report: Dictionary = _GF_RESOURCE_REGISTRY_TOOLS.build_dependency_report(normalized_path, dependency_options)
-	if not GFVariantData.get_option_bool(
-		dependency_report,
-		"ok",
-		false
+	if (
+		not GFVariantData.get_option_bool(
+			dependency_report,
+			"ok",
+			false
+		)
+		or not GFVariantData.get_option_bool(
+			dependency_options,
+			"recursive",
+			true
+		)
+		or GFVariantData.get_option_bool(dependency_report, "limit_reached")
+		or GFVariantData.get_option_bool(dependency_report, "depth_limit_reached")
+		or not GFVariantData.get_option_array(dependency_report, "excluded").is_empty()
 	):
 		_add_resource_issue(
 			report,

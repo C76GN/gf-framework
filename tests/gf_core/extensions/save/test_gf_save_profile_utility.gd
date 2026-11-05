@@ -257,6 +257,8 @@ class MemorySectionProvider extends GFSaveSectionProvider:
 	var events: Array[String] = []
 	var shared_events: Array[String] = []
 	var preparation_callback: Callable = Callable()
+	var capture_callback: Callable = Callable()
+	var apply_callback: Callable = Callable()
 
 	func _begin_save_snapshot(_context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
 		events.append("prepare:%s" % String(section_id))
@@ -271,6 +273,8 @@ class MemorySectionProvider extends GFSaveSectionProvider:
 
 
 	func _capture_section(_context: Dictionary = {}) -> GFSaveSection:
+		if capture_callback.is_valid():
+			var _capture_callback_result: Variant = capture_callback.call()
 		if fail_capture:
 			return null
 		return make_section({ "value": value })
@@ -287,6 +291,8 @@ class MemorySectionProvider extends GFSaveSectionProvider:
 			GFVariantData.as_dictionary(payload),
 			"value"
 		)
+		if apply_callback.is_valid():
+			var _apply_callback_result: Variant = apply_callback.call()
 		return OK
 
 
@@ -1674,6 +1680,80 @@ func test_future_storage_failure_takes_priority_over_invalid_integrity() -> void
 		GFSaveProfileResult.STATUS_FUTURE_SCHEMA
 	)
 	assert_false(operation.get_result().was_recovered())
+
+
+func test_load_dispose_from_applying_notification_prevents_provider_writes() -> void:
+	_assert_load_dispose_boundary(&"notification")
+
+
+func test_load_dispose_from_capture_prevents_provider_writes() -> void:
+	_assert_load_dispose_boundary(&"capture")
+
+
+func test_load_dispose_from_apply_rolls_back_and_stops_remaining_providers() -> void:
+	_assert_load_dispose_boundary(&"apply")
+
+
+func _assert_load_dispose_boundary(stage: StringName) -> void:
+	var first: MemorySectionProvider = _make_provider(&"first", 1)
+	var second: MemorySectionProvider = _make_provider(&"second", 2)
+	var profile: GFSaveProfile = _make_profile_with_providers(
+		&"test.dispose_load",
+		[first, second]
+	)
+	assert_true(_register(profile))
+	var stop: Callable = func() -> void:
+		_utility.dispose()
+	if stage == &"capture":
+		first.capture_callback = stop
+	elif stage == &"apply":
+		first.apply_callback = stop
+	else:
+		var _connected: Error = _utility.profile_state_changed.connect(
+			func(
+				_id: StringName,
+				_previous: StringName,
+				current: StringName
+			) -> void:
+				if current == GFSaveProfileUtility.STATE_APPLYING:
+					_utility.dispose()
+		) as Error
+	var operation: GFSaveProfileOperation = _utility.load_profile(profile.profile_id)
+	watch_signals(operation)
+	_storage.complete_load(
+		_read_success(
+			_make_document(
+				profile,
+				{
+					&"first": { "value": 10 },
+					&"second": { "value": 20 },
+				}
+			)
+		)
+	)
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileResult.STATUS_DISPOSED
+	)
+	assert_eq(
+		first.apply_count,
+		1 if stage == &"apply" else 0
+	)
+	assert_eq(
+		first.rollback_count,
+		1 if stage == &"apply" else 0
+	)
+	assert_eq(second.apply_count, 0)
+	assert_eq(first.value, 1)
+	assert_eq(second.value, 2)
+	assert_signal_emit_count(
+		operation,
+		"completed",
+		1
+	)
+	first.capture_callback = Callable()
+	first.apply_callback = Callable()
 
 
 func test_dispose_requested_from_preparation_callback_prevents_storage_start() -> void:

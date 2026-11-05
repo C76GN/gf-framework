@@ -2101,11 +2101,24 @@ func _async_snapshot_is_successful(snapshot: Dictionary) -> bool:
 		return false
 	if GFVariantData.get_option_bool(snapshot, "timed_out"):
 		return false
+	if _async_snapshot_has_explicit_failure(snapshot):
+		return false
 	if GFVariantData.get_option_bool(snapshot, "success"):
 		return true
 	if GFVariantData.get_option_bool(snapshot, "successful"):
 		return true
 	return status_name == &"succeeded" or status_name == &"completed"
+
+
+## 只将显式布尔 false 视为失败证据，字段缺省不改变旧快照的兼容解释。
+## [br]
+## @api private
+func _async_snapshot_has_explicit_failure(snapshot: Dictionary) -> bool:
+	for key: String in ["success", "successful"]:
+		var value: Variant = snapshot.get(key)
+		if value is bool and not value:
+			return true
+	return false
 
 
 ## 将异步快照的 pending、waiting 和 retrying 映射到操作状态，其余映射为 running。
@@ -2214,6 +2227,12 @@ func _get_async_snapshot_anomaly_codes(snapshot: Dictionary) -> PackedStringArra
 		var _cancel_append: bool = codes.append("async_cancelled")
 	if GFVariantData.get_option_bool(snapshot, "failed") or _get_async_snapshot_status(snapshot) == &"failed":
 		var _failed_append: bool = codes.append("async_failed")
+	elif (
+		codes.is_empty()
+		and _async_snapshot_is_terminal(snapshot)
+		and _async_snapshot_has_explicit_failure(snapshot)
+	):
+		var _explicit_failed_append: bool = codes.append("async_failed")
 	return codes
 
 
@@ -2491,15 +2510,15 @@ func _trim_all_metadata() -> void:
 	for operation_index: int in range(_operations.size()):
 		var operation: Dictionary = _operations[operation_index]
 		operation["metadata"] = _merge_metadata(
-			{},
-			GFVariantData.get_option_dictionary(operation, "metadata")
+			GFVariantData.get_option_dictionary(operation, "metadata"),
+			{}
 		)
 		var phases: Array[Dictionary] = _get_dictionary_array(operation, "phases")
 		for phase_index: int in range(phases.size()):
 			var phase: Dictionary = phases[phase_index]
 			phase["metadata"] = _merge_metadata(
-				{},
-				GFVariantData.get_option_dictionary(phase, "metadata")
+				GFVariantData.get_option_dictionary(phase, "metadata"),
+				{}
 			)
 			phases[phase_index] = phase
 		operation["phases"] = phases
@@ -2507,8 +2526,8 @@ func _trim_all_metadata() -> void:
 		for state_index: int in range(state_trace.size()):
 			var state_record: Dictionary = state_trace[state_index]
 			state_record["metadata"] = _merge_metadata(
-				{},
-				GFVariantData.get_option_dictionary(state_record, "metadata")
+				GFVariantData.get_option_dictionary(state_record, "metadata"),
+				{}
 			)
 			state_trace[state_index] = state_record
 		operation["state_trace"] = state_trace
@@ -2516,15 +2535,15 @@ func _trim_all_metadata() -> void:
 	for incident_index: int in range(_incidents.size()):
 		var incident: Dictionary = _incidents[incident_index]
 		incident["metadata"] = _merge_metadata(
-			{},
-			GFVariantData.get_option_dictionary(incident, "metadata")
+			GFVariantData.get_option_dictionary(incident, "metadata"),
+			{}
 		)
 		_incidents[incident_index] = incident
 	for sample_id: Variant in _sample_stats.keys():
 		var stat: Dictionary = GFVariantData.as_dictionary(_sample_stats[sample_id])
 		stat["metadata"] = _merge_metadata(
-			{},
-			GFVariantData.get_option_dictionary(stat, "metadata")
+			GFVariantData.get_option_dictionary(stat, "metadata"),
+			{}
 		)
 		_sample_stats[sample_id] = stat
 

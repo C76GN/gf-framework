@@ -110,10 +110,13 @@ movement.easing_curve = easing
 下面的 Node2D 示例先捕获两轮相对移动，再定位到第二轮并向回播放：
 
 ```gdscript
+# 挂在运动目标 Node2D 上；本节点负责结束自行启动的动作。
 extends Node2D
 
+## 本次播放的动作引用；离树时取消，避免目标离场后仍保留播放任务。
 var _motion: GFConfiguredTweenAction = null
 
+## 启动受控播放后定位并反向；创建失败时不启动后续操作。
 func _ready() -> void:
 	_motion = GFAction.tween_by(self, ^"position:x", 120.0, 1.0, {
 		"enable_playback_control": true,
@@ -125,6 +128,7 @@ func _ready() -> void:
 	if _motion.can_control_playback() and _motion.seek(1.25):
 		var _playing_backward: bool = _motion.play_backward()
 
+## 结束本节点启动的动作；取消与自然完成是不同的终态。
 func _exit_tree() -> void:
 	if _motion != null:
 		_motion.cancel()
@@ -163,21 +167,30 @@ q_sys.enqueue(config.create_action(card_node))
 下面的 Control 示例在悬停进入、离开时立即创建新的缩放动作，让最新意图从当前姿态继续：
 
 ```gdscript
+# 挂在悬停目标 Control 上；同一作用域中的新动作接管旧缩放动作。
+# 作用域 dispose 后不可复用；重新入树需要新的控制器生命周期。
 extends Control
 
+## 控制器独占的替换作用域；不能存入多个目标共享的配置资源。
 var _replacement_scope: GFTweenReplacementScope = GFTweenReplacementScope.new()
+
+## 最近启动的动作，仅用于保留当前表现引用。
 var _hover_action: GFConfiguredTweenAction = null
 
+## 接入本控件的悬停事件，后续动作直接执行以即时响应。
 func _ready() -> void:
 	var _entered: int = mouse_entered.connect(_on_mouse_entered)
 	var _exited: int = mouse_exited.connect(_on_mouse_exited)
 
+## 进入悬停状态时请求放大；已有冲突动作由作用域接管。
 func _on_mouse_entered() -> void:
 	_animate_scale(Vector2(1.06, 1.06))
 
+## 离开悬停状态时从当前姿态返回默认缩放。
 func _on_mouse_exited() -> void:
 	_animate_scale(Vector2.ONE)
 
+## 为最新缩放意图创建动作；接管发生在 execute()，不是创建时。
 func _animate_scale(next_scale: Vector2) -> void:
 	var next_action: GFConfiguredTweenAction = GFAction.scale_to(
 		self, next_scale, 0.12, ^"scale", { "replacement_scope": _replacement_scope }
@@ -186,6 +199,7 @@ func _animate_scale(next_scale: Vector2) -> void:
 		var _completion: Variant = next_action.execute()
 		_hover_action = next_action
 
+## 撤销此控制器的播放资格，并保留退出时的当前姿态。
 func _exit_tree() -> void:
 	_replacement_scope.dispose()
 	_hover_action = null

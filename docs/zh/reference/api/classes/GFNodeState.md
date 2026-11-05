@@ -98,6 +98,7 @@ signal requested_transition( group_name: StringName, state_name: StringName, arg
 - API：`public`
 
 ```gdscript
+@export
 var state_name: StringName = &""
 ```
 
@@ -110,6 +111,8 @@ var state_name: StringName = &""
 - API：`public`
 
 ```gdscript
+@export_group("Resource Hooks")
+@export
 var enter_conditions: Array[Resource] = []
 ```
 
@@ -126,6 +129,7 @@ var enter_conditions: Array[Resource] = []
 - API：`public`
 
 ```gdscript
+@export
 var exit_conditions: Array[Resource] = []
 ```
 
@@ -142,6 +146,7 @@ var exit_conditions: Array[Resource] = []
 - API：`public`
 
 ```gdscript
+@export
 var behaviors: Array[Resource] = []
 ```
 

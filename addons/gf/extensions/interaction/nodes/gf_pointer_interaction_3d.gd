@@ -2,6 +2,7 @@
 ##
 ## 监听 CollisionObject3D 的 hover、鼠标按钮与滚轮事件，构建通用交互上下文。
 ## 节点只传递位置、法线、按钮、标签和元数据，不解释点击对象的业务含义。
+## 事件信号回调改变绑定或禁用桥接后，旧事件不再自动发送，也不将旧点击转交给新目标。
 ## [br]
 ## @api public
 ## [br]
@@ -135,7 +136,7 @@ const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 
 # --- 导出变量 ---
 
-## 是否启用指针桥接。
+## 是否启用指针桥接。禁用会撤销未完成配对与当前事件剩余的自动发送，重新启用不恢复旧事件。
 ## [br]
 ## @api public
 ## [br]
@@ -193,11 +194,17 @@ const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 @export_node_path("CollisionObject3D") var collision_object_path: NodePath = NodePath("")
 
 ## 可选交互接收器路径；为空时从碰撞对象向父级解析 receive_interaction()。
+## 修改路径会撤销旧按压配对和当前事件尚未执行的自动发送。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
-@export_node_path("Node") var receiver_path: NodePath = NodePath("")
+@export_node_path("Node") var receiver_path: NodePath = NodePath(""):
+	set(value):
+		if receiver_path == value:
+			return
+		receiver_path = value
+		_reset_pointer_state(true)
 
 ## 可选发送者路径；为空时使用当前节点。
 ## [br]
@@ -674,17 +681,19 @@ func _make_mouse_button_data(
 ## [br]
 ## @api private
 func _emit_or_send_hover(event_name: StringName) -> void:
+	var generation: int = _pointer_generation
+	var receiver_instance_id: int = _get_pointer_receiver_instance_id()
 	var data: Dictionary = _make_pointer_data(event_name)
 	var context: GFInteractionContext = build_context(event_name, data)
 	if event_name == &"entered":
 		pointer_entered.emit(context)
 	else:
 		pointer_exited.emit(context)
-	if send_on_hover:
+	if send_on_hover and _is_pointer_event_current(generation, receiver_instance_id):
 		var _send_pointer_interaction_result_379: Variant = send_pointer_interaction(event_name, data)
 
 
-## 发出对应按钮事件，并按配置发送交互。
+## 发出对应按钮事件；回调改变绑定、禁用或失去目标资格后不再自动发送旧事件。
 ## [br]
 ## @api private
 func _emit_or_send_button_event(
@@ -696,6 +705,8 @@ func _emit_or_send_button_event(
 	shape_idx: int,
 	should_send: bool
 ) -> GFInteractionContext:
+	var generation: int = _pointer_generation
+	var receiver_instance_id: int = _get_pointer_receiver_instance_id()
 	var data: Dictionary = _make_mouse_button_data(
 		event_name,
 		camera,
@@ -714,9 +725,49 @@ func _emit_or_send_button_event(
 			pointer_clicked.emit(context, event)
 		&"wheel":
 			pointer_wheel.emit(context, event)
-	if should_send:
+	if should_send and _is_pointer_event_current(generation, receiver_instance_id):
 		var _send_pointer_interaction_result_403: Variant = send_pointer_interaction(event_name, data)
 	return context
+
+
+## 捕获当前解析目标的实例身份；不依赖回调可以修改的 Context 字段或节点路径。
+## [br]
+## @api private
+func _get_pointer_receiver_instance_id() -> int:
+	var receiver: Object = _resolve_receiver()
+	if receiver == null or not is_instance_valid(receiver):
+		return 0
+	return receiver.get_instance_id()
+
+
+## 只允许同代次、仍在树内且目标实例未改变的事件继续；排队删除不具有发送资格。
+## 无接收者的本地信号仍可完成配对，自动发送沿用既有 missing_receiver 报告。
+## [br]
+## @api private
+func _is_pointer_event_current(generation: int, receiver_instance_id: int) -> bool:
+	if (
+		not enabled
+		or generation != _pointer_generation
+		or not is_inside_tree()
+		or is_queued_for_deletion()
+	):
+		return false
+	var collision_object: CollisionObject3D = get_collision_object()
+	if (
+		collision_object == null
+		or not collision_object.is_inside_tree()
+		or collision_object.is_queued_for_deletion()
+	):
+		return false
+	var receiver: Object = _resolve_receiver()
+	if receiver == null:
+		return receiver_instance_id == 0
+	if not is_instance_valid(receiver) or receiver.get_instance_id() != receiver_instance_id:
+		return false
+	if receiver is Node:
+		var receiver_node: Node = receiver
+		return receiver_node.is_inside_tree() and not receiver_node.is_queued_for_deletion()
+	return true
 
 
 ## 判断鼠标按钮是否为任一滚轮方向。
@@ -1030,7 +1081,11 @@ func _on_collision_input_event(
 	if mouse_event.pressed:
 		var press_button_key: Vector3i = _pressed_button_key(mouse_event)
 		if (_pressed_buttons.has(press_button_key) or _pressed_buttons.size() < _MAX_ACTIVE_PRESSED_BUTTONS):
-			_pressed_buttons[press_button_key] = { "button_index": mouse_event.button_index, "shape_idx": shape_idx, }
+			_pressed_buttons[press_button_key] = {
+				"button_index": mouse_event.button_index,
+				"shape_idx": shape_idx,
+				"receiver_instance_id": _get_pointer_receiver_instance_id(),
+			}
 			_pressed_button = mouse_event.button_index
 			_pressed_shape_idx = shape_idx
 		var _emit_or_send_button_event_result_470: Variant = _emit_or_send_button_event(
@@ -1046,6 +1101,7 @@ func _on_collision_input_event(
 
 	var release_button_key: Vector3i = _pressed_button_key(mouse_event)
 	var pressed_state: Dictionary = GFVariantData.as_dictionary(_pressed_buttons.get(release_button_key, {}))
+	var release_receiver_instance_id: int = _get_pointer_receiver_instance_id()
 	var was_matching_press: bool = (
 		not pressed_state.is_empty()
 		and GFVariantData.get_option_int(
@@ -1053,6 +1109,7 @@ func _on_collision_input_event(
 			"shape_idx",
 			-1
 		) == shape_idx
+		and GFVariantData.get_option_int(pressed_state, "receiver_instance_id") == release_receiver_instance_id
 	)
 	var _pressed_button_erased: bool = _pressed_buttons.erase(release_button_key)
 	_sync_legacy_pressed_state()
@@ -1066,11 +1123,7 @@ func _on_collision_input_event(
 		shape_idx,
 		send_on_released
 	)
-	if (
-		was_matching_press
-		and enabled
-		and release_generation == _pointer_generation
-	):
+	if was_matching_press and _is_pointer_event_current(release_generation, release_receiver_instance_id):
 		var _emit_or_send_button_event_result_478: Variant = _emit_or_send_button_event(
 			&"clicked",
 			camera,

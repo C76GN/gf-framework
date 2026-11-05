@@ -12,6 +12,7 @@
 var first_name := GFBindableProperty.new("Ada")
 var last_name := GFBindableProperty.new("Lovelace")
 
+# 该 computed 未设置 owner；持有者结束时需 dispose，标签离树只撤销标签绑定。
 var full_name := GFComputedProperty.new(
 	[first_name, last_name],
 	func() -> String:
@@ -27,6 +28,7 @@ full_name.bind_to(self, func(_old_value: Variant, new_value: Variant) -> void:
 `GFReactiveEffect` 适合处理“多个值变化后刷新一段表现”的场景，并可绑定 `Node` 生命周期：
 
 ```gdscript
+# self 是生命周期 owner，节点退出树时停止来源监听。
 var effect := GFReactiveEffect.new(
 	[player_model.hp, player_model.max_hp],
 	func() -> void:
@@ -35,13 +37,14 @@ var effect := GFReactiveEffect.new(
 )
 ```
 
-这两者都只服务局部响应式组合，不替代 `GFModel` 的数据归属，也不规定属性字段含义。无 owner 的 `GFReactiveEffect` 或 `GFComputedProperty` 需要由持有方在生命周期结束时调用 `stop()` 或 `dispose()`；传入 owner 时会随该节点退出树自动停止。
+这两者都只服务局部响应式组合，不替代 `GFModel` 的数据归属，也不规定属性字段含义。无 owner 的 `GFReactiveEffect` 或 `GFComputedProperty` 需要由持有方在生命周期结束时调用 `stop()` 或 `dispose()`；传入 owner 时会随该节点退出树自动停止。`GFComputedProperty` 的 compute 回调内停止或替换绑定时，当前计算结果会作废；立即计算尚未返回也不会使旧监听重新生效或覆盖新绑定的值。
 
 如果某个对象需要把属性暴露给 UI 读取和订阅，但不希望外部调用方直接 `set_value()`，可以返回 `GFReadOnlyBindableProperty` 或由宿主对象封装只读视图。它复用 `GFBindableProperty` 的读取、`value_changed` 信号和 `bind_to()` 生命周期绑定能力，但外部写入和原地修改 helper 都会报错；真正的值更新应由宿主对象内部完成。
 
 普通 `GFBindableProperty` 的集合 helper 会在修改前后分别生成隔离快照，因此 `value_changed(old_value, new_value)` 不会把同一个已修改集合同时作为新旧值。`mutate()` 采用统一 replacement 契约：回调必须返回完整新值，标量和集合都通过同一入口提交；Array、Dictionary 与 PackedArray 参数会先深复制，Object/Resource 引用仍保持身份。
 
 ```gdscript
+# mutate 的回调必须返回完整替换值，不能只原地修改后省略返回。
 health.mutate(func(current: int) -> int:
 	return maxi(current - 10, 0)
 )

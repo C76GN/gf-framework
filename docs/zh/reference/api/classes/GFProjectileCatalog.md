@@ -33,6 +33,7 @@ typed projectile definition 目录。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var entries: Array[GFProjectileCatalogEntry] = []
 ```
 

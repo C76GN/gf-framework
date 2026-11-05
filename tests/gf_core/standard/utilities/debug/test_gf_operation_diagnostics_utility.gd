@@ -246,6 +246,85 @@ func test_operation_diagnostics_deduplicates_incidents_and_filters_timeline() ->
 	)
 
 
+## 显式 success=false 是失败证据；缺少 success 的 completed 仍沿用兼容成功语义。
+func test_completed_async_snapshot_preserves_explicit_failure() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	var operation: Dictionary = diagnostics.record_async_snapshot(
+		&"explicit.failure",
+		{ "completed": true, "success": false }
+	)
+	assert_false(GFVariantData.get_option_bool(operation, "success"))
+	assert_eq(
+		GFVariantData.get_option_string_name(operation, "state"),
+		&"failed"
+	)
+	assert_eq(
+		diagnostics.get_incidents().size(),
+		1
+	)
+	var compatible: Dictionary = diagnostics.record_async_snapshot(
+		&"legacy.completed",
+		{ "completed": true }
+	)
+	assert_true(GFVariantData.get_option_bool(compatible, "success"))
+	var successful: Dictionary = diagnostics.record_async_snapshot(
+		&"explicit.success",
+		{ "completed": true, "success": true }
+	)
+	assert_true(GFVariantData.get_option_bool(successful, "success"))
+
+
+## 内部容量重投影保留已累计的丢弃数；外部伪造保留键仍无效。
+func test_metadata_capacity_change_preserves_cumulative_drops() -> void:
+	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
+	diagnostics.max_metadata_keys = 2
+	var operation_id: StringName = diagnostics.begin_operation(
+		&"trim.history",
+		{
+			"metadata": {
+				"a": 1,
+				"b": 2,
+				"c": 3,
+				"__gf_dropped_key_count": 999,
+			},
+		}
+	)
+	var _sample: Dictionary = diagnostics.record_sample(
+		&"trim.sample",
+		1.0,
+		{
+			"metadata": {
+				"a": 1,
+				"b": 2,
+				"c": 3,
+				"__gf_dropped_key_count": 999,
+			},
+		}
+	)
+	for capacity: int in [
+		2,
+		3,
+		1,
+	]:
+		diagnostics.max_metadata_keys = capacity
+		var metadata: Dictionary = GFVariantData.get_option_dictionary(
+			diagnostics.get_operation(operation_id),
+			"metadata"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(metadata, "__gf_dropped_key_count"),
+			2 if capacity == 1 else 1
+		)
+		var sample_metadata: Dictionary = GFVariantData.get_option_dictionary(
+			diagnostics.get_sample_stat(&"trim.sample"),
+			"metadata"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(sample_metadata, "__gf_dropped_key_count"),
+			2 if capacity == 1 else 1
+		)
+
+
 func test_operation_diagnostics_records_async_snapshots() -> void:
 	var diagnostics: GFOperationDiagnosticsUtility = GFOperationDiagnosticsUtility.new()
 

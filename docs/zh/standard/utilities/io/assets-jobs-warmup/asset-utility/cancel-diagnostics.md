@@ -7,8 +7,10 @@ var scope: GFAssetScope = assets.create_scope(self)
 var operation: GFAssetLoadOperation = assets.load_async(
 	"res://ui/inventory_panel.tscn", scope, "PackedScene"
 )
+# 只取消本消费者的等待资格，不保证中断共享的物理资源加载。
 var cancelled: bool = operation.cancel()
 var result: GFAssetLoadResult = await operation.wait_result_async()
+# 成功后 cancel 不再释放句柄，资源持有仍须通过 scope 或句柄结束。
 scope.close()
 ```
 

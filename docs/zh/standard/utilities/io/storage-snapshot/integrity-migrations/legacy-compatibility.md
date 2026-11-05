@@ -1,18 +1,18 @@
-# 兼容旧存档
+# 旧存档离线导入
 
-2.0 默认关闭旧版纯 JSON 回退。当项目已经配置混淆、压缩或 Binary 格式时，解码失败不会再自动尝试按未混淆 JSON 读取原始 bytes。
+当前运行时只接受严格存储文档：外层为 `__gf_storage_document` 与 `payload`，描述区包含 `schema_version=2`、`metadata` 和 `integrity`。业务版本位于 `metadata.data_version`，业务字典始终位于 `payload`。文档格式与物理 family layout 是不同的版本层，详见[本地存档管理器](../storage-utility.md)和[已提交版本](../committed-revisions.md)。
 
-迁移旧文件时可临时启用 `allow_legacy_plain_json_fallback`。即使当前 codec 开启压缩，读取也会先识别原始 plain JSON，再决定是否进入解压路径，避免解压错误提前截断旧 JSON 迁移。
+历史版本的纯 JSON、旧 envelope 和宽松 marker 识别不属于当前读取合同，`allow_legacy_plain_json_fallback` 已移除，不能通过打开开关导入。升级前应保留原文件副本，用独立、版本锁定的一次性导入器和对应旧版 codec 读取，再验证业务 schema，最后通过当前 `save_data()` / `save_data_group()` 写入目标 logical identity。验证读取结果及业务数据后再移除导入入口；不要把格式猜测留在主运行时读取路径中。
 
-JSON 读取默认保留解析出的数字类型。如果旧存档列表或元数据依赖把接近整数的 float 归一为 int，可临时开启 `GFStorageUtility.normalize_json_numbers` 或 `GFStorageCodec.normalize_json_numbers` 后读出并重写。
+`normalize_json_numbers` 只影响已通过当前文档校验的 JSON 数值处理，不能把旧纯 JSON 或旧 envelope 变成合法当前文档。旧版数值兼容要求应由锁定版本的导入器显式处理。
 
 11.0 移除了 `GFStorageUtility.allow_absolute_paths`。运行时 Storage 只接受未经改写、已经满足 `portable-ascii-v1` 的 logical identity，并通过 `.gf-storage/v1` 分片 catalog 映射到当前 Storage root 内的私有 family；绝对路径、路径别名、包含 `..` 的跨目录路径和非法非空 `save_dir_name` 始终 fail closed，不再提供可重新开启的兼容开关。旧版直接位于 Storage root 的可见文件不会被自动扫描、领养或迁移，必须由显式离线/编辑器迁移工具读取并重写为新 family。这是 GF API 边界，不替代宿主文件系统对 symlink、junction 或挂载点的隔离。
 
 可信编辑器工具或一次性迁移脚本确实需要访问外部路径时，应在独立工具边界直接使用 `FileAccess` / `DirAccess`，并自行承担来源授权、路径固定和生命周期清理；不要把该能力重新包装进运行时 Storage。
 
-内置整数槽位 facade 已移除。项目应由自己的 slot adapter 定义槽位身份、文件模板、metadata schema 和枚举策略，再通过 `save_data_group()` 完成 data/meta 事务写入，通过 `load_data_result()`、`list_files()` 和 `delete_file()` 组合读取与管理。标准存储层不认识读档 UI、自动存档、预览图或项目业务槽位。
+内置整数槽位 facade 已移除。项目应由自己的 slot adapter 定义槽位身份、文件模板、metadata schema 和枚举策略，再通过 `save_data_group()` 完成 data/meta 事务写入，通过 `load_data()`、`query_catalog()` 和 `delete_file()` 组合读取与管理。`load_data()` 返回 `GFStorageReadResult`，必须检查成功状态，不能用空字典推断失败。标准存储层不认识读档 UI、自动存档、预览图或项目业务槽位。
 
-存储 envelope 现在要求精确的 `__gf_storage_envelope=true`、`__gf_storage_envelope_version=1`、`data` 和受限保留字段集合。旧版本写出的无版本 envelope 不再被自动拆包，否则普通业务字典中的同名 marker 仍可能被误识别并丢字段。升级前应先用旧版 codec 读出这类文件，再用当前 `GFStorageCodec` 重写；不要在新运行时重新开启宽松 marker 识别。
+导入器应调用公开存储入口创建当前 family，不直接拼接 catalog、owner、事务或 revision state 的物理路径。`GFStorageRevisionMigration` 只负责已有合法 family 的 layout schema 升级，不承担旧纯 JSON、旧 envelope 或业务 schema 的导入。
 
 异步 `save_data_async()` / `load_data_async()` 会按文件串行和线程预算调度。
 

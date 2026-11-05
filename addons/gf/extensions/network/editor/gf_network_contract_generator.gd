@@ -176,6 +176,11 @@ const _ABSOLUTE_MAX_TOTAL_SOURCE_BYTES: int = 256 * 1024 * 1024
 ## [br]
 const _MAX_CONTRACT_PATH_LENGTH: int = 4096
 
+## 每个无效契约在生成报告中保留的首批定义问题数量。
+## [br]
+## @api private
+const _MAX_VALIDATION_DETAILS: int = 16
+
 
 # --- 公共方法 ---
 
@@ -226,7 +231,7 @@ func generate(
 ## [br]
 ## @return: 生成产物报告。
 ## [br]
-## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata。
+## @schema return: Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、size_bytes 和 metadata；定义校验失败时另有 validation_issues（最多 16 条，含 resource_path）和 validation_issue_count。
 func generate_with_report(
 	contract: GFNetworkContract,
 	output_path: String = "",
@@ -246,13 +251,16 @@ func generate_with_report(
 		"ok",
 		false
 	):
-		return _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(
+		var failure_report: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(
 			output_path,
 			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
 			ERR_INVALID_DATA,
 			"Network contract validation failed.",
 			_make_pre_save_failure_report_options(options, contract)
 		)
+		failure_report["validation_issues"] = _get_validation_details(validation, contract.resource_path)
+		failure_report["validation_issue_count"] = GFVariantData.get_option_array(validation, "issues").size()
+		return failure_report
 
 	var resolved_output_path: String = output_path
 	if resolved_output_path.is_empty():
@@ -572,8 +580,10 @@ func _build_many_plan(
 					"path": contract_path,
 					"resource_path": contract_path,
 					"message": "Network contract validation failed before generation planning.",
+					"validation_issue_count": GFVariantData.get_option_array(validation, "issues").size(),
 				}
 			)
+			issues.append_array(_get_validation_details(validation, contract_path))
 			continue
 		var class_name_value: String = _resolve_class_name(contract, options)
 		var output_path: String = _GF_PATH_TOOLS_SCRIPT.normalize_resource_path(normalized_output_dir.path_join("%s.gd" % class_name_value.to_snake_case()))
@@ -841,6 +851,22 @@ func _merge_generation_save_options(options: Dictionary, overwrite_existing: boo
 	var save_options: Dictionary = options.duplicate(true)
 	save_options["overwrite_existing"] = overwrite_existing
 	return save_options
+
+
+## 复制有界的首批定义问题并保留实际资源来源，不用 contract_id 代替路径。
+## [br]
+## @api private
+func _get_validation_details(validation: Dictionary, resource_path: String) -> Array[Dictionary]:
+	var details: Array[Dictionary] = []
+	for issue_value: Variant in GFVariantData.get_option_array(validation, "issues"):
+		if details.size() >= _MAX_VALIDATION_DETAILS:
+			break
+		if issue_value is Dictionary:
+			var source_issue: Dictionary = issue_value
+			var issue: Dictionary = source_issue.duplicate(true)
+			issue["resource_path"] = resource_path
+			details.append(issue)
+	return details
 
 
 ## 补齐生成器标识及契约来源标识的产物报告选项。
@@ -1270,6 +1296,19 @@ func _append_field_getter(builder: GFSourceBuilder, field_record: Dictionary) ->
 		builder.indent()
 		builder.line("return null")
 		builder.dedent()
+		var declared_type: String = _get_gdscript_type(field)
+		if declared_type != "Variant":
+			# Variant 回退可为 null，不能将它传入要求具体值类型的转换器。
+			builder.line("if default_value == null:")
+			builder.indent()
+			if field.value_type == GFNetworkContractField.ValueType.FLOAT:
+				# FLOAT 载荷也允许 int；转换有效整数，同时保留已有 float 分支。
+				builder.line("if value is int:")
+				builder.indent()
+				builder.line("return float(value)")
+				builder.dedent()
+			builder.line("return value if value is %s else null" % declared_type)
+			builder.dedent()
 	match field.value_type:
 		GFNetworkContractField.ValueType.VARIANT:
 			builder.line("return value")

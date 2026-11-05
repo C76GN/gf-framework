@@ -40,6 +40,7 @@
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var provider_id: StringName = &""
 ```
 
@@ -53,6 +54,7 @@ Provider 稳定标识。
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -66,6 +68,7 @@ var display_name: String = ""
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var supported_artifact_kinds: PackedStringArray = PackedStringArray()
 ```
 
@@ -79,6 +82,7 @@ var supported_artifact_kinds: PackedStringArray = PackedStringArray()
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var priority: int = 0
 ```
 
@@ -92,6 +96,7 @@ var priority: int = 0
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var input_schema: Dictionary = {}
 ```
 
@@ -109,6 +114,7 @@ var input_schema: Dictionary = {}
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var output_schema: Dictionary = {}
 ```
 
@@ -126,6 +132,7 @@ var output_schema: Dictionary = {}
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var deterministic: bool = true
 ```
 
@@ -139,6 +146,7 @@ var deterministic: bool = true
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

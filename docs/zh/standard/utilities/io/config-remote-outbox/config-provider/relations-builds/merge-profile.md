@@ -6,6 +6,8 @@
 
 Dictionary 输出中，不同逻辑记录不能占用同一个外层 key。插入发生这种冲突时，结果包含 `outer_key_collision` 错误；不会通过覆盖外层槽位静默丢失记录。合并发生任一错误时 `ok` 为 `false`、`data` 为 `null`，输入保持不变，计数仅用于诊断。
 
+删除记录会释放它占用的外层 key。同一逻辑记录随后插入另一个外层 key 时，原来的空槽可以分配给其他记录；逻辑记录的顺序仍沿用既有删除后重插规则。
+
 传给自定义 `make_record_key()`、`is_delete_record()` 和 `merge_record()` 的记录、外层键及其嵌套 Array / Dictionary 容器在预算准入后复制。策略修改这些容器不会回写调用方输入，即使后续记录导致整批合并失败。Resource 仍保留叶引用，策略不得修改其内部状态。
 
 `MERGE_FIELDS` 递归合并同名 Dictionary。`GFConfigWorkBudget` 在复制前准入数据图，拒绝循环、超深及超量输入，并对重复遍历累计工作量与字符串/Packed 载荷。`merge_tables()` 的第四个参数接受 `work_limits` 或共享 `work_budget`，默认值与[直接导入预算](../validation-importer/json-csv-import.md#工作预算与批次)一致；结果中的 `budget_report` 提供本次累计用量和首次预算错误。合并只构造数据图，载荷计入 `value_bytes`，不计原文 `input_bytes` 或序列化 `output_bytes`。共享子容器允许存在，Resource 按叶引用保留；该预算不统计 Resource 内部属性或引擎全部内存。

@@ -734,6 +734,80 @@ func apply_bytes(data: PackedByteArray) -> bool:
 	return true
 
 
+# --- 层内方法 ---
+
+## 对两个定点向量的 raw 分量执行完整乘积归约，只在最终结果舍入和饱和。
+## 调用方须提供数量相同的二或三个规范 raw 分量及其统一小数位，不能用作无界集合归约。
+## [br]
+## @api layer_internal
+## [br]
+## @layer standard/foundation/numeric
+## [br]
+## @param left_raw: 左向量的规范 raw 分量，按 X、Y、Z 顺序排列。
+## [br]
+## @param right_raw: 与左向量逐项对应的规范 raw 分量。
+## [br]
+## @param left_places: 左向量各分量共享的小数位。
+## [br]
+## @param right_places: 右向量各分量共享的小数位。
+## [br]
+## @param target_decimal_places: 最终小数位；负值沿用双方较高小数位。
+## [br]
+## @param rounding_mode: 对完整求和后的最终降位应用的舍入策略。
+## [br]
+## @return 完整抵消后一次降位并限制在对称 raw 范围内的定点数。
+static func reduce_vector_products(
+	left_raw: PackedInt64Array,
+	right_raw: PackedInt64Array,
+	left_places: int,
+	right_places: int,
+	target_decimal_places: int,
+	rounding_mode: RoundingMode
+) -> GFFixedDecimal:
+	var result_places: int = target_decimal_places
+	if result_places < 0:
+		result_places = maxi(left_places, right_places)
+	else:
+		result_places = _normalize_decimal_places(result_places)
+
+	var sum_digits: String = "0"
+	var sum_negative: bool = false
+	for index: int in range(left_raw.size()):
+		var product_digits: String = _multiply_decimal_strings(
+			str(_abs_int(left_raw[index])),
+			str(_abs_int(right_raw[index]))
+		)
+		var product_negative: bool = (left_raw[index] < 0) != (right_raw[index] < 0)
+		if sum_negative == product_negative:
+			sum_digits = _add_decimal_strings(sum_digits, product_digits)
+		elif _compare_decimal_strings(sum_digits, product_digits) >= 0:
+			sum_digits = _subtract_decimal_strings(sum_digits, product_digits)
+		else:
+			sum_digits = _subtract_decimal_strings(product_digits, sum_digits)
+			sum_negative = product_negative
+
+	# 分量乘积或部分和可越过 int64；只有完整抵消后才允许降位和饱和。
+	var scale_diff: int = left_places + right_places - result_places
+	var adjusted_digits: String = sum_digits
+	if scale_diff >= 0:
+		adjusted_digits = _round_decimal_string_by_power(
+			sum_digits,
+			scale_diff,
+			sum_negative,
+			rounding_mode
+		)
+	else:
+		adjusted_digits += _repeat_character("0", -scale_diff)
+	return GFFixedDecimal.new(
+		_decimal_string_to_int_saturated(
+			adjusted_digits,
+			sum_negative,
+			"dot"
+		),
+		result_places
+	)
+
+
 # --- 私有/辅助方法 ---
 
 ## 按方法名和参数数组调用序列化支持脚本中的实现。
@@ -989,11 +1063,12 @@ static func _round_scaled_float(value: float, rounding_mode: RoundingMode) -> in
 			var negative_truncated: float = ceil(value)
 			return int(negative_truncated)
 		RoundingMode.HALF_UP:
-			if value >= 0.0:
-				var positive_rounded: float = floor(value + 0.5)
-				return int(positive_rounded)
-			var negative_rounded: float = ceil(value - 0.5)
-			return int(negative_rounded)
+			var magnitude: float = absf(value)
+			var integral: float = floor(magnitude)
+			var half_up_result: int = int(integral)
+			if magnitude - integral >= 0.5:
+				half_up_result += 1
+			return -half_up_result if value < 0.0 else half_up_result
 		RoundingMode.HALF_EVEN:
 			var sign_multiplier: int = 1
 			var absolute_value: float = value

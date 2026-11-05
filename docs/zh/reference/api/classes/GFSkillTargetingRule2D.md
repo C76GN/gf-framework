@@ -88,6 +88,8 @@ enum SortRule {
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_group("空间设置")
+@export
 var shape: Shape = Shape.CIRCLE
 ```
 
@@ -101,6 +103,7 @@ var shape: Shape = Shape.CIRCLE
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var radius: float = 100.0
 ```
 
@@ -114,6 +117,7 @@ var radius: float = 100.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var rectangle_size: Vector2 = Vector2(200.0, 200.0)
 ```
 
@@ -127,6 +131,7 @@ var rectangle_size: Vector2 = Vector2(200.0, 200.0)
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var max_count: int = 1
 ```
 
@@ -140,6 +145,8 @@ var max_count: int = 1
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_group("朝向设置")
+@export
 var forward_direction: Vector2 = Vector2.RIGHT
 ```
 
@@ -153,6 +160,7 @@ var forward_direction: Vector2 = Vector2.RIGHT
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_range(0.0, 360.0, 1.0)
 var sector_angle_degrees: float = 90.0
 ```
 
@@ -166,6 +174,8 @@ var sector_angle_degrees: float = 90.0
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_group("排序规则")
+@export
 var sort_rule: SortRule = SortRule.DISTANCE_CLOSEST
 ```
 
@@ -179,6 +189,7 @@ var sort_rule: SortRule = SortRule.DISTANCE_CLOSEST
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var sort_attribute_name: StringName = &"HP"
 ```
 
@@ -192,6 +203,7 @@ var sort_attribute_name: StringName = &"HP"
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var random_seed: int = 0
 ```
 
@@ -205,6 +217,8 @@ RANDOM 排序使用的确定性种子。相同候选集合、相同实例顺序�
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export_group("标签过滤")
+@export
 var require_tags: Array[StringName] = []
 ```
 
@@ -218,6 +232,7 @@ var require_tags: Array[StringName] = []
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var ignore_tags: Array[StringName] = []
 ```
 

@@ -190,6 +190,11 @@ var removal_reason: StringName = &""
 ## @api private
 var _tick_accumulator: float = 0.0
 
+## 标记初始化或移除边界，使旧更新不能继续推进后来重新挂载的同一实例。
+## [br]
+## @api private
+var _update_generation: int = 0
+
 ## 记录 Buff 是否处于内置 tag/modifier 应用态，供重复应用、移除、层数刷新和快照恢复决定清理或补挂。
 ## [br]
 ## @api private
@@ -214,6 +219,7 @@ func setup(
 	p_duration: float,
 	p_owner: Object
 ) -> void:
+	_update_generation += 1
 	id = p_id
 	duration = p_duration
 	time_left = duration
@@ -441,10 +447,13 @@ func update(p_delta: float) -> bool:
 	):
 		return false
 	var step_delta: float = maxf(0.0, p_delta)
+	var update_generation: int = _update_generation
 	if duration != -1.0:
 		time_left -= step_delta
 
 	_update_periodic_tick(step_delta)
+	if update_generation != _update_generation:
+		return false
 	if duration != -1.0 and time_left <= 0.0:
 		if remove_on_expire:
 			return true
@@ -460,6 +469,7 @@ func update(p_delta: float) -> bool:
 ## [br]
 ## @param reason: 移除原因。
 func mark_removed(reason: StringName = REMOVAL_REASON_REMOVED) -> void:
+	_update_generation += 1
 	removal_reason = reason if reason != &"" else REMOVAL_REASON_REMOVED
 
 
@@ -920,6 +930,7 @@ func _keep_longer_duration(p_new_duration: float) -> void:
 ## [br]
 ## @api private
 func _update_periodic_tick(p_delta: float) -> void:
+	var update_generation: int = _update_generation
 	if tick_interval_seconds <= 0.0:
 		on_tick(p_delta)
 		return
@@ -936,6 +947,8 @@ func _update_periodic_tick(p_delta: float) -> void:
 	):
 		_tick_accumulator -= tick_interval_seconds
 		on_tick(tick_interval_seconds)
+		if update_generation != _update_generation:
+			return
 		tick_count += 1
 	if (
 		tick_budget > 0

@@ -39,6 +39,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_node_path("Node2D")
 var target_path: NodePath = NodePath(""):
 ```
 
@@ -52,6 +53,7 @@ var target_path: NodePath = NodePath(""):
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var channel: StringName = &"default"
 ```
 
@@ -65,6 +67,7 @@ var channel: StringName = &"default"
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var apply_position: bool = true
 ```
 
@@ -78,6 +81,7 @@ var apply_position: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var apply_rotation: bool = true
 ```
 
@@ -91,6 +95,7 @@ var apply_rotation: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var apply_scale: bool = false
 ```
 
@@ -104,6 +109,7 @@ var apply_scale: bool = false
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var capture_on_ready: bool = true
 ```
 
@@ -117,6 +123,7 @@ ready 时是否记录基础变换。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var restore_on_exit: bool = true
 ```
 

@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "df65bb357622c4cb611e79eb715303f9871cb68705b18753decf367d1f8dcd4f",
-  "class_count": 884,
+  "source_digest": "c13df38fd8c14af15f53398f1e632ce55c0d6557294ca798e5a13fc0e4ecc7f4",
+  "class_count": 886,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -3152,9 +3152,9 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/editor/gf_artifact_write_transaction.gd",
-      "summary": "GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物， 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交",
+      "summary": "GFArtifactWriteTransaction: 运行时与制作工具共用的多产物文件提交事务。 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物， 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交",
       "visibility": "public",
-      "category": "tool_api",
+      "category": "runtime_service",
       "since": "10.0.0",
       "members": [
         {
@@ -3438,7 +3438,7 @@
         {
           "kind": "func",
           "name": "set_query",
-          "signature": "func set_query(query_text: String, asset_ids: PackedStringArray = PackedStringArray()) -> Dictionary",
+          "signature": "func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray(), sort_options: Dictionary = {} ) -> Dictionary",
           "summary": "设置浏览查询和可选资产 ID 闭集。",
           "visibility": "public"
         },
@@ -6328,7 +6328,7 @@
           "kind": "func",
           "name": "each_async",
           "signature": "static func each_async( items: Array, operation: Callable, options: Dictionary = {} ) -> Dictionary",
-          "summary": "顺序处理数组项。",
+          "summary": "顺序处理数组项；真实的 null 项仍作为第一个参数传入，启用 pass_index 时索引位于其后。",
           "visibility": "public"
         },
         {
@@ -15217,7 +15217,7 @@
           "kind": "var",
           "name": "enabled",
           "signature": "var enabled: bool = true",
-          "summary": "是否启用输入桥接。",
+          "summary": "是否启用输入桥接。禁用会取消鼠标捕获，并终止在途映射调用中尚未应用的输入。",
           "visibility": "public"
         },
         {
@@ -15350,7 +15350,7 @@
           "kind": "func",
           "name": "process_input",
           "signature": "func process_input(delta: float) -> bool",
-          "summary": "读取输入映射并推进环绕 Rig。",
+          "summary": "读取输入映射并推进环绕 Rig。映射读取或 Rig 信号回调中禁用时，停止本次剩余输入。",
           "visibility": "public"
         },
         {
@@ -16438,7 +16438,7 @@
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "注销已索引 receiver 上的能力并清理分组状态。",
+          "summary": "注销本 Utility 登记且身份仍匹配的能力，并清理分组状态。",
           "visibility": "public"
         },
         {
@@ -23390,7 +23390,7 @@
           "kind": "var",
           "name": "entries",
           "signature": "var entries: Array[Dictionary] = []",
-          "summary": "导出条目列表。",
+          "summary": "可直接编辑的导出条目列表；修改后应重新获取校验报告。",
           "visibility": "public"
         },
         {
@@ -23418,7 +23418,7 @@
           "kind": "func",
           "name": "add_entry",
           "signature": "func add_entry( source_path: String, archive_path: String = \"\", role: StringName = &\"resource\", entry_metadata: Dictionary = {} ) -> bool",
-          "summary": "添加导出条目。",
+          "summary": "添加导出条目，并按与最终复验相同的规则检查归档路径和规范化后的重复项。",
           "visibility": "public"
         },
         {
@@ -23439,7 +23439,7 @@
           "kind": "func",
           "name": "get_validation_report",
           "signature": "func get_validation_report() -> Dictionary",
-          "summary": "获取导出计划诊断报告。",
+          "summary": "捕获一次条目集合副本，规范化并完整复验该副本，返回同一份条目投影与诊断。",
           "visibility": "public"
         },
         {
@@ -34473,14 +34473,14 @@
           "kind": "func",
           "name": "dot",
           "signature": "func dot( other: GFFixedVector2, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal",
-          "summary": "计算点积。",
+          "summary": "计算点积，完整求和后只执行一次结果舍入和 raw 饱和。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "length_squared",
           "signature": "func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal",
-          "summary": "计算长度平方。",
+          "summary": "计算长度平方；各分量平方完整求和后只舍入、饱和一次。",
           "visibility": "public"
         },
         {
@@ -34675,14 +34675,14 @@
           "kind": "func",
           "name": "dot",
           "signature": "func dot( other: GFFixedVector3, target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP ) -> GFFixedDecimal",
-          "summary": "计算点积。",
+          "summary": "计算点积，三个宽整数乘积完整求和后只舍入、饱和一次。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "length_squared",
           "signature": "func length_squared(target_decimal_places: int = -1, rounding_mode: int = GFFixedDecimal.RoundingMode.HALF_UP) -> GFFixedDecimal",
-          "summary": "计算长度平方。",
+          "summary": "计算长度平方；三个平方完整求和后只舍入、饱和一次。",
           "visibility": "public"
         },
         {
@@ -34811,7 +34811,7 @@
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
       "path": "addons/gf/extensions/flow/runtime/gf_flow_context.gd",
-      "summary": "GFFlowContext: 通用流程图执行上下文。 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。",
+      "summary": "GFFlowContext: 各次流程运行共享的业务上下文。 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "3.17.0",
@@ -34821,20 +34821,6 @@
           "name": "values",
           "signature": "var values: Dictionary = {}",
           "summary": "共享数据表。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "next_node_ids",
-          "signature": "var next_node_ids: PackedStringArray = PackedStringArray()",
-          "summary": "下一个节点覆盖。流程节点可写入该列表动态控制分支。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "has_next_node_override",
-          "signature": "var has_next_node_override: bool = false",
-          "summary": "是否显式覆盖了下一个节点。允许节点用空列表表达“停止继续推进”。",
           "visibility": "public"
         },
         {
@@ -34863,27 +34849,6 @@
           "name": "get_value",
           "signature": "func get_value(key: StringName, default_value: Variant = null) -> Variant",
           "summary": "读取共享值。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "set_next_nodes",
-          "signature": "func set_next_nodes(node_ids: PackedStringArray) -> void",
-          "summary": "覆盖当前节点执行后的下一个节点列表。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "has_next_nodes_override",
-          "signature": "func has_next_nodes_override() -> bool",
-          "summary": "检查当前节点是否显式覆盖了后继节点。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "clear_next_nodes",
-          "signature": "func clear_next_nodes() -> void",
-          "summary": "清空下一个节点覆盖。",
           "visibility": "public"
         },
         {
@@ -34923,51 +34888,9 @@
         },
         {
           "kind": "func",
-          "name": "set_node_runtime_value",
-          "signature": "func set_node_runtime_value( node_id: StringName, key: StringName, value: Variant ) -> void",
-          "summary": "写入指定流程节点的运行态值。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_node_runtime_value",
-          "signature": "func get_node_runtime_value( node_id: StringName, key: StringName, default_value: Variant = null ) -> Variant",
-          "summary": "读取指定流程节点的运行态值。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "clear_node_runtime_state",
-          "signature": "func clear_node_runtime_state(node_id: StringName = &\"\") -> void",
-          "summary": "清空节点运行态。node_id 为空时清空全部节点运行态。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "create_runtime_snapshot",
-          "signature": "func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary",
-          "summary": "创建 Flow 上下文运行快照。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "restore_runtime_snapshot",
-          "signature": "func restore_runtime_snapshot(snapshot: Dictionary) -> bool",
-          "summary": "恢复 Flow 上下文运行快照。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "serialize_runtime_state",
-          "signature": "func serialize_runtime_state(json_compatible: bool = false) -> Dictionary",
-          "summary": "序列化上下文持有的节点运行态。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "deserialize_runtime_state",
-          "signature": "func deserialize_runtime_state(data: Dictionary) -> void",
-          "summary": "反序列化节点运行态到当前上下文。",
+          "name": "create_data_snapshot",
+          "signature": "func create_data_snapshot(options: Dictionary = {}) -> Dictionary",
+          "summary": "捕获业务值和可选条件处理器标识。JSON 投影供日志使用，原始值副本供项目保存。",
           "visibility": "public"
         }
       ]
@@ -35175,29 +35098,8 @@
         {
           "kind": "func",
           "name": "instantiate_graph",
-          "signature": "func instantiate_graph(options: Dictionary = {}) -> GFFlowGraph",
-          "summary": "创建可运行的流程图副本。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "serialize_runtime_state",
-          "signature": "func serialize_runtime_state(json_compatible: bool = false) -> Dictionary",
-          "summary": "序列化图内节点运行态。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "deserialize_runtime_state",
-          "signature": "func deserialize_runtime_state(data: Dictionary) -> void",
-          "summary": "反序列化图内节点运行态。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "clear_runtime_state",
-          "signature": "func clear_runtime_state() -> void",
-          "summary": "清空图内所有节点运行态。",
+          "signature": "func instantiate_graph() -> GFFlowGraph",
+          "summary": "复制可编辑的流程定义。每轮运行的数据由 Runner 独立管理。",
           "visibility": "public"
         },
         {
@@ -35471,23 +35373,16 @@
           "visibility": "public"
         },
         {
-          "kind": "var",
-          "name": "runtime_state",
-          "signature": "var runtime_state: Dictionary",
-          "summary": "节点运行态数据的只读副本。项目应通过 set_runtime_value() 等方法修改，",
-          "visibility": "public"
-        },
-        {
           "kind": "func",
           "name": "execute",
-          "signature": "func execute(_context: GFFlowContext) -> Variant",
+          "signature": "func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -> Variant",
           "summary": "执行节点。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_next_nodes",
-          "signature": "func get_next_nodes(context: GFFlowContext) -> PackedStringArray",
+          "signature": "func get_next_nodes(_context: GFFlowContext) -> PackedStringArray",
           "summary": "获取执行完成后的后继节点。",
           "visibility": "public"
         },
@@ -35546,40 +35441,60 @@
           "signature": "func describe_node() -> Dictionary",
           "summary": "描述节点。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFFlowNodeExecution": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/flow",
+      "package_id": "gf.extension.flow",
+      "path": "addons/gf/extensions/flow/runtime/gf_flow_node_execution.gd",
+      "summary": "GFFlowNodeExecution: 一次节点执行的写入资格。节点完成、流程取消或同一节点再次执行时，旧回调无法写入后续执行。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "查询这个执行句柄是否仍可写。",
+          "visibility": "public"
         },
         {
           "kind": "func",
           "name": "set_runtime_value",
-          "signature": "func set_runtime_value(key: StringName, value: Variant) -> void",
-          "summary": "写入节点运行态值。",
+          "signature": "func set_runtime_value(key: StringName, value: Variant) -> bool",
+          "summary": "写入当前帧中本节点的进度。集合在边界复制，旧执行的更新返回失败。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_runtime_value",
           "signature": "func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant",
-          "summary": "读取节点运行态值。",
+          "summary": "读取当前节点在本帧内的运行进度。返回集合副本。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "clear_runtime_state",
-          "signature": "func clear_runtime_state() -> void",
-          "summary": "清空节点运行态数据。",
+          "signature": "func clear_runtime_state() -> bool",
+          "summary": "清空当前节点在此帧中的进度。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "serialize_runtime_state",
-          "signature": "func serialize_runtime_state(json_compatible: bool = false) -> Dictionary",
-          "summary": "序列化节点运行态数据。",
+          "name": "set_next_nodes",
+          "signature": "func set_next_nodes(node_ids: PackedStringArray) -> bool",
+          "summary": "选择本节点的后继。传入空列表表示停止本分支。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "deserialize_runtime_state",
-          "signature": "func deserialize_runtime_state(data: Dictionary) -> void",
-          "summary": "反序列化节点运行态数据。",
+          "name": "call_subgraph",
+          "signature": "func call_subgraph(graph: GFFlowGraph) -> bool",
+          "summary": "请求在节点结束后先执行子图。子图有独立帧；同一次节点执行只接纳一个调用。",
           "visibility": "public"
         }
       ]
@@ -35723,6 +35638,47 @@
         }
       ]
     },
+    "GFFlowRunState": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/flow",
+      "package_id": "gf.extension.flow",
+      "path": "addons/gf/extensions/flow/runtime/gf_flow_run_state.gd",
+      "summary": "GFFlowRunState: 一轮 Flow 的调度和节点进度。不同 Runner 各自持有独立状态，即使它们共用业务 Context。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create_data_snapshot",
+          "signature": "func create_data_snapshot() -> Dictionary",
+          "summary": "读取根图的节点进度副本。可将 nodes 显式传给另一次运行作为初始进度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "describe_frames",
+          "signature": "func describe_frames() -> Array[Dictionary]",
+          "summary": "列出当前调用帧与各自的待执行节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_report",
+          "signature": "func get_report() -> Dictionary",
+          "summary": "读取此轮运行的进展或终态。Runner 被重用后，旧状态仍返回自己的报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> bool",
+          "summary": "只对这一次运行请求取消，立即封闭在途节点写权限。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFFlowRunner": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -35827,13 +35783,6 @@
         },
         {
           "kind": "var",
-          "name": "isolate_graph_runtime_state",
-          "signature": "var isolate_graph_runtime_state: bool = true",
-          "summary": "运行时是否把节点 runtime_state 隔离到 GFFlowContext，避免污染共享图资源。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "max_report_trace_entries",
           "signature": "var max_report_trace_entries: int = 128",
           "summary": "运行报告最多保留多少条节点 trace；总数与丢弃数始终单独统计。",
@@ -35842,7 +35791,7 @@
         {
           "kind": "func",
           "name": "run",
-          "signature": "func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary",
+          "signature": "func run( graph: GFFlowGraph, context: GFFlowContext = null, initial_nodes: Dictionary = {} ) -> Dictionary",
           "summary": "运行流程图。",
           "visibility": "public"
         },
@@ -35851,6 +35800,13 @@
           "name": "cancel",
           "signature": "func cancel() -> void",
           "summary": "请求取消流程。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_run_state",
+          "signature": "func get_run_state() -> GFFlowRunState",
+          "summary": "获取正在运行或最近完成的状态。每次成功接纳运行都会创建新对象。",
           "visibility": "public"
         },
         {
@@ -43289,7 +43245,7 @@
           "kind": "func",
           "name": "tick",
           "signature": "func tick(delta: float) -> void",
-          "summary": "推进运行时逻辑。",
+          "summary": "按本步 delta 推进已接收输入的有状态 Mapping 链、动作计时和触发器；同步嵌套调用不重复推进。",
           "visibility": "public"
         },
         {
@@ -43408,14 +43364,14 @@
           "kind": "func",
           "name": "get_action_vector",
           "signature": "func get_action_vector(action_id: StringName) -> Vector2",
-          "summary": "获取动作当前二维向量值。",
+          "summary": "读取最近一次提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_action_vector3",
           "signature": "func get_action_vector3(action_id: StringName) -> Vector3",
-          "summary": "获取动作当前三维向量值。",
+          "summary": "读取最近一次提交的动作样本的完整向量，保留类型值转换前的各个分量。",
           "visibility": "public"
         },
         {
@@ -43464,14 +43420,14 @@
           "kind": "func",
           "name": "get_action_vector_for_player",
           "signature": "func get_action_vector_for_player(player_index: int, action_id: StringName) -> Vector2",
-          "summary": "获取指定玩家动作当前二维向量值。",
+          "summary": "读取指定玩家最近提交的动作样本的 x/y 分量，不重新运行 Mapping 修饰器。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_action_vector3_for_player",
           "signature": "func get_action_vector3_for_player(player_index: int, action_id: StringName) -> Vector3",
-          "summary": "获取指定玩家动作当前三维向量值。",
+          "summary": "读取指定玩家最近提交的完整动作向量，保留类型值转换前的各个分量。",
           "visibility": "public"
         },
         {
@@ -61305,7 +61261,7 @@
           "kind": "var",
           "name": "enabled",
           "signature": "var enabled: bool = true",
-          "summary": "是否启用指针桥接。",
+          "summary": "是否启用指针桥接。禁用会撤销未完成配对与当前事件剩余的自动发送，重新启用不恢复旧事件。",
           "visibility": "public"
         },
         {
@@ -73650,7 +73606,7 @@
           "kind": "func",
           "name": "_after_apply_scope",
           "signature": "func _after_apply_scope( _scope: GFSaveScope, _payload: Dictionary, result: Dictionary, _context: Dictionary = {} ) -> Variant",
-          "summary": "应用 Scope 后调用。返回 Dictionary 时会替换当前 result。",
+          "summary": "外层应用已完成提交或回滚时，按子 Scope 在先的顺序观察各 Scope 的应用结果。",
           "visibility": "protected"
         }
       ]
@@ -87227,7 +87183,7 @@
           "kind": "func",
           "name": "load_data",
           "signature": "func load_data(file_name: String) -> Dictionary",
-          "summary": "读取纯字典数据。",
+          "summary": "读取纯字典数据。不存在时须明确返回 ERR_DOES_NOT_EXIST 或 ERR_FILE_NOT_FOUND；其他失败不得用不存在错误代替。",
           "visibility": "public"
         },
         {
@@ -87894,7 +87850,7 @@
           "kind": "func",
           "name": "_load_data",
           "signature": "func _load_data(file_name: String) -> Dictionary",
-          "summary": "按顺序读取首个成功结果。",
+          "summary": "按顺序读取首个成功结果。全部失败时保留最后一个非 missing 错误；未读后端也不能作为逻辑记录不存在的证据。",
           "visibility": "protected"
         },
         {
@@ -89022,7 +88978,7 @@
           "kind": "func",
           "name": "sync_data",
           "signature": "func sync_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
-          "summary": "同步一个逻辑文件。",
+          "summary": "同步一个逻辑文件。仅当读取结果明确为不存在时填充缺失端；任一其他读取失败都会在写回前终止。",
           "visibility": "public"
         },
         {
@@ -89168,7 +89124,7 @@
           "kind": "var",
           "name": "require_integrity_checksum",
           "signature": "var require_integrity_checksum: bool = true",
-          "summary": "启用完整性校验时，是否要求载荷必须包含 `_meta.checksum`。",
+          "summary": "启用完整性校验时，是否要求文档包含 `__gf_storage_document.integrity.digest`。",
           "visibility": "public"
         },
         {
@@ -92498,6 +92454,13 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "NAME_BROWSE_BAND_WIDTH",
+          "signature": "const NAME_BROWSE_BAND_WIDTH: float = 100.0",
+          "summary": "名称浏览预设的分档宽度，分档从零开始，包含左边界。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "tokenize",
           "signature": "static func tokenize(query: String, options: Dictionary = {}) -> PackedStringArray",
@@ -94354,6 +94317,41 @@
           "signature": "func get_active_touch_index() -> int",
           "summary": "获取当前活动触点 index。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_try_capture_touch_index",
+          "signature": "func _try_capture_touch_index(touch_index: int) -> bool",
+          "summary": "捕获指定触点；拒绝哨兵索引，已有捕获时仅允许同一触点继续匹配。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_release_touch_capture",
+          "signature": "func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool",
+          "summary": "释放触点捕获；可选索引必须匹配当前捕获，省略或传哨兵值时释放任意当前捕获。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_touch_matches",
+          "signature": "func _touch_matches(touch_index: int) -> bool",
+          "summary": "检查给定触点索引是否等于当前捕获索引。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_screen_to_global_position",
+          "signature": "func _screen_to_global_position(screen_position: Vector2) -> Vector2",
+          "summary": "将屏幕位置经当前 Viewport 的 canvas 逆变换换算到画布坐标；无 Viewport 时原样返回。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_mark_input_as_handled",
+          "signature": "func _mark_input_as_handled() -> void",
+          "summary": "若存在当前 Viewport，将本次输入标记为已处理。",
+          "visibility": "protected"
         }
       ]
     },

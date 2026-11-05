@@ -39,6 +39,7 @@ Director 会把“选择 active rig”和“应用到 Camera”分开。缺少 C
 启用 `gf.camera` 后，可以用 `GFCameraFramingRig2D` 为多个 `Node2D` 锚点计算中心和统一缩放。它适合双人共屏、观战和多个对象的展示，仍由现有 Director 选择优先级并执行混合。
 
 ```gdscript
+## 在场景节点就绪后建立取景 Rig；目标路径相对 Rig，目标须处于相机的世界画布。
 func _ready() -> void:
 	var director: GFCameraDirector2D = %Director
 	var camera: Camera2D = %Camera2D

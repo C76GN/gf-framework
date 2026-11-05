@@ -33,6 +33,7 @@
 调用方应在取得 WorkspaceEdit 时采集一次状态用于计划，在真正提交前重新采集一次状态。`workspace_version` 是调用方维护的工作区世代号；它应在会让整批计划失效的项目重载、工作区切换或批量状态变化时递增。文档 `version` 则应来自生成 WorkspaceEdit 的同一文本文档状态。
 
 ```gdscript
+# 这些版本号和摘要必须对应生成 WorkspaceEdit 的同一份已保存文档状态。
 var workspace_edit: Dictionary = lsp_result_workspace_edit
 var reviewed_snapshot: Dictionary = {
 	"workspace_uri": current_project_file_uri,
@@ -69,6 +70,7 @@ var commit_report: Dictionary = GFLspWorkspaceEditAdapter.commit_plan(
 )
 if not commit_report.ok:
 	if commit_report.recovery_required:
+		# 保留恢复句柄与动作；事务终结前不能重跑修改或覆盖恢复现场。
 		persist_recovery_handle_for_operator(commit_report)
 	push_error(JSON.stringify(commit_report, "\t"))
 ```

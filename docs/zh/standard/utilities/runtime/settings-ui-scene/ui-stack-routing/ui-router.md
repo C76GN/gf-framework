@@ -59,10 +59,12 @@ var operation: GFUIRouteOperation = router.push_route_async(
 	{ "tab": "audio" }
 )
 
+# 观察本次精确句柄，不按 route id 猜测全局完成事件的归属。
 var result: GFUIRouteResult = await operation.wait_result_async()
 _handle_route_result(result)
 
 
+## 分辨打开成功与其他终态；结果观察不会延长面板节点的生命期。
 func _handle_route_result(result: GFUIRouteResult) -> void:
 	if result.is_successful():
 		var panel: Node = result.get_panel()
@@ -87,6 +89,7 @@ Router 释放时，尚未提交面板的预加载会回滚并返回 `STATUS_DISP
 `async_options` 可以同时提供 `owner: Object` 与 `scope: GFAsyncScope`。两者是 OR 关系：任意一个先结束，尚未提交的路由就以 `STATUS_CANCELLED` 进入唯一终态，回滚 Router 拥有的预加载会话，并忽略迟到的预加载回调。Node owner 必须在调用时已进入场景树，离树会即时取消；普通 Object 只被弱持有，释放后由 Router 的 `tick()` 剪枝。正常注册在 Architecture 中的 Router 会随架构 tick 自动执行该剪枝。
 
 ```gdscript
+# 仅约束提交前的路由准备；提交后取消不会隐式关闭已打开面板。
 var route_scope: GFAsyncScope = GFAsyncScope.new()
 var operation: GFUIRouteOperation = router.push_route_async(
 	&"inventory",
@@ -206,6 +209,7 @@ var assets: GFAssetUtility = Gf.get_utility(GFAssetUtility, true) as GFAssetUtil
 if assets == null:
 	return
 
+# 计划只表达资源准备；此命名 group 的释放时机由项目显式管理。
 assets.preload_plan_async(asset_plan, func(report: Dictionary) -> void:
 	if not GFVariantData.get_option_bool(report, "ok"):
 		push_warning("候选页面预加载未完全成功。")

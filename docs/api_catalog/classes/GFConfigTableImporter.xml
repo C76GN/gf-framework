@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="a2b49744a90d3a71c66b263da536af125e7b662984c402bb7462082868053806">
+<class name="GFConfigTableImporter" path="addons/gf/standard/utilities/config/gf_config_table_importer.gd" module="standard" extends="RefCounted" classDigest="a499e0a7f51e1b41c9f3b84d71396e654d5fdc64ed690a561db7af4b304a08de">
 	<description>GFConfigTableImporter: 通用导表文本解析与 schema 校验入口。
 提供 JSON、CSV、ConfigFile 与二维文本行的轻量解析，适合编辑器工具或 CI 在进入项目 Provider 前做结构检查。
 每个顶层操作默认使用有限的 GFConfigWorkBudget；解析、映射和校验共享同一预算。
@@ -142,7 +142,7 @@ schema 校验前按记录、字段和声明规则访问次数预留工作；自�
 				<tag name="return">结果字典，包含 success、text 与 error。</tag>
 				<tag name="schema">table_data: Variant，支持 Array[Dictionary] 或 Dictionary，记录值必须为 Dictionary。</tag>
 				<tag name="schema">options: Dictionary，可包含 delimiter、columns、include_header 和 coerce_values；work_limits 为 GFConfigWorkBudget 限制字典，work_budget 为共享操作句柄，两者互斥。</tag>
-				<tag name="schema">return: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report，且不返回部分 data 或 text。</tag>
+				<tag name="schema">return: Dictionary，包含 success、text 和 error；预算失败另含 error_kind 和 budget_report；转换失败另含 error_kind=record_conversion_failed、row_index 与 validation_report，且不返回部分 data 或 text。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

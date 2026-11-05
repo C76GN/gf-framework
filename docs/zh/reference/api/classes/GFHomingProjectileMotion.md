@@ -34,6 +34,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var speed: float = 0.0
 ```
 
@@ -47,6 +48,7 @@ world-space 追踪速度。
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var arrival_distance: float = 0.0
 ```
 
@@ -60,6 +62,7 @@ var arrival_distance: float = 0.0
 - 首次版本：`11.0.0`
 
 ```gdscript
+@export
 var track_target: bool = true
 ```
 
@@ -73,6 +76,7 @@ var track_target: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var stop_when_reached: bool = true
 ```
 

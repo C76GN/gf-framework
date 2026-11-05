@@ -73,6 +73,7 @@ enum Kind {
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var kind: Kind = Kind.SCALAR
 ```
 
@@ -86,6 +87,7 @@ var kind: Kind = Kind.SCALAR
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var type_name: StringName = &""
 ```
 
@@ -99,6 +101,7 @@ var type_name: StringName = &""
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var allow_null: bool = false
 ```
 
@@ -112,6 +115,7 @@ var allow_null: bool = false
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var scalar_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING
 ```
 
@@ -125,6 +129,7 @@ SCALAR 的标量类型；不接受 ANY、ARRAY 或 DICTIONARY。
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var fields: Array[GFConfigTableColumn] = []
 ```
 
@@ -138,6 +143,7 @@ STRUCT 自己声明的字段；继承字段在前，禁止覆盖任何基类字�
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var base_type: GFConfigTypeDefinition = null
 ```
 
@@ -151,6 +157,7 @@ STRUCT 的可选基类；只接受 STRUCT，整个定义图不允许循环。
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var element_type: GFConfigTypeDefinition = null
 ```
 
@@ -164,6 +171,7 @@ ARRAY 的元素类型。
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var map_key_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING
 ```
 
@@ -177,6 +185,7 @@ MAP 的键类型；只允许 STRING、STRING_NAME 和 INT，转换后重复键�
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var map_value_type: GFConfigTypeDefinition = null
 ```
 
@@ -190,6 +199,7 @@ MAP 的值类型。
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var symbols: Dictionary = {}
 ```
 
@@ -207,6 +217,7 @@ ENUM 的具名整数值；符号及整数值均必须唯一。
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var discriminator: StringName = &"type"
 ```
 
@@ -220,6 +231,7 @@ POLYMORPHIC 的必需判别字段；不得与任何分支的结构字段重名�
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var variants: Array[Resource] = []
 ```
 

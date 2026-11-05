@@ -1618,7 +1618,8 @@ class SupervisedProcessResult:
 	POSIX this does not claim
 	containment against a descendant that deliberately leaves the owned group.
 	The field is independent of command success, timeout/cancellation, and output
-	completeness.
+	completeness. The stream truncation flags also cover failed reads or decoding:
+	no caller may treat a partially captured stream as complete evidence.
 	"""
 
 	return_code: int
@@ -6526,7 +6527,7 @@ def run_supervised_process(
 									now = time.perf_counter()
 									remaining = deadline - now
 									if stdout_truncated[0] or stderr_truncated[0]:
-										notes.append("Command output exceeded its capture budget; terminating its process tree.")
+										notes.append("Command output capture is incomplete; terminating its process tree.")
 										notes.extend(terminate_process_tree(process))
 										break
 									if remaining <= 0.0:
@@ -6682,9 +6683,9 @@ def run_supervised_process(
 	if owner.cleanup_failed and not cancelled:
 		timed_out = True
 	if stdout_truncated[0]:
-		notes.append("Captured stdout exceeded its configured character limit.")
+		notes.append("Captured stdout is incomplete (capture limit or stream failure).")
 	if stderr_truncated[0]:
-		notes.append("Captured stderr exceeded its configured character limit.")
+		notes.append("Captured stderr is incomplete (capture limit or stream failure).")
 	notes.extend(callback_errors)
 	return SupervisedProcessResult(
 		return_code=process.returncode if process.returncode is not None else 124,
@@ -6720,6 +6721,12 @@ def start_output_pump(
 	decode_errors: str = "replace",
 	decode_encoding: str = "utf-8",
 ) -> threading.Thread:
+	def record_capture_failure(error: BaseException) -> None:
+		if capture_truncated is not None:
+			capture_truncated[0] = True
+		with callback_error_lock:
+			callback_errors.append(f"{stream_name} capture failed: {type(error).__name__}.")
+
 	def pump() -> None:
 		if pipe is None:
 			return
@@ -6765,10 +6772,17 @@ def start_output_pump(
 					except Exception as exc:  # pragma: no cover - defensive callback boundary
 						with callback_error_lock:
 							callback_errors.append(f"{stream_name} callback failed: {exc}")
+		except BaseException as error:
+			# A terminated reader is not proof of EOF. Publish failure before the
+			# thread finishes so the supervisor still rejects a zero child exit.
+			record_capture_failure(error)
 		finally:
 			if pending_parts:
 				parts.append("".join(pending_parts))
-			pipe.close()
+			try:
+				pipe.close()
+			except BaseException as error:
+				record_capture_failure(error)
 
 	thread = threading.Thread(target=pump, name=f"gf-{stream_name}-pump", daemon=True)
 	thread.start()

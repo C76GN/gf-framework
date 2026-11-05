@@ -11826,6 +11826,8 @@ func _commit_local_ambient_execution_plan(
 			_restore_ambient_state_after_failed_request(channel, request_serial)
 			return
 	var player: AudioStreamPlayer = _get_or_create_ambient_player(channel)
+	if not _is_initialized or request_serial != _get_ambient_request_serial(channel):
+		return
 	if player == null:
 		_set_ambient_session(
 			channel,
@@ -12351,7 +12353,7 @@ func _trim_idle_ambient_players() -> void:
 			var _serial_erased: bool = _ambient_request_serials.erase(channel)
 
 
-## 复用指定通道的环境音播放器；不存在时创建。
+## 复用或创建环境音播放器；挂载前登记所有权，挂载回调改变生命周期时只清理旧候选。
 ## [br]
 ## @api private
 ## [br]
@@ -12364,10 +12366,26 @@ func _get_or_create_ambient_player(channel: StringName) -> AudioStreamPlayer:
 		return null
 
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	var lifecycle_serial: int = _sfx_lifecycle_serial
+	var playback_root: Node = _root
 	player.name = "GFAmbientPlayer_%s" % String(channel)
 	player.bus = _resolve_bus_name(BGM_BUS_NAME)
-	_root.add_child(player)
 	_ambient_players[channel] = player
+	playback_root.add_child(player)
+	if (
+		lifecycle_serial != _sfx_lifecycle_serial
+		or not _is_initialized
+		or not is_instance_valid(player)
+		or player.is_queued_for_deletion()
+		or player.get_parent() != playback_root
+		or _get_ambient_player(channel) != player
+	):
+		if _get_ambient_player(channel) == player:
+			var _candidate_erased: bool = _ambient_players.erase(channel)
+		if is_instance_valid(player) and not player.is_queued_for_deletion():
+			player.stop()
+			player.queue_free()
+		return null
 	_remove_ambient_idle_channel(channel)
 	return player
 

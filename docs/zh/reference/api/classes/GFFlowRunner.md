@@ -28,10 +28,10 @@
 | 属性 | [`max_executed_nodes`](#member-gfflowrunner-properties-max_executed_nodes) | `var max_executed_nodes: int = 1024` |
 | 属性 | [`signal_timeout_seconds`](#member-gfflowrunner-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = _DEFAULT_SIGNAL_TIMEOUT_SECONDS:` |
 | 属性 | [`signal_timeout_respects_time_scale`](#member-gfflowrunner-properties-signal_timeout_respects_time_scale) | `var signal_timeout_respects_time_scale: bool = true` |
-| 属性 | [`isolate_graph_runtime_state`](#member-gfflowrunner-properties-isolate_graph_runtime_state) | `var isolate_graph_runtime_state: bool = true` |
 | 属性 | [`max_report_trace_entries`](#member-gfflowrunner-properties-max_report_trace_entries) | `var max_report_trace_entries: int = 128:` |
-| 方法 | [`run`](#member-gfflowrunner-methods-run) | `func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:` |
+| 方法 | [`run`](#member-gfflowrunner-methods-run) | `func run( graph: GFFlowGraph, context: GFFlowContext = null, initial_nodes: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`cancel`](#member-gfflowrunner-methods-cancel) | `func cancel() -> void:` |
+| 方法 | [`get_run_state`](#member-gfflowrunner-methods-get_run_state) | `func get_run_state() -> GFFlowRunState:` |
 | 方法 | [`with_signal_timeout`](#member-gfflowrunner-methods-with_signal_timeout) | `func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFFlowRunner:` |
 | 方法 | [`get_last_run_report`](#member-gfflowrunner-methods-get_last_run_report) | `func get_last_run_report() -> Dictionary:` |
 
@@ -250,19 +250,6 @@ var signal_timeout_respects_time_scale: bool = true
 
 Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 
-<a id="member-gfflowrunner-properties-isolate_graph_runtime_state"></a>
-
-### `isolate_graph_runtime_state`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-var isolate_graph_runtime_state: bool = true
-```
-
-运行时是否把节点 runtime_state 隔离到 GFFlowContext，避免污染共享图资源。
-
 <a id="member-gfflowrunner-properties-max_report_trace_entries"></a>
 
 ### `max_report_trace_entries`
@@ -286,7 +273,7 @@ var max_report_trace_entries: int = 128:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
+func run( graph: GFFlowGraph, context: GFFlowContext = null, initial_nodes: Dictionary = {} ) -> Dictionary:
 ```
 
 运行流程图。
@@ -296,12 +283,14 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `graph` | 流程图资源。 |
-| `context` | 可选上下文。 |
+| `context` | 可选业务上下文，可供其他 Runner 同时使用。 |
+| `initial_nodes` | 显式提供给根帧的初始节点进度。 |
 
 返回：本次有界结构化运行报告；未开始时 outcome 为 rejected。
 
 结构：
 
+- `initial_nodes`: 节点 ID 到 Dictionary 的映射，本轮复制后使用。
 - `return`: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。
 
 <a id="member-gfflowrunner-methods-cancel"></a>
@@ -316,6 +305,21 @@ func cancel() -> void:
 ```
 
 请求取消流程。
+
+<a id="member-gfflowrunner-methods-get_run_state"></a>
+
+### `get_run_state`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_run_state() -> GFFlowRunState:
+```
+
+获取正在运行或最近完成的状态。每次成功接纳运行都会创建新对象。
+
+返回：当前或最近结束的 RunState，从未接纳过运行时为 null。
 
 <a id="member-gfflowrunner-methods-with_signal_timeout"></a>
 

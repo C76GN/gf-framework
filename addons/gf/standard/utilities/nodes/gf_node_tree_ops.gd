@@ -673,7 +673,7 @@ static func _matches_type_name(node: Node, type_name: String) -> bool:
 ## @api private
 ## [br]
 static func _resolve_child_owner(parent: Node, explicit_owner: Node) -> Node:
-	if explicit_owner != null and _can_apply_owner(parent, explicit_owner):
+	if explicit_owner == parent or _can_apply_owner(parent, explicit_owner):
 		return explicit_owner
 	if parent.owner != null and _can_apply_owner(parent, parent.owner):
 		return parent.owner

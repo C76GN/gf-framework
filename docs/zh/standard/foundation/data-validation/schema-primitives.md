@@ -67,6 +67,8 @@ var report := result["report"] as GFValidationReport
 
 默认行为会保留无效但可编辑的行；传入 `keep_invalid_rows = false` 时，输出 `rows` 只包含通过校验的行，但 `ok` 仍会反映源数据报告是否有错误。字段转换失败会记录 `coerce_failed` 并保留原始值，不会把坏输入降级成 `0`、`false` 或空集合后伪装成有效行。`strip_extra_fields` 默认跟随 `allow_extra_fields`：schema 不允许额外字段时，规范化结果也会剔除它们。
 
+Schema 定义必须先通过自检。定义存在循环、过深或其他错误时，不再规范化或校验字典行，这些行计入 `skipped_row_count`；`validate_rows = false` 也不会绕过定义准入。非 Dictionary 输入仍报告 `invalid_row`，其保留或跳过行为继续由 `keep_invalid_rows` 控制。
+
 ## 嵌套结构
 
 Dictionary 字段可挂接另一个 `GFDictionarySchema`；Array 字段可挂接一个元素 `GFSchemaField`。

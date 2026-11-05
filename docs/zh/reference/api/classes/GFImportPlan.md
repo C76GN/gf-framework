@@ -82,6 +82,7 @@ const OPERATION_SKIP: StringName = &"skip"
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var entries: Array[Dictionary] = []
 ```
 
@@ -99,6 +100,7 @@ var entries: Array[Dictionary] = []
 - 首次版本：`6.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

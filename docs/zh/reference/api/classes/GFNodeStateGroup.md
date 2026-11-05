@@ -215,6 +215,7 @@ enum StackExitPolicy {
 - API：`public`
 
 ```gdscript
+@export
 var group_name: StringName = &"":
 ```
 
@@ -227,6 +228,7 @@ var group_name: StringName = &"":
 - API：`public`
 
 ```gdscript
+@export
 var initial_state: StringName = &"":
 ```
 
@@ -239,6 +241,7 @@ var initial_state: StringName = &"":
 - API：`public`
 
 ```gdscript
+@export
 var initial_args: Dictionary = {}
 ```
 
@@ -255,6 +258,7 @@ var initial_args: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var reload_states_on_ready: bool = true
 ```
 
@@ -267,6 +271,7 @@ ready 时是否自动从子节点加载状态。
 - API：`public`
 
 ```gdscript
+@export
 var auto_start: bool = true:
 ```
 
@@ -279,6 +284,7 @@ var auto_start: bool = true:
 - API：`public`
 
 ```gdscript
+@export_range(1, 256, 1)
 var history_max_size: int = 32
 ```
 
@@ -291,6 +297,7 @@ var history_max_size: int = 32
 - API：`public`
 
 ```gdscript
+@export_range(1, 64, 1)
 var max_stack_depth: int = 8
 ```
 
@@ -303,6 +310,7 @@ push_state 可叠加的最大栈深度。
 - API：`public`
 
 ```gdscript
+@export
 var blackboard: Dictionary = {}
 ```
 

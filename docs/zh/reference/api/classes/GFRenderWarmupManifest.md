@@ -37,6 +37,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var manifest_id: StringName = &""
 ```
 
@@ -49,6 +50,7 @@ var manifest_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[Dictionary] = []
 ```
 
@@ -65,6 +67,7 @@ var entries: Array[Dictionary] = []
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

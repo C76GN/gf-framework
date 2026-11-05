@@ -577,11 +577,22 @@ func _restore_current_snapshot_after_trim() -> void:
 	if _current_index < 0 or _current_index >= _snapshots.size():
 		return
 
-	var record: Dictionary = _snapshots[_current_index]
+	var expected_index: int = _current_index
+	var record: Dictionary = _snapshots[expected_index]
 	var data: Variant = _get_record_data(record)
 	if not _has_restore_target(data):
 		return
-	if not _restore_data(data):
+	var restored: bool = _restore_data(data)
+	if (
+		_current_index != expected_index
+		or expected_index >= _snapshots.size()
+		or not is_same(
+			_snapshots[expected_index],
+			record
+		)
+	):
+		return
+	if not restored:
 		_current_index = -1
 		return
 	snapshot_restored.emit(

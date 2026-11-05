@@ -229,6 +229,11 @@ var last_position: Vector2 = Vector2.ZERO
 ## [br]
 var _idle_elapsed_seconds: float = 0.0
 
+## 按压、释放和重置的代际，防止同步回调后的旧事件覆盖新手势。
+## [br]
+## @api private
+var _pointer_generation: int = 0
+
 
 # --- 公共方法 ---
 
@@ -279,6 +284,7 @@ func tick(delta: float) -> void:
 ## [br]
 ## @api public
 func reset_activity() -> void:
+	_pointer_generation += 1
 	is_pointer_pressed = false
 	is_pointer_dragging = false
 	is_pointer_moving = false
@@ -398,12 +404,16 @@ func _press_pointer(
 	position: Vector2,
 	event: InputEvent
 ) -> void:
+	_pointer_generation += 1
+	var generation: int = _pointer_generation
 	active_pointer_id = pointer_id
 	is_pointer_pressed = true
 	is_pointer_dragging = false
 	press_position = position
 	last_position = position
 	_mark_pointer_activity(pointer_id, position)
+	if generation != _pointer_generation:
+		return
 	pointer_pressed.emit(
 		pointer_id,
 		position,
@@ -423,7 +433,11 @@ func _release_pointer(
 	if active_pointer_id != -1 and active_pointer_id != pointer_id:
 		return
 
+	_pointer_generation += 1
+	var generation: int = _pointer_generation
 	_mark_pointer_activity(pointer_id, position)
+	if generation != _pointer_generation:
+		return
 	last_position = position
 	if is_pointer_dragging:
 		pointer_drag_ended.emit(
@@ -431,6 +445,8 @@ func _release_pointer(
 			position,
 			event
 		)
+		if generation != _pointer_generation:
+			return
 	is_pointer_pressed = false
 	is_pointer_dragging = false
 	active_pointer_id = -1
@@ -454,8 +470,11 @@ func _move_pointer(
 		return
 
 	var previous_position: Vector2 = last_position
+	var generation: int = _pointer_generation
 	last_position = position
 	_mark_pointer_activity(pointer_id, position)
+	if generation != _pointer_generation:
+		return
 	pointer_moved.emit(
 		pointer_id,
 		position,
@@ -463,7 +482,7 @@ func _move_pointer(
 		event
 	)
 
-	if not is_pointer_pressed:
+	if generation != _pointer_generation or not is_pointer_pressed:
 		return
 
 	var drag_distance: float = press_position.distance_to(position)
@@ -475,6 +494,8 @@ func _move_pointer(
 			position,
 			event
 		)
+		if generation != _pointer_generation:
+			return
 	if is_pointer_dragging:
 		pointer_dragged.emit(
 			pointer_id,

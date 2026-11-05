@@ -15,8 +15,10 @@ Godot coroutine 无法被框架抢占式终止。超时会阻止架构继续推�
 第四阶段使用独立的 `GFArchitecture.activation_timeout_seconds` 总 deadline，默认 30 秒；该属性同样只接受 `0..86400` 的有限秒数，`0` 禁用 deadline。它不是每个模块各自拥有一份完整预算。`begin_activation(scope)` 必须立即返回 `GFAsyncCompletion`，并在异步回调、Signal 或 tick-driven bootstrap 完成时提交一次终态。把 scope 绑定到完成源可以让初始化取消直接传播：
 
 ```gdscript
+## 将 bootstrap 的异步终态交给完成源，Hook 本身不阻塞等待。
 func begin_activation(scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	# 初始化取消时让同一个完成源终止；迟到回调不能恢复已取消的激活。
 	var _bound: bool = completion.bind_cancel_token(scope)
 	_begin_bootstrap(completion)
 	return completion

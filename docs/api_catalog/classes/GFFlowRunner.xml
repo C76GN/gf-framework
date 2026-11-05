@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="0f1469f086720a3d862cbb9b4a5153dd625a7d0a60d0588a7a587f9503d661a9">
+<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="66641f95b5403924e91cda3c840ba2e6ae2297961fc645b7ea689ceabb021230">
 	<description>GFFlowRunner: 通用流程图执行器。
 按节点后继关系执行 GFFlowGraph，支持 Signal 等待、取消和简单循环保护。</description>
 	<tags>
@@ -126,14 +126,6 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="isolate_graph_runtime_state">
-			<signature>var isolate_graph_runtime_state: bool = true</signature>
-			<description>运行时是否把节点 runtime_state 隔离到 GFFlowContext，避免污染共享图资源。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
 		<member kind="property" name="max_report_trace_entries">
 			<signature>var max_report_trace_entries: int = 128:</signature>
 			<description>运行报告最多保留多少条节点 trace；总数与丢弃数始终单独统计。</description>
@@ -145,13 +137,15 @@
 	</properties>
 	<methods>
 		<member kind="method" name="run">
-			<signature>func run(graph: GFFlowGraph, context: GFFlowContext = null) -&gt; Dictionary:</signature>
+			<signature>func run( graph: GFFlowGraph, context: GFFlowContext = null, initial_nodes: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>运行流程图。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">graph: 流程图资源。</tag>
-				<tag name="param">context: 可选上下文。</tag>
+				<tag name="param">context: 可选业务上下文，可供其他 Runner 同时使用。</tag>
+				<tag name="param">initial_nodes: 显式提供给根帧的初始节点进度。</tag>
 				<tag name="return">本次有界结构化运行报告；未开始时 outcome 为 rejected。</tag>
+				<tag name="schema">initial_nodes: 节点 ID 到 Dictionary 的映射，本轮复制后使用。</tag>
 				<tag name="schema">return: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -162,6 +156,15 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_run_state">
+			<signature>func get_run_state() -&gt; GFFlowRunState:</signature>
+			<description>获取正在运行或最近完成的状态。每次成功接纳运行都会创建新对象。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前或最近结束的 RunState，从未接纳过运行时为 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_signal_timeout">

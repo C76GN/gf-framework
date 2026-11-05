@@ -13,6 +13,8 @@ inventory.add_item(&"item_a", 3, { "source": "runtime" })
 
 `GFInventoryModel` 适合放在项目自己的 `Model` 或资源配置中。具体物品含义、标签体系和结算规则仍由项目层定义。
 
+轻量库存的数量是非负 int64。新增数量会溢出时，本次 `add_item()` 保持原数量和元数据不变；不会饱和写入或变成负数。
+
 ## 槽位库存
 
 需要背包、格子 UI、带实例数据的物品或部分加入/移除时，不要把复杂度塞进轻量 `GFInventoryModel`，而是新增一个 `GFSlotInventoryModel`：
@@ -35,6 +37,8 @@ print(result.accepted_amount, result.remaining_amount)
 ```
 
 `GFSlotInventoryModel` 手动 `new()` 后默认是 0 槽位且 `allow_growth = false`，因此不会在 `add_item()` 时隐式新增槽位。固定容量背包应先调用 `set_slot_count(count)`；如果模型由 GF 生命周期管理，也可以设置 `default_slot_count` 让 `init()` 自动应用初始槽位。需要无固定格子上限、但仍受物品 `max_stack_amount` / `max_stack_count` 约束的容器时，再显式启用 `allow_growth = true`。
+
+`remove_item()` 的空 `instance_data` 匹配全部同 ID 物品；显式提供的非空实例过滤条件即使规范化后等于默认实例，也只匹配该实例。预检与实际扣除使用相同过滤规则，`partial_remove=false` 且匹配数量不足时保持库存不变。
 
 需要“某些格子只能放某类物品”时，可给槽位配置 `GFInventorySlotDefinition`。槽位定义支持允许/拒绝物品 ID、按 `GFInventoryItemDefinition.categories` 匹配分类，以及项目层回调：
 
@@ -116,6 +120,7 @@ slots.slot_definitions = rules
 
 ```gdscript
 slots.slot_emptied.connect(func(_slot_index: int, _previous_stack_data: Dictionary) -> void:
+	# 库存通知期间禁止重入修改；延迟到本轮通知结束后再排序。
 	slots.call_deferred("sort_slots")
 )
 ```

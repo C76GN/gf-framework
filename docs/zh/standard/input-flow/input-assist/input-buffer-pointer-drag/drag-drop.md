@@ -8,6 +8,7 @@
 
 ```gdscript
 var drag_drop := GFDragDropUtility.new()
+# 同步业务回调：返回结果不表示 GF 已移动节点或提交项目模型。
 var toolbar_drop := func(session: GFDragSession, zone: GFDropZone, position: Variant) -> Dictionary:
 	return {
 		"ok": true,
@@ -46,7 +47,7 @@ var result := drag_drop.drop(session_id, release_position)
 - `start_drag()` 先注册会话再发出 `drag_started`；监听器若在回调中取消该会话，outer 调用返回 `-1`。
 - `drop()` 解析期间，同一会话再次调用 `drop()` 会返回 `session_resolving`。项目回调若取消同一会话，取消终态优先，outer 调用返回 `session_cancelled`，不会再发出 `drag_dropped`。
 - `get_drop_candidates()` / `get_best_drop_zone()` 的项目回调若取消或替换当前 session，本次查询立即失败关闭为空；控制器不会在该取消终态之后继续转发旧会话的 `drag_moved`。
-- `contains` / `can_accept` 回调返回时若候选已不再注册，业务 `drop` Callable 不会执行，本次返回 `drop_zone_changed`，会话保留以便重试。
+- `contains` / `can_accept` 回调返回时若候选已不再注册，或后续候选回调把已选落点设为 `enabled=false`，业务 `drop` Callable 不会执行，本次返回 `drop_zone_changed`，会话保留以便重试。提交检查不会再次执行有副作用的候选回调。
 - `drop` 回调返回 `ok=false` 是可重试拒绝，会话继续活动；没有可用落点的 `no_drop_zone` 是终态拒绝，会话已经移除。
 - `clear_sessions()` 与 `clear_zones()` 只处理调用开始时的快照；同步回调中新建的会话或落点会保留，不会无通知消失。
 
@@ -58,6 +59,7 @@ var result := drag_drop.drop(session_id, release_position)
 
 ```gdscript
 var controller := GFDragDropController.new()
+# 节点控制器管理 source 生命周期与临时挂载；调用始终使用同一 pointer_id。
 add_child(controller)
 
 controller.register_control_zone(&"inventory_slot", slot_control, PackedStringArray(["item"]))

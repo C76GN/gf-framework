@@ -7,6 +7,7 @@
 `GFArchitecture` 提供了全局状态快照入口，用于收集所有已注册 `GFModel` 的 `to_dict()` 结果，并在存在实现命令历史序列化方法的 Utility 时附带命令历史。捕获入口返回显式 Result；只有 `ok == true` 时才存在可持久化的 `snapshot`：
 
 ```gdscript
+# 只有成功 Result 携带可持久化 snapshot；失败不能当成合法空存档。
 var capture_result: Dictionary = Gf.architecture.get_global_snapshot()
 if not capture_result["ok"]:
 	push_error(capture_result["error"])
@@ -31,6 +32,7 @@ if not restore_result["ok"]:
 大型项目应优先使用分帧快照入口，再交给 Storage 的异步写入线程：
 
 ```gdscript
+# 分帧物化仍属于同一次快照事务；此处成功不代表后续存储写入已经完成。
 var capture_result := await Gf.architecture.get_global_snapshot_async({
 	"max_models_per_frame": 8,
 })

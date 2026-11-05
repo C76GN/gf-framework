@@ -338,6 +338,11 @@ static func _apply_delete(
 		)
 		return
 	var _record_removed: bool = records.erase(key)
+	var outer_keys: Dictionary = _get_state_dictionary(state, "outer_keys")
+	var outer_key_owners: Dictionary = _get_state_dictionary(state, "outer_key_owners")
+	var previous_outer_key: Variant = outer_keys.get(key)
+	if outer_key_owners.get(previous_outer_key) == key:
+		var _owner_removed: bool = outer_key_owners.erase(previous_outer_key)
 	_increment_report_count(report, "deleted_count")
 
 

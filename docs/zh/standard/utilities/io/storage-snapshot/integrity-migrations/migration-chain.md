@@ -24,4 +24,6 @@ storage.register_migration(2, 3, func(data: Dictionary, _from: int, _to: int) ->
 
 需要把“没有迁移步骤但版本升高”也视为失败时，设置 `strict_schema_migrations = true`。
 
-当存档 `_meta.version` 高于当前 `save_version` 时，读取始终 fail closed 并报告 future version，不会合并当前默认值或把未来 schema 重新保存成旧版本。需要查看未来格式时，应使用只读迁移工具直接检查原始文件，而不是让旧运行时加载并覆盖它。
+这里的版本是 `__gf_storage_document.metadata.data_version`，由 `save_version` 写入；它与固定文档结构的 `schema_version`、物理 Storage layout schema 不同。上述迁移链只处理已成功解码的业务载荷，不负责识别旧物理文件或旧 envelope。
+
+当存档 `data_version` 高于当前 `save_version` 时，读取始终 fail closed 并报告 future version，不会合并当前默认值或把未来业务 schema 重新保存成旧版本。需要查看未来格式时，应使用只读迁移工具直接检查原始文件，而不是让旧运行时加载并覆盖它。

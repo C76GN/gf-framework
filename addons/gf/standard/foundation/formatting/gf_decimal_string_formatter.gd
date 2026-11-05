@@ -107,7 +107,9 @@ static func format_decimal_value(
 		use_truncation
 	)
 	if normalized_decimal_places <= 0:
-		return str(int(adjusted_value))
+		if adjusted_value == 0.0:
+			return "0"
+		return "%.0f" % adjusted_value
 
 	var text: String = ("%." + str(normalized_decimal_places) + "f") % adjusted_value
 	if trim_zeroes:

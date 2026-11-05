@@ -33,6 +33,7 @@ UI 逻辑层定义。 将稳定逻辑层 ID、Godot CanvasLayer 排序值和默�
 - 首次版本：`8.1.0`
 
 ```gdscript
+@export
 var layer_id: int = -1
 ```
 
@@ -46,6 +47,7 @@ var layer_id: int = -1
 - 首次版本：`8.1.0`
 
 ```gdscript
+@export
 var display_name: StringName = &""
 ```
 
@@ -59,6 +61,7 @@ var display_name: StringName = &""
 - 首次版本：`8.1.0`
 
 ```gdscript
+@export
 var canvas_layer: int = 0
 ```
 
@@ -72,6 +75,7 @@ var canvas_layer: int = 0
 - 首次版本：`8.1.0`
 
 ```gdscript
+@export
 var auto_hide_under: bool = true
 ```
 

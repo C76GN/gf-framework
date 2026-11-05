@@ -50,6 +50,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var profile_id: StringName = &""
 ```
 
@@ -63,6 +64,7 @@ Profile 稳定标识。
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var godot_version: String = ""
 ```
 
@@ -76,6 +78,7 @@ Godot 版本字符串。
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var framework_version: String = ""
 ```
 
@@ -89,6 +92,7 @@ GF 框架版本字符串。
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var platforms: PackedStringArray = PackedStringArray()
 ```
 
@@ -102,6 +106,7 @@ var platforms: PackedStringArray = PackedStringArray()
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var features: PackedStringArray = PackedStringArray()
 ```
 
@@ -115,6 +120,7 @@ var features: PackedStringArray = PackedStringArray()
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var packages: Array[Dictionary] = []
 ```
 
@@ -132,6 +138,7 @@ var packages: Array[Dictionary] = []
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var artifacts: Array[Dictionary] = []
 ```
 
@@ -149,6 +156,7 @@ var artifacts: Array[Dictionary] = []
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

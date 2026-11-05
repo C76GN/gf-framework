@@ -426,7 +426,7 @@ func advance(delta_seconds: float) -> bool:
 |---|---|
 | `delta_seconds` | 非负、有限的推进时间。 |
 
-返回：完整消费本次推进量时返回 true；参数非法或跨帧预算耗尽时返回 false。
+返回：本次推进成功处理时返回 true；回调替换播放状态或动画结束时舍弃旧余量。参数非法或需要跨越更多帧边界而预算耗尽时返回 false。
 
 <a id="member-gflayeredsprite2d-methods-is_playing"></a>
 

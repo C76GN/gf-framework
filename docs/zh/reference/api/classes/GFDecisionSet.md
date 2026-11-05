@@ -41,6 +41,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var decision_set_id: StringName = &""
 ```
 
@@ -53,6 +54,7 @@ var decision_set_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var decisions: Array[GFDecisionOption] = []
 ```
 
@@ -69,6 +71,7 @@ var decisions: Array[GFDecisionOption] = []
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var minimum_score: float = 0.0
 ```
 
@@ -81,6 +84,7 @@ var minimum_score: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var include_disabled_in_reports: bool = false
 ```
 
@@ -93,6 +97,7 @@ var include_disabled_in_reports: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var button_labels: Dictionary = _DEFAULT_BUTTON_LABELS
 ```
 
@@ -50,6 +51,7 @@ Joypad 按钮标签表，Key 为 JoyButton int。
 - API：`public`
 
 ```gdscript
+@export
 var axis_labels: Dictionary = _DEFAULT_AXIS_LABELS
 ```
 
@@ -66,6 +68,7 @@ Joypad 轴标签表，Key 为 JoyAxis int。
 - API：`public`
 
 ```gdscript
+@export
 var axis_positive_suffix: String = "+"
 ```
 
@@ -78,6 +81,7 @@ var axis_positive_suffix: String = "+"
 - API：`public`
 
 ```gdscript
+@export
 var axis_negative_suffix: String = "-"
 ```
 
@@ -90,6 +94,7 @@ var axis_negative_suffix: String = "-"
 - API：`public`
 
 ```gdscript
+@export_range(0.0, 1.0, 0.001)
 var axis_direction_deadzone: float = 0.1
 ```
 

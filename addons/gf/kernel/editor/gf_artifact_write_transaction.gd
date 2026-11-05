@@ -1,4 +1,4 @@
-## GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。
+## GFArtifactWriteTransaction: 运行时与制作工具共用的多产物文件提交事务。
 ##
 ## 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物，
 ## 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交
@@ -7,11 +7,12 @@
 ## 持久化误称为 crash-atomic。GDScript 文件 API 无法固定父目录句柄，因此
 ## allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交换 junction
 ## 的目录；实现会在 rename、删除和恢复前后复核可观察的路径、内容与 sidecar
-## 身份，并在漂移时 fail closed，而不是盲目破坏未知文件。
+## 身份，并在漂移时 fail closed，而不是盲目破坏未知文件。文件提交与恢复
+## 可在普通运行时使用；可选的资源文件系统刷新仅在编辑器中执行。
 ## [br]
 ## @api public
 ## [br]
-## @category tool_api
+## @category runtime_service
 ## [br]
 ## @since 10.0.0
 class_name GFArtifactWriteTransaction

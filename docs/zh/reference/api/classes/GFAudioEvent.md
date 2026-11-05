@@ -34,6 +34,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var event_id: StringName = &""
 ```
 
@@ -46,6 +47,7 @@ var event_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var channel: StringName = &"sfx"
 ```
 
@@ -58,6 +60,7 @@ var channel: StringName = &"sfx"
 - API：`public`
 
 ```gdscript
+@export
 var bank_id: StringName = &""
 ```
 
@@ -70,6 +73,7 @@ var bank_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var path: String = ""
 ```
 
@@ -82,6 +86,7 @@ var path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var clip: GFAudioClip = null
 ```
 
@@ -94,6 +99,7 @@ var clip: GFAudioClip = null
 - API：`public`
 
 ```gdscript
+@export
 var ambient_channel: StringName = &"default"
 ```
 
@@ -106,6 +112,7 @@ var ambient_channel: StringName = &"default"
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -45,6 +45,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var item_id: StringName = &""
 ```
 
@@ -57,6 +58,7 @@ var item_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -69,6 +71,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export_multiline
 var description: String = ""
 ```
 
@@ -81,6 +84,7 @@ var description: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var icon: Texture2D = null
 ```
 
@@ -93,6 +97,7 @@ var icon: Texture2D = null
 - API：`public`
 
 ```gdscript
+@export
 var max_stack_amount: int:
 ```
 
@@ -105,6 +110,7 @@ var max_stack_amount: int:
 - API：`public`
 
 ```gdscript
+@export
 var max_stack_count: int:
 ```
 
@@ -117,6 +123,7 @@ var max_stack_count: int:
 - API：`public`
 
 ```gdscript
+@export
 var categories: Array[StringName] = []
 ```
 
@@ -133,6 +140,7 @@ var categories: Array[StringName] = []
 - API：`public`
 
 ```gdscript
+@export
 var default_instance_data: Dictionary = {}
 ```
 
@@ -149,6 +157,7 @@ var default_instance_data: Dictionary = {}
 - API：`public`
 
 ```gdscript
+@export
 var stack_key_fields: PackedStringArray = PackedStringArray()
 ```
 
@@ -161,6 +170,7 @@ var stack_key_fields: PackedStringArray = PackedStringArray()
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

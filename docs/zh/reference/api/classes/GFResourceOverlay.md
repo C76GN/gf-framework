@@ -41,6 +41,7 @@
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var base_resource: Resource = null
 ```
 
@@ -54,6 +55,7 @@ var base_resource: Resource = null
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var patches: Array = []
 ```
 
@@ -71,6 +73,7 @@ var patches: Array = []
 - 首次版本：`7.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -111,6 +111,7 @@ XLSX 输入格式。
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var table_name: StringName = &""
 ```
 
@@ -124,6 +125,7 @@ var table_name: StringName = &""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var source_path: String = ""
 ```
 
@@ -137,6 +139,7 @@ var source_path: String = ""
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var source_format: StringName = FORMAT_AUTO
 ```
 
@@ -150,6 +153,7 @@ var source_format: StringName = FORMAT_AUTO
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var schema: GFConfigTableSchema = null
 ```
 
@@ -163,6 +167,7 @@ var schema: GFConfigTableSchema = null
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var infer_schema: bool = true
 ```
 
@@ -176,6 +181,7 @@ var infer_schema: bool = true
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var coerce_records: bool = true
 ```
 
@@ -189,6 +195,7 @@ var coerce_records: bool = true
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var parse_options: Dictionary = {}
 ```
 
@@ -206,6 +213,7 @@ var parse_options: Dictionary = {}
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var schema_options: Dictionary = {}
 ```
 
@@ -223,6 +231,7 @@ schema 推导与表头声明选项，例如 id_field、allow_extra_fields、requ
 - 首次版本：`5.2.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

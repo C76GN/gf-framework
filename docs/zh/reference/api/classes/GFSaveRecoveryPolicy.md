@@ -64,6 +64,7 @@ const ACTION_USE_CURRENT_STATE: StringName = &"use_current_state"
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var missing_file_action: StringName = ACTION_FAIL
 ```
 
@@ -77,6 +78,7 @@ var missing_file_action: StringName = ACTION_FAIL
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var corrupt_file_action: StringName = ACTION_FAIL
 ```
 
@@ -90,6 +92,7 @@ var corrupt_file_action: StringName = ACTION_FAIL
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var retry_delays_msec: PackedInt32Array = PackedInt32Array()
 ```
 
@@ -103,6 +106,7 @@ var retry_delays_msec: PackedInt32Array = PackedInt32Array()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var transient_error_codes: PackedInt32Array = PackedInt32Array(
 	[
 		ERR_BUSY,
@@ -125,6 +129,7 @@ var transient_error_codes: PackedInt32Array = PackedInt32Array(
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(1, 2_147_483_647, 1)
 var io_timeout_msec: int = 30_000
 ```
 

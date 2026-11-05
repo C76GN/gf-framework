@@ -175,9 +175,10 @@ func set_level_result(
 
 	var next_result: Dictionary = result.duplicate(true)
 	if merge_result and _level_results.has(level_id):
+		var copied_input: Dictionary = next_result
 		next_result = GFVariantData.get_option_dictionary(_level_results, level_id)
-		for key: Variant in result.keys():
-			next_result[key] = result[key]
+		for key: Variant in copied_input.keys():
+			next_result[key] = copied_input[key]
 
 	_level_results[level_id] = next_result
 	level_result_updated.emit(

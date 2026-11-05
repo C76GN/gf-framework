@@ -7,12 +7,15 @@
 后端只有在 `can_handle_path()` 或 `can_handle_clip()` 明确返回 `true` 时才尝试接管请求；对应 `play_bgm_*()` 返回 `true` 才是 BGM 会话的同步接受点。未声明处理会记录为 `NOT_CLAIMED`，声明处理但拒绝播放会记录为 `REJECTED`，两者都可继续准备本地候选；本地成功时，`GFBgmStartResult` 会以 `STARTED` 终结并保留准确的 backend disposition，而不是把 fallback 冒充成未尝试 backend。带 `GFAudioPlaybackRegion` 的片段还必须先通过逐请求区间协商。
 
 ```gdscript
+## 项目事件音频适配骨架；实际 SDK 播放与停止绑定须由项目补齐。
 class_name ProjectAudioBackend
 extends GFAudioBackend
 
+## 只认领 SFX 的 event:// 路径，其余请求保留给其他播放路径。
 func can_handle_path(path: String, channel: StringName, _context: Dictionary = {}) -> bool:
 	return channel == &"sfx" and path.begins_with("event://")
 
+## 返回外部播放控制句柄的示意；此处空 Callable 不会停止真实 SDK 声音。
 func play_sfx_path(path: String, options: Dictionary = {}) -> GFAudioEmitterHandle:
 	# 项目层把 path 映射到自己的音频事件。
 	return GFAudioEmitterHandle.new(null, Callable(), &"external", options)

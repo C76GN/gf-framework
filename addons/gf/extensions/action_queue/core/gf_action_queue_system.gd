@@ -343,8 +343,13 @@ func clear_queue(stop_current: bool = false) -> void:
 	_queue_head_index = 0
 	if stop_current:
 		_processing_serial += 1
+		var clearing_serial: int = _processing_serial
 		_set_paused(false)
+		if clearing_serial != _processing_serial:
+			return
 		_cancel_current_action()
+		if clearing_serial != _processing_serial:
+			return
 		is_processing = false
 		if (
 			was_processing
@@ -928,17 +933,22 @@ func _sort_interceptors() -> void:
 	)
 
 
-## 依序运行启用的前置拦截器并返回继续、替换、跳过或停止结果。
+## 依序运行阶段快照中的前置拦截器；清理或释放改变消费代次后停止旧链，包括替换动作的注入回调。
 ## [br]
 ## @api private
 func _apply_before_interceptors(action: Object) -> GFActionInterceptionResult:
+	var current_serial: int = _processing_serial
 	var current_action: Object = action
 	for interceptor: GFActionInterceptor in _get_enabled_interceptors():
 		var result: GFActionInterceptionResult = interceptor._before_execute(current_action, self)
+		if _is_disposed or current_serial != _processing_serial:
+			return GFActionInterceptionResult.stop_queue()
 		result = _normalize_interception_result(result)
 		if result.is_replace():
 			current_action = result.replacement_action
 			_inject_action_dependencies(current_action)
+			if _is_disposed or current_serial != _processing_serial:
+				return GFActionInterceptionResult.stop_queue()
 			continue
 		if not result.is_continue():
 			return result

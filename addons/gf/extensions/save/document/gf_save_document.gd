@@ -527,6 +527,42 @@ static func from_dict(data: Dictionary) -> GFSaveDocument:
 	)
 
 
+# --- 框架内部方法 ---
+
+## 仅为 payload 与同次原生读取仍严格相等的分区绑定输入来源；迁移改过的分区沿用其新载荷的严格编码合同。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param read_result: 用来构造本文档的同次 Storage 读取；为空或已迁移时清除所有分区来源。
+func bind_storage_json_projection_for_framework(read_result: GFStorageReadResult) -> void:
+	var original_sections: Dictionary = {}
+	if (
+		read_result != null
+		and read_result.ok
+		and not read_result.migrated
+	):
+		original_sections = GFVariantData.as_dictionary(read_result.payload.get("sections"))
+	for section_id_value: Variant in _sections:
+		var section: GFSaveSection = _sections[section_id_value]
+		var section_id: String = String(section.get_section_id())
+		var original_value: Variant = original_sections.get(section_id)
+		var original: Dictionary = GFVariantData.as_dictionary(original_value)
+		if not original.has("payload") or original.get("payload") != section.get_payload():
+			section.bind_storage_json_projection_for_framework(null, [])
+			continue
+		section.bind_storage_json_projection_for_framework(
+			read_result,
+			[
+				GFStorageCodec.PAYLOAD_KEY,
+				"sections",
+				section_id,
+				"payload",
+			]
+		)
+
+
 # --- 私有/辅助方法 ---
 
 ## 将持久化值校验失败追加为带字段路径的报告项。

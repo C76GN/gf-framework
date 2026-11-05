@@ -31,6 +31,7 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export_range(1, 256, 1)
 var projectile_count: int = 1
 ```
 
@@ -44,6 +45,7 @@ var projectile_count: int = 1
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var yaw_spread_degrees: float = 0.0
 ```
 
@@ -57,6 +59,7 @@ var yaw_spread_degrees: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var pitch_degrees: float = 0.0
 ```
 
@@ -70,6 +73,7 @@ var pitch_degrees: float = 0.0
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var radius: float = 0.0
 ```
 

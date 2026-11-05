@@ -4,6 +4,52 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_input_event_returns_current_assignment_after_active_player_callback_reassigns() -> void:
+	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()
+	utility.include_keyboard_mouse = false
+	utility.include_touch = false
+	utility.max_players = 3
+	utility.set_assignment(
+		utility.create_assignment(
+			0,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			6
+		)
+	)
+	utility.set_assignment(
+		utility.create_assignment(
+			1,
+			GFInputDeviceAssignment.DeviceType.JOYPAD,
+			7
+		)
+	)
+	utility.set_active_player(0)
+	var changed_callback: Callable = func(player_index: int) -> void:
+		if player_index == 1:
+			utility.set_assignment(
+				utility.create_assignment(
+					2,
+					GFInputDeviceAssignment.DeviceType.JOYPAD,
+					7
+				)
+			)
+	var _connected: int = utility.active_player_changed.connect(changed_callback)
+	var event: InputEventJoypadButton = InputEventJoypadButton.new()
+	event.device = 7
+	event.button_index = JOY_BUTTON_A
+	event.pressed = true
+	assert_eq(
+		utility.handle_input_event(event),
+		2
+	)
+	assert_eq(
+		utility.get_player_for_event(event),
+		2
+	)
+	utility.active_player_changed.disconnect(changed_callback)
+	utility.dispose()
+
+
 ## 验证自动刷新可为首位玩家分配键鼠。
 func test_refresh_assigns_keyboard_mouse() -> void:
 	var utility: GFInputDeviceUtility = GFInputDeviceUtility.new()

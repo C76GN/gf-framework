@@ -50,6 +50,16 @@ const _KIND_MISSING_RESOURCE: String = "missing_resource"
 ## @api private
 const _KIND_RESOURCE_OUTSIDE_ROOT: String = "resource_outside_root"
 
+## 当前导出条目的已知字段具有错误类型时使用的问题类型。
+## [br]
+## @api private
+const _KIND_INVALID_EXPORT_ENTRY_FIELD_TYPE: String = "invalid_export_entry_field_type"
+
+## 当前导出条目的源路径规范化后为空时使用的问题类型。
+## [br]
+## @api private
+const _KIND_INVALID_SOURCE_PATH: String = "invalid_source_path"
+
 ## 归档内路径不符合相对路径约束时的问题类型。
 ## [br]
 ## @api private
@@ -109,13 +119,14 @@ var version: String = ""
 ## @since 6.0.0
 var root_path: String = ""
 
-## 导出条目列表。
+## 可直接编辑的导出条目列表；修改后应重新获取校验报告。
+## 报告规范化自己的集合副本，不回写本列表，也不冻结条目中的 Object 或 Resource。
 ## [br]
 ## @api public
 ## [br]
 ## @since 6.0.0
 ## [br]
-## @schema entries: Array[Dictionary]，每项包含 source_path、archive_path、role、resource_key、package_id、type_hint 和 metadata。
+## @schema entries: Array[Dictionary]，source_path 与 archive_path 为必需文本（String 或 StringName）；role、resource_key、package_id、type_hint 为可选文本，metadata 为可选 Dictionary。缺省值沿用 add_entry()，未知项目字段保留。
 var entries: Array[Dictionary] = []
 
 ## 计划诊断问题。
@@ -162,7 +173,8 @@ func clear() -> void:
 	_archive_package_scope = ""
 
 
-## 添加导出条目。
+## 添加导出条目，并按与最终复验相同的规则检查归档路径和规范化后的重复项。
+## 源路径只作非空文本规范化，不在此声明 scheme、包根、文件存在性或读取权限。
 ## [br]
 ## @api public
 ## [br]
@@ -188,15 +200,31 @@ func add_entry(
 	var normalized_source: String = _normalize_resource_path(source_path)
 	if normalized_source.is_empty():
 		return false
-	var normalized_archive: String = _normalize_archive_path(archive_path if not archive_path.strip_edges().is_empty() else _make_archive_path(normalized_source))
-	if normalized_archive.is_empty():
-		_append_issue(
-			"error",
-			_KIND_INVALID_ARCHIVE_PATH,
-			"archive path is invalid",
-			{ "source_path": normalized_source, "archive_path": archive_path, }
-		)
+	var entry: Dictionary = {
+		"source_path": normalized_source,
+		"archive_path": archive_path if not archive_path.strip_edges().is_empty() else _make_archive_path(normalized_source),
+		"role": role,
+		"resource_key": GFVariantData.get_option_string_name(entry_metadata, "resource_key"),
+		"package_id": GFVariantData.get_option_string_name(
+			entry_metadata,
+			"package_id",
+			package_id
+		),
+		"type_hint": GFVariantData.get_option_string(entry_metadata, "type_hint"),
+		"metadata": entry_metadata.duplicate(true),
+	}
+	var entry_report: Dictionary = { "issues": [], }
+	if not _normalize_export_entry(
+		entry,
+		package_id,
+		entry_report,
+		entries.size()
+	):
+		for issue_value: Variant in GFVariantData.get_option_array(entry_report, "issues"):
+			var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+			issues.append(issue)
 		return false
+	var normalized_archive: String = entry["archive_path"]
 	if _has_archive_path(normalized_archive):
 		_append_issue(
 			"error",
@@ -205,21 +233,7 @@ func add_entry(
 			{ "path": normalized_archive, "source_path": normalized_source, }
 		)
 		return false
-	entries.append(
-		{
-			"source_path": normalized_source,
-			"archive_path": normalized_archive,
-			"role": role,
-			"resource_key": GFVariantData.get_option_string_name(entry_metadata, "resource_key"),
-			"package_id": GFVariantData.get_option_string_name(
-				entry_metadata,
-				"package_id",
-				package_id
-			),
-			"type_hint": GFVariantData.get_option_string(entry_metadata, "type_hint"),
-			"metadata": entry_metadata.duplicate(true),
-		}
-	)
+	entries.append(entry)
 	return true
 
 
@@ -341,7 +355,9 @@ func build_from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = 
 	return self
 
 
-## 获取导出计划诊断报告。
+## 捕获一次条目集合副本，规范化并完整复验该副本，返回同一份条目投影与诊断。
+## 当前条目错误仅写入本次报告；构建、失败添加和调用方保留的历史 issues 仍会合并。
+## 集合副本不改变公开 entries；Object/Resource 仍保持身份，不承诺线程或文件系统快照。
 ## [br]
 ## @api public
 ## [br]
@@ -349,22 +365,27 @@ func build_from_catalog(catalog: GFContentPackageCatalog, options: Dictionary = 
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
-## @schema return: Dictionary with ok, healthy, entries, entry_count, issues, summary, and next_action.
+## @schema return: Dictionary with ok, healthy, entries (normalized collection snapshot), entry_count, issues, summary, and next_action. Current entry issues include row_index and field; missing optional fields use add_entry() defaults.
 func get_validation_report() -> Dictionary:
+	var captured_entries: Array[Dictionary] = _copy_entries()
+	var captured_package_id: StringName = package_id
 	var report: Dictionary = {
 		"subject": _REPORT_SUBJECT,
-		"package_id": package_id,
+		"package_id": captured_package_id,
 		"version": version,
 		"root_path": root_path,
-		"entry_count": entries.size(),
-		"entries": _copy_entries(),
-		"issues": [],
+		"entry_count": captured_entries.size(),
+		"entries": captured_entries,
+		"issues": _copy_issues(),
 	}
-	var report_issues: Array = GFVariantData.get_option_array(report, "issues")
-	for issue: Dictionary in issues:
-		report_issues.append(issue.duplicate(true))
-	report["issues"] = report_issues
-	_append_archive_path_uniqueness_issues(report)
+	for index: int in captured_entries.size():
+		var _valid: bool = _normalize_export_entry(
+			captured_entries[index],
+			captured_package_id,
+			report,
+			index
+		)
+	_append_archive_path_uniqueness_issues(captured_entries, report)
 	return GFValidationReportDictionary.finalize_report(
 		report,
 		_REPORT_SUBJECT,
@@ -386,24 +407,26 @@ func get_validation_report() -> Dictionary:
 ## [br]
 ## @schema return: Dictionary with ok, healthy, artifacts, artifact_count, existing_count, missing_count, unreadable_count, total_size_bytes, issues, summary, and next_action.
 func get_artifact_report(options: Dictionary = {}) -> Dictionary:
+	var plan_report: Dictionary = get_validation_report()
+	var captured_entries: Array = GFVariantData.get_option_array(plan_report, "entries")
 	var artifacts: Array[Dictionary] = []
 	var report: Dictionary = {
 		"subject": _ARTIFACT_REPORT_SUBJECT,
 		"package_id": package_id,
 		"version": version,
 		"root_path": root_path,
-		"entry_count": entries.size(),
+		"entry_count": captured_entries.size(),
 		"artifact_count": 0,
 		"existing_count": 0,
 		"missing_count": 0,
 		"unreadable_count": 0,
 		"total_size_bytes": 0,
 		"artifacts": artifacts,
-		"issues": _copy_issues(),
+		"issues": GFVariantData.get_option_array(plan_report, "issues"),
 	}
-	for index: int in range(entries.size()):
+	for index: int in range(captured_entries.size()):
 		var artifact: Dictionary = _make_artifact_entry(
-			entries[index],
+			GFVariantData.as_dictionary(captured_entries[index]),
 			index,
 			options,
 			report
@@ -768,14 +791,128 @@ func _append_manifest_file_entry(
 	)
 
 
-## 遍历计划条目并为重复的归档路径追加错误，标出后续重复项索引。
+## 仅规范化调用方给出的候选或捕获副本；检查已知字段，保留未知项目字段与元数据对象身份。
+## 不读取文件或按计划根限制源路径；所有当前错误都写到本次 report，不追加历史 issues。
 ## [br]
 ## @api private
-func _append_archive_path_uniqueness_issues(report: Dictionary) -> void:
+func _normalize_export_entry(
+	entry: Dictionary,
+	default_package_id: StringName,
+	report: Dictionary,
+	row_index: int
+) -> bool:
+	var valid: bool = true
+	var defaults: Dictionary = {
+		"role": &"resource",
+		"resource_key": &"",
+		"package_id": default_package_id,
+		"type_hint": "",
+	}
+	var text_fields: PackedStringArray = PackedStringArray(
+		[
+			"source_path",
+			"archive_path",
+			"role",
+			"resource_key",
+			"package_id",
+			"type_hint",
+		]
+	)
+	for field: String in text_fields:
+		var value: Variant = entry.get(
+			field,
+			defaults.get(field)
+		)
+		var text: String = ""
+		if value is String:
+			text = value
+		elif value is StringName:
+			var name_value: StringName = value
+			text = String(name_value)
+		else:
+			_append_entry_field_type_issue(
+				report,
+				row_index,
+				field,
+				"String or StringName"
+			)
+			valid = false
+			continue
+		if field == "source_path" or field == "archive_path":
+			var normalized: String = _normalize_resource_path(text) if field == "source_path" else _normalize_archive_path(text)
+			if normalized.is_empty():
+				var kind: String = _KIND_INVALID_SOURCE_PATH if field == "source_path" else _KIND_INVALID_ARCHIVE_PATH
+				var message: String = "source path is invalid" if field == "source_path" else "archive path is invalid"
+				var fields: Dictionary = {
+					"path": text,
+					"row_index": row_index,
+					"field": field,
+				}
+				if field == "archive_path":
+					fields["archive_path"] = text
+					var source_value: Variant = entry.get("source_path")
+					if source_value is String:
+						fields["source_path"] = source_value
+					elif source_value is StringName:
+						var source_name: StringName = source_value
+						fields["source_path"] = String(source_name)
+				var _path_issue: Dictionary = GFValidationReportDictionary.append_issue(
+					report,
+					"error",
+					StringName(kind),
+					message,
+					fields
+				)
+				valid = false
+				continue
+			entry[field] = normalized
+		elif field == "type_hint":
+			entry[field] = text
+		else:
+			entry[field] = StringName(text)
+	var entry_metadata: Variant = entry.get("metadata", {})
+	if entry_metadata is Dictionary:
+		entry["metadata"] = entry_metadata
+	else:
+		_append_entry_field_type_issue(
+			report,
+			row_index,
+			"metadata",
+			"Dictionary"
+		)
+		valid = false
+	return valid
+
+
+## 为字段类型错误记录稳定位置；不把不合法对象转换为文本或执行其项目回调。
+## [br]
+## @api private
+func _append_entry_field_type_issue(
+	report: Dictionary,
+	row_index: int,
+	field: String,
+	expected_type: String
+) -> void:
+	var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+		report,
+		"error",
+		StringName(_KIND_INVALID_EXPORT_ENTRY_FIELD_TYPE),
+		"export entry field has an invalid type",
+		{
+			"row_index": row_index,
+			"field": field,
+			"expected_type": expected_type,
+		}
+	)
+
+
+## 检查捕获副本中的规范化归档路径，只为后续重复项追加当前错误。
+## [br]
+## @api private
+func _append_archive_path_uniqueness_issues(captured_entries: Array[Dictionary], report: Dictionary) -> void:
 	var seen: Dictionary = {}
-	for index: int in range(entries.size()):
-		var entry: Dictionary = entries[index]
-		var archive_path: String = GFVariantData.get_option_string(entry, "archive_path")
+	for index: int in captured_entries.size():
+		var archive_path: String = _get_entry_archive_key(captured_entries[index])
 		if archive_path.is_empty():
 			continue
 		if seen.has(archive_path):
@@ -784,20 +921,38 @@ func _append_archive_path_uniqueness_issues(report: Dictionary) -> void:
 				"error",
 				StringName(_KIND_DUPLICATE_ARCHIVE_PATH),
 				"archive path is duplicated",
-				{ "path": archive_path, "row_index": index, }
+				{
+					"path": archive_path,
+					"row_index": index,
+					"field": "archive_path",
+				}
 			)
 			continue
 		seen[archive_path] = true
 
 
-## 判断当前计划是否已有完全相同的 archive_path。
+## 判断当前计划是否已有相同规范化归档路径，包括尚未通过最终复验的手动条目。
 ## [br]
 ## @api private
 func _has_archive_path(archive_path: String) -> bool:
 	for entry: Dictionary in entries:
-		if GFVariantData.get_option_string(entry, "archive_path") == archive_path:
+		if _get_entry_archive_key(entry) == archive_path:
 			return true
 	return false
+
+
+## 读取可用于冲突检查的路径键；无效类型或路径不参与比较，不调用任意对象的文本转换。
+## [br]
+## @api private
+func _get_entry_archive_key(entry: Dictionary) -> String:
+	var value: Variant = entry.get("archive_path")
+	if value is String:
+		var text_value: String = value
+		return _normalize_archive_path(text_value)
+	if value is StringName:
+		var archive_name: StringName = value
+		return _normalize_archive_path(String(archive_name))
+	return ""
 
 
 ## 读取单条目的文件状态、尺寸及可选时间和 SHA-256，并记录对应问题。

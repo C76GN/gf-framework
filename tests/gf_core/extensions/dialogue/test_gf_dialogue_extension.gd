@@ -1792,6 +1792,112 @@ func test_dialogue_runner_blocks_automatic_mutation_cycle_before_replay() -> voi
 	)
 
 
+func test_dialogue_unlimited_budget_detects_blocked_fallback_cycles_without_hanging() -> void:
+	for two_lines: bool in [false, true]:
+		var resource: GFDialogueResource = GFDialogueResource.new()
+		resource.start_line_id = &"first"
+		var first: GFDialogueLine = _make_text_line(
+			&"first",
+			"First",
+			&""
+		)
+		first.condition_id = &"blocked"
+		first.fallback_line_id = &"second" if two_lines else &"first"
+		resource.set_line(first)
+		if two_lines:
+			var second: GFDialogueLine = _make_text_line(
+				&"second",
+				"Second",
+				&""
+			)
+			second.condition_id = &"blocked"
+			second.fallback_line_id = &"first"
+			resource.set_line(second)
+		var runner: GFDialogueRunner = GFDialogueRunner.new()
+		runner.max_steps_per_advance = 0
+		var calls: Array[int] = [0]
+		var context: GFDialogueContext = GFDialogueContext.new()
+		context.condition_handler = func(
+			_condition_id: StringName,
+			_payload: Variant,
+			_subject: Variant,
+			_context: GFDialogueContext
+		) -> bool:
+			calls[0] += 1
+			if calls[0] > 4:
+				runner.stop()
+			return false
+		watch_signals(runner)
+
+		assert_null(
+			runner.start(
+				resource,
+				&"",
+				context
+			)
+		)
+		assert_false(runner.is_running())
+		assert_eq(
+			calls[0],
+			3 if two_lines else 2,
+			"重复条件应可再次评估，但不能无限重放 fallback。"
+		)
+		assert_signal_emitted_with_parameters(
+			runner,
+			"line_blocked",
+			[&"first", &"automatic_cycle_detected"]
+		)
+		context.condition_handler = Callable()
+
+
+func test_dialogue_blocked_fallback_back_edge_can_enter_when_condition_changes() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"guarded"
+	var guarded: GFDialogueLine = _make_text_line(
+		&"guarded",
+		"Guarded",
+		&""
+	)
+	guarded.condition_id = &"ready"
+	guarded.fallback_line_id = &"guarded"
+	resource.set_line(guarded)
+	var calls: Array[int] = [0]
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.condition_handler = func(
+		_condition_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		calls[0] += 1
+		return calls[0] >= 2
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	runner.max_steps_per_advance = 0
+	watch_signals(runner)
+
+	var reached: GFDialogueLine = runner.start(
+		resource,
+		&"",
+		context
+	)
+	assert_eq(reached, guarded)
+	assert_eq(
+		calls[0],
+		2
+	)
+	assert_signal_emit_count(
+		runner,
+		"line_blocked",
+		1
+	)
+	assert_signal_emitted_with_parameters(
+		runner,
+		"line_blocked",
+		[&"guarded", &"line_condition_failed"]
+	)
+	context.condition_handler = Callable()
+
+
 func test_dialogue_runner_allows_condition_to_exit_automatic_back_edge() -> void:
 	var resource: GFDialogueResource = GFDialogueResource.new()
 	resource.start_line_id = &"loop"
@@ -2751,6 +2857,33 @@ func test_dialogue_runner_fails_closed_when_resource_identity_is_not_stable() ->
 	assert_push_error("[GFDialogueRunner][dialogue_runner.incomplete_resource_identity] Refused an incomplete resource identity (unsupported_variant")
 
 
+func test_dialogue_identity_rejects_lossy_projection_instead_of_hashing_null() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"line"
+	var line: GFDialogueLine = _make_text_line(
+		&"line",
+		"Line",
+		&""
+	)
+	line.metadata = { "projection": Projection() }
+	resource.set_line(line)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+
+	assert_null(runner.start(resource))
+	assert_false(runner.is_running())
+	assert_push_error("[GFDialogueRunner][dialogue_runner.resource_identity_encoding_failed] Could not encode the complete resource identity.")
+
+	line.metadata = { "projection": null }
+	assert_not_null(runner.start(resource))
+	assert_false(
+		GFVariantData.get_option_string(
+			runner.create_runtime_snapshot(),
+			"resource_fingerprint"
+		).is_empty()
+	)
+	runner.stop()
+
+
 func test_dialogue_condition_reentry_preserves_replacement_session() -> void:
 	var original: GFDialogueResource = GFDialogueResource.new()
 	original.start_line_id = &"guarded"
@@ -2896,6 +3029,64 @@ func test_dialogue_line_reached_reentry_returns_stale_null() -> void:
 			&"replacement",
 			"替换会话应保持当前行。"
 		)
+
+
+func test_dialogue_empty_advance_stops_old_response_conditions_after_session_replacement() -> void:
+	var original: GFDialogueResource = GFDialogueResource.new()
+	original.start_line_id = &"original"
+	var original_line: GFDialogueLine = _make_text_line(
+		&"original",
+		"Original",
+		&""
+	)
+	for condition_id: StringName in [&"replace", &"stop"]:
+		var response: GFDialogueResponse = GFDialogueResponse.new()
+		response.response_id = condition_id
+		response.condition_id = condition_id
+		original_line.responses.append(response)
+	original.set_line(original_line)
+	var replacement: GFDialogueResource = GFDialogueResource.new()
+	replacement.start_line_id = &"replacement"
+	replacement.set_line(
+		_make_text_line(
+			&"replacement",
+			"Replacement",
+			&""
+		)
+	)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var conditions: Array[StringName] = []
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.condition_handler = func(
+		condition_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		conditions.append(condition_id)
+		if condition_id == &"replace":
+			var _replacement_line: GFDialogueLine = runner.start(replacement)
+		else:
+			runner.stop()
+		return true
+	var _original_line: GFDialogueLine = runner.start(
+		original,
+		&"",
+		context
+	)
+
+	assert_null(runner.advance())
+	assert_eq(
+		conditions,
+		[&"replace"],
+		"session 作废后不得再派发第二个旧 response 条件。"
+	)
+	assert_true(runner.is_running())
+	var current_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(current_line)
+	if current_line != null:
+		assert_eq(current_line.line_id, &"replacement")
+	context.condition_handler = Callable()
 
 
 func test_dialogue_response_condition_reentry_preserves_replacement_session() -> void:

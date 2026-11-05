@@ -104,6 +104,113 @@ func test_trait_set_calculates_number() -> void:
 	)
 
 
+func test_trait_set_direct_resource_list_honors_current_priorities() -> void:
+	var addition: GFTrait = GFTrait.new()
+	addition.target_id = &"power"
+	addition.value = 5.0
+	addition.combine_mode = GFTrait.CombineMode.ADD
+	var multiplication: GFTrait = GFTrait.new()
+	multiplication.target_id = &"power"
+	multiplication.value = 2.0
+	multiplication.combine_mode = GFTrait.CombineMode.MULTIPLY
+	multiplication.priority = 1
+	var trait_set: GFTraitSet = GFTraitSet.new()
+	trait_set.traits = [multiplication, addition]
+	assert_eq(
+		trait_set.calculate_number(&"power", 10.0),
+		30.0
+	)
+	multiplication.priority = -1
+	assert_eq(
+		trait_set.calculate_number(&"power", 10.0),
+		25.0
+	)
+
+
+func test_inventory_add_overflow_preserves_previous_amount() -> void:
+	var inventory: GFInventoryModel = GFInventoryModel.new()
+	inventory.add_item(&"item", 9223372036854775807)
+	inventory.add_item(&"item", 1)
+	assert_eq(
+		inventory.get_item_amount(&"item"),
+		9223372036854775807
+	)
+	assert_true(inventory.remove_item(&"item", 1))
+	assert_eq(
+		inventory.get_item_amount(&"item"),
+		9223372036854775806
+	)
+
+
+func test_slot_inventory_wildcard_removal_matches_preflight() -> void:
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.set_slot_count(5)
+	var _added_default: GFInventoryOperationResult = inventory.add_item(&"item", 2)
+	var _added_variant: GFInventoryOperationResult = inventory.add_item(
+		&"item",
+		3,
+		{ "variant": "rare" }
+	)
+	var result: GFInventoryOperationResult = inventory.remove_item(
+		&"item",
+		4,
+		{},
+		-1,
+		false
+	)
+	assert_true(result.ok)
+	assert_eq(result.accepted_amount, 4)
+	assert_eq(
+		inventory.get_item_total(&"item"),
+		1
+	)
+	var before: Dictionary = inventory.to_dict()
+	var rejected: GFInventoryOperationResult = inventory.remove_item(
+		&"item",
+		2,
+		{ "variant": "rare" },
+		-1,
+		false
+	)
+	assert_false(rejected.ok)
+	assert_eq(
+		inventory.to_dict(),
+		before
+	)
+
+
+func test_slot_inventory_explicit_default_filter_is_not_a_wildcard() -> void:
+	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	definition.item_id = &"item"
+	definition.default_instance_data = { "variant": "normal" }
+	definition.max_stack_amount = 10
+	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
+	registry.set_definition(definition)
+	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
+	inventory.registry = registry
+	inventory.set_slot_count(2)
+	var _normal: GFInventoryOperationResult = inventory.add_item(&"item", 2)
+	var _rare: GFInventoryOperationResult = inventory.add_item(
+		&"item",
+		3,
+		{ "variant": "rare" }
+	)
+	var before: Dictionary = inventory.to_dict()
+	var result: GFInventoryOperationResult = inventory.remove_item(
+		&"item",
+		4,
+		{ "variant": "normal" },
+		-1,
+		false
+	)
+	assert_false(result.ok)
+	assert_eq(result.accepted_amount, 0)
+	assert_eq(
+		inventory.to_dict(),
+		before
+	)
+
+
 func test_trait_set_ignores_non_finite_traits_and_results() -> void:
 	var trait_set: GFTraitSet = GFTraitSet.new()
 	var invalid_trait: GFTrait = GFTrait.new()

@@ -4,6 +4,34 @@ extends GutTest
 
 # --- 辅助类 ---
 
+class InjectionCancellingStep extends RefCounted:
+	var cancel_callback: Callable
+	var injection_count: int = 0
+	var cancel_on_injection: int = 1
+	var execute_count: int = 0
+	var undo_count: int = 0
+	var secondary_injection_count: int = 0
+
+	func inject_dependencies(_architecture: GFArchitecture) -> void:
+		injection_count += 1
+		if injection_count == cancel_on_injection:
+			cancel_callback.call()
+
+
+	func inject(_architecture: GFArchitecture) -> void:
+		secondary_injection_count += 1
+
+
+	func execute() -> Variant:
+		execute_count += 1
+		return null
+
+
+	func undo() -> Variant:
+		undo_count += 1
+		return null
+
+
 class RecordingStep extends GFSequenceStep:
 	var order: Array[String] = []
 	var label: String = ""
@@ -1199,6 +1227,35 @@ func test_sequence_does_not_inject_unsupported_object() -> void:
 		"unsupported_step",
 		"对象仍应按不支持步骤失败。"
 	)
+
+
+func test_injection_cancellation_prevents_execute_and_undo() -> void:
+	for cancel_on: int in [1, 2]:
+		var architecture: GFArchitecture = GFArchitecture.new()
+		var step: InjectionCancellingStep = InjectionCancellingStep.new()
+		step.cancel_on_injection = cancel_on
+		var sequence: GFCommandSequence = GFCommandSequence.new(
+			[
+				step,
+				func() -> Dictionary:
+					return { "ok": false, "error": "failure" },
+			]
+		).with_failure_policy(true, true)
+		step.cancel_callback = sequence.cancel
+		sequence.inject_dependencies(architecture)
+		await sequence.run()
+		assert_eq(
+			step.execute_count,
+			cancel_on - 1
+		)
+		assert_eq(
+			step.secondary_injection_count,
+			cancel_on - 1
+		)
+		assert_eq(step.undo_count, 0)
+		if cancel_on == 2:
+			assert_true(GFVariantData.get_option_bool(sequence.last_run_report, "rollback_cancelled"))
+		step.cancel_callback = Callable()
 
 
 func test_sequence_compensates_failed_step_only_when_explicitly_requested() -> void:

@@ -2,7 +2,7 @@
 
 Combat 是 GF 随框架分发的可选战斗基础扩展。它提供属性修饰、标签组件、Buff、技能、目标选择、命中桥接、发射体、动作数值槽和 `GFCombatSystem`，但不内置伤害公式、阵营规则、特效、输入、动画状态机或具体游戏玩法。
 
-Combat 属于业务型扩展外置候选：当前随 GF 包分发以便统一测试和文档，但保持默认关闭、原子依赖和无跨扩展硬引用。项目应通过 preset、项目 Installer 或 `addons/gf` 外的独立插件组合它，而不是让 kernel、standard 或其他内置扩展主动依赖 Combat。
+Combat 随完整 GF 包分发，保持默认关闭，只依赖 kernel/standard，不引用其他内置扩展。项目可通过 preset、项目 Installer 或 `addons/gf` 外的独立插件组合它；战斗规则和跨扩展协作由项目负责。
 
 ## 阅读入口
 

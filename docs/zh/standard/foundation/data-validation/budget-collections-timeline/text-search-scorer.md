@@ -50,6 +50,22 @@ var partial := GFTextSearchScorer.rank_candidates("audio missing", candidates, {
 
 默认结果只包含命中的候选。需要在调用方 UI 中显示未命中项或调试空分数时，可以启用 `include_unmatched`。
 
+## 搜索排序
+
+默认预设 `relevance` 将命中放在前面，按精确分数降序排列。精确同分时按小写标题（缺失时取 `name`）升序，同名再按原输入索引。旧版使用两两近似比较，升级后分数接近的候选可能换位。启用 `include_unmatched` 后，未命中项排在所有命中项之后，按名称和原输入索引排列。空查询或只含分隔符时没有命中，默认返回空数组。
+
+名称浏览预设 `name_browse` 先按分数分档，高档优先。同档内只比较名称和原输入索引。默认档宽为 **100**，边界从零开始，左端包含、右端不包含。例如 3,100 至不足 3,200 分属于同一档，3,200 分属于再高一档。使用默认字段的标题样本中，搜索 `audio` 时 `UI Audio` 得 3,188 分，`Background Audio` 得 3,156 分，`Deep Underwater Environment Audio` 得 3,088 分。档宽 25 会把前两项拆开，500 会把三项全部合并。100 让前两项同档按名称浏览，第三项仍留在下一档。
+
+```gdscript
+# 资源选择器采用名称浏览预设，无需提供档宽。
+var page := GFTextSearchScorer.rank_candidates("audio", candidates, {
+	"sort_preset": "name_browse",
+	"limit": 20,
+})
+```
+
+评分尺度取决于字段权重。使用自定义权重的项目可以在名称浏览预设中设置正有限数 `band_width`，无效值回退到 100，未知预设采用精确排序。两种策略都先排列完整结果，再截取 `limit`。原输入顺序改变时，同分同名候选的先后也可能改变。
+
 ## 使用边界
 
 `GFTextSearchScorer` 适合命令面板、资源选择器、设置搜索、运行时列表过滤和项目自定义工具的基础评分。它不负责文件遍历、缓存失效、异步索引、编辑器快捷键、打开资源或高亮渲染；这些流程应由上层 Utility、Editor 插件或项目代码组合。

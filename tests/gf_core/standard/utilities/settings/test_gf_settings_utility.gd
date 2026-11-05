@@ -1409,6 +1409,48 @@ func test_stage_value_equal_to_effective_value_clears_pending_value() -> void:
 	)
 
 
+## 本次提交发布有效值后产生的新草稿属于下一次编辑，不随旧草稿消费。
+func test_apply_staged_values_preserves_callback_new_draft() -> void:
+	var _registered: Variant = _settings.register_setting(
+		&"audit/value",
+		0,
+		GFSettingDefinition.ValueType.INT
+	)
+	_settings.stage_value(&"audit/value", 1)
+	var _connected: int = _settings.setting_changed.connect(
+		func(
+			key: StringName,
+			_old: Variant,
+			next: Variant
+		) -> void:
+			if key == &"audit/value" and next == 1:
+				_settings.stage_value(key, 2)
+	)
+	var report: Dictionary = _settings.apply_staged_values({ "save_after_change": false })
+	_assert_int_value(
+		_settings.get_value(&"audit/value"),
+		1
+	)
+	_assert_int_value(
+		_settings.get_staged_value(&"audit/value"),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "staged_applied_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "staged_remaining_count"),
+		1
+	)
+	var _second: Dictionary = _settings.apply_staged_values({ "save_after_change": false })
+	_assert_int_value(
+		_settings.get_value(&"audit/value"),
+		2
+	)
+	assert_false(_settings.has_staged_value(&"audit/value"))
+
+
 func test_apply_staged_values_commits_selected_keys_and_preserves_remaining() -> void:
 	var _register_setting_result_149: Variant = _settings.register_setting(
 		&"audio/master",
@@ -2028,6 +2070,13 @@ func _write_fallback_text(file_name: String, content: String) -> void:
 
 func _setting_bool(settings: GFSettingsUtility, key: StringName) -> bool:
 	return GFVariantData.to_bool(settings.get_value(key))
+
+
+func _assert_int_value(value: Variant, expected: int) -> void:
+	assert_true(value is int)
+	if value is int:
+		var actual: int = value
+		assert_eq(actual, expected)
 
 
 func _setting_int(settings: GFSettingsUtility, key: StringName) -> int:

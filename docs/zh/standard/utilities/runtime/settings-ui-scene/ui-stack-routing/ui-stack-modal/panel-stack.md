@@ -6,17 +6,23 @@
 
 ## 启动装配
 
+初始化创建显示 host 和层节点时，树信号中的同步 `dispose()` 会撤销当前初始化，旧调用不会重新激活工具或发布迟到的层记录。该次 `init()` 返回后，后续显式 `init()` 仍可重新建立 UI 层级。
+
 长期使用的 UI 与 Router 应在项目 Installer 中注册。需要自定义层时，先配置同一个 UI 实例，再交给架构接管：
 
 ```gdscript
+## 组装项目的独立 UI 导航层，UI 与 Router 随架构生命周期运行。
 class_name GameInstaller
 extends GFInstaller
 
 
+## 逻辑层 ID 只标识独立栈；绘制顺序由注册定义中的 canvas_layer 决定。
 const CHAT_LAYER: int = 100
+## 背包使用独立导航栈，不能凭较大 ID 推断绘制优先级。
 const INVENTORY_LAYER: int = 101
 
 
+## 先配置并注册 UI，再装配依赖它的 Router；取消后停止后续装配。
 func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 	var ui := GFUIUtility.new()
 	ui.register_layer(GFUILayerDefinition.new().configure(
@@ -75,6 +81,8 @@ ui.pop_to_panel(inventory_panel, GFUIUtility.Layer.POPUP)
 
 异步请求的精确终态、同步 fallback 与回调时序见[生命周期与异步加载](async-lifecycle.md)。
 
+`pop_to_panel()` 在关闭回调移除目标或导航不再取得进展时返回 `false`，不会继续对空栈弹出。异步替换在旧面板关闭或新面板配置回调中被取消时，也不会继续挂载该请求的候选面板；回调发起的新导航由其自身请求负责。
+
 ## 并行窗口与遮挡策略
 
 左右窗口需要独立打开、返回和清理时，应使用两个逻辑层，即使它们共享同一个 `canvas_layer`。这样聊天和背包各自维护栈，不会因为一个区域 `pop` 或 `replace` 而改变另一区域。
@@ -119,6 +127,7 @@ ui.push_panel_instance_with_options(settings_panel, GFUIUtility.Layer.POPUP, {
 UIUtility 拥有一个 host 子树，所有层的 `CanvasLayer` 和入栈 Panel 都位于其中。全局 UI 默认把 host 挂在 `SceneTree.root`；局部 UI 必须在注册和初始化前明确配置业务 Context：
 
 ```gdscript
+## Context 的装配片段：借用 self 作为业务来源，初始化时来源必须在树内。
 func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	var ui: GFUIUtility = GFUIUtility.new()
 	if not ui.configure_host(self):

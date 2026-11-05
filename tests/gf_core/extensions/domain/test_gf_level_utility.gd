@@ -435,6 +435,76 @@ func test_complete_current_level_updates_progress_and_unlocks_next_levels() -> v
 	)
 
 
+func test_completed_level_signal_keeps_original_identity_after_switch() -> void:
+	var _started: Dictionary = _level.start_level(
+		&"first",
+		{ "name": "first" }
+	)
+	var _connected: Error = _progress.level_completed.connect(
+		func(level_id: StringName, _result: Dictionary) -> void:
+			if level_id == &"first":
+				var _replacement: Dictionary = _level.start_level(
+					&"second",
+					{ "name": "second" }
+				)
+	) as Error
+	watch_signals(_level)
+
+	_level.complete_current_level()
+
+	assert_eq(_level.current_level_id, &"second")
+	assert_signal_emitted_with_parameters(
+		_level,
+		"level_won",
+		[&"first"]
+	)
+	assert_false(_progress.is_level_completed(&"second"))
+
+
+func test_restart_cleanup_cannot_overwrite_replacement_level() -> void:
+	var _started: Dictionary = _level.start_level(
+		&"first",
+		{ "name": "first" }
+	)
+	var _registered: bool = _level.register_runtime_cleanup(
+		&"replace_level",
+		func() -> void:
+			var _replacement: Dictionary = _level.start_level(
+				&"second",
+				{ "name": "second" }
+			)
+	)
+	watch_signals(_level)
+
+	var restarted: Dictionary = _level.restart_level()
+
+	assert_true(restarted.is_empty())
+	assert_eq(_level.current_level_id, &"second")
+	assert_eq(
+		_level.current_level_data,
+		{ "name": "second" }
+	)
+	assert_signal_not_emitted(_level, "level_restarted")
+
+
+func test_restart_cleanup_clear_or_dispose_stops_old_restart() -> void:
+	for stop_method: StringName in [&"clear_current_level", &"dispose"]:
+		var level: GFLevelUtility = GFLevelUtility.new()
+		var _started: Dictionary = level.start_level(
+			&"first",
+			{ "name": "first" }
+		)
+		var _registered: bool = level.register_runtime_cleanup(
+			&"stop",
+			func() -> void:
+				var _stopped: Variant = level.call(stop_method)
+		)
+		assert_true(level.restart_level().is_empty())
+		assert_eq(level.current_level_id, &"")
+		assert_true(level.current_level_data.is_empty())
+		level.dispose()
+
+
 func test_complete_with_unlock_next_false_keeps_declared_unlocks_only() -> void:
 	_config.records.clear()
 	_level.set_catalog(_make_catalog())

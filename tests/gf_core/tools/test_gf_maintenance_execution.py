@@ -5435,6 +5435,38 @@ class ProcessSupervisorPosixWatchdogTests(unittest.TestCase):
 
 
 class MaintenanceTextCaptureTests(unittest.TestCase):
+	def test_output_read_failure_cannot_publish_successful_capture(self) -> None:
+		original_start = gf_process_supervisor.start_output_pump
+		for selected_stream in ("stdout", "stderr"):
+			class FailingPipe:
+				def __init__(self, source: object) -> None:
+					self.source = source
+					self.read_count = 0
+
+				def readline(self, *args: object) -> object:
+					value = self.source.readline(*args)
+					self.read_count += 1
+					if self.read_count == 2:
+						raise OSError("synthetic capture read failure")
+					return value
+
+				def close(self) -> None:
+					self.source.close()
+
+			def start(pipe: object, parts: list[str], callback: object, stream_name: str, *args: object, **kwargs: object) -> object:
+				if stream_name == selected_stream:
+					pipe = FailingPipe(pipe)
+				return original_start(pipe, parts, callback, stream_name, *args, **kwargs)
+
+			with self.subTest(stream=selected_stream), mock.patch.object(gf_process_supervisor, "start_output_pump", side_effect=start):
+				result = gf_maintenance.run_command(
+					"capture-read-failure", [sys.executable, "-c", f"import sys; sys.{selected_stream}.write('ready\\nlost tail\\n')"],
+					10.0, environment=dict(os.environ),
+				)
+			self.assertNotEqual(result.exit_code, 0)
+			self.assertIn("ready", getattr(result, selected_stream))
+			self.assertTrue(any("capture failed" in note for note in result.notes), result.notes)
+
 	def test_capped_streams_deliver_short_progress_lines_before_process_exit(self) -> None:
 		cancel = threading.Event()
 		chunks: list[str] = []
@@ -8903,6 +8935,45 @@ class CorePluginBootstrapSmokeTests(unittest.TestCase):
 
 
 class LspFramingBoundaryTests(unittest.TestCase):
+	def test_owned_lsp_failure_retains_log_and_success_cleans_it(self) -> None:
+		for outcome in ("operation_error", "diagnostics", "timeout", "success"):
+			with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as directory:
+				project = Path(directory).resolve()
+				fixture = project / "fixture.gd"
+				fixture.write_text("extends Node\n", encoding="utf-8")
+				log = project / "owned.log"
+				owned = mock.Mock()
+				owned.has_lease = True
+				owned.operation_deadline = time.perf_counter() + 10.0
+				owned.command = ("C:/fixture/godot.exe",)
+				owned.start.side_effect = lambda: log.write_text("owned diagnostic evidence", encoding="utf-8")
+				owned.stop.return_value = gf_process_supervisor.SupervisedProcessResult(
+					return_code=0, stdout="", stderr="", timed_out=False, duration_seconds=0.1,
+					pid=4321, process_boundary_quiescent=True,
+				)
+				client = mock.Mock()
+				report = {"transport": {}, "summary": {
+					"timeout_count": int(outcome == "timeout"),
+					"failing_diagnostic_count": int(outcome == "diagnostics"),
+				}}
+				argv = ["lsp", "--project-root", str(project), "--spawn-lsp", "--port", "0",
+					"--include", "fixture.gd", "--log-file", str(log), "--format", "json"]
+				with (
+					mock.patch.object(sys, "argv", argv),
+					mock.patch.object(gdscript_lsp_diagnostics, "_reserve_local_port", return_value=49152),
+					mock.patch.object(gdscript_lsp_diagnostics, "_create_owned_godot_lsp", return_value=owned),
+					mock.patch.object(gdscript_lsp_diagnostics, "_connect_verified_owned_lsp_client", return_value=(client, 4321, 4321)),
+					mock.patch.object(gdscript_lsp_diagnostics, "_initialize_lsp"),
+					mock.patch.object(gdscript_lsp_diagnostics, "_verify_lsp_workspace", return_value=fixture.as_uri()),
+					mock.patch.object(gdscript_lsp_diagnostics, "_scan_files", side_effect=RuntimeError("scan failure") if outcome == "operation_error" else None, return_value=([], [])),
+					mock.patch.object(gdscript_lsp_diagnostics, "_make_report", return_value=report),
+					contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()),
+				):
+					code = gdscript_lsp_diagnostics.main()
+				self.assertEqual(code == 0, outcome == "success")
+				self.assertEqual(log.exists(), outcome != "success")
+				owned.stop.assert_called_once_with()
+
 	def _make_client(self, connection: socket.socket) -> gdscript_lsp_diagnostics.LspClient:
 		client = gdscript_lsp_diagnostics.LspClient.__new__(
 			gdscript_lsp_diagnostics.LspClient

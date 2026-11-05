@@ -39,6 +39,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var message_type: StringName = &""
 ```
 
@@ -51,6 +52,7 @@ var message_type: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var display_name: String = ""
 ```
 
@@ -63,6 +65,7 @@ var display_name: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var channel_id: StringName = &""
 ```
 
@@ -75,6 +78,7 @@ var channel_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var fields: Array[GFNetworkContractField] = []
 ```
 
@@ -91,6 +95,7 @@ payload 字段定义。
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

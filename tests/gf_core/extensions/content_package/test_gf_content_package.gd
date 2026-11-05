@@ -237,6 +237,91 @@ func test_manifest_dependency_security_scan_rejects_transitive_code_resource() -
 	)
 
 
+func test_manifest_dependency_security_scan_requires_complete_closure() -> void:
+	var root_path: String = TEMP_ROOT.path_join("dependency_completeness")
+	var leaf_path: String = root_path.path_join("leaf.tres")
+	_write_text_file(leaf_path, "[gd_resource type=\"Resource\" format=3]\n\n[resource]\n")
+	for entry: Array in [
+		["middle.tres", "leaf.tres"],
+		["root.tres", "middle.tres"],
+	]:
+		_write_text_file(
+			root_path.path_join(str(entry[0])),
+			"\n".join(
+				[
+					"[gd_resource type=\"Resource\" load_steps=2 format=3]",
+					"[ext_resource type=\"Resource\" path=\"%s\" id=\"1\"]" % root_path.path_join(str(entry[1])),
+					"[resource]",
+					"metadata/dependency = ExtResource(\"1\")",
+				]
+			)
+		)
+	var manifest: GFContentPackageManifest = _make_manifest(
+		&"author.dependency_completeness",
+		[],
+		[
+			{ "key": "root", "path": "root.tres" },
+		],
+		root_path
+	)
+	for dependency_options: Dictionary in [
+		{ "recursive": false },
+		{ "max_scan_depth": 1 },
+		{ "max_dependency_paths": 1 },
+		{
+			"extensions": PackedStringArray(["png"]),
+		},
+		{
+			"excluded_paths": PackedStringArray([leaf_path]),
+		},
+	]:
+		var report: Dictionary = manifest.get_validation_report({ "check_resource_dependencies": true, "dependency_options": dependency_options })
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"不完整闭包不能取得安全校验成功：%s" % dependency_options
+		)
+		assert_false(_find_issue(report, "resource_dependency_scan_failed").is_empty())
+	var complete_report: Dictionary = manifest.get_validation_report({ "check_resource_dependencies": true })
+	assert_true(GFVariantData.get_option_bool(complete_report, "ok"))
+	assert_true(manifest.is_valid())
+
+
+func test_export_artifact_report_consumes_normalized_entry_snapshot() -> void:
+	var source_path: String = TEMP_ROOT.path_join("normalized_artifact.txt")
+	_write_text_file(source_path, "content")
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	var original: Dictionary = { "source_path": "  %s  " % source_path, "archive_path": "  assets\\artifact.txt  " }
+	plan.entries.append(original)
+
+	var validation: Dictionary = plan.get_validation_report()
+	var artifact_report: Dictionary = plan.get_artifact_report()
+	var artifacts: Array = GFVariantData.get_option_array(artifact_report, "artifacts")
+	var artifact: Dictionary = GFVariantData.as_dictionary(artifacts[0])
+	var entries: Array = GFVariantData.get_option_array(validation, "entries")
+	var normalized: Dictionary = GFVariantData.as_dictionary(entries[0])
+	assert_true(GFVariantData.get_option_bool(artifact_report, "ok"))
+	for field_name: String in [
+		"source_path",
+		"archive_path",
+		"role",
+	]:
+		var field_matches: bool = artifact.get(field_name) == normalized.get(field_name)
+		assert_true(
+			field_matches,
+			"产物字段应与已校验快照一致：%s" % field_name
+		)
+	assert_true(
+		GFVariantData.get_option_bool(
+			plan.get_preflight_report(),
+			"ok"
+		)
+	)
+	assert_eq(
+		plan.entries[0],
+		original
+	)
+
+
 func test_manifest_requires_supported_schema_version_in_dictionary() -> void:
 	var missing_schema: GFContentPackageManifest = GFContentPackageManifest.from_dictionary(
 		{
@@ -1370,6 +1455,466 @@ func test_export_plan_rejects_duplicate_archive_paths_on_add_and_validation() ->
 	)
 
 
+func test_export_plan_revalidates_missing_empty_and_unsafe_manual_paths() -> void:
+	var invalid_entries: Array[Dictionary] = [
+		{},
+		{ "source_path": 42, "archive_path": "assets/icon.txt", },
+		{ "source_path": null, "archive_path": "assets/icon.txt", },
+		{ "source_path": [], "archive_path": "assets/icon.txt", },
+		{ "source_path": "", "archive_path": "assets/icon.txt", },
+		{ "source_path": " \t ", "archive_path": "assets/icon.txt", },
+		{ "source_path": "res://icon.txt", "archive_path": 42, },
+		{ "source_path": "res://icon.txt", "archive_path": null, },
+		{ "source_path": "res://icon.txt", "archive_path": [], },
+		{ "source_path": "res://icon.txt", "archive_path": "", },
+		{ "source_path": "res://icon.txt", "archive_path": "../escape/icon.txt", },
+		{ "source_path": "res://icon.txt", "archive_path": "assets/./icon.txt", },
+		{ "source_path": "res://icon.txt", "archive_path": "assets//icon.txt", },
+		{ "source_path": "res://icon.txt", "archive_path": "/escape/icon.txt", },
+		{ "source_path": "res://icon.txt", "archive_path": "C:/escape/icon.txt", },
+	]
+	for invalid_entry: Dictionary in invalid_entries:
+		var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+		plan.entries.append(invalid_entry)
+		var report: Dictionary = plan.get_validation_report()
+		var report_issues: Array = GFVariantData.get_option_array(report, "issues")
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"直接追加的条目必须重新校验，不能因归档路径没有重复而通过。"
+		)
+		assert_false(
+			report_issues.is_empty(),
+			"无效条目必须给出当前错误。"
+		)
+		if not report_issues.is_empty():
+			var issue: Dictionary = GFVariantData.as_dictionary(report_issues[0])
+			assert_eq(
+				GFVariantData.get_option_int(
+					issue,
+					"row_index",
+					-1
+				),
+				0
+			)
+		assert_true(
+			plan.issues.is_empty(),
+			"本次复验错误不能污染历史 issues。"
+		)
+
+
+func test_export_plan_revalidates_optional_field_types_when_present() -> void:
+	var invalid_fields: Array[Dictionary] = [
+		{ "field": "role", "value": 42, },
+		{ "field": "resource_key", "value": false, },
+		{ "field": "package_id", "value": [], },
+		{ "field": "type_hint", "value": {}, },
+		{ "field": "metadata", "value": [], },
+	]
+	for invalid_field: Dictionary in invalid_fields:
+		var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+		var field_name: String = GFVariantData.get_option_string(invalid_field, "field")
+		var entry: Dictionary = { "source_path": "res://icon.txt", "archive_path": "assets/icon.txt", }
+		entry[field_name] = invalid_field["value"]
+		plan.entries.append(entry)
+		var report: Dictionary = plan.get_validation_report()
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			field_name
+		)
+		var issue: Dictionary = _find_issue(report, "invalid_export_entry_field_type")
+		assert_eq(
+			GFVariantData.get_option_string(issue, "field"),
+			field_name
+		)
+		assert_eq(
+			GFVariantData.get_option_int(
+				issue,
+				"row_index",
+				-1
+			),
+			0
+		)
+
+
+func test_export_plan_reports_normalized_three_field_snapshot_without_editing_plan() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	plan.package_id = &"author.manual"
+	plan.entries.append(
+		{
+			"source_path": " user://generated/../atlas.png ",
+			"archive_path": " generated\\atlas.png ",
+			"role": &"artifact",
+		}
+	)
+	var report: Dictionary = plan.get_validation_report()
+	var report_entries: Array = GFVariantData.get_option_array(report, "entries")
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		report_entries.size(),
+		1
+	)
+	if report_entries.is_empty():
+		return
+	var entry: Dictionary = GFVariantData.as_dictionary(report_entries[0])
+	assert_eq(
+		GFVariantData.get_option_string(entry, "source_path"),
+		"user://atlas.png"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(entry, "archive_path"),
+		"generated/atlas.png"
+	)
+	_assert_export_string_name_field(
+		entry,
+		"role",
+		&"artifact"
+	)
+	_assert_export_string_name_field(
+		entry,
+		"resource_key",
+		&""
+	)
+	_assert_export_string_name_field(
+		entry,
+		"package_id",
+		&"author.manual"
+	)
+	_assert_export_string_field(
+		entry,
+		"type_hint",
+		""
+	)
+	_assert_export_dictionary_field(
+		entry,
+		"metadata",
+		{}
+	)
+	_assert_export_string_field(
+		plan.entries[0],
+		"source_path",
+		" user://generated/../atlas.png "
+	)
+	_assert_export_string_field(
+		plan.entries[0],
+		"archive_path",
+		" generated\\atlas.png "
+	)
+	assert_false(
+		plan.entries[0].has("metadata"),
+		"复验只规范化报告副本。"
+	)
+
+
+func test_export_plan_detects_normalized_manual_duplicates_without_historical_issues() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	plan.entries.append(
+		{
+			"source_path": "res://icon_a.txt",
+			"archive_path": " assets\\icon.txt ",
+			"role": &"resource",
+		}
+	)
+	plan.entries.append(
+		{
+			"source_path": "res://icon_b.txt",
+			"archive_path": "assets/icon.txt",
+			"role": &"resource",
+		}
+	)
+	assert_true(
+		plan.issues.is_empty(),
+		"不让失败 add_entry 的历史错误掩盖最终复验。"
+	)
+	var report: Dictionary = plan.get_validation_report()
+	var issue: Dictionary = _find_issue(report, "duplicate_archive_path")
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		_count_issues(report, "duplicate_archive_path"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			issue,
+			"row_index",
+			-1
+		),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "path"),
+		"assets/icon.txt"
+	)
+	assert_true(plan.issues.is_empty())
+
+
+func test_export_plan_add_rejects_normalized_collision_with_manual_entry() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	plan.entries.append(
+		{
+			"source_path": "res://manual.txt",
+			"archive_path": " assets\\icon.txt ",
+			"role": &"resource",
+		}
+	)
+	var added: bool = plan.add_entry("res://other.txt", "assets/icon.txt")
+	assert_false(added, "添加入口和最终复验必须使用相同的归档路径规范化键。")
+	assert_eq(
+		plan.entries.size(),
+		1
+	)
+	assert_eq(
+		plan.issues.size(),
+		1
+	)
+
+
+func test_export_plan_current_entry_errors_disappear_after_repair() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	plan.entries.append(
+		{
+			"source_path": "res://icon.txt",
+			"archive_path": "../escape/icon.txt",
+			"role": &"resource",
+		}
+	)
+	var invalid_report: Dictionary = plan.get_validation_report()
+	assert_false(GFVariantData.get_option_bool(invalid_report, "ok"))
+	assert_eq(
+		_count_issues(invalid_report, "invalid_archive_path"),
+		1
+	)
+	assert_true(plan.issues.is_empty())
+	plan.entries[0]["archive_path"] = "assets/icon.txt"
+	var repaired_report: Dictionary = plan.get_validation_report()
+	assert_true(GFVariantData.get_option_bool(repaired_report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(repaired_report, "issue_count"),
+		0
+	)
+	assert_true(plan.issues.is_empty())
+
+
+func test_export_plan_report_isolates_collections_but_preserves_metadata_objects() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	var resource: Resource = Resource.new()
+	var added: bool = plan.add_entry(
+		"res://icon.txt",
+		"assets/icon.txt",
+		&"resource",
+		{
+			"nested": {
+				"labels": ["original"],
+			},
+			"resource": resource,
+		}
+	)
+	assert_true(added)
+	var report: Dictionary = plan.get_validation_report()
+	var report_entries: Array = GFVariantData.get_option_array(report, "entries")
+	var report_entry: Dictionary = GFVariantData.as_dictionary(report_entries[0])
+	var report_metadata: Dictionary = GFVariantData.as_dictionary(report_entry["metadata"])
+	var report_nested: Dictionary = GFVariantData.as_dictionary(report_metadata["nested"])
+	var report_labels: Array = GFVariantData.as_array(report_nested["labels"])
+	var live_metadata: Dictionary = GFVariantData.as_dictionary(plan.entries[0]["metadata"])
+	var live_nested: Dictionary = GFVariantData.as_dictionary(live_metadata["nested"])
+	var live_labels: Array = GFVariantData.as_array(live_nested["labels"])
+	var report_resource_value: Variant = report_metadata.get("resource")
+	assert_true(
+		report_resource_value is Resource,
+		"资源元数据必须保留原类型。"
+	)
+	if report_resource_value is Resource:
+		var report_resource: Resource = report_resource_value
+		assert_same(
+			report_resource,
+			resource,
+			"报告副本不深冻结 Object/Resource。"
+		)
+	plan.entries[0]["archive_path"] = "assets/replaced.txt"
+	live_labels.append("live")
+	_assert_export_string_field(
+		report_entry,
+		"archive_path",
+		"assets/icon.txt"
+	)
+	assert_eq(
+		report_labels,
+		["original"]
+	)
+	report_labels.append("report")
+	report_entries.append({})
+	assert_eq(
+		live_labels,
+		["original", "live"]
+	)
+	assert_eq(
+		plan.entries.size(),
+		1
+	)
+
+
+func test_export_plan_revalidation_preserves_historical_and_external_issues() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	var added: bool = plan.add_entry("res://icon.txt", "../invalid.txt")
+	assert_false(added)
+	plan.issues.append(
+		{
+			"severity": "error",
+			"kind": "project_export_policy",
+			"message": "The project rejected this export batch.",
+		}
+	)
+	plan.entries.append(
+		{
+			"source_path": "",
+			"archive_path": "assets/icon.txt",
+			"role": &"resource",
+		}
+	)
+	var invalid_report: Dictionary = plan.get_validation_report()
+	assert_eq(
+		GFVariantData.get_option_int(invalid_report, "error_count"),
+		3
+	)
+	assert_eq(
+		plan.issues.size(),
+		2,
+		"派生的当前条目错误不能写回历史集合。"
+	)
+	plan.entries[0]["source_path"] = "res://icon.txt"
+	var repaired_report: Dictionary = plan.get_validation_report()
+	assert_false(GFVariantData.get_option_bool(repaired_report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(repaired_report, "error_count"),
+		2
+	)
+	assert_eq(
+		_count_issues(repaired_report, "invalid_archive_path"),
+		1
+	)
+	assert_eq(
+		_count_issues(repaired_report, "project_export_policy"),
+		1
+	)
+	assert_eq(
+		plan.issues.size(),
+		2
+	)
+
+
+func test_export_plan_keeps_manual_source_path_and_root_compatibility() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	plan.root_path = "res://content_packages/main"
+	var source_paths: PackedStringArray = PackedStringArray(
+		[
+			"user://generated/atlas.png",
+			"generated/relative.png",
+			"C:/generated/absolute.png",
+			"custom://generated/icon.png",
+		]
+	)
+	for index: int in source_paths.size():
+		var added: bool = plan.add_entry(
+			source_paths[index],
+			"generated/%d.png" % index
+		)
+		assert_true(added, "source_path 只保留已有文本规范化，不新增 scheme 或根限制。")
+	var report: Dictionary = plan.get_validation_report()
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(report, "entry_count"),
+		source_paths.size()
+	)
+
+
+func test_export_plan_validates_cross_root_catalog_and_manual_artifact_together() -> void:
+	var manifests: Array[GFContentPackageManifest] = [
+		_make_manifest(
+			&"author.first",
+			[],
+			[
+				{ "key": "one", "path": "one.png", },
+			],
+			"res://first"
+		),
+		_make_manifest(
+			&"author.second",
+			[],
+			[
+				{ "key": "two", "path": "two.png", },
+			],
+			"user://second"
+		),
+	]
+	var catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
+	var _catalog_updated: GFContentPackageCatalog = catalog.set_manifests(manifests)
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.from_catalog(
+		catalog,
+		{ "include_manifest": false, }
+	)
+	var added: bool = plan.add_entry(
+		"user://generated/atlas.png",
+		"generated/atlas.png",
+		&"artifact"
+	)
+	assert_true(added)
+	var report: Dictionary = plan.get_validation_report()
+	var report_entries: Array = GFVariantData.get_option_array(report, "entries")
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(report, "entry_count"),
+		3
+	)
+	assert_true(
+		_has_export_entry(
+			report_entries,
+			&"author.first",
+			&"resource",
+			"author.first/one.png"
+		)
+	)
+	assert_true(
+		_has_export_entry(
+			report_entries,
+			&"author.second",
+			&"resource",
+			"author.second/two.png"
+		)
+	)
+	assert_true(
+		_has_export_entry(
+			report_entries,
+			plan.package_id,
+			&"artifact",
+			"generated/atlas.png"
+		)
+	)
+
+
+func test_export_plan_rejects_object_paths_without_invoking_text_conversion() -> void:
+	var plan: GFContentPackageExportPlan = GFContentPackageExportPlan.new()
+	var probe: ExportPathTextProbe = ExportPathTextProbe.new()
+	plan.entries.append(
+		{
+			"source_path": "res://icon.txt",
+			"archive_path": probe,
+			"role": &"resource",
+		}
+	)
+	var report: Dictionary = plan.get_validation_report()
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		probe.conversion_count,
+		0,
+		"字段检查不能通过 str() 执行项目对象回调。"
+	)
+	var issue: Dictionary = _find_issue(report, "invalid_export_entry_field_type")
+	assert_eq(
+		GFVariantData.get_option_string(issue, "field"),
+		"archive_path"
+	)
+
+
 func test_export_plan_artifact_report_detects_expected_metadata_mismatch() -> void:
 	var root_path: String = TEMP_ROOT.path_join("artifact_mismatch")
 	var resource_path: String = root_path.path_join("assets/icon.txt")
@@ -1516,6 +2061,60 @@ func test_extension_installer_registers_content_package_utility() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 先验证报告字段的精确 StringName 类型，再比较值，避免空默认值掩盖错误。
+## [br]
+## @api private
+func _assert_export_string_name_field(
+	entry: Dictionary,
+	field: String,
+	expected: StringName
+) -> void:
+	var value: Variant = entry.get(field)
+	assert_true(
+		value is StringName,
+		"导出字段必须保留 StringName 类型：%s" % field
+	)
+	if value is StringName:
+		var actual: StringName = value
+		assert_eq(actual, expected)
+
+
+## 先验证原始 String 类型，再比较文本，不转换错误类型或补入预期默认值。
+## [br]
+## @api private
+func _assert_export_string_field(
+	entry: Dictionary,
+	field: String,
+	expected: String
+) -> void:
+	var value: Variant = entry.get(field)
+	assert_true(
+		value is String,
+		"导出字段必须保留 String 类型：%s" % field
+	)
+	if value is String:
+		var actual: String = value
+		assert_eq(actual, expected)
+
+
+## 先验证字典存在且类型正确，再比较内容，不能把缺失字段当作空字典通过。
+## [br]
+## @api private
+func _assert_export_dictionary_field(
+	entry: Dictionary,
+	field: String,
+	expected: Dictionary
+) -> void:
+	var value: Variant = entry.get(field)
+	assert_true(
+		value is Dictionary,
+		"导出字段必须是 Dictionary：%s" % field
+	)
+	if value is Dictionary:
+		var actual: Dictionary = value
+		assert_eq(actual, expected)
+
+
 func _make_manifest(
 	package_id: StringName,
 	dependencies: PackedStringArray = PackedStringArray(),
@@ -1630,3 +2229,17 @@ func _remove_absolute_path(path: String) -> void:
 		entry = dir.get_next()
 	dir.list_dir_end()
 	var _remove_dir_result: Error = DirAccess.remove_absolute(path)
+
+
+# --- 内部类 ---
+
+## 记录不合法路径对象是否被验证器错误地转换成文本。
+class ExportPathTextProbe:
+	extends RefCounted
+
+	var conversion_count: int = 0
+
+
+	func _to_string() -> String:
+		conversion_count += 1
+		return "assets/icon.txt"

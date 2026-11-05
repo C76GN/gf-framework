@@ -46,9 +46,11 @@ GF 是面向 Godot 项目的轻量架构框架。它提供启动装配、模块�
 
 ## 3D 场景怎样与 GF UI 组合？ { #ui-and-scenes }
 
-GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。`GFUIUtility` 会把 HUD、POPUP、TOP 层创建在 `SceneTree.root` 下，适合全局菜单、跨场景提示和只读取全局模块的 HUD；这些 Panel 不会随当前场景自动销毁，其中场景专属 Panel 应在离场时显式清理。
+GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。全局 `GFUIUtility` 默认把自有 host 及 HUD、POPUP、TOP 层创建在 `SceneTree.root` 下，适合全局菜单和跨场景提示；这些 Panel 不会随当前场景自动销毁，场景专属 Panel 应在离场时显式清理。
 
-如果 HUD 必须读取某个局部战斗或房间的 Model / System，应把项目自己的 `CanvasLayer` 保留在对应 `GFNodeContext` 子树中，不要通过当前 UI 栈重挂。详见 [面板栈与层级](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/panel-stack.md) 和 [场景级局部上下文](kernel/lifecycle/node-contexts.md)。
+如果 HUD 读取局部战斗或房间的状态，在该 `GFNodeContext` 的 `install()` 中创建 UIUtility，先调用 `ui.configure_host(self)`，再注册到局部 Architecture。host 默认位于业务 Context 下；需要显示在其他 Canvas 或 Viewport 时，使用 `configure_host(self, mount_parent)` 分开指定业务来源和显示位置。Panel 中的 Controller 会从 host 的 Context 取得正确依赖，无需逐个绑定。
+
+局部 UI 缺少来源配置会明确初始化失败；来源关闭、离树或重新入树后，旧绑定失效，不会回退到全局。UIUtility 只释放自己的 host、层和 Panel，传入的显示父节点仍由项目管理。正常离场先保存需要保留的状态，再等待 `context.close_async()`，分别检查 `is_closed()` 与 `is_drained()`，最后决定是否移除节点；直接 `queue_free()` 不代表异步工作已排空。详见 [面板栈与层级](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/panel-stack.md#节点父链与场景生命周期) 和 [场景级局部上下文](kernel/lifecycle/node-contexts.md#正常关闭与离树兜底)。
 
 ## GFUIUtility 只有 HUD、POPUP、TOP 三层吗？
 

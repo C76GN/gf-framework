@@ -231,6 +231,7 @@ const DOCUMENT_SCHEMA_VERSION: int = 2
 - API：`public`
 
 ```gdscript
+@export
 var format: Format = Format.JSON
 ```
 
@@ -243,6 +244,7 @@ var format: Format = Format.JSON
 - API：`public`
 
 ```gdscript
+@export
 var use_compression: bool = false
 ```
 
@@ -256,6 +258,7 @@ var use_compression: bool = false
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var use_integrity_checksum: bool = false
 ```
 
@@ -268,6 +271,7 @@ var use_integrity_checksum: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var strict_integrity: bool = true
 ```
 
@@ -281,6 +285,7 @@ var strict_integrity: bool = true
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var require_integrity_checksum: bool = true
 ```
 
@@ -294,6 +299,7 @@ var require_integrity_checksum: bool = true
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var include_metadata: bool = false
 ```
 
@@ -306,6 +312,7 @@ var include_metadata: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var version: int = 1:
 ```
 
@@ -318,6 +325,7 @@ var version: int = 1:
 - API：`public`
 
 ```gdscript
+@export
 var obfuscation_key: int = 0
 ```
 
@@ -331,6 +339,7 @@ var obfuscation_key: int = 0
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var max_decode_bytes: int = 64 * 1024 * 1024:
 ```
 
@@ -343,6 +352,7 @@ var max_decode_bytes: int = 64 * 1024 * 1024:
 - API：`public`
 
 ```gdscript
+@export
 var normalize_json_numbers: bool = false
 ```
 

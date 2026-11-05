@@ -4,7 +4,10 @@
 
 ## 典型流程
 
+模块单例绑定请求了 `with_alias()` 时，`as_singleton()` 只有在模块与别名均登记成功后才返回 `true`。别名被拒绝会返回 `false`，已经登记的模块仍由架构持有；需要全组原子回滚时使用绑定计划的 required 模式。
+
 ```gdscript
+## 收窄生命周期入口传入的 binder，再委托项目装配逻辑。
 func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	if not binder is GFBinder:
 		return
@@ -12,6 +15,7 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 	await _register_project_bindings(binder)
 
 
+## 演示模块与工厂绑定；本片段仅保留结果，实际 Installer 还须逐项处理失败与取消。
 func _register_project_bindings(binder: GFBinder) -> void:
 	var _registered_player_model: bool = await binder.bind_model(PlayerModel).as_singleton()
 	var _registered_config_provider: bool = await binder.bind_utility(JSONConfigProvider).with_alias(GFConfigProvider).as_singleton()
@@ -33,6 +37,7 @@ func _register_project_bindings(binder: GFBinder) -> void:
 单个 Installer 有多项不可缺少的绑定时，可以显式创建 `GFBindingPlan`，避免为每个 `bool` 重复编写失败、取消和提前返回逻辑：
 
 ```gdscript
+## 在初始化前一次性执行必需绑定计划，由首个失败终止后续装配。
 func install_bindings(binder: Variant, scope: GFAsyncScope) -> void:
 	if not binder is GFBinder:
 		return
@@ -53,6 +58,7 @@ func install_bindings(binder: Variant, scope: GFAsyncScope) -> void:
 		)
 	)
 
+	# Plan 使用当前安装 scope；成功不替 Installer 提前 complete 该 scope。
 	var result: GFBindingPlanResult = plan.execute(scope)
 	if not result.is_successful():
 		print(result.to_dict())

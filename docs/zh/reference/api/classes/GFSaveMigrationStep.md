@@ -36,6 +36,7 @@
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var step_id: StringName = &""
 ```
 
@@ -49,6 +50,7 @@ var step_id: StringName = &""
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var schema_id: StringName = &""
 ```
 
@@ -62,6 +64,7 @@ var schema_id: StringName = &""
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var section_id: StringName = &""
 ```
 
@@ -75,6 +78,7 @@ var section_id: StringName = &""
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var from_version: int = 0
 ```
 
@@ -88,6 +92,7 @@ var from_version: int = 0
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var to_version: int = 0
 ```
 

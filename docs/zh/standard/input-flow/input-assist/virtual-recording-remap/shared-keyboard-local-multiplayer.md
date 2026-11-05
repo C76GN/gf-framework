@@ -7,8 +7,11 @@
 每个席位使用独立的 `source_id` 和 `player_index`。键位表只保存“物理键 -> 抽象动作”，加入流程、角色控制权和动作含义继续由项目决定。
 
 ```gdscript
+# 共享键盘路由节点；架构和输入映射 Utility 须在本节点 ready 前就绪。
+# 键区须互斥，且本示例每个席位内的每个动作只绑定一个物理键。
 extends Node
 
+## source_id 标识清理归属，不能与其他席位或路由共用。
 const SEAT_BINDINGS: Array[Dictionary] = [
 	{
 		"player_index": 0,
@@ -34,9 +37,11 @@ const SEAT_BINDINGS: Array[Dictionary] = [
 	},
 ]
 
+## 与席位表同序的虚拟源；本路由只清理这些源贡献的输入。
 var _sources: Array[GFVirtualInputSource] = []
 
 
+## 为各席位取得独立来源；路由工作期间必须保留完整的席位对应关系。
 func _ready() -> void:
 	var input_mapping: GFInputMappingUtility = (
 		Gf.get_utility(GFInputMappingUtility) as GFInputMappingUtility
@@ -50,10 +55,12 @@ func _ready() -> void:
 		))
 
 
+## 仅处理 UI 尚未消费的物理键事件，并将其交给唯一归属席位。
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey:
 		return
 	var key_event: InputEventKey = event
+	# Repeat 不代表新的按下边沿，不能重复贡献动作状态。
 	if key_event.echo:
 		return
 
@@ -75,15 +82,18 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 
 
+## 失焦后可能收不到释放事件，必须主动解除本路由的按下状态。
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_clear_sources()
 
 
+## 场景离开时撤销本路由的输入贡献，避免影响后续场景。
 func _exit_tree() -> void:
 	_clear_sources()
 
 
+## 按来源清理；玩家离席或切换路由时也应执行同样的清理。
 func _clear_sources() -> void:
 	for source: GFVirtualInputSource in _sources:
 		source.clear_all()

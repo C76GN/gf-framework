@@ -37,6 +37,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var invite_id: String = ""
 ```
 
@@ -50,6 +51,7 @@ var invite_id: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var lobby_id: String = ""
 ```
 
@@ -63,6 +65,7 @@ var lobby_id: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var backend_id: StringName = &""
 ```
 
@@ -76,6 +79,7 @@ var backend_id: StringName = &""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var sender: GFNetworkPeerIdentity = null
 ```
 
@@ -89,6 +93,7 @@ var sender: GFNetworkPeerIdentity = null
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var target: GFNetworkPeerIdentity = null
 ```
 
@@ -102,6 +107,7 @@ var target: GFNetworkPeerIdentity = null
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var message: String = ""
 ```
 
@@ -115,6 +121,7 @@ var message: String = ""
 - 首次版本：`8.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

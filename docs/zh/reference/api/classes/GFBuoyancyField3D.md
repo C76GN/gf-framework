@@ -58,6 +58,7 @@ const FIELD_GROUP: StringName = &"gf_buoyancy_field_3d"
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -71,6 +72,7 @@ var enabled: bool = true
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var priority: int = 0
 ```
 
@@ -84,6 +86,7 @@ var priority: int = 0
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var surface_offset: float = 0.0:
 ```
 
@@ -97,6 +100,7 @@ var surface_offset: float = 0.0:
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var fluid_density: float = 1000.0:
 ```
 
@@ -110,6 +114,7 @@ var fluid_density: float = 1000.0:
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var fluid_velocity: Vector3 = Vector3.ZERO:
 ```
 
@@ -123,6 +128,7 @@ var fluid_velocity: Vector3 = Vector3.ZERO:
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var linear_drag_coefficient: float = 0.0:
 ```
 
@@ -136,6 +142,7 @@ var linear_drag_coefficient: float = 0.0:
 - 首次版本：`9.0.0`
 
 ```gdscript
+@export
 var quadratic_drag_coefficient: float = 0.0:
 ```
 

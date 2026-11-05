@@ -550,15 +550,15 @@ func _process_queue_budget(max_entries: int, head_only: bool) -> int:
 		) != selected_queue_id:
 			break
 		if _is_queue_item_budget_exhausted(item):
-			_finish_queue_item(item, true)
 			_queue.remove_at(0)
+			_finish_queue_item(item, true)
 			continue
 
 		var entries: Array = GFVariantData.get_option_array(item, "entries")
 		var index: int = GFVariantData.get_option_int(item, "index")
 		if index >= entries.size():
-			_finish_queue_item(item, false)
 			_queue.remove_at(0)
+			_finish_queue_item(item, false)
 			continue
 
 		var options: Dictionary = GFVariantData.get_option_dictionary(item, "options")
@@ -582,9 +582,14 @@ func _process_queue_budget(max_entries: int, head_only: bool) -> int:
 			result
 		)
 
+		if _queue.is_empty() or not is_same(
+			_queue[0],
+			item
+		):
+			continue
 		if GFVariantData.get_option_int(item, "index") >= entries.size():
-			_finish_queue_item(item, false)
 			_queue.remove_at(0)
+			_finish_queue_item(item, false)
 
 	return processed_now
 

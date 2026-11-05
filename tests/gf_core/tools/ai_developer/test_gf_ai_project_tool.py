@@ -110,9 +110,65 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		result = initialize_contract(self.project_root)
 		self.assertTrue(result["ok"], result)
+		# Most cases exercise an explicitly reviewed architecture requirement.
+		# Initialization itself is tested separately without this fixture choice.
+		fixture_contract = result["contract"]
+		fixture_contract["framework"]["capability_requirements"] = [{
+			"id": "architecture", "decision_state": "confirmed", "owner": "project",
+			"recipes": ["composition-root"],
+			"acceptance": ["Project services have explicit composition and lifetime owners."], "notes": "",
+		}]
+		(self.project_root / DEFAULT_CONTRACT_PATH).write_text(json.dumps(fixture_contract), encoding="utf-8")
 
 	def tearDown(self) -> None:
 		self._temporary.cleanup()
+
+	def test_initial_contract_does_not_confirm_unreviewed_architecture(self) -> None:
+		fresh_project = self.project_root / "fresh_project"
+		fresh_project.mkdir()
+		result = initialize_contract(fresh_project)
+		self.assertTrue(result["created"])
+		self.assertEqual(result["contract"]["framework"]["capability_requirements"], [])
+		selected = result["contract"]
+		selected["framework"]["capability_requirements"] = [{
+			"id": "architecture", "decision_state": "confirmed", "owner": "project",
+			"recipes": ["composition-root"], "acceptance": ["Project owns service lifetime."], "notes": "Reviewed by project.",
+		}]
+		selected_path = fresh_project / DEFAULT_CONTRACT_PATH
+		selected_path.write_text(json.dumps(selected), encoding="utf-8")
+		before = selected_path.read_bytes()
+		repeated = initialize_contract(fresh_project)
+		self.assertFalse(repeated["created"])
+		self.assertEqual(selected_path.read_bytes(), before)
+		self.assertEqual(repeated["contract"]["framework"]["capability_requirements"], selected["framework"]["capability_requirements"])
+
+	def test_recipe_readiness_requires_observed_dependency_payload(self) -> None:
+		readiness = catalog.recipe_package_readiness(["platform-storage-adapter"], {"gf.kernel", "gf.extension.save"})
+		self.assertFalse(readiness["satisfied"])
+		self.assertEqual(readiness["missing_all_of"], ["gf.standard.storage"])
+		self.assertNotIn("gf.standard.storage", readiness["available_packages"])
+		complete = catalog.recipe_package_readiness(["platform-storage-adapter"], {"gf.kernel", "gf.extension.save", "gf.standard.storage"})
+		self.assertTrue(complete["satisfied"])
+
+	def test_snapshot_preserves_file_created_or_replaced_during_scan(self) -> None:
+		output_relative = ".gf/concurrent_snapshot.json"
+		output = self.project_root / output_relative
+		original_build = snapshot.build_snapshot
+		for initial_snapshot in (False, True):
+			with self.subTest(initial_snapshot=initial_snapshot):
+				if initial_snapshot:
+					paths.atomic_write_json(output, original_build(self.project_root))
+				user_data = b'{"project_owned": "edited during scan"}\n'
+
+				def edit_during_build(*args: Any, **kwargs: Any) -> dict[str, Any]:
+					result = original_build(*args, **kwargs)
+					output.write_bytes(user_data)
+					return result
+
+				with mock.patch.object(snapshot, "build_snapshot", side_effect=edit_during_build):
+					with self.assertRaisesRegex(ValueError, "changed"):
+						snapshot.write_snapshot(self.project_root, output_relative_path=output_relative)
+				self.assertEqual(output.read_bytes(), user_data)
 
 	def _load_platform_adapter_profile(self) -> dict[str, Any]:
 		profile_path = (
@@ -1436,9 +1492,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			{
 				"recipe_id": "scalable-ui-collection",
 				"available": ["gf.standard.ui.state"],
-				"satisfied": True,
+				"satisfied": False,
 				"all_of": ["gf.standard.ui"],
-				"missing_all_of": [],
+				"missing_all_of": ["gf.standard.ui"],
 				"any_of": [],
 				"unsatisfied_any_of": [],
 			},

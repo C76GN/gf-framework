@@ -42,6 +42,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var recipe_id: StringName = &""
 ```
 
@@ -55,6 +56,7 @@ var recipe_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(0, 1_000_000, 1)
 var max_events: int = 512
 ```
 
@@ -68,6 +70,7 @@ var max_events: int = 512
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(0, 1_073_741_824, 1)
 var max_event_buffer_bytes: int = 1024 * 1024
 ```
 
@@ -81,6 +84,7 @@ var max_event_buffer_bytes: int = 1024 * 1024
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(512, 16_777_216, 1)
 var max_event_bytes: int = 16 * 1024
 ```
 
@@ -94,6 +98,7 @@ var max_event_bytes: int = 16 * 1024
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_enum("privacy", "public", "support", "debug")
 var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 ```
 
@@ -107,6 +112,7 @@ var redaction_profile: String = GFReportValueCodec.REDACTION_PROFILE_PRIVACY
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var channels: Array[GFSessionTraceChannelDefinition] = []
 ```
 
@@ -120,6 +126,7 @@ var channels: Array[GFSessionTraceChannelDefinition] = []
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var checkpoints: Array[GFSessionTraceCheckpoint] = []
 ```
 
@@ -133,6 +140,7 @@ var checkpoints: Array[GFSessionTraceCheckpoint] = []
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export_range(0, 1_000_000, 1)
 var snapshot_limit: int = 0
 ```
 
@@ -146,6 +154,7 @@ var snapshot_limit: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var include_context: bool = true
 ```
 
@@ -159,6 +168,7 @@ var include_context: bool = true
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var include_channel_catalog: bool = false
 ```
 
@@ -172,6 +182,7 @@ var include_channel_catalog: bool = false
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var include_provider_catalog: bool = false
 ```
 
@@ -185,6 +196,7 @@ var include_provider_catalog: bool = false
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -42,6 +42,7 @@
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var method_id: StringName = &""
 ```
 
@@ -55,6 +56,7 @@ var method_id: StringName = &""
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var request_schema: GFDictionarySchema = null
 ```
 
@@ -68,6 +70,7 @@ var request_schema: GFDictionarySchema = null
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var result_schema: GFDictionarySchema = null
 ```
 
@@ -81,6 +84,7 @@ var result_schema: GFDictionarySchema = null
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var required_capability_ids: PackedStringArray = PackedStringArray()
 ```
 
@@ -94,6 +98,7 @@ var required_capability_ids: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var max_request_bytes: int = 0
 ```
 
@@ -107,6 +112,7 @@ var max_request_bytes: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var max_result_bytes: int = 0
 ```
 
@@ -120,6 +126,7 @@ var max_result_bytes: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var max_concurrent_requests: int = 0
 ```
 
@@ -133,6 +140,7 @@ var max_concurrent_requests: int = 0
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var supports_cancellation: bool = true
 ```
 
@@ -146,6 +154,7 @@ var supports_cancellation: bool = true
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var sensitive_fields: PackedStringArray = PackedStringArray()
 ```
 
@@ -159,6 +168,7 @@ var sensitive_fields: PackedStringArray = PackedStringArray()
 - 首次版本：`10.0.0`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

@@ -39,6 +39,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var include_unregistered_fields: bool = true
 ```
 
@@ -51,6 +52,7 @@ var include_unregistered_fields: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var field_serializers: Dictionary = {}
 ```
 

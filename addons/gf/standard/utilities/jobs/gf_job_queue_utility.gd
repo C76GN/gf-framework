@@ -238,6 +238,8 @@ func run_next_job(queue_name: StringName, processor: Callable) -> GFJob:
 		return job
 
 	var value: Variant = processor.call(job)
+	if job.status != GFJob.Status.ACTIVE or get_job(job.job_id) != job:
+		return job
 	if value is Dictionary:
 		var data: Dictionary = GFVariantData.as_dictionary(value)
 		if not GFVariantData.get_option_bool(

@@ -75,6 +75,28 @@ func test_merge_tables_updates_inserts_and_deletes_array_records() -> void:
 	)
 
 
+## 删除后换槽重插会释放旧外层键；仍占用的键继续由碰撞测试保护。
+func test_dictionary_delete_reinsert_releases_previous_outer_key() -> void:
+	var report: Dictionary = GFConfigTableMergeTools.merge_tables(
+		{
+			"one": { "id": "A" },
+		},
+		{
+			"deleteA": { "id": "A", "_delete": true },
+			"two": { "id": "A" },
+			"one": { "id": "B" },
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_dictionary(report, "data"),
+		{
+			"two": { "id": "A" },
+			"one": { "id": "B" },
+		}
+	)
+
+
 func test_dictionary_merge_rejects_outer_key_collision_without_partial_data() -> void:
 	var policy: GFConfigTableMergePolicy = GFConfigTableMergePolicy.new()
 	policy.allow_update = false

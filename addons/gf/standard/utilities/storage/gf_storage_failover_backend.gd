@@ -392,7 +392,7 @@ func _save_data(
 	)
 
 
-## 按顺序读取首个成功结果。
+## 按顺序读取首个成功结果。全部失败时保留最后一个非 missing 错误；未读后端也不能作为逻辑记录不存在的证据。
 ## [br]
 ## @api protected
 ## [br]
@@ -407,10 +407,15 @@ func _load_data(file_name: String) -> Dictionary:
 	var attempts: Array[Dictionary] = []
 	var last_error_code: Error = ERR_UNAVAILABLE
 	var last_error: String = "No readable storage backend succeeded."
+	var last_non_missing_error_code: Error = OK
+	var last_non_missing_error: String = ""
 	for index: int in range(_backends.size()):
 		var backend_id: StringName = _get_backend_id(index)
 		var skip_reason: String = _get_skip_reason(index, &"read")
 		if not skip_reason.is_empty():
+			if last_non_missing_error_code == OK:
+				last_non_missing_error_code = ERR_UNAVAILABLE
+				last_non_missing_error = "A storage backend could not be read: %s." % skip_reason
 			attempts.append(
 				_make_attempt(
 					index,
@@ -452,6 +457,9 @@ func _load_data(file_name: String) -> Dictionary:
 
 		last_error_code = error_code
 		last_error = error_text if not error_text.is_empty() else error_string(error_code)
+		if error_code not in [ERR_DOES_NOT_EXIST, ERR_FILE_NOT_FOUND]:
+			last_non_missing_error_code = error_code
+			last_non_missing_error = last_error
 		_mark_backend_result(backend_id, error_code)
 		attempts.append(
 			_make_attempt(
@@ -464,6 +472,9 @@ func _load_data(file_name: String) -> Dictionary:
 			)
 		)
 
+	if last_non_missing_error_code != OK:
+		last_error_code = last_non_missing_error_code
+		last_error = last_non_missing_error
 	_set_last_report(
 		&"load",
 		file_name,
@@ -865,18 +876,19 @@ func _get_backend_id(index: int) -> StringName:
 	return StringName(_backend_ids[index])
 
 
-## 成功时返回 OK；失败时读取结果 error_code，缺失则回退为 ERR_CANT_OPEN。
+## 成功时返回 OK；失败只接受明确的非 OK 整数错误码，缺失、类型不符或失败却标记 OK 均回退为 ERR_CANT_OPEN。
 ## [br]
 ## @api private
 ## [br]
 func _get_load_error_code(result: Dictionary, ok: bool) -> Error:
 	if ok:
 		return OK
-	var error_code: int = GFVariantData.get_option_int(
-		result,
-		"error_code",
-		ERR_CANT_OPEN
-	)
+	var error_code_value: Variant = result.get("error_code")
+	if not error_code_value is int:
+		return ERR_CANT_OPEN
+	var error_code: int = error_code_value
+	if error_code == OK:
+		return ERR_CANT_OPEN
 	return error_code as Error
 
 

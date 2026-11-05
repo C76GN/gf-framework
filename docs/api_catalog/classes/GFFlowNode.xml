@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowNode" path="addons/gf/extensions/flow/resources/gf_flow_node.gd" module="extensions/flow" extends="Resource" classDigest="0169c95369facebdd901e089dcb435c28149d0d59187d0bb257a3514e0325063">
+<class name="GFFlowNode" path="addons/gf/extensions/flow/resources/gf_flow_node.gd" module="extensions/flow" extends="Resource" classDigest="b7337ffbfd0653f2d2bfd01f11010ecbcb8c24a35fc66e3a83a82fc52c967b46">
 	<description>GFFlowNode: 通用流程图节点基类。
 节点只描述执行入口和默认后继节点。具体条件、命令、等待逻辑由项目继承实现。</description>
 	<tags>
@@ -100,35 +100,26 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="runtime_state">
-			<signature>var runtime_state: Dictionary:</signature>
-			<description>节点运行态数据的只读副本。项目应通过 set_runtime_value() 等方法修改，
-以便执行器在异步隔离期间拒绝写入共享 Resource。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="schema">runtime_state: 项目自定义运行态 Dictionary；键和值由节点实现维护。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="execute">
-			<signature>func execute(_context: GFFlowContext) -&gt; Variant:</signature>
+			<signature>func execute(_context: GFFlowContext, _execution: GFFlowNodeExecution) -&gt; Variant:</signature>
 			<description>执行节点。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">_context: 流程上下文。</tag>
+				<tag name="param">_context: 各次流程运行可共享的业务上下文。</tag>
+				<tag name="param">_execution: 当前帧本次节点调用独有的运行状态写入句柄。</tag>
 				<tag name="return">可返回 null 或 Signal。</tag>
 				<tag name="schema">return: null、Signal 或项目节点实现约定的结果值。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_next_nodes">
-			<signature>func get_next_nodes(context: GFFlowContext) -&gt; PackedStringArray:</signature>
+			<signature>func get_next_nodes(_context: GFFlowContext) -&gt; PackedStringArray:</signature>
 			<description>获取执行完成后的后继节点。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">context: 流程上下文。</tag>
+				<tag name="param">_context: 调度默认后继时可读取的业务上下文。</tag>
 				<tag name="return">后继节点标识列表。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -207,59 +198,6 @@
 				<tag name="api">public</tag>
 				<tag name="return">节点描述字典。</tag>
 				<tag name="schema">return: 包含 node_id、display_name、category、next_node_ids、wait_for_result、ports、editor 和 metadata 字段的 Dictionary。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="set_runtime_value">
-			<signature>func set_runtime_value(key: StringName, value: Variant) -&gt; void:</signature>
-			<description>写入节点运行态值。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">key: 键。</tag>
-				<tag name="param">value: 值。</tag>
-				<tag name="schema">value: 任意可写入 runtime_state 的项目值。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_runtime_value">
-			<signature>func get_runtime_value(key: StringName, default_value: Variant = null) -&gt; Variant:</signature>
-			<description>读取节点运行态值。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">key: 键。</tag>
-				<tag name="param">default_value: 默认值。</tag>
-				<tag name="return">运行态值或默认值。</tag>
-				<tag name="schema">default_value: 缺失时返回的任意项目值。</tag>
-				<tag name="schema">return: 找到的运行态值，或传入的 default_value。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="clear_runtime_state">
-			<signature>func clear_runtime_state() -&gt; void:</signature>
-			<description>清空节点运行态数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="serialize_runtime_state">
-			<signature>func serialize_runtime_state(json_compatible: bool = false) -&gt; Dictionary:</signature>
-			<description>序列化节点运行态数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">json_compatible: 为 true 时输出 JSON-safe 报告值；默认为 false，保留运行时原始 Variant。</tag>
-				<tag name="return">运行态数据副本。</tag>
-				<tag name="schema">return: runtime_state 的深拷贝 Dictionary。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="deserialize_runtime_state">
-			<signature>func deserialize_runtime_state(data: Dictionary) -&gt; void:</signature>
-			<description>反序列化节点运行态数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">data: 运行态数据。</tag>
-				<tag name="schema">data: serialize_runtime_state() 返回的运行态 Dictionary。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

@@ -3,11 +3,12 @@
 在 UI 开发中，最常见的风险是 Node 销毁后监听器未释放。`GFBindableProperty.bind_to()` 会额外监听目标 Node 的 `tree_exited`，适合作为表现层默认绑定方式。
 
 ```gdscript
+## 将监听限定在当前 Controller 的入树生命周期内，并补上首次显示。
 func _ready() -> void:
-	# 绑定到自身，当该 Controller(Node) 销毁时会自动 disconnect
+	# 离树就会撤销绑定，不必等到 Node 被销毁。
 	player_model.level.bind_to(self, _on_level_changed)
 
-	# 依然建议手动刷新一次初始值
+	# bind_to 不立即回放当前值，避免 UI 一直等待下一次变化。
 	_on_level_changed(null, player_model.level.get_value())
 ```
 

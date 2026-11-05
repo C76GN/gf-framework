@@ -191,7 +191,7 @@ var _error: String = ""
 ## [br]
 ## @param request: 已由模型规范化的查询请求。
 ## [br]
-## @schema request: Dictionary with catalog_revision: int, query_generation: int, query: String, asset_ids: PackedStringArray, page: int, page_size: int and limit: int.
+## @schema request: Dictionary with catalog_revision, query_generation, query, asset_ids, sort_options, page, page_size and limit.
 ## [br]
 ## @param project_items: 模型提供的纯摘要编码函数，接收 Array 并返回 Array[Dictionary]。
 func configure(
@@ -426,7 +426,10 @@ func _advance_one() -> void:
 					var _appended: bool = _ids.append(asset_id)
 				_ids.sort()
 			_input_count = _ids.size()
-			_context = GFAssetCatalog.make_default_search_context(GFVariantData.get_option_string(_request, "query"))
+			_context = GFAssetCatalog.make_default_search_context(
+				GFVariantData.get_option_string(_request, "query"),
+				GFVariantData.get_option_dictionary(_request, "sort_options")
+			)
 			_stage = &"candidates"
 			if _filter.is_empty() and GFVariantData.get_option_string(_request, "query").strip_edges().is_empty():
 				_listing_ids = _ids
@@ -491,6 +494,7 @@ func _run_worker(candidates: Array[Dictionary], context: Dictionary) -> Dictiona
 	_set_worker_phase(&"score")
 	var started: int = Time.get_ticks_usec()
 	var reports: Array[Dictionary] = []
+	var include_unmatched: bool = GFVariantData.get_option_bool(context, "include_unmatched")
 	for index: int in range(candidates.size()):
 		if _is_worker_cancelled():
 			return { "cancelled": true }
@@ -499,15 +503,14 @@ func _run_worker(candidates: Array[Dictionary], context: Dictionary) -> Dictiona
 			context,
 			index
 		)
-		if GFVariantData.get_option_bool(report, "matched"):
+		if GFVariantData.get_option_bool(report, "matched") or include_unmatched:
 			reports.append(report)
 	var score_usec: int = Time.get_ticks_usec() - started
 	if _is_worker_cancelled():
 		return { "cancelled": true, "score_usec": score_usec }
 	_set_worker_phase(&"sort")
 	started = Time.get_ticks_usec()
-	# 保持同步接口的排序实现和近似比较顺序，避免更换算法改变非传递比较的结果。
-	GFTextSearchScorer.sort_ranking_reports(reports)
+	GFTextSearchScorer.sort_ranking_reports(reports, context)
 	var sort_usec: int = Time.get_ticks_usec() - started
 	var cancelled: bool = _is_worker_cancelled()
 	_set_worker_phase(&"finished")

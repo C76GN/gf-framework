@@ -40,6 +40,7 @@ registry/provider Resource 绕过了环境入口，属于受信宿主违反线�
 先在禁用态声明 closed Schema 和 endpoint：
 
 ```gdscript
+# 受信宿主的组装片段；endpoint 是同步项目代码，不是隔离沙箱。
 var environment := GFRuntimeAgentEnvironment.new()
 
 var message_field := GFSchemaField.new().configure(
@@ -82,6 +83,7 @@ var registration := environment.register_endpoint(
 	"project.echo",
 	request_schema,
 	response_schema,
+	# 仅示范回声处理；handler 须有界，环境不能抢占或回滚其副作用。
 	func(request: Dictionary) -> Dictionary:
 		var payload: Dictionary = request["payload"]
 		print(payload["message"])
@@ -111,6 +113,7 @@ if not opened["ok"]:
 	push_error(opened["reason"])
 	return
 
+# 凭据只交给获授权调用方，不能进入诊断快照或通用日志。
 var session_id: String = opened["session_id"]
 var bearer_token: String = opened["token"]
 ```

@@ -41,6 +41,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var schema_id: StringName = &""
 ```
 
@@ -53,6 +54,7 @@ Schema 标识。为空时可由调用方自行决定命名。
 - API：`public`
 
 ```gdscript
+@export
 var entries: Array[GFBlackboardEntry] = []
 ```
 
@@ -65,6 +67,7 @@ var entries: Array[GFBlackboardEntry] = []
 - API：`public`
 
 ```gdscript
+@export
 var allow_extra_keys: bool = true
 ```
 
@@ -77,6 +80,7 @@ var allow_extra_keys: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var coerce_values: bool = false
 ```
 
@@ -89,6 +93,7 @@ var coerce_values: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var fail_on_coerce_error: bool = true
 ```
 
@@ -101,6 +106,7 @@ var fail_on_coerce_error: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

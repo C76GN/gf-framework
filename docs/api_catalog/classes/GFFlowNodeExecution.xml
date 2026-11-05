@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFFlowNodeExecution" path="addons/gf/extensions/flow/runtime/gf_flow_node_execution.gd" module="extensions/flow" extends="RefCounted" classDigest="bfe09c292f77067629cb5cb23edbe6fbd9a13480ad7ae0b514020e05d67ac24f">
+	<description>GFFlowNodeExecution: 一次节点执行的写入资格。节点完成、流程取消或同一节点再次执行时，旧回调无法写入后续执行。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>查询这个执行句柄是否仍可写。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可写时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_runtime_value">
+			<signature>func set_runtime_value(key: StringName, value: Variant) -&gt; bool:</signature>
+			<description>写入当前帧中本节点的进度。集合在边界复制，旧执行的更新返回失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 节点进度键。</tag>
+				<tag name="param">value: 项目进度值。</tag>
+				<tag name="return">成功写入时返回 true。</tag>
+				<tag name="schema">value: 原始 Variant；容器复制，项目 Object 仍为引用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_runtime_value">
+			<signature>func get_runtime_value(key: StringName, default_value: Variant = null) -&gt; Variant:</signature>
+			<description>读取当前节点在本帧内的运行进度。返回集合副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">key: 节点进度键。</tag>
+				<tag name="param">default_value: 未命中或执行结束时的默认值。</tag>
+				<tag name="return">节点的运行进度。</tag>
+				<tag name="schema">default_value: 任意项目值。</tag>
+				<tag name="schema">return: 进度值或默认值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_runtime_state">
+			<signature>func clear_runtime_state() -&gt; bool:</signature>
+			<description>清空当前节点在此帧中的进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">执行仍有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_next_nodes">
+			<signature>func set_next_nodes(node_ids: PackedStringArray) -&gt; bool:</signature>
+			<description>选择本节点的后继。传入空列表表示停止本分支。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">node_ids: 本次执行选择的后继标识。</tag>
+				<tag name="return">选择已接纳时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="call_subgraph">
+			<signature>func call_subgraph(graph: GFFlowGraph) -&gt; bool:</signature>
+			<description>请求在节点结束后先执行子图。子图有独立帧；同一次节点执行只接纳一个调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">graph: 要进入的新子图帧。</tag>
+				<tag name="return">请求已接纳时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

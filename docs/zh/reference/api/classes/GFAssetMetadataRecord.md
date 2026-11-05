@@ -37,6 +37,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var source_path: String = ""
 ```
 
@@ -49,6 +50,7 @@ var source_path: String = ""
 - API：`public`
 
 ```gdscript
+@export
 var subject_path: NodePath = NodePath(".")
 ```
 
@@ -61,6 +63,7 @@ var subject_path: NodePath = NodePath(".")
 - API：`public`
 
 ```gdscript
+@export
 var subject_kind: StringName = &""
 ```
 
@@ -73,6 +76,7 @@ var subject_kind: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

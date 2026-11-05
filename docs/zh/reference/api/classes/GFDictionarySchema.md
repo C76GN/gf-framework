@@ -44,6 +44,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var schema_id: StringName = &""
 ```
 
@@ -56,6 +57,7 @@ Schema 标识。为空时可由调用方自行决定报告主题。
 - API：`public`
 
 ```gdscript
+@export
 var fields: Array[GFSchemaField] = []
 ```
 
@@ -72,6 +74,7 @@ var fields: Array[GFSchemaField] = []
 - API：`public`
 
 ```gdscript
+@export
 var allow_extra_fields: bool = true
 ```
 
@@ -84,6 +87,7 @@ var allow_extra_fields: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var coerce_values: bool = false
 ```
 
@@ -96,6 +100,7 @@ var coerce_values: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var fail_on_coerce_error: bool = true
 ```
 
@@ -108,6 +113,7 @@ var fail_on_coerce_error: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 
@@ -360,7 +366,7 @@ func validate_dictionary(values: Dictionary, options: Dictionary = {}) -> GFVali
 func normalize_dictionary_array(values: Array, options: Dictionary = {}) -> Dictionary:
 ```
 
-批量规范化 Dictionary 数组，并汇总行级校验报告。
+批量规范化 Dictionary 数组，并汇总行级校验报告。 定义无效时不规范化或校验字典行，计入 skipped_row_count；非 Dictionary 行仍报告形状错误。
 
 参数：
 

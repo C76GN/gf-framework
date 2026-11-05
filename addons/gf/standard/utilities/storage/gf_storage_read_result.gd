@@ -206,6 +206,11 @@ var _origin_failure_kind: FailureKind = FailureKind.NONE
 ## [br]
 var _captured_revision: GFStorageRevisionResult
 
+## 同一次 JSON parse 的只读输入树；仅内部同步读取选择保留，副本共享且不参与公开序列化。
+## [br]
+## @api private
+var _json_projection: Variant = null
+
 
 # --- 公共方法 ---
 
@@ -236,6 +241,7 @@ func configure_success(
 ) -> GFStorageReadResult:
 	_clear_origin_binding()
 	_captured_revision = null
+	_json_projection = null
 	ok = true
 	payload = p_payload.duplicate(true)
 	metadata = p_metadata.duplicate(true)
@@ -286,6 +292,7 @@ func configure_failure(
 	p_document_schema_version: int = 0,
 	p_failure_kind: FailureKind = FailureKind.IO_FAILED
 ) -> GFStorageReadResult:
+	_json_projection = null
 	_clear_origin_binding()
 	_captured_revision = null
 	ok = false
@@ -351,6 +358,7 @@ func get_committed_revision() -> GFStorageRevisionResult:
 func duplicate_result() -> GFStorageReadResult:
 	var copy: GFStorageReadResult = from_dict(_make_field_dictionary())
 	copy._captured_revision = _captured_revision
+	copy._json_projection = _json_projection
 	if _origin_binding_is_current():
 		var _bound: bool = copy.bind_origin_for_framework(
 			_origin_utility_id,
@@ -392,6 +400,7 @@ func to_dict() -> Dictionary:
 func apply_dict(data: Dictionary) -> void:
 	_clear_origin_binding()
 	_captured_revision = null
+	_json_projection = null
 	ok = GFVariantData.get_option_bool(data, "ok")
 	payload = GFVariantData.get_option_dictionary(data, "payload") if ok else {}
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
@@ -455,6 +464,79 @@ static func from_dict(data: Dictionary) -> GFStorageReadResult:
 
 
 # --- 框架内部方法 ---
+
+## 接管已经完整解码验证的同次 JSON parse 输入并递归只读封存；额外验证沿用 codec 遍历预算，不保存第二份原生载荷。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param document: 与当前结果同次读取的 JSON 文档树。
+## [br]
+## @schema document: 原始 JSON scalar、Array、Dictionary 树；循环、不完整 marker 或遍历超限不保留。
+func capture_json_projection_for_framework(document: Variant) -> void:
+	_json_projection = null
+	if not ok or not is_integrity_accepted():
+		return
+	var validation: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(document)
+	if not GFResultDictionary.is_ok(validation):
+		return
+	_make_json_projection_read_only(document)
+	_json_projection = document
+
+
+## 按原生键或数组索引定位同次 JSON 输入；中间 Dictionary 包装只解码键，叶子 marker 保持原编码。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param path: 从物理文档根开始的 String/StringName 键或整数数组索引。
+## [br]
+## @param project_dictionary: 为 true 时仅展开目标 Dictionary 的外层，保留各 value 的 prepared 表示。
+## [br]
+## @schema path: Array，元素只能为 String、StringName 或 int。
+## [br]
+## @return: 无投影或路径缺失为空；成功为 ok/value；迁移已改变原生数据时显式失败，不返回旧投影。
+## [br]
+## @schema return: Dictionary，可包含 ok: bool、value: Variant、error: String；value 的嵌套原始输入只读且与副本共享。
+func get_json_projection_value_for_framework(path: Array, project_dictionary: bool = false) -> Dictionary:
+	if _json_projection == null:
+		return {}
+	if (
+		not ok
+		or migrated
+		or not is_integrity_accepted()
+	):
+		return { "ok": false, "error": "Prepared JSON projection is no longer valid after the Storage result changed." }
+	var current: Variant = _json_projection
+	for segment: Variant in path:
+		if not (
+			segment is String
+			or segment is StringName
+			or segment is int
+		):
+			return {}
+		if current is Dictionary:
+			var projected: Dictionary = _project_json_dictionary(current)
+			if not GFResultDictionary.is_ok(projected):
+				return {}
+			var dictionary: Dictionary = GFVariantData.as_dictionary(projected.get("value"))
+			if not dictionary.has(segment):
+				return {}
+			current = dictionary[segment]
+		elif current is Array and segment is int:
+			var array: Array = current
+			var index: int = segment
+			if index < 0 or index >= array.size():
+				return {}
+			current = array[index]
+		else:
+			return {}
+	if project_dictionary:
+		return _project_json_dictionary(current)
+	return { "ok": true, "value": current }
+
 
 ## 捕获实际物理读取源的不可变 revision；不扩展公开 Dictionary schema。
 ## [br]
@@ -590,6 +672,46 @@ func get_origin_observation_token_for_framework(
 
 
 # --- 私有/辅助方法 ---
+
+## 已完整验证的 JSON 树不含循环；封存现有容器而不深复制，使多个 Result 安全共享投影。
+## [br]
+## @api private
+func _make_json_projection_read_only(value: Variant) -> void:
+	if value is Dictionary:
+		var dictionary: Dictionary = value
+		for key: Variant in dictionary:
+			_make_json_projection_read_only(dictionary[key])
+		dictionary.make_read_only()
+	elif value is Array:
+		var array: Array = value
+		for child: Variant in array:
+			_make_json_projection_read_only(child)
+		array.make_read_only()
+
+
+## 仅展开 Dictionary 的一层键映射，绝不递归解释 value marker；普通 JSON object 沿用其文本键。
+## [br]
+## @api private
+func _project_json_dictionary(value: Variant) -> Dictionary:
+	if not value is Dictionary:
+		return {}
+	var dictionary: Dictionary = value
+	var marker: Dictionary = GFVariantData.as_dictionary(dictionary.get(GFVariantJsonCodec.JSON_MARKER_KEY))
+	if (
+		dictionary.size() == 1
+		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_CODEC_KEY) == GFVariantJsonCodec.JSON_CODEC_ID
+		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY) == "Dictionary"
+	):
+		var projected: Dictionary = {}
+		for entry_value: Variant in GFVariantData.as_array(marker.get(GFVariantJsonCodec.JSON_VALUE_KEY)):
+			var entry: Dictionary = GFVariantData.as_dictionary(entry_value)
+			var decoded_key: Dictionary = GFVariantJsonCodec.json_compatible_to_variant_result(entry.get("key"))
+			if not GFResultDictionary.is_ok(decoded_key):
+				return {}
+			projected[decoded_key.get("value")] = entry.get("value")
+		return { "ok": true, "value": projected }
+	return { "ok": true, "value": dictionary }
+
 
 ## 组装 to_dict/from_dict 使用的字段集合，不包含 opaque 来源和 captured revision。
 ## [br]

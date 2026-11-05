@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="4c8cb09bfc77bfa81c17f424952baa63c349349cb34b8b0d1f97eb6721b6e608">
+<class name="GFCameraOrbitInput3D" path="addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd" module="extensions/camera" extends="Node" classDigest="b481267ba071f992dc70065b9b6cb71805401bba3954b74ce3f75a49339906e4">
 	<description>GFCameraOrbitInput3D: 通用 3D 环绕相机输入桥接节点。
 将 GFInputMappingUtility 的可配置动作值或鼠标拖拽转换为 GFCameraOrbitRig3D 的角度和距离增量。
 它不创建输入上下文，也不定义项目动作绑定。</description>
@@ -29,7 +29,8 @@
 	<properties>
 		<member kind="property" name="enabled" decorators="@export">
 			<signature>var enabled: bool = true:</signature>
-			<description>是否启用输入桥接。</description>
+			<description>是否启用输入桥接。禁用会取消鼠标捕获，并终止在途映射调用中尚未应用的输入。
+同步回调中禁用后再启用也不会恢复旧映射调用；已提交的 Rig 参数不回滚。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">6.0.0</tag>
@@ -169,11 +170,13 @@
 		</member>
 		<member kind="method" name="process_input">
 			<signature>func process_input(delta: float) -&gt; bool:</signature>
-			<description>读取输入映射并推进环绕 Rig。</description>
+			<description>读取输入映射并推进环绕 Rig。映射读取或 Rig 信号回调中禁用时，停止本次剩余输入。
+重新启用只允许新的调用；已应用的 orbit 或 zoom 不回滚。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 本帧时间增量（秒）。</tag>
-				<tag name="return">应用了任意输入时返回 true。</tag>
+				<tag name="return">本次已应用任意输入时返回 true，即使后续输入因禁用被取消。</tag>
+				<tag name="since">3.23.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_orbit_vector">

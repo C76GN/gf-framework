@@ -31,6 +31,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var persistent_id: StringName = &""
 ```
 
@@ -43,6 +44,7 @@ var persistent_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var type_key: StringName = &""
 ```
 
@@ -55,6 +57,7 @@ var type_key: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var descriptor_extra: Dictionary = {}
 ```
 

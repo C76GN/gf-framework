@@ -81,6 +81,7 @@ Scope/Source 执行阶段。
 - API：`public`
 
 ```gdscript
+@export
 var scope_key: StringName = &""
 ```
 
@@ -93,6 +94,7 @@ Scope 稳定标识。留空时回退到节点名。
 - API：`public`
 
 ```gdscript
+@export
 var key_namespace: StringName = &""
 ```
 
@@ -105,6 +107,7 @@ var key_namespace: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -117,6 +120,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var save_enabled: bool = true
 ```
 
@@ -129,6 +133,7 @@ var save_enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var load_enabled: bool = true
 ```
 
@@ -141,6 +146,7 @@ var load_enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var phase: Phase = Phase.NORMAL
 ```
 
@@ -153,6 +159,7 @@ var phase: Phase = Phase.NORMAL
 - API：`public`
 
 ```gdscript
+@export
 var restore_policy: RestorePolicy = RestorePolicy.APPLY_ONLY_EXISTING
 ```
 

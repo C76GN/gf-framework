@@ -195,6 +195,13 @@ func test_tag_set_hierarchical_count_signature_escapes_delimiters() -> void:
 
 func test_tag_source_adapter_supports_one_argument_has_tag_protocol() -> void:
 	var source: OneArgumentHasTagSource = OneArgumentHasTagSource.new()
+	assert_false(
+		GFTagSourceAdapter.source_has_tag(
+			source,
+			&"ready",
+			2
+		)
+	)
 
 	assert_true(
 		GFTagSourceAdapter.source_has_tag(source, &"ready"),

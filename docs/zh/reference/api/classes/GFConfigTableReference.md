@@ -61,6 +61,7 @@ enum SourceMode {
 - API：`public`
 
 ```gdscript
+@export
 var reference_id: StringName = &""
 ```
 
@@ -73,6 +74,7 @@ var reference_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var source_fields: PackedStringArray = PackedStringArray()
 ```
 
@@ -86,6 +88,7 @@ var source_fields: PackedStringArray = PackedStringArray()
 - 首次版本：`unreleased`
 
 ```gdscript
+@export
 var source_mode: SourceMode = SourceMode.FIELDS
 ```
 
@@ -98,6 +101,7 @@ var source_mode: SourceMode = SourceMode.FIELDS
 - API：`public`
 
 ```gdscript
+@export
 var target_table_name: StringName = &""
 ```
 
@@ -110,6 +114,7 @@ var target_table_name: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var target_fields: PackedStringArray = PackedStringArray()
 ```
 
@@ -123,6 +128,7 @@ var target_fields: PackedStringArray = PackedStringArray()
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var required: bool = true
 ```
 
@@ -136,6 +142,7 @@ var required: bool = true
 - 首次版本：`3.17.0`
 
 ```gdscript
+@export
 var allow_null_values: bool = true
 ```
 
@@ -148,6 +155,7 @@ var allow_null_values: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

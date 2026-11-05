@@ -40,6 +40,7 @@
 - API：`public`
 
 ```gdscript
+@export
 var bridge_id: StringName = &""
 ```
 
@@ -52,6 +53,7 @@ var bridge_id: StringName = &""
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -64,6 +66,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var source: GFSignalSourceRef = GFSignalSourceRef.new()
 ```
 
@@ -76,6 +79,7 @@ var source: GFSignalSourceRef = GFSignalSourceRef.new()
 - API：`public`
 
 ```gdscript
+@export
 var target: GFCallableTargetRef = GFCallableTargetRef.new()
 ```
 
@@ -88,6 +92,7 @@ var target: GFCallableTargetRef = GFCallableTargetRef.new()
 - API：`public`
 
 ```gdscript
+@export
 var argument_indices: PackedInt32Array = PackedInt32Array()
 ```
 
@@ -100,6 +105,7 @@ var argument_indices: PackedInt32Array = PackedInt32Array()
 - API：`public`
 
 ```gdscript
+@export
 var constant_args: Array = []
 ```
 
@@ -116,6 +122,7 @@ var constant_args: Array = []
 - API：`public`
 
 ```gdscript
+@export
 var append_context: bool = false
 ```
 
@@ -128,6 +135,7 @@ var append_context: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var one_shot: bool = false
 ```
 
@@ -140,6 +148,7 @@ var one_shot: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var connect_flags: int = 0
 ```
 
@@ -152,6 +161,7 @@ Godot 信号连接标记。
 - API：`public`
 
 ```gdscript
+@export
 var metadata: Dictionary = {}
 ```
 

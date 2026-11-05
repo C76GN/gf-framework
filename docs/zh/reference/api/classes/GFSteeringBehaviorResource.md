@@ -84,6 +84,7 @@ Steering 行为类型。
 - API：`public`
 
 ```gdscript
+@export
 var behavior_type: BehaviorType = BehaviorType.SEEK
 ```
 
@@ -96,6 +97,7 @@ var behavior_type: BehaviorType = BehaviorType.SEEK
 - API：`public`
 
 ```gdscript
+@export
 var enabled: bool = true
 ```
 
@@ -108,6 +110,7 @@ var enabled: bool = true
 - API：`public`
 
 ```gdscript
+@export
 var weight: float = 1.0
 ```
 
@@ -120,6 +123,7 @@ var weight: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var target_position: Vector3 = Vector3.ZERO
 ```
 
@@ -132,6 +136,7 @@ var target_position: Vector3 = Vector3.ZERO
 - API：`public`
 
 ```gdscript
+@export
 var target_orientation: float = 0.0
 ```
 
@@ -144,6 +149,7 @@ var target_orientation: float = 0.0
 - API：`public`
 
 ```gdscript
+@export
 var arrival_radius: float = 4.0
 ```
 
@@ -156,6 +162,7 @@ var arrival_radius: float = 4.0
 - API：`public`
 
 ```gdscript
+@export
 var slow_radius: float = 64.0
 ```
 
@@ -168,6 +175,7 @@ var slow_radius: float = 64.0
 - API：`public`
 
 ```gdscript
+@export
 var time_to_target: float = 0.1
 ```
 
@@ -180,6 +188,7 @@ var time_to_target: float = 0.1
 - API：`public`
 
 ```gdscript
+@export
 var align_tolerance: float = 0.001
 ```
 
@@ -192,6 +201,7 @@ var align_tolerance: float = 0.001
 - API：`public`
 
 ```gdscript
+@export
 var slow_angle: float = 0.5
 ```
 
@@ -204,6 +214,7 @@ var slow_angle: float = 0.5
 - API：`public`
 
 ```gdscript
+@export
 var use_z_axis: bool = false
 ```
 
@@ -216,6 +227,7 @@ var use_z_axis: bool = false
 - API：`public`
 
 ```gdscript
+@export
 var max_prediction_seconds: float = 1.0
 ```
 
@@ -228,6 +240,7 @@ var max_prediction_seconds: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var decay_coefficient: float = 1.0
 ```
 
@@ -240,6 +253,7 @@ var decay_coefficient: float = 1.0
 - API：`public`
 
 ```gdscript
+@export
 var max_distance: float = -1.0
 ```
 
@@ -252,6 +266,7 @@ var max_distance: float = -1.0
 - API：`public`
 
 ```gdscript
+@export
 var collision_radius: float = -1.0
 ```
 
@@ -264,6 +279,7 @@ var collision_radius: float = -1.0
 - API：`public`
 
 ```gdscript
+@export
 var minimum_separation: float = -1.0
 ```
 
@@ -276,6 +292,7 @@ var minimum_separation: float = -1.0
 - API：`public`
 
 ```gdscript
+@export
 var path_offset: float = 0.0
 ```
 
