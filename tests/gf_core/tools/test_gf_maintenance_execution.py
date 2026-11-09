@@ -194,6 +194,11 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 
 			cases = iter((
 				("clean", 0, "clean"),
+				("selected-file", 2, "incomplete"),
+				("project-progress", 0, "clean"),
+				("missing-file-value", 2, "incomplete"),
+				("unsafe-selected-file", 2, "incomplete"),
+				("selection-with-help", 2, "incomplete"),
 				("blocking-rule", 1, "violations"),
 				("warning-only", 0, "violations"),
 				("invalid-configuration", 2, "incomplete"),
@@ -218,6 +223,22 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 					"diagnostics": [{"rule": "doc_private_summary"}],
 					"rules": ["doc_private_summary"], "usage": "--list-rules",
 				}
+				progress = ""
+				if name in ("selected-file", "project-progress"):
+					progress = module.PROGRESS_PREFIX + json.dumps({
+						"path": "res://scripts/subject.gd", "stage": "lex", "event": "started",
+						"elapsed_ms": 1.0, "stage_elapsed_ms": 0.0,
+					}) + "\n"
+				if name == "selected-file":
+					report.update({
+						"complete": False, "ok": False, "files_checked": 1,
+						"coverage": {"scope": "selected", "selection_complete": True},
+						"source_hashes": {"res://scripts/subject.gd": "fixture-hash"},
+					})
+					if failure == "selected-admission":
+						report["complete"] = True
+					elif failure == "missing-progress":
+						progress = ""
 				if name == "positive-control" and failure != "positive-control":
 					(project / "autoload_executed.flag").touch()
 					(project / "target_executed.flag").touch()
@@ -238,7 +259,7 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 				return mock.Mock(
 					return_code=exit_code, process_boundary_quiescent=failure != "process-boundary",
 					timed_out=False, cancelled=False, stdout_truncated=False, stderr_truncated=False,
-					stdout=module.PREFIX + json.dumps(report) + "\n", stderr="",
+					stdout=module.PREFIX + json.dumps(report) + "\n", stderr=progress,
 				)
 
 			output = io.StringIO()
@@ -257,13 +278,14 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 				exit_code, report = self._acceptance_result(optimization, None)
 				self.assertEqual(exit_code, 0, report)
 				self.assertTrue(report["ok"])
-				self.assertEqual(len(report["cases"]), 9)
+				self.assertEqual(len(report["cases"]), 14)
 
 	def test_failed_native_evidence_is_rejected_at_every_optimization_level(self) -> None:
 		for optimization in (0, 1, 2):
 			for failure in (
 				"exit", "incomplete", "source-write", "autoload", "positive-control",
 				"editor", "process-boundary", "cleanup",
+				"selected-admission", "missing-progress",
 			):
 				with self.subTest(optimization=optimization, failure=failure):
 					exit_code, report = self._acceptance_result(optimization, failure)

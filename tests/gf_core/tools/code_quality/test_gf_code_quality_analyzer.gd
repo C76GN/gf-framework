@@ -585,6 +585,210 @@ func test_ambiguous_scope_aliases_are_rejected() -> void:
 		)
 
 
+func test_selected_files_intersect_policy_without_granting_project_success() -> void:
+	_write("scripts/main.gd", "extends RefCounted\n")
+	_write("scripts/other.gd", "[")
+	_write("scripts/vendor/ignored.gd", "[")
+	_write("outside.gd", "[")
+	var config: Dictionary = _config("doc_private_summary", "error")
+	config["include"] = ["res://scripts"]
+	config["exclude"] = ["res://scripts/vendor"]
+	_write(
+		".gf/code_quality.json",
+		JSON.stringify(config)
+	)
+	var analyzer: GFCodeQualityAnalyzer = _ANALYZER_SCRIPT.new()
+	var report: Dictionary = analyzer.analyze_project(
+		_root,
+		{},
+		Callable(),
+		PackedStringArray(
+			[
+				"res://scripts/main.gd",
+				"res://scripts/main.gd",
+				"res://scripts/vendor/ignored.gd",
+				"res://outside.gd",
+			]
+		)
+	)
+	assert_false(_report_bool(report, "ok"))
+	assert_false(_report_bool(report, "complete"))
+	assert_eq(
+		_report_int(report, "files_checked"),
+		1
+	)
+	var coverage: Dictionary = report["coverage"]
+	assert_eq(
+		_report_text(coverage, "scope"),
+		"selected"
+	)
+	assert_true(_report_bool(coverage, "selection_complete"))
+	var omitted: PackedStringArray = coverage["omitted_files"]
+	assert_eq(
+		omitted.size(),
+		2
+	)
+	var hashes: Dictionary = report["source_hashes"]
+	assert_eq(
+		hashes.keys(),
+		["res://scripts/main.gd"]
+	)
+	assert_eq(
+		_report_text(hashes, "res://scripts/main.gd"),
+		"extends RefCounted\n".sha256_text()
+	)
+	assert_false(
+		_report_bool(
+			analyzer.analyze_project(_root),
+			"complete"
+		)
+	)
+
+
+func test_selected_scope_keeps_rules_and_rejects_invalid_missing_or_directory_paths() -> void:
+	_write("main.gd", "extends RefCounted\nvar _value: int = 0\n")
+	_write("directory.gd/child.gd", "extends RefCounted\n")
+	var analyzer: GFCodeQualityAnalyzer = _ANALYZER_SCRIPT.new()
+	var config: Dictionary = _config("doc_private_summary", "error")
+	var report: Dictionary = analyzer.analyze_project(
+		_root,
+		config,
+		Callable(),
+		PackedStringArray(["res://main.gd"])
+	)
+	assert_true(_has_rule(report, "doc_private_summary"))
+	var coverage: Dictionary = report["coverage"]
+	assert_true(_report_bool(coverage, "selection_complete"))
+	for path: String in [
+		"res://missing.gd",
+		"res://../main.gd",
+		"res://directory.gd",
+		"res://",
+		"res://main.gd\n",
+	]:
+		report = analyzer.analyze_project(
+			_root,
+			config,
+			Callable(),
+			PackedStringArray([path])
+		)
+		coverage = report["coverage"]
+		assert_false(_report_bool(coverage, "selection_complete"))
+		assert_false(_report_bool(report, "complete"))
+		assert_eq(
+			_report_int(report, "files_checked"),
+			0
+		)
+	config["exclude"] = ["res://main.gd"]
+	report = analyzer.analyze_project(
+		_root,
+		config,
+		Callable(),
+		PackedStringArray(["res://main.gd"])
+	)
+	assert_true(_has_rule(report, "selection"))
+
+
+func test_selected_progress_is_incremental_and_cancellation_keeps_partial_coverage() -> void:
+	_write("a.gd", "extends RefCounted\n")
+	_write("b.gd", "extends RefCounted\n")
+	var events: Array[Dictionary] = []
+	var cancelled: Array[bool] = [false]
+	var observer: Callable = func(event: Dictionary) -> void:
+		events.append(event.duplicate(true))
+		if event["stage"] == "documentation" and event["event"] == "finished":
+			cancelled[0] = true
+	var cancel_probe: Callable = func() -> bool:
+		return cancelled[0]
+	var analyzer: GFCodeQualityAnalyzer = _ANALYZER_SCRIPT.new()
+	var report: Dictionary = analyzer.analyze_project(
+		_root,
+		_config("doc_private_summary", "error"),
+		cancel_probe,
+		PackedStringArray(["res://a.gd", "res://b.gd"]),
+		observer
+	)
+	assert_true(_has_rule(report, "analysis_cancelled"))
+	assert_eq(
+		_report_int(report, "files_checked"),
+		1
+	)
+	var coverage: Dictionary = report["coverage"]
+	assert_false(_report_bool(coverage, "selection_complete"))
+	assert_gt(
+		events.size(),
+		4
+	)
+	var previous_elapsed: float = -1.0
+	for event: Dictionary in events:
+		var elapsed: float = event["elapsed_ms"]
+		var stage_elapsed: float = event["stage_elapsed_ms"]
+		assert_gte(elapsed, previous_elapsed)
+		assert_gte(stage_elapsed, 0.0)
+		previous_elapsed = elapsed
+		assert_false(event.has("source"))
+
+
+func test_selected_source_and_adopted_policy_are_rechecked_after_progress() -> void:
+	var analyzer: GFCodeQualityAnalyzer = _ANALYZER_SCRIPT.new()
+	for change: String in ["source", "policy"]:
+		_write("a.gd", "extends RefCounted\n")
+		_write(
+			".gf/code_quality.json",
+			JSON.stringify(_config("doc_private_summary", "error"))
+		)
+		var observer: Callable = func(event: Dictionary) -> void:
+			if event["stage"] == "verify":
+				if change == "source":
+					_write("a.gd", "extends RefCounted\n# changed\n")
+				else:
+					_write(
+						".gf/code_quality.json",
+						JSON.stringify(_config("doc_private_summary", "warning"))
+					)
+		var report: Dictionary = analyzer.analyze_project(
+			_root,
+			{},
+			Callable(),
+			PackedStringArray(["res://a.gd"]),
+			observer
+		)
+		assert_true(_has_rule(report, "source_changed"))
+		var coverage: Dictionary = report["coverage"]
+		assert_false(_report_bool(coverage, "selection_complete"))
+
+
+func test_selected_case_aliases_cannot_bypass_policy_or_duplicate_work() -> void:
+	var directory: DirAccess = DirAccess.open(_root)
+	assert_not_null(directory)
+	if directory == null or directory.is_case_sensitive(_root):
+		return
+	_write("scripts/main.gd", "extends RefCounted\n")
+	_write("scripts/vendor/ignored.gd", "[")
+	var config: Dictionary = _config("doc_private_summary", "error")
+	config["include"] = ["res://scripts"]
+	config["exclude"] = ["res://scripts/vendor"]
+	var analyzer: GFCodeQualityAnalyzer = _ANALYZER_SCRIPT.new()
+	var report: Dictionary = analyzer.analyze_project(
+		_root,
+		config,
+		Callable(),
+		PackedStringArray(
+			[
+				"res://SCRIPTS/main.gd",
+				"res://scripts/main.gd",
+				"res://SCRIPTS/VENDOR/ignored.gd",
+			]
+		)
+	)
+	var coverage: Dictionary = report["coverage"]
+	assert_true(_report_bool(coverage, "selection_complete"))
+	assert_eq(
+		_report_int(report, "files_checked"),
+		1
+	)
+
+
 func _report_bool(report: Dictionary, key: String) -> bool:
 	var value: bool = report[key]
 	return value

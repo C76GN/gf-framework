@@ -64,11 +64,21 @@ godot --headless --path . --script res://addons/gf/tools/code_quality/cli/gf_cod
 
 `--json` 输出一行 `GF_CODE_QUALITY_REPORT=<JSON>`，调用方按行首提取其后的 JSON；Godot 自身的启动与诊断输出不能当作检查报告。不要添加 Godot 的 `--quiet`，该参数也会屏蔽脚本报告输出。正常检查返回前述分析报告，`--list-rules` 返回 `schema_version` 和 `rules`，不扫描项目源码。
 
+小范围修改可以使用可重复的 `--file`，最多指定 64 个规范 `res://` `.gd` 文件路径。范围始终与项目已采用的 `include` / `exclude` 取交集，不修改政策、不读取交集外源码；重复路径去重，大小写身份遵循所在目录的文件系统规则。目录、通配、父目录跳转和非规范路径无效；交集内文件缺失或穿过链接时检查失败。没有交集也不能产生成功检查。
+
+```powershell
+godot --headless --path . --script res://addons/gf/tools/code_quality/cli/gf_code_quality_cli.gd -- --file res://scripts/player.gd --file res://scripts/enemy.gd --progress --json
+```
+
+指定文件的报告始终是局部覆盖：`coverage.scope=selected`，`requested_files` 记录请求，`selected_files` 记录实际交集，`omitted_files` 记录被政策排除的路径。`coverage.selection_complete=true` 表示所选交集已完成读取、规则分析和来源复核；规则违规仍保留在 `diagnostics` 中。即使交集检查完毕且没有诊断，顶层仍为 `complete=false`、`ok=false`、`status=incomplete`，退出码为 `2`。这份报告用于定位局部问题；需要项目验收时移除全部 `--file` 再运行完整检查。
+
+`--progress` 可与完整项目或指定文件检查一起使用，通过 **stderr** 逐行输出 `GF_CODE_QUALITY_PROGRESS=<JSON>`，stdout 仍只有一条带报告标识的最终结果。事件含 `stage`、当前文件 `path`、`event`（`started` / `finished`）、从扫描开始累计的 `elapsed_ms` 和当前阶段的 `stage_elapsed_ms`；阶段为 `discover`、`read`、`lex`、`layout`、`documentation` 和 `verify`。未启用的规则族不产生相应事件。最终 `verify` 只通知开始，其后执行来源及配置复核并发布最终报告；枚举和整体复核的 `path` 为空。进度是阶段边界通知，不是能抢占单次长规则调用的心跳，也不会缩短规则分析本身的耗时。`--file` / `--progress` 不能与 `--help` / `--list-rules` 混用。
+
 | 退出码 | 含义 |
 | --- | --- |
 | `0` | 检查完整且没有 `error` 级规则问题；可以含 `warning`。查询规则或帮助成功也返回 0。 |
 | `1` | 检查完整，存在 `error` 级规则问题。 |
-| `2` | 未配置、检查不完整或参数无效。 |
+| `2` | 指定文件的局部覆盖、未配置、检查不完整或参数无效。 |
 
 CI 应同时检查进程退出码和报告完整性。命令不提供自动修复、源码写回或配置生成选项。
 
@@ -97,6 +107,8 @@ var report: Dictionary = analyzer.analyze_source(
 
 `load_project_config(root)` 返回 `ok`、`status`、`config` 和 `error`，供调用方读取与项目扫描相同的配置。不要根据缺省配置替项目选择预设。
 
+`analyze_project(root, config, cancel_probe, selected_files, progress_observer)` 的后三项均可省略。`selected_files` 为空时保留完整项目扫描；非空时按同样的交集和局部覆盖规则处理。`progress_observer` 是在调用线程同步执行的 `Callable`，接收与 CLI 相同的独立进度字典，不得修改分析输入。`cancel_probe` 继续在文件边界查询，取消、输入漂移或读取失败会令 `selection_complete=false`；不会保留可冒充完整通过的结果。
+
 ## 结果与边界
 
 报告包含 `schema_version`、`status`、`complete`、`ok`、`diagnostics`、`files_checked` 和 `files_failed`。每条诊断包含 `path`、从 1 开始的 `line` / `column`、`rule`、`severity`、`message` 和 `suggestion`。
@@ -105,7 +117,7 @@ var report: Dictionary = analyzer.analyze_source(
 | --- | --- |
 | `clean` | 检查范围完整，未发现已启用规则的问题。 |
 | `violations` | 检查范围完整，发现规则问题；结合严重性判断是否阻断。 |
-| `incomplete` | 配置、读取、语法结构、取消或资源预算使检查不完整，不能用零条诊断证明源码干净。 |
+| `incomplete` | 仅选择了局部文件，或配置、读取、语法结构、取消、资源预算使检查不完整；不能用零条诊断证明整个项目源码干净。 |
 | `unconfigured` | 项目没有主动采用预设或规则。 |
 
 有效范围可能没有 `.gd` 文件，此时 `files_checked` 为 `0`，`clean` 只表示该范围没有需要检查的源码。若项目应包含游戏脚本，请先核对 `include` / `exclude`；零匹配不能证明其他目录的代码符合规范。

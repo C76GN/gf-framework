@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "c13df38fd8c14af15f53398f1e632ce55c0d6557294ca798e5a13fc0e4ecc7f4",
+  "source_digest": "528b39f2bb28be6e77dbe147fd4cbe0578a4bc05ecf6c4dad02467110421e906",
   "class_count": 886,
   "autoload_count": 1,
   "package_count": 62,
@@ -17048,7 +17048,7 @@
         {
           "kind": "func",
           "name": "analyze_project",
-          "signature": "func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable() ) -> Dictionary",
+          "signature": "func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable(), selected_files: PackedStringArray = PackedStringArray(), progress_observer: Callable = Callable() ) -> Dictionary",
           "summary": "检查配置范围内的独立 .gd 文件，结束前复核来源，支持文件间取消。",
           "visibility": "public"
         }

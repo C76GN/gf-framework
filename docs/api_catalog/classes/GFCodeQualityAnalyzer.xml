@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCodeQualityAnalyzer" path="addons/gf/tools/code_quality/gf_code_quality_analyzer.gd" module="tools" extends="RefCounted" classDigest="36aa1518305eb668e687671a739d8d55a439f729070901ba36209b9de8c3e7a7">
+<class name="GFCodeQualityAnalyzer" path="addons/gf/tools/code_quality/gf_code_quality_analyzer.gd" module="tools" extends="RefCounted" classDigest="2cafb91598eb978900ce888a6c6b869c4a0b0904b5cd761ff92c835f11669ab8">
 	<description>项目代码规范的只读检查入口，供编辑器、制作工具与 CI 使用。
 输入只作为文本分析；检查不会执行目标脚本、写入源码或自动启用项目规范。</description>
 	<tags>
@@ -47,16 +47,18 @@
 			</tags>
 		</member>
 		<member kind="method" name="analyze_project">
-			<signature>func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable() ) -&gt; Dictionary:</signature>
+			<signature>func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable(), selected_files: PackedStringArray = PackedStringArray(), progress_observer: Callable = Callable() ) -&gt; Dictionary:</signature>
 			<description>检查配置范围内的独立 .gd 文件，结束前复核来源，支持文件间取消。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root: 被检查的本地项目目录；不会加载其 project.godot 或执行其脚本。</tag>
 				<tag name="param">config: 显式配置；为空时只读加载项目的 .gf/code_quality.json。</tag>
 				<tag name="param">cancel_probe: 可选无参回调，返回 true 时停止扫描；回调由调用者提供并须适合当前线程。</tag>
+				<tag name="param">selected_files: 可选的最多 64 个规范 res:// .gd 文件路径；非空时只检查与配置 include/exclude 的交集，且不授予完整项目通过资格。</tag>
+				<tag name="param">progress_observer: 可选同步回调，接收独立进度字典：stage（discover/read/lex/layout/documentation/verify）、path、event（started/finished）、elapsed_ms、stage_elapsed_ms；verify 只通知开始，随后直接发布最终报告。回调不得修改分析器输入，不能抢占单次规则分析。</tag>
 				<tag name="return">项目源码检查报告；失败、取消和读取期变化都返回 incomplete。</tag>
 				<tag name="schema">config: Dictionary，与 analyze_source 的 config 相同；空字典仅表示从项目加载配置。</tag>
-				<tag name="schema">return: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。</tag>
+				<tag name="schema">return: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。coverage.scope 为 project/selected；selected 时含 requested_files、selected_files、omitted_files: PackedStringArray，以及 selection_complete: bool（所选交集是否完成，规则违规不改变此值）；局部检查始终 complete/ok=false、status=incomplete，不能代替完整项目验收。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

@@ -18,7 +18,7 @@
 | 方法 | [`get_rule_ids`](#member-gfcodequalityanalyzer-methods-get_rule_ids) | `static func get_rule_ids() -> PackedStringArray:` |
 | 方法 | [`load_project_config`](#member-gfcodequalityanalyzer-methods-load_project_config) | `static func load_project_config(root: String) -> Dictionary:` |
 | 方法 | [`analyze_source`](#member-gfcodequalityanalyzer-methods-analyze_source) | `func analyze_source( path: String, source: String, config: Dictionary ) -> Dictionary:` |
-| 方法 | [`analyze_project`](#member-gfcodequalityanalyzer-methods-analyze_project) | `func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable() ) -> Dictionary:` |
+| 方法 | [`analyze_project`](#member-gfcodequalityanalyzer-methods-analyze_project) | `func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable(), selected_files: PackedStringArray = PackedStringArray(), progress_observer: Callable = Callable() ) -> Dictionary:` |
 
 ## 方法
 
@@ -98,7 +98,7 @@ func analyze_source( path: String, source: String, config: Dictionary ) -> Dicti
 - 首次版本：`unreleased`
 
 ```gdscript
-func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable() ) -> Dictionary:
+func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable(), selected_files: PackedStringArray = PackedStringArray(), progress_observer: Callable = Callable() ) -> Dictionary:
 ```
 
 检查配置范围内的独立 .gd 文件，结束前复核来源，支持文件间取消。
@@ -110,10 +110,12 @@ func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Calla
 | `root` | 被检查的本地项目目录；不会加载其 project.godot 或执行其脚本。 |
 | `config` | 显式配置；为空时只读加载项目的 .gf/code_quality.json。 |
 | `cancel_probe` | 可选无参回调，返回 true 时停止扫描；回调由调用者提供并须适合当前线程。 |
+| `selected_files` | 可选的最多 64 个规范 res:// .gd 文件路径；非空时只检查与配置 include/exclude 的交集，且不授予完整项目通过资格。 |
+| `progress_observer` | 可选同步回调，接收独立进度字典：stage（discover/read/lex/layout/documentation/verify）、path、event（started/finished）、elapsed_ms、stage_elapsed_ms；verify 只通知开始，随后直接发布最终报告。回调不得修改分析器输入，不能抢占单次规则分析。 |
 
 返回：项目源码检查报告；失败、取消和读取期变化都返回 incomplete。
 
 结构：
 
 - `config`: Dictionary，与 analyze_source 的 config 相同；空字典仅表示从项目加载配置。
-- `return`: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。
+- `return`: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。coverage.scope 为 project/selected；selected 时含 requested_files、selected_files、omitted_files: PackedStringArray，以及 selection_complete: bool（所选交集是否完成，规则违规不改变此值）；局部检查始终 complete/ok=false、status=incomplete，不能代替完整项目验收。
