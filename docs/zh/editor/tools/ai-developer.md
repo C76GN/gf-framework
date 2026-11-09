@@ -267,10 +267,9 @@ Kit 的 `templates/adapters/storage/` 提供项目侧 `GFStorageBackend`、强�
 observed -> classified -> reproduced -> redacted -> drafted -> deduplicated -> approved -> submitted
 ```
 
-先从模板创建结构化候选，再分析和起草：
+先从模板创建结构化候选，再起草反馈；`feedback-draft` 已包含完整的分析、契约校验和脱敏。仅需分类与诊断时，可单独使用 `feedback-analyze`。环境中的 `gf_version`、`godot_version`、`packages` 已填好时不会为反馈构建项目快照；缺失时只读取对应元数据，保留调用方已提供的值。元数据读取失败不会跳过候选、契约、隐私或提交审批检查：
 
 ```powershell
-python addons/gf/tools/ai_developer/gf_ai_project.py feedback-analyze --project-root . --input feedback_candidate.json
 python addons/gf/tools/ai_developer/gf_ai_project.py feedback-draft --project-root . --input feedback_candidate.json
 ```
 

@@ -6304,6 +6304,97 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(uninstall["ok"], uninstall)
 		self.assertEqual(target.read_bytes(), original)
 
+	def test_feedback_complete_environment_needs_no_snapshot_or_metadata_reads(self) -> None:
+		candidate = self._framework_bug_candidate()
+		candidate["environment"]["gf_version"] = "12.0.0-dev.0"
+		original = copy.deepcopy(candidate)
+		with (
+			mock.patch.object(snapshot, "build_snapshot", side_effect=AssertionError("Unexpected project scan")),
+			mock.patch.object(catalog, "project_framework_version", side_effect=AssertionError("Unexpected version read")),
+			mock.patch.object(catalog, "installed_package_report", side_effect=AssertionError("Unexpected package read")),
+			mock.patch.object(snapshot, "_read_project_source", side_effect=AssertionError("Unexpected project read")),
+		):
+			analysis = feedback.analyze_candidate(self.project_root, candidate)
+			drafted = feedback.draft_feedback(self.project_root, candidate, write=False)
+		self.assertTrue(analysis["ok"], analysis)
+		self.assertTrue(drafted["ok"], drafted)
+		self.assertEqual(analysis["candidate"]["environment"], original["environment"])
+		self.assertEqual(drafted["analysis"]["candidate"]["environment"], original["environment"])
+		self.assertEqual(candidate, original)
+
+	def test_feedback_enriches_only_missing_environment_metadata(self) -> None:
+		for field in ("gf_version", "godot_version", "packages"):
+			with self.subTest(field=field):
+				candidate = self._framework_bug_candidate()
+				candidate["environment"] = {
+					"gf_version": "caller-version", "godot_version": "caller-engine",
+					"platform": "caller-platform", "packages": ["gf.tool.ai_developer"],
+				}
+				candidate["environment"][field] = [] if field == "packages" else ""
+				original = copy.deepcopy(candidate)
+				with (
+					mock.patch.object(snapshot, "build_snapshot", side_effect=AssertionError("Unexpected project scan")),
+					mock.patch.object(catalog, "project_framework_version", wraps=catalog.project_framework_version) as version,
+					mock.patch.object(catalog, "installed_package_report", return_value={"valid": True, "packages": ["gf.kernel"]}) as packages,
+					mock.patch.object(snapshot, "_read_project_source", wraps=snapshot._read_project_source) as project,
+				):
+					result = feedback.draft_feedback(self.project_root, candidate, write=False)
+				self.assertTrue(result["ok"], result)
+				environment = result["analysis"]["candidate"]["environment"]
+				self.assertTrue(environment[field])
+				for supplied in original["environment"]:
+					if supplied != field:
+						self.assertEqual(environment[supplied], original["environment"][supplied])
+				self.assertEqual(version.call_count, int(field == "gf_version"))
+				self.assertEqual(packages.call_count, int(field == "packages"))
+				self.assertEqual(project.call_count, int(field == "godot_version"))
+				self.assertEqual(candidate, original)
+
+	def test_feedback_missing_environment_uses_real_metadata_without_source_analysis(self) -> None:
+		candidate = self._framework_bug_candidate()
+		candidate["environment"].update({"gf_version": "", "godot_version": "", "packages": []})
+		original = copy.deepcopy(candidate)
+		with mock.patch.object(snapshot, "build_snapshot", side_effect=AssertionError("Unexpected project scan")):
+			result = feedback.draft_feedback(self.project_root, candidate, write=False)
+		self.assertTrue(result["ok"], result)
+		self.assertEqual(result["analysis"]["candidate"]["environment"], {
+			"gf_version": catalog.catalog_framework_version(), "godot_version": "4.5",
+			"platform": "Windows", "packages": ["gf.kernel"],
+		})
+		self.assertEqual(candidate, original)
+
+	def test_feedback_invalid_package_metadata_preserves_empty_fallback(self) -> None:
+		candidate = self._framework_bug_candidate()
+		candidate["environment"]["gf_version"] = "caller-version"
+		del candidate["environment"]["packages"]
+		with (
+			mock.patch.object(snapshot, "build_snapshot", side_effect=AssertionError("Unexpected project scan")),
+			mock.patch.object(catalog, "installed_package_report", return_value={"valid": False, "packages": []}),
+		):
+			result = feedback.draft_feedback(self.project_root, candidate, write=False)
+		self.assertTrue(result["ok"], result)
+		self.assertEqual(result["analysis"]["candidate"]["environment"]["packages"], [])
+		self.assertNotIn("packages", candidate["environment"])
+
+	def test_feedback_metadata_failure_keeps_validation_and_other_fields(self) -> None:
+		candidate = self._framework_bug_candidate()
+		candidate["environment"]["godot_version"] = ""
+		with (
+			mock.patch.object(snapshot, "build_snapshot", side_effect=AssertionError("Unexpected project scan")),
+			mock.patch.object(snapshot, "_read_project_source", side_effect=ValueError("Unreadable project metadata")),
+		):
+			result = feedback.analyze_candidate(self.project_root, candidate)
+		self.assertTrue(result["ok"], result)
+		self.assertEqual(result["candidate"]["environment"]["godot_version"], "")
+		self.assertEqual(result["candidate"]["environment"]["gf_version"], catalog.catalog_framework_version())
+		candidate["environment"]["gf_version"] = "caller-version"
+		candidate["environment"]["godot_version"] = "caller-engine"
+		candidate["environment"]["packages"] = "invalid-packages"
+		self.assertFalse(feedback.analyze_candidate(self.project_root, candidate)["ok"])
+		candidate["environment"]["packages"] = ["gf.kernel"]
+		(self.project_root / ".gf/project_contract.json").write_text("{}", encoding="utf-8")
+		self.assertFalse(feedback.draft_feedback(self.project_root, candidate, write=False)["ok"])
+
 	def test_feedback_is_redacted_bound_to_contract_and_human_gated(self) -> None:
 		self._enable_network_feedback()
 		candidate = self._framework_bug_candidate()

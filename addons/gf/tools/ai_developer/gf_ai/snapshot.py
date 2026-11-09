@@ -771,13 +771,16 @@ def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
 	return source_path, f" Evidence: {source_path}:{line} {kind} {symbol!r}."
 
 
+def read_project_godot_version(project_root: Path) -> str:
+	"""Read the declared engine version without inspecting project sources or the catalog."""
+	features = _string_array_setting(_read_project_source(project_root), "config/features")
+	return next((item for item in features if re.fullmatch(r"\d+\.\d+(?:\.\d+)?", item)), "")
+
+
 def _read_project_source(project_root: Path) -> str:
 	try:
 		path = resolve_project_path(project_root, "project.godot", must_exist=True)
-		with path.open("rb") as stream:
-			raw = stream.read(16 * 1024 * 1024 + 1)
-		if len(raw) > 16 * 1024 * 1024:
-			raise ValueError("project.godot exceeds the 16 MiB snapshot input budget.")
+		raw = read_bounded_bytes(path, 16 * 1024 * 1024)
 		return raw.decode("utf-8", errors="strict")
 	except (OSError, UnicodeDecodeError, ValueError) as exc:
 		raise ValueError(f"project.godot is unreadable: {exc}") from exc

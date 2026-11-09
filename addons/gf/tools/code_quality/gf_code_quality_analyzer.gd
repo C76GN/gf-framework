@@ -156,15 +156,21 @@ func analyze_source(
 ## [br]
 ## @param cancel_probe: 可选无参回调，返回 true 时停止扫描；回调由调用者提供并须适合当前线程。
 ## [br]
+## @param selected_files: 可选的最多 64 个规范 res:// .gd 文件路径；非空时只检查与配置 include/exclude 的交集，且不授予完整项目通过资格。
+## [br]
+## @param progress_observer: 可选同步回调，接收独立进度字典：stage（discover/read/lex/layout/documentation/verify）、path、event（started/finished）、elapsed_ms、stage_elapsed_ms；verify 只通知开始，随后直接发布最终报告。回调不得修改分析器输入，不能抢占单次规则分析。
+## [br]
 ## @schema config: Dictionary，与 analyze_source 的 config 相同；空字典仅表示从项目加载配置。
 ## [br]
 ## @return 项目源码检查报告；失败、取消和读取期变化都返回 incomplete。
 ## [br]
-## @schema return: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。
+## @schema return: Dictionary，与 analyze_source 报告相同；coverage.source 为 disk，include/exclude 记录实际配置范围；source_hashes 保存已检查文件的文本 SHA-256。coverage.scope 为 project/selected；selected 时含 requested_files、selected_files、omitted_files: PackedStringArray，以及 selection_complete: bool（所选交集是否完成，规则违规不改变此值）；局部检查始终 complete/ok=false、status=incomplete，不能代替完整项目验收。
 func analyze_project(
 	root: String,
 	config: Dictionary = {},
-	cancel_probe: Callable = Callable()
+	cancel_probe: Callable = Callable(),
+	selected_files: PackedStringArray = PackedStringArray(),
+	progress_observer: Callable = Callable()
 ) -> Dictionary:
 	var absolute: String = _FILES_SCRIPT.resolve_root(root)
 	if absolute.is_empty():
@@ -176,21 +182,60 @@ func analyze_project(
 	var report: Dictionary = _new_report("disk")
 	report["coverage"]["include"] = options["include"]
 	report["coverage"]["exclude"] = options["exclude"]
+	var selected: bool = not selected_files.is_empty()
+	report["coverage"]["scope"] = "selected" if selected else "project"
+	var scan_options: Dictionary = options
+	if selected:
+		scan_options = _select_files(
+			absolute,
+			options,
+			selected_files,
+			report
+		)
+		if scan_options.is_empty():
+			_finish(report)
+			return report
+	var progress: Dictionary = { "observer": progress_observer, "started_usec": Time.get_ticks_usec() }
+	var discover_started: int = Time.get_ticks_usec()
+	_emit_progress(
+		progress,
+		"discover",
+		""
+	)
 	var paths: PackedStringArray = _collect_paths(
 		absolute,
-		options,
+		scan_options,
 		cancel_probe,
-		report
+		report,
+		selected
+	)
+	_emit_progress(
+		progress,
+		"discover",
+		"",
+		discover_started
 	)
 	var total_bytes: int = 0
 	var source_sizes: Dictionary = {}
 	for path: String in paths:
 		if _cancelled(cancel_probe, report) or _diagnostic_limit(report):
 			break
+		var read_started: int = Time.get_ticks_usec()
+		_emit_progress(
+			progress,
+			"read",
+			path
+		)
 		var remaining_bytes: int = _MAX_TOTAL_BYTES - total_bytes
 		var capture: Dictionary = _FILES_SCRIPT.read_text(
 			absolute.path_join(path.substr(6)),
 			mini(_MAX_FILE_BYTES, remaining_bytes)
+		)
+		_emit_progress(
+			progress,
+			"read",
+			path,
+			read_started
 		)
 		var consumed_bytes: int = capture["consumed_bytes"]
 		total_bytes += consumed_bytes
@@ -229,8 +274,15 @@ func analyze_project(
 			path,
 			source,
 			options,
-			report
+			report,
+			progress
 		)
+	# 最后一次进度通知发生在来源和配置复核前，不在发布边界调用外部观察者。
+	_emit_progress(
+		progress,
+		"verify",
+		""
+	)
 	_verify_sources(
 		absolute,
 		source_sizes,
@@ -240,9 +292,10 @@ func analyze_project(
 	if report["complete"]:
 		var current_paths: PackedStringArray = _collect_paths(
 			absolute,
-			options,
+			scan_options,
 			cancel_probe,
-			report
+			report,
+			selected
 		)
 		if current_paths != paths:
 			_record_failure(
@@ -260,11 +313,137 @@ func analyze_project(
 				"source_changed",
 				"项目规范配置在检查期间发生变化，请重新检查。"
 			)
+	if selected:
+		report["coverage"]["selection_complete"] = report["complete"]
+		report["complete"] = false
 	_finish(report)
 	return report
 
 
 # --- 私有/辅助方法 ---
+
+## 只收窄已准入政策，不枚举交集外源码；保留被政策排除的请求身份。
+## [br]
+## @api private
+func _select_files(
+	root: String,
+	options: Dictionary,
+	requested: PackedStringArray,
+	report: Dictionary
+) -> Dictionary:
+	var coverage: Dictionary = report["coverage"]
+	coverage["requested_files"] = requested.duplicate()
+	coverage["selected_files"] = PackedStringArray()
+	coverage["omitted_files"] = PackedStringArray()
+	coverage["selection_complete"] = false
+	var scan_options: Dictionary = options.duplicate(true)
+	scan_options["include"] = Array(requested)
+	var admitted: Dictionary = _CONFIG_SCRIPT.normalize(scan_options)
+	if not admitted["ok"]:
+		_record_failure(
+			report,
+			"",
+			"selection",
+			"文件选择必须是最多 64 项的规范 res:// .gd 路径。"
+		)
+		return {}
+	var directory: DirAccess = DirAccess.open(root)
+	if directory == null:
+		_record_failure(
+			report,
+			"res://",
+			"source_read",
+			"项目根目录不可访问。"
+		)
+		return {}
+	var case_cache: Dictionary = {}
+	var included: PackedStringArray = PackedStringArray()
+	var excluded: PackedStringArray = PackedStringArray()
+	for path: String in options["include"]:
+		var _appended: bool = included.append(
+			_scope_identity(
+				path,
+				directory,
+				case_cache
+			)
+		)
+	var configured_exclusions: Array = options["exclude"]
+	var exclusions: Array = configured_exclusions.duplicate()
+	exclusions.append_array(["res://.godot", "res://.git"])
+	for path: String in exclusions:
+		var _appended: bool = excluded.append(
+			_scope_identity(
+				path,
+				directory,
+				case_cache
+			)
+		)
+	var selected: PackedStringArray = PackedStringArray()
+	var omitted: PackedStringArray = PackedStringArray()
+	var seen: Dictionary = {}
+	for path: String in requested:
+		if not path.ends_with(".gd"):
+			_record_failure(
+				report,
+				path,
+				"selection",
+				"文件选择只接受 .gd 文件，不接受目录。"
+			)
+			return {}
+		var identity: String = _scope_identity(
+			path,
+			directory,
+			case_cache
+		)
+		if seen.has(identity):
+			continue
+		seen[identity] = true
+		if not _excluded(identity, included) or _excluded(identity, excluded):
+			var _omitted_appended: bool = omitted.append(path)
+			continue
+		var _selected_appended: bool = selected.append(path)
+	selected.sort()
+	omitted.sort()
+	coverage["selected_files"] = selected
+	coverage["omitted_files"] = omitted
+	if selected.is_empty():
+		_record_failure(
+			report,
+			"",
+			"selection",
+			"文件选择与项目规范的有效范围没有交集。"
+		)
+		return {}
+	scan_options["include"] = Array(selected)
+	return scan_options
+
+
+## 同步发布独立阶段记录，不把源码或报告容器交给观察者。
+## [br]
+## @api private
+func _emit_progress(
+	progress: Dictionary,
+	stage: String,
+	path: String,
+	stage_started_usec: int = -1
+) -> void:
+	if progress.is_empty():
+		return
+	var observer: Callable = progress["observer"]
+	if not observer.is_valid():
+		return
+	var now: int = Time.get_ticks_usec()
+	var started: int = progress["started_usec"]
+	var _ignored: Variant = observer.call(
+		{
+			"stage": stage,
+			"path": path,
+			"event": "started" if stage_started_usec < 0 else "finished",
+			"elapsed_ms": (now - started) / 1000.0,
+			"stage_elapsed_ms": 0.0 if stage_started_usec < 0 else (now - stage_started_usec) / 1000.0,
+		}
+	)
+
 
 ## 将同一语法模型交给两类规则，并应用统一严重级别。
 ## [br]
@@ -273,7 +452,8 @@ func _analyze_text(
 	path: String,
 	source: String,
 	options: Dictionary,
-	report: Dictionary
+	report: Dictionary,
+	progress: Dictionary = {}
 ) -> void:
 	if source.to_utf8_buffer().size() > _MAX_FILE_BYTES:
 		_record_failure(
@@ -284,7 +464,19 @@ func _analyze_text(
 			true
 		)
 		return
+	var lex_started: int = Time.get_ticks_usec()
+	_emit_progress(
+		progress,
+		"lex",
+		path
+	)
 	var view: Dictionary = _SOURCE_SCRIPT.lex_source(path, source)
+	_emit_progress(
+		progress,
+		"lex",
+		path,
+		lex_started
+	)
 	var findings: Array[Dictionary] = []
 	var source_diagnostics: Array = view["diagnostics"]
 	findings.assign(source_diagnostics)
@@ -298,16 +490,40 @@ func _analyze_text(
 			var layout_options: Dictionary = options["layout"]
 			layout_options = layout_options.duplicate()
 			layout_options["rule_levels"] = levels
+			var layout_started: int = Time.get_ticks_usec()
+			_emit_progress(
+				progress,
+				"layout",
+				path
+			)
 			findings.append_array(_LAYOUT_SCRIPT.analyze(view, layout_options))
+			_emit_progress(
+				progress,
+				"layout",
+				path,
+				layout_started
+			)
 		if _has_enabled_rules(
 			_DOCS_SCRIPT.get_rule_ids(),
 			levels
 		):
+			var docs_started: int = Time.get_ticks_usec()
+			_emit_progress(
+				progress,
+				"documentation",
+				path
+			)
 			findings.append_array(
 				_DOCS_SCRIPT.analyze(
 					view,
 					{ "rule_levels": levels }
 				)
+			)
+			_emit_progress(
+				progress,
+				"documentation",
+				path,
+				docs_started
 			)
 	else:
 		report["complete"] = false
@@ -353,7 +569,8 @@ func _collect_paths(
 	root: String,
 	options: Dictionary,
 	cancel_probe: Callable,
-	report: Dictionary
+	report: Dictionary,
+	files_only: bool = false
 ) -> PackedStringArray:
 	var selected: Dictionary = {}
 	var visited: Dictionary = {}
@@ -416,6 +633,14 @@ func _collect_paths(
 		if FileAccess.file_exists(absolute):
 			if logical.ends_with(".gd"):
 				selected[logical] = true
+			continue
+		if files_only:
+			_record_failure(
+				report,
+				logical,
+				"source_read",
+				"所选 .gd 文件不存在或不是普通文件，不会递归检查目录。"
+			)
 			continue
 		var directory: DirAccess = DirAccess.open(absolute)
 		if directory != null:

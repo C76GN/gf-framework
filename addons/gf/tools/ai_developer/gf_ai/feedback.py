@@ -370,25 +370,26 @@ def _enrich_environment(project_root: Path, candidate: dict[str, Any]) -> dict[s
 	environment = candidate.get("environment")
 	if not isinstance(environment, dict):
 		return candidate
-	try:
-		from .snapshot import build_snapshot
-
-		snapshot = build_snapshot(project_root)
-	except (OSError, ValueError, RuntimeError):
+	missing = [field for field in ("gf_version", "packages", "godot_version") if not environment.get(field)]
+	if not missing:
 		return candidate
-	framework = snapshot.get("framework", {})
-	project = snapshot.get("project", {})
-	if isinstance(framework, dict):
-		if not environment.get("gf_version"):
-			environment["gf_version"] = str(framework.get("version", ""))
-		if not environment.get("packages"):
-			environment["packages"] = list(framework.get("packages", []))
-	if isinstance(project, dict) and not environment.get("godot_version"):
-		features = project.get("godot_features", [])
-		if isinstance(features, list):
-			versions = [str(item) for item in features if re.fullmatch(r"\d+\.\d+(?:\.\d+)?", str(item))]
-			if versions:
-				environment["godot_version"] = versions[0]
+	from . import catalog, snapshot
+
+	# Each missing field has a bounded metadata reader; no source analysis or cache is needed.
+	for field in missing:
+		try:
+			if field == "gf_version":
+				environment[field] = catalog.project_framework_version(project_root)
+			elif field == "packages":
+				report = catalog.installed_package_report(project_root)
+				# Invalid installation metadata already yields an empty package list.
+				environment[field] = list(report["packages"])
+			else:
+				version = snapshot.read_project_godot_version(project_root)
+				if version:
+					environment[field] = version
+		except (OSError, ValueError, RuntimeError):
+			continue
 	return candidate
 
 

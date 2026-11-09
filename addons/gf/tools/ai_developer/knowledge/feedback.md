@@ -15,6 +15,8 @@ Project development can expose framework defects and reusable gaps, but most loc
 
 `observed -> classified -> reproduced -> redacted -> drafted -> deduplicated -> approved -> submitted`
 
+Use `feedback-draft` directly when a draft is needed: it already performs analysis, contract validation, and redaction. `feedback-analyze` is an optional standalone classification step, not a prerequisite for drafting. Complete caller-supplied environment metadata needs no project snapshot; missing version or package fields are read individually from bounded metadata sources without running project source analysis. Metadata failures never bypass candidate, contract, privacy, or submission checks.
+
 Submission is never implicit. The project contract must opt in to network submission. The user must review and approve the exact payload hash returned by `feedback-prepare`; any payload or contract change invalidates that approval. GitHub is checked for the evidence fingerprint immediately before creation. MCP intentionally cannot submit. The final `feedback-submit` command requires a human-operated interactive terminal and an exact typed confirmation.
 
 ## Data minimization

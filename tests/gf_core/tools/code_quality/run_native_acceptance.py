@@ -26,6 +26,7 @@ from gf_process_supervisor import run_supervised_process
 TOOL = "addons/gf/tools/code_quality"
 RUNNER = f"res://{TOOL}/cli/gf_code_quality_cli.gd"
 PREFIX = "GF_CODE_QUALITY_REPORT="
+PROGRESS_PREFIX = "GF_CODE_QUALITY_PROGRESS="
 FIXTURES = Path(__file__).with_name("fixtures")
 FAILURE_MARKERS = (
 	"SCRIPT ERROR", "Parse Error", "ERROR:", "WARNING:",
@@ -142,6 +143,14 @@ def run_acceptance() -> dict[str, Any]:
 			lines = [line[len(PREFIX):] for line in result.stdout.splitlines() if line.startswith(PREFIX)]
 			_require(len(lines) == 1, f"{name}: expected exactly one marked JSON report; stdout={result.stdout!r}")
 			report = json.loads(lines[0])
+			progress = [json.loads(line[len(PROGRESS_PREFIX):]) for line in result.stderr.splitlines() if line.startswith(PROGRESS_PREFIX)]
+			_require(not any(line.startswith(PROGRESS_PREFIX) for line in result.stdout.splitlines()), f"{name}: progress polluted stdout")
+			if "--progress" in extra and status != "unconfigured":
+				_require(progress, f"{name}: missing incremental progress")
+				_require(any(event["path"] == "res://scripts/subject.gd" and event["stage"] == "lex" for event in progress), f"{name}: no file/phase progress")
+				_require(all(event["elapsed_ms"] >= 0 and event["stage_elapsed_ms"] >= 0 for event in progress), f"{name}: invalid timing")
+			else:
+				_require(not progress, f"{name}: unsolicited progress")
 			_require(report["schema_version"] == 1, f"{name}: unsupported report schema")
 			if status is not None:
 				_require(report["status"] == status, f"{name}: {report}")
@@ -157,6 +166,14 @@ def run_acceptance() -> dict[str, Any]:
 			clean["files_checked"] == 2 and clean["complete"] is True,
 			f"clean: incomplete source coverage: {clean}",
 		)
+		selected = check("selected-file", 2, "incomplete", "--file", "res://scripts/subject.gd", "--progress")
+		_require(selected["complete"] is False and selected["ok"] is False, "Selected scope must not pass complete-project admission")
+		_require(selected["coverage"]["scope"] == "selected" and selected["coverage"]["selection_complete"] is True, f"selected-file: {selected}")
+		_require(list(selected["source_hashes"]) == ["res://scripts/subject.gd"], f"selected-file: unexpected coverage: {selected}")
+		check("project-progress", 0, "clean", "--progress")
+		check("missing-file-value", 2, "incomplete", "--file")
+		check("unsafe-selected-file", 2, "incomplete", "--file", "res://scripts/../autoload.gd")
+		check("selection-with-help", 2, "incomplete", "--file", "res://scripts/subject.gd", "--help")
 		(host / "scripts/subject.gd").write_text(
 			clean_source + "\n\nfunc _missing_summary() -> void:\n\tpass\n",
 			encoding="utf-8", newline="\n",

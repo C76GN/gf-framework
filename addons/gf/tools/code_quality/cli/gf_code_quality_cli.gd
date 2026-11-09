@@ -15,6 +15,11 @@ const _ANALYZER_SCRIPT = preload("res://addons/gf/tools/code_quality/gf_code_qua
 ## @api private
 const _REPORT_PREFIX: String = "GF_CODE_QUALITY_REPORT="
 
+## 增量阶段记录只写入 stderr，与 stdout 的最终机器报告分离。
+## [br]
+## @api private
+const _PROGRESS_PREFIX: String = "GF_CODE_QUALITY_PROGRESS="
+
 ## 命令只检查、列出规则或显示帮助，不提供写入或修复入口。
 ## [br]
 ## @api private
@@ -24,13 +29,17 @@ godot --headless --path <project> --script res://addons/gf/tools/code_quality/cl
 
   --root <absolute-path>  Project to inspect; defaults to the host project.
   --json                  Emit one GF_CODE_QUALITY_REPORT=<JSON> line.
+  --file <res://file.gd>   Check selected files within the adopted policy; repeat up to 64 times.
+  --progress              Emit GF_CODE_QUALITY_PROGRESS=<JSON> stage events to stderr.
   --list-rules            List configurable rule IDs without reading project source.
   --help                  Show this help.
 
 The project must explicitly adopt .gf/code_quality.json. This command never creates
 configuration, modifies source, or executes inspected scripts.
 Exit codes: 0 = complete without blocking errors; 1 = complete with rule errors;
-2 = unconfigured, incomplete, or invalid arguments."""
+2 = selected (partial coverage), unconfigured, incomplete, or invalid arguments.
+Selected reports never grant complete-project admission; coverage.selection_complete
+identifies a finished selected-file check. Progress cannot interrupt a running rule."""
 
 
 # --- 私有变量 ---
@@ -79,7 +88,15 @@ func _initialize() -> void:
 		return
 	var analyzer: _ANALYZER_SCRIPT = _ANALYZER_SCRIPT.new()
 	var project_root: String = parsed["root"]
-	var report: Dictionary = analyzer.analyze_project(project_root)
+	var files: PackedStringArray = parsed["files"]
+	var observer: Callable = _emit_progress if parsed["progress"] else Callable()
+	var report: Dictionary = analyzer.analyze_project(
+		project_root,
+		{},
+		Callable(),
+		files,
+		observer
+	)
 	_emit(report, machine_output)
 	if report["complete"]:
 		_exit_code = 0 if report["ok"] else 1
@@ -112,6 +129,8 @@ func _parse_arguments(arguments: PackedStringArray) -> Dictionary:
 		"json": arguments.has("--json"),
 		"help": false,
 		"list_rules": false,
+		"files": PackedStringArray(),
+		"progress": false,
 		"error": "",
 	}
 	var root_seen: bool = false
@@ -125,6 +144,16 @@ func _parse_arguments(arguments: PackedStringArray) -> Dictionary:
 				result["help"] = true
 			"--list-rules":
 				result["list_rules"] = true
+			"--progress":
+				result["progress"] = true
+			"--file":
+				var files: PackedStringArray = result["files"]
+				if index + 1 >= arguments.size() or files.size() >= 64:
+					result["error"] = "--file requires a res:// .gd file path and accepts at most 64 selections."
+					return result
+				index += 1
+				var _appended: bool = files.append(arguments[index])
+				result["files"] = files
 			"--root":
 				if root_seen or index + 1 >= arguments.size():
 					result["error"] = "--root requires one absolute project path and cannot be repeated."
@@ -146,7 +175,26 @@ func _parse_arguments(arguments: PackedStringArray) -> Dictionary:
 		index += 1
 	if result["help"] and result["list_rules"]:
 		result["error"] = "--help and --list-rules cannot be combined."
+	var selected_files: PackedStringArray = result["files"]
+	if (
+		(
+			result["help"]
+			or result["list_rules"]
+		)
+		and (
+			not selected_files.is_empty()
+			or result["progress"]
+		)
+	):
+		result["error"] = "--file and --progress cannot be combined with --help or --list-rules."
 	return result
+
+
+## 进度不产生第二份最终报告；JSON 转义路径中的控制字符。
+## [br]
+## @api private
+func _emit_progress(event: Dictionary) -> void:
+	printerr(_PROGRESS_PREFIX + JSON.stringify(event))
 
 
 ## 机器结果固定为一行 JSON；普通模式输出摘要和完整诊断位置。
@@ -164,6 +212,9 @@ func _emit(report: Dictionary, machine_output: bool) -> void:
 			report["files_failed"],
 		]
 	)
+	var coverage: Dictionary = report["coverage"]
+	if coverage.get("scope", "") == "selected":
+		print("Selected-file coverage only; complete-project admission requires a full scan.")
 	for issue: Dictionary in report["diagnostics"]:
 		print(
 			"%s:%d:%d: %s %s: %s"

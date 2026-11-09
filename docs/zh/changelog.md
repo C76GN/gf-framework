@@ -6,6 +6,8 @@
 
 ### 🚀 新增特性 (Added)
 
+- [GDScript 代码检查](editor/tools/code-quality.md) 的命令行支持可重复的 `--file` 和独立 stderr 阶段进度。文件选择只取项目既有规范范围的交集，报告明确区分局部检查完成与完整项目验收，并继续复核源码与配置。
+
 - 新增默认关闭的 [Data Batch](extensions/data-batch/index.md) 扩展（`gf.data_batch`，`extension_version` 为 `1.0.0`），提供 Int32 / Int64 列 Schema、带行数与载荷预算的发布者，以及可保留的批次快照。支持复制、显式转交和按索引采集复制；借用列遵守合作只读约定，项目负责业务身份、历史快照和跨线程调度。
 - [文本检索](standard/foundation/data-validation/budget-collections-timeline/text-search-scorer.md#搜索排序)默认按精确相关度排列，名称浏览预设支持固定分档和自定义档宽；近分结果不再两两近似比较。资产浏览模型的同步、异步分页使用同一规则，切换排序会撤销旧查询结果。
 
@@ -112,6 +114,8 @@
 - Workspace 向需要编辑的贡献页面注入通用编辑器上下文，并在页面移除时撤销。独立创建的 Flow 面板须显式提供上下文后才能修改图资源。
 
 ### 🐛 Bug 修复 (Fixed)
+
+- [AI Developer 反馈](editor/tools/ai-developer.md) 在环境信息齐全时不再构建项目快照；缺失字段只读取对应元数据，保留调用方值及契约、隐私、载荷和审批检查。起草已包含分析，指引不再要求重复执行分析命令。
 
 - 同步回调中取消、释放或重绑后，Common、Sequence、State、UI、Input、Assets、Audio、Action Queue 与 Behavior Tree 不再继续发布旧操作结果；嵌套新操作的输入、节点、任务及焦点状态保留各自归属。正常完成路径与手动驱动入口保持。
 - [定点与大数](standard/foundation/scalars/big-fixed-numbers.md)修正精确整数 HALF_UP、大数可表达结果提前下溢、归一化前指数判断及整数显示窄化；随机分支计数耗尽时明确拒绝继续，空间哈希保留实际跨格的薄片候选。
