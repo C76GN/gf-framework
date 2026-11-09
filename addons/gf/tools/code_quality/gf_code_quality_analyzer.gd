@@ -399,9 +399,9 @@ func _select_files(
 			continue
 		seen[identity] = true
 		if not _excluded(identity, included) or _excluded(identity, excluded):
-			var _appended: bool = omitted.append(path)
+			var _omitted_appended: bool = omitted.append(path)
 			continue
-		var _appended: bool = selected.append(path)
+		var _selected_appended: bool = selected.append(path)
 	selected.sort()
 	omitted.sort()
 	coverage["selected_files"] = selected
