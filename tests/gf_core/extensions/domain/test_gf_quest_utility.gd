@@ -31,7 +31,7 @@ func after_each() -> void:
 
 
 func test_quest_progress() -> void:
-	_quest.start_quest(
+	_start_counted(
 		&"kill_slimes",
 		&"enemy_died",
 		3
@@ -72,7 +72,7 @@ func test_quest_progress() -> void:
 
 
 func test_quest_integration_with_simple_event() -> void:
-	_quest.start_quest(
+	_start_counted(
 		&"collect_coins",
 		&"money_looted",
 		10
@@ -98,7 +98,7 @@ func test_start_signal_can_dispatch_target_event_without_losing_progress() -> vo
 				Gf.send_simple_event(&"signal_target", 1)
 	)
 
-	_quest.start_quest(
+	_start_counted(
 		&"signal_event",
 		&"signal_target",
 		1
@@ -127,7 +127,7 @@ func test_start_signal_cancellation_does_not_leave_event_subscription() -> void:
 				progressed_count[0] += 1
 	)
 
-	_quest.start_quest(
+	_start_counted(
 		&"cancel_on_start",
 		&"cancel_target",
 		1
@@ -155,8 +155,8 @@ func test_start_signal_cancellation_does_not_leave_event_subscription() -> void:
 	)
 
 
-func test_float_payload_amount_is_rounded() -> void:
-	_quest.start_quest(
+func test_float_payload_is_rejected_without_implicit_rounding() -> void:
+	_start_counted(
 		&"collect_parts",
 		&"part_looted",
 		3
@@ -171,13 +171,13 @@ func test_float_payload_amount_is_rounded() -> void:
 			"current_count",
 			-1
 		),
-		2,
-		"float 进度载荷应四舍五入为最接近的整数。"
+		0,
+		"非法 payload 不得改变整数累计进度。"
 	)
 
 
-func test_non_finite_float_payload_amount_uses_safe_default() -> void:
-	_quest.start_quest(
+func test_non_finite_payload_is_rejected_without_progress() -> void:
+	_start_counted(
 		&"finite_progress",
 		&"progress_event",
 		5
@@ -193,15 +193,13 @@ func test_non_finite_float_payload_amount_uses_safe_default() -> void:
 			"current_count",
 			-1
 		),
-		2,
-		"非有限 float 载荷应使用稳定默认增量。"
+		0,
+		"非法 payload 不得改变整数累计进度。"
 	)
-	assert_push_error("[GFQuestUtility][quest_utility.nonfinite_amount] payload.amount must be finite; progress defaults to 1.")
-	assert_push_error("[GFQuestUtility][quest_utility.nonfinite_amount] payload.amount must be finite; progress defaults to 1.")
 
 
 func test_progress_addition_saturates_before_int64_overflow() -> void:
-	_quest.start_quest(
+	_start_counted(
 		&"overflow_safe",
 		&"progress_event",
 		10
@@ -226,8 +224,8 @@ func test_progress_addition_saturates_before_int64_overflow() -> void:
 	)
 
 
-func test_out_of_range_float_payload_uses_safe_default_before_rounding() -> void:
-	_quest.start_quest(
+func test_out_of_range_float_payload_is_rejected() -> void:
+	_start_counted(
 		&"float_range",
 		&"progress_event",
 		5
@@ -242,14 +240,13 @@ func test_out_of_range_float_payload_uses_safe_default_before_rounding() -> void
 			"current_count",
 			-1
 		),
-		1,
-		"超出 int64 的 float 不得进入 roundi。"
+		0,
+		"非法 payload 不得改变整数累计进度。"
 	)
-	assert_push_error("[GFQuestUtility][quest_utility.amount_out_of_range] payload.amount exceeds the int64 range; progress defaults to 1.")
 
 
 func test_negative_payload_amount_is_ignored_by_default() -> void:
-	_quest.start_quest(
+	_start_counted(
 		&"hold_progress",
 		&"progress_event",
 		3
@@ -271,11 +268,11 @@ func test_negative_payload_amount_is_ignored_by_default() -> void:
 
 
 func test_negative_payload_amount_can_be_enabled() -> void:
-	_quest.allow_negative_progress = true
-	_quest.start_quest(
+	_start_counted(
 		&"decay_progress",
 		&"progress_event",
-		3
+		3,
+		true
 	)
 
 	Gf.send_simple_event(&"progress_event", 2)
@@ -294,11 +291,11 @@ func test_negative_payload_amount_can_be_enabled() -> void:
 
 
 func test_negative_progress_percentage_is_clamped_to_documented_range() -> void:
-	_quest.allow_negative_progress = true
-	_quest.start_quest(
+	_start_counted(
 		&"decay_progress",
 		&"progress_event",
-		3
+		3,
+		true
 	)
 
 	Gf.send_simple_event(&"progress_event", -1)
@@ -317,7 +314,7 @@ func test_negative_progress_percentage_is_clamped_to_documented_range() -> void:
 
 
 func test_cancel_last_quest_unregisters_event_listener() -> void:
-	_quest.start_quest(
+	_start_counted(
 		&"cleanup_listener",
 		&"enemy_died",
 		3
@@ -339,34 +336,18 @@ func test_cancel_last_quest_unregisters_event_listener() -> void:
 	)
 
 
-func test_start_quest_rejects_empty_ids() -> void:
-	_quest.start_quest(
-		&"",
-		&"event",
-		1
-	)
-	_quest.start_quest(
-		&"quest",
-		&"",
-		1
-	)
-
-	assert_eq(
-		_quest.get_quest_report(&""),
-		{},
-		"空 quest_id 不应注册任务。"
-	)
+func test_definition_rejects_empty_required_ids() -> void:
+	assert_null(GFQuestDefinition.create(&"", &"event"))
+	assert_null(GFQuestDefinition.create(&"quest", &""))
+	assert_false(_quest.define_quest(null))
 	assert_eq(
 		_quest.get_quest_report(&"quest"),
-		{},
-		"空 target_event 不应注册任务。"
+		{}
 	)
-	assert_push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
-	assert_push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
 
 
-func test_deep_payload_amount_falls_back_without_recursion_overflow() -> void:
-	_quest.start_quest(
+func test_nested_payload_is_rejected_without_recursion() -> void:
+	_start_counted(
 		&"nested_payload",
 		&"nested_event",
 		3
@@ -384,16 +365,15 @@ func test_deep_payload_amount_falls_back_without_recursion_overflow() -> void:
 			"current_count",
 			-1
 		),
-		1,
-		"嵌套过深的 payload 应回退为默认进度。"
+		0,
+		"非法 payload 不得改变整数累计进度。"
 	)
-	assert_push_error("[GFQuestUtility][quest_utility.amount_depth_exceeded] payload.amount is nested too deeply; progress defaults to 1.")
 
 
 func test_zero_target_quest_completes_immediately() -> void:
 	watch_signals(_quest)
 
-	_quest.start_quest(
+	_start_counted(
 		&"already_done",
 		&"unused_event",
 		0
@@ -417,7 +397,7 @@ func test_zero_target_quest_completes_immediately() -> void:
 
 func test_quest_lifecycle_blocker_and_debug_snapshot() -> void:
 	watch_signals(_quest)
-	_quest.define_quest(
+	_define_counted(
 		&"gated",
 		&"gate_event",
 		1,
@@ -489,7 +469,7 @@ func test_quest_lifecycle_blocker_and_debug_snapshot() -> void:
 
 func test_acceptance_condition_can_block_accepting_quest() -> void:
 	watch_signals(_quest)
-	_quest.define_quest(
+	_define_counted(
 		&"locked",
 		&"gate_event",
 		1
@@ -523,7 +503,7 @@ func test_acceptance_condition_can_block_accepting_quest() -> void:
 
 
 func test_accept_signal_can_dispatch_target_event_without_losing_progress() -> void:
-	_quest.define_quest(
+	_define_counted(
 		&"signal_accept",
 		&"accept_target",
 		1
@@ -544,7 +524,7 @@ func test_accept_signal_can_dispatch_target_event_without_losing_progress() -> v
 
 
 func test_acceptance_condition_reentry_cannot_revive_cancelled_quest() -> void:
-	_quest.define_quest(
+	_define_counted(
 		&"cancel_during_acceptance",
 		&"accept_target",
 		1
@@ -575,31 +555,26 @@ func test_acceptance_condition_reentry_cannot_revive_cancelled_quest() -> void:
 	)
 
 
-func test_defined_quest_rejects_empty_target_event_up_front() -> void:
+func test_counted_definition_rejects_empty_metric_before_publication() -> void:
 	watch_signals(_quest)
-
-	_quest.define_quest(
-		&"broken",
-		&"",
-		1
+	assert_null(
+		GFQuestDefinition.create(
+			&"broken",
+			&"",
+			{ "target": 1 }
+		)
 	)
-
+	assert_false(_quest.define_quest(null))
+	assert_signal_not_emitted(_quest, "quest_available")
 	assert_eq(
 		_quest.get_quest_report(&"broken"),
-		{},
-		"可接取任务定义阶段也应拒绝空 target_event。"
+		{}
 	)
-	assert_signal_not_emitted(
-		_quest,
-		"quest_available",
-		"无效任务定义不应进入 available。"
-	)
-	assert_push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
 
 
 func test_condition_dictionary_must_declare_ok_field() -> void:
 	watch_signals(_quest)
-	_quest.define_quest(
+	_define_counted(
 		&"strict",
 		&"gate_event",
 		1
@@ -628,7 +603,7 @@ func test_condition_dictionary_must_declare_ok_field() -> void:
 
 func test_available_quest_cannot_be_completed_before_acceptance() -> void:
 	watch_signals(_quest)
-	_quest.define_quest(
+	_define_counted(
 		&"locked",
 		&"gate_event",
 		1
@@ -657,7 +632,7 @@ func test_available_quest_cannot_be_completed_before_acceptance() -> void:
 
 func test_completion_blocker_reentry_cannot_double_commit_terminal_state() -> void:
 	watch_signals(_quest)
-	_quest.start_quest(
+	_start_counted(
 		&"cancel_during_completion",
 		&"complete_target",
 		1
@@ -695,7 +670,7 @@ func test_completion_blocker_reentry_cannot_double_commit_terminal_state() -> vo
 
 func test_fail_quest_detaches_listener_and_records_reason() -> void:
 	watch_signals(_quest)
-	_quest.start_quest(
+	_start_counted(
 		&"timed",
 		&"timer_done",
 		2
@@ -734,17 +709,21 @@ func test_fail_quest_detaches_listener_and_records_reason() -> void:
 
 
 func test_quest_parent_child_tree_report_aggregates_progress() -> void:
-	_quest.define_quest(
+	_define_counted(
 		&"root",
 		&"root_event",
 		1
 	)
-	_quest.define_quest(
-		&"child_a",
-		&"child_a_event",
-		1
+	assert_true(
+		_quest.define_quest(
+			GFQuestDefinition.create(
+				&"child_a",
+				&"",
+				{ "completion": "external" }
+			)
+		)
 	)
-	_quest.define_quest(
+	_define_counted(
 		&"child_b",
 		&"child_b_event",
 		1
@@ -794,7 +773,7 @@ func test_quest_tree_report_handles_deep_valid_chains_iteratively() -> void:
 	const QUEST_COUNT: int = 1024
 	for index: int in range(QUEST_COUNT):
 		var quest_id: StringName = StringName("quest_%04d" % index)
-		_quest.define_quest(
+		_define_counted(
 			quest_id,
 			StringName("event_%04d" % index),
 			1
@@ -816,7 +795,7 @@ func test_quest_tree_report_handles_deep_valid_chains_iteratively() -> void:
 
 
 func test_dispose_unregisters_simple_event_listener() -> void:
-	_quest.start_quest(
+	_start_counted(
 		&"cleanup_listener",
 		&"enemy_died",
 		1
@@ -832,3 +811,38 @@ func test_dispose_unregisters_simple_event_listener() -> void:
 		_quest.is_quest_completed(&"cleanup_listener"),
 		"dispose 后旧 simple event 回调不应继续推进任务。"
 	)
+
+
+func _define_counted(
+	quest_id: StringName,
+	event_id: StringName,
+	target: int,
+	metadata: Dictionary = {}
+) -> void:
+	assert_true(
+		_quest.define_quest(
+			GFQuestDefinition.create(
+				quest_id,
+				event_id,
+				{ "target": target, "metadata": metadata }
+			)
+		)
+	)
+
+
+func _start_counted(
+	quest_id: StringName,
+	event_id: StringName,
+	target: int,
+	allow_negative: bool = false
+) -> void:
+	assert_true(
+		_quest.define_quest(
+			GFQuestDefinition.create(
+				quest_id,
+				event_id,
+				{ "target": target, "allow_negative": allow_negative }
+			)
+		)
+	)
+	assert_true(_quest.accept_quest(quest_id))

@@ -16,9 +16,10 @@ Config Pipeline 的内置目标物化阶段。 只接受版本化 IR，并将其
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinetargetstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.target.godot_resource"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinetargetstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 4` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinetargetstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 5` |
 | 方法 | [`materialize_table`](#member-gfconfigpipelinetargetstage-methods-materialize_table) | `func materialize_table(table_ir: GFConfigPipelineTableIR, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`materialize_database`](#member-gfconfigpipelinetargetstage-methods-materialize_database) | `func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`project_database`](#member-gfconfigpipelinetargetstage-methods-project_database) | `func project_database( compilation_ir: GFConfigPipelineIR, target: GFConfigPipelineConsumerTarget, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_database_export`](#member-gfconfigpipelinetargetstage-methods-make_database_export) | `func make_database_export(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_database_json`](#member-gfconfigpipelinetargetstage-methods-make_database_json) | `func make_database_json(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_stage_descriptor`](#member-gfconfigpipelinetargetstage-methods-get_stage_descriptor) | `func get_stage_descriptor() -> Dictionary:` |
@@ -46,7 +47,7 @@ Target 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 4
+const IMPLEMENTATION_VERSION: int = 5
 ```
 
 Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。
@@ -85,7 +86,7 @@ func materialize_table(table_ir: GFConfigPipelineTableIR, options: Dictionary = 
 ### `materialize_database`
 
 - API：`public`
-- 首次版本：`9.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionary = {}) -> Dictionary:
@@ -104,8 +105,36 @@ func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionar
 
 结构：
 
-- `options`: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。
-- `return`: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。
+- `options`: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。可另含consumer_target:GFConfigPipelineConsumerTarget；非空时先投影声明闭包，并强制验证目标引用。
+- `return`: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。ir为最终投影IR；不暴露未完成的部分投影。
+
+<a id="member-gfconfigpipelinetargetstage-methods-project_database"></a>
+
+### `project_database`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func project_database( compilation_ir: GFConfigPipelineIR, target: GFConfigPipelineConsumerTarget, options: Dictionary = {} ) -> Dictionary:
+```
+
+按声明闭包投影已验收 IR；不根据行数或当前引用值推测依赖。 顶层字段是完整值单元，结构化类型与其数据共同保留。所有引用来源字段不可见时删除该引用； 部分可见、目标表未授权或目标键不可见时拒绝。源表必须具备声明型 schema，不能使用样本推导。 全记录/全表规则已在源 IR 验收时执行，不复制到裁剪后的 schema；不导出未授权的表级元数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `compilation_ir` | 封存的完整作者 IR。 |
+| `target` | 消费目标声明，调用时捕获隔离快照。 |
+| `options` | 构建预算选项。 |
+
+返回：完整投影或失败，无部分结果。
+
+结构：
+
+- `options`: Dictionary，可含 work_budget 或 work_limits；复用本次构建的 GFConfigWorkBudget。
+- `return`: 封闭 Dictionary，success:bool、ir:GFConfigPipelineIR/null、tables:PackedStringArray（排序后的闭包）、error:String。
 
 <a id="member-gfconfigpipelinetargetstage-methods-make_database_export"></a>
 

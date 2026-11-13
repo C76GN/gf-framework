@@ -9,221 +9,95 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-统一的数字显示格式化工具。 负责普通数字、定点小数与大数值对象在 UI 中的显示转换， 提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。
+由冻结政策控制的统一数字显示工具。 int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFBigNumber 的 尾数本身是近似值，格式化不会恢复它们已经丢失的精度。输出仅用于展示。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 枚举 | [`Notation`](#member-gfnumberformatter-enums-notation) | `enum Notation` |
-| 枚举 | [`ScientificStyle`](#member-gfnumberformatter-enums-scientificstyle) | `enum ScientificStyle` |
-| 方法 | [`get_default_compact_suffixes`](#member-gfnumberformatter-methods-get_default_compact_suffixes) | `static func get_default_compact_suffixes() -> PackedStringArray:` |
-| 方法 | [`format_number`](#member-gfnumberformatter-methods-format_number) | `static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String:` |
-| 方法 | [`format_full`](#member-gfnumberformatter-methods-format_full) | `static func format_full( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_grouping: bool = false, use_truncation: bool = false ) -> String:` |
-| 方法 | [`format_compact`](#member-gfnumberformatter-methods-format_compact) | `static func format_compact( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, suffixes: PackedStringArray = PackedStringArray() ) -> String:` |
-| 方法 | [`format_scientific`](#member-gfnumberformatter-methods-format_scientific) | `static func format_scientific( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, style: ScientificStyle = ScientificStyle.E_LOWER, engineering: bool = false ) -> String:` |
-| 方法 | [`format_auto`](#member-gfnumberformatter-methods-format_auto) | `static func format_auto( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String:` |
-
-## 枚举
-
-<a id="member-gfnumberformatter-enums-notation"></a>
-
-### `Notation`
-
-- API：`public`
-
-```gdscript
-enum Notation {
-	## 尽量输出普通十进制表示。
-	FULL,
-	## 输出紧凑缩写表示，如 12.3k。
-	COMPACT_SHORT,
-	## 输出科学计数法，如 1.23e8。
-	SCIENTIFIC,
-	## 输出工程计数法，如 123.4e6。
-	ENGINEERING,
-	## 自动选择更适合当前量级的表示方式。
-	AUTO,
-}
-```
-
-格式化记法。
-
-<a id="member-gfnumberformatter-enums-scientificstyle"></a>
-
-### `ScientificStyle`
-
-- API：`public`
-
-```gdscript
-enum ScientificStyle {
-	## 使用小写 e。
-	E_LOWER,
-	## 使用大写 E。
-	E_UPPER,
-	## 使用 x 10^n 形式。
-	POWER_OF_TEN,
-}
-```
-
-科学计数法输出风格。
+| 方法 | [`format_number`](#member-gfnumberformatter-methods-format_number) | `static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -> String:` |
+| 方法 | [`try_format`](#member-gfnumberformatter-methods-try_format) | `static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> Dictionary:` |
+| 方法 | [`try_format_options`](#member-gfnumberformatter-methods-try_format_options) | `static func try_format_options(value: Variant, options: Dictionary = {}) -> Dictionary:` |
 
 ## 方法
-
-<a id="member-gfnumberformatter-methods-get_default_compact_suffixes"></a>
-
-### `get_default_compact_suffixes`
-
-- API：`public`
-- 首次版本：`8.0.0`
-
-```gdscript
-static func get_default_compact_suffixes() -> PackedStringArray:
-```
-
-获取默认紧凑缩写后缀表副本。 返回值是新建副本，修改它不会改变框架默认 compact 格式化行为；项目需要自定义后缀时应通过 format_compact() 的 suffixes 参数传入。
-
-返回：默认紧凑缩写后缀表副本。
 
 <a id="member-gfnumberformatter-methods-format_number"></a>
 
 ### `format_number`
 
 - API：`public`
-- 首次版本：`3.17.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String:
+static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -> String:
 ```
 
-统一入口：按指定记法格式化一个数字值。
+按政策格式化数值，不使用多组位置布尔参数。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal；普通十进制 String 会在文本域精确应用小数位与舍入参数。 |
-| `notation` | 目标记法。 |
-| `decimal_places` | 小数位数。 |
-| `trim_zeroes` | 是否裁掉尾部 0。 |
-| `use_truncation` | 是否使用截断而不是四舍五入。 |
-| `scientific_style` | 科学计数法的输出风格。 |
+| `value` | 要显示的数值。 |
+| `policy` | 冻结显示政策；null 使用默认 auto 政策。 |
 
-返回：格式化后的字符串。
+返回：格式化字符串；非法输入报告错误并返回稳定fallback 0。需要区分错误与真实零时使用 try_format。
 
 结构：
 
-- `value`: Variant numeric value accepted by the formatter.
+- `value`: int、有限float、最多4096字符的String数值、GFBigNumber或GFFixedDecimal。文本支持严格逗号/下划线分隔和科学指数，输入及数量级范围±1000000；不接受bool或任意对象。
 
-<a id="member-gfnumberformatter-methods-format_full"></a>
+<a id="member-gfnumberformatter-methods-try_format"></a>
 
-### `format_full`
+### `try_format`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-static func format_full( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_grouping: bool = false, use_truncation: bool = false ) -> String:
+static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> Dictionary:
 ```
 
-输出普通十进制字符串。
+返回可检查的格式化结果，不输出日志也不把非法输入当作零。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal。 |
-| `decimal_places` | 小数位数。 |
-| `trim_zeroes` | 是否裁掉尾部 0。 |
-| `use_grouping` | 是否为整数部分添加千分位分隔。 |
-| `use_truncation` | 是否使用截断而不是四舍五入。 |
+| `value` | 与 format_number 相同的数值域。 |
+| `policy` | 冻结政策；null 使用默认政策。 |
 
-返回：普通十进制字符串。
+返回：有界显示结果。
 
 结构：
 
-- `value`: Variant numeric value accepted by the formatter.
+- `value`: int、有限float、String数值、GFBigNumber或GFFixedDecimal；预算与format_number.value相同。
+- `return`: 封闭 Dictionary，ok:bool、text:String、error:String、notation_used:String、fallback_reason:String、policy_error_kind:String、path:String。成功文本最多8192字符，失败文本为空；notation_used为实际full/compact/scientific/engineering，失败为空；fallback_reason为output_budget/suffix_exhausted或空。默认科学回退，fallback_notation=error时拒绝回退。error为稳定原因标识；policy_error_kind/path由try_format_options报告政策错误，其余为空，不包含输入载荷。
 
-<a id="member-gfnumberformatter-methods-format_compact"></a>
+<a id="member-gfnumberformatter-methods-try_format_options"></a>
 
-### `format_compact`
+### `try_format_options`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-static func format_compact( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, suffixes: PackedStringArray = PackedStringArray() ) -> String:
+static func try_format_options(value: Variant, options: Dictionary = {}) -> Dictionary:
 ```
 
-输出紧凑缩写字符串，如 1.2k / 3.4M。
+直接验收显示声明后格式化，避免把政策创建失败的null解释成默认政策。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal。 |
-| `decimal_places` | 小数位数。 |
-| `trim_zeroes` | 是否裁掉尾部 0。 |
-| `use_truncation` | 是否使用截断而不是四舍五入。 |
-| `suffixes` | 自定义后缀表；为空时使用默认值。 |
+| `value` | 与format_number相同的精确值或近似值。 |
+| `options` | 本次显示声明；空字典采用默认政策。 |
 
-返回：紧凑缩写字符串。
+返回：不记录日志的格式化结果；政策无效时不解析数值。
 
 结构：
 
-- `value`: Variant numeric value accepted by the formatter.
-
-<a id="member-gfnumberformatter-methods-format_scientific"></a>
-
-### `format_scientific`
-
-- API：`public`
-
-```gdscript
-static func format_scientific( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, style: ScientificStyle = ScientificStyle.E_LOWER, engineering: bool = false ) -> String:
-```
-
-输出科学计数法或工程计数法字符串。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal。 |
-| `decimal_places` | 小数位数。 |
-| `trim_zeroes` | 是否裁掉尾部 0。 |
-| `use_truncation` | 是否使用截断而不是四舍五入。 |
-| `style` | 输出风格。 |
-| `engineering` | 为 true 时输出工程计数法。 |
-
-返回：科学计数法字符串。
-
-结构：
-
-- `value`: Variant numeric value accepted by the formatter.
-
-<a id="member-gfnumberformatter-methods-format_auto"></a>
-
-### `format_auto`
-
-- API：`public`
-
-```gdscript
-static func format_auto( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String:
-```
-
-自动选择最合适的数字记法。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal。 |
-| `decimal_places` | 小数位数。 |
-| `trim_zeroes` | 是否裁掉尾部 0。 |
-| `use_truncation` | 是否使用截断而不是四舍五入。 |
-| `scientific_style` | 科学计数法输出风格。 |
-
-返回：自动挑选后的字符串。
-
-结构：
-
-- `value`: Variant numeric value accepted by the formatter.
+- `value`: int、有限float、String数值、GFBigNumber或GFFixedDecimal；范围见format_number.value。
+- `options`: 封闭Dictionary，见GFNumberFormatPolicy.create.options。
+- `return`: 与try_format.return相同；政策错误时ok=false、error=invalid_policy、policy_error_kind/path来自GFNumberFormatPolicy.try_create，text为空。

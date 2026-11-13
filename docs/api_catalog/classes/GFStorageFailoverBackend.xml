@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="316bfb9e088dbc89b6c798c1cc1a7f9413ac2812c3a6085ec1823bd5f3b57c84">
+<class name="GFStorageFailoverBackend" path="addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd" module="standard" extends="GFStorageBackend" classDigest="3251bf75dacc566ec66beac92276012b94dad5a0987bca85ec2fcfdb217be9fa">
 	<description>GFStorageFailoverBackend: 有序存储故障转移后端。
 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序
 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、
 同步或关闭子后端，也不宣称跨后端原子性；需要镜像和冲突处理时应使用
-`GFStorageSyncUtility`。每次操作都会保留一个不含业务数据的有界尝试报告。</description>
+`GFStorageTransfer`。需要版本条件写入与提交查证时，另用 `GFStorageSyncUtility`
+和支持该协议的 Transport。每次操作保留不含业务数据的有界尝试报告。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>

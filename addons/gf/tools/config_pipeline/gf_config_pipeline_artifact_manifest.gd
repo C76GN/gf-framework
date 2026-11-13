@@ -313,6 +313,13 @@ func make_manifest(
 
 	var budget_state: Dictionary = _make_digest_budget_state(options)
 	var profile_entries: Array[Dictionary] = _make_profile_resource_entries(profile_path, budget_state)
+	if not profile.stable_id_registry_path.is_empty() and _reserve_digest_entry(budget_state):
+		profile_entries.append(
+			_make_digest_file_entry(
+				profile.stable_id_registry_path,
+				_make_file_digest_report(profile.stable_id_registry_path, budget_state)
+			)
+		)
 	var receipt_entries_result: Dictionary = _make_compilation_source_entries(
 		profile,
 		run_result,
@@ -352,6 +359,102 @@ func make_manifest(
 	}
 	manifest["manifest_digest"] = _sha256_variant(_make_digest_projection(manifest))
 	return manifest
+
+
+## 捕获作者文件、Profile 依赖与登记簿的有界摘要，不读取或写入产物。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param profile: 当前作者声明；同时摘要内存声明与已保存资源依赖。
+## [br]
+## @param options: 既有 freshness 文件、总字节和条目预算。
+## [br]
+## @schema options: Dictionary，可含 max_freshness_file_bytes、max_freshness_total_bytes、max_freshness_entries。
+## [br]
+## @return 用于预览后提交及事务内复核的输入凭据。
+## [br]
+## @schema return: 封闭 Dictionary，success:bool、digest:String、profile_digest:String、source_digest:String、registry_digest:String、scan_report:Dictionary、error:String；失败digest为空。registry_digest为文件摘要或missing，未启用为空。
+func capture_inputs(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
+	var admission: GFConfigWorkBudget = GFConfigWorkBudget.new()
+	if profile == null or not admission.admit_value(
+		[
+			options,
+			profile.metadata,
+			profile.build_options,
+			profile.save_options,
+			profile.access_options,
+			profile.stable_id_bindings,
+			profile.stable_id_scope_tables,
+			profile.stable_id_restorations,
+		],
+		"manifest.capture"
+	):
+		return {
+			"success": false,
+			"digest": "",
+			"profile_digest": "",
+			"source_digest": "",
+			"registry_digest": "",
+			"scan_report": {},
+			"error": "Profile 为空。",
+		}
+	var budget: Dictionary = _make_digest_budget_state(options)
+	var resources: Array[Dictionary] = _make_profile_resource_entries(profile.resource_path, budget)
+	var sources: Array[Dictionary] = _make_source_entries(profile, budget)
+	for source: Dictionary in sources:
+		if (
+			not GFVariantData.get_option_bool(source, "valid")
+			or not GFVariantData.get_option_bool(source, "exists")
+			or GFVariantData.get_option_string(source, "sha256").is_empty()
+			or not GFVariantData.get_option_string(source, "error").is_empty()
+		):
+			_set_digest_budget_failure(
+				budget,
+				"author_input_unavailable",
+				"作者来源无法完整读取。"
+			)
+	var registry_digest: String = ""
+	if not profile.stable_id_registry_path.is_empty() and _reserve_digest_entry(budget):
+		var registry: Dictionary = _make_file_digest_report(profile.stable_id_registry_path, budget)
+		registry_digest = GFVariantData.get_option_string(registry, "sha256") if GFVariantData.get_option_bool(registry, "exists") else "missing"
+		if (
+			GFVariantData.get_option_bool(registry, "exists")
+			and (
+				not GFVariantData.get_option_string(registry, "error").is_empty()
+				or registry_digest.is_empty()
+			)
+		):
+			_set_digest_budget_failure(
+				budget,
+				"registry_input_unavailable",
+				"登记簿无法完整读取。"
+			)
+	var profile_digest: String = _sha256_input_value(
+		{ "profile": profile.describe(), "resources": resources },
+		budget
+	)
+	var source_digest: String = _sha256_input_value(sources, budget)
+	var input_digest: String = _sha256_input_value(
+		[
+			profile_digest,
+			source_digest,
+			registry_digest,
+		],
+		budget
+	)
+	var scan: Dictionary = _make_digest_scan_report(budget)
+	var success: bool = GFVariantData.get_option_bool(scan, "success")
+	return {
+		"success": success,
+		"digest": input_digest if success else "",
+		"profile_digest": profile_digest,
+		"source_digest": source_digest,
+		"registry_digest": registry_digest,
+		"scan_report": scan,
+		"error": GFVariantData.get_option_string(scan, "error"),
+	}
 
 
 ## 读取 manifest JSON 文件。
@@ -1376,6 +1479,8 @@ func _make_semantic_options(options: Dictionary) -> Dictionary:
 			"type_hint",
 			"usage_requested",
 			"write_manifest",
+			"expected_input_digest",
+			"register_ids",
 		]
 	)
 	for key: String in ignored_keys:
@@ -2009,6 +2114,34 @@ func _normalize_compiler_fingerprint(fingerprint: Dictionary) -> Dictionary:
 		},
 		"stage_entries": stage_entries,
 	}
+
+
+## 为输入凭据完整编码声明；超限或不支持的值锁存失败，禁止用截断的报告投影批准提交。
+## [br]
+## @api private
+func _sha256_input_value(value: Variant, budget: Dictionary) -> String:
+	if not GFVariantData.get_option_bool(
+		budget,
+		"success",
+		true
+	):
+		return ""
+	var options: Dictionary = {
+		"allow_floats": true,
+		"max_depth": 64,
+		"max_items": _DEFAULT_MAX_FRESHNESS_ENTRIES * 16,
+		"max_string_length": _DEFAULT_MAX_MANIFEST_BYTES,
+		"max_output_bytes": _DEFAULT_MAX_MANIFEST_BYTES,
+	}
+	var preparation: GFDeterministicVariantSerializer.CanonicalHashPreparation = GFDeterministicVariantSerializer.prepare_sha256_for_framework(value, options)
+	var digest: String = preparation.finish_sha256()
+	if digest.is_empty():
+		_set_digest_budget_failure(
+			budget,
+			"input_digest_unavailable",
+			"输入声明超出摘要预算或含有无法完整编码的值。"
+		)
+	return digest
 
 
 ## 用当前报告编码配置生成紧凑、排序键的 JSON 兼容文本，再对 UTF-8 字节计算 SHA-256；摘要对象是编码投影而非原始 Variant。

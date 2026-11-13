@@ -109,6 +109,16 @@ var _run_buttons: Array[Button] = []
 ## @api private
 var _checks: Dictionary = {}
 
+## 本次执行的消费目标选择，不修改 Profile 声明。
+## [br]
+## @api private
+var _consumer_select: OptionButton
+
+## 差异预览使用的旧版作者 Profile 路径。
+## [br]
+## @api private
+var _baseline_profile: LineEdit
+
 ## 显式保存草稿的入口；事务待恢复或同步执行期间禁用。
 ## [br]
 ## @api private
@@ -562,6 +572,15 @@ func _build_ui() -> void:
 	result_page.add_child(_report)
 	var run_row: HFlowContainer = HFlowContainer.new()
 	add_child(run_row)
+	_consumer_select = OptionButton.new()
+	_consumer_select.name = "ConsumerTarget"
+	_consumer_select.tooltip_text = "选择本次消费目标；字段授权由 Profile 中的目标声明决定。"
+	run_row.add_child(_consumer_select)
+	_baseline_profile = LineEdit.new()
+	_baseline_profile.name = "BaselineProfile"
+	_baseline_profile.placeholder_text = "差异基线 Profile（res:// 或 user://）"
+	_baseline_profile.custom_minimum_size.x = 300
+	run_row.add_child(_baseline_profile)
 	for entry: Array in [
 		["strict", "严格结果"],
 		["changed_only", "仅变化"],
@@ -578,6 +597,26 @@ func _build_ui() -> void:
 	add_child(execution_note)
 	var actions: HFlowContainer = HFlowContainer.new()
 	add_child(actions)
+	var compare: Callable = func() -> void:
+		_request_run("diff", false)
+	var register_ids: Callable = func() -> void:
+		_request_run("register-ids", false)
+	_run_buttons.append(
+		_button(
+			actions,
+			"Diff",
+			"比较作者变化",
+			compare
+		)
+	)
+	_run_buttons.append(
+		_button(
+			actions,
+			"RegisterIDs",
+			"登记 ID 并导出",
+			register_ids
+		)
+	)
 	_run_buttons.append(
 		_button(
 			actions,
@@ -913,9 +952,19 @@ func _refresh_profile() -> void:
 	_schema_form.configure(null, null)
 	_preview.clear()
 	var profile: GFConfigPipelineProfile = _session.get_profile()
+	_consumer_select.clear()
+	_consumer_select.add_item("Profile 默认目标")
+	_consumer_select.set_item_metadata(0, "")
 	if profile == null:
 		_refresh_status()
 		return
+	for target: GFConfigPipelineConsumerTarget in profile.consumer_targets:
+		if target != null:
+			_consumer_select.add_item(String(target.target_id))
+			_consumer_select.set_item_metadata(
+				_consumer_select.item_count - 1,
+				String(target.target_id)
+			)
 	for source: GFConfigPipelineTableSource in profile.sources:
 		var _source_index: int = _sources.add_item(
 			"%s · %s"
@@ -932,6 +981,11 @@ func _refresh_profile() -> void:
 		"build_options",
 		"save_options",
 		"access_options",
+		"default_consumer_target",
+		"stable_id_registry_path",
+		"stable_id_bindings",
+		"stable_id_scope_tables",
+		"stable_id_restorations",
 	]:
 		_bind_property(
 			_profile_form,
@@ -1067,6 +1121,12 @@ func _bind_property(
 				property_info,
 				resource.get(property_name)
 			)
+			if property_name == "stable_id_scope_tables":
+				field.set_label("ID 对账表范围")
+				field.tooltip_text = "空数组按整簿对账，未绑定的历史表会退役。填写表名数组时必须与 stable_id_bindings 完全一致，范围外表保持不变；范围内整表退役需绑定一张有 schema 的空作者表。"
+			elif property_name == "stable_id_restorations":
+				field.set_label("ID 原身份恢复")
+				field.tooltip_text = "按表名、原符号填写原 ID 的规范十进制字符串，例如 {\"items\":{\"potion\":\"1\"}}。作者表 ID 仍为整数。预览显示 restore，只有“登记 ID 并导出”才提交；不允许改号或其他身份复用。"
 			var _connection: int = field.value_changed.connect(
 				func(value: Variant) -> void:
 					if not _accept_callback(field, generation):
@@ -1368,11 +1428,17 @@ func _request_run(operation: String, dry_run: bool) -> void:
 		return
 	var state: Dictionary = _session.get_state()
 	var requires_save: bool = (GFVariantData.get_option_bool(state, "dirty") or GFVariantData.get_option_string(state, "profile_path").is_empty())
-	if operation == "inspect" and requires_save:
+	if operation in ["inspect", "diff"] and requires_save:
 		_report.text = "查看生效结构只读取已保存的 Profile。请先显式保存当前草稿，再重试。"
 		return
 	_last_operation = operation
 	_last_options = { "dry_run": dry_run }
+	var selected_target: Variant = _consumer_select.get_item_metadata(_consumer_select.selected) if _consumer_select.selected >= 0 else ""
+	if selected_target is String:
+		var target_id: String = selected_target
+		if not target_id.is_empty():
+			_last_options["target"] = target_id
+	_last_options["baseline_profile"] = _baseline_profile.text.strip_edges()
 	for option: String in _checks:
 		var checkbox: CheckBox = _checks[option]
 		_last_options[option] = checkbox.button_pressed
@@ -1737,18 +1803,20 @@ func _refresh_status() -> void:
 		or _busy
 		or recovering
 	)
-	var labels: Array[String] = [
-		"校验",
-		"查看生效结构",
-		"预览导出",
-		"导出",
-	]
-	for index: int in range(_run_buttons.size()):
+	var labels: Dictionary = {
+		"Validate": "校验",
+		"InspectSchema": "查看生效结构",
+		"DryRun": "预览导出",
+		"Export": "导出",
+		"Diff": "比较作者变化",
+		"RegisterIDs": "登记 ID 并导出",
+	}
+	for button: Button in _run_buttons:
 		var label_prefix: String = "保存并" if dirty else ""
-		if _run_buttons[index].name == &"InspectSchema":
+		if button.name in [&"InspectSchema", &"Diff"]:
 			label_prefix = ""
-		_run_buttons[index].text = label_prefix + labels[index]
-		_run_buttons[index].disabled = (
+		button.text = label_prefix + GFVariantData.get_option_string(labels, button.name)
+		button.disabled = (
 			not _has_active_context()
 			or _session.get_profile() == null
 			or _busy

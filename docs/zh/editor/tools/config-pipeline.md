@@ -6,6 +6,8 @@
 
 启用 GF 编辑器插件后，可在 **GF Workspace → 配置导出** 打开此工具贡献的工作台。Headless Runner 和编辑器页属于同一可选工具；项目运行时只依赖生成的配置资源与 Provider。
 
+消费目标隔离、稳定 ID 和差异预览见[配置目标与变更管理](config-pipeline-targets.md)。
+
 ## 从第一张表开始
 
 1. 点击 **创建可运行示例**，确认项目中的样例根目录。工具以 create-only 事务创建 `data/config/items.csv`、对应的 Keep 导入配置、`config/build/main.tres`、读取脚本和示例场景；已有目标不会被覆盖。Keep 避免 Godot 把配置 CSV 当作翻译表导入。对已有配置 CSV，请在 Import 面板显式选择 Keep，工具不会改写已有来源的导入选项。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigProvider" path="addons/gf/standard/utilities/config/gf_config_provider.gd" module="standard" extends="GFUtility" classDigest="7d9b4d2bc091a28846c0aa3eafdf4e81e90cda5be5d0469684dbdb794df2294f">
+<class name="GFConfigProvider" path="addons/gf/standard/utilities/config/gf_config_provider.gd" module="standard" extends="GFUtility" classDigest="0d050c458e76fb94f9ddb36e7804121cfb58c7b1a83945b9222b424d53ec6592">
 	<description>GFConfigProvider: 通用的静态导表数据适配器基类。
 为了让框架无缝衔接不同项目的导表工具（JSON、CSV 或自定义流水线），提供统一的读取接口。
 具体项目应该继承此基类，并实现其数据加载和查询逻辑。</description>
@@ -39,7 +39,7 @@
 		</member>
 		<member kind="method" name="register_schema">
 			<signature>func register_schema(schema: GFConfigTableSchema) -&gt; bool:</signature>
-			<description>注册导表结构声明。</description>
+			<description>注册独立查询适配器的导表结构声明；发布快照后声明随快照管理。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">schema: 表结构声明。</tag>
@@ -128,6 +128,36 @@
 				<tag name="schema">record: Dictionary，待转换的配置记录，键为字段名，值为字段数据。</tag>
 				<tag name="schema">return: Dictionary，转换后的记录副本。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_snapshot">
+			<signature>func get_snapshot() -&gt; GFConfigSnapshot:</signature>
+			<description>取得当前快照；调用方可跨发布持有它完成同一版本的多表查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已发布快照；从未发布时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_publication_generation">
+			<signature>func get_publication_generation() -&gt; int:</signature>
+			<description>取得发布代际，用作下一次发布的预期值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功发布次数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="publish_snapshot">
+			<signature>func publish_snapshot(snapshot: GFConfigSnapshot, expected_generation: int) -&gt; Dictionary:</signature>
+			<description>只在代际匹配时一次替换完整快照，不执行项目回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: 已通过捕获和校验的候选。</tag>
+				<tag name="param">expected_generation: 准备候选前取得的发布代际。</tag>
+				<tag name="return">是否发布以及当前代际。</tag>
+				<tag name="schema">return: Dictionary，含 ok: bool、error_kind: StringName 和 generation: int。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

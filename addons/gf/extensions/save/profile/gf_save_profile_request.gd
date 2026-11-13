@@ -21,6 +21,11 @@ extends RefCounted
 ## [br]
 const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
 
+## 框架同步元数据的独立准入。
+## [br]
+## @api private
+const _SYNC_CHECKPOINT_SCRIPT = preload("res://addons/gf/extensions/save/sync/gf_save_sync_checkpoint.gd")
+
 
 # --- 私有变量 ---
 
@@ -54,6 +59,11 @@ var _context: Dictionary = {}
 ## [br]
 var _result_metadata: Dictionary = {}
 
+## 只能由内部工厂设置的框架 checkpoint。
+## [br]
+## @api private
+var _sync_checkpoint: Dictionary = {}
+
 
 # --- 公共方法 ---
 
@@ -68,7 +78,7 @@ var _result_metadata: Dictionary = {}
 ## [br]
 ## @param document_metadata: 写入文档的持久化元数据。
 ## [br]
-## @schema document_metadata: Bounded pure-data Dictionary copied into an isolated snapshot.
+## @schema document_metadata: Bounded pure-data Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.
 ## [br]
 ## @param context: Provider 保存准备使用的临时上下文。
 ## [br]
@@ -84,6 +94,8 @@ static func create(
 	context: Dictionary,
 	result_metadata: Dictionary
 ) -> GFSaveProfileRequest:
+	if document_metadata.has(_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY):
+		return null
 	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
 		document_metadata,
 		context,
@@ -112,6 +124,42 @@ func is_claimed() -> bool:
 
 # --- 框架内部方法 ---
 
+## 创建由协调器持久化的 checkpoint 请求；项目元数据仍不能伪造保留键。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param checkpoint: 严格的框架同步记录。
+## [br]
+## @param document_metadata: 不含框架保留键的项目元数据。
+## [br]
+## @param context: Provider 操作上下文。
+## [br]
+## @schema checkpoint: Closed checkpoint accepted by internal gf_save_sync_checkpoint.validate().
+## [br]
+## @schema document_metadata: Bounded pure-data Dictionary without _gf_sync.
+## [br]
+## @schema context: Bounded pure-data Dictionary.
+## [br]
+## @return 一次性请求；非法输入返回 null。
+static func create_sync_for_framework(
+	checkpoint: Dictionary,
+	document_metadata: Dictionary,
+	context: Dictionary = {}
+) -> GFSaveProfileRequest:
+	if not _SYNC_CHECKPOINT_SCRIPT.validate(checkpoint):
+		return null
+	var request: GFSaveProfileRequest = create(
+		document_metadata,
+		context,
+		{}
+	)
+	if request != null:
+		request._sync_checkpoint = checkpoint.duplicate(true)
+	return request
+
+
 ## 查询请求是否仍可由框架接管，不暴露任何请求载荷。
 ## [br]
 ## @api framework_internal
@@ -133,7 +181,7 @@ func is_available_for_framework() -> bool:
 ## [br]
 ## @return 包含 document_metadata、context 和 result_metadata 的所有权记录。
 ## [br]
-## @schema return: Internal Dictionary with document_metadata, context, and result_metadata ownership fields.
+## @schema return: Internal Dictionary with document_metadata, context, result_metadata, and sync_checkpoint ownership fields.
 func claim_for_framework() -> Dictionary:
 	if not is_available_for_framework():
 		return {}
@@ -141,10 +189,12 @@ func claim_for_framework() -> Dictionary:
 		"document_metadata": _document_metadata,
 		"context": _context,
 		"result_metadata": _result_metadata,
+		"sync_checkpoint": _sync_checkpoint,
 	}
 	_document_metadata = {}
 	_context = {}
 	_result_metadata = {}
+	_sync_checkpoint = {}
 	_ready = false
 	_claimed = true
 	return claim

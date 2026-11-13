@@ -283,7 +283,7 @@ func build_table_from_text(
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
 ## @param sources: 单表来源声明列表。
 ## [br]
@@ -291,11 +291,11 @@ func build_table_from_text(
 ## [br]
 ## @param options: 可选构建选项，支持 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes。
 ## [br]
-## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次构建新建会话且整批共享；不接受顶层 work_budget 或解析选项内预算。其他局部限额的无限值不取消总预算。
+## @schema options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次构建新建会话且整批共享；不接受顶层 work_budget 或解析选项内预算。其他局部限额的无限值不取消总预算。可另含 consumer_target:GFConfigPipelineConsumerTarget，声明字段和引用闭包投影；非空时目标引用校验不可关闭。
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、ir、report、table_results、error 和 budget_report；任一表失败时 database 和 ir 均为空，table_results 只保留诊断和来源收据。预算失败立即终止并保留 error_kind。
+## @schema return: Dictionary，包含 success、database、ir、report、table_results、error 和 budget_report；任一表失败时 database 和 ir 均为空，table_results 只保留诊断和来源收据。预算失败立即终止并保留 error_kind。成功另含 author_ir:GFConfigPipelineIR（完整作者IR），ir为最终消费目标IR；无消费目标时两者相同。
 func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 	var session_options: Dictionary = _make_build_session(options)
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(session_options)
@@ -308,7 +308,7 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
 ## @param profile: 导表 Profile 资源。
 ## [br]
@@ -316,11 +316,11 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param options: 本次构建覆盖选项，支持 build_options 以及 build_database() 的直接选项。
 ## [br]
-## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。
+## @schema options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。可另含 target:String/StringName，按Profile消费目标及默认目标解析，目标声明在构建开始时隔离捕获。
 ## [br]
 ## @return: 构建结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。
+## @schema return: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。另含 consumer_target:String、author_ir:GFConfigPipelineIR、stable_id_plan:Dictionary（GFConfigPipelineCommitStage.prepare_stable_ids结果）；只报告待登记变化，不写登记簿。
 func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	return _build_profile(profile, options)
 
@@ -329,7 +329,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
 ## @param profile: 导表 Profile 资源。
 ## [br]
@@ -337,13 +337,63 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项；三个非空产物路径都必须位于 res:// 或 user:// URI 域。
 ## [br]
-## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。allow_parent_output_path 只允许在既有 resource URI 域内规范化，不能越过 URI 根。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
+## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。allow_parent_output_path 只允许在既有 resource URI 域内规范化，不能越过 URI 根。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。可另含 target:String/StringName、register_ids:bool（默认false）、expected_input_digest:String。待登记变化仅在显式register_ids时写入；dry_run只预览，expected_input_digest必须匹配capture_inputs的凭据。
 ## [br]
 ## @return: 导出结果。
 ## [br]
-## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
+## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。build_result另含input_capture:Dictionary（GFConfigPipelineArtifactManifest.capture_inputs结果）和stable_id_plan；登记簿写入归同一文件事务，所有导出均复核输入，来源变化则拒绝或回滚。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
 	var effective_options: Dictionary = options.duplicate(false)
+	if profile != null:
+		var admission_options: Dictionary = _make_profile_build_session(
+			profile,
+			options,
+			true
+		)
+		var admission_budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(admission_options)
+		if not admission_budget.is_ok():
+			var admission_failure: Dictionary = _make_database_work_failure(admission_budget)
+			admission_failure["profile_id"] = profile.profile_id
+			return _make_profile_export_result(
+				false,
+				admission_failure,
+				{},
+				{},
+				profile.profile_id,
+				"",
+				GFVariantData.get_option_string(admission_failure, "error")
+			)
+	var input_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
+	var input_capture: Dictionary = input_helper.capture_inputs(profile, options)
+	var expected_input: String = GFVariantData.get_option_string(options, "expected_input_digest")
+	if (
+		profile != null
+		and (
+			not GFVariantData.get_option_bool(input_capture, "success")
+			or (
+				not expected_input.is_empty()
+				and expected_input != input_capture.get("digest")
+			)
+		)
+	):
+		var input_failure: Dictionary = _make_profile_failure(
+			profile.profile_id,
+			"stale_authoring_inputs",
+			"作者输入已变化或无法完整捕获；请重新预览。"
+		)
+		return _make_profile_export_result(
+			false,
+			input_failure,
+			{},
+			{},
+			profile.profile_id,
+			"",
+			"作者输入已变化或无法完整捕获；请重新预览。"
+		)
+	if profile != null:
+		var consumer: Dictionary = profile.resolve_consumer(options)
+		if GFVariantData.get_option_bool(consumer, "success"):
+			effective_options = consumer["options"]
 	var build_result: Dictionary = _build_profile(
 		profile,
 		effective_options,
@@ -363,6 +413,9 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		)
 
 	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
+	build_result["input_capture"] = input_capture
+	var id_plan: Dictionary = GFVariantData.get_option_dictionary(build_result, "stable_id_plan")
+	var id_changes: bool = not GFVariantData.get_option_array(id_plan, "changes").is_empty()
 	var save_options: Dictionary = profile.make_save_options(effective_options) if profile != null else {}
 	var access_output_path: String = profile.resolve_access_output_path(effective_options) if profile != null else ""
 	var access_options: Dictionary = profile.make_access_options(effective_options) if profile != null else {}
@@ -440,6 +493,28 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		manifest_helper
 	)
 	var should_write_manifest: bool = _should_write_manifest(effective_options, manifest_path)
+	var dry_run: bool = (
+		GFVariantData.get_option_bool(save_options, "dry_run")
+		or GFVariantData.get_option_bool(access_options, "dry_run")
+		or (
+			should_write_manifest
+			and GFVariantData.get_option_bool(manifest_options, "dry_run")
+		)
+	)
+	if (
+		id_changes
+		and not dry_run
+		and not GFVariantData.get_option_bool(effective_options, "register_ids")
+	):
+		return _make_profile_export_result(
+			false,
+			build_result,
+			{},
+			{},
+			profile_id,
+			output_path,
+			"稳定 ID 映射有待登记变化；请预览后使用 register-ids 操作。"
+		)
 	var manifest_result: Dictionary = {}
 	if should_write_manifest:
 		var manifest_path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
@@ -554,14 +629,18 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 				manifest
 			)
 
-	if (
-		GFVariantData.get_option_bool(save_options, "dry_run")
-		or GFVariantData.get_option_bool(access_options, "dry_run")
-		or (
-			should_write_manifest
-			and GFVariantData.get_option_bool(manifest_options, "dry_run")
-		)
-	):
+	if dry_run:
+		var preview_capture: Dictionary = input_helper.capture_inputs(profile, effective_options)
+		if not GFVariantData.get_option_bool(preview_capture, "success") or preview_capture.get("digest") != input_capture.get("digest"):
+			return _make_profile_export_result(
+				false,
+				build_result,
+				{},
+				{},
+				profile_id,
+				output_path,
+				"作者输入在预览期间变化；请重新预览。"
+			)
 		return _make_profile_export_result(
 			true,
 			build_result,
@@ -580,6 +659,36 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		var _access_path_appended: bool = commit_paths.append(access_output_path)
 	if should_write_manifest:
 		var _manifest_path_appended: bool = commit_paths.append(manifest_path)
+	var registry_path: String = GFVariantData.get_option_string(id_plan, "path")
+	if not registry_path.is_empty():
+		for artifact_path: String in commit_paths:
+			if ProjectSettings.globalize_path(artifact_path).simplify_path() == ProjectSettings.globalize_path(registry_path).simplify_path():
+				return _make_profile_export_result(
+					false,
+					build_result,
+					{},
+					{},
+					profile_id,
+					output_path,
+					"稳定 ID 登记簿不能与产物共用路径。"
+				)
+		if id_changes:
+			var _registry_appended: bool = commit_paths.append(registry_path)
+	var before_commit: Dictionary = input_helper.capture_inputs(profile, effective_options)
+	if (
+		not GFVariantData.get_option_bool(before_commit, "success")
+		or before_commit.get("digest") != input_capture.get("digest")
+		or not _commit_stage.stable_ids_are_fresh(id_plan)
+	):
+		return _make_profile_export_result(
+			false,
+			build_result,
+			{},
+			{},
+			profile_id,
+			output_path,
+			"作者输入在构建期间变化；未写入产物。"
+		)
 	var transaction_snapshot: Dictionary = _commit_stage.begin(
 		commit_paths,
 		{
@@ -628,6 +737,14 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			true
 		)
 	)
+	var registry_success: bool = _commit_stage.stable_ids_are_fresh(id_plan)
+	if (
+		artifacts_success
+		and registry_success
+		and id_changes
+	):
+		registry_success = _commit_stage.write_stable_ids(id_plan)
+	artifacts_success = artifacts_success and registry_success
 	if artifacts_success and should_write_manifest:
 		var committed_run_result: Dictionary = _make_profile_export_result(
 			true,
@@ -660,6 +777,8 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		)
 	)
 	var export_error: String = GFVariantData.get_option_string(save_result, "error")
+	if export_error.is_empty() and not registry_success:
+		export_error = "稳定 ID 登记簿已变化或写入失败。"
 	if export_error.is_empty() and not GFVariantData.get_option_bool(
 		access_result,
 		"success",
@@ -699,6 +818,27 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 				"配置表来源在导出事务期间发生变化。"
 			)
 	var transaction_result: Dictionary = {}
+	var after_inputs: Dictionary = input_helper.capture_inputs(profile, effective_options)
+	var registry_expected: String = GFVariantData.get_option_string(input_capture, "registry_digest")
+	if id_changes and registry_success:
+		var raw_candidate: Variant = id_plan.get("candidate")
+		if raw_candidate is GFConfigStableIDRegistry:
+			var candidate: GFConfigStableIDRegistry = raw_candidate
+			registry_expected = (
+				JSON.stringify(
+					candidate.to_record(),
+					"\t",
+					true
+				) + "\n"
+			).sha256_text()
+	if (
+		not GFVariantData.get_option_bool(after_inputs, "success")
+		or after_inputs.get("profile_digest") != input_capture.get("profile_digest")
+		or after_inputs.get("source_digest") != input_capture.get("source_digest")
+		or after_inputs.get("registry_digest") != registry_expected
+	):
+		export_success = false
+		export_error = "作者输入在导出事务期间变化；回滚整批产物。"
 	if export_success:
 		transaction_result = _commit_stage.complete(transaction_snapshot)
 		if not GFVariantData.get_option_bool(transaction_result, "ok"):
@@ -1270,6 +1410,14 @@ func _build_profile(
 			"导表 Profile 为空。"
 		)
 	var profile_id: StringName = profile.profile_id
+	var consumer: Dictionary = profile.resolve_consumer(options)
+	if not GFVariantData.get_option_bool(consumer, "success"):
+		return _make_profile_failure(
+			profile_id,
+			"invalid_consumer_target",
+			GFVariantData.get_option_string(consumer, "error")
+		)
+	var effective: Dictionary = consumer["options"]
 	if profile.sources.is_empty():
 		return _make_profile_failure(
 			profile_id,
@@ -1278,13 +1426,26 @@ func _build_profile(
 		)
 	var build_options: Dictionary = _make_profile_build_session(
 		profile,
-		options,
+		effective,
 		include_export_options
 	)
+	build_options["consumer_target"] = consumer.get("target")
 	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(build_options)
 	var build_result: Dictionary = (_build_database(profile.sources, build_options) if budget.is_ok() else _make_database_work_failure(budget))
+	if GFVariantData.get_option_bool(build_result, "success"):
+		var raw_author: Variant = build_result.get("author_ir")
+		if raw_author is GFConfigPipelineIR:
+			var author_ir: GFConfigPipelineIR = raw_author
+			var id_plan: Dictionary = _commit_stage.prepare_stable_ids(profile, author_ir)
+			build_result["stable_id_plan"] = id_plan
+			if not GFVariantData.get_option_bool(id_plan, "success"):
+				build_result["success"] = false
+				build_result["database"] = null
+				build_result["ir"] = null
+				build_result["error"] = GFVariantData.get_option_string(id_plan, "error")
 	build_result["profile_id"] = profile_id
-	build_result["output_path"] = profile.resolve_output_path(options)
+	build_result["output_path"] = profile.resolve_output_path(effective)
+	build_result["consumer_target"] = GFVariantData.get_option_string(effective, "target")
 	return build_result
 
 
@@ -1334,6 +1495,9 @@ func _make_profile_build_session(
 			admitted_options,
 			profile.build_options,
 			profile.metadata,
+			profile.stable_id_bindings,
+			profile.stable_id_scope_tables,
+			profile.stable_id_restorations,
 		],
 		"pipeline.profile_options"
 	):
@@ -1588,7 +1752,8 @@ func _build_database(sources: Array, options: Dictionary) -> Dictionary:
 	return {
 		"success": all_tables_succeeded and GFVariantData.get_option_bool(report, "ok"),
 		"database": database if all_tables_succeeded and GFVariantData.get_option_bool(report, "ok") else null,
-		"ir": compilation_ir if all_tables_succeeded and GFVariantData.get_option_bool(report, "ok") else null,
+		"ir": target_result.get("ir") if all_tables_succeeded and GFVariantData.get_option_bool(report, "ok") else null,
+		"author_ir": compilation_ir if all_tables_succeeded and GFVariantData.get_option_bool(report, "ok") else null,
 		"report": report,
 		"table_results": table_results,
 		"error": GFVariantData.get_option_string(target_result, "error"),

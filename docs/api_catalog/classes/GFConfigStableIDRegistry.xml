@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigStableIDRegistry" path="addons/gf/tools/config_pipeline/gf_config_stable_id_registry.gd" module="tools" extends="RefCounted" classDigest="628d00a19912bf24de27141d19b45c56cdfd544293b82ab4618d673f6e821f28">
+	<description>GFConfigStableIDRegistry: 项目所有的不可变稳定 ID 登记簿。
+ID 由作者明确指定；本类型不自动分配、不修改来源表、不写文件。
+每张表独立登记符号和正整数 ID；删除产生永久墓碑，符号及 ID 均不可复用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create_empty">
+			<signature>static func create_empty() -&gt; GFConfigStableIDRegistry:</signature>
+			<description>创建尚无登记的空簿。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可用于首次显式登记的空簿。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_record">
+			<signature>static func from_record(record: Dictionary) -&gt; GFConfigStableIDRegistry:</signature>
+			<description>验证完整历史记录；墓碑与活动条目共同占有 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record: 登记簿纯数据。</tag>
+				<tag name="return">冻结登记簿；任何结构、重复 ID 或预算问题返回 null。</tag>
+				<tag name="schema">record: 封闭 Dictionary，format:String="gf.config.stable_ids"、format_version:int=1、tables:Dictionary[String,Dictionary[String,Dictionary]]。table和symbol为1至256字符精确名称；条目仅含 id:String（1至2147483647的规范十进制文本）及 state:String（active/retired）。最多4096表、65536条目，总预算8MiB、262144节点、深度8；无循环、无原生对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_json">
+			<signature>static func from_json(text: String) -&gt; GFConfigStableIDRegistry:</signature>
+			<description>从有界 JSON 文本读取登记簿；ID 使用文本避免 JSON 数值精度变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 最多8MiB的登记簿 JSON。</tag>
+				<tag name="return">完整验证的登记簿；失败返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="preview">
+			<signature>func preview(assignments: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>只读比较当前作者映射；不分配 ID、不改变登记簿、不写入文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">assignments: 对账范围内完整的活动符号映射；范围内没有出现的历史活动符号列为待退役。</tag>
+				<tag name="param">options: 显式选择对账范围及允许恢复的原身份；省略时保留整簿对账和禁止恢复的行为。</tag>
+				<tag name="return">差异或错误；失败不交付部分变化。</tag>
+				<tag name="schema">assignments: Dictionary[String,Dictionary[String,int]]，table到symbol到显式正整数ID；ID范围1至2147483647，每表唯一；名称与数量预算同from_record。局部范围中的整表退役必须显式提供该表的空字典。</tag>
+				<tag name="schema">options: 封闭 Dictionary，可含 scope_tables:Array[String] 和 restorations:Dictionary[String,Dictionary[String,String]]。scope_tables为空时对账整簿；非空时最多4096个唯一精确表名，必须与assignments的表集合相同，范围外历史表保持不变。restorations以table/symbol到原ID的规范十进制String声明恢复，必须匹配历史记录及本次assignments中的int ID；已经active的同一声明幂等无变化。拒绝未知字段、其他身份、改号和非规范文本。</tag>
+				<tag name="schema">return: 封闭 Dictionary，success:bool、changes:Array[Dictionary]、error:String。变化仅含 table:String、symbol:String、id:int、kind:String（register/retire/restore），按table和symbol排序；预览不会修改原登记簿。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="with_assignments">
+			<signature>func with_assignments(assignments: Dictionary, options: Dictionary = {}) -&gt; GFConfigStableIDRegistry:</signature>
+			<description>构造显式映射的下一代登记簿；调用者负责把它与产物放入同一文件事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">assignments: 对账范围内完整的活动符号映射。</tag>
+				<tag name="param">options: 对账表范围及原身份恢复声明；语义与 preview.options 相同。</tag>
+				<tag name="return">下一代冻结登记簿；范围不明确、身份不匹配、重复、改号或预算失败返回 null，原登记簿保持不变。</tag>
+				<tag name="schema">assignments: 与 preview.assignments 相同的 Dictionary[String,Dictionary[String,int]]。</tag>
+				<tag name="schema">options: 封闭 Dictionary，可含 scope_tables:Array[String] 和 restorations:Dictionary[String,Dictionary[String,String]]；恢复ID使用原登记簿的规范十进制文本，作者映射ID仍必须是int。省略时对账整簿且不允许恢复。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_id">
+			<signature>func get_id(table: String, symbol: String) -&gt; int:</signature>
+			<description>查询活动符号的稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table: 表的登记命名空间。</tag>
+				<tag name="param">symbol: 作者符号。</tag>
+				<tag name="return">活动条目的正整数 ID；未登记、已退役或无效实例返回0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_record">
+			<signature>func to_record() -&gt; Dictionary:</signature>
+			<description>获取完整历史的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">登记簿记录；非工厂实例返回空字典。</tag>
+				<tag name="schema">return: 与 from_record.record 相同的封闭记录。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

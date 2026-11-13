@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSaveSyncUtility" path="addons/gf/extensions/save/sync/gf_save_sync_utility.gd" module="extensions/save" extends="GFUtility" classDigest="2f863200022d3b608acf410e96be6acbbbf90521ac2b66f78f562758dd65631d">
+	<description>GFSaveSyncUtility: 将通用版本同步组合到受管 Profile 事务。
+prepare_profile() 必须早于目标 Profile 的加载或保存；同步使用最近已确认的完整
+文档。业务修改须通过 Profile 保存或事务持久化，不从未登记的内存改动猜测代际。
+账号会话冻结到一个 Profile、namespace、key 和 Transport；不自动合并游客数据。
+Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业务事务。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>关闭会话并释放借用的服务引用；不释放外部 Profile 与 Coordinator。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>停止接纳并结束当前观察，本地已准入事务仍由 Coordinator 排空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 架构静默作用域。</tag>
+				<tag name="return">已结束观察的完成源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="setup">
+			<signature>func setup( profiles: GFSaveProfileUtility, coordinator: GFSaveProfileTransactionCoordinator, projection: GFSaveSyncProjection, clock: GFClock = null ) -&gt; bool:</signature>
+			<description>一次性装配，服务的生命周期仍由原所有者管理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profiles: 本地存档服务。</tag>
+				<tag name="param">coordinator: 管理同一服务的事务协调器。</tag>
+				<tag name="param">projection: 项目显式投影，默认协议拒绝上传与下载。</tag>
+				<tag name="param">clock: 可选单调时钟。</tag>
+				<tag name="return">装配成功时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prepare_profile">
+			<signature>func prepare_profile(profile_id: StringName) -&gt; bool:</signature>
+			<description>为已注册 Profile 开启完整同步快照；之后须成功加载或保存一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 已注册目标 Profile。</tag>
+				<tag name="return">开启成功时为 true；不会替项目创建或切换档位。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="open_session">
+			<signature>func open_session( profile_id: StringName, record_namespace: String, record_key: String, transport: GFStorageSyncTransport ) -&gt; bool:</signature>
+			<description>绑定一个活动 Profile 的冻结账号会话，成功才替换旧会话。
+已有 checkpoint 的账号和记录键必须匹配。切换账号应使用隔离 Profile，
+或由项目执行明确的数据迁移；此入口不会清除旧账号意图或合并游客文档。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_id: 已准备、加载且当前活动的 Profile。</tag>
+				<tag name="param">record_namespace: 稳定账号命名空间。</tag>
+				<tag name="param">record_key: 远端记录键。</tag>
+				<tag name="param">transport: 已冻结该账号凭证的适配器。</tag>
+				<tag name="return">身份和快照均通过检查时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="close_session">
+			<signature>func close_session() -&gt; void:</signature>
+			<description>结束会话观察，撤销迟到回调的本地写入资格。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="synchronize">
+			<signature>func synchronize(operation_id: String, options: Dictionary = {}) -&gt; GFAsyncCompletion:</signature>
+			<description>同步最近已确认的完整文档；不会悄悄捕获或保存未登记的运行状态。
+完成源成功表示观察正常终结，业务结果必须检查返回记录的 ok/status。
+取消完成源或 cancel_wait() 仅结束观察，不能撤销远端或已准入的本地事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">operation_id: 本次新提交的唯一 ID。</tag>
+				<tag name="param">options: 模式、冲突选择和阶段超时。</tag>
+				<tag name="return">主线程完成源；可能已经完成。</tag>
+				<tag name="schema">options: Closed Dictionary with mode(push/pull/preview),resolution(report/local/remote),timeout_msec:int1..300000; defaults follow GFStorageSyncRequest.</tag>
+				<tag name="schema">return: GFAsyncCompletion success result is closed Dictionary with ok:bool,status:StringName,sync_result:GFStorageSyncResult/null,local_result:GFSaveProfileTransactionResult/null,local_applied:bool,acknowledged_generation:int,requires_recovery:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="recover_pending">
+			<signature>func recover_pending() -&gt; GFAsyncCompletion:</signature>
+			<description>读取当前账号的未解决意图并复用通用引擎查证，绝不隐式重发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与 synchronize() 相同的完成记录；本地处于对账阻断时须先完成 Profile 恢复。</tag>
+				<tag name="schema">return: GFAsyncCompletion success result follows synchronize().</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_wait">
+			<signature>func cancel_wait() -&gt; bool:</signature>
+			<description>结束当前观察；已经准入的下载或 checkpoint 事务继续由协调器排空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有观察可结束时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进本地安全完成通知及通用引擎超时；不替调用方驱动借用的服务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 帧间隔，远端超时仍使用单调时间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取不含身份与文档载荷的状态摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话和观察计数。</tag>
+				<tag name="schema">return: Dictionary with session_open:bool,observing:bool,local_pending_count:int,disposed:bool.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

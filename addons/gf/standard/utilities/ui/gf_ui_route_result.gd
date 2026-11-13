@@ -21,6 +21,48 @@ extends RefCounted
 ## @since 10.0.0
 const STATUS_OPENED: StringName = &"opened"
 
+## 页面已提交且内容已就绪；本次没有请求语义定位。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_CONTENT_READY: StringName = &"content_ready"
+
+## 页面、内容与语义目标均已可用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_TARGET_READY: StringName = &"target_ready"
+
+## 导航目标、resolver 或超时政策无效，未提交页面。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_INVALID_NAVIGATION: StringName = &"invalid_navigation"
+
+## 页面已提交，但内容准备失败；页面不被自动回滚。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_CONTENT_FAILED: StringName = &"content_failed"
+
+## 内容已就绪，但项目无法定位请求目标；保留可用页面。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_TARGET_UNAVAILABLE: StringName = &"target_unavailable"
+
+## 页面提交后的内容准备或定位超过本次等待预算。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_READINESS_TIMEOUT: StringName = &"readiness_timeout"
+
 ## 路由不存在。
 ## [br]
 ## @api public
@@ -157,6 +199,21 @@ var _layer: int = -1
 ## @api private
 var _panel_ref: WeakRef = null
 
+## 历史提交事实，即使面板后来关闭也保持 true。
+## [br]
+## @api private
+var _panel_committed: bool = false
+
+## 内容阶段曾经成功，不与当前页面存活混同。
+## [br]
+## @api private
+var _content_ready: bool = false
+
+## 语义定位曾经成功；未请求目标时保持 false。
+## [br]
+## @api private
+var _target_resolved: bool = false
+
 ## 请求采用的预加载策略。
 ## [br]
 ## @api private
@@ -250,9 +307,46 @@ func get_status() -> StringName:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return 面板已进入目标 UI 栈时返回 true。
+## @return 普通打开成功，或显式请求的内容准备和目标定位全部成功时返回 true。
 func is_successful() -> bool:
-	return _status == STATUS_OPENED
+	return _status in [
+		STATUS_OPENED,
+		STATUS_CONTENT_READY,
+		STATUS_TARGET_READY,
+	]
+
+
+## 判断页面是否曾成功提交到 UI 栈。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 内容失败、超时或提交后取消也可以为 true。
+func was_panel_committed() -> bool:
+	return _panel_committed
+
+
+## 判断本次导航的内容准备阶段是否成功。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 普通页面打开没有准备协议时为 false。
+func was_content_ready() -> bool:
+	return _content_ready
+
+
+## 判断本次请求是否实际成功定位到语义目标。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 只有语义定位成功时为 true。
+func was_target_resolved() -> bool:
+	return _target_resolved
 
 
 ## 获取稳定原因码。
@@ -424,7 +518,10 @@ func duplicate_result() -> GFUIRouteResult:
 		_preload_result,
 		_started_at_msec,
 		_completed_at_msec,
-		_metadata
+		_metadata,
+		_panel_committed,
+		_content_ready,
+		_target_resolved
 	)
 	return copy
 
@@ -437,7 +534,7 @@ func duplicate_result() -> GFUIRouteResult:
 ## [br]
 ## @return 请求身份、终态、预加载摘要和持续时间。
 ## [br]
-## @schema return: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.
+## @schema return: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, panel_committed, content_ready, target_resolved, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.
 func to_dict() -> Dictionary:
 	var panel: Node = get_panel()
 	var raw_result: Dictionary = {
@@ -449,6 +546,9 @@ func to_dict() -> Dictionary:
 		"reason": String(_reason),
 		"layer": _layer,
 		"panel_instance_id": panel.get_instance_id() if panel != null else 0,
+		"panel_committed": _panel_committed,
+		"content_ready": _content_ready,
+		"target_resolved": _target_resolved,
 		"preload_policy": String(_preload_policy),
 		"preload_attempted": _preload_attempted,
 		"preload_successful": _preload_successful,
@@ -504,6 +604,12 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema metadata: Dictionary caller-defined route operation metadata.
 ## [br]
+## @param panel_committed: 页面曾经成功提交；普通 opened 状态自动为 true。
+## [br]
+## @param content_ready: 内容准备阶段成功。
+## [br]
+## @param target_resolved: 语义定位成功。
+## [br]
 ## @return 首次配置且输入有效时返回 true。
 func configure_for_framework(
 	request_id: int,
@@ -520,7 +626,10 @@ func configure_for_framework(
 	preload_result: GFAssetLoadSessionResult,
 	started_at_msec: int,
 	completed_at_msec: int,
-	metadata: Dictionary
+	metadata: Dictionary,
+	panel_committed: bool = false,
+	content_ready: bool = false,
+	target_resolved: bool = false
 ) -> bool:
 	if _request_id != 0 or request_id <= 0:
 		return false
@@ -535,6 +644,9 @@ func configure_for_framework(
 	_reason = reason
 	_layer = layer
 	_panel_ref = weakref(panel) if panel != null else null
+	_panel_committed = panel_committed or status == STATUS_OPENED
+	_content_ready = content_ready
+	_target_resolved = target_resolved
 	_preload_policy = preload_policy
 	_preload_attempted = preload_attempted
 	_preload_successful = preload_attempted and preload_successful
@@ -556,6 +668,12 @@ static func _is_valid_status(status: StringName) -> bool:
 		status
 		in [
 			STATUS_OPENED,
+			STATUS_CONTENT_READY,
+			STATUS_TARGET_READY,
+			STATUS_INVALID_NAVIGATION,
+			STATUS_CONTENT_FAILED,
+			STATUS_TARGET_UNAVAILABLE,
+			STATUS_READINESS_TIMEOUT,
 			STATUS_MISSING_ROUTE,
 			STATUS_INVALID_ROUTE,
 			STATUS_MISSING_UI_UTILITY,

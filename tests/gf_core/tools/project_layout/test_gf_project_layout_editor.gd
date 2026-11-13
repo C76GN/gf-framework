@@ -812,6 +812,7 @@ func test_project_layout_snapshot_builder_rejects_oversized_options_before_scan(
 			"field_5": true,
 			"field_6": true,
 			"field_7": true,
+			"field_8": true,
 		}
 	)
 	assert_eq(begin_error, ERR_INVALID_PARAMETER)

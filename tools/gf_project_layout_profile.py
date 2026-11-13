@@ -67,6 +67,7 @@ def project_profile_boundary(
 	fail_on_warnings: bool = False,
 	*,
 	root: Path = ROOT,
+	snapshot_path: str = "",
 	native_executor: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
 	"""Read one pinned UTF-8 input and delegate every product decision to Godot."""
@@ -80,9 +81,11 @@ def project_profile_boundary(
 	try:
 		if path_has_reparse_component(source_root) or not source_root.is_dir():
 			raise PinnedReadError("project_layout.source_root_unavailable")
-		candidates = (profile_path,) if profile_path else PROJECT_PROFILE_DEFAULT_FILES
+		if snapshot_path and profile_path:
+			raise PinnedReadError("project_layout.snapshot_profile_conflict")
+		candidates = (snapshot_path,) if snapshot_path else ((profile_path,) if profile_path else PROJECT_PROFILE_DEFAULT_FILES)
 		for candidate in candidates:
-			if not profile_path and candidate == ".gf/project_profile.json" and not os.path.lexists(source_root / ".gf"):
+			if not profile_path and not snapshot_path and candidate == ".gf/project_profile.json" and not os.path.lexists(source_root / ".gf"):
 				# Prove the absent optional parent as a pinned leaf. A directory that
 				# appears during this observation fails closed instead of being skipped.
 				if read_optional_pinned_utf8_regular_file(source_root, ".gf", max_bytes=0) is None:
@@ -95,15 +98,19 @@ def project_profile_boundary(
 				source_root, relative, max_bytes=PROJECT_PROFILE_MAX_BYTES,
 			)
 			if text is None:
-				if profile_path:
+				if profile_path or snapshot_path:
 					raise PinnedReadError("project_layout.profile_unavailable")
 				continue
 			base.update({"profile_found": True, "profile_path": str(path)})
-			report = native_executor({
+			request: dict[str, Any] = {
 				"schema_version": 1, "operation": "analyze",
 				"profile_text": text, "profile_source_path": path.as_posix(),
 				"options": {"source_root": source_root.as_posix()},
-			})
+			}
+			if snapshot_path:
+				request = {"schema_version": 1, "operation": "analyze_snapshot", "snapshot_text": text}
+				base["snapshot_path"] = str(path)
+			report = native_executor(request)
 			base["analysis"] = report
 			base["issues"] = report.get("issues", [])
 			base["evaluation_complete"] = report.get("evaluation_complete", False)

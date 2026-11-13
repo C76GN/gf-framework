@@ -263,8 +263,17 @@ bootstrap/adopt，且只有写确认后才发布活动身份。Switch 的目标�
 Storage family reset，最后保存目标。目标保存确认前
 来源始终保持活动；结构损坏无法获得精确 reset 授权时失败关闭。
 
-未知 section 默认采用 `GFSaveProfile.UNKNOWN_SECTION_REJECT`，避免旧客户端读取后保存时
-静默删除新客户端数据。只有明确拥有向前兼容要求时才选择 `UNKNOWN_SECTION_PRESERVE`；
-选择 `UNKNOWN_SECTION_DROP` 等同于显式接受数据丢弃。
+未知 section 默认拒绝。`profile.preserved_sections = PackedStringArray(["season_archive"])`
+只允许保留清单中的精确 ID，不把它交给 Provider。清单在注册时冻结；没有通配允许或
+自动丢弃开关。永久删除分区由显式文档变更或版本迁移执行。每个保留分区仍须满足
+原生持久化值契约，并限制为 64 层、100000 个规范编码节点和 16 MiB 规范编码字节。
+
+分区内部的字段与内容条目使用 [载荷保留政策](save-payload-retention.md)。它不会放宽
+文档封套、已知字段类型、文档版本或已知分区版本检查。
 
 完整状态机、不变量和失败矩阵见 [Save Profile 运行时编排决策](save-profile-adr.md)。
+
+需要远端同步时，先明确准备 Profile 的同步快照，再成功加载或保存；接线见
+[Profile 云端同步](cloud-sync.md)。框架保留文档 metadata 的 `_gf_sync` 键，普通项目请求
+不可写入，普通保存会保留已有记录，迁移也必须保持它。内容代际与物理保存 generation
+分开，checkpoint 专用写入不代表新的业务内容。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineTargetStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd" module="tools" extends="RefCounted" classDigest="b879a21aae81a335623a4163d39455244950216bcb2a0d246d07aa66ca7d1813">
+<class name="GFConfigPipelineTargetStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd" module="tools" extends="RefCounted" classDigest="9744f1b1a8b90f3f4684e7041c592831d6b0bacc3ea3d50fde1958c331ad7e55">
 	<description>GFConfigPipelineTargetStage: Config Pipeline 的内置目标物化阶段。
 只接受版本化 IR，并将其物化为 GFConfigTableResource、GFConfigDatabaseResource 或 JSON 兼容数据。
 Target 不读取来源，也不重新推导 schema 或解释项目业务语义。</description>
@@ -20,7 +20,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 4</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 5</signature>
 			<description>Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -52,9 +52,26 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="param">compilation_ir: 已完成单表校验的版本化数据库 IR。</tag>
 				<tag name="param">options: 目标选项。</tag>
 				<tag name="return">数据库物化结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。</tag>
-				<tag name="schema">return: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。</tag>
-				<tag name="since">9.0.0</tag>
+				<tag name="schema">options: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。可另含consumer_target:GFConfigPipelineConsumerTarget；非空时先投影声明闭包，并强制验证目标引用。</tag>
+				<tag name="schema">return: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。ir为最终投影IR；不暴露未完成的部分投影。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_database">
+			<signature>func project_database( compilation_ir: GFConfigPipelineIR, target: GFConfigPipelineConsumerTarget, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>按声明闭包投影已验收 IR；不根据行数或当前引用值推测依赖。
+顶层字段是完整值单元，结构化类型与其数据共同保留。所有引用来源字段不可见时删除该引用；
+部分可见、目标表未授权或目标键不可见时拒绝。源表必须具备声明型 schema，不能使用样本推导。
+全记录/全表规则已在源 IR 验收时执行，不复制到裁剪后的 schema；不导出未授权的表级元数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">compilation_ir: 封存的完整作者 IR。</tag>
+				<tag name="param">target: 消费目标声明，调用时捕获隔离快照。</tag>
+				<tag name="param">options: 构建预算选项。</tag>
+				<tag name="return">完整投影或失败，无部分结果。</tag>
+				<tag name="schema">options: Dictionary，可含 work_budget 或 work_limits；复用本次构建的 GFConfigWorkBudget。</tag>
+				<tag name="schema">return: 封闭 Dictionary，success:bool、ir:GFConfigPipelineIR/null、tables:PackedStringArray（排序后的闭包）、error:String。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_database_export">

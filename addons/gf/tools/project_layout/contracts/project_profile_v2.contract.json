@@ -76,6 +76,9 @@
     "capture_scope": {
       "type": "object"
     },
+    "dependency_policy": {
+      "type": "object"
+    },
     "metadata": {
       "type": "object"
     }

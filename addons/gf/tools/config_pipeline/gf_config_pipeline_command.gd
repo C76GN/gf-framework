@@ -51,13 +51,13 @@ const _DEFAULT_OPERATION: StringName = _OPERATION_EXPORT
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since unreleased
 ## [br]
 ## @param arguments: Godot `--` 之后的用户参数。
 ## [br]
 ## @param base_options: 调用方直接注入的默认选项，命令行参数会覆盖同名字段。
 ## [br]
-## @schema base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 max_validation_cells、max_source_file_bytes、max_xlsx_file_bytes、output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个非空产物路径都必须位于 res:// 或 user://，各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。
+## @schema base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 max_validation_cells、max_source_file_bytes、max_xlsx_file_bytes、output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个非空产物路径都必须位于 res:// 或 user://，各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。另支持target:String、baseline_profile:String、expected_input_digest:String；operation新增diff（只读比较两个作者Profile）及register-ids（显式登记并事务导出）。
 ## [br]
 ## @return: 命令报告。
 ## [br]
@@ -201,6 +201,10 @@ func get_usage() -> String:
 	_append_line(lines, "Options:")
 	_append_line(lines, "  --profile <path>             GFConfigPipelineProfile resource path.")
 	_append_line(lines, "  --operation <export|build|load|inspect>")
+	_append_line(lines, "              <diff|register-ids> diff is read-only; register-ids commits explicit ID changes with artifacts.")
+	_append_line(lines, "  --target <id>                Select a declared consumer target.")
+	_append_line(lines, "  --baseline-profile <path>    Author Profile used as the read-only diff baseline.")
+	_append_line(lines, "  --expected-input-digest <sha256>  Require the exact inputs captured by a preview.")
 	_append_line(lines, "  inspect validates all inputs and reports effective schemas without writing artifacts.")
 	_append_line(lines, "  --output <res://|user://>    Override profile output URI.")
 	_append_line(lines, "  --access-output <URI>        Override profile access output URI.")
@@ -275,6 +279,32 @@ func _parse_arguments(arguments: PackedStringArray, base_options: Dictionary) ->
 			continue
 
 		var value_result: Dictionary = {}
+		if option_name in [
+			"--target",
+			"--baseline-profile",
+			"--expected-input-digest",
+		]:
+			value_result = _read_option_value(
+				arguments,
+				index,
+				option_name,
+				inline_value,
+				has_inline_value
+			)
+			if not GFVariantData.get_option_bool(value_result, "success"):
+				return _make_parse_failure(
+					operation,
+					profile_path,
+					options,
+					json_report,
+					pretty_output,
+					usage_requested,
+					strict,
+					GFVariantData.get_option_string(value_result, "error")
+				)
+			options[option_name.trim_prefix("--").replace("-", "_")] = GFVariantData.get_option_string(value_result, "value")
+			index = GFVariantData.get_option_int(value_result, "next_index")
+			continue
 		if option_name in ["--max-validation-cells", "--max-source-bytes"]:
 			value_result = _read_option_value(
 				arguments,
@@ -578,6 +608,13 @@ func _run_operation(
 	profile_path: String,
 	options: Dictionary
 ) -> Dictionary:
+	if operation == &"diff":
+		return runner.diff_profile_path(profile_path, options)
+	if operation == &"register-ids":
+		var registration_options: Dictionary = options.duplicate(false)
+		registration_options["register_ids"] = true
+		registration_options["changed_only"] = false
+		return runner.export_profile_path(profile_path, registration_options)
 	if operation == _OPERATION_LOAD:
 		return runner.load_profile(profile_path, options)
 	if operation == _OPERATION_INSPECT:
@@ -597,6 +634,8 @@ func _is_supported_operation(operation: StringName) -> bool:
 		or operation == _OPERATION_BUILD
 		or operation == _OPERATION_LOAD
 		or operation == _OPERATION_INSPECT
+		or operation == &"diff"
+		or operation == &"register-ids"
 	)
 
 

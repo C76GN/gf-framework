@@ -6,6 +6,8 @@
 
 - [UI 面板栈与 Modal 协议](ui-stack-modal/index.md)：`GFUIUtility`、面板层级、异步加载、dismiss 策略、焦点辅助和 `GFModalResult`。
 - [UI 路由与导航历史](ui-router.md)：`GFUIRouterUtility`、`GFUIRoute`、路由参数、相邻页面预加载计划和返回行为。
+- [等待反馈与 Loading lease](ui-loading.md)：并发等待、进度采样、显示延迟与生命周期释放。
+- [红点计数与树形聚合](ui-badges.md)：叶子输入、父级聚合和多个控件的独立绑定。
 - [视口、文本与节点树工具](viewport-text-node-tools/index.md)：`GFViewportUtility`、`GFTableDataView`、`GFTextFitter`、`GFTextAutoFit`、`GFRichTextFormatter` 和 `GFNodeTreeOps`。
 
 ## 使用边界

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSectionSnapshot" path="addons/gf/extensions/save/profile/gf_save_section_snapshot.gd" module="extensions/save" extends="RefCounted" classDigest="dacc3d9784c6ba36501f859ddecad5f57038d5ca61a77ed714c1e05674d2b08c">
+<class name="GFSaveSectionSnapshot" path="addons/gf/extensions/save/profile/gf_save_section_snapshot.gd" module="extensions/save" extends="RefCounted" classDigest="28082a4bcc1acdf1419ad50e9aad5e6afdf275ee9ee9b54d23b4a8f0ea3686fc">
 	<description>GFSaveSectionSnapshot: 单个 Save section 的一次性所有权快照。
 Snapshot 只保存纯 Variant 数据，并在框架接管后立即清空自身引用。调用
 `take_ownership()` 后，调用方必须放弃原 payload、metadata 及其全部嵌套别名；
@@ -40,7 +40,7 @@ GDScript 不提供语言级 move 语义，因此该约束属于显式所有权�
 	<properties />
 	<methods>
 		<member kind="method" name="take_ownership">
-			<signature>static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -&gt; GFSaveSectionSnapshot:</signature>
+			<signature>static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -&gt; GFSaveSectionSnapshot:</signature>
 			<description>接管一个 section 的纯数据所有权。
 该方法不会深复制 payload 或 metadata。成功返回后，调用方不得继续读取、修改
 或向其它线程提交原 Dictionary、Array 及其嵌套别名。</description>
@@ -50,9 +50,11 @@ GDScript 不提供语言级 move 语义，因此该约束属于显式所有权�
 				<tag name="param">schema_version: 当前 section schema 版本。</tag>
 				<tag name="param">payload: 调用方移交的纯 Variant 载荷。</tag>
 				<tag name="param">metadata: 调用方移交的纯 Variant 元数据。</tag>
+				<tag name="param">retention_deletions: 与本次候选一起提交的保留内容删除指令。</tag>
 				<tag name="return">可用 Snapshot；身份无效时返回 null。</tag>
 				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
 				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
+				<tag name="schema">retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>

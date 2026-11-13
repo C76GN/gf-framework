@@ -1326,8 +1326,9 @@ func test_completion_callback_dispose_leaves_disposed_as_final_state() -> void:
 func test_unknown_section_preserve_round_trips_opaque_data() -> void:
 	var provider: MemorySectionProvider = _make_provider(&"state", 1)
 	var profile: GFSaveProfile = _make_profile(&"test.unknown_preserve", provider)
-	profile.unknown_section_policy = GFSaveProfile.UNKNOWN_SECTION_PRESERVE
+	profile.preserved_sections = PackedStringArray(["external"])
 	assert_true(_register(profile))
+	profile.preserved_sections.clear()
 	var document: GFSaveDocument = _make_document(
 		profile,
 		{
@@ -1365,7 +1366,7 @@ func test_unknown_section_preserve_round_trips_opaque_data() -> void:
 	assert_true(save_operation.get_result().is_successful())
 
 
-func test_unknown_section_reject_is_default_and_drop_is_explicit() -> void:
+func test_unknown_section_reject_is_default_and_document_removal_is_explicit() -> void:
 	var reject_provider: MemorySectionProvider = _make_provider(&"state", 1)
 	var reject_profile: GFSaveProfile = _make_profile(&"test.unknown_reject", reject_provider)
 	assert_true(_register(reject_profile))
@@ -1391,7 +1392,6 @@ func test_unknown_section_reject_is_default_and_drop_is_explicit() -> void:
 
 	var drop_provider: MemorySectionProvider = _make_provider(&"state", 3)
 	var drop_profile: GFSaveProfile = _make_profile(&"test.unknown_drop", drop_provider)
-	drop_profile.unknown_section_policy = GFSaveProfile.UNKNOWN_SECTION_DROP
 	assert_true(_register(drop_profile))
 	var drop_document: GFSaveDocument = _make_document(
 		drop_profile,
@@ -1406,6 +1406,7 @@ func test_unknown_section_reject_is_default_and_drop_is_explicit() -> void:
 			{ "value": 8 }
 		)
 	)
+	assert_true(drop_document.remove_section(&"external"))
 	var loaded: GFSaveProfileOperation = _utility.load_profile(drop_profile.profile_id)
 	_storage.complete_load(_read_success(drop_document))
 	assert_true(loaded.get_result().is_successful())

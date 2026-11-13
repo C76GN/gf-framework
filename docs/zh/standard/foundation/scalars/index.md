@@ -9,7 +9,7 @@
 - [确定性随机源](deterministic-random.md)：`GFDeterministicRandom` 的固定 xorshift32 序列、状态恢复和适用边界。
 - [确定性序列化](deterministic-serialization.md)：`GFDeterministicVariantSerializer` 的 canonical value、JSON、bytes 和 SHA-256。
 - [字节游标](byte-cursor.md)：`GFByteCursor` 的边界检查、显式端序、varuint 和 UTF-8 片段读写。
-- [数字格式化](number-formatting.md)：`GFNumberFormatter` 与 `GFDecimalStringFormatter`。
+- [数字格式化](number-formatting.md)：冻结的 `GFNumberFormatPolicy` 与统一 `GFNumberFormatter`。
 - [成长曲线](progression-math/index.md)：`GFProgressionMath` 的价格曲线、收益曲线和离线收益。
 - [通用数值修饰](numeric-modifier-math.md)：`GFNumericModifierMath` 的优先级 add / multiply / divide 叠加和诊断报告。
 - [多项式数学](polynomial-math.md)：`GFPolynomialMath` 的系数生成、采样、导数和实根求解。

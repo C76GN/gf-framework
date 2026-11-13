@@ -21,6 +21,11 @@ extends RefCounted
 ## [br]
 const _REQUEST_SNAPSHOT_SCRIPT = preload("res://addons/gf/extensions/save/profile/gf_save_request_snapshot.gd")
 
+## 框架同步元数据的独立准入。
+## [br]
+## @api private
+const _SYNC_CHECKPOINT_SCRIPT = preload("res://addons/gf/extensions/save/sync/gf_save_sync_checkpoint.gd")
+
 
 # --- 私有变量 ---
 
@@ -60,6 +65,21 @@ var _context: Dictionary = {}
 ## [br]
 var _result_metadata: Dictionary = {}
 
+## 独立于项目元数据的受管同步 checkpoint。
+## [br]
+## @api private
+var _sync_checkpoint: Dictionary = {}
+
+## 接收候选前必须再次匹配的持久化内容代际。
+## [br]
+## @api private
+var _expected_sync_generation: int = -1
+
+## 下载候选的完整文档；与普通分区 Mutation 互斥。
+## [br]
+## @api private
+var _sync_document: GFSaveDocument = null
+
 
 # --- 公共方法 ---
 
@@ -82,7 +102,7 @@ var _result_metadata: Dictionary = {}
 ## [br]
 ## @param result_metadata: 只写入当前事务结果的调用方纯数据元数据。
 ## [br]
-## @schema document_metadata: Dictionary accepted by the Save persisted-value contract copied into an isolated snapshot.
+## @schema document_metadata: Bounded persisted Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.
 ## [br]
 ## @schema context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 ## [br]
@@ -95,42 +115,13 @@ static func create(
 	context: Dictionary = {},
 	result_metadata: Dictionary = {}
 ) -> GFSaveProfileMutationRequest:
-	if mutations.is_empty():
-		return null
-	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+	return _create(
+		mutations,
 		document_metadata,
 		context,
-		result_metadata
+		result_metadata,
+		false
 	)
-	if snapshot.is_empty():
-		return null
-
-	var section_ids: Dictionary = {}
-	for mutation: GFSaveSectionMutation in mutations:
-		if mutation == null or not mutation.is_available():
-			return null
-		var section_id: StringName = mutation.get_section_id()
-		if section_id == &"" or section_ids.has(section_id):
-			return null
-		section_ids[section_id] = true
-
-	var records: Array[Dictionary] = []
-	for mutation: GFSaveSectionMutation in mutations:
-		var record: Dictionary = mutation.claim_for_framework()
-		if record.is_empty():
-			# 预检后仅当前同步调用可 claim；若契约被外部重入破坏，释放已接管记录。
-			for claimed_record: Dictionary in records:
-				claimed_record.clear()
-			return null
-		records.append(record)
-
-	var request: GFSaveProfileMutationRequest = GFSaveProfileMutationRequest.new()
-	request._mutation_records = records
-	request._document_metadata = GFVariantData.as_dictionary(snapshot.get("document_metadata"))
-	request._context = GFVariantData.as_dictionary(snapshot.get("context"))
-	request._result_metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
-	request._ready = true
-	return request
 
 
 ## 检查请求是否仍可由协调器接管。
@@ -182,6 +173,85 @@ func get_section_ids() -> PackedStringArray:
 
 # --- 框架内部方法 ---
 
+## 构建同一 Profile 事务中的候选与 checkpoint；允许纯 checkpoint 事务。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param mutations: 可选完整分区替换，仍使用一次性所有权。
+## [br]
+## @param checkpoint: 已验证的同步记录。
+## [br]
+## @param expected_generation: flush 后、应用前必须相等的内容代际。
+## [br]
+## @param document_metadata: 不含框架保留键的项目元数据。
+## [br]
+## @schema checkpoint: Closed record accepted by internal gf_save_sync_checkpoint.validate().
+## [br]
+## @schema document_metadata: Bounded pure-data Dictionary without _gf_sync.
+## [br]
+## @return 一次性请求；失败不消费 Mutation。
+static func create_sync_for_framework(
+	mutations: Array[GFSaveSectionMutation],
+	checkpoint: Dictionary,
+	expected_generation: int,
+	document_metadata: Dictionary
+) -> GFSaveProfileMutationRequest:
+	if not _SYNC_CHECKPOINT_SCRIPT.validate(checkpoint) or expected_generation < 0:
+		return null
+	var generation: int = GFVariantData.get_option_int(checkpoint, "local_generation")
+	if generation < expected_generation or generation - expected_generation > 1:
+		return null
+	var request: GFSaveProfileMutationRequest = _create(
+		mutations,
+		document_metadata,
+		{},
+		{},
+		true
+	)
+	if request != null:
+		request._sync_checkpoint = checkpoint.duplicate(true)
+		request._expected_sync_generation = expected_generation
+	return request
+
+
+## 创建下载文档与 checkpoint 的原子替换请求，保留完整文档验证和回滚。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param document: 已由项目投影为完整本地候选的文档，不含框架元数据。
+## [br]
+## @param checkpoint: 同一事务的新 checkpoint。
+## [br]
+## @param expected_generation: 应用前必须相等的内容代际。
+## [br]
+## @schema checkpoint: Closed internal sync checkpoint.
+## [br]
+## @return 隔离的一次性请求；非法输入返回 null。
+static func create_sync_document_for_framework(
+	document: GFSaveDocument,
+	checkpoint: Dictionary,
+	expected_generation: int
+) -> GFSaveProfileMutationRequest:
+	if document == null or not GFVariantData.get_option_bool(
+		document.validate_document(),
+		"ok"
+	):
+		return null
+	var request: GFSaveProfileMutationRequest = create_sync_for_framework(
+		[],
+		checkpoint,
+		expected_generation,
+		document.get_metadata()
+	)
+	if request != null:
+		request._sync_document = document.duplicate_document()
+	return request
+
+
 ## 获取不含请求载荷的所有权快照。
 ## [br]
 ## @api framework_internal
@@ -190,7 +260,7 @@ func get_section_ids() -> PackedStringArray:
 ## [br]
 ## @return 包含 available、claimed、mutation_count、section_ids 和 mutations 的快照。
 ## [br]
-## @schema return: Payload-free Dictionary with available, claimed, mutation_count, section_ids, and mutations descriptors containing section_id and schema_version.
+## @schema return: Payload-free Dictionary with available, claimed, mutation_count, section_ids, mutations descriptors containing section_id and schema_version, and has_sync_checkpoint:bool.
 func inspect_for_framework() -> Dictionary:
 	return {
 		"available": is_available(),
@@ -198,6 +268,7 @@ func inspect_for_framework() -> Dictionary:
 		"mutation_count": _mutation_records.size(),
 		"section_ids": get_section_ids(),
 		"mutations": _get_mutation_descriptors(),
+		"has_sync_checkpoint": not _sync_checkpoint.is_empty(),
 	}
 
 
@@ -209,7 +280,7 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @return 所有权记录；请求不可用时返回空字典。
 ## [br]
-## @schema return: Internal Dictionary with mutations, document_metadata, context, and result_metadata ownership fields.
+## @schema return: Internal Dictionary with mutations, document_metadata, context, result_metadata, sync_checkpoint, sync_document:GFSaveDocument/null, and expected_sync_generation:int ownership fields.
 func claim_for_framework() -> Dictionary:
 	if not is_available():
 		return {}
@@ -218,17 +289,76 @@ func claim_for_framework() -> Dictionary:
 		"document_metadata": _document_metadata,
 		"context": _context,
 		"result_metadata": _result_metadata,
+		"sync_checkpoint": _sync_checkpoint,
+		"sync_document": _sync_document,
+		"expected_sync_generation": _expected_sync_generation,
 	}
 	_mutation_records = []
 	_document_metadata = {}
 	_context = {}
 	_result_metadata = {}
+	_sync_checkpoint = {}
+	_sync_document = null
 	_ready = false
 	_claimed = true
 	return claim
 
 
 # --- 私有/辅助方法 ---
+
+## 统一执行请求快照与 Mutation 所有权准入。
+## [br]
+## @api private
+static func _create(
+	mutations: Array[GFSaveSectionMutation],
+	document_metadata: Dictionary,
+	context: Dictionary,
+	result_metadata: Dictionary,
+	allow_empty: bool
+) -> GFSaveProfileMutationRequest:
+	if (
+		(
+			mutations.is_empty()
+			and not allow_empty
+		)
+		or document_metadata.has(_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY)
+	):
+		return null
+	var snapshot: Dictionary = _REQUEST_SNAPSHOT_SCRIPT.capture(
+		document_metadata,
+		context,
+		result_metadata
+	)
+	if snapshot.is_empty():
+		return null
+
+	var section_ids: Dictionary = {}
+	for mutation: GFSaveSectionMutation in mutations:
+		if mutation == null or not mutation.is_available():
+			return null
+		var section_id: StringName = mutation.get_section_id()
+		if section_id == &"" or section_ids.has(section_id):
+			return null
+		section_ids[section_id] = true
+
+	var records: Array[Dictionary] = []
+	for mutation: GFSaveSectionMutation in mutations:
+		var record: Dictionary = mutation.claim_for_framework()
+		if record.is_empty():
+			# 预检后仅当前同步调用可 claim；若契约被外部重入破坏，释放已接管记录。
+			for claimed_record: Dictionary in records:
+				claimed_record.clear()
+			return null
+		records.append(record)
+
+	var request: GFSaveProfileMutationRequest = GFSaveProfileMutationRequest.new()
+	request._mutation_records = records
+	request._document_metadata = GFVariantData.as_dictionary(snapshot.get("document_metadata"))
+	request._context = GFVariantData.as_dictionary(snapshot.get("context"))
+	request._result_metadata = GFVariantData.as_dictionary(snapshot.get("result_metadata"))
+	request._ready = true
+	return request
+
 
 ## 从内部 mutation 记录提取 section ID 与 schema version 描述。
 ## [br]

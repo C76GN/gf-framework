@@ -11,6 +11,11 @@ extends RefCounted
 ## @api private
 const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 
+## 分离库存与资源依赖的证据解释器。
+## [br]
+## @api private
+const _DEPENDENCIES_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_dependencies.gd")
+
 ## validate_and_index 接受的顶层 analysis 字段名。
 ## [br]
 ## @api private
@@ -1895,9 +1900,12 @@ func _validate_graph(
 		"directory_count": 0,
 		"digest": "",
 	}
+	var graph_fields: PackedStringArray = _GRAPH_FIELDS.duplicate()
+	if graph.has("dependencies"):
+		var _appended_dependency_field: bool = graph_fields.append("dependencies")
 	if not _validation_has_exact_fields(
 		graph,
-		_GRAPH_FIELDS,
+		graph_fields,
 		result
 	):
 		_add_validation_error(
@@ -1910,7 +1918,7 @@ func _validate_graph(
 	if (
 		graph.get("schema_version") != 2
 		or graph.get("kind") != "project_layout_graph"
-		or graph.get("dependency_coverage") != "filesystem_only"
+		or graph.get("dependency_coverage") != ("resource_evidence_partial" if graph.has("dependencies") else "filesystem_only")
 		or not graph.get("complete") is bool
 	):
 		_add_validation_error(
@@ -2024,7 +2032,81 @@ func _validate_graph(
 		graph_state,
 		result
 	)
+	if graph.has("dependencies") and _get_result_errors(result).is_empty():
+		_validate_dependencies(
+			graph,
+			scope,
+			root_path,
+			graph_state,
+			result
+		)
 	return graph_state
+
+
+## 重新推导脱离会话的依赖报告，拒绝伪造闭包、过期范围绑定及摘要。
+## [br]
+## @api private
+func _validate_dependencies(
+	graph: Dictionary,
+	scope: Dictionary,
+	root_path: String,
+	graph_state: Dictionary,
+	result: Dictionary
+) -> void:
+	var raw: Variant = graph["dependencies"]
+	if not raw is Dictionary:
+		_add_validation_error(
+			result,
+			"dependency_report_invalid",
+			"graph.dependencies",
+			"依赖报告必须为封闭纯数据。"
+		)
+		return
+	var report: Dictionary = raw
+	var raw_input: Variant = report.get("input")
+	if not raw_input is Dictionary:
+		_add_validation_error(
+			result,
+			"dependency_report_invalid",
+			"graph.dependencies",
+			"依赖报告缺少冻结输入。"
+		)
+		return
+	var files: PackedStringArray = []
+	for node: Dictionary in graph["nodes"]:
+		if node["node_kind"] == "file":
+			var path: String = node["relative_path"]
+			var _appended: bool = files.append(path)
+	var input: Dictionary = raw_input
+	var expected: Dictionary = _DEPENDENCIES_SCRIPT.analyze(
+		input,
+		_DEPENDENCIES_SCRIPT.inventory_key(scope, files),
+		root_path,
+		files,
+		Callable(self, "_consume_dependency_validation_work").bind(result)
+	)
+	if expected.is_empty() or expected != report:
+		_add_validation_error(
+			result,
+			"dependency_report_invalid",
+			"graph.dependencies",
+			"依赖证据与范围、摘要或推导结果不一致。"
+		)
+		return
+	var source_digest: String = graph_state["digest"]
+	var dependency_digest: String = report["digest"]
+	graph_state["digest"] = (source_digest + ":" + dependency_digest).sha256_text()
+	var index: Dictionary = graph_state["index"]
+	var evidence_by_id: Dictionary = index["evidence_by_id"]
+	for edge: Dictionary in report["edges"]:
+		evidence_by_id[edge["evidence_id"]] = edge
+
+
+## 将依赖遍历合并到已有验证工作量及取消权威。
+## [br]
+## @api private
+func _consume_dependency_validation_work(result: Dictionary) -> bool:
+	return _consume_validation_work(result)
 
 
 ## 要求闭合 project_source 范围、规范唯一排除前缀及合法扫描预算；声明完整时还必须匹配权威的隐藏项和排除范围设置。

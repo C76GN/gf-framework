@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUINavigationTarget" path="addons/gf/standard/utilities/ui/gf_ui_navigation_target.gd" module="standard" extends="RefCounted" classDigest="62f83c75b3e08c711fd607437ad1299d1f815c4ffc5863ef1066e3343d98ded8">
+	<description>GFUINavigationTarget: 冻结的路由与语义定位参数。
+不保存场景节点路径或节点引用。空参数表示只等待内容就绪；非空参数由项目 resolver
+解释为页签、条目 ID 等业务定位信息。普通路由打开不需要创建此对象。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create(route_id: StringName, parameters: Dictionary = {}) -&gt; GFUINavigationTarget:</signature>
+			<description>创建一个内容就绪或语义定位请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">route_id: 非空路由 ID，最多 256 字符。</tag>
+				<tag name="param">parameters: 项目定义的语义参数；空字典只等待内容。</tag>
+				<tag name="return">冻结目标；身份或参数无效时为 null。</tag>
+				<tag name="schema">parameters: 由有限原生纯数据组成的 Dictionary；拒绝 Object、环、非有限数值。深度最多 8、节点 256、规范编码 16 KiB。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_create">
+			<signature>static func validate_create(route_id: StringName, parameters: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>只读检查目标输入，不创建目标或请求，create 仍会重新校验。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">route_id: 与 create 相同的路由身份，仍允许既有首尾空白规范化。</tag>
+				<tag name="param">parameters: 与 create 相同的纯数据语义参数。</tag>
+				<tag name="return">当前输入的独立校验报告；不输出错误日志。</tag>
+				<tag name="schema">parameters: 与 create.parameters 相同；报告中的位置为 /parameters 整体，不承诺定位纯数据内部叶子。</tag>
+				<tag name="schema">return: 封闭基础字段 ok:bool、error_kind:String、path:String；成功时后两项为空。容量错误可含 limit:int、observed:int；纯数据错误另含 measurement:Dictionary、limits:Dictionary，并可含 limit_kind:String、observed_is_lower_bound:bool。path 为从输入参数名开始的 / 分段路径，~ 和 / 分别转义为 ~0 和 ~1；空路径指当前服务。observed_is_lower_bound=true 时 observed 只是确定下界，measurement 失败计数只描述已遍历前缀。报告不含对象或可复用准入令牌。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_route_id">
+			<signature>func get_route_id() -&gt; StringName:</signature>
+			<description>获取规范化路由身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">冻结的路由 ID；未经 create 的对象为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_parameters">
+			<signature>func get_parameters() -&gt; Dictionary:</signature>
+			<description>获取语义定位参数的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">创建时验证的纯数据。</tag>
+				<tag name="schema">return: Dictionary，结构与 create.parameters 相同，不暴露内部可写容器。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_semantic_target">
+			<signature>func has_semantic_target() -&gt; bool:</signature>
+			<description>区分只等待内容与需要语义定位的请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非空参数需要在内容就绪后执行定位。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_equivalent_to">
+			<signature>func is_equivalent_to(other: GFUINavigationTarget) -&gt; bool:</signature>
+			<description>比较请求意义，用于合并同一 pending 导航。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 待比较目标。</tag>
+				<tag name="return">路由身份与参数完全一致时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

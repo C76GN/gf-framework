@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="c41d3586cbd51096b892ea7ae0066c8eecb7e98083a1c9c5b98a5230aebadc01">
+<class name="GFConfigPipelineCommitStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_commit_stage.gd" module="tools" extends="RefCounted" classDigest="aa2db00809f9bb7c596813aff8f8fdf41955a776eb93a6f9bcb27574899abb38">
 	<description>GFConfigPipelineCommitStage: Config Pipeline 的文件提交事务阶段。
 将 Config Pipeline 的 ResourceSaver 等专用写入器接到框架级
 GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内容，
@@ -21,7 +21,7 @@ GFArtifactWriteTransaction。该阶段不复制事务实现、不解释产物内
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 3</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 4</signature>
 			<description>Commit 阶段的实现版本；改变事务或回滚语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>

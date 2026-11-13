@@ -6,9 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 7 | 120 | 87 |
-| [协议与扩展点](#category-protocol) | 10 | 115 | 70 |
-| [资源定义](#category-resource_definition) | 13 | 92 | 58 |
+| [运行时服务](#category-runtime_service) | 7 | 127 | 97 |
+| [协议与扩展点](#category-protocol) | 11 | 120 | 74 |
+| [资源定义](#category-resource_definition) | 14 | 106 | 69 |
 | [运行时句柄](#category-runtime_handle) | 10 | 115 | 79 |
 | [值对象](#category-value_object) | 10 | 202 | 120 |
 | [领域模型](#category-domain_model) | 1 | 6 | 3 |
@@ -28,7 +28,7 @@
 | [`GFSaveProfileTransactionCoordinator`](classes/GFSaveProfileTransactionCoordinator.md#gfsaveprofiletransactioncoordinator) | `GFUtility` | `addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd` |
 | [`GFSaveProfileUtility`](classes/GFSaveProfileUtility.md#gfsaveprofileutility) | `GFUtility` | `addons/gf/extensions/save/profile/gf_save_profile_utility.gd` |
 | [`GFSaveSlotStorageAdapter`](classes/GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
-| [`GFSaveSlotSyncBridge`](classes/GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | `RefCounted` | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
+| [`GFSaveSyncUtility`](classes/GFSaveSyncUtility.md#gfsavesyncutility) | `GFUtility` | `addons/gf/extensions/save/sync/gf_save_sync_utility.gd` |
 
 <a id="category-protocol"></a>
 
@@ -45,6 +45,7 @@
 | [`GFSaveScope`](classes/GFSaveScope.md#gfsavescope) | `Node` | `addons/gf/extensions/save/core/gf_save_scope.gd` |
 | [`GFSaveSectionProvider`](classes/GFSaveSectionProvider.md#gfsavesectionprovider) | `Resource` | `addons/gf/extensions/save/profile/gf_save_section_provider.gd` |
 | [`GFSaveSource`](classes/GFSaveSource.md#gfsavesource) | `Node` | `addons/gf/extensions/save/core/gf_save_source.gd` |
+| [`GFSaveSyncProjection`](classes/GFSaveSyncProjection.md#gfsavesyncprojection) | `RefCounted` | `addons/gf/extensions/save/sync/gf_save_sync_projection.gd` |
 | [`GFSaveTransactionParticipant`](classes/GFSaveTransactionParticipant.md#gfsavetransactionparticipant) | `Resource` | `addons/gf/extensions/save/pipeline/gf_save_transaction_participant.gd` |
 
 <a id="category-resource_definition"></a>
@@ -63,6 +64,7 @@
 | [`GFNodeTransform2DSerializer`](classes/GFNodeTransform2DSerializer.md#gfnodetransform2dserializer) | `GFNodeSerializer` | `addons/gf/extensions/save/serializers/gf_node_transform_2d_serializer.gd` |
 | [`GFNodeTransform3DSerializer`](classes/GFNodeTransform3DSerializer.md#gfnodetransform3dserializer) | `GFNodeSerializer` | `addons/gf/extensions/save/serializers/gf_node_transform_3d_serializer.gd` |
 | [`GFSaveDocumentSchema`](classes/GFSaveDocumentSchema.md#gfsavedocumentschema) | `Resource` | `addons/gf/extensions/save/document/gf_save_document_schema.gd` |
+| [`GFSavePayloadPolicy`](classes/GFSavePayloadPolicy.md#gfsavepayloadpolicy) | `Resource` | `addons/gf/extensions/save/document/gf_save_payload_policy.gd` |
 | [`GFSaveProfile`](classes/GFSaveProfile.md#gfsaveprofile) | `Resource` | `addons/gf/extensions/save/profile/gf_save_profile.gd` |
 | [`GFSaveRecoveryPolicy`](classes/GFSaveRecoveryPolicy.md#gfsaverecoverypolicy) | `Resource` | `addons/gf/extensions/save/profile/gf_save_recovery_policy.gd` |
 | [`GFSaveSlotWorkflow`](classes/GFSaveSlotWorkflow.md#gfsaveslotworkflow) | `Resource` | `addons/gf/extensions/save/slots/gf_save_slot_workflow.gd` |

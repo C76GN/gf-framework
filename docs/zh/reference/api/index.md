@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`911`
+- 公开类：`933`
 - 公开 AutoLoad：`1`
-- 公开成员：`13017`
-- 公开方法：`8138`
+- 公开成员：`13224`
+- 公开方法：`8331`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -16,7 +16,7 @@
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
 | Kernel | 79 | 1 | 1224 | 907 | [kernel.md](kernel.md) |
-| Standard | 495 | 0 | 7747 | 4942 | [standard.md](standard.md) |
+| Standard | 511 | 0 | 7872 | 5070 | [standard.md](standard.md) |
 | Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -27,16 +27,16 @@
 | Data Batch | 3 | 0 | 34 | 31 | [extensions-data-batch.md](extensions-data-batch.md) |
 | Decision | 8 | 0 | 111 | 62 | [extensions-decision.md](extensions-decision.md) |
 | Dialogue | 5 | 0 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
-| Domain | 21 | 0 | 336 | 216 | [extensions-domain.md](extensions-domain.md) |
+| Domain | 23 | 0 | 367 | 242 | [extensions-domain.md](extensions-domain.md) |
 | Feedback | 8 | 0 | 141 | 65 | [extensions-feedback.md](extensions-feedback.md) |
 | Flow | 9 | 0 | 129 | 79 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 0 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
 | Extensions / Layered Sprite | 4 | 0 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
 | Network | 41 | 0 | 637 | 348 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
-| Save | 52 | 0 | 661 | 420 | [extensions-save.md](extensions-save.md) |
+| Save | 54 | 0 | 687 | 445 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |
-| Tools | 26 | 0 | 214 | 148 | [tools.md](tools.md) |
+| Tools | 28 | 0 | 239 | 162 | [tools.md](tools.md) |
 
 ## Owner 索引
 

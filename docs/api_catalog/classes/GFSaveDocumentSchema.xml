@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="3f135fc26e4396b7e1cb5516ab0aa093429a00a4f36b85e825418da609077557">
+<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="c1b5827ce1315270983bd056681ac017973f5d2d198ca81afe4cbf76f9c76a7d">
 	<description>GFSaveDocumentSchema: 项目存档文档的当前版本契约。
 项目用该 Resource 声明 schema_id、当前文档版本、已知分区版本和必需分区。
 GF 只校验结构与版本，不解释任何业务字段。</description>
@@ -45,29 +45,84 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="allow_unknown_sections" decorators="@export">
-			<signature>var allow_unknown_sections: bool = true</signature>
-			<description>是否允许并原样保留 schema 未声明的分区。</description>
+		<member kind="property" name="preserved_sections" decorators="@export">
+			<signature>var preserved_sections: PackedStringArray = PackedStringArray()</signature>
+			<description>允许原样保留但不解释的分区 ID 清单；默认拒绝全部未知分区。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">9.0.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="configure">
 			<signature>func configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -&gt; GFSaveDocumentSchema:</signature>
-			<description>配置当前 schema 契约。</description>
+			<description>配置当前 schema 契约，保留返回当前对象的旧用法。
+失败时不覆盖原字段，但 validate_schema() 会报告最近的配置错误，to_dict() 返回空。
+调用 try_configure() 可直接取得诊断；使用合法参数再次配置后解除拒绝状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_schema_id: 稳定 schema ID。</tag>
 				<tag name="param">p_schema_version: 当前文档版本。</tag>
 				<tag name="param">p_section_versions: 分区当前版本映射。</tag>
-				<tag name="param">options: 可包含 required_sections 与 allow_unknown_sections。</tag>
+				<tag name="param">options: 可包含 required_sections 与 preserved_sections。</tag>
 				<tag name="return">当前 schema。</tag>
 				<tag name="schema">p_section_versions: Dictionary from non-empty section_id to positive int version.</tag>
-				<tag name="schema">options: Dictionary with optional required_sections: PackedStringArray and allow_unknown_sections: bool.</tag>
+				<tag name="schema">options: Dictionary with optional required_sections: PackedStringArray and preserved_sections: PackedStringArray.</tag>
 				<tag name="since">9.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_configuration">
+			<signature>static func validate_configuration( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>只读验证完整配置；不改变当前对象或清除其上次配置错误。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_schema_id: 文档 schema 身份。</tag>
+				<tag name="param">p_schema_version: 当前正整数版本。</tag>
+				<tag name="param">p_section_versions: 分区版本映射。</tag>
+				<tag name="param">options: 只接受 required_sections 和 preserved_sections。</tag>
+				<tag name="return">不含业务载荷的配置诊断。</tag>
+				<tag name="schema">p_section_versions: 与 configure() 相同的 Dictionary。</tag>
+				<tag name="schema">options: 与 configure() 相同的闭合 Dictionary；allow_unknown_sections 已移除且不会自动转换。</tag>
+				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_configure">
+			<signature>func try_configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>原子应用完整配置并返回诊断；失败保留原字段，同时阻止旧字段被误当作本次配置成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p_schema_id: 文档 schema 身份。</tag>
+				<tag name="param">p_schema_version: 当前正整数版本。</tag>
+				<tag name="param">p_section_versions: 分区版本映射。</tag>
+				<tag name="param">options: 只接受 required_sections 和 preserved_sections。</tag>
+				<tag name="return">配置诊断；再次成功配置会清除上次错误。</tag>
+				<tag name="schema">p_section_versions: 与 configure() 相同的 Dictionary。</tag>
+				<tag name="schema">options: 与 configure() 相同的闭合 Dictionary。</tag>
+				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preserved_section_limits">
+			<signature>static func get_preserved_section_limits() -&gt; Dictionary:</signature>
+			<description>获取每个未知保留分区的固定规范编码预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独立预算记录；整个请求仍须接受它所在层的总预算。</tag>
+				<tag name="schema">return: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="measure_preserved_section">
+			<signature>static func measure_preserved_section(section: GFSaveSection) -&gt; Dictionary:</signature>
+			<description>只读计量一个未知保留分区，不复制业务载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">section: 待保留的完整分区；是否允许该 ID 仍由 validate_document() 判定。</tag>
+				<tag name="return">不含业务载荷的预算报告。</tag>
+				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_section_version">
@@ -127,7 +182,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">schema 字典。</tag>
-				<tag name="schema">return: Dictionary with schema_id, schema_version, section_versions, required_sections, and allow_unknown_sections.</tag>
+				<tag name="schema">return: Dictionary with schema_id, schema_version, section_versions, required_sections, and preserved_sections; empty while a rejected configure() has not been corrected.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -148,7 +203,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 				<tag name="api">public</tag>
 				<tag name="param">data: schema 字典。</tag>
 				<tag name="return">新 schema；输入不规范或 schema 自身无效时返回 null。</tag>
-				<tag name="schema">data: Dictionary with schema_id, schema_version, section_versions, required_sections, and allow_unknown_sections.</tag>
+				<tag name="schema">data: Dictionary with schema_id, schema_version, section_versions, required_sections, and preserved_sections.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

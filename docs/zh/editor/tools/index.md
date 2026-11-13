@@ -6,8 +6,10 @@ GF 制作期工具用于编辑、导入、构建或 CI 流程。工具可以依�
 
 - [项目初始化](project-bootstrap.md)：为新项目创建 Boot、空 Main 和可选 Installer；已有项目保留主场景与装配顺序，通过可复制片段接入。
 - [Config Pipeline 导表工具包](config-pipeline.md)：把通用 CSV / JSON / XLSX 表来源或批量 Profile 构建为 `GFConfigTableResource` / `GFConfigDatabaseResource`，并保存为 Godot `.tres/.res` 或 JSON 导出；嵌套字段和多行集合见[结构化表格布局](config-pipeline-layout.md)。
+- [配置消费目标与稳定身份](config-pipeline-targets.md)：声明字段授权和引用闭包，维护稳定 ID 与墓碑，比较两代作者输入并核对导出凭据。
 - [Dialogue Text 对话文本工具包](dialogue-text.md)：把严格 JSON 文本编译为 `GFDialogueResource`，并在制作期报告字段类型、跳转目标和资源结构问题。
 - [Project Layout 项目结构工具包](project-layout.md)：在 GF Workspace 中按需执行只读扫描、问题解释、影响模拟和计划展示；profile 是项目显式选择的策略，Feature Cohesive 只是一份示例。
+- [资源依赖证据与影响范围](project-layout-dependencies.md)：捕获静态引用，组合项目声明和运行观测，分析启动闭包与反向影响，并在可信 CLI 重放冻结快照。
 - [GDScript 代码检查](code-quality.md)：项目主动采用预设或规则后，检查编辑缓冲或配置范围内的已保存源码，按位置显示注释与结构排版问题。
 - [Scene Groups 场景组查询](scene-groups.md)：从已保存场景查找持久化 Group 声明，按组、场景或节点路径搜索，并打开声明场景定位节点。
 - [3D 场景摆放](scene-placement.md)：显式选择 PackedScene 与父 Node3D，通过视口平面或碰撞命中预览、确认，并使用原生撤销与重做。

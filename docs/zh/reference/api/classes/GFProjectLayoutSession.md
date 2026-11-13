@@ -18,6 +18,7 @@
 | 方法 | [`open_profile_text`](#member-gfprojectlayoutsession-methods-open_profile_text) | `func open_profile_text( text: String, source_path: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`open_profile`](#member-gfprojectlayoutsession-methods-open_profile) | `func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`observe`](#member-gfprojectlayoutsession-methods-observe) | `func observe(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`open_snapshot_text`](#member-gfprojectlayoutsession-methods-open_snapshot_text) | `func open_snapshot_text(text: String) -> Dictionary:` |
 | 方法 | [`get_analysis`](#member-gfprojectlayoutsession-methods-get_analysis) | `func get_analysis() -> Dictionary:` |
 | 方法 | [`plan`](#member-gfprojectlayoutsession-methods-plan) | `func plan(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`explain`](#member-gfprojectlayoutsession-methods-explain) | `func explain(finding_id: String) -> Dictionary:` |
@@ -78,7 +79,7 @@ func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `profile`: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope。
+- `profile`: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope、dependency_policy；dependency_policy声明startup_roots、owners、edges、max_startup_files和max_startup_source_bytes。
 - `options`: Dictionary，可包含 root_path、source_root、capture_scope、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；不允许 profile_source_path。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
 
@@ -107,6 +108,31 @@ func observe(options: Dictionary = {}) -> Dictionary:
 
 - `options`: Dictionary，与 open_profile 的捕获字段相同。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
+
+<a id="member-gfprojectlayoutsession-methods-open_snapshot_text"></a>
+
+### `open_snapshot_text`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func open_snapshot_text(text: String) -> Dictionary:
+```
+
+分析显式提供的冻结库存 JSON，不读取或启动其来源项目。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | 最多1MiB严格JSON对象；数字必须使用十进制整数记法，绝对值不超过2^53-1，不接受小数或指数记法。 |
+
+返回：沿用Analyzer.analyze_snapshot的报告；来源内容新鲜度只对应捕获时刻，不会在此访问文件复核。
+
+结构：
+
+- `return`: Dictionary，包含schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities、effects。graph可含dependencies闭合报告，证据格式见资源依赖文档。
 
 <a id="member-gfprojectlayoutsession-methods-get_analysis"></a>
 

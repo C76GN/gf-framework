@@ -27,6 +27,11 @@ const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/
 ## @api private
 const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 
+## 当前编辑器中的分批资源文件证据捕获器。
+## [br]
+## @api private
+const _DEPENDENCY_CAPTURE_SCRIPT = preload("res://addons/gf/tools/project_layout/editor/gf_project_layout_dependency_capture.gd")
+
 ## begin() 接受的捕获选项字段名集合。
 ## [br]
 ## @api private
@@ -39,6 +44,7 @@ const _OPTION_FIELDS: PackedStringArray = [
 	"max_scanned_files",
 	"max_scanned_directories",
 	"max_scan_depth",
+	"capture_dependencies",
 ]
 
 ## snapshot issue 字典的闭合字段名集合。
@@ -88,6 +94,21 @@ const _PROJECT_SOURCE_EXCLUDED_PREFIXES: PackedStringArray = [
 
 
 # --- 私有变量 ---
+
+## 是否在库存完成后读取当前项目的静态资源依赖。
+## [br]
+## @api private
+var _capture_dependencies: bool = false
+
+## 主线程分批捕获器；非空时库存已经完成。
+## [br]
+## @api private
+var _dependency_capture: _DEPENDENCY_CAPTURE_SCRIPT = null
+
+## 已结束的依赖证据，生命周期独立于库存完整性。
+## [br]
+## @api private
+var _dependency_result: Dictionary = {}
 
 ## 当前捕获使用的项目资源根路径。
 ## [br]
@@ -212,7 +233,7 @@ var _resource_limit_failed: bool = false
 ## [br]
 ## @param options: 捕获预算。
 ## [br]
-## @schema options: Dictionary，可包含 source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories 和 max_scan_depth；声明及来源由共享 authority 准入。
+## @schema options: Dictionary，可包含 source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories 、max_scan_depth 和 capture_dependencies:bool=false；capture_dependencies仅在当前项目res://根启用静态依赖捕获；声明及来源由共享 authority 准入。
 ## [br]
 ## @return Godot 错误码。
 func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
@@ -296,7 +317,7 @@ func begin(root_path: String = "res://", options: Dictionary = {}) -> Error:
 ## [br]
 ## @param options: include_hidden 及三项有限捕获预算。
 ## [br]
-## @schema options: Dictionary，沿用 begin 的字段闭集，可包含 include_hidden: bool、max_scanned_files: int、max_scanned_directories: int、max_scan_depth: int、source_root: String、capture_scope: Dictionary 和 profile_source_path: String；三项预算必须为框架上限内的正整数，三个来源字段统一由 binding 覆盖，不能改变已准入的捕获范围。
+## @schema options: Dictionary，沿用 begin 的字段闭集，可包含 include_hidden: bool、max_scanned_files: int、max_scanned_directories: int、max_scan_depth: int、source_root: String、capture_scope: Dictionary 和 profile_source_path: String、capture_dependencies:bool=false；三项预算必须为框架上限内的正整数，三个来源字段统一由 binding 覆盖，不能改变已准入的捕获范围。
 ## [br]
 ## @return 错误码；拒绝时不会枚举目录。
 func begin_prepared(
@@ -349,7 +370,24 @@ func step(max_entries: int = 256) -> Dictionary:
 	if _status != "capturing":
 		return get_progress()
 	if _cancel_requested:
+		if _dependency_capture != null:
+			_dependency_capture.cancel()
 		_finish("cancelled")
+		return get_progress()
+	if _dependency_capture != null:
+		if _dependency_capture.step(mini(max_entries, 8)):
+			_dependency_result = _dependency_capture.get_capture()
+			_dependency_capture = null
+			_status = "complete"
+			var final_states: Dictionary = _CAPTURE_SCOPE_SCRIPT.capture_root_states(_capture_binding)
+			if final_states != _initial_root_states or not final_states.get("success", false):
+				_status = "partial"
+				_dependency_result = {}
+				_add_issue(
+					"capture_scope_identity_changed",
+					"capture_scope",
+					"依赖捕获期间库存根身份发生变化。"
+				)
 		return get_progress()
 
 	var processed_entries: int = 0
@@ -475,7 +513,7 @@ func get_progress() -> Dictionary:
 ## [br]
 ## @return: complete/partial 捕获的 project_layout_snapshot；idle、capturing、cancelled 或 failed 时返回空 Dictionary。
 ## [br]
-## @schema return: 非空结果精确包含 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和 issues；capture_status 只可能是 complete 或 partial，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest。
+## @schema return: 非空结果精确包含 schema_version、kind、root_path、scope、complete、capture_status、files、directories、issues，以及启用依赖捕获时的dependencies；dependencies精确含capture:Dictionary、declaration:Dictionary、observations:Array；capture_status 只可能是 complete 或 partial，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest。
 func make_snapshot() -> Dictionary:
 	if not ["complete", "partial"].has(_status):
 		return {}
@@ -497,7 +535,7 @@ func make_snapshot() -> Dictionary:
 		},
 		true
 	)
-	return {
+	var snapshot: Dictionary = {
 		"schema_version": 2,
 		"kind": "project_layout_snapshot",
 		"root_path": _root_path,
@@ -508,6 +546,13 @@ func make_snapshot() -> Dictionary:
 		"directories": Array(sorted_directories),
 		"issues": _issues.duplicate(true),
 	}
+	if _capture_dependencies:
+		snapshot["dependencies"] = {
+			"capture": _dependency_result.duplicate(true),
+			"declaration": {},
+			"observations": [],
+		}
+	return snapshot
 
 
 # --- 私有/辅助方法 ---
@@ -595,12 +640,21 @@ func _finish(status: String) -> void:
 			status = "partial"
 	_close_current_directory()
 	_status = status
+	if status == "complete" and _capture_dependencies:
+		_dependency_capture = _DEPENDENCY_CAPTURE_SCRIPT.new()
+		if _dependency_capture.begin(make_snapshot()):
+			_status = "capturing"
+		else:
+			_dependency_capture = null
 
 
 ## 关闭当前枚举并恢复默认根、预算及 idle 状态，丢弃上次清单、问题、取消标志和累计文本预算。
 ## [br]
 ## @api private
 func _reset_state() -> void:
+	_dependency_capture = null
+	_dependency_result = {}
+	_capture_dependencies = false
 	_capture_binding = {}
 	_initial_root_states = {}
 	_close_current_directory()
@@ -638,6 +692,12 @@ func _read_options(options: Dictionary) -> bool:
 		if not _OPTION_FIELDS.has(key):
 			_set_option_admission_failure()
 			return false
+	if options.has("capture_dependencies"):
+		var enabled: Variant = options["capture_dependencies"]
+		if not enabled is bool:
+			_set_option_admission_failure()
+			return false
+		_capture_dependencies = enabled
 	if options.has("include_hidden"):
 		var include_hidden_value: Variant = options["include_hidden"]
 		if not include_hidden_value is bool:

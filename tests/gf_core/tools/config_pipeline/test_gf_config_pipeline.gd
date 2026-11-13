@@ -5067,6 +5067,16 @@ func test_pipeline_admits_custom_layout_before_validation_copy() -> void:
 
 func test_pipeline_profile_admits_export_options_only_when_exporting() -> void:
 	var source: GFConfigPipelineTableSource = _make_work_budget_source("profile_export_options", "id\n1\n")
+	var declared_source: GFConfigPipelineTableSource = source.duplicate_source()
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = source.table_name
+	schema.id_field = &"id"
+	schema.coerce_values = true
+	var id_column: GFConfigTableColumn = GFConfigTableColumn.new()
+	id_column.field_name = &"id"
+	id_column.value_type = GFConfigTableColumn.ValueType.INT
+	schema.columns = [id_column]
+	declared_source.schema = schema
 	var output_path: String = _write_text(
 		"user://gf_config_pipeline_unused_options_%d.json" % Time.get_ticks_usec(),
 		"existing artifact"
@@ -5076,6 +5086,14 @@ func test_pipeline_profile_admits_export_options_only_when_exporting() -> void:
 			var profile: _BudgetExportCopyCountingProfile = _BudgetExportCopyCountingProfile.new()
 			profile.sources = [source]
 			profile.output_path = output_path
+			var target: GFConfigPipelineConsumerTarget = GFConfigPipelineConsumerTarget.new()
+			target.target_id = &"client"
+			target.root_tables = PackedStringArray([String(source.table_name)])
+			target.visible_fields = {
+				String(source.table_name): PackedStringArray(["id"]),
+			}
+			target.output_path = output_path
+			target.access_output_path = _track_path(output_path.get_basename() + ".gd")
 			var cycle: Dictionary = {}
 			cycle["self"] = cycle
 			var options: Dictionary = {}
@@ -5087,6 +5105,10 @@ func test_pipeline_profile_admits_export_options_only_when_exporting() -> void:
 				profile.access_options = cycle
 			var pipeline: GFConfigPipeline = GFConfigPipeline.new()
 			var built: Dictionary = pipeline.build_profile(profile, options)
+			profile.sources = [declared_source]
+			profile.consumer_targets = [target]
+			profile.default_consumer_target = target.target_id
+			var consumer_built: Dictionary = pipeline.build_profile(profile, options)
 			var exported: Dictionary = pipeline.export_profile(profile, options)
 			cycle.clear()
 
@@ -5094,6 +5116,11 @@ func test_pipeline_profile_admits_export_options_only_when_exporting() -> void:
 				GFVariantData.get_option_bool(built, "success"),
 				"独立构建不消费导出专用选项，不应被其数据图阻断。"
 			)
+			assert_true(
+				GFVariantData.get_option_bool(consumer_built, "success"),
+				"消费目标构建同样不能复制尚未准入的导出专用数据图：%s。" % str(consumer_built.get("table_results", []))
+			)
+			assert_false(FileAccess.file_exists(target.access_output_path))
 			assert_false(GFVariantData.get_option_bool(exported, "success"))
 			var export_build: Dictionary = GFVariantData.get_option_dictionary(exported, "build_result")
 			assert_eq(

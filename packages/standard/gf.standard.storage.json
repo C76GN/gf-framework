@@ -4,7 +4,8 @@
   "kind": "standard",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base"
+    "gf.standard.base",
+    "gf.standard.deterministic"
   ],
   "paths": [
     "addons/gf/standard/utilities/history/**",
@@ -62,6 +63,18 @@
     "addons/gf/standard/utilities/storage/gf_storage_section_cache.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd",
     "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_request.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_request.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_transport.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_transport.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_journal.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_journal.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_result.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_result.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_transfer.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_transfer.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_utility.gd",
     "addons/gf/standard/utilities/storage/gf_storage_utility.gd.uid"
   ]

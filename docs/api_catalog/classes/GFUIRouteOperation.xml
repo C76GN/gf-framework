@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="5882ffacfc62afd617810d7901e0f0199b0ecbe80ddc719bfa8a0c11e8a9c9c3">
+<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="2a05338eaacb6e1c9caa3d75352df44c1809b32c7f2836bb14e184cd99e47f61">
 	<description>GFUIRouteOperation: 单次异步路由打开的可观察句柄。
 句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由
 会返回同一句柄，调用方无需自行按路径合并请求。</description>
@@ -40,6 +40,15 @@
 	</constants>
 	<properties />
 	<methods>
+		<member kind="method" name="get_navigation_target">
+			<signature>func get_navigation_target() -&gt; GFUINavigationTarget:</signature>
+			<description>获取本次内容就绪或语义定位请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">冻结目标；普通页面打开返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_request_id">
 			<signature>func get_request_id() -&gt; int:</signature>
 			<description>获取 Router 内唯一请求 ID。</description>

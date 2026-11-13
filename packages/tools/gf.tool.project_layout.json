@@ -3,7 +3,9 @@
   "id": "gf.tool.project_layout",
   "kind": "tool",
   "dependencies": [
-    "gf.kernel"
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.deterministic"
   ],
   "paths": [
     "addons/gf/tools/project_layout/**"

@@ -58,15 +58,20 @@ func _run() -> void:
 		quit(2)
 		return
 	var admitted_request: Dictionary = request
-	var profile_text: String = admitted_request["profile_text"]
-	var profile_source_path: String = admitted_request["profile_source_path"]
-	var options: Dictionary = admitted_request["options"]
 	var session: _SESSION_SCRIPT = _SESSION_SCRIPT.new()
-	var analysis: Dictionary = session.open_profile_text(
-		profile_text,
-		profile_source_path,
-		options
-	)
+	var analysis: Dictionary = {}
+	if admitted_request["operation"] == "analyze_snapshot":
+		var snapshot_text: String = admitted_request["snapshot_text"]
+		analysis = session.open_snapshot_text(snapshot_text)
+	else:
+		var profile_text: String = admitted_request["profile_text"]
+		var profile_source_path: String = admitted_request["profile_source_path"]
+		var options: Dictionary = admitted_request["options"]
+		analysis = session.open_profile_text(
+			profile_text,
+			profile_source_path,
+			options
+		)
 	var envelope: Dictionary = {
 		"schema_version": 1,
 		"kind": "project_layout_cli_result",
@@ -100,6 +105,12 @@ func _request_is_valid(value: Variant) -> bool:
 	if not value is Dictionary:
 		return false
 	var request: Dictionary = value
+	if request.get("operation") == "analyze_snapshot":
+		return (
+			request.size() == 3
+			and request.get("schema_version") == 1
+			and request.get("snapshot_text") is String
+		)
 	if request.size() != 5:
 		return false
 	for field: String in [

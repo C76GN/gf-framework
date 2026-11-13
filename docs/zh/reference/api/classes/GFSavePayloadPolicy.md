@@ -1,0 +1,287 @@
+# GFSavePayloadPolicy
+
+[API Reference](../index.md) / [Save](../extensions-save.md) / [类索引](index.md)
+
+- 路径：`addons/gf/extensions/save/document/gf_save_payload_policy.gd`
+- 模块：`Save`
+- 继承：`Resource`
+- API：`public`
+- 类别：资源定义 (`resource_definition`)
+- 首次版本：`unreleased`
+
+已知载荷结构与显式保留范围。 schema 只解释项目声明的运行数据；未声明字段及内容条目默认拒绝。 保留内容由 Profile 的持久化基线承载，不进入 Provider 的运行投影。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 属性 | [`schema`](#member-gfsavepayloadpolicy-properties-schema) | `var schema: GFSchemaField = null` |
+| 属性 | [`retained_fields`](#member-gfsavepayloadpolicy-properties-retained_fields) | `var retained_fields: Dictionary = {}` |
+| 属性 | [`collections`](#member-gfsavepayloadpolicy-properties-collections) | `var collections: Dictionary = {}` |
+| 属性 | [`max_depth`](#member-gfsavepayloadpolicy-properties-max_depth) | `var max_depth: int = 32` |
+| 属性 | [`max_nodes`](#member-gfsavepayloadpolicy-properties-max_nodes) | `var max_nodes: int = 10000` |
+| 属性 | [`max_bytes`](#member-gfsavepayloadpolicy-properties-max_bytes) | `var max_bytes: int = 16777216` |
+| 方法 | [`validate_policy`](#member-gfsavepayloadpolicy-methods-validate_policy) | `func validate_policy() -> Dictionary:` |
+| 方法 | [`get_limits`](#member-gfsavepayloadpolicy-methods-get_limits) | `func get_limits() -> Dictionary:` |
+| 方法 | [`measure_payload`](#member-gfsavepayloadpolicy-methods-measure_payload) | `func measure_payload(payload: Variant) -> Dictionary:` |
+| 方法 | [`duplicate_policy`](#member-gfsavepayloadpolicy-methods-duplicate_policy) | `func duplicate_policy() -> GFSavePayloadPolicy:` |
+| 方法 | [`project`](#member-gfsavepayloadpolicy-methods-project) | `func project(payload: Variant) -> Dictionary:` |
+| 方法 | [`merge`](#member-gfsavepayloadpolicy-methods-merge) | `func merge( projection: Variant, baseline: Variant, deletions: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`item_path`](#member-gfsavepayloadpolicy-methods-item_path) | `static func item_path(collection_path: String, item_id: Variant) -> String:` |
+
+## 属性
+
+<a id="member-gfsavepayloadpolicy-properties-schema"></a>
+
+### `schema`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var schema: GFSchemaField = null
+```
+
+根值声明；field_name 必须非空，根可以是标量、数组或字典。
+
+<a id="member-gfsavepayloadpolicy-properties-retained_fields"></a>
+
+### `retained_fields`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var retained_fields: Dictionary = {}
+```
+
+字典节点允许保留的未知字段；空路径表示根，数组元素用 /*。 路径采用 JSON Pointer 转义；字段名 * 保留给数组元素。列表中的 * 表示明确 允许该节点的全部未知字段。已知字段仍必须通过 schema 校验。
+
+结构：
+
+- `retained_fields`: Dictionary[String, PackedStringArray]，键为 schema 节点路径，值为允许保留的字段名。
+
+<a id="member-gfsavepayloadpolicy-properties-collections"></a>
+
+### `collections`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var collections: Dictionary = {}
+```
+
+有稳定身份的内容集合规则；没有规则的数组不保留按元素关联的未知数据。
+
+结构：
+
+- `collections`: Dictionary，键为数组 schema 路径，值含 id_field: StringName/String，可选 active_ids: Array[int/String/StringName] 和 preserve_unknown: bool（默认 false）；省略 active_ids 表示所有身份均已知。
+
+<a id="member-gfsavepayloadpolicy-properties-max_depth"></a>
+
+### `max_depth`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export_range(1, 64, 1)
+var max_depth: int = 32
+```
+
+载荷及持久化基线的最大嵌套深度。
+
+<a id="member-gfsavepayloadpolicy-properties-max_nodes"></a>
+
+### `max_nodes`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export_range(1, 100000, 1)
+var max_nodes: int = 10000
+```
+
+单个完整载荷或基线允许的最大节点数。
+
+<a id="member-gfsavepayloadpolicy-properties-max_bytes"></a>
+
+### `max_bytes`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export_range(1, 67108864, 1)
+var max_bytes: int = 16777216
+```
+
+规范编码的字节上限；覆盖保留内容，不等于磁盘压缩后的大小。
+
+## 方法
+
+<a id="member-gfsavepayloadpolicy-methods-validate_policy"></a>
+
+### `validate_policy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func validate_policy() -> Dictionary:
+```
+
+验证声明及其路径，拒绝隐式转换和无稳定身份的元素保留。
+
+返回：结构化准入结果。
+
+结构：
+
+- `return`: Dictionary，含 ok: bool、error_kind: StringName、path: String。
+
+<a id="member-gfsavepayloadpolicy-methods-get_limits"></a>
+
+### `get_limits`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_limits() -> Dictionary:
+```
+
+获取此政策当前的有效预算；硬上限仍由 validate_policy() 验证。
+
+返回：独立预算记录。
+
+结构：
+
+- `return`: Dictionary with max_depth:int,max_nodes:int,max_bytes:int.
+
+<a id="member-gfsavepayloadpolicy-methods-measure_payload"></a>
+
+### `measure_payload`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func measure_payload(payload: Variant) -> Dictionary:
+```
+
+只读测量完整载荷的原生值与预算，不创建投影或基线副本。 先验证政策；成功不代表已知字段通过 schema，完整语义仍由 project() 验证。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `payload` | 调用期间保持不变的完整载荷。 |
+
+返回：预算诊断；失败计量可能仅为已遍历部分。
+
+结构：
+
+- `payload`: 与 project() 相同的 Save 原生持久化值。
+- `return`: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary; observed contains native and optional canonical validation reports.
+
+<a id="member-gfsavepayloadpolicy-methods-duplicate_policy"></a>
+
+### `duplicate_policy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func duplicate_policy() -> GFSavePayloadPolicy:
+```
+
+创建独立政策副本；非法声明返回 null。
+
+返回：政策副本，不与作者资源共享可变 schema 集合。
+
+<a id="member-gfsavepayloadpolicy-methods-project"></a>
+
+### `project`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func project(payload: Variant) -> Dictionary:
+```
+
+将完整持久化载荷拆为运行投影与独立持久化基线。 基线包括已知值，用于稳定身份匹配与无修改往返；它不能直接应用到业务状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `payload` | 已通过文档版本检查的载荷。 |
+
+返回：完整成功结果或不含部分投影的失败。
+
+结构：
+
+- `payload`: Variant，属于 Save 的可持久化值。
+- `return`: Dictionary，含 ok、error_kind、path；成功另含 projection: Variant、baseline: Variant。
+
+<a id="member-gfsavepayloadpolicy-methods-merge"></a>
+
+### `merge`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func merge( projection: Variant, baseline: Variant, deletions: Dictionary = {} ) -> Dictionary:
+```
+
+将当前运行值与旧基线合并，已知当前值和显式删除优先。 缺少的已知字段/条目视为删除，不能由旧基线复活；未知内容只在声明范围保留。 集合重排以当前已知条目顺序为准，未知条目沿原有后继锚点插入。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `projection` | 当前运行候选。 |
+| `baseline` | 此 Profile/section 上次接受的完整载荷，首次保存可为 null。 |
+| `deletions` | 本次捕获的显式删除指令。 |
+
+返回：完整持久化候选及其运行投影。
+
+结构：
+
+- `projection`: Variant，必须符合已知 schema。
+- `baseline`: Variant，由 project() 返回的独立基线。
+- `deletions`: Dictionary[String, Array]，键为具体字典/集合路径；字典值列出要删除的保留字段名，集合值列出要删除的稳定 ID。数组元素路径使用 item_path()，不用下标。
+- `return`: Dictionary，含 ok、error_kind、path；成功另含 payload: Variant、projection: Variant、baseline: Variant。
+
+<a id="member-gfsavepayloadpolicy-methods-item_path"></a>
+
+### `item_path`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func item_path(collection_path: String, item_id: Variant) -> String:
+```
+
+构造稳定身份对应的具体元素路径，供删除指令使用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `collection_path` | 所属集合的具体路径。 |
+| `item_id` | 整数或非空字符串身份。 |
+
+返回：具体元素路径；身份无效时为空。
+
+结构：
+
+- `item_id`: int、String 或 StringName；String 与 StringName 表示同一文本身份。

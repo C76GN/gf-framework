@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.target.godot_resource"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 4
+const IMPLEMENTATION_VERSION: int = 5
 
 ## JSON 数据库导出的格式标识。
 ## [br]
@@ -155,17 +155,17 @@ func materialize_table(table_ir: GFConfigPipelineTableIR, options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
-## @since 9.0.0
+## @since unreleased
 ## [br]
 ## @param compilation_ir: 已完成单表校验的版本化数据库 IR。
 ## [br]
 ## @param options: 目标选项。
 ## [br]
-## @schema options: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。
+## @schema options: Dictionary，可包含 rebuild_indexes、validate_database 和 validate_schema。可另含consumer_target:GFConfigPipelineConsumerTarget；非空时先投影声明闭包，并强制验证目标引用。
 ## [br]
 ## @return: 数据库物化结果。
 ## [br]
-## @schema return: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。
+## @schema return: Dictionary，包含 success、phase、database、report、ir、error_kind 和 error。ir为最终投影IR；不暴露未完成的部分投影。
 func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionary = {}) -> Dictionary:
 	if compilation_ir == null:
 		return _make_database_failure("invalid_pipeline_ir", "待物化的数据库 IR 为空。")
@@ -176,6 +176,25 @@ func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionar
 			GFVariantData.get_option_string(contract, "error"),
 			compilation_ir
 		)
+	var raw_target: Variant = options.get("consumer_target")
+	if raw_target != null:
+		if not raw_target is GFConfigPipelineConsumerTarget:
+			return _make_database_failure("invalid_consumer_target", "consumer_target 必须是消费目标声明。")
+		var consumer_target: GFConfigPipelineConsumerTarget = raw_target
+		var projection: Dictionary = project_database(
+			compilation_ir,
+			consumer_target,
+			options
+		)
+		if not GFVariantData.get_option_bool(projection, "success"):
+			return _make_database_failure(
+				"consumer_projection_failed",
+				GFVariantData.get_option_string(projection, "error")
+			)
+		var projected: Variant = projection.get("ir")
+		if not projected is GFConfigPipelineIR:
+			return _make_database_failure("consumer_projection_failed", "投影没有返回完整 IR。")
+		compilation_ir = projected
 
 	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
 	database.database_id = compilation_ir.get_database_id()
@@ -212,7 +231,7 @@ func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionar
 			)
 
 	var report: Dictionary = GFConfigValidationReport.new().make_report(database.database_id)
-	if GFVariantData.get_option_bool(
+	if raw_target != null or GFVariantData.get_option_bool(
 		options,
 		"validate_database",
 		true
@@ -242,6 +261,175 @@ func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionar
 		"ir": compilation_ir,
 		"error_kind": "" if success else "database_validation_failed",
 		"error": "" if success else "配置数据库目标校验失败。",
+	}
+
+
+## 按声明闭包投影已验收 IR；不根据行数或当前引用值推测依赖。
+##
+## 顶层字段是完整值单元，结构化类型与其数据共同保留。所有引用来源字段不可见时删除该引用；
+## 部分可见、目标表未授权或目标键不可见时拒绝。源表必须具备声明型 schema，不能使用样本推导。
+## 全记录/全表规则已在源 IR 验收时执行，不复制到裁剪后的 schema；不导出未授权的表级元数据。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param compilation_ir: 封存的完整作者 IR。
+## [br]
+## @param target: 消费目标声明，调用时捕获隔离快照。
+## [br]
+## @param options: 构建预算选项。
+## [br]
+## @schema options: Dictionary，可含 work_budget 或 work_limits；复用本次构建的 GFConfigWorkBudget。
+## [br]
+## @return 完整投影或失败，无部分结果。
+## [br]
+## @schema return: 封闭 Dictionary，success:bool、ir:GFConfigPipelineIR/null、tables:PackedStringArray（排序后的闭包）、error:String。
+func project_database(
+	compilation_ir: GFConfigPipelineIR,
+	target: GFConfigPipelineConsumerTarget,
+	options: Dictionary = {}
+) -> Dictionary:
+	if (
+		compilation_ir == null
+		or target == null
+		or not GFVariantData.get_option_bool(
+			compilation_ir.validate_contract(),
+			"success"
+		)
+	):
+		return _projection_failure("投影需要封存 IR 和有效消费目标。")
+	var captured: Dictionary = target.capture()
+	if not GFVariantData.get_option_bool(captured, "success"):
+		return _projection_failure(GFVariantData.get_option_string(captured, "error"))
+	var declaration: Dictionary = GFVariantData.get_option_dictionary(captured, "target")
+	var fields_by_table: Dictionary = GFVariantData.get_option_dictionary(declaration, "visible_fields")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	var schemas: Dictionary = {}
+	for table_name: String in fields_by_table:
+		var table_ir: GFConfigPipelineTableIR = compilation_ir.get_table(StringName(table_name))
+		if table_ir == null:
+			return _projection_failure("授权表不存在：%s。" % table_name)
+		var schema: GFConfigTableSchema = table_ir.get_schema()
+		if schema == null or GFVariantData.get_option_string(
+			table_ir.get_metadata(),
+			"schema_origin"
+		) == "inferred":
+			return _projection_failure("消费目标要求声明型 schema：%s。" % table_name)
+		var visible: PackedStringArray = fields_by_table[table_name]
+		for field: String in visible:
+			if not budget.consume_work(1, "target.visible_field") or schema.get_column(StringName(field)) == null:
+				return _projection_failure(
+					"字段不存在或投影预算耗尽：%s.%s。"
+					% [table_name, field]
+				)
+		if schema.id_field != &"" and String(schema.id_field) not in visible:
+			return _projection_failure("记录 ID 字段未授权：%s。" % table_name)
+		schemas[table_name] = schema
+	var pending: PackedStringArray = declaration["root_tables"]
+	var visited: Dictionary = {}
+	var cursor: int = 0
+	while cursor < pending.size():
+		var table_name: String = pending[cursor]
+		cursor += 1
+		if visited.has(table_name):
+			continue
+		if not schemas.has(table_name) or not budget.consume_work(1, "target.reference_closure"):
+			return _projection_failure("引用表未授权或投影预算耗尽：%s。" % table_name)
+		visited[table_name] = true
+		var schema: GFConfigTableSchema = schemas[table_name]
+		var visible: PackedStringArray = fields_by_table[table_name]
+		for reference_definition: GFConfigTableReference in schema.references:
+			if reference_definition == null or not reference_definition.is_valid_definition():
+				return _projection_failure("无效引用声明：%s。" % table_name)
+			var visible_count: int = _count_visible(reference_definition.source_fields, visible)
+			if visible_count == 0:
+				continue
+			if visible_count != reference_definition.source_fields.size():
+				return _projection_failure("复合引用字段仅部分授权：%s。" % reference_definition.get_reference_id())
+			var target_name: String = String(reference_definition.target_table_name)
+			if not schemas.has(target_name):
+				return _projection_failure("引用目标表未授权：%s。" % target_name)
+			var target_schema: GFConfigTableSchema = schemas[target_name]
+			var target_fields: PackedStringArray = reference_definition.get_target_fields(target_schema)
+			var target_visible: PackedStringArray = fields_by_table[target_name]
+			if target_fields.is_empty() or _count_visible(target_fields, target_visible) != target_fields.size():
+				return _projection_failure("引用目标键不可见：%s。" % reference_definition.get_reference_id())
+			if not visited.has(target_name) and target_name not in pending:
+				var _appended: bool = pending.append(target_name)
+	var tables: PackedStringArray = []
+	for name: String in visited:
+		var _appended: bool = tables.append(name)
+	tables.sort()
+	var result: GFConfigPipelineIR = GFConfigPipelineIR.create(
+		compilation_ir.get_database_id(),
+		compilation_ir.get_version(),
+		{ "consumer_target": declaration["target_id"] }
+	)
+	for table_name: String in tables:
+		var original: GFConfigPipelineTableIR = compilation_ir.get_table(StringName(table_name))
+		var visible: PackedStringArray = fields_by_table[table_name]
+		var schema: GFConfigTableSchema = schemas[table_name]
+		var columns: Array[GFConfigTableColumn] = []
+		for column: GFConfigTableColumn in schema.columns:
+			if column != null and String(column.field_name) in visible:
+				columns.append(column)
+		schema.columns = columns
+		schema.allow_extra_fields = false
+		schema.coerce_values = false
+		schema.metadata = {}
+		schema.record_validation_rules = []
+		schema.table_validation_rules = []
+		var indexes: Array[GFConfigTableIndexDefinition] = []
+		for index: GFConfigTableIndexDefinition in schema.indexes:
+			if index != null and _count_visible(index.field_names, visible) == index.field_names.size():
+				indexes.append(index)
+		schema.indexes = indexes
+		var references: Array[GFConfigTableReference] = []
+		for reference_definition: GFConfigTableReference in schema.references:
+			if _count_visible(reference_definition.source_fields, visible) == reference_definition.source_fields.size():
+				references.append(reference_definition)
+		schema.references = references
+		var rows: Array[Dictionary] = []
+		for row: Dictionary in original.get_records():
+			var projected_row: Dictionary = {}
+			for field: String in visible:
+				if not budget.consume_work(1, "target.project_cell"):
+					return _projection_failure("字段投影预算耗尽。")
+				if row.has(field):
+					projected_row[field] = row[field]
+			rows.append(projected_row)
+		var table: GFConfigPipelineTableIR = GFConfigPipelineTableIR.create(
+			original.get_table_name(),
+			original.get_source_path(),
+			original.get_source_format(),
+			rows,
+			schema,
+			original.get_source_map(),
+			{
+				"consumer_target": declaration["target_id"],
+				"visible_fields": visible,
+				"schema_origin": GFVariantData.get_option_string(
+					original.get_metadata(),
+					"schema_origin"
+				),
+			}
+		)
+		if not GFVariantData.get_option_bool(
+			result.add_table(table),
+			"success"
+		):
+			return _projection_failure("无法建立消费目标 IR。")
+	if not GFVariantData.get_option_bool(
+		result.seal(),
+		"success"
+	):
+		return _projection_failure("消费目标 IR 无法封存。")
+	return {
+		"success": true,
+		"ir": result,
+		"tables": tables,
+		"error": "",
 	}
 
 
@@ -416,6 +604,29 @@ func get_stage_descriptor() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## 精确字段交集，不从字段文本解释路径。
+## [br]
+## @api private
+static func _count_visible(fields: PackedStringArray, visible: PackedStringArray) -> int:
+	var count: int = 0
+	for field: String in fields:
+		if field in visible:
+			count += 1
+	return count
+
+
+## 投影失败不交付任何部分 IR。
+## [br]
+## @api private
+static func _projection_failure(message: String) -> Dictionary:
+	return {
+		"success": false,
+		"ir": null,
+		"tables": PackedStringArray(),
+		"error": message,
+	}
+
 
 ## 按表名关联编译来源映射，在原问题字典上补齐缺失的位置字段；保留问题已有的 source、line、column 和 column_index。
 ## [br]

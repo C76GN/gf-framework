@@ -3,7 +3,8 @@
 ## 该组合后端按稳定 ID 管理一组调用方持有的 `GFStorageBackend`。读取总是按序
 ## 尝试，写入和删除可选择只访问主后端或在失败后访问下一后端。它不会复制、
 ## 同步或关闭子后端，也不宣称跨后端原子性；需要镜像和冲突处理时应使用
-## `GFStorageSyncUtility`。每次操作都会保留一个不含业务数据的有界尝试报告。
+## `GFStorageTransfer`。需要版本条件写入与提交查证时，另用 `GFStorageSyncUtility`
+## 和支持该协议的 Transport。每次操作保留不含业务数据的有界尝试报告。
 ## [br]
 ## @api public
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_request.gd" module="extensions/save" extends="RefCounted" classDigest="e99cbc320494a7dc3c59da308105831fe81eed10998ef03d0ad5c8769fc1b927">
+<class name="GFSaveProfileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_request.gd" module="extensions/save" extends="RefCounted" classDigest="b438244adabfc31cfe64aad091c3ddb648eb69bc478a9a446f76ad1d21f034cf">
 	<description>GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。
 `create()` 在大小预算内隔离 document metadata、Provider context 和 result
 metadata。调用方可继续使用源字典；后续修改不会改变已提交请求。
@@ -25,7 +25,7 @@ Utility 只允许 claim 一次，且不会公开任何 payload getter。</descri
 				<tag name="param">context: Provider 保存准备使用的临时上下文。</tag>
 				<tag name="param">result_metadata: 只写入当前操作终态的调用方元数据。</tag>
 				<tag name="return">持有隔离快照的一次性句柄；输入无效或超预算时返回 null。</tag>
-				<tag name="schema">document_metadata: Bounded pure-data Dictionary copied into an isolated snapshot.</tag>
+				<tag name="schema">document_metadata: Bounded pure-data Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.</tag>
 				<tag name="schema">context: Bounded pure-data Dictionary copied into an isolated snapshot.</tag>
 				<tag name="schema">result_metadata: Bounded pure-data Dictionary copied into an isolated snapshot.</tag>
 				<tag name="since">unreleased</tag>

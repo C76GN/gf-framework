@@ -171,7 +171,7 @@ static func sha256_incremental(value: Variant, options: Dictionary = {}) -> Stri
 static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary:
 ```
 
-只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。 调用期间必须保持输入结构不变；报告不为后续已修改的数据提供编码资格。
+只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。 调用期间必须保持输入结构不变；报告不为后续已修改的数据提供编码资格。 limit_kind 非空时，limit 是实际触发的预算，observed 是对应计数或已知下界； observed_is_lower_bound 为 true 时不能把 observed 当作完整输入总量。
 
 参数：
 
@@ -186,4 +186,4 @@ static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dicti
 
 - `value`: Variant value supported by `to_canonical_value()`.
 - `options`: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
-- `return`: Closed Dictionary with ok: bool, error: String, failure_kind: String (empty, input_invalid, or output_limit), items: int (Variant nodes plus packed elements), packed_items: int (packed elements only), and output_bytes: int (exact on success; partial and capped by max_output_bytes on failure).
+- `return`: Closed Dictionary with ok: bool, error: String, failure_kind: String (empty, input_invalid, or output_limit), limit_kind: String (empty, max_depth, max_items, max_string_length, or max_output_bytes), limit: int, observed: int, observed_is_lower_bound: bool, items: int (Variant nodes plus packed elements), packed_items: int (packed elements only), and output_bytes: int (exact on success; partial and capped by max_output_bytes on failure).

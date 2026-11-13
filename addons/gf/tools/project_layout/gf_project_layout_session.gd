@@ -163,7 +163,7 @@ func open_profile_text(
 ## [br]
 ## @param profile: 闭合 schema v2 Profile。
 ## [br]
-## @schema profile: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope。
+## @schema profile: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope、dependency_policy；dependency_policy声明startup_roots、owners、edges、max_startup_files和max_startup_source_bytes。
 ## [br]
 ## @param options: 与 open_profile_text 相同的有限捕获选项。
 ## [br]
@@ -204,6 +204,45 @@ func observe(options: Dictionary = {}) -> Dictionary:
 	close()
 	var analyzer: GFProjectLayoutAnalyzer = _make_analyzer()
 	return _adopt(analyzer.analyze(options))
+
+
+## 分析显式提供的冻结库存 JSON，不读取或启动其来源项目。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param text: 最多1MiB严格JSON对象；数字必须使用十进制整数记法，绝对值不超过2^53-1，不接受小数或指数记法。
+## [br]
+## @return 沿用Analyzer.analyze_snapshot的报告；来源内容新鲜度只对应捕获时刻，不会在此访问文件复核。
+## [br]
+## @schema return: Dictionary，包含schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities、effects。graph可含dependencies闭合报告，证据格式见资源依赖文档。
+func open_snapshot_text(text: String) -> Dictionary:
+	close()
+	var analyzer: GFProjectLayoutAnalyzer = _make_analyzer()
+	var reader: _READER_SCRIPT = _READER_SCRIPT.new()
+	var parsed: Dictionary = reader.parse_text(text)
+	if not parsed.get("success", false) or not _snapshot_integer_tokens_valid(text):
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_snapshot_json",
+				"冻结库存必须为1MiB以内的严格JSON对象。",
+				""
+			)
+		)
+	var snapshot: Dictionary = parsed["profile"]
+	var budget: Dictionary = { "ok": true, "remaining": 200000 }
+	var normalized: Variant = _normalize_snapshot_numbers(snapshot, budget)
+	if not budget["ok"] or not normalized is Dictionary:
+		return _adopt(
+			analyzer.reject_profile_input(
+				"invalid_snapshot_numbers",
+				"冻结库存的数值必须为安全精确整数。",
+				""
+			)
+		)
+	var admitted: Dictionary = normalized
+	return _adopt(analyzer.analyze_snapshot(admitted))
 
 
 ## 返回当前冻结报告的深复制；外部修改不会改变会话查询。
@@ -382,6 +421,80 @@ func plan_for_framework(
 
 
 # --- 私有/辅助方法 ---
+
+## 在严格JSON的非字符串部分拒绝小数与指数，避免解析器先舍入再被当作整数。
+## [br]
+## @api private
+func _snapshot_integer_tokens_valid(text: String) -> bool:
+	var quoted: bool = false
+	var escaped: bool = false
+	var numeric: bool = false
+	for character: String in text:
+		if quoted:
+			if escaped:
+				escaped = false
+			elif character == "\\":
+				escaped = true
+			elif character == "\"":
+				quoted = false
+		elif character == "\"":
+			quoted = true
+			numeric = false
+		elif (
+			character >= "0"
+			and character <= "9"
+			or character == "-"
+		):
+			numeric = true
+		elif (
+			character == "."
+			or numeric
+			and character in ["e", "E"]
+		):
+			return false
+		else:
+			numeric = false
+	return true
+
+
+## 严格JSON已限制字节与深度；将快照的有限整数域从JSON浮点表示恢复为int。
+## [br]
+## @api private
+func _normalize_snapshot_numbers(value: Variant, budget: Dictionary) -> Variant:
+	budget["remaining"] -= 1
+	if budget["remaining"] < 0:
+		budget["ok"] = false
+		return null
+	if value is float:
+		var number: float = value
+		if (
+			not is_finite(number)
+			or number != floorf(number)
+			or absf(number) > 9007199254740991.0
+		):
+			budget["ok"] = false
+			return null
+		return int(number)
+	if value is Dictionary:
+		var source: Dictionary = value
+		for key: Variant in source:
+			source[key] = _normalize_snapshot_numbers(
+				source[key],
+				budget
+			)
+			if not budget["ok"]:
+				return null
+	elif value is Array:
+		var source: Array = value
+		for index: int in range(source.size()):
+			source[index] = _normalize_snapshot_numbers(
+				source[index],
+				budget
+			)
+			if not budget["ok"]:
+				return null
+	return value
+
 
 ## 每次打开创建唯一执行器；查询不会调用此工厂或重新编译。
 ## [br]

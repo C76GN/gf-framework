@@ -4,31 +4,32 @@
 
 - 路径：`addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd`
 - 模块：`Standard`
-- 继承：`Resource`
+- 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
 - 首次版本：`3.17.0`
 
-存储同步冲突的通用报告数据。 该资源只描述冲突，不决定如何解决冲突。项目可以把它用于云同步、 多端合并、调试 UI 或自动化测试。
+冻结的记录冲突与显式解决候选。 载荷只能通过显式 getter 读取；to_dict() 不包含身份、revision 或业务数据。 revision 只能比较相等。报告不执行写入，也不证明解决候选已提交。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`Resolution`](#member-gfstorageconflictreport-enums-resolution) | `enum Resolution` |
-| 属性 | [`file_name`](#member-gfstorageconflictreport-properties-file_name) | `var file_name: String = ""` |
-| 属性 | [`key`](#member-gfstorageconflictreport-properties-key) | `var key: String = ""` |
-| 属性 | [`local_value`](#member-gfstorageconflictreport-properties-local_value) | `var local_value: Variant = null` |
-| 属性 | [`remote_value`](#member-gfstorageconflictreport-properties-remote_value) | `var remote_value: Variant = null` |
-| 属性 | [`resolved_value`](#member-gfstorageconflictreport-properties-resolved_value) | `var resolved_value: Variant = null` |
-| 属性 | [`resolution`](#member-gfstorageconflictreport-properties-resolution) | `var resolution: Resolution = Resolution.UNRESOLVED` |
-| 属性 | [`metadata`](#member-gfstorageconflictreport-properties-metadata) | `var metadata: Dictionary = {}` |
-| 方法 | [`apply_dict`](#member-gfstorageconflictreport-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
-| 方法 | [`to_dict`](#member-gfstorageconflictreport-methods-to_dict) | `func to_dict() -> Dictionary:` |
-| 方法 | [`to_json_safe_dict`](#member-gfstorageconflictreport-methods-to_json_safe_dict) | `func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`create`](#member-gfstorageconflictreport-methods-create) | `static func create( record_namespace: String, record_key: String, local_data: Dictionary, remote_data: Dictionary, options: Dictionary = {} ) -> GFStorageConflictReport:` |
+| 方法 | [`with_resolution`](#member-gfstorageconflictreport-methods-with_resolution) | `func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorageConflictReport:` |
 | 方法 | [`duplicate_report`](#member-gfstorageconflictreport-methods-duplicate_report) | `func duplicate_report() -> GFStorageConflictReport:` |
+| 方法 | [`get_namespace`](#member-gfstorageconflictreport-methods-get_namespace) | `func get_namespace() -> String:` |
+| 方法 | [`get_key`](#member-gfstorageconflictreport-methods-get_key) | `func get_key() -> String:` |
+| 方法 | [`get_expected_revision`](#member-gfstorageconflictreport-methods-get_expected_revision) | `func get_expected_revision() -> String:` |
+| 方法 | [`get_actual_revision`](#member-gfstorageconflictreport-methods-get_actual_revision) | `func get_actual_revision() -> String:` |
+| 方法 | [`get_local_data`](#member-gfstorageconflictreport-methods-get_local_data) | `func get_local_data() -> Dictionary:` |
+| 方法 | [`get_remote_data`](#member-gfstorageconflictreport-methods-get_remote_data) | `func get_remote_data() -> Dictionary:` |
+| 方法 | [`get_resolved_data`](#member-gfstorageconflictreport-methods-get_resolved_data) | `func get_resolved_data() -> Dictionary:` |
+| 方法 | [`remote_exists`](#member-gfstorageconflictreport-methods-remote_exists) | `func remote_exists() -> bool:` |
+| 方法 | [`get_resolution`](#member-gfstorageconflictreport-methods-get_resolution) | `func get_resolution() -> Resolution:` |
 | 方法 | [`is_resolved`](#member-gfstorageconflictreport-methods-is_resolved) | `func is_resolved() -> bool:` |
-| 方法 | [`from_dict`](#member-gfstorageconflictreport-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFStorageConflictReport:` |
+| 方法 | [`to_dict`](#member-gfstorageconflictreport-methods-to_dict) | `func to_dict() -> Dictionary:` |
 
 ## 枚举
 
@@ -37,249 +38,276 @@
 ### `Resolution`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 enum Resolution {
 	## 尚未决定。
 	UNRESOLVED,
-	## 使用本地值。
+	## 选择本地候选。
 	USE_LOCAL,
-	## 使用远端值。
+	## 选择远端候选。
 	USE_REMOTE,
-	## 使用合并后的值。
+	## 使用项目合并候选。
 	MERGED,
-	## 跳过该冲突。
+	## 跳过冲突。
 	SKIPPED,
 }
 ```
 
-冲突解决策略。
-
-## 属性
-
-<a id="member-gfstorageconflictreport-properties-file_name"></a>
-
-### `file_name`
-
-- API：`public`
-
-```gdscript
-@export
-var file_name: String = ""
-```
-
-冲突所属逻辑文件名。
-
-<a id="member-gfstorageconflictreport-properties-key"></a>
-
-### `key`
-
-- API：`public`
-
-```gdscript
-@export
-var key: String = ""
-```
-
-冲突字段或业务 key。
-
-<a id="member-gfstorageconflictreport-properties-local_value"></a>
-
-### `local_value`
-
-- API：`public`
-
-```gdscript
-@export
-var local_value: Variant = null
-```
-
-本地值。
-
-结构：
-
-- `local_value`: Variant，从本地记录复制的冲突 key 或载荷值。
-
-<a id="member-gfstorageconflictreport-properties-remote_value"></a>
-
-### `remote_value`
-
-- API：`public`
-
-```gdscript
-@export
-var remote_value: Variant = null
-```
-
-远端值。
-
-结构：
-
-- `remote_value`: Variant，从远端记录复制的冲突 key 或载荷值。
-
-<a id="member-gfstorageconflictreport-properties-resolved_value"></a>
-
-### `resolved_value`
-
-- API：`public`
-
-```gdscript
-@export
-var resolved_value: Variant = null
-```
-
-合并后的值。
-
-结构：
-
-- `resolved_value`: Variant，由解析器选择或合并出的值。
-
-<a id="member-gfstorageconflictreport-properties-resolution"></a>
-
-### `resolution`
-
-- API：`public`
-
-```gdscript
-@export
-var resolution: Resolution = Resolution.UNRESOLVED
-```
-
-解决策略。
-
-<a id="member-gfstorageconflictreport-properties-metadata"></a>
-
-### `metadata`
-
-- API：`public`
-
-```gdscript
-@export
-var metadata: Dictionary = {}
-```
-
-扩展元数据。
-
-结构：
-
-- `metadata`: Dictionary，包含解析器特定诊断信息或后端元数据快照。
+候选的解决方式，不代表持久化结果。
 
 ## 方法
 
-<a id="member-gfstorageconflictreport-methods-apply_dict"></a>
+<a id="member-gfstorageconflictreport-methods-create"></a>
 
-### `apply_dict`
+### `create`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func apply_dict(data: Dictionary) -> void:
+static func create( record_namespace: String, record_key: String, local_data: Dictionary, remote_data: Dictionary, options: Dictionary = {} ) -> GFStorageConflictReport:
 ```
 
-从字典应用字段。
+创建冻结报告；无效身份、选项或载荷返回 null。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 输入字典。 |
+| `record_namespace` | 记录命名空间。 |
+| `record_key` | 记录键。 |
+| `local_data` | 本地完整候选。 |
+| `remote_data` | 已观察的远端完整候选。 |
+| `options` | revision 与存在性声明。 |
+
+返回：隔离报告或 null；完整报告限深度64、300000节点、64MiB规范字节。
 
 结构：
 
-- `data`: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
+- `local_data`: Dictionary of finite native data; no objects or cycles.
+- `remote_data`: Same native contract; empty when remote_exists=false.
+- `options`: Closed Dictionary with expected_revision:String (default empty), actual_revision:String (default empty), remote_exists:bool (default true). Empty revisions are allowed for plain Backend transfers.
 
-<a id="member-gfstorageconflictreport-methods-to_dict"></a>
+<a id="member-gfstorageconflictreport-methods-with_resolution"></a>
 
-### `to_dict`
-
-- API：`public`
-
-```gdscript
-func to_dict() -> Dictionary:
-```
-
-转换为字典。
-
-返回：字典副本。
-
-结构：
-
-- `return`: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
-
-<a id="member-gfstorageconflictreport-methods-to_json_safe_dict"></a>
-
-### `to_json_safe_dict`
+### `with_resolution`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:
+func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorageConflictReport:
 ```
 
-转换为可安全 JSON.stringify() 的报告字典。
+返回指定解决候选的新报告；原报告不变。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 传给 GFReportValueCodec 的编码选项。 |
+| `resolution` | 明确的解决方式。 |
+| `data` | 解决候选；未解决或跳过时必须为空。 |
 
-返回：JSON-safe 冲突报告。
+返回：隔离的新报告或 null。
 
 结构：
 
-- `options`: Dictionary with GFReportValueCodec options.
-- `return`: Dictionary，只包含 JSON-compatible values 和正式报告 marker。
+- `data`: Dictionary of admitted finite native data.
 
 <a id="member-gfstorageconflictreport-methods-duplicate_report"></a>
 
 ### `duplicate_report`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 func duplicate_report() -> GFStorageConflictReport:
 ```
 
-复制冲突报告。
+复制完整报告；无效对象返回 null。
 
-返回：新报告实例。
+返回：独立报告副本。
+
+<a id="member-gfstorageconflictreport-methods-get_namespace"></a>
+
+### `get_namespace`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_namespace() -> String:
+```
+
+获取记录命名空间。
+
+返回：稳定命名空间。
+
+<a id="member-gfstorageconflictreport-methods-get_key"></a>
+
+### `get_key`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_key() -> String:
+```
+
+获取记录键。
+
+返回：稳定记录键。
+
+<a id="member-gfstorageconflictreport-methods-get_expected_revision"></a>
+
+### `get_expected_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_expected_revision() -> String:
+```
+
+获取本地已知 revision。
+
+返回：不透明 revision。
+
+<a id="member-gfstorageconflictreport-methods-get_actual_revision"></a>
+
+### `get_actual_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_actual_revision() -> String:
+```
+
+获取远端观察 revision。
+
+返回：不透明 revision。
+
+<a id="member-gfstorageconflictreport-methods-get_local_data"></a>
+
+### `get_local_data`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_local_data() -> Dictionary:
+```
+
+获取本地候选副本。
+
+返回：完整候选副本。
+
+结构：
+
+- `return`: Dictionary of admitted native data.
+
+<a id="member-gfstorageconflictreport-methods-get_remote_data"></a>
+
+### `get_remote_data`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_remote_data() -> Dictionary:
+```
+
+获取远端候选副本。
+
+返回：完整候选副本。
+
+结构：
+
+- `return`: Dictionary of admitted native data.
+
+<a id="member-gfstorageconflictreport-methods-get_resolved_data"></a>
+
+### `get_resolved_data`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_resolved_data() -> Dictionary:
+```
+
+获取解决候选副本。
+
+返回：尚未持久化的候选副本。
+
+结构：
+
+- `return`: Dictionary of admitted native data.
+
+<a id="member-gfstorageconflictreport-methods-remote_exists"></a>
+
+### `remote_exists`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func remote_exists() -> bool:
+```
+
+查询远端记录存在性。
+
+返回：已观察远端存在时为 true。
+
+<a id="member-gfstorageconflictreport-methods-get_resolution"></a>
+
+### `get_resolution`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_resolution() -> Resolution:
+```
+
+获取选择的解决方式。
+
+返回：Resolution 枚举值。
 
 <a id="member-gfstorageconflictreport-methods-is_resolved"></a>
 
 ### `is_resolved`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 func is_resolved() -> bool:
 ```
 
-是否已经解决。
+检查是否已选择解决方式，不代表写入成功。
 
-返回：resolution 不是 UNRESOLVED 时返回 true。
+返回：已选择或跳过时为 true。
 
-<a id="member-gfstorageconflictreport-methods-from_dict"></a>
+<a id="member-gfstorageconflictreport-methods-to_dict"></a>
 
-### `from_dict`
+### `to_dict`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-static func from_dict(data: Dictionary) -> GFStorageConflictReport:
+func to_dict() -> Dictionary:
 ```
 
-从字典创建冲突报告。
+导出不含载荷与身份的诊断摘要。
 
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `data` | 输入字典。 |
-
-返回：新报告实例。
+返回：诊断摘要。
 
 结构：
 
-- `data`: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
+- `return`: Dictionary with valid:bool,resolution:int,remote_exists:bool,revision_matches:bool.

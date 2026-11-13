@@ -1,7 +1,8 @@
-## GFConfigProviderAdapter: 通用配置表 Provider 适配器。
+## GFConfigProviderAdapter: 外部配置来源的显式捕获适配器。
 ##
-## 用于把项目自己的生成表对象、字典表、数组表或懒加载 Callable 接入 GFConfigProvider。
-## 适配器只负责统一查询协议、懒加载缓存和诊断报告，不绑定具体导表工具、文件格式或业务字段。
+## 注册仅建立来源清单；prepare_tables() 捕获引用闭包，load_tables() 验收后发布。
+## 查询继承已发布快照协议，不执行加载器。生成对象提供整表方法，或明确的
+## record_ids 与记录方法；对象记录通过 record_projector 转为 Dictionary。
 ## [br]
 ## @api public
 ## [br]
@@ -9,125 +10,98 @@
 ## [br]
 ## @since 7.0.0
 class_name GFConfigProviderAdapter
-extends GFConfigProvider
-
-
-# --- 常量 ---
-
-## 表源已经注册。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-const STATUS_REGISTERED: StringName = &"registered"
-
-## 表源已经加载。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-const STATUS_LOADED: StringName = &"loaded"
-
-## 表源不存在。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-const STATUS_MISSING: StringName = &"missing"
-
-## 表源加载失败。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-const STATUS_FAILED: StringName = &"failed"
+extends GFResourceConfigProvider
 
 
 # --- 私有变量 ---
 
-## 按表名登记的配置数据源及其加载选项。
+## 独立于运行快照的来源声明。
 ## [br]
 ## @api private
-## [br]
 var _sources: Dictionary = {}
 
-## 缓存已成功加载的配置表数据。
+## 来源清单变更代际。
 ## [br]
 ## @api private
-## [br]
-var _loaded_tables: Dictionary = {}
+var _source_generation: int = 0
 
-## 保存各表最近一次加载结果的报告。
+## 最近准备结果，与活动数据状态分离。
 ## [br]
 ## @api private
-## [br]
 var _load_reports: Dictionary = {}
 
-## 记录当前递归加载的表名路径，用于识别依赖循环。
+## 禁止加载器重入准备；依赖通过 schema 声明。
 ## [br]
 ## @api private
-## [br]
-var _loading_table_stack: Array[StringName] = []
+var _preparing: bool = false
 
-## 记录一次加载期间因依赖循环而失效的表名。
+## 重入使外层候选一并失败。
 ## [br]
 ## @api private
-## [br]
-var _active_load_failures: Dictionary = {}
+var _preparation_invalidated: bool = false
 
 
 # --- 公共方法 ---
 
-## 注册一个配置表源。
-## [br]
-## source 可以是 Array、Dictionary、自定义 Object 或 Callable。Callable 会在首次查询时以
-## `(table_name: StringName, metadata: Dictionary)` 调用，并返回实际表数据。
+## 注册或替换来源，不改变已发布的表。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param table_name: 表名。
+## @param table_name: 非空表名。
 ## [br]
-## @param source: 表源。
+## @param source: 在显式准备时读取的来源。
 ## [br]
-## @schema source: Variant，支持 Array、Dictionary、Object 或 Callable；Object 可通过 table_method/record_method 适配。
+## @schema source: Array、按 ID 索引的 Dictionary、Object 或 Callable；Callable 接收 table_name、metadata 并返回上述数据。
 ## [br]
-## @param options: 注册选项。
+## @param options: 来源声明；集合和 schema 在注册时复制。
 ## [br]
-## @schema options: Dictionary，可包含 schema: GFConfigTableSchema、id_field: StringName/String、table_method: StringName/String、record_method: StringName/String、cache: bool、duplicate_values: bool 和 metadata: Dictionary。
+## @schema options: Dictionary，可包含 schema: GFConfigTableSchema、id_field: StringName、table_method: StringName（默认 get_table）、record_method: StringName（默认 get_record）、record_ids: Array、record_projector: Callable（接收单条记录并返回 Dictionary）、metadata: Dictionary、content_version: String。
 ## [br]
-## @return 注册成功返回 true。
+## @return 声明合法时为 true；失败保留原来源。
 func register_table_source(
 	table_name: StringName,
 	source: Variant,
 	options: Dictionary = {}
 ) -> bool:
-	if table_name == &"":
-		push_error("[GFConfigProviderAdapter][config_provider_adapter.table_name_empty] Cannot register_table_source: table_name is empty.")
+	if table_name == &"" or not _is_supported_source(source):
 		return false
-	if not _is_supported_source(source):
-		push_error("[GFConfigProviderAdapter][config_provider_adapter.source_type_unsupported] Cannot register_table_source: source type is unsupported.")
+	var schema_value: Variant = options.get("schema")
+	if schema_value != null and not schema_value is GFConfigTableSchema:
 		return false
-
-	var schema: GFConfigTableSchema = _variant_to_schema(GFVariantData.get_option_value(options, "schema"))
-	var normalized_schema: GFConfigTableSchema = null
-	if schema != null:
-		normalized_schema = _normalize_source_schema(table_name, schema)
-		if normalized_schema == null:
-			push_error("[GFConfigProviderAdapter][config_provider_adapter.schema_table_name_mismatch] Cannot register_table_source: schema.table_name does not match table_name.")
+	var schema: GFConfigTableSchema = null
+	if schema_value is GFConfigTableSchema:
+		var author_schema: GFConfigTableSchema = schema_value
+		if author_schema.table_name != &"" and author_schema.table_name != table_name:
 			return false
-
-	unregister_schema(table_name)
-	if normalized_schema != null:
-		var _schema_registered: bool = register_schema(normalized_schema)
-	_sources[table_name] = {
-		"source": source,
-		"id_field": GFVariantData.get_option_string_name(
+		schema = author_schema.duplicate_schema()
+		if schema == null:
+			return false
+		schema.table_name = table_name
+	else:
+		schema = GFConfigTableSchema.new()
+		schema.table_name = table_name
+		schema.id_field = GFVariantData.get_option_string_name(
 			options,
 			"id_field",
 			&"id"
-		),
+		)
+	var projector_value: Variant = options.get(
+		"record_projector",
+		Callable()
+	)
+	var ids_value: Variant = options.get("record_ids", [])
+	if not projector_value is Callable or not ids_value is Array:
+		return false
+	var ids: Array = ids_value
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.new()
+	if not budget.admit_value(ids, "source.record_ids") or not budget.admit_value(metadata, "source.metadata"):
+		return false
+	_sources[table_name] = {
+		"source": source,
+		"schema": schema,
 		"table_method": GFVariantData.get_option_string_name(
 			options,
 			"table_method",
@@ -138,172 +112,154 @@ func register_table_source(
 			"record_method",
 			&"get_record"
 		),
-		"cache": GFVariantData.get_option_bool(
-			options,
-			"cache",
-			true
-		),
-		"duplicate_values": GFVariantData.get_option_bool(
-			options,
-			"duplicate_values",
-			true
-		),
-		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
+		"record_ids": ids.duplicate(true),
+		"record_projector": projector_value,
+		"metadata": metadata.duplicate(true),
+		"content_version": GFVariantData.get_option_string(options, "content_version"),
 	}
-	var _removed_table: bool = _loaded_tables.erase(table_name)
-	_load_reports[table_name] = _make_report(
-		table_name,
-		STATUS_REGISTERED,
-		true
-	)
+	_source_generation += 1
+	_load_reports[table_name] = { "status": &"registered", "error_kind": &"" }
 	return true
 
 
-## 注销一个配置表源。
+## 注销来源；活动表通过 update_tables() 显式移除。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param table_name: 表名。
+## @param table_name: 来源表名。
 ## [br]
-## @return 找到并注销时返回 true。
+## @return 是否移除了来源。
 func unregister_table_source(table_name: StringName) -> bool:
-	var removed: bool = _sources.erase(table_name)
-	var _removed_loaded: bool = _loaded_tables.erase(table_name)
-	var _removed_report: bool = _load_reports.erase(table_name)
-	unregister_schema(table_name)
-	return removed
+	if not _sources.erase(table_name):
+		return false
+	_source_generation += 1
+	var _removed: bool = _load_reports.erase(table_name)
+	return true
 
 
-## 清空所有表源、缓存和 schema。
+## 释放来源和准备报告；已有快照仍可查询。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 func clear_table_sources() -> void:
-	for table_name: String in get_schema_ids():
-		unregister_schema(StringName(table_name))
 	_sources.clear()
-	_loaded_tables.clear()
 	_load_reports.clear()
+	_source_generation += 1
 
 
-## 检查是否注册了表源。
+## 检查来源是否存在，与活动表是否已加载分别查询。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param table_name: 表名。
+## @param table_name: 来源表名。
 ## [br]
-## @return 已注册返回 true。
+## @return 是否已注册来源。
 func has_table_source(table_name: StringName) -> bool:
 	return _sources.has(table_name)
 
 
-## 获取已注册表名。
+## 返回来源清单；get_table_ids() 返回已发布清单。
 ## [br]
 ## @api public
 ## [br]
-## @since 7.0.0
+## @since unreleased
 ## [br]
-## @return 排序后的表名列表。
-func get_table_ids() -> PackedStringArray:
+## @return 排序后的来源表名。
+func get_source_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
-	for table_name: Variant in _sources.keys():
-		var table_key: StringName = GFVariantData.to_string_name(table_name)
-		if table_key != &"":
-			var _appended: bool = result.append(String(table_key))
+	for table_name: StringName in _sources:
+		var _appended: bool = result.append(String(table_name))
 	result.sort()
 	return result
 
 
-## 预加载指定表源并返回加载报告。
+## 捕获指定来源及 schema 引用闭包，不发布候选。
+##
+## 每次请求重新捕获选定闭包；其他活动表复用旧快照。循环引用按集合捕获，
+## 加载器递归准备则失败。加载器是同步可信代码；异步 IO 由项目完成后再注册。
 ## [br]
 ## @api public
 ## [br]
-## @since 7.0.0
+## @since unreleased
 ## [br]
-## @param table_name: 表名。
+## @param table_names: 本次请求的根表。
 ## [br]
-## @return 加载报告。
+## @param options: 内容版本、移除项和共享工作预算。
 ## [br]
-## @schema return: Dictionary，包含 ok、status、table_name、loaded、record_count、cached 和 error。
-func preload_table(table_name: StringName) -> Dictionary:
-	var table_data: Variant = _load_table(table_name)
-	if table_data == null:
-		return _get_load_report(table_name)
-	return _get_load_report(table_name)
+## @schema options: Dictionary，与 prepare_update() 相同；非空来源 content_version 必须匹配 version。
+## [br]
+## @return 候选及其发布代际，失败不影响活动数据。
+## [br]
+## @schema return: Dictionary，含 ok、error_kind、snapshot、expected_generation；成功另含 prepared_tables、source_generation、validation_report、work_report。
+func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:
+	if _preparing:
+		_preparation_invalidated = true
+		return _failure(&"reentrant_preparation")
+	_preparing = true
+	_preparation_invalidated = false
+	var source_generation: int = _source_generation
+	var publication_generation: int = get_publication_generation()
+	var declarations: Dictionary = _sources.duplicate()
+	var result: Dictionary = _capture_sources(
+		table_names,
+		options,
+		declarations
+	)
+	if _preparation_invalidated:
+		result = _failure(&"reentrant_preparation")
+	elif source_generation != _source_generation:
+		result = _failure(&"source_changed")
+	elif publication_generation != get_publication_generation():
+		result = _failure(&"generation_conflict")
+	_preparing = false
+	result["expected_generation"] = publication_generation
+	result["source_generation"] = source_generation
+	for table_name: String in table_names:
+		_load_reports[StringName(table_name)] = { "status": &"prepared" if GFVariantData.get_option_bool(result, "ok") else &"failed", "error_kind": result.get("error_kind", &""), }
+	return result
 
 
-## 清理指定表的懒加载缓存。
+## 显式准备并发布指定闭包，失败保留原活动快照。
 ## [br]
 ## @api public
 ## [br]
-## @since 7.0.0
+## @since unreleased
 ## [br]
-## @param table_name: 表名。
+## @param table_names: 请求的根表。
 ## [br]
-## @return 找到并清理缓存时返回 true。
-func clear_table_cache(table_name: StringName) -> bool:
-	var removed: bool = _loaded_tables.erase(table_name)
-	if _sources.has(table_name):
-		_load_reports[table_name] = _make_report(
-			table_name,
-			STATUS_REGISTERED,
-			true
+## @param options: 与 prepare_tables() 相同。
+## [br]
+## @schema options: Dictionary，可包含 version、removed_tables、work_budget 或 work_limits。
+## [br]
+## @return 准备诊断与发布结果。
+## [br]
+## @schema return: Dictionary，含 ok、error_kind、generation，以及准备结果中的诊断字段。
+func load_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:
+	var result: Dictionary = prepare_tables(table_names, options)
+	if not GFVariantData.get_option_bool(result, "ok"):
+		return result
+	var value: Variant = result.get("snapshot")
+	if not value is GFConfigSnapshot:
+		return _failure(&"invalid_snapshot")
+	var snapshot: GFConfigSnapshot = value
+	var publication: Dictionary = publish_snapshot(
+		snapshot,
+		GFVariantData.get_option_int(
+			result,
+			"expected_generation",
+			-1
 		)
-	return removed
-
-
-## 清理全部懒加载缓存。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-func clear_cache() -> void:
-	for table_name: Variant in _loaded_tables.keys():
-		var table_key: StringName = GFVariantData.to_string_name(table_name)
-		if _sources.has(table_key):
-			_load_reports[table_key] = _make_report(
-				table_key,
-				STATUS_REGISTERED,
-				true
-			)
-	_loaded_tables.clear()
-
-
-## 根据表名和 ID 获取单条记录。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-## [br]
-## @param table_name: 表名。
-## [br]
-## @param record_id: 记录 ID。
-## [br]
-## @schema record_id: Variant，项目配置表使用的记录键。
-## [br]
-## @return 记录数据；未命中时返回 null。
-## [br]
-## @schema return: Variant，通常为 Dictionary 或项目自定义记录对象。
-func get_record(table_name: StringName, record_id: Variant) -> Variant:
-	var table_data: Variant = _load_table(table_name)
-	if table_data == null:
-		return null
-
-	var source_record: Dictionary = _get_source_record(table_name)
-	var record: Variant = _read_record_from_table(
-		table_data,
-		record_id,
-		source_record
 	)
-	return _copy_value_if_needed(record, source_record)
+	result.merge(publication, true)
+	return result
 
 
-## 根据表名获取整张表数据。
+## 查询来源、最近准备结果与活动数据状态，不触发加载。
 ## [br]
 ## @api public
 ## [br]
@@ -311,448 +267,210 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 ## [br]
 ## @param table_name: 表名。
 ## [br]
-## @return 表数据；未命中时返回 null。
+## @return 独立报告副本。
 ## [br]
-## @schema return: Variant，通常为 Array、Dictionary 或项目自定义表对象。
-func get_table(table_name: StringName) -> Variant:
-	var table_data: Variant = _load_table(table_name)
-	if table_data == null:
-		return null
-	return _copy_value_if_needed(
-		table_data,
-		_get_source_record(table_name)
-	)
-
-
-## 获取指定表的最近加载报告。
-## [br]
-## @api public
-## [br]
-## @since 7.0.0
-## [br]
-## @param table_name: 表名。
-## [br]
-## @return 加载报告。
-## [br]
-## @schema return: Dictionary，包含 ok、status、table_name、loaded、record_count、cached 和 error。
+## @schema return: Dictionary，含 status: StringName（registered/prepared/failed/missing）、error_kind: StringName、registered: bool、loaded: bool、generation: int。
 func get_load_report(table_name: StringName) -> Dictionary:
-	return _get_load_report(table_name)
+	var report: Dictionary = GFVariantData.get_option_dictionary(_load_reports, table_name).duplicate(true)
+	if report.is_empty():
+		report = { "status": &"missing", "error_kind": &"" }
+	report["registered"] = has_table_source(table_name)
+	report["loaded"] = has_table(table_name)
+	report["generation"] = get_publication_generation()
+	return report
 
 
-## 获取适配器调试快照。
+## 返回不触发加载的来源与活动快照概况。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @return 调试快照。
+## @return 独立诊断字典。
 ## [br]
-## @schema return: Dictionary，包含 table_count、loaded_count、table_ids、loaded_table_ids 和 load_reports。
+## @schema return: Dictionary，含 source_ids: PackedStringArray、loaded_table_ids: PackedStringArray、source_generation: int、generation: int。
 func get_debug_snapshot() -> Dictionary:
-	var loaded_ids: PackedStringArray = PackedStringArray()
-	for table_name: Variant in _loaded_tables.keys():
-		var _loaded_appended: bool = loaded_ids.append(String(GFVariantData.to_string_name(table_name)))
-	loaded_ids.sort()
 	return {
-		"table_count": _sources.size(),
-		"loaded_count": _loaded_tables.size(),
-		"table_ids": get_table_ids(),
-		"loaded_table_ids": loaded_ids,
-		"load_reports": _copy_reports(),
+		"source_ids": get_source_ids(),
+		"loaded_table_ids": get_table_ids(),
+		"source_generation": _source_generation,
+		"generation": get_publication_generation(),
 	}
 
 
 # --- 私有/辅助方法 ---
 
-## 加载或复用指定配置表，并更新其缓存和加载报告。
+## 固定来源清单后计算闭包，再按顺序捕获每张表。
 ## [br]
 ## @api private
-## [br]
-func _load_table(table_name: StringName) -> Variant:
-	if not _sources.has(table_name):
-		_load_reports[table_name] = _make_report(
+func _capture_sources(
+	table_names: PackedStringArray,
+	options: Dictionary,
+	declarations: Dictionary
+) -> Dictionary:
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	var pending: PackedStringArray = table_names.duplicate()
+	var selected: Dictionary = {}
+	var cursor: int = 0
+	while cursor < pending.size():
+		if not budget.consume_work(1, "source.closure"):
+			return _failure(&"work_budget_exceeded")
+		var table_name: StringName = StringName(pending[cursor])
+		cursor += 1
+		if selected.has(table_name):
+			continue
+		if not declarations.has(table_name):
+			return _failure(&"missing_source")
+		var declaration: Dictionary = declarations[table_name]
+		selected[table_name] = declaration
+		var schema: GFConfigTableSchema = declaration["schema"]
+		for reference_definition: GFConfigTableReference in schema.references:
+			if reference_definition != null:
+				var _appended: bool = pending.append(String(reference_definition.target_table_name))
+	var names: Array = selected.keys()
+	names.sort()
+	var tables: Array[GFConfigTableResource] = []
+	var version: String = GFVariantData.get_option_string(options, "version")
+	if version.is_empty() and get_snapshot() != null:
+		version = get_snapshot().get_version()
+	for table_name: StringName in names:
+		var declaration: Dictionary = selected[table_name]
+		var source_version: String = declaration["content_version"]
+		if not source_version.is_empty() and source_version != version:
+			return _failure(&"content_version_mismatch")
+		var table: GFConfigTableResource = _capture_table(
 			table_name,
-			STATUS_MISSING,
-			false,
-			"表源未注册。"
+			declaration,
+			budget
 		)
-		return null
-
-	var source_record: Dictionary = _get_source_record(table_name)
-	var cache_enabled: bool = GFVariantData.get_option_bool(
-		source_record,
-		"cache",
-		true
-	)
-	if cache_enabled and _loaded_tables.has(table_name):
-		var cached_table: Variant = _loaded_tables[table_name]
-		if _is_live_table_value(cached_table):
-			var cached_count: int = _estimate_record_count(cached_table)
-			if not is_same(
-				_sources.get(table_name),
-				source_record
-			):
-				return null
-			_load_reports[table_name] = _make_report(
-				table_name,
-				STATUS_LOADED,
-				true,
-				"",
-				true,
-				cached_count
-			)
-			return cached_table
-		var _removed_invalid_cache: bool = _loaded_tables.erase(table_name)
-
-	if _loading_table_stack.has(table_name):
-		_mark_load_cycle_failed(table_name)
-		return null
-
-	var source: Variant = GFVariantData.get_option_value(source_record, "source")
-	_loading_table_stack.append(table_name)
-	var loaded: Variant = _resolve_source_value(
-		table_name,
-		source_record,
-		source
-	)
-	_loading_table_stack.pop_back()
-	if not is_same(
-		_sources.get(table_name),
-		source_record
-	):
-		var _stale_failure_removed: bool = _active_load_failures.erase(table_name)
-		return null
-	if _active_load_failures.has(table_name):
-		var load_error: String = GFVariantData.get_option_string(_active_load_failures, table_name)
-		var _removed_failure: bool = _active_load_failures.erase(table_name)
-		_load_reports[table_name] = _make_report(
-			table_name,
-			STATUS_FAILED,
-			false,
-			load_error
-		)
-		return null
-	if loaded == null:
-		_load_reports[table_name] = _make_report(
-			table_name,
-			STATUS_FAILED,
-			false,
-			"表源返回空值。"
-		)
-		return null
-
-	var record_count: int = _estimate_record_count(loaded)
-	if not is_same(
-		_sources.get(table_name),
-		source_record
-	):
-		return null
-	if cache_enabled:
-		_loaded_tables[table_name] = loaded
-	_load_reports[table_name] = _make_report(
-		table_name,
-		STATUS_LOADED,
-		true,
-		"",
-		cache_enabled,
-		record_count
-	)
-	return loaded
+		if table == null:
+			return _failure(&"source_capture_failed")
+		tables.append(table)
+	var capture_options: Dictionary = options.duplicate()
+	capture_options["work_budget"] = budget
+	var _removed_limits: bool = capture_options.erase("work_limits")
+	var result: Dictionary = prepare_update(tables, capture_options)
+	result["prepared_tables"] = PackedStringArray(names)
+	return result
 
 
-## 解析表源值；可调用源会被执行，结果再按来源记录规则处理。
+## 将外部容器或生成对象一次性转换为隔离的作者记录。
 ## [br]
 ## @api private
-## [br]
-func _resolve_source_value(
+func _capture_table(
 	table_name: StringName,
-	source_record: Dictionary,
-	source: Variant
-) -> Variant:
+	declaration: Dictionary,
+	budget: GFConfigWorkBudget
+) -> GFConfigTableResource:
+	var source: Variant = declaration["source"]
 	if source is Callable:
 		var loader: Callable = source
 		if not loader.is_valid():
 			return null
-		return loader.call(
+		var metadata: Dictionary = declaration["metadata"]
+		source = loader.call(
 			table_name,
-			GFVariantData.get_option_dictionary(source_record, "metadata")
+			metadata.duplicate(true)
 		)
-
 	if typeof(source) == TYPE_OBJECT:
 		if not is_instance_valid(source):
 			return null
 		var source_object: Object = source
-		var table_method: StringName = GFVariantData.get_option_string_name(source_record, "table_method")
-		if table_method != &"" and source_object.has_method(String(table_method)):
-			return source_object.call(String(table_method))
-		return source_object
-
-	return source
-
-
-## 定位加载栈中的循环区间并标记其中的表加载失败。
-## [br]
-## @api private
-## [br]
-func _mark_load_cycle_failed(table_name: StringName) -> void:
-	var cycle_start: int = _loading_table_stack.find(table_name)
-	if cycle_start < 0:
-		return
-	var cycle_path: PackedStringArray = PackedStringArray()
-	for index: int in range(
-		cycle_start,
-		_loading_table_stack.size()
-	):
-		var active_table: StringName = _loading_table_stack[index]
-		var _active_table_appended: bool = cycle_path.append(String(active_table))
-	var _closing_table_appended: bool = cycle_path.append(String(table_name))
-	var error: String = "检测到循环表源加载依赖：%s。" % " -> ".join(cycle_path)
-	for index: int in range(
-		cycle_start,
-		_loading_table_stack.size()
-	):
-		var active_table: StringName = _loading_table_stack[index]
-		_active_load_failures[active_table] = error
-		_load_reports[active_table] = _make_report(
-			active_table,
-			STATUS_FAILED,
-			false,
-			error
-		)
-
-
-## 检查表值是否仍是有效对象；非对象值视为有效。
-## [br]
-## @api private
-## [br]
-func _is_live_table_value(table_data: Variant) -> bool:
-	if typeof(table_data) == TYPE_OBJECT:
-		return is_instance_valid(table_data)
-	return true
-
-
-## 按记录 ID 从字典表或数组表中查找记录。
-## [br]
-## @api private
-## [br]
-func _read_record_from_table(
-	table_data: Variant,
-	record_id: Variant,
-	source_record: Dictionary
-) -> Variant:
-	if table_data is Dictionary:
-		var table_dictionary: Dictionary = table_data
-		return _read_record_from_dictionary(table_dictionary, record_id)
-
-	if table_data is Array:
-		var table_array: Array = table_data
-		var id_field: StringName = GFVariantData.get_option_string_name(
-			source_record,
-			"id_field",
-			&"id"
-		)
-		return _read_record_from_array(
-			table_array,
-			record_id,
-			id_field
-		)
-
-	if typeof(table_data) == TYPE_OBJECT:
-		if not is_instance_valid(table_data):
-			return null
-		var table_object: Object = table_data
-		var record_method: StringName = GFVariantData.get_option_string_name(source_record, "record_method")
-		if record_method != &"" and table_object.has_method(String(record_method)):
-			return table_object.call(
-				String(record_method),
-				record_id
-			)
-	return null
-
-
-## 按键或记录 ID 字段从字典表中查找记录。
-## [br]
-## @api private
-## [br]
-func _read_record_from_dictionary(table_dictionary: Dictionary, record_id: Variant) -> Variant:
-	if table_dictionary.has(record_id):
-		return table_dictionary[record_id]
-	for candidate_key: Variant in table_dictionary.keys():
-		if _ids_match(candidate_key, record_id):
-			return table_dictionary[candidate_key]
-	return null
-
-
-## 按记录 ID 字段从数组表中查找记录。
-## [br]
-## @api private
-## [br]
-func _read_record_from_array(
-	table_array: Array,
-	record_id: Variant,
-	id_field: StringName
-) -> Variant:
-	for item: Variant in table_array:
-		if not item is Dictionary:
-			continue
-		var record: Dictionary = item
-		var candidate_id: Variant = GFVariantData.get_option_value(record, id_field)
-		if _ids_match(candidate_id, record_id):
-			return record
-	return null
-
-
-## 按 GFVariantData 的值相等规则比较两个记录 ID。
-## [br]
-## @api private
-## [br]
-func _ids_match(left: Variant, right: Variant) -> bool:
-	return GFVariantData.values_equal(
-		left,
-		right,
-		{ "match_string_names": true }
-	)
-
-
-## 按源配置的 duplicate_values 选项决定复制读出的记录值。
-## [br]
-## @api private
-## [br]
-func _copy_value_if_needed(value: Variant, source_record: Dictionary) -> Variant:
-	if value == null:
+		var table_method: StringName = declaration["table_method"]
+		if source_object.has_method(table_method):
+			source = source_object.call(table_method)
+		else:
+			var record_method: StringName = declaration["record_method"]
+			var record_ids: Array = declaration["record_ids"]
+			if not source_object.has_method(record_method) or record_ids.is_empty():
+				return null
+			var records: Dictionary = {}
+			for record_id: Variant in record_ids:
+				if not budget.consume_work(1, "source.record") or not is_instance_valid(source_object):
+					return null
+				if records.has(record_id):
+					return null
+				records[record_id] = source_object.call(record_method, record_id)
+			source = records
+	if not source is Array and not source is Dictionary:
 		return null
-	if not GFVariantData.get_option_bool(
-		source_record,
-		"duplicate_values",
-		true
-	):
-		return value
-	return GFVariantData.duplicate_variant(
-		value,
-		true,
-		false
-	)
-
-
-## 读取指定表名对应的数据源登记记录。
-## [br]
-## @api private
-## [br]
-func _get_source_record(table_name: StringName) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.get_option_value(_sources, table_name))
-
-
-## 读取指定表的加载报告；缺少报告时创建“尚未加载”报告。
-## [br]
-## @api private
-## [br]
-func _get_load_report(table_name: StringName) -> Dictionary:
-	return GFVariantData.get_option_dictionary(
-		_load_reports,
-		table_name,
-		_make_report(
-			table_name,
-			STATUS_MISSING,
-			false,
-			"尚未加载。"
-		)
-	)
-
-
-## 构造包含表名、状态、成功标记及说明的加载报告。
-## [br]
-## @api private
-## [br]
-func _make_report(
-	table_name: StringName,
-	status: StringName,
-	ok: bool,
-	error: String = "",
-	cached: bool = false,
-	record_count: int = 0
-) -> Dictionary:
-	return {
-		"ok": ok,
-		"status": status,
-		"table_name": table_name,
-		"loaded": status == STATUS_LOADED,
-		"record_count": record_count,
-		"cached": cached,
-		"error": error,
-	}
-
-
-## 估算字典表或数组表中的记录数量。
-## [br]
-## @api private
-## [br]
-func _estimate_record_count(table_data: Variant) -> int:
-	if table_data is Dictionary:
-		var table_dictionary: Dictionary = table_data
-		return table_dictionary.size()
-	if table_data is Array:
-		var table_array: Array = table_data
-		return table_array.size()
-	if typeof(table_data) == TYPE_OBJECT:
-		if not is_instance_valid(table_data):
-			return 0
-		var table_object: Object = table_data
-		if table_object.has_method("get_record_count"):
-			return GFVariantData.to_int(
-				table_object.call("get_record_count"),
-				0
+	var table: GFConfigTableResource = GFConfigTableResource.new()
+	table.table_name = table_name
+	var schema: GFConfigTableSchema = declaration["schema"]
+	table.schema = schema.duplicate_schema({ "work_budget": budget })
+	if table.schema == null:
+		return null
+	var projector: Callable = declaration["record_projector"]
+	if source is Array:
+		var source_array: Array = source
+		for value: Variant in source_array:
+			var record: Variant = _capture_record(
+				value,
+				projector,
+				budget
 			)
-	return 0
+			if not record is Dictionary:
+				return null
+			table.records.append(record)
+	else:
+		var source_dictionary: Dictionary = source
+		for record_id: Variant in source_dictionary:
+			var value: Variant = _capture_record(
+				source_dictionary[record_id],
+				projector,
+				budget
+			)
+			if not value is Dictionary:
+				return null
+			var record: Dictionary = value
+			if not record.has(schema.id_field):
+				record[schema.id_field] = record_id
+			elif not GFVariantData.values_equal(
+				record[schema.id_field],
+				record_id,
+				{ "match_string_names": true }
+			):
+				return null
+			table.records.append(record)
+	return table
 
 
-## 复制所有已登记加载报告，避免返回内部报告字典。
+## 验证外部记录形状与预算后复制；对象投影由项目明确提供。
 ## [br]
 ## @api private
-## [br]
-func _copy_reports() -> Dictionary:
-	var result: Dictionary = {}
-	for table_name: Variant in _load_reports.keys():
-		result[table_name] = GFVariantData.get_option_dictionary(_load_reports, table_name)
-	return result
+func _capture_record(
+	value: Variant,
+	projector: Callable,
+	budget: GFConfigWorkBudget
+) -> Variant:
+	if not budget.consume_work(1, "source.project_record"):
+		return null
+	var projected: Variant = projector.call(value) if projector.is_valid() else value
+	if not projected is Dictionary or not budget.admit_value(projected, "source.record"):
+		return null
+	var record: Dictionary = projected
+	return record.duplicate(true)
 
 
-## 检查数据源是否为有效 Callable 或受支持的表数据值。
+## 检查来源种类及对象存活状态。
 ## [br]
 ## @api private
-## [br]
 func _is_supported_source(source: Variant) -> bool:
+	if source is Array or source is Dictionary:
+		return true
 	if source is Callable:
-		var callable: Callable = source
-		return callable.is_valid()
-	if typeof(source) == TYPE_OBJECT:
-		return is_instance_valid(source)
-	return source is Array or source is Dictionary
+		var loader: Callable = source
+		return loader.is_valid()
+	return typeof(source) == TYPE_OBJECT and is_instance_valid(source)
 
 
-## 仅当 Variant 值为 GFConfigTableSchema 时返回该 schema。
+## 构造不包含候选的可观察失败。
 ## [br]
 ## @api private
-## [br]
-func _variant_to_schema(value: Variant) -> GFConfigTableSchema:
-	if value is GFConfigTableSchema:
-		var schema: GFConfigTableSchema = value
-		return schema
-	return null
-
-
-## 校验 schema 的表名并返回与来源表名一致的 schema。
-## [br]
-## @api private
-## [br]
-func _normalize_source_schema(table_name: StringName, schema: GFConfigTableSchema) -> GFConfigTableSchema:
-	if schema == null:
-		return null
-	var schema_key: StringName = schema.get_table_key()
-	if schema_key != &"" and schema_key != table_name:
-		return null
-	var result: GFConfigTableSchema = schema.duplicate_schema()
-	if result == null:
-		return null
-	if result.table_name == &"":
-		result.table_name = table_name
-	return result
+func _failure(error_kind: StringName) -> Dictionary:
+	return {
+		"ok": false,
+		"error_kind": error_kind,
+		"snapshot": null,
+		"expected_generation": get_publication_generation(),
+	}

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="e9c024248df02c46ccfe5c4a93ae0ebf97edc04ce8f059411be3637dc3859070">
+<class name="GFProjectLayoutSession" path="addons/gf/tools/project_layout/gf_project_layout_session.gd" module="tools" extends="RefCounted" classDigest="58578e9d35440ac64cddff90d191123c5a7e37857c26ea874edf5c0193543cfe">
 	<description>GFProjectLayoutSession: 拥有一次编译与一次冻结分析的只读 Layout 会话。
 会话不执行目标项目代码；结果通过深复制导出，查询复用内部 compilation 与验证索引。</description>
 	<tags>
@@ -38,7 +38,7 @@ root_path 缺省推导与 open_profile_text 相同，显式 root_path 仍必须�
 				<tag name="param">profile: 闭合 schema v2 Profile。</tag>
 				<tag name="param">options: 与 open_profile_text 相同的有限捕获选项。</tag>
 				<tag name="return">与 open_profile_text 相同的闭合 v2 analysis report。</tag>
-				<tag name="schema">profile: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope。</tag>
+				<tag name="schema">profile: Dictionary，必需 schema_version、id、zones、rules；可选 display_name、description、metadata、capture_scope、dependency_policy；dependency_policy声明startup_roots、owners、edges、max_startup_files和max_startup_source_bytes。</tag>
 				<tag name="schema">options: Dictionary，可包含 root_path、source_root、capture_scope、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；不允许 profile_source_path。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
 				<tag name="since">unreleased</tag>
@@ -53,6 +53,17 @@ root_path 缺省推导与 open_profile_text 相同，显式 root_path 仍必须�
 				<tag name="return">闭合 v2 analysis report，rule_results 为空。</tag>
 				<tag name="schema">options: Dictionary，与 open_profile 的捕获字段相同。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="open_snapshot_text">
+			<signature>func open_snapshot_text(text: String) -&gt; Dictionary:</signature>
+			<description>分析显式提供的冻结库存 JSON，不读取或启动其来源项目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 最多1MiB严格JSON对象；数字必须使用十进制整数记法，绝对值不超过2^53-1，不接受小数或指数记法。</tag>
+				<tag name="return">沿用Analyzer.analyze_snapshot的报告；来源内容新鲜度只对应捕获时刻，不会在此访问文件复核。</tag>
+				<tag name="schema">return: Dictionary，包含schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities、effects。graph可含dependencies闭合报告，证据格式见资源依赖文档。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

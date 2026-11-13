@@ -765,7 +765,13 @@ func test_copy_failure_preserves_provider_state_and_rejects_database_factory() -
 		{ "id": 1 },
 	]
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	assert_true(provider.register_table(good))
+	assert_true(
+		GFVariantData.get_option_bool(
+			provider.update_tables([good]),
+			"ok"
+		)
+	)
+	var previous: GFConfigSnapshot = provider.get_snapshot()
 	var cyclic: GFConfigTypeDefinition = _array(null)
 	cyclic.element_type = cyclic
 	var column: GFConfigTableColumn = _column(&"payload", GFConfigTableColumn.ValueType.ANY)
@@ -778,23 +784,24 @@ func test_copy_failure_preserves_provider_state_and_rejects_database_factory() -
 	bad.schema = bad_schema
 	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
 	database.tables.append(bad)
-	assert_false(provider.register_table(bad))
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider.update_tables([bad]),
+			"ok"
+		)
+	)
 	assert_same(
-		provider.get_table_resource(&"items", false),
-		good
+		provider.get_snapshot(),
+		previous
 	)
 	assert_not_null(provider.get_schema(&"items"))
 	assert_null(bad.duplicate_table())
 	assert_null(database.duplicate_database())
 	assert_null(GFResourceConfigProvider.from_database(database))
-	assert_null(GFResourceConfigProvider.from_database(database, false))
-	assert_null(GFResourceConfigProvider.from_database(database, true))
 	bad.table_name = &"broken"
 	bad_schema.table_name = &"broken"
 	database.tables = [good, bad]
 	assert_null(GFResourceConfigProvider.from_database(database))
-	assert_null(GFResourceConfigProvider.from_database(database, false))
-	assert_null(GFResourceConfigProvider.from_database(database, true))
 	assert_eq(
 		database.tables.size(),
 		2,

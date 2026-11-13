@@ -6,6 +6,24 @@
 
 ### 🚀 新增特性 (Added)
 
+- [Project Layout 依赖证据](editor/tools/project-layout-dependencies.md) 增加当前编辑器的有界资源引用捕获、UID/fallback、源文件变更复核、启动根闭包、所有权冲突和声明预算。静态引用、项目声明、运行观测分别保留来源；移动/删除报告跟踪反向引用，动态覆盖不足仍为未知。可信 CLI 可直接分析冻结 JSON 快照，不启动来源项目。
+
+- [配置作者工具](editor/tools/config-pipeline.md)增加消费目标的显式字段授权与声明引用闭包、项目所有的稳定 ID 登记与历史占号、两代作者 Profile 的只读差异比较。稳定 ID 可显式恢复原表、原符号、原 ID，也可声明只对指定表对账；改号和把旧 ID 分给新内容仍会拒绝。编辑器与 CLI 共用构建权威；恢复与范围声明进入预览凭据，正式 ID 登记与产物采用同一文件事务，预览凭据及事务内输入复核阻止旧输入直接提交。
+
+- [数字格式化](standard/foundation/scalars/number-formatting.md)统一为冻结政策与 format_number/try_format，保留完整、紧凑、科学和工程显示，增加10000分组、有效位与五种舍入方向。单位缩放与整数分组可独立配置，并开放分隔符、自动记法阈值及科学回退/明确失败选择；结果说明实际记法与回退原因，try_create/try_format_options 可定位无效显示选项。整数、定点数和文本的缩放与单位进位全程使用十进制文本；旧多布尔参数入口删除。
+- [时间工具](standard/utilities/runtime/time-signal-pool/time-utility.md)新增带 RTT、年龄、不确定度和恢复失效状态的服务器时间估计；周期计划支持 UTC／固定偏移下的每日、每周和显式锚点窗口，周期身份包含政策版本，统一左闭右开边界。
+- [任务与进度](extensions/domain/quest-progress.md)区分历史查询、接取后累计和当前值，分别支持自动、达标确认与外部判定完成；已接取定义保持冻结，严格状态快照恢复不重放事件。保留任务树、条件、阻塞器、取消/失败和显式负向进度，删除 start_quest 重复入口与非法载荷默认加一。
+- [UI 等待反馈](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-loading.md)支持独立 lease、并发进度、显示延迟与最短可见时间；[语义导航](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md#等待内容就绪与语义定位)在现有路由操作内衔接内容准备和目标定位，区分页面提交后的失败、取消与超时。普通打开仍无需 resolver。[红点聚合](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-badges.md)提供冻结树、增量计数与可独立解绑的控件订阅。
+- [存储同步](standard/utilities/io/storage-snapshot/backends-sync.md)改为冻结请求、远端 revision 条件提交、持久化意图和按原操作 ID 查证；明确区分远端未知结果与本地 checkpoint 未确认。普通 Backend 复制、预览和合并由 `GFStorageTransfer` 承担，默认手工解决冲突。冲突报告改为冻结值对象，诊断不再携带业务载荷。
+- [Profile 云端同步](extensions/save-graph/cloud-sync.md)通过显式字段投影与现有事务组合账号会话、持久化内容代际、下载应用和恢复。普通保存保留框架 checkpoint，迟到响应不能跨账号应用；上传只确认冻结代际。移除 SlotSyncBridge，普通槽位文件搬运改用文件计划与 Transfer。
+
+- [存档载荷保留](extensions/save-graph/save-payload-retention.md)支持显式未知字段和未激活内容政策、稳定身份合并及随快照或事务提交的删除指令；运行投影与各档位持久化基线隔离，回滚恢复二者。未知分区统一使用精确 ID 清单，移除宽泛允许和自动丢弃开关。
+
+- Save 载荷、未知分区、同步捕获与完整上传请求分别提供预算查询和只读计量，失败说明所在层、触发上限及计数是否只是下界。Storage 同步提供按模式检查能力与 Journal 要求的入口；只读模式无需 Journal，写入继续要求条件提交、查证与日志。
+- Quest 定义与恢复、语义导航目标、红点配置和 Loading 申请增加只读校验报告，给出错误分类与字段位置；实际操作复用同一验证规则，预检不分配租约、不调用任务查询、不改变活动状态。
+
+- [配置运行时](standard/utilities/io/config-remote-outbox/config-provider/runtime-query.md)新增已验收快照、代际发布与增量候选；跨表校验失败保留旧状态，运行查询使用准备阶段的索引。外部来源改为显式按需捕获引用闭包，生成对象可提供枚举与记录投影；移除逐表修改活动 Provider、隐式加载及可写查询引用入口。
+
 - [GDScript 代码检查](editor/tools/code-quality.md) 的命令行支持可重复的 `--file` 和独立 stderr 阶段进度。文件选择只取项目既有规范范围的交集，报告明确区分局部检查完成与完整项目验收，并继续复核源码与配置。
 
 - 新增默认关闭的 [Data Batch](extensions/data-batch/index.md) 扩展（`gf.data_batch`，`extension_version` 为 `1.0.0`），提供 Int32 / Int64 列 Schema、带行数与载荷预算的发布者，以及可保留的批次快照。支持复制、显式转交和按索引采集复制；借用列遵守合作只读约定，项目负责业务身份、历史快照和跨线程调度。
@@ -65,6 +83,8 @@
 
 ### 🔄 机制更改 (Changed)
 
+- [配置候选准备](standard/utilities/io/config-remote-outbox/config-provider/runtime-query.md)复用同次规范编码计量与普通标量声明检查，延后不必要的规则上下文和诊断数据构造；保留完整预算、引用校验及自定义规则执行。[异步 UI 路由](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)改用内部独占的类型化请求状态，取消身份检查中的整请求深复制，并按需分配导航和预加载状态；对外副本、取消和唯一终态契约不变。
+
 - [定点向量](standard/foundation/scalars/big-fixed-numbers.md)的点积与长度平方改为完整宽整数归约，全部乘积求和后只舍入、饱和一次；中间乘积或部分和越界不再丢失可抵消的值。基础 `multiply()` / `add()` 与保存格式保持原合同，历史算法可使用[逐项兼容配方](standard/foundation/scalars/fixed-vector-component-recipe.md)。
 - [环绕相机输入](extensions/camera/camera-3d.md)在映射或 Rig 回调禁用桥接后停止该次剩余输入，即使立即重新启用也不恢复旧调用；已提交参数不回滚。需要完成本次再停止的项目可用现有 `MANUAL` 驱动。
 - [3D Pointer](extensions/interaction/pointer-3d.md)重绑碰撞对象、修改接收路径、禁用或失去目标资格后，取消旧事件剩余自动发送及旧点击。同路径的新实例不继承旧事件，项目仍可明确向新目标发送一次新交互。
@@ -114,6 +134,11 @@
 - Workspace 向需要编辑的贡献页面注入通用编辑器上下文，并在页面移除时撤销。独立创建的 Flow 面板须显式提供上下文后才能修改图资源。
 
 ### 🐛 Bug 修复 (Fixed)
+
+- Project Layout 显式快照的父目录不存在时正确报告输入不可用，不再把该次分析当作未配置项目而成功跳过；未指定输入时的可选配置发现行为保持。
+- Storage Transfer 在读取后端前拒绝类型错误或越界的冲突策略，避免非法值被转成自动选边并写回。Save 上传超出请求预算时给出专门结果；Schema 配置拒绝已移除及拼错的选项，不再静默忽略。
+- 配置预览输入凭据完整摘要内存声明，字典、数组和 Packed 数组第 4097 项及之后的变化也会使旧凭据失效；无法在预算内完整编码时明确失败，不再用截断报告放行导出。
+- 任务指标已有显式输入时拒绝注册查询，保持原值与任务资格；两个切换方向均须先调用 `clear_metric_source()`。
 
 - [AI Developer 反馈](editor/tools/ai-developer.md) 在环境信息齐全时不再构建项目快照；缺失字段只读取对应元数据，保留调用方值及契约、隐私、载荷和审批检查。起草已包含分析，指引不再要求重复执行分析命令。
 
@@ -218,6 +243,13 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 稳定 ID 的 `preview()` / `with_assignments()` 增加可选 `options`，Profile、Workbench 和 CLI 传递同一恢复与范围声明。数字显示政策增加独立分组、分隔符、自动阈值与回退选项；`try_create()` / `try_format_options()` 返回可定位诊断，原有默认显示保持。
+- Schema 新增 `validate_configuration()` / `try_configure()`；`configure()` 保留链式返回。配置失败保留原字段，但当前对象暂停验证、导出和复制，成功重新配置后恢复。Serializer 计量报告补充预算来源；Save、Storage 和任务/UI 的新只读诊断见各自指南。
+
+- 配置运行时改为候选快照与代际发布，删除逐表修改活动 Provider、查询隐式加载和返回可写引用的入口；外部来源通过显式表清单、Schema 和记录投影接入。未知存档分区改为精确 ID 清单，字段与内容保留按 Provider 声明政策。
+- `GFStorageSyncUtility` 改为冻结请求、条件提交和持久化恢复协议；普通 Backend 复制与合并由 `GFStorageTransfer` 承担。删除 `GFSaveSlotSyncBridge`，档位完整文档同步改用 `GFSaveSyncUtility`；冲突报告改为冻结值对象。
+- Quest 使用 `GFQuestDefinition` 定义指标与完成策略，删除 `start_quest` 重复入口和非法事件载荷默认加一。数字格式统一为 `GFNumberFormatPolicy` 与 `format_number` / `try_format`，删除旧多布尔参数入口。
+
 - Flow 节点通过 `execute(context, execution)` 获取本次执行专属的分支、临时进度和子图入口。不同 Runner 可共用业务 Context，每轮有独立的 `GFFlowRunState`；`gf.flow` 的 `extension_version` 升为 `5.0.0`。
 - Save 的 `_after_apply_scope()` 在根事务决定结果后观察各作用域的独立结果副本；返回值及就地修改均不能替换事务成败。`gf.save` 的 `extension_version` 升为 `8.0.0`。
 - 输入动作向量查询读取最近提交的样本；包含有状态修饰器的 Mapping 链按 `tick(delta)` 更新，局部玩家与全局采样各自持有状态。
@@ -269,6 +301,14 @@
 - `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
 
 ### 📘 升级指南 (Migration Guide)
+
+- 活动内容重新上线时，恢复声明必须使用原表、原符号和原 ID，ID 写成规范十进制字符串；只构建部分表时显式设置稳定 ID 对账范围。空范围继续表示旧有的全量对账，不能靠少传一张表表达“不修改它”。
+- 数字显示可分别选择单位和分组规则；若界面不接受科学回退，设置 `fallback_notation="error"` 并按失败结果显示项目自己的占位内容。使用 `try_format_options()` 可避免把非法政策创建得到的 null 误当成默认政策。
+- 将 Schema 旧 `allow_unknown_sections` 迁为明确的 `preserved_sections` 清单；需要删除内容时使用项目迁移，框架不会自动丢弃。配置编辑器可先调用只读 `validate_configuration()`；实际配置被拒绝后，须成功重新配置该 Schema 才能继续使用。
+
+- 配置调用先用 `prepare_database`、`prepare_update` 或外部适配器的 `prepare_tables` 准备候选，再按预期代际调用 `publish_snapshot`；跨表查询持有同一 `get_snapshot()` 结果。按需载入可使用 `load_tables`，查询本身不再触发载入；候选失败时继续使用原快照。见[运行查询与发布](standard/utilities/io/config-remote-outbox/config-provider/runtime-query.md)。
+- 普通文件备份与单向复制迁到[存储传输](standard/utilities/io/storage-snapshot/backends-sync.md)，需要并发保护的远端同步实现条件写入、意图持久化及按操作 ID 查证。Save 项目按[云端同步](extensions/save-graph/cloud-sync.md)显式配置账号、上传投影与 checkpoint；未知字段按[保留政策](extensions/save-graph/save-payload-retention.md)声明，未来文档版本仍必须拒绝。
+- 任务先选择 history、since_acceptance 或 current 指标，再选择 automatic、manual 或 external 完成方式；恢复使用状态快照，不重放进度事件。数字显示先创建冻结政策，精确整数或小数以整数、定点数或十进制文本输入，避免先转 float 丢失精度。见[任务进度](extensions/domain/quest-progress.md)与[数字格式化](standard/foundation/scalars/number-formatting.md)。
 
 - Flow 自定义节点将旧 Context 或节点 Resource 上的分支与临时状态访问迁到节点执行句柄；跨运行进度归业务模型，需要初值时显式传入 `run()`。同一次运行的子图使用 `execution.call_subgraph()`。见[运行语义与迁移](extensions/flow/runtime-semantics.md)。
 - 依赖 Save 收尾钩子改写 `ok` 或 `errors` 的项目，将必需校验及其补偿迁入[事务参与者](extensions/save-graph/pipeline-trace.md)。界面刷新等收尾问题使用独立诊断。

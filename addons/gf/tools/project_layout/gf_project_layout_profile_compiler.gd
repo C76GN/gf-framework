@@ -24,6 +24,11 @@ const _ANALYSIS_CONTRACT_SCRIPT = preload("res://addons/gf/tools/project_layout/
 ## @api private
 const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 
+## 显式依赖声明的纯数据契约。
+## [br]
+## @api private
+const _DEPENDENCIES_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_dependencies.gd")
+
 ## canonical profile contract 文件的资源路径。
 ## [br]
 ## @api private
@@ -48,7 +53,7 @@ const _CONTRACT_ID: String = "gf.project_layout.profile.v2"
 ## [br]
 ## @api private
 ## [br]
-const _CANONICAL_CONTRACT_SHA256: String = "a6a5499ef307ba4b255c34f97b51371501bf1952e58cdad75091aa3b29c7a0e9"
+const _CANONICAL_CONTRACT_SHA256: String = "a939e34dc4bfc6a3d4af5c3368110ce21fa03fce1355819363117d518c2e922e"
 
 ## contract 文件不可用时使用的 bootstrap reason key。
 ## [br]
@@ -1612,6 +1617,29 @@ func _compile_profile_data(
 					error,
 					{}
 				)
+	if compiled.has("dependency_policy"):
+		var declaration: Dictionary = _get_dictionary(compiled, "dependency_policy")
+		for field: String in ["max_startup_files", "max_startup_source_bytes"]:
+			if declaration.has(field) and _is_exact_integer(declaration[field]):
+				declaration[field] = _exact_integer_value(declaration[field])
+		for raw_owner: Variant in _get_array(declaration, "owners"):
+			if raw_owner is Dictionary:
+				var owner: Dictionary = raw_owner
+				if owner.has("max_source_bytes") and _is_exact_integer(owner["max_source_bytes"]):
+					owner["max_source_bytes"] = _exact_integer_value(owner["max_source_bytes"])
+		var normalized: Dictionary = _DEPENDENCIES_SCRIPT.normalize_declaration(declaration)
+		if normalized.is_empty():
+			_add_issue(
+				result,
+				"error",
+				"invalid_dependency_policy",
+				"PROJECT_LAYOUT_DEPENDENCY_POLICY_INVALID",
+				"dependency_policy",
+				"依赖声明必须符合路径、所有权和源文件预算契约。",
+				{}
+			)
+		else:
+			compiled["dependency_policy"] = normalized
 	return compiled
 
 

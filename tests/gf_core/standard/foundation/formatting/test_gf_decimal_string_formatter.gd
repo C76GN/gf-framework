@@ -9,6 +9,96 @@ const GFDecimalStringFormatterBase = preload("res://addons/gf/standard/foundatio
 
 # --- 测试方法 ---
 
+func test_exact_components_normalize_separators_and_exponents_without_float() -> void:
+	var components: Dictionary = GFDecimalStringFormatter.parse_components("+9,007,199,254,740,993.12500e-2")
+	assert_true(GFVariantData.get_option_bool(components, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string(components, "sign"),
+		"+"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(components, "digits"),
+		"9007199254740993125"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(components, "exponent"),
+		-5
+	)
+	var zero: Dictionary = GFDecimalStringFormatter.parse_components("-000.000e+001")
+	assert_eq(
+		GFVariantData.get_option_string(zero, "digits"),
+		"0"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(zero, "sign"),
+		""
+	)
+	assert_eq(
+		GFVariantData.get_option_int(zero, "exponent"),
+		0
+	)
+
+
+func test_exact_quantization_uses_decimal_digits_for_ties_and_long_carry() -> void:
+	var policy: GFNumberFormatPolicy = GFNumberFormatPolicy.create(
+		{
+			"notation": "full",
+			"decimal_places": 2,
+			"rounding": "half_even",
+			"trim_zeroes": false,
+		}
+	)
+	var record: Dictionary = GFDecimalStringFormatter.format_components(
+		GFDecimalStringFormatter.parse_components("9007199254740993.125"),
+		0,
+		policy
+	)
+	assert_eq(
+		GFVariantData.get_option_string(record, "text"),
+		"9007199254740993.12"
+	)
+	var digits: String = "9".repeat(1024)
+	record = GFDecimalStringFormatter.format_components(
+		GFDecimalStringFormatter.parse_components(digits + ".995"),
+		0,
+		policy
+	)
+	assert_eq(
+		GFVariantData.get_option_string(record, "text"),
+		"1" + "0".repeat(1024) + ".00"
+	)
+
+
+func test_component_budgets_fail_before_allocating_large_expanded_strings() -> void:
+	var policy: GFNumberFormatPolicy = GFNumberFormatPolicy.create({ "notation": "full" })
+	var record: Dictionary = GFDecimalStringFormatter.format_components(
+		GFDecimalStringFormatter.parse_components("1e999999"),
+		0,
+		policy
+	)
+	assert_false(GFVariantData.get_option_bool(record, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string(record, "error"),
+		"output_budget"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFDecimalStringFormatter.parse_components("1e99999999999999999999"),
+			"ok"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFDecimalStringFormatter.format_components(
+				{},
+				0,
+				policy
+			),
+			"ok"
+		)
+	)
+
+
 ## 验证小数格式化支持四舍五入、截断和尾零裁剪。
 func test_decimal_string_formatting_rounds_truncates_and_trims() -> void:
 	assert_eq(

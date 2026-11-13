@@ -3942,57 +3942,81 @@ func test_strict_schema_migrations_rejects_version_bump_without_registered_steps
 
 func test_storage_backend_default_contract_and_conflict_report_roundtrip() -> void:
 	var backend: GFStorageBackend = GFStorageBackend.new()
-	var report: GFStorageConflictReport = GFStorageConflictReport.from_dict(
-		{
-			"file_name": "profile.json",
-			"key": "coins",
-			"local_value": 10,
-			"remote_value": 12,
-			"resolved_value": 12,
-			"resolution": GFStorageConflictReport.Resolution.USE_REMOTE,
-			"metadata": { "source": "test", },
-		}
+	var local: Dictionary = { "coins": 10 }
+	var report: GFStorageConflictReport = GFStorageConflictReport.create(
+		"account",
+		"profile",
+		local,
+		{ "coins": 12 },
+		{ "expected_revision": "r1", "actual_revision": "r2" }
 	)
-	var report_copy: GFStorageConflictReport = report.duplicate_report()
-	var load_result: Dictionary = backend.load_data("profile.json")
-	var capabilities: Dictionary = backend.get_capabilities()
-
+	local["coins"] = 99
+	var resolved: GFStorageConflictReport = report.with_resolution(
+		GFStorageConflictReport.Resolution.USE_REMOTE,
+		{ "coins": 12 }
+	)
+	var report_copy: GFStorageConflictReport = resolved.duplicate_report()
 	assert_eq(
 		backend.save_data(
 			"profile.json",
 			{ "coins": 10 }
 		),
-		ERR_UNAVAILABLE,
-		"默认后端不应假装支持写入。"
+		ERR_UNAVAILABLE
 	)
 	assert_false(
-		GFVariantData.get_option_bool(load_result, "ok"),
-		"默认后端读取应返回失败结果。"
+		GFVariantData.get_option_bool(
+			backend.load_data("profile.json"),
+			"ok"
+		)
 	)
 	assert_false(
-		GFVariantData.get_option_bool(capabilities, "sync"),
-		"默认能力应声明不支持同步。"
+		GFVariantData.get_option_bool(
+			backend.get_capabilities(),
+			"sync"
+		)
 	)
-	assert_true(
+	assert_false(
 		report.is_resolved(),
-		"非 UNRESOLVED 冲突报告应视为已解决。"
+		"解决候选不能改变原冲突报告。"
+	)
+	assert_true(resolved.is_resolved())
+	assert_eq(
+		report.get_local_data(),
+		{ "coins": 10 }
+	)
+	var copy_data: Dictionary = report_copy.get_resolved_data()
+	copy_data["coins"] = 0
+	assert_eq(
+		resolved.get_resolved_data(),
+		{ "coins": 12 }
 	)
 	assert_eq(
 		report_copy.to_dict(),
-		report.to_dict(),
-		"冲突报告复制应保留所有字段。"
+		resolved.to_dict()
 	)
-	var runtime_value: Resource = Resource.new()
-	report.local_value = runtime_value
-	var safe_report: Dictionary = report.to_json_safe_dict()
-	assert_true(
-		GFVariantData.get_option_value(safe_report, "local_value") is Dictionary,
-		"冲突报告应提供独立 JSON-safe 投影，不改变 native to_dict() 契约。"
+	assert_eq(
+		report.get_expected_revision(),
+		"r1"
 	)
-	assert_ne(
-		JSON.stringify(safe_report),
-		"",
-		"JSON-safe 冲突报告应可直接序列化。"
+	assert_eq(
+		report.get_actual_revision(),
+		"r2"
+	)
+	assert_false(
+		report.to_dict().has("local_data"),
+		"诊断不得携带业务载荷。"
+	)
+	assert_false(
+		report.to_dict().has("namespace"),
+		"诊断不得携带账号身份。"
+	)
+	assert_null(
+		GFStorageConflictReport.create(
+			"account",
+			"profile",
+			{ "object": Resource.new() },
+			{}
+		)
 	)
 
 

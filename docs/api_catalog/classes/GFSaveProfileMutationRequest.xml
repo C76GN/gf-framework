@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileMutationRequest" path="addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd" module="extensions/save" extends="RefCounted" classDigest="0d7bacf15a02bb5ecf21627ae6255818caa69309845e76d9d74867e54d08f474">
+<class name="GFSaveProfileMutationRequest" path="addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd" module="extensions/save" extends="RefCounted" classDigest="00b797e0e657b6e28b53021a0ea58bafaaabcb5cacfa0ffa86382a8029dd5f72">
 	<description>GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。
 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim
 一次。普通元数据在创建时隔离，调用方可以继续使用源字典和 mutations 数组；
@@ -28,7 +28,7 @@ Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部�
 				<tag name="param">context: Provider 操作使用的临时纯数据上下文。</tag>
 				<tag name="param">result_metadata: 只写入当前事务结果的调用方纯数据元数据。</tag>
 				<tag name="return">可用请求；输入无效时返回 null，且不消费任何 Mutation。</tag>
-				<tag name="schema">document_metadata: Dictionary accepted by the Save persisted-value contract copied into an isolated snapshot.</tag>
+				<tag name="schema">document_metadata: Bounded persisted Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.</tag>
 				<tag name="schema">context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.</tag>
 				<tag name="schema">result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.</tag>
 				<tag name="since">unreleased</tag>

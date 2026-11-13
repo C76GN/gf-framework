@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.11.0",
+  "catalog_version": "1.12.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -35,11 +35,11 @@
     {
       "id": "config-data",
       "title": "Configuration and data pipelines",
-      "summary": "Runtime config resources plus staged, validated, versioned-IR table compilation at build time.",
+      "summary": "Validated atomic configuration snapshots and explicit loading, plus consumer projections, stable identities, structural diffs, and transactional table compilation.",
       "keywords": ["config", "table", "csv", "xlsx", "json", "schema", "data", "generator", "pipeline"],
       "packages": ["gf.standard.config", "gf.tool.config_pipeline"],
-      "primary_classes": ["GFConfigDatabaseResource", "GFConfigPipeline", "GFConfigPipelineIR", "GFConfigPipelineValidationStage"],
-      "recipes": ["config-pipeline"],
+      "primary_classes": ["GFConfigDatabaseResource", "GFConfigSnapshot", "GFResourceConfigProvider", "GFConfigProviderAdapter", "GFConfigPipeline", "GFConfigPipelineIR", "GFConfigPipelineValidationStage"],
+      "recipes": ["config-pipeline", "config-runtime-publication"],
       "boundary": "Business columns and schemas belong to project inputs; reusable reading, validation, target, and commit mechanics belong to the tool."
     },
     {
@@ -55,11 +55,11 @@
     {
       "id": "storage-save",
       "title": "Storage, save graphs, and migration",
-      "summary": "Local storage codecs, backend synchronization, slot metadata, scene save graphs, transactional save profiles, rollback, recovery, identity, and explicit migration.",
+      "summary": "Local storage, conditional revision synchronization, ordinary backend transfer, transactional save profiles, explicit data retention, rollback, and recovery.",
       "keywords": ["save", "load", "storage", "slot", "profile", "transactional", "rollback", "recovery", "migration", "cloud save", "persistence", "serialize"],
       "packages": ["gf.standard.storage", "gf.extension.save"],
-      "primary_classes": ["GFStorageUtility", "GFStorageBackend", "GFStorageSyncUtility", "GFSaveGraphUtility", "GFSaveProfileUtility", "GFSaveSectionProvider", "GFSaveRecoveryPolicy"],
-      "recipes": ["save-boundary", "save-profile", "platform-storage-adapter"],
+      "primary_classes": ["GFStorageUtility", "GFStorageBackend", "GFStorageSyncUtility", "GFStorageTransfer", "GFSaveGraphUtility", "GFSaveProfileUtility", "GFSavePayloadPolicy", "GFSaveSyncUtility"],
+      "recipes": ["save-boundary", "save-profile", "platform-storage-adapter", "save-profile-sync"],
       "boundary": "Projects own save fields, compatibility guarantees, conflict policy, and cloud provider adapters."
     },
     {
@@ -75,10 +75,10 @@
     {
       "id": "ui-navigation",
       "title": "UI state, binding, and navigation",
-      "summary": "Layered UI navigation, screen state, reactive binding, repeaters, transitions, and focus-friendly project composition.",
+      "summary": "Layered UI navigation with optional content readiness and semantic targets, owned loading feedback, tree badge aggregation, and reactive screen state.",
       "keywords": ["ui", "screen", "navigation", "binding", "reactive", "modal", "layer", "view"],
       "packages": ["gf.standard.ui", "gf.standard.ui.navigation", "gf.standard.ui.state"],
-      "primary_classes": ["GFUIUtility", "GFUILayerDefinition", "GFUIRoute", "GFUIRouterUtility", "GFUIRouteOperation", "GFUIRouteResult", "GFUIRoutePreloadUtility", "GFReactiveStateStore"],
+      "primary_classes": ["GFUIUtility", "GFUIRouterUtility", "GFUIRouteOperation", "GFUIRouteResult", "GFUINavigationTarget", "GFUILoadingUtility", "GFUIBadgeUtility", "GFReactiveStateStore"],
       "recipes": ["ui-screen-flow", "ui-route-operation"],
       "boundary": "GF owns navigation and binding mechanics; projects own visual hierarchy, copy, and product flows."
     },
@@ -217,10 +217,10 @@
     {
       "id": "domain-components",
       "title": "Reusable domain components",
-      "summary": "Generic inventory, attributes, traits, equipment, quests, level catalogs, interactions, combat, and turn-based primitives.",
+      "summary": "Generic domain primitives, including versioned quest definitions, explicit metric and completion policies, and atomic event-free quest state restoration.",
       "keywords": ["inventory", "attributes", "equipment", "quest", "achievement", "progress", "level", "combat", "turn based", "interaction", "rpg"],
       "packages": ["gf.extension.domain", "gf.extension.interaction", "gf.extension.combat", "gf.extension.turn_based"],
-      "primary_classes": ["GFInventoryModel", "GFAttributeSet", "GFQuestUtility", "GFInteractionFlow", "GFTurnFlowSystem"],
+      "primary_classes": ["GFInventoryModel", "GFAttributeSet", "GFQuestDefinition", "GFQuestState", "GFQuestUtility", "GFInteractionFlow", "GFTurnFlowSystem"],
       "recipes": ["domain-component", "achievement-composition"],
       "boundary": "GF components store generic state and mechanisms; game economy, rewards, balance, and content semantics remain project code."
     },

@@ -9,6 +9,117 @@ const GF_DETERMINISTIC_VARIANT_SERIALIZER = preload("res://addons/gf/standard/fo
 
 # --- 测试 ---
 
+func test_hash_preparation_isolates_input_options_and_measurement() -> void:
+	var source: Dictionary = {
+		"rows": [
+			{ "id": 7, "text": "猫\n🙂", },
+		],
+		"packed": PackedInt64Array([7, 9223372036854775807]),
+		"float": -0.25,
+	}
+	var options: Dictionary = { "allow_floats": true }
+	var expected: String = GFDeterministicVariantSerializer.sha256(source, options)
+	var expected_measurement: Dictionary = GFDeterministicVariantSerializer.measure_canonical(source, options)
+	var preparation: GFDeterministicVariantSerializer.CanonicalHashPreparation = GFDeterministicVariantSerializer.prepare_sha256_for_framework(source, options)
+	var rows: Array = source["rows"]
+	var first_row: Dictionary = rows[0]
+	first_row["text"] = "changed"
+	rows.append({ "id": 8 })
+	var packed: PackedInt64Array = source["packed"]
+	packed[0] = 999
+	source["packed"] = packed
+	source.clear()
+	options["allow_floats"] = false
+	var measurement: Dictionary = preparation.get_measurement()
+	assert_eq(measurement, expected_measurement)
+	measurement["ok"] = false
+	measurement["output_bytes"] = 0
+	assert_eq(
+		preparation.get_measurement(),
+		expected_measurement
+	)
+	assert_eq(
+		preparation.finish_sha256(),
+		expected
+	)
+	assert_eq(
+		preparation.finish_sha256(),
+		expected
+	)
+
+
+func test_hash_preparation_preserves_complex_key_and_packed_encoding() -> void:
+	var array_key: Array = [1, &"键"]
+	var source: Dictionary = {
+		array_key: {
+			"payload": PackedByteArray([0, 255]),
+		},
+		2: PackedStringArray(["a\tb", "猫🙂"]),
+		"2": Vector2(1.25, -0.5),
+	}
+	var options: Dictionary = { "allow_floats": true }
+	var expected: String = GFDeterministicVariantSerializer.sha256(source, options)
+	var preparation: GFDeterministicVariantSerializer.CanonicalHashPreparation = GFDeterministicVariantSerializer.prepare_sha256_for_framework(source, options)
+	array_key.append(3)
+	source.clear()
+	assert_true(
+		GFVariantData.get_option_bool(
+			preparation.get_measurement(),
+			"ok"
+		)
+	)
+	assert_eq(
+		preparation.finish_sha256(),
+		expected
+	)
+
+
+func test_hash_preparation_keeps_failure_priority_and_rejects_before_copy() -> void:
+	var cyclic: Array = []
+	cyclic.append(cyclic)
+	var cases: Array[Dictionary] = [
+		{ "value": cyclic, "options": {}, },
+		{
+			"value": "🙂",
+			"options": { "max_output_bytes": 1 },
+		},
+		{
+			"value": ["long text", RefCounted.new()],
+			"options": { "max_output_bytes": 1 },
+		},
+		{
+			"value": [
+				1,
+				2,
+				3,
+			],
+			"options": { "max_items": 2 },
+		},
+	]
+	for fixture: Dictionary in cases:
+		var options: Dictionary = fixture["options"]
+		var expected: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+			fixture["value"],
+			options
+		)
+		var preparation: GFDeterministicVariantSerializer.CanonicalHashPreparation = GFDeterministicVariantSerializer.prepare_sha256_for_framework(
+			fixture["value"],
+			options
+		)
+		assert_false(GFVariantData.get_option_bool(expected, "ok"))
+		assert_eq(
+			preparation.get_measurement(),
+			expected
+		)
+		var forged: Dictionary = preparation.get_measurement()
+		forged["ok"] = true
+		assert_eq(
+			preparation.finish_sha256(),
+			""
+		)
+	cyclic.clear()
+
+
 func test_mixed_dictionary_keys_have_golden_json_and_hash() -> void:
 	var source: Dictionary = {}
 	source[2] = "two"
@@ -649,6 +760,10 @@ func test_measure_reports_exact_utf8_bytes_and_historic_packed_item_counts() -> 
 			"ok": true,
 			"error": "",
 			"failure_kind": "",
+			"limit_kind": "",
+			"limit": 0,
+			"observed": 0,
+			"observed_is_lower_bound": false,
 			"items": 5,
 			"packed_items": 2,
 			"output_bytes": expected_json.to_utf8_buffer().size(),
@@ -776,6 +891,86 @@ func test_measure_checks_packed_budget_before_expansion_and_preserves_composite_
 		GFVariantData.get_option_string(late_string, "failure_kind"),
 		"input_invalid",
 		"packed 输出饱和后仍须校验后续字符串预算。"
+	)
+
+
+func test_measure_reports_budget_source_without_claiming_exact_failure_totals() -> void:
+	var cases: Array[Dictionary] = [
+		{
+			"value": [
+				[
+					[1],
+				],
+			],
+			"options": { "max_depth": 1 },
+			"kind": "max_depth",
+			"limit": 1,
+		},
+		{
+			"value": [
+				1,
+				2,
+				3,
+			],
+			"options": { "max_items": 2 },
+			"kind": "max_items",
+			"limit": 2,
+		},
+		{
+			"value": "abcd",
+			"options": { "max_string_length": 3 },
+			"kind": "max_string_length",
+			"limit": 3,
+		},
+		{
+			"value": "abcd",
+			"options": { "max_output_bytes": 1 },
+			"kind": "max_output_bytes",
+			"limit": 1,
+		},
+	]
+	for entry: Dictionary in cases:
+		var options: Dictionary = entry["options"]
+		var report: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+			entry["value"],
+			options
+		)
+		assert_false(GFVariantData.get_option_bool(report, "ok"))
+		assert_eq(
+			GFVariantData.get_option_string(report, "limit_kind"),
+			GFVariantData.get_option_string(entry, "kind")
+		)
+		assert_eq(
+			GFVariantData.get_option_int(report, "limit"),
+			GFVariantData.get_option_int(entry, "limit")
+		)
+		assert_gte(
+			GFVariantData.get_option_int(report, "observed"),
+			GFVariantData.get_option_int(report, "limit")
+		)
+		assert_eq(
+			GFVariantData.get_option_bool(report, "observed_is_lower_bound"),
+			GFVariantData.get_option_string(entry, "kind") != "max_string_length"
+		)
+	var key_report: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+		{ "long": 1 },
+		{ "max_string_length": 3 }
+	)
+	assert_eq(
+		GFVariantData.get_option_string(key_report, "limit_kind"),
+		"max_string_length"
+	)
+	var invalid: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+		["a".repeat(100), NAN],
+		{ "max_output_bytes": 1 }
+	)
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "failure_kind"),
+		"input_invalid"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "limit_kind"),
+		""
 	)
 
 

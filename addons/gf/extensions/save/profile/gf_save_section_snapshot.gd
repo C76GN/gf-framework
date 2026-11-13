@@ -63,6 +63,13 @@ var _payload: Variant = null
 ## [br]
 var _metadata: Dictionary = {}
 
+## 与候选一起移交的保留内容删除指令，不属于持久化文档字段。
+## [br]
+## @api private
+## [br]
+## @schema _retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge。
+var _retention_deletions: Dictionary = {}
+
 ## 标记 Snapshot 是否可用、已接管或已释放。
 ## [br]
 ## @api private
@@ -93,12 +100,17 @@ var _state: StringName = STATE_DISCARDED
 ## [br]
 ## @schema metadata: Dictionary with provider-defined persisted metadata.
 ## [br]
+## @param retention_deletions: 与本次候选一起提交的保留内容删除指令。
+## [br]
+## @schema retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
+## [br]
 ## @return 可用 Snapshot；身份无效时返回 null。
 static func take_ownership(
 	section_id: StringName,
 	schema_version: int,
 	payload: Variant,
-	metadata: Dictionary = {}
+	metadata: Dictionary = {},
+	retention_deletions: Dictionary = {}
 ) -> GFSaveSectionSnapshot:
 	if section_id == &"" or schema_version <= 0:
 		return null
@@ -107,6 +119,7 @@ static func take_ownership(
 	snapshot._schema_version = schema_version
 	snapshot._payload = payload
 	snapshot._metadata = metadata
+	snapshot._retention_deletions = retention_deletions
 	snapshot._state = STATE_AVAILABLE
 	return snapshot
 
@@ -165,7 +178,7 @@ func is_available() -> bool:
 ## [br]
 ## @return 规范 section 记录；已接管或释放时返回空字典。
 ## [br]
-## @schema return: Dictionary with section_id, schema_version, payload, and metadata.
+## @schema return: Dictionary with section_id, schema_version, payload, metadata, and retention_deletions.
 func claim_for_framework() -> Dictionary:
 	if not is_available():
 		return {}
@@ -174,9 +187,11 @@ func claim_for_framework() -> Dictionary:
 		"schema_version": _schema_version,
 		"payload": _payload,
 		"metadata": _metadata,
+		"retention_deletions": _retention_deletions,
 	}
 	_payload = null
 	_metadata = {}
+	_retention_deletions = {}
 	_state = STATE_CLAIMED
 	return record
 
@@ -193,5 +208,6 @@ func discard_for_framework() -> bool:
 		return false
 	_payload = null
 	_metadata = {}
+	_retention_deletions = {}
 	_state = STATE_DISCARDED
 	return true

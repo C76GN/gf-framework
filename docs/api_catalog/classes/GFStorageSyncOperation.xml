@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageSyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd" module="standard" extends="RefCounted" classDigest="fa1b5cf302bf90750f314a0257745d59310125fc47ed431b294df3540e8c8d64">
+	<description>GFStorageSyncOperation: 一次同步观察的取消与唯一终态句柄。
+取消只结束调用方等待，不能证明远端停止写入。已发送提交的取消、超时或释放结果
+由引擎报告为未知，并通过原操作 ID 恢复；迟到响应不会改变已经交付的终态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFStorageSyncResult)</signature>
+			<description>进入唯一终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 不可变终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查当前观察是否已经结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已交付终态返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFStorageSyncResult:</signature>
+			<description>获取已封存结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态；等待中为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_result_async">
+			<signature>func wait_result_async() -&gt; GFStorageSyncResult:</signature>
+			<description>等待唯一终态；已经完成时立即返回，不再次启动同步。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不可变终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_wait">
+			<signature>func cancel_wait() -&gt; bool:</signature>
+			<description>请求结束调用方等待；不取消远端物理提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次仍在等待的请求返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cancel_requested">
+			<signature>func is_cancel_requested() -&gt; bool:</signature>
+			<description>检查是否曾请求结束等待。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已请求返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

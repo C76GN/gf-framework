@@ -612,7 +612,7 @@ func scan_project() -> void:
 	var begin_error: Error = _snapshot_builder.begin_prepared(
 		"res://",
 		binding,
-		capture_options
+		_ensure_dependency_capture_options(capture_options)
 	)
 	if begin_error != OK:
 		_set_state(STATE_FAILED, "无法开始项目库存捕获。")
@@ -661,6 +661,15 @@ func get_last_result() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+## 编辑器显式启用静态依赖捕获；不改变纯目录 CLI 的执行边界。
+## [br]
+## @api private
+func _ensure_dependency_capture_options(options: Dictionary) -> Dictionary:
+	var result: Dictionary = options.duplicate(true)
+	result["capture_dependencies"] = true
+	return result
+
 
 ## 创建 profile 和扫描工具栏，连接用户操作，再建立总览、问题、影响模拟及计划页面。
 ## [br]

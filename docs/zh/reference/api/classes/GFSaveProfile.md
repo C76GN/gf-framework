@@ -15,9 +15,6 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`UNKNOWN_SECTION_REJECT`](#member-gfsaveprofile-constants-unknown_section_reject) | `const UNKNOWN_SECTION_REJECT: StringName = &"reject"` |
-| 常量 | [`UNKNOWN_SECTION_PRESERVE`](#member-gfsaveprofile-constants-unknown_section_preserve) | `const UNKNOWN_SECTION_PRESERVE: StringName = &"preserve"` |
-| 常量 | [`UNKNOWN_SECTION_DROP`](#member-gfsaveprofile-constants-unknown_section_drop) | `const UNKNOWN_SECTION_DROP: StringName = &"drop"` |
 | 属性 | [`profile_id`](#member-gfsaveprofile-properties-profile_id) | `var profile_id: StringName = &""` |
 | 属性 | [`schema_id`](#member-gfsaveprofile-properties-schema_id) | `var schema_id: StringName = &""` |
 | 属性 | [`file_name`](#member-gfsaveprofile-properties-file_name) | `var file_name: String = ""` |
@@ -26,53 +23,12 @@
 | 属性 | [`recovery_policy`](#member-gfsaveprofile-properties-recovery_policy) | `var recovery_policy: GFSaveRecoveryPolicy = GFSaveRecoveryPolicy.new()` |
 | 属性 | [`save_enabled`](#member-gfsaveprofile-properties-save_enabled) | `var save_enabled: bool = true` |
 | 属性 | [`load_enabled`](#member-gfsaveprofile-properties-load_enabled) | `var load_enabled: bool = true` |
-| 属性 | [`unknown_section_policy`](#member-gfsaveprofile-properties-unknown_section_policy) | `var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT` |
+| 属性 | [`preserved_sections`](#member-gfsaveprofile-properties-preserved_sections) | `var preserved_sections: PackedStringArray = PackedStringArray()` |
 | 方法 | [`validate_profile`](#member-gfsaveprofile-methods-validate_profile) | `func validate_profile() -> Dictionary:` |
 | 方法 | [`build_schema`](#member-gfsaveprofile-methods-build_schema) | `func build_schema() -> GFSaveDocumentSchema:` |
 | 方法 | [`get_effective_schema_id`](#member-gfsaveprofile-methods-get_effective_schema_id) | `func get_effective_schema_id() -> StringName:` |
 | 方法 | [`get_provider`](#member-gfsaveprofile-methods-get_provider) | `func get_provider(section_id: StringName) -> GFSaveSectionProvider:` |
 | 方法 | [`get_providers`](#member-gfsaveprofile-methods-get_providers) | `func get_providers() -> Array[GFSaveSectionProvider]:` |
-
-## 常量
-
-<a id="member-gfsaveprofile-constants-unknown_section_reject"></a>
-
-### `UNKNOWN_SECTION_REJECT`
-
-- API：`public`
-- 首次版本：`10.0.0`
-
-```gdscript
-const UNKNOWN_SECTION_REJECT: StringName = &"reject"
-```
-
-拒绝当前 Profile 未声明的 section。
-
-<a id="member-gfsaveprofile-constants-unknown_section_preserve"></a>
-
-### `UNKNOWN_SECTION_PRESERVE`
-
-- API：`public`
-- 首次版本：`10.0.0`
-
-```gdscript
-const UNKNOWN_SECTION_PRESERVE: StringName = &"preserve"
-```
-
-读取时接受未知 section，并在后续保存中原样保留。
-
-<a id="member-gfsaveprofile-constants-unknown_section_drop"></a>
-
-### `UNKNOWN_SECTION_DROP`
-
-- API：`public`
-- 首次版本：`10.0.0`
-
-```gdscript
-const UNKNOWN_SECTION_DROP: StringName = &"drop"
-```
-
-读取时接受未知 section，并在后续保存中显式丢弃。
 
 ## 属性
 
@@ -188,19 +144,19 @@ var load_enabled: bool = true
 
 Profile 是否接受读取请求。
 
-<a id="member-gfsaveprofile-properties-unknown_section_policy"></a>
+<a id="member-gfsaveprofile-properties-preserved_sections"></a>
 
-### `unknown_section_policy`
+### `preserved_sections`
 
 - API：`public`
-- 首次版本：`10.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 @export
-var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT
+var preserved_sections: PackedStringArray = PackedStringArray()
 ```
 
-未声明 section 的处理政策。 默认拒绝，避免一次读取后再保存时静默删除未知数据。
+允许保留但不进入运行状态的分区 ID 清单。 默认拒绝所有未知分区；清单在注册时冻结。永久删除分区应由显式文档迁移执行。
 
 ## 方法
 

@@ -45,7 +45,9 @@ else:
 	print(report.failure_kind, report.error)
 ```
 
-报告固定包含 `ok`、`error`、`failure_kind`、`items`、`packed_items` 和 `output_bytes`。成功时，`output_bytes` 是完整规范 JSON 的精确 UTF-8 字节数；`items` 包括每个 Variant 节点及 packed 元素，`packed_items` 只统计 packed 元素。Array 和 Dictionary 自身各计一个节点，字典的 key 与 value 分别计数；packed 容器计一个节点再加元素个数，向量分量不额外计数。`Transform3D` 沿用 typed 编码规则，只额外计入 `basis` 节点。失败的计数只描述已经检查的部分，输出计数最多为 `max_output_bytes`，不能用作完整载荷大小。`failure_kind` 成功时为空，失败时为 `input_invalid` 或 `output_limit`；`error` 用于展示说明。
+报告固定包含 `ok`、`error`、`failure_kind`、`items`、`packed_items`、`output_bytes`，以及预算诊断字段 `limit_kind`、`limit`、`observed`、`observed_is_lower_bound`。成功时，`output_bytes` 是完整规范 JSON 的精确 UTF-8 字节数；`items` 包括每个 Variant 节点及 packed 元素，`packed_items` 只统计 packed 元素。Array 和 Dictionary 自身各计一个节点，字典的 key 与 value 分别计数；packed 容器计一个节点再加元素个数，向量分量不额外计数。`Transform3D` 沿用 typed 编码规则，只额外计入 `basis` 节点。失败的计数只描述已经检查的部分，输出计数最多为 `max_output_bytes`，不能用作完整载荷大小。`failure_kind` 成功时为空，失败时为 `input_invalid` 或 `output_limit`；`error` 用于展示说明。
+
+`limit_kind` 在触发预算时为 `max_depth`、`max_items`、`max_string_length` 或 `max_output_bytes`，`limit` 是相应上限，`observed` 是检查到的计数或确定下界。`observed_is_lower_bound=true` 时，不能把它当作完整输入总量，也不能假定它一定严格大于 `limit`；节点或输出超限可以把上限本身作为有界的下界返回。成功或非预算错误时，这四项分别为空字符串、0、0、false。业务流程应使用稳定分类，避免解析 `error` 的展示文字；实际编码仍会重新验证输入。
 
 JSON、bytes 和 SHA-256 入口均先重新预检，再生成结果；输入错误优先于最终输出超限。默认预算为深度 256、元素 100,000、单字符串 1,048,576 个字符和输出 16 MiB，所有预算最小为 1。packed 元素预算在展开前整批检查，字符串长度按字符计数，输出预算按转义后的 UTF-8 字节计数。
 

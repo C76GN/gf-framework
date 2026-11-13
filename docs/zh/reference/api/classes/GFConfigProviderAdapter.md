@@ -4,87 +4,26 @@
 
 - 路径：`addons/gf/standard/utilities/config/gf_config_provider_adapter.gd`
 - 模块：`Standard`
-- 继承：`GFConfigProvider`
+- 继承：`GFResourceConfigProvider`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`7.0.0`
 
-通用配置表 Provider 适配器。 用于把项目自己的生成表对象、字典表、数组表或懒加载 Callable 接入 GFConfigProvider。 适配器只负责统一查询协议、懒加载缓存和诊断报告，不绑定具体导表工具、文件格式或业务字段。
+外部配置来源的显式捕获适配器。 注册仅建立来源清单；prepare_tables() 捕获引用闭包，load_tables() 验收后发布。 查询继承已发布快照协议，不执行加载器。生成对象提供整表方法，或明确的 record_ids 与记录方法；对象记录通过 record_projector 转为 Dictionary。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`STATUS_REGISTERED`](#member-gfconfigprovideradapter-constants-status_registered) | `const STATUS_REGISTERED: StringName = &"registered"` |
-| 常量 | [`STATUS_LOADED`](#member-gfconfigprovideradapter-constants-status_loaded) | `const STATUS_LOADED: StringName = &"loaded"` |
-| 常量 | [`STATUS_MISSING`](#member-gfconfigprovideradapter-constants-status_missing) | `const STATUS_MISSING: StringName = &"missing"` |
-| 常量 | [`STATUS_FAILED`](#member-gfconfigprovideradapter-constants-status_failed) | `const STATUS_FAILED: StringName = &"failed"` |
 | 方法 | [`register_table_source`](#member-gfconfigprovideradapter-methods-register_table_source) | `func register_table_source( table_name: StringName, source: Variant, options: Dictionary = {} ) -> bool:` |
 | 方法 | [`unregister_table_source`](#member-gfconfigprovideradapter-methods-unregister_table_source) | `func unregister_table_source(table_name: StringName) -> bool:` |
 | 方法 | [`clear_table_sources`](#member-gfconfigprovideradapter-methods-clear_table_sources) | `func clear_table_sources() -> void:` |
 | 方法 | [`has_table_source`](#member-gfconfigprovideradapter-methods-has_table_source) | `func has_table_source(table_name: StringName) -> bool:` |
-| 方法 | [`get_table_ids`](#member-gfconfigprovideradapter-methods-get_table_ids) | `func get_table_ids() -> PackedStringArray:` |
-| 方法 | [`preload_table`](#member-gfconfigprovideradapter-methods-preload_table) | `func preload_table(table_name: StringName) -> Dictionary:` |
-| 方法 | [`clear_table_cache`](#member-gfconfigprovideradapter-methods-clear_table_cache) | `func clear_table_cache(table_name: StringName) -> bool:` |
-| 方法 | [`clear_cache`](#member-gfconfigprovideradapter-methods-clear_cache) | `func clear_cache() -> void:` |
-| 方法 | [`get_record`](#member-gfconfigprovideradapter-methods-get_record) | `func get_record(table_name: StringName, record_id: Variant) -> Variant:` |
-| 方法 | [`get_table`](#member-gfconfigprovideradapter-methods-get_table) | `func get_table(table_name: StringName) -> Variant:` |
+| 方法 | [`get_source_ids`](#member-gfconfigprovideradapter-methods-get_source_ids) | `func get_source_ids() -> PackedStringArray:` |
+| 方法 | [`prepare_tables`](#member-gfconfigprovideradapter-methods-prepare_tables) | `func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`load_tables`](#member-gfconfigprovideradapter-methods-load_tables) | `func load_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`get_load_report`](#member-gfconfigprovideradapter-methods-get_load_report) | `func get_load_report(table_name: StringName) -> Dictionary:` |
 | 方法 | [`get_debug_snapshot`](#member-gfconfigprovideradapter-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
-
-## 常量
-
-<a id="member-gfconfigprovideradapter-constants-status_registered"></a>
-
-### `STATUS_REGISTERED`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-const STATUS_REGISTERED: StringName = &"registered"
-```
-
-表源已经注册。
-
-<a id="member-gfconfigprovideradapter-constants-status_loaded"></a>
-
-### `STATUS_LOADED`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-const STATUS_LOADED: StringName = &"loaded"
-```
-
-表源已经加载。
-
-<a id="member-gfconfigprovideradapter-constants-status_missing"></a>
-
-### `STATUS_MISSING`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-const STATUS_MISSING: StringName = &"missing"
-```
-
-表源不存在。
-
-<a id="member-gfconfigprovideradapter-constants-status_failed"></a>
-
-### `STATUS_FAILED`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-const STATUS_FAILED: StringName = &"failed"
-```
-
-表源加载失败。
 
 ## 方法
 
@@ -99,22 +38,22 @@ const STATUS_FAILED: StringName = &"failed"
 func register_table_source( table_name: StringName, source: Variant, options: Dictionary = {} ) -> bool:
 ```
 
-注册一个配置表源。 source 可以是 Array、Dictionary、自定义 Object 或 Callable。Callable 会在首次查询时以 `(table_name: StringName, metadata: Dictionary)` 调用，并返回实际表数据。
+注册或替换来源，不改变已发布的表。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `table_name` | 表名。 |
-| `source` | 表源。 |
-| `options` | 注册选项。 |
+| `table_name` | 非空表名。 |
+| `source` | 在显式准备时读取的来源。 |
+| `options` | 来源声明；集合和 schema 在注册时复制。 |
 
-返回：注册成功返回 true。
+返回：声明合法时为 true；失败保留原来源。
 
 结构：
 
-- `source`: Variant，支持 Array、Dictionary、Object 或 Callable；Object 可通过 table_method/record_method 适配。
-- `options`: Dictionary，可包含 schema: GFConfigTableSchema、id_field: StringName/String、table_method: StringName/String、record_method: StringName/String、cache: bool、duplicate_values: bool 和 metadata: Dictionary。
+- `source`: Array、按 ID 索引的 Dictionary、Object 或 Callable；Callable 接收 table_name、metadata 并返回上述数据。
+- `options`: Dictionary，可包含 schema: GFConfigTableSchema、id_field: StringName、table_method: StringName（默认 get_table）、record_method: StringName（默认 get_record）、record_ids: Array、record_projector: Callable（接收单条记录并返回 Dictionary）、metadata: Dictionary、content_version: String。
 
 <a id="member-gfconfigprovideradapter-methods-unregister_table_source"></a>
 
@@ -127,15 +66,15 @@ func register_table_source( table_name: StringName, source: Variant, options: Di
 func unregister_table_source(table_name: StringName) -> bool:
 ```
 
-注销一个配置表源。
+注销来源；活动表通过 update_tables() 显式移除。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `table_name` | 表名。 |
+| `table_name` | 来源表名。 |
 
-返回：找到并注销时返回 true。
+返回：是否移除了来源。
 
 <a id="member-gfconfigprovideradapter-methods-clear_table_sources"></a>
 
@@ -148,7 +87,7 @@ func unregister_table_source(table_name: StringName) -> bool:
 func clear_table_sources() -> void:
 ```
 
-清空所有表源、缓存和 schema。
+释放来源和准备报告；已有快照仍可查询。
 
 <a id="member-gfconfigprovideradapter-methods-has_table_source"></a>
 
@@ -161,141 +100,84 @@ func clear_table_sources() -> void:
 func has_table_source(table_name: StringName) -> bool:
 ```
 
-检查是否注册了表源。
+检查来源是否存在，与活动表是否已加载分别查询。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `table_name` | 表名。 |
+| `table_name` | 来源表名。 |
 
-返回：已注册返回 true。
+返回：是否已注册来源。
 
-<a id="member-gfconfigprovideradapter-methods-get_table_ids"></a>
+<a id="member-gfconfigprovideradapter-methods-get_source_ids"></a>
 
-### `get_table_ids`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-func get_table_ids() -> PackedStringArray:
-```
-
-获取已注册表名。
-
-返回：排序后的表名列表。
-
-<a id="member-gfconfigprovideradapter-methods-preload_table"></a>
-
-### `preload_table`
+### `get_source_ids`
 
 - API：`public`
-- 首次版本：`7.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func preload_table(table_name: StringName) -> Dictionary:
+func get_source_ids() -> PackedStringArray:
 ```
 
-预加载指定表源并返回加载报告。
+返回来源清单；get_table_ids() 返回已发布清单。
+
+返回：排序后的来源表名。
+
+<a id="member-gfconfigprovideradapter-methods-prepare_tables"></a>
+
+### `prepare_tables`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:
+```
+
+捕获指定来源及 schema 引用闭包，不发布候选。 每次请求重新捕获选定闭包；其他活动表复用旧快照。循环引用按集合捕获， 加载器递归准备则失败。加载器是同步可信代码；异步 IO 由项目完成后再注册。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `table_name` | 表名。 |
+| `table_names` | 本次请求的根表。 |
+| `options` | 内容版本、移除项和共享工作预算。 |
 
-返回：加载报告。
+返回：候选及其发布代际，失败不影响活动数据。
 
 结构：
 
-- `return`: Dictionary，包含 ok、status、table_name、loaded、record_count、cached 和 error。
+- `options`: Dictionary，与 prepare_update() 相同；非空来源 content_version 必须匹配 version。
+- `return`: Dictionary，含 ok、error_kind、snapshot、expected_generation；成功另含 prepared_tables、source_generation、validation_report、work_report。
 
-<a id="member-gfconfigprovideradapter-methods-clear_table_cache"></a>
+<a id="member-gfconfigprovideradapter-methods-load_tables"></a>
 
-### `clear_table_cache`
+### `load_tables`
 
 - API：`public`
-- 首次版本：`7.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func clear_table_cache(table_name: StringName) -> bool:
+func load_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:
 ```
 
-清理指定表的懒加载缓存。
+显式准备并发布指定闭包，失败保留原活动快照。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `table_name` | 表名。 |
+| `table_names` | 请求的根表。 |
+| `options` | 与 prepare_tables() 相同。 |
 
-返回：找到并清理缓存时返回 true。
-
-<a id="member-gfconfigprovideradapter-methods-clear_cache"></a>
-
-### `clear_cache`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-func clear_cache() -> void:
-```
-
-清理全部懒加载缓存。
-
-<a id="member-gfconfigprovideradapter-methods-get_record"></a>
-
-### `get_record`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-func get_record(table_name: StringName, record_id: Variant) -> Variant:
-```
-
-根据表名和 ID 获取单条记录。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `table_name` | 表名。 |
-| `record_id` | 记录 ID。 |
-
-返回：记录数据；未命中时返回 null。
+返回：准备诊断与发布结果。
 
 结构：
 
-- `record_id`: Variant，项目配置表使用的记录键。
-- `return`: Variant，通常为 Dictionary 或项目自定义记录对象。
-
-<a id="member-gfconfigprovideradapter-methods-get_table"></a>
-
-### `get_table`
-
-- API：`public`
-- 首次版本：`7.0.0`
-
-```gdscript
-func get_table(table_name: StringName) -> Variant:
-```
-
-根据表名获取整张表数据。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `table_name` | 表名。 |
-
-返回：表数据；未命中时返回 null。
-
-结构：
-
-- `return`: Variant，通常为 Array、Dictionary 或项目自定义表对象。
+- `options`: Dictionary，可包含 version、removed_tables、work_budget 或 work_limits。
+- `return`: Dictionary，含 ok、error_kind、generation，以及准备结果中的诊断字段。
 
 <a id="member-gfconfigprovideradapter-methods-get_load_report"></a>
 
@@ -308,7 +190,7 @@ func get_table(table_name: StringName) -> Variant:
 func get_load_report(table_name: StringName) -> Dictionary:
 ```
 
-获取指定表的最近加载报告。
+查询来源、最近准备结果与活动数据状态，不触发加载。
 
 参数：
 
@@ -316,11 +198,11 @@ func get_load_report(table_name: StringName) -> Dictionary:
 |---|---|
 | `table_name` | 表名。 |
 
-返回：加载报告。
+返回：独立报告副本。
 
 结构：
 
-- `return`: Dictionary，包含 ok、status、table_name、loaded、record_count、cached 和 error。
+- `return`: Dictionary，含 status: StringName（registered/prepared/failed/missing）、error_kind: StringName、registered: bool、loaded: bool、generation: int。
 
 <a id="member-gfconfigprovideradapter-methods-get_debug_snapshot"></a>
 
@@ -333,10 +215,10 @@ func get_load_report(table_name: StringName) -> Dictionary:
 func get_debug_snapshot() -> Dictionary:
 ```
 
-获取适配器调试快照。
+返回不触发加载的来源与活动快照概况。
 
-返回：调试快照。
+返回：独立诊断字典。
 
 结构：
 
-- `return`: Dictionary，包含 table_count、loaded_count、table_ids、loaded_table_ids 和 load_reports。
+- `return`: Dictionary，含 source_ids: PackedStringArray、loaded_table_ids: PackedStringArray、source_generation: int、generation: int。

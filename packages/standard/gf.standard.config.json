@@ -4,7 +4,8 @@
   "kind": "standard",
   "dependencies": [
     "gf.kernel",
-    "gf.standard.base"
+    "gf.standard.base",
+    "gf.standard.deterministic"
   ],
   "paths": [
     "addons/gf/standard/utilities/config/gf_config_build_profile.gd",
@@ -17,6 +18,8 @@
     "addons/gf/standard/utilities/config/gf_config_provider.gd.uid",
     "addons/gf/standard/utilities/config/gf_config_provider_adapter.gd",
     "addons/gf/standard/utilities/config/gf_config_provider_adapter.gd.uid",
+    "addons/gf/standard/utilities/config/gf_config_snapshot.gd",
+    "addons/gf/standard/utilities/config/gf_config_snapshot.gd.uid",
     "addons/gf/standard/utilities/config/gf_config_reference_resolver.gd",
     "addons/gf/standard/utilities/config/gf_config_reference_resolver.gd.uid",
     "addons/gf/standard/utilities/config/gf_config_table_column.gd",

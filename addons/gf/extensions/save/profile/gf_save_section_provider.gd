@@ -74,6 +74,18 @@ extends Resource
 			return
 		required_on_load = value
 
+## 可选的已知载荷结构和保留政策；首次注册时冻结，保留基线由各 Profile 独立拥有。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var payload_policy: GFSavePayloadPolicy = null:
+	set(value):
+		if _definition_locked and value != payload_policy:
+			push_error("[GFSaveSectionProvider][save_section_provider.registered_policy_read_only] A registered payload policy cannot be replaced.")
+			return
+		payload_policy = value
+
 
 # --- 私有变量 ---
 
@@ -82,6 +94,11 @@ extends Resource
 ## @api private
 ## [br]
 var _definition_locked: bool = false
+
+## 与作者资源隔离的注册政策，不能由运行时调用者改写。
+## [br]
+## @api private
+var _registered_payload_policy: GFSavePayloadPolicy = null
 
 
 # --- 公共方法 ---
@@ -97,6 +114,18 @@ var _definition_locked: bool = false
 ## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
 func validate_provider() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
+	var selected_policy: GFSavePayloadPolicy = _registered_payload_policy if _definition_locked else payload_policy
+	if selected_policy != null and not GFVariantData.get_option_bool(
+		selected_policy.validate_policy(),
+		"ok"
+	):
+		var _policy_issue: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			&"invalid_payload_policy",
+			"Payload policy must declare a valid bounded retention structure.",
+			{ "path": "payload_policy" }
+		)
 	if section_id == &"" or String(section_id) != String(section_id).strip_edges():
 		var _id_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
@@ -275,13 +304,22 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @schema metadata: Dictionary with provider-defined persisted metadata.
 ## [br]
+## @param retention_deletions: 与本次候选一起提交的保留内容删除指令。
+## [br]
+## @schema retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
+## [br]
 ## @return 可用 Snapshot。
-func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshot:
+func make_snapshot(
+	payload: Variant,
+	metadata: Dictionary = {},
+	retention_deletions: Dictionary = {}
+) -> GFSaveSectionSnapshot:
 	return GFSaveSectionSnapshot.take_ownership(
 		section_id,
 		schema_version,
 		payload,
-		metadata
+		metadata,
+		retention_deletions
 	)
 
 
@@ -302,9 +340,23 @@ func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection
 ## [br]
 ## @schema metadata: Dictionary with provider-defined persisted metadata.
 ## [br]
+## @param retention_deletions: 与本次候选一起提交的保留内容删除指令。
+## [br]
+## @schema retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
+## [br]
 ## @return 已完成 Operation。
-func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
-	return GFSaveSectionSnapshotOperation.completed(make_snapshot(payload, metadata))
+func make_completed_snapshot(
+	payload: Variant,
+	metadata: Dictionary = {},
+	retention_deletions: Dictionary = {}
+) -> GFSaveSectionSnapshotOperation:
+	return GFSaveSectionSnapshotOperation.completed(
+		make_snapshot(
+			payload,
+			metadata,
+			retention_deletions
+		)
+	)
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -387,14 +439,32 @@ func _rollback_section(previous_section: GFSaveSection, context: Dictionary = {}
 ## [br]
 ## @return Provider 合法且已锁定时返回 true。
 func lock_definition_for_framework() -> bool:
+	if _definition_locked:
+		return true
 	if not GFVariantData.get_option_bool(
 		validate_provider(),
 		"ok",
 		false
 	):
 		return false
+	if payload_policy != null:
+		_registered_payload_policy = payload_policy.duplicate_policy()
+		if _registered_payload_policy == null:
+			return false
 	_definition_locked = true
 	return true
+
+
+## 返回当前定义的独立政策副本；未声明政策时为空。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 供 Profile 独占的政策副本。
+func copy_payload_policy_for_framework() -> GFSavePayloadPolicy:
+	var selected: GFSavePayloadPolicy = _registered_payload_policy if _definition_locked else payload_policy
+	return selected.duplicate_policy() if selected != null else null
 
 
 # --- 私有/辅助方法 ---

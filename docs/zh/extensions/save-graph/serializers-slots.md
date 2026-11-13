@@ -57,7 +57,7 @@ var schema := GFSaveDocumentSchema.new().configure(
 	{&"profile": 2, &"world": 5},
 	{
 		"required_sections": PackedStringArray(["profile", "world"]),
-		"allow_unknown_sections": false,
+		"preserved_sections": PackedStringArray(),
 	}
 )
 var validation := schema.validate_document(document, true)
@@ -102,16 +102,28 @@ var restored_document := loaded.get_document()
 
 Adapter 不定义业务字段、模块注册表、迁移内容或 UI 文案。裸 Dictionary 载荷不再被槽位入口接受；项目应先把旧聚合字典拆成稳定 section，再显式确定文档和 section 初始版本。
 
-需要把槽位文件交给两个 `GFStorageBackend` 同步时，可使用 `GFSaveSlotSyncBridge`。它只消费同一个 adapter 返回的已验收文件计划，再调用 `GFStorageSyncUtility.sync_many()`；模板缺失 `{index}`、两个目标相同或 `./` 等语法别名指向同一目标时，会在访问任一 backend 前失败。冲突策略、远端协议、账号和用户确认仍由项目通过后端与 sync options 提供。
+云端 Profile 同步使用 [GFSaveSyncUtility](cloud-sync.md)，将一个完整文档作为远端记录，并通过 Profile 事务接收下载候选与 checkpoint。槽位卡片、元数据文件和本地文件模板仍由 Slot Workflow/Storage Adapter 管理；界面摘要不能替代整份文档的远端条件提交。
+
+只需在普通 Backend 之间搬运槽位文件时，显式组合文件计划与 `GFStorageTransfer`：
 
 ```gdscript
-var bridge := GFSaveSlotSyncBridge.new()
-var sync_result := bridge.sync_slot(active_slot, slot_store, local_backend, remote_backend, {
-	"strategy": GFStorageSyncUtility.ConflictStrategy.USE_NEWEST,
-})
+var plan: Dictionary = slot_store.build_slot_file_plan(active_slot)
+if not GFVariantData.get_option_bool(plan, "ok"):
+	return
+var files: PackedStringArray = PackedStringArray([
+	GFVariantData.get_option_string(plan, "data_file_name"),
+	GFVariantData.get_option_string(plan, "metadata_file_name"),
+])
+var transfer: GFStorageTransfer = GFStorageTransfer.new()
+var result: Dictionary = transfer.transfer_many(
+	files,
+	local_backend,
+	remote_backend,
+	{"strategy": GFStorageTransfer.ConflictStrategy.USE_LOCAL}
+)
 ```
 
-如果项目只想同步槽位元数据列表，可以传入 `{ "sync_data_file": false }`；只同步数据文件则传入 `{ "sync_metadata_file": false }`。桥接器不会枚举所有槽位，也不会自动保存当前场景，它只同步调用方明确传入的槽位索引。
+只传输数据或元数据时，文件列表只保留对应文件即可。文件计划预检模板、逻辑身份和目标冲突；必须先检查 ok 再访问后端。普通传输不承诺两个文件的跨后端原子提交，不提供账号隔离、远端 CAS 或未知结果查证。旧 GFSaveSlotSyncBridge 已移除，这段组合保留了它原有的文件选择能力。
 
 槽位工作流内部使用 `GFSaveSlotMetadata` 描述槽位 ID、展示名、schema、版本、标签、耗时和自定义元数据；`validate_metadata()` 返回标准校验报告字典，用 `kind`、统计、摘要和下一步建议描述元数据结构问题。空槽不会默认生成 `Slot N` 这类展示名；如果项目需要统一占位名，可以显式设置 `empty_display_name_template`，或在 UI 渲染层自行映射。
 

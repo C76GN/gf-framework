@@ -18,6 +18,7 @@
 | 信号 | [`completed`](#member-gfuirouteoperation-signals-completed) | `signal completed(result: GFUIRouteResult)` |
 | 常量 | [`OPERATION_PUSH`](#member-gfuirouteoperation-constants-operation_push) | `const OPERATION_PUSH: StringName = &"push"` |
 | 常量 | [`OPERATION_REPLACE`](#member-gfuirouteoperation-constants-operation_replace) | `const OPERATION_REPLACE: StringName = &"replace"` |
+| 方法 | [`get_navigation_target`](#member-gfuirouteoperation-methods-get_navigation_target) | `func get_navigation_target() -> GFUINavigationTarget:` |
 | 方法 | [`get_request_id`](#member-gfuirouteoperation-methods-get_request_id) | `func get_request_id() -> int:` |
 | 方法 | [`get_route_id`](#member-gfuirouteoperation-methods-get_route_id) | `func get_route_id() -> StringName:` |
 | 方法 | [`get_operation`](#member-gfuirouteoperation-methods-get_operation) | `func get_operation() -> StringName:` |
@@ -80,6 +81,21 @@ const OPERATION_REPLACE: StringName = &"replace"
 替换路由操作。
 
 ## 方法
+
+<a id="member-gfuirouteoperation-methods-get_navigation_target"></a>
+
+### `get_navigation_target`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_navigation_target() -> GFUINavigationTarget:
+```
+
+获取本次内容就绪或语义定位请求。
+
+返回：冻结目标；普通页面打开返回 null。
 
 <a id="member-gfuirouteoperation-methods-get_request_id"></a>
 

@@ -81,6 +81,39 @@ class RejectingReplaceUIUtility extends GFUIUtility:
 		)
 
 
+class ControlledNavigationResolver extends GFUINavigationResolver:
+	var preparations: Array[GFAsyncCompletion] = []
+	var resolutions: Array[GFAsyncCompletion] = []
+	var scopes: Array[GFAsyncScope] = []
+	var panels: Array[Node] = []
+	var targets: Array[GFUINavigationTarget] = []
+	var prepare_callback: Callable = Callable()
+
+	func _prepare_content(
+		panel: Node,
+		target: GFUINavigationTarget,
+		scope: GFAsyncScope
+	) -> GFAsyncCompletion:
+		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+		preparations.append(completion)
+		panels.append(panel)
+		targets.append(target)
+		scopes.append(scope)
+		if prepare_callback.is_valid():
+			var _result: Variant = prepare_callback.call()
+		return completion
+
+
+	func _resolve_target(
+		_panel: Node,
+		_target: GFUINavigationTarget,
+		_scope: GFAsyncScope
+	) -> GFAsyncCompletion:
+		var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+		resolutions.append(completion)
+		return completion
+
+
 # --- Godot 生命周期方法 ---
 
 func before_each() -> void:
@@ -107,6 +140,135 @@ func after_each() -> void:
 
 
 # --- 测试方法 ---
+
+func test_async_request_owns_nested_inputs_and_preserves_output_isolation() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/owned_request_inputs_panel.tscn"
+	assert_true(_router.register_route(route))
+	var params: Dictionary = {
+		"nested": {
+			"ids": [7],
+		},
+	}
+	var options: Dictionary = {
+		"metadata": {
+			"theme": { "name": "original" },
+		},
+	}
+	var metadata: Dictionary = {
+		"origin": { "name": "original" },
+	}
+	var mutate_signal_params: Callable = func(
+		_route_id: StringName,
+		_operation: GFUIRouterUtility.Operation,
+		signal_params: Dictionary
+	) -> void:
+		var nested: Dictionary = signal_params["nested"]
+		nested["ids"] = [999]
+	var _connected: int = _router.route_open_requested.connect(mutate_signal_params)
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		params,
+		options,
+		Callable(),
+		{ "metadata": metadata }
+	)
+	_router.route_open_requested.disconnect(mutate_signal_params)
+	var nested_params: Dictionary = params["nested"]
+	nested_params["ids"] = [42]
+	var nested_options: Dictionary = options["metadata"]
+	nested_options.clear()
+	var nested_metadata: Dictionary = metadata["origin"]
+	nested_metadata["name"] = "mutated"
+	var merged: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{
+			"nested": {
+				"ids": [7],
+			},
+		},
+		{
+			"metadata": {
+				"theme": { "name": "original" },
+			},
+		},
+		Callable(),
+		{
+			"metadata": {
+				"origin": { "name": "original" },
+			},
+		}
+	)
+	assert_eq(merged, operation)
+	assert_eq(
+		asset_util.get_pending_count(route.scene_path),
+		1
+	)
+	asset_util.resolve(
+		route.scene_path,
+		_make_control_scene()
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_OPENED
+	)
+	var history: Array[Dictionary] = _router.get_route_history()
+	var history_params: Dictionary = history[0]["params"]
+	assert_eq(
+		history_params,
+		{
+			"nested": {
+				"ids": [7],
+			},
+		}
+	)
+	history_params.clear()
+	var fresh_history: Array[Dictionary] = _router.get_route_history()
+	var fresh_params: Dictionary = fresh_history[0]["params"]
+	assert_eq(
+		fresh_params,
+		{
+			"nested": {
+				"ids": [7],
+			},
+		}
+	)
+	var result_metadata: Dictionary = operation.get_result().get_metadata()
+	assert_eq(
+		result_metadata,
+		{
+			"origin": { "name": "original" },
+		}
+	)
+	var returned_origin: Dictionary = result_metadata["origin"]
+	returned_origin.clear()
+	assert_eq(
+		operation.get_result().get_metadata(),
+		{
+			"origin": { "name": "original" },
+		}
+	)
+	var panel_options: Dictionary = _ui_utility.get_panel_options(operation.get_result().get_panel())
+	var panel_metadata: Dictionary = panel_options["metadata"]
+	var theme: Dictionary = panel_metadata["theme"]
+	assert_eq(
+		theme,
+		{ "name": "original" }
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			_router.get_debug_snapshot(),
+			"pending_async_route_count"
+		),
+		0
+	)
+
 
 func test_push_route_records_history_and_options_metadata() -> void:
 	var route: GFUIRoute = _make_route(&"settings", GFUIUtility.Layer.POPUP)
@@ -759,6 +921,37 @@ func test_route_opened_reentry_creates_distinct_same_key_request() -> void:
 	)
 	if _router.route_opened.is_connected(opened_callback):
 		_router.route_opened.disconnect(opened_callback)
+
+
+func test_clock_replacement_in_opened_callback_cannot_strand_operation() -> void:
+	_arch = GFArchitecture.new()
+	var asset_util: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(asset_util)
+	await Gf.set_architecture(_arch)
+	assert_true(_router.set_clock(GFManualClock.new(1000000)))
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/clock_reentry_panel.tscn"
+	assert_true(_router.register_route(route))
+	var replace_clock: Callable = func(
+		_id: StringName,
+		_panel: Node,
+		_operation: GFUIRouterUtility.Operation
+	) -> void:
+		assert_true(_router.set_clock(GFManualClock.new()))
+	var _connected: int = _router.route_opened.connect(replace_clock)
+	var operation: GFUIRouteOperation = _router.push_route_async(&"inventory")
+	asset_util.resolve(
+		route.scene_path,
+		_make_control_scene()
+	)
+	await get_tree().process_frame
+	assert_true(operation.is_completed())
+	if operation.is_completed():
+		assert_gte(
+			operation.get_result().get_completed_at_msec(),
+			operation.get_started_at_msec()
+		)
+	_router.route_opened.disconnect(replace_clock)
 
 
 func test_conflicting_pending_async_routes_fail_instead_of_silently_overwriting() -> void:
@@ -1887,7 +2080,506 @@ func test_router_dispose_rolls_back_preload_before_panel_submit() -> void:
 	)
 
 
+func test_navigation_target_diagnostics_report_budget_and_recheck_changed_parameters() -> void:
+	var parameters: Dictionary = { "item": 3 }
+	var report: Dictionary = GFUINavigationTarget.validate_create(&" inventory ", parameters)
+	assert_eq(
+		report,
+		{
+			"ok": true,
+			"error_kind": "",
+			"path": "",
+		}
+	)
+	parameters["item"] = RefCounted.new()
+	var invalid: Dictionary = GFUINavigationTarget.validate_create(&"inventory", parameters)
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "error_kind"),
+		"data_invalid"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(invalid, "path"),
+		"/parameters"
+	)
+	assert_true(invalid.has("measurement"))
+	report["ok"] = true
+	assert_null(GFUINavigationTarget.create(&"inventory", parameters))
+	var wide: Dictionary = { "label": "x".repeat(9000), "detail": "y".repeat(9000) }
+	var budget: Dictionary = GFUINavigationTarget.validate_create(&"inventory", wide)
+	assert_eq(
+		GFVariantData.get_option_string(budget, "error_kind"),
+		"budget_exceeded"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(budget, "path"),
+		"/parameters"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(budget, "limit"),
+		16384
+	)
+	assert_eq(
+		GFVariantData.get_option_string(budget, "limit_kind"),
+		"max_output_bytes"
+	)
+	assert_true(GFVariantData.get_option_bool(budget, "observed_is_lower_bound"))
+	var measurement: Dictionary = budget["measurement"]
+	assert_eq(
+		GFVariantData.get_option_int(budget, "observed"),
+		GFVariantData.get_option_int(measurement, "observed")
+	)
+	assert_null(GFUINavigationTarget.create(&"inventory", wide))
+	var empty_id: Dictionary = GFUINavigationTarget.validate_create(&" ")
+	assert_eq(
+		GFVariantData.get_option_string(empty_id, "error_kind"),
+		"required"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(empty_id, "path"),
+		"/route_id"
+	)
+	var target: GFUINavigationTarget = GFUINavigationTarget.create(
+		&" inventory ",
+		{ "item": 4 }
+	)
+	assert_eq(
+		target.get_route_id(),
+		&"inventory"
+	)
+
+
+func test_navigation_target_freezes_bounded_semantic_data() -> void:
+	var parameters: Dictionary = {
+		"tab": "items",
+		"entry": { "id": 4 },
+	}
+	var target: GFUINavigationTarget = GFUINavigationTarget.create(&" inventory ", parameters)
+	parameters["tab"] = "other"
+	var copied: Dictionary = target.get_parameters()
+	copied["entry"] = { "id": 9 }
+	assert_eq(
+		target.get_route_id(),
+		&"inventory"
+	)
+	assert_eq(
+		target.get_parameters(),
+		{
+			"tab": "items",
+			"entry": { "id": 4 },
+		}
+	)
+	assert_null(GFUINavigationTarget.create(&""))
+	assert_null(
+		GFUINavigationTarget.create(
+			&"inventory",
+			{ "node": RefCounted.new() }
+		)
+	)
+	assert_null(
+		GFUINavigationTarget.create(
+			&"inventory",
+			{ "value": NAN }
+		)
+	)
+
+
+func test_navigation_waits_for_content_before_target_and_keeps_one_identity() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var target: GFUINavigationTarget = GFUINavigationTarget.create(
+		&"inventory",
+		{ "entry_id": 5 }
+	)
+	var operation: GFUIRouteOperation = await _open_navigation(resolver, target)
+	assert_true(operation.is_pending())
+	assert_eq(
+		operation.get_navigation_target(),
+		target
+	)
+	assert_eq(
+		resolver.preparations.size(),
+		1
+	)
+	assert_eq(
+		resolver.resolutions.size(),
+		0
+	)
+	assert_eq(
+		_router.get_current_route_id(),
+		&"inventory"
+	)
+	assert_true(resolver.preparations[0].succeed())
+	assert_true(operation.is_pending())
+	assert_eq(
+		resolver.resolutions.size(),
+		1
+	)
+	assert_true(resolver.resolutions[0].succeed())
+	var result: GFUIRouteResult = await operation.wait_result_async()
+	assert_eq(
+		result.get_status(),
+		GFUIRouteResult.STATUS_TARGET_READY
+	)
+	assert_true(result.was_panel_committed())
+	assert_true(result.was_content_ready())
+	assert_true(result.was_target_resolved())
+	assert_true(result.is_successful())
+	assert_true(resolver.scopes[0].is_completed())
+	assert_eq(
+		result.get_request_id(),
+		operation.get_request_id()
+	)
+	assert_true(_router.back())
+
+
+func test_content_only_navigation_skips_target_resolution() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(&"inventory")
+	)
+	assert_true(resolver.preparations[0].succeed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CONTENT_READY
+	)
+	assert_false(operation.get_result().was_target_resolved())
+	assert_eq(
+		resolver.resolutions.size(),
+		0
+	)
+
+
+func test_target_failure_preserves_open_page_and_reports_committed_failure() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(
+			&"inventory",
+			{ "entry_id": 99 }
+		)
+	)
+	assert_true(resolver.preparations[0].succeed())
+	assert_true(resolver.resolutions[0].fail("removed_entry"))
+	var result: GFUIRouteResult = operation.get_result()
+	assert_eq(
+		result.get_status(),
+		GFUIRouteResult.STATUS_TARGET_UNAVAILABLE
+	)
+	assert_false(result.is_successful())
+	assert_true(result.was_panel_committed())
+	assert_true(result.was_content_ready())
+	assert_false(result.was_target_resolved())
+	assert_true(_ui_utility.is_panel_open(result.get_panel()))
+	assert_eq(
+		_router.get_current_route_id(),
+		&"inventory"
+	)
+	assert_true(resolver.scopes[0].is_cancel_requested())
+
+
+func test_navigation_default_resolver_fails_content_without_rolling_back_page() -> void:
+	var resolver: GFUINavigationResolver = GFUINavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(&"inventory")
+	)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CONTENT_FAILED
+	)
+	assert_true(operation.get_result().was_panel_committed())
+	assert_true(_ui_utility.is_panel_open(operation.get_result().get_panel()))
+
+
+func test_navigation_timeout_uses_one_monotonic_budget_across_both_phases() -> void:
+	var clock: GFManualClock = GFManualClock.new()
+	assert_true(_router.set_clock(clock))
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(
+			&"inventory",
+			{ "id": 5 }
+		),
+		{ "readiness_timeout_msec": 100 }
+	)
+	assert_false(_router.set_clock(GFClock.new()))
+	assert_true(clock.advance_msec(60))
+	assert_true(resolver.preparations[0].succeed())
+	assert_true(clock.set_unix_time_msec(99999999))
+	assert_true(clock.advance_msec(40))
+	_router.tick(0.0)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_READINESS_TIMEOUT
+	)
+	assert_true(operation.get_result().was_content_ready())
+	assert_true(resolver.scopes[0].is_cancel_requested())
+	assert_true(resolver.resolutions[0].succeed())
+	assert_false(operation.get_result().was_target_resolved())
+
+
+func test_page_close_cancels_readiness_and_ignores_late_content() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(
+			&"inventory",
+			{ "id": 5 }
+		)
+	)
+	assert_true(_router.back())
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+	assert_true(operation.get_result().was_panel_committed())
+	assert_true(resolver.scopes[0].is_cancel_requested())
+	assert_true(resolver.preparations[0].succeed())
+	assert_eq(
+		resolver.resolutions.size(),
+		0
+	)
+
+
+func test_replaced_navigation_ignores_old_completion_and_preserves_new_request() -> void:
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var target: GFUINavigationTarget = GFUINavigationTarget.create(
+		&"inventory",
+		{ "id": 5 }
+	)
+	var old_operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		target,
+		{ "scope": scope }
+	)
+	assert_true(scope.cancel("replaced"))
+	assert_eq(
+		old_operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+	var new_operation: GFUIRouteOperation = await _open_navigation(resolver, target)
+	assert_ne(
+		old_operation.get_request_id(),
+		new_operation.get_request_id()
+	)
+	assert_true(resolver.preparations[0].succeed())
+	assert_eq(
+		resolver.resolutions.size(),
+		0
+	)
+	assert_true(new_operation.is_pending())
+	assert_true(resolver.preparations[1].succeed())
+	assert_true(resolver.resolutions[0].succeed())
+	assert_eq(
+		new_operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_TARGET_READY
+	)
+
+
+func test_navigation_dispose_after_commit_reports_known_page_and_stops_writeback() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(&"inventory")
+	)
+	_router.dispose()
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+	assert_true(operation.get_result().was_panel_committed())
+	assert_true(resolver.scopes[0].is_cancel_requested())
+	assert_true(resolver.preparations[0].succeed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+
+
+func test_resolver_reentrant_close_does_not_leave_an_observer_or_start_target() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	resolver.prepare_callback = func() -> void:
+		var _closed: bool = _router.back()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(
+			&"inventory",
+			{ "id": 5 }
+		)
+	)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+	assert_true(resolver.preparations[0].succeed())
+	assert_eq(
+		resolver.resolutions.size(),
+		0
+	)
+	assert_true(resolver.scopes[0].is_cancel_requested())
+
+
+func test_equivalent_pending_navigation_merges_and_different_target_conflicts() -> void:
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var target: GFUINavigationTarget = GFUINavigationTarget.create(
+		&"inventory",
+		{ "id": 5 }
+	)
+	var original: GFUIRouteOperation = await _open_navigation(resolver, target)
+	var merged_operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"navigation_target": GFUINavigationTarget.create(
+				&"inventory",
+				{ "id": 5 }
+			),
+			"navigation_resolver": resolver,
+		}
+	)
+	assert_eq(merged_operation, original)
+	var rejected: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"navigation_target": GFUINavigationTarget.create(
+				&"inventory",
+				{ "id": 6 }
+			),
+			"navigation_resolver": resolver,
+		}
+	)
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (route_async_conflict).")
+	assert_eq(
+		rejected.get_result().get_status(),
+		GFUIRouteResult.STATUS_ASYNC_CONFLICT
+	)
+	assert_true(original.is_pending())
+	assert_eq(
+		resolver.preparations.size(),
+		1
+	)
+	assert_true(resolver.preparations[0].succeed())
+	assert_true(resolver.resolutions[0].succeed())
+
+
+func test_navigation_owner_exit_during_panel_io_stays_cancelled_after_owner_reenters() -> void:
+	_arch = GFArchitecture.new()
+	var assets: ManualAssetUtility = ManualAssetUtility.new()
+	await _arch.register_utility_instance(assets)
+	await Gf.set_architecture(_arch)
+	var route: GFUIRoute = _make_route(&"inventory", GFUIUtility.Layer.POPUP)
+	route.scene_path = "res://tests/navigation_owner_return_panel.tscn"
+	assert_true(_router.register_route(route))
+	var lifetime_owner: Node = Node.new()
+	add_child(lifetime_owner)
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{
+			"owner": lifetime_owner,
+			"navigation_target": GFUINavigationTarget.create(&"inventory"),
+			"navigation_resolver": resolver,
+		}
+	)
+	remove_child(lifetime_owner)
+	add_child(lifetime_owner)
+	assert_true(
+		operation.is_pending(),
+		"面板 IO 已提交时必须等待实际结果，不能假报已回滚。"
+	)
+	assets.resolve(
+		route.scene_path,
+		_make_control_scene()
+	)
+	await get_tree().process_frame
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+	assert_true(operation.get_result().was_panel_committed())
+	assert_eq(
+		resolver.preparations.size(),
+		0
+	)
+	lifetime_owner.free()
+
+
+func test_navigation_owner_exit_after_commit_cancels_without_closing_page() -> void:
+	var lifetime_owner: Node = Node.new()
+	add_child(lifetime_owner)
+	var resolver: ControlledNavigationResolver = ControlledNavigationResolver.new()
+	var operation: GFUIRouteOperation = await _open_navigation(
+		resolver,
+		GFUINavigationTarget.create(&"inventory"),
+		{ "owner": lifetime_owner }
+	)
+	remove_child(lifetime_owner)
+	lifetime_owner.free()
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_CANCELLED
+	)
+	assert_true(_ui_utility.is_panel_open(operation.get_result().get_panel()))
+	assert_true(resolver.scopes[0].is_cancel_requested())
+	assert_true(resolver.preparations[0].succeed())
+	assert_false(operation.get_result().was_content_ready())
+
+
+func test_navigation_contract_rejection_happens_before_page_submission() -> void:
+	assert_true(_router.register_route(_make_route(&"inventory", GFUIUtility.Layer.POPUP)))
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		{ "navigation_target": GFUINavigationTarget.create(&"inventory") }
+	)
+	assert_push_warning("[GFUIRouterUtility][ui_router_utility.route_open_failed] Cannot open route: inventory (invalid_navigation).")
+	assert_eq(
+		operation.get_result().get_status(),
+		GFUIRouteResult.STATUS_INVALID_NAVIGATION
+	)
+	assert_false(operation.get_result().was_panel_committed())
+	assert_eq(
+		_ui_utility.get_stack_count(GFUIUtility.Layer.POPUP),
+		0
+	)
+
+
 # --- 私有/辅助方法 ---
+
+func _open_navigation(
+	resolver: GFUINavigationResolver,
+	target: GFUINavigationTarget,
+	options: Dictionary = {}
+) -> GFUIRouteOperation:
+	if not _router.has_route(&"inventory"):
+		assert_true(_router.register_route(_make_route(&"inventory", GFUIUtility.Layer.POPUP)))
+	var async_options: Dictionary = options.duplicate()
+	async_options["navigation_target"] = target
+	async_options["navigation_resolver"] = resolver
+	var operation: GFUIRouteOperation = _router.push_route_async(
+		&"inventory",
+		{},
+		{},
+		Callable(),
+		async_options
+	)
+	assert_push_warning("[GFUIUtility][ui_utility.asset_utility_missing] GFAssetUtility is not registered; falling back to synchronous loading.")
+	await get_tree().process_frame
+	return operation
+
 
 func _make_route(route_id: StringName, layer: int) -> GFUIRoute:
 	var route: GFUIRoute = GFUIRoute.new()

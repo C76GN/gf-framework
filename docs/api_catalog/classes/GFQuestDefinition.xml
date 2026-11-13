@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFQuestDefinition" path="addons/gf/extensions/domain/quest/gf_quest_definition.gd" module="extensions/domain" extends="RefCounted" classDigest="de06399c0bd297aefb15acdbdd0c16d24149bcd8fa0d60a379db9374623b478e">
+	<description>GFQuestDefinition: 独立于运行状态的冻结任务定义。
+指标由项目查询或输入提供；完成策略与指标模式独立。接取条件和完成阻塞器是
+GFQuestUtility 中的运行时回调，不进入可持久化定义。自动完成不发放业务奖励。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="HISTORY">
+			<signature>const HISTORY: StringName = &amp;"history"</signature>
+			<description>查询项目已经积累的历史事实。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="SINCE_ACCEPTANCE">
+			<signature>const SINCE_ACCEPTANCE: StringName = &amp;"since_acceptance"</signature>
+			<description>只累计接取后收到的明确整数增量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="CURRENT">
+			<signature>const CURRENT: StringName = &amp;"current"</signature>
+			<description>查询会升降的当前值；默认需要显式确认完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="AUTOMATIC">
+			<signature>const AUTOMATIC: StringName = &amp;"automatic"</signature>
+			<description>首次达标且完成阻塞器通过时完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MANUAL">
+			<signature>const MANUAL: StringName = &amp;"manual"</signature>
+			<description>达标后由 complete_quest 显式确认。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="EXTERNAL">
+			<signature>const EXTERNAL: StringName = &amp;"external"</signature>
+			<description>项目显式判定完成，只检查完成阻塞器，不要求计数达标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( quest_id: StringName, metric_id: StringName, options: Dictionary = {} ) -&gt; GFQuestDefinition:</signature>
+			<description>创建定义；相同 ID 的已接取任务不受随后发布的新版本影响。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">quest_id: 非空任务身份，最多 256 字符且不得带首尾空白。</tag>
+				<tag name="param">metric_id: 指标或增量事件身份；external 策略可为空。</tag>
+				<tag name="param">options: 定义政策。</tag>
+				<tag name="return">冻结定义；非法输入返回 null。</tag>
+				<tag name="schema">options: 封闭 Dictionary，可选 version:int&gt;=1（默认1）、mode:String（history/since_acceptance/current，默认since_acceptance）、target:int&gt;=0（默认1）、completion:String（automatic/manual/external）、allow_negative:bool（默认false）、metadata:Dictionary。current 默认manual，其他默认automatic。metadata 为有界原生纯数据，深度16、2048节点、64KiB。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_create">
+			<signature>static func validate_create( quest_id: StringName, metric_id: StringName, options: Dictionary = {} ) -&gt; Dictionary:</signature>
+			<description>只读检查 create 的输入，返回首个拒绝原因；不创建任务定义或保留输入引用。
+create 每次独立重新校验，旧报告不能授权后来修改的输入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">quest_id: 与 create 相同的任务身份。</tag>
+				<tag name="param">metric_id: 与 create 相同的指标身份。</tag>
+				<tag name="param">options: 与 create 相同的定义政策。</tag>
+				<tag name="return">当前输入的独立校验报告；不输出错误日志。</tag>
+				<tag name="schema">options: 与 create.options 相同的封闭 Dictionary。</tag>
+				<tag name="schema">return: 封闭基础字段 ok:bool、error_kind:String、path:String；成功时后两项为空。容量错误可含 limit:int、observed:int；纯数据错误另含 measurement:Dictionary、limits:Dictionary，并可含 limit_kind:String、observed_is_lower_bound:bool。path 为从输入参数名开始的 / 分段路径，~ 和 / 分别转义为 ~0 和 ~1；空路径指当前服务。observed_is_lower_bound=true 时 observed 只是确定下界，measurement 失败计数只描述已遍历前缀。报告不含对象或可复用准入令牌。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_record">
+			<signature>static func from_record(record: Dictionary) -&gt; GFQuestDefinition:</signature>
+			<description>从持久化记录恢复并完整验证定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record: 完整定义记录。</tag>
+				<tag name="return">验证后的定义；失败返回 null。</tag>
+				<tag name="schema">record: 必须且只能包含 quest_id:String、metric_id:String 和 create.options 的六个字段；不进行宽容转换。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_record">
+			<signature>func to_record() -&gt; Dictionary:</signature>
+			<description>返回可持久化定义的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">定义记录；未经工厂验证的实例为空。</tag>
+				<tag name="schema">return: 与 from_record.record 相同的八字段 Dictionary。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_quest_id">
+			<signature>func get_quest_id() -&gt; StringName:</signature>
+			<description>获取任务身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任务 ID；未验证实例为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metric_id">
+			<signature>func get_metric_id() -&gt; StringName:</signature>
+			<description>获取指标身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">指标 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_version">
+			<signature>func get_version() -&gt; int:</signature>
+			<description>获取定义版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数版本；未验证实例为0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_mode">
+			<signature>func get_mode() -&gt; StringName:</signature>
+			<description>获取指标模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">HISTORY、SINCE_ACCEPTANCE 或 CURRENT。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target">
+			<signature>func get_target() -&gt; int:</signature>
+			<description>获取目标计数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负目标。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_completion">
+			<signature>func get_completion() -&gt; StringName:</signature>
+			<description>获取完成策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">AUTOMATIC、MANUAL 或 EXTERNAL。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="allows_negative">
+			<signature>func allows_negative() -&gt; bool:</signature>
+			<description>查询是否显式允许负向输入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">允许负数指标或增量时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
