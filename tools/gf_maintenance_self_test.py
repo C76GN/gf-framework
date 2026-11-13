@@ -7966,6 +7966,41 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and not hasattr(gf_project_layout_profile, "PROFILE_MODES"),
 		"Python must transport input without preserving legacy or shadow rule evaluators.",
 	)
+	with tempfile.TemporaryDirectory(prefix="gf-layout-snapshot-") as layout_fixture_dir:
+		layout_fixture_root = Path(layout_fixture_dir)
+		layout_native_requests: list[dict[str, Any]] = []
+
+		def capture_layout_native_request(request: dict[str, Any]) -> dict[str, Any]:
+			layout_native_requests.append(request)
+			return {}
+
+		layout_options = {"root": layout_fixture_root, "native_executor": capture_layout_native_request}
+		optional_layout_report = gf_project_layout_profile.project_profile_boundary(**layout_options)
+		missing_layout_reports = [
+			gf_project_layout_profile.project_profile_boundary(snapshot_path=".gf/project_profile.json", **layout_options),
+			gf_project_layout_profile.project_profile_boundary(snapshot_path="evidence.json", **layout_options),
+			gf_project_layout_profile.project_profile_boundary(profile_path=".gf/project_profile.json", **layout_options),
+		]
+		(layout_fixture_root / ".gf").mkdir()
+		missing_layout_reports.append(gf_project_layout_profile.project_profile_boundary(
+			snapshot_path=".gf/project_profile.json", **layout_options,
+		))
+		record_result(
+			"project_layout_explicit_missing_inputs_fail_before_native_execution",
+			all(report.get("ok") is False and report.get("evaluation_status") == "unavailable"
+				and report.get("error_count") == 1 for report in missing_layout_reports)
+			and not layout_native_requests,
+			"Explicit snapshot/profile paths must fail for an absent parent or leaf without native execution.",
+		)
+		record_result(
+			"project_layout_optional_profile_discovery_remains_optional",
+			optional_layout_report.get("ok") is True
+			and optional_layout_report.get("evaluation_status") == "not_applicable"
+			and optional_layout_report.get("profile_found") is False
+			and optional_layout_report.get("issue_count") == 0
+			and not layout_native_requests,
+			"An unconfigured project must remain a successful no-op during automatic discovery.",
+		)
 
 	valid_package_data = {
 		"schema_version": 1,

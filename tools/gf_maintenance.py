@@ -1612,6 +1612,7 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 		help="Return a failing exit code when warning-level profile issues are found.",
 	)
 	project_profile_boundary_parser.add_argument("--root", default="", help="Read-only project directory; never executed as a Godot project.")
+	project_profile_boundary_parser.add_argument("--snapshot", default="", help="Explicit frozen snapshot JSON under root (maximum 1 MiB); no source project is opened or recaptured. Mutually exclusive with --profile.")
 	project_profile_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_external_command_audit_parser = subparsers.add_parser(
@@ -1967,6 +1968,7 @@ def main(
 			profile_path=args.profile,
 			fail_on_warnings=args.fail_on_warnings,
 			root=Path(args.root) if args.root else ROOT,
+			snapshot_path=args.snapshot,
 		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_project_profile_boundary_text)
 		return 0 if data["ok"] else 1
@@ -4171,10 +4173,12 @@ def project_profile_boundary(
 	fail_on_warnings: bool = False,
 	*,
 	root: Path = ROOT,
+	snapshot_path: str = "",
 ) -> dict[str, Any]:
 	return gf_project_layout_profile.project_profile_boundary(
 		profile_path=profile_path, fail_on_warnings=fail_on_warnings,
 		root=root, native_executor=run_project_layout_native,
+		snapshot_path=snapshot_path,
 	)
 
 
@@ -4212,13 +4216,52 @@ def project_profile_native_acceptance() -> dict[str, Any]:
 		before = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
 			target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
 		report = project_profile_boundary(root=target)
+		analysis = report.get("analysis", {})
+		graph = analysis.get("graph", {})
+		frozen = {
+			"schema_version": 2, "kind": "project_layout_snapshot",
+			"root_path": analysis.get("root_path", ""), "scope": graph.get("scope", {}),
+			"complete": graph.get("complete", False), "capture_status": graph.get("capture_status", "not_started"),
+			"files": [node["relative_path"] for node in graph.get("nodes", []) if node["node_kind"] == "file"],
+			"directories": [node["relative_path"] for node in graph.get("nodes", []) if node["node_kind"] == "directory" and node["relative_path"] != "."],
+			"dependencies": {"capture": {}, "declaration": {
+				"startup_roots": ["scripts/main.gd"],
+				"edges": [{"from": "scripts/main.gd", "to": "sentinel.gd"}],
+			}, "observations": []},
+		}
+		(target / "evidence.json").write_text(json.dumps(frozen), encoding="utf-8", newline="\n")
+		# Model the Editor's logical res:// binding while replaying in the trusted CLI fixture.
+		frozen["root_path"] = "res://"
+		frozen["scope"] = dict(frozen["scope"])
+		frozen["scope"]["root_path"] = "res://"
+		frozen["scope"]["profile_source_path"] = "res://gf_project_profile.json"
+		binding = {key: frozen["scope"][key] for key in (
+			"capture_scope", "source_root", "root_path", "protected_roots",
+			"profile_source_path", "excluded_prefixes",
+		)}
+		frozen["scope"]["policy_digest"] = hashlib.sha256(json.dumps(
+			binding, sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+		).encode("utf-8")).hexdigest()
+		(target / "evidence.json").write_text(json.dumps(frozen), encoding="utf-8", newline="\n")
+		frozen_report = project_profile_boundary(root=target, snapshot_path="evidence.json")
+		dependency_report = frozen_report.get("analysis", {}).get("graph", {}).get("dependencies", {})
+		snapshot_verified = (
+			frozen_report.get("ok") is True
+			and frozen_report.get("file_count") == report.get("file_count")
+			and dependency_report.get("startup_files") == ["scripts/main.gd", "sentinel.gd"]
+			and dependency_report.get("coverage") == "partial"
+			and frozen_report.get("analysis", {}).get("root_path") == "res://"
+			and frozen_report.get("analysis", {}).get("graph", {}).get("scope", {}).get("source_root") == frozen["scope"]["source_root"]
+			and frozen_report.get("analysis", {}).get("graph", {}).get("scope", {}).get("policy_digest") == frozen["scope"]["policy_digest"]
+		)
 		after = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
 			target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
 		unchanged = before == after and not os.path.lexists(marker)
 		bounded = report.get("evaluation_complete") is True and report.get("file_count", 0) < 20_000
-		cleanup["permitted"] = report.get("process_boundary_quiet") is True
-		result = {"ok": report["ok"] and unchanged and bounded,
+		cleanup["permitted"] = report.get("process_boundary_quiet") is True and frozen_report.get("process_boundary_quiet") is True
+		result = {"ok": report["ok"] and unchanged and bounded and snapshot_verified,
 			"analysis": report, "target_unchanged": unchanged,
+			"snapshot_verified": snapshot_verified, "snapshot_analysis": frozen_report,
 			"generated_file_count": 20_050}
 	result["cleanup_errors"] = cleanup_errors
 	result["ok"] = result["ok"] and not cleanup_errors

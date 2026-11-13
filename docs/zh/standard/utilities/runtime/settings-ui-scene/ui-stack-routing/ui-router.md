@@ -49,6 +49,8 @@ router.back()
 
 每次打开都会在入口冻结 route id、场景路径、逻辑层、默认选项、参数和 metadata。`route_open_requested` 回调或其他项目代码随后修改已注册的 `GFUIRoute`，只影响未来请求，不会改变正在执行的请求身份、完成关联或历史记录。同步与异步 `replace` 都只在新面板确认打开后提交 Router 历史；打开失败时保留旧历史和旧当前路由。
 
+异步请求在 Router 内部保留一份独占输入快照，身份检查和阶段推进不反复深复制整个请求。普通打开不创建导航等待状态，也不捕获预加载目录；只有显式启用相应选项时才准备这些数据。信号参数、面板配置、历史与结果仍通过副本交给调用方，嵌套参数隔离、取消时机和迟到回调检查不变。
+
 ## 类型化异步打开
 
 `push_route_async()` 与 `replace_route_async()` 始终返回 `GFUIRouteOperation`。输入校验失败也会返回已经完成的句柄，不再要求调用方从 warning 文本推断结果：
@@ -107,7 +109,61 @@ var operation: GFUIRouteOperation = router.push_route_async(
 route_scope.cancel("flow_replaced")
 ```
 
-已取消的 scope 会立即返回 `STATUS_CANCELLED`；已完成的 scope、类型错误的 scope 或不在场景树内的 Node owner 会返回 `STATUS_INVALID_LIFECYCLE`。提交边界是 Router 实际调用 `GFUIUtility` 异步打开入口的时刻；跨过边界后 Router 会解除 owner/scope 监听，后续离树或取消不会关闭已提交的面板，也不会改写其最终打开结果。需要关闭已打开面板时，项目应显式使用 UI 栈 API，不要把取消令牌当作隐式关闭指令。
+已取消的 scope 会立即返回 `STATUS_CANCELLED`；已完成的 scope、类型错误的 scope 或不在场景树内的 Node owner 会返回 `STATUS_INVALID_LIFECYCLE`。普通打开的提交边界是 Router 实际调用 `GFUIUtility` 异步打开入口的时刻；跨过边界后解除 owner/scope 监听，后续取消不会改写最终打开结果。显式导航请求还用 owner/scope 约束页面提交后的内容等待与定位。取消等待均不自动关闭已提交页面；关闭页面应显式使用 UI 栈 API。
+
+## 等待内容就绪与语义定位
+
+普通页面继续使用 `push_route_async` / `replace_route_async`，无需实现 resolver，成功入栈即返回 `STATUS_OPENED`。资源预加载完成不代表页面的列表、配置查询或异步内容已经可用；需要这些保证时，显式提供 `GFUINavigationTarget` 和项目实现的 `GFUINavigationResolver`。
+
+```gdscript
+var target: GFUINavigationTarget = GFUINavigationTarget.create(
+	&"inventory", {"tab": "equipment", "entry_id": 42}
+)
+var lease: GFUILoadingLease = loading.acquire(self, request_scope)
+var operation: GFUIRouteOperation = router.push_route_async(
+	&"inventory", {}, {}, Callable(),
+	{
+		"owner": self,
+		"scope": request_scope,
+		"navigation_target": target,
+		"navigation_resolver": inventory_resolver,
+		"readiness_timeout_msec": 15000,
+	}
+)
+var result: GFUIRouteResult = await operation.wait_result_async()
+if lease != null:
+	lease.release()
+# target_unavailable 时页面仍可使用；根据 result 决定业务提示。
+```
+
+`target` 只保存规范化路由 ID 与有界纯数据参数，不保存节点路径或 Object；参数深度最多 8、节点最多 256、规范编码最多 16 KiB。创建后调用方修改原字典或 getter 返回的字典均不改变目标。目标路由必须与打开入口一致。空参数请求只等待内容就绪；非空参数在就绪后执行定位。
+
+resolver 按顺序实现两个钩子：
+
+1. `_prepare_content(panel, target, scope)`：等待页面完成业务内容准备，返回 `GFAsyncCompletion`。无需异步等待的页面也应显式返回已成功的完成源。
+2. `_resolve_target(panel, target, scope)`：只在准备成功且参数非空时调用；项目解释页签、条目 ID 等含义，完成实际定位后再确认成功。
+
+两个钩子共享 Router 创建的独立请求作用域。所有回调与完成源在主线程运行。项目异步返回后，在访问节点和修改界面前检查 `scope.is_active()` 与节点有效性；Router 会隔离迟到的完成通知，但不能撤销项目自行忽略作用域执行的界面修改。项目不能把这个 scope 提前标记正常完成。默认 resolver 拒绝内容准备，避免无实现时假报成功。
+
+整个操作从预加载到定位保持同一个 `GFUIRouteOperation` 身份。相同目标内容、resolver 实例、超时和原请求选项可以合流；不同 pending 请求仍返回冲突。替换业务导航时取消旧请求 scope，再发起新请求；旧完成源不能结束新请求。
+
+| 终态 | 含义 |
+|---|---|
+| `opened` | 普通打开已入栈，没有请求内容准备 |
+| `content_ready` | 页面与内容已就绪，没有请求语义定位 |
+| `target_ready` | 页面、内容与目标定位均成功 |
+| `content_failed` | 页面已提交，但内容准备失败 |
+| `target_unavailable` | 内容就绪，但目标消失或无法定位；保留页面 |
+| `readiness_timeout` | 页面提交后的统一等待预算耗尽 |
+| `cancelled` | owner/scope 结束、页面关闭或已提交导航的 Router 被释放 |
+
+`was_panel_committed()`、`was_content_ready()`、`was_target_resolved()` 表示本次操作已经确认的阶段事实，不保证节点之后仍存活。`get_panel()` 是弱引用。页面提交前仍按现有预加载、面板失败流程收敛；提交后的内容失败不会回滚页面，也不能恢复已经由 replace 替换的旧页面。
+
+等待预算默认 15000 毫秒，允许 `1..300000`，从确认页面入栈开始覆盖内容与定位两个阶段，不在阶段切换时重置。每次完成回调和 Router.tick 都检查单调截止时间、页面状态及生命周期。可在没有 pending 请求时通过 `set_clock` 注入测试时钟。页面关闭立即取消等待；直接移除节点等未经过 UI 栈的变化在 tick 或下一次完成回调复核。
+
+若 owner 在底层面板 IO 已提交但尚未确认时结束，导航记住失效原因，继续观察实际面板结果；确认入栈后返回已提交的取消结果，不尝试猜测回滚。Router 在该不确定阶段释放仍报告原有 `outcome_unknown`。
+
+从用户发起操作时取得一个 [Loading lease](ui-loading.md)，贯穿以上阶段，在操作终态释放。最短显示时间只控制反馈，不阻塞 `wait_result_async()` 或其他业务成功反馈。
 
 ## 打开前预加载策略
 
@@ -223,3 +279,11 @@ assets.preload_plan_async(asset_plan, func(report: Dictionary) -> void:
 单独调用 `build_preload_plan()` 时，Planner 只生成计划，不会自动发起 IO。项目可以在登录结束、切换章节或进入大厅后选择合适时机调用 `preload_plan_async()`；离开对应区域后可用 `GFAssetUtility.unload_group(group_id)` 释放分组 pin。异步路由入口只有在显式选择预加载策略时才协调计划与 IO。权限变化、动态活动入口、网络条件、内存档位和实际预热时机仍由项目判断。
 
 复杂页面恢复、权限、转场动画和业务导航状态仍由项目 Model/System 或 UI 节点负责。
+
+## 语义目标诊断
+
+`GFUINavigationTarget.validate_create(route_id, parameters)` 只读返回 `ok`、`error_kind`、`path`，不创建目标、请求或页面。工厂 `create()` 共用相同验证并保持对象/null 返回值。原有路由 ID 首尾空白规范化保持不变。
+
+空路由为 `required`，过长路由为 `length_limit`，位置为 `/route_id`；非法纯数据为 `data_invalid`，可归因的预算超限为 `budget_exceeded`，位置为 `/parameters`。纯数据错误附 `measurement` 和 `limits`，预算错误可含 `limit_kind`、`limit`、`observed` 与 `observed_is_lower_bound`。失败计数可能只是已遍历前缀，下界不能当成整个目标的精确大小。这里不承诺定位纯数据内部叶子，不通过解析错误文本决定导航政策。
+
+报告不会冻结或授权传入参数；参数在诊断后变化时，`create()` 仍重新验证。此诊断不改变内容准备、定位失败、取消和超时的既有阶段契约。

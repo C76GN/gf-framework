@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.11.0",
+  "catalog_version": "1.12.0",
   "catalog_api_requirements": [
     {
       "catalog": "recipe",
@@ -565,7 +565,7 @@
     {
       "recipe_id": "achievement-composition",
       "expected_class": "GFSaveSectionProvider",
-      "expected_step_fragment": "before notification, reward, and platform-sync observers are connected"
+      "expected_step_fragment": "restore emits no progress or reward events and preserves accepted definition versions"
     },
     {
       "recipe_id": "environment-query-composition",

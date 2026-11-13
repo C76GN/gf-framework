@@ -29,6 +29,16 @@ const _CONFIG_VALIDATION_REPORT = preload("res://addons/gf/standard/utilities/co
 ## [br]
 var _schemas: Dictionary = {}
 
+## 当前已发布快照；schema 注册表只用于尚未发布时的独立校验。
+## [br]
+## @api private
+var _active_snapshot: GFConfigSnapshot = null
+
+## 每次成功发布递增；候选校验中的重入发布会使旧代际请求失效。
+## [br]
+## @api private
+var _publication_generation: int = 0
+
 
 # --- 公共方法 ---
 
@@ -48,6 +58,8 @@ var _schemas: Dictionary = {}
 ## [br]
 ## @schema return: Variant，子类通常返回记录 Dictionary 或项目自定义记录对象；未命中时可返回 null。
 func get_record(_table_name: StringName, _id: Variant) -> Variant:
+	if _active_snapshot != null:
+		return _active_snapshot.get_record(_table_name, _id)
 	push_error("[GFConfigProvider][config_provider.get_record_unimplemented] Subclasses must implement get_record().")
 	return null
 
@@ -64,11 +76,13 @@ func get_record(_table_name: StringName, _id: Variant) -> Variant:
 ## [br]
 ## @schema return: Variant，子类通常返回 Array[Dictionary]、Dictionary 或项目自定义表容器；未命中时可返回 null。
 func get_table(_table_name: StringName) -> Variant:
+	if _active_snapshot != null:
+		return _active_snapshot.get_table(_table_name)
 	push_error("[GFConfigProvider][config_provider.get_table_unimplemented] Subclasses must implement get_table().")
 	return null
 
 
-## 注册导表结构声明。
+## 注册独立查询适配器的导表结构声明；发布快照后声明随快照管理。
 ## [br]
 ## @api public
 ## [br]
@@ -78,6 +92,8 @@ func get_table(_table_name: StringName) -> Variant:
 ## [br]
 ## @return 注册成功返回 true；schema 无法复制时返回 false，并保留同名旧声明。
 func register_schema(schema: GFConfigTableSchema) -> bool:
+	if _active_snapshot != null:
+		return false
 	if schema == null or schema.get_table_key() == &"":
 		push_error("[GFConfigProvider][config_provider.schema_registration_invalid] Cannot register_schema: schema is null or table_name is empty.")
 		return false
@@ -110,6 +126,8 @@ func unregister_schema(table_name: StringName) -> void:
 ## [br]
 ## @return 已注册返回 true。
 func has_schema(table_name: StringName) -> bool:
+	if _active_snapshot != null:
+		return _active_snapshot.has_schema(table_name)
 	return _schemas.has(table_name)
 
 
@@ -123,6 +141,8 @@ func has_schema(table_name: StringName) -> bool:
 ## [br]
 ## @return 已注册时返回 schema 拷贝；未注册或复制失败时返回 null。
 func get_schema(table_name: StringName) -> GFConfigTableSchema:
+	if _active_snapshot != null:
+		return _active_snapshot.get_schema(table_name)
 	var schema: GFConfigTableSchema = _get_schema_reference(table_name)
 	return schema.duplicate_schema() if schema != null else null
 
@@ -136,6 +156,11 @@ func get_schema(table_name: StringName) -> GFConfigTableSchema:
 ## @return 表名列表。
 func get_schema_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
+	if _active_snapshot != null:
+		for table_name: String in _active_snapshot.get_table_ids():
+			if _active_snapshot.has_schema(StringName(table_name)):
+				var _appended: bool = result.append(table_name)
+		return result
 	for table_name: StringName in _schemas.keys():
 		var _id_appended: bool = result.append(String(table_name))
 	result.sort()
@@ -235,6 +260,59 @@ func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:
 	if schema == null:
 		return record.duplicate(true)
 	return schema.coerce_record(record)
+
+
+## 取得当前快照；调用方可跨发布持有它完成同一版本的多表查询。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已发布快照；从未发布时为 null。
+func get_snapshot() -> GFConfigSnapshot:
+	return _active_snapshot
+
+
+## 取得发布代际，用作下一次发布的预期值。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 成功发布次数。
+func get_publication_generation() -> int:
+	return _publication_generation
+
+
+## 只在代际匹配时一次替换完整快照，不执行项目回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param snapshot: 已通过捕获和校验的候选。
+## [br]
+## @param expected_generation: 准备候选前取得的发布代际。
+## [br]
+## @return 是否发布以及当前代际。
+## [br]
+## @schema return: Dictionary，含 ok: bool、error_kind: StringName 和 generation: int。
+func publish_snapshot(snapshot: GFConfigSnapshot, expected_generation: int) -> Dictionary:
+	var error_kind: StringName = &""
+	if snapshot == null or not snapshot.is_ready():
+		error_kind = &"invalid_snapshot"
+	elif expected_generation != _publication_generation:
+		error_kind = &"stale_generation"
+	elif _publication_generation == 9_223_372_036_854_775_807:
+		error_kind = &"generation_exhausted"
+	if error_kind == &"":
+		_active_snapshot = snapshot
+		_publication_generation += 1
+	return {
+		"ok": error_kind == &"",
+		"error_kind": error_kind,
+		"generation": _publication_generation,
+	}
 
 
 # --- 私有/辅助方法 ---

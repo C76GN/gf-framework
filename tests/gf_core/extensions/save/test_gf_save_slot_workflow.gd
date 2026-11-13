@@ -705,7 +705,7 @@ func test_parse_slot_index_from_custom_template_id() -> void:
 	assert_false(cards[0].is_empty)
 
 
-func test_save_slot_sync_bridge_syncs_adapter_files() -> void:
+func test_slot_file_plan_can_feed_generic_transfer() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new()
 	adapter.data_file_template = "slots/{index}/data.json"
 	adapter.metadata_file_template = "slots/{index}/meta.json"
@@ -721,11 +721,12 @@ func test_save_slot_sync_bridge_syncs_adapter_files() -> void:
 		{ "display_name": "Slot 2" },
 		{ "timestamp_unix": 100 }
 	)
-	var bridge: GFSaveSlotSyncBridge = GFSaveSlotSyncBridge.new()
-
-	var result: Dictionary = bridge.sync_slot(
-		2,
-		adapter,
+	var plan: Dictionary = adapter.build_slot_file_plan(2)
+	assert_true(GFVariantData.get_option_bool(plan, "ok"))
+	var file_names: PackedStringArray = PackedStringArray([GFVariantData.get_option_string(plan, "data_file_name"), GFVariantData.get_option_string(plan, "metadata_file_name"),])
+	var transfer: GFStorageTransfer = GFStorageTransfer.new()
+	var result: Dictionary = transfer.transfer_many(
+		file_names,
 		local,
 		remote
 	)
@@ -737,11 +738,9 @@ func test_save_slot_sync_bridge_syncs_adapter_files() -> void:
 		remote.load_data(adapter.get_metadata_file_name(2)),
 		"data"
 	)
-	var file_names: PackedStringArray = GFVariantData.get_option_packed_string_array(result, "file_names")
-
 	assert_true(
 		GFVariantData.get_option_bool(result, "ok"),
-		"槽位同步桥应同步所选槽位文件。"
+		"普通传输应接受槽位 adapter 已验收的文件计划。"
 	)
 	assert_eq(
 		GFVariantData.get_option_int(remote_data, "hp"),
@@ -756,11 +755,11 @@ func test_save_slot_sync_bridge_syncs_adapter_files() -> void:
 	assert_eq(
 		file_names,
 		PackedStringArray(["slots/2/data.json", "slots/2/meta.json"]),
-		"同步结果应暴露参与同步的文件。"
+		"文件计划应精确列出参与传输的文件。"
 	)
 
 
-func test_save_slot_sync_bridge_rejects_invalid_or_colliding_adapter_templates() -> void:
+func test_slot_transfer_file_plan_rejects_invalid_or_colliding_templates() -> void:
 	var cases: Array[Dictionary] = [
 		{ "data": "shared.sav", "metadata": "slot_{index}_meta.sav", },
 		{ "data": "slot_{index}.sav", "metadata": "slot_{index}.sav", },
@@ -772,17 +771,10 @@ func test_save_slot_sync_bridge_rejects_invalid_or_colliding_adapter_templates()
 		adapter.metadata_file_template = GFVariantData.get_option_string(case, "metadata")
 		var local: MemoryStorageBackend = MemoryStorageBackend.new()
 		var remote: MemoryStorageBackend = MemoryStorageBackend.new()
-		var bridge: GFSaveSlotSyncBridge = GFSaveSlotSyncBridge.new()
-
-		var result: Dictionary = bridge.sync_slot(
-			2,
-			adapter,
-			local,
-			remote
-		)
+		var result: Dictionary = adapter.build_slot_file_plan(2)
 
 		assert_false(GFVariantData.get_option_bool(result, "ok"))
-		assert_true(GFVariantData.get_option_packed_string_array(result, "file_names").is_empty())
+		assert_false(GFVariantData.get_option_string(result, "error").is_empty())
 		assert_eq(
 			local.operation_count,
 			0,

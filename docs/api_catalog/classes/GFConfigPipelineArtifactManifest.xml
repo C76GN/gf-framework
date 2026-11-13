@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="ce1a5549a6bdff1c3830b9391b1ea01326a6fa7ca7c86d839933966eabcccba6">
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="fba9a2132d2775152c31c06b83557957be029429bd65a34be59b605720f9e0fb">
 	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
@@ -46,6 +46,19 @@
 				<tag name="schema">run_result: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report、table_results 和 error；table_results 存在时，每项必须提供绑定实际读取字节的 source_receipt，manifest 不会回退到重新哈希来源路径。</tag>
 				<tag name="schema">return: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="capture_inputs">
+			<signature>func capture_inputs(profile: GFConfigPipelineProfile, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>捕获作者文件、Profile 依赖与登记簿的有界摘要，不读取或写入产物。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 当前作者声明；同时摘要内存声明与已保存资源依赖。</tag>
+				<tag name="param">options: 既有 freshness 文件、总字节和条目预算。</tag>
+				<tag name="return">用于预览后提交及事务内复核的输入凭据。</tag>
+				<tag name="schema">options: Dictionary，可含 max_freshness_file_bytes、max_freshness_total_bytes、max_freshness_entries。</tag>
+				<tag name="schema">return: 封闭 Dictionary，success:bool、digest:String、profile_digest:String、source_digest:String、registry_digest:String、scan_report:Dictionary、error:String；失败digest为空。registry_digest为文件摘要或missing，未启用为空。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_manifest">

@@ -12,30 +12,6 @@ class_name GFSaveProfile
 extends Resource
 
 
-# --- 常量 ---
-
-## 拒绝当前 Profile 未声明的 section。
-## [br]
-## @api public
-## [br]
-## @since 10.0.0
-const UNKNOWN_SECTION_REJECT: StringName = &"reject"
-
-## 读取时接受未知 section，并在后续保存中原样保留。
-## [br]
-## @api public
-## [br]
-## @since 10.0.0
-const UNKNOWN_SECTION_PRESERVE: StringName = &"preserve"
-
-## 读取时接受未知 section，并在后续保存中显式丢弃。
-## [br]
-## @api public
-## [br]
-## @since 10.0.0
-const UNKNOWN_SECTION_DROP: StringName = &"drop"
-
-
 # --- 导出变量 ---
 
 ## 稳定运行时 Profile ID。
@@ -96,14 +72,14 @@ const UNKNOWN_SECTION_DROP: StringName = &"drop"
 ## @since 10.0.0
 @export var load_enabled: bool = true
 
-## 未声明 section 的处理政策。
+## 允许保留但不进入运行状态的分区 ID 清单。
 ##
-## 默认拒绝，避免一次读取后再保存时静默删除未知数据。
+## 默认拒绝所有未知分区；清单在注册时冻结。永久删除分区应由显式文档迁移执行。
 ## [br]
 ## @api public
 ## [br]
-## @since 10.0.0
-@export var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT
+## @since unreleased
+@export var preserved_sections: PackedStringArray = PackedStringArray()
 
 
 # --- 公共方法 ---
@@ -161,20 +137,6 @@ func validate_profile() -> Dictionary:
 			"Profile must support save, load, or both.",
 			"save_enabled"
 		)
-	if (
-		unknown_section_policy
-		not in [
-			UNKNOWN_SECTION_REJECT,
-			UNKNOWN_SECTION_PRESERVE,
-			UNKNOWN_SECTION_DROP,
-		]
-	):
-		_append_issue(
-			report,
-			&"invalid_unknown_section_policy",
-			"Unknown section policy is not supported.",
-			"unknown_section_policy"
-		)
 	var seen_ids: Dictionary = {}
 	for index: int in range(providers.size()):
 		var provider: GFSaveSectionProvider = providers[index]
@@ -212,6 +174,11 @@ func validate_profile() -> Dictionary:
 				{ "section_id": provider.section_id }
 			)
 		seen_ids[provider.section_id] = true
+	_append_nested_issues(
+		report,
+		build_schema().validate_schema(),
+		"schema"
+	)
 	if recovery_policy == null:
 		_append_issue(
 			report,
@@ -240,7 +207,6 @@ func validate_profile() -> Dictionary:
 				"duplicate_section_provider": "Keep exactly one owner for each section id.",
 				"missing_recovery_policy": "Assign an explicit recovery policy.",
 				"profile_disabled": "Enable save, load, or both for the Profile.",
-				"invalid_unknown_section_policy": "Use reject, preserve, or drop.",
 				"required_provider_not_saveable": "Enable save or make the load section optional.",
 			},
 			"fallback_action": "Review the first save profile issue.",
@@ -270,7 +236,7 @@ func build_schema() -> GFSaveDocumentSchema:
 			get_effective_schema_id(),
 			schema_version,
 			section_versions,
-			{ "required_sections": required_sections, "allow_unknown_sections": unknown_section_policy != UNKNOWN_SECTION_REJECT, }
+			{ "required_sections": required_sections, "preserved_sections": preserved_sections, }
 		)
 	)
 

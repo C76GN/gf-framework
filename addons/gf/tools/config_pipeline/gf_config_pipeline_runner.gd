@@ -43,6 +43,11 @@ const _OPERATION_INSPECT: StringName = &"inspect"
 ## [br]
 const _OUTPUT_PATH_POLICY_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd")
 
+## 两代作者 IR 的纯数据差异计算，不另建解析器。
+## [br]
+## @api private
+const _DIFF_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_diff.gd")
+
 
 # --- 公共方法 ---
 
@@ -132,17 +137,17 @@ func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
 ## @param profile_path: Profile 资源路径，通常为 .tres 或 .res。
 ## [br]
 ## @param options: 加载和构建覆盖选项。
 ## [br]
-## @schema options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。
+## @schema options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。可另含target:String/StringName选择Profile消费目标。
 ## [br]
 ## @return: 运行结果。
 ## [br]
-## @schema return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、error_code 和 error。
+## @schema return: Dictionary，包含 success、operation、profile_path、profile_id、output_path、database、report、table_results、load_result、build_result、error_code 和 error。build_result包含author_ir、consumer_target与只读stable_id_plan，形状同GFConfigPipeline.build_profile。
 func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
 	var load_result: Dictionary = load_profile(profile_path, options)
 	if not GFVariantData.get_option_bool(load_result, "success"):
@@ -175,7 +180,7 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 ## [br]
 ## @param options: 与 build_profile_path 相同的加载和构建覆盖选项。
 ## [br]
-## @schema options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes 和 work_limits；inspect 强制完整数据库与 Schema 校验。
+## @schema options: Dictionary，可包含 type_hint、cache_mode、build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes 和 work_limits；inspect 强制完整数据库与 Schema 校验。可另含target:String/StringName；报告所选目标的生效字段及其原始来源收据。
 ## [br]
 ## @return: 无数据记录载荷的只读检查报告。
 ## [br]
@@ -217,13 +222,13 @@ func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
 ## @param profile_path: Profile 资源路径，通常为 .tres 或 .res。
 ## [br]
 ## @param options: 加载、构建、保存、访问器生成和增量导出覆盖选项；output_path、非空 access_output_path 与使用中的 manifest_path 必须位于 res:// 或 user:// URI 域，并在 freshness 判断前完成规范化与校验。
 ## [br]
-## @schema options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite，其中 parent opt-in 不能越过 resource URI 根。
+## @schema options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite，其中 parent opt-in 不能越过 resource URI 根。可另含target:String/StringName、register_ids:bool及expected_input_digest:String，沿用GFConfigPipeline.export_profile的登记和输入凭据契约。
 ## [br]
 ## @return: 运行结果。
 ## [br]
@@ -239,9 +244,26 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 
 	var profile: GFConfigPipelineProfile = _get_profile_from_load_result(load_result)
 	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
+	var consumer: Dictionary = profile.resolve_consumer(options)
+	if not GFVariantData.get_option_bool(consumer, "success"):
+		var invalid_consumer: Dictionary = GFConfigPipeline.new().export_profile(profile, options)
+		return _make_export_run_result(
+			profile_path,
+			load_result,
+			invalid_consumer
+		)
+	var consumer_options: Dictionary = consumer["options"]
+	if consumer_options.has("expected_input_digest"):
+		var input_capture: Dictionary = manifest_helper.capture_inputs(profile, consumer_options)
+		if not GFVariantData.get_option_bool(input_capture, "success") or GFVariantData.get_option_string(consumer_options, "expected_input_digest") != GFVariantData.get_option_string(input_capture, "digest"):
+			return _make_export_run_result(
+				profile_path,
+				load_result,
+				GFConfigPipeline.new().export_profile(profile, consumer_options)
+			)
 	var path_plan: Dictionary = _make_export_output_path_plan(
 		profile,
-		options,
+		consumer_options,
 		manifest_helper
 	)
 	if not GFVariantData.get_option_bool(path_plan, "success"):
@@ -334,6 +356,95 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 	return run_result
 
 
+## 比较两个作者 Profile 的已验收 IR；不依赖产物格式，不写产物或登记簿。
+##
+## 基线 Profile 可来自另一个目录或版本检出；必须显式提供，不能把缺失基线当作没有变化。
+## 两边均使用相同 target 选择；比较完整作者数据，消费目标影响是保守上界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param profile_path: 当前 Profile 资源路径。
+## [br]
+## @param options: 构建选项及明确的基线。
+## [br]
+## @schema options: Dictionary，必须包含 baseline_profile:String；其余为 build_profile_path 选项。目标选择对两边一致。
+## [br]
+## @return 不含业务值、工作 Resource 或登记候选的只读报告。
+## [br]
+## @schema return: Dictionary，success:bool、operation:StringName=diff、profile_path:String、baseline_profile:String、diff_report:Dictionary（schema变化、记录增删、字段变化及保守引用/目标影响）、stable_id_changes:Array[Dictionary]、input_capture:Dictionary、error:String、error_code:int。
+func diff_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
+	var baseline_path: String = GFVariantData.get_option_string(options, "baseline_profile")
+	var result: Dictionary = {
+		"success": false,
+		"operation": &"diff",
+		"profile_path": profile_path,
+		"baseline_profile": baseline_path,
+		"diff_report": {},
+		"stable_id_changes": [],
+		"input_capture": {},
+		"error": "差异预览需要合法基线 Profile。",
+		"error_code": ERR_INVALID_DATA,
+	}
+	if baseline_path.is_empty():
+		return result
+	var load_result: Dictionary = load_profile(profile_path, options)
+	if not GFVariantData.get_option_bool(load_result, "success"):
+		result["error"] = GFVariantData.get_option_string(load_result, "error")
+		return result
+	var profile: GFConfigPipelineProfile = _get_profile_from_load_result(load_result)
+	var helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
+	var baseline_load: Dictionary = load_profile(baseline_path, options)
+	if not GFVariantData.get_option_bool(baseline_load, "success"):
+		result["error"] = GFVariantData.get_option_string(baseline_load, "error")
+		return result
+	var baseline_profile: GFConfigPipelineProfile = _get_profile_from_load_result(baseline_load)
+	var baseline_capture: Dictionary = helper.capture_inputs(baseline_profile, options)
+	var captured: Dictionary = helper.capture_inputs(profile, options)
+	if not GFVariantData.get_option_bool(captured, "success") or not GFVariantData.get_option_bool(baseline_capture, "success"):
+		result["error"] = GFVariantData.get_option_string(captured, "error")
+		return result
+	var current: Dictionary = GFConfigPipeline.new().build_profile(profile, options)
+	var baseline: Dictionary = GFConfigPipeline.new().build_profile(baseline_profile, options)
+	if not GFVariantData.get_option_bool(current, "success") or not GFVariantData.get_option_bool(baseline, "success"):
+		result["error"] = (
+			"当前或基线 Profile 未通过完整构建：%s %s"
+			% [GFVariantData.get_option_string(current, "error"), GFVariantData.get_option_string(baseline, "error")]
+		)
+		return result
+	var old_value: Variant = baseline.get("author_ir")
+	var new_value: Variant = current.get("author_ir")
+	if not old_value is GFConfigPipelineIR or not new_value is GFConfigPipelineIR:
+		return result
+	var before: GFConfigPipelineIR = old_value
+	var after: GFConfigPipelineIR = new_value
+	var difference: Dictionary = _DIFF_SCRIPT.compare(
+		before,
+		after,
+		profile.consumer_targets,
+		options
+	)
+	var after_capture: Dictionary = helper.capture_inputs(profile, options)
+	var baseline_after: Dictionary = helper.capture_inputs(baseline_profile, options)
+	if (
+		not GFVariantData.get_option_bool(after_capture, "success")
+		or captured.get("digest") != after_capture.get("digest")
+		or not GFVariantData.get_option_bool(baseline_after, "success")
+		or baseline_capture.get("digest") != baseline_after.get("digest")
+	):
+		result["error"] = "当前或基线作者输入在差异计算期间变化；请重新预览。"
+		return result
+	var id_plan: Dictionary = GFVariantData.get_option_dictionary(current, "stable_id_plan")
+	result["success"] = GFVariantData.get_option_bool(difference, "success")
+	result["diff_report"] = difference
+	result["stable_id_changes"] = GFVariantData.get_option_array(id_plan, "changes")
+	result["input_capture"] = captured
+	result["error"] = GFVariantData.get_option_string(difference, "error")
+	result["error_code"] = OK if result["success"] else ERR_INVALID_DATA
+	return result
+
+
 # --- 私有/辅助方法 ---
 
 ## 仅接受本次成功构建的 sealed IR；从各表实际读取收据补齐来源，不泄漏记录与工作 Resource。
@@ -350,12 +461,23 @@ func _describe_validated_build(run_result: Dictionary) -> Dictionary:
 		return {}
 	var table_results: Array = GFVariantData.get_option_array(run_result, "table_results")
 	var descriptions: Array = GFVariantData.get_option_array(description, "tables")
-	if table_results.size() != descriptions.size():
+	var results_by_table: Dictionary = {}
+	var author_value: Variant = build_result.get("author_ir")
+	if not author_value is GFConfigPipelineIR:
 		return {}
+	var author_ir: GFConfigPipelineIR = author_value
+	var author_tables: Array[GFConfigPipelineTableIR] = author_ir.get_tables()
+	if author_tables.size() != table_results.size():
+		return {}
+	for source_index: int in range(author_tables.size()):
+		results_by_table[author_tables[source_index].get_table_name()] = table_results[source_index]
 	var tables: Array[Dictionary] = []
 	for index: int in range(descriptions.size()):
 		var table_description: Dictionary = GFVariantData.as_dictionary(descriptions[index])
-		var table_result: Dictionary = GFVariantData.as_dictionary(table_results[index])
+		var table_key: StringName = GFVariantData.get_option_string_name(table_description, "table_name")
+		if not results_by_table.has(table_key):
+			return {}
+		var table_result: Dictionary = results_by_table[table_key]
 		var source_map: Dictionary = GFVariantData.get_option_dictionary(table_description, "source_map")
 		var table_metadata: Dictionary = GFVariantData.get_option_dictionary(table_description, "metadata")
 		var schema_description: Dictionary = GFVariantData.get_option_dictionary(table_description, "schema")

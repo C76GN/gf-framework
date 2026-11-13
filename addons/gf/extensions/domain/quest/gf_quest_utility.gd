@@ -1,7 +1,7 @@
-## GFQuestUtility: 轻量级任务进度监听系统。
+## GFQuestUtility: 冻结定义驱动的任务进度与生命周期。
 ##
-## 基于 `simple event` 将业务事件映射为任务进度累积，
-## 适合用于成就、收集与击杀类目标的低成本跟踪。
+## 历史和当前指标由项目查询或显式输入提供，累计指标只接受接取后的整数增量。
+## 完成策略与指标模式分离；快照恢复不查询指标、不重放任务事件，也不发放奖励。
 ## [br]
 ## @api public
 ## [br]
@@ -122,24 +122,6 @@ const _INT64_MAX: int = 9223372036854775807
 ## @api private
 const _INT64_MIN: int = -9223372036854775807 - 1
 
-## 用于检查浮点 payload 是否达到 int64 上界的独占阈值。
-## [br]
-## @api private
-const _INT64_UPPER_EXCLUSIVE_AS_FLOAT: float = 9.223372036854776e18
-
-## 用于检查浮点 payload 是否低于 int64 下界的浮点阈值。
-## [br]
-## @api private
-const _INT64_MIN_AS_FLOAT: float = -9.223372036854776e18
-
-
-# --- 公共变量 ---
-
-## 是否允许事件传入负数进度。默认关闭，避免任务进度被异常 payload 反向扣减。
-## [br]
-## @api public
-var allow_negative_progress: bool = false
-
 
 # --- 私有变量 ---
 
@@ -161,123 +143,164 @@ var _event_to_quests: Dictionary = {}
 ## @api private
 var _event_handlers: Dictionary = {}
 
+## 最新已注册定义；已接取状态另外持有冻结版本。
+## [br]
+## @api private
+var _definitions: Dictionary = {}
+
+## 指标 ID 到项目查询函数，函数无参数并返回 int，其他结果表示不可用。
+## [br]
+## @api private
+var _metric_queries: Dictionary = {}
+
+## 项目显式输入的查询型指标缓存；恢复快照时清空。
+## [br]
+## @api private
+var _metric_values: Dictionary = {}
+
+## 查询型指标到活动任务的索引。
+## [br]
+## @api private
+var _query_to_quests: Dictionary = {}
+
+## 指标输入与查询绑定的修订号，防止重入结果覆盖新输入。
+## [br]
+## @api private
+var _metric_revisions: Dictionary = {}
+
+## 为指标绑定和输入分配单调修订号。
+## [br]
+## @api private
+var _next_metric_revision: int = 0
+
+## 正在执行的查询，用于拒绝同指标递归查询。
+## [br]
+## @api private
+var _refreshing_metrics: Dictionary = {}
+
+## 整批恢复或释放后让在途同步回调失效。
+## [br]
+## @api private
+var _epoch: int = 0
+
+## 释放后关闭新任务入口。
+## [br]
+## @api private
+var _disposed: bool = false
+
+## 每个任务至多保留一次待发进度；同任务重入合并到最新状态。
+## [br]
+## @api private
+var _pending_progress: Dictionary[StringName, _QuestData] = {}
+
+## 阻止同步信号重入产生逆序通知。
+## [br]
+## @api private
+var _publishing_progress: bool = false
+
+
+# --- GF 生命周期方法 ---
+
+## 只续发超过单次256条预算的进度通知，不轮询指标查询。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _delta: 不用于指标或任务计时。
+func tick(_delta: float) -> void:
+	_drain_progress_notifications()
+
 
 # --- 公共方法 ---
 
-## 开始监听一个任务。
+## 注册新定义或发布更高版本；已接取和终态任务保留原定义。
 ## [br]
 ## @api public
 ## [br]
-## @since 3.17.0
+## @since unreleased
 ## [br]
-## @param quest_id: 任务 ID。
+## @param definition: 通过 GFQuestDefinition 工厂创建的定义。
 ## [br]
-## @param target_event: 推进该任务的事件 ID。
-## [br]
-## @param target_count: 完成任务所需的累计次数。
-func start_quest(
-	quest_id: StringName,
-	target_event: StringName,
-	target_count: int = 1
-) -> void:
-	if quest_id == &"" or target_event == &"":
-		push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
-		return
-
-	if _quests.has(quest_id):
-		push_warning("[GFQuestUtility][quest_utility.duplicate_quest] Quest already exists: %s." % quest_id)
-		return
-
-	var data: _QuestData = _create_quest_data(
-		quest_id,
-		target_event,
-		target_count,
-		{}
-	)
-	data._status = STATUS_ACTIVE
-	_quests[quest_id] = data
-	if data._target_count > 0:
-		_attach_quest_to_event(data)
-
-	quest_started.emit(quest_id)
-	if not _is_current_active_quest(data):
-		return
-
-	if data._target_count <= 0:
-		quest_progressed.emit(
-			quest_id,
-			data._current_count,
-			data._target_count
-		)
-		var _completed: bool = _try_complete_quest(data)
-
-
-## 定义一个可接取任务，但暂不开始监听事件。
-## [br]
-## @api public
-## [br]
-## @param quest_id: 任务 ID。
-## [br]
-## @param target_event: 推进该任务的事件 ID。
-## [br]
-## @param target_count: 完成任务所需的累计次数。
-## [br]
-## @param metadata: 任务元数据。框架不解释该字段。
-## [br]
-## @schema metadata: Dictionary，项目自定义任务元数据；GF 会复制保存并在任务报告中透传。
-func define_quest(
-	quest_id: StringName,
-	target_event: StringName,
-	target_count: int = 1,
-	metadata: Dictionary = {}
-) -> void:
-	if quest_id == &"" or target_event == &"":
-		push_error("[GFQuestUtility][quest_utility.empty_quest_event] quest_id and target_event must not be empty.")
-		return
-	if _quests.has(quest_id):
-		push_warning("[GFQuestUtility][quest_utility.duplicate_quest] Quest already exists: %s." % quest_id)
-		return
-
-	var data: _QuestData = _create_quest_data(
-		quest_id,
-		target_event,
-		target_count,
-		metadata
-	)
-	data._status = STATUS_AVAILABLE
+## @return 注册成功为 true；重复版本内容不同、版本回退、无效定义或超过4096任务时拒绝。
+func define_quest(definition: GFQuestDefinition) -> bool:
+	if (
+		_disposed
+		or definition == null
+		or definition.get_quest_id() == &""
+	):
+		return false
+	var quest_id: StringName = definition.get_quest_id()
+	var current_value: Variant = _definitions.get(quest_id)
+	if current_value is GFQuestDefinition:
+		var current: GFQuestDefinition = current_value
+		if definition.get_version() <= current.get_version():
+			return definition.to_record() == current.to_record()
+	elif _definitions.size() >= 4096:
+		return false
+	_definitions[quest_id] = definition
+	var data: _QuestData = _get_quest_data(quest_id)
+	if data != null:
+		if data._status == STATUS_AVAILABLE:
+			data._definition = definition
+			data._event_id = definition.get_metric_id()
+			data._target_count = definition.get_target()
+			data._metadata = GFVariantData.get_option_dictionary(
+				definition.to_record(),
+				"metadata"
+			)
+		return true
+	data = _create_quest_data(definition)
 	_quests[quest_id] = data
 	quest_available.emit(quest_id)
+	return true
 
 
-## 接取一个已定义任务，并开始监听事件。
+## 接取任务，冻结当前定义与项目提供的接取信息。
 ## [br]
 ## @api public
 ## [br]
-## @param quest_id: 任务 ID。
+## @since unreleased
 ## [br]
-## @return: 接取成功返回 true。
-func accept_quest(quest_id: StringName) -> bool:
+## @param quest_id: 已注册的任务身份。
+## [br]
+## @param acceptance_data: 项目记录的周期、业务请求身份或时间样本，不由框架推断。
+## [br]
+## @schema acceptance_data: 原生纯数据 Dictionary，深度16、2048节点、64KiB；不包含回调或对象。
+## [br]
+## @return 接取成功或原本已经 active 时为 true；终态、非法数据或条件拒绝时为 false。
+func accept_quest(quest_id: StringName, acceptance_data: Dictionary = {}) -> bool:
 	var data: _QuestData = _get_quest_data(quest_id)
 	if (
 		data == null
-		or data._status == STATUS_COMPLETED
-		or data._status == STATUS_CANCELLED
-		or data._status == STATUS_FAILED
+		or data._checking_acceptance
+		or _disposed
 	):
 		return false
 	if data._status == STATUS_ACTIVE:
 		return true
-	if data._event_id == &"":
-		push_error("[GFQuestUtility][quest_utility.empty_target_event] accept_quest failed: target_event is empty.")
+	if data._status != STATUS_AVAILABLE:
 		return false
+	var measured: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+		acceptance_data,
+		{
+			"allow_floats": true,
+			"max_depth": 16,
+			"max_items": 2048,
+			"max_output_bytes": 65536,
+			"max_string_length": 65536,
+		}
+	)
+	if not GFVariantData.get_option_bool(measured, "ok"):
+		return false
+	var frozen_acceptance: Dictionary = acceptance_data.duplicate(true)
+	var definition: GFQuestDefinition = data._definition
+	data._checking_acceptance = true
 	var acceptance_result: Dictionary = _check_conditions(data._acceptance_conditions, data)
-	if not _is_current_quest_in_status(data, STATUS_AVAILABLE):
+	data._checking_acceptance = false
+	if not _is_current_quest_in_status(data, STATUS_AVAILABLE) or definition != data._definition:
 		return false
-	if not GFVariantData.get_option_bool(
-		acceptance_result,
-		"ok",
-		true
-	):
+	if not GFVariantData.get_option_bool(acceptance_result, "ok"):
 		quest_acceptance_blocked.emit(
 			quest_id,
 			GFVariantData.get_option_string(
@@ -287,34 +310,43 @@ func accept_quest(quest_id: StringName) -> bool:
 			)
 		)
 		return false
-
 	data._status = STATUS_ACTIVE
-	if data._target_count > 0:
-		_attach_quest_to_event(data)
+	data._accepted = true
+	data._acceptance_data = frozen_acceptance
+	data._metric_available = definition.get_mode() == GFQuestDefinition.SINCE_ACCEPTANCE
+	_attach_quest_to_event(data)
 	quest_started.emit(quest_id)
 	if not _is_current_active_quest(data):
 		return true
-	if data._target_count <= 0:
-		quest_progressed.emit(
-			quest_id,
-			data._current_count,
-			data._target_count
-		)
-		var _completed: bool = _try_complete_quest(data)
+	if definition.get_mode() != GFQuestDefinition.SINCE_ACCEPTANCE:
+		var _refreshed: bool = refresh_metric(definition.get_metric_id())
+	else:
+		_maybe_complete_automatically(data)
 	return true
 
 
-## 手动完成一个任务。
+## 确认完成；查询型任务先取得新指标，external 策略只检查项目阻塞器。
 ## [br]
 ## @api public
 ## [br]
-## @param quest_id: 任务 ID。
+## @since unreleased
 ## [br]
-## @return: 完成成功返回 true。
+## @param quest_id: 活动任务 ID。
+## [br]
+## @return 本次确认成功为 true；未达标、指标不可用、已终止或被阻塞时为 false。
 func complete_quest(quest_id: StringName) -> bool:
 	var data: _QuestData = _get_quest_data(quest_id)
-	if data == null or data._status != STATUS_ACTIVE:
+	if (
+		data == null
+		or data._status != STATUS_ACTIVE
+		or data._checking_completion
+	):
 		return false
+	if data._definition.get_completion() != GFQuestDefinition.EXTERNAL and data._definition.get_mode() != GFQuestDefinition.SINCE_ACCEPTANCE:
+		if not refresh_metric(data._event_id):
+			return false
+		if _is_current_quest_in_status(data, STATUS_COMPLETED):
+			return true
 	return _try_complete_quest(data)
 
 
@@ -361,8 +393,9 @@ func fail_quest(quest_id: StringName, reason: String = "") -> bool:
 
 	_detach_quest_from_event(data)
 	data._status = STATUS_FAILED
+	data._failure_reason = reason.left(4096)
 	if not reason.is_empty():
-		data._metadata["last_failure_reason"] = reason
+		data._metadata["last_failure_reason"] = data._failure_reason
 	quest_failed.emit(quest_id)
 	return true
 
@@ -498,10 +531,12 @@ func get_quest_tree_report(root_quest_id: StringName) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since unreleased
+## [br]
 ## @param event_id: 事件 ID。
 ## [br]
 ## @param amount: 本次增加的进度值。
-func emit_quest_event(event_id: StringName, amount: int = 1) -> void:
+func emit_quest_event(event_id: StringName, amount: int) -> void:
 	var arch: GFArchitecture = _get_arch()
 	if arch != null:
 		arch.send_simple_event(event_id, amount)
@@ -535,6 +570,10 @@ func get_quest_progress(quest_id: StringName) -> float:
 	if _quests.has(quest_id):
 		var data: _QuestData = _get_quest_data(quest_id)
 		if data == null:
+			return 0.0
+		if data._definition.get_completion() == GFQuestDefinition.EXTERNAL:
+			return 1.0 if data._is_completed else 0.0
+		if not data._metric_available:
 			return 0.0
 		if data._target_count <= 0:
 			return 1.0
@@ -584,11 +623,13 @@ func get_quests_by_status(status: StringName) -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
+## @since unreleased
+## [br]
 ## @param quest_id: 任务 ID。
 ## [br]
 ## @return: 任务报告字典。
 ## [br]
-## @schema return: Dictionary，包含 quest_id、event_id、target_count、current_count、is_completed、status、parent_id、child_ids、metadata、acceptance_condition_count 与 completion_blocker_count。
+## @schema return: Dictionary，包含 quest_id、event_id、target_count、current_count、is_completed、status、parent_id、child_ids、metadata、acceptance_condition_count、completion_blocker_count、definition_version、metric_mode、completion_policy、metric_available、eligible、accepted 与 acceptance_data。资格是缓存状态，不执行查询或阻塞器。
 func get_quest_report(quest_id: StringName) -> Dictionary:
 	var data: _QuestData = _get_quest_data(quest_id)
 	if data == null:
@@ -616,27 +657,604 @@ func get_debug_snapshot() -> Dictionary:
 	}
 
 
+## 注册项目指标查询；不自动调用，查询必须无参数并返回 int。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param metric_id: 非空指标身份，最多256字符。
+## [br]
+## @param query: 同步主线程查询；无效或非 int 返回值使该指标不可用。
+## [br]
+## @return 绑定成功；最多4096个查询。
+func register_metric_query(metric_id: StringName, query: Callable) -> bool:
+	if (
+		_disposed
+		or not query.is_valid()
+		or not _valid_metric_id(metric_id)
+		or _metric_values.has(metric_id)
+	):
+		return false
+	if not _metric_queries.has(metric_id) and _metric_queries.size() >= 4096:
+		return false
+	_metric_queries[metric_id] = query
+	_touch_metric(metric_id)
+	_invalidate_metric(metric_id)
+	return true
+
+
+## 移除查询和该指标的显式输入，已有活动任务的指标变为不可用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param metric_id: 指标身份。
+func clear_metric_source(metric_id: StringName) -> void:
+	if not _metric_queries.has(metric_id) and not _metric_values.has(metric_id):
+		return
+	var _removed_query: bool = _metric_queries.erase(metric_id)
+	var _removed_value: bool = _metric_values.erase(metric_id)
+	var _removed_revision: bool = _metric_revisions.erase(metric_id)
+	_invalidate_metric(metric_id)
+
+
+## 输入历史或当前指标值，并仅更新受此指标影响的活动任务。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param metric_id: 项目指标身份。
+## [br]
+## @param value: 精确整数；每个定义自行决定是否接受负数。
+## [br]
+## @return 输入被接受时为 true。注册了查询时拒绝混用显式输入；最多4096个缓存指标。
+func set_metric_value(metric_id: StringName, value: int) -> bool:
+	if (
+		_disposed
+		or not _valid_metric_id(metric_id)
+		or _metric_queries.has(metric_id)
+	):
+		return false
+	if not _metric_values.has(metric_id) and _metric_values.size() >= 4096:
+		return false
+	_metric_values[metric_id] = value
+	_touch_metric(metric_id)
+	_apply_metric_value(metric_id, value)
+	return true
+
+
+## 显式刷新一个指标；不进行每帧全量轮询。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param metric_id: 要刷新的历史或当前指标。
+## [br]
+## @return 查询或显式缓存有效且未被重入替换时为 true；非法结果使指标不可用。
+func refresh_metric(metric_id: StringName) -> bool:
+	if _disposed or _refreshing_metrics.has(metric_id):
+		return false
+	var epoch: int = _epoch
+	var revision: int = GFVariantData.get_option_int(_metric_revisions, metric_id)
+	_refreshing_metrics[metric_id] = true
+	var value: Variant = _metric_values.get(metric_id)
+	if _metric_queries.has(metric_id):
+		var query: Callable = _metric_queries[metric_id]
+		value = query.call() if query.is_valid() else null
+		if epoch != _epoch:
+			return false
+		if revision != GFVariantData.get_option_int(_metric_revisions, metric_id):
+			var _removed_stale: bool = _refreshing_metrics.erase(metric_id)
+			return false
+	if not value is int:
+		_invalidate_metric(metric_id)
+		if epoch == _epoch:
+			var _removed_invalid: bool = _refreshing_metrics.erase(metric_id)
+		return false
+	var integer_value: int = value
+	_apply_metric_value(metric_id, integer_value)
+	if epoch != _epoch:
+		return false
+	var _removed: bool = _refreshing_metrics.erase(metric_id)
+	return revision == GFVariantData.get_option_int(_metric_revisions, metric_id)
+
+
+## 查询缓存指标是否满足完成门槛，不执行项目查询或完成阻塞器。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param quest_id: 任务身份。
+## [br]
+## @return 活动任务的指标可用且达标时为 true；external 表示允许项目尝试确认，并非业务事实已成立。
+func is_quest_eligible(quest_id: StringName) -> bool:
+	var data: _QuestData = _get_quest_data(quest_id)
+	return _is_current_active_quest(data) and _is_eligible(data)
+
+
+## 导出一个任务的冻结状态；报告和状态副本都不能修改运行任务。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param quest_id: 任务身份。
+## [br]
+## @return 独立状态；任务不存在时为 null。
+func get_quest_state(quest_id: StringName) -> GFQuestState:
+	var data: _QuestData = _get_quest_data(quest_id)
+	return GFQuestState.from_record(data._to_state_record()) if data != null else null
+
+
+## 导出扁平任务快照，包含父级身份但不保存运行时回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 可持久化的有界副本；超过整包预算时返回空字典，调用方不得将空字典作为有效存档。
+## [br]
+## @schema return: 封闭 Dictionary，format_version:int=1、states:Array[Dictionary]（GFQuestState记录，按quest_id排序）。最多4096任务，整个包深度24、200000节点、16MiB。
+func export_snapshot() -> Dictionary:
+	var records: Array[Dictionary] = []
+	var identities: Array = _quests.keys()
+	identities.sort()
+	for quest_id: StringName in identities:
+		records.append(_get_quest_data(quest_id)._to_state_record())
+	var snapshot: Dictionary = { "format_version": 1, "states": records }
+	return snapshot if _within_snapshot_budget(snapshot) else {}
+
+
+## 原子恢复任务状态，不发出任务或奖励事件，不执行查询和条件回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param snapshot: export_snapshot 产生的封闭快照。
+## [br]
+## @schema snapshot: 与 export_snapshot.return 相同。未知任务、重复身份、无效状态、缺失父级和环均拒绝。已接取任务采用快照定义；未接取任务采用当前目录定义。目录中新增且快照未包含的任务从available开始。
+## [br]
+## @return 全部验证和替换成功时为 true；失败不改变任务、监听或输入缓存。查询型活动任务恢复为指标不可用，须显式刷新。
+func restore_snapshot(snapshot: Dictionary) -> bool:
+	var prepared: Dictionary = _prepare_snapshot_restore(snapshot)
+	var report: Dictionary = prepared["report"]
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return false
+	var candidates: Dictionary = prepared["candidates"]
+	for quest_id: StringName in candidates:
+		var data: _QuestData = candidates[quest_id]
+		var previous: _QuestData = _get_quest_data(quest_id)
+		if previous != null:
+			data._acceptance_conditions = previous._acceptance_conditions.duplicate()
+			data._completion_blockers = previous._completion_blockers.duplicate()
+	_epoch += 1
+	_unregister_all_event_handlers()
+	_event_to_quests.clear()
+	_pending_progress.clear()
+	_query_to_quests.clear()
+	_metric_values.clear()
+	_refreshing_metrics.clear()
+	_quests = candidates
+	for quest_id: StringName in _quests:
+		var data: _QuestData = _get_quest_data(quest_id)
+		if data._status == STATUS_ACTIVE:
+			_attach_quest_to_event(data)
+	return true
+
+
+## 只读检查当前目录能否恢复快照，不替换任务、监听或指标缓存。
+##
+## 与 restore_snapshot 共用候选准备，不执行查询、条件、任务信号或奖励。
+## 报告只说明调用当时的输入与目录；正式恢复会重新验证，不能复用旧报告准入。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param snapshot: 待恢复的封闭快照。
+## [br]
+## @schema snapshot: 与 restore_snapshot.snapshot 相同；不要求先执行实际恢复。
+## [br]
+## @return 当前输入和目录的独立校验报告；不输出错误日志。
+## [br]
+## @schema return: 封闭基础字段 ok:bool、error_kind:String、path:String；成功时后两项为空。容量错误可含 limit:int、observed:int；纯数据错误另含 measurement:Dictionary、limits:Dictionary，并可含 limit_kind:String、observed_is_lower_bound:bool。path 为从输入参数名开始的 / 分段路径，~ 和 / 分别转义为 ~0 和 ~1；空路径指当前服务。observed_is_lower_bound=true 时 observed 只是确定下界，measurement 失败计数只描述已遍历前缀。报告不含对象或可复用准入令牌。 /snapshot/states/N 指输入中第 N 个状态，N 从 0 开始；invalid_state 定位整条状态记录，其内部字段须符合 GFQuestState 记录契约。
+func validate_restore_snapshot(snapshot: Dictionary) -> Dictionary:
+	var prepared: Dictionary = _prepare_snapshot_restore(snapshot)
+	var report: Dictionary = prepared["report"]
+	return report
+
+
 # --- 框架内部方法 ---
 
-## 初始化任务监听状态。
+## 初始化空目录、查询绑定和任务状态。
 ## [br]
 ## @api framework_internal
 func init() -> void:
-	_unregister_all_event_handlers()
-	_quests.clear()
-	_event_to_quests.clear()
+	_clear_runtime()
+	_disposed = false
 
 
-## 释放任务监听状态并注销 simple event 回调。
+## 释放所有回调与状态，并使重入中的旧查询失效。
 ## [br]
 ## @api framework_internal
 func dispose() -> void:
-	_unregister_all_event_handlers()
-	_quests.clear()
-	_event_to_quests.clear()
+	_disposed = true
+	_clear_runtime()
 
 
 # --- 私有/辅助方法 ---
+
+## 完整构造与校验候选，不复制运行回调、不提交索引、不执行查询、条件或信号。
+## [br]
+## @api private
+func _prepare_snapshot_restore(snapshot: Dictionary) -> Dictionary:
+	if _disposed:
+		return { "report": _validation_report("service_disposed") }
+	for key: Variant in snapshot:
+		if not key is String:
+			return { "report": _validation_report("invalid_key_type", "/snapshot") }
+		var field: String = key
+		if field not in ["format_version", "states"]:
+			var path: String = "/snapshot/" + field.replace("~", "~0").replace("/", "~1")
+			return { "report": _validation_report("unknown_field", path) }
+	if not snapshot.has("format_version"):
+		return { "report": _validation_report("required", "/snapshot/format_version") }
+	if not snapshot.get("format_version") is int:
+		return { "report": _validation_report("invalid_type", "/snapshot/format_version") }
+	if snapshot["format_version"] != 1:
+		return { "report": _validation_report("unsupported_version", "/snapshot/format_version") }
+	if not snapshot.has("states"):
+		return { "report": _validation_report("required", "/snapshot/states") }
+	if not snapshot.get("states") is Array:
+		return { "report": _validation_report("invalid_type", "/snapshot/states") }
+	var records: Array = snapshot["states"]
+	if records.size() > 4096:
+		return {
+			"report": _validation_report(
+				"state_limit",
+				"/snapshot/states",
+				4096,
+				records.size()
+			),
+		}
+	var report: Dictionary = _validate_snapshot_budget(snapshot)
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return { "report": report }
+	var candidates: Dictionary = {}
+	for quest_id: StringName in _definitions:
+		var definition: GFQuestDefinition = _definitions[quest_id]
+		candidates[quest_id] = _create_quest_data(definition)
+	var record_paths: Dictionary = {}
+	for index: int in range(records.size()):
+		var path: String = "/snapshot/states/" + str(index)
+		var value: Variant = records[index]
+		if not value is Dictionary:
+			return { "report": _validation_report("invalid_type", path) }
+		var record: Dictionary = value
+		var state: GFQuestState = GFQuestState.from_record(record)
+		if state == null:
+			return { "report": _validation_report("invalid_state", path) }
+		var definition: GFQuestDefinition = state.get_definition()
+		var quest_id: StringName = definition.get_quest_id()
+		if not _definitions.has(quest_id):
+			return {
+				"report": _validation_report(
+					"unknown_quest",
+					path + "/definition/quest_id"
+				),
+			}
+		if record_paths.has(quest_id):
+			return {
+				"report": _validation_report(
+					"duplicate_id",
+					path + "/definition/quest_id"
+				),
+			}
+		record_paths[quest_id] = path
+		var accepted: bool = GFVariantData.get_option_bool(record, "accepted")
+		if not accepted:
+			definition = _definitions[quest_id]
+		var data: _QuestData = _create_quest_data(definition)
+		data._status = state.get_status()
+		data._current_count = state.get_current_count()
+		data._metric_available = state.is_metric_available()
+		data._accepted = accepted
+		data._acceptance_data = GFVariantData.get_option_dictionary(record, "acceptance_data")
+		data._parent_id = GFVariantData.get_option_string_name(record, "parent_id")
+		data._failure_reason = GFVariantData.get_option_string(record, "failure_reason")
+		data._is_completed = data._status == STATUS_COMPLETED
+		if not data._failure_reason.is_empty():
+			data._metadata["last_failure_reason"] = data._failure_reason
+		if data._status == STATUS_ACTIVE and definition.get_mode() != GFQuestDefinition.SINCE_ACCEPTANCE:
+			data._metric_available = false
+		candidates[quest_id] = data
+	report = _link_candidate_tree(candidates, record_paths)
+	if not GFVariantData.get_option_bool(report, "ok"):
+		return { "report": report }
+	return { "report": report, "candidates": candidates }
+
+
+## 每次创建独立纯数据报告，不保存全局错误或可复用的准入资格。
+## [br]
+## @api private
+static func _validation_report(
+	error_kind: String = "",
+	path: String = "",
+	limit: int = -1,
+	observed: int = -1
+) -> Dictionary:
+	var report: Dictionary = {
+		"ok": error_kind.is_empty(),
+		"error_kind": error_kind,
+		"path": path,
+	}
+	if limit >= 0:
+		report["limit"] = limit
+		report["observed"] = observed
+	return report
+
+
+## 保留底层计量和预算，不从错误文本猜测种类或把前缀计数当作总量。
+## [br]
+## @api private
+static func _data_validation_report(
+	measured: Dictionary,
+	limits: Dictionary,
+	path: String
+) -> Dictionary:
+	if GFVariantData.get_option_bool(measured, "ok"):
+		return _validation_report()
+	var report: Dictionary = _validation_report("data_invalid", path)
+	report["measurement"] = measured.duplicate(true)
+	report["limits"] = limits.duplicate()
+	var limit_kind: String = GFVariantData.get_option_string(measured, "limit_kind")
+	if not limit_kind.is_empty():
+		report["error_kind"] = "budget_exceeded"
+		report["limit_kind"] = limit_kind
+		report["limit"] = GFVariantData.get_option_int(measured, "limit")
+		report["observed"] = GFVariantData.get_option_int(measured, "observed")
+		report["observed_is_lower_bound"] = GFVariantData.get_option_bool(measured, "observed_is_lower_bound")
+	elif GFVariantData.get_option_string(measured, "failure_kind") == "output_limit":
+		var output_limit: int = GFVariantData.get_option_int(limits, "max_output_bytes")
+		report["error_kind"] = "budget_exceeded"
+		report["limit_kind"] = "max_output_bytes"
+		report["limit"] = output_limit
+		report["observed"] = output_limit + 1
+		report["observed_is_lower_bound"] = true
+	return report
+
+
+## 清空目录和全部观察索引，同时使旧查询失效。
+## [br]
+## @api private
+func _clear_runtime() -> void:
+	_epoch += 1
+	_pending_progress.clear()
+	_unregister_all_event_handlers()
+	_quests.clear()
+	_definitions.clear()
+	_event_to_quests.clear()
+	_query_to_quests.clear()
+	_metric_queries.clear()
+	_metric_values.clear()
+	_metric_revisions.clear()
+	_refreshing_metrics.clear()
+
+
+## 检查项目指标身份。
+## [br]
+## @api private
+func _valid_metric_id(metric_id: StringName) -> bool:
+	var value: String = String(metric_id)
+	if (
+		value.is_empty()
+		or value.length() > 256
+		or value != value.strip_edges()
+	):
+		return false
+	for index: int in range(value.length()):
+		if value.unicode_at(index) < 32:
+			return false
+	return true
+
+
+## 为同一指标的新来源或新输入记录修订号。
+## [br]
+## @api private
+func _touch_metric(metric_id: StringName) -> void:
+	_next_metric_revision += 1
+	_metric_revisions[metric_id] = _next_metric_revision
+
+
+## 将查询型指标标记为不可用，保留最后值用于诊断。
+## [br]
+## @api private
+func _invalidate_metric(metric_id: StringName) -> void:
+	if not _query_to_quests.has(metric_id):
+		return
+	var identities: Array = _query_to_quests[metric_id]
+	var epoch: int = _epoch
+	var revision: int = GFVariantData.get_option_int(_metric_revisions, metric_id)
+	for quest_id: StringName in identities.duplicate():
+		if epoch != _epoch or revision != GFVariantData.get_option_int(_metric_revisions, metric_id):
+			return
+		var data: _QuestData = _get_quest_data(quest_id)
+		if _is_current_active_quest(data) and data._metric_available:
+			data._metric_available = false
+			_publish_progress(data)
+
+
+## 更新相应任务并在每次项目回调后复核输入修订。
+## [br]
+## @api private
+func _apply_metric_value(metric_id: StringName, value: int) -> void:
+	if not _query_to_quests.has(metric_id):
+		return
+	var identities: Array = _query_to_quests[metric_id]
+	var epoch: int = _epoch
+	var revision: int = GFVariantData.get_option_int(_metric_revisions, metric_id)
+	for quest_id: StringName in identities.duplicate():
+		if epoch != _epoch or revision != GFVariantData.get_option_int(_metric_revisions, metric_id):
+			return
+		var data: _QuestData = _get_quest_data(quest_id)
+		if not _is_current_active_quest(data):
+			continue
+		var available: bool = value >= 0 or data._definition.allows_negative()
+		var changed: bool = (
+			data._metric_available != available
+			or (
+				available
+				and data._current_count != value
+			)
+		)
+		data._metric_available = available
+		if available:
+			data._current_count = value
+		if changed:
+			_publish_progress(data)
+		else:
+			_maybe_complete_automatically(data)
+
+
+## 入队后串行通知；通知完成后再依据最新状态执行自动完成判断。
+## [br]
+## @api private
+func _publish_progress(data: _QuestData) -> void:
+	_pending_progress[data._quest_id] = data
+	_drain_progress_notifications()
+
+
+## 每轮有界排空最新进度；恢复或释放会撤销旧状态队列。
+## [br]
+## @api private
+func _drain_progress_notifications() -> void:
+	if _publishing_progress:
+		return
+	_publishing_progress = true
+	var sent: int = 0
+	while (
+		not _pending_progress.is_empty()
+		and not _disposed
+		and sent < 256
+	):
+		var quest_id: StringName = _pending_progress.keys()[0]
+		var data: _QuestData = _pending_progress[quest_id]
+		var _removed: bool = _pending_progress.erase(quest_id)
+		if _get_quest_data(quest_id) != data:
+			continue
+		sent += 1
+		var epoch: int = _epoch
+		var metric_id: StringName = data._event_id
+		var guards_metric: bool = (data._definition.get_mode() != GFQuestDefinition.SINCE_ACCEPTANCE and not _refreshing_metrics.has(metric_id))
+		if guards_metric:
+			_refreshing_metrics[metric_id] = true
+		quest_progressed.emit(
+			quest_id,
+			data._current_count,
+			data._target_count
+		)
+		if not _pending_progress.has(quest_id):
+			_maybe_complete_automatically(data)
+		if guards_metric and epoch == _epoch:
+			var _guard_removed: bool = _refreshing_metrics.erase(metric_id)
+	_publishing_progress = false
+
+
+## 当前缓存是否允许进入完成阻塞检查。
+## [br]
+## @api private
+func _is_eligible(data: _QuestData) -> bool:
+	return (
+		data._definition.get_completion() == GFQuestDefinition.EXTERNAL
+		or (
+			data._metric_available
+			and data._current_count >= data._target_count
+		)
+	)
+
+
+## 只对显式自动完成策略尝试提交，manual 和 external 均保持活动。
+## [br]
+## @api private
+func _maybe_complete_automatically(data: _QuestData) -> void:
+	if _is_current_active_quest(data) and data._definition.get_completion() == GFQuestDefinition.AUTOMATIC:
+		var _completed: bool = _try_complete_quest(data)
+
+
+## 测量整批快照，拒绝无界或不可持久化的数据。
+## [br]
+## @api private
+func _within_snapshot_budget(snapshot: Dictionary) -> bool:
+	return GFVariantData.get_option_bool(
+		_validate_snapshot_budget(snapshot),
+		"ok"
+	)
+
+
+## 恢复与导出共用整包预算；诊断只保留计量，不暴露候选状态。
+## [br]
+## @api private
+func _validate_snapshot_budget(snapshot: Dictionary) -> Dictionary:
+	var limits: Dictionary = {
+		"allow_floats": true,
+		"max_depth": 24,
+		"max_items": 200000,
+		"max_output_bytes": 16777216,
+		"max_string_length": 65536,
+	}
+	var measured: Dictionary = GFDeterministicVariantSerializer.measure_canonical(snapshot, limits)
+	return _data_validation_report(
+		measured,
+		limits,
+		"/snapshot"
+	)
+
+
+## 线性验证父级存在性与无环关系，然后建立排序后的子任务索引。
+## [br]
+## @api private
+func _link_candidate_tree(candidates: Dictionary, record_paths: Dictionary) -> Dictionary:
+	for quest_id: StringName in candidates:
+		var data: _QuestData = candidates[quest_id]
+		if data._parent_id != &"":
+			if not candidates.has(data._parent_id):
+				var path: String = record_paths.get(quest_id, "/snapshot/states")
+				return _validation_report(
+					"missing_parent",
+					path + "/parent_id"
+				)
+			var parent: _QuestData = candidates[data._parent_id]
+			_append_packed_string(
+				parent._child_ids,
+				String(quest_id)
+			)
+	var settled: Dictionary = {}
+	for quest_id: StringName in candidates:
+		var cursor: StringName = quest_id
+		var trail: Dictionary = {}
+		while cursor != &"" and not settled.has(cursor):
+			if trail.has(cursor):
+				var path: String = record_paths.get(cursor, "/snapshot/states")
+				return _validation_report(
+					"cycle",
+					path + "/parent_id"
+				)
+			trail[cursor] = true
+			var data: _QuestData = candidates[cursor]
+			cursor = data._parent_id
+		for visited: StringName in trail:
+			settled[visited] = true
+	for quest_id: StringName in candidates:
+		var data: _QuestData = candidates[quest_id]
+		data._child_ids.sort()
+	return _validation_report()
+
 
 ## 为事件创建并注册一个绑定该事件 ID 的任务监听器。
 ## [br]
@@ -689,38 +1307,6 @@ func _get_arch() -> GFArchitecture:
 	return _get_architecture_or_null()
 
 
-## 从嵌套 amount 字段读取整数或有限浮点数量，其他输入回退为 1。
-## [br]
-## @api private
-func _payload_to_amount(payload: Variant) -> int:
-	var current_payload: Variant = payload
-	var depth: int = 0
-	while current_payload is Dictionary:
-		var payload_dictionary: Dictionary = current_payload
-		if not payload_dictionary.has("amount"):
-			break
-		depth += 1
-		if depth > 16:
-			push_error("[GFQuestUtility][quest_utility.amount_depth_exceeded] payload.amount is nested too deeply; progress defaults to 1.")
-			return 1
-		current_payload = payload_dictionary["amount"]
-
-	if current_payload is int:
-		var int_amount: int = current_payload
-		return int_amount
-	if current_payload is float:
-		var float_amount: float = current_payload
-		if is_nan(float_amount) or is_inf(float_amount):
-			push_error("[GFQuestUtility][quest_utility.nonfinite_amount] payload.amount must be finite; progress defaults to 1.")
-			return 1
-		if float_amount >= _INT64_UPPER_EXCLUSIVE_AS_FLOAT or float_amount < _INT64_MIN_AS_FLOAT:
-			push_error("[GFQuestUtility][quest_utility.amount_out_of_range] payload.amount exceeds the int64 range; progress defaults to 1.")
-			return 1
-		return roundi(float_amount)
-
-	return 1
-
-
 ## 将两个整数相加，并在有符号 64 位边界处饱和。
 ## [br]
 ## @api private
@@ -732,47 +1318,57 @@ func _add_int_saturated(left: int, right: int) -> int:
 	return left + right
 
 
-## 创建任务运行记录并深拷贝任务元数据。
+## 从冻结定义建立未接取记录。
 ## [br]
 ## @api private
-func _create_quest_data(
-	quest_id: StringName,
-	target_event: StringName,
-	target_count: int,
-	metadata: Dictionary
-) -> _QuestData:
+func _create_quest_data(definition: GFQuestDefinition) -> _QuestData:
 	var data: _QuestData = _QuestData.new()
-	data._quest_id = quest_id
-	data._event_id = target_event
-	data._target_count = target_count
-	data._metadata = metadata.duplicate(true)
+	data._definition = definition
+	data._quest_id = definition.get_quest_id()
+	data._event_id = definition.get_metric_id()
+	data._target_count = definition.get_target()
+	data._metadata = GFVariantData.get_option_dictionary(
+		definition.to_record(),
+		"metadata"
+	)
 	return data
 
 
-## 将任务加入事件监听列表，并在该事件首次被监听时注册处理器。
+## 按指标模式建立受影响任务索引；仅累计模式订阅 simple event。
 ## [br]
 ## @api private
 func _attach_quest_to_event(data: _QuestData) -> void:
 	if data == null or data._event_id == &"":
 		return
+	if data._definition.get_mode() != GFQuestDefinition.SINCE_ACCEPTANCE:
+		if not _query_to_quests.has(data._event_id):
+			_query_to_quests[data._event_id] = []
+		var queries: Array = _query_to_quests[data._event_id]
+		if not queries.has(data._quest_id):
+			queries.append(data._quest_id)
+		return
 	var should_register_handler: bool = not _event_to_quests.has(data._event_id)
 	var list: Array = _ensure_event_quest_list(data._event_id)
 	if should_register_handler:
 		_register_event_handler(data._event_id)
-
 	if not list.has(data._quest_id):
 		list.append(data._quest_id)
 
 
-## 从事件任务列表移除任务；列表变空时删除映射并注销处理器。
+## 移除任务指标索引，最后一个累计任务退出时注销事件监听。
 ## [br]
 ## @api private
 func _detach_quest_from_event(data: _QuestData) -> void:
-	if (
-		data == null
-		or data._event_id == &""
-		or not _event_to_quests.has(data._event_id)
-	):
+	if data == null or data._event_id == &"":
+		return
+	if data._definition.get_mode() != GFQuestDefinition.SINCE_ACCEPTANCE:
+		if _query_to_quests.has(data._event_id):
+			var queries: Array = _query_to_quests[data._event_id]
+			queries.erase(data._quest_id)
+			if queries.is_empty():
+				var _removed: bool = _query_to_quests.erase(data._event_id)
+		return
+	if not _event_to_quests.has(data._event_id):
 		return
 	var list: Array = _get_event_quest_list(data._event_id)
 	list.erase(data._quest_id)
@@ -781,21 +1377,22 @@ func _detach_quest_from_event(data: _QuestData) -> void:
 		_unregister_event_handler(data._event_id)
 
 
-## 检查完成阻塞条件，通过后停止监听、写入完成状态并发出信号。
+## 资格与阻塞条件均成立后提交唯一终态，回调重入不能完成旧记录。
 ## [br]
 ## @api private
 func _try_complete_quest(data: _QuestData) -> bool:
-	if not _is_current_active_quest(data) or data._is_completed:
-		return false
-
-	var blocker_result: Dictionary = _check_conditions(data._completion_blockers, data)
-	if not _is_current_active_quest(data) or data._is_completed:
-		return false
-	if not GFVariantData.get_option_bool(
-		blocker_result,
-		"ok",
-		true
+	if (
+		not _is_current_active_quest(data)
+		or data._checking_completion
+		or not _is_eligible(data)
 	):
+		return false
+	data._checking_completion = true
+	var blocker_result: Dictionary = _check_conditions(data._completion_blockers, data)
+	data._checking_completion = false
+	if not _is_current_active_quest(data) or not _is_eligible(data):
+		return false
+	if not GFVariantData.get_option_bool(blocker_result, "ok"):
 		quest_completion_blocked.emit(
 			data._quest_id,
 			GFVariantData.get_option_string(
@@ -805,7 +1402,6 @@ func _try_complete_quest(data: _QuestData) -> bool:
 			)
 		)
 		return false
-
 	_detach_quest_from_event(data)
 	data._is_completed = true
 	data._status = STATUS_COMPLETED
@@ -813,37 +1409,39 @@ func _try_complete_quest(data: _QuestData) -> bool:
 	return true
 
 
-## 依序执行有效条件回调，并规范化首个拒绝原因或成功结果。
+## 对回调列表快照执行严格的 bool 或带 ok:bool 的结果协议。
 ## [br]
 ## @api private
 func _check_conditions(conditions: Array[Callable], data: _QuestData) -> Dictionary:
-	for condition: Callable in conditions:
+	var initial_status: StringName = data._status
+	for condition: Callable in conditions.duplicate():
 		if not condition.is_valid():
-			continue
+			return { "ok": false, "reason": "condition_unavailable" }
 		var result: Variant = condition.call(
 			data._quest_id,
 			data._to_dict()
 		)
-		if result is Dictionary:
-			var result_dictionary: Dictionary = result
-			if not result_dictionary.has("ok"):
-				return { "ok": false, "reason": "invalid_condition_result", }
-			if not GFVariantData.get_option_bool(
-				result_dictionary,
-				"ok",
-				false
-			):
+		if not _is_current_quest_in_status(data, initial_status):
+			return { "ok": false, "reason": "state_changed" }
+		if result is bool:
+			if not result:
+				return { "ok": false, "reason": "blocked" }
+		elif result is Dictionary:
+			var record: Dictionary = result
+			if not record.get("ok") is bool or not record.get("reason", "") is String:
+				return { "ok": false, "reason": "invalid_condition_result" }
+			if not GFVariantData.get_option_bool(record, "ok"):
 				return {
 					"ok": false,
 					"reason": GFVariantData.get_option_string(
-						result_dictionary,
+						record,
 						"reason",
 						"blocked"
 					),
 				}
-		elif result == false:
-			return { "ok": false, "reason": "blocked", }
-	return { "ok": true, "reason": "", }
+		else:
+			return { "ok": false, "reason": "invalid_condition_result" }
+	return { "ok": true, "reason": "" }
 
 
 ## 从当前父任务移除该子任务并清除其父级 ID。
@@ -1051,43 +1649,39 @@ func _variant_to_quest_data(value: Variant) -> _QuestData:
 
 # --- 信号处理函数 ---
 
-## 对事件映射的任务列表副本累加有效任务进度；达到目标时先发进度信号，再由完成路径重新核对任务资格。
+## 累计事件仅接受 int 或单层 amount:int；非法 payload 不产生进度。
 ## [br]
 ## @api private
 func _on_quest_event_triggered(payload: Variant, event_id: StringName) -> void:
 	if not _event_to_quests.has(event_id):
 		return
-
-	var amount: int = _payload_to_amount(payload)
-	if not allow_negative_progress:
-		amount = maxi(amount, 0)
-
+	var amount_value: Variant = payload
+	if payload is Dictionary:
+		var record: Dictionary = payload
+		amount_value = record.get("amount")
+	if not amount_value is int:
+		return
+	var amount: int = amount_value
 	var list: Array = _get_event_quest_list(event_id).duplicate()
+	var epoch: int = _epoch
 	for quest_id_variant: Variant in list:
-		var quest_id: StringName = GFVariantData.to_string_name(quest_id_variant)
-		var data: _QuestData = _get_quest_data(quest_id)
+		if epoch != _epoch:
+			return
+		var data: _QuestData = _get_quest_data(GFVariantData.to_string_name(quest_id_variant))
 		if (
-			data == null
-			or data._status != STATUS_ACTIVE
-			or data._is_completed
+			not _is_current_active_quest(data)
+			or (
+				amount < 0
+				and not data._definition.allows_negative()
+			)
 		):
 			continue
-
-		data._current_count = _add_int_saturated(data._current_count, amount)
-		if data._current_count >= data._target_count:
-			data._current_count = data._target_count
-			quest_progressed.emit(
-				quest_id,
-				data._current_count,
-				data._target_count
-			)
-			var _completed: bool = _try_complete_quest(data)
-		else:
-			quest_progressed.emit(
-				quest_id,
-				data._current_count,
-				data._target_count
-			)
+		data._current_count = mini(
+			_add_int_saturated(data._current_count, amount),
+			data._target_count
+		)
+		data._metric_available = true
+		_publish_progress(data)
 
 
 # --- 内部类 ---
@@ -1099,6 +1693,41 @@ class _QuestData extends RefCounted:
 
 
 	# --- 私有变量 ---
+
+	## 该状态使用的冻结定义。
+	## [br]
+	## @api private
+	var _definition: GFQuestDefinition
+
+	## 指标是否具备可用于判断的样本。
+	## [br]
+	## @api private
+	var _metric_available: bool = false
+
+	## 是否发生过接取，用于区分未接取时取消和失败。
+	## [br]
+	## @api private
+	var _accepted: bool = false
+
+	## 冻结的项目接取信息。
+	## [br]
+	## @api private
+	var _acceptance_data: Dictionary = {}
+
+	## 最后失败原因，独立于定义元数据。
+	## [br]
+	## @api private
+	var _failure_reason: String = ""
+
+	## 接取条件执行期间禁止递归接取。
+	## [br]
+	## @api private
+	var _checking_acceptance: bool = false
+
+	## 完成阻塞器执行期间禁止递归完成。
+	## [br]
+	## @api private
+	var _checking_completion: bool = false
 
 	## 任务在工具实例中的索引键。
 	## [br]
@@ -1158,6 +1787,23 @@ class _QuestData extends RefCounted:
 
 	# --- 私有/辅助方法 ---
 
+	## 导出完整状态，不保存查询、条件或监听器。
+	## [br]
+	## @api private
+	func _to_state_record() -> Dictionary:
+		return {
+			"format_version": 1,
+			"definition": _definition.to_record(),
+			"status": String(_status),
+			"current_count": _current_count,
+			"metric_available": _metric_available,
+			"accepted": _accepted,
+			"acceptance_data": _acceptance_data.duplicate(true),
+			"parent_id": String(_parent_id),
+			"failure_reason": _failure_reason,
+		}
+
+
 	## 导出任务状态与父子标识，复制子项列表和元数据；条件回调仅导出数量。
 	## [br]
 	## @api private
@@ -1174,4 +1820,18 @@ class _QuestData extends RefCounted:
 			"metadata": _metadata.duplicate(true),
 			"acceptance_condition_count": _acceptance_conditions.size(),
 			"completion_blocker_count": _completion_blockers.size(),
+			"definition_version": _definition.get_version(),
+			"metric_mode": String(_definition.get_mode()),
+			"completion_policy": String(_definition.get_completion()),
+			"metric_available": _metric_available,
+			"eligible": _status == &"active"
+			and (
+				_definition.get_completion() == GFQuestDefinition.EXTERNAL
+				or (
+					_metric_available
+					and _current_count >= _target_count
+				)
+			),
+			"accepted": _accepted,
+			"acceptance_data": _acceptance_data.duplicate(true),
 		}

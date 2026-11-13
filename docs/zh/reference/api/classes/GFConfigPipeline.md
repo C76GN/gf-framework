@@ -132,7 +132,7 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 ### `build_database`
 
 - API：`public`
-- 首次版本：`5.2.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
@@ -152,15 +152,15 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `sources`: Array[GFConfigPipelineTableSource]。
-- `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次构建新建会话且整批共享；不接受顶层 work_budget 或解析选项内预算。其他局部限额的无限值不取消总预算。
-- `return`: Dictionary，包含 success、database、ir、report、table_results、error 和 budget_report；任一表失败时 database 和 ir 均为空，table_results 只保留诊断和来源收据。预算失败立即终止并保留 error_kind。
+- `options`: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_source_file_bytes、max_xlsx_file_bytes 和 max_validation_cells。work_limits 使用 GFConfigWorkBudget 限额，每次构建新建会话且整批共享；不接受顶层 work_budget 或解析选项内预算。其他局部限额的无限值不取消总预算。可另含 consumer_target:GFConfigPipelineConsumerTarget，声明字段和引用闭包投影；非空时目标引用校验不可关闭。
+- `return`: Dictionary，包含 success、database、ir、report、table_results、error 和 budget_report；任一表失败时 database 和 ir 均为空，table_results 只保留诊断和来源收据。预算失败立即终止并保留 error_kind。成功另含 author_ir:GFConfigPipelineIR（完整作者IR），ir为最终消费目标IR；无消费目标时两者相同。
 
 <a id="member-gfconfigpipeline-methods-build_profile"></a>
 
 ### `build_profile`
 
 - API：`public`
-- 首次版本：`5.2.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
@@ -180,15 +180,15 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。
-- `return`: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。
+- `options`: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、work_limits、max_validation_cells、max_source_file_bytes 和 max_xlsx_file_bytes；每次 Profile 构建只有一个整批共享的新预算会话，不接受 work_budget。局部无限值不取消总预算。独立构建不准入或复制 save_options、access_options；这些选项由 export_profile 在同一构建预算中准入。可另含 target:String/StringName，按Profile消费目标及默认目标解析，目标声明在构建开始时隔离捕获。
+- `return`: Dictionary，包含 success、database、ir、report、table_results、profile_id、output_path、error 和 budget_report；失败不交付部分数据库或 IR，table_results 仅保留诊断与来源收据。另含 consumer_target:String、author_ir:GFConfigPipelineIR、stable_id_plan:Dictionary（GFConfigPipelineCommitStage.prepare_stable_ids结果）；只报告待登记变化，不写登记簿。
 
 <a id="member-gfconfigpipeline-methods-export_profile"></a>
 
 ### `export_profile`
 
 - API：`public`
-- 首次版本：`5.2.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
@@ -208,8 +208,8 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。allow_parent_output_path 只允许在既有 resource URI 域内规范化，不能越过 URI 根。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
-- `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
+- `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。allow_parent_output_path 只允许在既有 resource URI 域内规范化，不能越过 URI 根。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。可另含 target:String/StringName、register_ids:bool（默认false）、expected_input_digest:String。待登记变化仅在显式register_ids时写入；dry_run只预览，expected_input_digest必须匹配capture_inputs的凭据。
+- `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。build_result另含input_capture:Dictionary（GFConfigPipelineArtifactManifest.capture_inputs结果）和stable_id_plan；登记簿写入归同一文件事务，所有导出均复核输入，来源变化则拒绝或回滚。
 
 <a id="member-gfconfigpipeline-methods-make_database_export"></a>
 

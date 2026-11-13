@@ -16,6 +16,12 @@ UI 路由异步打开的不可变终态。 结果把路由校验、可选预加�
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STATUS_OPENED`](#member-gfuirouteresult-constants-status_opened) | `const STATUS_OPENED: StringName = &"opened"` |
+| 常量 | [`STATUS_CONTENT_READY`](#member-gfuirouteresult-constants-status_content_ready) | `const STATUS_CONTENT_READY: StringName = &"content_ready"` |
+| 常量 | [`STATUS_TARGET_READY`](#member-gfuirouteresult-constants-status_target_ready) | `const STATUS_TARGET_READY: StringName = &"target_ready"` |
+| 常量 | [`STATUS_INVALID_NAVIGATION`](#member-gfuirouteresult-constants-status_invalid_navigation) | `const STATUS_INVALID_NAVIGATION: StringName = &"invalid_navigation"` |
+| 常量 | [`STATUS_CONTENT_FAILED`](#member-gfuirouteresult-constants-status_content_failed) | `const STATUS_CONTENT_FAILED: StringName = &"content_failed"` |
+| 常量 | [`STATUS_TARGET_UNAVAILABLE`](#member-gfuirouteresult-constants-status_target_unavailable) | `const STATUS_TARGET_UNAVAILABLE: StringName = &"target_unavailable"` |
+| 常量 | [`STATUS_READINESS_TIMEOUT`](#member-gfuirouteresult-constants-status_readiness_timeout) | `const STATUS_READINESS_TIMEOUT: StringName = &"readiness_timeout"` |
 | 常量 | [`STATUS_MISSING_ROUTE`](#member-gfuirouteresult-constants-status_missing_route) | `const STATUS_MISSING_ROUTE: StringName = &"missing_route"` |
 | 常量 | [`STATUS_INVALID_ROUTE`](#member-gfuirouteresult-constants-status_invalid_route) | `const STATUS_INVALID_ROUTE: StringName = &"invalid_route"` |
 | 常量 | [`STATUS_MISSING_UI_UTILITY`](#member-gfuirouteresult-constants-status_missing_ui_utility) | `const STATUS_MISSING_UI_UTILITY: StringName = &"missing_ui_utility"` |
@@ -35,6 +41,9 @@ UI 路由异步打开的不可变终态。 结果把路由校验、可选预加�
 | 方法 | [`get_operation`](#member-gfuirouteresult-methods-get_operation) | `func get_operation() -> StringName:` |
 | 方法 | [`get_status`](#member-gfuirouteresult-methods-get_status) | `func get_status() -> StringName:` |
 | 方法 | [`is_successful`](#member-gfuirouteresult-methods-is_successful) | `func is_successful() -> bool:` |
+| 方法 | [`was_panel_committed`](#member-gfuirouteresult-methods-was_panel_committed) | `func was_panel_committed() -> bool:` |
+| 方法 | [`was_content_ready`](#member-gfuirouteresult-methods-was_content_ready) | `func was_content_ready() -> bool:` |
+| 方法 | [`was_target_resolved`](#member-gfuirouteresult-methods-was_target_resolved) | `func was_target_resolved() -> bool:` |
 | 方法 | [`get_reason`](#member-gfuirouteresult-methods-get_reason) | `func get_reason() -> StringName:` |
 | 方法 | [`get_layer`](#member-gfuirouteresult-methods-get_layer) | `func get_layer() -> int:` |
 | 方法 | [`get_panel`](#member-gfuirouteresult-methods-get_panel) | `func get_panel() -> Node:` |
@@ -64,6 +73,84 @@ const STATUS_OPENED: StringName = &"opened"
 ```
 
 面板已进入目标 UI 栈。
+
+<a id="member-gfuirouteresult-constants-status_content_ready"></a>
+
+### `STATUS_CONTENT_READY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_CONTENT_READY: StringName = &"content_ready"
+```
+
+页面已提交且内容已就绪；本次没有请求语义定位。
+
+<a id="member-gfuirouteresult-constants-status_target_ready"></a>
+
+### `STATUS_TARGET_READY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_TARGET_READY: StringName = &"target_ready"
+```
+
+页面、内容与语义目标均已可用。
+
+<a id="member-gfuirouteresult-constants-status_invalid_navigation"></a>
+
+### `STATUS_INVALID_NAVIGATION`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_INVALID_NAVIGATION: StringName = &"invalid_navigation"
+```
+
+导航目标、resolver 或超时政策无效，未提交页面。
+
+<a id="member-gfuirouteresult-constants-status_content_failed"></a>
+
+### `STATUS_CONTENT_FAILED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_CONTENT_FAILED: StringName = &"content_failed"
+```
+
+页面已提交，但内容准备失败；页面不被自动回滚。
+
+<a id="member-gfuirouteresult-constants-status_target_unavailable"></a>
+
+### `STATUS_TARGET_UNAVAILABLE`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_TARGET_UNAVAILABLE: StringName = &"target_unavailable"
+```
+
+内容已就绪，但项目无法定位请求目标；保留可用页面。
+
+<a id="member-gfuirouteresult-constants-status_readiness_timeout"></a>
+
+### `STATUS_READINESS_TIMEOUT`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_READINESS_TIMEOUT: StringName = &"readiness_timeout"
+```
+
+页面提交后的内容准备或定位超过本次等待预算。
 
 <a id="member-gfuirouteresult-constants-status_missing_route"></a>
 
@@ -322,7 +409,52 @@ func is_successful() -> bool:
 
 检查路由是否成功打开。
 
-返回：面板已进入目标 UI 栈时返回 true。
+返回：普通打开成功，或显式请求的内容准备和目标定位全部成功时返回 true。
+
+<a id="member-gfuirouteresult-methods-was_panel_committed"></a>
+
+### `was_panel_committed`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func was_panel_committed() -> bool:
+```
+
+判断页面是否曾成功提交到 UI 栈。
+
+返回：内容失败、超时或提交后取消也可以为 true。
+
+<a id="member-gfuirouteresult-methods-was_content_ready"></a>
+
+### `was_content_ready`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func was_content_ready() -> bool:
+```
+
+判断本次导航的内容准备阶段是否成功。
+
+返回：普通页面打开没有准备协议时为 false。
+
+<a id="member-gfuirouteresult-methods-was_target_resolved"></a>
+
+### `was_target_resolved`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func was_target_resolved() -> bool:
+```
+
+判断本次请求是否实际成功定位到语义目标。
+
+返回：只有语义定位成功时为 true。
 
 <a id="member-gfuirouteresult-methods-get_reason"></a>
 
@@ -544,4 +676,4 @@ func to_dict() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.
+- `return`: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, panel_committed, content_ready, target_resolved, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.

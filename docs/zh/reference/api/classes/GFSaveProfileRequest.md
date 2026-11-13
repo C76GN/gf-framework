@@ -45,7 +45,7 @@ static func create( document_metadata: Dictionary, context: Dictionary, result_m
 
 结构：
 
-- `document_metadata`: Bounded pure-data Dictionary copied into an isolated snapshot.
+- `document_metadata`: Bounded pure-data Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.
 - `context`: Bounded pure-data Dictionary copied into an isolated snapshot.
 - `result_metadata`: Bounded pure-data Dictionary copied into an isolated snapshot.
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.11.0",
+  "catalog_version": "1.12.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -82,11 +82,26 @@
       "steps": [
         "Keep business schema in project-owned source and schema files.",
         "Use Reader, Layout, Validation, Target, and Commit stages as separate concerns.",
-        "Inspect the versioned IR before materialization when adding custom targets.",
+        "Inspect the versioned IR, explicit consumer field permissions, and declared reference closure before materialization; never infer dependencies from nonempty data.",
+        "Keep stable-ID registration project-owned and explicit; preserve tombstones, preview without allocation, and commit registry changes with the artifact transaction.",
         "Fail closed on duplicate identities, invalid references, and partial commits.",
-        "Verify freshness fingerprints and rollback."
+        "Compare against an explicit baseline, submit the preview input digest, and reject changed author inputs before commit; verify freshness fingerprints and rollback."
       ],
       "avoid": ["Project columns hardcoded into GF stages", "Writing outputs before all semantic validation passes"]
+    },
+    {
+      "id": "config-runtime-publication",
+      "title": "Publish a validated configuration snapshot",
+      "package_requirements": {"all_of": ["gf.standard.config"], "any_of": []},
+      "primary_classes": ["GFConfigSnapshot", "GFResourceConfigProvider", "GFConfigProviderAdapter"],
+      "steps": [
+        "Declare table identities, schema, indexes, reference closure, and content version outside GF.",
+        "For generated objects, supply an explicit catalog, loader, record enumeration, and projection; prepare the requested dependency closure before querying.",
+        "Prepare a complete or incremental candidate and publish it only against its captured generation; failed validation leaves the active snapshot intact.",
+        "Keep one snapshot throughout a business decision, query isolated rows, and record its digest and coverage in reproducible diagnostics.",
+        "Measure preparation cost and simultaneous snapshot memory separately from query latency; schedule preparation at an explicit loading boundary."
+      ],
+      "avoid": ["Loading tables implicitly from a query", "Mutating active tables", "Treating shared Resource identity as immutable asset content"]
     },
     {
       "id": "analytics-schema-outbox",
@@ -122,10 +137,12 @@
       "id": "save-profile",
       "title": "Coordinate a transactional save profile",
       "package_requirements": {"all_of": ["gf.extension.save"], "any_of": []},
-      "primary_classes": ["GFSaveProfileUtility", "GFSaveSectionProvider", "GFSaveRecoveryPolicy"],
+      "primary_classes": ["GFSaveProfileUtility", "GFSaveSectionProvider", "GFSaveRecoveryPolicy", "GFSavePayloadPolicy", "GFSaveProfileTransactionCoordinator"],
       "steps": [
         "Define one stable section provider per independently owned data boundary and keep section payloads business-owned.",
         "Register the profile, providers, complete migration chain, recovery policy, and explicit storage backend before the first operation.",
+        "Keep the document envelope strict; declare exact preserved section IDs and payload field or stable-identity collection policies. Retained data is isolated from runtime state and explicit deletion travels with the transaction.",
+        "After transaction admission, read current state and configuration, validate the project intent, and persist its business deduplication ID with the mutation; only confirmed persistence authorizes success feedback.",
         "Observe the typed operation result for success, validation failure, cancellation, rollback failure, and recovery outcome.",
         "Use generation coalescing for repeated requests and a flush barrier before shutdown, account switch, or destructive navigation.",
         "Fault-inject interrupted writes, corrupt and future versions, provider failure, migration gaps, rollback failure, and late completion."
@@ -155,15 +172,30 @@
       "id": "platform-storage-adapter",
       "title": "Adapt cloud or platform storage",
       "package_requirements": {"all_of": ["gf.standard.storage"], "any_of": []},
-      "primary_classes": ["GFStorageBackend", "GFStorageSyncUtility", "GFAsyncCompletion"],
+      "primary_classes": ["GFStorageSyncUtility", "GFStorageSyncTransport", "GFStorageSyncJournal", "GFStorageSyncRequest", "GFStorageTransfer"],
       "steps": [
-        "Implement provider calls behind GFStorageBackend or a project-owned equivalent.",
-        "Normalize keys, revisions, availability, errors, and cancellation.",
-        "Declare conflict and offline policy in project code.",
+        "Use GFStorageTransfer for ordinary backend copies and backups; it has no cross-backend atomicity or concurrent-write protection.",
+        "For versioned synchronization, implement GFStorageSyncTransport read, conditional commit, and operation-ID probe plus a durable GFStorageSyncJournal.",
+        "Freeze namespace, key, operation ID, local generation, and candidate data. Compare opaque revisions only for equality and keep conflict resolution explicit.",
+        "Persist intent before dispatch and persist the confirmed outcome before success; cancellation after dispatch may leave the result unknown. Recover by probing the original operation ID instead of resending.",
         "Keep credentials and account data outside logs and feedback drafts.",
         "Test stale revisions, partial failures, quota, offline recovery, and retries."
       ],
       "avoid": ["Cloud policy embedded in generic storage", "Last-write-wins without an explicit project decision"]
+    },
+    {
+      "id": "save-profile-sync",
+      "title": "Synchronize a complete save profile",
+      "package_requirements": {"all_of": ["gf.extension.save"], "any_of": []},
+      "primary_classes": ["GFSaveSyncUtility", "GFSaveProfileUtility", "GFSaveProfileTransactionCoordinator"],
+      "steps": [
+        "Open an explicit account and profile session using the project transport and a bounded upload projection that excludes local checkpoint and private fields.",
+        "Start from a physically confirmed local document. Reuse the profile coordinator for durable intent and acknowledgement; network waiting does not own the business transaction lock.",
+        "Confirm only the uploaded generation, recheck generation before applying remote state, and reject late responses after account or profile ownership changes.",
+        "Reconcile unknown local writes through the profile transaction result, then probe unresolved remote intent using its original operation ID.",
+        "Test restart recovery, concurrent local mutation, stale revision, checkpoint failure, projection failure, and account switching; budget two local durable writes for a normal upload."
+      ],
+      "avoid": ["Synchronizing slot data and metadata as unrelated files", "Treating retention permission as upload authorization", "Marking newer local changes synchronized by an older response"]
     },
     {
       "id": "provider-backend",
@@ -446,10 +478,12 @@
       "id": "ui-route-operation",
       "title": "Execute an asynchronous UI route transition",
       "package_requirements": {"all_of": ["gf.standard.ui.navigation"], "any_of": []},
-      "primary_classes": ["GFUIRouterUtility", "GFUIRouteOperation", "GFUIRouteResult", "GFUIRoutePreloadUtility"],
+      "primary_classes": ["GFUIRouterUtility", "GFUIRouteOperation", "GFUIRouteResult", "GFUIRoutePreloadUtility", "GFUINavigationTarget", "GFUINavigationResolver", "GFUILoadingUtility"],
       "steps": [
         "Resolve the route and build its bounded preload plan before mutating the visible stack.",
         "Choose an explicit preload policy and preserve the current screen until route commit is possible.",
+        "Ordinary opens complete at panel commit. Only explicit navigation target and resolver pairs wait for content readiness and semantic positioning under the same request identity and finite deadline.",
+        "Hold an owner-bound loading lease for the complete user operation; release it at business completion, while the loading utility independently handles display delay and minimum visibility.",
         "Await the route operation and branch on its typed terminal result instead of inferring success from signals or node presence.",
         "Let the project navigation owner reject stale or superseded results, own focus and back policy, and release preloaded assets at its lifecycle boundary.",
         "Test duplicate requests, stale completion, invalid routes, preload failure, transition failure, cancellation, and back-stack invariants."
@@ -660,7 +694,7 @@
       "required_api_members": [
         {
           "class_name": "GFQuestUtility",
-          "members": ["define_quest", "emit_quest_event", "get_quest_report"]
+          "members": ["define_quest", "emit_quest_event", "get_quest_report", "export_snapshot", "restore_snapshot"]
         },
         {
           "class_name": "GFSaveSectionProvider",
@@ -677,9 +711,9 @@
       ],
       "steps": [
         "Define immutable StringName achievement IDs and explicit rename, deletion, unknown-ID, and schema migration policy; never use display text, array order, or file order as identity.",
-        "Register project-owned definitions in GFQuestUtility and keep hidden text, descriptions, icons, rewards, and notification presentation outside the generic runtime.",
+        "Register versioned GFQuestDefinition values with explicit history, since-acceptance, or current metric semantics and automatic, manual, or external completion; keep rewards and presentation outside GFQuestUtility.",
         "Own one versioned GFSaveSectionProvider for achievement progress, persist only bounded data, and treat Save Profile success as the sole evidence that local state is durable.",
-        "Hydrate a fresh quest utility during bootstrap before notification, reward, and platform-sync observers are connected; current GFQuestUtility has no snapshot import API, so do not replay saved progress through an already-observed runtime.",
+        "Persist export_snapshot and restore it atomically with restore_snapshot after definitions are registered; restore emits no progress or reward events and preserves accepted definition versions. Reconnect project-owned metric queries and conditions separately.",
         "For runtime profile switching, keep the persistent project model authoritative and rebuild the quest utility and its subscriptions instead of mutating private quest state.",
         "Translate platform IDs and results only in a project-owned GFPlatformAdapter, enqueue idempotent synchronization requests in a dedicated GFRequestOutboxUtility, and keep local persistence and remote acknowledgement as independent terminal states.",
         "Test normal and cumulative progress, duplicate completion, callback reentry, save failure, old-schema migration, unknown and renamed IDs, offline retry, duplicate platform delivery, bootstrap hydration, and profile replacement."

@@ -254,7 +254,7 @@ func create_document_schema() -> GFSaveDocumentSchema:
 			{ DOCUMENT_SECTION_ID: FORMAT_VERSION },
 			{
 				"required_sections": PackedStringArray([String(DOCUMENT_SECTION_ID)]),
-				"allow_unknown_sections": false,
+				"preserved_sections": PackedStringArray(),
 			}
 		)
 	)

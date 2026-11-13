@@ -18,7 +18,7 @@
 | 常量 | [`STATE_AVAILABLE`](#member-gfsavesectionsnapshot-constants-state_available) | `const STATE_AVAILABLE: StringName = &"available"` |
 | 常量 | [`STATE_CLAIMED`](#member-gfsavesectionsnapshot-constants-state_claimed) | `const STATE_CLAIMED: StringName = &"claimed"` |
 | 常量 | [`STATE_DISCARDED`](#member-gfsavesectionsnapshot-constants-state_discarded) | `const STATE_DISCARDED: StringName = &"discarded"` |
-| 方法 | [`take_ownership`](#member-gfsavesectionsnapshot-methods-take_ownership) | `static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot:` |
+| 方法 | [`take_ownership`](#member-gfsavesectionsnapshot-methods-take_ownership) | `static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshot:` |
 | 方法 | [`get_section_id`](#member-gfsavesectionsnapshot-methods-get_section_id) | `func get_section_id() -> StringName:` |
 | 方法 | [`get_schema_version`](#member-gfsavesectionsnapshot-methods-get_schema_version) | `func get_schema_version() -> int:` |
 | 方法 | [`get_state`](#member-gfsavesectionsnapshot-methods-get_state) | `func get_state() -> StringName:` |
@@ -75,7 +75,7 @@ Snapshot 已被取消并释放载荷。
 - 首次版本：`11.0.0`
 
 ```gdscript
-static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot:
+static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshot:
 ```
 
 接管一个 section 的纯数据所有权。 该方法不会深复制 payload 或 metadata。成功返回后，调用方不得继续读取、修改 或向其它线程提交原 Dictionary、Array 及其嵌套别名。
@@ -88,6 +88,7 @@ static func take_ownership( section_id: StringName, schema_version: int, payload
 | `schema_version` | 当前 section schema 版本。 |
 | `payload` | 调用方移交的纯 Variant 载荷。 |
 | `metadata` | 调用方移交的纯 Variant 元数据。 |
+| `retention_deletions` | 与本次候选一起提交的保留内容删除指令。 |
 
 返回：可用 Snapshot；身份无效时返回 null。
 
@@ -95,6 +96,7 @@ static func take_ownership( section_id: StringName, schema_version: int, payload
 
 - `payload`: Variant accepted by the Save persisted-value contract.
 - `metadata`: Dictionary with provider-defined persisted metadata.
+- `retention_deletions`: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
 
 <a id="member-gfsavesectionsnapshot-methods-get_section_id"></a>
 

@@ -1,132 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="d5067b6743ac2bd2d721febc7651c76d62f256ef9a940b84ac422e7b0994ce36">
-	<description>GFNumberFormatter: 统一的数字显示格式化工具。
-负责普通数字、定点小数与大数值对象在 UI 中的显示转换，
-提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。</description>
+<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="6d0f125b9fac7a68b22641602bc0aa65a3685cdb2cbb42f15d6eb34e0e1a082e">
+	<description>GFNumberFormatter: 由冻结政策控制的统一数字显示工具。
+int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFBigNumber 的
+尾数本身是近似值，格式化不会恢复它们已经丢失的精度。输出仅用于展示。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
-	<enums>
-		<member kind="enum" name="Notation">
-			<signature>enum Notation {
-	## 尽量输出普通十进制表示。
-	FULL,
-	## 输出紧凑缩写表示，如 12.3k。
-	COMPACT_SHORT,
-	## 输出科学计数法，如 1.23e8。
-	SCIENTIFIC,
-	## 输出工程计数法，如 123.4e6。
-	ENGINEERING,
-	## 自动选择更适合当前量级的表示方式。
-	AUTO,
-}</signature>
-			<description>格式化记法。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="enum" name="ScientificStyle">
-			<signature>enum ScientificStyle {
-	## 使用小写 e。
-	E_LOWER,
-	## 使用大写 E。
-	E_UPPER,
-	## 使用 x 10^n 形式。
-	POWER_OF_TEN,
-}</signature>
-			<description>科学计数法输出风格。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-	</enums>
+	<enums />
 	<constants />
 	<properties />
 	<methods>
-		<member kind="method" name="get_default_compact_suffixes">
-			<signature>static func get_default_compact_suffixes() -&gt; PackedStringArray:</signature>
-			<description>获取默认紧凑缩写后缀表副本。
-返回值是新建副本，修改它不会改变框架默认 compact 格式化行为；项目需要自定义后缀时应通过 format_compact() 的 suffixes 参数传入。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="return">默认紧凑缩写后缀表副本。</tag>
-				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
 		<member kind="method" name="format_number">
-			<signature>static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -&gt; String:</signature>
-			<description>统一入口：按指定记法格式化一个数字值。</description>
+			<signature>static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -&gt; String:</signature>
+			<description>按政策格式化数值，不使用多组位置布尔参数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal；普通十进制 String 会在文本域精确应用小数位与舍入参数。</tag>
-				<tag name="param">notation: 目标记法。</tag>
-				<tag name="param">decimal_places: 小数位数。</tag>
-				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
-				<tag name="param">use_truncation: 是否使用截断而不是四舍五入。</tag>
-				<tag name="param">scientific_style: 科学计数法的输出风格。</tag>
-				<tag name="return">格式化后的字符串。</tag>
-				<tag name="schema">value: Variant numeric value accepted by the formatter.</tag>
-				<tag name="since">3.17.0</tag>
+				<tag name="param">value: 要显示的数值。</tag>
+				<tag name="param">policy: 冻结显示政策；null 使用默认 auto 政策。</tag>
+				<tag name="return">格式化字符串；非法输入报告错误并返回稳定fallback 0。需要区分错误与真实零时使用 try_format。</tag>
+				<tag name="schema">value: int、有限float、最多4096字符的String数值、GFBigNumber或GFFixedDecimal。文本支持严格逗号/下划线分隔和科学指数，输入及数量级范围±1000000；不接受bool或任意对象。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="format_full">
-			<signature>static func format_full( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_grouping: bool = false, use_truncation: bool = false ) -&gt; String:</signature>
-			<description>输出普通十进制字符串。</description>
+		<member kind="method" name="try_format">
+			<signature>static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -&gt; Dictionary:</signature>
+			<description>返回可检查的格式化结果，不输出日志也不把非法输入当作零。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。</tag>
-				<tag name="param">decimal_places: 小数位数。</tag>
-				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
-				<tag name="param">use_grouping: 是否为整数部分添加千分位分隔。</tag>
-				<tag name="param">use_truncation: 是否使用截断而不是四舍五入。</tag>
-				<tag name="return">普通十进制字符串。</tag>
-				<tag name="schema">value: Variant numeric value accepted by the formatter.</tag>
+				<tag name="param">value: 与 format_number 相同的数值域。</tag>
+				<tag name="param">policy: 冻结政策；null 使用默认政策。</tag>
+				<tag name="return">有界显示结果。</tag>
+				<tag name="schema">value: int、有限float、String数值、GFBigNumber或GFFixedDecimal；预算与format_number.value相同。</tag>
+				<tag name="schema">return: 封闭 Dictionary，ok:bool、text:String、error:String、notation_used:String、fallback_reason:String、policy_error_kind:String、path:String。成功文本最多8192字符，失败文本为空；notation_used为实际full/compact/scientific/engineering，失败为空；fallback_reason为output_budget/suffix_exhausted或空。默认科学回退，fallback_notation=error时拒绝回退。error为稳定原因标识；policy_error_kind/path由try_format_options报告政策错误，其余为空，不包含输入载荷。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="format_compact">
-			<signature>static func format_compact( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, suffixes: PackedStringArray = PackedStringArray() ) -&gt; String:</signature>
-			<description>输出紧凑缩写字符串，如 1.2k / 3.4M。</description>
+		<member kind="method" name="try_format_options">
+			<signature>static func try_format_options(value: Variant, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>直接验收显示声明后格式化，避免把政策创建失败的null解释成默认政策。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。</tag>
-				<tag name="param">decimal_places: 小数位数。</tag>
-				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
-				<tag name="param">use_truncation: 是否使用截断而不是四舍五入。</tag>
-				<tag name="param">suffixes: 自定义后缀表；为空时使用默认值。</tag>
-				<tag name="return">紧凑缩写字符串。</tag>
-				<tag name="schema">value: Variant numeric value accepted by the formatter.</tag>
-			</tags>
-		</member>
-		<member kind="method" name="format_scientific">
-			<signature>static func format_scientific( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, style: ScientificStyle = ScientificStyle.E_LOWER, engineering: bool = false ) -&gt; String:</signature>
-			<description>输出科学计数法或工程计数法字符串。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。</tag>
-				<tag name="param">decimal_places: 小数位数。</tag>
-				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
-				<tag name="param">use_truncation: 是否使用截断而不是四舍五入。</tag>
-				<tag name="param">style: 输出风格。</tag>
-				<tag name="param">engineering: 为 true 时输出工程计数法。</tag>
-				<tag name="return">科学计数法字符串。</tag>
-				<tag name="schema">value: Variant numeric value accepted by the formatter.</tag>
-			</tags>
-		</member>
-		<member kind="method" name="format_auto">
-			<signature>static func format_auto( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -&gt; String:</signature>
-			<description>自动选择最合适的数字记法。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。</tag>
-				<tag name="param">decimal_places: 小数位数。</tag>
-				<tag name="param">trim_zeroes: 是否裁掉尾部 0。</tag>
-				<tag name="param">use_truncation: 是否使用截断而不是四舍五入。</tag>
-				<tag name="param">scientific_style: 科学计数法输出风格。</tag>
-				<tag name="return">自动挑选后的字符串。</tag>
-				<tag name="schema">value: Variant numeric value accepted by the formatter.</tag>
+				<tag name="param">value: 与format_number相同的精确值或近似值。</tag>
+				<tag name="param">options: 本次显示声明；空字典采用默认政策。</tag>
+				<tag name="return">不记录日志的格式化结果；政策无效时不解析数值。</tag>
+				<tag name="schema">value: int、有限float、String数值、GFBigNumber或GFFixedDecimal；范围见format_number.value。</tag>
+				<tag name="schema">options: 封闭Dictionary，见GFNumberFormatPolicy.create.options。</tag>
+				<tag name="schema">return: 与try_format.return相同；政策错误时ok=false、error=invalid_policy、policy_error_kind/path来自GFNumberFormatPolicy.try_create，text为空。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

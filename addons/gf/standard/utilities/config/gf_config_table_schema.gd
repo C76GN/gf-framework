@@ -503,17 +503,20 @@ func validate_table(table_data: Variant, options: Dictionary = {}) -> Dictionary
 	var runtime_options: Dictionary = _with_type_compilation_session(_with_element_validation_session(_with_resource_path_validation_session(options)))
 	if not _admit_type_compilation(report, runtime_options):
 		return report
+	var session: _ValidationSession = _make_validation_session()
 	if table_data is Array:
 		_validate_array_table(
 			GFVariantData.as_array(table_data),
 			report,
-			runtime_options
+			runtime_options,
+			session
 		)
 	elif table_data is Dictionary:
 		_validate_dictionary_table(
 			GFVariantData.as_dictionary(table_data),
 			report,
-			runtime_options
+			runtime_options,
+			session
 		)
 	else:
 		_add_issue(
@@ -732,6 +735,54 @@ func describe(options: Dictionary = {}) -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 只在原生标量声明且没有项目回调的表操作内复用定义检查；不接受外部缓存标记。
+## 转换、结构类型、子类和自定义规则保留逐行重验，错误行也撤销剩余行的复用资格。
+## [br]
+## @api private
+func _make_validation_session() -> _ValidationSession:
+	var session: _ValidationSession = _ValidationSession.new()
+	if (
+		get_script() != GFConfigTableSchema
+		or coerce_values
+		or not record_validation_rules.is_empty()
+		or not table_validation_rules.is_empty()
+	):
+		return session
+	var has_declared_id: bool = false
+	for column: GFConfigTableColumn in columns:
+		if (
+			column == null
+			or column.get_script() != GFConfigTableColumn
+			or column.type_definition != null
+			or not column.validation_rules.is_empty()
+			or not column.element_validation_rules.is_empty()
+			or column.value_type not in [
+				GFConfigTableColumn.ValueType.BOOL,
+				GFConfigTableColumn.ValueType.INT,
+				GFConfigTableColumn.ValueType.FLOAT,
+				GFConfigTableColumn.ValueType.STRING,
+				GFConfigTableColumn.ValueType.STRING_NAME,
+				GFConfigTableColumn.ValueType.VECTOR2,
+				GFConfigTableColumn.ValueType.VECTOR2I,
+				GFConfigTableColumn.ValueType.COLOR,
+			]
+		):
+			return session
+		if column.field_name == id_field:
+			has_declared_id = true
+	# 未声明的 ID 可以在唯一性比较时调用项目的 _to_string，不能复用无回调假设。
+	if (
+		require_unique_id
+		and id_field != &""
+		and not has_declared_id
+	):
+		return session
+	session._columns = columns.duplicate()
+	session._columns.make_read_only()
+	session._reusable_definitions = true
+	return session
+
+
 ## 同次表操作先编译所有结构列，再执行默认值规则，后续各行只消费冻结节点。
 ## [br]
 ## @api private
@@ -861,7 +912,8 @@ func _get_row_entry_key(row_entry: Dictionary) -> Variant:
 func _validate_array_table(
 	rows: Array,
 	report: Dictionary,
-	options: Dictionary
+	options: Dictionary,
+	session: _ValidationSession
 ) -> void:
 	report["row_count"] = rows.size()
 	var seen_ids: Dictionary = {}
@@ -870,6 +922,7 @@ func _validate_array_table(
 	for index: int in range(rows.size()):
 		var row: Variant = rows[index]
 		if not (row is Dictionary):
+			session._reusable_definitions = false
 			_add_issue(
 				report,
 				"error",
@@ -892,9 +945,11 @@ func _validate_array_table(
 			record,
 			row_key,
 			row_report,
-			row_options
+			row_options,
+			session
 		)
 		if not prepared._admitted:
+			session._reusable_definitions = false
 			_finalize_report(row_report)
 			_merge_report(report, row_report)
 			continue
@@ -914,6 +969,8 @@ func _validate_array_table(
 			row_options,
 			prepared
 		)
+		if not row_report["ok"]:
+			session._reusable_definitions = false
 		_finalize_report(row_report)
 		_merge_report(report, row_report)
 		_validate_unique_id(
@@ -942,7 +999,8 @@ func _validate_array_table(
 func _validate_dictionary_table(
 	table: Dictionary,
 	report: Dictionary,
-	options: Dictionary
+	options: Dictionary,
+	session: _ValidationSession
 ) -> void:
 	report["row_count"] = table.size()
 	var seen_ids: Dictionary = {}
@@ -951,6 +1009,7 @@ func _validate_dictionary_table(
 	for key: Variant in table.keys():
 		var row: Variant = table[key]
 		if not (row is Dictionary):
+			session._reusable_definitions = false
 			_add_issue(
 				report,
 				"error",
@@ -969,9 +1028,11 @@ func _validate_dictionary_table(
 			record,
 			row_key,
 			row_report,
-			options
+			options,
+			session
 		)
 		if not prepared._admitted:
+			session._reusable_definitions = false
 			_finalize_report(row_report)
 			_merge_report(report, row_report)
 			continue
@@ -985,6 +1046,8 @@ func _validate_dictionary_table(
 			options,
 			prepared
 		)
+		if not row_report["ok"]:
+			session._reusable_definitions = false
 		_finalize_report(row_report)
 		_merge_report(report, row_report)
 		_validate_unique_id(
@@ -1250,7 +1313,8 @@ func _prepare_record_for_validation(
 	record: Dictionary,
 	row_key: Variant,
 	report: Dictionary,
-	options: Dictionary
+	options: Dictionary,
+	session: _ValidationSession = null
 ) -> _PreparedValidationRecord:
 	var prepared: _PreparedValidationRecord = _PreparedValidationRecord.new()
 	if options.has("__gf_config_type_compiler"):
@@ -1261,9 +1325,22 @@ func _prepare_record_for_validation(
 				compiler.get_report()
 			)
 			return prepared
-	if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
-		return prepared
-	prepared._columns = columns.duplicate()
+	if (
+		session != null
+		and session._reusable_definitions
+		and not allow_extra_fields
+	):
+		# 严格字段检查会转换非文本键；该转换可能回调项目并修改后续行的声明。
+		for field_key: Variant in record:
+			if not field_key is String and not field_key is StringName:
+				session._reusable_definitions = false
+				break
+	if session != null and session._reusable_definitions:
+		prepared._columns = session._columns
+	else:
+		if not _validate_element_limits(report, options) or not _validate_element_definitions(report, options):
+			return prepared
+		prepared._columns = columns.duplicate()
 	prepared._coerced = coerce_values
 	if not prepared._coerced:
 		prepared._record = record
@@ -1301,7 +1378,7 @@ func _prepare_record_for_validation(
 	var _resized: int = prepared._element_batches.resize(prepared._columns.size())
 	for column_index: int in range(prepared._columns.size()):
 		var column: GFConfigTableColumn = prepared._columns[column_index]
-		if column == null:
+		if column == null or column.element_validation_rules.is_empty():
 			continue
 		var field_key: StringName = column.get_field_key()
 		var value: Variant = record.get(field_key, column.default_value)
@@ -1404,11 +1481,6 @@ func _validate_prepared_record(
 			continue
 
 		var field_key: StringName = column.get_field_key()
-		var field_context: Dictionary = _make_field_context(
-			row_key,
-			field_key,
-			options
-		)
 		if field_key == &"":
 			_add_issue(
 				report,
@@ -1417,7 +1489,11 @@ func _validate_prepared_record(
 				row_key,
 				&"",
 				"字段名为空。",
-				field_context
+				_make_field_context(
+					row_key,
+					field_key,
+					options
+				)
 			)
 			continue
 		declared_fields[field_key] = true
@@ -1705,6 +1781,12 @@ func _validate_column_rules(
 	was_prepared: bool = false,
 	prepared_batch: _ElementValidationBatch = null
 ) -> void:
+	if (
+		column.validation_rules.is_empty()
+		and column.element_validation_rules.is_empty()
+		and prepared_batch == null
+	):
+		return
 	var context: Dictionary = _make_field_context(
 		row_key,
 		column.get_field_key(),
@@ -1787,17 +1869,21 @@ func _validate_element_definitions(report: Dictionary, options: Dictionary) -> b
 	var valid: bool = true
 	for column: GFConfigTableColumn in columns:
 		if column != null:
+			var issue: Dictionary = GFConfigElementValidation.get_definition_issue(column.value_type, column.element_validation_rules)
+			if issue.is_empty():
+				continue
 			var context: Dictionary = _make_field_context(
 				null,
 				column.get_field_key(),
 				options
 			)
-			if not _validate_column_element_definition(
+			_add_column_element_definition_issue(
 				column,
 				report,
-				context
-			):
-				valid = false
+				context,
+				issue
+			)
+			valid = false
 	return valid
 
 
@@ -1813,6 +1899,24 @@ func _validate_column_element_definition(
 	var issue: Dictionary = GFConfigElementValidation.get_definition_issue(column.value_type, column.element_validation_rules)
 	if issue.is_empty():
 		return true
+	_add_column_element_definition_issue(
+		column,
+		report,
+		context,
+		issue
+	)
+	return false
+
+
+## 只有定义失败才创建诊断，保留表、字段及来源定位。
+## [br]
+## @api private
+func _add_column_element_definition_issue(
+	column: GFConfigTableColumn,
+	report: Dictionary,
+	context: Dictionary,
+	issue: Dictionary
+) -> void:
 	var issue_kind: String = issue["kind"]
 	var issue_message: String = issue["message"]
 	_add_issue(
@@ -1824,7 +1928,6 @@ func _validate_column_element_definition(
 		issue_message,
 		context
 	)
-	return false
 
 
 ## 复制选项并复用或创建共享元素规则预算会话。
@@ -2371,6 +2474,25 @@ static func _values_allow_null(values: Array) -> bool:
 
 
 # --- 内部类 ---
+
+## 单次整表调用内的定义复用资格；不跨调用缓存，也不通过外部 options 注入。
+## [br]
+## @api private
+class _ValidationSession extends RefCounted:
+
+
+	# --- 私有变量 ---
+
+	## 只有无回调的原生标量路径复用此列列表，任何失败行都会撤销资格。
+	## [br]
+	## @api private
+	var _columns: Array[GFConfigTableColumn] = []
+
+	## 定义已在本次入口检查且运行期间没有项目规则可改写它们。
+	## [br]
+	## @api private
+	var _reusable_definitions: bool = false
+
 
 ## 保存一个字段待校验元素与对应规则的内部批次对象。
 ## [br]

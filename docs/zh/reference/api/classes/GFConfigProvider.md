@@ -25,6 +25,9 @@
 | 方法 | [`validate_record`](#member-gfconfigprovider-methods-validate_record) | `func validate_record( table_name: StringName, record: Dictionary, row_key: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`validate_table`](#member-gfconfigprovider-methods-validate_table) | `func validate_table( table_name: StringName, table_data: Variant = null, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`coerce_record`](#member-gfconfigprovider-methods-coerce_record) | `func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:` |
+| 方法 | [`get_snapshot`](#member-gfconfigprovider-methods-get_snapshot) | `func get_snapshot() -> GFConfigSnapshot:` |
+| 方法 | [`get_publication_generation`](#member-gfconfigprovider-methods-get_publication_generation) | `func get_publication_generation() -> int:` |
+| 方法 | [`publish_snapshot`](#member-gfconfigprovider-methods-publish_snapshot) | `func publish_snapshot(snapshot: GFConfigSnapshot, expected_generation: int) -> Dictionary:` |
 
 ## 方法
 
@@ -91,7 +94,7 @@ func get_table(_table_name: StringName) -> Variant:
 func register_schema(schema: GFConfigTableSchema) -> bool:
 ```
 
-注册导表结构声明。
+注册独立查询适配器的导表结构声明；发布快照后声明随快照管理。
 
 参数：
 
@@ -263,3 +266,59 @@ func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:
 
 - `record`: Dictionary，待转换的配置记录，键为字段名，值为字段数据。
 - `return`: Dictionary，转换后的记录副本。
+
+<a id="member-gfconfigprovider-methods-get_snapshot"></a>
+
+### `get_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_snapshot() -> GFConfigSnapshot:
+```
+
+取得当前快照；调用方可跨发布持有它完成同一版本的多表查询。
+
+返回：已发布快照；从未发布时为 null。
+
+<a id="member-gfconfigprovider-methods-get_publication_generation"></a>
+
+### `get_publication_generation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_publication_generation() -> int:
+```
+
+取得发布代际，用作下一次发布的预期值。
+
+返回：成功发布次数。
+
+<a id="member-gfconfigprovider-methods-publish_snapshot"></a>
+
+### `publish_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func publish_snapshot(snapshot: GFConfigSnapshot, expected_generation: int) -> Dictionary:
+```
+
+只在代际匹配时一次替换完整快照，不执行项目回调。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `snapshot` | 已通过捕获和校验的候选。 |
+| `expected_generation` | 准备候选前取得的发布代际。 |
+
+返回：是否发布以及当前代际。
+
+结构：
+
+- `return`: Dictionary，含 ok: bool、error_kind: StringName 和 generation: int。

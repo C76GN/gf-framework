@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNumberFormatPolicy" path="addons/gf/standard/foundation/formatting/gf_number_format_policy.gd" module="standard" extends="RefCounted" classDigest="2f41f9def74b35ea82170894170d425cd3e392a751d7bac1af2005265cb9b020">
+	<description>GFNumberFormatPolicy: 冻结的数字显示政策。
+小数位与有效位共同限定显示精度，舍入只影响展示，不改变原始数值或交易判定。
+单位缩放、整数分组、分隔符和自动记法分别配置；默认保留科学计数法回退。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create(options: Dictionary = {}) -&gt; GFNumberFormatPolicy:</signature>
+			<description>创建政策并复制单位表，不接受隐式类型转换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 显示政策。</tag>
+				<tag name="return">冻结政策；无效输入返回 null。</tag>
+				<tag name="schema">options: 封闭 Dictionary，可选 notation:String（auto/full/compact/scientific/engineering，默认auto）、group_base:int（1000或10000，默认1000）、suffixes:PackedStringArray（默认对应单位表）、decimal_places:int[0,18]（默认2）、significant_digits:int[0,18]（0关闭）、rounding:String（half_up/half_even/toward_zero/floor/ceiling，默认half_up）、trim_zeroes:bool（默认true）、use_grouping:bool（默认false）、scientific_style:String（e/E/power，默认e）。grouping_size:int[1,8192] 默认按group_base取3或4；group_separator:String默认逗号、0..4字符；decimal_separator:String默认句点、1..4字符，分隔符不含控制字符且只影响展示。auto_scientific_below:int[-1000000,0]默认-4，auto_compact_from:int[0,1000000]默认0，按原始非零值的绝对十进制数量级选择，先判断科学下限，再判断紧凑下限，其余full。fallback_notation:String为scientific（默认）或error。后缀1..64项，每项最多32字符，第一项为空，其余非空且不重复。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="try_create">
+			<signature>static func try_create(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>创建政策并返回具体失败字段；失败不产生政策，也不输出日志。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 与 create 相同的显示声明。</tag>
+				<tag name="return">政策或可解释的失败结果，修改结果字典不影响已创建政策。</tag>
+				<tag name="schema">options: Dictionary，字段、默认值与预算见 create.options。</tag>
+				<tag name="schema">return: 封闭 Dictionary，ok:bool、policy:GFNumberFormatPolicy或null、error_kind:String、path:String；成功时后两项为空，失败为invalid_type/unknown_option/invalid_value及options字段路径，不回显配置值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_default_suffixes">
+			<signature>static func get_default_suffixes(group_base: int = 1000) -&gt; PackedStringArray:</signature>
+			<description>获取框架单位表的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">group_base: 1000或10000；其他输入返回空数组。</tag>
+				<tag name="return">第0项为空的单位表。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_record">
+			<signature>func to_record() -&gt; Dictionary:</signature>
+			<description>获取完整政策副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完整实际政策；未经工厂创建的实例返回空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 create.options 的全部实际字段，省略的选项已填入默认值，容器与政策内部隔离。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

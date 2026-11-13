@@ -48,6 +48,8 @@ static func build_index(table_data: Variant, field_names: PackedStringArray) -> 
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param tables_by_name: 表名到表数据的字典。
 ## [br]
 ## @schema tables_by_name: Dictionary，键为表名 StringName，值为 Array[Dictionary] 或 Dictionary 表数据。
@@ -56,9 +58,9 @@ static func build_index(table_data: Variant, field_names: PackedStringArray) -> 
 ## [br]
 ## @schema schemas: Array[GFConfigTableSchema]，参与校验的表结构声明。
 ## [br]
-## @param options: 可选参数，当前支持 validate_schema。
+## @param options: schema 校验与共享工作预算。
 ## [br]
-## @schema options: Dictionary，可包含 validate_schema。
+## @schema options: Dictionary，可包含 validate_schema、work_budget 或 work_limits。
 ## [br]
 ## @return 聚合校验报告字典。
 ## [br]
@@ -69,6 +71,23 @@ static func validate_tables(
 	options: Dictionary = {}
 ) -> Dictionary:
 	var report: Dictionary = _make_report()
+	var budget: GFConfigWorkBudget = GFConfigWorkBudget.from_options(options)
+	if not _admit_reference_work(
+		tables_by_name,
+		schemas,
+		budget
+	):
+		_add_issue(
+			report,
+			"error",
+			"reference_work_budget_exceeded",
+			&"",
+			null,
+			&"",
+			"Reference validation exceeded its work budget."
+		)
+		_finalize_report(report)
+		return report
 	var schema_lookup: Dictionary = _build_schema_lookup(schemas)
 	var validate_schema: bool = GFVariantData.get_option_bool(
 		options,
@@ -95,11 +114,14 @@ static func validate_tables(
 		if validate_schema:
 			_merge_report(
 				report,
-				schema.validate_definition()
+				schema.validate_definition(options)
 			)
 			_merge_report(
 				report,
-				schema.validate_table(tables_by_name[table_name])
+				schema.validate_table(
+					tables_by_name[table_name],
+					options
+				)
 			)
 		_validate_schema_references(
 			schema,
@@ -179,6 +201,37 @@ static func resolve_record_references(
 
 
 # --- 私有/辅助方法 ---
+
+## 在构建引用索引前按源、目标与声明数量准入工作，不遍历未声明引用的表。
+## [br]
+## @api private
+static func _admit_reference_work(
+	tables_by_name: Dictionary,
+	schemas: Array[GFConfigTableSchema],
+	budget: GFConfigWorkBudget
+) -> bool:
+	for schema: GFConfigTableSchema in schemas:
+		if not budget.consume_work(1, "references.schema"):
+			return false
+		if schema == null:
+			continue
+		for reference_definition: GFConfigTableReference in schema.references:
+			if not budget.consume_work(1, "references.definition"):
+				return false
+			if reference_definition == null:
+				continue
+			if not budget.admit_value(
+				tables_by_name.get(schema.get_table_key()),
+				"references.source"
+			):
+				return false
+			if not budget.admit_value(
+				tables_by_name.get(reference_definition.target_table_name),
+				"references.target"
+			):
+				return false
+	return budget.is_ok()
+
 
 ## 按 schema 检查表记录中的引用关系并累积验证报告。
 ## [br]

@@ -69,6 +69,13 @@ var _payload: Variant = null
 ## [br]
 var _metadata: Dictionary = {}
 
+## 随本次候选接管的保留内容删除指令。
+## [br]
+## @api private
+## [br]
+## @schema _retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge。
+var _retention_deletions: Dictionary = {}
+
 ## Mutation 当前可用或已丢弃的状态标识。
 ## [br]
 ## @api private
@@ -100,12 +107,17 @@ var _state: StringName = STATE_DISCARDED
 ## [br]
 ## @schema metadata: Dictionary accepted by the Save persisted-value contract.
 ## [br]
+## @param retention_deletions: 与本次候选一起提交的保留内容删除指令。
+## [br]
+## @schema retention_deletions: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
+## [br]
 ## @return 可用 Mutation；身份或候选数据无效时返回 null。
 static func take_ownership(
 	section_id: StringName,
 	schema_version: int,
 	payload: Variant,
-	metadata: Dictionary = {}
+	metadata: Dictionary = {},
+	retention_deletions: Dictionary = {}
 ) -> GFSaveSectionMutation:
 	if (
 		section_id == &""
@@ -129,10 +141,16 @@ static func take_ownership(
 		return null
 
 	var mutation: GFSaveSectionMutation = GFSaveSectionMutation.new()
+	if not GFVariantData.get_option_bool(
+		_PERSISTED_VALUE_VALIDATOR_SCRIPT.validate(retention_deletions),
+		"ok"
+	):
+		return null
 	mutation._section_id = section_id
 	mutation._schema_version = schema_version
 	mutation._payload = payload
 	mutation._metadata = metadata
+	mutation._retention_deletions = retention_deletions
 	mutation._state = STATE_AVAILABLE
 	return mutation
 
@@ -209,7 +227,7 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @return 规范候选记录；不可用时返回空字典。
 ## [br]
-## @schema return: Dictionary with section_id, schema_version, payload, and metadata.
+## @schema return: Dictionary with section_id, schema_version, payload, metadata, and retention_deletions.
 func claim_for_framework() -> Dictionary:
 	if not is_available():
 		return {}
@@ -218,9 +236,11 @@ func claim_for_framework() -> Dictionary:
 		"schema_version": _schema_version,
 		"payload": _payload,
 		"metadata": _metadata,
+		"retention_deletions": _retention_deletions,
 	}
 	_payload = null
 	_metadata = {}
+	_retention_deletions = {}
 	_state = STATE_CLAIMED
 	return record
 
@@ -237,5 +257,6 @@ func discard_for_framework() -> bool:
 		return false
 	_payload = null
 	_metadata = {}
+	_retention_deletions = {}
 	_state = STATE_DISCARDED
 	return true

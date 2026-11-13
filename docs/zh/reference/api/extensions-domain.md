@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 2 | 64 | 41 |
+| [运行时服务](#category-runtime_service) | 2 | 72 | 50 |
 | [资源定义](#category-resource_definition) | 8 | 96 | 44 |
 | [运行时句柄](#category-runtime_handle) | 2 | 18 | 17 |
-| [值对象](#category-value_object) | 2 | 34 | 16 |
+| [值对象](#category-value_object) | 4 | 57 | 33 |
 | [领域模型](#category-domain_model) | 7 | 124 | 98 |
 
 ## 类
@@ -55,6 +55,8 @@
 |---|---|---|
 | [`GFInventoryOperationResult`](classes/GFInventoryOperationResult.md#gfinventoryoperationresult) | `RefCounted` | `addons/gf/extensions/domain/inventory/gf_inventory_operation_result.gd` |
 | [`GFInventoryTransferResult`](classes/GFInventoryTransferResult.md#gfinventorytransferresult) | `RefCounted` | `addons/gf/extensions/domain/inventory/gf_inventory_transfer_result.gd` |
+| [`GFQuestDefinition`](classes/GFQuestDefinition.md#gfquestdefinition) | `RefCounted` | `addons/gf/extensions/domain/quest/gf_quest_definition.gd` |
+| [`GFQuestState`](classes/GFQuestState.md#gfqueststate) | `RefCounted` | `addons/gf/extensions/domain/quest/gf_quest_state.gd` |
 
 <a id="category-domain_model"></a>
 

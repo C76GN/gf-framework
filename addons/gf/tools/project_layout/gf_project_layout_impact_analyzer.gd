@@ -222,6 +222,15 @@ func analyze_validated_change(
 	if _has_issue_kind(result, "impact_checkpoint_stopped"):
 		return result
 	result["evidence_ids"] = evidence_ids
+	_append_dependency_impact(
+		result,
+		graph,
+		analysis_index,
+		source_path,
+		checkpoint
+	)
+	if _has_issue_kind(result, "impact_checkpoint_stopped"):
+		return result
 	var target_path: String = _get_string(normalized_change, "target_path")
 	if (
 		not target_path.is_empty()
@@ -252,6 +261,71 @@ func analyze_validated_change(
 
 
 # --- 私有/辅助方法 ---
+
+## 反向遍历已证实的引用，报告待改写的入边；完整性仍受动态依赖未知限制。
+## [br]
+## @api private
+func _append_dependency_impact(
+	result: Dictionary,
+	graph: Dictionary,
+	index: Dictionary,
+	source_path: String,
+	checkpoint: Callable
+) -> void:
+	var dependencies: Dictionary = _get_dictionary(graph, "dependencies")
+	if dependencies.is_empty():
+		return
+	var reverse: Dictionary = {}
+	var affected: Dictionary = {}
+	var queue: Array[String] = []
+	for edge: Dictionary in _get_array(dependencies, "edges"):
+		if not _checkpoint_allows(checkpoint):
+			_stop_for_checkpoint(result)
+			return
+		var to: String = edge["to"]
+		var incoming: Array = reverse.get(to, [])
+		incoming.append(edge)
+		reverse[to] = incoming
+		if to == source_path or to.begins_with(source_path + "/"):
+			if not affected.has(to):
+				affected[to] = true
+				queue.append(to)
+	var cursor: int = 0
+	var evidence_ids: Array = result["evidence_ids"]
+	var node_ids: Array = result["affected_node_ids"]
+	while cursor < queue.size():
+		var path: String = queue[cursor]
+		cursor += 1
+		for edge: Dictionary in reverse.get(path, []):
+			if not _checkpoint_allows(checkpoint):
+				_stop_for_checkpoint(result)
+				return
+			var from: String = edge["from"]
+			var evidence_id: String = edge["evidence_id"]
+			if not evidence_ids.has(evidence_id):
+				evidence_ids.append(evidence_id)
+			if not affected.has(from):
+				affected[from] = true
+				queue.append(from)
+				var node_id: String = _find_node_id(index, from)
+				if not node_id.is_empty() and not node_ids.has(node_id):
+					node_ids.append(node_id)
+			if from != source_path and not from.begins_with(source_path + "/"):
+				_add_blocker(
+					result,
+					"known_dependency_requires_rewrite",
+					from,
+					"已记录的引用依赖此路径；移动或删除前必须审查引用改写。"
+				)
+	if not _checkpoint_allows(
+		checkpoint,
+		node_ids.size() + evidence_ids.size()
+	):
+		_stop_for_checkpoint(result)
+		return
+	node_ids.sort()
+	evidence_ids.sort()
+
 
 ## 初始化 impact 报告的字段、unknown 状态和只读 effects 标记。
 ## [br]
@@ -570,7 +644,7 @@ func _finalize_result(
 			result,
 			"dependency_coverage_incomplete",
 			"",
-			"当前图只证明文件系统库存，尚不能证明所有资源和运行时依赖已覆盖。"
+			"当前图只证明已捕获的库存和声明/观测证据，尚不能证明所有动态依赖已覆盖。"
 		)
 	if not _checkpoint_allows(checkpoint):
 		_stop_for_checkpoint(result)

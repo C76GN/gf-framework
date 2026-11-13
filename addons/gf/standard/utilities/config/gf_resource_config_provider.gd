@@ -1,7 +1,7 @@
-## GFResourceConfigProvider: 读取 GFConfigTableResource 的运行时配置 Provider。
+## GFResourceConfigProvider: 通过已验收快照发布 Resource 配置集合。
 ##
-## 用于把导表工具生成的 `.tres` / `.res` 表资源接入 `GFConfigProvider` 查询协议。
-## 它只处理通用表资源注册、表查询和记录查询，不绑定业务字段、构建 profile 或热更新策略。
+## 作者资源可以编辑；运行查询读取隔离快照。替换、增量更新和移除均先验证
+## 完整候选，随后检查发布代际，失败不会留下部分新表。
 ## [br]
 ## @api public
 ## [br]
@@ -12,165 +12,131 @@ class_name GFResourceConfigProvider
 extends GFConfigProvider
 
 
-# --- 私有变量 ---
-
-## 已注册的配置表资源列表。
-## [br]
-## @api private
-## [br]
-var _tables: Array[GFConfigTableResource] = []
-
-## 按表名缓存配置表资源的查找映射。
-## [br]
-## @api private
-## [br]
-var _tables_by_name: Dictionary = {}
-
-
 # --- 公共方法 ---
 
-## 注册一张配置表资源。
+## 准备完整数据库候选，保留准备开始时的代际供发布使用。
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
-## @param table_resource: 要注册的配置表资源。
+## @param database: 待捕获的作者数据库。
 ## [br]
-## @return 注册成功返回 true；schema 复制失败返回 false 并保留同名旧表。
-func register_table(table_resource: GFConfigTableResource) -> bool:
-	if table_resource == null or table_resource.get_table_key() == &"":
-		push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
-		return false
-
-	var table_key: StringName = table_resource.get_table_key()
-	if table_resource.schema != null and table_resource.schema.get_table_key() != table_key:
-		push_error("[GFResourceConfigProvider][resource_config_provider.schema_table_name_mismatch] Cannot register_table: table_name does not match schema.table_name.")
-		return false
-
-	if table_resource.schema != null:
-		if not register_schema(table_resource.schema):
-			return false
-	else:
-		unregister_schema(table_key)
-	_remove_table_entry(table_key)
-	_tables.append(table_resource)
-	_tables_by_name[table_key] = table_resource
-	return true
-
-
-## 批量注册配置表资源。
+## @param options: 候选工作预算。
 ## [br]
-## @api public
+## @schema options: Dictionary，可包含 work_budget 或 work_limits；不接受增量 base_snapshot。
 ## [br]
-## @since 5.2.0
+## @return 捕获结果及 expected_generation。
 ## [br]
-## @param table_resources: 要注册的配置表资源列表。
-## [br]
-## @schema table_resources: Array[GFConfigTableResource]，每个元素是一张配置表资源。
-## [br]
-## @return: 成功注册的数量。
-func register_tables(table_resources: Array[GFConfigTableResource]) -> int:
-	var count: int = 0
-	for table_resource: GFConfigTableResource in table_resources:
-		if register_table(table_resource):
-			count += 1
-	return count
-
-
-## 以 best-effort 方式批量替换配置表资源并重建内部查询索引。
-##
-## 调用时会先清空旧表，再逐项注册候选；无效候选会被跳过并通过返回数量反映，
-## 不会回滚已经接受的新表，也不保留旧表。需要 last-good 原子切换时，应在调用前
-## 完整校验候选，或由项目层使用独立 Provider/Snapshot 完成 staging 与 swap。
-## [br]
-## @api public
-## [br]
-## @since 5.2.0
-## [br]
-## @param table_resources: 要设置的配置表资源列表。
-## [br]
-## @param duplicate_tables: 为 true 时保存表资源副本。
-## [br]
-## @schema table_resources: Array[GFConfigTableResource]，每个元素是一张配置表资源。
-## [br]
-## @return: 成功注册的表数量；小于输入数量表示已留下部分新状态。
-func set_table_resources(table_resources: Array[GFConfigTableResource], duplicate_tables: bool = false) -> int:
-	clear_tables()
-	var count: int = 0
-	for table_resource: GFConfigTableResource in table_resources:
-		var registered_table: GFConfigTableResource = (table_resource.duplicate_table() if duplicate_tables and table_resource != null else table_resource)
-		if register_table(registered_table):
-			count += 1
-	return count
-
-
-## 获取已注册配置表资源。
-## [br]
-## @api public
-## [br]
-## @since 5.2.0
-## [br]
-## @param duplicate_tables: 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。
-## [br]
-## @return 配置表资源列表；任一所需副本失败时返回空列表，不返回部分结果。
-## [br]
-## @schema return: Array[GFConfigTableResource]，每个元素是一张配置表资源。
-func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableResource]:
-	var result: Array[GFConfigTableResource] = []
-	for table_resource: GFConfigTableResource in _tables:
-		var copied: GFConfigTableResource = table_resource.duplicate_table() if duplicate_tables else table_resource
-		if copied == null:
-			return []
-		result.append(copied)
+## @schema return: GFConfigSnapshot.capture() 结果，另含 expected_generation: int。
+func prepare_database(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
+	var generation: int = get_publication_generation()
+	if options.has("base_snapshot") or options.has("removed_tables"):
+		return {
+			"ok": false,
+			"error_kind": &"invalid_replace_options",
+			"snapshot": null,
+			"expected_generation": generation,
+		}
+	var capture_options: Dictionary = options.duplicate()
+	var result: Dictionary = GFConfigSnapshot.capture(database, capture_options)
+	result["expected_generation"] = generation
 	return result
 
 
-## 从配置数据库资源创建 Provider。
+## 捕获并原子替换完整数据库；校验期间发生其他发布时拒绝旧候选。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param database: 待发布的数据库。
+## [br]
+## @param options: 捕获预算。
+## [br]
+## @schema options: Dictionary，可包含 work_budget 或 work_limits。
+## [br]
+## @return 包含捕获诊断与发布状态的结果。
+## [br]
+## @schema return: Dictionary，含 ok、error_kind、generation、validation_report、work_report。
+func replace_database(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
+	return _publish_prepared(prepare_database(database, options))
+
+
+## 基于当前快照准备增量候选，校验合并后的跨表引用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param tables: 本次新增或替换的表。
+## [br]
+## @schema tables: Array[GFConfigTableResource]，同一表只能出现一次。
+## [br]
+## @param options: 移除项、内容版本与捕获预算。
+## [br]
+## @schema options: Dictionary，可包含 removed_tables: PackedStringArray、version: String、work_budget 或 work_limits。
+## [br]
+## @return 捕获结果及 expected_generation；不修改当前快照。
+## [br]
+## @schema return: GFConfigSnapshot.capture() 结果，另含 expected_generation: int。
+func prepare_update(tables: Array[GFConfigTableResource], options: Dictionary = {}) -> Dictionary:
+	var generation: int = get_publication_generation()
+	var base: GFConfigSnapshot = get_snapshot()
+	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
+	database.tables = tables.duplicate()
+	if base != null:
+		database.database_id = base.get_database_id()
+		database.version = base.get_version()
+	database.version = GFVariantData.get_option_string(
+		options,
+		"version",
+		database.version
+	)
+	var capture_options: Dictionary = options.duplicate()
+	capture_options["base_snapshot"] = base
+	var result: Dictionary = GFConfigSnapshot.capture(database, capture_options)
+	result["expected_generation"] = generation
+	return result
+
+
+## 验收并原子发布增量更新，包括明确声明的移除项。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param tables: 新增或替换的表。
+## [br]
+## @schema tables: Array[GFConfigTableResource]，每个表是本次候选。
+## [br]
+## @param options: 与 prepare_update() 相同。
+## [br]
+## @schema options: Dictionary，可包含 removed_tables、version、work_budget 或 work_limits。
+## [br]
+## @return 捕获诊断及发布状态，失败保留当前快照。
+## [br]
+## @schema return: Dictionary，含 ok、error_kind、generation、validation_report、work_report。
+func update_tables(tables: Array[GFConfigTableResource], options: Dictionary = {}) -> Dictionary:
+	return _publish_prepared(prepare_update(tables, options))
+
+
+## 从完整数据库创建已发布的 Provider。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @param database: 配置数据库资源。
+## @param database: 待捕获的数据库。
 ## [br]
-## @param duplicate_tables: 为 true 时把表资源副本注册到 Provider。
-## [br]
-## @return 新 Resource Provider；database 为空、表副本或任一表注册失败时返回 null。
-static func from_database(database: GFConfigDatabaseResource, duplicate_tables: bool = false) -> GFResourceConfigProvider:
-	if database == null:
-		push_error("[GFResourceConfigProvider][resource_config_provider.database_null] Cannot from_database: database is null.")
-		return null
-
-	var source_tables: Array[GFConfigTableResource] = database.get_table_resources(false)
-	var tables: Array[GFConfigTableResource] = database.get_table_resources(duplicate_tables)
-	if tables.size() != source_tables.size():
-		return null
+## @return 已发布 Provider；任一候选校验失败时为 null。
+static func from_database(database: GFConfigDatabaseResource) -> GFResourceConfigProvider:
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	var registered_count: int = provider.set_table_resources(tables, false)
-	if registered_count != tables.size():
-		return null
-	return provider
+	var result: Dictionary = provider.replace_database(database)
+	return provider if GFVariantData.get_option_bool(result, "ok") else null
 
 
-## 重新建立内部查询索引和 schema registry。
-## [br]
-## @api public
-## [br]
-## @since 5.2.0
-## [br]
-## @return: 成功注册的表数量。
-func rebuild_table_registry() -> int:
-	var source_tables: Array[GFConfigTableResource] = _tables.duplicate()
-	clear_tables()
-	for table_resource: GFConfigTableResource in source_tables:
-		if table_resource == null or table_resource.get_table_key() == &"":
-			continue
-		var _registered: bool = register_table(table_resource)
-	return _tables_by_name.size()
-
-
-## 注销配置表资源。
+## 检查当前快照是否包含表，未准备不表示来源不存在。
 ## [br]
 ## @api public
 ## [br]
@@ -178,58 +144,58 @@ func rebuild_table_registry() -> int:
 ## [br]
 ## @param table_name: 表名。
 ## [br]
-## @return: 找到并移除时返回 true。
-func unregister_table(table_name: StringName) -> bool:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
-		return false
-
-	_remove_table_entry(table_name)
-	unregister_schema(table_name)
-	return true
-
-
-## 清空所有配置表资源和由表资源注册的 schema。
-## [br]
-## @api public
-## [br]
-## @since 5.2.0
-func clear_tables() -> void:
-	for table_name: StringName in _collect_table_names():
-		unregister_schema(table_name)
-	_tables.clear()
-	_tables_by_name.clear()
-
-
-## 检查配置表是否已注册。
-## [br]
-## @api public
-## [br]
-## @since 5.2.0
-## [br]
-## @param table_name: 表名。
-## [br]
-## @return: 已注册返回 true。
+## @return 已准备时为 true。
 func has_table(table_name: StringName) -> bool:
-	return _get_table_reference(table_name) != null
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	return snapshot != null and snapshot.has_table(table_name)
 
 
-## 获取已注册配置表名。
+## 取得已发布的表名。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @return: 排序后的表名列表。
+## @return 排序后的表名。
 func get_table_ids() -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray()
-	for table_name: StringName in _collect_table_names():
-		var _id_appended: bool = result.append(String(table_name))
-	result.sort()
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	return snapshot.get_table_ids() if snapshot != null else PackedStringArray()
+
+
+## 取得已发布表的作者副本，用于构建下一次候选。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param table_name: 表名。
+## [br]
+## @return 表副本；未准备时为 null。
+func get_table_resource(table_name: StringName) -> GFConfigTableResource:
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	return snapshot.get_table_resource(table_name) if snapshot != null else null
+
+
+## 取得全部已发布表的独立副本。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @return 表资源副本；任一复制失败时返回空集合。
+## [br]
+## @schema return: Array[GFConfigTableResource]。
+func get_table_resources() -> Array[GFConfigTableResource]:
+	var result: Array[GFConfigTableResource] = []
+	for table_name: String in get_table_ids():
+		var table: GFConfigTableResource = get_table_resource(StringName(table_name))
+		if table == null:
+			return []
+		result.append(table)
 	return result
 
 
-## 获取配置表资源。
+## 从当前快照查询记录副本，不隐式加载或更新表。
 ## [br]
 ## @api public
 ## [br]
@@ -237,39 +203,35 @@ func get_table_ids() -> PackedStringArray:
 ## [br]
 ## @param table_name: 表名。
 ## [br]
-## @param duplicate_table: 为 true 时返回资源深拷贝，避免调用方修改 Provider 内部数据。
+## @param record_id: 记录 ID。
 ## [br]
-## @return: 配置表资源；未命中时返回 null。
-func get_table_resource(table_name: StringName, duplicate_table: bool = true) -> GFConfigTableResource:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
-		return null
-	return table_resource.duplicate_table() if duplicate_table else table_resource
-
-
-## 根据表名和 ID 获取单条记录。
+## @schema record_id: Variant，使用项目声明的记录键类型。
 ## [br]
-## @api public
+## @return 记录副本或 null。
 ## [br]
-## @since 5.2.0
-## [br]
-## @param table_name: 表名。
-## [br]
-## @param record_id: 记录的唯一标识符。
-## [br]
-## @schema record_id: Variant，项目配置表使用的记录键，通常为 String、StringName 或 int。
-## [br]
-## @return: 返回对应记录副本，未命中时返回 null。
-## [br]
-## @schema return: Variant，找到时为 Dictionary，未命中时为 null。
+## @schema return: Dictionary 或 null。
 func get_record(table_name: StringName, record_id: Variant) -> Variant:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
-		return null
-	return table_resource.get_record(record_id, true)
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	return snapshot.get_record(table_name, record_id) if snapshot != null else null
 
 
-## 根据表名和索引声明构建索引键。
+## 从当前快照查询整表副本，不执行来源回调。
+## [br]
+## @api public
+## [br]
+## @since 5.2.0
+## [br]
+## @param table_name: 表名。
+## [br]
+## @return 表记录副本或 null。
+## [br]
+## @schema return: Array[Dictionary] 或 null。
+func get_table(table_name: StringName) -> Variant:
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	return snapshot.get_table(table_name) if snapshot != null else null
+
+
+## 按命名索引声明生成查询键。
 ## [br]
 ## @api public
 ## [br]
@@ -279,23 +241,27 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 ## [br]
 ## @param index_id: 索引 ID。
 ## [br]
-## @param record: 用于构建索引键的记录或字段值字典。
+## @param record: 索引字段数据。
 ## [br]
-## @schema record: Dictionary，键为索引字段名，值为字段数据。
+## @schema record: Dictionary，含索引所需字段。
 ## [br]
-## @return: 索引键；表、索引或字段无效时返回空字符串。
+## @return 查询键；无效时为空。
 func make_index_key(
 	table_name: StringName,
 	index_id: StringName,
 	record: Dictionary
 ) -> String:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	if snapshot == null:
 		return ""
-	return table_resource.make_index_key(index_id, record)
+	return snapshot.make_index_key(
+		table_name,
+		index_id,
+		record
+	)
 
 
-## 检查表资源中的命名索引键是否存在。
+## 检查命名索引键。
 ## [br]
 ## @api public
 ## [br]
@@ -305,21 +271,25 @@ func make_index_key(
 ## [br]
 ## @param index_id: 索引 ID。
 ## [br]
-## @param index_key: 由 make_index_key() 或同等规则生成的索引键。
+## @param index_key: 编码后的查询键。
 ## [br]
-## @return: 存在返回 true。
+## @return 命中时为 true。
 func has_index_key(
 	table_name: StringName,
 	index_id: StringName,
 	index_key: String
 ) -> bool:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	if snapshot == null:
 		return false
-	return table_resource.has_index_key(index_id, index_key)
+	return snapshot.has_index_key(
+		table_name,
+		index_id,
+		index_key
+	)
 
 
-## 根据表名和命名索引获取记录列表。
+## 返回命名索引命中的记录副本。
 ## [br]
 ## @api public
 ## [br]
@@ -329,27 +299,27 @@ func has_index_key(
 ## [br]
 ## @param index_id: 索引 ID。
 ## [br]
-## @param index_key: 由 make_index_key() 或同等规则生成的索引键。
+## @param index_key: 编码后的查询键。
 ## [br]
-## @return: 命中的记录列表；未命中时返回空数组。
+## @return 匹配记录副本；未命中时为空。
 ## [br]
-## @schema return: Array[Dictionary]，每个 Dictionary 是一条配置记录。
+## @schema return: Array[Dictionary]。
 func get_index_records(
 	table_name: StringName,
 	index_id: StringName,
 	index_key: String
 ) -> Array[Dictionary]:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	if snapshot == null:
 		return []
-	return table_resource.get_index_records(
+	return snapshot.get_index_records(
+		table_name,
 		index_id,
-		index_key,
-		true
+		index_key
 	)
 
 
-## 根据表名和命名索引获取第一条记录。
+## 返回命名索引命中的第一条记录副本。
 ## [br]
 ## @api public
 ## [br]
@@ -359,114 +329,47 @@ func get_index_records(
 ## [br]
 ## @param index_id: 索引 ID。
 ## [br]
-## @param index_key: 由 make_index_key() 或同等规则生成的索引键。
+## @param index_key: 编码后的查询键。
 ## [br]
-## @return: 找到时返回第一条记录 Dictionary，否则返回 null。
+## @return 第一条匹配记录，未命中时为 null。
 ## [br]
-## @schema return: Variant，找到时为 Dictionary，未命中时为 null。
+## @schema return: Dictionary 或 null。
 func get_index_record(
 	table_name: StringName,
 	index_id: StringName,
 	index_key: String
 ) -> Variant:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
+	var snapshot: GFConfigSnapshot = get_snapshot()
+	if snapshot == null:
 		return null
-	return table_resource.get_index_record(
+	return snapshot.get_index_record(
+		table_name,
 		index_id,
-		index_key,
-		true
+		index_key
 	)
-
-
-## 根据表名获取整张表的数据。
-## [br]
-## @api public
-## [br]
-## @since 5.2.0
-## [br]
-## @param table_name: 表名。
-## [br]
-## @return: 返回 Array[Dictionary] 表数据副本，未命中时返回 null。
-## [br]
-## @schema return: Variant，找到时为 Array[Dictionary]，未命中时为 null。
-func get_table(table_name: StringName) -> Variant:
-	var table_resource: GFConfigTableResource = _get_table_reference(table_name)
-	if table_resource == null:
-		return null
-	return table_resource.get_records(true)
 
 
 # --- 私有/辅助方法 ---
 
-## 从缓存查找表资源；缓存不匹配或未命中时重建注册表后再查找。
+## 保留捕获诊断，仅在候选和代际均有效时发布。
 ## [br]
 ## @api private
-## [br]
-func _get_table_reference(table_name: StringName) -> GFConfigTableResource:
-	var cached: Variant = GFVariantData.get_option_value(
-		_tables_by_name,
-		table_name,
-		null
+func _publish_prepared(prepared: Dictionary) -> Dictionary:
+	if not GFVariantData.get_option_bool(prepared, "ok"):
+		prepared["generation"] = get_publication_generation()
+		return prepared
+	var candidate: Variant = prepared.get("snapshot")
+	if not candidate is GFConfigSnapshot:
+		return { "ok": false, "error_kind": &"invalid_snapshot" }
+	var snapshot: GFConfigSnapshot = candidate
+	var result: Dictionary = publish_snapshot(
+		snapshot,
+		GFVariantData.get_option_int(
+			prepared,
+			"expected_generation",
+			-1
+		)
 	)
-	if cached is GFConfigTableResource:
-		var cached_table: GFConfigTableResource = cached
-		if cached_table.get_table_key() == table_name:
-			return cached_table
-		var _rebuilt_count: int = rebuild_table_registry()
-		return _get_cached_table_reference(table_name)
-
-	for table_resource: GFConfigTableResource in _tables:
-		if table_resource != null and table_resource.get_table_key() == table_name:
-			var _rebuilt_count_after_miss: int = rebuild_table_registry()
-			return _get_cached_table_reference(table_name)
-	return null
-
-
-## 仅当缓存项类型和表名都匹配时返回对应的配置表资源。
-## [br]
-## @api private
-## [br]
-func _get_cached_table_reference(table_name: StringName) -> GFConfigTableResource:
-	var cached: Variant = GFVariantData.get_option_value(
-		_tables_by_name,
-		table_name,
-		null
-	)
-	if cached is GFConfigTableResource:
-		var cached_table: GFConfigTableResource = cached
-		if cached_table.get_table_key() == table_name:
-			return cached_table
-	return null
-
-
-## 从注册列表和名称映射中移除指定表名对应的条目。
-## [br]
-## @api private
-## [br]
-func _remove_table_entry(table_name: StringName) -> void:
-	var retained: Array[GFConfigTableResource] = []
-	for table_resource: GFConfigTableResource in _tables:
-		if table_resource == null or table_resource.get_table_key() != table_name:
-			retained.append(table_resource)
-	_tables = retained
-	var _erase_result: bool = _tables_by_name.erase(table_name)
-
-
-## 合并缓存键和注册资源中的非空表名，并去除重复项。
-## [br]
-## @api private
-## [br]
-func _collect_table_names() -> Array[StringName]:
-	var names: Array[StringName] = []
-	for table_name: Variant in _tables_by_name.keys():
-		var table_key: StringName = GFVariantData.to_string_name(table_name)
-		if table_key != &"" and not names.has(table_key):
-			names.append(table_key)
-	for table_resource: GFConfigTableResource in _tables:
-		if table_resource == null:
-			continue
-		var table_key: StringName = table_resource.get_table_key()
-		if table_key != &"" and not names.has(table_key):
-			names.append(table_key)
-	return names
+	result["validation_report"] = prepared.get("validation_report", {})
+	result["work_report"] = prepared.get("work_report", {})
+	return result

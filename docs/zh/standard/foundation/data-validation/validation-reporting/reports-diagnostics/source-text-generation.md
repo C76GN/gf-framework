@@ -55,7 +55,7 @@ var output: String = context.replace_tokens("Score: {{ score }}", {
 		var data_path: String = GFVariantData.get_option_string(format_context, "path")
 		var token_value: Variant = GFVariantData.get_option_value(format_context, "value")
 		if data_path == "score":
-			return GFNumberFormatter.format_compact(token_value)
+			return GFNumberFormatter.format_number(token_value, GFNumberFormatPolicy.create({"notation": "compact"}))
 		return token_value
 })
 ```

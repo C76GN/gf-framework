@@ -28,6 +28,7 @@
 | 方法 | [`init`](#member-gfuirouterutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfuirouterutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`tick`](#member-gfuirouterutility-methods-tick) | `func tick(_delta: float) -> void:` |
+| 方法 | [`set_clock`](#member-gfuirouterutility-methods-set_clock) | `func set_clock(clock: GFClock) -> bool:` |
 | 方法 | [`configure`](#member-gfuirouterutility-methods-configure) | `func configure(routes: Array[GFUIRoute] = [], ui_utility: GFUIUtility = null) -> void:` |
 | 方法 | [`set_ui_utility`](#member-gfuirouterutility-methods-set_ui_utility) | `func set_ui_utility(ui_utility: GFUIUtility) -> void:` |
 | 方法 | [`register_route`](#member-gfuirouterutility-methods-register_route) | `func register_route(route: GFUIRoute) -> bool:` |
@@ -265,13 +266,34 @@ func dispose() -> void:
 func tick(_delta: float) -> void:
 ```
 
-清理普通 Object owner 已释放的提交前路由请求。 Node owner 和 GFAsyncScope 会通过信号即时取消；普通 Object 依赖本帧弱引用检查。
+清理失效的 owner/scope，并处理已提交导航的内容就绪超时。 Node owner 和 GFAsyncScope 取消通过信号处理；普通 Object 与正常结束作用域依赖本帧检查。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `_delta` | 本帧时间增量；生命周期清理不依赖具体数值。 |
+
+<a id="member-gfuirouterutility-methods-set_clock"></a>
+
+### `set_clock`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_clock(clock: GFClock) -> bool:
+```
+
+在没有 pending 请求时替换单调时间来源。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clock` | 非空时钟；默认服务直接使用 GFClock。 |
+
+返回：未释放且没有 pending 请求时为 true。
 
 <a id="member-gfuirouterutility-methods-configure"></a>
 
@@ -544,7 +566,7 @@ func push_route_async( route_id: StringName, params: Dictionary = {}, option_ove
 
 - `params`: Dictionary，本次打开路由携带的项目自定义参数。
 - `option_overrides`: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
-- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
+- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner:Object、scope:GFAsyncScope。可选 navigation_target:GFUINavigationTarget 与 navigation_resolver:GFUINavigationResolver 必须成对出现；readiness_timeout_msec:int 默认 15000，范围 1..300000，从页面确认入栈起覆盖内容与定位两阶段。普通打开的 owner/scope 只约束提交前；导航还约束提交后的等待，但不会自动关闭页面。preload_policy 使用 PRELOAD_*，自动预加载包含当前路由，未指定 max_depth 时只加载当前页面。
 
 <a id="member-gfuirouterutility-methods-replace_route_async"></a>
 
@@ -575,7 +597,7 @@ func replace_route_async( route_id: StringName, params: Dictionary = {}, option_
 
 - `params`: Dictionary，本次打开路由携带的项目自定义参数。
 - `option_overrides`: Dictionary，字段同 GFUIUtility 打开面板 options，会覆盖路由 default_options。
-- `async_options`: Dictionary，可包含 preload_policy、preload_plan_options、metadata、owner: Object 和 scope: GFAsyncScope；owner 与 scope 使用 OR 取消语义且只约束面板提交前，preload_policy 使用 PRELOAD_* 常量，自动预加载始终包含当前路由，未指定 max_depth 时只加载当前页面。
+- `async_options`: Dictionary，结构与 push_route_async.async_options 相同；可选 navigation_target、navigation_resolver 与 readiness_timeout_msec 继续等待内容和语义定位。提交后失败不恢复被 replace 替换的旧页面。
 
 <a id="member-gfuirouterutility-methods-back"></a>
 

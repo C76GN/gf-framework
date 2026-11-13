@@ -1,198 +1,81 @@
 # Provider 适配器
 
-`GFConfigProvider` 是抽象适配器，本身不存数据；默认实现会报错并返回 `null`。
+配置来源与活动数据分开管理。Godot 数据库用 `GFResourceConfigProvider`；数组、字典、生成对象或同步加载函数用 `GFConfigProviderAdapter`。两者都发布 `GFConfigSnapshot`，查询返回记录副本，跨表读取可以固定同一快照。
+
+`GFConfigProvider` 保留自定义查询协议。未发布快照、也未重写查询的基类会报告未实现；自定义 Provider 仍可注册 schema 做独立验证。活动快照的 schema 随候选发布，不能用 `register_schema()` 单独替换。
+
+## Resource 输入
+
+`GFConfigDatabaseResource` 与 `GFConfigTableResource` 是可编辑的作者数据。数据库中的表名必须唯一，表与 schema 身份必须一致；完整 schema、记录、索引约束和跨表引用验收通过后才可以发布。
 
 ```gdscript
-## 项目异步表加载适配器；load_config_tables_async() 须由项目实现。
-## 本例允许加载失败后保留空 Provider，必需配置应改由 Installer 判定启动失败。
-class_name JSONConfigProvider
-extends GFConfigProvider
-
-## Provider 自有的表容器；查询返回副本，避免调用方修改缓存。
-var _configs: Dictionary = {}
-
-## 加载并接收本代配置；取消后不得把迟到结果提交到缓存。
-func async_init(scope: GFAsyncScope) -> void:
-	# 由项目实现这个异步加载入口。
-	var loaded_value: Variant = await load_config_tables_async()
-	if scope.is_cancel_requested():
-		return
-	if not loaded_value is Dictionary:
-		push_error("配置表加载结果不是 Dictionary。")
-		return
-	var loaded_configs: Dictionary = loaded_value as Dictionary
-	_configs.clear()
-	for raw_table_name: Variant in loaded_configs.keys():
-		var table_name: StringName = GFVariantData.to_string_name(raw_table_name)
-		if table_name == &"":
-			continue
-		_configs[table_name] = GFVariantData.duplicate_variant(
-			loaded_configs[raw_table_name]
-		)
-
-## 返回记录副本；表不存在、类型不符或记录缺失时返回 null。
-func get_record(table_name: StringName, id: Variant) -> Variant:
-	var table_value: Variant = _configs.get(table_name)
-	if not table_value is Dictionary:
-		return null
-	var table: Dictionary = table_value as Dictionary
-	return GFVariantData.duplicate_variant(table.get(id))
-
-## 返回整表副本；缺失表返回 null，Object 内容仍须遵守只读约定。
-func get_table(table_name: StringName) -> Variant:
-	return GFVariantData.duplicate_variant(_configs.get(table_name))
+# database 是项目已经加载的 GFConfigDatabaseResource。
+var provider := GFResourceConfigProvider.new()
+var result: Dictionary = provider.replace_database(database)
+if not GFVariantData.get_option_bool(result, "ok"):
+	# result 包含 error_kind、validation_report 与 work_report。
+	return
+var snapshot: GFConfigSnapshot = provider.get_snapshot()
+var item: Variant = snapshot.get_record(&"items", 1001)
 ```
 
-`load_config_tables_async()` 是项目侧占位入口，需要替换为实际的加载函数。
+`from_database(database)` 是创建并发布的便捷入口；失败返回 `null`，不会返回部分可用的 Provider。输入中的缓存索引不作为验收依据，运行索引在候选阶段重建。启用 schema 的显式类型转换时，发布校验后的记录。
 
-返回类型保持 `Variant` 是为了兼容不同导表方案：可以返回 `Dictionary`、`Resource`、自定义记录对象，或整张表容器。
+准备与发布也可以分开：`prepare_database()` / `prepare_update()` 返回候选和 `expected_generation`，随后调用 `publish_snapshot(snapshot, expected_generation)`。代际不匹配时拒绝发布，避免迟到候选覆盖较新状态。异步下载必须先在项目侧固定请求的内容版本、验证清单及取消状态，再把捕获结果交给这些入口。
 
-框架内调用方会按自己的需求解释返回值。例如 `GFLevelUtility` 会接受字典记录，或带 `to_dict()` 方法的记录对象。
+## 显式按需加载
 
-`init()` 只适合组装已经在内存中的数据；文件、网络等异步加载应放在 `async_init(scope)`，并在每次 `await` 后检查取消状态。`get_record()` 应返回只读数据或副本，避免业务代码直接改坏导表缓存。
-
-上面的非法加载结果只 `push_error()`，属于允许 Provider 保持为空的 soft-fail 示例。配置是启动必需项时，应由项目 Installer 先加载和校验，再在失败时调用 `architecture.fail_initialization()`，不要把致命失败隐藏在 Provider 内部。
-
-表名建议使用稳定 `StringName`，记录 ID 可保持项目导表原始类型。
-
-## 通用表源适配
-
-如果项目已经有生成表对象、远程配置缓存、字典表或懒加载函数，不必为了接入 GF 先转换成 Resource。`GFConfigProviderAdapter` 可以注册单张表源，并在 `get_record()` / `get_table()` 时统一查询：
+注册来源不会执行 loader，也不改变活动数据。`prepare_tables()` 只构建候选；`load_tables()` 完成准备与发布。两者按 schema 引用声明补齐请求闭包，未请求且未被引用的表保持未加载。无需在启动时加载全部游戏配置。
 
 ```gdscript
 var provider := GFConfigProviderAdapter.new()
-var registered: bool = provider.register_table_source(&"items", func(table_name: StringName, metadata: Dictionary) -> Array[Dictionary]:
-	return load_items_from_project_cache(table_name, metadata)
-, {
-	"id_field": &"id",
-	"metadata": { "source": "runtime_cache" },
-})
-if not registered:
-	push_error("items 表源注册失败。")
-	return
-
-var load_report: Dictionary = provider.preload_table(&"items")
-if not bool(load_report.get("ok", false)):
-	push_error("items 表加载失败。")
-	return
-
-var item: Variant = provider.get_record(&"items", 1001)
-if item == null:
-	push_error("items[1001] 不存在。")
-```
-
-表源可以是 `Array`、`Dictionary`、自定义对象或 `Callable`。数组表默认按 `id_field` 查找记录；字典表按键查找，并支持 `String` / `StringName` 文本等价；对象源会先尝试通过 `table_method`（默认 `get_table()`）解析整表，只有解析后的表值仍是对象时，单条查询才调用 `record_method`（默认 `get_record(record_id)`）。`cache` 默认为 `true`，懒加载结果会缓存到 Provider 内，`clear_table_cache()` 可清掉单表缓存。缓存中的对象若已被释放，Provider 会先逐出失效值再重新解析表源，不会把悬空对象继续报告为加载成功。
-
-Callable loader 是同步、不可重入的加载边界。loader 可以读取已经加载完成的其他表，但不得形成 `A -> A` 或 `A -> B -> A` 一类循环依赖；Provider 会让整个活动闭环 fail-closed，并在加载报告的 `error` 中给出闭环路径。需要相互引用的数据应先独立加载原始表，再在导入校验或单独的装配阶段建立关系。
-
-这个适配器只做运行时读取边界，不解析 CSV、JSON、二进制包或网络协议，也不规定表名、字段名和热更新策略。复杂导入、签名、下载和分端裁剪仍应放在项目工具或独立制作期包里。
-
-代码生成式导表同样不需要进入 GF 核心。项目 adapter 只需把生成容器投影为表源，例如返回生成表的记录数组，或通过 `table_method` / `record_method` 映射其查询 API；GF 继续只消费 `GFConfigProvider`。生成代码版本、二进制格式、加载顺序和热更新原子切换由项目 Installer 校验，避免框架绑定某一种导表工具。
-
-## Resource 表 Provider
-
-如果导表流水线已经输出 Godot 原生 `.tres/.res`，可以用 `GFConfigTableResource` 承载单张表，再交给 `GFResourceConfigProvider` 查询。
-
-```gdscript
-var table := GFConfigTableResource.new()
-table.table_name = &"items"
-table.schema = item_schema
-table.records = [
-	{ "id": 1, "name": "Potion" },
-	{ "id": 2, "name": "Ether" },
-]
-
-var provider := GFResourceConfigProvider.new()
-if not provider.register_table(table):
-	push_error("items 表注册失败。")
-	return
-
-var item: Variant = provider.get_record(&"items", 1)
-if item == null:
-	push_error("items[1] 不存在。")
-```
-
-`GFConfigTableResource` 保留稳定记录顺序，也可把 `records_by_id` 和 `records_by_index` 作为导出、检查或无有效 Schema 声明时的索引快照。`get_record()` 会以当前 `records` 为准查找；存在有效 `schema.indexes` 时，命名索引查询也会从当前记录构建结果，避免陈旧缓存覆盖真实数据。可用 `make_index_key()` 构建查询键，再通过 `get_index_record()` 或 `get_index_records()` 查询；不要把 `rebuild_index()` / `rebuild_indexes()` 理解为所有运行时查询都会自动命中的加速缓存。
-
-多表导表产物可以用 `GFConfigDatabaseResource` 聚合。数据库资源只保存多张表和通用 metadata；运行时读取时由 `GFResourceConfigProvider.from_database()` 创建查询 Provider：
-
-```gdscript
-var database := GFConfigDatabaseResource.new()
-database.database_id = &"main"
-database.version = "2026.06.17"
-if not database.register_table(item_table) or not database.register_table(skill_table):
-	push_error("配置表注册到数据库失败。")
-	return
-
-var validation: Dictionary = database.validate_database()
-if not bool(validation.get("ok", false)):
-	push_error("配置数据库校验失败。")
-	return
-
-# true 表示把表资源副本注册到 Provider，避免修改共享导表 Resource。
-var provider := GFResourceConfigProvider.from_database(database, true)
-var item: Variant = provider.get_record(&"items", 1)
-if item == null:
-	push_error("items[1] 不存在。")
-```
-
-`validate_database()` 会聚合表资源状态、schema 校验、表数据校验和跨表引用校验，返回 `GFConfigValidationReport` 兼容字典。它适合在导入后、CI 或运行时调试入口检查整包配置是否可用。
-
-`GFResourceConfigProvider` 负责运行时查询面：`get_record()`、`get_table()`、`get_index_record()` 和 `get_index_records()` 默认返回副本，避免业务代码修改共享资源数据。Provider 内部会维护表名和 schema registry，替换表资源时应使用 `set_table_resources()` 或 `register_table()`，不要绕过 Provider 入口维护缓存。
-
-`set_table_resources()` 是明确的 clear-then-register best-effort 操作：它先删除旧集合，再逐项接受有效候选，返回成功数量；返回值小于输入数量时，Provider 已处于“仅包含有效候选”的部分新状态，不会自动恢复旧集合。它适合已在制作期完整校验的数据库产物或允许部分可用的恢复流程，不是热更新事务。需要失败候选不影响 last-good 时，应先在独立 Provider 中 staging/validation，成功后再交换项目持有的 Provider/Snapshot。
-
-这层只解决运行时读取 `.tres/.res` 表资源的问题；源表导入、xlsx/xml/yaml 解析、代码生成、构建报告和编辑器 UI 仍应留给项目工具或独立工具包。
-
-## 候选校验与激活
-
-下载完成、解析成功、校验通过和运行时激活是不同边界。需要整包替换的项目应在独立数据库与 Provider 中准备候选，完成 Schema、记录、索引、跨表引用和项目业务约束校验后，再一次性切换项目持有的活动引用。不要逐张修改正在使用的 Provider，也不要把 `set_table_resources()` 的成功数量当作整包事务成功。
-
-候选失败、校验预算耗尽或报告不完整时，保留上一份有效配置；首次启动没有有效配置时，按项目的必需配置失败政策停止依赖流程。失败报告可以用于诊断，但部分通过的表不能冒充完整候选。校验期间的异步加载还应绑定请求身份；旧请求迟到完成时不得覆盖较新的候选。
-
-项目应明确配置生效时机，例如下一次进入关卡、开始回合或切换账号。一次运行会话开始时，固定本次采用的配置版本和只读数据视图；中途收到新配置，只为后续会话准备候选。重试或恢复是否继续旧版本也由项目明确，不能在每个计算步骤重新读取全局活动 Provider，导致同一结果混用两版规则。
-
-固定视图可以保留不再修改的旧 Provider，也可以投影为本局需要的有限纯数据。容器副本不等于所有 Object/Resource 都已冻结；仍共享的资源必须遵守只读约定。活动引用切换属于项目的提交点，不等于动态重新注册架构 Utility；GF 不自动创建会话快照、保存历史版本或执行热更新。
-
-表名、记录 ID 和跨表引用使用稳定身份，显示名称、本地化文本和美术标签分别保存。已发布 ID 不应被重新解释为另一条业务记录。数组位置只表示当前顺序：经过排序、过滤或换包后，不能继续把位置当作记录 ID。依赖位置的旁表应由项目在同一构建中校验对应关系，或改为稳定 ID 关联；相关索引能力见 [索引与跨表引用](../relations-builds/indexes-references.md)。
-
-## 作为架构协议注册
-
-无论选择 Adapter、自定义 Provider 还是 Resource Provider，运行时通常都应以抽象 `GFConfigProvider` 作为稳定查询键。GF 8 的注册入口是可等待操作；在 Installer 中应检查结果与取消状态：
-
-```gdscript
-## 已导出的配置基线；运行时 Provider 使用副本，不原地修改共享 Resource。
-const DATABASE: GFConfigDatabaseResource = preload(
-	"res://generated/config/main_config.tres"
+var registered: bool = provider.register_table_source(
+	&"items",
+	items_by_id,
+	{
+		"schema": item_schema,
+		"content_version": "content-42",
+	}
 )
-
-
-## 验收必需配置后以抽象协议键注册，避免多实现查询歧义。
-func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
-	var validation: Dictionary = DATABASE.validate_database()
-	if not bool(validation.get("ok", false)):
-		architecture.fail_initialization("配置数据库校验失败。")
-		return
-
-	var provider := GFResourceConfigProvider.from_database(DATABASE, true)
-	if provider == null:
-		architecture.fail_initialization("无法创建配置 Provider。")
-		return
-
-	var registered: bool = await architecture.register_utility_instance_as(
-		provider,
-		GFConfigProvider
-	)
-	# 等待期间可能已取消本次初始化，旧流程不能继续报告或提交。
-	if scope.is_cancel_requested():
-		return
-	if not registered:
-		architecture.fail_initialization("配置 Provider 注册失败。")
-		return
+if not registered:
+	return
+var result: Dictionary = provider.load_tables(
+	PackedStringArray(["items"]),
+	{ "version": "content-42" }
+)
+if not GFVariantData.get_option_bool(result, "ok"):
+	return
+var item: Variant = provider.get_record(&"items", 1001)
 ```
 
-只调用 `register_utility_instance(provider)` 会按具体实现类型注册。当当前架构中只有一个可赋值的 Provider 实现时，`get_utility(GFConfigProvider)` 仍可自动解析；存在多个实现时，抽象类型查询会因歧义返回 `null`。显式使用 `register_utility_instance_as()` 可以固定抽象查询键并消除歧义。
+来源形态：
 
-`GFConfigProviderAdapter` 的 Callable 表源会在首次查询时同步调用，不会被框架自动 `await`；需要异步加载时，应在项目自定义 `GFConfigProvider.async_init(scope)` 中完成。
+| 来源 | 捕获规则 |
+| --- | --- |
+| Array | 每项为 Dictionary，按 schema 的 ID 字段建立索引。 |
+| Dictionary | 键为记录 ID，值为 Dictionary；缺少 ID 字段时填入键，冲突时失败。 |
+| Object | 调用 `table_method`（默认 `get_table`）返回整个集合；或通过显式 `record_ids` 与 `record_method`（默认 `get_record`）枚举。 |
+| Callable | 同步接收 `(table_name, metadata)`，返回上述数据；metadata 是独立副本。 |
+| 对象记录 | 用 `record_projector` 明确转换为 Dictionary；不保留任意对象方法与身份。 |
 
-loader 或表对象的记录计数回调若注销、清空或重新注册当前表源，在途查询返回 `null`，不再发布旧缓存或加载报告。新注册保留自己的状态，后续查询使用新表源；已完成的普通缓存读取不受影响。
+loader 不会被自动 `await`。异步文件或网络 IO 由项目先完成，再注册其结果。loader 可以查询旧快照，但不能重入准备；重入、来源替换或准备期间的其他发布会使外层候选失败。schema 的循环引用可以作为同一集合捕获，不等同于 loader 递归调用。
+
+`has_table_source()` / `get_source_ids()` 查询来源清单；`has_table()` / `get_table_ids()` 查询活动快照。`get_load_report()` 同时给出最近准备状态和 `loaded`，失败报告不代表旧数据消失。
+
+## Luban 等生成表接入
+
+项目负责生成器、二进制格式、下载与清单。明确列出表、schema、内容版本与引用依赖；把生成表的集合 API 映射为来源，或提供记录 ID 清单和对象记录投影函数。GF 不硬编码表名，也不要求修改生成器来输出 GF Resource。
+
+每次显式准备会重新捕获选中闭包；来源声明中的非空 `content_version` 必须匹配请求版本。声明完整的增量集合由项目负责，框架无法从任意版本字符串推断未提交的外部文件变化。业务跨表含义、奖励与数值计算放在项目 Domain Repository，Repository 读取同一快照。
+
+## 更新与释放
+
+`update_tables(tables, options)` 基于当前快照构建增量，支持 `removed_tables: PackedStringArray`、内容 `version` 和共享 `work_budget` / `work_limits`。所有候选表一起验收；仍被引用的表不能单独删除。未改变表复用隔离后的内部数据，已有读者继续持有旧快照。
+
+`unregister_table_source()` 与 `clear_table_sources()` 只释放来源。活动数据通过增量移除或完整替换释放；旧快照在读者放弃引用后回收。调试改表也先取得副本、修改、发布，不提供可写活动表入口。
+
+旧的逐表注册、clear-then-register、重建 registry、隐式查询加载、缓存清理及返回可写引用参数已经移除。对应场景的新入口见[运行快照与查询](../runtime-query.md)。
+
+## 架构装配
+
+安装时使用 `architecture.register_utility_instance_as(GFConfigProvider, provider)` 固定抽象查询键。配置是启动必需项时，Installer 在加载、验收或注册失败后调用 `architecture.fail_initialization()`。每次异步等待后检查作用域取消，不能把失败包装成初始化成功。

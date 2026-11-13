@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageSyncResult" path="addons/gf/standard/utilities/storage/gf_storage_sync_result.gd" module="standard" extends="RefCounted" classDigest="7183cb266876029d6c257f64ed87ffc201d40cb5dadea0ed760b8db5ff8d572b">
+	<description>GFStorageSyncResult: 一次同步观察的不可变终态。
+COMMITTED 表示远端提交与本地 checkpoint 均已确认。OUTCOME_UNKNOWN 表示无法
+查证远端结果；RECOVERY_REQUIRED 可以表示远端已确认而本地 checkpoint 尚未确认。
+preview 和 remote_selected 都不表示已写入本地业务状态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 只读比较完成。
+	PREVIEW,
+	## 当前远端数据与候选相同，没有提交写入。
+	UNCHANGED,
+	## 已取得明确选择的远端候选，尚未应用到本地业务状态。
+	REMOTE_SELECTED,
+	## 远端提交和本地 checkpoint 都已持久化确认。
+	COMMITTED,
+	## revision 不匹配或条件提交发生并发竞争。
+	CONFLICT,
+	## 本次未发送，或已查证没有提交。
+	NOT_COMMITTED,
+	## 本次可能已提交，需要按原操作 ID 查证。
+	OUTCOME_UNKNOWN,
+	## 远端结果已取得，但本地持久化结果尚待恢复。
+	RECOVERY_REQUIRED,
+	## 请求、能力、所有权或协议准入被拒绝。
+	REJECTED,
+}</signature>
+			<description>唯一终态；不会因迟到响应重新变更。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查结果是否已经由引擎封存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取唯一终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Status 枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status_name">
+			<signature>func get_status_name() -&gt; StringName:</signature>
+			<description>获取稳定的 ASCII 状态名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">对应 Status 的小写名称。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查本次观察是否成功完成；不能替代 COMMITTED 或本地业务事务结果检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">preview、unchanged、remote_selected 或 committed 时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="requires_recovery">
+			<signature>func requires_recovery() -&gt; bool:</signature>
+			<description>检查是否需要按持久化意图恢复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未知远端结果或未确认本地 checkpoint 时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request">
+			<signature>func get_request() -&gt; GFStorageSyncRequest:</signature>
+			<description>获取本次实际使用的冻结请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求对象；拒绝非法输入时可能为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_kind">
+			<signature>func get_error_kind() -&gt; StringName:</signature>
+			<description>获取稳定错误种类，不包含适配器的任意原始错误文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ASCII 错误种类或空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="record_exists">
+			<signature>func record_exists() -&gt; bool:</signature>
+			<description>检查已观察的远端记录是否存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">存在时为 true；结果未知时不能据此推断记录不存在。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_revision">
+			<signature>func get_revision() -&gt; String:</signature>
+			<description>获取已观察的远端 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不透明文本；不得排序比较。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_data">
+			<signature>func get_data() -&gt; Dictionary:</signature>
+			<description>显式获取远端数据的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已验证数据副本，是否存在由 record_exists() 和终态决定。</tag>
+				<tag name="schema">return: Dictionary of admitted native data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_remote_committed">
+			<signature>func is_remote_committed() -&gt; bool:</signature>
+			<description>检查是否已有远端提交的明确证据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已查证提交时为 true，即使本地 checkpoint 仍待恢复。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_conflict_report">
+			<signature>func get_conflict_report() -&gt; GFStorageConflictReport:</signature>
+			<description>获取隔离的冲突报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">报告副本或 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取不含业务载荷、身份文本或 revision 的诊断摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">终态和确认边界摘要。</tag>
+				<tag name="schema">return: Dictionary with valid,status,error_kind,remote_committed,requires_recovery,has_conflict,local_generation.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

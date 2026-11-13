@@ -16,11 +16,13 @@ GDScript 是 Profile 的唯一权威。编辑器和维护 CLI 使用同一个严
 
 ## 页面与结论
 
+静态依赖、项目声明、运行观测和源文件预算见[资源依赖证据](project-layout-dependencies.md)。
+
 总览显示文件/目录数、诊断计数、输入完整性和摘要。`effects.writes_project` 固定为 `false`；digest 绑定本次冻结来源与范围，不能替代备份或版本控制。
 
 问题与解释展示观察、含义、建议、确定性和证据。列表分帧加载，最多展开 256 条；总览保留报告总数。达到诊断预算时整体降级为 incomplete，不静默省略后声称完整。
 
-影响模拟接受项目相对路径的 `delete`、`move` 或 `rename`。`UNSAFE` 表示已有明确 blocker；`UNKNOWN` 表示证据不足；只有来源与依赖覆盖都完整才可能 `SAFE`。当前依赖覆盖是 `filesystem_only`，因此没有观察到引用也不能证明可安全删除。
+影响模拟接受项目相对路径的 `delete`、`move` 或 `rename`。`UNSAFE` 表示已有明确 blocker；`UNKNOWN` 表示证据不足。带依赖证据时，反向引用闭包会列出受影响文件和需要改写的入边。没有证据时覆盖为 `filesystem_only`，有证据时为 `resource_evidence_partial`；两者均不证明所有动态加载已覆盖，因此没有观察到引用也不能证明可安全删除。
 
 只读计划从 zone 与 `feature_module_contract` 提取候选目录、前置条件、风险和 blocker。其他规则参与分析，不被伪装成待执行命令。工具没有 Apply；项目必须自行审查和验证实际修改。
 
@@ -38,7 +40,7 @@ res://addons/gf/tools/project_layout/profiles/feature_cohesive_v2.json
 
 Profile、snapshot、analysis 和 plan 使用 schema v2。旧 schema 不自动升级，没有兼容字段别名或 legacy/shadow 模式。严格准入拒绝未知字段、错误类型、重复 ID、重复 JSON 键、孤立 Unicode surrogate、非有限数值和不规范路径；无效 Profile 在捕获库存之前失败。集合规范化后的重复值保留第一项并报告 warning。
 
-Profile 必需 `schema_version: 2`、`id`、`zones`、`rules`；可选 `display_name`、`description`、`metadata`、`capture_scope`。每类规则只接受自己的闭合字段，不接受跨规则但被忽略的 operands。
+Profile 必需 `schema_version: 2`、`id`、`zones`、`rules`；可选 `display_name`、`description`、`metadata`、`capture_scope`、`dependency_policy`。每类规则只接受自己的闭合字段，不接受跨规则但被忽略的 operands。
 
 唯一执行器支持全部九类规则：
 

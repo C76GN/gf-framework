@@ -9,262 +9,204 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用存储后端同步协调器。 该工具只协调两个 GFStorageBackend 的字典数据同步、冲突检测和写回策略。 它不绑定本地/云/平台 SDK，也不替项目定义存档业务结构。
+以持久化意图和远端条件写入组织记录同步。 只在主线程使用。setup() 后可独立使用；独立使用者须驱动 tick() 处理超时， 并在结束时 dispose()。网络等待不持有项目业务事务。每个记录同时只接纳一个操作。 远端提交前确认意图落盘，提交后确认结果落盘；未知结果只按原操作 ID 查证。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`sync_conflict_detected`](#member-gfstoragesyncutility-signals-sync_conflict_detected) | `signal sync_conflict_detected(report: GFStorageConflictReport)` |
-| 信号 | [`sync_conflict_unresolved`](#member-gfstoragesyncutility-signals-sync_conflict_unresolved) | `signal sync_conflict_unresolved(file_name: String, result: Dictionary)` |
-| 信号 | [`sync_completed`](#member-gfstoragesyncutility-signals-sync_completed) | `signal sync_completed(file_name: String, result: Dictionary)` |
-| 信号 | [`sync_failed`](#member-gfstoragesyncutility-signals-sync_failed) | `signal sync_failed(file_name: String, result: Dictionary)` |
-| 枚举 | [`ConflictStrategy`](#member-gfstoragesyncutility-enums-conflictstrategy) | `enum ConflictStrategy` |
-| 枚举 | [`SyncStatus`](#member-gfstoragesyncutility-enums-syncstatus) | `enum SyncStatus` |
-| 属性 | [`default_conflict_strategy`](#member-gfstoragesyncutility-properties-default_conflict_strategy) | `var default_conflict_strategy: ConflictStrategy = ConflictStrategy.USE_NEWEST` |
-| 属性 | [`write_resolved_by_default`](#member-gfstoragesyncutility-properties-write_resolved_by_default) | `var write_resolved_by_default: bool = true` |
-| 方法 | [`sync_data`](#member-gfstoragesyncutility-methods-sync_data) | `func sync_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:` |
-| 方法 | [`sync_many`](#member-gfstoragesyncutility-methods-sync_many) | `func sync_many( file_names: PackedStringArray, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`begin_quiesce`](#member-gfstoragesyncutility-methods-begin_quiesce) | `func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
+| 方法 | [`dispose`](#member-gfstoragesyncutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`setup`](#member-gfstoragesyncutility-methods-setup) | `func setup( transport: GFStorageSyncTransport, journal: GFStorageSyncJournal = null, clock: GFClock = null ) -> bool:` |
+| 方法 | [`inspect_support`](#member-gfstoragesyncutility-methods-inspect_support) | `func inspect_support(mode: StringName = &"push", resolution: StringName = &"report") -> Dictionary:` |
+| 方法 | [`synchronize`](#member-gfstoragesyncutility-methods-synchronize) | `func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation:` |
+| 方法 | [`recover`](#member-gfstoragesyncutility-methods-recover) | `func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation:` |
+| 方法 | [`synchronize_many`](#member-gfstoragesyncutility-methods-synchronize_many) | `func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageSyncOperation]:` |
+| 方法 | [`tick`](#member-gfstoragesyncutility-methods-tick) | `func tick(_delta: float) -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfstoragesyncutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
-
-## 信号
-
-<a id="member-gfstoragesyncutility-signals-sync_conflict_detected"></a>
-
-### `sync_conflict_detected`
-
-- API：`public`
-
-```gdscript
-signal sync_conflict_detected(report: GFStorageConflictReport)
-```
-
-检测到存储冲突后发出。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `report` | 冲突报告。 |
-
-<a id="member-gfstoragesyncutility-signals-sync_conflict_unresolved"></a>
-
-### `sync_conflict_unresolved`
-
-- API：`public`
-
-```gdscript
-signal sync_conflict_unresolved(file_name: String, result: Dictionary)
-```
-
-单个逻辑文件存在未解决冲突时发出。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `file_name` | 逻辑文件名。 |
-| `result` | 同步结果字典。 |
-
-结构：
-
-- `result`: Dictionary，由 sync_data() 为未解决冲突返回。
-
-<a id="member-gfstoragesyncutility-signals-sync_completed"></a>
-
-### `sync_completed`
-
-- API：`public`
-
-```gdscript
-signal sync_completed(file_name: String, result: Dictionary)
-```
-
-单个逻辑文件同步完成后发出。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `file_name` | 逻辑文件名。 |
-| `result` | 同步结果字典。 |
-
-结构：
-
-- `result`: Dictionary，由 sync_data() 为已完成同步返回。
-
-<a id="member-gfstoragesyncutility-signals-sync_failed"></a>
-
-### `sync_failed`
-
-- API：`public`
-
-```gdscript
-signal sync_failed(file_name: String, result: Dictionary)
-```
-
-单个逻辑文件同步失败后发出。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `file_name` | 逻辑文件名。 |
-| `result` | 同步结果字典。 |
-
-结构：
-
-- `result`: Dictionary，由 sync_data() 为失败同步返回。
-
-## 枚举
-
-<a id="member-gfstoragesyncutility-enums-conflictstrategy"></a>
-
-### `ConflictStrategy`
-
-- API：`public`
-
-```gdscript
-enum ConflictStrategy {
-	## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。
-	USE_NEWEST,
-	## 冲突时使用 local_backend 的数据。
-	USE_LOCAL,
-	## 冲突时使用 remote_backend 的数据。
-	USE_REMOTE,
-	## 只报告冲突，不自动写回。
-	MANUAL,
-	## 调用 options.resolver 或 options.resolution_callback 生成结果。
-	CUSTOM,
-}
-```
-
-冲突解决策略。
-
-<a id="member-gfstoragesyncutility-enums-syncstatus"></a>
-
-### `SyncStatus`
-
-- API：`public`
-
-```gdscript
-enum SyncStatus {
-	## 两端数据已经一致。
-	UNCHANGED,
-	## 已把 local_backend 数据复制到 remote_backend。
-	COPIED_LOCAL_TO_REMOTE,
-	## 已把 remote_backend 数据复制到 local_backend。
-	COPIED_REMOTE_TO_LOCAL,
-	## 已用自定义合并结果写回两端。
-	MERGED,
-	## 存在未解决冲突。
-	CONFLICT,
-	## 同步失败。
-	FAILED,
-}
-```
-
-同步结果状态。
-
-## 属性
-
-<a id="member-gfstoragesyncutility-properties-default_conflict_strategy"></a>
-
-### `default_conflict_strategy`
-
-- API：`public`
-
-```gdscript
-var default_conflict_strategy: ConflictStrategy = ConflictStrategy.USE_NEWEST
-```
-
-默认冲突策略。
-
-<a id="member-gfstoragesyncutility-properties-write_resolved_by_default"></a>
-
-### `write_resolved_by_default`
-
-- API：`public`
-
-```gdscript
-var write_resolved_by_default: bool = true
-```
-
-默认是否把解析出的结果写回后端。关闭后可用于 dry-run。
 
 ## 方法
 
-<a id="member-gfstoragesyncutility-methods-sync_data"></a>
+<a id="member-gfstoragesyncutility-methods-begin_quiesce"></a>
 
-### `sync_data`
+### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`3.17.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func sync_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:
+func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ```
 
-同步一个逻辑文件。仅当读取结果明确为不存在时填充缺失端；任一其他读取失败都会在写回前终止。
+停止接纳并终结所有观察；不声称撤销已发送的远端操作。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `file_name` | 逻辑文件名。 |
-| `local_backend` | 本地或主后端。 |
-| `remote_backend` | 远端或副后端。 |
-| `options` | 同步选项，支持 strategy、write_resolved、write_to_local、write_to_remote、resolver、revision_keys、timestamp_keys。 |
+| `_scope` | 架构关闭作用域。 |
 
-返回：同步结果字典。
+返回：已完成的静默完成源；未知提交保留在持久化日志供后续恢复。
 
-结构：
+<a id="member-gfstoragesyncutility-methods-dispose"></a>
 
-- `options`: Dictionary，包含 strategy: ConflictStrategy、write_resolved: bool、write_to_local: bool、write_to_remote: bool、resolver: Callable、resolution_callback: Callable、revision_keys: Array[String] 和 timestamp_keys: Array[String]。
-- `return`: Dictionary，包含 ok、file_name、status、status_name、selected_source、written_backends、conflicts、errors、error、data、metadata、local 和 remote。
-
-<a id="member-gfstoragesyncutility-methods-sync_many"></a>
-
-### `sync_many`
+### `dispose`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func sync_many( file_names: PackedStringArray, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:
+func dispose() -> void:
 ```
 
-批量同步多个逻辑文件。
+释放全部观察和适配器引用，原意图仍由持久化日志拥有。
+
+<a id="member-gfstoragesyncutility-methods-setup"></a>
+
+### `setup`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func setup( transport: GFStorageSyncTransport, journal: GFStorageSyncJournal = null, clock: GFClock = null ) -> bool:
+```
+
+一次性装配；只读用途允许 journal 为空。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `file_names` | 逻辑文件名列表。 |
-| `local_backend` | 本地或主后端。 |
-| `remote_backend` | 远端或副后端。 |
-| `options` | 传给 sync_data() 的同步选项。 |
+| `transport` | 冻结认证会话的远端适配器。 |
+| `journal` | 写入与恢复需要的持久化日志。 |
+| `clock` | 单调时钟；空时使用系统单调时间。 |
 
-返回：批量结果字典。
+返回：装配成功返回 true；重复装配或关闭后返回 false。
+
+<a id="member-gfstoragesyncutility-methods-inspect_support"></a>
+
+### `inspect_support`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func inspect_support(mode: StringName = &"push", resolution: StringName = &"report") -> Dictionary:
+```
+
+只读检查本模式的协议能力与日志要求，不开始网络或日志 IO。 能力来自 Transport 当前声明，不证明服务端实现正确；实际准入会再次检查。 pull、preview 与 push/remote 不需要 Journal；probe 只需要 probe 与 Journal。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `mode` | push、pull、preview 或 probe。 |
+| `resolution` | report、local 或 remote。 |
+
+返回：模式支持报告，不包含账号或业务数据。
 
 结构：
 
-- `options`: Dictionary，支持字段与 sync_data() 相同。
-- `return`: Dictionary，包含 ok: bool、count: int、results: Array[Dictionary] 和 status_counts: Dictionary。
+- `return`: Dictionary with ok:bool,error_kind:StringName,path:String,mode:StringName,resolution:StringName,required_capabilities:PackedStringArray,missing_capabilities:PackedStringArray,journal_required:bool,journal_available:bool.
+
+<a id="member-gfstoragesyncutility-methods-synchronize"></a>
+
+### `synchronize`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
+```
+
+开始一次冻结请求；可能同步完成，观察前应检查 is_completed()。 push 默认报告版本冲突；显式 local 选择使用本次读到的 revision 再执行一次 CAS。 pull/remote 只返回远端候选，由调用方以自己的事务应用。preview 从不写入。 自定义合并使用冲突报告构建新请求，填入实际 revision 和新的 operation_id。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request` | 冻结请求；probe 模式进入 recover()。 |
+
+返回：唯一终态操作；非法输入也返回已拒绝操作。
+
+<a id="member-gfstoragesyncutility-methods-recover"></a>
+
+### `recover`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
+```
+
+查证原意图的历史结果，绝不重发条件写入。 调用方可先使用 journal.load_intent() 读取完整记录并调用 Request.from_record()。 引擎再次验证日志仍包含同一意图，防止错认操作或跨记录恢复。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `request` | 原持久化请求；除观察模式外的规范记录必须一致。 |
+
+返回：查证操作；未知结果和本地 checkpoint 失败仍保留恢复责任。
+
+<a id="member-gfstoragesyncutility-methods-synchronize_many"></a>
+
+### `synchronize_many`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageSyncOperation]:
+```
+
+启动相互独立的记录操作，不提供跨记录原子性。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `requests` | 最多256个冻结请求；同记录在途竞争逐项拒绝。 |
+
+返回：与输入顺序一致的操作；超限时不启动任何请求，只返回一个 batch_limit 拒绝结果。
+
+<a id="member-gfstoragesyncutility-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(_delta: float) -> void:
+```
+
+用单调时间终结超时观察，delta 不参与截止时间计算。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_delta` | 架构传入的帧间隔。 |
 
 <a id="member-gfstoragesyncutility-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
 ```
 
-获取同步工具调试快照。
+获取不包含账号、记录键、载荷或 revision 的诊断。
 
-返回：调试快照字典。
+返回：当前观察数量和装配状态。
 
 结构：
 
-- `return`: Dictionary，包含 sync_count、conflict_count、failed_count、default_conflict_strategy 和 write_resolved_by_default。
+- `return`: Dictionary with configured:bool,closed:bool,pending_count:int,phases:Dictionary[StringName,int].

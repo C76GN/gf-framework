@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="eae7b228900a7c3e0845eb0d4099d2876fb923a4e56c710eaba3df774de268c0">
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="d13d13b8725a40f1e706aa321aa0cade0e2a1b1ffb973fab5672a77c90c3aee7">
 	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
@@ -119,6 +119,28 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="get_sync_snapshot_limits">
+			<signature>static func get_sync_snapshot_limits() -&gt; Dictionary:</signature>
+			<description>获取同步确认文档捕获的固定预算；不等于远端上传预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独立的规范编码预算。</tag>
+				<tag name="schema">return: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="measure_sync_snapshot">
+			<signature>static func measure_sync_snapshot(document_data: Dictionary) -&gt; Dictionary:</signature>
+			<description>只读测量完整同步文档封套，不创建确认快照或复制未经验证的数据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">document_data: 调用期间保持不变的完整文档数据。</tag>
+				<tag name="return">预算报告；失败 observed 只包含已遍历部分。</tag>
+				<tag name="schema">document_data: GFSaveDocument 封套；这里只检查原生值与捕获预算，不代替 schema 验证。</tag>
+				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="ready">
 			<signature>func ready() -&gt; void:</signature>
 			<description>在架构 ready 阶段采用已注册的 Storage 和 Time 服务。

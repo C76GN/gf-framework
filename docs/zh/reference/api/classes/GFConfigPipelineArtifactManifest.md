@@ -18,6 +18,7 @@
 | 常量 | [`FORMAT`](#member-gfconfigpipelineartifactmanifest-constants-format) | `const FORMAT: String = "gf.config_pipeline.artifact_manifest"` |
 | 常量 | [`FORMAT_VERSION`](#member-gfconfigpipelineartifactmanifest-constants-format_version) | `const FORMAT_VERSION: int = 2` |
 | 方法 | [`make_manifest`](#member-gfconfigpipelineartifactmanifest-methods-make_manifest) | `func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {}, run_result: Dictionary = {} ) -> Dictionary:` |
+| 方法 | [`capture_inputs`](#member-gfconfigpipelineartifactmanifest-methods-capture_inputs) | `func capture_inputs(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`load_manifest`](#member-gfconfigpipelineartifactmanifest-methods-load_manifest) | `func load_manifest(manifest_path: String) -> Dictionary:` |
 | 方法 | [`save_manifest`](#member-gfconfigpipelineartifactmanifest-methods-save_manifest) | `func save_manifest( manifest_path: String, manifest: Dictionary, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_freshness_report`](#member-gfconfigpipelineartifactmanifest-methods-make_freshness_report) | `func make_freshness_report( manifest_path: String, profile_path: String, profile: GFConfigPipelineProfile, options: Dictionary = {} ) -> Dictionary:` |
@@ -83,6 +84,33 @@ func make_manifest( profile_path: String, profile: GFConfigPipelineProfile, opti
 - `options`: Dictionary，可包含 output_path、access_output_path、access_class_name、access_provider_accessor、build_options、save_options、access_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个 freshness 预算必须为非负整数，分别限制单文件字节数、累计哈希字节数和扫描条目数。
 - `run_result`: Dictionary，可包含 success、operation、profile_id、output_path、save_result、access_result、report、table_results 和 error；table_results 存在时，每项必须提供绑定实际读取字节的 source_receipt，manifest 不会回退到重新哈希来源路径。
 - `return`: Dictionary，包含 format、format_version、artifact_owner、profile_path、profile_id、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries、scan_report、metadata、run_summary 和 manifest_digest。
+
+<a id="member-gfconfigpipelineartifactmanifest-methods-capture_inputs"></a>
+
+### `capture_inputs`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func capture_inputs(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
+```
+
+捕获作者文件、Profile 依赖与登记簿的有界摘要，不读取或写入产物。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `profile` | 当前作者声明；同时摘要内存声明与已保存资源依赖。 |
+| `options` | 既有 freshness 文件、总字节和条目预算。 |
+
+返回：用于预览后提交及事务内复核的输入凭据。
+
+结构：
+
+- `options`: Dictionary，可含 max_freshness_file_bytes、max_freshness_total_bytes、max_freshness_entries。
+- `return`: 封闭 Dictionary，success:bool、digest:String、profile_digest:String、source_digest:String、registry_digest:String、scan_report:Dictionary、error:String；失败digest为空。registry_digest为文件摘要或missing，未启用为空。
 
 <a id="member-gfconfigpipelineartifactmanifest-methods-load_manifest"></a>
 

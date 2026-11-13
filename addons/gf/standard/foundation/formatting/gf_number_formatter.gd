@@ -1,7 +1,7 @@
-## GFNumberFormatter: 统一的数字显示格式化工具。
+## GFNumberFormatter: 由冻结政策控制的统一数字显示工具。
 ##
-## 负责普通数字、定点小数与大数值对象在 UI 中的显示转换，
-## 提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。
+## int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFBigNumber 的
+## 尾数本身是近似值，格式化不会恢复它们已经丢失的精度。输出仅用于展示。
 ## [br]
 ## @api public
 ## [br]
@@ -12,509 +12,501 @@ class_name GFNumberFormatter
 extends RefCounted
 
 
-# --- 枚举 ---
-
-## 格式化记法。
-## [br]
-## @api public
-enum Notation {
-	## 尽量输出普通十进制表示。
-	FULL,
-	## 输出紧凑缩写表示，如 12.3k。
-	COMPACT_SHORT,
-	## 输出科学计数法，如 1.23e8。
-	SCIENTIFIC,
-	## 输出工程计数法，如 123.4e6。
-	ENGINEERING,
-	## 自动选择更适合当前量级的表示方式。
-	AUTO,
-}
-
-
-## 科学计数法输出风格。
-## [br]
-## @api public
-enum ScientificStyle {
-	## 使用小写 e。
-	E_LOWER,
-	## 使用大写 E。
-	E_UPPER,
-	## 使用 x 10^n 形式。
-	POWER_OF_TEN,
-}
-
-
-# --- 常量 ---
-
-# 自动模式切换到科学计数法的小数阈值。
-## AUTO 模式采用科学计数法的小数指数下界。
-## [br]
-## @api private
-const _AUTO_SMALL_SCIENTIFIC_THRESHOLD: int = -4
-
-# 自动模式切换到紧凑缩写的指数阈值。
-## AUTO 模式采用紧凑缩写的指数下界。
-## [br]
-## @api private
-const _AUTO_COMPACT_THRESHOLD: int = 3
-
-# FULL 模式允许的最大普通十进制指数。
-## FULL 模式仍使用普通十进制表示的最大指数。
-## [br]
-## @api private
-const _FULL_MAX_EXPONENT: int = 15
-
-## 提供精确十进制文本舍入和数字校验的内部格式器。
-## [br]
-## @api private
-const _DECIMAL_STRING_FORMATTER = preload("res://addons/gf/standard/foundation/formatting/gf_decimal_string_formatter.gd")
-
-# FULL 模式允许的最小普通十进制指数。
-## FULL 模式仍使用普通十进制表示的最小指数。
-## [br]
-## @api private
-const _FULL_MIN_EXPONENT: int = -6
-
-
 # --- 公共方法 ---
 
-## 获取默认紧凑缩写后缀表副本。
-## 返回值是新建副本，修改它不会改变框架默认 compact 格式化行为；项目需要自定义后缀时应通过 format_compact() 的 suffixes 参数传入。
+## 按政策格式化数值，不使用多组位置布尔参数。
 ## [br]
 ## @api public
 ## [br]
-## @since 8.0.0
+## @since unreleased
 ## [br]
-## @return 默认紧凑缩写后缀表副本。
-static func get_default_compact_suffixes() -> PackedStringArray:
-	return PackedStringArray(
-		[
-			"",
-			"k",
-			"M",
-			"B",
-			"T",
-			"Qa",
-			"Qi",
-			"Sx",
-			"Sp",
-			"Oc",
-			"No",
-			"De",
-			"Ud",
-			"Dd",
-			"Td",
-			"Qad",
-			"Qid",
-		]
-	)
-
-
-## 统一入口：按指定记法格式化一个数字值。
+## @param value: 要显示的数值。
 ## [br]
-## @api public
+## @schema value: int、有限float、最多4096字符的String数值、GFBigNumber或GFFixedDecimal。文本支持严格逗号/下划线分隔和科学指数，输入及数量级范围±1000000；不接受bool或任意对象。
 ## [br]
-## @since 3.17.0
+## @param policy: 冻结显示政策；null 使用默认 auto 政策。
 ## [br]
-## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal；普通十进制 String 会在文本域精确应用小数位与舍入参数。
-## [br]
-## @schema value: Variant numeric value accepted by the formatter.
-## [br]
-## @param notation: 目标记法。
-## [br]
-## @param decimal_places: 小数位数。
-## [br]
-## @param trim_zeroes: 是否裁掉尾部 0。
-## [br]
-## @param use_truncation: 是否使用截断而不是四舍五入。
-## [br]
-## @param scientific_style: 科学计数法的输出风格。
-## [br]
-## @return 格式化后的字符串。
-static func format_number(
-	value: Variant,
-	notation: Notation = Notation.AUTO,
-	decimal_places: int = 2,
-	trim_zeroes: bool = true,
-	use_truncation: bool = false,
-	scientific_style: ScientificStyle = ScientificStyle.E_LOWER
-) -> String:
-	match notation:
-		Notation.FULL:
-			return format_full(
-				value,
-				decimal_places,
-				trim_zeroes,
-				false,
-				use_truncation
-			)
-		Notation.COMPACT_SHORT:
-			return format_compact(
-				value,
-				decimal_places,
-				trim_zeroes,
-				use_truncation
-			)
-		Notation.SCIENTIFIC:
-			return format_scientific(
-				value,
-				decimal_places,
-				trim_zeroes,
-				use_truncation,
-				scientific_style,
-				false
-			)
-		Notation.ENGINEERING:
-			return format_scientific(
-				value,
-				decimal_places,
-				trim_zeroes,
-				use_truncation,
-				scientific_style,
-				true
-			)
-		Notation.AUTO:
-			return format_auto(
-				value,
-				decimal_places,
-				trim_zeroes,
-				use_truncation,
-				scientific_style
-			)
-
-	return str(value)
-
-
-## 输出普通十进制字符串。
-## [br]
-## @api public
-## [br]
-## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。
-## [br]
-## @schema value: Variant numeric value accepted by the formatter.
-## [br]
-## @param decimal_places: 小数位数。
-## [br]
-## @param trim_zeroes: 是否裁掉尾部 0。
-## [br]
-## @param use_grouping: 是否为整数部分添加千分位分隔。
-## [br]
-## @param use_truncation: 是否使用截断而不是四舍五入。
-## [br]
-## @return 普通十进制字符串。
-static func format_full(
-	value: Variant,
-	decimal_places: int = 2,
-	trim_zeroes: bool = true,
-	use_grouping: bool = false,
-	use_truncation: bool = false
-) -> String:
-	var text: String = ""
-	if value is GFFixedDecimal:
-		var fixed_value: GFFixedDecimal = value
-		text = _DECIMAL_STRING_FORMATTER.format_decimal_text(
-			fixed_value.to_decimal_string(false),
-			decimal_places,
-			trim_zeroes,
-			use_truncation
-		)
-	elif value is GFBigNumber:
-		var big_value: GFBigNumber = value
-		if big_value.exponent > _FULL_MAX_EXPONENT or big_value.exponent < _FULL_MIN_EXPONENT:
-			return format_scientific(
-				big_value,
-				decimal_places,
-				trim_zeroes,
-				use_truncation
-			)
-		text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
-			big_value.to_float(),
-			decimal_places,
-			trim_zeroes,
-			use_truncation
-		)
-	else:
-		match typeof(value):
-			TYPE_INT:
-				text = str(value)
-			TYPE_FLOAT:
-				text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
-					GFVariantData.to_float(value),
-					decimal_places,
-					trim_zeroes,
-					use_truncation
-				)
-			TYPE_STRING:
-				var string_value: String = value
-				var normalization: Dictionary = _DECIMAL_STRING_FORMATTER.normalize_numeric_text(string_value)
-				if not GFVariantData.get_option_bool(normalization, "ok"):
-					push_error("[GFNumberFormatter][number_formatter.numeric_text_invalid] format_full() requires valid numeric text.")
-					return "0"
-				text = GFVariantData.get_option_string(normalization, "text")
-				if text.contains("e") or text.contains("E"):
-					return format_full(
-						GFBigNumber.from_string(text),
-						decimal_places,
-						trim_zeroes,
-						use_grouping,
-						use_truncation
-					)
-				text = _DECIMAL_STRING_FORMATTER.format_decimal_text(
-					text,
-					decimal_places,
-					trim_zeroes,
-					use_truncation
-				)
-			_:
-				push_error("[GFNumberFormatter][number_formatter.value_type_unsupported] format_full() received an unsupported value type.")
-				return "0"
-
-	if use_grouping:
-		return _group_integer_part(text)
-	return text
-
-
-## 输出紧凑缩写字符串，如 1.2k / 3.4M。
-## [br]
-## @api public
-## [br]
-## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。
-## [br]
-## @schema value: Variant numeric value accepted by the formatter.
-## [br]
-## @param decimal_places: 小数位数。
-## [br]
-## @param trim_zeroes: 是否裁掉尾部 0。
-## [br]
-## @param use_truncation: 是否使用截断而不是四舍五入。
-## [br]
-## @param suffixes: 自定义后缀表；为空时使用默认值。
-## [br]
-## @return 紧凑缩写字符串。
-static func format_compact(
-	value: Variant,
-	decimal_places: int = 2,
-	trim_zeroes: bool = true,
-	use_truncation: bool = false,
-	suffixes: PackedStringArray = PackedStringArray()
-) -> String:
-	var compact_suffixes: PackedStringArray = suffixes
-	if compact_suffixes.is_empty():
-		compact_suffixes = get_default_compact_suffixes()
-
-	var big_value: GFBigNumber = GFBigNumber.from_variant(value)
-	if big_value.is_zero():
+## @return 格式化字符串；非法输入报告错误并返回稳定fallback 0。需要区分错误与真实零时使用 try_format。
+static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -> String:
+	var result: Dictionary = try_format(value, policy)
+	if not GFVariantData.get_option_bool(result, "ok"):
+		push_error("[GFNumberFormatter][number_formatter.invalid_input] Cannot format number: %s." % GFVariantData.get_option_string(result, "error"))
 		return "0"
+	return GFVariantData.get_option_string(result, "text")
 
-	if big_value.exponent < _AUTO_COMPACT_THRESHOLD:
-		return format_full(
-			value,
-			decimal_places,
-			trim_zeroes,
+
+## 返回可检查的格式化结果，不输出日志也不把非法输入当作零。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param value: 与 format_number 相同的数值域。
+## [br]
+## @schema value: int、有限float、String数值、GFBigNumber或GFFixedDecimal；预算与format_number.value相同。
+## [br]
+## @param policy: 冻结政策；null 使用默认政策。
+## [br]
+## @return 有界显示结果。
+## [br]
+## @schema return: 封闭 Dictionary，ok:bool、text:String、error:String、notation_used:String、fallback_reason:String、policy_error_kind:String、path:String。成功文本最多8192字符，失败文本为空；notation_used为实际full/compact/scientific/engineering，失败为空；fallback_reason为output_budget/suffix_exhausted或空。默认科学回退，fallback_notation=error时拒绝回退。error为稳定原因标识；policy_error_kind/path由try_format_options报告政策错误，其余为空，不包含输入载荷。
+static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> Dictionary:
+	var selected: GFNumberFormatPolicy = policy if policy != null else GFNumberFormatPolicy.create()
+	var options: Dictionary = selected.to_record()
+	if options.is_empty():
+		return _result(
 			false,
-			use_truncation
+			"",
+			"invalid_policy"
 		)
-
-	var suffix_index: int = GFVariantData.to_int(floor(float(big_value.exponent) / 3.0))
-	if suffix_index >= compact_suffixes.size():
-		return format_scientific(
-			big_value,
-			decimal_places,
-			trim_zeroes,
-			use_truncation
-		)
-
-	var scaled_exponent: int = suffix_index * 3
-	var display_value: float = big_value.mantissa * pow(
-		10.0,
-		big_value.exponent - scaled_exponent
-	)
-	var display_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(
-		display_value,
-		decimal_places,
-		trim_zeroes,
-		use_truncation
-	)
-	var reparsed: float = display_text.to_float()
-	if absf(reparsed) >= 1000.0 and suffix_index + 1 < compact_suffixes.size():
-		suffix_index += 1
-		scaled_exponent = suffix_index * 3
-		display_value = big_value.mantissa * pow(
-			10.0,
-			big_value.exponent - scaled_exponent
-		)
-		display_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
-			display_value,
-			decimal_places,
-			trim_zeroes,
-			use_truncation
-		)
-
-	return display_text + compact_suffixes[suffix_index]
-
-
-## 输出科学计数法或工程计数法字符串。
-## [br]
-## @api public
-## [br]
-## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。
-## [br]
-## @schema value: Variant numeric value accepted by the formatter.
-## [br]
-## @param decimal_places: 小数位数。
-## [br]
-## @param trim_zeroes: 是否裁掉尾部 0。
-## [br]
-## @param use_truncation: 是否使用截断而不是四舍五入。
-## [br]
-## @param style: 输出风格。
-## [br]
-## @param engineering: 为 true 时输出工程计数法。
-## [br]
-## @return 科学计数法字符串。
-static func format_scientific(
-	value: Variant,
-	decimal_places: int = 2,
-	trim_zeroes: bool = true,
-	use_truncation: bool = false,
-	style: ScientificStyle = ScientificStyle.E_LOWER,
-	engineering: bool = false
-) -> String:
-	var big_value: GFBigNumber = GFBigNumber.from_variant(value)
-	if big_value.is_zero():
-		return "0"
-
-	var output_exponent: int = big_value.exponent
-	if engineering:
-		output_exponent = GFVariantData.to_int(floor(float(big_value.exponent) / 3.0)) * 3
-
-	var display_value: float = big_value.mantissa * pow(
-		10.0,
-		big_value.exponent - output_exponent
-	)
-	var display_text: String = _DECIMAL_STRING_FORMATTER.format_decimal_value(
-		display_value,
-		decimal_places,
-		trim_zeroes,
-		use_truncation
-	)
-	var reparsed: float = display_text.to_float()
-	var overflow_threshold: float = 1000.0 if engineering else 10.0
-	if absf(reparsed) >= overflow_threshold:
-		output_exponent += 3 if engineering else 1
-		display_value = big_value.mantissa * pow(
-			10.0,
-			big_value.exponent - output_exponent
-		)
-		display_text = _DECIMAL_STRING_FORMATTER.format_decimal_value(
-			display_value,
-			decimal_places,
-			trim_zeroes,
-			use_truncation
-		)
-
-	match style:
-		ScientificStyle.E_UPPER:
-			return (
-				"%sE%d"
-				% [display_text, output_exponent]
+	var components: Dictionary = _to_components(value)
+	if not GFVariantData.get_option_bool(components, "ok"):
+		return _result(
+			false,
+			"",
+			GFVariantData.get_option_string(
+				components,
+				"error",
+				"invalid_value"
 			)
-		ScientificStyle.POWER_OF_TEN:
-			return (
-				"%s x 10^%d"
-				% [display_text, output_exponent]
-			)
-		_:
-			return (
-				"%se%d"
-				% [display_text, output_exponent]
-			)
-
-
-## 自动选择最合适的数字记法。
-## [br]
-## @api public
-## [br]
-## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。
-## [br]
-## @schema value: Variant numeric value accepted by the formatter.
-## [br]
-## @param decimal_places: 小数位数。
-## [br]
-## @param trim_zeroes: 是否裁掉尾部 0。
-## [br]
-## @param use_truncation: 是否使用截断而不是四舍五入。
-## [br]
-## @param scientific_style: 科学计数法输出风格。
-## [br]
-## @return 自动挑选后的字符串。
-static func format_auto(
-	value: Variant,
-	decimal_places: int = 2,
-	trim_zeroes: bool = true,
-	use_truncation: bool = false,
-	scientific_style: ScientificStyle = ScientificStyle.E_LOWER
-) -> String:
-	var big_value: GFBigNumber = GFBigNumber.from_variant(value)
-	if big_value.is_zero():
-		return "0"
-
-	var max_compact_exponent: int = (get_default_compact_suffixes().size() - 1) * 3 + 2
-	if big_value.exponent >= _AUTO_COMPACT_THRESHOLD and big_value.exponent <= max_compact_exponent:
-		return format_compact(
-			value,
-			decimal_places,
-			trim_zeroes,
-			use_truncation
 		)
-
-	if big_value.exponent < _AUTO_SMALL_SCIENTIFIC_THRESHOLD or big_value.exponent > max_compact_exponent:
-		return format_scientific(
-			value,
-			decimal_places,
-			trim_zeroes,
-			use_truncation,
-			scientific_style
+	var digits: String = GFVariantData.get_option_string(components, "digits")
+	var magnitude: int = digits.length() + GFVariantData.get_option_int(components, "exponent") - 1
+	var notation: String = GFVariantData.get_option_string(options, "notation")
+	if digits == "0":
+		return _format_full(
+			components,
+			selected,
+			options
 		)
-
-	return format_full(
-		value,
-		decimal_places,
-		trim_zeroes,
+	if notation == "auto":
+		if magnitude < GFVariantData.get_option_int(options, "auto_scientific_below"):
+			notation = "scientific"
+		elif magnitude >= GFVariantData.get_option_int(options, "auto_compact_from"):
+			notation = "compact"
+		else:
+			notation = "full"
+	match notation:
+		"full":
+			return _format_full(
+				components,
+				selected,
+				options
+			)
+		"compact":
+			return _format_compact(
+				components,
+				selected,
+				options,
+				magnitude
+			)
+		"scientific", "engineering":
+			return _format_scientific(
+				components,
+				selected,
+				options,
+				magnitude,
+				notation == "engineering"
+			)
+	return _result(
 		false,
-		use_truncation
+		"",
+		"invalid_policy"
 	)
+
+
+## 直接验收显示声明后格式化，避免把政策创建失败的null解释成默认政策。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param value: 与format_number相同的精确值或近似值。
+## [br]
+## @schema value: int、有限float、String数值、GFBigNumber或GFFixedDecimal；范围见format_number.value。
+## [br]
+## @param options: 本次显示声明；空字典采用默认政策。
+## [br]
+## @schema options: 封闭Dictionary，见GFNumberFormatPolicy.create.options。
+## [br]
+## @return 不记录日志的格式化结果；政策无效时不解析数值。
+## [br]
+## @schema return: 与try_format.return相同；政策错误时ok=false、error=invalid_policy、policy_error_kind/path来自GFNumberFormatPolicy.try_create，text为空。
+static func try_format_options(value: Variant, options: Dictionary = {}) -> Dictionary:
+	var creation: Dictionary = GFNumberFormatPolicy.try_create(options)
+	var candidate: Variant = creation.get("policy")
+	if candidate is GFNumberFormatPolicy:
+		var selected: GFNumberFormatPolicy = candidate
+		return try_format(value, selected)
+	var failure: Dictionary = _result(
+		false,
+		"",
+		"invalid_policy"
+	)
+	failure["policy_error_kind"] = GFVariantData.get_option_string(creation, "error_kind")
+	failure["path"] = GFVariantData.get_option_string(creation, "path")
+	return failure
 
 
 # --- 私有/辅助方法 ---
 
-## 保留符号与小数部分，并从右向左为整数部分每三位插入逗号。
+## 保持精确类型的原始十进制数值，近似类型只展开其实际浮点尾数。
 ## [br]
 ## @api private
-static func _group_integer_part(text: String) -> String:
+static func _to_components(value: Variant) -> Dictionary:
+	if value is int:
+		return GFDecimalStringFormatter.parse_components(str(value))
+	if value is String:
+		var text: String = value
+		return GFDecimalStringFormatter.parse_components(text)
+	if value is float:
+		var floating: float = value
+		if is_nan(floating) or is_inf(floating):
+			return _result(
+				false,
+				"",
+				"non_finite"
+			)
+		return GFDecimalStringFormatter.parse_components(
+			JSON.stringify(
+				floating,
+				"",
+				false,
+				true
+			)
+		)
+	if value is GFFixedDecimal:
+		var fixed_value: GFFixedDecimal = value
+		return GFDecimalStringFormatter.parse_components(fixed_value.to_decimal_string(false))
+	if value is GFBigNumber:
+		var big_value: GFBigNumber = value
+		if is_nan(big_value.mantissa) or is_inf(big_value.mantissa):
+			return _result(
+				false,
+				"",
+				"non_finite"
+			)
+		if big_value.exponent < -1000000 or big_value.exponent > 1000000:
+			return _result(
+				false,
+				"",
+				"exponent_out_of_range"
+			)
+		var components: Dictionary = GFDecimalStringFormatter.parse_components(
+			JSON.stringify(
+				big_value.mantissa,
+				"",
+				false,
+				true
+			)
+		)
+		if not GFVariantData.get_option_bool(components, "ok") or GFVariantData.get_option_string(components, "digits") == "0":
+			return components
+		var exponent: int = GFVariantData.get_option_int(components, "exponent") + big_value.exponent
+		var magnitude: int = exponent + GFVariantData.get_option_string(components, "digits").length() - 1
+		if magnitude < -1000000 or magnitude > 1000000:
+			return _result(
+				false,
+				"",
+				"exponent_out_of_range"
+			)
+		components["exponent"] = exponent
+		return components
+	return _result(
+		false,
+		"",
+		"unsupported_type"
+	)
+
+
+## 输出普通小数，超出预算时回退科学计数法，不生成无界零串。
+## [br]
+## @api private
+static func _format_full(
+	components: Dictionary,
+	policy: GFNumberFormatPolicy,
+	options: Dictionary
+) -> Dictionary:
+	var formatted: Dictionary = GFDecimalStringFormatter.format_components(
+		components,
+		0,
+		policy
+	)
+	var magnitude: int = GFVariantData.get_option_int(components, "exponent") + GFVariantData.get_option_string(components, "digits").length() - 1
+	if not GFVariantData.get_option_bool(formatted, "ok"):
+		if GFVariantData.get_option_string(formatted, "error") == "output_budget":
+			return _fallback(
+				components,
+				policy,
+				options,
+				magnitude,
+				"output_budget"
+			)
+		return _result(
+			false,
+			"",
+			GFVariantData.get_option_string(formatted, "error")
+		)
+	var text: String = _display_number(
+		GFVariantData.get_option_string(formatted, "text"),
+		options,
+		GFVariantData.get_option_bool(options, "use_grouping")
+	)
+	if text.is_empty():
+		return _fallback(
+			components,
+			policy,
+			options,
+			magnitude,
+			"output_budget"
+		)
+	return _result(
+		true,
+		text,
+		"",
+		"full"
+	)
+
+
+## 对原数值按单位缩放，进位后重新对原始分量舍入。
+## [br]
+## @api private
+static func _format_compact(
+	components: Dictionary,
+	policy: GFNumberFormatPolicy,
+	options: Dictionary,
+	magnitude: int
+) -> Dictionary:
+	var width: int = _group_width(options)
+	var index: int = maxi(
+		0,
+		floori(float(magnitude) / float(width))
+	)
+	var suffixes: PackedStringArray = options["suffixes"]
+	if index >= suffixes.size():
+		return _fallback(
+			components,
+			policy,
+			options,
+			magnitude,
+			"suffix_exhausted"
+		)
+	var formatted: Dictionary = GFDecimalStringFormatter.format_components(
+		components,
+		index * width,
+		policy
+	)
+	if not GFVariantData.get_option_bool(formatted, "ok"):
+		return _result(
+			false,
+			"",
+			GFVariantData.get_option_string(formatted, "error")
+		)
+	if GFVariantData.get_option_int(formatted, "display_exponent") >= width:
+		index += 1
+		if index >= suffixes.size():
+			return _fallback(
+				components,
+				policy,
+				options,
+				magnitude,
+				"suffix_exhausted"
+			)
+		formatted = GFDecimalStringFormatter.format_components(
+			components,
+			index * width,
+			policy
+		)
+	if not GFVariantData.get_option_bool(formatted, "ok"):
+		return _result(
+			false,
+			"",
+			GFVariantData.get_option_string(formatted, "error")
+		)
+	if index == 0 and GFVariantData.get_option_bool(options, "use_grouping"):
+		return _format_full(
+			components,
+			policy,
+			options
+		)
+	return _result(
+		true,
+		_display_number(
+			GFVariantData.get_option_string(formatted, "text"),
+			options,
+			false
+		) + suffixes[index],
+		"",
+		"compact" if index > 0 else "full"
+	)
+
+
+## 科学或工程计数使用同一文本量化机制，单位进位不经 float 比较。
+## [br]
+## @api private
+static func _format_scientific(
+	components: Dictionary,
+	policy: GFNumberFormatPolicy,
+	options: Dictionary,
+	magnitude: int,
+	engineering: bool
+) -> Dictionary:
+	var width: int = 3 if engineering else 1
+	var output_exponent: int = magnitude - posmod(magnitude, width)
+	var formatted: Dictionary = GFDecimalStringFormatter.format_components(
+		components,
+		output_exponent,
+		policy
+	)
+	if not GFVariantData.get_option_bool(formatted, "ok"):
+		return _result(
+			false,
+			"",
+			GFVariantData.get_option_string(formatted, "error")
+		)
+	if GFVariantData.get_option_int(formatted, "display_exponent") >= width:
+		output_exponent += width
+		formatted = GFDecimalStringFormatter.format_components(
+			components,
+			output_exponent,
+			policy
+		)
+	if not GFVariantData.get_option_bool(formatted, "ok"):
+		return _result(
+			false,
+			"",
+			GFVariantData.get_option_string(formatted, "error")
+		)
+	var text: String = _display_number(
+		GFVariantData.get_option_string(formatted, "text"),
+		options,
+		false
+	)
+	match GFVariantData.get_option_string(options, "scientific_style"):
+		"E":
+			text += "E" + str(output_exponent)
+		"power":
+			text += " x 10^" + str(output_exponent)
+		_:
+			text += "e" + str(output_exponent)
+	return _result(
+		true,
+		text,
+		"",
+		"engineering" if engineering else "scientific"
+	)
+
+
+## 回退只改变显示方式；拒绝模式不创建超预算字符串。
+## [br]
+## @api private
+static func _fallback(
+	components: Dictionary,
+	policy: GFNumberFormatPolicy,
+	options: Dictionary,
+	magnitude: int,
+	reason: String
+) -> Dictionary:
+	if GFVariantData.get_option_string(options, "fallback_notation") == "error":
+		return _result(
+			false,
+			"",
+			reason,
+			"",
+			reason
+		)
+	var result: Dictionary = _format_scientific(
+		components,
+		policy,
+		options,
+		magnitude,
+		false
+	)
+	result["fallback_reason"] = reason
+	return result
+
+
+## 仅渲染已量化的数值部分，单位和指数不参与分隔符替换。
+## [br]
+## @api private
+static func _display_number(
+	text: String,
+	options: Dictionary,
+	grouping: bool
+) -> String:
+	var point: int = text.find(".")
+	var integer_text: String = text if point < 0 else text.left(point)
+	var decimal_separator: String = GFVariantData.get_option_string(options, "decimal_separator")
+	var group_separator: String = GFVariantData.get_option_string(options, "group_separator")
+	var width: int = GFVariantData.get_option_int(options, "grouping_size")
+	var digits: int = integer_text.length()
+	if integer_text.begins_with("-") or integer_text.begins_with("+"):
+		digits -= 1
+	var groups: int = ceili(float(digits) / float(width)) - 1 if grouping else 0
+	var length: int = text.length() + groups * group_separator.length()
+	if point >= 0:
+		length += decimal_separator.length() - 1
+	if length > 8192:
+		return ""
+	if grouping:
+		integer_text = _group_integer_part(
+			integer_text,
+			width,
+			group_separator
+		)
+	return integer_text if point < 0 else integer_text + decimal_separator + text.substr(point + 1)
+
+
+## 从分组基数取得十进制宽度。
+## [br]
+## @api private
+static func _group_width(options: Dictionary) -> int:
+	return 4 if GFVariantData.get_option_int(options, "group_base") == 10000 else 3
+
+
+## 保留整数符号，按独立宽度插入展示分隔符；调用方已检查总长度。
+## [br]
+## @api private
+static func _group_integer_part(
+	text: String,
+	width: int,
+	separator: String
+) -> String:
 	var sign_text: String = ""
 	var body: String = text
 	if body.begins_with("-") or body.begins_with("+"):
-		sign_text = body.substr(0, 1)
+		sign_text = body.left(1)
 		body = body.substr(1)
-
-	var decimal_index: int = body.find(".")
-	var integer_part: String = body
-	var fractional_part: String = ""
-	if decimal_index != -1:
-		integer_part = body.substr(0, decimal_index)
-		fractional_part = body.substr(decimal_index)
-
-	var grouped: String = ""
-	var digit_count: int = 0
-	for i: int in range(
-		integer_part.length() - 1,
-		-1,
-		-1
+	var groups: PackedStringArray = PackedStringArray()
+	var first_size: int = body.length() % width
+	if first_size == 0:
+		first_size = width
+	var _appended_first: bool = groups.append(body.left(first_size))
+	for index: int in range(
+		first_size,
+		body.length(),
+		width
 	):
-		grouped = integer_part.substr(i, 1) + grouped
-		digit_count += 1
-		if digit_count % 3 == 0 and i > 0:
-			grouped = "," + grouped
+		var _appended: bool = groups.append(body.substr(index, width))
+	return sign_text + separator.join(groups)
 
-	return sign_text + grouped + fractional_part
+
+## 创建稳定的公开结果记录。
+## [br]
+## @api private
+static func _result(
+	ok: bool,
+	text: String,
+	error: String,
+	notation_used: String = "",
+	fallback_reason: String = ""
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"text": text,
+		"error": error,
+		"notation_used": notation_used,
+		"fallback_reason": fallback_reason,
+		"policy_error_kind": "",
+		"path": "",
+	}

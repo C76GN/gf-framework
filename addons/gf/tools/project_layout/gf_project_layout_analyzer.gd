@@ -57,6 +57,11 @@ const _PROFILE_COMPILER_SCRIPT = preload("res://addons/gf/tools/project_layout/g
 ## @api private
 const _CAPTURE_SCOPE_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_capture_scope.gd")
 
+## 冻结依赖证据的唯一纯数据解释器。
+## [br]
+## @api private
+const _DEPENDENCIES_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_dependencies.gd")
+
 ## bucket_size 规则的 kind 值。
 ## [br]
 ## @api private
@@ -101,6 +106,7 @@ const _SNAPSHOT_FIELDS: PackedStringArray = [
 	"files",
 	"directories",
 	"issues",
+	"dependencies",
 ]
 
 ## snapshot 接受的 capture_status 值集合。
@@ -306,6 +312,7 @@ const _COMPILATION_CAPABILITY_FIELDS: PackedStringArray = [
 ## @api private
 ## [br]
 const _COMPILED_PROFILE_FIELDS: PackedStringArray = [
+	"dependency_policy",
 	"capture_scope",
 	"schema_version",
 	"id",
@@ -503,7 +510,7 @@ var _runtime_report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since 11.0.0
+## @since unreleased
 ## [br]
 ## @param options: 分析选项。
 ## [br]
@@ -511,7 +518,7 @@ var _runtime_report: Dictionary = {}
 ## [br]
 ## @return: 只读分析报告。
 ## [br]
-## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph 精确包含 schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges 和 evidence；effects 精确包含 writes_project=false。
+## @schema return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph包含schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges、evidence，以及可选dependencies；dependencies包含input、digest、coverage、capture_status、edges、startup_files、startup_source_bytes、startup_complete、unreachable_files、duplicate_owners、cross_owner_edges、cycles、issues，coverage恒为partial；effects 精确包含 writes_project=false。
 func analyze(options: Dictionary = {}) -> Dictionary:
 	_capture_binding = {}
 	_reset_evaluation_runtime()
@@ -679,11 +686,11 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since 11.0.0
+## @since unreleased
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
-## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。
+## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues、dependencies；dependencies精确包含capture:Dictionary、declaration:Dictionary、observations:Array，三类证据按资源依赖契约分别验收；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。
 ## [br]
 ## @return: observation-only 只读分析报告。
 ## [br]
@@ -698,7 +705,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since 11.0.0
+## @since unreleased
 ## [br]
 ## @param profile: 已解析的严格 profile。
 ## [br]
@@ -706,7 +713,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
-## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
+## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues、dependencies；dependencies精确包含capture:Dictionary、declaration:Dictionary、observations:Array，三类证据按资源依赖契约分别验收；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
 ## [br]
 ## @return: 带 policy findings 的只读分析报告。
 ## [br]
@@ -776,7 +783,7 @@ func analyze_change_impact(analysis: Dictionary, change: Dictionary) -> Dictiona
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
-## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
+## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues、dependencies；dependencies精确包含capture:Dictionary、declaration:Dictionary、observations:Array，三类证据按资源依赖契约分别验收；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
 ## [br]
 ## @param runtime: 协作式取消、工作量和 finding 数量边界。
 ## [br]
@@ -795,7 +802,8 @@ func analyze_snapshot_for_framework(snapshot: Dictionary, runtime: Dictionary) -
 		{},
 		root_path,
 		_snapshot_binding_options(snapshot),
-		report
+		report,
+		true
 	)
 	_configure_evaluation_runtime(runtime, report)
 	if _runtime_is_aborted():
@@ -806,6 +814,11 @@ func analyze_snapshot_for_framework(snapshot: Dictionary, runtime: Dictionary) -
 			report,
 			scan,
 			true
+		)
+		_attach_dependencies(
+			snapshot,
+			{},
+			report
 		)
 	return _finalize_report(report)
 
@@ -874,7 +887,7 @@ func get_profile_capabilities() -> Dictionary:
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
-## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
+## @schema snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues、dependencies；dependencies精确包含capture:Dictionary、declaration:Dictionary、observations:Array，三类证据按资源依赖契约分别验收；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
 ## [br]
 ## @param runtime: 可选的协作式取消、工作量和 finding 数量边界。
 ## [br]
@@ -910,7 +923,8 @@ func analyze_compiled_profile_snapshot(
 		compiled_profile,
 		root_path,
 		_snapshot_binding_options(snapshot),
-		report
+		report,
+		true
 	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
@@ -926,6 +940,11 @@ func analyze_compiled_profile_snapshot(
 		report,
 		scan,
 		true
+	)
+	_attach_dependencies(
+		snapshot,
+		compiled_profile,
+		report
 	)
 	if not _get_bool(report, "input_complete"):
 		return _finalize_report(report)
@@ -1034,6 +1053,11 @@ func analyze_compiled_profile(compilation: Dictionary, options: Dictionary = {})
 	)
 	if _get_int(report, "error_count") > 0:
 		return _finalize_report(report)
+	_attach_dependencies(
+		{},
+		compiled_profile,
+		report
+	)
 	if not _get_bool(report, "input_complete"):
 		return _finalize_report(report)
 
@@ -1496,6 +1520,12 @@ func _compiled_profile_is_valid(
 			return false
 	if profile.has("metadata") and not profile["metadata"] is Dictionary:
 		return false
+	if profile.has("dependency_policy"):
+		if not profile["dependency_policy"] is Dictionary:
+			return false
+		var dependency_policy: Dictionary = profile["dependency_policy"]
+		if _DEPENDENCIES_SCRIPT.normalize_declaration(dependency_policy) != dependency_policy:
+			return false
 	var zone_ids: Dictionary = {}
 	for zone_value: Variant in _get_array(profile, "zones"):
 		if not _evaluation_checkpoint(report):
@@ -3362,12 +3392,14 @@ func _prepare_capture_scope(
 	profile: Dictionary,
 	root_path: String,
 	options: Dictionary,
-	report: Dictionary
+	report: Dictionary,
+	frozen_input: bool = false
 ) -> void:
 	var prepared: Dictionary = _CAPTURE_SCOPE_SCRIPT.prepare(
 		profile,
 		root_path,
-		options
+		options,
+		frozen_input
 	)
 	if not _get_bool(prepared, "success"):
 		_capture_binding = {}
@@ -4870,6 +4902,85 @@ func _attach_scan_result(
 	report["input_complete"] = _get_bool(scan, "complete")
 	report["input_digest"] = _get_string(attachment, "input_digest")
 	report["graph"] = _get_dictionary(attachment, "graph")
+
+
+## 接收显式依赖证据，绑定同一库存；输入失败不发布部分推导。
+## [br]
+## @api private
+func _attach_dependencies(
+	snapshot: Dictionary,
+	profile: Dictionary,
+	report: Dictionary
+) -> void:
+	if not snapshot.has("dependencies") and not profile.has("dependency_policy"):
+		return
+	var raw: Variant = snapshot.get(
+		"dependencies",
+		{
+			"capture": {},
+			"declaration": {},
+			"observations": [],
+		}
+	)
+	if not raw is Dictionary:
+		_add_issue(
+			report,
+			"error",
+			"dependency_evidence_invalid",
+			"dependencies",
+			"依赖证据必须为纯数据字典。"
+		)
+		return
+	var admitted: Dictionary = raw
+	var input: Dictionary = admitted.duplicate(true)
+	if profile.has("dependency_policy"):
+		input["declaration"] = profile["dependency_policy"]
+	var graph: Dictionary = _get_dictionary(report, "graph")
+	var scope: Dictionary = _get_dictionary(graph, "scope")
+	var files: PackedStringArray = []
+	for node: Dictionary in graph.get("nodes", []):
+		if node["node_kind"] == "file":
+			var path: String = node["relative_path"]
+			var _appended: bool = files.append(path)
+	var dependencies: Dictionary = _DEPENDENCIES_SCRIPT.analyze(
+		input,
+		_DEPENDENCIES_SCRIPT.inventory_key(scope, files),
+		_get_string(report, "root_path"),
+		files,
+		Callable(self, "_runtime_checkpoint_callback") if _runtime_active else Callable()
+	)
+	if dependencies.is_empty():
+		_add_issue(
+			report,
+			"error",
+			"dependency_evidence_invalid",
+			"dependencies",
+			"依赖证据的结构、范围绑定、摘要或预算不符合契约。"
+		)
+		return
+	graph["dependencies"] = dependencies
+	graph["dependency_coverage"] = "resource_evidence_partial"
+	var inventory_digest: String = report["input_digest"]
+	var dependency_digest: String = dependencies["digest"]
+	report["input_digest"] = (inventory_digest + ":" + dependency_digest).sha256_text()
+	if dependencies["capture_status"] != "captured":
+		_add_issue(
+			report,
+			"warning",
+			"dependency_capture_incomplete",
+			"dependencies",
+			"资源依赖捕获不可用、过期或不完整；报告只解释已取得的证据。"
+		)
+	for issue: Dictionary in dependencies["issues"]:
+		var kind: String = issue["kind"]
+		var path: String = issue["path"]
+		_add_issue(
+			report,
+			"warning",
+			kind,
+			path,
+			"依赖证据存在未观察目标或超出项目声明预算。"
+		)
 
 
 ## 判断当前报告是否已有相同 scope 的未开始空图和摘要，避免将等价的无观察结果误判为附件构建失败。

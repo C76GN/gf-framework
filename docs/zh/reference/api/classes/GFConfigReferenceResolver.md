@@ -52,6 +52,7 @@ static func build_index(table_data: Variant, field_names: PackedStringArray) -> 
 ### `validate_tables`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func validate_tables( tables_by_name: Dictionary, schemas: Array[GFConfigTableSchema], options: Dictionary = {} ) -> Dictionary:
@@ -65,7 +66,7 @@ static func validate_tables( tables_by_name: Dictionary, schemas: Array[GFConfig
 |---|---|
 | `tables_by_name` | 表名到表数据的字典。 |
 | `schemas` | schema 列表。 |
-| `options` | 可选参数，当前支持 validate_schema。 |
+| `options` | schema 校验与共享工作预算。 |
 
 返回：聚合校验报告字典。
 
@@ -73,7 +74,7 @@ static func validate_tables( tables_by_name: Dictionary, schemas: Array[GFConfig
 
 - `tables_by_name`: Dictionary，键为表名 StringName，值为 Array[Dictionary] 或 Dictionary 表数据。
 - `schemas`: Array[GFConfigTableSchema]，参与校验的表结构声明。
-- `options`: Dictionary，可包含 validate_schema。
+- `options`: Dictionary，可包含 validate_schema、work_budget 或 work_limits。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigreferenceresolver-methods-resolve_record_references"></a>

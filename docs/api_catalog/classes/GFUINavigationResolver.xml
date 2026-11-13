@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUINavigationResolver" path="addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd" module="standard" extends="RefCounted" classDigest="2eecf0564e81e3912f73b678e3a41bb4e45332b3b44429424221e84df39eab73">
+	<description>GFUINavigationResolver: 项目内容就绪与语义定位的异步协议。
+回调及完成源必须在主线程运行。Router 为每次导航分配独立 scope；项目在异步返回后、
+写入界面前必须检查 scope.is_active。完成源成功表示该阶段已完成，业务数据不进入结果。
+默认实现拒绝，不能把页面入栈或资源已加载冒充内容已经可用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="prepare_content">
+			<signature>func prepare_content( panel: Node, target: GFUINavigationTarget, scope: GFAsyncScope ) -&gt; GFAsyncCompletion:</signature>
+			<description>开始等待页面内容可用；成功之后 Router 才允许目标定位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">panel: 已入栈页面，异步代码不能假定其一直有效。</tag>
+				<tag name="param">target: 冻结的语义请求。</tag>
+				<tag name="param">scope: 本次导航独有的作用域，不能由项目正常完成。</tag>
+				<tag name="return">阶段完成源；成功为内容就绪，失败或取消不回滚已提交页面。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_target">
+			<signature>func resolve_target( panel: Node, target: GFUINavigationTarget, scope: GFAsyncScope ) -&gt; GFAsyncCompletion:</signature>
+			<description>在内容就绪后定位语义目标，例如选择页签、滚动到条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">panel: 已入栈且完成内容准备的页面。</tag>
+				<tag name="param">target: 冻结的非空语义目标。</tag>
+				<tag name="param">scope: 同一次导航的活动作用域。</tag>
+				<tag name="return">成功表示目标已定位；失败映射为 target_unavailable，保留页面。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_prepare_content">
+			<signature>func _prepare_content( _panel: Node, _target: GFUINavigationTarget, _scope: GFAsyncScope ) -&gt; GFAsyncCompletion:</signature>
+			<description>项目实现内容准备协议；无需等待时可以返回已成功的完成源。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_panel: 已提交页面。</tag>
+				<tag name="param">_target: 冻结请求。</tag>
+				<tag name="param">_scope: 异步写回资格。</tag>
+				<tag name="return">默认返回 content_unavailable 失败。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_resolve_target">
+			<signature>func _resolve_target( _panel: Node, _target: GFUINavigationTarget, _scope: GFAsyncScope ) -&gt; GFAsyncCompletion:</signature>
+			<description>项目在内容准备之后实现具体定位；目标消失必须失败。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_panel: 当前可用页面。</tag>
+				<tag name="param">_target: 冻结语义目标。</tag>
+				<tag name="param">_scope: 写入页面前必须仍活动。</tag>
+				<tag name="return">默认返回 target_unavailable 失败。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

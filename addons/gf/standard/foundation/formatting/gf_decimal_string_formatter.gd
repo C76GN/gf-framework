@@ -24,6 +24,158 @@ const DEFAULT_MAX_NUMERIC_TEXT_LENGTH: int = 4096
 
 # --- 公共方法 ---
 
+## 将有界数值文本解析为精确十进制分量，不把整数或尾数转成 float。
+## [br]
+## @api framework_internal
+## [br]
+## @param text: 最多4096字符的数字文本；沿用严格分隔符语法，科学指数及最终数量级范围为±1000000。
+## [br]
+## @return 验证后的分量或明确错误。
+## [br]
+## @schema return: 封闭 Dictionary，ok:bool、error:String、sign:String（空/+/-）、digits:String（无前后冗余零，零为0）、exponent:int。值为 sign*digits*10^exponent；失败时分量归零。
+static func parse_components(text: String) -> Dictionary:
+	var normalized: Dictionary = normalize_numeric_text(text)
+	if not GFVariantData.get_option_bool(normalized, "ok"):
+		return _component_error(GFVariantData.get_option_string(normalized, "error"))
+	var body: String = GFVariantData.get_option_string(normalized, "text")
+	var exponent_offset: int = 0
+	var exponent_index: int = body.find("e")
+	if exponent_index >= 0:
+		var exponent_text: String = body.substr(exponent_index + 1)
+		body = body.left(exponent_index)
+		var negative_exponent: bool = exponent_text.begins_with("-")
+		if negative_exponent or exponent_text.begins_with("+"):
+			exponent_text = exponent_text.substr(1)
+		var leading: int = 0
+		while leading < exponent_text.length() - 1 and exponent_text.unicode_at(leading) == 48:
+			leading += 1
+		exponent_text = exponent_text.substr(leading)
+		if (
+			exponent_text.length() > 7
+			or (
+				exponent_text.length() == 7
+				and exponent_text > "1000000"
+			)
+		):
+			return _component_error("exponent_out_of_range")
+		exponent_offset = exponent_text.to_int() * (-1 if negative_exponent else 1)
+	var sign_text: String = ""
+	if body.begins_with("-") or body.begins_with("+"):
+		sign_text = body.left(1)
+		body = body.substr(1)
+	var point: int = body.find(".")
+	var fraction_length: int = body.length() - point - 1 if point >= 0 else 0
+	var result: Dictionary = _normalize_components(
+		sign_text,
+		body.replace(".", ""),
+		exponent_offset - fraction_length
+	)
+	var magnitude: int = GFVariantData.get_option_int(result, "exponent") + GFVariantData.get_option_string(result, "digits").length() - 1
+	if magnitude < -1000000 or magnitude > 1000000:
+		return _component_error("exponent_out_of_range")
+	return result
+
+
+## 对已解析分量进行一次精确舍入并渲染缩放后的十进制文本。
+## [br]
+## @api framework_internal
+## [br]
+## @param components: parse_components 的成功分量。
+## [br]
+## @schema components: ok:bool=true、error:String、sign:String、digits:String、exponent:int；数字串最多4096字符，数量级±1000000，不接受任意对象。
+## [br]
+## @param scale_exponent: 先除以10的此幂，范围±1000002；为科学和工程计数边界进位预留两位。
+## [br]
+## @param policy: 冻结的小数位、有效位与舍入政策。
+## [br]
+## @return 渲染结果；输出超过8192字符时明确失败，调用方可以改用科学计数法。
+## [br]
+## @schema return: 封闭 Dictionary，ok:bool、error:String、text:String、display_exponent:int（舍入后缩放值的十进制数量级）。失败文本为空。
+static func format_components(
+	components: Dictionary,
+	scale_exponent: int,
+	policy: GFNumberFormatPolicy
+) -> Dictionary:
+	if (
+		policy == null
+		or not _valid_components(components)
+		or scale_exponent < -1000002
+		or scale_exponent > 1000002
+	):
+		return _formatted_error("invalid_components")
+	var options: Dictionary = policy.to_record()
+	if options.is_empty():
+		return _formatted_error("invalid_policy")
+	var digits: String = GFVariantData.get_option_string(components, "digits")
+	var exponent: int = GFVariantData.get_option_int(components, "exponent")
+	var sign_text: String = GFVariantData.get_option_string(components, "sign")
+	var significant: int = GFVariantData.get_option_int(options, "significant_digits")
+	var quantum: int = -GFVariantData.get_option_int(options, "decimal_places")
+	if significant > 0 and digits != "0":
+		quantum = maxi(
+			quantum,
+			digits.length() + exponent - scale_exponent - significant
+		)
+	var rounding: String = GFVariantData.get_option_string(options, "rounding")
+	var rounded: Dictionary = _quantize_components(
+		sign_text,
+		digits,
+		exponent,
+		scale_exponent + quantum,
+		rounding
+	)
+	var rounded_digits: String = GFVariantData.get_option_string(rounded, "digits")
+	var rounded_exponent: int = GFVariantData.get_option_int(rounded, "exponent")
+	var display_exponent: int = rounded_digits.length() + rounded_exponent - scale_exponent - 1
+	if (
+		significant > 0
+		and rounded_digits != "0"
+		and display_exponent - significant + 1 > quantum
+	):
+		quantum = display_exponent - significant + 1
+		rounded = _quantize_components(
+			sign_text,
+			digits,
+			exponent,
+			scale_exponent + quantum,
+			rounding
+		)
+		rounded_digits = GFVariantData.get_option_string(rounded, "digits")
+		rounded_exponent = GFVariantData.get_option_int(rounded, "exponent")
+		display_exponent = rounded_digits.length() + rounded_exponent - scale_exponent - 1
+	var position: int = rounded_digits.length() + rounded_exponent - scale_exponent
+	var places: int = maxi(0, -quantum)
+	var rounded_sign: String = GFVariantData.get_option_string(rounded, "sign")
+	if rounded_digits == "0":
+		position = 1
+		display_exponent = 0
+	if rounded_sign.length() + maxi(position, 1) + (places + 1 if places > 0 else 0) > 8192:
+		return _formatted_error("output_budget")
+	var integer_text: String = "0"
+	var fraction: String = ""
+	if rounded_digits != "0":
+		if position <= 0:
+			fraction = "0".repeat(-position) + rounded_digits
+		elif position >= rounded_digits.length():
+			integer_text = rounded_digits + "0".repeat(position - rounded_digits.length())
+		else:
+			integer_text = rounded_digits.left(position)
+			fraction = rounded_digits.substr(position)
+	if fraction.length() < places:
+		fraction += "0".repeat(places - fraction.length())
+	var output: String = rounded_sign + integer_text
+	if places > 0:
+		output += "." + fraction
+	if GFVariantData.get_option_bool(options, "trim_zeroes"):
+		output = trim_trailing_zeroes(output)
+	return {
+		"ok": true,
+		"error": "",
+		"text": output,
+		"display_exponent": display_exponent,
+	}
+
+
 ## 按小数位数调整浮点值。
 ## [br]
 ## @api framework_internal
@@ -115,75 +267,6 @@ static func format_decimal_value(
 	if trim_zeroes:
 		text = trim_trailing_zeroes(text)
 	return text
-
-
-## 在不经过 float 的情况下格式化已规范化的普通十进制文本。
-## [br]
-## @api framework_internal
-## [br]
-## @param text: 不含指数与分隔符的十进制文本，可带正负号。
-## [br]
-## @param decimal_places: 小数位数。
-## [br]
-## @param trim_zeroes: 是否裁剪末尾零。
-## [br]
-## @param use_truncation: 为 true 时向零截断，否则按 HALF_UP 舍入。
-## [br]
-## @return: 精确按字符串位数格式化的文本。
-static func format_decimal_text(
-	text: String,
-	decimal_places: int,
-	trim_zeroes: bool,
-	use_truncation: bool
-) -> String:
-	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
-	var sign_text: String = ""
-	var body: String = text
-	if body.begins_with("-") or body.begins_with("+"):
-		sign_text = body.substr(0, 1)
-		body = body.substr(1)
-
-	var decimal_index: int = body.find(".")
-	var integer_part: String = body if decimal_index < 0 else body.substr(0, decimal_index)
-	var fractional_part: String = "" if decimal_index < 0 else body.substr(decimal_index + 1)
-	if integer_part.is_empty():
-		integer_part = "0"
-
-	var kept_fraction: String = fractional_part.left(normalized_decimal_places)
-	var discarded_fraction: String = fractional_part.substr(normalized_decimal_places)
-	if kept_fraction.length() < normalized_decimal_places:
-		kept_fraction += "0".repeat(normalized_decimal_places - kept_fraction.length())
-
-	if (
-		not use_truncation
-		and not discarded_fraction.is_empty()
-		and discarded_fraction.substr(0, 1) >= "5"
-	):
-		var combined_digits: String = integer_part + kept_fraction
-		combined_digits = _increment_decimal_digits(combined_digits)
-		if normalized_decimal_places > 0:
-			if combined_digits.length() <= normalized_decimal_places:
-				combined_digits = (("0".repeat(normalized_decimal_places + 1 - combined_digits.length())) + combined_digits)
-			integer_part = combined_digits.left(combined_digits.length() - normalized_decimal_places)
-			kept_fraction = combined_digits.right(normalized_decimal_places)
-		else:
-			integer_part = combined_digits
-
-	if (
-		_digits_are_zero(integer_part)
-		and (
-			kept_fraction.is_empty()
-			or _digits_are_zero(kept_fraction)
-		)
-	):
-		sign_text = ""
-
-	var result: String = sign_text + integer_part
-	if normalized_decimal_places > 0:
-		result += "." + kept_fraction
-	if trim_zeroes:
-		return trim_trailing_zeroes(result)
-	return result
 
 
 ## 裁剪小数字符串末尾零。
@@ -370,6 +453,146 @@ static func contains_only_digits(text: String) -> bool:
 
 # --- 私有/辅助方法 ---
 
+## 验证内部数字分量，限制计算与输出分配的来源。
+## [br]
+## @api private
+static func _valid_components(record: Dictionary) -> bool:
+	if (
+		not GFVariantData.get_option_bool(record, "ok")
+		or not record.get("digits") is String
+		or not record.get("sign") is String
+		or not record.get("exponent") is int
+	):
+		return false
+	var digits: String = GFVariantData.get_option_string(record, "digits")
+	var sign_text: String = GFVariantData.get_option_string(record, "sign")
+	var exponent: int = GFVariantData.get_option_int(record, "exponent")
+	if (
+		digits.length() > 4096
+		or not contains_only_digits(digits)
+		or sign_text not in [
+			"",
+			"+",
+			"-",
+		]
+	):
+		return false
+	if digits == "0":
+		return sign_text.is_empty() and exponent == 0
+	var magnitude: int = exponent + digits.length() - 1
+	return (
+		not digits.begins_with("0")
+		and not digits.ends_with("0")
+		and magnitude >= -1000000
+		and magnitude <= 1000000
+	)
+
+
+## 去掉无意义的首尾零，并把尾零换算成十进制指数。
+## [br]
+## @api private
+static func _normalize_components(
+	sign_text: String,
+	digits: String,
+	exponent: int
+) -> Dictionary:
+	var first: int = 0
+	while first < digits.length() and digits.unicode_at(first) == 48:
+		first += 1
+	if first == digits.length():
+		return {
+			"ok": true,
+			"error": "",
+			"sign": "",
+			"digits": "0",
+			"exponent": 0,
+		}
+	var last: int = digits.length() - 1
+	while last > first and digits.unicode_at(last) == 48:
+		last -= 1
+	return {
+		"ok": true,
+		"error": "",
+		"sign": sign_text,
+		"digits": digits.substr(
+			first,
+			last - first + 1
+		),
+		"exponent": exponent + digits.length() - last - 1,
+	}
+
+
+## 将原始数字直接量化到指定十进制幂，避免缩放或重复舍入。
+## [br]
+## @api private
+static func _quantize_components(
+	sign_text: String,
+	digits: String,
+	exponent: int,
+	quantum: int,
+	rounding: String
+) -> Dictionary:
+	if digits == "0" or exponent >= quantum:
+		return _normalize_components(
+			sign_text,
+			digits,
+			exponent
+		)
+	var keep: int = digits.length() + exponent - quantum
+	var kept: String = digits.left(keep) if keep > 0 else "0"
+	var increment: bool = false
+	match rounding:
+		"floor":
+			increment = sign_text == "-"
+		"ceiling":
+			increment = sign_text != "-"
+		"half_up", "half_even":
+			if keep >= 0:
+				var next_digit: int = digits.unicode_at(keep) - 48
+				increment = (
+					next_digit > 5
+					or (
+						next_digit == 5
+						and rounding == "half_up"
+					)
+				)
+				if next_digit == 5 and rounding == "half_even":
+					var odd: bool = (kept.unicode_at(kept.length() - 1) - 48) % 2 != 0
+					increment = odd or not _digits_are_zero(digits.substr(keep + 1))
+	if increment:
+		kept = _increment_decimal_digits(kept)
+	return _normalize_components(
+		sign_text,
+		kept,
+		quantum
+	)
+
+
+## 创建无载荷的分量解析错误。
+## [br]
+## @api private
+static func _component_error(error: String) -> Dictionary:
+	return {
+		"ok": false,
+		"error": error,
+		"sign": "",
+		"digits": "0",
+		"exponent": 0,
+	}
+
+
+## 创建有界格式化失败结果。
+## [br]
+## @api private
+static func _formatted_error(error: String) -> Dictionary:
+	return {
+		"ok": false,
+		"error": error,
+		"text": "",
+		"display_exponent": 0,
+	}
+
+
 ## 校验并规范化整数位的逗号分组或下划线分隔。
 ## [br]
 ## @api private
@@ -467,19 +690,17 @@ static func _make_numeric_text_result(
 ## [br]
 ## @api private
 static func _increment_decimal_digits(value: String) -> String:
-	var result: String = value
-	var carry: int = 1
+	var digits: PackedByteArray = value.to_ascii_buffer()
 	for index: int in range(
-		result.length() - 1,
+		digits.size() - 1,
 		-1,
 		-1
 	):
-		var digit: int = result.substr(index, 1).to_int() + carry
-		result = result.left(index) + str(digit % 10) + result.substr(index + 1)
-		carry = 1 if digit >= 10 else 0
-		if carry == 0:
-			return result
-	return "1" + result
+		if digits[index] < 57:
+			digits[index] += 1
+			return digits.get_string_from_ascii()
+		digits[index] = 48
+	return "1" + digits.get_string_from_ascii()
 
 
 ## 检查字符串中的每个字符是否都是 0。

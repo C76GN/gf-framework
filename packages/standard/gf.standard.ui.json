@@ -7,6 +7,12 @@
     "gf.standard.base"
   ],
   "paths": [
+    "addons/gf/standard/utilities/ui/gf_ui_badge_utility.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_badge_utility.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_ui_loading_lease.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_loading_lease.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd.uid",
     "addons/gf/standard/utilities/ui/gf_control_edit_session.gd",
     "addons/gf/standard/utilities/ui/gf_control_edit_session.gd.uid",
     "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd",

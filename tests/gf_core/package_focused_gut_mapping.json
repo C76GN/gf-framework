@@ -45,7 +45,8 @@
       "res://tests/gf_core/extensions/domain/test_gf_domain_extensions.gd",
       "res://tests/gf_core/extensions/domain/test_gf_inventory_transfer_transaction.gd",
       "res://tests/gf_core/extensions/domain/test_gf_level_utility.gd",
-      "res://tests/gf_core/extensions/domain/test_gf_quest_utility.gd"
+      "res://tests/gf_core/extensions/domain/test_gf_quest_utility.gd",
+      "res://tests/gf_core/extensions/domain/test_gf_quest_semantics.gd"
     ],
     "gf.extension.feedback": [
       "res://tests/gf_core/extensions/feedback/test_gf_feedback_extension.gd"
@@ -188,6 +189,8 @@
       "res://tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd",
       "res://tests/gf_core/standard/utilities/time/test_gf_civil_date.gd",
       "res://tests/gf_core/standard/utilities/time/test_gf_manual_timer_queue.gd",
+      "res://tests/gf_core/standard/utilities/time/test_gf_period_schedule.gd",
+      "res://tests/gf_core/standard/utilities/time/test_gf_server_time_estimator.gd",
       "res://tests/gf_core/standard/utilities/time/test_gf_time_utility.gd"
     ],
     "gf.standard.config": [
@@ -327,6 +330,8 @@
       "res://tests/gf_core/standard/utilities/settings/test_gf_storage_settings_store_utility.gd"
     ],
     "gf.standard.ui": [
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_loading_utility.gd",
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_badge_utility.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_control_edit_session.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_table_data_view.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_table_row_predicates.gd",
@@ -366,6 +371,9 @@
       "res://tests/gf_core/tools/code_quality/test_gf_code_quality_analyzer.gd"
     ],
     "gf.tool.config_pipeline": [
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_consumer_target.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_stable_ids.gd",
+      "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_diff.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_workbench.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_bounded_zip_support.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
@@ -392,6 +400,7 @@
 		"res://tests/gf_core/tools/project_bootstrap/test_gf_project_bootstrap.gd"
 	],
 	"gf.tool.project_layout": [
+		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_dependencies.gd",
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_editor.gd",
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd",
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_authority.gd"

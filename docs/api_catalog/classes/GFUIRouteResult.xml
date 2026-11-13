@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="8211ffc65ab31405d1619482a63ee5640182c92294e655d792fc6b1a63f1e27b">
+<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="e59cdc6709a1e0573a19019ac772fcf5c042d8f37baea86ac581cb01b19c5f31">
 	<description>GFUIRouteResult: UI 路由异步打开的不可变终态。
 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态，
 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。</description>
@@ -17,6 +17,54 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CONTENT_READY">
+			<signature>const STATUS_CONTENT_READY: StringName = &amp;"content_ready"</signature>
+			<description>页面已提交且内容已就绪；本次没有请求语义定位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TARGET_READY">
+			<signature>const STATUS_TARGET_READY: StringName = &amp;"target_ready"</signature>
+			<description>页面、内容与语义目标均已可用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_NAVIGATION">
+			<signature>const STATUS_INVALID_NAVIGATION: StringName = &amp;"invalid_navigation"</signature>
+			<description>导航目标、resolver 或超时政策无效，未提交页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CONTENT_FAILED">
+			<signature>const STATUS_CONTENT_FAILED: StringName = &amp;"content_failed"</signature>
+			<description>页面已提交，但内容准备失败；页面不被自动回滚。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TARGET_UNAVAILABLE">
+			<signature>const STATUS_TARGET_UNAVAILABLE: StringName = &amp;"target_unavailable"</signature>
+			<description>内容已就绪，但项目无法定位请求目标；保留可用页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_READINESS_TIMEOUT">
+			<signature>const STATUS_READINESS_TIMEOUT: StringName = &amp;"readiness_timeout"</signature>
+			<description>页面提交后的内容准备或定位超过本次等待预算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING_ROUTE">
@@ -175,8 +223,35 @@
 			<description>检查路由是否成功打开。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">面板已进入目标 UI 栈时返回 true。</tag>
+				<tag name="return">普通打开成功，或显式请求的内容准备和目标定位全部成功时返回 true。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_panel_committed">
+			<signature>func was_panel_committed() -&gt; bool:</signature>
+			<description>判断页面是否曾成功提交到 UI 栈。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">内容失败、超时或提交后取消也可以为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_content_ready">
+			<signature>func was_content_ready() -&gt; bool:</signature>
+			<description>判断本次导航的内容准备阶段是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">普通页面打开没有准备协议时为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="was_target_resolved">
+			<signature>func was_target_resolved() -&gt; bool:</signature>
+			<description>判断本次请求是否实际成功定位到语义目标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">只有语义定位成功时为 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -304,7 +379,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求身份、终态、预加载摘要和持续时间。</tag>
-				<tag name="schema">return: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.</tag>
+				<tag name="schema">return: Dictionary with request_id, route_id, operation, status, ok, reason, layer, panel_instance_id, panel_committed, content_ready, target_resolved, preload_policy, preload_attempted, preload_successful, preload_plan_report, preload_result, started_at_msec, completed_at_msec, duration_msec, and metadata.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

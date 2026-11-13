@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageConflictReport" path="addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd" module="standard" extends="Resource" classDigest="7324362b5c9a1623f2026532bc7403488cb33dccbb8241da0b45fb6d3cc4fd47">
-	<description>GFStorageConflictReport: 存储同步冲突的通用报告数据。
-该资源只描述冲突，不决定如何解决冲突。项目可以把它用于云同步、
-多端合并、调试 UI 或自动化测试。</description>
+<class name="GFStorageConflictReport" path="addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd" module="standard" extends="RefCounted" classDigest="0d5892d13e6b8c19b81344875ba55ba52cdfbc07572dfc3eb47dc0e329074ec7">
+	<description>GFStorageConflictReport: 冻结的记录冲突与显式解决候选。
+载荷只能通过显式 getter 读取；to_dict() 不包含身份、revision 或业务数据。
+revision 只能比较相等。报告不执行写入，也不证明解决候选已提交。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
@@ -14,132 +14,164 @@
 			<signature>enum Resolution {
 	## 尚未决定。
 	UNRESOLVED,
-	## 使用本地值。
+	## 选择本地候选。
 	USE_LOCAL,
-	## 使用远端值。
+	## 选择远端候选。
 	USE_REMOTE,
-	## 使用合并后的值。
+	## 使用项目合并候选。
 	MERGED,
-	## 跳过该冲突。
+	## 跳过冲突。
 	SKIPPED,
 }</signature>
-			<description>冲突解决策略。</description>
+			<description>候选的解决方式，不代表持久化结果。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</enums>
 	<constants />
-	<properties>
-		<member kind="property" name="file_name" decorators="@export">
-			<signature>var file_name: String = ""</signature>
-			<description>冲突所属逻辑文件名。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="key" decorators="@export">
-			<signature>var key: String = ""</signature>
-			<description>冲突字段或业务 key。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="local_value" decorators="@export">
-			<signature>var local_value: Variant = null</signature>
-			<description>本地值。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="schema">local_value: Variant，从本地记录复制的冲突 key 或载荷值。</tag>
-			</tags>
-		</member>
-		<member kind="property" name="remote_value" decorators="@export">
-			<signature>var remote_value: Variant = null</signature>
-			<description>远端值。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="schema">remote_value: Variant，从远端记录复制的冲突 key 或载荷值。</tag>
-			</tags>
-		</member>
-		<member kind="property" name="resolved_value" decorators="@export">
-			<signature>var resolved_value: Variant = null</signature>
-			<description>合并后的值。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="schema">resolved_value: Variant，由解析器选择或合并出的值。</tag>
-			</tags>
-		</member>
-		<member kind="property" name="resolution" decorators="@export">
-			<signature>var resolution: Resolution = Resolution.UNRESOLVED</signature>
-			<description>解决策略。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="metadata" decorators="@export">
-			<signature>var metadata: Dictionary = {}</signature>
-			<description>扩展元数据。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="schema">metadata: Dictionary，包含解析器特定诊断信息或后端元数据快照。</tag>
-			</tags>
-		</member>
-	</properties>
+	<properties />
 	<methods>
-		<member kind="method" name="apply_dict">
-			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
-			<description>从字典应用字段。</description>
+		<member kind="method" name="create">
+			<signature>static func create( record_namespace: String, record_key: String, local_data: Dictionary, remote_data: Dictionary, options: Dictionary = {} ) -&gt; GFStorageConflictReport:</signature>
+			<description>创建冻结报告；无效身份、选项或载荷返回 null。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">data: 输入字典。</tag>
-				<tag name="schema">data: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。</tag>
+				<tag name="param">record_namespace: 记录命名空间。</tag>
+				<tag name="param">record_key: 记录键。</tag>
+				<tag name="param">local_data: 本地完整候选。</tag>
+				<tag name="param">remote_data: 已观察的远端完整候选。</tag>
+				<tag name="param">options: revision 与存在性声明。</tag>
+				<tag name="return">隔离报告或 null；完整报告限深度64、300000节点、64MiB规范字节。</tag>
+				<tag name="schema">local_data: Dictionary of finite native data; no objects or cycles.</tag>
+				<tag name="schema">remote_data: Same native contract; empty when remote_exists=false.</tag>
+				<tag name="schema">options: Closed Dictionary with expected_revision:String (default empty), actual_revision:String (default empty), remote_exists:bool (default true). Empty revisions are allowed for plain Backend transfers.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="to_dict">
-			<signature>func to_dict() -&gt; Dictionary:</signature>
-			<description>转换为字典。</description>
+		<member kind="method" name="with_resolution">
+			<signature>func with_resolution(resolution: Resolution, data: Dictionary = {}) -&gt; GFStorageConflictReport:</signature>
+			<description>返回指定解决候选的新报告；原报告不变。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">字典副本。</tag>
-				<tag name="schema">return: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="to_json_safe_dict">
-			<signature>func to_json_safe_dict(options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>转换为可安全 JSON.stringify() 的报告字典。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">options: 传给 GFReportValueCodec 的编码选项。</tag>
-				<tag name="return">JSON-safe 冲突报告。</tag>
-				<tag name="schema">options: Dictionary with GFReportValueCodec options.</tag>
-				<tag name="schema">return: Dictionary，只包含 JSON-compatible values 和正式报告 marker。</tag>
-				<tag name="since">8.0.0</tag>
+				<tag name="param">resolution: 明确的解决方式。</tag>
+				<tag name="param">data: 解决候选；未解决或跳过时必须为空。</tag>
+				<tag name="return">隔离的新报告或 null。</tag>
+				<tag name="schema">data: Dictionary of admitted finite native data.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_report">
 			<signature>func duplicate_report() -&gt; GFStorageConflictReport:</signature>
-			<description>复制冲突报告。</description>
+			<description>复制完整报告；无效对象返回 null。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">新报告实例。</tag>
+				<tag name="return">独立报告副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_namespace">
+			<signature>func get_namespace() -&gt; String:</signature>
+			<description>获取记录命名空间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定命名空间。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_key">
+			<signature>func get_key() -&gt; String:</signature>
+			<description>获取记录键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定记录键。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_expected_revision">
+			<signature>func get_expected_revision() -&gt; String:</signature>
+			<description>获取本地已知 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不透明 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_actual_revision">
+			<signature>func get_actual_revision() -&gt; String:</signature>
+			<description>获取远端观察 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不透明 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_local_data">
+			<signature>func get_local_data() -&gt; Dictionary:</signature>
+			<description>获取本地候选副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完整候选副本。</tag>
+				<tag name="schema">return: Dictionary of admitted native data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_remote_data">
+			<signature>func get_remote_data() -&gt; Dictionary:</signature>
+			<description>获取远端候选副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">完整候选副本。</tag>
+				<tag name="schema">return: Dictionary of admitted native data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resolved_data">
+			<signature>func get_resolved_data() -&gt; Dictionary:</signature>
+			<description>获取解决候选副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">尚未持久化的候选副本。</tag>
+				<tag name="schema">return: Dictionary of admitted native data.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="remote_exists">
+			<signature>func remote_exists() -&gt; bool:</signature>
+			<description>查询远端记录存在性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已观察远端存在时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resolution">
+			<signature>func get_resolution() -&gt; Resolution:</signature>
+			<description>获取选择的解决方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Resolution 枚举值。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_resolved">
 			<signature>func is_resolved() -&gt; bool:</signature>
-			<description>是否已经解决。</description>
+			<description>检查是否已选择解决方式，不代表写入成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">resolution 不是 UNRESOLVED 时返回 true。</tag>
+				<tag name="return">已选择或跳过时为 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="from_dict">
-			<signature>static func from_dict(data: Dictionary) -&gt; GFStorageConflictReport:</signature>
-			<description>从字典创建冲突报告。</description>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>导出不含载荷与身份的诊断摘要。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">data: 输入字典。</tag>
-				<tag name="return">新报告实例。</tag>
-				<tag name="schema">data: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。</tag>
+				<tag name="return">诊断摘要。</tag>
+				<tag name="schema">return: Dictionary with valid:bool,resolution:int,remote_exists:bool,revision_matches:bool.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

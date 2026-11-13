@@ -1,3 +1,5 @@
+@tool
+
 ## 测试 GFConfigProvider 基类的默认行为。
 extends GutTest
 
@@ -209,7 +211,10 @@ func test_resource_config_provider_reads_table_resources() -> void:
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
 
 	assert_true(
-		provider.register_table(table),
+		GFVariantData.get_option_bool(
+			provider.update_tables([table]),
+			"ok"
+		),
 		"有效表资源应注册成功。"
 	)
 
@@ -265,7 +270,10 @@ func test_resource_config_provider_queries_table_indexes() -> void:
 	)
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
 	assert_true(
-		provider.register_table(table),
+		GFVariantData.get_option_bool(
+			provider.update_tables([table]),
+			"ok"
+		),
 		"有效表资源应注册成功。"
 	)
 
@@ -315,7 +323,10 @@ func test_resource_config_provider_returns_copies() -> void:
 	var table: GFConfigTableResource = _make_item_table_resource()
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
 	assert_true(
-		provider.register_table(table),
+		GFVariantData.get_option_bool(
+			provider.update_tables([table]),
+			"ok"
+		),
 		"有效表资源应注册成功。"
 	)
 
@@ -333,200 +344,393 @@ func test_resource_config_provider_returns_copies() -> void:
 	)
 
 
-func test_resource_config_provider_rejects_empty_table_key() -> void:
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
+func test_resource_config_provider_rejects_invalid_candidates_atomically() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(_make_config_database_resource())
+	var previous: GFConfigSnapshot = provider.get_snapshot()
+	var invalid: GFConfigTableResource = GFConfigTableResource.new()
+	var candidates: Array[GFConfigTableResource] = [_make_owner_table_resource(1), invalid]
+	var result: Dictionary = provider.update_tables(candidates)
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+	assert_eq(
+		provider.get_publication_generation(),
+		1
+	)
+	invalid = _make_item_table_resource()
+	invalid.table_name = &"renamed"
+	result = provider.update_tables([invalid])
+	assert_true(
+		_value_matches(
+			result.get("error_kind"),
+			&"schema_table_mismatch"
+		)
+	)
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+	result = provider.update_tables([null])
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	result = provider.update_tables([_make_item_table_resource(), _make_item_table_resource()])
+	assert_true(
+		_value_matches(
+			result.get("error_kind"),
+			&"duplicate_table"
+		)
+	)
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+
+
+func test_resource_config_provider_replacement_replaces_schema_as_one_unit() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(_make_config_database_resource())
 	var table: GFConfigTableResource = GFConfigTableResource.new()
-
-	assert_false(
-		provider.register_table(table),
-		"空表名资源不应注册成功。"
-	)
-	assert_push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
-
-
-func test_resource_config_provider_rejects_schema_table_name_mismatch() -> void:
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	var table: GFConfigTableResource = _make_item_table_resource()
-	table.table_name = &"items_runtime"
-
-	assert_false(
-		provider.register_table(table),
-		"表名与 schema 表名不一致时不应注册成功。"
-	)
-	assert_false(
-		provider.has_table(&"items_runtime"),
-		"注册失败不应留下表缓存。"
-	)
-	assert_false(
-		provider.has_schema(&"items"),
-		"注册失败不应留下 schema 缓存。"
-	)
-	assert_push_error("[GFResourceConfigProvider][resource_config_provider.schema_table_name_mismatch] Cannot register_table: table_name does not match schema.table_name.")
-
-
-func test_resource_config_provider_register_table_replaces_schema() -> void:
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	assert_true(
-		provider.register_table(_make_item_table_resource()),
-		"有效表资源应注册成功。"
-	)
-	assert_true(
-		provider.has_schema(&"items"),
-		"注册带 schema 的表资源时应同步 schema。"
-	)
-
-	var table_without_schema: GFConfigTableResource = GFConfigTableResource.new()
-	table_without_schema.table_name = &"items"
-	table_without_schema.records = [
-		{ "id": 2, "name": "Ether" },
+	table.table_name = &"other"
+	table.records = [
+		{ "id": 2, "name": "Other" },
 	]
-
+	var database: GFConfigDatabaseResource = GFConfigDatabaseResource.new()
+	database.tables = [table]
 	assert_true(
-		provider.register_table(table_without_schema),
-		"同名表资源应能替换注册。"
-	)
-	assert_true(
-		provider.has_table(&"items"),
-		"替换后同名表仍应存在。"
-	)
-	assert_false(
-		provider.has_schema(&"items"),
-		"同名替换为无 schema 表时旧 schema 不应残留。"
-	)
-
-
-func test_resource_config_provider_rebuild_clears_stale_schemas() -> void:
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	assert_true(
-		provider.register_table(_make_item_table_resource()),
-		"有效表资源应注册成功。"
-	)
-
-	var owner_table: GFConfigTableResource = _make_owner_table_resource(1)
-	var registered_count: int = provider.set_table_resources([owner_table])
-
-	assert_eq(
-		registered_count,
-		1,
-		"替换表资源应返回成功注册数量。"
-	)
-	assert_false(
-		provider.has_table(&"items"),
-		"替换表资源后旧表不应继续存在。"
-	)
-	assert_false(
-		provider.has_schema(&"items"),
-		"替换表资源后旧 schema 不应残留。"
-	)
-	assert_true(
-		provider.has_table(&"owners"),
-		"替换后的表应进入 Provider。"
-	)
-	assert_true(
-		provider.has_schema(&"owners"),
-		"替换后的表 schema 应进入 Provider。"
-	)
-
-
-func test_resource_config_provider_set_tables_is_documented_best_effort_replacement() -> void:
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	assert_true(
-		provider.register_table(_make_item_table_resource()),
-		"测试应先注册 last-good 旧表。"
-	)
-	var valid_owner_table: GFConfigTableResource = _make_owner_table_resource(1)
-	var invalid_table: GFConfigTableResource = GFConfigTableResource.new()
-
-	var registered_count: int = provider.set_table_resources([valid_owner_table, invalid_table])
-
-	assert_eq(
-		registered_count,
-		1,
-		"返回数量应暴露被接受的新表数量。"
-	)
-	assert_false(
-		provider.has_table(&"items"),
-		"best-effort set 会先清掉旧表，不承诺 last-good rollback。"
-	)
-	assert_true(
-		provider.has_table(&"owners"),
-		"有效候选应保留在部分新状态中。"
+		GFVariantData.get_option_bool(
+			provider.replace_database(database),
+			"ok"
+		)
 	)
 	assert_eq(
 		provider.get_table_ids(),
-		PackedStringArray(["owners"]),
-		"无效候选不应留下匿名 registry 项。"
+		PackedStringArray(["other"])
 	)
-	assert_push_error("[GFResourceConfigProvider][resource_config_provider.table_registration_invalid] Cannot register_table: table_resource is null or table_name is empty.")
-
-
-func test_resource_config_provider_rebuild_table_registry_refreshes_mutated_table_keys() -> void:
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
-	assert_true(
-		provider.register_table(_make_item_table_resource()),
-		"有效表资源应注册成功。"
-	)
-	var table: GFConfigTableResource = provider.get_table_resource(&"items", false)
-	table.table_name = &"owners"
-	table.schema = _make_owner_table_resource(1).schema
-	table.records = [
-		{ "id": 1, "item_id": 1 },
-	]
-
-	var registered_count: int = provider.rebuild_table_registry()
-
+	assert_false(provider.has_schema(&"items"))
+	assert_false(provider.has_schema(&"other"))
 	assert_eq(
-		registered_count,
-		1,
-		"重建 registry 应返回刷新后的表数量。"
-	)
-	assert_false(
-		provider.has_table(&"items"),
-		"重建后旧表名不应继续存在。"
-	)
-	assert_false(
-		provider.has_schema(&"items"),
-		"重建后旧 schema 不应继续存在。"
-	)
-	assert_true(
-		provider.has_table(&"owners"),
-		"重建后新表名应进入 Provider。"
-	)
-	assert_true(
-		provider.has_schema(&"owners"),
-		"重建后新 schema 应进入 Provider。"
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(provider.get_record(&"other", 2)),
+			"name"
+		),
+		"Other"
 	)
 
 
-func test_resource_config_provider_refreshes_mutated_table_identity_on_lookup() -> void:
+func test_resource_config_provider_isolates_inputs_schema_and_returned_resources() -> void:
+	var database: GFConfigDatabaseResource = _make_config_database_resource()
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
+	var previous: GFConfigSnapshot = provider.get_snapshot()
+	database.tables[0].records[0]["name"] = "Author edit"
+	database.tables[0].schema.table_name = &"broken"
+	var copy: GFConfigTableResource = provider.get_table_resource(&"items")
+	copy.table_name = &"renamed"
+	copy.schema.table_name = &"renamed"
+	copy.records[0]["name"] = "Candidate edit"
+	assert_true(provider.has_table(&"items"))
+	assert_false(provider.has_table(&"renamed"))
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(previous.get_record(&"items", 1)),
+			"name"
+		),
+		"Potion"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			provider.update_tables([copy]),
+			"ok"
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(provider.get_record(&"renamed", 1)),
+			"name"
+		),
+		"Candidate edit"
+	)
+	assert_false(previous.has_table(&"renamed"))
+	var schema: GFConfigTableSchema = provider.get_schema(&"items")
+	schema.table_name = &"mutated"
+	assert_eq(
+		provider.get_schema(&"items").table_name,
+		&"items"
+	)
+
+
+func test_resource_config_provider_prepares_without_publishing_and_rejects_stale_generation() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(_make_config_database_resource())
+	var previous: GFConfigSnapshot = provider.get_snapshot()
+	var edit: GFConfigTableResource = provider.get_table_resource(&"items")
+	edit.records[0]["name"] = "Updated"
+	var prepared: Dictionary = provider.prepare_update(
+		[edit],
+		{ "version": "v2" }
+	)
+	assert_true(GFVariantData.get_option_bool(prepared, "ok"))
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+	var candidate: GFConfigSnapshot = prepared["snapshot"]
+	assert_true(
+		GFVariantData.get_option_bool(
+			provider.publish_snapshot(candidate, 1),
+			"ok"
+		)
+	)
+	assert_eq(
+		provider.get_snapshot().get_version(),
+		"v2"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(previous.get_record(&"items", 1)),
+			"name"
+		),
+		"Potion"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			GFVariantData.as_dictionary(provider.get_record(&"items", 1)),
+			"name"
+		),
+		"Updated"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider.publish_snapshot(previous, 1),
+			"ok"
+		)
+	)
+	assert_eq(
+		provider.get_publication_generation(),
+		2
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider.publish_snapshot(
+				GFConfigSnapshot.new(),
+				2
+			),
+			"ok"
+		)
+	)
+
+
+func test_resource_config_provider_validates_merged_references_and_atomic_removal() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(_make_config_database_resource())
+	assert_true(
+		GFVariantData.get_option_bool(
+			provider.update_tables([_make_owner_table_resource(1)]),
+			"ok"
+		)
+	)
+	var previous: GFConfigSnapshot = provider.get_snapshot()
+	var result: Dictionary = provider.update_tables(
+		[],
+		{
+			"removed_tables": PackedStringArray(["items"]),
+		}
+	)
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+	result = provider.update_tables([_make_owner_table_resource(999)])
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+	result = provider.update_tables(
+		[],
+		{
+			"removed_tables": PackedStringArray(["owners", "items"]),
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(result, "ok"))
+	assert_true(provider.get_table_ids().is_empty())
+	assert_true(previous.has_table(&"items"))
+
+
+func test_resource_config_provider_rejects_invalid_schema_records_and_budget() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(_make_config_database_resource())
+	var previous: GFConfigSnapshot = provider.get_snapshot()
+	var edit: GFConfigTableResource = provider.get_table_resource(&"items")
+	edit.records[0]["power"] = "not a number"
+	assert_false(
+		GFVariantData.get_option_bool(
+			provider.update_tables([edit]),
+			"ok"
+		)
+	)
+	var limited: Dictionary = provider.prepare_update(
+		[_make_item_table_resource()],
+		{
+			"work_limits": { "max_work_units": 1 },
+		}
+	)
+	assert_false(GFVariantData.get_option_bool(limited, "ok"))
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+
+
+func test_validation_callback_publication_cannot_be_overwritten_by_outer_candidate() -> void:
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(_make_config_database_resource())
+	var table: GFConfigTableResource = provider.get_table_resource(&"items")
+	table.schema.record_validation_rules.append(_ReentrantRule.new())
+	_ReentrantRule.target = provider
+	var result: Dictionary = provider.update_tables([table])
+	_ReentrantRule.target = null
+	assert_false(GFVariantData.get_option_bool(result, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string_name(result, "error_kind"),
+		&"stale_generation"
+	)
+	assert_eq(
+		provider.get_publication_generation(),
+		2
+	)
+
+
+func test_snapshot_digest_work_admission_keeps_the_active_generation() -> void:
+	var database: GFConfigDatabaseResource = _make_config_database_resource()
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
+	var previous: GFConfigSnapshot = provider.get_snapshot()
+	var full: Dictionary = provider.prepare_database(database)
+	assert_true(GFVariantData.get_option_bool(full, "ok"))
+	var full_work: Dictionary = GFVariantData.get_option_dictionary(full, "work_report")
+	var usage: Dictionary = GFVariantData.get_option_dictionary(full_work, "usage")
+	var exact_limit: int = GFVariantData.get_option_int(usage, "work_units")
+	var rejected: Dictionary = provider.prepare_database(
+		database,
+		{
+			"work_limits": { "max_work_units": exact_limit - 1 },
+		}
+	)
+	assert_false(GFVariantData.get_option_bool(rejected, "ok"))
+	var rejected_snapshot: GFConfigSnapshot = rejected.get("snapshot")
+	assert_null(rejected_snapshot)
+	var failed_work: Dictionary = GFVariantData.get_option_dictionary(rejected, "work_report")
+	assert_eq(
+		GFVariantData.get_option_string(failed_work, "context"),
+		"snapshot.digest"
+	)
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+	var admitted: Dictionary = provider.prepare_database(
+		database,
+		{
+			"work_limits": { "max_work_units": exact_limit },
+		}
+	)
+	assert_true(GFVariantData.get_option_bool(admitted, "ok"))
+	var candidate: GFConfigSnapshot = admitted["snapshot"]
+	assert_eq(
+		candidate.get_digest_report(),
+		previous.get_digest_report()
+	)
+	assert_same(
+		provider.get_snapshot(),
+		previous
+	)
+
+
+func test_snapshot_digest_is_stable_and_reports_shared_asset_limit() -> void:
+	var database: GFConfigDatabaseResource = _make_config_database_resource()
+	var first: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
+	var second: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
+	var first_digest: Dictionary = first.get_snapshot().get_digest_report()
+	assert_true(GFVariantData.get_option_bool(first_digest, "complete"))
+	assert_eq(
+		GFVariantData.get_option_string(first_digest, "value"),
+		GFVariantData.get_option_string(
+			second.get_snapshot().get_digest_report(),
+			"value"
+		)
+	)
+	var table: GFConfigTableResource = GFConfigTableResource.new()
+	table.table_name = &"assets"
+	table.records = [
+		{ "id": 1, "asset": Resource.new() },
+	]
+	assert_true(
+		GFVariantData.get_option_bool(
+			first.update_tables([table]),
+			"ok"
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			first.get_snapshot().get_digest_report(),
+			"complete"
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_string(
+			first.get_snapshot().get_digest_report(),
+			"value"
+		),
+		""
+	)
+
+
+func test_snapshot_uses_normalized_values_and_keeps_first_duplicate_id() -> void:
+	var table: GFConfigTableResource = _make_item_table_resource()
+	table.schema.coerce_values = true
+	table.records[0]["power"] = "12.5"
 	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
 	assert_true(
-		provider.register_table(_make_item_table_resource()),
-		"有效表资源应注册成功。"
+		GFVariantData.get_option_bool(
+			provider.update_tables([table]),
+			"ok"
+		)
 	)
-	var table: GFConfigTableResource = provider.get_table_resource(&"items", false)
-	table.table_name = &"owners"
-	table.schema = _make_owner_table_resource(1).schema
-	table.records = [
-		{ "id": 1, "item_id": 1 },
+	var record: Dictionary = GFVariantData.as_dictionary(provider.get_record(&"items", 1))
+	assert_eq(
+		GFVariantData.get_option_float(record, "power"),
+		12.5
+	)
+	var simple: GFConfigTableResource = GFConfigTableResource.new()
+	simple.table_name = &"duplicates"
+	simple.records = [
+		{ "id": 1, "value": "first" },
+		{ "id": 1, "value": "second" },
 	]
+	assert_true(
+		GFVariantData.get_option_bool(
+			provider.update_tables([simple]),
+			"ok"
+		)
+	)
+	record = GFVariantData.as_dictionary(provider.get_record(&"duplicates", 1))
+	assert_eq(
+		GFVariantData.get_option_string(record, "value"),
+		"first"
+	)
 
+
+func test_snapshot_rejects_cyclic_input_before_copy() -> void:
+	var table: GFConfigTableResource = GFConfigTableResource.new()
+	table.table_name = &"cycle"
+	var record: Dictionary = { "id": 1 }
+	record["cycle"] = record
+	table.records = [record]
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.new()
 	assert_false(
-		provider.has_table(&"items"),
-		"资源身份变化后旧缓存键不得继续返回该表。"
+		GFVariantData.get_option_bool(
+			provider.update_tables([table]),
+			"ok"
+		)
 	)
-	assert_true(
-		provider.has_table(&"owners"),
-		"lookup 应同步刷新资源当前身份，无需调用方手动重建。"
-	)
-	assert_false(
-		provider.has_schema(&"items"),
-		"身份刷新应同步移除旧 schema。"
-	)
-	assert_true(
-		provider.has_schema(&"owners"),
-		"身份刷新应同步注册新 schema。"
-	)
+	assert_null(provider.get_snapshot())
+	var _removed: bool = record.erase("cycle")
 
 
 func test_config_table_resource_can_round_trip_as_tres() -> void:
@@ -708,7 +912,7 @@ func test_config_database_resource_reports_schema_definition_errors() -> void:
 
 func test_resource_config_provider_creates_from_database() -> void:
 	var database: GFConfigDatabaseResource = _make_config_database_resource()
-	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database, true)
+	var provider: GFResourceConfigProvider = GFResourceConfigProvider.from_database(database)
 
 	var record: Dictionary = GFVariantData.as_dictionary(provider.get_record(&"items", 2))
 	var key: String = provider.make_index_key(
@@ -1036,3 +1240,22 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 func _track_path(path: String) -> String:
 	_temporary_paths.append(path)
 	return path
+
+
+func _value_matches(actual: Variant, expected: Variant) -> bool:
+	return typeof(actual) == typeof(expected) and actual == expected
+
+
+class _ReentrantRule extends GFConfigValidationRule:
+	static var target: GFResourceConfigProvider = null
+
+	func _validate_record(
+		_record: Dictionary,
+		_context: Dictionary,
+		_report: Dictionary
+	) -> void:
+		if target == null:
+			return
+		var provider: GFResourceConfigProvider = target
+		target = null
+		var _published: Dictionary = provider.update_tables([])

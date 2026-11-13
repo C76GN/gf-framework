@@ -47,7 +47,7 @@ Feature 内聚式示例 profile 路径。
 ### `analyze`
 
 - API：`public`
-- 首次版本：`11.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func analyze(options: Dictionary = {}) -> Dictionary:
@@ -66,7 +66,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary，可包含 root_path、source_root、capture_scope、profile_source_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root；根只能是规范 res:// 或明确绝对本地来源，逻辑容器映射必须匹配。
-- `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph 精确包含 schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges 和 evidence；effects 精确包含 writes_project=false。
+- `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph包含schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges、evidence，以及可选dependencies；dependencies包含input、digest、coverage、capture_status、edges、startup_files、startup_source_bytes、startup_complete、unreachable_files、duplicate_owners、cross_owner_edges、cycles、issues，coverage恒为partial；effects 精确包含 writes_project=false。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_example_profile"></a>
 
@@ -154,7 +154,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ### `analyze_snapshot`
 
 - API：`public`
-- 首次版本：`11.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
@@ -172,7 +172,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 
 结构：
 
-- `snapshot`: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。
+- `snapshot`: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues、dependencies；dependencies精确包含capture:Dictionary、declaration:Dictionary、observations:Array，三类证据按资源依赖契约分别验收；root_path 必须是规范 res:// 或绝对本地根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes、max_scanned_files、max_scanned_directories、max_scan_depth、capture_scope、source_root、protected_roots、profile_source_path、policy_digest，files/directories 必须形成完整父目录闭包。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
 
 <a id="member-gfprojectlayoutanalyzer-methods-analyze_profile_snapshot"></a>
@@ -180,7 +180,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ### `analyze_profile_snapshot`
 
 - API：`public`
-- 首次版本：`11.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -> Dictionary:
@@ -200,7 +200,7 @@ func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -> Dict
 结构：
 
 - `profile`: Dictionary，包含 schema_version、id、zones 和 rules。
-- `snapshot`: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
+- `snapshot`: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues、dependencies；dependencies精确包含capture:Dictionary、declaration:Dictionary、observations:Array，三类证据按资源依赖契约分别验收；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。
 - `return`: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。
 
 <a id="member-gfprojectlayoutanalyzer-methods-explain_finding"></a>

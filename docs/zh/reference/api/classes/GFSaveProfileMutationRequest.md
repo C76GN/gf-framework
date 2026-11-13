@@ -49,7 +49,7 @@ static func create( mutations: Array[GFSaveSectionMutation], document_metadata: 
 
 结构：
 
-- `document_metadata`: Dictionary accepted by the Save persisted-value contract copied into an isolated snapshot.
+- `document_metadata`: Bounded persisted Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.
 - `context`: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 - `result_metadata`: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.
 

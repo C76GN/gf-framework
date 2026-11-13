@@ -150,6 +150,11 @@ const _PREPARATION_PHASE_FINALIZE: StringName = &"finalize"
 ## [br]
 const _PAYLOAD_VALIDATION_ADAPTER = preload("res://addons/gf/extensions/save/profile/gf_save_payload_validation_adapter.gd")
 
+## 严格的框架同步元数据契约。
+## [br]
+## @api private
+const _SYNC_CHECKPOINT_SCRIPT = preload("res://addons/gf/extensions/save/sync/gf_save_sync_checkpoint.gd")
+
 
 # --- 公共变量 ---
 
@@ -307,6 +312,56 @@ func _init() -> void:
 
 
 # --- 公共方法 ---
+
+## 获取同步确认文档捕获的固定预算；不等于远端上传预算。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 独立的规范编码预算。
+## [br]
+## @schema return: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.
+static func get_sync_snapshot_limits() -> Dictionary:
+	return {
+		"max_depth": 128,
+		"max_items": 1000000,
+		"max_output_bytes": 67108864,
+		"max_string_length": 16777216,
+	}
+
+
+## 只读测量完整同步文档封套，不创建确认快照或复制未经验证的数据。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param document_data: 调用期间保持不变的完整文档数据。
+## [br]
+## @schema document_data: GFSaveDocument 封套；这里只检查原生值与捕获预算，不代替 schema 验证。
+## [br]
+## @return 预算报告；失败 observed 只包含已遍历部分。
+## [br]
+## @schema return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.
+static func measure_sync_snapshot(document_data: Dictionary) -> Dictionary:
+	var options: Dictionary = get_sync_snapshot_limits()
+	var limits: Dictionary = options.duplicate()
+	options["allow_floats"] = true
+	var measured: Dictionary = GFDeterministicVariantSerializer.measure_canonical(document_data, options)
+	var ok: bool = GFVariantData.get_option_bool(measured, "ok")
+	var kind: StringName = &""
+	if not ok:
+		kind = &"sync_snapshot_budget_exceeded" if not GFVariantData.get_option_string(measured, "limit_kind").is_empty() else &"invalid_sync_snapshot"
+	return {
+		"ok": ok,
+		"error_kind": kind,
+		"path": "" if ok else "document",
+		"layer": &"save_sync_snapshot",
+		"limits": limits,
+		"observed": measured,
+	}
+
 
 ## 在架构 ready 阶段采用已注册的 Storage 和 Time 服务。
 ##
@@ -580,7 +635,6 @@ func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistr
 	state.recovery_policy = _duplicate_recovery_policy(profile.recovery_policy)
 	state.save_enabled = profile.save_enabled
 	state.load_enabled = profile.load_enabled
-	state.unknown_section_policy = profile.unknown_section_policy
 	for provider: GFSaveSectionProvider in state.providers:
 		if provider == null or not provider.lock_definition_for_framework():
 			_append_registration_issue(
@@ -596,6 +650,9 @@ func register_profile(profile: GFSaveProfile, migrations: GFSaveMigrationRegistr
 				false
 			)
 		state.provider_ids[provider.section_id] = true
+		var payload_policy: GFSavePayloadPolicy = provider.copy_payload_policy_for_framework()
+		if payload_policy != null:
+			state.payload_policies[provider.section_id] = payload_policy
 	state.migrations = migrations
 	_states[profile.profile_id] = state
 	return _finalize_registration_report(
@@ -754,6 +811,77 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 
 
 # --- 框架内部方法 ---
+
+## 开启同步文档捕获；不改变已保存的数据或账号绑定。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 已注册 Profile。
+## [br]
+## @return 注册且未释放时为 true；后续成功保存或加载建立快照。
+func enable_sync_snapshot_for_framework(profile_id: StringName) -> bool:
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		state == null
+		or _disposed
+		or _dispose_requested
+	):
+		return false
+	state._sync_snapshot_enabled = true
+	return true
+
+
+## 获取内容代际，不包含 checkpoint 专用写入次数。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 已注册 Profile。
+## [br]
+## @return 非负代际；未注册时为 -1。
+func get_sync_generation_for_framework(profile_id: StringName) -> int:
+	var state: ProfileState = _get_state(profile_id)
+	return state._sync_content_generation if state != null else -1
+
+
+## 获取已确认的当前同步快照；在途、失败或未知写入不能冒充已确认版本。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 已启用捕获的 Profile。
+## [br]
+## @return 独立数据快照或空字典；包含业务载荷，不应用于日志。
+## [br]
+## @schema return: Empty on unavailable; otherwise Dictionary with document:GFSaveDocument,checkpoint:Dictionary,local_generation:int.
+func get_sync_snapshot_for_framework(profile_id: StringName) -> Dictionary:
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		state == null
+		or not state._sync_snapshot_enabled
+		or state._sync_document.is_empty()
+	):
+		return {}
+	if (
+		state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or not state.detached_write_operations.is_empty()
+		or state.generation != state.persisted_generation
+	):
+		return {}
+	var document: GFSaveDocument = GFSaveDocument.from_dict(state._sync_document)
+	if document == null:
+		return {}
+	return {
+		"document": document,
+		"checkpoint": state._sync_checkpoint.duplicate(true) if not state._sync_checkpoint.is_empty() else _SYNC_CHECKPOINT_SCRIPT.initial(),
+		"local_generation": state._sync_content_generation,
+	}
+
 
 ## 为事务协调器原子声明一个已注册 Profile 的管理所有权。
 ##
@@ -1238,14 +1366,22 @@ func get_generation_evidence_for_framework(profile_id: StringName, generation: i
 ## [br]
 ## @schema context: Dictionary with caller-defined ephemeral operation data.
 ## [br]
+## @param retention_deletions: 与本次候选一起提交的保留内容删除指令。
+## [br]
+## @schema retention_deletions: Dictionary[StringName, Dictionary]，分区 ID 对应 GFSavePayloadPolicy.merge 的删除指令。
+## [br]
+## @param replace_retained: true 将候选作为完整保留基线；false 将当前运行投影合并到原基线。
+## [br]
 ## @return 内部 apply 结果；成功结果含 provider_ids 与 snapshots。
 ## [br]
-## @schema return: Internal Dictionary with ok, failure_stage, failed_section_id, error_code, error, rollback_errors, provider_ids, and snapshots fields.
+## @schema return: Internal Dictionary with ok, failure_stage, failed_section_id, error_code, error, rollback_errors, provider_ids, snapshots, and accepted full candidates fields.
 func apply_profile_candidates_for_manager_for_framework(
 	profile_id: StringName,
 	candidates: Array[GFSaveSection],
 	context: Dictionary,
-	permit: RefCounted
+	permit: RefCounted,
+	retention_deletions: Dictionary = {},
+	replace_retained: bool = false
 ) -> Dictionary:
 	var state: ProfileState = _get_state(profile_id)
 	if (
@@ -1258,7 +1394,10 @@ func apply_profile_candidates_for_manager_for_framework(
 		or state.mode != STATE_IDLE
 		or _has_pending_operations(state)
 		or not state.detached_write_operations.is_empty()
-		or candidates.is_empty()
+		or (
+			candidates.is_empty()
+			and not replace_retained
+		)
 	):
 		return _make_candidate_failure(
 			&"admission",
@@ -1292,6 +1431,17 @@ func apply_profile_candidates_for_manager_for_framework(
 				)
 			)
 		candidates_by_id[section_id] = candidate
+	for section_id: Variant in retention_deletions:
+		if not candidates_by_id.has(section_id) or not retention_deletions[section_id] is Dictionary:
+			return _finish_managed_memory_transaction(
+				state,
+				_make_candidate_failure(
+					&"validation",
+					&"",
+					ERR_INVALID_DATA,
+					"Retention deletion sections must match mutation candidates."
+				)
+			)
 	var ordered_providers: Array[GFSaveSectionProvider] = []
 	var snapshots: Dictionary = {}
 	for provider: GFSaveSectionProvider in state.providers:
@@ -1319,11 +1469,22 @@ func apply_profile_candidates_for_manager_for_framework(
 				)
 			)
 		_enter_unsafe_callback()
-		var snapshot: GFSaveSection = provider.capture_section(context)
+		if not replace_retained:
+			candidate = _merge_retained_section(
+				state,
+				candidate,
+				GFVariantData.get_option_dictionary(retention_deletions, provider.section_id)
+			)
+		var snapshot: GFSaveSection = _capture_retained_section(
+			state,
+			provider,
+			context
+		)
 		_exit_unsafe_callback()
 		var permit_remains_valid: bool = _is_valid_managed_permit(state, permit)
 		if (
 			snapshot == null
+			or candidate == null
 			or _dispose_requested
 			or not _admission_open
 			or not permit_remains_valid
@@ -1350,6 +1511,7 @@ func apply_profile_candidates_for_manager_for_framework(
 			)
 		ordered_providers.append(provider)
 		snapshots[provider.section_id] = snapshot
+		candidates_by_id[provider.section_id] = candidate
 	if ordered_providers.size() != candidates_by_id.size():
 		return _finish_managed_memory_transaction(
 			state,
@@ -1365,7 +1527,12 @@ func apply_profile_candidates_for_manager_for_framework(
 		attempted.append(provider)
 		var candidate: GFSaveSection = _get_section_value(GFVariantData.get_option_value(candidates_by_id, provider.section_id))
 		_enter_unsafe_callback()
-		var apply_error: Error = provider.apply_section(candidate, context)
+		var apply_error: Error = _apply_retained_section(
+			state,
+			provider,
+			candidate,
+			context
+		)
 		_exit_unsafe_callback()
 		var permit_remains_valid: bool = _is_valid_managed_permit(state, permit)
 		if (
@@ -1376,6 +1543,7 @@ func apply_profile_candidates_for_manager_for_framework(
 		):
 			continue
 		var rollback_errors: Array[GFSaveRollbackFailure] = _rollback_providers(
+			state,
 			attempted,
 			snapshots,
 			context
@@ -1400,17 +1568,108 @@ func apply_profile_candidates_for_manager_for_framework(
 		failure["rollback_errors"] = rollback_errors
 		return _finish_managed_memory_transaction(state, failure)
 	var provider_ids: PackedStringArray = PackedStringArray()
+	var accepted_candidates: Array[GFSaveSection] = []
 	for provider: GFSaveSectionProvider in ordered_providers:
 		var _appended: bool = provider_ids.append(String(provider.section_id))
+		accepted_candidates.append(_get_section_value(candidates_by_id.get(provider.section_id)))
 	return _finish_managed_memory_transaction(
 		state,
 		{
 			"ok": true,
 			"provider_ids": provider_ids,
 			"snapshots": snapshots,
+			"candidates": accepted_candidates,
 			"rollback_errors": [],
 		}
 	)
+
+
+## 应用完整下载文档，沿用候选回滚并记录未知分区的原值。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管活动 Profile。
+## [br]
+## @param document: 不含框架 checkpoint 的完整本地候选。
+## [br]
+## @param context: Provider 临时上下文。
+## [br]
+## @param permit: 管理能力凭证。
+## [br]
+## @schema context: Dictionary of ephemeral pure data.
+## [br]
+## @return 与分区候选相同的回滚记录；snapshots 的 int 键0保存未知分区数组。
+## [br]
+## @schema return: Internal candidate result with ok,provider_ids,snapshots,candidates,rollback_errors; snapshots contains StringName->GFSaveSection plus optional int(0)->Array[GFSaveSection].
+func apply_sync_document_for_manager_for_framework(
+	profile_id: StringName,
+	document: GFSaveDocument,
+	context: Dictionary,
+	permit: RefCounted
+) -> Dictionary:
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		state == null
+		or document == null
+		or not _is_valid_managed_permit(state, permit)
+	):
+		return _make_candidate_failure(
+			&"validation",
+			&"",
+			ERR_INVALID_DATA,
+			"Sync document is unavailable."
+		)
+	if document.get_metadata().has(_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY) or not GFVariantData.get_option_bool(
+		state.schema.validate_document(document, true),
+		"ok"
+	):
+		return _make_candidate_failure(
+			&"validation",
+			&"",
+			ERR_INVALID_DATA,
+			"Sync document does not match the Profile schema."
+		)
+	var current: GFSaveDocument = GFSaveDocument.from_dict(state._sync_document)
+	var candidates: Array[GFSaveSection] = []
+	for provider: GFSaveSectionProvider in state.providers:
+		if provider == null:
+			continue
+		var section: GFSaveSection = document.get_section(provider.section_id)
+		if provider.save_enabled and provider.load_enabled:
+			if section == null:
+				return _make_candidate_failure(
+					&"validation",
+					provider.section_id,
+					ERR_INVALID_DATA,
+					"Sync candidate must contain every mutable Provider section."
+				)
+			candidates.append(section)
+		elif section != null:
+			var old_section: GFSaveSection = current.get_section(provider.section_id) if current != null else null
+			if old_section == null or old_section.to_dict() != section.to_dict():
+				return _make_candidate_failure(
+					&"validation",
+					provider.section_id,
+					ERR_INVALID_DATA,
+					"Sync cannot modify a non-mutable Provider section."
+				)
+	var applied: Dictionary = apply_profile_candidates_for_manager_for_framework(
+		profile_id,
+		candidates,
+		context,
+		permit,
+		{},
+		true
+	)
+	if not GFVariantData.get_option_bool(applied, "ok"):
+		return applied
+	var snapshots: Dictionary = GFVariantData.get_option_dictionary(applied, "snapshots")
+	snapshots[0] = state.preserved_unknown_sections.duplicate()
+	applied["snapshots"] = snapshots
+	_update_preserved_unknown_sections(state, document)
+	return applied
 
 
 ## 逆序恢复一次已成功 apply 的受管候选集合。
@@ -1429,7 +1688,7 @@ func apply_profile_candidates_for_manager_for_framework(
 ## [br]
 ## @param permit: claim 时返回的 opaque capability。
 ## [br]
-## @schema snapshots: Internal Dictionary keyed by section ID with GFSaveSection values.
+## @schema snapshots: Internal Dictionary keyed by section ID with GFSaveSection values; a complete sync replacement also uses int key0 for the original Array[GFSaveSection] of preserved unknown sections.
 ## [br]
 ## @schema context: Dictionary with caller-defined ephemeral operation data.
 ## [br]
@@ -1469,9 +1728,17 @@ func rollback_profile_candidates_for_manager_for_framework(
 				_make_management_rollback_failure(provider_ids)
 			)
 		providers.append(selected)
+	if snapshots.has(0):
+		state.preserved_unknown_sections.clear()
+		var preserved: Variant = snapshots.get(0)
+		if preserved is Array:
+			for section: Variant in preserved:
+				if section is GFSaveSection:
+					state.preserved_unknown_sections.append(section)
 	return _finish_managed_memory_rollback(
 		state,
 		_rollback_providers(
+			state,
 			providers,
 			snapshots,
 			context
@@ -1633,6 +1900,24 @@ func _request_save_profile(
 	var result_metadata: Dictionary = result_metadata_value
 	_begin_processing()
 	state.generation += 1
+	var checkpoint: Dictionary = GFVariantData.get_option_dictionary(claim, "sync_checkpoint")
+	if (
+		checkpoint.is_empty()
+		and (
+			state._sync_snapshot_enabled
+			or not state._sync_checkpoint.is_empty()
+		)
+	):
+		checkpoint = state._sync_checkpoint.duplicate(true) if not state._sync_checkpoint.is_empty() else _SYNC_CHECKPOINT_SCRIPT.initial()
+		state._sync_content_generation += 1
+		checkpoint["local_generation"] = state._sync_content_generation
+	elif not checkpoint.is_empty():
+		state._sync_content_generation = maxi(
+			state._sync_content_generation,
+			GFVariantData.get_option_int(checkpoint, "local_generation")
+		)
+	if not checkpoint.is_empty():
+		document_metadata[_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY] = checkpoint
 	state.latest_save_metadata = document_metadata
 	state.latest_save_context = context
 	state.latest_save_section_overrides = compiled_overrides
@@ -2031,6 +2316,7 @@ func _start_save(state: ProfileState) -> void:
 	state.current_storage_duration_msec = 0
 	state.current_io_started_at_msec = -1
 	state.current_section_records = {}
+	state.current_retention_baselines = {}
 	state.current_section_ids_by_entry_index = []
 	state.current_sections_entry_index = -1
 	state.current_payload_transfer = null
@@ -2213,6 +2499,18 @@ func _complete_save_preparation(state: ProfileState) -> void:
 	state.current_sections_entry_index = document_data.size()
 	document_data["sections"] = state.current_section_records
 	document_data["metadata"] = state.current_metadata
+	if state._sync_snapshot_enabled:
+		var measured: Dictionary = measure_sync_snapshot(document_data)
+		if not GFVariantData.get_option_bool(measured, "ok"):
+			_finish_save_failure(
+				state,
+				ERR_INVALID_DATA,
+				"Sync document snapshot is invalid or exceeds its capture budget.",
+				GFSaveProfileResult.STATUS_PREPARATION_FAILED
+			)
+			return
+	state._current_sync_checkpoint = GFVariantData.get_option_dictionary(state.current_metadata, _SYNC_CHECKPOINT_SCRIPT.METADATA_KEY).duplicate(true)
+	state._current_sync_document = document_data.duplicate(true) if state._sync_snapshot_enabled else {}
 	state.current_section_records = {}
 	state.current_metadata = {}
 	state.current_context = {}
@@ -2420,6 +2718,16 @@ func _process_loaded_document(state: ProfileState, storage_result: GFStorageRead
 			inspection
 		)
 		return
+	var original_metadata: Dictionary = document.get_metadata()
+	var original_checkpoint: Dictionary = GFVariantData.get_option_dictionary(original_metadata, _SYNC_CHECKPOINT_SCRIPT.METADATA_KEY)
+	if original_metadata.has(_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY) and not _SYNC_CHECKPOINT_SCRIPT.validate(original_checkpoint):
+		_finish_load_failure(
+			state,
+			GFSaveProfileResult.STATUS_VALIDATION_FAILED,
+			ERR_INVALID_DATA,
+			"Invalid framework sync checkpoint."
+		)
+		return
 	if document.get_schema_id() != state.schema_id:
 		_finish_load_failure(
 			state,
@@ -2477,6 +2785,15 @@ func _process_loaded_document(state: ProfileState, storage_result: GFStorageRead
 			)
 			return
 		document = migration_result.get_document()
+	var migrated_metadata: Dictionary = document.get_metadata()
+	if migrated_metadata.has(_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY) != original_metadata.has(_SYNC_CHECKPOINT_SCRIPT.METADATA_KEY) or GFVariantData.get_option_dictionary(migrated_metadata, _SYNC_CHECKPOINT_SCRIPT.METADATA_KEY) != original_checkpoint:
+		_finish_load_failure(
+			state,
+			GFSaveProfileResult.STATUS_VALIDATION_FAILED,
+			ERR_INVALID_DATA,
+			"Migration must preserve framework sync checkpoint."
+		)
+		return
 	var validation: Dictionary = schema.validate_document(document, true)
 	if not GFVariantData.get_option_bool(
 		validation,
@@ -2548,6 +2865,11 @@ func _process_loaded_document(state: ProfileState, storage_result: GFStorageRead
 		)
 		return
 	_update_preserved_unknown_sections(state, document)
+	state.retention_generation = state.current_generation
+	state._sync_checkpoint = original_checkpoint.duplicate(true)
+	state._sync_content_generation = GFVariantData.get_option_int(original_checkpoint, "local_generation")
+	state._sync_confirmed_generation = state.current_generation
+	state._sync_document = document.to_dict() if state._sync_snapshot_enabled else {}
 	_finish_load_success(
 		state,
 		GFSaveProfileResult.STATUS_LOADED,
@@ -2580,7 +2902,11 @@ func _apply_document_transactionally(
 		if not _is_current_managed_load_authorized(state):
 			return _make_revoked_load_failure(provider.section_id)
 		_enter_unsafe_callback()
-		var snapshot: GFSaveSection = provider.capture_section(context)
+		var snapshot: GFSaveSection = _capture_retained_section(
+			state,
+			provider,
+			context
+		)
 		_exit_unsafe_callback()
 		if not _is_current_managed_load_authorized(state):
 			return _make_revoked_load_failure(provider.section_id)
@@ -2599,6 +2925,7 @@ func _apply_document_transactionally(
 	for provider: GFSaveSectionProvider in providers:
 		if not _is_current_managed_load_authorized(state):
 			var revoked_rollback_errors: Array[GFSaveRollbackFailure] = _rollback_providers(
+				state,
 				attempted,
 				snapshots,
 				context
@@ -2608,7 +2935,9 @@ func _apply_document_transactionally(
 			return revoked_failure
 		attempted.append(provider)
 		_enter_unsafe_callback()
-		var apply_error: Error = provider.apply_section(
+		var apply_error: Error = _apply_retained_section(
+			state,
+			provider,
 			document.get_section(provider.section_id),
 			context
 		)
@@ -2617,6 +2946,7 @@ func _apply_document_transactionally(
 		if apply_error == OK and not authorization_revoked:
 			continue
 		var rollback_errors: Array[GFSaveRollbackFailure] = _rollback_providers(
+			state,
 			attempted,
 			snapshots,
 			context
@@ -2651,6 +2981,7 @@ func _make_revoked_load_failure(section_id: StringName) -> Dictionary:
 ## [br]
 ## @api private
 func _rollback_providers(
+	state: ProfileState,
 	attempted: Array[GFSaveSectionProvider],
 	snapshots: Dictionary,
 	context: Dictionary
@@ -2664,7 +2995,13 @@ func _rollback_providers(
 		var provider: GFSaveSectionProvider = attempted[index]
 		var snapshot: GFSaveSection = _get_section_value(GFVariantData.get_option_value(snapshots, provider.section_id))
 		_enter_unsafe_callback()
-		var rollback_error: Error = provider.rollback_section(snapshot, context)
+		var rollback_error: Error = _apply_retained_section(
+			state,
+			provider,
+			snapshot,
+			context,
+			true
+		)
 		_exit_unsafe_callback()
 		if rollback_error != OK:
 			var failure: GFSaveRollbackFailure = GFSaveRollbackFailure.new()
@@ -3064,6 +3401,9 @@ func _clear_current(state: ProfileState) -> void:
 	state.current_preparation_duration_msec = 0
 	state.current_storage_duration_msec = 0
 	state.current_section_records = {}
+	state.current_retention_baselines = {}
+	state._current_sync_checkpoint = {}
+	state._current_sync_document = {}
 	state.current_section_ids_by_entry_index = []
 	state.current_sections_entry_index = -1
 	state.current_load_operation = null
@@ -3578,10 +3918,143 @@ func _store_current_section_record(
 ) -> void:
 	if state == null or section_id == &"":
 		return
+	_enter_unsafe_callback()
+	var accepted: bool = _prepare_retained_record(
+		state,
+		section_id,
+		record
+	)
+	_exit_unsafe_callback()
+	if not accepted or _dispose_requested:
+		_finish_save_failure(
+			state,
+			ERR_INVALID_DATA,
+			"Section payload or retention deletions violate the registered policy.",
+			GFSaveProfileResult.STATUS_PREPARATION_FAILED,
+			section_id
+		)
+		return
 	var section_key: String = String(section_id)
 	if not state.current_section_records.has(section_key):
 		state.current_section_ids_by_entry_index.append(section_id)
 	state.current_section_records[section_key] = record
+
+
+## 捕获完整回滚快照；保留基线属于当前 Profile，不能从共享 Provider 获取。
+## [br]
+## @api private
+func _capture_retained_section(
+	state: ProfileState,
+	provider: GFSaveSectionProvider,
+	context: Dictionary
+) -> GFSaveSection:
+	return _merge_retained_section(
+		state,
+		provider.capture_section(context)
+	)
+
+
+## 将当前运行候选与本档位的保留数据合并，返回独立持久化 section。
+## [br]
+## @api private
+func _merge_retained_section(
+	state: ProfileState,
+	section: GFSaveSection,
+	deletions: Dictionary = {}
+) -> GFSaveSection:
+	if section == null:
+		return null
+	var section_id: StringName = section.get_section_id()
+	var policy: GFSavePayloadPolicy = state.payload_policies.get(section_id)
+	if policy == null:
+		return section if deletions.is_empty() else null
+	var result: Dictionary = policy.merge(
+		section.get_payload(),
+		state.retention_baselines.get(section_id),
+		deletions
+	)
+	if not GFVariantData.get_option_bool(result, "ok"):
+		return null
+	return GFSaveSection.new().configure(
+		section_id,
+		section.get_schema_version(),
+		result.get("payload"),
+		section.get_metadata()
+	)
+
+
+## 只把已知投影交给 Provider；应用成功后接纳对应基线，回滚使用完全相同的边界。
+## [br]
+## @api private
+func _apply_retained_section(
+	state: ProfileState,
+	provider: GFSaveSectionProvider,
+	section: GFSaveSection,
+	context: Dictionary,
+	rollback: bool = false
+) -> Error:
+	if section == null:
+		return ERR_INVALID_DATA
+	var policy: GFSavePayloadPolicy = state.payload_policies.get(provider.section_id)
+	var projection: GFSaveSection = section
+	var result: Dictionary = {}
+	if policy != null:
+		result = policy.project(section.get_payload())
+		if not GFVariantData.get_option_bool(result, "ok"):
+			return ERR_INVALID_DATA
+		projection = GFSaveSection.new().configure(
+			provider.section_id,
+			section.get_schema_version(),
+			result.get("projection"),
+			section.get_metadata()
+		)
+	var outcome: Error = provider.rollback_section(projection, context) if rollback else provider.apply_section(projection, context)
+	if outcome == OK and policy != null:
+		state.retention_baselines[provider.section_id] = result.get("baseline")
+	return outcome
+
+
+## 在 Provider 分片结束后执行单个有界保留步骤，完整候选和基线各自拥有数据。
+## [br]
+## @api private
+func _prepare_retained_record(
+	state: ProfileState,
+	section_id: StringName,
+	record: Dictionary
+) -> bool:
+	var deletion_value: Variant = record.get("retention_deletions", {})
+	if not deletion_value is Dictionary:
+		return false
+	var deletions: Dictionary = deletion_value
+	var _removed: bool = record.erase("retention_deletions")
+	var policy: GFSavePayloadPolicy = state.payload_policies.get(section_id)
+	if policy == null:
+		return deletions.is_empty()
+	var result: Dictionary = policy.merge(
+		record.get("payload"),
+		state.retention_baselines.get(section_id),
+		deletions
+	)
+	if not GFVariantData.get_option_bool(result, "ok"):
+		return false
+	record["payload"] = result.get("payload")
+	state.current_retention_baselines[section_id] = result.get("baseline")
+	return true
+
+
+## 只接纳未被更新代替的已确认写入基线，防止迟到结果覆盖较新的档位数据。
+## [br]
+## @api private
+func _confirm_retention(
+	state: ProfileState,
+	generation: int,
+	baselines: Dictionary
+) -> void:
+	if generation < state.retention_generation:
+		return
+	for section_id: Variant in baselines:
+		state.retention_baselines[section_id] = baselines[section_id]
+	state.retention_generation = generation
 
 
 ## 结束准备与 IO 计时，并更新当前 generation 的 detached write 耗时。
@@ -3676,6 +4149,9 @@ func _detach_current_write(state: ProfileState) -> void:
 		"operation": operation,
 		"callback": callback,
 		"generation": state.current_generation,
+		"retention_baselines": state.current_retention_baselines,
+		"sync_checkpoint": state._current_sync_checkpoint,
+		"sync_document": state._current_sync_document,
 		"attempt_count": state.current_attempt_count,
 		"preparation_duration_msec": state.current_preparation_duration_msec,
 		"storage_duration_msec": state.current_storage_duration_msec,
@@ -3917,21 +4393,20 @@ func _get_sorted_request_ids(source: Dictionary) -> PackedInt64Array:
 	return result
 
 
-## 清除旧保留项；策略为 preserve 时复制文档中未由 Provider 管理的 section。
+## 只保留注册 schema 明确列出的不受 Provider 管理的分区。
 ## [br]
 ## @api private
 ## [br]
 func _update_preserved_unknown_sections(state: ProfileState, document: GFSaveDocument) -> void:
 	state.preserved_unknown_sections.clear()
-	if state.unknown_section_policy != GFSaveProfile.UNKNOWN_SECTION_PRESERVE:
-		return
 	for section: GFSaveSection in document.get_sections():
 		if section == null or _state_has_provider(
 			state,
 			section.get_section_id()
 		):
 			continue
-		state.preserved_unknown_sections.append(section.duplicate_section())
+		if state.schema.preserved_sections.has(String(section.get_section_id())):
+			state.preserved_unknown_sections.append(section.duplicate_section())
 
 
 ## 检查 ProfileState 是否包含指定 ID 的非空 Provider。
@@ -4438,6 +4913,27 @@ func _get_migration_result_value(value: Variant) -> GFSaveMigrationResult:
 	return null
 
 
+## 仅接收不早于已确认代际的 checkpoint，防止迟到 IO 回退状态。
+## [br]
+## @api private
+func _confirm_sync_checkpoint(
+	state: ProfileState,
+	generation: int,
+	checkpoint: Dictionary,
+	document_data: Dictionary
+) -> void:
+	if generation < state._sync_confirmed_generation:
+		return
+	state._sync_confirmed_generation = generation
+	state._sync_checkpoint = checkpoint
+	state._sync_content_generation = maxi(
+		state._sync_content_generation,
+		GFVariantData.get_option_int(checkpoint, "local_generation")
+	)
+	if state._sync_snapshot_enabled:
+		state._sync_document = document_data
+
+
 # --- 信号处理函数 ---
 
 # 存储终态
@@ -4492,6 +4988,17 @@ func _on_storage_operation_completed(
 			var completed_generation: int = state.current_generation
 			_finalize_save_timing_for_terminal(state)
 			state.persisted_generation = maxi(state.persisted_generation, completed_generation)
+			_confirm_sync_checkpoint(
+				state,
+				completed_generation,
+				state._current_sync_checkpoint,
+				state._current_sync_document
+			)
+			_confirm_retention(
+				state,
+				completed_generation,
+				state.current_retention_baselines
+			)
 			_clear_generation_evidence_through(state, completed_generation)
 			_complete_save_operations_success(state)
 			_clear_current(state)
@@ -4643,6 +5150,17 @@ func _on_detached_write_completed(
 			if state.current_storage_operation != null:
 				_detach_current_write(state)
 		state.persisted_generation = maxi(state.persisted_generation, generation)
+		_confirm_sync_checkpoint(
+			state,
+			generation,
+			GFVariantData.get_option_dictionary(record, "sync_checkpoint"),
+			GFVariantData.get_option_dictionary(record, "sync_document")
+		)
+		_confirm_retention(
+			state,
+			generation,
+			GFVariantData.get_option_dictionary(record, "retention_baselines")
+		)
 		_clear_generation_evidence_through(state, generation)
 		_complete_save_operations_success_through(
 			state,
@@ -4685,6 +5203,10 @@ func _on_detached_write_completed(
 ## [br]
 ## @since 10.0.0
 class ProfileState extends RefCounted:
+
+
+	# --- 公共变量 ---
+
 	## 编译后的运行时 Profile ID。
 	## [br]
 	## @api framework_internal
@@ -4722,6 +5244,32 @@ class ProfileState extends RefCounted:
 	## @schema provider_ids: Dictionary keyed by StringName section IDs with boolean membership values.
 	var provider_ids: Dictionary = {}
 
+	## 各分区独占的注册政策副本。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema payload_policies: Dictionary[StringName, GFSavePayloadPolicy]。
+	var payload_policies: Dictionary = {}
+
+	## 当前档位接受的完整载荷基线，不向 Provider 暴露。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema retention_baselines: Dictionary[StringName, Variant]，值通过对应政策准入。
+	var retention_baselines: Dictionary = {}
+
+	## 当前保存候选所对应的独立基线，确认写入后才提交。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @schema current_retention_baselines: Dictionary[StringName, Variant]，只包含当前候选中的已知分区。
+	var current_retention_baselines: Dictionary = {}
+
+	## 最近接受基线的 generation，拒绝迟到写入覆盖。
+	## [br]
+	## @api framework_internal
+	var retention_generation: int = 0
+
 	## 隔离恢复政策副本。
 	## [br]
 	## @api framework_internal
@@ -4736,11 +5284,6 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	var load_enabled: bool = true
-
-	## 未知 section 政策。
-	## [br]
-	## @api framework_internal
-	var unknown_section_policy: StringName = GFSaveProfile.UNKNOWN_SECTION_REJECT
 
 	## 最近成功读取后需要透明保留的未知 section。
 	## [br]
@@ -5051,6 +5594,44 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	var retry_due_msec: int = 0
+
+
+	# --- 私有变量 ---
+
+	## 是否为同步保留一份已确认文档。
+	## [br]
+	## @api private
+	var _sync_snapshot_enabled: bool = false
+
+	## 已确认的框架 checkpoint。
+	## [br]
+	## @api private
+	var _sync_checkpoint: Dictionary = {}
+
+	## 已确认文档，仅在启用同步时保留。
+	## [br]
+	## @api private
+	var _sync_document: Dictionary = {}
+
+	## 内容代际；checkpoint 专用写入不递增。
+	## [br]
+	## @api private
+	var _sync_content_generation: int = 0
+
+	## 最近确认 checkpoint 的物理代际。
+	## [br]
+	## @api private
+	var _sync_confirmed_generation: int = 0
+
+	## 当前写入所冻结的 checkpoint。
+	## [br]
+	## @api private
+	var _current_sync_checkpoint: Dictionary = {}
+
+	## 当前写入文档的隔离副本。
+	## [br]
+	## @api private
+	var _current_sync_document: Dictionary = {}
 
 
 ## 受管 Profile 的不可伪造进程内 capability。

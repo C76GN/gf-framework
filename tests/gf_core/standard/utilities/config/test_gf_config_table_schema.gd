@@ -6,6 +6,166 @@ extends GutTest
 
 # --- 测试 ---
 
+func test_validation_session_is_local_and_retains_failure_locations() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	var column: GFConfigTableColumn = _make_column(&"id", GFConfigTableColumn.ValueType.INT)
+	column.allow_null = false
+	schema.columns = [column]
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_table(
+				[
+					{ "id": 1 },
+					{ "id": 2 },
+				]
+			),
+			"ok"
+		)
+	)
+	column.element_validation_rules = [GFConfigRangeValidationRule.new()]
+	var invalid: Dictionary = schema.validate_table(
+		[
+			{ "id": 1 },
+		],
+		{ "source": "session.csv", "line": 4 }
+	)
+	assert_false(GFVariantData.get_option_bool(invalid, "ok"))
+	var issue: Dictionary = _find_issue_kind(
+		GFVariantData.get_option_array(invalid, "issues"),
+		"element_rules_require_array"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(issue, "field"),
+		&"id"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(issue, "source"),
+		"session.csv"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(issue, "line"),
+		4
+	)
+	column.element_validation_rules.clear()
+	var missing: Dictionary = schema.validate_table(
+		[
+			{ "id": 1 },
+			{ "id": null },
+		]
+	)
+	assert_false(GFVariantData.get_option_bool(missing, "ok"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(missing, "issues"),
+			"null_value"
+		)
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_table(
+				{
+					"one": { "id": 1 },
+					"two": { "id": 2 },
+				}
+			),
+			"ok"
+		)
+	)
+
+
+func test_custom_rule_changes_are_rechecked_before_the_next_row() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	var column: GFConfigTableColumn = _make_column(&"id", GFConfigTableColumn.ValueType.INT)
+	var rule: MutatingDefinitionRule = MutatingDefinitionRule.new()
+	rule.schema_ref = weakref(schema)
+	column.validation_rules = [rule]
+	schema.columns = [column]
+	var report: Dictionary = schema.validate_table(
+		[
+			{ "id": 1 },
+			{ "id": 2 },
+		]
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(rule.calls, 1)
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_element_validation_limits"
+		)
+	)
+
+
+func test_undeclared_id_string_conversion_cannot_bypass_next_row_definition_checks() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.allow_extra_fields = true
+	schema.require_unique_id = true
+	schema.columns = [_make_column(&"value", GFConfigTableColumn.ValueType.INT)]
+	var first_id: MutatingStringId = MutatingStringId.new()
+	first_id.schema_ref = weakref(schema)
+	var report: Dictionary = schema.validate_table(
+		[
+			{ "id": first_id, "value": 1 },
+			{ "id": 2, "value": 2 },
+		]
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_element_validation_limits"
+		)
+	)
+
+
+func test_object_field_key_cannot_bypass_next_row_definition_checks() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.allow_extra_fields = false
+	schema.columns = [_make_column(&"value", GFConfigTableColumn.ValueType.INT)]
+	var key: MutatingStringId = MutatingStringId.new()
+	key.schema_ref = weakref(schema)
+	var report: Dictionary = schema.validate_table(
+		[
+			{ key: 1, "value": 1 },
+			{ "value": 2 },
+		]
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_element_validation_limits"
+		)
+	)
+
+
+func test_unknown_column_type_keeps_callback_sensitive_definition_rechecks() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.require_unique_id = true
+	var column: GFConfigTableColumn = _make_column(&"id", GFConfigTableColumn.ValueType.INT)
+	column.set("value_type", 99)
+	assert_eq(
+		int(column.value_type),
+		99
+	)
+	schema.columns = [column]
+	var first_id: MutatingStringId = MutatingStringId.new()
+	first_id.schema_ref = weakref(schema)
+	var report: Dictionary = schema.validate_table(
+		[
+			{ "id": first_id },
+			{ "id": 2 },
+		]
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(
+		_has_issue_kind(
+			GFVariantData.get_option_array(report, "issues"),
+			"invalid_element_validation_limits"
+		)
+	)
+
+
 ## 空值策略只能在声明有效后应用，不能隐藏缺失子类型、循环或非法默认值。
 func test_structured_nullable_column_rejects_invalid_declarations() -> void:
 	var column: GFConfigTableColumn = _make_column(&"payload", GFConfigTableColumn.ValueType.ANY)
@@ -3946,6 +4106,33 @@ func _find_issue_kind(issues: Array, kind: String) -> Dictionary:
 
 
 # --- 内部类 ---
+
+class MutatingStringId extends RefCounted:
+	var schema_ref: WeakRef
+
+	func _to_string() -> String:
+		var value: Variant = schema_ref.get_ref()
+		if value is GFConfigTableSchema:
+			var schema: GFConfigTableSchema = value
+			schema.max_elements_per_validation = 0
+		return "value"
+
+
+class MutatingDefinitionRule extends GFConfigValidationRule:
+	var schema_ref: WeakRef
+	var calls: int = 0
+
+	func _validate_value(
+		_value: Variant,
+		_context: Dictionary,
+		_report: Dictionary
+	) -> void:
+		calls += 1
+		var value: Variant = schema_ref.get_ref()
+		if value is GFConfigTableSchema:
+			var schema: GFConfigTableSchema = value
+			schema.max_elements_per_validation = 0
+
 
 class CountingElementRule extends GFConfigValidationRule:
 	var calls: int = 0

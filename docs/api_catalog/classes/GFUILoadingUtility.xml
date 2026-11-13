@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUILoadingUtility" path="addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd" module="standard" extends="GFUtility" classDigest="7aa88f2ae0c91ad4de0c4311e0ea90f352198e39f1e343a51dc8214ecd59f1da">
+	<description>GFUILoadingUtility: 并发等待请求的显示状态聚合器。
+主线程服务；不创建界面，不阻塞业务完成。延迟与最短可见时间使用注入的单调时钟，
+tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 lease。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="state_changed">
+			<signature>signal state_changed(state: Dictionary)</signature>
+			<description>展示状态或活动请求聚合发生变化时发出，监听方不获得内部可写状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 当前聚合状态副本。</tag>
+				<tag name="schema">state: Dictionary with visible:bool, pending_count:int, determinate_count:int, indeterminate_count:int, progress:float。progress 为已知进度的等权平均；无已知进度时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="tick">
+			<signature>func tick(_delta: float) -&gt; void:</signature>
+			<description>清理过期请求并刷新显示与进度，不依赖 delta 计时。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_delta: 架构帧间隔；本服务读取单调时钟。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>立即撤销全部 lease 并隐藏反馈，不等待显示政策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="configure">
+			<signature>func configure( display_delay_msec: int = 150, minimum_visible_msec: int = 250, clock: GFClock = null ) -&gt; bool:</signature>
+			<description>在第一次 acquire 前冻结显示政策和时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">display_delay_msec: 0 到 60000 毫秒。</tag>
+				<tag name="param">minimum_visible_msec: 0 到 60000 毫秒；不延长业务等待。</tag>
+				<tag name="param">clock: 可选单调时钟。</tag>
+				<tag name="return">首次有效配置时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="acquire">
+			<signature>func acquire( owner: Object = null, scope: GFAsyncScope = null, progress: GFAsyncProgress = null ) -&gt; GFUILoadingLease:</signature>
+			<description>为一次业务等待取得独立句柄。
+无 owner/scope 时必须显式释放；Node owner 必须在树中，离树立即释放。
+普通 Object 销毁、scope.complete 或 scope 销毁在下一次 tick 释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 可选生命周期拥有者，服务不持有强引用。</tag>
+				<tag name="param">scope: 可选活动请求作用域。</tag>
+				<tag name="param">progress: 可选既有进度句柄；达到 1 不自动释放。</tag>
+				<tag name="return">新 lease；参数失效、超限或服务释放时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="validate_acquire">
+			<signature>func validate_acquire(owner: Object = null, scope: GFAsyncScope = null) -&gt; Dictionary:</signature>
+			<description>只读检查 acquire 的生命周期和剩余容量，不取得 lease、消耗 ID 或刷新显示。
+进度未知或暂时无效仍是合法等待，故此入口不采样进度。报告不预留容量；
+acquire 在执行时重新检查。检查不会连接信号、保留 owner/scope 或触发业务回调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">owner: 与 acquire 相同的可选生命周期 owner。</tag>
+				<tag name="param">scope: 与 acquire 相同的可选活动作用域。</tag>
+				<tag name="return">当前服务与参数的独立校验报告；不输出错误日志。</tag>
+				<tag name="schema">return: 封闭基础字段 ok:bool、error_kind:String、path:String；成功时后两项为空。容量错误可含 limit:int、observed:int；纯数据错误另含 measurement:Dictionary、limits:Dictionary，并可含 limit_kind:String、observed_is_lower_bound:bool。path 为从输入参数名开始的 / 分段路径，~ 和 / 分别转义为 ~0 和 ~1；空路径指当前服务。observed_is_lower_bound=true 时 observed 只是确定下界，measurement 失败计数只描述已遍历前缀。报告不含对象或可复用准入令牌。 lease_limit 的 observed 是申请本次 lease 后所需总数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; Dictionary:</signature>
+			<description>获取最近发布的显示状态；进度与过期生命周期在 tick 时采样。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">隔离状态副本。</tag>
+				<tag name="schema">return: Dictionary with visible:bool, pending_count:int, determinate_count:int, indeterminate_count:int, progress:float，与 state_changed 一致。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -977,6 +977,15 @@ func mutate_and_persist(profile_id: StringName, request: GFSaveProfileMutationRe
 	transaction.context = _get_dictionary_claim(claim, "context")
 	transaction.document_metadata = _get_dictionary_claim(claim, "document_metadata")
 	transaction.mutation_records = _get_dictionary_array_claim(claim, "mutations")
+	transaction._sync_checkpoint = _get_dictionary_claim(claim, "sync_checkpoint")
+	transaction._expected_sync_generation = GFVariantData.get_option_int(
+		claim,
+		"expected_sync_generation",
+		-1
+	)
+	var sync_document: Variant = claim.get("sync_document")
+	if sync_document is GFSaveDocument:
+		transaction._sync_document = sync_document
 	transaction.stage = _STAGE_MUTATION_FLUSH
 	_start_flush(
 		domain,
@@ -1118,6 +1127,25 @@ func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfil
 		profile_id
 	)
 	return transaction.operation
+
+
+# --- 框架内部方法 ---
+
+## 确认组合器使用的 Profile 服务与本协调器一致，防止跨服务同名档位混用。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param utility: 待比对的存档服务。
+## [br]
+## @return 协调器未释放、实例身份一致且服务非空时为 true。
+func uses_profile_utility_for_framework(utility: GFSaveProfileUtility) -> bool:
+	return (
+		not _disposed
+		and utility != null
+		and _profile_utility == utility
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -1872,9 +1900,26 @@ func _handle_mutation_flush_result(
 func _apply_mutation_candidates(domain: DomainState, transaction: TransactionState) -> void:
 	if (domain.current_transaction != transaction or transaction.stage != _STAGE_MUTATION_QUEUED):
 		return
+	if (
+		transaction._expected_sync_generation >= 0
+		and (
+			_profile_utility == null
+			or _profile_utility.get_sync_generation_for_framework(transaction.target_profile_id) != transaction._expected_sync_generation
+		)
+	):
+		_finish_domain_transaction(
+			domain,
+			transaction,
+			GFSaveProfileTransactionResult.STATUS_INVALID_REQUEST,
+			ERR_BUSY,
+			"Sync content generation changed before candidate admission.",
+			_STAGE_MUTATION_APPLY
+		)
+		return
 	transaction.stage = _STAGE_MUTATION_APPLY
 	_begin_processing()
 	var candidates: Array[GFSaveSection] = []
+	var retention_deletions: Dictionary = {}
 	for record: Dictionary in transaction.mutation_records:
 		var section_id: StringName = GFVariantData.get_option_string_name(record, "section_id")
 		var schema_version: int = GFVariantData.get_option_int(record, "schema_version")
@@ -1888,6 +1933,7 @@ func _apply_mutation_candidates(domain: DomainState, transaction: TransactionSta
 			)
 		)
 		candidates.append(candidate)
+		retention_deletions[section_id] = GFVariantData.get_option_dictionary(record, "retention_deletions")
 		record.clear()
 	transaction.mutation_records.clear()
 	var profile: ManagedProfile = _get_profile(transaction.target_profile_id)
@@ -1897,12 +1943,27 @@ func _apply_mutation_candidates(domain: DomainState, transaction: TransactionSta
 				transaction.target_profile_id,
 				candidates,
 				transaction.context,
-				(profile.permit if profile != null else null)
+				(profile.permit if profile != null else null),
+				retention_deletions
 			)
 		)
-		if _profile_utility != null
+		if _profile_utility != null and not candidates.is_empty()
 		else {}
 	)
+	if transaction._sync_document != null and _profile_utility != null:
+		apply_result = _profile_utility.apply_sync_document_for_manager_for_framework(
+			transaction.target_profile_id,
+			transaction._sync_document,
+			transaction.context,
+			profile.permit if profile != null else null
+		)
+	elif candidates.is_empty() and not transaction._sync_checkpoint.is_empty():
+		apply_result = {
+			"ok": true,
+			"provider_ids": PackedStringArray(),
+			"snapshots": {},
+			"candidates": [],
+		}
 	if not GFVariantData.get_option_bool(
 		apply_result,
 		"ok",
@@ -1974,12 +2035,21 @@ func _apply_mutation_candidates(domain: DomainState, transaction: TransactionSta
 		return
 	transaction.mutation_provider_ids = provider_ids
 	transaction.mutation_snapshots = snapshots
-	transaction.mutation_candidates = candidates
+	transaction.mutation_candidates.clear()
+	for candidate: Variant in GFVariantData.get_option_array(apply_result, "candidates"):
+		if candidate is GFSaveSection:
+			transaction.mutation_candidates.append(candidate)
 	var save_request: GFSaveProfileRequest = GFSaveProfileRequest.create(
 		transaction.document_metadata,
 		transaction.context,
 		{}
 	)
+	if not transaction._sync_checkpoint.is_empty():
+		save_request = GFSaveProfileRequest.create_sync_for_framework(
+			transaction._sync_checkpoint,
+			transaction.document_metadata,
+			transaction.context
+		)
 	transaction.stage = _STAGE_MUTATION_SAVE
 	if save_request == null:
 		_reject_internal_save_request(domain, transaction)
@@ -3272,7 +3342,7 @@ func _validate_mutation_request(profile: ManagedProfile, request: GFSaveProfileM
 	):
 		return { "ok": false, "error": "Mutation request is not available." }
 	var descriptors: Array = GFVariantData.get_option_array(inspection, "mutations")
-	if descriptors.is_empty():
+	if descriptors.is_empty() and not GFVariantData.get_option_bool(inspection, "has_sync_checkpoint"):
 		return { "ok": false, "error": "Mutation request must contain a section." }
 	var provider_by_id: Dictionary = {}
 	for provider: GFSaveSectionProvider in profile.providers:
@@ -4137,6 +4207,10 @@ class DomainState extends RefCounted:
 ## [br]
 ## @since 11.0.0
 class TransactionState extends RefCounted:
+
+
+	# --- 公共变量 ---
+
 	## 向调用方暴露的类型化事务操作句柄。
 	## [br]
 	## @api framework_internal
@@ -4260,6 +4334,24 @@ class TransactionState extends RefCounted:
 	var write_admitted: bool = false
 
 
+	# --- 私有变量 ---
+
+	## 可选完整下载文档，复用同一候选应用和保存事务。
+	## [br]
+	## @api private
+	var _sync_document: GFSaveDocument = null
+
+	## 与候选同一次事务持久化的框架 checkpoint。
+	## [br]
+	## @api private
+	var _sync_checkpoint: Dictionary = {}
+
+	## flush 后、Provider apply 前必须匹配的内容代际。
+	## [br]
+	## @api private
+	var _expected_sync_generation: int = -1
+
+
 	# --- 框架内部方法 ---
 
 	## 在终态提交前清空不应跨操作生命期保留的请求与 mutation payload。
@@ -4275,5 +4367,8 @@ class TransactionState extends RefCounted:
 		mutation_candidates.clear()
 		mutation_provider_ids = PackedStringArray()
 		mutation_snapshots.clear()
+		_sync_document = null
+		_sync_checkpoint.clear()
+		_expected_sync_generation = -1
 		reset_authorization = null
 		requires_family_reset = false

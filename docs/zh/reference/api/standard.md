@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 196 | 3521 | 2395 |
-| [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
+| [运行时服务](#category-runtime_service) | 200 | 3539 | 2417 |
+| [协议与扩展点](#category-protocol) | 29 | 366 | 294 |
 | [资源定义](#category-resource_definition) | 123 | 1600 | 804 |
-| [运行时句柄](#category-runtime_handle) | 61 | 1005 | 657 |
-| [值对象](#category-value_object) | 64 | 1034 | 674 |
+| [运行时句柄](#category-runtime_handle) | 63 | 1016 | 667 |
+| [值对象](#category-value_object) | 71 | 1109 | 749 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -52,7 +52,7 @@
 | [`GFCommandHistoryUtility`](classes/GFCommandHistoryUtility.md#gfcommandhistoryutility) | `GFUtility` | `addons/gf/standard/utilities/history/gf_command_history_utility.gd` |
 | [`GFCommandSequence`](classes/GFCommandSequence.md#gfcommandsequence) | `RefCounted` | `addons/gf/standard/sequence/gf_command_sequence.gd` |
 | [`GFCompatibilityPreflight`](classes/GFCompatibilityPreflight.md#gfcompatibilitypreflight) | `RefCounted` | `addons/gf/standard/foundation/policy/gf_compatibility_preflight.gd` |
-| [`GFConfigProviderAdapter`](classes/GFConfigProviderAdapter.md#gfconfigprovideradapter) | `GFConfigProvider` | `addons/gf/standard/utilities/config/gf_config_provider_adapter.gd` |
+| [`GFConfigProviderAdapter`](classes/GFConfigProviderAdapter.md#gfconfigprovideradapter) | `GFResourceConfigProvider` | `addons/gf/standard/utilities/config/gf_config_provider_adapter.gd` |
 | [`GFConfigReferenceResolver`](classes/GFConfigReferenceResolver.md#gfconfigreferenceresolver) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_reference_resolver.gd` |
 | [`GFConfigTableImporter`](classes/GFConfigTableImporter.md#gfconfigtableimporter) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_table_importer.gd` |
 | [`GFConfigTableMergeTools`](classes/GFConfigTableMergeTools.md#gfconfigtablemergetools) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_table_merge_tools.gd` |
@@ -162,6 +162,7 @@
 | [`GFScreenshotUtility`](classes/GFScreenshotUtility.md#gfscreenshotutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](classes/GFScriptStructureTools.md#gfscriptstructuretools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](classes/GFSeedUtility.md#gfseedutility) | `GFUtility` | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
+| [`GFServerTimeEstimator`](classes/GFServerTimeEstimator.md#gfservertimeestimator) | `RefCounted` | `addons/gf/standard/utilities/time/gf_server_time_estimator.gd` |
 | [`GFSessionTraceUtility`](classes/GFSessionTraceUtility.md#gfsessiontraceutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
 | [`GFSettingsFileStoreUtility`](classes/GFSettingsFileStoreUtility.md#gfsettingsfilestoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd` |
 | [`GFSettingsNullStoreUtility`](classes/GFSettingsNullStoreUtility.md#gfsettingsnullstoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd` |
@@ -182,6 +183,7 @@
 | [`GFStorageFailoverBackend`](classes/GFStorageFailoverBackend.md#gfstoragefailoverbackend) | `GFStorageBackend` | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
 | [`GFStorageSettingsStoreUtility`](classes/GFStorageSettingsStoreUtility.md#gfstoragesettingsstoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd` |
 | [`GFStorageSyncUtility`](classes/GFStorageSyncUtility.md#gfstoragesyncutility) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
+| [`GFStorageTransfer`](classes/GFStorageTransfer.md#gfstoragetransfer) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_transfer.gd` |
 | [`GFStorageUtility`](classes/GFStorageUtility.md#gfstorageutility) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](classes/GFSupportReportUtility.md#gfsupportreportutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
 | [`GFSupportReportWorkflow`](classes/GFSupportReportWorkflow.md#gfsupportreportworkflow) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd` |
@@ -201,6 +203,8 @@
 | [`GFTouchJoystick`](classes/GFTouchJoystick.md#gftouchjoystick) | `GFTouchControl2D` | `addons/gf/standard/input/touch/gf_touch_joystick.gd` |
 | [`GFTrajectoryMath`](classes/GFTrajectoryMath.md#gftrajectorymath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_trajectory_math.gd` |
 | [`GFTransform3DMath`](classes/GFTransform3DMath.md#gftransform3dmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_transform_3d_math.gd` |
+| [`GFUIBadgeUtility`](classes/GFUIBadgeUtility.md#gfuibadgeutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_badge_utility.gd` |
+| [`GFUILoadingUtility`](classes/GFUILoadingUtility.md#gfuiloadingutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd` |
 | [`GFUIRoutePreloadUtility`](classes/GFUIRoutePreloadUtility.md#gfuiroutepreloadutility) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd` |
 | [`GFUIRouterUtility`](classes/GFUIRouterUtility.md#gfuirouterutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
 | [`GFUIUtility`](classes/GFUIUtility.md#gfuiutility) | `GFUtility` | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
@@ -250,7 +254,10 @@
 | [`GFSettingsStoreUtility`](classes/GFSettingsStoreUtility.md#gfsettingsstoreutility) | `GFUtility` | `addons/gf/standard/utilities/settings/gf_settings_store_utility.gd` |
 | [`GFState`](classes/GFState.md#gfstate) | `RefCounted` | `addons/gf/standard/state_machine/pure/gf_state.gd` |
 | [`GFStorageBackend`](classes/GFStorageBackend.md#gfstoragebackend) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_backend.gd` |
+| [`GFStorageSyncJournal`](classes/GFStorageSyncJournal.md#gfstoragesyncjournal) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_sync_journal.gd` |
+| [`GFStorageSyncTransport`](classes/GFStorageSyncTransport.md#gfstoragesynctransport) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_sync_transport.gd` |
 | [`GFTableRowPredicate`](classes/GFTableRowPredicate.md#gftablerowpredicate) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate.gd` |
+| [`GFUINavigationResolver`](classes/GFUINavigationResolver.md#gfuinavigationresolver) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd` |
 | [`GFUndoableCommand`](classes/GFUndoableCommand.md#gfundoablecommand) | `GFCommand` | `addons/gf/standard/command/gf_undoable_command.gd` |
 | [`GFValidationRule`](classes/GFValidationRule.md#gfvalidationrule) | `Resource` | `addons/gf/standard/foundation/validation/gf_validation_rule.gd` |
 
@@ -443,9 +450,11 @@
 | [`GFStorageFamilyResetAuthorization`](classes/GFStorageFamilyResetAuthorization.md#gfstoragefamilyresetauthorization) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd` |
 | [`GFStorageOwnedRead`](classes/GFStorageOwnedRead.md#gfstorageownedread) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_owned_read.gd` |
 | [`GFStoragePayloadTransfer`](classes/GFStoragePayloadTransfer.md#gfstoragepayloadtransfer) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd` |
+| [`GFStorageSyncOperation`](classes/GFStorageSyncOperation.md#gfstoragesyncoperation) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd` |
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
 | [`GFTouchControl2D`](classes/GFTouchControl2D.md#gftouchcontrol2d) | `Node2D` | `addons/gf/standard/input/touch/gf_touch_control_2d.gd` |
+| [`GFUILoadingLease`](classes/GFUILoadingLease.md#gfuiloadinglease) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_loading_lease.gd` |
 | [`GFUIPanelAsyncOperation`](classes/GFUIPanelAsyncOperation.md#gfuipanelasyncoperation) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd` |
 | [`GFUIRouteOperation`](classes/GFUIRouteOperation.md#gfuirouteoperation) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_operation.gd` |
 | [`GFVirtualInputPulseOperation`](classes/GFVirtualInputPulseOperation.md#gfvirtualinputpulseoperation) | `RefCounted` | `addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd` |
@@ -470,6 +479,7 @@
 | [`GFCivilDate`](classes/GFCivilDate.md#gfcivildate) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date.gd` |
 | [`GFCivilDateDifferenceResult`](classes/GFCivilDateDifferenceResult.md#gfcivildatedifferenceresult) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date_difference_result.gd` |
 | [`GFCivilDateResult`](classes/GFCivilDateResult.md#gfcivildateresult) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date_result.gd` |
+| [`GFConfigSnapshot`](classes/GFConfigSnapshot.md#gfconfigsnapshot) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_snapshot.gd` |
 | [`GFConfigValidationReport`](classes/GFConfigValidationReport.md#gfconfigvalidationreport) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
 | [`GFDeque`](classes/GFDeque.md#gfdeque) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_deque.gd` |
 | [`GFDiagnosticProviderResult`](classes/GFDiagnosticProviderResult.md#gfdiagnosticproviderresult) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd` |
@@ -484,8 +494,10 @@
 | [`GFInputEventIdentity`](classes/GFInputEventIdentity.md#gfinputeventidentity) | `RefCounted` | `addons/gf/standard/input/common/gf_input_event_identity.gd` |
 | [`GFMetricSeries`](classes/GFMetricSeries.md#gfmetricseries) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |
 | [`GFModalResult`](classes/GFModalResult.md#gfmodalresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_modal_result.gd` |
+| [`GFNumberFormatPolicy`](classes/GFNumberFormatPolicy.md#gfnumberformatpolicy) | `RefCounted` | `addons/gf/standard/foundation/formatting/gf_number_format_policy.gd` |
 | [`GFObjectPoolAcquireResult`](classes/GFObjectPoolAcquireResult.md#gfobjectpoolacquireresult) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd` |
 | [`GFObjectPoolPrewarmResult`](classes/GFObjectPoolPrewarmResult.md#gfobjectpoolprewarmresult) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd` |
+| [`GFPeriodSchedule`](classes/GFPeriodSchedule.md#gfperiodschedule) | `RefCounted` | `addons/gf/standard/utilities/time/gf_period_schedule.gd` |
 | [`GFPriorityQueue`](classes/GFPriorityQueue.md#gfpriorityqueue) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_priority_queue.gd` |
 | [`GFPriorityWorkQueue`](classes/GFPriorityWorkQueue.md#gfpriorityworkqueue) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_priority_work_queue.gd` |
 | [`GFQuerySignature`](classes/GFQuerySignature.md#gfquerysignature) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_query_signature.gd` |
@@ -503,7 +515,7 @@
 | [`GFStorageAsyncRequestOptions`](classes/GFStorageAsyncRequestOptions.md#gfstorageasyncrequestoptions) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd` |
 | [`GFStorageAsyncResult`](classes/GFStorageAsyncResult.md#gfstorageasyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
 | [`GFStorageCatalogResult`](classes/GFStorageCatalogResult.md#gfstoragecatalogresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd` |
-| [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
+| [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageFamilyResetResult`](classes/GFStorageFamilyResetResult.md#gfstoragefamilyresetresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd` |
 | [`GFStorageOwnedReadReceipt`](classes/GFStorageOwnedReadReceipt.md#gfstorageownedreadreceipt) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_owned_read_receipt.gd` |
@@ -512,10 +524,14 @@
 | [`GFStorageResourceReadResult`](classes/GFStorageResourceReadResult.md#gfstorageresourcereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd` |
 | [`GFStorageRevisionResult`](classes/GFStorageRevisionResult.md#gfstoragerevisionresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_revision_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
+| [`GFStorageSyncRequest`](classes/GFStorageSyncRequest.md#gfstoragesyncrequest) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_sync_request.gd` |
+| [`GFStorageSyncResult`](classes/GFStorageSyncResult.md#gfstoragesyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_sync_result.gd` |
 | [`GFTableRowPredicateRegistration`](classes/GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |
 | [`GFTableRowPredicateResult`](classes/GFTableRowPredicateResult.md#gftablerowpredicateresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd` |
 | [`GFTableRowView`](classes/GFTableRowView.md#gftablerowview) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_view.gd` |
 | [`GFTableViewRebuildResult`](classes/GFTableViewRebuildResult.md#gftableviewrebuildresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd` |
+| [`GFTimeWindow`](classes/GFTimeWindow.md#gftimewindow) | `RefCounted` | `addons/gf/standard/utilities/time/gf_time_window.gd` |
+| [`GFUINavigationTarget`](classes/GFUINavigationTarget.md#gfuinavigationtarget) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_navigation_target.gd` |
 | [`GFUIRouteResult`](classes/GFUIRouteResult.md#gfuirouteresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_ui_route_result.gd` |
 | [`GFUuid`](classes/GFUuid.md#gfuuid) | `RefCounted` | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](classes/GFValidationIssue.md#gfvalidationissue) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |

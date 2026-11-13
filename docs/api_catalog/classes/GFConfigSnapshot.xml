@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigSnapshot" path="addons/gf/standard/utilities/config/gf_config_snapshot.gd" module="standard" extends="RefCounted" classDigest="f03e5b56ece414bf5279b890eb967200d161fcd15506b119fcc77559bba24fb6">
+	<description>GFConfigSnapshot: 已验收配置集合的独立查询快照。
+捕获时隔离表、schema 和集合，查询返回副本；增量候选复用未改变的内部表。
+Resource 字段保留共享资产身份，不承诺资产内部状态不可变。自定义校验规则
+仍属于受信任代码；快照只保证通过公开入口不能改写已捕获的配置集合。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="capture">
+			<signature>static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>捕获完整或增量候选，校验失败不返回部分快照。
+database.tables 是本次新增/替换集合；提供 base_snapshot 时，其余表复用旧快照。
+引用校验覆盖合并后的集合，移除仍被引用的表会失败。输入缓存索引不被信任。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">database: 本次候选的作者数据。</tag>
+				<tag name="param">options: 增量来源、移除项和工作预算。</tag>
+				<tag name="return">包含完整候选或失败原因的结果。</tag>
+				<tag name="schema">options: Dictionary，可包含 base_snapshot: GFConfigSnapshot、removed_tables: PackedStringArray、work_budget: GFConfigWorkBudget 或 work_limits: Dictionary。</tag>
+				<tag name="schema">return: Dictionary，含 ok: bool、snapshot: GFConfigSnapshot 或 null、error_kind: StringName、validation_report: Dictionary、work_report: Dictionary。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_ready">
+			<signature>func is_ready() -&gt; bool:</signature>
+			<description>检查快照是否已通过完整捕获与校验。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可发布时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_database_id">
+			<signature>func get_database_id() -&gt; StringName:</signature>
+			<description>读取配置集合身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">捕获时的 database_id。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_version">
+			<signature>func get_version() -&gt; String:</signature>
+			<description>读取项目声明的内容版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">捕获时的版本字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_digest_report">
+			<signature>func get_digest_report() -&gt; Dictionary:</signature>
+			<description>返回规范内容摘要与覆盖范围。
+包含记录、schema 描述、表元数据、集合身份与版本。Resource 值或编码预算
+不支持时 complete 为 false 且 value 为空；这不会拒绝合法的共享资产配置。
+摘要不包含自定义校验代码实现，也不证明外部资产内容或跨版本浮点计算一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独立摘要报告。</tag>
+				<tag name="schema">return: Dictionary，含 algorithm: StringName、value: String、complete: bool、unavailable_tables: PackedStringArray。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_ids">
+			<signature>func get_table_ids() -&gt; PackedStringArray:</signature>
+			<description>取得已捕获的表名，排序且不暴露内部集合。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已准备表名列表。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_table">
+			<signature>func has_table(table_name: StringName) -&gt; bool:</signature>
+			<description>检查该表是否已包含在此快照中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">已准备时为 true；未准备不等价于来源不存在。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table_resource">
+			<signature>func get_table_resource(table_name: StringName) -&gt; GFConfigTableResource:</signature>
+			<description>取得独立的表资源副本，可用于编辑新的候选。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">表副本；未准备时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_schema">
+			<signature>func get_schema(table_name: StringName) -&gt; GFConfigTableSchema:</signature>
+			<description>取得独立的 schema 副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">schema 副本；表或声明不存在时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_schema">
+			<signature>func has_schema(table_name: StringName) -&gt; bool:</signature>
+			<description>检查 schema 是否存在，不复制声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">已捕获该表且包含声明时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_record">
+			<signature>func get_record(table_name: StringName, record_id: Variant) -&gt; Variant:</signature>
+			<description>按稳定记录 ID 查询副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">record_id: 项目记录 ID。</tag>
+				<tag name="return">记录副本或 null。</tag>
+				<tag name="schema">record_id: Variant，使用表 schema 声明的 ID 值类型。</tag>
+				<tag name="schema">return: Dictionary 记录或 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_table">
+			<signature>func get_table(table_name: StringName) -&gt; Variant:</signature>
+			<description>取得整表记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="return">已准备表的记录副本；未准备时为 null。</tag>
+				<tag name="schema">return: Array[Dictionary] 或 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="make_index_key">
+			<signature>func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -&gt; String:</signature>
+			<description>按命名索引声明生成键。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">record: 参与索引的字段数据。</tag>
+				<tag name="return">索引键；缺少表或索引时为空。</tag>
+				<tag name="schema">record: Dictionary，含命名索引要求的字段。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_records">
+			<signature>func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -&gt; Array[Dictionary]:</signature>
+			<description>取得命名索引命中的记录副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 编码后的索引键。</tag>
+				<tag name="return">命中记录，未命中时为空。</tag>
+				<tag name="schema">return: Array[Dictionary]，不会暴露内部记录集合。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_index_key">
+			<signature>func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -&gt; bool:</signature>
+			<description>检查索引键，不复制命中记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 编码后的索引键。</tag>
+				<tag name="return">命中时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_index_record">
+			<signature>func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -&gt; Variant:</signature>
+			<description>取得索引首条记录副本，避免复制全部命中项。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">table_name: 表名。</tag>
+				<tag name="param">index_id: 索引 ID。</tag>
+				<tag name="param">index_key: 编码后的索引键。</tag>
+				<tag name="return">首条记录副本或 null。</tag>
+				<tag name="schema">return: Dictionary 或 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

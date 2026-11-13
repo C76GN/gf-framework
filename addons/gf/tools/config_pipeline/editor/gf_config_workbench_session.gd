@@ -69,6 +69,11 @@ var _stale: bool = true
 ## @api private
 var _result: Dictionary = {}
 
+## 最近成功只读操作的作者输入凭据；写入后清除，外部变更不能沿用旧预览。
+## [br]
+## @api private
+var _preview_input_digest: String = ""
+
 ## 执行前捕获的 Profile、资源依赖和来源摘要，用于事后及定时新鲜度复核。
 ## [br]
 ## @api private
@@ -139,6 +144,7 @@ func create_profile(
 	)
 	_profile_path = ""
 	_saved_digest = ""
+	_preview_input_digest = ""
 	_result = {}
 	mark_changed()
 
@@ -172,6 +178,7 @@ func load_profile(path: String) -> bool:
 	_profile = candidate
 	_profile_path = path
 	_saved_digest = FileAccess.get_sha256(path)
+	_preview_input_digest = ""
 	_dirty = false
 	_stale = true
 	_result = {}
@@ -194,6 +201,7 @@ func clear_profile() -> void:
 	_profile = null
 	_profile_path = ""
 	_saved_digest = ""
+	_preview_input_digest = ""
 	_dirty = false
 	_stale = true
 	_result = {}
@@ -325,6 +333,17 @@ func run_operation(operation: String, options: Dictionary) -> Dictionary:
 	_recovery_result = GFVariantData.get_option_dictionary(runner_result, "export_result")
 	_input_digests = before_inputs
 	_stale = before_inputs != _capture_inputs()
+	var writing: bool = operation in ["export", "register-ids"] and not GFVariantData.get_option_bool(options, "dry_run")
+	if GFVariantData.get_option_bool(_result, "success"):
+		if writing:
+			_preview_input_digest = ""
+		elif not _stale:
+			var loaded: Dictionary = GFConfigPipelineRunner.new().load_profile(_profile_path)
+			var raw_profile: Variant = loaded.get("profile")
+			if raw_profile is GFConfigPipelineProfile:
+				var saved_profile: GFConfigPipelineProfile = raw_profile
+				var captured: Dictionary = GFConfigPipelineArtifactManifest.new().capture_inputs(saved_profile)
+				_preview_input_digest = GFVariantData.get_option_string(captured, "digest") if GFVariantData.get_option_bool(captured, "success") else ""
 	return _result
 
 
@@ -359,6 +378,16 @@ func make_arguments(operation: String, options: Dictionary) -> PackedStringArray
 	]:
 		if GFVariantData.get_option_bool(options, option):
 			var _appended: bool = arguments.append("--" + option.replace("_", "-"))
+	for option: String in ["target", "baseline_profile"]:
+		var value: String = GFVariantData.get_option_string(options, option)
+		if not value.is_empty():
+			arguments.append_array(["--" + option.replace("_", "-"), value])
+	if (
+		operation in ["export", "register-ids"]
+		and not GFVariantData.get_option_bool(options, "dry_run")
+		and not _preview_input_digest.is_empty()
+	):
+		arguments.append_array(["--expected-input-digest", _preview_input_digest])
 	return arguments
 
 
@@ -488,6 +517,7 @@ func _check_editor_resources(profile: GFConfigPipelineProfile) -> String:
 	if not _is_editor_context():
 		return ""
 	var resources: Array[Resource] = [profile]
+	resources.append_array(profile.consumer_targets)
 	for source: GFConfigPipelineTableSource in profile.sources:
 		if source == null:
 			continue
@@ -567,6 +597,8 @@ func _capture_inputs() -> Dictionary:
 	_capture_resource_dependencies(_profile_path, result)
 	for source: GFConfigPipelineTableSource in _profile.sources:
 		result[source.source_path] = FileAccess.get_sha256(source.source_path)
+	if not _profile.stable_id_registry_path.is_empty():
+		result[_profile.stable_id_registry_path] = FileAccess.get_sha256(_profile.stable_id_registry_path) if FileAccess.file_exists(_profile.stable_id_registry_path) else "missing"
 	return result
 
 

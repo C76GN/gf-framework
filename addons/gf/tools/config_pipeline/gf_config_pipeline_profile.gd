@@ -131,8 +131,162 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## @schema metadata: Dictionary，保存项目工具、编辑器或 CI 附加的构建信息。
 @export var metadata: Dictionary = {}
 
+## 可选消费目标；声明后每次构建必须选中一个目标。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @schema consumer_targets: Array[GFConfigPipelineConsumerTarget]，最多64项，ID唯一；每个目标需要独立的非空输出路径。
+@export var consumer_targets: Array[GFConfigPipelineConsumerTarget] = []
+
+## 没有显式 target 选项时使用的消费目标；不自动选中第一项。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var default_consumer_target: StringName = &""
+
+## 可选项目所有的稳定 ID 登记簿 JSON URI；空值时不启用登记。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export var stable_id_registry_path: String = ""
+
+## 明确选择需要数字 ID 稳定性检查的作者表；其他表的 ID 类型不受影响。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @schema stable_id_bindings: Dictionary[String,Dictionary]，每表仅包含 symbol_field:String、id_field:String；来源记录必须提供非空精确符号及1至2147483647的int ID。最多4096表、总计65536条记录；完整作者表参与登记，不受消费目标裁剪影响。
+@export var stable_id_bindings: Dictionary = {}
+
+## 显式限制本次稳定 ID 对账的表范围；空数组保留整簿对账，未绑定的历史表会退役。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @schema stable_id_scope_tables: Array[String]，最多4096个唯一精确表名；非空时必须与stable_id_bindings的表集合相同，范围外历史表保持不变。范围内需要整表退役时，绑定一张有schema但没有记录的作者表。
+@export var stable_id_scope_tables: Array[String] = []
+
+## 明确允许原身份从退役状态恢复；不分配 ID、不改号，也不允许把历史 ID 交给其他符号。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @schema stable_id_restorations: Dictionary[String,Dictionary[String,String]]，table到symbol到原ID的规范十进制文本，例如{"items":{"potion":"1"}}。作者表ID仍必须为int；表和符号必须同时存在于本次对账映射及历史登记中。已活动的同一声明幂等；声明随Profile进入预览摘要并通过register-ids事务提交。
+@export var stable_id_restorations: Dictionary = {}
+
 
 # --- 公共方法 ---
+
+## 解析消费目标并冻结声明；无目标声明的 Profile 沿用完整数据库构建。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param options: 本次选项；target 选择目标，显式输出路径覆盖目标默认路径。
+## [br]
+## @schema options: Dictionary，可含 target:String/StringName、output_path:String 和 access_output_path:String；其他选项原样转交既有构建链。
+## [br]
+## @return 解析结果；失败时不提供可执行选项。
+## [br]
+## @schema return: 封闭 Dictionary，success:bool、target:GFConfigPipelineConsumerTarget/null、options:Dictionary、error:String；成功目标是声明的独立副本。
+func resolve_consumer(options: Dictionary = {}) -> Dictionary:
+	var failure: Dictionary = {
+		"success": false,
+		"target": null,
+		"options": {},
+		"error": "消费目标声明或选择无效。",
+	}
+	var selected: Variant = options.get("target", default_consumer_target)
+	if not selected is String and not selected is StringName:
+		return failure
+	var selected_id: StringName = GFVariantData.to_string_name(selected)
+	if consumer_targets.size() > 64:
+		return failure
+	if consumer_targets.is_empty():
+		if selected_id != &"":
+			return failure
+		return {
+			"success": true,
+			"target": null,
+			"options": options.duplicate(),
+			"error": "",
+		}
+	var ids: Dictionary = {}
+	var paths: Dictionary = {}
+	var target: GFConfigPipelineConsumerTarget
+	for declaration: GFConfigPipelineConsumerTarget in consumer_targets:
+		if declaration == null or ids.has(declaration.target_id):
+			return failure
+		var captured: Dictionary = declaration.capture()
+		if not GFVariantData.get_option_bool(captured, "success") or declaration.output_path.is_empty():
+			return failure
+		ids[declaration.target_id] = true
+		for role: String in ["output_path", "access_output_path"]:
+			var path: String = declaration.output_path if role == "output_path" else declaration.access_output_path
+			if path.is_empty():
+				continue
+			var resolved_path: Dictionary = _resolve_consumer_path(
+				path,
+				role,
+				options
+			)
+			if not GFVariantData.get_option_bool(resolved_path, "success"):
+				return failure
+			var canonical: String = GFVariantData.get_option_string(resolved_path, "path").to_lower()
+			if paths.has(canonical):
+				return failure
+			paths[canonical] = [declaration.target_id, role]
+		if declaration.target_id == selected_id:
+			target = declaration.duplicate_target()
+	if target == null:
+		return failure
+	var effective: Dictionary = options.duplicate()
+	effective["target"] = String(selected_id)
+	if not effective.has("output_path"):
+		effective["output_path"] = target.output_path
+	if not effective.has("access_output_path"):
+		effective["access_output_path"] = target.access_output_path
+	var effective_paths: Dictionary = {}
+	for role: String in ["output_path", "access_output_path"]:
+		if not effective[role] is String:
+			return failure
+		var path: String = effective[role]
+		if path.is_empty() and role == "access_output_path":
+			continue
+		var resolved_path: Dictionary = _resolve_consumer_path(
+			path,
+			role,
+			options
+		)
+		if not GFVariantData.get_option_bool(resolved_path, "success"):
+			return failure
+		var canonical: String = GFVariantData.get_option_string(resolved_path, "path")
+		var identity: String = canonical.to_lower()
+		if (
+			effective_paths.has(identity)
+			or (
+				paths.has(identity)
+				and paths[identity] != [selected_id, role]
+			)
+		):
+			return failure
+		effective_paths[identity] = true
+		effective[role] = canonical
+	return {
+		"success": true,
+		"target": target,
+		"options": effective,
+		"error": "",
+	}
+
 
 ## 合成构建选项。
 ## [br]
@@ -315,11 +469,11 @@ func duplicate_profile() -> GFConfigPipelineProfile:
 ## [br]
 ## @api public
 ## [br]
-## @since 5.2.0
+## @since unreleased
 ## [br]
 ## @return: Profile 摘要字典。
 ## [br]
-## @schema return: Dictionary，包含 profile_id、database_id、version、output_path、access_output_path、access_class_name、access_provider_accessor、source_count、sources、build_options、save_options、access_options 和 metadata。
+## @schema return: Dictionary，包含 profile_id、database_id、version、output_path、access_output_path、access_class_name、access_provider_accessor、source_count、sources、build_options、save_options、access_options 和 metadata。另含consumer_targets:Array[Dictionary]（各目标capture结果）、default_consumer_target:String、stable_id_registry_path:String、stable_id_bindings:Dictionary、stable_id_scope_tables:Array[String]和stable_id_restorations:Dictionary[String,Dictionary[String,String]]；对账范围和恢复声明均保留到输入摘要。
 func describe() -> Dictionary:
 	return {
 		"profile_id": profile_id,
@@ -335,10 +489,52 @@ func describe() -> Dictionary:
 		"save_options": save_options.duplicate(true),
 		"access_options": access_options.duplicate(true),
 		"metadata": metadata.duplicate(true),
+		"consumer_targets": _describe_consumers(),
+		"default_consumer_target": String(default_consumer_target),
+		"stable_id_registry_path": stable_id_registry_path,
+		"stable_id_bindings": stable_id_bindings.duplicate(true),
+		"stable_id_scope_tables": stable_id_scope_tables.duplicate(),
+		"stable_id_restorations": stable_id_restorations.duplicate(true),
 	}
 
 
 # --- 私有/辅助方法 ---
+
+## 与 writer 共用路径策略；只读取两项权限，不复制尚未准入的导出数据图。
+## [br]
+## @api private
+func _resolve_consumer_path(
+	path: String,
+	role: String,
+	options: Dictionary
+) -> Dictionary:
+	const OUTPUT_PATH_POLICY_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd")
+	var option_key: String = "save_options" if role == "output_path" else "access_options"
+	var profile_options: Dictionary = save_options if role == "output_path" else access_options
+	var raw_overrides: Variant = options.get(option_key)
+	var overrides: Dictionary = {}
+	if raw_overrides is Dictionary:
+		overrides = raw_overrides
+	var path_options: Dictionary = {}
+	for key: String in ["allow_parent_output_path", "allow_gf_source_output"]:
+		var selected: Dictionary = overrides if overrides.has(key) else profile_options
+		path_options[key] = GFVariantData.get_option_bool(selected, key)
+	return OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		path,
+		path_options,
+		"消费目标"
+	)
+
+
+## 声明摘要包含失败状态，不把无效目标当作可用空目标。
+## [br]
+## @api private
+func _describe_consumers() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for target: GFConfigPipelineConsumerTarget in consumer_targets:
+		result.append(target.capture() if target != null else { "success": false })
+	return result
+
 
 ## 按来源列表顺序生成摘要；空引用转换为 valid=false 标记。
 ## [br]

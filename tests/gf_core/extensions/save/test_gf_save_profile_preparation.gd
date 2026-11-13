@@ -84,6 +84,19 @@ class ChunkedProvider extends GFSaveSectionProvider:
 		return make_section({ "history": [] })
 
 
+class RawSnapshotProvider extends GFSaveSectionProvider:
+	var payload: Dictionary = {}
+
+	func _begin_save_snapshot(_context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
+		var snapshot: GFSaveSectionSnapshot = GFSaveSectionSnapshot.take_ownership(
+			section_id,
+			schema_version,
+			payload
+		)
+		payload = {}
+		return GFSaveSectionSnapshotOperation.completed(snapshot)
+
+
 class CaptureStorage extends GFStorageUtility:
 	var save_call_count: int = 0
 	var captured_payloads: Array[Dictionary] = []
@@ -647,6 +660,57 @@ func test_preparation_budget_is_global_and_round_robin() -> void:
 		second_provider.latest_operation.produced_values.size(),
 		1
 	)
+
+
+func test_sync_snapshot_measurement_is_readonly_and_reports_capture_budget() -> void:
+	var limits: Dictionary = GFSaveProfileUtility.get_sync_snapshot_limits()
+	assert_eq(
+		GFVariantData.get_option_int(limits, "max_output_bytes"),
+		67108864
+	)
+	limits["max_output_bytes"] = 1
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFSaveProfileUtility.get_sync_snapshot_limits(),
+			"max_output_bytes"
+		),
+		67108864
+	)
+	var cycle: Dictionary = {}
+	cycle["self"] = cycle
+	var report: Dictionary = GFSaveProfileUtility.measure_sync_snapshot(cycle)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "error_kind"),
+		&"invalid_sync_snapshot"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "layer"),
+		&"save_sync_snapshot"
+	)
+	assert_false(report.has("document"))
+	cycle.clear()
+
+
+func test_sync_snapshot_rejects_cyclic_payload_before_copying() -> void:
+	var provider: RawSnapshotProvider = RawSnapshotProvider.new()
+	provider.section_id = &"state"
+	var cycle: Array = []
+	cycle.append(cycle)
+	provider.payload = { "cycle": cycle }
+	assert_true(_register(_make_profile(&"test.sync_cycle", provider)))
+	assert_true(_utility.enable_sync_snapshot_for_framework(&"test.sync_cycle"))
+	var operation: GFSaveProfileOperation = _utility.save_profile(&"test.sync_cycle")
+	_utility.tick(0.0)
+	assert_true(operation.is_completed())
+	assert_eq(_storage.save_call_count, 0)
+	if operation.is_completed():
+		assert_eq(
+			operation.get_result().get_status(),
+			GFSaveProfileResult.STATUS_PREPARATION_FAILED
+		)
+	cycle.clear()
+	_storage.complete_next(ERR_INVALID_DATA)
 
 
 func test_preparation_failure_never_starts_storage() -> void:

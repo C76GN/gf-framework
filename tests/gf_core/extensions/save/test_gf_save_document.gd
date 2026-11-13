@@ -4,6 +4,136 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_schema_rejected_configuration_preserves_fields_and_blocks_use_until_reconfigured() -> void:
+	var schema: GFSaveDocumentSchema = GFSaveDocumentSchema.new().configure(
+		&"game",
+		1,
+		{ &"state": 1 }
+	)
+	var original: Dictionary = schema.to_dict()
+	var preview: Dictionary = GFSaveDocumentSchema.validate_configuration(
+		&"changed",
+		2,
+		{},
+		{ "allow_unknown_sections": true }
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(preview, "error_kind"),
+		&"removed_option"
+	)
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_schema(),
+			"ok"
+		)
+	)
+	var rejected: Dictionary = schema.try_configure(
+		&"changed",
+		2,
+		{},
+		{ "allow_unknown_sections": true }
+	)
+	assert_false(GFVariantData.get_option_bool(rejected, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string(rejected, "path"),
+		"options.allow_unknown_sections"
+	)
+	assert_eq(schema.schema_id, &"game")
+	assert_eq(schema.schema_version, 1)
+	assert_eq(
+		schema.section_versions,
+		GFVariantData.get_option_dictionary(original, "section_versions")
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_schema(),
+			"ok"
+		)
+	)
+	assert_true(schema.to_dict().is_empty())
+	assert_null(schema.duplicate_schema())
+	var document: GFSaveDocument = GFSaveDocument.new().configure(&"game", 1)
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_document(document),
+			"ok"
+		)
+	)
+	var configured: GFSaveDocumentSchema = schema.configure(
+		&"game",
+		1,
+		{ &"state": 1 },
+		{
+			"preserved_sections": PackedStringArray(["future"]),
+		}
+	)
+	assert_same(configured, schema)
+	assert_true(
+		GFVariantData.get_option_bool(
+			schema.validate_schema(),
+			"ok"
+		)
+	)
+	assert_eq(
+		schema.preserved_sections,
+		PackedStringArray(["future"])
+	)
+	var unknown: Dictionary = schema.try_configure(
+		&"changed",
+		2,
+		{},
+		{
+			"preserve_sections": PackedStringArray(["future"]),
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(unknown, "error_kind"),
+		&"unknown_option"
+	)
+	assert_eq(schema.schema_id, &"game")
+	assert_false(
+		GFVariantData.get_option_bool(
+			schema.validate_schema(),
+			"ok"
+		)
+	)
+	var invalid: Dictionary = schema.try_configure(&"changed", 0)
+	assert_eq(
+		GFVariantData.get_option_string_name(invalid, "error_kind"),
+		&"invalid_schema"
+	)
+	assert_eq(schema.schema_version, 1)
+
+
+func test_preserved_section_budget_measurement_reports_limits_without_copying() -> void:
+	var section: GFSaveSection = GFSaveSection.new().configure(
+		&"future",
+		1,
+		{ "value": 2 }
+	)
+	var report: Dictionary = GFSaveDocumentSchema.measure_preserved_section(section)
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "layer"),
+		&"preserved_section"
+	)
+	var limits: Dictionary = GFSaveDocumentSchema.get_preserved_section_limits()
+	limits["max_output_bytes"] = 1
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFSaveDocumentSchema.get_preserved_section_limits(),
+			"max_output_bytes"
+		),
+		16777216
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFSaveDocumentSchema.measure_preserved_section(null),
+			"ok"
+		)
+	)
+
+
 func test_save_document_round_trip_is_canonical_and_isolated() -> void:
 	var source_payload: Dictionary = { "level": 3 }
 	var section: GFSaveSection = (
@@ -226,10 +356,10 @@ func test_save_section_and_schema_dictionary_parsers_fail_closed() -> void:
 		"schema 分区版本不得接受小数。"
 	)
 	var coercive_flag_schema: Dictionary = canonical_schema.duplicate(true)
-	coercive_flag_schema["allow_unknown_sections"] = "true"
+	coercive_flag_schema["preserved_sections"] = "external"
 	assert_null(
 		GFSaveDocumentSchema.from_dict(coercive_flag_schema),
-		"schema 布尔选项不得接受字符串转换。"
+		"分区清单不得接受单个字符串的隐式转换。"
 	)
 	var unknown_schema_field: Dictionary = canonical_schema.duplicate(true)
 	unknown_schema_field["future_field"] = true
@@ -377,7 +507,7 @@ func test_migration_registry_migrates_document_then_sections_transactionally() -
 		2,
 		{ &"profile": 2, &"inventory": 1 },
 		PackedStringArray(["profile", "inventory"]),
-		true
+		PackedStringArray(["mod.extra"])
 	)
 	var registry: GFSaveMigrationRegistry = GFSaveMigrationRegistry.new()
 	var document_step: AddInventoryDocumentStep = AddInventoryDocumentStep.new()
@@ -684,14 +814,14 @@ func _make_schema(
 	document_version: int,
 	versions: Dictionary,
 	required: PackedStringArray = PackedStringArray(["profile"]),
-	allow_unknown: bool = true
+	preserved: PackedStringArray = PackedStringArray()
 ) -> GFSaveDocumentSchema:
 	return (
 		GFSaveDocumentSchema.new().configure(
 			&"game.save",
 			document_version,
 			versions,
-			{ "required_sections": required, "allow_unknown_sections": allow_unknown, }
+			{ "required_sections": required, "preserved_sections": preserved, }
 		)
 	)
 

@@ -20,14 +20,15 @@ Save Profile section 所有权协议。 一个 provider 只拥有一个稳定 se
 | 属性 | [`save_enabled`](#member-gfsavesectionprovider-properties-save_enabled) | `var save_enabled: bool = true:` |
 | 属性 | [`load_enabled`](#member-gfsavesectionprovider-properties-load_enabled) | `var load_enabled: bool = true:` |
 | 属性 | [`required_on_load`](#member-gfsavesectionprovider-properties-required_on_load) | `var required_on_load: bool = true:` |
+| 属性 | [`payload_policy`](#member-gfsavesectionprovider-properties-payload_policy) | `var payload_policy: GFSavePayloadPolicy = null:` |
 | 方法 | [`validate_provider`](#member-gfsavesectionprovider-methods-validate_provider) | `func validate_provider() -> Dictionary:` |
 | 方法 | [`begin_save_snapshot`](#member-gfsavesectionprovider-methods-begin_save_snapshot) | `func begin_save_snapshot(context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:` |
 | 方法 | [`capture_section`](#member-gfsavesectionprovider-methods-capture_section) | `func capture_section(context: Dictionary = {}) -> GFSaveSection:` |
 | 方法 | [`apply_section`](#member-gfsavesectionprovider-methods-apply_section) | `func apply_section(section: GFSaveSection, context: Dictionary = {}) -> Error:` |
 | 方法 | [`rollback_section`](#member-gfsavesectionprovider-methods-rollback_section) | `func rollback_section(previous_section: GFSaveSection, context: Dictionary = {}) -> Error:` |
 | 方法 | [`make_section`](#member-gfsavesectionprovider-methods-make_section) | `func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:` |
-| 方法 | [`make_snapshot`](#member-gfsavesectionprovider-methods-make_snapshot) | `func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshot:` |
-| 方法 | [`make_completed_snapshot`](#member-gfsavesectionprovider-methods-make_completed_snapshot) | `func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshotOperation:` |
+| 方法 | [`make_snapshot`](#member-gfsavesectionprovider-methods-make_snapshot) | `func make_snapshot( payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshot:` |
+| 方法 | [`make_completed_snapshot`](#member-gfsavesectionprovider-methods-make_completed_snapshot) | `func make_completed_snapshot( payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshotOperation:` |
 | 方法 | [`_begin_save_snapshot`](#member-gfsavesectionprovider-methods-_begin_save_snapshot) | `func _begin_save_snapshot(_context: Dictionary = {}) -> GFSaveSectionSnapshotOperation:` |
 | 方法 | [`_capture_section`](#member-gfsavesectionprovider-methods-_capture_section) | `func _capture_section(_context: Dictionary = {}) -> GFSaveSection:` |
 | 方法 | [`_apply_section`](#member-gfsavesectionprovider-methods-_apply_section) | `func _apply_section(_section: GFSaveSection, _context: Dictionary = {}) -> Error:` |
@@ -104,6 +105,20 @@ var required_on_load: bool = true:
 ```
 
 读取时该 section 是否必须存在。
+
+<a id="member-gfsavesectionprovider-properties-payload_policy"></a>
+
+### `payload_policy`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var payload_policy: GFSavePayloadPolicy = null:
+```
+
+可选的已知载荷结构和保留政策；首次注册时冻结，保留基线由各 Profile 独立拥有。
 
 ## 方法
 
@@ -263,7 +278,7 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 - 首次版本：`11.0.0`
 
 ```gdscript
-func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshot:
+func make_snapshot( payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshot:
 ```
 
 接管纯数据并创建一次性 Snapshot。 该方法不深复制数据；成功返回后调用方必须放弃 payload、metadata 及全部嵌套 alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再调用本方法。
@@ -274,6 +289,7 @@ func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection
 |---|---|
 | `payload` | 调用方移交的纯 Variant 载荷。 |
 | `metadata` | 调用方移交的纯 Variant 元数据。 |
+| `retention_deletions` | 与本次候选一起提交的保留内容删除指令。 |
 
 返回：可用 Snapshot。
 
@@ -281,6 +297,7 @@ func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection
 
 - `payload`: Variant accepted by the Save persisted-value contract.
 - `metadata`: Dictionary with provider-defined persisted metadata.
+- `retention_deletions`: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
 
 <a id="member-gfsavesectionprovider-methods-make_completed_snapshot"></a>
 
@@ -290,7 +307,7 @@ func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection
 - 首次版本：`11.0.0`
 
 ```gdscript
-func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshotOperation:
+func make_completed_snapshot( payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshotOperation:
 ```
 
 创建已经完成的小型 Snapshot Operation。 该便捷方法只适用于已经独占且可在固定成本内移交的数据；不得用它在 begin 回调中同步构造大型对象图。
@@ -301,6 +318,7 @@ func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFS
 |---|---|
 | `payload` | 调用方移交的纯 Variant 载荷。 |
 | `metadata` | 调用方移交的纯 Variant 元数据。 |
+| `retention_deletions` | 与本次候选一起提交的保留内容删除指令。 |
 
 返回：已完成 Operation。
 
@@ -308,6 +326,7 @@ func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFS
 
 - `payload`: Variant accepted by the Save persisted-value contract.
 - `metadata`: Dictionary with provider-defined persisted metadata.
+- `retention_deletions`: Dictionary[String, Array]，语义见 GFSavePayloadPolicy.merge；成功接管后调用者须放弃全部嵌套别名。
 
 <a id="member-gfsavesectionprovider-methods-_begin_save_snapshot"></a>
 

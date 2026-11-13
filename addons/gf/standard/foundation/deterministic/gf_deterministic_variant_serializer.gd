@@ -100,11 +100,7 @@ static func to_canonical_value(value: Variant, options: Dictionary = {}) -> Vari
 		[],
 		0
 	)
-	if not GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
+	if not state["ok"]:
 		return null
 	return result
 
@@ -198,36 +194,11 @@ static func sha256(value: Variant, options: Dictionary = {}) -> String:
 		true
 	):
 		return ""
-	var state: Dictionary = _make_state(options)
-	var canonical_value: Variant = _canonicalize_value(
+	return _hash_after_preflight(
 		value,
-		state,
-		[],
-		0
+		options,
+		preflight
 	)
-	if not GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
-		return ""
-	var canonical_json: String = JSON.stringify(
-		canonical_value,
-		"",
-		true
-	)
-	var output_bytes: int = canonical_json.to_utf8_buffer().size()
-	state["output_bytes"] = output_bytes
-	if output_bytes > GFVariantData.get_option_int(
-		state,
-		"max_output_bytes",
-		_DEFAULT_MAX_OUTPUT_BYTES
-	):
-		_fail_output(state)
-		return ""
-	if not _finish_stream(state, preflight):
-		return ""
-	return canonical_json.sha256_text()
 
 
 ## 逐片计算 Variant 规范编码的 SHA-256，不构建完整 typed tree 或规范 JSON 文本。
@@ -283,6 +254,8 @@ static func sha256_incremental(value: Variant, options: Dictionary = {}) -> Stri
 
 ## 只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。
 ## 调用期间必须保持输入结构不变；报告不为后续已修改的数据提供编码资格。
+## limit_kind 非空时，limit 是实际触发的预算，observed 是对应计数或已知下界；
+## observed_is_lower_bound 为 true 时不能把 observed 当作完整输入总量。
 ## [br]
 ## @api public
 ## [br]
@@ -298,28 +271,86 @@ static func sha256_incremental(value: Variant, options: Dictionary = {}) -> Stri
 ## [br]
 ## @return 预检报告；成功时计数精确，失败时计数仅描述已遍历部分，不能视为完整输入或输出的大小。
 ## [br]
-## @schema return: Closed Dictionary with ok: bool, error: String, failure_kind: String (empty, input_invalid, or output_limit), items: int (Variant nodes plus packed elements), packed_items: int (packed elements only), and output_bytes: int (exact on success; partial and capped by max_output_bytes on failure).
+## @schema return: Closed Dictionary with ok: bool, error: String, failure_kind: String (empty, input_invalid, or output_limit), limit_kind: String (empty, max_depth, max_items, max_string_length, or max_output_bytes), limit: int, observed: int, observed_is_lower_bound: bool, items: int (Variant nodes plus packed elements), packed_items: int (packed elements only), and output_bytes: int (exact on success; partial and capped by max_output_bytes on failure).
 static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary:
 	var state: Dictionary = _preflight(
 		value,
 		options,
 		false
 	)
-	return {
-		"ok": GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		),
-		"error": GFVariantData.get_option_string(state, "error"),
-		"failure_kind": GFVariantData.get_option_string(state, "failure_kind"),
-		"items": GFVariantData.get_option_int(state, "item_count"),
-		"packed_items": GFVariantData.get_option_int(state, "packed_item_count"),
-		"output_bytes": GFVariantData.get_option_int(state, "output_bytes"),
-	}
+	return _make_measurement_report(state)
+
+
+# --- 框架内部方法 ---
+
+## 捕获经过预算预检的独立输入，供框架先检查计量再生成摘要；不接受外部预检凭据。
+## [br]
+## @api framework_internal
+## [br]
+## @param value: 与规范编码相同的输入，成功后隔离其集合。
+## [br]
+## @schema value: 支持规范编码的 Variant；非法输入保留失败测量且不复制。
+## [br]
+## @param options: 本次编码政策与硬预算。
+## [br]
+## @schema options: 与 measure_canonical 相同的编码选项。
+## [br]
+## @return 独占输入与预检状态的内部准备对象。
+static func prepare_sha256_for_framework(value: Variant, options: Dictionary = {}) -> CanonicalHashPreparation:
+	return CanonicalHashPreparation.new(value, options)
 
 
 # --- 私有/辅助方法 ---
+
+## 只复制计量字段，不把可变编码状态当作调用方提供的验收凭据。
+## [br]
+## @api private
+static func _make_measurement_report(state: Dictionary) -> Dictionary:
+	return {
+		"ok": state["ok"],
+		"error": state["error"],
+		"failure_kind": state["failure_kind"],
+		"limit_kind": state["limit_kind"],
+		"limit": state["limit"],
+		"observed": state["observed"],
+		"observed_is_lower_bound": state["observed_is_lower_bound"],
+		"items": state["item_count"],
+		"packed_items": state["packed_item_count"],
+		"output_bytes": state["output_bytes"],
+	}
+
+
+## 编码前完成调用期准入后生成相同规范字节的摘要；输入不得在调用期间改变。
+## [br]
+## @api private
+static func _hash_after_preflight(
+	value: Variant,
+	options: Dictionary,
+	preflight: Dictionary
+) -> String:
+	var state: Dictionary = _make_state(options)
+	var canonical_value: Variant = _canonicalize_value(
+		value,
+		state,
+		[],
+		0
+	)
+	if not state["ok"]:
+		return ""
+	var canonical_json: String = JSON.stringify(
+		canonical_value,
+		"",
+		true
+	)
+	var output_bytes: int = canonical_json.to_utf8_buffer().size()
+	state["output_bytes"] = output_bytes
+	if output_bytes > state["max_output_bytes"]:
+		_fail_output(state)
+		return ""
+	if not _finish_stream(state, preflight):
+		return ""
+	return canonical_json.sha256_text()
+
 
 ## 从选项构造编码状态，并应用最小为 1 的深度、元素和字符串限制。
 ## [br]
@@ -369,6 +400,10 @@ static func _make_state(options: Dictionary, report_errors: bool = true) -> Dict
 		"report_errors": report_errors,
 		"error": "",
 		"failure_kind": "",
+		"limit_kind": "",
+		"limit": 0,
+		"observed": 0,
+		"observed_is_lower_bound": false,
 	}
 
 
@@ -403,26 +438,25 @@ static func _begin_value(
 	state: Dictionary,
 	depth: int
 ) -> bool:
-	if not GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
+	if not state["ok"]:
 		return false
 	if not _consume_items(state, 1):
 		return false
-	if depth > GFVariantData.get_option_int(
-		state,
-		"max_depth",
-		256
-	):
-		var _failed: Variant = _fail(state, "Input structure exceeds max_depth.")
+	if depth > state["max_depth"]:
+		var _failed: Variant = _fail(
+			state,
+			"Input structure exceeds max_depth.",
+			"max_depth",
+			GFVariantData.get_option_int(state, "max_depth"),
+			depth,
+			true
+		)
 		return false
 	var packed_item_count: int = _get_packed_item_count(value)
 	if packed_item_count > 0:
 		if not _consume_items(state, packed_item_count):
 			return false
-		state["packed_item_count"] = GFVariantData.get_option_int(state, "packed_item_count") + packed_item_count
+		state["packed_item_count"] += packed_item_count
 	return true
 
 
@@ -822,11 +856,7 @@ static func _canonicalize_array(
 				depth + 1
 			)
 		)
-		if not GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		):
+		if not state["ok"]:
 			var _removed_failed_array_reference: Variant = visited.pop_back()
 			return null
 
@@ -862,11 +892,7 @@ static func _canonicalize_dictionary(
 			visited,
 			depth + 1
 		)
-		if not GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		):
+		if not state["ok"]:
 			var _removed_failed_dictionary_reference: Variant = visited.pop_back()
 			return null
 		entries.append(
@@ -951,11 +977,7 @@ static func _canonicalize_float(value: float, state: Dictionary) -> String:
 ## [br]
 ## @api private
 static func _float_is_valid(value: float, state: Dictionary) -> bool:
-	if not GFVariantData.get_option_bool(
-		state,
-		"allow_floats",
-		false
-	):
+	if not state["allow_floats"]:
 		var _failed: Variant = _fail(state, "Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats.")
 		return false
 	if is_nan(value) or is_inf(value):
@@ -1116,18 +1138,7 @@ static func _preflight(
 		0,
 		_CanonicalSink.new()
 	)
-	if (
-		GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		)
-		and GFVariantData.get_option_bool(
-			state,
-			"output_exceeded",
-			false
-		)
-	):
+	if (state["ok"] and state["output_exceeded"]):
 		_fail_output(state)
 	return state
 
@@ -1136,17 +1147,9 @@ static func _preflight(
 ## [br]
 ## @api private
 static func _finish_stream(state: Dictionary, preflight: Dictionary) -> bool:
-	if not GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
+	if not state["ok"]:
 		return false
-	if GFVariantData.get_option_bool(
-		state,
-		"output_exceeded",
-		false
-	):
+	if state["output_exceeded"]:
 		_fail_output(state)
 		return false
 	for field: String in [
@@ -1312,17 +1315,9 @@ static func _stream_packed_payload(
 	sink: _CanonicalSink
 ) -> void:
 	if sink._mode == &"count":
-		var output_bytes: int = GFVariantData.get_option_int(state, "output_bytes")
-		var maximum: int = GFVariantData.get_option_int(
-			state,
-			"max_output_bytes",
-			_DEFAULT_MAX_OUTPUT_BYTES
-		)
-		var exceeded: bool = GFVariantData.get_option_bool(
-			state,
-			"output_exceeded",
-			false
-		)
+		var output_bytes: int = state["output_bytes"]
+		var maximum: int = state["max_output_bytes"]
+		var exceeded: bool = state["output_exceeded"]
 		for index: int in _get_packed_item_count(value):
 			var element_bytes: int = _measure_packed_element(
 				value[index],
@@ -1376,11 +1371,7 @@ static func _stream_packed_payload(
 			)
 			batch.clear()
 			batch_characters = 0
-			if not GFVariantData.get_option_bool(
-				state,
-				"ok",
-				true
-			):
+			if not state["ok"]:
 				return
 		if token_characters > _STRING_CHUNK_CHARACTERS:
 			_emit(
@@ -1471,11 +1462,7 @@ static func _packed_element_token(value: Variant, state: Dictionary) -> String:
 		tokens,
 		"",
 		true
-	) if GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	) else ""
+	) if state["ok"] else ""
 
 
 ## 获取 packed 向量或颜色的固定数量分量，顺序沿用 typed 编码。
@@ -1551,11 +1538,7 @@ static func _stream_array(
 			depth + 1,
 			sink
 		)
-		if not GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		):
+		if not state["ok"]:
 			break
 	_emit(
 		"]",
@@ -1630,11 +1613,7 @@ static func _stream_dictionary(
 				sink
 			)
 			index += 1
-			if not GFVariantData.get_option_bool(
-				state,
-				"ok",
-				true
-			):
+			if not state["ok"]:
 				break
 	else:
 		_stream_sorted_entries(
@@ -1685,7 +1664,11 @@ static func _stream_sorted_entries(
 			else:
 				var _failed: Variant = _fail(
 					state,
-					GFVariantData.get_option_string(key_state, "error")
+					GFVariantData.get_option_string(key_state, "error"),
+					GFVariantData.get_option_string(key_state, "limit_kind"),
+					GFVariantData.get_option_int(key_state, "limit"),
+					GFVariantData.get_option_int(key_state, "observed"),
+					GFVariantData.get_option_bool(key_state, "observed_is_lower_bound")
 				)
 			return
 		entries.append(
@@ -1707,7 +1690,7 @@ static func _stream_sorted_entries(
 			GFVariantData.get_option_int(entry, "items")
 		):
 			return
-		state["packed_item_count"] = (GFVariantData.get_option_int(state, "packed_item_count") + GFVariantData.get_option_int(entry, "packed_items"))
+		state["packed_item_count"] = (state["packed_item_count"] + GFVariantData.get_option_int(entry, "packed_items"))
 		if index > 0:
 			_emit(
 				",",
@@ -1741,11 +1724,7 @@ static func _stream_sorted_entries(
 			state,
 			sink
 		)
-		if not GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		):
+		if not state["ok"]:
 			return
 
 
@@ -1791,16 +1770,8 @@ static func _emit_json_string(
 	var offset: int = 0
 	while (
 		offset < value.length()
-		and GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		)
-		and not GFVariantData.get_option_bool(
-			state,
-			"output_exceeded",
-			false
-		)
+		and state["ok"]
+		and not state["output_exceeded"]
 	):
 		var token: String = JSON.stringify(
 			value.substr(offset, _STRING_CHUNK_CHARACTERS),
@@ -1832,11 +1803,7 @@ static func _emit_text_chunks(
 	sink: _CanonicalSink
 ) -> void:
 	var offset: int = 0
-	while offset < value.length() and GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
+	while offset < value.length() and state["ok"]:
 		_emit(
 			value.substr(offset, _STRING_CHUNK_CHARACTERS),
 			state,
@@ -1853,26 +1820,12 @@ static func _emit(
 	state: Dictionary,
 	sink: _CanonicalSink
 ) -> void:
-	if (
-		not GFVariantData.get_option_bool(
-			state,
-			"ok",
-			true
-		)
-		or GFVariantData.get_option_bool(
-			state,
-			"output_exceeded",
-			false
-		)
-	):
+	# state 仅由 _make_state 创建并在编码器内部维护，不重复走外部选项解析。
+	if not state["ok"] or state["output_exceeded"]:
 		return
 	var bytes: PackedByteArray = fragment.to_utf8_buffer()
-	var output_bytes: int = GFVariantData.get_option_int(state, "output_bytes")
-	var max_output_bytes: int = GFVariantData.get_option_int(
-		state,
-		"max_output_bytes",
-		_DEFAULT_MAX_OUTPUT_BYTES
-	)
+	var output_bytes: int = state["output_bytes"]
+	var max_output_bytes: int = state["max_output_bytes"]
 	if bytes.size() > max_output_bytes - output_bytes:
 		state["output_bytes"] = max_output_bytes
 		state["output_exceeded"] = true
@@ -1880,6 +1833,8 @@ static func _emit(
 			_fail_output(state)
 		return
 	state["output_bytes"] = output_bytes + bytes.size()
+	if sink._mode == &"count":
+		return
 	if sink._write(bytes) != OK:
 		var _failed: Variant = _fail(state, "Cannot update the canonical hashing context.")
 
@@ -1888,19 +1843,15 @@ static func _emit(
 ## [br]
 ## @api private
 static func _fail_output(state: Dictionary) -> void:
-	if GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
+	if state["ok"]:
 		state["ok"] = false
 		state["error"] = "Canonical output exceeds max_output_bytes."
 		state["failure_kind"] = "output_limit"
-		if GFVariantData.get_option_bool(
-			state,
-			"report_errors",
-			true
-		):
+		state["limit_kind"] = "max_output_bytes"
+		state["limit"] = state["max_output_bytes"]
+		state["observed"] = state["max_output_bytes"]
+		state["observed_is_lower_bound"] = true
+		if state["report_errors"]:
 			push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.output_limit] Canonical output exceeds max_output_bytes.")
 
 
@@ -1918,14 +1869,18 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 ## [br]
 ## @api private
 static func _consume_items(state: Dictionary, amount: int) -> bool:
-	var current_count: int = GFVariantData.get_option_int(state, "item_count")
+	var current_count: int = state["item_count"]
 	var consumed: int = maxi(amount, 0)
-	if consumed > GFVariantData.get_option_int(
-		state,
-		"max_items",
-		_DEFAULT_MAX_ITEMS
-	) - current_count:
-		var _failed: Variant = _fail(state, "Input collection exceeds max_items.")
+	var max_items: int = state["max_items"]
+	if consumed > max_items - current_count:
+		var _failed: Variant = _fail(
+			state,
+			"Input collection exceeds max_items.",
+			"max_items",
+			max_items,
+			max_items,
+			true
+		)
 		return false
 	state["item_count"] = current_count + consumed
 	return true
@@ -1935,13 +1890,15 @@ static func _consume_items(state: Dictionary, amount: int) -> bool:
 ## [br]
 ## @api private
 static func _string_is_within_budget(value: String, state: Dictionary) -> bool:
-	if value.length() <= GFVariantData.get_option_int(
-		state,
-		"max_string_length",
-		_DEFAULT_MAX_STRING_LENGTH
-	):
+	if value.length() <= state["max_string_length"]:
 		return true
-	var _failed: Variant = _fail(state, "String exceeds max_string_length.")
+	var _failed: Variant = _fail(
+		state,
+		"String exceeds max_string_length.",
+		"max_string_length",
+		GFVariantData.get_option_int(state, "max_string_length"),
+		value.length()
+	)
 	return false
 
 
@@ -1972,25 +1929,114 @@ static func _get_packed_item_count(value: Variant) -> int:
 ## 记录首个序列化失败并输出错误；后续失败不覆盖已有状态。
 ## [br]
 ## @api private
-static func _fail(state: Dictionary, message: String) -> Variant:
-	if GFVariantData.get_option_bool(
-		state,
-		"ok",
-		true
-	):
+static func _fail(
+	state: Dictionary,
+	message: String,
+	limit_kind: String = "",
+	limit: int = 0,
+	observed: int = 0,
+	observed_is_lower_bound: bool = false
+) -> Variant:
+	if state["ok"]:
 		state["ok"] = false
 		state["error"] = message
 		state["failure_kind"] = "input_invalid"
-		if GFVariantData.get_option_bool(
-			state,
-			"report_errors",
-			true
-		):
+		state["limit_kind"] = limit_kind
+		state["limit"] = limit
+		state["observed"] = observed
+		state["observed_is_lower_bound"] = observed_is_lower_bound
+		if state["report_errors"]:
 			push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: %s." % message)
 	return null
 
 
 # --- 内部类 ---
+
+## 内部两阶段 hash 会话；先有界验收再隔离输入，生成摘要后立即释放载荷。
+## 外部只能读取计量副本和最终摘要，不能替换输入或预检状态。
+## [br]
+## @api framework_internal
+## [br]
+## @category internal_helper
+class CanonicalHashPreparation extends RefCounted:
+
+
+	# --- 私有变量 ---
+
+	## 成功预检后取得的独立集合；失败和完成后均不保留载荷。
+	## [br]
+	## @api private
+	var _value: Variant = null
+
+	## 同一次输入的预检计数和规范化选项，始终由本对象独占。
+	## [br]
+	## @api private
+	var _preflight: Dictionary = {}
+
+	## 完成标记区分尚未执行和编码失败的空摘要。
+	## [br]
+	## @api private
+	var _finished: bool = false
+
+	## 可重复取得的终态摘要，不重新遍历输入。
+	## [br]
+	## @api private
+	var _digest: String = ""
+
+
+	# --- Godot 生命周期方法 ---
+
+	## 不接受外部计量，非法值在复制之前被同一规范编码预检拒绝。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @param value: 调用期间保持不变的待捕获数据。
+	## [br]
+	## @schema value: 与规范编码一致的 Variant。
+	## [br]
+	## @param options: 本次编码选项与有限预算。
+	## [br]
+	## @schema options: 与 measure_canonical 相同的编码选项。
+	func _init(value: Variant, options: Dictionary) -> void:
+		_preflight = GFDeterministicVariantSerializer._preflight(
+			value,
+			options,
+			false
+		)
+		if _preflight["ok"]:
+			_value = GFVariantData.duplicate_variant(value)
+
+
+	# --- 框架内部方法 ---
+
+	## 返回计量副本，修改报告不会改变待编码数据或执行资格。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @return 成功时为完整计量，失败时为有限的部分计量。
+	## [br]
+	## @schema return: 与 measure_canonical 相同的闭合计量记录。
+	func get_measurement() -> Dictionary:
+		return GFDeterministicVariantSerializer._make_measurement_report(_preflight)
+
+
+	## 复用本对象的预检生成摘要；失败安静返回空字符串，完成后释放捕获载荷。
+	## [br]
+	## @api framework_internal
+	## [br]
+	## @return 与 sha256 相同的摘要，或失败时为空；重复调用返回同一终态。
+	func finish_sha256() -> String:
+		if not _finished:
+			_finished = true
+			if _preflight["ok"]:
+				_digest = GFDeterministicVariantSerializer._hash_after_preflight(
+					_value,
+					_preflight,
+					_preflight
+				)
+			_value = null
+		return _digest
+
 
 ## 单次编码持有的 sink；字节入口保存完整输出，hash 入口最多保留一个固定大小缓冲。
 ## [br]

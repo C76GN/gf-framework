@@ -27,6 +27,8 @@
 | 属性 | [`save_preparation_work_budget_per_tick`](#member-gfsaveprofileutility-properties-save_preparation_work_budget_per_tick) | `var save_preparation_work_budget_per_tick: int = 64:` |
 | 属性 | [`save_preparation_slice_budget`](#member-gfsaveprofileutility-properties-save_preparation_slice_budget) | `var save_preparation_slice_budget: int = 8:` |
 | 属性 | [`save_preparation_time_budget_usec`](#member-gfsaveprofileutility-properties-save_preparation_time_budget_usec) | `var save_preparation_time_budget_usec: int = 2000:` |
+| 方法 | [`get_sync_snapshot_limits`](#member-gfsaveprofileutility-methods-get_sync_snapshot_limits) | `static func get_sync_snapshot_limits() -> Dictionary:` |
+| 方法 | [`measure_sync_snapshot`](#member-gfsaveprofileutility-methods-measure_sync_snapshot) | `static func measure_sync_snapshot(document_data: Dictionary) -> Dictionary:` |
 | 方法 | [`ready`](#member-gfsaveprofileutility-methods-ready) | `func ready() -> void:` |
 | 方法 | [`get_required_utilities`](#member-gfsaveprofileutility-methods-get_required_utilities) | `func get_required_utilities() -> Array[Script]:` |
 | 方法 | [`begin_activation`](#member-gfsaveprofileutility-methods-begin_activation) | `func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
@@ -219,6 +221,51 @@ var save_preparation_time_budget_usec: int = 2000:
 每帧保存准备的软时间预算（微秒）；为 0 时只使用确定性 work-unit 预算。 时间预算只能阻止开始下一个协作式 slice，不能抢占正在运行的 Provider 回调。
 
 ## 方法
+
+<a id="member-gfsaveprofileutility-methods-get_sync_snapshot_limits"></a>
+
+### `get_sync_snapshot_limits`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func get_sync_snapshot_limits() -> Dictionary:
+```
+
+获取同步确认文档捕获的固定预算；不等于远端上传预算。
+
+返回：独立的规范编码预算。
+
+结构：
+
+- `return`: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.
+
+<a id="member-gfsaveprofileutility-methods-measure_sync_snapshot"></a>
+
+### `measure_sync_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func measure_sync_snapshot(document_data: Dictionary) -> Dictionary:
+```
+
+只读测量完整同步文档封套，不创建确认快照或复制未经验证的数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `document_data` | 调用期间保持不变的完整文档数据。 |
+
+返回：预算报告；失败 observed 只包含已遍历部分。
+
+结构：
+
+- `document_data`: GFSaveDocument 封套；这里只检查原生值与捕获预算，不代替 schema 验证。
+- `return`: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.
 
 <a id="member-gfsaveprofileutility-methods-ready"></a>
 

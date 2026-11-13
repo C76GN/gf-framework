@@ -78,8 +78,24 @@ var _preload_session: GFAssetLoadSession = null
 ## @api private
 var _result: GFUIRouteResult = null
 
+## 可选的冻结语义目标；与预加载、入栈及内容准备共享同一请求身份。
+## [br]
+## @api private
+var _navigation_target: GFUINavigationTarget = null
+
 
 # --- 公共方法 ---
+
+## 获取本次内容就绪或语义定位请求。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 冻结目标；普通页面打开返回 null。
+func get_navigation_target() -> GFUINavigationTarget:
+	return _navigation_target
+
 
 ## 获取 Router 内唯一请求 ID。
 ## [br]
@@ -219,6 +235,21 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 框架内部方法 ---
+
+## 在启动预加载前绑定目标，后续阶段不能替换它。
+## [br]
+## @api framework_internal
+## [br]
+## @param target: 已验证且与路由一致的冻结目标。
+func set_navigation_target_for_framework(target: GFUINavigationTarget) -> void:
+	if (
+		is_pending()
+		and _navigation_target == null
+		and target != null
+		and target.get_route_id() == _route_id
+	):
+		_navigation_target = target
+
 
 ## 由 UI Router 初始化请求身份。
 ## [br]

@@ -5,7 +5,8 @@
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
-    "gf.standard.config"
+    "gf.standard.config",
+    "gf.standard.deterministic"
   ],
   "paths": [
     "addons/gf/extensions/domain/**"

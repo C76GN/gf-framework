@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigDatabaseResource" path="addons/gf/standard/utilities/config/gf_config_database_resource.gd" module="standard" extends="Resource" classDigest="c4309d5d91f675034f8fb67e5794ee68d37d86bb197932f70f8ea307c234586d">
+<class name="GFConfigDatabaseResource" path="addons/gf/standard/utilities/config/gf_config_database_resource.gd" module="standard" extends="Resource" classDigest="801e9947d4eac6ebe48e5fa07e19ee0581aa8d132c347b1c2d038a26256a1c86">
 	<description>GFConfigDatabaseResource: 可保存为 Godot Resource 的通用配置数据库。
 用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。
-该资源只承载通用表集合、校验入口和元数据，不绑定业务表语义、构建 profile 或热更新策略。</description>
+该资源是可变作者容器；运行期由 GFResourceConfigProvider 捕获并发布独立快照，
+编辑此资源不会改写已发布配置。它不绑定业务表语义或构建 profile。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>

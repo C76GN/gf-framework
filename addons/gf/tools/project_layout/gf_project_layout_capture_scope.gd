@@ -149,13 +149,16 @@ static func normalize_declaration(value: Dictionary) -> Dictionary:
 ## [br]
 ## @schema options: Dictionary，来自调用方已准入的捕获选项；本方法消费可选 source_root: String、capture_scope: Dictionary 和 profile_source_path: String；capture_scope 遵循 normalize_declaration 的四字段闭集，其余捕获控制字段由调用方准入，本方法不另行解释。
 ## [br]
+## @param frozen_input: 冻结快照使用已捕获的绝对 source_root 映射 res://，不读取当前项目路径。
+## [br]
 ## @return 闭合 success、binding 和 error；binding 只含纯数据。
 ## [br]
 ## @schema return: Dictionary，精确包含 success: bool、binding: Dictionary 和 error: String；成功 binding 精确包含 capture_scope: Dictionary、source_root: String、root_path: String、protected_roots: Array[String]、profile_source_path: String、excluded_prefixes: Array[String] 和 policy_digest: String；失败 binding 为 {}。
 static func prepare(
 	profile: Dictionary,
 	root_path: String,
-	options: Dictionary
+	options: Dictionary,
+	frozen_input: bool = false
 ) -> Dictionary:
 	var source_value: Variant = options.get("source_root", "res://")
 	if not source_value is String:
@@ -163,8 +166,10 @@ static func prepare(
 	var source_root: String = source_value
 	if not root_is_canonical(source_root) or not root_is_canonical(root_path):
 		return _binding_failure("来源根或请求捕获根不规范。")
-	var source_physical: String = physical_root(source_root)
-	var capture_physical: String = physical_root(root_path)
+	if frozen_input and source_root.begins_with("res://"):
+		return _binding_failure("冻结来源根必须是捕获时的绝对路径。")
+	var source_physical: String = source_root if frozen_input else physical_root(source_root)
+	var capture_physical: String = "" if frozen_input else physical_root(root_path)
 	var default_logical_root: String = "res://"
 	if capture_physical.begins_with(source_physical + "/"):
 		default_logical_root += capture_physical.substr(source_physical.length() + 1)
@@ -198,6 +203,11 @@ static func prepare(
 			return _binding_failure("options.capture_scope 与 Profile 声明不一致。")
 	var logical_root: String = declaration["root_path"]
 	var resolved: String = (source_physical if logical_root == "res://" else source_physical.path_join(logical_root.substr(6)))
+	var resource_root: String = _resource_root_for_binding(root_path, resolved)
+	if frozen_input:
+		if resource_root.is_empty():
+			return _binding_failure("冻结 resource 根与捕获路径后缀不一致。")
+		capture_physical = _bound_physical(root_path, resource_root)
 	if resolved != capture_physical:
 		return _binding_failure("声明容器映射与请求捕获根不一致。")
 	var protected: Array[String] = []
@@ -210,7 +220,12 @@ static func prepare(
 		return _binding_failure("profile_source_path 必须是来源路径。")
 	var profile_source_path: String = source_path_value
 	if not profile_source_path.is_empty():
-		var profile_physical: String = physical_root(profile_source_path)
+		if not root_is_canonical(profile_source_path):
+			return _binding_failure("Profile 来源路径不规范。")
+		if not frozen_input and not root_path.begins_with("res://"):
+			# 绝对捕获根没有原始 resource URI 后缀，必须捕获 Profile 的物理身份。
+			profile_source_path = physical_root(profile_source_path)
+		var profile_physical: String = _bound_physical(profile_source_path, resource_root) if frozen_input else physical_root(profile_source_path)
 		if profile_physical.begins_with(capture_physical + "/"):
 			_append_unique(
 				protected,
@@ -350,6 +365,17 @@ static func binding_is_valid(binding: Dictionary) -> bool:
 	var root_path: String = binding["root_path"]
 	var profile_source_path: String = binding["profile_source_path"]
 	if (
+		not root_is_canonical(source_root)
+		or source_root.begins_with("res://")
+		or not root_is_canonical(root_path)
+	):
+		return false
+	var logical_root: String = declaration_input["root_path"]
+	var resolved: String = source_root if logical_root == "res://" else source_root.path_join(logical_root.substr(6))
+	var resource_root: String = _resource_root_for_binding(root_path, resolved)
+	if resource_root.is_empty() or resolved != _bound_physical(root_path, resource_root):
+		return false
+	if (
 		not profile_source_path.is_empty()
 		and (
 			profile_source_path.length() > 16_384
@@ -364,8 +390,8 @@ static func binding_is_valid(binding: Dictionary) -> bool:
 		if not protected.has(required_path):
 			return false
 	if not profile_source_path.is_empty():
-		var profile_physical: String = physical_root(profile_source_path)
-		var capture_physical: String = physical_root(root_path)
+		var profile_physical: String = _bound_physical(profile_source_path, resource_root)
+		var capture_physical: String = resolved
 		if (profile_physical.begins_with(capture_physical + "/") and not protected.has(profile_physical.substr(capture_physical.length() + 1))):
 			return false
 	var reconstructed: Dictionary = {
@@ -376,16 +402,6 @@ static func binding_is_valid(binding: Dictionary) -> bool:
 		"profile_source_path": profile_source_path,
 		"excluded_prefixes": prefixes,
 	}
-	if (
-		not root_is_canonical(source_root)
-		or source_root.begins_with("res://")
-		or not root_is_canonical(root_path)
-	):
-		return false
-	var logical_root: String = declaration_input["root_path"]
-	var resolved: String = source_root if logical_root == "res://" else source_root.path_join(logical_root.substr(6))
-	if resolved != physical_root(root_path):
-		return false
 	var expected_prefixes: Array[String] = []
 	expected_prefixes.assign(_FIXED_EXCLUSIONS)
 	for entry: Dictionary in declaration_input["excluded_roots"]:
@@ -421,6 +437,15 @@ static func capture_root_states(binding: Dictionary) -> Dictionary:
 	var identity_requests: Dictionary = {}
 	var bound_root: String = binding["root_path"]
 	var capture_root: String = physical_root(bound_root)
+	var source_root: String = binding["source_root"]
+	var declaration: Dictionary = binding["capture_scope"]
+	var logical_root: String = declaration["root_path"]
+	if capture_root != _bound_physical(logical_root, source_root):
+		return {
+			"success": false,
+			"states": [],
+			"error": "冻结范围不属于当前项目捕获根。",
+		}
 	var paths: Array[String] = [capture_root]
 	for entry: Dictionary in binding["capture_scope"]["excluded_roots"]:
 		var relative_path: String = entry["path"]
@@ -600,6 +625,25 @@ static func path_crosses_link(path: String) -> bool:
 
 
 # --- 私有/辅助方法 ---
+
+## 从已捕获容器与原始 res:// 后缀还原项目根；允许 source_root 本身就是子容器。
+## [br]
+## @api private
+static func _resource_root_for_binding(root_path: String, capture_physical: String) -> String:
+	if root_path == "res://" or not root_path.begins_with("res://"):
+		return capture_physical
+	var suffix: String = "/" + root_path.substr(6)
+	return capture_physical.trim_suffix(suffix) if capture_physical.ends_with(suffix) else ""
+
+
+## 纯数据展开冻结 resource URI，保留捕获来源而不借用当前项目设置。
+## [br]
+## @api private
+static func _bound_physical(path: String, source_root: String) -> String:
+	if path == "res://":
+		return source_root
+	return source_root.path_join(path.substr(6)) if path.begins_with("res://") else path
+
 
 ## 收集身份链所需的精确条目；同一父目录只枚举一次，缺失路径保持缺失而不授权别名。
 ## [br]

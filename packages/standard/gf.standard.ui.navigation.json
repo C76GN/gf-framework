@@ -5,10 +5,15 @@
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
+    "gf.standard.deterministic",
     "gf.standard.assets",
     "gf.standard.ui"
   ],
   "paths": [
+    "addons/gf/standard/utilities/ui/gf_ui_navigation_target.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_navigation_target.gd.uid",
+    "addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd",
+    "addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd",
     "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd",

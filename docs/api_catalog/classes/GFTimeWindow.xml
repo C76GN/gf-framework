@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFTimeWindow" path="addons/gf/standard/utilities/time/gf_time_window.gd" module="standard" extends="RefCounted" classDigest="084738960ca0a3cacd81f5b1d51b9a106aa5e1d2d52e9cba526a11d89671d458">
+	<description>GFTimeWindow: 带周期身份的冻结左闭右开时间窗口。
+使用 Unix 毫秒，不隐式读取系统时钟，不代表奖励已结算。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( start_msec: int, end_msec: int, period_id: String ) -&gt; GFTimeWindow:</signature>
+			<description>创建有效窗口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">start_msec: Unix 毫秒起点，范围 ±8×10^15。</tag>
+				<tag name="param">end_msec: Unix 毫秒终点，同范围且严格大于起点。</tag>
+				<tag name="param">period_id: 非空周期身份，最多2048字符。</tag>
+				<tag name="return">冻结窗口；无效时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_start_msec">
+			<signature>func get_start_msec() -&gt; int:</signature>
+			<description>获取包含的起点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Unix 毫秒起点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_end_msec">
+			<signature>func get_end_msec() -&gt; int:</signature>
+			<description>获取排除的终点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Unix 毫秒终点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_period_id">
+			<signature>func get_period_id() -&gt; String:</signature>
+			<description>获取周期身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">创建时冻结的身份；未经工厂创建时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="contains">
+			<signature>func contains(unix_msec: int) -&gt; bool:</signature>
+			<description>判断一个时间戳是否位于窗口中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">unix_msec: 待检查的 Unix 毫秒时间戳。</tag>
+				<tag name="return">start &lt;= unix_msec &lt; end，未经工厂创建的对象始终返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_record">
+			<signature>func to_record() -&gt; Dictionary:</signature>
+			<description>获取持久化或诊断记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">窗口副本。</tag>
+				<tag name="schema">return: 封闭 Dictionary，start_msec:int、end_msec:int、period_id:String。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

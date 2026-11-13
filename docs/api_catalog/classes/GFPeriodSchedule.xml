@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFPeriodSchedule" path="addons/gf/standard/utilities/time/gf_period_schedule.gd" module="standard" extends="RefCounted" classDigest="965ea97620804684e2901d43ed8cf815be939b11f50280565912f5720a515861">
+	<description>GFPeriodSchedule: UTC 或固定偏移下的冻结周期政策。
+只计算 daily、weekly 或 fixed 窗口，不处理地区时区、DST、闰秒、奖励或补签。
+周期身份包含计划身份、版本、实际政策和窗口起点；改变政策不会复用旧身份。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( schedule_id: StringName, version: int, options: Dictionary = {} ) -&gt; GFPeriodSchedule:</signature>
+			<description>创建有版本的周期计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">schedule_id: 非空计划身份，最多256字符，无首尾空白和控制字符。</tag>
+				<tag name="param">version: 正整数政策版本，应随项目结算政策变更递增。</tag>
+				<tag name="param">options: 显式周期政策。</tag>
+				<tag name="return">冻结计划；非法或不适用字段返回 null。</tag>
+				<tag name="schema">options: 封闭 Dictionary。period:String=daily|weekly|fixed（默认daily）。daily/weekly 可含 offset_minutes:int[-840,840]（默认0）、reset_second:int[0,86399]（默认0）；weekly 可含 weekday:int[0,6]（周日0，默认周一1）。fixed 必须含 anchor_msec:int（±4×10^15）、interval_msec:int[1,4×10^15]，不接受日历字段。daily 不接受 weekday。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_window">
+			<signature>func get_window(unix_msec: int) -&gt; GFTimeWindow:</signature>
+			<description>求包含给定时间戳的唯一左闭右开窗口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">unix_msec: Unix 毫秒时间戳，范围 ±4×10^15；负值和锚点前时间同样支持。</tag>
+				<tag name="return">有明确周期身份的窗口；越界或未经工厂创建时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_record">
+			<signature>func to_record() -&gt; Dictionary:</signature>
+			<description>获取实际生效的冻结政策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">政策副本；未经工厂创建时为空。</tag>
+				<tag name="schema">return: 封闭 Dictionary，schedule_id:String、version:int、period:String、anchor_msec:int、interval_msec:int、offset_minutes:int、reset_second:int、weekday:int；fixed 的日历字段为0，daily的weekday为0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

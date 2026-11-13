@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`5.2.0`
 
-可保存为 Godot Resource 的通用配置数据库。 用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。 该资源只承载通用表集合、校验入口和元数据，不绑定业务表语义、构建 profile 或热更新策略。
+可保存为 Godot Resource 的通用配置数据库。 用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。 该资源是可变作者容器；运行期由 GFResourceConfigProvider 捕获并发布独立快照， 编辑此资源不会改写已发布配置。它不绑定业务表语义或构建 profile。
 
 ## 成员概览
 

@@ -1,7 +1,8 @@
-## GFStorageSyncUtility: 通用存储后端同步协调器。
+## GFStorageSyncUtility: 以持久化意图和远端条件写入组织记录同步。
 ##
-## 该工具只协调两个 GFStorageBackend 的字典数据同步、冲突检测和写回策略。
-## 它不绑定本地/云/平台 SDK，也不替项目定义存档业务结构。
+## 只在主线程使用。setup() 后可独立使用；独立使用者须驱动 tick() 处理超时，
+## 并在结束时 dispose()。网络等待不持有项目业务事务。每个记录同时只接纳一个操作。
+## 远端提交前确认意图落盘，提交后确认结果落盘；未知结果只按原操作 ID 查证。
 ## [br]
 ## @api public
 ## [br]
@@ -12,1156 +13,848 @@ class_name GFStorageSyncUtility
 extends GFUtility
 
 
-# --- 信号 ---
-
-## 检测到存储冲突后发出。
-## [br]
-## @api public
-## [br]
-## @param report: 冲突报告。
-signal sync_conflict_detected(report: GFStorageConflictReport)
-
-## 单个逻辑文件存在未解决冲突时发出。
-## [br]
-## @api public
-## [br]
-## @param file_name: 逻辑文件名。
-## [br]
-## @param result: 同步结果字典。
-## [br]
-## @schema result: Dictionary，由 sync_data() 为未解决冲突返回。
-signal sync_conflict_unresolved(file_name: String, result: Dictionary)
-
-## 单个逻辑文件同步完成后发出。
-## [br]
-## @api public
-## [br]
-## @param file_name: 逻辑文件名。
-## [br]
-## @param result: 同步结果字典。
-## [br]
-## @schema result: Dictionary，由 sync_data() 为已完成同步返回。
-signal sync_completed(file_name: String, result: Dictionary)
-
-## 单个逻辑文件同步失败后发出。
-## [br]
-## @api public
-## [br]
-## @param file_name: 逻辑文件名。
-## [br]
-## @param result: 同步结果字典。
-## [br]
-## @schema result: Dictionary，由 sync_data() 为失败同步返回。
-signal sync_failed(file_name: String, result: Dictionary)
-
-
-# --- 枚举 ---
-
-## 冲突解决策略。
-## [br]
-## @api public
-enum ConflictStrategy {
-	## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。
-	USE_NEWEST,
-	## 冲突时使用 local_backend 的数据。
-	USE_LOCAL,
-	## 冲突时使用 remote_backend 的数据。
-	USE_REMOTE,
-	## 只报告冲突，不自动写回。
-	MANUAL,
-	## 调用 options.resolver 或 options.resolution_callback 生成结果。
-	CUSTOM,
-}
-
-
-## 同步结果状态。
-## [br]
-## @api public
-enum SyncStatus {
-	## 两端数据已经一致。
-	UNCHANGED,
-	## 已把 local_backend 数据复制到 remote_backend。
-	COPIED_LOCAL_TO_REMOTE,
-	## 已把 remote_backend 数据复制到 local_backend。
-	COPIED_REMOTE_TO_LOCAL,
-	## 已用自定义合并结果写回两端。
-	MERGED,
-	## 存在未解决冲突。
-	CONFLICT,
-	## 同步失败。
-	FAILED,
-}
-
-
-# --- 常量 ---
-
-## 表示记录元数据无法按数值顺序比较的内部哨兵值。
-## [br]
-## @api private
-## [br]
-const _COMPARISON_UNORDERED: int = 2
-
-
-# --- 公共变量 ---
-
-## 默认冲突策略。
-## [br]
-## @api public
-var default_conflict_strategy: ConflictStrategy = ConflictStrategy.USE_NEWEST
-
-## 默认是否把解析出的结果写回后端。关闭后可用于 dry-run。
-## [br]
-## @api public
-var write_resolved_by_default: bool = true
-
-
 # --- 私有变量 ---
 
-## 调试快照中的已完成同步次数。
+## 冻结装配的远端适配器。
 ## [br]
 ## @api private
-## [br]
-var _sync_count: int = 0
+var _transport: GFStorageSyncTransport = null
 
-## 调试快照中的冲突处理次数。
+## 持久化意图和结果的本地接口。
 ## [br]
 ## @api private
-## [br]
-var _conflict_count: int = 0
+var _journal: GFStorageSyncJournal = null
 
-## 调试快照中的失败次数。
+## 可注入的单调时钟。
 ## [br]
 ## @api private
+var _clock: GFClock = GFClock.new()
+
+## 序号到 _Pending 的所有权表。
 ## [br]
-var _failed_count: int = 0
+## @api private
+var _pending: Dictionary[int, _Pending] = {}
+
+## 记录身份到序号的准入表。
+## [br]
+## @api private
+var _records: Dictionary[String, int] = {}
+
+## 单调递增的本实例观察序号。
+## [br]
+## @api private
+var _serial: int = 0
+
+## 只允许一次装配。
+## [br]
+## @api private
+var _configured: bool = false
+
+## 静默或释放后拒绝新工作。
+## [br]
+## @api private
+var _closed: bool = false
+
+
+# --- GF 生命周期方法 ---
+
+## 停止接纳并终结所有观察；不声称撤销已发送的远端操作。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _scope: 架构关闭作用域。
+## [br]
+## @return 已完成的静默完成源；未知提交保留在持久化日志供后续恢复。
+func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+	_stop(&"quiesced")
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var _accepted: bool = completion.succeed()
+	return completion
+
+
+## 释放全部观察和适配器引用，原意图仍由持久化日志拥有。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+func dispose() -> void:
+	_stop(&"disposed")
+	_transport = null
+	_journal = null
 
 
 # --- 公共方法 ---
 
-## 同步一个逻辑文件。仅当读取结果明确为不存在时填充缺失端；任一其他读取失败都会在写回前终止。
+## 一次性装配；只读用途允许 journal 为空。
 ## [br]
 ## @api public
 ## [br]
-## @since 3.17.0
+## @since unreleased
 ## [br]
-## @param file_name: 逻辑文件名。
+## @param transport: 冻结认证会话的远端适配器。
 ## [br]
-## @param local_backend: 本地或主后端。
+## @param journal: 写入与恢复需要的持久化日志。
 ## [br]
-## @param remote_backend: 远端或副后端。
+## @param clock: 单调时钟；空时使用系统单调时间。
 ## [br]
-## @param options: 同步选项，支持 strategy、write_resolved、write_to_local、write_to_remote、resolver、revision_keys、timestamp_keys。
-## [br]
-## @return 同步结果字典。
-## [br]
-## @schema options: Dictionary，包含 strategy: ConflictStrategy、write_resolved: bool、write_to_local: bool、write_to_remote: bool、resolver: Callable、resolution_callback: Callable、revision_keys: Array[String] 和 timestamp_keys: Array[String]。
-## [br]
-## @schema return: Dictionary，包含 ok、file_name、status、status_name、selected_source、written_backends、conflicts、errors、error、data、metadata、local 和 remote。
-func sync_data(
-	file_name: String,
-	local_backend: GFStorageBackend,
-	remote_backend: GFStorageBackend,
-	options: Dictionary = {}
-) -> Dictionary:
-	var result: Dictionary = _make_base_result(file_name)
-	if file_name.is_empty():
-		return _finish_failed(result, "file_name is empty")
-	if local_backend == null or remote_backend == null:
-		return _finish_failed(result, "Storage backend is null.")
-
-	var local_record: Dictionary = _load_record(
-		&"local",
-		local_backend,
-		file_name
-	)
-	var remote_record: Dictionary = _load_record(
-		&"remote",
-		remote_backend,
-		file_name
-	)
-	result["local"] = _summarize_record(local_record)
-	result["remote"] = _summarize_record(remote_record)
-
-	var local_ok: bool = GFResultDictionary.is_ok(local_record)
-	var remote_ok: bool = GFResultDictionary.is_ok(remote_record)
-	if not local_ok and not _is_missing_record(local_record):
-		return _finish_failed(result, "Local backend data could not be read; synchronization was not written.")
-	if not remote_ok and not _is_missing_record(remote_record):
-		return _finish_failed(result, "Remote backend data could not be read; synchronization was not written.")
-	if not local_ok and not remote_ok:
-		return _finish_failed(result, "No readable data in either backend.")
-	if local_ok and not remote_ok:
-		return _copy_record_to_backend(
-			result,
-			local_record,
-			remote_backend,
-			&"remote",
-			SyncStatus.COPIED_LOCAL_TO_REMOTE,
-			options
-		)
-	if remote_ok and not local_ok:
-		return _copy_record_to_backend(
-			result,
-			remote_record,
-			local_backend,
-			&"local",
-			SyncStatus.COPIED_REMOTE_TO_LOCAL,
-			options
-		)
-	if _records_have_same_data(local_record, remote_record):
-		result["ok"] = true
-		result["status"] = SyncStatus.UNCHANGED
-		result["status_name"] = _get_status_name(SyncStatus.UNCHANGED)
-		result["data"] = _get_record_data(local_record)
-		result["metadata"] = _get_record_metadata(local_record)
-		return _finish_completed(result)
-
-	return _resolve_and_write_conflict(
-		result,
-		local_record,
-		remote_record,
-		local_backend,
-		remote_backend,
-		options
-	)
+## @return 装配成功返回 true；重复装配或关闭后返回 false。
+func setup(
+	transport: GFStorageSyncTransport,
+	journal: GFStorageSyncJournal = null,
+	clock: GFClock = null
+) -> bool:
+	if (
+		_configured
+		or _closed
+		or transport == null
+		or not Thread.is_main_thread()
+	):
+		return false
+	_transport = transport
+	_journal = journal
+	_clock = clock if clock != null else GFClock.new()
+	ignore_pause = true
+	ignore_time_scale = true
+	_configured = true
+	return true
 
 
-## 批量同步多个逻辑文件。
+## 只读检查本模式的协议能力与日志要求，不开始网络或日志 IO。
+##
+## 能力来自 Transport 当前声明，不证明服务端实现正确；实际准入会再次检查。
+## pull、preview 与 push/remote 不需要 Journal；probe 只需要 probe 与 Journal。
 ## [br]
 ## @api public
 ## [br]
-## @param file_names: 逻辑文件名列表。
+## @since unreleased
 ## [br]
-## @param local_backend: 本地或主后端。
+## @param mode: push、pull、preview 或 probe。
 ## [br]
-## @param remote_backend: 远端或副后端。
+## @param resolution: report、local 或 remote。
 ## [br]
-## @param options: 传给 sync_data() 的同步选项。
+## @return 模式支持报告，不包含账号或业务数据。
 ## [br]
-## @return 批量结果字典。
-## [br]
-## @schema options: Dictionary，支持字段与 sync_data() 相同。
-## [br]
-## @schema return: Dictionary，包含 ok: bool、count: int、results: Array[Dictionary] 和 status_counts: Dictionary。
-func sync_many(
-	file_names: PackedStringArray,
-	local_backend: GFStorageBackend,
-	remote_backend: GFStorageBackend,
-	options: Dictionary = {}
-) -> Dictionary:
-	var results: Array[Dictionary] = []
-	var status_counts: Dictionary = {}
-	var all_ok: bool = true
-	for file_name: String in file_names:
-		var item_result: Dictionary = sync_data(
-			file_name,
-			local_backend,
-			remote_backend,
-			options
-		)
-		results.append(item_result)
-		all_ok = all_ok and GFVariantData.get_option_bool(item_result, GFResultDictionary.KEY_OK)
-		var status_name: String = GFVariantData.get_option_string(
-			item_result,
-			"status_name",
-			"unknown"
-		)
-		status_counts[status_name] = GFVariantData.get_option_int(status_counts, status_name) + 1
-
-	return {
-		"ok": all_ok,
-		"count": results.size(),
-		"results": results,
-		"status_counts": status_counts,
+## @schema return: Dictionary with ok:bool,error_kind:StringName,path:String,mode:StringName,resolution:StringName,required_capabilities:PackedStringArray,missing_capabilities:PackedStringArray,journal_required:bool,journal_available:bool.
+func inspect_support(mode: StringName = &"push", resolution: StringName = &"report") -> Dictionary:
+	var input_report: Dictionary = GFStorageSyncRequest.validate_input(
+		"support",
+		"record",
+		"inspect",
+		{},
+		{ "mode": mode, "resolution": resolution }
+	)
+	var report: Dictionary = {
+		"ok": false,
+		"error_kind": &"",
+		"path": "",
+		"mode": mode,
+		"resolution": resolution,
+		"required_capabilities": PackedStringArray(),
+		"missing_capabilities": PackedStringArray(),
+		"journal_required": false,
+		"journal_available": _journal != null,
 	}
+	if not GFVariantData.get_option_bool(input_report, "ok"):
+		report["error_kind"] = input_report["error_kind"]
+		report["path"] = input_report["path"]
+		return report
+	if (
+		not _configured
+		or _closed
+		or _transport == null
+	):
+		report["error_kind"] = &"unavailable"
+		report["path"] = "utility"
+		return report
+	var required: PackedStringArray = PackedStringArray(["probe"] if mode == &"probe" else ["read"])
+	var writing: bool = mode == &"push" and resolution != &"remote"
+	if writing:
+		required.append_array(PackedStringArray(["conditional_write", "probe"]))
+	var capabilities: Dictionary = _transport.get_capabilities()
+	var missing: PackedStringArray = PackedStringArray()
+	for capability: String in required:
+		if not GFVariantData.get_option_bool(capabilities, capability):
+			var _appended: bool = missing.append(capability)
+	var journal_required: bool = writing or mode == &"probe"
+	report["required_capabilities"] = required
+	report["missing_capabilities"] = missing
+	report["journal_required"] = journal_required
+	if journal_required and _journal == null:
+		report["error_kind"] = &"capability_unavailable"
+		report["path"] = "journal"
+	elif not missing.is_empty():
+		report["error_kind"] = &"capability_unavailable"
+		report["path"] = "transport.capabilities"
+	else:
+		report["ok"] = true
+	return report
 
 
-## 获取同步工具调试快照。
+## 开始一次冻结请求；可能同步完成，观察前应检查 is_completed()。
+##
+## push 默认报告版本冲突；显式 local 选择使用本次读到的 revision 再执行一次 CAS。
+## pull/remote 只返回远端候选，由调用方以自己的事务应用。preview 从不写入。
+## 自定义合并使用冲突报告构建新请求，填入实际 revision 和新的 operation_id。
 ## [br]
 ## @api public
 ## [br]
-## @return 调试快照字典。
+## @since unreleased
 ## [br]
-## @schema return: Dictionary，包含 sync_count、conflict_count、failed_count、default_conflict_strategy 和 write_resolved_by_default。
+## @param request: 冻结请求；probe 模式进入 recover()。
+## [br]
+## @return 唯一终态操作；非法输入也返回已拒绝操作。
+func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
+	if (
+		request != null
+		and request.is_valid()
+		and request.get_mode() == &"probe"
+	):
+		return recover(request)
+	var state: _Pending = _admit(request, false)
+	if state._operation.is_completed():
+		return state._operation
+	var writing: bool = request.get_mode() == &"push" and request.get_resolution() != &"remote"
+	var support: Dictionary = inspect_support(
+		request.get_mode(),
+		request.get_resolution()
+	)
+	if not GFVariantData.get_option_bool(support, "ok"):
+		_finish(
+			state,
+			GFStorageSyncResult.Status.REJECTED,
+			&"capability_unavailable"
+		)
+	elif writing:
+		_begin_phase(state, &"load")
+	else:
+		_begin_phase(state, &"read")
+	return state._operation
+
+
+## 查证原意图的历史结果，绝不重发条件写入。
+##
+## 调用方可先使用 journal.load_intent() 读取完整记录并调用 Request.from_record()。
+## 引擎再次验证日志仍包含同一意图，防止错认操作或跨记录恢复。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param request: 原持久化请求；除观察模式外的规范记录必须一致。
+## [br]
+## @return 查证操作；未知结果和本地 checkpoint 失败仍保留恢复责任。
+func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
+	var state: _Pending = _admit(request, true)
+	if state._operation.is_completed():
+		return state._operation
+	var support: Dictionary = inspect_support(
+		&"probe",
+		request.get_resolution()
+	)
+	if not GFVariantData.get_option_bool(support, "ok"):
+		_finish(
+			state,
+			GFStorageSyncResult.Status.REJECTED,
+			&"capability_unavailable"
+		)
+	else:
+		_begin_phase(state, &"load")
+	return state._operation
+
+
+## 启动相互独立的记录操作，不提供跨记录原子性。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param requests: 最多256个冻结请求；同记录在途竞争逐项拒绝。
+## [br]
+## @return 与输入顺序一致的操作；超限时不启动任何请求，只返回一个 batch_limit 拒绝结果。
+func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageSyncOperation]:
+	var operations: Array[GFStorageSyncOperation] = []
+	if requests.size() > 256:
+		var state: _Pending = _rejected(null, &"batch_limit")
+		operations.append(state._operation)
+		return operations
+	for request: GFStorageSyncRequest in requests:
+		operations.append(synchronize(request))
+	return operations
+
+
+## 用单调时间终结超时观察，delta 不参与截止时间计算。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _delta: 架构传入的帧间隔。
+func tick(_delta: float) -> void:
+	var now: int = _clock.get_monotonic_msec()
+	for serial: int in _pending.keys():
+		var state: _Pending = _pending.get(serial)
+		if state != null and now >= state._deadline:
+			_interrupt(state, &"timeout")
+
+
+## 获取不包含账号、记录键、载荷或 revision 的诊断。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 当前观察数量和装配状态。
+## [br]
+## @schema return: Dictionary with configured:bool,closed:bool,pending_count:int,phases:Dictionary[StringName,int].
 func get_debug_snapshot() -> Dictionary:
+	var phases: Dictionary = {}
+	for state: _Pending in _pending.values():
+		phases[state._phase] = GFVariantData.get_option_int(phases, state._phase) + 1
 	return {
-		"sync_count": _sync_count,
-		"conflict_count": _conflict_count,
-		"failed_count": _failed_count,
-		"default_conflict_strategy": default_conflict_strategy,
-		"write_resolved_by_default": write_resolved_by_default,
+		"configured": _configured,
+		"closed": _closed,
+		"pending_count": _pending.size(),
+		"phases": phases,
 	}
 
 
 # --- 私有/辅助方法 ---
 
-## 从后端读取逻辑文件并规范化为内部记录字典。
+## 检查装配、输入和记录独占；先建立所有权，再允许适配器执行。
 ## [br]
 ## @api private
-## [br]
-func _load_record(
-	source: StringName,
-	backend: GFStorageBackend,
-	file_name: String
-) -> Dictionary:
-	var load_result: Dictionary = backend.load_data(file_name)
-	var data_value: Variant = GFVariantData.get_option_value(
-		load_result,
-		"data",
-		{}
-	)
-	var metadata_value: Variant = GFVariantData.get_option_value(
-		load_result,
-		"metadata",
-		{}
-	)
-	var ok: bool = GFResultDictionary.is_ok(load_result)
-	var error_code_value: Variant = load_result.get("error_code")
-	var error_code: int = error_code_value if error_code_value is int else ERR_CANT_OPEN
-	var error: String = GFVariantData.get_option_string(
-		load_result,
-		GFResultDictionary.KEY_ERROR,
-		""
-	)
-	if ok and not (data_value is Dictionary):
-		ok = false
-		error_code = ERR_INVALID_DATA
-		error = "Backend returned non-Dictionary data."
-	if not ok and error_code == OK:
-		error_code = ERR_CANT_OPEN
-
-	var record: Dictionary = { "source": source, }
-	record["error_code"] = error_code
-	record[GFResultDictionary.KEY_DATA] = GFVariantData.to_dictionary(data_value)
-	record[GFResultDictionary.KEY_METADATA] = GFVariantData.to_dictionary(metadata_value)
-	record[GFResultDictionary.KEY_ERROR] = error
-	return GFResultDictionary.make(ok, record)
+func _admit(request: GFStorageSyncRequest, recovering: bool) -> _Pending:
+	if (
+		not Thread.is_main_thread()
+		or request == null
+		or not request.is_valid()
+	):
+		return _rejected(null, &"invalid_request")
+	if not _configured or _closed:
+		return _rejected(request, &"unavailable")
+	var record_id: String = JSON.stringify([request.get_namespace(), request.get_key()])
+	if _records.has(record_id):
+		return _rejected(request, &"record_busy")
+	_serial += 1
+	var state: _Pending = _Pending.new()
+	state._serial = _serial
+	state._record_id = record_id
+	state._request = request
+	state._operation = GFStorageSyncOperation.new()
+	state._recovering = recovering
+	state._dispatched = recovering
+	state._cancellation = _on_cancel.bind(state._serial)
+	var _connected: int = state._operation.cancel_requested.connect(state._cancellation)
+	_records[record_id] = state._serial
+	_pending[state._serial] = state
+	return state
 
 
-## 只接受后端读取明确给出的不存在错误；探针布尔值和错误文本不能授权覆盖。
+## 返回未进入所有权表的拒绝操作。
 ## [br]
 ## @api private
-func _is_missing_record(record: Dictionary) -> bool:
-	return (
-		not GFResultDictionary.is_ok(record)
-		and GFVariantData.get_option_int(
-			record,
-			"error_code",
-			ERR_CANT_OPEN
-		) in [ERR_DOES_NOT_EXIST, ERR_FILE_NOT_FOUND]
+func _rejected(request: GFStorageSyncRequest, error_kind: StringName) -> _Pending:
+	var state: _Pending = _Pending.new()
+	state._request = request
+	state._operation = GFStorageSyncOperation.new()
+	var result: GFStorageSyncResult = GFStorageSyncResult.new()
+	var _configured_result: bool = result.configure_for_framework(
+		request,
+		GFStorageSyncResult.Status.REJECTED,
+		{ "error_kind": error_kind }
 	)
+	var _completed: bool = state._operation.complete_for_framework(result)
+	return state
 
 
-## 生成不含数据正文的记录摘要供同步结果返回。
+## 在调用外部实现前安装阶段、代次和截止时间；适配器允许同步重入。
 ## [br]
 ## @api private
-## [br]
-func _summarize_record(record: Dictionary) -> Dictionary:
-	var summary: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), }
-	summary[GFResultDictionary.KEY_OK] = GFResultDictionary.is_ok(record)
-	summary["error_code"] = GFVariantData.get_option_int(
-		record,
-		"error_code",
-		ERR_CANT_OPEN
-	)
-	summary[GFResultDictionary.KEY_METADATA] = _get_record_metadata(record)
-	summary[GFResultDictionary.KEY_ERROR] = GFVariantData.get_option_string(
-		record,
-		GFResultDictionary.KEY_ERROR,
-		""
-	)
-	return summary
-
-
-## 判断两条记录的数据字典是否相等。
-## [br]
-## @api private
-## [br]
-func _records_have_same_data(local_record: Dictionary, remote_record: Dictionary) -> bool:
-	return _get_record_data(local_record) == _get_record_data(remote_record)
-
-
-## 生成冲突报告、应用选定策略并按选项写回已解决的数据。
-## [br]
-## @api private
-## [br]
-func _resolve_and_write_conflict(
-	result: Dictionary,
-	local_record: Dictionary,
-	remote_record: Dictionary,
-	local_backend: GFStorageBackend,
-	remote_backend: GFStorageBackend,
-	options: Dictionary
-) -> Dictionary:
-	var report: GFStorageConflictReport = _make_conflict_report(
-		_get_result_file_name(result),
-		local_record,
-		remote_record
-	)
-	_conflict_count += 1
-	sync_conflict_detected.emit(report)
-
-	var resolution: Dictionary = _resolve_conflict(
-		report,
-		local_record,
-		remote_record,
-		options
-	)
-	var resolved_report: GFStorageConflictReport = _get_conflict_report(
-		resolution,
-		"report",
-		report
-	)
-	if resolved_report != null:
-		_append_result_conflict(result, resolved_report)
-
-	if not GFResultDictionary.is_ok(resolution):
-		result["status"] = SyncStatus.CONFLICT
-		result["status_name"] = _get_status_name(SyncStatus.CONFLICT)
-		result["error"] = GFVariantData.get_option_string(
-			resolution,
-			GFResultDictionary.KEY_ERROR,
-			"Storage conflict is unresolved."
-		)
-		return _finish_conflict(result)
-
-	var selected_source: StringName = GFVariantData.get_option_string_name(
-		resolution,
-		"source",
-		&"custom"
-	)
-	var data: Dictionary = _get_record_data(resolution)
-	var metadata: Dictionary = _get_record_metadata(resolution)
-	result["selected_source"] = selected_source
-	result["data"] = data
-	result["metadata"] = metadata
-
-	var write_local: bool = _should_write_to_backend(
-		options,
-		"write_to_local",
-		selected_source != &"local"
-	)
-	var write_remote: bool = _should_write_to_backend(
-		options,
-		"write_to_remote",
-		selected_source != &"remote"
-	)
-	if selected_source == &"custom":
-		write_local = _should_write_to_backend(
-			options,
-			"write_to_local",
-			true
-		)
-		write_remote = _should_write_to_backend(
-			options,
-			"write_to_remote",
-			true
-		)
-
-	if not _write_resolved_enabled(options):
-		write_local = false
-		write_remote = false
-
-	if write_local:
-		_write_backend(
-			result,
-			local_backend,
-			&"local",
-			data,
-			metadata
-		)
-	if write_remote:
-		_write_backend(
-			result,
-			remote_backend,
-			&"remote",
-			data,
-			metadata
-		)
-	if _has_result_errors(result):
-		return _finish_failed(result, "One or more backend writes failed.")
-
-	result["ok"] = true
-	if selected_source == &"local":
-		result["status"] = SyncStatus.COPIED_LOCAL_TO_REMOTE
-	elif selected_source == &"remote":
-		result["status"] = SyncStatus.COPIED_REMOTE_TO_LOCAL
-	else:
-		result["status"] = SyncStatus.MERGED
-	result["status_name"] = _get_status_name(
-		GFVariantData.get_option_int(
-			result,
-			"status",
-			SyncStatus.FAILED
-		)
-	)
-	return _finish_completed(result)
-
-
-## 按配置策略选择本地、远端、最新记录、自定义结果或未解决状态。
-## [br]
-## @api private
-## [br]
-func _resolve_conflict(
-	report: GFStorageConflictReport,
-	local_record: Dictionary,
-	remote_record: Dictionary,
-	options: Dictionary
-) -> Dictionary:
-	var strategy: ConflictStrategy = _get_strategy(options)
-	match strategy:
-		ConflictStrategy.USE_LOCAL:
-			return _make_record_resolution(
-				report,
-				local_record,
-				GFStorageConflictReport.Resolution.USE_LOCAL
-			)
-		ConflictStrategy.USE_REMOTE:
-			return _make_record_resolution(
-				report,
-				remote_record,
-				GFStorageConflictReport.Resolution.USE_REMOTE
-			)
-		ConflictStrategy.USE_NEWEST:
-			var comparison: int = _compare_records(
-				local_record,
-				remote_record,
-				options
-			)
-			if comparison == _COMPARISON_UNORDERED:
-				return _make_unresolved_resolution(report, "Cannot determine newest storage record because comparison metadata is non-finite.")
-			if comparison > 0:
-				return _make_record_resolution(
-					report,
-					local_record,
-					GFStorageConflictReport.Resolution.USE_LOCAL
-				)
-			if comparison < 0:
-				return _make_record_resolution(
-					report,
-					remote_record,
-					GFStorageConflictReport.Resolution.USE_REMOTE
-				)
-			return _make_unresolved_resolution(report, "Cannot determine newest storage record.")
-		ConflictStrategy.CUSTOM:
-			return _resolve_with_callback(
-				report,
-				local_record,
-				remote_record,
-				options
-			)
-		_:
-			return _make_unresolved_resolution(report, "Manual storage conflict resolution required.")
-
-
-## 将指定记录包装为冲突解决结果并更新报告的解决值。
-## [br]
-## @api private
-## [br]
-func _make_record_resolution(
-	report: GFStorageConflictReport,
-	record: Dictionary,
-	resolution: GFStorageConflictReport.Resolution
-) -> Dictionary:
-	var data: Dictionary = _get_record_data(record)
-	var metadata: Dictionary = _get_record_metadata(record)
-	report.resolution = resolution
-	report.resolved_value = data.duplicate(true)
-	var result: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), "report": report, }
-	result[GFResultDictionary.KEY_DATA] = data
-	result[GFResultDictionary.KEY_METADATA] = metadata
-	return GFResultDictionary.make_success(result)
-
-
-## 调用自定义解析器并校验其返回的数据与元数据字典。
-## [br]
-## @api private
-## [br]
-func _resolve_with_callback(
-	report: GFStorageConflictReport,
-	local_record: Dictionary,
-	remote_record: Dictionary,
-	options: Dictionary
-) -> Dictionary:
-	var resolver_value: Variant = GFVariantData.get_option_value(
-		options,
-		"resolver",
-		GFVariantData.get_option_value(
-			options,
-			"resolution_callback",
-			Callable()
-		)
-	)
-	var resolver: Callable = _variant_to_callable(resolver_value)
-	if not resolver.is_valid():
-		return _make_unresolved_resolution(report, "Custom resolver is invalid.")
-
-	var value: Variant = resolver.call(
-		report.duplicate_report(),
-		_make_callback_record(local_record),
-		_make_callback_record(remote_record),
-		GFVariantData.to_dictionary(options)
-	)
-	if not (value is Dictionary):
-		return _make_unresolved_resolution(report, "Custom resolver must return a Dictionary.")
-
-	var dictionary: Dictionary = GFVariantData.to_dictionary(value)
-	var data_value: Variant = GFVariantData.get_option_value(
-		dictionary,
-		GFResultDictionary.KEY_DATA,
-		{}
-	)
-	if not (data_value is Dictionary):
-		return _make_unresolved_resolution(report, "Custom resolver returned non-Dictionary data.")
-
-	var metadata_value: Variant = GFVariantData.get_option_value(
-		dictionary,
-		GFResultDictionary.KEY_METADATA,
-		{}
-	)
-	var data: Dictionary = GFVariantData.to_dictionary(data_value)
-	var metadata: Dictionary = GFVariantData.to_dictionary(metadata_value)
-	report.resolution = _to_conflict_resolution(
-		GFVariantData.get_option_int(
-			dictionary,
-			"resolution",
-			GFStorageConflictReport.Resolution.MERGED
-		)
-	)
-	report.resolved_value = data.duplicate(true)
-	report.metadata = metadata.duplicate(true)
-	var result: Dictionary = { "source": &"custom", "report": report, }
-	result[GFResultDictionary.KEY_DATA] = data
-	result[GFResultDictionary.KEY_METADATA] = metadata
-	return GFResultDictionary.make_success(result)
-
-
-## 标记报告为未解决并生成失败结果。
-## [br]
-## @api private
-## [br]
-func _make_unresolved_resolution(report: GFStorageConflictReport, error: String) -> Dictionary:
-	report.resolution = GFStorageConflictReport.Resolution.UNRESOLVED
-	return GFResultDictionary.make_failure(
-		error,
-		{ "report": report, }
-	)
-
-
-## 构造传给自定义解析器的来源、数据和元数据快照字典。
-## [br]
-## @api private
-## [br]
-func _make_callback_record(record: Dictionary) -> Dictionary:
-	var callback_record: Dictionary = { "source": GFVariantData.get_option_string_name(record, "source"), }
-	callback_record[GFResultDictionary.KEY_DATA] = _get_record_data(record)
-	callback_record[GFResultDictionary.KEY_METADATA] = _get_record_metadata(record)
-	return callback_record
-
-
-## 使用两端记录生成初始冲突报告。
-## [br]
-## @api private
-## [br]
-func _make_conflict_report(
-	file_name: String,
-	local_record: Dictionary,
-	remote_record: Dictionary
-) -> GFStorageConflictReport:
-	var report: GFStorageConflictReport = GFStorageConflictReport.new()
-	report.file_name = file_name
-	report.key = ""
-	report.local_value = _get_record_data(local_record)
-	report.remote_value = _get_record_data(remote_record)
-	report.metadata = { "local_metadata": _get_record_metadata(local_record), "remote_metadata": _get_record_metadata(remote_record), }
-	return report
-
-
-## 将可读记录作为选定来源，并按写回选项复制到目标后端。
-## [br]
-## @api private
-## [br]
-func _copy_record_to_backend(
-	result: Dictionary,
-	source_record: Dictionary,
-	target_backend: GFStorageBackend,
-	target_name: StringName,
-	status: SyncStatus,
-	options: Dictionary
-) -> Dictionary:
-	var data: Dictionary = _get_record_data(source_record)
-	var metadata: Dictionary = _get_record_metadata(source_record)
-	result["selected_source"] = GFVariantData.get_option_string_name(source_record, "source")
-	result["data"] = data
-	result["metadata"] = metadata
-	if _write_resolved_enabled(options):
-		_write_backend(
-			result,
-			target_backend,
-			target_name,
-			data,
-			metadata
-		)
-	if _has_result_errors(result):
-		return _finish_failed(result, "One or more backend writes failed.")
-
-	result["ok"] = true
-	result["status"] = status
-	result["status_name"] = _get_status_name(status)
-	return _finish_completed(result)
-
-
-## 保存同步数据到一个后端并记录成功目标或错误。
-## [br]
-## @api private
-## [br]
-func _write_backend(
-	result: Dictionary,
-	backend: GFStorageBackend,
-	backend_name: StringName,
-	data: Dictionary,
-	metadata: Dictionary
-) -> void:
-	var error: Error = backend.save_data(
-		_get_result_file_name(result),
-		data,
-		metadata
-	)
-	if error == OK:
-		_append_written_backend(result, backend_name)
+func _begin_phase(state: _Pending, phase: StringName) -> void:
+	if not _pending.has(state._serial):
 		return
-
-	_set_result_error(
-		result,
-		backend_name,
-		error_string(error)
-	)
-
-
-## 先按版本键比较记录，结果相同时再按时间戳键比较。
-## [br]
-## @api private
-## [br]
-func _compare_records(
-	local_record: Dictionary,
-	remote_record: Dictionary,
-	options: Dictionary
-) -> int:
-	var revision_comparison: int = _compare_metadata_by_keys(
-		local_record,
-		remote_record,
-		_get_string_array_option(
-			options,
-			"revision_keys",
-			[
-				"revision",
-				"updated_revision",
-				"sync_revision",
-				"modified_revision",
-			]
-		)
-	)
-	if revision_comparison != 0:
-		return revision_comparison
-
-	return _compare_metadata_by_keys(
-		local_record,
-		remote_record,
-		_get_string_array_option(
-			options,
-			"timestamp_keys",
-			[
-				"timestamp_unix",
-				"modified_unix",
-				"updated_unix",
-				"saved_unix",
-				"modified_time",
-				"mtime",
-				"timestamp",
-			]
-		)
-	)
-
-
-## 按给定顺序查找两端共有的元数据键并返回首个非零比较结果。
-## [br]
-## @api private
-## [br]
-func _compare_metadata_by_keys(
-	local_record: Dictionary,
-	remote_record: Dictionary,
-	keys: Array[String]
-) -> int:
-	var local_metadata: Dictionary = _get_record_metadata(local_record)
-	var remote_metadata: Dictionary = _get_record_metadata(remote_record)
-
-	for key: String in keys:
-		if not local_metadata.has(key) or not remote_metadata.has(key):
-			continue
-		var comparison: int = _compare_metadata_values(
-			local_metadata[key],
-			remote_metadata[key]
-		)
-		if comparison != 0:
-			return comparison
-	return 0
-
-
-## 比较元数据值；有限数值按数值比较，其余值按字符串比较。
-## [br]
-## @api private
-## [br]
-func _compare_metadata_values(left: Variant, right: Variant) -> int:
-	if left is int and right is int:
-		if left == right:
-			return 0
-		return 1 if left > right else -1
-	if _is_numeric_value(left) and _is_numeric_value(right):
-		var left_number: float = GFVariantData.to_float(left)
-		var right_number: float = GFVariantData.to_float(right)
-		if not is_finite(left_number) or not is_finite(right_number):
-			return _COMPARISON_UNORDERED
-		if is_equal_approx(left_number, right_number):
-			return 0
-		return 1 if left_number > right_number else -1
-
-	var left_text: String = str(left)
-	var right_text: String = str(right)
-	if left_text == right_text:
-		return 0
-	return 1 if left_text > right_text else -1
-
-
-## 判断值是否为数值或可解析为浮点数的字符串。
-## [br]
-## @api private
-## [br]
-func _is_numeric_value(value: Variant) -> bool:
-	if value is int or value is float:
-		return true
-	if value is String:
-		var text_value: String = value
-		return text_value.is_valid_float()
-	return false
-
-
-## 从记录中读取并规范化数据字典。
-## [br]
-## @api private
-## [br]
-static func _get_record_data(record: Dictionary) -> Dictionary:
-	return GFVariantData.to_dictionary(
-		GFVariantData.get_option_value(
-			record,
-			GFResultDictionary.KEY_DATA,
-			{}
-		)
-	)
-
-
-## 从记录中读取并规范化元数据字典。
-## [br]
-## @api private
-## [br]
-static func _get_record_metadata(record: Dictionary) -> Dictionary:
-	return GFVariantData.to_dictionary(
-		GFVariantData.get_option_value(
-			record,
-			GFResultDictionary.KEY_METADATA,
-			{}
-		)
-	)
-
-
-## 从同步结果中读取逻辑文件名。
-## [br]
-## @api private
-## [br]
-static func _get_result_file_name(result: Dictionary) -> String:
-	return GFVariantData.get_option_string(result, "file_name")
-
-
-## 判断同步结果的错误字典是否非空。
-## [br]
-## @api private
-## [br]
-static func _has_result_errors(result: Dictionary) -> bool:
-	return not (
-		GFVariantData.as_dictionary(
-			GFVariantData.get_option_value(
-				result,
-				GFResultDictionary.KEY_ERRORS,
-				{}
+	_disconnect(state)
+	state._phase = phase
+	state._token += 1
+	state._deadline = _clock.get_monotonic_msec() + state._request.get_timeout_msec()
+	var token: int = state._token
+	var completion: GFAsyncCompletion = null
+	match phase:
+		&"load":
+			completion = _journal.load_intent(
+				state._request.get_namespace(),
+				state._request.get_key()
 			)
-		).is_empty()
-	)
-
-
-## 将冲突报告序列化后追加到结果的冲突列表。
-## [br]
-## @api private
-## [br]
-static func _append_result_conflict(result: Dictionary, report: GFStorageConflictReport) -> void:
-	var conflicts: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(
-			result,
-			"conflicts",
-			[]
+		&"read":
+			completion = _transport.read(state._request)
+		&"intent":
+			completion = _journal.persist_intent(state._request)
+		&"write":
+			state._dispatched = true
+			completion = _transport.conditional_write(state._request)
+		&"probe":
+			completion = _transport.probe(state._request)
+		&"checkpoint":
+			completion = _journal.persist_outcome(
+				state._request,
+				state._outcome.duplicate(true)
+			)
+	if not _pending.has(state._serial) or state._token != token:
+		return
+	if completion == null:
+		_interrupt(state, &"adapter_unavailable")
+		return
+	state._completion = completion
+	state._callback = _on_phase_completed.bind(state._serial, token)
+	if completion.is_completed():
+		_on_phase_completed(
+			completion,
+			state._serial,
+			token
 		)
-	)
-	conflicts.append(report.to_dict())
-	result["conflicts"] = conflicts
+	else:
+		var _connected: int = completion.completed.connect(state._callback, CONNECT_ONE_SHOT)
 
 
-## 将成功写回的后端名称追加到结果列表。
+## 载入日志失败不能当作没有意图；恢复只接受完全相同的持久化候选。
 ## [br]
 ## @api private
-## [br]
-static func _append_written_backend(result: Dictionary, backend_name: StringName) -> void:
-	var written_backends: Array = GFVariantData.as_array(
-		GFVariantData.get_option_value(
-			result,
-			"written_backends",
-			[]
+func _handle_loaded_intent(state: _Pending, value: Variant) -> void:
+	if not value is Dictionary:
+		_interrupt(state, &"invalid_journal")
+		return
+	var record: Dictionary = value
+	if not state._recovering:
+		if not record.is_empty():
+			_finish(
+				state,
+				GFStorageSyncResult.Status.REJECTED,
+				&"recovery_pending"
+			)
+		else:
+			_begin_phase(state, &"read")
+		return
+	var saved: GFStorageSyncRequest = GFStorageSyncRequest.from_record(record)
+	var expected: Dictionary = state._request.to_record()
+	if saved != null:
+		expected["mode"] = saved.get_mode()
+	if saved == null or expected != saved.to_record():
+		_finish(
+			state,
+			GFStorageSyncResult.Status.REJECTED,
+			&"intent_mismatch"
 		)
-	)
-	written_backends.append(String(backend_name))
-	result["written_backends"] = written_backends
+		return
+	state._request = saved
+	_begin_phase(state, &"probe")
 
 
-## 在结果错误字典中记录指定后端的写入错误。
+## 根据版本、模式和明确选择准备一次条件提交；不排序 revision。
 ## [br]
 ## @api private
+func _handle_remote_read(state: _Pending, reply: Dictionary) -> void:
+	var request: GFStorageSyncRequest = state._request
+	var matches: bool = request.get_expected_revision() == GFVariantData.get_option_string(reply, "revision")
+	if request.get_mode() == &"preview":
+		_finish(
+			state,
+			GFStorageSyncResult.Status.PREVIEW,
+			&"",
+			reply,
+			not matches
+		)
+		return
+	if request.get_mode() == &"pull" or request.get_resolution() == &"remote":
+		if GFVariantData.get_option_bool(reply, "exists"):
+			_finish(
+				state,
+				GFStorageSyncResult.Status.REMOTE_SELECTED,
+				&"",
+				reply
+			)
+		else:
+			_finish(
+				state,
+				GFStorageSyncResult.Status.NOT_COMMITTED,
+				&"record_missing"
+			)
+		return
+	if not matches and request.get_resolution() == &"report":
+		_finish(
+			state,
+			GFStorageSyncResult.Status.CONFLICT,
+			&"revision_conflict",
+			reply,
+			true
+		)
+		return
+	if GFVariantData.get_option_bool(reply, "exists") and GFVariantData.get_option_dictionary(reply, "data") == request.get_data():
+		_finish(
+			state,
+			GFStorageSyncResult.Status.UNCHANGED,
+			&"",
+			reply
+		)
+		return
+	if not matches:
+		var record: Dictionary = request.to_record()
+		record["expected_revision"] = GFVariantData.get_option_string(reply, "revision")
+		state._request = GFStorageSyncRequest.from_record(record)
+		if state._request == null:
+			state._request = request
+			_finish(
+				state,
+				GFStorageSyncResult.Status.REJECTED,
+				&"invalid_candidate"
+			)
+			return
+	_begin_phase(state, &"intent")
+
+
+## 未知结果保留意图；明确结果先写 checkpoint 再对外确认。
 ## [br]
-static func _set_result_error(
-	result: Dictionary,
-	backend_name: StringName,
-	error: String
+## @api private
+func _handle_remote_outcome(state: _Pending, reply: Dictionary) -> void:
+	if GFVariantData.get_option_string_name(reply, "status") == &"unknown":
+		_finish(
+			state,
+			GFStorageSyncResult.Status.OUTCOME_UNKNOWN,
+			&"outcome_unknown"
+		)
+		return
+	state._outcome = reply
+	_begin_phase(state, &"checkpoint")
+
+
+## 本地 checkpoint 已确认，返回远端历史结果。
+## [br]
+## @api private
+func _finish_outcome(state: _Pending) -> void:
+	match GFVariantData.get_option_string_name(state._outcome, "status"):
+		&"committed":
+			_finish(
+				state,
+				GFStorageSyncResult.Status.COMMITTED,
+				&"",
+				state._outcome
+			)
+		&"conflict":
+			_finish(
+				state,
+				GFStorageSyncResult.Status.CONFLICT,
+				&"revision_conflict",
+				state._outcome,
+				true
+			)
+		_:
+			_finish(
+				state,
+				GFStorageSyncResult.Status.NOT_COMMITTED,
+				&"not_committed"
+			)
+
+
+## 严格验证闭合协议结构与冻结身份；不信任完成源中的任意错误文本。
+## [br]
+## @api private
+func _parse_reply(state: _Pending, value: Variant) -> Dictionary:
+	if not value is Dictionary:
+		return {}
+	var reply: Dictionary = value
+	if reply.size() != 7:
+		return {}
+	for key: String in [
+		"namespace",
+		"key",
+		"operation_id",
+		"revision",
+	]:
+		if not reply.get(key) is String:
+			return {}
+	if (
+		reply.get("namespace") != state._request.get_namespace()
+		or reply.get("key") != state._request.get_key()
+		or reply.get("operation_id") != state._request.get_operation_id()
+	):
+		return {}
+	if not reply.get("exists") is bool or not reply.get("data") is Dictionary:
+		return {}
+	var raw_status: Variant = reply.get("status")
+	if not raw_status is String and not raw_status is StringName:
+		return {}
+	var status: StringName = GFVariantData.to_string_name(raw_status)
+	var allowed: Array[StringName] = [&"read"]
+	if state._phase == &"write":
+		allowed = [
+			&"committed",
+			&"conflict",
+			&"not_committed",
+			&"unknown",
+		]
+	elif state._phase == &"probe":
+		allowed = [
+			&"committed",
+			&"not_committed",
+			&"unknown",
+		]
+	if status not in allowed:
+		return {}
+	var exists: bool = GFVariantData.get_option_bool(reply, "exists")
+	var revision: String = GFVariantData.get_option_string(reply, "revision")
+	var data: Dictionary = GFVariantData.get_option_dictionary(reply, "data")
+	if (
+		exists == revision.is_empty()
+		or revision.length() > 65536
+		or (
+			not exists
+			and not data.is_empty()
+		)
+	):
+		return {}
+	if status == &"committed" and not exists:
+		return {}
+	if status in [&"unknown", &"not_committed"] and exists:
+		return {}
+	var measured: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+		reply,
+		{
+			"allow_floats": true,
+			"max_depth": 64,
+			"max_items": 100000,
+			"max_output_bytes": 16777216,
+			"max_string_length": 16777216,
+		}
+	)
+	if not GFVariantData.get_option_bool(measured, "ok"):
+		return {}
+	return reply.duplicate(true)
+
+
+## 结束观察时按实际发送边界分类，取消和超时都不伪装远端撤销。
+## [br]
+## @api private
+func _interrupt(state: _Pending, error_kind: StringName) -> void:
+	if not state._outcome.is_empty():
+		_finish(
+			state,
+			GFStorageSyncResult.Status.RECOVERY_REQUIRED,
+			error_kind,
+			state._outcome
+		)
+	elif state._dispatched:
+		_finish(
+			state,
+			GFStorageSyncResult.Status.OUTCOME_UNKNOWN,
+			error_kind
+		)
+	else:
+		_finish(
+			state,
+			GFStorageSyncResult.Status.NOT_COMMITTED,
+			error_kind
+		)
+
+
+## 解除所有权和回调后才发送终态，允许监听器安全开始下一次操作。
+## [br]
+## @api private
+func _finish(
+	state: _Pending,
+	status: GFStorageSyncResult.Status,
+	error_kind: StringName = &"",
+	reply: Dictionary = {},
+	has_conflict: bool = false
 ) -> void:
-	var errors: Dictionary = GFVariantData.as_dictionary(
-		GFVariantData.get_option_value(
-			result,
-			GFResultDictionary.KEY_ERRORS,
-			{}
-		)
-	)
-	errors[backend_name] = error
-	result[GFResultDictionary.KEY_ERRORS] = errors
-
-
-## 读取指定字段中的冲突报告；类型不符时返回备用报告。
-## [br]
-## @api private
-## [br]
-static func _get_conflict_report(
-	source: Dictionary,
-	key: Variant,
-	fallback: GFStorageConflictReport
-) -> GFStorageConflictReport:
-	var value: Variant = GFVariantData.get_option_value(
-		source,
-		key,
-		fallback
-	)
-	if value is GFStorageConflictReport:
-		var report: GFStorageConflictReport = value
-		return report
-	return fallback
-
-
-## 将 Variant 转换为 Callable，类型不符时返回无效 Callable。
-## [br]
-## @api private
-## [br]
-static func _variant_to_callable(value: Variant) -> Callable:
-	if value is Callable:
-		var callback: Callable = value
-		return callback
-	return Callable()
-
-
-## 将整数限制到冲突解决枚举范围并映射为有效枚举值。
-## [br]
-## @api private
-## [br]
-static func _to_conflict_resolution(value: int) -> GFStorageConflictReport.Resolution:
-	match clampi(
-		value,
-		GFStorageConflictReport.Resolution.UNRESOLVED,
-		GFStorageConflictReport.Resolution.SKIPPED
-	):
-		GFStorageConflictReport.Resolution.USE_LOCAL:
-			return GFStorageConflictReport.Resolution.USE_LOCAL
-		GFStorageConflictReport.Resolution.USE_REMOTE:
-			return GFStorageConflictReport.Resolution.USE_REMOTE
-		GFStorageConflictReport.Resolution.MERGED:
-			return GFStorageConflictReport.Resolution.MERGED
-		GFStorageConflictReport.Resolution.SKIPPED:
-			return GFStorageConflictReport.Resolution.SKIPPED
-		_:
-			return GFStorageConflictReport.Resolution.UNRESOLVED
-
-
-## 将整数限制到冲突策略枚举范围并映射为有效策略。
-## [br]
-## @api private
-## [br]
-static func _to_conflict_strategy(value: int) -> ConflictStrategy:
-	match clampi(
-		value,
-		ConflictStrategy.USE_NEWEST,
-		ConflictStrategy.CUSTOM
-	):
-		ConflictStrategy.USE_LOCAL:
-			return ConflictStrategy.USE_LOCAL
-		ConflictStrategy.USE_REMOTE:
-			return ConflictStrategy.USE_REMOTE
-		ConflictStrategy.MANUAL:
-			return ConflictStrategy.MANUAL
-		ConflictStrategy.CUSTOM:
-			return ConflictStrategy.CUSTOM
-		_:
-			return ConflictStrategy.USE_NEWEST
-
-
-## 从选项读取策略并转换为有效冲突策略。
-## [br]
-## @api private
-## [br]
-func _get_strategy(options: Dictionary) -> ConflictStrategy:
-	return _to_conflict_strategy(
-		GFVariantData.get_option_int(
-			options,
-			"strategy",
-			default_conflict_strategy
-		)
-	)
-
-
-## 读取是否启用冲突解决结果的写回。
-## [br]
-## @api private
-## [br]
-func _write_resolved_enabled(options: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(
-		options,
-		"write_resolved",
-		write_resolved_by_default
-	)
-
-
-## 读取指定后端写回选项，并使用调用方给定的默认值。
-## [br]
-## @api private
-## [br]
-func _should_write_to_backend(
-	options: Dictionary,
-	key: String,
-	fallback: bool
-) -> bool:
-	return GFVariantData.get_option_bool(
-		options,
-		key,
-		fallback
-	)
-
-
-## 从选项读取字符串数组；缺少该项时使用给定默认数组。
-## [br]
-## @api private
-## [br]
-func _get_string_array_option(
-	options: Dictionary,
-	key: String,
-	fallback: Array[String]
-) -> Array[String]:
-	return GFVariantData.get_option_string_array(
-		options,
-		key,
-		fallback
-	)
-
-
-## 构造带默认状态、两端摘要字段及空数据的同步结果。
-## [br]
-## @api private
-## [br]
-func _make_base_result(file_name: String) -> Dictionary:
-	var result: Dictionary = {
-		"file_name": file_name,
-		"status": SyncStatus.FAILED,
-		"status_name": _get_status_name(SyncStatus.FAILED),
-		"selected_source": &"",
-		"written_backends": [],
-		"conflicts": [],
-		"local": {},
-		"remote": {},
+	if not _pending.has(state._serial):
+		return
+	var details: Dictionary = {
+		"error_kind": error_kind,
+		"exists": GFVariantData.get_option_bool(reply, "exists"),
+		"revision": GFVariantData.get_option_string(reply, "revision"),
+		"data": GFVariantData.get_option_dictionary(reply, "data"),
+		"remote_committed": GFVariantData.get_option_string_name(reply, "status") == &"committed",
 	}
-	result[GFResultDictionary.KEY_ERRORS] = {}
-	result[GFResultDictionary.KEY_ERROR] = ""
-	result[GFResultDictionary.KEY_DATA] = {}
-	result[GFResultDictionary.KEY_METADATA] = {}
-	return GFResultDictionary.make(false, result)
-
-
-## 更新成功计数、发出完成信号并返回结果。
-## [br]
-## @api private
-## [br]
-func _finish_completed(result: Dictionary) -> Dictionary:
-	_sync_count += 1
-	sync_completed.emit(
-		_get_result_file_name(result),
-		result.duplicate(true)
+	var conflict: GFStorageConflictReport = null
+	if has_conflict:
+		conflict = GFStorageConflictReport.create(
+			state._request.get_namespace(),
+			state._request.get_key(),
+			state._request.get_data(),
+			GFVariantData.get_option_dictionary(reply, "data"),
+			{
+				"expected_revision": state._request.get_expected_revision(),
+				"actual_revision": GFVariantData.get_option_string(reply, "revision"),
+				"remote_exists": GFVariantData.get_option_bool(reply, "exists"),
+			}
+		)
+	var result: GFStorageSyncResult = GFStorageSyncResult.new()
+	var configured: bool = result.configure_for_framework(
+		state._request,
+		status,
+		details,
+		conflict
 	)
-	return result
+	if not configured:
+		var fallback: GFStorageSyncResult.Status = GFStorageSyncResult.Status.OUTCOME_UNKNOWN if state._dispatched else GFStorageSyncResult.Status.NOT_COMMITTED
+		var _fallback_configured: bool = result.configure_for_framework(
+			state._request,
+			fallback,
+			{ "error_kind": &"invalid_result" }
+		)
+	_disconnect(state)
+	if state._operation.cancel_requested.is_connected(state._cancellation):
+		state._operation.cancel_requested.disconnect(state._cancellation)
+	var _erased_pending: bool = _pending.erase(state._serial)
+	var _erased_record: bool = _records.erase(state._record_id)
+	var _completed: bool = state._operation.complete_for_framework(result)
 
 
-## 写入失败状态和错误，更新失败计数、发出失败信号并返回结果。
+## 移除本引擎持有的完成观察，不取消适配器物理工作。
 ## [br]
 ## @api private
-## [br]
-func _finish_failed(result: Dictionary, error: String) -> Dictionary:
-	result["ok"] = false
-	result["status"] = SyncStatus.FAILED
-	result["status_name"] = _get_status_name(SyncStatus.FAILED)
-	result["error"] = error
-	_failed_count += 1
-	sync_failed.emit(
-		_get_result_file_name(result),
-		result.duplicate(true)
-	)
-	return result
+func _disconnect(state: _Pending) -> void:
+	if (
+		state._completion != null
+		and state._callback.is_valid()
+		and state._completion.completed.is_connected(state._callback)
+	):
+		state._completion.completed.disconnect(state._callback)
+	state._completion = null
+	state._callback = Callable()
 
 
-## 保持冲突状态，发出未解决信号并返回结果。
+## 先关闭准入再遍历，避免终态回调重入接纳新工作。
 ## [br]
 ## @api private
-## [br]
-func _finish_conflict(result: Dictionary) -> Dictionary:
-	result["ok"] = false
-	sync_conflict_unresolved.emit(
-		_get_result_file_name(result),
-		result.duplicate(true)
-	)
-	return result
+func _stop(error_kind: StringName) -> void:
+	_closed = true
+	for serial: int in _pending.keys():
+		var state: _Pending = _pending.get(serial)
+		if state != null:
+			_interrupt(state, error_kind)
 
 
-## 将同步状态枚举映射为结果字典使用的稳定名称。
+# --- 信号处理函数 ---
+
+## 只接受当前阶段的唯一完成；迟到完成不改变已返回的终态。
 ## [br]
 ## @api private
+func _on_phase_completed(
+	completion: GFAsyncCompletion,
+	serial: int,
+	token: int
+) -> void:
+	var state: _Pending = _pending.get(serial)
+	if state == null or state._token != token:
+		return
+	_disconnect(state)
+	if not completion.is_successful():
+		_interrupt(state, &"adapter_failed")
+		return
+	if state._phase == &"load":
+		_handle_loaded_intent(
+			state,
+			completion.get_result()
+		)
+	elif state._phase == &"intent":
+		_begin_phase(state, &"write")
+	elif state._phase == &"checkpoint":
+		_finish_outcome(state)
+	else:
+		var reply: Dictionary = _parse_reply(
+			state,
+			completion.get_result()
+		)
+		if reply.is_empty():
+			_interrupt(state, &"invalid_reply")
+		elif state._phase == &"read":
+			_handle_remote_read(state, reply)
+		else:
+			_handle_remote_outcome(state, reply)
+
+
+## 响应观察者取消。
 ## [br]
-func _get_status_name(status: int) -> StringName:
-	match status:
-		SyncStatus.UNCHANGED:
-			return &"unchanged"
-		SyncStatus.COPIED_LOCAL_TO_REMOTE:
-			return &"copied_local_to_remote"
-		SyncStatus.COPIED_REMOTE_TO_LOCAL:
-			return &"copied_remote_to_local"
-		SyncStatus.MERGED:
-			return &"merged"
-		SyncStatus.CONFLICT:
-			return &"conflict"
-		_:
-			return &"failed"
+## @api private
+func _on_cancel(serial: int) -> void:
+	var state: _Pending = _pending.get(serial)
+	if state != null:
+		_interrupt(state, &"cancelled")
+
+
+# --- 内部类 ---
+
+## 一次观察的私有状态；回调只绑定序号，避免把状态绑定进完成源。
+## [br]
+## @api private
+class _Pending extends RefCounted:
+
+
+	# --- 私有变量 ---
+
+	## 实例内观察序号。
+	## [br]
+	## @api private
+	var _serial: int = 0
+
+	## 仅用于准入的完整记录身份，不用于诊断。
+	## [br]
+	## @api private
+	var _record_id: String = ""
+
+	## 当前冻结请求。
+	## [br]
+	## @api private
+	var _request: GFStorageSyncRequest = null
+
+	## 对外唯一终态句柄。
+	## [br]
+	## @api private
+	var _operation: GFStorageSyncOperation = null
+
+	## 当前协议阶段。
+	## [br]
+	## @api private
+	var _phase: StringName = &""
+
+	## 阶段代次，隔离迟到完成。
+	## [br]
+	## @api private
+	var _token: int = 0
+
+	## 当前阶段的单调截止时间。
+	## [br]
+	## @api private
+	var _deadline: int = 0
+
+	## 当前观察的完成源。
+	## [br]
+	## @api private
+	var _completion: GFAsyncCompletion = null
+
+	## 已连接的阶段完成回调。
+	## [br]
+	## @api private
+	var _callback: Callable = Callable()
+
+	## 已连接的取消观察回调。
+	## [br]
+	## @api private
+	var _cancellation: Callable = Callable()
+
+	## 是否已发送或正在查证历史提交。
+	## [br]
+	## @api private
+	var _dispatched: bool = false
+
+	## 是否只查证原意图。
+	## [br]
+	## @api private
+	var _recovering: bool = false
+
+	## 已验证且待本地确认的远端结果。
+	## [br]
+	## @api private
+	var _outcome: Dictionary = {}

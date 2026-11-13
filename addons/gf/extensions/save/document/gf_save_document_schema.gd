@@ -23,7 +23,7 @@ const _SCHEMA_FIELDS: Array = [
 	"schema_version",
 	"section_versions",
 	"required_sections",
-	"allow_unknown_sections",
+	"preserved_sections",
 ]
 
 
@@ -59,17 +59,28 @@ const _SCHEMA_FIELDS: Array = [
 ## @since 9.0.0
 @export var required_sections: PackedStringArray = PackedStringArray()
 
-## 是否允许并原样保留 schema 未声明的分区。
+## 允许原样保留但不解释的分区 ID 清单；默认拒绝全部未知分区。
 ## [br]
 ## @api public
 ## [br]
-## @since 9.0.0
-@export var allow_unknown_sections: bool = true
+## @since unreleased
+@export var preserved_sections: PackedStringArray = PackedStringArray()
+
+
+# --- 私有变量 ---
+
+## 最近一次被拒绝的配置诊断；字段保持原值，但必须成功重新配置后才可持久化。
+## [br]
+## @api private
+var _configuration_error: Dictionary = {}
 
 
 # --- 公共方法 ---
 
-## 配置当前 schema 契约。
+## 配置当前 schema 契约，保留返回当前对象的旧用法。
+##
+## 失败时不覆盖原字段，但 validate_schema() 会报告最近的配置错误，to_dict() 返回空。
+## 调用 try_configure() 可直接取得诊断；使用合法参数再次配置后解除拒绝状态。
 ## [br]
 ## @api public
 ## [br]
@@ -81,11 +92,11 @@ const _SCHEMA_FIELDS: Array = [
 ## [br]
 ## @param p_section_versions: 分区当前版本映射。
 ## [br]
-## @param options: 可包含 required_sections 与 allow_unknown_sections。
+## @param options: 可包含 required_sections 与 preserved_sections。
 ## [br]
 ## @schema p_section_versions: Dictionary from non-empty section_id to positive int version.
 ## [br]
-## @schema options: Dictionary with optional required_sections: PackedStringArray and allow_unknown_sections: bool.
+## @schema options: Dictionary with optional required_sections: PackedStringArray and preserved_sections: PackedStringArray.
 ## [br]
 ## @return 当前 schema。
 func configure(
@@ -94,16 +105,154 @@ func configure(
 	p_section_versions: Dictionary = {},
 	options: Dictionary = {}
 ) -> GFSaveDocumentSchema:
-	schema_id = p_schema_id
-	schema_version = p_schema_version
-	section_versions = _normalize_section_versions(p_section_versions)
-	required_sections = _normalize_section_ids(GFVariantData.get_option_packed_string_array(options, "required_sections"))
-	allow_unknown_sections = GFVariantData.get_option_bool(
-		options,
-		"allow_unknown_sections",
-		true
+	var _configured: Dictionary = try_configure(
+		p_schema_id,
+		p_schema_version,
+		p_section_versions,
+		options
 	)
 	return self
+
+
+## 只读验证完整配置；不改变当前对象或清除其上次配置错误。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param p_schema_id: 文档 schema 身份。
+## [br]
+## @param p_schema_version: 当前正整数版本。
+## [br]
+## @param p_section_versions: 分区版本映射。
+## [br]
+## @schema p_section_versions: 与 configure() 相同的 Dictionary。
+## [br]
+## @param options: 只接受 required_sections 和 preserved_sections。
+## [br]
+## @schema options: 与 configure() 相同的闭合 Dictionary；allow_unknown_sections 已移除且不会自动转换。
+## [br]
+## @return 不含业务载荷的配置诊断。
+## [br]
+## @schema return: Dictionary with ok:bool,error_kind:StringName,path:String.
+static func validate_configuration(
+	p_schema_id: StringName,
+	p_schema_version: int,
+	p_section_versions: Dictionary = {},
+	options: Dictionary = {}
+) -> Dictionary:
+	return GFVariantData.get_option_dictionary(
+		_prepare_configuration(
+			p_schema_id,
+			p_schema_version,
+			p_section_versions,
+			options
+		),
+		"report"
+	)
+
+
+## 原子应用完整配置并返回诊断；失败保留原字段，同时阻止旧字段被误当作本次配置成功。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param p_schema_id: 文档 schema 身份。
+## [br]
+## @param p_schema_version: 当前正整数版本。
+## [br]
+## @param p_section_versions: 分区版本映射。
+## [br]
+## @schema p_section_versions: 与 configure() 相同的 Dictionary。
+## [br]
+## @param options: 只接受 required_sections 和 preserved_sections。
+## [br]
+## @schema options: 与 configure() 相同的闭合 Dictionary。
+## [br]
+## @return 配置诊断；再次成功配置会清除上次错误。
+## [br]
+## @schema return: Dictionary with ok:bool,error_kind:StringName,path:String.
+func try_configure(
+	p_schema_id: StringName,
+	p_schema_version: int,
+	p_section_versions: Dictionary = {},
+	options: Dictionary = {}
+) -> Dictionary:
+	var prepared: Dictionary = _prepare_configuration(
+		p_schema_id,
+		p_schema_version,
+		p_section_versions,
+		options
+	)
+	var report: Dictionary = GFVariantData.get_option_dictionary(prepared, "report")
+	if not GFVariantData.get_option_bool(report, "ok"):
+		_configuration_error = report.duplicate(true)
+		return report
+	var candidate: GFSaveDocumentSchema = prepared["schema"]
+	schema_id = candidate.schema_id
+	schema_version = candidate.schema_version
+	section_versions = candidate.section_versions
+	required_sections = candidate.required_sections
+	preserved_sections = candidate.preserved_sections
+	_configuration_error = {}
+	return report
+
+
+## 获取每个未知保留分区的固定规范编码预算。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 独立预算记录；整个请求仍须接受它所在层的总预算。
+## [br]
+## @schema return: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.
+static func get_preserved_section_limits() -> Dictionary:
+	return {
+		"max_depth": 64,
+		"max_items": 100000,
+		"max_output_bytes": 16777216,
+		"max_string_length": 1048576,
+	}
+
+
+## 只读计量一个未知保留分区，不复制业务载荷。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param section: 待保留的完整分区；是否允许该 ID 仍由 validate_document() 判定。
+## [br]
+## @return 不含业务载荷的预算报告。
+## [br]
+## @schema return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.
+static func measure_preserved_section(section: GFSaveSection) -> Dictionary:
+	var options: Dictionary = get_preserved_section_limits()
+	var result: Dictionary = {
+		"ok": false,
+		"error_kind": &"invalid_preserved_section",
+		"path": "section",
+		"layer": &"preserved_section",
+		"limits": options.duplicate(),
+		"observed": {},
+	}
+	if section == null:
+		return result
+	options["allow_floats"] = true
+	var measured: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+		section.get_transfer_record_for_framework(),
+		options
+	)
+	result["observed"] = measured
+	result["ok"] = GFVariantData.get_option_bool(measured, "ok")
+	if result["ok"]:
+		result["error_kind"] = &""
+	elif not GFVariantData.get_option_string(measured, "limit_kind").is_empty():
+		result["error_kind"] = &"preserved_section_budget_exceeded"
+	result["path"] = "" if result["ok"] else "section"
+	return result
 
 
 ## 获取指定分区的当前版本。
@@ -154,6 +303,14 @@ func get_section_ids() -> PackedStringArray:
 ## @schema return: GFValidationReportDictionary-compatible report with issues, counts, summary, and next_actions.
 func validate_schema() -> Dictionary:
 	var report: Dictionary = { "issues": [] }
+	if not _configuration_error.is_empty():
+		var _configuration_issue: Variant = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			GFVariantData.get_option_string_name(_configuration_error, "error_kind"),
+			"Schema configuration was rejected; configure it successfully before use.",
+			{ "path": GFVariantData.get_option_string(_configuration_error, "path") }
+		)
 	if schema_id == &"":
 		var _schema_id_issue: Variant = GFValidationReportDictionary.append_issue(
 			report,
@@ -189,6 +346,22 @@ func validate_schema() -> Dictionary:
 				"Required section must have a declared target version.",
 				{ "path": "required_sections", "section_id": required_id }
 			)
+	var seen_preserved: Dictionary = {}
+	for section_id: String in preserved_sections:
+		if (
+			section_id.is_empty()
+			or section_id != section_id.strip_edges()
+			or has_section(StringName(section_id))
+			or seen_preserved.has(section_id)
+		):
+			var _preserved_issue: Variant = GFValidationReportDictionary.append_issue(
+				report,
+				"error",
+				&"invalid_preserved_section",
+				"Preserved section IDs must be unique, trimmed and distinct from known sections.",
+				{ "path": "preserved_sections" }
+			)
+		seen_preserved[section_id] = true
 	return GFValidationReportDictionary.finalize_report(
 		report,
 		"Save document schema",
@@ -278,7 +451,7 @@ func validate_document(document: GFSaveDocument, require_current_versions: bool 
 		if section == null:
 			continue
 		if not has_section(section_id):
-			if not allow_unknown_sections:
+			if not preserved_sections.has(String(section_id)):
 				var _unknown_section_issue: Variant = GFValidationReportDictionary.append_issue(
 					report,
 					"error",
@@ -286,6 +459,16 @@ func validate_document(document: GFSaveDocument, require_current_versions: bool 
 					"Document contains a section not declared by the schema.",
 					{ "path": "document.sections.%s" % section_id_text, "section_id": section_id }
 				)
+			else:
+				var retained_measure: Dictionary = measure_preserved_section(section)
+				if not GFVariantData.get_option_bool(retained_measure, "ok"):
+					var _budget_issue: Variant = GFValidationReportDictionary.append_issue(
+						report,
+						"error",
+						&"preserved_section_budget_exceeded",
+						"Preserved section exceeds its native value or canonical size budget.",
+						{ "path": "document.sections.%s" % section_id_text }
+					)
 			continue
 		_append_version_issue(
 			report,
@@ -306,14 +489,16 @@ func validate_document(document: GFSaveDocument, require_current_versions: bool 
 ## [br]
 ## @return schema 字典。
 ## [br]
-## @schema return: Dictionary with schema_id, schema_version, section_versions, required_sections, and allow_unknown_sections.
+## @schema return: Dictionary with schema_id, schema_version, section_versions, required_sections, and preserved_sections; empty while a rejected configure() has not been corrected.
 func to_dict() -> Dictionary:
+	if not _configuration_error.is_empty():
+		return {}
 	return {
 		"schema_id": schema_id,
 		"schema_version": schema_version,
 		"section_versions": section_versions.duplicate(true),
 		"required_sections": required_sections.duplicate(),
-		"allow_unknown_sections": allow_unknown_sections,
+		"preserved_sections": preserved_sections.duplicate(),
 	}
 
 
@@ -338,7 +523,7 @@ func duplicate_schema() -> GFSaveDocumentSchema:
 ## [br]
 ## @param data: schema 字典。
 ## [br]
-## @schema data: Dictionary with schema_id, schema_version, section_versions, required_sections, and allow_unknown_sections.
+## @schema data: Dictionary with schema_id, schema_version, section_versions, required_sections, and preserved_sections.
 ## [br]
 ## @return 新 schema；输入不规范或 schema 自身无效时返回 null。
 static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
@@ -392,15 +577,20 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 		):
 			return null
 		var _required_appended: bool = strict_required_sections.append(required_id)
-	var allow_unknown_value: Variant = GFVariantData.get_option_value(data, "allow_unknown_sections")
-	if typeof(allow_unknown_value) != TYPE_BOOL:
+	var preserved_value: Variant = GFVariantData.get_option_value(data, "preserved_sections")
+	if not preserved_value is Array and not preserved_value is PackedStringArray:
 		return null
+	var strict_preserved: PackedStringArray = PackedStringArray()
+	for section_id_value: Variant in preserved_value:
+		if not section_id_value is String and not section_id_value is StringName:
+			return null
+		var _appended: bool = strict_preserved.append(GFVariantData.to_text(section_id_value))
 	var schema: GFSaveDocumentSchema = (
 		GFSaveDocumentSchema.new().configure(
 			GFVariantData.to_string_name(schema_id_value),
 			GFVariantData.to_exact_int(schema_version_value),
 			strict_section_versions,
-			{ "required_sections": strict_required_sections, "allow_unknown_sections": GFVariantData.to_bool(allow_unknown_value), }
+			{ "required_sections": strict_required_sections, "preserved_sections": strict_preserved, }
 		)
 	)
 	if not GFVariantData.get_option_bool(
@@ -413,6 +603,59 @@ static func from_dict(data: Dictionary) -> GFSaveDocumentSchema:
 
 
 # --- 私有/辅助方法 ---
+
+## 准备隔离的 schema 后复用同一 validate_schema()，失败不向调用方返回可用候选。
+## [br]
+## @api private
+static func _prepare_configuration(
+	p_schema_id: StringName,
+	p_schema_version: int,
+	p_section_versions: Dictionary,
+	options: Dictionary
+) -> Dictionary:
+	for key: Variant in options:
+		if key == "allow_unknown_sections" or key == &"allow_unknown_sections":
+			return {
+				"report": {
+					"ok": false,
+					"error_kind": &"removed_option",
+					"path": "options.allow_unknown_sections",
+				},
+			}
+		if key not in ["required_sections", "preserved_sections"]:
+			return {
+				"report": {
+					"ok": false,
+					"error_kind": &"unknown_option",
+					"path": "options",
+				},
+			}
+	var candidate: GFSaveDocumentSchema = GFSaveDocumentSchema.new()
+	candidate.schema_id = p_schema_id
+	candidate.schema_version = p_schema_version
+	candidate.section_versions = _normalize_section_versions(p_section_versions)
+	candidate.required_sections = _normalize_section_ids(GFVariantData.get_option_packed_string_array(options, "required_sections"))
+	candidate.preserved_sections = GFVariantData.get_option_packed_string_array(options, "preserved_sections").duplicate()
+	var validation: Dictionary = candidate.validate_schema()
+	if not GFVariantData.get_option_bool(validation, "ok"):
+		var issues: Array = GFVariantData.get_option_array(validation, "issues")
+		var issue: Dictionary = GFVariantData.as_dictionary(issues[0]) if not issues.is_empty() else {}
+		return {
+			"report": {
+				"ok": false,
+				"error_kind": &"invalid_schema",
+				"path": GFVariantData.get_option_string(issue, "path"),
+			},
+		}
+	return {
+		"schema": candidate,
+		"report": {
+			"ok": true,
+			"error_kind": &"",
+			"path": "",
+		},
+	}
+
 
 ## 追加文档或分区版本不匹配的问题，并标记迁移需求。
 ## [br]
@@ -576,5 +819,6 @@ func _get_validation_next_actions() -> Dictionary:
 		"future_schema_version": "Upgrade the project before loading newer save data.",
 		"migration_required": "Run GFSaveMigrationRegistry before applying the document.",
 		"missing_required_section": "Restore or migrate the required section before applying the document.",
-		"unknown_section": "Declare the section or explicitly allow unknown sections.",
+		"unknown_section": "Declare the section or list its exact ID in preserved_sections.",
+		"invalid_preserved_section": "List unique unknown section IDs without whitespace.",
 	}

@@ -27,6 +27,13 @@
 | 属性 | [`save_options`](#member-gfconfigpipelineprofile-properties-save_options) | `var save_options: Dictionary = {}` |
 | 属性 | [`access_options`](#member-gfconfigpipelineprofile-properties-access_options) | `var access_options: Dictionary = {}` |
 | 属性 | [`metadata`](#member-gfconfigpipelineprofile-properties-metadata) | `var metadata: Dictionary = {}` |
+| 属性 | [`consumer_targets`](#member-gfconfigpipelineprofile-properties-consumer_targets) | `var consumer_targets: Array[GFConfigPipelineConsumerTarget] = []` |
+| 属性 | [`default_consumer_target`](#member-gfconfigpipelineprofile-properties-default_consumer_target) | `var default_consumer_target: StringName = &""` |
+| 属性 | [`stable_id_registry_path`](#member-gfconfigpipelineprofile-properties-stable_id_registry_path) | `var stable_id_registry_path: String = ""` |
+| 属性 | [`stable_id_bindings`](#member-gfconfigpipelineprofile-properties-stable_id_bindings) | `var stable_id_bindings: Dictionary = {}` |
+| 属性 | [`stable_id_scope_tables`](#member-gfconfigpipelineprofile-properties-stable_id_scope_tables) | `var stable_id_scope_tables: Array[String] = []` |
+| 属性 | [`stable_id_restorations`](#member-gfconfigpipelineprofile-properties-stable_id_restorations) | `var stable_id_restorations: Dictionary = {}` |
+| 方法 | [`resolve_consumer`](#member-gfconfigpipelineprofile-methods-resolve_consumer) | `func resolve_consumer(options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_build_options`](#member-gfconfigpipelineprofile-methods-make_build_options) | `func make_build_options(overrides: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_save_options`](#member-gfconfigpipelineprofile-methods-make_save_options) | `func make_save_options(overrides: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`make_access_options`](#member-gfconfigpipelineprofile-methods-make_access_options) | `func make_access_options(overrides: Dictionary = {}) -> Dictionary:` |
@@ -227,7 +234,133 @@ var metadata: Dictionary = {}
 
 - `metadata`: Dictionary，保存项目工具、编辑器或 CI 附加的构建信息。
 
+<a id="member-gfconfigpipelineprofile-properties-consumer_targets"></a>
+
+### `consumer_targets`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var consumer_targets: Array[GFConfigPipelineConsumerTarget] = []
+```
+
+可选消费目标；声明后每次构建必须选中一个目标。
+
+结构：
+
+- `consumer_targets`: Array[GFConfigPipelineConsumerTarget]，最多64项，ID唯一；每个目标需要独立的非空输出路径。
+
+<a id="member-gfconfigpipelineprofile-properties-default_consumer_target"></a>
+
+### `default_consumer_target`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var default_consumer_target: StringName = &""
+```
+
+没有显式 target 选项时使用的消费目标；不自动选中第一项。
+
+<a id="member-gfconfigpipelineprofile-properties-stable_id_registry_path"></a>
+
+### `stable_id_registry_path`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var stable_id_registry_path: String = ""
+```
+
+可选项目所有的稳定 ID 登记簿 JSON URI；空值时不启用登记。
+
+<a id="member-gfconfigpipelineprofile-properties-stable_id_bindings"></a>
+
+### `stable_id_bindings`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var stable_id_bindings: Dictionary = {}
+```
+
+明确选择需要数字 ID 稳定性检查的作者表；其他表的 ID 类型不受影响。
+
+结构：
+
+- `stable_id_bindings`: Dictionary[String,Dictionary]，每表仅包含 symbol_field:String、id_field:String；来源记录必须提供非空精确符号及1至2147483647的int ID。最多4096表、总计65536条记录；完整作者表参与登记，不受消费目标裁剪影响。
+
+<a id="member-gfconfigpipelineprofile-properties-stable_id_scope_tables"></a>
+
+### `stable_id_scope_tables`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var stable_id_scope_tables: Array[String] = []
+```
+
+显式限制本次稳定 ID 对账的表范围；空数组保留整簿对账，未绑定的历史表会退役。
+
+结构：
+
+- `stable_id_scope_tables`: Array[String]，最多4096个唯一精确表名；非空时必须与stable_id_bindings的表集合相同，范围外历史表保持不变。范围内需要整表退役时，绑定一张有schema但没有记录的作者表。
+
+<a id="member-gfconfigpipelineprofile-properties-stable_id_restorations"></a>
+
+### `stable_id_restorations`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+@export
+var stable_id_restorations: Dictionary = {}
+```
+
+明确允许原身份从退役状态恢复；不分配 ID、不改号，也不允许把历史 ID 交给其他符号。
+
+结构：
+
+- `stable_id_restorations`: Dictionary[String,Dictionary[String,String]]，table到symbol到原ID的规范十进制文本，例如{"items":{"potion":"1"}}。作者表ID仍必须为int；表和符号必须同时存在于本次对账映射及历史登记中。已活动的同一声明幂等；声明随Profile进入预览摘要并通过register-ids事务提交。
+
 ## 方法
+
+<a id="member-gfconfigpipelineprofile-methods-resolve_consumer"></a>
+
+### `resolve_consumer`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func resolve_consumer(options: Dictionary = {}) -> Dictionary:
+```
+
+解析消费目标并冻结声明；无目标声明的 Profile 沿用完整数据库构建。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `options` | 本次选项；target 选择目标，显式输出路径覆盖目标默认路径。 |
+
+返回：解析结果；失败时不提供可执行选项。
+
+结构：
+
+- `options`: Dictionary，可含 target:String/StringName、output_path:String 和 access_output_path:String；其他选项原样转交既有构建链。
+- `return`: 封闭 Dictionary，success:bool、target:GFConfigPipelineConsumerTarget/null、options:Dictionary、error:String；成功目标是声明的独立副本。
 
 <a id="member-gfconfigpipelineprofile-methods-make_build_options"></a>
 
@@ -427,7 +560,7 @@ func duplicate_profile() -> GFConfigPipelineProfile:
 ### `describe`
 
 - API：`public`
-- 首次版本：`5.2.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 func describe() -> Dictionary:
@@ -439,4 +572,4 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 profile_id、database_id、version、output_path、access_output_path、access_class_name、access_provider_accessor、source_count、sources、build_options、save_options、access_options 和 metadata。
+- `return`: Dictionary，包含 profile_id、database_id、version、output_path、access_output_path、access_class_name、access_provider_accessor、source_count、sources、build_options、save_options、access_options 和 metadata。另含consumer_targets:Array[Dictionary]（各目标capture结果）、default_consumer_target:String、stable_id_registry_path:String、stable_id_bindings:Dictionary、stable_id_scope_tables:Array[String]和stable_id_restorations:Dictionary[String,Dictionary[String,String]]；对账范围和恢复声明均保留到输入摘要。

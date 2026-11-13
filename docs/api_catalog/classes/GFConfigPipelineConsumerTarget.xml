@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFConfigPipelineConsumerTarget" path="addons/gf/tools/config_pipeline/gf_config_pipeline_consumer_target.gd" module="tools" extends="Resource" classDigest="20e9d194548614b7629c3531634a1052a94b41d5eaa901730aba957dfd86989d">
+	<description>GFConfigPipelineConsumerTarget: 项目声明的配置消费目标。
+根表与每表可见顶层字段均显式列出。字段是完整值单元，包含其结构化类型；
+不按行内容推测依赖，不通过引用自动授权其他字段。未声明表或字段默认不可见。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="target_id" decorators="@export">
+			<signature>var target_id: StringName = &amp;""</signature>
+			<description>项目定义的唯一消费目标名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="root_tables" decorators="@export">
+			<signature>var root_tables: PackedStringArray = []</signature>
+			<description>必须纳入该目标的根表；引用闭包从这些表出发。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="visible_fields" decorators="@export">
+			<signature>var visible_fields: Dictionary = {}</signature>
+			<description>各表获准导出的完整顶层字段。引用目标同样必须声明字段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">visible_fields: Dictionary[String, PackedStringArray/Array[String]]，每表非空、无重复字段名；最多4096表、每表4096字段、总计65536字段。名称非空、无控制字符、无首尾空白且最多256字符；不支持通配符或嵌套字段路径。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="output_path" decorators="@export">
+			<signature>var output_path: String = ""</signature>
+			<description>该目标数据库的输出 URI；选中目标后替代 Profile 的默认路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="access_output_path" decorators="@export">
+			<signature>var access_output_path: String = ""</signature>
+			<description>该目标的可选访问器输出 URI；空值表示不生成访问器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="capture">
+			<signature>func capture() -&gt; Dictionary:</signature>
+			<description>验证声明并捕获隔离的纯数据，不读取表或文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">声明快照或失败原因；输出 URI 由既有输出路径策略在导出前校验。</tag>
+				<tag name="schema">return: 封闭 Dictionary，success:bool、target:Dictionary、error:String。成功 target 含 target_id:String、root_tables:PackedStringArray（排序）、visible_fields:Dictionary[String,PackedStringArray]（字段排序）、output_path:String、access_output_path:String；失败 target 为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_target">
+			<signature>func duplicate_target() -&gt; GFConfigPipelineConsumerTarget:</signature>
+			<description>创建独立的作者声明副本，不改变或自动修复无效声明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与当前声明隔离的副本；循环或超出复制预算时返回null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

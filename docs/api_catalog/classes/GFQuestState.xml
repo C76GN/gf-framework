@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFQuestState" path="addons/gf/extensions/domain/quest/gf_quest_state.gd" module="extensions/domain" extends="RefCounted" classDigest="308ca57a5d5d671409713c737a10e52b103f548d13a065027e3e4954e9331549">
+	<description>GFQuestState: 可验证、可持久化且不持有回调的任务状态快照。
+冻结接取时的定义、接取信息和生命周期。查询型指标的缓存不能在恢复时充当新样本；
+GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。已完成状态保持完成。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="from_record">
+			<signature>static func from_record(record: Dictionary) -&gt; GFQuestState:</signature>
+			<description>验证状态记录，不触发项目查询、任务事件或奖励。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">record: 完整状态记录。</tag>
+				<tag name="return">冻结状态；不合法时为 null。</tag>
+				<tag name="schema">record: 封闭九字段 Dictionary：definition:GFQuestDefinition记录、status:String（available/active/completed/cancelled/failed）、current_count:int、metric_available:bool、accepted:bool、acceptance_data:Dictionary、parent_id:String、failure_reason:String、format_version:int=1。acceptance_data为原生纯数据，深度16、2048节点、64KiB；记录总预算深度20、8192节点、256KiB。available必须未接取；active/completed必须已接取；非external的completed必须保存达标样本。父级存在性和环由Utility在整批恢复时验证。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_record">
+			<signature>func to_record() -&gt; Dictionary:</signature>
+			<description>返回状态记录的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">验证后的状态；未通过工厂创建的实例返回空字典。</tag>
+				<tag name="schema">return: 与 from_record.record 相同的封闭九字段 Dictionary。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_definition">
+			<signature>func get_definition() -&gt; GFQuestDefinition:</signature>
+			<description>获取该状态绑定的冻结定义。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">冻结定义；未验证的实例为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">available、active、completed、cancelled 或 failed。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_current_count">
+			<signature>func get_current_count() -&gt; int:</signature>
+			<description>获取已记录的指标值；查询型指标可能只是缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">整数指标值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_metric_available">
+			<signature>func is_metric_available() -&gt; bool:</signature>
+			<description>区分可用于当前判断的样本与尚未刷新的缓存。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">导出状态时指标可用则为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFServerTimeEstimator" path="addons/gf/standard/utilities/time/gf_server_time_estimator.gd" module="standard" extends="RefCounted" classDigest="2b02d511172f50492bb280184a4573b078fdcbefce1de86b7e8af9b329b8a9d4">
+	<description>GFServerTimeEstimator: 服务器样本与单调时钟组合的本地时间估计器。
+请求票据只属于当前实例和进程；响应记录时测量整个往返，不读取系统墙上时钟。
+估计并非可信服务器权威，网络不对称和服务器误差通过不确定度表达。新样本可以校正
+时间向前或向后，项目必须自行持久化周期结算身份，不能凭时间变化重复发奖。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create(clock: GFClock = null, options: Dictionary = {}) -&gt; GFServerTimeEstimator:</signature>
+			<description>创建估计器并冻结计时政策。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 单调时钟；null 使用 GFClock，永不读取其墙上时间。</tag>
+				<tag name="param">options: 样本政策。</tag>
+				<tag name="return">新估计器；非法政策返回 null。</tag>
+				<tag name="schema">options: 封闭 Dictionary，可选 max_age_msec:int[1,86400000]（默认300000）、max_rtt_msec:int[0,300000]（默认10000）、drift_ppm:int[0,1000000]（默认50）。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_sample">
+			<signature>func begin_sample() -&gt; int:</signature>
+			<description>在发送时间请求前取得一次性票据，并捕获单调起点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数票据；时钟不可用、16个未过期请求占满或实例未初始化时为0。超时票据自动移除。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="accept_sample">
+			<signature>func accept_sample( ticket: int, server_unix_msec: int, server_uncertainty_msec: int = 0 ) -&gt; bool:</signature>
+			<description>接收服务器时间样本，消耗对应票据并验证往返和响应顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">ticket: begin_sample 返回的当前实例票据。</tag>
+				<tag name="param">server_unix_msec: 服务器在该请求处理期间采样的 Unix 毫秒，范围 ±4×10^15。</tag>
+				<tag name="param">server_uncertainty_msec: 项目声明的服务器时间样本误差界，范围0..86400000。</tag>
+				<tag name="return">接受并替换当前样本时为 true；失败保留先前样本。票据只可提交一次，较早请求不能覆盖较新请求的已接受样本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_sample">
+			<signature>func cancel_sample(ticket: int) -&gt; bool:</signature>
+			<description>取消本地采样票据，不影响已接受样本或远端请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">ticket: 本地请求票据。</tag>
+				<tag name="return">移除了仍在等待的票据时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="mark_resumed">
+			<signature>func mark_resumed() -&gt; void:</signature>
+			<description>应用恢复或计时环境切换后立即调用；旧样本和旧请求全部失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_estimate">
+			<signature>func get_estimate() -&gt; Dictionary:</signature>
+			<description>读取估计和完整可用状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前估计记录；只有 available=true 时才能使用 Unix 值及上下界。</tag>
+				<tag name="schema">return: 封闭九字段 Dictionary：status:String（available/unavailable/expired/resumed/clock_regressed）、available:bool、unix_time_msec:int、lower_bound_msec:int、upper_bound_msec:int、sample_age_msec:int、round_trip_msec:int、uncertainty_msec:int、sample_id:int。不可用时三个Unix值为0；无样本时年龄、RTT和不确定度为-1；过期样本保留年龄和RTT但不提供不确定度。区间只覆盖给定误差与漂移政策，不保证服务器真实性。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

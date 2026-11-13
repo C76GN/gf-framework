@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "528b39f2bb28be6e77dbe147fd4cbe0578a4bc05ecf6c4dad02467110421e906",
-  "class_count": 886,
+  "source_digest": "7c14a2f65e47cf1bfc7628456baa28e4897fa2c20d9dbd2d7637eebcdfd27e49",
+  "class_count": 908,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -106,7 +106,8 @@
       "dependencies": [
         "gf.kernel",
         "gf.standard.base",
-        "gf.standard.config"
+        "gf.standard.config",
+        "gf.standard.deterministic"
       ],
       "representative_path": "addons/gf/extensions/domain/attributes/gf_attribute_set.gd"
     },
@@ -245,7 +246,8 @@
       "kind": "standard",
       "dependencies": [
         "gf.kernel",
-        "gf.standard.base"
+        "gf.standard.base",
+        "gf.standard.deterministic"
       ],
       "representative_path": "addons/gf/standard/utilities/config/gf_config_build_profile.gd"
     },
@@ -450,7 +452,8 @@
       "kind": "standard",
       "dependencies": [
         "gf.kernel",
-        "gf.standard.base"
+        "gf.standard.base",
+        "gf.standard.deterministic"
       ],
       "representative_path": "addons/gf/standard/utilities/history/gf_command_history_utility.gd"
     },
@@ -479,6 +482,7 @@
       "dependencies": [
         "gf.kernel",
         "gf.standard.base",
+        "gf.standard.deterministic",
         "gf.standard.assets",
         "gf.standard.ui"
       ],
@@ -536,7 +540,8 @@
       "dependencies": [
         "gf.kernel",
         "gf.standard.base",
-        "gf.standard.config"
+        "gf.standard.config",
+        "gf.standard.deterministic"
       ],
       "representative_path": "addons/gf/tools/config_pipeline/editor/gf_config_preview_worker.gd"
     },
@@ -582,7 +587,9 @@
       "id": "gf.tool.project_layout",
       "kind": "tool",
       "dependencies": [
-        "gf.kernel"
+        "gf.kernel",
+        "gf.standard.base",
+        "gf.standard.deterministic"
       ],
       "representative_path": "addons/gf/tools/project_layout/cli/gf_project_layout_cli.gd"
     },
@@ -19301,7 +19308,7 @@
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_config_database_resource.gd",
-      "summary": "GFConfigDatabaseResource: 可保存为 Godot Resource 的通用配置数据库。 用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。 该资源只承载通用表集合、校验入口和元数据，不绑定业务表语义、构建 profile 或热更新策略。",
+      "summary": "GFConfigDatabaseResource: 可保存为 Godot Resource 的通用配置数据库。 用于聚合多张 GFConfigTableResource，作为导表工具生成的整包配置产物。 该资源是可变作者容器；运行期由 GFResourceConfigProvider 捕获并发布独立快照，",
       "visibility": "public",
       "category": "resource_definition",
       "since": "5.2.0",
@@ -19668,6 +19675,13 @@
         },
         {
           "kind": "func",
+          "name": "capture_inputs",
+          "signature": "func capture_inputs(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary",
+          "summary": "捕获作者文件、Profile 依赖与登记簿的有界摘要，不读取或写入产物。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "load_manifest",
           "signature": "func load_manifest(manifest_path: String) -> Dictionary",
           "summary": "读取 manifest JSON 文件。",
@@ -19758,7 +19772,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 3",
+          "signature": "const IMPLEMENTATION_VERSION: int = 4",
           "summary": "Commit 阶段的实现版本；改变事务或回滚语义时递增。",
           "visibility": "public"
         },
@@ -19788,6 +19802,68 @@
           "name": "get_stage_descriptor",
           "signature": "func get_stage_descriptor() -> Dictionary",
           "summary": "返回阶段实现的稳定描述，用于流水线诊断和编译指纹。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFConfigPipelineConsumerTarget": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "tools",
+      "package_id": "gf.tool.config_pipeline",
+      "path": "addons/gf/tools/config_pipeline/gf_config_pipeline_consumer_target.gd",
+      "summary": "GFConfigPipelineConsumerTarget: 项目声明的配置消费目标。 根表与每表可见顶层字段均显式列出。字段是完整值单元，包含其结构化类型； 不按行内容推测依赖，不通过引用自动授权其他字段。未声明表或字段默认不可见。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "target_id",
+          "signature": "var target_id: StringName = &\"\"",
+          "summary": "项目定义的唯一消费目标名称。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "root_tables",
+          "signature": "var root_tables: PackedStringArray = []",
+          "summary": "必须纳入该目标的根表；引用闭包从这些表出发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "visible_fields",
+          "signature": "var visible_fields: Dictionary = {}",
+          "summary": "各表获准导出的完整顶层字段。引用目标同样必须声明字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "output_path",
+          "signature": "var output_path: String = \"\"",
+          "summary": "该目标数据库的输出 URI；选中目标后替代 Profile 的默认路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "access_output_path",
+          "signature": "var access_output_path: String = \"\"",
+          "summary": "该目标的可选访问器输出 URI；空值表示不生成访问器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture",
+          "signature": "func capture() -> Dictionary",
+          "summary": "验证声明并捕获隔离的纯数据，不读取表或文件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_target",
+          "signature": "func duplicate_target() -> GFConfigPipelineConsumerTarget",
+          "summary": "创建独立的作者声明副本，不改变或自动修复无效声明。",
           "visibility": "public"
         }
       ]
@@ -20040,6 +20116,55 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "consumer_targets",
+          "signature": "var consumer_targets: Array[GFConfigPipelineConsumerTarget] = []",
+          "summary": "可选消费目标；声明后每次构建必须选中一个目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "default_consumer_target",
+          "signature": "var default_consumer_target: StringName = &\"\"",
+          "summary": "没有显式 target 选项时使用的消费目标；不自动选中第一项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "stable_id_registry_path",
+          "signature": "var stable_id_registry_path: String = \"\"",
+          "summary": "可选项目所有的稳定 ID 登记簿 JSON URI；空值时不启用登记。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "stable_id_bindings",
+          "signature": "var stable_id_bindings: Dictionary = {}",
+          "summary": "明确选择需要数字 ID 稳定性检查的作者表；其他表的 ID 类型不受影响。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "stable_id_scope_tables",
+          "signature": "var stable_id_scope_tables: Array[String] = []",
+          "summary": "显式限制本次稳定 ID 对账的表范围；空数组保留整簿对账，未绑定的历史表会退役。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "stable_id_restorations",
+          "signature": "var stable_id_restorations: Dictionary = {}",
+          "summary": "明确允许原身份从退役状态恢复；不分配 ID、不改号，也不允许把历史 ID 交给其他符号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "resolve_consumer",
+          "signature": "func resolve_consumer(options: Dictionary = {}) -> Dictionary",
+          "summary": "解析消费目标并冻结声明；无目标声明的 Profile 沿用完整数据库构建。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "make_build_options",
           "signature": "func make_build_options(overrides: Dictionary = {}) -> Dictionary",
@@ -20182,6 +20307,13 @@
           "name": "export_profile_path",
           "signature": "func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
           "summary": "从 Profile 路径构建并保存配置数据库资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "diff_profile_path",
+          "signature": "func diff_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "比较两个作者 Profile 的已验收 IR；不依赖产物格式，不写产物或登记簿。",
           "visibility": "public"
         }
       ]
@@ -20450,7 +20582,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 4",
+          "signature": "const IMPLEMENTATION_VERSION: int = 5",
           "summary": "Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。",
           "visibility": "public"
         },
@@ -20466,6 +20598,13 @@
           "name": "materialize_database",
           "signature": "func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionary = {}) -> Dictionary",
           "summary": "将数据库 IR 物化为 Godot Resource，并可执行数据库级引用校验。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "project_database",
+          "signature": "func project_database( compilation_ir: GFConfigPipelineIR, target: GFConfigPipelineConsumerTarget, options: Dictionary = {} ) -> Dictionary",
+          "summary": "按声明闭包投影已验收 IR；不根据行数或当前引用值推测依赖。",
           "visibility": "public"
         },
         {
@@ -20561,7 +20700,7 @@
           "kind": "func",
           "name": "register_schema",
           "signature": "func register_schema(schema: GFConfigTableSchema) -> bool",
-          "summary": "注册导表结构声明。",
+          "summary": "注册独立查询适配器的导表结构声明；发布快照后声明随快照管理。",
           "visibility": "public"
         },
         {
@@ -20612,130 +20751,102 @@
           "signature": "func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary",
           "summary": "使用已注册 schema 转换单条记录。",
           "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_snapshot",
+          "signature": "func get_snapshot() -> GFConfigSnapshot",
+          "summary": "取得当前快照；调用方可跨发布持有它完成同一版本的多表查询。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_publication_generation",
+          "signature": "func get_publication_generation() -> int",
+          "summary": "取得发布代际，用作下一次发布的预期值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "publish_snapshot",
+          "signature": "func publish_snapshot(snapshot: GFConfigSnapshot, expected_generation: int) -> Dictionary",
+          "summary": "只在代际匹配时一次替换完整快照，不执行项目回调。",
+          "visibility": "public"
         }
       ]
     },
     "GFConfigProviderAdapter": {
       "owner_kind": "class",
-      "extends": "GFConfigProvider",
+      "extends": "GFResourceConfigProvider",
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_config_provider_adapter.gd",
-      "summary": "GFConfigProviderAdapter: 通用配置表 Provider 适配器。 用于把项目自己的生成表对象、字典表、数组表或懒加载 Callable 接入 GFConfigProvider。 适配器只负责统一查询协议、懒加载缓存和诊断报告，不绑定具体导表工具、文件格式或业务字段。",
+      "summary": "GFConfigProviderAdapter: 外部配置来源的显式捕获适配器。 注册仅建立来源清单；prepare_tables() 捕获引用闭包，load_tables() 验收后发布。 查询继承已发布快照协议，不执行加载器。生成对象提供整表方法，或明确的",
       "visibility": "public",
       "category": "runtime_service",
       "since": "7.0.0",
       "members": [
         {
-          "kind": "const",
-          "name": "STATUS_REGISTERED",
-          "signature": "const STATUS_REGISTERED: StringName = &\"registered\"",
-          "summary": "表源已经注册。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "STATUS_LOADED",
-          "signature": "const STATUS_LOADED: StringName = &\"loaded\"",
-          "summary": "表源已经加载。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "STATUS_MISSING",
-          "signature": "const STATUS_MISSING: StringName = &\"missing\"",
-          "summary": "表源不存在。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "STATUS_FAILED",
-          "signature": "const STATUS_FAILED: StringName = &\"failed\"",
-          "summary": "表源加载失败。",
-          "visibility": "public"
-        },
-        {
           "kind": "func",
           "name": "register_table_source",
           "signature": "func register_table_source( table_name: StringName, source: Variant, options: Dictionary = {} ) -> bool",
-          "summary": "注册一个配置表源。",
+          "summary": "注册或替换来源，不改变已发布的表。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "unregister_table_source",
           "signature": "func unregister_table_source(table_name: StringName) -> bool",
-          "summary": "注销一个配置表源。",
+          "summary": "注销来源；活动表通过 update_tables() 显式移除。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "clear_table_sources",
           "signature": "func clear_table_sources() -> void",
-          "summary": "清空所有表源、缓存和 schema。",
+          "summary": "释放来源和准备报告；已有快照仍可查询。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "has_table_source",
           "signature": "func has_table_source(table_name: StringName) -> bool",
-          "summary": "检查是否注册了表源。",
+          "summary": "检查来源是否存在，与活动表是否已加载分别查询。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "get_table_ids",
-          "signature": "func get_table_ids() -> PackedStringArray",
-          "summary": "获取已注册表名。",
+          "name": "get_source_ids",
+          "signature": "func get_source_ids() -> PackedStringArray",
+          "summary": "返回来源清单；get_table_ids() 返回已发布清单。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "preload_table",
-          "signature": "func preload_table(table_name: StringName) -> Dictionary",
-          "summary": "预加载指定表源并返回加载报告。",
+          "name": "prepare_tables",
+          "signature": "func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary",
+          "summary": "捕获指定来源及 schema 引用闭包，不发布候选。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "clear_table_cache",
-          "signature": "func clear_table_cache(table_name: StringName) -> bool",
-          "summary": "清理指定表的懒加载缓存。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "clear_cache",
-          "signature": "func clear_cache() -> void",
-          "summary": "清理全部懒加载缓存。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_record",
-          "signature": "func get_record(table_name: StringName, record_id: Variant) -> Variant",
-          "summary": "根据表名和 ID 获取单条记录。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_table",
-          "signature": "func get_table(table_name: StringName) -> Variant",
-          "summary": "根据表名获取整张表数据。",
+          "name": "load_tables",
+          "signature": "func load_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary",
+          "summary": "显式准备并发布指定闭包，失败保留原活动快照。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_load_report",
           "signature": "func get_load_report(table_name: StringName) -> Dictionary",
-          "summary": "获取指定表的最近加载报告。",
+          "summary": "查询来源、最近准备结果与活动数据状态，不触发加载。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
-          "summary": "获取适配器调试快照。",
+          "summary": "返回不触发加载的来源与活动快照概况。",
           "visibility": "public"
         }
       ]
@@ -21095,6 +21206,193 @@
           "signature": "func _validate_table( rows: Array[Dictionary], context: Dictionary, report: Dictionary ) -> void",
           "summary": "校验整张表的行数。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFConfigSnapshot": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.config",
+      "path": "addons/gf/standard/utilities/config/gf_config_snapshot.gd",
+      "summary": "GFConfigSnapshot: 已验收配置集合的独立查询快照。 捕获时隔离表、schema 和集合，查询返回副本；增量候选复用未改变的内部表。 Resource 字段保留共享资产身份，不承诺资产内部状态不可变。自定义校验规则",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "capture",
+          "signature": "static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary",
+          "summary": "捕获完整或增量候选，校验失败不返回部分快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_ready",
+          "signature": "func is_ready() -> bool",
+          "summary": "检查快照是否已通过完整捕获与校验。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_database_id",
+          "signature": "func get_database_id() -> StringName",
+          "summary": "读取配置集合身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_version",
+          "signature": "func get_version() -> String",
+          "summary": "读取项目声明的内容版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_digest_report",
+          "signature": "func get_digest_report() -> Dictionary",
+          "summary": "返回规范内容摘要与覆盖范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_table_ids",
+          "signature": "func get_table_ids() -> PackedStringArray",
+          "summary": "取得已捕获的表名，排序且不暴露内部集合。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_table",
+          "signature": "func has_table(table_name: StringName) -> bool",
+          "summary": "检查该表是否已包含在此快照中。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_table_resource",
+          "signature": "func get_table_resource(table_name: StringName) -> GFConfigTableResource",
+          "summary": "取得独立的表资源副本，可用于编辑新的候选。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_schema",
+          "signature": "func get_schema(table_name: StringName) -> GFConfigTableSchema",
+          "summary": "取得独立的 schema 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_schema",
+          "signature": "func has_schema(table_name: StringName) -> bool",
+          "summary": "检查 schema 是否存在，不复制声明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_record",
+          "signature": "func get_record(table_name: StringName, record_id: Variant) -> Variant",
+          "summary": "按稳定记录 ID 查询副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_table",
+          "signature": "func get_table(table_name: StringName) -> Variant",
+          "summary": "取得整表记录副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_index_key",
+          "signature": "func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -> String",
+          "summary": "按命名索引声明生成键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_index_records",
+          "signature": "func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -> Array[Dictionary]",
+          "summary": "取得命名索引命中的记录副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_index_key",
+          "signature": "func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -> bool",
+          "summary": "检查索引键，不复制命中记录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_index_record",
+          "signature": "func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -> Variant",
+          "summary": "取得索引首条记录副本，避免复制全部命中项。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFConfigStableIDRegistry": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.config_pipeline",
+      "path": "addons/gf/tools/config_pipeline/gf_config_stable_id_registry.gd",
+      "summary": "GFConfigStableIDRegistry: 项目所有的不可变稳定 ID 登记簿。 ID 由作者明确指定；本类型不自动分配、不修改来源表、不写文件。 每张表独立登记符号和正整数 ID；删除产生永久墓碑，符号及 ID 均不可复用。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create_empty",
+          "signature": "static func create_empty() -> GFConfigStableIDRegistry",
+          "summary": "创建尚无登记的空簿。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_record",
+          "signature": "static func from_record(record: Dictionary) -> GFConfigStableIDRegistry",
+          "summary": "验证完整历史记录；墓碑与活动条目共同占有 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_json",
+          "signature": "static func from_json(text: String) -> GFConfigStableIDRegistry",
+          "summary": "从有界 JSON 文本读取登记簿；ID 使用文本避免 JSON 数值精度变化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "preview",
+          "signature": "func preview(assignments: Dictionary, options: Dictionary = {}) -> Dictionary",
+          "summary": "只读比较当前作者映射；不分配 ID、不改变登记簿、不写入文件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "with_assignments",
+          "signature": "func with_assignments(assignments: Dictionary, options: Dictionary = {}) -> GFConfigStableIDRegistry",
+          "summary": "构造显式映射的下一代登记簿；调用者负责把它与产物放入同一文件事务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_id",
+          "signature": "func get_id(table: String, symbol: String) -> int",
+          "summary": "查询活动符号的稳定 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "获取完整历史的隔离副本。",
+          "visibility": "public"
         }
       ]
     },
@@ -57346,71 +57644,77 @@
         }
       ]
     },
+    "GFNumberFormatPolicy": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.deterministic",
+      "path": "addons/gf/standard/foundation/formatting/gf_number_format_policy.gd",
+      "summary": "GFNumberFormatPolicy: 冻结的数字显示政策。 小数位与有效位共同限定显示精度，舍入只影响展示，不改变原始数值或交易判定。 单位缩放、整数分组、分隔符和自动记法分别配置；默认保留科学计数法回退。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create(options: Dictionary = {}) -> GFNumberFormatPolicy",
+          "summary": "创建政策并复制单位表，不接受隐式类型转换。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_create",
+          "signature": "static func try_create(options: Dictionary = {}) -> Dictionary",
+          "summary": "创建政策并返回具体失败字段；失败不产生政策，也不输出日志。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_default_suffixes",
+          "signature": "static func get_default_suffixes(group_base: int = 1000) -> PackedStringArray",
+          "summary": "获取框架单位表的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "获取完整政策副本。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFNumberFormatter": {
       "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
       "path": "addons/gf/standard/foundation/formatting/gf_number_formatter.gd",
-      "summary": "GFNumberFormatter: 统一的数字显示格式化工具。 负责普通数字、定点小数与大数值对象在 UI 中的显示转换， 提供完整显示、紧凑缩写、科学计数法、工程计数法与自动模式。",
+      "summary": "GFNumberFormatter: 由冻结政策控制的统一数字显示工具。 int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFBigNumber 的 尾数本身是近似值，格式化不会恢复它们已经丢失的精度。输出仅用于展示。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
       "members": [
         {
-          "kind": "enum",
-          "name": "Notation",
-          "signature": "enum Notation {\n\t## 尽量输出普通十进制表示。\n\tFULL,\n\t## 输出紧凑缩写表示，如 12.3k。\n\tCOMPACT_SHORT,\n\t## 输出科学计数法，如 1.23e8。\n\tSCIENTIFIC,\n\t## 输出工程计数法，如 123.4e6。\n\tENGINEERING,\n\t## 自动选择更适合当前量级的表示方式。\n\tAUTO,\n}",
-          "summary": "格式化记法。",
-          "visibility": "public"
-        },
-        {
-          "kind": "enum",
-          "name": "ScientificStyle",
-          "signature": "enum ScientificStyle {\n\t## 使用小写 e。\n\tE_LOWER,\n\t## 使用大写 E。\n\tE_UPPER,\n\t## 使用 x 10^n 形式。\n\tPOWER_OF_TEN,\n}",
-          "summary": "科学计数法输出风格。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_default_compact_suffixes",
-          "signature": "static func get_default_compact_suffixes() -> PackedStringArray",
-          "summary": "获取默认紧凑缩写后缀表副本。",
-          "visibility": "public"
-        },
-        {
           "kind": "func",
           "name": "format_number",
-          "signature": "static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String",
-          "summary": "统一入口：按指定记法格式化一个数字值。",
+          "signature": "static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -> String",
+          "summary": "按政策格式化数值，不使用多组位置布尔参数。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "format_full",
-          "signature": "static func format_full( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_grouping: bool = false, use_truncation: bool = false ) -> String",
-          "summary": "输出普通十进制字符串。",
+          "name": "try_format",
+          "signature": "static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> Dictionary",
+          "summary": "返回可检查的格式化结果，不输出日志也不把非法输入当作零。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "format_compact",
-          "signature": "static func format_compact( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, suffixes: PackedStringArray = PackedStringArray() ) -> String",
-          "summary": "输出紧凑缩写字符串，如 1.2k / 3.4M。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "format_scientific",
-          "signature": "static func format_scientific( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, style: ScientificStyle = ScientificStyle.E_LOWER, engineering: bool = false ) -> String",
-          "summary": "输出科学计数法或工程计数法字符串。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "format_auto",
-          "signature": "static func format_auto( value: Variant, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String",
-          "summary": "自动选择最合适的数字记法。",
+          "name": "try_format_options",
+          "signature": "static func try_format_options(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "直接验收显示声明后格式化，避免把政策创建失败的null解释成默认政策。",
           "visibility": "public"
         }
       ]
@@ -58881,6 +59185,40 @@
           "name": "validate",
           "signature": "func validate() -> bool",
           "summary": "校验载体中的数据是否满足业务约束。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFPeriodSchedule": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_period_schedule.gd",
+      "summary": "GFPeriodSchedule: UTC 或固定偏移下的冻结周期政策。 只计算 daily、weekly 或 fixed 窗口，不处理地区时区、DST、闰秒、奖励或补签。 周期身份包含计划身份、版本、实际政策和窗口起点；改变政策不会复用旧身份。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( schedule_id: StringName, version: int, options: Dictionary = {} ) -> GFPeriodSchedule",
+          "summary": "创建有版本的周期计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_window",
+          "signature": "func get_window(unix_msec: int) -> GFTimeWindow",
+          "summary": "求包含给定时间戳的唯一左闭右开窗口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "获取实际生效的冻结政策。",
           "visibility": "public"
         }
       ]
@@ -62284,6 +62622,13 @@
         },
         {
           "kind": "func",
+          "name": "open_snapshot_text",
+          "signature": "func open_snapshot_text(text: String) -> Dictionary",
+          "summary": "分析显式提供的冻结库存 JSON，不读取或启动其来源项目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_analysis",
           "signature": "func get_analysis() -> Dictionary",
           "summary": "返回当前冻结报告的深复制；外部修改不会改变会话查询。",
@@ -65306,13 +65651,200 @@
         }
       ]
     },
+    "GFQuestDefinition": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/domain",
+      "package_id": "gf.extension.domain",
+      "path": "addons/gf/extensions/domain/quest/gf_quest_definition.gd",
+      "summary": "GFQuestDefinition: 独立于运行状态的冻结任务定义。 指标由项目查询或输入提供；完成策略与指标模式独立。接取条件和完成阻塞器是 GFQuestUtility 中的运行时回调，不进入可持久化定义。自动完成不发放业务奖励。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "HISTORY",
+          "signature": "const HISTORY: StringName = &\"history\"",
+          "summary": "查询项目已经积累的历史事实。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "SINCE_ACCEPTANCE",
+          "signature": "const SINCE_ACCEPTANCE: StringName = &\"since_acceptance\"",
+          "summary": "只累计接取后收到的明确整数增量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "CURRENT",
+          "signature": "const CURRENT: StringName = &\"current\"",
+          "summary": "查询会升降的当前值；默认需要显式确认完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "AUTOMATIC",
+          "signature": "const AUTOMATIC: StringName = &\"automatic\"",
+          "summary": "首次达标且完成阻塞器通过时完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MANUAL",
+          "signature": "const MANUAL: StringName = &\"manual\"",
+          "summary": "达标后由 complete_quest 显式确认。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "EXTERNAL",
+          "signature": "const EXTERNAL: StringName = &\"external\"",
+          "summary": "项目显式判定完成，只检查完成阻塞器，不要求计数达标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( quest_id: StringName, metric_id: StringName, options: Dictionary = {} ) -> GFQuestDefinition",
+          "summary": "创建定义；相同 ID 的已接取任务不受随后发布的新版本影响。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_create",
+          "signature": "static func validate_create( quest_id: StringName, metric_id: StringName, options: Dictionary = {} ) -> Dictionary",
+          "summary": "只读检查 create 的输入，返回首个拒绝原因；不创建任务定义或保留输入引用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_record",
+          "signature": "static func from_record(record: Dictionary) -> GFQuestDefinition",
+          "summary": "从持久化记录恢复并完整验证定义。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "返回可持久化定义的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_quest_id",
+          "signature": "func get_quest_id() -> StringName",
+          "summary": "获取任务身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metric_id",
+          "signature": "func get_metric_id() -> StringName",
+          "summary": "获取指标身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_version",
+          "signature": "func get_version() -> int",
+          "summary": "获取定义版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_mode",
+          "signature": "func get_mode() -> StringName",
+          "summary": "获取指标模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target",
+          "signature": "func get_target() -> int",
+          "summary": "获取目标计数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_completion",
+          "signature": "func get_completion() -> StringName",
+          "summary": "获取完成策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "allows_negative",
+          "signature": "func allows_negative() -> bool",
+          "summary": "查询是否显式允许负向输入。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFQuestState": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/domain",
+      "package_id": "gf.extension.domain",
+      "path": "addons/gf/extensions/domain/quest/gf_quest_state.gd",
+      "summary": "GFQuestState: 可验证、可持久化且不持有回调的任务状态快照。 冻结接取时的定义、接取信息和生命周期。查询型指标的缓存不能在恢复时充当新样本； GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。已完成状态保持完成。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "from_record",
+          "signature": "static func from_record(record: Dictionary) -> GFQuestState",
+          "summary": "验证状态记录，不触发项目查询、任务事件或奖励。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "返回状态记录的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_definition",
+          "signature": "func get_definition() -> GFQuestDefinition",
+          "summary": "获取该状态绑定的冻结定义。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取生命周期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_current_count",
+          "signature": "func get_current_count() -> int",
+          "summary": "获取已记录的指标值；查询型指标可能只是缓存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_metric_available",
+          "signature": "func is_metric_available() -> bool",
+          "summary": "区分可用于当前判断的样本与尚未刷新的缓存。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFQuestUtility": {
       "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
       "path": "addons/gf/extensions/domain/quest/gf_quest_utility.gd",
-      "summary": "GFQuestUtility: 轻量级任务进度监听系统。 基于 `simple event` 将业务事件映射为任务进度累积， 适合用于成就、收集与击杀类目标的低成本跟踪。",
+      "summary": "GFQuestUtility: 冻结定义驱动的任务进度与生命周期。 历史和当前指标由项目查询或显式输入提供，累计指标只接受接取后的整数增量。 完成策略与指标模式分离；快照恢复不查询指标、不重放任务事件，也不发放奖励。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -65409,38 +65941,31 @@
           "visibility": "public"
         },
         {
-          "kind": "var",
-          "name": "allow_negative_progress",
-          "signature": "var allow_negative_progress: bool = false",
-          "summary": "是否允许事件传入负数进度。默认关闭，避免任务进度被异常 payload 反向扣减。",
-          "visibility": "public"
-        },
-        {
           "kind": "func",
-          "name": "start_quest",
-          "signature": "func start_quest( quest_id: StringName, target_event: StringName, target_count: int = 1 ) -> void",
-          "summary": "开始监听一个任务。",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "只续发超过单次256条预算的进度通知，不轮询指标查询。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "define_quest",
-          "signature": "func define_quest( quest_id: StringName, target_event: StringName, target_count: int = 1, metadata: Dictionary = {} ) -> void",
-          "summary": "定义一个可接取任务，但暂不开始监听事件。",
+          "signature": "func define_quest(definition: GFQuestDefinition) -> bool",
+          "summary": "注册新定义或发布更高版本；已接取和终态任务保留原定义。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "accept_quest",
-          "signature": "func accept_quest(quest_id: StringName) -> bool",
-          "summary": "接取一个已定义任务，并开始监听事件。",
+          "signature": "func accept_quest(quest_id: StringName, acceptance_data: Dictionary = {}) -> bool",
+          "summary": "接取任务，冻结当前定义与项目提供的接取信息。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "complete_quest",
           "signature": "func complete_quest(quest_id: StringName) -> bool",
-          "summary": "手动完成一个任务。",
+          "summary": "确认完成；查询型任务先取得新指标，external 策略只检查项目阻塞器。",
           "visibility": "public"
         },
         {
@@ -65516,7 +66041,7 @@
         {
           "kind": "func",
           "name": "emit_quest_event",
-          "signature": "func emit_quest_event(event_id: StringName, amount: int = 1) -> void",
+          "signature": "func emit_quest_event(event_id: StringName, amount: int) -> void",
           "summary": "手动触发一次任务事件。",
           "visibility": "public"
         },
@@ -65560,6 +66085,69 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取任务系统调试快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_metric_query",
+          "signature": "func register_metric_query(metric_id: StringName, query: Callable) -> bool",
+          "summary": "注册项目指标查询；不自动调用，查询必须无参数并返回 int。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_metric_source",
+          "signature": "func clear_metric_source(metric_id: StringName) -> void",
+          "summary": "移除查询和该指标的显式输入，已有活动任务的指标变为不可用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_metric_value",
+          "signature": "func set_metric_value(metric_id: StringName, value: int) -> bool",
+          "summary": "输入历史或当前指标值，并仅更新受此指标影响的活动任务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "refresh_metric",
+          "signature": "func refresh_metric(metric_id: StringName) -> bool",
+          "summary": "显式刷新一个指标；不进行每帧全量轮询。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_quest_eligible",
+          "signature": "func is_quest_eligible(quest_id: StringName) -> bool",
+          "summary": "查询缓存指标是否满足完成门槛，不执行项目查询或完成阻塞器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_quest_state",
+          "signature": "func get_quest_state(quest_id: StringName) -> GFQuestState",
+          "summary": "导出一个任务的冻结状态；报告和状态副本都不能修改运行任务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "export_snapshot",
+          "signature": "func export_snapshot() -> Dictionary",
+          "summary": "导出扁平任务快照，包含父级身份但不保存运行时回调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "restore_snapshot",
+          "signature": "func restore_snapshot(snapshot: Dictionary) -> bool",
+          "summary": "原子恢复任务状态，不发出任务或奖励事件，不执行查询和条件回调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_restore_snapshot",
+          "signature": "func validate_restore_snapshot(snapshot: Dictionary) -> Dictionary",
+          "summary": "只读检查当前目录能否恢复快照，不替换任务、监听或指标缓存。",
           "visibility": "public"
         }
       ]
@@ -68328,128 +68916,114 @@
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_resource_config_provider.gd",
-      "summary": "GFResourceConfigProvider: 读取 GFConfigTableResource 的运行时配置 Provider。 用于把导表工具生成的 `.tres` / `.res` 表资源接入 `GFConfigProvider` 查询协议。 它只处理通用表资源注册、表查询和记录查询，不绑定业务字段、构建 profile 或热更新策略。",
+      "summary": "GFResourceConfigProvider: 通过已验收快照发布 Resource 配置集合。 作者资源可以编辑；运行查询读取隔离快照。替换、增量更新和移除均先验证 完整候选，随后检查发布代际，失败不会留下部分新表。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "5.2.0",
       "members": [
         {
           "kind": "func",
-          "name": "register_table",
-          "signature": "func register_table(table_resource: GFConfigTableResource) -> bool",
-          "summary": "注册一张配置表资源。",
+          "name": "prepare_database",
+          "signature": "func prepare_database(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary",
+          "summary": "准备完整数据库候选，保留准备开始时的代际供发布使用。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "register_tables",
-          "signature": "func register_tables(table_resources: Array[GFConfigTableResource]) -> int",
-          "summary": "批量注册配置表资源。",
+          "name": "replace_database",
+          "signature": "func replace_database(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary",
+          "summary": "捕获并原子替换完整数据库；校验期间发生其他发布时拒绝旧候选。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "set_table_resources",
-          "signature": "func set_table_resources(table_resources: Array[GFConfigTableResource], duplicate_tables: bool = false) -> int",
-          "summary": "以 best-effort 方式批量替换配置表资源并重建内部查询索引。",
+          "name": "prepare_update",
+          "signature": "func prepare_update(tables: Array[GFConfigTableResource], options: Dictionary = {}) -> Dictionary",
+          "summary": "基于当前快照准备增量候选，校验合并后的跨表引用。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "get_table_resources",
-          "signature": "func get_table_resources(duplicate_tables: bool = true) -> Array[GFConfigTableResource]",
-          "summary": "获取已注册配置表资源。",
+          "name": "update_tables",
+          "signature": "func update_tables(tables: Array[GFConfigTableResource], options: Dictionary = {}) -> Dictionary",
+          "summary": "验收并原子发布增量更新，包括明确声明的移除项。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "from_database",
-          "signature": "static func from_database(database: GFConfigDatabaseResource, duplicate_tables: bool = false) -> GFResourceConfigProvider",
-          "summary": "从配置数据库资源创建 Provider。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "rebuild_table_registry",
-          "signature": "func rebuild_table_registry() -> int",
-          "summary": "重新建立内部查询索引和 schema registry。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "unregister_table",
-          "signature": "func unregister_table(table_name: StringName) -> bool",
-          "summary": "注销配置表资源。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "clear_tables",
-          "signature": "func clear_tables() -> void",
-          "summary": "清空所有配置表资源和由表资源注册的 schema。",
+          "signature": "static func from_database(database: GFConfigDatabaseResource) -> GFResourceConfigProvider",
+          "summary": "从完整数据库创建已发布的 Provider。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "has_table",
           "signature": "func has_table(table_name: StringName) -> bool",
-          "summary": "检查配置表是否已注册。",
+          "summary": "检查当前快照是否包含表，未准备不表示来源不存在。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_table_ids",
           "signature": "func get_table_ids() -> PackedStringArray",
-          "summary": "获取已注册配置表名。",
+          "summary": "取得已发布的表名。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_table_resource",
-          "signature": "func get_table_resource(table_name: StringName, duplicate_table: bool = true) -> GFConfigTableResource",
-          "summary": "获取配置表资源。",
+          "signature": "func get_table_resource(table_name: StringName) -> GFConfigTableResource",
+          "summary": "取得已发布表的作者副本，用于构建下一次候选。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_table_resources",
+          "signature": "func get_table_resources() -> Array[GFConfigTableResource]",
+          "summary": "取得全部已发布表的独立副本。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_record",
           "signature": "func get_record(table_name: StringName, record_id: Variant) -> Variant",
-          "summary": "根据表名和 ID 获取单条记录。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "make_index_key",
-          "signature": "func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -> String",
-          "summary": "根据表名和索引声明构建索引键。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "has_index_key",
-          "signature": "func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -> bool",
-          "summary": "检查表资源中的命名索引键是否存在。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_index_records",
-          "signature": "func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -> Array[Dictionary]",
-          "summary": "根据表名和命名索引获取记录列表。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_index_record",
-          "signature": "func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -> Variant",
-          "summary": "根据表名和命名索引获取第一条记录。",
+          "summary": "从当前快照查询记录副本，不隐式加载或更新表。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_table",
           "signature": "func get_table(table_name: StringName) -> Variant",
-          "summary": "根据表名获取整张表的数据。",
+          "summary": "从当前快照查询整表副本，不执行来源回调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "make_index_key",
+          "signature": "func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -> String",
+          "summary": "按命名索引声明生成查询键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_index_key",
+          "signature": "func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -> bool",
+          "summary": "检查命名索引键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_index_records",
+          "signature": "func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -> Array[Dictionary]",
+          "summary": "返回命名索引命中的记录副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_index_record",
+          "signature": "func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -> Variant",
+          "summary": "返回命名索引命中的第一条记录副本。",
           "visibility": "public"
         }
       ]
@@ -72689,16 +73263,44 @@
         },
         {
           "kind": "var",
-          "name": "allow_unknown_sections",
-          "signature": "var allow_unknown_sections: bool = true",
-          "summary": "是否允许并原样保留 schema 未声明的分区。",
+          "name": "preserved_sections",
+          "signature": "var preserved_sections: PackedStringArray = PackedStringArray()",
+          "summary": "允许原样保留但不解释的分区 ID 清单；默认拒绝全部未知分区。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "configure",
           "signature": "func configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -> GFSaveDocumentSchema",
-          "summary": "配置当前 schema 契约。",
+          "summary": "配置当前 schema 契约，保留返回当前对象的旧用法。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_configuration",
+          "signature": "static func validate_configuration( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -> Dictionary",
+          "summary": "只读验证完整配置；不改变当前对象或清除其上次配置错误。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "try_configure",
+          "signature": "func try_configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -> Dictionary",
+          "summary": "原子应用完整配置并返回诊断；失败保留原字段，同时阻止旧字段被误当作本次配置成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preserved_section_limits",
+          "signature": "static func get_preserved_section_limits() -> Dictionary",
+          "summary": "获取每个未知保留分区的固定规范编码预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "measure_preserved_section",
+          "signature": "static func measure_preserved_section(section: GFSaveSection) -> Dictionary",
+          "summary": "只读计量一个未知保留分区，不复制业务载荷。",
           "visibility": "public"
         },
         {
@@ -73306,6 +73908,110 @@
         }
       ]
     },
+    "GFSavePayloadPolicy": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/document/gf_save_payload_policy.gd",
+      "summary": "GFSavePayloadPolicy: 已知载荷结构与显式保留范围。 schema 只解释项目声明的运行数据；未声明字段及内容条目默认拒绝。 保留内容由 Profile 的持久化基线承载，不进入 Provider 的运行投影。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "schema",
+          "signature": "var schema: GFSchemaField = null",
+          "summary": "根值声明；field_name 必须非空，根可以是标量、数组或字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "retained_fields",
+          "signature": "var retained_fields: Dictionary = {}",
+          "summary": "字典节点允许保留的未知字段；空路径表示根，数组元素用 /*。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "collections",
+          "signature": "var collections: Dictionary = {}",
+          "summary": "有稳定身份的内容集合规则；没有规则的数组不保留按元素关联的未知数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_depth",
+          "signature": "var max_depth: int = 32",
+          "summary": "载荷及持久化基线的最大嵌套深度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_nodes",
+          "signature": "var max_nodes: int = 10000",
+          "summary": "单个完整载荷或基线允许的最大节点数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_bytes",
+          "signature": "var max_bytes: int = 16777216",
+          "summary": "规范编码的字节上限；覆盖保留内容，不等于磁盘压缩后的大小。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_policy",
+          "signature": "func validate_policy() -> Dictionary",
+          "summary": "验证声明及其路径，拒绝隐式转换和无稳定身份的元素保留。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_limits",
+          "signature": "func get_limits() -> Dictionary",
+          "summary": "获取此政策当前的有效预算；硬上限仍由 validate_policy() 验证。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "measure_payload",
+          "signature": "func measure_payload(payload: Variant) -> Dictionary",
+          "summary": "只读测量完整载荷的原生值与预算，不创建投影或基线副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_policy",
+          "signature": "func duplicate_policy() -> GFSavePayloadPolicy",
+          "summary": "创建独立政策副本；非法声明返回 null。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "project",
+          "signature": "func project(payload: Variant) -> Dictionary",
+          "summary": "将完整持久化载荷拆为运行投影与独立持久化基线。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "merge",
+          "signature": "func merge( projection: Variant, baseline: Variant, deletions: Dictionary = {} ) -> Dictionary",
+          "summary": "将当前运行值与旧基线合并，已知当前值和显式删除优先。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "item_path",
+          "signature": "static func item_path(collection_path: String, item_id: Variant) -> String",
+          "summary": "构造稳定身份对应的具体元素路径，供删除指令使用。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSavePipelineContext": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -73623,27 +74329,6 @@
       "since": "10.0.0",
       "members": [
         {
-          "kind": "const",
-          "name": "UNKNOWN_SECTION_REJECT",
-          "signature": "const UNKNOWN_SECTION_REJECT: StringName = &\"reject\"",
-          "summary": "拒绝当前 Profile 未声明的 section。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "UNKNOWN_SECTION_PRESERVE",
-          "signature": "const UNKNOWN_SECTION_PRESERVE: StringName = &\"preserve\"",
-          "summary": "读取时接受未知 section，并在后续保存中原样保留。",
-          "visibility": "public"
-        },
-        {
-          "kind": "const",
-          "name": "UNKNOWN_SECTION_DROP",
-          "signature": "const UNKNOWN_SECTION_DROP: StringName = &\"drop\"",
-          "summary": "读取时接受未知 section，并在后续保存中显式丢弃。",
-          "visibility": "public"
-        },
-        {
           "kind": "var",
           "name": "profile_id",
           "signature": "var profile_id: StringName = &\"\"",
@@ -73701,9 +74386,9 @@
         },
         {
           "kind": "var",
-          "name": "unknown_section_policy",
-          "signature": "var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT",
-          "summary": "未声明 section 的处理政策。",
+          "name": "preserved_sections",
+          "signature": "var preserved_sections: PackedStringArray = PackedStringArray()",
+          "summary": "允许保留但不进入运行状态的分区 ID 清单。",
           "visibility": "public"
         },
         {
@@ -75377,6 +76062,20 @@
         },
         {
           "kind": "func",
+          "name": "get_sync_snapshot_limits",
+          "signature": "static func get_sync_snapshot_limits() -> Dictionary",
+          "summary": "获取同步确认文档捕获的固定预算；不等于远端上传预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "measure_sync_snapshot",
+          "signature": "static func measure_sync_snapshot(document_data: Dictionary) -> Dictionary",
+          "summary": "只读测量完整同步文档封套，不创建确认快照或复制未经验证的数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "ready",
           "signature": "func ready() -> void",
           "summary": "在架构 ready 阶段采用已注册的 Storage 和 Time 服务。",
@@ -75849,7 +76548,7 @@
         {
           "kind": "func",
           "name": "take_ownership",
-          "signature": "static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionMutation",
+          "signature": "static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionMutation",
           "summary": "接管一个完整候选 section 的逻辑唯一所有权。",
           "visibility": "public"
         },
@@ -75930,6 +76629,13 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "payload_policy",
+          "signature": "var payload_policy: GFSavePayloadPolicy = null",
+          "summary": "可选的已知载荷结构和保留政策；首次注册时冻结，保留基线由各 Profile 独立拥有。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "validate_provider",
           "signature": "func validate_provider() -> Dictionary",
@@ -75974,14 +76680,14 @@
         {
           "kind": "func",
           "name": "make_snapshot",
-          "signature": "func make_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshot",
+          "signature": "func make_snapshot( payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshot",
           "summary": "接管纯数据并创建一次性 Snapshot。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "make_completed_snapshot",
-          "signature": "func make_completed_snapshot(payload: Variant, metadata: Dictionary = {}) -> GFSaveSectionSnapshotOperation",
+          "signature": "func make_completed_snapshot( payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshotOperation",
           "summary": "创建已经完成的小型 Snapshot Operation。",
           "visibility": "public"
         },
@@ -76050,7 +76756,7 @@
         {
           "kind": "func",
           "name": "take_ownership",
-          "signature": "static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot",
+          "signature": "static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {}, retention_deletions: Dictionary = {} ) -> GFSaveSectionSnapshot",
           "summary": "接管一个 section 的纯数据所有权。",
           "visibility": "public"
         },
@@ -76626,61 +77332,6 @@
         }
       ]
     },
-    "GFSaveSlotSyncBridge": {
-      "owner_kind": "class",
-      "extends": "RefCounted",
-      "module": "extensions/save",
-      "package_id": "gf.extension.save",
-      "path": "addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd",
-      "summary": "GFSaveSlotSyncBridge: 槽位文件与通用存储同步的桥接器。 根据 GFSaveSlotStorageAdapter 的文件模板解析槽位数据和元数据文件名， 再交给 GFStorageSyncUtility 同步。该类不定义存档字段、冲突策略或远端协议。",
-      "visibility": "public",
-      "category": "runtime_service",
-      "since": "8.0.0",
-      "members": [
-        {
-          "kind": "signal",
-          "name": "slot_sync_completed",
-          "signature": "signal slot_sync_completed(slot_index: int, result: Dictionary)",
-          "summary": "单个槽位同步完成后发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "signal",
-          "name": "slot_sync_failed",
-          "signature": "signal slot_sync_failed(slot_index: int, result: Dictionary)",
-          "summary": "单个槽位同步失败后发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "sync_utility",
-          "signature": "var sync_utility: GFStorageSyncUtility = null",
-          "summary": "底层同步工具。为空时 sync_slot() 会按需创建。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "setup",
-          "signature": "func setup(utility: GFStorageSyncUtility) -> GFSaveSlotSyncBridge",
-          "summary": "设置底层同步工具。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "sync_slot",
-          "signature": "func sync_slot( slot_index: int, adapter: GFSaveSlotStorageAdapter, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
-          "summary": "同步一个槽位的数据文件和元数据文件。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "sync_slots",
-          "signature": "func sync_slots( slot_indices: PackedInt32Array, adapter: GFSaveSlotStorageAdapter, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
-          "summary": "批量同步多个槽位。",
-          "visibility": "public"
-        }
-      ]
-    },
     "GFSaveSlotWorkflow": {
       "owner_kind": "class",
       "extends": "Resource",
@@ -76984,6 +77635,137 @@
           "signature": "func _after_load(_data: Variant, _context: Dictionary = {}) -> void",
           "summary": "加载后 Hook。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFSaveSyncProjection": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/sync/gf_save_sync_projection.gd",
+      "summary": "GFSaveSyncProjection: 项目显式声明上传字段和下载合并边界的协议。 输入不包含框架 checkpoint。项目负责排除本地专用、凭证及服务端权威字段， 并将下载数据与本地专用状态合成为完整候选。默认实现拒绝，避免默认上传整份文档。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "project_upload",
+          "signature": "func project_upload(document: GFSaveDocument) -> GFSaveDocument",
+          "summary": "从已持久化本地文档构造明确允许上传的完整文档封套。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prepare_download",
+          "signature": "func prepare_download(remote: GFSaveDocument, current: GFSaveDocument) -> GFSaveDocument",
+          "summary": "将远端投影与本地专用状态合成为完整本地候选。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_project_upload",
+          "signature": "func _project_upload(_document: GFSaveDocument) -> GFSaveDocument",
+          "summary": "由项目选择上传的分区、字段和项目元数据，默认拒绝。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_prepare_download",
+          "signature": "func _prepare_download(_remote: GFSaveDocument, _current: GFSaveDocument) -> GFSaveDocument",
+          "summary": "由项目处理字段所有权，默认拒绝下载应用。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFSaveSyncUtility": {
+      "owner_kind": "class",
+      "extends": "GFUtility",
+      "module": "extensions/save",
+      "package_id": "gf.extension.save",
+      "path": "addons/gf/extensions/save/sync/gf_save_sync_utility.gd",
+      "summary": "GFSaveSyncUtility: 将通用版本同步组合到受管 Profile 事务。 prepare_profile() 必须早于目标 Profile 的加载或保存；同步使用最近已确认的完整 文档。业务修改须通过 Profile 保存或事务持久化，不从未登记的内存改动猜测代际。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "关闭会话并释放借用的服务引用；不释放外部 Profile 与 Coordinator。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "停止接纳并结束当前观察，本地已准入事务仍由 Coordinator 排空。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "setup",
+          "signature": "func setup( profiles: GFSaveProfileUtility, coordinator: GFSaveProfileTransactionCoordinator, projection: GFSaveSyncProjection, clock: GFClock = null ) -> bool",
+          "summary": "一次性装配，服务的生命周期仍由原所有者管理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prepare_profile",
+          "signature": "func prepare_profile(profile_id: StringName) -> bool",
+          "summary": "为已注册 Profile 开启完整同步快照；之后须成功加载或保存一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "open_session",
+          "signature": "func open_session( profile_id: StringName, record_namespace: String, record_key: String, transport: GFStorageSyncTransport ) -> bool",
+          "summary": "绑定一个活动 Profile 的冻结账号会话，成功才替换旧会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "close_session",
+          "signature": "func close_session() -> void",
+          "summary": "结束会话观察，撤销迟到回调的本地写入资格。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "synchronize",
+          "signature": "func synchronize(operation_id: String, options: Dictionary = {}) -> GFAsyncCompletion",
+          "summary": "同步最近已确认的完整文档；不会悄悄捕获或保存未登记的运行状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "recover_pending",
+          "signature": "func recover_pending() -> GFAsyncCompletion",
+          "summary": "读取当前账号的未解决意图并复用通用引擎查证，绝不隐式重发。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_wait",
+          "signature": "func cancel_wait() -> bool",
+          "summary": "结束当前观察；已经准入的下载或 checkpoint 事务继续由协调器排空。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(delta: float) -> void",
+          "summary": "推进本地安全完成通知及通用引擎超时；不替调用方驱动借用的服务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含身份与文档载荷的状态摘要。",
+          "visibility": "public"
         }
       ]
     },
@@ -79482,6 +80264,61 @@
           "name": "cancel",
           "signature": "func cancel(_context: GFSequenceContext) -> void",
           "summary": "请求取消步骤。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFServerTimeEstimator": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_server_time_estimator.gd",
+      "summary": "GFServerTimeEstimator: 服务器样本与单调时钟组合的本地时间估计器。 请求票据只属于当前实例和进程；响应记录时测量整个往返，不读取系统墙上时钟。 估计并非可信服务器权威，网络不对称和服务器误差通过不确定度表达。新样本可以校正",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create(clock: GFClock = null, options: Dictionary = {}) -> GFServerTimeEstimator",
+          "summary": "创建估计器并冻结计时政策。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_sample",
+          "signature": "func begin_sample() -> int",
+          "summary": "在发送时间请求前取得一次性票据，并捕获单调起点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "accept_sample",
+          "signature": "func accept_sample( ticket: int, server_unix_msec: int, server_uncertainty_msec: int = 0 ) -> bool",
+          "summary": "接收服务器时间样本，消耗对应票据并验证往返和响应顺序。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_sample",
+          "signature": "func cancel_sample(ticket: int) -> bool",
+          "summary": "取消本地采样票据，不影响已接受样本或远端请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "mark_resumed",
+          "signature": "func mark_resumed() -> void",
+          "summary": "应用恢复或计时环境切换后立即调用；旧样本和旧请求全部失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_estimate",
+          "signature": "func get_estimate() -> Dictionary",
+          "summary": "读取估计和完整可用状态。",
           "visibility": "public"
         }
       ]
@@ -87559,11 +88396,11 @@
     },
     "GFStorageConflictReport": {
       "owner_kind": "class",
-      "extends": "Resource",
+      "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd",
-      "summary": "GFStorageConflictReport: 存储同步冲突的通用报告数据。 该资源只描述冲突，不决定如何解决冲突。项目可以把它用于云同步、 多端合并、调试 UI 或自动化测试。",
+      "summary": "GFStorageConflictReport: 冻结的记录冲突与显式解决候选。 载荷只能通过显式 getter 读取；to_dict() 不包含身份、revision 或业务数据。 revision 只能比较相等。报告不执行写入，也不证明解决候选已提交。",
       "visibility": "public",
       "category": "value_object",
       "since": "3.17.0",
@@ -87571,99 +88408,106 @@
         {
           "kind": "enum",
           "name": "Resolution",
-          "signature": "enum Resolution {\n\t## 尚未决定。\n\tUNRESOLVED,\n\t## 使用本地值。\n\tUSE_LOCAL,\n\t## 使用远端值。\n\tUSE_REMOTE,\n\t## 使用合并后的值。\n\tMERGED,\n\t## 跳过该冲突。\n\tSKIPPED,\n}",
-          "summary": "冲突解决策略。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "file_name",
-          "signature": "var file_name: String = \"\"",
-          "summary": "冲突所属逻辑文件名。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "key",
-          "signature": "var key: String = \"\"",
-          "summary": "冲突字段或业务 key。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "local_value",
-          "signature": "var local_value: Variant = null",
-          "summary": "本地值。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "remote_value",
-          "signature": "var remote_value: Variant = null",
-          "summary": "远端值。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "resolved_value",
-          "signature": "var resolved_value: Variant = null",
-          "summary": "合并后的值。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "resolution",
-          "signature": "var resolution: Resolution = Resolution.UNRESOLVED",
-          "summary": "解决策略。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "metadata",
-          "signature": "var metadata: Dictionary = {}",
-          "summary": "扩展元数据。",
+          "signature": "enum Resolution {\n\t## 尚未决定。\n\tUNRESOLVED,\n\t## 选择本地候选。\n\tUSE_LOCAL,\n\t## 选择远端候选。\n\tUSE_REMOTE,\n\t## 使用项目合并候选。\n\tMERGED,\n\t## 跳过冲突。\n\tSKIPPED,\n}",
+          "summary": "候选的解决方式，不代表持久化结果。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "apply_dict",
-          "signature": "func apply_dict(data: Dictionary) -> void",
-          "summary": "从字典应用字段。",
+          "name": "create",
+          "signature": "static func create( record_namespace: String, record_key: String, local_data: Dictionary, remote_data: Dictionary, options: Dictionary = {} ) -> GFStorageConflictReport",
+          "summary": "创建冻结报告；无效身份、选项或载荷返回 null。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "to_dict",
-          "signature": "func to_dict() -> Dictionary",
-          "summary": "转换为字典。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "to_json_safe_dict",
-          "signature": "func to_json_safe_dict(options: Dictionary = {}) -> Dictionary",
-          "summary": "转换为可安全 JSON.stringify() 的报告字典。",
+          "name": "with_resolution",
+          "signature": "func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorageConflictReport",
+          "summary": "返回指定解决候选的新报告；原报告不变。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "duplicate_report",
           "signature": "func duplicate_report() -> GFStorageConflictReport",
-          "summary": "复制冲突报告。",
+          "summary": "复制完整报告；无效对象返回 null。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_namespace",
+          "signature": "func get_namespace() -> String",
+          "summary": "获取记录命名空间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_key",
+          "signature": "func get_key() -> String",
+          "summary": "获取记录键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_expected_revision",
+          "signature": "func get_expected_revision() -> String",
+          "summary": "获取本地已知 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_actual_revision",
+          "signature": "func get_actual_revision() -> String",
+          "summary": "获取远端观察 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_local_data",
+          "signature": "func get_local_data() -> Dictionary",
+          "summary": "获取本地候选副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_remote_data",
+          "signature": "func get_remote_data() -> Dictionary",
+          "summary": "获取远端候选副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resolved_data",
+          "signature": "func get_resolved_data() -> Dictionary",
+          "summary": "获取解决候选副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "remote_exists",
+          "signature": "func remote_exists() -> bool",
+          "summary": "查询远端记录存在性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resolution",
+          "signature": "func get_resolution() -> Resolution",
+          "summary": "获取选择的解决方式。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "is_resolved",
           "signature": "func is_resolved() -> bool",
-          "summary": "是否已经解决。",
+          "summary": "检查是否已选择解决方式，不代表写入成功。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "from_dict",
-          "signature": "static func from_dict(data: Dictionary) -> GFStorageConflictReport",
-          "summary": "从字典创建冲突报告。",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "导出不含载荷与身份的诊断摘要。",
           "visibility": "public"
         }
       ]
@@ -88907,43 +89751,534 @@
         }
       ]
     },
+    "GFStorageSyncJournal": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_sync_journal.gd",
+      "summary": "GFStorageSyncJournal: 同步意图与提交结果的持久化边界。 完成源成功表示持久化已经确认，不能只表示已排队或内存更新。一个记录只能有一个 未解决意图；不同 operation_id 不得覆盖它。Save 通过现有 Profile 事务实现本接口，",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "persist_intent",
+          "signature": "func persist_intent(request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "在远端发送前持久化精确意图；重复相同意图可幂等确认。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "persist_outcome",
+          "signature": "func persist_outcome(request: GFStorageSyncRequest, outcome: Dictionary) -> GFAsyncCompletion",
+          "summary": "持久化已查证的操作结果及 checkpoint，再释放对应未解决意图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "load_intent",
+          "signature": "func load_intent(record_namespace: String, record_key: String) -> GFAsyncCompletion",
+          "summary": "读取指定记录的未解决意图。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_persist_intent",
+          "signature": "func _persist_intent(_request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "实现持久化意图写入。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_persist_outcome",
+          "signature": "func _persist_outcome(_request: GFStorageSyncRequest, _outcome: Dictionary) -> GFAsyncCompletion",
+          "summary": "实现已查证结果的幂等持久化。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_load_intent",
+          "signature": "func _load_intent(_record_namespace: String, _record_key: String) -> GFAsyncCompletion",
+          "summary": "实现未解决意图读取。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFStorageSyncOperation": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd",
+      "summary": "GFStorageSyncOperation: 一次同步观察的取消与唯一终态句柄。 取消只结束调用方等待，不能证明远端停止写入。已发送提交的取消、超时或释放结果 由引擎报告为未知，并通过原操作 ID 恢复；迟到响应不会改变已经交付的终态。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFStorageSyncResult)",
+          "summary": "进入唯一终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查当前观察是否已经结束。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFStorageSyncResult",
+          "summary": "获取已封存结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "wait_result_async",
+          "signature": "func wait_result_async() -> GFStorageSyncResult",
+          "summary": "等待唯一终态；已经完成时立即返回，不再次启动同步。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_wait",
+          "signature": "func cancel_wait() -> bool",
+          "summary": "请求结束调用方等待；不取消远端物理提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_cancel_requested",
+          "signature": "func is_cancel_requested() -> bool",
+          "summary": "检查是否曾请求结束等待。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageSyncRequest": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_sync_request.gd",
+      "summary": "GFStorageSyncRequest: 与命名空间、记录和操作身份绑定的冻结同步请求。 revision 是不透明文本，空文本只表示预期记录不存在。operation_id 必须由调用方 唯一分配；恢复同一次提交时沿用原 ID，不得用它提交不同载荷。请求不包含账号凭证。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( record_namespace: String, record_key: String, operation_id: String, data: Dictionary = {}, options: Dictionary = {} ) -> GFStorageSyncRequest",
+          "summary": "创建冻结请求；只接受明确选项和有界原生数据，任何失败均返回 null。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_limits",
+          "signature": "static func get_limits() -> Dictionary",
+          "summary": "获取完整请求的规范编码硬预算；修改返回字典不会改变准入规则。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_input",
+          "signature": "static func validate_input( record_namespace: String, record_key: String, operation_id: String, data: Dictionary = {}, options: Dictionary = {} ) -> Dictionary",
+          "summary": "只读验证工厂输入，不创建请求、不复制载荷，也不发起 IO。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_record",
+          "signature": "static func from_record(record: Dictionary) -> GFStorageSyncRequest",
+          "summary": "从持久化意图恢复同一请求，严格拒绝缺失或额外字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查请求是否由成功的工厂调用创建。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_namespace",
+          "signature": "func get_namespace() -> String",
+          "summary": "获取命名空间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_key",
+          "signature": "func get_key() -> String",
+          "summary": "获取记录键。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation_id",
+          "signature": "func get_operation_id() -> String",
+          "summary": "获取操作 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_mode",
+          "signature": "func get_mode() -> StringName",
+          "summary": "获取请求模式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_resolution",
+          "signature": "func get_resolution() -> StringName",
+          "summary": "获取明确的冲突选择。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_expected_revision",
+          "signature": "func get_expected_revision() -> String",
+          "summary": "获取预期 revision；只能比较相等。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_local_generation",
+          "signature": "func get_local_generation() -> int",
+          "summary": "获取本次冻结的本地代际。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_timeout_msec",
+          "signature": "func get_timeout_msec() -> int",
+          "summary": "获取每个协议阶段的单调时间等待上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_data",
+          "signature": "func get_data() -> Dictionary",
+          "summary": "显式获取候选载荷的独立副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "显式导出可持久化意图；包含业务载荷，不能用作日志或诊断。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含命名空间、载荷、revision 或操作 ID 的诊断摘要。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageSyncResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_sync_result.gd",
+      "summary": "GFStorageSyncResult: 一次同步观察的不可变终态。 COMMITTED 表示远端提交与本地 checkpoint 均已确认。OUTCOME_UNKNOWN 表示无法 查证远端结果；RECOVERY_REQUIRED 可以表示远端已确认而本地 checkpoint 尚未确认。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 只读比较完成。\n\tPREVIEW,\n\t## 当前远端数据与候选相同，没有提交写入。\n\tUNCHANGED,\n\t## 已取得明确选择的远端候选，尚未应用到本地业务状态。\n\tREMOTE_SELECTED,\n\t## 远端提交和本地 checkpoint 都已持久化确认。\n\tCOMMITTED,\n\t## revision 不匹配或条件提交发生并发竞争。\n\tCONFLICT,\n\t## 本次未发送，或已查证没有提交。\n\tNOT_COMMITTED,\n\t## 本次可能已提交，需要按原操作 ID 查证。\n\tOUTCOME_UNKNOWN,\n\t## 远端结果已取得，但本地持久化结果尚待恢复。\n\tRECOVERY_REQUIRED,\n\t## 请求、能力、所有权或协议准入被拒绝。\n\tREJECTED,\n}",
+          "summary": "唯一终态；不会因迟到响应重新变更。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查结果是否已经由引擎封存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取唯一终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status_name",
+          "signature": "func get_status_name() -> StringName",
+          "summary": "获取稳定的 ASCII 状态名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查本次观察是否成功完成；不能替代 COMMITTED 或本地业务事务结果检查。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "requires_recovery",
+          "signature": "func requires_recovery() -> bool",
+          "summary": "检查是否需要按持久化意图恢复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request",
+          "signature": "func get_request() -> GFStorageSyncRequest",
+          "summary": "获取本次实际使用的冻结请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_kind",
+          "signature": "func get_error_kind() -> StringName",
+          "summary": "获取稳定错误种类，不包含适配器的任意原始错误文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "record_exists",
+          "signature": "func record_exists() -> bool",
+          "summary": "检查已观察的远端记录是否存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> String",
+          "summary": "获取已观察的远端 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_data",
+          "signature": "func get_data() -> Dictionary",
+          "summary": "显式获取远端数据的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_remote_committed",
+          "signature": "func is_remote_committed() -> bool",
+          "summary": "检查是否已有远端提交的明确证据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_conflict_report",
+          "signature": "func get_conflict_report() -> GFStorageConflictReport",
+          "summary": "获取隔离的冲突报告。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不含业务载荷、身份文本或 revision 的诊断摘要。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageSyncTransport": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_sync_transport.gd",
+      "summary": "GFStorageSyncTransport: 不依赖具体网络协议的远端版本存储接口。 适配器接收冻结请求并返回主线程完成源。写入必须在远端原子比较 revision，且以 namespace/key/operation_id 幂等地记录提交结果；同一 ID 绑定候选与预期 revision，",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_capabilities",
+          "signature": "func get_capabilities() -> Dictionary",
+          "summary": "获取适配器声明的能力；非布尔声明视为不支持。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "read",
+          "signature": "func read(request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "读取请求所指定记录的单一版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "conditional_write",
+          "signature": "func conditional_write(request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "对预期 revision 执行一次条件写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "probe",
+          "signature": "func probe(request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "以原 operation_id 查证一次历史提交，永不隐式重发写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_get_capabilities",
+          "signature": "func _get_capabilities() -> Dictionary",
+          "summary": "声明实际支持的协议能力。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_read",
+          "signature": "func _read(_request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "开始只读请求；实现负责冻结认证会话并在主线程完成。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_conditional_write",
+          "signature": "func _conditional_write(_request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "开始一次远端条件提交；不允许退化为无条件覆盖。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_probe",
+          "signature": "func _probe(_request: GFStorageSyncRequest) -> GFAsyncCompletion",
+          "summary": "查证原操作的持久化结果。",
+          "visibility": "protected"
+        }
+      ]
+    },
     "GFStorageSyncUtility": {
       "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd",
-      "summary": "GFStorageSyncUtility: 通用存储后端同步协调器。 该工具只协调两个 GFStorageBackend 的字典数据同步、冲突检测和写回策略。 它不绑定本地/云/平台 SDK，也不替项目定义存档业务结构。",
+      "summary": "GFStorageSyncUtility: 以持久化意图和远端条件写入组织记录同步。 只在主线程使用。setup() 后可独立使用；独立使用者须驱动 tick() 处理超时， 并在结束时 dispose()。网络等待不持有项目业务事务。每个记录同时只接纳一个操作。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
       "members": [
         {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "停止接纳并终结所有观察；不声称撤销已发送的远端操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "释放全部观察和适配器引用，原意图仍由持久化日志拥有。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "setup",
+          "signature": "func setup( transport: GFStorageSyncTransport, journal: GFStorageSyncJournal = null, clock: GFClock = null ) -> bool",
+          "summary": "一次性装配；只读用途允许 journal 为空。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "inspect_support",
+          "signature": "func inspect_support(mode: StringName = &\"push\", resolution: StringName = &\"report\") -> Dictionary",
+          "summary": "只读检查本模式的协议能力与日志要求，不开始网络或日志 IO。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "synchronize",
+          "signature": "func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation",
+          "summary": "开始一次冻结请求；可能同步完成，观察前应检查 is_completed()。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "recover",
+          "signature": "func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation",
+          "summary": "查证原意图的历史结果，绝不重发条件写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "synchronize_many",
+          "signature": "func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageSyncOperation]",
+          "summary": "启动相互独立的记录操作，不提供跨记录原子性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "用单调时间终结超时观察，delta 不参与截止时间计算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不包含账号、记录键、载荷或 revision 的诊断。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageTransfer": {
+      "owner_kind": "class",
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_transfer.gd",
+      "summary": "GFStorageTransfer: 通用存储后端传输协调器。 该工具只协调两个 GFStorageBackend 的字典数据传输、冲突检测和写回策略。 普通 Backend 没有 CAS 或跨端原子性；写入可能部分成功，结果始终明确这些能力边界。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
           "kind": "signal",
-          "name": "sync_conflict_detected",
-          "signature": "signal sync_conflict_detected(report: GFStorageConflictReport)",
+          "name": "transfer_conflict_detected",
+          "signature": "signal transfer_conflict_detected(report: GFStorageConflictReport)",
           "summary": "检测到存储冲突后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
-          "name": "sync_conflict_unresolved",
-          "signature": "signal sync_conflict_unresolved(file_name: String, result: Dictionary)",
+          "name": "transfer_conflict_unresolved",
+          "signature": "signal transfer_conflict_unresolved(file_name: String, result: Dictionary)",
           "summary": "单个逻辑文件存在未解决冲突时发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
-          "name": "sync_completed",
-          "signature": "signal sync_completed(file_name: String, result: Dictionary)",
-          "summary": "单个逻辑文件同步完成后发出。",
+          "name": "transfer_completed",
+          "signature": "signal transfer_completed(file_name: String, result: Dictionary)",
+          "summary": "单个逻辑文件传输完成后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
-          "name": "sync_failed",
-          "signature": "signal sync_failed(file_name: String, result: Dictionary)",
-          "summary": "单个逻辑文件同步失败后发出。",
+          "name": "transfer_failed",
+          "signature": "signal transfer_failed(file_name: String, result: Dictionary)",
+          "summary": "单个逻辑文件传输失败后发出。",
           "visibility": "public"
         },
         {
@@ -88955,15 +90290,15 @@
         },
         {
           "kind": "enum",
-          "name": "SyncStatus",
-          "signature": "enum SyncStatus {\n\t## 两端数据已经一致。\n\tUNCHANGED,\n\t## 已把 local_backend 数据复制到 remote_backend。\n\tCOPIED_LOCAL_TO_REMOTE,\n\t## 已把 remote_backend 数据复制到 local_backend。\n\tCOPIED_REMOTE_TO_LOCAL,\n\t## 已用自定义合并结果写回两端。\n\tMERGED,\n\t## 存在未解决冲突。\n\tCONFLICT,\n\t## 同步失败。\n\tFAILED,\n}",
-          "summary": "同步结果状态。",
+          "name": "TransferStatus",
+          "signature": "enum TransferStatus {\n\t## 已选择候选但没有写入任何后端。\n\tPREVIEW,\n\t## 两端数据已经一致。\n\tUNCHANGED,\n\t## 已把 local_backend 数据复制到 remote_backend。\n\tCOPIED_LOCAL_TO_REMOTE,\n\t## 已把 remote_backend 数据复制到 local_backend。\n\tCOPIED_REMOTE_TO_LOCAL,\n\t## 已用自定义合并结果写回两端。\n\tMERGED,\n\t## 存在未解决冲突。\n\tCONFLICT,\n\t## 传输失败。\n\tFAILED,\n}",
+          "summary": "传输结果状态。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "default_conflict_strategy",
-          "signature": "var default_conflict_strategy: ConflictStrategy = ConflictStrategy.USE_NEWEST",
+          "signature": "var default_conflict_strategy: ConflictStrategy = ConflictStrategy.MANUAL",
           "summary": "默认冲突策略。",
           "visibility": "public"
         },
@@ -88976,23 +90311,23 @@
         },
         {
           "kind": "func",
-          "name": "sync_data",
-          "signature": "func sync_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
-          "summary": "同步一个逻辑文件。仅当读取结果明确为不存在时填充缺失端；任一其他读取失败都会在写回前终止。",
+          "name": "transfer_data",
+          "signature": "func transfer_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
+          "summary": "传输一个逻辑文件。非法 strategy 在任何后端读取前拒绝；只有确认不存在才填充缺失端。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "sync_many",
-          "signature": "func sync_many( file_names: PackedStringArray, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
-          "summary": "批量同步多个逻辑文件。",
+          "name": "transfer_many",
+          "signature": "func transfer_many( file_names: PackedStringArray, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary",
+          "summary": "批量传输多个逻辑文件。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
-          "summary": "获取同步工具调试快照。",
+          "summary": "获取传输工具调试快照。",
           "visibility": "public"
         }
       ]
@@ -93746,6 +95081,61 @@
         }
       ]
     },
+    "GFTimeWindow": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_time_window.gd",
+      "summary": "GFTimeWindow: 带周期身份的冻结左闭右开时间窗口。 使用 Unix 毫秒，不隐式读取系统时钟，不代表奖励已结算。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( start_msec: int, end_msec: int, period_id: String ) -> GFTimeWindow",
+          "summary": "创建有效窗口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_start_msec",
+          "signature": "func get_start_msec() -> int",
+          "summary": "获取包含的起点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_end_msec",
+          "signature": "func get_end_msec() -> int",
+          "summary": "获取排除的终点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_period_id",
+          "signature": "func get_period_id() -> String",
+          "summary": "获取周期身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "contains",
+          "signature": "func contains(unix_msec: int) -> bool",
+          "summary": "判断一个时间戳是否位于窗口中。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_record",
+          "signature": "func to_record() -> Dictionary",
+          "summary": "获取持久化或诊断记录。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFTimedTextEntry": {
       "owner_kind": "class",
       "extends": "Resource",
@@ -95989,6 +97379,82 @@
         }
       ]
     },
+    "GFUIBadgeUtility": {
+      "owner_kind": "class",
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_badge_utility.gd",
+      "summary": "GFUIBadgeUtility: 显式树结构的叶子计数与父级聚合。 主线程、只维护派生显示状态，不保存业务事实。结构在首次有效 configure 后冻结； 最多 4096 节点、64 层、4096 个绑定，每个叶子计数为 0 到 1000000000。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "counts_changed",
+          "signature": "signal counts_changed(changes: Dictionary)",
+          "summary": "一次叶子更新所影响的节点计数；状态先完整提交，再按更新顺序通知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "清理已销毁的普通 Object owner 与失效回调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "使全部 token 失效，丢弃等待通知并释放树数据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure(parents: Dictionary) -> bool",
+          "summary": "原子验证并冻结树；无效输入不会占用配置机会。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_configuration",
+          "signature": "func validate_configuration(parents: Dictionary) -> Dictionary",
+          "summary": "只读检查当前服务能否接受树配置，不占用配置机会、不创建绑定或发布计数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_leaf_count",
+          "signature": "func set_leaf_count(badge_id: StringName, count: int) -> bool",
+          "summary": "写入项目计算出的一个叶子计数，沿唯一父链增量更新。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_leaf",
+          "signature": "func is_leaf(badge_id: StringName) -> bool",
+          "summary": "判断节点能否接受业务计数输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_count",
+          "signature": "func get_count(badge_id: StringName) -> int",
+          "summary": "查询当前计数，不把未知 ID 当作没有红点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_count",
+          "signature": "func bind_count( badge_id: StringName, callback: Callable, owner: Object = null ) -> GFSubscriptionToken",
+          "summary": "为一个控件建立独立绑定，并立即发送当前计数。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFUILayerDefinition": {
       "owner_kind": "class",
       "extends": "Resource",
@@ -96047,6 +97513,205 @@
           "name": "duplicate_definition",
           "signature": "func duplicate_definition() -> GFUILayerDefinition",
           "summary": "创建不共享可变状态的定义副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUILoadingLease": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_loading_lease.gd",
+      "summary": "GFUILoadingLease: 单次等待请求的幂等释放句柄。 由 GFUILoadingUtility 持有至释放；owner 与 scope 使用弱引用，不能延长业务生命周期。 进度达到 1 不自动释放，调用方仍需在业务结束时 release。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_id",
+          "signature": "func get_id() -> int",
+          "summary": "获取服务内唯一请求身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "检查等待请求是否仍有效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_progress",
+          "signature": "func get_progress() -> GFAsyncProgress",
+          "summary": "获取关联的既有进度对象。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> bool",
+          "summary": "结束本次等待，不取消业务操作，也不等待最短显示时间。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUILoadingUtility": {
+      "owner_kind": "class",
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.ui",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd",
+      "summary": "GFUILoadingUtility: 并发等待请求的显示状态聚合器。 主线程服务；不创建界面，不阻塞业务完成。延迟与最短可见时间使用注入的单调时钟， tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 lease。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "state_changed",
+          "signature": "signal state_changed(state: Dictionary)",
+          "summary": "展示状态或活动请求聚合发生变化时发出，监听方不获得内部可写状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick(_delta: float) -> void",
+          "summary": "清理过期请求并刷新显示与进度，不依赖 delta 计时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "立即撤销全部 lease 并隐藏反馈，不等待显示政策。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( display_delay_msec: int = 150, minimum_visible_msec: int = 250, clock: GFClock = null ) -> bool",
+          "summary": "在第一次 acquire 前冻结显示政策和时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "acquire",
+          "signature": "func acquire( owner: Object = null, scope: GFAsyncScope = null, progress: GFAsyncProgress = null ) -> GFUILoadingLease",
+          "summary": "为一次业务等待取得独立句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_acquire",
+          "signature": "func validate_acquire(owner: Object = null, scope: GFAsyncScope = null) -> Dictionary",
+          "summary": "只读检查 acquire 的生命周期和剩余容量，不取得 lease、消耗 ID 或刷新显示。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> Dictionary",
+          "summary": "获取最近发布的显示状态；进度与过期生命周期在 tick 时采样。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUINavigationResolver": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui.navigation",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd",
+      "summary": "GFUINavigationResolver: 项目内容就绪与语义定位的异步协议。 回调及完成源必须在主线程运行。Router 为每次导航分配独立 scope；项目在异步返回后、 写入界面前必须检查 scope.is_active。完成源成功表示该阶段已完成，业务数据不进入结果。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "prepare_content",
+          "signature": "func prepare_content( panel: Node, target: GFUINavigationTarget, scope: GFAsyncScope ) -> GFAsyncCompletion",
+          "summary": "开始等待页面内容可用；成功之后 Router 才允许目标定位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "resolve_target",
+          "signature": "func resolve_target( panel: Node, target: GFUINavigationTarget, scope: GFAsyncScope ) -> GFAsyncCompletion",
+          "summary": "在内容就绪后定位语义目标，例如选择页签、滚动到条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_prepare_content",
+          "signature": "func _prepare_content( _panel: Node, _target: GFUINavigationTarget, _scope: GFAsyncScope ) -> GFAsyncCompletion",
+          "summary": "项目实现内容准备协议；无需等待时可以返回已成功的完成源。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_resolve_target",
+          "signature": "func _resolve_target( _panel: Node, _target: GFUINavigationTarget, _scope: GFAsyncScope ) -> GFAsyncCompletion",
+          "summary": "项目在内容准备之后实现具体定位；目标消失必须失败。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFUINavigationTarget": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.ui.navigation",
+      "path": "addons/gf/standard/utilities/ui/gf_ui_navigation_target.gd",
+      "summary": "GFUINavigationTarget: 冻结的路由与语义定位参数。 不保存场景节点路径或节点引用。空参数表示只等待内容就绪；非空参数由项目 resolver 解释为页签、条目 ID 等业务定位信息。普通路由打开不需要创建此对象。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create(route_id: StringName, parameters: Dictionary = {}) -> GFUINavigationTarget",
+          "summary": "创建一个内容就绪或语义定位请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "validate_create",
+          "signature": "static func validate_create(route_id: StringName, parameters: Dictionary = {}) -> Dictionary",
+          "summary": "只读检查目标输入，不创建目标或请求，create 仍会重新校验。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_route_id",
+          "signature": "func get_route_id() -> StringName",
+          "summary": "获取规范化路由身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_parameters",
+          "signature": "func get_parameters() -> Dictionary",
+          "summary": "获取语义定位参数的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_semantic_target",
+          "signature": "func has_semantic_target() -> bool",
+          "summary": "区分只等待内容与需要语义定位的请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_equivalent_to",
+          "signature": "func is_equivalent_to(other: GFUINavigationTarget) -> bool",
+          "summary": "比较请求意义，用于合并同一 pending 导航。",
           "visibility": "public"
         }
       ]
@@ -96279,6 +97944,13 @@
         },
         {
           "kind": "func",
+          "name": "get_navigation_target",
+          "signature": "func get_navigation_target() -> GFUINavigationTarget",
+          "summary": "获取本次内容就绪或语义定位请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_request_id",
           "signature": "func get_request_id() -> int",
           "summary": "获取 Router 内唯一请求 ID。",
@@ -96431,6 +98103,48 @@
         },
         {
           "kind": "const",
+          "name": "STATUS_CONTENT_READY",
+          "signature": "const STATUS_CONTENT_READY: StringName = &\"content_ready\"",
+          "summary": "页面已提交且内容已就绪；本次没有请求语义定位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_TARGET_READY",
+          "signature": "const STATUS_TARGET_READY: StringName = &\"target_ready\"",
+          "summary": "页面、内容与语义目标均已可用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_NAVIGATION",
+          "signature": "const STATUS_INVALID_NAVIGATION: StringName = &\"invalid_navigation\"",
+          "summary": "导航目标、resolver 或超时政策无效，未提交页面。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CONTENT_FAILED",
+          "signature": "const STATUS_CONTENT_FAILED: StringName = &\"content_failed\"",
+          "summary": "页面已提交，但内容准备失败；页面不被自动回滚。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_TARGET_UNAVAILABLE",
+          "signature": "const STATUS_TARGET_UNAVAILABLE: StringName = &\"target_unavailable\"",
+          "summary": "内容已就绪，但项目无法定位请求目标；保留可用页面。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_READINESS_TIMEOUT",
+          "signature": "const STATUS_READINESS_TIMEOUT: StringName = &\"readiness_timeout\"",
+          "summary": "页面提交后的内容准备或定位超过本次等待预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "STATUS_MISSING_ROUTE",
           "signature": "const STATUS_MISSING_ROUTE: StringName = &\"missing_route\"",
           "summary": "路由不存在。",
@@ -96560,6 +98274,27 @@
           "name": "is_successful",
           "signature": "func is_successful() -> bool",
           "summary": "检查路由是否成功打开。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_panel_committed",
+          "signature": "func was_panel_committed() -> bool",
+          "summary": "判断页面是否曾成功提交到 UI 栈。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_content_ready",
+          "signature": "func was_content_ready() -> bool",
+          "summary": "判断本次导航的内容准备阶段是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "was_target_resolved",
+          "signature": "func was_target_resolved() -> bool",
+          "summary": "判断本次请求是否实际成功定位到语义目标。",
           "visibility": "public"
         },
         {
@@ -96761,7 +98496,14 @@
           "kind": "func",
           "name": "tick",
           "signature": "func tick(_delta: float) -> void",
-          "summary": "清理普通 Object owner 已释放的提交前路由请求。",
+          "summary": "清理失效的 owner/scope，并处理已提交导航的内容就绪超时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_clock",
+          "signature": "func set_clock(clock: GFClock) -> bool",
+          "summary": "在没有 pending 请求时替换单调时间来源。",
           "visibility": "public"
         },
         {

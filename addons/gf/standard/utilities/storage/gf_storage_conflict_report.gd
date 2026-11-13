@@ -1,7 +1,7 @@
-## GFStorageConflictReport: 存储同步冲突的通用报告数据。
+## GFStorageConflictReport: 冻结的记录冲突与显式解决候选。
 ##
-## 该资源只描述冲突，不决定如何解决冲突。项目可以把它用于云同步、
-## 多端合并、调试 UI 或自动化测试。
+## 载荷只能通过显式 getter 读取；to_dict() 不包含身份、revision 或业务数据。
+## revision 只能比较相等。报告不执行写入，也不证明解决候选已提交。
 ## [br]
 ## @api public
 ## [br]
@@ -9,209 +9,254 @@
 ## [br]
 ## @since 3.17.0
 class_name GFStorageConflictReport
-extends Resource
+extends RefCounted
 
 
 # --- 枚举 ---
 
-## 冲突解决策略。
+## 候选的解决方式，不代表持久化结果。
 ## [br]
 ## @api public
+## [br]
+## @since unreleased
 enum Resolution {
 	## 尚未决定。
 	UNRESOLVED,
-	## 使用本地值。
+	## 选择本地候选。
 	USE_LOCAL,
-	## 使用远端值。
+	## 选择远端候选。
 	USE_REMOTE,
-	## 使用合并后的值。
+	## 使用项目合并候选。
 	MERGED,
-	## 跳过该冲突。
+	## 跳过冲突。
 	SKIPPED,
 }
 
 
-# --- 导出变量 ---
+# --- 私有变量 ---
 
-## 冲突所属逻辑文件名。
+## 工厂校验后的独立数据，不向调用方暴露容器。
 ## [br]
-## @api public
-@export var file_name: String = ""
-
-## 冲突字段或业务 key。
-## [br]
-## @api public
-@export var key: String = ""
-
-## 本地值。
-## [br]
-## @api public
-## [br]
-## @schema local_value: Variant，从本地记录复制的冲突 key 或载荷值。
-@export var local_value: Variant = null
-
-## 远端值。
-## [br]
-## @api public
-## [br]
-## @schema remote_value: Variant，从远端记录复制的冲突 key 或载荷值。
-@export var remote_value: Variant = null
-
-## 合并后的值。
-## [br]
-## @api public
-## [br]
-## @schema resolved_value: Variant，由解析器选择或合并出的值。
-@export var resolved_value: Variant = null
-
-## 解决策略。
-## [br]
-## @api public
-@export var resolution: Resolution = Resolution.UNRESOLVED
-
-## 扩展元数据。
-## [br]
-## @api public
-## [br]
-## @schema metadata: Dictionary，包含解析器特定诊断信息或后端元数据快照。
-@export var metadata: Dictionary = {}
+## @api private
+var _record: Dictionary = {}
 
 
 # --- 公共方法 ---
 
-## 从字典应用字段。
+## 创建冻结报告；无效身份、选项或载荷返回 null。
 ## [br]
 ## @api public
 ## [br]
-## @param data: 输入字典。
+## @since unreleased
 ## [br]
-## @schema data: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
-func apply_dict(data: Dictionary) -> void:
-	file_name = GFVariantData.get_option_string(
-		data,
-		"file_name",
-		file_name
-	)
-	key = GFVariantData.get_option_string(
-		data,
-		"key",
-		key
-	)
-	local_value = GFVariantData.get_option_value(
-		data,
-		"local_value",
-		local_value
-	)
-	remote_value = GFVariantData.get_option_value(
-		data,
-		"remote_value",
-		remote_value
-	)
-	resolved_value = GFVariantData.get_option_value(
-		data,
-		"resolved_value",
-		resolved_value
-	)
-	resolution = _to_resolution(
-		GFVariantData.get_option_int(
-			data,
-			"resolution",
-			resolution
-		)
-	)
-	metadata = GFVariantData.get_option_dictionary(
-		data,
-		"metadata",
-		metadata
-	)
-
-
-## 转换为字典。
+## @param record_namespace: 记录命名空间。
 ## [br]
-## @api public
+## @param record_key: 记录键。
 ## [br]
-## @return 字典副本。
+## @param local_data: 本地完整候选。
 ## [br]
-## @schema return: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
-func to_dict() -> Dictionary:
-	return {
-		"file_name": file_name,
-		"key": key,
-		"local_value": GFVariantData.duplicate_variant(local_value),
-		"remote_value": GFVariantData.duplicate_variant(remote_value),
-		"resolved_value": GFVariantData.duplicate_variant(resolved_value),
-		"resolution": resolution,
-		"metadata": metadata.duplicate(true),
-	}
-
-
-## 转换为可安全 JSON.stringify() 的报告字典。
+## @param remote_data: 已观察的远端完整候选。
 ## [br]
-## @api public
+## @param options: revision 与存在性声明。
 ## [br]
-## @since 8.0.0
+## @schema local_data: Dictionary of finite native data; no objects or cycles.
 ## [br]
-## @param options: 传给 GFReportValueCodec 的编码选项。
+## @schema remote_data: Same native contract; empty when remote_exists=false.
 ## [br]
-## @return JSON-safe 冲突报告。
+## @schema options: Closed Dictionary with expected_revision:String (default empty), actual_revision:String (default empty), remote_exists:bool (default true). Empty revisions are allowed for plain Backend transfers.
 ## [br]
-## @schema options: Dictionary with GFReportValueCodec options.
-## [br]
-## @schema return: Dictionary，只包含 JSON-compatible values 和正式报告 marker。
-func to_json_safe_dict(options: Dictionary = {}) -> Dictionary:
-	return GFReportValueCodec.to_report_dictionary(
-		to_dict(),
-		options
-	)
-
-
-## 复制冲突报告。
-## [br]
-## @api public
-## [br]
-## @return 新报告实例。
-func duplicate_report() -> GFStorageConflictReport:
-	var report: GFStorageConflictReport = GFStorageConflictReport.new()
-	report.apply_dict(to_dict())
-	return report
-
-
-## 是否已经解决。
-## [br]
-## @api public
-## [br]
-## @return resolution 不是 UNRESOLVED 时返回 true。
-func is_resolved() -> bool:
-	return resolution != Resolution.UNRESOLVED
-
-
-## 从字典创建冲突报告。
-## [br]
-## @api public
-## [br]
-## @param data: 输入字典。
-## [br]
-## @schema data: Dictionary，包含 file_name、key、local_value、remote_value、resolved_value、resolution 和 metadata。
-## [br]
-## @return 新报告实例。
-static func from_dict(data: Dictionary) -> GFStorageConflictReport:
-	var report: GFStorageConflictReport = GFStorageConflictReport.new()
-	report.apply_dict(data)
-	return report
-
-
-# --- 私有/辅助方法 ---
-
-## 将整数裁剪到 Resolution 有效范围，再映射为枚举值。
-## [br]
-## @api private
-## [br]
-static func _to_resolution(value: int) -> Resolution:
-	match clampi(
-		value,
-		Resolution.UNRESOLVED,
-		Resolution.SKIPPED
+## @return 隔离报告或 null；完整报告限深度64、300000节点、64MiB规范字节。
+static func create(
+	record_namespace: String,
+	record_key: String,
+	local_data: Dictionary,
+	remote_data: Dictionary,
+	options: Dictionary = {}
+) -> GFStorageConflictReport:
+	if record_namespace.is_empty() or record_key.is_empty():
+		return null
+	for key: Variant in options:
+		if key not in [
+			"expected_revision",
+			"actual_revision",
+			"remote_exists",
+		]:
+			return null
+	var expected: Variant = options.get("expected_revision", "")
+	var actual: Variant = options.get("actual_revision", "")
+	var exists: Variant = options.get("remote_exists", true)
+	if (
+		not expected is String
+		or not actual is String
+		or not exists is bool
 	):
+		return null
+	if (
+		exists == false
+		and (
+			not remote_data.is_empty()
+			or actual != ""
+		)
+	):
+		return null
+	return _from_record(
+		{
+			"namespace": record_namespace,
+			"key": record_key,
+			"local_data": local_data,
+			"remote_data": remote_data,
+			"expected_revision": expected,
+			"actual_revision": actual,
+			"remote_exists": exists,
+			"resolution": Resolution.UNRESOLVED,
+			"resolved_data": {},
+		}
+	)
+
+
+## 返回指定解决候选的新报告；原报告不变。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param resolution: 明确的解决方式。
+## [br]
+## @param data: 解决候选；未解决或跳过时必须为空。
+## [br]
+## @schema data: Dictionary of admitted finite native data.
+## [br]
+## @return 隔离的新报告或 null。
+func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorageConflictReport:
+	if (
+		_record.is_empty()
+		or resolution < Resolution.UNRESOLVED
+		or resolution > Resolution.SKIPPED
+	):
+		return null
+	if resolution in [Resolution.UNRESOLVED, Resolution.SKIPPED] and not data.is_empty():
+		return null
+	var record: Dictionary = _record.duplicate(true)
+	record["resolution"] = resolution
+	record["resolved_data"] = data
+	return _from_record(record)
+
+
+## 复制完整报告；无效对象返回 null。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 独立报告副本。
+func duplicate_report() -> GFStorageConflictReport:
+	return _from_record(_record) if not _record.is_empty() else null
+
+
+## 获取记录命名空间。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 稳定命名空间。
+func get_namespace() -> String:
+	return GFVariantData.get_option_string(_record, "namespace")
+
+
+## 获取记录键。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 稳定记录键。
+func get_key() -> String:
+	return GFVariantData.get_option_string(_record, "key")
+
+
+## 获取本地已知 revision。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 不透明 revision。
+func get_expected_revision() -> String:
+	return GFVariantData.get_option_string(_record, "expected_revision")
+
+
+## 获取远端观察 revision。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 不透明 revision。
+func get_actual_revision() -> String:
+	return GFVariantData.get_option_string(_record, "actual_revision")
+
+
+## 获取本地候选副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 完整候选副本。
+## [br]
+## @schema return: Dictionary of admitted native data.
+func get_local_data() -> Dictionary:
+	return GFVariantData.get_option_dictionary(_record, "local_data").duplicate(true)
+
+
+## 获取远端候选副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 完整候选副本。
+## [br]
+## @schema return: Dictionary of admitted native data.
+func get_remote_data() -> Dictionary:
+	return GFVariantData.get_option_dictionary(_record, "remote_data").duplicate(true)
+
+
+## 获取解决候选副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 尚未持久化的候选副本。
+## [br]
+## @schema return: Dictionary of admitted native data.
+func get_resolved_data() -> Dictionary:
+	return GFVariantData.get_option_dictionary(_record, "resolved_data").duplicate(true)
+
+
+## 查询远端记录存在性。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已观察远端存在时为 true。
+func remote_exists() -> bool:
+	return GFVariantData.get_option_bool(_record, "remote_exists")
+
+
+## 获取选择的解决方式。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return Resolution 枚举值。
+func get_resolution() -> Resolution:
+	var value: int = GFVariantData.get_option_int(_record, "resolution")
+	match value:
 		Resolution.USE_LOCAL:
 			return Resolution.USE_LOCAL
 		Resolution.USE_REMOTE:
@@ -222,3 +267,55 @@ static func _to_resolution(value: int) -> Resolution:
 			return Resolution.SKIPPED
 		_:
 			return Resolution.UNRESOLVED
+
+
+## 检查是否已选择解决方式，不代表写入成功。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已选择或跳过时为 true。
+func is_resolved() -> bool:
+	return get_resolution() != Resolution.UNRESOLVED
+
+
+## 导出不含载荷与身份的诊断摘要。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 诊断摘要。
+## [br]
+## @schema return: Dictionary with valid:bool,resolution:int,remote_exists:bool,revision_matches:bool.
+func to_dict() -> Dictionary:
+	return {
+		"valid": not _record.is_empty(),
+		"resolution": get_resolution(),
+		"remote_exists": remote_exists(),
+		"revision_matches": get_expected_revision() == get_actual_revision(),
+	}
+
+
+# --- 私有/辅助方法 ---
+
+## 有界验证整个报告，再复制容器所有权。
+## [br]
+## @api private
+static func _from_record(record: Dictionary) -> GFStorageConflictReport:
+	var measured: Dictionary = GFDeterministicVariantSerializer.measure_canonical(
+		record,
+		{
+			"allow_floats": true,
+			"max_depth": 64,
+			"max_items": 300000,
+			"max_output_bytes": 67108864,
+			"max_string_length": 16777216,
+		}
+	)
+	if not GFVariantData.get_option_bool(measured, "ok"):
+		return null
+	var report: GFStorageConflictReport = GFStorageConflictReport.new()
+	report._record = record.duplicate(true)
+	return report

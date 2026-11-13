@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfile" path="addons/gf/extensions/save/profile/gf_save_profile.gd" module="extensions/save" extends="Resource" classDigest="28f637dbcee8d08a5f38675a8c5e9cdc50cc0d83a021b6ed8e94530f1560a390">
+<class name="GFSaveProfile" path="addons/gf/extensions/save/profile/gf_save_profile.gd" module="extensions/save" extends="Resource" classDigest="b74da4dc7d7925ea386d83966cd5657a7be15a3c8aec181a41668bac24f680e0">
 	<description>GFSaveProfile: 多 section 存档的项目级声明。
 Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护重复的 section
 版本清单。运行时数据仍由 provider 持有，Profile 不解释业务字段。</description>
@@ -10,32 +10,7 @@ Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护�
 	</tags>
 	<signals />
 	<enums />
-	<constants>
-		<member kind="const" name="UNKNOWN_SECTION_REJECT">
-			<signature>const UNKNOWN_SECTION_REJECT: StringName = &amp;"reject"</signature>
-			<description>拒绝当前 Profile 未声明的 section。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">10.0.0</tag>
-			</tags>
-		</member>
-		<member kind="const" name="UNKNOWN_SECTION_PRESERVE">
-			<signature>const UNKNOWN_SECTION_PRESERVE: StringName = &amp;"preserve"</signature>
-			<description>读取时接受未知 section，并在后续保存中原样保留。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">10.0.0</tag>
-			</tags>
-		</member>
-		<member kind="const" name="UNKNOWN_SECTION_DROP">
-			<signature>const UNKNOWN_SECTION_DROP: StringName = &amp;"drop"</signature>
-			<description>读取时接受未知 section，并在后续保存中显式丢弃。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">10.0.0</tag>
-			</tags>
-		</member>
-	</constants>
+	<constants />
 	<properties>
 		<member kind="property" name="profile_id" decorators="@export">
 			<signature>var profile_id: StringName = &amp;""</signature>
@@ -102,13 +77,13 @@ Profile 从 provider 列表派生唯一文档 schema，避免项目同时维护�
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="unknown_section_policy" decorators="@export">
-			<signature>var unknown_section_policy: StringName = UNKNOWN_SECTION_REJECT</signature>
-			<description>未声明 section 的处理政策。
-默认拒绝，避免一次读取后再保存时静默删除未知数据。</description>
+		<member kind="property" name="preserved_sections" decorators="@export">
+			<signature>var preserved_sections: PackedStringArray = PackedStringArray()</signature>
+			<description>允许保留但不进入运行状态的分区 ID 清单。
+默认拒绝所有未知分区；清单在注册时冻结。永久删除分区应由显式文档迁移执行。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">10.0.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
