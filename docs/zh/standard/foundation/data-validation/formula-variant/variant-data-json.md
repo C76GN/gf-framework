@@ -1,6 +1,6 @@
 # Variant 深拷贝与 JSON 转换
 
-通用 Variant 基础件分为几个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并、差异报告和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换；`GFVariantKeyCodec` 负责把稳定 Variant 转成可比较 key token；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。`GFReportValueCodec` 属于 kernel 层统一报告边界，负责公开报告和诊断快照的 JSON-safe 脱敏输出，standard 与 extensions 都应复用它而不是各自写 sanitizer。
+通用 Variant 基础件分为几个明确职责：`GFVariantData` 负责深拷贝、字典 / metadata 合并、options 读取、基础类型收窄、默认值合并、差异报告和 Resource 可选复制；`GFVariantJsonCodec` 负责 JSON 友好的 Godot 值类型转换，以及独立版本化的确定性 JSON 文本；`GFVariantKeyCodec` 负责把稳定 Variant 转成可比较 key token；`GFVariantReferenceCodec` 负责显式 Resource / Node 引用标记。`GFReportValueCodec` 属于 kernel 层统一报告边界，负责公开报告和诊断快照的 JSON-safe 脱敏输出，standard 与 extensions 都应复用它而不是各自写 sanitizer。
 
 它们都不依赖 `GFArchitecture`，适合存档、配置、校验报告、网络消息、命中上下文等需要复制集合但保留标量语义，或把 Godot 值转成纯数据的地方。
 
@@ -12,7 +12,11 @@ var payload := {
 		"hp": 10,
 	},
 }
-var copy := GFVariantData.duplicate_variant(payload) as Dictionary
+var copied: Dictionary = GFVariantData.copy_value(payload)
+if not copied.ok:
+	push_error(str(copied.error_kind))
+	return
+var copy: Dictionary = copied.value
 
 var settings := {
 	"audio": {
@@ -27,7 +31,37 @@ GFVariantData.deep_merge_defaults(settings, {
 })
 ```
 
-`GFVariantData.duplicate_variant()` 默认深拷贝 `Dictionary`、`Array` 和全部具体 PackedArray，PackedArray 副本保持原类型；如果值中包含 `Object` 或 `Resource`，默认仍是引用语义。需要复制 Resource 时，可显式传入 `duplicate_variant(value, true, true)`；同一源 Resource 在一次复制图中只产生一个副本，重复引用拓扑会保留。
+`GFVariantData.copy_value()` 在同一次遍历中校验并复制纯数据值树，返回 `ok`、`value`、`counts_complete`、计量与失败位置。简便入口 `duplicate_variant(value, limits)` 返回副本，失败返回 null；需要区分合法 null 时使用结构化结果。Array、Dictionary 的内建类型声明及全部具体 PackedArray 类型保留。共享子容器在每个位置独立展开；循环、Object、Resource、Callable、Signal、RID 以及声明 Object 类型的容器被拒绝。
+
+默认限制为 1,000,000 个节点和 Packed 元素、64 层深度、每字符串 1,048,576 字符、64 MiB 逻辑载荷和 30,000 毫秒。可通过 `max_items`、`max_depth`（最多 256）、`max_string_length`、`max_payload_bytes`、`max_elapsed_msec` 覆盖，并传入 `cancel_token: GFCancellationToken`。数值限制必须是正整数，未知字段或非文本键被拒绝。逻辑载荷统计标量固定宽度、UTF-8 字符串和 Packed 内容；容器管理成本由节点预算约束，不能把该数值等同于实际堆内存。失败返回 `value=null`，计量只描述已处理部分，绝不发布部分树。
+
+需要对象身份、容器别名或循环时，显式调用 `duplicate_graph(value, deep, duplicate_resources)`。它默认保留 Object/Resource 引用；第三个参数为 true 时复制 Resource。该入口维护全图身份，最坏可能出现平方级容器查找成本，适合确实具有图语义的状态。编辑器撤销、对象黑板和通用异步结果使用这个契约。普通大数据、持久化值和后台输入使用值树复制或快照。
+
+`to_dictionary()` / `to_array()` 是带副本的形状收窄，`as_dictionary()` / `as_array()` 返回引用；它们不提供纯数据准入或完整预算保证。把数据交给线程、哈希或持久化边界时，显式选择相应结构化入口。
+
+## 只读数据快照
+
+`GFDataSnapshot.capture(value, limits)` 使用同样的值树规则。捕获成功后发布 `snapshot`，失败时该字段为 null。快照拥有隔离后的树，公开读取不返回可写的内部容器：
+
+```gdscript
+var captured: Dictionary = GFDataSnapshot.capture(payload)
+if not captured.ok:
+	return
+var snapshot: GFDataSnapshot = captured.snapshot
+var stats: Dictionary = snapshot.get_statistics()
+var hp: Variant = snapshot.get_value(["stats", "hp"])
+var working: Dictionary = snapshot.copy_value()
+if working.ok:
+	var mutable_payload: Dictionary = working.value
+	mutable_payload["stats"]["hp"] = 20
+```
+
+`get_value(path)` 只复制选定的子树；空路径导出根，路径无效或选定值为 null 都返回 null。`copy_value(limits)` 显式导出完整可变树并返回失败诊断；它可以收紧或覆盖原捕获预算。所有公开导出彼此隔离。快照的不可变性来自独占所有权和只读 API；仅框架编码器的内部借用按合作只读约定使用。
+
+捕获是有界的同步准备工作，需要源数据在调用期间稳定。生产大型数据时应安排好捕获时机和预算，再把同一个快照交给多个消费者。`GFDeterministicVariantSerializer.hash_result(snapshot)` 和 `GFBackgroundWorkUtility.submit_cpu_work(worker, snapshot)` 都直接接收已准备的快照，提交不会再次复制其载荷。修改型 worker 必须主动调用 `copy_value()`。
+
+旧 `duplicate_variant(value, deep, duplicate_resources)` 和 `duplicate_collection()` 调用应按真实语义迁移：普通数据使用 `copy_value()`，引用图使用 `duplicate_graph()`，跨任务只读数据使用快照；不再保留旧多布尔参数别名。
+
 
 ## Variant 差异报告
 
@@ -133,6 +167,10 @@ var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 
 `parse_json_text()`、`format_json_text()` 和 `compact_json_text()` 面向已经是 JSON 文本的输入：它们先通过 Godot JSON 解析器确认文本有效，再返回解析值、格式化文本或去除非必要空白后的文本。解析失败时返回调用方提供的 fallback，不会把无效输入静默改写成空集合。
 
+## 确定性 JSON
+
+需要稳定、可恢复且保留类型的文本导出时，使用 `encode_deterministic_result()` 与 `decode_deterministic_result()`。独立格式 `gf.variant-json-deterministic` v1 的使用示例、类型节点、浮点精度、预算和失败报告见[确定性 JSON](deterministic-json.md)。
+
 ## 显式引用标记
 
 `GFVariantReferenceCodec` 用于少数确实需要保存对象引用的位置。Resource 引用会保存 `resource_path`、可用时的 `ResourceUID` 文本和类型提示；恢复时先尝试 UID，再回退到路径。Node 引用只保存相对调用方提供 root 的 `NodePath`，解码时也必须传入同一个语义 root，不会从场景树全局搜索。
@@ -164,7 +202,7 @@ var decoded_resource := GFVariantReferenceCodec.decode_reference(encoded_resourc
 
 ## 使用边界
 
-完整编解码结果入口的 `max_depth` 与 `max_nodes` 按还原后的 Variant 结构计量，固定 typed marker 包装及向量分量不额外消耗节点或深度。PackedArray 仍按元素数累计 `max_collection_items`；typed Dictionary 的实际 key/value 仍分别消耗节点与深度预算。有效编码不会因为这些固定包装重复计费而解码失败，非法嵌套 marker 仍会被拒绝。
+普通 JSON 兼容转换的 `max_depth` 与 `max_nodes` 按还原后的 Variant 结构计量，固定 typed marker 包装及向量分量不额外消耗节点或深度。PackedArray 仍按元素数累计 `max_collection_items`；typed Dictionary 的实际 key/value 仍分别消耗节点与深度预算。有效编码不会因为这些固定包装重复计费而解码失败，非法嵌套 marker 仍会被拒绝。确定性 JSON 使用[独立定义的闭合预算与结构化结果](deterministic-json.md)。
 
 普通整数在 JSON 安全范围内仍保持数字；超出 JSON 安全范围的 64 位整数会自动写成 `Int64` 类型标记，避免 Godot JSON 往返后丢失精度。只有 `__gf_variant__` 标记是字典唯一字段时才会被解码为 Godot 类型，因此普通业务字典里的 `type`、`value`、`_gf_type` 等字段会按普通数据保留。
 
@@ -203,6 +241,6 @@ if token.is_empty():
 
 ## 与确定性序列化的关系
 
-`GFVariantJsonCodec` 的目标是 JSON 友好往返，不承诺同一数据在任意 Dictionary 插入顺序下得到同一段文本。需要 canonical JSON、canonical bytes 或内容 hash 时，使用 [确定性序列化](../../scalars/deterministic-serialization.md) 中的 `GFDeterministicVariantSerializer`。
+普通 JSON 兼容转换用于已有 JSON 数据形状；[确定性 JSON](deterministic-json.md)用于保留类型、稳定比较及恢复纯数据的文本导出。[`GFDeterministicVariantSerializer`](../../scalars/deterministic-serialization.md) 使用独立的 canonical v2 二进制协议提供字节与 SHA-256，不提供 JSON 文本入口。
 
-确定性序列化默认拒绝浮点值、对象和循环引用，并按 key 的 canonical 表达排序 Dictionary。它适合锁步、回放、黄金测试和内容 hash；存档压缩、metadata、checksum 与兼容读取仍由 `GFStorageCodec` 负责。
+两种确定性格式有意保留不同契约：文本保留容器类型声明并支持显式非有限浮点；二进制内容哈希忽略容器类型声明，默认拒绝浮点，启用后也只允许有限值。导出 JSON 不改变 canonical v2 字节、Network 契约摘要或稳定 seed。存档压缩、metadata、checksum 与兼容读取仍由 `GFStorageCodec` 负责。

@@ -312,10 +312,10 @@ func get_value(
 		"found",
 		false
 	):
-		return GFVariantData.duplicate_variant(fallback) if copy_value else fallback
+		return GFVariantData.duplicate_graph(fallback) if copy_value else fallback
 
 	var value: Variant = GFVariantData.get_option_value(read_result, "value")
-	return GFVariantData.duplicate_variant(value) if copy_value else value
+	return GFVariantData.duplicate_graph(value) if copy_value else value
 
 
 ## 检查路径是否存在。
@@ -372,7 +372,7 @@ func set_value(path: Variant, value: Variant) -> bool:
 
 	if not _write_path(
 		segments,
-		GFVariantData.duplicate_variant(value)
+		GFVariantData.duplicate_graph(value)
 	):
 		return false
 
@@ -998,9 +998,9 @@ func _make_change(
 	return {
 		"kind": kind,
 		"path": _format_path_segments(segments),
-		"path_segments": GFVariantData.duplicate_variant(segments),
-		"old_value": GFVariantData.duplicate_variant(old_value),
-		"new_value": GFVariantData.duplicate_variant(new_value),
+		"path_segments": GFVariantData.duplicate_graph(segments),
+		"old_value": GFVariantData.duplicate_graph(old_value),
+		"new_value": GFVariantData.duplicate_graph(new_value),
 		"old_exists": old_exists,
 		"new_exists": new_exists,
 		"old_type": type_string(typeof(old_value)),
@@ -1065,7 +1065,7 @@ func _enqueue_change(change: Dictionary) -> void:
 	if _dirty_change_indices.has(path_identity):
 		var change_index: int = GFVariantData.to_int(_dirty_change_indices[path_identity])
 		var existing: Dictionary = _dirty_changes[change_index]
-		existing["new_value"] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(change, "new_value"))
+		existing["new_value"] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(change, "new_value"))
 		existing["new_exists"] = GFVariantData.get_option_bool(change, "new_exists")
 		existing["new_type"] = GFVariantData.get_option_string(change, "new_type")
 		existing["kind"] = _merge_change_kind(

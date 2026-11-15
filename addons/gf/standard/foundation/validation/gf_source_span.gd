@@ -329,7 +329,7 @@ func merge_into_dictionary(
 ) -> Dictionary:
 	var span_dict: Dictionary = to_dict(include_empty_fields, include_legacy_source_alias)
 	for field_key: Variant in span_dict.keys():
-		target[field_key] = GFVariantData.duplicate_variant(span_dict[field_key])
+		target[field_key] = GFVariantData.duplicate_graph(span_dict[field_key])
 	return target
 
 

@@ -416,7 +416,7 @@ func _get_or_create_scope_record(scope_id: Variant) -> Dictionary:
 	var key: String = _make_scope_key(scope_id)
 	if not _scopes.has(key):
 		_scopes[key] = {
-			"scope_id": GFVariantData.duplicate_variant(scope_id),
+			"scope_id": GFVariantData.duplicate_graph(scope_id),
 			"sections": {},
 			"dirty_sections": {},
 		}
@@ -494,5 +494,5 @@ func _deep_merge_dictionaries(base: Dictionary, patch: Dictionary) -> Dictionary
 				GFVariantData.to_dictionary(patch_value)
 			)
 		else:
-			result[key] = GFVariantData.duplicate_variant(patch_value)
+			result[key] = GFVariantData.duplicate_graph(patch_value)
 	return result

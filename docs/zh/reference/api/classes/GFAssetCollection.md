@@ -27,7 +27,7 @@
 | 方法 | [`has_asset_id`](#member-gfassetcollection-methods-has_asset_id) | `func has_asset_id(asset_id: StringName) -> bool:` |
 | 方法 | [`resolve_entries`](#member-gfassetcollection-methods-resolve_entries) | `func resolve_entries(catalog: GFAssetCatalog) -> Array[GFAssetCatalogEntry]:` |
 | 方法 | [`validate_against`](#member-gfassetcollection-methods-validate_against) | `func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:` |
-| 方法 | [`duplicate_collection`](#member-gfassetcollection-methods-duplicate_collection) | `func duplicate_collection() -> GFAssetCollection:` |
+| 方法 | [`duplicate_graph`](#member-gfassetcollection-methods-duplicate_graph) | `func duplicate_graph() -> GFAssetCollection:` |
 | 方法 | [`to_dict`](#member-gfassetcollection-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfassetcollection-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`from_dict`](#member-gfassetcollection-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFAssetCollection:` |
@@ -265,15 +265,15 @@ func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
 
 返回：包含缺失、重复、空 ID 和有序解析摘要的通用校验报告。
 
-<a id="member-gfassetcollection-methods-duplicate_collection"></a>
+<a id="member-gfassetcollection-methods-duplicate_graph"></a>
 
-### `duplicate_collection`
+### `duplicate_graph`
 
 - API：`public`
 - 首次版本：`10.0.0`
 
 ```gdscript
-func duplicate_collection() -> GFAssetCollection:
+func duplicate_graph() -> GFAssetCollection:
 ```
 
 创建集合深拷贝。

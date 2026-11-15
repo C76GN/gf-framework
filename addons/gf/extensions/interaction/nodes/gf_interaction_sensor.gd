@@ -156,7 +156,7 @@ func build_context(
 	payload_override: Variant = null,
 	group_override: StringName = &""
 ) -> GFInteractionContext:
-	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override))
+	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_graph(payload_override))
 	var context_group: StringName = group_override if group_override != &"" else group_name
 	var context: GFInteractionContext = GFInteractionContext.new(
 		_resolve_sender(),

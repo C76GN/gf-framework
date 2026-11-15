@@ -140,7 +140,7 @@ var duplicate_resources: bool = false
 func set_patch_value(property_path: StringName, value: Variant) -> bool:
 	if not has_definition(property_path):
 		return false
-	values[property_path] = GFVariantData.duplicate_variant(
+	values[property_path] = GFVariantData.duplicate_graph(
 		value,
 		true,
 		duplicate_resources
@@ -181,7 +181,7 @@ func get_patch_value(property_path: StringName, default_value: Variant = null) -
 	var key: Variant = _find_dictionary_key(values, property_path)
 	if key == null:
 		return default_value
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		values[key],
 		true,
 		duplicate_resources
@@ -344,7 +344,7 @@ static func make_definition(
 	if options.has(KEY_GROUP):
 		definition[KEY_GROUP] = GFVariantData.get_option_string(options, KEY_GROUP)
 	if options.has(KEY_DEFAULT_VALUE):
-		definition[KEY_DEFAULT_VALUE] = GFVariantData.duplicate_variant(
+		definition[KEY_DEFAULT_VALUE] = GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(options, KEY_DEFAULT_VALUE),
 			true,
 			GFVariantData.get_option_bool(
@@ -918,7 +918,7 @@ static func _copy_value(
 ) -> Variant:
 	if not should_copy_values:
 		return value
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		value,
 		true,
 		should_duplicate_resources

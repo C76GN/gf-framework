@@ -192,4 +192,4 @@ static func make_wait_result(
 ## @schema extra: Dictionary extra fields copied into result.
 static func merge_extra(result: Dictionary, extra: Dictionary) -> void:
 	for key: Variant in extra.keys():
-		result[key] = GFVariantData.duplicate_variant(extra[key])
+		result[key] = GFVariantData.duplicate_graph(extra[key])

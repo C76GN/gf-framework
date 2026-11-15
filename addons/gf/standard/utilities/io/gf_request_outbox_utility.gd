@@ -1062,10 +1062,10 @@ func _normalize_transport_result(value: Variant) -> Dictionary:
 			return { "ok": false, "error": "empty_transport_result" }
 		var result: Dictionary = _normalize_transport_result(values[0])
 		if values.size() > 1:
-			result["signal_args"] = GFVariantData.duplicate_variant(values)
+			result["signal_args"] = GFVariantData.duplicate_graph(values)
 		return result
 	if value is Dictionary:
-		var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
+		var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_graph(value))
 		if not result.has("ok") and result.has("success"):
 			result["ok"] = _get_result_success(result)
 		return result

@@ -3763,7 +3763,7 @@ func _sample_monitor(monitor_id: StringName, entry: Dictionary) -> Dictionary:
 		entry["last_sample"] = sample.duplicate(true)
 		_monitors[monitor_id] = entry
 	elif GFVariantData.get_option_bool(entry, "has_published_value"):
-		sample["value"] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(entry, "published_value"))
+		sample["value"] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(entry, "published_value"))
 		sample["sample_metadata"] = (GFVariantData.get_option_dictionary(entry, "published_metadata").duplicate(true))
 		sample["sampled_at_unix"] = GFVariantData.get_option_float(
 			entry,
@@ -4430,7 +4430,7 @@ func _normalize_parameter_definition(definition: Dictionary) -> Dictionary:
 			"allow_null",
 			false
 		),
-		"default": GFVariantData.duplicate_variant(
+		"default": GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(
 				definition,
 				"default",
@@ -4438,7 +4438,7 @@ func _normalize_parameter_definition(definition: Dictionary) -> Dictionary:
 			)
 		),
 		"has_default": definition.has("default"),
-		"allowed_values": GFVariantData.duplicate_variant(
+		"allowed_values": GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(
 				definition,
 				"allowed_values",
@@ -4479,7 +4479,7 @@ func _prepare_command_args(args: Dictionary, entry: Dictionary) -> Dictionary:
 			"has_default",
 			false
 		):
-			prepared[parameter_name] = GFVariantData.duplicate_variant(
+			prepared[parameter_name] = GFVariantData.duplicate_graph(
 				GFVariantData.get_option_value(
 					parameter,
 					"default",

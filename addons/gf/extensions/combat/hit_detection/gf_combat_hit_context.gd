@@ -46,9 +46,9 @@ var hit_id: StringName = &""
 ## @schema payload: Variant，项目自定义命中载荷；框架只复制并透传。
 var payload: Variant:
 	get:
-		return GFVariantData.duplicate_variant(_payload)
+		return GFVariantData.duplicate_graph(_payload)
 	set(value):
-		_payload = GFVariantData.duplicate_variant(value)
+		_payload = GFVariantData.duplicate_graph(value)
 
 ## 通用强度值。框架不解释该字段。
 ## [br]
@@ -137,7 +137,7 @@ var metadata: Dictionary:
 
 # --- 私有变量 ---
 
-## 保存 payload 的内部值；公开 getter/setter 通过 duplicate_variant 复制访问。
+## 保存 payload 的内部值；公开 getter/setter 通过 duplicate_graph 隔离集合并保留引用图语义。
 ## [br]
 ## @api private
 var _payload: Variant = null
@@ -294,7 +294,7 @@ func to_dict() -> Dictionary:
 		"source": source,
 		"target": target,
 		"hit_id": hit_id,
-		"payload": GFVariantData.duplicate_variant(payload),
+		"payload": GFVariantData.duplicate_graph(payload),
 		"magnitude": magnitude,
 		"tags": tags.duplicate(),
 		"position_2d": position_2d,

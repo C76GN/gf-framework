@@ -431,6 +431,15 @@ func test_make_stable_text_seed_is_repeatable() -> void:
 
 
 func test_make_stable_seed_uses_canonical_dictionary_order() -> void:
+	var golden: Dictionary = GFSeedUtility.try_make_stable_seed(["x", 42])
+	assert_eq(
+		GFVariantData.get_option_int(golden, "seed"),
+		60402130
+	)
+	assert_eq(
+		GFVariantData.get_option_int(golden, "canonical_version"),
+		2
+	)
 	var seed_result: Dictionary = GFSeedUtility.try_make_stable_seed(
 		[
 			{ "b": 2, "a": 1, },
@@ -548,7 +557,6 @@ func test_make_stable_seed_rejects_float_by_default() -> void:
 		"canonical_encode_failed",
 		"失败报告应提供稳定错误码。"
 	)
-	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats..")
 
 	var seed_value: int = GFSeedUtility.make_stable_seed([1.25])
 
@@ -557,7 +565,6 @@ func test_make_stable_seed_rejects_float_by_default() -> void:
 		0,
 		"默认确定性 seed 派生应拒绝浮点输入并返回 0。"
 	)
-	assert_push_error("[GFDeterministicVariantSerializer][deterministic_variant_serializer.serialization_failed] Serialization failed: Floating-point values are excluded from deterministic encoding by default; use fixed-point numbers or explicitly enable allow_floats..")
 
 
 func test_full_state_uses_json_safe_text_numbers() -> void:

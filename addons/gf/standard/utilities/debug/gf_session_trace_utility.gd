@@ -2148,7 +2148,7 @@ func _get_dictionary(source: Dictionary, key: Variant) -> Dictionary:
 ## @api private
 ## [br]
 func _duplicate_dictionary(value: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
+	return GFVariantData.as_dictionary(GFVariantData.duplicate_graph(value))
 
 
 ## 读取可调用字段；字段不是 Callable 时返回空 Callable。

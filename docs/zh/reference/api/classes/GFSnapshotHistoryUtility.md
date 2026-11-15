@@ -228,7 +228,7 @@ func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
 
 结构：
 
-- `data`: Pure Variant snapshot payload; Object and Resource references are rejected.
+- `data`: Pure value tree, bounded by GFVariantData.copy_value defaults; aliases expand and cycles or object references are rejected.
 - `metadata`: Dictionary[String, Variant] copied into the snapshot record.
 
 <a id="member-gfsnapshothistoryutility-methods-step"></a>

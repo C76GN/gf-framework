@@ -42,7 +42,7 @@ class CleanupBlockingProfile extends GFConfigPipelineProfile:
 
 class LegacyLocationCopyStage extends GFConfigPipelineValidationStage:
 	func _duplicate_row_locations(value: Variant) -> Array:
-		return GFVariantData.as_array(GFVariantData.duplicate_variant(value))
+		return GFVariantData.as_array(GFVariantData.duplicate_graph(value))
 
 
 class MutatingContextRule extends GFConfigValidationRule:

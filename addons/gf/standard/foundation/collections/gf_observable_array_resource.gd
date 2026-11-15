@@ -219,7 +219,7 @@ func get_items() -> Array:
 ## [br]
 ## @schema return: Dictionary with ok, operation, index, old_value, new_value, and metadata.
 func append_item(value: Variant, change_metadata: Dictionary = {}) -> Dictionary:
-	var copied_value: Variant = GFVariantData.duplicate_variant(
+	var copied_value: Variant = GFVariantData.duplicate_graph(
 		value,
 		true,
 		true
@@ -266,12 +266,12 @@ func set_item(
 			index,
 			"index is outside the array."
 		)
-	var old_value: Variant = GFVariantData.duplicate_variant(
+	var old_value: Variant = GFVariantData.duplicate_graph(
 		items[index],
 		true,
 		true
 	)
-	var copied_value: Variant = GFVariantData.duplicate_variant(
+	var copied_value: Variant = GFVariantData.duplicate_graph(
 		value,
 		true,
 		true
@@ -310,7 +310,7 @@ func erase_item_at(index: int, change_metadata: Dictionary = {}) -> Dictionary:
 			index,
 			"index is outside the array."
 		)
-	var old_value: Variant = GFVariantData.duplicate_variant(
+	var old_value: Variant = GFVariantData.duplicate_graph(
 		items[index],
 		true,
 		true
@@ -565,12 +565,12 @@ func _make_change(
 		"ok": true,
 		"operation": operation,
 		"index": index,
-		"old_value": GFVariantData.duplicate_variant(
+		"old_value": GFVariantData.duplicate_graph(
 			old_value,
 			true,
 			true
 		),
-		"new_value": GFVariantData.duplicate_variant(
+		"new_value": GFVariantData.duplicate_graph(
 			new_value,
 			true,
 			true

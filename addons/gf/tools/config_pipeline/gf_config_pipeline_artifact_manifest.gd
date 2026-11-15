@@ -2133,8 +2133,8 @@ func _sha256_input_value(value: Variant, budget: Dictionary) -> String:
 		"max_string_length": _DEFAULT_MAX_MANIFEST_BYTES,
 		"max_output_bytes": _DEFAULT_MAX_MANIFEST_BYTES,
 	}
-	var preparation: GFDeterministicVariantSerializer.CanonicalHashPreparation = GFDeterministicVariantSerializer.prepare_sha256_for_framework(value, options)
-	var digest: String = preparation.finish_sha256()
+	var encoded: Dictionary = GFDeterministicVariantSerializer.hash_result(value, options)
+	var digest: String = GFVariantData.get_option_string(encoded, "hash")
 	if digest.is_empty():
 		_set_digest_budget_failure(
 			budget,

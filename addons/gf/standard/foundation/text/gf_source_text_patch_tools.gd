@@ -709,7 +709,7 @@ static func _make_issue(
 		"message": message,
 	}
 	for key: Variant in fields.keys():
-		issue[key] = GFVariantData.duplicate_variant(
+		issue[key] = GFVariantData.duplicate_graph(
 			fields[key],
 			true
 		)

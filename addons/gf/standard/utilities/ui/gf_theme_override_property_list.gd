@@ -303,7 +303,7 @@ static func collect_override_values(
 		if value == null and not include_null:
 			continue
 		if copy_values:
-			value = GFVariantData.duplicate_variant(
+			value = GFVariantData.duplicate_graph(
 				value,
 				true,
 				duplicate_resources

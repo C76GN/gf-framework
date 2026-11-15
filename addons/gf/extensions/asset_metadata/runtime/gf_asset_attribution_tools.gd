@@ -862,7 +862,7 @@ static func _copy_missing_field(
 ) -> void:
 	if target.has(key) or not source.has(key):
 		return
-	target[key] = GFVariantData.duplicate_variant(source[key])
+	target[key] = GFVariantData.duplicate_graph(source[key])
 
 
 ## 生成包含条目索引、路径和字段名的校验问题元数据。

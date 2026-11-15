@@ -232,7 +232,7 @@ func submit_at(
 
 	var batch: Dictionary = _get_batch(key)
 	var messages: Array = GFVariantData.get_option_array(batch, "messages")
-	messages.append(GFVariantData.duplicate_variant(message))
+	messages.append(GFVariantData.duplicate_graph(message))
 	batch["messages"] = messages
 	batch["last_message_msec"] = maxi(
 		GFVariantData.get_option_int(batch, "last_message_msec"),
@@ -605,7 +605,7 @@ func _finalize_closed_batch(
 		"reason": String(reason),
 		"message_count": messages.size(),
 		"messages": messages,
-		"merged_value": GFVariantData.duplicate_variant(merged_value),
+		"merged_value": GFVariantData.duplicate_graph(merged_value),
 		"opened_msec": opened_msec,
 		"closed_msec": effective_closed_msec,
 		"duration_msec": effective_closed_msec - opened_msec,

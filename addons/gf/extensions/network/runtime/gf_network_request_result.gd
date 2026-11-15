@@ -173,7 +173,7 @@ func is_successful() -> bool:
 ## [br]
 ## @schema return: Variant，由关联器校验的有界纯传输值；不含 Object、Callable、Signal、RID、循环容器或非有限数，集合深拷贝。
 func get_response() -> Variant:
-	return GFVariantData.duplicate_variant(_response)
+	return GFVariantData.duplicate_graph(_response)
 
 
 ## 获取发送或准入阶段的错误码。
@@ -238,6 +238,6 @@ func configure_from_network_layer(
 	_request_id = request_id
 	_peer_id = peer_id
 	_status = status
-	_response = GFVariantData.duplicate_variant(response) if status == STATUS_RECEIVED else null
+	_response = GFVariantData.duplicate_graph(response) if status == STATUS_RECEIVED else null
 	_send_error = send_error
 	_configured = true

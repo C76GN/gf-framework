@@ -68,7 +68,7 @@ func make_result(context: Dictionary = {}) -> GFModalResult:
 	return GFModalResult.create(
 		result_status,
 		action_id,
-		GFVariantData.duplicate_collection(payload),
+		GFVariantData.duplicate_graph(payload),
 		metadata,
 		context
 	)
@@ -84,7 +84,7 @@ func duplicate_action() -> GFModalAction:
 	action.action_id = action_id
 	action.label = label
 	action.result_status = result_status
-	action.payload = GFVariantData.duplicate_collection(payload)
+	action.payload = GFVariantData.duplicate_graph(payload)
 	action.grab_focus = grab_focus
 	action.close_on_pressed = close_on_pressed
 	action.metadata = metadata.duplicate(true)

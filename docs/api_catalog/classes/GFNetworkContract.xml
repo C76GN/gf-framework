@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContract" path="addons/gf/extensions/network/contracts/gf_network_contract.gd" module="extensions/network" extends="Resource" classDigest="f0c6a1b9e47eefd706082316778e026797efdf4e7d87ad60df312d8e4d8b7689">
+<class name="GFNetworkContract" path="addons/gf/extensions/network/contracts/gf_network_contract.gd" module="extensions/network" extends="Resource" classDigest="f11b79a7be8dbe707730cd590bb102aac2fa961d13a5ba43e96002421bb8dd3b">
 	<description>GFNetworkContract: 网络消息契约集合。
 契约集合用于集中描述一组 GFNetworkMessage 的 message_type、字段和默认通道，
 方便项目生成强类型辅助代码或在运行前校验消息结构。</description>
@@ -164,7 +164,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">契约版本字典。</tag>
-				<tag name="schema">return: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version 和 schema_digest。</tag>
+				<tag name="schema">return: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version、canonical_version 和 schema_digest。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

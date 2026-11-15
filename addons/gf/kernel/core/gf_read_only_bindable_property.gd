@@ -53,7 +53,7 @@ func _init(default_value: Variant = null) -> void:
 ## [br]
 ## @schema return: Variant current read-only value; Array and Dictionary values are returned as deep copies.
 func get_value() -> Variant:
-	return _READ_ONLY_VARIANT_ACCESS_SCRIPT.duplicate_collection(
+	return _READ_ONLY_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 		super.get_value(),
 		true
 	)

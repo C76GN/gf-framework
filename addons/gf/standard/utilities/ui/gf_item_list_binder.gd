@@ -586,7 +586,7 @@ static func _normalize_item(
 				item,
 				options
 			),
-			"metadata": GFVariantData.duplicate_variant(metadata),
+			"metadata": GFVariantData.duplicate_graph(metadata),
 			"icon": _variant_to_texture(
 				GFVariantData.get_option_value(
 					source,
@@ -639,7 +639,7 @@ static func _normalize_item(
 
 	return {
 		"text": GFVariantData.to_text(item),
-		"metadata": GFVariantData.duplicate_variant(item),
+		"metadata": GFVariantData.duplicate_graph(item),
 		"icon": null,
 		"disabled": false,
 		"selectable": true,

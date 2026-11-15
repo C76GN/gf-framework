@@ -1868,7 +1868,7 @@ func _merge_metadata(base: Dictionary, extra: Dictionary) -> Dictionary:
 		if business_key_count >= max_metadata_keys:
 			dropped_count += 1
 			continue
-		result[key] = GFVariantData.duplicate_variant(base[key])
+		result[key] = GFVariantData.duplicate_graph(base[key])
 		business_key_count += 1
 	for key: Variant in extra.keys():
 		if _metadata_key_is_reserved(key):
@@ -1876,7 +1876,7 @@ func _merge_metadata(base: Dictionary, extra: Dictionary) -> Dictionary:
 		if not result.has(key) and business_key_count >= max_metadata_keys:
 			dropped_count += 1
 			continue
-		result[key] = GFVariantData.duplicate_variant(extra[key])
+		result[key] = GFVariantData.duplicate_graph(extra[key])
 		if not base.has(key):
 			business_key_count += 1
 	if dropped_count > 0:

@@ -184,8 +184,8 @@ static func compare_entries(
 			var _append_stale: bool = stale.append(key)
 			var stale_metadata: Dictionary = { "expected_label": expected_label, "actual_label": actual_label, }
 			if include_values:
-				stale_metadata["expected"] = GFVariantData.duplicate_variant(expected_value)
-				stale_metadata["actual"] = GFVariantData.duplicate_variant(actual_value)
+				stale_metadata["expected"] = GFVariantData.duplicate_graph(expected_value)
+				stale_metadata["actual"] = GFVariantData.duplicate_graph(actual_value)
 			_add_drift_issue(
 				report,
 				GFVariantData.get_option_string(
@@ -258,7 +258,7 @@ static func _normalize_entry_keys(source: Dictionary) -> Dictionary:
 		var key: String = GFVariantData.to_text(raw_key).strip_edges()
 		if key.is_empty():
 			continue
-		result[key] = GFVariantData.duplicate_variant(source[raw_key])
+		result[key] = GFVariantData.duplicate_graph(source[raw_key])
 	return result
 
 

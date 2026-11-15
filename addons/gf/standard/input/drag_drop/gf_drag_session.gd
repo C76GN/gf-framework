@@ -99,7 +99,7 @@ func setup(
 	current_position = position
 	previous_position = position
 	_source_ref = weakref(source) if is_instance_valid(source) else null
-	var copied_metadata: Variant = GFVariantData.duplicate_variant(new_metadata)
+	var copied_metadata: Variant = GFVariantData.duplicate_graph(new_metadata)
 	metadata = copied_metadata if copied_metadata is Dictionary else {}
 
 
@@ -169,7 +169,7 @@ func to_dictionary(json_compatible: bool = true) -> Dictionary:
 			"reason": "json_encoding_failed",
 			"type": "GFDragSession",
 		}
-	var copied_result: Variant = GFVariantData.duplicate_variant(result)
+	var copied_result: Variant = GFVariantData.duplicate_graph(result)
 	if copied_result is Dictionary:
 		var copied_dictionary: Dictionary = copied_result
 		return copied_dictionary

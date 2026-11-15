@@ -903,8 +903,8 @@ func _append_check(
 		"check_id": check_id,
 		"kind": kind,
 		"ok": ok,
-		"expected_value": GFVariantData.duplicate_variant(expected_value),
-		"actual_value": GFVariantData.duplicate_variant(actual_value),
+		"expected_value": GFVariantData.duplicate_graph(expected_value),
+		"actual_value": GFVariantData.duplicate_graph(actual_value),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 	}
 	checks.append(check)

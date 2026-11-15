@@ -24,7 +24,7 @@ const _GF_VALIDATION_REPORT_DICTIONARY = preload("res://addons/gf/standard/found
 ## [br]
 ## @api private
 ## [br]
-const _SCHEMA_DESCRIPTOR_VERSION: int = 1
+const _SCHEMA_DESCRIPTOR_VERSION: int = 2
 
 ## 网络契约版本预检器的脚本资源。
 ## [br]
@@ -336,13 +336,14 @@ func get_schema_digest(options: Dictionary = {}) -> String:
 ## [br]
 ## @return 契约版本字典。
 ## [br]
-## @schema return: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version 和 schema_digest。
+## @schema return: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version、canonical_version 和 schema_digest。
 func get_contract_version() -> Dictionary:
 	return {
 		"contract_id": contract_id,
 		"version_major": contract_version_major,
 		"version_minor": contract_version_minor,
 		"schema_descriptor_version": _SCHEMA_DESCRIPTOR_VERSION,
+		"canonical_version": GFDeterministicVariantSerializer.CANONICAL_VERSION,
 		"schema_digest": get_schema_digest(),
 	}
 

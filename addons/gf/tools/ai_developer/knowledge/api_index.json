@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "7c14a2f65e47cf1bfc7628456baa28e4897fa2c20d9dbd2d7637eebcdfd27e49",
-  "class_count": 908,
+  "source_digest": "83e7c8124f44abd533cf74403bbed2dc0f2811aaef7685578e925567e30c010e",
+  "class_count": 909,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -290,7 +290,7 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "representative_path": "addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd"
+      "representative_path": "addons/gf/standard/foundation/deterministic/gf_canonical_encoder.gd"
     },
     {
       "id": "gf.standard.diagnostics",
@@ -4361,8 +4361,8 @@
         },
         {
           "kind": "func",
-          "name": "duplicate_collection",
-          "signature": "func duplicate_collection() -> GFAssetCollection",
+          "name": "duplicate_graph",
+          "signature": "func duplicate_graph() -> GFAssetCollection",
           "summary": "创建集合深拷贝。",
           "visibility": "public"
         },
@@ -10551,13 +10551,6 @@
         },
         {
           "kind": "var",
-          "name": "input_data",
-          "signature": "var input_data: Variant = null",
-          "summary": "工作输入数据。默认应只包含纯 Variant 数据。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "result",
           "signature": "var result: Variant = null",
           "summary": "工作结果。线程任务返回值或资源加载结果会写入该字段。",
@@ -10635,6 +10628,13 @@
         },
         {
           "kind": "func",
+          "name": "get_input_snapshot",
+          "signature": "func get_input_snapshot() -> GFDataSnapshot",
+          "summary": "获取工作持有的只读输入快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "is_finished",
           "signature": "func is_finished() -> bool",
           "summary": "当前工作是否已经进入终态。",
@@ -10676,7 +10676,7 @@
       "module": "standard",
       "package_id": "gf.standard.assets",
       "path": "addons/gf/standard/utilities/jobs/gf_background_work_utility.gd",
-      "summary": "GFBackgroundWorkUtility: 纯数据后台工作协调器。 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。",
+      "summary": "GFBackgroundWorkUtility: 纯数据后台工作协调器。 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。 CPU/IO 只接收已捕获的 GFDataSnapshot；提交只保留快照引用，不重复复制载荷。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -10760,13 +10760,6 @@
         },
         {
           "kind": "var",
-          "name": "allow_object_payloads",
-          "signature": "var allow_object_payloads: bool = false",
-          "summary": "是否默认允许 Object、Resource、Callable、Signal 或 RID 进入线程 payload。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "priority_aging_interval_msec",
           "signature": "var priority_aging_interval_msec: int = 1000",
           "summary": "等待中的 CPU/IO 工作每经过多少毫秒增加一次有效优先级。",
@@ -10838,14 +10831,14 @@
         {
           "kind": "func",
           "name": "submit_cpu_work",
-          "signature": "func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask",
+          "signature": "func submit_cpu_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask",
           "summary": "提交 CPU 纯数据后台工作。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "submit_io_work",
-          "signature": "func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask",
+          "signature": "func submit_io_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask",
           "summary": "提交 IO 纯数据后台工作。",
           "visibility": "public"
         },
@@ -23027,6 +23020,13 @@
         },
         {
           "kind": "func",
+          "name": "get_remaining_work_units",
+          "signature": "func get_remaining_work_units() -> int",
+          "summary": "返回当前剩余工作单元，供单遍执行器在执行前限制访问量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "from_options",
           "signature": "static func from_options(options: Dictionary = {}) -> GFConfigWorkBudget",
           "summary": "从入口选项取得共享句柄；不得同时声明限额与句柄。",
@@ -25399,6 +25399,54 @@
         }
       ]
     },
+    "GFDataSnapshot": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/variant/gf_data_snapshot.gd",
+      "summary": "GFDataSnapshot: 隔离纯数据后发布的只读快照。 捕获期间源数据必须稳定。共享子容器按值展开，循环、对象和对象类型容器被拒绝。 读取返回独立副本，后台任务可保留快照直到物理执行结束。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "capture",
+          "signature": "static func capture(value: Variant, limits: Dictionary = {}) -> Dictionary",
+          "summary": "完整捕获成功后发布快照，失败保留结构化诊断。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_ready",
+          "signature": "func is_ready() -> bool",
+          "summary": "返回快照是否已完成捕获。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_statistics",
+          "signature": "func get_statistics() -> Dictionary",
+          "summary": "返回成功捕获的计量副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "copy_value",
+          "signature": "func copy_value(limits: Dictionary = {}) -> Dictionary",
+          "summary": "显式导出可修改的工作树；各次导出彼此隔离。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_value",
+          "signature": "func get_value(path: Array = []) -> Variant",
+          "summary": "读取指定字典键或数组索引路径，结果与快照隔离。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFDebugDrawUtility": {
       "owner_kind": "class",
       "extends": "GFUtility",
@@ -27405,51 +27453,51 @@
       "module": "standard",
       "package_id": "gf.standard.deterministic",
       "path": "addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd",
-      "summary": "GFDeterministicVariantSerializer: 纯 Variant 数据的确定性规范编码器。 该类型为锁步、回放、黄金测试和内容 hash 提供稳定的 canonical value、JSON、 UTF-8 bytes 与 SHA-256。强确定性输入应使用整数、字符串、布尔、整数向量、",
+      "summary": "GFDeterministicVariantSerializer: 有界纯数据的 canonical v2 二进制编码。 哈希、计量和字节导出使用同一遍历；成功报告计数精确，失败不发布部分摘要或字节。 输入可为调用期间稳定的纯 Variant 或 GFDataSnapshot。别名按值展开，循环和对象被拒绝。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "5.0.0",
       "members": [
         {
-          "kind": "func",
-          "name": "to_canonical_value",
-          "signature": "static func to_canonical_value(value: Variant, options: Dictionary = {}) -> Variant",
-          "summary": "将 Variant 转换为 JSON 兼容的规范值。",
+          "kind": "const",
+          "name": "CANONICAL_VERSION",
+          "signature": "const CANONICAL_VERSION: int = 2",
+          "summary": "与哈希一同持久化的编码版本；v2 与旧 JSON 摘要不相同。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "to_canonical_json",
-          "signature": "static func to_canonical_json(value: Variant, options: Dictionary = {}) -> String",
-          "summary": "将 Variant 编码为规范 JSON 文本。",
+          "name": "hash_result",
+          "signature": "static func hash_result(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "单次遍历生成 SHA-256 及完整计量，不复制源树或构建完整输出。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "to_canonical_bytes",
-          "signature": "static func to_canonical_bytes(value: Variant, options: Dictionary = {}) -> PackedByteArray",
-          "summary": "将 Variant 编码为规范 UTF-8 字节。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "sha256",
-          "signature": "static func sha256(value: Variant, options: Dictionary = {}) -> String",
-          "summary": "计算 Variant 规范编码的 SHA-256，预检后构建完整 typed tree 和 JSON 文本以优先降低编码 CPU 开销。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "sha256_incremental",
-          "signature": "static func sha256_incremental(value: Variant, options: Dictionary = {}) -> String",
-          "summary": "逐片计算 Variant 规范编码的 SHA-256，不构建完整 typed tree 或规范 JSON 文本。",
+          "name": "encode_result",
+          "signature": "static func encode_result(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "单次遍历导出完整 canonical v2 字节及相同计量；受输出预算约束。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "measure_canonical",
           "signature": "static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary",
-          "summary": "只读预检规范编码的输入预算和精确输出字节数，不构建完整 typed tree 或输出文本，也不输出错误。",
+          "summary": "只计量规范编码，不生成摘要或完整字节，也不授予后续编码资格。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sha256",
+          "signature": "static func sha256(value: Variant, options: Dictionary = {}) -> String",
+          "summary": "返回 canonical v2 SHA-256；需要失败诊断时使用 hash_result。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_canonical_bytes",
+          "signature": "static func to_canonical_bytes(value: Variant, options: Dictionary = {}) -> PackedByteArray",
+          "summary": "返回完整 canonical v2 字节；需要失败诊断时使用 encode_result。",
           "visibility": "public"
         }
       ]
@@ -100684,7 +100732,7 @@
       "module": "standard",
       "package_id": "gf.standard.base",
       "path": "addons/gf/standard/foundation/variant/gf_variant_data.gd",
-      "summary": "GFVariantData: 通用 Variant 数据复制与默认值合并。 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。 JSON 兼容编码由 GFVariantJsonCodec 负责。",
+      "summary": "GFVariantData: 通用 Variant 数据复制与默认值合并。 默认复制纯数据值树；对象身份、循环和 Resource 克隆通过 duplicate_graph 显式选择。 另提供差异报告和默认值递归补齐。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -100692,15 +100740,22 @@
         {
           "kind": "func",
           "name": "duplicate_variant",
-          "signature": "static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant",
-          "summary": "深拷贝 Dictionary 或 Array；其他 Variant 原样返回。",
+          "signature": "static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Variant",
+          "summary": "有界复制纯数据值树；共享子容器独立展开，不保留引用身份。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "duplicate_collection",
-          "signature": "static func duplicate_collection(value: Variant, deep: bool = true) -> Variant",
-          "summary": "深拷贝集合值；语义同 duplicate_variant()，便于集合字段调用处表达意图。",
+          "name": "copy_value",
+          "signature": "static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary",
+          "summary": "单次遍历校验并隔离纯数据；失败丢弃全部部分副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_graph",
+          "signature": "static func duplicate_graph( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant",
+          "summary": "显式复制对象图，保留容器别名和循环；Object/Resource 默认保留身份。",
           "visibility": "public"
         },
         {
@@ -100963,11 +101018,25 @@
       "module": "standard",
       "package_id": "gf.standard.base",
       "path": "addons/gf/standard/foundation/variant/gf_variant_json_codec.gd",
-      "summary": "GFVariantJsonCodec: Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。 该类不负责集合复制或默认值合并；这类数据操作由 GFVariantData 提供。",
+      "summary": "GFVariantJsonCodec: Godot Variant 的 JSON 兼容转换与确定性文本编解码。 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。 encode_deterministic_result()/decode_deterministic_result() 使用独立版本化格式，保留纯数据类型并提供有界失败报告。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
       "members": [
+        {
+          "kind": "func",
+          "name": "encode_deterministic_result",
+          "signature": "static func encode_deterministic_result(value: Variant, options: Dictionary = {}) -> Dictionary",
+          "summary": "编码 gf.variant-json-deterministic v1 文本；Dictionary 按完整类型化键编码排序。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "decode_deterministic_result",
+          "signature": "static func decode_deterministic_result(text: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "有界解码 gf.variant-json-deterministic v1，直接恢复可变纯数据树，不物化整份 JSON 中间树。",
+          "visibility": "public"
+        },
         {
           "kind": "func",
           "name": "variant_to_json_compatible",

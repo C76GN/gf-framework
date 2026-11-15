@@ -113,6 +113,23 @@ func _init(limits: Dictionary = {}) -> void:
 
 # --- 公共方法 ---
 
+## 返回当前剩余工作单元，供单遍执行器在执行前限制访问量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 失败句柄返回 0；正常句柄返回尚未消费的工作单元。
+func get_remaining_work_units() -> int:
+	if not _error_kind.is_empty() or _execution == null:
+		return 0
+	var maximum_work_units: int = _limits["max_work_units"]
+	return maxi(
+		0,
+		maximum_work_units - _execution.get_steps()
+	)
+
+
 ## 从入口选项取得共享句柄；不得同时声明限额与句柄。
 ## [br]
 ## @api public

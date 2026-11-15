@@ -220,7 +220,7 @@ func get_failed_source_row_index() -> int:
 ## [br]
 ## @schema return: Variant stable row identity copy, or null.
 func get_failed_row_id() -> Variant:
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		_failed_row_id,
 		true,
 		true
@@ -405,7 +405,7 @@ static func _copy_bounded_diagnostic_row_id(row_id: Variant) -> Variant:
 		var row_id_text: String = GFVariantData.to_text(row_id)
 		if (row_id_text.length() > _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES or row_id_text.to_utf8_buffer().size() > _MAX_DIAGNOSTIC_ROW_ID_UTF8_BYTES):
 			return null
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		row_id,
 		true,
 		true

@@ -1048,7 +1048,7 @@ func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	keys.sort()
 	var result: Dictionary = {}
 	for key: String in keys:
-		result[key] = GFVariantData.duplicate_variant(
+		result[key] = GFVariantData.duplicate_graph(
 			data.get(key),
 			true
 		)

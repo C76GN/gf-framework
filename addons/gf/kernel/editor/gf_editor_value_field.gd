@@ -407,7 +407,7 @@ func _create_custom_editor(value_type: Variant.Type) -> Control:
 
 	var control_value: Variant = factory.call(
 		_property_info.duplicate(true),
-		_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+		_GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_value)
 	)
 	if control_value is Control:
 		var control: Control = control_value
@@ -629,7 +629,7 @@ func _sync_custom_editor_from_value(control: Control) -> void:
 	if control.has_method("set_value"):
 		control.call(
 			"set_value",
-			_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+			_GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_value)
 		)
 
 

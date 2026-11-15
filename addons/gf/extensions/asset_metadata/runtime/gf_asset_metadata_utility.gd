@@ -74,7 +74,7 @@ static func normalize_metadata(value: Variant) -> Dictionary:
 		return {}
 	if value is Dictionary:
 		return GFVariantData.to_dictionary(value)
-	return { "value": GFVariantData.duplicate_variant(value), }
+	return { "value": GFVariantData.duplicate_graph(value), }
 
 
 ## 写入对象资产元数据。

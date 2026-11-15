@@ -46,7 +46,7 @@ func _init() -> void:
 func describe() -> Dictionary:
 	var result: Dictionary = super.describe()
 	result["use_type_default"] = use_type_default
-	result["default_value"] = GFVariantData.duplicate_variant(default_value)
+	result["default_value"] = GFVariantData.duplicate_graph(default_value)
 	return result
 
 
@@ -143,7 +143,7 @@ func _make_issue_context(
 	compared_default: Variant
 ) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
-	issue_context["value"] = GFVariantData.duplicate_variant(value)
-	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["value"] = GFVariantData.duplicate_graph(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_graph(value)
 	issue_context["expected_value"] = "not %s" % var_to_str(compared_default)
 	return issue_context

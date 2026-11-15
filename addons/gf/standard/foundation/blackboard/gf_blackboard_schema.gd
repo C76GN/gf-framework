@@ -154,7 +154,7 @@ func apply_defaults(
 				)
 			continue
 		if entry.required or include_optional:
-			result[entry_key] = (_coerce_value_or_original(entry, entry.default_value) if should_coerce else GFVariantData.duplicate_variant(entry.default_value))
+			result[entry_key] = (_coerce_value_or_original(entry, entry.default_value) if should_coerce else GFVariantData.duplicate_graph(entry.default_value))
 	return result
 
 
@@ -401,7 +401,7 @@ func _coerce_value_or_original(entry: GFBlackboardEntry, source_value: Variant) 
 		false
 	):
 		return GFVariantData.get_option_value(coerce_result, "value")
-	return GFVariantData.duplicate_variant(source_value)
+	return GFVariantData.duplicate_graph(source_value)
 
 
 ## 将输入字典键规范为 StringName，并复制各字段值。
@@ -410,7 +410,7 @@ func _coerce_value_or_original(entry: GFBlackboardEntry, source_value: Variant) 
 func _normalize_keys(values: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key_variant: Variant in values.keys():
-		result[GFVariantData.to_string_name(key_variant)] = GFVariantData.duplicate_variant(values[key_variant])
+		result[GFVariantData.to_string_name(key_variant)] = GFVariantData.duplicate_graph(values[key_variant])
 	return result
 
 

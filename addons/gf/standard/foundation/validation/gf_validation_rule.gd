@@ -328,7 +328,7 @@ func _make_issue(message: String, context: Dictionary) -> GFValidationIssue:
 		message
 	)
 	issue.subject = _make_subject(context)
-	issue.key = GFVariantData.duplicate_variant(
+	issue.key = GFVariantData.duplicate_graph(
 		GFVariantData.get_option_value(
 			context,
 			"key",

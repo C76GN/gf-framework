@@ -219,7 +219,7 @@ func copy_column(column: GFConfigTableColumn, depth: int = 0) -> GFConfigTableCo
 	result.value_type = column.value_type
 	result.required = column.required
 	result.allow_null = column.allow_null
-	result.default_value = GFVariantData.duplicate_variant(column.default_value)
+	result.default_value = GFVariantData.duplicate_graph(column.default_value)
 	result.metadata = column.metadata.duplicate(true)
 	result.type_definition = copy_definition(
 		column.type_definition,

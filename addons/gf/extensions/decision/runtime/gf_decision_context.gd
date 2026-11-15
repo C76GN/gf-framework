@@ -490,7 +490,7 @@ func _copy_snapshot_dictionary(
 		eligible_count += 1
 		if snapshot.size() >= limit:
 			continue
-		snapshot[normalized_key] = GFVariantData.duplicate_variant(source[key_variant])
+		snapshot[normalized_key] = GFVariantData.duplicate_graph(source[key_variant])
 	_set_capture_diagnostics(
 		capture_slot,
 		capture_source,
@@ -532,7 +532,7 @@ func _snapshot_object_properties(object_ref: Object, capture_slot: StringName) -
 			)
 		):
 			return {}
-		snapshot[StringName(property_name)] = GFVariantData.duplicate_variant(value)
+		snapshot[StringName(property_name)] = GFVariantData.duplicate_graph(value)
 	_set_capture_diagnostics(
 		capture_slot,
 		&"reflection",
@@ -568,7 +568,7 @@ func _apply_decision_value_overrides(object_ref: Object, snapshot: Dictionary) -
 		)
 		if value is RefCounted and is_same(value, sentinel):
 			continue
-		snapshot[key] = GFVariantData.duplicate_variant(value)
+		snapshot[key] = GFVariantData.duplicate_graph(value)
 
 
 ## 先按 StringName 再按 String 键读取快照，并经 Variant 复制器返回值。
@@ -580,10 +580,10 @@ func _read_snapshot_value(
 	fallback: Variant = null
 ) -> Variant:
 	if snapshot.has(key):
-		return GFVariantData.duplicate_variant(snapshot[key])
+		return GFVariantData.duplicate_graph(snapshot[key])
 	var string_key: String = String(key)
 	if snapshot.has(string_key):
-		return GFVariantData.duplicate_variant(snapshot[string_key])
+		return GFVariantData.duplicate_graph(snapshot[string_key])
 	return fallback
 
 
@@ -662,7 +662,7 @@ func _read_object_snapshot_value(
 			attempted_count
 		)
 		return fallback
-	snapshot[key] = GFVariantData.duplicate_variant(value)
+	snapshot[key] = GFVariantData.duplicate_graph(value)
 	_set_capture_diagnostics(
 		capture_slot,
 		&"lazy_cache",
@@ -671,7 +671,7 @@ func _read_object_snapshot_value(
 		limit,
 		attempted_count
 	)
-	return GFVariantData.duplicate_variant(value)
+	return GFVariantData.duplicate_graph(value)
 
 
 ## 按 StringName 或其 String 形式检查快照键是否存在。
@@ -784,7 +784,7 @@ func _can_invoke_provider_method(
 ## [br]
 ## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
-	var copied: Variant = GFVariantData.duplicate_variant(source)
+	var copied: Variant = GFVariantData.duplicate_graph(source)
 	if copied is Dictionary:
 		var copied_dictionary: Dictionary = copied
 		return copied_dictionary

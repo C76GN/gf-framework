@@ -187,7 +187,7 @@ func to_dictionary() -> Dictionary:
 		var key: StringName = GFVariantData.to_string_name(key_variant)
 		if key == &"":
 			continue
-		result[key] = GFVariantData.duplicate_variant(values[key_variant])
+		result[key] = GFVariantData.duplicate_graph(values[key_variant])
 	return result
 
 

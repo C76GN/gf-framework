@@ -197,6 +197,7 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ### `set_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_value(key: StringName, value: Variant) -> void:
@@ -213,7 +214,7 @@ func set_value(key: StringName, value: Variant) -> void:
 
 结构：
 
-- `value`: Variant，字段值，会通过 GFVariantData.duplicate_variant() 复制后保存。
+- `value`: Variant，字段值，会通过 GFVariantData.duplicate_graph() 复制后保存。
 
 <a id="member-gfnetworksnapshot-methods-erase_value"></a>
 

@@ -130,7 +130,7 @@ func encode_state(state: Dictionary) -> Dictionary:
 		for key: Variant in state.keys():
 			if has_field_serializer(StringName(str(key))):
 				continue
-			encoded[key] = GFVariantData.duplicate_variant(state[key])
+			encoded[key] = GFVariantData.duplicate_graph(state[key])
 	return encoded
 
 
@@ -160,7 +160,7 @@ func decode_state(encoded_state: Dictionary) -> Dictionary:
 		for key: Variant in encoded_state.keys():
 			if has_field_serializer(StringName(str(key))):
 				continue
-			decoded[key] = GFVariantData.duplicate_variant(encoded_state[key])
+			decoded[key] = GFVariantData.duplicate_graph(encoded_state[key])
 	return decoded
 
 
@@ -379,11 +379,11 @@ func _transform_patch_value_for_path(
 	encode: bool
 ) -> Variant:
 	if path.size() != 1:
-		return GFVariantData.duplicate_variant(value)
+		return GFVariantData.duplicate_graph(value)
 
 	var serializer: GFNetworkFieldSerializer = get_field_serializer(StringName(str(path[0])))
 	if serializer == null:
-		return GFVariantData.duplicate_variant(value)
+		return GFVariantData.duplicate_graph(value)
 	if encode:
 		return serializer.serialize_value(value)
 	return serializer.deserialize_value(value)
@@ -410,7 +410,7 @@ func _patch_path_from_value(path_value: Variant) -> Array:
 			result.append(key)
 	elif path_value is Array:
 		for key: Variant in path_value:
-			result.append(GFVariantData.duplicate_variant(key))
+			result.append(GFVariantData.duplicate_graph(key))
 	elif path_value is String or path_value is StringName:
 		result.append(path_value)
 	return result

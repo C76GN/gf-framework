@@ -1715,7 +1715,7 @@ static func _number_to_int(value: Variant) -> int:
 ## [br]
 ## @api private
 static func _duplicate_variant(value: Variant) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(value)
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(value)
 
 
 ## 将 Variant 按共享辅助脚本的规则收窄为 Dictionary。

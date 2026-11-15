@@ -191,7 +191,7 @@ func filter_records(table_data: Variant) -> Variant:
 			if allows_metadata(_get_record_metadata(row)):
 				result[key] = row
 		return result
-	return GFVariantData.duplicate_variant(table_data)
+	return GFVariantData.duplicate_graph(table_data)
 
 
 ## 创建同内容拷贝。

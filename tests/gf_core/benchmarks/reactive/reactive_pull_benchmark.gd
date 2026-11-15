@@ -61,7 +61,7 @@ class PullCache extends RefCounted:
 				rejected_computes += 1
 				return null
 			_cache = computed
-		return ACCESS.duplicate_collection(_cache, true)
+		return ACCESS.duplicate_graph(_cache, true)
 
 
 	func dispose() -> void:

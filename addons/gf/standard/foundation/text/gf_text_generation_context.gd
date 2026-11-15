@@ -237,7 +237,7 @@ func set_value(key: StringName, value: Variant) -> void:
 	if _scopes.is_empty():
 		var _new_scope_depth: int = push_scope({}, "root")
 	var scope: Dictionary = _scopes[_scopes.size() - 1]
-	scope[key] = GFVariantData.duplicate_variant(value)
+	scope[key] = GFVariantData.duplicate_graph(value)
 	_scopes[_scopes.size() - 1] = scope
 
 
@@ -288,7 +288,7 @@ func get_value(
 		"found",
 		false
 	):
-		return GFVariantData.duplicate_variant(GFVariantData.get_option_value(resolved, "value"))
+		return GFVariantData.duplicate_graph(GFVariantData.get_option_value(resolved, "value"))
 	if strict_variables:
 		_add_source_error(
 			&"missing_value",
@@ -296,7 +296,7 @@ func get_value(
 			source_span,
 			{ "path": data_path }
 		)
-	return GFVariantData.duplicate_variant(default_value)
+	return GFVariantData.duplicate_graph(default_value)
 
 
 ## 替换文本中的 token。
@@ -650,7 +650,7 @@ func _format_replacement_value(
 
 	var formatter_context: Dictionary = {
 		"path": data_path,
-		"value": GFVariantData.duplicate_variant(replacement_value),
+		"value": GFVariantData.duplicate_graph(replacement_value),
 		"fallback_text": fallback_text,
 		"source_span": source_span,
 		"metadata": metadata.duplicate(true),
@@ -1018,7 +1018,7 @@ func _render_template_loop(
 	for index: int in range(items.size()):
 		if not _consume_step(source_span):
 			return output
-		var scope: Dictionary = { loop_variable: GFVariantData.duplicate_variant(items[index]), }
+		var scope: Dictionary = { loop_variable: GFVariantData.duplicate_graph(items[index]), }
 		if not loop_key.is_empty():
 			scope[loop_key] = {
 				"index": index,
@@ -1278,7 +1278,7 @@ func _to_template_iterable_array(
 func _packed_iterable_to_array(values: Variant) -> Array:
 	var result: Array = []
 	for item: Variant in values:
-		result.append(GFVariantData.duplicate_variant(item))
+		result.append(GFVariantData.duplicate_graph(item))
 	return result
 
 

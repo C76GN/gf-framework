@@ -81,7 +81,7 @@ static func issue_to_diagnostic(issue: Variant, options: Dictionary = {}) -> Dic
 		"severity": severity,
 		"kind": kind_key,
 		"message": GFVariantData.get_option_string(issue_data, "message"),
-		"key": GFVariantData.duplicate_variant(GFVariantData.get_option_value(issue_data, "key")),
+		"key": GFVariantData.duplicate_graph(GFVariantData.get_option_value(issue_data, "key")),
 		"path": GFVariantData.get_option_string(issue_data, "path"),
 		"source_path": source_path,
 		"line": line,
@@ -319,7 +319,7 @@ static func _make_span_data(issue_data: Dictionary, options: Dictionary) -> Dict
 		"preview",
 	]:
 		if issue_data.has(field_name):
-			span_data[field_name] = GFVariantData.duplicate_variant(issue_data[field_name])
+			span_data[field_name] = GFVariantData.duplicate_graph(issue_data[field_name])
 
 	if (
 		GFVariantData.get_option_string(span_data, "source_path").is_empty()

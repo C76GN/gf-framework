@@ -371,7 +371,7 @@ func to_array(deep: bool = false) -> Array:
 	var _resize_result: int = result.resize(_count)
 	for index: int in range(_count):
 		var value: Variant = _data[_physical_index(index)]
-		result[index] = GFVariantData.duplicate_variant(value) if deep else value
+		result[index] = GFVariantData.duplicate_graph(value) if deep else value
 	return result
 
 

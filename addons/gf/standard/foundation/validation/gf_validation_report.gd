@@ -406,9 +406,9 @@ func merge(source: Variant, include_metadata: bool = true) -> RefCounted:
 				_add_issue_if_valid(issue_variant)
 		if include_metadata:
 			for key: Variant in source_report.metadata.keys():
-				metadata[key] = GFVariantData.duplicate_variant(source_report.metadata[key])
+				metadata[key] = GFVariantData.duplicate_graph(source_report.metadata[key])
 			for key: Variant in source_report.extra_fields.keys():
-				extra_fields[key] = GFVariantData.duplicate_variant(source_report.extra_fields[key])
+				extra_fields[key] = GFVariantData.duplicate_graph(source_report.extra_fields[key])
 	elif source is Dictionary:
 		var source_dict: Dictionary = source
 		var source_issues: Array = GFVariantData.as_array(
@@ -425,7 +425,7 @@ func merge(source: Variant, include_metadata: bool = true) -> RefCounted:
 		if include_metadata and source_metadata_value is Dictionary:
 			var source_metadata: Dictionary = GFVariantData.as_dictionary(source_metadata_value)
 			for key: Variant in source_metadata.keys():
-				metadata[key] = GFVariantData.duplicate_variant(source_metadata[key])
+				metadata[key] = GFVariantData.duplicate_graph(source_metadata[key])
 	return self
 
 
@@ -464,7 +464,7 @@ func apply_dict(data: Dictionary) -> void:
 	for field_key: Variant in data.keys():
 		if _is_reserved_report_field(GFVariantData.to_text(field_key)):
 			continue
-		extra_fields[field_key] = GFVariantData.duplicate_variant(data[field_key])
+		extra_fields[field_key] = GFVariantData.duplicate_graph(data[field_key])
 
 
 ## 转换为报告字典。
@@ -485,7 +485,7 @@ func apply_dict(data: Dictionary) -> void:
 func to_dict(additional_fields: Dictionary = {}, options: Dictionary = {}) -> Dictionary:
 	var result: Dictionary = extra_fields.duplicate(true)
 	for field_key: Variant in additional_fields.keys():
-		result[field_key] = GFVariantData.duplicate_variant(additional_fields[field_key])
+		result[field_key] = GFVariantData.duplicate_graph(additional_fields[field_key])
 
 	var include_subject: bool = GFVariantData.get_option_bool(
 		options,

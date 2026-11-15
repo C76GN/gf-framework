@@ -81,7 +81,7 @@ var _metadata: Dictionary = {}
 static func succeeded(value: Variant, metadata: Dictionary = {}) -> GFDiagnosticProviderResult:
 	var result: GFDiagnosticProviderResult = GFDiagnosticProviderResult.new()
 	result._successful = true
-	result._value = GFVariantData.duplicate_variant(value)
+	result._value = GFVariantData.duplicate_graph(value)
 	result._metadata = _duplicate_dictionary(metadata)
 	return result
 
@@ -144,7 +144,7 @@ func is_successful() -> bool:
 ## [br]
 ## @schema return: Provider-defined Variant copy, or null for a failed result.
 func get_value() -> Variant:
-	return GFVariantData.duplicate_variant(_value) if _successful else null
+	return GFVariantData.duplicate_graph(_value) if _successful else null
 
 
 ## 获取稳定错误码。
@@ -189,4 +189,4 @@ func get_metadata() -> Dictionary:
 ## @api private
 ## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
+	return GFVariantData.as_dictionary(GFVariantData.duplicate_graph(value))

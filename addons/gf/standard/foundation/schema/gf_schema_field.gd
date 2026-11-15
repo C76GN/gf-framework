@@ -147,7 +147,7 @@ func configure(
 		"allow_null",
 		allow_null
 	)
-	default_value = GFVariantData.duplicate_variant(
+	default_value = GFVariantData.duplicate_graph(
 		GFVariantData.get_option_value(
 			options,
 			"default_value",
@@ -263,7 +263,7 @@ func coerce_value(value: Variant) -> Variant:
 		false
 	):
 		return GFVariantData.get_option_value(result, "value")
-	return GFVariantData.duplicate_variant(value)
+	return GFVariantData.duplicate_graph(value)
 
 
 ## 尝试转换输入值并返回转换报告。
@@ -354,7 +354,7 @@ func try_coerce_value(value: Variant) -> Dictionary:
 		_:
 			return _make_coerce_result(
 				true,
-				GFVariantData.duplicate_variant(value)
+				GFVariantData.duplicate_graph(value)
 			)
 
 
@@ -446,7 +446,7 @@ func describe() -> Dictionary:
 		"value_type_name": value_type_to_name(value_type),
 		"required": required,
 		"allow_null": allow_null,
-		"default_value": GFVariantData.duplicate_variant(default_value),
+		"default_value": GFVariantData.duplicate_graph(default_value),
 		"has_dictionary_schema": dictionary_schema != null,
 		"has_array_item_schema": array_item_schema != null,
 		"metadata": metadata.duplicate(true),
@@ -612,7 +612,7 @@ func _duplicate_field_with_context(state: Dictionary) -> GFSchemaField:
 	field.value_type = value_type
 	field.required = required
 	field.allow_null = allow_null
-	field.default_value = GFVariantData.duplicate_variant(default_value)
+	field.default_value = GFVariantData.duplicate_graph(default_value)
 	field.dictionary_schema = null
 	if dictionary_schema != null:
 		field.dictionary_schema = dictionary_schema._duplicate_schema(state)
@@ -764,7 +764,7 @@ func _merge_rule_report(
 				String(field_name)
 			)
 		if issue.key == null:
-			issue.key = GFVariantData.duplicate_variant(
+			issue.key = GFVariantData.duplicate_graph(
 				GFVariantData.get_option_value(
 					context,
 					"key",
@@ -833,9 +833,9 @@ func _add_error(
 	var issue_metadata: Dictionary = metadata.duplicate(true)
 	issue_metadata["schema_id"] = GFVariantData.get_option_string(context, "schema_id")
 	issue_metadata["field_name"] = String(field_name)
-	issue_metadata["expected_value"] = GFVariantData.duplicate_variant(expected_value)
-	issue_metadata["actual_value"] = GFVariantData.duplicate_variant(actual_value)
-	issue_metadata["actual_type"] = GFVariantData.duplicate_variant(actual_type)
+	issue_metadata["expected_value"] = GFVariantData.duplicate_graph(expected_value)
+	issue_metadata["actual_value"] = GFVariantData.duplicate_graph(actual_value)
+	issue_metadata["actual_type"] = GFVariantData.duplicate_graph(actual_type)
 	var issue_key: Variant = GFVariantData.get_option_value(
 		context,
 		"key",

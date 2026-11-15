@@ -348,7 +348,7 @@ func get_contract_version() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version 和 schema_digest。
+- `return`: Dictionary，包含 contract_id、version_major、version_minor、schema_descriptor_version、canonical_version 和 schema_digest。
 
 <a id="member-gfnetworkcontract-methods-validate_peer_contract_version"></a>
 

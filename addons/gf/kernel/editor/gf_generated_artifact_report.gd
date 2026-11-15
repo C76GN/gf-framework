@@ -2704,7 +2704,7 @@ static func _sort_dictionary_by_key(data: Dictionary) -> Dictionary:
 	keys.sort()
 	var result: Dictionary = {}
 	for key: String in keys:
-		result[key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+		result[key] = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 			data.get(key),
 			true
 		)

@@ -528,7 +528,7 @@ func _emit_value_changed(old_value: Variant, new_value: Variant) -> void:
 ## [br]
 ## @api private
 func _copy_signal_payload(source_value: Variant) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_collection(source_value, true)
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(source_value, true)
 
 
 ## 使用 GFVariantAccess 的值比较规则判断两个 Variant 是否相等。

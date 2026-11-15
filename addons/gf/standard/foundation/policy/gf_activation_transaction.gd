@@ -668,7 +668,7 @@ func _normalize_callback_result(
 		"",
 		step,
 		phase,
-		{ "value": GFVariantData.duplicate_variant(value), }
+		{ "value": GFVariantData.duplicate_graph(value), }
 	)
 
 

@@ -103,7 +103,7 @@ func add_event(
 	var event: Dictionary = {
 		"time_seconds": _normalize_time_seconds(time_seconds),
 		"action_id": action_id,
-		"value": GFVariantData.duplicate_variant(value),
+		"value": GFVariantData.duplicate_graph(value),
 		"player_index": player_index,
 		"source_id": source_id,
 		"metadata": event_metadata.duplicate(true),
@@ -234,7 +234,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 		"metadata",
 		{}
 	)
-	metadata_value = (GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_variant(metadata_value))
+	metadata_value = (GFVariantJsonCodec.json_compatible_to_variant(metadata_value) if json_compatible else GFVariantData.duplicate_graph(metadata_value))
 	metadata = GFVariantData.as_dictionary(metadata_value)
 	sort_events()
 	duration_seconds = maxf(
@@ -340,10 +340,10 @@ func _event_to_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	return {
 		"time_seconds": _get_event_time_seconds(event),
 		"action_id": String(_get_event_action_id(event)),
-		"value": (GFVariantJsonCodec.variant_to_json_compatible(_get_event_value(event)) if json_compatible else GFVariantData.duplicate_variant(_get_event_value(event))),
+		"value": (GFVariantJsonCodec.variant_to_json_compatible(_get_event_value(event)) if json_compatible else GFVariantData.duplicate_graph(_get_event_value(event))),
 		"player_index": _get_event_player_index(event),
 		"source_id": String(_get_event_source_id(event)),
-		"metadata": (GFVariantJsonCodec.variant_to_json_compatible(_get_event_metadata(event)) if json_compatible else GFVariantData.duplicate_variant(_get_event_metadata(event))),
+		"metadata": (GFVariantJsonCodec.variant_to_json_compatible(_get_event_metadata(event)) if json_compatible else GFVariantData.duplicate_graph(_get_event_metadata(event))),
 	}
 
 
@@ -353,13 +353,13 @@ func _event_to_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 ## [br]
 func _event_from_dict(event: Dictionary, json_compatible: bool) -> Dictionary:
 	var value: Variant = _get_event_value(event)
-	value = (GFVariantJsonCodec.json_compatible_to_variant(value) if json_compatible else GFVariantData.duplicate_variant(value))
+	value = (GFVariantJsonCodec.json_compatible_to_variant(value) if json_compatible else GFVariantData.duplicate_graph(value))
 	var event_metadata: Variant = GFVariantData.get_option_value(
 		event,
 		"metadata",
 		{}
 	)
-	event_metadata = (GFVariantJsonCodec.json_compatible_to_variant(event_metadata) if json_compatible else GFVariantData.duplicate_variant(event_metadata))
+	event_metadata = (GFVariantJsonCodec.json_compatible_to_variant(event_metadata) if json_compatible else GFVariantData.duplicate_graph(event_metadata))
 	return {
 		"time_seconds": _normalize_time_seconds(_get_event_time_seconds(event)),
 		"action_id": _get_event_action_id(event),

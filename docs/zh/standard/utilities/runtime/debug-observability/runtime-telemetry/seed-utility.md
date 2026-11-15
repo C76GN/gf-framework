@@ -56,9 +56,9 @@ var rule_seed_result := GFSeedUtility.try_make_stable_seed([{
 var tile_seed := GFSeedUtility.make_stable_grid_seed(Vector2i(8, 3), 12345, "foliage")
 ```
 
-`make_stable_seed()` 和 `try_make_stable_seed()` 都会先走 `GFDeterministicVariantSerializer` 的 canonical 编码，因此 Dictionary key 插入顺序不会影响结果。默认情况下 float、Object、Resource、Callable 和循环引用会被拒绝；需要把浮点值纳入工具级 seed 时，必须显式传入 `{"allow_floats": true}`，并接受浮点文本只适合工具和测试，不作为跨平台锁步真值。
+`make_stable_seed()` 和 `try_make_stable_seed()` 都对 `GFDeterministicVariantSerializer` 的 canonical v2 字节执行 FNV-1a 32 位派生，因此 Dictionary key 插入顺序不会影响结果。默认拒绝浮点、对象、可执行值、RID 和循环；有限浮点需要显式传入 `{"allow_floats": true}`。编码统一浮点字节和负零，但不能消除产生这些数值的跨平台计算差异。
 
-`make_stable_seed()` 是便捷入口，编码失败时返回 `0`。如果调用方需要区分“合法 seed 恰好为 0”和“输入无法编码”，使用 `try_make_stable_seed()` 并检查返回字典中的 `ok`、`seed` 与 `error` 字段。
+`make_stable_seed()` 是便捷入口，编码失败时返回 `0`。如果调用方需要区分“合法 seed 恰好为 0”和“输入无法编码”，使用 `try_make_stable_seed()` 并检查返回字典中的 `ok`、`seed` 与 `error` 字段。结果同时包含 `canonical_version`；持久化结构化 seed 时一同保存。v2 结果与旧规范 JSON 不同，需要重建黄金值及派生缓存；纯文本 seed 算法保持原有定义。
 
 `make_stable_grid_seed()` 的第三个参数是 `namespace_id`，用于让同一坐标在不同用途下得到不同 seed。
 

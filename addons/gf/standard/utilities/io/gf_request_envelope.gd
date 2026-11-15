@@ -276,7 +276,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 		"body",
 		{}
 	)
-	var body_value: Variant = (GFVariantJsonCodec.json_compatible_to_variant(raw_body) if json_compatible else GFVariantData.duplicate_variant(raw_body))
+	var body_value: Variant = (GFVariantJsonCodec.json_compatible_to_variant(raw_body) if json_compatible else GFVariantData.duplicate_graph(raw_body))
 	body = GFVariantData.as_dictionary(body_value)
 	headers = _headers_from_variant(
 		GFVariantData.get_option_value(
@@ -300,7 +300,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = false) -> void:
 		"metadata",
 		{}
 	)
-	var metadata_value: Variant = (GFVariantJsonCodec.json_compatible_to_variant(raw_metadata) if json_compatible else GFVariantData.duplicate_variant(raw_metadata))
+	var metadata_value: Variant = (GFVariantJsonCodec.json_compatible_to_variant(raw_metadata) if json_compatible else GFVariantData.duplicate_graph(raw_metadata))
 	metadata = GFVariantData.as_dictionary(metadata_value)
 
 

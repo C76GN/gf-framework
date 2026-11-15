@@ -108,8 +108,20 @@ func configure(
 	_schema_version = schema_version
 	_payload_admission_failure = _get_persisted_admission_failure(payload)
 	_metadata_admission_failure = _get_persisted_admission_failure(metadata)
-	_payload = (null if not _payload_admission_failure.is_empty() else GFVariantData.duplicate_variant(payload))
-	_metadata = ({} if not _metadata_admission_failure.is_empty() else metadata.duplicate(true))
+	_payload = null
+	_metadata = {}
+	if _payload_admission_failure.is_empty():
+		var captured: Dictionary = GFVariantData.copy_value(payload)
+		if captured["ok"]:
+			_payload = captured["value"]
+		else:
+			_payload_admission_failure = captured
+	if _metadata_admission_failure.is_empty():
+		var captured: Dictionary = GFVariantData.copy_value(metadata)
+		if captured["ok"]:
+			_metadata = captured["value"]
+		else:
+			_metadata_admission_failure = captured
 	return self
 
 
@@ -220,10 +232,12 @@ func validate_section() -> Dictionary:
 ## [br]
 ## @since 9.0.0
 ## [br]
-## @return 分区字典。
+## @return 分区字典；捕获失败时返回空字典。
 ## [br]
 ## @schema return: Dictionary with section_id, schema_version, payload, and metadata.
 func to_dict() -> Dictionary:
+	if not _payload_admission_failure.is_empty() or not _metadata_admission_failure.is_empty():
+		return {}
 	return {
 		"section_id": _section_id,
 		"schema_version": _schema_version,
@@ -247,6 +261,10 @@ func duplicate_section() -> GFSaveSection:
 		_metadata
 	)
 	copy._storage_json_projection = _storage_json_projection.duplicate()
+	if not _payload_admission_failure.is_empty():
+		copy._payload_admission_failure = _payload_admission_failure.duplicate(true)
+	if not _metadata_admission_failure.is_empty():
+		copy._metadata_admission_failure = _metadata_admission_failure.duplicate(true)
 	return copy
 
 
@@ -362,14 +380,15 @@ static func from_dict(data: Dictionary) -> GFSaveSection:
 		false
 	):
 		return null
-	return (
-		GFSaveSection.new().configure(
-			GFVariantData.to_string_name(section_id_value),
-			GFVariantData.to_exact_int(schema_version_value),
-			GFVariantData.get_option_value(data, "payload"),
-			GFVariantData.as_dictionary(metadata_value)
-		)
+	var section: GFSaveSection = GFSaveSection.new().configure(
+		GFVariantData.to_string_name(section_id_value),
+		GFVariantData.to_exact_int(schema_version_value),
+		GFVariantData.get_option_value(data, "payload"),
+		GFVariantData.as_dictionary(metadata_value)
 	)
+	if not section._payload_admission_failure.is_empty() or not section._metadata_admission_failure.is_empty():
+		return null
+	return section
 
 
 # --- 私有/辅助方法 ---

@@ -88,7 +88,7 @@ func bind_control(
 		"control_ref": weakref(control),
 		"path_segments": path_segments,
 		"path": path_text,
-		"default_value": GFVariantData.duplicate_variant(default_value),
+		"default_value": GFVariantData.duplicate_graph(default_value),
 		"updating_control": false,
 		"unsubscribe": Callable(),
 		"value_changed_connections": [],

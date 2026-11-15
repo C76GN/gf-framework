@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 79 | 1155 | [Kernel](#module-kernel) |
-| Standard | 511 | 7872 | [Standard](#module-standard) |
+| Standard | 512 | 7880 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -138,7 +138,7 @@
 | [`GFAudioMetadataTools`](GFAudioMetadataTools.md#gfaudiometadatatools) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd` |
 | [`GFAudioPitchAnalysisTools`](GFAudioPitchAnalysisTools.md#gfaudiopitchanalysistools) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd` |
 | [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 80 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
-| [`GFBackgroundWorkUtility`](GFBackgroundWorkUtility.md#gfbackgroundworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 35 | `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd` |
+| [`GFBackgroundWorkUtility`](GFBackgroundWorkUtility.md#gfbackgroundworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 34 | `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd` |
 | [`GFBatchedLogSink`](GFBatchedLogSink.md#gfbatchedlogsink) | 运行时服务 (`runtime_service`) | `GFLogSink` | 16 | `addons/gf/standard/utilities/logging/gf_batched_log_sink.gd` |
 | [`GFBridgeContractReport`](GFBridgeContractReport.md#gfbridgecontractreport) | 运行时服务 (`runtime_service`) | `RefCounted` | 26 | `addons/gf/standard/foundation/validation/gf_bridge_contract_report.gd` |
 | [`GFBudgetLedger`](GFBudgetLedger.md#gfbudgetledger) | 运行时服务 (`runtime_service`) | `RefCounted` | 14 | `addons/gf/standard/foundation/budget/gf_budget_ledger.gd` |
@@ -312,8 +312,8 @@
 | [`GFValidationReportDictionary`](GFValidationReportDictionary.md#gfvalidationreportdictionary) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd` |
 | [`GFValidationRunner`](GFValidationRunner.md#gfvalidationrunner) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/standard/foundation/validation/gf_validation_runner.gd` |
 | [`GFValueIndex`](GFValueIndex.md#gfvalueindex) | 运行时服务 (`runtime_service`) | `RefCounted` | 15 | `addons/gf/standard/foundation/collections/gf_value_index.gd` |
-| [`GFVariantData`](GFVariantData.md#gfvariantdata) | 运行时服务 (`runtime_service`) | `RefCounted` | 38 | `addons/gf/standard/foundation/variant/gf_variant_data.gd` |
-| [`GFVariantJsonCodec`](GFVariantJsonCodec.md#gfvariantjsoncodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 15 | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
+| [`GFVariantData`](GFVariantData.md#gfvariantdata) | 运行时服务 (`runtime_service`) | `RefCounted` | 39 | `addons/gf/standard/foundation/variant/gf_variant_data.gd` |
+| [`GFVariantJsonCodec`](GFVariantJsonCodec.md#gfvariantjsoncodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
 | [`GFVariantKeyCodec`](GFVariantKeyCodec.md#gfvariantkeycodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 3 | `addons/gf/standard/foundation/variant/gf_variant_key_codec.gd` |
 | [`GFVariantReferenceCodec`](GFVariantReferenceCodec.md#gfvariantreferencecodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 21 | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
 | [`GFViewportSurfaceInputBridge`](GFViewportSurfaceInputBridge.md#gfviewportsurfaceinputbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 19 | `addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd` |
@@ -496,7 +496,7 @@
 | [`GFBgmStartOperation`](GFBgmStartOperation.md#gfbgmstartoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 7 | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |
 | [`GFCallableRuntimeTask`](GFCallableRuntimeTask.md#gfcallableruntimetask) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 13 | `addons/gf/standard/sequence/gf_callable_runtime_task.gd` |
 | [`GFConfigTableQuery`](GFConfigTableQuery.md#gfconfigtablequery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 27 | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
-| [`GFConfigWorkBudget`](GFConfigWorkBudget.md#gfconfigworkbudget) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/standard/utilities/config/gf_config_work_budget.gd` |
+| [`GFConfigWorkBudget`](GFConfigWorkBudget.md#gfconfigworkbudget) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/config/gf_config_work_budget.gd` |
 | [`GFControlEditSession`](GFControlEditSession.md#gfcontroleditsession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/standard/utilities/ui/gf_control_edit_session.gd` |
 | [`GFDeterministicRandom`](GFDeterministicRandom.md#gfdeterministicrandom) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
 | [`GFDownloadTask`](GFDownloadTask.md#gfdownloadtask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/standard/utilities/io/gf_download_task.gd` |
@@ -552,6 +552,7 @@
 | [`GFCivilDateResult`](GFCivilDateResult.md#gfcivildateresult) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/standard/utilities/time/gf_civil_date_result.gd` |
 | [`GFConfigSnapshot`](GFConfigSnapshot.md#gfconfigsnapshot) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/config/gf_config_snapshot.gd` |
 | [`GFConfigValidationReport`](GFConfigValidationReport.md#gfconfigvalidationreport) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
+| [`GFDataSnapshot`](GFDataSnapshot.md#gfdatasnapshot) | 值对象 (`value_object`) | `RefCounted` | 5 | `addons/gf/standard/foundation/variant/gf_data_snapshot.gd` |
 | [`GFDeque`](GFDeque.md#gfdeque) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/foundation/collections/gf_deque.gd` |
 | [`GFDiagnosticProviderResult`](GFDiagnosticProviderResult.md#gfdiagnosticproviderresult) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd` |
 | [`GFDirectoryChangeSet`](GFDirectoryChangeSet.md#gfdirectorychangeset) | 值对象 (`value_object`) | `RefCounted` | 13 | `addons/gf/standard/utilities/io/gf_directory_change_set.gd` |

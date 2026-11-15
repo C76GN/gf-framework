@@ -181,7 +181,7 @@ func capture(metadata: Dictionary = {}) -> int:
 ## [br]
 ## @param data: 快照数据。
 ## [br]
-## @schema data: Pure Variant snapshot payload; Object and Resource references are rejected.
+## @schema data: Pure value tree, bounded by GFVariantData.copy_value defaults; aliases expand and cycles or object references are rejected.
 ## [br]
 ## @param metadata: 快照元数据。
 ## [br]
@@ -189,11 +189,13 @@ func capture(metadata: Dictionary = {}) -> int:
 ## [br]
 ## @return 快照 ID。
 func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
-	if not _is_snapshot_payload_allowed(data, 0):
-		push_error("[GFSnapshotHistoryUtility][snapshot_history_utility.snapshot_references_unsupported] Cannot push_snapshot: snapshot data must not contain Object or Resource references.")
+	var captured_data: Dictionary = GFVariantData.copy_value(data)
+	if not captured_data["ok"]:
+		push_error("[GFSnapshotHistoryUtility][snapshot_history_utility.snapshot_references_unsupported] Cannot push_snapshot: snapshot data must be a bounded pure value tree.")
 		return 0
-	if not _is_snapshot_payload_allowed(metadata, 0):
-		push_error("[GFSnapshotHistoryUtility][snapshot_history_utility.metadata_references_unsupported] Cannot push_snapshot: snapshot metadata must not contain Object or Resource references.")
+	var captured_metadata: Dictionary = GFVariantData.copy_value(metadata)
+	if not captured_metadata["ok"]:
+		push_error("[GFSnapshotHistoryUtility][snapshot_history_utility.metadata_references_unsupported] Cannot push_snapshot: snapshot metadata must be a bounded pure value tree.")
 		return 0
 
 	if _current_index < _snapshots.size() - 1:
@@ -204,17 +206,18 @@ func push_snapshot(data: Variant, metadata: Dictionary = {}) -> int:
 
 	var snapshot_id: int = _next_snapshot_id
 	_next_snapshot_id += 1
+	var owned_metadata: Dictionary = captured_metadata["value"]
 	var record: Dictionary = _make_record(
 		snapshot_id,
-		data,
-		metadata
+		captured_data["value"],
+		owned_metadata
 	)
 	_snapshots.append(record)
 	_current_index = _snapshots.size() - 1
 	var _trim_history_result_162: Variant = _trim_history()
 	snapshot_recorded.emit(
 		snapshot_id,
-		GFVariantData.as_dictionary(record["metadata"]).duplicate(true)
+		GFVariantData.as_dictionary(_duplicate_snapshot_payload(record["metadata"]))
 	)
 	_emit_history_changed()
 	return snapshot_id
@@ -461,7 +464,7 @@ func _restore_data(data: Variant) -> bool:
 	return false
 
 
-## 创建带 ID、Unix 时间戳及复制后元数据和数据的快照记录。
+## 接收已隔离的元数据和数据，创建带 ID、Unix 时间戳的快照记录。
 ## [br]
 ## @api private
 ## [br]
@@ -473,8 +476,8 @@ func _make_record(
 	return {
 		"id": snapshot_id,
 		"created_at_unix": int(Time.get_unix_time_from_system()),
-		"metadata": _duplicate_snapshot_payload(metadata),
-		"data": _duplicate_snapshot_payload(data),
+		"metadata": metadata,
+		"data": data,
 	}
 
 
@@ -496,51 +499,7 @@ func _duplicate_record(record: Dictionary) -> Dictionary:
 ## @api private
 ## [br]
 func _duplicate_snapshot_payload(value: Variant) -> Variant:
-	return GFVariantData.duplicate_variant(
-		value,
-		true,
-		true
-	)
-
-
-## 递归拒绝 Object、Callable、Signal、RID 及深度超过 64 的快照载荷。
-## [br]
-## @api private
-## [br]
-func _is_snapshot_payload_allowed(value: Variant, depth: int) -> bool:
-	if depth > 64:
-		return false
-	if value is Object:
-		return false
-	if (
-		typeof(value) == TYPE_CALLABLE
-		or typeof(value) == TYPE_SIGNAL
-		or typeof(value) == TYPE_RID
-	):
-		return false
-	if value is Array:
-		var source_array: Array = value
-		for item: Variant in source_array:
-			if not _is_snapshot_payload_allowed(
-				item,
-				depth + 1
-			):
-				return false
-		return true
-	if value is Dictionary:
-		var source_dictionary: Dictionary = value
-		for key: Variant in source_dictionary.keys():
-			if not _is_snapshot_payload_allowed(
-				key,
-				depth + 1
-			):
-				return false
-			if not _is_snapshot_payload_allowed(
-				source_dictionary[key],
-				depth + 1
-			):
-				return false
-	return true
+	return GFVariantData.duplicate_variant(value)
 
 
 ## 超出正容量时从最早项裁剪，并校正当前位置；返回内容或索引是否变化。

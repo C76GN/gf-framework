@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigSnapshot" path="addons/gf/standard/utilities/config/gf_config_snapshot.gd" module="standard" extends="RefCounted" classDigest="f03e5b56ece414bf5279b890eb967200d161fcd15506b119fcc77559bba24fb6">
+<class name="GFConfigSnapshot" path="addons/gf/standard/utilities/config/gf_config_snapshot.gd" module="standard" extends="RefCounted" classDigest="9fb8ff3570ff1f613be63864d4bbe50aadc65fbcc1f02597ad67e24796436623">
 	<description>GFConfigSnapshot: 已验收配置集合的独立查询快照。
 捕获时隔离表、schema 和集合，查询返回副本；增量候选复用未改变的内部表。
 Resource 字段保留共享资产身份，不承诺资产内部状态不可变。自定义校验规则
@@ -65,7 +65,7 @@ database.tables 是本次新增/替换集合；提供 base_snapshot 时，其余
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">独立摘要报告。</tag>
-				<tag name="schema">return: Dictionary，含 algorithm: StringName、value: String、complete: bool、unavailable_tables: PackedStringArray。</tag>
+				<tag name="schema">return: Dictionary，含 algorithm: StringName、canonical_version: int、value: String、complete: bool、unavailable_tables: PackedStringArray。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

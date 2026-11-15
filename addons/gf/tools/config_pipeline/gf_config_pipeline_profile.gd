@@ -318,7 +318,7 @@ func make_build_options(overrides: Dictionary = {}) -> Dictionary:
 	)
 	for key: String in _BUILD_OPTION_KEYS:
 		if overrides.has(key):
-			result[key] = GFVariantData.duplicate_variant(overrides[key])
+			result[key] = GFVariantData.duplicate_graph(overrides[key])
 	return result
 
 

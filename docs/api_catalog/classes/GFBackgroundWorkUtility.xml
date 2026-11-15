@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="3ff8eea18915928f893ef428a1e253392c6592c1fd83285e58a9f7bc1bfb3ea9">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="2ca0e3f4c3a0bb5828d0e5bf27b276e5ddff5a7736b75c465e8a892b8826f39a">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
-默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
+CPU/IO 只接收已捕获的 GFDataSnapshot；提交只保留快照引用，不重复复制载荷。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -100,14 +100,6 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="allow_object_payloads">
-			<signature>var allow_object_payloads: bool = false</signature>
-			<description>是否默认允许 Object、Resource、Callable、Signal 或 RID 进入线程 payload。
-仅迁移旧项目或明确自行保证线程安全时才建议开启。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
 		<member kind="property" name="priority_aging_interval_msec">
 			<signature>var priority_aging_interval_msec: int = 1000:</signature>
 			<description>等待中的 CPU/IO 工作每经过多少毫秒增加一次有效优先级。</description>
@@ -198,32 +190,30 @@
 			</tags>
 		</member>
 		<member kind="method" name="submit_cpu_work">
-			<signature>func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -&gt; GFBackgroundWorkTask:</signature>
+			<signature>func submit_cpu_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -&gt; GFBackgroundWorkTask:</signature>
 			<description>提交 CPU 纯数据后台工作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">worker: 后台线程回调。默认签名为 func(input_data: Variant) -&gt; Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -&gt; Variant。</tag>
-				<tag name="param">input_data: 输入数据。默认只允许纯 Variant 容器和值。</tag>
+				<tag name="param">worker: 后台线程回调。默认签名为 func(input_snapshot: GFDataSnapshot) -&gt; Variant；启用协作取消上下文时为 func(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext) -&gt; Variant。</tag>
+				<tag name="param">input_snapshot: 已成功捕获的只读数据快照。提交只保留引用，不复制或遍历载荷。</tag>
 				<tag name="param">apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -&gt; Variant。</tag>
-				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。</tag>
+				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、pass_cancellation_context。</tag>
 				<tag name="return">工作记录；参数无效时返回 failed 状态任务。</tag>
-				<tag name="schema">input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。</tag>
-				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。</tag>
+				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_snapshot 与只读 context 两个参数。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_io_work">
-			<signature>func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -&gt; GFBackgroundWorkTask:</signature>
+			<signature>func submit_io_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -&gt; GFBackgroundWorkTask:</signature>
 			<description>提交 IO 纯数据后台工作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">worker: 后台线程回调。默认签名为 func(input_data: Variant) -&gt; Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -&gt; Variant。</tag>
-				<tag name="param">input_data: 输入数据。默认只允许纯 Variant 容器和值。</tag>
+				<tag name="param">worker: 后台线程回调。默认签名为 func(input_snapshot: GFDataSnapshot) -&gt; Variant；启用协作取消上下文时为 func(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext) -&gt; Variant。</tag>
+				<tag name="param">input_snapshot: 已成功捕获的只读数据快照。提交只保留引用，不复制或遍历载荷。</tag>
 				<tag name="param">apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -&gt; Variant。</tag>
-				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。</tag>
+				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、pass_cancellation_context。</tag>
 				<tag name="return">工作记录；参数无效时返回 failed 状态任务。</tag>
-				<tag name="schema">input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。</tag>
-				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。</tag>
+				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_snapshot 与只读 context 两个参数。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

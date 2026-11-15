@@ -391,7 +391,7 @@ static func validate_json_record(
 			"JSON 记录根节点必须是 Dictionary。",
 			{
 				"source": _get_parse_source(parsed),
-				"value": GFVariantData.duplicate_variant(data),
+				"value": GFVariantData.duplicate_graph(data),
 				"actual_value": type_string(typeof(data)),
 				"expected_value": "Dictionary",
 				"supported_formats": ["JSON object"],

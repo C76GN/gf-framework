@@ -2698,7 +2698,7 @@ func test_network_contract_exposes_version_digest_and_peer_preflight() -> void:
 	)
 	assert_eq(
 		GFVariantData.get_option_int(version, "schema_descriptor_version"),
-		1,
+		2,
 		"版本字典应包含 schema 描述格式版本。"
 	)
 	assert_eq(

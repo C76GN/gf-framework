@@ -265,7 +265,7 @@ func validate_against(catalog: GFAssetCatalog) -> GFValidationReport:
 ## @since 10.0.0
 ## [br]
 ## @return 新集合实例。
-func duplicate_collection() -> GFAssetCollection:
+func duplicate_graph() -> GFAssetCollection:
 	return from_dict(to_dict())
 
 

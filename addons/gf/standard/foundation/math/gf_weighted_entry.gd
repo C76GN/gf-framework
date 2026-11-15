@@ -91,7 +91,7 @@ func is_selectable() -> bool:
 ## @return 新条目实例。
 func duplicate_entry(deep: bool = true) -> GFWeightedEntry:
 	var entry: GFWeightedEntry = GFWeightedEntry.new()
-	entry.value = GFVariantData.duplicate_variant(
+	entry.value = GFVariantData.duplicate_graph(
 		value,
 		deep,
 		true

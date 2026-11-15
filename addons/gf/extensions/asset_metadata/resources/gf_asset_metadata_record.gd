@@ -101,12 +101,12 @@ func has_value(key: StringName) -> bool:
 ## @schema return: Variant，元数据值副本；缺失时为 default_value 的安全副本。
 func get_value(key: StringName, default_value: Variant = null) -> Variant:
 	if metadata.has(key):
-		return GFVariantData.duplicate_variant(metadata[key])
+		return GFVariantData.duplicate_graph(metadata[key])
 
 	var key_text: String = String(key)
 	if metadata.has(key_text):
-		return GFVariantData.duplicate_variant(metadata[key_text])
-	return GFVariantData.duplicate_variant(default_value)
+		return GFVariantData.duplicate_graph(metadata[key_text])
+	return GFVariantData.duplicate_graph(default_value)
 
 
 ## 转换为字典。

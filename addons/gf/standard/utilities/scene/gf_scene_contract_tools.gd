@@ -891,9 +891,9 @@ static func _append_issue(
 		"message": message,
 	}
 	if expected != null and str(expected) != "":
-		issue["expected"] = GFVariantData.duplicate_variant(expected)
+		issue["expected"] = GFVariantData.duplicate_graph(expected)
 	if actual != null and str(actual) != "":
-		issue["actual"] = GFVariantData.duplicate_variant(actual)
+		issue["actual"] = GFVariantData.duplicate_graph(actual)
 	var issues: Array = GFVariantData.as_array(report["issues"])
 	issues.append(issue)
 

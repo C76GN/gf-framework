@@ -255,7 +255,7 @@ func to_dict(json_compatible: bool = true) -> Dictionary:
 		if not serialized_context.is_empty():
 			serialized_events[GFVariantData.to_text(context_key)] = serialized_context
 
-	return { "remapped_events": serialized_events, "custom_data": (GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data)), }
+	return { "remapped_events": serialized_events, "custom_data": (GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_graph(custom_data)), }
 
 
 ## 应用由 to_dict() 生成的重映射配置。
@@ -403,7 +403,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = true) -> Dictionary:
 		"custom_data",
 		{}
 	)
-	custom_data_value = (GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value))
+	custom_data_value = (GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_graph(custom_data_value))
 	if not (custom_data_value is Dictionary):
 		_append_apply_issue(
 			issues,

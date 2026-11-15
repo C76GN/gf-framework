@@ -212,9 +212,9 @@ func _make_issue_context(
 	expected_value: Variant
 ) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
-	issue_context["value"] = GFVariantData.duplicate_variant(value)
-	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
-	issue_context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
+	issue_context["value"] = GFVariantData.duplicate_graph(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_graph(value)
+	issue_context["expected_value"] = GFVariantData.duplicate_graph(expected_value)
 	if not pattern.is_empty():
 		issue_context["supported_formats"] = [pattern]
 	return issue_context

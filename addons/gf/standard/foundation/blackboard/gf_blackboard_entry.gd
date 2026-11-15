@@ -163,7 +163,7 @@ func coerce_value(value: Variant) -> Variant:
 		false
 	):
 		return GFVariantData.get_option_value(result, "value")
-	return GFVariantData.duplicate_variant(value)
+	return GFVariantData.duplicate_graph(value)
 
 
 ## 尝试转换输入值并返回转换报告。
@@ -253,7 +253,7 @@ func duplicate_entry() -> GFBlackboardEntry:
 	entry.value_type = value_type
 	entry.required = required
 	entry.allow_null = allow_null
-	entry.default_value = GFVariantData.duplicate_variant(default_value)
+	entry.default_value = GFVariantData.duplicate_graph(default_value)
 	entry.metadata = metadata.duplicate(true)
 	return entry
 
@@ -272,7 +272,7 @@ func describe() -> Dictionary:
 		"value_type_name": value_type_to_name(value_type),
 		"required": required,
 		"allow_null": allow_null,
-		"default_value": GFVariantData.duplicate_variant(default_value),
+		"default_value": GFVariantData.duplicate_graph(default_value),
 		"metadata": metadata.duplicate(true),
 	}
 

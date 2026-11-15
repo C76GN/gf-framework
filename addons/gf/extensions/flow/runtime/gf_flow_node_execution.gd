@@ -72,7 +72,7 @@ func is_active() -> bool:
 func set_runtime_value(key: StringName, value: Variant) -> bool:
 	if not _active or key == &"":
 		return false
-	_state[key] = GFVariantData.duplicate_variant(value)
+	_state[key] = GFVariantData.duplicate_graph(value)
 	return true
 
 
@@ -94,7 +94,7 @@ func set_runtime_value(key: StringName, value: Variant) -> bool:
 func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:
 	if not _active:
 		return default_value
-	return GFVariantData.duplicate_variant(_state.get(key, default_value))
+	return GFVariantData.duplicate_graph(_state.get(key, default_value))
 
 
 ## 清空当前节点在此帧中的进度。

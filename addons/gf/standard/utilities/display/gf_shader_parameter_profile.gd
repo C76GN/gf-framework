@@ -47,7 +47,7 @@ func set_parameter(parameter_name: StringName, value: Variant) -> GFShaderParame
 	if parameter_name == &"":
 		return self
 
-	parameters[parameter_name] = GFVariantData.duplicate_variant(value)
+	parameters[parameter_name] = GFVariantData.duplicate_graph(value)
 	emit_changed()
 	return self
 
@@ -69,7 +69,7 @@ func get_parameter(parameter_name: StringName, default_value: Variant = null) ->
 	var key: Variant = _find_parameter_key(parameter_name)
 	if key == null:
 		return default_value
-	return GFVariantData.duplicate_variant(parameters[key])
+	return GFVariantData.duplicate_graph(parameters[key])
 
 
 ## 检查 profile 是否包含指定参数。
@@ -176,7 +176,7 @@ func merge_from(source: GFShaderParameterProfile, overwrite: bool = true) -> GFS
 	for parameter_name: StringName in source.get_parameter_names():
 		if not overwrite and has_parameter(parameter_name):
 			continue
-		parameters[parameter_name] = GFVariantData.duplicate_variant(source.get_parameter(parameter_name))
+		parameters[parameter_name] = GFVariantData.duplicate_graph(source.get_parameter(parameter_name))
 		did_change = true
 
 	var _merge_metadata_result: Dictionary = GFVariantData.merge_metadata(
@@ -279,7 +279,7 @@ func apply_dict(data: Dictionary) -> void:
 		var parameter_name: StringName = _variant_to_parameter_name(raw_key)
 		if parameter_name == &"":
 			continue
-		parameters[parameter_name] = GFVariantData.duplicate_variant(source_parameters[raw_key])
+		parameters[parameter_name] = GFVariantData.duplicate_graph(source_parameters[raw_key])
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
 	emit_changed()
 
@@ -327,7 +327,7 @@ static func _duplicate_parameter_dictionary(source: Dictionary) -> Dictionary:
 		var parameter_name: StringName = _variant_to_parameter_name(raw_key)
 		if parameter_name == &"":
 			continue
-		copy[parameter_name] = GFVariantData.duplicate_variant(source[raw_key])
+		copy[parameter_name] = GFVariantData.duplicate_graph(source[raw_key])
 	return copy
 
 
@@ -341,9 +341,9 @@ static func _blend_value(
 	weight: float
 ) -> Variant:
 	if weight <= 0.0:
-		return GFVariantData.duplicate_variant(from_value)
+		return GFVariantData.duplicate_graph(from_value)
 	if weight >= 1.0:
-		return GFVariantData.duplicate_variant(to_value)
+		return GFVariantData.duplicate_graph(to_value)
 
 	if _is_numeric_value(from_value) and _is_numeric_value(to_value):
 		var blended_number: float = lerpf(
@@ -374,7 +374,7 @@ static func _blend_value(
 		var from_quaternion: Quaternion = from_value
 		var to_quaternion: Quaternion = to_value
 		return from_quaternion.slerp(to_quaternion, weight)
-	return GFVariantData.duplicate_variant(from_value)
+	return GFVariantData.duplicate_graph(from_value)
 
 
 ## 判断 Variant 是否为原生 int 或 float。

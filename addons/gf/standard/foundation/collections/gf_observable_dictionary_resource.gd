@@ -222,12 +222,12 @@ func set_value(
 	change_metadata: Dictionary = {}
 ) -> Dictionary:
 	var existed: bool = entries.has(entry_key)
-	var old_value: Variant = GFVariantData.duplicate_variant(
+	var old_value: Variant = GFVariantData.duplicate_graph(
 		entries[entry_key],
 		true,
 		true
 	) if existed else null
-	var copied_value: Variant = GFVariantData.duplicate_variant(
+	var copied_value: Variant = GFVariantData.duplicate_graph(
 		value,
 		true,
 		true
@@ -269,7 +269,7 @@ func erase_value(entry_key: Variant, change_metadata: Dictionary = {}) -> Dictio
 			entry_key,
 			"entry_key does not exist."
 		)
-	var old_value: Variant = GFVariantData.duplicate_variant(
+	var old_value: Variant = GFVariantData.duplicate_graph(
 		entries[entry_key],
 		true,
 		true
@@ -425,12 +425,12 @@ func has_key(entry_key: Variant) -> bool:
 ## @schema return: Variant copied from entries or default_value.
 func get_value(entry_key: Variant, default_value: Variant = null) -> Variant:
 	if not entries.has(entry_key):
-		return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(
 			default_value,
 			true,
 			true
 		)
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		entries[entry_key],
 		true,
 		true
@@ -565,17 +565,17 @@ func _make_change(
 	return {
 		"ok": true,
 		"operation": operation,
-		"entry_key": GFVariantData.duplicate_variant(
+		"entry_key": GFVariantData.duplicate_graph(
 			entry_key,
 			true,
 			false
 		),
-		"old_value": GFVariantData.duplicate_variant(
+		"old_value": GFVariantData.duplicate_graph(
 			old_value,
 			true,
 			true
 		),
-		"new_value": GFVariantData.duplicate_variant(
+		"new_value": GFVariantData.duplicate_graph(
 			new_value,
 			true,
 			true
@@ -596,7 +596,7 @@ func _make_failure(
 	return {
 		"ok": false,
 		"operation": operation,
-		"entry_key": GFVariantData.duplicate_variant(
+		"entry_key": GFVariantData.duplicate_graph(
 			entry_key,
 			true,
 			false

@@ -115,7 +115,7 @@ func configure(
 func fail(reason: StringName, extra_metadata: Dictionary = {}) -> void:
 	failure_reason = reason
 	for key: Variant in extra_metadata.keys():
-		metadata[key] = GFVariantData.duplicate_variant(extra_metadata[key])
+		metadata[key] = GFVariantData.duplicate_graph(extra_metadata[key])
 
 
 ## 检查上下文当前是否未失败。

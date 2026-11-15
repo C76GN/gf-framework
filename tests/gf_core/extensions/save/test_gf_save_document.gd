@@ -4,6 +4,38 @@ extends GutTest
 
 # --- 测试方法 ---
 
+func test_section_capture_failure_cannot_be_restored_or_lost_by_duplication() -> void:
+	var payload: String = "x".repeat(1048577)
+	var restored: GFSaveSection = GFSaveSection.from_dict(
+		{
+			"section_id": &"s",
+			"schema_version": 1,
+			"payload": payload,
+			"metadata": {},
+		}
+	)
+	assert_null(restored)
+	var section: GFSaveSection = GFSaveSection.new().configure(
+		&"s",
+		1,
+		payload
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			section.validate_section(),
+			"ok"
+		)
+	)
+	var copied: GFSaveSection = section.duplicate_section()
+	assert_false(
+		GFVariantData.get_option_bool(
+			copied.validate_section(),
+			"ok"
+		)
+	)
+	assert_true(section.to_dict().is_empty())
+
+
 func test_schema_rejected_configuration_preserves_fields_and_blocks_use_until_reconfigured() -> void:
 	var schema: GFSaveDocumentSchema = GFSaveDocumentSchema.new().configure(
 		&"game",

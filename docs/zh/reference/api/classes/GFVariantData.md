@@ -9,14 +9,15 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用 Variant 数据复制与默认值合并。 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。 JSON 兼容编码由 GFVariantJsonCodec 负责。
+通用 Variant 数据复制与默认值合并。 默认复制纯数据值树；对象身份、循环和 Resource 克隆通过 duplicate_graph 显式选择。 另提供差异报告和默认值递归补齐。 JSON 兼容编码由 GFVariantJsonCodec 负责。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`duplicate_variant`](#member-gfvariantdata-methods-duplicate_variant) | `static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:` |
-| 方法 | [`duplicate_collection`](#member-gfvariantdata-methods-duplicate_collection) | `static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:` |
+| 方法 | [`duplicate_variant`](#member-gfvariantdata-methods-duplicate_variant) | `static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Variant:` |
+| 方法 | [`copy_value`](#member-gfvariantdata-methods-copy_value) | `static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`duplicate_graph`](#member-gfvariantdata-methods-duplicate_graph) | `static func duplicate_graph( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:` |
 | 方法 | [`to_dictionary`](#member-gfvariantdata-methods-to_dictionary) | `static func to_dictionary( value: Variant, default_value: Dictionary = {}, deep: bool = true ) -> Dictionary:` |
 | 方法 | [`as_dictionary`](#member-gfvariantdata-methods-as_dictionary) | `static func as_dictionary(value: Variant, default_value: Variant = null) -> Dictionary:` |
 | 方法 | [`to_array`](#member-gfvariantdata-methods-to_array) | `static func to_array( value: Variant, default_value: Array = [], deep: bool = true ) -> Array:` |
@@ -64,10 +65,66 @@
 - 首次版本：`3.17.0`
 
 ```gdscript
-static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:
+static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Variant:
 ```
 
-深拷贝 Dictionary 或 Array；其他 Variant 原样返回。
+有界复制纯数据值树；共享子容器独立展开，不保留引用身份。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 调用期间稳定的纯数据。 |
+| `limits` | 与 copy_value 相同的有限预算。 |
+
+返回：独立副本；失败返回 null。需要区分合法 null 与失败时使用 copy_value。
+
+结构：
+
+- `value`: Pure built-in Variant values; Object, Resource, Callable, Signal, RID and cycles are rejected.
+- `limits`: Same limits as copy_value.
+- `return`: Detached Variant value or null.
+
+<a id="member-gfvariantdata-methods-copy_value"></a>
+
+### `copy_value`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:
+```
+
+单次遍历校验并隔离纯数据；失败丢弃全部部分副本。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 稳定的纯 Variant。 |
+| `limits` | 正整数预算和可选取消令牌。 |
+
+返回：完整副本与计量，失败时 value 为 null。
+
+结构：
+
+- `value`: Same pure value domain as GFDataSnapshot.capture.
+- `limits`: Dictionary with max_items (1000000), max_depth (64, at most 256), max_string_length (1048576), max_payload_bytes (67108864), max_elapsed_msec (30000), cancel_token: GFCancellationToken.
+- `return`: Dictionary with ok, value, counts_complete, items, packed_items, payload_bytes, maximum_depth, error_kind, error_path, limit_kind, limit and observed. Counts are exact only on success.
+
+<a id="member-gfvariantdata-methods-duplicate_graph"></a>
+
+### `duplicate_graph`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func duplicate_graph( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:
+```
+
+显式复制对象图，保留容器别名和循环；Object/Resource 默认保留身份。 Resource 可选复制。全图身份查找最坏为平方复杂度，适用于需要图语义的入口。
 
 参数：
 
@@ -83,32 +140,6 @@ static func duplicate_variant( value: Variant, deep: bool = true, duplicate_reso
 
 - `value`: 待复制的 Variant 值。
 - `return`: 复制后的 Variant 值。
-
-<a id="member-gfvariantdata-methods-duplicate_collection"></a>
-
-### `duplicate_collection`
-
-- API：`public`
-
-```gdscript
-static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
-```
-
-深拷贝集合值；语义同 duplicate_variant()，便于集合字段调用处表达意图。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `value` | 待复制的值。 |
-| `deep` | 是否深拷贝集合。 |
-
-返回：复制后的值。
-
-结构：
-
-- `value`: 待复制的 Variant 集合值。
-- `return`: 复制后的 Variant 集合值。
 
 <a id="member-gfvariantdata-methods-to_dictionary"></a>
 

@@ -405,12 +405,12 @@ static func _report_is_ok(report: Dictionary) -> bool:
 	)
 
 
-## 使用 GFVariantData.duplicate_variant() 处理字典结构并返回 Dictionary。
+## 使用 GFVariantData.duplicate_graph() 处理字典结构并返回 Dictionary。
 ## [br]
 ## @api private
 static func _duplicate_dictionary_structure(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			value,
 			true,
 			false

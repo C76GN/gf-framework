@@ -870,7 +870,7 @@ func apply_staged_values(options: Dictionary = {}) -> Dictionary:
 			continue
 		if not scope.is_empty() and not scope.has(key):
 			continue
-		selected_values[key] = GFVariantData.duplicate_variant(_staged_values[key_variant])
+		selected_values[key] = GFVariantData.duplicate_graph(_staged_values[key_variant])
 		selected_revisions[key] = _staged_revisions.get(key)
 
 	var apply_options: Dictionary = {
@@ -2057,7 +2057,7 @@ func _stage_value_internal(
 	if _staged_values.has(key) and previous_staged_value == next_value:
 		return
 
-	_staged_values[key] = GFVariantData.duplicate_variant(next_value)
+	_staged_values[key] = GFVariantData.duplicate_graph(next_value)
 	_staged_revisions[key] = _next_staged_revision
 	_next_staged_revision += 1
 	if emit_change:

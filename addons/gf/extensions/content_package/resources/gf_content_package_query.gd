@@ -322,7 +322,7 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 ## @api private
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			value,
 			true,
 			false

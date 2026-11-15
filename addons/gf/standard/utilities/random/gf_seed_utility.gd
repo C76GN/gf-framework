@@ -250,27 +250,33 @@ static func make_stable_text_seed(text: String) -> int:
 ## [br]
 ## @param parts: 参与 seed 派生的纯数据部件。
 ## [br]
-## @schema parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().
+## @schema parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.encode_result().
 ## [br]
 ## @param options: 确定性编码选项。
 ## [br]
-## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+## @schema options: Dictionary with the limits and float policy accepted by GFDeterministicVariantSerializer.encode_result().
 ## [br]
 ## @return seed 派生结果。
 ## [br]
-## @schema return: Dictionary with `ok: bool`, `seed: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。
+## @schema return: Dictionary with `ok: bool`, `seed: int`, `canonical_version: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。
 static func try_make_stable_seed(parts: Array, options: Dictionary = {}) -> Dictionary:
-	var canonical_json: String = GFDeterministicVariantSerializer.to_canonical_json(parts, options)
-	if canonical_json.is_empty():
+	var encoded: Dictionary = GFDeterministicVariantSerializer.encode_result(parts, options)
+	if not GFVariantData.get_option_bool(encoded, "ok"):
 		return {
 			&"ok": false,
 			&"seed": 0,
+			&"canonical_version": GFDeterministicVariantSerializer.CANONICAL_VERSION,
 			&"error": "canonical_encode_failed",
 		}
 
+	var bytes: PackedByteArray = encoded["bytes"]
+	var seed_value: int = 2166136261
+	for byte: int in bytes:
+		seed_value = ((seed_value ^ byte) * 16777619) & 0xffffffff
 	return {
 		&"ok": true,
-		&"seed": _stable_hash(canonical_json),
+		&"seed": seed_value,
+		&"canonical_version": GFDeterministicVariantSerializer.CANONICAL_VERSION,
 		&"error": "",
 	}
 
@@ -285,11 +291,11 @@ static func try_make_stable_seed(parts: Array, options: Dictionary = {}) -> Dict
 ## [br]
 ## @param parts: 参与 seed 派生的纯数据部件。
 ## [br]
-## @schema parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().
+## @schema parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.encode_result().
 ## [br]
 ## @param options: 确定性编码选项。
 ## [br]
-## @schema options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+## @schema options: Dictionary with the limits and float policy accepted by GFDeterministicVariantSerializer.encode_result().
 ## [br]
 ## @return 派生 seed；输入无法规范编码时返回 0。
 static func make_stable_seed(parts: Array, options: Dictionary = {}) -> int:

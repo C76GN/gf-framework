@@ -272,9 +272,9 @@ static func try_make_stable_seed(parts: Array, options: Dictionary = {}) -> Dict
 
 结构：
 
-- `parts`: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().
-- `options`: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
-- `return`: Dictionary with `ok: bool`, `seed: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。
+- `parts`: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.encode_result().
+- `options`: Dictionary with the limits and float policy accepted by GFDeterministicVariantSerializer.encode_result().
+- `return`: Dictionary with `ok: bool`, `seed: int`, `canonical_version: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。
 
 <a id="member-gfseedutility-methods-make_stable_seed"></a>
 
@@ -300,8 +300,8 @@ static func make_stable_seed(parts: Array, options: Dictionary = {}) -> int:
 
 结构：
 
-- `parts`: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().
-- `options`: Dictionary with optional `allow_floats: bool` and `max_depth: int`.
+- `parts`: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.encode_result().
+- `options`: Dictionary with the limits and float policy accepted by GFDeterministicVariantSerializer.encode_result().
 
 <a id="member-gfseedutility-methods-make_stable_grid_seed"></a>
 

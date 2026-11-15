@@ -765,7 +765,7 @@ func _merge_activation_metadata(context: RefCounted, extra_metadata: Dictionary)
 	)
 	var metadata: Dictionary = GFVariantData.as_dictionary(metadata_value)
 	for key: Variant in extra_metadata.keys():
-		metadata[key] = GFVariantData.duplicate_variant(extra_metadata[key])
+		metadata[key] = GFVariantData.duplicate_graph(extra_metadata[key])
 	context.set("metadata", metadata)
 
 

@@ -3090,8 +3090,8 @@ func _assert_property_storage_roundtrip(active_format: GFStorageCodec.Format, do
 		{ GFVariantReferenceCodec.OPTION_ROOT_NODE: _scope }
 	)
 	target.resource_value = ResourceLoader.load(resource_path)
-	var expected: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(target.value))
-	var expected_literal: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(target.literal_value))
+	var expected: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_graph(target.value))
+	var expected_literal: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_graph(target.literal_value))
 	if active_format == GFStorageCodec.Format.JSON:
 		# 字面 Dictionary 中的 JSON 数字沿用 Storage 默认 float 语义；类型标记不能被再次解释。
 		expected["literal_variant"] = JSON.parse_string(JSON.stringify(expected["literal_variant"]))

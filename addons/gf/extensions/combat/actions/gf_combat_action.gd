@@ -113,7 +113,7 @@ func duplicate_action() -> GFCombatAction:
 	action.amount = amount
 	action._amount_is_valid = _amount_is_valid
 	action.tags = tags.duplicate()
-	action.payload = GFVariantData.duplicate_variant(payload)
+	action.payload = GFVariantData.duplicate_graph(payload)
 	action.metadata = metadata.duplicate(true)
 	return action
 
@@ -199,7 +199,7 @@ func with_tags(value: Array[StringName]) -> GFCombatAction:
 ## [br]
 ## @schema value: Variant，可保存项目自定义动作载荷；框架只复制并透传。
 func with_payload(value: Variant) -> GFCombatAction:
-	payload = GFVariantData.duplicate_variant(value)
+	payload = GFVariantData.duplicate_graph(value)
 	return self
 
 
@@ -231,7 +231,7 @@ func to_dict() -> Dictionary:
 		"operation": operation,
 		"amount": amount,
 		"tags": tags.duplicate(),
-		"payload": GFVariantData.duplicate_variant(payload),
+		"payload": GFVariantData.duplicate_graph(payload),
 		"metadata": metadata.duplicate(true),
 	}
 

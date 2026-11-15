@@ -2274,7 +2274,7 @@ func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictio
 	for key: Variant in result.keys():
 		if skipped_keys.has(key):
 			continue
-		copy[key] = GFVariantData.duplicate_variant(result[key])
+		copy[key] = GFVariantData.duplicate_graph(result[key])
 	return copy
 
 

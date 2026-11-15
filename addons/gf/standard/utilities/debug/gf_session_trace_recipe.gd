@@ -592,4 +592,4 @@ func _is_valid_redaction_profile(profile: String) -> bool:
 ## @api private
 ## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
+	return GFVariantData.as_dictionary(GFVariantData.duplicate_graph(value))

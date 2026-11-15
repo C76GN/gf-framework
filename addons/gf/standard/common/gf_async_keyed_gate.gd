@@ -794,7 +794,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	var request: Dictionary = {
 		"request_id": request_id,
 		"key_token": key_token,
-		"key": GFVariantData.duplicate_variant(key),
+		"key": GFVariantData.duplicate_graph(key),
 		"completion": completion,
 		"metadata": metadata.duplicate(true),
 		"requested_msec": now_msec,
@@ -914,7 +914,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 	_begin_notification(request_id)
 	request_queued.emit(
 		request_id,
-		GFVariantData.duplicate_variant(key),
+		GFVariantData.duplicate_graph(key),
 		metadata.duplicate(true)
 	)
 	_end_notification()
@@ -1531,7 +1531,7 @@ func _activate_request(
 		"lease_id": lease_id,
 		"request_id": request_id,
 		"key_token": key_token,
-		"key": GFVariantData.duplicate_variant(key),
+		"key": GFVariantData.duplicate_graph(key),
 		"metadata": metadata.duplicate(true),
 		"acquired_msec": now_msec,
 		"expires_at_msec": expires_at_msec,
@@ -2101,7 +2101,7 @@ func _complete_waiting_request(
 			var _timeout_completed: bool = completion.cancel(STATUS_TIMEOUT, _merged_metadata)
 		request_timed_out.emit(
 			GFVariantData.get_option_int(request, "request_id"),
-			GFVariantData.duplicate_variant(GFVariantData.get_option_value(request, "key")),
+			GFVariantData.duplicate_graph(GFVariantData.get_option_value(request, "key")),
 			_merged_metadata.duplicate(true)
 		)
 	else:
@@ -2116,7 +2116,7 @@ func _complete_waiting_request(
 			var _cancel_completed: bool = completion.cancel(safe_reason, _merged_metadata)
 		request_cancelled.emit(
 			GFVariantData.get_option_int(request, "request_id"),
-			GFVariantData.duplicate_variant(GFVariantData.get_option_value(request, "key")),
+			GFVariantData.duplicate_graph(GFVariantData.get_option_value(request, "key")),
 			safe_reason,
 			_merged_metadata.duplicate(true)
 		)
@@ -2143,7 +2143,7 @@ func _make_request_result(
 		"queued": status == STATUS_QUEUED,
 		"acquired": status == STATUS_ACQUIRED,
 		"request_id": GFVariantData.get_option_int(request, "request_id"),
-		"key": GFVariantData.duplicate_variant(GFVariantData.get_option_value(request, "key")),
+		"key": GFVariantData.duplicate_graph(GFVariantData.get_option_value(request, "key")),
 		"metadata": GFVariantData.get_option_dictionary(request, "metadata"),
 		"reason": reason,
 	}
@@ -2277,7 +2277,7 @@ func _make_busy_request_result(key: Variant, options: Dictionary) -> Dictionary:
 		"queued": false,
 		"acquired": false,
 		"request_id": 0,
-		"key": GFVariantData.duplicate_variant(key),
+		"key": GFVariantData.duplicate_graph(key),
 		"metadata": GFVariantData.get_option_dictionary(options, "metadata"),
 		"reason": STATUS_BUSY,
 	}
@@ -2559,7 +2559,7 @@ func _remember_key(key_token: String, key: Variant) -> void:
 		slot_index = _free_key_slots.pop_back()
 		_key_slots[slot_index] = key_token
 	_key_slot_by_token[key_token] = slot_index
-	_key_data[key_token] = { "key": GFVariantData.duplicate_variant(key), "key_token": key_token, }
+	_key_data[key_token] = { "key": GFVariantData.duplicate_graph(key), "key_token": key_token, }
 
 
 ## 判断 key token 是否已存在于跟踪数据中。

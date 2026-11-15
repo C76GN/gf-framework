@@ -218,4 +218,4 @@ func lock_definition_for_framework() -> bool:
 ## @api private
 ## [br]
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
-	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value))
+	return GFVariantData.as_dictionary(GFVariantData.duplicate_graph(value))

@@ -191,7 +191,7 @@ func apply_parameters(
 			continue
 		material.set_shader_parameter(
 			parameter_name,
-			GFVariantData.duplicate_variant(value) if copy_values else value
+			GFVariantData.duplicate_graph(value) if copy_values else value
 		)
 		applied_count += 1
 	return applied_count
@@ -723,7 +723,7 @@ func _ensure_global_parameter_internal(
 		"copy_values",
 		true
 	)
-	var parameter_value: Variant = GFVariantData.duplicate_variant(default_value) if copy_values else default_value
+	var parameter_value: Variant = GFVariantData.duplicate_graph(default_value) if copy_values else default_value
 	var register_live_parameter: bool = GFVariantData.get_option_bool(
 		options,
 		"register_live_parameter",
@@ -954,7 +954,7 @@ func _build_project_shader_global_definition(
 	if setting_type.is_empty():
 		return {}
 
-	return { "type": setting_type, "value": GFVariantData.duplicate_variant(default_value), }
+	return { "type": setting_type, "value": GFVariantData.duplicate_graph(default_value), }
 
 
 ## 根据参数名生成 shader_globals/ 下的固定设置路径。

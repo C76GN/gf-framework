@@ -451,7 +451,7 @@ func _merge_validation_result(report: Dictionary, value: Variant) -> void:
 	if not value_metadata.is_empty():
 		var report_metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
 		for key: Variant in value_metadata.keys():
-			report_metadata[key] = GFVariantData.duplicate_variant(value_metadata[key])
+			report_metadata[key] = GFVariantData.duplicate_graph(value_metadata[key])
 		report["metadata"] = report_metadata
 
 

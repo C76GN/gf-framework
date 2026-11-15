@@ -218,6 +218,7 @@ def run_acceptance() -> dict[str, Any]:
 			target.write_bytes(source.read_bytes())
 		for dependency in (
 			"core/gf_bounded_json_object_reader.gd", "core/gf_path_tools.gd",
+			"core/gf_data_value_capture.gd", "core/gf_cancellation_token.gd",
 			"core/gf_variant_access.gd", "editor/gf_editor_workspace_ui.gd",
 			"editor/gf_editor_background_request_task.gd",
 		):

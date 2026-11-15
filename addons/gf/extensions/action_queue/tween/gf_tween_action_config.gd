@@ -225,7 +225,7 @@ func restore_initial_values(target: Object, snapshot: Dictionary) -> void:
 			continue
 		target.set_indexed(
 			property_path,
-			GFVariantData.duplicate_variant(snapshot[key])
+			GFVariantData.duplicate_graph(snapshot[key])
 		)
 
 

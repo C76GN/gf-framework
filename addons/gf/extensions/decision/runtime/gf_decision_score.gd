@@ -95,7 +95,7 @@ func to_dictionary() -> Dictionary:
 		"decision_order": decision_order,
 		"score": score,
 		"accepted": accepted,
-		"consideration_scores": GFVariantData.duplicate_variant(consideration_scores),
+		"consideration_scores": GFVariantData.duplicate_graph(consideration_scores),
 		"metadata": _copy_dictionary(metadata),
 	}
 
@@ -156,7 +156,7 @@ func _normalize_consideration_scores(details: Array[Dictionary]) -> Array[Dictio
 ## [br]
 ## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
-	var copied: Variant = GFVariantData.duplicate_variant(source)
+	var copied: Variant = GFVariantData.duplicate_graph(source)
 	if copied is Dictionary:
 		var copied_dictionary: Dictionary = copied
 		return copied_dictionary

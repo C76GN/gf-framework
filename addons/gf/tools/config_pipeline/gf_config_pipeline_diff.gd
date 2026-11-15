@@ -236,12 +236,8 @@ static func _fingerprint(value: Variant) -> String:
 		"max_output_bytes": 8388608,
 		"max_string_length": 8388608,
 	}
-	if not GFVariantData.get_option_bool(
-		GFDeterministicVariantSerializer.measure_canonical(value, options),
-		"ok"
-	):
-		return ""
-	return GFDeterministicVariantSerializer.sha256(value, options)
+	var result: Dictionary = GFDeterministicVariantSerializer.hash_result(value, options)
+	return GFVariantData.get_option_string(result, "hash")
 
 
 ## 稳定排序名称并集；非文本字段由上游规范化契约拒绝。

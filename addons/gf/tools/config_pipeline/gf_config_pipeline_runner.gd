@@ -1015,7 +1015,7 @@ func _duplicate_database_result(result: Dictionary) -> Dictionary:
 	)
 
 
-## 新建结果字典，跳过指定键，并通过 GFVariantData.duplicate_variant 复制其余值。
+## 新建结果字典，跳过指定键，并通过 GFVariantData.duplicate_graph 复制其余值。
 ## [br]
 ## @api private
 ## [br]
@@ -1024,5 +1024,5 @@ func _duplicate_dictionary_without_keys(result: Dictionary, skipped_keys: Dictio
 	for key: Variant in result.keys():
 		if skipped_keys.has(key):
 			continue
-		copy[key] = GFVariantData.duplicate_variant(result[key])
+		copy[key] = GFVariantData.duplicate_graph(result[key])
 	return copy

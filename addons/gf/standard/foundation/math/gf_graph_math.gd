@@ -351,7 +351,7 @@ static func sort_topological(nodes: Array, get_dependencies: Callable) -> Dictio
 				continue
 			seen_dependencies[dependency] = true
 			if not node_set.has(dependency):
-				external_dependencies.append({ "node": GFVariantData.duplicate_variant(node), "dependency": GFVariantData.duplicate_variant(dependency), })
+				external_dependencies.append({ "node": GFVariantData.duplicate_graph(node), "dependency": GFVariantData.duplicate_graph(dependency), })
 				continue
 
 			var node_dependencies: Array = _get_topological_array(dependencies_by_node, node)
@@ -931,7 +931,7 @@ static func _record_external_neighbor(
 		return
 
 	seen_external_neighbors[key] = true
-	external_neighbors.append({ "node": GFVariantData.duplicate_variant(node), "neighbor": GFVariantData.duplicate_variant(neighbor), })
+	external_neighbors.append({ "node": GFVariantData.duplicate_graph(node), "neighbor": GFVariantData.duplicate_graph(neighbor), })
 
 
 ## 调用有效边权回调并转为 float；无回调时默认边权为 1.0。
@@ -1069,8 +1069,8 @@ static func _record_invalid_spanning_edge(
 ) -> void:
 	invalid_edges.append(
 		{
-			"from": GFVariantData.duplicate_variant(from_node),
-			"to": GFVariantData.duplicate_variant(to_node),
+			"from": GFVariantData.duplicate_graph(from_node),
+			"to": GFVariantData.duplicate_graph(to_node),
 			"weight": weight,
 		}
 	)
