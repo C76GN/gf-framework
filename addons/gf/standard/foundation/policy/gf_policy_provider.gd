@@ -285,7 +285,7 @@ func _normalize_result(result: Dictionary, artifact: Dictionary) -> Dictionary:
 	for key: Variant in result.keys():
 		if _is_reserved_result_key(key):
 			continue
-		normalized[key] = GFVariantData.duplicate_variant(
+		normalized[key] = GFVariantData.duplicate_graph(
 			result[key],
 			true,
 			true

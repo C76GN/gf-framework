@@ -390,7 +390,7 @@ static func _duplicate_isolated_value(
 		if not _reserve_packed_array_bytes(state, value):
 			return _make_copy_failure(&"snapshot_utf8_budget_exceeded")
 		return _make_copy_success(
-			GFVariantData.duplicate_variant(
+			GFVariantData.duplicate_graph(
 				value,
 				true,
 				false

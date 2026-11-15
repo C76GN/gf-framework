@@ -178,7 +178,7 @@ func register_packet(
 	var timestamp_msec: int = _normalize_time_msec(now_msec)
 	var deadline_msec: int = timestamp_msec + timeout_msec if timeout_msec > 0 else -1
 	_records[packet_id] = {
-		"id": GFVariantData.duplicate_variant(packet_id),
+		"id": GFVariantData.duplicate_graph(packet_id),
 		"state": STATE_PENDING,
 		"created_msec": timestamp_msec,
 		"updated_msec": timestamp_msec,
@@ -189,7 +189,7 @@ func register_packet(
 		"error": "",
 		"metadata": entry_metadata.duplicate(true),
 	}
-	_order.append(GFVariantData.duplicate_variant(packet_id))
+	_order.append(GFVariantData.duplicate_graph(packet_id))
 	return true
 
 
@@ -287,7 +287,7 @@ func expire_pending(now_msec: int = -1) -> Dictionary:
 		record["updated_msec"] = timestamp_msec
 		record["error"] = "timeout"
 		_records[packet_id] = record
-		expired_ids.append(GFVariantData.duplicate_variant(packet_id))
+		expired_ids.append(GFVariantData.duplicate_graph(packet_id))
 	return {
 		"expired_count": expired_ids.size(),
 		"expired_ids": expired_ids,
@@ -369,7 +369,7 @@ func get_retry_ready_ids(now_msec: int = -1, limit: int = 0) -> Array:
 		var record: Dictionary = _get_record(packet_id)
 		if not _record_is_retry_ready(record, timestamp_msec):
 			continue
-		result.append(GFVariantData.duplicate_variant(packet_id))
+		result.append(GFVariantData.duplicate_graph(packet_id))
 	return result
 
 
@@ -608,7 +608,7 @@ func get_pending_ids() -> Array:
 	var result: Array = []
 	for packet_id: Variant in _order:
 		if is_pending(packet_id):
-			result.append(GFVariantData.duplicate_variant(packet_id))
+			result.append(GFVariantData.duplicate_graph(packet_id))
 	return result
 
 
@@ -680,7 +680,7 @@ func _mark_terminal(
 		return false
 	record["state"] = state
 	record["updated_msec"] = _normalize_time_msec(now_msec)
-	record["result"] = GFVariantData.duplicate_variant(result)
+	record["result"] = GFVariantData.duplicate_graph(result)
 	record["error"] = error
 	_records[packet_id] = record
 	return true
@@ -752,12 +752,12 @@ func _remember_incoming_packet(
 		return
 	var timestamp_msec: int = _normalize_time_msec(now_msec)
 	_incoming_records[packet_id] = {
-		"id": GFVariantData.duplicate_variant(packet_id),
+		"id": GFVariantData.duplicate_graph(packet_id),
 		"sequence": sequence,
 		"channel": channel,
 		"received_msec": timestamp_msec,
 	}
-	_incoming_order.append(GFVariantData.duplicate_variant(packet_id))
+	_incoming_order.append(GFVariantData.duplicate_graph(packet_id))
 	_prune_incoming_window()
 
 
@@ -796,7 +796,7 @@ func _make_incoming_report(
 		"duplicate": duplicate,
 		"out_of_order": out_of_order,
 		"reason": reason,
-		"id": GFVariantData.duplicate_variant(packet_id),
+		"id": GFVariantData.duplicate_graph(packet_id),
 		"sequence": sequence,
 		"channel": channel,
 		"last_sequence": last_sequence,

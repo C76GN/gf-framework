@@ -271,8 +271,8 @@ static func build_reference_choice_records(
 				target_fields,
 				reference_key
 			),
-			"value": GFVariantData.duplicate_variant(_make_choice_value(record, target_fields)),
-			"record_id": GFVariantData.duplicate_variant(
+			"value": GFVariantData.duplicate_graph(_make_choice_value(record, target_fields)),
+			"record_id": GFVariantData.duplicate_graph(
 				_get_record_id(
 					record,
 					resolved_schema,
@@ -344,7 +344,7 @@ static func _build_column_descriptor(
 		"value_type": column.value_type,
 		"required": column.required,
 		"allow_null": column.allow_null,
-		"default_value": GFVariantData.duplicate_variant(column.default_value),
+		"default_value": GFVariantData.duplicate_graph(column.default_value),
 		"element_validation_rules": _describe_rule_list(column.element_validation_rules),
 		"editable": _get_metadata_bool(
 			metadata,
@@ -522,7 +522,7 @@ static func _apply_rule_constraints(constraints: Dictionary, rule: GFConfigValid
 
 	if rule is GFConfigSetValidationRule:
 		var set_rule: GFConfigSetValidationRule = rule
-		constraints["set"] = { "allowed_values": GFVariantData.duplicate_variant(set_rule.allowed_values), "case_sensitive": set_rule.case_sensitive, }
+		constraints["set"] = { "allowed_values": GFVariantData.duplicate_graph(set_rule.allowed_values), "case_sensitive": set_rule.case_sensitive, }
 		return
 
 	if rule is GFConfigSizeValidationRule:
@@ -1053,7 +1053,7 @@ static func _make_choice_value(record: Dictionary, target_fields: PackedStringAr
 	var value_dictionary: Dictionary = {}
 	for field_text: String in target_fields:
 		var field_name: StringName = StringName(field_text)
-		value_dictionary[field_name] = GFVariantData.duplicate_variant(
+		value_dictionary[field_name] = GFVariantData.duplicate_graph(
 			_get_record_field(
 				record,
 				field_name,

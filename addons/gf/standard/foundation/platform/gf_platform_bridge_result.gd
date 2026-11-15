@@ -125,7 +125,7 @@ func configure_success(
 	_apply_request(request)
 	ok = true
 	status = p_status
-	value = GFVariantData.duplicate_variant(p_value)
+	value = GFVariantData.duplicate_graph(p_value)
 	error = ""
 	started_at_msec = maxi(p_started_at_msec, -1)
 	completed_at_msec = maxi(p_completed_at_msec, -1)
@@ -205,7 +205,7 @@ func to_dict() -> Dictionary:
 		"method_id": method_id,
 		"ok": ok,
 		"status": status,
-		"value": GFVariantData.duplicate_variant(value),
+		"value": GFVariantData.duplicate_graph(value),
 		"error": error,
 		"started_at_msec": started_at_msec,
 		"completed_at_msec": completed_at_msec,
@@ -228,7 +228,7 @@ func apply_dict(data: Dictionary) -> void:
 	method_id = GFVariantData.get_option_string_name(data, "method_id")
 	ok = GFVariantData.get_option_bool(data, "ok")
 	status = GFVariantData.get_option_string_name(data, "status")
-	value = GFVariantData.duplicate_variant(GFVariantData.get_option_value(data, "value"))
+	value = GFVariantData.duplicate_graph(GFVariantData.get_option_value(data, "value"))
 	error = GFVariantData.get_option_string(data, "error").strip_edges()
 	started_at_msec = maxi(
 		GFVariantData.get_option_int(

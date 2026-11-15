@@ -244,7 +244,7 @@ func apply_defaults(
 		if should_coerce:
 			result[field_key] = field.coerce_value(field.default_value)
 		else:
-			result[field_key] = GFVariantData.duplicate_variant(field.default_value)
+			result[field_key] = GFVariantData.duplicate_graph(field.default_value)
 	return result
 
 
@@ -706,7 +706,7 @@ func _coerce_values_for_validation(
 			"schema_id": String(schema_id),
 			"field_name": String(field_key),
 			"expected_value": GFSchemaField.value_type_to_name(field.value_type),
-			"actual_value": GFVariantData.duplicate_variant(source_value),
+			"actual_value": GFVariantData.duplicate_graph(source_value),
 		}
 		var issue: RefCounted = report.add_issue(
 			GFValidationIssue.new(
@@ -810,7 +810,7 @@ func _validate_dictionary_values(
 				{
 					"schema_id": String(schema_id),
 					"field_name": String(field_key),
-					"actual_value": GFVariantData.duplicate_variant(working_values[key_variant]),
+					"actual_value": GFVariantData.duplicate_graph(working_values[key_variant]),
 					"expected_value": "declared_field",
 				},
 				options
@@ -823,7 +823,7 @@ func _validate_dictionary_values(
 func _normalize_keys(values: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key_variant: Variant in values.keys():
-		result[GFVariantData.to_string_name(key_variant)] = GFVariantData.duplicate_variant(values[key_variant])
+		result[GFVariantData.to_string_name(key_variant)] = GFVariantData.duplicate_graph(values[key_variant])
 	return result
 
 
@@ -958,7 +958,7 @@ func _normalize_dictionary_row(
 				options
 			)
 		else:
-			result[field_key] = GFVariantData.duplicate_variant(field.default_value)
+			result[field_key] = GFVariantData.duplicate_graph(field.default_value)
 	if strip_extra_fields:
 		result = _strip_extra_fields(result)
 	return result
@@ -997,11 +997,11 @@ func _coerce_row_value(
 				"schema_id": String(schema_id),
 				"field_name": String(field_key),
 				"expected_value": GFSchemaField.value_type_to_name(field.value_type),
-				"actual_value": GFVariantData.duplicate_variant(source_value),
+				"actual_value": GFVariantData.duplicate_graph(source_value),
 			},
 			options
 		)
-	return GFVariantData.duplicate_variant(source_value)
+	return GFVariantData.duplicate_graph(source_value)
 
 
 ## 必填字段始终允许填默认值；可选字段仅在 include_optional 为 true 时处理。
@@ -1063,7 +1063,7 @@ func _strip_extra_fields(values: Dictionary) -> Dictionary:
 			continue
 		var field_key: StringName = field.get_field_key()
 		if values.has(field_key):
-			result[field_key] = GFVariantData.duplicate_variant(values[field_key])
+			result[field_key] = GFVariantData.duplicate_graph(values[field_key])
 	return result
 
 
@@ -1098,7 +1098,7 @@ func _add_invalid_row_error(
 			"schema_id": String(schema_id),
 			"row_index": index,
 			"expected_value": "Dictionary",
-			"actual_value": GFVariantData.duplicate_variant(row_value),
+			"actual_value": GFVariantData.duplicate_graph(row_value),
 			"actual_type": typeof(row_value),
 		},
 		options

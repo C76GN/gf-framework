@@ -733,9 +733,9 @@ func _add_constraint_issue(
 	var issue_metadata: Dictionary = metadata.duplicate(true)
 	issue_metadata["rule_id"] = String(rule_id)
 	issue_metadata["constraint_kind"] = constraint_kind_to_name(constraint_kind)
-	issue_metadata["expected_value"] = GFVariantData.duplicate_variant(expected_value)
-	issue_metadata["actual_value"] = GFVariantData.duplicate_variant(actual_value)
-	issue_metadata["actual_state"] = GFVariantData.duplicate_variant(actual_state)
+	issue_metadata["expected_value"] = GFVariantData.duplicate_graph(expected_value)
+	issue_metadata["actual_value"] = GFVariantData.duplicate_graph(actual_value)
+	issue_metadata["actual_state"] = GFVariantData.duplicate_graph(actual_state)
 	var issue_key: Variant = GFVariantData.get_option_value(context, "key")
 	var issue_path: String = GFVariantData.get_option_string(context, "path")
 	var issue: GFValidationIssue = GFValidationIssue.new(

@@ -88,7 +88,7 @@ func apply(
 			GFVariantData.get_option_value(grid, cell),
 			context
 		)
-		grid[cell] = GFVariantData.duplicate_variant(next_value)
+		grid[cell] = GFVariantData.duplicate_graph(next_value)
 		changed_count += 1
 	return changed_count
 
@@ -132,7 +132,7 @@ func _resolve_value(
 	if value_callback.is_valid():
 		return value_callback.call(
 			cell,
-			GFVariantData.duplicate_variant(previous_value),
+			GFVariantData.duplicate_graph(previous_value),
 			context
 		)
-	return GFVariantData.duplicate_variant(value)
+	return GFVariantData.duplicate_graph(value)

@@ -501,7 +501,7 @@ func set_rows(row_values: Array, duplicate_rows: bool = false) -> GFTableViewReb
 	for row_data: Variant in row_values:
 		if duplicate_rows:
 			next_rows.append(
-				GFVariantData.duplicate_variant(
+				GFVariantData.duplicate_graph(
 					row_data,
 					true,
 					false
@@ -1673,13 +1673,13 @@ func _describe_columns(options: Dictionary) -> Array[Dictionary]:
 	return result
 
 
-## copy_values 为 false 时返回原值，否则使用 GFVariantData.duplicate_variant(value, true, false)。
+## copy_values 为 false 时返回原值，否则使用 GFVariantData.duplicate_graph(value, true, false)。
 ## [br]
 ## @api private
 func _copy_snapshot_value(value: Variant, copy_values: bool) -> Variant:
 	if not copy_values:
 		return value
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		value,
 		true,
 		false

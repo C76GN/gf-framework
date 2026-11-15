@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="a7719b29c22af9f1c5cb63d6c243e2c64715a2dd3862a4634ead59c85e29a476">
+<class name="GFSeedUtility" path="addons/gf/standard/utilities/random/gf_seed_utility.gd" module="standard" extends="GFUtility" classDigest="624ff8d2c67001676f3954f749ca37749ef858de6c45c2f2578160ee1dcd6eca">
 	<description>GFSeedUtility: 全局随机数种子管理器。
 内部维护一个主 RandomNumberGenerator，并支持基于字符串标签派生
 出独立的 Godot RNG 或 GF 固定算法随机源。Godot RNG 分支只承诺
@@ -134,9 +134,9 @@
 				<tag name="param">parts: 参与 seed 派生的纯数据部件。</tag>
 				<tag name="param">options: 确定性编码选项。</tag>
 				<tag name="return">seed 派生结果。</tag>
-				<tag name="schema">parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().</tag>
-				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
-				<tag name="schema">return: Dictionary with `ok: bool`, `seed: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。</tag>
+				<tag name="schema">parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.encode_result().</tag>
+				<tag name="schema">options: Dictionary with the limits and float policy accepted by GFDeterministicVariantSerializer.encode_result().</tag>
+				<tag name="schema">return: Dictionary with `ok: bool`, `seed: int`, `canonical_version: int`, and `error: String`. ok 为 false 时 seed 为 0，error 为稳定错误码。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -150,8 +150,8 @@
 				<tag name="param">parts: 参与 seed 派生的纯数据部件。</tag>
 				<tag name="param">options: 确定性编码选项。</tag>
 				<tag name="return">派生 seed；输入无法规范编码时返回 0。</tag>
-				<tag name="schema">parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.to_canonical_value().</tag>
-				<tag name="schema">options: Dictionary with optional `allow_floats: bool` and `max_depth: int`.</tag>
+				<tag name="schema">parts: Array of deterministic Variant values accepted by GFDeterministicVariantSerializer.encode_result().</tag>
+				<tag name="schema">options: Dictionary with the limits and float policy accepted by GFDeterministicVariantSerializer.encode_result().</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

@@ -543,7 +543,7 @@ static func _shuffle_nodes_with_rng(nodes: Array[BTNode], random_source: RandomN
 ## [br]
 ## @api private
 static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
-	var duplicated_value: Variant = GFVariantData.duplicate_variant(value)
+	var duplicated_value: Variant = GFVariantData.duplicate_graph(value)
 	if duplicated_value is Dictionary:
 		var duplicated_dictionary: Dictionary = duplicated_value
 		return duplicated_dictionary
@@ -1158,7 +1158,7 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @schema value: 任意可存入黑板的项目值。
 	func set_value(key: StringName, value: Variant) -> void:
-		values[key] = GFVariantData.duplicate_variant(value)
+		values[key] = GFVariantData.duplicate_graph(value)
 
 
 	## 设置父级作用域。
@@ -1237,18 +1237,18 @@ class BlackboardScope extends RefCounted:
 	) -> Variant:
 		var instance_id: int = get_instance_id()
 		if visited.has(instance_id):
-			return GFVariantData.duplicate_variant(default_value)
+			return GFVariantData.duplicate_graph(default_value)
 		visited[instance_id] = true
 
 		if values.has(key):
-			return GFVariantData.duplicate_variant(values[key])
+			return GFVariantData.duplicate_graph(values[key])
 		if _parent != null:
 			return _parent._get_value_internal(
 				key,
 				default_value,
 				visited
 			)
-		return GFVariantData.duplicate_variant(default_value)
+		return GFVariantData.duplicate_graph(default_value)
 
 
 	## 检查本地或父链是否存在键；再次遇到相同实例时返回 false。
@@ -1279,7 +1279,7 @@ class BlackboardScope extends RefCounted:
 
 		var result: Dictionary = _parent._to_dictionary_internal(visited) if _parent != null else {}
 		for key: Variant in values.keys():
-			result[key] = GFVariantData.duplicate_variant(values[key])
+			result[key] = GFVariantData.duplicate_graph(values[key])
 		return result
 
 

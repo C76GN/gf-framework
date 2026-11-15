@@ -1479,7 +1479,7 @@ func _set_last_report(report: Dictionary) -> void:
 ## [br]
 ## @api private
 func _duplicate_value(value: Variant, duplicate_resources: bool) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 		value,
 		true,
 		duplicate_resources

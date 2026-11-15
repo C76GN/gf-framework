@@ -63,7 +63,7 @@ var metadata_key: StringName:
 ## @schema value: Variant copied when configured and written.
 var value: Variant:
 	get:
-		return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+		return _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_value)
 	set(new_value):
 		if not _can_change_configuration("value"):
 			return
@@ -227,7 +227,7 @@ func _do_it() -> Error:
 
 	_target_node.set_meta(
 		_metadata_key,
-		_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_value)
+		_GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_value)
 	)
 	return OK
 
@@ -247,7 +247,7 @@ func _undo_it() -> Error:
 	if _previous_exists:
 		_target_node.set_meta(
 			_metadata_key,
-			_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_previous_value)
+			_GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_previous_value)
 		)
 	elif _target_node.has_meta(_metadata_key):
 		_target_node.remove_meta(_metadata_key)
@@ -278,7 +278,7 @@ func _capture_previous_if_needed() -> void:
 	_previous_exists = _target_node.has_meta(_metadata_key)
 	_previous_value = null
 	if _previous_exists:
-		_previous_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_target_node.get_meta(_metadata_key))
+		_previous_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_target_node.get_meta(_metadata_key))
 	_has_previous_snapshot = true
 
 
@@ -286,7 +286,7 @@ func _capture_previous_if_needed() -> void:
 ## [br]
 ## @api private
 func _set_value_unsealed(new_value: Variant, duplicate_resources: bool = false) -> void:
-	_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+	_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 		new_value,
 		true,
 		duplicate_resources

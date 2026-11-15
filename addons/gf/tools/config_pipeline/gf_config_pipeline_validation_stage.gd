@@ -1039,7 +1039,7 @@ func _remap_record_fields(records: Array[Dictionary], field_name_map: Dictionary
 			)
 			if target_field_name == &"":
 				continue
-			remapped_record[target_field_name] = GFVariantData.duplicate_variant(record[field_key])
+			remapped_record[target_field_name] = GFVariantData.duplicate_graph(record[field_key])
 		result.append(remapped_record)
 	return result
 
@@ -1165,7 +1165,7 @@ func _make_source_map(layout_result: Dictionary) -> Dictionary:
 		"sheets",
 	]:
 		if layout_result.has(key):
-			result[key] = GFVariantData.duplicate_variant(layout_result[key])
+			result[key] = GFVariantData.duplicate_graph(layout_result[key])
 	return result
 
 

@@ -7,29 +7,35 @@
 `GFBackgroundWorkUtility` 适合真正需要线程执行的“纯数据工作”：解析大型 JSON、生成寻路网格中间数据、压缩/解压缓存、计算导入报告，或把 Godot 的 threaded `ResourceLoader` 请求纳入统一状态面板。它和 `GFJobQueueUtility` 的分工不同：任务队列只保存状态并等待项目消费；后台工作协调器会启动受限数量的 `Thread`，通过显式共享的 `GFResourceBroker` 观察资源加载，并把结果安排回下一次 `tick()` 的主线程应用回调。
 
 ```gdscript
-var background := Gf.get_utility(GFBackgroundWorkUtility) as GFBackgroundWorkUtility
-
-background.submit_cpu_work(
-	func(input: Variant) -> Dictionary:
-		var rows := input as Array
-		return {
-			"count": rows.size(),
-			"checksum": hash(rows),
-		},
-	rows_from_disk,
-	func(task: GFBackgroundWorkTask) -> void:
-		# 这里已经回到主线程，可以写入 Model、创建节点或刷新 UI。
-		print(task.result)
+var utility: Object = Gf.get_utility(GFBackgroundWorkUtility)
+if not utility is GFBackgroundWorkUtility:
+	return
+var background: GFBackgroundWorkUtility = utility
+var captured: Dictionary = GFDataSnapshot.capture(rows_from_disk)
+if not captured.ok:
+	return
+var input_snapshot: GFDataSnapshot = captured.snapshot
+var task: GFBackgroundWorkTask = background.submit_cpu_work(
+	func(input: GFDataSnapshot) -> Dictionary:
+		return GFDeterministicVariantSerializer.hash_result(input),
+	input_snapshot,
+	func(completed: GFBackgroundWorkTask) -> void:
+		# 已回到主线程，可以更新 Model 或界面。
+		print(completed.result)
 )
 ```
 
 ## 线程数据边界
 
-默认情况下，`submit_cpu_work()` 和 `submit_io_work()` 会拒绝包含 `Object`、`Resource`、`Callable`、`Signal` 或 `RID` 的 payload，只接受标量、数学结构、PackedArray、Array 和 Dictionary 组成的纯 Variant 数据。这个限制是故意的：线程中不直接触碰场景树、Resource 实例或托管对象，才能避免把 Unity JobSystem 中“绕过托管类型检查却丢掉优化价值”的问题搬进 Godot。确实需要迁移旧代码时可以用 `options["allow_object_payloads"] = true` 或全局 `allow_object_payloads` 打开，但推荐做法仍是只传路径、ID、数值和结构化数据。
+`submit_cpu_work()` 和 `submit_io_work()` 必须接收已成功捕获的 `GFDataSnapshot`。null 或尚未构造完成的快照立即返回 failed 任务，不创建取消上下文或进入队列。提交只保留快照引用，不递归检查或复制输入；捕获成本由调用方在准备阶段安排，源数据在捕获期间必须稳定。快照可以被多个任务复用。
+
+快照只包含标量、数学结构、PackedArray、Array 和 Dictionary 组成的纯数据，拒绝循环、对象及可执行值。公开 `get_value(path)` 返回选定子树的副本，修改型 worker 显式调用 `copy_value()`。哈希等只读框架消费者可直接接收快照。已删除 `allow_object_payloads` 及可写 `task.input_data`；`task.get_input_snapshot()` 只提供只读快照句柄，排队及运行期间保留，线程物理 join 后释放。取消运行任务不会提前释放输入。
 
 已接受任务会强持有 `RefCounted` worker target，直到对应线程完成 join；主线程 `apply_callback` 的 `RefCounted` target 则持有到任务进入 completed、failed 或 cancelled 终态。这样局部创建的纯数据处理器不会在排队期间提前释放。框架不会据此延长 `Node` 的场景树生命周期：需要节点拥有任务时，仍应由项目在节点退出时取消任务，并让回调只写入仍有效的权威状态。
 
 ## 调度、取消与诊断
+
+`clear_all()` 与 `dispose()` 在发布取消、join 和清空期间统一拒绝新任务，重入 `tick()` 不推进执行或应用；释放后的 Utility 永久关闭接纳，普通 clear 完成后可以继续提交。全部原任务先收到取消请求，回调不会改变兄弟任务的首次取消原因。
 
 资源任务可以在 `work_queued` 回调中取消；取消后不会再启动底层请求。进度回调清空工作并提交同路径新任务时，旧轮询只结束原请求的处理，新请求仍会由后续 tick 推进。
 
@@ -40,15 +46,16 @@ background.submit_cpu_work(
 `ERR_UNCONFIGURED`、`reason` 是 `resource_broker_not_configured`。该错误码与
 调试快照一致，调用方无需从本地化错误文本反推失败类型。
 
-CPU/IO worker 默认仍使用既有的一参 `(input_data)` 调用契约。需要协作取消时，显式设置 `options["pass_cancellation_context"] = true`，并让 worker 精确接收 `(input_data, context)` 两个参数；`GFBackgroundWorkContext` 与纯数据 payload 分离，以线程安全的只读查询公开 work ID、首次取消原因和一致诊断快照。worker 应在自身有界循环或 I/O 分段之间调用 `context.is_cancel_requested()`，并在观察到请求后尽快返回；首次原因可能是单任务取消、批量取消、`clear_all()` 或 Utility 释放，重复请求不会覆盖它。
+CPU/IO worker 默认使用一参 `(input_snapshot: GFDataSnapshot)` 调用契约。需要协作取消时，显式设置 `options["pass_cancellation_context"] = true`，并让 worker 精确接收 `(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext)` 两个参数；`GFBackgroundWorkContext` 与纯数据 payload 分离，以线程安全的只读查询公开 work ID、首次取消原因和一致诊断快照。worker 应在自身有界循环或 I/O 分段之间调用 `context.is_cancel_requested()`，并在观察到请求后尽快返回；首次原因可能是单任务取消、批量取消、`clear_all()` 或 Utility 释放，重复请求不会覆盖它。
 
 ```gdscript
 var options: Dictionary = { "pass_cancellation_context": true }
 var task: GFBackgroundWorkTask = background.submit_cpu_work(
-	func(input: Variant, context: GFBackgroundWorkContext) -> Dictionary:
-		if not input is Array:
-			return {}
-		var rows: Array = input
+	func(input: GFDataSnapshot, context: GFBackgroundWorkContext) -> Dictionary:
+		var exported: Dictionary = input.copy_value()
+		if not exported.ok:
+			return exported
+		var rows: Array = exported.value
 		var processed: int = 0
 		for row: Variant in rows:
 			if context.is_cancel_requested():
@@ -56,7 +63,7 @@ var task: GFBackgroundWorkTask = background.submit_cpu_work(
 			process_row(row)
 			processed += 1
 		return { "processed": processed },
-	rows_from_disk,
+	input_snapshot,
 	Callable(),
 	options
 )

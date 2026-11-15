@@ -161,7 +161,7 @@ func to_dictionary(json_compatible: bool = true) -> Dictionary:
 			"reason": "json_encoding_failed",
 			"type": "GFDropZone",
 		}
-	var copied_result: Variant = GFVariantData.duplicate_variant(result)
+	var copied_result: Variant = GFVariantData.duplicate_graph(result)
 	if copied_result is Dictionary:
 		var copied_dictionary: Dictionary = copied_result
 		return copied_dictionary
@@ -320,7 +320,7 @@ static func _duplicate_option_metadata(options: Dictionary) -> Dictionary:
 	)
 	if not raw_metadata is Dictionary:
 		return {}
-	var copied_metadata: Variant = GFVariantData.duplicate_variant(raw_metadata)
+	var copied_metadata: Variant = GFVariantData.duplicate_graph(raw_metadata)
 	return copied_metadata if copied_metadata is Dictionary else {}
 
 

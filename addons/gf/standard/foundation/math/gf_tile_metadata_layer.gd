@@ -45,7 +45,7 @@ func set_cell_value(
 	if key == &"":
 		return
 	var data: Dictionary = get_cell_data(cell)
-	data[key] = GFVariantData.duplicate_variant(value)
+	data[key] = GFVariantData.duplicate_graph(value)
 	set_cell_data(cell, data)
 
 
@@ -119,7 +119,7 @@ func merge_cell_data(
 	var current: Dictionary = get_cell_data(cell)
 	for key: Variant in data.keys():
 		if overwrite or not current.has(key):
-			current[key] = GFVariantData.duplicate_variant(data[key])
+			current[key] = GFVariantData.duplicate_graph(data[key])
 	set_cell_data(cell, current)
 
 

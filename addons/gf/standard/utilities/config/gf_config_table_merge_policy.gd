@@ -226,7 +226,7 @@ func describe() -> Dictionary:
 		"allow_update": allow_update,
 		"allow_delete": allow_delete,
 		"delete_marker_field": delete_marker_field,
-		"delete_marker_value": GFVariantData.duplicate_variant(delete_marker_value),
+		"delete_marker_value": GFVariantData.duplicate_graph(delete_marker_value),
 		"preserve_base_order": preserve_base_order,
 		"metadata": metadata.duplicate(true),
 	}

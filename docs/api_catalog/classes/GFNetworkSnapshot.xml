@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkSnapshot" path="addons/gf/extensions/network/snapshot/gf_network_snapshot.gd" module="extensions/network" extends="RefCounted" classDigest="20850d2a4d151a8f187fcdb60ba5f9e587395d6a15a67a0de0877d43371f35ea">
+<class name="GFNetworkSnapshot" path="addons/gf/extensions/network/snapshot/gf_network_snapshot.gd" module="extensions/network" extends="RefCounted" classDigest="02762521ecc3556f00b2e0594471bfb2131762b9419321639b74e657990fcd86">
 	<description>GFNetworkSnapshot: 通用网络状态快照。
 保存 tick、peer_id、纯字典状态和元数据，可用于同步、回放、插值或项目自定义差量流程。</description>
 	<tags>
@@ -97,7 +97,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">key: 字段名。</tag>
 				<tag name="param">value: 字段值。</tag>
-				<tag name="schema">value: Variant，字段值，会通过 GFVariantData.duplicate_variant() 复制后保存。</tag>
+				<tag name="schema">value: Variant，字段值，会通过 GFVariantData.duplicate_graph() 复制后保存。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="erase_value">

@@ -174,7 +174,7 @@ static func normalize_metadata(metadata: Dictionary, options: Dictionary = {}) -
 		if value == null and drop_null_values:
 			continue
 
-		result[normalized_key] = GFVariantData.duplicate_variant(
+		result[normalized_key] = GFVariantData.duplicate_graph(
 			value,
 			true,
 			true
@@ -218,7 +218,7 @@ static func merge_metadata(
 	)
 	for key: Variant in overlay.keys():
 		if overwrite or not result.has(key):
-			result[key] = GFVariantData.duplicate_variant(
+			result[key] = GFVariantData.duplicate_graph(
 				overlay[key],
 				true,
 				true
@@ -869,7 +869,7 @@ static func _merge_child_report(report: Dictionary, child_report: Dictionary) ->
 		"processed_id3_bytes",
 	]:
 		if child_report.has(diagnostic_key):
-			report[diagnostic_key] = GFVariantData.duplicate_variant(
+			report[diagnostic_key] = GFVariantData.duplicate_graph(
 				child_report[diagnostic_key],
 				true,
 				true
@@ -924,7 +924,7 @@ static func _copy_stream_property(
 		if not _is_finite_float(float_value):
 			return
 
-	metadata[property_name] = GFVariantData.duplicate_variant(
+	metadata[property_name] = GFVariantData.duplicate_graph(
 		value,
 		true,
 		true

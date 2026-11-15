@@ -58,7 +58,7 @@ var targets: Array[Object]:
 ## @schema payload: Variant payload consumed by project-specific action resolvers.
 var payload: Variant:
 	get:
-		return GFVariantData.duplicate_variant(_payload) if _is_claimed else _payload
+		return GFVariantData.duplicate_graph(_payload) if _is_claimed else _payload
 	set(value):
 		if _can_change_configuration(&"payload"):
 			_payload = value
@@ -247,7 +247,7 @@ func claim_for_queue() -> bool:
 	):
 		return false
 	_targets = _sanitize_targets(_targets)
-	_payload = GFVariantData.duplicate_variant(_payload)
+	_payload = GFVariantData.duplicate_graph(_payload)
 	_is_claimed = true
 	return true
 

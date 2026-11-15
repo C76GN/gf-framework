@@ -160,7 +160,7 @@ func get_request_id() -> int:
 ## [br]
 ## @schema return: Variant，调用方传入的 key 副本。
 func get_key() -> Variant:
-	return GFVariantData.duplicate_variant(_key)
+	return GFVariantData.duplicate_graph(_key)
 
 
 ## 获取租约元数据副本。
@@ -217,7 +217,7 @@ func get_debug_snapshot() -> Dictionary:
 	return {
 		"lease_id": _lease_id,
 		"request_id": _request_id,
-		"key": GFVariantData.duplicate_variant(_key),
+		"key": GFVariantData.duplicate_graph(_key),
 		"active": _active,
 		"release_pending": _release_pending,
 		"metadata": _metadata.duplicate(true),
@@ -260,7 +260,7 @@ func configure_from_gate(
 ) -> GFAsyncGateLease:
 	_lease_id = lease_id
 	_request_id = request_id
-	_key = GFVariantData.duplicate_variant(key)
+	_key = GFVariantData.duplicate_graph(key)
 	_metadata = metadata.duplicate(true)
 	_acquired_msec = Time.get_ticks_msec()
 	_released_msec = 0

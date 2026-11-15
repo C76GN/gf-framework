@@ -68,13 +68,6 @@ var status: Status = Status.QUEUED
 ## @api public
 var priority: int = 0
 
-## 工作输入数据。默认应只包含纯 Variant 数据。
-## [br]
-## @api public
-## [br]
-## @schema input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-var input_data: Variant = null
-
 ## 工作结果。线程任务返回值或资源加载结果会写入该字段。
 ## [br]
 ## @api public
@@ -142,6 +135,11 @@ var finished_msec: int = 0
 
 # --- 私有变量 ---
 
+## 队列或运行线程持有的输入快照；物理 join 或未启动的终态之后释放。
+## [br]
+## @api private
+var _input_snapshot: GFDataSnapshot = null
+
 ## 提供给后台执行阶段的 worker Callable。
 ## [br]
 ## @api private
@@ -180,6 +178,17 @@ var _worker_receives_cancellation_context: bool = false
 
 
 # --- 公共方法 ---
+
+## 获取工作持有的只读输入快照。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 等待或运行中的输入；拒绝、未启动取消或线程 join 后返回 null。
+func get_input_snapshot() -> GFDataSnapshot:
+	return _input_snapshot
+
 
 ## 当前工作是否已经进入终态。
 ## [br]
@@ -277,6 +286,15 @@ static func status_name(value: Status) -> String:
 
 
 # --- 框架内部方法 ---
+
+## 由工作协调器设置或释放输入所有权。
+## [br]
+## @api framework_internal
+## [br]
+## @param snapshot: 成功接纳的快照；释放时为 null。
+func set_input_snapshot_for_framework(snapshot: GFDataSnapshot) -> void:
+	_input_snapshot = snapshot
+
 
 ## 设置后台工作回调。
 ## [br]

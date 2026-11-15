@@ -275,7 +275,7 @@ static func fold_async(
 		)
 
 	var history: Array[Dictionary] = []
-	var accumulator: Variant = GFVariantData.duplicate_variant(
+	var accumulator: Variant = GFVariantData.duplicate_graph(
 		initial_value,
 		true,
 		true
@@ -292,7 +292,7 @@ static func fold_async(
 			history
 		)
 		if not cancel_result.is_empty():
-			cancel_result["value"] = GFVariantData.duplicate_variant(
+			cancel_result["value"] = GFVariantData.duplicate_graph(
 				accumulator,
 				true,
 				true
@@ -311,7 +311,7 @@ static func fold_async(
 		normalized["index"] = index
 		history.append(normalized.duplicate(true))
 		if GFVariantData.get_option_bool(normalized, "ok"):
-			accumulator = GFVariantData.duplicate_variant(
+			accumulator = GFVariantData.duplicate_graph(
 				GFVariantData.get_option_value(normalized, "value"),
 				true,
 				true
@@ -450,7 +450,7 @@ static func _wait_completions_async(
 				options
 			)
 		var completion: GFAsyncCompletion = completion_value
-		entries[GFVariantData.duplicate_variant(key)] = completion
+		entries[GFVariantData.duplicate_graph(key)] = completion
 
 	var completion_order: Array = []
 	_append_precompleted_keys(entries, completion_order)
@@ -720,7 +720,7 @@ static func _make_operation_result(
 ) -> Dictionary:
 	return {
 		"ok": ok,
-		"value": GFVariantData.duplicate_variant(
+		"value": GFVariantData.duplicate_graph(
 			value,
 			true,
 			true
@@ -745,7 +745,7 @@ static func _make_report(
 	return {
 		"ok": ok,
 		"status": status,
-		"value": GFVariantData.duplicate_variant(
+		"value": GFVariantData.duplicate_graph(
 			value,
 			true,
 			true
@@ -817,10 +817,10 @@ static func _connect_pending_completions(
 			_disconnect_completion_callbacks(callbacks)
 			return {
 				"ok": false,
-				"key": GFVariantData.duplicate_variant(key),
+				"key": GFVariantData.duplicate_graph(key),
 				"error": "completion signal connect failed.",
 			}
-		callbacks[GFVariantData.duplicate_variant(key)] = { "completion": completion, "callback": callback, }
+		callbacks[GFVariantData.duplicate_graph(key)] = { "completion": completion, "callback": callback, }
 	return { "ok": true }
 
 
@@ -828,11 +828,11 @@ static func _connect_pending_completions(
 ## [br]
 ## @api private
 static func _make_completion_channel_callback(channel: GFAsyncChannel, key: Variant) -> Callable:
-	var stored_key: Variant = GFVariantData.duplicate_variant(key)
+	var stored_key: Variant = GFVariantData.duplicate_graph(key)
 	return func(_completion: GFAsyncCompletion) -> void:
 		if not Thread.is_main_thread():
 			return
-		var event: Dictionary = { "key": GFVariantData.duplicate_variant(stored_key), }
+		var event: Dictionary = { "key": GFVariantData.duplicate_graph(stored_key), }
 		var _write_result: bool = channel.try_write(event)
 
 
@@ -939,28 +939,28 @@ static func _make_completion_wait_report(
 		if ordered_completion == null:
 			continue
 		if first_completed_key == null and ordered_completion.is_completed():
-			first_completed_key = GFVariantData.duplicate_variant(ordered_key)
+			first_completed_key = GFVariantData.duplicate_graph(ordered_key)
 		if first_success_key == null and ordered_completion.is_successful():
-			first_success_key = GFVariantData.duplicate_variant(ordered_key)
+			first_success_key = GFVariantData.duplicate_graph(ordered_key)
 	for key: Variant in entries.keys():
 		var completion: GFAsyncCompletion = _get_completion_entry(entries, key)
 		if completion == null:
 			continue
 		var snapshot: Dictionary = completion.get_debug_snapshot()
-		items[GFVariantData.duplicate_variant(key)] = snapshot
-		results[GFVariantData.duplicate_variant(key)] = completion.get_result()
+		items[GFVariantData.duplicate_graph(key)] = snapshot
+		results[GFVariantData.duplicate_graph(key)] = completion.get_result()
 		if completion.is_completed():
 			completed_count += 1
 		if completion.is_successful():
 			succeeded_count += 1
 			if first_success_key == null:
-				first_success_key = GFVariantData.duplicate_variant(key)
+				first_success_key = GFVariantData.duplicate_graph(key)
 		elif completion.is_failed():
 			failed_count += 1
 		elif completion.is_cancelled():
 			cancelled_count += 1
 		if first_completed_key == null and completion.is_completed():
-			first_completed_key = GFVariantData.duplicate_variant(key)
+			first_completed_key = GFVariantData.duplicate_graph(key)
 
 	var pending_count: int = entries.size() - completed_count
 	var ok: bool = (
@@ -996,8 +996,8 @@ static func _make_completion_wait_report(
 		"items": items,
 		"results": results,
 		"completion_order": completion_order.duplicate(true),
-		"first_completed_key": GFVariantData.duplicate_variant(first_completed_key),
-		"first_success_key": GFVariantData.duplicate_variant(first_success_key),
+		"first_completed_key": GFVariantData.duplicate_graph(first_completed_key),
+		"first_success_key": GFVariantData.duplicate_graph(first_success_key),
 		"cancel_reason": &"",
 		"cancel_metadata": {},
 		"timed_out": false,
@@ -1038,7 +1038,7 @@ static func _make_completion_wait_invalid_report(
 	report["ok"] = false
 	report["status"] = STATUS_FAILED
 	report["error"] = error
-	report["invalid_key"] = GFVariantData.duplicate_variant(key)
+	report["invalid_key"] = GFVariantData.duplicate_graph(key)
 	return report
 
 
@@ -1080,7 +1080,7 @@ static func _cancel_remaining_completions_if_requested(entries: Dictionary, opti
 		if completion != null and completion.is_pending():
 			var _cancelled_completion: bool = completion.cancel(
 				&"flow_completed",
-				{ "key": GFVariantData.duplicate_variant(key), }
+				{ "key": GFVariantData.duplicate_graph(key), }
 			)
 
 
@@ -1101,7 +1101,7 @@ static func _append_completion_order(completion_order: Array, key: Variant) -> v
 	for existing_key: Variant in completion_order:
 		if existing_key == key:
 			return
-	completion_order.append(GFVariantData.duplicate_variant(key))
+	completion_order.append(GFVariantData.duplicate_graph(key))
 
 
 ## 从 entries 读取指定键，并仅在值为 GFAsyncCompletion 时返回该值。

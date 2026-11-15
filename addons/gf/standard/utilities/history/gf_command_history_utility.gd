@@ -800,7 +800,7 @@ func _serialize_stack(stack: Array[GFUndoableCommand]) -> Array[Dictionary]:
 		if cmd.has_method("serialize"):
 			arr.append(GFVariantData.to_dictionary(cmd.call("serialize")))
 		else:
-			arr.append({ "snapshot": GFVariantData.duplicate_variant(cmd.get_snapshot()) })
+			arr.append({ "snapshot": GFVariantData.duplicate_graph(cmd.get_snapshot()) })
 
 	return arr
 

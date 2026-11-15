@@ -1491,7 +1491,7 @@ func _build_identity_plan(
 		descriptors.append(
 			{
 				"index": item_index,
-				"identity": GFVariantData.duplicate_variant(item_id),
+				"identity": GFVariantData.duplicate_graph(item_id),
 				"token": token,
 				"reuse_key": reuse_key,
 			}

@@ -644,7 +644,7 @@ func test_duplicate_variant_deep_copies_collections() -> void:
 			{ "value": 1 },
 		],
 	}
-	var copy: Dictionary = _as_dictionary(GFVariantData.duplicate_variant(source))
+	var copy: Dictionary = _as_dictionary(GFVariantData.duplicate_graph(source))
 	var copy_items: Array = _as_array(copy["items"])
 	var copied_item: Dictionary = _as_dictionary(copy_items[0])
 	copied_item["value"] = 2
@@ -662,7 +662,7 @@ func test_duplicate_variant_preserves_recursive_dictionary_identity() -> void:
 	var source: Dictionary = { "value": 1, }
 	source["self"] = source
 
-	var copy: Dictionary = _as_dictionary(GFVariantData.duplicate_variant(source))
+	var copy: Dictionary = _as_dictionary(GFVariantData.duplicate_graph(source))
 
 	assert_false(
 		is_same(copy, source),
@@ -681,13 +681,13 @@ func test_duplicate_variant_can_optionally_duplicate_resources() -> void:
 	var resource: Resource = Resource.new()
 
 	assert_same(
-		_as_resource(GFVariantData.duplicate_variant(resource)),
+		_as_resource(GFVariantData.duplicate_graph(resource)),
 		resource,
 		"默认应保留 Resource 引用。"
 	)
 	assert_ne(
 		_as_resource(
-			GFVariantData.duplicate_variant(
+			GFVariantData.duplicate_graph(
 				resource,
 				true,
 				true
@@ -703,7 +703,7 @@ func test_duplicate_variant_preserves_shared_resource_topology() -> void:
 	var source: Array = [shared_resource, shared_resource]
 
 	var copy: Array = _as_array(
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			source,
 			true,
 			true
@@ -739,7 +739,7 @@ func test_duplicate_variant_deep_copies_all_packed_array_types() -> void:
 	]
 
 	for source_value: Variant in packed_values:
-		var copied_value: Variant = GFVariantData.duplicate_variant(source_value)
+		var copied_value: Variant = GFVariantData.duplicate_graph(source_value)
 		var mutated_copy: Variant = _replace_first_packed_value(copied_value)
 
 		assert_eq(

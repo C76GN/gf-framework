@@ -419,7 +419,7 @@ static func condition(
 	return {
 		"operator": operator,
 		"path": path,
-		"value": GFVariantData.duplicate_variant(
+		"value": GFVariantData.duplicate_graph(
 			value,
 			true,
 			false
@@ -588,13 +588,13 @@ func values(path: String = "", duplicate_values: bool = true) -> Array:
 	var normalized_path: String = path.strip_edges()
 	for record: Dictionary in to_array(false):
 		if normalized_path.is_empty():
-			result.append(GFVariantData.duplicate_variant(record) if duplicate_values else record)
+			result.append(GFVariantData.duplicate_graph(record) if duplicate_values else record)
 			continue
 
 		var read_result: Dictionary = _read_path(record, normalized_path)
 		if GFVariantData.get_option_bool(read_result, "found"):
 			var value: Variant = GFVariantData.get_option_value(read_result, "value")
-			result.append(GFVariantData.duplicate_variant(value) if duplicate_values else value)
+			result.append(GFVariantData.duplicate_graph(value) if duplicate_values else value)
 	return result
 
 
@@ -670,7 +670,7 @@ func _add_value_filter(
 		{
 			"operator": operator,
 			"path": normalized_path,
-			"value": GFVariantData.duplicate_variant(
+			"value": GFVariantData.duplicate_graph(
 				value,
 				true,
 				false
@@ -897,7 +897,7 @@ func _normalize_filter_condition(condition_data: Dictionary) -> Dictionary:
 	return {
 		"operator": operator,
 		"path": path,
-		"value": GFVariantData.duplicate_variant(
+		"value": GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(condition_data, "value"),
 			true,
 			false

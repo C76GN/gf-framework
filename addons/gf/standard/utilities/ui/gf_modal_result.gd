@@ -113,7 +113,7 @@ func to_dict() -> Dictionary:
 	return {
 		"status": status,
 		"action_id": action_id,
-		"payload": GFVariantData.duplicate_collection(payload),
+		"payload": GFVariantData.duplicate_graph(payload),
 		"metadata": metadata.duplicate(true),
 		"context": context.duplicate(true),
 	}

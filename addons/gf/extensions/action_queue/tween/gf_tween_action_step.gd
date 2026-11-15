@@ -178,7 +178,7 @@ func duplicate_step() -> GFTweenActionStep:
 		return null
 	var step: GFTweenActionStep = GFTweenActionStep.new()
 	step.property_name = property_name
-	step.target_value = GFVariantData.duplicate_variant(target_value)
+	step.target_value = GFVariantData.duplicate_graph(target_value)
 	step.duration = duration
 	step.delay = delay
 	step.as_relative = as_relative
@@ -235,7 +235,7 @@ func get_validation_error(target: Object) -> String:
 func capture_initial_value(target: Object) -> Variant:
 	if not get_property_validation_error(target).is_empty():
 		return null
-	return GFVariantData.duplicate_variant(target.get_indexed(property_name))
+	return GFVariantData.duplicate_graph(target.get_indexed(property_name))
 
 
 # --- 框架内部方法 ---

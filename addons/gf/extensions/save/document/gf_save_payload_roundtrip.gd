@@ -186,14 +186,14 @@ static func project(policy: GFSavePayloadPolicy, payload: Variant) -> Dictionary
 	)
 	if not GFVariantData.get_option_bool(state, "ok"):
 		return _state_failure(state)
-	if not policy.schema.validate_value(GFVariantData.duplicate_variant(projection)).is_ok():
+	if not policy.schema.validate_value(GFVariantData.duplicate_graph(projection)).is_ok():
 		return _failure(&"known_value_invalid", "")
 	return {
 		"ok": true,
 		"error_kind": &"",
 		"path": "",
-		"projection": GFVariantData.duplicate_variant(projection),
-		"baseline": GFVariantData.duplicate_variant(payload),
+		"projection": GFVariantData.duplicate_graph(projection),
+		"baseline": GFVariantData.duplicate_graph(payload),
 	}
 
 
@@ -566,7 +566,7 @@ static func _project_value(
 				)
 			)
 		return output
-	return GFVariantData.duplicate_variant(value)
+	return GFVariantData.duplicate_graph(value)
 
 
 ## 合并已知当前值与政策允许的旧未知值。
@@ -598,7 +598,7 @@ static func _merge_value(
 					path,
 					key
 				):
-					output[key] = GFVariantData.duplicate_variant(values[key])
+					output[key] = GFVariantData.duplicate_graph(values[key])
 				continue
 			output[key] = _merge_value(
 				values[key],
@@ -627,7 +627,7 @@ static func _merge_value(
 				path,
 				key
 			):
-				output[key] = GFVariantData.duplicate_variant(old[key])
+				output[key] = GFVariantData.duplicate_graph(old[key])
 		return output
 	if (
 		current is Array
@@ -661,7 +661,7 @@ static func _merge_value(
 				)
 			)
 		return output
-	return GFVariantData.duplicate_variant(current)
+	return GFVariantData.duplicate_graph(current)
 
 
 ## 用稳定身份合并元素，旧未知条目沿仍存在的后继锚点插入。
@@ -707,7 +707,7 @@ static func _merge_collection(
 				state,
 				policy
 			)
-			if active else GFVariantData.duplicate_variant(item)
+			if active else GFVariantData.duplicate_graph(item)
 		)
 		var _appended: bool = order.append(key)
 	var anchors: Dictionary = {}
@@ -734,7 +734,7 @@ static func _merge_collection(
 		):
 			continue
 		var pending: Array = GFVariantData.get_option_array(anchors, next_key)
-		pending.append(GFVariantData.duplicate_variant(item))
+		pending.append(GFVariantData.duplicate_graph(item))
 		anchors[next_key] = pending
 	var output: Array = []
 	for key: String in order:

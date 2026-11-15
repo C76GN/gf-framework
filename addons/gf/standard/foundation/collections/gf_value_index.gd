@@ -347,7 +347,7 @@ func _emit_cleared() -> void:
 ## @api private
 func _copy_value(value: Variant) -> Variant:
 	if duplicate_values:
-		return GFVariantData.duplicate_variant(value)
+		return GFVariantData.duplicate_graph(value)
 	return value
 
 

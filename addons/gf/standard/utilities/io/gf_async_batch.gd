@@ -701,8 +701,8 @@ func get_report() -> Dictionary:
 		"results": get_results(),
 		"items": _get_items_report(),
 		"completion_order": _completion_order.duplicate(true),
-		"first_completed_key": GFVariantData.duplicate_variant(_first_completed_key),
-		"first_success_key": GFVariantData.duplicate_variant(_first_success_key),
+		"first_completed_key": GFVariantData.duplicate_graph(_first_completed_key),
+		"first_success_key": GFVariantData.duplicate_graph(_first_success_key),
 		"cancel_reason": _cancel_reason,
 		"cancel_metadata": _cancel_metadata.duplicate(true),
 	}
@@ -777,7 +777,7 @@ func _mark_item_terminal(
 
 	item["state"] = state
 	item["done"] = true
-	item["result"] = GFVariantData.duplicate_variant(result)
+	item["result"] = GFVariantData.duplicate_graph(result)
 	item["error"] = error
 	item["cancel_reason"] = cancel_reason
 	if not terminal_metadata.is_empty():
@@ -786,10 +786,10 @@ func _mark_item_terminal(
 	_disconnect_watched_response(key)
 	_disconnect_watched_completion(key)
 	if _first_completed_key == null:
-		_first_completed_key = GFVariantData.duplicate_variant(key)
+		_first_completed_key = GFVariantData.duplicate_graph(key)
 	if state == ItemState.SUCCEEDED and _first_success_key == null:
-		_first_success_key = GFVariantData.duplicate_variant(key)
-	_completion_order.append(GFVariantData.duplicate_variant(key))
+		_first_success_key = GFVariantData.duplicate_graph(key)
+	_completion_order.append(GFVariantData.duplicate_graph(key))
 
 	if state == ItemState.CANCELLED:
 		_call_item_cancel_callback(key, cancel_reason)
@@ -976,7 +976,7 @@ func _get_items_report() -> Dictionary:
 			"state_name": _state_to_name(state),
 			"done": _is_item_done(item),
 			"success": state == ItemState.SUCCEEDED,
-			"result": GFVariantData.duplicate_variant(_get_item_result(item)),
+			"result": GFVariantData.duplicate_graph(_get_item_result(item)),
 			"error": GFVariantData.get_option_string(item, "error"),
 			"cancel_reason": GFVariantData.get_option_string_name(item, "cancel_reason"),
 			"metadata": GFVariantData.get_option_dictionary(item, "metadata"),
@@ -1223,7 +1223,7 @@ func _get_entry_callback(entry: Dictionary) -> Callable:
 func _merge_item_metadata(item: Dictionary, terminal_metadata: Dictionary) -> Dictionary:
 	var result: Dictionary = GFVariantData.get_option_dictionary(item, "metadata")
 	for metadata_key: Variant in terminal_metadata.keys():
-		result[metadata_key] = GFVariantData.duplicate_variant(terminal_metadata[metadata_key])
+		result[metadata_key] = GFVariantData.duplicate_graph(terminal_metadata[metadata_key])
 	return result
 
 

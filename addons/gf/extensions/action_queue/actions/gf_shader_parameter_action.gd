@@ -148,7 +148,7 @@ func execute() -> Variant:
 	_active_parameter_name = &""
 	_active_target_value = null
 	var execution_parameter_name: StringName = parameter_name
-	var execution_target_value: Variant = GFVariantData.duplicate_variant(target_value)
+	var execution_target_value: Variant = GFVariantData.duplicate_graph(target_value)
 	var source_material: ShaderMaterial = _resolve_shader_material()
 	if (
 		source_material == null
@@ -325,7 +325,7 @@ func _accepts_shader_parameter(
 ## [br]
 ## @api private
 func _capture_initial_value(material: ShaderMaterial) -> void:
-	_initial_value = GFVariantData.duplicate_variant(material.get_shader_parameter(_active_parameter_name))
+	_initial_value = GFVariantData.duplicate_graph(material.get_shader_parameter(_active_parameter_name))
 	_has_initial_value = true
 
 
@@ -374,7 +374,7 @@ func _restore_initial_value() -> void:
 		return
 	_active_material.set_shader_parameter(
 		_active_parameter_name,
-		GFVariantData.duplicate_variant(_initial_value)
+		GFVariantData.duplicate_graph(_initial_value)
 	)
 
 

@@ -213,7 +213,7 @@ func set_limit(
 	if normalized.is_empty() or normalized_key.is_empty():
 		return false
 	var capability_limits: Dictionary = get_capability_limits(capability_id)
-	capability_limits[normalized_key] = GFVariantData.duplicate_variant(value)
+	capability_limits[normalized_key] = GFVariantData.duplicate_graph(value)
 	limits[normalized] = capability_limits
 	var _capability_added: bool = add_capability(capability_id)
 	return true
@@ -245,7 +245,7 @@ func get_limit(
 	var normalized_key: String = String(key).strip_edges()
 	if normalized_key.is_empty() or not capability_limits.has(normalized_key):
 		return default_value
-	return GFVariantData.duplicate_variant(capability_limits[normalized_key])
+	return GFVariantData.duplicate_graph(capability_limits[normalized_key])
 
 
 ## 读取能力限制字典。
@@ -294,7 +294,7 @@ func merge_from(other: GFPlatformCapabilitySet, overwrite_existing: bool = true)
 			limits[normalized_key] = GFVariantData.to_dictionary(other.limits[capability_key])
 	for metadata_key: Variant in other.metadata.keys():
 		if overwrite_existing or not metadata.has(metadata_key):
-			metadata[metadata_key] = GFVariantData.duplicate_variant(other.metadata[metadata_key])
+			metadata[metadata_key] = GFVariantData.duplicate_graph(other.metadata[metadata_key])
 	return self
 
 

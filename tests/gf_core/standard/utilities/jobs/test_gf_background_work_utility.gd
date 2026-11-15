@@ -92,7 +92,7 @@ func test_cpu_work_runs_on_thread_and_applies_on_tick() -> void:
 	var worker: PureWorker = PureWorker.new()
 	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 21 },
+		_snapshot({ "value": 21 }),
 		Callable(self, "_apply_value")
 	)
 
@@ -119,6 +119,143 @@ func test_cpu_work_runs_on_thread_and_applies_on_tick() -> void:
 		"主线程应用完成时应发出信号。"
 	)
 	utility.dispose()
+
+
+func test_snapshot_is_shared_read_only_and_retained_until_physical_join() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	utility.pause()
+	var source: Dictionary = { "value": 21 }
+	var snapshot: GFDataSnapshot = _snapshot(source)
+	var input_reference: WeakRef = weakref(snapshot)
+	var queued_callback: Callable = func(queued_task: GFBackgroundWorkTask) -> void:
+		var exported: Dictionary = GFVariantData.as_dictionary(queued_task.get_input_snapshot().get_value())
+		exported["value"] = -1
+	var _connected: int = utility.work_queued.connect(queued_callback)
+	var worker: PureWorker = PureWorker.new()
+	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "slow_value"),
+		snapshot
+	)
+	assert_same(
+		task.get_input_snapshot(),
+		snapshot
+	)
+	source["value"] = 99
+	var queued_value: int = task.get_input_snapshot().get_value(["value"])
+	assert_eq(queued_value, 21)
+	snapshot = null
+	utility.resume()
+	var _cancelled: bool = utility.cancel_work(task.work_id)
+	assert_not_null(task.get_input_snapshot())
+	assert_true(input_reference.get_ref() != null)
+	await _pump_until_finished(utility, task)
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_null(task.get_input_snapshot())
+	assert_true(input_reference.get_ref() == null)
+	utility.work_queued.disconnect(queued_callback)
+	utility.dispose()
+
+
+func test_cleanup_rejects_reentrant_submission_and_disposal_stays_closed() -> void:
+	for dispose_utility: bool in [false, true]:
+		var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+		utility.init()
+		var worker: PureWorker = PureWorker.new()
+		var original: GFBackgroundWorkTask = utility.submit_cpu_work(
+			Callable(worker, "slow_value"),
+			_snapshot({})
+		)
+		var replacements: Array[GFBackgroundWorkTask] = []
+		var callback: Callable = func(_task: GFBackgroundWorkTask) -> void:
+			utility.clear_all()
+			replacements.append(
+				utility.submit_io_work(
+					Callable(worker, "slow_value"),
+					_snapshot({})
+				)
+			)
+		var _connected: int = utility.work_cancelled.connect(callback)
+		if dispose_utility:
+			utility.dispose()
+		else:
+			utility.clear_all()
+		assert_eq(original.status, GFBackgroundWorkTask.Status.CANCELLED)
+		assert_null(original.get_input_snapshot())
+		assert_eq(
+			replacements.size(),
+			1
+		)
+		assert_eq(
+			replacements[0].status,
+			GFBackgroundWorkTask.Status.FAILED
+		)
+		assert_null(replacements[0].get_input_snapshot())
+		assert_eq(
+			GFVariantData.get_option_int(
+				utility.get_debug_snapshot(),
+				"running_thread_count"
+			),
+			0
+		)
+		utility.work_cancelled.disconnect(callback)
+		var next: GFBackgroundWorkTask = utility.submit_cpu_work(
+			Callable(worker, "double_value"),
+			_snapshot({})
+		)
+		if dispose_utility:
+			assert_eq(next.status, GFBackgroundWorkTask.Status.FAILED)
+		else:
+			await _pump_until_finished(utility, next)
+			assert_eq(next.status, GFBackgroundWorkTask.Status.COMPLETED)
+		utility.dispose()
+
+
+func test_cleanup_blocks_reentrant_tick_and_preserves_all_cancellation_reasons() -> void:
+	for dispose_utility: bool in [false, true]:
+		var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+		utility.init()
+		utility.max_threaded_tasks = 1
+		utility.pause()
+		var worker: CooperativeWorker = CooperativeWorker.new()
+		var queued: GFBackgroundWorkTask = utility.submit_cpu_work(
+			Callable(worker, "return_with_context"),
+			_snapshot({}),
+			Callable(),
+			{ "priority": 0, "pass_cancellation_context": true }
+		)
+		var running: GFBackgroundWorkTask = utility.submit_cpu_work(
+			Callable(worker, "return_with_context"),
+			_snapshot({}),
+			Callable(self, "_apply_value"),
+			{ "priority": 1, "pass_cancellation_context": true }
+		)
+		utility.resume()
+		for _frame: int in 120:
+			if worker.has_returned():
+				break
+			await get_tree().process_frame
+		assert_true(worker.has_returned())
+		watch_signals(utility)
+		var callback: Callable = func(task: GFBackgroundWorkTask) -> void:
+			if task == queued:
+				utility.tick()
+				utility.clear_all()
+		var _connected: int = utility.work_cancelled.connect(callback)
+		if dispose_utility:
+			utility.dispose()
+		else:
+			utility.clear_all()
+		assert_eq(running.status, GFBackgroundWorkTask.Status.CANCELLED)
+		assert_signal_not_emitted(utility, "work_applied")
+		assert_signal_not_emitted(utility, "work_completed")
+		var expected: GFBackgroundWorkContext.CancellationReason = GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED if dispose_utility else GFBackgroundWorkContext.CancellationReason.CLEAR_ALL
+		assert_eq(
+			running.get_cancellation_context().get_cancel_reason(),
+			expected
+		)
+		utility.work_cancelled.disconnect(callback)
+		utility.dispose()
 
 
 func test_paused_task_retains_scoped_ref_counted_callbacks_until_terminal() -> void:
@@ -217,7 +354,10 @@ func test_failed_worker_marks_task_failed() -> void:
 	utility.init()
 	var worker: PureWorker = PureWorker.new()
 
-	var task: GFBackgroundWorkTask = utility.submit_io_work(Callable(worker, "fail_work"))
+	var task: GFBackgroundWorkTask = utility.submit_io_work(
+		Callable(worker, "fail_work"),
+		_snapshot(null)
+	)
 
 	await _pump_until_finished(utility, task)
 
@@ -239,7 +379,10 @@ func test_failed_worker_uses_standard_result_message_fallback() -> void:
 	utility.init()
 	var worker: PureWorker = PureWorker.new()
 
-	var task: GFBackgroundWorkTask = utility.submit_io_work(Callable(worker, "fail_work_with_message"))
+	var task: GFBackgroundWorkTask = utility.submit_io_work(
+		Callable(worker, "fail_work_with_message"),
+		_snapshot(null)
+	)
 
 	await _pump_until_finished(utility, task)
 
@@ -256,28 +399,19 @@ func test_failed_worker_uses_standard_result_message_fallback() -> void:
 	utility.dispose()
 
 
-func test_object_payload_is_rejected_by_default() -> void:
+func test_missing_and_unready_snapshot_are_rejected() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
 	var worker: PureWorker = PureWorker.new()
-	var node: Node = Node.new()
-
-	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
-		Callable(worker, "double_value"),
-		{ "node": node }
-	)
-
-	assert_eq(
-		task.status,
-		GFBackgroundWorkTask.Status.FAILED,
-		"默认不应允许 Object 进入线程 payload。"
-	)
-	assert_string_contains(
-		task.error_message,
-		"payload",
-		"失败原因应说明 payload 不安全。"
-	)
-	node.free()
+	for snapshot: GFDataSnapshot in [null, GFDataSnapshot.new()]:
+		var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+			Callable(worker, "double_value"),
+			snapshot
+		)
+		assert_eq(task.status, GFBackgroundWorkTask.Status.FAILED)
+		assert_string_contains(task.error_message, "snapshot_invalid")
+		assert_null(task.get_input_snapshot())
+		assert_null(task.get_cancellation_context())
 	utility.dispose()
 
 
@@ -287,7 +421,7 @@ func test_explicit_context_worker_keeps_input_payload_pure_and_receives_identity
 	var worker: CooperativeWorker = CooperativeWorker.new()
 	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "return_with_context"),
-		{ "value": 23 },
+		_snapshot({ "value": 23 }),
 		Callable(),
 		{ "id": &"context_identity", "pass_cancellation_context": true, }
 	)
@@ -295,9 +429,9 @@ func test_explicit_context_worker_keeps_input_payload_pure_and_receives_identity
 	await _pump_until_finished(utility, task)
 
 	assert_eq(task.status, GFBackgroundWorkTask.Status.COMPLETED)
-	assert_false(
-		_contains_object(task.input_data),
-		"Context 必须独立于纯 Variant input_data 传入。"
+	assert_null(
+		task.get_input_snapshot(),
+		"物理 join 后释放输入快照。"
 	)
 	assert_eq(
 		worker.get_last_work_id(),
@@ -391,7 +525,7 @@ func test_context_opt_in_rejects_one_argument_worker_before_queueing() -> void:
 
 	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 3 },
+		_snapshot({ "value": 3 }),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -416,13 +550,13 @@ func test_duplicate_id_rejection_does_not_publish_cancellation_context() -> void
 	var worker: CooperativeWorker = CooperativeWorker.new()
 	var accepted: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "id": &"duplicate_context", "pass_cancellation_context": true, }
 	)
 	var rejected: GFBackgroundWorkTask = utility.submit_io_work(
 		Callable(worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "id": &"duplicate_context", "pass_cancellation_context": true, }
 	)
@@ -442,6 +576,38 @@ func test_duplicate_id_rejection_does_not_publish_cancellation_context() -> void
 	utility.dispose()
 
 
+func test_rejected_duplicate_history_never_removes_accepted_task() -> void:
+	for history_limit: int in [0, 128]:
+		var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+		utility.init()
+		utility.pause()
+		utility.max_finished_tasks = history_limit
+		var worker: PureWorker = PureWorker.new()
+		var accepted: GFBackgroundWorkTask = utility.submit_cpu_work(
+			Callable(worker, "double_value"),
+			_snapshot({}),
+			Callable(),
+			{ "id": &"duplicate_history" }
+		)
+		var rejected: GFBackgroundWorkTask = utility.submit_io_work(
+			Callable(worker, "double_value"),
+			_snapshot({}),
+			Callable(),
+			{ "id": &"duplicate_history" }
+		)
+		assert_eq(rejected.status, GFBackgroundWorkTask.Status.FAILED)
+		assert_same(
+			utility.get_task(accepted.work_id),
+			accepted
+		)
+		utility.clear_finished_tasks()
+		assert_same(
+			utility.get_task(accepted.work_id),
+			accepted
+		)
+		utility.dispose()
+
+
 func test_cancel_before_start_records_reason_without_invoking_worker() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.init()
@@ -449,7 +615,7 @@ func test_cancel_before_start_records_reason_without_invoking_worker() -> void:
 	var worker: CooperativeWorker = CooperativeWorker.new()
 	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -484,13 +650,13 @@ func test_running_cpu_cancel_releases_single_slot_for_successor() -> void:
 	var pure_worker: PureWorker = PureWorker.new()
 	var first: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "wait_for_cancel"),
-		{ "value": 1 },
+		_snapshot({ "value": 1 }),
 		Callable(),
 		{ "id": &"cooperative_first", "pass_cancellation_context": true, }
 	)
 	var successor: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(pure_worker, "double_value"),
-		{ "value": 5 },
+		_snapshot({ "value": 5 }),
 		Callable(),
 		{ "id": &"successor" }
 	)
@@ -550,7 +716,7 @@ func test_running_io_worker_observes_cancel_and_repeated_requests_keep_first_rea
 	var worker: CooperativeWorker = CooperativeWorker.new()
 	var task: GFBackgroundWorkTask = utility.submit_io_work(
 		Callable(worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -621,7 +787,7 @@ func test_cancel_after_worker_return_before_join_wins_completion_race() -> void:
 	var worker: CooperativeWorker = CooperativeWorker.new()
 	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "return_with_context"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -658,13 +824,13 @@ func test_cancel_all_publishes_cancel_all_reason_to_each_running_context() -> vo
 	var second_worker: CooperativeWorker = CooperativeWorker.new()
 	var first: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(first_worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
 	var second: GFBackgroundWorkTask = utility.submit_io_work(
 		Callable(second_worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -696,13 +862,13 @@ func test_clear_all_and_dispose_publish_distinct_reasons_before_join() -> void:
 	var clear_queued_worker: CooperativeWorker = CooperativeWorker.new()
 	var clear_task: GFBackgroundWorkTask = clear_utility.submit_cpu_work(
 		Callable(clear_worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
 	var clear_queued_task: GFBackgroundWorkTask = clear_utility.submit_io_work(
 		Callable(clear_queued_worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -752,13 +918,13 @@ func test_clear_all_and_dispose_publish_distinct_reasons_before_join() -> void:
 	var dispose_queued_worker: CooperativeWorker = CooperativeWorker.new()
 	var dispose_task: GFBackgroundWorkTask = dispose_utility.submit_io_work(
 		Callable(dispose_worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
 	var dispose_queued_task: GFBackgroundWorkTask = dispose_utility.submit_cpu_work(
 		Callable(dispose_queued_worker, "wait_for_cancel"),
-		{},
+		_snapshot({}),
 		Callable(),
 		{ "pass_cancellation_context": true }
 	)
@@ -804,19 +970,19 @@ func test_pause_and_cancel_waiting_thread_task() -> void:
 
 	var first: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 1 },
+		_snapshot({ "value": 1 }),
 		Callable(),
 		{ &"id": "first" }
 	)
 	var high_priority: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 2 },
+		_snapshot({ "value": 2 }),
 		Callable(),
 		{ &"id": "high", &"priority": 10 }
 	)
 	var front: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 3 },
+		_snapshot({ "value": 3 }),
 		Callable(),
 		{ &"id": "front", &"front": "on" }
 	)
@@ -913,14 +1079,14 @@ func test_background_dispatch_ages_old_work_and_snapshot_is_pure_and_time_consis
 	utility.now_msec = 0
 	var old_low: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 1 },
+		_snapshot({ "value": 1 }),
 		Callable(),
 		{ &"id": "old-low", &"priority": 0 }
 	)
 	utility.now_msec = 2000
 	var new_high: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "double_value"),
-		{ "value": 2 },
+		_snapshot({ "value": 2 }),
 		Callable(),
 		{ &"id": "new-high", &"priority": 15 }
 	)
@@ -981,7 +1147,7 @@ func test_clear_all_waits_for_active_thread_task() -> void:
 
 	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
 		Callable(worker, "slow_value"),
-		{ "value": 7 }
+		_snapshot({ "value": 7 })
 	)
 	assert_eq(
 		task.status,
@@ -1272,7 +1438,7 @@ func _submit_scoped_callbacks(utility: GFBackgroundWorkUtility) -> ScopedCallbac
 	submission.apply_weak_ref = weakref(apply_receiver)
 	submission.task = utility.submit_io_work(
 		Callable(worker, "produce_value"),
-		{ "value": 31 },
+		_snapshot({ "value": 31 }),
 		Callable(apply_receiver, "apply_value")
 	)
 	return submission
@@ -1286,7 +1452,7 @@ func _submit_scoped_failure(utility: GFBackgroundWorkUtility) -> ScopedCallbackS
 	submission.apply_weak_ref = weakref(apply_receiver)
 	submission.task = utility.submit_io_work(
 		Callable(worker, "fail_value"),
-		{},
+		_snapshot({}),
 		Callable(apply_receiver, "apply_value")
 	)
 	return submission
@@ -1299,7 +1465,7 @@ func _submit_shared_callback_target(utility: GFBackgroundWorkUtility) -> ScopedC
 	submission.apply_weak_ref = submission.worker_weak_ref
 	submission.task = utility.submit_io_work(
 		Callable(target, "produce_value"),
-		{ "value": 31 },
+		_snapshot({ "value": 31 }),
 		Callable(target, "apply_value")
 	)
 	return submission
@@ -1334,27 +1500,38 @@ func _wait_for_worker_return(worker: CooperativeWorker, max_frames: int = 120) -
 	return worker.has_returned()
 
 
+## 捕获测试工作使用的纯数据输入。
+## [br]
+## @api private
+static func _snapshot(value: Variant) -> GFDataSnapshot:
+	var captured: Dictionary = GFDataSnapshot.capture(value)
+	var snapshot: Variant = captured.get("snapshot")
+	if snapshot is GFDataSnapshot:
+		return snapshot
+	return null
+
+
 # --- 内部类 ---
 
 class PureWorker:
 	extends RefCounted
 
-	func double_value(data: Variant) -> Dictionary:
-		var input: Dictionary = GFVariantData.as_dictionary(data)
+	func double_value(data: GFDataSnapshot) -> Dictionary:
+		var input: Dictionary = GFVariantData.as_dictionary(data.get_value())
 		return { "value": GFVariantData.get_option_int(input, "value") * 2, }
 
 
-	func fail_work(_data: Variant) -> Dictionary:
+	func fail_work(_data: GFDataSnapshot) -> Dictionary:
 		return { "ok": false, "error": "worker_failed", }
 
 
-	func fail_work_with_message(_data: Variant) -> Dictionary:
+	func fail_work_with_message(_data: GFDataSnapshot) -> Dictionary:
 		return { "ok": false, "message": "message_failed", }
 
 
-	func slow_value(data: Variant) -> Dictionary:
+	func slow_value(data: GFDataSnapshot) -> Dictionary:
 		OS.delay_msec(20)
-		var input: Dictionary = GFVariantData.as_dictionary(data)
+		var input: Dictionary = GFVariantData.as_dictionary(data.get_value())
 		return { "value": GFVariantData.get_option_int(input, "value"), }
 
 
@@ -1370,17 +1547,17 @@ class CooperativeWorker:
 	var _last_work_id: StringName = &""
 	var _observed_reason: GFBackgroundWorkContext.CancellationReason = GFBackgroundWorkContext.CancellationReason.NONE
 
-	func return_with_context(data: Variant, context: GFBackgroundWorkContext) -> Dictionary:
+	func return_with_context(data: GFDataSnapshot, context: GFBackgroundWorkContext) -> Dictionary:
 		_record_entry(context)
 		_record_return(
 			false,
 			context.get_cancel_reason()
 		)
-		var input: Dictionary = GFVariantData.as_dictionary(data)
+		var input: Dictionary = GFVariantData.as_dictionary(data.get_value())
 		return { "value": GFVariantData.get_option_int(input, "value") }
 
 
-	func wait_for_cancel(data: Variant, context: GFBackgroundWorkContext) -> Dictionary:
+	func wait_for_cancel(data: GFDataSnapshot, context: GFBackgroundWorkContext) -> Dictionary:
 		_record_entry(context)
 		var deadline_msec: int = Time.get_ticks_msec() + _FALLBACK_MSEC
 		while not context.is_cancel_requested() and Time.get_ticks_msec() < deadline_msec:
@@ -1390,7 +1567,7 @@ class CooperativeWorker:
 			timed_out,
 			context.get_cancel_reason()
 		)
-		var input: Dictionary = GFVariantData.as_dictionary(data)
+		var input: Dictionary = GFVariantData.as_dictionary(data.get_value())
 		return { "value": GFVariantData.get_option_int(input, "value") }
 
 
@@ -1463,15 +1640,15 @@ class ScopedCallbackSubmission:
 class ScopedWorker:
 	extends RefCounted
 
-	func produce_value(data: Variant) -> Dictionary:
-		var input: Dictionary = GFVariantData.as_dictionary(data)
+	func produce_value(data: GFDataSnapshot) -> Dictionary:
+		var input: Dictionary = GFVariantData.as_dictionary(data.get_value())
 		return { "value": GFVariantData.get_option_int(input, "value"), }
 
 
 class ScopedFailingWorker:
 	extends RefCounted
 
-	func fail_value(_data: Variant) -> Dictionary:
+	func fail_value(_data: GFDataSnapshot) -> Dictionary:
 		return { "ok": false, "error": "scoped_worker_failed", }
 
 
@@ -1486,8 +1663,8 @@ class ScopedApplyReceiver:
 class ScopedDualCallbackTarget:
 	extends RefCounted
 
-	func produce_value(data: Variant) -> Dictionary:
-		var input: Dictionary = GFVariantData.as_dictionary(data)
+	func produce_value(data: GFDataSnapshot) -> Dictionary:
+		var input: Dictionary = GFVariantData.as_dictionary(data.get_value())
 		return { "value": GFVariantData.get_option_int(input, "value"), }
 
 

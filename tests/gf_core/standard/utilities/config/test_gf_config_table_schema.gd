@@ -4174,7 +4174,7 @@ class NestedContextRule extends GFConfigValidationRule:
 		context: Dictionary,
 		_report: Dictionary
 	) -> void:
-		observed.append({ "supported_values": GFVariantData.duplicate_variant(context.get("supported_values")), "expected_value": GFVariantData.duplicate_variant(context.get("expected_value")), })
+		observed.append({ "supported_values": GFVariantData.duplicate_graph(context.get("supported_values")), "expected_value": GFVariantData.duplicate_graph(context.get("expected_value")), })
 		if mutate_context:
 			GFVariantData.as_array(context.get("supported_values")).append("changed")
 			var expected: Dictionary = GFVariantData.as_dictionary(context.get("expected_value"))

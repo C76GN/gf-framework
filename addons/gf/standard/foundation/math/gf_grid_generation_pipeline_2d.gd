@@ -317,7 +317,7 @@ func _fill_default_values(
 	for cell: Vector2i in candidates:
 		if not overwrite_default_values and grid.has(cell):
 			continue
-		grid[cell] = GFVariantData.duplicate_variant(default_value)
+		grid[cell] = GFVariantData.duplicate_graph(default_value)
 		filled_count += 1
 	return filled_count
 

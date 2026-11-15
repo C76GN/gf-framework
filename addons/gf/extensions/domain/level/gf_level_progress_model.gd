@@ -263,7 +263,7 @@ func from_dict(data: Dictionary) -> void:
 func _stringify_key_dictionary(data: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key: Variant in data.keys():
-		result[GFVariantData.to_text(key)] = GFVariantData.duplicate_collection(
+		result[GFVariantData.to_text(key)] = GFVariantData.duplicate_graph(
 			data[key],
 			true
 		)
@@ -282,5 +282,5 @@ func _string_name_key_dictionary(data_variant: Variant) -> Dictionary:
 	for key: Variant in data.keys():
 		var level_id: StringName = GFVariantData.to_string_name(key)
 		var value: Variant = data[key]
-		result[level_id] = GFVariantData.duplicate_collection(value, true)
+		result[level_id] = GFVariantData.duplicate_graph(value, true)
 	return result

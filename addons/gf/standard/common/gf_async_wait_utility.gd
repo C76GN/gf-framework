@@ -314,7 +314,7 @@ static func wait_until_value_changed(getter: Callable, options: Dictionary = {})
 	if immediate_status != &"":
 		return _make_status_result(immediate_status, state)
 
-	var previous_value: Variant = GFVariantData.duplicate_variant(getter.call())
+	var previous_value: Variant = GFVariantData.duplicate_graph(getter.call())
 
 	while true:
 		var status: StringName = _get_common_wait_status(state)
@@ -328,7 +328,7 @@ static func wait_until_value_changed(getter: Callable, options: Dictionary = {})
 				[],
 				&"",
 				{},
-				{ "previous_value": GFVariantData.duplicate_variant(previous_value), "value": GFVariantData.duplicate_variant(current_value), }
+				{ "previous_value": GFVariantData.duplicate_graph(previous_value), "value": GFVariantData.duplicate_graph(current_value), }
 			)
 
 		var tree: SceneTree = _state_to_scene_tree(state)

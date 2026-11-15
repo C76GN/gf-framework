@@ -423,7 +423,7 @@ func build_context(
 	for key: Variant in pointer_data.keys():
 		if _is_reserved_pointer_payload_key(key):
 			continue
-		context_payload[key] = GFVariantData.duplicate_variant(pointer_data[key])
+		context_payload[key] = GFVariantData.duplicate_graph(pointer_data[key])
 
 	return GFInteractionContext.new(
 		_resolve_sender(),

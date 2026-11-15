@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 200 | 3539 | 2417 |
+| [运行时服务](#category-runtime_service) | 200 | 3541 | 2419 |
 | [协议与扩展点](#category-protocol) | 29 | 366 | 294 |
 | [资源定义](#category-resource_definition) | 123 | 1600 | 804 |
-| [运行时句柄](#category-runtime_handle) | 63 | 1016 | 667 |
-| [值对象](#category-value_object) | 71 | 1109 | 749 |
+| [运行时句柄](#category-runtime_handle) | 63 | 1017 | 669 |
+| [值对象](#category-value_object) | 72 | 1114 | 754 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -481,6 +481,7 @@
 | [`GFCivilDateResult`](classes/GFCivilDateResult.md#gfcivildateresult) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date_result.gd` |
 | [`GFConfigSnapshot`](classes/GFConfigSnapshot.md#gfconfigsnapshot) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_snapshot.gd` |
 | [`GFConfigValidationReport`](classes/GFConfigValidationReport.md#gfconfigvalidationreport) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
+| [`GFDataSnapshot`](classes/GFDataSnapshot.md#gfdatasnapshot) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_data_snapshot.gd` |
 | [`GFDeque`](classes/GFDeque.md#gfdeque) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_deque.gd` |
 | [`GFDiagnosticProviderResult`](classes/GFDiagnosticProviderResult.md#gfdiagnosticproviderresult) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd` |
 | [`GFDirectoryChangeSet`](classes/GFDirectoryChangeSet.md#gfdirectorychangeset) | `RefCounted` | `addons/gf/standard/utilities/io/gf_directory_change_set.gd` |

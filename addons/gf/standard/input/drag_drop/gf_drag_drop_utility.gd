@@ -657,7 +657,7 @@ func _normalize_drop_result(
 	zone_id: StringName
 ) -> Dictionary:
 	if raw_result is Dictionary:
-		var copied_result: Variant = GFVariantData.duplicate_variant(raw_result)
+		var copied_result: Variant = GFVariantData.duplicate_graph(raw_result)
 		var result_dictionary: Dictionary = copied_result if copied_result is Dictionary else {}
 		if not result_dictionary.has("ok"):
 			result_dictionary["ok"] = true

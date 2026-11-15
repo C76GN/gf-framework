@@ -342,7 +342,7 @@ func compile_column(
 		}
 	node["structured"] = column.type_definition != null
 	if _admit_plain(column.default_value, segments):
-		node["default_value"] = GFVariantData.duplicate_variant(column.default_value)
+		node["default_value"] = GFVariantData.duplicate_graph(column.default_value)
 	if _admit_plain(column.metadata, segments):
 		node["metadata"] = column.metadata.duplicate(true)
 	node["validation_rules"] = _copy_rules(column.validation_rules, segments)
@@ -1036,7 +1036,7 @@ func _normalize_scalar(
 				segments
 			)
 			return null
-		return GFVariantData.duplicate_variant(value)
+		return GFVariantData.duplicate_graph(value)
 	var report: Dictionary = column.try_coerce_value(value)
 	if not report["ok"]:
 		var message: String = report["message"]
@@ -1300,7 +1300,7 @@ func _run_rules(
 		if element_index >= 0:
 			context["element_index"] = element_index
 		var report: Dictionary = rule.validate_value(
-			GFVariantData.duplicate_variant(value),
+			GFVariantData.duplicate_graph(value),
 			context
 		)
 		for issue_value: Variant in report.get("issues", []):
@@ -1369,7 +1369,7 @@ func _make_rule_context(segments: Array) -> Dictionary:
 	var context: Dictionary = {}
 	for key: String in GFConfigValidationReport.CONTEXT_FIELDS:
 		if _options.has(key):
-			context[key] = GFVariantData.duplicate_variant(_options[key])
+			context[key] = GFVariantData.duplicate_graph(_options[key])
 	if _options.has("table_name"):
 		context["table_name"] = _options["table_name"]
 	var path_session_key: StringName = &"__gf_config_resource_path_validation_session"
@@ -1405,8 +1405,8 @@ func _describe_field(field: Dictionary) -> Dictionary:
 		"value_type": field["value_type"],
 		"required": field["required"],
 		"allow_null": field["allow_null"],
-		"default_value": GFVariantData.duplicate_variant(field["default_value"]),
-		"metadata": GFVariantData.duplicate_variant(field["metadata"]),
+		"default_value": GFVariantData.duplicate_graph(field["default_value"]),
+		"metadata": GFVariantData.duplicate_graph(field["metadata"]),
 		"validation_rules": _describe_rules(validation_rules),
 		"element_validation_rules": _describe_rules(element_validation_rules),
 		"type_definition": null,

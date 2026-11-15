@@ -113,7 +113,7 @@ func get_field_priority(field_id: StringName) -> Priority:
 ## [br]
 ## @schema state: Dictionary mapping field ids to values.
 func set_baseline(state: Dictionary) -> void:
-	_baseline = GFVariantData.duplicate_variant(state)
+	_baseline = GFVariantData.duplicate_graph(state)
 
 
 ## 使用当前状态更新全部或指定字段基线。
@@ -133,7 +133,7 @@ func update_baseline(state: Dictionary, field_ids: PackedStringArray = PackedStr
 	var updated_count: int = 0
 	if field_ids.is_empty():
 		for key: Variant in state.keys():
-			_baseline[key] = GFVariantData.duplicate_variant(state[key])
+			_baseline[key] = GFVariantData.duplicate_graph(state[key])
 			updated_count += 1
 		return updated_count
 
@@ -144,7 +144,7 @@ func update_baseline(state: Dictionary, field_ids: PackedStringArray = PackedStr
 		)
 		if field_key == null:
 			continue
-		_baseline[field_key] = GFVariantData.duplicate_variant(state[field_key])
+		_baseline[field_key] = GFVariantData.duplicate_graph(state[field_key])
 		updated_count += 1
 	return updated_count
 
@@ -211,7 +211,7 @@ func get_dirty_report(state: Dictionary, options: Dictionary = {}) -> Dictionary
 
 		var field_text: String = String(field_id)
 		var _field_appended: bool = dirty_fields.append(field_text)
-		values[field_id] = GFVariantData.duplicate_variant(state[key])
+		values[field_id] = GFVariantData.duplicate_graph(state[key])
 		var priority_name: String = _priority_name(priority)
 		if not by_priority.has(priority_name):
 			by_priority[priority_name] = PackedStringArray()

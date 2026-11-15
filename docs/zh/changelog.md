@@ -2,9 +2,13 @@
 
 ## [未发布]
 
-**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、规范序列化测量与增量哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。资源请求改为独立 Operation 与贯穿请求、句柄的 Scope；Context 提供有序关闭，局部 UI 显式绑定业务来源，Save 普通元数据改为有界隔离快照，AI 检查复用同次捕获。对应旧 API 通过文档手动迁移。本次为下一主版本的开发变更，尚未正式发布。
+**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、有界规范序列化与分块哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。资源请求改为独立 Operation 与贯穿请求、句柄的 Scope；Context 提供有序关闭，局部 UI 显式绑定业务来源，Save 普通元数据改为有界隔离快照，AI 检查复用同次捕获。对应旧 API 通过文档手动迁移。本次为下一主版本的开发变更，尚未正式发布。
 
 ### 🚀 新增特性 (Added)
+
+- 新增 [GFDataSnapshot 只读数据快照](standard/foundation/data-validation/formula-variant/variant-data-json.md#只读数据快照)，统一有界值树复制、来源隔离与可变副本导出；后台 CPU/IO 提交直接保留已准备快照，取消运行任务后保留输入至物理 join。
+- [确定性序列化](standard/foundation/scalars/deterministic-serialization.md)采用 canonical v2 二进制格式，哈希、字节导出和计量共用单遍编码器；新增结构化结果、排序工作区预算、时间预算与取消检查，Packed 整数分块编码。
+- 新增独立版本化的[确定性 JSON](standard/foundation/data-validation/formula-variant/deterministic-json.md)导出与有界读取，保留内建类型声明、完整 int64、精确浮点及全部 Packed 类型；支持快照借用、时间预算与取消，拒绝重复键和无法精确恢复的载荷，canonical v2 字节与摘要保持独立。
 
 - [Project Layout 依赖证据](editor/tools/project-layout-dependencies.md) 增加当前编辑器的有界资源引用捕获、UID/fallback、源文件变更复核、启动根闭包、所有权冲突和声明预算。静态引用、项目声明、运行观测分别保留来源；移动/删除报告跟踪反向引用，动态覆盖不足仍为未知。可信 CLI 可直接分析冻结 JSON 快照，不启动来源项目。
 
@@ -44,7 +48,6 @@
 - [Project Layout](editor/tools/project-layout.md) 支持显式声明生成证据和可丢弃目录的排除范围；排除在文件预算前生效，报告标注覆盖边界，必需源码、结构和配置来源不能被排除隐藏。
 - [AI Developer](editor/tools/ai-developer.md) 支持最多 256 条有限验证检查，验证描述总量限制为 256 KiB、参数总数限制为 4096，并报告实际数量和对应上限。
 - 输入映射支持完整初始化后的手动事件路由，由宿主管理输入、tick 与失焦清理，避免重复接收全局事件。
-- 规范 Variant 序列化支持精确预算测量，以及快速和增量两个 SHA-256 入口；增量路径分块处理 Packed 数组，保持既有规范字节与字典排序。
 - 命令历史提供有界的状态快照与变化通知，UI 可观察忙碌、成功、失败与容量变化，不必读取命令栈。
 - 新增 [运行期控件输入会话](standard/utilities/runtime/settings-ui-scene/settings-display/form-binding.md#输入会话与提交边界)，保留数字原文与编辑基线，支持提交、取消及过期令牌检查；业务验证与撤销由项目管理。
 
@@ -82,6 +85,9 @@
 - [配置化 Tween](extensions/action-queue/tween-config.md#在-inspector-中预览) 新增 Inspector 预览，支持独立 2D、UI、3D 样机、初值调整、播放、暂停、停止和复位；复用现有配置与缓动，预览不修改当前场景或源资源。
 
 ### 🔄 机制更改 (Changed)
+
+- **破坏性变更**：`GFVariantData.duplicate_variant(value, limits)` 默认复制纯数据值树，共享子容器独立展开；对象图复制改为显式 `duplicate_graph()`。删除 `duplicate_collection()` 别名。后台 worker 接收 `GFDataSnapshot`，移除对象载荷开关和可写输入字段。
+- **破坏性变更**：删除旧 canonical JSON/value、双哈希策略和内部预检准备对象。v2 摘要、结构化 seed、Network schema 摘要会改变；失败改为首次遇错即停止，预算计量采用二进制字节。Network schema 描述版本升级为 2。
 
 - [配置候选准备](standard/utilities/io/config-remote-outbox/config-provider/runtime-query.md)复用同次规范编码计量与普通标量声明检查，延后不必要的规则上下文和诊断数据构造；保留完整预算、引用校验及自定义规则执行。[异步 UI 路由](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)改用内部独占的类型化请求状态，取消身份检查中的整请求深复制，并按需分配导航和预加载状态；对外副本、取消和唯一终态契约不变。
 
@@ -134,6 +140,9 @@
 - Workspace 向需要编辑的贡献页面注入通用编辑器上下文，并在页面移除时撤销。独立创建的 Flow 面板须显式提供上下文后才能修改图资源。
 
 ### 🐛 Bug 修复 (Fixed)
+
+- 普通值树复制不再为每个容器扫描全部已复制容器；捕获失败不会发布部分数据。Save 分区在恢复、导出与复制时保留或拒绝捕获失败，避免将失败载荷误当合法 null。
+- 后台清理统一阻止提交与 tick 重入，并先发布全部任务的取消请求；重复 ID 的失败历史不再删除正在使用的任务索引。字典规范编码累计仍存活的父层排序工作区，非法预算键返回结构化失败。
 
 - Project Layout 显式快照的父目录不存在时正确报告输入不可用，不再把该次分析当作未配置项目而成功跳过；未指定输入时的可选配置发现行为保持。
 - Storage Transfer 在读取后端前拒绝类型错误或越界的冲突策略，避免非法值被转成自动选边并写回。Save 上传超出请求预算时给出专门结果；Schema 配置拒绝已移除及拼错的选项，不再静默忽略。
@@ -271,7 +280,7 @@
 - 新增 `GFResourceServiceDomain` 与 `GFResourceSnapshotBroker`；Asset 可绑定稳定服务域，直接 Broker 引用只享有固定绑定。活动域与 Broker 拒绝架构内替换或注销；需要更换时使用域协议或关闭重建，不能通过修改配置切换模式。
 - `GFStorageUtility` 新增 `max_read_bytes`；`GFStorageCodec.max_decompressed_bytes` 及同名选项改为统一的 `max_decode_bytes`，同时约束压缩与普通文件的解析前明文及编码时完整文档明文。两项预算均默认 64 MiB 且须为正数；异步读写使用入队配置快照。新增 `GFStorageCodec.encode_result()` 闭合的 `{ok, error, bytes}`；`GFStorageReadResult.FailureKind` 和 `GFStorageAsyncResult.WriteFailureKind` 新增 `LIMIT_EXCEEDED`，压缩解码无法区分损坏与限额时保守拒绝重置授权。明文字节预算不等同于 Variant 堆内存上限。
 - `GFInputMappingUtility` 新增 `automatic_input_routing`，关闭时仍正常执行初始化与依赖生命周期。
-- `GFDeterministicVariantSerializer` 新增 `measure_canonical()` 与 `sha256_incremental()`。`sha256()` 在预算预检后构建规范树并使用原生快速哈希；增量入口分块编码与哈希，避免构建整棵规范树及完整 JSON。两者保持相同规范摘要与预算合同；增量路径的字典键排序仍保留规范键文本。
+- `GFDeterministicVariantSerializer` 的 `measure_canonical()`、`hash_result()` 与 `encode_result()` 共用 canonical v2 编码规则；哈希按块更新，不再预先构建规范树或完整 JSON。失败报告保留已观察计量，字典键排序受独立工作区预算约束。
 - `GFCommandHistoryUtility` 新增 `history_changed`、`get_history_state()` 与 `is_processing_operation`；通知期间只允许生命周期失效，拒绝历史修改，防止同步回调重入。
 - 新增 `GFControlEditSession`，提供控件弱引用、会话令牌、原文快照、提交和取消边界，不接管焦点、输入事件或模型。
 
@@ -301,6 +310,9 @@
 - `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
 
 ### 📘 升级指南 (Migration Guide)
+
+- 数据复制按 [Variant 指南](standard/foundation/data-validation/formula-variant/variant-data-json.md)选择值树、引用图或只读快照。CPU/IO 调用先检查 `GFDataSnapshot.capture()` 的结果，再提交快照；worker 改为接收 `GFDataSnapshot`，需要修改时主动导出副本。
+- 按 [canonical v2 迁移说明](standard/foundation/scalars/deterministic-serialization.md#从旧规范-json-迁移)重新生成摘要、结构化 seed 黄金值、依赖摘要的缓存与 Network 契约访问器，并保存 `canonical_version`。将“测量后再哈希”改成一次 `hash_result()`，重新核对以字节为单位的限额；旧摘要不兼容。
 
 - 活动内容重新上线时，恢复声明必须使用原表、原符号和原 ID，ID 写成规范十进制字符串；只构建部分表时显式设置稳定 ID 对账范围。空范围继续表示旧有的全量对账，不能靠少传一张表表达“不修改它”。
 - 数字显示可分别选择单位和分组规则；若界面不接受科学回退，设置 `fallback_notation="error"` 并按失败结果显示项目自己的占位内容。使用 `try_format_options()` 可避免把非法政策创建得到的 null 误当成默认政策。

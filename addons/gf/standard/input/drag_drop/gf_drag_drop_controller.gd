@@ -677,7 +677,7 @@ func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:
 			"reason": "json_encoding_failed",
 			"type": "GFDragDropController",
 		}
-	var copied_result: Variant = GFVariantData.duplicate_variant(result)
+	var copied_result: Variant = GFVariantData.duplicate_graph(result)
 	if copied_result is Dictionary:
 		var copied_dictionary: Dictionary = copied_result
 		return copied_dictionary

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDataSnapshot" path="addons/gf/standard/foundation/variant/gf_data_snapshot.gd" module="standard" extends="RefCounted" classDigest="dee4b4f9a69faf896d7ecf8135a8c724797355bef4e8c332e676dc5c45dcb9b1">
+	<description>GFDataSnapshot: 隔离纯数据后发布的只读快照。
+捕获期间源数据必须稳定。共享子容器按值展开，循环、对象和对象类型容器被拒绝。
+读取返回独立副本，后台任务可保留快照直到物理执行结束。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="capture">
+			<signature>static func capture(value: Variant, limits: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>完整捕获成功后发布快照，失败保留结构化诊断。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 调用期间保持稳定的纯数据。</tag>
+				<tag name="param">limits: 有限数据预算。</tag>
+				<tag name="return">快照或捕获失败的计量。</tag>
+				<tag name="schema">value: Built-in Variant values and typed containers without objects, executable values, RID or cycles.</tag>
+				<tag name="schema">limits: Dictionary with positive max_items (1000000), max_depth (64, at most 256), max_string_length (1048576), max_payload_bytes (67108864), max_elapsed_msec (30000), and optional cancel_token: GFCancellationToken. Payload counts logical scalar widths, UTF-8 strings and packed storage; nodes have a separate item budget.</tag>
+				<tag name="schema">return: Dictionary with ok, snapshot: GFDataSnapshot or null, error_kind, error_path, limit_kind, limit, observed, counts_complete, items, packed_items, payload_bytes and maximum_depth. Failed counts describe only processed input.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_ready">
+			<signature>func is_ready() -&gt; bool:</signature>
+			<description>返回快照是否已完成捕获。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可以用于读取及任务提交时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_statistics">
+			<signature>func get_statistics() -&gt; Dictionary:</signature>
+			<description>返回成功捕获的计量副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅包含标量的捕获计量。</tag>
+				<tag name="schema">return: Dictionary containing capture counters and status, without a mutable payload.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="copy_value">
+			<signature>func copy_value(limits: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>显式导出可修改的工作树；各次导出彼此隔离。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">limits: 覆盖原捕获数值预算，可额外提供取消令牌。</tag>
+				<tag name="return">可变副本与结构化计量。</tag>
+				<tag name="schema">limits: Dictionary with the same limits as capture.</tag>
+				<tag name="schema">return: Dictionary with capture fields and value: Variant; on failure value is null.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_value">
+			<signature>func get_value(path: Array = []) -&gt; Variant:</signature>
+			<description>读取指定字典键或数组索引路径，结果与快照隔离。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 根路径为空；数组项使用非负 int，字典项使用存在的键。</tag>
+				<tag name="return">指定值的副本，路径不存在或快照无效时返回 null。</tag>
+				<tag name="schema">path: Array of Dictionary keys or nonnegative Array indices.</tag>
+				<tag name="schema">return: Detached Variant value or null.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

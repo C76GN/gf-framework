@@ -433,8 +433,8 @@ func test_merge_tables_isolates_custom_policy_hooks_before_late_failure() -> voi
 			if dictionary_table:
 				base_table = { "one": base_rows[0] }
 				patch_table = { "one": patch_rows[0], "two": patch_rows[1] }
-			var original_base: Variant = GFVariantData.duplicate_variant(base_table)
-			var original_patch: Variant = GFVariantData.duplicate_variant(patch_table)
+			var original_base: Variant = GFVariantData.duplicate_graph(base_table)
+			var original_patch: Variant = GFVariantData.duplicate_graph(patch_table)
 			var policy: MutatingRecordPolicy = MutatingRecordPolicy.new()
 			policy.mutation_hook = hook_name
 			policy.allow_insert = false
@@ -501,9 +501,9 @@ func test_merge_tables_isolates_container_outer_keys_before_late_failure() -> vo
 				"slot": "insert",
 				"values": [30],
 			}
-		var original_base_key: Variant = GFVariantData.duplicate_variant(base_key)
-		var original_update_key: Variant = GFVariantData.duplicate_variant(update_key)
-		var original_insert_key: Variant = GFVariantData.duplicate_variant(insert_key)
+		var original_base_key: Variant = GFVariantData.duplicate_graph(base_key)
+		var original_update_key: Variant = GFVariantData.duplicate_graph(update_key)
+		var original_insert_key: Variant = GFVariantData.duplicate_graph(insert_key)
 		var base_table: Dictionary = {
 			base_key: { "id": 1, "value": "before", },
 		}

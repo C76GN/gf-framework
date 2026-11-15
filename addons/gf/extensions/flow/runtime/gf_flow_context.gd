@@ -366,7 +366,7 @@ func _to_snapshot_dictionary(value: Dictionary, json_compatible: bool) -> Dictio
 ## @api private
 func _to_snapshot_value(value: Variant, json_compatible: bool) -> Variant:
 	if not json_compatible:
-		return GFVariantData.duplicate_variant(value)
+		return GFVariantData.duplicate_graph(value)
 	return GFReportValueCodec.to_json_compatible(
 		value,
 		{ "path_redaction": "basename", }

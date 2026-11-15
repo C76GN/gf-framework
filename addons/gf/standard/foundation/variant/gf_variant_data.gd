@@ -1,6 +1,7 @@
 ## GFVariantData: 通用 Variant 数据复制与默认值合并。
 ##
-## 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
+## 默认复制纯数据值树；对象身份、循环和 Resource 克隆通过 duplicate_graph 显式选择。
+## 另提供差异报告和默认值递归补齐。
 ## JSON 兼容编码由 GFVariantJsonCodec 负责。
 ## [br]
 ## @api public
@@ -53,11 +54,54 @@ const _DEFAULT_MAX_DIFF_COLLECTION_ITEMS: int = 65_536
 
 # --- 公共方法 ---
 
-## 深拷贝 Dictionary 或 Array；其他 Variant 原样返回。
+## 有界复制纯数据值树；共享子容器独立展开，不保留引用身份。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
+## [br]
+## @param value: 调用期间稳定的纯数据。
+## [br]
+## @schema value: Pure built-in Variant values; Object, Resource, Callable, Signal, RID and cycles are rejected.
+## [br]
+## @param limits: 与 copy_value 相同的有限预算。
+## [br]
+## @schema limits: Same limits as copy_value.
+## [br]
+## @return 独立副本；失败返回 null。需要区分合法 null 与失败时使用 copy_value。
+## [br]
+## @schema return: Detached Variant value or null.
+static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Variant:
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(value, limits)
+
+
+## 单次遍历校验并隔离纯数据；失败丢弃全部部分副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param value: 稳定的纯 Variant。
+## [br]
+## @schema value: Same pure value domain as GFDataSnapshot.capture.
+## [br]
+## @param limits: 正整数预算和可选取消令牌。
+## [br]
+## @schema limits: Dictionary with max_items (1000000), max_depth (64, at most 256), max_string_length (1048576), max_payload_bytes (67108864), max_elapsed_msec (30000), cancel_token: GFCancellationToken.
+## [br]
+## @return 完整副本与计量，失败时 value 为 null。
+## [br]
+## @schema return: Dictionary with ok, value, counts_complete, items, packed_items, payload_bytes, maximum_depth, error_kind, error_path, limit_kind, limit and observed. Counts are exact only on success.
+static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:
+	return _GF_VARIANT_ACCESS_SCRIPT.copy_value(value, limits)
+
+
+## 显式复制对象图，保留容器别名和循环；Object/Resource 默认保留身份。
+## Resource 可选复制。全图身份查找最坏为平方复杂度，适用于需要图语义的入口。
+## [br]
+## @api public
+## [br]
+## @since unreleased
 ## [br]
 ## @param value: 待复制的值。
 ## [br]
@@ -70,33 +114,16 @@ const _DEFAULT_MAX_DIFF_COLLECTION_ITEMS: int = 65_536
 ## @return 复制后的值。
 ## [br]
 ## @schema return: 复制后的 Variant 值。
-static func duplicate_variant(
+static func duplicate_graph(
 	value: Variant,
 	deep: bool = true,
 	duplicate_resources: bool = false
 ) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 		value,
 		deep,
 		duplicate_resources
 	)
-
-
-## 深拷贝集合值；语义同 duplicate_variant()，便于集合字段调用处表达意图。
-## [br]
-## @api public
-## [br]
-## @param value: 待复制的值。
-## [br]
-## @schema value: 待复制的 Variant 集合值。
-## [br]
-## @param deep: 是否深拷贝集合。
-## [br]
-## @return 复制后的值。
-## [br]
-## @schema return: 复制后的 Variant 集合值。
-static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_collection(value, deep)
 
 
 ## 将 Variant 归一为 Dictionary 副本。
@@ -1416,7 +1443,7 @@ static func _append_diff_change(
 		{
 			"kind": kind,
 			"path": _format_diff_path(path_segments),
-			"path_segments": duplicate_variant(
+			"path_segments": duplicate_graph(
 				path_segments,
 				true,
 				false
@@ -1448,14 +1475,14 @@ static func _append_diff_diagnostic(
 	var diagnostic: Dictionary = {
 		"kind": kind,
 		"path": _format_diff_path(path_segments),
-		"path_segments": duplicate_variant(
+		"path_segments": duplicate_graph(
 			path_segments,
 			true,
 			false
 		),
 	}
 	for field_key: Variant in additional_fields.keys():
-		diagnostic[field_key] = duplicate_variant(
+		diagnostic[field_key] = duplicate_graph(
 			additional_fields[field_key],
 			true,
 			false
@@ -1471,7 +1498,7 @@ static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
 	var copy_values: bool = state["copy_values"]
 	if not copy_values:
 		return value
-	return duplicate_variant(
+	return duplicate_graph(
 		value,
 		true,
 		false

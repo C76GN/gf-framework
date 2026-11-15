@@ -482,8 +482,8 @@ func _normalize_signal_result(result: Variant) -> Variant:
 
 	var first_value: Variant = values[0]
 	if first_value is Dictionary:
-		var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(first_value))
-		data["signal_args"] = GFVariantData.duplicate_variant(values)
+		var data: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_graph(first_value))
+		data["signal_args"] = GFVariantData.duplicate_graph(values)
 		return data
 	return values
 

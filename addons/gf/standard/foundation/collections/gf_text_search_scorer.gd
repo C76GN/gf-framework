@@ -824,7 +824,7 @@ static func _get_or_create_candidate_copy(
 	pending: Array[Dictionary]
 ) -> Variant:
 	if not (value is Dictionary or value is Array):
-		return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(
 			value,
 			true,
 			false

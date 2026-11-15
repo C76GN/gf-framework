@@ -201,7 +201,7 @@ func _copy_consideration_scores(source: Array[Dictionary]) -> Array[Dictionary]:
 ## [br]
 ## @api private
 func _copy_dictionary(source: Dictionary) -> Dictionary:
-	var copied: Variant = GFVariantData.duplicate_variant(source)
+	var copied: Variant = GFVariantData.duplicate_graph(source)
 	if copied is Dictionary:
 		var copied_dictionary: Dictionary = copied
 		return copied_dictionary

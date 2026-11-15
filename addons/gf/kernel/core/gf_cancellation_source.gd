@@ -469,7 +469,7 @@ func _can_mutate_on_current_thread(operation_name: String) -> bool:
 ## [br]
 ## @api private
 func _snapshot_metadata(metadata: Dictionary) -> Dictionary:
-	var snapshot_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(metadata)
+	var snapshot_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(metadata)
 	if snapshot_value is Dictionary:
 		var snapshot: Dictionary = snapshot_value
 		return snapshot

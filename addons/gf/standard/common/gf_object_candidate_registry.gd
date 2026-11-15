@@ -136,7 +136,7 @@ func register_candidate(candidate: Object, options: Dictionary = {}) -> bool:
 				0
 			)
 		),
-		"stable_key": GFVariantData.duplicate_variant(
+		"stable_key": GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(
 				options,
 				"stable_key",
@@ -448,7 +448,7 @@ func _make_candidate_snapshot(
 			"owner_id",
 			0
 		),
-		"stable_key": GFVariantData.duplicate_variant(GFVariantData.get_option_value(record, "stable_key")),
+		"stable_key": GFVariantData.duplicate_graph(GFVariantData.get_option_value(record, "stable_key")),
 		"order": GFVariantData.get_option_int(
 			record,
 			"order",

@@ -87,7 +87,7 @@ static func project_dictionary(values: Dictionary, options: Dictionary = {}) -> 
 				child_state
 			)
 			continue
-		result[output_key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value"))
+		result[output_key] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(projected, "value"))
 
 	var defaults: Dictionary = GFVariantData.get_option_dictionary(options, "defaults")
 	if not defaults.is_empty():
@@ -284,7 +284,7 @@ static func _project_value(
 			state
 		)
 	if _is_plain_value(value):
-		return { "ok": true, "value": GFVariantData.duplicate_variant(value), }
+		return { "ok": true, "value": GFVariantData.duplicate_graph(value), }
 	return _handle_unsupported(
 		"unsupported_value",
 		value,
@@ -329,7 +329,7 @@ static func _project_dictionary_value(
 			"ok",
 			false
 		):
-			result[key_variant] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value"))
+			result[key_variant] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(projected, "value"))
 	_pop_active_container(state)
 	return { "ok": true, "value": result, }
 
@@ -365,7 +365,7 @@ static func _project_array_value(
 			"ok",
 			false
 		):
-			result.append(GFVariantData.duplicate_variant(GFVariantData.get_option_value(projected, "value")))
+			result.append(GFVariantData.duplicate_graph(GFVariantData.get_option_value(projected, "value")))
 		elif GFVariantData.get_option_bool(
 			state,
 			"preserve_array_shape",

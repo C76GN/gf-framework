@@ -880,12 +880,12 @@ static func _snapshot(item: Variant) -> _Snapshot:
 	return snapshot
 
 
-## 条目可比较时返回 duplicate_variant() 的结果，否则返回原输入值。
+## 条目可比较时返回 duplicate_graph() 的结果，否则返回原输入值。
 ## [br]
 ## @api private
 static func _copy_item(item: Variant) -> Variant:
 	var snapshot: _Snapshot = _snapshot(item)
-	return GFVariantData.duplicate_variant(item) if snapshot._comparable else item
+	return GFVariantData.duplicate_graph(item) if snapshot._comparable else item
 
 
 ## 递归记录可比较值及类型信息；遇到循环、受限规模、对象类值或不稳定键时标记不可比较。
@@ -974,7 +974,7 @@ static func _copy_comparable(
 			result = copied
 		var _removed_ancestor: Variant = ancestors.pop_back()
 		return result
-	return GFVariantData.duplicate_variant(value)
+	return GFVariantData.duplicate_graph(value)
 
 
 ## 返回有效 Object 的实例 id；非 Object 或已失效实例返回 0。

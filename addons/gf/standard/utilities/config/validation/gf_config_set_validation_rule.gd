@@ -63,7 +63,7 @@ var _lookup_signature: String = ""
 ## @schema return: Dictionary，包含基础规则字段、allowed_values 和 case_sensitive。
 func describe() -> Dictionary:
 	var result: Dictionary = super.describe()
-	result["allowed_values"] = GFVariantData.duplicate_variant(allowed_values)
+	result["allowed_values"] = GFVariantData.duplicate_graph(allowed_values)
 	result["case_sensitive"] = case_sensitive
 	return result
 
@@ -152,10 +152,10 @@ func _make_comparison_key(value: Variant) -> String:
 ## [br]
 func _make_issue_context(context: Dictionary, value: Variant) -> Dictionary:
 	var issue_context: Dictionary = context.duplicate(true)
-	issue_context["value"] = GFVariantData.duplicate_variant(value)
-	issue_context["actual_value"] = GFVariantData.duplicate_variant(value)
+	issue_context["value"] = GFVariantData.duplicate_graph(value)
+	issue_context["actual_value"] = GFVariantData.duplicate_graph(value)
 	if allowed_values.size() <= _SUPPORTED_VALUES_INLINE_LIMIT:
-		issue_context["supported_values"] = GFVariantData.duplicate_variant(allowed_values)
+		issue_context["supported_values"] = GFVariantData.duplicate_graph(allowed_values)
 	else:
 		var summary: Dictionary = GFReportValueCodec.make_collection_summary(
 			allowed_values,

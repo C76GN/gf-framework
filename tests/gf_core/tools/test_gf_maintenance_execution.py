@@ -178,6 +178,8 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 				"addons/gf/tools/code_quality/fixture.gd",
 				"addons/gf/kernel/core/gf_bounded_json_object_reader.gd",
 				"addons/gf/kernel/core/gf_path_tools.gd",
+				"addons/gf/kernel/core/gf_data_value_capture.gd",
+				"addons/gf/kernel/core/gf_cancellation_token.gd",
 				"addons/gf/kernel/core/gf_variant_access.gd",
 				"addons/gf/kernel/editor/gf_editor_workspace_ui.gd",
 				"addons/gf/kernel/editor/gf_editor_background_request_task.gd",

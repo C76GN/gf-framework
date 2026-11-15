@@ -845,7 +845,7 @@ func _finish(
 		"observed",
 	]:
 		if diagnostic.has(key):
-			result[key] = GFVariantData.duplicate_variant(diagnostic[key])
+			result[key] = GFVariantData.duplicate_graph(diagnostic[key])
 	result["sync_result"] = remote
 	result["local_result"] = local_result if local_result != null else observation._last_local_result
 	result["local_applied"] = applied

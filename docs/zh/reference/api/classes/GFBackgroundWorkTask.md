@@ -21,7 +21,6 @@
 | 属性 | [`kind`](#member-gfbackgroundworktask-properties-kind) | `var kind: Kind = Kind.CPU` |
 | 属性 | [`status`](#member-gfbackgroundworktask-properties-status) | `var status: Status = Status.QUEUED` |
 | 属性 | [`priority`](#member-gfbackgroundworktask-properties-priority) | `var priority: int = 0` |
-| 属性 | [`input_data`](#member-gfbackgroundworktask-properties-input_data) | `var input_data: Variant = null` |
 | 属性 | [`result`](#member-gfbackgroundworktask-properties-result) | `var result: Variant = null` |
 | 属性 | [`apply_result`](#member-gfbackgroundworktask-properties-apply_result) | `var apply_result: Variant = null` |
 | 属性 | [`error_message`](#member-gfbackgroundworktask-properties-error_message) | `var error_message: String = ""` |
@@ -33,6 +32,7 @@
 | 属性 | [`created_msec`](#member-gfbackgroundworktask-properties-created_msec) | `var created_msec: int = 0` |
 | 属性 | [`started_msec`](#member-gfbackgroundworktask-properties-started_msec) | `var started_msec: int = 0` |
 | 属性 | [`finished_msec`](#member-gfbackgroundworktask-properties-finished_msec) | `var finished_msec: int = 0` |
+| 方法 | [`get_input_snapshot`](#member-gfbackgroundworktask-methods-get_input_snapshot) | `func get_input_snapshot() -> GFDataSnapshot:` |
 | 方法 | [`is_finished`](#member-gfbackgroundworktask-methods-is_finished) | `func is_finished() -> bool:` |
 | 方法 | [`get_cancellation_context`](#member-gfbackgroundworktask-methods-get_cancellation_context) | `func get_cancellation_context() -> GFBackgroundWorkContext:` |
 | 方法 | [`to_dict`](#member-gfbackgroundworktask-methods-to_dict) | `func to_dict() -> Dictionary:` |
@@ -134,22 +134,6 @@ var priority: int = 0
 ```
 
 优先级，数值越大越早从等待队列启动。
-
-<a id="member-gfbackgroundworktask-properties-input_data"></a>
-
-### `input_data`
-
-- API：`public`
-
-```gdscript
-var input_data: Variant = null
-```
-
-工作输入数据。默认应只包含纯 Variant 数据。
-
-结构：
-
-- `input_data`: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
 
 <a id="member-gfbackgroundworktask-properties-result"></a>
 
@@ -297,6 +281,21 @@ var finished_msec: int = 0
 结束时间。
 
 ## 方法
+
+<a id="member-gfbackgroundworktask-methods-get_input_snapshot"></a>
+
+### `get_input_snapshot`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_input_snapshot() -> GFDataSnapshot:
+```
+
+获取工作持有的只读输入快照。
+
+返回：等待或运行中的输入；拒绝、未启动取消或线程 join 后返回 null。
 
 <a id="member-gfbackgroundworktask-methods-is_finished"></a>
 

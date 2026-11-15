@@ -1099,10 +1099,11 @@ func _append_constants(
 		% GFVariantData.get_option_int(
 			contract_version,
 			"schema_descriptor_version",
-			1
+			2
 		)
 	)
 	builder.line("const CONTRACT_SCHEMA_DIGEST: String = \"%s\"" % contract.get_schema_digest().c_escape())
+	builder.line("const CONTRACT_CANONICAL_VERSION: int = %d" % GFVariantData.get_option_int(contract_version, "canonical_version"))
 	builder.blank()
 
 	if message_records.is_empty():
@@ -1148,6 +1149,7 @@ func _append_version_methods(builder: GFSourceBuilder) -> void:
 	builder.line("\"version_major\": CONTRACT_VERSION_MAJOR,")
 	builder.line("\"version_minor\": CONTRACT_VERSION_MINOR,")
 	builder.line("\"schema_descriptor_version\": CONTRACT_SCHEMA_DESCRIPTOR_VERSION,")
+	builder.line("\"canonical_version\": CONTRACT_CANONICAL_VERSION,")
 	builder.line("\"schema_digest\": CONTRACT_SCHEMA_DIGEST,")
 	builder.dedent()
 	builder.line("}")

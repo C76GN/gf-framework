@@ -2278,7 +2278,7 @@ static func _append_issue(
 ) -> void:
 	var issue: Dictionary = { "kind": kind, "message": message, }
 	for key: Variant in fields.keys():
-		issue[key] = GFVariantData.duplicate_variant(
+		issue[key] = GFVariantData.duplicate_graph(
 			fields[key],
 			true
 		)

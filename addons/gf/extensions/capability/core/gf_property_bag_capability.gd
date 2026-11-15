@@ -90,7 +90,7 @@ func set_property_value(key: StringName, value: Variant) -> void:
 	if _values.has(key) and old_value == value:
 		return
 
-	var copied_value: Variant = GFVariantData.duplicate_variant(
+	var copied_value: Variant = GFVariantData.duplicate_graph(
 		value,
 		true,
 		false
@@ -98,12 +98,12 @@ func set_property_value(key: StringName, value: Variant) -> void:
 	_values[key] = copied_value
 	property_changed.emit(
 		key,
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			old_value,
 			true,
 			false
 		),
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			copied_value,
 			true,
 			false
@@ -150,7 +150,7 @@ func remove_property_value(key: StringName) -> bool:
 	if not _values.has(key):
 		return false
 
-	var old_value: Variant = GFVariantData.duplicate_variant(
+	var old_value: Variant = GFVariantData.duplicate_graph(
 		_values[key],
 		true,
 		false
@@ -274,12 +274,12 @@ func get_color(key: StringName, default_value: Color = Color.WHITE) -> Color:
 ## @api private
 func _get_value(key: StringName, default_value: Variant = null) -> Variant:
 	if not _values.has(key):
-		return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(
 			default_value,
 			true,
 			false
 		)
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		_values[key],
 		true,
 		false
@@ -298,7 +298,7 @@ func _replace_values(source: Dictionary) -> void:
 		var key: StringName = GFVariantData.to_string_name(raw_key)
 		if key == &"":
 			continue
-		normalized[key] = GFVariantData.duplicate_variant(
+		normalized[key] = GFVariantData.duplicate_graph(
 			source[raw_key],
 			true,
 			false
@@ -324,7 +324,7 @@ func _replace_values(source: Dictionary) -> void:
 ## @api private
 func _duplicate_values() -> Dictionary:
 	return GFVariantData.as_dictionary(
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			_values,
 			true,
 			false

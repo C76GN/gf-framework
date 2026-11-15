@@ -507,7 +507,7 @@ func _mark_violation(
 	_violated = true
 	_violation_reason = reason
 	_violation_message = message
-	_violation_span = GFVariantData.duplicate_variant(source_span)
+	_violation_span = GFVariantData.duplicate_graph(source_span)
 
 
 ## 仅当 Variant 值是 GFCancellationToken 时返回其类型化引用。

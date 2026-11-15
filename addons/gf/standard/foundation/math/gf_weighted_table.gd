@@ -235,7 +235,7 @@ func pick_many(
 ## @return 新权重表实例。
 func duplicate_table(deep: bool = true) -> GFWeightedTable:
 	var table: GFWeightedTable = GFWeightedTable.new()
-	table.default_value = GFVariantData.duplicate_variant(
+	table.default_value = GFVariantData.duplicate_graph(
 		default_value,
 		deep,
 		true

@@ -107,7 +107,7 @@ func test_typed_collection_edits_keep_constraints_and_resource_identity_on_repla
 func test_deep_copy_preserves_typed_cycles_and_script_resource_elements() -> void:
 	var source_array: Array[Array] = []
 	source_array.append(source_array)
-	var copied_array: Array = GF_VARIANT_ACCESS.as_array(GF_VARIANT_ACCESS.duplicate_variant(source_array))
+	var copied_array: Array = GF_VARIANT_ACCESS.as_array(GF_VARIANT_ACCESS.duplicate_graph(source_array))
 	assert_eq(
 		copied_array.get_typed_builtin(),
 		TYPE_ARRAY
@@ -124,7 +124,7 @@ func test_deep_copy_preserves_typed_cycles_and_script_resource_elements() -> voi
 
 	var source_dictionary: Dictionary[StringName, Dictionary] = {}
 	source_dictionary[&"self"] = source_dictionary
-	var copied_dictionary: Dictionary = GF_VARIANT_ACCESS.as_dictionary(GF_VARIANT_ACCESS.duplicate_variant(source_dictionary))
+	var copied_dictionary: Dictionary = GF_VARIANT_ACCESS.as_dictionary(GF_VARIANT_ACCESS.duplicate_graph(source_dictionary))
 	assert_eq(
 		copied_dictionary.get_typed_key_builtin(),
 		TYPE_STRING_NAME
@@ -147,7 +147,7 @@ func test_deep_copy_preserves_typed_cycles_and_script_resource_elements() -> voi
 	source_resource.label = "copied"
 	var source_resources: Array[TypedFixtureResource] = [source_resource]
 	var copied_resources: Array = GF_VARIANT_ACCESS.as_array(
-		GF_VARIANT_ACCESS.duplicate_variant(
+		GF_VARIANT_ACCESS.duplicate_graph(
 			source_resources,
 			true,
 			true

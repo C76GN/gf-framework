@@ -115,7 +115,7 @@ static func merge_tables(
 		budget
 	)
 	if budget.admit_value(output_data, "merge.output"):
-		report["data"] = GFVariantData.duplicate_variant(output_data)
+		report["data"] = GFVariantData.duplicate_graph(output_data)
 	_finalize_result(report, budget)
 	return report
 
@@ -148,7 +148,7 @@ static func _normalize_table(table_data: Variant, budget: GFConfigWorkBudget) ->
 			if not (row_variant is Dictionary):
 				return null
 			var row: Dictionary = row_variant
-			rows.append({ "outer_key": GFVariantData.duplicate_variant(key), "record": row.duplicate(true), })
+			rows.append({ "outer_key": GFVariantData.duplicate_graph(key), "record": row.duplicate(true), })
 		return rows
 	return null
 

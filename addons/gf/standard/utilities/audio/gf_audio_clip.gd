@@ -175,7 +175,7 @@ func has_metadata_value(key: Variant) -> bool:
 ## [br]
 ## @schema value: Variant，推荐使用可序列化的标量、Array、Dictionary 或 Resource 引用。
 func set_metadata_value(key: Variant, value: Variant) -> void:
-	metadata[key] = GFVariantData.duplicate_variant(value)
+	metadata[key] = GFVariantData.duplicate_graph(value)
 
 
 ## 获取元数据项。

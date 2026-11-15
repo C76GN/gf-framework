@@ -1164,7 +1164,7 @@ static func _copy_manifest_entry_option(
 ) -> void:
 	if not _has_dictionary_key(source, key):
 		return
-	target[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(source, key))
+	target[key] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(source, key))
 
 
 ## 检查原始键及对应 String/StringName 形式是否存在。
@@ -1200,7 +1200,7 @@ static func _merge_headers(first: PackedStringArray, second: PackedStringArray) 
 static func _merge_metadata(first: Dictionary, second: Dictionary) -> Dictionary:
 	var result: Dictionary = first.duplicate(true)
 	for key: Variant in second.keys():
-		result[key] = GFVariantData.duplicate_variant(second[key])
+		result[key] = GFVariantData.duplicate_graph(second[key])
 	return result
 
 
@@ -1753,7 +1753,7 @@ func _build_manifest_download_options(
 		"retry_delay_seconds",
 	]:
 		if _has_dictionary_key(entry, key):
-			result[key] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(entry, key))
+			result[key] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(entry, key))
 	return result
 
 

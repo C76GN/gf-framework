@@ -1,7 +1,7 @@
 ## GFBackgroundWorkUtility: 纯数据后台工作协调器。
 ##
 ## 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
-## 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。
+## CPU/IO 只接收已捕获的 GFDataSnapshot；提交只保留快照引用，不重复复制载荷。
 ## [br]
 ## @api public
 ## [br]
@@ -76,12 +76,6 @@ signal work_applied(task: GFBackgroundWorkTask)
 
 # --- 常量 ---
 
-## 线程 payload 递归检查允许的最大深度。
-## [br]
-## @api private
-## [br]
-const _MAX_PAYLOAD_DEPTH: int = 64
-
 ## 提供 CPU/IO 等待任务优先级队列实现的脚本。
 ## [br]
 ## @api private
@@ -132,12 +126,6 @@ var max_finished_tasks: int = 128:
 	set(value):
 		max_finished_tasks = maxi(value, 0)
 		_trim_finished_tasks()
-
-## 是否默认允许 Object、Resource、Callable、Signal 或 RID 进入线程 payload。
-## 仅迁移旧项目或明确自行保证线程安全时才建议开启。
-## [br]
-## @api public
-var allow_object_payloads: bool = false
 
 ## 等待中的 CPU/IO 工作每经过多少毫秒增加一次有效优先级。
 ## [br]
@@ -210,6 +198,16 @@ var _finished_tasks: Array = []
 ## [br]
 var _paused: bool = false
 
+## 清理期间拒绝新工作，防止终态信号重入启动未被 join 的线程。
+## [br]
+## @api private
+var _clearing: bool = false
+
+## dispose 后永久关闭工作接纳。
+## [br]
+## @api private
+var _disposed: bool = false
+
 ## 当前注入或由本工具建立的共享资源 Broker。
 ## [br]
 ## @api private
@@ -253,6 +251,8 @@ func ready() -> void:
 ## [br]
 ## @param _delta: 为兼容统一 tick 签名而保留的参数。
 func tick(_delta: float = 0.0) -> void:
+	if _clearing or _disposed:
+		return
 	_poll_thread_tasks()
 	_poll_resource_requests()
 	_drain_cancelled_threaded_operations()
@@ -264,11 +264,10 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
-	_cancel_all_with_reason(GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED)
-	_wait_for_active_thread_tasks()
-	clear_all()
-	if _owns_resource_broker and _resource_broker != null:
-		_resource_broker.dispose()
+	if _disposed:
+		return
+	_disposed = true
+	_clear_all_with_reason(GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED)
 
 
 ## 释放共享 Broker 引用和架构依赖作用域。
@@ -353,13 +352,13 @@ func get_resource_broker() -> GFResourceBroker:
 
 ## 提交 CPU 纯数据后台工作。
 ## [br]
-## @param worker: 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。
+## @param worker: 后台线程回调。默认签名为 func(input_snapshot: GFDataSnapshot) -> Variant；启用协作取消上下文时为 func(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext) -> Variant。
 ## [br]
-## @param input_data: 输入数据。默认只允许纯 Variant 容器和值。
+## @param input_snapshot: 已成功捕获的只读数据快照。提交只保留引用，不复制或遍历载荷。
 ## [br]
 ## @param apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。
 ## [br]
-## @param options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。
+## @param options: 可选配置，支持 id、priority、metadata、front、pass_cancellation_context。
 ## [br]
 ## @return 工作记录；参数无效时返回 failed 状态任务。
 ## [br]
@@ -367,19 +366,17 @@ func get_resource_broker() -> GFResourceBroker:
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @schema input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-## [br]
-## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
+## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_snapshot 与只读 context 两个参数。
 func submit_cpu_work(
 	worker: Callable,
-	input_data: Variant = null,
+	input_snapshot: GFDataSnapshot,
 	apply_callback: Callable = Callable(),
 	options: Dictionary = {}
 ) -> GFBackgroundWorkTask:
 	return _submit_threaded_work(
 		GFBackgroundWorkTask.Kind.CPU,
 		worker,
-		input_data,
+		input_snapshot,
 		apply_callback,
 		options
 	)
@@ -387,13 +384,13 @@ func submit_cpu_work(
 
 ## 提交 IO 纯数据后台工作。
 ## [br]
-## @param worker: 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。
+## @param worker: 后台线程回调。默认签名为 func(input_snapshot: GFDataSnapshot) -> Variant；启用协作取消上下文时为 func(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext) -> Variant。
 ## [br]
-## @param input_data: 输入数据。默认只允许纯 Variant 容器和值。
+## @param input_snapshot: 已成功捕获的只读数据快照。提交只保留引用，不复制或遍历载荷。
 ## [br]
 ## @param apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。
 ## [br]
-## @param options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。
+## @param options: 可选配置，支持 id、priority、metadata、front、pass_cancellation_context。
 ## [br]
 ## @return 工作记录；参数无效时返回 failed 状态任务。
 ## [br]
@@ -401,19 +398,17 @@ func submit_cpu_work(
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @schema input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-## [br]
-## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
+## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_snapshot 与只读 context 两个参数。
 func submit_io_work(
 	worker: Callable,
-	input_data: Variant = null,
+	input_snapshot: GFDataSnapshot,
 	apply_callback: Callable = Callable(),
 	options: Dictionary = {}
 ) -> GFBackgroundWorkTask:
 	return _submit_threaded_work(
 		GFBackgroundWorkTask.Kind.IO,
 		worker,
-		input_data,
+		input_snapshot,
 		apply_callback,
 		options
 	)
@@ -446,6 +441,9 @@ func submit_resource_load(
 		apply_callback,
 		options
 	)
+	if _clearing or _disposed:
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.closed] Cannot submit work while clearing or after disposal.")
+		return task
 	task.resource_path = path
 	task.resource_type_hint = type_hint
 
@@ -557,7 +555,7 @@ func get_task(work_id: StringName) -> GFBackgroundWorkTask:
 func clear_finished_tasks() -> void:
 	for task: Variant in _finished_tasks:
 		var finished_task: GFBackgroundWorkTask = _as_task(task)
-		if finished_task != null:
+		if finished_task != null and _tasks.get(finished_task.work_id) == finished_task:
 			var _removed_task: bool = _tasks.erase(finished_task.work_id)
 	_finished_tasks.clear()
 
@@ -566,25 +564,7 @@ func clear_finished_tasks() -> void:
 ## [br]
 ## @api public
 func clear_all() -> void:
-	if not _active_thread_tasks.is_empty():
-		_cancel_all_with_reason(GFBackgroundWorkContext.CancellationReason.CLEAR_ALL)
-		_wait_for_active_thread_tasks()
-	for task_variant: Variant in _tasks.values():
-		var task: GFBackgroundWorkTask = _as_task(task_variant)
-		if task != null and not task.is_finished():
-			_request_task_cancellation(task, GFBackgroundWorkContext.CancellationReason.CLEAR_ALL)
-			task.cancel_requested = true
-			if task.kind == GFBackgroundWorkTask.Kind.RESOURCE:
-				_release_resource_operation_for_task(task, &"background_work_clear_all")
-			_cancel_task(task)
-	_work_serial = 0
-	_tasks.clear()
-	_queued_thread_tasks.clear()
-	_active_thread_tasks.clear()
-	_resource_requests.clear()
-	_apply_queue.clear()
-	_finished_tasks.clear()
-	_paused = false
+	_clear_all_with_reason(GFBackgroundWorkContext.CancellationReason.CLEAR_ALL)
 
 
 ## 获取调试快照。
@@ -636,7 +616,7 @@ func get_debug_snapshot() -> Dictionary:
 func _submit_threaded_work(
 	kind: GFBackgroundWorkTask.Kind,
 	worker: Callable,
-	input_data: Variant,
+	input_snapshot: GFDataSnapshot,
 	apply_callback: Callable,
 	options: Dictionary
 ) -> GFBackgroundWorkTask:
@@ -650,16 +630,11 @@ func _submit_threaded_work(
 		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.worker_invalid] Cannot submit background work: worker is invalid.")
 		return task
 
-	var allow_payload_objects: bool = (
-		allow_object_payloads
-		or GFVariantData.get_option_bool(
-			options,
-			"allow_object_payloads",
-			false
-		)
-	)
-	if not allow_payload_objects and not _is_thread_payload_safe(input_data):
-		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.payload_not_plain] Cannot submit background work: payload must contain only plain Variant data.")
+	if _clearing or _disposed:
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.closed] Cannot submit work while clearing or after disposal.")
+		return task
+	if input_snapshot == null or not input_snapshot.is_ready():
+		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.snapshot_invalid] Cannot submit work without a ready data snapshot.")
 		return task
 	var pass_cancellation_context: bool = GFVariantData.get_option_bool(
 		options,
@@ -677,10 +652,10 @@ func _submit_threaded_work(
 			"[GFBackgroundWorkUtility][background_work_utility.cancellation_context_creation_failed] Cannot create cancellation context: %d." % context_error
 		)
 		return task
-	task.input_data = GFVariantData.duplicate_variant(input_data)
 	if not _register_task(task):
 		_fail_task(task, "[GFBackgroundWorkUtility][background_work_utility.work_id_duplicate] Cannot submit background work: work ID already exists.")
 		return task
+	task.set_input_snapshot_for_framework(input_snapshot)
 	task.set_cancellation_context_for_framework(cancellation_context, pass_cancellation_context)
 
 	_insert_queued_thread_task(
@@ -747,10 +722,19 @@ func _register_task(task: GFBackgroundWorkTask) -> bool:
 ## @api private
 ## [br]
 func _start_queued_thread_tasks() -> void:
-	if _paused:
+	if (
+		_paused
+		or _clearing
+		or _disposed
+	):
 		return
 
-	while _active_thread_tasks.size() < max_threaded_tasks and not _queued_thread_tasks.is_empty():
+	while (
+		not _clearing
+		and not _disposed
+		and _active_thread_tasks.size() < max_threaded_tasks
+		and not _queued_thread_tasks.is_empty()
+	):
 		var task: GFBackgroundWorkTask = _as_task(_queued_thread_tasks.pop_at(_get_now_msec()))
 		if task == null or task.status != GFBackgroundWorkTask.Status.QUEUED:
 			continue
@@ -840,7 +824,7 @@ func _start_thread_task(task: GFBackgroundWorkTask) -> void:
 	var error: Error = thread.start(
 		Callable(self, "_run_threaded_task").bind(
 			task.get_worker_callback(),
-			task.input_data,
+			task.get_input_snapshot(),
 			task.get_cancellation_context(),
 			task.worker_receives_cancellation_context_for_framework()
 		)
@@ -912,17 +896,17 @@ func _finish_thread_task(task: GFBackgroundWorkTask, result_variant: Variant) ->
 
 
 ## 调用 worker 并包装结果；字典 ok=false 或直接返回 false 时生成失败结果。
-## worker 启用取消契约时附带 context，其余情况仅传 input_data。
+## worker 启用取消契约时附带 context，其余情况仅传 input_snapshot。
 ## [br]
 ## @api private
 ## [br]
 func _run_threaded_task(
 	worker: Callable,
-	input_data: Variant,
+	input_snapshot: GFDataSnapshot,
 	cancellation_context: GFBackgroundWorkContext,
 	worker_receives_context: bool
 ) -> Dictionary:
-	var value: Variant = (worker.call(input_data, cancellation_context) if worker_receives_context else worker.call(input_data))
+	var value: Variant = (worker.call(input_snapshot, cancellation_context) if worker_receives_context else worker.call(input_snapshot))
 	if value is Dictionary:
 		var value_dictionary: Dictionary = value
 		if not GFVariantData.get_option_bool(
@@ -1152,7 +1136,12 @@ func _process_apply_queue() -> void:
 	var remaining: int = maxi(max_apply_per_tick, 1)
 	var started_usec: int = Time.get_ticks_usec()
 	var applied_count: int = 0
-	while remaining > 0 and not _apply_queue.is_empty():
+	while (
+		remaining > 0
+		and not _apply_queue.is_empty()
+		and not _clearing
+		and not _disposed
+	):
 		if _is_apply_time_budget_exhausted(started_usec, applied_count):
 			break
 
@@ -1167,6 +1156,12 @@ func _process_apply_queue() -> void:
 		var apply_callback: Callable = task.get_apply_callback()
 		var value: Variant = apply_callback.call(task)
 		applied_count += 1
+		if (
+			_disposed
+			or task.is_finished()
+			or _tasks.get(task.work_id) != task
+		):
+			continue
 		task.apply_result = value
 		if value is Dictionary:
 			var value_dictionary: Dictionary = value
@@ -1296,7 +1291,41 @@ func _cancel_work_with_reason(work_id: StringName, reason: GFBackgroundWorkConte
 	return true
 
 
-## 遍历当前任务值快照，对每个未结束任务调用带指定原因的取消流程。
+## 清理和释放共用一个占用区间；回调重入不能推进任务或覆盖首次取消原因。
+## [br]
+## @api private
+func _clear_all_with_reason(reason: GFBackgroundWorkContext.CancellationReason) -> void:
+	if _clearing:
+		return
+	_clearing = true
+	_cancel_all_with_reason(reason)
+	_wait_for_active_thread_tasks()
+	for task_variant: Variant in _tasks.values():
+		var task: GFBackgroundWorkTask = _as_task(task_variant)
+		if task != null and not task.is_finished():
+			_request_task_cancellation(task, reason)
+			task.cancel_requested = true
+			if task.kind == GFBackgroundWorkTask.Kind.RESOURCE:
+				_release_resource_operation_for_task(task, &"background_work_clear_all")
+			_cancel_task(task)
+	_work_serial = 0
+	_tasks.clear()
+	_queued_thread_tasks.clear()
+	_active_thread_tasks.clear()
+	_resource_requests.clear()
+	_apply_queue.clear()
+	_finished_tasks.clear()
+	_paused = false
+	_clearing = false
+	if (
+		_disposed
+		and _owns_resource_broker
+		and _resource_broker != null
+	):
+		_resource_broker.dispose()
+
+
+## 先向全部原任务发布取消，再处理终态信号，回调不能抢先完成兄弟任务。
 ## [br]
 ## @api private
 ## [br]
@@ -1305,6 +1334,15 @@ func _cancel_all_with_reason(reason: GFBackgroundWorkContext.CancellationReason)
 	for task_variant: Variant in task_values:
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
 		if task != null and not task.is_finished():
+			_request_task_cancellation(task, reason)
+			task.cancel_requested = true
+	for task_variant: Variant in task_values:
+		var task: GFBackgroundWorkTask = _as_task(task_variant)
+		if (
+			task != null
+			and not task.is_finished()
+			and _tasks.get(task.work_id) == task
+		):
 			var _cancelled: bool = _cancel_work_with_reason(task.work_id, reason)
 
 
@@ -1333,10 +1371,10 @@ func _wait_for_active_thread_tasks() -> void:
 		var result_variant: Variant = null
 		if thread != null:
 			result_variant = thread.wait_to_finish()
+		var _removed_active: bool = _active_thread_tasks.erase(work_id)
 		var task: GFBackgroundWorkTask = _get_thread_entry_task(entry)
 		_release_worker_callback_after_join(task)
 		_finish_thread_task(task, result_variant)
-	_active_thread_tasks.clear()
 
 
 ## Thread join 后清除 worker 回调及其目标引用，同时保留 apply 回调。
@@ -1346,6 +1384,7 @@ func _wait_for_active_thread_tasks() -> void:
 func _release_worker_callback_after_join(task: GFBackgroundWorkTask) -> void:
 	if task == null:
 		return
+	task.set_input_snapshot_for_framework(null)
 	task.set_internal_callbacks(
 		Callable(),
 		task.get_apply_callback()
@@ -1359,6 +1398,7 @@ func _release_worker_callback_after_join(task: GFBackgroundWorkTask) -> void:
 func _release_task_callbacks_at_terminal(task: GFBackgroundWorkTask) -> void:
 	if task == null:
 		return
+	task.set_input_snapshot_for_framework(null)
 	task.set_internal_callbacks(
 		Callable(),
 		Callable()
@@ -1373,7 +1413,11 @@ func _trim_finished_tasks() -> void:
 	var limit: int = maxi(max_finished_tasks, 0)
 	while _finished_tasks.size() > limit:
 		var removed: GFBackgroundWorkTask = _as_task(_finished_tasks.pop_front())
-		if removed != null and removed.is_finished():
+		if (
+			removed != null
+			and removed.is_finished()
+			and _tasks.get(removed.work_id) == removed
+		):
 			var _removed_task: bool = _tasks.erase(removed.work_id)
 
 
@@ -1386,58 +1430,6 @@ func _is_apply_time_budget_exhausted(started_usec: int, applied_count: int) -> b
 		return false
 	var elapsed_seconds: float = float(Time.get_ticks_usec() - started_usec) / 1000000.0
 	return elapsed_seconds >= max_apply_seconds_per_tick
-
-
-## 限深递归允许纯值、数学值、NodePath、packed 数组、Array 与 Dictionary。
-## 其他 Variant 类型或超过最大深度的容器返回 false。
-## [br]
-## @api private
-## [br]
-func _is_thread_payload_safe(value: Variant, depth: int = 0) -> bool:
-	if depth > _MAX_PAYLOAD_DEPTH:
-		return false
-
-	match typeof(value):
-		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_STRING_NAME:
-			return true
-		TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_RECT2, TYPE_RECT2I, TYPE_VECTOR3, TYPE_VECTOR3I:
-			return true
-		TYPE_TRANSFORM2D, TYPE_VECTOR4, TYPE_VECTOR4I, TYPE_PLANE, TYPE_QUATERNION, TYPE_AABB:
-			return true
-		TYPE_BASIS, TYPE_TRANSFORM3D, TYPE_PROJECTION, TYPE_COLOR, TYPE_NODE_PATH:
-			return true
-		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY:
-			return true
-		TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY:
-			return true
-		TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY:
-			return true
-		TYPE_PACKED_COLOR_ARRAY, TYPE_PACKED_VECTOR4_ARRAY:
-			return true
-		TYPE_ARRAY:
-			var array: Array = GFVariantData.as_array(value)
-			for item: Variant in array:
-				if not _is_thread_payload_safe(
-					item,
-					depth + 1
-				):
-					return false
-			return true
-		TYPE_DICTIONARY:
-			var dictionary: Dictionary = GFVariantData.as_dictionary(value)
-			for key: Variant in dictionary.keys():
-				if not _is_thread_payload_safe(
-					key,
-					depth + 1
-				):
-					return false
-				if not _is_thread_payload_safe(
-					dictionary[key],
-					depth + 1
-				):
-					return false
-			return true
-	return false
 
 
 ## 记录此任务已释放，再无有效消费者时向路径对应 Lease 请求取消。

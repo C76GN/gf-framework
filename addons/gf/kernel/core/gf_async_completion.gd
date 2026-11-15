@@ -360,7 +360,7 @@ func get_status() -> Status:
 func get_result() -> Variant:
 	if not Thread.is_main_thread():
 		return null
-	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_result)
+	return _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_result)
 
 
 ## 获取失败说明。
@@ -429,7 +429,7 @@ func get_debug_snapshot() -> Dictionary:
 		"successful": is_successful(),
 		"failed": is_failed(),
 		"cancelled": is_cancelled(),
-		"result": _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_result),
+		"result": _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_result),
 		"error": _error,
 		"cancel_reason": _cancel_reason,
 		"metadata": _metadata.duplicate(true),
@@ -458,7 +458,7 @@ func _complete(
 
 	_disconnect_cancel_token()
 	_status = status
-	_result = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(result)
+	_result = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(result)
 	_error = error
 	_cancel_reason = cancel_reason if status != Status.CANCELLED or cancel_reason != &"" else &"cancelled"
 	_metadata = metadata.duplicate(true)
@@ -467,7 +467,7 @@ func _complete(
 	match _status:
 		Status.SUCCEEDED:
 			succeeded.emit(
-				_GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(_result),
+				_GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(_result),
 				_metadata.duplicate(true)
 			)
 		Status.FAILED:

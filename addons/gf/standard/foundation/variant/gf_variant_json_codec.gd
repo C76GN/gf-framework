@@ -1,6 +1,7 @@
-## GFVariantJsonCodec: Godot Variant 的 JSON 兼容编码器。
+## GFVariantJsonCodec: Godot Variant 的 JSON 兼容转换与确定性文本编解码。
 ##
 ## 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。
+## encode_deterministic_result()/decode_deterministic_result() 使用独立版本化格式，保留纯数据类型并提供有界失败报告。
 ## 该类不负责集合复制或默认值合并；这类数据操作由 GFVariantData 提供。
 ## [br]
 ## @api public
@@ -13,6 +14,16 @@ extends RefCounted
 
 
 # --- 常量 ---
+
+## 确定性文本使用独立写入器，不参与 canonical 二进制哈希。
+## [br]
+## @api private
+const _DETERMINISTIC_WRITER_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_deterministic_json_writer.gd")
+
+## 有界读取器直接恢复类型化数据，不调用整份文本的 JSON.parse。
+## [br]
+## @api private
+const _DETERMINISTIC_READER_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_deterministic_json_reader.gd")
 
 ## JSON 对象中存放 GF Variant 类型标记的字段名。
 ## [br]
@@ -119,6 +130,53 @@ const _FLOAT32_MAX: float = 3.4028234663852886e38
 
 
 # --- 公共方法 ---
+
+## 编码 gf.variant-json-deterministic v1 文本；Dictionary 按完整类型化键编码排序。
+## 输出固定两空格缩进、LF 换行及末尾 LF，不影响 canonical v2 二进制格式或摘要。
+## 保留内建容器类型声明及 Packed 类型；共享容器按值展开，拒绝循环和活对象。
+## int64 以十进制字符串保存；有限非零 float 使用十进制展示加小端 binary64 十六进制位模式，负零与 NaN 归一。
+## 调用期间输入必须稳定；快照借用内部只读树，既不复制载荷，也不修改来源。
+## 时间与取消检查是协作式的，不能抢占单次原生操作；排序预算是逻辑成本，不代表进程内存上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param value: 纯 Variant 值树或已就绪 GFDataSnapshot；Object 类型的容器即使为空也拒绝。
+## [br]
+## @schema value: Nil, bool, int, float, String, StringName, NodePath, built-in math values, supported Packed arrays, recursively pure Array/Dictionary, or ready GFDataSnapshot; no Object, Resource, Callable, Signal, RID, cycles or U+0000.
+## [br]
+## @param options: 闭合选项集；数值限制必须为正整数，未知字段或错误类型返回 invalid_options。
+## [br]
+## @schema options: max_items:int=100000 (Variant nodes plus Packed elements), max_depth:int=64 (root=0, at most 256), max_key_depth:int=64 (nested containers from outermost key root, at most 64), max_string_length:int=1048576 (characters), max_output_bytes:int=16777216 (UTF-8), max_sort_bytes:int=16777216 (live logical sorting cost), max_elapsed_msec:int=30000, cancel_token:GFCancellationToken=null. Keys must be String or StringName; max_input_bytes is not accepted.
+## [br]
+## @return 成功时完整文本；失败时 text 为空、counts_complete 为 false，仅保留已处理部分的计量和首次失败。
+## [br]
+## @schema return: ok:bool, text:String, format_id:String="gf.variant-json-deterministic", format_version:int=1, counts_complete:bool, items:int, packed_items:int, input_bytes:int=0, output_bytes:int, maximum_depth:int, peak_sort_bytes:int, error_kind:String, error_path:String, limit_kind:String, limit:int, observed:int. Success has empty error fields; limit_exceeded includes a possibly saturated observed lower bound. Other failures include invalid_options, unsupported_type, invalid_unicode, cycle, ambiguous_dictionary_key, snapshot_unavailable and cancelled.
+static func encode_deterministic_result(value: Variant, options: Dictionary = {}) -> Dictionary:
+	return _DETERMINISTIC_WRITER_SCRIPT.new().run(value, options)
+
+
+## 有界解码 gf.variant-json-deterministic v1，直接恢复可变纯数据树，不物化整份 JSON 中间树。
+## 根字段固定为 format、version、value；接受 JSON 空白和未排序字典条目，拒绝重复键、未知版本、额外字段及尾随内容。
+## 严格校验类型、数值范围与精度；不加载资源或实例化脚本。恢复类型声明，但不恢复容器别名或只读标记。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param text: 本类确定性编码器生成的文本；普通 JSON 与旧规范 JSON 不属于此格式。
+## [br]
+## @param options: 闭合的正整数预算和可选取消令牌；超限立即停止，不发布部分树。
+## [br]
+## @schema options: max_items:int=100000, max_depth:int=64 (root=0, at most 256), max_key_depth:int=64 (at most 64), max_string_length:int=1048576, max_input_bytes:int=16777216 (UTF-8), max_sort_bytes:int=16777216, max_elapsed_msec:int=30000, cancel_token:GFCancellationToken=null. Counting and cooperative execution match encode_deterministic_result; max_output_bytes is not accepted.
+## [br]
+## @return 成功时完整恢复值；失败时 value 为 null、counts_complete 为 false。合法 null 也返回 null，必须检查 ok。
+## [br]
+## @schema return: ok:bool, value:Variant, format_id:String="gf.variant-json-deterministic", format_version:int=1, counts_complete:bool, items:int, packed_items:int, input_bytes:int, output_bytes:int=0, maximum_depth:int, peak_sort_bytes:int, error_kind:String, error_path:String, limit_kind:String, limit:int, observed:int. Failure kinds include invalid_options, unsupported_format, unsupported_version, invalid_envelope, invalid_json, invalid_payload, invalid_unicode, invalid_number, invalid_node_path, unsupported_type, type_mismatch, number_out_of_range, precision_loss, duplicate_dictionary_key, limit_exceeded and cancelled; error_path never embeds user key text.
+static func decode_deterministic_result(text: String, options: Dictionary = {}) -> Dictionary:
+	return _DETERMINISTIC_READER_SCRIPT.new().run(text, options)
+
 
 ## 将 Variant 转为 JSON.stringify() 可安全编码的值。
 ## [br]
@@ -1584,7 +1642,7 @@ static func _make_traversal_limit_marker(traversal_state: Dictionary) -> Diction
 ## @api private
 ## [br]
 static func _make_traversal_limit_fallback(options: Dictionary) -> Variant:
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		GFVariantData.get_option_value(
 			options,
 			"traversal_limit",

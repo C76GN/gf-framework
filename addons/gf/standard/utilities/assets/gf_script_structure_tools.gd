@@ -906,7 +906,7 @@ static func _describe_constants(
 			"type_name": type_string(typeof(constant_value)),
 		}
 		if include_constant_values:
-			record["value"] = GFVariantData.duplicate_variant(constant_value)
+			record["value"] = GFVariantData.duplicate_graph(constant_value)
 		records.append(record)
 	records.sort_custom(Callable(GFScriptStructureTools, "_compare_named_records"))
 	return records

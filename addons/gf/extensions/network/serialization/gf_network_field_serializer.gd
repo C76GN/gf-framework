@@ -115,7 +115,7 @@ func serialize_value(value: Variant) -> Variant:
 		ValueType.QUATERNION:
 			return _serialize_quaternion(value)
 		_:
-			return GFVariantData.duplicate_variant(value)
+			return GFVariantData.duplicate_graph(value)
 
 
 ## 解码字段值。Quaternion 数组会恢复单位长度，零长度或非有限分量回退为单位四元数。
@@ -156,7 +156,7 @@ func deserialize_value(value: Variant) -> Variant:
 		ValueType.QUATERNION:
 			return _deserialize_quaternion(value)
 		_:
-			return GFVariantData.duplicate_variant(value)
+			return GFVariantData.duplicate_graph(value)
 
 
 ## 复制编码器配置。

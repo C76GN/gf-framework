@@ -9,12 +9,14 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。 该类不负责集合复制或默认值合并；这类数据操作由 GFVariantData 提供。
+Godot Variant 的 JSON 兼容转换与确定性文本编解码。 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。 encode_deterministic_result()/decode_deterministic_result() 使用独立版本化格式，保留纯数据类型并提供有界失败报告。 该类不负责集合复制或默认值合并；这类数据操作由 GFVariantData 提供。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 方法 | [`encode_deterministic_result`](#member-gfvariantjsoncodec-methods-encode_deterministic_result) | `static func encode_deterministic_result(value: Variant, options: Dictionary = {}) -> Dictionary:` |
+| 方法 | [`decode_deterministic_result`](#member-gfvariantjsoncodec-methods-decode_deterministic_result) | `static func decode_deterministic_result(text: String, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`variant_to_json_compatible`](#member-gfvariantjsoncodec-methods-variant_to_json_compatible) | `static func variant_to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:` |
 | 方法 | [`json_compatible_to_variant`](#member-gfvariantjsoncodec-methods-json_compatible_to_variant) | `static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:` |
 | 方法 | [`variant_to_json_compatible_result`](#member-gfvariantjsoncodec-methods-variant_to_json_compatible_result) | `static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -> Dictionary:` |
@@ -32,6 +34,61 @@ Godot Variant 的 JSON 兼容编码器。 负责在 JSON.stringify() 可编码�
 | 方法 | [`array_to_color`](#member-gfvariantjsoncodec-methods-array_to_color) | `static func array_to_color(value: Variant, fallback: Color = Color.WHITE) -> Color:` |
 
 ## 方法
+
+<a id="member-gfvariantjsoncodec-methods-encode_deterministic_result"></a>
+
+### `encode_deterministic_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func encode_deterministic_result(value: Variant, options: Dictionary = {}) -> Dictionary:
+```
+
+编码 gf.variant-json-deterministic v1 文本；Dictionary 按完整类型化键编码排序。 输出固定两空格缩进、LF 换行及末尾 LF，不影响 canonical v2 二进制格式或摘要。 保留内建容器类型声明及 Packed 类型；共享容器按值展开，拒绝循环和活对象。 int64 以十进制字符串保存；有限非零 float 使用十进制展示加小端 binary64 十六进制位模式，负零与 NaN 归一。 调用期间输入必须稳定；快照借用内部只读树，既不复制载荷，也不修改来源。 时间与取消检查是协作式的，不能抢占单次原生操作；排序预算是逻辑成本，不代表进程内存上限。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `value` | 纯 Variant 值树或已就绪 GFDataSnapshot；Object 类型的容器即使为空也拒绝。 |
+| `options` | 闭合选项集；数值限制必须为正整数，未知字段或错误类型返回 invalid_options。 |
+
+返回：成功时完整文本；失败时 text 为空、counts_complete 为 false，仅保留已处理部分的计量和首次失败。
+
+结构：
+
+- `value`: Nil, bool, int, float, String, StringName, NodePath, built-in math values, supported Packed arrays, recursively pure Array/Dictionary, or ready GFDataSnapshot; no Object, Resource, Callable, Signal, RID, cycles or U+0000.
+- `options`: max_items:int=100000 (Variant nodes plus Packed elements), max_depth:int=64 (root=0, at most 256), max_key_depth:int=64 (nested containers from outermost key root, at most 64), max_string_length:int=1048576 (characters), max_output_bytes:int=16777216 (UTF-8), max_sort_bytes:int=16777216 (live logical sorting cost), max_elapsed_msec:int=30000, cancel_token:GFCancellationToken=null. Keys must be String or StringName; max_input_bytes is not accepted.
+- `return`: ok:bool, text:String, format_id:String="gf.variant-json-deterministic", format_version:int=1, counts_complete:bool, items:int, packed_items:int, input_bytes:int=0, output_bytes:int, maximum_depth:int, peak_sort_bytes:int, error_kind:String, error_path:String, limit_kind:String, limit:int, observed:int. Success has empty error fields; limit_exceeded includes a possibly saturated observed lower bound. Other failures include invalid_options, unsupported_type, invalid_unicode, cycle, ambiguous_dictionary_key, snapshot_unavailable and cancelled.
+
+<a id="member-gfvariantjsoncodec-methods-decode_deterministic_result"></a>
+
+### `decode_deterministic_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func decode_deterministic_result(text: String, options: Dictionary = {}) -> Dictionary:
+```
+
+有界解码 gf.variant-json-deterministic v1，直接恢复可变纯数据树，不物化整份 JSON 中间树。 根字段固定为 format、version、value；接受 JSON 空白和未排序字典条目，拒绝重复键、未知版本、额外字段及尾随内容。 严格校验类型、数值范围与精度；不加载资源或实例化脚本。恢复类型声明，但不恢复容器别名或只读标记。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | 本类确定性编码器生成的文本；普通 JSON 与旧规范 JSON 不属于此格式。 |
+| `options` | 闭合的正整数预算和可选取消令牌；超限立即停止，不发布部分树。 |
+
+返回：成功时完整恢复值；失败时 value 为 null、counts_complete 为 false。合法 null 也返回 null，必须检查 ok。
+
+结构：
+
+- `options`: max_items:int=100000, max_depth:int=64 (root=0, at most 256), max_key_depth:int=64 (at most 64), max_string_length:int=1048576, max_input_bytes:int=16777216 (UTF-8), max_sort_bytes:int=16777216, max_elapsed_msec:int=30000, cancel_token:GFCancellationToken=null. Counting and cooperative execution match encode_deterministic_result; max_output_bytes is not accepted.
+- `return`: ok:bool, value:Variant, format_id:String="gf.variant-json-deterministic", format_version:int=1, counts_complete:bool, items:int, packed_items:int, input_bytes:int, output_bytes:int=0, maximum_depth:int, peak_sort_bytes:int, error_kind:String, error_path:String, limit_kind:String, limit:int, observed:int. Failure kinds include invalid_options, unsupported_format, unsupported_version, invalid_envelope, invalid_json, invalid_payload, invalid_unicode, invalid_number, invalid_node_path, unsupported_type, type_mismatch, number_out_of_range, precision_loss, duplicate_dictionary_key, limit_exceeded and cancelled; error_path never embeds user key text.
 
 <a id="member-gfvariantjsoncodec-methods-variant_to_json_compatible"></a>
 

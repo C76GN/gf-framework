@@ -6618,25 +6618,31 @@ func test_mix_snapshot_preserves_raw_gain_and_mute_independently() -> void:
 		"mute 状态应独立保存。"
 	)
 
-	AudioServer.set_bus_volume_db(bus_idx, -2.0)
-	AudioServer.set_bus_mute(bus_idx, false)
-	var report: Dictionary = _audio.apply_mix_snapshot(snapshot, 0.05)
-	var transition_completed: bool = await _wait_for_bus_volume_target(bus_idx, -12.0)
-	assert_true(transition_completed, "快照过渡应在有界帧预算内完成。")
-	assert_true(
-		GFVariantData.get_option_bool(report, "ok"),
-		"独立增益和 mute 应能作为一个快照事务应用。"
-	)
-	assert_almost_eq(
-		AudioServer.get_bus_volume_db(bus_idx),
-		-12.0,
-		0.001,
-		"快照应恢复原始增益。"
-	)
-	assert_true(
-		AudioServer.is_bus_mute(bus_idx),
-		"快照应恢复独立 mute 状态。"
-	)
+	# 同增益但不同 mute 时，音量命中目标并不代表过渡已完成。
+	for current_db: float in [-2.0, -12.0]:
+		AudioServer.set_bus_volume_db(bus_idx, current_db)
+		AudioServer.set_bus_mute(bus_idx, false)
+		var report: Dictionary = _audio.apply_mix_snapshot(snapshot, 0.05)
+		var transition_completed: bool = await _wait_for_bus_mix_target(
+			bus_idx,
+			-12.0,
+			true
+		)
+		assert_true(transition_completed, "快照过渡应在有界帧预算内完成。")
+		assert_true(
+			GFVariantData.get_option_bool(report, "ok"),
+			"独立增益和 mute 应能作为一个快照事务应用。"
+		)
+		assert_almost_eq(
+			AudioServer.get_bus_volume_db(bus_idx),
+			-12.0,
+			0.001,
+			"快照应恢复原始增益。"
+		)
+		assert_true(
+			AudioServer.is_bus_mute(bus_idx),
+			"快照应恢复独立 mute 状态。"
+		)
 
 	AudioServer.set_bus_volume_db(bus_idx, original_db)
 	AudioServer.set_bus_mute(bus_idx, original_muted)
@@ -8484,6 +8490,19 @@ func _wait_for_bus_volume_target(
 			return true
 		await get_tree().process_frame
 	return absf(AudioServer.get_bus_volume_db(bus_index) - expected_db) <= 0.001
+
+
+func _wait_for_bus_mix_target(
+	bus_index: int,
+	expected_db: float,
+	expected_muted: bool,
+	max_frames: int = 240
+) -> bool:
+	for _frame_index: int in range(max_frames):
+		if absf(AudioServer.get_bus_volume_db(bus_index) - expected_db) <= 0.001 and AudioServer.is_bus_mute(bus_index) == expected_muted:
+			return true
+		await get_tree().process_frame
+	return absf(AudioServer.get_bus_volume_db(bus_index) - expected_db) <= 0.001 and AudioServer.is_bus_mute(bus_index) == expected_muted
 
 
 func _count_root_audio_players_named(player_name: String) -> int:

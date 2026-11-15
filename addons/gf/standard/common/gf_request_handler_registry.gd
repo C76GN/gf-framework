@@ -760,7 +760,7 @@ func _invoke_handler(
 	var sequence: int = _take_sequence()
 	var request: Dictionary = {
 		"request_type": request_type,
-		"payload": GFVariantData.duplicate_variant(payload),
+		"payload": GFVariantData.duplicate_graph(payload),
 		"context": context.duplicate(true),
 		"sequence": sequence,
 		"handler_metadata": GFVariantData.get_option_dictionary(entry, "metadata"),
@@ -783,7 +783,7 @@ func _invoke_handler(
 	}
 	request_invoked.emit(
 		request_type,
-		GFVariantData.duplicate_variant(result_value),
+		GFVariantData.duplicate_graph(result_value),
 		invoke_metadata.duplicate(true)
 	)
 	_record_event(
@@ -837,7 +837,7 @@ func _make_result(
 		"ok": ok,
 		"status": status,
 		"request_type": request_type,
-		"result": GFVariantData.duplicate_variant(result_value),
+		"result": GFVariantData.duplicate_graph(result_value),
 	}
 	_GF_ASYNC_RESULT_SUPPORT.merge_extra(result, extra)
 	return result

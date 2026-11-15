@@ -156,7 +156,7 @@ func _init(
 	severity = normalize_severity(p_severity)
 	kind = p_kind
 	message = p_message
-	key = GFVariantData.duplicate_variant(p_key)
+	key = GFVariantData.duplicate_graph(p_key)
 	path = p_path
 	metadata = p_metadata.duplicate(true)
 
@@ -199,7 +199,7 @@ func configure(
 	severity = normalize_severity(p_severity)
 	kind = p_kind
 	message = p_message
-	key = GFVariantData.duplicate_variant(p_key)
+	key = GFVariantData.duplicate_graph(p_key)
 	path = p_path
 	metadata = p_metadata.duplicate(true)
 	return self
@@ -229,7 +229,7 @@ func apply_dict(data: Dictionary) -> void:
 		"kind",
 		kind
 	)
-	key = GFVariantData.duplicate_variant(
+	key = GFVariantData.duplicate_graph(
 		GFVariantData.get_option_value(
 			data,
 			"key",
@@ -263,7 +263,7 @@ func apply_dict(data: Dictionary) -> void:
 	for field_key: Variant in data.keys():
 		if _is_reserved_field(GFVariantData.to_text(field_key)):
 			continue
-		extra_fields[field_key] = GFVariantData.duplicate_variant(data[field_key])
+		extra_fields[field_key] = GFVariantData.duplicate_graph(data[field_key])
 
 
 ## 转换为字典。
@@ -281,7 +281,7 @@ func to_dict(include_empty_fields: bool = false) -> Dictionary:
 	if include_empty_fields or not kind_key.is_empty():
 		result["kind"] = kind_key
 	if include_empty_fields or key != null:
-		result["key"] = GFVariantData.duplicate_variant(key)
+		result["key"] = GFVariantData.duplicate_graph(key)
 	if include_empty_fields or not path.is_empty():
 		result["path"] = path
 	_add_source_span_fields(result, include_empty_fields)
@@ -291,7 +291,7 @@ func to_dict(include_empty_fields: bool = false) -> Dictionary:
 	for field_key: Variant in extra_fields.keys():
 		if _is_reserved_field(GFVariantData.to_text(field_key)):
 			continue
-		result[field_key] = GFVariantData.duplicate_variant(extra_fields[field_key])
+		result[field_key] = GFVariantData.duplicate_graph(extra_fields[field_key])
 
 	if include_empty_fields or not metadata.is_empty():
 		result["metadata"] = metadata.duplicate(true)
@@ -549,7 +549,7 @@ func _add_source_span_fields(result: Dictionary, include_empty_fields: bool) -> 
 	for field_key: Variant in span_dict.keys():
 		if field_key == "metadata":
 			continue
-		result[field_key] = GFVariantData.duplicate_variant(span_dict[field_key])
+		result[field_key] = GFVariantData.duplicate_graph(span_dict[field_key])
 	if not span_dict.is_empty():
 		result["source_span"] = span.to_dict(include_empty_fields, false)
 

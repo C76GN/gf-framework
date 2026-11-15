@@ -402,7 +402,7 @@ func to_array(deep: bool = false) -> Array:
 	while not entries.is_empty():
 		var entry: Dictionary = _pop_entry_from(entries)
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
-		result.append(GFVariantData.duplicate_variant(value) if deep else value)
+		result.append(GFVariantData.duplicate_graph(value) if deep else value)
 	return result
 
 
@@ -425,7 +425,7 @@ func to_entry_array(deep: bool = false) -> Array[Dictionary]:
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
 		result.append(
 			{
-				"value": GFVariantData.duplicate_variant(value) if deep else value,
+				"value": GFVariantData.duplicate_graph(value) if deep else value,
 				"priority": GFVariantData.get_option_float(entry, "priority"),
 				"order": GFVariantData.get_option_int(entry, "order"),
 			}
@@ -678,7 +678,7 @@ func _duplicate_entries(deep: bool) -> Array[Dictionary]:
 		var value: Variant = GFVariantData.get_option_value(entry, "value")
 		result.append(
 			{
-				"value": GFVariantData.duplicate_variant(value) if deep else value,
+				"value": GFVariantData.duplicate_graph(value) if deep else value,
 				"priority": GFVariantData.get_option_float(entry, "priority"),
 				"order": GFVariantData.get_option_int(entry, "order"),
 				"front": GFVariantData.get_option_bool(entry, "front"),

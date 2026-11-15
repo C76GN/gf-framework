@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-纯数据后台工作协调器。 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。
+纯数据后台工作协调器。 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。 CPU/IO 只接收已捕获的 GFDataSnapshot；提交只保留快照引用，不重复复制载荷。
 
 ## 成员概览
 
@@ -26,7 +26,6 @@
 | 属性 | [`max_apply_per_tick`](#member-gfbackgroundworkutility-properties-max_apply_per_tick) | `var max_apply_per_tick: int = 8:` |
 | 属性 | [`max_apply_seconds_per_tick`](#member-gfbackgroundworkutility-properties-max_apply_seconds_per_tick) | `var max_apply_seconds_per_tick: float = 0.0:` |
 | 属性 | [`max_finished_tasks`](#member-gfbackgroundworkutility-properties-max_finished_tasks) | `var max_finished_tasks: int = 128:` |
-| 属性 | [`allow_object_payloads`](#member-gfbackgroundworkutility-properties-allow_object_payloads) | `var allow_object_payloads: bool = false` |
 | 属性 | [`priority_aging_interval_msec`](#member-gfbackgroundworkutility-properties-priority_aging_interval_msec) | `var priority_aging_interval_msec: int = 1000:` |
 | 属性 | [`priority_aging_step`](#member-gfbackgroundworkutility-properties-priority_aging_step) | `var priority_aging_step: float = 1.0:` |
 | 方法 | [`init`](#member-gfbackgroundworkutility-methods-init) | `func init() -> void:` |
@@ -37,8 +36,8 @@
 | 方法 | [`set_resource_broker`](#member-gfbackgroundworkutility-methods-set_resource_broker) | `func set_resource_broker(broker: GFResourceBroker) -> Error:` |
 | 方法 | [`setup_standalone_resource_broker`](#member-gfbackgroundworkutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker(max_active_requests: int = 4, max_pending_requests: int = 256) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfbackgroundworkutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
-| 方法 | [`submit_cpu_work`](#member-gfbackgroundworkutility-methods-submit_cpu_work) | `func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
-| 方法 | [`submit_io_work`](#member-gfbackgroundworkutility-methods-submit_io_work) | `func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
+| 方法 | [`submit_cpu_work`](#member-gfbackgroundworkutility-methods-submit_cpu_work) | `func submit_cpu_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
+| 方法 | [`submit_io_work`](#member-gfbackgroundworkutility-methods-submit_io_work) | `func submit_io_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
 | 方法 | [`submit_resource_load`](#member-gfbackgroundworkutility-methods-submit_resource_load) | `func submit_resource_load( path: String, type_hint: String = "", apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:` |
 | 方法 | [`cancel_work`](#member-gfbackgroundworkutility-methods-cancel_work) | `func cancel_work(work_id: StringName) -> bool:` |
 | 方法 | [`cancel_all`](#member-gfbackgroundworkutility-methods-cancel_all) | `func cancel_all() -> void:` |
@@ -232,18 +231,6 @@ var max_finished_tasks: int = 128:
 
 最多保留多少个终态任务用于调试快照；设为 0 时不保留历史。
 
-<a id="member-gfbackgroundworkutility-properties-allow_object_payloads"></a>
-
-### `allow_object_payloads`
-
-- API：`public`
-
-```gdscript
-var allow_object_payloads: bool = false
-```
-
-是否默认允许 Object、Resource、Callable、Signal 或 RID 进入线程 payload。 仅迁移旧项目或明确自行保证线程安全时才建议开启。
-
 <a id="member-gfbackgroundworkutility-properties-priority_aging_interval_msec"></a>
 
 ### `priority_aging_interval_msec`
@@ -406,7 +393,7 @@ func get_resource_broker() -> GFResourceBroker:
 - 首次版本：`3.17.0`
 
 ```gdscript
-func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:
+func submit_cpu_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:
 ```
 
 提交 CPU 纯数据后台工作。
@@ -415,17 +402,16 @@ func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callba
 
 | 名称 | 说明 |
 |---|---|
-| `worker` | 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。 |
-| `input_data` | 输入数据。默认只允许纯 Variant 容器和值。 |
+| `worker` | 后台线程回调。默认签名为 func(input_snapshot: GFDataSnapshot) -> Variant；启用协作取消上下文时为 func(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext) -> Variant。 |
+| `input_snapshot` | 已成功捕获的只读数据快照。提交只保留引用，不复制或遍历载荷。 |
 | `apply_callback` | 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。 |
-| `options` | 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。 |
+| `options` | 可选配置，支持 id、priority、metadata、front、pass_cancellation_context。 |
 
 返回：工作记录；参数无效时返回 failed 状态任务。
 
 结构：
 
-- `input_data`: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
+- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_snapshot 与只读 context 两个参数。
 
 <a id="member-gfbackgroundworkutility-methods-submit_io_work"></a>
 
@@ -435,7 +421,7 @@ func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callba
 - 首次版本：`3.17.0`
 
 ```gdscript
-func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:
+func submit_io_work( worker: Callable, input_snapshot: GFDataSnapshot, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:
 ```
 
 提交 IO 纯数据后台工作。
@@ -444,17 +430,16 @@ func submit_io_work( worker: Callable, input_data: Variant = null, apply_callbac
 
 | 名称 | 说明 |
 |---|---|
-| `worker` | 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。 |
-| `input_data` | 输入数据。默认只允许纯 Variant 容器和值。 |
+| `worker` | 后台线程回调。默认签名为 func(input_snapshot: GFDataSnapshot) -> Variant；启用协作取消上下文时为 func(input_snapshot: GFDataSnapshot, context: GFBackgroundWorkContext) -> Variant。 |
+| `input_snapshot` | 已成功捕获的只读数据快照。提交只保留引用，不复制或遍历载荷。 |
 | `apply_callback` | 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。 |
-| `options` | 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。 |
+| `options` | 可选配置，支持 id、priority、metadata、front、pass_cancellation_context。 |
 
 返回：工作记录；参数无效时返回 failed 状态任务。
 
 结构：
 
-- `input_data`: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
+- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_snapshot 与只读 context 两个参数。
 
 <a id="member-gfbackgroundworkutility-methods-submit_resource_load"></a>
 

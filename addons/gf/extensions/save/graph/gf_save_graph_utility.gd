@@ -1366,7 +1366,7 @@ func _apply_scope_recursive(
 			false
 		):
 			applied += 1
-			loaded_sources.append({ "source": source, "data": GFVariantData.duplicate_variant(source_data), })
+			loaded_sources.append({ "source": source, "data": GFVariantData.duplicate_graph(source_data), })
 			_record_pipeline_event(
 				pipeline_context,
 				&"apply_source_finished",
@@ -3378,7 +3378,7 @@ func _queue_after_load_callbacks(
 			{
 				"kind": &"source",
 				"target": loaded_source,
-				"data": GFVariantData.duplicate_variant(GFVariantData.get_option_value(loaded_source_entry, "data")),
+				"data": GFVariantData.duplicate_graph(GFVariantData.get_option_value(loaded_source_entry, "data")),
 			}
 		)
 	if scope != null and is_instance_valid(scope):
@@ -3386,7 +3386,7 @@ func _queue_after_load_callbacks(
 			{
 				"kind": &"scope",
 				"target": scope,
-				"data": GFVariantData.duplicate_variant(payload),
+				"data": GFVariantData.duplicate_graph(payload),
 			}
 		)
 
@@ -3628,7 +3628,7 @@ func _track_source_snapshot(
 		{
 			"source": source,
 			"source_key": source.get_source_key(),
-			"data": GFVariantData.duplicate_variant(snapshot_data),
+			"data": GFVariantData.duplicate_graph(snapshot_data),
 			"reference_root": context.get(GFVariantReferenceCodec.OPTION_ROOT_NODE),
 		}
 	)

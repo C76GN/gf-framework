@@ -191,8 +191,8 @@ func add_value(
 		KIND_VALUE,
 		options
 	)
-	condition["key"] = GFVariantData.duplicate_variant(key, true)
-	condition["expected"] = GFVariantData.duplicate_variant(expected_value, true)
+	condition["key"] = GFVariantData.duplicate_graph(key, true)
+	condition["expected"] = GFVariantData.duplicate_graph(expected_value, true)
 	condition["equals_options"] = GFVariantData.get_option_dictionary(options, "equals_options").duplicate(true)
 	_conditions.append(condition)
 	return _condition_to_snapshot(condition)
@@ -230,7 +230,7 @@ func add_presence(
 		KIND_PRESENT,
 		options
 	)
-	condition["key"] = GFVariantData.duplicate_variant(key, true)
+	condition["key"] = GFVariantData.duplicate_graph(key, true)
 	_conditions.append(condition)
 	return _condition_to_snapshot(condition)
 
@@ -456,7 +456,7 @@ func _evaluate_condition(condition: Dictionary, context: Dictionary) -> Dictiona
 				)
 			)
 			report["present"] = _context_has_key(context, value_key)
-			report["actual"] = GFVariantData.duplicate_variant(actual_value, true)
+			report["actual"] = GFVariantData.duplicate_graph(actual_value, true)
 
 	if GFVariantData.get_option_bool(
 		condition,
@@ -493,7 +493,7 @@ func _evaluate_predicate(condition: Dictionary, context: Dictionary) -> Dictiona
 	return {
 		"ok": GFVariantData.to_bool(result, false),
 		"error": "",
-		"result": GFVariantData.duplicate_variant(result, true),
+		"result": GFVariantData.duplicate_graph(result, true),
 	}
 
 
@@ -523,12 +523,12 @@ func _condition_to_snapshot(condition: Dictionary) -> Dictionary:
 		"has_predicate": _get_condition_predicate(condition).is_valid(),
 	}
 	if condition.has("key"):
-		snapshot["key"] = GFVariantData.duplicate_variant(
+		snapshot["key"] = GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(condition, "key"),
 			true
 		)
 	if condition.has("expected"):
-		snapshot["expected"] = GFVariantData.duplicate_variant(
+		snapshot["expected"] = GFVariantData.duplicate_graph(
 			GFVariantData.get_option_value(condition, "expected"),
 			true
 		)
@@ -555,21 +555,21 @@ func _context_has_key(context: Dictionary, key: Variant) -> bool:
 ## @api private
 func _get_context_value(context: Dictionary, key: Variant) -> Variant:
 	if context.has(key):
-		return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(
 			context[key],
 			true
 		)
 
 	var text_key: String = GFVariantData.to_text(key)
 	if not text_key.is_empty() and context.has(text_key):
-		return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(
 			context[text_key],
 			true
 		)
 
 	var string_name_key: StringName = GFVariantData.to_string_name(key)
 	if string_name_key != &"" and context.has(string_name_key):
-		return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(
 			context[string_name_key],
 			true
 		)

@@ -123,7 +123,7 @@ func get_digest_report() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，含 algorithm: StringName、value: String、complete: bool、unavailable_tables: PackedStringArray。
+- `return`: Dictionary，含 algorithm: StringName、canonical_version: int、value: String、complete: bool、unavailable_tables: PackedStringArray。
 
 <a id="member-gfconfigsnapshot-methods-get_table_ids"></a>
 

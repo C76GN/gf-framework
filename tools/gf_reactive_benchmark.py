@@ -32,6 +32,7 @@ FIXTURE = ROOT / "tests/gf_core/benchmarks/reactive"
 KERNEL_FILES = (
 	"gf_bindable_property.gd", "gf_computed_property.gd", "gf_reactive_effect.gd",
 	"gf_variant_access.gd", "gf_instance_guard.gd", "gf_subscription_token.gd",
+	"gf_data_value_capture.gd", "gf_cancellation_token.gd",
 	"gf_lifetime_subscription.gd",
 )
 MODES = ("eager", "static_pull", "branch_pull")

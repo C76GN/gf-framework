@@ -1878,7 +1878,7 @@ func _append_recipe_failure(
 ## @api private
 func _duplicate_report_dictionary(data: Dictionary) -> Dictionary:
 	return GFVariantData.as_dictionary(
-		GFVariantData.duplicate_variant(
+		GFVariantData.duplicate_graph(
 			data,
 			true,
 			false

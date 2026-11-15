@@ -1,108 +1,113 @@
 # 确定性序列化
 
-`GFDeterministicVariantSerializer` 为纯 Variant 数据生成稳定的 canonical value、JSON、UTF-8 bytes 和 SHA-256。它适合锁步输入、回放快照、黄金测试、配置内容 hash 和 deterministic math 状态比对。
+`GFDeterministicVariantSerializer` 用 canonical v2 二进制格式描述纯 Variant 值，并计算 SHA-256。配置内容摘要、回放校验和黄金测试可以复用同一格式。对象应先由项目转换成稳定 ID、路径或数据；需要稳定、可恢复的文本导出时使用 [`GFVariantJsonCodec` 的确定性 JSON](../data-validation/formula-variant/deterministic-json.md)，该文本协议独立版本化，不改变本页的字节或摘要。
 
-## 定位
-
-它不替代 `GFVariantJsonCodec` 或 `GFStorageCodec`：
-
-- `GFVariantJsonCodec` 负责 Godot Variant 与 JSON 兼容数据往返。
-- `GFStorageCodec` 负责存档字典的编码、压缩、metadata、完整性校验和混淆。
-- `GFDeterministicVariantSerializer` 只负责稳定类型标记、字典 key 排序、规范文本、规范 bytes 和 hash。
-
-该工具不读取文件、不参与 `GFArchitecture` 生命周期、不解释业务字段，也不扫描对象属性。需要保存 `Resource`、`Node` 或业务对象时，先在项目层转换成稳定 ID、路径或纯数据字典。
-
-## 常用流程
+## 一次计算取得摘要与计量
 
 ```gdscript
-var payload := {
-	"rng": rng.to_dict(),
-	"position": fixed_position.to_dict(),
-	"turn": 12,
-}
-
-var canonical_json := GFDeterministicVariantSerializer.to_canonical_json(payload)
-var canonical_bytes := GFDeterministicVariantSerializer.to_canonical_bytes(payload)
-var content_hash := GFDeterministicVariantSerializer.sha256(payload)
-```
-
-相同数据即使 Dictionary 插入顺序不同，也会得到相同 canonical JSON、bytes 和 hash。数组顺序会被保留，因为数组顺序通常承载业务语义。
-
-## 预算预检与增量 hash
-
-需要先判断载荷能否进入规范编码时，使用安静的 `measure_canonical()`：
-
-```gdscript
-var options := {
-	"max_items": 100_000,
-	"max_output_bytes": 16 * 1024 * 1024,
-}
-var report := GFDeterministicVariantSerializer.measure_canonical(payload, options)
+var report: Dictionary = GFDeterministicVariantSerializer.hash_result(
+	payload,
+	{
+		"max_items": 4_000_000,
+		"max_output_bytes": 64 * 1024 * 1024,
+	}
+)
 if report.ok:
+	print(report.canonical_version, report.hash)
 	print(report.items, report.packed_items, report.output_bytes)
-	var content_hash := GFDeterministicVariantSerializer.sha256(payload, options)
 else:
-	print(report.failure_kind, report.error)
+	print(report.error_kind, report.error_path, report.limit_kind)
 ```
 
-报告固定包含 `ok`、`error`、`failure_kind`、`items`、`packed_items`、`output_bytes`，以及预算诊断字段 `limit_kind`、`limit`、`observed`、`observed_is_lower_bound`。成功时，`output_bytes` 是完整规范 JSON 的精确 UTF-8 字节数；`items` 包括每个 Variant 节点及 packed 元素，`packed_items` 只统计 packed 元素。Array 和 Dictionary 自身各计一个节点，字典的 key 与 value 分别计数；packed 容器计一个节点再加元素个数，向量分量不额外计数。`Transform3D` 沿用 typed 编码规则，只额外计入 `basis` 节点。失败的计数只描述已经检查的部分，输出计数最多为 `max_output_bytes`，不能用作完整载荷大小。`failure_kind` 成功时为空，失败时为 `input_invalid` 或 `output_limit`；`error` 用于展示说明。
+`hash_result()` 在同一次树遍历中校验、计量和更新摘要，不先复制输入，不构建完整 typed tree 或 JSON。Packed 整数数组按本机块取得字节并统一端序；哈希缓冲最多 64 KiB。
 
-`limit_kind` 在触发预算时为 `max_depth`、`max_items`、`max_string_length` 或 `max_output_bytes`，`limit` 是相应上限，`observed` 是检查到的计数或确定下界。`observed_is_lower_bound=true` 时，不能把它当作完整输入总量，也不能假定它一定严格大于 `limit`；节点或输出超限可以把上限本身作为有界的下界返回。成功或非预算错误时，这四项分别为空字符串、0、0、false。业务流程应使用稳定分类，避免解析 `error` 的展示文字；实际编码仍会重新验证输入。
+`encode_result()` 使用相同编码器返回完整 `bytes: PackedByteArray`；`measure_canonical()` 只返回计量。两者的 `hash` 为空；hash 模式的 `bytes` 为空。简便入口 `sha256()` 和 `to_canonical_bytes()` 分别在失败时返回空字符串和空数组。
 
-JSON、bytes 和 SHA-256 入口均先重新预检，再生成结果；输入错误优先于最终输出超限。默认预算为深度 256、元素 100,000、单字符串 1,048,576 个字符和输出 16 MiB，所有预算最小为 1。packed 元素预算在展开前整批检查，字符串长度按字符计数，输出预算按转义后的 UTF-8 字节计数。
+需要摘要及计量时直接使用 `hash_result()`。单独的测量用于容量检查，不能授权之后发生变化的数据，也不应作为每次哈希前必经的步骤。
 
-预检不构建完整 typed tree、packed 普通数组或规范 JSON 文本。两种 hash 入口采用不同的资源策略，但生成相同字节协议的摘要，并执行相同输入和输出预算：
+## 所有权与复用
 
-- `sha256()` 预检后构建完整 typed tree 和规范 JSON，再调用原生 SHA-256，优先降低编码 CPU 开销。
-- `sha256_incremental()` 逐片编码，并以最多 64 KiB 的缓冲更新摘要，避免完整 typed tree 和 JSON 文本的工作内存；分段编码可能增加 CPU 开销。
+同步调用期间，项目必须保持输入及其嵌套容器稳定。跨任务复用数据时先捕获 [GFDataSnapshot](../data-validation/formula-variant/variant-data-json.md#只读数据快照)：
 
 ```gdscript
-var content_hash := GFDeterministicVariantSerializer.sha256(payload, options)
-var incremental_hash := GFDeterministicVariantSerializer.sha256_incremental(payload, options)
-assert(content_hash == incremental_hash)
+var captured: Dictionary = GFDataSnapshot.capture(payload)
+if captured.ok:
+	var snapshot: GFDataSnapshot = captured.snapshot
+	var first: Dictionary = GFDeterministicVariantSerializer.hash_result(snapshot)
+	var second: Dictionary = GFDeterministicVariantSerializer.hash_result(snapshot)
+	assert(first.hash == second.hash)
 ```
 
-需要控制大载荷的编码工作内存时，可以显式选择增量入口；频繁计算 hash 时应结合实际载荷测量 CPU 和内存成本。增量入口的字符串分段交给 Godot 自身做 JSON 转义，整数文本、浮点位模式、字典排序和 schema 字段顺序与 typed 编码保持一致。bytes 入口仍需保存完整最终字节数组，JSON 入口还需返回完整字符串，`to_canonical_value()` 仍会构建完整 typed tree。
+快照捕获只隔离一次源数据。哈希快照时借用其内部只读树，不调用公开导出，也不复制载荷。每次哈希仍按本次政策执行完整编码，不缓存可变预检凭据。
 
-字典排序必须保留 canonical key 文本，因此增量 hash 的总工作内存还包括当前递归路径及各层字典的 key 排序工作集；复合 key 的文本也可能较大。这些文本受输出预算约束，工具不承诺常量内存或固定执行时间。对任意入口的整个同步调用，以及预检到随后编码之间，项目必须保持输入结构不变；预检报告不能授权已经被修改的数据。各编码入口独立执行预算检查，失败时不会发布部分 bytes 或 hash。
+Array 的顺序保留，Dictionary 按键的完整编码排序。共享子容器在不同位置按值展开；容器类型声明不进入字节，所以内容相同的普通数组与 `Array[int]` 相同。Object 类型的数组或字典即使为空也被拒绝。循环、Object、Resource、Callable、Signal 和 RID 无法编码。
 
-## 定点数与定点向量
+## 预算与失败报告
 
-`GFFixedDecimal`、`GFFixedVector2` 和 `GFFixedVector3` 已提供 JSON 安全状态字典。确定性序列化应消费这些 `to_dict()` 输出，而不是直接传入对象：
+| 选项 | 默认值 | 单位 |
+| --- | ---: | --- |
+| `max_depth` | 64 | 根为 0，最大允许配置为 256 |
+| `max_items` | 100,000 | 每次出现的 Variant 节点及 Packed 元素 |
+| `max_string_length` | 1,048,576 | 每个字符串的字符数 |
+| `max_output_bytes` | 16 MiB | 包含格式头的 canonical v2 字节 |
+| `max_sort_bytes` | 16 MiB | 当前嵌套字典排序工作区的逻辑字节 |
+| `max_elapsed_msec` | 30,000 | 单次操作经过的毫秒 |
+| `allow_floats` | false | 是否允许有限浮点值 |
+| `cancel_token` | null | 可选 `GFCancellationToken` |
 
-```gdscript
-var price := GFFixedDecimal.from_string("12.34", 2)
-var offset := GFFixedVector2.from_decimal_strings("1.25", "-3.50", 2)
+数值预算必须为正整数，未知选项或无效类型直接返回 `invalid_options`。检查先于相关展开；时间和取消在有界步骤之间观察，不能抢占引擎的单次本机复制或排序。
 
-var hash := GFDeterministicVariantSerializer.sha256({
-	"price": price.to_dict(),
-	"offset": offset.to_dict(),
-})
-```
+每个 Array、Dictionary、Packed 容器各计一个节点；字典键和值分别计数，Packed 元素另外计入 `items` 和 `packed_items`。向量、矩阵与 Transform3D 都是一个 Variant 节点，分量不另外计数。
 
-这样可以避免通用 serializer 通过反射调用任意对象方法，也让数值类型自己的版本字段、raw 文本和字节格式继续由数值模块维护。
+结果包含 `ok`、`canonical_version`、`counts_complete`、`items`、`packed_items`、`output_bytes`、`maximum_depth`、`peak_sort_bytes`，以及 `error_kind`、`error_path`、`error`、`failure_kind`、`limit_kind`、`limit`、`observed`、`observed_is_lower_bound`。
 
-## 浮点边界
+成功时 `counts_complete=true`，字节数精确。失败立即停止，计数只描述已处理部分；不发布部分 hash 或 bytes。预算失败的 `error_kind` 为 `limit_exceeded`，`observed` 是确定下界。其他分类包括 `cycle`、`unsupported_type`、`float_disabled`、`nonfinite_float`、`cancelled`、`snapshot_unavailable`、`ambiguous_dictionary_key` 和 `hash_failed`。不要解析展示用的 `error` 文本。所有入口均通过返回值报告失败，不输出错误日志。
 
-默认情况下，`float`、`Vector2`、`Color`、`Transform3D` 等浮点值会被拒绝。需要确定性真值时，优先使用定点数或整数网格坐标。
+排序工作区按保留的键字节、十六进制排序文本的 UTF-32 存储量及每项 128 字节逻辑成本计量，并累计嵌套字典。它与节点、深度、字符串和输出预算一起约束工作量，不代表精确的进程堆内存上限。字典排序仍需额外空间，bytes 模式还会保留完整输出。
 
-工具链或配置 hash 确实需要纳入有限浮点值时，可以显式开启：
+## canonical v2 字节协议
 
-```gdscript
-var hash := GFDeterministicVariantSerializer.sha256({
-	"preview_position": Vector2(1.5, -2.25),
-}, {
-	"allow_floats": true,
-})
-```
+格式头固定为四字节 `47 46 43 02`，即 ASCII `GFC` 加版本 2。之后是一个值。标签使用下面的固定编号，与 Godot 的 Variant 枚举编号无关。所有整数与浮点字节均为小端；长度使用 uint64，整数值及整数数学分量使用 int64。
 
-即使开启 `allow_floats`，`NaN` 和 `Inf` 也会失败；`0.0` 与 `-0.0` 会归一到同一编码。有限的浮点向量、矩形、颜色、平面、四元数、AABB、Basis、Transform 与 `Projection` 也会按固定分量顺序编码；`Projection` 使用 `x/y/z/w` 四列共 16 个分量。
+| 标签（十进制） | 类型 | 标签之后的载荷 |
+| --- | --- | --- |
+| 0 | null | 无 |
+| 1 | bool | 1 字节，0 或 1 |
+| 2 | int | int64 |
+| 3 | float | IEEE 754 binary64 |
+| 4 / 5 / 6 | String / StringName / NodePath | UTF-8 字节长度，然后原始 UTF-8；NodePath 使用其文本表示 |
+| 10 / 11 / 12 | Vector2i / Vector3i / Vector4i | 按 x、y、z、w 排列的 int64 分量 |
+| 13 | Rect2i | position.x、position.y、size.x、size.y |
+| 20 / 21 / 22 | Vector2 / Vector3 / Vector4 | 按坐标顺序排列的 binary64 分量 |
+| 23 | Rect2 | position.x、position.y、size.x、size.y |
+| 24 | Transform2D | x 列、y 列、origin，各两个分量 |
+| 25 / 26 | Plane / Quaternion | normal.x、normal.y、normal.z、d / x、y、z、w |
+| 27 | AABB | position 后接 size，各三个分量 |
+| 28 | Basis | x、y、z 三列，各三个分量 |
+| 29 | Transform3D | basis 的九个分量，后接 origin 三个分量 |
+| 30 | Projection | x、y、z、w 四列，各四个分量 |
+| 31 | Color | r、g、b、a |
+| 40 | Array | 元素数量，随后逐项完整值编码 |
+| 41 | Dictionary | 条目数量，随后按排序结果逐项写完整键编码和完整值编码 |
+| 50 | PackedByteArray | 元素数量，随后原始字节 |
+| 51 / 52 | PackedInt32Array / PackedInt64Array | 元素数量，随后连续 int32 / int64 |
+| 53 / 54 | PackedFloat32Array / PackedFloat64Array | 元素数量，随后连续 binary32 / binary64 |
+| 55 | PackedStringArray | 元素数量；每项为 UTF-8 字节长度及字节，不重复 String 标签 |
+| 56 / 57 / 58 / 59 | PackedVector2Array / PackedVector3Array / PackedVector4Array / PackedColorArray | 元素数量；逐项按对应数学类型顺序写 binary64 分量，不重复标签 |
 
-## 使用边界
+所有未另行指定宽度的浮点数学分量使用 binary64。浮点输入必须显式启用；NaN、正负无穷被拒绝，负零归一为正零。PackedFloat32Array 保留其已经量化为 binary32 的值。编码固定输入值的表示，不保证产生这些值的浮点运算跨平台一致。
 
-- 支持纯 Variant 数据、字符串 / 名称 / 路径、整数向量、数组、字典和常见 packed 数组；显式开启 `allow_floats` 后支持文档化的有限浮点复合类型。
-- 字典 key 会按 key 的 canonical 表达排序，`1`、`"1"`、`StringName("1")` 不会被压成同一个字符串 key。
-- Object、Resource、Callable、RID、Signal、循环引用和超过 `max_depth` 的结构会失败。
-- `to_canonical_value()` 的预算作用于遍历深度、集合项和字符串长度；它不生成唯一字节表示，因此不把 `max_output_bytes` 作为保证。`max_output_bytes` 只由 JSON、bytes 和 SHA-256 入口执行。
-- 如果只是写入存档并需要压缩、metadata 或 checksum，继续使用 `GFStorageCodec`。
-- 如果只是把 Godot 值转成 JSON 兼容结构并恢复，继续使用 `GFVariantJsonCodec`。
+Dictionary 的键允许上述纯值，包括复合键；按完整键编码的无符号字节字典序排序，不包含文件格式头。如果两个不同键产生相同编码，则拒绝为 `ambiguous_dictionary_key`。字符串不做 Unicode 规范化，String 与 StringName 使用不同标签。
+
+示例：null 的完整编码为 `4746430200`，SHA-256 为 `c2f6f4900d26c5cc047b4a6f94200f7fe30dcf229c8c3f7bcfb85d80798bcc83`。
+
+## 从旧规范 JSON 迁移
+
+v2 不读取或生成旧规范 JSON，也不提供旧摘要兼容层。持久化摘要时同时记录 `canonical_version`，重新生成配置内容摘要、Network 契约访问器和依赖这些值的缓存、黄金向量。
+
+- 删除 `to_canonical_value()` 和 `to_canonical_json()`；稳定文本导出改用 `GFVariantJsonCodec.encode_deterministic_result()`，对应恢复使用 `decode_deterministic_result()`；普通 JSON 继续使用兼容转换。新的文本格式不读取旧规范 JSON，哈希或字节校验改用本页入口。
+- 删除 `sha256_incremental()`；`sha256()` 和 `hash_result()` 已统一为分块哈希。
+- 内部哈希准备对象已删除；跨任务保留输入改用 `GFDataSnapshot`。
+- 旧“先测量再哈希”调用改为一次 `hash_result()`；输出预算现在计算二进制字节，必须重新评估原有阈值。
+- 失败采用首次遇错即停止，不再继续扫描以覆盖先前的输出超限错误。
+- `GFSeedUtility.try_make_stable_seed()` 对 v2 字节执行 FNV-1a 32 位派生，结构化 seed 随格式升级而改变；纯文本 seed 算法保持原有定义。Network schema 描述版本为 2，版本记录同时携带 canonical 版本。

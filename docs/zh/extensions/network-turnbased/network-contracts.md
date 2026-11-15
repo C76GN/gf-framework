@@ -40,7 +40,7 @@ validator.enforce_sender_id_matches_peer = true
 var report := validator.validate_message_for_peer(message, peer_id)
 ```
 
-契约资源还可以声明 `contract_version_major` 和 `contract_version_minor`。大版本用于项目在连接、房间加入、热更新切换或工具流水线中判断双方是否仍使用兼容的消息结构；小版本默认只用于日志、排查或构建追踪。`get_schema_descriptor()` 会导出不含展示名和 metadata 的纯结构描述，`get_schema_digest()` 使用确定性 Variant 编码生成稳定 SHA-256，`get_contract_version()` 会把契约 ID、版本号和 schema digest 合并成可传输字典。
+契约资源还可以声明 `contract_version_major` 和 `contract_version_minor`。大版本用于项目在连接、房间加入、热更新切换或工具流水线中判断双方是否仍使用兼容的消息结构；小版本默认只用于日志、排查或构建追踪。`get_schema_descriptor()` 会导出不含展示名和 metadata 的纯结构描述，`get_schema_digest()` 使用 canonical v2 生成 SHA-256。`get_contract_version()` 返回契约 ID、版本号、`schema_descriptor_version: 2`、`canonical_version: 2` 和摘要。旧摘要不可复用，升级时需要重新生成契约辅助类及缓存的版本记录。
 
 ```gdscript
 contract.contract_version_major = 2

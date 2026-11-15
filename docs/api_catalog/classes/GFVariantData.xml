@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="1ac85285d06ec25579b26d0bf93d2002393a23d3ab9420c4114b4621f56abe59">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="0790a1d6c26b80c9633a9bbbf74ee342dd7e6befee7530586392fefeefad4834">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
-提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
+默认复制纯数据值树；对象身份、循环和 Resource 克隆通过 duplicate_graph 显式选择。
+另提供差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -14,8 +15,37 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 	<properties />
 	<methods>
 		<member kind="method" name="duplicate_variant">
-			<signature>static func duplicate_variant( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -&gt; Variant:</signature>
-			<description>深拷贝 Dictionary 或 Array；其他 Variant 原样返回。</description>
+			<signature>static func duplicate_variant(value: Variant, limits: Dictionary = {}) -&gt; Variant:</signature>
+			<description>有界复制纯数据值树；共享子容器独立展开，不保留引用身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 调用期间稳定的纯数据。</tag>
+				<tag name="param">limits: 与 copy_value 相同的有限预算。</tag>
+				<tag name="return">独立副本；失败返回 null。需要区分合法 null 与失败时使用 copy_value。</tag>
+				<tag name="schema">value: Pure built-in Variant values; Object, Resource, Callable, Signal, RID and cycles are rejected.</tag>
+				<tag name="schema">limits: Same limits as copy_value.</tag>
+				<tag name="schema">return: Detached Variant value or null.</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="copy_value">
+			<signature>static func copy_value(value: Variant, limits: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>单次遍历校验并隔离纯数据；失败丢弃全部部分副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">value: 稳定的纯 Variant。</tag>
+				<tag name="param">limits: 正整数预算和可选取消令牌。</tag>
+				<tag name="return">完整副本与计量，失败时 value 为 null。</tag>
+				<tag name="schema">value: Same pure value domain as GFDataSnapshot.capture.</tag>
+				<tag name="schema">limits: Dictionary with max_items (1000000), max_depth (64, at most 256), max_string_length (1048576), max_payload_bytes (67108864), max_elapsed_msec (30000), cancel_token: GFCancellationToken.</tag>
+				<tag name="schema">return: Dictionary with ok, value, counts_complete, items, packed_items, payload_bytes, maximum_depth, error_kind, error_path, limit_kind, limit and observed. Counts are exact only on success.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_graph">
+			<signature>static func duplicate_graph( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -&gt; Variant:</signature>
+			<description>显式复制对象图，保留容器别名和循环；Object/Resource 默认保留身份。
+Resource 可选复制。全图身份查找最坏为平方复杂度，适用于需要图语义的入口。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 待复制的值。</tag>
@@ -24,19 +54,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="return">复制后的值。</tag>
 				<tag name="schema">value: 待复制的 Variant 值。</tag>
 				<tag name="schema">return: 复制后的 Variant 值。</tag>
-				<tag name="since">3.17.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="duplicate_collection">
-			<signature>static func duplicate_collection(value: Variant, deep: bool = true) -&gt; Variant:</signature>
-			<description>深拷贝集合值；语义同 duplicate_variant()，便于集合字段调用处表达意图。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">value: 待复制的值。</tag>
-				<tag name="param">deep: 是否深拷贝集合。</tag>
-				<tag name="return">复制后的值。</tag>
-				<tag name="schema">value: 待复制的 Variant 集合值。</tag>
-				<tag name="schema">return: 复制后的 Variant 集合值。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">

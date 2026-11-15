@@ -76,7 +76,7 @@ static func make_paint_patch(
 		if erase:
 			var _erased_key: Variant = next_data.erase(key)
 		else:
-			next_data[key] = GFVariantData.duplicate_variant(value)
+			next_data[key] = GFVariantData.duplicate_graph(value)
 
 		if previous_data == next_data:
 			continue
@@ -308,7 +308,7 @@ static func get_cell_overlay_segments(
 		segments.append(
 			{
 				"key": key,
-				"value": GFVariantData.duplicate_variant(GFVariantData.get_option_value(cell_data, key)),
+				"value": GFVariantData.duplicate_graph(GFVariantData.get_option_value(cell_data, key)),
 				"color": color,
 			}
 		)
@@ -525,9 +525,9 @@ static func _get_schema_color(metadata: Dictionary, fallback: Color) -> Color:
 ## [br]
 static func _get_schema_paint_value(metadata: Dictionary) -> Variant:
 	if _has_metadata_key(metadata, &"paint_value"):
-		return GFVariantData.duplicate_variant(_get_metadata_value(metadata, &"paint_value"))
+		return GFVariantData.duplicate_graph(_get_metadata_value(metadata, &"paint_value"))
 	if _has_metadata_key(metadata, &"default"):
-		return GFVariantData.duplicate_variant(_get_metadata_value(metadata, &"default"))
+		return GFVariantData.duplicate_graph(_get_metadata_value(metadata, &"default"))
 	return true
 
 

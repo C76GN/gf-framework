@@ -200,7 +200,7 @@ func to_dict(json_compatible: bool = true) -> Dictionary:
 	return {
 		"profiles": profile_data,
 		"active_profile_id": String(active_profile_id),
-		"custom_data": (GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_variant(custom_data)),
+		"custom_data": (GFVariantJsonCodec.variant_to_json_compatible(custom_data) if json_compatible else GFVariantData.duplicate_graph(custom_data)),
 	}
 
 
@@ -256,7 +256,7 @@ func apply_dict(data: Dictionary, json_compatible: bool = true) -> void:
 		"custom_data",
 		{}
 	)
-	custom_data_value = (GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_variant(custom_data_value))
+	custom_data_value = (GFVariantJsonCodec.json_compatible_to_variant(custom_data_value) if json_compatible else GFVariantData.duplicate_graph(custom_data_value))
 	custom_data = GFVariantData.as_dictionary(custom_data_value)
 
 

@@ -727,7 +727,7 @@ func _snapshot_signal_argument(
 		scalar_text.to_utf8_buffer().size()
 	):
 		return _make_snapshot_truncation_marker(state, "max_bytes")
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		value,
 		true,
 		true

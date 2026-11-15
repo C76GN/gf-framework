@@ -176,7 +176,7 @@ func build_hit_context(
 	payload_override: Variant = null,
 	hit_id_override: StringName = &""
 ) -> GFCombatHitContext:
-	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_variant(payload_override))
+	var context_payload: Variant = (payload.duplicate(true) if payload_override == null else GFVariantData.duplicate_graph(payload_override))
 	var effective_hit_id: StringName = hit_id_override if hit_id_override != &"" else hit_id
 	var context: GFCombatHitContext = GFCombatHitContext.new(
 		_resolve_sender(),

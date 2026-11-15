@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="76b3c04971c3210f93ab3abb9a097427ce86447e91c4f06c4e2958d5b5138746">
+<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="0c3aa8614149a8d843f98e7c430eb0e27278f0cd1e7788ec18b19f0b8bce2086">
 	<description>GFConfigWorkBudget: 单次配置操作及批次共享的有限工作预算。
 句柄只累计、不重置；首次失败锁存。它约束受信任配置代码的协作工作量，
 不隔离自定义代码，也不统计 Resource 属性或引擎内部全部内存。</description>
@@ -20,6 +20,15 @@
 				<tag name="api">public</tag>
 				<tag name="param">limits: 覆盖默认容量的字段。</tag>
 				<tag name="schema">limits: Dictionary，仅接受 max_input_bytes、max_depth、max_work_units、max_value_bytes、max_output_bytes 的正整数；max_depth 最大为 256。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_remaining_work_units">
+			<signature>func get_remaining_work_units() -&gt; int:</signature>
+			<description>返回当前剩余工作单元，供单遍执行器在执行前限制访问量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败句柄返回 0；正常句柄返回尚未消费的工作单元。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

@@ -563,7 +563,7 @@ func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
 		var report: Dictionary = try_coerce_record(record, options)
 		var data: Variant = report.get("data")
 		return data if data is Dictionary else {}
-	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(record))
+	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_graph(record))
 	for column: GFConfigTableColumn in columns:
 		if column == null or column.get_field_key() == &"":
 			continue
@@ -1604,7 +1604,7 @@ func _coerce_record_for_validation(
 	options: Dictionary,
 	validation_columns: Array[GFConfigTableColumn]
 ) -> Dictionary:
-	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_variant(record))
+	var result: Dictionary = GFVariantData.as_dictionary(GFVariantData.duplicate_graph(record))
 	for column: GFConfigTableColumn in validation_columns:
 		if column == null or column.get_field_key() == &"":
 			continue
@@ -1824,7 +1824,7 @@ func _validate_column_rules(
 			report,
 			rule.validate_value(
 				value,
-				GFVariantData.as_dictionary(GFVariantData.duplicate_variant(context))
+				GFVariantData.as_dictionary(GFVariantData.duplicate_graph(context))
 			)
 		)
 	_finalize_report(element_report)
@@ -2028,7 +2028,7 @@ func _validate_element_batch(
 				report,
 				rule.validate_value(
 					value,
-					GFVariantData.as_dictionary(GFVariantData.duplicate_variant(element_context))
+					GFVariantData.as_dictionary(GFVariantData.duplicate_graph(element_context))
 				)
 			)
 
@@ -2246,9 +2246,9 @@ func _make_value_context(
 		field_name,
 		options
 	)
-	context["value"] = GFVariantData.duplicate_variant(field_value)
-	context["expected_value"] = GFVariantData.duplicate_variant(expected_value)
-	context["actual_value"] = GFVariantData.duplicate_variant(field_value if actual_value == null else actual_value)
+	context["value"] = GFVariantData.duplicate_graph(field_value)
+	context["expected_value"] = GFVariantData.duplicate_graph(expected_value)
+	context["actual_value"] = GFVariantData.duplicate_graph(field_value if actual_value == null else actual_value)
 	return context
 
 
@@ -2277,7 +2277,7 @@ func _copy_context_fields(target: Dictionary, source: Dictionary) -> void:
 		"supported_content_types",
 	]:
 		if source.has(field_name):
-			target[field_name] = GFVariantData.duplicate_variant(source[field_name])
+			target[field_name] = GFVariantData.duplicate_graph(source[field_name])
 
 
 ## 将解析结果中的行号与源位置补入诊断上下文。

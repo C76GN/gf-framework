@@ -159,7 +159,7 @@ func add_task(
 	var task: Dictionary = {
 		"index": task_index,
 		"has_key": has_key,
-		"key": GFVariantData.duplicate_variant(task_key),
+		"key": GFVariantData.duplicate_graph(task_key),
 		"key_token": key_token,
 		"weight": maxf(weight, 0.0),
 		"progress": 0.0,

@@ -224,7 +224,7 @@ func is_valid() -> bool:
 func get_value() -> Variant:
 	if kind == KIND_OBJECT:
 		return get_object()
-	return GFVariantData.duplicate_variant(_value, true)
+	return GFVariantData.duplicate_graph(_value, true)
 
 
 ## 取回 Object 身份引用。

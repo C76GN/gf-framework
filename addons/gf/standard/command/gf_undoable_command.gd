@@ -154,7 +154,7 @@ func set_snapshot(data: Variant) -> bool:
 	):
 		push_error("[GFUndoableCommand][undoable_command.snapshot_invalid] Snapshots must contain bounded plain Variant data without runtime references or recursive structures.")
 		return false
-	_snapshot = GFVariantData.duplicate_variant(
+	_snapshot = GFVariantData.duplicate_graph(
 		data,
 		true,
 		false
@@ -170,7 +170,7 @@ func set_snapshot(data: Variant) -> bool:
 ## [br]
 ## @schema return: Variant snapshot value or null.
 func get_snapshot() -> Variant:
-	return GFVariantData.duplicate_variant(
+	return GFVariantData.duplicate_graph(
 		_snapshot,
 		true,
 		false

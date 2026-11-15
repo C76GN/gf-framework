@@ -1114,14 +1114,14 @@ func _read_dictionary(
 	return {}
 
 
-## 读取 payload 字段并通过 GFVariantData.duplicate_variant() 复制其值；缺失时返回 null。
+## 读取 payload 字段并通过 GFVariantData.duplicate_graph() 复制其值；缺失时返回 null。
 ## [br]
 ## @api private
 ## [br]
 func _read_payload(data: Dictionary, field: String) -> Variant:
 	if not data.has(field):
 		return null
-	return GFVariantData.duplicate_variant(data[field])
+	return GFVariantData.duplicate_graph(data[field])
 
 
 ## 将 PackedStringArray 或 String/StringName 数组读取为 PackedStringArray，并为无效类型写入诊断。

@@ -175,6 +175,8 @@
       "res://tests/gf_core/standard/foundation/validation/test_gf_drift_report.gd",
       "res://tests/gf_core/standard/foundation/validation/test_gf_result_dictionary.gd",
       "res://tests/gf_core/standard/foundation/variant/test_gf_data_projection.gd",
+      "res://tests/gf_core/standard/foundation/variant/test_gf_data_snapshot.gd",
+      "res://tests/gf_core/standard/foundation/variant/test_gf_deterministic_json.gd",
       "res://tests/gf_core/standard/foundation/variant/test_gf_variant_data_and_json_codec.gd",
       "res://tests/gf_core/standard/sequence/test_gf_runtime_task_scheduler.gd",
       "res://tests/gf_core/standard/utilities/analytics/test_gf_analytics_schema.gd",

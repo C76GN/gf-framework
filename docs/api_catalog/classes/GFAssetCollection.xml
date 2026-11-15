@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetCollection" path="addons/gf/standard/utilities/assets/gf_asset_collection.gd" module="standard" extends="Resource" classDigest="f167b3eb1401e410e227f32e64473489f56a585b177b5982bb365b79b68df04f">
+<class name="GFAssetCollection" path="addons/gf/standard/utilities/assets/gf_asset_collection.gd" module="standard" extends="Resource" classDigest="5a136e325147b2b6a97db32a685579c92cddba15839bd859b537a6f73581ea53">
 	<description>GFAssetCollection: 有序资产 ID 集合。
 集合只保存稳定 `asset_id`、展示信息和调用方元数据，不持有已加载资源，
 也不规定目录、分类、预览或业务用途。调用方可以用 `GFAssetCatalog`
@@ -131,8 +131,8 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="duplicate_collection">
-			<signature>func duplicate_collection() -&gt; GFAssetCollection:</signature>
+		<member kind="method" name="duplicate_graph">
+			<signature>func duplicate_graph() -&gt; GFAssetCollection:</signature>
 			<description>创建集合深拷贝。</description>
 			<tags>
 				<tag name="api">public</tag>

@@ -282,7 +282,7 @@ func _mark_dirty(region_key: Vector2i) -> void:
 func _copy_value(value: Variant) -> Variant:
 	if not duplicate_values:
 		return value
-	return GFVariantData.duplicate_collection(value, true)
+	return GFVariantData.duplicate_graph(value, true)
 
 
 ## 返回每轴至少为一的规范化区域尺寸。

@@ -287,7 +287,7 @@ static func _encode_recursive(
 			{
 				KEY_KIND: _KIND_VALUE,
 				KEY_VARIANT_TYPE: value_type,
-				KEY_VALUE: GFVariantData.duplicate_variant(
+				KEY_VALUE: GFVariantData.duplicate_graph(
 					value,
 					true,
 					true
@@ -1539,7 +1539,7 @@ static func _decode_direct_value(data: Dictionary, state: Dictionary) -> Diction
 
 	return {
 		"ok": true,
-		"value": GFVariantData.duplicate_variant(
+		"value": GFVariantData.duplicate_graph(
 			value,
 			true,
 			true

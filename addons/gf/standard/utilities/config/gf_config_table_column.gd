@@ -224,7 +224,7 @@ func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
 			if value is Dictionary:
 				return _make_coerce_result(
 					true,
-					GFVariantData.duplicate_variant(value)
+					GFVariantData.duplicate_graph(value)
 				)
 			return _make_coerce_result(
 				false,
@@ -235,7 +235,7 @@ func try_coerce_value(value: Variant, options: Dictionary = {}) -> Dictionary:
 			if value is Array:
 				return _make_coerce_result(
 					true,
-					GFVariantData.duplicate_variant(value)
+					GFVariantData.duplicate_graph(value)
 				)
 			return _make_coerce_result(
 				false,
@@ -361,7 +361,7 @@ func describe(options: Dictionary = {}) -> Dictionary:
 		"type_definition": null,
 		"required": required,
 		"allow_null": allow_null,
-		"default_value": GFVariantData.duplicate_collection(default_value),
+		"default_value": GFVariantData.duplicate_graph(default_value),
 		"validation_rules": _describe_validation_rules(validation_rules),
 		"element_validation_rules": _describe_validation_rules(element_validation_rules),
 		"metadata": metadata.duplicate(true),

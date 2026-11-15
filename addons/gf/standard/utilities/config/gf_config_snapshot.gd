@@ -243,7 +243,9 @@ static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}
 			"schema": schema_description,
 			"metadata": table.metadata,
 		}
-		if not budget.admit_value(description, "snapshot.digest"):
+		var remaining_work: int = budget.get_remaining_work_units()
+		if remaining_work == 0:
+			var _consumed: bool = budget.consume_work(1, "snapshot.digest")
 			return _failure(
 				&"work_budget_exceeded",
 				{},
@@ -251,23 +253,20 @@ static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}
 			)
 		var digest_options: Dictionary = {
 			"allow_floats": true,
-			"max_items": 1_000_000,
+			"max_items": mini(1_000_000, remaining_work),
 			"max_output_bytes": 64 * 1024 * 1024,
 		}
-		var hash_preparation: GFDeterministicVariantSerializer.CanonicalHashPreparation = GFDeterministicVariantSerializer.prepare_sha256_for_framework(description, digest_options)
-		var measurement: Dictionary = hash_preparation.get_measurement()
-		var digest: String = ""
-		if GFVariantData.get_option_bool(measurement, "ok"):
-			if not budget.consume_work(
-				GFVariantData.get_option_int(measurement, "items"),
-				"snapshot.digest"
-			):
-				return _failure(
-					&"work_budget_exceeded",
-					{},
-					budget
-				)
-			digest = hash_preparation.finish_sha256()
+		var encoded: Dictionary = GFDeterministicVariantSerializer.hash_result(description, digest_options)
+		var work: int = GFVariantData.get_option_int(encoded, "items")
+		if GFVariantData.get_option_string(encoded, "limit_kind") == "max_items" and remaining_work <= 1_000_000:
+			work = remaining_work + 1
+		if not budget.consume_work(work, "snapshot.digest"):
+			return _failure(
+				&"work_budget_exceeded",
+				{},
+				budget
+			)
+		var digest: String = GFVariantData.get_option_string(encoded, "hash")
 		snapshot._table_digests[table_name] = digest
 	snapshot._capture_digest_report()
 	snapshot._ready = true
@@ -325,7 +324,7 @@ func get_version() -> String:
 ## [br]
 ## @return 独立摘要报告。
 ## [br]
-## @schema return: Dictionary，含 algorithm: StringName、value: String、complete: bool、unavailable_tables: PackedStringArray。
+## @schema return: Dictionary，含 algorithm: StringName、canonical_version: int、value: String、complete: bool、unavailable_tables: PackedStringArray。
 func get_digest_report() -> Dictionary:
 	return _digest_report.duplicate(true)
 
@@ -569,10 +568,14 @@ func _capture_digest_report() -> void:
 		"version": _version,
 		"tables": _table_digests,
 	}
+	var digest: String = ""
+	if unavailable.is_empty():
+		digest = GFDeterministicVariantSerializer.sha256(descriptor)
 	_digest_report = {
 		"algorithm": &"sha256",
-		"value": GFDeterministicVariantSerializer.sha256(descriptor) if unavailable.is_empty() else "",
-		"complete": unavailable.is_empty(),
+		"canonical_version": GFDeterministicVariantSerializer.CANONICAL_VERSION,
+		"value": digest,
+		"complete": unavailable.is_empty() and not digest.is_empty(),
 		"unavailable_tables": unavailable,
 	}
 

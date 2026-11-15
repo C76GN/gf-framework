@@ -175,9 +175,11 @@ func get_value(key: StringName, default_value: Variant = null) -> Variant:
 ## [br]
 ## @param value: 字段值。
 ## [br]
-## @schema value: Variant，字段值，会通过 GFVariantData.duplicate_variant() 复制后保存。
+## @schema value: Variant，字段值，会通过 GFVariantData.duplicate_graph() 复制后保存。
+## [br]
+## @since 3.17.0
 func set_value(key: StringName, value: Variant) -> void:
-	state[key] = GFVariantData.duplicate_variant(value)
+	state[key] = GFVariantData.duplicate_graph(value)
 
 
 ## 删除状态字段。
@@ -207,10 +209,10 @@ func make_delta_to(target: GFNetworkSnapshot) -> Dictionary:
 	var erase_keys: Array = []
 	for key: Variant in target.state.keys():
 		if not state.has(key) or state[key] != target.state[key]:
-			set_values[key] = GFVariantData.duplicate_variant(target.state[key])
+			set_values[key] = GFVariantData.duplicate_graph(target.state[key])
 	for key: Variant in state.keys():
 		if not target.state.has(key):
-			erase_keys.append(GFVariantData.duplicate_variant(key))
+			erase_keys.append(GFVariantData.duplicate_graph(key))
 	return {
 		"ok": true,
 		"from_tick": tick,
@@ -235,7 +237,7 @@ func apply_delta(delta: Dictionary) -> GFNetworkSnapshot:
 	var next_snapshot: GFNetworkSnapshot = duplicate_snapshot()
 	var set_values: Dictionary = GFVariantData.get_option_dictionary(delta, "set")
 	for key: Variant in set_values.keys():
-		next_snapshot.state[key] = GFVariantData.duplicate_variant(set_values[key])
+		next_snapshot.state[key] = GFVariantData.duplicate_graph(set_values[key])
 
 	var erase_values: Variant = GFVariantData.get_option_value(
 		delta,
@@ -391,7 +393,7 @@ func apply_patch(patch: Dictionary) -> GFNetworkSnapshot:
 						[]
 					)
 				),
-				GFVariantData.duplicate_variant(GFVariantData.get_option_value(op, "value"))
+				GFVariantData.duplicate_graph(GFVariantData.get_option_value(op, "value"))
 			)
 
 	next_snapshot.tick = GFVariantData.get_option_int(
@@ -641,7 +643,7 @@ func _append_set_op(
 	if set_ops.size() + erase_ops.size() >= _MAX_PATCH_OPERATIONS:
 		operation_budget_exceeded[0] = true
 		return
-	set_ops.append({ "path": _duplicate_path(path), "value": GFVariantData.duplicate_variant(value), })
+	set_ops.append({ "path": _duplicate_path(path), "value": GFVariantData.duplicate_graph(value), })
 
 
 ## 在操作总数预算内附加 erase 路径；预算耗尽时标记超限。
@@ -666,7 +668,7 @@ func _append_erase_op(
 ## [br]
 func _path_with_key(path: Array, key: Variant) -> Array:
 	var result: Array = _duplicate_path(path)
-	result.append(GFVariantData.duplicate_variant(key))
+	result.append(GFVariantData.duplicate_graph(key))
 	return result
 
 
@@ -677,7 +679,7 @@ func _path_with_key(path: Array, key: Variant) -> Array:
 func _duplicate_path(path: Array) -> Array:
 	var result: Array = []
 	for key: Variant in path:
-		result.append(GFVariantData.duplicate_variant(key))
+		result.append(GFVariantData.duplicate_graph(key))
 	return result
 
 
@@ -692,7 +694,7 @@ func _extract_patch_path(path_value: Variant) -> Array:
 			result.append(key)
 	elif path_value is Array:
 		for key: Variant in path_value:
-			result.append(GFVariantData.duplicate_variant(key))
+			result.append(GFVariantData.duplicate_graph(key))
 	elif path_value is String or path_value is StringName:
 		result.append(path_value)
 	return result
@@ -712,7 +714,7 @@ func _apply_set_path(
 			root.clear()
 			var value_dictionary: Dictionary = GFVariantData.as_dictionary(value)
 			for key: Variant in value_dictionary.keys():
-				root[key] = GFVariantData.duplicate_variant(value_dictionary[key])
+				root[key] = GFVariantData.duplicate_graph(value_dictionary[key])
 		return
 
 	var cursor: Dictionary = root
@@ -727,7 +729,7 @@ func _apply_set_path(
 		cursor,
 		path[path.size() - 1]
 	)
-	cursor[leaf_key] = GFVariantData.duplicate_variant(value)
+	cursor[leaf_key] = GFVariantData.duplicate_graph(value)
 
 
 ## 沿路径查找字典叶值并删除；路径为空或中间节点缺失时不修改根字典。

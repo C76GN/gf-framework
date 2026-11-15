@@ -140,7 +140,7 @@ static func append_issue(
 			or field_name == "message"
 		):
 			continue
-		issue[field_key] = GFVariantData.duplicate_variant(fields[field_key])
+		issue[field_key] = GFVariantData.duplicate_graph(fields[field_key])
 
 	var issues: Array = _get_issue_array(report)
 	issues.append(issue)
@@ -185,7 +185,7 @@ static func append_source_issue(
 	var merged_fields: Dictionary = fields.duplicate(true)
 	var span_dict: Dictionary = _source_span_to_dict(source_span)
 	for field_key: Variant in span_dict.keys():
-		merged_fields[field_key] = GFVariantData.duplicate_variant(span_dict[field_key])
+		merged_fields[field_key] = GFVariantData.duplicate_graph(span_dict[field_key])
 	if not span_dict.is_empty():
 		merged_fields["source_span"] = span_dict.duplicate(true)
 	return append_issue(
@@ -251,7 +251,7 @@ static func merge_report(
 	):
 		if not _has_text_key(source, field_name):
 			continue
-		target[field_name] = GFVariantData.duplicate_variant(GFVariantData.get_option_value(source, field_name))
+		target[field_name] = GFVariantData.duplicate_graph(GFVariantData.get_option_value(source, field_name))
 	return target
 
 

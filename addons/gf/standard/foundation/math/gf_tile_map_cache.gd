@@ -410,8 +410,8 @@ func get_value(
 ) -> Variant:
 	var data: Dictionary = _get_cell_record(cell)
 	if data.is_empty():
-		return GFVariantData.duplicate_variant(default_value)
-	return GFVariantData.duplicate_variant(
+		return GFVariantData.duplicate_graph(default_value)
+	return GFVariantData.duplicate_graph(
 		GFVariantData.get_option_value(
 			data,
 			key,
@@ -683,7 +683,7 @@ func _remap_record(
 	if remap_value is Dictionary:
 		var remap_dictionary: Dictionary = remap_value
 		for key: Variant in remap_dictionary.keys():
-			result[key] = GFVariantData.duplicate_variant(
+			result[key] = GFVariantData.duplicate_graph(
 				remap_dictionary[key],
 				true,
 				true

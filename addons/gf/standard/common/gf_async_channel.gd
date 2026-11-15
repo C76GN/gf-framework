@@ -330,11 +330,11 @@ func try_write_detailed(item: Variant) -> Dictionary:
 					&"capacity"
 				)
 
-	var stored_item: Variant = GFVariantData.duplicate_variant(item)
+	var stored_item: Variant = GFVariantData.duplicate_graph(item)
 	_append_buffered_item(stored_item)
 	_written_count += 1
 	_high_watermark = maxi(_high_watermark, _item_count)
-	item_written.emit(GFVariantData.duplicate_variant(stored_item))
+	item_written.emit(GFVariantData.duplicate_graph(stored_item))
 	return _make_write_result(
 		STATUS_WRITTEN,
 		true,
@@ -534,7 +534,7 @@ func drain(max_items: int = -1) -> Array:
 	for index: int in range(take_count):
 		var item: Variant = _take_buffered_item()
 		_read_count += 1
-		result[index] = GFVariantData.duplicate_variant(item)
+		result[index] = GFVariantData.duplicate_graph(item)
 	return result
 
 
@@ -729,7 +729,7 @@ func _make_write_result(
 		"status": status,
 		"accepted": accepted,
 		"dropped": dropped,
-		"dropped_item": GFVariantData.duplicate_variant(dropped_item),
+		"dropped_item": GFVariantData.duplicate_graph(dropped_item),
 		"reason": reason,
 		"count": _item_count,
 		"max_buffered_items": _max_buffered_items,
@@ -755,7 +755,7 @@ func _make_read_result(
 		reason,
 		metadata
 	)
-	result["item"] = GFVariantData.duplicate_variant(item)
+	result["item"] = GFVariantData.duplicate_graph(item)
 	result["closed"] = is_channel_closed
 	_merge_extra(result, extra)
 	return result

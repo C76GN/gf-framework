@@ -530,7 +530,7 @@ static func object_to_dictionary(object: Object, options: Dictionary = {}) -> Di
 		if property_value == null and not include_null:
 			continue
 		if copy_values:
-			property_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+			property_value = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 				property_value,
 				true,
 				duplicate_resources
@@ -645,7 +645,7 @@ static func apply_dictionary(
 
 		var value_to_write: Variant = values[key]
 		if copy_values:
-			value_to_write = _GF_VARIANT_ACCESS_SCRIPT.duplicate_variant(
+			value_to_write = _GF_VARIANT_ACCESS_SCRIPT.duplicate_graph(
 				value_to_write,
 				true,
 				duplicate_resources

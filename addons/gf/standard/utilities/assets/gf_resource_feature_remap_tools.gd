@@ -268,7 +268,7 @@ static func _make_selection_report(path: String, normalized: Dictionary) -> Dict
 		"feature": "",
 		"entry": {},
 		"entry_index": -1,
-		"issues": GFVariantData.duplicate_collection(GFVariantData.get_option_array(normalized, "issues")),
+		"issues": GFVariantData.duplicate_graph(GFVariantData.get_option_array(normalized, "issues")),
 		"issue_count": 0,
 		"error_count": 0,
 		"warning_count": 0,
@@ -292,7 +292,7 @@ static func _make_plan_report(active_features: PackedStringArray, normalized: Di
 		"resolved": [],
 		"unmatched": [],
 		"skip_paths": PackedStringArray(),
-		"issues": GFVariantData.duplicate_collection(GFVariantData.get_option_array(normalized, "issues")),
+		"issues": GFVariantData.duplicate_graph(GFVariantData.get_option_array(normalized, "issues")),
 		"source_count": GFVariantData.get_option_int(normalized, "source_count"),
 		"entry_count": GFVariantData.get_option_int(normalized, "entry_count"),
 		"selected_count": 0,
@@ -533,7 +533,7 @@ static func _normalize_entry(
 				"feature": normalized_feature,
 				"entry_index": entry_index,
 				"priority": priority,
-				"metadata": GFVariantData.duplicate_collection(metadata),
+				"metadata": GFVariantData.duplicate_graph(metadata),
 			}
 		)
 
@@ -736,7 +736,7 @@ static func _make_resolved_record(
 		"priority": GFVariantData.get_option_int(entry, "priority"),
 		"source_is_resource": GFResourceRegistryTools.is_resource_path(source_path, extensions),
 		"target_is_resource": GFResourceRegistryTools.is_resource_path(target_path, extensions),
-		"metadata": GFVariantData.duplicate_collection(GFVariantData.get_option_dictionary(entry, "metadata")),
+		"metadata": GFVariantData.duplicate_graph(GFVariantData.get_option_dictionary(entry, "metadata")),
 	}
 
 

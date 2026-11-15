@@ -8,6 +8,11 @@ extends RefCounted
 
 # --- 常量 ---
 
+## 有限纯数据树复制执行器，与图复制保持不同契约。
+## [br]
+## @api private
+const _DATA_CAPTURE_SCRIPT = preload("res://addons/gf/kernel/core/gf_data_value_capture.gd")
+
 ## 混合整数与浮点比较允许的 int64 下界，包含该值。
 ## [br]
 ## @api private
@@ -135,7 +140,46 @@ static func values_equal(
 	return false
 
 
-## 复制集合 Variant，并可按需复制 Resource。
+## 复制纯数据值树；共享子树按值展开，循环和对象被拒绝。
+## [br]
+## @api framework_internal
+## [br]
+## @param value: 稳定的纯 Variant 输入。
+## [br]
+## @schema value: Pure scalar, math and container values without object identity.
+## [br]
+## @param limits: 有限复制预算。
+## [br]
+## @schema limits: Same limits as GFDataSnapshot.capture.
+## [br]
+## @return 独立副本；失败返回 null。需要诊断时使用 copy_value。
+## [br]
+## @schema return: Detached Variant value or null.
+static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Variant:
+	return copy_value(value, limits)["value"]
+
+
+## 返回有界值树复制结果，不输出部分树或错误日志。
+## [br]
+## @api framework_internal
+## [br]
+## @param value: 稳定的纯数据。
+## [br]
+## @schema value: Pure built-in Variant without Object, Callable, Signal, RID or cycles.
+## [br]
+## @param limits: 复制预算。
+## [br]
+## @schema limits: Positive max_items, max_depth, max_string_length, max_payload_bytes, max_elapsed_msec and optional cancel_token.
+## [br]
+## @return 捕获诊断与独立副本。
+## [br]
+## @schema return: Capture report with ok, value, counts_complete, items, packed_items, payload_bytes, maximum_depth, error_kind, error_path, limit_kind, limit and observed.
+static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:
+	return _DATA_CAPTURE_SCRIPT.capture(value, limits)
+
+
+## 显式复制对象图，保留容器别名、循环及默认对象身份。
+## 身份查找采用全图扫描，最坏为平方复杂度；纯数据应使用 copy_value。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -154,7 +198,7 @@ static func values_equal(
 ## @return 支持复制时返回副本，否则返回原值。
 ## [br]
 ## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func duplicate_variant(
+static func duplicate_graph(
 	value: Variant,
 	deep: bool = true,
 	duplicate_resources: bool = false
@@ -183,25 +227,6 @@ static func duplicate_variant(
 		var resource: Resource = value
 		return resource.duplicate(deep)
 	return value
-
-
-## 复制 Dictionary 与 Array 值。
-## [br]
-## @api framework_internal
-## [br]
-## @param value: 待复制的集合值。
-## [br]
-## @schema value: 内部 Variant 访问辅助值；可接受形态由当前函数契约定义。
-## [br]
-## @param deep: 是否复制嵌套集合内容。
-## [br]
-## @schema deep: bool，控制是否深复制。
-## [br]
-## @return 集合副本，非集合值返回原值。
-## [br]
-## @schema return: 内部 Variant 访问辅助结果；返回形态由当前函数契约定义。
-static func duplicate_collection(value: Variant, deep: bool = true) -> Variant:
-	return duplicate_variant(value, deep)
 
 
 ## 转换为可交给 JSON.stringify 的值。
@@ -1360,7 +1385,7 @@ static func _merge_dictionary(
 			)
 			continue
 		if overwrite or not target_has_key:
-			target[target_key] = duplicate_variant(source_value)
+			target[target_key] = duplicate_graph(source_value)
 	return target
 
 

@@ -16,6 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 方法 | [`_init`](#member-gfconfigworkbudget-methods-_init) | `func _init(limits: Dictionary = {}) -> void:` |
+| 方法 | [`get_remaining_work_units`](#member-gfconfigworkbudget-methods-get_remaining_work_units) | `func get_remaining_work_units() -> int:` |
 | 方法 | [`from_options`](#member-gfconfigworkbudget-methods-from_options) | `static func from_options(options: Dictionary = {}) -> GFConfigWorkBudget:` |
 | 方法 | [`check_input_bytes`](#member-gfconfigworkbudget-methods-check_input_bytes) | `func check_input_bytes(amount: int, context: String = "") -> bool:` |
 | 方法 | [`consume_input_bytes`](#member-gfconfigworkbudget-methods-consume_input_bytes) | `func consume_input_bytes(amount: int, context: String = "") -> bool:` |
@@ -50,6 +51,21 @@ func _init(limits: Dictionary = {}) -> void:
 结构：
 
 - `limits`: Dictionary，仅接受 max_input_bytes、max_depth、max_work_units、max_value_bytes、max_output_bytes 的正整数；max_depth 最大为 256。
+
+<a id="member-gfconfigworkbudget-methods-get_remaining_work_units"></a>
+
+### `get_remaining_work_units`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_remaining_work_units() -> int:
+```
+
+返回当前剩余工作单元，供单遍执行器在执行前限制访问量。
+
+返回：失败句柄返回 0；正常句柄返回尚未消费的工作单元。
 
 <a id="member-gfconfigworkbudget-methods-from_options"></a>
 
