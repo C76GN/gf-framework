@@ -23960,6 +23960,7 @@ class FailedCheckRetryTests(unittest.TestCase):
 		report = self._report()
 		report["results"][1]["command"] = ["untrusted-command-never-executed"]
 		observed = []
+		resolved_engine = str(Path(sys.executable).resolve())
 
 		def succeed(name, command, timeout_seconds, _callback, **_kwargs):
 			observed.append((name, command.effective))
@@ -23969,12 +23970,17 @@ class FailedCheckRetryTests(unittest.TestCase):
 			)
 
 		with self._saved_report(report) as (root, path), mock.patch.object(gf_maintenance, "ROOT", root):
-			with mock.patch.object(gf_maintenance, "workspace_fingerprint", return_value={"fingerprint": "b" * 64}), mock.patch.object(
+			with mock.patch.dict(os.environ, {
+				"GF_GODOT_EXECUTABLE": str(root / "missing-godot"),
+			}), mock.patch.object(
+				gf_maintenance, "resolve_godot_executable", return_value=resolved_engine,
+			), mock.patch.object(gf_maintenance, "workspace_fingerprint", return_value={"fingerprint": "b" * 64}), mock.patch.object(
 				gf_maintenance, "run_command", side_effect=succeed
 			):
 				result = gf_maintenance.retry_failed_checks(str(path))
 		self.assertTrue(result["ok"])
 		self.assertEqual([name for name, _command in observed], ["godot_import", "gut"])
+		self.assertEqual([command[0] for _name, command in observed], [resolved_engine, resolved_engine])
 		self.assertNotIn("untrusted-command-never-executed", str(observed))
 		self.assertNotIn("docs", [item["name"] for item in result["results"]])
 
