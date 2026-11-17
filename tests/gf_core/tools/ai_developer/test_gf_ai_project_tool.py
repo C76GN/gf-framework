@@ -68,6 +68,117 @@ def _legacy_package_policy(data: dict[str, Any]) -> None:
 	framework["forbidden_packages"] = sorted(set(presence["forbidden"]) | set(usage["forbidden"]))
 
 
+class GFAIValidationPerformanceTests(unittest.TestCase):
+	def test_json_unicode_scalar_validation_preserves_boundary_and_nested_rejections(self):
+		for value in ("\ud800", "\udfff", "prefix\ud900suffix", "\ud83d\ude00"):
+			for document in ({"nested": [value]}, {value: "value"}):
+				with self.subTest(document=repr(document)), self.assertRaises(ValueError):
+					paths._validate_json_unicode_scalars(document)
+			for document in ({"nested": [value]}, {value: "value"}):
+				if value == "\ud83d\ude00":
+					continue  # A valid escaped pair is decoded into a scalar by JSON.
+				with self.subTest(json=repr(document)), self.assertRaises(ValueError):
+					paths.strict_json_loads(json.dumps(document))
+		valid = {"text": "\ud7ff\ue000\U0001f600中文"}
+		self.assertEqual(paths.strict_json_loads(json.dumps(valid)), valid)
+		self.assertEqual(paths.strict_json_loads('"\\ud83d\\ude00"'), "\U0001f600")
+
+	@unittest.skipUnless(os.name == "nt", "Windows native identity checks")
+	def test_windows_identity_queries_reuse_abi_but_never_cache_observations(self):
+		import msvcrt
+		binding = build_gf_ai_developer_kit._windows_file_information_api
+		binding.cache_clear()
+		self.addCleanup(binding.cache_clear)
+		api, _structure = binding()
+		with tempfile.TemporaryDirectory() as temporary:
+			path = Path(temporary) / "file.txt"
+			path.write_bytes(b"fixture")
+			with path.open("rb") as source:
+				handle = msvcrt.get_osfhandle(source.fileno())
+				with mock.patch.object(api, "GetFileInformationByHandle", wraps=api.GetFileInformationByHandle) as information:
+					with mock.patch.object(api, "GetFinalPathNameByHandleW", wraps=api.GetFinalPathNameByHandleW) as final_path:
+						for _index in range(2):
+							self.assertTrue(build_gf_ai_developer_kit._windows_handle_matches_path(handle, path, expect_directory=False))
+						self.assertFalse(build_gf_ai_developer_kit._windows_handle_matches_path(handle, path.with_name("other.txt"), expect_directory=False))
+						self.assertFalse(build_gf_ai_developer_kit._windows_handle_matches_path(handle, path, expect_directory=True))
+						self.assertEqual(information.call_count, 4)
+						self.assertEqual(final_path.call_count, 3)
+			self.assertFalse(build_gf_ai_developer_kit._windows_handle_matches_path(handle, path, expect_directory=False))
+			self.assertEqual(binding.cache_info().misses, 1)
+
+	@unittest.skipUnless(os.name == "nt", "Windows native identity checks")
+	def test_windows_path_representations_preserve_native_identity_rejections(self):
+		api, _structure = build_gf_ai_developer_kit._windows_file_information_api()
+		cases = (
+			("drive", True, 0x10, "\\\\?\\C:\\owned\\child", "c:/owned/child", None, True, 1),
+			("unc", True, 0x10, "\\\\?\\UNC\\host\\share\\child", "\\\\host\\share\\child", None, True, 1),
+			("mixed_dots", True, 0x10, "\\\\?\\C:\\owned\\.\\child\\", "c:/owned/child/", None, True, 1),
+			("different_path", True, 0x10, "\\\\?\\C:\\owned\\child", "c:/owned/other", None, False, 1),
+			("information_failure", False, 0x10, "unused", "c:/owned/child", None, False, 0),
+			("reparse", True, 0x410, "unused", "c:/owned/child", None, False, 0),
+			("wrong_kind", True, 0, "unused", "c:/owned/child", None, False, 0),
+			("path_failure", True, 0x10, "", "c:/owned/child", 0, False, 1),
+			("path_capacity", True, 0x10, "unused", "c:/owned/child", 32768, False, 1),
+		)
+		for name, information_ok, attributes, final_raw, expected, length, accepted, path_calls in cases:
+			def information(_handle, pointer):
+				pointer._obj.dwFileAttributes = attributes
+				return information_ok
+
+			def final_path(_handle, buffer, _capacity, _flags):
+				buffer.value = final_raw
+				return len(final_raw) if length is None else length
+
+			for path in (expected, Path(expected)):
+				with self.subTest(case=name, representation=type(path).__name__), mock.patch.object(
+					api, "GetFileInformationByHandle", side_effect=information,
+				) as information_query, mock.patch.object(
+					api, "GetFinalPathNameByHandleW", side_effect=final_path,
+				) as path_query:
+					self.assertEqual(
+						build_gf_ai_developer_kit._windows_handle_matches_path(
+							123, path, expect_directory=True,
+						),
+						accepted,
+					)
+					self.assertEqual(information_query.call_count, 1)
+					self.assertEqual(path_query.call_count, path_calls)
+
+	@unittest.skipUnless(os.name == "nt", "Windows native identity checks")
+	def test_windows_owned_copy_rechecks_registered_sibling_before_writing(self):
+		with tempfile.TemporaryDirectory(prefix="gf-ai-sibling-identity-") as temporary:
+			root = Path(temporary)
+			sibling = root / "sibling"
+			active = root / "active"
+			with build_gf_ai_developer_kit._private_owned_root(root):
+				binding = build_gf_ai_developer_kit._validated_private_root_for(root)
+				binding.ensure_directory(sibling)
+				binding.ensure_directory(active)
+				sibling_handle = binding._windows_directories[
+					build_gf_ai_developer_kit._windows_path_key(sibling)
+				]
+				api, _structure = build_gf_ai_developer_kit._windows_file_information_api()
+				real_final_path = api.GetFinalPathNameByHandleW
+				observed_sibling: list[int] = []
+
+				def drifted_final_path(handle, buffer, capacity, flags):
+					if handle.value == sibling_handle:
+						observed_sibling.append(handle.value)
+						buffer.value = str(root / "changed-sibling")
+						return len(buffer.value)
+					return real_final_path(handle, buffer, capacity, flags)
+
+				with mock.patch.object(
+					api, "GetFinalPathNameByHandleW", side_effect=drifted_final_path,
+				), self.assertRaisesRegex(ValueError, "identity changed"):
+					build_gf_ai_developer_kit._write_owned_target_bytes(
+						active / "payload.bin", b"ordinary", root,
+					)
+				self.assertTrue(observed_sibling)
+				self.assertFalse((active / "payload.bin").exists())
+				binding.verify()
+
+
 class GFAIDeveloperKitTest(unittest.TestCase):
 	def setUp(self) -> None:
 		self._temporary = tempfile.TemporaryDirectory(prefix="gf-ai-kit-test-")

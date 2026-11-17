@@ -715,7 +715,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--lsp-process-timeout",
 				"600",
 				"--request-timeout",
-				"60",
+				"120",
 				"--per-file-timeout",
 				"3",
 				"--max-file-timeout",
@@ -789,10 +789,10 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	timeout_overrides = (
 		# Cold-cache CLI scenarios share a bounded 70-second inner deadline.
 		("code_quality_native_acceptance", 90),
-		# The unfiltered authoritative suite exceeds the generic ten-minute
-		# budget on clean Windows runs. Keep the same measured floor as the explicit
-		# full-suite observation and qualification control.
-		("gut", 1200),
+		# The optimized authoritative suite still takes about 25 minutes on
+		# Windows. Share a bounded 30-minute floor with explicit full-suite
+		# observation and qualification control, within the existing CI envelope.
+		("gut", 1800),
 		# The owned LSP server has a 600-second inner lifetime. Preserve a bounded
 		# cleanup and report-publication margin outside that process-tree boundary.
 		("gdscript_lsp_diagnostics", 660),
@@ -953,8 +953,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	parallel_full_shard_suites = (
 		"framework-static",
 		"framework-integration",
-		"framework-gut",
 		"framework-lsp",
+		"framework-gut",
 	)
 	return ValidationCatalog(
 		actions=actions,

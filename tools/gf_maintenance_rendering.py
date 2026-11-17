@@ -1015,6 +1015,15 @@ def render_checks_text(data: dict[str, Any]) -> str:
 	lines = [
 		f"suite: {data['suite']} ok={data['ok']} duration={data.get('duration_seconds', 0.0):.2f}s"
 	]
+	for error in data.get("errors", []):
+		lines.append(f"error: {error}")
+	retry = data.get("retry")
+	if isinstance(retry, dict):
+		lines.append(
+			"focused retry: historical PASS results are informational; "
+			"this result is not a new Full run or merge evidence."
+		)
+		lines.append(f"source report: {retry.get('source_report', '')}")
 	shadow_summary = render_validation_shadow_summary(data)
 	if shadow_summary:
 		lines.append(shadow_summary)

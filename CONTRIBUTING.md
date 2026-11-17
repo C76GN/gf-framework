@@ -163,6 +163,12 @@ runs maintenance self-tests on `windows-latest`. A local full run defaults to
 three concurrent workers, each in an isolated workspace; `--jobs 2` through
 `--jobs 6` tune bounded parallelism, while `check --suite full --jobs 1` is the
 serial diagnostic path.
+Save the report with `--json-output build/full.json`. If unchanged-source checks
+fail, `check-retry --from-report build/full.json` reruns only the failed or
+unexecuted actions and their fresh dependencies. It preserves the original
+report and does not turn historical PASS records into a new Full or CI result.
+See [validation performance](docs/maintainers/validation-performance.md) for
+source/environment constraints, profiling and timeout handling.
 Workers are prepared and cleaned in bounded batches, and a real Godot preflight
 proves that every platform data/config/cache path and `user://` stays private.
 On Windows, the runner also proves that its clone, staging, and private temporary

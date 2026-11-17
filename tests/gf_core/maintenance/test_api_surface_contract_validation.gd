@@ -154,9 +154,141 @@ const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access
 const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
 const GUT_TEST_SCRIPT = preload("res://addons/gut/test.gd")
 const GUT_COLLECTOR_SCRIPT = preload("res://addons/gut/test_collector.gd")
+const MAX_CACHED_DECLARATION_PATHS: int = 2048
+const MAX_CACHED_LEXICAL_LINES: int = 65536
+
+
+# --- 私有变量 ---
+
+## 仅在当前测试内复用同一路径、相同完整文本的声明解析；返回值始终独立。
+## [br]
+## @api private
+var _declaration_cache: Dictionary = {}
+
+## 保存当前测试内相同文本与进入字符串状态的纯词法结果。
+## [br]
+## @api private
+var _line_delimiter_cache: Dictionary = {}
+
+## 为词法缓存提供调用期容量上限；达到上限仍执行原词法检查。
+## [br]
+## @api private
+var _cached_line_count: int = 0
+
+
+# --- 测试生命周期 ---
+
+func before_each() -> void:
+	_declaration_cache.clear()
+	_line_delimiter_cache.clear()
+	_cached_line_count = 0
+
+
+func after_each() -> void:
+	_declaration_cache.clear()
+	_line_delimiter_cache.clear()
+	_cached_line_count = 0
 
 
 # --- 测试用例 ---
+
+func test_declaration_reuse_tracks_text_path_and_nested_mutations() -> void:
+	var source: String = "## 保存值。\n## @api private\nvar _first: int = 1\n"
+	var original: Array[Dictionary] = _parse_declarations(source, "<first>")
+	assert_eq(
+		original.size(),
+		1
+	)
+	original[0]["name"] = "changed"
+	var docs: Array = original[0]["docs"]
+	docs.clear()
+	var repeated: Array[Dictionary] = _parse_declarations(source, "<first>")
+	var repeated_name: String = repeated[0]["name"]
+	assert_eq(repeated_name, "_first")
+	var repeated_docs: Array = repeated[0]["docs"]
+	assert_eq(
+		repeated_docs.size(),
+		2
+	)
+	var changed_source: String = source.replace("_first", "_second")
+	var changed: Array[Dictionary] = _parse_declarations(changed_source, "<first>")
+	var changed_name: String = changed[0]["name"]
+	assert_eq(changed_name, "_second")
+	var other_path: Array[Dictionary] = _parse_declarations(source, "<second>")
+	var parsed_path: String = other_path[0]["path"]
+	assert_eq(parsed_path, "<second>")
+	assert_eq(
+		_parse_declarations("", "<first>"),
+		[]
+	)
+	var restored: Array[Dictionary] = _parse_declarations(source, "<first>")
+	var restored_name: String = restored[0]["name"]
+	assert_eq(restored_name, "_first")
+
+
+func test_line_lexical_reuse_tracks_text_and_incoming_string_state() -> void:
+	var delimiters: Array[String] = [
+		"",
+		"\"\"\"",
+		"'''",
+	]
+	var lines: Array[String] = [
+		"# \"\"\"",
+		"var text = '''value",
+		"\"\"\" + next",
+		"escaped \\\"",
+		"plain",
+	]
+	for delimiter: String in delimiters:
+		for line: String in lines:
+			var expected: Dictionary = CONTRACT_SOURCES.lex_line(line, delimiter)
+			var expected_delimiter: String = expected["multiline_delimiter"]
+			assert_eq(
+				_update_multiline_string_delimiter(line, delimiter),
+				expected_delimiter
+			)
+			assert_eq(
+				_update_multiline_string_delimiter(line, delimiter),
+				expected_delimiter
+			)
+	_cached_line_count = MAX_CACHED_LEXICAL_LINES
+	var uncached: String = "var unobserved = '''new text"
+	var fallback_expected: Dictionary = CONTRACT_SOURCES.lex_line(uncached, "")
+	var fallback_delimiter: String = fallback_expected["multiline_delimiter"]
+	assert_eq(
+		_update_multiline_string_delimiter(uncached, ""),
+		fallback_delimiter
+	)
+	assert_eq(_cached_line_count, MAX_CACHED_LEXICAL_LINES)
+
+
+func test_annotation_arguments_preserve_literals_comments_and_following_declarations() -> void:
+	var arguments: Array[String] = [
+		"()",
+		"(1, [2, {\"key\": \"),#\"}])",
+		"(\"escaped \\\" )\", 'single \\\' )')",
+		"(\"\"\"multi\n)#'\"\"\", '''other\n)\"''')",
+		"(1, # ) ] }\n2)",
+		"(\"" + "value,)#".repeat(512) + "\")",
+	]
+	for argument: String in arguments:
+		var parsed: Dictionary = _parse_leading_annotations("@example" + argument + " @onready var _value: int = 0")
+		var names: Array = parsed["names"]
+		var remainder: String = parsed["remainder"]
+		assert_eq(
+			names,
+			["example", "onready",]
+		)
+		assert_eq(remainder, "var _value: int = 0")
+	for unfinished: String in [
+		"(",
+		"(\"unterminated",
+		"(1 # no newline",
+	]:
+		var parsed: Dictionary = _parse_leading_annotations("@example" + unfinished)
+		var remainder: String = parsed["remainder"]
+		assert_eq(remainder, "")
+
 
 func test_full_valid_example_satisfies_api_surface_contract() -> void:
 	var issues: Array[String] = _collect_api_surface_issues(
@@ -3165,6 +3297,19 @@ func _canonical_section_name(section_name: String) -> String:
 
 
 func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
+	var cached: Dictionary = _declaration_cache.get(path, {})
+	if cached.get("source") == source:
+		var cached_declarations: Array = cached["declarations"]
+		var detached: Array[Dictionary] = []
+		detached.assign(cached_declarations.duplicate(true))
+		return detached
+	var declarations: Array[Dictionary] = _parse_uncached_declarations(source, path)
+	if _declaration_cache.has(path) or _declaration_cache.size() < MAX_CACHED_DECLARATION_PATHS:
+		_declaration_cache[path] = { "source": source, "declarations": declarations.duplicate(true) }
+	return declarations
+
+
+func _parse_uncached_declarations(source: String, path: String) -> Array[Dictionary]:
 	var lines: PackedStringArray = source.split("\n")
 	var declarations: Array[Dictionary] = []
 	var doc_lines_by_indent: Dictionary = {}
@@ -3574,17 +3719,53 @@ func _parse_leading_annotations(text: String) -> Dictionary:
 			)
 		)
 		if index < remaining.length() and remaining[index] == "(":
-			var start: int = index
-			index += 1
-			while index < remaining.length() and _signature_balance(
-				remaining.substr(
-					start,
-					index - start
-				)
-			) > 0:
-				index += 1
+			index = _annotation_arguments_end(remaining, index)
 		remaining = remaining.substr(index).strip_edges()
 	return { "names": annotation_names, "remainder": remaining }
+
+
+func _annotation_arguments_end(text: String, start: int) -> int:
+	var depth: int = 0
+	var quote: String = ""
+	var index: int = start
+	while index < text.length():
+		var character: String = text[index]
+		if not quote.is_empty():
+			if character == "\\":
+				index += 2
+				continue
+			if text.substr(
+				index,
+				quote.length()
+			) == quote:
+				index += quote.length()
+				quote = ""
+				continue
+		elif character == "#":
+			var newline: int = text.find("\n", index)
+			if newline == -1:
+				return text.length()
+			index = newline
+		elif character == "\"" or character == "'":
+			quote = character.repeat(3) if text.substr(index, 3) == character.repeat(3) else character
+			index += quote.length()
+			continue
+		elif character in [
+			"(",
+			"[",
+			"{",
+		]:
+			depth += 1
+		elif character in [
+			")",
+			"]",
+			"}",
+		]:
+			depth -= 1
+			if depth <= 0:
+				return index + 1
+		index += 1
+	return text.length()
 
 
 func _get_parenthesis_delta(text: String) -> int:
@@ -3599,8 +3780,17 @@ func _get_parenthesis_delta(text: String) -> int:
 
 
 func _update_multiline_string_delimiter(line: String, current_delimiter: String) -> String:
+	var states: Dictionary = _line_delimiter_cache.get(current_delimiter, {})
+	if states.has(line):
+		var cached_delimiter: String = states[line]
+		return cached_delimiter
 	var lexical: Dictionary = CONTRACT_SOURCES.lex_line(line, current_delimiter)
-	return GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+	var result: String = GF_VARIANT_ACCESS.get_option_string(lexical, "multiline_delimiter")
+	if _cached_line_count < MAX_CACHED_LEXICAL_LINES:
+		states[line] = result
+		_line_delimiter_cache[current_delimiter] = states
+		_cached_line_count += 1
+	return result
 
 
 func _parse_declaration(trimmed: String) -> Dictionary:

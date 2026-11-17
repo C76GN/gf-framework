@@ -87,6 +87,26 @@ const BUSINESS_EXTENSION_CANDIDATES: Array[String] = ["combat", "domain",]
 const EXTENSION_FORBIDDEN_INTERNAL_TAGS: Array[String] = ["externalization-candidate",]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
+const IDENTIFIER_QUERY_CACHE_LIMIT: int = 2048
+
+
+# --- 私有变量 ---
+
+var _identifier_token_regex: RegEx
+var _identifier_query_regex: RegEx
+var _identifier_query_cache: Dictionary = {}
+
+
+# --- 生命周期方法 ---
+
+func before_all() -> void:
+	_identifier_query_cache.clear()
+
+
+func after_all() -> void:
+	_identifier_query_cache.clear()
+	_identifier_token_regex = null
+	_identifier_query_regex = null
 
 
 # --- 测试用例 ---
@@ -102,6 +122,7 @@ func test_kernel_does_not_depend_on_standard_layer() -> void:
 			"uncommented"
 		)
 		var code: String = _dependency_source_projection(source, "code")
+		var identifiers: Dictionary = _collect_identifier_index(code)
 		for forbidden_text: String in KERNEL_FORBIDDEN_TEXTS:
 			var is_path: bool = forbidden_text.contains("/")
 			if (
@@ -111,7 +132,11 @@ func test_kernel_does_not_depend_on_standard_layer() -> void:
 				)
 				or (
 					not is_path
-					and _contains_identifier(code, forbidden_text)
+					and _contains_indexed_identifier(
+						code,
+						forbidden_text,
+						identifiers
+					)
 				)
 			):
 				issues.append(
@@ -229,6 +254,7 @@ func test_standard_does_not_hard_depend_on_extension_paths_or_classes() -> void:
 			"uncommented"
 		)
 		var code: String = _dependency_source_projection(source, "code")
+		var identifiers: Dictionary = _collect_identifier_index(code)
 		for forbidden_path: String in STANDARD_FORBIDDEN_EXTENSION_PATHS:
 			if source.contains(forbidden_path):
 				issues.append(
@@ -236,7 +262,11 @@ func test_standard_does_not_hard_depend_on_extension_paths_or_classes() -> void:
 					% [path, forbidden_path]
 				)
 		for extension_class_name: String in extension_class_names:
-			if _contains_identifier(code, extension_class_name):
+			if _contains_indexed_identifier(
+				code,
+				extension_class_name,
+				identifiers
+			):
 				issues.append(
 					"%s references extension class %s"
 					% [path, extension_class_name]
@@ -349,6 +379,7 @@ func test_bundled_extensions_do_not_reference_other_bundled_extensions() -> void
 				"uncommented"
 			)
 			var code: String = _dependency_source_projection(source, "code")
+			var identifiers: Dictionary = _collect_identifier_index(code)
 			for other_extension_name: String in extension_names:
 				if other_extension_name == extension_name:
 					continue
@@ -367,7 +398,14 @@ func test_bundled_extensions_do_not_reference_other_bundled_extensions() -> void
 			for class_name_variant: Variant in class_root_by_name.keys():
 				var class_name_text: String = GF_VARIANT_ACCESS.to_text(class_name_variant)
 				var class_root: String = GF_VARIANT_ACCESS.to_text(class_root_by_name[class_name_text])
-				if class_root != extension_root and _contains_identifier(code, class_name_text):
+				if (
+					class_root != extension_root
+					and _contains_indexed_identifier(
+						code,
+						class_name_text,
+						identifiers
+					)
+				):
 					issues.append(
 						"%s references extension class %s"
 						% [path, class_name_text]
@@ -543,7 +581,127 @@ func test_dependency_paths_and_ids_remain_visible_only_outside_comments() -> voi
 	assert_true(source.contains("gf.feedback"))
 
 
+func test_identifier_index_preserves_original_boundaries_and_fallbacks() -> void:
+	var boundaries: Array[String] = [
+		"",
+		" ",
+		"\n",
+		".",
+		"(",
+		"_",
+		"9",
+		"a",
+		"中",
+		"😀",
+	]
+	for query: String in [
+		"GFType",
+		"_name2",
+		"名字",
+		"Type.Name",
+		"GF.*",
+		"",
+		"GFType\n",
+	]:
+		for prefix: String in boundaries:
+			for suffix: String in boundaries:
+				var source: String = prefix + query + suffix
+				var identifiers: Dictionary = _collect_identifier_index(source)
+				assert_eq(
+					_contains_indexed_identifier(
+						source,
+						query,
+						identifiers
+					),
+					_contains_identifier(source, query),
+					"索引和原正则必须保留完全相同的标识符边界。"
+				)
+
+
+func test_identifier_index_preserves_projected_dependencies_and_source_isolation() -> void:
+	var source: String = "# GFHidden\nconst EXAMPLE = 'GFHidden'\nvar actual: GFVisible\nCallable(resolve_object('GFHidden'), &\"actual_method\")\nobject.get(\"ActualProperty\")\nClassDB.instantiate(\"GFReflected\")\n"
+	var code: String = _dependency_source_projection(source, "code")
+	var identifiers: Dictionary = _collect_identifier_index(code)
+	for query: String in [
+		"GFHidden",
+		"GFVisible",
+		"actual_method",
+		"ActualProperty",
+		"GFReflected",
+	]:
+		assert_eq(
+			_contains_indexed_identifier(
+				code,
+				query,
+				identifiers
+			),
+			_contains_identifier(code, query)
+		)
+	assert_false(identifiers.has("GFHidden"))
+	identifiers["caller_mutated"] = true
+	assert_false(_collect_identifier_index(code).has("caller_mutated"))
+	assert_false(_collect_identifier_index("var replacement: GFOther\n").has("GFVisible"))
+	assert_true(_collect_identifier_index(code).has("GFVisible"))
+
+
+func test_identifier_query_cache_saturation_does_not_skip_queries() -> void:
+	_identifier_query_cache.clear()
+	for index: int in range(IDENTIFIER_QUERY_CACHE_LIMIT + 2):
+		var identifier: String = "Type%s" % index
+		assert_true(
+			_contains_indexed_identifier(
+				identifier,
+				identifier,
+				{ identifier: true }
+			)
+		)
+	assert_eq(
+		_identifier_query_cache.size(),
+		IDENTIFIER_QUERY_CACHE_LIMIT
+	)
+	assert_false(
+		_contains_indexed_identifier(
+			"TypeNew_suffix",
+			"TypeNew",
+			_collect_identifier_index("TypeNew_suffix")
+		)
+	)
+	_identifier_query_cache.clear()
+
+
 # --- 私有/辅助方法 ---
+
+func _collect_identifier_index(source: String) -> Dictionary:
+	if _identifier_token_regex == null:
+		_identifier_token_regex = RegEx.new()
+		var _compile_result: Error = _identifier_token_regex.compile("[A-Za-z0-9_]+")
+	var identifiers: Dictionary = {}
+	# 数字开头的连续片段也完整索引，不能把 1GFType 错认成 GFType。
+	for match_result: RegExMatch in _identifier_token_regex.search_all(source):
+		identifiers[match_result.get_string()] = true
+	return identifiers
+
+
+func _contains_indexed_identifier(
+	source: String,
+	identifier: String,
+	identifiers: Dictionary
+) -> bool:
+	if _identifier_query_regex == null:
+		_identifier_query_regex = RegEx.new()
+		var _compile_result: Error = _identifier_query_regex.compile("\\A[A-Za-z_][A-Za-z0-9_]*\\z")
+	var is_ascii_identifier: bool
+	if _identifier_query_cache.has(identifier):
+		is_ascii_identifier = _identifier_query_cache[identifier]
+	else:
+		is_ascii_identifier = _identifier_query_regex.search(identifier) != null
+		if _identifier_query_cache.size() < IDENTIFIER_QUERY_CACHE_LIMIT:
+			_identifier_query_cache[identifier] = is_ascii_identifier
+	if is_ascii_identifier:
+		return identifiers.has(identifier)
+	# 非 ASCII 名称和现有正则形状继续使用原有匹配，不能变成漏检。
+	return _contains_identifier(source, identifier)
+
 
 func _dependency_source_projection(source: String, projection: String) -> String:
 	var lines: Array[String] = []
@@ -845,8 +1003,13 @@ func _collect_forbidden_class_reference_issues(files: Array[String], forbidden_c
 			_read_text(path),
 			"code"
 		)
+		var identifiers: Dictionary = _collect_identifier_index(source)
 		for forbidden_class_name: String in forbidden_class_names:
-			if _contains_identifier(source, forbidden_class_name):
+			if _contains_indexed_identifier(
+				source,
+				forbidden_class_name,
+				identifiers
+			):
 				issues.append(
 					"%s references %s"
 					% [path, forbidden_class_name]

@@ -1135,7 +1135,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					self.assertEqual(result.exit_code, expected)
 
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"def4bfba658454b0aa93b8e537bed10e9335c7addff022a56c977609f36c5bd9"
+		"8ef500d5ea33a139506dd629ca91d32f5b44c629437928a6eb10c5f56f2ffef4"
 	)
 	_EXECUTOR_PROJECTION_SHA256 = (
 		"c43dc7c48a52f293f25cbc5c94773f66ea07af849cae286d8873731939a505c2"
@@ -1284,7 +1284,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		)
 		expected_overrides = {
 			"code_quality_native_acceptance": 90,
-			"gut": 1200,
+			"gut": 1800,
 			"gdscript_lsp_diagnostics": 660,
 			"gut_lifecycle_smoke": 360,
 			"ai_developer_adapter_acceptance": 900,
@@ -1735,7 +1735,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				for lane in plan.lanes
 				if "godot_import" in lane.execution_actions
 			],
-			["framework-gut", "framework-lsp"],
+			["framework-lsp", "framework-gut"],
 		)
 
 	def test_validation_plan_and_lanes_reject_field_rebinding(self) -> None:
@@ -12971,34 +12971,34 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 						self.INVENTORY,
 					)
 
-	def test_authoritative_gut_timeouts_have_a_twenty_minute_floor(self) -> None:
+	def test_authoritative_gut_timeouts_have_a_thirty_minute_floor(self) -> None:
 		self.assertEqual(
 			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(None),
-			1200,
+			1800,
 		)
 		self.assertEqual(
 			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(30),
-			1200,
+			1800,
 		)
 		self.assertEqual(
-			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(1500),
-			1500,
+			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(2100),
+			2100,
 		)
 		self.assertEqual(
 			gf_maintenance._VALIDATION_CATALOG.timeout_floor_seconds("gut"),
-			1200,
+			1800,
 		)
 		self.assertEqual(
 			gf_maintenance.resolve_check_timeout_seconds("gut", None),
-			1200,
+			1800,
 		)
 		self.assertEqual(
 			gf_maintenance.resolve_check_timeout_seconds("gut", 600),
-			1200,
+			1800,
 		)
 		self.assertEqual(
-			gf_maintenance.resolve_check_timeout_seconds("gut", 1500),
-			1500,
+			gf_maintenance.resolve_check_timeout_seconds("gut", 2100),
+			2100,
 		)
 		framework_gut = next(
 			shard
@@ -13013,12 +13013,12 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				None,
 				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 			),
-			2820,
+			3420,
 		)
 
 	def test_gut_observation_timeout_consumes_the_catalog_floor(self) -> None:
 		timeout_catalog = mock.Mock()
-		timeout_catalog.timeout_floor_seconds.return_value = 1301
+		timeout_catalog.timeout_floor_seconds.return_value = 1901
 
 		with mock.patch.object(
 			gf_maintenance,
@@ -13027,11 +13027,11 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		):
 			self.assertEqual(
 				gf_maintenance.resolve_gut_shard_observation_timeout_seconds(None),
-				1301,
+				1901,
 			)
 			self.assertEqual(
-				gf_maintenance.resolve_gut_shard_observation_timeout_seconds(1500),
-				1500,
+				gf_maintenance.resolve_gut_shard_observation_timeout_seconds(2100),
+				2100,
 			)
 
 		timeout_catalog.timeout_floor_seconds.assert_has_calls([
@@ -13639,7 +13639,7 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				jobs=2,
 				qualify=True,
 			)["control_gut_timeout_seconds"],
-			1200,
+			1800,
 		)
 		self.assertEqual(
 			gf_maintenance.GUT_SHARD_RUN_WORKER_PREFLIGHT_ALLOWANCE_SECONDS,
@@ -13672,7 +13672,7 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				gut_timeout_seconds=600,
 				qualify=True,
 			),
-			8820,
+			9420,
 		)
 		overridden_report = gf_maintenance.make_gut_shard_run_report(
 			jobs=2,
@@ -13680,8 +13680,8 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 			gut_timeout_seconds=1500,
 		)
 		self.assertEqual(overridden_report["candidate_gut_timeout_seconds"], 1500)
-		self.assertEqual(overridden_report["control_gut_timeout_seconds"], 1200)
-		self.assertEqual(overridden_report["total_timeout_seconds"], 13320)
+		self.assertEqual(overridden_report["control_gut_timeout_seconds"], 1800)
+		self.assertEqual(overridden_report["total_timeout_seconds"], 13920)
 		self.assertEqual(
 			overridden_report["total_timeout_seconds"]
 			- gf_maintenance.gut_shard_run_total_timeout_seconds(
@@ -13690,7 +13690,7 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				gut_timeout_seconds=1500,
 				qualify=False,
 			),
-			gf_maintenance.gut_shard_worker_total_timeout_seconds(600, 1200),
+			gf_maintenance.gut_shard_worker_total_timeout_seconds(600, 1800),
 		)
 		with self.assertRaisesRegex(ValueError, "phase timeout ceiling"):
 			gf_maintenance.resolve_gut_shard_run_gut_timeout_seconds(
@@ -14091,7 +14091,7 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 		self.assertTrue(report["qualified"])
 		self.assertEqual(report["qualification_status"], "qualified")
 		control_runner.assert_called_once()
-		self.assertEqual(control_runner.call_args.kwargs["gut_timeout_seconds"], 1200)
+		self.assertEqual(control_runner.call_args.kwargs["gut_timeout_seconds"], 1800)
 		self.assertEqual(compare.call_count, 2)
 		for call in compare.call_args_list:
 			self.assertEqual(call.args, (report["aggregate"], control))
@@ -19558,8 +19558,8 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			(
 				"framework-static",
 				"framework-integration",
-				"framework-gut",
 				"framework-lsp",
+				"framework-gut",
 			),
 		)
 		self.assertEqual(
@@ -19569,8 +19569,8 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			),
 			(
 				("framework-static", "framework-integration"),
-				("framework-gut",),
 				("framework-lsp",),
+				("framework-gut",),
 			),
 		)
 		self.assertEqual(
@@ -19579,9 +19579,8 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				for batch in gf_maintenance.parallel_full_shard_batches(plan, 3)
 			),
 			(
-				("framework-static", "framework-integration"),
+				("framework-static", "framework-integration", "framework-lsp"),
 				("framework-gut",),
-				("framework-lsp",),
 			),
 		)
 		for jobs in range(1, gf_maintenance.MAX_PARALLEL_FULL_JOBS + 1):
@@ -20184,11 +20183,11 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						"project_bootstrap_editor_smoke",
 					),
 				),
+				("framework-lsp", ("gdscript_lsp_diagnostics",)),
 				(
 					"framework-gut",
 					("gut_lifecycle_smoke", "gut", "gdscript_warnings"),
 				),
-				("framework-lsp", ("gdscript_lsp_diagnostics",)),
 			),
 		)
 		owned_checks = [check for shard in plan for check in shard.checks]
@@ -23862,6 +23861,130 @@ class ParallelNestedLogCollectionTests(unittest.TestCase):
 			with self.assertRaises(FileExistsError):
 				gf_maintenance.copy_parallel_log_tree(source, destination, **arguments)
 			self.assertEqual((destination / "evidence.log").read_bytes(), b"existing sentinel")
+
+
+class FailedCheckRetryTests(unittest.TestCase):
+	def test_owned_lsp_handshake_has_startup_margin_without_widening_diagnostic_deadlines(self):
+		command = list(gf_maintenance.CHECK_DEFINITIONS["gdscript_lsp_diagnostics"])
+		for option, expected in {
+			"--request-timeout": "120", "--lsp-process-timeout": "600",
+			"--per-file-timeout": "3", "--max-file-timeout": "12",
+			"--timeout-retries": "2", "--fail-severity": "error,warning",
+		}.items():
+			self.assertEqual(command[command.index(option) + 1], expected)
+
+	def _report(self) -> dict[str, object]:
+		return {
+			"ok": False,
+			"suite": "full",
+			"checks": ["godot_import", "gut", "docs"],
+			"workspace_fingerprint": "b" * 64,
+			"results": [
+				{"name": "godot_import", "exit_code": 0, "timed_out": False, "execution": "subprocess"},
+				{"name": "gut", "exit_code": 124, "timed_out": True, "execution": "subprocess"},
+				{"name": "docs", "exit_code": 0, "timed_out": False, "execution": "in_process"},
+			],
+		}
+
+	@contextlib.contextmanager
+	def _saved_report(self, report=None):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			(root / "build").mkdir()
+			path = root / "build/previous.json"
+			path.write_text(json.dumps(self._report() if report is None else report), encoding="utf-8")
+			yield root, path
+
+	def test_retry_executes_failed_roots_and_fresh_dependencies_without_importing_passes(self):
+		with self._saved_report() as (root, path), mock.patch.object(gf_maintenance, "ROOT", root):
+			with mock.patch.object(gf_maintenance, "run_checks", return_value={
+				"ok": True, "suite": "quick", "checks": ["godot_import", "gut"],
+				"results": [{"name": "godot_import", "exit_code": 0}, {"name": "gut", "exit_code": 0}],
+			}) as execute:
+				result = gf_maintenance.retry_failed_checks(str(path), timeout_seconds=2400)
+			self.assertEqual(execute.call_args.kwargs["checks"], ["gut"])
+			self.assertEqual(execute.call_args.kwargs["expected_workspace_fingerprint"], "b" * 64)
+			self.assertEqual(execute.call_args.kwargs["timeout_seconds"], 2400)
+			self.assertEqual([item["name"] for item in result["results"]], ["godot_import", "gut"])
+			self.assertFalse(result["retry"]["full_suite_passed"])
+			self.assertFalse(result["retry"]["merge_evidence"])
+			self.assertEqual(result["retry"]["reused_count"], 0)
+			self.assertEqual(json.loads(path.read_text(encoding="utf-8")), self._report())
+
+	def test_retry_includes_missing_and_blocked_checks(self):
+		report = self._report()
+		report["results"] = [{"name": "gut", "exit_code": 125, "timed_out": False, "execution": "blocked"}]
+		with self._saved_report(report) as (root, path), mock.patch.object(gf_maintenance, "ROOT", root):
+			with mock.patch.object(gf_maintenance, "run_checks", return_value={"ok": False}) as execute:
+				gf_maintenance.retry_failed_checks(str(path))
+			self.assertEqual(execute.call_args.kwargs["checks"], report["checks"])
+
+	def test_retry_rejects_invalid_or_untrustworthy_reports_before_execution(self):
+		for change in ("duplicate", "unknown", "cleanup", "contradictory", "bool_exit", "invalid_fingerprint", "list_execution", "dict_execution", "release"):
+			with self.subTest(change=change):
+				report = self._report()
+				if change == "duplicate": report["results"].append(report["results"][0])
+				elif change == "unknown": report["results"][1]["name"] = "workspace_snapshot_integrity"
+				elif change == "cleanup": report["cleanup_errors"] = ["cleanup debt"]
+				elif change == "contradictory": report["ok"] = True
+				elif change == "bool_exit": report["results"][0]["exit_code"] = False
+				elif change == "invalid_fingerprint": report["workspace_fingerprint"] = ""
+				elif change == "list_execution": report["results"][0]["execution"] = []
+				elif change == "dict_execution": report["results"][0]["execution"] = {}
+				else: report["suite"] = "release"
+				with self._saved_report(report) as (root, path), mock.patch.object(gf_maintenance, "ROOT", root):
+					with mock.patch.object(gf_maintenance, "run_checks") as execute:
+						result = gf_maintenance.retry_failed_checks(str(path))
+					self.assertFalse(result["ok"])
+					execute.assert_not_called()
+
+	def test_retry_rejects_duplicate_json_keys_and_nonfinite_values(self):
+		for text in ('{"ok": false, "ok": true}', '{"duration_seconds": NaN}', '{"duration_seconds": 1e999}'):
+			with self.subTest(text=text), self._saved_report() as (root, path):
+				path.write_text(text, encoding="utf-8")
+				with mock.patch.object(gf_maintenance, "ROOT", root), mock.patch.object(gf_maintenance, "run_checks") as execute:
+					result = gf_maintenance.retry_failed_checks(str(path))
+				self.assertFalse(result["ok"])
+				execute.assert_not_called()
+
+	def test_retry_refuses_changed_source_before_any_check_dispatch(self):
+		with mock.patch.object(gf_maintenance, "workspace_fingerprint", return_value={"fingerprint": "c" * 64}), mock.patch.object(
+			gf_maintenance, "run_checks_with_active_snapshot"
+		) as execute:
+			result = gf_maintenance.run_checks(checks=["docs"], jobs=1, expected_workspace_fingerprint="b" * 64)
+		self.assertFalse(result["ok"])
+		self.assertEqual(result["results"][0]["name"], "validation_retry_source")
+		execute.assert_not_called()
+
+	def test_retry_current_catalog_recreates_artifact_dependencies_and_ignores_old_commands(self):
+		report = self._report()
+		report["results"][1]["command"] = ["untrusted-command-never-executed"]
+		observed = []
+
+		def succeed(name, command, timeout_seconds, _callback, **_kwargs):
+			observed.append((name, command.effective))
+			return gf_maintenance.CommandResult(
+				name=name, command=list(command.effective), exit_code=0,
+				stdout="", stderr="", timeout_seconds=timeout_seconds,
+			)
+
+		with self._saved_report(report) as (root, path), mock.patch.object(gf_maintenance, "ROOT", root):
+			with mock.patch.object(gf_maintenance, "workspace_fingerprint", return_value={"fingerprint": "b" * 64}), mock.patch.object(
+				gf_maintenance, "run_command", side_effect=succeed
+			):
+				result = gf_maintenance.retry_failed_checks(str(path))
+		self.assertTrue(result["ok"])
+		self.assertEqual([name for name, _command in observed], ["godot_import", "gut"])
+		self.assertNotIn("untrusted-command-never-executed", str(observed))
+		self.assertNotIn("docs", [item["name"] for item in result["results"]])
+
+	def test_retry_cli_cannot_overwrite_its_input_report(self):
+		parser = gf_maintenance.build_maintenance_cli_parser()
+		args = parser.parse_args(["--json-output", "build/previous.json", "check-retry", "--from-report", "build/previous.json"])
+		with mock.patch.object(gf_maintenance, "retry_failed_checks") as execute, contextlib.redirect_stderr(io.StringIO()):
+			with self.assertRaises(SystemExit):
+				gf_maintenance.main(args, parser=parser)
+		execute.assert_not_called()
 
 
 if __name__ == "__main__":
