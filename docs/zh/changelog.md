@@ -88,6 +88,7 @@
 
 - **破坏性变更**：`GFVariantData.duplicate_variant(value, limits)` 默认复制纯数据值树，共享子容器独立展开；对象图复制改为显式 `duplicate_graph()`。删除 `duplicate_collection()` 别名。后台 worker 接收 `GFDataSnapshot`，移除对象载荷开关和可写输入字段。
 - **破坏性变更**：删除旧 canonical JSON/value、双哈希策略和内部预检准备对象。v2 摘要、结构化 seed、Network schema 摘要会改变；失败改为首次遇错即停止，预算计量采用二进制字节。Network schema 描述版本升级为 2。
+- 优化 AI Developer Kit 的 JSON 字符校验，减少大型索引的重复字符处理，保持非法 Unicode、重复键和非有限数值的拒绝规则。
 
 - [配置候选准备](standard/utilities/io/config-remote-outbox/config-provider/runtime-query.md)复用同次规范编码计量与普通标量声明检查，延后不必要的规则上下文和诊断数据构造；保留完整预算、引用校验及自定义规则执行。[异步 UI 路由](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)改用内部独占的类型化请求状态，取消身份检查中的整请求深复制，并按需分配导航和预加载状态；对外副本、取消和唯一终态契约不变。
 

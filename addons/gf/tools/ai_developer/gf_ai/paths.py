@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import posixpath
+import re
 import secrets
 import stat
 import unicodedata
@@ -13,6 +14,7 @@ from typing import Any
 
 
 DEFAULT_MAX_JSON_BYTES = 16 * 1024 * 1024
+_UNICODE_SURROGATE_PATTERN = re.compile(r"[\ud800-\udfff]")
 _RESOURCE_PATH_FORBIDDEN_CHARACTERS = frozenset('<>:"|?*[]')
 _WINDOWS_RESERVED_PATH_STEMS = frozenset({
 	"aux",
@@ -386,7 +388,7 @@ def _validate_json_unicode_scalars(value: Any) -> None:
 
 
 def _contains_unicode_surrogate(value: str) -> bool:
-	return any(0xD800 <= ord(character) <= 0xDFFF for character in value)
+	return _UNICODE_SURROGATE_PATTERN.search(value) is not None
 
 
 def _strict_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

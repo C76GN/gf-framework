@@ -5664,13 +5664,13 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		== "GF_GUT_SHARD_OBSERVATION_NONCE"
 		and GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT
 		== "GF_GUT_SHARD_OBSERVATION_PATH"
-		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1200
-		and resolve_gut_shard_observation_timeout_seconds(None) == 1200
-		and resolve_gut_shard_observation_timeout_seconds(1500) == 1500
-		and _VALIDATION_CATALOG.timeout_floor_seconds("gut") == 1200
-		and resolve_check_timeout_seconds("gut", None) == 1200
-		and resolve_check_timeout_seconds("gut", 600) == 1200
-		and resolve_check_timeout_seconds("gut", 1500) == 1500,
+		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1800
+		and resolve_gut_shard_observation_timeout_seconds(None) == 1800
+		and resolve_gut_shard_observation_timeout_seconds(2100) == 2100
+		and _VALIDATION_CATALOG.timeout_floor_seconds("gut") == 1800
+		and resolve_check_timeout_seconds("gut", None) == 1800
+		and resolve_check_timeout_seconds("gut", 600) == 1800
+		and resolve_check_timeout_seconds("gut", 2100) == 2100,
 		(
 			"The explicit G0 observation must use its dedicated ignored output root and "
 			"share the measured authoritative GUT timeout floor."
@@ -5694,7 +5694,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			2,
 			gut_timeout_seconds=600,
 			qualify=True,
-		) == 8820,
+		) == 9420,
 		(
 			"G0.2A must default to two bounded workers, accept only jobs 1 or 2, preserve "
 			"the candidate GUT floor, and derive a finite wave-based parent budget."
@@ -6517,6 +6517,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		) == "framework-lsp",
 		"Local parallel Full must assign every target check exactly once and keep LSP owned by its hard-gate shard.",
 	)
+	record_result(
+		"parallel_full_overlaps_lsp_without_contending_with_gut",
+		tuple(
+			tuple(shard.name for shard in batch)
+			for batch in parallel_full_shard_batches(
+				parallel_plan, DEFAULT_PARALLEL_FULL_JOBS,
+			)
+		) == (
+			("framework-static", "framework-integration", "framework-lsp"),
+			("framework-gut",),
+		),
+		"The default three-worker schedule must overlap the independent LSP lane and run GUT alone.",
+	)
 	deadline_fixture_snapshot = CapturedWorkspace(
 		source_root=ROOT,
 		head="1" * 40,
@@ -6588,7 +6601,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_gut_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 2820,
+		) == 3420,
 		"Each shard budget must preserve every child check's requested minimum.",
 	)
 	record_result(
@@ -6613,7 +6626,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		),
 		(
 			"Ready/main framework GUT must retain its exact 60-minute outer deadline above "
-			"the 2,820-second child envelope; release must preserve the four shard-specific "
+			"the 3,420-second child envelope; release must preserve the four shard-specific "
 			"deadlines; manual Full must remain 90 minutes."
 		),
 	)

@@ -63,6 +63,7 @@ from generated_output_transaction import validate_controlled_path
 import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_maintenance_commands
+import gf_maintenance_retry
 import gf_validation_contracts
 import gf_validation_catalog
 import gf_validation_evidence
@@ -272,7 +273,7 @@ GUT_SHARD_MANIFEST_RELATIVE_PATH = "tests/gf_core/gut_shard_manifest.json"
 GUT_SHARD_OBSERVATION_ROOT = ROOT / "build/gut-sharding"
 GUT_SHARD_OBSERVATION_JUNIT_FILENAME = "gut-authoritative.xml"
 GUT_SHARD_OBSERVATION_PROVENANCE_FILENAME = "gut-authoritative-provenance.json"
-GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS = 1200
+GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS = 1800
 GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT = "GF_GUT_SHARD_OBSERVATION_NONCE"
 GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT = "GF_GUT_SHARD_OBSERVATION_PATH"
 GUT_SHARD_OBSERVATION_NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
@@ -1841,6 +1842,14 @@ def build_maintenance_cli_parser() -> argparse.ArgumentParser:
 	)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	retry_parser = subparsers.add_parser(
+		"check-retry", help="Rerun failed or unexecuted checks from an unchanged-source report; never import cached PASSes.",
+	)
+	retry_parser.add_argument("--from-report", required=True, help="Original unsuccessful check JSON below build/; it is never overwritten.")
+	retry_parser.add_argument("--timeout", type=int, default=None, help="Raise the minimum budget only for the retry selection and its fresh dependencies.")
+	retry_parser.add_argument("--suite-timeout", type=int, default=None, help="Hard overall budget for this focused retry.")
+	retry_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
 	release_parser.add_argument("--version", default="", help="Expected SemVer. Defaults to plugin.cfg version.")
 	release_parser.add_argument(
@@ -2022,6 +2031,21 @@ def main(
 		if args.fail_on_leaks and data["has_leaks"]:
 			return 1
 		return 0
+	if args.command == "check-retry":
+		try:
+			input_path = gf_maintenance_retry.report_path(ROOT, args.from_report)
+		except ValueError as error:
+			parser.error(str(error))
+		if json_output_path is not None and input_path == json_output_path:
+			parser.error("Retry output must differ from the original report.")
+		data = retry_failed_checks(
+			args.from_report, timeout_seconds=args.timeout,
+			suite_timeout_seconds=args.suite_timeout,
+			progress_callback=None if args.json else maintenance_rendering.print_check_progress,
+			output_callback=None if args.json else maintenance_rendering.print_check_output,
+		)
+		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_checks_text)
+		return 0 if data["ok"] else 1
 	if args.command == "check":
 		data = run_checks(
 			suite=args.suite,
@@ -15882,6 +15906,32 @@ def make_validation_shadow_report(
 	)
 
 
+def retry_failed_checks(
+	report_path: str,
+	*,
+	timeout_seconds: int | None = None,
+	suite_timeout_seconds: int | None = None,
+	progress_callback: Callable[[str, str, float | None], None] | None = None,
+	output_callback: Callable[[str, str, str], None] | None = None,
+) -> dict[str, Any]:
+	"""Execute a focused selection, retaining historical results only as provenance."""
+	try:
+		selection = gf_maintenance_retry.read_retry_selection(ROOT, report_path, VALIDATION_ACTION_NAMES)
+	except (OSError, ValueError) as error:
+		return {
+			"ok": False, "suite": "quick", "checks": [], "results": [],
+			"errors": [str(error)], "duration_seconds": 0.0,
+		}
+	data = run_checks(
+		checks=list(selection.requested_checks), jobs=1,
+		timeout_seconds=timeout_seconds, suite_timeout_seconds=suite_timeout_seconds,
+		expected_workspace_fingerprint=selection.workspace_fingerprint,
+		progress_callback=progress_callback, output_callback=output_callback,
+	)
+	data["retry"] = selection.describe()
+	return data
+
+
 def run_checks(
 	suite: str = "quick",
 	checks: list[str] | None = None,
@@ -15899,6 +15949,7 @@ def run_checks(
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 	process_environment: FrozenProcessEnvironment | None = None,
+	expected_workspace_fingerprint: str | None = None,
 ) -> dict[str, Any]:
 	global _ACTIVE_WORKSPACE_SNAPSHOT
 	global _ACTIVE_SUITE_DEADLINE
@@ -16182,6 +16233,11 @@ def run_checks(
 			)
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
+	if expected_workspace_fingerprint is not None and workspace_state["fingerprint"] != expected_workspace_fingerprint:
+		return make_check_setup_failure(
+			validation_plan, workspace_state, "validation_retry_source",
+			"Source changed since the original report. Choose a fresh validation plan; no checks were started.",
+		)
 	data: dict[str, Any] | None = None
 	validation_parallel_occurrences: dict[str, list[dict[str, Any]]] | None = (
 		{} if validation_shadow else None

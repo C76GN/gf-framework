@@ -20,6 +20,7 @@ import unicodedata
 import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from pathlib import PurePosixPath
 from typing import Any
@@ -4521,7 +4522,7 @@ class _OwnedRootBinding:
 		for raw_path, handle in self._windows_directories.items():
 			if not _windows_handle_matches_path(
 				handle,
-				Path(raw_path),
+				raw_path,
 				expect_directory=True,
 			):
 				raise ValueError("Owned target directory identity changed.")
@@ -4539,7 +4540,7 @@ def _full_directory_paths(directory: Path) -> tuple[Path, ...]:
 	return tuple(result)
 
 
-def _windows_path_key(path: Path) -> str:
+def _windows_path_key(path: Path | str) -> str:
 	return os.path.normcase(os.path.normpath(str(path)))
 
 
@@ -4818,26 +4819,7 @@ def _windows_handle_file_index(handle: int) -> int:
 	import ctypes
 	from ctypes import wintypes
 
-	class FileInformation(ctypes.Structure):
-		_fields_ = [
-			("dwFileAttributes", wintypes.DWORD),
-			("ftCreationTime", wintypes.FILETIME),
-			("ftLastAccessTime", wintypes.FILETIME),
-			("ftLastWriteTime", wintypes.FILETIME),
-			("dwVolumeSerialNumber", wintypes.DWORD),
-			("nFileSizeHigh", wintypes.DWORD),
-			("nFileSizeLow", wintypes.DWORD),
-			("nNumberOfLinks", wintypes.DWORD),
-			("nFileIndexHigh", wintypes.DWORD),
-			("nFileIndexLow", wintypes.DWORD),
-		]
-
-	kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-	kernel32.GetFileInformationByHandle.argtypes = [
-		wintypes.HANDLE,
-		ctypes.POINTER(FileInformation),
-	]
-	kernel32.GetFileInformationByHandle.restype = wintypes.BOOL
+	kernel32, FileInformation = _windows_file_information_api()
 	information = FileInformation()
 	if not kernel32.GetFileInformationByHandle(
 		wintypes.HANDLE(handle),
@@ -4849,12 +4831,9 @@ def _windows_handle_file_index(handle: int) -> int:
 	) | int(information.nFileIndexLow)
 
 
-def _windows_handle_matches_path(
-	handle: int,
-	path: Path,
-	*,
-	expect_directory: bool,
-) -> bool:
+@lru_cache(maxsize=1)
+def _windows_file_information_api() -> tuple[Any, type]:
+	"""Reuse ABI definitions only; each caller still queries live handle identity."""
 	import ctypes
 	from ctypes import wintypes
 
@@ -4885,6 +4864,19 @@ def _windows_handle_matches_path(
 		wintypes.DWORD,
 	]
 	kernel32.GetFinalPathNameByHandleW.restype = wintypes.DWORD
+	return kernel32, FileInformation
+
+
+def _windows_handle_matches_path(
+	handle: int,
+	path: Path | str,
+	*,
+	expect_directory: bool,
+) -> bool:
+	import ctypes
+	from ctypes import wintypes
+
+	kernel32, FileInformation = _windows_file_information_api()
 	information = FileInformation()
 	if not kernel32.GetFileInformationByHandle(
 		wintypes.HANDLE(handle),
@@ -4909,7 +4901,7 @@ def _windows_handle_matches_path(
 		final_path = "\\\\" + final_path[8:]
 	elif final_path.startswith("\\\\?\\"):
 		final_path = final_path[4:]
-	return _windows_path_key(Path(final_path)) == _windows_path_key(path)
+	return _windows_path_key(final_path) == _windows_path_key(path)
 
 
 def _windows_close_handle_checked(handle: int) -> None:

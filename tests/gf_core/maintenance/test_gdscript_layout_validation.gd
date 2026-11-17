@@ -180,6 +180,26 @@ const SECTION_ORDER_RULES: Array[Dictionary] = [
 ]
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const CONTRACT_SOURCES = preload("res://tests/gf_core/maintenance/helpers/gf_comment_contract_sources.gd")
+const STRUCTURE_CACHE_MAX_PATHS: int = 2048
+const STRUCTURE_CACHE_MAX_CHARACTERS: int = 32 * 1024 * 1024
+
+
+# --- 私有变量 ---
+
+var _structure_cache: Dictionary = {}
+var _structure_cache_characters: int = 0
+var _structure_cache_path_limit: int = STRUCTURE_CACHE_MAX_PATHS
+var _structure_cache_character_limit: int = STRUCTURE_CACHE_MAX_CHARACTERS
+
+
+# --- 生命周期方法 ---
+
+func before_all() -> void:
+	_clear_structure_cache()
+
+
+func after_all() -> void:
+	_clear_structure_cache()
 
 
 # --- 测试用例 ---
@@ -567,7 +587,141 @@ func test_leading_annotations_preserve_variable_sections() -> void:
 		)
 
 
+func test_structure_reuse_observes_source_changes_and_detaches_results() -> void:
+	var path: String = "res://layout_reuse_fixture.gd"
+	var first: String = "extends Node\n# --- 私有/辅助方法 ---\nfunc _first() -> void:\n\tpass\n"
+	var changed: String = first.replace("_first", "_second")
+	var lines: PackedStringArray = _structure_lines_for_path(first, path)
+	assert_eq(
+		lines,
+		_structure_lines(first)
+	)
+	lines[0] = "caller mutation"
+	assert_eq(
+		_structure_lines_for_path(first, path),
+		_structure_lines(first)
+	)
+	assert_eq(
+		_structure_lines_for_path(changed, path),
+		_structure_lines(changed)
+	)
+	assert_eq(
+		_structure_lines_for_path(first, path),
+		_structure_lines(first)
+	)
+	assert_eq(
+		_structure_lines_for_path(changed, "res://other_layout.gd"),
+		_structure_lines(changed)
+	)
+	var bad: String = first.replace("私有/辅助方法", "公共方法")
+	assert_false(_collect_underscore_method_section_issues_from_source(bad, path).is_empty())
+	assert_eq(
+		_collect_underscore_method_section_issues_from_source(first, path),
+		[]
+	)
+	assert_false(_collect_underscore_method_section_issues_from_source(bad, path).is_empty())
+
+
+func test_structure_reuse_saturation_preserves_complete_parsing() -> void:
+	_clear_structure_cache()
+	_structure_cache_path_limit = 1
+	_structure_cache_character_limit = 128
+	var source: String = "var value = 1\n"
+	assert_eq(
+		_structure_lines_for_path(source, "first"),
+		_structure_lines(source)
+	)
+	assert_eq(
+		_structure_lines_for_path(source, "second"),
+		_structure_lines(source)
+	)
+	assert_eq(
+		_structure_cache.size(),
+		1
+	)
+	var oversized: String = "# retained comment\n".repeat(16)
+	assert_eq(
+		_structure_lines_for_path(oversized, "first"),
+		_structure_lines(oversized)
+	)
+	assert_eq(
+		_structure_cache.size(),
+		0
+	)
+	assert_eq(_structure_cache_characters, 0)
+	assert_eq(
+		_structure_lines_for_path(source, "first"),
+		_structure_lines(source)
+	)
+	assert_eq(
+		_structure_cache.size(),
+		1
+	)
+	_clear_structure_cache()
+	assert_eq(_structure_cache_characters, 0)
+	assert_eq(
+		_structure_cache.size(),
+		0
+	)
+	_structure_cache_path_limit = STRUCTURE_CACHE_MAX_PATHS
+	_structure_cache_character_limit = STRUCTURE_CACHE_MAX_CHARACTERS
+
+
+func test_structure_reuse_keeps_current_file_reads_authoritative() -> void:
+	var path: String = "user://gf_layout_reuse_%s.gd" % Time.get_ticks_usec()
+	var source: String = "extends Node\n# --- 私有/辅助方法 ---\nfunc _helper() -> void:\n\tpass\n"
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file)
+	if file == null:
+		return
+	var _first_write: bool = file.store_string(source)
+	file.close()
+	assert_eq(
+		_collect_underscore_method_section_issues(path),
+		[]
+	)
+	file = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file)
+	if file != null:
+		var _second_write: bool = file.store_string(source.replace("私有/辅助方法", "公共方法"))
+		file.close()
+		assert_false(_collect_underscore_method_section_issues(path).is_empty())
+	var removal: Error = DirAccess.remove_absolute(path)
+	assert_eq(removal, OK)
+	assert_false(_collect_underscore_method_section_issues(path).is_empty())
+
+
 # --- 私有/辅助方法 ---
+
+func _clear_structure_cache() -> void:
+	_structure_cache.clear()
+	_structure_cache_characters = 0
+
+
+func _structure_lines_for_path(source: String, path: String) -> PackedStringArray:
+	# 只保留每个路径当前文本；文件读取和模板展开始终在调用前执行。
+	if _structure_cache.has(path):
+		var previous: Dictionary = _structure_cache[path]
+		var previous_source: String = previous["source"]
+		if previous_source == source:
+			var cached_lines: PackedStringArray = previous["lines"]
+			return cached_lines.duplicate()
+		var previous_characters: int = previous["characters"]
+		_structure_cache_characters -= previous_characters
+		var _erased: bool = _structure_cache.erase(path)
+	var lines: PackedStringArray = _structure_lines(source)
+	var characters: int = source.length()
+	for line: String in lines:
+		characters += line.length()
+	if (_structure_cache.size() < _structure_cache_path_limit and characters <= _structure_cache_character_limit - _structure_cache_characters):
+		_structure_cache[path] = {
+			"source": source,
+			"lines": lines.duplicate(),
+			"characters": characters,
+		}
+		_structure_cache_characters += characters
+	return lines
+
 
 func _structure_lines(source: String) -> PackedStringArray:
 	var lines: PackedStringArray = source.split("\n")
@@ -673,7 +827,10 @@ func _collect_underscore_method_section_issues(path: String) -> Array[String]:
 
 
 func _collect_underscore_method_section_issues_from_source(source: String, path: String) -> Array[String]:
-	var lines: PackedStringArray = _structure_lines(CONTRACT_SOURCES.render_source(source, path))
+	var lines: PackedStringArray = _structure_lines_for_path(
+		CONTRACT_SOURCES.render_source(source, path),
+		path
+	)
 	var issues: Array[String] = []
 	var current_section: String = ""
 	for line_index: int in range(lines.size()):
@@ -791,11 +948,12 @@ func _collect_class_doc_order_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = _structure_lines(
+	var lines: PackedStringArray = _structure_lines_for_path(
 		CONTRACT_SOURCES.render_source(
 			file.get_as_text(),
 			path
-		)
+		),
+		path
 	)
 	file.close()
 	var first_doc_line: int = -1
@@ -889,11 +1047,12 @@ func _collect_local_name_shadow_issues(path: String) -> Array[String]:
 	if file == null:
 		return ["%s: cannot open file" % path]
 
-	var lines: PackedStringArray = _structure_lines(
+	var lines: PackedStringArray = _structure_lines_for_path(
 		CONTRACT_SOURCES.render_source(
 			file.get_as_text(),
 			path
-		)
+		),
+		path
 	)
 	file.close()
 	var issues: Array[String] = []
@@ -933,11 +1092,12 @@ func _scan_top_level_source(path: String, callback: Callable) -> void:
 		)
 		return
 
-	var lines: PackedStringArray = _structure_lines(
+	var lines: PackedStringArray = _structure_lines_for_path(
 		CONTRACT_SOURCES.render_source(
 			file.get_as_text(),
 			path
-		)
+		),
+		path
 	)
 	file.close()
 	var current_section: String = ""
