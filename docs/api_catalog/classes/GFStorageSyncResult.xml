@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncResult" path="addons/gf/standard/utilities/storage/gf_storage_sync_result.gd" module="standard" extends="RefCounted" classDigest="7183cb266876029d6c257f64ed87ffc201d40cb5dadea0ed760b8db5ff8d572b">
+<class name="GFStorageSyncResult" path="addons/gf/standard/utilities/storage/gf_storage_sync_result.gd" module="standard" extends="RefCounted" classDigest="ffcdf5294bce2dd739f8ecbb521512155bc0c0ac8deb16377aff47c3c5504011">
 	<description>GFStorageSyncResult: 一次同步观察的不可变终态。
 COMMITTED 表示远端提交与本地 checkpoint 均已确认。OUTCOME_UNKNOWN 表示无法
 查证远端结果；RECOVERY_REQUIRED 可以表示远端已确认而本地 checkpoint 尚未确认。
@@ -7,7 +7,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -35,7 +35,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<description>唯一终态；不会因迟到响应重新变更。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -48,7 +48,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -57,7 +57,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Status 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status_name">
@@ -66,7 +66,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">对应 Status 的小写名称。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -75,7 +75,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">preview、unchanged、remote_selected 或 committed 时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="requires_recovery">
@@ -84,7 +84,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未知远端结果或未确认本地 checkpoint 时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request">
@@ -93,7 +93,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求对象；拒绝非法输入时可能为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_kind">
@@ -102,7 +102,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ASCII 错误种类或空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="record_exists">
@@ -111,7 +111,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">存在时为 true；结果未知时不能据此推断记录不存在。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_revision">
@@ -120,7 +120,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不透明文本；不得排序比较。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_data">
@@ -130,7 +130,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 				<tag name="api">public</tag>
 				<tag name="return">已验证数据副本，是否存在由 record_exists() 和终态决定。</tag>
 				<tag name="schema">return: Dictionary of admitted native data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_remote_committed">
@@ -139,7 +139,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已查证提交时为 true，即使本地 checkpoint 仍待恢复。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_conflict_report">
@@ -148,7 +148,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">报告副本或 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -158,7 +158,7 @@ preview 和 remote_selected 都不表示已写入本地业务状态。</descript
 				<tag name="api">public</tag>
 				<tag name="return">终态和确认边界摘要。</tag>
 				<tag name="schema">return: Dictionary with valid,status,error_kind,remote_committed,requires_recovery,has_conflict,local_generation.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncUtility" path="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" module="standard" extends="GFUtility" classDigest="2ad5bc59ce96d79a943787a1d97e394c645c3b641ad53884572ed486fbb4f664">
+<class name="GFStorageSyncUtility" path="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" module="standard" extends="GFUtility" classDigest="443bf7715fd0837f86ca61dfbadd925a462ecb7f4c0f8b803f115a783610fad6">
 	<description>GFStorageSyncUtility: 以持久化意图和远端条件写入组织记录同步。
 只在主线程使用。setup() 后可独立使用；独立使用者须驱动 tick() 处理超时，
 并在结束时 dispose()。网络等待不持有项目业务事务。每个记录同时只接纳一个操作。
@@ -21,7 +21,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 架构关闭作用域。</tag>
 				<tag name="return">已完成的静默完成源；未知提交保留在持久化日志供后续恢复。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -29,7 +29,7 @@
 			<description>释放全部观察和适配器引用，原意图仍由持久化日志拥有。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup">
@@ -41,7 +41,7 @@
 				<tag name="param">journal: 写入与恢复需要的持久化日志。</tag>
 				<tag name="param">clock: 单调时钟；空时使用系统单调时间。</tag>
 				<tag name="return">装配成功返回 true；重复装配或关闭后返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="inspect_support">
@@ -55,7 +55,7 @@ pull、preview 与 push/remote 不需要 Journal；probe 只需要 probe 与 Jou
 				<tag name="param">resolution: report、local 或 remote。</tag>
 				<tag name="return">模式支持报告，不包含账号或业务数据。</tag>
 				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String,mode:StringName,resolution:StringName,required_capabilities:PackedStringArray,missing_capabilities:PackedStringArray,journal_required:bool,journal_available:bool.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="synchronize">
@@ -68,7 +68,7 @@ pull/remote 只返回远端候选，由调用方以自己的事务应用。previ
 				<tag name="api">public</tag>
 				<tag name="param">request: 冻结请求；probe 模式进入 recover()。</tag>
 				<tag name="return">唯一终态操作；非法输入也返回已拒绝操作。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="recover">
@@ -80,7 +80,7 @@ pull/remote 只返回远端候选，由调用方以自己的事务应用。previ
 				<tag name="api">public</tag>
 				<tag name="param">request: 原持久化请求；除观察模式外的规范记录必须一致。</tag>
 				<tag name="return">查证操作；未知结果和本地 checkpoint 失败仍保留恢复责任。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="synchronize_many">
@@ -90,7 +90,7 @@ pull/remote 只返回远端候选，由调用方以自己的事务应用。previ
 				<tag name="api">public</tag>
 				<tag name="param">requests: 最多256个冻结请求；同记录在途竞争逐项拒绝。</tag>
 				<tag name="return">与输入顺序一致的操作；超限时不启动任何请求，只返回一个 batch_limit 拒绝结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -99,7 +99,7 @@ pull/remote 只返回远端候选，由调用方以自己的事务应用。previ
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 架构传入的帧间隔。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -109,7 +109,7 @@ pull/remote 只返回远端候选，由调用方以自己的事务应用。previ
 				<tag name="api">public</tag>
 				<tag name="return">当前观察数量和装配状态。</tag>
 				<tag name="schema">return: Dictionary with configured:bool,closed:bool,pending_count:int,phases:Dictionary[StringName,int].</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

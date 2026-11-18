@@ -38,7 +38,7 @@
 ### `prepare_database`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_database(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
@@ -65,7 +65,7 @@ func prepare_database(database: GFConfigDatabaseResource, options: Dictionary = 
 ### `replace_database`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func replace_database(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
@@ -92,7 +92,7 @@ func replace_database(database: GFConfigDatabaseResource, options: Dictionary = 
 ### `prepare_update`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_update(tables: Array[GFConfigTableResource], options: Dictionary = {}) -> Dictionary:
@@ -120,7 +120,7 @@ func prepare_update(tables: Array[GFConfigTableResource], options: Dictionary = 
 ### `update_tables`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func update_tables(tables: Array[GFConfigTableResource], options: Dictionary = {}) -> Dictionary:

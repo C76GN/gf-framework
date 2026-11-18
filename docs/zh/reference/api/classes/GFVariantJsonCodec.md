@@ -40,7 +40,7 @@ Godot Variant 的 JSON 兼容转换与确定性文本编解码。 负责在 JSON
 ### `encode_deterministic_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func encode_deterministic_result(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -68,7 +68,7 @@ static func encode_deterministic_result(value: Variant, options: Dictionary = {}
 ### `decode_deterministic_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func decode_deterministic_result(text: String, options: Dictionary = {}) -> Dictionary:
@@ -151,7 +151,7 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 ### `variant_to_json_compatible_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func variant_to_json_compatible_result(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -179,7 +179,7 @@ static func variant_to_json_compatible_result(value: Variant, options: Dictionar
 ### `json_compatible_to_variant_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func json_compatible_to_variant_result(value: Variant, options: Dictionary = {}) -> Dictionary:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次原子发射请求的不可变终态。 单发和批量发射共享同一结果类型。成功结果持有按稳定生成顺序排列的已激活 Session；失败结果不持有任何部分成功 Session。结果描述已经完成的发射， 不延长 Session 的生命；通知回调可以立即结束 Session。
 
@@ -31,7 +31,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Status {
@@ -51,7 +51,7 @@ enum Status {
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -66,7 +66,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -81,7 +81,7 @@ func get_status() -> Status:
 ### `get_stage`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_stage() -> StringName:
@@ -96,7 +96,7 @@ func get_stage() -> StringName:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -111,7 +111,7 @@ func get_reason() -> StringName:
 ### `get_requested_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_requested_count() -> int:
@@ -126,7 +126,7 @@ func get_requested_count() -> int:
 ### `get_sessions`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_sessions() -> Array[GFProjectileSession]:
@@ -145,7 +145,7 @@ func get_sessions() -> Array[GFProjectileSession]:
 ### `get_emitted_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_emitted_count() -> int:

@@ -216,7 +216,7 @@ func configure(config: Resource, kind: int = 0) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param config: 精确原生 Tween 配置，只在准备时捕获字段。
 ## [br]
@@ -306,7 +306,7 @@ func configure_adapter(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本次完整准备仍持有当前样机和快照时返回 true。
 func prepare() -> bool:
@@ -622,7 +622,7 @@ func get_diagnostic() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param time_seconds: 有限时间，范围为 0 至 get_duration_seconds()，单位为秒。
 ## [br]
@@ -698,7 +698,7 @@ func seek(time_seconds: float) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 成功准备后为 true；复位、换源、初值改变或释放后为 false。
 func has_session() -> bool:
@@ -759,7 +759,7 @@ func get_preview_plan() -> GFTweenPreviewPlan:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 单位为秒；没有会话或全零时长时为 0。
 func get_duration_seconds() -> float:
@@ -770,7 +770,7 @@ func get_duration_seconds() -> float:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 单位为秒；没有会话时为 0，完成后保持总时长。
 func get_time_seconds() -> float:

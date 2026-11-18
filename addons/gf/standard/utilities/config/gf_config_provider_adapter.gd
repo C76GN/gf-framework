@@ -167,7 +167,7 @@ func has_table_source(table_name: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 排序后的来源表名。
 func get_source_ids() -> PackedStringArray:
@@ -185,7 +185,7 @@ func get_source_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_names: 本次请求的根表。
 ## [br]
@@ -228,7 +228,7 @@ func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) ->
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_names: 请求的根表。
 ## [br]

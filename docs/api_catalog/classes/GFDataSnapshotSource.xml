@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataSnapshotSource" path="addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd" module="standard" extends="RefCounted" classDigest="1a073ffdb33664a160d5dd1bf01bdaeb9cedb789539c7c8f6ebc2aafc6418815">
+<class name="GFDataSnapshotSource" path="addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd" module="standard" extends="RefCounted" classDigest="c05fa165218c7fb0b141850119299211fd373c1fc71fc2e5fabf9c0e340a1f3d">
 	<description>GFDataSnapshotSource: 一个已经固定版本的记录序列读取租约。
 每个实例独占一次读取租约；交给捕获会话后由会话或成功快照释放。
 项目适配器负责保持版本稳定，逐条返回已就绪的 GFDataSnapshot。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已释放时为 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_record_count">
@@ -29,7 +29,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负数量；不可用或未实现时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_revision">
@@ -38,7 +38,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负版本号；不可用或未实现时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="read_record">
@@ -48,7 +48,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">index: 零起始记录位置，必须小于固定记录数。</tag>
 				<tag name="return">已就绪记录快照；失败为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -56,7 +56,7 @@
 			<description>幂等释放此租约，不得撤销其他读者的版本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_record_count">
@@ -65,7 +65,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">非负记录数；默认未实现为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_revision">
@@ -74,7 +74,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">非负版本号；默认未实现为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_read_record">
@@ -84,7 +84,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">_index: 已由公共入口检查的非负位置。</tag>
 				<tag name="return">独立就绪快照；失败返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_release">
@@ -92,7 +92,7 @@
 			<description>结算项目版本持有；不得使已经返回的独立记录快照失效。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

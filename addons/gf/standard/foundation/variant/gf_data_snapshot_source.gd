@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataSnapshotSource
 extends RefCounted
 
@@ -27,7 +27,7 @@ var _released: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已释放时为 false。
 func is_available() -> bool:
@@ -38,7 +38,7 @@ func is_available() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 非负数量；不可用或未实现时为 -1。
 func get_record_count() -> int:
@@ -49,7 +49,7 @@ func get_record_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 非负版本号；不可用或未实现时为 -1。
 func get_revision() -> int:
@@ -60,7 +60,7 @@ func get_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param index: 零起始记录位置，必须小于固定记录数。
 ## [br]
@@ -77,7 +77,7 @@ func read_record(index: int) -> GFDataSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func release() -> void:
 	if _released:
 		return
@@ -91,7 +91,7 @@ func release() -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 非负记录数；默认未实现为 -1。
 func _get_record_count() -> int:
@@ -102,7 +102,7 @@ func _get_record_count() -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 非负版本号；默认未实现为 -1。
 func _get_revision() -> int:
@@ -113,7 +113,7 @@ func _get_revision() -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _index: 已由公共入口检查的非负位置。
 ## [br]
@@ -126,6 +126,6 @@ func _read_record(_index: int) -> GFDataSnapshot:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func _release() -> void:
 	pass

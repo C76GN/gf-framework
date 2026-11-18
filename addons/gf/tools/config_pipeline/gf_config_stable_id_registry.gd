@@ -7,7 +7,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFConfigStableIDRegistry
 extends RefCounted
 
@@ -26,7 +26,7 @@ var _record: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 可用于首次显式登记的空簿。
 static func create_empty() -> GFConfigStableIDRegistry:
@@ -43,7 +43,7 @@ static func create_empty() -> GFConfigStableIDRegistry:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record: 登记簿纯数据。
 ## [br]
@@ -121,7 +121,7 @@ static func from_record(record: Dictionary) -> GFConfigStableIDRegistry:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: 最多8MiB的登记簿 JSON。
 ## [br]
@@ -142,7 +142,7 @@ static func from_json(text: String) -> GFConfigStableIDRegistry:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param assignments: 对账范围内完整的活动符号映射；范围内没有出现的历史活动符号列为待退役。
 ## [br]
@@ -168,7 +168,7 @@ func preview(assignments: Dictionary, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param assignments: 对账范围内完整的活动符号映射。
 ## [br]
@@ -190,7 +190,7 @@ func with_assignments(assignments: Dictionary, options: Dictionary = {}) -> GFCo
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table: 表的登记命名空间。
 ## [br]
@@ -208,7 +208,7 @@ func get_id(table: String, symbol: String) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 登记簿记录；非工厂实例返回空字典。
 ## [br]

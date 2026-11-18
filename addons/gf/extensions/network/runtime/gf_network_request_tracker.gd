@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFNetworkRequestTracker
 extends RefCounted
 
@@ -131,7 +131,7 @@ var _pending: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param clock: 同步、无副作用的单调时钟；null 使用系统 GFClock。
 ## [br]
@@ -148,7 +148,7 @@ func _init(clock: GFClock = null, max_pending: int = 64) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	if not Thread.is_main_thread() or _disposed:
 		return
@@ -166,7 +166,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 成功为 OK；非主线程、已释放或开启期间被关闭为 ERR_UNAVAILABLE，清理中为 ERR_BUSY，无效配置为 ERR_INVALID_PARAMETER。
 func begin_session() -> Error:
@@ -193,7 +193,7 @@ func begin_session() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func end_session() -> void:
 	if not Thread.is_main_thread():
 		return
@@ -206,7 +206,7 @@ func end_session() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param peer_id: 实际传输 peer，必须大于 0。
 func disconnect_peer(peer_id: int) -> void:
@@ -222,7 +222,7 @@ func disconnect_peer(peer_id: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param peer_id: 单一目标 peer，必须大于 0，不接受广播。
 ## [br]
@@ -321,7 +321,7 @@ func request(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param peer_id: 来自传输回调的真实 peer，不使用载荷自报身份。
 ## [br]
@@ -376,7 +376,7 @@ func receive_reply(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func tick() -> void:
 	if (
 		not Thread.is_main_thread()
@@ -404,7 +404,7 @@ func tick() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 在途数量。
 func get_pending_count() -> int:
@@ -415,7 +415,7 @@ func get_pending_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前关联器状态。
 ## [br]
@@ -437,7 +437,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param handle: 关联器发出的在途句柄。
 ## [br]

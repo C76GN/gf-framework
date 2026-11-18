@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFNetworkRequestHandle
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param result: 不可变的请求终态，回复通过 getter 取得隔离副本。
 signal completed(result: GFNetworkRequestResult)
@@ -70,7 +70,7 @@ var _published: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 请求 ID；尚未配置时为空。
 func get_request_id() -> String:
@@ -81,7 +81,7 @@ func get_request_id() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 请求的目标 peer；尚未配置时为 -1。
 func get_peer_id() -> int:
@@ -92,7 +92,7 @@ func get_peer_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已配置且尚未提交终态时返回 true。
 func is_pending() -> bool:
@@ -103,7 +103,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已提交结果时返回 true；不表示 completed 已经派发。
 func is_completed() -> bool:
@@ -114,7 +114,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已提交 received 终态时返回 true；不判断业务成功。
 func is_successful() -> bool:
@@ -125,7 +125,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已提交的同一结果对象；尚未提交时为 null。
 func get_result() -> GFNetworkRequestResult:
@@ -139,7 +139,7 @@ func get_result() -> GFNetworkRequestResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本次调用首次终结等待时返回 true。
 func cancel() -> bool:
@@ -169,7 +169,7 @@ func cancel() -> bool:
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request_id: 关联器分配的请求 ID。
 ## [br]
@@ -195,7 +195,7 @@ func configure_from_network_layer(
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param result: 关联器已配置的不可变结果，必须匹配请求 ID 与目标 peer。
 ## [br]
@@ -222,7 +222,7 @@ func commit_from_network_layer(result: GFNetworkRequestResult) -> bool:
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func publish_from_network_layer() -> void:
 	if (
 		not Thread.is_main_thread()

@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 通用存储后端传输协调器。 该工具只协调两个 GFStorageBackend 的字典数据传输、冲突检测和写回策略。 普通 Backend 没有 CAS 或跨端原子性；写入可能部分成功，结果始终明确这些能力边界。 默认只报告冲突。USE_NEWEST 仅是显式元数据选择规则，不保证并发安全或远端 revision 顺序。
 
@@ -34,7 +34,7 @@
 ### `transfer_conflict_detected`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal transfer_conflict_detected(report: GFStorageConflictReport)
@@ -53,7 +53,7 @@ signal transfer_conflict_detected(report: GFStorageConflictReport)
 ### `transfer_conflict_unresolved`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal transfer_conflict_unresolved(file_name: String, result: Dictionary)
@@ -77,7 +77,7 @@ signal transfer_conflict_unresolved(file_name: String, result: Dictionary)
 ### `transfer_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal transfer_completed(file_name: String, result: Dictionary)
@@ -101,7 +101,7 @@ signal transfer_completed(file_name: String, result: Dictionary)
 ### `transfer_failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal transfer_failed(file_name: String, result: Dictionary)
@@ -127,7 +127,7 @@ signal transfer_failed(file_name: String, result: Dictionary)
 ### `ConflictStrategy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum ConflictStrategy {
@@ -151,7 +151,7 @@ enum ConflictStrategy {
 ### `TransferStatus`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum TransferStatus {
@@ -181,7 +181,7 @@ enum TransferStatus {
 ### `default_conflict_strategy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 var default_conflict_strategy: ConflictStrategy = ConflictStrategy.MANUAL
@@ -194,7 +194,7 @@ var default_conflict_strategy: ConflictStrategy = ConflictStrategy.MANUAL
 ### `write_resolved_by_default`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 var write_resolved_by_default: bool = true
@@ -209,7 +209,7 @@ var write_resolved_by_default: bool = true
 ### `transfer_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func transfer_data( file_name: String, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:
@@ -238,7 +238,7 @@ func transfer_data( file_name: String, local_backend: GFStorageBackend, remote_b
 ### `transfer_many`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func transfer_many( file_names: PackedStringArray, local_backend: GFStorageBackend, remote_backend: GFStorageBackend, options: Dictionary = {} ) -> Dictionary:
@@ -267,7 +267,7 @@ func transfer_many( file_names: PackedStringArray, local_backend: GFStorageBacke
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

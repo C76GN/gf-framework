@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次同步观察的取消与唯一终态句柄。 取消只结束调用方等待，不能证明远端停止写入。已发送提交的取消、超时或释放结果 由引擎报告为未知，并通过原操作 ID 恢复；迟到响应不会改变已经交付的终态。
 
@@ -29,7 +29,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal completed(result: GFStorageSyncResult)
@@ -50,7 +50,7 @@ signal completed(result: GFStorageSyncResult)
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -65,7 +65,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_result() -> GFStorageSyncResult:
@@ -80,7 +80,7 @@ func get_result() -> GFStorageSyncResult:
 ### `wait_result_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_result_async() -> GFStorageSyncResult:
@@ -95,7 +95,7 @@ func wait_result_async() -> GFStorageSyncResult:
 ### `cancel_wait`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_wait() -> bool:
@@ -110,7 +110,7 @@ func cancel_wait() -> bool:
 ### `is_cancel_requested`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_cancel_requested() -> bool:

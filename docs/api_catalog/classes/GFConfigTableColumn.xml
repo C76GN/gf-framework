@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableColumn" path="addons/gf/standard/utilities/config/gf_config_table_column.gd" module="standard" extends="Resource" classDigest="56aa562a12b972edb0c95b0926de84ca13d8be05ac4868ece84bbeee2e563018">
+<class name="GFConfigTableColumn" path="addons/gf/standard/utilities/config/gf_config_table_column.gd" module="standard" extends="Resource" classDigest="2513377bb8a69586378c596d6df4c3c4b50cbb7fdf560cf1d923257e7e72cf99">
 	<description>GFConfigTableColumn: 导表字段声明。
 只描述字段名、值类型、必填性、空值策略和默认值，不绑定任何具体业务表。</description>
 	<tags>
@@ -65,7 +65,7 @@
 字段的 required、allow_null、default_value 及整值规则继续生效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="required" decorators="@export">
@@ -111,7 +111,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">element_validation_rules: Array[GFConfigValidationRule]，按原数组下标和声明顺序执行的规则资源；问题保留 field 并附加零基 element_index。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

@@ -227,7 +227,7 @@ var save_preparation_time_budget_usec: int = 2000:
 ### `get_sync_snapshot_limits`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_sync_snapshot_limits() -> Dictionary:
@@ -246,7 +246,7 @@ static func get_sync_snapshot_limits() -> Dictionary:
 ### `measure_sync_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func measure_sync_snapshot(document_data: Dictionary) -> Dictionary:

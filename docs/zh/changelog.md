@@ -1,8 +1,8 @@
 # 更新日志 (Changelog)
 
-## [未发布]
+## [12.0.0] - 2026-11-18
 
-**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、有界规范序列化与分块哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。资源请求改为独立 Operation 与贯穿请求、句柄的 Scope；Context 提供有序关闭，局部 UI 显式绑定业务来源，Save 普通元数据改为有界隔离快照，AI 检查复用同次捕获。对应旧 API 通过文档手动迁移。本次为下一主版本的开发变更，尚未正式发布。
+**版本概述**：重做节点对象池的借还生命周期，解决物理碰撞回调中归还节点的引擎错误，以及弹幕复用时被提前回收的问题。调用方式统一为异步借用结果与一次性 Lease；不保留旧接口兼容层。新增场景组查询工具，可在编辑器中查找已保存的 Group 声明并定位来源节点。Flow 图编辑支持撤销与重做，Resource 表格支持只应用已编辑分量的多选属性编辑。运行期新增手动输入路由、有限存储读写预算、有界规范序列化与分块哈希、历史状态通知和字段输入会话。制作期统一 Project Layout 的 GDScript 分析权威与排除范围，开放有限数值 Tween 样机，并修正 AI 前置条件诊断和验证预算。资源请求改为独立 Operation 与贯穿请求、句柄的 Scope；Context 提供有序关闭，局部 UI 显式绑定业务来源，Save 普通元数据改为有界隔离快照，AI 检查复用同次捕获。对应旧 API 通过文档手动迁移。升级前请按本页的升级指南更新受影响的调用。
 
 ### 🚀 新增特性 (Added)
 
@@ -62,7 +62,7 @@
 - 新增 [配置工作台](editor/tools/config-pipeline.md#从第一张表开始)：版本化新建预设、可运行样例、独立 Profile 草稿、Schema/索引/跨表引用表单、后台只读预览与小表预算预检，复用原有 Runner 校验、预览导出、事务提交和 CLI。类型化表头错误补齐真实来源坐标，实际验证前支持可选累计单元格预算，结果如实呈现严格写后失败与恢复状态。
 - 新增 [项目初始化工具](editor/tools/project-bootstrap.md)：为空项目创建启动脚本、启动场景、空主场景及可选的空 Installer；初始化成功后才进入主场景。已有项目使用独立接入流程，保留原主场景和 Installer 顺序，提供初始化片段；所有创建操作先展示文件与设置变更，失败时按文件所有权补偿并报告恢复需求。
 - [3D 场景摆放](editor/tools/scene-placement.md#连续摆放) 新增默认关闭的“连续摆放”选项：固定开始时的源场景、父节点和参数，每次确认分别提交独立 Undo / Redo，再等待新的有效指针命中；重复 Enter 不会复用旧位置。取消预览或编辑上下文变化会结束本轮，已提交实例保留，默认仍为单次摆放。
-- [配置化 Tween](extensions/action-queue/tween-config.md) 新增可选运行时秒数定位、正向/反向播放与有限往返循环；通过显式共享的 `GFTweenReplacementScope` 接管同一目标的冲突属性，保持当前姿态并结束旧动作。连同步骤创作和受控预览，`gf.action_queue` 的 `extension_version` 升为 `2.7.0`。
+- [配置化 Tween](extensions/action-queue/tween-config.md) 新增可选运行时秒数定位、正向与反向播放以及有限往返循环。通过显式共享的 `GFTweenReplacementScope` 接管同一目标的冲突属性，保持当前姿态并结束旧动作。
 - [虚拟列表](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/viewport-text-node-tools/virtual-list-model.md) 支持按复用分类混排不同模板；同一条目切换模板时保留事务检查、焦点交接与测量锚点，各类节点共享原有池总量上限，现有单模板绑定保持兼容。
 - 新增 [Storage 大型结果的一次性领取](standard/utilities/io/storage-snapshot/read-results.md#大型结果的一次性领取)：通过专用句柄接收纯字典异步读取，迁移后保留一次交付隔离，通知与领取不再复制载荷；提供独立的小型诊断、取消及释放语义，普通读取保持兼容。
 - [2D 空间画布](standard/input-flow/spatial-canvas-2d.md#已选条目的默认轮廓) 支持独立隐藏已选条目的默认矩形轮廓，便于项目使用自定义选中装饰，同时保留点选、框选、网格与放置预览。
@@ -210,7 +210,6 @@
 - 修复配置化 Tween 在中途 `finish()` 时重复叠加相对偏移的问题；串并行与有限循环推进到本次执行的真实终点，不补发跳过的标记，setter 重入后旧动作不再写入新会话。
 - 修复 typed JSON 编解码的原子类型预算不对称，并恢复 Dialogue 自定义上下文的反序列化覆盖契约；恢复先完成会话校验，再提交上下文与位置。
 - 修复并行任务组错误推进已独立重新调度的子任务、输入批量清理回调后的旧完成事件，以及动作队列重入清空后的重复排空通知。
-- 生成文档事务回滚只清理本次成功安装且身份仍匹配的目录；并发替换的目标和无法安全恢复的旧备份会被保留。
 
 - 修复 NodeContext 将正常跨帧关闭误判为失效的问题；强制销毁会终止旧关闭遍历，扩展设置保存失败会保留明确的失败提示。
 - 修复状态机、任务组、输入序列、触控、拖放、平台初始化、UI、音频、行为树、Buff 与网络接管在同步回调重入后继续使用旧状态的问题；旧注册 token、句柄和绑定不能影响新一轮实例。
@@ -220,7 +219,7 @@
 - 修复循环单字段 schema、超大 Deque 请求、字幕空结束时间、标签恢复与层级计数、投影键和默认值，以及大额定点加减和显示精度边界。
 - 修复四叉树无进展分裂、空间查询预算回退与闭边界候选、RegionMap 删除标记、单 tile WFC 邻接验证，以及浮力法线在剪切变换下的计算。
 - 修复配置合并覆盖原键、验证预算丢失错误、Config Pipeline 跳过 warning、嵌套目录约束、LSP 编辑的读取预算和精确路径大小写、生成脚本符号冲突，以及工具报告来源和取消提示。
-- 修复生成文档事务在中断时的回滚、无语言围栏解析、显式缺失样例目录和 schema 注释校验；验证输入检测捕获期间的文件漂移，库存枚举在收集时执行预算检查，文件门禁拒绝阻塞式特殊文件替换。AI Developer 的快照输出、计划读取及反馈提交重新核验对应边界。
+- 修复 AI Developer 检查期间的文件变动检测，枚举时应用工作量预算。快照输出、计划读取及反馈提交重新核验对应边界。
 
 - [Modal 聚焦回调](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/modal-protocol.md) 转交焦点后保留面板内的有效目标；同一面板关闭后重开会终止旧聚焦与打开通知。[焦点顺序](standard/utilities/runtime/settings-ui-scene/settings-display/control-focus-order.md) 的零步查询在当前控件失去资格时返回空，不再意外选中其他控件。
 - [Modal 自动聚焦](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-stack-modal/modal-protocol.md) 跳过隐藏祖先、递归焦点禁用、禁用按钮和待释放目标；打开聚焦在面板显示后执行，返回值与实际焦点修正一致，并在聚焦回调关闭或替换面板时停止原目标遍历。
@@ -248,7 +247,6 @@
 - 移除三个 Save Profile 请求的公开 `take_ownership()` 构造入口，改用有界纯数据快照 `create()`。
 
 - 移除源码仓库的 `examples/` 独立示例及其专属测试、检查和文档入口，保留框架自身的回归测试、按需装配说明与[多目标错峰动画用法](extensions/action-queue/visual-actions/staggered-targets.md)。
-- 退役已停止建设的外部 Reference 工程同步流程及其专属配置与验证。外部工程、备份与业务资源不受操作，共用事务、预算和回滚能力继续保留。
 - 删除 Project Layout 的 Python 规则解释器及 legacy、shadow 迁移模式；维护命令只负责把输入交给同一个 GDScript 会话。
 - 移除同步节点借用、按裸节点归还、`before_add` 回调及池专用节点启停钩子。
 - 移除 `GFObjectPoolPrewarmOperation` 及其 `progressed` / `completed` 信号和多套预热入口。独立公开的弹幕发射策略 Task 改为内部实现。
@@ -307,10 +305,9 @@
 - 同名 `GFObjectPoolPrewarmResult` 的状态、原因与计数接口也有破坏性调整；`COMPLETED` 改为 `SUCCEEDED`，容量拒绝合并为 `PARTIAL`，池销毁合并为 `CANCELLED`。旧原因常量和细分计数不再保留，详见对象池指南的迁移表。
 - 删除弹幕旧同步单发/多发入口与直接节点返回值，统一使用 `await emit_pattern()` 返回 `GFProjectileEmissionResult`。移除 `use_object_pool` 开关和 Emitter 预热包装；需要复用时设置 `object_pool_utility`，预热直接调用池。
 - `dispose()` 立即拒绝新借用并撤销所有 Lease，清理在安全点执行；需要等待时调用 `await pool.wait_disposed()`。该等待包含已接纳请求与 Lease 的终态通知，不保证引擎已完成 `queue_free()`。注册到架构的池参与正常异步关停与替换的静默期等待。
-- 保留已有接口的首次发布 `@since` 版本，不因本次签名或语义重做而改为 `unreleased`。
 - Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交复用既有命令与资源历史。
 - `GFConfigTableReference` 新增 `SourceMode` 与 `source_mode`，默认 `FIELDS` 保持原有字段引用行为；`ARRAY_ELEMENTS` 校验单个数组字段到目标单字段键的引用。元素问题增加零基 `element_index`；`resolve_record_references()` 仍只解析 `FIELDS` 引用。
-- `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
+- `GFTweenActionStep` 新增可选 `easing_curve: Curve`，为空时使用既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -340,7 +337,7 @@
 - 复杂配置请将重复的内部字段声明移入 `GFConfigTypeDefinition`，通过列的 `type_definition` 复用；结构布局在来源 `parse_options.layout` 中显式声明，普通平表沿用现有配置。调用 Schema 复制后须检查 null，读取规范化数据前须检查报告 `ok`；覆写增加了 `options` 参数的复制或转换方法时，同步签名并透传选项。自定义工具不能用描述报告替代真实的复杂类型资源。
 - 配置入口默认有限；大批次应按实际数据规模显式设置 `work_limits`，不能用零或负数关闭额度。多个直接导入/合并调用需要共享预算时传 `work_budget`，不要同时声明两者；Pipeline 每次构建自行创建批次句柄，只在顶层或 Profile 构建选项中声明 `work_limits`。`GFConfigTableMergePolicy.merge_record()` 现在返回结果报告，检查 `ok` 后读取 `data`；记录键分量改用稳定标量。合并或数据库构建失败时不得继续读取部分结果，修正后重新执行完整操作。
 
-- Project Layout 配置将 `schema_version` 改为 `2` 后，按当前规则闭合字段重新校验；需要排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis，不能只修改旧报告的版本号。
+- [Project Layout](editor/tools/project-layout.md) 配置将 `schema_version` 改为 `2` 后，按当前规则重新校验字段。排除生成目录时显式填写 `capture_scope`，并保留必需源码、结构和 profile 来源。重新捕获 snapshot 和 analysis。原 `GFProjectLayoutValidator` 的直接分析调用改用 Analyzer，多次查询改用 Session。
 - AI Developer 通过现有迁移计划与确认流程把 v5 契约升级为 v6：原 required 进入源码必需与采用允许，optional 进入采用允许，forbidden 同时保留源码禁止与采用禁止。重新生成 v10 快照，不手动改旧报告版本号；需要“允许源码存在但禁止项目采用”时再显式调整两组规则。
 - Dialogue 调用方按用途选择结构编译或生产构建，交给内置 Runner 的内容使用 `build_runner_*` 并检查 `success`。行为树仅在项目明确允许恢复的错误原因外包 `RecoverError`；旧工作不会自动重试。对话内容变动后不能强行复用精确快照，应由项目检查点或显式版本映射恢复。
 - 资源消费者在初始化前完成绑定；需要切换时共享同一个服务域入口，旧资源通过原句柄释放。受控切换暂停时拒绝新请求；在途热切换的旧代未退出时拒绝再次切换，超时不会强制销毁仍在使用的后端。

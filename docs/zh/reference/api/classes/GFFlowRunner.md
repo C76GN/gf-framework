@@ -311,7 +311,7 @@ func cancel() -> void:
 ### `get_run_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_run_state() -> GFFlowRunState:

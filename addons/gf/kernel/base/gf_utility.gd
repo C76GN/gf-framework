@@ -129,7 +129,7 @@ var _dependency_scope: Dictionary = _DEPENDENCY_SCOPE_SUPPORT._make_scope()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 默认 true。
 func can_register_in_architecture() -> bool:
@@ -142,7 +142,7 @@ func can_register_in_architecture() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 允许独立移除时为 true。
 func can_remove_from_active_lifecycle() -> bool:

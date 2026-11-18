@@ -52,7 +52,7 @@ const DEFAULT_FIELDS: Array[Dictionary] = [
 ### `NAME_BROWSE_BAND_WIDTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const NAME_BROWSE_BAND_WIDTH: float = 100.0

@@ -9,7 +9,7 @@
 ## [br]
 ## @category editor_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFSceneGroupDock
 extends VBoxContainer
 
@@ -210,7 +210,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param root_path: res:// 下的已保存场景搜索根目录。
 ## [br]
@@ -235,7 +235,7 @@ func refresh(root_path: String = "res://") -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel_scan() -> void:
 	_index.cancel()
 	_scanning = false
@@ -251,7 +251,7 @@ func cancel_scan() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 与 GFSceneGroupIndex.get_snapshot() 相同的摘要。
 ## [br]

@@ -26,7 +26,7 @@
 ### `run`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func run(arguments: PackedStringArray = PackedStringArray(), base_options: Dictionary = {}) -> Dictionary:

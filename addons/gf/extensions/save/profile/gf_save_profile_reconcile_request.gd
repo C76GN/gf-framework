@@ -59,7 +59,7 @@ var _result_metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param context: 对账流程使用的临时纯数据上下文。
 ## [br]

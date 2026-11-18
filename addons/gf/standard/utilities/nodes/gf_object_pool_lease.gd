@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFObjectPoolLease
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param reason: released、node_lost、pool_disposed 或 capacity_retired。
 signal settled(reason: StringName)
@@ -30,7 +30,7 @@ signal settled(reason: StringName)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum State {
 	## 调用方仍持有节点使用权。
 	ACTIVE,
@@ -86,7 +86,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: ACTIVE 且仍存活的节点；归还、排队删除或丢失后返回 null。
 func get_node() -> Node:
@@ -104,7 +104,7 @@ func get_node() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本次调用首次接纳归还时为 true；重复或陈旧借用为 false。
 func release() -> bool:
@@ -123,7 +123,7 @@ func release() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前 State。
 func get_state() -> State:
@@ -134,7 +134,7 @@ func get_state() -> State:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 任意终态均返回 true。
 func is_settled() -> bool:
@@ -145,7 +145,7 @@ func is_settled() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 与 get_settlement_reason 相同的最终原因。
 func wait_settled() -> StringName:
@@ -158,7 +158,7 @@ func wait_settled() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 未结束时为 pending，未配置时为 unconfigured，否则为 settled 的原因。
 func get_settlement_reason() -> StringName:

@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataBatchPublication
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Failure {
 	## 发布成功，或尚未尝试发布。
 	NONE,
@@ -164,7 +164,7 @@ var _backend_busy: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param schema: 通过 GFDataBatchSchema.create 构造的有效 schema。
 ## [br]
@@ -240,7 +240,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param columns: 与 schema 完全相符的列集合。
 ## [br]
@@ -280,7 +280,7 @@ func publish_copy(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param columns: 可清空的完整列字典，成功后为空。
 ## [br]
@@ -320,7 +320,7 @@ func publish_transfer(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source_columns: 同一次捕获的完整源列集合。
 ## [br]
@@ -360,7 +360,7 @@ func publish_gather_copy(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前快照；尚未发布或已关闭返回 null。
 func get_current() -> GFDataBatchSnapshot:
@@ -371,7 +371,7 @@ func get_current() -> GFDataBatchSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param snapshot: 要检查的快照，可以为历史快照或其他发布者的快照。
 ## [br]
@@ -388,7 +388,7 @@ func is_current(snapshot: GFDataBatchSnapshot) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close() -> void:
 	_open = false
 	_current = null
@@ -398,7 +398,7 @@ func close() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 成功后为 NONE；失败不改写已有快照的元数据。
 func get_last_failure() -> Failure:
@@ -409,7 +409,7 @@ func get_last_failure() -> Failure:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 发布者预算和最近成功构造的复制/移交字节。
 ## [br]

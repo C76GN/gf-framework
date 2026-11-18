@@ -1135,7 +1135,7 @@ func reconcile_profile(lease: GFSaveProfileReconcileLease, request: GFSaveProfil
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param utility: 待比对的存档服务。
 ## [br]

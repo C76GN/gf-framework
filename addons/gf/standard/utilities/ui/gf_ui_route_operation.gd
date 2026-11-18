@@ -90,7 +90,7 @@ var _navigation_target: GFUINavigationTarget = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 冻结目标；普通页面打开返回 null。
 func get_navigation_target() -> GFUINavigationTarget:
@@ -202,7 +202,7 @@ func get_result() -> GFUIRouteResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前导航的终态结果。
 func wait_result_async() -> GFUIRouteResult:

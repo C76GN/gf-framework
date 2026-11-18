@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="1327596fe0a00987b32d05d259e9f9c5d37b6414d200c4e730e91034987f66bd">
+<class name="GFCommandHistoryUtility" path="addons/gf/standard/utilities/history/gf_command_history_utility.gd" module="standard" extends="GFUtility" classDigest="7f5f7a294ff6fff067178d1b505ce14854dbde2b6f18b45f426fb41b6a20ed6b">
 	<description>GFCommandHistoryUtility: 可撤销命令历史管理器。
 负责维护 `GFUndoableCommand` 的撤销栈与重做栈，
 并提供同步/异步重放与历史序列化能力。</description>
@@ -17,7 +17,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 与 get_history_state() 相同的只读状态，revision 按发布顺序递增。</tag>
 				<tag name="schema">snapshot: Dictionary with revision, undo_count, redo_count, max_history_size, can_undo, can_redo, is_processing_operation, and is_processing_async scalar values; no command references.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -67,7 +67,7 @@
 			<description>当前是否持有同步或异步历史操作锁，包括命令调用、终态判断和历史提交。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -163,7 +163,7 @@ Signal 完成参数会规范化后传入 `is_redo_successful()`：无参数为 n
 				<tag name="api">public</tag>
 				<tag name="return">当前计数、容量、操作状态和通知版本。</tag>
 				<tag name="schema">return: Dictionary with revision, undo_count, redo_count, max_history_size, can_undo, can_redo, is_processing_operation, and is_processing_async scalar values.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_undo">

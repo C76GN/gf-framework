@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="0790a1d6c26b80c9633a9bbbf74ee342dd7e6befee7530586392fefeefad4834">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="308167306c9f7a284bfdf0f09fd380715cc3400d757965a790cc8bc4efa96576">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
 默认复制纯数据值树；对象身份、循环和 Resource 克隆通过 duplicate_graph 显式选择。
 另提供差异报告和默认值递归补齐。
@@ -39,7 +39,7 @@ JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
 				<tag name="schema">value: Same pure value domain as GFDataSnapshot.capture.</tag>
 				<tag name="schema">limits: Dictionary with max_items (1000000), max_depth (64, at most 256), max_string_length (1048576), max_payload_bytes (67108864), max_elapsed_msec (30000), cancel_token: GFCancellationToken.</tag>
 				<tag name="schema">return: Dictionary with ok, value, counts_complete, items, packed_items, payload_bytes, maximum_depth, error_kind, error_path, limit_kind, limit and observed. Counts are exact only on success.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_graph">
@@ -54,7 +54,7 @@ Resource 可选复制。全图身份查找最坏为平方复杂度，适用于�
 				<tag name="return">复制后的值。</tag>
 				<tag name="schema">value: 待复制的 Variant 值。</tag>
 				<tag name="schema">return: 复制后的 Variant 值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dictionary">

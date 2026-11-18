@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataSnapshotCapture
 extends RefCounted
 
@@ -147,7 +147,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source: 本次调用独占的租约，成功与失败都会接管其释放责任。
 ## [br]
@@ -205,7 +205,7 @@ static func begin(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param budget: 本帧共享额度，一个 step 对应一条记录或一次清理；调用方每帧重置一次。
 ## [br]
@@ -299,7 +299,7 @@ func advance(budget: GFExecutionBudget) -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel() -> void:
 	if _state != "pending":
 		return
@@ -312,7 +312,7 @@ func cancel() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: ready 时的唯一快照；否则为 null。
 func get_snapshot() -> GFDataSnapshot:
@@ -323,7 +323,7 @@ func get_snapshot() -> GFDataSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 标量状态和累计计量副本。
 ## [br]

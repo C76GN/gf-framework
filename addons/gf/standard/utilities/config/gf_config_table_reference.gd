@@ -19,7 +19,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum SourceMode {
 	## 将来源字段的完整值组成一个引用键。
 	FIELDS,
@@ -45,7 +45,7 @@ enum SourceMode {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var source_mode: SourceMode = SourceMode.FIELDS
 
 ## 目标表名。

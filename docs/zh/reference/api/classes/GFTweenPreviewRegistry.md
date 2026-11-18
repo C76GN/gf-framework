@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：编辑器 API (`editor_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 编辑器预览样机与资源关联的有界目录。 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。
 
@@ -30,7 +30,7 @@
 ### `changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal changed
@@ -45,7 +45,7 @@ signal changed
 ### `get_shared`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_shared() -> GFTweenPreviewRegistry:
@@ -60,7 +60,7 @@ static func get_shared() -> GFTweenPreviewRegistry:
 ### `register_adapter`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func register_adapter( owner: Object, descriptor: Dictionary, adapter: GFTweenPreviewAdapter ) -> GFTweenPreviewRegistration:
@@ -87,7 +87,7 @@ func register_adapter( owner: Object, descriptor: Dictionary, adapter: GFTweenPr
 ### `get_descriptors`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_descriptors() -> Array[Dictionary]:
@@ -106,7 +106,7 @@ func get_descriptors() -> Array[Dictionary]:
 ### `get_property_records`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_property_records(adapter_id: StringName, query: String = "") -> Array[Dictionary]:
@@ -132,7 +132,7 @@ func get_property_records(adapter_id: StringName, query: String = "") -> Array[D
 ### `register_binding`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func register_binding( owner: Object, resource_path: String, target_id: StringName, initial_values: Dictionary = {}, label: String = "" ) -> GFTweenPreviewRegistration:
@@ -161,7 +161,7 @@ func register_binding( owner: Object, resource_path: String, target_id: StringNa
 ### `get_binding`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_binding(resource_path: String) -> Dictionary:

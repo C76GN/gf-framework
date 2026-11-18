@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 冻结的数字显示政策。 小数位与有效位共同限定显示精度，舍入只影响展示，不改变原始数值或交易判定。 单位缩放、整数分组、分隔符和自动记法分别配置；默认保留科学计数法回退。
 
@@ -27,7 +27,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create(options: Dictionary = {}) -> GFNumberFormatPolicy:
@@ -52,7 +52,7 @@ static func create(options: Dictionary = {}) -> GFNumberFormatPolicy:
 ### `try_create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func try_create(options: Dictionary = {}) -> Dictionary:
@@ -78,7 +78,7 @@ static func try_create(options: Dictionary = {}) -> Dictionary:
 ### `get_default_suffixes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_default_suffixes(group_base: int = 1000) -> PackedStringArray:
@@ -99,7 +99,7 @@ static func get_default_suffixes(group_base: int = 1000) -> PackedStringArray:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:

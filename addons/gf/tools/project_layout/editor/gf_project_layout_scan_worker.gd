@@ -531,7 +531,7 @@ func run_request(request: Dictionary) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param session: 同代际只读会话，线程退出前不修改其拥有的报告。
 ## [br]

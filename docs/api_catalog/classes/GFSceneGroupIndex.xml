@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="0747fc1b5b047a290bf89a015d719d606f52259e984121a319e73d2ffaa0c770">
+<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="49916c825152e036804fc5bb4fe9868f5d59317771428883d3281f27e36821e0">
 	<description>GFSceneGroupIndex: 编辑器期已保存场景 Group 声明位置索引。
 只读取磁盘 .tscn / .scn 自身 SceneState 中的持久化声明，不实例化场景节点，
 不把继承或嵌套来源已有的组复制到引用场景。隐藏条目与 .gdignore 子树不在扫描范围内。
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -26,7 +26,7 @@
 				<tag name="param">options: 只允许降低内置扫描上限。</tag>
 				<tag name="return">OK 表示请求有效；ERR_INVALID_PARAMETER、ERR_CANT_OPEN 或 ERR_BUSY 表示拒绝。</tag>
 				<tag name="schema">options: Dictionary，键为 max_depth（int，0..32）、max_entries（int，1..100000）、max_scenes（int，1..10000）、max_rows（int，1..50000）、max_scene_bytes（int，1..8388608）。省略使用上限，0 深度仅扫描根目录。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="advance">
@@ -37,7 +37,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">entry_budget: 本次最多处理的工作单位，范围 1..4096。</tag>
 				<tag name="return">返回 true 表示仍为 scanning，false 表示当前无需继续调用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -46,7 +46,7 @@
 终态调用不改变结果；新的 begin_scan() 会清空旧记录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_snapshot">
@@ -57,7 +57,7 @@ complete 仅表示已完成本次范围的声明扫描；不是运行时成员�
 				<tag name="api">public</tag>
 				<tag name="return">当前扫描摘要。</tag>
 				<tag name="schema">return: Dictionary，包含 status（idle/scanning/complete/partial/cancelled/failed）、root_path、entry_count（已枚举文件和目录数）、scene_count（尝试读取的场景数）、row_count、issues（Array[Dictionary]，每项 code/path/message）和 omitted_issue_count。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query">
@@ -71,7 +71,7 @@ complete 仅表示已完成本次范围的声明扫描；不是运行时成员�
 				<tag name="param">limit: 页大小，限制到 0..200；0 只计算总数。</tag>
 				<tag name="return">有界分页与匹配总数。</tag>
 				<tag name="schema">return: Dictionary，包含 rows（Array[Dictionary]，每项 group:String、scene_path:String、node_path:String）、total:int、offset:int、limit:int。node_path 相对声明场景根，根节点为 .。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

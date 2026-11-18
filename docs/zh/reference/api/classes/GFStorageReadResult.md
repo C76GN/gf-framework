@@ -327,7 +327,7 @@ func is_integrity_accepted() -> bool:
 ### `get_committed_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_committed_revision() -> GFStorageRevisionResult:

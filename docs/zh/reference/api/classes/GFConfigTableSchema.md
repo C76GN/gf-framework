@@ -171,7 +171,7 @@ var max_resource_path_checks_per_validation: int = 1024
 ### `max_elements_per_validation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(1, 65536, 1)
@@ -185,7 +185,7 @@ var max_elements_per_validation: int = 4096
 ### `max_element_rule_checks_per_validation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(1, 262144, 1)
@@ -587,7 +587,7 @@ func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
 ### `try_coerce_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func try_coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:

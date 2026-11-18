@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSyncUtility" path="addons/gf/extensions/save/sync/gf_save_sync_utility.gd" module="extensions/save" extends="GFUtility" classDigest="2f863200022d3b608acf410e96be6acbbbf90521ac2b66f78f562758dd65631d">
+<class name="GFSaveSyncUtility" path="addons/gf/extensions/save/sync/gf_save_sync_utility.gd" module="extensions/save" extends="GFUtility" classDigest="dbb0853b53db18fbb68d6f724c3164ffbf8487e81f39e58a0d81bc097cde4d64">
 	<description>GFSaveSyncUtility: 将通用版本同步组合到受管 Profile 事务。
 prepare_profile() 必须早于目标 Profile 的加载或保存；同步使用最近已确认的完整
 文档。业务修改须通过 Profile 保存或事务持久化，不从未登记的内存改动猜测代际。
@@ -8,7 +8,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 			<description>关闭会话并释放借用的服务引用；不释放外部 Profile 与 Coordinator。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
@@ -30,7 +30,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 架构静默作用域。</tag>
 				<tag name="return">已结束观察的完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup">
@@ -43,7 +43,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="param">projection: 项目显式投影，默认协议拒绝上传与下载。</tag>
 				<tag name="param">clock: 可选单调时钟。</tag>
 				<tag name="return">装配成功时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prepare_profile">
@@ -53,7 +53,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: 已注册目标 Profile。</tag>
 				<tag name="return">开启成功时为 true；不会替项目创建或切换档位。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="open_session">
@@ -68,7 +68,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="param">record_key: 远端记录键。</tag>
 				<tag name="param">transport: 已冻结该账号凭证的适配器。</tag>
 				<tag name="return">身份和快照均通过检查时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="close_session">
@@ -76,7 +76,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 			<description>结束会话观察，撤销迟到回调的本地写入资格。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="synchronize">
@@ -91,7 +91,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="return">主线程完成源；可能已经完成。</tag>
 				<tag name="schema">options: Closed Dictionary with mode(push/pull/preview),resolution(report/local/remote),timeout_msec:int1..300000; defaults follow GFStorageSyncRequest.</tag>
 				<tag name="schema">return: GFAsyncCompletion success result is closed Dictionary with ok:bool,status:StringName,sync_result:GFStorageSyncResult/null,local_result:GFSaveProfileTransactionResult/null,local_applied:bool,acknowledged_generation:int,requires_recovery:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="recover_pending">
@@ -101,7 +101,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="api">public</tag>
 				<tag name="return">与 synchronize() 相同的完成记录；本地处于对账阻断时须先完成 Profile 恢复。</tag>
 				<tag name="schema">return: GFAsyncCompletion success result follows synchronize().</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_wait">
@@ -110,7 +110,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有观察可结束时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -119,7 +119,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 帧间隔，远端超时仍使用单调时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -129,7 +129,7 @@ Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业
 				<tag name="api">public</tag>
 				<tag name="return">会话和观察计数。</tag>
 				<tag name="schema">return: Dictionary with session_open:bool,observing:bool,local_pending_count:int,disposed:bool.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

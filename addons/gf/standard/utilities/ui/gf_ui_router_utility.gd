@@ -217,7 +217,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param clock: 非空时钟；默认服务直接使用 GFClock。
 ## [br]

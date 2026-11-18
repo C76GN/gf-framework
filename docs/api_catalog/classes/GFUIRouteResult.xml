@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="e59cdc6709a1e0573a19019ac772fcf5c042d8f37baea86ac581cb01b19c5f31">
+<class name="GFUIRouteResult" path="addons/gf/standard/utilities/ui/gf_ui_route_result.gd" module="standard" extends="RefCounted" classDigest="0f265c9024e425b765b6854b80e5af8f447e03493536bc526bcc6f84e8974fd0">
 	<description>GFUIRouteResult: UI 路由异步打开的不可变终态。
 结果把路由校验、可选预加载、面板提交和生命周期中止统一为稳定状态，
 并保留预加载事务结果，避免项目通过日志或时序猜测失败阶段。</description>
@@ -24,7 +24,7 @@
 			<description>页面已提交且内容已就绪；本次没有请求语义定位。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_TARGET_READY">
@@ -32,7 +32,7 @@
 			<description>页面、内容与语义目标均已可用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_NAVIGATION">
@@ -40,7 +40,7 @@
 			<description>导航目标、resolver 或超时政策无效，未提交页面。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CONTENT_FAILED">
@@ -48,7 +48,7 @@
 			<description>页面已提交，但内容准备失败；页面不被自动回滚。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_TARGET_UNAVAILABLE">
@@ -56,7 +56,7 @@
 			<description>内容已就绪，但项目无法定位请求目标；保留可用页面。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_READINESS_TIMEOUT">
@@ -64,7 +64,7 @@
 			<description>页面提交后的内容准备或定位超过本次等待预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MISSING_ROUTE">
@@ -233,7 +233,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">内容失败、超时或提交后取消也可以为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_content_ready">
@@ -242,7 +242,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">普通页面打开没有准备协议时为 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_target_resolved">
@@ -251,7 +251,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">只有语义定位成功时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">

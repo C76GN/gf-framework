@@ -4,7 +4,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFAssetLoadOperation
 extends RefCounted
 
@@ -15,7 +15,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param result: 稳定的终态结果。
 signal completed(result: GFAssetLoadResult)
@@ -45,7 +45,7 @@ var _utility_ref: WeakRef
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 同一个结果对象；重复等待不创建新句柄。
 func wait_result_async() -> GFAssetLoadResult:
@@ -58,7 +58,7 @@ func wait_result_async() -> GFAssetLoadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return pending 为 null，否则为稳定终态。
 func get_result() -> GFAssetLoadResult:
@@ -69,7 +69,7 @@ func get_result() -> GFAssetLoadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已进入终态时为 true。
 func is_completed() -> bool:
@@ -80,7 +80,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 本次取消生效时为 true。
 func cancel() -> bool:

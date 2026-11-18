@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="0c3aa8614149a8d843f98e7c430eb0e27278f0cd1e7788ec18b19f0b8bce2086">
+<class name="GFConfigWorkBudget" path="addons/gf/standard/utilities/config/gf_config_work_budget.gd" module="standard" extends="RefCounted" classDigest="3f8017201819c518b83aeed4a4a0a96f34dd29ba9f9c2e494cff312c0151b5b9">
 	<description>GFConfigWorkBudget: 单次配置操作及批次共享的有限工作预算。
 句柄只累计、不重置；首次失败锁存。它约束受信任配置代码的协作工作量，
 不隔离自定义代码，也不统计 Resource 属性或引擎内部全部内存。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">limits: 覆盖默认容量的字段。</tag>
 				<tag name="schema">limits: Dictionary，仅接受 max_input_bytes、max_depth、max_work_units、max_value_bytes、max_output_bytes 的正整数；max_depth 最大为 256。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_remaining_work_units">
@@ -29,7 +29,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败句柄返回 0；正常句柄返回尚未消费的工作单元。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_options">
@@ -40,7 +40,7 @@
 				<tag name="param">options: 调用入口选项，其他业务选项不参与预算解析。</tag>
 				<tag name="return">新建或原有句柄；非法选项返回失败句柄，并锁存可识别的原句柄。</tag>
 				<tag name="schema">options: Dictionary，work_limits 为构造函数限额字典，work_budget 为 GFConfigWorkBudget；两字段互斥，省略时创建默认有限句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="check_input_bytes">
@@ -51,7 +51,7 @@
 				<tag name="param">amount: 本次准备读取的非负字节数。</tag>
 				<tag name="param">context: 诊断位置。</tag>
 				<tag name="return">本次读取仍在剩余额度内时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="consume_input_bytes">
@@ -62,7 +62,7 @@
 				<tag name="param">amount: 本次新增的非负字节数。</tag>
 				<tag name="param">context: 诊断位置。</tag>
 				<tag name="return">接受本次输入时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="consume_output_bytes">
@@ -73,7 +73,7 @@
 				<tag name="param">amount: 本次新增的非负字节数。</tag>
 				<tag name="param">context: 诊断位置。</tag>
 				<tag name="return">接受本次输出时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="consume_work">
@@ -84,7 +84,7 @@
 				<tag name="param">amount: 本次执行的非负工作单元数。</tag>
 				<tag name="param">context: 诊断位置。</tag>
 				<tag name="return">本次工作在剩余额度内时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="check_depth">
@@ -95,7 +95,7 @@
 				<tag name="param">depth: 当前非负深度。</tag>
 				<tag name="param">context: 诊断位置。</tag>
 				<tag name="return">深度合法且句柄未失败时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="admit_value">
@@ -113,7 +113,7 @@ String/StringName 计 UTF-8 载荷；NodePath 按名称、子名称及分隔符�
 				<tag name="param">context: 诊断位置。</tag>
 				<tag name="return">完整数据图通过准入时为 true，失败不会复制输入。</tag>
 				<tag name="schema">value: Variant，支持无循环容器、原生值及 Resource 叶引用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_ok">
@@ -122,7 +122,7 @@ String/StringName 计 UTF-8 载荷；NodePath 按名称、子名称及分隔符�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首次失败前为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_report">
@@ -132,7 +132,7 @@ String/StringName 计 UTF-8 载荷；NodePath 按名称、子名称及分隔符�
 				<tag name="api">public</tag>
 				<tag name="return">预算状态及计数。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、error、context、limits 与 usage；usage 含 work_units、input_bytes、value_bytes、output_bytes、peak_depth。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

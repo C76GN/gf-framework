@@ -272,7 +272,7 @@ func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:
 ### `get_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_snapshot() -> GFConfigSnapshot:
@@ -287,7 +287,7 @@ func get_snapshot() -> GFConfigSnapshot:
 ### `get_publication_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_publication_generation() -> int:
@@ -302,7 +302,7 @@ func get_publication_generation() -> int:
 ### `publish_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func publish_snapshot(snapshot: GFConfigSnapshot, expected_generation: int) -> Dictionary:

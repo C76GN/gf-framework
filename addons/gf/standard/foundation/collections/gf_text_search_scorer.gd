@@ -33,7 +33,7 @@ const DEFAULT_FIELDS: Array[Dictionary] = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const NAME_BROWSE_BAND_WIDTH: float = 100.0
 
 ## 规范化查询文本时替换为空格的分隔字符集合。
@@ -277,7 +277,7 @@ static func rank_candidates(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param query: 查询文本。
 ## [br]
@@ -298,7 +298,7 @@ static func create_ranking_context(query: String, options: Dictionary = {}) -> D
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param candidate: 本次查询的候选数据。
 ## [br]
@@ -327,7 +327,7 @@ static func score_ranking_candidate(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param left: 左侧评分报告。
 ## [br]
@@ -366,7 +366,7 @@ static func is_ranked_report_before(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param reports: 本次排名独占的报告数组；只改变顺序，不复制或修改报告内容。
 ## [br]
@@ -413,7 +413,7 @@ static func sort_ranking_reports(reports: Array[Dictionary], options: Dictionary
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用方提供的排序选项。
 ## [br]

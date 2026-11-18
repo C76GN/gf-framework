@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="b3ce70038526fda3acc6c77ca702878e16455c16e3a0bd28e4e6b703be35def7">
+<class name="GFResourceRegistry" path="addons/gf/standard/utilities/assets/gf_resource_registry.gd" module="standard" extends="Resource" classDigest="ef3dd16d706ea82ea72f6765a66cfe189ad85c751d36498a41dd3afdaf18d621">
 	<description>GFResourceRegistry: 通用资源注册表。
 通过稳定 ID 管理资源路径、类型提示和字段索引，便于项目用统一方式查询、
 预加载或加载资源定义。注册表只描述资源位置和通用字段，不规定物品、技能、
@@ -317,7 +317,7 @@
 				<tag name="param">scope: 资源生命周期。</tag>
 				<tag name="param">type_hint_override: 可选类型覆盖。</tag>
 				<tag name="return">独立操作，条目不存在时返回失败终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_asset_group_entries">

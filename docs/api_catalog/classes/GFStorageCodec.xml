@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="4dbbb856087dc0b626d71ed066c08c778253ef8204596197fad7264a43029502">
+<class name="GFStorageCodec" path="addons/gf/standard/utilities/storage/gf_storage_codec.gd" module="standard" extends="Resource" classDigest="4c44ac4123d86d81ed98f7b6a4e907f9ceff64cbb4901902815004388fd07ccc">
 	<description>GFStorageCodec: 通用存档字典编码与解码策略。
 负责严格存储文档的字典序列化、可选压缩、完整性校验和轻量混淆。
 JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点数。
@@ -190,7 +190,7 @@ JSON 格式会通过 GFVariantJsonCodec 保留 Godot 值类型和非有限浮点
 只能设置正数，无效赋值保留原值；该上限不表示 Variant 堆内存或解析耗时上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="normalize_json_numbers" decorators="@export">
@@ -228,7 +228,7 @@ JSON 在递归排序或 checksum 数字归一化之前执行默认遍历预算�
 				<tag name="schema">data: Dictionary，所有业务键均保存在独立 payload 中。</tag>
 				<tag name="schema">options: Dictionary，可包含 format、use_compression、obfuscation_key、use_integrity_checksum、include_metadata、version 和 max_decode_bytes；max_decode_bytes 必须是正 int，默认沿用资源配置；已移除的 max_decompressed_bytes 选项被拒绝，不提供别名。</tag>
 				<tag name="schema">return: 闭合 Dictionary，仅包含 ok: bool、error: Error 和 bytes: PackedByteArray。成功时 error 为 OK 且 bytes 非空；非法预算或已移除选项返回 ERR_INVALID_PARAMETER，编码失败返回 ERR_INVALID_DATA，完整明文超限返回 ERR_OUT_OF_MEMORY；失败时 bytes 为空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="decode">

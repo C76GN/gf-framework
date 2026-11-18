@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 可验证、可持久化且不持有回调的任务状态快照。 冻结接取时的定义、接取信息和生命周期。查询型指标的缓存不能在恢复时充当新样本； GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。已完成状态保持完成。
 
@@ -29,7 +29,7 @@
 ### `from_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func from_record(record: Dictionary) -> GFQuestState:
@@ -54,7 +54,7 @@ static func from_record(record: Dictionary) -> GFQuestState:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:
@@ -73,7 +73,7 @@ func to_record() -> Dictionary:
 ### `get_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_definition() -> GFQuestDefinition:
@@ -88,7 +88,7 @@ func get_definition() -> GFQuestDefinition:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -103,7 +103,7 @@ func get_status() -> StringName:
 ### `get_current_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_current_count() -> int:
@@ -118,7 +118,7 @@ func get_current_count() -> int:
 ### `is_metric_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_metric_available() -> bool:

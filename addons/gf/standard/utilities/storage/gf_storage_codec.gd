@@ -201,7 +201,7 @@ const _METADATA_FIELDS: Array = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var max_decode_bytes: int = 64 * 1024 * 1024:
 	set(value):
 		if value <= 0:
@@ -255,7 +255,7 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param data: 要编码的业务字典。
 ## [br]
@@ -540,7 +540,7 @@ func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> Str
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param bytes: 本次物理读取的字节。
 ## [br]

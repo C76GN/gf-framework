@@ -10,7 +10,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFCameraFramingRig2D
 extends GFCameraRig2D
 
@@ -40,7 +40,7 @@ const _MIN_ZOOM: float = 0.0001
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema target_paths: Array[NodePath]，每项指向与输出 Viewport 世界画布一致的 Node2D 锚点。
 @export var target_paths: Array[NodePath] = []
@@ -49,21 +49,21 @@ const _MIN_ZOOM: float = 0.0001
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var viewport_margin: Vector2 = Vector2(16.0, 16.0)
 
 ## 最小统一缩放；必须位于 0.0001 到 max_zoom。约束导致真实锚点超出边距区域时 fits 为 false。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(0.0001, 1000000.0, 0.001) var min_zoom: float = 0.1
 
 ## 最大统一缩放；必须位于 min_zoom 到 1000000。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(0.0001, 1000000.0, 0.001) var max_zoom: float = 10.0
 
 ## 相机轴坐标内最小世界宽高；各分量必须有限、大于零且不超过 1000000。
@@ -71,7 +71,7 @@ const _MIN_ZOOM: float = 0.0001
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var min_extent: Vector2 = Vector2.ONE
 
 
@@ -86,7 +86,7 @@ const _MIN_ZOOM: float = 0.0001
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param camera: 将接收姿态的、已入树且自身 basis 有限非退化、父变换可逆的 Camera2D。
 ## [br]
@@ -199,7 +199,7 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param camera: 实际接收姿态的 Camera2D；未提供时明确失败，不猜测全局 Viewport。
 ## [br]
@@ -223,7 +223,7 @@ func get_camera_pose(camera: Camera2D = null) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已入树、启用、配置有效且至少有一个有效锚点时返回 true。
 func is_available() -> bool:

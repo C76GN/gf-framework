@@ -68,7 +68,7 @@ enum ValueType {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var type_definition: GFConfigTypeDefinition = null
 
 ## 是否必须出现在记录中。
@@ -111,7 +111,7 @@ enum ValueType {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema element_validation_rules: Array[GFConfigValidationRule]，按原数组下标和声明顺序执行的规则资源；问题保留 field 并附加零基 element_index。
 @export var element_validation_rules: Array[GFConfigValidationRule] = []

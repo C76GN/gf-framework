@@ -86,7 +86,7 @@ func materialize_table(table_ir: GFConfigPipelineTableIR, options: Dictionary = 
 ### `materialize_database`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionary = {}) -> Dictionary:
@@ -113,7 +113,7 @@ func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionar
 ### `project_database`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func project_database( compilation_ir: GFConfigPipelineIR, target: GFConfigPipelineConsumerTarget, options: Dictionary = {} ) -> Dictionary:

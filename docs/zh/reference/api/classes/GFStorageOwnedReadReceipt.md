@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 独占读取的不可变 caller 终态诊断。 只保留请求身份、稳定状态、版本、完整性和实际读取的 committed revision。 不持有业务载荷、任意 metadata、物理路径或领取权限；共享诊断不会复制载荷。
 
@@ -40,7 +40,7 @@
 ### `FailureKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum FailureKind {
@@ -64,7 +64,7 @@ enum FailureKind {
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -79,7 +79,7 @@ func get_request_id() -> int:
 ### `get_consumer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_consumer_id() -> int:
@@ -94,7 +94,7 @@ func get_consumer_id() -> int:
 ### `get_file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_file_name() -> String:
@@ -109,7 +109,7 @@ func get_file_name() -> String:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> GFStorageAsyncCallerResult.Status:
@@ -124,7 +124,7 @@ func get_status() -> GFStorageAsyncCallerResult.Status:
 ### `get_end_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_end_kind() -> GFStorageAsyncCallerResult.EndKind:
@@ -139,7 +139,7 @@ func get_end_kind() -> GFStorageAsyncCallerResult.EndKind:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -154,7 +154,7 @@ func get_error_code() -> Error:
 ### `get_failure_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_failure_kind() -> FailureKind:
@@ -169,7 +169,7 @@ func get_failure_kind() -> FailureKind:
 ### `get_read_failure_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_read_failure_kind() -> GFStorageReadResult.FailureKind:
@@ -184,7 +184,7 @@ func get_read_failure_kind() -> GFStorageReadResult.FailureKind:
 ### `is_ok`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_ok() -> bool:
@@ -199,7 +199,7 @@ func is_ok() -> bool:
 ### `get_source_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_source_version() -> int:
@@ -214,7 +214,7 @@ func get_source_version() -> int:
 ### `get_target_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_target_version() -> int:
@@ -229,7 +229,7 @@ func get_target_version() -> int:
 ### `was_migrated`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func was_migrated() -> bool:
@@ -244,7 +244,7 @@ func was_migrated() -> bool:
 ### `was_integrity_checked`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func was_integrity_checked() -> bool:
@@ -259,7 +259,7 @@ func was_integrity_checked() -> bool:
 ### `is_integrity_ok`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_integrity_ok() -> bool:
@@ -274,7 +274,7 @@ func is_integrity_ok() -> bool:
 ### `get_committed_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_committed_revision() -> GFStorageRevisionResult:
@@ -289,7 +289,7 @@ func get_committed_revision() -> GFStorageRevisionResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

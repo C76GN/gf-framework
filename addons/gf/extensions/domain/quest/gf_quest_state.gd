@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFQuestState
 extends RefCounted
 
@@ -31,7 +31,7 @@ var _definition: GFQuestDefinition
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record: 完整状态记录。
 ## [br]
@@ -172,7 +172,7 @@ static func from_record(record: Dictionary) -> GFQuestState:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 验证后的状态；未通过工厂创建的实例返回空字典。
 ## [br]
@@ -185,7 +185,7 @@ func to_record() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 冻结定义；未验证的实例为 null。
 func get_definition() -> GFQuestDefinition:
@@ -196,7 +196,7 @@ func get_definition() -> GFQuestDefinition:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return available、active、completed、cancelled 或 failed。
 func get_status() -> StringName:
@@ -207,7 +207,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 整数指标值。
 func get_current_count() -> int:
@@ -218,7 +218,7 @@ func get_current_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 导出状态时指标可用则为 true。
 func is_metric_available() -> bool:

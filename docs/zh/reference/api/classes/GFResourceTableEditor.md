@@ -284,7 +284,7 @@ var sort_ascending: bool = true
 ### `set_editor_context`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_editor_context(context: GFEditorToolContext) -> void:
@@ -303,7 +303,7 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ### `apply_selected_property`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func apply_selected_property() -> Dictionary:
@@ -322,7 +322,7 @@ func apply_selected_property() -> Dictionary:
 ### `recover_pending_edit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func recover_pending_edit() -> Dictionary:
@@ -341,7 +341,7 @@ func recover_pending_edit() -> Dictionary:
 ### `get_multi_edit_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_multi_edit_report() -> Dictionary:

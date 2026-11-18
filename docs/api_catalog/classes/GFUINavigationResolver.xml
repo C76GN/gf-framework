@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUINavigationResolver" path="addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd" module="standard" extends="RefCounted" classDigest="2eecf0564e81e3912f73b678e3a41bb4e45332b3b44429424221e84df39eab73">
+<class name="GFUINavigationResolver" path="addons/gf/standard/utilities/ui/gf_ui_navigation_resolver.gd" module="standard" extends="RefCounted" classDigest="fd7ff76ffceb6255696f01e772f6520a6ff64eb8bc160ac63d9b564fa4d4f90d">
 	<description>GFUINavigationResolver: 项目内容就绪与语义定位的异步协议。
 回调及完成源必须在主线程运行。Router 为每次导航分配独立 scope；项目在异步返回后、
 写入界面前必须检查 scope.is_active。完成源成功表示该阶段已完成，业务数据不进入结果。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -23,7 +23,7 @@
 				<tag name="param">target: 冻结的语义请求。</tag>
 				<tag name="param">scope: 本次导航独有的作用域，不能由项目正常完成。</tag>
 				<tag name="return">阶段完成源；成功为内容就绪，失败或取消不回滚已提交页面。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_target">
@@ -35,7 +35,7 @@
 				<tag name="param">target: 冻结的非空语义目标。</tag>
 				<tag name="param">scope: 同一次导航的活动作用域。</tag>
 				<tag name="return">成功表示目标已定位；失败映射为 target_unavailable，保留页面。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_prepare_content">
@@ -47,7 +47,7 @@
 				<tag name="param">_target: 冻结请求。</tag>
 				<tag name="param">_scope: 异步写回资格。</tag>
 				<tag name="return">默认返回 content_unavailable 失败。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_resolve_target">
@@ -59,7 +59,7 @@
 				<tag name="param">_target: 冻结语义目标。</tag>
 				<tag name="param">_scope: 写入页面前必须仍活动。</tag>
 				<tag name="return">默认返回 target_unavailable 失败。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

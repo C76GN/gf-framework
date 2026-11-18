@@ -9,7 +9,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFConfigPipelineConsumerTarget
 extends Resource
 
@@ -20,21 +20,21 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var target_id: StringName = &""
 
 ## 必须纳入该目标的根表；引用闭包从这些表出发。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var root_tables: PackedStringArray = []
 
 ## 各表获准导出的完整顶层字段。引用目标同样必须声明字段。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema visible_fields: Dictionary[String, PackedStringArray/Array[String]]，每表非空、无重复字段名；最多4096表、每表4096字段、总计65536字段。名称非空、无控制字符、无首尾空白且最多256字符；不支持通配符或嵌套字段路径。
 @export var visible_fields: Dictionary = {}
@@ -43,14 +43,14 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var output_path: String = ""
 
 ## 该目标的可选访问器输出 URI；空值表示不生成访问器。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var access_output_path: String = ""
 
 
@@ -60,7 +60,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 声明快照或失败原因；输出 URI 由既有输出路径策略在导出前校验。
 ## [br]
@@ -137,7 +137,7 @@ func capture() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 与当前声明隔离的副本；循环或超出复制预算时返回null。
 func duplicate_target() -> GFConfigPipelineConsumerTarget:

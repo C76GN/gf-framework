@@ -57,7 +57,7 @@ const SOURCE_SCHEMA_VERSION: int = 1
 ### `compile_structure_text`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionary:
@@ -84,7 +84,7 @@ func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionar
 ### `compile_structure_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func compile_structure_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:
@@ -112,7 +112,7 @@ func compile_structure_source( source_key: String, loader: GFSourceTextLoader, o
 ### `build_runner_text`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
@@ -139,7 +139,7 @@ func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
 ### `build_runner_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func build_runner_source( source_key: String, loader: GFSourceTextLoader, options: Dictionary = {} ) -> Dictionary:

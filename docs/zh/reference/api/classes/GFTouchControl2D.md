@@ -74,7 +74,7 @@ func get_active_touch_index() -> int:
 ### `_try_capture_touch_index`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _try_capture_touch_index(touch_index: int) -> bool:
@@ -95,7 +95,7 @@ func _try_capture_touch_index(touch_index: int) -> bool:
 ### `_release_touch_capture`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
@@ -116,7 +116,7 @@ func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
 ### `_touch_matches`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _touch_matches(touch_index: int) -> bool:
@@ -137,7 +137,7 @@ func _touch_matches(touch_index: int) -> bool:
 ### `_screen_to_global_position`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _screen_to_global_position(screen_position: Vector2) -> Vector2:
@@ -158,7 +158,7 @@ func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 ### `_mark_input_as_handled`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _mark_input_as_handled() -> void:

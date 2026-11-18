@@ -38,7 +38,7 @@
 ### `synchronization_failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal synchronization_failed( container: Node, group_key: StringName, error: StringName )
@@ -298,7 +298,7 @@ static func rebuild_container( container: Node, template: Node, items: Array, op
 ### `sync_container`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func sync_container( container: Node, template: Node, items: Array, options: Dictionary = {} ) -> Dictionary:

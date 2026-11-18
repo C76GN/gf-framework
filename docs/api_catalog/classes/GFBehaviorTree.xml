@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="b59efd934e8b9246a9bbd5f906dfd6529ced7fba8addcb7564735aca680fac9a">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="f6fecbb40d07741111ac595ecd3b9652c253f1c5ebe64ab1d07c70806e4a6d83">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -867,7 +867,7 @@ child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 			<signals />
 			<enums />
@@ -882,7 +882,7 @@ child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分�
 						<tag name="param">blackboard: 两个分支共用的项目黑板，不注入或覆盖任何错误键。</tag>
 						<tag name="return">Status；未允许的 ERROR 与恢复 ERROR 保持错误原因，ABORTED 保持中止状态。</tag>
 						<tag name="schema">blackboard: Dictionary，字段由项目维护。</tag>
-						<tag name="since">unreleased</tag>
+						<tag name="since">12.0.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="get_caught_reason">
@@ -891,7 +891,7 @@ child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分�
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="return">精确错误原因；不将业务失败或 ABORTED 伪装为错误。</tag>
-						<tag name="since">unreleased</tag>
+						<tag name="since">12.0.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="reset">
@@ -899,7 +899,7 @@ child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分�
 					<description>清除当前尝试并通知两个分支清理；不回滚项目副作用，也不自动重新开始。</description>
 					<tags>
 						<tag name="api">public</tag>
-						<tag name="since">unreleased</tag>
+						<tag name="since">12.0.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="duplicate_runtime">
@@ -908,7 +908,7 @@ child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分�
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="return">独立运行副本。</tag>
-						<tag name="since">unreleased</tag>
+						<tag name="since">12.0.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="_get_debug_children">
@@ -917,7 +917,7 @@ child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分�
 					<tags>
 						<tag name="api">protected</tag>
 						<tag name="return">原分支与恢复分支引用。</tag>
-						<tag name="since">unreleased</tag>
+						<tag name="since">12.0.0</tag>
 					</tags>
 				</member>
 			</methods>

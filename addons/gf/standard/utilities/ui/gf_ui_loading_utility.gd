@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFUILoadingUtility
 extends GFUtility
 
@@ -18,7 +18,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param state: 当前聚合状态副本。
 ## [br]
@@ -101,7 +101,7 @@ var _notification_pending: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _delta: 架构帧间隔；本服务读取单调时钟。
 func tick(_delta: float) -> void:
@@ -117,7 +117,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -137,7 +137,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param display_delay_msec: 0 到 60000 毫秒。
 ## [br]
@@ -175,7 +175,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 可选生命周期拥有者，服务不持有强引用。
 ## [br]
@@ -216,7 +216,7 @@ func acquire(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 与 acquire 相同的可选生命周期 owner。
 ## [br]
@@ -233,7 +233,7 @@ func validate_acquire(owner: Object = null, scope: GFAsyncScope = null) -> Dicti
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 隔离状态副本。
 ## [br]

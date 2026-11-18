@@ -32,7 +32,7 @@
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -53,7 +53,7 @@ func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -66,7 +66,7 @@ func dispose() -> void:
 ### `setup`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func setup( transport: GFStorageSyncTransport, journal: GFStorageSyncJournal = null, clock: GFClock = null ) -> bool:
@@ -89,7 +89,7 @@ func setup( transport: GFStorageSyncTransport, journal: GFStorageSyncJournal = n
 ### `inspect_support`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func inspect_support(mode: StringName = &"push", resolution: StringName = &"report") -> Dictionary:
@@ -115,7 +115,7 @@ func inspect_support(mode: StringName = &"push", resolution: StringName = &"repo
 ### `synchronize`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
@@ -136,7 +136,7 @@ func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
 ### `recover`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
@@ -157,7 +157,7 @@ func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
 ### `synchronize_many`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageSyncOperation]:
@@ -178,7 +178,7 @@ func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageS
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(_delta: float) -> void:
@@ -197,7 +197,7 @@ func tick(_delta: float) -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

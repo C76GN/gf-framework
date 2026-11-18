@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_request.gd" module="extensions/save" extends="RefCounted" classDigest="b438244adabfc31cfe64aad091c3ddb648eb69bc478a9a446f76ad1d21f034cf">
+<class name="GFSaveProfileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_request.gd" module="extensions/save" extends="RefCounted" classDigest="3419d367169a02289d8c4badf03e3c9a59425d48bad1f747eb39bc5baf73c4cd">
 	<description>GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。
 `create()` 在大小预算内隔离 document metadata、Provider context 和 result
 metadata。调用方可继续使用源字典；后续修改不会改变已提交请求。
@@ -28,7 +28,7 @@ Utility 只允许 claim 一次，且不会公开任何 payload getter。</descri
 				<tag name="schema">document_metadata: Bounded pure-data Dictionary without framework-reserved _gf_sync; copied into an isolated snapshot.</tag>
 				<tag name="schema">context: Bounded pure-data Dictionary copied into an isolated snapshot.</tag>
 				<tag name="schema">result_metadata: Bounded pure-data Dictionary copied into an isolated snapshot.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_claimed">

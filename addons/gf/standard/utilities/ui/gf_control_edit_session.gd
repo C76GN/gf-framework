@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFControlEditSession
 extends RefCounted
 
@@ -46,7 +46,7 @@ var _baseline: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param control: 支持 LineEdit、TextEdit、SpinBox、Range、OptionButton、BaseButton、ColorPickerButton 和 ItemList。
 ## [br]
@@ -71,7 +71,7 @@ func begin_edit(control: Control) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param token: begin_edit 返回的令牌，仅在同一个会话实例内有效。
 ## [br]
@@ -89,7 +89,7 @@ func is_current(token: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param token: 当前会话令牌。
 ## [br]
@@ -104,7 +104,7 @@ func get_baseline(token: int) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param token: 当前会话令牌。
 ## [br]
@@ -119,7 +119,7 @@ func capture_draft(token: int) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param token: 当前会话令牌。
 ## [br]
@@ -140,7 +140,7 @@ func has_ime_composition(token: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param token: 当前会话令牌。
 ## [br]
@@ -167,7 +167,7 @@ func commit_edit(token: int) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param token: 当前会话令牌。
 ## [br]
@@ -227,7 +227,7 @@ func cancel_edit(token: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func clear() -> void:
 	_generation += 1
 	_active = false

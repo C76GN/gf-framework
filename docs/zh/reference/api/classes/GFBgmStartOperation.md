@@ -111,7 +111,7 @@ func get_result() -> GFBgmStartResult:
 ### `wait_result_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_result_async() -> GFBgmStartResult:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次编辑器样机或资源关联注册的所有权句柄。 release 幂等且只撤销自身租约；旧句柄不能撤销同 ID 后续注册。持有者应在插件卸载时显式释放。
 
@@ -25,7 +25,7 @@
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func release() -> void:
@@ -38,7 +38,7 @@ func release() -> void:
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_active() -> bool:

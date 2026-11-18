@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialHash3D" path="addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd" module="standard" extends="RefCounted" classDigest="5c37998c3845663b8fde910ec4312c9de835cf1762e7134c4ad368e4f2137ed6">
+<class name="GFSpatialHash3D" path="addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd" module="standard" extends="RefCounted" classDigest="96bcfadbffd49cc7ac63cb778de95945bee53bf2454b4233220b5268d2cc6ff3">
 	<description>GFSpatialHash3D: 纯逻辑 3D 空间哈希。
 适用于大量动态 3D 实体的粗粒度范围查询。它只维护 AABB 索引，
 不负责物理碰撞、可见性或玩法规则。</description>
@@ -65,7 +65,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">area: 查询 AABB，负尺寸会先归一化。</tag>
 				<tag name="return">可完整查询时返回 true；不会分配格子列表。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="insert">

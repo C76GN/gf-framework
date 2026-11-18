@@ -9,7 +9,7 @@
 ## [br]
 ## @category editor_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenPreviewRegistry
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 signal changed
 
 
@@ -66,7 +66,7 @@ var _next_lease: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 共享注册表；不在此处自动发现或执行项目脚本。
 static func get_shared() -> GFTweenPreviewRegistry:
@@ -80,7 +80,7 @@ static func get_shared() -> GFTweenPreviewRegistry:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 有效弱持有者；通常为项目 EditorPlugin。
 ## [br]
@@ -169,7 +169,7 @@ func register_adapter(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 最多 32 项独立描述，按 ID 字典序排序。
 ## [br]
@@ -190,7 +190,7 @@ func get_descriptors() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param adapter_id: 已注册 ID。
 ## [br]
@@ -224,7 +224,7 @@ func get_property_records(adapter_id: StringName, query: String = "") -> Array[D
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 弱持有的编辑器插件所有者。
 ## [br]
@@ -292,7 +292,7 @@ func register_binding(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param resource_path: 注册时的规范资源路径。
 ## [br]

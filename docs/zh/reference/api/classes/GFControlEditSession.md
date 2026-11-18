@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一个控件的运行期输入会话。 保存编辑开始时的值和文本，保留 SpinBox 尚未提交的数字原文。 宿主负责连接焦点/提交事件、业务转换、验证、模型写入和撤销命令。
 
@@ -31,7 +31,7 @@
 ### `begin_edit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_edit(control: Control) -> int:
@@ -52,7 +52,7 @@ func begin_edit(control: Control) -> int:
 ### `is_current`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_current(token: int) -> bool:
@@ -73,7 +73,7 @@ func is_current(token: int) -> bool:
 ### `get_baseline`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_baseline(token: int) -> Dictionary:
@@ -98,7 +98,7 @@ func get_baseline(token: int) -> Dictionary:
 ### `capture_draft`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func capture_draft(token: int) -> Dictionary:
@@ -123,7 +123,7 @@ func capture_draft(token: int) -> Dictionary:
 ### `has_ime_composition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func has_ime_composition(token: int) -> bool:
@@ -144,7 +144,7 @@ func has_ime_composition(token: int) -> bool:
 ### `commit_edit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func commit_edit(token: int) -> Dictionary:
@@ -169,7 +169,7 @@ func commit_edit(token: int) -> Dictionary:
 ### `cancel_edit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_edit(token: int) -> bool:
@@ -190,7 +190,7 @@ func cancel_edit(token: int) -> bool:
 ### `clear`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func clear() -> void:

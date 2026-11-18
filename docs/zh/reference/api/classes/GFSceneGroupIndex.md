@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 编辑器期已保存场景 Group 声明位置索引。 只读取磁盘 .tscn / .scn 自身 SceneState 中的持久化声明，不实例化场景节点， 不把继承或嵌套来源已有的组复制到引用场景。隐藏条目与 .gdignore 子树不在扫描范围内。 主线程 advance() 在目录项、节点和组之间让出控制；单次 ResourceLoader.load() 不能被抢占。引擎资源加载器和自定义 Resource 的加载行为仍由 Godot 管理。
 
@@ -28,7 +28,7 @@
 ### `begin_scan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error:
@@ -54,7 +54,7 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 ### `advance`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func advance(entry_budget: int = 64) -> bool:
@@ -75,7 +75,7 @@ func advance(entry_budget: int = 64) -> bool:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel() -> void:
@@ -88,7 +88,7 @@ func cancel() -> void:
 ### `get_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_snapshot() -> Dictionary:
@@ -107,7 +107,7 @@ func get_snapshot() -> Dictionary:
 ### `query`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func query( text: String = "", offset: int = 0, limit: int = 100 ) -> Dictionary:

@@ -102,7 +102,7 @@ var host_node: Node
 ### `replacement_scope`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 var replacement_scope: GFTweenReplacementScope = null
@@ -188,7 +188,7 @@ func finish() -> void:
 ### `seek`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func seek(time_seconds: float) -> bool:
@@ -209,7 +209,7 @@ func seek(time_seconds: float) -> bool:
 ### `play_forward`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func play_forward() -> bool:
@@ -224,7 +224,7 @@ func play_forward() -> bool:
 ### `play_backward`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func play_backward() -> bool:
@@ -239,7 +239,7 @@ func play_backward() -> bool:
 ### `can_control_playback`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_control_playback() -> bool:
@@ -254,7 +254,7 @@ func can_control_playback() -> bool:
 ### `get_time_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_time_seconds() -> float:
@@ -269,7 +269,7 @@ func get_time_seconds() -> float:
 ### `get_duration_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_duration_seconds() -> float:

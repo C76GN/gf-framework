@@ -12,7 +12,7 @@ extends RefCounted
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param records: 数值属性描述。
 ## [br]
@@ -75,7 +75,7 @@ static func validate_numeric(records: Array[Dictionary]) -> String:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param kind: 0=2D、1=UI、2=3D。
 ## [br]
@@ -117,7 +117,7 @@ static func get_native_values(kind: int, include_alias: bool = false) -> Diction
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param kind: 0=2D、1=UI、2=3D。
 ## [br]
@@ -180,7 +180,7 @@ static func get_native_records(kind: int) -> Array[Dictionary]:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param properties: validate_numeric 成功的描述。
 ## [br]
@@ -210,7 +210,7 @@ static func get_numeric_records(properties: Array[Dictionary], source: String) -
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param records: 至多 128 条闭合展示记录。
 ## [br]

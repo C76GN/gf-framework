@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 已验收配置集合的独立查询快照。 捕获时隔离表、schema 和集合，查询返回副本；增量候选复用未改变的内部表。 Resource 字段保留共享资产身份，不承诺资产内部状态不可变。自定义校验规则 仍属于受信任代码；快照只保证通过公开入口不能改写已捕获的配置集合。
 
@@ -39,7 +39,7 @@
 ### `capture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}) -> Dictionary:
@@ -66,7 +66,7 @@ static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}
 ### `is_ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_ready() -> bool:
@@ -81,7 +81,7 @@ func is_ready() -> bool:
 ### `get_database_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_database_id() -> StringName:
@@ -96,7 +96,7 @@ func get_database_id() -> StringName:
 ### `get_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_version() -> String:
@@ -111,7 +111,7 @@ func get_version() -> String:
 ### `get_digest_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_digest_report() -> Dictionary:
@@ -130,7 +130,7 @@ func get_digest_report() -> Dictionary:
 ### `get_table_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_table_ids() -> PackedStringArray:
@@ -145,7 +145,7 @@ func get_table_ids() -> PackedStringArray:
 ### `has_table`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func has_table(table_name: StringName) -> bool:
@@ -166,7 +166,7 @@ func has_table(table_name: StringName) -> bool:
 ### `get_table_resource`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_table_resource(table_name: StringName) -> GFConfigTableResource:
@@ -187,7 +187,7 @@ func get_table_resource(table_name: StringName) -> GFConfigTableResource:
 ### `get_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_schema(table_name: StringName) -> GFConfigTableSchema:
@@ -208,7 +208,7 @@ func get_schema(table_name: StringName) -> GFConfigTableSchema:
 ### `has_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func has_schema(table_name: StringName) -> bool:
@@ -229,7 +229,7 @@ func has_schema(table_name: StringName) -> bool:
 ### `get_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_record(table_name: StringName, record_id: Variant) -> Variant:
@@ -256,7 +256,7 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 ### `get_table`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_table(table_name: StringName) -> Variant:
@@ -281,7 +281,7 @@ func get_table(table_name: StringName) -> Variant:
 ### `make_index_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func make_index_key( table_name: StringName, index_id: StringName, record: Dictionary ) -> String:
@@ -308,7 +308,7 @@ func make_index_key( table_name: StringName, index_id: StringName, record: Dicti
 ### `get_index_records`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_index_records( table_name: StringName, index_id: StringName, index_key: String ) -> Array[Dictionary]:
@@ -335,7 +335,7 @@ func get_index_records( table_name: StringName, index_id: StringName, index_key:
 ### `has_index_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func has_index_key( table_name: StringName, index_id: StringName, index_key: String ) -> bool:
@@ -358,7 +358,7 @@ func has_index_key( table_name: StringName, index_id: StringName, index_key: Str
 ### `get_index_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_index_record( table_name: StringName, index_id: StringName, index_key: String ) -> Variant:

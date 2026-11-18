@@ -154,7 +154,7 @@ var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:
 ### `can_register_in_architecture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_register_in_architecture() -> bool:
@@ -262,7 +262,7 @@ func request( path: String, type_hint: String = "", options: Dictionary = {} ) -
 ### `bind_fixed_consumer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func bind_fixed_consumer(consumer: Object) -> Error:
@@ -283,7 +283,7 @@ func bind_fixed_consumer(consumer: Object) -> Error:
 ### `can_remove_from_active_lifecycle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_remove_from_active_lifecycle() -> bool:

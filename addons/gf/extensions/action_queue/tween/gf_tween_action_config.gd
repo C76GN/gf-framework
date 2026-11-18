@@ -52,7 +52,7 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var enable_playback_control: bool = false
 
 ## 每次有限循环按冻结时间轴先前进再返回初值，并自动启用受控播放。
@@ -60,7 +60,7 @@ const _ACTION_TIME_POLICY = preload("res://addons/gf/extensions/action_queue/cor
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var ping_pong: bool = false
 
 ## 是否忽略全局 time scale。

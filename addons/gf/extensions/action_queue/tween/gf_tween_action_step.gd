@@ -87,7 +87,7 @@ const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tw
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var easing_curve: Curve = null
 
 ## 可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached；
@@ -274,7 +274,7 @@ func append_for_action(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param target: 要读取或写入的目标对象。
 ## [br]

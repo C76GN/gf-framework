@@ -77,7 +77,7 @@ const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_INVALID_REUSE_KEY: StringName = &"invalid_reuse_key"
 
 ## item factory 没有返回可接管的 parentless Control。

@@ -145,7 +145,7 @@ const _VALUE_TYPE_ARRAY: String = "array"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 每次调用新建的能力描述。
 ## [br]

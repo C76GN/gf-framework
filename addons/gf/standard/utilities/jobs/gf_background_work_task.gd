@@ -183,7 +183,7 @@ var _worker_receives_cancellation_context: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 等待或运行中的输入；拒绝、未启动取消或线程 join 后返回 null。
 func get_input_snapshot() -> GFDataSnapshot:

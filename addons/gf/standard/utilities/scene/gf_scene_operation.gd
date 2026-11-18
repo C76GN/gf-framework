@@ -200,7 +200,7 @@ func get_result() -> GFSceneOperationResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前请求的隔离终态结果。
 func wait_result_async() -> GFSceneOperationResult:

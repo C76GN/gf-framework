@@ -79,7 +79,7 @@ const STATUS_OPENED: StringName = &"opened"
 ### `STATUS_CONTENT_READY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_CONTENT_READY: StringName = &"content_ready"
@@ -92,7 +92,7 @@ const STATUS_CONTENT_READY: StringName = &"content_ready"
 ### `STATUS_TARGET_READY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_TARGET_READY: StringName = &"target_ready"
@@ -105,7 +105,7 @@ const STATUS_TARGET_READY: StringName = &"target_ready"
 ### `STATUS_INVALID_NAVIGATION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_INVALID_NAVIGATION: StringName = &"invalid_navigation"
@@ -118,7 +118,7 @@ const STATUS_INVALID_NAVIGATION: StringName = &"invalid_navigation"
 ### `STATUS_CONTENT_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_CONTENT_FAILED: StringName = &"content_failed"
@@ -131,7 +131,7 @@ const STATUS_CONTENT_FAILED: StringName = &"content_failed"
 ### `STATUS_TARGET_UNAVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_TARGET_UNAVAILABLE: StringName = &"target_unavailable"
@@ -144,7 +144,7 @@ const STATUS_TARGET_UNAVAILABLE: StringName = &"target_unavailable"
 ### `STATUS_READINESS_TIMEOUT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_READINESS_TIMEOUT: StringName = &"readiness_timeout"
@@ -416,7 +416,7 @@ func is_successful() -> bool:
 ### `was_panel_committed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func was_panel_committed() -> bool:
@@ -431,7 +431,7 @@ func was_panel_committed() -> bool:
 ### `was_content_ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func was_content_ready() -> bool:
@@ -446,7 +446,7 @@ func was_content_ready() -> bool:
 ### `was_target_resolved`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func was_target_resolved() -> bool:

@@ -122,7 +122,7 @@ const _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION: int = GFConfigElementValidation.M
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(1, 65536, 1) var max_elements_per_validation: int = 4096
 
 ## 单次记录或整表校验可准入的元素规则调用数，按数组长度乘以启用规则数预留。
@@ -132,7 +132,7 @@ const _MAX_ELEMENT_RULE_CHECKS_PER_VALIDATION: int = GFConfigElementValidation.M
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(1, 262144, 1) var max_element_rule_checks_per_validation: int = 16384
 
 ## 可选复合索引声明。唯一索引会参与表级校验。
@@ -580,7 +580,7 @@ func coerce_record(record: Dictionary, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record: 不会被修改的输入记录。
 ## [br]

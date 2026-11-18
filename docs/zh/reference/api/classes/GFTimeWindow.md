@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 带周期身份的冻结左闭右开时间窗口。 使用 Unix 毫秒，不隐式读取系统时钟，不代表奖励已结算。
 
@@ -29,7 +29,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( start_msec: int, end_msec: int, period_id: String ) -> GFTimeWindow:
@@ -52,7 +52,7 @@ static func create( start_msec: int, end_msec: int, period_id: String ) -> GFTim
 ### `get_start_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_start_msec() -> int:
@@ -67,7 +67,7 @@ func get_start_msec() -> int:
 ### `get_end_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_end_msec() -> int:
@@ -82,7 +82,7 @@ func get_end_msec() -> int:
 ### `get_period_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_period_id() -> String:
@@ -97,7 +97,7 @@ func get_period_id() -> String:
 ### `contains`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func contains(unix_msec: int) -> bool:
@@ -118,7 +118,7 @@ func contains(unix_msec: int) -> bool:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:

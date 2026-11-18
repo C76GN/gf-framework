@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenPreviewRegistry" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd" module="extensions/action_queue" extends="RefCounted" classDigest="6299ff85615d27532c204c1f63972199f7cdc9bd93b71e0fff7e98e7e5d2c326">
+<class name="GFTweenPreviewRegistry" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_registry.gd" module="extensions/action_queue" extends="RefCounted" classDigest="ac1d84a42912cd56cf54d600710a4a7e436eae53cd2429f49f0b94cdacf5295c">
 	<description>GFTweenPreviewRegistry: 编辑器预览样机与资源关联的有界目录。
 owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。注册不读取来源或执行适配器。
 工具插件应持有返回句柄并在退出时 release；owner 失效与租约变化使旧会话失效。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="changed">
@@ -14,7 +14,7 @@ owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。�
 			<description>目录有实际增删时发出；观察者应重新获取独立快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -28,7 +28,7 @@ owner 使用弱引用；ID 不自动覆盖，内置样机不进入此目录。�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">共享注册表；不在此处自动发现或执行项目脚本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_adapter">
@@ -42,7 +42,7 @@ revision 改变须先释放旧句柄再重新注册，不做隐式优先级选�
 				<tag name="param">adapter: 受信任的隔离样机实现，不应强持 owner 或来源配置。</tag>
 				<tag name="return">成功所有权句柄；拒绝返回 null，不产生部分注册。</tag>
 				<tag name="schema">descriptor: Dictionary，恰含 id: String（1..64 字符标识符）、revision: int（1..2147483647）、label: String（1..96 字符）、properties: Array[Dictionary]（结构同 GFTweenNumericTimeline.capture 的 properties）。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_descriptors">
@@ -52,7 +52,7 @@ revision 改变须先释放旧句柄再重新注册，不做隐式优先级选�
 				<tag name="api">public</tag>
 				<tag name="return">最多 32 项独立描述，按 ID 字典序排序。</tag>
 				<tag name="schema">return: Array[Dictionary]，每项同 register_adapter 的 descriptor。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_property_records">
@@ -64,7 +64,7 @@ revision 改变须先释放旧句柄再重新注册，不做隐式优先级选�
 				<tag name="param">query: 大小写无关子串，最多 128 字符。</tag>
 				<tag name="return">独立匹配记录；失效 ID 或超限搜索为空。</tag>
 				<tag name="schema">return: Array[Dictionary]，name: String、type: int、initial: int/float、minimum/maximum: int/float、source: String、supported: bool、reason: String。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_binding">
@@ -81,7 +81,7 @@ revision 改变须先释放旧句柄再重新注册，不做隐式优先级选�
 				<tag name="param">label: 可选用途名称，至多 96 字符；空串使用样机名称。</tag>
 				<tag name="return">成功租约；无效声明、重复路径或超出预算返回 null，不产生部分登记。</tag>
 				<tag name="schema">initial_values: Dictionary，String 属性名映射到有限 int/float/Vector2/Vector3/Color，分量绝对值不超过 1000000。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_binding">
@@ -92,7 +92,7 @@ revision 改变须先释放旧句柄再重新注册，不做隐式优先级选�
 				<tag name="param">resource_path: 注册时的规范资源路径。</tag>
 				<tag name="return">有效声明；没有声明或所有者失效时为空。</tag>
 				<tag name="schema">return: Dictionary，空或 resource_path: String、target_id: StringName、initial_values: Dictionary（同 register_binding）、label: String；不含所有者或租约。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

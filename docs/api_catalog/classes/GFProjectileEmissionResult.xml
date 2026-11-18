@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmissionResult" path="addons/gf/extensions/combat/projectiles/gf_projectile_emission_result.gd" module="extensions/combat" extends="RefCounted" classDigest="89e71d4c9bb6a547a0586c046984e34c886bde81c12e7e68e7bb5b2b631c327f">
+<class name="GFProjectileEmissionResult" path="addons/gf/extensions/combat/projectiles/gf_projectile_emission_result.gd" module="extensions/combat" extends="RefCounted" classDigest="bf66e11594643a183ad6d62a8247b2d1739f3ab3dc5154be29ef2c97a855f933">
 	<description>GFProjectileEmissionResult: 一次原子发射请求的不可变终态。
 单发和批量发射共享同一结果类型。成功结果持有按稳定生成顺序排列的已激活
 Session；失败结果不持有任何部分成功 Session。结果描述已经完成的发射，
@@ -7,7 +7,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -21,7 +21,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<description>发射请求的唯一终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -34,7 +34,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">全批 Session 曾进入 ACTIVE 并完成公开通知时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -43,7 +43,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`Status` 闭合枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage">
@@ -52,7 +52,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定阶段名；成功时为 `completed`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -61,7 +61,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定原因；成功时为空 StringName。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_requested_count">
@@ -70,7 +70,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负请求数量；在数量解析前失败时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_sessions">
@@ -80,7 +80,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 				<tag name="api">public</tag>
 				<tag name="return">按 spawn transform 稳定顺序排列的 Session；失败时为空数组。</tag>
 				<tag name="schema">return: Array[GFProjectileSession]，返回新的数组容器，Session 本身保持同一身份。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_emitted_count">
@@ -89,7 +89,7 @@ Session；失败结果不持有任何部分成功 Session。结果描述已经�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`get_sessions()` 的当前快照数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

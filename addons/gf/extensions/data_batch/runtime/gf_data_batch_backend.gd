@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataBatchBackend
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已实现协议版本；默认零表示不可用。
 func get_protocol_version() -> int:
@@ -30,7 +30,7 @@ func get_protocol_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _numeric_type: GFDataBatchSchema.NumericType 值。
 ## [br]
@@ -43,7 +43,7 @@ func supports_type(_numeric_type: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _output_bytes: 已由 GF 计算的全部输出列 payload。
 ## [br]
@@ -56,7 +56,7 @@ func get_scratch_bytes(_output_bytes: int) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _columns: GF 已验证的有序只读列，后端仍负责原生内存访问边界。
 ## [br]

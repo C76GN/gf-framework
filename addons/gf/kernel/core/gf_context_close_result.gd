@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/core
 class_name GFContextCloseResult
@@ -53,7 +53,7 @@ var _children: Array[GFContextCloseResult] = []
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已关闭时返回 true；ERR_BUSY 等拒绝可能仍未关闭。
 func is_closed() -> bool:
@@ -64,7 +64,7 @@ func is_closed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 无强制释放、取消、超时或失败时返回 true。
 func is_drained() -> bool:
@@ -75,7 +75,7 @@ func is_drained() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 首个子关闭或架构关闭错误；正常完成为 OK。
 func get_error_code() -> Error:
@@ -86,7 +86,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 失败说明；正常完成为空。
 func get_error() -> String:
@@ -97,7 +97,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 自有架构结果的副本；INHERITED 或尚未尝试架构关闭时为 null。
 func get_architecture_result() -> GFArchitectureShutdownResult:
@@ -108,7 +108,7 @@ func get_architecture_result() -> GFArchitectureShutdownResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立数组，元素为不可变关闭结果。
 func get_child_results() -> Array[GFContextCloseResult]:
@@ -121,7 +121,7 @@ func get_child_results() -> Array[GFContextCloseResult]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param closed: 是否已关闭。
 ## [br]

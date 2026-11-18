@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetScope" path="addons/gf/standard/utilities/assets/gf_asset_scope.gd" module="standard" extends="RefCounted" classDigest="ee96481d14f0a8296c176561ea81695f5256f4669729179c793d7b2f09e5462b">
+<class name="GFAssetScope" path="addons/gf/standard/utilities/assets/gf_asset_scope.gd" module="standard" extends="RefCounted" classDigest="0aff9cdba6cf7563a2ce184daaa4d05452599138cc400cbb7cfcab77d4f31173">
 	<description>贯穿资源请求和句柄的生命周期。关闭会取消 pending 请求并释放全部句柄。
 Node owner 退出树时自动关闭；其他 owner 失效由资源服务 tick 检测。
 scope 只撤销 GF 保留及交付资格，不销毁调用者已经保存的 Resource 引用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@ scope 只撤销 GF 保留及交付资格，不销毁调用者已经保存的 Res
 			<description>关闭生命周期；重复关闭无副作用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_open">
@@ -27,7 +27,7 @@ scope 只撤销 GF 保留及交付资格，不销毁调用者已经保存的 Res
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未关闭且 owner 存活时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

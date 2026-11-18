@@ -266,7 +266,7 @@ func coerce_record(table_name: StringName, record: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已发布快照；从未发布时为 null。
 func get_snapshot() -> GFConfigSnapshot:
@@ -277,7 +277,7 @@ func get_snapshot() -> GFConfigSnapshot:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功发布次数。
 func get_publication_generation() -> int:
@@ -288,7 +288,7 @@ func get_publication_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param snapshot: 已通过捕获和校验的候选。
 ## [br]

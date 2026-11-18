@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncRequest" path="addons/gf/standard/utilities/storage/gf_storage_sync_request.gd" module="standard" extends="RefCounted" classDigest="3330b1275e3068c911ff445419c3cb99a5ed9b9139b6b5cf53d8978305c1ee44">
+<class name="GFStorageSyncRequest" path="addons/gf/standard/utilities/storage/gf_storage_sync_request.gd" module="standard" extends="RefCounted" classDigest="33e831385d16c583f74303fcb8cce697bc312d9605f506537e96c8b02803c1b7">
 	<description>GFStorageSyncRequest: 与命名空间、记录和操作身份绑定的冻结同步请求。
 revision 是不透明文本，空文本只表示预期记录不存在。operation_id 必须由调用方
 唯一分配；恢复同一次提交时沿用原 ID，不得用它提交不同载荷。请求不包含账号凭证。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -26,7 +26,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="return">有效请求或 null。</tag>
 				<tag name="schema">data: Dictionary of finite native Variant values, without Object, Callable, Signal, RID or cycles; complete request limited to depth64,100000 nodes,16MiB canonical bytes.</tag>
 				<tag name="schema">options: Closed Dictionary with optional mode: StringName/String (push, pull, preview, probe; default push), resolution: StringName/String (report, local, remote; default report), expected_revision: String (default empty), local_generation: int&gt;=0 (default0), timeout_msec: int in1..300000 (default30000).</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_limits">
@@ -36,7 +36,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="api">public</tag>
 				<tag name="return">请求封套及其载荷共同使用的预算，不是压缩后的文件大小。</tag>
 				<tag name="schema">return: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_input">
@@ -55,7 +55,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="schema">data: 与 create() 相同的有限原生数据；非法值在复制前拒绝。</tag>
 				<tag name="schema">options: Closed Dictionary with mode,resolution,expected_revision,local_generation,timeout_msec.</tag>
 				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary; observed is empty or a measure_canonical() report.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_record">
@@ -66,7 +66,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="param">record: to_record() 产生的完整记录。</tag>
 				<tag name="return">已重新验证的冻结请求或 null。</tag>
 				<tag name="schema">record: Closed Dictionary containing namespace,key,operation_id,data,mode,resolution,expected_revision,local_generation,timeout_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">
@@ -75,7 +75,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_namespace">
@@ -84,7 +84,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定命名空间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_key">
@@ -93,7 +93,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定记录键。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation_id">
@@ -102,7 +102,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">唯一提交身份。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_mode">
@@ -111,7 +111,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">push、pull、preview 或 probe。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resolution">
@@ -120,7 +120,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">report、local 或 remote。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_expected_revision">
@@ -129,7 +129,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不透明 revision，空文本表示预期不存在。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_local_generation">
@@ -138,7 +138,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负本地代际，不用于与远端 revision 排序比较。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_timeout_msec">
@@ -147,7 +147,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数毫秒。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_data">
@@ -157,7 +157,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="api">public</tag>
 				<tag name="return">候选数据副本。</tag>
 				<tag name="schema">return: Dictionary of admitted native data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_record">
@@ -167,7 +167,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="api">public</tag>
 				<tag name="return">完整独立记录。</tag>
 				<tag name="schema">return: Closed Dictionary accepted by from_record().</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -177,7 +177,7 @@ revision 是不透明文本，空文本只表示预期记录不存在。operatio
 				<tag name="api">public</tag>
 				<tag name="return">请求模式和代际摘要。</tag>
 				<tag name="schema">return: Dictionary with valid,mode,resolution,local_generation,timeout_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

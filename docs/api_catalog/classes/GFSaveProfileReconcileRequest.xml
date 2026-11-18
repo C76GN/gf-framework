@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="180327730c103d65771ba77c3771dea5da78c981802f53e6357c3a29be84191d">
+<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="ee9321db07fa34d11a247e6a80313552b245aed69242ba67fc628de8f4d9dfe8">
 	<description>GFSaveProfileReconcileRequest: uncertain 写入对账的一次性请求句柄。
 请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease
 身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。
@@ -27,7 +27,7 @@
 				<tag name="return">可用请求；输入无效时返回 null。</tag>
 				<tag name="schema">context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.</tag>
 				<tag name="schema">result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references copied into an isolated snapshot.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">

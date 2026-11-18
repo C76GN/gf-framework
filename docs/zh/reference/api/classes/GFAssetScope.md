@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 贯穿资源请求和句柄的生命周期。关闭会取消 pending 请求并释放全部句柄。 Node owner 退出树时自动关闭；其他 owner 失效由资源服务 tick 检测。 scope 只撤销 GF 保留及交付资格，不销毁调用者已经保存的 Resource 引用。
 
@@ -25,7 +25,7 @@
 ### `close`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func close() -> void:
@@ -38,7 +38,7 @@ func close() -> void:
 ### `is_open`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_open() -> bool:

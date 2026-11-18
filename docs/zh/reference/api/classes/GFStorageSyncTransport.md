@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 不依赖具体网络协议的远端版本存储接口。 适配器接收冻结请求并返回主线程完成源。写入必须在远端原子比较 revision，且以 namespace/key/operation_id 幂等地记录提交结果；同一 ID 绑定候选与预期 revision， 不得换载荷重用。mode、timeout 和 local_generation 是本地观察信息，不参与远端提交身份。 probe 查证的是历史操作结果，不能用当前记录相似或本地时钟推断已经提交。
 
@@ -31,7 +31,7 @@
 ### `get_capabilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_capabilities() -> Dictionary:
@@ -50,7 +50,7 @@ func get_capabilities() -> Dictionary:
 ### `read`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func read(request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -75,7 +75,7 @@ func read(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `conditional_write`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func conditional_write(request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -100,7 +100,7 @@ func conditional_write(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `probe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func probe(request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -125,7 +125,7 @@ func probe(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `_get_capabilities`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _get_capabilities() -> Dictionary:
@@ -144,7 +144,7 @@ func _get_capabilities() -> Dictionary:
 ### `_read`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _read(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -165,7 +165,7 @@ func _read(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `_conditional_write`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _conditional_write(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -186,7 +186,7 @@ func _conditional_write(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `_probe`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _probe(_request: GFStorageSyncRequest) -> GFAsyncCompletion:

@@ -63,7 +63,7 @@ const _SCHEMA_FIELDS: Array = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var preserved_sections: PackedStringArray = PackedStringArray()
 
 
@@ -118,7 +118,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param p_schema_id: 文档 schema 身份。
 ## [br]
@@ -156,7 +156,7 @@ static func validate_configuration(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param p_schema_id: 文档 schema 身份。
 ## [br]
@@ -203,7 +203,7 @@ func try_configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立预算记录；整个请求仍须接受它所在层的总预算。
 ## [br]
@@ -221,7 +221,7 @@ static func get_preserved_section_limits() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param section: 待保留的完整分区；是否允许该 ID 仍由 validate_document() 判定。
 ## [br]

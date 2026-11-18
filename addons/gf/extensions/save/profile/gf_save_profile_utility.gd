@@ -317,7 +317,7 @@ func _init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立的规范编码预算。
 ## [br]
@@ -335,7 +335,7 @@ static func get_sync_snapshot_limits() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document_data: 调用期间保持不变的完整文档数据。
 ## [br]
@@ -816,7 +816,7 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_id: 已注册 Profile。
 ## [br]
@@ -837,7 +837,7 @@ func enable_sync_snapshot_for_framework(profile_id: StringName) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_id: 已注册 Profile。
 ## [br]
@@ -851,7 +851,7 @@ func get_sync_generation_for_framework(profile_id: StringName) -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_id: 已启用捕获的 Profile。
 ## [br]
@@ -1588,7 +1588,7 @@ func apply_profile_candidates_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_id: 受管活动 Profile。
 ## [br]

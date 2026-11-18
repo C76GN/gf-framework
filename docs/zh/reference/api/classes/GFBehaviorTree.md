@@ -1548,7 +1548,7 @@ func _get_debug_children() -> Array[BTNode]:
 - 继承：`BTNode`
 - API：`public`
 - 类别：领域模型 (`domain_model`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 只对明确允许的执行错误启动一次恢复分支。 child 返回 ERROR 且原因精确命中 allowed_reasons 时，先 reset 原分支再运行 recovery。 恢复 RUNNING 期间只推进 recovery；其 ERROR 或 ABORTED 直接传播，不再次恢复或重放 child。 每次尝试的终态保持到显式 reset；reset 只通知节点清理，不承诺回滚外部副作用。 原分支和恢复分支必须非空且不是同一实例；原因列表为 1..64 个唯一的小写 ASCII 标识， 可用点分段，每个原因最多 128 字符，不接受通配符、aborted 或 runtime_reset。
 
@@ -1569,7 +1569,7 @@ func _get_debug_children() -> Array[BTNode]:
 ##### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(blackboard: Dictionary) -> int:
@@ -1594,7 +1594,7 @@ func tick(blackboard: Dictionary) -> int:
 ##### `get_caught_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_caught_reason() -> StringName:
@@ -1609,7 +1609,7 @@ func get_caught_reason() -> StringName:
 ##### `reset`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func reset() -> void:
@@ -1622,7 +1622,7 @@ func reset() -> void:
 ##### `duplicate_runtime`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func duplicate_runtime() -> BTNode:
@@ -1637,7 +1637,7 @@ func duplicate_runtime() -> BTNode:
 ##### `_get_debug_children`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _get_debug_children() -> Array[BTNode]:

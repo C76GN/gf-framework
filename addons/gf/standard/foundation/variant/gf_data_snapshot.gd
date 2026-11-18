@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataSnapshot
 extends RefCounted
 
@@ -73,7 +73,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 调用期间保持稳定的纯数据。
 ## [br]
@@ -107,7 +107,7 @@ static func capture(value: Variant, limits: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 可以用于读取及任务提交时为 true。
 func is_ready() -> bool:
@@ -118,7 +118,7 @@ func is_ready() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 仅包含标量的捕获计量。
 ## [br]
@@ -131,7 +131,7 @@ func get_statistics() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param limits: 覆盖原捕获数值预算，可额外提供取消令牌。
 ## [br]
@@ -165,7 +165,7 @@ func copy_value(limits: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 根路径为空；数组项使用非负 int，字典项使用存在的键。
 ## [br]

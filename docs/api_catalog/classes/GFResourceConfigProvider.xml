@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="2119e6e65bfc5621ab8fb80fc949120f04ca44f32a52bb15b8715305690e0116">
+<class name="GFResourceConfigProvider" path="addons/gf/standard/utilities/config/gf_resource_config_provider.gd" module="standard" extends="GFConfigProvider" classDigest="e282f7589045e41d7f940a8d9660279eb91361d29103976ebfe7d579ceb137cd">
 	<description>GFResourceConfigProvider: 通过已验收快照发布 Resource 配置集合。
 作者资源可以编辑；运行查询读取隔离快照。替换、增量更新和移除均先验证
 完整候选，随后检查发布代际，失败不会留下部分新表。</description>
@@ -23,7 +23,7 @@
 				<tag name="return">捕获结果及 expected_generation。</tag>
 				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits；不接受增量 base_snapshot。</tag>
 				<tag name="schema">return: GFConfigSnapshot.capture() 结果，另含 expected_generation: int。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_database">
@@ -36,7 +36,7 @@
 				<tag name="return">包含捕获诊断与发布状态的结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 work_budget 或 work_limits。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、generation、validation_report、work_report。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prepare_update">
@@ -50,7 +50,7 @@
 				<tag name="schema">tables: Array[GFConfigTableResource]，同一表只能出现一次。</tag>
 				<tag name="schema">options: Dictionary，可包含 removed_tables: PackedStringArray、version: String、work_budget 或 work_limits。</tag>
 				<tag name="schema">return: GFConfigSnapshot.capture() 结果，另含 expected_generation: int。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="update_tables">
@@ -64,7 +64,7 @@
 				<tag name="schema">tables: Array[GFConfigTableResource]，每个表是本次候选。</tag>
 				<tag name="schema">options: Dictionary，可包含 removed_tables、version、work_budget 或 work_limits。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、generation、validation_report、work_report。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_database">

@@ -38,7 +38,7 @@ const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload("res://addons/gf/extensions/sa
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document_metadata: 文档元数据。
 ## [br]

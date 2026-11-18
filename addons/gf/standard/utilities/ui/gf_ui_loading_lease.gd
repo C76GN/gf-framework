@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFUILoadingLease
 extends RefCounted
 
@@ -56,7 +56,7 @@ var _active: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 正数身份；未配置为 0。
 func get_id() -> int:
@@ -67,7 +67,7 @@ func get_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 服务仍存在且尚未释放时为 true。
 func is_active() -> bool:
@@ -78,7 +78,7 @@ func is_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 无进度时为 null。
 func get_progress() -> GFAsyncProgress:
@@ -89,7 +89,7 @@ func get_progress() -> GFAsyncProgress:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 首次释放活动请求时为 true。
 func release() -> bool:

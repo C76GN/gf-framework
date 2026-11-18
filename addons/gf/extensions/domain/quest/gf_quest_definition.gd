@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFQuestDefinition
 extends RefCounted
 
@@ -18,42 +18,42 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const HISTORY: StringName = &"history"
 
 ## 只累计接取后收到的明确整数增量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const SINCE_ACCEPTANCE: StringName = &"since_acceptance"
 
 ## 查询会升降的当前值；默认需要显式确认完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const CURRENT: StringName = &"current"
 
 ## 首次达标且完成阻塞器通过时完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const AUTOMATIC: StringName = &"automatic"
 
 ## 达标后由 complete_quest 显式确认。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const MANUAL: StringName = &"manual"
 
 ## 项目显式判定完成，只检查完成阻塞器，不要求计数达标。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const EXTERNAL: StringName = &"external"
 
 
@@ -71,7 +71,7 @@ var _record: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 非空任务身份，最多 256 字符且不得带首尾空白。
 ## [br]
@@ -107,7 +107,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 与 create 相同的任务身份。
 ## [br]
@@ -138,7 +138,7 @@ static func validate_create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record: 完整定义记录。
 ## [br]
@@ -176,7 +176,7 @@ static func from_record(record: Dictionary) -> GFQuestDefinition:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 定义记录；未经工厂验证的实例为空。
 ## [br]
@@ -189,7 +189,7 @@ func to_record() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 任务 ID；未验证实例为空。
 func get_quest_id() -> StringName:
@@ -200,7 +200,7 @@ func get_quest_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 指标 ID。
 func get_metric_id() -> StringName:
@@ -211,7 +211,7 @@ func get_metric_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 正整数版本；未验证实例为0。
 func get_version() -> int:
@@ -222,7 +222,7 @@ func get_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return HISTORY、SINCE_ACCEPTANCE 或 CURRENT。
 func get_mode() -> StringName:
@@ -233,7 +233,7 @@ func get_mode() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 非负目标。
 func get_target() -> int:
@@ -244,7 +244,7 @@ func get_target() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return AUTOMATIC、MANUAL 或 EXTERNAL。
 func get_completion() -> StringName:
@@ -255,7 +255,7 @@ func get_completion() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 允许负数指标或增量时为 true。
 func allows_negative() -> bool:

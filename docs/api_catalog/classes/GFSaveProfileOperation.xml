@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileOperation" path="addons/gf/extensions/save/profile/gf_save_profile_operation.gd" module="extensions/save" extends="RefCounted" classDigest="938a3ac30aa74a4b4463071e321247a42f519fb33055ff88135f8f822df28556">
+<class name="GFSaveProfileOperation" path="addons/gf/extensions/save/profile/gf_save_profile_operation.gd" module="extensions/save" extends="RefCounted" classDigest="0be5fe7a47ca2c74e860723ee03f29a34b0157408de25b9040c17f0b73b12f12">
 	<description>GFSaveProfileOperation: Save Profile 异步操作句柄。
 句柄由 `GFSaveProfileUtility` 完成一次且只完成一次。`wait_result_async()` 同时
 支持已经完成和仍在等待的请求，不要求调用方先判断信号是否已经发出。</description>
@@ -118,7 +118,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前操作的终态结果副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

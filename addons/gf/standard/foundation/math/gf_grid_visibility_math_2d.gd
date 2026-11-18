@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFGridVisibilityMath2D
 extends RefCounted
 
@@ -19,14 +19,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const MAX_RADIUS: int = 128
 
 ## 查询窗口允许的最大格数，等于最大半径包围盒的面积。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const MAX_CELLS: int = 66049
 
 
@@ -42,7 +42,7 @@ const MAX_CELLS: int = 66049
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param grid_size: 网格正尺寸。
 ## [br]

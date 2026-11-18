@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenActionConfig" path="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" module="extensions/action_queue" extends="Resource" classDigest="125441ac8f33e729834174142fec998317040a75f2a83f99ffa85ceef29b74d3">
+<class name="GFTweenActionConfig" path="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" module="extensions/action_queue" extends="Resource" classDigest="f958677a340ee053eb0de563a8432c7f2dafb4085ef0a4cf8c15d685c94b266c">
 	<description>GFTweenActionConfig: 配置化 Tween 动作资源。
 可复用地描述一组属性 Tween 步骤，并生成 GFVisualAction。</description>
 	<tags>
@@ -42,7 +42,7 @@
 ping_pong 或动作的 replacement_scope 也会自动启用受控播放及其整组校验。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ping_pong" decorators="@export">
@@ -51,7 +51,7 @@ ping_pong 或动作的 replacement_scope 也会自动启用受控播放及其整
 回程不累计相对偏移，也不发出步骤标记。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="ignore_time_scale" decorators="@export">

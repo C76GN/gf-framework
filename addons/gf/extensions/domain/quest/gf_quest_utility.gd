@@ -205,7 +205,7 @@ var _publishing_progress: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _delta: 不用于指标或任务计时。
 func tick(_delta: float) -> void:
@@ -218,7 +218,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param definition: 通过 GFQuestDefinition 工厂创建的定义。
 ## [br]
@@ -260,7 +260,7 @@ func define_quest(definition: GFQuestDefinition) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 已注册的任务身份。
 ## [br]
@@ -329,7 +329,7 @@ func accept_quest(quest_id: StringName, acceptance_data: Dictionary = {}) -> boo
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 活动任务 ID。
 ## [br]
@@ -531,7 +531,7 @@ func get_quest_tree_report(root_quest_id: StringName) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param event_id: 事件 ID。
 ## [br]
@@ -623,7 +623,7 @@ func get_quests_by_status(status: StringName) -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 任务 ID。
 ## [br]
@@ -661,7 +661,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param metric_id: 非空指标身份，最多256字符。
 ## [br]
@@ -688,7 +688,7 @@ func register_metric_query(metric_id: StringName, query: Callable) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param metric_id: 指标身份。
 func clear_metric_source(metric_id: StringName) -> void:
@@ -704,7 +704,7 @@ func clear_metric_source(metric_id: StringName) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param metric_id: 项目指标身份。
 ## [br]
@@ -730,7 +730,7 @@ func set_metric_value(metric_id: StringName, value: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param metric_id: 要刷新的历史或当前指标。
 ## [br]
@@ -767,7 +767,7 @@ func refresh_metric(metric_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 任务身份。
 ## [br]
@@ -781,7 +781,7 @@ func is_quest_eligible(quest_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param quest_id: 任务身份。
 ## [br]
@@ -795,7 +795,7 @@ func get_quest_state(quest_id: StringName) -> GFQuestState:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 可持久化的有界副本；超过整包预算时返回空字典，调用方不得将空字典作为有效存档。
 ## [br]
@@ -814,7 +814,7 @@ func export_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param snapshot: export_snapshot 产生的封闭快照。
 ## [br]
@@ -855,7 +855,7 @@ func restore_snapshot(snapshot: Dictionary) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param snapshot: 待恢复的封闭快照。
 ## [br]

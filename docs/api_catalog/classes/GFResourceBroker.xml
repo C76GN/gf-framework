@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="9ba05b67163d360445285ac6dab7dad49c0536bd19eb0395e9f953a803cfbdb1">
+<class name="GFResourceBroker" path="addons/gf/standard/utilities/assets/gf_resource_broker.gd" module="standard" extends="GFUtility" classDigest="32558c74dd33482acb4937d89c196a59ee358acaaf9a34810b9ff9488277c748">
 	<description>GFResourceBroker: framework-level threaded ResourceLoader admission broker。
 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility，
 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。
@@ -88,7 +88,7 @@ Broker 不使用全局 singleton；架构模式应把它注册为 Utility，独�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未被域接管时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="init">
@@ -151,7 +151,7 @@ admission 使用严格 FIFO：队首独占请求会等待全部活动请求 drai
 				<tag name="api">public</tag>
 				<tag name="param">consumer: 非空消费者；登记不会保留消费者引用。</tag>
 				<tag name="return">域已接管时 ERR_ALREADY_IN_USE，否则 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_remove_from_active_lifecycle">
@@ -160,7 +160,7 @@ admission 使用严格 FIFO：队首独占请求会等待全部活动请求 drai
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">始终 false；架构整体关闭仍可释放。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pump">

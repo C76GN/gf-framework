@@ -101,7 +101,7 @@ var required_sections: PackedStringArray = PackedStringArray()
 ### `preserved_sections`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -146,7 +146,7 @@ func configure( p_schema_id: StringName, p_schema_version: int, p_section_versio
 ### `validate_configuration`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func validate_configuration( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:
@@ -176,7 +176,7 @@ static func validate_configuration( p_schema_id: StringName, p_schema_version: i
 ### `try_configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func try_configure( p_schema_id: StringName, p_schema_version: int, p_section_versions: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:
@@ -206,7 +206,7 @@ func try_configure( p_schema_id: StringName, p_schema_version: int, p_section_ve
 ### `get_preserved_section_limits`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_preserved_section_limits() -> Dictionary:
@@ -225,7 +225,7 @@ static func get_preserved_section_limits() -> Dictionary:
 ### `measure_preserved_section`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func measure_preserved_section(section: GFSaveSection) -> Dictionary:

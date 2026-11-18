@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageOwnedRead
 extends RefCounted
 
@@ -23,7 +23,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param receipt: 不含载荷或领取权限的不可变 caller 终态。
 signal completed(receipt: GFStorageOwnedReadReceipt)
@@ -35,7 +35,7 @@ signal completed(receipt: GFStorageOwnedReadReceipt)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum State {
 	## 未绑定请求的手动构造实例。
 	INVALID,
@@ -91,7 +91,7 @@ var _completion_notified: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已绑定的句柄返回 true，包括失败、已领取或已释放的句柄。
 func is_valid() -> bool:
@@ -102,7 +102,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 合法请求的大于零 ID；无效句柄返回 0。
 func get_request_id() -> int:
@@ -113,7 +113,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 合法 consumer 的大于零 ID；无效句柄返回 0。
 func get_consumer_id() -> int:
@@ -124,7 +124,7 @@ func get_consumer_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已验证的逻辑文件名；文件名校验前失败时可能为空。
 func get_file_name() -> String:
@@ -135,7 +135,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前 State 枚举值。
 func get_state() -> State:
@@ -148,7 +148,7 @@ func get_state() -> State:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 合法请求尚未取得 caller 终态时返回 true。
 func is_pending() -> bool:
@@ -159,7 +159,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已取得成功、失败或取消诊断时返回 true。
 func is_completed() -> bool:
@@ -170,7 +170,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已完成时返回同一不可变诊断，等待中或无效句柄返回 null。
 func get_result() -> GFStorageOwnedReadReceipt:
@@ -181,7 +181,7 @@ func get_result() -> GFStorageOwnedReadReceipt:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已冻结的终态诊断；手动构造的无效句柄返回 null。
 func wait_result_async() -> GFStorageOwnedReadReceipt:
@@ -197,7 +197,7 @@ func wait_result_async() -> GFStorageOwnedReadReceipt:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param reason: 由共享生命周期规范化的稳定取消原因。
 ## [br]
@@ -215,7 +215,7 @@ func cancel_observation(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 包含闭合状态的领取结果，只有 SUCCESS 持有完整 GFStorageReadResult。
 func take() -> GFStorageOwnedReadTakeResult:
@@ -245,7 +245,7 @@ func take() -> GFStorageOwnedReadTakeResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 首次从 WAITING 或 READY 释放时返回 true；其他状态或非主线程返回 false。
 func release() -> bool:
@@ -262,7 +262,7 @@ func release() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request_state: 已分配请求与 consumer 身份的共享内部状态。
 ## [br]
@@ -289,7 +289,7 @@ func configure_for_framework(request_state: GFStorageAsyncRequestState) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param receipt: 已冻结且与请求身份匹配的小型诊断。
 ## [br]

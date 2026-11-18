@@ -29,7 +29,7 @@
 ### `CANONICAL_VERSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const CANONICAL_VERSION: int = 2
@@ -44,7 +44,7 @@ const CANONICAL_VERSION: int = 2
 ### `hash_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func hash_result(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -72,7 +72,7 @@ static func hash_result(value: Variant, options: Dictionary = {}) -> Dictionary:
 ### `encode_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func encode_result(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -100,7 +100,7 @@ static func encode_result(value: Variant, options: Dictionary = {}) -> Dictionar
 ### `measure_canonical`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func measure_canonical(value: Variant, options: Dictionary = {}) -> Dictionary:

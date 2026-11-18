@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataBatchSchema
 extends RefCounted
 
@@ -17,7 +17,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum NumericType {
 	## 查询索引无效时返回，不能用于构造列。
 	INVALID,
@@ -34,7 +34,7 @@ enum NumericType {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const MAX_COLUMNS: int = 256
 
 
@@ -77,7 +77,7 @@ var _bytes_per_row: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param schema_id: 非空的项目布局标识。
 ## [br]
@@ -128,7 +128,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 有效布局返回 true。
 func is_valid() -> bool:
@@ -139,7 +139,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 构造时固定的标识。
 func get_schema_id() -> StringName:
@@ -150,7 +150,7 @@ func get_schema_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 正版本号；无效对象为零。
 func get_version() -> int:
@@ -161,7 +161,7 @@ func get_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 列数量。
 func get_column_count() -> int:
@@ -172,7 +172,7 @@ func get_column_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_name: 项目定义的列名。
 ## [br]
@@ -187,7 +187,7 @@ func find_column(column_name: StringName) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_index: 零起始列索引。
 ## [br]
@@ -202,7 +202,7 @@ func get_column_name(column_index: int) -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_index: 零起始列索引。
 ## [br]
@@ -217,7 +217,7 @@ func get_column_type(column_index: int) -> NumericType:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 每行四或八字节列宽之和。
 func get_bytes_per_row() -> int:

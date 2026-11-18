@@ -19,7 +19,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param snapshot: 与 get_history_state() 相同的只读状态，revision 按发布顺序递增。
 ## [br]
@@ -96,7 +96,7 @@ var is_processing_async: bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var is_processing_operation: bool:
 	get:
 		return _is_processing_history_operation
@@ -527,7 +527,7 @@ func clear() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前计数、容量、操作状态和通知版本。
 ## [br]

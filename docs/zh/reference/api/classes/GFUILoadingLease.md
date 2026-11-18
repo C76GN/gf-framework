@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 单次等待请求的幂等释放句柄。 由 GFUILoadingUtility 持有至释放；owner 与 scope 使用弱引用，不能延长业务生命周期。 进度达到 1 不自动释放，调用方仍需在业务结束时 release。
 
@@ -27,7 +27,7 @@
 ### `get_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_id() -> int:
@@ -42,7 +42,7 @@ func get_id() -> int:
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_active() -> bool:
@@ -57,7 +57,7 @@ func is_active() -> bool:
 ### `get_progress`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_progress() -> GFAsyncProgress:
@@ -72,7 +72,7 @@ func get_progress() -> GFAsyncProgress:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func release() -> bool:

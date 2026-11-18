@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUILoadingUtility" path="addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd" module="standard" extends="GFUtility" classDigest="7aa88f2ae0c91ad4de0c4311e0ea90f352198e39f1e343a51dc8214ecd59f1da">
+<class name="GFUILoadingUtility" path="addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd" module="standard" extends="GFUtility" classDigest="896e2048487e009b20b26396b3ea0000916028da840d876ff2445db1e40a972d">
 	<description>GFUILoadingUtility: 并发等待请求的显示状态聚合器。
 主线程服务；不创建界面，不阻塞业务完成。延迟与最短可见时间使用注入的单调时钟，
 tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 lease。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="state_changed">
@@ -16,7 +16,7 @@ tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 l
 				<tag name="api">public</tag>
 				<tag name="param">state: 当前聚合状态副本。</tag>
 				<tag name="schema">state: Dictionary with visible:bool, pending_count:int, determinate_count:int, indeterminate_count:int, progress:float。progress 为已知进度的等权平均；无已知进度时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -30,7 +30,7 @@ tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 l
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 架构帧间隔；本服务读取单调时钟。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -38,7 +38,7 @@ tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 l
 			<description>立即撤销全部 lease 并隐藏反馈，不等待显示政策。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure">
@@ -50,7 +50,7 @@ tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 l
 				<tag name="param">minimum_visible_msec: 0 到 60000 毫秒；不延长业务等待。</tag>
 				<tag name="param">clock: 可选单调时钟。</tag>
 				<tag name="return">首次有效配置时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acquire">
@@ -64,7 +64,7 @@ tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 l
 				<tag name="param">scope: 可选活动请求作用域。</tag>
 				<tag name="param">progress: 可选既有进度句柄；达到 1 不自动释放。</tag>
 				<tag name="return">新 lease；参数失效、超限或服务释放时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_acquire">
@@ -78,7 +78,7 @@ acquire 在执行时重新检查。检查不会连接信号、保留 owner/scope
 				<tag name="param">scope: 与 acquire 相同的可选活动作用域。</tag>
 				<tag name="return">当前服务与参数的独立校验报告；不输出错误日志。</tag>
 				<tag name="schema">return: 封闭基础字段 ok:bool、error_kind:String、path:String；成功时后两项为空。容量错误可含 limit:int、observed:int；纯数据错误另含 measurement:Dictionary、limits:Dictionary，并可含 limit_kind:String、observed_is_lower_bound:bool。path 为从输入参数名开始的 / 分段路径，~ 和 / 分别转义为 ~0 和 ~1；空路径指当前服务。observed_is_lower_bound=true 时 observed 只是确定下界，measurement 失败计数只描述已遍历前缀。报告不含对象或可复用准入令牌。 lease_limit 的 observed 是申请本次 lease 后所需总数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -88,7 +88,7 @@ acquire 在执行时重新检查。检查不会连接信号、保留 owner/scope
 				<tag name="api">public</tag>
 				<tag name="return">隔离状态副本。</tag>
 				<tag name="schema">return: Dictionary with visible:bool, pending_count:int, determinate_count:int, indeterminate_count:int, progress:float，与 state_changed 一致。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

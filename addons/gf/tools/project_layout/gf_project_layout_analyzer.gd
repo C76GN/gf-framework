@@ -510,7 +510,7 @@ var _runtime_report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 分析选项。
 ## [br]
@@ -686,7 +686,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
@@ -705,7 +705,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile: 已解析的严格 profile。
 ## [br]
@@ -866,7 +866,7 @@ func compile_profile(profile: Dictionary) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 闭合 capability 字典。
 ## [br]

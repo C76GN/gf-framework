@@ -180,7 +180,7 @@ var _initialized: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 未被域接管时为 true。
 func can_register_in_architecture() -> bool:
@@ -292,7 +292,7 @@ func request(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param consumer: 非空消费者；登记不会保留消费者引用。
 ## [br]
@@ -310,7 +310,7 @@ func bind_fixed_consumer(consumer: Object) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 始终 false；架构整体关闭仍可释放。
 func can_remove_from_active_lifecycle() -> bool:

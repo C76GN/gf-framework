@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFProjectileEmissionResult
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Status {
 	## 全批 Session 曾进入 ACTIVE 并完成公开通知。
 	SUCCEEDED,
@@ -67,7 +67,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 全批 Session 曾进入 ACTIVE 并完成公开通知时返回 true。
 func is_successful() -> bool:
@@ -78,7 +78,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return `Status` 闭合枚举值。
 func get_status() -> Status:
@@ -89,7 +89,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 稳定阶段名；成功时为 `completed`。
 func get_stage() -> StringName:
@@ -100,7 +100,7 @@ func get_stage() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 稳定原因；成功时为空 StringName。
 func get_reason() -> StringName:
@@ -111,7 +111,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 非负请求数量；在数量解析前失败时为 0。
 func get_requested_count() -> int:
@@ -122,7 +122,7 @@ func get_requested_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 按 spawn transform 稳定顺序排列的 Session；失败时为空数组。
 ## [br]
@@ -135,7 +135,7 @@ func get_sessions() -> Array[GFProjectileSession]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return `get_sessions()` 的当前快照数量。
 func get_emitted_count() -> int:
@@ -148,7 +148,7 @@ func get_emitted_count() -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param status: 唯一终态。
 ## [br]

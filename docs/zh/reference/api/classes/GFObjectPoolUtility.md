@@ -133,7 +133,7 @@ func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation
 ### `wait_disposed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_disposed() -> void:

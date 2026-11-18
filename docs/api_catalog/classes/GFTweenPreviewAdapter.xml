@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenPreviewAdapter" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_adapter.gd" module="extensions/action_queue" extends="RefCounted" classDigest="f90abdbc7ae0ee132960fb67d1f78bffe6059c3dcc604c41300d5597a632c0dd">
+<class name="GFTweenPreviewAdapter" path="addons/gf/extensions/action_queue/editor/gf_tween_preview_adapter.gd" module="extensions/action_queue" extends="RefCounted" classDigest="52cc6a108bbf3404b367155080c83ea830b624420c5cbe2020ad5847b825c26a">
 	<description>GFTweenPreviewAdapter: 受信任的编辑器数值样机绘制协议。
 适配器只获得新建样机与冻结数值，不获得来源配置、真实目标或业务上下文。
 GDScript 不是沙箱；实现者负责不访问来源、全局业务、持久化、标记或导航。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@ GDScript 不是沙箱；实现者负责不访问来源、全局业务、持久�
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">独立样机；null 表示拒绝。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_sample">
@@ -31,7 +31,7 @@ GDScript 不是沙箱；实现者负责不访问来源、全局业务、持久�
 				<tag name="param">_sample: 本适配器新建、GF 持有的有效样机。</tag>
 				<tag name="param">_values: 可独立修改的采样副本；不含对象或来源引用。</tag>
 				<tag name="schema">_values: Dictionary，String 声明属性名映射到有限 int/float。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

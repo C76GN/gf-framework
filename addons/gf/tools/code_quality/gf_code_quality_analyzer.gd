@@ -6,7 +6,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFCodeQualityAnalyzer
 extends RefCounted
 
@@ -70,7 +70,7 @@ const _MAX_DIAGNOSTICS: int = 10_000
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 按 ID 排序的规范规则集合。
 static func get_rule_ids() -> PackedStringArray:
@@ -81,7 +81,7 @@ static func get_rule_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param root: 本地绝对项目目录，或当前项目的 res:// 目录。
 ## [br]
@@ -111,7 +111,7 @@ static func load_project_config(root: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 诊断展示的源码路径。
 ## [br]
@@ -148,7 +148,7 @@ func analyze_source(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param root: 被检查的本地项目目录；不会加载其 project.godot 或执行其脚本。
 ## [br]

@@ -277,7 +277,7 @@ func prewarm(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func wait_disposed() -> void:
 	if _disposing and not _disposed:
 		await _dispose_completed

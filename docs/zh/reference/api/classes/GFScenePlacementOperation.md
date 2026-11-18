@@ -7,7 +7,7 @@
 - 继承：`GFEditorPickOperation`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 编辑器内显式场景、父节点与命中位置的单次摆放操作。 预览只计算变换，不实例化源场景。确认时才通过编辑器撤销历史创建实例。
 
@@ -32,7 +32,7 @@
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func configure( scene: PackedScene, parent: Node3D, scene_root: Node, options: Dictionary = {} ) -> Error:
@@ -60,7 +60,7 @@ func configure( scene: PackedScene, parent: Node3D, scene_root: Node, options: D
 ### `begin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin(context: GFEditorToolContext) -> bool:
@@ -81,7 +81,7 @@ func begin(context: GFEditorToolContext) -> bool:
 ### `pick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func pick(input_data: Dictionary) -> State:
@@ -106,7 +106,7 @@ func pick(input_data: Dictionary) -> State:
 ### `apply`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func apply() -> Dictionary:
@@ -125,7 +125,7 @@ func apply() -> Dictionary:
 ### `is_destination_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_destination_valid() -> bool:
@@ -140,7 +140,7 @@ func is_destination_valid() -> bool:
 ### `_on_pick`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _on_pick(input_data: Dictionary) -> Dictionary:
@@ -166,7 +166,7 @@ func _on_pick(input_data: Dictionary) -> Dictionary:
 ### `_on_can_apply`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _on_can_apply() -> bool:
@@ -181,7 +181,7 @@ func _on_can_apply() -> bool:
 ### `_on_apply`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _on_apply(tool_context: GFEditorToolContext, result: Dictionary) -> Dictionary:
@@ -208,7 +208,7 @@ func _on_apply(tool_context: GFEditorToolContext, result: Dictionary) -> Diction
 ### `_on_cancel`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _on_cancel(_tool_context: GFEditorToolContext) -> void:

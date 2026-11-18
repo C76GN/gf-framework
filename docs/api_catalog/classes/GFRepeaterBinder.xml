@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRepeaterBinder" path="addons/gf/standard/utilities/ui/gf_repeater_binder.gd" module="standard" extends="RefCounted" classDigest="4dadab4eac01d7a15a055dbc06d36f319d93a5bfc2082237ba316a63be3d6c63">
+<class name="GFRepeaterBinder" path="addons/gf/standard/utilities/ui/gf_repeater_binder.gd" module="standard" extends="RefCounted" classDigest="38be9feb12c542c2541a10c7e1ec8d5fd204d036dbd034e1eb024ac9d3d01c4a">
 	<description>GFRepeaterBinder: 响应式模板重复渲染绑定器。
 将数组数据渲染为容器中的模板副本，也可以订阅 `GFReactiveStateStore`
 的路径并在数组变化时同步。显式提供 identity_callable 后，同 ID、同模板实例和
@@ -20,7 +20,7 @@ duplicate_flags 的节点会复用，普通 Container 继续负责布局。未�
 				<tag name="param">container: 仍有效的目标容器。</tag>
 				<tag name="param">group_key: 失败的克隆组。</tag>
 				<tag name="param">error: sync_container() 的失败标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -179,7 +179,7 @@ duplicate_flags 的节点会复用，普通 Container 继续负责布局。未�
 				<tag name="schema">items: Array，项目提供的数据条目。</tag>
 				<tag name="schema">options: Dictionary，包含 group_key: String/StringName、text_key: String/StringName、hide_template: bool、duplicate_flags: int (0..15)、configure_callable: Callable(Node, Variant, int) -&gt; void、clear_existing: bool 和 identity_callable: Callable(Variant, int) -&gt; stable Variant key；允许 bind_repeater 使用的 sync_initial/default_items，拒绝未知键。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool、error: StringName、nodes: Array[Node]、created_count: int、reused_count: int、removed_count: int；error 为空或 invalid_target、invalid_options、item_limit、invalid_identity、duplicate_identity、busy、interrupted、duplicate_failed。失败的 nodes 为空，计数只在成功时提供。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_clones">

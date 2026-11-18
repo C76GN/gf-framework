@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataVersion
 extends GFDataSnapshotSource
 
@@ -52,7 +52,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 固定记录数；未配置为 -1。
 func _get_record_count() -> int:
@@ -63,7 +63,7 @@ func _get_record_count() -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 固定版本号；未配置为 -1。
 func _get_revision() -> int:
@@ -74,7 +74,7 @@ func _get_revision() -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param index: 已通过范围检查的位置。
 ## [br]
@@ -90,7 +90,7 @@ func _read_record(index: int) -> GFDataSnapshot:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func _release() -> void:
 	if _arena == null:
 		return

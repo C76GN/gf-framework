@@ -87,7 +87,7 @@ var loop_count: int = 1
 ### `enable_playback_control`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -101,7 +101,7 @@ var enable_playback_control: bool = false
 ### `ping_pong`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export

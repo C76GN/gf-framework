@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param container: 仍有效的目标容器。
 ## [br]
@@ -394,7 +394,7 @@ static func rebuild_container(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param container: 承载当前克隆组的容器。
 ## [br]

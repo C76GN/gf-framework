@@ -95,7 +95,7 @@ func get_active_touch_index() -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param touch_index: 输入事件的触点索引；-1 为未捕获哨兵，不可接纳。
 ## [br]
@@ -114,7 +114,7 @@ func _try_capture_touch_index(touch_index: int) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param touch_index: 要释放的触点索引；-1 表示释放当前任意触点。
 ## [br]
@@ -133,7 +133,7 @@ func _release_touch_capture(touch_index: int = _NO_POINTER_ID) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param touch_index: 要与当前捕获状态比较的索引。
 ## [br]
@@ -147,7 +147,7 @@ func _touch_matches(touch_index: int) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param screen_position: 输入事件在 Viewport 中的屏幕坐标。
 ## [br]
@@ -164,7 +164,7 @@ func _screen_to_global_position(screen_position: Vector2) -> Vector2:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 func _mark_input_as_handled() -> void:
 	var viewport: Viewport = get_viewport()

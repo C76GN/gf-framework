@@ -320,7 +320,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ### `set_resource_service_domain`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_resource_service_domain(domain: GFResourceServiceDomain) -> Error:
@@ -378,7 +378,7 @@ func get_resource_broker() -> GFResourceBroker:
 ### `create_scope`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func create_scope(owner: Object = null) -> GFAssetScope:
@@ -427,7 +427,7 @@ func load_async( path: String, scope: GFAssetScope, type_hint: String = "", opti
 ### `acquire_handle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func acquire_handle( path: String, scope: GFAssetScope, type_hint: String = "", resource_override: Resource = null ) -> GFAssetHandle:

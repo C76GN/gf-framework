@@ -208,7 +208,7 @@ func get_result() -> GFSaveProfileResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前操作的终态结果副本。
 func wait_result_async() -> GFSaveProfileResult:

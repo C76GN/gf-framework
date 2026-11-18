@@ -819,7 +819,7 @@ static func from_dict(data: Dictionary) -> GFAssetCatalog:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param query_text: 查询文本。
 ## [br]
@@ -841,7 +841,7 @@ static func make_default_search_context(query_text: String, sort_options: Dictio
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param asset_id: 查找表快照中的稳定 ID。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`GFDataSnapshotSource`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 框架记录序列的固定版本读取句柄。 公开读取返回独立记录快照；释放只退还本句柄，其他版本和读者继续有效。 记录位置属于本版本，不是业务实体 ID。直接 new 的句柄不可读取。
 
@@ -27,7 +27,7 @@
 ### `_get_record_count`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _get_record_count() -> int:
@@ -42,7 +42,7 @@ func _get_record_count() -> int:
 ### `_get_revision`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _get_revision() -> int:
@@ -57,7 +57,7 @@ func _get_revision() -> int:
 ### `_read_record`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _read_record(index: int) -> GFDataSnapshot:
@@ -78,7 +78,7 @@ func _read_record(index: int) -> GFDataSnapshot:
 ### `_release`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _release() -> void:

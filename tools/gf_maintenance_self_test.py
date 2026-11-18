@@ -10467,6 +10467,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and all(invalid_release_contract_results),
 		"release note extraction must ignore valid fenced headings, reject invalid fences, preserve the exact target body, and enforce the same complete document and candidate contract.",
 	)
+	local_doc = "overview/quickstart/install-autoload.md"
+	link_line = f"[Installation]({local_doc}#windows)"
+	release_body = f"{link_line}\n`{link_line}`\n```markdown\n{link_line}\n```\n[External](https://example.com/manual.md)"
+	rendered_release_body = gf_release_notes.render_github_release_notes(
+		release_body, ROOT / "docs/zh/changelog.md", "C76GN/gf-framework", "12.0.0",
+	)
+	record_result(
+		"release_notes_link_to_documentation_at_the_release_tag",
+		rendered_release_body == release_body.replace(
+			local_doc, f"https://github.com/C76GN/gf-framework/blob/12.0.0/docs/zh/{local_doc}", 1,
+		),
+		"release notes must resolve local documentation links from the changelog while preserving example code and external links.",
+	)
 	record_result(
 		"changelog_policy_rejects_ungoverned_prerelease_identities",
 		not audit_current_changelog(

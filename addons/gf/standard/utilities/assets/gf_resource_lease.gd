@@ -154,7 +154,7 @@ var _service_domain: GFResourceServiceDomain = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 服务域代次，直接 Broker 请求为 0。
 func get_service_generation() -> int:

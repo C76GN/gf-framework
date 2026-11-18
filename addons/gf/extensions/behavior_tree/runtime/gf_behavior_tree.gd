@@ -3680,7 +3680,7 @@ class UntilFail extends Decorator:
 ## [br]
 ## @category domain_model
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class RecoverError extends BTNode:
 
 
@@ -3773,7 +3773,7 @@ class RecoverError extends BTNode:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @param blackboard: 两个分支共用的项目黑板，不注入或覆盖任何错误键。
 	## [br]
@@ -3826,7 +3826,7 @@ class RecoverError extends BTNode:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @return: 精确错误原因；不将业务失败或 ABORTED 伪装为错误。
 	func get_caught_reason() -> StringName:
@@ -3837,7 +3837,7 @@ class RecoverError extends BTNode:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	func reset() -> void:
 		if _resetting:
 			return
@@ -3858,7 +3858,7 @@ class RecoverError extends BTNode:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @return: 独立运行副本。
 	func duplicate_runtime() -> BTNode:
@@ -3878,7 +3878,7 @@ class RecoverError extends BTNode:
 	## [br]
 	## @api protected
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @return: 原分支与恢复分支引用。
 	func _get_debug_children() -> Array[BTNode]:

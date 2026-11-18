@@ -10,7 +10,7 @@
 ## [br]
 ## @category editor_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/editor
 class_name GFEditorMultiPropertyField
@@ -23,7 +23,7 @@ extends VBoxContainer
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 signal draft_changed()
 
 
@@ -159,7 +159,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param targets: 要共同编辑的对象；失效目标使整组不可编辑。
 ## [br]
@@ -184,7 +184,7 @@ func configure(targets: Array[Object], property: StringName) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel_edit() -> void:
 	_draft.clear()
 	_components.clear()
@@ -210,7 +210,7 @@ func cancel_edit() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 选择摘要，不包含对象引用。
 ## [br]
@@ -235,7 +235,7 @@ func get_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 准备结果。返回 changes 的目标引用由调用方负责释放或移交给命令历史。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 网络请求关联的一次性只读终态。 received 只表示收到匹配请求身份与 peer 的回复，不表示业务操作成功。 回复由关联器先完成有界传输值校验；结果保留隔离副本，读取时再次复制集合。
 
@@ -38,7 +38,7 @@
 ### `STATUS_RECEIVED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_RECEIVED: StringName = &"received"
@@ -51,7 +51,7 @@ const STATUS_RECEIVED: StringName = &"received"
 ### `STATUS_SEND_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_SEND_FAILED: StringName = &"send_failed"
@@ -64,7 +64,7 @@ const STATUS_SEND_FAILED: StringName = &"send_failed"
 ### `STATUS_TIMED_OUT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_TIMED_OUT: StringName = &"timed_out"
@@ -77,7 +77,7 @@ const STATUS_TIMED_OUT: StringName = &"timed_out"
 ### `STATUS_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_CANCELLED: StringName = &"cancelled"
@@ -90,7 +90,7 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ### `STATUS_SESSION_CLOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_SESSION_CLOSED: StringName = &"session_closed"
@@ -103,7 +103,7 @@ const STATUS_SESSION_CLOSED: StringName = &"session_closed"
 ### `STATUS_PEER_DISCONNECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_PEER_DISCONNECTED: StringName = &"peer_disconnected"
@@ -116,7 +116,7 @@ const STATUS_PEER_DISCONNECTED: StringName = &"peer_disconnected"
 ### `STATUS_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_DISPOSED: StringName = &"disposed"
@@ -129,7 +129,7 @@ const STATUS_DISPOSED: StringName = &"disposed"
 ### `STATUS_REJECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_REJECTED: StringName = &"rejected"
@@ -142,7 +142,7 @@ const STATUS_REJECTED: StringName = &"rejected"
 ### `STATUS_INVALID_RESPONSE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_INVALID_RESPONSE: StringName = &"invalid_response"
@@ -157,7 +157,7 @@ const STATUS_INVALID_RESPONSE: StringName = &"invalid_response"
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_request_id() -> String:
@@ -172,7 +172,7 @@ func get_request_id() -> String:
 ### `get_peer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_peer_id() -> int:
@@ -187,7 +187,7 @@ func get_peer_id() -> int:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -202,7 +202,7 @@ func get_status() -> StringName:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -217,7 +217,7 @@ func is_successful() -> bool:
 ### `get_response`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_response() -> Variant:
@@ -236,7 +236,7 @@ func get_response() -> Variant:
 ### `get_send_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_send_error() -> Error:

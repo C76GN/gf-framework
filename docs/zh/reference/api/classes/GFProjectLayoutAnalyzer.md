@@ -47,7 +47,7 @@ Feature 内聚式示例 profile 路径。
 ### `analyze`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func analyze(options: Dictionary = {}) -> Dictionary:
@@ -154,7 +154,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ### `analyze_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
@@ -180,7 +180,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ### `analyze_profile_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func analyze_profile_snapshot(profile: Dictionary, snapshot: Dictionary) -> Dictionary:

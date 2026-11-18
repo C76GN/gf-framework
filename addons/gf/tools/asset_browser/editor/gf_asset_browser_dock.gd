@@ -495,7 +495,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 源资源表或显式共享目录是否仍有未保存修改。
 func has_unsaved_workspace_changes() -> bool:

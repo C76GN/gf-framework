@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenReplacementScope" path="addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd" module="extensions/action_queue" extends="RefCounted" classDigest="f7b94a9c26980a53b2dff6f5695718141628bcdaf233ebbbaed16216c5de598b">
+<class name="GFTweenReplacementScope" path="addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd" module="extensions/action_queue" extends="RefCounted" classDigest="1c5384b8d8b4317b9281e9185379d6c99f533819f21935ea5f472aa8c7e41849">
 	<description>GFTweenReplacementScope: 配置化 Tween 显式共享的属性替换作用域。
 仅管理主动加入本作用域的动作，不查找目标上的其他 Tween。
 相同目标的同一顶层属性及其分量互斥；Node2D、Node3D 的 rotation_degrees
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -22,7 +22,7 @@
 完成通知中的重入登记会被拒绝。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_disposed">
@@ -31,7 +31,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">dispose() 调用后返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_count">
@@ -40,7 +40,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前登记的动作数量，不是属性或步骤数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

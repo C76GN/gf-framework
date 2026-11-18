@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageSyncResult
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Status {
 	## 只读比较完成。
 	PREVIEW,
@@ -78,7 +78,7 @@ var _conflict: GFStorageConflictReport = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已配置返回 true。
 func is_valid() -> bool:
@@ -89,7 +89,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return Status 枚举值。
 func get_status() -> Status:
@@ -100,7 +100,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 对应 Status 的小写名称。
 func get_status_name() -> StringName:
@@ -129,7 +129,7 @@ func get_status_name() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return preview、unchanged、remote_selected 或 committed 时为 true。
 func is_successful() -> bool:
@@ -145,7 +145,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 未知远端结果或未确认本地 checkpoint 时为 true。
 func requires_recovery() -> bool:
@@ -156,7 +156,7 @@ func requires_recovery() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 请求对象；拒绝非法输入时可能为空。
 func get_request() -> GFStorageSyncRequest:
@@ -167,7 +167,7 @@ func get_request() -> GFStorageSyncRequest:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return ASCII 错误种类或空。
 func get_error_kind() -> StringName:
@@ -178,7 +178,7 @@ func get_error_kind() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 存在时为 true；结果未知时不能据此推断记录不存在。
 func record_exists() -> bool:
@@ -189,7 +189,7 @@ func record_exists() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不透明文本；不得排序比较。
 func get_revision() -> String:
@@ -200,7 +200,7 @@ func get_revision() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已验证数据副本，是否存在由 record_exists() 和终态决定。
 ## [br]
@@ -213,7 +213,7 @@ func get_data() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已查证提交时为 true，即使本地 checkpoint 仍待恢复。
 func is_remote_committed() -> bool:
@@ -224,7 +224,7 @@ func is_remote_committed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 报告副本或 null。
 func get_conflict_report() -> GFStorageConflictReport:
@@ -235,7 +235,7 @@ func get_conflict_report() -> GFStorageConflictReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 终态和确认边界摘要。
 ## [br]
@@ -258,7 +258,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 实际准备或提交的请求；非法准入结果可为空。
 ## [br]

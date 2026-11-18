@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFQuestState" path="addons/gf/extensions/domain/quest/gf_quest_state.gd" module="extensions/domain" extends="RefCounted" classDigest="308ca57a5d5d671409713c737a10e52b103f548d13a065027e3e4954e9331549">
+<class name="GFQuestState" path="addons/gf/extensions/domain/quest/gf_quest_state.gd" module="extensions/domain" extends="RefCounted" classDigest="aa31784fe917f0b21ce834bb26d28d588cf9e5bebe07a6252bcd47fe6ebe7c04">
 	<description>GFQuestState: 可验证、可持久化且不持有回调的任务状态快照。
 冻结接取时的定义、接取信息和生命周期。查询型指标的缓存不能在恢复时充当新样本；
 GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。已完成状态保持完成。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -21,7 +21,7 @@ GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。�
 				<tag name="param">record: 完整状态记录。</tag>
 				<tag name="return">冻结状态；不合法时为 null。</tag>
 				<tag name="schema">record: 封闭九字段 Dictionary：definition:GFQuestDefinition记录、status:String（available/active/completed/cancelled/failed）、current_count:int、metric_available:bool、accepted:bool、acceptance_data:Dictionary、parent_id:String、failure_reason:String、format_version:int=1。acceptance_data为原生纯数据，深度16、2048节点、64KiB；记录总预算深度20、8192节点、256KiB。available必须未接取；active/completed必须已接取；非external的completed必须保存达标样本。父级存在性和环由Utility在整批恢复时验证。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_record">
@@ -31,7 +31,7 @@ GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。�
 				<tag name="api">public</tag>
 				<tag name="return">验证后的状态；未通过工厂创建的实例返回空字典。</tag>
 				<tag name="schema">return: 与 from_record.record 相同的封闭九字段 Dictionary。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_definition">
@@ -40,7 +40,7 @@ GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">冻结定义；未验证的实例为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -49,7 +49,7 @@ GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">available、active、completed、cancelled 或 failed。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_current_count">
@@ -58,7 +58,7 @@ GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">整数指标值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_metric_available">
@@ -67,7 +67,7 @@ GFQuestUtility 恢复后将其标记为不可用，直到项目显式刷新。�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">导出状态时指标可用则为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

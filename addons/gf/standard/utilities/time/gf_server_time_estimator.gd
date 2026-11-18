@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFServerTimeEstimator
 extends RefCounted
 
@@ -92,7 +92,7 @@ var _clock_failed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param clock: 单调时钟；null 使用 GFClock，永不读取其墙上时间。
 ## [br]
@@ -149,7 +149,7 @@ static func create(clock: GFClock = null, options: Dictionary = {}) -> GFServerT
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 正整数票据；时钟不可用、16个未过期请求占满或实例未初始化时为0。超时票据自动移除。
 func begin_sample() -> int:
@@ -171,7 +171,7 @@ func begin_sample() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param ticket: begin_sample 返回的当前实例票据。
 ## [br]
@@ -213,7 +213,7 @@ func accept_sample(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param ticket: 本地请求票据。
 ## [br]
@@ -226,7 +226,7 @@ func cancel_sample(ticket: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func mark_resumed() -> void:
 	_pending.clear()
 	_sample_id = 0
@@ -241,7 +241,7 @@ func mark_resumed() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前估计记录；只有 available=true 时才能使用 Unix 值及上下界。
 ## [br]

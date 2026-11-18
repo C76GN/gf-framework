@@ -1432,7 +1432,7 @@ func get_selection() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param outlines_visible: 是否显示已选条目的默认轮廓。
 func set_selected_item_outlines_visible(outlines_visible: bool) -> void:
@@ -1446,7 +1446,7 @@ func set_selected_item_outlines_visible(outlines_visible: bool) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 是否启用已选条目轮廓，默认 true。
 func are_selected_item_outlines_visible() -> bool:

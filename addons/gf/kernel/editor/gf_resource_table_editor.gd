@@ -261,7 +261,7 @@ func _ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param context: 编辑器工具上下文；null 使多选应用入口不可用。
 func set_editor_context(context: GFEditorToolContext) -> void:
@@ -279,7 +279,7 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 本次提交结果，并更新面板中的结果提示。
 ## [br]
@@ -341,7 +341,7 @@ func apply_selected_property() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 恢复结果；无待恢复命令时返回 ERR_UNAVAILABLE。
 ## [br]
@@ -363,7 +363,7 @@ func recover_pending_edit() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 最近一次命令操作的结果；尚未提交时为空。待恢复句柄不会被取消、上下文替换或重绑定覆盖。
 ## [br]
@@ -2044,7 +2044,7 @@ class _MultiEditCommand extends GFEditorPropertyBatchCommand:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @return Godot 错误码；即本次批量执行的实际结果。
 	func execute() -> Error:
@@ -2058,7 +2058,7 @@ class _MultiEditCommand extends GFEditorPropertyBatchCommand:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @return Godot 错误码；即本次批量撤销的实际结果。
 	func revert() -> Error:
@@ -2073,7 +2073,7 @@ class _MultiEditCommand extends GFEditorPropertyBatchCommand:
 	## [br]
 	## @api public
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @return Godot 错误码；即本次失败尝试恢复的实际结果。
 	func recover() -> Error:

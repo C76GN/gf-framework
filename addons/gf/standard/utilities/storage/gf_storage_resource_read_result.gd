@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageResourceReadResult
 extends RefCounted
 
@@ -40,7 +40,7 @@ var _committed_revision: GFStorageRevisionResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param resource: 读取到的非 null Resource；保存同一对象引用。
 ## [br]
@@ -65,7 +65,7 @@ static func success(resource: Resource, revision: GFStorageRevisionResult) -> GF
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param error: 非 OK 的 Godot Error 码；OK 归一为 ERR_INVALID_PARAMETER。
 ## [br]
@@ -80,7 +80,7 @@ static func failure(error: Error) -> GFStorageResourceReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 仅成功结果返回 true。
 func is_successful() -> bool:
@@ -96,7 +96,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时为 OK；失败时为非 OK 错误码。
 func get_error_code() -> Error:
@@ -107,7 +107,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时返回同一 Resource；失败时为 null。调用方修改该对象会被其他持有者观察到。
 func get_resource() -> Resource:
@@ -118,7 +118,7 @@ func get_resource() -> Resource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时返回不可变 revision 结果；失败时为 null。
 func get_committed_revision() -> GFStorageRevisionResult:

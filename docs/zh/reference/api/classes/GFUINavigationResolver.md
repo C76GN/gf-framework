@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 项目内容就绪与语义定位的异步协议。 回调及完成源必须在主线程运行。Router 为每次导航分配独立 scope；项目在异步返回后、 写入界面前必须检查 scope.is_active。完成源成功表示该阶段已完成，业务数据不进入结果。 默认实现拒绝，不能把页面入栈或资源已加载冒充内容已经可用。
 
@@ -27,7 +27,7 @@
 ### `prepare_content`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_content( panel: Node, target: GFUINavigationTarget, scope: GFAsyncScope ) -> GFAsyncCompletion:
@@ -50,7 +50,7 @@ func prepare_content( panel: Node, target: GFUINavigationTarget, scope: GFAsyncS
 ### `resolve_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func resolve_target( panel: Node, target: GFUINavigationTarget, scope: GFAsyncScope ) -> GFAsyncCompletion:
@@ -73,7 +73,7 @@ func resolve_target( panel: Node, target: GFUINavigationTarget, scope: GFAsyncSc
 ### `_prepare_content`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _prepare_content( _panel: Node, _target: GFUINavigationTarget, _scope: GFAsyncScope ) -> GFAsyncCompletion:
@@ -96,7 +96,7 @@ func _prepare_content( _panel: Node, _target: GFUINavigationTarget, _scope: GFAs
 ### `_resolve_target`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _resolve_target( _panel: Node, _target: GFUINavigationTarget, _scope: GFAsyncScope ) -> GFAsyncCompletion:

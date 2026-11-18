@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const CANONICAL_VERSION: int = 2
 
 ## 唯一的编码执行器。
@@ -34,7 +34,7 @@ const _ENCODER_SCRIPT = preload("res://addons/gf/standard/foundation/determinist
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 稳定的纯数据或已捕获快照。
 ## [br]
@@ -59,7 +59,7 @@ static func hash_result(value: Variant, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 纯数据或已捕获快照。
 ## [br]
@@ -84,7 +84,7 @@ static func encode_result(value: Variant, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 调用期间稳定的纯数据或快照。
 ## [br]

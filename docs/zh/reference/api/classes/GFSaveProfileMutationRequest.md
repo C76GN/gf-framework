@@ -28,7 +28,7 @@ mutate-and-persist 的一次性所有权请求。 请求在创建时原子接管
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( mutations: Array[GFSaveSectionMutation], document_metadata: Dictionary = {}, context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileMutationRequest:

@@ -51,7 +51,7 @@ const _DEFAULT_OPERATION: StringName = _OPERATION_EXPORT
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param arguments: Godot `--` 之后的用户参数。
 ## [br]

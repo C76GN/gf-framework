@@ -16,7 +16,7 @@ const _VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_p
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param policy: 作者政策。
 ## [br]
@@ -139,7 +139,7 @@ static func validate_policy(policy: GFSavePayloadPolicy) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param policy: 已通过 validate_policy() 的政策。
 ## [br]
@@ -158,7 +158,7 @@ static func measure_payload(policy: GFSavePayloadPolicy, payload: Variant) -> Di
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param policy: 声明政策。
 ## [br]
@@ -201,7 +201,7 @@ static func project(policy: GFSavePayloadPolicy, payload: Variant) -> Dictionary
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param policy: 声明政策。
 ## [br]
@@ -270,7 +270,7 @@ static func merge(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 集合路径。
 ## [br]

@@ -211,7 +211,7 @@ var object_pool_utility: GFObjectPoolUtility = null
 ### `emit_pattern`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func emit_pattern( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"", emit_count: int = -1 ) -> GFProjectileEmissionResult:

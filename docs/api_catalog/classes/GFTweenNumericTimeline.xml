@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenNumericTimeline" path="addons/gf/extensions/action_queue/tween/gf_tween_numeric_timeline.gd" module="extensions/action_queue" extends="RefCounted" classDigest="9dd5dcef8c96ae08fb6981b51163d03305df9ee27879b58dfb095fedfeba2b2f">
+<class name="GFTweenNumericTimeline" path="addons/gf/extensions/action_queue/tween/gf_tween_numeric_timeline.gd" module="extensions/action_queue" extends="RefCounted" classDigest="79321cfe4515571bd0a2a814011b1dda7751a83018539844cd34bf9ca186fb14">
 	<description>GFTweenNumericTimeline: 有界、冻结的纯数值 Tween 时间轴。
 捕获与采样不接受目标对象、Resource、Callable 或业务上下文。调用方负责时钟和提交值。
 直接 int/float 根属性共享运行时编译核心；任何不支持或越界的成员导致整组拒绝。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -25,7 +25,7 @@
 				<tag name="return">始终返回时间轴；get_error 非空表示没有部分可采样数据。</tag>
 				<tag name="schema">definition: Dictionary，必需 steps: Array[Dictionary]；可选 loop_count: int=1、duration_scale: int/float=1.0、ping_pong: bool=false。步骤必需 property_name: NodePath、target_value: int/float；可选 duration: int/float=0.2、delay: int/float=0.0、as_relative/parallel: bool=false、transition_type: int=Tween.TRANS_CUBIC、ease_type: int=Tween.EASE_OUT、easing_curve_data: Dictionary={}（仅 positions: PackedVector2Array、tangents: PackedVector2Array、modes: PackedInt32Array、bake_resolution: int、value_range: Vector2）。不接受其他字段。</tag>
 				<tag name="schema">properties: Array[Dictionary]，1 至 32 项，每项闭合 name: String（1..64 字符标识符）、type: int（TYPE_INT/TYPE_FLOAT）、initial: 同型有限 int/float、minimum/maximum: 有限 int/float（minimum &lt; maximum，绝对值不超过 1000000，包含 initial）。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -34,7 +34,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">拒绝说明。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_seconds">
@@ -43,7 +43,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为正有限秒数，失败为零。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_initial_values">
@@ -53,7 +53,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">初值；拒绝时间轴返回空字典。</tag>
 				<tag name="schema">return: Dictionary，String 直接属性名映射到声明类型的 int/float。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample">
@@ -65,7 +65,7 @@
 				<tag name="param">time_seconds: 有限采样秒数。</tag>
 				<tag name="return">全部声明属性值；失败没有部分输出。</tag>
 				<tag name="schema">return: Dictionary，String 直接属性名映射到声明类型的有限 int/float，全部处于对应硬边界内；失败为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

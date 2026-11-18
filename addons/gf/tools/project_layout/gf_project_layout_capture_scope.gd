@@ -4,7 +4,7 @@
 ## [br]
 ## @category data
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFProjectLayoutCaptureScope
 extends RefCounted
 

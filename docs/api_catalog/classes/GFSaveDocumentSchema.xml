@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="c1b5827ce1315270983bd056681ac017973f5d2d198ca81afe4cbf76f9c76a7d">
+<class name="GFSaveDocumentSchema" path="addons/gf/extensions/save/document/gf_save_document_schema.gd" module="extensions/save" extends="Resource" classDigest="660abeb2e4dc4c67601ae3d8934f7e77b87852d92c0d7bd58ea87fefaaf3de7c">
 	<description>GFSaveDocumentSchema: 项目存档文档的当前版本契约。
 项目用该 Resource 声明 schema_id、当前文档版本、已知分区版本和必需分区。
 GF 只校验结构与版本，不解释任何业务字段。</description>
@@ -50,7 +50,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 			<description>允许原样保留但不解释的分区 ID 清单；默认拒绝全部未知分区。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -85,7 +85,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 				<tag name="schema">p_section_versions: 与 configure() 相同的 Dictionary。</tag>
 				<tag name="schema">options: 与 configure() 相同的闭合 Dictionary；allow_unknown_sections 已移除且不会自动转换。</tag>
 				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_configure">
@@ -101,7 +101,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 				<tag name="schema">p_section_versions: 与 configure() 相同的 Dictionary。</tag>
 				<tag name="schema">options: 与 configure() 相同的闭合 Dictionary。</tag>
 				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preserved_section_limits">
@@ -111,7 +111,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 				<tag name="api">public</tag>
 				<tag name="return">独立预算记录；整个请求仍须接受它所在层的总预算。</tag>
 				<tag name="schema">return: Dictionary with max_depth:int,max_items:int,max_output_bytes:int,max_string_length:int.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="measure_preserved_section">
@@ -122,7 +122,7 @@ GF 只校验结构与版本，不解释任何业务字段。</description>
 				<tag name="param">section: 待保留的完整分区；是否允许该 ID 仍由 validate_document() 判定。</tag>
 				<tag name="return">不含业务载荷的预算报告。</tag>
 				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_section_version">

@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFSavePayloadPolicy
 extends Resource
 
@@ -26,7 +26,7 @@ const _ROUNDTRIP_SCRIPT = preload("res://addons/gf/extensions/save/document/gf_s
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var schema: GFSchemaField = null
 
 ## 字典节点允许保留的未知字段；空路径表示根，数组元素用 /*。
@@ -36,7 +36,7 @@ const _ROUNDTRIP_SCRIPT = preload("res://addons/gf/extensions/save/document/gf_s
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema retained_fields: Dictionary[String, PackedStringArray]，键为 schema 节点路径，值为允许保留的字段名。
 @export var retained_fields: Dictionary = {}
@@ -45,7 +45,7 @@ const _ROUNDTRIP_SCRIPT = preload("res://addons/gf/extensions/save/document/gf_s
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema collections: Dictionary，键为数组 schema 路径，值含 id_field: StringName/String，可选 active_ids: Array[int/String/StringName] 和 preserve_unknown: bool（默认 false）；省略 active_ids 表示所有身份均已知。
 @export var collections: Dictionary = {}
@@ -54,21 +54,21 @@ const _ROUNDTRIP_SCRIPT = preload("res://addons/gf/extensions/save/document/gf_s
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(1, 64, 1) var max_depth: int = 32
 
 ## 单个完整载荷或基线允许的最大节点数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(1, 100000, 1) var max_nodes: int = 10000
 
 ## 规范编码的字节上限；覆盖保留内容，不等于磁盘压缩后的大小。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export_range(1, 67108864, 1) var max_bytes: int = 16777216
 
 
@@ -78,7 +78,7 @@ const _ROUNDTRIP_SCRIPT = preload("res://addons/gf/extensions/save/document/gf_s
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 结构化准入结果。
 ## [br]
@@ -91,7 +91,7 @@ func validate_policy() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立预算记录。
 ## [br]
@@ -110,7 +110,7 @@ func get_limits() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param payload: 调用期间保持不变的完整载荷。
 ## [br]
@@ -133,7 +133,7 @@ func measure_payload(payload: Variant) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 政策副本，不与作者资源共享可变 schema 集合。
 func duplicate_policy() -> GFSavePayloadPolicy:
@@ -158,7 +158,7 @@ func duplicate_policy() -> GFSavePayloadPolicy:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param payload: 已通过文档版本检查的载荷。
 ## [br]
@@ -178,7 +178,7 @@ func project(payload: Variant) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param projection: 当前运行候选。
 ## [br]
@@ -212,7 +212,7 @@ func merge(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param collection_path: 所属集合的具体路径。
 ## [br]

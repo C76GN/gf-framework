@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageResourceReadResult" path="addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd" module="standard" extends="RefCounted" classDigest="0c69df73a8f77333ad057062c7d348a2171679387242b23906ea9bad4a4e1ad1">
+<class name="GFStorageResourceReadResult" path="addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd" module="standard" extends="RefCounted" classDigest="0c06ca277b18cd13b7cc64d66b72d8b7a02485435571a93ee69cdfb7e332800c">
 	<description>GFStorageResourceReadResult: Resource 及其实际读取来源 revision 的不可变配对结果。
 结果保存原 Resource 对象引用，不复制或冻结 Resource 的运行时属性。
 committed revision 描述读取时的存储来源，不随 Resource 后续修改而变化。
@@ -7,7 +7,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -22,7 +22,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 				<tag name="param">resource: 读取到的非 null Resource；保存同一对象引用。</tag>
 				<tag name="param">revision: 本次读取对应的成功 revision 结果。</tag>
 				<tag name="return">成功配对；任一参数无效时返回 ERR_INVALID_PARAMETER 且不保留参数引用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="failure">
@@ -32,7 +32,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 				<tag name="api">public</tag>
 				<tag name="param">error: 非 OK 的 Godot Error 码；OK 归一为 ERR_INVALID_PARAMETER。</tag>
 				<tag name="return">不保留 Resource 或 committed revision 的失败结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -41,7 +41,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅成功结果返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -50,7 +50,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK；失败时为非 OK 错误码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resource">
@@ -59,7 +59,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时返回同一 Resource；失败时为 null。调用方修改该对象会被其他持有者观察到。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_committed_revision">
@@ -68,7 +68,7 @@ committed revision 描述读取时的存储来源，不随 Resource 后续修改
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时返回不可变 revision 结果；失败时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

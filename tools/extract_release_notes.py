@@ -10,12 +10,17 @@ import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 import gf_changelog
 
 
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
+GITHUB_RELEASE_LINK_RE = re.compile(
+	r"(?P<ticks>\x60+)(?!\x60).*?(?P=ticks)(?!\x60)"
+	r"|\]\((?P<angle><)?(?P<destination>[^\s<>()]+\.md(?:[?#][^\s<>()]*)?)(?(angle)>)(?=[ \t)])"
+)
 
 
 def main() -> int:
@@ -41,6 +46,9 @@ def main() -> int:
 	check_asset_store(Path(args.check_asset_store), tag)
 
 	notes = extract_release_notes(Path(args.changelog), tag)
+	repository = os.environ.get("GITHUB_REPOSITORY", "")
+	if repository:
+		notes = render_github_release_notes(notes, Path(args.changelog), repository, tag)
 	output_path = Path(args.output)
 	output_path.parent.mkdir(parents=True, exist_ok=True)
 	output_path.write_text(notes + "\n", encoding="utf-8", newline="\n")
@@ -200,6 +208,34 @@ def strip_quotes(value: str) -> str:
 	if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", "\""}:
 		return value[1:-1]
 	return value
+
+
+def render_github_release_notes(notes: str, changelog: Path, repository: str, tag: str) -> str:
+	"""Resolve documentation links from the changelog at its immutable release tag."""
+	if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None:
+		raise SystemExit(f"Invalid GitHub repository {repository!r}.")
+	root = Path(__file__).resolve().parents[1]
+	source_directory = changelog.resolve().parent
+
+	def resolve_link(match: re.Match[str]) -> str:
+		destination = match["destination"]
+		if destination is None:
+			return match[0]
+		parts = urlsplit(destination)
+		if parts.scheme or parts.netloc or parts.path.startswith("/"):
+			return match[0]
+		try:
+			path = (source_directory / unquote(parts.path)).resolve().relative_to(root)
+		except ValueError:
+			raise SystemExit(f"Release note link escapes the repository: {destination}") from None
+		tag_path = f"/{repository}/blob/{tag}/{quote(path.as_posix(), safe='/')}"
+		url = urlunsplit(("https", "github.com", tag_path, parts.query, quote(parts.fragment, safe="%")))
+		return match[0].replace(destination, url, 1)
+
+	lines = notes.splitlines()
+	for line in gf_changelog.visible_markdown_lines(notes):
+		lines[line.offset] = GITHUB_RELEASE_LINK_RE.sub(resolve_link, line.raw)
+	return "\n".join(lines)
 
 
 if __name__ == "__main__":

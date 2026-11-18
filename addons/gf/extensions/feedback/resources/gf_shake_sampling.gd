@@ -10,7 +10,7 @@ extends RefCounted
 ## [br]
 ## @layer extensions/feedback
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param elapsed_seconds: 预设已经过时间，保留负时间和非有限值归一化约定。
 ## [br]
@@ -48,7 +48,7 @@ static func sample_sine_for_framework(
 ## [br]
 ## @layer extensions/feedback
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param elapsed_seconds: 预设已经过时间，保留负时间和非有限值归一化约定。
 ## [br]
@@ -88,7 +88,7 @@ static func sample_random_for_framework(
 ## [br]
 ## @layer extensions/feedback
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param elapsed_seconds: 预设已经过时间，保留负时间和非有限值归一化约定。
 ## [br]
@@ -164,7 +164,7 @@ static func sample_noise_for_framework(
 ## [br]
 ## @layer extensions/feedback
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param progress: Preset 整体进度或 Track 局部进度。
 ## [br]

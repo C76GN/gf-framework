@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageRevisionResult" path="addons/gf/standard/utilities/storage/gf_storage_revision_result.gd" module="standard" extends="RefCounted" classDigest="2388ed55378bcbc61dfa36cd2e271de061fa6c6e31f7af3aa22b8d0d6531ede5">
+<class name="GFStorageRevisionResult" path="addons/gf/standard/utilities/storage/gf_storage_revision_result.gd" module="standard" extends="RefCounted" classDigest="7860b410e673c0cd5d7e5005058779b2aacd6f29580219f2c85ead50a5a95f53">
 	<description>GFStorageRevisionResult: 一次 committed revision 查询的不可变结果。
 revision 是只用于相等比较的不透明字符串，不表示时间顺序或内容完整性。
 通过工厂创建结果；未使用工厂创建的实例保持 INVALID_REQUEST 失败状态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -32,7 +32,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 			<description>committed revision 的可用性与失败分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -46,7 +46,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 				<tag name="api">public</tag>
 				<tag name="param">revision: 非空不透明字符串；原样保存，不裁剪或解析。</tag>
 				<tag name="return">AVAILABLE 结果；空字符串返回 INVALID_REQUEST 与 ERR_INVALID_PARAMETER。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="failure">
@@ -57,7 +57,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 				<tag name="param">status: 除 AVAILABLE 外的有效 Status。</tag>
 				<tag name="param">error: 非 OK 的 Godot Error 码。</tag>
 				<tag name="return">失败结果；无效 status 或 OK 归一为 INVALID_REQUEST 与 ERR_INVALID_PARAMETER。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -66,7 +66,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅 AVAILABLE、OK 与非空 revision 同时成立时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -75,7 +75,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK；失败时为非 OK 错误码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -84,7 +84,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Status 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_revision">
@@ -93,7 +93,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为原始 revision；失败时为空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -103,7 +103,7 @@ revision 是只用于相等比较的不透明字符串，不表示时间顺序�
 				<tag name="api">public</tag>
 				<tag name="return">修改返回字典不会改变当前结果或其他字典副本。</tag>
 				<tag name="schema">return: 精确 Dictionary，包含 status: int (Status)、error_code: int (Error)、revision: String 三个字段。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

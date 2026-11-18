@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 Resource 及其实际读取来源 revision 的不可变配对结果。 结果保存原 Resource 对象引用，不复制或冻结 Resource 的运行时属性。 committed revision 描述读取时的存储来源，不随 Resource 后续修改而变化。 通过工厂创建结果；失败不保留 Resource 或 committed revision。
 
@@ -29,7 +29,7 @@ Resource 及其实际读取来源 revision 的不可变配对结果。 结果保
 ### `success`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func success(resource: Resource, revision: GFStorageRevisionResult) -> GFStorageResourceReadResult:
@@ -51,7 +51,7 @@ static func success(resource: Resource, revision: GFStorageRevisionResult) -> GF
 ### `failure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func failure(error: Error) -> GFStorageResourceReadResult:
@@ -72,7 +72,7 @@ static func failure(error: Error) -> GFStorageResourceReadResult:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -87,7 +87,7 @@ func is_successful() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -102,7 +102,7 @@ func get_error_code() -> Error:
 ### `get_resource`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_resource() -> Resource:
@@ -117,7 +117,7 @@ func get_resource() -> Resource:
 ### `get_committed_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_committed_revision() -> GFStorageRevisionResult:

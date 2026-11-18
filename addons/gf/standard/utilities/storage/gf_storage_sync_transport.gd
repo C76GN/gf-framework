@@ -9,7 +9,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageSyncTransport
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 隔离的能力记录。
 ## [br]
@@ -42,7 +42,7 @@ func get_capabilities() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 命名空间、键和本次观察身份。
 ## [br]
@@ -60,7 +60,7 @@ func read(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 已持久化意图所对应的精确冻结请求。
 ## [br]
@@ -75,7 +75,7 @@ func conditional_write(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 原持久化意图。
 ## [br]
@@ -92,7 +92,7 @@ func probe(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 能力字典，默认不支持任何操作。
 ## [br]
@@ -105,7 +105,7 @@ func _get_capabilities() -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _request: 冻结输入。
 ## [br]
@@ -118,7 +118,7 @@ func _read(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _request: 精确持久化意图。
 ## [br]
@@ -131,7 +131,7 @@ func _conditional_write(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _request: 原提交身份及候选。
 ## [br]

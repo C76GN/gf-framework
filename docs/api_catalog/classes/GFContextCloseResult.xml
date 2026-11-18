@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContextCloseResult" path="addons/gf/kernel/core/gf_context_close_result.gd" module="kernel" extends="RefCounted" classDigest="bccedce201d00a3b90848d69c94a05843b480d14f3758634d62372105e871e0b">
+<class name="GFContextCloseResult" path="addons/gf/kernel/core/gf_context_close_result.gd" module="kernel" extends="RefCounted" classDigest="48d7a082a24305aa245cdae54a3d0fcf10aa2969c57dbf18ffe28424663173d8">
 	<description>GFContextCloseResult: 节点上下文一次关闭尝试的不可变结果。
 closed 表示绑定和自有架构均已关闭，drained 表示全部子上下文和架构正常完成静默工作。
 关闭结果不持有 Node；子结果数组在读取边界复制。</description>
@@ -7,7 +7,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
 		<tag name="layer">kernel/core</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已关闭时返回 true；ERR_BUSY 等拒绝可能仍未关闭。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_drained">
@@ -29,7 +29,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">无强制释放、取消、超时或失败时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -38,7 +38,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首个子关闭或架构关闭错误；正常完成为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -47,7 +47,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败说明；正常完成为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_architecture_result">
@@ -56,7 +56,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">自有架构结果的副本；INHERITED 或尚未尝试架构关闭时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_child_results">
@@ -65,7 +65,7 @@ closed 表示绑定和自有架构均已关闭，drained 表示全部子上下�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">独立数组，元素为不可变关闭结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

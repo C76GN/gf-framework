@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigProvider" path="addons/gf/standard/utilities/config/gf_config_provider.gd" module="standard" extends="GFUtility" classDigest="0d050c458e76fb94f9ddb36e7804121cfb58c7b1a83945b9222b424d53ec6592">
+<class name="GFConfigProvider" path="addons/gf/standard/utilities/config/gf_config_provider.gd" module="standard" extends="GFUtility" classDigest="d446189bc04ec0b0d48a9de5a79ad13c18438eacd3caeaf2f273663129e1832f">
 	<description>GFConfigProvider: 通用的静态导表数据适配器基类。
 为了让框架无缝衔接不同项目的导表工具（JSON、CSV 或自定义流水线），提供统一的读取接口。
 具体项目应该继承此基类，并实现其数据加载和查询逻辑。</description>
@@ -136,7 +136,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已发布快照；从未发布时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_publication_generation">
@@ -145,7 +145,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功发布次数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="publish_snapshot">
@@ -157,7 +157,7 @@
 				<tag name="param">expected_generation: 准备候选前取得的发布代际。</tag>
 				<tag name="return">是否发布以及当前代际。</tag>
 				<tag name="schema">return: Dictionary，含 ok: bool、error_kind: StringName 和 generation: int。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

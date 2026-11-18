@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfiguredTweenAction" path="addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="98ae1b1b4a14d8c4a2eadf73fd674f3f4bc5a79d312254ea5b95753a94619491">
+<class name="GFConfiguredTweenAction" path="addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd" module="extensions/action_queue" extends="GFVisualAction" classDigest="236fcfe7f3810691b1c41c395ef8963ce12da9a93559c36d93890be7867cf197">
 	<description>GFConfiguredTweenAction: 配置驱动的 Tween 动作，支持可选冻结时间轴与属性替换。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -51,7 +51,7 @@
 			<description>属性替换作用域；启用冻结时间轴，接管时旧动作保留当前姿态并完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -108,7 +108,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">time_seconds: 0 至总时长的有限秒数，包含全部循环。</tag>
 				<tag name="return">定位成功返回 true；拒绝或提交期间失权返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_forward">
@@ -117,7 +117,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">活跃可控会话开始播放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_backward">
@@ -126,7 +126,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">活跃可控会话开始倒放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_control_playback">
@@ -135,7 +135,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已捕获且尚未终结的可控会话返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_time_seconds">
@@ -144,7 +144,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前秒数，终态保留最后提交时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_seconds">
@@ -153,7 +153,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">总秒数；原生模式或未捕获时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_wait_guard_node">

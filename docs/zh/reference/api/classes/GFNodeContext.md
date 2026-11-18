@@ -90,7 +90,7 @@ signal context_failed(reason: String)
 ### `context_closing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal context_closing()
@@ -216,7 +216,7 @@ var architecture: GFArchitecture:
 ### `bind_source_context`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func bind_source_context(source: GFNodeContext) -> bool:
@@ -237,7 +237,7 @@ func bind_source_context(source: GFNodeContext) -> bool:
 ### `is_context_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_context_available() -> bool:
@@ -252,7 +252,7 @@ func is_context_available() -> bool:
 ### `close_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func close_async(cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0) -> GFContextCloseResult:

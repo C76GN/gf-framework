@@ -7,7 +7,7 @@
 - 继承：`GFDataBatchBackend`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 连接可选的原生 PackedArray gather 服务。 仅连接项目已经安装并加载的 GDExtension，不安装二进制、不运行编译器。 发布者默认尝试连接，当前分发 Windows x64 实现。项目也可以显式取得适配器。
 
@@ -27,7 +27,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create() -> GFDataBatchNativeBackend:
@@ -42,7 +42,7 @@ static func create() -> GFDataBatchNativeBackend:
 ### `get_protocol_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_protocol_version() -> int:
@@ -57,7 +57,7 @@ func get_protocol_version() -> int:
 ### `supports_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func supports_type(numeric_type: int) -> bool:
@@ -78,7 +78,7 @@ func supports_type(numeric_type: int) -> bool:
 ### `gather`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func gather( columns: Array, indices: PackedInt32Array, source_count: int ) -> Array:

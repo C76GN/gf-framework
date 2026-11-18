@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageSyncRequest
 extends RefCounted
 
@@ -28,7 +28,7 @@ var _record: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record_namespace: 调用方的稳定命名空间，不代表远端授权。
 ## [br]
@@ -71,7 +71,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 请求封套及其载荷共同使用的预算，不是压缩后的文件大小。
 ## [br]
@@ -92,7 +92,7 @@ static func get_limits() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record_namespace: 稳定命名空间。
 ## [br]
@@ -134,7 +134,7 @@ static func validate_input(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record: to_record() 产生的完整记录。
 ## [br]
@@ -177,7 +177,7 @@ static func from_record(record: Dictionary) -> GFStorageSyncRequest:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 有效时返回 true。
 func is_valid() -> bool:
@@ -188,7 +188,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 稳定命名空间。
 func get_namespace() -> String:
@@ -199,7 +199,7 @@ func get_namespace() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 稳定记录键。
 func get_key() -> String:
@@ -210,7 +210,7 @@ func get_key() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 唯一提交身份。
 func get_operation_id() -> String:
@@ -221,7 +221,7 @@ func get_operation_id() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return push、pull、preview 或 probe。
 func get_mode() -> StringName:
@@ -232,7 +232,7 @@ func get_mode() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return report、local 或 remote。
 func get_resolution() -> StringName:
@@ -243,7 +243,7 @@ func get_resolution() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不透明 revision，空文本表示预期不存在。
 func get_expected_revision() -> String:
@@ -254,7 +254,7 @@ func get_expected_revision() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 非负本地代际，不用于与远端 revision 排序比较。
 func get_local_generation() -> int:
@@ -265,7 +265,7 @@ func get_local_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 正整数毫秒。
 func get_timeout_msec() -> int:
@@ -276,7 +276,7 @@ func get_timeout_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 候选数据副本。
 ## [br]
@@ -289,7 +289,7 @@ func get_data() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 完整独立记录。
 ## [br]
@@ -302,7 +302,7 @@ func to_record() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 请求模式和代际摘要。
 ## [br]

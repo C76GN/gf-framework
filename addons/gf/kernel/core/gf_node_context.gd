@@ -38,7 +38,7 @@ signal context_failed(reason: String)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 signal context_closing()
 
 
@@ -350,7 +350,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source: 要借用架构的来源上下文。
 ## [br]
@@ -378,7 +378,7 @@ func bind_source_context(source: GFNodeContext) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前绑定和来源身份都有效时返回 true。
 func is_context_available() -> bool:
@@ -404,7 +404,7 @@ func is_context_available() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param cancellation_token: 协作关闭的取消 token。
 ## [br]

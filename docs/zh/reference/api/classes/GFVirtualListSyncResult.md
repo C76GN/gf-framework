@@ -157,7 +157,7 @@ const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
 ### `STATUS_INVALID_REUSE_KEY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const STATUS_INVALID_REUSE_KEY: StringName = &"invalid_reuse_key"

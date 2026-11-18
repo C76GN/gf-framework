@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageTransfer" path="addons/gf/standard/utilities/storage/gf_storage_transfer.gd" module="standard" extends="GFUtility" classDigest="a46b5faadc14069d2487499afdb439deeb7f6fb46ce3a33297e91fe37a316dc2">
+<class name="GFStorageTransfer" path="addons/gf/standard/utilities/storage/gf_storage_transfer.gd" module="standard" extends="GFUtility" classDigest="cc77de52c671b11c56da32ca2eb1bb4769abd2897a1b619083c1b624670f9b8c">
 	<description>GFStorageTransfer: 通用存储后端传输协调器。
 该工具只协调两个 GFStorageBackend 的字典数据传输、冲突检测和写回策略。
 普通 Backend 没有 CAS 或跨端原子性；写入可能部分成功，结果始终明确这些能力边界。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="transfer_conflict_detected">
@@ -16,7 +16,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">report: 冲突报告。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="transfer_conflict_unresolved">
@@ -27,7 +27,7 @@
 				<tag name="param">file_name: 逻辑文件名。</tag>
 				<tag name="param">result: 传输结果字典。</tag>
 				<tag name="schema">result: Dictionary，由 transfer_data() 为未解决冲突返回。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="transfer_completed">
@@ -38,7 +38,7 @@
 				<tag name="param">file_name: 逻辑文件名。</tag>
 				<tag name="param">result: 传输结果字典。</tag>
 				<tag name="schema">result: Dictionary，由 transfer_data() 为已完成传输返回。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="transfer_failed">
@@ -49,7 +49,7 @@
 				<tag name="param">file_name: 逻辑文件名。</tag>
 				<tag name="param">result: 传输结果字典。</tag>
 				<tag name="schema">result: Dictionary，由 transfer_data() 为失败传输返回。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -70,7 +70,7 @@
 			<description>冲突解决策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="TransferStatus">
@@ -93,7 +93,7 @@
 			<description>传输结果状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -104,7 +104,7 @@
 			<description>默认冲突策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="write_resolved_by_default">
@@ -112,7 +112,7 @@
 			<description>默认是否把解析出的结果写回后端。关闭后可用于 dry-run。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -129,7 +129,7 @@
 				<tag name="return">传输结果字典。</tag>
 				<tag name="schema">options: Dictionary，包含 strategy: ConflictStrategy、write_resolved: bool、write_to_local: bool、write_to_remote: bool、resolver: Callable、resolution_callback: Callable、revision_keys: Array[String] 和 timestamp_keys: Array[String]。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、file_name、status、status_name、selected_source、written_backends、conflicts、errors、error、error_kind、path、data、metadata、local、remote，以及恒为 false 的 concurrent_write_protection、cross_backend_atomic。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="transfer_many">
@@ -144,7 +144,7 @@
 				<tag name="return">批量结果字典。</tag>
 				<tag name="schema">options: Dictionary，支持字段与 transfer_data() 相同。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool、count: int、results: Array[Dictionary] 和 status_counts: Dictionary；批量超限还包含 error:String，count 为0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -154,7 +154,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">调试快照字典。</tag>
 				<tag name="schema">return: Dictionary，包含 transfer_count、conflict_count、failed_count、default_conflict_strategy 和 write_resolved_by_default。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

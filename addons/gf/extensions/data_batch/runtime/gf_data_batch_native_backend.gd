@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataBatchNativeBackend
 extends GFDataBatchBackend
 
@@ -34,7 +34,7 @@ var _native: Object = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已加载的协议 1 后端。其他线程、服务缺失或协议不兼容时返回 null。
 static func create() -> GFDataBatchNativeBackend:
@@ -57,7 +57,7 @@ static func create() -> GFDataBatchNativeBackend:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已连接为 1，否则为零。
 func get_protocol_version() -> int:
@@ -68,7 +68,7 @@ func get_protocol_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param numeric_type: GFDataBatchSchema.NumericType 值。
 ## [br]
@@ -81,7 +81,7 @@ func supports_type(numeric_type: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param columns: 调用期间只读的有序 PackedArray 列。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 同步意图与提交结果的持久化边界。 完成源成功表示持久化已经确认，不能只表示已排队或内存更新。一个记录只能有一个 未解决意图；不同 operation_id 不得覆盖它。Save 通过现有 Profile 事务实现本接口， 普通记录可以使用自己的持久化适配器。该接口不实现网络、账号认证或第二套业务事务。
 
@@ -29,7 +29,7 @@
 ### `persist_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func persist_intent(request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -50,7 +50,7 @@ func persist_intent(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `persist_outcome`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func persist_outcome(request: GFStorageSyncRequest, outcome: Dictionary) -> GFAsyncCompletion:
@@ -76,7 +76,7 @@ func persist_outcome(request: GFStorageSyncRequest, outcome: Dictionary) -> GFAs
 ### `load_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func load_intent(record_namespace: String, record_key: String) -> GFAsyncCompletion:
@@ -102,7 +102,7 @@ func load_intent(record_namespace: String, record_key: String) -> GFAsyncComplet
 ### `_persist_intent`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _persist_intent(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
@@ -123,7 +123,7 @@ func _persist_intent(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ### `_persist_outcome`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _persist_outcome(_request: GFStorageSyncRequest, _outcome: Dictionary) -> GFAsyncCompletion:
@@ -149,7 +149,7 @@ func _persist_outcome(_request: GFStorageSyncRequest, _outcome: Dictionary) -> G
 ### `_load_intent`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _load_intent(_record_namespace: String, _record_key: String) -> GFAsyncCompletion:

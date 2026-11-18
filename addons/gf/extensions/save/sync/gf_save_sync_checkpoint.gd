@@ -8,7 +8,7 @@ extends RefCounted
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const METADATA_KEY: String = "_gf_sync"
 
 
@@ -18,7 +18,7 @@ const METADATA_KEY: String = "_gf_sync"
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立的初始状态。
 ## [br]
@@ -39,7 +39,7 @@ static func initial() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param checkpoint: 本地框架元数据。
 ## [br]
@@ -119,7 +119,7 @@ static func validate(checkpoint: Dictionary) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document: 已验证的本地文档。
 ## [br]

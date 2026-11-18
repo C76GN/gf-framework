@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolLease" path="addons/gf/standard/utilities/nodes/gf_object_pool_lease.gd" module="standard" extends="RefCounted" classDigest="48784636e2e78cc2af0875990cb0ab32628bd93f728d0acd9087eaefbe0de74d">
+<class name="GFObjectPoolLease" path="addons/gf/standard/utilities/nodes/gf_object_pool_lease.gd" module="standard" extends="RefCounted" classDigest="0ce06dc2434533796af1174b223e4860be8a283ef62b47bcaf156e14f111b9c9">
 	<description>GFObjectPoolLease: 一次节点借用的使用权。
 归还后立即停止提供节点；物理离树和最终通知由对象池在安全点执行。
 每次借用使用新的 Lease，旧 Lease 永远不能归还同一节点的新借用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="settled">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: released、node_lost、pool_disposed 或 capacity_retired。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -32,7 +32,7 @@
 			<description>本次借用的状态；节点丢失也是 SETTLED，原因由 get_settlement_reason 提供。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -45,7 +45,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ACTIVE 且仍存活的节点；归还、排队删除或丢失后返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -54,7 +54,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次调用首次接纳归还时为 true；重复或陈旧借用为 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -63,7 +63,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 State。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_settled">
@@ -72,7 +72,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">任意终态均返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_settled">
@@ -81,7 +81,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与 get_settlement_reason 相同的最终原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_settlement_reason">
@@ -90,7 +90,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未结束时为 pending，未配置时为 unconfigured，否则为 settled 的原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -105,7 +105,7 @@ var value_type: ValueType = ValueType.ANY
 ### `type_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -183,7 +183,7 @@ var validation_rules: Array[GFConfigValidationRule] = []
 ### `element_validation_rules`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export

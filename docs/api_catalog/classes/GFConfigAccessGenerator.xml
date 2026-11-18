@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="02a1fecde71ed02ea38f77c4f69b4fb70f06324ff35b62ec963f7f00b7eda0e0">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="ac1ff9b1b8d2c87709dbac4b5bcec6bd5f730b60036e377f640fcc457c8b4209">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。
@@ -49,7 +49,7 @@ Dictionary 或自定义 Object 声明仅支持既有非结构化列，不能导�
 				<tag name="api">public</tag>
 				<tag name="return">每次调用新建的能力描述。</tag>
 				<tag name="schema">return: Dictionary，包含 version、backend、structured_source_admission、legacy_dictionary_schemas、descriptor_import、kinds、struct_inheritance、containers、nullable_scalars、enum、polymorphism、ownership 和 runtime_validation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="generate">

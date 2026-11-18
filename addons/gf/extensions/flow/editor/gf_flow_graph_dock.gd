@@ -380,7 +380,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param context: 工作区提供的编辑器上下文；null 表示撤销编辑权限。
 func set_editor_context(context: GFEditorToolContext) -> void:

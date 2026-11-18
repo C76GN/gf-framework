@@ -74,7 +74,7 @@ var _sync_checkpoint: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document_metadata: 写入文档的持久化元数据。
 ## [br]
@@ -128,7 +128,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param checkpoint: 严格的框架同步记录。
 ## [br]

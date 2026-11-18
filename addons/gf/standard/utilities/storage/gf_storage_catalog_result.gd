@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageCatalogResult
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum FailureKind {
 	## 查询成功，可能受结果数量上限截断。
 	NONE,
@@ -77,7 +77,7 @@ var _files: PackedStringArray = PackedStringArray()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已配置且 Error 为 OK 时返回 true。
 func is_successful() -> bool:
@@ -88,7 +88,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功为 OK；未配置实例为 FAILED。
 func get_error_code() -> Error:
@@ -99,7 +99,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功为 FailureKind.NONE。
 func get_failure_kind() -> FailureKind:
@@ -113,7 +113,7 @@ func get_failure_kind() -> FailureKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功且未截断时为 true；失败或未配置时为 false。
 func is_complete() -> bool:
@@ -124,7 +124,7 @@ func is_complete() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 无重复 logical identity 的隔离数组；失败为空。
 func get_files() -> PackedStringArray:
@@ -135,7 +135,7 @@ func get_files() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不包含物理路径、payload 或 revision 的查询结果。
 ## [br]

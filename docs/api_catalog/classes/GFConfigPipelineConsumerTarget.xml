@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineConsumerTarget" path="addons/gf/tools/config_pipeline/gf_config_pipeline_consumer_target.gd" module="tools" extends="Resource" classDigest="20e9d194548614b7629c3531634a1052a94b41d5eaa901730aba957dfd86989d">
+<class name="GFConfigPipelineConsumerTarget" path="addons/gf/tools/config_pipeline/gf_config_pipeline_consumer_target.gd" module="tools" extends="Resource" classDigest="18d0bd03fa0ba1c255c48d8f707c6a94fb9cc1f6b4b19bb0869719d8efcef43f">
 	<description>GFConfigPipelineConsumerTarget: 项目声明的配置消费目标。
 根表与每表可见顶层字段均显式列出。字段是完整值单元，包含其结构化类型；
 不按行内容推测依赖，不通过引用自动授权其他字段。未声明表或字段默认不可见。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>项目定义的唯一消费目标名称。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="root_tables" decorators="@export">
@@ -25,7 +25,7 @@
 			<description>必须纳入该目标的根表；引用闭包从这些表出发。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="visible_fields" decorators="@export">
@@ -34,7 +34,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">visible_fields: Dictionary[String, PackedStringArray/Array[String]]，每表非空、无重复字段名；最多4096表、每表4096字段、总计65536字段。名称非空、无控制字符、无首尾空白且最多256字符；不支持通配符或嵌套字段路径。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="output_path" decorators="@export">
@@ -42,7 +42,7 @@
 			<description>该目标数据库的输出 URI；选中目标后替代 Profile 的默认路径。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="access_output_path" decorators="@export">
@@ -50,7 +50,7 @@
 			<description>该目标的可选访问器输出 URI；空值表示不生成访问器。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -62,7 +62,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">声明快照或失败原因；输出 URI 由既有输出路径策略在导出前校验。</tag>
 				<tag name="schema">return: 封闭 Dictionary，success:bool、target:Dictionary、error:String。成功 target 含 target_id:String、root_tables:PackedStringArray（排序）、visible_fields:Dictionary[String,PackedStringArray]（字段排序）、output_path:String、access_output_path:String；失败 target 为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_target">
@@ -71,7 +71,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与当前声明隔离的副本；循环或超出复制预算时返回null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

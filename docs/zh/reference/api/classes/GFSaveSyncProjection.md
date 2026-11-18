@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 项目显式声明上传字段和下载合并边界的协议。 输入不包含框架 checkpoint。项目负责排除本地专用、凭证及服务端权威字段， 并将下载数据与本地专用状态合成为完整候选。默认实现拒绝，避免默认上传整份文档。 不在回调中修改运行状态或执行 IO；返回值由同步组合器再次验证并冻结。
 
@@ -27,7 +27,7 @@
 ### `project_upload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func project_upload(document: GFSaveDocument) -> GFSaveDocument:
@@ -48,7 +48,7 @@ func project_upload(document: GFSaveDocument) -> GFSaveDocument:
 ### `prepare_download`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_download(remote: GFSaveDocument, current: GFSaveDocument) -> GFSaveDocument:
@@ -70,7 +70,7 @@ func prepare_download(remote: GFSaveDocument, current: GFSaveDocument) -> GFSave
 ### `_project_upload`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _project_upload(_document: GFSaveDocument) -> GFSaveDocument:
@@ -91,7 +91,7 @@ func _project_upload(_document: GFSaveDocument) -> GFSaveDocument:
 ### `_prepare_download`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _prepare_download(_remote: GFSaveDocument, _current: GFSaveDocument) -> GFSaveDocument:

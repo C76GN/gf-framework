@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 并发等待请求的显示状态聚合器。 主线程服务；不创建界面，不阻塞业务完成。延迟与最短可见时间使用注入的单调时钟， tick 同时检查弱 owner/scope 与当前进度。最多持有 4096 个活动 lease。
 
@@ -30,7 +30,7 @@
 ### `state_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal state_changed(state: Dictionary)
@@ -55,7 +55,7 @@ signal state_changed(state: Dictionary)
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(_delta: float) -> void:
@@ -74,7 +74,7 @@ func tick(_delta: float) -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -87,7 +87,7 @@ func dispose() -> void:
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func configure( display_delay_msec: int = 150, minimum_visible_msec: int = 250, clock: GFClock = null ) -> bool:
@@ -110,7 +110,7 @@ func configure( display_delay_msec: int = 150, minimum_visible_msec: int = 250, 
 ### `acquire`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func acquire( owner: Object = null, scope: GFAsyncScope = null, progress: GFAsyncProgress = null ) -> GFUILoadingLease:
@@ -133,7 +133,7 @@ func acquire( owner: Object = null, scope: GFAsyncScope = null, progress: GFAsyn
 ### `validate_acquire`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func validate_acquire(owner: Object = null, scope: GFAsyncScope = null) -> Dictionary:
@@ -159,7 +159,7 @@ func validate_acquire(owner: Object = null, scope: GFAsyncScope = null) -> Dicti
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_state() -> Dictionary:

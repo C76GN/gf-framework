@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 显式树结构的叶子计数与父级聚合。 主线程、只维护派生显示状态，不保存业务事实。结构在首次有效 configure 后冻结； 最多 4096 节点、64 层、4096 个绑定，每个叶子计数为 0 到 1000000000。 通知队列最多 4096 批；每次排空最多发送 256 批，其余在 tick 中继续。
 
@@ -32,7 +32,7 @@
 ### `counts_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal counts_changed(changes: Dictionary)
@@ -57,7 +57,7 @@ signal counts_changed(changes: Dictionary)
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(_delta: float) -> void:
@@ -76,7 +76,7 @@ func tick(_delta: float) -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -89,7 +89,7 @@ func dispose() -> void:
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func configure(parents: Dictionary) -> bool:
@@ -114,7 +114,7 @@ func configure(parents: Dictionary) -> bool:
 ### `validate_configuration`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func validate_configuration(parents: Dictionary) -> Dictionary:
@@ -140,7 +140,7 @@ func validate_configuration(parents: Dictionary) -> Dictionary:
 ### `set_leaf_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_leaf_count(badge_id: StringName, count: int) -> bool:
@@ -162,7 +162,7 @@ func set_leaf_count(badge_id: StringName, count: int) -> bool:
 ### `is_leaf`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_leaf(badge_id: StringName) -> bool:
@@ -183,7 +183,7 @@ func is_leaf(badge_id: StringName) -> bool:
 ### `get_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_count(badge_id: StringName) -> int:
@@ -204,7 +204,7 @@ func get_count(badge_id: StringName) -> int:
 ### `bind_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func bind_count( badge_id: StringName, callback: Callable, owner: Object = null ) -> GFSubscriptionToken:

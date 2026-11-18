@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFNetworkRequestResult
 extends RefCounted
 
@@ -18,63 +18,63 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_RECEIVED: StringName = &"received"
 
 ## 发送入口返回错误，且请求尚未进入其他终态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_SEND_FAILED: StringName = &"send_failed"
 
 ## 已达到本地单调截止时间。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_TIMED_OUT: StringName = &"timed_out"
 
 ## 调用方已取消本地等待；不代表服务器操作被撤销。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_CANCELLED: StringName = &"cancelled"
 
 ## 所属会话已关闭或被替换。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_SESSION_CLOSED: StringName = &"session_closed"
 
 ## 目标 peer 的连接已失效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_PEER_DISCONNECTED: StringName = &"peer_disconnected"
 
 ## 所属关联器已释放或不再存在。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
 ## 请求未通过参数、会话或容量准入检查。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_REJECTED: StringName = &"rejected"
 
 ## 匹配身份的回复未通过有界传输值校验。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_INVALID_RESPONSE: StringName = &"invalid_response"
 
 
@@ -123,7 +123,7 @@ var _send_error: Error = OK
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 请求 ID；尚未配置时为空。
 func get_request_id() -> String:
@@ -134,7 +134,7 @@ func get_request_id() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 请求的目标 peer；尚未配置时为 -1。
 func get_peer_id() -> int:
@@ -145,7 +145,7 @@ func get_peer_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: STATUS_* 常量之一；尚未配置时为 STATUS_REJECTED。
 func get_status() -> StringName:
@@ -156,7 +156,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已配置且状态为 received 时返回 true；不判断业务成功。
 func is_successful() -> bool:
@@ -167,7 +167,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 回复副本；非 received 终态或尚未配置时为 null。
 ## [br]
@@ -180,7 +180,7 @@ func get_response() -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 关联器记录的发送或准入错误码；请求未发送也可能携带拒绝原因，无错误时为 OK。
 func get_send_error() -> Error:
@@ -198,7 +198,7 @@ func get_send_error() -> Error:
 ## [br]
 ## @layer extensions/network
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request_id: 关联器分配的请求 ID。
 ## [br]

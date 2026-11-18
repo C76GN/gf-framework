@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="66641f95b5403924e91cda3c840ba2e6ae2297961fc645b7ea689ceabb021230">
+<class name="GFFlowRunner" path="addons/gf/extensions/flow/runtime/gf_flow_runner.gd" module="extensions/flow" extends="RefCounted" classDigest="2d352e6e6ff2a4fe58355d16ddd42c720fb8f0d0dbfef83f7bd619c5e2e56ec5">
 	<description>GFFlowRunner: 通用流程图执行器。
 按节点后继关系执行 GFFlowGraph，支持 Signal 等待、取消和简单循环保护。</description>
 	<tags>
@@ -164,7 +164,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前或最近结束的 RunState，从未接纳过运行时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_signal_timeout">

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageOwnedReadReceipt" path="addons/gf/standard/utilities/storage/gf_storage_owned_read_receipt.gd" module="standard" extends="RefCounted" classDigest="40edc44224d0e48a66b059b9261226d69e298d03b2e1ea11eec13d4b8d5199f7">
+<class name="GFStorageOwnedReadReceipt" path="addons/gf/standard/utilities/storage/gf_storage_owned_read_receipt.gd" module="standard" extends="RefCounted" classDigest="9c40cb4758a6c3e2be6a2b7432383aec1237c6c790a50555716d9a2db12fc08b">
 	<description>GFStorageOwnedReadReceipt: 独占读取的不可变 caller 终态诊断。
 只保留请求身份、稳定状态、版本、完整性和实际读取的 committed revision。
 不持有业务载荷、任意 metadata、物理路径或领取权限；共享诊断不会复制载荷。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -24,7 +24,7 @@
 			<description>独占读取交付的稳定失败分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -37,7 +37,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_consumer_id">
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的 consumer ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_file_name">
@@ -55,7 +55,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">逻辑文件名；文件名校验前失败时可能为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -64,7 +64,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">PHYSICAL_SETTLED 或 CANCELLED；独占读取不会返回 OUTCOME_UNKNOWN。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_end_kind">
@@ -73,7 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">物理结算、显式取消、令牌、超时、owner 释放或 Utility dispose。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -82,7 +82,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK，失败或取消时为非 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failure_kind">
@@ -91,7 +91,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功、读取失败、不支持独占交付或取消。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_read_failure_kind">
@@ -100,7 +100,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">READ_FAILED 的具体原因；成功、取消和不支持交付时为 NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_ok">
@@ -109,7 +109,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成读取且没有读取或交付失败时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_version">
@@ -118,7 +118,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">迁移前的数据版本；未取得版本时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_version">
@@ -127,7 +127,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">迁移后的数据版本；未取得版本时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_migrated">
@@ -136,7 +136,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已执行数据迁移时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_integrity_checked">
@@ -145,7 +145,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">完整性状态不是 NOT_CHECKED 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_integrity_ok">
@@ -154,7 +154,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">完整性状态为 VALID 时返回 true；未检查不视为已通过。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_committed_revision">
@@ -164,7 +164,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次捕获的 revision 状态；未捕获时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -174,7 +174,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">不包含载荷、任意 metadata、物理路径或领取权限的诊断字典。</tag>
 				<tag name="schema">return: 精确 Dictionary，包含 request_id: int、consumer_id: int、file_name: String、status: int (GFStorageAsyncCallerResult.Status)、end_kind: int (GFStorageAsyncCallerResult.EndKind)、error_code: int (Error)、failure_kind: int (FailureKind)、read_failure_kind: int (GFStorageReadResult.FailureKind)、source_version: int、target_version: int、migrated: bool、integrity_checked: bool、integrity_ok: bool、committed_revision: Dictionary（未捕获时为空，否则含 status: int、error_code: int、revision: String）。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -643,7 +643,7 @@ func plan_compiled_profile_analysis(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param compilation: Session 独占的成功 compilation。
 ## [br]

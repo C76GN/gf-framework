@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 可选同步 PackedArray gather 协议。 后端只计算列，不拥有 GF 的 schema、版本或发布权。输入在调用期间只读且不得保留； 输出必须独立拥有，类型、顺序和整数值精确保持。返回空数组表示失败，不允许部分结果。 这是同进程可信代码边界，不是 native sandbox；首版仅在主线程调用，不启动后台任务。
 
@@ -27,7 +27,7 @@
 ### `get_protocol_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_protocol_version() -> int:
@@ -42,7 +42,7 @@ func get_protocol_version() -> int:
 ### `supports_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func supports_type(_numeric_type: int) -> bool:
@@ -63,7 +63,7 @@ func supports_type(_numeric_type: int) -> bool:
 ### `get_scratch_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_scratch_bytes(_output_bytes: int) -> int:
@@ -84,7 +84,7 @@ func get_scratch_bytes(_output_bytes: int) -> int:
 ### `gather`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func gather( _columns: Array, _indices: PackedInt32Array, _source_count: int ) -> Array:

@@ -303,7 +303,7 @@ signal player_action_completed( player_index: int, action_id: StringName, value:
 ### `automatic_input_routing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 var automatic_input_routing: bool = true:

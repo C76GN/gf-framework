@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 项目所有的不可变稳定 ID 登记簿。 ID 由作者明确指定；本类型不自动分配、不修改来源表、不写文件。 每张表独立登记符号和正整数 ID；删除产生永久墓碑，符号及 ID 均不可复用。
 
@@ -30,7 +30,7 @@
 ### `create_empty`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create_empty() -> GFConfigStableIDRegistry:
@@ -45,7 +45,7 @@ static func create_empty() -> GFConfigStableIDRegistry:
 ### `from_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func from_record(record: Dictionary) -> GFConfigStableIDRegistry:
@@ -70,7 +70,7 @@ static func from_record(record: Dictionary) -> GFConfigStableIDRegistry:
 ### `from_json`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func from_json(text: String) -> GFConfigStableIDRegistry:
@@ -91,7 +91,7 @@ static func from_json(text: String) -> GFConfigStableIDRegistry:
 ### `preview`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func preview(assignments: Dictionary, options: Dictionary = {}) -> Dictionary:
@@ -119,7 +119,7 @@ func preview(assignments: Dictionary, options: Dictionary = {}) -> Dictionary:
 ### `with_assignments`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func with_assignments(assignments: Dictionary, options: Dictionary = {}) -> GFConfigStableIDRegistry:
@@ -146,7 +146,7 @@ func with_assignments(assignments: Dictionary, options: Dictionary = {}) -> GFCo
 ### `get_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_id(table: String, symbol: String) -> int:
@@ -168,7 +168,7 @@ func get_id(table: String, symbol: String) -> int:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:

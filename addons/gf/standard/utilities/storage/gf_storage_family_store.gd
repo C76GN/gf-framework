@@ -885,7 +885,7 @@ func get_revision_incarnation_for_framework() -> String:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param intent: 已读取的迁移记录；必须与固定位置的完整记录精确一致。
 ## [br]
@@ -923,7 +923,7 @@ func begin_revision_upgrade_for_framework(intent: Dictionary) -> Error:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func end_revision_upgrade_for_framework() -> void:
 	_revision_upgrade_intent.clear()
 
@@ -934,7 +934,7 @@ func end_revision_upgrade_for_framework() -> void:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param incarnation: 迁移 intent 中已持久化的 UUID v4。
 ## [br]

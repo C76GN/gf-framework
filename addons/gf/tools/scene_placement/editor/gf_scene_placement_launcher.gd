@@ -6,7 +6,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFScenePlacementLauncher
 extends VBoxContainer
 
@@ -170,7 +170,7 @@ func receive_resource_paths(paths: PackedStringArray) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param context: GF 编辑器上下文；null 表示页面被卸载。
 func set_editor_context(context: GFEditorToolContext) -> void:
@@ -198,7 +198,7 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param plugin: 正在进入或退出编辑器树的原生摆放插件实例。
 ## [br]
@@ -220,7 +220,7 @@ static func notify_plugin_lifecycle(plugin: EditorPlugin, entered: bool) -> void
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param editor_base: 在插件启用期间取得的原生编辑器基座；退树后不再排队关闭。
 static func request_plugin_close(editor_base: Control) -> void:

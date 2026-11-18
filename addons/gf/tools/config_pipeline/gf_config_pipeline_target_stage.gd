@@ -155,7 +155,7 @@ func materialize_table(table_ir: GFConfigPipelineTableIR, options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param compilation_ir: 已完成单表校验的版本化数据库 IR。
 ## [br]
@@ -272,7 +272,7 @@ func materialize_database(compilation_ir: GFConfigPipelineIR, options: Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param compilation_ir: 封存的完整作者 IR。
 ## [br]
