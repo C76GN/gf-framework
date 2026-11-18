@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify release tag on main
+        run: python tools/gf_repository_policy.py validate-release-tag --json
+
       - name: Set up Windows native build and export
         run: python .github/scripts/setup_gf_native_windows.py
 
@@ -132,6 +135,9 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+
+      - name: Verify release tag on main
+        run: python tools/gf_repository_policy.py validate-release-tag --json
 
       - name: Download verified release artifact set
         uses: actions/download-artifact@v8

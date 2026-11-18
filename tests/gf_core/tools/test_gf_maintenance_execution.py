@@ -35,6 +35,7 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gdscript_lsp_diagnostics
+import gf_branch_workflow
 import gf_executable_resolution
 import gf_godot_process
 import gf_gut_lifecycle_smoke
@@ -88,6 +89,204 @@ def _fixture_process_lease_facade(
 	backend.operation_deadline = lease_deadline - 1.0
 	backend.pid = 7319
 	return gf_process_supervisor.SupervisedProcessLease._from_backend(backend)
+
+
+class BranchWorkflowTests(unittest.TestCase):
+	def setUp(self) -> None:
+		self.policy, issues = gf_maintenance.gf_repository_policy.load_repository_policy()
+		self.assertEqual(issues, [])
+		self.main = "a" * 40
+		self.develop = "b" * 40
+		self.head = "c" * 40
+		self.versions = {
+			self.main: "12.0.0",
+			self.develop: "13.0.0-dev.0",
+			self.head: "13.0.0-dev.0",
+		}
+		self.history = mock.Mock(spec=gf_branch_workflow.BranchHistory)
+		self.history.branch_commit.side_effect = {"main": self.main, "develop": self.develop}.__getitem__
+		self.history.find_branch_commit.return_value = self.develop
+		self.history.version.side_effect = self.versions.__getitem__
+		self.history.has_tag.return_value = False
+		self.history.merge_bases.return_value = [self.main]
+		self.parents = {self.develop: {self.main}, self.head: {self.main, self.develop}}
+		self.history.contains.side_effect = lambda descendant, ancestor: (
+			descendant == ancestor or ancestor in self.parents.get(descendant, set())
+		)
+		self.published_versions = {"12.0.0"}
+		self.require_published = mock.Mock(side_effect=self.require_official_release)
+
+	def require_official_release(self, version: str) -> None:
+		if version not in self.published_versions:
+			raise gf_branch_workflow.UnpublishedReleaseError(f"Unpublished {version}")
+
+	def route(self, base: str, head_ref: str, version: str, *, internal: bool = True) -> str | None:
+		return gf_branch_workflow.validate_pull_route(
+			self.policy, self.history, base_ref=base, head_ref=head_ref,
+			base_sha=self.main if base == "main" else self.develop, head_sha=self.head,
+			internal=internal, merged_version=version, require_published=self.require_published,
+		)
+
+	def test_cutover_requires_release_branch_then_official_publication(self) -> None:
+		self.versions[self.main] = "12.0.0-dev.0"
+		self.published_versions.clear()
+		self.assertIsNone(self.route("main", "fix/before-cutover", "12.0.0-dev.1"))
+		self.assertIsNone(self.route("main", "release/ordinary-fork", "12.0.0-dev.1", internal=False))
+		self.require_published.assert_not_called()
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Publish 12.0.0"):
+			self.route("develop", "fix/too-early", "13.0.0-dev.0")
+		self.versions[self.head] = "12.0.0"
+		self.history.find_branch_commit.return_value = None
+		self.assertEqual(self.route("main", "release/12.0.0", "12.0.0"), "12.0.0")
+
+		self.versions[self.main] = "12.0.0"
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Unpublished"):
+			self.route("develop", "fix/too-early", "13.0.0-dev.0")
+		self.assertEqual(self.route("main", "release/12.0.0", "12.0.0"), "12.0.0")
+		self.history.has_tag.return_value = True
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "tag already exists"):
+			self.route("main", "release/12.0.0", "12.0.0")
+
+	def test_develop_targets_exactly_the_next_major(self) -> None:
+		self.assertIsNone(self.route("develop", "feat/next-major", "13.0.0-dev.1", internal=False))
+		self.history.require_tag_at.assert_called_once_with("12.0.0", self.main)
+		for version in ("12.1.0-dev.0", "13.0.1-dev.0", "14.0.0-dev.0", "13.0.0"):
+			with self.subTest(version=version), self.assertRaisesRegex(
+				gf_branch_workflow.BranchWorkflowError, "develop must target 13.0.0",
+			):
+				self.route("develop", "feat/wrong-target", version)
+
+	def test_main_routes_patch_and_major_only(self) -> None:
+		self.versions[self.head] = "12.0.1"
+		self.assertEqual(self.route("main", "hotfix/12.0.1", "12.0.1"), "12.0.1")
+		self.history.has_tag.return_value = True
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "tag already exists"):
+			self.route("main", "hotfix/12.0.1", "12.0.1")
+		self.history.has_tag.return_value = False
+		self.history.merge_bases.return_value = [self.develop]
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "without development ancestry"):
+			self.route("main", "hotfix/12.0.1", "12.0.1")
+		self.history.merge_bases.return_value = [self.main]
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "this repository"):
+			self.route("main", "hotfix/12.0.1", "12.0.1", internal=False)
+		for ref, version in (("fix/users", "12.0.1"), ("release/12.1.0", "12.1.0"), ("hotfix/12.0.2", "12.0.2")):
+			with self.subTest(ref=ref), self.assertRaisesRegex(
+				gf_branch_workflow.BranchWorkflowError, "main accepts release/13.0.0 or hotfix/12.0.1",
+			):
+				self.route("main", ref, version)
+
+		self.versions[self.head] = "13.0.0"
+		self.assertEqual(self.route("main", "release/13.0.0", "13.0.0"), "13.0.0")
+		self.parents[self.head] = {self.main}
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "current, synchronized develop"):
+			self.route("main", "release/13.0.0", "13.0.0")
+
+	def test_sync_preserves_release_ancestry_and_advances_a_major(self) -> None:
+		self.versions[self.main] = "13.0.0"
+		self.published_versions.add("13.0.0")
+		self.versions[self.head] = "14.0.0-dev.0"
+		self.parents[self.develop] = set()
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "via sync/13.0.0"):
+			self.route("develop", "fix/before-sync", "14.0.0-dev.0")
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "develop must target 14.0.0"):
+			self.route("develop", "sync/13.0.0", "13.0.0-dev.0")
+		self.assertIsNone(self.route("develop", "sync/13.0.0", "14.0.0-dev.0"))
+		gf_branch_workflow.validate_branch_push(
+			self.policy, self.history, "develop", self.develop, self.head, self.require_published,
+		)
+		self.parents[self.head] = {self.develop}
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "both branch tips"):
+			self.route("develop", "sync/13.0.0", "14.0.0-dev.0")
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "preserve prior history"):
+			gf_branch_workflow.validate_branch_push(
+				self.policy, self.history, "develop", self.develop, self.head, self.require_published,
+			)
+
+	def test_develop_bootstrap_and_release_tag_require_the_actual_main_commit(self) -> None:
+		gf_branch_workflow.validate_branch_push(
+			self.policy, self.history, "develop", gf_branch_workflow.NEW_BRANCH_BEFORE_SHA,
+			self.main, self.require_published,
+		)
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Create develop at the published"):
+			gf_branch_workflow.validate_branch_push(
+				self.policy, self.history, "develop", gf_branch_workflow.NEW_BRANCH_BEFORE_SHA,
+				self.develop, self.require_published,
+			)
+		self.history.commit.return_value = self.main
+		gf_branch_workflow.validate_release_tag(self.policy, self.history, "12.0.0")
+		self.history.commit.return_value = self.head
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "current main release commit"):
+			gf_branch_workflow.validate_release_tag(self.policy, self.history, "12.0.0")
+
+	def test_recover_a_failed_tag_with_a_new_version_and_published_baseline(self) -> None:
+		self.published_versions.clear()
+		self.policy["abandoned_release_tags"] = {"12.0.0": self.main}
+		self.versions[self.head] = "12.0.1"
+		self.history.merge_bases.return_value = [self.develop]
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "without development ancestry"):
+			self.route("main", "release/12.0.1", "12.0.1")
+		self.history.merge_bases.return_value = [self.main]
+		self.assertEqual(self.route("main", "release/12.0.1", "12.0.1"), "12.0.1")
+		gf_branch_workflow.validate_branch_push(
+			self.policy, self.history, "main", self.main, self.head, self.require_published,
+		)
+		self.published_versions.add("12.0.0")
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "official release 12.0.0 already exists"):
+			self.route("main", "release/12.0.1", "12.0.1")
+
+		failed = gf_maintenance.ApiBaselineRef("12.0.0", self.main)
+		official = gf_maintenance.ApiBaselineRef("11.0.0", self.develop)
+		with mock.patch.object(gf_maintenance, "read_annotated_ancestor_semver_tags", return_value=(failed, official)):
+			with mock.patch.object(gf_maintenance.gf_repository_policy, "load_repository_policy", return_value=(self.policy, [])):
+				self.assertEqual(gf_maintenance.resolve_api_baseline_ref("12.0.1"), (official, ""))
+				self.assertIsNone(gf_maintenance.resolve_api_baseline_ref("12.0.1", "12.0.0")[0])
+
+	def test_develop_protection_requires_its_own_push_on_the_shared_sha(self) -> None:
+		policy_tool = gf_maintenance.gf_repository_policy
+		run = {
+			"display_title": policy_tool.make_full_validation_run_name(0, self.main, self.main, "main"),
+			"head_branch": "main", "head_sha": self.main, "event": "push",
+			"status": "completed", "conclusion": "success",
+		}
+		with mock.patch.object(policy_tool, "github_request", return_value={"workflow_runs": [run]}):
+			with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Full CI push run on develop"):
+				policy_tool.require_development_push_ci(self.policy["repository"], "develop", self.main, "fixture")
+			run["display_title"] = policy_tool.make_full_validation_run_name(0, self.main, self.main, "develop")
+			run["head_branch"] = "develop"
+			policy_tool.require_development_push_ci(self.policy["repository"], "develop", self.main, "fixture")
+
+	def test_protection_head_drift_preserves_partial_write_accounting(self) -> None:
+		policy_tool = gf_maintenance.gf_repository_policy
+		mutations = []
+
+		def request(method, path, _token, payload=None):
+			if method == "PUT":
+				payload["required_status_checks"]["contexts"] = list(self.policy["required_status_checks"])
+				return payload
+			self.assertEqual(method, "GET")
+			return {"commit": {"sha": self.main if path.endswith("/main") else self.head}}
+
+		with mock.patch.object(policy_tool, "github_request", side_effect=request):
+			with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "develop advanced"):
+				policy_tool.apply_remote_policy(
+					self.policy, self.policy["repository"], "fixture", mutations, include_develop=True,
+					expected_branch_shas={"main": self.main, "develop": self.develop},
+				)
+		self.assertEqual(mutations, ["branch_protection", "development_branch_protection"])
+
+	def test_ci_rejects_checkout_that_replaces_the_evidence_source(self) -> None:
+		policy_tool = gf_maintenance.gf_repository_policy
+		for file_name, verify, shard in (
+			("ci.yml", lambda source: policy_tool.audit_ci_workflow(self.policy, source), "framework-checks"),
+			("release.yml", policy_tool.audit_release_workflow, "release-framework-checks"),
+		):
+			with self.subTest(workflow=file_name):
+				source = (ROOT / ".github/workflows" / file_name).read_text(encoding="utf-8")
+				job = policy_tool.extract_ci_job_blocks(source)[0][shard]
+				mutated_job = job.replace("          fetch-depth: 0", "          ref: refs/heads/main\n          fetch-depth: 0", 1)
+				self.assertNotEqual(job, mutated_job)
+				issues = verify(source.replace(job, mutated_job, 1))
+				self.assertTrue(any(shard in issue and "Checkout" in issue for issue in issues), issues)
 
 
 class AssetScopeAuditTests(unittest.TestCase):

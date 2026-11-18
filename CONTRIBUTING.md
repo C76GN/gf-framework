@@ -1,18 +1,23 @@
 # Contributing to GF Framework
 
-GF uses a trunk-based workflow with short-lived branches. The `main` branch is
-the next releasable state of the framework, while immutable SemVer tags and
-GitHub Releases identify published versions.
+GF uses short-lived branches and pull requests. The workflow switches after
+the official `12.0.0` GitHub Release. See the
+[maintainer rollout and release procedure](docs/maintainers/branch-workflow.md).
 
 ## Branch Model
 
-- Start every change from the latest `main`.
-- Do not push development commits directly to `main`.
+- Until the `12.0.0` candidate is merged, start development from the latest
+  `main` and target it in your PR.
+- After publication, start regular feature, fix, and maintenance work from
+  `develop` and target it in your PR. If the published stable major is `N`,
+  the development target is always `(N+1).0.0-dev.K` where `K` is the
+  prerelease counter.
+- After the cutover, `main` carries stable releases. Open an internal `release/<version>` PR
+  for major releases and a `hotfix/<version>` PR for compatible patches.
 - Keep branches short-lived and focused on one reviewable outcome.
 - Open a Draft PR as soon as the branch has a coherent direction.
-- Rebase on `main` before merge. Do not merge `main` into the topic branch.
+- Rebase ordinary topic branches on their current target before merging.
 - Delete the topic branch after merge.
-- Do not maintain a long-lived `develop` or integration branch.
 
 Internal branches must use one of these prefixes:
 
@@ -26,8 +31,9 @@ test/       Test-only change
 build/      Build or packaging change
 ci/         CI or repository-governance change
 chore/      Narrow maintenance change
-hotfix/     Urgent fix based on a published tag
-release/    Temporary release stabilization, only when a freeze is required
+hotfix/     Compatible patch from the current published tag
+release/    Major release candidate
+sync/       Bring a published main commit into develop
 codex/      Codex-owned short-lived work
 ```
 
@@ -54,17 +60,18 @@ Draft and Ready PRs have different contracts:
 - **Mergeable**: both required checks, `GF repository policy` and the stable
   `GF merge gate`, pass as GitHub Actions app-bound checks; the merge gate runs
   even after cancelled or skipped dependencies so those states fail closed; all review
-  conversations are resolved, and the branch is current with `main`.
+  conversations are resolved, and the branch is current with its PR base.
 
-Use squash merge for a normal single-outcome PR. Rebase merge is reserved for a
-deliberately structured commit series whose individual commits are independently
-valid. Merge commits are not part of the repository history.
+Use squash merge for release and ordinary topic PRs. Rebase merge suits a
+structured series whose individual commits are independently valid. Use
+**Create a merge commit** for `sync/<version>` PRs so `develop` retains the
+published release commit as an ancestor. `main` requires linear history.
 
 Editing only PR metadata such as the title or description does not cancel Full
 validation already running for the same commit. It reruns repository policy and
 the exact `GF merge gate`; that gate may reuse only the newest successful Full
-validation epoch for the same repository, PR, head commit, and base commit from
-the last seven days. A newer Full run takes precedence immediately, even while
+validation epoch from the last seven days for the same repository, PR, head
+commit, base commit, and target branch. A newer Full run takes precedence even while
 its aggregate marker is still pending. Missing, stale, failed, malformed, or
 unverifiable evidence fails closed. A base branch change is not metadata-only:
 it reruns the Draft or Ready gate applicable to the PR's current state.
@@ -113,9 +120,10 @@ branch.
 
 ## Development Version
 
-The source tree between stable releases uses a governed `X.Y.Z-dev.N` SemVer
-prerelease identity, such as `9.0.0-dev.0`. This prevents unreleased `main` code
-from presenting itself as the last published release.
+Unreleased code uses a governed `X.Y.Z-dev.N` SemVer prerelease identity.
+After switching, `develop` opens `13.0.0-dev.0` from the published `12.0.0`
+commit. A stable patch keeps the development target. The next major release
+advances the development target to the following major.
 
 - `addons/gf/plugin.cfg` and bundled extension manifest `version` fields must
   match exactly.
@@ -141,9 +149,9 @@ from presenting itself as the last published release.
 - A stable version string is not a release by itself. Only an immutable SemVer
   tag and its successful Release workflow publish a version.
 
-When a change alters the required SemVer line, update the development identity
-in the same PR. Compatible public additions require at least a minor version;
-approved migration-requiring changes require a major version.
+Document migrations for changes that break the stable contract. Keep compatible
+new public capabilities in the next major development line alongside those
+changes.
 
 ## Verification
 
@@ -157,7 +165,7 @@ python tools\gf_maintenance.py check --suite quick --failed-only
 python tools\gf_maintenance.py check --suite full --json
 ```
 
-Ready PRs and pushes to `main` must pass the CI shards whose union is equivalent
+Ready PRs and pushes to `main` or `develop` must pass the CI shards whose union is equivalent
 to `check --suite full`, plus the focused `windows-process-supervision` job that
 runs maintenance self-tests on `windows-latest`. A local full run defaults to
 three concurrent workers, each in an isolated workspace; `--jobs 2` through
@@ -192,11 +200,13 @@ use the same manifest and archive bytes.
 
 ## Hotfixes and Releases
 
-- Create a hotfix branch from the affected immutable tag, not from an arbitrary
-  historical working tree.
-- Merge the verified hotfix back through a PR and publish a patch tag from the
-  resulting release commit.
-- Use a temporary `release/` branch only when a real stabilization freeze is
-  needed. Delete it after the release.
-- Do not rewrite published tags or release assets. Correct a published problem
-  with a forward commit and a new SemVer version.
+- Create a compatible hotfix from the current published tag and propose the
+  next patch through a PR to `main`. A fix needed only by unreleased work
+  uses a normal PR to `develop`.
+- Promote the next major through an internal release candidate based on
+  `develop`. Wait for Full CI on the merged `main` commit before tagging.
+- After publication, bring the actual tagged commit into `develop` through
+  `sync/<version>`. Resolve conflicts against the development design at that
+  point. If both lines already have the same fix, the sync preserves the
+  released commit in their shared history.
+- Correct a published problem with a forward commit and a new release.

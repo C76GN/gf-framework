@@ -1,8 +1,11 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "repository": "C76GN/gf-framework",
   "default_branch": "main",
-  "internal_branch_pattern": "^(?:feat|fix|refactor|perf|docs|test|build|ci|chore|hotfix|release|codex)/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+  "development_branch": "develop",
+  "cutover_release": "12.0.0",
+  "abandoned_release_tags": {},
+  "internal_branch_pattern": "^(?:feat|fix|refactor|perf|docs|test|build|ci|chore|hotfix|release|sync|codex)/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
   "bot_branch_patterns": [
     "^dependabot/[a-z0-9](?:[a-z0-9._/-]*[a-z0-9])?$"
   ],
